@@ -179,10 +179,6 @@
 
       \item \code{names(x) <- NULL} now clears the names of call
       and \code{\dots} objects.
-
-      \item \code{library()} will report a warning when an insufficient
-      dependency version is masking a sufficient one later on the
-      library search path.
     }
   }
 
@@ -318,9 +314,6 @@
 
       \item Fix \code{missing()} when arguments are propagated through
       \code{\dots}; see \PR{15707}.
-
-      \item \code{library()} now considers its \code{lib.loc} parameter
-      when searching for dependencies.
     }
   }
 }
