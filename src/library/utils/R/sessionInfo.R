@@ -56,7 +56,7 @@ sessionInfo <- function(package = NULL)
                                       "14" = "Yosemite",
                                       "unknown"))
                    },
-                   "Solaris" = {
+                   "SunOS" = {
                        ver <- system('uname -r', intern = TRUE)
                        paste("Solaris",
                              strsplit(ver, ".", fixed = TRUE)[[1L]][2L])
