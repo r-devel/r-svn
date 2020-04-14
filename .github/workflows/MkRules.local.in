@@ -1,0 +1,35 @@
+#-*- Makefile -*-
+
+## Toolchain config
+WIN = @win@
+BINPREF = /mingw32/bin/
+BINPREF64 = /mingw64/bin/
+
+# Enable features
+USE_ICU = YES
+USE_LIBCURL = YES
+BUILD_HTML = YES
+USE_ATLAS = NO
+MIKTEX = TRUE
+OPENMP = -fopenmp
+
+## Curl / icu flags
+CURL_LIBS = -lcurl -lssh2 -lz -lssl -lcrypto -lgdi32 -lws2_32 -lcrypt32 -lwldap32
+ICU_LIBS = -licuin -licuuc -licudt -lstdc++
+
+# Cairo falgs
+USE_CAIRO = YES
+CAIRO_LIBS = "-lcairo -lfreetype -lpng -lpixman-1 -lz -liconv -lgdi32 -lmsimg32"
+CAIRO_CPPFLAGS = -I/mingw@win@/include/cairo
+
+## For building docs/installer
+ISDIR = C:/Program Files (x86)/Inno Setup 6
+MAKEINFO = texi2any
+TEXI2ANY = texi2any
+HOME32 = @home32@
+
+## Fix for MiKTeX removing texi2dvi
+TEXI2DVI = TEXINDEX=@texindex@ texify
+
+## Workaround for msys2?
+#export MSYS2_ENV_CONV_EXCL="R_ARCH"

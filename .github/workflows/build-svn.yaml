@@ -1,0 +1,173 @@
+on: [push, pull_request]
+
+name: Build from SVN
+
+jobs:
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    container:
+      image: ${{matrix.OS}}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      R_CRAN_WEB: "https://cran.rstudio.com"
+      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+    strategy:
+      fail-fast: false
+      matrix:
+        CC: [ gcc, clang ]
+        OS: [ 'debian:stable', 'debian:testing' ]
+    steps:
+    - name: System dependencies
+      run: |
+        set -e
+        apt-get update -y
+        apt-get install -y ${{matrix.CC}} wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
+        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libreadline-dev
+        localedef -i en_US -f UTF-8 en_US.UTF-8
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+
+    - name: Prepare
+      run: |
+        sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in
+        ./.github/workflows/wget-recommended.sh
+        ./.github/workflows/svn-info.sh
+
+    - name: Configure
+      run: CC=${{matrix.CC}} ./configure --enable-R-shlib --with-blas --with-lapack --disable-java
+
+    - name: Build
+      run: make
+
+    - name: Check
+      run: xvfb-run make check-all
+
+    - name: Print failed tests
+      if: failure()
+      run: tail -n100 tests/*.fail
+
+  macos:
+    name: MacOS
+    runs-on: macos-latest
+    env:
+      PKG_CONFIG_PATH: /opt/X11/lib/pkgconfig
+      R_CRAN_WEB: "https://cran.rstudio.com"
+      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+      R_TEXI2DVICMD: emulation
+
+    steps:
+    - name: System dependencies
+      run: |
+        brew install $(brew deps --include-build r) texinfo wget
+        echo "::set-env name=PATH::$PATH:/Library/TeX/texbin:/usr/local/opt/texinfo/bin"
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+
+    - name: Prepare
+      run: |
+        sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in
+        ./.github/workflows/wget-recommended.sh
+        ./.github/workflows/svn-info.sh
+
+    - name: Configure
+      run: ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --enable-R-shlib --with-blas="-L/usr/local/opt/openblas/lib -lopenblas" SED=/usr/bin/sed
+
+    - name: Build
+      run: make
+
+    - name: Check
+      run: |
+        sed -i.bak 's/reg-packages.R//g' tests/Makefile.common
+        make check-all
+
+    - name: Print failed tests
+      if: failure()
+      run: tail -n100 tests/*.fail
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    env:
+      R_CRAN_WEB: "https://cran.rstudio.com"
+      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+    strategy:
+      fail-fast: false
+      matrix:
+        WIN: [ 32, 64 ]
+    steps:
+
+    - name: Prepare git
+      run: git config --global core.autocrlf false
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+
+    - name: System dependencies
+      shell: powershell
+      run: |
+        Import-Module .\.github\workflows\scripts.ps1
+        SetTimezone
+        InstallRtoolsExe
+        InstallMiktex -ErrorAction SilentlyContinue;
+
+    - name: "Fix rsync-recommended"
+      shell: bash
+      run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
+
+    - name: Build and Check
+      env:
+        WIN: ${{matrix.WIN}}
+      run: C:\rtools40\usr\bin\bash --login -c "$(cygpath ${env:GITHUB_WORKSPACE})/.github/workflows/rtools40-build.sh"
+
+    - name: Print failed tests
+      if: failure()
+      shell: bash
+      run: tail -n100 tests/*.fail
+
+  installer:
+    name: Windows Installer
+    runs-on: windows-latest
+    env:
+      R_CRAN_WEB: "https://cran.rstudio.com"
+      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+    steps:
+
+    - name: Prepare git
+      run: git config --global core.autocrlf false
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+
+    - name: System dependencies
+      shell: powershell
+      run: |
+        Import-Module .\.github\workflows\scripts.ps1
+        SetTimezone
+        InstallRtoolsExe
+        InstallMiktex -ErrorAction SilentlyContinue;
+
+    - name: "Fix rsync-recommended"
+      shell: bash
+      run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
+
+    - name: Build Installer
+      run: C:\rtools40\usr\bin\bash --login -c "$(cygpath ${env:GITHUB_WORKSPACE})/.github/workflows/rtools40-installer.sh"
+
+    - name: Run Installer
+      run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: installer
+        path: src/gnuwin32/installer/R-devel-win.exe
