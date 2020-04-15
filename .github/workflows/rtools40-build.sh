@@ -44,7 +44,7 @@ TEXINDEX=$(cygpath -m $(which texindex))
 cd "src/gnuwin32"
 sed -e "s|@win@|${WIN}|" -e "s|@texindex@|${TEXINDEX}|" -e "s|@home32@||" "${srcdir}/MkRules.local.in" > MkRules.local
 cat MkRules.local
-make all cairodevices recommended
+make all cairodevices recommended vignettes manuals
 
 # Optional: run checks
 make check-all
