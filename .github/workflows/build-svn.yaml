@@ -64,6 +64,7 @@ jobs:
       run: |
         brew install $(brew deps --include-build r) texinfo wget
         echo "::set-env name=PATH::$PATH:/Library/TeX/texbin:/usr/local/opt/texinfo/bin"
+        echo "::set-env name=dummy::$GITHUB_WORKSPACE/.github/workflows/dummy"
 
     - name: Checkout
       uses: actions/checkout@v2
@@ -78,14 +79,18 @@ jobs:
 
     - name: Configure
       run: ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --enable-R-shlib --with-blas="-L/usr/local/opt/openblas/lib -lopenblas" SED=/usr/bin/sed
+      env:
+        PDFLATEX: ${{ env.dummy }}
 
     - name: Build
       run: make
+      env:
+        PDFLATEX: ${{ env.dummy }}
 
     - name: Check
-      run: |
-        sed -i.bak 's/reg-packages.R//g' tests/Makefile.common
-        make check-all
+      run: make check-all
+      env:
+        PDFLATEX: ${{ env.dummy }}
 
     - name: Print failed tests
       if: failure()

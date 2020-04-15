@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+v=$(echo "$@" | grep -o '[^ ]*\.tex')
+if [ -z "$v" ]; then
+echo "Failed to parse tex file from: pdflatex $@"
+exit 1
+fi
+file="${v::${#v}-4}"
+echo "Generating fake ${file}.pdf from ${file}.tex"
+echo "dummy pdf" > "${file}.pdf"
+echo "dummy log" > "${file}.log"
