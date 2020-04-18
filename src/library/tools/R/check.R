@@ -6507,8 +6507,8 @@ add_dummies <- function(dir, Log)
             checkingLog(Log,
                         "for non-standard things in the check directory")
             things <-
-                setdiff(list.files(pkgoutdir, all.files = TRUE,
-                                   include.dirs = TRUE, no.. = TRUE),
+                setdiff(sub("_(i386|x64)", "", list.files(pkgoutdir, all.files = TRUE,
+                                   include.dirs = TRUE, no.. = TRUE)),
                         c("00check.log",
                           "00install.out",
                           "00package.dcf",
@@ -6523,7 +6523,7 @@ add_dummies <- function(dir, Log)
                           "Rdlatex.log",
                           "R_check_bin",
                           "build_vignettes.log",
-                          "tests", "vign_test"))
+                          "examples", "tests", "vign_test"))
             ## Examples calling dev.new() give files Rplots*.pdf,
             ## building vignettes give *.log files: be nice ...
             things <- things[!grepl("^Rplots.*[.]pdf$|[.]log$", things)]
