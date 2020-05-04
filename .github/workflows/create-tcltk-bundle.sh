@@ -1,7 +1,7 @@
 #/bin/sh
 set -e
 OUTPUT=$(mktemp -d)
-FILES=$(pacman -Sp mingw-w64-{i686,x86_64}-{tcl,tk,bwidget} --cache=".")
+FILES=$(pacman -Sp mingw-w64-{i686,x86_64}-{tcl,tk,bwidget,tktable} --cache=".")
 for FILE in $FILES
 do
     curl -OLs $FILE
