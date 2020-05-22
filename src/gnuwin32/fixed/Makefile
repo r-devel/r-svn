@@ -61,6 +61,9 @@ else
 	  -e "s|@GF7OPTS@|$(GF7OPTS)|" \
 	  etc/Makeconf > $(R_HOME)/etc$(R_ARCH)/Makeconf
 endif
+ifdef DEBUG
+	$(SED) -i "/ifdef DEBUG/i DEBUG=T" $(R_HOME)/etc$(R_ARCH)/Makeconf
+endif
 	$(SED) -e "s+@BINDIR@+$(BINDIR)+" Makeconf > $(R_HOME)/Makeconf
 	@$(ECHO) done > fixetc
 
