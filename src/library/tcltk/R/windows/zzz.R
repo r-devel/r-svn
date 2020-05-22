@@ -20,18 +20,7 @@
 
 .onLoad <- function(libname, pkgname)
 {
-    if(!nzchar(tclbin <- Sys.getenv("MY_TCLTK"))) {
-        tclbin <- file.path(R.home(), "Tcl",
-                            if(.Machine$sizeof.pointer == 8) "bin64" else "bin")
-        if(!file.exists(tclbin))
-            stop("Tcl/Tk support files were not installed", call.=FALSE)
-        if(.Machine$sizeof.pointer == 8) {
-            lib64 <- gsub("\\", "/", file.path(R.home(), "Tcl", "lib64"),
-                          fixed=TRUE)
-            Sys.setenv(TCLLIBPATH = lib64)
-        } else Sys.unsetenv("TCLLIBPATH") # in case called from a 64-bit process
-    }
-    library.dynam("tcltk", pkgname, libname, DLLpath = tclbin)
+    library.dynam("tcltk", pkgname, libname)
     routines <- getDLLRegisteredRoutines("tcltk", addNames = FALSE)
     ns <- asNamespace(pkgname)
     for(i in c(1,4))

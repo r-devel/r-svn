@@ -32,7 +32,7 @@ M_ARCH =
 DT_ARCH =
 RC_ARCH =
 # Used by packages tcltk and tkrplot
-TCL_HOME = $(R_HOME)/Tcl
+TCL_HOME = $(MINGW_PREFIX)
 LOCAL_SOFT ?=
 NM_FILTER =
 
@@ -189,8 +189,8 @@ SHLIB_OPENMP_FFLAGS = @OPENMP@
 SHLIB_PTHREAD_FLAGS = @PTHREAD@
 STRIP_SHARED_LIB = $(BINPREF)strip --strip-unneeded
 STRIP_STATIC_LIB = $(BINPREF)strip --strip-debug
-TCLTK_CPPFLAGS = -I "$(TCL_HOME)/include" -DWin32
-TCLTK_LIBS = -L"$(TCL_HOME)/bin" -ltcl$(TCL_VERSION) -ltk$(TCL_VERSION)
+TCLTK_CPPFLAGS = -DWin32
+TCLTK_LIBS = -ltcl$(TCL_VERSION) -ltk$(TCL_VERSION)
 
 ## Legacy settings: these might be used in a src/Makefile
 SHLIB_FCLD = $(FC)
