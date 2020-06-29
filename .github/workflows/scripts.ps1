@@ -96,7 +96,7 @@ Function InstallMiktex {
   Start-Process -FilePath ..\basic-miktex-x64.exe -ArgumentList $miktexinstall -NoNewWindow -Wait
 
   Write-Host "Setting PATH variable for current process"
-  $env:PATH = 'C:\Program Files\MiKTeX 2.9\miktex\bin\x64;' + $env:PATH
+  $env:PATH = 'C:\Program Files\MiKTeX\miktex\bin\x64;' + $env:PATH
 
   # Enable auto-install (just in case)
   initexmf --admin --enable-installer
@@ -112,7 +112,7 @@ Function InstallMiktex {
   #mpm --admin --install=preprint
 
   # See https://tex.stackexchange.com/a/129523/12890
-  # $conffile = "C:\Program Files\MiKTeX 2.9\miktex\config\updmap.cfg"
+  # $conffile = "C:\Program Files\MiKTeX\miktex\config\updmap.cfg"
   # Write-Host "Adding zi4.map"
   # initexmf --admin --update-fndb
   # Add-Content $conffile "`nMap zi4.map`n"
