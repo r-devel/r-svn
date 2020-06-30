@@ -15,9 +15,8 @@ $INNO_MIRROR = "http://www.jrsoftware.org/download.php/is.exe?site=2"
 # $INNO_MIRROR = "http://files.jrsoftware.org/is/5/innosetup-5.6.1-unicode.exe"
 
 ### MikTex Mirror
-$MIKTEX_MIRROR = "https://miktex.org/download/win/basic-miktex-x64.exe"
-#$MIKTEX_MIRROR = "https://cloud.r-project.org/bin/windows/Rtools/basic-miktex-2.9.7152-x64.exe"
-#$MIKTEX_MIRROR = "https://cloud.r-project.org/bin/windows/Rtools/basic-miktex-2.9.7386-x64.exe"
+#$MIKTEX_MIRROR = "https://miktex.org/download/win/basic-miktex-x64.exe"
+$MIKTEX_MIRROR = "https://cloud.r-project.org/bin/windows/Rtools/basic-miktex-2.9.7442-x64.exe"
 
 function CheckExitCode($msg) {
   if ($LastExitCode -ne 0) {
@@ -85,9 +84,9 @@ Function InstallMiktex {
   $miktexinstall = "--unattended --auto-install=yes --shared --package-set=basic"
 
   # Hack around the random mirror redirect because many mirrors are broken
-  $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -LIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
-  $miktex_file = [io.path]::GetFileName($effective_url)
-  $MIKTEX_MIRROR = "http://mirrors.rit.edu/CTAN/systems/win32/miktex/setup/windows-x64/" + $miktex_file
+  #$effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -LIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
+  #$miktex_file = [io.path]::GetFileName($effective_url)
+  #$MIKTEX_MIRROR = "http://mirrors.rit.edu/CTAN/systems/win32/miktex/setup/windows-x64/" + $miktex_file
 
   Write-Host "Downloading " + $MIKTEX_MIRROR
   & "C:\Program Files\Git\mingw64\bin\curl.exe" --retry 5 -sSL -o ../basic-miktex-x64.exe -L $MIKTEX_MIRROR
@@ -96,7 +95,7 @@ Function InstallMiktex {
   Start-Process -FilePath ..\basic-miktex-x64.exe -ArgumentList $miktexinstall -NoNewWindow -Wait
 
   Write-Host "Setting PATH variable for current process"
-  $env:PATH = 'C:\Program Files\MiKTeX\miktex\bin\x64;' + $env:PATH
+  $env:PATH = 'C:\Program Files\MiKTeX 2.9\miktex\bin\x64;' + $env:PATH
 
   # Enable auto-install (just in case)
   initexmf --admin --enable-installer
@@ -105,14 +104,14 @@ Function InstallMiktex {
   Write-Host "Installing CTAN packages"
   mpm --admin --set-repository=http://mirrors.rit.edu/CTAN/systems/win32/miktex/tm/packages/
   mpm --admin --verbose --update-db
-  mpm --admin --verbose --update
+  #mpm --admin --verbose --update
   mpm --admin --install=inconsolata
   #mpm --admin --install=fancyvrb  
   #mpm --admin --install=epsf
   #mpm --admin --install=preprint
 
   # See https://tex.stackexchange.com/a/129523/12890
-  # $conffile = "C:\Program Files\MiKTeX\miktex\config\updmap.cfg"
+  # $conffile = "C:\Program Files\MiKTeX 2.9\miktex\config\updmap.cfg"
   # Write-Host "Adding zi4.map"
   # initexmf --admin --update-fndb
   # Add-Content $conffile "`nMap zi4.map`n"
