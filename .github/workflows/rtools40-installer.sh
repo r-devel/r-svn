@@ -12,7 +12,7 @@ scripts=$(dirname $(realpath $0))
 sources=$(cygpath ${GITHUB_WORKSPACE})
 
 # Put pdflatex on the path (needed only for CMD check)
-export PATH="$PATH:/c/progra~1/git/bin:/c/progra~1/MiKTeX 2.9/miktex/bin/x64"
+export PATH="$PATH:/c/progra~1/git/bin:/c/progra~1/MiKTeX/miktex/bin/x64"
 echo "PATH: $PATH"
 pdflatex --version
 texindex --version
