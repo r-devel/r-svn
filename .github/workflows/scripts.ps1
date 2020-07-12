@@ -87,7 +87,7 @@ Function InstallMiktex {
   # Hack around the random mirror redirect because many mirrors are broken
   $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -LIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
   $miktex_file = [io.path]::GetFileName($effective_url)
-  $MIKTEX_MIRROR = "http://mirrors.rit.edu/CTAN/systems/win32/miktex/setup/windows-x64/" + $miktex_file
+  $MIKTEX_MIRROR = "https://ctan.math.illinois.edu/systems/win32/miktex/setup/windows-x64/" + $miktex_file
 
   Write-Host "Downloading " + $MIKTEX_MIRROR
   & "C:\Program Files\Git\mingw64\bin\curl.exe" --retry 5 -sSL -o ../basic-miktex-x64.exe -L $MIKTEX_MIRROR
@@ -103,7 +103,7 @@ Function InstallMiktex {
   initexmf --admin --set-config-value "[MPM]AutoInstall=1"
 
   Write-Host "Installing CTAN packages"
-  mpm --admin --set-repository=http://mirrors.rit.edu/CTAN/systems/win32/miktex/tm/packages/
+  mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
   mpm --admin --verbose --update-db
   mpm --admin --verbose --update
   mpm --admin --install=inconsolata
