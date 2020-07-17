@@ -5,10 +5,12 @@
 
 ifdef DEBUG
   DLLFLAGS=
-  DEBUGFLAG=-gdwarf-2
+  DEBUGFLAG=-g
+  OPTIM=-O0
 else
   DLLFLAGS=-s
   DEBUGFLAG=
+  OPTIM=-O2
 endif
 
 DLLFLAGS+= -static-libgcc
@@ -18,7 +20,7 @@ LINKFLAGS+= -static-libgcc
 RTOOLS40_HOME ?= c:/rtools40
 RTOOLS40_ROOT ?= $(subst \,/,$(RTOOLS40_HOME))
 
-## Things which are substituted by fixed/Makefile (and also -O3 -> -O2)
+## Things which are substituted by fixed/Makefile
 WIN = 32
 MINGW_PREFIX = /mingw$(WIN)
 BINPREF =
@@ -71,19 +73,19 @@ AR = $(BINPREF)ar
 BLAS_LIBS = -L"$(R_HOME)/$(IMPDIR)" -lRblas
 C_VISIBILITY = 
 CC = $(BINPREF)gcc $(M_ARCH)
-CFLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@
+CFLAGS = $(OPTIM) -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@
 CPICFLAGS = 
 CPPFLAGS =
 CXX = $(BINPREF)g++ -std=gnu++11 $(M_ARCH)
 CXXCPP = $(CXX) -E
-CXXFLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@
+CXXFLAGS = $(OPTIM) -Wall $(DEBUGFLAG) @EOPTS@
 CXXPICFLAGS =
 #CXX98 = $(BINPREF)g++ $(M_ARCH)
-#CXX98FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@
+#CXX98FLAGS = $(OPTIM) -Wall $(DEBUGFLAG) @EOPTS@
 #CXX98PICFLAGS = 
 #CXX98STD = -std=gnu++98
 CXX11 = $(BINPREF)g++ $(M_ARCH)
-CXX11FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@
+CXX11FLAGS = $(OPTIM) -Wall $(DEBUGFLAG) @EOPTS@
 CXX11PICFLAGS =
 CXX11STD = -std=gnu++11
 ## these settings are for gcc >= 8
@@ -111,12 +113,12 @@ ECHO_T =
 F_VISIBILITY = 
 ## FC is the compiler used for all Fortran as from R 3.6.0
 FC = $(BINPREF)gfortran $(M_ARCH)
-FCFLAGS = -O3 $(DEBUGFLAG) @EOPTS@
+FCFLAGS = $(OPTIM) $(DEBUGFLAG) @EOPTS@
 ## additional libs needed when linking with $(FC), e.g. on some Oracle compilers
 FCLIBS_XTRA =
 F77 = $(BINPREF)gfortran $(M_ARCH)
 F77_VISIBILITY = 
-FFLAGS = -O3 $(DEBUGFLAG) @EOPTS@
+FFLAGS = $(OPTIM) $(DEBUGFLAG) @EOPTS@
 FLIBS = -lgfortran -lm -lquadmath
 FCPICFLAGS =
 FPICFLAGS = 
@@ -151,13 +153,13 @@ LDFLAGS =
 ## There is no ObjC support in the recommended toolchain,
 ## but if a toolchain had support, this it what it would be.
 OBJC = $(CC)
-OBJCFLAGS = -O2
+OBJCFLAGS = $(OPTIM)
 OBJC_LIBS = -lobjc
 OBJCXX =
 OBJDUMP = $(BINPREF)objdump
 R_ARCH =
 RANLIB = $(BINPREF)ranlib
-SAFE_FFLAGS = -O2 -msse2 -mfpmath=sse
+SAFE_FFLAGS = $(OPTIM) -msse2 -mfpmath=sse
 SED = sed
 ## it seems some makes (but not ours) get upset if SHELL is set.
 # SHELL = /bin/sh

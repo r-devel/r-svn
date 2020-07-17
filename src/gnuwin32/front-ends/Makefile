@@ -1,12 +1,13 @@
 include ../MkRules
 R_HOME = ../../..
 
-CFLAGS = -O3 -Wall -pedantic
+CFLAGS = -Wall -pedantic
 ifdef DEBUG
  CFLAGS += $(G_FLAG)
  LINKFLAGS =
  DLLFLAGS =
 else
+ CFLAGS += -O3
  LINKFLAGS = -s
  DLLFLAGS = -s
 endif

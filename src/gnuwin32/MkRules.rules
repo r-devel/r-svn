@@ -4,7 +4,7 @@
 
 LOCAL_SOFT ?= $(R_HOME)/extsoft
 EXT_LIBS ?= $(LOCAL_SOFT)
-G_FLAG ?= -gdwarf-2
+G_FLAG ?= -g
 USE_ATLAS ?= NO
 ATLAS_PATH ?= 
 MULTI ?=

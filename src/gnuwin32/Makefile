@@ -55,14 +55,16 @@ MkRules: MkRules.rules
 	@cat MkRules.rules > MkRules
 endif
 
-CFLAGS = -O3 -Wall -pedantic $(EOPTS)
-FFLAGS = -O3 $(EOPTS) $(GF7OPTS)
+CFLAGS = -Wall -pedantic $(EOPTS)
+FFLAGS = $(EOPTS) $(GF7OPTS)
 
 ifdef DEBUG
  CFLAGS += $(G_FLAG)
  FFLAGS += $(G_FLAG)
  DLLFLAGS =
 else
+ CFLAGS += -O3
+ FFLAGS += -O3
  DLLFLAGS = -s
 endif
 
@@ -231,7 +233,7 @@ htmldocs:
 #                          ===== BLAS ======
 
 Rblas:
-	@$(MK) -C ../extra/blas -f Makefile.win FFLAGS='-O2 $(EOPTS)'
+	@$(MK) -C ../extra/blas -f Makefile.win FFLAGS='${FFLAGS}'
 
 Rblas-clean:
 	@$(MK) -C ../extra/blas -f Makefile.win clean
