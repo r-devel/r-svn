@@ -19,3 +19,13 @@ You can also use this mirror to generate and test patches that you want to propo
 When you send the PR, GitHub actions will start building and testing your changes on all platforms and build the Windows installer.
 
 Obviously we cannot merge your changes because this is a mirror. To propose your changes to R-core, send an email to the [r-devel mailing list](https://www.r-project.org/mail.html) and include a link (or copy) of the patch file of your PR. You can get easily the patch by appending `.diff` to the url of the pull request. For example [pr#7](https://github.com/r-devel/r-svn/pull/7) would be: `https://github.com/r-devel/r-svn/pull/7.diff`.
+
+## Tips & Tricks
+
+Looking to get started with Git and GitHub? There are various resources to get started, some of which are included below: 
+
+* GIT Cheatsheet (4-Page Summary): [Download](git-cheat-sheet.pdf)
+
+  ![](git-cheat-sheet.png)
+
+* GitKraken: Free Git GUI Client for Open Source Projects - Windows, Mac, Linux: [Download Webpage](https://www.gitkraken.com/git-client)
