@@ -49,10 +49,10 @@ do_search(double y, double *z, double p, double n, double pr, double incr)
 {
     if(*z >= p) {	/* search to the left */
 	for(;;) {
+        y = fmax2(0, y - incr);
 	    if(y == 0 ||
-	       (*z = pnbinom(y - incr, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p)
+	       (*z = pnbinom(y, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p)
 		return y;
-	    y = fmax2(0, y - incr);
 	}
     }
     else {		/* search to the right */
