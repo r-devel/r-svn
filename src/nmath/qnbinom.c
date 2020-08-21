@@ -51,8 +51,16 @@ do_search(double y, double *z, double p, double n, double pr, double incr)
 	for(;;) {
         y = fmax2(0, y - incr);
 	    if(y == 0 ||
-	       (*z = pnbinom(y, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p)
-		return y;
+	       (*z = pnbinom(y, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p){
+            if(incr == 1){
+                // we know that the search is stopped if incr == 1
+                // and we know that the correct result is just right 
+                // of the current y
+                return y + 1;
+            }else{
+                return y;
+            }
+        }
 	}
     }
     else {		/* search to the right */
