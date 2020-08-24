@@ -144,8 +144,12 @@ jobs:
     env:
       R_CRAN_WEB: "https://cran.rstudio.com"
       CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
-    steps:
+    strategy:
+      fail-fast: false
+      matrix:
+        debug: [ 'DEBUG', '' ]
 
+    steps:
     - name: Prepare git
       run: git config --global core.autocrlf false
 
@@ -168,11 +172,13 @@ jobs:
 
     - name: Build Installer
       run: C:\rtools40\usr\bin\bash --login -c "$(cygpath ${env:GITHUB_WORKSPACE})/.github/workflows/rtools40-installer.sh"
+      env:
+        DEBUG: ${{matrix.debug}}
 
     - name: Run Installer
       run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2
       with:
-        name: installer
+        name: ${{matrix.debug}}installer
         path: src/gnuwin32/installer/R-devel-win.exe
