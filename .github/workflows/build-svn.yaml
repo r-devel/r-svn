@@ -62,7 +62,8 @@ jobs:
     steps:
     - name: System dependencies
       run: |
-        brew install $(brew deps --include-build r) texinfo wget
+        brew cask install gfortran
+        brew install gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
         echo "::set-env name=PATH::$PATH:/Library/TeX/texbin:/usr/local/opt/texinfo/bin"
         echo "::set-env name=dummy::$GITHUB_WORKSPACE/.github/workflows/dummy"
 
@@ -78,7 +79,7 @@ jobs:
         ./.github/workflows/svn-info.sh
 
     - name: Configure
-      run: ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --enable-R-shlib --with-blas="-L/usr/local/opt/openblas/lib -lopenblas" SED=/usr/bin/sed
+      run: CC=clang ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{ env.dummy }}
 
