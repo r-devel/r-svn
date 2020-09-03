@@ -46,6 +46,7 @@ as.Date.character <- function(x, format,
                               optional = FALSE, ...)
 {
     charToDate <- function(x) {
+	is.na(x) <- !nzchar(x)
 	xx <- x[1L]
         if(is.na(xx)) {
             j <- 1L
@@ -484,4 +485,3 @@ xtfrm.Date <- function(x) as.numeric(x)
 ## Added in 3.5.0.
 
 .Date <- function(xx, cl = "Date") `class<-`(xx, cl)
-
