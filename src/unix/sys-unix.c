@@ -717,7 +717,8 @@ SEXP attribute_hidden do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    *buf = NULL;
 	size_t buf_len = 0;
 #else
-	    buf[INTERN_BUFSIZE];
+	    buf[INTERN_BUFSIZE + MB_LEN_MAX],
+	    buf2[MB_LEN_MAX + 1]; /* for possible truncated MB char */
 #endif
 	int i, j, res;
 	SEXP tchar, rval;
@@ -736,16 +737,34 @@ SEXP attribute_hidden do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
         for(i = 0; (read = getline(&buf, &buf_len, fp)) != (size_t)-1; i++) {
 	    if (buf[read - 1] == '\n')
 #else
-	for (i = 0; fgets(buf, INTERN_BUFSIZE, fp); i++) {
-	    size_t read = strlen(buf);
-	    if(read >= INTERN_BUFSIZE - 1)
+	size_t read = 0;
+	size_t truncb = 0; /* how many bytes truncated last iteration */
+	buf[0] = '\0';
+	for (i = 0; fgets(buf + truncb, INTERN_BUFSIZE, fp) || truncb; i++) {
+	    buf2[0] = '\0';
+	    read = strlen(buf);
+	    if (read >= INTERN_BUFSIZE - 1 + truncb) {
 		warning(_("line %d may be truncated in call to system(, intern = TRUE)"), i + 1);
+		/* save trailing bytes in buf in case we end up truncating */
+		memcpy(buf2, buf + read - MB_LEN_MAX, MB_LEN_MAX);
+		buf2[MB_LEN_MAX] = '\0';
+		mbcsTruncateToValid(buf);
+		truncb = read - strlen(buf);
+	    }
+	    else truncb = 0;
+
 	    if (read > 0 && buf[read-1] == '\n')
 #endif
 		buf[read - 1] = '\0'; /* chop final CR */
 	    tchar = mkChar(buf);
 	    UNPROTECT(1);
 	    PROTECT(tlist = CONS(tchar, tlist));
+#ifndef HAVE_GETLINE
+	    if (truncb > 0 && truncb <= MB_LEN_MAX) {
+		/* recover truncated bytes and pre-pend for next line */
+		strcpy(buf, buf2 + (MB_LEN_MAX - truncb));
+	    }
+#endif
 	}
 #ifdef HAVE_GETLINE
         if (buf != NULL)
