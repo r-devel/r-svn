@@ -3200,11 +3200,12 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 #define NBUFSIZE (already + 100*BUFSIZE)
 	vmax = vmaxget();
 	b = R_alloc(NBUFSIZE, sizeof(char));
-	strncpy(b, this->lastline, NBUFSIZE); /* `already` < NBUFSIZE */
+	strncpy(b, this->lastline, NBUFSIZE);
 	*(b + NBUFSIZE - 1) = '\0';
 	p = b + already;
-	res = Rvsnprintf_mbcs(p, NBUFSIZE - already, format, ap);
-	if (res < 0 || res >= NBUFSIZE - already) {
+	res = vsnprintf(p, NBUFSIZE - already, format, ap);
+	if (res < 0) {
+	    *(b + NBUFSIZE - 1) = '\0';
 	    warning(_("printing of extremely long output is truncated"));
 	}
     }
@@ -5935,7 +5936,7 @@ SEXP attribute_hidden do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
  	/* for Solaris 12.5 */ new = NULL;
    }
     strcpy(new->class, "gzcon");
-    Rsnprintf_mbcs(description, 1000, "gzcon(%s)", incon->description);
+    snprintf(description, 1000, "gzcon(%s)", incon->description);
     new->description = (char *) malloc(strlen(description) + 1);
     if(!new->description) {
 	free(new->class); free(new);
