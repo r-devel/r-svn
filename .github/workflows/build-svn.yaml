@@ -64,8 +64,8 @@ jobs:
       run: |
         brew cask install gfortran
         brew install gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
-        echo "::set-env name=PATH::$PATH:/Library/TeX/texbin:/usr/local/opt/texinfo/bin"
-        echo "::set-env name=dummy::$GITHUB_WORKSPACE/.github/workflows/dummy"
+        echo "/Library/TeX/texbin" >> $GITHUB_PATH
+        echo "/usr/local/opt/texinfo/bin" >> $GITHUB_PATH
 
     - name: Checkout
       uses: actions/checkout@v2
@@ -81,17 +81,17 @@ jobs:
     - name: Configure
       run: CC=clang ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --enable-R-shlib SED=/usr/bin/sed
       env:
-        PDFLATEX: ${{ env.dummy }}
+        PDFLATEX: ${{github.workspace}}/.github/workflows/dummy
 
     - name: Build
       run: make
       env:
-        PDFLATEX: ${{ env.dummy }}
+        PDFLATEX: ${{github.workspace}}/.github/workflows/dummy
 
     - name: Check
       run: make check-all
       env:
-        PDFLATEX: ${{ env.dummy }}
+        PDFLATEX: ${{github.workspace}}/.github/workflows/dummy
 
     - name: Print failed tests
       if: failure()
