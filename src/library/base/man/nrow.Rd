@@ -32,7 +32,8 @@ NROW(x)
 }
 \seealso{
   \code{\link{dim}} which returns \emph{all} dimensions;
-  \code{\link{array}}, \code{\link{matrix}}.
+  \code{\link{array}}, \code{\link{matrix}};
+  \code{\link{length}.
 }
 \value{an \code{\link{integer}} of length 1 or \code{\link{NULL}}, the
   latter only for \code{ncol} and \code{nrow}.}
@@ -43,7 +44,7 @@ ncol(ma)   # 4
 
 ncol(array(1:24, dim = 2:4)) # 3, the second dimension
 NCOL(1:12) # 1
-NROW(1:12) # 12
+NROW(1:12) # 12, the length() of the vector
 
 ## as.matrix() produces 1-column matrices from 0-length vectors,
 ## and so does cbind() :
