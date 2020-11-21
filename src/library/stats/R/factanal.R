@@ -316,8 +316,8 @@ varimax <- function(x, normalize = TRUE, eps = 1e-5)
     for(i in 1L:1000L) {
         z <- x %*% TT
         B  <- t(x) %*% (z^3 - z %*% diag(drop(rep(1, p) %*% z^2))/p)
-        sB <- La.svd(B)
-        TT <- sB$u %*% sB$vt
+        sB <- svd(B)
+        TT <- sB$u %*% sB$v
         dpast <- d
         d <- sum(sB$d)
         if(d < dpast * (1 + eps)) break
