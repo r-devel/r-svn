@@ -1310,7 +1310,7 @@ SEXP C_axis(SEXP args)
 SEXP C_plotXY(SEXP args)
 {
 /*	plot.xy(xy, type, pch, lty, col, bg, cex, lwd, ...)
- *	- type: MUST be 1 byte ASCII encoded.
+
  *	plot points or lines of various types
  */
     SEXP sxy, sx, sy, pch, cex, col, bg, lty, lwd;
@@ -1349,12 +1349,17 @@ SEXP C_plotXY(SEXP args)
 
     PLOT_XY_DEALING("plot.xy");
 
-    /* plot.xy ensures 'type' is 1 ASCII character, translateChar
-       just to be safe */
-    if (!isString(CAR(args)) || LENGTH(CAR(args)) != 1 ||
-	LENGTH(STRING_ELT(CAR(args), 0)) != 1)
-	error(_("invalid plot type"));
-    else type = translateChar(STRING_ELT(CAR(args), 0))[0];
+    if (isNull(CAR(args))) type = 'p';
+    else {
+	if (isString(CAR(args)) && LENGTH(CAR(args)) == 1 &&
+	    LENGTH(pch = STRING_ELT(CAR(args), 0)) >= 1) {
+	    if(LENGTH(pch) > 1)
+		warning(_("plot type '%s' will be truncated to first character"),
+			CHAR(pch));
+	    type = CHAR(pch)[0];
+	}
+	else error(_("invalid plot type"));
+    }
     args = CDR(args);
 
     PROTECT(pch = FixupPch(CAR(args), gpptr(dd)->pch));
