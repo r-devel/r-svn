@@ -62,8 +62,8 @@ jobs:
     steps:
     - name: System dependencies
       run: |
-        brew cask install gfortran
-        brew install gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
+        brew install gcc gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
+        echo "FC=/usr/local/opt/gcc/bin/gfortran" >> $GITHUB_ENV
         echo "/Library/TeX/texbin" >> $GITHUB_PATH
         echo "/usr/local/opt/texinfo/bin" >> $GITHUB_PATH
 
