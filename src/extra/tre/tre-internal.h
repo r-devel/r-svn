@@ -65,7 +65,12 @@ typedef wint_t tre_cint_t;
 #endif
 
 #ifdef TRE_MULTIBYTE
-#define TRE_MB_CUR_MAX MB_CUR_MAX
+/* R could pass UTF-8 MBCS even in non-UTF-8 locales so we must allow for
+   that possibility.  This solution is sub-optimal because it causes
+   inefficiency in 1 byte non-ASCII locales, and also hard-codes the maximum
+   bytes of any R-level encoding.
+*/
+#define TRE_MB_CUR_MAX ((MB_CUR_MAX) > 4 ? (MB_CUR_MAX) : 4)
 #else /* !TRE_MULTIBYTE */
 #define TRE_MB_CUR_MAX 1
 #endif /* !TRE_MULTIBYTE */

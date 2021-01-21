@@ -1288,8 +1288,31 @@ utf8toucs32(wchar_t high, const char *s)
     return utf16toucs(high, utf8toutf16low(s));
 }
 
-/* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
-   only the high surrogate is returned; call utf8toutf16low next. */
+/* Compatibility layer to ensure we don't violate strict aliasing when
+   invoking with an R_wchar_t array.  Used by utf8towcs4. 
+
+   Unlike utf8toucs this will _always_ set *wc, to zero, for invalid encodings.
+   Calling code should check for error codes and act accordingly.
+
+   This assumes the maximum representable value in R_wchar_t is always GTE
+   WCHAR_MAX (should be the case currently). */
+static size_t
+utf8toucs2(R_wchar_t *wc, const char *s)
+{
+    wchar_t wc2 = 0;
+    size_t m = utf8toucs(&wc2, s);
+    *wc = (R_wchar_t) wc2;
+    return m;
+}
+/* These set *wc with the result in wchar_t.  If wchar_t is 16 bit
+   (e.g. UTF-16LE on Windows) only the high surrogate is returned;
+   call utf8toutf16low next.
+
+   Returns:
+   (size_t) -2: Insufficient bytes to complete sequence.
+   (size_t) -1: Surrogate or invalid encoding.
+   (size_t) +n: n bytes in UTF-8 sequence.
+   */
 size_t attribute_hidden
 utf8toucs(wchar_t *wc, const char *s)
 {
@@ -1403,10 +1426,11 @@ utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 
     if(wc)
 	for(p = wc, t = s; ; p++, t += m) {
-	    // FIXME this gives a warning on Windows.
-	    m  = (ssize_t) utf8toucs(p, t);
+	    m  = (ssize_t) utf8toucs2(p, t);
+	    // FIX ME: valid surrogates return (size_t) -1
 	    if (m < 0) error(_("invalid input '%s' in 'utf8towcs32'"), s);
 	    if (m == 0) break;
+	    // FIX ME: check surrogate conversion produced valid code point
 	    if (IS_HIGH_SURROGATE(*p)) *p = utf8toucs32(*p, s);
 	    res ++;
 	    if (res >= n) break;
@@ -1415,6 +1439,7 @@ utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 	for(t = s; ; t += m) {
 	    wchar_t local;
 	    m  = (ssize_t) utf8toucs(&local, t);
+	    // FIX ME: valid surrogates return (size_t) -1
 	    if (m < 0) error(_("invalid input '%s' in 'utf8towcs32'"), s);
 	    if (m == 0) break;
 	    res ++;
