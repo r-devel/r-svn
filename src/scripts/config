@@ -288,7 +288,7 @@ ok_tcltk_vars="TCLTK_CPPFLAGS TCLTK_LIBS"
 ok_other_vars="BLAS_LIBS LAPACK_LIBS MAKE LIBnn AR NM RANLIB LTO LTO_FC LTO_LD"
 defunct_vars="CPP CXXCPP"
 if test "${R_OSTYPE}" = "windows"; then
-  ok_win_vars="LOCAL_SOFT COMPILED_BY OBJDUMP"
+  ok_win_vars="LOCAL_SOFT COMPILED_BY OBJDUMP PKG_CONFIG"
 fi
 
 if test "${all}" = "yes"; then
