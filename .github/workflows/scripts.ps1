@@ -125,6 +125,7 @@ Function InstallMiktex {
   # First time running 'pdflatex' always fails with some inite
   # Write-Host "Trying pdflatex..."
   # pdflatex.exe --version
+  Get-Content -Path C:\ProgramData\MiKTeX\miktex\log\mpmcli_admin.log
   Write-Host "MiKTeX installation: Done" -ForegroundColor Green
 }
 
