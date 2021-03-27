@@ -2450,7 +2450,7 @@ static int NumericValue(int c)
             if (seendot && !seenexp) return ERROR;
 	    if (c == 'L') /* for getParseData */
 	    {
-		if (seenexp) return ERROR;
+		// seenexp will be checked later
 		YYTEXT_PUSH(c, yyp);
 		break;
 	    }
