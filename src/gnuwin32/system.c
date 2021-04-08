@@ -741,6 +741,9 @@ void R_SetWin32(Rstart Rp)
     }
     putenv("MSYS2_ENV_CONV_EXCL=R_ARCH");
 
+#ifdef _UCRT
+    putenv("UCRT=UCRT");
+#endif
     
     /* This is here temporarily while the GCC version is chosen */
     char gccversion[30];
