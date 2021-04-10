@@ -67,7 +67,8 @@ numToBits(x)
   \code{numToInts()} and
   \code{numToBits()} split \code{\link{double}} precision numeric vectors
   either into to two \code{\link{integer}}s each or into 64 bits each,
-  stored as \code{raw}.
+  stored as \code{raw}.  In both cases the unpacking is least-significant
+  element first.
 }
 \details{
   \code{packBits} accepts raw, integer or logical inputs, the last two
@@ -119,26 +120,21 @@ data.frame(B = matrix(pBi, nrow=6, byrow=TRUE),
 ## Look at internal bit representation of ...
 
 ## ... of integers :
-##
-.Platform $ endian # "little" (typically on all platforms R runs (?))
-R <- if(.Platform $ endian == "little") rev else identity
 bitI <- function(x) vapply(as.integer(x), function(x) {
-            b <- substr(as.character(R(intToBits(x))), 2L, 2L)
+            b <- substr(as.character(rev(intToBits(x))), 2L, 2L)
             paste0(c(b[1L], " ", b[2:32]), collapse = "")
           }, "")
 print(bitI(-8:8), width = 35, quote = FALSE)
 
 ## ... of double precision numbers in format  'sign exp | mantissa'
 ## where  1 bit sign  1 <==> "-";
-##       11 bit exp   is the base-2 exponent in 2-complement form
+##       11 bit exp   is the base-2 exponent biased by 2^10 - 1 (1023)
 ##       52 bit mantissa is without the implicit leading '1'
 #
-R <- if(.Platform $ endian == "little") rev else identity
-
 ## Bit representation  [ sign | exponent | mantissa ] of double prec numbers :
 
 bitC <- function(x) noquote(vapply(as.double(x), function(x) { # split one double
-    b <- substr(as.character(R(numToBits(x))), 2L, 2L)
+    b <- substr(as.character(rev(numToBits(x))), 2L, 2L)
     paste0(c(b[1L], " ", b[2:12], " | ", b[13:64]), collapse = "")
   }, ""))
 bitC(17)
