@@ -60,10 +60,18 @@ do_search(double y, double *z, double p, double n, double pr, double incr)
 {
     if(*z >= p) {	/* search to the left */
 	for(;;) {
+        y = fmax2(0, y - incr);
 	    if(y == 0 ||
-	       (*z = pnbinom(y - incr, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p)
-		return y;
-	    y = fmax2(0, y - incr);
+	       (*z = pnbinom(y, n, pr, /*l._t.*/TRUE, /*log_p*/FALSE)) < p){
+            if(incr == 1){
+                // we know that the search is stopped if incr == 1
+                // and we know that the correct result is just right 
+                // of the current y
+                return y + 1;
+            }else{
+                return y;
+            }
+        }
 	}
     }
     else {		/* search to the right */
@@ -115,6 +123,7 @@ double qnbinom(double p, double size, double prob, int lower_tail, int log_p)
     /* y := approx.value (Cornish-Fisher expansion) :  */
     z = qnorm(p, 0., 1., /*lower_tail*/TRUE, /*log_p*/FALSE);
     y = R_forceint(mu + sigma * (z + gamma * (z*z - 1) / 6));
+    y = fmax2(0.0, y);
 
     z = pnbinom(y, size, prob, /*lower_tail*/TRUE, /*log_p*/FALSE);
 
