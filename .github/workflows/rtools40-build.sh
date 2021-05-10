@@ -20,7 +20,7 @@ fi
 # Temp fix for older rtools40 installations
 if ! grep -Fq "ucrt64" /etc/pacman.conf; then
 echo "[ucrt64]" >> /etc/pacman.conf
-echo "Server = https://ftp.opencpu.org/rtools/ucrt64/" >> /etc/pacman.conf
+echo "Server = https://cran.r-project.org/bin/windows/Rtools/4.0/ucrt64/" >> /etc/pacman.conf
 echo "SigLevel = Never" >> /etc/pacman.conf
 fi
 
