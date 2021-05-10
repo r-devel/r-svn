@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        WIN: [ 32, 64 ]
+        toolchain: [ mingw32, mingw64, ucrt64 ]
     steps:
 
     - name: Prepare git
@@ -131,7 +131,7 @@ jobs:
 
     - name: Build and Check
       env:
-        WIN: ${{matrix.WIN}}
+        toolchain: ${{matrix.toolchain}}
       run: C:\rtools40\usr\bin\bash --login -c "$(cygpath ${env:GITHUB_WORKSPACE})/.github/workflows/rtools40-build.sh"
 
     - name: Print failed tests
