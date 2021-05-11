@@ -128,7 +128,7 @@ static int wcwidthsearch(int wint, const struct interval_wcwidth *table,
     int mid;
     max--;
 
-    /* This quickly gives one for ASCII characters since the table
+    /* This quickly returns one for ASCII characters since the table
        starts at 0xa1 */
     if (wint < table[0].first) return 1;
     else if (wint > table[max].last) return -1;
