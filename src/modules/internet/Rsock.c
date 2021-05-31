@@ -309,8 +309,8 @@ int R_SocketWaitMultiple(int nsock, int *insockfd, int *ready, int *write,
 		delta = R_wait_usec;
 	    else
 		delta = (int)ceil(1e6 * (mytimeout - used));
-	    tv.tv_sec = 0;
-	    tv.tv_usec = delta;
+	    tv.tv_sec = delta / (int)1e6;
+	    tv.tv_usec = delta % (int)1e6;
 	} else if (mytimeout >= 0) {
 	    tv.tv_sec = (int)(mytimeout - used);
 	    tv.tv_usec = (int)ceil(1e6 * (mytimeout - used - tv.tv_sec));
