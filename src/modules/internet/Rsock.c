@@ -195,7 +195,6 @@ void in_Rsockwrite(int *sockp, char **buf, int *start, int *end, int *len)
 #include <sys/select.h>
 #endif
 
-//struct hostent *R_gethostbyname(const char *name);
 struct addrinfo *R_getaddrinfo(const char *name, int port);
 
 #ifdef Unix
@@ -661,18 +660,6 @@ ssize_t R_SockWrite(int sockp, const void *buf, size_t len, int timeout)
 	}
     } while (/* ! blocking && */len > 0);
     return out;
-}
-
-struct hostent *R_gethostbyname(const char *name)
-{
-    struct hostent *ans = gethostbyname(name);
-
-    /* hard-code IPv4 address for localhost to be robust against
-       misconfigured systems */
-
-    if (ans == NULL && !strcmp(name, "localhost"))
-	ans = gethostbyname("127.0.0.1");
-    return ans;
 }
 
 struct addrinfo *R_getaddrinfo(const char *name, int port)
