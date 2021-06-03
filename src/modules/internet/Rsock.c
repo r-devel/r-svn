@@ -425,6 +425,9 @@ int R_SockConnect(int port, char *host, int timeout)
 	switch (R_socket_errno()) {
 	case EINPROGRESS:
 	case EWOULDBLOCK:
+#if defined(WSAEWOULDBLOCK) && WSAEWOULDBLOCK != EWOULDBLOCK
+	case WSAEWOULDBLOCK:
+#endif
 #if !defined(Win32) && EAGAIN != EWOULDBLOCK
 	case EAGAIN:
 #endif
@@ -527,6 +530,9 @@ ssize_t R_SockRead(int sockp, void *buf, size_t len, int blocking, int timeout)
 	if (R_socket_error((int)res)) {
 	    switch(R_socket_errno()) {
 	    case EWOULDBLOCK:
+#if defined(WSAEWOULDBLOCK) && WSAEWOULDBLOCK != EWOULDBLOCK
+	case WSAEWOULDBLOCK:
+#endif
 #if !defined(Win32) && EAGAIN != EWOULDBLOCK
 	    case EAGAIN:
 #endif
@@ -605,6 +611,9 @@ int R_SockListen(int sockp, char *buf, int len, int timeout)
 		switch(perr.error) {
 		case EINPROGRESS:
 		case EWOULDBLOCK:
+#if defined(WSAEWOULDBLOCK) && WSAEWOULDBLOCK != EWOULDBLOCK
+	case WSAEWOULDBLOCK:
+#endif
 		case ECONNABORTED:
 #ifndef Win32
 # if EAGAIN != EWOULDBLOCK
@@ -651,6 +660,9 @@ ssize_t R_SockWrite(int sockp, const void *buf, size_t len, int timeout)
 	if (R_socket_error((int)res)) {
 	    switch(R_socket_errno()) {
 	    case EWOULDBLOCK:
+#if defined(WSAEWOULDBLOCK) && WSAEWOULDBLOCK != EWOULDBLOCK
+	case WSAEWOULDBLOCK:
+#endif
 #if !defined(Win32) && EAGAIN != EWOULDBLOCK
 	    case EAGAIN:
 #endif
