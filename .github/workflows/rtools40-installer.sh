@@ -23,7 +23,7 @@ perl --version
 # Extra steps to prepare SVN build (rather than official tarball)
 cd "${sources}"
 sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' src/include/Makefile.win
-curl -sSL https://curl.haxx.se/ca/cacert.pem > etc/curl-ca-bundle.crt
+curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 ./tools/rsync-recommended
 ./.github/workflows/svn-info.sh
 
