@@ -47,8 +47,8 @@ jobs:
       run: xvfb-run make check-all
 
     - name: Print failed tests
-      if: failure()
-      run: tail -n100 tests/*.fail
+      if: always()
+      run: tail -n100 tests/*.fail || true
 
   macos:
     name: MacOS
