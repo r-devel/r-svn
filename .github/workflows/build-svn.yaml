@@ -94,8 +94,8 @@ jobs:
         PDFLATEX: ${{github.workspace}}/.github/workflows/dummy
 
     - name: Print failed tests
-      if: failure()
-      run: tail -n100 tests/*.fail
+      if: always()
+      run: tail -n100 tests/*.fail || true
 
   windows:
     name: Windows
