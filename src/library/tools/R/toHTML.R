@@ -12,8 +12,7 @@ function(title="R", logo=TRUE,
          headerTitle = paste("R:", title),
          outputEncoding = "UTF-8")
 {
-    result <- c('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">',
-        '<html xmlns="http://www.w3.org/1999/xhtml">',
+    result <- c('<!doctype html>',
 	paste0('<head><title>', headerTitle, '</title>'),
 	paste0('<meta http-equiv="Content-Type" content="text/html; charset=',
 	       mime_canonical_encoding(outputEncoding), '" />'),
@@ -376,8 +375,7 @@ function(x, header = TRUE, ...)
                   "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />",
                   '<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />',
                   "</head>")
-        header <- c("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">",
-                  "<html xmlns=\"http://www.w3.org/1999/xhtml\">",
+        header <- c("<!doctype html>",
                   header,
 		  '<body><div class="container">')
 	footer <- c("</div></body>", "</html>")

@@ -73,7 +73,7 @@ print.browseVignettes <- function(x, ...)
     	css_file <- "/doc/html/R.css"
     else
     	css_file <- file.path(R.home("doc"), "html", "R.css")
-    cat(sprintf("<!DOCTYPE html PUBLIC '-//W3C//DTD HTML 4.01 Transitional//EN'>
+    cat(sprintf("<!doctype html>
 <html>
 <head>
 <title>R Vignettes</title>

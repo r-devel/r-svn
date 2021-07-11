@@ -113,7 +113,7 @@ print.help_files_with_topic <- function(x, ...)
         if (type == "html" && port > 0L) {
             path <- file.path(tempdir(), ".R/doc/html")
             dir.create(path, recursive = TRUE, showWarnings = FALSE)
-            out <- paste0('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">\n',
+            out <- paste0('<!doctype html>\n',
                           '<html><head><title>R: help</title>\n',
                           '<meta http-equiv="Content-Type" content="text/html; charset="UTF-8">\n',
                           '<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />\n',
