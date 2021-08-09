@@ -2648,13 +2648,46 @@ static SEXP mkStringUTF8(const ucs_t *wcs, int cnt)
     UNPROTECT(1); /* t */
     return t;
 }
+/*
+ * Skip at Least `min` Bytes in Complete Character Steps
+ *
+ * Assumptions:
+ * * Buffer length > min + R_MB_CUR_MAX, i.e.  we'll find a complete character
+ *   before we run out of buffer.
+ * * MBCS encodings are valid (they've been read through once already so they
+ *   should be).
+ * * Stateless encodings.
+ */
 
-#define CTEXT_PUSH(c) do { \
-	if (ct - currtext >= 1000) { \
-	    memmove(currtext, currtext+100, 901); memmove(currtext, "... ", 4); ct -= 100; \
-	    currtext_truncated = TRUE; \
-	} \
-	*ct++ = ((char) c);  \
+static int skipBytesByChar(char * c, int min) {
+    int res = 0;
+    if(!mbcslocale) {
+	res = min;
+    } else  {
+	if(utf8locale) {
+	    /* Find first non continuation byte; we assume UTF8 is valid */
+	    char * cc = c + min;
+	    while(((unsigned char)*cc & 0xc0) == 0x80) ++cc;
+	    res = cc - c;
+	} else {
+	    mbstate_t mb_st;
+	    mbs_init(&mb_st);
+	    while(res < min)
+		res += (int) mbrtowc(NULL, c + res, R_MB_CUR_MAX, &mb_st);
+	}
+    }
+    return res;
+}
+
+#define CTEXT_PUSH(c) do {                                             \
+	if (ct - currtext >= 1000) {                                   \
+	    int shift = skipBytesByChar(currtext, 100 + 4);            \
+	    memmove(currtext, "... ", 4);                              \
+	    memmove(currtext + 4, currtext + shift, 1000 - shift + 1); \
+	    ct -= shift - 4;                                           \
+	    currtext_truncated = TRUE;                                 \
+	}                                                              \
+	*ct++ = ((char) c);                                            \
 } while(0)
 #define CTEXT_POP() ct--
 
