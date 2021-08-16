@@ -409,6 +409,11 @@ int Rf_initialize_R(int ac, char **av)
 #define R_INIT_TREAT_F(_AV_)						\
 		Rp->R_Interactive = FALSE;				\
 		if(strcmp(_AV_, "-")) {					\
+		    if(strlen(_AV_) >= PATH_MAX) {			\
+			snprintf(msg, 1024,				\
+				 _("path given in -f too long"));	\
+			R_Suicide(msg);					\
+		    }							\
 		    char path[PATH_MAX], *p = path;			\
 		    p = unescape_arg(p, _AV_);				\
 		    *p = '\0';						\
