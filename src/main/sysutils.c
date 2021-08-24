@@ -1297,12 +1297,18 @@ next_char:
 	R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
-	if(outb < 5) {
+	if(outb < 5 * sizeof(wchar_t)) {
 	    R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
 	    goto top_of_loop;
 	}
-	snprintf(outbuf, 5, "<%02x>", (unsigned char)*inbuf);
-	outbuf += 4; outb -= 4;
+	union c_or_wc {
+	    char * c;
+	    wchar_t * wc;
+	};
+	union c_or_wc ob;
+	ob.c = outbuf;
+	swprintf(ob.wc, 5, L"<%02x>", (unsigned char)*inbuf);
+	outbuf += 4 * sizeof(wchar_t); outb -= 4 * sizeof(wchar_t);
 	inbuf++; inb--;
 	goto next_char;
 	/* if(!knownEnc) Riconv_close(obj);
