@@ -326,14 +326,3 @@ local({
     gregexec("123", "123 456", fixed=TRUE) # No warning with perl=FALSE
 })
 
-## Translations to wchar_t are done correctly?  Note: this is testing
-## undocumented behavior in `sub` whereby strings are translated with
-## substitution of invalid bytes into their escaped values, rather than
-## failing.  This behavior might change in the future, but in the interim we
-## must still ensure it is done correctly.  Currently "\xa0" is translated into
-## "<a0>" in UTF-8 strings.
-
-text <- "\xa0<a0>"
-Encoding(text) <- "UTF-8"
-stopifnot(identical(gsub("<", "!", text), "!a0>!a0>"))
-
