@@ -918,8 +918,17 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (mbcslocale && !mbcsValid(split))
 		    error(_("'split' string %d is invalid in this locale"), itok+1);
 	    }
-	    if ((rc = tre_regcomp(&reg, split, cflags)))
-		reg_report(rc, &reg, split);
+	    /* Use byte funs in useBytes mode */
+	    int (*tre_regexecx)(const regex_t *, const char *,
+				size_t, regmatch_t [], int);
+	    if(useBytes) {
+		rc = tre_regcompb(&reg, split, cflags);
+		tre_regexecx = tre_regexecb;
+	    } else {
+		rc = tre_regcomp(&reg, split, cflags);
+		tre_regexecx = tre_regexec;
+	    }
+	    if (rc) reg_report(rc, &reg, split);
 
 	    vmax2 = vmaxget();
 	    for (i = itok; i < len; i += tlen) {
@@ -944,8 +953,9 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		/* find out how many splits there will be */
 		ntok = 0;
 		bufp = buf;
+
 		if (*bufp) {
-		    while((rc = tre_regexec(&reg, bufp, 1, regmatch, 0)) == 0) {
+		    while((rc = tre_regexecx(&reg, bufp, 1, regmatch, 0)) == 0) {
 			/* Empty matches get the next char, so move by one. */
 			bufp += MAX(regmatch[0].rm_eo, 1);
 			ntok++;
@@ -962,7 +972,8 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		bufp = buf;
 		pt = Realloc(pt, strlen(buf)+1, char);
 		for (j = 0; j < ntok; j++) {
-		    int rc = tre_regexec(&reg, bufp, 1, regmatch, 0);
+		    int rc = tre_regexecx(&reg, bufp, 1, regmatch, 0);
+
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
 			warning("Out-of-memory error in regexp matching for element %d",
