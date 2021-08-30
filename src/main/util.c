@@ -1243,8 +1243,8 @@ SEXP attribute_hidden markKnown(const char *s, SEXP ref)
 {
     int ienc = 0;
     if(ENC_KNOWN(ref)) {
-	if(known_to_be_latin1) ienc = CE_LATIN1;
-	if(known_to_be_utf8) ienc = CE_UTF8;
+	if(known_to_be_latin1 && IS_LATIN1(ref)) ienc = CE_LATIN1;
+	if(known_to_be_utf8 && IS_UTF8(ref)) ienc = CE_UTF8;
     }
     return mkCharCE(s, ienc);
 }
