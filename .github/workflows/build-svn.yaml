@@ -54,6 +54,7 @@ jobs:
   macos:
     name: MacOS
     runs-on: macos-latest
+    timeout-minutes: 90
     env:
       PKG_CONFIG_PATH: /opt/X11/lib/pkgconfig
       R_CRAN_WEB: "https://cran.rstudio.com"
@@ -101,6 +102,7 @@ jobs:
   windows:
     name: Windows
     runs-on: windows-latest
+    timeout-minutes: 120
     env:
       R_CRAN_WEB: "https://cran.rstudio.com"
       CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
