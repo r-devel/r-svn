@@ -13394,20 +13394,10 @@ functions.)
 The accessor functions check that they are being used on an appropriate
 type of @code{SEXP}.
 
-If efficiency is essential, internal versions of some accessors can be
-obtained by defining @samp{USE_RINTERNALS} before including
-@file{Rinternals.h}.  If you find it necessary to do so, please do test
-that your code compiles without @samp{USE_RINTERNALS} defined, as this
-provides a stricter test that the accessors have been used correctly,
-and be prepared to adjust your code should @R{} internals change.  (The
-use of @samp{USE_RINTERNALS} with @file{Rdefines.h} is not supported.)
-
-The accessor functions, and other functions in the @R{} API, are also
-subject to change to support the @samp{ALTREP} project
-(@uref{https://svn.r-project.org/R/branches/ALTREP/ALTREP.html}). Code
-that does not define @samp{USE_RINTERNALS} should not be affected by
-these changes, but code that does define @samp{USE_RINTERNALS} may need
-to be adjusted.
+Formerly it was possible for packages to obtain internal versions of
+some accessors by defining @samp{USE_RINTERNALS} before including
+@file{Rinternals.h}. This is no longer the case. Defining
+@samp{USE_RINTERNALS} now has no effect.
 
 
 @node Character encoding issues,  , Vector accessor functions, System and foreign language interfaces
@@ -13542,10 +13532,12 @@ header files when using these entry points.
 This remapping can cause problems@footnote{Known problems have been
 defining @code{LENGTH}, @code{error}, @code{length}, @code{vector} and
 @code{warning}: whether these matter depends on the OS and toolchain,
-with many problem reports involving @command{clang++}.}, and can be
-eliminated by defining @code{R_NO_REMAP} (before including any @R{}
-headers) and prepending @samp{Rf_} to @emph{all} the function names used
-from @file{Rinternals.h} and @file{R_ext/Error.h}.  These problems can
+with many problem reports involving @command{clang++}.  As from
+@command{clang} 13.0.0, the remapping of @code{match} breaks the
+subsequent inclusion of @file{omp.h}.}, and can be eliminated by
+defining @code{R_NO_REMAP} (before including any @R{} headers) and
+prepending @samp{Rf_} to @emph{all} the function names used from
+@file{Rinternals.h} and @file{R_ext/Error.h}.  These problems can
 usually be avoided by including other headers (such as system headers
 and those for external software used by the package) before any @R{}
 headers. (Headers from other packages may include @R{} headers directly
