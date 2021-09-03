@@ -1236,8 +1236,7 @@ const wchar_t *wtransChar(SEXP x)
 {
     void * obj;
     const char *inbuf, *ans = CHAR(x), *from;
-    char *outbuf;
-    wchar_t *p;
+    wchar_t *p, *outbuf;
     size_t inb, outb, res, top;
     Rboolean knownEnc = FALSE;
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
@@ -1284,25 +1283,26 @@ const wchar_t *wtransChar(SEXP x)
 #endif
     }
 
-    R_AllocStringBuffer(0, &cbuff);
+    /* R_AllocStringBuffer returns correctly aligned for wchar_t */
+    outbuf = (wchar_t *)R_AllocStringBuffer(0, &cbuff);
 top_of_loop:
     inbuf = ans; inb = strlen(inbuf);
-    outbuf = cbuff.data; top = outb = cbuff.bufsize - 1;
+    top = outb = cbuff.bufsize - 1;
     /* First initialize output */
-    Riconv (obj, NULL, NULL, &outbuf, &outb);
+    Riconv (obj, NULL, NULL, (char **)(&outbuf), &outb);
 next_char:
     /* Then convert input  */
-    res = Riconv(obj, &inbuf , &inb, &outbuf, &outb);
+    res = Riconv(obj, &inbuf , &inb, (char **)(&outbuf), &outb);
     if(res == -1 && errno == E2BIG) {
-	R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
+	outbuf = (wchar_t *)R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
-	if(outb < 5) {
-	    R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
+	if(outb < 5 * sizeof(wchar_t)) {
+	    outbuf = (wchar_t *)R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
 	    goto top_of_loop;
 	}
-	snprintf(outbuf, 5, "<%02x>", (unsigned char)*inbuf);
-	outbuf += 4; outb -= 4;
+	swprintf(outbuf, 5, L"<%02x>", (unsigned char)*inbuf);
+	outbuf += 4; outb -= 4* sizeof(wchar_t);
 	inbuf++; inb--;
 	goto next_char;
 	/* if(!knownEnc) Riconv_close(obj);
