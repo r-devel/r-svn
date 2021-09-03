@@ -163,7 +163,7 @@ Sys.setlocale("LC_TIME", "de_DE.UTF-8")  # Linux, macOS, other Unix-alikes
 Sys.setlocale("LC_TIME", "de_DE.utf8")   # some Linux versions
 Sys.setlocale("LC_TIME", "German") # Windows
 }
-try(Sys.getlocale("LC_PAPER"))     # may or may not be set
+Sys.getlocale("LC_PAPER")          # may or may not be set
 .LC.categories # of length 9 or 6, depending on .Platform$OS.type
 
 \dontrun{
