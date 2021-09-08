@@ -5385,7 +5385,16 @@ stopifnot(exprs = {
 })
 ## in R <= 4.1.0, Error in density..: 'x' and 'weights' have unequal length
 
-
+## as.Date() from POSIXct and POSIXlt should retain names
+x <- "1994-10-15"
+names(x) <- "x"
+ct <- as.POSIXct(x, tz = "America/New_York")
+lt <- as.POSIXlt(x, tz = "America/New_York")
+d1 <- as.Date(ct, tz = "UTC") # fast path
+d2 <- as.Date(ct, tz = "America/New_York")
+d3 <- as.Date(lt)
+stopifnot(names(d1) == "x", names(d2) == "x", names(d3) == "x")
+## in R <= 4.1.1, names were dropped any time as.Date.POSIXlt() was called
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
