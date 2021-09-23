@@ -385,7 +385,7 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE, ...)
     if(!inherits(x, "POSIXlt")) stop("wrong class")
     if(any(f0 <- format == "")) {
         ## need list [ method here.
-	times <- unlist(unclass(x)[1L:3L])[f0]
+	times <- unlist(unclass(x)[1L:3L], use.names = FALSE)[f0]
 	secs <- x$sec[f0]; secs <- secs[!is.na(secs)]
         np <- getOption("digits.secs")
         np <- if(is.null(np)) 0L else min(6L, np)
