@@ -89,7 +89,7 @@ Function InstallMiktex {
   $miktexinstall = "--unattended --auto-install=yes --shared --package-set=basic"
 
   # Hack around the random mirror redirect because many mirrors are broken
-  $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -LIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
+  $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -kLIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
   $miktex_file = [io.path]::GetFileName($effective_url)
   $MIKTEX_MIRROR = "https://ctan.math.illinois.edu/systems/win32/miktex/setup/windows-x64/" + $miktex_file
 
