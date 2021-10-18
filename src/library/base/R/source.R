@@ -124,7 +124,7 @@ function(file, local = FALSE, echo = verbose, print.eval = echo,
 
         if (chdir){
             if(is.character(ofile)) {
-                if(grepl("^(ftp|http|file)://", ofile)) ## is URL
+                if(grepl("^(ftp|ftps|http|https|file)://", ofile)) ## is URL
                     warning("'chdir = TRUE' makes no sense for a URL")
                 else if((path <- dirname(ofile)) != ".") {
                     owd <- getwd()
