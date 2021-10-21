@@ -106,7 +106,7 @@ function (x, which = c(1,2,3,5), ## was which = 1L:4L,
 	    show.rs <- sort.list(abs(rs), decreasing = TRUE)[iid]
 	text.id <- function(x, y, ind, adj.x = TRUE) {
 	    labpos <-
-                if(adj.x) label.pos[1+as.numeric(x > mean(range(x)))] else 3
+                if(adj.x) label.pos[1+as.numeric(x > mean(par("usr")[1:2]))] else 3
 	    text(x, y, labels.id[ind], cex = cex.id, xpd = TRUE,
 		 pos = labpos, offset = 0.25)
 	}
