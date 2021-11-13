@@ -59,6 +59,9 @@ grid.convert <- function(x, unitTo, axisFrom="x", typeFrom="location",
 convertUnit <- function(x, unitTo, axisFrom="x", typeFrom="location",
                         axisTo=axisFrom, typeTo=typeFrom,
                         valueOnly=FALSE) {
+  if (dev.cuf() == 1) {
+       stop("No current device")
+  }
   whatfrom <- match(axisFrom, c("x", "y")) - 1L +
     2L*(match(typeFrom, c("location", "dimension")) - 1L)
   whatto <- match(axisTo, c("x", "y")) - 1L +
