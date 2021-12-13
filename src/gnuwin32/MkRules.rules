@@ -3,7 +3,7 @@
 ## Defaults for user settings, see MkRules.dist for descriptions.  It is
 ## assumed that the compiler toolchain is on PATH (e.g.  gcc)
 
-LOCAL_SOFT ?= $(patsubst %/bin/gcc,%,$(shell which gcc))
+LOCAL_SOFT ?= $(patsubst %/bin/gcc,%,$(shell which $(CC))
 EXT_LIBS ?= $(LOCAL_SOFT)
 G_FLAG ?= -gdwarf-2
 USE_ATLAS ?= NO
