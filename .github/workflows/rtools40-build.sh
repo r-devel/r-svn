@@ -18,11 +18,11 @@ sed -i 's|,x86_64|,ucrt-x86_64|g' "${srcdir}/create-tcltk-bundle.sh"
 fi
 
 # Temp fix for older rtools40 installations
-if ! grep -Fq "ucrt64" /etc/pacman.conf; then
-echo "[ucrt64]" >> /etc/pacman.conf
-echo "Server = https://cran.r-project.org/bin/windows/Rtools/4.0/ucrt64/" >> /etc/pacman.conf
-echo "SigLevel = Never" >> /etc/pacman.conf
-fi
+#if ! grep -Fq "ucrt64" /etc/pacman.conf; then
+#echo "[ucrt64]" >> /etc/pacman.conf
+#echo "Server = https://cran.r-project.org/bin/windows/Rtools/4.0/ucrt64/" >> /etc/pacman.conf
+#echo "SigLevel = Never" >> /etc/pacman.conf
+#fi
 
 # Get architecture
 case ${toolchain} in
@@ -58,7 +58,7 @@ curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 
 # Install system libs
 pacman -Sy --noconfirm
-pacman -S --needed --noconfirm mingw-w64-${_arch}-{gcc,gcc-fortran,icu,libtiff,libjpeg,libpng,pcre2,xz,bzip2,zlib,cairo,tk,curl}
+pacman -S --needed --noconfirm mingw-w64-${_arch}-{gcc,gcc-fortran,icu,libtiff,libjpeg,libpng,pcre2,xz,bzip2,zlib,cairo,tk,curl,libwebp}
 
 # Create the TCL bundle required by tcltk package
 mkdir -p Tcl/{bin,bin64,lib,lib64}
