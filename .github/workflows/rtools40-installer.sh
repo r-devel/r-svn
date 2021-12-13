@@ -32,11 +32,11 @@ pacman -Syu --noconfirm
 pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-{gcc,gcc-fortran,icu,libtiff,libjpeg,libpng,pcre2,xz,bzip2,zlib,cairo,tk,curl,libwebp}
 
 # Create the TCL bundle required by tcltk package
-mkdir -p Tcl/{bin,bin64,lib,lib64}
+mkdir -p Tcl/{bin,lib}
 ${scripts}/create-tcltk-bundle.sh
 
 # Build 64 bit + docs and installers
 cd "${sources}/src/gnuwin32"
 TEXINDEX=$(cygpath -m $(which texindex))  
-sed -e 's|/mingw|/ucrt|g' -e "s|@win@|64|" -e "s|@texindex@|${TEXINDEX}|" -e "s|@home32@||" "${scripts}/MkRules.local.in" > MkRules.local
+sed -e "s|@texindex@|${TEXINDEX}|" "${scripts}/MkRules.local.in" > MkRules.local
 make distribution
