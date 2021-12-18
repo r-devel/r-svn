@@ -12,13 +12,14 @@ scripts=$(dirname $(realpath $0))
 sources=$(cygpath ${GITHUB_WORKSPACE})
 
 # Put pdflatex on the path (needed only for CMD check)
-export PATH="$PATH:/c/progra~1/git/bin:/c/progra~1/MiKTeX/miktex/bin/x64"
+export PATH="/ucrt64/bin:$PATH:/c/progra~1/git/bin:/c/progra~1/MiKTeX/miktex/bin/x64"
 echo "PATH: $PATH"
 pdflatex --version
 texindex --version
 texi2any --version
 make --version
 perl --version
+gcc --version
 
 # Extra steps to prepare SVN build (rather than official tarball)
 cd "${sources}"

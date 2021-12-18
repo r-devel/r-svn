@@ -2,7 +2,6 @@
 
 ## Toolchain config
 WIN = 64
-BINPREF64 = /ucrt64/bin/
 
 # Enable features
 USE_ICU = YES
