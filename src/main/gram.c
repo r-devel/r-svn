@@ -3398,7 +3398,7 @@ static SEXP xxbinary(SEXP n1, SEXP n2, SEXP n3)
 static void check_rhs(SEXP rhs)
 {
     if (TYPEOF(rhs) != LANGSXP)
-	error(_("The pipe operator requires a function call as RHS"));
+       error(_("The pipe operator requires a function call as RHS (line %d)"), ParseState.xxlineno);
 
     /* rule out syntactically special functions */
     /* the IS_SPECIAL_SYMBOL bit is set in names.c */
