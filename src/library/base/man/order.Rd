@@ -41,9 +41,9 @@ sort.list(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
     (see \sQuote{Note}.)}
   \item{method}{the method to be used: partial matches are allowed.  The
     default (\code{"auto"}) implies \code{"radix"} for short numeric vectors,
-    integer vectors, logical vectors and factors.
+    integer vectors, logical vectors, character vectors and factors.
     Otherwise, it implies \code{"shell"}.
-    For details of methods \code{"shell"}, 
+    For details of methods \code{"shell"},
     \code{"quick"}, and \code{"radix"},
     see the help for \code{\link{sort}}.}
 }
@@ -69,8 +69,8 @@ sort.list(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
   methods, although there are caveats (see \code{\link{sort}}).  Method
   \code{"quick"} for \code{sort.list} is only supported for numeric
   \code{x} with \code{na.last = NA}, is not stable, and is slower than
-  \code{"radix"}. 
-  
+  \code{"radix"}.
+
   \code{partial = NULL} is supported for compatibility with other
   implementations of S, but no other values are accepted and ordering is
   always complete.
