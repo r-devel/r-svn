@@ -196,7 +196,7 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
 
     if (method == "auto") {
         useRadix <- all(vapply(z, function(x) {
-            (is.numeric(x) || is.factor(x) || is.logical(x)) &&
+            (is.numeric(x) || is.factor(x) || is.logical(x) || is.character(x)) &&
                 is.integer(length(x))
         }, logical(1L)))
         method <- if (useRadix) "radix" else "shell"
