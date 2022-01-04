@@ -119,8 +119,8 @@ all.equal.numeric <-
     cplx <- is.complex(target) # and so current must be too.
     if(lt != lc) {
 	## *replace* the 'Lengths' msg[] from attr.all.equal():
-        if(!is.null(msg)) msg <- msg[- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE)]
-	msg <- c(msg, if (cplx) gettextf("Complex: lengths (%d, %d) differ" lt, lc)
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
+	msg <- c(msg, if (cplx) gettextf("Complex: lengths (%d, %d) differ", lt, lc)
                       else gettextf("Numeric: lengths (%d, %d) differ", lt, lc))
 	return(msg)
     }
@@ -188,7 +188,7 @@ all.equal.character <-
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-        if(!is.null(msg)) msg <- msg[- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE)]
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
 	msg <- c(msg,
                  gettextf("Lengths (%d, %d) differ (string compare on first %d)",
                           lt, lc, ll <- min(lt, lc)))
@@ -203,10 +203,12 @@ all.equal.character <-
 	return(msg)
     }
     ne <- !nas & (target != current)
-    if(!any(ne) && is.null(msg)) TRUE
-    else c(msg, sprintf(ngettext(count_ne <- sum(ne), "1 string mismatch", "%d string mismatches"),
-                        count_ne))
-    else msg
+    if(!any(ne) && is.null(msg)) return(TRUE)
+    count_ne <- sum(ne)
+    if (count_ne)
+        msg <- c(msg, sprintf(ngettext(count_ne, "1 string mismatch", "%d string mismatches"),
+                              count_ne))
+    msg
 }
 
 ## In 'base' these are all visible, so need to test both args:
@@ -383,7 +385,7 @@ all.equal.list <- function(target, current, ...,
     if(!is.list(current) && !is.vector(current))
 	return(c(msg, gettext("%s is not list-like", "current")))
     if((nt <- length(target)) != (nc <- length(current))) {
-        if(!is.null(msg)) msg <- msg[- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE)]
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE, invert=TRUE)
 	n <- min(nt, nc)
 	msg <- c(msg, gettextf("Length mismatch: comparison on first %d components", n))
     }
@@ -416,7 +418,7 @@ all.equal.raw <-
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-	if(!is.null(msg)) msg <- msg[- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE)]
+	if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
 	msg <- c(msg, gettextf("Lengths (%d, %d) differ (comparison on first %d components)",
                                lt, lc, ll <- min(lt, lc)))
 	ll <- seq_len(ll)
@@ -430,10 +432,12 @@ all.equal.raw <-
 	return(msg)
     }
     ne <- !nas & (target != current)
-    if(!any(ne) && is.null(msg)) TRUE
-    else c(msg, sprintf(ngettext(count_ne <- sum(ne), "1 element mismatch", "%d element mismatches"),
-                        count_ne))
-    else msg
+    if(!any(ne) && is.null(msg)) return(TRUE)
+    count_ne <- sum(ne)
+    if (count_ne)
+        msg <- c(msg, sprintf(ngettext(count_ne, "1 element mismatch", "%d element mismatches"),
+                              count_ne))
+    msg
 }
 
 
