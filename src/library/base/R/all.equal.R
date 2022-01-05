@@ -119,7 +119,7 @@ all.equal.numeric <-
     cplx <- is.complex(target) # and so current must be too.
     if(lt != lc) {
 	## *replace* the 'Lengths' msg[] from attr.all.equal():
-        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
 	msg <- c(msg, if (cplx) gettextf("Complex: lengths (%d, %d) differ", lt, lc)
                       else gettextf("Numeric: lengths (%d, %d) differ", lt, lc))
 	return(msg)
@@ -188,7 +188,7 @@ all.equal.character <-
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
 	msg <- c(msg,
                  gettextf("Lengths (%d, %d) differ (string compare on first %d)",
                           lt, lc, ll <- min(lt, lc)))
@@ -385,7 +385,7 @@ all.equal.list <- function(target, current, ...,
     if(!is.list(current) && !is.vector(current))
 	return(c(msg, gettextf("%s is not list-like", "current")))
     if((nt <- n <- length(target)) != (nc <- length(current))) {
-        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE, invert=TRUE)
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
 	n <- min(nt, nc)
 	msg <- c(msg, gettextf("Length mismatch: comparison on first %d components", n))
     }
@@ -418,7 +418,7 @@ all.equal.raw <-
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-	if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE)
+	if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
 	msg <- c(msg, gettextf("Lengths (%d, %d) differ (comparison on first %d components)",
                                lt, lc, ll <- min(lt, lc)))
 	ll <- seq_len(ll)
