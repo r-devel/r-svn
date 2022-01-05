@@ -44,9 +44,9 @@ all.equal.default <- function(target, current, ...)
 		   else if(xor(is.null(nt <- names(target)),
 			       is.null(nc <- names(current)))) {
 		       if(length(nt))
-                           gettext('"..."-typed: names in target but not in current')
+                           gettextf('"..."-typed: names in %s but not in %s', "target", "current")
                        else ## length(nc)
-                           gettext('"..."-typed: names in current but not in target')
+                           gettextf('"..."-typed: names in %s but not in %s', "current", "target")
 		   } else if(!is.null(nt)) { # and !is.null(nc)
 			   nt <- sort(nt)
 			   nc <- sort(nc)
@@ -206,7 +206,7 @@ all.equal.character <-
     if(!any(ne) && is.null(msg)) return(TRUE)
     count_ne <- sum(ne)
     if (count_ne)
-        msg <- c(msg, sprintf(ngettext(count_ne, "1 string mismatch", "%d string mismatches"),
+        msg <- c(msg, sprintf(ngettext(count_ne, "%d string mismatch", "%d string mismatches"),
                               count_ne))
     msg
 }
@@ -214,8 +214,8 @@ all.equal.character <-
 ## In 'base' these are all visible, so need to test both args:
 
 all.equal.envRefClass <- function (target, current, ...) {
-    if(!methods::is(target,  "envRefClass")) return(gettext("'target' is not an envRefClass"))
-    if(!methods::is(current, "envRefClass")) return(gettext("'current' is not an envRefClass"))
+    if(!methods::is(target,  "envRefClass")) return(gettextf("'%s' is not an envRefClass", "target"))
+    if(!methods::is(current, "envRefClass")) return(gettextf("'%s' is not an envRefClass", "current"))
     if(!isTRUE(ae <- all.equal(class(target), class(current), ...)))
 	return(gettextf("Classes differ: %s", paste(ae, collapse=" ")))
     getCl <- function(x) { cl <- tryCatch(x$getClass(), error=function(e) NULL)
@@ -253,8 +253,8 @@ all.equal.envRefClass <- function (target, current, ...) {
 }
 
 all.equal.environment <- function (target, current, all.names=TRUE, evaluate=TRUE, ...) {
-    if(!is.environment (target)) return(gettext( "'target' is not an environment"))
-    if(!is.environment(current)) return(gettext("'current' is not an environment"))
+    if(!is.environment (target)) return(gettextf("'%s' is not an environment", "target"))
+    if(!is.environment(current)) return(gettextf("'%s' is not an environment", "current"))
     if(identical(target, current)) # only true if *same* address
                  ## ignore.environment =
                  ##     if(!is.na(i <- match("check.environment", ...names())))
@@ -320,7 +320,7 @@ all.equal.factor <- function(target, current, ..., check.attributes = TRUE)
 		       check.attributes = check.attributes, ...)
 	if(is.character(n)) msg <- c(msg, n)
     } else
-        msg <- c(msg, sprintf(ngettext(n, "1 NA mismatch", "%d NA mismatches"), n))
+        msg <- c(msg, sprintf(ngettext(n, "%d NA mismatch", "%d NA mismatches"), n))
     if(is.null(msg)) TRUE else msg
 }
 
@@ -358,9 +358,9 @@ all.equal.language <- function(target, current, ...)
 		 gettext("current is not deparse()able")
 	     else if(ttxt != ctxt) {
 		 if(pmatch(ttxt, ctxt, 0L))
-		     gettext("target is a subset of current")
+		     gettextf("%s is a subset of %s", "target", "current")
 		 else if(pmatch(ctxt, ttxt, 0L))
-		     gettext("current is a subset of target")
+		     gettextf("%s is a subset of %s", "current", "target")
 		 else gettext("target, current do not match when deparsed")
 	     })
     if(is.null(msg)) TRUE else msg
@@ -381,10 +381,10 @@ all.equal.list <- function(target, current, ...,
     current <- unclass(current)# ??
     ## Comparing the data.class() is not ok, as a list matrix is 'matrix' not 'list'
     if(!is.list(target) && !is.vector(target))
-	return(c(msg, gettext("%s is not list-like", "target")))
+	return(c(msg, gettextf("%s is not list-like", "target")))
     if(!is.list(current) && !is.vector(current))
-	return(c(msg, gettext("%s is not list-like", "current")))
-    if((nt <- length(target)) != (nc <- length(current))) {
+	return(c(msg, gettextf("%s is not list-like", "current")))
+    if((nt <- n <- length(target)) != (nc <- length(current))) {
         if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE, invert=TRUE)
 	n <- min(nt, nc)
 	msg <- c(msg, gettextf("Length mismatch: comparison on first %d components", n))
@@ -435,7 +435,7 @@ all.equal.raw <-
     if(!any(ne) && is.null(msg)) return(TRUE)
     count_ne <- sum(ne)
     if (count_ne)
-        msg <- c(msg, sprintf(ngettext(count_ne, "1 element mismatch", "%d element mismatches"),
+        msg <- c(msg, sprintf(ngettext(count_ne, "%d element mismatch", "%d element mismatches"),
                               count_ne))
     msg
 }
@@ -453,7 +453,7 @@ attr.all.equal <- function(target, current, ...,
         stop(gettextf("'%s' must be logical", "check.names"), domain = NA)
     msg <- NULL
     if(mode(target) != mode(current))
-	msg <- gettextf("Modes: %d, %d", mode(target), mode(current))
+	msg <- gettextf("Modes: %s, %s", mode(target), mode(current))
     if(length(target) != length(current))
 	msg <- c(msg,
                  gettextf("Lengths: %d, %d", length(target), length(current)))
@@ -467,7 +467,7 @@ attr.all.equal <- function(target, current, ...,
             ax$names <- ay$names <- NULL
             if(lx && ly) {
                 if(is.character(m <- all.equal.character(nx, ny, check.attributes = check.attributes)))
-                    msg <- c(msg, paste("Names:", m))
+                    msg <- c(msg, gettextf("Names: %s", m))
             } else if(lx)
                 msg <- c(msg, gettextf("names for %s but not for %s", "target", "current"))
             else msg <- c(msg, gettextf("names for %s but not for %s", "current", "target"))
