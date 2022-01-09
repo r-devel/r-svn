@@ -96,7 +96,7 @@ Sys.timezone <- function(location = TRUE)
     ## First try timedatectl: should work on any modern Linux
     ## as part of systemd (and probably nowhere else)
     if (nzchar(Sys.which("timedatectl"))) {
-        inf <- system("timedatectl", intern = TRUE)
+        inf <- suppressWarnings(system("timedatectl", intern = TRUE, ignore.stderr = TRUE))
         ## typical format:
         ## "       Time zone: Europe/London (GMT, +0000)"
         ## "       Time zone: Europe/Vienna (CET, +0100)"
