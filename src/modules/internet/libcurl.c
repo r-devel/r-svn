@@ -189,6 +189,25 @@ static const char *ftp_errstr(const long status)
     return str;
 }
 
+/* Set preferred TLS back-end on MacOS to SecureChannel,
+   unless a custom envvar CURL_SSL_BACKEND is set. This
+   must be done before first use of libcurl, see also:
+   https://curl.se/libcurl/c/curl_global_init.html */
+static void initCurlGlobal(){
+    static is_initiated = 0;
+    if(is_initiated)
+        return;
+#if (LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MINOR >= 56)
+#ifdef __APPLE__
+    if(getenv("CURL_SSL_BACKEND") == NULL){
+        curl_global_sslset(CURLSSLBACKEND_SECURETRANSPORT, NULL, NULL);
+    }
+#endif
+#endif
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    is_initiated = 1;
+}
+
 /*
   Check curl_multi_info_read for errors, reporting as warnings
 
@@ -340,6 +359,7 @@ in_do_curlGetHeaders(SEXP call, SEXP op, SEXP args, SEXP rho)
 	TLS = translateChar(STRING_ELT(sTLS, 0));
     else error(_("invalid %s argument"), "TLS");
 
+    initCurlGlobal();
     CURL *hnd = curl_easy_init();
     curl_easy_setopt(hnd, CURLOPT_URL, url);
     curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
@@ -551,6 +571,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     sheaders = CAR(args);
     if(TYPEOF(sheaders) != NILSXP && !isString(sheaders))
 	error(_("invalid '%s' argument"), "headers");
+    initCurlGlobal();
     if(TYPEOF(sheaders) != NILSXP) {
 	for (int i = 0; i < LENGTH(sheaders); i++) {
 	    struct curl_slist *tmp =
@@ -968,6 +989,7 @@ in_newCurlUrl(const char *description, const char * const mode,
 	error(_("allocation of url connection failed"));
 	/* for Solaris 12.5 */ new = NULL;
     }
+    initCurlGlobal();
     init_con(new, description, CE_NATIVE, mode);
     new->canwrite = FALSE;
     new->open = &Curl_open;
