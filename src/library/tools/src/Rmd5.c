@@ -29,9 +29,29 @@
 #include "tools.h"
 #define ROL_UNUSED
 #include "md5.h"
+#include "sha256.h"
+
+/* A stream api similar as md5_stream() */
+static int sha256_stream (FILE *stream, void *resblock){
+#define BUFSIZE 4096
+  SHA256_CTX ctx;
+  BYTE buffer[BUFSIZE];
+  sha256_init (&ctx);
+  while (1){
+    size_t n = fread (buffer, 1, BUFSIZE, stream);
+    sha256_update(&ctx, buffer, n);
+    if (n < BUFSIZE){
+      if(ferror (stream))
+        return 1;
+      break;
+    }
+  }
+  sha256_final (&ctx, resblock);
+  return 0;
+}
 
 /* .Call so manages R_alloc stack */
-SEXP Rmd5(SEXP files)
+static SEXP Rhashfiles(SEXP files, int use_sha)
 {
     SEXP ans;
     int i, j, nfiles = length(files), res;
@@ -40,9 +60,9 @@ SEXP Rmd5(SEXP files)
 #else
     const char *path;
 #endif
-    char out[33];
+    char out[65] = {0};
     FILE *fp;
-    unsigned char resblock[16];
+    unsigned char resblock[32] = {0};
 
     if(!isString(files)) error(_("argument 'files' must be character"));
     PROTECT(ans = allocVector(STRSXP, nfiles));
@@ -57,7 +77,7 @@ SEXP Rmd5(SEXP files)
 	if(!fp) {
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	} else {
-	    res = md5_stream(fp, &resblock);
+	    res = use_sha ? sha256_stream(fp, &resblock) : md5_stream(fp, &resblock);
 	    if(res) {
 #ifdef _WIN32
 		warning(_("md5 failed on file '%ls'"), wpath);
@@ -66,7 +86,7 @@ SEXP Rmd5(SEXP files)
 #endif
 		SET_STRING_ELT(ans, i, NA_STRING);
 	    } else {
-		for(j = 0; j < 16; j++)
+		for(j = 0; j < (use_sha ? 32 : 16); j++)
 		    sprintf (out+2*j, "%02x", resblock[j]);
 		SET_STRING_ELT(ans, i, mkChar(out));
 	    }
@@ -75,4 +95,12 @@ SEXP Rmd5(SEXP files)
     }
     UNPROTECT(1);
     return ans;
+}
+
+SEXP Rmd5(SEXP files){
+  return Rhashfiles(files, 0);
+}
+
+SEXP Rsha256(SEXP files){
+  return Rhashfiles(files, 1);
 }

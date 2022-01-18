@@ -21,6 +21,11 @@ md5sum <- function(files) {
     structure(.Call(C_Rmd5, files), names=files)
 }
 
+sha256sum <- function(files) {
+    files <- path.expand(files)
+    structure(.Call(C_Rsha256, files), names=files)
+}
+
 .installMD5sums <- function(pkgDir, outDir = pkgDir)
 {
     dot <- getwd()

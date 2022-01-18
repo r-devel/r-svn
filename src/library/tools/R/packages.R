@@ -227,6 +227,8 @@ function(files, type, fields, verbose, validate = FALSE)
                             if(any(l == file.path(packages[i], "src/"))) "yes" else "no"
                     }
                     temp["MD5sum"] <- md5sum(files[i])
+                    if(isTRUE(getOption("add.sha2.to.packages", TRUE)))
+                      temp["SHA2"] <- sha256sum(files[i])
                     db[[i]] <- temp
                 } else {
                     message(gettextf("reading DESCRIPTION for package %s failed with message:\n  %s",
