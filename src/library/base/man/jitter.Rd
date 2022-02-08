@@ -11,11 +11,12 @@ jitter(x, factor = 1, amount = NULL)
 }
 \arguments{
   \item{x}{numeric vector to which \emph{jitter} should be added.}
-  \item{factor}{numeric.}
-  \item{amount}{numeric; if positive, used as \emph{amount} (see below),
-    otherwise, if \code{= 0} the default is \code{factor * z/50}.
-
-    Default (\code{NULL}): \code{factor * d/5} where \code{d} is about
+  \item{factor}{numeric; value used to weight \emph{amount}.}
+  \item{amount}{numeric; used as \emph{a} (see below). If positive, 
+    used directly. 
+    If \code{= 0} \code{factor * z/50} where z is 
+    range(x[is.finite(x)])).
+    By default (\code{NULL}): \code{factor * abs(d)/5} where \code{d} is
     the smallest difference between \code{x} values.}
 }
 \description{
