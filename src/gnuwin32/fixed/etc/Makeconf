@@ -173,6 +173,7 @@ OBJCFLAGS = -O2
 OBJC_LIBS = -lobjc
 OBJCXX =
 OBJDUMP = $(BINPREF)objdump
+PKG_CONFIG = $(BINPREF)pkg-config
 R_ARCH =
 RANLIB = $(BINPREF)ranlib
 SAFE_FFLAGS = -O2 -msse2 -mfpmath=sse
