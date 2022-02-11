@@ -11,13 +11,10 @@ jitter(x, factor = 1, amount = NULL)
 }
 \arguments{
   \item{x}{numeric vector to which \emph{jitter} should be added.}
-  \item{factor}{numeric; value used to weight \emph{amount}.}
-  \item{amount}{numeric; used as \emph{a} (see below). If positive, 
-    used directly. 
-    If \code{= 0} \code{factor * z/50} where z is 
-    range(x[is.finite(x)])).
-    By default (\code{NULL}): \code{factor * abs(d)/5} where \code{d} is
-    the smallest difference between \code{x} values.}
+  \item{factor}{numeric; value used in calculation of a when \code{amount}
+                is not positive.}
+  \item{amount}{numeric; When positive, used to set the maximum and minimum 
+    for the randomization). See Details for other cases.
 }
 \description{
   Add a small amount of noise to a numeric vector.
@@ -28,20 +25,15 @@ jitter(x, factor = 1, amount = NULL)
   ties.
 }
 \details{
-  The result, say \code{r}, is \code{r <- x + runif(n, -a, a)}
-  where \code{n <- length(x)} and \code{a} is the \code{amount}
-  argument (if specified).
+  The result of \code{r <- x + runif(n, -amount, amount)}
+  where \code{n <- length(x)}.
 
-  Let \code{z <- max(x) - min(x)} (assuming the usual case).
-  The amount \code{a} to be added is either provided as \emph{positive}
-  argument \code{amount} or otherwise computed from \code{z}, as
-  follows:
+  When \code{amount} is \code{NULL} (the default) 
+  \code{amount <- factor * d/5} where \emph{d} is the smallest
+  difference between adjacent unique \code{x} values is used.
 
-  If \code{amount == 0}, we set \code{a <- factor * z/50} (same as S).
-
-  If \code{amount} is \code{NULL} (\emph{default}), we set
-  \code{a <- factor * d/5} where \emph{d} is the smallest
-  difference between adjacent unique (apart from fuzz) \code{x} values.
+  If \code{amount == 0}, \code{amount <- factor * z/50} which is 
+  the same as in S.
 }
 \references{
   Chambers, J. M., Cleveland, W. S., Kleiner, B. and Tukey, P.A. (1983)
