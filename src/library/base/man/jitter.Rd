@@ -1,6 +1,6 @@
 % File src/library/base/man/jitter.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2011 R Core Team
+% Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
 \name{jitter}
@@ -32,7 +32,7 @@ jitter(x, factor = 1, amount = NULL)
   \code{amount <- factor * d/5} where \emph{d} is the smallest
   difference between adjacent unique \code{x} values is used.
 
-  If \code{amount == 0}, \code{amount <- factor * z/50} which is 
+  If \code{amount == 0}, \code{amount <- factor * (max(x) - min(x))/50} which is 
   the same as in S.
 }
 \references{
