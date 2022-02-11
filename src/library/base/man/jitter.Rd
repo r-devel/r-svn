@@ -11,10 +11,10 @@ jitter(x, factor = 1, amount = NULL)
 }
 \arguments{
   \item{x}{numeric vector to which \emph{jitter} should be added.}
-  \item{factor}{numeric; value used in calculation of a when \code{amount}
-                is not positive.}
-  \item{amount}{numeric; When positive, used to set the maximum and minimum 
-    for the randomization). See Details for other cases.
+  \item{factor}{numeric; value used in calculation of \code{amount} when
+   the provided \code{amount} is not 0 or NULL.}
+  \item{amount}{numeric; When not 0 or NULL, used to set the maximum and 
+    minimum for the randomization). See Details for other cases.
 }
 \description{
   Add a small amount of noise to a numeric vector.
