@@ -4,7 +4,7 @@ A mirror of R [svn-trunk](https://svn.r-project.org/R/trunk/) for tracking chang
 
 ## How it works
 
-This mirror synchronises every 15 minutes with the official R [svn server](https://svn.r-project.org/R/trunk/). Each new commit triggers a build on every platform, and the results are published on: https://r-devel.github.io, which shows an overview of the most recent revisions, including links to the build logs. 
+This mirror synchronises every 15 minutes with the official R [svn server](https://svn.r-project.org/R/trunk/). Each new commit triggers a build on every platform, and the results are published on: https://contributor.r-project.org/svn-dashboard, which shows an overview of the most recent revisions, including links to the build logs.
 
 The Github icon in the last column links to the GitHub actions page for each build, where you can also download the generated Windows installer. These installers are not signed, they are only for testing.
 
