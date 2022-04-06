@@ -438,22 +438,25 @@ int progress(void *clientp, double dltotal, double dlnow,
 	     double ultotal, double ulnow)
 {
     static int factor = 1;
+    CURL *hnd = (CURL *) clientp;
+    long status;
+    curl_easy_getinfo(hnd, CURLINFO_RESPONSE_CODE, &status);
     // we only use downloads.  dltotal may be zero.
-    if (dltotal > 0.) {
+    if ((status < 300) && (dltotal > 0.)) {
 	if (total == 0.) {
 	    total = dltotal;
 	    char *type = NULL;
-	    CURL *hnd = (CURL *) clientp;
 	    curl_easy_getinfo(hnd, CURLINFO_CONTENT_TYPE, &type);
+	    REprintf("Content type '%s'", type ? type : "unknown");
 	    if (total > 1024.0*1024.0)
 		// might be longer than long, and is on 64-bit windows
 		REprintf(" length %0.0f bytes (%0.1f MB)\n",
 			 total, total/1024.0/1024.0);
 	    else if (total > 10240)
-		REprintf("Content length %d bytes (%d KB)\n",
+		REprintf(" length %d bytes (%d KB)\n",
 			 (int)total, (int)(total/1024));
 	    else
-		REprintf("Content length %d bytes\n", (int)total);
+		REprintf(" length %d bytes\n", (int)total);
 	    R_FlushConsole();
 	    if(R_Interactive) {
 		if (total > 1e9) factor = total/1e6; else factor = 1;
