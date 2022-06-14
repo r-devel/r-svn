@@ -8,21 +8,41 @@
 \section{\Rlogo CHANGES IN R-devel}{
   \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
     \itemize{
-      \item Calling \code{&&} or \code{||} with either argument of
-      length greater than one is now an error.
-      [Scheduled for May 2.]
+      \item Calling \code{&&} or \code{||} with LHS or (if evaluated) RHS of
+      length greater than one is now always an error, with a report of
+      the form
+\preformatted{    'length = 4' in coercion to 'logical(1)'}
+
+      Environment variable \env{_R_CHECK_LENGTH_1_LOGIC2_} no longer has
+      any effect.
     }
   }
 
   \subsection{NEW FEATURES}{
     \itemize{
       \item The included BLAS sources have been updated to those
-      included in LAPACK version 3.10.1,
+      shipped with LAPACK version 3.10.1.  This causes some
+      (platform-dependent) changes to package check output.
+
+      \item The parser now signals \emph{classed} errors, notably in
+      case of the pipe operator \code{|>}.  The error object and
+      message now give line and column numbers, mostly as proposed and
+      provided by Duncan Murdoch in \PR{18328}.
+
+      \item \code{toeplitz()} is now generalized for asymmetric cases,
+      with a \code{toeplitz2()} variant.
     }
   }
 
   \subsection{INSTALLATION on a UNIX-ALIKE}{
     \itemize{
+
+      \item The included LAPACK sources have been updated to include the
+      four Fortran 90 routines rather than their Fortran 77
+      predecessors.  This may give some different signs in SVDs or
+      eigendecompositions..  (This completes the transition to LAPACK
+      3.10.x begun in \R 4.2.0.)
+
       \item A system installation of generic LAPACK 3.10.0 or later will
       be preferred to the version in the \R sources.
 
@@ -34,31 +54,29 @@
       \code{liblapack} is looked for and used if it reports version
       3.10.0 or later and does not contain BLAS routines.
 
-      Using 3.10.x may give some different signs from earlier versions
-      in SVDs or eigendecompositions.
-
       Packages using LAPACK will need to be reinstalled if this changes
       to using an external library.
+    }
+  }
 
-      \item The included LAPACK sources have been updated to include
-      the four Fortran 90 routines rather than their Fortran 77
-      predecessors.  This may give some different signs in SVDs.
+  \subsection{FORTRAN FLAGS}{
+    \itemize{
+      \item The flag \option{-fno-optimize-sibling-calls} is no longer
+      forced for \command{gfortran} 7 and later.  It should no longer be
+      needed now using \sQuote{hidden} character-length arguments when
+      calling BLAS/LAPACK routines from C/C++ is the default even for
+      packages.  (Unless perhaps packages call Fortran code from C/C++
+      without using \R{}'s headers and without allowing for these
+      arguments.)
     }
   }
 
   \subsection{PACKAGE INSTALLATION}{
     \itemize{
       \item \code{USE_FC_LEN_T} is the default: this uses the
-      correct prototypes for Fortran BLAS/LAPACK routines called from
-      C/C++, and requires adjustment of most such calls -- see
-      \sQuote{Writing R Extensions} §6.6.1.
-
-      [In progress: scheduled for May 5 if enough packages are
-      corrected before then.
-
-      Setting environment variable \env{_R_INSTALL_USE_FC_LEN_T_} to a
-      true value enables this \emph{pro tem}.  This is set by \command{R
-	CMD check --as-cran} when it installs a package.]
+      correct (compiler-dependent) prototypes for Fortran BLAS/LAPACK
+      routines called from C/C++, and requires adjustment of many such
+      calls -- see \sQuote{Writing R Extensions} §6.6.1.
     }
   }
 
@@ -67,34 +85,172 @@
       \item The deprecated S-compatibility macros \code{DOUBLE_*} in
       \file{R_ext/Constants.h} (included by \file{R.h}) have been
       removed.
-      [Scheduled for Apr 23.]
+
+      \item The deprecated legacy typedefs of \code{Sint} and
+      \code{Sfloat} in header \file{R.h} can be excluded by defining
+      macro \code{NO_S_TYPEDEFS} before including the header.  This is
+      defined when using \command{R CMD check --as-cran} or by defining the
+      environment variable \env{_R_NO_S_TYPEDEFS_} to a true value when
+      running \command{R CMD check}.
+
+      If these are excluded, \file{R.h} no longer includes header
+      \file{limits.h} (nor \file{climits} from C++).
+
+      [This is intended to become the default before release.]
     }
   }
 
   \subsection{UTILITIES}{
     \itemize{
-      \item \command{R CMD check} does more checking of package Rd
+      \item \command{R CMD check} does more checking of package \file{.Rd}
       files, warning about invalid email addresses and (some) invalid
       URIs and noting empty \samp{\item} labels in description lists.
     }
   }
 
+  \subsection{DEPRECATED AND DEFUNCT}{
+    \itemize{
+      \item \code{default.stringsAsFactors()} is defunct.
+    }
+  }
+
   \subsection{BUG FIXES}{
     \itemize{
-      \item Hashed \code{environment}s with sizes less than 5 now can grow,
-      too. (Reported to R-devel by Duncan Garmonsway.)
+      \item Hashed \code{environment}s with sizes less than 5 can now grow.
+      (Reported to R-devel by Duncan Garmonsway.)
+
+      \item \code{as.character(<Rd>, deparse = TRUE)} failed to
+      re-escape curly braces in LaTeX-like text.
+      (Reported by Hadley Wickham in \PR{18324}.)
+
+      \item \code{library()} now passes its \code{lib.loc} argument when
+      requiring \code{Depends} packages; reported (with fix) in \PR{18331}
+      by Mikael Jagan.
+
+      \item \code{R CMD Stangle}: improved message about \sQuote{Output}
+      files.
     }
   }
 }
 
 \section{\Rlogo CHANGES IN R 4.2.0 patched}{
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item New function \code{utils::findCRANmirror()} to find out if a
+      \acronym{CRAN} mirror has been selected, otherwise fallback to
+      the main site.  This behaves in the same way as
+      \code{tools::CRAN_package_db()} and is intended for packages
+      wishing to access \acronym{CRAN} for purposes other than
+      installing packages.
+
+      The need for this was shown by a day when the main \acronym{CRAN}
+      website was offline and a dozen or so packages which had its URL
+      hardcoded failed their checks.
+    }
+  }
+
   \subsection{INSTALLATION on a UNIX-ALIKE}{
     \itemize{
       \item The libraries searched for by \option{--with-blas} (without
       a value) now include BLIS (after OpenBLAS but before ATLAS).  And
-      on macOS, the Accelerate framework (after ATLAS).
+      on macOS, the Accelerate framework (after ATLAS).  (This is
+      patterned after the \code{AX_BLAS} macro from the Autoconf Archive.)
 
       \item The included LAPACK sources have been updated to 3.10.1.
+    }
+  }
+  \subsection{UTILITIES}{
+    \itemize{
+      \item The (full path to) the command \command{tidy} to be used for
+      HTML validation can be set by environment variable \env{R_TIDYCMD}.
+
+      \item Setting environment variable
+      \env{_R_CHECK_RD_VALIDATE_RD2HTML_} to a false value will override
+      \command{R CMD check --as-cran} and turn off HTML validation.
+      This provides a way to circumvent a problematic \command{tidy}.
+
+      The 2006 version that ships with macOS is always skipped.
+    }
+  }
+
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item The undocumented legacy declarations of \code{Sint},
+      \code{Sfloat}, \code{SINT_MAX} and \code{SINT_MIN} in header
+      \file{R.h} are deprecated.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{fisher.test(d)} no longer segfaults for \dQuote{large}
+      \code{d}; fixing \PR{18336} by preventing/detecting an integer
+      overflow reliably.
+
+      \item \code{tar(., files=*)} now produces correctly the warning
+      about invalid uid or gid of files, fixing \PR{18344}, reported by
+      Martin Morgan.
+
+      \item \code{tk_choose.files()} with \code{multi = FALSE}
+      misbehaved on paths containing spaces (\PR{18334}) (regression
+      introduced in \R 4.0.0).
+
+      \item \code{sort(x, partial = ind, *)} now works correctly notably for
+      the non-default \code{na.last = FALSE} or \code{TRUE}, fixing
+      \PR{18335} reported by James Edwards.
+
+      \item Environment variable \env{_R_CHECK_XREFS_REPOSITORIES_} is
+      only used for checking \file{.Rd} cross-references in \command{R
+      CMD check} (as documented) and not for other uses looking for a
+      \acronym{CRAN} mirror.
+
+      \item The search for a \acronym{CRAN} mirror when checking
+      packages now uses \code{getOption("repos")} if that specifies a
+      \acronym{CRAN} mirror, even when it does not also specify all three
+      Bioconductor repositories (as was previously required).
+    }
+  }
+
+  \subsection{BUG FIXES on Windows}{
+    \itemize{
+      \item Writing to a clipboard connection works again, fixing a
+      regression in \R 4.2.0 (\PR{18332}).  Re-using a closed clipboard
+      connection longer issues a spurious warning about an ignored
+      encoding argument.
+
+      \item C function \code{getlocale} no longer attempts to query an
+      unsupported category from the OS, even when requested at R level,
+      which may cause crashes when \R 4.2.0 (which uses UCRT) is
+      embedded (reported by Kevin Ushey).
+
+      \item Accent keys now work in GraphApp Unicode windows, which are
+      used by \command{Rgui} whenever running in a multibyte locale (so
+      also in UTF-8, hence fixing a regression in \R 4.2.0 for users of
+      systems where \R 4.1 used a single-byte locale).
+
+      \item Completion in \command{Rgui} now works also with
+      non-ASCII characters.
+
+      \item \command{Rgui} no longer truncates usage information with
+      \option{--help}.
+
+      \item Text injection from external applications via
+      \code{SendInput} now works in GraphApp Unicode windows, fixing a
+      regression in \R 4.2.0 for \command{Rgui} users of systems where
+      \R 4.1 used a single-byte locale but \R 4.2.0 uses UTF-8.
+
+      \item Performance of \code{txtProgressBar()} in \command{Rgui} when
+      running in a multi-byte locale has been improved (fixing a
+      performance regression in \R 4.2.0 for users of systems where \R
+      4.1 used a single-byte locale).
+
+      \item The script editor in \command{Rgui} now works also on
+      systems using UTF-8 as the native encoding.  Users of the script
+      editor have to convert their scripts with non-ASCII characters to
+      UTF-8 before reading them in \R 4.2.1 or newer (on recent Windows
+      where UTF-8 is used).  This fixes a regression in \R 4.2.0, which
+      prevented some operations with scripts when they contained
+      non-ASCII characters.
     }
   }
 }
@@ -347,6 +503,9 @@
       or \code{"years"} for consistency with the \code{POSIXt} method,
       thanks to Dirk Eddelbuettel's proposal in \PR{18099}.
 
+      \item \code{list2DF()} now checks that its arguments are of the
+      same length, rather than use recycling.
+
       \item The HTML help system has several new features: LaTeX-like
       math can be typeset using either \href{https://katex.org/}{KaTeX}
       or \href{https://www.mathjax.org/}{MathJax}, usage and example
@@ -429,7 +588,7 @@
       \command{gcc} 10.3 MinGW-W64 UCRT toolchain.
 
       \item \file{Rtools42} by default uses the Windows security
-      features ASLR and DEP; hence CRAN builds of \R and packages also
+      features ASLR and DEP; hence \acronym{CRAN} builds of \R and packages also
       do.
 
       \item \R now supports files \file{Makevars.ucrt},
@@ -519,7 +678,7 @@
       \item \code{USE_FC_LEN_T} will become the default: this uses the
       correct prototypes for Fortran BLAS/LAPACK routines called from
       C/C++, and requires adjustment of most such calls -- see
-      \sQuote{Writing R Extensions} §6.6.2.   (This has been supported
+      \sQuote{Writing R Extensions} §6.6.1.   (This has been supported
       since \R 3.6.2.)
 
       \item Package installation speed for packages installed with
@@ -576,6 +735,12 @@
       install-time \verb{\Sexpr}) but no other dynamic Rd content,
       \command{R CMD build} now produces a smaller tarball and is
       considerably faster -- skipping temporary package installation.
+
+      \item \command{R CMD check} can optionally (but included in
+      \option{--as-cran}) validate the HTML produced from the packages
+      \file{.Rd} files.  See
+      \url{https://blog.r-project.org/2022/04/08/enhancements-to-html-documentation/index.html}
+      : this needs a fairly recent version of HTML tidy to be available.
     }
   }
 

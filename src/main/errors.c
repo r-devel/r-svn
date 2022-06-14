@@ -2188,18 +2188,11 @@ do_interruptsSuspended(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(orig_value);
 }
 
-/*
-  Currently called from
-
-  (Formerly eval.c by asLogicalNoNA with warnByDefault = TRUE.)
-
-  coerce.c
-  by asLogical2 with warnByDefault = TRUE (was FALSE)
- */
+#if 0
 void attribute_hidden
 R_BadValueInRCode(SEXP value, SEXP call, SEXP rho, const char *rawmsg,
                   const char *errmsg, const char *warnmsg,
-                  const char *varname, Rboolean warnByDefault)
+                  const char *varname, Rboolean errByDefault)
 {
     /* disable GC so that use of this temporary checking code does not
        introduce new PROTECT errors e.g. in asLogical() use */
@@ -2359,15 +2352,15 @@ R_BadValueInRCode(SEXP value, SEXP call, SEXP rho, const char *rawmsg,
     }
     if (abort)
 	R_Suicide(rawmsg);
-    else if (err)
-	errorcall(call, errmsg);
-    else if (warn || warnByDefault)
+    else if (warn)
 	warningcall(call, warnmsg);
+    else if (err || errByDefault)
+	errorcall(call, errmsg);
     vmaxset(vmax);
     UNPROTECT(nprotect);
     R_GCEnabled = enabled;
 }
-
+#endif
 
 /* These functions are to be used in error messages, and available for others to use in the API
    GetCurrentSrcref returns the first non-NULL srcref after skipping skip of them.  If it
@@ -2823,11 +2816,12 @@ SEXP R_makeOutOfBoundsError(SEXP x, int subscript, SEXP sindex,
        probably do better, but for now report 'subscript' as NA in the
        condition objec. */
     SEXP ssub = ScalarInteger(subscript >= 0 ? subscript + 1 : NA_INTEGER);
+    PROTECT(ssub);
 
     R_setConditionField(cond, 2, "object", x);
     R_setConditionField(cond, 3, "subscript", ssub);
     R_setConditionField(cond, 4, "index", sindex);
-    UNPROTECT(1); /* cond */
+    UNPROTECT(2); /* cond, ssub */
 
     return cond;
 }

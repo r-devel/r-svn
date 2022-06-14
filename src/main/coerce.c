@@ -1775,27 +1775,17 @@ SEXP attribute_hidden do_ascall(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* call and rho are only needed for _R_CHECK_LENGTH_1_LOGIC2_ checking
-       and diagnostics; to be removed if length>1 value is turned to error */
 /* return int, not Rboolean, for NA_LOGICAL : */
-int asLogical2(SEXP x, int checking, SEXP call, SEXP rho)
+int asLogical2(SEXP x, int checking, SEXP call)
 {
     int warn = 0;
 
     if (isVectorAtomic(x)) {
 	if (XLENGTH(x) < 1)
 	    return NA_LOGICAL;
-	if (checking && XLENGTH(x) > 1) {
-	    char msg[128];
-	    snprintf(msg, 128, _("'length(x) = %lld > 1' in coercion to '%s'"),
-		    (long long) XLENGTH(x), "logical(1)");
-	    R_BadValueInRCode(x, call, rho,
-		"length > 1 in coercion to logical",
-		msg,
-		msg,
-		"_R_CHECK_LENGTH_1_LOGIC2_",
-		TRUE /* by default warn */);
-	}
+	if (checking && XLENGTH(x) > 1)
+	    errorcall(call, _("'length = %lld' in coercion to '%s'"),
+		      (long long) XLENGTH(x), "logical(1)");
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	    return LOGICAL_ELT(x, 0);
@@ -1820,7 +1810,7 @@ int asLogical2(SEXP x, int checking, SEXP call, SEXP rho)
 
 int asLogical(SEXP x)
 {
-    return asLogical2(x, /* checking = */ 0, R_NilValue, R_NilValue);
+    return asLogical2(x, /* checking = */ 0, R_NilValue);
 }
 
 

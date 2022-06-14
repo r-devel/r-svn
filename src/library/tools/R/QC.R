@@ -4502,7 +4502,8 @@ function(package, dir, lib.loc = NULL)
 
     unknown <- unique(unknown)
     if (length(unknown)) {
-        repos <- .get_standard_repository_URLs()
+        ## respect _R_CHECK_XREFS_REPOSITORIES_ for this use
+        repos <- .get_standard_repository_URLs(ForXrefs = TRUE)
         ## Also allow for additionally specified repositories.
         aurls <- pkgInfo[["DESCRIPTION"]]["Additional_repositories"]
         if(!is.na(aurls)) {
@@ -5602,7 +5603,7 @@ function(dir) {
                 return(Recall(e[[2L]]))
             else if(s %in% c("||", "&&", "|", "&"))
                 return(Recall(e[[2L]]) || Recall(e[[3L]]))
-            else if(s %in% c("==", "!-") &&
+            else if(s %in% c("==", "!=") &&
                     is.call(e2 <- e[[2L]]) &&
                     (as.character(e2[[1L]])[1L] == "class") &&
                     is.character(e[[3L]]) &&
@@ -6009,7 +6010,7 @@ function(x, ...)
     ignore_unused_imports <-
         config_val_to_logical(Sys.getenv("_R_CHECK_PACKAGES_USED_IGNORE_UNUSED_IMPORTS_",
                                          "FALSE"))
-
+                                        # ^^^^^ rather "TRUE" ??
     c(character(),
       if(length(xx <- x$imports)) {
           if(length(xx) > 1L) {
@@ -6245,7 +6246,7 @@ function(db, files)
                      },
                      error = function(e) {
                          ## so ignore 'invalid multibyte character' errors.
-                         msg <- .massage_file_parse_error_message(conditionMessage(e))
+                         msg <- .massage_file_parse_error(e)
                          if(!startsWith(msg, "invalid multibyte character"))
                          {
                              parse_errors <<- c(parse_errors, f)
@@ -9170,10 +9171,22 @@ function(cls)
 }
 
 ### ** .massage_file_parse_error_message
-
 .massage_file_parse_error_message <-
 function(x)
     sub("^[^:]+:[[:space:]]*", "", x)
+
+## get rid of "file/name" where file/name maybe "<text>"
+## new *classed* parseError messages look like
+##    "function '(' not supported in RHS call of a pipe (filename:1:8)"
+.massage_file_parse_error <- function(e) { # 'e' : the error itself
+    msg <- conditionMessage(e)
+    if(inherits(e, "parseError"))
+        ## get rid of 'file name:'
+        sub("\\([^:]+:(.*)\\)", "(\\1)", msg)
+    else ## old version: == .massage_file_parse_error_message(msg)
+        sub("^[^:]+:[[:space:]]*", "", msg)
+}
+
 
 ### ** .package_env
 
@@ -9188,15 +9201,20 @@ function(package_name)
 .parse_text_as_much_as_possible <-
 function(txt)
 {
-    exprs <- tryCatch(str2expression(txt), error = identity)
+    fun <- function(txt) {
+        if(!l10n_info()$MBCS && identical(Encoding(txt), "UTF-8"))
+            parse(text = txt, encoding = "UTF-8")
+        else
+            str2expression(txt)
+    }
+    exprs <- tryCatch(fun(txt), error = identity)
     if(!inherits(exprs, "error")) return(exprs)
     exprs <- expression()
     lines <- unlist(strsplit(txt, "\n"))
     bad_lines <- character()
     while((n <- length(lines))) {
         i <- 1L; txt <- lines[1L]
-        while(inherits(yy <- tryCatch(str2expression(txt),
-                                      error = identity),
+        while(inherits(yy <- tryCatch(fun(txt), error = identity),
                        "error")
               && (i < n)) {
             i <- i + 1L; txt <- paste(txt, lines[i], collapse = "\n")

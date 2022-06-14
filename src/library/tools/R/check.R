@@ -2260,7 +2260,7 @@ add_dummies <- function(dir, Log)
             print_time(t1, t2, Log)
             if (length(out)) {
                 if(length(grep(paste("^prepare.*Dropping empty section",
-                                     "^check.*\\item.*must have non-empty label",
+                                     "^checkRd: \\(-",
                                      sep = "|"),
                                out, invert = TRUE)))
                     warningLog(Log)
@@ -4890,10 +4890,24 @@ add_dummies <- function(dir, Log)
     }
 
     check_Rd2HTML <- function(pkgdir) {
-        if(!nzchar(Sys.which("tidy")) ||
-           !startsWith(system2("tidy", "--version", stdout = TRUE),
-                       "HTML Tidy"))
+        ## require HTML Tidy, and not macOS's ancient version.
+        msg <- ""
+        Tidy <- Sys.getenv("R_TIDYCMD", "tidy")
+        OK <- nzchar(Sys.which(Tidy))
+        if(OK) {
+            ver <- system2(Tidy, "--version", stdout = TRUE)
+            OK <- startsWith(ver, "HTML Tidy")
+            if(OK) {
+                OK <- !grepl('Apple Inc. build 2649', ver)
+                if(!OK) msg <- ": 'tidy' is Apple's too old build"
+                ## Maybe we should also check version,
+                ## but e.g. Ubuntu 16.04 does not show one.
+            } else msg <- ": 'tidy' is not NTML Tidy"
+        } else msg <- ": no command 'tidy' found"
+        if(!OK) {
+            messageLog(Log, "skipping checking HTML version of manual", msg)
             return()
+        }
         db <- Rd_db(dir = pkgdir)
         if(!length(db))
             return()
@@ -4920,7 +4934,7 @@ add_dummies <- function(dir, Log)
                           function(x)
                               tryCatch({
                                   Rd2HTML(x, out)
-                                  tidy_validate(out)
+                                  tidy_validate(out, tidy = Tidy)
                               },
                               error = identity))
         names(results) <- names(db)
@@ -5313,6 +5327,7 @@ add_dummies <- function(dir, Log)
                              ": warning: .*\\[-Wanalyzer-file-leak\\]",
                              ": warning: .*\\[-Wanalyzer-use-after-free\\]",
                              ": warning: .*\\[-Wanalyzer-free-of-non-heap\\]",
+                             ": warning: .*\\[-Wint-in-bool-context\\]",
                              ## gcc and clang
                              ": warning: .*\\[-Wpointer-sign\\]",
                              ## gcc and clang reports on use of #warning
@@ -6421,9 +6436,10 @@ add_dummies <- function(dir, Log)
     R_check_code_class_is_string <-
         config_val_to_logical(Sys.getenv("_R_CHECK_CODE_CLASS_IS_STRING_",
                                          "FALSE"))
+
+    tmp <- Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_", "unset")
     R_check_Rd_validate_Rd2HTML <-
-        config_val_to_logical(Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_",
-                                         "FALSE"))
+        if(tmp == "unset") NA else config_val_to_logical(tmp)
 
     if (!nzchar(check_subdirs)) check_subdirs <- R_check_subdirs_strict
 
@@ -6462,9 +6478,9 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_SHLIB_OPENMP_FLAGS_" = "TRUE")
         Sys.setenv("_R_CHECK_FUTURE_FILE_TIMESTAMPS_" = "TRUE")
         Sys.setenv("_R_CHECK_RD_CONTENTS_KEYWORDS_" = "TRUE")
-        ## CRAN incoming checks do use abort,verbose
-        chkPkg.v <- "package:_R_CHECK_PACKAGE_NAME_,abort,verbose"
-        Sys.setenv1("_R_CHECK_LENGTH_1_LOGIC2_"   , chkPkg.v)
+#        ## CRAN incoming checks do use abort,verbose
+#        chkPkg.v <- "package:_R_CHECK_PACKAGE_NAME_,abort,verbose"
+#        Sys.setenv1("_R_CHECK_LENGTH_1_LOGIC2_"   , chkPkg.v)
         Sys.setenv("_R_CHECK_CODOC_VARIABLES_IN_USAGES_" = "TRUE")
         Sys.setenv("_R_CHECK_DATALIST_" = "TRUE")
         if(!WINDOWS) Sys.setenv("_R_CHECK_BASHISMS_" = "TRUE")
@@ -6477,6 +6493,7 @@ add_dummies <- function(dir, Log)
         ## allow this to be overridden if there is a problem elsewhere
         prev <- Sys.getenv("_R_CHECK_MATRIX_DATA_",  NA_character_)
         if(is.na(prev)) Sys.setenv("_R_CHECK_MATRIX_DATA_" = "TRUE")
+        Sys.setenv("_R_NO_S_TYPEDEFS_" = "TRUE")
         R_check_vc_dirs <- TRUE
         R_check_executables_exclusions <- FALSE
         R_check_doc_sizes2 <- TRUE
@@ -6496,11 +6513,9 @@ add_dummies <- function(dir, Log)
         R_check_vignette_titles <- TRUE
         R_check_bogus_return <- TRUE
         R_check_code_class_is_string <- TRUE
-        R_check_Rd_validate_Rd2HTML <- TRUE
+        if(is.na(R_check_Rd_validate_Rd2HTML))
+            R_check_Rd_validate_Rd2HTML <- TRUE
 
-        ## Temporary until it becomes the default.
-        ## Only used when check does the installation itself.
-        Sys.setenv("_R_INSTALL_USE_FC_LEN_T_" = "TRUE")
     } else {
         ## do it this way so that INSTALL produces symbols.rds
         ## when called from check but not in general.
@@ -6891,7 +6906,7 @@ add_dummies <- function(dir, Log)
                 check_pkg_manual(pkgdir, desc["Package"])
         }
 
-        if(!extra_arch && do_manual && R_check_Rd_validate_Rd2HTML)
+        if(!extra_arch && do_manual && isTRUE(R_check_Rd_validate_Rd2HTML))
             check_Rd2HTML(pkgdir)
 
         if (!is_base_pkg && check_incoming && no_examples &&

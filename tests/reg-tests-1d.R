@@ -2092,17 +2092,6 @@ stopifnot(exprs = {
 ## nextn(214e7) hang in infinite loop; nextn(<large>) gave NA  in R <= 3.5.1
 
 
-## More strictness in '&&' and '||' :
-Sys.getenv("_R_CHECK_LENGTH_1_LOGIC2_", unset=NA) -> oEV
-Sys.setenv("_R_CHECK_LENGTH_1_LOGIC2_" = "warn")# is the default as from R 4.2.0
-## but may have been set more stringently
-tools::assertWarning(1 && 0:1)
-Sys.setenv("_R_CHECK_LENGTH_1_LOGIC2_" = TRUE) # => error (when triggered)
-tools::assertError(0 || 0:1)
-if(is.na(oEV)) {Sys.unsetenv ("_R_CHECK_LENGTH_1_LOGIC2_")
-} else Sys.setenv("_R_CHECK_LENGTH_1_LOGIC2_" = oEV)
-
-
 ## polym() in "vector" case PR#17474
 fm <- lm(Petal.Length ~ poly(cbind(Petal.Width, Sepal.Length), 2),
          data = iris)
@@ -3240,17 +3229,20 @@ stopifnot(exprs = { is.matrix(M) ; dim(M) == c(5,3)
 ## all but the first 4 cases worked already in R <= 3.6.1
 
 
-## two-arg Rd macros (PR#17627)
+## multi-arg Rd macros (PR#17627 and PR#18324#c4)
 parse_Rd_txt <- function(ch) tools::parse_Rd(textConnection(ch), fragment = TRUE)
 rd1 <- parse_Rd_txt(t1 <- "\\if{html}{\\out{<hr>}}")
 rd2 <- parse_Rd_txt(t2 <- "\\href{https://www.r-project.org}{some text}")
+rd3 <- parse_Rd_txt(t3 <- "\\ifelse{a}{b}{c}")
 (tx1 <- paste(as.character(rd1), collapse = ""))
 (tx2 <- paste(as.character(rd2), collapse = ""))
+(tx3 <- paste(as.character(rd3), collapse = ""))
 stopifnot(exprs = {
     identical(paste0(t1,"\n"), tx1)
     identical(paste0(t2,"\n"), tx2)
+    identical(paste0(t3,"\n"), tx3)
 })
-## had duplicated braces in R < 4.0.0
+## had duplicated braces in R < 4.0.0 (if, href) / R < 4.3.0 (ifelse)
 
 
 ## power.t.test() failure for very small (unreasonable) n;  R-devel m.list Oct.4, 2019
@@ -4024,12 +4016,16 @@ rm(p)
 # (wrong in R 4.0.0; reported by Gabor Csardi)
 
 
-## make sure there is n aliasing in assignments with partial matching
+## make sure there is no aliasing in assignments with partial matching
 v <- list(misc = c(1))
 v$mi[[1]] <- 2
 stopifnot(v$misc == 1)
+## check compiled code also (PR18349)
+v <- list(misc = c(1))
+eval(compiler::compile(quote(v$mi[[1]] <- 2)))
+stopifnot(v$misc == 1)
 rm(v)
-# defensive reference counts needed; missing in R 4.0.0
+## defensive reference counts needed; missing in R 4.0.0
 
 
 ## round() & signif() with one / wrong (named) argument(s):
@@ -5857,6 +5853,142 @@ ehLs <- lapply(1:6, function(sz) list2env(l, hash=TRUE, size = sz))
 (nch <- vapply(ehLs, \(.) env.profile(.)$nchains, 0))# gave  1 2 3 4 109 109
 stopifnot(nch >= 24) # seeing  106 .. 106 111
 ## hashed environments did not grow for size <= 4 in  R <= 4.1.x
+
+
+## as.character.Rd(deparse = TRUE) with curly braces in TEXT -- PR#18324
+rd <- tools::parse_Rd(textConnection(txt0 <- r"(\link[=Paren]{\{})"),
+                      fragment = TRUE)
+cat(txt1 <- paste0(as.character(rd, deparse = TRUE), collapse = ""))
+stopifnot(identical(paste0(txt0, "\n"), txt1))
+## failed to re-escape curly brace in R <= 4.2.x
+## curly braces used for grouping tokens are not escaped:
+rdgroup <- tools::parse_Rd(textConnection(r"(a {b} c)"), fragment = TRUE)
+stopifnot(identical(as.character(rdgroup, deparse = TRUE),
+                    as.character(rdgroup, deparse = FALSE)))
+##
+
+
+## Errors from parsing (notably with |> ) now return *classed* errors with line numbers
+## From  PR#18328 - by Duncan Murdoch
+txts <- setNames(, c(
+    "f <- function(x, x) {}"
+  , "123 |> str"
+  , "123 |> return()"
+  , "123 |> `+`(_, 4)"
+  , "123 |> (_ + 4)"
+  , "123 |> f(a = _, b = _)"
+  , "123 |> (\\(x) foo(bar = _))()"
+  , "123 |> x => log(x)"
+  , "'\\uh'"
+  , "'\\Uh'"
+  , "'\\xh'"
+  , "'\\c'"
+  , "'\\0'"
+  , "'\\U{badf00d}"
+  , "'\\Ubadf00d"
+))
+errs <- lapply(txts, function(ch) tryCatch(parse(text = ch), error=identity))
+## nicely print them
+msgs <- lapply(errs, `[[`, "message") ; str(msgs)
+(cls <- t(sapply(errs, class)))
+uerrs <- unname(errs) # (speed)
+nL <- vapply(uerrs, `[[`, 0L, "lineno")
+nC <- vapply(uerrs, `[[`, 0L, "colno")
+stopifnot(exprs = {
+    vapply(uerrs, inherits, NA, what = "error")
+    vapply(uerrs, inherits, NA, what = "parseError")
+    nL == 1L
+    nC == c(18L, rep(8L, 6), 10L, rep(3L, 5), 12L, 10L)
+    ## see all "<l>:<n>" strings as part of the message:
+    mapply(grepl, paste(nL, nC, sep = ":"), msgs)
+})
+## gave just simpleError s; no line:column numbers in R <= 4.2.0
+
+
+## fisher.test() with "too full" table:  PR#18336
+d <- matrix(c(1,0,5,2,1,90
+             ,2,1,0,2,3,89
+             ,0,0,0,1,0,14
+             ,0,0,0,0,0, 5
+             ,0,0,0,0,0, 2
+             ,0,0,0,0,0, 2
+              ), nrow=6, byrow = TRUE)
+(r <- tryCid(fisher.test(d)))
+stopifnot(inherits(r, "error"))
+if(englishMsgs)
+    stopifnot(grepl("hash key .* > INT_MAX", conditionMessage(r)))
+## gave a seg.fault in R <= 4.2.0
+
+
+## Testing fix for PR#18344 [ tar() warning about illegal uid/gid ]:
+sys <- Sys.info() # Only 'root' can create files with illegal uid/gid
+if(sys[["sysname"]] == "Linux" & sys[["effective_user"]] == "root") {
+    dir.create(mdir <- file.path(tempdir(),"stuff"))
+    for(f in letters[1:3])
+        writeLines("first line", file.path(mdir, f))
+    owd <- setwd(tempdir())
+    system(paste("chown 654321 stuff/a")) ## system(paste("chgrp 123456 stuff/b"))
+    r <- tryCatch( tar('stuff.tar', "stuff"), warning = identity)
+    stopifnot(inherits(r, "warning"))
+    if(englishMsgs)
+        stopifnot(grepl("^invalid uid ", conditionMessage(r)))
+    ## cat("Inside directory ", getwd(),":\n"); system("ls -l stuff.tar")
+    setwd(owd)# go back
+} else
+    message("You are not root, hence cannot change uid / gid to invalid values")
+## gave 2 warnings per wrong file; the first being    In sprintf(gettext(....):
+##    "one argument not used by format 'invalid uid value replaced .... 'nobody''"
+
+
+## sort(x, partial, *) notably for na.last=FALSE and TRUE -- PR#18335
+chkSortP <- function(x, partial) {
+    stopifnot(partial == as.integer(partial),
+              1 <= partial, partial <= length(x))
+    nok <- sum(!is.na(x))
+    if(anyNA(x) && any(partial > nok)) ## cannot use na.last=NA
+         Ls <- c(   FALSE,TRUE)
+    else Ls <- c(NA,FALSE,TRUE)
+    S <- lapply(Ls, function(v) sort(x, na.last=v))
+    P <- lapply(Ls, function(v) sort(x, na.last=v, partial=partial))
+    ok1 <- identical(lapply(S, `[`, partial),
+                     lapply(P, `[`, partial))
+    ## test "ones below" and "ones above" the (min and max) partials
+    mip <- min(partial)
+    map <- max(partial)
+    noNA <- function(u) u[!is.na(u)]
+    chkPord <- function(y) {
+        n <- length(y)
+        all(noNA(y[if(mip > 1) 1L:(mip-1L)]) <= noNA(y[mip])) &&
+        all(noNA(y[if(map < n)  (map+1L):n]) >= noNA(y[map]))
+    }
+    ok1 && all(vapply(P, chkPord, logical(1)))
+}
+
+x <- c(7, 2, 4, 5, 3, 6, NA)
+x1 <- c( 2,3,1, NA)
+x2 <- c(NA,3,1, NA)
+x14 <- c(7, 2, 0, 8, -1, -2, 9, 4, 5, 3, 6, 1, NA,NA)
+stopifnot(exprs = {
+    chkSortP(x, partial = 3)
+    chkSortP(x, partial = c(3,5))
+    chkSortP(x1, partial = 3)
+    chkSortP(x1, partial = 4)
+    chkSortP(x1, partial = 3:4)
+    chkSortP(x2, partial = 4)
+    chkSortP(x2, partial = 3)
+    chkSortP(x2, partial = 2:4)
+    sapply(seq_along(x14), function(p) chkSortP(x14, partial = p))
+    chkSortP(x14, partial = c(10, 13))
+    chkSortP(x14, partial = c(2, 14))
+})
+set.seed(17)
+for(i in 1:128) { # tested for 1:12800
+    x <- runif(rpois(1, 100))
+    x[sample(length(x), 12)] <- NA
+    p <- sample(seq_along(x), size = max(1L, rpois(1, 3)))
+    stopifnot(chkSortP(x, partial = p))
+}
+## several of these failed for na.last=FALSE and TRUE
 
 
 

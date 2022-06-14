@@ -4347,27 +4347,6 @@ Default: false (but true for CRAN submission checks).
 No longer in use: conditions of length greater than one in @code{if} or
 @code{while} statements are now an error.
 
-@item _R_CHECK_LENGTH_1_LOGIC2_
-Optionally check if an argument of the binary operators @code{&&} and
-@code{||} has length greater than one, the right-hand side being checked
-only if it is used.  For a false value (@samp{F}, @samp{False},
-@samp{FALSE} or @samp{false}) or when unset, print a warning.  Any other
-non-true non-empty value needs to be a list of commands separated by
-commas: @samp{abort} causes R to terminate unconditionally instead of
-signalling an error (which is useful in pinpointing issues in code
-called from @code{try} or @code{tryCatch}), @samp{verbose} prints a very
-detailed diagnostic message, @samp{package:pkg} restricts the check to
-if/while statements executing in the namespace of package @samp{pkg}
-(but @code{all_base} refers to all the standard packages),
-@samp{package:_R_CHECK_PACKAGE_NAME_} restricts the check to if/while
-statements executing in the package that is currently being checked by
-@code{R CMD check}, @samp{warn} causes R to report a warning instead of
-signalling an error.  (More than one package specification can be given:
-a report, error or warning will be given if any are satisfied.)
-Default: unset (a warning is reported), but
-@samp{package:_R_CHECK_PACKAGE_NAME_,abort,verbose} for the CRAN
-submission checks.
-
 @item _R_CHECK_VIGNETTES_SKIP_RUN_MAYBE_
 Should running the @R{} code in the vignettes be skipped if vignette
 outputs are to be rebuilt (which will involve running that code).
@@ -4488,7 +4467,7 @@ second pass including the @code{\donttest} sections, (for the main
 architecture only).  Only for the first pass are the results compared
 to any @file{.Rout.save} file and timings analysed.  Overridden by
 @option{--run-donttest}.
-Default: false unless @option{-as-cran} is specified (which can be
+Default: false unless @option{--as-cran} is specified (which can be
 overridden by setting @samp{_R_CHECK_DONTTEST_EXAMPLES_=false}).
 
 @item _R_CHECK_XREFS_PKGS_ARE_DECLARED_
@@ -4524,10 +4503,13 @@ why this is a bad idea.
 Default: false (but true for CRAN submission checks).
 
 @item _R_CHECK_RD_VALIDATE_RD2HTML_
-Check the validity of the package HTML help pages using HTML tidy
-(@uref{https://www.html-tidy.org/}) (if available on the system path for
-executables). 
-Default: false (but true for CRAN submission checks).
+Check the validity of the package HTML help pages using HTML Tidy
+(@uref{https://www.html-tidy.org/}) (if a suitable version is available
+on the system path for executables or its path is specified by
+environment variable @env{R_TIDYCMD}).  macOS users are advised to
+install 5.8.0 or later from @uref{http://binaries.html-tidy.org/}.
+Default: false (but true for CRAN submission checks). @option{--as-cran}
+can be overridden by setting this variable to a false value.
 @end vtable
 
 The following variables control checks for undeclared/unconditional use

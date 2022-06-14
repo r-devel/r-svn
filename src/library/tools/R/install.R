@@ -1714,7 +1714,7 @@ if(FALSE) {
 	    if (build_help) {
 		## This is used as the default outputEncoding for latex
 		outenc <- desc["Encoding"]
-		if (is.na(outenc)) outenc <- "latin1" # or ASCII
+		if (is.na(outenc)) outenc <- "UTF-8"
 		.convertRdfiles(pkg_dir, instdir,
 				types = build_help_types,
 				outenc = outenc)
@@ -2707,8 +2707,8 @@ if(FALSE) {
                   else if(isFALSE(use_lto)) c("LTO=", "LTO_FC=")
                   )
 
-    if(config_val_to_logical(Sys.getenv("_R_INSTALL_USE_FC_LEN_T_", "FALSE")))
-         makeargs <- c(makeargs, "XDEFS=-DUSE_FC_LEN_T")
+    if(config_val_to_logical(Sys.getenv("_R_NO_S_TYPEDEFS_", "FALSE")))
+         makeargs <- c(makeargs, "XDEFS=-DNO_S_TYPEDEFS")
     cmd <- paste(MAKE, p1(paste("-f", shQuote(makefiles))), p1(makeargs),
                  p1(makeobjs))
     if (dry_run) {
@@ -2893,15 +2893,15 @@ if(FALSE) {
         for (f in nm) {
             MM <- M[first == f, ]
             if (f != " ")
-                cat("\n<h2><a name=\"", f, "\">-- ", f, " --</a></h2>\n\n",
+                cat("\n<h2><a id=\"", f, "\">-- ", f, " --</a></h2>\n\n",
                     sep = "", file = outcon)
-	    writeLines(c('<table width="100%">',
+	    writeLines(c('<table style="width: 100%;">',
 			 paste0('<tr><td style="width: 25%;"><a href="', MM[, 2L], '.html">',
 				MM$HTopic, '</a></td>\n<td>', MM[, 3L],'</td></tr>'),
 			 "</table>"), outcon)
        }
     } else if (nrow(M)) {
-	writeLines(c('<table width="100%">',
+	writeLines(c('<table style="width: 100%;">',
 		     paste0('<tr><td style="width: 25%;"><a href="', M[, 2L], '.html">',
 			    M$HTopic, '</a></td>\n<td>', M[, 3L],'</td></tr>'),
 		     "</table>"), outcon)

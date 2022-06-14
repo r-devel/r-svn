@@ -656,11 +656,12 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
             address <- lines2str(.Rd_deparse(block, tag = FALSE))
             if(!grepl(re_anchor(pattern), address))
                 warnRd(block, Rdfile, level = 7,
-                       "invalid email address: ", address)
+                       "Invalid email address: ", address)
         }
     }
 
     checkURL <- function(block, tag) {
+        pattern <- .make_RFC_2822_email_address_regexp()        
         if(tag == "\\url")
             u <- .Rd_deparse(block, tag = FALSE)
         else
@@ -669,9 +670,11 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
         parts <- parse_URI_reference(u)
         if(nzchar(s <- parts[, "scheme"])) {
             if(is.na(match(s, c(IANA_URI_scheme_db$URI_Scheme,
-                                "javascript"))))
+                                "javascript"))) ||
+               ((s == "mailto") &&
+                !grepl(re_anchor(pattern), parts[, "path"])))
                 warnRd(block, Rdfile, level = 7,
-                       "invalid URL: ", u)
+                       "Invalid URL: ", u)
         }
     }
             
@@ -697,6 +700,18 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                        if(grepl("<[0123456789abcdef][0123456789abcdef]>", block))
                            warnRd(block, Rdfile, level = -3,
                                   "Apparent non-ASCII contents ", msg3)
+                   }
+                   if(tag == "TEXT") {
+                       pat <- "([^\\]|^)\\\\[#$&_^~]"
+                       if(grepl(pat, block)) {
+                           txt <- sub("^[^\\]*", "",
+                                      unlist(regmatches(block,
+                                                        gregexpr(pat,
+                                                                 block))))
+                           warnRd(block, Rdfile, level = -1,
+                                  "Escaped LaTeX specials: ",
+                                  paste(txt, collapse = " "))
+                       }
                    }
                    ## check if this renders as non-whitespace
                    if(!grepl("^[[:space:]]*$", block)) has_text <<- TRUE
@@ -785,7 +800,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
     		   unknown <- allow %w/o% c("", "latex", "example", "text",
                                             "html", "TRUE", "FALSE")
     		   if (length(unknown))
-    		       warnRd(block, Rdfile, "Unrecognized format: ", unknown)
+    		       warnRd(block, Rdfile, level = 7, "Unrecognized format: ", unknown)
                    checkContent(block[[2L]])
                    if (tag == "\\ifelse")
                        checkContent(block[[3L]])
@@ -922,7 +937,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                 if((blocktag %in% c("\\describe", "\\arguments",
                                     "\\value")) &&
                     isBlankRd(block[[1L]]))
-                    warnRd(block[[1L]], Rdfile, level = 7,
+                    warnRd(block, Rdfile, level = 5,
                            "\\item in ", blocktag,
                            " must have non-empty label")
     		switch(blocktag,
@@ -1035,7 +1050,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                  "seealso", "examples", "author", "encoding"))
     for(tag in intersect(sections[duplicated(sections)], unique_tags))
         warnRd(Rd, Rdfile, level = 5,
-               sprintf("multiple sections named '%s' are not allowed", tag))
+               sprintf("Multiple sections named '%s' are not allowed", tag))
 
     for (i in seq_along(sections))
         checkSection(Rd[[i]], sections[i])

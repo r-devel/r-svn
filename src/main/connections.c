@@ -2372,7 +2372,8 @@ static Rboolean clp_open(Rconnection con)
     con->canwrite = (con->mode[0] == 'w' || con->mode[0] == 'a');
     con->canread = !con->canwrite;
     this->pos = 0;
-    if (strlen(con->encname) > 0 && strcmp(con->encname, "native.enc"))
+    if (strlen(con->encname) > 0 && strcmp(con->encname, "native.enc") &&
+        strcmp(con->encname, "UTF-16LE"))
 	/* R <= 4.1 allowed writing data to clipboard in given encoding,
 	   but did not specify that encoding using CF_LOCALE. Similarly, it
 	   would read data assuming a given encoding, without checking
@@ -2544,7 +2545,7 @@ static size_t clp_write(const void *ptr, size_t size, size_t nitems,
 #ifdef Win32
     /* clipboard requires CRLF termination, copy by wchar_t */
     int i;
-    wchar_t wc, *p = (wchar_t *) ptr, *q = (wchar_t *) this->buff + this->pos;
+    wchar_t wc, *p = (wchar_t *) ptr, *q = (wchar_t *) (this->buff + this->pos);
 
     for(i = 0; i < len; i += sizeof(wchar_t)) {
 	if(this->pos >= this->len) break;
