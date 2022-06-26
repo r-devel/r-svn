@@ -103,6 +103,7 @@ merge.data.frame <-
         } else {
             bx <- x[, by.x, drop=FALSE]; by <- y[, by.y, drop=FALSE]
             
+            # match on multiple columns
             match_multiple <- function(x, y, nomatch, incomparables)
             {
               indm <- matrix(NA, nrow(x), ncol(x))
@@ -113,10 +114,14 @@ merge.data.frame <-
               }
               return(apply(indm, 1, function(w) ifelse(all(w == w[1]) & w[1] != nomatch, w[1], nomatch)))
             }
+            # find the rows in common
             comm <- match_multiple(bx, by, nomatch = 0L, incomparables = incomparables)
             bxy <- bx[comm > 0L,]
+            # find the rows from each matrix that match the rows in common
             xinds <- match_multiple(bx, bxy, nomatch = 0L, incomparables = incomparables)
             yinds <- match_multiple(by, bxy, nomatch = 0L, incomparables = incomparables)
+            # bx needs to be single vectors for sorting later
+            bx <- apply(bx, 1, function(w) paste0(w, collapse = ""))
         }
         if(nx > 0L && ny > 0L)
             m <- .Internal(merge(xinds, yinds, all.x, all.y))
@@ -182,11 +187,13 @@ merge.data.frame <-
         res <- cbind(x, y)
 
         if (sort && nrow(res) > 1)
-	    res <- res[if(all.x || all.y) {
-			   x <- x[, seq_len(l.b), drop = FALSE]
-			   attributes(x) <- NULL
-			   do.call("order", x)
-		       } else sort.list(bx[m$xi]),, drop = FALSE]
+        {
+          res <- res[if(all.x || all.y) {
+            x <- x[, seq_len(l.b), drop = FALSE]
+            attributes(x) <- NULL
+            do.call("order", x)
+          } else sort.list(bx[m$xi]),, drop = FALSE]
+        }
     }
     attr(res, "row.names") <- .set_row_names(nrow(res))
     res
