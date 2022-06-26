@@ -234,3 +234,10 @@ if(require("Matrix", .Library)) {
 
     detach("package:Matrix", unload=TRUE)
 }##{Matrix}
+
+## Bug 18366 - Merge does not treat string "NA" as intended
+merge_test1 <- merge(data.frame(a = "NA", b = "2", d = 1), data.frame(a = NA, b = "2", e = 3))
+stopifnot(nrow(merge_test1) == 0)
+merge_test2 <- merge(data.frame(a = "1\r2", b  = "", d = 1), data.frame(a = "1", b = "2\r", c = 3))
+stopifnot(nrow(merge_test2) == 0)
+

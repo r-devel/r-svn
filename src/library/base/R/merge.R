@@ -96,21 +96,28 @@ merge.data.frame <-
         if(l.b == 1L) {                  # (be faster)
             bx <- x[, by.x]; if(is.factor(bx)) bx <- as.character(bx)
             by <- y[, by.y]; if(is.factor(by)) by <- as.character(by)
+            comm <- match(bx, by, 0L)
+            bxy <- bx[comm > 0L]             # the keys which are in both
+            xinds <- match(bx, bxy, 0L, incomparables)
+            yinds <- match(by, bxy, 0L, incomparables)
         } else {
-            if (!is.null(incomparables))
-                stop("'incomparables' is supported only for merging on a single column")
-            ## Do these together for consistency in as.character.
-            ## Use same set of names.
             bx <- x[, by.x, drop=FALSE]; by <- y[, by.y, drop=FALSE]
-            names(bx) <- names(by) <- paste0("V", seq_len(ncol(bx)))
-            bz <- do.call("paste", c(rbind(bx, by), sep = "\r"))
-            bx <- bz[seq_len(nx)]
-            by <- bz[nx + seq_len(ny)]
+            
+            match_multiple <- function(x, y, nomatch, incomparables)
+            {
+              indm <- matrix(NA, nrow(x), ncol(x))
+              for (i in 1:ncol(x))
+              {
+                indm[,i] <- match(as.character(x[,i]), as.character(y[,i]), 
+                                  nomatch = nomatch, incomparables = incomparables)
+              }
+              return(apply(indm, 1, function(w) ifelse(all(w == w[1]) & w[1] != nomatch, w[1], nomatch)))
+            }
+            comm <- match_multiple(bx, by, nomatch = 0L, incomparables = incomparables)
+            bxy <- bx[comm > 0L,]
+            xinds <- match_multiple(bx, bxy, nomatch = 0L, incomparables = incomparables)
+            yinds <- match_multiple(by, bxy, nomatch = 0L, incomparables = incomparables)
         }
-        comm <- match(bx, by, 0L)
-        bxy <- bx[comm > 0L]             # the keys which are in both
-        xinds <- match(bx, bxy, 0L, incomparables)
-        yinds <- match(by, bxy, 0L, incomparables)
         if(nx > 0L && ny > 0L)
             m <- .Internal(merge(xinds, yinds, all.x, all.y))
         else
@@ -174,7 +181,7 @@ merge.data.frame <-
                         " is duplicated in the result", domain = NA)
         res <- cbind(x, y)
 
-        if (sort)
+        if (sort && nrow(res) > 1)
 	    res <- res[if(all.x || all.y) {
 			   x <- x[, seq_len(l.b), drop = FALSE]
 			   attributes(x) <- NULL
