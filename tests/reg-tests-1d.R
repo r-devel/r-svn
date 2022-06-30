@@ -5997,7 +5997,17 @@ assertErrV( head(letters, "3") )
 stopifnot(identical("a", head(letters, TRUE)))
 ## keep treating <logical> n  as integer
 
-
+## Bug 18366 - Merge does not treat string "NA" as intended (R <= 4.2.0)
+stopifnot(nrow(merge(data.frame(a = "NA", b = "2", d = 1), data.frame(a = NA, b = "2", e = 3))) == 0)
+stopifnot(nrow(merge(data.frame(a = "1\r2", b  = "", d = 1), data.frame(a = "1", b = "2\r", c = 3))) == 0)
+# from merge examples
+x <- data.frame(k1 = c(NA,NA,3,4,5), k2 = c(1,NA,NA,4,5), data = 1:5)
+y <- data.frame(k1 = c(NA,2,NA,4,5), k2 = c(NA,NA,3,4,5), data = 1:5)
+stopifnot(nrow(merge(x, y, by = c("k1","k2"))) == 3) # NA's match
+stopifnot(nrow(merge(x, y, by = "k1")) == 6) # NA's match, so 6 rows
+stopifnot(nrow(merge(x, y, by = "k2", incomparables = NA)) == 2) # 2 rows
+stopifnot(nrow(merge(x, y, by = c("k1","k2"), incomparables = NA)) == 2)
+## first two and the last one failed in R <= 4.2.0
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

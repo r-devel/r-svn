@@ -47,8 +47,7 @@ merge(x, y, \dots)
     more cases to avoid duplicated column names in the result.  This
     was implicitly false before \R version 3.5.0.}
   \item{incomparables}{values which cannot be matched.  See
-    \code{\link{match}}.  This is intended to be used for merging on one
-    column, so these are incomparable values of that column.}
+    \code{\link{match}}.}
   \item{\dots}{arguments to be passed to or from methods.}
 }
 \details{
