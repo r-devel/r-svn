@@ -106,7 +106,7 @@ oldClass(x) <- value
 
   \code{isa} tests whether \code{x} is an object of class(es) as given
   in \code{what} by using \code{\link[methods]{is}} if \code{x} is an S4
-  object, and otherwise giving \code{TRUE} iff \emph{all} elements of
+  object, and otherwise giving \code{TRUE} if \emph{all} elements of
   \code{class(x)} are contained in \code{what}.
 
   All but \code{inherits} and \code{isa} are \link{primitive} functions.
