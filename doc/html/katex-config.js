@@ -8,11 +8,12 @@ const macros = {
 function processMathHTML()
 {
     var l = document.getElementsByClassName('reqn');
-    for (let e of l) {
+    for (let i = 0; i < l.length; i++) {
+	let e= l[i];
 	katex.render(e.textContent, e,
 		     {
 			 throwOnError: false,
-			 macros
+			 macros: macros
 		     });
     }
     return;
