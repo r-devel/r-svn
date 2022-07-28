@@ -86,7 +86,7 @@ function SignFiles($files) {
 }
 
 Function InstallMiktex {
-  $miktexinstall = "--unattended --auto-install=yes --shared --package-set=basic"
+  $miktexinstall = "--unattended --auto-install=yes --shared"
 
   # Hack around the random mirror redirect because many mirrors are broken
   $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -kLIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
