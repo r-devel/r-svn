@@ -26,3 +26,8 @@ In the same way you can test patches, you can use pull requests to experiment wi
 
 Build scripts for GitHub actions are always stored in the [workflows](./workflows) directory. The [build-svn.yaml](./workflows/build-svn.yaml) file lists commands used to prepare the server and build R on each of the platforms. Here you can easily enable/disable features, or add another flavor to the mix.
 
+## Build locally
+
+The [examples](./examples) directory contains scripts to show how to build R locally. Basically these scripts just let you run the same steps as the CI in [build-svn.yaml](./workflows/build-svn.yaml) for a given platform:
+
+ - [build-r-macos.sh](./examples/build-r-macos.sh): do a full prep, build, and check on MacOS.
