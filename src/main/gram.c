@@ -4322,7 +4322,9 @@ static int typeofnext(void)
     int k, c;
 
     c = xxgetc();
-    if (isdigit(c)) k = 1; else k = 2;
+    if (isdigit(c)) k = 1;
+    else if (('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) k = 2;
+    else k = 3;
     xxungetc(c);
     return k;
 }
@@ -4757,7 +4759,7 @@ static int NumericValue(int c)
     YYTEXT_PUSH(c, yyp);
     /* We don't care about other than ASCII digits */
     while (isdigit(c = xxgetc()) || c == '.' || c == 'e' || c == 'E'
-	   || c == 'x' || c == 'X' || c == 'L')
+	   || c == 'x' || c == 'X' || c == 'L' || c == '_')
     {
 	count++;
 	if (c == 'L') /* must be at the end.  Won't allow 1Le3 (at present). */
@@ -4769,10 +4771,15 @@ static int NumericValue(int c)
 	    if (count > 2 || last != '0') break;  /* 0x must be first */
 	    YYTEXT_PUSH(c, yyp);
 	    while(isdigit(c = xxgetc()) || ('a' <= c && c <= 'f') ||
-		  ('A' <= c && c <= 'F') || c == '.') {
+		  ('A' <= c && c <= 'F') || c == '.' || c == '_') {
 		if (c == '.') {
 		    if (seendot) return ERROR;
 		    seendot = 1;
+		}
+		if (c == '_') {
+		    /* disallow underscores following 0x or followed by non-hexdigit */
+		    if (nd == 0 || typeofnext() >= 3) break;
+		    continue;
 		}
 		YYTEXT_PUSH(c, yyp);
 		nd++;
@@ -4818,6 +4825,11 @@ static int NumericValue(int c)
 	    if (seendot)
 		break;
 	    seendot = 1;
+	}
+	/* underscores in significand followed by a digit must be skipped */
+	if (c == '_') {
+	    if (seenexp || typeofnext() >= 2) break;
+	    continue;
 	}
 	YYTEXT_PUSH(c, yyp);
 	last = c;
