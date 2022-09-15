@@ -5905,6 +5905,18 @@ stopifnot(exprs = {
 ## gave just simpleError s; no line:column numbers in R <= 4.2.0
 
 
+##Support for parsing numeric literals with underscore seperators
+stopifnot(exprs = {
+    identical(123, 1_2_3)
+    identical(1234567890, 1_234_567_890)
+    identical(1234567890L, 1_234_567_890L)
+    identical(123, 1_2_3)
+    identical(12e3, 1_2e3)
+    identical(0xa2, 0xa_2)
+    identical(0xaa, 0xa_a)
+})
+
+
 ## fisher.test() with "too full" table:  PR#18336
 d <- matrix(c(1,0,5,2,1,90
              ,2,1,0,2,3,89
