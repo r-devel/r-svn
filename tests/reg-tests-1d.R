@@ -5914,8 +5914,19 @@ stopifnot(exprs = {
     identical(12e3, 1_2e3)
     identical(0xa2, 0xa_2)
     identical(0xaa, 0xa_a)
+    identical(0xaap1, 0xa_ap1)
 })
 
+for (s in c(
+# Underscore not between digits or outside significand is invalid
+    '_123', '123_',
+    '123_L', '123L_',
+    '123_e1', '123e_1', '123e1_',
+    '0x_a', '0xa_',
+    '0xap_12', '0xap1_2',
+# and so are multiple underscores anywhere
+    '1__23', '0x1__23'
+)) assertErrV(str2lang(s))
 
 ## fisher.test() with "too full" table:  PR#18336
 d <- matrix(c(1,0,5,2,1,90
