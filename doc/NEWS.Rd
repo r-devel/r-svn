@@ -59,9 +59,10 @@
       \code{x} into the distribution of \code{y } (Switzer, 1976,
       Biometrika). Contributed by Torsten Hothorn.
 
-      \item The parser now accepts underscores in numeric literal as a visual
-      digit seperator. E.g, the literal \code{1_000_000} is now parsed
-      the same as \code{1000000}. Contributed by Ivan Krylov.
+      \item The parser now accepts underscores in numeric literal as a
+      visual digit seperator. E.g, the literal \code{1_000_000} is now
+      parsed the same as \code{1000000}. Contributed by Ivan Krylov in
+      \PR{18407}.
     }
   }
 
