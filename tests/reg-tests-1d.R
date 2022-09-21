@@ -5928,6 +5928,9 @@ for (s in c(
     '1__23', '0x1__23'
 )) assertErrV(str2lang(s))
 
+# Previously valid syntax, shouldn't be parsed as a numeric literal
+stopifnot(is.symbol(quote(._1)))
+
 ## fisher.test() with "too full" table:  PR#18336
 d <- matrix(c(1,0,5,2,1,90
              ,2,1,0,2,3,89
