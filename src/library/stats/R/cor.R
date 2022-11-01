@@ -196,7 +196,7 @@ cov2cor <- function(V)
 	stop("'V' is not a square numeric matrix")
     Is <- sqrt(1/diag(V)) # diag( 1/sigma_i )
     if(any(!is.finite(Is)))
-	warning("diag(.) had 0 or NA entries; non-finite result is doubtful")
+	warning("diag(V) had 0, NA or NaN entries; finite result is doubtful")
     r <- V # keep dimnames
     r[] <- Is * V * rep(Is, each = p)
     ##	== D %*% V %*% D  where D = diag(Is)
