@@ -41,23 +41,22 @@ all.equal.default <- function(target, current, ...)
 		   if(identical(target, current))
 		       TRUE
 		   else if((lt <- length(target)) != (lc <- length(current)))
-		       paste0('"..."-typed": lengths (', lt, ", ", lc, ") differ")
+		       gettextf('"..."-typed": lengths (%d, %d) differ', lt, lc)
 		   else if(xor(is.null(nt <- names(target)),
 			       is.null(nc <- names(current)))) {
-		       paste0('"..."-typed: names in ',
-			      if(length(nt))
-				  "target but not in current"
-			      else ## length(nc)
-				  "current but not in target")
+		       if(length(nt))
+                           gettextf('"..."-typed: names in %s but not in %s', "target", "current")
+                       else ## length(nc)
+                           gettextf('"..."-typed: names in %s but not in %s', "current", "target")
 		   } else if(!is.null(nt)) { # and !is.null(nc)
 			   nt <- sort(nt)
 			   nc <- sort(nc)
 			   if(identical(nt, nc)) TRUE
-			   else c('"..."-typed": sorted names differ',
+			   else c(gettext('"..."-typed": sorted names differ'),
 				  all.equal.character(nt, nc, ...))
 		   }
 		   else ## names both NULL
-		       "\"...\"-types of the same length, no names, but not identical"
+		       gettext('"..."-types of the same length, no names, but not identical')
 	       }
 	       else all.equal.list(target, current, ...))
     }
@@ -113,8 +112,7 @@ all.equal.numeric <-
 	attr.all.equal(target, current, tolerance = tolerance, scale = scale,
                        ...)
     if(data.class(target) != data.class(current)) {
-	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
-                             data.class(current)))
+	msg <- c(msg, gettextf("target is %s, current is %s", data.class(target), data.class(current)))
 	return(msg)
     }
 
@@ -123,9 +121,9 @@ all.equal.numeric <-
     cplx <- is.complex(target) # and so current must be too.
     if(lt != lc) {
 	## *replace* the 'Lengths' msg[] from attr.all.equal():
-	if(!is.null(msg)) msg <- msg[- grep("\\bLengths\\b", msg)]
-	msg <- c(msg, paste0(if(cplx) "Complex" else "Numeric",
-                             ": lengths (", lt, ", ", lc, ") differ"))
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
+	msg <- c(msg, if (cplx) gettextf("Complex: lengths (%d, %d) differ", lt, lc)
+                      else gettextf("Numeric: lengths (%d, %d) differ", lt, lc))
 	return(msg)
     }
     ## remove atttributes (remember these are both numeric or complex vectors)
@@ -134,8 +132,8 @@ all.equal.numeric <-
     current <- as.vector(current)
     out <- is.na(target)
     if(any(out != is.na(current))) {
-	msg <- c(msg, paste("'is.NA' value mismatch:", sum(is.na(current)),
-			    "in current", sum(out), "in target"))
+	msg <- c(msg, gettextf("'is.NA' value mismatch: %d in current %d in target",
+                               sum(is.na(current)), sum(out)))
 	return(msg)
     }
     out <- out | target == current # equal NAs _or_ numbers
@@ -166,9 +164,17 @@ all.equal.numeric <-
 	}
     xy <- sum(abs(target - current)/(N*scale)) ## abs(z) == Mod(z) for complex
 
-    if (cplx) what <- paste(what, "Mod") # PR#10575
-    if(is.na(xy) || xy > tolerance)
-        msg <- c(msg, paste("Mean", what, "difference:", formatFUN(xy, what)))
+    if (cplx) what <- paste0(what, "Mod") # PR#10575
+    if(is.na(xy) || xy > tolerance) {
+        xy_fmt <- formatFUN(xy, what)
+        msg <- c(msg, switch(what,
+                             absolute = gettextf("Mean absolute difference: %s", xy_fmt),
+                             absoluteMod = gettextf("Mean absolute Mod difference: %s", xy_fmt),
+                             relative = gettextf("Mean relative difference: %s", xy_fmt),
+                             relativeMod = gettextf("Mean relative Mod difference: %s", xy_fmt),
+                             scaled = gettextf("Mean scaled difference: %s", xy_fmt),
+                             scaledMod = gettextf("Mean scaled Mod difference: %s", xy_fmt)))
+    }
 
     if(is.null(msg)) TRUE else msg
 }
@@ -180,42 +186,42 @@ all.equal.character <-
         stop(gettextf("'%s' must be logical", "check.attributes"), domain = NA)
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
     if(data.class(target) != data.class(current)) {
-	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
-                             data.class(current)))
+	msg <- c(msg, gettextf("target is %s, current is %s", data.class(target), data.class(current)))
 	return(msg)
     }
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-	if(!is.null(msg)) msg <- msg[- grep("\\bLengths\\b", msg)]
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
 	msg <- c(msg,
-                 paste0("Lengths (", lt, ", ", lc,
-                        ") differ (string compare on first ",
-                        ll <- min(lt, lc), ")"))
+                 gettextf("Lengths (%d, %d) differ (string compare on first %d)",
+                          lt, lc, ll <- min(lt, lc)))
 	ll <- seq_len(ll)
 	target <- target[ll]
 	current <- current[ll]
     }
     nas <- is.na(target); nasc <- is.na(current)
     if (any(nas != nasc)) {
-	msg <- c(msg, paste("'is.NA' value mismatch:", sum(nasc),
-                            "in current", sum(nas), "in target"))
+	msg <- c(msg, gettextf("'is.NA' value mismatch: %d in current %d in target",
+                               sum(nasc), sum(nas)))
 	return(msg)
     }
     ne <- !nas & (target != current)
-    if(!any(ne) && is.null(msg)) TRUE
-    else if(sum(ne) == 1L) c(msg, paste("1 string mismatch"))
-    else if(sum(ne) >  1L) c(msg, paste(sum(ne), "string mismatches"))
-    else msg
+    if(!any(ne) && is.null(msg)) return(TRUE)
+    count_ne <- sum(ne)
+    if (count_ne)
+        msg <- c(msg, sprintf(ngettext(count_ne, "%d string mismatch", "%d string mismatches"),
+                              count_ne))
+    msg
 }
 
 ## In 'base' these are all visible, so need to test both args:
 
 all.equal.envRefClass <- function (target, current, ...) {
-    if(!methods::is(target,  "envRefClass")) return("'target' is not an envRefClass")
-    if(!methods::is(current, "envRefClass")) return("'current' is not an envRefClass")
+    if(!methods::is(target,  "envRefClass")) return(gettextf("'%s' is not an envRefClass", "target"))
+    if(!methods::is(current, "envRefClass")) return(gettextf("'%s' is not an envRefClass", "current"))
     if(!isTRUE(ae <- all.equal(class(target), class(current), ...)))
-	return(sprintf("Classes differ: %s", paste(ae, collapse=" ")))
+	return(gettextf("Classes differ: %s", paste(ae, collapse=" ")))
     getCl <- function(x) { cl <- tryCatch(x$getClass(), error=function(e) NULL)
 			   if(is.null(cl)) class(x) else cl }
     if(!identical(cld <- getCl(target), c2 <- getCl(current))) {
@@ -224,12 +230,12 @@ all.equal.envRefClass <- function (target, current, ...) {
 	    if(hasCA) all.equal(cld, c2, ...)
 	    else all.equal(cld, c2, check.attributes=FALSE, ...)
         if(isTRUE(ae) && !hasCA) ae <- all.equal(cld, c2, ...)
-	return(sprintf("Class definitions are not identical%s",
-		       if(isTRUE(ae)) "" else paste(":", ae, collapse=" ")))
+	return(gettextf("Class definitions are not identical%s",
+		        if(isTRUE(ae)) "" else paste(":", ae, collapse=" ")))
     }
     if(!isS4(cld)) ## prototype / incomplete
 	return(if(identical(target, current)) TRUE
-	       else "different prototypical 'envRefClass' objects")
+	       else gettext("different prototypical 'envRefClass' objects"))
     flds <- names(cld@fieldClasses) ## else NULL
     asL <- function(O) sapply(flds, function(ch) O[[ch]], simplify = FALSE)
     ## ## ?setRefClass explicitly says users should not use ".<foo>" fields:
@@ -251,8 +257,8 @@ all.equal.envRefClass <- function (target, current, ...) {
 }
 
 all.equal.environment <- function (target, current, all.names=TRUE, evaluate=TRUE, ...) {
-    if(!is.environment (target)) return( "'target' is not an environment")
-    if(!is.environment(current)) return("'current' is not an environment")
+    if(!is.environment (target)) return(gettextf("'%s' is not an environment", "target"))
+    if(!is.environment(current)) return(gettextf("'%s' is not an environment", "current"))
     if(identical(target, current)) # only true if *same* address
                  ## ignore.environment =
                  ##     if(!is.na(i <- match("check.environment", ...names())))
@@ -296,32 +302,29 @@ all.equal.environment <- function (target, current, all.names=TRUE, evaluate=TRU
     } else { ## do *not* force promises, i.e. *not* coerce to list
         if(!identical(nt <- sort(names(target )),
                       nc <- sort(names(current))))
-            paste("names of environments differ:", all.equal(nt, nc, ...), collapse=" ")
+            paste(gettextf("names of environments differ: %s", all.equal(nt, nc, ...)), collapse=" ")
         else
-            "environments contain objects of the same names, but are not identical"
+            gettext("environments contain objects of the same names, but are not identical")
     }
 }
 
 all.equal.factor <- function(target, current, ..., check.attributes = TRUE)
 {
     if(!inherits(current, "factor"))
-	return("'current' is not a factor")
+	return(gettext("'current' is not a factor"))
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
     class(target) <- class(current) <- NULL
     nax <- is.na(target)
     nay <- is.na(current)
     n <- sum(nax != nay)
-    if(n > 1L)
-	msg <- c(msg, paste(n, "NA mismatches"))
-    else if (n == 1L)
-        msg <- c(msg, paste("1, NA mismatch"))
-    else { ## n == 0: nax == nay (w/ recycling!)
+    if(n == 0L) { # nax == nay (w/ recycling!)
 	target  <- levels(target) [target [!nax]]
 	current <- levels(current)[current[!nay]]
 	n <- all.equal(target, current,
 		       check.attributes = check.attributes, ...)
 	if(is.character(n)) msg <- c(msg, n)
-    }
+    } else
+        msg <- c(msg, sprintf(ngettext(n, "%d NA mismatch", "%d NA mismatches"), n))
     if(is.null(msg)) TRUE else msg
 }
 
@@ -330,9 +333,9 @@ all.equal.formula <- function(target, current, ...)
     ## NB: this assumes the default method for class formula, not
     ## the misquided one in package Formula
     if(length(target) != length(current))
-	return(paste0("target, current differ in having response: ",
-                      length(target ) == 3L, ", ",
-                      length(current) == 3L))
+	return(gettextf("target, current differ in having response: %s, %s",
+                        length(target ) == 3L,
+                        length(current) == 3L))
     ## <NOTE>
     ## This takes same-length formulas as all equal if they deparse
     ## identically.  As of 2010-02-24, deparsing strips attributes; if
@@ -340,7 +343,7 @@ all.equal.formula <- function(target, current, ...)
     ## test is changed.
     ## </NOTE>
     if(!identical(deparse(target), deparse(current)))
-	"formulas differ in contents"
+	gettext("formulas differ in contents")
     else TRUE
 }
 
@@ -354,15 +357,15 @@ all.equal.language <- function(target, current, ...)
     ## try: if 'current' is not "language" and deparse() bails out for DOTSXP, see PR#18029
     ctxt <- tryCatch(paste(deparse(current), collapse = "\n"), error=function(e) NULL)
     msg <- c(if(mt != mc)
-	     paste0("Modes of target, current: ", mt, ", ", mc),
+	     gettextf("Modes of target, current: %s, %s", mt, mc),
 	     if(is.null(ctxt))
-		 "current is not deparse()able"
+		 gettext("current is not deparse()able")
 	     else if(ttxt != ctxt) {
 		 if(pmatch(ttxt, ctxt, 0L))
-		     "target is a subset of current"
+		     gettextf("%s is a subset of %s", "target", "current")
 		 else if(pmatch(ctxt, ttxt, 0L))
-		     "current is a subset of target"
-		 else "target, current do not match when deparsed"
+		     gettextf("%s is a subset of %s", "current", "target")
+		 else gettext("target, current do not match when deparsed")
 	     })
     if(is.null(msg)) TRUE else msg
 }
@@ -382,14 +385,13 @@ all.equal.list <- function(target, current, ...,
     current <- unclass(current)# ??
     ## Comparing the data.class() is not ok, as a list matrix is 'matrix' not 'list'
     if(!is.list(target) && !is.vector(target))
-	return(c(msg, "target is not list-like"))
+	return(c(msg, gettextf("%s is not list-like", "target")))
     if(!is.list(current) && !is.vector(current))
-	return(c(msg, "current is not list-like"))
-    if((n <- length(target)) != length(current)) {
-	if(!is.null(msg)) msg <- msg[- grep("\\bLengths\\b", msg)]
-	n <- min(n, length(current))
-	msg <- c(msg, paste("Length mismatch: comparison on first",
-			    n, "components"))
+	return(c(msg, gettextf("%s is not list-like", "current")))
+    if((nt <- n <- length(target)) != (nc <- length(current))) {
+        if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", nt, nc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
+	n <- min(nt, nc)
+	msg <- c(msg, gettextf("Length mismatch: comparison on first %d components", n))
     }
     iseq <- seq_len(n)
     if(use.names)
@@ -399,9 +401,9 @@ all.equal.list <- function(target, current, ...,
 	mi <- all.equal(target[[i]], current[[i]],
 			check.attributes=check.attributes, use.names=use.names, ...)
 	if(is.character(mi))
-	    msg <- c(msg, paste0("Component ",
-				 if(use.names && nt[i] == nc[i]) dQuote(nt[i]) else i,
-				 ": ", mi))
+	    msg <- c(msg, gettextf("Component %s: %s",
+				   if(use.names && nt[i] == nc[i]) dQuote(nt[i]) else i,
+				   mi))
     }
     if(is.null(msg)) TRUE else msg
 }
@@ -414,17 +416,15 @@ all.equal.raw <-
         stop(gettextf("'%s' must be logical", "check.attributes"), domain = NA)
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
     if(data.class(target) != data.class(current)) {
-	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
-                             data.class(current)))
+	msg <- c(msg, gettextf("target is %s, current is %s", data.class(target), data.class(current)))
 	return(msg)
     }
     lt <- length(target)
     lc <- length(current)
     if(lt != lc) {
-	if(!is.null(msg)) msg <- msg[- grep("\\bLengths\\b", msg)]
-	msg <- c(msg, paste0("Lengths (", lt, ", ", lc,
-                             ") differ (comparison on first ",
-                             ll <- min(lt, lc), " components)"))
+	if(!is.null(msg)) msg <- grep(gettextf("Lengths: %d, %d", lt, lc), msg, fixed=TRUE, invert=TRUE, value=TRUE)
+	msg <- c(msg, gettextf("Lengths (%d, %d) differ (comparison on first %d components)",
+                               lt, lc, ll <- min(lt, lc)))
 	ll <- seq_len(ll)
 	target <- target[ll]
 	current <- current[ll]
@@ -432,15 +432,16 @@ all.equal.raw <-
     # raws do not have NAs, but logicals do
     nas <- is.na(target); nasc <- is.na(current)
     if (any(nas != nasc)) {
-	msg <- c(msg, paste("'is.NA' value mismatch:", sum(nasc),
-                            "in current", sum(nas), "in target"))
+	msg <- c(msg, gettextf("'is.NA' value mismatch: %d in current %d in target", sum(nasc), sum(nas)))
 	return(msg)
     }
     ne <- !nas & (target != current)
-    if(!any(ne) && is.null(msg)) TRUE
-    else if(sum(ne) == 1L) c(msg, paste("1 element mismatch"))
-    else if(sum(ne) > 1L) c(msg, paste(sum(ne), "element mismatches"))
-    else msg
+    if(!any(ne) && is.null(msg)) return(TRUE)
+    count_ne <- sum(ne)
+    if (count_ne)
+        msg <- c(msg, sprintf(ngettext(count_ne, "%d element mismatch", "%d element mismatches"),
+                              count_ne))
+    msg
 }
 
 
@@ -456,10 +457,10 @@ attr.all.equal <- function(target, current, ...,
         stop(gettextf("'%s' must be logical", "check.names"), domain = NA)
     msg <- NULL
     if(mode(target) != mode(current))
-	msg <- paste0("Modes: ", mode(target), ", ", mode(current))
+	msg <- gettextf("Modes: %s, %s", mode(target), mode(current))
     if(length(target) != length(current))
 	msg <- c(msg,
-                 paste0("Lengths: ", length(target), ", ", length(current)))
+                 gettextf("Lengths: %d, %d", length(target), length(current)))
     ax <- attributes(target)
     ay <- attributes(current)
     if(check.names) {
@@ -470,10 +471,10 @@ attr.all.equal <- function(target, current, ...,
             ax$names <- ay$names <- NULL
             if(lx && ly) {
                 if(is.character(m <- all.equal.character(nx, ny, check.attributes = check.attributes)))
-                    msg <- c(msg, paste("Names:", m))
+                    msg <- c(msg, gettextf("Names: %s", m))
             } else if(lx)
-                msg <- c(msg, "names for target but not for current")
-            else msg <- c(msg, "names for current but not for target")
+                msg <- c(msg, gettextf("names for %s but not for %s", "target", "current"))
+            else msg <- c(msg, gettextf("names for %s but not for %s", "current", "target"))
         }
     } else {
 	ax[["names"]] <- NULL
@@ -487,7 +488,7 @@ attr.all.equal <- function(target, current, ...,
 	if(length(nx)) ax <- ax[order(nx)]
 	if(length(ny)) ay <- ay[order(ny)]
 	tt <- all.equal(ax, ay, ..., check.attributes = check.attributes)
-	if(is.character(tt)) msg <- c(msg, paste("Attributes: <", tt, ">"))
+	if(is.character(tt)) msg <- c(msg, gettextf("Attributes: < %s >", tt))
     }
     msg # NULL or character
 }
@@ -498,9 +499,9 @@ all.equal.POSIXt <- function(target, current, ..., tolerance = 1e-3, scale,
                              check.tzone = TRUE)
 {
     if(!inherits(target, "POSIXt"))
-        return("'target' is not a POSIXt")
+        return(gettextf("'%s' is not a POSIXt", "target"))
     if(!inherits(current, "POSIXt"))
-        return("'current' is not a POSIXt")
+        return(gettextf("'%s' is not a POSIXt", "current"))
     target <- as.POSIXct(target)
     current <- as.POSIXct(current)
     msg <- NULL
@@ -518,8 +519,8 @@ all.equal.POSIXt <- function(target, current, ..., tolerance = 1e-3, scale,
         tzt <- tz(target)
         tzc <- tz(current)
         if(!isTRUE(tzt == tzc))
-            msg <- sprintf("'tzone' attributes are inconsistent ('%s' and '%s')",
-                           tzt, tzc)
+            msg <- gettextf("'tzone' attributes are inconsistent ('%s' and '%s')",
+                            tzt, tzc)
     }
     attr(target, "tzone") <- attr(current, "tzone") <- NULL
     val <- all.equal.numeric(target, current, ...,
