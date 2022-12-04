@@ -965,20 +965,3 @@ labels.lm <- function(object, ...)
     asgn <- object$assign[qr.lm(object)$pivot[1L:object$rank]]
     tl[unique(asgn)]
 }
-
-# From Estimability package by Russ Lenth
-is.estible <- function (x, nbasis, tol = 1e-08)
-{
-  if (is.matrix(x))
-    return(apply(x, 1, is.estble, nbasis, tol))
-  if (is.na(nbasis[1]))
-    TRUE
-  else {
-    x[is.na(x)] = 0
-    chk = as.numeric(crossprod(nbasis, x))
-    ssqx = sum(x * x)
-    if (ssqx < tol)
-      ssqx = 1
-    sum(chk * chk) < tol * ssqx
-  }
-}
