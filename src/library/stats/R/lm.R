@@ -671,7 +671,7 @@ predict.lm <-
 	     interval = c("none", "confidence", "prediction"),
 	     level = .95,  type = c("response", "terms"),
 	     terms = NULL, na.action = na.pass, pred.var = res.var/weights,
-             weights = 1, ...)
+             weights = 1, tol = 1e-6, ...)
 {
     tt <- terms(object)
     if(!inherits(object, "lm"))
@@ -699,11 +699,43 @@ predict.lm <-
     p <- object$rank
     p1 <- seq_len(p)
     piv <- if(p) qr.lm(object)$pivot[p1]
-    if(p < ncol(X) && !(missing(newdata) || is.null(newdata)))
-	warning("prediction from a rank-deficient fit may be misleading")
+    if(p < ncol(X) && !(missing(newdata) || is.null(newdata))) {
 ### NB: Q[p1,] %*% X[,piv] = R[p1,p1]
+      qrX <- qr.lm(object)
+      tR <- t(qr.R(qrX))
+      pp <- nrow(tR)
+      # Add extra zero cols if needed
+      if (ncol(tR) < pp)
+        tR <- cbind(tR, matrix(0, nrow = pp, ncol = pp - ncol(tR)))
+      # Pad diagonal with ones
+      tR[(row(tR) > p) & (row(tR) == col(tR))] <- 1
+      # Null basis is last pp-p cols of Q in QR decomposition of tR
+      nbasis <- qr.Q(qr(tR))[, (p+1):pp, drop = FALSE]
+
+      ### Determine estimability....
+      # nbasis is orthonormal.
+      # But *remember* rows are in qrX$pivot order
+      # Note we use ALL columns of X, not just p of them
+      est.test <- X[, qrX$pivot] %*% nbasis
+
+      # Function to get vector norm. Is there a base fcn that does this?
+      # 'norm' does, but it's too general and breaks if there are NAs
+      norm2 <- function(x) sqrt(sum(x*x))
+
+      est.norm <- apply(est.test, 1, norm2)
+      X.norm <- apply(X, 1, norm2)
+      # avoid dividing by near-zero
+      X.norm[zapsmall(X.norm, digits = 6) == 0] <- 1
+      # Find indices of non-estimable cases
+      nonest <- which(est.norm / X.norm > tol)
+    }
+    # added else clause - everything is estimable
+    else
+      nonest <- integer(0)
+
     beta <- object$coefficients
     predictor <- drop(X[, piv, drop = FALSE] %*% beta[piv])
+    predictor[nonest] <- NA
     if (!is.null(offset))
 	predictor <- predictor + offset
 
@@ -932,4 +964,21 @@ labels.lm <- function(object, ...)
     tl <- attr(object$terms, "term.labels")
     asgn <- object$assign[qr.lm(object)$pivot[1L:object$rank]]
     tl[unique(asgn)]
+}
+
+# From Estimability package by Russ Lenth
+is.estible <- function (x, nbasis, tol = 1e-08)
+{
+  if (is.matrix(x))
+    return(apply(x, 1, is.estble, nbasis, tol))
+  if (is.na(nbasis[1]))
+    TRUE
+  else {
+    x[is.na(x)] = 0
+    chk = as.numeric(crossprod(nbasis, x))
+    ssqx = sum(x * x)
+    if (ssqx < tol)
+      ssqx = 1
+    sum(chk * chk) < tol * ssqx
+  }
 }
