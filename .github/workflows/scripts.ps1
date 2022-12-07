@@ -15,7 +15,8 @@ $INNO_MIRROR = "http://www.jrsoftware.org/download.php/is.exe?site=2"
 # $INNO_MIRROR = "http://files.jrsoftware.org/is/5/innosetup-5.6.1-unicode.exe"
 
 ### MikTex Mirror
-$MIKTEX_MIRROR = "https://miktex.org/download/win/basic-miktex-x64.exe"
+$MIKTEX_MIRROR = "https://github.com/r-windows/files/releases/download/miktex-22.10/basic-miktex-22.10-x64.exe"
+#$MIKTEX_MIRROR = "https://miktex.org/download/win/basic-miktex-x64.exe"
 #$MIKTEX_MIRROR = "https://cloud.r-project.org/bin/windows/Rtools/basic-miktex-2.9.7152-x64.exe"
 #$MIKTEX_MIRROR = "https://cloud.r-project.org/bin/windows/Rtools/basic-miktex-2.9.7386-x64.exe"
 
@@ -89,9 +90,9 @@ Function InstallMiktex {
   $miktexinstall = "--unattended --auto-install=yes --shared"
 
   # Hack around the random mirror redirect because many mirrors are broken
-  $effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -kLIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
-  $miktex_file = [io.path]::GetFileName($effective_url)
-  $MIKTEX_MIRROR = "https://ctan.math.illinois.edu/systems/win32/miktex/setup/windows-x64/" + $miktex_file
+  #$effective_url = & "C:\Program Files\Git\mingw64\bin\curl.exe" -kLIs -o NUL -w "%{url_effective}" $MIKTEX_MIRROR
+  #$miktex_file = [io.path]::GetFileName($effective_url)
+  #$MIKTEX_MIRROR = "https://ctan.math.illinois.edu/systems/win32/miktex/setup/windows-x64/" + $miktex_file
 
   Write-Host "Downloading " + $MIKTEX_MIRROR
   & "C:\Program Files\Git\mingw64\bin\curl.exe" --retry 5 -sSL -o ../basic-miktex-x64.exe -L $MIKTEX_MIRROR
