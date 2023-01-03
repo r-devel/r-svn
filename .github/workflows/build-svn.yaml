@@ -38,7 +38,7 @@ jobs:
 
     - name: Prepare
       run: |
-        git config --global --add safe.directory .
+        git config --global --add safe.directory $PWD
         sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in
         ./.github/workflows/wget-recommended.sh
         ./.github/workflows/svn-info.sh
