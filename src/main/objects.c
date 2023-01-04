@@ -991,16 +991,29 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
     else
 	PROTECT(klass = R_data_class(x, FALSE));
 
+    int nprot = 1;
+
+    if (inherits(what, "R7_class"))
+    {
+        SEXP R7_ns = R_FindNamespace(mkString("R7"));
+        SEXP cl = PROTECT(lang2(install("R7_class_name"), what));
+        what = PROTECT(eval(cl, R7_ns));
+        nprot += 2;
+    }
+
     if(!isString(what))
-	error(_("'what' must be a character vector"));
+	error(_("'what' must be a character vector or an <R7_class>"));
     int j, nwhat = LENGTH(what);
 
-    if( !isLogical(which) || (LENGTH(which) != 1) )
+	if (!isLogical(which) || (LENGTH(which) != 1))
 	error(_("'which' must be a length 1 logical vector"));
     Rboolean isvec = asLogical(which);
 
-    if(isvec)
+    if (isvec)
+	{
 	PROTECT(rval = allocVector(INTSXP, nwhat));
+    nprot++;
+    }
 
     for(j = 0; j < nwhat; j++) {
 	const char *ss = translateChar(STRING_ELT(what, j));
@@ -1009,16 +1022,16 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	    INTEGER(rval)[j] = i+1; /* 0 when ss is not in klass */
 	else if (i >= 0) {
 	    vmaxset(vmax);
-	    UNPROTECT(1);
+	    UNPROTECT(nprot);
 	    return mkTrue();
 	}
     }
     vmaxset(vmax);
     if(!isvec) {
-	UNPROTECT(1);
+	UNPROTECT(nprot);
 	return mkFalse();
     }
-    UNPROTECT(2);
+	UNPROTECT(nprot);
     return rval;
 }
 
