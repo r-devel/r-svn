@@ -3847,6 +3847,11 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		     (streql(rname, "+.POSIXt") || streql(rname, "+.Date")) )
 		lsxp = R_NilValue;
 
+		else if(inherits(CAR(args), "R7_object"))
+			rsxp = R_NilValue;
+		else if (inherits(CADR(args), "R7_object"))
+			lsxp = R_NilValue;
+
 	    /* Strict comparison, the docs requires methods to be "the same":
 	      16 to take environments into account
 	     1+2 for bitwise comparison of numbers
