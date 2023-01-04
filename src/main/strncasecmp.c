@@ -31,14 +31,20 @@ int strncasecmp(const char *s1, const char *s2, size_t n)
     char c1, c2;
     int i;
 
-    for (i = 0; i < n; i++) {
-	c1 = s1[i]; c2 = s2[i];
-	c1 = isupper(c1) ? tolower(c1) : c1;
-	c2 = isupper(c2) ? tolower(c2) : c2;
-	if (c1 == '\0') return ((c2 == '\0') ? 0 : -1);
-	if (c2 == '\0') return 1;
-	if (c1 < c2) return -1;
-	if (c1 > c2) return 1;
+    for (i = 0; i < n; i++)
+    {
+        c1 = s1[i];
+        c2 = s2[i];
+        c1 = isupper(c1) ? tolower(c1) : c1;
+        c2 = isupper(c2) ? tolower(c2) : c2;
+        if (c1 == '\0')
+            return ((c2 == '\0') ? 0 : -1);
+        if (c2 == '\0')
+            return 1;
+        if (c1 < c2)
+            return -1;
+        if (c1 > c2)
+            return 1;
     }
     return 0;
 }

@@ -33,17 +33,21 @@ double pnbinom(double x, double size, double prob, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(size) || ISNAN(prob))
-	return x + size + prob;
-    if(!R_FINITE(size) || !R_FINITE(prob))	ML_WARN_return_NAN;
+        return x + size + prob;
+    if (!R_FINITE(size) || !R_FINITE(prob))
+        ML_WARN_return_NAN;
 #endif
-    if (size < 0 || prob <= 0 || prob > 1)	ML_WARN_return_NAN;
+    if (size < 0 || prob <= 0 || prob > 1)
+        ML_WARN_return_NAN;
 
     /* limiting case: point mass at zero */
     if (size == 0)
         return (x >= 0) ? R_DT_1 : R_DT_0;
 
-    if (x < 0) return R_DT_0;
-    if (!R_FINITE(x)) return R_DT_1;
+    if (x < 0)
+        return R_DT_0;
+    if (!R_FINITE(x))
+        return R_DT_1;
     x = floor(x + 1e-7);
     return pbeta(prob, size, x + 1, lower_tail, log_p);
 }
@@ -52,19 +56,23 @@ double pnbinom_mu(double x, double size, double mu, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(size) || ISNAN(mu))
-	return x + size + mu;
-    if(!R_FINITE(mu))	ML_WARN_return_NAN;
+        return x + size + mu;
+    if (!R_FINITE(mu))
+        ML_WARN_return_NAN;
 #endif
-    if (size < 0 || mu < 0)	ML_WARN_return_NAN;
+    if (size < 0 || mu < 0)
+        ML_WARN_return_NAN;
 
     /* limiting case: point mass at zero */
     if (size == 0)
         return (x >= 0) ? R_DT_1 : R_DT_0;
 
-    if (x < 0) return R_DT_0;
-    if (!R_FINITE(x)) return R_DT_1;
+    if (x < 0)
+        return R_DT_0;
+    if (!R_FINITE(x))
+        return R_DT_1;
     if (!R_FINITE(size)) // limit case: Poisson
-	return(ppois(x, mu, lower_tail, log_p));
+        return (ppois(x, mu, lower_tail, log_p));
 
     x = floor(x + 1e-7);
     /* return
@@ -75,11 +83,11 @@ double pnbinom_mu(double x, double size, double mu, int lower_tail, int log_p)
      *=  bratio (pin,  qin, x., 1-x., &w, &wc, &ierr, log_p),  and return w or wc ..
      *=  bratio (size, x+1, pr, 1-pr, &w, &wc, &ierr, log_p) */
     {
-	int ierr;
-	double w, wc;
-	bratio(size, x+1, size/(size+mu), mu/(size+mu), &w, &wc, &ierr, log_p);
-	if(ierr)
-	    MATHLIB_WARNING(_("pnbinom_mu() -> bratio() gave error code %d"), ierr);
-	return lower_tail ? w : wc;
+        int ierr;
+        double w, wc;
+        bratio(size, x + 1, size / (size + mu), mu / (size + mu), &w, &wc, &ierr, log_p);
+        if (ierr)
+            MATHLIB_WARNING(_("pnbinom_mu() -> bratio() gave error code %d"), ierr);
+        return lower_tail ? w : wc;
     }
 }

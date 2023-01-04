@@ -26,7 +26,7 @@
  *  del(metafile)  finalizes/closes the metafile. Closed in memory
  *     metafile are saved to the clipboard.
  *
-*/
+ */
 
 #define ENABLE_NLS 1
 #include "win-nls.h"
@@ -41,20 +41,23 @@ static void private_delmetafile(metafile obj)
 {
     HENHMETAFILE hm;
 
-    if (!obj || (obj->kind != MetafileObject)) return;
-    hm = (HENHMETAFILE) CloseEnhMetaFile((HDC) obj->handle);
-    if (strlen(GA_gettext(obj))) { /* real file*/
-	DeleteEnhMetaFile(hm);
-	return;
+    if (!obj || (obj->kind != MetafileObject))
+        return;
+    hm = (HENHMETAFILE)CloseEnhMetaFile((HDC)obj->handle);
+    if (strlen(GA_gettext(obj)))
+    { /* real file*/
+        DeleteEnhMetaFile(hm);
+        return;
     }
     if (OpenClipboard(NULL) && EmptyClipboard() && /* try to save to the*/
-	SetClipboardData(CF_ENHMETAFILE, hm) &&     /*clipboard */
-	CloseClipboard())
-	return;
-    else {
-	R_ShowMessage(G_("Unable to save metafile to the clipboard"));
-	DeleteEnhMetaFile(hm);
-	return;
+        SetClipboardData(CF_ENHMETAFILE, hm) &&    /*clipboard */
+        CloseClipboard())
+        return;
+    else
+    {
+        R_ShowMessage(G_("Unable to save metafile to the clipboard"));
+        DeleteEnhMetaFile(hm);
+        return;
     }
 }
 
@@ -65,35 +68,38 @@ static object get_metafile_base(void)
 {
     static object metafile_base = NULL;
 
-    if (! metafile_base)
-	metafile_base = new_object(BaseObject, 0, NULL);
+    if (!metafile_base)
+        metafile_base = new_object(BaseObject, 0, NULL);
     return metafile_base;
 }
 
 /* width and height are in mm */
-metafile newmetafile(const char *name, double width, double height,
-                     double xpinch, double ypinch)
+metafile newmetafile(const char *name, double width, double height, double xpinch, double ypinch)
 {
     metafile obj;
     HDC hDC;
     RECT wr;
-    static double cppix=-1, ppix, cppiy, ppiy;
+    static double cppix = -1, ppix, cppiy, ppiy;
 
     /* If user has overridden, do not query Windows for device info */
-    if (xpinch > 0.0 && ypinch > 0.0) {
+    if (xpinch > 0.0 && ypinch > 0.0)
+    {
         cppix = xpinch;
         ppix = 100 * xpinch;
         cppiy = ypinch;
         ppiy = 100 * ypinch;
-    } else {
+    }
+    else
+    {
         /*
          * In theory, (cppix=ppix) and (cppiy=ppiy). However, we
          * use the ratio to adjust the 'reference dimension'
          * in case.... ("Importing graph in MsWord" thread)
          */
-        if (cppix < 0) {
+        if (cppix < 0)
+        {
             cppix = 25.40 * devicewidth(NULL) / devicewidthmm(NULL);
-            ppix  = 100 * devicepixelsx(NULL);
+            ppix = 100 * devicepixelsx(NULL);
             cppiy = 25.40 * deviceheight(NULL) / deviceheightmm(NULL);
             ppiy = 100 * devicepixelsy(NULL);
         }
@@ -106,28 +112,29 @@ metafile newmetafile(const char *name, double width, double height,
     */
 
     wr.left = 0;
-    wr.top =  0 ;
-    wr.right =  (ppix * width) / cppix ;
-    wr.bottom = (ppiy * height) / cppiy ;
+    wr.top = 0;
+    wr.right = (ppix * width) / cppix;
+    wr.bottom = (ppiy * height) / cppiy;
 
     /* Here the size is in 0.01mm units */
-    hDC = CreateEnhMetaFile(NULL, strlen(name) ? name : NULL, &wr,
-			    "GraphApp\0\0");
-    if ( !hDC ) {
-	R_ShowMessage(G_("Unable to create metafile"));
-	return NULL;
+    hDC = CreateEnhMetaFile(NULL, strlen(name) ? name : NULL, &wr, "GraphApp\0\0");
+    if (!hDC)
+    {
+        R_ShowMessage(G_("Unable to create metafile"));
+        return NULL;
     }
-    obj = new_object(MetafileObject, (HANDLE) hDC, get_metafile_base());
-    if ( !obj ) {
-	R_ShowMessage(G_("Insufficient memory to create metafile"));
-	DeleteEnhMetaFile(CloseEnhMetaFile(hDC));
-	return NULL;
+    obj = new_object(MetafileObject, (HANDLE)hDC, get_metafile_base());
+    if (!obj)
+    {
+        R_ShowMessage(G_("Insufficient memory to create metafile"));
+        DeleteEnhMetaFile(CloseEnhMetaFile(hDC));
+        return NULL;
     }
     /* In looks like Windows rounds up the width and height, so we
        do too.  1 out is common, but 2 out has been seen.
        This is needed to get complete painting of the background.
     */
-    obj->rect = rect(0, 0, 2+(ppix * width)/2540, 2+(ppiy * height)/2540);
+    obj->rect = rect(0, 0, 2 + (ppix * width) / 2540, 2 + (ppiy * height) / 2540);
     obj->depth = GetDeviceCaps(hDC, BITSPIXEL) * GetDeviceCaps(hDC, PLANES);
     obj->die = private_delmetafile;
     obj->drawstate = copydrawstate();

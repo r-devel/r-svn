@@ -20,17 +20,17 @@
 
 #include "grid.h"
 
-Rboolean isMask(SEXP mask) {
+Rboolean isMask(SEXP mask)
+{
     return Rf_inherits(mask, "GridMask");
 }
 
-SEXP resolveMask(SEXP mask, pGEDevDesc dd) 
+SEXP resolveMask(SEXP mask, pGEDevDesc dd)
 {
     SEXP resolveFn, R_fcall, result;
     PROTECT(resolveFn = findFun(install("resolveMask"), R_gridEvalEnv));
     PROTECT(R_fcall = lang2(resolveFn, mask));
     result = eval(R_fcall, R_gridEvalEnv);
     UNPROTECT(2);
-    return result;    
+    return result;
 }
-

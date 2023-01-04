@@ -41,32 +41,42 @@ double df(double x, double m, double n, int give_log)
 
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(m) || ISNAN(n))
-	return x + m + n;
+        return x + m + n;
 #endif
-    if (m <= 0 || n <= 0) ML_WARN_return_NAN;
-    if (x < 0.)  return(R_D__0);
-    if (x == 0.) return(m > 2 ? R_D__0 : (m == 2 ? R_D__1 : ML_POSINF));
-    if (!R_FINITE(m) && !R_FINITE(n)) { /* both +Inf */
-	if(x == 1.) return ML_POSINF; else return R_D__0;
+    if (m <= 0 || n <= 0)
+        ML_WARN_return_NAN;
+    if (x < 0.)
+        return (R_D__0);
+    if (x == 0.)
+        return (m > 2 ? R_D__0 : (m == 2 ? R_D__1 : ML_POSINF));
+    if (!R_FINITE(m) && !R_FINITE(n))
+    { /* both +Inf */
+        if (x == 1.)
+            return ML_POSINF;
+        else
+            return R_D__0;
     }
     if (!R_FINITE(n)) /* must be +Inf by now */
-	return(dgamma(x, m/2, 2./m, give_log));
-    if (m > 1e14) {/* includes +Inf: code below is inaccurate there */
-	dens = dgamma(1./x, n/2, 2./n, give_log);
-	return give_log ? dens - 2*log(x): dens/(x*x);
+        return (dgamma(x, m / 2, 2. / m, give_log));
+    if (m > 1e14)
+    { /* includes +Inf: code below is inaccurate there */
+        dens = dgamma(1. / x, n / 2, 2. / n, give_log);
+        return give_log ? dens - 2 * log(x) : dens / (x * x);
     }
 
-    f = 1./(n+x*m);
-    q = n*f;
-    p = x*m*f;
+    f = 1. / (n + x * m);
+    q = n * f;
+    p = x * m * f;
 
-    if (m >= 2) {
-	f = m*q/2;
-	dens = dbinom_raw((m-2)/2, (m+n-2)/2, p, q, give_log);
+    if (m >= 2)
+    {
+        f = m * q / 2;
+        dens = dbinom_raw((m - 2) / 2, (m + n - 2) / 2, p, q, give_log);
     }
-    else {
-	f = m*m*q / (2*p*(m+n));
-	dens = dbinom_raw(m/2, (m+n)/2, p, q, give_log);
+    else
+    {
+        f = m * m * q / (2 * p * (m + n));
+        dens = dbinom_raw(m / 2, (m + n) / 2, p, q, give_log);
     }
-    return(give_log ? log(f)+dens : f*dens);
+    return (give_log ? log(f) + dens : f * dens);
 }

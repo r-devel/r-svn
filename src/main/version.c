@@ -19,7 +19,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include "Defn.h"
@@ -53,11 +53,11 @@ attribute_hidden SEXP do_version(SEXP call, SEXP op, SEXP args, SEXP env)
 
     checkArity(op, args);
 #ifndef Win32
-    PROTECT(value = allocVector(VECSXP,14));
-    PROTECT(names = allocVector(STRSXP,14));
+    PROTECT(value = allocVector(VECSXP, 14));
+    PROTECT(names = allocVector(STRSXP, 14));
 #else
-    PROTECT(value = allocVector(VECSXP,15));
-    PROTECT(names = allocVector(STRSXP,15));
+    PROTECT(value = allocVector(VECSXP, 15));
+    PROTECT(names = allocVector(STRSXP, 15));
 #endif
 
     SET_STRING_ELT(names, i, mkChar("platform"));
@@ -110,57 +110,64 @@ attribute_hidden void PrintVersion(char *s, size_t len)
     PrintVersion_part_1(s, len);
 
     strcat(s, "\n"
-	   "R is free software and comes with ABSOLUTELY NO WARRANTY.\n"
-	   "You are welcome to redistribute it under the terms of the\n"
-	   "GNU General Public License versions 2 or 3.\n"
-	   "For more information about these matters see\n"
-	   "https://www.gnu.org/licenses/.\n");
+              "R is free software and comes with ABSOLUTELY NO WARRANTY.\n"
+              "You are welcome to redistribute it under the terms of the\n"
+              "GNU General Public License versions 2 or 3.\n"
+              "For more information about these matters see\n"
+              "https://www.gnu.org/licenses/.\n");
 }
 
 attribute_hidden void PrintVersionString(char *s, size_t len)
 {
-    
+
 #ifndef Win32
-# define _R_PV_EXTRA_ ""
+#define _R_PV_EXTRA_ ""
 #else
-# define _R_PV_EXTRA_ " " R_CRT
+#define _R_PV_EXTRA_ " " R_CRT
 #endif
-    if(R_SVN_REVISION <= 0) {// 'svn info' failed in ../../Makefile.in
-	snprintf(s, len, "R version %s.%s %s (%s-%s-%s%s)",
-		R_MAJOR, R_MINOR, R_STATUS, R_YEAR, R_MONTH, R_DAY,
-	        _R_PV_EXTRA_);
-    } else if(strlen(R_STATUS) == 0) {
-	snprintf(s, len, "R version %s.%s (%s-%s-%s%s)",
-		R_MAJOR, R_MINOR, R_YEAR, R_MONTH, R_DAY, _R_PV_EXTRA_);
-    } else if(strcmp(R_STATUS, "Under development (unstable)") == 0) {
-	snprintf(s, len, "R %s (%s-%s-%s r%d%s)",
-		R_STATUS, R_YEAR, R_MONTH, R_DAY, R_SVN_REVISION,
-	        _R_PV_EXTRA_);
-    } else {
-	snprintf(s, len, "R version %s.%s %s (%s-%s-%s r%d%s)",
-		R_MAJOR, R_MINOR, R_STATUS, R_YEAR, R_MONTH, R_DAY,
-		R_SVN_REVISION, _R_PV_EXTRA_);
+    if (R_SVN_REVISION <= 0)
+    { // 'svn info' failed in ../../Makefile.in
+        snprintf(s, len, "R version %s.%s %s (%s-%s-%s%s)", R_MAJOR, R_MINOR, R_STATUS, R_YEAR, R_MONTH, R_DAY,
+                 _R_PV_EXTRA_);
+    }
+    else if (strlen(R_STATUS) == 0)
+    {
+        snprintf(s, len, "R version %s.%s (%s-%s-%s%s)", R_MAJOR, R_MINOR, R_YEAR, R_MONTH, R_DAY, _R_PV_EXTRA_);
+    }
+    else if (strcmp(R_STATUS, "Under development (unstable)") == 0)
+    {
+        snprintf(s, len, "R %s (%s-%s-%s r%d%s)", R_STATUS, R_YEAR, R_MONTH, R_DAY, R_SVN_REVISION, _R_PV_EXTRA_);
+    }
+    else
+    {
+        snprintf(s, len, "R version %s.%s %s (%s-%s-%s r%d%s)", R_MAJOR, R_MINOR, R_STATUS, R_YEAR, R_MONTH, R_DAY,
+                 R_SVN_REVISION, _R_PV_EXTRA_);
     }
 #undef _R_PV_EXTRA_
 }
 
 attribute_hidden void PrintVersion_part_1(char *s, size_t len)
 {
-#define SPRINTF_2(_FMT, _OBJ) snprintf(tmp, 128, _FMT, _OBJ); strcat(s, tmp)
+#define SPRINTF_2(_FMT, _OBJ)                                                                                          \
+    snprintf(tmp, 128, _FMT, _OBJ);                                                                                    \
+    strcat(s, tmp)
     char tmp[128];
 
     PrintVersionString(s, len);
-    if(strlen(R_NICK) != 0) {
-	char nick[128];
-	snprintf(nick, 128, " -- \"%s\"", R_NICK);
-	strcat(s, nick);
+    if (strlen(R_NICK) != 0)
+    {
+        char nick[128];
+        snprintf(nick, 128, " -- \"%s\"", R_NICK);
+        strcat(s, nick);
     }
-    SPRINTF_2("\nCopyright (C) %s The R Foundation for Statistical Computing\n",
-	      R_YEAR);
-/*  strcat(s, "ISBN 3-900051-07-0\n");  */
+    SPRINTF_2("\nCopyright (C) %s The R Foundation for Statistical Computing\n", R_YEAR);
+    /*  strcat(s, "ISBN 3-900051-07-0\n");  */
     SPRINTF_2("Platform: %s", R_PLATFORM);
-    if(strlen(R_ARCH)) { SPRINTF_2("/%s", R_ARCH); }
-    SPRINTF_2(" (%d-bit)\n", 8*(int)sizeof(void *));
+    if (strlen(R_ARCH))
+    {
+        SPRINTF_2("/%s", R_ARCH);
+    }
+    SPRINTF_2(" (%d-bit)\n", 8 * (int)sizeof(void *));
 }
 
 attribute_hidden SEXP do_internalsID(SEXP call, SEXP op, SEXP args, SEXP env)

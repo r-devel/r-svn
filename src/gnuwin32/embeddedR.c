@@ -40,20 +40,20 @@ extern void R_SetParams(Rstart), R_setStartTime();
 extern void ProcessEvents(void);
 extern int R_DefParamsEx(Rstart, int), R_ReplDLLdo1();
 
-
 /* simple input, simple output */
 
 /* This version blocks all events: a real one needs to call ProcessEvents
    frequently. See rterm.c and ../system.c for one approach using
    a separate thread for input.
 */
-static int myReadConsole(const char *prompt, unsigned char *buf, int len,
-			 int addtohistory)
+static int myReadConsole(const char *prompt, unsigned char *buf, int len, int addtohistory)
 {
     fputs(prompt, stdout);
     fflush(stdout);
-    if(fgets((char *)buf, len, stdin)) return 1;
-    else return 0;
+    if (fgets((char *)buf, len, stdin))
+        return 1;
+    else
+        return 0;
 }
 
 static void myWriteConsole(const char *buf, int len)
@@ -85,17 +85,18 @@ int Rf_initialize_R(int argc, char **argv)
     char Rversion[25], *RHome;
 
     snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
-    if(strncmp(getDLLVersion(), Rversion, 25) != 0) {
-	fprintf(stderr, "Error: R.DLL version does not match\n");
-	exit(1);
+    if (strncmp(getDLLVersion(), Rversion, 25) != 0)
+    {
+        fprintf(stderr, "Error: R.DLL version does not match\n");
+        exit(1);
     }
 
     R_setStartTime();
     R_DefParamsEx(Rp, RSTART_VERSION);
-    if((RHome = get_R_HOME()) == NULL) {
-	fprintf(stderr,
-		"R_HOME must be set in the environment or Registry\n");
-	exit(2);
+    if ((RHome = get_R_HOME()) == NULL)
+    {
+        fprintf(stderr, "R_HOME must be set in the environment or Registry\n");
+        exit(2);
     }
     Rp->rhome = RHome;
     Rp->home = getRUser();
@@ -129,7 +130,7 @@ int Rf_initEmbeddedR(int argc, char **argv)
 {
     Rf_initialize_R(argc, argv);
     setup_Rmainloop();
-    return(1);
+    return (1);
 }
 
 /* use fatal !=0 for emergency bail out */
@@ -138,11 +139,12 @@ void Rf_endEmbeddedR(int fatal)
     R_RunExitFinalizers();
     CleanEd();
     R_CleanTempDir();
-    if(!fatal){
-	Rf_KillAllDevices();
-	AllDevicesKilled = TRUE;
+    if (!fatal)
+    {
+        Rf_KillAllDevices();
+        AllDevicesKilled = TRUE;
     }
-    if(!fatal && R_CollectWarnings)
-	PrintWarnings();	/* from device close and .Last */
+    if (!fatal && R_CollectWarnings)
+        PrintWarnings(); /* from device close and .Last */
     app_cleanup();
 }

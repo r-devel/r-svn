@@ -32,15 +32,14 @@
 #include "internal.h"
 #include "rui.h"
 
-
 void copytoclipboard(drawing sb)
 {
     HBITMAP hbmpOldDest, hbmpNew;
-    HDC     hdcSrc, hdcDest;
+    HDC hdcSrc, hdcDest;
     rect r;
 
     r = getrect(sb);
-    hdcSrc =  get_context((object)sb);
+    hdcSrc = get_context((object)sb);
     hdcDest = CreateCompatibleDC(hdcSrc);
 
     hbmpNew = CreateCompatibleBitmap(hdcSrc, r.width, r.height);
@@ -49,10 +48,11 @@ void copytoclipboard(drawing sb)
     SelectObject(hdcDest, hbmpOldDest);
     DeleteDC(hdcDest);
 
-    if (!OpenClipboard(NULL) || !EmptyClipboard()) {
-	R_ShowMessage(G_("Unable to open the clipboard"));
-	DeleteObject(hbmpNew);
-	return;
+    if (!OpenClipboard(NULL) || !EmptyClipboard())
+    {
+        R_ShowMessage(G_("Unable to open the clipboard"));
+        DeleteObject(hbmpNew);
+        return;
     }
     SetClipboardData(CF_BITMAP, hbmpNew);
     CloseClipboard();
@@ -65,43 +65,47 @@ int copystringtoclipboard(const char *str)
     char *s;
     int ll = strlen(str) + 1;
 
-    if (!(hglb = GlobalAlloc(GHND, ll))){
-	R_ShowMessage(G_("Insufficient memory: cell not copied to the clipboard"));
-	return 1;
+    if (!(hglb = GlobalAlloc(GHND, ll)))
+    {
+        R_ShowMessage(G_("Insufficient memory: cell not copied to the clipboard"));
+        return 1;
     }
-    if (!(s = (char *)GlobalLock(hglb))){
-	R_ShowMessage(G_("Insufficient memory: cell not copied to the clipboard"));
-	return 1;
+    if (!(s = (char *)GlobalLock(hglb)))
+    {
+        R_ShowMessage(G_("Insufficient memory: cell not copied to the clipboard"));
+        return 1;
     }
     strcpy(s, str);
     GlobalUnlock(hglb);
-    if (!OpenClipboard(NULL) || !EmptyClipboard()) {
-	R_ShowMessage(G_("Unable to open the clipboard"));
-	GlobalFree(hglb);
-	return 1;
+    if (!OpenClipboard(NULL) || !EmptyClipboard())
+    {
+        R_ShowMessage(G_("Unable to open the clipboard"));
+        GlobalFree(hglb);
+        return 1;
     }
     SetClipboardData(CF_TEXT, hglb);
     CloseClipboard();
     return 0;
 }
 
-int getstringfromclipboard(char * str, int n)
+int getstringfromclipboard(char *str, int n)
 {
     HGLOBAL hglb;
     char *pc;
 
-    if ( OpenClipboard(NULL) &&
-	 (hglb = GetClipboardData(CF_TEXT)) &&
-	 (pc = (char *)GlobalLock(hglb))) {
-	strncpy(str, pc, n);
-	str[n+1] = '\0';
-	GlobalUnlock(hglb);
-	CloseClipboard();
-	return 0;
-    } else return 1;
+    if (OpenClipboard(NULL) && (hglb = GetClipboardData(CF_TEXT)) && (pc = (char *)GlobalLock(hglb)))
+    {
+        strncpy(str, pc, n);
+        str[n + 1] = '\0';
+        GlobalUnlock(hglb);
+        CloseClipboard();
+        return 0;
+    }
+    else
+        return 1;
 }
 
 int clipboardhastext()
 {
-    return (int) IsClipboardFormatAvailable(CF_TEXT);
+    return (int)IsClipboardFormatAvailable(CF_TEXT);
 }

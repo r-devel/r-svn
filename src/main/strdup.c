@@ -23,20 +23,19 @@
 #include <string.h>
 #include <stdlib.h>
 #else
-char *malloc ();
-char *strcpy ();
+char *malloc();
+char *strcpy();
 #endif
 
 /* Return a newly allocated copy of STR,
    or 0 if out of memory. */
 
-char *
-strdup (const char *str)
+char *strdup(const char *str)
 {
-  char *newstr;
+    char *newstr;
 
-  newstr = (char *) malloc (strlen (str) + 1);
-  if (newstr)
-    strcpy (newstr, str);
-  return newstr;
+    newstr = (char *)malloc(strlen(str) + 1);
+    if (newstr)
+        strcpy(newstr, str);
+    return newstr;
 }

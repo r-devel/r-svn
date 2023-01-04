@@ -17,20 +17,20 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
    USA.  */
 
- /* IMP(x) is a symbol that contains the address of x.  */
+/* IMP(x) is a symbol that contains the address of x.  */
 #define IMP(x) _imp__##x
 
- /* Ensure that the variable x is exported from the library, and that a
-    pseudo-variable IMP(x) is available.  */
-#define VARIABLE(x) \
- /* Export x without redefining x.  This code was found by compiling a	\
-    snippet:								\
-      extern __declspec(dllexport) int x; int x = 42;  */		\
- __asm__ (".section .drectve\n");						\
- __asm__ (".ascii \" -export:" #x ",data\"\n");				\
- __asm__ (".data\n");							\
- /* Allocate a pseudo-variable IMP(x).  */				\
- extern int x;								\
- void * IMP(x) = &x;
+/* Ensure that the variable x is exported from the library, and that a
+   pseudo-variable IMP(x) is available.  */
+#define VARIABLE(x)                                                                                                    \
+    /* Export x without redefining x.  This code was found by compiling a                                              \
+       snippet:                                                                                                        \
+         extern __declspec(dllexport) int x; int x = 42;  */                                                           \
+    __asm__(".section .drectve\n");                                                                                    \
+    __asm__(".ascii \" -export:" #x ",data\"\n");                                                                      \
+    __asm__(".data\n");                                                                                                \
+    /* Allocate a pseudo-variable IMP(x).  */                                                                          \
+    extern int x;                                                                                                      \
+    void *IMP(x) = &x;
 
 VARIABLE(libintl_version)

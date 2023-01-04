@@ -18,38 +18,38 @@
 #include "internal.h"
 
 /* Win32 style scrollbars */
-void
-gchangescrollbar(scrollbar obj, int which, int where, int max, int pagesize,
-		 int disablenoscroll)
+void gchangescrollbar(scrollbar obj, int which, int where, int max, int pagesize, int disablenoscroll)
 {
     HWND hwnd;
     SCROLLINFO si;
 
-    if (! obj) return;
+    if (!obj)
+        return;
     hwnd = obj->handle;
-    switch (which) {
+    switch (which)
+    {
     case HWINSB:
-	obj->xmax = max;
-	obj->xsize = pagesize;
-	which = SB_HORZ;
-	break;
+        obj->xmax = max;
+        obj->xsize = pagesize;
+        which = SB_HORZ;
+        break;
     case VWINSB:
-	obj->max = max;
-	obj->size = pagesize;
-	which = SB_VERT;
-	break;
+        obj->max = max;
+        obj->size = pagesize;
+        which = SB_VERT;
+        break;
     default:
-	obj->max = max;
-	obj->size = pagesize;
-	which = SB_CTL;
-	break;
+        obj->max = max;
+        obj->size = pagesize;
+        which = SB_CTL;
+        break;
     }
     si.cbSize = sizeof(si);
-    si.fMask  = disablenoscroll ? (SIF_ALL | SIF_DISABLENOSCROLL) : SIF_ALL;
-    si.nMin   = 0;
-    si.nMax   = max;
-    si.nPage  = pagesize;
-    si.nPos   = where;
+    si.fMask = disablenoscroll ? (SIF_ALL | SIF_DISABLENOSCROLL) : SIF_ALL;
+    si.nMin = 0;
+    si.nMax = max;
+    si.nPage = pagesize;
+    si.nPos = where;
     SetScrollInfo(hwnd, which, &si, 1);
 }
 
@@ -68,20 +68,19 @@ void gsetcursor(drawing d, cursor c)
 control newtoolbar(int height)
 {
     window c = current_window;
-    if (!ismdi() || !c || (c==MDIFrame)) return NULL;
+    if (!ismdi() || !c || (c == MDIFrame))
+        return NULL;
     addto(MDIFrame);
-    c->toolbar = newwindow("TOOLBAR", rect(0, 0, 100, height),
-			   ChildWindow | Border);
-    if (c->toolbar) {
-	DWORD wcol = GetSysColor(COLOR_MENU);
-	hide(c->toolbar);
-	setbackground(c->toolbar,
-		      rgb( (wcol >> 0) &  0x000000FFL,
-			   (wcol >> 8) &  0x000000FFL,
-			   (wcol >> 16) &  0x000000FFL));
+    c->toolbar = newwindow("TOOLBAR", rect(0, 0, 100, height), ChildWindow | Border);
+    if (c->toolbar)
+    {
+        DWORD wcol = GetSysColor(COLOR_MENU);
+        hide(c->toolbar);
+        setbackground(c->toolbar,
+                      rgb((wcol >> 0) & 0x000000FFL, (wcol >> 8) & 0x000000FFL, (wcol >> 16) & 0x000000FFL));
     }
     addto(c);
-    return (control) c->toolbar;
+    return (control)c->toolbar;
 }
 
 /* Fix background color for image on the toolbar.
@@ -90,35 +89,31 @@ control newtoolbar(int height)
    (b) image depth is 8 bits;
    (c) image is changed not copied.
 */
-button newtoolbutton(image img, rect r, actionfn fn) {
+button newtoolbutton(image img, rect r, actionfn fn)
+{
     DWORD wcol = GetSysColor(COLOR_MENU);
-    rgb    col = rgb( (wcol >> 0) &  0x000000FFL,
-		      (wcol >> 8) &  0x000000FFL,
-		      (wcol >> 16) &  0x000000FFL);
+    rgb col = rgb((wcol >> 0) & 0x000000FFL, (wcol >> 8) & 0x000000FFL, (wcol >> 16) & 0x000000FFL);
     img->cmap[img->pixels[0]] = col;
     return newimagebutton(img, r, fn);
 }
 
-
 void scrolltext(textbox c, int lines)
 {
-    int linecount = (INT) sendmessage(c->handle, EM_GETLINECOUNT, 0, 0);
+    int linecount = (INT)sendmessage(c->handle, EM_GETLINECOUNT, 0, 0);
     sendmessage(c->handle, EM_LINESCROLL, 0, linecount - lines);
 }
-
 
 int ggetkeystate()
 {
     int k = 0;
-    if (GetKeyState(VK_CONTROL)&0x8000)
-	k |= CtrlKey;
-    if (GetKeyState(VK_MENU)&0x8000)
-	k |= AltKey;
-    if (GetKeyState(VK_SHIFT)&0x8000)
-	k |= ShiftKey;
+    if (GetKeyState(VK_CONTROL) & 0x8000)
+        k |= CtrlKey;
+    if (GetKeyState(VK_MENU) & 0x8000)
+        k |= AltKey;
+    if (GetKeyState(VK_SHIFT) & 0x8000)
+        k |= ShiftKey;
     return k;
 }
-
 
 /* Extra text editing functions for R, Chris Jackson */
 #include <richedit.h>
@@ -131,11 +126,11 @@ int ggetkeystate()
 void scrollcaret(textbox t, int lines)
 {
     long currentline, charindex;
-    int linecount = (INT) sendmessage(t->handle, EM_GETLINECOUNT, 0, 0);
-    currentline = (INT) sendmessage(t->handle, EM_LINEFROMCHAR, -1, 0);
-    lines = (currentline + lines > linecount - 1  ?  linecount - currentline - 1 :  lines);
-    lines = (currentline + lines < 0  ?  - currentline  :  lines);
-    charindex = (INT) sendmessage(t->handle, EM_LINEINDEX, currentline + lines, 0);
+    int linecount = (INT)sendmessage(t->handle, EM_GETLINECOUNT, 0, 0);
+    currentline = (INT)sendmessage(t->handle, EM_LINEFROMCHAR, -1, 0);
+    lines = (currentline + lines > linecount - 1 ? linecount - currentline - 1 : lines);
+    lines = (currentline + lines < 0 ? -currentline : lines);
+    charindex = (INT)sendmessage(t->handle, EM_LINEINDEX, currentline + lines, 0);
     sendmessage(t->handle, EM_SETSEL, charindex, charindex);
 }
 
@@ -143,30 +138,30 @@ void scrollcaret(textbox t, int lines)
 
 void gsetmodified(textbox t, int modified)
 {
-    sendmessage(t->handle, EM_SETMODIFY, (WPARAM) modified, 0);
+    sendmessage(t->handle, EM_SETMODIFY, (WPARAM)modified, 0);
 }
 
 int ggetmodified(textbox t)
 {
-    return (INT) sendmessage(t->handle, EM_GETMODIFY, 0, 0);
+    return (INT)sendmessage(t->handle, EM_GETMODIFY, 0, 0);
 }
 
 /* Get the length of the current line in an editing control */
 
 int getlinelength(textbox t)
 {
-    long charindex = (INT) sendmessage(t->handle, EM_LINEINDEX, -1, 0);
-    return (INT) sendmessage(t->handle, EM_LINELENGTH, charindex, 0);
+    long charindex = (INT)sendmessage(t->handle, EM_LINEINDEX, -1, 0);
+    return (INT)sendmessage(t->handle, EM_LINELENGTH, charindex, 0);
 }
 
 /* Copy the current line in the editor to a buffer */
 
 void getcurrentline(textbox t, char *line, int length)
 {
-    long currentline = (INT) sendmessage(t->handle, EM_LINEFROMCHAR, -1, 0);
+    long currentline = (INT)sendmessage(t->handle, EM_LINEFROMCHAR, -1, 0);
     /* set first word of buffer to line length in TCHARs as required by EM_GETLINE */
-    WORD blength = length*MB_CUR_MAX + 1 + sizeof(WORD);
-    *((LPWORD) line) = blength;
+    WORD blength = length * MB_CUR_MAX + 1 + sizeof(WORD);
+    *((LPWORD)line) = blength;
     sendmessage(t->handle, EM_GETLINE, currentline, line);
     line[blength - 1] = '\0';
 }
@@ -187,7 +182,7 @@ void setlimittext(textbox t, long limit)
 
 long getlimittext(textbox t)
 {
-    return (INT) sendmessage(t->handle, EM_GETLIMITTEXT, 0, 0);
+    return (INT)sendmessage(t->handle, EM_GETLIMITTEXT, 0, 0);
 }
 
 /* Test whether the text limit needs to be increased to accommodate
@@ -197,9 +192,9 @@ long getlimittext(textbox t)
 void checklimittext(textbox t, long n)
 {
     long limit = getlimittext(t);
-    long len =  GetWindowTextLength(t->handle);
+    long len = GetWindowTextLength(t->handle);
     if (len + n >= limit)
-	setlimittext(t, len + n + 0x8000);
+        setlimittext(t, len + n + 0x8000);
 }
 
 /* Length of text in the clipboard */
@@ -209,13 +204,14 @@ long getpastelength()
     HGLOBAL hglb;
     char *text;
     long pastelen;
-    if ( OpenClipboard(NULL) &&
-	 (hglb = GetClipboardData(CF_TEXT)) &&
-	 (text = (char *)GlobalLock(hglb))) {
-	pastelen = strlen(text);
-	GlobalUnlock(hglb);
-	CloseClipboard();
-    } else pastelen = 0;
+    if (OpenClipboard(NULL) && (hglb = GetClipboardData(CF_TEXT)) && (text = (char *)GlobalLock(hglb)))
+    {
+        pastelen = strlen(text);
+        GlobalUnlock(hglb);
+        CloseClipboard();
+    }
+    else
+        pastelen = 0;
     return pastelen;
 }
 
@@ -226,10 +222,10 @@ long getpastelength()
 void textselectionex(control obj, long *start, long *end)
 {
     CHARRANGE sel;
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, EM_EXGETSEL, 0, &sel);
     *start = sel.cpMin;
     *end = sel.cpMax;
@@ -240,10 +236,10 @@ void selecttextex(control obj, long start, long end)
     CHARRANGE sel;
     long length;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     length = GetWindowTextLength(obj->handle);
     sel.cpMin = (start < 0) ? length : start;
     sel.cpMax = (end < 0) ? length : end;

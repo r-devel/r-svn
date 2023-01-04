@@ -18,13 +18,11 @@
  *  https://www.R-project.org/Licenses/
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #include "Defn.h"
-
 
 /*  mkPRIMSXP - return a builtin function      */
 /*              either "builtin" or "special"  */
@@ -40,29 +38,31 @@ attribute_hidden SEXP mkPRIMSXP(int offset, int eval)
     SEXPTYPE type = eval ? BUILTINSXP : SPECIALSXP;
     static SEXP PrimCache = NULL;
     static int FunTabSize = 0;
-    
-    if (PrimCache == NULL) {
-	/* compute the number of entires in R_FunTab */
-	while (R_FunTab[FunTabSize].name)
-	    FunTabSize++;
 
-	/* allocate and protect the cache */
-	PrimCache = allocVector(VECSXP, FunTabSize);
-	R_PreserveObject(PrimCache);
+    if (PrimCache == NULL)
+    {
+        /* compute the number of entires in R_FunTab */
+        while (R_FunTab[FunTabSize].name)
+            FunTabSize++;
+
+        /* allocate and protect the cache */
+        PrimCache = allocVector(VECSXP, FunTabSize);
+        R_PreserveObject(PrimCache);
     }
 
     if (offset < 0 || offset >= FunTabSize)
-	error("offset is out of R_FunTab range");
+        error("offset is out of R_FunTab range");
 
     result = VECTOR_ELT(PrimCache, offset);
 
-    if (result == R_NilValue) {
-	result = allocSExp(type);
-	SET_PRIMOFFSET(result, offset);
-	SET_VECTOR_ELT(PrimCache, offset, result);
+    if (result == R_NilValue)
+    {
+        result = allocSExp(type);
+        SET_PRIMOFFSET(result, offset);
+        SET_VECTOR_ELT(PrimCache, offset, result);
     }
     else if (TYPEOF(result) != type)
-	error("requested primitive type is not consistent with cached value");
+        error("requested primitive type is not consistent with cached value");
 
     return result;
 }
@@ -84,30 +84,31 @@ attribute_hidden SEXP mkCLOSXP(SEXP formals, SEXP body, SEXP rho)
     c = allocSExp(CLOSXP);
 
 #ifdef not_used_CheckFormals
-    if(isList(formals))
-	SET_FORMALS(c, formals);
+    if (isList(formals))
+        SET_FORMALS(c, formals);
     else
-	error(_("invalid formal arguments for 'function'"));
+        error(_("invalid formal arguments for 'function'"));
 #else
     SET_FORMALS(c, formals);
 #endif
-    switch (TYPEOF(body)) {
+    switch (TYPEOF(body))
+    {
     case CLOSXP:
     case BUILTINSXP:
     case SPECIALSXP:
     case DOTSXP:
     case ANYSXP:
-	error(_("invalid body argument for 'function'"));
-	break;
+        error(_("invalid body argument for 'function'"));
+        break;
     default:
-	SET_BODY(c, body);
-	break;
+        SET_BODY(c, body);
+        break;
     }
 
-    if(rho == R_NilValue)
-	SET_CLOENV(c, R_GlobalEnv);
+    if (rho == R_NilValue)
+        SET_CLOENV(c, R_GlobalEnv);
     else
-	SET_CLOENV(c, rho);
+        SET_CLOENV(c, rho);
     UNPROTECT(3);
     return c;
 }
@@ -123,13 +124,14 @@ static int isDDName(SEXP name)
     char *endp;
 
     buf = CHAR(name);
-    if( !strncmp(buf, "..", 2) && strlen(buf) > 2 ) {
-	buf += 2;
-	strtol(buf, &endp, 10); // discard value
-	if( *endp != '\0')
-	    return 0;
-	else
-	    return 1;
+    if (!strncmp(buf, "..", 2) && strlen(buf) > 2)
+    {
+        buf += 2;
+        strtol(buf, &endp, 10); // discard value
+        if (*endp != '\0')
+            return 0;
+        else
+            return 1;
     }
     return 0;
 }

@@ -36,42 +36,42 @@ attribute_hidden SEXP do_split(SEXP call, SEXP op, SEXP args, SEXP env)
     x = CAR(args);
     f = CADR(args);
     if (!isVector(x))
-	error(_("first argument must be a vector"));
+        error(_("first argument must be a vector"));
     if (!isFactor(f))
-	error(_("second argument must be a factor"));
+        error(_("second argument must be a factor"));
     int nlevs = nlevels(f);
     R_xlen_t nfac = XLENGTH(CADR(args));
     R_xlen_t nobs = XLENGTH(CAR(args));
     if (nfac <= 0 && nobs > 0)
-	error(_("group length is 0 but data length > 0"));
+        error(_("group length is 0 but data length > 0"));
     if (nfac > 0 && (nobs % nfac) != 0)
-	warning(_("data length is not a multiple of split variable"));
+        warning(_("data length is not a multiple of split variable"));
     nm = getAttrib(x, R_NamesSymbol);
     have_names = nm != R_NilValue;
 
 #ifdef LONG_VECTOR_SUPPORT
     if (IS_LONG_VEC(x))
-# define _L_INTSXP_ REALSXP
-# define _L_INTEG_  REAL
-# define _L_int_    R_xlen_t
-# include "split-incl.c"
+#define _L_INTSXP_ REALSXP
+#define _L_INTEG_ REAL
+#define _L_int_ R_xlen_t
+#include "split-incl.c"
 
-# undef _L_INTSXP_
-# undef _L_INTEG_
-# undef _L_int_
-    else
+#undef _L_INTSXP_
+#undef _L_INTEG_
+#undef _L_int_
+        else
 #endif
 
-# define _L_INTSXP_ INTSXP
-# define _L_INTEG_  INTEGER
-# define _L_int_    int
-# include "split-incl.c"
+#define _L_INTSXP_ INTSXP
+#define _L_INTEG_ INTEGER
+#define _L_int_ int
+#include "split-incl.c"
 
-# undef _L_INTSXP_
-# undef _L_INTEG_
-# undef _L_int_
+#undef _L_INTSXP_
+#undef _L_INTEG_
+#undef _L_int_
 
-    setAttrib(vec, R_NamesSymbol, getAttrib(f, R_LevelsSymbol));
+            setAttrib(vec, R_NamesSymbol, getAttrib(f, R_LevelsSymbol));
     UNPROTECT(2);
     return vec;
 }

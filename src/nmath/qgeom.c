@@ -30,14 +30,16 @@ double qgeom(double p, double prob, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(prob))
-	return p + prob;
+        return p + prob;
 #endif
-    if (prob <= 0 || prob > 1) ML_WARN_return_NAN;
+    if (prob <= 0 || prob > 1)
+        ML_WARN_return_NAN;
 
     R_Q_P01_check(p);
-    if (prob == 1) return(0);
+    if (prob == 1)
+        return (0);
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
-/* add a fuzz to ensure left continuity, but value must be >= 0 */
-    return fmax2(0, ceil(R_DT_Clog(p) / log1p(- prob) - 1 - 1e-12));
+    /* add a fuzz to ensure left continuity, but value must be >= 0 */
+    return fmax2(0, ceil(R_DT_Clog(p) / log1p(-prob) - 1 - 1e-12));
 }

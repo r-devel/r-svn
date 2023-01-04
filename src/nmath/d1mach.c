@@ -20,7 +20,6 @@
 
 /* NaNs propagated correctly */
 
-
 /*-- FIXME:  Eliminate calls to these
  *   =====   o   from C code when
  *	     o   it is only used to initialize "static" variables (threading)
@@ -31,29 +30,34 @@
 
 attribute_hidden double Rf_d1mach(int i)
 {
-    switch(i) {
-    case 1: return DBL_MIN;
-    case 2: return DBL_MAX;
+    switch (i)
+    {
+    case 1:
+        return DBL_MIN;
+    case 2:
+        return DBL_MAX;
 
     case 3: /* = FLT_RADIX  ^ - DBL_MANT_DIG
-	      for IEEE:  = 2^-53 = 1.110223e-16 = .5*DBL_EPSILON */
-	return 0.5*DBL_EPSILON;
+          for IEEE:  = 2^-53 = 1.110223e-16 = .5*DBL_EPSILON */
+        return 0.5 * DBL_EPSILON;
 
     case 4: /* = FLT_RADIX  ^ (1- DBL_MANT_DIG) =
-	      for IEEE:  = 2^-52 = DBL_EPSILON */
-	return DBL_EPSILON;
+          for IEEE:  = 2^-52 = DBL_EPSILON */
+        return DBL_EPSILON;
 
-    case 5: return M_LOG10_2;
+    case 5:
+        return M_LOG10_2;
 
-    default: return 0.0;
+    default:
+        return 0.0;
     }
 }
 
 #ifdef __cplusplus
-extern "C" 
+extern "C"
 #endif
 
-double F77_NAME(d1mach)(int *i)
+    double F77_NAME(d1mach)(int *i)
 {
     return Rf_d1mach(*i);
 }

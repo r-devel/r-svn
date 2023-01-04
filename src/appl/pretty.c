@@ -46,34 +46,32 @@
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
-#define _(String) gettext (String)
+#define _(String) gettext(String)
 #else
 #define _(String) (String)
 #endif
 
 #include <math.h>
-#include <float.h> /* DBL_MAX */
-#include <R_ext/Arith.h>	/* NA handling */
+#include <float.h>       /* DBL_MAX */
+#include <R_ext/Arith.h> /* NA handling */
 #include <Rmath.h>
 #include <R_ext/Error.h>
 
 #include <R_ext/Applic.h>
 
 #ifdef DEBUGpr
-# include <R_ext/Print.h>
+#include <R_ext/Print.h>
 #endif
 
 #ifdef HAVE_VISIBILITY_ATTRIBUTE
-# define attribute_hidden __attribute__ ((visibility ("hidden")))
+#define attribute_hidden __attribute__((visibility("hidden")))
 #else
-# define attribute_hidden
+#define attribute_hidden
 #endif
 
-attribute_hidden
-double R_pretty(double *lo, double *up, int *ndiv, int min_n,
-		double shrink_sml,
-		const double high_u_fact[], // = (h, h5, f_min) below 
-		int eps_correction, int return_bounds)
+attribute_hidden double R_pretty(double *lo, double *up, int *ndiv, int min_n, double shrink_sml,
+                                 const double high_u_fact[], // = (h, h5, f_min) below
+                                 int eps_correction, int return_bounds)
 {
 /* From version 0.65 on, we had rounding_eps := 1e-5, before, r..eps = 0
  * then, 1e-7 was consistent with seq.default() and seq.int() till 2010-02-03,
@@ -81,71 +79,82 @@ double R_pretty(double *lo, double *up, int *ndiv, int min_n,
 #define rounding_eps 1e-10
 
 // (h, h5, f_min) = c(high.u.bias, u5.bias, f.min) in base::pretty.default():
-#define h     high_u_fact[0]
-#define h5    high_u_fact[1]
+#define h high_u_fact[0]
+#define h5 high_u_fact[1]
 #define f_min high_u_fact[2]
 
     double // save input boundaries
-	lo_ = *lo,
-	up_ = *up,
-	dx = up_ - lo_,
-	cell, U;
+        lo_ = *lo,
+        up_ = *up, dx = up_ - lo_, cell, U;
     Rboolean i_small;
     /* cell := "scale"	here */
-    if(dx == 0 && up_ == 0) { /*  up == lo == 0	 */
-	cell = 1;
-	i_small = TRUE;
-    } else {
-	cell = fmax2(fabs(lo_),fabs(up_));
-	/* U = upper bound on cell/unit */
-	U = 1 + ((h5 >= 1.5*h+.5) ? 1/(1+h) : 1.5/(1+h5));
-	U *= imax2(1,*ndiv) * DBL_EPSILON; // avoid overflow for large ndiv
-	/* added times 3, as several calculations here */
-	i_small = dx < cell * U * 3;
+    if (dx == 0 && up_ == 0)
+    { /*  up == lo == 0	 */
+        cell = 1;
+        i_small = TRUE;
+    }
+    else
+    {
+        cell = fmax2(fabs(lo_), fabs(up_));
+        /* U = upper bound on cell/unit */
+        U = 1 + ((h5 >= 1.5 * h + .5) ? 1 / (1 + h) : 1.5 / (1 + h5));
+        U *= imax2(1, *ndiv) * DBL_EPSILON; // avoid overflow for large ndiv
+        /* added times 3, as several calculations here */
+        i_small = dx < cell * U * 3;
     }
 
 #ifdef DEBUGpr
     REprintf("R_pretty(lo=%g,up=%g,ndiv=%d,min_n=%d,shrink=%g,high_u=(%g,%g,%g),eps=%d,bnds=%d)"
-	     "\n\t => dx=%g; i_small:%s. ==> first cell=%g\n",
-	     lo_, up_, *ndiv, min_n, shrink_sml, h, h5, min_f,
-	     eps_correction, return_bounds,
-	     dx, i_small ? "TRUE" : "F", cell);
+             "\n\t => dx=%g; i_small:%s. ==> first cell=%g\n",
+             lo_, up_, *ndiv, min_n, shrink_sml, h, h5, min_f, eps_correction, return_bounds, dx,
+             i_small ? "TRUE" : "F", cell);
 #endif
 
     /*OLD: cell = FLT_EPSILON+ dx / *ndiv; FLT_EPSILON = 1.192e-07 */
-    if(i_small) {
-	if(cell > 10)
-	    cell = 9 + cell/10;
-	cell *= shrink_sml;
-	if(min_n > 1) cell /= min_n;
-    } else {
-	cell = dx;
-	if(R_FINITE(dx)) {
-	    if(*ndiv > 1) cell /= *ndiv;
-	} else { // up - lo = +Inf (overflow; both are finite)
-	    if(*ndiv < 2) {
-		warning(_("R_pretty(): infinite range; *ndiv=%d, should have ndiv >= 2"),
-			*ndiv);
-	    } else {
-		cell = up_/(*ndiv) - lo_/(*ndiv);
-	    }
-	}
+    if (i_small)
+    {
+        if (cell > 10)
+            cell = 9 + cell / 10;
+        cell *= shrink_sml;
+        if (min_n > 1)
+            cell /= min_n;
+    }
+    else
+    {
+        cell = dx;
+        if (R_FINITE(dx))
+        {
+            if (*ndiv > 1)
+                cell /= *ndiv;
+        }
+        else
+        { // up - lo = +Inf (overflow; both are finite)
+            if (*ndiv < 2)
+            {
+                warning(_("R_pretty(): infinite range; *ndiv=%d, should have ndiv >= 2"), *ndiv);
+            }
+            else
+            {
+                cell = up_ / (*ndiv) - lo_ / (*ndiv);
+            }
+        }
     }
 
 // f_min: arg, default = 2^-20, was 20.  till R 4.1.0 (2021-05)
 #define MAX_F 1.25 //		was 10.   "   "   "
 
-    double subsmall = f_min*DBL_MIN;
-    if(subsmall == 0.) // subnormals underflowing to zero (not yet seen!)
-	subsmall = DBL_MIN;
-    if(cell < subsmall) { // possibly subnormal
-	warning(_("R_pretty(): very small range 'cell'=%g, corrected to %g"),
-		cell, subsmall);
-	cell = subsmall;
-    } else if(cell > DBL_MAX/MAX_F) {
-	warning(_("R_pretty(): very large range 'cell'=%g, corrected to %g"),
-		cell, DBL_MAX/MAX_F);
-	cell = DBL_MAX/MAX_F;
+    double subsmall = f_min * DBL_MIN;
+    if (subsmall == 0.) // subnormals underflowing to zero (not yet seen!)
+        subsmall = DBL_MIN;
+    if (cell < subsmall)
+    { // possibly subnormal
+        warning(_("R_pretty(): very small range 'cell'=%g, corrected to %g"), cell, subsmall);
+        cell = subsmall;
+    }
+    else if (cell > DBL_MAX / MAX_F)
+    {
+        warning(_("R_pretty(): very large range 'cell'=%g, corrected to %g"), cell, DBL_MAX / MAX_F);
+        cell = DBL_MAX / MAX_F;
     }
 
 #undef MAX_F
@@ -159,9 +168,16 @@ double R_pretty(double *lo, double *up, int *ndiv, int min_n,
      * favoring larger (if h > 1, else smaller)  u  values;
      * favor '5' more than '2'  if h5 > h  (default h5 = .5 + 1.5 h) */
     double unit = base;
-    if((U = 2*base)-cell <  h*(cell-unit)) { unit = U;
-    if((U = 5*base)-cell < h5*(cell-unit)) { unit = U;
-    if((U =10*base)-cell <  h*(cell-unit))   unit = U; }}
+    if ((U = 2 * base) - cell < h * (cell - unit))
+    {
+        unit = U;
+        if ((U = 5 * base) - cell < h5 * (cell - unit))
+        {
+            unit = U;
+            if ((U = 10 * base) - cell < h * (cell - unit))
+                unit = U;
+        }
+    }
     /* Result (c := cell,  b := base,  u := unit):
      *	c in [	1,	       (2+ h)/ (1+h) ] b ==> u=  b
      *	c in ( (2+ h) /(1+h),  (5+2h5)/(1+h5)] b ==> u= 2b
@@ -170,82 +186,110 @@ double R_pretty(double *lo, double *up, int *ndiv, int min_n,
      *
      *	===>	2/5 *(2+h)/(1+h)  <=  c/u  <=  (2+h)/(1+h)	*/
 
-    double
-	ns = floor(lo_/unit+rounding_eps),
-	nu = ceil (up_/unit-rounding_eps);
+    double ns = floor(lo_ / unit + rounding_eps), nu = ceil(up_ / unit - rounding_eps);
 #ifdef DEBUGpr
-    REprintf("\t => final cell=%g; base=%g unit=%g; (ns,nu) = (%g,%g)\n",
-	     cell, base, unit, ns, nu);
+    REprintf("\t => final cell=%g; base=%g unit=%g; (ns,nu) = (%g,%g)\n", cell, base, unit, ns, nu);
 #endif
-    if(eps_correction && (eps_correction > 1 || !i_small)) {
-	// FIXME?: assumes 0 <= lo <= up  (what if lo <= up < 0 ?)
-	if(lo_ != 0.) *lo *= (1- DBL_EPSILON); else *lo = -DBL_MIN;
-	if(up_ != 0.) *up *= (1+ DBL_EPSILON); else *up = +DBL_MIN;
+    if (eps_correction && (eps_correction > 1 || !i_small))
+    {
+        // FIXME?: assumes 0 <= lo <= up  (what if lo <= up < 0 ?)
+        if (lo_ != 0.)
+            *lo *= (1 - DBL_EPSILON);
+        else
+            *lo = -DBL_MIN;
+        if (up_ != 0.)
+            *up *= (1 + DBL_EPSILON);
+        else
+            *up = +DBL_MIN;
     }
 
 #ifdef DEBUGpr
-    if(ns*unit > *lo + rounding_eps*unit)
-	REprintf("\t ns= %.0f -- while(ns*unit > lo + r_eps * u) ns--;\n", ns);
+    if (ns * unit > *lo + rounding_eps * unit)
+        REprintf("\t ns= %.0f -- while(ns*unit > lo + r_eps * u) ns--;\n", ns);
 #endif
-    while(ns*unit > *lo + rounding_eps*unit) ns--;
+    while (ns * unit > *lo + rounding_eps * unit)
+        ns--;
 
 #ifdef DEBUGpr
-    if(!R_FINITE(ns*unit))
-	REprintf("\t infinite (ns=%.0f)*(unit=%g)  ==> ns++\n", ns, unit);
+    if (!R_FINITE(ns * unit))
+        REprintf("\t infinite (ns=%.0f)*(unit=%g)  ==> ns++\n", ns, unit);
 #endif
-    while(!R_FINITE(ns*unit)) ns++;
-
-
-#ifdef DEBUGpr
-    if(nu*unit < *up - rounding_eps*unit)
-	REprintf("\t nu= %.0f -- while(nu*unit < up - r_eps * u) nu++;\n", nu);
-#endif
-    while(nu*unit < *up - rounding_eps*unit) nu++;
+    while (!R_FINITE(ns * unit))
+        ns++;
 
 #ifdef DEBUGpr
-    if(!R_FINITE(nu*unit))
-	REprintf("\t infinite (nu=%.0f)*(unit=%g)  ==> nu--\n", nu, unit);
+    if (nu * unit < *up - rounding_eps * unit)
+        REprintf("\t nu= %.0f -- while(nu*unit < up - r_eps * u) nu++;\n", nu);
 #endif
-    while(!R_FINITE(nu*unit)) nu--;
+    while (nu * unit < *up - rounding_eps * unit)
+        nu++;
+
+#ifdef DEBUGpr
+    if (!R_FINITE(nu * unit))
+        REprintf("\t infinite (nu=%.0f)*(unit=%g)  ==> nu--\n", nu, unit);
+#endif
+    while (!R_FINITE(nu * unit))
+        nu--;
 
     int k = (int)(0.5 + nu - ns);
 #ifdef DEBUGpr
     REprintf(" possibly adjusted  (ns,nu) = (%g,%g) ==> k=%d\n", ns, nu, k);
 #endif
-    if(k < min_n) {
-	/* ensure that	nu - ns	 == min_n */
+    if (k < min_n)
+    {
+        /* ensure that	nu - ns	 == min_n */
 #ifdef DEBUGpr
-	REprintf("\tnu-ns=%.0f-%.0f=%d SMALL -> ensure nu-ns= min_n=%d\n",
-		 nu,ns, k, min_n);
+        REprintf("\tnu-ns=%.0f-%.0f=%d SMALL -> ensure nu-ns= min_n=%d\n", nu, ns, k, min_n);
 #endif
-	k = min_n - k;
-	if(lo_ == 0. && ns == 0. && up_ != 0.) {
-	    nu += k;
-	} else if(up_ == 0. && nu == 0. && lo_ != 0.) {
-	    ns -= k;
-	} else if(ns >= 0.) {
-	    nu += k/2;
-	    ns -= k/2 + k%2;/* ==> nu-ns = old(nu-ns) + min_n -k = min_n */
-	} else {
-	    ns -= k/2;
-	    nu += k/2 + k%2;
-	}
-	*ndiv = min_n;
+        k = min_n - k;
+        if (lo_ == 0. && ns == 0. && up_ != 0.)
+        {
+            nu += k;
+        }
+        else if (up_ == 0. && nu == 0. && lo_ != 0.)
+        {
+            ns -= k;
+        }
+        else if (ns >= 0.)
+        {
+            nu += k / 2;
+            ns -= k / 2 + k % 2; /* ==> nu-ns = old(nu-ns) + min_n -k = min_n */
+        }
+        else
+        {
+            ns -= k / 2;
+            nu += k / 2 + k % 2;
+        }
+        *ndiv = min_n;
     }
-    else {
-	*ndiv = k;
+    else
+    {
+        *ndiv = k;
     }
-    if(return_bounds) {// used in pretty.default(), ensure result covers original range
+    if (return_bounds)
+    { // used in pretty.default(), ensure result covers original range
 #ifdef DEBUGpr
-	if(ns * unit < *lo) {REprintf("lo=%g too large, set to ns*unit\n", *lo); *lo = ns * unit;}
-	if(nu * unit > *up) {REprintf("up=%g too small, set to nu*unit\n", *up); *up = nu * unit;}
+        if (ns * unit < *lo)
+        {
+            REprintf("lo=%g too large, set to ns*unit\n", *lo);
+            *lo = ns * unit;
+        }
+        if (nu * unit > *up)
+        {
+            REprintf("up=%g too small, set to nu*unit\n", *up);
+            *up = nu * unit;
+        }
 #else
-	if(ns * unit < *lo) *lo = ns * unit;
-	if(nu * unit > *up) *up = nu * unit;
+        if (ns * unit < *lo)
+            *lo = ns * unit;
+        if (nu * unit > *up)
+            *up = nu * unit;
 #endif
-    } else { // used in graphics GEpretty(), hence grid::grid.pretty()
-	*lo = ns;
-	*up = nu;
+    }
+    else
+    { // used in graphics GEpretty(), hence grid::grid.pretty()
+        *lo = ns;
+        *up = nu;
     }
 #ifdef DEBUGpr
     REprintf("\t ns=%5.0g ==> lo=%g\n", ns, *lo);

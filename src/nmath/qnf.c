@@ -20,23 +20,25 @@
 #include "nmath.h"
 #include "dpq.h"
 
-double qnf(double p, double df1, double df2, double ncp, int lower_tail, 
-	   int log_p)
+double qnf(double p, double df1, double df2, double ncp, int lower_tail, int log_p)
 {
     double y;
-    
+
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(df1) || ISNAN(df2) || ISNAN(ncp))
-	return p + df1 + df2 + ncp;
+        return p + df1 + df2 + ncp;
 #endif
-    if (df1 <= 0. || df2 <= 0. || ncp < 0) ML_WARN_return_NAN;
-    if (!R_FINITE(ncp)) ML_WARN_return_NAN;
-    if (!R_FINITE(df1) && !R_FINITE(df2)) ML_WARN_return_NAN;
+    if (df1 <= 0. || df2 <= 0. || ncp < 0)
+        ML_WARN_return_NAN;
+    if (!R_FINITE(ncp))
+        ML_WARN_return_NAN;
+    if (!R_FINITE(df1) && !R_FINITE(df2))
+        ML_WARN_return_NAN;
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
     if (df2 > 1e8) /* avoid problems with +Inf and loss of accuracy */
-	return qnchisq(p, df1, ncp, lower_tail, log_p)/df1;
+        return qnchisq(p, df1, ncp, lower_tail, log_p) / df1;
 
     y = qnbeta(p, df1 / 2., df2 / 2., ncp, lower_tail, log_p);
-    return y/(1-y) * (df2/df1);
+    return y / (1 - y) * (df2 / df1);
 }

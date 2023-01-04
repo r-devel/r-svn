@@ -62,35 +62,39 @@ double dnbeta(double x, double a, double b, double ncp, int give_log)
 
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(a) || ISNAN(b) || ISNAN(ncp))
-	return x + a + b + ncp;
+        return x + a + b + ncp;
 #endif
     if (ncp < 0 || a <= 0 || b <= 0)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
     if (!R_FINITE(a) || !R_FINITE(b) || !R_FINITE(ncp))
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
-    if (x < 0 || x > 1) return(R_D__0);
-    if(ncp == 0)
-	return dbeta(x, a, b, give_log);
+    if (x < 0 || x > 1)
+        return (R_D__0);
+    if (ncp == 0)
+        return dbeta(x, a, b, give_log);
 
     /* New algorithm, starting with *largest* term : */
     ncp2 = 0.5 * ncp;
-    dx2 = ncp2*x;
-    d = (dx2 - a - 1)/2;
-    D = d*d + dx2 * (a + b) - a;
-    if(D <= 0) {
-	kMax = 0;
-    } else {
-	D = ceil(d + sqrt(D));
-	kMax = (D > 0) ? (int)D : 0;
+    dx2 = ncp2 * x;
+    d = (dx2 - a - 1) / 2;
+    D = d * d + dx2 * (a + b) - a;
+    if (D <= 0)
+    {
+        kMax = 0;
+    }
+    else
+    {
+        D = ceil(d + sqrt(D));
+        kMax = (D > 0) ? (int)D : 0;
     }
 
     /* The starting "middle term" --- first look at it's log scale: */
     term = dbeta(x, a + kMax, b, /* log = */ TRUE);
-    p_k = dpois_raw(kMax, ncp2,              TRUE);
-    if(x == 0. || !R_FINITE(term) || !R_FINITE((double)p_k)) /* if term = +Inf */
-	return R_D_exp((double)(p_k + term));
+    p_k = dpois_raw(kMax, ncp2, TRUE);
+    if (x == 0. || !R_FINITE(term) || !R_FINITE((double)p_k)) /* if term = +Inf */
+        return R_D_exp((double)(p_k + term));
 
     /* Now if s_k := p_k * t_k  {here = exp(p_k + term)} would underflow,
      * we should rather scale everything and re-scale at the end:*/
@@ -102,20 +106,22 @@ double dnbeta(double x, double a, double b, double ncp, int give_log)
     sum = term = 1. /* = mid term */;
     /* middle to the left */
     k = kMax;
-    while(k > 0 && term > sum * eps) {
-	k--;
-	q = /* 1 / r_k = */ (k+1)*(k+a) / (k+a+b) / dx2;
-	term *= q;
-	sum += term;
+    while (k > 0 && term > sum * eps)
+    {
+        k--;
+        q = /* 1 / r_k = */ (k + 1) * (k + a) / (k + a + b) / dx2;
+        term *= q;
+        sum += term;
     }
     /* middle to the right */
     term = 1.;
     k = kMax;
-    do {
-	q = /* r_{old k} = */ dx2 * (k+a+b) / (k+a) / (k+1);
-	k++;
-	term *= q;
-	sum += term;
+    do
+    {
+        q = /* r_{old k} = */ dx2 * (k + a + b) / (k + a) / (k + 1);
+        k++;
+        term *= q;
+        sum += term;
     } while (term > sum * eps);
 
 #ifdef HAVE_LONG_DOUBLE

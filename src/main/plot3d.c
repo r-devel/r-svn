@@ -18,14 +18,13 @@
  *  https://www.R-project.org/Licenses/
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #include <Defn.h>
 #include <Internal.h>
-#include <float.h>  /* for DBL_MAX */
+#include <float.h> /* for DBL_MAX */
 #include <Rmath.h>
 #include <Graphics.h>
 #include <Print.h>
@@ -42,13 +41,14 @@
 #define CONTOUR_LIST_X 1
 #define CONTOUR_LIST_Y 2
 
-static SEXP growList(SEXP oldlist) {
+static SEXP growList(SEXP oldlist)
+{
     int i, len;
     SEXP templist;
     len = LENGTH(oldlist);
     templist = PROTECT(allocVector(VECSXP, len + CONTOUR_LIST_STEP));
-    for (i=0; i<len; i++)
-	SET_VECTOR_ELT(templist, i, VECTOR_ELT(oldlist, i));
+    for (i = 0; i < len; i++)
+        SET_VECTOR_ELT(templist, i, VECTOR_ELT(oldlist, i));
     UNPROTECT(1);
     return templist;
 }
@@ -57,16 +57,14 @@ static SEXP growList(SEXP oldlist) {
  * Store the list of segments for a single level in the SEXP
  * list that will be returned to the user
  */
-static
-int addContourLines(double *x, int nx, double *y, int ny,
-		     double *z, double zc, double atom,
-		     SEGP* segmentDB, int nlines, SEXP container)
+static int addContourLines(double *x, int nx, double *y, int ny, double *z, double zc, double atom, SEGP *segmentDB,
+                           int nlines, SEXP container)
 {
     double xend, yend;
     int i, ii, j, jj, ns, dir, nc;
     SEGP seglist, seg, s, start, end;
     SEXP ctr, level, xsxp, ysxp, names;
-/// NB: The following is very much the same as in contour() in ../library/graphics/src/plot3d.c
+    /// NB: The following is very much the same as in contour() in ../library/graphics/src/plot3d.c
 
     /* Begin following contours. */
     /* 1. Grab a segment */
@@ -74,96 +72,101 @@ int addContourLines(double *x, int nx, double *y, int ny,
     /* 3. Follow its head */
     /* 4. Save the contour */
     for (i = 0; i < nx - 1; i++)
-	for (j = 0; j < ny - 1; j++) {
-	    while ((seglist = segmentDB[i + j * nx])) {
-		ii = i; jj = j;
-		start = end = seglist;
-		segmentDB[i + j * nx] = seglist->next;
-		xend = seglist->x1;
-		yend = seglist->y1;
-		while ((dir = ctr_segdir(xend, yend, x, y,
-					 &ii, &jj, nx, ny))) {
-		    segmentDB[ii + jj * nx]
-			= ctr_segupdate(xend, yend, dir, TRUE,/* = tail */
-					segmentDB[ii + jj * nx], &seg);
-		    if (!seg) break;
-		    end->next = seg;
-		    end = seg;
-		    xend = end->x1;
-		    yend = end->y1;
-		}
-		end->next = NULL; /* <<< new for 1.2.3 */
-		ii = i; jj = j;
-		xend = seglist->x0;
-		yend = seglist->y0;
-		while ((dir = ctr_segdir(xend, yend, x, y,
-					 &ii, &jj, nx, ny))) {
-		    segmentDB[ii + jj * nx]
-			= ctr_segupdate(xend, yend, dir, FALSE,/* ie. head */
-					segmentDB[ii+jj*nx], &seg);
-		    if (!seg) break;
-		    seg->next = start;
-		    start = seg;
-		    xend = start->x0;
-		    yend = start->y0;
-		}
+        for (j = 0; j < ny - 1; j++)
+        {
+            while ((seglist = segmentDB[i + j * nx]))
+            {
+                ii = i;
+                jj = j;
+                start = end = seglist;
+                segmentDB[i + j * nx] = seglist->next;
+                xend = seglist->x1;
+                yend = seglist->y1;
+                while ((dir = ctr_segdir(xend, yend, x, y, &ii, &jj, nx, ny)))
+                {
+                    segmentDB[ii + jj * nx] = ctr_segupdate(xend, yend, dir, TRUE, /* = tail */
+                                                            segmentDB[ii + jj * nx], &seg);
+                    if (!seg)
+                        break;
+                    end->next = seg;
+                    end = seg;
+                    xend = end->x1;
+                    yend = end->y1;
+                }
+                end->next = NULL; /* <<< new for 1.2.3 */
+                ii = i;
+                jj = j;
+                xend = seglist->x0;
+                yend = seglist->y0;
+                while ((dir = ctr_segdir(xend, yend, x, y, &ii, &jj, nx, ny)))
+                {
+                    segmentDB[ii + jj * nx] = ctr_segupdate(xend, yend, dir, FALSE, /* ie. head */
+                                                            segmentDB[ii + jj * nx], &seg);
+                    if (!seg)
+                        break;
+                    seg->next = start;
+                    start = seg;
+                    xend = start->x0;
+                    yend = start->y0;
+                }
 
-		/* ns := #{segments of polyline} -- need to allocate */
-		s = start;
-		ns = 0;
-		/* max_contour_segments: prevent inf.loop (shouldn't be needed) */
-		while (s && ns < max_contour_segments) {
-		    ns++;
-		    s = s->next;
-		}
-		if(ns == max_contour_segments)
-		    warning(_("contour(): circular/long seglist -- set %s > %d?"), 
-		            "options(\"max.contour.segments\")", max_contour_segments);
-		/*
-		 * "write" the contour locations into the list of contours
-		 */
-		ctr = PROTECT(allocVector(VECSXP, 3));
-		level = PROTECT(allocVector(REALSXP, 1));
-		xsxp = PROTECT(allocVector(REALSXP, ns + 1));
-		ysxp = PROTECT(allocVector(REALSXP, ns + 1));
-		REAL(level)[0] = zc;
-		SET_VECTOR_ELT(ctr, CONTOUR_LIST_LEVEL, level);
-		s = start;
-		REAL(xsxp)[0] = s->x0;
-		REAL(ysxp)[0] = s->y0;
-		ns = 1;
-		while (s->next && ns < max_contour_segments) {
-		    s = s->next;
-		    REAL(xsxp)[ns] = s->x0;
-		    REAL(ysxp)[ns++] = s->y0;
-		}
-		REAL(xsxp)[ns] = s->x1;
-		REAL(ysxp)[ns] = s->y1;
-		SET_VECTOR_ELT(ctr, CONTOUR_LIST_X, xsxp);
-		SET_VECTOR_ELT(ctr, CONTOUR_LIST_Y, ysxp);
-		/*
-		 * Set the names attribute for the contour
-		 * So that users can extract components using
-		 * meaningful names
-		 */
-		PROTECT(names = allocVector(STRSXP, 3));
-		SET_STRING_ELT(names, 0, mkChar("level"));
-		SET_STRING_ELT(names, 1, mkChar("x"));
-		SET_STRING_ELT(names, 2, mkChar("y"));
-		setAttrib(ctr, R_NamesSymbol, names);
-		/*
-		 * We're about to add another line to the list ...
-		 */
-		nlines += 1;
-		nc = LENGTH(VECTOR_ELT(container, 0));
-		if (nlines == nc)
-		    /* Where does this get UNPROTECTed? */
-		    SET_VECTOR_ELT(container, 0,
-				   growList(VECTOR_ELT(container, 0)));
-		SET_VECTOR_ELT(VECTOR_ELT(container, 0), nlines - 1, ctr);
-		UNPROTECT(5);
-	    }
-	}
+                /* ns := #{segments of polyline} -- need to allocate */
+                s = start;
+                ns = 0;
+                /* max_contour_segments: prevent inf.loop (shouldn't be needed) */
+                while (s && ns < max_contour_segments)
+                {
+                    ns++;
+                    s = s->next;
+                }
+                if (ns == max_contour_segments)
+                    warning(_("contour(): circular/long seglist -- set %s > %d?"), "options(\"max.contour.segments\")",
+                            max_contour_segments);
+                /*
+                 * "write" the contour locations into the list of contours
+                 */
+                ctr = PROTECT(allocVector(VECSXP, 3));
+                level = PROTECT(allocVector(REALSXP, 1));
+                xsxp = PROTECT(allocVector(REALSXP, ns + 1));
+                ysxp = PROTECT(allocVector(REALSXP, ns + 1));
+                REAL(level)[0] = zc;
+                SET_VECTOR_ELT(ctr, CONTOUR_LIST_LEVEL, level);
+                s = start;
+                REAL(xsxp)[0] = s->x0;
+                REAL(ysxp)[0] = s->y0;
+                ns = 1;
+                while (s->next && ns < max_contour_segments)
+                {
+                    s = s->next;
+                    REAL(xsxp)[ns] = s->x0;
+                    REAL(ysxp)[ns++] = s->y0;
+                }
+                REAL(xsxp)[ns] = s->x1;
+                REAL(ysxp)[ns] = s->y1;
+                SET_VECTOR_ELT(ctr, CONTOUR_LIST_X, xsxp);
+                SET_VECTOR_ELT(ctr, CONTOUR_LIST_Y, ysxp);
+                /*
+                 * Set the names attribute for the contour
+                 * So that users can extract components using
+                 * meaningful names
+                 */
+                PROTECT(names = allocVector(STRSXP, 3));
+                SET_STRING_ELT(names, 0, mkChar("level"));
+                SET_STRING_ELT(names, 1, mkChar("x"));
+                SET_STRING_ELT(names, 2, mkChar("y"));
+                setAttrib(ctr, R_NamesSymbol, names);
+                /*
+                 * We're about to add another line to the list ...
+                 */
+                nlines += 1;
+                nc = LENGTH(VECTOR_ELT(container, 0));
+                if (nlines == nc)
+                    /* Where does this get UNPROTECTed? */
+                    SET_VECTOR_ELT(container, 0, growList(VECTOR_ELT(container, 0)));
+                SET_VECTOR_ELT(VECTOR_ELT(container, 0), nlines - 1, ctr);
+                UNPROTECT(5);
+            }
+        }
     return nlines;
 }
 
@@ -174,13 +177,12 @@ int addContourLines(double *x, int nx, double *y, int ny,
  *   list of sub-lists
  *     sub-list = x vector, y vector, and cut-value.
  */
-SEXP GEcontourLines(double *x, int nx, double *y, int ny,
-		    double *z, double *levels, int nl)
+SEXP GEcontourLines(double *x, int nx, double *y, int ny, double *z, double *levels, int nl)
 {
     const void *vmax;
     int i, nlines, len;
     double atom, zmin, zmax;
-    SEGP* segmentDB;
+    SEGP *segmentDB;
     SEXP container, mainlist, templist;
     /*
      * "tie-breaker" values
@@ -188,17 +190,21 @@ SEXP GEcontourLines(double *x, int nx, double *y, int ny,
     zmin = DBL_MAX;
     zmax = DBL_MIN;
     for (i = 0; i < nx * ny; i++)
-	if (R_FINITE(z[i])) {
-	    if (zmax < z[i]) zmax =  z[i];
-	    if (zmin > z[i]) zmin =  z[i];
-	}
+        if (R_FINITE(z[i]))
+        {
+            if (zmax < z[i])
+                zmax = z[i];
+            if (zmin > z[i])
+                zmin = z[i];
+        }
 
-    if (zmin >= zmax) {
-	if (zmin == zmax)
-	    warning(_("all z values are equal"));
-	else
-	    warning(_("all z values are NA"));
-	return R_NilValue;
+    if (zmin >= zmax)
+    {
+        if (zmin == zmax)
+            warning(_("all z values are equal"));
+        else
+            warning(_("all z values are NA"));
+        return R_NilValue;
     }
     /* change to 1e-3, reconsidered because of PR#897
      * but 1e-7, and even  2*DBL_EPSILON do not prevent inf.loop in contour().
@@ -227,38 +233,39 @@ SEXP GEcontourLines(double *x, int nx, double *y, int ny,
     /*
      * Add lines for each contour level
      */
-    for (i = 0; i < nl; i++) {
-	/*
-	 * The vmaxget/set is to manage the memory that gets
-	 * R_alloc'ed in the creation of the segmentDB structure
-	 */
-	vmax = vmaxget();
-	/*
-	 * Generate a segment database
-	 */
-	segmentDB = contourLines(x, nx, y, ny, z, levels[i], atom);
-	/*
-	 * Add lines to the list based on the segment database
-	 */
-	nlines = addContourLines(x, nx, y, ny, z, levels[i],
-				 atom, segmentDB, nlines,
-				 container);
-	vmaxset(vmax);
+    for (i = 0; i < nl; i++)
+    {
+        /*
+         * The vmaxget/set is to manage the memory that gets
+         * R_alloc'ed in the creation of the segmentDB structure
+         */
+        vmax = vmaxget();
+        /*
+         * Generate a segment database
+         */
+        segmentDB = contourLines(x, nx, y, ny, z, levels[i], atom);
+        /*
+         * Add lines to the list based on the segment database
+         */
+        nlines = addContourLines(x, nx, y, ny, z, levels[i], atom, segmentDB, nlines, container);
+        vmaxset(vmax);
     }
     /*
      * Trim the list of lines to the appropriate length.
      */
     len = LENGTH(VECTOR_ELT(container, 0));
-    if (nlines < len) {
-	mainlist = VECTOR_ELT(container, 0);
-	templist = PROTECT(allocVector(VECSXP, nlines));
-	for (i=0; i<nlines; i++)
-	    SET_VECTOR_ELT(templist, i, VECTOR_ELT(mainlist, i));
-	mainlist = templist;
-	UNPROTECT(1);  /* UNPROTECT templist */
-    } else
-	mainlist = VECTOR_ELT(container, 0);
-    UNPROTECT(1);  /* UNPROTECT container */
+    if (nlines < len)
+    {
+        mainlist = VECTOR_ELT(container, 0);
+        templist = PROTECT(allocVector(VECSXP, nlines));
+        for (i = 0; i < nlines; i++)
+            SET_VECTOR_ELT(templist, i, VECTOR_ELT(mainlist, i));
+        mainlist = templist;
+        UNPROTECT(1); /* UNPROTECT templist */
+    }
+    else
+        mainlist = VECTOR_ELT(container, 0);
+    UNPROTECT(1); /* UNPROTECT container */
     return mainlist;
 }
 

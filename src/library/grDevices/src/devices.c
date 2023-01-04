@@ -26,29 +26,27 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #include <Defn.h>
 #include <Graphics.h>
-#include <GraphicsBase.h> 
+#include <GraphicsBase.h>
 #include <R_ext/GraphicsEngine.h>
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #undef _
-#define _(String) dgettext ("grDevices", String)
+#define _(String) dgettext("grDevices", String)
 #else
 #define _(String) (String)
 #endif
 
-
-#define checkArity_length 			\
-    args = CDR(args);		       	       	\
-    if(!LENGTH(CAR(args)))	       	       	\
-	error(_("argument must have positive length"))
+#define checkArity_length                                                                                              \
+    args = CDR(args);                                                                                                  \
+    if (!LENGTH(CAR(args)))                                                                                            \
+    error(_("argument must have positive length"))
 
 SEXP devcontrol(SEXP args)
 {
@@ -57,9 +55,10 @@ SEXP devcontrol(SEXP args)
 
     args = CDR(args);
     listFlag = asLogical(CAR(args));
-    if(listFlag == NA_LOGICAL) error(_("invalid argument"));
+    if (listFlag == NA_LOGICAL)
+        error(_("invalid argument"));
     GEinitDisplayList(gdd);
-    gdd->displayListOn = listFlag ? TRUE: FALSE;
+    gdd->displayListOn = listFlag ? TRUE : FALSE;
     return ScalarLogical(listFlag);
 }
 
@@ -86,24 +85,27 @@ SEXP devnext(SEXP args)
 {
     checkArity_length;
     int nxt = INTEGER(CAR(args))[0];
-    if (nxt == NA_INTEGER) error(_("NA argument is invalid"));
-    return ScalarInteger( nextDevice(nxt - 1) + 1 );
+    if (nxt == NA_INTEGER)
+        error(_("NA argument is invalid"));
+    return ScalarInteger(nextDevice(nxt - 1) + 1);
 }
 
 SEXP devprev(SEXP args)
 {
     checkArity_length;
     int prev = INTEGER(CAR(args))[0];
-    if (prev == NA_INTEGER) error(_("NA argument is invalid"));
-    return ScalarInteger( prevDevice(prev - 1) + 1 );
+    if (prev == NA_INTEGER)
+        error(_("NA argument is invalid"));
+    return ScalarInteger(prevDevice(prev - 1) + 1);
 }
 
 SEXP devset(SEXP args)
 {
     checkArity_length;
     int devNum = INTEGER(CAR(args))[0];
-    if (devNum == NA_INTEGER) error(_("NA argument is invalid"));
-    return ScalarInteger( selectDevice(devNum - 1) + 1 );
+    if (devNum == NA_INTEGER)
+        error(_("NA argument is invalid"));
+    return ScalarInteger(selectDevice(devNum - 1) + 1);
 }
 
 SEXP devoff(SEXP args)
@@ -132,16 +134,17 @@ SEXP devholdflush(SEXP args)
 
     args = CDR(args);
     int level = asInteger(CAR(args));
-    if(dd->holdflush && level != NA_INTEGER) level = (dd->holdflush(dd, level));
-    else level = 0;
+    if (dd->holdflush && level != NA_INTEGER)
+        level = (dd->holdflush(dd, level));
+    else
+        level = 0;
     return ScalarInteger(level);
 }
 
 SEXP devcap(SEXP args)
 {
     SEXP capabilities, devcap;
-    SEXP trans, transbg, raster, capture, locator, events, 
-        patterns, clippaths, masks, compositing, transforms, paths;
+    SEXP trans, transbg, raster, capture, locator, events, patterns, clippaths, masks, compositing, transforms, paths;
     pDevDesc dd = GEcurrentDevice()->dev;
 
     args = CDR(args);
@@ -154,10 +157,9 @@ SEXP devcap(SEXP args)
 
     PROTECT(transbg = allocVector(INTSXP, 1));
     INTEGER(transbg)[0] = dd->haveTransparentBg;
-    SET_VECTOR_ELT(capabilities, 
-                   R_GE_capability_transparentBackground, transbg);
+    SET_VECTOR_ELT(capabilities, R_GE_capability_transparentBackground, transbg);
     UNPROTECT(1);
-    
+
     /* These will be NULL if the device does not define them */
     PROTECT(raster = allocVector(INTSXP, 1));
     INTEGER(raster)[0] = (dd->raster != NULL) ? dd->haveRaster : 1;
@@ -190,8 +192,7 @@ SEXP devcap(SEXP args)
 
     PROTECT(clippaths = allocVector(INTSXP, 1));
     INTEGER(clippaths)[0] = NA_INTEGER;
-    SET_VECTOR_ELT(capabilities, 
-                   R_GE_capability_clippingPaths, clippaths);
+    SET_VECTOR_ELT(capabilities, R_GE_capability_clippingPaths, clippaths);
     UNPROTECT(1);
 
     PROTECT(masks = allocVector(INTSXP, 1));
@@ -202,11 +203,14 @@ SEXP devcap(SEXP args)
     PROTECT(compositing = allocVector(INTSXP, 1));
     PROTECT(transforms = allocVector(INTSXP, 1));
     PROTECT(paths = allocVector(INTSXP, 1));
-    if (dd->deviceVersion < R_GE_group) {
+    if (dd->deviceVersion < R_GE_group)
+    {
         INTEGER(compositing)[0] = 0;
         INTEGER(transforms)[0] = 0;
         INTEGER(paths)[0] = 0;
-    } else {            
+    }
+    else
+    {
         INTEGER(compositing)[0] = NA_INTEGER;
         INTEGER(transforms)[0] = NA_INTEGER;
         INTEGER(paths)[0] = NA_INTEGER;
@@ -217,9 +221,12 @@ SEXP devcap(SEXP args)
     UNPROTECT(3);
 
     /* Further capabilities can be filled in by device */
-    if (dd->deviceVersion >= R_GE_group) {
+    if (dd->deviceVersion >= R_GE_group)
+    {
         devcap = dd->capabilities(capabilities);
-    } else {
+    }
+    else
+    {
         devcap = capabilities;
     }
 
@@ -233,42 +240,44 @@ SEXP devcapture(SEXP args)
     pGEDevDesc gdd = GEcurrentDevice();
     int *rint;
     SEXP raster, image, idim;
-    
+
     args = CDR(args);
 
     native = asLogical(CAR(args));
-    if (native != TRUE) native = FALSE;
+    if (native != TRUE)
+        native = FALSE;
 
     raster = GECap(gdd);
     if (isNull(raster)) /* NULL = unsupported */
-	return raster;
+        return raster;
 
     PROTECT(raster);
-    if (native) {
-	setAttrib(raster, R_ClassSymbol, mkString("nativeRaster"));
-	UNPROTECT(1);
-	return raster;
+    if (native)
+    {
+        setAttrib(raster, R_ClassSymbol, mkString("nativeRaster"));
+        UNPROTECT(1);
+        return raster;
     }
 
     /* non-native, covert to color strings (this is based on grid.cap) */
     size = LENGTH(raster);
     nrow = INTEGER(getAttrib(raster, R_DimSymbol))[0];
     ncol = INTEGER(getAttrib(raster, R_DimSymbol))[1];
-        
+
     PROTECT(image = allocVector(STRSXP, size));
     rint = INTEGER(raster);
-    for (i = 0; i < size; i++) {
-	col = i % ncol + 1;
-	row = i / ncol + 1;
-	SET_STRING_ELT(image, (col - 1) * nrow + row - 1, 
-		       mkChar(col2name(rint[i])));
+    for (i = 0; i < size; i++)
+    {
+        col = i % ncol + 1;
+        row = i / ncol + 1;
+        SET_STRING_ELT(image, (col - 1) * nrow + row - 1, mkChar(col2name(rint[i])));
     }
-        
+
     PROTECT(idim = allocVector(INTSXP, 2));
     INTEGER(idim)[0] = nrow;
     INTEGER(idim)[1] = ncol;
     setAttrib(image, R_DimSymbol, idim);
     UNPROTECT(3);
 
-    return image;    
+    return image;
 }

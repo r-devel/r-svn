@@ -41,7 +41,7 @@
  *  The base_object is at the top of the hierarchy.
  */
 
-	static object base_object = NULL;
+static object base_object = NULL;
 
 /*
  *  Initialise the base_object and set the list to be empty.
@@ -50,12 +50,12 @@ PROTECTED
 void init_objects(void)
 {
     if (base_object)
-	return;
+        return;
 
     base_object = create(objinfo);
 
-    if (! base_object)
-	apperror("Out of memory (init_objects)!");
+    if (!base_object)
+        apperror("Out of memory (init_objects)!");
 
     base_object->kind = BaseObject;
     base_object->next = base_object->prev = base_object;
@@ -65,19 +65,21 @@ void init_objects(void)
 static void add_object(object obj, object parent)
 {
     /* All objects have a parent. */
-    if (! parent)
-	parent = base_object;
+    if (!parent)
+        parent = base_object;
 
     if (parent->child)
-    {	/* add to end of child circularly linked list */
-	obj->prev = parent->child->prev;
-	obj->next = parent->child;
-	obj->prev->next = obj;
-	obj->next->prev = obj;
-    } else {
-	/* create new child list */
-	obj->next = obj->prev = obj;
-	parent->child = obj;
+    { /* add to end of child circularly linked list */
+        obj->prev = parent->child->prev;
+        obj->next = parent->child;
+        obj->prev->next = obj;
+        obj->next->prev = obj;
+    }
+    else
+    {
+        /* create new child list */
+        obj->next = obj->prev = obj;
+        parent->child = obj;
     }
     obj->parent = parent;
 
@@ -88,16 +90,19 @@ static void add_object(object obj, object parent)
 
 static void remove_object(object obj)
 {
-    if ((obj->next) && (obj->next != obj)) {
-	obj->prev->next = obj->next;
-	obj->next->prev = obj->prev;
-    } else {
-	obj->next = obj->prev = NULL;
+    if ((obj->next) && (obj->next != obj))
+    {
+        obj->prev->next = obj->next;
+        obj->next->prev = obj->prev;
+    }
+    else
+    {
+        obj->next = obj->prev = NULL;
     }
 
     if (obj->parent)
-	if (obj->parent->child == obj)
-	    obj->parent->child = obj->next;
+        if (obj->parent->child == obj)
+            obj->parent->child = obj->next;
 }
 
 /*
@@ -108,9 +113,9 @@ PROTECTED
 void move_to_front(object obj)
 {
     object parent = obj->parent;
-    remove_object(obj);	 /* Remove it so as to reorder list. */
+    remove_object(obj);      /* Remove it so as to reorder list. */
     add_object(obj, parent); /* Add to end of list. */
-    parent->child = obj;	 /* Move to front. */
+    parent->child = obj;     /* Move to front. */
 }
 
 /*
@@ -124,9 +129,10 @@ void apply_to_list(object first, actionfn fn)
     object start = first->parent->child;
     object obj = first;
 
-    do {
-	fn(obj);
-	obj = obj->next;
+    do
+    {
+        fn(obj);
+        obj = obj->next;
     } while (obj != start);
 }
 
@@ -140,13 +146,14 @@ void apply_to_list(object first, actionfn fn)
  */
 
 typedef struct delnode delnode;
-struct delnode {
-    object    obj;	/* object to be deleted */
-    delnode * next;	/* next object in the list */
-    delnode * prev; /* previous object in the list */
+struct delnode
+{
+    object obj;    /* object to be deleted */
+    delnode *next; /* next object in the list */
+    delnode *prev; /* previous object in the list */
 };
 
-static delnode * del_base = NULL;
+static delnode *del_base = NULL;
 
 /*
  *  Reduce the reference count of an object:
@@ -163,28 +170,30 @@ void decrease_refcount(object obj)
 {
     delnode *new_node;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if (obj->refcount <= 0)
-	return;	/* cannot delete this object */
+        return; /* cannot delete this object */
     obj->refcount--;
     if (obj->refcount != 0)
-	return;	/* don't delete this object */
+        return; /* don't delete this object */
 
     /* the refcount must now be zero, so add to list */
     new_node = create(delnode);
     new_node->obj = obj;
-    if (del_base) {
-	/* add to end of circular list */
-	new_node->prev = del_base->prev;
-	new_node->next = del_base;
-	new_node->prev->next = new_node;
-	new_node->next->prev = new_node;
+    if (del_base)
+    {
+        /* add to end of circular list */
+        new_node->prev = del_base->prev;
+        new_node->next = del_base;
+        new_node->prev->next = new_node;
+        new_node->next->prev = new_node;
     }
-    else {
-	/* create new circular list */
-	new_node->next = new_node->prev = new_node;
-	del_base = new_node;
+    else
+    {
+        /* create new circular list */
+        new_node->next = new_node->prev = new_node;
+        del_base = new_node;
     }
 }
 
@@ -196,7 +205,7 @@ PROTECTED
 void increase_refcount(object obj)
 {
     if (obj && (obj->refcount >= 0))
-	obj->refcount ++;
+        obj->refcount++;
 }
 
 /*
@@ -209,7 +218,7 @@ PROTECTED
 void protect_object(object obj)
 {
     if (obj)
-	obj->refcount = -1;
+        obj->refcount = -1;
 }
 
 /*
@@ -222,9 +231,9 @@ static void remove_delnode(delnode *n)
     n->prev->next = n->next;
     n->next->prev = n->prev;
     if (n == n->next) /* nothing in list */
-	del_base = NULL;
-    else if (n == del_base)	/* move head */
-	del_base = n->next;
+        del_base = NULL;
+    else if (n == del_base) /* move head */
+        del_base = n->next;
     discard(n);
 }
 
@@ -240,17 +249,19 @@ static void remove_deleted_object(object obj)
     delnode *next;
     delnode *n;
 
-    if (! del_base)
-	return;
+    if (!del_base)
+        return;
     next = del_base;
     last = del_base->prev;
-    do {
-	n = next;
-	next = n->next;
-	if (n->obj == obj) {
-	    /* remove and destroy this node */
-	    remove_delnode(n);
-	}
+    do
+    {
+        n = next;
+        next = n->next;
+        if (n->obj == obj)
+        {
+            /* remove and destroy this node */
+            remove_delnode(n);
+        }
     } while (n != last);
 }
 
@@ -259,7 +270,7 @@ static void remove_deleted_object(object obj)
  *  This function repeatedly deletes del_base until that value is null.
  *  This traversal occurs at the end of every doevent call.
  */
-static void del_object(object obj);	/* declaration */
+static void del_object(object obj); /* declaration */
 PROTECTED
 void deletion_traversal(void)
 {
@@ -267,16 +278,19 @@ void deletion_traversal(void)
     object obj;
 
     level++;
-    if (level == 1) {
-	while (del_base) {
-	    obj = del_base->obj;
-	    if (obj) {
-		if (obj->refcount == 0)
-		    del_object(obj);
-		else
-		    remove_deleted_object(obj);
-	    }
-	}
+    if (level == 1)
+    {
+        while (del_base)
+        {
+            obj = del_base->obj;
+            if (obj)
+            {
+                if (obj->refcount == 0)
+                    del_object(obj);
+                else
+                    remove_deleted_object(obj);
+            }
+        }
     }
     level--;
 }
@@ -287,19 +301,19 @@ void deletion_traversal(void)
 static void update_app_globals(object obj)
 {
     if (obj->drawstate == current)
-	current = & app_drawstate;
+        current = &app_drawstate;
     if (obj == current->dest)
-	current->dest = NULL;
+        current->dest = NULL;
     if (obj == current_window)
-	current_window = NULL;
+        current_window = NULL;
     if (obj == current_menubar)
-	current_menubar = NULL;
+        current_menubar = NULL;
     if (obj == current_menu)
-	current_menu = NULL;
+        current_menu = NULL;
     if (obj == current->crsr)
-	current->crsr = ArrowCursor;
+        current->crsr = ArrowCursor;
     if (obj == current->fnt)
-	current->fnt = SystemFont;
+        current->fnt = SystemFont;
 }
 
 /*
@@ -322,14 +336,14 @@ static void free_private(object obj)
     remove_object(obj);
     /* Call user destructor first. */
     if ((obj->call) && (obj->call->die))
-	obj->call->die(obj);
+        obj->call->die(obj);
     /* Fix application variables. */
     update_app_globals(obj);
     /* Free drawing context. */
     del_context(obj);
     /* Then call private destructor. */
     if (obj->die)
-	obj->die(obj);
+        obj->die(obj);
     /* Remove object from deletion list. */
     remove_deleted_object(obj);
 }
@@ -340,11 +354,11 @@ static void free_object(object obj)
 
     /* Free any extra internal info. */
     if (obj->drawstate)
-	discard(obj->drawstate);
+        discard(obj->drawstate);
     if (obj->text)
-	discard(obj->text);
+        discard(obj->text);
     if (obj->call)
-	discard(obj->call);
+        discard(obj->call);
     discard(obj);
 }
 
@@ -357,7 +371,7 @@ static void free_object(object obj)
 static void del_object(object obj)
 {
     while (obj->child)
-	del_object(obj->child);
+        del_object(obj->child);
     free_object(obj);
 }
 
@@ -372,9 +386,9 @@ static void del_object(object obj)
 static void free_memory(object obj)
 {
     if (obj->kind == WindowObject)
-	hide(obj);
-    while(obj->child)
-	free_memory(obj->child);
+        hide(obj);
+    while (obj->child)
+        free_memory(obj->child);
     free_private(obj);
 }
 
@@ -397,17 +411,18 @@ object new_object(int kind, HANDLE handle, object parent)
 
     /* create the object */
     obj = create(objinfo);
-    if (! obj)
-	return NULL;
+    if (!obj)
+        return NULL;
     obj->menubar = obj->popup = obj->toolbar = NULL;
     obj->status[0] = '\0';
     if (kind & ControlObject)
     {
-	obj->call = create(callinfo);
-	if (! obj->call) {
-	    discard(obj);
-	    return NULL;
-	}
+        obj->call = create(callinfo);
+        if (!obj->call)
+        {
+            discard(obj);
+            return NULL;
+        }
     }
 
     obj->refcount = 1;
@@ -426,12 +441,11 @@ object new_object(int kind, HANDLE handle, object parent)
 static object match_object(object obj, HANDLE handle, int id, int key)
 {
     if ((handle != 0) && (obj->handle == handle))
-	return obj;
+        return obj;
     if ((id != 0) && (obj->id == id))
-	return obj;
-    if ((key != 0) && (obj->key == key)
-	&& (obj->kind == MenuitemObject))
-	return obj;
+        return obj;
+    if ((key != 0) && (obj->key == key) && (obj->kind == MenuitemObject))
+        return obj;
     return NULL;
 }
 
@@ -442,42 +456,43 @@ object tree_search(object top, HANDLE handle, int id, int key)
 {
     object obj, first_object, found = NULL;
 
-    if ((! top) || (! top->child))
-	return NULL;
+    if ((!top) || (!top->child))
+        return NULL;
 
     first_object = top->child;
     obj = first_object;
 
     while (obj != top)
     {
-	found = match_object(obj, handle, id, key);
-	if (found)
-	    break;
+        found = match_object(obj, handle, id, key);
+        if (found)
+            break;
 
-	if (obj->child)
-	{	/* object has children - descend tree */
-	    first_object = obj->child;
-	    obj = first_object;
-	    continue;
-	}
-	else
-	{	/* object is childless - go to next object */
-	    obj = obj->next;
-	}
+        if (obj->child)
+        { /* object has children - descend tree */
+            first_object = obj->child;
+            obj = first_object;
+            continue;
+        }
+        else
+        { /* object is childless - go to next object */
+            obj = obj->next;
+        }
 
-	while (obj == first_object)
-	{	/* back at first object in sibling list */
-	    /* climb the tree */
-	    obj = obj->parent;
-	    if (obj == top)
-		break;
-	    if (obj->parent) {
-		first_object = obj->parent->child;
-		obj = obj->next;
-	    }
-	    else
-		break;
-	}
+        while (obj == first_object)
+        { /* back at first object in sibling list */
+            /* climb the tree */
+            obj = obj->parent;
+            if (obj == top)
+                break;
+            if (obj->parent)
+            {
+                first_object = obj->parent->child;
+                obj = obj->next;
+            }
+            else
+                break;
+        }
     }
 
     return found;
@@ -497,9 +512,8 @@ static void print_drawstate(FILE *f, drawstate d, object obj)
 {
     fprintf(f, "%lu: [", ((unsigned long)d));
     if (!d)
-	return;
-    fprintf(f, "drawto=%s", (! d->drawing) ? "null" :
-	    (d->drawing == obj) ? "this" : "??");
+        return;
+    fprintf(f, "drawto=%s", (!d->drawing) ? "null" : (d->drawing == obj) ? "this" : "??");
     fprintf(f, ", 0x%8.8lX", (unsigned long)d->rgb);
     fprintf(f, ", %s", getname(d->font));
     fprintf(f, ", %s", getname(d->cursor));
@@ -514,59 +528,109 @@ static void print_objects(FILE *f, object obj, int indent)
     char *s;
     int i;
 
-    for (i=0; i<indent; i++)
-	fprintf(f, " ");
-    if (! obj) {
-	fprintf(f, "Null Object\n");
-	return;
+    for (i = 0; i < indent; i++)
+        fprintf(f, " ");
+    if (!obj)
+    {
+        fprintf(f, "Null Object\n");
+        return;
     }
-    switch(obj->kind) {
-    case BaseObject:	s = "BaseObject"; break;
-    case ControlObject:	s = "ControlObject"; break;
-    case WindowObject:	s = "WindowObject"; break;
-    case BitmapObject:	s = "BitmapObject"; break;
-    case CursorObject:	s = "CursorObject"; break;
-    case FontObject:	s = "FontObject"; break;
-    case UserObject:	s = "UserObject"; break;
-    case LabelObject:	s = "LabelObject"; break;
-    case ButtonObject:	s = "ButtonObject"; break;
-    case CheckboxObject:	s = "CheckboxObject"; break;
-    case RadioObject:	s = "RadioObject"; break;
-    case ScrollbarObject:	s = "ScrollbarObject"; break;
-    case FieldObject:	s = "FieldObject"; break;
-    case TextboxObject:	s = "TextboxObject"; break;
-    case ListboxObject:	s = "ListboxObject"; break;
-    case ProgressbarObject:	s = "ProgressbarObject"; break;
-    case MultilistObject:	s = "MultilistObject"; break;
-    case DroplistObject:	s = "DroplistObject"; break;
-    case DropfieldObject:	s = "DropfieldObject"; break;
-    case MenubarObject:	s = "MenubarObject"; break;
-    case MenuObject:	s = "MenuObject"; break;
-    case MenuitemObject:	s = "MenuitemObject"; break;
-    default: s = "Unknown Object???"; break;
+    switch (obj->kind)
+    {
+    case BaseObject:
+        s = "BaseObject";
+        break;
+    case ControlObject:
+        s = "ControlObject";
+        break;
+    case WindowObject:
+        s = "WindowObject";
+        break;
+    case BitmapObject:
+        s = "BitmapObject";
+        break;
+    case CursorObject:
+        s = "CursorObject";
+        break;
+    case FontObject:
+        s = "FontObject";
+        break;
+    case UserObject:
+        s = "UserObject";
+        break;
+    case LabelObject:
+        s = "LabelObject";
+        break;
+    case ButtonObject:
+        s = "ButtonObject";
+        break;
+    case CheckboxObject:
+        s = "CheckboxObject";
+        break;
+    case RadioObject:
+        s = "RadioObject";
+        break;
+    case ScrollbarObject:
+        s = "ScrollbarObject";
+        break;
+    case FieldObject:
+        s = "FieldObject";
+        break;
+    case TextboxObject:
+        s = "TextboxObject";
+        break;
+    case ListboxObject:
+        s = "ListboxObject";
+        break;
+    case ProgressbarObject:
+        s = "ProgressbarObject";
+        break;
+    case MultilistObject:
+        s = "MultilistObject";
+        break;
+    case DroplistObject:
+        s = "DroplistObject";
+        break;
+    case DropfieldObject:
+        s = "DropfieldObject";
+        break;
+    case MenubarObject:
+        s = "MenubarObject";
+        break;
+    case MenuObject:
+        s = "MenuObject";
+        break;
+    case MenuitemObject:
+        s = "MenuitemObject";
+        break;
+    default:
+        s = "Unknown Object???";
+        break;
     }
     fprintf(f, "%s", s);
     if (obj->text)
-	fprintf(f, ", text: \"%s\"", obj->text);
+        fprintf(f, ", text: \"%s\"", obj->text);
     /*
       if (! obj->child)
       fprintf(f, ", child: null");
     */
-    if (! obj->handle)
-	fprintf(f, ", handle: null");
-    if (obj->drawstate) {
-	fprintf(f, ", drawstate ");
-	print_drawstate(f, obj->drawstate, obj);
+    if (!obj->handle)
+        fprintf(f, ", handle: null");
+    if (obj->drawstate)
+    {
+        fprintf(f, ", drawstate ");
+        print_drawstate(f, obj->drawstate, obj);
     }
     fprintf(f, "\n");
 
     indent += 2;
     child = obj->child;
-    while (child) {
-	print_objects(f, child, indent); /* recursive */
-	child = child->next;
-	if (child == obj->child) /* if back at start of list */
-	    break;
+    while (child)
+    {
+        print_objects(f, child, indent); /* recursive */
+        child = child->next;
+        if (child == obj->child) /* if back at start of list */
+            break;
     }
     fflush(f);
 }
@@ -578,21 +642,23 @@ void print_object_list(void)
     char *mode = "at"; /* to ensure text mode */
     FILE *f;
 
-    if (! app_initialised)
-	return;
-    if (start_again) {
-	mode = "w";
-	start_again = 0;
+    if (!app_initialised)
+        return;
+    if (start_again)
+    {
+        mode = "w";
+        start_again = 0;
     }
     f = fopen("obj-list.txt", mode);
 
-    if (current) {
-	fprintf(f, "current drawstate ");
-	print_drawstate(f, current, NULL);
-	fprintf(f, "\n");
+    if (current)
+    {
+        fprintf(f, "current drawstate ");
+        print_drawstate(f, current, NULL);
+        fprintf(f, "\n");
     }
     fprintf(f, "global drawstate ");
-    print_drawstate(f, & app_drawstate, NULL);
+    print_drawstate(f, &app_drawstate, NULL);
     fprintf(f, "\n");
 
     print_objects(f, base_object, 0);
@@ -604,7 +670,8 @@ void print_object_list(void)
 void remove_menu_item(object obj)
 {
     /* Must call private destructor first! */
-    if (obj->die) obj->die(obj);
+    if (obj->die)
+        obj->die(obj);
     remove_object(obj);
     remove_deleted_object(obj);
 }

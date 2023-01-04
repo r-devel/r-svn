@@ -41,14 +41,14 @@
 #include "dpq.h"
 
 #ifdef DEBUG_qnbinom
-# define R_DBG_printf(...) REprintf(__VA_ARGS__)
+#define R_DBG_printf(...) REprintf(__VA_ARGS__)
 #else
-# define R_DBG_printf(...)
+#define R_DBG_printf(...)
 #endif
 
 #define _thisDIST_ nbinom_mu
 #define _dist_PARS_DECL_ double size, double mu
-#define _dist_PARS_      size, mu
+#define _dist_PARS_ size, mu
 
 #include "qDiscrete_search.h"
 //        ------------------>  do_search() and all called by q_DISCRETE_*() below
@@ -56,27 +56,27 @@
 double qnbinom_mu(double p, double size, double mu, int lower_tail, int log_p)
 {
     if (size == ML_POSINF) // limit case: Poisson
-	return(qpois(p, mu, lower_tail, log_p));
+        return (qpois(p, mu, lower_tail, log_p));
 
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(size) || ISNAN(mu))
-	return p + size + mu;
+        return p + size + mu;
 #endif
 
-    if (mu == 0 || size == 0) return 0;
-    if (mu <  0 || size <  0) ML_WARN_return_NAN;
+    if (mu == 0 || size == 0)
+        return 0;
+    if (mu < 0 || size < 0)
+        ML_WARN_return_NAN;
 
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
-    double
-	Q = 1 + mu/size, // (size+mu)/size = 1 / prob
-	P = mu/size,     // = (1 - prob) * Q = (1 - prob) / prob  =  Q - 1
-	sigma = sqrt(size * P * Q),
-	gamma = (Q + P)/sigma;
+    double Q = 1 + mu / size, // (size+mu)/size = 1 / prob
+        P = mu / size,        // = (1 - prob) * Q = (1 - prob) / prob  =  Q - 1
+        sigma = sqrt(size * P * Q), gamma = (Q + P) / sigma;
 
     R_DBG_printf("qnbinom_mu(p=%.12g, size=%.15g, mu=%g, l.t.=%d, log=%d):"
-		 " mu=%g, sigma=%g, gamma=%g;\n",
-		 p, size, mu, lower_tail, log_p, mu, sigma, gamma);
+                 " mu=%g, sigma=%g, gamma=%g;\n",
+                 p, size, mu, lower_tail, log_p, mu, sigma, gamma);
 
     q_DISCRETE_01_CHECKS();
     q_DISCRETE_BODY();

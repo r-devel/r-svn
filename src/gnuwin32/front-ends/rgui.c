@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <Rversion.h>
 #include <Startup.h>
-#include <stdlib.h>		/* for exit */
+#include <stdlib.h> /* for exit */
 
 extern void cmdlineoptions(int, char **);
 extern int setupui(void);
@@ -42,7 +42,7 @@ static char Rversion[25];
 char *getRVersion(void)
 {
     snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
-    return(Rversion);
+    return (Rversion);
 }
 
 #include <wincon.h>
@@ -54,26 +54,27 @@ int AppMain(int argc, char **argv)
     /* NOTE: localeCP is set in setupui(), but already used by MessageBox
        here and in cmdlineoptions(). MessageBox will hence use the
        compile-time default, and hence usually the *W interface. */
-    if(strcmp(getDLLVersion(), getRVersion()) != 0) {
-	MessageBox(0, "R.DLL version does not match", "Terminating",
-		   MB_TASKMODAL | MB_ICONSTOP | MB_OK);
-	exit(1);
+    if (strcmp(getDLLVersion(), getRVersion()) != 0)
+    {
+        MessageBox(0, "R.DLL version does not match", "Terminating", MB_TASKMODAL | MB_ICONSTOP | MB_OK);
+        exit(1);
     }
     cmdlineoptions(argc, argv);
-    if (!setupui()) {
-        MessageBox(0, "Error setting up console.  Try --vanilla option.",
-                      "Terminating", MB_TASKMODAL | MB_ICONSTOP | MB_OK);
+    if (!setupui())
+    {
+        MessageBox(0, "Error setting up console.  Try --vanilla option.", "Terminating",
+                   MB_TASKMODAL | MB_ICONSTOP | MB_OK);
         GA_exitapp();
     }
 
-/* C writes to stdout/stderr get set to the launching terminal (if
-   there was one).  Needs XP, and works for C but not Fortran. */
+    /* C writes to stdout/stderr get set to the launching terminal (if
+       there was one).  Needs XP, and works for C but not Fortran. */
 
     if (AttachConsole(ATTACH_PARENT_PROCESS))
     {
-	freopen("CONIN$", "r", stdin);
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONOUT$", "w", stderr);
+        freopen("CONIN$", "r", stdin);
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
     }
 
     Rf_mainloop();

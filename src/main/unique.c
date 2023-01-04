@@ -41,8 +41,8 @@ static R_INLINE int R_NaN_is_R_NA_inline(double x)
     static const int lw = 0;
 #endif /* WORDS_BIGENDIAN */
     union {
-	double value;
-	unsigned int word[2];
+        double value;
+        unsigned int word[2];
     } y;
     y.value = x;
     return y.word[lw] == 1954;
@@ -50,7 +50,7 @@ static R_INLINE int R_NaN_is_R_NA_inline(double x)
 
 #define NIL -1
 #define ARGUSED(x) LEVELS(x)
-#define SET_ARGUSED(x,v) SETLEVELS(x,v)
+#define SET_ARGUSED(x, v) SETLEVELS(x, v)
 
 /* interval at which to check interrupts */
 #define NINTERRUPT 1000000
@@ -60,7 +60,8 @@ typedef size_t hlen;
 /* Hash function and equality test for keys */
 typedef struct _HashData HashData;
 
-struct _HashData {
+struct _HashData
+{
     int K;
     hlen M;
     R_xlen_t nmax;
@@ -81,7 +82,6 @@ struct _HashData {
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
 #define HTDATA_DBL(d) (REAL0((d)->HashTable))
-
 
 /*
    Integer keys are hashed via a random number generator
@@ -111,15 +111,17 @@ static hlen scatter(unsigned int key, HashData *d)
 static hlen lhash(SEXP x, R_xlen_t indx, HashData *d)
 {
     int xi = LOGICAL_ELT(x, indx);
-    if (xi == NA_LOGICAL) return 2U;
-    return (hlen) xi;
+    if (xi == NA_LOGICAL)
+        return 2U;
+    return (hlen)xi;
 }
 
 static R_INLINE hlen ihash(SEXP x, R_xlen_t indx, HashData *d)
 {
     int xi = INTEGER_ELT(x, indx);
-    if (xi == NA_INTEGER) return 0;
-    return scatter((unsigned int) xi, d);
+    if (xi == NA_INTEGER)
+        return 0;
+    return scatter((unsigned int)xi, d);
 }
 
 /* We use unions here because Solaris gcc -O2 has trouble with
@@ -138,27 +140,30 @@ static R_INLINE hlen rhash(SEXP x, R_xlen_t indx, HashData *d)
     double tmp = (xi == 0.0) ? 0.0 : xi;
     /* need to use both 32-byte chunks or endianness is an issue */
     /* we want all NaNs except NA equal, and all NAs equal */
-    if (R_IsNA(tmp)) tmp = NA_REAL;
-    else if (R_IsNaN(tmp)) tmp = R_NaN;
-#if 2*SIZEOF_INT == SIZEOF_DOUBLE
+    if (R_IsNA(tmp))
+        tmp = NA_REAL;
+    else if (R_IsNaN(tmp))
+        tmp = R_NaN;
+#if 2 * SIZEOF_INT == SIZEOF_DOUBLE
     {
-	union foo tmpu;
-	tmpu.d = tmp;
-	return scatter(tmpu.u[0] + tmpu.u[1], d);
+        union foo tmpu;
+        tmpu.d = tmp;
+        return scatter(tmpu.u[0] + tmpu.u[1], d);
     }
 #else
-    return scatter(*((unsigned int *) (&tmp)), d);
+    return scatter(*((unsigned int *)(&tmp)), d);
 #endif
 }
 
-static Rcomplex unify_complex_na(Rcomplex z) {
+static Rcomplex unify_complex_na(Rcomplex z)
+{
     Rcomplex ans;
     ans.r = (z.r == 0.0) ? 0.0 : z.r;
     ans.i = (z.i == 0.0) ? 0.0 : z.i;
     if (R_IsNA(ans.r) || R_IsNA(ans.i))
-	ans.r = ans.i = NA_REAL;
+        ans.r = ans.i = NA_REAL;
     else if (R_IsNaN(ans.r) || R_IsNaN(ans.i))
-	ans.r = ans.i = R_NaN;
+        ans.r = ans.i = R_NaN;
     return ans;
 }
 
@@ -166,19 +171,18 @@ static hlen chash(SEXP x, R_xlen_t indx, HashData *d)
 {
     Rcomplex tmp = unify_complex_na(COMPLEX_ELT(x, indx));
 
-#if 2*SIZEOF_INT == SIZEOF_DOUBLE
+#if 2 * SIZEOF_INT == SIZEOF_DOUBLE
     {
-	unsigned int u;
-	union foo tmpu;
-	tmpu.d = tmp.r;
-	u = tmpu.u[0] ^ tmpu.u[1];
-	tmpu.d = tmp.i;
-	u ^= tmpu.u[0] ^ tmpu.u[1];
-	return scatter(u, d);
+        unsigned int u;
+        union foo tmpu;
+        tmpu.d = tmp.r;
+        u = tmpu.u[0] ^ tmpu.u[1];
+        tmpu.d = tmp.i;
+        u ^= tmpu.u[0] ^ tmpu.u[1];
+        return scatter(u, d);
     }
 #else
-	return scatter((*((unsigned int *)(&tmp.r)) ^
-			(*((unsigned int *)(&tmp.i)))), d);
+    return scatter((*((unsigned int *)(&tmp.r)) ^ (*((unsigned int *)(&tmp.i)))), d);
 #endif
 }
 
@@ -193,10 +197,10 @@ static hlen chash(SEXP x, R_xlen_t indx, HashData *d)
    Hash values are int, For 64bit pointers, we do (upper ^ lower) */
 static R_INLINE unsigned int PTRHASH(void *x)
 {
-    intptr_t z = (intptr_t) x;
+    intptr_t z = (intptr_t)x;
     unsigned int z1 = (unsigned int)(z & 0xffffffff), z2 = 0;
 #if SIZEOF_LONG == 8
-    z2 = (unsigned int)(z/0x100000000L);
+    z2 = (unsigned int)(z / 0x100000000L);
 #endif
     return z1 ^ z2;
 }
@@ -211,55 +215,62 @@ static R_INLINE hlen shash(SEXP x, R_xlen_t indx, HashData *d)
 {
     unsigned int k;
     const char *p;
-    if (d->inHashtab) {
-	SEXP xi = STRING_ELT(x, indx);
-	int noTrans = (IS_BYTES(xi) || IS_ASCII(xi)) ? TRUE : FALSE;
-	if (d->useCache && noTrans)
-	    return scatter(PTRHASH(xi), d);
-	const void *vmax = vmaxget();
-	p = noTrans ? CHAR(xi) : translateCharUTF8(xi);
-	k = 0;
-	while (*p++)
-	    /* multiplier was 8 but 11 isn't a power of 2 */
-	    k = 11 * k + (unsigned int) *p;
-	vmaxset(vmax); /* discard any memory used by translateChar */
-	return scatter(k, d);
+    if (d->inHashtab)
+    {
+        SEXP xi = STRING_ELT(x, indx);
+        int noTrans = (IS_BYTES(xi) || IS_ASCII(xi)) ? TRUE : FALSE;
+        if (d->useCache && noTrans)
+            return scatter(PTRHASH(xi), d);
+        const void *vmax = vmaxget();
+        p = noTrans ? CHAR(xi) : translateCharUTF8(xi);
+        k = 0;
+        while (*p++)
+            /* multiplier was 8 but 11 isn't a power of 2 */
+            k = 11 * k + (unsigned int)*p;
+        vmaxset(vmax); /* discard any memory used by translateChar */
+        return scatter(k, d);
     }
-    if(!d->useUTF8 && d->useCache) return cshash(x, indx, d);
+    if (!d->useUTF8 && d->useCache)
+        return cshash(x, indx, d);
     const void *vmax = vmaxget();
     /* Not having d->useCache really should not happen anymore. */
     p = translateCharUTF8(STRING_ELT(x, indx));
     k = 0;
     while (*p++)
-	k = 11 * k + (unsigned int) *p; /* was 8 but 11 isn't a power of 2 */
-    vmaxset(vmax); /* discard any memory used by translateChar */
+        k = 11 * k + (unsigned int)*p; /* was 8 but 11 isn't a power of 2 */
+    vmaxset(vmax);                     /* discard any memory used by translateChar */
     return scatter(k, d);
 }
 
 static int lequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     return (LOGICAL_ELT(x, i) == LOGICAL_ELT(y, j));
 }
 
-
 static R_INLINE int iequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     return (INTEGER_ELT(x, i) == INTEGER_ELT(y, j));
 }
 
 /* BDR 2002-1-17  We don't want NA and other NaNs to be equal */
 static R_INLINE int requal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     double xi = REAL_ELT(x, i);
     double yj = REAL_ELT(y, j);
     if (!ISNAN(xi) && !ISNAN(yj))
-	return (xi == yj);
-    else if (R_IsNA(xi) && R_IsNA(yj)) return 1;
-    else if (R_IsNaN(xi) && R_IsNaN(yj)) return 1;
-    else return 0;
+        return (xi == yj);
+    else if (R_IsNA(xi) && R_IsNA(yj))
+        return 1;
+    else if (R_IsNaN(xi) && R_IsNaN(yj))
+        return 1;
+    else
+        return 0;
 }
 
 /* This is differentiating {NA,1}, {NA,0}, {NA, NaN}, {NA, NA},
@@ -267,50 +278,55 @@ static R_INLINE int requal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 static int cplx_eq(Rcomplex x, Rcomplex y)
 {
     if (!ISNAN(x.r) && !ISNAN(x.i) && !ISNAN(y.r) && !ISNAN(y.i))
-	return x.r == y.r && x.i == y.i;
+        return x.r == y.r && x.i == y.i;
     else if (R_IsNA(x.r) || R_IsNA(x.i)) // x is NA
-	return (R_IsNA(y.r) || R_IsNA(y.i)) ? 1 : 0;
+        return (R_IsNA(y.r) || R_IsNA(y.i)) ? 1 : 0;
     else if (R_IsNA(y.r) || R_IsNA(y.i)) // y is NA but x is not
-	return 0;
+        return 0;
     // else : none is NA but there's at least one NaN;  hence  ISNAN(.) == R_IsNaN(.)
-    return
-	(((ISNAN(x.r) && ISNAN(y.r)) || (!ISNAN(x.r) && !ISNAN(y.r) && x.r == y.r)) && // Re
-	 ((ISNAN(x.i) && ISNAN(y.i)) || (!ISNAN(x.i) && !ISNAN(y.i) && x.i == y.i))    // Im
-	    ) ? 1 : 0;
+    return (((ISNAN(x.r) && ISNAN(y.r)) || (!ISNAN(x.r) && !ISNAN(y.r) && x.r == y.r)) && // Re
+            ((ISNAN(x.i) && ISNAN(y.i)) || (!ISNAN(x.i) && !ISNAN(y.i) && x.i == y.i))    // Im
+            )
+               ? 1
+               : 0;
 }
 
 static int cequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     return cplx_eq(COMPLEX_ELT(x, i), COMPLEX_ELT(y, j));
 }
 
 static R_INLINE int sequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     SEXP xi = STRING_ELT(x, i);
     SEXP yj = STRING_ELT(y, j);
     /* Two strings which have the same address must be the same,
        so avoid looking at the contents */
-    if (xi == yj) return 1;
+    if (xi == yj)
+        return 1;
     /* Then if either is NA the other cannot be */
     /* Once all CHARSXPs are cached, Seql will handle this */
     if (xi == NA_STRING || yj == NA_STRING)
-	return 0;
+        return 0;
     /* another pre-test to avoid the call to Seql */
     if (IS_CACHED(xi) && IS_CACHED(yj) && ENC_KNOWN(xi) == ENC_KNOWN(yj))
-	return 0;
+        return 0;
     return Seql(xi, yj);
 }
 
 static hlen rawhash(SEXP x, R_xlen_t indx, HashData *d)
 {
-    return (hlen) RAW_ELT(x, indx);
+    return (hlen)RAW_ELT(x, indx);
 }
 
 static int rawequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     return (RAW_ELT(x, i) == RAW_ELT(y, j));
 }
 
@@ -330,103 +346,115 @@ static hlen vhash_one(SEXP _this, HashData *d)
        environments were hashed based only on length, which is not
        very effective and could be expensive to compute. */
     if (TYPEOF(_this) == ENVSXP)
-	return scatter(PTRHASH(_this), d);
+        return scatter(PTRHASH(_this), d);
 
-    key = OBJECT(_this) + 2*TYPEOF(_this) + 100U*(unsigned int) length(_this);
+    key = OBJECT(_this) + 2 * TYPEOF(_this) + 100U * (unsigned int)length(_this);
     /* maybe we should also look at attributes, but that slows us down */
-    switch (TYPEOF(_this)) {
+    switch (TYPEOF(_this))
+    {
     case LGLSXP:
-	/* This is not too clever: pack into 32-bits and then scatter? */
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= lhash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        /* This is not too clever: pack into 32-bits and then scatter? */
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= lhash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case INTSXP:
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= ihash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= ihash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case REALSXP:
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= rhash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= rhash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case CPLXSXP:
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= chash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= chash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case STRSXP:
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= shash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= shash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case RAWSXP:
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= scatter((unsigned int)rawhash(_this, i, d), d);
-	    key *= 97;
-	}
-	break;
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= scatter((unsigned int)rawhash(_this, i, d), d);
+            key *= 97;
+        }
+        break;
     case EXPRSXP:
     case VECSXP:
-	R_CheckStack();
-	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= vhash(_this, i, d);
-	    key *= 97;
-	}
-	break;
+        R_CheckStack();
+        for (i = 0; i < LENGTH(_this); i++)
+        {
+            key ^= vhash(_this, i, d);
+            key *= 97;
+        }
+        break;
     case LANGSXP:
     case LISTSXP:
-	R_CheckStack();
-	/* all attributes are ignored */
-	/* might be good to consider envirnments on formulas */
-	for (SEXP next = _this; next != R_NilValue; next = CDR(next)) {
-	    key ^= vhash_one(CAR(next), d);
-	    key *= 97;
-	}
-	break;
+        R_CheckStack();
+        /* all attributes are ignored */
+        /* might be good to consider envirnments on formulas */
+        for (SEXP next = _this; next != R_NilValue; next = CDR(next))
+        {
+            key ^= vhash_one(CAR(next), d);
+            key *= 97;
+        }
+        break;
     case CLOSXP:
-	/* all attributes are ignored */
-	key ^= vhash_one(BODY_EXPR(_this), d);
-	key *= 97;
-	if (d->useCloEnv) {
-	    key ^= vhash_one(CLOENV(_this), d);
-	    key *= 97;
-	}
-	break;
+        /* all attributes are ignored */
+        key ^= vhash_one(BODY_EXPR(_this), d);
+        key *= 97;
+        if (d->useCloEnv)
+        {
+            key ^= vhash_one(CLOENV(_this), d);
+            key *= 97;
+        }
+        break;
     case SYMSXP:
-	key *= PTRHASH(_this);
-	key *= 97;
-	break;
+        key *= PTRHASH(_this);
+        key *= 97;
+        break;
     case CHARSXP:
-	if(!d->useUTF8 && d->useCache) key *= PTRHASH(_this);
-	/**** otherwise, do nothing for now */
-	/* this should only happen in C-leve hash tables */
-	/* eventually this should do what shash does */
-	key *= 97;
-	break;
+        if (!d->useUTF8 && d->useCache)
+            key *= PTRHASH(_this);
+        /**** otherwise, do nothing for now */
+        /* this should only happen in C-leve hash tables */
+        /* eventually this should do what shash does */
+        key *= 97;
+        break;
     case EXTPTRSXP:
-	if (d->extptrAsRef)
-	    key ^= PTRHASH(_this);
-	else
-	    /* identical() considers only the EXTPTR_PTR values ... */
-	    key ^= PTRHASH(EXTPTR_PTR(_this));
-	key *= 97;
-	break;
+        if (d->extptrAsRef)
+            key ^= PTRHASH(_this);
+        else
+            /* identical() considers only the EXTPTR_PTR values ... */
+            key ^= PTRHASH(EXTPTR_PTR(_this));
+        key *= 97;
+        break;
     default:
-	break;
+        break;
     }
     return scatter(key, d);
 }
 
 static int vequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (i < 0 || j < 0) return 0;
+    if (i < 0 || j < 0)
+        return 0;
     return R_compute_identical(VECTOR_ELT(x, i), VECTOR_ELT(y, j), 0);
 }
 
@@ -443,20 +471,22 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
 {
 #ifdef LONG_VECTOR_SUPPORT
     /* M = 2^32 is safe, hence n <= 2^31 -1 */
-    if(n < 0) /* protect against overflow to -ve */
-	error(_("length %d is too large for hashing"), n);
+    if (n < 0) /* protect against overflow to -ve */
+        error(_("length %d is too large for hashing"), n);
 #else
-    if(n < 0 || n >= 1073741824) /* protect against overflow to -ve */
-	error(_("length %d is too large for hashing"), n);
+    if (n < 0 || n >= 1073741824) /* protect against overflow to -ve */
+        error(_("length %d is too large for hashing"), n);
 #endif
 
-    if (nmax != NA_INTEGER && nmax != 1) n = nmax;
-    size_t n2 = 2U * (size_t) n;
+    if (nmax != NA_INTEGER && nmax != 1)
+        n = nmax;
+    size_t n2 = 2U * (size_t)n;
     d->M = 2;
     d->K = 1;
-    while (d->M < n2) {
-	d->M *= 2;
-	d->K++;
+    while (d->M < n2)
+    {
+        d->M *= 2;
+        d->K++;
     }
     d->nmax = n;
 }
@@ -466,65 +496,70 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 {
     d->useUTF8 = FALSE;
     d->useCache = TRUE;
-    switch (TYPEOF(x)) {
-    case LGLSXP:
-	d->hash = lhash;
-	d->equal = lequal;
-	d->nmax = d->M = 4;
-	d->K = 2; /* unused */
-	break;
-    case INTSXP:
+    switch (TYPEOF(x))
     {
-	d->hash = ihash;
-	d->equal = iequal;
+    case LGLSXP:
+        d->hash = lhash;
+        d->equal = lequal;
+        d->nmax = d->M = 4;
+        d->K = 2; /* unused */
+        break;
+    case INTSXP: {
+        d->hash = ihash;
+        d->equal = iequal;
 #ifdef LONG_VECTOR_SUPPORT
-	R_xlen_t nn = XLENGTH(x);
-	if (nn > IMAX) nn = IMAX;
-	MKsetup(nn, d, nmax);
+        R_xlen_t nn = XLENGTH(x);
+        if (nn > IMAX)
+            nn = IMAX;
+        MKsetup(nn, d, nmax);
 #else
-	MKsetup(LENGTH(x), d, nmax);
+        MKsetup(LENGTH(x), d, nmax);
 #endif
     }
-	break;
+    break;
     case REALSXP:
-	d->hash = rhash;
-	d->equal = requal;
-	MKsetup(XLENGTH(x), d, nmax);
-	break;
+        d->hash = rhash;
+        d->equal = requal;
+        MKsetup(XLENGTH(x), d, nmax);
+        break;
     case CPLXSXP:
-	d->hash = chash;
-	d->equal = cequal;
-	MKsetup(XLENGTH(x), d, nmax);
-	break;
+        d->hash = chash;
+        d->equal = cequal;
+        MKsetup(XLENGTH(x), d, nmax);
+        break;
     case STRSXP:
-	d->hash = shash;
-	d->equal = sequal;
-	MKsetup(XLENGTH(x), d, nmax);
-	break;
+        d->hash = shash;
+        d->equal = sequal;
+        MKsetup(XLENGTH(x), d, nmax);
+        break;
     case RAWSXP:
-	d->hash = rawhash;
-	d->equal = rawequal;
-	d->nmax = d->M = 256;
-	d->K = 8; /* unused */
-	break;
+        d->hash = rawhash;
+        d->equal = rawequal;
+        d->nmax = d->M = 256;
+        d->K = 8; /* unused */
+        break;
     case VECSXP:
-	d->hash = vhash;
-	d->equal = vequal;
-	MKsetup(XLENGTH(x), d, nmax);
-	break;
+        d->hash = vhash;
+        d->equal = vequal;
+        MKsetup(XLENGTH(x), d, nmax);
+        break;
     default:
-	UNIMPLEMENTED_TYPE("HashTableSetup", x);
+        UNIMPLEMENTED_TYPE("HashTableSetup", x);
     }
 #ifdef LONG_VECTOR_SUPPORT
     d->isLong = IS_LONG_VEC(x);
-    if (d->isLong) {
-	d->HashTable = allocVector(REALSXP, (R_xlen_t) d->M);
-	for (R_xlen_t i = 0; i < d->M; i++) HTDATA_DBL(d)[i] = NIL;
-    } else
+    if (d->isLong)
+    {
+        d->HashTable = allocVector(REALSXP, (R_xlen_t)d->M);
+        for (R_xlen_t i = 0; i < d->M; i++)
+            HTDATA_DBL(d)[i] = NIL;
+    }
+    else
 #endif
     {
-	d->HashTable = allocVector(INTSXP, (R_xlen_t) d->M);
-	for (R_xlen_t i = 0; i < d->M; i++) HTDATA_INT(d)[i] = NIL;
+        d->HashTable = allocVector(INTSXP, (R_xlen_t)d->M);
+        for (R_xlen_t i = 0; i < d->M; i++)
+            HTDATA_INT(d)[i] = NIL;
     }
 }
 
@@ -535,28 +570,34 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 {
 #ifdef LONG_VECTOR_SUPPORT
-    if (d->isLong) {
-	double *h = HTDATA_DBL(d);
-	hlen i = d->hash(x, indx, d);
-	while (h[i] != NIL) {
-	    if (d->equal(x, (R_xlen_t) h[i], x, indx))
-		return h[i] >= 0 ? 1 : 0;
-	    i = (i + 1) % d->M;
-	}
-	if (d->nmax-- < 0) error("hash table is full");
-	h[i] = (double) indx;
-    } else
+    if (d->isLong)
+    {
+        double *h = HTDATA_DBL(d);
+        hlen i = d->hash(x, indx, d);
+        while (h[i] != NIL)
+        {
+            if (d->equal(x, (R_xlen_t)h[i], x, indx))
+                return h[i] >= 0 ? 1 : 0;
+            i = (i + 1) % d->M;
+        }
+        if (d->nmax-- < 0)
+            error("hash table is full");
+        h[i] = (double)indx;
+    }
+    else
 #endif
     {
-	int *h = HTDATA_INT(d);
-	hlen i = d->hash(x, indx, d);
-	while (h[i] != NIL) {
-	    if (d->equal(x, h[i], x, indx))
-		return h[i] >= 0 ? 1 : 0;
-	    i = (i + 1) % d->M;
-	}
-	if (d->nmax-- < 0) error("hash table is full");
-	h[i] = (int) indx;
+        int *h = HTDATA_INT(d);
+        hlen i = d->hash(x, indx, d);
+        while (h[i] != NIL)
+        {
+            if (d->equal(x, h[i], x, indx))
+                return h[i] >= 0 ? 1 : 0;
+            i = (i + 1) % d->M;
+        }
+        if (d->nmax-- < 0)
+            error("hash table is full");
+        h[i] = (int)indx;
     }
     return 0;
 }
@@ -565,77 +606,96 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
 {
     Rboolean stop = FALSE;
 
-    if(TYPEOF(x) == STRSXP) {
-	R_xlen_t i, n = XLENGTH(x);
-	for(i = 0; i < n; i++) {
-	    if(IS_BYTES(STRING_ELT(x, i))) {
-		d->useUTF8 = FALSE;
-		stop = TRUE;
-		break;
-	    }
-	    if(ENC_KNOWN(STRING_ELT(x, i))) {
-		d->useUTF8 = TRUE;
-	    }
-	    /* uncached strings are currently not properly supported */
-	    if(!IS_CACHED(STRING_ELT(x, i))) {
-		d->useCache = FALSE;
-		stop = TRUE;
-		break;
-	    }
-	}
-    } else if (TYPEOF(x) == VECSXP || TYPEOF(x) == EXPRSXP) {
-	R_xlen_t i, n = XLENGTH(x);
-	for(i = 0; i < n; i++)
-	    if (duplicatedInit(VECTOR_ELT(x, i), d)) {
-		stop = TRUE;
-		break;
-	    }
-    } else if (TYPEOF(x) == LANGSXP || TYPEOF(x) == LISTSXP) {
-	for(SEXP head = x; head != R_NilValue; head = CDR(head))
-	    if (duplicatedInit(CAR(head), d)) {
-		stop = TRUE;
-		break;
-	    }
-
-    } else if (TYPEOF(x) == CLOSXP) {
-	if (duplicatedInit(BODY_EXPR(x), d))
-	    stop = TRUE;
-    }	
+    if (TYPEOF(x) == STRSXP)
+    {
+        R_xlen_t i, n = XLENGTH(x);
+        for (i = 0; i < n; i++)
+        {
+            if (IS_BYTES(STRING_ELT(x, i)))
+            {
+                d->useUTF8 = FALSE;
+                stop = TRUE;
+                break;
+            }
+            if (ENC_KNOWN(STRING_ELT(x, i)))
+            {
+                d->useUTF8 = TRUE;
+            }
+            /* uncached strings are currently not properly supported */
+            if (!IS_CACHED(STRING_ELT(x, i)))
+            {
+                d->useCache = FALSE;
+                stop = TRUE;
+                break;
+            }
+        }
+    }
+    else if (TYPEOF(x) == VECSXP || TYPEOF(x) == EXPRSXP)
+    {
+        R_xlen_t i, n = XLENGTH(x);
+        for (i = 0; i < n; i++)
+            if (duplicatedInit(VECTOR_ELT(x, i), d))
+            {
+                stop = TRUE;
+                break;
+            }
+    }
+    else if (TYPEOF(x) == LANGSXP || TYPEOF(x) == LISTSXP)
+    {
+        for (SEXP head = x; head != R_NilValue; head = CDR(head))
+            if (duplicatedInit(CAR(head), d))
+            {
+                stop = TRUE;
+                break;
+            }
+    }
+    else if (TYPEOF(x) == CLOSXP)
+    {
+        if (duplicatedInit(BODY_EXPR(x), d))
+            stop = TRUE;
+    }
     return stop;
 }
 
 static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
 {
 #ifdef LONG_VECTOR_SUPPORT
-    if (d->isLong) {
-	double *h = HTDATA_DBL(d);
-	hlen i = d->hash(x, indx, d);
-	while (h[i] >= 0) {
-	    if (d->equal(table, (R_xlen_t) h[i], x, indx)) {
-		h[i] = NA_INTEGER;  /* < 0, only index values are inserted */
-		return;
-	    }
-	    i = (i + 1) % d->M;
-	}
-    } else
+    if (d->isLong)
+    {
+        double *h = HTDATA_DBL(d);
+        hlen i = d->hash(x, indx, d);
+        while (h[i] >= 0)
+        {
+            if (d->equal(table, (R_xlen_t)h[i], x, indx))
+            {
+                h[i] = NA_INTEGER; /* < 0, only index values are inserted */
+                return;
+            }
+            i = (i + 1) % d->M;
+        }
+    }
+    else
 #endif
     {
-	int *h = HTDATA_INT(d);
-	hlen i = d->hash(x, indx, d);
-	while (h[i] >= 0) {
-	    if (d->equal(table, h[i], x, indx)) {
-		h[i] = NA_INTEGER;  /* < 0, only index values are inserted */
-		return;
-	    }
-	    i = (i + 1) % d->M;
-	}
+        int *h = HTDATA_INT(d);
+        hlen i = d->hash(x, indx, d);
+        while (h[i] >= 0)
+        {
+            if (d->equal(table, h[i], x, indx))
+            {
+                h[i] = NA_INTEGER; /* < 0, only index values are inserted */
+                return;
+            }
+            i = (i + 1) % d->M;
+        }
     }
 }
 
-#define DUPLICATED_INIT						\
-    HashData data = { 0 };					\
-    HashTableSetup(x, &data, nmax);				\
-    data.useUTF8 = FALSE; data.useCache = TRUE;			\
+#define DUPLICATED_INIT                                                                                                \
+    HashData data = {0};                                                                                               \
+    HashTableSetup(x, &data, nmax);                                                                                    \
+    data.useUTF8 = FALSE;                                                                                              \
+    data.useCache = TRUE;                                                                                              \
     duplicatedInit(x, &data);
 
 /* used in scan() */
@@ -644,7 +704,8 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     SEXP ans;
     int *v, nmax = NA_INTEGER;
 
-    if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
+    if (!isVector(x))
+        error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
     DUPLICATED_INIT;
 
@@ -653,74 +714,84 @@ SEXP duplicated(SEXP x, Rboolean from_last)
 
     v = LOGICAL(ans);
 
-    if(from_last)
-	for (i = n-1; i >= 0; i--) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+    if (from_last)
+        for (i = n - 1; i >= 0; i--)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
     else
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+        for (i = 0; i < n; i++)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
 
     UNPROTECT(2);
     return ans;
 }
 
-R_xlen_t sorted_real_count_NANs(SEXP x) {
+R_xlen_t sorted_real_count_NANs(SEXP x)
+{
     R_xlen_t n = XLENGTH(x);
-    if(n == 0)
-	return 0;
-    if(n == 1)
-	return ISNAN(REAL_ELT(x, 0));
+    if (n == 0)
+        return 0;
+    if (n == 1)
+        return ISNAN(REAL_ELT(x, 0));
 
     int sorted = REAL_IS_SORTED(x);
-    if(!KNOWN_SORTED(sorted)) /* this should never happen! */
-	error("sorted_real_count_NANs got unsorted vector: this should not happen");
+    if (!KNOWN_SORTED(sorted)) /* this should never happen! */
+        error("sorted_real_count_NANs got unsorted vector: this should not happen");
 
     double rtmp;
     R_xlen_t ret, nanpos, lowedge, highedge;
     int nas1st = KNOWN_NA_1ST(sorted);
     rtmp = nas1st ? REAL_ELT(x, 0) : REAL_ELT(x, n - 1);
-    if(!ISNAN(rtmp))
-	return 0;
-    if((nas1st && ISNAN(REAL_ELT(x, n - 1))) ||
-       (!nas1st && ISNAN(REAL_ELT(x, 0))))
-	return n;
+    if (!ISNAN(rtmp))
+        return 0;
+    if ((nas1st && ISNAN(REAL_ELT(x, n - 1))) || (!nas1st && ISNAN(REAL_ELT(x, 0))))
+        return n;
 
     nanpos = n / 2;
     lowedge = 0;
     highedge = n - 1;
 
-#define FIND_NAN_EDGE(yes, no, final) do {	\
-	while(highedge > lowedge + 1) {		\
-	    rtmp = REAL_ELT(x, nanpos);		\
-	    if(ISNAN(rtmp))			\
-		yes;				\
-	    else				\
-		no;				\
-	    nanpos = (highedge + lowedge) / 2;	\
-	}					\
-	ret = final;				\
-    } while(0)
+#define FIND_NAN_EDGE(yes, no, final)                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        while (highedge > lowedge + 1)                                                                                 \
+        {                                                                                                              \
+            rtmp = REAL_ELT(x, nanpos);                                                                                \
+            if (ISNAN(rtmp))                                                                                           \
+                yes;                                                                                                   \
+            else                                                                                                       \
+                no;                                                                                                    \
+            nanpos = (highedge + lowedge) / 2;                                                                         \
+        }                                                                                                              \
+        ret = final;                                                                                                   \
+    } while (0)
 
-    if(nas1st) {
-	FIND_NAN_EDGE(lowedge = nanpos, highedge = nanpos, lowedge + 1);
-    } else {
-	FIND_NAN_EDGE(highedge = nanpos, lowedge = nanpos, n - highedge);
+    if (nas1st)
+    {
+        FIND_NAN_EDGE(lowedge = nanpos, highedge = nanpos, lowedge + 1);
+    }
+    else
+    {
+        FIND_NAN_EDGE(highedge = nanpos, lowedge = nanpos, n - highedge);
     }
     return ret;
 }
 
 #undef FIND_NAN_EDGE
 
-#define DUP_DO_ONE(x, y, ind) do {					\
-    if(x == y)								\
-	v[ind] = TRUE;							\
-    else								\
-	v[ind] = FALSE;							\
-    } while(0)
+#define DUP_DO_ONE(x, y, ind)                                                                                          \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (x == y)                                                                                                    \
+            v[ind] = TRUE;                                                                                             \
+        else                                                                                                           \
+            v[ind] = FALSE;                                                                                            \
+    } while (0)
 
 static SEXP sorted_Duplicated(SEXP x, Rboolean from_last, int nmax)
 {
@@ -729,89 +800,97 @@ static SEXP sorted_Duplicated(SEXP x, Rboolean from_last, int nmax)
     SEXP ans = PROTECT(allocVector(LGLSXP, n));
     int *v = LOGICAL(ans), itmp, sorted;
     double rtmp;
-    Rboolean seen_na = FALSE, seen_nan = FALSE,
-	nas1st= TRUE;
+    Rboolean seen_na = FALSE, seen_nan = FALSE, nas1st = TRUE;
 
-#define SORTED_DUP_NONNANS(start, niter, tmpvar, eetype, vvtype) do {	\
-	if(from_last) {							\
-	    v[start + niter] = FALSE;					\
-	    tmpvar = vvtype##_ELT(x, start + niter);			\
-	    ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype,	\
-					  vvtype, start, niter, {	\
-					      DUP_DO_ONE(xptr[nb - 1],	\
-							 tmpvar,	\
-							 idx + nb - 1);	\
-					      for(R_xlen_t k = nb - 2; k >= 0; k--) { \
-						  DUP_DO_ONE(xptr[k + 1], \
-							     xptr[k],	\
-							     idx + k);	\
-					      }				\
-					      tmpvar = xptr[0];		\
-					  });				\
-	} else { /* !from_last */					\
-	    v[start] = FALSE;						\
-	    tmpvar = vvtype##_ELT(x, start);				\
-	    ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype,		\
-				      vvtype, start + 1, niter, {	\
-					  DUP_DO_ONE(xptr[0], tmpvar,	\
-						     idx);		\
-					  for(R_xlen_t k = 1; k < nb; k++) { \
-					      DUP_DO_ONE(xptr[k],	\
-							 xptr[k - 1],	\
-							 idx + k);	\
-					  }				\
-					  tmpvar = xptr[nb - 1];	\
-				      });				\
-	}								\
-    } while(0)
+#define SORTED_DUP_NONNANS(start, niter, tmpvar, eetype, vvtype)                                                       \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (from_last)                                                                                                 \
+        {                                                                                                              \
+            v[start + niter] = FALSE;                                                                                  \
+            tmpvar = vvtype##_ELT(x, start + niter);                                                                   \
+            ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype, vvtype, start, niter, {                            \
+                DUP_DO_ONE(xptr[nb - 1], tmpvar, idx + nb - 1);                                                        \
+                for (R_xlen_t k = nb - 2; k >= 0; k--)                                                                 \
+                {                                                                                                      \
+                    DUP_DO_ONE(xptr[k + 1], xptr[k], idx + k);                                                         \
+                }                                                                                                      \
+                tmpvar = xptr[0];                                                                                      \
+            });                                                                                                        \
+        }                                                                                                              \
+        else                                                                                                           \
+        { /* !from_last */                                                                                             \
+            v[start] = FALSE;                                                                                          \
+            tmpvar = vvtype##_ELT(x, start);                                                                           \
+            ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype, vvtype, start + 1, niter, {                            \
+                DUP_DO_ONE(xptr[0], tmpvar, idx);                                                                      \
+                for (R_xlen_t k = 1; k < nb; k++)                                                                      \
+                {                                                                                                      \
+                    DUP_DO_ONE(xptr[k], xptr[k - 1], idx + k);                                                         \
+                }                                                                                                      \
+                tmpvar = xptr[nb - 1];                                                                                 \
+            });                                                                                                        \
+        }                                                                                                              \
+    } while (0)
 
-#define SORTED_DUP_NANS(itype, istart, icond, iter) do {		\
-	ITERATE_BY_REGION_##itype(x, xptr, idx, nb,			\
-				  double, REAL, na_left, numnas, {	\
-				      for(R_xlen_t i = istart; icond; iter) { \
-					  if(R_NaN_is_R_NA(xptr[i])) {	\
-					      v[idx + i] = seen_na;	\
-					      seen_na = TRUE;		\
-					  } else {			\
-					      v[idx + i] = seen_nan;	\
-					      seen_nan = TRUE;		\
-					  }				\
-				      }					\
-				  });					\
-    } while(0)
+#define SORTED_DUP_NANS(itype, istart, icond, iter)                                                                    \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        ITERATE_BY_REGION_##itype(x, xptr, idx, nb, double, REAL, na_left, numnas, {                                   \
+            for (R_xlen_t i = istart; icond; iter)                                                                     \
+            {                                                                                                          \
+                if (R_NaN_is_R_NA(xptr[i]))                                                                            \
+                {                                                                                                      \
+                    v[idx + i] = seen_na;                                                                              \
+                    seen_na = TRUE;                                                                                    \
+                }                                                                                                      \
+                else                                                                                                   \
+                {                                                                                                      \
+                    v[idx + i] = seen_nan;                                                                             \
+                    seen_nan = TRUE;                                                                                   \
+                }                                                                                                      \
+            }                                                                                                          \
+        });                                                                                                            \
+    } while (0)
 
-    switch(TYPEOF(x)) {
+    switch (TYPEOF(x))
+    {
     case INTSXP:
-	sorted = INTEGER_IS_SORTED(x);
-	if(!KNOWN_SORTED(sorted))
-	    error("sorted_Duplicated got unsorted vector: this should not happen");
-	SORTED_DUP_NONNANS(0, n - 1, itmp, int, INTEGER);
-	break;
+        sorted = INTEGER_IS_SORTED(x);
+        if (!KNOWN_SORTED(sorted))
+            error("sorted_Duplicated got unsorted vector: this should not happen");
+        SORTED_DUP_NONNANS(0, n - 1, itmp, int, INTEGER);
+        break;
     case REALSXP:
-	sorted = REAL_IS_SORTED(x);
-	if(!KNOWN_SORTED(sorted))
-	    error("sorted_Duplicated got unsorted vector: this should not happen");
-	numnas = sorted_real_count_NANs(x);
-	nas1st = KNOWN_NA_1ST(REAL_IS_SORTED(x));
+        sorted = REAL_IS_SORTED(x);
+        if (!KNOWN_SORTED(sorted))
+            error("sorted_Duplicated got unsorted vector: this should not happen");
+        numnas = sorted_real_count_NANs(x);
+        nas1st = KNOWN_NA_1ST(REAL_IS_SORTED(x));
 
-	if(numnas > 0) {
-	    na_left = nas1st ? 0 : n - numnas;
-	    if(from_last) {
-		SORTED_DUP_NANS(PARTIAL_REV, nb - 1, i >= 0, i--);
-	    } else { // !from_last
-		SORTED_DUP_NANS(PARTIAL, 0, i < nb, i++);
-	    } // from_last
-	} // numnas > 0
-	
-	if(numnas < n) {
-	    startpos = nas1st ? numnas : 0;
-	    SORTED_DUP_NONNANS(startpos, n - numnas - 1, rtmp, double, REAL);
-	}
-	break;
+        if (numnas > 0)
+        {
+            na_left = nas1st ? 0 : n - numnas;
+            if (from_last)
+            {
+                SORTED_DUP_NANS(PARTIAL_REV, nb - 1, i >= 0, i--);
+            }
+            else
+            { // !from_last
+                SORTED_DUP_NANS(PARTIAL, 0, i < nb, i++);
+            } // from_last
+        }     // numnas > 0
+
+        if (numnas < n)
+        {
+            startpos = nas1st ? numnas : 0;
+            SORTED_DUP_NONNANS(startpos, n - numnas - 1, rtmp, double, REAL);
+        }
+        break;
     default:
-	error("sorted_Duplicated got unsupported type %d: this should not happen", TYPEOF(x));
+        error("sorted_Duplicated got unsupported type %d: this should not happen", TYPEOF(x));
     }
-    UNPROTECT(1); //ans
+    UNPROTECT(1); // ans
     return ans;
 }
 
@@ -819,10 +898,10 @@ static SEXP sorted_Duplicated(SEXP x, Rboolean from_last, int nmax)
 #undef SORTED_DUP_NANS
 #undef DUP_DO_ONE
 
-/* to add sorted fastpass support for new SEXP types modify sorted_Duplicated 
+/* to add sorted fastpass support for new SEXP types modify sorted_Duplicated
    and sorted_any_Duplicated then add them here */
-#define DUP_KNOWN_SORTED(x)						\
-    ((TYPEOF(x) == INTSXP && KNOWN_SORTED(INTEGER_IS_SORTED(x))) ||	\
+#define DUP_KNOWN_SORTED(x)                                                                                            \
+    ((TYPEOF(x) == INTSXP && KNOWN_SORTED(INTEGER_IS_SORTED(x))) ||                                                    \
      (TYPEOF(x) == REALSXP && KNOWN_SORTED(REAL_IS_SORTED(x))))
 
 static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
@@ -830,15 +909,17 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     SEXP ans;
     int *v;
 
-    if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
+    if (!isVector(x))
+        error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
-    if(n == 0)
-	return allocVector(LGLSXP, 0);
+    if (n == 0)
+        return allocVector(LGLSXP, 0);
     else if (n == 1)
-	return ScalarLogical(FALSE);
-    
-    if(DUP_KNOWN_SORTED(x)) {
-    	return sorted_Duplicated(x, from_last, nmax);
+        return ScalarLogical(FALSE);
+
+    if (DUP_KNOWN_SORTED(x))
+    {
+        return sorted_Duplicated(x, from_last, nmax);
     }
     DUPLICATED_INIT;
 
@@ -847,122 +928,153 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
 
     v = LOGICAL(ans);
 
-    if(from_last)
-	for (i = n-1; i >= 0; i--) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+    if (from_last)
+        for (i = n - 1; i >= 0; i--)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
     else
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+        for (i = 0; i < n; i++)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
 
     UNPROTECT(2);
     return ans;
 }
 
-R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
+R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last)
+{
     int itmp, sorted;
     double rtmp;
     Rboolean seen_na = FALSE, seen_nan = FALSE, na1st = FALSE;
-    
-#define SORTED_ANYDUP_NONNANS_FROM_LAST(start, count, tmpvar, eetype, vvtype) do { \
-	tmpvar = vvtype##_ELT(x, start + count - 1);			\
-	ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype, vvtype, \
-				      start, count - 1, {		\
-					  if(xptr[nb - 1] == tmpvar) {	\
-					      return idx + nb;		\
-					  }				\
-					  for(R_xlen_t k = nb - 2; k >= 0; k--) { \
-					      if(xptr[k + 1] == xptr[k]) { \
-						  return idx + k + 1;	\
-					      }				\
-					  }				\
-					  tmpvar = xptr[0];		\
-				      });				\
-    } while(0)
 
-#define SORTED_ANYDUP_NONNANS_FROM_FIRST(start, count, tmpvar, eetype, vvtype) do { \
-	tmpvar = vvtype##_ELT(x, start);				\
-	ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype,		\
-				  vvtype, start + 1, count - 1, {	\
-				      if(xptr[0] == tmpvar) {		\
-					  return idx + 1;		\
-				      }					\
-				      for(R_xlen_t k = 1; k < nb; k++) { \
-					  if(xptr[k] == xptr[k - 1]) {	\
-					      return idx + k + 1;	\
-					  }				\
-				      }					\
-				      tmpvar = xptr[nb - 1];		\
-				  });					\
-    } while(0)
+#define SORTED_ANYDUP_NONNANS_FROM_LAST(start, count, tmpvar, eetype, vvtype)                                          \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        tmpvar = vvtype##_ELT(x, start + count - 1);                                                                   \
+        ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype, vvtype, start, count - 1, {                            \
+            if (xptr[nb - 1] == tmpvar)                                                                                \
+            {                                                                                                          \
+                return idx + nb;                                                                                       \
+            }                                                                                                          \
+            for (R_xlen_t k = nb - 2; k >= 0; k--)                                                                     \
+            {                                                                                                          \
+                if (xptr[k + 1] == xptr[k])                                                                            \
+                {                                                                                                      \
+                    return idx + k + 1;                                                                                \
+                }                                                                                                      \
+            }                                                                                                          \
+            tmpvar = xptr[0];                                                                                          \
+        });                                                                                                            \
+    } while (0)
 
-#define SORTED_ANYDUP_NANS(start, count, itype, istart, icond, iter) do { \
-	ITERATE_BY_REGION_##itype(x, xptr, idx, nb, double, REAL,	\
-				  start, count, {			\
-				      for(R_xlen_t i = istart; icond; iter) { \
-					  if(R_NaN_is_R_NA(xptr[i])) {	\
-					      if(seen_na) {		\
-						  return idx + i + 1;	\
-					      } else {			\
-						  seen_na = TRUE;	\
-					      }				\
-					  } else {			\
-					      if(seen_nan) {		\
-						  return idx + i + 1;	\
-					      } else {			\
-						  seen_nan = TRUE;	\
-					      }				\
-					  }				\
-				      }					\
-				  });					\
-    } while(0)
+#define SORTED_ANYDUP_NONNANS_FROM_FIRST(start, count, tmpvar, eetype, vvtype)                                         \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        tmpvar = vvtype##_ELT(x, start);                                                                               \
+        ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype, vvtype, start + 1, count - 1, {                            \
+            if (xptr[0] == tmpvar)                                                                                     \
+            {                                                                                                          \
+                return idx + 1;                                                                                        \
+            }                                                                                                          \
+            for (R_xlen_t k = 1; k < nb; k++)                                                                          \
+            {                                                                                                          \
+                if (xptr[k] == xptr[k - 1])                                                                            \
+                {                                                                                                      \
+                    return idx + k + 1;                                                                                \
+                }                                                                                                      \
+            }                                                                                                          \
+            tmpvar = xptr[nb - 1];                                                                                     \
+        });                                                                                                            \
+    } while (0)
 
-    switch(TYPEOF(x)) {
+#define SORTED_ANYDUP_NANS(start, count, itype, istart, icond, iter)                                                   \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        ITERATE_BY_REGION_##itype(x, xptr, idx, nb, double, REAL, start, count, {                                      \
+            for (R_xlen_t i = istart; icond; iter)                                                                     \
+            {                                                                                                          \
+                if (R_NaN_is_R_NA(xptr[i]))                                                                            \
+                {                                                                                                      \
+                    if (seen_na)                                                                                       \
+                    {                                                                                                  \
+                        return idx + i + 1;                                                                            \
+                    }                                                                                                  \
+                    else                                                                                               \
+                    {                                                                                                  \
+                        seen_na = TRUE;                                                                                \
+                    }                                                                                                  \
+                }                                                                                                      \
+                else                                                                                                   \
+                {                                                                                                      \
+                    if (seen_nan)                                                                                      \
+                    {                                                                                                  \
+                        return idx + i + 1;                                                                            \
+                    }                                                                                                  \
+                    else                                                                                               \
+                    {                                                                                                  \
+                        seen_nan = TRUE;                                                                               \
+                    }                                                                                                  \
+                }                                                                                                      \
+            }                                                                                                          \
+        });                                                                                                            \
+    } while (0)
+
+    switch (TYPEOF(x))
+    {
     case INTSXP:
-	sorted = INTEGER_IS_SORTED(x);
-	if(!KNOWN_SORTED(sorted))
-	    error("sorted_any_duplicated got unsorted vector: this should not happen");
-	if(from_last) {
-	    SORTED_ANYDUP_NONNANS_FROM_LAST(0, XLENGTH(x), itmp, int, INTEGER);
-	} else {
-	    SORTED_ANYDUP_NONNANS_FROM_FIRST(0, XLENGTH(x), itmp, int, INTEGER);
-	}
-	break;
+        sorted = INTEGER_IS_SORTED(x);
+        if (!KNOWN_SORTED(sorted))
+            error("sorted_any_duplicated got unsorted vector: this should not happen");
+        if (from_last)
+        {
+            SORTED_ANYDUP_NONNANS_FROM_LAST(0, XLENGTH(x), itmp, int, INTEGER);
+        }
+        else
+        {
+            SORTED_ANYDUP_NONNANS_FROM_FIRST(0, XLENGTH(x), itmp, int, INTEGER);
+        }
+        break;
     case REALSXP:
-	sorted = REAL_IS_SORTED(x);
-	if(!KNOWN_SORTED(sorted))
-	    error("sorted_any_duplicated got unsorted vector: this should not happen");
-	R_xlen_t numnas = sorted_real_count_NANs(x), napivot;
-	napivot = XLENGTH(x) - numnas;
-	na1st = KNOWN_NA_1ST(sorted);
-	
-	if(from_last) {
-	    if(na1st) {
-		SORTED_ANYDUP_NONNANS_FROM_LAST(numnas, napivot, rtmp, double,
-						REAL);
-		SORTED_ANYDUP_NANS(0, numnas, PARTIAL_REV, nb - 1, i >=0, i--);
-	    } else {
-		SORTED_ANYDUP_NANS(napivot, numnas, PARTIAL_REV, nb - 1, i >= 0,
-				   i--);
-		SORTED_ANYDUP_NONNANS_FROM_LAST(0, napivot, rtmp, double, REAL);
-	    }
-	} else { // !from_last
-	    if(na1st) {
-		SORTED_ANYDUP_NANS(0, numnas, PARTIAL, 0, i < nb, i++);
-		SORTED_ANYDUP_NONNANS_FROM_FIRST(numnas, napivot, rtmp, double,
-						 REAL);
-	    } else {
-		SORTED_ANYDUP_NONNANS_FROM_FIRST(0, napivot, rtmp, double,
-						 REAL);
-		SORTED_ANYDUP_NANS(napivot, numnas, PARTIAL, 0, i < nb, i++);
-	    }
-	} //from_last
-	break;
+        sorted = REAL_IS_SORTED(x);
+        if (!KNOWN_SORTED(sorted))
+            error("sorted_any_duplicated got unsorted vector: this should not happen");
+        R_xlen_t numnas = sorted_real_count_NANs(x), napivot;
+        napivot = XLENGTH(x) - numnas;
+        na1st = KNOWN_NA_1ST(sorted);
+
+        if (from_last)
+        {
+            if (na1st)
+            {
+                SORTED_ANYDUP_NONNANS_FROM_LAST(numnas, napivot, rtmp, double, REAL);
+                SORTED_ANYDUP_NANS(0, numnas, PARTIAL_REV, nb - 1, i >= 0, i--);
+            }
+            else
+            {
+                SORTED_ANYDUP_NANS(napivot, numnas, PARTIAL_REV, nb - 1, i >= 0, i--);
+                SORTED_ANYDUP_NONNANS_FROM_LAST(0, napivot, rtmp, double, REAL);
+            }
+        }
+        else
+        { // !from_last
+            if (na1st)
+            {
+                SORTED_ANYDUP_NANS(0, numnas, PARTIAL, 0, i < nb, i++);
+                SORTED_ANYDUP_NONNANS_FROM_FIRST(numnas, napivot, rtmp, double, REAL);
+            }
+            else
+            {
+                SORTED_ANYDUP_NONNANS_FROM_FIRST(0, napivot, rtmp, double, REAL);
+                SORTED_ANYDUP_NANS(napivot, numnas, PARTIAL, 0, i < nb, i++);
+            }
+        } // from_last
+        break;
     default:
-	error("sorted_Duplicated got unsupported type %d: this should not happen", TYPEOF(x));
+        error("sorted_Duplicated got unsupported type %d: this should not happen", TYPEOF(x));
     }
     return 0;
 }
@@ -977,24 +1089,39 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     R_xlen_t result = 0;
     int nmax = NA_INTEGER;
 
-    if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
+    if (!isVector(x))
+        error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
 
-    if(DUP_KNOWN_SORTED(x)) {
-    	return sorted_any_duplicated(x, from_last);
+    if (DUP_KNOWN_SORTED(x))
+    {
+        return sorted_any_duplicated(x, from_last);
     }
 
     DUPLICATED_INIT;
     PROTECT(data.HashTable);
 
-    if(from_last) {
-	for (i = n-1; i >= 0; i--) {
-	    if(isDuplicated(x, i, &data)) { result = ++i; break; }
-	}
-    } else {
-	for (i = 0; i < n; i++) {
-	    if(isDuplicated(x, i, &data)) { result = ++i; break; }
-	}
+    if (from_last)
+    {
+        for (i = n - 1; i >= 0; i--)
+        {
+            if (isDuplicated(x, i, &data))
+            {
+                result = ++i;
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < n; i++)
+        {
+            if (isDuplicated(x, i, &data))
+            {
+                result = ++i;
+                break;
+            }
+        }
     }
     UNPROTECT(1);
     return result;
@@ -1007,7 +1134,8 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
     SEXP ans;
     int *v, j, m;
 
-    if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
+    if (!isVector(x))
+        error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
     DUPLICATED_INIT;
 
@@ -1016,26 +1144,34 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 
     v = LOGICAL(ans);
 
-    if(from_last)
-	for (i = n-1; i >= 0; i--) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+    if (from_last)
+        for (i = n - 1; i >= 0; i--)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
     else
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    v[i] = isDuplicated(x, i, &data);
-	}
+        for (i = 0; i < n; i++)
+        {
+            //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+            v[i] = isDuplicated(x, i, &data);
+        }
 
-    if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
-	m = length(incomp);
-	for (i = 0; i < n; i++)
-	    if(v[i]) {
-		for(j = 0; j < m; j++)
-		    if(data.equal(x, i, incomp, j)) {v[i] = 0; break;}
-	    }
-	UNPROTECT(1);
+    if (length(incomp))
+    {
+        PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+        m = length(incomp);
+        for (i = 0; i < n; i++)
+            if (v[i])
+            {
+                for (j = 0; j < m; j++)
+                    if (data.equal(x, i, incomp, j))
+                    {
+                        v[i] = 0;
+                        break;
+                    }
+            }
+        UNPROTECT(1);
     }
     UNPROTECT(2);
     return ans;
@@ -1046,37 +1182,46 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 {
     int j, m = length(incomp), nmax = NA_INTEGER;
 
-    if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
+    if (!isVector(x))
+        error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
     DUPLICATED_INIT;
     PROTECT(data.HashTable);
 
-    if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
+    if (!m)
+        error(_("any_duplicated3(., <0-length incomp>)"));
 
     PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
     m = length(incomp);
 
-    if(from_last)
-	for (i = n-1; i >= 0; i--) {
-#define IS_DUPLICATED_CHECK				\
-	    if(isDuplicated(x, i, &data)) {		\
-		Rboolean isDup = TRUE;			\
-		for(j = 0; j < m; j++)			\
-		    if(data.equal(x, i, incomp, j)) {	\
-			isDup = FALSE; break;		\
-		    }					\
-		if(isDup) {				\
-		    UNPROTECT(2);			\
-		    return ++i;				\
-		}					\
-		/* else continue */			\
-	    }
-	    IS_DUPLICATED_CHECK;
-	}
-    else {
-	for (i = 0; i < n; i++) {
-	    IS_DUPLICATED_CHECK;
-	}
+    if (from_last)
+        for (i = n - 1; i >= 0; i--)
+        {
+#define IS_DUPLICATED_CHECK                                                                                            \
+    if (isDuplicated(x, i, &data))                                                                                     \
+    {                                                                                                                  \
+        Rboolean isDup = TRUE;                                                                                         \
+        for (j = 0; j < m; j++)                                                                                        \
+            if (data.equal(x, i, incomp, j))                                                                           \
+            {                                                                                                          \
+                isDup = FALSE;                                                                                         \
+                break;                                                                                                 \
+            }                                                                                                          \
+        if (isDup)                                                                                                     \
+        {                                                                                                              \
+            UNPROTECT(2);                                                                                              \
+            return ++i;                                                                                                \
+        }                                                                                                              \
+        /* else continue */                                                                                            \
+    }
+            IS_DUPLICATED_CHECK;
+        }
+    else
+    {
+        for (i = 0; i < n; i++)
+        {
+            IS_DUPLICATED_CHECK;
+        }
     }
 
     UNPROTECT(2);
@@ -1085,7 +1230,6 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
 #undef IS_DUPLICATED_CHECK
 #undef DUPLICATED_INIT
-
 
 /* .Internal(   duplicated(x, incomparables, fromLast, nmax))  [op=0]
    .Internal(       unique(x, incomparables, fromLast, nmax))  [op=1]
@@ -1100,109 +1244,121 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
     x = CAR(args);
     SEXP incomp = CADR(args);
     if (length(CADDR(args)) < 1)
-	error(_("'fromLast' must be length 1"));
+        error(_("'fromLast' must be length 1"));
     int fromLast = asLogical(CADDR(args));
     if (fromLast == NA_LOGICAL)
-	error(_("'fromLast' must be TRUE or FALSE"));
-    Rboolean fL = (Rboolean) fromLast;
+        error(_("'fromLast' must be TRUE or FALSE"));
+    Rboolean fL = (Rboolean)fromLast;
 
     /* handle zero length vectors, and NULL */
     if ((n = xlength(x)) == 0)
-	return(PRIMVAL(op) <= 1
-	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
-	       : ScalarInteger(0));
+        return (PRIMVAL(op) <= 1 ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0) : ScalarInteger(0));
 
-    if (!isVector(x)) {
-	error(_("%s() applies only to vectors"),
-	      (PRIMVAL(op) == 0 ? "duplicated" :
-	       (PRIMVAL(op) == 1 ? "unique" : /* 2 */ "anyDuplicated")));
+    if (!isVector(x))
+    {
+        error(_("%s() applies only to vectors"),
+              (PRIMVAL(op) == 0 ? "duplicated" : (PRIMVAL(op) == 1 ? "unique" : /* 2 */ "anyDuplicated")));
     }
     int nmax = NA_INTEGER;
-    if (PRIMVAL(op) <= 1) {
-	nmax = asInteger(CADDDR(args));
-	if (nmax != NA_INTEGER && nmax <= 0)
-	    error(_("'nmax' must be positive"));
+    if (PRIMVAL(op) <= 1)
+    {
+        nmax = asInteger(CADDDR(args));
+        if (nmax != NA_INTEGER && nmax <= 0)
+            error(_("'nmax' must be positive"));
     }
 
-    if(length(incomp) && /* S has FALSE to mean empty */
-       !(isLogical(incomp) && length(incomp) == 1 &&
-	 LOGICAL_ELT(incomp, 0) == 0)) {
-	if(PRIMVAL(op) == 2) {
-	    /* return R's 1-based index :*/
-	    R_xlen_t ind  = any_duplicated3(x, incomp, fL);
-	    if(ind > INT_MAX) return ScalarReal((double) ind);
-	    else return ScalarInteger((int)ind);
-	} else
-	    dup = duplicated3(x, incomp, fL, nmax);
+    if (length(incomp) && /* S has FALSE to mean empty */
+        !(isLogical(incomp) && length(incomp) == 1 && LOGICAL_ELT(incomp, 0) == 0))
+    {
+        if (PRIMVAL(op) == 2)
+        {
+            /* return R's 1-based index :*/
+            R_xlen_t ind = any_duplicated3(x, incomp, fL);
+            if (ind > INT_MAX)
+                return ScalarReal((double)ind);
+            else
+                return ScalarInteger((int)ind);
+        }
+        else
+            dup = duplicated3(x, incomp, fL, nmax);
     }
-    else {
-	if(PRIMVAL(op) == 2) {
-	    R_xlen_t ind  = any_duplicated(x, fL);
-	    if(ind > INT_MAX) return ScalarReal((double) ind);
-	    else return ScalarInteger((int)ind);
-	} else
-	    dup = Duplicated(x, fL, nmax);
+    else
+    {
+        if (PRIMVAL(op) == 2)
+        {
+            R_xlen_t ind = any_duplicated(x, fL);
+            if (ind > INT_MAX)
+                return ScalarReal((double)ind);
+            else
+                return ScalarInteger((int)ind);
+        }
+        else
+            dup = Duplicated(x, fL, nmax);
     }
     if (PRIMVAL(op) == 0) /* "duplicated()" */
-	return dup;
+        return dup;
     /*	ELSE
-	use the results of "duplicated" to get "unique" */
+    use the results of "duplicated" to get "unique" */
 
     /* count unique entries */
     k = 0;
     PROTECT(dup);
     ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
-	    for(R_xlen_t j=0; j < nb; j++)
-		if(duptr[j] == 0) k++;
-	});
-    
+        for (R_xlen_t j = 0; j < nb; j++)
+            if (duptr[j] == 0)
+                k++;
+    });
+
     PROTECT(ans = allocVector(TYPEOF(x), k));
 
     k = 0;
-    switch (TYPEOF(x)) {
+    switch (TYPEOF(x))
+    {
     case LGLSXP:
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(dup, i) == 0)
-		LOGICAL0(ans)[k++] = LOGICAL_ELT(x, i);
-	break;
+        for (i = 0; i < n; i++)
+            if (LOGICAL_ELT(dup, i) == 0)
+                LOGICAL0(ans)[k++] = LOGICAL_ELT(x, i);
+        break;
     case INTSXP:
-	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
-		for(R_xlen_t j = 0; j < nb; j++) {
-		    if(duptr[j] == 0)
-			INTEGER0(ans)[k++] = INTEGER_ELT(x, idx + j);
-		}
-	    });
-	break;
+        ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
+            for (R_xlen_t j = 0; j < nb; j++)
+            {
+                if (duptr[j] == 0)
+                    INTEGER0(ans)[k++] = INTEGER_ELT(x, idx + j);
+            }
+        });
+        break;
     case REALSXP:
-	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
-		for(R_xlen_t j = 0; j < nb; j++) {
-		    if(duptr[j] == 0)
-			REAL0(ans)[k++] = REAL_ELT(x, idx + j);
-		}
-	    });
-	break;
+        ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
+            for (R_xlen_t j = 0; j < nb; j++)
+            {
+                if (duptr[j] == 0)
+                    REAL0(ans)[k++] = REAL_ELT(x, idx + j);
+            }
+        });
+        break;
     case CPLXSXP:
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(dup, i) == 0)
-		COMPLEX0(ans)[k++] = COMPLEX_ELT(x, i);
-	break;
+        for (i = 0; i < n; i++)
+            if (LOGICAL_ELT(dup, i) == 0)
+                COMPLEX0(ans)[k++] = COMPLEX_ELT(x, i);
+        break;
     case STRSXP:
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(dup, i) == 0)
-		SET_STRING_ELT(ans, k++, STRING_ELT(x, i));
-	break;
+        for (i = 0; i < n; i++)
+            if (LOGICAL_ELT(dup, i) == 0)
+                SET_STRING_ELT(ans, k++, STRING_ELT(x, i));
+        break;
     case VECSXP:
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(dup, i) == 0)
-		SET_VECTOR_ELT(ans, k++, VECTOR_ELT(x, i));
-	break;
+        for (i = 0; i < n; i++)
+            if (LOGICAL_ELT(dup, i) == 0)
+                SET_VECTOR_ELT(ans, k++, VECTOR_ELT(x, i));
+        break;
     case RAWSXP:
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(dup, i) == 0)
-		RAW0(ans)[k++] = RAW_ELT(x, i);
-	break;
+        for (i = 0; i < n; i++)
+            if (LOGICAL_ELT(dup, i) == 0)
+                RAW0(ans)[k++] = RAW_ELT(x, i);
+        break;
     default:
-	UNIMPLEMENTED_TYPE("duplicated", x);
+        UNIMPLEMENTED_TYPE("duplicated", x);
     }
     UNPROTECT(2);
     return ans;
@@ -1212,30 +1368,32 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 static void DoHashing(SEXP table, HashData *d)
 {
     R_xlen_t i, n = XLENGTH(table);
-    for (i = 0; i < n; i++) {
-//	if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	(void) isDuplicated(table, i, d);
+    for (i = 0; i < n; i++)
+    {
+        //	if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+        (void)isDuplicated(table, i, d);
     }
 }
 
 /* invalidate entries: normally few */
 static void UndoHashing(SEXP x, SEXP table, HashData *d)
 {
-    for (R_xlen_t i = 0; i < XLENGTH(x); i++) removeEntry(table, x, i, d);
+    for (R_xlen_t i = 0; i < XLENGTH(x); i++)
+        removeEntry(table, x, i, d);
 }
 
-#define DEFLOOKUP(NAME, HASHFUN, EQLFUN)			\
-    static R_INLINE int						\
-    NAME(SEXP table, SEXP x, R_xlen_t indx, HashData *d)	\
-    {								\
-	int *h = HTDATA_INT(d);					\
-	hlen i = HASHFUN(x, indx, d);				\
-	while (h[i] != NIL) {					\
-	    if (EQLFUN(table, h[i], x, indx))			\
-		return h[i] >= 0 ? h[i] + 1 : d->nomatch;	\
-	    i = (i + 1) % d->M;					\
-	}							\
-	return d->nomatch;					\
+#define DEFLOOKUP(NAME, HASHFUN, EQLFUN)                                                                               \
+    static R_INLINE int NAME(SEXP table, SEXP x, R_xlen_t indx, HashData *d)                                           \
+    {                                                                                                                  \
+        int *h = HTDATA_INT(d);                                                                                        \
+        hlen i = HASHFUN(x, indx, d);                                                                                  \
+        while (h[i] != NIL)                                                                                            \
+        {                                                                                                              \
+            if (EQLFUN(table, h[i], x, indx))                                                                          \
+                return h[i] >= 0 ? h[i] + 1 : d->nomatch;                                                              \
+            i = (i + 1) % d->M;                                                                                        \
+        }                                                                                                              \
+        return d->nomatch;                                                                                             \
     }
 
 /* definitions to help the C compiler to inline of most important cases */
@@ -1256,22 +1414,23 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
     PROTECT(ans = allocVector(INTSXP, n));
     int *pa = INTEGER0(ans);
 
-    switch (TYPEOF(x)) {
+    switch (TYPEOF(x))
+    {
     case INTSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = iLookup(table, x, i, d);
-	break;
+        for (i = 0; i < n; i++)
+            pa[i] = iLookup(table, x, i, d);
+        break;
     case REALSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = rLookup(table, x, i, d);
-	break;
+        for (i = 0; i < n; i++)
+            pa[i] = rLookup(table, x, i, d);
+        break;
     case STRSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = sLookup(table, x, i, d);
-	break;
+        for (i = 0; i < n; i++)
+            pa[i] = sLookup(table, x, i, d);
+        break;
     default:
-	for (i = 0; i < n; i++)
-	    pa[i] = Lookup(table, x, i, d);
+        for (i = 0; i < n; i++)
+            pa[i] = Lookup(table, x, i, d);
     }
 
     UNPROTECT(1);
@@ -1280,25 +1439,28 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
 
 static SEXP match_transform(SEXP s, SEXP env)
 {
-    if(OBJECT(s)) {
-	if(inherits(s, "factor")) return asCharacterFactor(s);
-	/*
-	else if(inherits(s, "POSIXlt")) { // and maybe more classes in the future:
-					  // Call R's (generic) as.character(s): 
-	    SEXP call, r;
-	    PROTECT(call = lang2(R_AsCharacterSymbol, s));
-	    r = eval(call, env);
-	    UNPROTECT(1);
-	    return r;
-	}
-	*/
-	else {
-	    SEXP call, r;
-	    PROTECT(call = lang2(install("mtfrm"), s));
-	    r = eval(call, env);
-	    UNPROTECT(1);
-	    return r;
-	}
+    if (OBJECT(s))
+    {
+        if (inherits(s, "factor"))
+            return asCharacterFactor(s);
+        /*
+        else if(inherits(s, "POSIXlt")) { // and maybe more classes in the future:
+                          // Call R's (generic) as.character(s):
+            SEXP call, r;
+            PROTECT(call = lang2(R_AsCharacterSymbol, s));
+            r = eval(call, env);
+            UNPROTECT(1);
+            return r;
+        }
+        */
+        else
+        {
+            SEXP call, r;
+            PROTECT(call = lang2(install("mtfrm"), s));
+            r = eval(call, env);
+            UNPROTECT(1);
+            return r;
+        }
     }
     /* else */
     return duplicate(s);
@@ -1309,43 +1471,54 @@ static SEXP asUTF8(SEXP x)
 {
     R_xlen_t nx = xlength(x);
     SEXP ux = NULL;
-    for(R_xlen_t i = 0; i < nx; i++) {
-	SEXP xi = STRING_ELT(x, i);
-	if ((xi != NA_STRING) && !IS_ASCII(xi) && !IS_UTF8(xi)) {
-	    if (!ux) {
-		ux = PROTECT(allocVector(STRSXP, nx));
-		for(R_xlen_t j = 0; j < i; j++)
-		    SET_STRING_ELT(ux, j, STRING_ELT(x, j));
-	    }
-	    SET_STRING_ELT(ux, i, mkCharCE(translateCharUTF8(xi), CE_UTF8));
-	} else if (ux)
-	    SET_STRING_ELT(ux, i, xi);
+    for (R_xlen_t i = 0; i < nx; i++)
+    {
+        SEXP xi = STRING_ELT(x, i);
+        if ((xi != NA_STRING) && !IS_ASCII(xi) && !IS_UTF8(xi))
+        {
+            if (!ux)
+            {
+                ux = PROTECT(allocVector(STRSXP, nx));
+                for (R_xlen_t j = 0; j < i; j++)
+                    SET_STRING_ELT(ux, j, STRING_ELT(x, j));
+            }
+            SET_STRING_ELT(ux, i, mkCharCE(translateCharUTF8(xi), CE_UTF8));
+        }
+        else if (ux)
+            SET_STRING_ELT(ux, i, xi);
     }
-    if (ux) {
-	UNPROTECT(1);
-	return ux;
-    } else
-	return x;
+    if (ux)
+    {
+        UNPROTECT(1);
+        return ux;
+    }
+    else
+        return x;
 }
-    
+
 // workhorse of R's match() and hence also  " ix %in% itable "
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
     R_xlen_t n = xlength(ix);
     /* handle zero length arguments */
-    if (n == 0) return allocVector(INTSXP, 0);
+    if (n == 0)
+        return allocVector(INTSXP, 0);
 
     SEXP ans;
-    if (length(itable) == 0) {
-	ans = allocVector(INTSXP, n);
-	int *pa = INTEGER0(ans);
-	for (R_xlen_t i = 0; i < n; i++) pa[i] = nmatch;
-	return ans;
+    if (length(itable) == 0)
+    {
+        ans = allocVector(INTSXP, n);
+        int *pa = INTEGER0(ans);
+        for (R_xlen_t i = 0; i < n; i++)
+            pa[i] = nmatch;
+        return ans;
     }
 
     int nprot = 0;
-    SEXP x     = PROTECT(match_transform(ix,     env)); nprot++;
-    SEXP table = PROTECT(match_transform(itable, env)); nprot++;
+    SEXP x = PROTECT(match_transform(ix, env));
+    nprot++;
+    SEXP table = PROTECT(match_transform(itable, env));
+    nprot++;
     /* or should we use PROTECT_WITH_INDEX and REPROTECT below ? */
 
     SEXPTYPE type;
@@ -1353,122 +1526,174 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
-    else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
-    PROTECT(x	  = coerceVector(x,	type)); nprot++;
-    PROTECT(table = coerceVector(table, type)); nprot++;
+    if (TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP)
+        type = STRSXP;
+    else
+        type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
+    PROTECT(x = coerceVector(x, type));
+    nprot++;
+    PROTECT(table = coerceVector(table, type));
+    nprot++;
 
     // special case scalar x -- for speed only :
-    if(XLENGTH(x) == 1 && !incomp) {
-      int val = nmatch;
-      int ntable = LENGTH(table);
-      switch (type) {
-      case STRSXP: {
-	  SEXP x_val = STRING_ELT(x,0);
-	  for (int i=0; i < ntable; i++) if (Seql(STRING_ELT(table,i), x_val)) {
-		  val = i + 1; break;
-	      }
-	  break; }
-      case LGLSXP:
-      case INTSXP: {
-	  int x_val = INTEGER_ELT(x, 0),
-	      *table_p = INTEGER(table);
-	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
-		  val = i + 1; break;
-	      }
-	  break; }
-      case REALSXP: {
-	  double xv = REAL_ELT(x, 0);
-	  // pblm with signed 0s under IEC60559
-	  double x_val = (xv == 0.) ? 0. : xv;
-	  double *table_p = REAL(table);
-	  /* we want all NaNs except NA equal, and all NAs equal */
-	  if (R_IsNA(x_val)) {
-	      for (int i=0; i < ntable; i++) if (R_IsNA(table_p[i])) {
-		      val = i + 1; break;
-		  }
-	  }
-	  else if (R_IsNaN(x_val)) {
-	      for (int i=0; i < ntable; i++) if (R_IsNaN(table_p[i])) {
-		      val = i + 1; break;
-		  }
-	  }
-	  else {
-	      for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
-		      val = i + 1; break;
-	      }
-	  }
-	  break; }
-      case CPLXSXP: {
-	  Rcomplex x_val = COMPLEX_ELT(x, 0),
-	      *table_p = COMPLEX(table);
-	  for (int i=0; i < ntable; i++)
-	      if (cplx_eq(table_p[i], x_val)) {
-		  val = i + 1; break;
-	      }
-	  break; }
-      case RAWSXP: {
-	  Rbyte x_val = RAW_ELT(x, 0),
-	      *table_p = RAW(table);
-	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
-		  val = i + 1; break;
-	      }
-	  break; }
-      }
-      PROTECT(ans = ScalarInteger(val)); nprot++;
+    if (XLENGTH(x) == 1 && !incomp)
+    {
+        int val = nmatch;
+        int ntable = LENGTH(table);
+        switch (type)
+        {
+        case STRSXP: {
+            SEXP x_val = STRING_ELT(x, 0);
+            for (int i = 0; i < ntable; i++)
+                if (Seql(STRING_ELT(table, i), x_val))
+                {
+                    val = i + 1;
+                    break;
+                }
+            break;
+        }
+        case LGLSXP:
+        case INTSXP: {
+            int x_val = INTEGER_ELT(x, 0), *table_p = INTEGER(table);
+            for (int i = 0; i < ntable; i++)
+                if (table_p[i] == x_val)
+                {
+                    val = i + 1;
+                    break;
+                }
+            break;
+        }
+        case REALSXP: {
+            double xv = REAL_ELT(x, 0);
+            // pblm with signed 0s under IEC60559
+            double x_val = (xv == 0.) ? 0. : xv;
+            double *table_p = REAL(table);
+            /* we want all NaNs except NA equal, and all NAs equal */
+            if (R_IsNA(x_val))
+            {
+                for (int i = 0; i < ntable; i++)
+                    if (R_IsNA(table_p[i]))
+                    {
+                        val = i + 1;
+                        break;
+                    }
+            }
+            else if (R_IsNaN(x_val))
+            {
+                for (int i = 0; i < ntable; i++)
+                    if (R_IsNaN(table_p[i]))
+                    {
+                        val = i + 1;
+                        break;
+                    }
+            }
+            else
+            {
+                for (int i = 0; i < ntable; i++)
+                    if (table_p[i] == x_val)
+                    {
+                        val = i + 1;
+                        break;
+                    }
+            }
+            break;
+        }
+        case CPLXSXP: {
+            Rcomplex x_val = COMPLEX_ELT(x, 0), *table_p = COMPLEX(table);
+            for (int i = 0; i < ntable; i++)
+                if (cplx_eq(table_p[i], x_val))
+                {
+                    val = i + 1;
+                    break;
+                }
+            break;
+        }
+        case RAWSXP: {
+            Rbyte x_val = RAW_ELT(x, 0), *table_p = RAW(table);
+            for (int i = 0; i < ntable; i++)
+                if (table_p[i] == x_val)
+                {
+                    val = i + 1;
+                    break;
+                }
+            break;
+        }
+        }
+        PROTECT(ans = ScalarInteger(val));
+        nprot++;
     }
-    else { // regular case
-	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
-	data.nomatch = nmatch;
-	HashTableSetup(table, &data, NA_INTEGER);
-	PROTECT(data.HashTable); nprot++;
-	if(type == STRSXP) {
-	    Rboolean useBytes = FALSE;
-	    Rboolean useUTF8 = FALSE;
-	    Rboolean useCache = TRUE;
-	    for(R_xlen_t i = 0; i < xlength(x); i++) {
-		SEXP s = STRING_ELT(x, i);
-		if(IS_BYTES(s)) {
-		    useBytes = TRUE;
-		    useUTF8 = FALSE;
-		    break;
-		}
-		if(ENC_KNOWN(s)) {
-		    useUTF8 = TRUE;
-		}
-		if(!IS_CACHED(s)) {
-		    useCache = FALSE;
-		    break;
-		}
-	    }
-	    if(!useBytes || useCache) {
-		for(int i = 0; i < LENGTH(table); i++) {
-		    SEXP s = STRING_ELT(table, i);
-		    if(IS_BYTES(s)) {
-			useBytes = TRUE;
-			useUTF8 = FALSE;
-			break;
-		    }
-		    if(ENC_KNOWN(s)) {
-			useUTF8 = TRUE;
-		    }
-		    if(!IS_CACHED(s)) {
-			useCache = FALSE;
-			break;
-		    }
-		}
-	    }
-	    if(useUTF8) {
-		x = PROTECT(asUTF8(x)); nprot++;
-		table = PROTECT(asUTF8(table)); nprot++;
-	    }
-	    data.useUTF8 = useUTF8;
-	    data.useCache = useCache;
-	}
-	DoHashing(table, &data);
-	if (incomp) UndoHashing(incomp, table, &data);
-	ans = HashLookup(table, x, &data);
+    else
+    { // regular case
+        HashData data = {0};
+        if (incomp)
+        {
+            PROTECT(incomp = coerceVector(incomp, type));
+            nprot++;
+        }
+        data.nomatch = nmatch;
+        HashTableSetup(table, &data, NA_INTEGER);
+        PROTECT(data.HashTable);
+        nprot++;
+        if (type == STRSXP)
+        {
+            Rboolean useBytes = FALSE;
+            Rboolean useUTF8 = FALSE;
+            Rboolean useCache = TRUE;
+            for (R_xlen_t i = 0; i < xlength(x); i++)
+            {
+                SEXP s = STRING_ELT(x, i);
+                if (IS_BYTES(s))
+                {
+                    useBytes = TRUE;
+                    useUTF8 = FALSE;
+                    break;
+                }
+                if (ENC_KNOWN(s))
+                {
+                    useUTF8 = TRUE;
+                }
+                if (!IS_CACHED(s))
+                {
+                    useCache = FALSE;
+                    break;
+                }
+            }
+            if (!useBytes || useCache)
+            {
+                for (int i = 0; i < LENGTH(table); i++)
+                {
+                    SEXP s = STRING_ELT(table, i);
+                    if (IS_BYTES(s))
+                    {
+                        useBytes = TRUE;
+                        useUTF8 = FALSE;
+                        break;
+                    }
+                    if (ENC_KNOWN(s))
+                    {
+                        useUTF8 = TRUE;
+                    }
+                    if (!IS_CACHED(s))
+                    {
+                        useCache = FALSE;
+                        break;
+                    }
+                }
+            }
+            if (useUTF8)
+            {
+                x = PROTECT(asUTF8(x));
+                nprot++;
+                table = PROTECT(asUTF8(table));
+                nprot++;
+            }
+            data.useUTF8 = useUTF8;
+            data.useCache = useCache;
+        }
+        DoHashing(table, &data);
+        if (incomp)
+            UndoHashing(incomp, table, &data);
+        ans = HashLookup(table, x, &data);
     }
     UNPROTECT(nprot);
     return ans;
@@ -1485,25 +1710,22 @@ SEXP match(SEXP itable, SEXP ix, int nmatch)
     return match5(itable, ix, nmatch, NULL, R_BaseEnv);
 }
 
-
 // .Internal(match(x, table, nomatch, incomparables)) :
 attribute_hidden SEXP do_match(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    if ((!isVector(CAR(args)) && !isNull(CAR(args)))
-	|| (!isVector(CADR(args)) && !isNull(CADR(args))))
-	error(_("'match' requires vector arguments"));
+    if ((!isVector(CAR(args)) && !isNull(CAR(args))) || (!isVector(CADR(args)) && !isNull(CADR(args))))
+        error(_("'match' requires vector arguments"));
 
     int nomatch = asInteger(CADDR(args));
     SEXP incomp = CADDDR(args);
 
     if (isNull(incomp) || /* S has FALSE to mean empty */
-	(length(incomp) == 1 && isLogical(incomp) &&
-	 LOGICAL_ELT(incomp, 0) == 0))
-	return match5(CADR(args), CAR(args), nomatch, NULL, env);
+        (length(incomp) == 1 && isLogical(incomp) && LOGICAL_ELT(incomp, 0) == 0))
+        return match5(CADR(args), CAR(args), nomatch, NULL, env);
     else
-	return match5(CADR(args), CAR(args), nomatch, incomp, env);
+        return match5(CADR(args), CAR(args), nomatch, incomp, env);
 }
 
 /* pmatch and charmatch return integer positions, so cannot be used
@@ -1538,130 +1760,168 @@ attribute_hidden SEXP do_pmatch(SEXP call, SEXP op, SEXP args, SEXP env)
     no_match = asInteger(CADDR(args));
     dups_ok = asLogical(CADDDR(args));
     if (dups_ok == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "duplicates.ok");
+        error(_("invalid '%s' argument"), "duplicates.ok");
     no_dups = !dups_ok;
 
     if (!isString(input) || !isString(target))
-	error(_("argument is not of mode character"));
+        error(_("argument is not of mode character"));
 
-    if(no_dups) {
-	used = (int *) R_alloc((size_t) n_target, sizeof(int));
-	for (int j = 0; j < n_target; j++) used[j] = 0;
+    if (no_dups)
+    {
+        used = (int *)R_alloc((size_t)n_target, sizeof(int));
+        for (int j = 0; j < n_target; j++)
+            used[j] = 0;
     }
 
-    for(R_xlen_t i = 0; i < n_input; i++) {
-	if(IS_BYTES(STRING_ELT(input, i))) {
-	    useBytes = TRUE;
-	    useUTF8 = FALSE;
-	    break;
-	} else if(ENC_KNOWN(STRING_ELT(input, i))) {
-	    useUTF8 = TRUE;
-	}
+    for (R_xlen_t i = 0; i < n_input; i++)
+    {
+        if (IS_BYTES(STRING_ELT(input, i)))
+        {
+            useBytes = TRUE;
+            useUTF8 = FALSE;
+            break;
+        }
+        else if (ENC_KNOWN(STRING_ELT(input, i)))
+        {
+            useUTF8 = TRUE;
+        }
     }
-    if(!useBytes) {
-	for(R_xlen_t i = 0; i < n_target; i++) {
-	    if(IS_BYTES(STRING_ELT(target, i))) {
-		useBytes = TRUE;
-		useUTF8 = FALSE;
-		break;
-	    } else if(ENC_KNOWN(STRING_ELT(target, i))) {
-		useUTF8 = TRUE;
-	    }
-	}
+    if (!useBytes)
+    {
+        for (R_xlen_t i = 0; i < n_target; i++)
+        {
+            if (IS_BYTES(STRING_ELT(target, i)))
+            {
+                useBytes = TRUE;
+                useUTF8 = FALSE;
+                break;
+            }
+            else if (ENC_KNOWN(STRING_ELT(target, i)))
+            {
+                useUTF8 = TRUE;
+            }
+        }
     }
 
-    in = (const char **) R_alloc((size_t) n_input, sizeof(char *));
-    tar = (const char **) R_alloc((size_t) n_target, sizeof(char *));
+    in = (const char **)R_alloc((size_t)n_input, sizeof(char *));
+    tar = (const char **)R_alloc((size_t)n_target, sizeof(char *));
     PROTECT(ans = allocVector(INTSXP, n_input));
     ians = INTEGER0(ans);
-    if(useBytes) {
-	for(R_xlen_t i = 0; i < n_input; i++) {
-	    in[i] = CHAR(STRING_ELT(input, i));
-	    ians[i] = 0;
-	}
-	for(int j = 0; j < n_target; j++)
-	    tar[j] = CHAR(STRING_ELT(target, j));
+    if (useBytes)
+    {
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            in[i] = CHAR(STRING_ELT(input, i));
+            ians[i] = 0;
+        }
+        for (int j = 0; j < n_target; j++)
+            tar[j] = CHAR(STRING_ELT(target, j));
     }
-    else if(useUTF8) {
-	for(R_xlen_t i = 0; i < n_input; i++) {
-	    in[i] = translateCharUTF8(STRING_ELT(input, i));
-	    ians[i] = 0;
-	}
-	for(int j = 0; j < n_target; j++)
-	    tar[j] = translateCharUTF8(STRING_ELT(target, j));
-    } else {
-	for(R_xlen_t i = 0; i < n_input; i++) {
-	    in[i] = translateChar(STRING_ELT(input, i));
-	    ians[i] = 0;
-	}
-	for(int j = 0; j < n_target; j++)
-	    tar[j] = translateChar(STRING_ELT(target, j));
+    else if (useUTF8)
+    {
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            in[i] = translateCharUTF8(STRING_ELT(input, i));
+            ians[i] = 0;
+        }
+        for (int j = 0; j < n_target; j++)
+            tar[j] = translateCharUTF8(STRING_ELT(target, j));
+    }
+    else
+    {
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            in[i] = translateChar(STRING_ELT(input, i));
+            ians[i] = 0;
+        }
+        for (int j = 0; j < n_target; j++)
+            tar[j] = translateChar(STRING_ELT(target, j));
     }
     /* First pass, exact matching */
     R_xlen_t nexact = 0;
     /* Compromise when hashing used changed in 3.2.0 (PR#15697) */
-    if (n_input <= 100 || n_target <= 100) {
-	for (R_xlen_t i = 0; i < n_input; i++) {
-	    const char *ss = in[i];
-	    if (strlen(ss) == 0) continue;
-	    for (int j = 0; j < n_target; j++) {
-		if (no_dups && used[j]) continue;
-		if (strcmp(ss, tar[j]) == 0) {
-		    ians[i] = j + 1;
-		    if (no_dups) used[j] = 1;
-		    nexact++;
-		    break;
-		}
-	    }
-	}
-    } else {
-	HashData data = { 0 };
-	HashTableSetup(target, &data, NA_INTEGER);
-	data.useUTF8 = useUTF8;
-	data.nomatch = 0;
-	DoHashing(target, &data);
-	for (R_xlen_t i = 0; i < n_input; i++) {
-	    if (strlen(in[i]) == 0) /* don't look up "" */
-		continue;
-	    int j = Lookup(target, input, i, &data);
-	    if ((j == 0) || (no_dups && used[j - 1])) continue;
-	    if (no_dups) used[j - 1] = 1;
-	    ians[i] = j;
-	    nexact++;
-	}
+    if (n_input <= 100 || n_target <= 100)
+    {
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            const char *ss = in[i];
+            if (strlen(ss) == 0)
+                continue;
+            for (int j = 0; j < n_target; j++)
+            {
+                if (no_dups && used[j])
+                    continue;
+                if (strcmp(ss, tar[j]) == 0)
+                {
+                    ians[i] = j + 1;
+                    if (no_dups)
+                        used[j] = 1;
+                    nexact++;
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        HashData data = {0};
+        HashTableSetup(target, &data, NA_INTEGER);
+        data.useUTF8 = useUTF8;
+        data.nomatch = 0;
+        DoHashing(target, &data);
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            if (strlen(in[i]) == 0) /* don't look up "" */
+                continue;
+            int j = Lookup(target, input, i, &data);
+            if ((j == 0) || (no_dups && used[j - 1]))
+                continue;
+            if (no_dups)
+                used[j - 1] = 1;
+            ians[i] = j;
+            nexact++;
+        }
     }
 
-    if(nexact < n_input) {
-	/* Second pass, partial matching */
-	for (R_xlen_t i = 0; i < n_input; i++) {
-	    const char *ss;
-	    if (ians[i]) continue;
-	    ss = in[i];
-	    temp = strlen(ss);
-	    if (temp == 0) continue;
-	    mtch = 0;
-	    mtch_count = 0;
-	    for (int j = 0; j < n_target; j++) {
-		if (no_dups && used[j]) continue;
-		if (strncmp(ss, tar[j], temp) == 0) {
-		    mtch = j + 1;
-		    mtch_count++;
-		}
-	    }
-	    if (mtch > 0 && mtch_count == 1) {
-		if(no_dups) used[mtch - 1] = 1;
-		ians[i] = mtch;
-	    }
-	}
-	/* Third pass, set no matches */
-	for (R_xlen_t i = 0; i < n_input; i++)
-	    if(ians[i] == 0) ians[i] = no_match;
-
+    if (nexact < n_input)
+    {
+        /* Second pass, partial matching */
+        for (R_xlen_t i = 0; i < n_input; i++)
+        {
+            const char *ss;
+            if (ians[i])
+                continue;
+            ss = in[i];
+            temp = strlen(ss);
+            if (temp == 0)
+                continue;
+            mtch = 0;
+            mtch_count = 0;
+            for (int j = 0; j < n_target; j++)
+            {
+                if (no_dups && used[j])
+                    continue;
+                if (strncmp(ss, tar[j], temp) == 0)
+                {
+                    mtch = j + 1;
+                    mtch_count++;
+                }
+            }
+            if (mtch > 0 && mtch_count == 1)
+            {
+                if (no_dups)
+                    used[mtch - 1] = 1;
+                ians[i] = mtch;
+            }
+        }
+        /* Third pass, set no matches */
+        for (R_xlen_t i = 0; i < n_input; i++)
+            if (ians[i] == 0)
+                ians[i] = no_match;
     }
     UNPROTECT(1);
     return ans;
 }
-
 
 /* Partial Matching of Strings */
 /* Based on Therneau's charmatch. */
@@ -1680,77 +1940,91 @@ attribute_hidden SEXP do_charmatch(SEXP call, SEXP op, SEXP args, SEXP env)
     int n_target = LENGTH(target);
 
     if (!isString(input) || !isString(target))
-	error(_("argument is not of mode character"));
+        error(_("argument is not of mode character"));
     int no_match = asInteger(CADDR(args));
 
-    for(R_xlen_t i = 0; i < n_input; i++) {
-	if(IS_BYTES(STRING_ELT(input, i))) {
-	    useBytes = TRUE;
-	    useUTF8 = FALSE;
-	    break;
-	} else if(ENC_KNOWN(STRING_ELT(input, i))) {
-	    useUTF8 = TRUE;
-	}
+    for (R_xlen_t i = 0; i < n_input; i++)
+    {
+        if (IS_BYTES(STRING_ELT(input, i)))
+        {
+            useBytes = TRUE;
+            useUTF8 = FALSE;
+            break;
+        }
+        else if (ENC_KNOWN(STRING_ELT(input, i)))
+        {
+            useUTF8 = TRUE;
+        }
     }
-    if(!useBytes) {
-	for(int i = 0; i < n_target; i++) {
-	    if(IS_BYTES(STRING_ELT(target, i))) {
-		useBytes = TRUE;
-		useUTF8 = FALSE;
-		break;
-	    } else if(ENC_KNOWN(STRING_ELT(target, i))) {
-		useUTF8 = TRUE;
-	    }
-	}
+    if (!useBytes)
+    {
+        for (int i = 0; i < n_target; i++)
+        {
+            if (IS_BYTES(STRING_ELT(target, i)))
+            {
+                useBytes = TRUE;
+                useUTF8 = FALSE;
+                break;
+            }
+            else if (ENC_KNOWN(STRING_ELT(target, i)))
+            {
+                useUTF8 = TRUE;
+            }
+        }
     }
 
     PROTECT(ans = allocVector(INTSXP, n_input));
     int *ians = INTEGER0(ans);
 
-    const void *vmax = vmaxget();  // prudence: .Internal does this too.
-    for(R_xlen_t i = 0; i < n_input; i++) {
-	if(useBytes)
-	    ss = CHAR(STRING_ELT(input, i));
-	else if(useUTF8)
-	    ss = translateCharUTF8(STRING_ELT(input, i));
-	else
-	    ss = translateChar(STRING_ELT(input, i));
-	size_t temp = strlen(ss);
-	int imatch = NA_INTEGER;
-	Rboolean perfect = FALSE;
-	/* we could reset vmax here too: worth it? */
-	for(int j = 0; j < n_target; j++) {
-	    if(useBytes)
-		st = CHAR(STRING_ELT(target, j));
-	    else if(useUTF8)
-		st = translateCharUTF8(STRING_ELT(target, j));
-	    else
-		st = translateChar(STRING_ELT(target, j));
-	    int k = strncmp(ss, st, temp);
-	    if (k == 0) {
-		if (strlen(st) == temp) {
-		    if (perfect)
-			imatch = 0;
-		    else {
-			perfect = TRUE;
-			imatch = j + 1;
-		    }
-		}
-		else if (!perfect) {
-		    if (imatch == NA_INTEGER)
-			imatch = j + 1;
-		    else
-			imatch = 0;
-		}
-	    }
-	}
-	ians[i] = (imatch == NA_INTEGER) ? no_match : imatch;
-	vmaxset(vmax);
+    const void *vmax = vmaxget(); // prudence: .Internal does this too.
+    for (R_xlen_t i = 0; i < n_input; i++)
+    {
+        if (useBytes)
+            ss = CHAR(STRING_ELT(input, i));
+        else if (useUTF8)
+            ss = translateCharUTF8(STRING_ELT(input, i));
+        else
+            ss = translateChar(STRING_ELT(input, i));
+        size_t temp = strlen(ss);
+        int imatch = NA_INTEGER;
+        Rboolean perfect = FALSE;
+        /* we could reset vmax here too: worth it? */
+        for (int j = 0; j < n_target; j++)
+        {
+            if (useBytes)
+                st = CHAR(STRING_ELT(target, j));
+            else if (useUTF8)
+                st = translateCharUTF8(STRING_ELT(target, j));
+            else
+                st = translateChar(STRING_ELT(target, j));
+            int k = strncmp(ss, st, temp);
+            if (k == 0)
+            {
+                if (strlen(st) == temp)
+                {
+                    if (perfect)
+                        imatch = 0;
+                    else
+                    {
+                        perfect = TRUE;
+                        imatch = j + 1;
+                    }
+                }
+                else if (!perfect)
+                {
+                    if (imatch == NA_INTEGER)
+                        imatch = j + 1;
+                    else
+                        imatch = 0;
+                }
+            }
+        }
+        ians[i] = (imatch == NA_INTEGER) ? no_match : imatch;
+        vmaxset(vmax);
     }
     UNPROTECT(1);
     return ans;
 }
-
 
 /* Functions for matching the supplied arguments to the */
 /* formal arguments of functions.  The returned value */
@@ -1758,17 +2032,21 @@ attribute_hidden SEXP do_charmatch(SEXP call, SEXP op, SEXP args, SEXP env)
 
 static SEXP StripUnmatched(SEXP s)
 {
-    if (s == R_NilValue) return s;
+    if (s == R_NilValue)
+        return s;
 
-    if (CAR(s) == R_MissingArg && !ARGUSED(s) ) {
-	return StripUnmatched(CDR(s));
+    if (CAR(s) == R_MissingArg && !ARGUSED(s))
+    {
+        return StripUnmatched(CDR(s));
     }
-    else if (CAR(s) == R_DotsSymbol ) {
-	return StripUnmatched(CDR(s));
+    else if (CAR(s) == R_DotsSymbol)
+    {
+        return StripUnmatched(CDR(s));
     }
-    else {
-	SETCDR(s, StripUnmatched(CDR(s)));
-	return s;
+    else
+    {
+        SETCDR(s, StripUnmatched(CDR(s)));
+        return s;
     }
 }
 
@@ -1776,89 +2054,92 @@ static SEXP ExpandDots(SEXP s, int expdots)
 {
     SEXP r;
     if (s == R_NilValue)
-	return s;
-    if (TYPEOF(CAR(s)) == DOTSXP ) {
-	SET_TYPEOF(CAR(s), LISTSXP);	/* a safe mutation */
-	if (expdots) {
-	    r = CAR(s);
-	    while (CDR(r) != R_NilValue ) {
-		SET_ARGUSED(r, 1);
-		r = CDR(r);
-	    }
-	    SET_ARGUSED(r, 1);
-	    SETCDR(r, ExpandDots(CDR(s), expdots));
-	    return CAR(s);
-	}
+        return s;
+    if (TYPEOF(CAR(s)) == DOTSXP)
+    {
+        SET_TYPEOF(CAR(s), LISTSXP); /* a safe mutation */
+        if (expdots)
+        {
+            r = CAR(s);
+            while (CDR(r) != R_NilValue)
+            {
+                SET_ARGUSED(r, 1);
+                r = CDR(r);
+            }
+            SET_ARGUSED(r, 1);
+            SETCDR(r, ExpandDots(CDR(s), expdots));
+            return CAR(s);
+        }
     }
     else
-	SET_ARGUSED(s, 0);
+        SET_ARGUSED(s, 0);
     SETCDR(s, ExpandDots(CDR(s), expdots));
     return s;
 }
 static SEXP subDots(SEXP rho)
 {
     SEXP rval, dots, a, b, t;
-    int len,i;
+    int len, i;
 
     dots = findVar(R_DotsSymbol, rho);
 
     if (dots == R_UnboundValue)
-	error(_("... used in a situation where it does not exist"));
+        error(_("... used in a situation where it does not exist"));
 
     if (dots == R_MissingArg)
-	return dots;
+        return dots;
 
     if (!isPairList(dots))
-	error(_("... is not a pairlist"));
+        error(_("... is not a pairlist"));
 
     len = length(dots);
     PROTECT(dots);
-    PROTECT(rval=allocList(len));
-    for(a = dots, b = rval, i = 1; i <= len; a = CDR(a), b = CDR(b), i++) {
-	SET_TAG(b, TAG(a));
-	t = CAR(a);
-	while (TYPEOF(t) == PROMSXP)
-	    t = PREXPR(t);
-	if( isSymbol(t) || isLanguage(t) )
-	    SETCAR(b, installDDVAL(i));
-	else
-	    SETCAR(b, t);
+    PROTECT(rval = allocList(len));
+    for (a = dots, b = rval, i = 1; i <= len; a = CDR(a), b = CDR(b), i++)
+    {
+        SET_TAG(b, TAG(a));
+        t = CAR(a);
+        while (TYPEOF(t) == PROMSXP)
+            t = PREXPR(t);
+        if (isSymbol(t) || isLanguage(t))
+            SETCAR(b, installDDVAL(i));
+        else
+            SETCAR(b, t);
     }
     UNPROTECT(2);
     return rval;
 }
 
-
 attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP formals, actuals, rlist;
     SEXP funcall, f, b, rval, sysp, t1, t2, tail;
-//    RCNTXT *cptr;
+    //    RCNTXT *cptr;
     int expdots;
 
-    checkArity(op,args);
+    checkArity(op, args);
 
     funcall = CADR(args);
 
     if (TYPEOF(funcall) == EXPRSXP)
-	funcall = VECTOR_ELT(funcall, 0);
+        funcall = VECTOR_ELT(funcall, 0);
 
     if (TYPEOF(funcall) != LANGSXP)
-	error(_("invalid '%s' argument"), "call");
+        error(_("invalid '%s' argument"), "call");
 
     b = CAR(args);
     if (TYPEOF(b) != CLOSXP)
-	error(_("invalid '%s' argument"), "definition");
+        error(_("invalid '%s' argument"), "definition");
 
     sysp = CAR(CDDDR(args));
     if (!isEnvironment(sysp))
-	error(_("'envir' must be an environment"));
+        error(_("'envir' must be an environment"));
 
     /* Do we expand ... ? */
 
     expdots = asLogical(CAR(CDDR(args)));
     if (expdots == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "expand.dots");
+        error(_("invalid '%s' argument"), "expand.dots");
 
     /* Get the formals and match the actual args */
 
@@ -1870,53 +2151,66 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
        of the actuals  */
 
     t2 = R_MissingArg;
-    for (t1=actuals ; t1!=R_NilValue ; t1 = CDR(t1) ) {
-	if (CAR(t1) == R_DotsSymbol) {
-	    t2 = subDots(sysp);
-	    break;
-	}
+    for (t1 = actuals; t1 != R_NilValue; t1 = CDR(t1))
+    {
+        if (CAR(t1) == R_DotsSymbol)
+        {
+            t2 = subDots(sysp);
+            break;
+        }
     }
     /* now to splice t2 into the correct spot in actuals */
-    if (t2 != R_MissingArg ) {	/* so we did something above */
-	if( CAR(actuals) == R_DotsSymbol ) {
-	    UNPROTECT(1);
-	    actuals = listAppend(t2, CDR(actuals));
-	    PROTECT(actuals);
-	}
-	else {
-	    for(t1=actuals; t1!=R_NilValue; t1=CDR(t1)) {
-		if( CADR(t1) == R_DotsSymbol ) {
-		    tail = CDDR(t1);
-		    SETCDR(t1, t2);
-		    listAppend(actuals,tail);
-		    break;
-		}
-	    }
-	}
-    } else { /* get rid of it */
-	if( CAR(actuals) == R_DotsSymbol ) {
-	    UNPROTECT(1);
-	    actuals = CDR(actuals);
-	    PROTECT(actuals);
-	}
-	else {
-	    for(t1=actuals; t1!=R_NilValue; t1=CDR(t1)) {
-		if( CADR(t1) == R_DotsSymbol ) {
-		    tail = CDDR(t1);
-		    SETCDR(t1, tail);
-		    break;
-		}
-	    }
-	}
+    if (t2 != R_MissingArg)
+    { /* so we did something above */
+        if (CAR(actuals) == R_DotsSymbol)
+        {
+            UNPROTECT(1);
+            actuals = listAppend(t2, CDR(actuals));
+            PROTECT(actuals);
+        }
+        else
+        {
+            for (t1 = actuals; t1 != R_NilValue; t1 = CDR(t1))
+            {
+                if (CADR(t1) == R_DotsSymbol)
+                {
+                    tail = CDDR(t1);
+                    SETCDR(t1, t2);
+                    listAppend(actuals, tail);
+                    break;
+                }
+            }
+        }
+    }
+    else
+    { /* get rid of it */
+        if (CAR(actuals) == R_DotsSymbol)
+        {
+            UNPROTECT(1);
+            actuals = CDR(actuals);
+            PROTECT(actuals);
+        }
+        else
+        {
+            for (t1 = actuals; t1 != R_NilValue; t1 = CDR(t1))
+            {
+                if (CADR(t1) == R_DotsSymbol)
+                {
+                    tail = CDDR(t1);
+                    SETCDR(t1, tail);
+                    break;
+                }
+            }
+        }
     }
     rlist = matchArgs_RC(formals, actuals, call);
 
     /* Attach the argument names as tags */
 
-    for (f = formals, b = rlist; b != R_NilValue; b = CDR(b), f = CDR(f)) {
-	SET_TAG(b, TAG(f));
+    for (f = formals, b = rlist; b != R_NilValue; b = CDR(b), f = CDR(f))
+    {
+        SET_TAG(b, TAG(f));
     }
-
 
     /* Handle the dots */
 
@@ -1934,28 +2228,29 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
     return rval;
 }
 
-
 #include <R_ext/RS.h> /* for Memzero */
 
-#ifdef _AIX  /*some people just have to be different: is this still needed? */
-#    include <memory.h>
+#ifdef _AIX /*some people just have to be different: is this still needed? */
+#include <memory.h>
 #endif
 
-
-static SEXP
-rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
+static SEXP rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 {
-    SEXP matches,ans;
+    SEXP matches, ans;
     int n, p, ng, narm;
     R_xlen_t offset = 0, offsetg = 0;
-    HashData data = { 0 };
+    HashData data = {0};
     data.nomatch = 0;
 
     n = LENGTH(g);
     ng = length(uniqueg);
     narm = asLogical(snarm);
-    if(narm == NA_LOGICAL) error("'na.rm' must be TRUE or FALSE");
-    if(isMatrix(x)) p = ncols(x); else p = 1;
+    if (narm == NA_LOGICAL)
+        error("'na.rm' must be TRUE or FALSE");
+    if (isMatrix(x))
+        p = ncols(x);
+    else
+        p = 1;
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
@@ -1965,71 +2260,82 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     PROTECT(ans = allocMatrix(TYPEOF(x), ng, p));
 
-    switch(TYPEOF(x)){
+    switch (TYPEOF(x))
+    {
     case REALSXP:
-	Memzero(REAL0(ans), ng*p);
-	for(int i = 0; i < p; i++) {
-	    double *pa = REAL0(ans);
-	    for(int j = 0; j < n; j++) {
-		double xjpo = REAL_ELT(x, j + offset);
-		if(!narm || !ISNAN(xjpo))
-		    pa[pmatches[j] - 1 + offsetg] += xjpo;
-	    }
-	    offset += n;
-	    offsetg += ng;
-	}
-	break;
+        Memzero(REAL0(ans), ng * p);
+        for (int i = 0; i < p; i++)
+        {
+            double *pa = REAL0(ans);
+            for (int j = 0; j < n; j++)
+            {
+                double xjpo = REAL_ELT(x, j + offset);
+                if (!narm || !ISNAN(xjpo))
+                    pa[pmatches[j] - 1 + offsetg] += xjpo;
+            }
+            offset += n;
+            offsetg += ng;
+        }
+        break;
     case INTSXP:
-	Memzero(INTEGER0(ans), ng*p);
-	for(int i = 0; i < p; i++) {
-	    int *pa = INTEGER0(ans);
-	    for(int j = 0; j < n; j++) {
-		int xjpo = INTEGER_ELT(x, j + offset);
-		if (xjpo == NA_INTEGER) {
-		    if(!narm)
-			pa[pmatches[j] - 1 + offsetg] = NA_INTEGER;
-		} else if (pa[pmatches[j] - 1 + offsetg] != NA_INTEGER) {
-		    /* check for integer overflows */
-		    int itmp = pa[pmatches[j] - 1 + offsetg];
-		    double dtmp = itmp;
-		    dtmp += xjpo;
-		    if (dtmp < INT_MIN || dtmp > INT_MAX) itmp = NA_INTEGER;
-		    else itmp += xjpo;
-		    pa[pmatches[j] - 1 + offsetg] = itmp;
-		}
-	    }
-	    offset += n;
-	    offsetg += ng;
-	}
-	break;
+        Memzero(INTEGER0(ans), ng * p);
+        for (int i = 0; i < p; i++)
+        {
+            int *pa = INTEGER0(ans);
+            for (int j = 0; j < n; j++)
+            {
+                int xjpo = INTEGER_ELT(x, j + offset);
+                if (xjpo == NA_INTEGER)
+                {
+                    if (!narm)
+                        pa[pmatches[j] - 1 + offsetg] = NA_INTEGER;
+                }
+                else if (pa[pmatches[j] - 1 + offsetg] != NA_INTEGER)
+                {
+                    /* check for integer overflows */
+                    int itmp = pa[pmatches[j] - 1 + offsetg];
+                    double dtmp = itmp;
+                    dtmp += xjpo;
+                    if (dtmp < INT_MIN || dtmp > INT_MAX)
+                        itmp = NA_INTEGER;
+                    else
+                        itmp += xjpo;
+                    pa[pmatches[j] - 1 + offsetg] = itmp;
+                }
+            }
+            offset += n;
+            offsetg += ng;
+        }
+        break;
     default:
-	error("non-numeric matrix in rowsum(): this should not happen");
+        error("non-numeric matrix in rowsum(): this should not happen");
     }
-    if (TYPEOF(rn) != STRSXP) error("row names are not character");
+    if (TYPEOF(rn) != STRSXP)
+        error("row names are not character");
     SEXP dn = allocVector(VECSXP, 2), dn2, dn3;
     setAttrib(ans, R_DimNamesSymbol, dn);
     SET_VECTOR_ELT(dn, 0, rn);
     dn2 = getAttrib(x, R_DimNamesSymbol);
-    if(length(dn2) >= 2 &&
-       !isNull(dn3 = VECTOR_ELT(dn2, 1))) SET_VECTOR_ELT(dn, 1, dn3);
+    if (length(dn2) >= 2 && !isNull(dn3 = VECTOR_ELT(dn2, 1)))
+        SET_VECTOR_ELT(dn, 1, dn3);
 
     UNPROTECT(3); /* HashTable, matches, ans */
     return ans;
 }
 
-static SEXP
-rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
+static SEXP rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 {
-    SEXP matches,ans,col,xcol;
+    SEXP matches, ans, col, xcol;
     int p, narm;
-    HashData data = { 0 };
+    HashData data = {0};
     data.nomatch = 0;
 
     R_xlen_t n = XLENGTH(g);
     p = LENGTH(x);
     R_xlen_t ng = XLENGTH(uniqueg);
     narm = asLogical(snarm);
-    if(narm == NA_LOGICAL) error("'na.rm' must be TRUE or FALSE");
+    if (narm == NA_LOGICAL)
+        error("'na.rm' must be TRUE or FALSE");
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
@@ -2039,49 +2345,59 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     PROTECT(ans = allocVector(VECSXP, p));
 
-    for(int i = 0; i < p; i++) {
-	xcol = VECTOR_ELT(x,i);
-	if (!isNumeric(xcol))
-	    error(_("non-numeric data frame in rowsum"));
-	switch(TYPEOF(xcol)){
-	case REALSXP:
-	    PROTECT(col = allocVector(REALSXP,ng));
-	    Memzero(REAL0(col), ng);
-	    for(R_xlen_t j = 0; j < n; j++) {
-		double xj = REAL_ELT(xcol, j);
-		if(!narm || !ISNAN(xj))
-		    REAL0(col)[pmatches[j] - 1] += xj;
-	    }
-	    SET_VECTOR_ELT(ans,i,col);
-	    UNPROTECT(1);
-	    break;
-	case INTSXP:
-	    PROTECT(col = allocVector(INTSXP, ng));
-	    Memzero(INTEGER0(col), ng);
-	    for(R_xlen_t j = 0; j < n; j++) {
-		int xj = INTEGER_ELT(xcol, j);
-		if (xj == NA_INTEGER) {
-		    if(!narm)
-			INTEGER0(col)[pmatches[j] - 1] = NA_INTEGER;
-		} else if (INTEGER0(col)[pmatches[j] - 1] != NA_INTEGER) {
-		    int itmp = INTEGER0(col)[pmatches[j] - 1];
-		    double dtmp = itmp;
-		    dtmp += xj;
-		    if (dtmp < INT_MIN || dtmp > INT_MAX) itmp = NA_INTEGER;
-		    else itmp += xj;
-		    INTEGER0(col)[pmatches[j] - 1] = itmp;
-		}
-	    }
-	    SET_VECTOR_ELT(ans, i, col);
-	    UNPROTECT(1);
-	    break;
+    for (int i = 0; i < p; i++)
+    {
+        xcol = VECTOR_ELT(x, i);
+        if (!isNumeric(xcol))
+            error(_("non-numeric data frame in rowsum"));
+        switch (TYPEOF(xcol))
+        {
+        case REALSXP:
+            PROTECT(col = allocVector(REALSXP, ng));
+            Memzero(REAL0(col), ng);
+            for (R_xlen_t j = 0; j < n; j++)
+            {
+                double xj = REAL_ELT(xcol, j);
+                if (!narm || !ISNAN(xj))
+                    REAL0(col)[pmatches[j] - 1] += xj;
+            }
+            SET_VECTOR_ELT(ans, i, col);
+            UNPROTECT(1);
+            break;
+        case INTSXP:
+            PROTECT(col = allocVector(INTSXP, ng));
+            Memzero(INTEGER0(col), ng);
+            for (R_xlen_t j = 0; j < n; j++)
+            {
+                int xj = INTEGER_ELT(xcol, j);
+                if (xj == NA_INTEGER)
+                {
+                    if (!narm)
+                        INTEGER0(col)[pmatches[j] - 1] = NA_INTEGER;
+                }
+                else if (INTEGER0(col)[pmatches[j] - 1] != NA_INTEGER)
+                {
+                    int itmp = INTEGER0(col)[pmatches[j] - 1];
+                    double dtmp = itmp;
+                    dtmp += xj;
+                    if (dtmp < INT_MIN || dtmp > INT_MAX)
+                        itmp = NA_INTEGER;
+                    else
+                        itmp += xj;
+                    INTEGER0(col)[pmatches[j] - 1] = itmp;
+                }
+            }
+            SET_VECTOR_ELT(ans, i, col);
+            UNPROTECT(1);
+            break;
 
-	default:
-	    error(_("this cannot happen"));
-	}
+        default:
+            error(_("this cannot happen"));
+        }
     }
     namesgets(ans, getAttrib(x, R_NamesSymbol));
-    if (TYPEOF(rn) != STRSXP) error("row names are not character");
+    if (TYPEOF(rn) != STRSXP)
+        error("row names are not character");
     setAttrib(ans, R_RowNamesSymbol, rn);
     classgets(ans, mkString("data.frame"));
 
@@ -2092,24 +2408,22 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 attribute_hidden SEXP do_rowsum(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    if(PRIMVAL(op) == 1)
-	return rowsum_df(CAR(args), CADR(args), CADDR(args), CADDDR(args),
-			 CAD4R(args));
+    if (PRIMVAL(op) == 1)
+        return rowsum_df(CAR(args), CADR(args), CADDR(args), CADDDR(args), CAD4R(args));
     else
-	return rowsum(CAR(args), CADR(args), CADDR(args), CADDDR(args),
-		      CAD4R(args));
+        return rowsum(CAR(args), CADR(args), CADDR(args), CADDDR(args), CAD4R(args));
 }
-
 
 /* returns 1-based duplicate no */
 static int isDuplicated2(SEXP x, int indx, HashData *d)
 {
     int *h = HTDATA_INT(d);
     hlen i = d->hash(x, indx, d);
-    while (h[i] != NIL) {
-	if (d->equal(x, h[i], x, indx))
-	    return h[i] + 1;
-	i = (i + 1) % d->M;
+    while (h[i] != NIL)
+    {
+        if (d->equal(x, h[i], x, indx))
+            return h[i] + 1;
+        i = (i + 1) % d->M;
     }
     h[i] = indx;
     return 0;
@@ -2127,10 +2441,12 @@ static SEXP duplicated2(SEXP x, HashData *d)
 
     int *h = HTDATA_INT(d);
     int *v = INTEGER0(ans);
-    for (i = 0; i < d->M; i++) h[i] = NIL;
-    for (i = 0; i < n; i++) {
-//	if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	v[i] = isDuplicated2(x, i, d);
+    for (i = 0; i < d->M; i++)
+        h[i] = NIL;
+    for (i = 0; i < n; i++)
+    {
+        //	if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+        v[i] = isDuplicated2(x, i, d);
     }
     UNPROTECT(2);
     return ans;
@@ -2141,62 +2457,72 @@ attribute_hidden SEXP do_makeunique(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP names, sep, ans, dup, newx;
     int i, cnt, *cnts, dp;
     int n, len, maxlen = 0;
-    HashData data = { 0 };
+    HashData data = {0};
     const char *csep, *ss;
     const void *vmax;
 
     checkArity(op, args);
     names = CAR(args);
-    if(!isString(names))
-	error(_("'names' must be a character vector"));
+    if (!isString(names))
+        error(_("'names' must be a character vector"));
     n = LENGTH(names);
     sep = CADR(args);
-    if(!isString(sep) || LENGTH(sep) != 1)
-	error(_("'%s' must be a character string"), "sep");
+    if (!isString(sep) || LENGTH(sep) != 1)
+        error(_("'%s' must be a character string"), "sep");
     csep = translateChar(STRING_ELT(sep, 0));
     PROTECT(ans = allocVector(STRSXP, n));
     vmax = vmaxget();
-    for(i = 0; i < n; i++) {
-	SET_STRING_ELT(ans, i, STRING_ELT(names, i));
-	len = (int) strlen(translateChar(STRING_ELT(names, i)));
-	if(len > maxlen) maxlen = len;
-	vmaxset(vmax);
+    for (i = 0; i < n; i++)
+    {
+        SET_STRING_ELT(ans, i, STRING_ELT(names, i));
+        len = (int)strlen(translateChar(STRING_ELT(names, i)));
+        if (len > maxlen)
+            maxlen = len;
+        vmaxset(vmax);
     }
-    if(n > 1) {
-	/* +2 for terminator and rounding error */
-	size_t sz = maxlen + (int) strlen(csep)
-	    + (int) (log((double)n)/log(10.0)) + 2;
-	char buf[sz];
-	if(n < 10000) {
-	    R_CheckStack2((size_t)n * sizeof(int));
-	    cnts = (int *) alloca(((size_t) n) * sizeof(int));
-	} else {
-	    /* This is going to be slow so use expensive allocation
-	       that will be recovered if interrupted. */
-	    cnts = (int *) R_alloc((size_t) n,	sizeof(int));
-	}
-	for(i = 0; i < n; i++) cnts[i] = 1;
-	data.nomatch = 0;
-	PROTECT(newx = allocVector(STRSXP, 1));
-	PROTECT(dup = duplicated2(names, &data));
-	PROTECT(data.HashTable);
-	vmax = vmaxget();
-	for(i = 1; i < n; i++) { /* first cannot be a duplicate */
-	    dp = INTEGER_ELT(dup, i); /* 1-based number of first occurrence */
-	    if(dp == 0) continue;
-	    ss = translateChar(STRING_ELT(names, i));
-	    /* Try appending 1,2,3, ..., n-1 until it is not already in use */
-	    for(cnt = cnts[dp - 1]; cnt < n; cnt++) {
-		snprintf(buf, sz, "%s%s%d", ss, csep, cnt);
-		SET_STRING_ELT(newx, 0, mkChar(buf));
-		if(Lookup(ans, newx, 0, &data) == data.nomatch) break;
-	    }
-	    SET_STRING_ELT(ans, i, STRING_ELT(newx, 0));
-	    /* insert it */ (void) isDuplicated(ans, i, &data);
-	    cnts[dp - 1] = cnt+1; /* cache the first unused cnt value */
-	    vmaxset(vmax);
-	}
-	UNPROTECT(3);
+    if (n > 1)
+    {
+        /* +2 for terminator and rounding error */
+        size_t sz = maxlen + (int)strlen(csep) + (int)(log((double)n) / log(10.0)) + 2;
+        char buf[sz];
+        if (n < 10000)
+        {
+            R_CheckStack2((size_t)n * sizeof(int));
+            cnts = (int *)alloca(((size_t)n) * sizeof(int));
+        }
+        else
+        {
+            /* This is going to be slow so use expensive allocation
+               that will be recovered if interrupted. */
+            cnts = (int *)R_alloc((size_t)n, sizeof(int));
+        }
+        for (i = 0; i < n; i++)
+            cnts[i] = 1;
+        data.nomatch = 0;
+        PROTECT(newx = allocVector(STRSXP, 1));
+        PROTECT(dup = duplicated2(names, &data));
+        PROTECT(data.HashTable);
+        vmax = vmaxget();
+        for (i = 1; i < n; i++)
+        {                             /* first cannot be a duplicate */
+            dp = INTEGER_ELT(dup, i); /* 1-based number of first occurrence */
+            if (dp == 0)
+                continue;
+            ss = translateChar(STRING_ELT(names, i));
+            /* Try appending 1,2,3, ..., n-1 until it is not already in use */
+            for (cnt = cnts[dp - 1]; cnt < n; cnt++)
+            {
+                snprintf(buf, sz, "%s%s%d", ss, csep, cnt);
+                SET_STRING_ELT(newx, 0, mkChar(buf));
+                if (Lookup(ans, newx, 0, &data) == data.nomatch)
+                    break;
+            }
+            SET_STRING_ELT(ans, i, STRING_ELT(newx, 0));
+            /* insert it */ (void)isDuplicated(ans, i, &data);
+            cnts[dp - 1] = cnt + 1; /* cache the first unused cnt value */
+            vmaxset(vmax);
+        }
+        UNPROTECT(3);
     }
     UNPROTECT(1);
     return ans;
@@ -2218,23 +2544,25 @@ static void HashTableSetup1(SEXP x, HashData *d)
     d->isLong = FALSE;
 #endif
     MKsetup(XLENGTH(x), d, NA_INTEGER);
-    d->HashTable = allocVector(INTSXP, (R_xlen_t) d->M);
-    for (R_xlen_t i = 0; i < d->M; i++) HTDATA_INT(d)[i] = NIL;
+    d->HashTable = allocVector(INTSXP, (R_xlen_t)d->M);
+    for (R_xlen_t i = 0; i < d->M; i++)
+        HTDATA_INT(d)[i] = NIL;
 }
 
 /* used in utils */
 SEXP Rf_csduplicated(SEXP x)
 {
-    if(TYPEOF(x) != STRSXP)
-	error("C function 'csduplicated' not called on a STRSXP");
+    if (TYPEOF(x) != STRSXP)
+        error("C function 'csduplicated' not called on a STRSXP");
     R_xlen_t n = XLENGTH(x);
-    HashData data = { 0 };
+    HashData data = {0};
     HashTableSetup1(x, &data);
     PROTECT(data.HashTable);
     SEXP ans = PROTECT(allocVector(LGLSXP, n));
     int *v = LOGICAL(ans);
 
-    for (R_xlen_t i = 0; i < n; i++) v[i] = isDuplicated(x, i, &data);
+    for (R_xlen_t i = 0; i < n; i++)
+        v[i] = isDuplicated(x, i, &data);
 
     UNPROTECT(2);
     return ans;
@@ -2250,35 +2578,43 @@ attribute_hidden SEXP do_sample2(SEXP call, SEXP op, SEXP args, SEXP env)
     double dn = asReal(CAR(args));
     SEXP sk = CADR(args);
     if (length(sk) != 1)
-	error(_("invalid '%s' argument"), "size");
+        error(_("invalid '%s' argument"), "size");
     int k = asInteger(sk);
-    if  (length(CAR(args)) != 1 || !R_FINITE(dn) || dn < 0
-		|| dn > 4.5e15 || (k > 0 && dn == 0))
-	error(_("invalid first argument"));
-    if (k < 0) error(_("invalid '%s' argument"), "size"); // includes NA
-    if (k > dn/2) error("This algorithm is for size <= n/2");
-    HashData data = { 0 };
+    if (length(CAR(args)) != 1 || !R_FINITE(dn) || dn < 0 || dn > 4.5e15 || (k > 0 && dn == 0))
+        error(_("invalid first argument"));
+    if (k < 0)
+        error(_("invalid '%s' argument"), "size"); // includes NA
+    if (k > dn / 2)
+        error("This algorithm is for size <= n/2");
+    HashData data = {0};
     GetRNGstate();
-    if (dn > INT_MAX) {
-	ans = PROTECT(allocVector(REALSXP, k));
-	double *ry = REAL0(ans);
-	HashTableSetup(ans, &data, NA_INTEGER);
-	PROTECT(data.HashTable);
-	for (int i = 0; i < k; i++)
-	    for(int j = 0; j < 100; j++) { // average < 2
-		ry[i] = R_unif_index(dn) + 1;
-		if(!isDuplicated(ans, i, &data)) break;
-	    }
-   } else {
-	ans = PROTECT(allocVector(INTSXP, k));
-	int *iy = INTEGER0(ans);
-	HashTableSetup(ans, &data, NA_INTEGER);
-	PROTECT(data.HashTable);
-	for (int i = 0; i < k; i++)
-	    for(int j = 0; j < 100; j++) { // average < 2
-		iy[i] = (int)(R_unif_index(dn) + 1);
-		if(!isDuplicated(ans, i, &data)) break;
-	    }
+    if (dn > INT_MAX)
+    {
+        ans = PROTECT(allocVector(REALSXP, k));
+        double *ry = REAL0(ans);
+        HashTableSetup(ans, &data, NA_INTEGER);
+        PROTECT(data.HashTable);
+        for (int i = 0; i < k; i++)
+            for (int j = 0; j < 100; j++)
+            { // average < 2
+                ry[i] = R_unif_index(dn) + 1;
+                if (!isDuplicated(ans, i, &data))
+                    break;
+            }
+    }
+    else
+    {
+        ans = PROTECT(allocVector(INTSXP, k));
+        int *iy = INTEGER0(ans);
+        HashTableSetup(ans, &data, NA_INTEGER);
+        PROTECT(data.HashTable);
+        for (int i = 0; i < k; i++)
+            for (int j = 0; j < 100; j++)
+            { // average < 2
+                iy[i] = (int)(R_unif_index(dn) + 1);
+                if (!isDuplicated(ans, i, &data))
+                    break;
+            }
     }
     PutRNGstate();
     UNPROTECT(2);
@@ -2304,33 +2640,40 @@ attribute_hidden SEXP do_sample2(SEXP call, SEXP op, SEXP args, SEXP env)
 static int hash_identical(SEXP x, int K, int useCloEnv)
 {
     /* using 31 seems to work reasonably */
-    if (K == 0 || K > 31) K = 31;
+    if (K == 0 || K > 31)
+        K = 31;
 
-    HashData d = { .K = K, .useUTF8 = FALSE, .useCache = TRUE };
+    HashData d = {.K = K, .useUTF8 = FALSE, .useCache = TRUE};
     d.useCloEnv = useCloEnv;
     d.extptrAsRef = TRUE;
     d.inHashtab = TRUE;
 
-    int val = (int) vhash_one(x, &d);
-    if (val == NA_INTEGER) val = 0;
-    if (val < 0) val = -val;
+    int val = (int)vhash_one(x, &d);
+    if (val == NA_INTEGER)
+        val = 0;
+    if (val < 0)
+        val = -val;
     return val;
 }
 
 static int hash_address(SEXP x, int K)
 {
-    if (K == 0 || K > 31) K = 31;
+    if (K == 0 || K > 31)
+        K = 31;
 
-    HashData d = { .K = K };
+    HashData d = {.K = K};
 
-    int val = (int) scatter(PTRHASH(x), &d);
-    if (val == NA_INTEGER) val = 0;
-    if (val < 0) val = -val;
+    int val = (int)scatter(PTRHASH(x), &d);
+    if (val == NA_INTEGER)
+        val = 0;
+    if (val < 0)
+        val = -val;
     return val;
 }
 
 /* allow for compiling with NAMED */
-static R_INLINE SEXP INC_NMD(SEXP x) {
+static R_INLINE SEXP INC_NMD(SEXP x)
+{
     INCREMENT_NAMED(x);
     return x;
 }
@@ -2352,31 +2695,32 @@ static R_INLINE SEXP INC_NMD(SEXP x) {
 
 static R_INLINE int HT_HASH(R_hashtab_type h, SEXP key)
 {
-    switch(HT_TYPE(h)) {
+    switch (HT_TYPE(h))
+    {
     case HT_TYPE_IDENTICAL:
-	return hash_identical(key, HT_TABLE_K(h), TRUE);
+        return hash_identical(key, HT_TABLE_K(h), TRUE);
     case HT_TYPE_ADDRESS:
-	return hash_address(key, HT_TABLE_K(h));
+        return hash_address(key, HT_TABLE_K(h));
     default:
-	error("bad hash table type");
+        error("bad hash table type");
     }
 }
 
 static R_INLINE int HT_EQUAL(R_hashtab_type h, SEXP x, SEXP y)
 {
-    switch(HT_TYPE(h)) {
-    case HT_TYPE_IDENTICAL:
-	{
-	    /* IDENT_USE_CLOENV correspnds to the default in identical().
-	       IDENT_EXTPTR_AS_REF ensures that EXTPTRSXP objects in
-	       keys unserialize senibly. */
-	    int flags = IDENT_USE_CLOENV | IDENT_EXTPTR_AS_REF;
-	    return R_compute_identical(x, y, flags);
-	}
+    switch (HT_TYPE(h))
+    {
+    case HT_TYPE_IDENTICAL: {
+        /* IDENT_USE_CLOENV correspnds to the default in identical().
+           IDENT_EXTPTR_AS_REF ensures that EXTPTRSXP objects in
+           keys unserialize senibly. */
+        int flags = IDENT_USE_CLOENV | IDENT_EXTPTR_AS_REF;
+        return R_compute_identical(x, y, flags);
+    }
     case HT_TYPE_ADDRESS:
-	return x == y;
+        return x == y;
     default:
-	error("bad hash table type");
+        error("bad hash table type");
     }
 }
 
@@ -2387,26 +2731,25 @@ static void rehash(R_hashtab_type h, int resize)
        oned. For future changes would be better to try to
        rewrite/repair the meta data. */
     if (TYPEOF(HT_META(h)) != INTSXP || LENGTH(HT_META(h)) != HT_META_SIZE)
-	error("invalid hash table meta data");
+        error("invalid hash table meta data");
 
     SEXP old_table = PROTECT(HT_TABLE(h));
     int old_size = LENGTH(old_table);
 
     R_xlen_t new_size = resize ? 2 * old_size : old_size;
     if (new_size > INT_MAX)
-	error("hash size would exceed limit");
+        error("hash size would exceed limit");
 
     HT_COUNT(h) = 0;
     HT_VALIDATE(h);
-    
+
     SET_HT_TABLE(h, allocVector(VECSXP, new_size));
-    if (resize) HT_TABLE_K(h)++;
+    if (resize)
+        HT_TABLE_K(h)++;
 
     for (int i = 0; i < old_size; i++)
-	for (SEXP cell = VECTOR_ELT(old_table, i);
-	     cell != R_NilValue;
-	     cell = CDR(cell))
-	    R_sethash(h, TAG(cell), CAR(cell));
+        for (SEXP cell = VECTOR_ELT(old_table, i); cell != R_NilValue; cell = CDR(cell))
+            R_sethash(h, TAG(cell), CAR(cell));
 
     UNPROTECT(1); /* old_table */
 }
@@ -2415,21 +2758,21 @@ static SEXP getcell(R_hashtab_type h, SEXP key, int *pidx)
 {
     SEXP table = HT_TABLE(h);
 
-    if (! HT_IS_VALID(h))
-	rehash(h, FALSE);
+    if (!HT_IS_VALID(h))
+        rehash(h, FALSE);
 
     int idx = HT_HASH(h, key);
     *pidx = idx;
 
     SEXP chain = VECTOR_ELT(table, idx);
-    while (chain != R_NilValue) {
-	if (HT_EQUAL(h, TAG(chain), key))
-	    return chain;
-	chain = CDR(chain);
+    while (chain != R_NilValue)
+    {
+        if (HT_EQUAL(h, TAG(chain), key))
+            return chain;
+        chain = CDR(chain);
     }
     return R_NilValue;
-}    
-
+}
 
 /*
  * Higer Level Public Functions
@@ -2440,18 +2783,23 @@ static SEXP getcell(R_hashtab_type h, SEXP key, int *pidx)
 
 R_hashtab_type R_mkhashtab(int type, int K)
 {
-    if (K < 3 || K > 30) K = 3;
+    if (K < 3 || K > 30)
+        K = 3;
     int size = 1;
-    for (int i = 0; i < K; i++) size *= 2;
+    for (int i = 0; i < K; i++)
+        size *= 2;
 
-    switch(type) {
+    switch (type)
+    {
     case HT_TYPE_IDENTICAL:
-    case HT_TYPE_ADDRESS: break;
-    default: error("bad hash table type");
+    case HT_TYPE_ADDRESS:
+        break;
+    default:
+        error("bad hash table type");
     }
     SEXP table = PROTECT(allocVector(VECSXP, size));
     SEXP meta = PROTECT(allocVector(INTSXP, HT_META_SIZE));
-    R_hashtab_type val = { .cell = R_MakeExternalPtr(NULL, meta, table) };
+    R_hashtab_type val = {.cell = R_MakeExternalPtr(NULL, meta, table)};
     HT_VALIDATE(val);
     HT_COUNT(val) = 0;
     HT_TYPE(val) = type;
@@ -2469,9 +2817,9 @@ SEXP R_gethash(R_hashtab_type h, SEXP key, SEXP nomatch)
     SEXP cell = getcell(h, key, &idx);
     UNPROTECT(3); /* h, key, nomatch */
     if (cell == R_NilValue)
-	return nomatch;
+        return nomatch;
     else
-	return CAR(cell);
+        return CAR(cell);
 }
 
 SEXP R_sethash(R_hashtab_type h, SEXP key, SEXP value)
@@ -2481,23 +2829,26 @@ SEXP R_sethash(R_hashtab_type h, SEXP key, SEXP value)
     PROTECT(key);
     PROTECT(value);
     SEXP cell = getcell(h, key, &idx);
-    if (cell == R_NilValue) {
-	int new_count = HT_COUNT(h) + 1;
-	if (new_count > 0.5 * HT_TABLE_SIZE(h)) {
-	    /* rehash() will fail if new_count would be too large */
-	    rehash(h, TRUE);
-	    /* recalculate the hash bin, cell will still be R_NilValue */
-	    (void) getcell(h, key, &idx);
-	}
-	SEXP table = HT_TABLE(h);
-	SEXP chain = CONS(INC_NMD(value), VECTOR_ELT(table, idx));
-	SET_TAG(chain, INC_NMD(key));
-	SET_VECTOR_ELT(table, idx, chain);
-	HT_COUNT(h) = new_count;
+    if (cell == R_NilValue)
+    {
+        int new_count = HT_COUNT(h) + 1;
+        if (new_count > 0.5 * HT_TABLE_SIZE(h))
+        {
+            /* rehash() will fail if new_count would be too large */
+            rehash(h, TRUE);
+            /* recalculate the hash bin, cell will still be R_NilValue */
+            (void)getcell(h, key, &idx);
+        }
+        SEXP table = HT_TABLE(h);
+        SEXP chain = CONS(INC_NMD(value), VECTOR_ELT(table, idx));
+        SET_TAG(chain, INC_NMD(key));
+        SET_VECTOR_ELT(table, idx, chain);
+        HT_COUNT(h) = new_count;
     }
-    else {
-	SETCAR(cell, value);
-	INCREMENT_NAMED(value);
+    else
+    {
+        SETCAR(cell, value);
+        INCREMENT_NAMED(value);
     }
     UNPROTECT(3); /* h, key, value */
     return value;
@@ -2512,26 +2863,34 @@ int R_remhash(R_hashtab_type h, SEXP key)
     UNPROTECT(2); /* h, key */
 
     if (cell == R_NilValue)
-	return FALSE;
-    else {
-	SEXP table = HT_TABLE(h);
-	if (cell == VECTOR_ELT(table, idx))
-	    SET_VECTOR_ELT(table, idx, CDR(cell));
-	else {
-	    SEXP prev = VECTOR_ELT(table, idx);
-	    while (CDR(prev) !=  cell)
-		prev = CDR(prev);
-	    SETCDR(prev, CDR(cell));
-	}
-	HT_COUNT(h)--;
-	SETCAR(cell, R_NilValue);  // drop REFCNT on old value
-	SET_TAG(cell, R_NilValue); // drop REFCNT on old key
-	return TRUE;
+        return FALSE;
+    else
+    {
+        SEXP table = HT_TABLE(h);
+        if (cell == VECTOR_ELT(table, idx))
+            SET_VECTOR_ELT(table, idx, CDR(cell));
+        else
+        {
+            SEXP prev = VECTOR_ELT(table, idx);
+            while (CDR(prev) != cell)
+                prev = CDR(prev);
+            SETCDR(prev, CDR(cell));
+        }
+        HT_COUNT(h)--;
+        SETCAR(cell, R_NilValue);  // drop REFCNT on old value
+        SET_TAG(cell, R_NilValue); // drop REFCNT on old key
+        return TRUE;
     }
 }
 
-int R_numhash(R_hashtab_type h) { return HT_COUNT(h); }
-int R_typhash(R_hashtab_type h) { return HT_TYPE(h); }
+int R_numhash(R_hashtab_type h)
+{
+    return HT_COUNT(h);
+}
+int R_typhash(R_hashtab_type h)
+{
+    return HT_TYPE(h);
+}
 
 static R_INLINE void defvar(SEXP sym, SEXP val, SEXP env)
 {
@@ -2549,19 +2908,21 @@ SEXP R_maphash(R_hashtab_type h, SEXP FUN)
     SEXP env = PROTECT(R_NewEnv(R_GlobalEnv, FALSE, 0));
     SEXP call = PROTECT(lang3(FUN_sym, key_sym, val_sym));
     defvar(FUN_sym, FUN, env);
-    
+
     SEXP table = PROTECT(HT_TABLE(h)); // PROTECT in case FUN causes a rehash
     int size = LENGTH(table);
-    for (int i = 0; i < size; i++) {
-	SEXP cell = VECTOR_ELT(table, i);
-	while (cell != R_NilValue) {
-	    SEXP next = PROTECT(CDR(cell));
-	    defvar(key_sym, TAG(cell), env); // key is PROTECTed by env
-	    defvar(val_sym, CAR(cell), env); // val is PROTECTed by env
-	    eval(call, env);
-	    cell = next;
-	    UNPROTECT(1); /* next */
-	}
+    for (int i = 0; i < size; i++)
+    {
+        SEXP cell = VECTOR_ELT(table, i);
+        while (cell != R_NilValue)
+        {
+            SEXP next = PROTECT(CDR(cell));
+            defvar(key_sym, TAG(cell), env); // key is PROTECTed by env
+            defvar(val_sym, CAR(cell), env); // val is PROTECTed by env
+            eval(call, env);
+            cell = next;
+            UNPROTECT(1); /* next */
+        }
     }
     UNPROTECT(5); /* h, FUN, env, call, table */
     return R_NilValue;
@@ -2572,16 +2933,18 @@ void R_maphashC(R_hashtab_type h, void (*FUN)(SEXP, SEXP, void *), void *data)
     PROTECT(HT_SEXP(h));
     SEXP table = PROTECT(HT_TABLE(h)); // PROTECT in case FUN causes a rehash
     int size = LENGTH(table);
-    for (int i = 0; i < size; i++) {
-	SEXP cell = VECTOR_ELT(table, i);
-	while (cell != R_NilValue) {
-	    SEXP next = PROTECT(CDR(cell));
-	    SEXP key = PROTECT(TAG(cell));
-	    SEXP val = PROTECT(CAR(cell));
-	    FUN(key, val, data);
-	    cell = next;
-	    UNPROTECT(3); /* next, key, val */
-	}
+    for (int i = 0; i < size; i++)
+    {
+        SEXP cell = VECTOR_ELT(table, i);
+        while (cell != R_NilValue)
+        {
+            SEXP next = PROTECT(CDR(cell));
+            SEXP key = PROTECT(TAG(cell));
+            SEXP val = PROTECT(CAR(cell));
+            FUN(key, val, data);
+            cell = next;
+            UNPROTECT(3); /* next, key, val */
+        }
     }
     UNPROTECT(2); /* h, table */
 }
@@ -2590,19 +2953,18 @@ void R_clrhash(R_hashtab_type h)
 {
     SEXP table = HT_TABLE(h);
     int size = LENGTH(table);
-    for (int i = 0; i < size; i++) {
-	for (SEXP cell = VECTOR_ELT(table, i);
-	     cell != R_NilValue;
-	     cell = CDR(cell)) {
-	    SETCAR(cell, R_NilValue);  // drop REFCNT on old value
-	    SET_TAG(cell, R_NilValue); // drop REFCNT on old key
-	}
-	SET_VECTOR_ELT(table, i, R_NilValue);
+    for (int i = 0; i < size; i++)
+    {
+        for (SEXP cell = VECTOR_ELT(table, i); cell != R_NilValue; cell = CDR(cell))
+        {
+            SETCAR(cell, R_NilValue);  // drop REFCNT on old value
+            SET_TAG(cell, R_NilValue); // drop REFCNT on old key
+        }
+        SET_VECTOR_ELT(table, i, R_NilValue);
     }
     HT_COUNT(h) = 0;
     /* could also drop table size back down to HT_INIT_SIZE */
 }
-
 
 /**
  ** R Level Interface Support
@@ -2610,29 +2972,26 @@ void R_clrhash(R_hashtab_type h)
 
 R_hashtab_type R_asHashtable(SEXP h)
 {
-    if (TYPEOF(h) != VECSXP || LENGTH(h) != 1 || ! inherits(h, "hashtab"))
-	error("not a proper hash table object");
+    if (TYPEOF(h) != VECSXP || LENGTH(h) != 1 || !inherits(h, "hashtab"))
+        error("not a proper hash table object");
     SEXP p = VECTOR_ELT(h, 0);
     if (TYPEOF(p) != EXTPTRSXP)
-	error("hash table object is corrupted");
-    R_hashtab_type val = { .cell = p };
+        error("hash table object is corrupted");
+    R_hashtab_type val = {.cell = p};
     return val;
 }
 
-SEXP R_HashtabSEXP(R_hashtab_type  h)
+SEXP R_HashtabSEXP(R_hashtab_type h)
 {
     return HT_SEXP(h);
 }
 
 int R_isHashtable(SEXP h)
 {
-    if (TYPEOF(h) != VECSXP ||
-	LENGTH(h) != 1 ||
-	! inherits(h, "hashtab") ||
-	TYPEOF(VECTOR_ELT(h, 0)) != EXTPTRSXP)
-	return FALSE;
+    if (TYPEOF(h) != VECSXP || LENGTH(h) != 1 || !inherits(h, "hashtab") || TYPEOF(VECTOR_ELT(h, 0)) != EXTPTRSXP)
+        return FALSE;
     else
-	return TRUE;
+        return TRUE;
 }
 
 /* This allows experimenting with creating hash tables at the R level. */

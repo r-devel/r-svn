@@ -19,18 +19,18 @@
 /* Written by Bruno Haible <bruno@clisp.org>.  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <stdlib.h>
 
 #if HAVE_CFPREFERENCESCOPYAPPVALUE
-# include <string.h>
-# include <CoreFoundation/CFPreferences.h>
-# include <CoreFoundation/CFPropertyList.h>
-# include <CoreFoundation/CFArray.h>
-# include <CoreFoundation/CFString.h>
-extern void _nl_locale_name_canonicalize (char *name);
+#include <string.h>
+#include <CoreFoundation/CFPreferences.h>
+#include <CoreFoundation/CFPropertyList.h>
+#include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFString.h>
+extern void _nl_locale_name_canonicalize(char *name);
 #endif
 
 /* Determine the user's language preferences, as a colon separated list of
@@ -40,91 +40,81 @@ extern void _nl_locale_name_canonicalize (char *name);
    The LANGUAGE environment variable does not need to be considered; it is
    already taken into account by the caller.  */
 
-const char *
-_nl_language_preferences_default (void)
+const char *_nl_language_preferences_default(void)
 {
 #if HAVE_CFPREFERENCESCOPYAPPVALUE /* MacOS X 10.2 or newer */
-  {
-    /* Cache the preferences list, since CoreFoundation calls are expensive.  */
-    static const char *cached_languages;
-    static int cache_initialized;
+    {
+        /* Cache the preferences list, since CoreFoundation calls are expensive.  */
+        static const char *cached_languages;
+        static int cache_initialized;
 
-    if (!cache_initialized)
-      {
-	CFTypeRef preferences =
-	  CFPreferencesCopyAppValue (CFSTR ("AppleLanguages"),
-				     kCFPreferencesCurrentApplication);
-	if (preferences != NULL
-	    && CFGetTypeID (preferences) == CFArrayGetTypeID ())
-	  {
-	    CFArrayRef prefArray = (CFArrayRef)preferences;
-	    long n = CFArrayGetCount (prefArray);
-	    char buf[256];
-	    size_t size = 0;
-	    int i;
+        if (!cache_initialized)
+        {
+            CFTypeRef preferences =
+                CFPreferencesCopyAppValue(CFSTR("AppleLanguages"), kCFPreferencesCurrentApplication);
+            if (preferences != NULL && CFGetTypeID(preferences) == CFArrayGetTypeID())
+            {
+                CFArrayRef prefArray = (CFArrayRef)preferences;
+                long n = CFArrayGetCount(prefArray);
+                char buf[256];
+                size_t size = 0;
+                int i;
 
-	    for (i = 0; i < n; i++)
-	      {
-		CFTypeRef element = CFArrayGetValueAtIndex (prefArray, i);
-		if (element != NULL
-		    && CFGetTypeID (element) == CFStringGetTypeID ()
-		    && CFStringGetCString ((CFStringRef)element,
-					   buf, sizeof (buf),
-					   kCFStringEncodingASCII))
-		  {
-		    _nl_locale_name_canonicalize (buf);
-		    size += strlen (buf) + 1;
-		    /* Most GNU programs use msgids in English and don't ship
-		       an en.mo message catalog.  Therefore when we see "en"
-		       in the preferences list, arrange for gettext() to
-		       return the msgid, and ignore all further elements of
-		       the preferences list.  */
-		    if (strcmp (buf, "en") == 0)
-		      break;
-		  }
-		else
-		  break;
-	      }
-	    if (size > 0)
-	      {
-		char *languages = (char *) malloc (size);
+                for (i = 0; i < n; i++)
+                {
+                    CFTypeRef element = CFArrayGetValueAtIndex(prefArray, i);
+                    if (element != NULL && CFGetTypeID(element) == CFStringGetTypeID() &&
+                        CFStringGetCString((CFStringRef)element, buf, sizeof(buf), kCFStringEncodingASCII))
+                    {
+                        _nl_locale_name_canonicalize(buf);
+                        size += strlen(buf) + 1;
+                        /* Most GNU programs use msgids in English and don't ship
+                           an en.mo message catalog.  Therefore when we see "en"
+                           in the preferences list, arrange for gettext() to
+                           return the msgid, and ignore all further elements of
+                           the preferences list.  */
+                        if (strcmp(buf, "en") == 0)
+                            break;
+                    }
+                    else
+                        break;
+                }
+                if (size > 0)
+                {
+                    char *languages = (char *)malloc(size);
 
-		if (languages != NULL)
-		  {
-		    char *p = languages;
+                    if (languages != NULL)
+                    {
+                        char *p = languages;
 
-		    for (i = 0; i < n; i++)
-		      {
-			CFTypeRef element =
-			  CFArrayGetValueAtIndex (prefArray, i);
-			if (element != NULL
-		            && CFGetTypeID (element) == CFStringGetTypeID ()
-			    && CFStringGetCString ((CFStringRef)element,
-						   buf, sizeof (buf),
-						   kCFStringEncodingASCII))
-			  {
-			    _nl_locale_name_canonicalize (buf);
-			    strcpy (p, buf);
-			    p += strlen (buf);
-			    *p++ = ':';
-			    if (strcmp (buf, "en") == 0)
-			      break;
-			  }
-			else
-			  break;
-		      }
-		    *--p = '\0';
+                        for (i = 0; i < n; i++)
+                        {
+                            CFTypeRef element = CFArrayGetValueAtIndex(prefArray, i);
+                            if (element != NULL && CFGetTypeID(element) == CFStringGetTypeID() &&
+                                CFStringGetCString((CFStringRef)element, buf, sizeof(buf), kCFStringEncodingASCII))
+                            {
+                                _nl_locale_name_canonicalize(buf);
+                                strcpy(p, buf);
+                                p += strlen(buf);
+                                *p++ = ':';
+                                if (strcmp(buf, "en") == 0)
+                                    break;
+                            }
+                            else
+                                break;
+                        }
+                        *--p = '\0';
 
-		    cached_languages = languages;
-		  }
-	      }
-	  }
-	cache_initialized = 1;
-      }
-    if (cached_languages != NULL)
-      return cached_languages;
-  }
+                        cached_languages = languages;
+                    }
+                }
+            }
+            cache_initialized = 1;
+        }
+        if (cached_languages != NULL)
+            return cached_languages;
+    }
 #endif
 
-  return NULL;
+    return NULL;
 }

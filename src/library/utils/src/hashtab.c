@@ -31,21 +31,21 @@ static R_INLINE SEXP checkArgCountPop(SEXP args, int n)
 {
     args = CDR(args);
     if (length(args) != n)
-	error("wrong argument count");
+        error("wrong argument count");
     return args;
 }
 
 static int HT_TypeFromString(SEXP x)
 {
     if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1)
-	error("hash table type must be a scalar string");
+        error("hash table type must be a scalar string");
     const char *s = CHAR(STRING_ELT(x, 0));
     if (strcmp(s, "identical") == 0)
-	return HT_TYPE_IDENTICAL;
+        return HT_TYPE_IDENTICAL;
     else if (strcmp(s, "address") == 0)
-	return HT_TYPE_ADDRESS;
+        return HT_TYPE_ADDRESS;
     else
-	error("hash table type '%s' is not supported", s);
+        error("hash table type '%s' is not supported", s);
 }
 
 SEXP hashtab_Ext(SEXP args)
@@ -60,8 +60,7 @@ SEXP hashtab_Ext(SEXP args)
     return val;
 }
 
-attribute_hidden
-SEXP gethash_Ext(SEXP args)
+attribute_hidden SEXP gethash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 3);
     R_hashtab_type h = R_asHashtable(CAR(args));
@@ -70,8 +69,7 @@ SEXP gethash_Ext(SEXP args)
     return R_gethash(h, key, nomatch);
 }
 
-attribute_hidden
-SEXP sethash_Ext(SEXP args)
+attribute_hidden SEXP sethash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 3);
     R_hashtab_type h = R_asHashtable(CAR(args));
@@ -80,8 +78,7 @@ SEXP sethash_Ext(SEXP args)
     return R_sethash(h, key, value);
 }
 
-attribute_hidden
-SEXP remhash_Ext(SEXP args)
+attribute_hidden SEXP remhash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 2);
     R_hashtab_type h = R_asHashtable(CAR(args));
@@ -89,28 +86,29 @@ SEXP remhash_Ext(SEXP args)
     return ScalarLogical(R_remhash(h, key));
 }
 
-attribute_hidden
-SEXP numhash_Ext(SEXP args)
+attribute_hidden SEXP numhash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 1);
     R_hashtab_type h = R_asHashtable(CAR(args));
     return ScalarInteger(R_numhash(h));
 }
 
-attribute_hidden
-SEXP typhash_Ext(SEXP args)
+attribute_hidden SEXP typhash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 1);
     R_hashtab_type h = R_asHashtable(CAR(args));
-    switch(R_typhash(h)) {
-    case HT_TYPE_IDENTICAL: return mkString("identical");
-    case HT_TYPE_ADDRESS  : return mkString("address");
-    default: error("bad hash table type");
+    switch (R_typhash(h))
+    {
+    case HT_TYPE_IDENTICAL:
+        return mkString("identical");
+    case HT_TYPE_ADDRESS:
+        return mkString("address");
+    default:
+        error("bad hash table type");
     }
 }
 
-attribute_hidden
-SEXP maphash_Ext(SEXP args)
+attribute_hidden SEXP maphash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 2);
     R_hashtab_type h = R_asHashtable(CAR(args));
@@ -118,8 +116,7 @@ SEXP maphash_Ext(SEXP args)
     return R_maphash(h, FUN);
 }
 
-attribute_hidden
-SEXP clrhash_Ext(SEXP args)
+attribute_hidden SEXP clrhash_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 1);
     R_hashtab_type h = R_asHashtable(CAR(args));
@@ -127,8 +124,7 @@ SEXP clrhash_Ext(SEXP args)
     return R_NilValue;
 }
 
-attribute_hidden
-SEXP ishashtab_Ext(SEXP args)
+attribute_hidden SEXP ishashtab_Ext(SEXP args)
 {
     args = checkArgCountPop(args, 1);
     return ScalarLogical(R_isHashtable(CAR(args)));

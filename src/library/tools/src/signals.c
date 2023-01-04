@@ -41,20 +41,24 @@ SEXP ps_kill(SEXP spid, SEXP ssignal)
 #if !defined(_WIN32) && !defined(HAVE_KILL)
     warning(_("pskill() is not supported on this platform"));
 #endif
-    for (int i = 0; i < ns; i++) {
-	res[i] = FALSE;
-	if(signal != NA_INTEGER) {
+    for (int i = 0; i < ns; i++)
+    {
+        res[i] = FALSE;
+        if (signal != NA_INTEGER)
+        {
 #ifdef _WIN32
-	    HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, pid[i]);
-	    if (hProc) {
-                if (TerminateProcess(hProc, 1) != 0) res[i] = TRUE;
+            HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, pid[i]);
+            if (hProc)
+            {
+                if (TerminateProcess(hProc, 1) != 0)
+                    res[i] = TRUE;
                 CloseHandle(hProc);
-	    }
+            }
 #elif defined(HAVE_KILL)
-	    if (pid[i] > 0 && pid[i] != NA_INTEGER &&
-	        kill(pid[i], signal) == 0) res[i] = TRUE;
+            if (pid[i] > 0 && pid[i] != NA_INTEGER && kill(pid[i], signal) == 0)
+                res[i] = TRUE;
 #endif
-	}
+        }
     }
     UNPROTECT(2);
     return sres;
@@ -75,19 +79,26 @@ SEXP ps_priority(SEXP spid, SEXP svalue)
     PROTECT(sres = allocVector(INTSXP, ns));
     pid = INTEGER(sspid);
     res = INTEGER(sres);
-    for (int i = 0; i < ns; i++) {
-	if (pid[i] <= 0) {
-	    res[i] = NA_INTEGER;
-	    continue;
-	}
-	if (pid[i] != NA_INTEGER) {
-	    /* return value -1 is both an error value 
-	       and a legitimate niceness */
-	    errno = 0;
-	    res[i] = getpriority(PRIO_PROCESS, pid[i]);
-	    if(errno) res[i] = NA_INTEGER;
-	    if(val != NA_INTEGER) setpriority(PRIO_PROCESS, pid[i], val);
-	} else res[i] = NA_INTEGER;
+    for (int i = 0; i < ns; i++)
+    {
+        if (pid[i] <= 0)
+        {
+            res[i] = NA_INTEGER;
+            continue;
+        }
+        if (pid[i] != NA_INTEGER)
+        {
+            /* return value -1 is both an error value
+               and a legitimate niceness */
+            errno = 0;
+            res[i] = getpriority(PRIO_PROCESS, pid[i]);
+            if (errno)
+                res[i] = NA_INTEGER;
+            if (val != NA_INTEGER)
+                setpriority(PRIO_PROCESS, pid[i], val);
+        }
+        else
+            res[i] = NA_INTEGER;
     }
     UNPROTECT(2);
     return sres;
@@ -103,33 +114,60 @@ SEXP ps_priority(SEXP spid, SEXP svalue)
     PROTECT(sres = allocVector(INTSXP, ns));
     pid = INTEGER(sspid);
     res = INTEGER(sres);
-    for (int i = 0; i < ns; i++) {
-	HANDLE hProc = OpenProcess(val != NA_INTEGER ?
-				   PROCESS_SET_INFORMATION
-				   : PROCESS_QUERY_INFORMATION, 
-				   FALSE, pid[i]);
-	if (hProc && pid[i] != NA_INTEGER) {
-	    DWORD tmp = GetPriorityClass(hProc);
-	    switch(tmp) {
-	    case ABOVE_NORMAL_PRIORITY_CLASS: res[i] = -5; break;
-	    case BELOW_NORMAL_PRIORITY_CLASS: res[i] = 15; break;
-	    case HIGH_PRIORITY_CLASS: res[i] = -10; break;
-	    case IDLE_PRIORITY_CLASS: res[i] = 19; break;
-	    case NORMAL_PRIORITY_CLASS: res[i] = 0; break;
-	    case REALTIME_PRIORITY_CLASS: res[i] = -20; break;
-	    }
-	    if(val != NA_INTEGER) {
-		switch(val) {
-		case 19: tmp = IDLE_PRIORITY_CLASS; break;
-		case 15: tmp = BELOW_NORMAL_PRIORITY_CLASS; break;
-		case 0: tmp = NORMAL_PRIORITY_CLASS; break;
-		case -5: tmp = ABOVE_NORMAL_PRIORITY_CLASS; break;
-		case -10: tmp = HIGH_PRIORITY_CLASS; break;
-		}
-		SetPriorityClass(hProc, tmp);
-	    }
-	    CloseHandle(hProc);
-	} else res[i] = NA_INTEGER;
+    for (int i = 0; i < ns; i++)
+    {
+        HANDLE hProc =
+            OpenProcess(val != NA_INTEGER ? PROCESS_SET_INFORMATION : PROCESS_QUERY_INFORMATION, FALSE, pid[i]);
+        if (hProc && pid[i] != NA_INTEGER)
+        {
+            DWORD tmp = GetPriorityClass(hProc);
+            switch (tmp)
+            {
+            case ABOVE_NORMAL_PRIORITY_CLASS:
+                res[i] = -5;
+                break;
+            case BELOW_NORMAL_PRIORITY_CLASS:
+                res[i] = 15;
+                break;
+            case HIGH_PRIORITY_CLASS:
+                res[i] = -10;
+                break;
+            case IDLE_PRIORITY_CLASS:
+                res[i] = 19;
+                break;
+            case NORMAL_PRIORITY_CLASS:
+                res[i] = 0;
+                break;
+            case REALTIME_PRIORITY_CLASS:
+                res[i] = -20;
+                break;
+            }
+            if (val != NA_INTEGER)
+            {
+                switch (val)
+                {
+                case 19:
+                    tmp = IDLE_PRIORITY_CLASS;
+                    break;
+                case 15:
+                    tmp = BELOW_NORMAL_PRIORITY_CLASS;
+                    break;
+                case 0:
+                    tmp = NORMAL_PRIORITY_CLASS;
+                    break;
+                case -5:
+                    tmp = ABOVE_NORMAL_PRIORITY_CLASS;
+                    break;
+                case -10:
+                    tmp = HIGH_PRIORITY_CLASS;
+                    break;
+                }
+                SetPriorityClass(hProc, tmp);
+            }
+            CloseHandle(hProc);
+        }
+        else
+            res[i] = NA_INTEGER;
     }
     UNPROTECT(2);
     return sres;
@@ -145,42 +183,66 @@ SEXP ps_priority(SEXP spid, SEXP svalue)
 SEXP ps_sigs(SEXP signo)
 {
     int res = NA_INTEGER;
-    switch(asInteger(signo)) {
-	/* only SIGINT and SIGTERM are in C99 */
+    switch (asInteger(signo))
+    {
+        /* only SIGINT and SIGTERM are in C99 */
 #ifdef SIGHUP
-    case 1: res = SIGHUP; break;
+    case 1:
+        res = SIGHUP;
+        break;
 #endif
 #ifdef SIGINT
-    case 2: res = SIGINT; break;
+    case 2:
+        res = SIGINT;
+        break;
 #endif
 #ifdef SIGQUIT
-    case 3: res = SIGQUIT; break;
+    case 3:
+        res = SIGQUIT;
+        break;
 #endif
 #ifdef SIGKILL
-    case 9: res = SIGKILL; break;
+    case 9:
+        res = SIGKILL;
+        break;
 #endif
 #ifdef SIGTERM
-    case 15: res = SIGTERM; break;
+    case 15:
+        res = SIGTERM;
+        break;
 #endif
 #ifdef SIGSTOP
-    case 17: res = SIGSTOP; break;
+    case 17:
+        res = SIGSTOP;
+        break;
 #endif
 #ifdef SIGTSTP
-    case 18: res = SIGTSTP; break;
+    case 18:
+        res = SIGTSTP;
+        break;
 #endif
 #ifdef SIGCONT
-    case 19: res = SIGCONT; break;
+    case 19:
+        res = SIGCONT;
+        break;
 #endif
 #ifdef SIGCHLD
-    case 20: res = SIGCHLD; break;
+    case 20:
+        res = SIGCHLD;
+        break;
 #endif
 #ifdef SIGUSR1
-    case 30: res = SIGUSR1; break;
+    case 30:
+        res = SIGUSR1;
+        break;
 #endif
 #ifdef SIGUSR2
-    case 31: res = SIGUSR2; break;
+    case 31:
+        res = SIGUSR2;
+        break;
 #endif
-    default: break;
+    default:
+        break;
     }
     return ScalarInteger(res);
 }

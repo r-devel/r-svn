@@ -28,17 +28,17 @@ double pexp(double x, double scale, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(scale))
-	return x + scale;
-    if (scale < 0) ML_WARN_return_NAN;
+        return x + scale;
+    if (scale < 0)
+        ML_WARN_return_NAN;
 #else
-    if (scale <= 0) ML_WARN_return_NAN;
+    if (scale <= 0)
+        ML_WARN_return_NAN;
 #endif
 
     if (x <= 0.)
-	return R_DT_0;
+        return R_DT_0;
     /* same as weibull( shape = 1): */
     x = -(x / scale);
-    return lower_tail
-	? (log_p ? R_Log1_Exp(x) : -expm1(x))
-	: R_D_exp(x);
+    return lower_tail ? (log_p ? R_Log1_Exp(x) : -expm1(x)) : R_D_exp(x);
 }

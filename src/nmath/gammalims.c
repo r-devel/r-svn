@@ -39,26 +39,27 @@
 void attribute_hidden gammalims(double *xmin, double *xmax)
 {
 /* FIXME: Even better: If IEEE, #define these in nmath.h
-	  and don't call gammalims() at all
+      and don't call gammalims() at all
 */
 #ifdef IEEE_754
     *xmin = -170.5674972726612;
-    *xmax =  171.61447887182298;/*(3 Intel/Sparc architectures)*/
+    *xmax = 171.61447887182298; /*(3 Intel/Sparc architectures)*/
 #else
     double alnbig, alnsml, xln, xold;
     int i;
 
     alnsml = log(d1mach(1));
     *xmin = -alnsml;
-    for (i=1; i<=10; ++i) {
-	xold = *xmin;
-	xln = log(*xmin);
-	*xmin -= *xmin * ((*xmin + .5) * xln - *xmin - .2258 + alnsml) /
-		(*xmin * xln + .5);
-	if (fabs(*xmin - xold) < .005) {
-	    *xmin = -(*xmin) + .01;
-	    goto find_xmax;
-	}
+    for (i = 1; i <= 10; ++i)
+    {
+        xold = *xmin;
+        xln = log(*xmin);
+        *xmin -= *xmin * ((*xmin + .5) * xln - *xmin - .2258 + alnsml) / (*xmin * xln + .5);
+        if (fabs(*xmin - xold) < .005)
+        {
+            *xmin = -(*xmin) + .01;
+            goto find_xmax;
+        }
     }
 
     /* unable to find xmin */
@@ -70,15 +71,16 @@ find_xmax:
 
     alnbig = log(d1mach(2));
     *xmax = alnbig;
-    for (i=1; i<=10; ++i) {
-	xold = *xmax;
-	xln = log(*xmax);
-	*xmax -= *xmax * ((*xmax - .5) * xln - *xmax + .9189 - alnbig) /
-		(*xmax * xln - .5);
-	if (fabs(*xmax - xold) < .005) {
-	    *xmax += -.01;
-	    goto done;
-	}
+    for (i = 1; i <= 10; ++i)
+    {
+        xold = *xmax;
+        xln = log(*xmax);
+        *xmax -= *xmax * ((*xmax - .5) * xln - *xmax + .9189 - alnbig) / (*xmax * xln - .5);
+        if (fabs(*xmax - xold) < .005)
+        {
+            *xmax += -.01;
+            goto done;
+        }
     }
 
     /* unable to find xmax */
@@ -90,4 +92,3 @@ done:
     *xmin = fmax2(*xmin, -(*xmax) + 1);
 #endif
 }
-

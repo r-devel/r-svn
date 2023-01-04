@@ -22,7 +22,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <string.h>
@@ -45,28 +45,33 @@
 
    We fudge this via the current directory in earlier systems.
  */
-typedef BOOL (WINAPI *PSDD)(LPCTSTR);
+typedef BOOL(WINAPI *PSDD)(LPCTSTR);
 
 int setDLLSearchPath(const char *path)
 {
     int res = 0; /* failure */
-    PSDD p = (PSDD) -1;
-    static char wd[MAX_PATH] = "";  /* stored real current directory */
+    PSDD p = (PSDD)-1;
+    static char wd[MAX_PATH] = ""; /* stored real current directory */
 
     // XP SP1 and later.
-    if(p == (PSDD) -1)
-	p = (PSDD) GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-				  "SetDllDirectoryA");
-    if(p) {
-	res = p(path);
-    } else { /* Windows 2000 */
-	if(path) {
-	    GetCurrentDirectory(MAX_PATH, wd);
-	    SetCurrentDirectory(path);
-	} else if (wd[0]) {
-	    SetCurrentDirectory(wd);
-	    wd[0] = '\0';
-	}
+    if (p == (PSDD)-1)
+        p = (PSDD)GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "SetDllDirectoryA");
+    if (p)
+    {
+        res = p(path);
+    }
+    else
+    { /* Windows 2000 */
+        if (path)
+        {
+            GetCurrentDirectory(MAX_PATH, wd);
+            SetCurrentDirectory(path);
+        }
+        else if (wd[0])
+        {
+            SetCurrentDirectory(wd);
+            wd[0] = '\0';
+        }
     }
     return res;
 }
@@ -74,20 +79,20 @@ int setDLLSearchPath(const char *path)
 #include <R_ext/Rdynload.h>
 #include <Rdynpriv.h>
 
-
-	/* Inserts the specified DLL at the head of the DLL list */
-	/* Returns 1 if the library was successfully added */
-	/* and returns 0 if the library table is full or */
-	/* or if LoadLibrary fails for some reason. */
+/* Inserts the specified DLL at the head of the DLL list */
+/* Returns 1 if the library was successfully added */
+/* and returns 0 if the library table is full or */
+/* or if LoadLibrary fails for some reason. */
 
 static void fixPath(char *path)
 {
     char *p;
-    for(p = path; *p != '\0'; p++) if(*p == '\\') *p = '/';
+    for (p = path; *p != '\0'; p++)
+        if (*p == '\\')
+            *p = '/';
 }
 
-static HINSTANCE R_loadLibrary(const char *path, int asLocal, int now,
-			       const char *search);
+static HINSTANCE R_loadLibrary(const char *path, int asLocal, int now, const char *search);
 static DL_FUNC getRoutine(DllInfo *info, char const *name);
 
 static void R_getDLLError(char *buf, int len);
@@ -115,64 +120,57 @@ void InitFunctionHashing()
 }
 
 #ifndef _MCW_EM
-_CRTIMP unsigned int __cdecl
-_controlfp (unsigned int unNew, unsigned int unMask);
-_CRTIMP unsigned int __cdecl _clearfp (void);
+_CRTIMP unsigned int __cdecl _controlfp(unsigned int unNew, unsigned int unMask);
+_CRTIMP unsigned int __cdecl _clearfp(void);
 /* Control word masks for unMask */
-#define	_MCW_EM		0x0008001F	/* Error masks */
-#define	_MCW_IC		0x00040000	/* Infinity */
-#define	_MCW_RC		0x00000300	/* Rounding */
-#define	_MCW_PC		0x00030000	/* Precision */
+#define _MCW_EM 0x0008001F /* Error masks */
+#define _MCW_IC 0x00040000 /* Infinity */
+#define _MCW_RC 0x00000300 /* Rounding */
+#define _MCW_PC 0x00030000 /* Precision */
 #endif
 
-HINSTANCE R_loadLibrary(const char *path, int asLocal, int now,
-			const char *search)
+HINSTANCE R_loadLibrary(const char *path, int asLocal, int now, const char *search)
 {
     HINSTANCE tdlh;
     unsigned int dllcw, rcw;
     int useSearch = search && search[0];
 
-    rcw = _controlfp(0,0) & ~_MCW_IC;  /* Infinity control is ignored */
+    rcw = _controlfp(0, 0) & ~_MCW_IC; /* Infinity control is ignored */
     _clearfp();
-    if(useSearch) setDLLSearchPath(search);
+    if (useSearch)
+        setDLLSearchPath(search);
     tdlh = LoadLibrary(path);
-    if(useSearch) setDLLSearchPath(NULL);
-    dllcw = _controlfp(0,0) & ~_MCW_IC;
-    if (dllcw != rcw) {
-	_controlfp(rcw, _MCW_EM | _MCW_IC | _MCW_RC | _MCW_PC);
-	if (LOGICAL(GetOption1(install("warn.FPU")))[0])
-	    warning(_("DLL attempted to change FPU control word from %x to %x"),
-		    rcw,dllcw);
+    if (useSearch)
+        setDLLSearchPath(NULL);
+    dllcw = _controlfp(0, 0) & ~_MCW_IC;
+    if (dllcw != rcw)
+    {
+        _controlfp(rcw, _MCW_EM | _MCW_IC | _MCW_RC | _MCW_PC);
+        if (LOGICAL(GetOption1(install("warn.FPU")))[0])
+            warning(_("DLL attempted to change FPU control word from %x to %x"), rcw, dllcw);
     }
-    return(tdlh);
+    return (tdlh);
 }
 
 static DL_FUNC getRoutine(DllInfo *info, char const *name)
 {
     DL_FUNC f;
-    f = (DL_FUNC) GetProcAddress(info->handle, name);
-    return(f);
+    f = (DL_FUNC)GetProcAddress(info->handle, name);
+    return (f);
 }
 
 static void R_getDLLError(char *buf, int len)
 {
     LPSTR lpMsgBuf, p;
     char *q;
-    FormatMessage(
-	FORMAT_MESSAGE_ALLOCATE_BUFFER |
-	FORMAT_MESSAGE_FROM_SYSTEM |
-	FORMAT_MESSAGE_IGNORE_INSERTS,
-	NULL,
-	GetLastError(),
-	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	(LPSTR) &lpMsgBuf,
-	0,
-	NULL
-	);
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+                  GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&lpMsgBuf, 0, NULL);
     strcpy(buf, "LoadLibrary failure:  ");
     q = buf + strlen(buf);
     /* It seems that Win 7 returns error messages with CRLF terminators */
-    for (p = lpMsgBuf; *p; p++) if (*p != '\r') *q++ = *p;
+    for (p = lpMsgBuf; *p; p++)
+        if (*p != '\r')
+            *q++ = *p;
     LocalFree(lpMsgBuf);
 }
 
@@ -180,13 +178,17 @@ static void GetFullDLLPath(SEXP call, char *buf, const char *path)
 {
     char *p;
 
-    if ((path[0] != '/') && (path[0] != '\\') && (path[1] != ':')) {
-	if (!getcwd(buf, MAX_PATH))
-	    errorcall(call, _("cannot get working directory"));
-	strcat(buf, "\\");
-	strcat(buf, path);
-    } else
-	strcpy(buf, path);
+    if ((path[0] != '/') && (path[0] != '\\') && (path[1] != ':'))
+    {
+        if (!getcwd(buf, MAX_PATH))
+            errorcall(call, _("cannot get working directory"));
+        strcat(buf, "\\");
+        strcat(buf, path);
+    }
+    else
+        strcpy(buf, path);
     /* fix slashes to allow inconsistent usage later */
-    for (p = buf; *p; p++) if (*p == '\\') *p = '/';
+    for (p = buf; *p; p++)
+        if (*p == '\\')
+            *p = '/';
 }

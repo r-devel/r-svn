@@ -48,28 +48,31 @@ double dhyper(double x, double r, double b, double n, int give_log)
 
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(r) || ISNAN(b) || ISNAN(n))
-	return x + r + b + n;
+        return x + r + b + n;
 #endif
 
-    if (R_D_negInonint(r) || R_D_negInonint(b) || R_D_negInonint(n) || n > r+b)
-	ML_WARN_return_NAN;
-    if(x < 0) return(R_D__0);
-    R_D_nonint_check(x);// incl warning
+    if (R_D_negInonint(r) || R_D_negInonint(b) || R_D_negInonint(n) || n > r + b)
+        ML_WARN_return_NAN;
+    if (x < 0)
+        return (R_D__0);
+    R_D_nonint_check(x); // incl warning
 
     x = R_forceint(x);
     r = R_forceint(r);
     b = R_forceint(b);
     n = R_forceint(n);
 
-    if (n < x || r < x || n - x > b) return(R_D__0);
-    if (n == 0) return((x == 0) ? R_D__1 : R_D__0);
+    if (n < x || r < x || n - x > b)
+        return (R_D__0);
+    if (n == 0)
+        return ((x == 0) ? R_D__1 : R_D__0);
 
-    p = ((double)n)/((double)(r+b));
-    q = ((double)(r+b-n))/((double)(r+b));
+    p = ((double)n) / ((double)(r + b));
+    q = ((double)(r + b - n)) / ((double)(r + b));
 
-    p1 = dbinom_raw(x,	r, p,q,give_log);
-    p2 = dbinom_raw(n-x,b, p,q,give_log);
-    p3 = dbinom_raw(n,r+b, p,q,give_log);
+    p1 = dbinom_raw(x, r, p, q, give_log);
+    p2 = dbinom_raw(n - x, b, p, q, give_log);
+    p3 = dbinom_raw(n, r + b, p, q, give_log);
 
-    return( (give_log) ? p1 + p2 - p3 : p1*p2/p3 );
+    return ((give_log) ? p1 + p2 - p3 : p1 * p2 / p3);
 }

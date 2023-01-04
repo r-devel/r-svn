@@ -23,7 +23,6 @@
 
 #include <Defn.h>
 
-
 #include <R_ext/Rdynload.h>
 int R_cairoCdynload(int local, int now);
 
@@ -40,34 +39,40 @@ static R_cairoFT_t R_cairoFT;
 static int Load_Rcairo_Dll(void)
 {
     static int initialized = 0;
- 
-    if (initialized) return initialized;
+
+    if (initialized)
+        return initialized;
     initialized = -1;
 
     int res = R_cairoCdynload(1, 1);
-    if(!res) return initialized;
-    R_devCairo = (R_cairo) R_FindSymbol("in_Cairo", "cairo", NULL);
-    if (!R_devCairo) error("failed to load cairo DLL");
-    R_cairoVersion = (R_cairoVersion_t) R_FindSymbol("in_CairoVersion", "cairo", NULL);
-    R_pangoVersion = (R_pangoVersion_t) R_FindSymbol("in_PangoVersion", "cairo", NULL);
-    R_cairoFT = (R_cairoFT_t) R_FindSymbol("in_CairoFT", "cairo", NULL);
+    if (!res)
+        return initialized;
+    R_devCairo = (R_cairo)R_FindSymbol("in_Cairo", "cairo", NULL);
+    if (!R_devCairo)
+        error("failed to load cairo DLL");
+    R_cairoVersion = (R_cairoVersion_t)R_FindSymbol("in_CairoVersion", "cairo", NULL);
+    R_pangoVersion = (R_pangoVersion_t)R_FindSymbol("in_PangoVersion", "cairo", NULL);
+    R_cairoFT = (R_cairoFT_t)R_FindSymbol("in_CairoFT", "cairo", NULL);
     initialized = 1;
     return initialized;
 }
 
-
 SEXP devCairo(SEXP args)
 {
-    if (Load_Rcairo_Dll() < 0) warning("failed to load cairo DLL");
-    else (R_devCairo)(args);
+    if (Load_Rcairo_Dll() < 0)
+        warning("failed to load cairo DLL");
+    else
+        (R_devCairo)(args);
     return R_NilValue;
 }
 
 SEXP cairoVersion(void)
 {
 #ifdef HAVE_WORKING_CAIRO
-    if (Load_Rcairo_Dll() < 0) return mkString("");
-    else return (R_cairoVersion)();
+    if (Load_Rcairo_Dll() < 0)
+        return mkString("");
+    else
+        return (R_cairoVersion)();
 #else
     return mkString("");
 #endif
@@ -76,18 +81,22 @@ SEXP cairoVersion(void)
 SEXP pangoVersion(void)
 {
 #ifdef HAVE_WORKING_CAIRO
-    if (Load_Rcairo_Dll() < 0) return mkString("");
-    else return (R_pangoVersion)();
+    if (Load_Rcairo_Dll() < 0)
+        return mkString("");
+    else
+        return (R_pangoVersion)();
 #else
     return mkString("");
 #endif
 }
 
-SEXP cairoFT(void) 
+SEXP cairoFT(void)
 {
 #ifdef HAVE_WORKING_CAIRO
-    if (Load_Rcairo_Dll() < 0) return mkString("");
-    else return (R_cairoFT)();
+    if (Load_Rcairo_Dll() < 0)
+        return mkString("");
+    else
+        return (R_cairoFT)();
 #else
     return mkString("");
 #endif

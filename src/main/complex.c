@@ -58,64 +58,72 @@
 #undef HAVE_CPOW
 #endif
 
-#include <Defn.h>		/* -> ../include/R_ext/Complex.h */
+#include <Defn.h> /* -> ../include/R_ext/Complex.h */
 #include <Internal.h>
 #include <Rmath.h>
 
-#include "arithmetic.h"		/* complex_*  */
+#include "arithmetic.h" /* complex_*  */
 #include <complex.h>
-#include "Rcomplex.h"		/* I, SET_C99_COMPLEX, toC99 */
+#include "Rcomplex.h" /* I, SET_C99_COMPLEX, toC99 */
 #include <R_ext/Itermacros.h>
-
 
 /* interval at which to check interrupts, a guess */
 #define NINTERRUPT 10000000
-
 
 attribute_hidden SEXP complex_unary(ARITHOP_TYPE code, SEXP s1, SEXP call)
 {
     R_xlen_t i, n;
     SEXP ans;
 
-    switch(code) {
+    switch (code)
+    {
     case PLUSOP:
-	return s1;
+        return s1;
     case MINUSOP:
-	ans = NO_REFERENCES(s1) ? s1 : duplicate(s1);
-	Rcomplex *pans = COMPLEX(ans);
-	const Rcomplex *ps1 = COMPLEX_RO(s1);
-	n = XLENGTH(s1);
-	for (i = 0; i < n; i++) {
-	    Rcomplex x = ps1[i];
-	    pans[i].r = -x.r;
-	    pans[i].i = -x.i;
-	}
-	return ans;
+        ans = NO_REFERENCES(s1) ? s1 : duplicate(s1);
+        Rcomplex *pans = COMPLEX(ans);
+        const Rcomplex *ps1 = COMPLEX_RO(s1);
+        n = XLENGTH(s1);
+        for (i = 0; i < n; i++)
+        {
+            Rcomplex x = ps1[i];
+            pans[i].r = -x.r;
+            pans[i].i = -x.i;
+        }
+        return ans;
     default:
-	errorcall(call, _("invalid complex unary operator"));
+        errorcall(call, _("invalid complex unary operator"));
     }
     return R_NilValue; /* -Wall */
 }
 
 static R_INLINE double complex R_cpow_n(double complex X, int k)
 {
-    if(k == 0) return (double complex) 1.;
-    else if(k == 1) return X;
-    else if(k < 0) return 1. / R_cpow_n(X, -k);
-    else {/* k > 0 */
-	double complex z = (double complex) 1.;;
-	while (k > 0) {
-	    if (k & 1) z = z * X;
-	    if (k == 1) break;
-	    k >>= 1; /* efficient division by 2; now have k >= 1 */
-	    X = X * X;
-	}
-	return z;
+    if (k == 0)
+        return (double complex)1.;
+    else if (k == 1)
+        return X;
+    else if (k < 0)
+        return 1. / R_cpow_n(X, -k);
+    else
+    { /* k > 0 */
+        double complex z = (double complex)1.;
+        ;
+        while (k > 0)
+        {
+            if (k & 1)
+                z = z * X;
+            if (k == 1)
+                break;
+            k >>= 1; /* efficient division by 2; now have k >= 1 */
+            X = X * X;
+        }
+        return z;
     }
 }
 
 #if defined(Win32)
-# undef HAVE_CPOW
+#undef HAVE_CPOW
 #endif
 /* reason for this:
   1) X^n  (e.g. for n = +/- 2, 3) is unnecessarily inaccurate in glibc;
@@ -129,45 +137,49 @@ static R_INLINE double complex R_cpow_n(double complex X, int k)
   (C1x's CMPLX will eventually be possible.)
 */
 
-static double complex mycpow (double complex X, double complex Y)
+static double complex mycpow(double complex X, double complex Y)
 {
     double complex Z;
     double yr = creal(Y), yi = cimag(Y);
     int k;
-    if (X == 0.0) {
-	if (yi == 0.0) Z = R_pow(0.0, yr); else Z = R_NaN + R_NaN*I;
-    } else if (yi == 0.0 && yr == (k = (int) yr) && abs(k) <= 65536)
-	Z = R_cpow_n(X, k);
+    if (X == 0.0)
+    {
+        if (yi == 0.0)
+            Z = R_pow(0.0, yr);
+        else
+            Z = R_NaN + R_NaN * I;
+    }
+    else if (yi == 0.0 && yr == (k = (int)yr) && abs(k) <= 65536)
+        Z = R_cpow_n(X, k);
     else
 #ifdef HAVE_CPOW
-	Z = cpow(X, Y);
+        Z = cpow(X, Y);
 #else
     {
-	/* Used for FreeBSD and MingGW, hence mainly with gcc */
-	double rho, r, i, theta;
-	r = hypot(creal(X), cimag(X));
-	i = atan2(cimag(X), creal(X));
-	theta = i * yr;
-	if (yi == 0.0)
-	    rho = pow(r, yr);
-	else {
-	    /* rearrangement of cexp(X * clog(Y)) */
-	    r = log(r);
-	    theta += r * yi;
-	    rho = exp(r * yr - i * yi);
-	}
+        /* Used for FreeBSD and MingGW, hence mainly with gcc */
+        double rho, r, i, theta;
+        r = hypot(creal(X), cimag(X));
+        i = atan2(cimag(X), creal(X));
+        theta = i * yr;
+        if (yi == 0.0)
+            rho = pow(r, yr);
+        else
+        {
+            /* rearrangement of cexp(X * clog(Y)) */
+            r = log(r);
+            theta += r * yi;
+            rho = exp(r * yr - i * yi);
+        }
 #ifdef __GNUC__
-	__real__ Z = rho * cos(theta);
-	__imag__ Z = rho * sin(theta);
+        __real__ Z = rho * cos(theta);
+        __imag__ Z = rho * sin(theta);
 #else
-	Z = rho * cos(theta) + (rho * sin(theta)) * I;
+        Z = rho * cos(theta) + (rho * sin(theta)) * I;
 #endif
     }
 #endif
     return Z;
 }
-
-
 
 attribute_hidden SEXP complex_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 {
@@ -177,8 +189,9 @@ attribute_hidden SEXP complex_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
     /* Note: "s1" and "s2" are protected in the calling code. */
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
-     /* S4-compatibility change: if n1 or n2 is 0, result is of length 0 */
-    if (n1 == 0 || n2 == 0) return(allocVector(CPLXSXP, 0));
+    /* S4-compatibility change: if n1 or n2 is 0, result is of length 0 */
+    if (n1 == 0 || n2 == 0)
+        return (allocVector(CPLXSXP, 0));
 
     n = (n1 > n2) ? n1 : n2;
     ans = R_allocOrReuseVector(s1, s2, CPLXSXP, n);
@@ -188,169 +201,173 @@ attribute_hidden SEXP complex_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
     const Rcomplex *ps1 = COMPLEX_RO(s1);
     const Rcomplex *ps2 = COMPLEX_RO(s2);
 
-    switch (code) {
+    switch (code)
+    {
     case PLUSOP:
-	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-	    Rcomplex x1 = ps1[i1];
-	    Rcomplex x2 = ps2[i2];
-	    pans[i].r = x1.r + x2.r;
-	    pans[i].i = x1.i + x2.i;
-	});
-	break;
+        MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+            Rcomplex x1 = ps1[i1];
+            Rcomplex x2 = ps2[i2];
+            pans[i].r = x1.r + x2.r;
+            pans[i].i = x1.i + x2.i;
+        });
+        break;
     case MINUSOP:
-	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-	    Rcomplex x1 = ps1[i1];
-	    Rcomplex x2 = ps2[i2];
-	    pans[i].r = x1.r - x2.r;
-	    pans[i].i = x1.i - x2.i;
-	});
-	break;
+        MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+            Rcomplex x1 = ps1[i1];
+            Rcomplex x2 = ps2[i2];
+            pans[i].r = x1.r - x2.r;
+            pans[i].i = x1.i - x2.i;
+        });
+        break;
     case TIMESOP:
-	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-	    SET_C99_COMPLEX(pans, i,
-			    toC99(&ps1[i1]) * toC99(&ps2[i2]));
-	});
-	break;
+        MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+                           { SET_C99_COMPLEX(pans, i, toC99(&ps1[i1]) * toC99(&ps2[i2])); });
+        break;
     case DIVOP:
-	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-	    SET_C99_COMPLEX(pans, i,
-			    toC99(&ps1[i1]) / toC99(&ps2[i2]));
-	});
-	break;
+        MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+                           { SET_C99_COMPLEX(pans, i, toC99(&ps1[i1]) / toC99(&ps2[i2])); });
+        break;
     case POWOP:
-	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-	    SET_C99_COMPLEX(pans, i,
-			    mycpow(toC99(&ps1[i1]), toC99(&ps2[i2])));
-	});
-	break;
+        MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+                           { SET_C99_COMPLEX(pans, i, mycpow(toC99(&ps1[i1]), toC99(&ps2[i2]))); });
+        break;
     default:
-	error(_("unimplemented complex operation"));
+        error(_("unimplemented complex operation"));
     }
     UNPROTECT(1);
 
     /* quick return if there are no attributes */
     if (ATTRIB(s1) == R_NilValue && ATTRIB(s2) == R_NilValue)
-	return ans;
+        return ans;
 
     /* Copy attributes from longer argument. */
 
     if (ans != s2 && n == n2 && ATTRIB(s2) != R_NilValue)
-	copyMostAttrib(s2, ans);
+        copyMostAttrib(s2, ans);
     if (ans != s1 && n == n1 && ATTRIB(s1) != R_NilValue)
-	copyMostAttrib(s1, ans); /* Done 2nd so s1's attrs overwrite s2's */
+        copyMostAttrib(s1, ans); /* Done 2nd so s1's attrs overwrite s2's */
 
     return ans;
 }
 
 attribute_hidden SEXP do_cmathfuns(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP x, y = R_NilValue;	/* -Wall*/
+    SEXP x, y = R_NilValue; /* -Wall*/
     R_xlen_t i, n;
 
     checkArity(op, args);
     check1arg(args, call, "z");
     if (DispatchGroup("Complex", call, op, args, env, &x))
-	return x;
+        return x;
     x = CAR(args);
-    if (isComplex(x)) {
-	n = XLENGTH(x);
-	const Rcomplex *px = COMPLEX_RO(x);
-	switch(PRIMVAL(op)) {
-	case 1:	/* Re */
-	    {
-		y = allocVector(REALSXP, n);
-		double *py = REAL(y);
-		for(i = 0 ; i < n ; i++)
-		    py[i] = px[i].r;
-	    }
-	    break;
-	case 2:	/* Im */
-	    {
-		y = allocVector(REALSXP, n);
-		double *py = REAL(y);
-		for(i = 0 ; i < n ; i++)
-		    py[i] = px[i].i;
-	    }
-	    break;
-	case 3:	/* Mod */
-	case 6:	/* abs */
-	    {
-		y = allocVector(REALSXP, n);
-		double *py = REAL(y);
-		for(i = 0 ; i < n ; i++)
+    if (isComplex(x))
+    {
+        n = XLENGTH(x);
+        const Rcomplex *px = COMPLEX_RO(x);
+        switch (PRIMVAL(op))
+        {
+        case 1: /* Re */
+        {
+            y = allocVector(REALSXP, n);
+            double *py = REAL(y);
+            for (i = 0; i < n; i++)
+                py[i] = px[i].r;
+        }
+        break;
+        case 2: /* Im */
+        {
+            y = allocVector(REALSXP, n);
+            double *py = REAL(y);
+            for (i = 0; i < n; i++)
+                py[i] = px[i].i;
+        }
+        break;
+        case 3: /* Mod */
+        case 6: /* abs */
+        {
+            y = allocVector(REALSXP, n);
+            double *py = REAL(y);
+            for (i = 0; i < n; i++)
 #if HAVE_CABS
-		    py[i] = cabs(toC99(&px[i]));
+                py[i] = cabs(toC99(&px[i]));
 #else
-		    py[i] = hypot(px[i].r, px[i].i);
+                py[i] = hypot(px[i].r, px[i].i);
 #endif
-	    }
-	    break;
-	case 4:	/* Arg */
-	    {
-		y = allocVector(REALSXP, n);
-		double *py = REAL(y);
-		for(i = 0 ; i < n ; i++)
+        }
+        break;
+        case 4: /* Arg */
+        {
+            y = allocVector(REALSXP, n);
+            double *py = REAL(y);
+            for (i = 0; i < n; i++)
 #if HAVE_CARG
-		    py[i] = carg(toC99(&px[i]));
+                py[i] = carg(toC99(&px[i]));
 #else
-		    py[i] = atan2(px[i].i, px[i].r);
+                py[i] = atan2(px[i].i, px[i].r);
 #endif
-	    }
-	    break;
-	case 5:	/* Conj */
-	    {
-		y = NO_REFERENCES(x) ? x : allocVector(CPLXSXP, n);
-		Rcomplex *py = COMPLEX(y);
-		for(i = 0 ; i < n ; i++) {
-		    py[i].r = px[i].r;
-		    py[i].i = -px[i].i;
-		}
-	    }
-	    break;
-	}
+        }
+        break;
+        case 5: /* Conj */
+        {
+            y = NO_REFERENCES(x) ? x : allocVector(CPLXSXP, n);
+            Rcomplex *py = COMPLEX(y);
+            for (i = 0; i < n; i++)
+            {
+                py[i].r = px[i].r;
+                py[i].i = -px[i].i;
+            }
+        }
+        break;
+        }
     }
-    else if(isNumeric(x)) { /* so no complex numbers involved */
-	n = XLENGTH(x);
-	if(isReal(x)) PROTECT(x);
-	else PROTECT(x = coerceVector(x, REALSXP));
-	y = NO_REFERENCES(x) ? x : allocVector(REALSXP, n);
-	double *py = REAL(y);
-	const double *px = REAL_RO(x);
+    else if (isNumeric(x))
+    { /* so no complex numbers involved */
+        n = XLENGTH(x);
+        if (isReal(x))
+            PROTECT(x);
+        else
+            PROTECT(x = coerceVector(x, REALSXP));
+        y = NO_REFERENCES(x) ? x : allocVector(REALSXP, n);
+        double *py = REAL(y);
+        const double *px = REAL_RO(x);
 
-	switch(PRIMVAL(op)) {
-	case 1:	/* Re */
-	case 5:	/* Conj */
-	    for(i = 0 ; i < n ; i++)
-		py[i] = px[i];
-	    break;
-	case 2:	/* Im */
-	    for(i = 0 ; i < n ; i++)
-		py[i] = 0.0;
-	    break;
-	case 4:	/* Arg */
-	    for(i = 0 ; i < n ; i++)
-		if(ISNAN(px[i]))
-		    py[i] = px[i];
-		else if (px[i] >= 0)
-		    py[i] = 0;
-		else
-		    py[i] = M_PI;
-	    break;
-	case 3:	/* Mod */
-	case 6:	/* abs */
-	    for(i = 0 ; i < n ; i++)
-		py[i] = fabs(px[i]);
-	    break;
-	}
-	UNPROTECT(1);
+        switch (PRIMVAL(op))
+        {
+        case 1: /* Re */
+        case 5: /* Conj */
+            for (i = 0; i < n; i++)
+                py[i] = px[i];
+            break;
+        case 2: /* Im */
+            for (i = 0; i < n; i++)
+                py[i] = 0.0;
+            break;
+        case 4: /* Arg */
+            for (i = 0; i < n; i++)
+                if (ISNAN(px[i]))
+                    py[i] = px[i];
+                else if (px[i] >= 0)
+                    py[i] = 0;
+                else
+                    py[i] = M_PI;
+            break;
+        case 3: /* Mod */
+        case 6: /* abs */
+            for (i = 0; i < n; i++)
+                py[i] = fabs(px[i]);
+            break;
+        }
+        UNPROTECT(1);
     }
-    else errorcall(call, _("non-numeric argument to function"));
+    else
+        errorcall(call, _("non-numeric argument to function"));
 
-    if (x != y && ATTRIB(x) != R_NilValue) {
-	PROTECT(x);
-	PROTECT(y);
-	SHALLOW_DUPLICATE_ATTRIB(y, x);
-	UNPROTECT(2);
+    if (x != y && ATTRIB(x) != R_NilValue)
+    {
+        PROTECT(x);
+        PROTECT(y);
+        SHALLOW_DUPLICATE_ATTRIB(y, x);
+        UNPROTECT(2);
     }
     return y;
 }
@@ -361,29 +378,44 @@ attribute_hidden void z_prec_r(Rcomplex *r, const Rcomplex *x, double digits)
 {
     // Implement    r <- signif(x, digits)
 
-    r->r = x->r; r->i = x->i;
-    double m = 0.0,
-	m1 = fabs(x->r),
-	m2 = fabs(x->i);
-    if(R_FINITE(m1)) m = m1;
-    if(R_FINITE(m2) && m2 > m) m = m2;
-    if (m == 0.0) return;
-    if (!R_FINITE(digits)) {
-	if(digits > 0) return; else {r->r = r->i = 0.0; return ;}
+    r->r = x->r;
+    r->i = x->i;
+    double m = 0.0, m1 = fabs(x->r), m2 = fabs(x->i);
+    if (R_FINITE(m1))
+        m = m1;
+    if (R_FINITE(m2) && m2 > m)
+        m = m2;
+    if (m == 0.0)
+        return;
+    if (!R_FINITE(digits))
+    {
+        if (digits > 0)
+            return;
+        else
+        {
+            r->r = r->i = 0.0;
+            return;
+        }
     }
-    int dig = (int)floor(digits+0.5);
-    if (dig > MAX_DIGITS) return; else if (dig < 1) dig = 1;
+    int dig = (int)floor(digits + 0.5);
+    if (dig > MAX_DIGITS)
+        return;
+    else if (dig < 1)
+        dig = 1;
     int mag = (int)floor(log10(m));
     dig = dig - mag - 1;
-    if (dig > 306) {
-	double pow10 = 1.0e4;
-	digits = (double)(dig - 4);
-	r->r = fround(pow10 * x->r, digits)/pow10;
-	r->i = fround(pow10 * x->i, digits)/pow10;
-    } else {
-	digits = (double)(dig);
-	r->r = fround(x->r, digits);
-	r->i = fround(x->i, digits);
+    if (dig > 306)
+    {
+        double pow10 = 1.0e4;
+        digits = (double)(dig - 4);
+        r->r = fround(pow10 * x->r, digits) / pow10;
+        r->i = fround(pow10 * x->i, digits) / pow10;
+    }
+    else
+    {
+        digits = (double)(dig);
+        r->r = fround(x->r, digits);
+        r->i = fround(x->i, digits);
     }
 }
 
@@ -400,7 +432,7 @@ attribute_hidden void z_prec_r(Rcomplex *r, const Rcomplex *x, double digits)
 static double complex clog(double complex x)
 {
     double xr = creal(x), xi = cimag(x);
-    return log(hypot(xr, xi)) + atan2(xi, xr)*I;
+    return log(hypot(xr, xi)) + atan2(xi, xr) * I;
 }
 #endif
 
@@ -409,7 +441,7 @@ static double complex clog(double complex x)
 /* FreeBSD does have this one */
 static double complex csqrt(double complex x)
 {
-    return mycpow(x, 0.5+0.0*I);
+    return mycpow(x, 0.5 + 0.0 * I);
 }
 #endif
 
@@ -428,7 +460,7 @@ static double complex cexp(double complex x)
 static double complex ccos(double complex x)
 {
     double xr = creal(x), xi = cimag(x);
-    return cos(xr)*cosh(xi) - sin(xr)*sinh(xi)*I; /* A&S 4.3.56 */
+    return cos(xr) * cosh(xi) - sin(xr) * sinh(xi) * I; /* A&S 4.3.56 */
 }
 #endif
 
@@ -437,7 +469,7 @@ static double complex ccos(double complex x)
 static double complex csin(double complex x)
 {
     double xr = creal(x), xi = cimag(x);
-    return sin(xr)*cosh(xi) + cos(xr)*sinh(xi)*I; /* A&S 4.3.55 */
+    return sin(xr) * cosh(xi) + cos(xr) * sinh(xi) * I; /* A&S 4.3.55 */
 }
 #endif
 
@@ -451,9 +483,11 @@ static double complex ctan(double complex z)
     y2 = 2.0 * cimag(z);
     den = cos(x2) + cosh(y2);
     /* any threshold between -log(DBL_EPSILON) and log(DBL_XMAX) will do*/
-    if (ISNAN(y2) || fabs(y2) < 50.0) ri = sinh(y2)/den;
-    else ri = (y2 < 0 ? -1.0 : 1.0);
-    return sin(x2)/den + ri * I;
+    if (ISNAN(y2) || fabs(y2) < 50.0)
+        ri = sinh(y2) / den;
+    else
+        ri = (y2 < 0 ? -1.0 : 1.0);
+    return sin(x2) / den + ri * I;
 }
 #endif
 
@@ -466,13 +500,14 @@ static double complex casin(double complex z)
     t1 = 0.5 * hypot(x + 1, y);
     t2 = 0.5 * hypot(x - 1, y);
     alpha = t1 + t2;
-    ri = log(alpha + sqrt(alpha*alpha - 1));
+    ri = log(alpha + sqrt(alpha * alpha - 1));
     /* This comes from
        'z_asin() is continuous from below if x >= 1
-	and continuous from above if x <= -1.'
+    and continuous from above if x <= -1.'
     */
-    if(y < 0 || (y == 0 && x > 1)) ri *= -1;
-    return asin(t1  - t2) + ri*I;
+    if (y < 0 || (y == 0 && x > 1))
+        ri *= -1;
+    return asin(t1 - t2) + ri * I;
 }
 #endif
 
@@ -490,9 +525,8 @@ static double complex catan(double complex z)
 {
     double x = creal(z), y = cimag(z), rr, ri;
     rr = 0.5 * atan2(2 * x, (1 - x * x - y * y));
-    ri = 0.25 * log((x * x + (y + 1) * (y + 1)) /
-		    (x * x + (y - 1) * (y - 1)));
-    return rr + ri*I;
+    ri = 0.25 * log((x * x + (y + 1) * (y + 1)) / (x * x + (y - 1) * (y - 1)));
+    return rr + ri * I;
 }
 #endif
 
@@ -516,13 +550,14 @@ static double complex z_tan(double complex z)
 {
     double y = cimag(z);
     double complex r = ctan(z);
-    if(R_FINITE(y) && fabs(y) > 25.0) {
-	/* at this point the real part is nearly zero, and the
-	   imaginary part is one: but some OSes get the imag as NaN */
+    if (R_FINITE(y) && fabs(y) > 25.0)
+    {
+        /* at this point the real part is nearly zero, and the
+           imaginary part is one: but some OSes get the imag as NaN */
 #if __GNUC__
-	__imag__ r = y < 0 ? -1.0 : 1.0;
+        __imag__ r = y < 0 ? -1.0 : 1.0;
 #else
-	r = creal(r) + (y < 0 ? -1.0 : 1.0) * I;
+        r = creal(r) + (y < 0 ? -1.0 : 1.0) * I;
 #endif
     }
     return r;
@@ -536,36 +571,39 @@ static double complex ctanh(double complex z)
 }
 #endif
 
-
 /* Don't rely on the OS at the branch cuts */
 
 static double complex z_asin(double complex z)
 {
-    if(cimag(z) == 0 && fabs(creal(z)) > 1) {
-	double alpha, t1, t2, x = creal(z), ri;
-	t1 = 0.5 * fabs(x + 1);
-	t2 = 0.5 * fabs(x - 1);
-	alpha = t1 + t2;
-	ri = log(alpha + sqrt(alpha*alpha - 1));
-	if(x > 1) ri *= -1;
-	return asin(t1  - t2) + ri*I;
+    if (cimag(z) == 0 && fabs(creal(z)) > 1)
+    {
+        double alpha, t1, t2, x = creal(z), ri;
+        t1 = 0.5 * fabs(x + 1);
+        t2 = 0.5 * fabs(x - 1);
+        alpha = t1 + t2;
+        ri = log(alpha + sqrt(alpha * alpha - 1));
+        if (x > 1)
+            ri *= -1;
+        return asin(t1 - t2) + ri * I;
     }
     return casin(z);
 }
 
 static double complex z_acos(double complex z)
 {
-    if(cimag(z) == 0 && fabs(creal(z)) > 1) return M_PI_2 - z_asin(z);
+    if (cimag(z) == 0 && fabs(creal(z)) > 1)
+        return M_PI_2 - z_asin(z);
     return cacos(z);
 }
 
 static double complex z_atan(double complex z)
 {
-    if(creal(z) == 0 && fabs(cimag(z)) > 1) {
-	double y = cimag(z), rr, ri;
-	rr = (y > 0) ? M_PI_2 : -M_PI_2;
-	ri = 0.25 * log(((y + 1) * (y + 1))/((y - 1) * (y - 1)));
-	return rr + ri*I;
+    if (creal(z) == 0 && fabs(cimag(z)) > 1)
+    {
+        double y = cimag(z), rr, ri;
+        rr = (y > 0) ? M_PI_2 : -M_PI_2;
+        ri = 0.25 * log(((y + 1) * (y + 1)) / ((y - 1) * (y - 1)));
+        return rr + ri * I;
     }
     return catan(z);
 }
@@ -585,19 +623,23 @@ static double complex z_atanh(double complex z)
     return -I * z_atan(z * I);
 }
 
-static Rboolean cmath1(double complex (*f)(double complex),
-		       const Rcomplex *x, Rcomplex *y, R_xlen_t n)
+static Rboolean cmath1(double complex (*f)(double complex), const Rcomplex *x, Rcomplex *y, R_xlen_t n)
 {
     R_xlen_t i;
     Rboolean naflag = FALSE;
-    for (i = 0 ; i < n ; i++) {
-	if (ISNA(x[i].r) || ISNA(x[i].i)) {
-	    y[i].r = NA_REAL; y[i].i = NA_REAL;
-	} else {
-	    SET_C99_COMPLEX(y, i, f(toC99(x + i)));
-	    if ( (ISNAN(y[i].r) || ISNAN(y[i].i)) &&
-		!(ISNAN(x[i].r) || ISNAN(x[i].i)) ) naflag = TRUE;
-	}
+    for (i = 0; i < n; i++)
+    {
+        if (ISNA(x[i].r) || ISNA(x[i].i))
+        {
+            y[i].r = NA_REAL;
+            y[i].i = NA_REAL;
+        }
+        else
+        {
+            SET_C99_COMPLEX(y, i, f(toC99(x + i)));
+            if ((ISNAN(y[i].r) || ISNAN(y[i].i)) && !(ISNAN(x[i].r) || ISNAN(x[i].i)))
+                naflag = TRUE;
+        }
     }
     return naflag;
 }
@@ -615,35 +657,66 @@ attribute_hidden SEXP complex_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     const Rcomplex *px = COMPLEX_RO(x);
     Rcomplex *py = COMPLEX(y);
 
-    switch (PRIMVAL(op)) {
-    case 10003: naflag = cmath1(clog, px, py, n); break;
-	// 1: floor
-	// 2: ceil[ing]
-    case 3: naflag = cmath1(csqrt, px, py, n); break;
-	// 4: sign
-    case 10: naflag = cmath1(cexp, px, py, n); break;
-	// 11: expm1
-	// 12: log1p
-    case 20: naflag = cmath1(ccos, px, py, n); break;
-    case 21: naflag = cmath1(csin, px, py, n); break;
-    case 22: naflag = cmath1(z_tan, px, py, n); break;
-    case 23: naflag = cmath1(z_acos, px, py, n); break;
-    case 24: naflag = cmath1(z_asin, px, py, n); break;
-    case 25: naflag = cmath1(z_atan, px, py, n); break;
+    switch (PRIMVAL(op))
+    {
+    case 10003:
+        naflag = cmath1(clog, px, py, n);
+        break;
+    // 1: floor
+    // 2: ceil[ing]
+    case 3:
+        naflag = cmath1(csqrt, px, py, n);
+        break;
+    // 4: sign
+    case 10:
+        naflag = cmath1(cexp, px, py, n);
+        break;
+    // 11: expm1
+    // 12: log1p
+    case 20:
+        naflag = cmath1(ccos, px, py, n);
+        break;
+    case 21:
+        naflag = cmath1(csin, px, py, n);
+        break;
+    case 22:
+        naflag = cmath1(z_tan, px, py, n);
+        break;
+    case 23:
+        naflag = cmath1(z_acos, px, py, n);
+        break;
+    case 24:
+        naflag = cmath1(z_asin, px, py, n);
+        break;
+    case 25:
+        naflag = cmath1(z_atan, px, py, n);
+        break;
 
-    case 30: naflag = cmath1(ccosh, px, py, n); break;
-    case 31: naflag = cmath1(csinh, px, py, n); break;
-    case 32: naflag = cmath1(ctanh, px, py, n); break;
-    case 33: naflag = cmath1(z_acosh, px, py, n); break;
-    case 34: naflag = cmath1(z_asinh, px, py, n); break;
-    case 35: naflag = cmath1(z_atanh, px, py, n); break;
+    case 30:
+        naflag = cmath1(ccosh, px, py, n);
+        break;
+    case 31:
+        naflag = cmath1(csinh, px, py, n);
+        break;
+    case 32:
+        naflag = cmath1(ctanh, px, py, n);
+        break;
+    case 33:
+        naflag = cmath1(z_acosh, px, py, n);
+        break;
+    case 34:
+        naflag = cmath1(z_asinh, px, py, n);
+        break;
+    case 35:
+        naflag = cmath1(z_atanh, px, py, n);
+        break;
 
     default:
-	/* such as sign, gamma */
-	errorcall(call, _("unimplemented complex function"));
+        /* such as sign, gamma */
+        errorcall(call, _("unimplemented complex function"));
     }
     if (naflag)
-	warningcall(call, "NaNs produced in function \"%s\"", PRIMNAME(op));
+        warningcall(call, "NaNs produced in function \"%s\"", PRIMNAME(op));
     SHALLOW_DUPLICATE_ATTRIB(y, x);
     UNPROTECT(2);
     return y;
@@ -663,31 +736,41 @@ static void z_prec(Rcomplex *r, Rcomplex *x, Rcomplex *p)
 static void z_logbase(Rcomplex *r, Rcomplex *z, Rcomplex *base)
 {
     double complex dz = toC99(z), dbase = toC99(base);
-    SET_C99_COMPLEX(r, 0, clog(dz)/clog(dbase));
+    SET_C99_COMPLEX(r, 0, clog(dz) / clog(dbase));
 }
 
 static void z_atan2(Rcomplex *r, Rcomplex *csn, Rcomplex *ccs)
 {
     double complex dr, dcsn = toC99(csn), dccs = toC99(ccs);
-    if (dccs == 0) {
-	if(dcsn == 0) {
-	    r->r = NA_REAL; r->i = NA_REAL; /* Why not R_NaN? */
-	    return;
-	} else {
-	    double y = creal(dcsn);
-	    if (ISNAN(y)) dr = y;
-	    else dr = ((y >= 0) ? M_PI_2 : -M_PI_2);
-	}
-    } else {
-	dr = catan(dcsn / dccs);
-	if(creal(dccs) < 0) dr += M_PI;
-	if(creal(dr) > M_PI) dr -= 2 * M_PI;
+    if (dccs == 0)
+    {
+        if (dcsn == 0)
+        {
+            r->r = NA_REAL;
+            r->i = NA_REAL; /* Why not R_NaN? */
+            return;
+        }
+        else
+        {
+            double y = creal(dcsn);
+            if (ISNAN(y))
+                dr = y;
+            else
+                dr = ((y >= 0) ? M_PI_2 : -M_PI_2);
+        }
+    }
+    else
+    {
+        dr = catan(dcsn / dccs);
+        if (creal(dccs) < 0)
+            dr += M_PI;
+        if (creal(dr) > M_PI)
+            dr -= 2 * M_PI;
     }
     SET_C99_COMPLEX(r, 0, dr);
 }
 
-
-	/* Complex Functions of Two Arguments */
+/* Complex Functions of Two Arguments */
 
 typedef void (*cm2_fun)(Rcomplex *, Rcomplex *, Rcomplex *);
 attribute_hidden SEXP complex_math2(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -699,50 +782,64 @@ attribute_hidden SEXP complex_math2(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean naflag = FALSE;
     cm2_fun f;
 
-    switch (PRIMVAL(op)) {
+    switch (PRIMVAL(op))
+    {
     case 0: /* atan2 */
-	f = z_atan2; break;
+        f = z_atan2;
+        break;
     case 10001: /* round */
-	f = z_rround; break;
+        f = z_rround;
+        break;
     case 2: /* passed from do_log1arg */
     case 10:
     case 10003: /* passed from do_log */
-	f = z_logbase; break;
+        f = z_logbase;
+        break;
     case 10004: /* signif */
-	f = z_prec; break;
+        f = z_prec;
+        break;
     default:
-	error_return(_("unimplemented complex function"));
+        error_return(_("unimplemented complex function"));
     }
 
     PROTECT(sa = coerceVector(CAR(args), CPLXSXP));
     PROTECT(sb = coerceVector(CADR(args), CPLXSXP));
-    na = XLENGTH(sa); nb = XLENGTH(sb);
-    if ((na == 0) || (nb == 0)) {
-	UNPROTECT(2);
-	return(allocVector(CPLXSXP, 0));
+    na = XLENGTH(sa);
+    nb = XLENGTH(sb);
+    if ((na == 0) || (nb == 0))
+    {
+        UNPROTECT(2);
+        return (allocVector(CPLXSXP, 0));
     }
     n = (na < nb) ? nb : na;
     PROTECT(sy = allocVector(CPLXSXP, n));
-    a = COMPLEX_RO(sa); b = COMPLEX_RO(sb);
+    a = COMPLEX_RO(sa);
+    b = COMPLEX_RO(sb);
     y = COMPLEX(sy);
     MOD_ITERATE2(n, na, nb, i, ia, ib, {
-	ai = a[ia]; bi = b[ib];
-	if(ISNA(ai.r) && ISNA(ai.i) &&
-	   ISNA(bi.r) && ISNA(bi.i)) {
-	    y[i].r = NA_REAL; y[i].i = NA_REAL;
-	} else {
-	    f(&y[i], &ai, &bi);
-	    if ( (ISNAN(y[i].r) || ISNAN(y[i].i)) &&
-		 !(ISNAN(ai.r) || ISNAN(ai.i) || ISNAN(bi.r) || ISNAN(bi.i)) )
-		naflag = TRUE;
-	}
+        ai = a[ia];
+        bi = b[ib];
+        if (ISNA(ai.r) && ISNA(ai.i) && ISNA(bi.r) && ISNA(bi.i))
+        {
+            y[i].r = NA_REAL;
+            y[i].i = NA_REAL;
+        }
+        else
+        {
+            f(&y[i], &ai, &bi);
+            if ((ISNAN(y[i].r) || ISNAN(y[i].i)) && !(ISNAN(ai.r) || ISNAN(ai.i) || ISNAN(bi.r) || ISNAN(bi.i)))
+                naflag = TRUE;
+        }
     });
     if (naflag)
-	warning("NaNs produced in function \"%s\"", PRIMNAME(op));
-    if(n == na) {
-	SHALLOW_DUPLICATE_ATTRIB(sy, sa);
-    } else if(n == nb) {
-	SHALLOW_DUPLICATE_ATTRIB(sy, sb);
+        warning("NaNs produced in function \"%s\"", PRIMNAME(op));
+    if (n == na)
+    {
+        SHALLOW_DUPLICATE_ATTRIB(sy, sa);
+    }
+    else if (n == nb)
+    {
+        SHALLOW_DUPLICATE_ATTRIB(sy, sb);
     }
     UNPROTECT(3);
     return sy;
@@ -756,8 +853,8 @@ attribute_hidden SEXP do_complex(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     checkArity(op, args);
     na = asInteger(CAR(args));
-    if(na == NA_INTEGER || na < 0)
-	error(_("invalid length"));
+    if (na == NA_INTEGER || na < 0)
+        error(_("invalid length"));
     PROTECT(re = coerceVector(CADR(args), REALSXP));
     PROTECT(im = coerceVector(CADDR(args), REALSXP));
     nr = XLENGTH(re);
@@ -768,26 +865,28 @@ attribute_hidden SEXP do_complex(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* }*/
     ans = allocVector(CPLXSXP, na);
     Rcomplex *pans = COMPLEX(ans);
-    for(i=0 ; i<na ; i++) {
-	pans[i].r = 0;
-	pans[i].i = 0;
+    for (i = 0; i < na; i++)
+    {
+        pans[i].r = 0;
+        pans[i].i = 0;
     }
     UNPROTECT(2);
-    if(na > 0 && nr > 0) {
-	const double *p_re = REAL_RO(re);
-	for(i=0 ; i<na ; i++)
-	    pans[i].r = p_re[i%nr];
+    if (na > 0 && nr > 0)
+    {
+        const double *p_re = REAL_RO(re);
+        for (i = 0; i < na; i++)
+            pans[i].r = p_re[i % nr];
     }
-    if(na > 0 && ni > 0) {
-	const double *p_im = REAL_RO(im);
-	for(i=0 ; i<na ; i++)
-	    pans[i].i = p_im[i%ni];
+    if (na > 0 && ni > 0)
+    {
+        const double *p_im = REAL_RO(im);
+        for (i = 0; i < na; i++)
+            pans[i].i = p_im[i % ni];
     }
     return ans;
 }
 
-static void R_cpolyroot(double *opr, double *opi, int *degree,
-			double *zeror, double *zeroi, Rboolean *fail);
+static void R_cpolyroot(double *opr, double *opi, int *degree, double *zeror, double *zeroi, Rboolean *fail);
 
 attribute_hidden SEXP do_polyroot(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
@@ -797,62 +896,71 @@ attribute_hidden SEXP do_polyroot(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     checkArity(op, args);
     z = CAR(args);
-    switch(TYPEOF(z)) {
+    switch (TYPEOF(z))
+    {
     case CPLXSXP:
-	PROTECT(z);
-	break;
+        PROTECT(z);
+        break;
     case REALSXP:
     case INTSXP:
     case LGLSXP:
-	PROTECT(z = coerceVector(z, CPLXSXP));
-	break;
+        PROTECT(z = coerceVector(z, CPLXSXP));
+        break;
     default:
-	UNIMPLEMENTED_TYPE("polyroot", z);
+        UNIMPLEMENTED_TYPE("polyroot", z);
     }
 #ifdef LONG_VECTOR_SUPPORT
     R_xlen_t nn = XLENGTH(z);
-    if (nn > R_SHORT_LEN_MAX) error("long vectors are not supported");
-    n = (int) nn;
+    if (nn > R_SHORT_LEN_MAX)
+        error("long vectors are not supported");
+    n = (int)nn;
 #else
     n = LENGTH(z);
 #endif
     const Rcomplex *pz = COMPLEX_RO(z);
     degree = 0;
-    for(i = 0; i < n; i++) {
-	if(pz[i].r!= 0.0 || pz[i].i != 0.0) degree = i;
+    for (i = 0; i < n; i++)
+    {
+        if (pz[i].r != 0.0 || pz[i].i != 0.0)
+            degree = i;
     }
     n = degree + 1; /* omit trailing zeroes */
-    if(degree >= 1) {
-	PROTECT(rr = allocVector(REALSXP, n));
-	PROTECT(ri = allocVector(REALSXP, n));
-	PROTECT(zr = allocVector(REALSXP, n));
-	PROTECT(zi = allocVector(REALSXP, n));
+    if (degree >= 1)
+    {
+        PROTECT(rr = allocVector(REALSXP, n));
+        PROTECT(ri = allocVector(REALSXP, n));
+        PROTECT(zr = allocVector(REALSXP, n));
+        PROTECT(zi = allocVector(REALSXP, n));
 
-	double *p_rr = REAL(rr);
-	double *p_ri = REAL(ri);
-	double *p_zr = REAL(zr);
-	double *p_zi = REAL(zi);
+        double *p_rr = REAL(rr);
+        double *p_ri = REAL(ri);
+        double *p_zr = REAL(zr);
+        double *p_zi = REAL(zi);
 
-	for(i = 0 ; i < n ; i++) {
-	    if(!R_FINITE(pz[i].r) || !R_FINITE(pz[i].i))
-		error(_("invalid polynomial coefficient"));
-	    p_zr[degree-i] = pz[i].r;
-	    p_zi[degree-i] = pz[i].i;
-	}
-	R_cpolyroot(p_zr, p_zi, &degree, p_rr, p_ri, &fail);
-	if(fail) error(_("root finding code failed"));
-	UNPROTECT(2);
-	r = allocVector(CPLXSXP, degree);
-	Rcomplex *pr = COMPLEX(r);
-	for(i = 0 ; i < degree ; i++) {
-	    pr[i].r = p_rr[i];
-	    pr[i].i = p_ri[i];
-	}
-	UNPROTECT(3);
+        for (i = 0; i < n; i++)
+        {
+            if (!R_FINITE(pz[i].r) || !R_FINITE(pz[i].i))
+                error(_("invalid polynomial coefficient"));
+            p_zr[degree - i] = pz[i].r;
+            p_zi[degree - i] = pz[i].i;
+        }
+        R_cpolyroot(p_zr, p_zi, &degree, p_rr, p_ri, &fail);
+        if (fail)
+            error(_("root finding code failed"));
+        UNPROTECT(2);
+        r = allocVector(CPLXSXP, degree);
+        Rcomplex *pr = COMPLEX(r);
+        for (i = 0; i < degree; i++)
+        {
+            pr[i].r = p_rr[i];
+            pr[i].i = p_ri[i];
+        }
+        UNPROTECT(3);
     }
-    else {
-	UNPROTECT(1);
-	r = allocVector(CPLXSXP, 0);
+    else
+    {
+        UNPROTECT(1);
+        r = allocVector(CPLXSXP, 0);
     }
     return r;
 }
@@ -897,7 +1005,7 @@ attribute_hidden SEXP do_polyroot(SEXP call, SEXP op, SEXP args, SEXP rho)
  *	February 1997
  */
 
-#include <R_ext/Arith.h> /* for declaration of hypot */
+#include <R_ext/Arith.h>  /* for declaration of hypot */
 #include <R_ext/Memory.h> /* for declaration of R_alloc */
 
 #include <float.h> /* for FLT_RADIX */
@@ -910,8 +1018,7 @@ static Rboolean vrshft(int, double *, double *);
 static void nexth(Rboolean);
 static void noshft(int);
 
-static void polyev(int, double, double,
-		   double *, double *, double *, double *, double *, double *);
+static void polyev(int, double, double, double *, double *, double *, double *, double *, double *);
 static double errev(int, double *, double *, double, double, double, double);
 static double cpoly_cauchy(int, double *, double *);
 static double cpoly_scale(int, double *, double, double, double, double);
@@ -925,13 +1032,12 @@ static double sr, si;
 static double tr, ti;
 static double pvr, pvi;
 
-static const double eta =  DBL_EPSILON;
-static const double are = /* eta = */DBL_EPSILON;
-static const double mre = 2. * M_SQRT2 * /* eta, i.e. */DBL_EPSILON;
+static const double eta = DBL_EPSILON;
+static const double are = /* eta = */ DBL_EPSILON;
+static const double mre = 2. * M_SQRT2 * /* eta, i.e. */ DBL_EPSILON;
 static const double infin = DBL_MAX;
 
-static void R_cpolyroot(double *opr, double *opi, int *degree,
-			double *zeror, double *zeroi, Rboolean *fail)
+static void R_cpolyroot(double *opr, double *opi, int *degree, double *zeror, double *zeroi, Rboolean *fail)
 {
     static const double smalno = DBL_MIN;
     static const double base = (double)FLT_RADIX;
@@ -941,9 +1047,9 @@ static void R_cpolyroot(double *opr, double *opi, int *degree,
     Rboolean conv;
     int d1;
     double *tmp;
-    static const double cosr =/* cos 94 */ -0.06975647374412529990;
-    static const double sinr =/* sin 94 */  0.99756405025982424767;
-    xx = M_SQRT1_2;/* 1/sqrt(2) = 0.707.... */
+    static const double cosr = /* cos 94 */ -0.06975647374412529990;
+    static const double sinr = /* sin 94 */ 0.99756405025982424767;
+    xx = M_SQRT1_2; /* 1/sqrt(2) = 0.707.... */
 
     yy = -xx;
     *fail = FALSE;
@@ -953,107 +1059,124 @@ static void R_cpolyroot(double *opr, double *opi, int *degree,
 
     /* algorithm fails if the leading coefficient is zero. */
 
-    if (opr[0] == 0. && opi[0] == 0.) {
-	*fail = TRUE;
-	return;
+    if (opr[0] == 0. && opi[0] == 0.)
+    {
+        *fail = TRUE;
+        return;
     }
 
     /* remove the zeros at the origin if any. */
 
-    while (opr[nn] == 0. && opi[nn] == 0.) {
-	d_n = d1-nn+1;
-	zeror[d_n] = 0.;
-	zeroi[d_n] = 0.;
-	nn--;
+    while (opr[nn] == 0. && opi[nn] == 0.)
+    {
+        d_n = d1 - nn + 1;
+        zeror[d_n] = 0.;
+        zeroi[d_n] = 0.;
+        nn--;
     }
     nn++;
     /*-- Now, global var.  nn := #{coefficients} = (relevant degree)+1 */
 
-    if (nn == 1) return;
+    if (nn == 1)
+        return;
 
     /* Use a single allocation as these as small */
     const void *vmax = vmaxget();
-    tmp = (double *) R_alloc((size_t) (10*nn), sizeof(double));
-    pr = tmp; pi = tmp + nn; hr = tmp + 2*nn; hi = tmp + 3*nn;
-    qpr = tmp + 4*nn; qpi = tmp + 5*nn; qhr = tmp + 6*nn; qhi = tmp + 7*nn;
-    shr = tmp + 8*nn; shi = tmp + 9*nn;
+    tmp = (double *)R_alloc((size_t)(10 * nn), sizeof(double));
+    pr = tmp;
+    pi = tmp + nn;
+    hr = tmp + 2 * nn;
+    hi = tmp + 3 * nn;
+    qpr = tmp + 4 * nn;
+    qpi = tmp + 5 * nn;
+    qhr = tmp + 6 * nn;
+    qhi = tmp + 7 * nn;
+    shr = tmp + 8 * nn;
+    shi = tmp + 9 * nn;
 
     /* make a copy of the coefficients and shr[] = | p[] | */
-    for (i = 0; i < nn; i++) {
-	pr[i] = opr[i];
-	pi[i] = opi[i];
-	shr[i] = hypot(pr[i], pi[i]);
+    for (i = 0; i < nn; i++)
+    {
+        pr[i] = opr[i];
+        pi[i] = opi[i];
+        shr[i] = hypot(pr[i], pi[i]);
     }
 
     /* scale the polynomial with factor 'bnd'. */
     bnd = cpoly_scale(nn, shr, eta, infin, smalno, base);
-    if (bnd != 1.) {
-	for (i=0; i < nn; i++) {
-	    pr[i] *= bnd;
-	    pi[i] *= bnd;
-	}
+    if (bnd != 1.)
+    {
+        for (i = 0; i < nn; i++)
+        {
+            pr[i] *= bnd;
+            pi[i] *= bnd;
+        }
     }
 
     /* start the algorithm for one zero */
 
-    while (nn > 2) {
+    while (nn > 2)
+    {
 
-	/* calculate bnd, a lower bound on the modulus of the zeros. */
+        /* calculate bnd, a lower bound on the modulus of the zeros. */
 
-	for (i=0 ; i < nn ; i++)
-	    shr[i] = hypot(pr[i], pi[i]);
-	bnd = cpoly_cauchy(nn, shr, shi);
+        for (i = 0; i < nn; i++)
+            shr[i] = hypot(pr[i], pi[i]);
+        bnd = cpoly_cauchy(nn, shr, shi);
 
-	/* outer loop to control 2 major passes */
-	/* with different sequences of shifts */
+        /* outer loop to control 2 major passes */
+        /* with different sequences of shifts */
 
-	for (i1 = 1; i1 <= 2; i1++) {
+        for (i1 = 1; i1 <= 2; i1++)
+        {
 
-	    /* first stage calculation, no shift */
+            /* first stage calculation, no shift */
 
-	    noshft(5);
+            noshft(5);
 
-	    /*	inner loop to select a shift */
-	    for (i2 = 1; i2 <= 9; i2++) {
+            /*	inner loop to select a shift */
+            for (i2 = 1; i2 <= 9; i2++)
+            {
 
-		/* shift is chosen with modulus bnd */
-		/* and amplitude rotated by 94 degrees */
-		/* from the previous shift */
+                /* shift is chosen with modulus bnd */
+                /* and amplitude rotated by 94 degrees */
+                /* from the previous shift */
 
-		xxx= cosr * xx - sinr * yy;
-		yy = sinr * xx + cosr * yy;
-		xx = xxx;
-		sr = bnd * xx;
-		si = bnd * yy;
+                xxx = cosr * xx - sinr * yy;
+                yy = sinr * xx + cosr * yy;
+                xx = xxx;
+                sr = bnd * xx;
+                si = bnd * yy;
 
-		/*  second stage calculation, fixed shift */
+                /*  second stage calculation, fixed shift */
 
-		conv = fxshft(i2 * 10, &zr, &zi);
-		if (conv)
-		    goto L10;
-	    }
-	}
+                conv = fxshft(i2 * 10, &zr, &zi);
+                if (conv)
+                    goto L10;
+            }
+        }
 
-	/* the zerofinder has failed on two major passes */
-	/* return empty handed */
+        /* the zerofinder has failed on two major passes */
+        /* return empty handed */
 
-	*fail = TRUE;
-	vmaxset(vmax);
-	return;
+        *fail = TRUE;
+        vmaxset(vmax);
+        return;
 
-	/* the second stage jumps directly to the third stage iteration.
-	 * if successful, the zero is stored and the polynomial deflated.
-	 */
+    /* the second stage jumps directly to the third stage iteration.
+     * if successful, the zero is stored and the polynomial deflated.
+     */
     L10:
-	d_n = d1+2 - nn;
-	zeror[d_n] = zr;
-	zeroi[d_n] = zi;
-	--nn;
-	for (i=0; i < nn ; i++) {
-	    pr[i] = qpr[i];
-	    pi[i] = qpi[i];
-	}
-    }/*while*/
+        d_n = d1 + 2 - nn;
+        zeror[d_n] = zr;
+        zeroi[d_n] = zi;
+        --nn;
+        for (i = 0; i < nn; i++)
+        {
+            pr[i] = qpr[i];
+            pi[i] = qpi[i];
+        }
+    } /*while*/
 
     /*	calculate the final zero and return */
     cdivid(-pr[1], -pi[1], pr[0], pi[0], &zeror[d1], &zeroi[d1]);
@@ -1061,7 +1184,6 @@ static void R_cpolyroot(double *opr, double *opi, int *degree,
     vmaxset(vmax);
     return;
 }
-
 
 /*  Computes the derivative polynomial as the initial
  *  polynomial and computes l1 no-shift h polynomials.	*/
@@ -1072,42 +1194,46 @@ static void noshft(int l1)
 
     double t1, t2, xni;
 
-    for (i=0; i < n; i++) {
-	xni = (double)(nn - i - 1);
-	hr[i] = xni * pr[i] / n;
-	hi[i] = xni * pi[i] / n;
+    for (i = 0; i < n; i++)
+    {
+        xni = (double)(nn - i - 1);
+        hr[i] = xni * pr[i] / n;
+        hi[i] = xni * pi[i] / n;
     }
 
-    for (jj = 1; jj <= l1; jj++) {
+    for (jj = 1; jj <= l1; jj++)
+    {
 
-	if (hypot(hr[n-1], hi[n-1]) <=
-	    eta * 10.0 * hypot(pr[n-1], pi[n-1])) {
-	    /*	If the constant term is essentially zero, */
-	    /*	shift h coefficients. */
+        if (hypot(hr[n - 1], hi[n - 1]) <= eta * 10.0 * hypot(pr[n - 1], pi[n - 1]))
+        {
+            /*	If the constant term is essentially zero, */
+            /*	shift h coefficients. */
 
-	    for (i = 1; i <= nm1; i++) {
-		j = nn - i;
-		hr[j-1] = hr[j-2];
-		hi[j-1] = hi[j-2];
-	    }
-	    hr[0] = 0.;
-	    hi[0] = 0.;
-	}
-	else {
-	    cdivid(-pr[nn-1], -pi[nn-1], hr[n-1], hi[n-1], &tr, &ti);
-	    for (i = 1; i <= nm1; i++) {
-		j = nn - i;
-		t1 = hr[j-2];
-		t2 = hi[j-2];
-		hr[j-1] = tr * t1 - ti * t2 + pr[j-1];
-		hi[j-1] = tr * t2 + ti * t1 + pi[j-1];
-	    }
-	    hr[0] = pr[0];
-	    hi[0] = pi[0];
-	}
+            for (i = 1; i <= nm1; i++)
+            {
+                j = nn - i;
+                hr[j - 1] = hr[j - 2];
+                hi[j - 1] = hi[j - 2];
+            }
+            hr[0] = 0.;
+            hi[0] = 0.;
+        }
+        else
+        {
+            cdivid(-pr[nn - 1], -pi[nn - 1], hr[n - 1], hi[n - 1], &tr, &ti);
+            for (i = 1; i <= nm1; i++)
+            {
+                j = nn - i;
+                t1 = hr[j - 2];
+                t2 = hi[j - 2];
+                hr[j - 1] = tr * t1 - ti * t2 + pr[j - 1];
+                hi[j - 1] = tr * t2 + ti * t1 + pi[j - 1];
+            }
+            hr[0] = pr[0];
+            hi[0] = pi[0];
+        }
     }
 }
-
 
 /*  Computes l2 fixed-shift h polynomials and tests for convergence.
  *  initiates a variable-shift iteration and returns with the
@@ -1115,13 +1241,13 @@ static void noshft(int l1)
  */
 static Rboolean fxshft(int l2, double *zr, double *zi)
 {
-/*  l2	  - limit of fixed shift steps
- *  zr,zi - approximate zero if convergence (result TRUE)
- *
- * Return value indicates convergence of stage 3 iteration
- *
- * Uses global (sr,si), nn, pr[], pi[], .. (all args of polyev() !)
-*/
+    /*  l2	  - limit of fixed shift steps
+     *  zr,zi - approximate zero if convergence (result TRUE)
+     *
+     * Return value indicates convergence of stage 3 iteration
+     *
+     * Uses global (sr,si), nn, pr[], pi[], .. (all args of polyev() !)
+     */
 
     Rboolean pasd, h_s_0, test;
     static double svsi, svsr;
@@ -1143,81 +1269,88 @@ static Rboolean fxshft(int l2, double *zr, double *zi)
 
     /* main loop for one second stage step. */
 
-    for (j=1; j<=l2; j++) {
+    for (j = 1; j <= l2; j++)
+    {
 
-	otr = tr;
-	oti = ti;
+        otr = tr;
+        oti = ti;
 
-	/* compute next h polynomial and new t. */
+        /* compute next h polynomial and new t. */
 
-	nexth(h_s_0);
-	calct(&h_s_0);
-	*zr = sr + tr;
-	*zi = si + ti;
+        nexth(h_s_0);
+        calct(&h_s_0);
+        *zr = sr + tr;
+        *zi = si + ti;
 
-	/* test for convergence unless stage 3 has */
-	/* failed once or this is the last h polynomial. */
+        /* test for convergence unless stage 3 has */
+        /* failed once or this is the last h polynomial. */
 
-	if (!h_s_0 && test && j != l2) {
-	    if (hypot(tr - otr, ti - oti) >= hypot(*zr, *zi) * 0.5) {
-		pasd = FALSE;
-	    }
-	    else if (! pasd) {
-		pasd = TRUE;
-	    }
-	    else {
+        if (!h_s_0 && test && j != l2)
+        {
+            if (hypot(tr - otr, ti - oti) >= hypot(*zr, *zi) * 0.5)
+            {
+                pasd = FALSE;
+            }
+            else if (!pasd)
+            {
+                pasd = TRUE;
+            }
+            else
+            {
 
-		/* the weak convergence test has been */
-		/* passed twice, start the third stage */
-		/* iteration, after saving the current */
-		/* h polynomial and shift. */
+                /* the weak convergence test has been */
+                /* passed twice, start the third stage */
+                /* iteration, after saving the current */
+                /* h polynomial and shift. */
 
-		for (i = 0; i < n; i++) {
-		    shr[i] = hr[i];
-		    shi[i] = hi[i];
-		}
-		svsr = sr;
-		svsi = si;
-		if (vrshft(10, zr, zi)) {
-		    return TRUE;
-		}
+                for (i = 0; i < n; i++)
+                {
+                    shr[i] = hr[i];
+                    shi[i] = hi[i];
+                }
+                svsr = sr;
+                svsi = si;
+                if (vrshft(10, zr, zi))
+                {
+                    return TRUE;
+                }
 
-		/* the iteration failed to converge. */
-		/* turn off testing and restore */
-		/* h, s, pv and t. */
+                /* the iteration failed to converge. */
+                /* turn off testing and restore */
+                /* h, s, pv and t. */
 
-		test = FALSE;
-		for (i=1 ; i<=n ; i++) {
-		    hr[i-1] = shr[i-1];
-		    hi[i-1] = shi[i-1];
-		}
-		sr = svsr;
-		si = svsi;
-		polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
-		calct(&h_s_0);
-	    }
-	}
+                test = FALSE;
+                for (i = 1; i <= n; i++)
+                {
+                    hr[i - 1] = shr[i - 1];
+                    hi[i - 1] = shi[i - 1];
+                }
+                sr = svsr;
+                si = svsi;
+                polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
+                calct(&h_s_0);
+            }
+        }
     }
 
     /* attempt an iteration with final h polynomial */
     /* from second stage. */
 
-    return(vrshft(10, zr, zi));
+    return (vrshft(10, zr, zi));
 }
-
 
 /* carries out the third stage iteration.
  */
 static Rboolean vrshft(int l3, double *zr, double *zi)
 {
-/*  l3	    - limit of steps in stage 3.
- *  zr,zi   - on entry contains the initial iterate;
- *	      if the iteration converges it contains
- *	      the final iterate on exit.
- * Returns TRUE if iteration converges
- *
- * Assign and uses  GLOBAL sr, si
-*/
+    /*  l3	    - limit of steps in stage 3.
+     *  zr,zi   - on entry contains the initial iterate;
+     *	      if the iteration converges it contains
+     *	      the final iterate on exit.
+     * Returns TRUE if iteration converges
+     *
+     * Assign and uses  GLOBAL sr, si
+     */
     Rboolean h_s_0, b;
     static int i, j;
     static double r1, r2, mp, ms, tp, relstp;
@@ -1229,68 +1362,75 @@ static Rboolean vrshft(int l3, double *zr, double *zi)
 
     /* main loop for stage three */
 
-    for (i = 1; i <= l3; i++) {
+    for (i = 1; i <= l3; i++)
+    {
 
-	/* evaluate p at s and test for convergence. */
-	polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
+        /* evaluate p at s and test for convergence. */
+        polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
 
-	mp = hypot(pvr, pvi);
-	ms = hypot(sr, si);
-	if (mp <=  20. * errev(nn, qpr, qpi, ms, mp, /*are=*/eta, mre)) {
-	    goto L_conv;
-	}
+        mp = hypot(pvr, pvi);
+        ms = hypot(sr, si);
+        if (mp <= 20. * errev(nn, qpr, qpi, ms, mp, /*are=*/eta, mre))
+        {
+            goto L_conv;
+        }
 
-	/* polynomial value is smaller in value than */
-	/* a bound on the error in evaluating p, */
-	/* terminate the iteration. */
+        /* polynomial value is smaller in value than */
+        /* a bound on the error in evaluating p, */
+        /* terminate the iteration. */
 
-	if (i != 1) {
+        if (i != 1)
+        {
 
-	    if (!b && mp >= omp && relstp < .05) {
+            if (!b && mp >= omp && relstp < .05)
+            {
 
-		/* iteration has stalled. probably a */
-		/* cluster of zeros. do 5 fixed shift */
-		/* steps into the cluster to force */
-		/* one zero to dominate. */
+                /* iteration has stalled. probably a */
+                /* cluster of zeros. do 5 fixed shift */
+                /* steps into the cluster to force */
+                /* one zero to dominate. */
 
-		tp = relstp;
-		b = TRUE;
-		if (relstp < eta)
-		    tp = eta;
-		r1 = sqrt(tp);
-		r2 = sr * (r1 + 1.) - si * r1;
-		si = sr * r1 + si * (r1 + 1.);
-		sr = r2;
-		polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
-		for (j = 1; j <= 5; ++j) {
-		    calct(&h_s_0);
-		    nexth(h_s_0);
-		}
-		omp = infin;
-		goto L10;
-	    }
-	    else {
+                tp = relstp;
+                b = TRUE;
+                if (relstp < eta)
+                    tp = eta;
+                r1 = sqrt(tp);
+                r2 = sr * (r1 + 1.) - si * r1;
+                si = sr * r1 + si * (r1 + 1.);
+                sr = r2;
+                polyev(nn, sr, si, pr, pi, qpr, qpi, &pvr, &pvi);
+                for (j = 1; j <= 5; ++j)
+                {
+                    calct(&h_s_0);
+                    nexth(h_s_0);
+                }
+                omp = infin;
+                goto L10;
+            }
+            else
+            {
 
-		/* exit if polynomial value */
-		/* increases significantly. */
+                /* exit if polynomial value */
+                /* increases significantly. */
 
-		if (mp * .1 > omp)
-		    return FALSE;
-	    }
-	}
-	omp = mp;
+                if (mp * .1 > omp)
+                    return FALSE;
+            }
+        }
+        omp = mp;
 
-	/* calculate next iterate. */
+        /* calculate next iterate. */
 
     L10:
-	calct(&h_s_0);
-	nexth(h_s_0);
-	calct(&h_s_0);
-	if (!h_s_0) {
-	    relstp = hypot(tr, ti) / hypot(sr, si);
-	    sr += tr;
-	    si += ti;
-	}
+        calct(&h_s_0);
+        nexth(h_s_0);
+        calct(&h_s_0);
+        if (!h_s_0)
+        {
+            relstp = hypot(tr, ti) / hypot(sr, si);
+            sr += tr;
+            si += ti;
+        }
     }
     return FALSE;
 
@@ -1309,16 +1449,17 @@ static void calct(Rboolean *h_s_0)
     double hvi, hvr;
 
     /* evaluate h(s). */
-    polyev(n, sr, si, hr, hi,
-	   qhr, qhi, &hvr, &hvi);
+    polyev(n, sr, si, hr, hi, qhr, qhi, &hvr, &hvi);
 
-    *h_s_0 = hypot(hvr, hvi) <= are * 10. * hypot(hr[n-1], hi[n-1]);
-    if (!*h_s_0) {
-	cdivid(-pvr, -pvi, hvr, hvi, &tr, &ti);
+    *h_s_0 = hypot(hvr, hvi) <= are * 10. * hypot(hr[n - 1], hi[n - 1]);
+    if (!*h_s_0)
+    {
+        cdivid(-pvr, -pvi, hvr, hvi, &tr, &ti);
     }
-    else {
-	tr = 0.;
-	ti = 0.;
+    else
+    {
+        tr = 0.;
+        ti = 0.;
     }
 }
 
@@ -1330,36 +1471,36 @@ static void nexth(Rboolean h_s_0)
     int j, n = nn - 1;
     double t1, t2;
 
-    if (!h_s_0) {
-	for (j=1; j < n; j++) {
-	    t1 = qhr[j - 1];
-	    t2 = qhi[j - 1];
-	    hr[j] = tr * t1 - ti * t2 + qpr[j];
-	    hi[j] = tr * t2 + ti * t1 + qpi[j];
-	}
-	hr[0] = qpr[0];
-	hi[0] = qpi[0];
+    if (!h_s_0)
+    {
+        for (j = 1; j < n; j++)
+        {
+            t1 = qhr[j - 1];
+            t2 = qhi[j - 1];
+            hr[j] = tr * t1 - ti * t2 + qpr[j];
+            hi[j] = tr * t2 + ti * t1 + qpi[j];
+        }
+        hr[0] = qpr[0];
+        hi[0] = qpi[0];
     }
-    else {
-	/* if h(s) is zero replace h with qh. */
+    else
+    {
+        /* if h(s) is zero replace h with qh. */
 
-	for (j=1; j < n; j++) {
-	    hr[j] = qhr[j-1];
-	    hi[j] = qhi[j-1];
-	}
-	hr[0] = 0.;
-	hi[0] = 0.;
+        for (j = 1; j < n; j++)
+        {
+            hr[j] = qhr[j - 1];
+            hi[j] = qhi[j - 1];
+        }
+        hr[0] = 0.;
+        hi[0] = 0.;
     }
 }
-
+
 /*--------------------- Independent Complex Polynomial Utilities ----------*/
 
-static
-void polyev(int n,
-	    double s_r, double s_i,
-	    double *p_r, double *p_i,
-	    double *q_r, double *q_i,
-	    double *v_r, double *v_i)
+static void polyev(int n, double s_r, double s_i, double *p_r, double *p_i, double *q_r, double *q_i, double *v_r,
+                   double *v_i)
 {
     /* evaluates a polynomial  p  at  s	 by the horner recurrence
      * placing the partial sums in q and the computed value in v_.
@@ -1371,16 +1512,15 @@ void polyev(int n,
     q_i[0] = p_i[0];
     *v_r = q_r[0];
     *v_i = q_i[0];
-    for (i = 1; i < n; i++) {
-	t = *v_r * s_r - *v_i * s_i + p_r[i];
-	q_i[i] = *v_i = *v_r * s_i + *v_i * s_r + p_i[i];
-	q_r[i] = *v_r = t;
+    for (i = 1; i < n; i++)
+    {
+        t = *v_r * s_r - *v_i * s_i + p_r[i];
+        q_i[i] = *v_i = *v_r * s_i + *v_i * s_r + p_i[i];
+        q_r[i] = *v_r = t;
     }
 }
 
-static
-double errev(int n, double *qr, double *qi,
-	     double ms, double mp, double a_re, double m_re)
+static double errev(int n, double *qr, double *qi, double ms, double mp, double a_re, double m_re)
 {
     /*	bounds the error in evaluating the polynomial by the horner
      *	recurrence.
@@ -1394,15 +1534,13 @@ double errev(int n, double *qr, double *qi,
     int i;
 
     e = hypot(qr[0], qi[0]) * m_re / (a_re + m_re);
-    for (i=0; i < n; i++)
-	e = e*ms + hypot(qr[i], qi[i]);
+    for (i = 0; i < n; i++)
+        e = e * ms + hypot(qr[i], qi[i]);
 
     return e * (a_re + m_re) - mp * m_re;
 }
 
-
-static
-double cpoly_cauchy(int n, double *pot, double *q)
+static double cpoly_cauchy(int n, double *pot, double *q)
 {
     /* Computes a lower bound on the moduli of the zeros of a polynomial
      * pot[1:nn] is the modulus of the coefficients.
@@ -1414,50 +1552,52 @@ double cpoly_cauchy(int n, double *pot, double *q)
 
     /* compute upper estimate of bound. */
 
-    x = exp((log(-pot[n1]) - log(pot[0])) / (double) n1);
+    x = exp((log(-pot[n1]) - log(pot[0])) / (double)n1);
 
     /* if newton step at the origin is better, use it. */
 
-    if (pot[n1-1] != 0.) {
-	xm = -pot[n1] / pot[n1-1];
-	if (xm < x)
-	    x = xm;
+    if (pot[n1 - 1] != 0.)
+    {
+        xm = -pot[n1] / pot[n1 - 1];
+        if (xm < x)
+            x = xm;
     }
 
     /* chop the interval (0,x) unitl f le 0. */
 
-    for(;;) {
-	xm = x * 0.1;
-	f = pot[0];
-	for (i = 1; i < n; i++)
-	    f = f * xm + pot[i];
-	if (f <= 0.0) {
-	    break;
-	}
-	x = xm;
+    for (;;)
+    {
+        xm = x * 0.1;
+        f = pot[0];
+        for (i = 1; i < n; i++)
+            f = f * xm + pot[i];
+        if (f <= 0.0)
+        {
+            break;
+        }
+        x = xm;
     }
 
     dx = x;
 
     /* do Newton iteration until x converges to two decimal places. */
 
-    while (fabs(dx / x) > 0.005) {
-	q[0] = pot[0];
-	for(i = 1; i < n; i++)
-	    q[i] = q[i-1] * x + pot[i];
-	f = q[n1];
-	delf = q[0];
-	for(i = 1; i < n1; i++)
-	    delf = delf * x + q[i];
-	dx = f / delf;
-	x -= dx;
+    while (fabs(dx / x) > 0.005)
+    {
+        q[0] = pot[0];
+        for (i = 1; i < n; i++)
+            q[i] = q[i - 1] * x + pot[i];
+        f = q[n1];
+        delf = q[0];
+        for (i = 1; i < n1; i++)
+            delf = delf * x + q[i];
+        dx = f / delf;
+        x -= dx;
     }
     return x;
 }
 
-static
-double cpoly_scale(int n, double *pot,
-		   double eps, double BIG, double small, double base)
+static double cpoly_scale(int n, double *pot, double eps, double BIG, double small, double base)
 {
     /* Returns a scale factor to multiply the coefficients of the polynomial.
      * The scaling is done to avoid overflow and to avoid
@@ -1477,58 +1617,63 @@ double cpoly_scale(int n, double *pot,
     lo = small / eps;
     max_ = 0.;
     min_ = BIG;
-    for (i = 0; i < n; i++) {
-	x = pot[i];
-	if (x > max_) max_ = x;
-	if (x != 0. && x < min_)
-	    min_ = x;
+    for (i = 0; i < n; i++)
+    {
+        x = pot[i];
+        if (x > max_)
+            max_ = x;
+        if (x != 0. && x < min_)
+            min_ = x;
     }
 
     /* scale only if there are very large or very small components. */
 
-    if (min_ < lo || max_ > high) {
-	x = lo / min_;
-	if (x <= 1.)
-	    sc = 1. / (sqrt(max_) * sqrt(min_));
-	else {
-	    sc = x;
-	    if (BIG / sc > max_)
-		sc = 1.0;
-	}
-	ell = (int) (log(sc) / log(base) + 0.5);
-	return R_pow_di(base, ell);
+    if (min_ < lo || max_ > high)
+    {
+        x = lo / min_;
+        if (x <= 1.)
+            sc = 1. / (sqrt(max_) * sqrt(min_));
+        else
+        {
+            sc = x;
+            if (BIG / sc > max_)
+                sc = 1.0;
+        }
+        ell = (int)(log(sc) / log(base) + 0.5);
+        return R_pow_di(base, ell);
     }
-    else return 1.0;
+    else
+        return 1.0;
 }
 
-
-static
-void cdivid(double ar, double ai, double br, double bi,
-	    double *cr, double *ci)
+static void cdivid(double ar, double ai, double br, double bi, double *cr, double *ci)
 {
-/* complex division c = a/b, i.e., (cr +i*ci) = (ar +i*ai) / (br +i*bi),
-   avoiding overflow. */
+    /* complex division c = a/b, i.e., (cr +i*ci) = (ar +i*ai) / (br +i*bi),
+       avoiding overflow. */
 
     double d, r;
 
-    if (br == 0. && bi == 0.) {
-	/* division by zero, c = infinity. */
-	*cr = *ci = R_PosInf;
+    if (br == 0. && bi == 0.)
+    {
+        /* division by zero, c = infinity. */
+        *cr = *ci = R_PosInf;
     }
-    else if (fabs(br) >= fabs(bi)) {
-	r = bi / br;
-	d = br + r * bi;
-	*cr = (ar + ai * r) / d;
-	*ci = (ai - ar * r) / d;
+    else if (fabs(br) >= fabs(bi))
+    {
+        r = bi / br;
+        d = br + r * bi;
+        *cr = (ar + ai * r) / d;
+        *ci = (ai - ar * r) / d;
     }
-    else {
-	r = br / bi;
-	d = bi + r * br;
-	*cr = (ar * r + ai) / d;
-	*ci = (ai * r - ar) / d;
+    else
+    {
+        r = br / bi;
+        d = bi + r * br;
+        *cr = (ar * r + ai) / d;
+        *ci = (ai * r - ar) / d;
     }
 }
 
 /* static double cpoly_cmod(double *r, double *i)
  * --> replaced by hypot() everywhere
-*/
+ */

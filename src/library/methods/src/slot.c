@@ -35,6 +35,3 @@ SEXP R_hasSlot(SEXP obj, SEXP name)
 {
     return ScalarLogical(R_has_slot(obj, name));
 }
-
-
-

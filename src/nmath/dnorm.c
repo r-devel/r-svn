@@ -35,28 +35,34 @@ double dnorm4(double x, double mu, double sigma, int give_log)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(mu) || ISNAN(sigma))
-	return x + mu + sigma;
+        return x + mu + sigma;
 #endif
-    if (sigma < 0) ML_WARN_return_NAN;
-    if(!R_FINITE(sigma)) return R_D__0;
-    if(!R_FINITE(x) && mu == x) return ML_NAN;/* x-mu is NaN */
-    if (sigma == 0) 
-	return (x == mu) ? ML_POSINF : R_D__0;
+    if (sigma < 0)
+        ML_WARN_return_NAN;
+    if (!R_FINITE(sigma))
+        return R_D__0;
+    if (!R_FINITE(x) && mu == x)
+        return ML_NAN; /* x-mu is NaN */
+    if (sigma == 0)
+        return (x == mu) ? ML_POSINF : R_D__0;
     x = (x - mu) / sigma;
 
-    if(!R_FINITE(x)) return R_D__0;
+    if (!R_FINITE(x))
+        return R_D__0;
 
-    x = fabs (x);
-    if (x >= 2 * sqrt(DBL_MAX)) return R_D__0;
+    x = fabs(x);
+    if (x >= 2 * sqrt(DBL_MAX))
+        return R_D__0;
     if (give_log)
-	return -(M_LN_SQRT_2PI + 0.5 * x * x + log(sigma));
-    //  M_1_SQRT_2PI = 1 / sqrt(2 * pi)
+        return -(M_LN_SQRT_2PI + 0.5 * x * x + log(sigma));
+        //  M_1_SQRT_2PI = 1 / sqrt(2 * pi)
 #ifdef MATHLIB_FAST_dnorm
     // and for R <= 3.0.x and R-devel upto 2014-01-01:
     return M_1_SQRT_2PI * exp(-0.5 * x * x) / sigma;
 #else
     // more accurate, less fast :
-    if (x < 5)    return M_1_SQRT_2PI * exp(-0.5 * x * x) / sigma;
+    if (x < 5)
+        return M_1_SQRT_2PI * exp(-0.5 * x * x) / sigma;
 
     /* ELSE:
 
@@ -75,7 +81,8 @@ double dnorm4(double x, double mu, double sigma, int give_log)
      *              =IEEE=  38.58601
      * [on one x86_64 platform, effective boundary a bit lower: 38.56804]
      */
-    if (x > sqrt(-2*M_LN2*(DBL_MIN_EXP + 1-DBL_MANT_DIG))) return 0.;
+    if (x > sqrt(-2 * M_LN2 * (DBL_MIN_EXP + 1 - DBL_MANT_DIG)))
+        return 0.;
 
     /* Now, to get full accurary, split x into two parts,
      *  x = x1+x2, such that |x2| <= 2^-16.
@@ -85,9 +92,8 @@ double dnorm4(double x, double mu, double sigma, int give_log)
      * If we do not have IEEE this is still an improvement over the naive formula.
      */
     double x1 = //  R_forceint(x * 65536) / 65536 =
-	ldexp( R_forceint(ldexp(x, 16)), -16);
+        ldexp(R_forceint(ldexp(x, 16)), -16);
     double x2 = x - x1;
-    return M_1_SQRT_2PI / sigma *
-	(exp(-0.5 * x1 * x1) * exp( (-0.5 * x2 - x1) * x2 ) );
+    return M_1_SQRT_2PI / sigma * (exp(-0.5 * x1 * x1) * exp((-0.5 * x2 - x1) * x2));
 #endif
 }

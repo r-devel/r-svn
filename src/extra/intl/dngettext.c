@@ -17,7 +17,7 @@
    USA.  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include "gettextP.h"
@@ -25,9 +25,9 @@
 #include <locale.h>
 
 #ifdef _LIBC
-# include <libintl.h>
+#include <libintl.h>
 #else
-# include "libgnuintl.h"
+#include "libgnuintl.h"
 #endif
 
 /* @@ end of prolog @@ */
@@ -37,26 +37,25 @@
    code is also used in GNU C Library where the names have a __
    prefix.  So we have to make a difference here.  */
 #ifdef _LIBC
-# define DNGETTEXT __dngettext
-# define DCNGETTEXT __dcngettext
+#define DNGETTEXT __dngettext
+#define DCNGETTEXT __dcngettext
 #else
-# define DNGETTEXT libintl_dngettext
-# define DCNGETTEXT libintl_dcngettext
+#define DNGETTEXT libintl_dngettext
+#define DCNGETTEXT libintl_dcngettext
 #endif
 
 /* Look up MSGID in the DOMAINNAME message catalog of the current
    LC_MESSAGES locale and skip message according to the plural form.  */
 #ifdef HAVE_VISIBILITY_ATTRIBUTE
-__attribute__ ((visibility ("default")))
+__attribute__((visibility("default")))
 #endif
 char *
-DNGETTEXT (const char *domainname,
-	   const char *msgid1, const char *msgid2, unsigned long int n)
+DNGETTEXT(const char *domainname, const char *msgid1, const char *msgid2, unsigned long int n)
 {
-  return DCNGETTEXT (domainname, msgid1, msgid2, n, LC_MESSAGES);
+    return DCNGETTEXT(domainname, msgid1, msgid2, n, LC_MESSAGES);
 }
 
 #ifdef _LIBC
 /* Alias for function name in GNU C Library.  */
-weak_alias (__dngettext, dngettext);
+weak_alias(__dngettext, dngettext);
 #endif

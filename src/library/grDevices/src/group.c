@@ -29,33 +29,40 @@
 
 #include "grDevices.h"
 
-SEXP defineGroup(SEXP args) 
+SEXP defineGroup(SEXP args)
 {
     SEXP ref = R_NilValue;
     pGEDevDesc dd = GEcurrentDevice();
-    if (dd->dev->deviceVersion >= R_GE_group) {
-        if (dd->appending) {
+    if (dd->dev->deviceVersion >= R_GE_group)
+    {
+        if (dd->appending)
+        {
             warning(_("Group definition ignored (device is appending path)"));
-        } else {
+        }
+        else
+        {
             SEXP source = CADR(args);
             SEXP op = CADDR(args);
             SEXP destination = CADDDR(args);
-            ref = dd->dev->defineGroup(source, INTEGER(op)[0], destination, 
-                                       dd->dev);
+            ref = dd->dev->defineGroup(source, INTEGER(op)[0], destination, dd->dev);
         }
     }
     return ref;
 }
 
-SEXP useGroup(SEXP args) 
+SEXP useGroup(SEXP args)
 {
     pGEDevDesc dd = GEcurrentDevice();
     /* This device operation is actually performing rendering */
     GEMode(1, dd);
-    if (dd->dev->deviceVersion >= R_GE_group) {
-        if (dd->appending) {
+    if (dd->dev->deviceVersion >= R_GE_group)
+    {
+        if (dd->appending)
+        {
             warning(_("Group use ignored (device is appending path)"));
-        } else {
+        }
+        else
+        {
             SEXP ref = CADR(args);
             SEXP trans = CADDR(args);
             dd->dev->useGroup(ref, trans, dd->dev);
@@ -65,7 +72,8 @@ SEXP useGroup(SEXP args)
     return R_NilValue;
 }
 
-SEXP devUp(void) {
+SEXP devUp(void)
+{
     pDevDesc dd = GEcurrentDevice()->dev;
     double left, right, bottom, top;
     SEXP ans;

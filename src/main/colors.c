@@ -28,7 +28,7 @@
 #include <R_ext/GraphicsEngine.h>
 
 typedef unsigned int (*F1)(SEXP x, int i, unsigned int bg);
-typedef const char * (*F2)(unsigned int col);
+typedef const char *(*F2)(unsigned int col);
 typedef unsigned int (*F3)(const char *s);
 typedef void (*F4)(Rboolean save);
 
@@ -50,7 +50,8 @@ void Rg_set_col_ptrs(F1 f1, F2 f2, F3 f3, F4 f4)
 /* in GraphicsEngine.h */
 unsigned int RGBpar3(SEXP x, int i, unsigned int bg)
 {
-    if (!ptr_RGBpar3) error("package grDevices must be loaded");
+    if (!ptr_RGBpar3)
+        error("package grDevices must be loaded");
     return (ptr_RGBpar3)(x, i, bg);
 }
 
@@ -64,7 +65,8 @@ unsigned int RGBpar(SEXP x, int i)
 /* in GraphicsEngine.h */
 const char *col2name(unsigned int col)
 {
-    if (!ptr_col2name) error("package grDevices must be loaded");
+    if (!ptr_col2name)
+        error("package grDevices must be loaded");
     return (ptr_col2name)(col);
 }
 
@@ -72,14 +74,15 @@ const char *col2name(unsigned int col)
 /* in GraphicsEngine.h */
 unsigned int R_GE_str2col(const char *s)
 {
-    if (!ptr_R_GE_str2col) error("package grDevices must be loaded");
+    if (!ptr_R_GE_str2col)
+        error("package grDevices must be loaded");
     return (ptr_R_GE_str2col)(s);
 }
 
 /* used in engine.c */
-attribute_hidden
-void savePalette(Rboolean save)
+attribute_hidden void savePalette(Rboolean save)
 {
-    if (!ptr_savePalette) error("package grDevices must be loaded");
+    if (!ptr_savePalette)
+        error("package grDevices must be loaded");
     (ptr_savePalette)(save);
 }

@@ -23,12 +23,13 @@
 double rlogis(double location, double scale)
 {
     if (ISNAN(location) || !R_FINITE(scale))
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
     if (scale == 0. || !R_FINITE(location))
-	return location;
-    else {
-	double u = unif_rand();
-	return location + scale * log(u / (1. - u));
+        return location;
+    else
+    {
+        double u = unif_rand();
+        return location + scale * log(u / (1. - u));
     }
 }

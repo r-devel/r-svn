@@ -19,16 +19,18 @@
 #include <string.h>
 #include <R.h>
 
-static double R_pp_sum (double *u, int n, int l)
+static double R_pp_sum(double *u, int n, int l)
 {
     double tmp1, tmp2;
 
     tmp1 = 0.0;
-    for (int i = 1; i <= l; i++) {
-	tmp2 = 0.0;
-	for (int j = i; j < n; j++) tmp2 += u[j] * u[j-i];
-	tmp2 *= 1.0 - i/(l + 1.0);
-	tmp1 += tmp2;
+    for (int i = 1; i <= l; i++)
+    {
+        tmp2 = 0.0;
+        for (int j = i; j < n; j++)
+            tmp2 += u[j] * u[j - i];
+        tmp2 *= 1.0 - i / (l + 1.0);
+        tmp1 += tmp2;
     }
     return 2.0 * tmp1 / n;
 }
@@ -51,8 +53,10 @@ SEXP intgrt_vec(SEXP x, SEXP xi, SEXP slag)
     int n = LENGTH(x), lag = asInteger(slag);
     SEXP ans = PROTECT(allocVector(REALSXP, n + lag));
     double *rx = REAL(x), *y = REAL(ans);
-    Memzero(y, n + lag); Memcpy(y, REAL(xi), lag);
-    for (int i = lag; i < lag + n; i++) y[i] = rx[i - lag] + y[i - lag];
+    Memzero(y, n + lag);
+    Memcpy(y, REAL(xi), lag);
+    for (int i = lag; i < lag + n; i++)
+        y[i] = rx[i - lag] + y[i - lag];
     UNPROTECT(3);
     return ans;
 }

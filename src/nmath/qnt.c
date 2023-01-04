@@ -29,41 +29,45 @@ double qnt(double p, double df, double ncp, int lower_tail, int log_p)
 
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(df) || ISNAN(ncp))
-	return p + df + ncp;
+        return p + df + ncp;
 #endif
     /* Was
      * df = floor(df + 0.5);
      * if (df < 1 || ncp < 0) ML_WARN_return_NAN;
      */
-    if (df <= 0.0) ML_WARN_return_NAN;
+    if (df <= 0.0)
+        ML_WARN_return_NAN;
 
-    if(ncp == 0.0 && df >= 1.0) return qt(p, df, lower_tail, log_p);
+    if (ncp == 0.0 && df >= 1.0)
+        return qt(p, df, lower_tail, log_p);
 
     R_Q_P01_boundaries(p, ML_NEGINF, ML_POSINF);
 
     if (!R_FINITE(df)) // df = Inf ==> limit N(ncp,1)
-	return qnorm(p, ncp, 1., lower_tail, log_p);
+        return qnorm(p, ncp, 1., lower_tail, log_p);
 
     p = R_DT_qIv(p);
 
     /* Invert pnt(.) :
      * 1. finding an upper and lower bound */
-    if(p > 1 - DBL_EPSILON) return ML_POSINF;
+    if (p > 1 - DBL_EPSILON)
+        return ML_POSINF;
     pp = fmin2(1 - DBL_EPSILON, p * (1 + Eps));
-    for(ux = fmax2(1., ncp);
-	ux < DBL_MAX && pnt(ux, df, ncp, TRUE, FALSE) < pp;
-	ux *= 2);
+    for (ux = fmax2(1., ncp); ux < DBL_MAX && pnt(ux, df, ncp, TRUE, FALSE) < pp; ux *= 2)
+        ;
     pp = p * (1 - Eps);
-    for(lx = fmin2(-1., -ncp);
-	lx > -DBL_MAX && pnt(lx, df, ncp, TRUE, FALSE) > pp;
-	lx *= 2);
+    for (lx = fmin2(-1., -ncp); lx > -DBL_MAX && pnt(lx, df, ncp, TRUE, FALSE) > pp; lx *= 2)
+        ;
 
     /* 2. interval (lx,ux)  halving : */
-    do {
-	nx = 0.5 * (lx + ux); // could be zero
-	if (pnt(nx, df, ncp, TRUE, FALSE) > p) ux = nx; else lx = nx;
-    }
-    while ((ux - lx) > accu * fmax2(fabs(lx), fabs(ux)));
+    do
+    {
+        nx = 0.5 * (lx + ux); // could be zero
+        if (pnt(nx, df, ncp, TRUE, FALSE) > p)
+            ux = nx;
+        else
+            lx = nx;
+    } while ((ux - lx) > accu * fmax2(fabs(lx), fabs(ux)));
 
     return 0.5 * (lx + ux);
 }

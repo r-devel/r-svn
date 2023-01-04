@@ -29,13 +29,16 @@
 
 #include "grDevices.h"
 
-SEXP setClipPath(SEXP args) 
+SEXP setClipPath(SEXP args)
 {
     pGEDevDesc dd = GEcurrentDevice();
-    if (dd->appending) {
+    if (dd->appending)
+    {
         warning(_("Clipping path ignored (device is appending path)"));
         return R_NilValue;
-    } else {
+    }
+    else
+    {
         SEXP path = CADR(args);
         SEXP ref = CADDR(args);
         dd->appending = TRUE;

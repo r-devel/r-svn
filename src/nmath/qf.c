@@ -21,7 +21,7 @@
  *  DESCRIPTION
  *
  *    The quantile function of the F distribution.
-*/
+ */
 
 #include "nmath.h"
 #include "dpq.h"
@@ -30,9 +30,10 @@ double qf(double p, double df1, double df2, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(df1) || ISNAN(df2))
-	return p + df1 + df2;
+        return p + df1 + df2;
 #endif
-    if (df1 <= 0. || df2 <= 0.) ML_WARN_return_NAN;
+    if (df1 <= 0. || df2 <= 0.)
+        ML_WARN_return_NAN;
 
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
@@ -40,17 +41,19 @@ double qf(double p, double df1, double df2, int lower_tail, int log_p)
        But we still need to fudge the infinite ones.
      */
 
-    if (df1 <= df2 && df2 > 4e5) {
-	if(!R_FINITE(df1)) /* df1 == df2 == Inf : */
-	    return 1.;
-	/* else value for df2 == Inf : */
-	return qchisq(p, df1, lower_tail, log_p) / df1;
+    if (df1 <= df2 && df2 > 4e5)
+    {
+        if (!R_FINITE(df1)) /* df1 == df2 == Inf : */
+            return 1.;
+        /* else value for df2 == Inf : */
+        return qchisq(p, df1, lower_tail, log_p) / df1;
     }
-    else if (df1 > 4e5) { /* and so  df2 < df1 -- return value for df1 == Inf */
-	return df2 / qchisq(p, df2, !lower_tail, log_p);
+    else if (df1 > 4e5)
+    { /* and so  df2 < df1 -- return value for df1 == Inf */
+        return df2 / qchisq(p, df2, !lower_tail, log_p);
     }
 
     // FIXME: (1/qb - 1) = (1 - qb)/qb; if we know qb ~= 1, should use other tail
-    p = (1. / qbeta(p, df2/2, df1/2, !lower_tail, log_p) - 1.) * (df2 / df1);
+    p = (1. / qbeta(p, df2 / 2, df1 / 2, !lower_tail, log_p) - 1.) * (df2 / df1);
     return ML_VALID(p) ? p : ML_NAN;
 }

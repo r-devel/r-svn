@@ -81,13 +81,14 @@ static double qinv(double p, double c, double v)
     double ps, q, t, yi;
 
     ps = 0.5 - 0.5 * p;
-    yi = sqrt (log (1.0 / (ps * ps)));
-    t = yi + (((( yi * p4 + p3) * yi + p2) * yi + p1) * yi + p0)
-	   / (((( yi * q4 + q3) * yi + q2) * yi + q1) * yi + q0);
-    if (v < vmax) t += (t * t * t + t) / v / 4.0;
+    yi = sqrt(log(1.0 / (ps * ps)));
+    t = yi + ((((yi * p4 + p3) * yi + p2) * yi + p1) * yi + p0) / ((((yi * q4 + q3) * yi + q2) * yi + q1) * yi + q0);
+    if (v < vmax)
+        t += (t * t * t + t) / v / 4.0;
     q = c1 - c2 * t;
-    if (v < vmax) q += -c3 / v + c4 * t / v;
-    return t * (q * log (c - 1.0) + c5);
+    if (v < vmax)
+        q += -c3 / v + c4 * t / v;
+    return t * (q * log(c - 1.0) + c5);
 }
 
 /*
@@ -115,9 +116,7 @@ static double qinv(double p, double c, double v)
  *  the search is terminated
  */
 
-
-double qtukey(double p, double rr, double cc, double df,
-	      int lower_tail, int log_p)
+double qtukey(double p, double rr, double cc, double df, int lower_tail, int log_p)
 {
     const static double eps = 0.0001;
     const int maxiter = 50;
@@ -126,14 +125,16 @@ double qtukey(double p, double rr, double cc, double df,
     int iter;
 
 #ifdef IEEE_754
-    if (ISNAN(p) || ISNAN(rr) || ISNAN(cc) || ISNAN(df)) {
-	ML_WARNING(ME_DOMAIN, "qtukey");
-	return p + rr + cc + df;
+    if (ISNAN(p) || ISNAN(rr) || ISNAN(cc) || ISNAN(df))
+    {
+        ML_WARNING(ME_DOMAIN, "qtukey");
+        return p + rr + cc + df;
     }
 #endif
 
     /* df must be > 1 ; there must be at least two values */
-    if (df < 2 || rr < 1 || cc < 2) ML_WARN_return_NAN;
+    if (df < 2 || rr < 1 || cc < 2)
+        ML_WARN_return_NAN;
 
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
@@ -145,7 +146,7 @@ double qtukey(double p, double rr, double cc, double df,
 
     /* Find prob(value < x0) */
 
-    valx0 = ptukey(x0, rr, cc, df, /*LOWER*/TRUE, /*LOG_P*/FALSE) - p;
+    valx0 = ptukey(x0, rr, cc, df, /*LOWER*/ TRUE, /*LOG_P*/ FALSE) - p;
 
     /* Find the second iterate and prob(value < x1). */
     /* If the first iterate has probability value */
@@ -153,35 +154,37 @@ double qtukey(double p, double rr, double cc, double df,
     /* first iterate; otherwise it is 1 greater. */
 
     if (valx0 > 0.0)
-	x1 = fmax2(0.0, x0 - 1.0);
+        x1 = fmax2(0.0, x0 - 1.0);
     else
-	x1 = x0 + 1.0;
-    valx1 = ptukey(x1, rr, cc, df, /*LOWER*/TRUE, /*LOG_P*/FALSE) - p;
+        x1 = x0 + 1.0;
+    valx1 = ptukey(x1, rr, cc, df, /*LOWER*/ TRUE, /*LOG_P*/ FALSE) - p;
 
     /* Find new iterate */
 
-    for(iter=1 ; iter < maxiter ; iter++) {
-	ans = x1 - ((valx1 * (x1 - x0)) / (valx1 - valx0));
-	valx0 = valx1;
+    for (iter = 1; iter < maxiter; iter++)
+    {
+        ans = x1 - ((valx1 * (x1 - x0)) / (valx1 - valx0));
+        valx0 = valx1;
 
-	/* New iterate must be >= 0 */
+        /* New iterate must be >= 0 */
 
-	x0 = x1;
-	if (ans < 0.0) {
-	    ans = 0.0;
-	    valx1 = -p;
-	}
-	/* Find prob(value < new iterate) */
+        x0 = x1;
+        if (ans < 0.0)
+        {
+            ans = 0.0;
+            valx1 = -p;
+        }
+        /* Find prob(value < new iterate) */
 
-	valx1 = ptukey(ans, rr, cc, df, /*LOWER*/TRUE, /*LOG_P*/FALSE) - p;
-	x1 = ans;
+        valx1 = ptukey(ans, rr, cc, df, /*LOWER*/ TRUE, /*LOG_P*/ FALSE) - p;
+        x1 = ans;
 
-	/* If the difference between two successive */
-	/* iterates is less than eps, stop */
+        /* If the difference between two successive */
+        /* iterates is less than eps, stop */
 
-	xabs = fabs(x1 - x0);
-	if (xabs < eps)
-	    return ans;
+        xabs = fabs(x1 - x0);
+        if (xabs < eps)
+            return ans;
     }
 
     /* The process did not converge in 'maxiter' iterations */

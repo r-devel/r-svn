@@ -42,28 +42,35 @@ double dnbinom(double x, double size, double prob, int give_log)
         return x + size + prob;
 #endif
 
-    if (prob <= 0 || prob > 1 || size < 0) ML_WARN_return_NAN;
+    if (prob <= 0 || prob > 1 || size < 0)
+        ML_WARN_return_NAN;
     R_D_nonint_check(x);
-    if (x < 0 || !R_FINITE(x)) return R_D__0;
+    if (x < 0 || !R_FINITE(x))
+        return R_D__0;
     x = R_forceint(x);
-    if(x == 0) {
-	/* limiting case as size approaches zero is point mass at zero */
-	if(size == 0) return R_D__1;
-	// size > 0:  P(x, ..) = pr^n :
-	return(give_log ? size*log(prob) : pow(prob, size));
+    if (x == 0)
+    {
+        /* limiting case as size approaches zero is point mass at zero */
+        if (size == 0)
+            return R_D__1;
+        // size > 0:  P(x, ..) = pr^n :
+        return (give_log ? size * log(prob) : pow(prob, size));
     }
-    if(!R_FINITE(size)) size = DBL_MAX;
+    if (!R_FINITE(size))
+        size = DBL_MAX;
 
-    if(x < 1e-10 * size) { // instead of dbinom_raw(), use 2 terms of Abramowitz & Stegun (6.1.47)
-	return R_D_exp(size * log(prob) + x * (log(size) + log1p(-prob))
-		       - lgamma1p(x) + log1p(x*(x-1)/(2*size)));
-    } else {
-	/* log( size/(size+x) ) is much less accurate than log1p(- x/(size+x))
-	   for |x| << size (and actually when x < size): */
-	double p = give_log ? (x < size ? log1p(-x/(size+x)) : log(size/(size+x)))
-	                    : size/(size+x),
-	     ans = dbinom_raw(size, x+size, prob, 1-prob, give_log);
-	return((give_log) ? p + ans : p * ans);
+    if (x < 1e-10 * size)
+    { // instead of dbinom_raw(), use 2 terms of Abramowitz & Stegun (6.1.47)
+        return R_D_exp(size * log(prob) + x * (log(size) + log1p(-prob)) - lgamma1p(x) +
+                       log1p(x * (x - 1) / (2 * size)));
+    }
+    else
+    {
+        /* log( size/(size+x) ) is much less accurate than log1p(- x/(size+x))
+           for |x| << size (and actually when x < size): */
+        double p = give_log ? (x < size ? log1p(-x / (size + x)) : log(size / (size + x))) : size / (size + x),
+               ans = dbinom_raw(size, x + size, prob, 1 - prob, give_log);
+        return ((give_log) ? p + ans : p * ans);
     }
 }
 
@@ -77,35 +84,39 @@ double dnbinom_mu(double x, double size, double mu, int give_log)
         return x + size + mu;
 #endif
 
-    if (mu < 0 || size < 0) ML_WARN_return_NAN;
+    if (mu < 0 || size < 0)
+        ML_WARN_return_NAN;
     R_D_nonint_check(x);
-    if (x < 0 || !R_FINITE(x)) return R_D__0;
+    if (x < 0 || !R_FINITE(x))
+        return R_D__0;
 
     /* limiting case as size approaches zero is point mass at zero,
      * even if mu is kept constant. limit distribution does not
      * have mean mu, though.
      */
-    if (x == 0 && size == 0) return R_D__1;
+    if (x == 0 && size == 0)
+        return R_D__1;
     x = R_forceint(x);
     // FIXME use also for size "almost" Inf because that gives NaN ???
-    if(!R_FINITE(size)) // limit case: Poisson
-	return(dpois_raw(x, mu, give_log));
+    if (!R_FINITE(size)) // limit case: Poisson
+        return (dpois_raw(x, mu, give_log));
 
-    if(x == 0)/* be accurate, both for n << mu, and n >> mu :*/
-	return R_D_exp(size * (size < mu ? log(size/(size+mu)) : log1p(- mu/(size+mu))));
-    if(x < 1e-10 * size) { /* don't use dbinom_raw() but MM's formula: */
-	/* FIXME --- 1e-8 shows problem; rather use algdiv() from ./toms708.c */
-	double p = (size < mu ? log(size/(1 + size/mu)) : log(mu / (1 + mu/size)));
-	return R_D_exp(x * p - mu - lgamma1p(x) +
-		       log1p(x*(x-1)/(2*size)));
-    } else {
-	/* no unnecessary cancellation inside dbinom_raw, when
-	  x_ = size and n_ = x+size are so close that n_ - x_ loses accuracy
-	  but log( size/(size+x) ) is much less accurate than log1p(- x/(size+x))
-	  for |x| << size (and actually when x < size): */
-	double p = give_log ? (x < size ? log1p(-x/(size+x)) : log(size/(size+x)))
-			    : size/(size+x),
-	    ans = dbinom_raw(size, x+size, size/(size+mu), mu/(size+mu), give_log);
-	return((give_log) ? p + ans : p * ans);
+    if (x == 0) /* be accurate, both for n << mu, and n >> mu :*/
+        return R_D_exp(size * (size < mu ? log(size / (size + mu)) : log1p(-mu / (size + mu))));
+    if (x < 1e-10 * size)
+    { /* don't use dbinom_raw() but MM's formula: */
+        /* FIXME --- 1e-8 shows problem; rather use algdiv() from ./toms708.c */
+        double p = (size < mu ? log(size / (1 + size / mu)) : log(mu / (1 + mu / size)));
+        return R_D_exp(x * p - mu - lgamma1p(x) + log1p(x * (x - 1) / (2 * size)));
+    }
+    else
+    {
+        /* no unnecessary cancellation inside dbinom_raw, when
+          x_ = size and n_ = x+size are so close that n_ - x_ loses accuracy
+          but log( size/(size+x) ) is much less accurate than log1p(- x/(size+x))
+          for |x| << size (and actually when x < size): */
+        double p = give_log ? (x < size ? log1p(-x / (size + x)) : log(size / (size + x))) : size / (size + x),
+               ans = dbinom_raw(size, x + size, size / (size + mu), mu / (size + mu), give_log);
+        return ((give_log) ? p + ans : p * ans);
     }
 }

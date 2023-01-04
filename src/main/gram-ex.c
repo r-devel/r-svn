@@ -31,32 +31,35 @@
 
 #include "Defn.h"
 
-attribute_hidden
-int R_fgetc(FILE *fp)
+attribute_hidden int R_fgetc(FILE *fp)
 {
 #ifdef Win32
     int c;
-    static int nexteof=0;
-    if (nexteof) {
-       nexteof = 0;
-       return R_EOF;
+    static int nexteof = 0;
+    if (nexteof)
+    {
+        nexteof = 0;
+        return R_EOF;
     }
     c = fgetc(fp);
-    if (c==EOF) {
-       nexteof = 1;
-       return '\n';
+    if (c == EOF)
+    {
+        nexteof = 1;
+        return '\n';
     }
 #else
     int c = fgetc(fp);
 #endif
     /* get rid of  CR in CRLF line termination */
-    if (c == '\r') {
-	c = fgetc(fp);
-	/* retain CR's with no following linefeed */
-	if (c != '\n') {
-	    ungetc(c,fp);
-	    return('\r');
-	}
+    if (c == '\r')
+    {
+        c = fgetc(fp);
+        /* retain CR's with no following linefeed */
+        if (c != '\n')
+        {
+            ungetc(c, fp);
+            return ('\r');
+        }
     }
 #ifdef Win32
     return c;

@@ -18,7 +18,6 @@
  *  https://www.R-project.org/Licenses/
  */
 
-
 #define GRID_MAIN
 #include "grid.h"
 #include <math.h>
@@ -26,11 +25,11 @@
 #include <string.h>
 
 /* NOTE:
- * The extensive use of L or L_ prefixes dates back to when this 
+ * The extensive use of L or L_ prefixes dates back to when this
  * package used to be called "lattice"
  */
 
-void getDeviceSize(pGEDevDesc dd, double *devWidthCM, double *devHeightCM) 
+void getDeviceSize(pGEDevDesc dd, double *devWidthCM, double *devHeightCM)
 {
     double left, right, bottom, top;
     dd->dev->size(&left, &right, &bottom, &top, dd->dev);
@@ -38,22 +37,23 @@ void getDeviceSize(pGEDevDesc dd, double *devWidthCM, double *devHeightCM)
     *devHeightCM = fabs(top - bottom) * dd->dev->ipr[1] * 2.54;
 }
 
-static Rboolean deviceChanged(double devWidthCM, double devHeightCM, 
-			      SEXP currentvp)
+static Rboolean deviceChanged(double devWidthCM, double devHeightCM, SEXP currentvp)
 {
     Rboolean result = FALSE;
     SEXP pvpDevWidthCM, pvpDevHeightCM;
     PROTECT(pvpDevWidthCM = VECTOR_ELT(currentvp, PVP_DEVWIDTHCM));
     PROTECT(pvpDevHeightCM = VECTOR_ELT(currentvp, PVP_DEVHEIGHTCM));
-    if (fabs(REAL(pvpDevWidthCM)[0] - devWidthCM) > 1e-6) {
-	result = TRUE;
-	REAL(pvpDevWidthCM)[0] = devWidthCM;
-	SET_VECTOR_ELT(currentvp, PVP_DEVWIDTHCM, pvpDevWidthCM);
+    if (fabs(REAL(pvpDevWidthCM)[0] - devWidthCM) > 1e-6)
+    {
+        result = TRUE;
+        REAL(pvpDevWidthCM)[0] = devWidthCM;
+        SET_VECTOR_ELT(currentvp, PVP_DEVWIDTHCM, pvpDevWidthCM);
     }
-    if (fabs(REAL(pvpDevHeightCM)[0] - devHeightCM) > 1e-6) {
-	result = TRUE;
-	REAL(pvpDevHeightCM)[0] = devHeightCM;
-	SET_VECTOR_ELT(currentvp, PVP_DEVHEIGHTCM, pvpDevHeightCM);
+    if (fabs(REAL(pvpDevHeightCM)[0] - devHeightCM) > 1e-6)
+    {
+        result = TRUE;
+        REAL(pvpDevHeightCM)[0] = devHeightCM;
+        SET_VECTOR_ELT(currentvp, PVP_DEVHEIGHTCM, pvpDevHeightCM);
     }
     UNPROTECT(2);
     return result;
@@ -61,14 +61,14 @@ static Rboolean deviceChanged(double devWidthCM, double devHeightCM,
 
 /* Register grid with R's graphics engine
  */
-SEXP L_initGrid(SEXP GridEvalEnv) 
+SEXP L_initGrid(SEXP GridEvalEnv)
 {
     R_gridEvalEnv = GridEvalEnv;
     GEregisterSystem(gridCallback, &gridRegisterIndex);
     return R_NilValue;
 }
 
-SEXP L_killGrid(void) 
+SEXP L_killGrid(void)
 {
     GEunregisterSystem(gridRegisterIndex);
     return R_NilValue;
@@ -76,47 +76,50 @@ SEXP L_killGrid(void)
 
 /* Get the current device (the graphics engine creates one if nec.)
  */
-pGEDevDesc getDevice(void) 
+pGEDevDesc getDevice(void)
 {
     return GEcurrentDevice();
 }
 
-/* If this is the first time that a grid operation has occurred for 
+/* If this is the first time that a grid operation has occurred for
  * this device, do some initialisation.
  */
-void dirtyGridDevice(pGEDevDesc dd) {
-    if (!LOGICAL(gridStateElement(dd, GSS_GRIDDEVICE))[0]) {
-	SEXP gsd, griddev;
-	/* Record the fact that this device has now received grid output
-	 */
-	gsd = (SEXP) dd->gesd[gridRegisterIndex]->systemSpecific;
-	PROTECT(griddev = allocVector(LGLSXP, 1));
-	LOGICAL(griddev)[0] = TRUE;
-	SET_VECTOR_ELT(gsd, GSS_GRIDDEVICE, griddev);
-	UNPROTECT(1);
-	/*
-	 * Start the first page on the device
-	 * (But only if no other graphics system has not already done so)
-	 */
-	if (!GEdeviceDirty(dd)) {
-	    R_GE_gcontext gc;
-	    SEXP currentgp = gridStateElement(dd, GSS_GPAR);
-	    gcontextFromgpar(currentgp, 0, &gc, dd);
-	    GENewPage(&gc, dd);
-	    GEdirtyDevice(dd);
-	}
-	/*
-	 * Only initialise viewport once new page has started
-	 * (required for postscript output [at least])
-	 */
-	initVP(dd);
-	initDL(dd);
+void dirtyGridDevice(pGEDevDesc dd)
+{
+    if (!LOGICAL(gridStateElement(dd, GSS_GRIDDEVICE))[0])
+    {
+        SEXP gsd, griddev;
+        /* Record the fact that this device has now received grid output
+         */
+        gsd = (SEXP)dd->gesd[gridRegisterIndex]->systemSpecific;
+        PROTECT(griddev = allocVector(LGLSXP, 1));
+        LOGICAL(griddev)[0] = TRUE;
+        SET_VECTOR_ELT(gsd, GSS_GRIDDEVICE, griddev);
+        UNPROTECT(1);
+        /*
+         * Start the first page on the device
+         * (But only if no other graphics system has not already done so)
+         */
+        if (!GEdeviceDirty(dd))
+        {
+            R_GE_gcontext gc;
+            SEXP currentgp = gridStateElement(dd, GSS_GPAR);
+            gcontextFromgpar(currentgp, 0, &gc, dd);
+            GENewPage(&gc, dd);
+            GEdirtyDevice(dd);
+        }
+        /*
+         * Only initialise viewport once new page has started
+         * (required for postscript output [at least])
+         */
+        initVP(dd);
+        initDL(dd);
     }
 }
 
 SEXP L_gridDirty(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     dirtyGridDevice(dd);
@@ -128,51 +131,49 @@ void getViewportContext(SEXP vp, LViewportContext *vpc)
     fillViewportContextFromViewport(vp, vpc);
 }
 
-SEXP L_currentViewport(void) 
+SEXP L_currentViewport(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_VP);
 }
 
-SEXP doSetViewport(SEXP vp, 
-		   /* 
-		    * Are we setting the top-level viewport?
-		    */
-		   Rboolean topLevelVP,
-		   /* 
-		    * Are we pushing a new viewport?
-		    * (or just revisiting an already-pushed viewport?)
-		    */
-		   Rboolean pushing,
-		   pGEDevDesc dd)
+SEXP doSetViewport(SEXP vp,
+                   /*
+                    * Are we setting the top-level viewport?
+                    */
+                   Rboolean topLevelVP,
+                   /*
+                    * Are we pushing a new viewport?
+                    * (or just revisiting an already-pushed viewport?)
+                    */
+                   Rboolean pushing, pGEDevDesc dd)
 {
     int i, j;
     double devWidthCM, devHeightCM;
     double xx1, yy1, xx2, yy2;
     SEXP currentClip, widthCM, heightCM;
-    /* Get the current device size 
+    /* Get the current device size
      */
     getDeviceSize((dd), &devWidthCM, &devHeightCM);
-    if (!topLevelVP && pushing) {
-	SEXP parent = gridStateElement(dd, GSS_VP);
-	/* Set the viewport's parent
-	 * Need to do this in here so that redrawing via R BASE display
-	 * list works 
-	 */
-	SET_VECTOR_ELT(vp, PVP_PARENT, parent);
-	/*
-	 * Make this viewport a child of its parent
-	 * This involves assigning a value in the parent's
-	 * children slot (which is an environment), using
-	 * the viewport's name as the symbol name.
-	 * NOTE that we are deliberately using defineVar to
-	 * assign the vp SEXP itself, NOT a copy.
-	 */
-	defineVar(installTrChar(STRING_ELT(VECTOR_ELT(vp, VP_NAME), 0)),
-		  vp, 
-		  VECTOR_ELT(parent, PVP_CHILDREN));
+    if (!topLevelVP && pushing)
+    {
+        SEXP parent = gridStateElement(dd, GSS_VP);
+        /* Set the viewport's parent
+         * Need to do this in here so that redrawing via R BASE display
+         * list works
+         */
+        SET_VECTOR_ELT(vp, PVP_PARENT, parent);
+        /*
+         * Make this viewport a child of its parent
+         * This involves assigning a value in the parent's
+         * children slot (which is an environment), using
+         * the viewport's name as the symbol name.
+         * NOTE that we are deliberately using defineVar to
+         * assign the vp SEXP itself, NOT a copy.
+         */
+        defineVar(installTrChar(STRING_ELT(VECTOR_ELT(vp, VP_NAME), 0)), vp, VECTOR_ELT(parent, PVP_CHILDREN));
     }
     /* Calculate the transformation for the viewport.
      * This will hopefully only involve updating the transformation
@@ -182,23 +183,24 @@ SEXP doSetViewport(SEXP vp,
      * all the way down.
      * NEVER incremental for top-level viewport
      */
-    calcViewportTransform(vp, viewportParent(vp), 
-			  !topLevelVP &&
-			  !deviceChanged(devWidthCM, devHeightCM, 
-					 viewportParent(vp)), dd);
+    calcViewportTransform(vp, viewportParent(vp),
+                          !topLevelVP && !deviceChanged(devWidthCM, devHeightCM, viewportParent(vp)), dd);
     /*
      * Establish the clipping region for this viewport
      */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         /*
-         * Clipping settings are (silently) ignored during resolution of 
+         * Clipping settings are (silently) ignored during resolution of
          * a (clipping) path
          */
-        if (!isClipPath(viewportClipSXP(vp)) &&
-            (viewportClip(vp) == NA_LOGICAL || viewportClip(vp))) {
+        if (!isClipPath(viewportClipSXP(vp)) && (viewportClip(vp) == NA_LOGICAL || viewportClip(vp)))
+        {
             warning(_("Turning clipping on or off within a (clipping) path is no honoured"));
         }
-    } else if (isClipPath(viewportClipSXP(vp))) {
+    }
+    else if (isClipPath(viewportClipSXP(vp)))
+    {
         SEXP currentClip, parentClip;
         /*
          * Set clipping path AFTER doSetViewport() so that this
@@ -215,29 +217,32 @@ SEXP doSetViewport(SEXP vp,
         REAL(currentClip)[3] = REAL(parentClip)[3];
         SET_VECTOR_ELT(vp, PVP_CLIPRECT, currentClip);
         UNPROTECT(2);
-    } else {
-        if (viewportClip(vp) == NA_LOGICAL) {
-            /* 
+    }
+    else
+    {
+        if (viewportClip(vp) == NA_LOGICAL)
+        {
+            /*
              * We must "turn off" clipping
              * We set the clip region to be the entire device
              * (actually, as for the top-level viewport, we set it
-             *  to be slightly larger than the device to avoid 
+             *  to be slightly larger than the device to avoid
              *  "edge effects")
              */
-            xx1 = toDeviceX(-0.5*devWidthCM/2.54, GE_INCHES, dd);
-            yy1 = toDeviceY(-0.5*devHeightCM/2.54, GE_INCHES, dd);
-            xx2 = toDeviceX(1.5*devWidthCM/2.54, GE_INCHES, dd);
-            yy2 = toDeviceY(1.5*devHeightCM/2.54, GE_INCHES, dd);
+            xx1 = toDeviceX(-0.5 * devWidthCM / 2.54, GE_INCHES, dd);
+            yy1 = toDeviceY(-0.5 * devHeightCM / 2.54, GE_INCHES, dd);
+            xx2 = toDeviceX(1.5 * devWidthCM / 2.54, GE_INCHES, dd);
+            yy2 = toDeviceY(1.5 * devHeightCM / 2.54, GE_INCHES, dd);
             GESetClip(xx1, yy1, xx2, yy2, dd);
-        } else if (viewportClip(vp)) {
+        }
+        else if (viewportClip(vp))
+        {
             /* If we are supposed to clip to this viewport ...
              * NOTE that we will only clip if there is no rotation
              */
             double rotationAngle = REAL(viewportRotation(vp))[0];
-            if (rotationAngle != 0 &&
-                rotationAngle != 90 &&
-                rotationAngle != 270 &&
-                rotationAngle != 360) {
+            if (rotationAngle != 0 && rotationAngle != 90 && rotationAngle != 270 && rotationAngle != 360)
+            {
                 warning(_("cannot clip to rotated viewport"));
                 /* Still need to set clip region for this viewport.
                    So "inherit" parent clip region.
@@ -250,7 +255,9 @@ SEXP doSetViewport(SEXP vp,
                 xx2 = REAL(parentClip)[2];
                 yy2 = REAL(parentClip)[3];
                 UNPROTECT(1);
-            } else {
+            }
+            else
+            {
                 /* Calculate a clipping region and set it
                  */
                 SEXP x1, y1, x2, y2;
@@ -259,16 +266,18 @@ SEXP doSetViewport(SEXP vp,
                 double vpHeightCM = REAL(viewportHeightCM(vp))[0];
                 R_GE_gcontext gc;
                 LTransform transform;
-                for (i=0; i<3; i++)
-                    for (j=0; j<3; j++)
-                        transform[i][j] = 
-                            REAL(viewportTransform(vp))[i + 3*j];
-                if (!topLevelVP) {
+                for (i = 0; i < 3; i++)
+                    for (j = 0; j < 3; j++)
+                        transform[i][j] = REAL(viewportTransform(vp))[i + 3 * j];
+                if (!topLevelVP)
+                {
                     PROTECT(x1 = unit(0, L_NPC));
                     PROTECT(y1 = unit(0, L_NPC));
                     PROTECT(x2 = unit(1, L_NPC));
                     PROTECT(y2 = unit(1, L_NPC));
-                } else {
+                }
+                else
+                {
                     /* Special case for top-level viewport.
                      * Set clipping region outside device boundaries.
                      * This means that we have set the clipping region to
@@ -283,17 +292,9 @@ SEXP doSetViewport(SEXP vp,
                 }
                 getViewportContext(vp, &vpc);
                 gcontextFromViewport(vp, &gc, dd);
-                transformLocn(x1, y1, 0, vpc, &gc, 
-                              vpWidthCM, vpHeightCM,
-                              dd,
-                              transform,
-                              &xx1, &yy1);
-                transformLocn(x2, y2, 0, vpc, &gc,
-                              vpWidthCM, vpHeightCM,
-                              dd,
-                              transform,
-                              &xx2, &yy2);
-                UNPROTECT(4);  /* unprotect x1, y1, x2, y2 */
+                transformLocn(x1, y1, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx1, &yy1);
+                transformLocn(x2, y2, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx2, &yy2);
+                UNPROTECT(4); /* unprotect x1, y1, x2, y2 */
                 /* The graphics engine only takes device coordinates
                  */
                 xx1 = toDeviceX(xx1, GE_INCHES, dd);
@@ -302,7 +303,9 @@ SEXP doSetViewport(SEXP vp,
                 yy2 = toDeviceY(yy2, GE_INCHES, dd);
                 GESetClip(xx1, yy1, xx2, yy2, dd);
             }
-        } else {
+        }
+        else
+        {
             /* If we haven't set the clipping region for this viewport
              * we need to save the clipping region from its parent
              * so that when we pop this viewport we can restore that.
@@ -320,22 +323,26 @@ SEXP doSetViewport(SEXP vp,
             /*
              * The parent may have a clipping path instead of a clipping rect
              */
-            PROTECT(parentClipPath = VECTOR_ELT(viewportParent(vp), 
-                                                PVP_CLIPPATH));            
-            if (isClipPath(parentClipPath)) {
+            PROTECT(parentClipPath = VECTOR_ELT(viewportParent(vp), PVP_CLIPPATH));
+            if (isClipPath(parentClipPath))
+            {
                 SET_VECTOR_ELT(vp, PVP_CLIPPATH, parentClipPath);
             }
             /* If we are revisiting a viewport that inherits a clip
-             * region from a parent viewport, we may need to reset 
+             * region from a parent viewport, we may need to reset
              * the clip region (at worst, we generate a redundant clip)
              */
-            if (!pushing) {
-                if (isClipPath(parentClipPath)) {
+            if (!pushing)
+            {
+                if (isClipPath(parentClipPath))
+                {
                     /*
                      * Set clipping path AFTER doSetViewport() so that this
                      * viewport is the current viewport for resolving clip path
                      */
-                } else {
+                }
+                else
+                {
                     GESetClip(xx1, yy1, xx2, yy2, dd);
                 }
             }
@@ -355,26 +362,33 @@ SEXP doSetViewport(SEXP vp,
     /*
      * Establish the mask for this viewport
      */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
-        /* Masks are (silently) ignored during resolution of a 
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
+        /* Masks are (silently) ignored during resolution of a
          * clipping path
          */
-    } else if (isMask(viewportMaskSXP(vp))) {
+    }
+    else if (isMask(viewportMaskSXP(vp)))
+    {
         /* Resolve AFTER doSetViewport() so that the current viewport
          * is the context for resolving the mask
          */
-    } else {
-        if (viewportMask(vp)) {
-            /* TRUE = "inherit" means use the parent mask 
-             * So we record the parent mask in this pushed vp to restore on pop 
+    }
+    else
+    {
+        if (viewportMask(vp))
+        {
+            /* TRUE = "inherit" means use the parent mask
+             * So we record the parent mask in this pushed vp to restore on pop
              */
             /* NOTE that we are relying on grid.R setting mask = FALSE
              * (so pushedvp$mask = NULL)
              * for the top-level viewport, else *BOOM*!
              */
-            SET_VECTOR_ELT(vp, PVP_MASK, 
-                           VECTOR_ELT(viewportParent(vp), PVP_MASK));
-        } else {
+            SET_VECTOR_ELT(vp, PVP_MASK, VECTOR_ELT(viewportParent(vp), PVP_MASK));
+        }
+        else
+        {
             /* FALSE = "none" means DO NOT use any masks */
             SET_VECTOR_ELT(vp, PVP_MASK, R_NilValue);
             /* We can enforce this immediately */
@@ -398,7 +412,7 @@ SEXP L_setviewport(SEXP invp, SEXP hasParent)
 {
     SEXP vp;
     SEXP pushedvp, fcall;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     /*
@@ -406,56 +420,59 @@ SEXP L_setviewport(SEXP invp, SEXP hasParent)
      * to modify it to hell and gone.
      */
     PROTECT(vp = duplicate(invp));
-    /* 
-     * Call R function pushedvp() 
+    /*
+     * Call R function pushedvp()
      */
-    PROTECT(fcall = lang2(install("pushedvp"),
-			  vp));
-    PROTECT(pushedvp = eval(fcall, R_gridEvalEnv)); 
+    PROTECT(fcall = lang2(install("pushedvp"), vp));
+    PROTECT(pushedvp = eval(fcall, R_gridEvalEnv));
     pushedvp = doSetViewport(pushedvp, !LOGICAL(hasParent)[0], TRUE, dd);
     /* Set the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
+     * list works
      */
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_viewports")) {
+    if (getenv("R_GE_DEBUG_viewports"))
+    {
         printf("L_setviewport: ");
         Rf_PrintValue(pushedvp);
     }
 #endif
     setGridStateElement(dd, GSS_VP, pushedvp);
     /*
-     * Resolve patterns for this viewport 
+     * Resolve patterns for this viewport
      */
     {
         SEXP vpgp = PROTECT(VECTOR_ELT(pushedvp, VP_GP));
         SEXP fill = getListElement(vpgp, "fill");
-        if (fill != R_NilValue) {
+        if (fill != R_NilValue)
+        {
             /* Do not keep resolved fill reference because cannot release fill
-             * (until grid.newpage()) 
+             * (until grid.newpage())
              * NOTE that resolveGPar() stores the resolved fill in 'vpgp'
              */
             resolveGPar(vpgp);
             /* Record the resolved fill for subsequent up/down/pop */
-            SET_VECTOR_ELT(VECTOR_ELT(pushedvp, PVP_GPAR),
-                           GP_FILL,
-                           getListElement(vpgp, "fill"));
+            SET_VECTOR_ELT(VECTOR_ELT(pushedvp, PVP_GPAR), GP_FILL, getListElement(vpgp, "fill"));
             /* Ensure that the "current" gpar has the resolved fill too */
             setGridStateElement(dd, GSS_GPAR, VECTOR_ELT(pushedvp, PVP_GPAR));
         }
         UNPROTECT(1);
     }
-    /* 
+    /*
      * Resolve clipping paths for this viewport
      */
     {
         SEXP clip, resolvedclip;
         PROTECT(clip = viewportClipSXP(pushedvp));
-        if (isClipPath(clip)) {
-            if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+        if (isClipPath(clip))
+        {
+            if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+            {
                 warning(_("Clipping paths within a (clipping) path are not honoured"));
                 SET_VECTOR_ELT(pushedvp, PVP_CLIPPATH, R_NilValue);
-            } else {
+            }
+            else
+            {
                 /* Record the resolved clip path for subsequent up/down/pop */
                 PROTECT(resolvedclip = resolveClipPath(clip, dd));
                 SET_VECTOR_ELT(pushedvp, PVP_CLIPPATH, resolvedclip);
@@ -464,17 +481,21 @@ SEXP L_setviewport(SEXP invp, SEXP hasParent)
         }
         UNPROTECT(1);
     }
-    /* 
+    /*
      * Resolve mask for this viewport
      */
     {
         SEXP mask, resolvedmask;
         PROTECT(mask = viewportMaskSXP(pushedvp));
-        if (isMask(mask)) {
-            if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+        if (isMask(mask))
+        {
+            if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+            {
                 warning(_("Masks within a (clipping) path are not honoured"));
                 SET_VECTOR_ELT(pushedvp, PVP_MASK, R_NilValue);
-            } else {
+            }
+            else
+            {
                 /* Record resolved mask for subsequent up/down/pop */
                 PROTECT(resolvedmask = resolveMask(mask, dd));
                 SET_VECTOR_ELT(pushedvp, PVP_MASK, resolvedmask);
@@ -487,7 +508,7 @@ SEXP L_setviewport(SEXP invp, SEXP hasParent)
     return R_NilValue;
 }
 
-/* 
+/*
  * Find a viewport in the current viewport tree by name
  *
  * Have to do this in C code so that we get THE SEXP in
@@ -498,34 +519,31 @@ SEXP L_setviewport(SEXP invp, SEXP hasParent)
  * Some helper functions to call R code because I have no idea
  * how to do this in C code
  */
-static Rboolean noChildren(SEXP children) 
+static Rboolean noChildren(SEXP children)
 {
     SEXP result, fcall;
-    PROTECT(fcall = lang2(install("no.children"),
-			  children));
-    PROTECT(result = eval(fcall, R_gridEvalEnv)); 
+    PROTECT(fcall = lang2(install("no.children"), children));
+    PROTECT(result = eval(fcall, R_gridEvalEnv));
     UNPROTECT(2);
     return LOGICAL(result)[0];
 }
 
-static Rboolean childExists(SEXP name, SEXP children) 
+static Rboolean childExists(SEXP name, SEXP children)
 {
     SEXP result, fcall;
-    PROTECT(fcall = lang3(install("child.exists"),
-			  name, children));
-    PROTECT(result = eval(fcall, R_gridEvalEnv)); 
+    PROTECT(fcall = lang3(install("child.exists"), name, children));
+    PROTECT(result = eval(fcall, R_gridEvalEnv));
     UNPROTECT(2);
     return LOGICAL(result)[0];
 }
 
-static SEXP childList(SEXP children) 
+static SEXP childList(SEXP children)
 {
     SEXP result, fcall;
-    PROTECT(fcall = lang2(install("child.list"),
-			  children));
-    PROTECT(result = eval(fcall, R_gridEvalEnv)); 
+    PROTECT(fcall = lang2(install("child.list"), children));
+    PROTECT(result = eval(fcall, R_gridEvalEnv));
     UNPROTECT(2);
-    return result;    
+    return result;
 }
 
 /*
@@ -545,7 +563,7 @@ find.in.children <- function(name, children) {
 }
 */
 static SEXP findViewport(SEXP name, SEXP strict, SEXP vp, int depth);
-static SEXP findInChildren(SEXP name, SEXP strict, SEXP children, int depth) 
+static SEXP findInChildren(SEXP name, SEXP strict, SEXP children, int depth)
 {
     SEXP childnames = childList(children);
     int n = LENGTH(childnames);
@@ -554,43 +572,43 @@ static SEXP findInChildren(SEXP name, SEXP strict, SEXP children, int depth)
     SEXP result = R_NilValue;
     PROTECT(childnames);
     PROTECT(result);
-    while (count < n && !found) {
-	result = findViewport(name, strict,
-			      PROTECT(findVar(installTrChar(STRING_ELT(childnames, count)),
-				      children)),
-			      depth);
-	found = INTEGER(VECTOR_ELT(result, 0))[0] > 0;
-	UNPROTECT(1);
-	count = count + 1;
+    while (count < n && !found)
+    {
+        result =
+            findViewport(name, strict, PROTECT(findVar(installTrChar(STRING_ELT(childnames, count)), children)), depth);
+        found = INTEGER(VECTOR_ELT(result, 0))[0] > 0;
+        UNPROTECT(1);
+        count = count + 1;
     }
-    if (!found) {
-	SEXP temp, zeroDepth;
-	PROTECT(temp = allocVector(VECSXP, 2));
-	PROTECT(zeroDepth = allocVector(INTSXP, 1));
-	INTEGER(zeroDepth)[0] = 0;
-	SET_VECTOR_ELT(temp, 0, zeroDepth);
-	SET_VECTOR_ELT(temp, 1, R_NilValue);
-	UNPROTECT(2);
-	result = temp;
+    if (!found)
+    {
+        SEXP temp, zeroDepth;
+        PROTECT(temp = allocVector(VECSXP, 2));
+        PROTECT(zeroDepth = allocVector(INTSXP, 1));
+        INTEGER(zeroDepth)[0] = 0;
+        SET_VECTOR_ELT(temp, 0, zeroDepth);
+        SET_VECTOR_ELT(temp, 1, R_NilValue);
+        UNPROTECT(2);
+        result = temp;
     }
     UNPROTECT(2);
     return result;
 }
-			   
+
 /*
 find.viewport <- function(name, pvp) {
   found <- FALSE
   if (length(ls(env=pvp$children)) == 0)
     return(list(found=FALSE, pvp=NULL))
-  else 
-    if (exists(name, env=pvp$children, inherits=FALSE)) 
+  else
+    if (exists(name, env=pvp$children, inherits=FALSE))
       return(list(found=TRUE,
                   pvp=get(name, env=pvp$children, inherits=FALSE)))
-    else 
+    else
       find.in.children(name, pvp$children)
 }
 */
-static SEXP findViewport(SEXP name, SEXP strict, SEXP vp, int depth) 
+static SEXP findViewport(SEXP name, SEXP strict, SEXP vp, int depth)
 {
     SEXP result, zeroDepth, curDepth;
     PROTECT(result = allocVector(VECSXP, 2));
@@ -598,67 +616,75 @@ static SEXP findViewport(SEXP name, SEXP strict, SEXP vp, int depth)
     INTEGER(zeroDepth)[0] = 0;
     PROTECT(curDepth = allocVector(INTSXP, 1));
     INTEGER(curDepth)[0] = depth;
-    /* 
+    /*
      * If there are no children, we fail
      */
-    if (noChildren(viewportChildren(vp))) {
-	SET_VECTOR_ELT(result, 0, zeroDepth);
-	SET_VECTOR_ELT(result, 1, R_NilValue);
-    } else if (childExists(name, viewportChildren(vp))) {
-	SET_VECTOR_ELT(result, 0, curDepth);
-	SET_VECTOR_ELT(result, 1, 
-		       /*
-			* Does this do inherits=FALSE?
-			*/
-		       findVar(installTrChar(STRING_ELT(name, 0)),
-			       viewportChildren(vp)));
-    } else {
-	/*
-	 * If this is a strict match, fail
-	 * Otherwise recurse into children
-	 */
-	if (LOGICAL(strict)[0]) {
-	    SET_VECTOR_ELT(result, 0, zeroDepth);
-	    SET_VECTOR_ELT(result, 1, R_NilValue);
-	} else {
-	    result = findInChildren(name, strict, viewportChildren(vp),
-				    depth + 1);
-	}
+    if (noChildren(viewportChildren(vp)))
+    {
+        SET_VECTOR_ELT(result, 0, zeroDepth);
+        SET_VECTOR_ELT(result, 1, R_NilValue);
+    }
+    else if (childExists(name, viewportChildren(vp)))
+    {
+        SET_VECTOR_ELT(result, 0, curDepth);
+        SET_VECTOR_ELT(result, 1,
+                       /*
+                        * Does this do inherits=FALSE?
+                        */
+                       findVar(installTrChar(STRING_ELT(name, 0)), viewportChildren(vp)));
+    }
+    else
+    {
+        /*
+         * If this is a strict match, fail
+         * Otherwise recurse into children
+         */
+        if (LOGICAL(strict)[0])
+        {
+            SET_VECTOR_ELT(result, 0, zeroDepth);
+            SET_VECTOR_ELT(result, 1, R_NilValue);
+        }
+        else
+        {
+            result = findInChildren(name, strict, viewportChildren(vp), depth + 1);
+        }
     }
     UNPROTECT(3);
     return result;
 }
 
-SEXP L_downviewport(SEXP name, SEXP strict) 
+SEXP L_downviewport(SEXP name, SEXP strict)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     /* Get the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
-     */    
+     * list works
+     */
     SEXP gvp = gridStateElement(dd, GSS_VP);
-    /* 
+    /*
      * Try to find the named viewport
      */
     SEXP found, vp;
     int depth = 1;
     PROTECT(found = findViewport(name, strict, gvp, depth));
-    if (INTEGER(VECTOR_ELT(found, 0))[0]) {
-	vp = doSetViewport(VECTOR_ELT(found, 1), FALSE, FALSE, dd);
-	/* Set the value of the current viewport for the current device
-	 * Need to do this in here so that redrawing via R BASE display
-	 * list works 
-	 */
+    if (INTEGER(VECTOR_ELT(found, 0))[0])
+    {
+        vp = doSetViewport(VECTOR_ELT(found, 1), FALSE, FALSE, dd);
+        /* Set the value of the current viewport for the current device
+         * Need to do this in here so that redrawing via R BASE display
+         * list works
+         */
 #ifdef R_GE_DEBUG
-        if (getenv("R_GE_DEBUG_viewports")) {
+        if (getenv("R_GE_DEBUG_viewports"))
+        {
             printf("L_downviewport: ");
             Rf_PrintValue(vp);
         }
 #endif
-	setGridStateElement(dd, GSS_VP, vp);
-        /* 
+        setGridStateElement(dd, GSS_VP, vp);
+        /*
          * Restore clipping paths for this viewport.
          * This may resolve the clipping path again if device does
          * not maintain clipping path cache.
@@ -666,7 +692,8 @@ SEXP L_downviewport(SEXP name, SEXP strict)
         {
             SEXP clip, resolvedclip;
             PROTECT(clip = VECTOR_ELT(vp, PVP_CLIPPATH));
-            if (isClipPath(clip)) {
+            if (isClipPath(clip))
+            {
                 /* Record resolved clip path for subsequent up/down/pop */
                 PROTECT(resolvedclip = resolveClipPath(clip, dd));
                 SET_VECTOR_ELT(vp, PVP_CLIPPATH, resolvedclip);
@@ -674,7 +701,7 @@ SEXP L_downviewport(SEXP name, SEXP strict)
             }
             UNPROTECT(1);
         }
-        /* 
+        /*
          * Restore masks for this viewport.
          * This may resolve the mask again if device does
          * not maintain mask cache.
@@ -682,7 +709,8 @@ SEXP L_downviewport(SEXP name, SEXP strict)
         {
             SEXP mask, resolvedmask;
             PROTECT(mask = VECTOR_ELT(vp, PVP_MASK));
-            if (isMask(mask)) {
+            if (isMask(mask))
+            {
                 /* Record the resolved mask for subsequent up/down/pop */
                 PROTECT(resolvedmask = resolveMask(mask, dd));
                 SET_VECTOR_ELT(vp, PVP_MASK, resolvedmask);
@@ -690,56 +718,53 @@ SEXP L_downviewport(SEXP name, SEXP strict)
             }
             UNPROTECT(1);
         }
-        UNPROTECT(1);    
-    } else {
+        UNPROTECT(1);
+    }
+    else
+    {
         /* Important to have an error here, rather than back in
          * R code AFTER this point.  Otherwise, an unsuccessful
          * downViewport() will be recorded on the engine DL!
          */
         char msg[1024];
-        snprintf(msg, 1024, "Viewport '%s' was not found", 
-		 CHAR(STRING_ELT(name, 0)));
-        UNPROTECT(1);    
+        snprintf(msg, 1024, "Viewport '%s' was not found", CHAR(STRING_ELT(name, 0)));
+        UNPROTECT(1);
         error(_(msg));
     }
-    return VECTOR_ELT(found, 0);    
+    return VECTOR_ELT(found, 0);
 }
 
-/* 
+/*
  * Find a viewport PATH in the current viewport tree by name
  *
  * Similar to L_downviewport
  */
 
-static Rboolean pathMatch(SEXP path, SEXP pathsofar, SEXP strict) 
+static Rboolean pathMatch(SEXP path, SEXP pathsofar, SEXP strict)
 {
     SEXP result, fcall;
-    PROTECT(fcall = lang4(install("pathMatch"),
-			  path, pathsofar, strict));
-    PROTECT(result = eval(fcall, R_gridEvalEnv)); 
+    PROTECT(fcall = lang4(install("pathMatch"), path, pathsofar, strict));
+    PROTECT(result = eval(fcall, R_gridEvalEnv));
     UNPROTECT(2);
-    return LOGICAL(result)[0];    
+    return LOGICAL(result)[0];
 }
 
-static SEXP growPath(SEXP pathsofar, SEXP name) 
+static SEXP growPath(SEXP pathsofar, SEXP name)
 {
     SEXP result, fcall;
     if (isNull(pathsofar))
-	result = name;
-    else {
-	PROTECT(fcall = lang3(install("growPath"),
-			      pathsofar, name));
-	PROTECT(result = eval(fcall, R_gridEvalEnv)); 
-	UNPROTECT(2);
+        result = name;
+    else
+    {
+        PROTECT(fcall = lang3(install("growPath"), pathsofar, name));
+        PROTECT(result = eval(fcall, R_gridEvalEnv));
+        UNPROTECT(2);
     }
-    return result;    
+    return result;
 }
 
-static SEXP findvppath(SEXP path, SEXP name, SEXP strict, 
-		       SEXP pathsofar, SEXP vp, int depth);
-static SEXP findvppathInChildren(SEXP path, SEXP name, 
-				 SEXP strict, SEXP pathsofar,
-				 SEXP children, int depth) 
+static SEXP findvppath(SEXP path, SEXP name, SEXP strict, SEXP pathsofar, SEXP vp, int depth);
+static SEXP findvppathInChildren(SEXP path, SEXP name, SEXP strict, SEXP pathsofar, SEXP children, int depth)
 {
     SEXP childnames = childList(children);
     int n = LENGTH(childnames);
@@ -748,33 +773,32 @@ static SEXP findvppathInChildren(SEXP path, SEXP name,
     SEXP result = R_NilValue;
     PROTECT(childnames);
     PROTECT(result);
-    while (count < n && !found) {
-	SEXP vp, newpathsofar;
-	PROTECT(vp = findVar(installTrChar(STRING_ELT(childnames, count)),
-			     children));
-	PROTECT(newpathsofar = growPath(pathsofar,
-					VECTOR_ELT(vp, VP_NAME)));
-	result = findvppath(path, name, strict, newpathsofar, vp, depth);
-	found = INTEGER(VECTOR_ELT(result, 0))[0] > 0;
-	count = count + 1;
-	UNPROTECT(2);
+    while (count < n && !found)
+    {
+        SEXP vp, newpathsofar;
+        PROTECT(vp = findVar(installTrChar(STRING_ELT(childnames, count)), children));
+        PROTECT(newpathsofar = growPath(pathsofar, VECTOR_ELT(vp, VP_NAME)));
+        result = findvppath(path, name, strict, newpathsofar, vp, depth);
+        found = INTEGER(VECTOR_ELT(result, 0))[0] > 0;
+        count = count + 1;
+        UNPROTECT(2);
     }
-    if (!found) {
-	SEXP temp, zeroDepth;
-	PROTECT(temp = allocVector(VECSXP, 2));
-	PROTECT(zeroDepth = allocVector(INTSXP, 1));
-	INTEGER(zeroDepth)[0] = 0;
-	SET_VECTOR_ELT(temp, 0, zeroDepth);
-	SET_VECTOR_ELT(temp, 1, R_NilValue);
-	UNPROTECT(2);
-	result = temp;
+    if (!found)
+    {
+        SEXP temp, zeroDepth;
+        PROTECT(temp = allocVector(VECSXP, 2));
+        PROTECT(zeroDepth = allocVector(INTSXP, 1));
+        INTEGER(zeroDepth)[0] = 0;
+        SET_VECTOR_ELT(temp, 0, zeroDepth);
+        SET_VECTOR_ELT(temp, 1, R_NilValue);
+        UNPROTECT(2);
+        result = temp;
     }
     UNPROTECT(2);
     return result;
 }
-			   
-static SEXP findvppath(SEXP path, SEXP name, SEXP strict, 
-		       SEXP pathsofar, SEXP vp, int depth) 
+
+static SEXP findvppath(SEXP path, SEXP name, SEXP strict, SEXP pathsofar, SEXP vp, int depth)
 {
     SEXP result, zeroDepth, curDepth;
     PROTECT(result = allocVector(VECSXP, 2));
@@ -782,65 +806,67 @@ static SEXP findvppath(SEXP path, SEXP name, SEXP strict,
     INTEGER(zeroDepth)[0] = 0;
     PROTECT(curDepth = allocVector(INTSXP, 1));
     INTEGER(curDepth)[0] = depth;
-    /* 
+    /*
      * If there are no children, we fail
      */
-    if (noChildren(viewportChildren(vp))) {
-	SET_VECTOR_ELT(result, 0, zeroDepth);
-	SET_VECTOR_ELT(result, 1, R_NilValue);
-	
-    } 
-    /* 
+    if (noChildren(viewportChildren(vp)))
+    {
+        SET_VECTOR_ELT(result, 0, zeroDepth);
+        SET_VECTOR_ELT(result, 1, R_NilValue);
+    }
+    /*
      * Check for the viewport name AND whether the rest
      * of the path matches (possibly strictly)
      */
-    else if (childExists(name, viewportChildren(vp)) &&
-	     pathMatch(path, pathsofar, strict)) {
-	SET_VECTOR_ELT(result, 0, curDepth);
-	SET_VECTOR_ELT(result, 1, 
-		       /*
-			* Does this do inherits=FALSE?
-			*/
-		       findVar(installTrChar(STRING_ELT(name, 0)),
-			       viewportChildren(vp)));
-    } else {
-	result = findvppathInChildren(path, name, strict, pathsofar,
-				      viewportChildren(vp), depth + 1);
+    else if (childExists(name, viewportChildren(vp)) && pathMatch(path, pathsofar, strict))
+    {
+        SET_VECTOR_ELT(result, 0, curDepth);
+        SET_VECTOR_ELT(result, 1,
+                       /*
+                        * Does this do inherits=FALSE?
+                        */
+                       findVar(installTrChar(STRING_ELT(name, 0)), viewportChildren(vp)));
+    }
+    else
+    {
+        result = findvppathInChildren(path, name, strict, pathsofar, viewportChildren(vp), depth + 1);
     }
     UNPROTECT(3);
     return result;
 }
 
-SEXP L_downvppath(SEXP path, SEXP name, SEXP strict) 
+SEXP L_downvppath(SEXP path, SEXP name, SEXP strict)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     /* Get the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
-     */    
+     * list works
+     */
     SEXP gvp = gridStateElement(dd, GSS_VP);
-    /* 
+    /*
      * Try to find the named viewport
      */
     SEXP found, vp;
     int depth = 1;
     PROTECT(found = findvppath(path, name, strict, R_NilValue, gvp, depth));
-    if (INTEGER(VECTOR_ELT(found, 0))[0]) {
-	vp = doSetViewport(VECTOR_ELT(found, 1), FALSE, FALSE, dd);
-	/* Set the value of the current viewport for the current device
-	 * Need to do this in here so that redrawing via R BASE display
-	 * list works 
-	 */
+    if (INTEGER(VECTOR_ELT(found, 0))[0])
+    {
+        vp = doSetViewport(VECTOR_ELT(found, 1), FALSE, FALSE, dd);
+        /* Set the value of the current viewport for the current device
+         * Need to do this in here so that redrawing via R BASE display
+         * list works
+         */
 #ifdef R_GE_DEBUG
-        if (getenv("R_GE_DEBUG_viewports")) {
+        if (getenv("R_GE_DEBUG_viewports"))
+        {
             printf("L_downvppath: ");
             Rf_PrintValue(vp);
         }
 #endif
-	setGridStateElement(dd, GSS_VP, vp);
-        /* 
+        setGridStateElement(dd, GSS_VP, vp);
+        /*
          * Restore clipping paths for this viewport.
          * This may resolve the clipping path again if device does
          * not maintain clipping path cache.
@@ -848,7 +874,8 @@ SEXP L_downvppath(SEXP path, SEXP name, SEXP strict)
         {
             SEXP clip, resolvedclip;
             PROTECT(clip = VECTOR_ELT(vp, PVP_CLIPPATH));
-            if (isClipPath(clip)) {
+            if (isClipPath(clip))
+            {
                 /* Record resolved clip path for subsequent up/down/pop */
                 PROTECT(resolvedclip = resolveClipPath(clip, dd));
                 SET_VECTOR_ELT(vp, PVP_CLIPPATH, resolvedclip);
@@ -856,7 +883,7 @@ SEXP L_downvppath(SEXP path, SEXP name, SEXP strict)
             }
             UNPROTECT(1);
         }
-        /* 
+        /*
          * Restore masks for this viewport.
          * This may resolve the mask again if device does
          * not maintain mask cache.
@@ -864,7 +891,8 @@ SEXP L_downvppath(SEXP path, SEXP name, SEXP strict)
         {
             SEXP mask, resolvedmask;
             PROTECT(mask = VECTOR_ELT(vp, PVP_MASK));
-            if (isMask(mask)) {
+            if (isMask(mask))
+            {
                 /* Record the resolved mask for subsequent up/down/pop */
                 PROTECT(resolvedmask = resolveMask(mask, dd));
                 SET_VECTOR_ELT(vp, PVP_MASK, resolvedmask);
@@ -872,22 +900,23 @@ SEXP L_downvppath(SEXP path, SEXP name, SEXP strict)
             }
             UNPROTECT(1);
         }
-        UNPROTECT(1);    
-    } else {
+        UNPROTECT(1);
+    }
+    else
+    {
         /* Important to have an error here, rather than back in
          * R code AFTER this point.  Otherwise, an unsuccessful
          * downViewport() will be recorded on the engine DL!
          */
         char msg[1024];
-        snprintf(msg, 1024, "Viewport '%s' was not found", 
-		 CHAR(STRING_ELT(name, 0)));
-        UNPROTECT(1);    
+        snprintf(msg, 1024, "Viewport '%s' was not found", CHAR(STRING_ELT(name, 0)));
+        UNPROTECT(1);
         error(_(msg));
     }
-    return VECTOR_ELT(found, 0);    
+    return VECTOR_ELT(found, 0);
 }
 
-/* This is similar to L_setviewport, except that it will NOT 
+/* This is similar to L_setviewport, except that it will NOT
  * recalculate the viewport transform if the device has not changed size
  */
 SEXP L_unsetviewport(SEXP n)
@@ -896,17 +925,17 @@ SEXP L_unsetviewport(SEXP n)
     double xx1, yy1, xx2, yy2;
     double devWidthCM, devHeightCM;
     SEXP parentClip, parentClipPath;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     /* Get the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
-     */    
+     * list works
+     */
     SEXP gvp = gridStateElement(dd, GSS_VP);
     /* NOTE that the R code has already checked that .grid.viewport$parent
      * is non-NULL
-     * 
+     *
      * BUT this may not be called from R code !!
      * (e.g., when the graphics engine display list is replayed;
      *  problems can occur when grid output is mixed with base output;
@@ -914,50 +943,49 @@ SEXP L_unsetviewport(SEXP n)
      */
     SEXP newvp = VECTOR_ELT(gvp, PVP_PARENT);
     if (isNull(newvp))
-	error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
-    for (i = 1; i < INTEGER(n)[0]; i++) {
-	gvp = newvp;
-	newvp = VECTOR_ELT(gvp, PVP_PARENT);
-	if (isNull(newvp))
-	    error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
+        error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
+    for (i = 1; i < INTEGER(n)[0]; i++)
+    {
+        gvp = newvp;
+        newvp = VECTOR_ELT(gvp, PVP_PARENT);
+        if (isNull(newvp))
+            error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
     }
-    /* 
+    /*
      * Remove the child (gvp) from the parent's (newvp) "list" of
      * children
      */
-    /* 
+    /*
      * This has to be done via a call to R-level ...
      *   remove(gvp$name, envir=newvp$children, inherits=FALSE)
      * ... because RemoveVariable in envir.c is not exported (why not?)
      *
-     * I tried to model this on the example in the section 
+     * I tried to model this on the example in the section
      * "System and foreign language interfaces ... Evaluating R expressions"
      * in the "Writing R Extensions" manual, but the compiler didn't
      * like CAR(t) as an lvalue.
      */
-    PROTECT(gvp); PROTECT(newvp);
+    PROTECT(gvp);
+    PROTECT(newvp);
     {
-	SEXP fcall, false0, t;
-	PROTECT(false0 = allocVector(LGLSXP, 1));
-	LOGICAL(false0)[0] = FALSE;
-	PROTECT(fcall = lang4(install("remove"), 
-			      VECTOR_ELT(gvp, VP_NAME),
-			      VECTOR_ELT(newvp, PVP_CHILDREN),
-			      false0));
-	t = fcall;
-	t = CDR(CDR(t));
-	SET_TAG(t, install("envir")); 
-	t = CDR(t);
-	SET_TAG(t, install("inherits")); 
-	eval(fcall, R_gridEvalEnv); 
-	UNPROTECT(2); /* false, fcall */
+        SEXP fcall, false0, t;
+        PROTECT(false0 = allocVector(LGLSXP, 1));
+        LOGICAL(false0)[0] = FALSE;
+        PROTECT(fcall = lang4(install("remove"), VECTOR_ELT(gvp, VP_NAME), VECTOR_ELT(newvp, PVP_CHILDREN), false0));
+        t = fcall;
+        t = CDR(CDR(t));
+        SET_TAG(t, install("envir"));
+        t = CDR(t);
+        SET_TAG(t, install("inherits"));
+        eval(fcall, R_gridEvalEnv);
+        UNPROTECT(2); /* false, fcall */
     }
-    /* Get the current device size 
+    /* Get the current device size
      */
     getDeviceSize(dd, &devWidthCM, &devHeightCM);
     if (deviceChanged(devWidthCM, devHeightCM, newvp))
-	calcViewportTransform(newvp, viewportParent(newvp), 1, dd);
-    /* 
+        calcViewportTransform(newvp, viewportParent(newvp), 1, dd);
+    /*
      * Enforce the stored parent gpar settings
      * (not necessarily the parent viewport settings if this viewport
      *  is a childrenvp of a gTree, where the gTree has gpar settings)
@@ -965,10 +993,11 @@ SEXP L_unsetviewport(SEXP n)
     setGridStateElement(dd, GSS_GPAR, VECTOR_ELT(gvp, PVP_PARENTGPAR));
     /* Set the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
+     * list works
      */
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_viewports")) {
+    if (getenv("R_GE_DEBUG_viewports"))
+    {
         printf("L_unsetviewport: ");
         Rf_PrintValue(newvp);
     }
@@ -976,19 +1005,25 @@ SEXP L_unsetviewport(SEXP n)
     setGridStateElement(dd, GSS_VP, newvp);
     /* Set the clipping region to the parent's cur.clip
      */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
-        /* Clipping is (silently) ignored during resolution of 
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
+        /* Clipping is (silently) ignored during resolution of
          * a clipping path
          */
-    } else {
+    }
+    else
+    {
         PROTECT(parentClip = viewportClipRect(newvp));
-        PROTECT(parentClipPath = VECTOR_ELT(newvp, PVP_CLIPPATH));            
+        PROTECT(parentClipPath = VECTOR_ELT(newvp, PVP_CLIPPATH));
         /*
          * The parent may have a clipping path instead of a clipping rect
          */
-        if (isClipPath(parentClipPath)) {
+        if (isClipPath(parentClipPath))
+        {
             resolveClipPath(parentClipPath, dd);
-        } else {
+        }
+        else
+        {
             xx1 = REAL(parentClip)[0];
             yy1 = REAL(parentClip)[1];
             xx2 = REAL(parentClip)[2];
@@ -997,15 +1032,18 @@ SEXP L_unsetviewport(SEXP n)
         }
         UNPROTECT(2);
     }
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
-        /* Masks are (silently) ignored during resolution of 
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
+        /* Masks are (silently) ignored during resolution of
          * a clipping path
          */
-    } else {
+    }
+    else
+    {
         /* Set the mask to the parent's mask */
         resolveMask(VECTOR_ELT(newvp, PVP_MASK), dd);
     }
-    /* 
+    /*
      * Remove the parent from the child
      * This is not strictly necessary, but it is conceptually
      * more complete and makes it more likely that we will
@@ -1021,8 +1059,8 @@ SEXP L_unsetviewport(SEXP n)
     return R_NilValue;
 }
 
-/* This is similar to L_unsetviewport, except that it will NOT 
- * modify parent-child relations 
+/* This is similar to L_unsetviewport, except that it will NOT
+ * modify parent-child relations
  */
 SEXP L_upviewport(SEXP n)
 {
@@ -1030,29 +1068,30 @@ SEXP L_upviewport(SEXP n)
     double xx1, yy1, xx2, yy2;
     double devWidthCM, devHeightCM;
     SEXP parentClip, parentClipPath;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     /* Get the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
-     */    
+     * list works
+     */
     SEXP gvp = gridStateElement(dd, GSS_VP);
     SEXP newvp = VECTOR_ELT(gvp, PVP_PARENT);
     if (isNull(newvp))
-	error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
-    for (i = 1; i < INTEGER(n)[0]; i++) {
-	gvp = newvp;
-	newvp = VECTOR_ELT(gvp, PVP_PARENT);
-	if (isNull(newvp))
-	    error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
+        error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
+    for (i = 1; i < INTEGER(n)[0]; i++)
+    {
+        gvp = newvp;
+        newvp = VECTOR_ELT(gvp, PVP_PARENT);
+        if (isNull(newvp))
+            error(_("cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"));
     }
-    /* Get the current device size 
+    /* Get the current device size
      */
     getDeviceSize(dd, &devWidthCM, &devHeightCM);
     if (deviceChanged(devWidthCM, devHeightCM, newvp))
-	calcViewportTransform(newvp, viewportParent(newvp), 1, dd);
-    /* 
+        calcViewportTransform(newvp, viewportParent(newvp), 1, dd);
+    /*
      * Enforce the stored parent gpar settings
      * (not necessarily the parent viewport settings if this viewport
      *  is a childrenvp of a gTree, where the gTree has gpar settings)
@@ -1060,10 +1099,11 @@ SEXP L_upviewport(SEXP n)
     setGridStateElement(dd, GSS_GPAR, VECTOR_ELT(gvp, PVP_PARENTGPAR));
     /* Set the value of the current viewport for the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
+     * list works
      */
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_viewports")) {
+    if (getenv("R_GE_DEBUG_viewports"))
+    {
         printf("L_upviewport: ");
         Rf_PrintValue(newvp);
     }
@@ -1071,19 +1111,25 @@ SEXP L_upviewport(SEXP n)
     setGridStateElement(dd, GSS_VP, newvp);
     /* Set the clipping region to the parent's cur.clip
      */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
-        /* Clipping is (silently) ignored during resolution of 
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
+        /* Clipping is (silently) ignored during resolution of
          * a clipping path
          */
-    } else {
+    }
+    else
+    {
         PROTECT(parentClip = viewportClipRect(newvp));
-        PROTECT(parentClipPath = VECTOR_ELT(newvp, PVP_CLIPPATH));            
+        PROTECT(parentClipPath = VECTOR_ELT(newvp, PVP_CLIPPATH));
         /*
          * The parent may have a clipping path instead of a clipping rect
          */
-        if (isClipPath(parentClipPath)) {
+        if (isClipPath(parentClipPath))
+        {
             resolveClipPath(parentClipPath, dd);
-        } else {
+        }
+        else
+        {
             xx1 = REAL(parentClip)[0];
             yy1 = REAL(parentClip)[1];
             xx2 = REAL(parentClip)[2];
@@ -1092,28 +1138,31 @@ SEXP L_upviewport(SEXP n)
         }
         UNPROTECT(2);
     }
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
-        /* Masks are (silently) ignored during resolution of 
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
+        /* Masks are (silently) ignored during resolution of
          * a clipping path
          */
-    } else {
+    }
+    else
+    {
         /* Set the mask to the parent's mask */
         resolveMask(VECTOR_ELT(newvp, PVP_MASK), dd);
     }
     return R_NilValue;
 }
 
-SEXP L_getDisplayList(void) 
+SEXP L_getDisplayList(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_DL);
 }
 
-SEXP L_setDisplayList(SEXP dl) 
+SEXP L_setDisplayList(SEXP dl)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     setGridStateElement(dd, GSS_DL, dl);
@@ -1125,7 +1174,7 @@ SEXP L_setDisplayList(SEXP dl)
  */
 SEXP L_getDLelt(SEXP index)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     SEXP dl, result;
@@ -1140,7 +1189,7 @@ SEXP L_getDLelt(SEXP index)
  */
 SEXP L_setDLelt(SEXP value)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     SEXP dl;
@@ -1152,7 +1201,7 @@ SEXP L_setDLelt(SEXP value)
 
 SEXP L_getDLindex(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_DLINDEX);
@@ -1160,7 +1209,7 @@ SEXP L_getDLindex(void)
 
 SEXP L_setDLindex(SEXP index)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     setGridStateElement(dd, GSS_DLINDEX, index);
@@ -1169,7 +1218,7 @@ SEXP L_setDLindex(SEXP index)
 
 SEXP L_getDLon(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_DLON);
@@ -1177,7 +1226,7 @@ SEXP L_getDLon(void)
 
 SEXP L_setDLon(SEXP value)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     SEXP prev;
@@ -1188,7 +1237,7 @@ SEXP L_setDLon(SEXP value)
 
 SEXP L_getEngineDLon(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_ENGINEDLON);
@@ -1196,14 +1245,14 @@ SEXP L_getEngineDLon(void)
 
 SEXP L_setEngineDLon(SEXP value)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     setGridStateElement(dd, GSS_ENGINEDLON, value);
     return R_NilValue;
 }
 
-SEXP L_getCurrentGrob(void) 
+SEXP L_getCurrentGrob(void)
 {
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_CURRGROB);
@@ -1216,7 +1265,7 @@ SEXP L_setCurrentGrob(SEXP value)
     return R_NilValue;
 }
 
-SEXP L_getEngineRecording(void) 
+SEXP L_getEngineRecording(void)
 {
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_ENGINERECORDING);
@@ -1231,7 +1280,7 @@ SEXP L_setEngineRecording(SEXP value)
 
 SEXP L_currentGPar(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_GPAR);
@@ -1240,18 +1289,19 @@ SEXP L_currentGPar(void)
 SEXP L_newpagerecording(void)
 {
     pGEDevDesc dd = getDevice();
-    if (dd->ask) {
-	NewFrameConfirm(dd->dev);
-	/*
-	 * User may have killed device during pause for prompt
-	 */
-	if (NoDevices())
-	    error(_("attempt to plot on null device"));
-	else
-	    /* 
-	     * Should throw an error if dd != GECurrentDevice ?
-	     */
-	    dd = GEcurrentDevice();
+    if (dd->ask)
+    {
+        NewFrameConfirm(dd->dev);
+        /*
+         * User may have killed device during pause for prompt
+         */
+        if (NoDevices())
+            error(_("attempt to plot on null device"));
+        else
+            /*
+             * Should throw an error if dd != GECurrentDevice ?
+             */
+            dd = GEcurrentDevice();
     }
     GEinitDisplayList(dd);
     return R_NilValue;
@@ -1261,45 +1311,48 @@ SEXP L_newpage(void)
 {
     pGEDevDesc dd = getDevice();
     R_GE_gcontext gc;
-    /* 
+    /*
      * Has the device been drawn on yet?
      */
     Rboolean deviceDirty = GEdeviceDirty(dd);
     /*
      * Has the device been drawn on BY GRID yet?
      */
-    Rboolean deviceGridDirty = LOGICAL(gridStateElement(dd, 
-							GSS_GRIDDEVICE))[0];
+    Rboolean deviceGridDirty = LOGICAL(gridStateElement(dd, GSS_GRIDDEVICE))[0];
     /*
      * Initialise grid on device
      * If no drawing on device yet, does a new page
      */
-    if (!deviceGridDirty) {
+    if (!deviceGridDirty)
+    {
         dirtyGridDevice(dd);
-    } 
+    }
     /*
      * If device has previously been drawn on (by grid or other system)
      * do a new page
      */
-    if (deviceGridDirty || deviceDirty) {
-	SEXP currentgp = gridStateElement(dd, GSS_GPAR);
-	gcontextFromgpar(currentgp, 0, &gc, dd);
+    if (deviceGridDirty || deviceDirty)
+    {
+        SEXP currentgp = gridStateElement(dd, GSS_GPAR);
+        gcontextFromgpar(currentgp, 0, &gc, dd);
         /* Turn on recording;  allows grid.newpage() to "reset" device
          * after error.
          */
 #ifdef R_GE_DEBUG
-        if (getenv("R_GE_DEBUG_record")) {
+        if (getenv("R_GE_DEBUG_record"))
+        {
             printf("L_newpagerecording: record = TRUE\n");
-        } 
+        }
 #endif
         dd->recordGraphics = TRUE;
-	GENewPage(&gc, dd);
+        GENewPage(&gc, dd);
     }
-    
+
     return R_NilValue;
 }
 
-SEXP L_clearDefinitions(SEXP clearGroups) {
+SEXP L_clearDefinitions(SEXP clearGroups)
+{
     pGEDevDesc dd = getDevice();
     /* Clear all device patterns */
     dd->dev->releasePattern(R_NilValue, dd->dev);
@@ -1308,8 +1361,8 @@ SEXP L_clearDefinitions(SEXP clearGroups) {
     dd->dev->releaseClipPath(R_NilValue, dd->dev);
     /* Clear all masks */
     dd->dev->releaseMask(R_NilValue, dd->dev);
-    if (LOGICAL(clearGroups)[0] && 
-        dd->dev->deviceVersion > R_GE_group) {
+    if (LOGICAL(clearGroups)[0] && dd->dev->deviceVersion > R_GE_group)
+    {
         /* Clear all groups */
         dd->dev->releaseGroup(R_NilValue, dd->dev);
     }
@@ -1337,28 +1390,25 @@ SEXP L_initDisplayList(void)
     return R_NilValue;
 }
 
-void getViewportTransform(SEXP currentvp, 
-			  pGEDevDesc dd, 
-			  double *vpWidthCM, double *vpHeightCM,
-			  LTransform transform, double *rotationAngle) 
+void getViewportTransform(SEXP currentvp, pGEDevDesc dd, double *vpWidthCM, double *vpHeightCM, LTransform transform,
+                          double *rotationAngle)
 {
     int i, j;
     double devWidthCM, devHeightCM;
-    getDeviceSize((dd), &devWidthCM, &devHeightCM) ;
-    if (deviceChanged(devWidthCM, devHeightCM, currentvp)) {
-	/* IF the device has changed, recalculate the viewport transform
-	 */
-	calcViewportTransform(currentvp, viewportParent(currentvp), 1, dd); 
+    getDeviceSize((dd), &devWidthCM, &devHeightCM);
+    if (deviceChanged(devWidthCM, devHeightCM, currentvp))
+    {
+        /* IF the device has changed, recalculate the viewport transform
+         */
+        calcViewportTransform(currentvp, viewportParent(currentvp), 1, dd);
     }
-    for (i=0; i<3; i++)
-	for (j=0; j<3; j++)
-	    transform[i][j] = 
-		REAL(viewportTransform(currentvp))[i + 3*j];
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 3; j++)
+            transform[i][j] = REAL(viewportTransform(currentvp))[i + 3 * j];
     *rotationAngle = REAL(viewportRotation(currentvp))[0];
     *vpWidthCM = REAL(viewportWidthCM(currentvp))[0];
     *vpHeightCM = REAL(viewportHeightCM(currentvp))[0];
 }
-
 
 /***************************
  * CONVERSION FUNCTIONS
@@ -1366,45 +1416,45 @@ void getViewportTransform(SEXP currentvp,
  */
 
 /*
- * WITHIN THE CURRENT VIEWPORT ... 
+ * WITHIN THE CURRENT VIEWPORT ...
  *
  * Given a unit object and whether it is a location/dimension,
  * convert to location/dimension in unit B
  *
  * NOTE: When this is used to convert a mouse click on a device to
- * a location/dimension, the conversion of the mouse click to 
+ * a location/dimension, the conversion of the mouse click to
  * a unit within the current viewport has to be done elsewhere.
  * e.g., in interactive.R, this is done by applying the inverse
  * of the current viewport transformation to get a location in
  * inches within the current viewport.
- * 
+ *
  * This should ideally create a unit object to ensure that the
- * values it returns are treated as values in the correct 
+ * values it returns are treated as values in the correct
  * coordinate system.  For now, this is MUCH easier to do in
  * R code, so it is the responsibility of the R code calling this
  * to create the unit object correctly/honestly.
  *
- * NOTE also that the unitto supplied should be a "valid" integer 
+ * NOTE also that the unitto supplied should be a "valid" integer
  * (the best way to get that is to use the valid.units()
  *  function in unit.R)
  *
  * what = 0 means x, 1 means y, 2 means width, 3 means height
  */
-SEXP L_convert(SEXP x, SEXP whatfrom,
-	       SEXP whatto, SEXP unitto) {
+SEXP L_convert(SEXP x, SEXP whatfrom, SEXP whatto, SEXP unitto)
+{
     int i, nx;
     SEXP answer;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
     int TOunit, FROMaxis, TOaxis;
     Rboolean relConvert;
-    /* 
-     * Get the current device 
+    /*
+     * Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -1417,164 +1467,142 @@ SEXP L_convert(SEXP x, SEXP whatfrom,
      * pattern (resolving a pattern may involve calculating a
      * transformation) */
     setListElement(currentgp, "fill", mkString("black"));
-    /* 
+    /*
      * We do not need the current transformation, but
      * we need the side effects of calculating it in
      * case the device has been resized (or only just created)
      */
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     nx = unitLength(x);
     PROTECT(answer = allocVector(REALSXP, nx));
-    for (i=0; i<nx; i++) {
-	updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+    for (i = 0; i < nx; i++)
+    {
+        updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
         TOunit = INTEGER(unitto)[i % LENGTH(unitto)];
         FROMaxis = INTEGER(whatfrom)[0];
         TOaxis = INTEGER(whatto)[0];
-        /* 
+        /*
          * Special case: FROM unit is just a plain, relative unit AND
          *               TO unit is relative AND
          *               NOT converting from 'x' to 'y' (or vice versa) ...
-         * 
+         *
          *               ... AND relevant widthCM or heightCM is zero
          *
-         * In these cases do NOT transform thru INCHES 
+         * In these cases do NOT transform thru INCHES
          * (to avoid divide-by-zero, but still do something useful)
          */
-        relConvert = ((unitUnit(x, i) == L_NATIVE || unitUnit(x, i) == L_NPC) &&
-                      (TOunit == L_NATIVE || TOunit == L_NPC) &&
-                      ((FROMaxis == TOaxis) ||
-                       (FROMaxis == 0 && TOaxis == 2) ||
-                       (FROMaxis == 2 && TOaxis == 0) ||
-                       (FROMaxis == 1 && TOaxis == 3) ||
-                       (FROMaxis == 3 && TOaxis == 1)));
-        /* 
+        relConvert =
+            ((unitUnit(x, i) == L_NATIVE || unitUnit(x, i) == L_NPC) && (TOunit == L_NATIVE || TOunit == L_NPC) &&
+             ((FROMaxis == TOaxis) || (FROMaxis == 0 && TOaxis == 2) || (FROMaxis == 2 && TOaxis == 0) ||
+              (FROMaxis == 1 && TOaxis == 3) || (FROMaxis == 3 && TOaxis == 1)));
+        /*
          * First, convert the unit object passed in to a value in INCHES
          * (within the current viewport)
          */
-        switch (FROMaxis) {
+        switch (FROMaxis)
+        {
         case 0:
-            if (relConvert && vpWidthCM < 1e-6) {
-                REAL(answer)[i] = 
-                    transformXYtoNPC(unitValue(x, i), unitUnit(x, i),
-                                     vpc.xscalemin, vpc.xscalemax);
-            } else {
+            if (relConvert && vpWidthCM < 1e-6)
+            {
+                REAL(answer)[i] = transformXYtoNPC(unitValue(x, i), unitUnit(x, i), vpc.xscalemin, vpc.xscalemax);
+            }
+            else
+            {
                 relConvert = FALSE;
-                REAL(answer)[i] = 
-                    transformXtoINCHES(x, i, vpc, &gc,
-                                       vpWidthCM, vpHeightCM, 
-                                       dd);
+                REAL(answer)[i] = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
             }
             break;
         case 1:
-            if (relConvert && vpHeightCM < 1e-6) {
-                REAL(answer)[i] = 
-                    transformXYtoNPC(unitValue(x, i), unitUnit(x, i),
-                                     vpc.yscalemin, vpc.yscalemax);
-            } else {
+            if (relConvert && vpHeightCM < 1e-6)
+            {
+                REAL(answer)[i] = transformXYtoNPC(unitValue(x, i), unitUnit(x, i), vpc.yscalemin, vpc.yscalemax);
+            }
+            else
+            {
                 relConvert = FALSE;
-                REAL(answer)[i] = 
-                    transformYtoINCHES(x, i, vpc, &gc,
-                                       vpWidthCM, vpHeightCM, 
-                                       dd);
+                REAL(answer)[i] = transformYtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
             }
             break;
         case 2:
-            if (relConvert && vpWidthCM < 1e-6) {
-                REAL(answer)[i] = 
-                    transformWHtoNPC(unitValue(x, i), unitUnit(x, i),
-                                     vpc.xscalemin, vpc.xscalemax);
-            } else {
+            if (relConvert && vpWidthCM < 1e-6)
+            {
+                REAL(answer)[i] = transformWHtoNPC(unitValue(x, i), unitUnit(x, i), vpc.xscalemin, vpc.xscalemax);
+            }
+            else
+            {
                 relConvert = FALSE;
-                REAL(answer)[i] = 
-                    transformWidthtoINCHES(x, i, vpc, &gc,
-                                           vpWidthCM, vpHeightCM, 
-                                           dd);
+                REAL(answer)[i] = transformWidthtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
             }
             break;
         case 3:
-            if (relConvert && vpHeightCM < 1e-6) {
-                REAL(answer)[i] = 
-                    transformWHtoNPC(unitValue(x, i), unitUnit(x, i),
-                                     vpc.yscalemin, vpc.yscalemax);
-            } else {
+            if (relConvert && vpHeightCM < 1e-6)
+            {
+                REAL(answer)[i] = transformWHtoNPC(unitValue(x, i), unitUnit(x, i), vpc.yscalemin, vpc.yscalemax);
+            }
+            else
+            {
                 relConvert = FALSE;
-                REAL(answer)[i] = 
-                    transformHeighttoINCHES(x, i, vpc, &gc,
-                                            vpWidthCM, vpHeightCM, 
-                                            dd);
+                REAL(answer)[i] = transformHeighttoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
             }
             break;
         }
-        /* 
+        /*
          * Now, convert the values in INCHES to a value in the specified
-         * coordinate system 
+         * coordinate system
          * (within the current viewport)
          *
          * BUT do NOT do this step for the special "relConvert" case
          */
-        switch (TOaxis) {
+        switch (TOaxis)
+        {
         case 0:
-            if (relConvert) {
-                REAL(answer)[i] = transformXYfromNPC(REAL(answer)[i], TOunit,
-                                                     vpc.xscalemin,
-                                                     vpc.xscalemax);
-            } else {
-                REAL(answer)[i] = 
-                    transformXYFromINCHES(REAL(answer)[i], TOunit,
-                                          vpc.xscalemin,
-                                          vpc.xscalemax,
-                                          &gc,
-                                          vpWidthCM, vpHeightCM, 
-                                          dd);
+            if (relConvert)
+            {
+                REAL(answer)[i] = transformXYfromNPC(REAL(answer)[i], TOunit, vpc.xscalemin, vpc.xscalemax);
+            }
+            else
+            {
+                REAL(answer)
+                [i] = transformXYFromINCHES(REAL(answer)[i], TOunit, vpc.xscalemin, vpc.xscalemax, &gc, vpWidthCM,
+                                            vpHeightCM, dd);
             }
             break;
         case 1:
-            if (relConvert) {
-                REAL(answer)[i] = transformXYfromNPC(REAL(answer)[i], TOunit,
-                                                     vpc.yscalemin,
-                                                     vpc.yscalemax);
-            } else {
-                REAL(answer)[i] = 
-                    transformXYFromINCHES(REAL(answer)[i], TOunit,
-                                          vpc.yscalemin,
-                                          vpc.yscalemax,
-                                          &gc,
-                                          vpHeightCM, vpWidthCM, 
-                                          dd);
+            if (relConvert)
+            {
+                REAL(answer)[i] = transformXYfromNPC(REAL(answer)[i], TOunit, vpc.yscalemin, vpc.yscalemax);
+            }
+            else
+            {
+                REAL(answer)
+                [i] = transformXYFromINCHES(REAL(answer)[i], TOunit, vpc.yscalemin, vpc.yscalemax, &gc, vpHeightCM,
+                                            vpWidthCM, dd);
             }
             break;
         case 2:
-            if (relConvert) {
-                REAL(answer)[i] = transformWHfromNPC(REAL(answer)[i], TOunit,
-                                                     vpc.xscalemin,
-                                                     vpc.xscalemax);
-            } else {
-                REAL(answer)[i] = 
-                    transformWidthHeightFromINCHES(REAL(answer)[i], TOunit,
-                                                   vpc.xscalemin,
-                                                   vpc.xscalemax,
-                                                   &gc,
-                                                   vpWidthCM, vpHeightCM, 
-                                                   dd);
+            if (relConvert)
+            {
+                REAL(answer)[i] = transformWHfromNPC(REAL(answer)[i], TOunit, vpc.xscalemin, vpc.xscalemax);
+            }
+            else
+            {
+                REAL(answer)
+                [i] = transformWidthHeightFromINCHES(REAL(answer)[i], TOunit, vpc.xscalemin, vpc.xscalemax, &gc,
+                                                     vpWidthCM, vpHeightCM, dd);
             }
             break;
         case 3:
-            if (relConvert) {
-                REAL(answer)[i] = transformWHfromNPC(REAL(answer)[i], TOunit,
-                                                     vpc.yscalemin,
-                                                     vpc.yscalemax);
-            } else {
-                REAL(answer)[i] = 
-                    transformWidthHeightFromINCHES(REAL(answer)[i], TOunit,
-                                                   vpc.yscalemin,
-                                                   vpc.yscalemax,
-                                                   &gc,
-                                                   vpHeightCM, vpWidthCM, 
-                                                   dd);
+            if (relConvert)
+            {
+                REAL(answer)[i] = transformWHfromNPC(REAL(answer)[i], TOunit, vpc.yscalemin, vpc.yscalemax);
+            }
+            else
+            {
+                REAL(answer)
+                [i] = transformWidthHeightFromINCHES(REAL(answer)[i], TOunit, vpc.yscalemin, vpc.yscalemax, &gc,
+                                                     vpHeightCM, vpWidthCM, dd);
                 break;
             }
         }
@@ -1586,7 +1614,8 @@ SEXP L_convert(SEXP x, SEXP whatfrom,
 /*
  * Convert locations or dimensions to device inches
  */
-SEXP L_devLoc(SEXP x, SEXP y, SEXP device) {
+SEXP L_devLoc(SEXP x, SEXP y, SEXP device)
+{
     double xx, yy;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
@@ -1596,7 +1625,7 @@ SEXP L_devLoc(SEXP x, SEXP y, SEXP device) {
     SEXP devx, devy, result;
     SEXP currentvp, currentgp;
     int i, maxn, ny;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -1604,26 +1633,22 @@ SEXP L_devLoc(SEXP x, SEXP y, SEXP device) {
     /* See L_convert() for detailed comments */
     currentgp = PROTECT(duplicate(currentgp));
     setListElement(currentgp, "fill", mkString("black"));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     gcontextFromgpar(currentgp, 0, &gc, dd);
     /* Convert the x and y values to device inches locations */
-    maxn = unitLength(x); 
-    ny = unitLength(y); 
+    maxn = unitLength(x);
+    ny = unitLength(y);
     if (ny > maxn)
-	maxn = ny;
+        maxn = ny;
     PROTECT(devx = allocVector(REALSXP, maxn));
     PROTECT(devy = allocVector(REALSXP, maxn));
     PROTECT(result = allocVector(VECSXP, 2));
-    for (i=0; i<maxn; i++) {
-        transformLocn(x, y, i, vpc, &gc,
-                      vpWidthCM, vpHeightCM,
-                      dd,
-                      transform,
-                      &xx, &yy);
-        if (LOGICAL(device)[0]) {
+    for (i = 0; i < maxn; i++)
+    {
+        transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
+        if (LOGICAL(device)[0])
+        {
             xx = toDeviceX(xx, GE_INCHES, dd);
             yy = toDeviceY(yy, GE_INCHES, dd);
         }
@@ -1636,7 +1661,8 @@ SEXP L_devLoc(SEXP x, SEXP y, SEXP device) {
     return result;
 }
 
-SEXP L_devDim(SEXP x, SEXP y, SEXP device) {
+SEXP L_devDim(SEXP x, SEXP y, SEXP device)
+{
     double xx, yy;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
@@ -1646,7 +1672,7 @@ SEXP L_devDim(SEXP x, SEXP y, SEXP device) {
     SEXP devx, devy, result;
     SEXP currentvp, currentgp;
     int i, maxn, ny;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -1654,25 +1680,22 @@ SEXP L_devDim(SEXP x, SEXP y, SEXP device) {
     /* See L_convert() for detailed comments */
     currentgp = PROTECT(duplicate(currentgp));
     setListElement(currentgp, "fill", mkString("black"));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     gcontextFromgpar(currentgp, 0, &gc, dd);
     /* Convert the x and y values to device inches locations */
-    maxn = unitLength(x); 
-    ny = unitLength(y); 
+    maxn = unitLength(x);
+    ny = unitLength(y);
     if (ny > maxn)
-	maxn = ny;
+        maxn = ny;
     PROTECT(devx = allocVector(REALSXP, maxn));
     PROTECT(devy = allocVector(REALSXP, maxn));
     PROTECT(result = allocVector(VECSXP, 2));
-    for (i=0; i<maxn; i++) {
-        transformDimn(x, y, i, vpc, &gc,
-                      vpWidthCM, vpHeightCM,
-                      dd, rotationAngle,
-                      &xx, &yy);
-        if (LOGICAL(device)[0]) {
+    for (i = 0; i < maxn; i++)
+    {
+        transformDimn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &xx, &yy);
+        if (LOGICAL(device)[0])
+        {
             xx = toDeviceWidth(xx, GE_INCHES, dd);
             yy = toDeviceHeight(yy, GE_INCHES, dd);
         }
@@ -1691,51 +1714,47 @@ SEXP L_devDim(SEXP x, SEXP y, SEXP device) {
  *
  * Not a conversion as such, but similarly vulnerable to device resizing
  */
-SEXP L_layoutRegion(SEXP layoutPosRow, SEXP layoutPosCol) {
+SEXP L_layoutRegion(SEXP layoutPosRow, SEXP layoutPosCol)
+{
     LViewportLocation vpl;
     SEXP answer;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
     LTransform transform;
     SEXP currentvp;
-    /* 
-     * Get the current device 
+    /*
+     * Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
-    //currentgp = gridStateElement(dd, GSS_GPAR);
-    /* 
+    // currentgp = gridStateElement(dd, GSS_GPAR);
+    /*
      * We do not need the current transformation, but
      * we need the side effects of calculating it in
      * case the device has been resized (or only just created)
      */
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
-    /* 
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
+    /*
      * Only proceed if there is a layout currently defined
      */
     if (isNull(viewportLayout(currentvp)))
-	error(_("there is no layout defined"));
-    /* 
+        error(_("there is no layout defined"));
+    /*
      * The result is a numeric containing left, bottom, width, and height
      */
     PROTECT(answer = allocVector(REALSXP, 4));
-    /* 
+    /*
      * NOTE:  We are assuming here that calcViewportLocationFromLayout
-     * returns the allocated region with a ("left", "bottom") 
+     * returns the allocated region with a ("left", "bottom")
      * justification.  This is CURRENTLY true, but ...
      */
-    calcViewportLocationFromLayout(layoutPosRow,
-				   layoutPosCol,
-				   currentvp,
-				   &vpl);
-    /* 
+    calcViewportLocationFromLayout(layoutPosRow, layoutPosCol, currentvp, &vpl);
+    /*
      * I am not returning the units created in C code
      * because they do not have the units attribute set
      * so they do not behave nicely back in R code.
      * Instead, I take the values and my knowledge that they
-     * are NPC units and construct real unit objects back in 
+     * are NPC units and construct real unit objects back in
      * R code.
      */
     REAL(answer)[0] = unitValue(vpl.x, 0);
@@ -1747,7 +1766,7 @@ SEXP L_layoutRegion(SEXP layoutPosRow, SEXP layoutPosCol) {
 }
 
 /***************************
- * EDGE DETECTION 
+ * EDGE DETECTION
  ***************************
  */
 
@@ -1757,55 +1776,71 @@ SEXP L_layoutRegion(SEXP layoutPosRow, SEXP layoutPosCol) {
  * Assumes that x- and y-values are in INCHES
  * Assumes that theta is within [0, 360)
  */
-static void rectEdge(double xmin, double ymin, double xmax, double ymax,
-		     double theta,
-		     double *edgex, double *edgey) 
+static void rectEdge(double xmin, double ymin, double xmax, double ymax, double theta, double *edgex, double *edgey)
 {
-    double xm = (xmin + xmax)/2;
-    double ym = (ymin + ymax)/2;
-    double dx = (xmax - xmin)/2;
-    double dy = (ymax - ymin)/2;
+    double xm = (xmin + xmax) / 2;
+    double ym = (ymin + ymax) / 2;
+    double dx = (xmax - xmin) / 2;
+    double dy = (ymax - ymin) / 2;
     /*
      * FIXME: Special case 0 width or 0 height
      */
     /*
-     * Special case angles 
+     * Special case angles
      */
-    if (theta == 0) {
-	*edgex = xmax;
-	*edgey = ym;
-    } else if (theta == 270) {
-	*edgex = xm;
-	*edgey = ymin;
-    } else if (theta == 180) {
-	*edgex = xmin;
-	*edgey = ym;
-    } else if (theta == 90) {
-	*edgex = xm;
-	*edgey = ymax;
-    } else {
-	double cutoff = dy/dx;
-	double angle = theta/180*M_PI;
-	double tanTheta = tan(angle);
-	double cosTheta = cos(angle);
-	double sinTheta = sin(angle);
-	if (fabs(tanTheta) < cutoff) { /* Intersect with side */
-	    if (cosTheta > 0) { /* Right side */
-		*edgex = xmax;
-		*edgey = ym + tanTheta*dx;
-	    } else { /* Left side */
-		*edgex = xmin;
-		*edgey = ym - tanTheta*dx;
-	    }
-	} else { /* Intersect with top/bottom */
-	    if (sinTheta > 0) { /* Top */
-		*edgey = ymax;
-		*edgex = xm + dy/tanTheta;
-	    } else { /* Bottom */
-		*edgey = ymin;
-		*edgex = xm - dy/tanTheta;
-	    }
-	}
+    if (theta == 0)
+    {
+        *edgex = xmax;
+        *edgey = ym;
+    }
+    else if (theta == 270)
+    {
+        *edgex = xm;
+        *edgey = ymin;
+    }
+    else if (theta == 180)
+    {
+        *edgex = xmin;
+        *edgey = ym;
+    }
+    else if (theta == 90)
+    {
+        *edgex = xm;
+        *edgey = ymax;
+    }
+    else
+    {
+        double cutoff = dy / dx;
+        double angle = theta / 180 * M_PI;
+        double tanTheta = tan(angle);
+        double cosTheta = cos(angle);
+        double sinTheta = sin(angle);
+        if (fabs(tanTheta) < cutoff)
+        { /* Intersect with side */
+            if (cosTheta > 0)
+            { /* Right side */
+                *edgex = xmax;
+                *edgey = ym + tanTheta * dx;
+            }
+            else
+            { /* Left side */
+                *edgex = xmin;
+                *edgey = ym - tanTheta * dx;
+            }
+        }
+        else
+        { /* Intersect with top/bottom */
+            if (sinTheta > 0)
+            { /* Top */
+                *edgey = ymax;
+                *edgex = xm + dy / tanTheta;
+            }
+            else
+            { /* Bottom */
+                *edgey = ymin;
+                *edgex = xm - dy / tanTheta;
+            }
+        }
     }
 }
 
@@ -1815,13 +1850,11 @@ static void rectEdge(double xmin, double ymin, double xmax, double ymax,
  * Assumes that x- and y-values are in INCHES
  * Assumes that theta is within [0, 360)
  */
-static void circleEdge(double x, double y, double r,
-		       double theta,
-		       double *edgex, double *edgey)
+static void circleEdge(double x, double y, double r, double theta, double *edgex, double *edgey)
 {
-    double angle = theta/180*M_PI;
-    *edgex = x + r*cos(angle);
-    *edgey = y + r*sin(angle);
+    double angle = theta / 180 * M_PI;
+    *edgex = x + r * cos(angle);
+    *edgey = y + r * sin(angle);
 }
 
 /*
@@ -1831,9 +1864,8 @@ static void circleEdge(double x, double y, double r,
  * Assumes that vertices are in clock-wise order
  * Assumes that theta is within [0, 360)
  */
-static void polygonEdge(double *x, double *y, int n,
-			double theta,
-			double *edgex, double *edgey) {
+static void polygonEdge(double *x, double *y, int n, double theta, double *edgex, double *edgey)
+{
     int i, v1, v2;
     double xm, ym;
     double xmin = DBL_MAX;
@@ -1841,113 +1873,116 @@ static void polygonEdge(double *x, double *y, int n,
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
     int found = 0;
-    double angle = theta/180*M_PI;
+    double angle = theta / 180 * M_PI;
     double vangle1, vangle2;
     /*
      * Find "centre" of polygon
      */
-    for (i=0; i<n; i++) {
-	if (x[i] < xmin)
-	    xmin = x[i];
-	if (x[i] > xmax)
-	    xmax = x[i];
-	if (y[i] < ymin)
-	    ymin = y[i];
-	if (y[i] > ymax)
-	    ymax = y[i];
+    for (i = 0; i < n; i++)
+    {
+        if (x[i] < xmin)
+            xmin = x[i];
+        if (x[i] > xmax)
+            xmax = x[i];
+        if (y[i] < ymin)
+            ymin = y[i];
+        if (y[i] > ymax)
+            ymax = y[i];
     }
-    xm = (xmin + xmax)/2;
-    ym = (ymin + ymax)/2;
+    xm = (xmin + xmax) / 2;
+    ym = (ymin + ymax) / 2;
     /*
      * Special case VERY tall and narrow or VERY short and wide
-     */ 
-    if (fabs(xmin - xmax) < 1e-6 || 
-        fabs(ymin - ymax)/fabs(xmin - xmax) > 1000) {
-        *edgex = xmin;                                                         
-        if (theta == 90)                                                       
-            *edgey = ymax;                                                     
-        else if (theta == 270)                                                 
-            *edgey = ymin;                                                     
-        else                                                                   
-            *edgey = ym;                                                       
-        return;                                                                
-    }                                                                          
-    if (fabs(ymin - ymax) < 1e-6 || 
-        fabs(xmin - xmax)/fabs(ymin - ymax) > 1000) {
-        *edgey = ymin;
-        if (theta == 0) 
-	    *edgex = xmax;
-	else if (theta == 180)
-	    *edgex = xmin;
-	else
-	    *edgex = xm;
+     */
+    if (fabs(xmin - xmax) < 1e-6 || fabs(ymin - ymax) / fabs(xmin - xmax) > 1000)
+    {
+        *edgex = xmin;
+        if (theta == 90)
+            *edgey = ymax;
+        else if (theta == 270)
+            *edgey = ymin;
+        else
+            *edgey = ym;
         return;
-    }	    
+    }
+    if (fabs(ymin - ymax) < 1e-6 || fabs(xmin - xmax) / fabs(ymin - ymax) > 1000)
+    {
+        *edgey = ymin;
+        if (theta == 0)
+            *edgex = xmax;
+        else if (theta == 180)
+            *edgex = xmin;
+        else
+            *edgex = xm;
+        return;
+    }
     /*
      * Find edge that intersects line from centre at angle theta
      */
-    for (i=0; i<n; i++) {
-	v1 = i;
-	v2 = v1 + 1;
-	if (v2 == n)
-	    v2 = 0;
-	/*
-	 * Result of atan2 is in range -PI, PI so convert to
-	 * 0, 360 to correspond to angle
-	 */
-	vangle1 = atan2(y[v1] - ym, x[v1] - xm);
-	if (vangle1 < 0)
-	    vangle1 = vangle1 + 2*M_PI;
-	vangle2 = atan2(y[v2] - ym, x[v2] - xm);
-	if (vangle2 < 0)
-	    vangle2 = vangle2 + 2*M_PI;
-	/*
-	 * If vangle1 < vangle2 then angles are either side of 0
-	 * so check is more complicated
-	 */
-	if ((vangle1 >= vangle2 && 
-	     vangle1 >= angle && vangle2 <= angle) || 
-	    (vangle1 < vangle2 && 
-	     ((vangle1 >= angle && 0 <= angle) ||
-	      (vangle2 <= angle && 2*M_PI >= angle)))) {
-	    found = 1;
-	    break;
-	}
+    for (i = 0; i < n; i++)
+    {
+        v1 = i;
+        v2 = v1 + 1;
+        if (v2 == n)
+            v2 = 0;
+        /*
+         * Result of atan2 is in range -PI, PI so convert to
+         * 0, 360 to correspond to angle
+         */
+        vangle1 = atan2(y[v1] - ym, x[v1] - xm);
+        if (vangle1 < 0)
+            vangle1 = vangle1 + 2 * M_PI;
+        vangle2 = atan2(y[v2] - ym, x[v2] - xm);
+        if (vangle2 < 0)
+            vangle2 = vangle2 + 2 * M_PI;
+        /*
+         * If vangle1 < vangle2 then angles are either side of 0
+         * so check is more complicated
+         */
+        if ((vangle1 >= vangle2 && vangle1 >= angle && vangle2 <= angle) ||
+            (vangle1 < vangle2 && ((vangle1 >= angle && 0 <= angle) || (vangle2 <= angle && 2 * M_PI >= angle))))
+        {
+            found = 1;
+            break;
+        }
     }
     /*
      * Find intersection point of "line from centre to bounding rect"
      * and edge
      */
-    if (found) {
-	double x1 = xm;
-	double y1 = ym;
-	double x2, y2;
-	double x3 = x[v1];
-	double y3 = y[v1];
-	double x4 = x[v2];
-	double y4 = y[v2];
-	double numa, denom, ua;
-	rectEdge(xmin, ymin, xmax, ymax, theta,
-		 &x2, &y2);
-	numa = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3));
-	denom = ((y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1));
-	ua = numa/denom;
-	if (!R_FINITE(ua)) {
-	    /*
-	     * Should only happen if lines are parallel, which 
-	     * shouldn't happen!  Unless, perhaps the polygon has
-	     * zero extent vertically or horizontally ... ?
-	     */
-	    error(_("polygon edge not found (zero-width or zero-height?)"));
-	}
-	/*
-	 * numb = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3));
-	 * ub = numb/denom;
-	 */
-	*edgex = x1 + ua*(x2 - x1);
-	*edgey = y1 + ua*(y2 - y1);
-    } else {
-	error(_("polygon edge not found"));    
+    if (found)
+    {
+        double x1 = xm;
+        double y1 = ym;
+        double x2, y2;
+        double x3 = x[v1];
+        double y3 = y[v1];
+        double x4 = x[v2];
+        double y4 = y[v2];
+        double numa, denom, ua;
+        rectEdge(xmin, ymin, xmax, ymax, theta, &x2, &y2);
+        numa = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3));
+        denom = ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+        ua = numa / denom;
+        if (!R_FINITE(ua))
+        {
+            /*
+             * Should only happen if lines are parallel, which
+             * shouldn't happen!  Unless, perhaps the polygon has
+             * zero extent vertically or horizontally ... ?
+             */
+            error(_("polygon edge not found (zero-width or zero-height?)"));
+        }
+        /*
+         * numb = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3));
+         * ub = numb/denom;
+         */
+        *edgex = x1 + ua * (x2 - x1);
+        *edgey = y1 + ua * (y2 - y1);
+    }
+    else
+    {
+        error(_("polygon edge not found"));
     }
 }
 
@@ -1955,27 +1990,29 @@ static void polygonEdge(double *x, double *y, int n,
  * Given a set of points, calculate the convex hull then
  * find the edge of that hull
  *
- * NOTE:  assumes that 'grDevices' package has been loaded 
+ * NOTE:  assumes that 'grDevices' package has been loaded
  * so that chull() is available (grid depends on grDevices)
  */
-static void hullEdge(double *x, double *y, int n,
-		     double theta,
-		     double *edgex, double *edgey) 
+static void hullEdge(double *x, double *y, int n, double theta, double *edgex, double *edgey)
 {
     const void *vmax;
     int i, nh;
     double *hx, *hy;
-    SEXP xin, yin, chullFn, R_fcall, hull;    
+    SEXP xin, yin, chullFn, R_fcall, hull;
     int adjust = 0;
     double *xkeep, *ykeep;
     vmax = vmaxget();
     /* Remove any NA's because chull() can't cope with them */
-    xkeep = (double *) R_alloc(n, sizeof(double));
-    ykeep = (double *) R_alloc(n, sizeof(double));
-    for (i=0; i<n; i++) {
-        if (!R_FINITE(x[i]) || !R_FINITE(y[i])) {
+    xkeep = (double *)R_alloc(n, sizeof(double));
+    ykeep = (double *)R_alloc(n, sizeof(double));
+    for (i = 0; i < n; i++)
+    {
+        if (!R_FINITE(x[i]) || !R_FINITE(y[i]))
+        {
             adjust--;
-        } else {
+        }
+        else
+        {
             xkeep[i + adjust] = x[i];
             ykeep[i + adjust] = y[i];
         }
@@ -1983,7 +2020,8 @@ static void hullEdge(double *x, double *y, int n,
     n = n + adjust;
     PROTECT(xin = allocVector(REALSXP, n));
     PROTECT(yin = allocVector(REALSXP, n));
-    for (i=0; i<n; i++) {
+    for (i = 0; i < n; i++)
+    {
         REAL(xin)[i] = xkeep[i];
         REAL(yin)[i] = ykeep[i];
     }
@@ -1994,17 +2032,17 @@ static void hullEdge(double *x, double *y, int n,
     PROTECT(R_fcall = lang3(chullFn, xin, yin));
     PROTECT(hull = eval(R_fcall, R_gridEvalEnv));
     nh = LENGTH(hull);
-    hx = (double *) R_alloc(nh, sizeof(double));
-    hy = (double *) R_alloc(nh, sizeof(double));
-    for (i=0; i<nh; i++) {
-	hx[i] = x[INTEGER(hull)[i] - 1];
-	hy[i] = y[INTEGER(hull)[i] - 1];
+    hx = (double *)R_alloc(nh, sizeof(double));
+    hy = (double *)R_alloc(nh, sizeof(double));
+    for (i = 0; i < nh; i++)
+    {
+        hx[i] = x[INTEGER(hull)[i] - 1];
+        hy[i] = y[INTEGER(hull)[i] - 1];
     }
     /*
      * Find edge of that hull
      */
-    polygonEdge(hx, hy, nh, theta, 
-		edgex, edgey);
+    polygonEdge(hx, hy, nh, theta, edgex, edgey);
     vmaxset(vmax);
     UNPROTECT(5);
 }
@@ -2018,17 +2056,17 @@ static void hullEdge(double *x, double *y, int n,
  * Draw an arrow head, given the vertices of the arrow head.
  * Assume vertices are in DEVICE coordinates.
  */
-static void drawArrow(double *x, double *y, SEXP type, int i,
-		      const pGEcontext gc, pGEDevDesc dd) 
+static void drawArrow(double *x, double *y, SEXP type, int i, const pGEcontext gc, pGEDevDesc dd)
 {
     int nt = LENGTH(type);
-    switch (INTEGER(type)[i % nt]) {
+    switch (INTEGER(type)[i % nt])
+    {
     case 1:
-	GEPolyline(3, x, y, gc, dd);
-	break;
+        GEPolyline(3, x, y, gc, dd);
+        break;
     case 2:
-	GEPolygon(3, x, y, gc, dd);
-	break;
+        GEPolygon(3, x, y, gc, dd);
+        break;
     }
 }
 
@@ -2037,109 +2075,84 @@ static void drawArrow(double *x, double *y, SEXP type, int i,
  * Assumes that x and y locations are in INCHES.
  * Returns vertices in DEVICE coordinates.
  */
-static void calcArrow(double x1, double y1,
-		      double x2, double y2,
-		      SEXP angle, SEXP length, int i,
-		      LViewportContext vpc,
-		      double vpWidthCM, double vpHeightCM,
-		      double *vertx, double *verty,
-		      const pGEcontext gc, pGEDevDesc dd) 
+static void calcArrow(double x1, double y1, double x2, double y2, SEXP angle, SEXP length, int i, LViewportContext vpc,
+                      double vpWidthCM, double vpHeightCM, double *vertx, double *verty, const pGEcontext gc,
+                      pGEDevDesc dd)
 {
     int na = LENGTH(angle);
     int nl = LENGTH(length);
     double xc, yc, rot;
     double l1, l2, l, a;
-    l1 = transformWidthtoINCHES(length, i % nl, vpc, gc,
-				vpWidthCM, vpHeightCM,
-				dd);
-    l2 = transformHeighttoINCHES(length, i % nl, vpc, gc,
-				 vpWidthCM, vpHeightCM,
-				 dd);
+    l1 = transformWidthtoINCHES(length, i % nl, vpc, gc, vpWidthCM, vpHeightCM, dd);
+    l2 = transformHeighttoINCHES(length, i % nl, vpc, gc, vpWidthCM, vpHeightCM, dd);
     l = fmin2(l1, l2);
     a = DEG2RAD * REAL(angle)[i % na];
     xc = x2 - x1;
     yc = y2 - y1;
-    rot= atan2(yc, xc);
-    vertx[0] = toDeviceX(x1 + l * cos(rot+a),
-			 GE_INCHES, dd);
-    verty[0] = toDeviceY(y1 + l * sin(rot+a),
-			 GE_INCHES, dd);
-    vertx[1] = toDeviceX(x1, 
-			 GE_INCHES, dd);
-    verty[1] = toDeviceY(y1,
-			 GE_INCHES, dd);
-    vertx[2] = toDeviceX(x1 + l * cos(rot-a),
-			 GE_INCHES, dd);
-    verty[2] = toDeviceY(y1 + l * sin(rot-a),
-			 GE_INCHES, dd);
+    rot = atan2(yc, xc);
+    vertx[0] = toDeviceX(x1 + l * cos(rot + a), GE_INCHES, dd);
+    verty[0] = toDeviceY(y1 + l * sin(rot + a), GE_INCHES, dd);
+    vertx[1] = toDeviceX(x1, GE_INCHES, dd);
+    verty[1] = toDeviceY(y1, GE_INCHES, dd);
+    vertx[2] = toDeviceX(x1 + l * cos(rot - a), GE_INCHES, dd);
+    verty[2] = toDeviceY(y1 + l * sin(rot - a), GE_INCHES, dd);
 }
 
 /*
  * Assumes x and y are at least length 2
  * Also assumes x and y are in DEVICE coordinates
  */
-static void arrows(double *x, double *y, int n,
-		   SEXP arrow, int i,
-		   /*
-		    * Which ends we are allowed to draw arrow heads on
-		    * (we may be drawing a line segment that has been
-		    *  broken by NAs)
-		    */
-		   Rboolean start, Rboolean end,
-		   LViewportContext vpc,
-		   double vpWidthCM, double vpHeightCM,
-		   const pGEcontext gc, pGEDevDesc dd) 
+static void arrows(double *x, double *y, int n, SEXP arrow, int i,
+                   /*
+                    * Which ends we are allowed to draw arrow heads on
+                    * (we may be drawing a line segment that has been
+                    *  broken by NAs)
+                    */
+                   Rboolean start, Rboolean end, LViewportContext vpc, double vpWidthCM, double vpHeightCM,
+                   const pGEcontext gc, pGEDevDesc dd)
 {
     /*
      * Write a checkArrow() function to make
      * sure 'a' is a valid arrow description ?
      * If someone manages to sneak in a
      * corrupt arrow description ... BOOM!
-     */			
+     */
     SEXP ends = VECTOR_ELT(arrow, GRID_ARROWENDS);
     int ne = LENGTH(ends);
     double vertx[3], verty[3];
     Rboolean first, last;
     if (n < 2)
-	error(_("require at least two points to draw arrow"));
+        error(_("require at least two points to draw arrow"));
     first = TRUE;
     last = TRUE;
-    switch (INTEGER(ends)[i % ne]) {
-    case 2: 
-	first = FALSE;
-	break;
+    switch (INTEGER(ends)[i % ne])
+    {
+    case 2:
+        first = FALSE;
+        break;
     case 1:
-	last = FALSE;
-	break;
+        last = FALSE;
+        break;
     }
-    if (first && start) {
-	calcArrow(fromDeviceX(x[0], GE_INCHES, dd),
-		  fromDeviceY(y[0], GE_INCHES, dd),
-		  fromDeviceX(x[1], GE_INCHES, dd),
-		  fromDeviceY(y[1], GE_INCHES, dd),
-		  VECTOR_ELT(arrow, GRID_ARROWANGLE), 
-		  VECTOR_ELT(arrow, GRID_ARROWLENGTH),
-		  i, vpc, vpWidthCM, vpHeightCM, vertx, verty, gc, dd);
-	drawArrow(vertx, verty, 
-		  VECTOR_ELT(arrow, GRID_ARROWTYPE), i, 
-		  gc, dd);
-    } 
-    if (last && end) {
-	calcArrow(fromDeviceX(x[n - 1], GE_INCHES, dd),
-		  fromDeviceY(y[n - 1], GE_INCHES, dd),
-		  fromDeviceX(x[n - 2], GE_INCHES, dd),
-		  fromDeviceY(y[n - 2], GE_INCHES, dd),
-		  VECTOR_ELT(arrow, GRID_ARROWANGLE), 
-		  VECTOR_ELT(arrow, GRID_ARROWLENGTH),
-		  i, vpc, vpWidthCM, vpHeightCM, vertx, verty, gc, dd);
-	drawArrow(vertx, verty, 
-		  VECTOR_ELT(arrow, GRID_ARROWTYPE), i, 
-		  gc, dd);
+    if (first && start)
+    {
+        calcArrow(fromDeviceX(x[0], GE_INCHES, dd), fromDeviceY(y[0], GE_INCHES, dd), fromDeviceX(x[1], GE_INCHES, dd),
+                  fromDeviceY(y[1], GE_INCHES, dd), VECTOR_ELT(arrow, GRID_ARROWANGLE),
+                  VECTOR_ELT(arrow, GRID_ARROWLENGTH), i, vpc, vpWidthCM, vpHeightCM, vertx, verty, gc, dd);
+        drawArrow(vertx, verty, VECTOR_ELT(arrow, GRID_ARROWTYPE), i, gc, dd);
+    }
+    if (last && end)
+    {
+        calcArrow(fromDeviceX(x[n - 1], GE_INCHES, dd), fromDeviceY(y[n - 1], GE_INCHES, dd),
+                  fromDeviceX(x[n - 2], GE_INCHES, dd), fromDeviceY(y[n - 2], GE_INCHES, dd),
+                  VECTOR_ELT(arrow, GRID_ARROWANGLE), VECTOR_ELT(arrow, GRID_ARROWLENGTH), i, vpc, vpWidthCM,
+                  vpHeightCM, vertx, verty, gc, dd);
+        drawArrow(vertx, verty, VECTOR_ELT(arrow, GRID_ARROWTYPE), i, gc, dd);
     }
 }
 
 SEXP L_moveTo(SEXP x, SEXP y)
-{    
+{
     double xx, yy;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
@@ -2148,7 +2161,7 @@ SEXP L_moveTo(SEXP x, SEXP y)
     LTransform transform;
     SEXP devloc, prevloc;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2161,20 +2174,14 @@ SEXP L_moveTo(SEXP x, SEXP y)
     SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     PROTECT(prevloc = gridStateElement(dd, GSS_PREVLOC));
     PROTECT(devloc = gridStateElement(dd, GSS_CURRLOC));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     gcontextFromgpar(currentgp, 0, &gc, dd);
     /* Convert the x and y values to CM locations */
-    transformLocn(x, y, 0, vpc, &gc,
-		  vpWidthCM, vpHeightCM,
-		  dd,
-		  transform,
-		  &xx, &yy);
+    transformLocn(x, y, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
     /*
      * Non-finite values are ok here
-     * L_lineTo figures out what to draw 
+     * L_lineTo figures out what to draw
      * when values are non-finite
      */
     REAL(prevloc)[0] = REAL(devloc)[0];
@@ -2196,7 +2203,7 @@ SEXP L_lineTo(SEXP x, SEXP y, SEXP arrow)
     LTransform transform;
     SEXP devloc, prevloc;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2207,23 +2214,17 @@ SEXP L_lineTo(SEXP x, SEXP y, SEXP arrow)
     currentgp = PROTECT(duplicate(currentgp));
     /* Fill may be used by arrow head, but disallow pattern fill
      * within arrow head. */
-    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(currentgp), "GridPatternList")) {
+    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") || Rf_inherits(gpFillSXP(currentgp), "GridPatternList"))
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     }
     PROTECT(prevloc = gridStateElement(dd, GSS_PREVLOC));
     PROTECT(devloc = gridStateElement(dd, GSS_CURRLOC));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     gcontextFromgpar(currentgp, 0, &gc, dd);
     /* Convert the x and y values to CM locations */
-    transformLocn(x, y, 0, vpc, &gc,
-		  vpWidthCM, vpHeightCM,
-		  dd,
-		  transform,
-		  &xx, &yy);
+    transformLocn(x, y, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
     REAL(prevloc)[0] = REAL(devloc)[0];
     REAL(prevloc)[1] = REAL(devloc)[1];
     REAL(devloc)[0] = xx;
@@ -2231,46 +2232,44 @@ SEXP L_lineTo(SEXP x, SEXP y, SEXP arrow)
     /* The graphics engine only takes device coordinates
      */
     xx0 = toDeviceX(REAL(prevloc)[0], GE_INCHES, dd);
-    yy0 = toDeviceY(REAL(prevloc)[1], GE_INCHES, dd), 
-    xx1 = toDeviceX(xx, GE_INCHES, dd);
+    yy0 = toDeviceY(REAL(prevloc)[1], GE_INCHES, dd), xx1 = toDeviceX(xx, GE_INCHES, dd);
     yy1 = toDeviceY(yy, GE_INCHES, dd);
-    if (R_FINITE(xx0) && R_FINITE(yy0) &&
-	R_FINITE(xx1) && R_FINITE(yy1)) {
-	GEMode(1, dd);
-	GELine(xx0, yy0, xx1, yy1, &gc, dd);
-	if (!isNull(arrow)) {
-	    double ax[2], ay[2];
-	    ax[0] = xx0;
-	    ax[1] = xx1;
-	    ay[0] = yy0;
-	    ay[1] = yy1;
-	    arrows(ax, ay, 2,
-		   arrow, 0, TRUE, TRUE, 
-		   vpc, vpWidthCM, vpHeightCM, &gc, dd);
-	}
-	GEMode(0, dd);
+    if (R_FINITE(xx0) && R_FINITE(yy0) && R_FINITE(xx1) && R_FINITE(yy1))
+    {
+        GEMode(1, dd);
+        GELine(xx0, yy0, xx1, yy1, &gc, dd);
+        if (!isNull(arrow))
+        {
+            double ax[2], ay[2];
+            ax[0] = xx0;
+            ax[1] = xx1;
+            ay[0] = yy0;
+            ay[1] = yy1;
+            arrows(ax, ay, 2, arrow, 0, TRUE, TRUE, vpc, vpWidthCM, vpHeightCM, &gc, dd);
+        }
+        GEMode(0, dd);
     }
     UNPROTECT(3);
     return R_NilValue;
 }
 
-/* We are assuming here that the R code has checked that x and y 
+/* We are assuming here that the R code has checked that x and y
  * are unit objects and that vp is a viewport
  */
-SEXP L_lines(SEXP x, SEXP y, SEXP index, SEXP arrow) 
+SEXP L_lines(SEXP x, SEXP y, SEXP index, SEXP arrow)
 {
-    int i, j, nx, nl, start=0;
+    int i, j, nx, nl, start = 0;
     double *xx, *yy;
     double xold, yold;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     const void *vmax;
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2281,100 +2280,97 @@ SEXP L_lines(SEXP x, SEXP y, SEXP index, SEXP arrow)
     currentgp = PROTECT(duplicate(currentgp));
     /* Fill may be used by arrow head, but disallow pattern fill
      * within arrow head. */
-    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(currentgp), "GridPatternList")) {
+    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") || Rf_inherits(gpFillSXP(currentgp), "GridPatternList"))
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     GEMode(1, dd);
-    /* 
-     * Number of lines 
+    /*
+     * Number of lines
      */
     nl = LENGTH(index);
-    for (j=0; j<nl; j++) {
-	SEXP indices = VECTOR_ELT(index, j);
+    for (j = 0; j < nl; j++)
+    {
+        SEXP indices = VECTOR_ELT(index, j);
         updateGContext(currentgp, j, &gc, dd, gpIsScalar, &gcCache);
-	/* 
-	 * Number of vertices
-	 *
-	 * x and y same length forced in R code 
-	 */
-	nx = LENGTH(indices); 
-	/* Convert the x and y values to CM locations */
-	vmax = vmaxget();
-	xx = (double *) R_alloc(nx, sizeof(double));
-	yy = (double *) R_alloc(nx, sizeof(double));
-	xold = NA_REAL;
-	yold = NA_REAL;
-	for (i=0; i<nx; i++) {
-	    transformLocn(x, y, INTEGER(indices)[i] - 1, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd,
-			  transform,
-			  &(xx[i]), &(yy[i]));
-	    /* The graphics engine only takes device coordinates
-	     */
-	    xx[i] = toDeviceX(xx[i], GE_INCHES, dd);
-	    yy[i] = toDeviceY(yy[i], GE_INCHES, dd);
-	    if ((R_FINITE(xx[i]) && R_FINITE(yy[i])) &&
-		!(R_FINITE(xold) && R_FINITE(yold)))
-	        start = i;
-	    else if ((R_FINITE(xold) && R_FINITE(yold)) &&
-		     !(R_FINITE(xx[i]) && R_FINITE(yy[i]))) {
-	        if (i-start > 1) {
-		    GEPolyline(i-start, xx+start, yy+start, &gc, dd);
-		    if (!isNull(arrow)) {
-		        /*
-			 * Can draw an arrow at the start if the points
-			 * include the first point.
-			 * CANNOT draw an arrow at the end point 
-			 * because we have just broken the line for an NA.
-			 */
-		        arrows(xx+start, yy+start, i-start,
-			       arrow, j, start == 0, FALSE,
-			       vpc, vpWidthCM, vpHeightCM, &gc, dd);
-		    }
-		}
-	    }
-	    else if ((R_FINITE(xold) && R_FINITE(yold)) &&
-		     (i == nx-1)) {
-	        GEPolyline(nx-start, xx+start, yy+start, &gc, dd);
-		if (!isNull(arrow)) {
-		    /*
-		     * Can draw an arrow at the start if the points
-		     * include the first point.
-		     * Can draw an arrow at the end point.
-		     */
- 		    arrows(xx+start, yy+start, nx-start, 
-			   arrow, j, start == 0, TRUE,
-			   vpc, vpWidthCM, vpHeightCM, &gc, dd);
-		}
-	    } 
-	    xold = xx[i];
-	    yold = yy[i];
-	}
-	vmaxset(vmax);
+        /*
+         * Number of vertices
+         *
+         * x and y same length forced in R code
+         */
+        nx = LENGTH(indices);
+        /* Convert the x and y values to CM locations */
+        vmax = vmaxget();
+        xx = (double *)R_alloc(nx, sizeof(double));
+        yy = (double *)R_alloc(nx, sizeof(double));
+        xold = NA_REAL;
+        yold = NA_REAL;
+        for (i = 0; i < nx; i++)
+        {
+            transformLocn(x, y, INTEGER(indices)[i] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[i]),
+                          &(yy[i]));
+            /* The graphics engine only takes device coordinates
+             */
+            xx[i] = toDeviceX(xx[i], GE_INCHES, dd);
+            yy[i] = toDeviceY(yy[i], GE_INCHES, dd);
+            if ((R_FINITE(xx[i]) && R_FINITE(yy[i])) && !(R_FINITE(xold) && R_FINITE(yold)))
+                start = i;
+            else if ((R_FINITE(xold) && R_FINITE(yold)) && !(R_FINITE(xx[i]) && R_FINITE(yy[i])))
+            {
+                if (i - start > 1)
+                {
+                    GEPolyline(i - start, xx + start, yy + start, &gc, dd);
+                    if (!isNull(arrow))
+                    {
+                        /*
+                         * Can draw an arrow at the start if the points
+                         * include the first point.
+                         * CANNOT draw an arrow at the end point
+                         * because we have just broken the line for an NA.
+                         */
+                        arrows(xx + start, yy + start, i - start, arrow, j, start == 0, FALSE, vpc, vpWidthCM,
+                               vpHeightCM, &gc, dd);
+                    }
+                }
+            }
+            else if ((R_FINITE(xold) && R_FINITE(yold)) && (i == nx - 1))
+            {
+                GEPolyline(nx - start, xx + start, yy + start, &gc, dd);
+                if (!isNull(arrow))
+                {
+                    /*
+                     * Can draw an arrow at the start if the points
+                     * include the first point.
+                     * Can draw an arrow at the end point.
+                     */
+                    arrows(xx + start, yy + start, nx - start, arrow, j, start == 0, TRUE, vpc, vpWidthCM, vpHeightCM,
+                           &gc, dd);
+                }
+            }
+            xold = xx[i];
+            yold = yy[i];
+        }
+        vmaxset(vmax);
     }
     GEMode(0, dd);
-    UNPROTECT(1);  /* currentgp */
+    UNPROTECT(1); /* currentgp */
     return R_NilValue;
 }
 
-/* We are assuming here that the R code has checked that x and y 
- * are unit objects 
+/* We are assuming here that the R code has checked that x and y
+ * are unit objects
  */
-SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
-		 double theta, Rboolean draw, Rboolean trace) 
+SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index, double theta, Rboolean draw,
+                 Rboolean trace)
 {
     int i, j, nx, np, nloc;
     double *xx, *yy, *ss;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -2386,7 +2382,7 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
     double xmax = -DBL_MAX;
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2397,92 +2393,87 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
      * in 'grid' state. */
     currentgp = PROTECT(duplicate(currentgp));
     /* If not drawing (calculating size), set gp$fill to transparent
-     * to avoid infinite loop when gp$fill is a pattern 
+     * to avoid infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
-    if (!draw) {
+    if (!draw)
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
     /* If xspline is open ...
      * fill may be used by arrow head, but disallow pattern fill
      * within arrow head. */
-    if (LOGICAL(o)[0] && 
-        (Rf_inherits(gpFillSXP(currentgp), "GridPattern") ||
-         Rf_inherits(gpFillSXP(currentgp), "GridPatternList"))) {
+    if (LOGICAL(o)[0] &&
+        (Rf_inherits(gpFillSXP(currentgp), "GridPattern") || Rf_inherits(gpFillSXP(currentgp), "GridPatternList")))
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    /* 
+    /*
      * Number of xsplines
      */
     np = LENGTH(index);
     PROTECT(tracePts = allocVector(VECSXP, np));
     nloc = 0;
-    for (i=0; i<np; i++) {
-	const void *vmax;
-	SEXP indices = VECTOR_ELT(index, i);
-	SEXP points;
-	updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/* 
-	 * Number of vertices
-	 *
-	 * Check in R code that x and y same length
-	 */
-	nx = LENGTH(indices); 
-	/* Convert the x and y values to CM locations */
-	vmax = vmaxget();
-	if (draw)
-	    GEMode(1, dd);
-	xx = (double *) R_alloc(nx, sizeof(double));
-	yy = (double *) R_alloc(nx, sizeof(double));
-	ss = (double *) R_alloc(nx, sizeof(double));
-	for (j=0; j<nx; j++) {
-	    ss[j] = REAL(s)[(INTEGER(indices)[j] - 1) % LENGTH(s)];
-	    /*
-	     * If drawing, convert to INCHES on device
-	     * If just calculating bounds, convert to INCHES within current vp
-	     */
-	    if (draw) {
-		transformLocn(x, y, INTEGER(indices)[j] - 1, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd,
-			      transform,
-			      &(xx[j]), &(yy[j]));
-	    } else {
-		xx[j] = transformXtoINCHES(x, INTEGER(indices)[j] - 1,
-					   vpc, &gc,
-					   vpWidthCM, vpHeightCM, 
-					   dd);
-		yy[j] = transformYtoINCHES(y, INTEGER(indices)[j] - 1,
-					   vpc, &gc,
-					   vpWidthCM, vpHeightCM, 
-					   dd);	    
-	    }
-	    /* The graphics engine only takes device coordinates
-	     */
-	    xx[j] = toDeviceX(xx[j], GE_INCHES, dd);
-	    yy[j] = toDeviceY(yy[j], GE_INCHES, dd);
-	    if (!(R_FINITE(xx[j]) && R_FINITE(yy[j]))) {
-		    error(_("non-finite control point in Xspline"));
-	    }
-	}
-	PROTECT(points = GEXspline(nx, xx, yy, ss,
-				   LOGICAL(o)[0], LOGICAL(rep)[0],
-				   draw, &gc, dd));
+    for (i = 0; i < np; i++)
+    {
+        const void *vmax;
+        SEXP indices = VECTOR_ELT(index, i);
+        SEXP points;
+        updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+        /*
+         * Number of vertices
+         *
+         * Check in R code that x and y same length
+         */
+        nx = LENGTH(indices);
+        /* Convert the x and y values to CM locations */
+        vmax = vmaxget();
+        if (draw)
+            GEMode(1, dd);
+        xx = (double *)R_alloc(nx, sizeof(double));
+        yy = (double *)R_alloc(nx, sizeof(double));
+        ss = (double *)R_alloc(nx, sizeof(double));
+        for (j = 0; j < nx; j++)
+        {
+            ss[j] = REAL(s)[(INTEGER(indices)[j] - 1) % LENGTH(s)];
+            /*
+             * If drawing, convert to INCHES on device
+             * If just calculating bounds, convert to INCHES within current vp
+             */
+            if (draw)
+            {
+                transformLocn(x, y, INTEGER(indices)[j] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[j]),
+                              &(yy[j]));
+            }
+            else
+            {
+                xx[j] = transformXtoINCHES(x, INTEGER(indices)[j] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+                yy[j] = transformYtoINCHES(y, INTEGER(indices)[j] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            }
+            /* The graphics engine only takes device coordinates
+             */
+            xx[j] = toDeviceX(xx[j], GE_INCHES, dd);
+            yy[j] = toDeviceY(yy[j], GE_INCHES, dd);
+            if (!(R_FINITE(xx[j]) && R_FINITE(yy[j])))
+            {
+                error(_("non-finite control point in Xspline"));
+            }
+        }
+        PROTECT(points = GEXspline(nx, xx, yy, ss, LOGICAL(o)[0], LOGICAL(rep)[0], draw, &gc, dd));
         {
             /*
-             * In some cases, GEXspline seems to produce identical points 
+             * In some cases, GEXspline seems to produce identical points
              * (at least observed at end of spline)
-             * so trim identical points from the ends 
+             * so trim identical points from the ends
              * (so arrow heads are drawn at correct angle)
              */
             int np = LENGTH(VECTOR_ELT(points, 0));
@@ -2494,23 +2485,22 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
              * DEBUGGING ...
              int k;
              for (k=0; k<np; k++) {
-             GESymbol(px[k], py[k], 16, 3, &gc, dd); 
+             GESymbol(px[k], py[k], 16, 3, &gc, dd);
              }
-	     * ... DEBUGGING
-	     */
-	    while (np > 1 && 
-		   (px[start] == px[start + 1]) &&
-		   (py[start] == py[start + 1])) {
-		start++;
-		np--;
-	    }
-	    while (np > 1 && 
-		   (px[end] == px[end - 1]) &&
-		   (py[end] == py[end - 1])) {
-		end--;
-		np--;
-	    }
-            if (trace) {
+         * ... DEBUGGING
+         */
+            while (np > 1 && (px[start] == px[start + 1]) && (py[start] == py[start + 1]))
+            {
+                start++;
+                np--;
+            }
+            while (np > 1 && (px[end] == px[end - 1]) && (py[end] == py[end - 1]))
+            {
+                end--;
+                np--;
+            }
+            if (trace)
+            {
                 int k;
                 int count = end - start + 1;
                 double *keepXptr, *keepYptr;
@@ -2520,7 +2510,8 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
                 PROTECT(keepY = allocVector(REALSXP, count));
                 keepXptr = REAL(keepX);
                 keepYptr = REAL(keepY);
-                for (k=start; k<(end + 1); k++) {
+                for (k = start; k < (end + 1); k++)
+                {
                     keepXptr[k - start] = fromDeviceX(px[k], GE_INCHES, dd);
                     keepYptr[k - start] = fromDeviceY(py[k], GE_INCHES, dd);
                 }
@@ -2529,25 +2520,27 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
                 SET_VECTOR_ELT(tracePts, i, keepPoints);
                 UNPROTECT(3); /* keepPoints & keepX & keepY */
             }
-            if (draw && !isNull(a) && !isNull(points)) {
+            if (draw && !isNull(a) && !isNull(points))
+            {
                 /*
                  * Can draw an arrow at the either end.
                  */
-                arrows(&(px[start]), &(py[start]), np,
-                       a, i, TRUE, TRUE,
-                       vpc, vpWidthCM, vpHeightCM, &gc, dd);
+                arrows(&(px[start]), &(py[start]), np, a, i, TRUE, TRUE, vpc, vpWidthCM, vpHeightCM, &gc, dd);
             }
-            if (!draw && !trace && !isNull(points)) {
+            if (!draw && !trace && !isNull(points))
+            {
                 /*
                  * Update bounds
                  */
                 int j, n = LENGTH(VECTOR_ELT(points, 0));
-                double *pxx = (double *) R_alloc(n, sizeof(double));
-                double *pyy = (double *) R_alloc(n, sizeof(double));
-                for (j=0; j<n; j++) {
+                double *pxx = (double *)R_alloc(n, sizeof(double));
+                double *pyy = (double *)R_alloc(n, sizeof(double));
+                for (j = 0; j < n; j++)
+                {
                     pxx[j] = fromDeviceX(px[j], GE_INCHES, dd);
                     pyy[j] = fromDeviceY(py[j], GE_INCHES, dd);
-                    if (R_FINITE(pxx[j]) && R_FINITE(pyy[j])) {
+                    if (R_FINITE(pxx[j]) && R_FINITE(pyy[j]))
+                    {
                         if (pxx[j] < xmin)
                             xmin = pxx[j];
                         if (pxx[j] > xmax)
@@ -2560,79 +2553,74 @@ SEXP gridXspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index,
                     }
                 }
                 /*
-                 * Calculate edgex and edgey for case where this is 
+                 * Calculate edgex and edgey for case where this is
                  * the only xspline
                  */
                 hullEdge(pxx, pyy, n, theta, &edgex, &edgey);
             }
-        } /* End of trimming-redundant-points code */
-	UNPROTECT(1); /* points */
-	if (draw)
-	    GEMode(0, dd);
-	vmaxset(vmax);
+        }             /* End of trimming-redundant-points code */
+        UNPROTECT(1); /* points */
+        if (draw)
+            GEMode(0, dd);
+        vmaxset(vmax);
     }
 
-    if (!draw && !trace && nloc > 0) {
-	PROTECT(result = allocVector(REALSXP, 4));
-	/*
-	 * If there is more than one xspline, just produce edge
-	 * based on bounding rect of all xsplines
-	 */
-	if (np > 1) {
-	    rectEdge(xmin, ymin, xmax, ymax, theta,
-		     &edgex, &edgey);
-	}
-	/*
-	 * Reverse the scale adjustment (zoom factor)
-	 * when calculating physical value to return to user-level
-	 */
-	REAL(result)[0] = edgex / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[1] = edgey / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[2] = (xmax - xmin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[3] = (ymax - ymin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
+    if (!draw && !trace && nloc > 0)
+    {
+        PROTECT(result = allocVector(REALSXP, 4));
+        /*
+         * If there is more than one xspline, just produce edge
+         * based on bounding rect of all xsplines
+         */
+        if (np > 1)
+        {
+            rectEdge(xmin, ymin, xmax, ymax, theta, &edgex, &edgey);
+        }
+        /*
+         * Reverse the scale adjustment (zoom factor)
+         * when calculating physical value to return to user-level
+         */
+        REAL(result)[0] = edgex / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[1] = edgey / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[2] = (xmax - xmin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[3] = (ymax - ymin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
         UNPROTECT(1); /* result */
-    } else if (trace) {
+    }
+    else if (trace)
+    {
         result = tracePts;
     }
     UNPROTECT(2); /* tracePts and currentgp */
     return result;
 }
 
-SEXP L_xspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index) 
+SEXP L_xspline(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index)
 {
     gridXspline(x, y, s, o, a, rep, index, 0, TRUE, FALSE);
     return R_NilValue;
 }
 
-SEXP L_xsplineBounds(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, 
-		     SEXP index, SEXP theta) 
+SEXP L_xsplineBounds(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index, SEXP theta)
 {
-    return gridXspline(x, y, s, o, a, rep, index, REAL(theta)[0], 
-                       FALSE, FALSE);
+    return gridXspline(x, y, s, o, a, rep, index, REAL(theta)[0], FALSE, FALSE);
 }
 
-SEXP L_xsplinePoints(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, 
-		     SEXP index, SEXP theta) 
+SEXP L_xsplinePoints(SEXP x, SEXP y, SEXP s, SEXP o, SEXP a, SEXP rep, SEXP index, SEXP theta)
 {
-    return gridXspline(x, y, s, o, a, rep, index, REAL(theta)[0], 
-                       FALSE, TRUE);
+    return gridXspline(x, y, s, o, a, rep, index, REAL(theta)[0], FALSE, TRUE);
 }
 
-SEXP L_segments(SEXP x0, SEXP y0, SEXP x1, SEXP y1, SEXP arrow) 
+SEXP L_segments(SEXP x0, SEXP y0, SEXP x1, SEXP y1, SEXP arrow)
 {
     int i, nx0, ny0, nx1, ny1, maxn;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2643,122 +2631,114 @@ SEXP L_segments(SEXP x0, SEXP y0, SEXP x1, SEXP y1, SEXP arrow)
     currentgp = PROTECT(duplicate(currentgp));
     /* Fill may be used by arrow head, but disallow pattern fill
      * within arrow head. */
-    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(currentgp), "GridPatternList")) {
+    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") || Rf_inherits(gpFillSXP(currentgp), "GridPatternList"))
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    maxn = nx0 = unitLength(x0); 
+    maxn = nx0 = unitLength(x0);
     ny0 = unitLength(y0);
     nx1 = unitLength(x1);
     ny1 = unitLength(y1);
     if (ny0 > maxn)
-	maxn = ny0;
+        maxn = ny0;
     if (nx1 > maxn)
-	maxn = nx1;
+        maxn = nx1;
     if (ny1 > maxn)
-	maxn = ny1;
+        maxn = ny1;
     /* Convert the x and y values to INCHES locations */
     /* FIXME:  Need to check for NaN's and NA's
      */
     GEMode(1, dd);
-    for (i=0; i<maxn; i++) {
-	double xx0, yy0, xx1, yy1;
+    for (i = 0; i < maxn; i++)
+    {
+        double xx0, yy0, xx1, yy1;
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	transformLocn(x0, y0, i, vpc, &gc, 
-		      vpWidthCM, vpHeightCM,
-		      dd, transform, &xx0, &yy0);
-	transformLocn(x1, y1, i, vpc, &gc,
-		      vpWidthCM, vpHeightCM,
-		      dd, transform, &xx1, &yy1);
-	/* The graphics engine only takes device coordinates
-	 */
-	xx0 = toDeviceX(xx0, GE_INCHES, dd);
-	yy0 = toDeviceY(yy0, GE_INCHES, dd);
-	xx1 = toDeviceX(xx1, GE_INCHES, dd);
-	yy1 = toDeviceY(yy1, GE_INCHES, dd);
-	if (R_FINITE(xx0) && R_FINITE(yy0) &&
-	    R_FINITE(xx1) && R_FINITE(yy1)) {
-	    GELine(xx0, yy0, xx1, yy1, &gc, dd);
-	    if (!isNull(arrow)) {
-		double ax[2], ay[2];
-		ax[0] = xx0;
-		ax[1] = xx1;
-		ay[0] = yy0;
-		ay[1] = yy1;
-		arrows(ax, ay, 2,
-		       arrow, i, TRUE, TRUE,
-		       vpc, vpWidthCM, vpHeightCM, &gc, dd);
-	    }
-	}
+        transformLocn(x0, y0, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx0, &yy0);
+        transformLocn(x1, y1, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx1, &yy1);
+        /* The graphics engine only takes device coordinates
+         */
+        xx0 = toDeviceX(xx0, GE_INCHES, dd);
+        yy0 = toDeviceY(yy0, GE_INCHES, dd);
+        xx1 = toDeviceX(xx1, GE_INCHES, dd);
+        yy1 = toDeviceY(yy1, GE_INCHES, dd);
+        if (R_FINITE(xx0) && R_FINITE(yy0) && R_FINITE(xx1) && R_FINITE(yy1))
+        {
+            GELine(xx0, yy0, xx1, yy1, &gc, dd);
+            if (!isNull(arrow))
+            {
+                double ax[2], ay[2];
+                ax[0] = xx0;
+                ax[1] = xx1;
+                ay[0] = yy0;
+                ay[1] = yy1;
+                arrows(ax, ay, 2, arrow, i, TRUE, TRUE, vpc, vpWidthCM, vpHeightCM, &gc, dd);
+            }
+        }
     }
     GEMode(0, dd);
     UNPROTECT(1);
     return R_NilValue;
 }
 
-static int getArrowN(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn, 
-		     SEXP y1, SEXP y2, SEXP ynm1, SEXP yn)
-{      
+static int getArrowN(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn, SEXP y1, SEXP y2, SEXP ynm1, SEXP yn)
+{
     int nx2, nxnm1, nxn, ny1, ny2, nynm1, nyn, maxn;
     maxn = 0;
-    /* 
+    /*
      * x1, y1, xnm1, and ynm1 could be NULL if this is adding
      * arrows to a line.to
      */
     if (isNull(y1))
-	ny1 = 0;
+        ny1 = 0;
     else
-	ny1 = unitLength(y1);
+        ny1 = unitLength(y1);
     nx2 = unitLength(x2);
     ny2 = unitLength(y2);
     if (isNull(xnm1))
-	nxnm1 = 0;
+        nxnm1 = 0;
     else
-	nxnm1 = unitLength(xnm1);
+        nxnm1 = unitLength(xnm1);
     if (isNull(ynm1))
-	nynm1 = 0;
+        nynm1 = 0;
     else
-	nynm1 = unitLength(ynm1);
+        nynm1 = unitLength(ynm1);
     nxn = unitLength(xn);
     nyn = unitLength(yn);
     if (ny1 > maxn)
-	maxn = ny1;
+        maxn = ny1;
     if (nx2 > maxn)
-	maxn = nx2;
+        maxn = nx2;
     if (ny2 > maxn)
-	maxn = ny2;
+        maxn = ny2;
     if (nxnm1 > maxn)
-	maxn = nxnm1;
+        maxn = nxnm1;
     if (nynm1 > maxn)
-	maxn = nynm1;
+        maxn = nynm1;
     if (nxn > maxn)
-	maxn = nxn;
+        maxn = nxn;
     if (nyn > maxn)
-	maxn = nyn;
+        maxn = nyn;
     return maxn;
 }
 
-SEXP L_arrows(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn, 
-	      SEXP y1, SEXP y2, SEXP ynm1, SEXP yn, 
-	      SEXP angle, SEXP length, SEXP ends, SEXP type) 
+SEXP L_arrows(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn, SEXP y1, SEXP y2, SEXP ynm1, SEXP yn, SEXP angle, SEXP length,
+              SEXP ends, SEXP type)
 {
     int i, maxn;
     int ne;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
     Rboolean first, last;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
     SEXP devloc = R_NilValue; /* -Wall */
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2769,16 +2749,13 @@ SEXP L_arrows(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn,
     currentgp = PROTECT(duplicate(currentgp));
     /* Fill may be used by arrow head, but disallow pattern fill
      * within arrow head. */
-    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(currentgp), "GridPatternList")) {
+    if (Rf_inherits(gpFillSXP(currentgp), "GridPattern") || Rf_inherits(gpFillSXP(currentgp), "GridPatternList"))
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
-    maxn = getArrowN(x1, x2, xnm1, xn,
-		     y1, y2, ynm1, yn);
+    maxn = getArrowN(x1, x2, xnm1, xn, y1, y2, ynm1, yn);
     ne = LENGTH(ends);
     resolveGPar(currentgp);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
@@ -2786,75 +2763,69 @@ SEXP L_arrows(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn,
     /* FIXME:  Need to check for NaN's and NA's
      */
     GEMode(1, dd);
-    for (i=0; i<maxn; i++) {
-	double xx1, xx2, xxnm1, xxn, yy1, yy2, yynm1, yyn;
-	double vertx[3];
-	double verty[3];
-	first = TRUE;
-	last = TRUE;
-	switch (INTEGER(ends)[i % ne]) {
-	case 2: 
-	    first = FALSE;
-	    break;
-	case 1:
-	    last = FALSE;
-	    break;
-	}
-	updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/*
-	 * If we're adding arrows to a line.to
-	 * x1 will be NULL
-	 */
-	if (isNull(x1)) 
-	    PROTECT(devloc = gridStateElement(dd, GSS_CURRLOC));
-	if (first) {
-	    if (isNull(x1)) {
-		xx1 = REAL(devloc)[0];
-		yy1 = REAL(devloc)[1];
-	    } else 
-		transformLocn(x1, y1, i, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, transform, &xx1, &yy1);
-	    transformLocn(x2, y2, i, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd, transform, &xx2, &yy2);
-	    calcArrow(xx1, yy1, xx2, yy2, angle, length, i,
-		      vpc, vpWidthCM, vpHeightCM,
-		      vertx, verty, &gc, dd);
-	    /* 
-	     * Only draw arrow if both ends of first segment 
-	     * are not non-finite
-	     */
-	    if (R_FINITE(toDeviceX(xx2, GE_INCHES, dd)) &&
-		R_FINITE(toDeviceY(yy2, GE_INCHES, dd)) &&
-		R_FINITE(vertx[1]) && R_FINITE(verty[1]))
-		drawArrow(vertx, verty, type, i, &gc, dd);
-	}
-	if (last) {
-	    if (isNull(xnm1)) {
-		xxnm1 = REAL(devloc)[0];
-		yynm1 = REAL(devloc)[1];
-	    } else 
-		transformLocn(xnm1, ynm1, i, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, transform, &xxnm1, &yynm1);
-	    transformLocn(xn, yn, i, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd, transform, &xxn, &yyn);
-	    calcArrow(xxn, yyn, xxnm1, yynm1, angle, length, i,
-		      vpc, vpWidthCM, vpHeightCM,
-		      vertx, verty, &gc, dd);
-	    /* 
-	     * Only draw arrow if both ends of laste segment are
-	     * not non-finite
-	     */
-	    if (R_FINITE(toDeviceX(xxnm1, GE_INCHES, dd)) &&
-		R_FINITE(toDeviceY(yynm1, GE_INCHES, dd)) &&
-		R_FINITE(vertx[1]) && R_FINITE(verty[1]))
-		drawArrow(vertx, verty, type, i, &gc, dd);
-	}
-	if (isNull(x1))
-	    UNPROTECT(1);
+    for (i = 0; i < maxn; i++)
+    {
+        double xx1, xx2, xxnm1, xxn, yy1, yy2, yynm1, yyn;
+        double vertx[3];
+        double verty[3];
+        first = TRUE;
+        last = TRUE;
+        switch (INTEGER(ends)[i % ne])
+        {
+        case 2:
+            first = FALSE;
+            break;
+        case 1:
+            last = FALSE;
+            break;
+        }
+        updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+        /*
+         * If we're adding arrows to a line.to
+         * x1 will be NULL
+         */
+        if (isNull(x1))
+            PROTECT(devloc = gridStateElement(dd, GSS_CURRLOC));
+        if (first)
+        {
+            if (isNull(x1))
+            {
+                xx1 = REAL(devloc)[0];
+                yy1 = REAL(devloc)[1];
+            }
+            else
+                transformLocn(x1, y1, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx1, &yy1);
+            transformLocn(x2, y2, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx2, &yy2);
+            calcArrow(xx1, yy1, xx2, yy2, angle, length, i, vpc, vpWidthCM, vpHeightCM, vertx, verty, &gc, dd);
+            /*
+             * Only draw arrow if both ends of first segment
+             * are not non-finite
+             */
+            if (R_FINITE(toDeviceX(xx2, GE_INCHES, dd)) && R_FINITE(toDeviceY(yy2, GE_INCHES, dd)) &&
+                R_FINITE(vertx[1]) && R_FINITE(verty[1]))
+                drawArrow(vertx, verty, type, i, &gc, dd);
+        }
+        if (last)
+        {
+            if (isNull(xnm1))
+            {
+                xxnm1 = REAL(devloc)[0];
+                yynm1 = REAL(devloc)[1];
+            }
+            else
+                transformLocn(xnm1, ynm1, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xxnm1, &yynm1);
+            transformLocn(xn, yn, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xxn, &yyn);
+            calcArrow(xxn, yyn, xxnm1, yynm1, angle, length, i, vpc, vpWidthCM, vpHeightCM, vertx, verty, &gc, dd);
+            /*
+             * Only draw arrow if both ends of laste segment are
+             * not non-finite
+             */
+            if (R_FINITE(toDeviceX(xxnm1, GE_INCHES, dd)) && R_FINITE(toDeviceY(yynm1, GE_INCHES, dd)) &&
+                R_FINITE(vertx[1]) && R_FINITE(verty[1]))
+                drawArrow(vertx, verty, type, i, &gc, dd);
+        }
+        if (isNull(x1))
+            UNPROTECT(1);
     }
     GEMode(0, dd);
     UNPROTECT(1);
@@ -2863,21 +2834,21 @@ SEXP L_arrows(SEXP x1, SEXP x2, SEXP xnm1, SEXP xn,
 }
 
 /* This one only gets called for drawing - L_locnBounds() is used for
- * x/y/width/height 
+ * x/y/width/height
  */
 SEXP L_polygon(SEXP x, SEXP y, SEXP index)
 {
-    int i, j, nx, np, start=0;
+    int i, j, nx, np, start = 0;
     double *xx, *yy;
     double xold, yold;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2890,62 +2861,61 @@ SEXP L_polygon(SEXP x, SEXP y, SEXP index)
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     GEMode(1, dd);
-    /* 
-     * Number of polygons 
+    /*
+     * Number of polygons
      */
     np = LENGTH(index);
-    for (i=0; i<np; i++) {
-	const void *vmax;
-	SEXP indices = VECTOR_ELT(index, i);
-	updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/* 
-	 * Number of vertices
-	 *
-	 * Check in R code that x and y same length
-	 */
-	nx = LENGTH(indices); 
-	/* Convert the x and y values to CM locations */
-	vmax = vmaxget();
-	xx = (double *) R_alloc(nx + 1, sizeof(double));
-	yy = (double *) R_alloc(nx + 1, sizeof(double));
-	xold = NA_REAL;
-	yold = NA_REAL;
-	for (j=0; j<nx; j++) {
-	    transformLocn(x, y, INTEGER(indices)[j] - 1, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd,
-			  transform,
-			  &(xx[j]), &(yy[j]));
-	    /* The graphics engine only takes device coordinates
-	     */
-	    xx[j] = toDeviceX(xx[j], GE_INCHES, dd);
-	    yy[j] = toDeviceY(yy[j], GE_INCHES, dd);
-	    if ((R_FINITE(xx[j]) && R_FINITE(yy[j])) &&
-		!(R_FINITE(xold) && R_FINITE(yold)))
-		start = j; /* first point of current segment */
-	    else if ((R_FINITE(xold) && R_FINITE(yold)) &&
-		     !(R_FINITE(xx[j]) && R_FINITE(yy[j]))) {
-		if (j-start > 1) {
-		    GEPolygon(j-start, xx+start, yy+start, &gc, dd);
-		}
-	    }
-	    else if ((R_FINITE(xold) && R_FINITE(yold)) && (j == nx-1)) { 
-		/* last */
-		GEPolygon(nx-start, xx+start, yy+start, &gc, dd);
-	    }
-	    xold = xx[j];
-	    yold = yy[j];
-	}
-	vmaxset(vmax);
+    for (i = 0; i < np; i++)
+    {
+        const void *vmax;
+        SEXP indices = VECTOR_ELT(index, i);
+        updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+        /*
+         * Number of vertices
+         *
+         * Check in R code that x and y same length
+         */
+        nx = LENGTH(indices);
+        /* Convert the x and y values to CM locations */
+        vmax = vmaxget();
+        xx = (double *)R_alloc(nx + 1, sizeof(double));
+        yy = (double *)R_alloc(nx + 1, sizeof(double));
+        xold = NA_REAL;
+        yold = NA_REAL;
+        for (j = 0; j < nx; j++)
+        {
+            transformLocn(x, y, INTEGER(indices)[j] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[j]),
+                          &(yy[j]));
+            /* The graphics engine only takes device coordinates
+             */
+            xx[j] = toDeviceX(xx[j], GE_INCHES, dd);
+            yy[j] = toDeviceY(yy[j], GE_INCHES, dd);
+            if ((R_FINITE(xx[j]) && R_FINITE(yy[j])) && !(R_FINITE(xold) && R_FINITE(yold)))
+                start = j; /* first point of current segment */
+            else if ((R_FINITE(xold) && R_FINITE(yold)) && !(R_FINITE(xx[j]) && R_FINITE(yy[j])))
+            {
+                if (j - start > 1)
+                {
+                    GEPolygon(j - start, xx + start, yy + start, &gc, dd);
+                }
+            }
+            else if ((R_FINITE(xold) && R_FINITE(yold)) && (j == nx - 1))
+            {
+                /* last */
+                GEPolygon(nx - start, xx + start, yy + start, &gc, dd);
+            }
+            xold = xx[j];
+            yold = yy[j];
+        }
+        vmaxset(vmax);
     }
     GEMode(0, dd);
     UNPROTECT(1);
@@ -2953,14 +2923,13 @@ SEXP L_polygon(SEXP x, SEXP y, SEXP index)
     return R_NilValue;
 }
 
-static SEXP gridCircle(SEXP x, SEXP y, SEXP r, 
-		       double theta, Rboolean draw)
+static SEXP gridCircle(SEXP x, SEXP y, SEXP r, double theta, Rboolean draw)
 {
     int i, nx, ny, nr, ncirc;
     double xx, yy, rr1, rr2, rr = 0.0 /* -Wall */;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -2971,7 +2940,7 @@ static SEXP gridCircle(SEXP x, SEXP y, SEXP r,
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
     double edgex, edgey;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -2982,126 +2951,123 @@ static SEXP gridCircle(SEXP x, SEXP y, SEXP r,
      * in 'grid' state. */
     currentgp = PROTECT(duplicate(currentgp));
     /* If not drawing (calculating size), set gp$fill to transparent
-     * to avoid infinite loop when gp$fill is a pattern 
+     * to avoid infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
-    if (!draw) {
+    if (!draw)
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    nx = unitLength(x); 
+    nx = unitLength(x);
     ny = unitLength(y);
     nr = unitLength(r);
-    if (ny > nx) 
-	nx = ny;
+    if (ny > nx)
+        nx = ny;
     if (nr > nx)
-	nx = nr;
-    if (draw) {
-	GEMode(1, dd);
+        nx = nr;
+    if (draw)
+    {
+        GEMode(1, dd);
     }
     ncirc = 0;
-    for (i=0; i<nx; i++) {
+    for (i = 0; i < nx; i++)
+    {
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/*
-	 * If drawing, convert to INCHES on device
-	 * If just calculating bounds, convert to INCHES within current vp
-	 */
-	if (draw) {
-	    transformLocn(x, y, i, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd,
-			  transform,
-			  &xx, &yy);
-	} else {
-	    xx = transformXtoINCHES(x, i, vpc, &gc,
-				    vpWidthCM, vpHeightCM, 
-				    dd);
-	    yy = transformYtoINCHES(y, i, vpc, &gc,
-				    vpWidthCM, vpHeightCM, 
-				    dd);	    
-	}
-	/* These two will give the same answer unless r is in "native",
-	 * "npc", or some other relative units;  in those cases, just
-	 * take the smaller of the two values.
-	 */
-	rr1 = transformWidthtoINCHES(r, i % nr, vpc, &gc,
-				     vpWidthCM, vpHeightCM,
-				     dd);
-	rr2 = transformHeighttoINCHES(r, i % nr, vpc, &gc,
-				      vpWidthCM, vpHeightCM,
-				      dd);
-	/*
-	 * A negative radius is silently converted to absolute value
-	 */
-	rr = fmin2(fabs(rr1), fabs(rr2));
-	if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(rr)) {
-	    if (draw) {
+        /*
+         * If drawing, convert to INCHES on device
+         * If just calculating bounds, convert to INCHES within current vp
+         */
+        if (draw)
+        {
+            transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
+        }
+        else
+        {
+            xx = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            yy = transformYtoINCHES(y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        }
+        /* These two will give the same answer unless r is in "native",
+         * "npc", or some other relative units;  in those cases, just
+         * take the smaller of the two values.
+         */
+        rr1 = transformWidthtoINCHES(r, i % nr, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        rr2 = transformHeighttoINCHES(r, i % nr, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        /*
+         * A negative radius is silently converted to absolute value
+         */
+        rr = fmin2(fabs(rr1), fabs(rr2));
+        if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(rr))
+        {
+            if (draw)
+            {
                 /* The graphics engine only takes device coordinates
-		 */
+                 */
                 xx = toDeviceX(xx, GE_INCHES, dd);
-		yy = toDeviceY(yy, GE_INCHES, dd);
-		rr = toDeviceWidth(rr, GE_INCHES, dd);
-		GECircle(xx, yy, rr, &gc, dd);
-	    } else {
-		if (xx + rr < xmin)
-		    xmin = xx + rr;
-		if (xx + rr > xmax)
-		    xmax = xx + rr;
-		if (xx - rr < xmin)
-		    xmin = xx - rr;
-		if (xx - rr > xmax)
-		    xmax = xx - rr;
-		if (yy + rr < ymin)
-		    ymin = yy + rr;
-		if (yy + rr > ymax)
-		    ymax = yy + rr;
-		if (yy - rr < ymin)
-		    ymin = yy - rr;
-		if (yy - rr > ymax)
-		    ymax = yy - rr;
-		ncirc++;		
-	    }
-	}
+                yy = toDeviceY(yy, GE_INCHES, dd);
+                rr = toDeviceWidth(rr, GE_INCHES, dd);
+                GECircle(xx, yy, rr, &gc, dd);
+            }
+            else
+            {
+                if (xx + rr < xmin)
+                    xmin = xx + rr;
+                if (xx + rr > xmax)
+                    xmax = xx + rr;
+                if (xx - rr < xmin)
+                    xmin = xx - rr;
+                if (xx - rr > xmax)
+                    xmax = xx - rr;
+                if (yy + rr < ymin)
+                    ymin = yy + rr;
+                if (yy + rr > ymax)
+                    ymax = yy + rr;
+                if (yy - rr < ymin)
+                    ymin = yy - rr;
+                if (yy - rr > ymax)
+                    ymax = yy - rr;
+                ncirc++;
+            }
+        }
     }
-    if (draw) {
-	GEMode(0, dd);
-
-    } else if (ncirc > 0) {
-	result = allocVector(REALSXP, 4);
-	if (ncirc == 1) {
-	    /*
-	     * Produce edge of actual circle
-	     */
-	    circleEdge(xx, yy, rr, theta, &edgex, &edgey);
-	} else {
-	    /*
-	     * Produce edge of rect bounding all circles
-	     */
-	    rectEdge(xmin, ymin, xmax, ymax, theta,
-		     &edgex, &edgey);
-	}
-	/*
-	 * Reverse the scale adjustment (zoom factor)
-	 * when calculating physical value to return to user-level
-	 */
-	REAL(result)[0] = edgex / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[1] = edgey /
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[2] = (xmax - xmin) /
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[3] = (ymax - ymin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-    } 
+    if (draw)
+    {
+        GEMode(0, dd);
+    }
+    else if (ncirc > 0)
+    {
+        result = allocVector(REALSXP, 4);
+        if (ncirc == 1)
+        {
+            /*
+             * Produce edge of actual circle
+             */
+            circleEdge(xx, yy, rr, theta, &edgex, &edgey);
+        }
+        else
+        {
+            /*
+             * Produce edge of rect bounding all circles
+             */
+            rectEdge(xmin, ymin, xmax, ymax, theta, &edgex, &edgey);
+        }
+        /*
+         * Reverse the scale adjustment (zoom factor)
+         * when calculating physical value to return to user-level
+         */
+        REAL(result)[0] = edgex / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[1] = edgey / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[2] = (xmax - xmin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[3] = (ymax - ymin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+    }
     UNPROTECT(1);
     return result;
 }
@@ -3117,16 +3083,15 @@ SEXP L_circleBounds(SEXP x, SEXP y, SEXP r, SEXP theta)
     return gridCircle(x, y, r, REAL(theta)[0], FALSE);
 }
 
-/* We are assuming here that the R code has checked that 
+/* We are assuming here that the R code has checked that
  * x, y, w, and h are all unit objects and that vp is a viewport
  */
-static SEXP gridRect(SEXP x, SEXP y, SEXP w, SEXP h, 
-		     SEXP hjust, SEXP vjust, double theta, Rboolean draw) 
+static SEXP gridRect(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust, double theta, Rboolean draw)
 {
     double xx, yy, ww, hh;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     int i, ny, nw, nh, maxn, nrect;
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
@@ -3138,7 +3103,7 @@ static SEXP gridRect(SEXP x, SEXP y, SEXP w, SEXP h,
     double xmax = -DBL_MAX;
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -3149,222 +3114,200 @@ static SEXP gridRect(SEXP x, SEXP y, SEXP w, SEXP h,
      * in 'grid' state. */
     currentgp = PROTECT(duplicate(currentgp));
     /* If not drawing (calculating size), set gp$fill to transparent
-     * to avoid infinite loop when gp$fill is a pattern 
+     * to avoid infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
-    if (!draw) {
+    if (!draw)
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    maxn = unitLength(x); 
-    ny = unitLength(y); 
-    nw = unitLength(w); 
-    nh = unitLength(h); 
+    maxn = unitLength(x);
+    ny = unitLength(y);
+    nw = unitLength(w);
+    nh = unitLength(h);
     if (ny > maxn)
-	maxn = ny;
+        maxn = ny;
     if (nw > maxn)
-	maxn = nw;
+        maxn = nw;
     if (nh > maxn)
-	maxn = nh;
-    if (draw) {
-	GEMode(1, dd);
+        maxn = nh;
+    if (draw)
+    {
+        GEMode(1, dd);
     }
     nrect = 0;
-    for (i=0; i<maxn; i++) {
+    for (i = 0; i < maxn; i++)
+    {
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/*
-	 * If drawing, convert to INCHES on device
-	 * If just calculating bounds, convert to INCHES within current vp
-	 */
-	if (draw) {	
-	    transformLocn(x, y, i, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd,
-			  transform,
-			  &xx, &yy);
-	} else {
-	    xx = transformXtoINCHES(x, i, vpc, &gc,
-				    vpWidthCM, vpHeightCM, 
-				    dd);
-	    yy = transformYtoINCHES(y, i, vpc, &gc,
-				    vpWidthCM, vpHeightCM, 
-				    dd);	    
-	}
-	ww = transformWidthtoINCHES(w, i, vpc, &gc,
-				    vpWidthCM, vpHeightCM,
-				    dd);
-	hh = transformHeighttoINCHES(h, i, vpc, &gc,
-				     vpWidthCM, vpHeightCM,
-				     dd);
-	/* If the total rotation angle is zero then we can draw a 
-	 * rectangle as the devices understand rectangles
-	 * Otherwise we have to draw a polygon equivalent.
-	 */
-	if (draw) {
-	    if (rotationAngle == 0) {
-		xx = justifyX(xx, ww, REAL(hjust)[i % LENGTH(hjust)]);
-		yy = justifyY(yy, hh, REAL(vjust)[i % LENGTH(vjust)]);
-		/* The graphics engine only takes device coordinates
-		 */
-		xx = toDeviceX(xx, GE_INCHES, dd);
-		yy = toDeviceY(yy, GE_INCHES, dd);
-		ww = toDeviceWidth(ww, GE_INCHES, dd);
-		hh = toDeviceHeight(hh, GE_INCHES, dd);
-		if (R_FINITE(xx) && R_FINITE(yy) && 
-		    R_FINITE(ww) && R_FINITE(hh))
-		    GERect(xx, yy, xx + ww, yy + hh, &gc, dd);
-	    } else {
-		/* We have to do a little bit of work to figure out where the 
-		 * corners of the rectangle are.
-		 */
-		double xxx[5], yyy[5], xadj, yadj;
-		double dw, dh;
-		SEXP zeroInches, xadjInches, yadjInches, wwInches, hhInches;
-		int tmpcol;
+        /*
+         * If drawing, convert to INCHES on device
+         * If just calculating bounds, convert to INCHES within current vp
+         */
+        if (draw)
+        {
+            transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
+        }
+        else
+        {
+            xx = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            yy = transformYtoINCHES(y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        }
+        ww = transformWidthtoINCHES(w, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        hh = transformHeighttoINCHES(h, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        /* If the total rotation angle is zero then we can draw a
+         * rectangle as the devices understand rectangles
+         * Otherwise we have to draw a polygon equivalent.
+         */
+        if (draw)
+        {
+            if (rotationAngle == 0)
+            {
+                xx = justifyX(xx, ww, REAL(hjust)[i % LENGTH(hjust)]);
+                yy = justifyY(yy, hh, REAL(vjust)[i % LENGTH(vjust)]);
+                /* The graphics engine only takes device coordinates
+                 */
+                xx = toDeviceX(xx, GE_INCHES, dd);
+                yy = toDeviceY(yy, GE_INCHES, dd);
+                ww = toDeviceWidth(ww, GE_INCHES, dd);
+                hh = toDeviceHeight(hh, GE_INCHES, dd);
+                if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(ww) && R_FINITE(hh))
+                    GERect(xx, yy, xx + ww, yy + hh, &gc, dd);
+            }
+            else
+            {
+                /* We have to do a little bit of work to figure out where the
+                 * corners of the rectangle are.
+                 */
+                double xxx[5], yyy[5], xadj, yadj;
+                double dw, dh;
+                SEXP zeroInches, xadjInches, yadjInches, wwInches, hhInches;
+                int tmpcol;
                 PROTECT(zeroInches = unit(0, L_INCHES));
-		/* Find bottom-left location */
-		justification(ww, hh, 
-			      REAL(hjust)[i % LENGTH(hjust)], 
-			      REAL(vjust)[i % LENGTH(vjust)], 
-			      &xadj, &yadj);
-		PROTECT(xadjInches = unit(xadj, L_INCHES));
-		PROTECT(yadjInches = unit(yadj, L_INCHES));
-		transformDimn(xadjInches, yadjInches, 0, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, rotationAngle,
-			      &dw, &dh);
-		xxx[0] = xx + dw;
-		yyy[0] = yy + dh;
-		/* Find top-left location */
-		PROTECT(hhInches = unit(hh, L_INCHES));
-		transformDimn(zeroInches, hhInches, 0, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, rotationAngle,
-			      &dw, &dh);
-		xxx[1] = xxx[0] + dw;
-		yyy[1] = yyy[0] + dh;
-		/* Find top-right location */
-		PROTECT(wwInches = unit(ww, L_INCHES));
-		transformDimn(wwInches, hhInches, 0, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, rotationAngle,
-			      &dw, &dh);
-		xxx[2] = xxx[0] + dw;
-		yyy[2] = yyy[0] + dh;
-		/* Find bottom-right location */
-		transformDimn(wwInches, zeroInches, 0, vpc, &gc,
-			      vpWidthCM, vpHeightCM,
-			      dd, rotationAngle,
-			      &dw, &dh);
-		xxx[3] = xxx[0] + dw;
-		yyy[3] = yyy[0] + dh;
-		if (R_FINITE(xxx[0]) && R_FINITE(yyy[0]) &&
-		    R_FINITE(xxx[1]) && R_FINITE(yyy[1]) &&
-		    R_FINITE(xxx[2]) && R_FINITE(yyy[2]) &&
-		    R_FINITE(xxx[3]) && R_FINITE(yyy[3])) {
-		    /* The graphics engine only takes device coordinates
-		     */
-		    xxx[0] = toDeviceX(xxx[0], GE_INCHES, dd);
-		    yyy[0] = toDeviceY(yyy[0], GE_INCHES, dd);
-		    xxx[1] = toDeviceX(xxx[1], GE_INCHES, dd);
-		    yyy[1] = toDeviceY(yyy[1], GE_INCHES, dd);
-		    xxx[2] = toDeviceX(xxx[2], GE_INCHES, dd);
-		    yyy[2] = toDeviceY(yyy[2], GE_INCHES, dd);
-		    xxx[3] = toDeviceX(xxx[3], GE_INCHES, dd);
-		    yyy[3] = toDeviceY(yyy[3], GE_INCHES, dd);
-		    /* Close the polygon */
-		    xxx[4] = xxx[0];
-		    yyy[4] = yyy[0];
-		    /* Do separate fill and border to avoid border being 
-		     * drawn on clipping boundary when there is a fill
-		     */
-		    tmpcol = gc.col;
-		    gc.col = R_TRANWHITE;
-		    GEPolygon(5, xxx, yyy, &gc, dd);
-		    gc.col = tmpcol;
-		    gc.fill = R_TRANWHITE;
-		    GEPolygon(5, xxx, yyy, &gc, dd);
-		}
+                /* Find bottom-left location */
+                justification(ww, hh, REAL(hjust)[i % LENGTH(hjust)], REAL(vjust)[i % LENGTH(vjust)], &xadj, &yadj);
+                PROTECT(xadjInches = unit(xadj, L_INCHES));
+                PROTECT(yadjInches = unit(yadj, L_INCHES));
+                transformDimn(xadjInches, yadjInches, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &dw, &dh);
+                xxx[0] = xx + dw;
+                yyy[0] = yy + dh;
+                /* Find top-left location */
+                PROTECT(hhInches = unit(hh, L_INCHES));
+                transformDimn(zeroInches, hhInches, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &dw, &dh);
+                xxx[1] = xxx[0] + dw;
+                yyy[1] = yyy[0] + dh;
+                /* Find top-right location */
+                PROTECT(wwInches = unit(ww, L_INCHES));
+                transformDimn(wwInches, hhInches, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &dw, &dh);
+                xxx[2] = xxx[0] + dw;
+                yyy[2] = yyy[0] + dh;
+                /* Find bottom-right location */
+                transformDimn(wwInches, zeroInches, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &dw, &dh);
+                xxx[3] = xxx[0] + dw;
+                yyy[3] = yyy[0] + dh;
+                if (R_FINITE(xxx[0]) && R_FINITE(yyy[0]) && R_FINITE(xxx[1]) && R_FINITE(yyy[1]) && R_FINITE(xxx[2]) &&
+                    R_FINITE(yyy[2]) && R_FINITE(xxx[3]) && R_FINITE(yyy[3]))
+                {
+                    /* The graphics engine only takes device coordinates
+                     */
+                    xxx[0] = toDeviceX(xxx[0], GE_INCHES, dd);
+                    yyy[0] = toDeviceY(yyy[0], GE_INCHES, dd);
+                    xxx[1] = toDeviceX(xxx[1], GE_INCHES, dd);
+                    yyy[1] = toDeviceY(yyy[1], GE_INCHES, dd);
+                    xxx[2] = toDeviceX(xxx[2], GE_INCHES, dd);
+                    yyy[2] = toDeviceY(yyy[2], GE_INCHES, dd);
+                    xxx[3] = toDeviceX(xxx[3], GE_INCHES, dd);
+                    yyy[3] = toDeviceY(yyy[3], GE_INCHES, dd);
+                    /* Close the polygon */
+                    xxx[4] = xxx[0];
+                    yyy[4] = yyy[0];
+                    /* Do separate fill and border to avoid border being
+                     * drawn on clipping boundary when there is a fill
+                     */
+                    tmpcol = gc.col;
+                    gc.col = R_TRANWHITE;
+                    GEPolygon(5, xxx, yyy, &gc, dd);
+                    gc.col = tmpcol;
+                    gc.fill = R_TRANWHITE;
+                    GEPolygon(5, xxx, yyy, &gc, dd);
+                }
                 UNPROTECT(5);
-	    }
-	} else { /* Just calculating boundary */
-	    xx = justifyX(xx, ww, REAL(hjust)[i % LENGTH(hjust)]);
-	    yy = justifyY(yy, hh, REAL(vjust)[i % LENGTH(vjust)]);
-	    if (R_FINITE(xx) && R_FINITE(yy) && 
-		R_FINITE(ww) && R_FINITE(hh)) {
-		if (xx < xmin)
-		    xmin = xx;
-		if (xx > xmax)
-		    xmax = xx;
-		if (xx + ww < xmin)
-		    xmin = xx + ww;
-		if (xx + ww > xmax)
-		    xmax = xx + ww;
-		if (yy < ymin)
-		    ymin = yy;
-		if (yy > ymax)
-		    ymax = yy;
-		if (yy + hh < ymin)
-		    ymin = yy + hh;
-		if (yy + hh > ymax)
-		    ymax = yy + hh;
-		/*
-		 * Calculate edgex and edgey for case where this is 
-		 * the only rect
-		 */
-		rectEdge(xx, yy, xx + ww, yy + hh, theta,
-			 &edgex, &edgey);
-		nrect++;
-	    }
-	}
+            }
+        }
+        else
+        { /* Just calculating boundary */
+            xx = justifyX(xx, ww, REAL(hjust)[i % LENGTH(hjust)]);
+            yy = justifyY(yy, hh, REAL(vjust)[i % LENGTH(vjust)]);
+            if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(ww) && R_FINITE(hh))
+            {
+                if (xx < xmin)
+                    xmin = xx;
+                if (xx > xmax)
+                    xmax = xx;
+                if (xx + ww < xmin)
+                    xmin = xx + ww;
+                if (xx + ww > xmax)
+                    xmax = xx + ww;
+                if (yy < ymin)
+                    ymin = yy;
+                if (yy > ymax)
+                    ymax = yy;
+                if (yy + hh < ymin)
+                    ymin = yy + hh;
+                if (yy + hh > ymax)
+                    ymax = yy + hh;
+                /*
+                 * Calculate edgex and edgey for case where this is
+                 * the only rect
+                 */
+                rectEdge(xx, yy, xx + ww, yy + hh, theta, &edgex, &edgey);
+                nrect++;
+            }
+        }
     }
-    if (draw) {
-	GEMode(0, dd);
+    if (draw)
+    {
+        GEMode(0, dd);
     }
-    if (nrect > 0) {
-	result = allocVector(REALSXP, 4);
-	/*
-	 * If there is more than one rect, just produce edge
-	 * based on bounding rect of all rects
-	 */
-	if (nrect > 1) {
-	    rectEdge(xmin, ymin, xmax, ymax, theta,
-		     &edgex, &edgey);
-	}
-	/*
-	 * Reverse the scale adjustment (zoom factor)
-	 * when calculating physical value to return to user-level
-	 */
-	REAL(result)[0] = edgex / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[1] = edgey /
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[2] = (xmax - xmin) /
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[3] = (ymax - ymin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-    } 
+    if (nrect > 0)
+    {
+        result = allocVector(REALSXP, 4);
+        /*
+         * If there is more than one rect, just produce edge
+         * based on bounding rect of all rects
+         */
+        if (nrect > 1)
+        {
+            rectEdge(xmin, ymin, xmax, ymax, theta, &edgex, &edgey);
+        }
+        /*
+         * Reverse the scale adjustment (zoom factor)
+         * when calculating physical value to return to user-level
+         */
+        REAL(result)[0] = edgex / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[1] = edgey / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[2] = (xmax - xmin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[3] = (ymax - ymin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+    }
     UNPROTECT(1);
     return result;
 }
 
-SEXP L_rect(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust) 
+SEXP L_rect(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust)
 {
     gridRect(x, y, w, h, hjust, vjust, 0, TRUE);
-    return R_NilValue;    
+    return R_NilValue;
 }
 
-SEXP L_rectBounds(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust,
-		  SEXP theta) 
+SEXP L_rectBounds(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust, SEXP theta)
 {
     return gridRect(x, y, w, h, hjust, vjust, REAL(theta)[0], FALSE);
 }
@@ -3376,12 +3319,12 @@ SEXP L_path(SEXP x, SEXP y, SEXP index, SEXP rule)
     const void *vmax;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -3394,46 +3337,45 @@ SEXP L_path(SEXP x, SEXP y, SEXP index, SEXP rule)
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     GEMode(1, dd);
     /*
      * Iterate over all paths
      */
-    for (h = 0; h < LENGTH(index); h++) {
-    	SEXP polyInd = VECTOR_ELT(index, h);
-    	/* 
-    	 * Number of polygons 
-    	 */
-    	npoly = LENGTH(polyInd);
-    	/* 
-    	 * Total number of points and 
-    	 * Number of points per polygon
-    	 */ 
-    	ntot = 0;
-    	nper = (int *) R_alloc(npoly, sizeof(int));
-    	for (i=0; i < npoly; i++) {
-    		nper[i] = LENGTH(VECTOR_ELT(polyInd, i));
-    		ntot = ntot + nper[i];
-    	}
-    	vmax = vmaxget();
-    	xx = (double *) R_alloc(ntot, sizeof(double));
-    	yy = (double *) R_alloc(ntot, sizeof(double));
-    	k = 0;
-    	for (i=0; i < npoly; i++) {
+    for (h = 0; h < LENGTH(index); h++)
+    {
+        SEXP polyInd = VECTOR_ELT(index, h);
+        /*
+         * Number of polygons
+         */
+        npoly = LENGTH(polyInd);
+        /*
+         * Total number of points and
+         * Number of points per polygon
+         */
+        ntot = 0;
+        nper = (int *)R_alloc(npoly, sizeof(int));
+        for (i = 0; i < npoly; i++)
+        {
+            nper[i] = LENGTH(VECTOR_ELT(polyInd, i));
+            ntot = ntot + nper[i];
+        }
+        vmax = vmaxget();
+        xx = (double *)R_alloc(ntot, sizeof(double));
+        yy = (double *)R_alloc(ntot, sizeof(double));
+        k = 0;
+        for (i = 0; i < npoly; i++)
+        {
             int *indices = INTEGER(VECTOR_ELT(polyInd, i));
-            for (j=0; j < nper[i]; j++) {            
-                transformLocn(x, y, indices[j] - 1, vpc, &gc,
-                              vpWidthCM, vpHeightCM,
-                              dd,
-                              transform,
-                              &(xx[k]), &(yy[k]));
+            for (j = 0; j < nper[i]; j++)
+            {
+                transformLocn(x, y, indices[j] - 1, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[k]), &(yy[k]));
                 /* The graphics engine only takes device coordinates
                  */
                 xx[k] = toDeviceX(xx[k], GE_INCHES, dd);
@@ -3444,10 +3386,10 @@ SEXP L_path(SEXP x, SEXP y, SEXP index, SEXP rule)
                     error(_("non-finite x or y in graphics path"));
                 k++;
             }
-    	}
-    	updateGContext(currentgp, h, &gc, dd, gpIsScalar, &gcCache);
-    	GEPath(xx, yy, npoly, nper, INTEGER(rule)[0], &gc, dd);
-    	vmaxset(vmax);
+        }
+        updateGContext(currentgp, h, &gc, dd, gpIsScalar, &gcCache);
+        GEPath(xx, yy, npoly, nper, INTEGER(rule)[0], &gc, dd);
+        vmaxset(vmax);
     }
     GEMode(0, dd);
     UNPROTECT(1); /* currentgp */
@@ -3458,21 +3400,20 @@ SEXP L_path(SEXP x, SEXP y, SEXP index, SEXP rule)
 
 /* FIXME:  Add more checks on correct inputs,
    e.g., Raster should be a matrix of R colors */
-SEXP L_raster(SEXP raster, SEXP x, SEXP y, SEXP w, SEXP h, 
-              SEXP hjust, SEXP vjust, SEXP interpolate)
+SEXP L_raster(SEXP raster, SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust, SEXP interpolate)
 {
     const void *vmax;
     int i, n, ny, nw, nh, maxn;
     double xx, yy, ww, hh;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
     SEXP currentvp, currentgp;
     SEXP dim;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     unsigned int *image;
@@ -3484,53 +3425,50 @@ SEXP L_raster(SEXP raster, SEXP x, SEXP y, SEXP w, SEXP h,
     currentgp = PROTECT(duplicate(currentgp));
     /* This shape has no fill so set gp$fill to transparent */
     SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     /* Convert the raster matrix to R internal colours */
     n = LENGTH(raster);
-    if (n <= 0) {
-        error(_("Empty raster"));  
+    if (n <= 0)
+    {
+        error(_("Empty raster"));
     }
     vmax = vmaxget();
     /* raster is rather inefficient so allow a native representation as
        an integer array which requires no conversion */
-    if (inherits(raster, "nativeRaster") && isInteger(raster)) {
-	image = (unsigned int*) INTEGER(raster);
-    } else {
-        image = (unsigned int*) R_alloc(n, sizeof(unsigned int));
-        for (i=0; i<n; i++) {
+    if (inherits(raster, "nativeRaster") && isInteger(raster))
+    {
+        image = (unsigned int *)INTEGER(raster);
+    }
+    else
+    {
+        image = (unsigned int *)R_alloc(n, sizeof(unsigned int));
+        for (i = 0; i < n; i++)
+        {
             image[i] = RGBpar3(raster, i, R_TRANWHITE);
         }
     }
     dim = getAttrib(raster, R_DimSymbol);
-    maxn = unitLength(x); 
-    ny = unitLength(y); 
-    nw = unitLength(w); 
-    nh = unitLength(h); 
+    maxn = unitLength(x);
+    ny = unitLength(y);
+    nw = unitLength(w);
+    nh = unitLength(h);
     if (ny > maxn)
-	maxn = ny;
+        maxn = ny;
     if (nw > maxn)
-	maxn = nw;
+        maxn = nw;
     if (nh > maxn)
-	maxn = nh;
+        maxn = nh;
     GEMode(1, dd);
-    for (i=0; i<maxn; i++) {
+    for (i = 0; i < maxn; i++)
+    {
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-        transformLocn(x, y, i, vpc, &gc,
-                      vpWidthCM, vpHeightCM,
-                      dd,
-                      transform,
-                      &xx, &yy);
-        ww = transformWidthtoINCHES(w, i, vpc, &gc,
-                                    vpWidthCM, vpHeightCM,
-                                    dd);
-        hh = transformHeighttoINCHES(h, i, vpc, &gc,
-                                     vpWidthCM, vpHeightCM,
-                                     dd);
-        if (rotationAngle == 0) {
+        transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
+        ww = transformWidthtoINCHES(w, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        hh = transformHeighttoINCHES(h, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        if (rotationAngle == 0)
+        {
             xx = justifyX(xx, ww, REAL(hjust)[i % LENGTH(hjust)]);
             yy = justifyY(yy, hh, REAL(vjust)[i % LENGTH(vjust)]);
             /* The graphics engine only takes device coordinates
@@ -3539,44 +3477,35 @@ SEXP L_raster(SEXP raster, SEXP x, SEXP y, SEXP w, SEXP h,
             yy = toDeviceY(yy, GE_INCHES, dd);
             ww = toDeviceWidth(ww, GE_INCHES, dd);
             hh = toDeviceHeight(hh, GE_INCHES, dd);
-            if (R_FINITE(xx) && R_FINITE(yy) && 
-                R_FINITE(ww) && R_FINITE(hh))
-                GERaster(image, INTEGER(dim)[1], INTEGER(dim)[0],
-                         xx, yy, ww, hh, rotationAngle, 
-                         LOGICAL(interpolate)[i % LENGTH(interpolate)], 
-                         &gc, dd);
-        } else {
-            /* We have to do a little bit of work to figure out where the 
+            if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(ww) && R_FINITE(hh))
+                GERaster(image, INTEGER(dim)[1], INTEGER(dim)[0], xx, yy, ww, hh, rotationAngle,
+                         LOGICAL(interpolate)[i % LENGTH(interpolate)], &gc, dd);
+        }
+        else
+        {
+            /* We have to do a little bit of work to figure out where the
              * bottom-left corner of the image is.
              */
             double xbl, ybl, xadj, yadj;
             double dw, dh;
             SEXP xadjInches, yadjInches;
             /* Find bottom-left location */
-            justification(ww, hh, 
-                          REAL(hjust)[i % LENGTH(hjust)], 
-                          REAL(vjust)[i % LENGTH(vjust)], 
-                          &xadj, &yadj);
+            justification(ww, hh, REAL(hjust)[i % LENGTH(hjust)], REAL(vjust)[i % LENGTH(vjust)], &xadj, &yadj);
             PROTECT(xadjInches = unit(xadj, L_INCHES));
             PROTECT(yadjInches = unit(yadj, L_INCHES));
-            transformDimn(xadjInches, yadjInches, 0, vpc, &gc,
-                          vpWidthCM, vpHeightCM,
-                          dd, rotationAngle,
-                          &dw, &dh);
+            transformDimn(xadjInches, yadjInches, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, rotationAngle, &dw, &dh);
             xbl = xx + dw;
             ybl = yy + dh;
             xbl = toDeviceX(xbl, GE_INCHES, dd);
             ybl = toDeviceY(ybl, GE_INCHES, dd);
             ww = toDeviceWidth(ww, GE_INCHES, dd);
             hh = toDeviceHeight(hh, GE_INCHES, dd);
-            if (R_FINITE(xbl) && R_FINITE(ybl) &&
-                R_FINITE(ww) && R_FINITE(hh)) {
+            if (R_FINITE(xbl) && R_FINITE(ybl) && R_FINITE(ww) && R_FINITE(hh))
+            {
                 /* The graphics engine only takes device coordinates
                  */
-                GERaster(image, INTEGER(dim)[1], INTEGER(dim)[0],
-                         xbl, ybl, ww, hh, rotationAngle, 
-                         LOGICAL(interpolate)[i % LENGTH(interpolate)], 
-                         &gc, dd);
+                GERaster(image, INTEGER(dim)[1], INTEGER(dim)[0], xbl, ybl, ww, hh, rotationAngle,
+                         LOGICAL(interpolate)[i % LENGTH(interpolate)], &gc, dd);
             }
             UNPROTECT(2);
         }
@@ -3590,40 +3519,43 @@ SEXP L_raster(SEXP raster, SEXP x, SEXP y, SEXP w, SEXP h,
 SEXP L_cap(void)
 {
     int i, col, row, nrow, ncol, size;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     int *rint;
-    SEXP raster; 
-    /* The raster is R internal colours, so convert to 
-     * R external colours (strings) 
+    SEXP raster;
+    /* The raster is R internal colours, so convert to
+     * R external colours (strings)
      * AND the raster is BY ROW so need to rearrange it
      * to be BY COLUMN (though the dimensions are correct) */
     SEXP image, idim;
-    
+
     PROTECT(raster = GECap(dd));
     /* Non-complying devices will return NULL */
-    if (isNull(raster)) {
+    if (isNull(raster))
+    {
         image = raster;
-    } else {
+    }
+    else
+    {
         size = LENGTH(raster);
         nrow = INTEGER(getAttrib(raster, R_DimSymbol))[0];
         ncol = INTEGER(getAttrib(raster, R_DimSymbol))[1];
-        
+
         PROTECT(image = allocVector(STRSXP, size));
         rint = INTEGER(raster);
-        for (i=0; i<size; i++) {
+        for (i = 0; i < size; i++)
+        {
             col = i % ncol + 1;
             row = i / ncol + 1;
-            SET_STRING_ELT(image, (col - 1)*nrow + row - 1, 
-                           mkChar(col2name(rint[i])));
+            SET_STRING_ELT(image, (col - 1) * nrow + row - 1, mkChar(col2name(rint[i])));
         }
-        
+
         PROTECT(idim = allocVector(INTSXP, 2));
         INTEGER(idim)[0] = nrow;
         INTEGER(idim)[1] = ncol;
         setAttrib(image, R_DimSymbol, idim);
-        
+
         UNPROTECT(2);
     }
     UNPROTECT(1);
@@ -3634,14 +3566,14 @@ SEXP L_cap(void)
  * Code to draw OR size text
  * Combined to avoid code replication
  */
-static SEXP gridText(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust, 
-		     SEXP rot, SEXP checkOverlap, double theta, Rboolean draw)
+static SEXP gridText(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust, SEXP rot, SEXP checkOverlap, double theta,
+                     Rboolean draw)
 {
     int i, nx, ny;
     double *xx, *yy;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -3651,7 +3583,7 @@ static SEXP gridText(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust,
     double xmax = -DBL_MAX;
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
-    /* 
+    /*
      * Bounding rectangles for checking overlapping
      * Initialised to shut up compiler
      */
@@ -3661,7 +3593,7 @@ static SEXP gridText(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust,
     int overlapChecking = LOGICAL(checkOverlap)[0];
     const void *vmax;
     SEXP currentvp, currentgp;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -3672,225 +3604,206 @@ static SEXP gridText(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust,
     currentgp = PROTECT(duplicate(currentgp));
     /* This shape has no fill so set gp$fill to transparent */
     SET_VECTOR_ELT(currentgp, GP_FILL, mkString("transparent"));
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    nx = unitLength(x); 
+    nx = unitLength(x);
     ny = unitLength(y);
-    if (ny > nx) 
-	nx = ny;
+    if (ny > nx)
+        nx = ny;
     vmax = vmaxget();
-    xx = (double *) R_alloc(nx, sizeof(double));
-    yy = (double *) R_alloc(nx, sizeof(double));
-    for (i=0; i<nx; i++) {
+    xx = (double *)R_alloc(nx, sizeof(double));
+    yy = (double *)R_alloc(nx, sizeof(double));
+    for (i = 0; i < nx; i++)
+    {
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/*
-	 * If drawing, convert to INCHES on device
-	 * If just calculating bounds, convert to INCHES within current vp
-	 */
-	if (draw) {	
-	    transformLocn(x, y, i, vpc, &gc,
-			  vpWidthCM, vpHeightCM,
-			  dd,
-			  transform,
-			  &(xx[i]), &(yy[i]));
-	} else {
-	    xx[i] = transformXtoINCHES(x, i, vpc, &gc,
-				       vpWidthCM, vpHeightCM, 
-				       dd);
-	    yy[i] = transformYtoINCHES(y, i, vpc, &gc,
-				       vpWidthCM, vpHeightCM, 
-				       dd);	    
-	}
+        /*
+         * If drawing, convert to INCHES on device
+         * If just calculating bounds, convert to INCHES within current vp
+         */
+        if (draw)
+        {
+            transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[i]), &(yy[i]));
+        }
+        else
+        {
+            xx[i] = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            yy[i] = transformYtoINCHES(y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+        }
     }
     /* The label can be a string or an expression
      */
     PROTECT(txt = label);
     if (isSymbol(txt) || isLanguage(txt))
-	txt = coerceVector(txt, EXPRSXP);
+        txt = coerceVector(txt, EXPRSXP);
     else if (!isExpression(txt))
-	txt = coerceVector(txt, STRSXP);
+        txt = coerceVector(txt, STRSXP);
     UNPROTECT(1);
     PROTECT(txt);
-    if (overlapChecking || !draw) {
-	bounds = (LRect *) R_alloc(nx, sizeof(LRect));
+    if (overlapChecking || !draw)
+    {
+        bounds = (LRect *)R_alloc(nx, sizeof(LRect));
     }
-    /* 
+    /*
      * Check we have any text to draw
      */
-    if (LENGTH(txt) > 0) {
-	int ntxt = 0;
-	if (draw) {
-	    /*
-	     * Drawing text
-	     */
-	    GEMode(1, dd);
-	}
-	for (i=0; i<nx; i++) {
-	    int doDrawing = 1;
-	    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	    /* 
-	     * Generate bounding boxes when checking for overlap
-	     * or sizing text
-	     */
-	    if (overlapChecking || !draw) {
-		int j = 0;
-		textRect(xx[i], yy[i], txt, i, &gc,
-			 REAL(hjust)[i % LENGTH(hjust)], 
-			 REAL(vjust)[i % LENGTH(vjust)], 
-			 /*
-			  * When calculating bounding rect for text
-			  * only consider rotation of text within 
-			  * local context, not relative to device
-			  * (so don't add rotationAngle)
-			  */
-			 numeric(rot, i % LENGTH(rot)), 
-			 dd, &trect);
-		while (doDrawing && (j < numBounds)) 
-		    if (intersect(trect, bounds[j++]))
-			doDrawing = 0;
-		if (doDrawing) {
-		    copyRect(trect, &(bounds[numBounds]));
-		    numBounds++;
-		}
-	    }
-	    if (draw && doDrawing) {
-		/* The graphics engine only takes device coordinates
-		 */
-		xx[i] = toDeviceX(xx[i], GE_INCHES, dd);
-		yy[i] = toDeviceY(yy[i], GE_INCHES, dd);
-		if (R_FINITE(xx[i]) && R_FINITE(yy[i])) {
-		    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-		    if (isExpression(txt))
-			GEMathText(xx[i], yy[i],
-				   VECTOR_ELT(txt, i % LENGTH(txt)),
-				   REAL(hjust)[i % LENGTH(hjust)], 
-				   REAL(vjust)[i % LENGTH(vjust)], 
-				   numeric(rot, i % LENGTH(rot)) + 
-				   rotationAngle, 
-				   &gc, dd);
-		    else
-			GEText(xx[i], yy[i], 
-			       CHAR(STRING_ELT(txt, i % LENGTH(txt))),
-			       (gc.fontface == 5) ? CE_SYMBOL :
-			       getCharCE(STRING_ELT(txt, i % LENGTH(txt))),
-			       REAL(hjust)[i % LENGTH(hjust)], 
-			       REAL(vjust)[i % LENGTH(vjust)], 
-			       numeric(rot, i % LENGTH(rot)) + 
-			       rotationAngle, 
-			       &gc, dd);
-		}
-	    }
-	    if (!draw) {
-		double minx, maxx, miny, maxy;
-		/*
-		 * Sizing text
-		 */
-		if (R_FINITE(xx[i]) && R_FINITE(yy[i])) {
-		    minx = fmin2(trect.x1, 
-				 fmin2(trect.x2, 
-				       fmin2(trect.x3, trect.x4)));
-		    if (minx < xmin)
-			xmin = minx;
-		    maxx = fmax2(trect.x1, 
-				 fmax2(trect.x2, 
-				       fmax2(trect.x3, trect.x4)));
-		    if (maxx > xmax)
-			xmax = maxx;
-		    miny = fmin2(trect.y1, 
-				 fmin2(trect.y2, 
-				       fmin2(trect.y3, trect.y4)));
-		    if (miny < ymin)
-			ymin = miny;
-		    maxy = fmax2(trect.y1, 
-				 fmax2(trect.y2, 
-				       fmax2(trect.y3, trect.y4)));
-		    if (maxy > ymax)
-			ymax = maxy;
-		    /*
-		     * Calculate edgex and edgey for case where this is 
-		     * the only rect
-		     */
-                    if (R_FINITE(theta)) {
-			double xxx[4], yyy[4];
-			/*
-			 * Must be in clock-wise order for polygonEdge
-			 */
-			xxx[0] = trect.x4; yyy[0] = trect.y4;
-			xxx[1] = trect.x3; yyy[1] = trect.y3;
-			xxx[2] = trect.x2; yyy[2] = trect.y2;
-			xxx[3] = trect.x1; yyy[3] = trect.y1;
-			polygonEdge(xxx, yyy, 4, theta,
-				    &edgex, &edgey);
-		    }
-		    ntxt++;
-		}
-	    }
-	}
-	if (draw) {
-	    GEMode(0, dd);
-	}
-	if (ntxt > 0) {
-	    result = allocVector(REALSXP, 6);
-	    /*
-	     * If there is more than one text, just produce edge
-	     * based on bounding rect of all text
-	     */
-	    if (ntxt > 1 && R_FINITE(theta)) {
-		/*
-		 * Produce edge of rect bounding all text
-		 */
-		rectEdge(xmin, ymin, xmax, ymax, theta,
-			 &edgex, &edgey);
-	    }
-	    /*
-	     * Reverse the scale adjustment (zoom factor)
-	     * when calculating physical value to return to user-level
-	     */
-	    REAL(result)[0] = edgex / 
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-	    REAL(result)[1] = edgey / 
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-	    REAL(result)[2] = (xmax - xmin) / 
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-	    REAL(result)[3] = (ymax - ymin) / 
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-            REAL(result)[4] = xmin /
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-            REAL(result)[5] = ymin / 
-		REAL(gridStateElement(dd, GSS_SCALE))[0];
-	}
+    if (LENGTH(txt) > 0)
+    {
+        int ntxt = 0;
+        if (draw)
+        {
+            /*
+             * Drawing text
+             */
+            GEMode(1, dd);
+        }
+        for (i = 0; i < nx; i++)
+        {
+            int doDrawing = 1;
+            updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+            /*
+             * Generate bounding boxes when checking for overlap
+             * or sizing text
+             */
+            if (overlapChecking || !draw)
+            {
+                int j = 0;
+                textRect(xx[i], yy[i], txt, i, &gc, REAL(hjust)[i % LENGTH(hjust)], REAL(vjust)[i % LENGTH(vjust)],
+                         /*
+                          * When calculating bounding rect for text
+                          * only consider rotation of text within
+                          * local context, not relative to device
+                          * (so don't add rotationAngle)
+                          */
+                         numeric(rot, i % LENGTH(rot)), dd, &trect);
+                while (doDrawing && (j < numBounds))
+                    if (intersect(trect, bounds[j++]))
+                        doDrawing = 0;
+                if (doDrawing)
+                {
+                    copyRect(trect, &(bounds[numBounds]));
+                    numBounds++;
+                }
+            }
+            if (draw && doDrawing)
+            {
+                /* The graphics engine only takes device coordinates
+                 */
+                xx[i] = toDeviceX(xx[i], GE_INCHES, dd);
+                yy[i] = toDeviceY(yy[i], GE_INCHES, dd);
+                if (R_FINITE(xx[i]) && R_FINITE(yy[i]))
+                {
+                    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+                    if (isExpression(txt))
+                        GEMathText(xx[i], yy[i], VECTOR_ELT(txt, i % LENGTH(txt)), REAL(hjust)[i % LENGTH(hjust)],
+                                   REAL(vjust)[i % LENGTH(vjust)], numeric(rot, i % LENGTH(rot)) + rotationAngle, &gc,
+                                   dd);
+                    else
+                        GEText(xx[i], yy[i], CHAR(STRING_ELT(txt, i % LENGTH(txt))),
+                               (gc.fontface == 5) ? CE_SYMBOL : getCharCE(STRING_ELT(txt, i % LENGTH(txt))),
+                               REAL(hjust)[i % LENGTH(hjust)], REAL(vjust)[i % LENGTH(vjust)],
+                               numeric(rot, i % LENGTH(rot)) + rotationAngle, &gc, dd);
+                }
+            }
+            if (!draw)
+            {
+                double minx, maxx, miny, maxy;
+                /*
+                 * Sizing text
+                 */
+                if (R_FINITE(xx[i]) && R_FINITE(yy[i]))
+                {
+                    minx = fmin2(trect.x1, fmin2(trect.x2, fmin2(trect.x3, trect.x4)));
+                    if (minx < xmin)
+                        xmin = minx;
+                    maxx = fmax2(trect.x1, fmax2(trect.x2, fmax2(trect.x3, trect.x4)));
+                    if (maxx > xmax)
+                        xmax = maxx;
+                    miny = fmin2(trect.y1, fmin2(trect.y2, fmin2(trect.y3, trect.y4)));
+                    if (miny < ymin)
+                        ymin = miny;
+                    maxy = fmax2(trect.y1, fmax2(trect.y2, fmax2(trect.y3, trect.y4)));
+                    if (maxy > ymax)
+                        ymax = maxy;
+                    /*
+                     * Calculate edgex and edgey for case where this is
+                     * the only rect
+                     */
+                    if (R_FINITE(theta))
+                    {
+                        double xxx[4], yyy[4];
+                        /*
+                         * Must be in clock-wise order for polygonEdge
+                         */
+                        xxx[0] = trect.x4;
+                        yyy[0] = trect.y4;
+                        xxx[1] = trect.x3;
+                        yyy[1] = trect.y3;
+                        xxx[2] = trect.x2;
+                        yyy[2] = trect.y2;
+                        xxx[3] = trect.x1;
+                        yyy[3] = trect.y1;
+                        polygonEdge(xxx, yyy, 4, theta, &edgex, &edgey);
+                    }
+                    ntxt++;
+                }
+            }
+        }
+        if (draw)
+        {
+            GEMode(0, dd);
+        }
+        if (ntxt > 0)
+        {
+            result = allocVector(REALSXP, 6);
+            /*
+             * If there is more than one text, just produce edge
+             * based on bounding rect of all text
+             */
+            if (ntxt > 1 && R_FINITE(theta))
+            {
+                /*
+                 * Produce edge of rect bounding all text
+                 */
+                rectEdge(xmin, ymin, xmax, ymax, theta, &edgex, &edgey);
+            }
+            /*
+             * Reverse the scale adjustment (zoom factor)
+             * when calculating physical value to return to user-level
+             */
+            REAL(result)[0] = edgex / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(result)[1] = edgey / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(result)[2] = (xmax - xmin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(result)[3] = (ymax - ymin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(result)[4] = xmin / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(result)[5] = ymin / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        }
     }
     vmaxset(vmax);
     UNPROTECT(2);
     return result;
 }
 
-SEXP L_text(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust, 
-	    SEXP rot, SEXP checkOverlap)
+SEXP L_text(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust, SEXP rot, SEXP checkOverlap)
 {
     gridText(label, x, y, hjust, vjust, rot, checkOverlap, 0, TRUE);
-    return R_NilValue;    
+    return R_NilValue;
 }
 
 /*
  * Return four values representing boundary of text (which may consist
- * of multiple pieces of text, unaligned, and/or rotated) 
+ * of multiple pieces of text, unaligned, and/or rotated)
  * in INCHES.
  *
  * Result is (edgex, edgey, width, height, xmin, ymax)
  *
  * Return NULL if no text to draw;  R code will generate unit from that
  */
-SEXP L_textBounds(SEXP label, SEXP x, SEXP y, 
-		  SEXP hjust, SEXP vjust, SEXP rot, SEXP theta)
+SEXP L_textBounds(SEXP label, SEXP x, SEXP y, SEXP hjust, SEXP vjust, SEXP rot, SEXP theta)
 {
     SEXP checkOverlap = allocVector(LGLSXP, 1);
     LOGICAL(checkOverlap)[0] = FALSE;
-    return gridText(label, x, y, hjust, vjust, rot, checkOverlap, 
-		    REAL(theta)[0], FALSE);
+    return gridText(label, x, y, hjust, vjust, rot, checkOverlap, REAL(theta)[0], FALSE);
 }
 
 static SEXP symbolCoords(double *x, double *y, int n, pGEDevDesc dd)
@@ -3899,7 +3812,8 @@ static SEXP symbolCoords(double *x, double *y, int n, pGEDevDesc dd)
     SEXP xs = PROTECT(allocVector(REALSXP, n));
     SEXP ys = PROTECT(allocVector(REALSXP, n));
     int i;
-    for (i=0; i<n; i++) {
+    for (i = 0; i < n; i++)
+    {
         REAL(xs)[i] = x[i];
         REAL(ys)[i] = y[i];
     }
@@ -3913,62 +3827,69 @@ static SEXP symbolCoords(double *x, double *y, int n, pGEDevDesc dd)
  * NOTE that MINIMUM value is 1, even if no coordinates are returned
  * (coordinates are NULL) */
 
-static int symbolNumCoords(int pch, Rboolean closed) {
+static int symbolNumCoords(int pch, Rboolean closed)
+{
     int result = 1;
     /* Only need to worry about SOME pch=<int> */
-    switch(pch) {
+    switch (pch)
+    {
     case 0: /* S square */
     case 1: /* S octahedron ( circle) */
-    case 2:	/* S triangle - point up */
+    case 2: /* S triangle - point up */
         break;
     case 3: /* S plus */
-        if (!closed) result = 2;
-	break;
+        if (!closed)
+            result = 2;
+        break;
     case 4: /* S times */
-        if (!closed) result = 2;
-	break;
+        if (!closed)
+            result = 2;
+        break;
     case 5: /* S diamond */
     case 6: /* S triangle - point down */
         break;
-    case 7:	/* S square and times superimposed */
-        if (closed) 
+    case 7: /* S square and times superimposed */
+        if (closed)
             result = 1;
-        else 
+        else
             result = 2;
         break;
     case 8: /* S plus and times superimposed */
-        if (!closed) result = 4;
-	break;
+        if (!closed)
+            result = 4;
+        break;
     case 9: /* S diamond and plus superimposed */
-        if (closed) 
+        if (closed)
             result = 1;
-        else 
+        else
             result = 2;
         break;
     case 10: /* S hexagon (circle) and plus superimposed */
-        if (closed) 
+        if (closed)
             result = 1;
-        else 
+        else
             result = 2;
         break;
     case 11: /* S superimposed triangles */
-        if (closed) result = 2;
-	break;
+        if (closed)
+            result = 2;
+        break;
     case 12: /* S square and plus superimposed */
-        if (closed) 
+        if (closed)
             result = 1;
-        else 
+        else
             result = 2;
         break;
     case 13: /* S octagon (circle) and times superimposed */
-        if (closed) 
+        if (closed)
             result = 1;
-        else 
+        else
             result = 2;
         break;
     case 14: /* S square and point-up triangle superimposed */
-        if (closed) result = 2;
-	break;
+        if (closed)
+            result = 2;
+        break;
     case 15: /* S filled square */
     case 16: /* S filled octagon (circle) */
     case 17: /* S filled point-up triangle */
@@ -3987,16 +3908,16 @@ static int symbolNumCoords(int pch, Rboolean closed) {
 
 /*
  * In many ways a duplicate of GESymbol, but with the ability
- * to rotate symbols AND the ability to return symbol 
+ * to rotate symbols AND the ability to return symbol
  * outlines and/or bounding boxes
  */
-#define SMALL	0.25
-#define RADIUS	0.375
-#define SQRC	0.88622692545275801364		/* sqrt(pi / 4) */
-#define DMDC	1.25331413731550025119		/* sqrt(pi / 4) * sqrt(2) */
-#define TRC0	1.55512030155621416073		/* sqrt(4 * pi/(3 * sqrt(3))) */
-#define TRC1	1.34677368708859836060		/* TRC0 * sqrt(3) / 2 */
-#define TRC2	0.77756015077810708036		/* TRC0 / 2 */
+#define SMALL 0.25
+#define RADIUS 0.375
+#define SQRC 0.88622692545275801364 /* sqrt(pi / 4) */
+#define DMDC 1.25331413731550025119 /* sqrt(pi / 4) * sqrt(2) */
+#define TRC0 1.55512030155621416073 /* sqrt(4 * pi/(3 * sqrt(3))) */
+#define TRC1 1.34677368708859836060 /* TRC0 * sqrt(3) / 2 */
+#define TRC2 0.77756015077810708036 /* TRC0 / 2 */
 
 /* Draw one of the R special symbols. */
 /* "size" is in device coordinates and is assumed to be a width
@@ -4006,22 +3927,24 @@ static int symbolNumCoords(int pch, Rboolean closed) {
  * angles -- in those cases, a conversion to and from GE_INCHES is done
  * to preserve angles.
  */
-/* If 'draw', render the symbol, else return symbol coordinates 
- * Return R_NilValue if no coordinates. 
+/* If 'draw', render the symbol, else return symbol coordinates
+ * Return R_NilValue if no coordinates.
  */
-SEXP gridSymbol(double x, double y, int pch, double size, 
-                Rboolean draw, Rboolean closed, int numCoords,
+SEXP gridSymbol(double x, double y, int pch, double size, Rboolean draw, Rboolean closed, int numCoords,
                 const pGEcontext gc, pGEDevDesc dd)
 {
     double r, xc, yc;
     double xx[4], yy[4];
     unsigned int maxchar;
 
-    SEXP result, coords; 
+    SEXP result, coords;
 
-    if (draw) {
+    if (draw)
+    {
         result = R_NilValue;
-    } else {
+    }
+    else
+    {
         /* Default is a list of one component which is NULL */
         PROTECT(result = allocVector(VECSXP, numCoords));
         SET_VECTOR_ELT(result, 0, R_NilValue);
@@ -4030,903 +3953,1124 @@ SEXP gridSymbol(double x, double y, int pch, double size,
     maxchar = (mbcslocale && gc->fontface != 5) ? 127 : 255;
     /* Special cases for plotting pch="." or pch=<character>
      */
-    if (pch == NA_INTEGER) {
+    if (pch == NA_INTEGER)
+    {
         /* do nothing */
-
-    } else if(pch < 0) {
-	size_t res;
-	char str[16]; // probably 7 would do
-	if(gc->fontface == 5)
-	    error("use of negative pch with symbol font is invalid");
-	res = Rf_ucstoutf8(str, -pch); // throws error if unsuccessful 
-	str[res] = '\0';
-        if (draw) {
+    }
+    else if (pch < 0)
+    {
+        size_t res;
+        char str[16]; // probably 7 would do
+        if (gc->fontface == 5)
+            error("use of negative pch with symbol font is invalid");
+        res = Rf_ucstoutf8(str, -pch); // throws error if unsuccessful
+        str[res] = '\0';
+        if (draw)
+        {
             GEText(x, y, str, CE_UTF8, NA_REAL, NA_REAL, 0., gc, dd);
-        } else {
+        }
+        else
+        {
             warning(_("Coordinates for text pch not yet supported"));
         }
-
-    } else if(' ' <= pch && pch <= maxchar) {
-	if (pch == '.') {
-	    /*
-	     * NOTE:  we are *filling* a rect with the current
-	     * colour (we are not drawing the border AND we are
-	     * not using the current fill colour)
-	     */
-	    gc->fill = gc->col;
-	    gc->col = R_TRANWHITE;
+    }
+    else if (' ' <= pch && pch <= maxchar)
+    {
+        if (pch == '.')
+        {
+            /*
+             * NOTE:  we are *filling* a rect with the current
+             * colour (we are not drawing the border AND we are
+             * not using the current fill colour)
+             */
+            gc->fill = gc->col;
+            gc->col = R_TRANWHITE;
             gc->patternFill = R_NilValue;
-	    /*
-	       The idea here is to use a 0.01" square, but to be of
-	       at least one device unit in each direction,
-	       assuming that corresponds to pixels. That may be odd if
-	       pixels are not square, but only on low resolution
-	       devices where we can do nothing better.
+            /*
+               The idea here is to use a 0.01" square, but to be of
+               at least one device unit in each direction,
+               assuming that corresponds to pixels. That may be odd if
+               pixels are not square, but only on low resolution
+               devices where we can do nothing better.
 
-	       For this symbol only, size is cex (see engine.c).
+               For this symbol only, size is cex (see engine.c).
 
-	       Prior to 2.1.0 the offsets were always 0.5.
-	    */
-            if (draw) {
+               Prior to 2.1.0 the offsets were always 0.5.
+            */
+            if (draw)
+            {
                 xc = size * fabs(toDeviceWidth(0.005, GE_INCHES, dd));
                 yc = size * fabs(toDeviceHeight(0.005, GE_INCHES, dd));
-                if(size > 0 && xc < 0.5) xc = 0.5;
-                if(size > 0 && yc < 0.5) yc = 0.5;
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-            } else {
-                if (closed) {
+                if (size > 0 && xc < 0.5)
+                    xc = 0.5;
+                if (size > 0 && yc < 0.5)
+                    yc = 0.5;
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
                     xc = size * .005;
                     yc = size * .005;
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	} else {
-	    char str[2];
-	    str[0] = (char) pch;
-	    str[1] = '\0';
-            if (draw) {
-                GEText(x, y, str,
-                       (gc->fontface == 5) ? CE_SYMBOL : CE_NATIVE,
-                       NA_REAL, NA_REAL, 0., gc, dd);
-            } else {
+        }
+        else
+        {
+            char str[2];
+            str[0] = (char)pch;
+            str[1] = '\0';
+            if (draw)
+            {
+                GEText(x, y, str, (gc->fontface == 5) ? CE_SYMBOL : CE_NATIVE, NA_REAL, NA_REAL, 0., gc, dd);
+            }
+            else
+            {
                 warning(_("Coordinates for text pch not yet supported"));
             }
-	}
+        }
     }
-    else if(pch > maxchar)
-	    warning(_("pch value '%d' is invalid in this locale"), pch);
-    else {
-	double GSTR_0;
-        if (draw) {
+    else if (pch > maxchar)
+        warning(_("pch value '%d' is invalid in this locale"), pch);
+    else
+    {
+        double GSTR_0;
+        if (draw)
+        {
             GSTR_0 = fromDeviceWidth(size, GE_INCHES, dd);
-        } else {
+        }
+        else
+        {
             GSTR_0 = size;
         }
 
-	switch(pch) {
+        switch (pch)
+        {
 
-	case 0: /* S square */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 0: /* S square */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-            } else {
-                if (closed) {
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 1: /* S octahedron ( circle) */
-	    xc = RADIUS * size; /* NB: could be zero */
-            if (draw) {
+        case 1:                 /* S octahedron ( circle) */
+            xc = RADIUS * size; /* NB: could be zero */
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 2:	/* S triangle - point up */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 2: /* S triangle - point up */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y+r;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x-xc; yy[2] = y-yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y + r;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x - xc;
+            yy[2] = y - yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 3: /* S plus */
-	    xc = M_SQRT2*RADIUS*GSTR_0;
-	    yc = M_SQRT2*RADIUS*GSTR_0;
-            if (draw) {
+        case 3: /* S plus */
+            xc = M_SQRT2 * RADIUS * GSTR_0;
+            yc = M_SQRT2 * RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y, x+xc, y, gc, dd);
-                GELine(x, y-yc, x, y+yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y, x + xc, y, gc, dd);
+                GELine(x, y - yc, x, y + yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP h, v;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
                     yy[0] = y;
                     yy[1] = y;
                     PROTECT(h = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, h);
                     xx[0] = x;
                     xx[1] = x;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(v = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, v);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 4: /* S times */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 4: /* S times */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y-yc, x+xc, y+yc, gc, dd);
-                GELine(x-xc, y+yc, x+xc, y-yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y - yc, x + xc, y + yc, gc, dd);
+                GELine(x - xc, y + yc, x + xc, y - yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP u, d;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(u = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, u);
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y+yc;
-                    yy[1] = y-yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y + yc;
+                    yy[1] = y - yc;
                     PROTECT(d = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, d);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 5: /* S diamond */
-	    xc = M_SQRT2 * RADIUS * GSTR_0;
-	    yc = M_SQRT2 * RADIUS * GSTR_0;
-            if (draw) {
+        case 5: /* S diamond */
+            xc = M_SQRT2 * RADIUS * GSTR_0;
+            yc = M_SQRT2 * RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-	    xx[0] = x-xc; yy[0] = y;
-	    xx[1] = x; yy[1] = y+yc;
-	    xx[2] = x+xc; yy[2] = y;
-	    xx[3] = x; yy[3] = y-yc;
-            if (draw) {
+            xx[0] = x - xc;
+            yy[0] = y;
+            xx[1] = x;
+            yy[1] = y + yc;
+            xx[2] = x + xc;
+            yy[2] = y;
+            xx[3] = x;
+            yy[3] = y - yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(4, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 6: /* S triangle - point down */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 6: /* S triangle - point down */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y-r;
-	    xx[1] = x+xc; yy[1] = y+yc;
-	    xx[2] = x-xc; yy[2] = y+yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y - r;
+            xx[1] = x + xc;
+            yy[1] = y + yc;
+            xx[2] = x - xc;
+            yy[2] = y + yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 7:	/* S square and times superimposed */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 7: /* S square and times superimposed */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-                GELine(x-xc, y-yc, x+xc, y+yc, gc, dd);
-                GELine(x-xc, y+yc, x+xc, y-yc, gc, dd);
-            } else {
-                if (closed) {
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+                GELine(x - xc, y - yc, x + xc, y + yc, gc, dd);
+                GELine(x - xc, y + yc, x + xc, y - yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
-                    UNPROTECT(1);                    
-                } else {
+                    UNPROTECT(1);
+                }
+                else
+                {
                     SEXP u, d;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(u = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, u);
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y+yc;
-                    yy[1] = y-yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y + yc;
+                    yy[1] = y - yc;
                     PROTECT(d = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, d);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 8: /* S plus and times superimposed */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 8: /* S plus and times superimposed */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y-yc, x+xc, y+yc, gc, dd);
-                GELine(x-xc, y+yc, x+xc, y-yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y - yc, x + xc, y + yc, gc, dd);
+                GELine(x - xc, y + yc, x + xc, y - yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP u, d;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(u = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, u);
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y+yc;
-                    yy[1] = y-yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y + yc;
+                    yy[1] = y - yc;
                     PROTECT(d = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, d);
                     UNPROTECT(2);
                 }
             }
-            xc = M_SQRT2*RADIUS*GSTR_0;
-            yc = M_SQRT2*RADIUS*GSTR_0;
-            if (draw) {
+            xc = M_SQRT2 * RADIUS * GSTR_0;
+            yc = M_SQRT2 * RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y, x+xc, y, gc, dd);
-                GELine(x, y-yc, x, y+yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y, x + xc, y, gc, dd);
+                GELine(x, y - yc, x, y + yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP h, v;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
                     yy[0] = y;
                     yy[1] = y;
                     PROTECT(h = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 2, h);
                     xx[0] = x;
                     xx[1] = x;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(v = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 3, v);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 9: /* S diamond and plus superimposed */
-	    xc = M_SQRT2 * RADIUS * GSTR_0;
-	    yc = M_SQRT2 * RADIUS * GSTR_0;
-            if (draw) {
+        case 9: /* S diamond and plus superimposed */
+            xc = M_SQRT2 * RADIUS * GSTR_0;
+            yc = M_SQRT2 * RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y, x+xc, y, gc, dd);
-                GELine(x, y-yc, x, y+yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y, x + xc, y, gc, dd);
+                GELine(x, y - yc, x, y + yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP h, v;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
                     yy[0] = y;
                     yy[1] = y;
                     PROTECT(h = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, h);
                     xx[0] = x;
                     xx[1] = x;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(v = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, v);
                     UNPROTECT(2);
                 }
             }
-	    xx[0] = x-xc; yy[0] = y;
-	    xx[1] = x; yy[1] = y+yc;
-	    xx[2] = x+xc; yy[2] = y;
-	    xx[3] = x; yy[3] = y-yc;
-            if (draw) {
+            xx[0] = x - xc;
+            yy[0] = y;
+            xx[1] = x;
+            yy[1] = y + yc;
+            xx[2] = x + xc;
+            yy[2] = y;
+            xx[3] = x;
+            yy[3] = y - yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(4, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 10: /* S hexagon (circle) and plus superimposed */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 10: /* S hexagon (circle) and plus superimposed */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-                GELine(x-xc, y, x+xc, y, gc, dd);
-                GELine(x, y-yc, x, y+yc, gc, dd);
-            } else {
-                if (closed) {
+                GELine(x - xc, y, x + xc, y, gc, dd);
+                GELine(x, y - yc, x, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
-                } else {
+                }
+                else
+                {
                     SEXP h, v;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
                     yy[0] = y;
                     yy[1] = y;
                     PROTECT(h = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, h);
                     xx[0] = x;
                     xx[1] = x;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(v = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, v);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 11: /* S superimposed triangles */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 11: /* S superimposed triangles */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    yc = 0.5 * (yc + r);
-	    xx[0] = x; yy[0] = y-r;
-	    xx[1] = x+xc; yy[1] = y+yc;
-	    xx[2] = x-xc; yy[2] = y+yc;
-            if (draw) {
+            yc = 0.5 * (yc + r);
+            xx[0] = x;
+            yy[0] = y - r;
+            xx[1] = x + xc;
+            yy[1] = y + yc;
+            xx[2] = x - xc;
+            yy[2] = y + yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    xx[0] = x; yy[0] = y+r;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x-xc; yy[2] = y-yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y + r;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x - xc;
+            yy[2] = y - yc;
+            if (draw)
+            {
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 1, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 12: /* S square and plus superimposed */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 12: /* S square and plus superimposed */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y, x+xc, y, gc, dd);
-                GELine(x, y-yc, x, y+yc, gc, dd);
+            if (draw)
+            {
+                GELine(x - xc, y, x + xc, y, gc, dd);
+                GELine(x, y - yc, x, y + yc, gc, dd);
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-            } else {
-                if (closed) {
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
-                    UNPROTECT(1);                    
-                } else {
+                    UNPROTECT(1);
+                }
+                else
+                {
                     SEXP h, v;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
                     yy[0] = y;
                     yy[1] = y;
                     PROTECT(h = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, h);
                     xx[0] = x;
                     xx[1] = x;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(v = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, v);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 13: /* S octagon (circle) and times superimposed */
-	    xc = RADIUS * size;
-            if (draw) {
+        case 13: /* S octagon (circle) and times superimposed */
+            xc = RADIUS * size;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GELine(x-xc, y-yc, x+xc, y+yc, gc, dd);
-                GELine(x-xc, y+yc, x+xc, y-yc, gc, dd);
-            } else {
-                if (!closed) {
+            if (draw)
+            {
+                GELine(x - xc, y - yc, x + xc, y + yc, gc, dd);
+                GELine(x - xc, y + yc, x + xc, y - yc, gc, dd);
+            }
+            else
+            {
+                if (!closed)
+                {
                     SEXP u, d;
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
                     PROTECT(u = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 0, u);
-                    xx[0] = x-xc;
-                    xx[1] = x+xc;
-                    yy[0] = y+yc;
-                    yy[1] = y-yc;
+                    xx[0] = x - xc;
+                    xx[1] = x + xc;
+                    yy[0] = y + yc;
+                    yy[1] = y - yc;
                     PROTECT(d = symbolCoords(xx, yy, 2, dd));
                     SET_VECTOR_ELT(result, 1, d);
                     UNPROTECT(2);
                 }
             }
-	    break;
+            break;
 
-	case 14: /* S square and point-up triangle superimposed */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 14: /* S square and point-up triangle superimposed */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y+yc;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x-xc; yy[2] = y-yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y + yc;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x - xc;
+            yy[2] = y - yc;
+            if (draw)
+            {
                 gc->fill = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(3, xx, yy, gc, dd);
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-            } else {
-                if (closed) {
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
-                    UNPROTECT(1);                    
-                    xx[0] = x; yy[0] = y+yc;
-                    xx[1] = x+xc; yy[1] = y-yc;
-                    xx[2] = x-xc; yy[2] = y-yc;
+                    UNPROTECT(1);
+                    xx[0] = x;
+                    yy[0] = y + yc;
+                    xx[1] = x + xc;
+                    yy[1] = y - yc;
+                    xx[2] = x - xc;
+                    yy[2] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 1, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 15: /* S filled square */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 15: /* S filled square */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-	    xx[0] = x-xc; yy[0] = y-yc;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x+xc; yy[2] = y+yc;
-	    xx[3] = x-xc; yy[3] = y+yc;
-            if (draw) {
+            xx[0] = x - xc;
+            yy[0] = y - yc;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x + xc;
+            yy[2] = y + yc;
+            xx[3] = x - xc;
+            yy[3] = y + yc;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->col = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(4, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 16: /* S filled octagon (circle) */
-	    xc = RADIUS * size;
-            if (draw) {
+        case 16: /* S filled octagon (circle) */
+            xc = RADIUS * size;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->col = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 17: /* S filled point-up triangle */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 17: /* S filled point-up triangle */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y+r;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x-xc; yy[2] = y-yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y + r;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x - xc;
+            yy[2] = y - yc;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->col = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 18: /* S filled diamond */
-	    xc = RADIUS * GSTR_0;
-	    yc = RADIUS * GSTR_0;
-            if (draw) {
+        case 18: /* S filled diamond */
+            xc = RADIUS * GSTR_0;
+            yc = RADIUS * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-	    xx[0] = x-xc; yy[0] = y;
-	    xx[1] = x; yy[1] = y+yc;
-	    xx[2] = x+xc; yy[2] = y;
-	    xx[3] = x; yy[3] = y-yc;
-            if (draw) {
+            xx[0] = x - xc;
+            yy[0] = y;
+            xx[1] = x;
+            yy[1] = y + yc;
+            xx[2] = x + xc;
+            yy[2] = y;
+            xx[3] = x;
+            yy[3] = y - yc;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->col = R_TRANWHITE;
                 gc->patternFill = R_NilValue;
                 GEPolygon(4, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 19: /* R filled circle */
-	    xc = RADIUS * size;
-            if (draw) {
+        case 19: /* R filled circle */
+            xc = RADIUS * size;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-
-	case 20: /* R `Dot' (small circle) */
-	    xc = SMALL * size;
-            if (draw) {
+        case 20: /* R `Dot' (small circle) */
+            xc = SMALL * size;
+            if (draw)
+            {
                 gc->fill = gc->col;
                 gc->patternFill = R_NilValue;
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-
-	case 21: /* circles */
-	    xc = RADIUS * size;
-            if (draw) {
+        case 21: /* circles */
+            xc = RADIUS * size;
+            if (draw)
+            {
                 GECircle(x, y, xc, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     double cx[100];
                     double cy[100];
                     int i;
-                    for (i=0; i<100; i++) {
-                        cx[i] = x + xc*cos(i/100.0*2.0*M_PI);
-                        cy[i] = y + xc*sin(i/100.0*2.0*M_PI);
+                    for (i = 0; i < 100; i++)
+                    {
+                        cx[i] = x + xc * cos(i / 100.0 * 2.0 * M_PI);
+                        cy[i] = y + xc * sin(i / 100.0 * 2.0 * M_PI);
                     }
                     PROTECT(coords = symbolCoords(cx, cy, 100, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case  22: /* squares */
-	    xc = RADIUS * SQRC * GSTR_0;
-	    yc = RADIUS * SQRC * GSTR_0;
-            if (draw) {
+        case 22: /* squares */
+            xc = RADIUS * SQRC * GSTR_0;
+            yc = RADIUS * SQRC * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-            if (draw) {
-                GERect(x-xc, y-yc, x+xc, y+yc, gc, dd);
-            } else {
-                if (closed) {
-                    xx[0] = x-xc;
-                    xx[1] = x-xc;
-                    xx[2] = x+xc;
-                    xx[3] = x+xc;
-                    yy[0] = y-yc;
-                    yy[1] = y+yc;
-                    yy[2] = y+yc;
-                    yy[3] = y-yc;
+            if (draw)
+            {
+                GERect(x - xc, y - yc, x + xc, y + yc, gc, dd);
+            }
+            else
+            {
+                if (closed)
+                {
+                    xx[0] = x - xc;
+                    xx[1] = x - xc;
+                    xx[2] = x + xc;
+                    xx[3] = x + xc;
+                    yy[0] = y - yc;
+                    yy[1] = y + yc;
+                    yy[2] = y + yc;
+                    yy[3] = y - yc;
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
-                    UNPROTECT(1);                    
+                    UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 23: /* diamonds */
-	    xc = RADIUS * DMDC * GSTR_0;
-	    yc = RADIUS * DMDC * GSTR_0;
-            if (draw) {
+        case 23: /* diamonds */
+            xc = RADIUS * DMDC * GSTR_0;
+            yc = RADIUS * DMDC * GSTR_0;
+            if (draw)
+            {
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
             }
-	    xx[0] = x	  ; yy[0] = y-yc;
-	    xx[1] = x+xc; yy[1] = y;
-	    xx[2] = x	  ; yy[2] = y+yc;
-	    xx[3] = x-xc; yy[3] = y;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y - yc;
+            xx[1] = x + xc;
+            yy[1] = y;
+            xx[2] = x;
+            yy[2] = y + yc;
+            xx[3] = x - xc;
+            yy[3] = y;
+            if (draw)
+            {
                 GEPolygon(4, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 4, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 24: /* triangle (point up) */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 24: /* triangle (point up) */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y+r;
-	    xx[1] = x+xc; yy[1] = y-yc;
-	    xx[2] = x-xc; yy[2] = y-yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y + r;
+            xx[1] = x + xc;
+            yy[1] = y - yc;
+            xx[2] = x - xc;
+            yy[2] = y - yc;
+            if (draw)
+            {
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
+            break;
 
-	case 25: /* triangle (point down) */
-	    xc = RADIUS * GSTR_0;
-	    r = TRC0 * xc;
-	    yc = TRC2 * xc;
-	    xc = TRC1 * xc;
-            if (draw) {
+        case 25: /* triangle (point down) */
+            xc = RADIUS * GSTR_0;
+            r = TRC0 * xc;
+            yc = TRC2 * xc;
+            xc = TRC1 * xc;
+            if (draw)
+            {
                 r = toDeviceHeight(r, GE_INCHES, dd);
                 yc = toDeviceHeight(yc, GE_INCHES, dd);
                 xc = toDeviceWidth(xc, GE_INCHES, dd);
             }
-	    xx[0] = x; yy[0] = y-r;
-	    xx[1] = x+xc; yy[1] = y+yc;
-	    xx[2] = x-xc; yy[2] = y+yc;
-            if (draw) {
+            xx[0] = x;
+            yy[0] = y - r;
+            xx[1] = x + xc;
+            yy[1] = y + yc;
+            xx[2] = x - xc;
+            yy[2] = y + yc;
+            if (draw)
+            {
                 GEPolygon(3, xx, yy, gc, dd);
-            } else {
-                if (closed) {
+            }
+            else
+            {
+                if (closed)
+                {
                     PROTECT(coords = symbolCoords(xx, yy, 3, dd));
                     SET_VECTOR_ELT(result, 0, coords);
                     UNPROTECT(1);
                 }
             }
-	    break;
-	default:
-	    warning(_("unimplemented pch value '%d'"), pch);
-	}
+            break;
+        default:
+            warning(_("unimplemented pch value '%d'"), pch);
+        }
     }
 
     if (!draw)
@@ -4935,8 +5079,7 @@ SEXP gridSymbol(double x, double y, int pch, double size,
     return result;
 }
 
-static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size, 
-                       Rboolean draw, Rboolean closed) 
+static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size, Rboolean draw, Rboolean closed)
 {
     int i, nx, npch, nss, ncoords, coordIndex;
     /*    double *xx, *yy;*/
@@ -4947,7 +5090,7 @@ static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size,
     double rotationAngle;
     double symbolSize;
     const void *vmax;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -4955,7 +5098,7 @@ static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size,
     SEXP savedFill;
     SEXP result = R_NilValue;
     SEXP resultNames = R_NilValue;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
@@ -4966,35 +5109,35 @@ static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size,
      * in 'grid' state. */
     currentgp = PROTECT(duplicate(currentgp));
     /* If not drawing (calculating size), set gp$fill to transparent
-     * to avoid infinite loop when gp$fill is a pattern 
+     * to avoid infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
-    if (!draw) {
+    if (!draw)
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
     /* If recording a path, set gp$fill to black because only
      * the path boundary matters.  This avoids unnecessary fill
      * pattern resolution. */
-    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0]) {
+    if (LOGICAL(gridStateElement(dd, GSS_RESOLVINGPATH))[0])
+    {
         SET_VECTOR_ELT(currentgp, GP_FILL, mkString("black"));
     }
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    nx = unitLength(x); 
+    nx = unitLength(x);
     npch = LENGTH(pch);
     /*
-     * Need to take vector gpar elements into account that may affect unit size 
+     * Need to take vector gpar elements into account that may affect unit size
      * calculations
      */
-    nss = unitLength(size) * LENGTH(VECTOR_ELT(currentgp, GP_FONTSIZE)) * 
-        LENGTH(VECTOR_ELT(currentgp, GP_CEX)) * 
-        LENGTH(VECTOR_ELT(currentgp, GP_LINEHEIGHT));
+    nss = unitLength(size) * LENGTH(VECTOR_ELT(currentgp, GP_FONTSIZE)) * LENGTH(VECTOR_ELT(currentgp, GP_CEX)) *
+          LENGTH(VECTOR_ELT(currentgp, GP_LINEHEIGHT));
     nss = nss > nx ? nx : nss;
-    if (draw) {
-        /* Save copy of fill and set currentgp$fill to "black" 
-         * for transformations 
+    if (draw)
+    {
+        /* Save copy of fill and set currentgp$fill to "black"
+         * for transformations
          * (to avoid unnecessary resolving of pattern fills)
          */
         PROTECT(savedFill = duplicate(VECTOR_ELT(currentgp, GP_FILL)));
@@ -5002,53 +5145,55 @@ static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size,
     }
     /* Convert the x and y values to CM locations */
     vmax = vmaxget();
-    xx = (double *) R_alloc(nx, sizeof(double));
-    yy = (double *) R_alloc(nx, sizeof(double));
-    for (i=0; i<nx; i++) {
-	updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	/*
-	 * If drawing, convert to INCHES on device
-	 * If just calculating bounds, convert to INCHES within current vp
-	 */
-        if (draw) {
-            transformLocn(x, y, i, vpc, &gc,
-                          vpWidthCM, vpHeightCM,
-                          dd,
-                          transform,
-                          &(xx[i]), &(yy[i]));
+    xx = (double *)R_alloc(nx, sizeof(double));
+    yy = (double *)R_alloc(nx, sizeof(double));
+    for (i = 0; i < nx; i++)
+    {
+        updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+        /*
+         * If drawing, convert to INCHES on device
+         * If just calculating bounds, convert to INCHES within current vp
+         */
+        if (draw)
+        {
+            transformLocn(x, y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &(xx[i]), &(yy[i]));
             /* The graphics engine only takes device coordinates
              */
             xx[i] = toDeviceX(xx[i], GE_INCHES, dd);
             yy[i] = toDeviceY(yy[i], GE_INCHES, dd);
-        } else {
-	    xx[i] = transformXtoINCHES(x, i, vpc, &gc,
-                                       vpWidthCM, vpHeightCM, 
-                                       dd);
-	    yy[i] = transformYtoINCHES(y, i, vpc, &gc,
-                                       vpWidthCM, vpHeightCM, 
-                                       dd);	    
+        }
+        else
+        {
+            xx[i] = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            yy[i] = transformYtoINCHES(y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
         }
     }
-    ss = (double *) R_alloc(nss, sizeof(double));
-    for (i=0; i < nss; i++) {
+    ss = (double *)R_alloc(nss, sizeof(double));
+    for (i = 0; i < nss; i++)
+    {
         updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-        ss[i] = transformWidthtoINCHES(size, i, vpc, &gc,
-                                       vpWidthCM, vpHeightCM, dd);
+        ss[i] = transformWidthtoINCHES(size, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
         if (draw)
             ss[i] = toDeviceWidth(ss[i], GE_INCHES, dd);
     }
-    ps = (int *) R_alloc(npch, sizeof(int));
-    if (isString(pch)) pType = 0;
-    else if (isInteger(pch)) pType = 1;
-    else if (isReal(pch)) pType = 2;
-    else pType = 3;
-    for (i=0; i < npch; i++) {
-        switch (pType) {
+    ps = (int *)R_alloc(npch, sizeof(int));
+    if (isString(pch))
+        pType = 0;
+    else if (isInteger(pch))
+        pType = 1;
+    else if (isReal(pch))
+        pType = 2;
+    else
+        pType = 3;
+    for (i = 0; i < npch; i++)
+    {
+        switch (pType)
+        {
         case 0:
-            /* 
+            /*
              * FIXME:
              * Resolve any differences between this and FixupPch()
-             * in plot.c ? 
+             * in plot.c ?
              */
             ps[i] = GEstring_to_pch(STRING_ELT(pch, i));
             break;
@@ -5056,72 +5201,80 @@ static SEXP gridPoints(SEXP x, SEXP y, SEXP pch, SEXP size,
             ps[i] = INTEGER(pch)[i];
             break;
         case 2:
-            ps[i] = R_FINITE(REAL(pch)[i]) ? (int) REAL(pch)[i] : NA_INTEGER;
+            ps[i] = R_FINITE(REAL(pch)[i]) ? (int)REAL(pch)[i] : NA_INTEGER;
             break;
         }
     }
-    if (draw) {
+    if (draw)
+    {
         GEMode(1, dd);
         /* Restore currentgp$fill for drawing */
         SET_VECTOR_ELT(currentgp, GP_FILL, savedFill);
         UNPROTECT(1); /* savedFill */
-    } else {
+    }
+    else
+    {
         ncoords = 0;
-        for (i=0; i<nx; i++) {
+        for (i = 0; i < nx; i++)
+        {
             ncoords += symbolNumCoords(ps[i % npch], closed);
         }
         PROTECT(result = allocVector(VECSXP, ncoords));
         PROTECT(resultNames = allocVector(INTSXP, ncoords));
     }
     coordIndex = 0;
-    for (i=0; i<nx; i++)
-	if (R_FINITE(xx[i]) && R_FINITE(yy[i])) {
-	    /* FIXME:  The symbols will not respond to viewport
-	     * rotations !!!
-	     */
-	    int ipch = NA_INTEGER /* -Wall */;
-	    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	    symbolSize = ss[i % nss];
-	    if (R_FINITE(symbolSize)) {
-	        if (pType == 3) {
-	            error(_("invalid plotting symbol"));
-	        }
-	        ipch = ps[i % npch];
-	        /*
-	         * special case for pch = "."
-	         */
-	        if (ipch == 46) symbolSize = gpCex(currentgp, i);
+    for (i = 0; i < nx; i++)
+        if (R_FINITE(xx[i]) && R_FINITE(yy[i]))
+        {
+            /* FIXME:  The symbols will not respond to viewport
+             * rotations !!!
+             */
+            int ipch = NA_INTEGER /* -Wall */;
+            updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+            symbolSize = ss[i % nss];
+            if (R_FINITE(symbolSize))
+            {
+                if (pType == 3)
+                {
+                    error(_("invalid plotting symbol"));
+                }
+                ipch = ps[i % npch];
                 /*
-                 * FIXME: 
+                 * special case for pch = "."
+                 */
+                if (ipch == 46)
+                    symbolSize = gpCex(currentgp, i);
+                /*
+                 * FIXME:
                  * For character-based symbols, we need to modify
                  * gc->cex so that the FONT size corresponds to
                  * the specified symbolSize.
                  */
                 if (draw)
-                    gridSymbol(xx[i], yy[i], ipch, symbolSize, 
-                               TRUE, closed, 0, &gc, dd);
-                else {
+                    gridSymbol(xx[i], yy[i], ipch, symbolSize, TRUE, closed, 0, &gc, dd);
+                else
+                {
                     int j, nc = symbolNumCoords(ipch, closed);
                     SEXP coords;
-                    PROTECT(coords = gridSymbol(xx[i], yy[i], ipch, symbolSize,
-                                                FALSE, closed, nc, &gc, dd));
-                    for (j=0; j<nc; j++) {
+                    PROTECT(coords = gridSymbol(xx[i], yy[i], ipch, symbolSize, FALSE, closed, nc, &gc, dd));
+                    for (j = 0; j < nc; j++)
+                    {
                         INTEGER(resultNames)[coordIndex] = i + 1;
-                        SET_VECTOR_ELT(result, coordIndex++, 
-                                       VECTOR_ELT(coords, j));
+                        SET_VECTOR_ELT(result, coordIndex++, VECTOR_ELT(coords, j));
                     }
                     UNPROTECT(1);
                 }
-	    }
-	}
-    if (draw) 
+            }
+        }
+    if (draw)
         GEMode(0, dd);
-    else {
+    else
+    {
         setAttrib(result, install("coordNames"), resultNames);
         UNPROTECT(2); /* result and resultNames */
     }
     vmaxset(vmax);
-    UNPROTECT(1); 
+    UNPROTECT(1);
     return result;
 }
 
@@ -5135,7 +5288,7 @@ SEXP L_pointsPoints(SEXP x, SEXP y, SEXP pch, SEXP size, SEXP closed)
     return gridPoints(x, y, pch, size, FALSE, LOGICAL(closed)[0]);
 }
 
-SEXP L_clip(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust) 
+SEXP L_clip(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust)
 {
     double xx, yy, ww, hh;
     double vpWidthCM, vpHeightCM;
@@ -5144,99 +5297,100 @@ SEXP L_clip(SEXP x, SEXP y, SEXP w, SEXP h, SEXP hjust, SEXP vjust)
     R_GE_gcontext gc;
     LTransform transform;
     SEXP currentvp, currentgp, currentClip;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
     currentgp = gridStateElement(dd, GSS_GPAR);
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     GEMode(1, dd);
     /*
      * Only set ONE clip rectangle (i.e., NOT vectorised)
      */
     gcontextFromgpar(currentgp, 0, &gc, dd);
-    transformLocn(x, y, 0, vpc, &gc,
-		  vpWidthCM, vpHeightCM,
-		  dd,
-		  transform,
-		  &xx, &yy);
-    ww = transformWidthtoINCHES(w, 0, vpc, &gc,
-				vpWidthCM, vpHeightCM,
-				dd);
-    hh = transformHeighttoINCHES(h, 0, vpc, &gc,
-				 vpWidthCM, vpHeightCM,
-				 dd);
-    /* 
+    transformLocn(x, y, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd, transform, &xx, &yy);
+    ww = transformWidthtoINCHES(w, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+    hh = transformHeighttoINCHES(h, 0, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+    /*
      * We can ONLY clip if the total rotation angle is zero.
      */
-    if (rotationAngle == 0) {
+    if (rotationAngle == 0)
+    {
         xx = justifyX(xx, ww, REAL(hjust)[0]);
-	yy = justifyY(yy, hh, REAL(vjust)[0]);
-	/* The graphics engine only takes device coordinates
-	 */
-	xx = toDeviceX(xx, GE_INCHES, dd);
-	yy = toDeviceY(yy, GE_INCHES, dd);
-	ww = toDeviceWidth(ww, GE_INCHES, dd);
-	hh = toDeviceHeight(hh, GE_INCHES, dd);
-	if (R_FINITE(xx) && R_FINITE(yy) && 
-	    R_FINITE(ww) && R_FINITE(hh)) {
-	    GESetClip(xx, yy, xx + ww, yy + hh, dd);
-	    /*
-	     * ALSO set the current clip region for the 
-	     * current viewport so that, if a viewport
-	     * is pushed within the current viewport,
-	     * when that viewport gets popped again,
-	     * the clip region returns to what was set
-	     * by THIS clipGrob (NOT to the current
-	     * viewport's previous setting)
-	     */
-	    PROTECT(currentClip = allocVector(REALSXP, 4));
-	    REAL(currentClip)[0] = xx;
-	    REAL(currentClip)[1] = yy;
-	    REAL(currentClip)[2] = xx + ww;
-	    REAL(currentClip)[3] = yy + hh;
-	    SET_VECTOR_ELT(currentvp, PVP_CLIPRECT, currentClip);
-	    UNPROTECT(1);
-	}
-    } else {
+        yy = justifyY(yy, hh, REAL(vjust)[0]);
+        /* The graphics engine only takes device coordinates
+         */
+        xx = toDeviceX(xx, GE_INCHES, dd);
+        yy = toDeviceY(yy, GE_INCHES, dd);
+        ww = toDeviceWidth(ww, GE_INCHES, dd);
+        hh = toDeviceHeight(hh, GE_INCHES, dd);
+        if (R_FINITE(xx) && R_FINITE(yy) && R_FINITE(ww) && R_FINITE(hh))
+        {
+            GESetClip(xx, yy, xx + ww, yy + hh, dd);
+            /*
+             * ALSO set the current clip region for the
+             * current viewport so that, if a viewport
+             * is pushed within the current viewport,
+             * when that viewport gets popped again,
+             * the clip region returns to what was set
+             * by THIS clipGrob (NOT to the current
+             * viewport's previous setting)
+             */
+            PROTECT(currentClip = allocVector(REALSXP, 4));
+            REAL(currentClip)[0] = xx;
+            REAL(currentClip)[1] = yy;
+            REAL(currentClip)[2] = xx + ww;
+            REAL(currentClip)[3] = yy + hh;
+            SET_VECTOR_ELT(currentvp, PVP_CLIPRECT, currentClip);
+            UNPROTECT(1);
+        }
+    }
+    else
+    {
         warning(_("unable to clip to rotated rectangle"));
     }
     GEMode(0, dd);
-    return R_NilValue;    
+    return R_NilValue;
 }
 
 // for API back compatibility:
-SEXP L_pretty(SEXP scale) {
+SEXP L_pretty(SEXP scale)
+{
     /* Default preferred number of ticks hard coded ! */
     return L_pretty2(scale, ScalarInteger(5));
 }
-SEXP L_pretty2(SEXP scale, SEXP n_) {
+SEXP L_pretty2(SEXP scale, SEXP n_)
+{
     double min = numeric(scale, 0);
     double max = numeric(scale, 1);
     int n = asInteger(n_);
     double temp;
     /* FIXME:  This is just a dummy pointer because we do not have
-     * log scales.  This will cause death and destruction if it is 
+     * log scales.  This will cause death and destruction if it is
      * not addressed when log scales are added !
      */
     double *usr = NULL;
     double axp[3];
     Rboolean swap = min > max;
-    /* 
-     * Feature: 
-     * like R, something like  xscale = c(100,0)  just works 
+    /*
+     * Feature:
+     * like R, something like  xscale = c(100,0)  just works
      */
-    if(swap) { 
-	temp = min; min = max; max = temp;
+    if (swap)
+    {
+        temp = min;
+        min = max;
+        max = temp;
     }
 
     GEPretty(&min, &max, &n);
 
-    if(swap) {
-	temp = min; min = max; max = temp;
+    if (swap)
+    {
+        temp = min;
+        min = max;
+        max = temp;
     }
 
     axp[0] = min;
@@ -5248,23 +5402,24 @@ SEXP L_pretty2(SEXP scale, SEXP n_) {
     return Rf_CreateAtVector(axp, usr, n, FALSE);
 }
 
-/* 
+/*
  * NOTE: This does not go through the graphics engine, but
  * skips straight to the device to obtain a mouse click.
- * This is because I do not want to put a GELocator in the 
+ * This is because I do not want to put a GELocator in the
  * graphics engine;  that would be a crappy long term solution.
  * I will wait for a better event-loop/call-back solution before
  * doing something with the graphics engine.
  * This is a stop gap in the meantime.
- * 
+ *
  * The answer is in INCHES
  */
 
-SEXP L_locator(void) {
+SEXP L_locator(void)
+{
     double x = 0;
     double y = 0;
     SEXP answer;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     GEMode(2, dd);
@@ -5273,12 +5428,15 @@ SEXP L_locator(void) {
      * Get a mouse click
      * Fails if user did not click mouse button 1
      */
-    if(dd->dev->locator && dd->dev->locator(&x, &y, dd->dev)) {
-	REAL(answer)[0] = fromDeviceX(x, GE_INCHES, dd);
-	REAL(answer)[1] = fromDeviceY(y, GE_INCHES, dd);
-    } else {
-	REAL(answer)[0] = NA_REAL;
-	REAL(answer)[1] = NA_REAL;	
+    if (dd->dev->locator && dd->dev->locator(&x, &y, dd->dev))
+    {
+        REAL(answer)[0] = fromDeviceX(x, GE_INCHES, dd);
+        REAL(answer)[1] = fromDeviceY(y, GE_INCHES, dd);
+    }
+    else
+    {
+        REAL(answer)[0] = NA_REAL;
+        REAL(answer)[1] = NA_REAL;
     }
     GEMode(0, dd);
     UNPROTECT(1);
@@ -5306,7 +5464,7 @@ SEXP L_locnBounds(SEXP x, SEXP y, SEXP theta)
     double *xx, *yy;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -5318,74 +5476,66 @@ SEXP L_locnBounds(SEXP x, SEXP y, SEXP theta)
     double ymin = DBL_MAX;
     double ymax = -DBL_MAX;
     double edgex, edgey;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
     currentgp = gridStateElement(dd, GSS_GPAR);
-    /* If not drawing (calculating size), NULL gp$fill to avoid 
-     * infinite loop when gp$fill is a pattern 
+    /* If not drawing (calculating size), NULL gp$fill to avoid
+     * infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
     currentgp = PROTECT(duplicate(currentgp));
     setListElement(currentgp, "fill", R_NilValue);
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
-    nx = unitLength(x); 
+    nx = unitLength(x);
     ny = unitLength(y);
-    if (ny > nx) 
-	nx = ny;
+    if (ny > nx)
+        nx = ny;
     nloc = 0;
     vmax = vmaxget();
-    if (nx > 0) {
-	xx = (double *) R_alloc(nx, sizeof(double));
-	yy = (double *) R_alloc(nx, sizeof(double));
-	for (i=0; i<nx; i++) {
-	    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
-	    xx[i] = transformXtoINCHES(x, i, vpc, &gc,
-				       vpWidthCM, vpHeightCM, 
-				       dd);
-	    yy[i] = transformYtoINCHES(y, i, vpc, &gc,
-				       vpWidthCM, vpHeightCM, 
-				       dd);
-	    /*
-	     * Determine min/max x/y values
-	     */
-	    if (R_FINITE(xx[i]) && R_FINITE(yy[i])) {
-		if (xx[i] < xmin)
-		    xmin = xx[i];
-		if (xx[i] > xmax)
-		    xmax = xx[i];
-		if (yy[i] < ymin)
-		    ymin = yy[i];
-		if (yy[i] > ymax)
-		    ymax = yy[i];
-		nloc++;
-	    }
-	}
+    if (nx > 0)
+    {
+        xx = (double *)R_alloc(nx, sizeof(double));
+        yy = (double *)R_alloc(nx, sizeof(double));
+        for (i = 0; i < nx; i++)
+        {
+            updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+            xx[i] = transformXtoINCHES(x, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            yy[i] = transformYtoINCHES(y, i, vpc, &gc, vpWidthCM, vpHeightCM, dd);
+            /*
+             * Determine min/max x/y values
+             */
+            if (R_FINITE(xx[i]) && R_FINITE(yy[i]))
+            {
+                if (xx[i] < xmin)
+                    xmin = xx[i];
+                if (xx[i] > xmax)
+                    xmax = xx[i];
+                if (yy[i] < ymin)
+                    ymin = yy[i];
+                if (yy[i] > ymax)
+                    ymax = yy[i];
+                nloc++;
+            }
+        }
     }
-    if (nloc > 0) {
-	hullEdge(xx, yy, nx, REAL(theta)[0], &edgex, &edgey);
-	result = allocVector(REALSXP, 6);
-	/*
-	 * Reverse the scale adjustment (zoom factor)
-	 * when calculating physical value to return to user-level
-	 */
-	REAL(result)[0] = edgex / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[1] = edgey / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[2] = (xmax - xmin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-	REAL(result)[3] = (ymax - ymin) / 
-	    REAL(gridStateElement(dd, GSS_SCALE))[0];
-        REAL(result)[4] = xmin /
-            REAL(gridStateElement(dd, GSS_SCALE))[0];
-        REAL(result)[5] = ymin / 
-            REAL(gridStateElement(dd, GSS_SCALE))[0];
-    } 
+    if (nloc > 0)
+    {
+        hullEdge(xx, yy, nx, REAL(theta)[0], &edgex, &edgey);
+        result = allocVector(REALSXP, 6);
+        /*
+         * Reverse the scale adjustment (zoom factor)
+         * when calculating physical value to return to user-level
+         */
+        REAL(result)[0] = edgex / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[1] = edgey / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[2] = (xmax - xmin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[3] = (ymax - ymin) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[4] = xmin / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        REAL(result)[5] = ymin / REAL(gridStateElement(dd, GSS_SCALE))[0];
+    }
     vmaxset(vmax);
     UNPROTECT(1);
     return result;
@@ -5402,7 +5552,7 @@ SEXP L_stringMetric(SEXP label)
     int i, n;
     double vpWidthCM, vpHeightCM;
     double rotationAngle;
-    int gpIsScalar[15] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int gpIsScalar[15] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     LViewportContext vpc;
     R_GE_gcontext gc, gcCache;
     LTransform transform;
@@ -5414,64 +5564,55 @@ SEXP L_stringMetric(SEXP label)
     SEXP width = R_NilValue;
     const void *vmax;
     double asc, dsc, wid;
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     currentvp = gridStateElement(dd, GSS_VP);
     currentgp = gridStateElement(dd, GSS_GPAR);
-    /* If not drawing (calculating size), NULL gp$fill to avoid 
-     * infinite loop when gp$fill is a pattern 
+    /* If not drawing (calculating size), NULL gp$fill to avoid
+     * infinite loop when gp$fill is a pattern
      * (resolving a pattern involves calculating size) */
     currentgp = PROTECT(duplicate(currentgp));
     setListElement(currentgp, "fill", R_NilValue);
-    getViewportTransform(currentvp, dd, 
-			 &vpWidthCM, &vpHeightCM, 
-			 transform, &rotationAngle);
+    getViewportTransform(currentvp, dd, &vpWidthCM, &vpHeightCM, transform, &rotationAngle);
     getViewportContext(currentvp, &vpc);
     initGContext(currentgp, &gc, dd, gpIsScalar, &gcCache);
     /* The label can be a string or an expression: is protected.
      */
     txt = label;
     if (isSymbol(txt) || isLanguage(txt))
-	txt = coerceVector(txt, EXPRSXP);
+        txt = coerceVector(txt, EXPRSXP);
     else if (!isExpression(txt))
-	txt = coerceVector(txt, STRSXP);
+        txt = coerceVector(txt, STRSXP);
     PROTECT(txt);
     n = LENGTH(txt);
     vmax = vmaxget();
     PROTECT(ascent = allocVector(REALSXP, n));
     PROTECT(descent = allocVector(REALSXP, n));
     PROTECT(width = allocVector(REALSXP, n));
-    if (n > 0) {
-	for (i=0; i<n; i++) {
-	    updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
+    if (n > 0)
+    {
+        for (i = 0; i < n; i++)
+        {
+            updateGContext(currentgp, i, &gc, dd, gpIsScalar, &gcCache);
             if (isExpression(txt))
-                GEExpressionMetric(VECTOR_ELT(txt, i % LENGTH(txt)), &gc, 
-                                   &asc, &dsc, &wid,
-                                   dd);
-            else 
-                GEStrMetric(CHAR(STRING_ELT(txt, i)), 
-                            getCharCE(STRING_ELT(txt, i)), &gc,
-                            &asc, &dsc, &wid,
-                            dd);
+                GEExpressionMetric(VECTOR_ELT(txt, i % LENGTH(txt)), &gc, &asc, &dsc, &wid, dd);
+            else
+                GEStrMetric(CHAR(STRING_ELT(txt, i)), getCharCE(STRING_ELT(txt, i)), &gc, &asc, &dsc, &wid, dd);
             /*
              * Reverse the scale adjustment (zoom factor)
              * when calculating physical value to return to user-level
              */
-            REAL(ascent)[i] = fromDeviceHeight(asc, GE_INCHES, dd) / 
-                REAL(gridStateElement(dd, GSS_SCALE))[0];
-            REAL(descent)[i] = fromDeviceHeight(dsc, GE_INCHES, dd) /
-                REAL(gridStateElement(dd, GSS_SCALE))[0];
-            REAL(width)[i] = fromDeviceWidth(wid, GE_INCHES, dd) /
-                REAL(gridStateElement(dd, GSS_SCALE))[0];
-	}
+            REAL(ascent)[i] = fromDeviceHeight(asc, GE_INCHES, dd) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(descent)[i] = fromDeviceHeight(dsc, GE_INCHES, dd) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+            REAL(width)[i] = fromDeviceWidth(wid, GE_INCHES, dd) / REAL(gridStateElement(dd, GSS_SCALE))[0];
+        }
     }
     PROTECT(result = allocVector(VECSXP, 3));
     SET_VECTOR_ELT(result, 0, ascent);
     SET_VECTOR_ELT(result, 1, descent);
-    SET_VECTOR_ELT(result, 2, width);    
+    SET_VECTOR_ELT(result, 2, width);
     vmaxset(vmax);
     UNPROTECT(6);
     return result;
 }
-

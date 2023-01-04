@@ -37,9 +37,9 @@
  (cd `R-devel-qbeta-dbg RHOME`/src/nmath ; make qbeta.o; cd ../..; make R)
 */
 #ifdef DEBUG_qbeta
-# define R_ifDEBUG_printf(...) REprintf(__VA_ARGS__)
+#define R_ifDEBUG_printf(...) REprintf(__VA_ARGS__)
 #else
-# define R_ifDEBUG_printf(...)
+#define R_ifDEBUG_printf(...)
 #endif
 
 #define USE_LOG_X_CUTOFF -5.
@@ -51,10 +51,9 @@
 #define MLOGICAL_NA -1
 // an "NA_LOGICAL" substitute for Mathlib {only used here, for now}
 
-//attribute_hidden
-static void
-qbeta_raw(double alpha, double p, double q, int lower_tail, int log_p,
-	  int swap_01, double log_q_cut, int n_N, double* qb);
+// attribute_hidden
+static void qbeta_raw(double alpha, double p, double q, int lower_tail, int log_p, int swap_01, double log_q_cut,
+                      int n_N, double *qb);
 
 double qbeta(double alpha, double p, double q, int lower_tail, int log_p)
 {
@@ -62,35 +61,36 @@ double qbeta(double alpha, double p, double q, int lower_tail, int log_p)
     /* test for admissibility of parameters */
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(q) || ISNAN(alpha))
-	return p + q + alpha;
+        return p + q + alpha;
 #endif
-    if(p < 0. || q < 0.) ML_WARN_return_NAN;
+    if (p < 0. || q < 0.)
+        ML_WARN_return_NAN;
     // allowing p==0 and q==0  <==> treat as one- or two-point mass
 
-    double qbet[2];// = { qbeta(), 1 - qbeta() }
+    double qbet[2]; // = { qbeta(), 1 - qbeta() }
     qbeta_raw(alpha, p, q, lower_tail, log_p,
-	      // swap_01 ,  log_q_cut ,      n_N
-	      MLOGICAL_NA, USE_LOG_X_CUTOFF, n_NEWTON_FREE, qbet);
+              // swap_01 ,  log_q_cut ,      n_N
+              MLOGICAL_NA, USE_LOG_X_CUTOFF, n_NEWTON_FREE, qbet);
     return qbet[0];
 }
 
 static const double
 #ifdef IEEE_754
-// CARE: assumes subnormal numbers, i.e., no underflow at DBL_MIN:
-    DBL_very_MIN  = DBL_MIN / 4.,
-    DBL_log_v_MIN = M_LN2*(DBL_MIN_EXP - 2),
-// Too extreme: inaccuracy in pbeta(); e.g for  qbeta(0.95, 1e-9, 20):
-// -> in pbeta() --> bgrat(..... b*z == 0 underflow, hence inaccurate pbeta()
+    // CARE: assumes subnormal numbers, i.e., no underflow at DBL_MIN:
+    DBL_very_MIN = DBL_MIN / 4.,
+    DBL_log_v_MIN = M_LN2 * (DBL_MIN_EXP - 2),
+    // Too extreme: inaccuracy in pbeta(); e.g for  qbeta(0.95, 1e-9, 20):
+    // -> in pbeta() --> bgrat(..... b*z == 0 underflow, hence inaccurate pbeta()
     /* DBL_very_MIN  = 0x0.0000001p-1022, // = 2^-1050 = 2^(-1022 - 28) */
     /* DBL_log_v_MIN = -1050. * M_LN2, // = log(DBL_very_MIN) ~= -727.8045 */
-// the most extreme -- not ok, as pbeta() then behaves strangely,
-// e.g., for  qbeta(0.95, 1e-8, 20):
+    // the most extreme -- not ok, as pbeta() then behaves strangely,
+    // e.g., for  qbeta(0.95, 1e-8, 20):
     /* DBL_very_MIN  = 0x0.0000000000001p-1022, // = 2^-1074 = 2^(-1022 -52) */
     /* DBL_log_v_MIN = -1074. * M_LN2, // = log(DBL_very_MIN) */
 
-    DBL_1__eps    = 0x1.fffffffffffffp-1; // = 1 - 2^-53
-#else // untested :
-    DBL_1__eps    = 1 - DBL_EPSILON;     // or rather (1 - DBL_EPSILON/2) (??)
+    DBL_1__eps = 0x1.fffffffffffffp-1; // = 1 - 2^-53
+#else                                  // untested :
+    DBL_1__eps = 1 - DBL_EPSILON; // or rather (1 - DBL_EPSILON/2) (??)
 #endif
 
 /* set the exponent of acu to -2r-2 for r digits of accuracy */
@@ -98,10 +98,10 @@ static const double
 
 #define fpu 3e-308
 /* acu_min:  Minimal value for accuracy 'acu' which will depend on (a,p);
-	     acu_min >= fpu ! */
+         acu_min >= fpu ! */
 #define acu_min 1e-300
 #define p_lo fpu
-#define p_hi 1-2.22e-16
+#define p_hi 1 - 2.22e-16
 
 #define const1 2.30753
 #define const2 0.27061
@@ -109,21 +109,17 @@ static const double
 #define const4 0.04481
 
 // Returns both qbeta() and its "mirror" 1-qbeta(). Useful notably when qbeta() ~= 1
-attribute_hidden void
-qbeta_raw(double alpha, double p, double q, int lower_tail, int log_p,
-	  int swap_01, // {TRUE, NA, FALSE}: if NA, algorithm decides swap_tail
-	  double log_q_cut, /* if == Inf: return log(qbeta(..));
-			       otherwise, if finite: the bound for
-			       switching to log(x)-scale; see use_log_x */
-	  int n_N,  // number of "unconstrained" Newton steps before switching to constrained
-	  double *qb) // = qb[0:1] = { qbeta(), 1 - qbeta() }
+attribute_hidden void qbeta_raw(double alpha, double p, double q, int lower_tail, int log_p,
+                                int swap_01,      // {TRUE, NA, FALSE}: if NA, algorithm decides swap_tail
+                                double log_q_cut, /* if == Inf: return log(qbeta(..));
+                                             otherwise, if finite: the bound for
+                                             switching to log(x)-scale; see use_log_x */
+                                int n_N,    // number of "unconstrained" Newton steps before switching to constrained
+                                double *qb) // = qb[0:1] = { qbeta(), 1 - qbeta() }
 {
-    Rboolean
-	swap_choose = (swap_01 == MLOGICAL_NA),
-	swap_tail,
-	log_, give_log_q = (log_q_cut == ML_POSINF),
-	use_log_x = give_log_q, // or u < log_q_cut  below
-	warned = FALSE, add_N_step = TRUE;
+    Rboolean swap_choose = (swap_01 == MLOGICAL_NA), swap_tail, log_, give_log_q = (log_q_cut == ML_POSINF),
+             use_log_x = give_log_q, // or u < log_q_cut  below
+        warned = FALSE, add_N_step = TRUE;
     int i_pb, i_inn;
     double a, la, logbeta, g, h, pp, p_, qq, r, s, t, w, y = -1.;
     volatile double u, xinbta;
@@ -131,86 +127,120 @@ qbeta_raw(double alpha, double p, double q, int lower_tail, int log_p,
     // Assuming p >= 0, q >= 0  here ...
 
     // Deal with boundary cases here:
-    if(alpha == R_DT_0) {
-#define return_q_0						\
-	if(give_log_q) { qb[0] = ML_NEGINF; qb[1] = 0; }	\
-	else {           qb[0] = 0;         qb[1] = 1; }	\
-	return
+    if (alpha == R_DT_0)
+    {
+#define return_q_0                                                                                                     \
+    if (give_log_q)                                                                                                    \
+    {                                                                                                                  \
+        qb[0] = ML_NEGINF;                                                                                             \
+        qb[1] = 0;                                                                                                     \
+    }                                                                                                                  \
+    else                                                                                                               \
+    {                                                                                                                  \
+        qb[0] = 0;                                                                                                     \
+        qb[1] = 1;                                                                                                     \
+    }                                                                                                                  \
+    return
 
-	return_q_0;
+        return_q_0;
     }
-    if(alpha == R_DT_1) {
-#define return_q_1						\
-	if(give_log_q) { qb[0] = 0; qb[1] = ML_NEGINF; }	\
-	else {           qb[0] = 1; qb[1] = 0;         }	\
-	return
+    if (alpha == R_DT_1)
+    {
+#define return_q_1                                                                                                     \
+    if (give_log_q)                                                                                                    \
+    {                                                                                                                  \
+        qb[0] = 0;                                                                                                     \
+        qb[1] = ML_NEGINF;                                                                                             \
+    }                                                                                                                  \
+    else                                                                                                               \
+    {                                                                                                                  \
+        qb[0] = 1;                                                                                                     \
+        qb[1] = 0;                                                                                                     \
+    }                                                                                                                  \
+    return
 
-	return_q_1;
+        return_q_1;
     }
 
     // check alpha {*before* transformation which may lose all accuracy}:
-    if((log_p && alpha > 0) ||
-       (!log_p && (alpha < 0 || alpha > 1))) { // alpha is outside
-	R_ifDEBUG_printf("qbeta(alpha=%g, %g, %g, .., log_p=%d): %s%s\n",
-			 alpha, p,q, log_p, "alpha not in ",
-			 log_p ? "[-Inf, 0]" : "[0,1]");
-	// ML_WARN_return_NAN :
-	ML_WARNING(ME_DOMAIN, "");
-	qb[0] = qb[1] = ML_NAN; return;
+    if ((log_p && alpha > 0) || (!log_p && (alpha < 0 || alpha > 1)))
+    { // alpha is outside
+        R_ifDEBUG_printf("qbeta(alpha=%g, %g, %g, .., log_p=%d): %s%s\n", alpha, p, q, log_p, "alpha not in ",
+                         log_p ? "[-Inf, 0]" : "[0,1]");
+        // ML_WARN_return_NAN :
+        ML_WARNING(ME_DOMAIN, "");
+        qb[0] = qb[1] = ML_NAN;
+        return;
     }
 
     //  p==0, q==0, p = Inf, q = Inf  <==> treat as one- or two-point mass
-    if(p == 0 || q == 0 || !R_FINITE(p) || !R_FINITE(q)) {
-	// We know 0 < T(alpha) < 1 : pbeta() is constant and trivial in {0, 1/2, 1}
-	R_ifDEBUG_printf(
-	    "qbeta(%g, %g, %g, lower_t=%d, log_p=%d): (p,q)-boundary: trivial\n",
-	    alpha, p,q, lower_tail, log_p);
-	if(p == 0 && q == 0) { // point mass 1/2 at each of {0,1} :
-	    if(alpha < R_D_half) { return_q_0; }
-	    if(alpha > R_D_half) { return_q_1; }
-	    // else:  alpha == "1/2"
-#define return_q_half					\
-	    if(give_log_q) qb[0] = qb[1] = -M_LN2;	\
-	    else	   qb[0] = qb[1] = 0.5;		\
-	    return
+    if (p == 0 || q == 0 || !R_FINITE(p) || !R_FINITE(q))
+    {
+        // We know 0 < T(alpha) < 1 : pbeta() is constant and trivial in {0, 1/2, 1}
+        R_ifDEBUG_printf("qbeta(%g, %g, %g, lower_t=%d, log_p=%d): (p,q)-boundary: trivial\n", alpha, p, q, lower_tail,
+                         log_p);
+        if (p == 0 && q == 0)
+        { // point mass 1/2 at each of {0,1} :
+            if (alpha < R_D_half)
+            {
+                return_q_0;
+            }
+            if (alpha > R_D_half)
+            {
+                return_q_1;
+            }
+            // else:  alpha == "1/2"
+#define return_q_half                                                                                                  \
+    if (give_log_q)                                                                                                    \
+        qb[0] = qb[1] = -M_LN2;                                                                                        \
+    else                                                                                                               \
+        qb[0] = qb[1] = 0.5;                                                                                           \
+    return
 
-	    return_q_half;
-	} else if (p == 0 || p/q == 0) { // point mass 1 at 0 - "flipped around"
-	    return_q_0;
-	} else if (q == 0 || q/p == 0) { // point mass 1 at 0 - "flipped around"
-	    return_q_1;
-	}
-	// else:  p = q = Inf : point mass 1 at 1/2
-	return_q_half;
+            return_q_half;
+        }
+        else if (p == 0 || p / q == 0)
+        { // point mass 1 at 0 - "flipped around"
+            return_q_0;
+        }
+        else if (q == 0 || q / p == 0)
+        { // point mass 1 at 0 - "flipped around"
+            return_q_1;
+        }
+        // else:  p = q = Inf : point mass 1 at 1/2
+        return_q_half;
     }
 
     /* initialize */
-    p_ = R_DT_qIv(alpha);/* lower_tail prob (in any case) */
+    p_ = R_DT_qIv(alpha); /* lower_tail prob (in any case) */
     // Conceptually,  0 < p_ < 1  (but can be 0 or 1 because of cancellation!)
     logbeta = lbeta(p, q);
 
     swap_tail = (swap_choose) ? (p_ > 0.5) : swap_01;
 
-    R_ifDEBUG_printf(
-	"qbeta(%g, %g, %g, lower_t=%d, log_p=%d, swap_01=%d, log_q_cut=%g, n_N=%d):%s\n"
-	"  swap_tail=%s :",
-	alpha, p,q, lower_tail, log_p, swap_01, log_q_cut, n_N,
-	(log_p && (p_ == 0. || p_ == 1.)) ? (p_==0.?" p_=0":" p_=1") : "",
-	(swap_tail ? "TRUE": "F"));
+    R_ifDEBUG_printf("qbeta(%g, %g, %g, lower_t=%d, log_p=%d, swap_01=%d, log_q_cut=%g, n_N=%d):%s\n"
+                     "  swap_tail=%s :",
+                     alpha, p, q, lower_tail, log_p, swap_01, log_q_cut, n_N,
+                     (log_p && (p_ == 0. || p_ == 1.)) ? (p_ == 0. ? " p_=0" : " p_=1") : "",
+                     (swap_tail ? "TRUE" : "F"));
 
     int n_maybe_swaps = 0;
 maybe_swap:
     // change tail; default (swap_01 = NA): afterwards 0 < a <= 1/2
-    if(swap_tail) { /* change tail, swap copies of {p,q}:  p <-> q :*/
-	a = R_DT_CIv(alpha); // = 1 - p_ , is < 1/2 if(swap_choose)
-	/* la := log(a), but without numerical cancellation: */
-	la = R_DT_Clog(alpha);
-	pp = q; qq = p;
+    if (swap_tail)
+    {                        /* change tail, swap copies of {p,q}:  p <-> q :*/
+        a = R_DT_CIv(alpha); // = 1 - p_ , is < 1/2 if(swap_choose)
+        /* la := log(a), but without numerical cancellation: */
+        la = R_DT_Clog(alpha);
+        pp = q;
+        qq = p;
     }
-    else {
-	a = p_;
-	la = R_DT_log(alpha);
-	pp = p; qq = q;
+    else
+    {
+        a = p_;
+        la = R_DT_log(alpha);
+        pp = p;
+        qq = q;
     }
     n_maybe_swaps++;
 
@@ -225,213 +255,242 @@ maybe_swap:
      * NEW: 'acu' accuracy NOT for squared adjustment, but simple;
      * ---- i.e.,  "new acu" = sqrt(old acu)
      */
-    double acu = fmax2(acu_min, pow(10., -13. - 2.5/(pp * pp) - 0.5/(a * a)));
+    double acu = fmax2(acu_min, pow(10., -13. - 2.5 / (pp * pp) - 0.5 / (a * a)));
     // try to catch  "extreme left tail" early
     double tx,
-	u0 = (la + log(pp) + logbeta) / pp, // = log(x_0)
-	rp = pp*(1.-qq)/(pp+1.);
-    static const double
-	log_eps_c = M_LN2 * (1. - DBL_MANT_DIG);// = log(DBL_EPSILON) = -36.04..
+        u0 = (la + log(pp) + logbeta) / pp, // = log(x_0)
+        rp = pp * (1. - qq) / (pp + 1.);
+    static const double log_eps_c = M_LN2 * (1. - DBL_MANT_DIG); // = log(DBL_EPSILON) = -36.04..
 
     t = 0.2;
     // FIXME: Factor 0.2 is a bit arbitrary;  '1' is clearly much too much.
     Rboolean u0_maybe = (M_LN2 * DBL_MIN_EXP < u0 && u0 < -0.01);
     /* 1. cannot allow exp(u0) = 0 ==> exp(u1) = exp(u0) = 0
      * 2. must: u0 < 0, but too close to 0 <==> x = exp(u0) = 0.99.. */
-    R_ifDEBUG_printf(
-	"  n_maybe_swaps=%d, la=%#8g, u0=%#8g -> u0_maybe=%s (bnd: %g (%g)); ",
-	n_maybe_swaps, la, u0, (u0_maybe ? "TRUE" : "F"),
-	u0_maybe ? (t*log_eps_c - log(fabs(pp*(1.-qq)*(2.-qq)/(2.*(pp+2.)))))/2. : -0.,
-	u0_maybe ?  t*log_eps_c - log(fabs(rp)) : -0.
-	);
+    R_ifDEBUG_printf("  n_maybe_swaps=%d, la=%#8g, u0=%#8g -> u0_maybe=%s (bnd: %g (%g)); ", n_maybe_swaps, la, u0,
+                     (u0_maybe ? "TRUE" : "F"),
+                     u0_maybe ? (t * log_eps_c - log(fabs(pp * (1. - qq) * (2. - qq) / (2. * (pp + 2.))))) / 2. : -0.,
+                     u0_maybe ? t * log_eps_c - log(fabs(rp)) : -0.);
 
     double u_n = 1.; // to be  log(xinbta) <==> xinbta = exp(u_n).  1 is impossible
-    if(u0_maybe &&
-       // qq <= 2 && // <--- "arbitrary"
-       // u0 <  t*log_eps_c - log(fabs(rp)) &&
-       u0 < (t*log_eps_c - log(fabs(pp*(1.-qq)*(2.-qq)/(2.*(pp+2.)))))/2.)
+    if (u0_maybe &&
+        // qq <= 2 && // <--- "arbitrary"
+        // u0 <  t*log_eps_c - log(fabs(rp)) &&
+        u0 < (t * log_eps_c - log(fabs(pp * (1. - qq) * (2. - qq) / (2. * (pp + 2.))))) / 2.)
     {
-// TODO: maybe jump here from below, when initial u "fails" ?
-// L_tail_u:
-	// MM's one-step correction (cheaper than 1 Newton!)
-	rp = rp*exp(u0);// = rp*x0
-	if(rp > -1.) {
-	    u = u0 - log1p(rp)/pp;
-	    R_ifDEBUG_printf("u1-u0=%9.3g --> choosing u = u1 = %g\n", u-u0, u);
-	} else {
-	    u = u0;
-	    R_ifDEBUG_printf("cannot cheaply improve u0\n");
-	}
-	tx = xinbta = exp(u);
-	use_log_x = TRUE; // or (u < log_q_cut)  ??
-	goto L_Newton;
+        // TODO: maybe jump here from below, when initial u "fails" ?
+        // L_tail_u:
+        // MM's one-step correction (cheaper than 1 Newton!)
+        rp = rp * exp(u0); // = rp*x0
+        if (rp > -1.)
+        {
+            u = u0 - log1p(rp) / pp;
+            R_ifDEBUG_printf("u1-u0=%9.3g --> choosing u = u1 = %g\n", u - u0, u);
+        }
+        else
+        {
+            u = u0;
+            R_ifDEBUG_printf("cannot cheaply improve u0\n");
+        }
+        tx = xinbta = exp(u);
+        use_log_x = TRUE; // or (u < log_q_cut)  ??
+        goto L_Newton;
     }
 
     // y := y_\alpha in AS 64 := Hastings(1955) approximation of qnorm(1 - a) :
     r = sqrt(-2 * la);
     y = r - (const1 + const2 * r) / (1. + (const3 + const4 * r) * r);
     R_ifDEBUG_printf("y_a(AS64)=%g\n  ", y);
-    if (pp > 1 && qq > 1) { // use  Carter(1947), see AS 109, remark '5.'
-	r = (y * y - 3.) / 6.;
-	s = 1. / (pp + pp - 1.);
-	t = 1. / (qq + qq - 1.);
-	h = 2. / (s + t);
-	w = y * sqrt(h + r) / h - (t - s) * (r + 5. / 6. - 2. / (3. * h));
-	R_ifDEBUG_printf("p,q > 1 => w=%g <= 300 ? ", w);
-	if(w > 300) { // exp(w+w) is huge or overflows
-	    t = w+w + log(qq) - log(pp); // = argument of log1pexp(.)
-	    u = // log(xinbta) = - log1p(qq/pp * exp(w+w)) = -log(1 + exp(t))
-		(t <= 18) ? -log1p(exp(t)) : -t - exp(-t);
-	    xinbta = exp(u);
-	} else {
-	    xinbta = pp / (pp + qq * exp(w + w));
-	    u = // log(xinbta)
-		- log1p(qq/pp * exp(w+w));
-	}
-    } else { // use the original AS 64 proposal, Scheffé-Tukey (1944) and Wilson-Hilferty
-	r = qq + qq;
-	/* A slightly more stable version of  t := \chi^2_{alpha} of AS 64
-	 * t = 1. / (9. * qq); t = r * R_pow_di(1. - t + y * sqrt(t), 3);  */
-	t = 1. / (3. * sqrt(qq)); // = sqrt(t) of formula above
-	t = r * R_pow_di(1. + t*(-t + y), 3);// = \chi^2_{alpha} of AS 64
-	s = 4. * pp + r - 2.;// 4p + 2q - 2 = numerator of new t' = s / t = s / chi^2
-	R_ifDEBUG_printf("min(p,q) <= 1: t=%g, s=%g", t, s);
-	if (t == 0 || (t < 0. && s >= t)) { // cannot use chisq approx
-	    // x0 = 1 - { (1-a)*q*B(p,q) } ^{1/q}    {AS 65}
-	    // xinbta = 1. - exp((log(1-a)+ log(qq) + logbeta) / qq);
-	    double l1ma = /* := log(1-a), directly from alpha (as 'la' above);
-			   though only seen very small improvements */
-		swap_tail ? R_DT_log(alpha) : R_DT_Clog(alpha);
+    if (pp > 1 && qq > 1)
+    { // use  Carter(1947), see AS 109, remark '5.'
+        r = (y * y - 3.) / 6.;
+        s = 1. / (pp + pp - 1.);
+        t = 1. / (qq + qq - 1.);
+        h = 2. / (s + t);
+        w = y * sqrt(h + r) / h - (t - s) * (r + 5. / 6. - 2. / (3. * h));
+        R_ifDEBUG_printf("p,q > 1 => w=%g <= 300 ? ", w);
+        if (w > 300)
+        {                                  // exp(w+w) is huge or overflows
+            t = w + w + log(qq) - log(pp); // = argument of log1pexp(.)
+            u =                            // log(xinbta) = - log1p(qq/pp * exp(w+w)) = -log(1 + exp(t))
+                (t <= 18) ? -log1p(exp(t)) : -t - exp(-t);
+            xinbta = exp(u);
+        }
+        else
+        {
+            xinbta = pp / (pp + qq * exp(w + w));
+            u = // log(xinbta)
+                -log1p(qq / pp * exp(w + w));
+        }
+    }
+    else
+    { // use the original AS 64 proposal, Scheffé-Tukey (1944) and Wilson-Hilferty
+        r = qq + qq;
+        /* A slightly more stable version of  t := \chi^2_{alpha} of AS 64
+         * t = 1. / (9. * qq); t = r * R_pow_di(1. - t + y * sqrt(t), 3);  */
+        t = 1. / (3. * sqrt(qq));               // = sqrt(t) of formula above
+        t = r * R_pow_di(1. + t * (-t + y), 3); // = \chi^2_{alpha} of AS 64
+        s = 4. * pp + r - 2.;                   // 4p + 2q - 2 = numerator of new t' = s / t = s / chi^2
+        R_ifDEBUG_printf("min(p,q) <= 1: t=%g, s=%g", t, s);
+        if (t == 0 || (t < 0. && s >= t))
+        { // cannot use chisq approx
+            // x0 = 1 - { (1-a)*q*B(p,q) } ^{1/q}    {AS 65}
+            // xinbta = 1. - exp((log(1-a)+ log(qq) + logbeta) / qq);
+            double l1ma = /* := log(1-a), directly from alpha (as 'la' above);
+                   though only seen very small improvements */
+                swap_tail ? R_DT_log(alpha) : R_DT_Clog(alpha);
 
-	    R_ifDEBUG_printf(
-		" t <= 0  => AS65: log1p(-a)=%7g, better l1ma=%.15g, relD=%g\n",
-		log1p(-a), l1ma, log1p(-a)/l1ma - 1);
+            R_ifDEBUG_printf(" t <= 0  => AS65: log1p(-a)=%7g, better l1ma=%.15g, relD=%g\n", log1p(-a), l1ma,
+                             log1p(-a) / l1ma - 1);
 
-	    double xx = (l1ma + log(qq) + logbeta) / qq;
-	    R_ifDEBUG_printf("  xx = (l1ma + log(qq) + logbeta) / qq = %.10g; ", xx);
-	    if(xx <= 0.) {
-		xinbta = -expm1(xx);
-		u = R_Log1_Exp (xx);// =  log(xinbta) = log(1 - exp(...A...))
-		R_ifDEBUG_printf(" xx <= 0 useful ==> u, xinbta\n");
-
-	    } else { // xx > 0 ==> 1 - e^xx < 0 .. is nonsense
-		R_ifDEBUG_printf(" xx > 0: xinbta:= 1-e^xx < 0 'nonsense'; ");
-		// Try MM's one-step correction (or else u0)
-		double r_ = rp*exp(u0);
-		if(r_ > -1.) {
-		    u = u0 - log1p(r_)/pp; R_ifDEBUG_printf("u:= u0 - log1p(r_)/pp = %g\n");
-		} else {
-		    u = u0;                R_ifDEBUG_printf("u:= u0 = %g\n");
-		}
-		xinbta = exp(u);
-	    }
-	} else {
-	    t = s / t;
-	    R_ifDEBUG_printf(" t > 0 or s < t < 0:  new t := s/t = %g ( > 1 ?)\n", t);
-	    if (t <= 1.) { // cannot use chisq, either
-		u = u0;
-		xinbta = exp(u);
-	    } else { // (1+x0)/(1-x0) = t,  solved for x0 :
-		xinbta = 1. - 2. / (t + 1.);
-		u = log1p(-2. / (t + 1.));
-	    }
-	}
+            double xx = (l1ma + log(qq) + logbeta) / qq;
+            R_ifDEBUG_printf("  xx = (l1ma + log(qq) + logbeta) / qq = %.10g; ", xx);
+            if (xx <= 0.)
+            {
+                xinbta = -expm1(xx);
+                u = R_Log1_Exp(xx); // =  log(xinbta) = log(1 - exp(...A...))
+                R_ifDEBUG_printf(" xx <= 0 useful ==> u, xinbta\n");
+            }
+            else
+            { // xx > 0 ==> 1 - e^xx < 0 .. is nonsense
+                R_ifDEBUG_printf(" xx > 0: xinbta:= 1-e^xx < 0 'nonsense'; ");
+                // Try MM's one-step correction (or else u0)
+                double r_ = rp * exp(u0);
+                if (r_ > -1.)
+                {
+                    u = u0 - log1p(r_) / pp;
+                    R_ifDEBUG_printf("u:= u0 - log1p(r_)/pp = %g\n");
+                }
+                else
+                {
+                    u = u0;
+                    R_ifDEBUG_printf("u:= u0 = %g\n");
+                }
+                xinbta = exp(u);
+            }
+        }
+        else
+        {
+            t = s / t;
+            R_ifDEBUG_printf(" t > 0 or s < t < 0:  new t := s/t = %g ( > 1 ?)\n", t);
+            if (t <= 1.)
+            { // cannot use chisq, either
+                u = u0;
+                xinbta = exp(u);
+            }
+            else
+            { // (1+x0)/(1-x0) = t,  solved for x0 :
+                xinbta = 1. - 2. / (t + 1.);
+                u = log1p(-2. / (t + 1.));
+            }
+        }
     }
 
     // Problem: If initial u is completely wrong, we make a wrong decision here
-    if(swap_choose &&  //   vvvv/ why -exp(*)? u  on log-x scale! Swapping can be very good, but needs smart if(..)
-       (( swap_tail && u >= -exp(  log_q_cut)) || // ==> "swap back"
-	(!swap_tail && u >= -exp(4*log_q_cut) && pp / qq < 1000.) // ==> "swap now"
-	   )) {
-	if(swap_tail)
-	    R_ifDEBUG_printf("\"swap back\" as u = %g >= -exp(log_q_cut);", u);
-	else
-	    R_ifDEBUG_printf("\"swap now\" as u = %g >= -exp(4*log_q_cut) && pp/qq = %g < 1000;",
-			     u, pp/qq);
-	// reverse swap (and typically use_log_x)
-	swap_tail = !swap_tail;
+    if (swap_choose && //   vvvv/ why -exp(*)? u  on log-x scale! Swapping can be very good, but needs smart if(..)
+        ((swap_tail && u >= -exp(log_q_cut)) ||                      // ==> "swap back"
+         (!swap_tail && u >= -exp(4 * log_q_cut) && pp / qq < 1000.) // ==> "swap now"
+         ))
+    {
+        if (swap_tail)
+            R_ifDEBUG_printf("\"swap back\" as u = %g >= -exp(log_q_cut);", u);
+        else
+            R_ifDEBUG_printf("\"swap now\" as u = %g >= -exp(4*log_q_cut) && pp/qq = %g < 1000;", u, pp / qq);
+        // reverse swap (and typically use_log_x)
+        swap_tail = !swap_tail;
 
-	if(swap_tail) { // "swap now" (much less easily)
-	    a  = R_DT_CIv(alpha); // needed ?
-	    la = R_DT_Clog(alpha);
-	    pp = q; qq = p;
-	}
-	else { // "swap back" :
-	    a = p_;
-	    la = R_DT_log(alpha);
-	    pp = p; qq = q;
-	}
-	R_ifDEBUG_printf(" ==> la = %g\n", la);
-	// we could redo computations above, but this should be stable
-	u = R_Log1_Exp(u);
-	xinbta = exp(u);
+        if (swap_tail)
+        {                        // "swap now" (much less easily)
+            a = R_DT_CIv(alpha); // needed ?
+            la = R_DT_Clog(alpha);
+            pp = q;
+            qq = p;
+        }
+        else
+        { // "swap back" :
+            a = p_;
+            la = R_DT_log(alpha);
+            pp = p;
+            qq = q;
+        }
+        R_ifDEBUG_printf(" ==> la = %g\n", la);
+        // we could redo computations above, but this should be stable
+        u = R_Log1_Exp(u);
+        xinbta = exp(u);
 
-/* Careful: "swap now"  should not fail if
-   1) the above initial xinbta is "completely wrong"
-   2) The correction step can go outside (u_n > 0 ==>  e^u > 1 is illegal)
-   e.g., for  qbeta(0.2066, 0.143891, 0.05)
-*/
+        /* Careful: "swap now"  should not fail if
+           1) the above initial xinbta is "completely wrong"
+           2) The correction step can go outside (u_n > 0 ==>  e^u > 1 is illegal)
+           e.g., for  qbeta(0.2066, 0.143891, 0.05)
+        */
     }
 
-    if(!use_log_x)
-	use_log_x = (u < log_q_cut);// <==> xinbta = e^u < exp(log_q_cut)
-    Rboolean
-	bad_u = !R_FINITE(u),
-	bad_init = bad_u || xinbta > p_hi;
+    if (!use_log_x)
+        use_log_x = (u < log_q_cut); // <==> xinbta = e^u < exp(log_q_cut)
+    Rboolean bad_u = !R_FINITE(u), bad_init = bad_u || xinbta > p_hi;
 
-    R_ifDEBUG_printf(" -> u = %g, e^u = xinbta = %.16g, (Newton acu=%g%s%s%s)\n",
-		     u, xinbta, acu, (bad_u ? ", ** bad u **" : ""),
-		     ((bad_init && !bad_u) ? ", ** bad_init **" : ""),
-		     (use_log_x ? ", on u = LOG(x) SCALE" : ""));
+    R_ifDEBUG_printf(" -> u = %g, e^u = xinbta = %.16g, (Newton acu=%g%s%s%s)\n", u, xinbta, acu,
+                     (bad_u ? ", ** bad u **" : ""), ((bad_init && !bad_u) ? ", ** bad_init **" : ""),
+                     (use_log_x ? ", on u = LOG(x) SCALE" : ""));
 
     tx = xinbta; // keeping "original initial x" (for now)
 
-    if(bad_u || u < log_q_cut) {
-	/* e.g.
-	   qbeta(0.21, .001, 0.05)
-	   try "left border" quickly, i.e.,
-	   try at smallest positive number: */
-	w = pbeta_raw(DBL_very_MIN, pp, qq, TRUE, log_p);
-	if(w > (log_p ? la : a)) {
-	    R_ifDEBUG_printf(
-		" quantile is left of %g: boundary \"convergence\"\n", DBL_very_MIN);
-	    if(log_p || fabs(w - a) < fabs(0 - a)) { // DBL_very_MIN is better than 0
-		tx   = DBL_very_MIN;
-		u_n  = DBL_log_v_MIN;// = log(DBL_very_MIN)
-	    } else {
-		tx   = 0.;
-		u_n  = ML_NEGINF;
-	    }
-	    use_log_x = log_p; add_N_step = FALSE; goto L_return;
-	}
-	else {
-	    R_ifDEBUG_printf(" pbeta(%g, %g, %g, T, log) = %g <= %g (= %s) --> continuing\n",
-			     DBL_very_MIN, pp,qq, w,
-			     (log_p ? la : a), (log_p ? "la" : "a"));
-	    if(u  < DBL_log_v_MIN) {
-		u = DBL_log_v_MIN;// = log(DBL_very_MIN)
-		xinbta = DBL_very_MIN;
-	    }
-	}
+    if (bad_u || u < log_q_cut)
+    {
+        /* e.g.
+           qbeta(0.21, .001, 0.05)
+           try "left border" quickly, i.e.,
+           try at smallest positive number: */
+        w = pbeta_raw(DBL_very_MIN, pp, qq, TRUE, log_p);
+        if (w > (log_p ? la : a))
+        {
+            R_ifDEBUG_printf(" quantile is left of %g: boundary \"convergence\"\n", DBL_very_MIN);
+            if (log_p || fabs(w - a) < fabs(0 - a))
+            { // DBL_very_MIN is better than 0
+                tx = DBL_very_MIN;
+                u_n = DBL_log_v_MIN; // = log(DBL_very_MIN)
+            }
+            else
+            {
+                tx = 0.;
+                u_n = ML_NEGINF;
+            }
+            use_log_x = log_p;
+            add_N_step = FALSE;
+            goto L_return;
+        }
+        else
+        {
+            R_ifDEBUG_printf(" pbeta(%g, %g, %g, T, log) = %g <= %g (= %s) --> continuing\n", DBL_very_MIN, pp, qq, w,
+                             (log_p ? la : a), (log_p ? "la" : "a"));
+            if (u < DBL_log_v_MIN)
+            {
+                u = DBL_log_v_MIN; // = log(DBL_very_MIN)
+                xinbta = DBL_very_MIN;
+            }
+        }
     }
 
-
     /* Sometimes the approximation is negative (and == 0 is also not "ok") */
-    if (bad_init && !(use_log_x && tx > 0)) {
-	if(u == ML_NEGINF) {
-	    R_ifDEBUG_printf("  u = -Inf;");
-	    u = M_LN2 * DBL_MIN_EXP;
-	    xinbta = DBL_MIN;
-	} else {
-	    R_ifDEBUG_printf(" bad_init: u=%g, xinbta=%g;", u,xinbta);
-	    xinbta = (xinbta > 1.1) // i.e. "way off"
-		? 0.5 // otherwise, keep the respective boundary:
-		: ((xinbta < p_lo) ? exp(u) : p_hi);
-	    if(bad_u)
-		u = log(xinbta);
-	    // otherwise: not changing "potentially better" u than the above
-	}
-	R_ifDEBUG_printf(" -> (partly)new u=%g, xinbta=%g\n", u,xinbta);
+    if (bad_init && !(use_log_x && tx > 0))
+    {
+        if (u == ML_NEGINF)
+        {
+            R_ifDEBUG_printf("  u = -Inf;");
+            u = M_LN2 * DBL_MIN_EXP;
+            xinbta = DBL_MIN;
+        }
+        else
+        {
+            R_ifDEBUG_printf(" bad_init: u=%g, xinbta=%g;", u, xinbta);
+            xinbta = (xinbta > 1.1) // i.e. "way off"
+                         ? 0.5      // otherwise, keep the respective boundary:
+                         : ((xinbta < p_lo) ? exp(u) : p_hi);
+            if (bad_u)
+                u = log(xinbta);
+            // otherwise: not changing "potentially better" u than the above
+        }
+        R_ifDEBUG_printf(" -> (partly)new u=%g, xinbta=%g\n", u, xinbta);
     }
 
 L_Newton:
@@ -443,132 +502,142 @@ L_Newton:
     t = 1 - qq;
     double wprev = 0., prev = 1., adj = 1.; // -Wall
 
-    if(use_log_x) { // find  log(xinbta) -- work in  u := log(x) scale
-	// if(bad_init && tx > 0) xinbta = tx;// may have been better
+    if (use_log_x)
+    { // find  log(xinbta) -- work in  u := log(x) scale
+        // if(bad_init && tx > 0) xinbta = tx;// may have been better
 
-	for (i_pb=0; i_pb < 1000; i_pb++) {
-	    // using log_p == TRUE  unconditionally here
-	    /* FIXME: if exp(u) = xinbta underflows to 0,
-	     *  want different formula pbeta_log(u, ..) */
-	    y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, TRUE);
+        for (i_pb = 0; i_pb < 1000; i_pb++)
+        {
+            // using log_p == TRUE  unconditionally here
+            /* FIXME: if exp(u) = xinbta underflows to 0,
+             *  want different formula pbeta_log(u, ..) */
+            y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, TRUE);
 
-	    /* w := Newton step size for   L(u) = log F(e^u)  =!= 0;   u := log(x)
-	     *   =  (L(.) - la) / L'(.);  L'(u)= (F'(e^u) * e^u ) / F(e^u)
-	     *   =  (L(.) - la)*F(.) / {F'(e^u) * e^u } =
-	     *   =  (L(.) - la) * e^L(.) * e^{-log F'(e^u) - u}
-	     *   =  ( y   - la) * e^{ y - u -log F'(e^u)}
-	     and  -log F'(x)= -log f(x) = - -logbeta + (1-p) log(x) + (1-q) log(1-x)
-	                                = logbeta + (1-p) u + (1-q) log(1-e^u)
-	    */
-	    w = (y == ML_NEGINF) // y = -Inf  well possible: we are on log scale!
-		? 0. : (y - la) * exp(y - u + logbeta + r * u + t * R_Log1_Exp(u));
-	    R_ifDEBUG_printf("N(i=%2d): u=%#20.16g, lnpb(e^u)=%#15.11g, w=%#12.7g",
-			     i_pb, u, y, w);
-	    if(!R_FINITE(w)) {
-		// what we should do is ==> go back, get better starting value
-		R_ifDEBUG_printf(" -- not finite --> %s\n",
-				 (n_maybe_swaps <= 1) ? "goto maybe_swap" : "give up");
-		if(n_maybe_swaps <= 1)
-		    goto maybe_swap;
-		/* else  was 'break;' ...
-		   but rather give up returning NaN directly as in "normal scale" Newton */
-		ML_WARNING(ME_DOMAIN, "");
-		qb[0] = qb[1] = ML_NAN; return;
-	    }
-	    if (i_pb >= n_N && w * wprev <= 0.)
-		prev = fmax2(fabs(adj),fpu);
-	    R_ifDEBUG_printf(", %s prev=%g,",
-			     (i_pb >= n_N && w * wprev <= 0.) ? "new" : "old", prev);
-	    g = 1;
-	    for (i_inn=0; i_inn < 1000; i_inn++) {
-		adj = g * w;
-		// safe guard (here, from the very beginning)
-		if (fabs(adj) < prev) {
-		    u_n = u - adj; // u_{n+1} = u_n - g*w
-		    if (u_n <= 0.) { // <==> 0 <  xinbta := e^u  <= 1
-			if (prev <= acu || fabs(w) <= acu) {
-		 	    R_ifDEBUG_printf(
-				" it{in}=%d, -adj=%g, %s <= acu  ==> convergence\n",
-				i_inn, -adj, (prev <= acu) ? "prev" : "|w|");
-			    goto L_converged;
-			}
-			// if (u_n != ML_NEGINF && u_n != 1)
-			break;
-		    }
-		}
-		g /= 3;
-	    }
-	    // (cancellation in (u_n -u) => may differ from adj:
-	    double D = fmin2(fabs(adj), fabs(u_n - u));
-	    /* R_ifDEBUG_printf(" delta(u)=%g\n", u_n - u); */
-	    R_ifDEBUG_printf(" it{in}=%d, d.(u)=%6.3g, D/|.|=%.3g\n",
-			     i_inn, u_n - u, D/fabs(u_n + u));
-	    if (D <= 4e-16 * fabs(u_n + u))
-		goto L_converged;
-	    u = u_n;
-	    xinbta = exp(u);
-	    wprev = w;
-	} // for(i )
+            /* w := Newton step size for   L(u) = log F(e^u)  =!= 0;   u := log(x)
+             *   =  (L(.) - la) / L'(.);  L'(u)= (F'(e^u) * e^u ) / F(e^u)
+             *   =  (L(.) - la)*F(.) / {F'(e^u) * e^u } =
+             *   =  (L(.) - la) * e^L(.) * e^{-log F'(e^u) - u}
+             *   =  ( y   - la) * e^{ y - u -log F'(e^u)}
+             and  -log F'(x)= -log f(x) = - -logbeta + (1-p) log(x) + (1-q) log(1-x)
+                                        = logbeta + (1-p) u + (1-q) log(1-e^u)
+            */
+            w = (y == ML_NEGINF) // y = -Inf  well possible: we are on log scale!
+                    ? 0.
+                    : (y - la) * exp(y - u + logbeta + r * u + t * R_Log1_Exp(u));
+            R_ifDEBUG_printf("N(i=%2d): u=%#20.16g, lnpb(e^u)=%#15.11g, w=%#12.7g", i_pb, u, y, w);
+            if (!R_FINITE(w))
+            {
+                // what we should do is ==> go back, get better starting value
+                R_ifDEBUG_printf(" -- not finite --> %s\n", (n_maybe_swaps <= 1) ? "goto maybe_swap" : "give up");
+                if (n_maybe_swaps <= 1)
+                    goto maybe_swap;
+                /* else  was 'break;' ...
+                   but rather give up returning NaN directly as in "normal scale" Newton */
+                ML_WARNING(ME_DOMAIN, "");
+                qb[0] = qb[1] = ML_NAN;
+                return;
+            }
+            if (i_pb >= n_N && w * wprev <= 0.)
+                prev = fmax2(fabs(adj), fpu);
+            R_ifDEBUG_printf(", %s prev=%g,", (i_pb >= n_N && w * wprev <= 0.) ? "new" : "old", prev);
+            g = 1;
+            for (i_inn = 0; i_inn < 1000; i_inn++)
+            {
+                adj = g * w;
+                // safe guard (here, from the very beginning)
+                if (fabs(adj) < prev)
+                {
+                    u_n = u - adj; // u_{n+1} = u_n - g*w
+                    if (u_n <= 0.)
+                    { // <==> 0 <  xinbta := e^u  <= 1
+                        if (prev <= acu || fabs(w) <= acu)
+                        {
+                            R_ifDEBUG_printf(" it{in}=%d, -adj=%g, %s <= acu  ==> convergence\n", i_inn, -adj,
+                                             (prev <= acu) ? "prev" : "|w|");
+                            goto L_converged;
+                        }
+                        // if (u_n != ML_NEGINF && u_n != 1)
+                        break;
+                    }
+                }
+                g /= 3;
+            }
+            // (cancellation in (u_n -u) => may differ from adj:
+            double D = fmin2(fabs(adj), fabs(u_n - u));
+            /* R_ifDEBUG_printf(" delta(u)=%g\n", u_n - u); */
+            R_ifDEBUG_printf(" it{in}=%d, d.(u)=%6.3g, D/|.|=%.3g\n", i_inn, u_n - u, D / fabs(u_n + u));
+            if (D <= 4e-16 * fabs(u_n + u))
+                goto L_converged;
+            u = u_n;
+            xinbta = exp(u);
+            wprev = w;
+        } // for(i )
+    }
+    else
+    { // "normal scale" Newton
 
-    } else { // "normal scale" Newton
+        for (i_pb = 0; i_pb < 1000; i_pb++)
+        {
+            y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, log_p);
+            // delta{y} :   d_y = y - (log_p ? la : a);
 
-	for (i_pb=0; i_pb < 1000; i_pb++) {
-	    y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, log_p);
-	    // delta{y} :   d_y = y - (log_p ? la : a);
-
-	    /* w := Newton step size  (F(.) - a) / F'(.)  or,
-	     * --   log: (lF - la) / (F' / F) = exp(lF) * (lF - la) / F'
-	     */
-	    w = log_p
-		? (y - la) * exp(y + logbeta + r * log(xinbta) + t * log1p(-xinbta))
-		: (y - a)  * exp(    logbeta + r * log(xinbta) + t * log1p(-xinbta));
-	    if(!R_FINITE(w)) {
-		// what we should do is ==> go back, get better starting value
-		R_ifDEBUG_printf(
-		    "N(i=%2d): x0=%#19.15g, pb(x0)=%#15.11g, w=%#12.7g -- is not finite --> %s\n",
-		    i_pb, xinbta, y, w, (n_maybe_swaps <= 2) ? "goto maybe_swap" : "give up");
-		if(n_maybe_swaps <= 2) {
-		    if(!log_p && n_maybe_swaps == 2) use_log_x = TRUE; // try now
-		    if(!log_p || n_maybe_swaps <= 1)
-			goto maybe_swap ;
-		}
-		/* else  was 'break;' ...
-		   but rather give up returning NaN directly as in "normal scale" Newton */
-		ML_WARNING(ME_DOMAIN, "");
-		qb[0] = qb[1] = ML_NAN; return;
-	    }
-	    if (i_pb >= n_N && w * wprev <= 0.)
-		prev = fmax2(fabs(adj),fpu);
-	    R_ifDEBUG_printf(
-		"N(i=%2d): x0=%#19.15g, pb(x0)=%#15.11g, w=%#12.7g, %s prev=%g,",
-		i_pb, xinbta, y, w,
-		(i_pb >= n_N && w * wprev <= 0.) ? "new" : "old", prev);
-	    g = 1;
-	    for (i_inn=0; i_inn < 1000;i_inn++) {
-		adj = g * w;
-		// take full Newton steps at the beginning; only then safe guard:
-		if (i_pb < n_N || fabs(adj) < prev) {
-		    tx = xinbta - adj; // x_{n+1} = x_n - g*w
-		    if (0. <= tx && tx <= 1.) {
-			if (prev <= acu || fabs(w) <= acu) {
-			    R_ifDEBUG_printf(" it{in}=%d, delta(x)=%g, %s <= acu  ==> convergence\n",
-					     i_inn, -adj, (prev <= acu) ? "prev" : "|w|");
-			    goto L_converged;
-			}
-			if (tx != 0. && tx != 1)
-			    break;
-		    }
-		}
-		g /= 3;
-	    }
-	    R_ifDEBUG_printf(" it{in}=%d, delta(x)=%g\n", i_inn, tx - xinbta);
-	    if (fabs(tx - xinbta) <= 4e-16 * (tx + xinbta)) // "<=" : (.) == 0
-		goto L_converged;
-	    xinbta = tx;
-	    if(tx == 0) // "we have lost"
-		break;
-	    wprev = w;
-	} // for( i_pb ..)
+            /* w := Newton step size  (F(.) - a) / F'(.)  or,
+             * --   log: (lF - la) / (F' / F) = exp(lF) * (lF - la) / F'
+             */
+            w = log_p ? (y - la) * exp(y + logbeta + r * log(xinbta) + t * log1p(-xinbta))
+                      : (y - a) * exp(logbeta + r * log(xinbta) + t * log1p(-xinbta));
+            if (!R_FINITE(w))
+            {
+                // what we should do is ==> go back, get better starting value
+                R_ifDEBUG_printf("N(i=%2d): x0=%#19.15g, pb(x0)=%#15.11g, w=%#12.7g -- is not finite --> %s\n", i_pb,
+                                 xinbta, y, w, (n_maybe_swaps <= 2) ? "goto maybe_swap" : "give up");
+                if (n_maybe_swaps <= 2)
+                {
+                    if (!log_p && n_maybe_swaps == 2)
+                        use_log_x = TRUE; // try now
+                    if (!log_p || n_maybe_swaps <= 1)
+                        goto maybe_swap;
+                }
+                /* else  was 'break;' ...
+                   but rather give up returning NaN directly as in "normal scale" Newton */
+                ML_WARNING(ME_DOMAIN, "");
+                qb[0] = qb[1] = ML_NAN;
+                return;
+            }
+            if (i_pb >= n_N && w * wprev <= 0.)
+                prev = fmax2(fabs(adj), fpu);
+            R_ifDEBUG_printf("N(i=%2d): x0=%#19.15g, pb(x0)=%#15.11g, w=%#12.7g, %s prev=%g,", i_pb, xinbta, y, w,
+                             (i_pb >= n_N && w * wprev <= 0.) ? "new" : "old", prev);
+            g = 1;
+            for (i_inn = 0; i_inn < 1000; i_inn++)
+            {
+                adj = g * w;
+                // take full Newton steps at the beginning; only then safe guard:
+                if (i_pb < n_N || fabs(adj) < prev)
+                {
+                    tx = xinbta - adj; // x_{n+1} = x_n - g*w
+                    if (0. <= tx && tx <= 1.)
+                    {
+                        if (prev <= acu || fabs(w) <= acu)
+                        {
+                            R_ifDEBUG_printf(" it{in}=%d, delta(x)=%g, %s <= acu  ==> convergence\n", i_inn, -adj,
+                                             (prev <= acu) ? "prev" : "|w|");
+                            goto L_converged;
+                        }
+                        if (tx != 0. && tx != 1)
+                            break;
+                    }
+                }
+                g /= 3;
+            }
+            R_ifDEBUG_printf(" it{in}=%d, delta(x)=%g\n", i_inn, tx - xinbta);
+            if (fabs(tx - xinbta) <= 4e-16 * (tx + xinbta)) // "<=" : (.) == 0
+                goto L_converged;
+            xinbta = tx;
+            if (tx == 0) // "we have lost"
+                break;
+            wprev = w;
+        } // for( i_pb ..)
 
     } // end{else : normal scale Newton}
 
@@ -578,75 +647,100 @@ L_Newton:
 
 L_converged:
     log_ = log_p || use_log_x;
-    R_ifDEBUG_printf(" %s: Final delta(y) = %g%s\n",
-		     warned ? "_NO_ convergence" : "converged",
-		     y - (log_ ? la : a), (log_ ? " (log_)" : ""));
-    if((log_ && y == ML_NEGINF) || (!log_ && y == 0)) {
-	// stuck at left, try if smallest positive number is "better"
-	w = pbeta_raw(DBL_very_MIN, pp, qq, TRUE, log_);
-	if(log_ || fabs(w - a) <= fabs(y - a)) {
-	    tx  = DBL_very_MIN;
-	    u_n = DBL_log_v_MIN;// = log(DBL_very_MIN)
-	}
-	add_N_step = FALSE; // not trying to do better anymore
+    R_ifDEBUG_printf(" %s: Final delta(y) = %g%s\n", warned ? "_NO_ convergence" : "converged", y - (log_ ? la : a),
+                     (log_ ? " (log_)" : ""));
+    if ((log_ && y == ML_NEGINF) || (!log_ && y == 0))
+    {
+        // stuck at left, try if smallest positive number is "better"
+        w = pbeta_raw(DBL_very_MIN, pp, qq, TRUE, log_);
+        if (log_ || fabs(w - a) <= fabs(y - a))
+        {
+            tx = DBL_very_MIN;
+            u_n = DBL_log_v_MIN; // = log(DBL_very_MIN)
+        }
+        add_N_step = FALSE; // not trying to do better anymore
     }
-    else if(!warned && (log_ ? fabs(y - la) > 3 : fabs(y - a) > 1e-4)) {
-	if(!(log_ && y == ML_NEGINF &&
-	     // e.g. qbeta(-1e-10, .2, .03, log=TRUE) cannot get accurate ==> do NOT warn
-	     pbeta_raw(DBL_1__eps, // = 1 - eps
-		       pp, qq, TRUE, TRUE) > la + 2))
-	    MATHLIB_WARNING2( // low accuracy for more platform independent output:
-		"qbeta(a, *) =: x0 with |pbeta(x0,*%s) - alpha| = %.5g is not accurate",
-		(log_ ? ", log_" : ""), fabs(y - (log_ ? la : a)));
+    else if (!warned && (log_ ? fabs(y - la) > 3 : fabs(y - a) > 1e-4))
+    {
+        if (!(log_ && y == ML_NEGINF &&
+              // e.g. qbeta(-1e-10, .2, .03, log=TRUE) cannot get accurate ==> do NOT warn
+              pbeta_raw(DBL_1__eps, // = 1 - eps
+                        pp, qq, TRUE, TRUE) > la + 2))
+            MATHLIB_WARNING2( // low accuracy for more platform independent output:
+                "qbeta(a, *) =: x0 with |pbeta(x0,*%s) - alpha| = %.5g is not accurate", (log_ ? ", log_" : ""),
+                fabs(y - (log_ ? la : a)));
     }
 L_return:
     // use  if (use_log_x) u_n else tx   {and u_n is on log scale}
-    if(give_log_q) { // {currently not used from R's qbeta()} ==> use_log_x , too
-	if(!use_log_x) // (see if claim above is true)
-	    MATHLIB_WARNING(
-		"qbeta() L_return, u_n=%g;  give_log_q=TRUE but use_log_x=FALSE -- please report!",
-		u_n);
-	double r = R_Log1_Exp(u_n);
-	if(swap_tail) {
-	    qb[0] = r;	 qb[1] = u_n;
-	} else {
-	    qb[0] = u_n; qb[1] = r;
-	}
-    } else {
-	if(use_log_x) {
-	    if(add_N_step) {
-		/* add one last Newton step on original x scale, e.g., for
-		   qbeta(2^-98, 0.125, 2^-96) */
-		if(u_n != 1.) // u_n has been computed above
-		    xinbta = exp(u_n);
-		y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, log_p);
-		w = log_p
-		    ? (y - la) * exp(y + logbeta + r * log(xinbta) + t * log1p(-xinbta))
-		    : (y - a)  * exp(    logbeta + r * log(xinbta) + t * log1p(-xinbta));
-		if(R_FINITE(w)) {
-		    tx = xinbta - w;
-		    R_ifDEBUG_printf(" Final Newton correction(non-log scale):\n"
-				     "  xinbta=%.16g, y=%g, w=-Delta(x)=%g. \n=> new x=%.16g\n",
-				     xinbta, y, w, tx);
-		} else { // Newton step w  cannot be used
-		    R_ifDEBUG_printf(" Final Newton correction(non-log scale), canNOT use step 'w':\n"
-				     "  xinbta=%.16g, y=%g, w=-Delta(x)=%g\n=> keep x=xinbta\n", xinbta, y, w);
-		    tx = xinbta;
-		}
-	    } else {
-		if(swap_tail) {
-		    qb[0] = -expm1(u_n); qb[1] =  exp  (u_n);
-		} else {
-		    qb[0] =  exp  (u_n); qb[1] = -expm1(u_n);
-		}
-		return;
-	    }
-	}
-	if(swap_tail) {
-	    qb[0] = 1 - tx; qb[1] = tx;
-	} else {
-	    qb[0] = tx;	qb[1] = 1 - tx;
-	}
+    if (give_log_q)
+    {                   // {currently not used from R's qbeta()} ==> use_log_x , too
+        if (!use_log_x) // (see if claim above is true)
+            MATHLIB_WARNING("qbeta() L_return, u_n=%g;  give_log_q=TRUE but use_log_x=FALSE -- please report!", u_n);
+        double r = R_Log1_Exp(u_n);
+        if (swap_tail)
+        {
+            qb[0] = r;
+            qb[1] = u_n;
+        }
+        else
+        {
+            qb[0] = u_n;
+            qb[1] = r;
+        }
+    }
+    else
+    {
+        if (use_log_x)
+        {
+            if (add_N_step)
+            {
+                /* add one last Newton step on original x scale, e.g., for
+                   qbeta(2^-98, 0.125, 2^-96) */
+                if (u_n != 1.) // u_n has been computed above
+                    xinbta = exp(u_n);
+                y = pbeta_raw(xinbta, pp, qq, /*lower_tail = */ TRUE, log_p);
+                w = log_p ? (y - la) * exp(y + logbeta + r * log(xinbta) + t * log1p(-xinbta))
+                          : (y - a) * exp(logbeta + r * log(xinbta) + t * log1p(-xinbta));
+                if (R_FINITE(w))
+                {
+                    tx = xinbta - w;
+                    R_ifDEBUG_printf(" Final Newton correction(non-log scale):\n"
+                                     "  xinbta=%.16g, y=%g, w=-Delta(x)=%g. \n=> new x=%.16g\n",
+                                     xinbta, y, w, tx);
+                }
+                else
+                { // Newton step w  cannot be used
+                    R_ifDEBUG_printf(" Final Newton correction(non-log scale), canNOT use step 'w':\n"
+                                     "  xinbta=%.16g, y=%g, w=-Delta(x)=%g\n=> keep x=xinbta\n",
+                                     xinbta, y, w);
+                    tx = xinbta;
+                }
+            }
+            else
+            {
+                if (swap_tail)
+                {
+                    qb[0] = -expm1(u_n);
+                    qb[1] = exp(u_n);
+                }
+                else
+                {
+                    qb[0] = exp(u_n);
+                    qb[1] = -expm1(u_n);
+                }
+                return;
+            }
+        }
+        if (swap_tail)
+        {
+            qb[0] = 1 - tx;
+            qb[1] = tx;
+        }
+        else
+        {
+            qb[0] = tx;
+            qb[1] = 1 - tx;
+        }
     }
     return;
 }

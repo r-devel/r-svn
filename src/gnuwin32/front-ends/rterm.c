@@ -48,15 +48,15 @@ static char Rversion[25];
 char *getRVersion(void)
 {
     snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
-    return(Rversion);
+    return (Rversion);
 }
 
 static DWORD mainThreadId;
 
 static void my_onintr(int nSig)
 {
-  UserBreak = 1;
-  PostThreadMessage(mainThreadId,0,0,0);
+    UserBreak = 1;
+    PostThreadMessage(mainThreadId, 0, 0, 0);
 }
 
 static UINT oldConsoleCP = 0;
@@ -64,99 +64,108 @@ static UINT oldConsoleOutputCP = 0;
 
 static void restore_cp(void)
 {
-    if (oldConsoleCP) SetConsoleCP(oldConsoleCP);
-    if (oldConsoleOutputCP) SetConsoleOutputCP(oldConsoleOutputCP);
+    if (oldConsoleCP)
+        SetConsoleCP(oldConsoleCP);
+    if (oldConsoleOutputCP)
+        SetConsoleOutputCP(oldConsoleOutputCP);
 }
 
 /* Used also by Rscript */
 int AppMain(int argc, char **argv)
 {
-    if (R_is_redirection_tty(0) && !isatty(0) &&
-        R_is_redirection_tty(1)) {
-	/* RTerm is being run in a redirection tty (probably cygwin
-	   or msys). Re-run RTerm with winpty, if available, to allow
-	   line editing using Windows Console API. */
-	int i, interactive;
-	char winpty[MAX_PATH+1];
+    if (R_is_redirection_tty(0) && !isatty(0) && R_is_redirection_tty(1))
+    {
+        /* RTerm is being run in a redirection tty (probably cygwin
+           or msys). Re-run RTerm with winpty, if available, to allow
+           line editing using Windows Console API. */
+        int i, interactive;
+        char winpty[MAX_PATH + 1];
 
-	interactive = 1;
-	/* needs to be in sync with cmdlineoptions() */
-	for(int i = 0; i< argc; i++) 
-	    if (!strcmp(argv[i], "--ess"))
-		interactive = 1;
-	    else if (!strcmp(argv[i], "-f")) {
-		interactive = 0;
-		i++;
-	    } else if (!strcmp(argv[i], "--file"))
-		interactive = 0;
-	    else if (!strcmp(argv[i], "-e")) {
-		interactive = 0;
-		i++;
-	    }
-	if (interactive && strcpy(winpty, "winpty.exe") &&
-	    PathFindOnPath(winpty, NULL)) {
+        interactive = 1;
+        /* needs to be in sync with cmdlineoptions() */
+        for (int i = 0; i < argc; i++)
+            if (!strcmp(argv[i], "--ess"))
+                interactive = 1;
+            else if (!strcmp(argv[i], "-f"))
+            {
+                interactive = 0;
+                i++;
+            }
+            else if (!strcmp(argv[i], "--file"))
+                interactive = 0;
+            else if (!strcmp(argv[i], "-e"))
+            {
+                interactive = 0;
+                i++;
+            }
+        if (interactive && strcpy(winpty, "winpty.exe") && PathFindOnPath(winpty, NULL))
+        {
 
-	    size_t len, pos;
-	    int res;
-	    char *cmd;
+            size_t len, pos;
+            int res;
+            char *cmd;
 
-	    len = strlen(winpty) + 5; /* 4*quote, terminator */
-	    for(i = 0; i < argc; i++)
-		len += strlen(argv[i]) + 3; /* space, 2*quote */
-	    cmd = (char *)malloc(len * sizeof(char));
-	    if (!cmd) {
-		fprintf(stderr, "Error: cannot allocate memory");
-		exit(1);
-	    }
-	    pos = snprintf(cmd, len, "\"\"%s\"", winpty);
-	    for(i = 0; i < argc; i++)
-		pos += snprintf(cmd + pos, len - pos, " \"%s\"",
-		                argv[i]);
-	    strcat(cmd + pos, "\"");
-	    /* Ignore Ctrl-C and let the child process handle it */
-	    SetConsoleCtrlHandler(NULL, TRUE);
-	    res = system(cmd);
-	    free(cmd);
-	    return res;
-	}
-	/* fall back to RTerm without support for line editing */
+            len = strlen(winpty) + 5; /* 4*quote, terminator */
+            for (i = 0; i < argc; i++)
+                len += strlen(argv[i]) + 3; /* space, 2*quote */
+            cmd = (char *)malloc(len * sizeof(char));
+            if (!cmd)
+            {
+                fprintf(stderr, "Error: cannot allocate memory");
+                exit(1);
+            }
+            pos = snprintf(cmd, len, "\"\"%s\"", winpty);
+            for (i = 0; i < argc; i++)
+                pos += snprintf(cmd + pos, len - pos, " \"%s\"", argv[i]);
+            strcat(cmd + pos, "\"");
+            /* Ignore Ctrl-C and let the child process handle it */
+            SetConsoleCtrlHandler(NULL, TRUE);
+            res = system(cmd);
+            free(cmd);
+            return res;
+        }
+        /* fall back to RTerm without support for line editing */
     }
 
-    if (GetACP() == 65001 /* UTF-8 */) {
-	/* Typically the console code page would be something else and then
-	   characters not representable in that code page would be displayed
-	   as question marks (regardless of whether the fonts support them). */
-	atexit(restore_cp);
-	oldConsoleCP = GetConsoleCP();
-	oldConsoleOutputCP = GetConsoleOutputCP();
-	SetConsoleOutputCP(65001);
-	SetConsoleCP(65001); /* not clear if needed */
+    if (GetACP() == 65001 /* UTF-8 */)
+    {
+        /* Typically the console code page would be something else and then
+           characters not representable in that code page would be displayed
+           as question marks (regardless of whether the fonts support them). */
+        atexit(restore_cp);
+        oldConsoleCP = GetConsoleCP();
+        oldConsoleOutputCP = GetConsoleOutputCP();
+        SetConsoleOutputCP(65001);
+        SetConsoleCP(65001); /* not clear if needed */
     }
 
     CharacterMode = RTerm;
-    if(strcmp(getDLLVersion(), getRVersion()) != 0) {
-	fprintf(stderr, "Error: R.DLL version does not match\n");
-	exit(1);
+    if (strcmp(getDLLVersion(), getRVersion()) != 0)
+    {
+        fprintf(stderr, "Error: R.DLL version does not match\n");
+        exit(1);
     }
-    if (isatty(0)) 
-	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
-    if(R_Interactive) 
-	R_gl_tab_set();
+    if (isatty(0))
+        FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+    if (R_Interactive)
+        R_gl_tab_set();
     cmdlineoptions(argc, argv);
-    mainThreadId = GetCurrentThreadId() ;
+    mainThreadId = GetCurrentThreadId();
     /* The following restores Ctrl-C handling if we were started from R.exe */
     SetConsoleCtrlHandler(NULL, FALSE);
     signal(SIGBREAK, my_onintr);
     GA_initapp(0, NULL);
     readconsolecfg();
-    if(R_Interactive) {
-	gl_hist_init(R_HistorySize, 1);
-	if (R_RestoreHistory) gl_loadhistory(R_HistoryFile);
-	saveConsoleTitle();
+    if (R_Interactive)
+    {
+        gl_hist_init(R_HistorySize, 1);
+        if (R_RestoreHistory)
+            gl_loadhistory(R_HistoryFile);
+        saveConsoleTitle();
 #ifdef _WIN64
-	SetConsoleTitle("Rterm (64-bit)");
+        SetConsoleTitle("Rterm (64-bit)");
 #else
-	SetConsoleTitle("Rterm (32-bit)");
+        SetConsoleTitle("Rterm (32-bit)");
 #endif
     }
     Rf_mainloop();

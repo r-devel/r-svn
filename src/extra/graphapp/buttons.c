@@ -52,8 +52,8 @@
 #define SHADOW_WIDTH 1
 
 #define isarmed(obj) ((obj)->state & GA_Armed)
-#define arm(obj)     ((obj)->state |= GA_Armed)
-#define disarm(obj)  ((obj)->state &= ~GA_Armed)
+#define arm(obj) ((obj)->state |= GA_Armed)
+#define disarm(obj) ((obj)->state &= ~GA_Armed)
 
 #define hasfocus(obj) ((obj)->state & GA_Focus)
 #define setfocus(obj) SetFocus((obj)->handle)
@@ -64,9 +64,10 @@
  */
 static void ensure_window(void)
 {
-    if (! current_window) {
-	current_window = simple_window();
-	show(current_window);
+    if (!current_window)
+    {
+        current_window = simple_window();
+        show(current_window);
     }
 }
 
@@ -78,11 +79,11 @@ static void set_new_winproc(object obj)
     HWND hwnd;
     hwnd = obj->handle;
 #ifdef _WIN64
-    obj->winproc = (WNDPROC) GetWindowLongPtr(hwnd, GWLP_WNDPROC);
-    SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR) app_control_proc);
+    obj->winproc = (WNDPROC)GetWindowLongPtr(hwnd, GWLP_WNDPROC);
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)app_control_proc);
 #else
-    obj->winproc = (WNDPROC) GetWindowLong(hwnd, GWL_WNDPROC);
-    SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG) app_control_proc);
+    obj->winproc = (WNDPROC)GetWindowLong(hwnd, GWL_WNDPROC);
+    SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG)app_control_proc);
 #endif
 }
 
@@ -94,7 +95,7 @@ static void private_delcontrol(control obj)
     ShowWindow(obj->handle, SW_HIDE);
 #if USE_NATIVE_CONTROLS
     if (obj->bgbrush)
-	DeleteObject(obj->bgbrush);
+        DeleteObject(obj->bgbrush);
 #endif
     DestroyWindow(obj->handle);
 }
@@ -108,9 +109,10 @@ control newcontrol(const char *text, rect r)
 
     ensure_window();
     obj = newwindow(text, r, ChildWindow | TrackMouse);
-    if (obj) {
-	obj->kind = UserObject;
-	obj->die = private_delcontrol;
+    if (obj)
+    {
+        obj->kind = UserObject;
+        obj->die = private_delcontrol;
     }
     set_new_winproc(obj); /* set custom winproc */
     show(obj);
@@ -121,16 +123,16 @@ control newcontrol(const char *text, rect r)
 drawing newdrawing(rect r, drawfn fn)
 {
     drawing obj = newcontrol(NULL, r);
-    if (obj) {
-	setredraw(obj, fn);
-	show(obj);
-	draw(obj);
+    if (obj)
+    {
+        setredraw(obj, fn);
+        show(obj);
+        draw(obj);
     }
     return obj;
 }
 
-static object newchildwin(const char *kind, const char *text,
-			  unsigned long style, rect r, actionfn fn)
+static object newchildwin(const char *kind, const char *text, unsigned long style, rect r, actionfn fn)
 {
     HWND hwnd;
     object obj;
@@ -138,28 +140,24 @@ static object newchildwin(const char *kind, const char *text,
     ensure_window();
     r = rcanon(r);
 
-    if(localeCP > 0 && (localeCP != GetACP())) {
-	/* This seems not actually to work */
-	wchar_t wkind[100], wc[1000];
-	mbstowcs(wkind, kind, 100);
-	mbstowcs(wc, text, 1000);
-	hwnd = CreateWindowW(wkind, wc,
-			     (WS_CHILD | WS_VISIBLE) | style,
-			     r.x, r.y, r.width, r.height,
-			     current_window->handle,
-			     (HMENU) child_id, this_instance, NULL);
-    } else
-	hwnd = CreateWindow(kind, text,
-			    (WS_CHILD | WS_VISIBLE) | style,
-			    r.x, r.y, r.width, r.height,
-			    current_window->handle,
-			    (HMENU) child_id, this_instance, NULL);
-
+    if (localeCP > 0 && (localeCP != GetACP()))
+    {
+        /* This seems not actually to work */
+        wchar_t wkind[100], wc[1000];
+        mbstowcs(wkind, kind, 100);
+        mbstowcs(wc, text, 1000);
+        hwnd = CreateWindowW(wkind, wc, (WS_CHILD | WS_VISIBLE) | style, r.x, r.y, r.width, r.height,
+                             current_window->handle, (HMENU)child_id, this_instance, NULL);
+    }
+    else
+        hwnd = CreateWindow(kind, text, (WS_CHILD | WS_VISIBLE) | style, r.x, r.y, r.width, r.height,
+                            current_window->handle, (HMENU)child_id, this_instance, NULL);
 
     obj = new_object(ControlObject, hwnd, current_window);
-    if (! obj) {
-	DestroyWindow(hwnd);
-	return NULL;
+    if (!obj)
+    {
+        DestroyWindow(hwnd);
+        return NULL;
     }
     obj->die = private_delcontrol;
     obj->rect = r;
@@ -183,9 +181,9 @@ label newlabel(const char *text, rect r, int alignment)
     unsigned long style = SS_LEFT;
 
     if ((alignment & AlignRight) == AlignRight)
-	style = SS_RIGHT;
+        style = SS_RIGHT;
     if ((alignment & Center) == Center)
-	style = SS_CENTER;
+        style = SS_CENTER;
 
     obj = newchildwin("static", text, style, r, NULL);
     obj->kind = LabelObject;
@@ -200,9 +198,9 @@ static void draw_label(control c, rect r)
 {
     /* Draw the label. */
     if (!isenabled(c))
-	setcolour(Grey);
+        setcolour(Grey);
     else
-	setcolour(Black);
+        setcolour(Black);
     setfont(gettextfont(c));
     drawtext(r, getvalue(c), getname(c));
 }
@@ -217,13 +215,14 @@ static void draw_label(control c, rect r)
 control newlabel(const char *text, rect r, int alignment)
 {
     control obj = newcontrol(text, r);
-    if (obj) {
-	obj->kind = LabelObject;
-	setredraw(obj, draw_label);
-	setvalue(obj, alignment);
-	setbackground(obj, getbackground(parentwindow(obj)));
-	settextfont(obj, SystemFont);
-	show(obj);
+    if (obj)
+    {
+        obj->kind = LabelObject;
+        setredraw(obj, draw_label);
+        setvalue(obj, alignment);
+        setbackground(obj, getbackground(parentwindow(obj)));
+        settextfont(obj, SystemFont);
+        show(obj);
     }
     return obj;
 }
@@ -237,24 +236,26 @@ control newlabel(const char *text, rect r, int alignment)
 static void uncheck_neighbours(object obj)
 {
     object first = obj->parent->child;
-    object last  = first->prev;
+    object last = first->prev;
     object which;
 
-    for (which=obj; ; which=which->prev) {
-	if (which->kind == RadiogroupObject)
-	    break;
-	if ((which->kind == RadioObject) && (which != obj))
-	    uncheck(which);
-	if (which == first)
-	    break;
+    for (which = obj;; which = which->prev)
+    {
+        if (which->kind == RadiogroupObject)
+            break;
+        if ((which->kind == RadioObject) && (which != obj))
+            uncheck(which);
+        if (which == first)
+            break;
     }
-    for (which=obj; ; which=which->next) {
-	if (which->kind == RadiogroupObject)
-	    break;
-	if ((which->kind == RadioObject) && (which != obj))
-	    uncheck(which);
-	if (which == last)
-	    break;
+    for (which = obj;; which = which->next)
+    {
+        if (which->kind == RadiogroupObject)
+            break;
+        if ((which->kind == RadioObject) && (which != obj))
+            uncheck(which);
+        if (which == last)
+            break;
     }
 }
 
@@ -278,16 +279,17 @@ static void draw_shadow(rect r, rgb col1, rgb col2, int size)
 
     /* Draw top-left button border. */
     setcolour(col1);
-    fillrect(rect(r.x,r.y,r.width,size));
-    fillrect(rect(r.x,r.y,size,r.height));
+    fillrect(rect(r.x, r.y, r.width, size));
+    fillrect(rect(r.x, r.y, size, r.height));
 
     /* Draw bottom-right button border. */
     setcolour(col2);
-    while (size > 0) {
-	fillrect(rect(r.x+r.width-1,r.y,1,r.height));
-	fillrect(rect(r.x,r.y+r.height-1,r.width,1));
-	r = insetr(r,1);
-	size--;
+    while (size > 0)
+    {
+        fillrect(rect(r.x + r.width - 1, r.y, 1, r.height));
+        fillrect(rect(r.x, r.y + r.height - 1, r.width, 1));
+        r = insetr(r, 1);
+        size--;
     }
     setcolour(hue);
 }
@@ -304,28 +306,29 @@ static void button_mousedown(control c, int buttons, point xy)
 static void button_mousemove(control c, int buttons, point xy)
 {
     if (!isarmed(c))
-	return;
-    if (buttons && ptinr(xy,getrect(c)))
-	highlight(c);
+        return;
+    if (buttons && ptinr(xy, getrect(c)))
+        highlight(c);
     else
-	unhighlight(c);
+        unhighlight(c);
 }
 
 static void button_mouseup(control c, int buttons, point xy)
 {
     if (!isarmed(c))
-	return;
+        return;
     disarm(c);
     unhighlight(c);
     if (ptinr(xy, getrect(c)))
-	activatecontrol(c);
+        activatecontrol(c);
 }
 
 static void button_keydown(control c, int ch)
 {
-    if (ch == ' ') {
-	flashcontrol(c);
-	activatecontrol(c);
+    if (ch == ' ')
+    {
+        flashcontrol(c);
+        activatecontrol(c);
     }
 }
 
@@ -341,36 +344,37 @@ static void checkbox_mousedown(control c, int buttons, point xy)
 static void checkbox_mousemove(control c, int buttons, point xy)
 {
     if (!isarmed(c))
-	return;
-    if (buttons && ptinr(xy,getrect(c)))
-	highlight(c);
+        return;
+    if (buttons && ptinr(xy, getrect(c)))
+        highlight(c);
     else
-	unhighlight(c);
+        unhighlight(c);
 }
 
 static void checkbox_mouseup(control c, int buttons, point xy)
 {
-    if (! isenabled(c))
-	return;
+    if (!isenabled(c))
+        return;
     disarm(c);
     unhighlight(c);
-    if (! ptinr(xy, getrect(c)))
-	return;
+    if (!ptinr(xy, getrect(c)))
+        return;
     if (ischecked(c))
-	uncheck(c);
+        uncheck(c);
     else
-	check(c);
+        check(c);
     activatecontrol(c);
 }
 
 static void checkbox_keydown(control c, int ch)
 {
-    if (ch == ' ') {
-	if (ischecked(c))
-	    uncheck(c);
-	else
-	    check(c);
-	activatecontrol(c);
+    if (ch == ' ')
+    {
+        if (ischecked(c))
+            uncheck(c);
+        else
+            check(c);
+        activatecontrol(c);
     }
 }
 
@@ -387,39 +391,42 @@ void setimage(control obj, image img)
 
 static void draw_image_button(button obj, rect r)
 {
-    image   img;
-    bitmap	store = NULL;
-    rect    ir;
-    rgb     up, down;
-    rgb     old = currentcolour();
+    image img;
+    bitmap store = NULL;
+    rect ir;
+    rgb up, down;
+    rgb old = currentcolour();
 
     img = obj->img;
-    if (has_transparent_pixels(img)) {
-	store = newbitmap(r.width, r.height, 0);
-	drawto(store);
-	setcolour(getbackground(obj));
-	fillrect(r);
+    if (has_transparent_pixels(img))
+    {
+        store = newbitmap(r.width, r.height, 0);
+        drawto(store);
+        setcolour(getbackground(obj));
+        fillrect(r);
     }
 
-    if (img) {
-	ir = insetr(r,2);
-	if (ishighlighted(obj)) /* button is pressed */
-	    ir.x += 1, ir.y += 1;
+    if (img)
+    {
+        ir = insetr(r, 2);
+        if (ishighlighted(obj)) /* button is pressed */
+            ir.x += 1, ir.y += 1;
 
-	/* Draw the button image. */
-	if (ischecked(obj))
-	    drawdarker(img, ir, getrect(img));
-	else if (isenabled(obj))
-	    drawimage(img, ir, getrect(img));
-	else
-	    drawgreyscale(img, ir, getrect(img));
+        /* Draw the button image. */
+        if (ischecked(obj))
+            drawdarker(img, ir, getrect(img));
+        else if (isenabled(obj))
+            drawimage(img, ir, getrect(img));
+        else
+            drawgreyscale(img, ir, getrect(img));
 
-	if (ishighlighted(obj)) { /* fill the gap */
-	    ir.x -= 1, ir.y -= 1;
-	    setcolour(getbackground(obj));
-	    drawline(topleft(ir),topright(ir));
-	    drawline(topleft(ir),bottomleft(ir));
-	}
+        if (ishighlighted(obj))
+        { /* fill the gap */
+            ir.x -= 1, ir.y -= 1;
+            setcolour(getbackground(obj));
+            drawline(topleft(ir), topright(ir));
+            drawline(topleft(ir), bottomleft(ir));
+        }
     }
 
     /* Draw button border. */
@@ -430,26 +437,26 @@ static void draw_image_button(button obj, rect r)
     /* Draw button shadow. */
     up = White, down = Grey;
     if (ishighlighted(obj))
-	up = Grey, down = LightGrey;
-    draw_shadow(insetr(r,1), up, down, 1);
+        up = Grey, down = LightGrey;
+    draw_shadow(insetr(r, 1), up, down, 1);
 
-    if (store != NULL) {
-	drawto(obj);
-	copyrect(store, pt(0,0), getrect(store));
-	del(store);
+    if (store != NULL)
+    {
+        drawto(obj);
+        copyrect(store, pt(0, 0), getrect(store));
+        del(store);
     }
 
     setcolour(old);
 }
-
 
 button newimagebutton(image img, rect r, actionfn fn)
 {
     button obj;
 
     obj = newcontrol(NULL, r);
-    if (! obj)
-	return NULL;
+    if (!obj)
+        return NULL;
 
     setredraw(obj, draw_image_button);
     setmousedown(obj, button_mousedown);
@@ -469,32 +476,35 @@ button newimagebutton(image img, rect r, actionfn fn)
 
 static void draw_picture(control obj, rect r)
 {
-    image   img;
-    bitmap	store = NULL;
-    rgb     old = currentcolour();
+    image img;
+    bitmap store = NULL;
+    rgb old = currentcolour();
 
     img = obj->img;
-    if (has_transparent_pixels(img)) {
-	store = newbitmap(r.width, r.height, 0);
-	drawto(store);
-	setcolour(getbackground(obj));
-	fillrect(r);
+    if (has_transparent_pixels(img))
+    {
+        store = newbitmap(r.width, r.height, 0);
+        drawto(store);
+        setcolour(getbackground(obj));
+        fillrect(r);
     }
 
-    if (img) {
-	/* Draw the button image. */
-	if (ischecked(obj))
-	    drawdarker(img, r, getrect(img));
-	else if (isenabled(obj))
-	    drawimage(img, r, getrect(img));
-	else
-	    drawimage(img, r, getrect(img)); /* never grey */
+    if (img)
+    {
+        /* Draw the button image. */
+        if (ischecked(obj))
+            drawdarker(img, r, getrect(img));
+        else if (isenabled(obj))
+            drawimage(img, r, getrect(img));
+        else
+            drawimage(img, r, getrect(img)); /* never grey */
     }
 
-    if (store != NULL) {
-	drawto(obj);
-	copyrect(store, pt(0,0), getrect(store));
-	del(store);
+    if (store != NULL)
+    {
+        drawto(obj);
+        copyrect(store, pt(0, 0), getrect(store));
+        del(store);
     }
 
     setcolour(old);
@@ -505,8 +515,8 @@ control newpicture(image img, rect r)
     control obj;
 
     obj = newcontrol(NULL, r);
-    if (! obj)
-	return NULL;
+    if (!obj)
+        return NULL;
 
     setredraw(obj, draw_picture);
     setimage(obj, img);
@@ -521,8 +531,8 @@ button newimagecheckbox(image img, rect r, actionfn fn)
     button obj;
 
     obj = newdrawing(r, draw_image_button);
-    if (! obj)
-	return NULL;
+    if (!obj)
+        return NULL;
 
     setmousedown(obj, checkbox_mousedown);
     setmousemove(obj, checkbox_mousemove);
@@ -539,14 +549,13 @@ button newimagecheckbox(image img, rect r, actionfn fn)
     return obj;
 }
 
-
 #if USE_NATIVE_BUTTONS
 button newbutton(const char *text, rect r, actionfn fn)
 {
     button obj;
     obj = newchildwin("button", text, BS_PUSHBUTTON, r, fn);
     if (obj)
-	obj->kind = ButtonObject;
+        obj->kind = ButtonObject;
     return obj;
 }
 #else
@@ -561,29 +570,30 @@ static void draw_button(control c, rect r)
 
     /* Draw the button name. */
     if (isenabled(c))
-	setcolour(getforeground(c));
+        setcolour(getforeground(c));
     else
-	setcolour(Grey);
+        setcolour(Grey);
     f = gettextfont(c);
     setfont(f);
     textrect = r;
     if (ishighlighted(c))
-	textrect.x += 1, textrect.y += 1;
-    drawtext(textrect, Center|VCenter, getname(c));
+        textrect.x += 1, textrect.y += 1;
+    drawtext(textrect, Center | VCenter, getname(c));
 
     /* Draw button border. */
     setlinewidth(1);
     drawrect(r);
-    r = insetr(r,1);
+    r = insetr(r, 1);
 
     /* Draw button shadow. */
     up = White, down = Grey;
     if (ishighlighted(c))
-	up = Grey, down = LightGrey;
-    else if (hasfocus(c)) {
-	setcolour(Black);
-	drawrect(r);
-	r = insetr(r,1);
+        up = Grey, down = LightGrey;
+    else if (hasfocus(c))
+    {
+        setcolour(Black);
+        drawrect(r);
+        r = insetr(r, 1);
     }
     draw_shadow(r, up, down, SHADOW_WIDTH);
 
@@ -593,18 +603,19 @@ static void draw_button(control c, rect r)
 button newbutton(const char *text, rect r, actionfn fn)
 {
     button obj = newcontrol(text, r);
-    if (obj) {
-	obj->kind = ButtonObject;
-	setredraw(obj, draw_button);
-	setmousedown(obj, button_mousedown);
-	setmousemove(obj, button_mousemove);
-	setmousedrag(obj, button_mousemove);
-	setmouseup(obj, button_mouseup);
-	setkeydown(obj, button_keydown);
-	setaction(obj, fn);
-	setbackground(obj, LightGrey);
-	settextfont(obj, SystemFont);
-	show(obj);
+    if (obj)
+    {
+        obj->kind = ButtonObject;
+        setredraw(obj, draw_button);
+        setmousedown(obj, button_mousedown);
+        setmousemove(obj, button_mousemove);
+        setmousedrag(obj, button_mousemove);
+        setmouseup(obj, button_mouseup);
+        setkeydown(obj, button_keydown);
+        setaction(obj, fn);
+        setbackground(obj, LightGrey);
+        settextfont(obj, SystemFont);
+        show(obj);
     }
     return obj;
 }
@@ -614,9 +625,10 @@ button newbutton(const char *text, rect r, actionfn fn)
 checkbox newcheckbox(const char *text, rect r, actionfn fn)
 {
     checkbox obj = newchildwin("button", text, BS_CHECKBOX, r, fn);
-    if (obj) {
-	obj->kind = CheckboxObject;
-	setbackground(obj, getbackground(parentwindow(obj)));
+    if (obj)
+    {
+        obj->kind = CheckboxObject;
+        setbackground(obj, getbackground(parentwindow(obj)));
     }
     return obj;
 }
@@ -624,9 +636,10 @@ checkbox newcheckbox(const char *text, rect r, actionfn fn)
 radiobutton newradiobutton(const char *text, rect r, actionfn fn)
 {
     radiobutton obj = newchildwin("button", text, BS_RADIOBUTTON, r, fn);
-    if (obj) {
-	obj->kind = RadioObject;
-	setbackground(obj, getbackground(parentwindow(obj)));
+    if (obj)
+    {
+        obj->kind = RadioObject;
+        setbackground(obj, getbackground(parentwindow(obj)));
     }
     return obj;
 }
@@ -635,24 +648,21 @@ static void draw_checkmark(rect r)
 {
     int len;
 
-    if (r.width < 8) {
-	r = insetr(r,1);
-	fillrect(r);
-	return;
+    if (r.width < 8)
+    {
+        r = insetr(r, 1);
+        fillrect(r);
+        return;
     }
 
-    len = r.width/3;
+    len = r.width / 3;
     if (len < 3)
-	len = 3;
+        len = 3;
 
-    drawline(pt(r.x+1, r.y+r.height-len-2),
-	     pt(r.x+len, r.y+r.height-3));
-    drawline(pt(r.x+2, r.y+r.height-len-2),
-	     pt(r.x+len, r.y+r.height-4));
-    drawline(pt(r.x+len, r.y+r.height-3),
-	     pt(r.x+r.width-1, r.y+len-2));
-    drawline(pt(r.x+len, r.y+r.height-4),
-	     pt(r.x+r.width-2, r.y+len-2));
+    drawline(pt(r.x + 1, r.y + r.height - len - 2), pt(r.x + len, r.y + r.height - 3));
+    drawline(pt(r.x + 2, r.y + r.height - len - 2), pt(r.x + len, r.y + r.height - 4));
+    drawline(pt(r.x + len, r.y + r.height - 3), pt(r.x + r.width - 1, r.y + len - 2));
+    drawline(pt(r.x + len, r.y + r.height - 4), pt(r.x + r.width - 2, r.y + len - 2));
 }
 
 static void draw_checkbox(control c, rect r)
@@ -667,41 +677,44 @@ static void draw_checkbox(control c, rect r)
     /* Calculate rectangles. */
     f = gettextfont(c);
     setfont(f);
-    w = strwidth(f,"W");
-    if (w > r.width)  w = r.width;
-    if (w > r.height) w = r.height;
-    box = rect(r.x,r.y+1,w,w);
+    w = strwidth(f, "W");
+    if (w > r.width)
+        w = r.width;
+    if (w > r.height)
+        w = r.height;
+    box = rect(r.x, r.y + 1, w, w);
     if (w < getheight(f) - getdescent(f))
-	box.y += getheight(f) - getdescent(f) - w;
-    textrect = rect(r.x+w+w/2,r.y,r.width-(w+w/2),r.height);
+        box.y += getheight(f) - getdescent(f) - w;
+    textrect = rect(r.x + w + w / 2, r.y, r.width - (w + w / 2), r.height);
 
     /* Clear check area. */
     setlinewidth(1);
     setcolour(White);
-    fillrect(insetr(box,1));
+    fillrect(insetr(box, 1));
 
     /* Draw check area */
     if (isenabled(c))
-	setcolour(Black);
+        setcolour(Black);
     else
-	setcolour(Grey);
+        setcolour(Grey);
     drawrect(box);
 
     /* 'Pressed button' effect by black border in box. */
     if (ishighlighted(c))
-	drawrect(insetr(box,1));
+        drawrect(insetr(box, 1));
 
     /* Put tick in box if checked. */
     if (ischecked(c))
-	draw_checkmark(insetr(box,1));
+        draw_checkmark(insetr(box, 1));
 
     name = getname(c);
-    if (isenabled(c)) {
-	/* if (hasfocus(c)) {
-	   style |= Underline;
-	   setlinewidth(2);
-	   } */
-	setcolour(getforeground(c));
+    if (isenabled(c))
+    {
+        /* if (hasfocus(c)) {
+           style |= Underline;
+           setlinewidth(2);
+           } */
+        setcolour(getforeground(c));
     }
     drawtext(textrect, style, name);
 
@@ -711,18 +724,19 @@ static void draw_checkbox(control c, rect r)
 checkbox newcheckbox(const char *text, rect r, actionfn fn)
 {
     checkbox obj = newcontrol(text, r);
-    if (obj) {
-	obj->kind = CheckboxObject;
-	setredraw(obj, draw_checkbox);
-	setmousedown(obj, checkbox_mousedown);
-	setmousemove(obj, checkbox_mousemove);
-	setmousedrag(obj, checkbox_mousemove);
-	setmouseup(obj, checkbox_mouseup);
-	setkeydown(obj, checkbox_keydown);
-	setaction(obj, fn);
-	setbackground(obj, getbackground(parentwindow(obj)));
-	settextfont(obj, SystemFont);
-	show(obj);
+    if (obj)
+    {
+        obj->kind = CheckboxObject;
+        setredraw(obj, draw_checkbox);
+        setmousedown(obj, checkbox_mousedown);
+        setmousemove(obj, checkbox_mousemove);
+        setmousedrag(obj, checkbox_mousemove);
+        setmouseup(obj, checkbox_mouseup);
+        setkeydown(obj, checkbox_keydown);
+        setaction(obj, fn);
+        setbackground(obj, getbackground(parentwindow(obj)));
+        settextfont(obj, SystemFont);
+        show(obj);
     }
     return obj;
 }
@@ -739,44 +753,48 @@ static void draw_radio(control c, rect r)
     /* Calculate rectangles. */
     f = gettextfont(c);
     setfont(f);
-    w = strwidth(f,"W");
-    if (w > r.width)  w = r.width;
-    if (w > r.height) w = r.height;
-    box = rect(r.x,r.y+1,w,w);
+    w = strwidth(f, "W");
+    if (w > r.width)
+        w = r.width;
+    if (w > r.height)
+        w = r.height;
+    box = rect(r.x, r.y + 1, w, w);
     if (w < getheight(f) - getdescent(f))
-	box.y += getheight(f) - getdescent(f) - w;
-    textrect = rect(r.x+w+w/2,r.y,r.width-(w+w/2),r.height);
+        box.y += getheight(f) - getdescent(f) - w;
+    textrect = rect(r.x + w + w / 2, r.y, r.width - (w + w / 2), r.height);
 
     /* Clear the check area. */
     setlinewidth(1);
     setcolour(White);
-    fillellipse(insetr(box,1));
+    fillellipse(insetr(box, 1));
 
     /* Draw the check area */
     if (isenabled(c))
-	setcolour(Black);
+        setcolour(Black);
     else
-	setcolour(Grey);
+        setcolour(Grey);
     drawellipse(box);
 
     /* Provide 'pressed button' effect by black border. */
-    if (ishighlighted(c)) {
-	setlinewidth(2);
-	drawellipse(box);
-	setlinewidth(1);
+    if (ishighlighted(c))
+    {
+        setlinewidth(2);
+        drawellipse(box);
+        setlinewidth(1);
     }
 
     /* Put o in circle if checked. */
     if (ischecked(c))
-	fillellipse(insetr(box,3));
+        fillellipse(insetr(box, 3));
 
     name = getname(c);
-    if (isenabled(c)) {
-	/* if (hasfocus(c)) {
-	   style |= Underline;
-	   setlinewidth(2);
-	   } */
-	setcolour(getforeground(c));
+    if (isenabled(c))
+    {
+        /* if (hasfocus(c)) {
+           style |= Underline;
+           setlinewidth(2);
+           } */
+        setcolour(getforeground(c));
     }
     drawtext(textrect, style, name);
 
@@ -785,105 +803,107 @@ static void draw_radio(control c, rect r)
 
 static void radio_hit(control c)
 {
-    if (!ischecked(c)) {
-	uncheck_neighbours(c);
-	check(c);
-	activatecontrol(c);
+    if (!ischecked(c))
+    {
+        uncheck_neighbours(c);
+        check(c);
+        activatecontrol(c);
     }
 }
 
 static void radio_mouseup(control c, int buttons, point xy)
 {
-    if (! isarmed(c))
-	return;
+    if (!isarmed(c))
+        return;
     disarm(c);
     unhighlight(c);
-    if (! ptinr(xy, getrect(c)))
-	return;
+    if (!ptinr(xy, getrect(c)))
+        return;
     radio_hit(c);
 }
 
 static void radio_keydown(control c, int ch)
 {
     if (ch == ' ')
-	radio_hit(c);
+        radio_hit(c);
 }
 
 radiobutton newradiobutton(const char *text, rect r, actionfn fn)
 {
     radiobutton obj = newcontrol(text, r);
-    if (obj) {
-	obj->kind = RadioObject;
-	setredraw(obj, draw_radio);
-	setmousedown(obj, checkbox_mousedown);
-	setmousemove(obj, checkbox_mousemove);
-	setmousedrag(obj, checkbox_mousemove);
-	setmouseup(obj, radio_mouseup);
-	setkeydown(obj, radio_keydown);
-	setaction(obj, fn);
-	setbackground(obj, getbackground(parentwindow(obj)));
-	settextfont(obj, SystemFont);
-	show(obj);
+    if (obj)
+    {
+        obj->kind = RadioObject;
+        setredraw(obj, draw_radio);
+        setmousedown(obj, checkbox_mousedown);
+        setmousemove(obj, checkbox_mousemove);
+        setmousedrag(obj, checkbox_mousemove);
+        setmouseup(obj, radio_mouseup);
+        setkeydown(obj, radio_keydown);
+        setaction(obj, fn);
+        setbackground(obj, getbackground(parentwindow(obj)));
+        settextfont(obj, SystemFont);
+        show(obj);
     }
     return obj;
 }
 #endif
 
-void undotext(control obj)  /* Why was this previously commented out? CJ */
+void undotext(control obj) /* Why was this previously commented out? CJ */
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, EM_UNDO, 0, 0L);
 }
 
 void cuttext(control obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, WM_CUT, 0, 0L);
 }
 
 void copytext(control obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, WM_COPY, 0, 0L);
 }
 
 void cleartext(control obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, WM_CLEAR, 0, 0L);
 }
 
 void pastetext(control obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     sendmessage(obj->handle, WM_PASTE, 0, 0L);
 }
 
 void inserttext(control obj, const char *text)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     text = to_dos_string(text);
-    sendmessage(obj->handle, EM_REPLACESEL, 0, (intptr_t) text);
+    sendmessage(obj->handle, EM_REPLACESEL, 0, (intptr_t)text);
     if (text)
-	discard(text);
+        discard(text);
 }
 
 void selecttext(control obj, long start, long end)
@@ -891,17 +911,17 @@ void selecttext(control obj, long start, long end)
     int left, right;
     long length;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
+        return;
     length = GetWindowTextLength(obj->handle);
     left = (start < 0) ? length : start;
     right = (end < 0) ? length : end;
 #ifdef WIN32
-    sendmessage(obj->handle, EM_SETSEL, left,right);
+    sendmessage(obj->handle, EM_SETSEL, left, right);
 #else
-    sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(left,right));
+    sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(left, right));
 #endif
 }
 
@@ -909,50 +929,47 @@ void textselection(control obj, long *start, long *end)
 {
     unsigned long sel;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if ((obj->kind != FieldObject) && (obj->kind != TextboxObject))
-	return;
-    sel = (DWORD) sendmessage(obj->handle, EM_GETSEL, 0, 0);
-    if (start) *start = LOWORD(sel);
-    if (end) *end = HIWORD(sel);
+        return;
+    sel = (DWORD)sendmessage(obj->handle, EM_GETSEL, 0, 0);
+    if (start)
+        *start = LOWORD(sel);
+    if (end)
+        *end = HIWORD(sel);
 }
-
 
 field newfield(const char *text, rect r)
 {
-    field obj = newchildwin("edit", NULL,
-			    WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-			    r, NULL);
-    if (obj) {
-	obj->kind = FieldObject;
-	settext(obj, text);
+    field obj = newchildwin("edit", NULL, WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, r, NULL);
+    if (obj)
+    {
+        obj->kind = FieldObject;
+        settext(obj, text);
     }
     return obj;
 }
 
-
 field newfield_no_border(const char *text, rect r)
 {
-    field obj = newchildwin("edit", NULL,
-			    ES_LEFT | ES_AUTOHSCROLL,
-			    r, NULL);
-    if (obj) {
-	obj->kind = FieldObject;
-	settext(obj, text);
+    field obj = newchildwin("edit", NULL, ES_LEFT | ES_AUTOHSCROLL, r, NULL);
+    if (obj)
+    {
+        obj->kind = FieldObject;
+        settext(obj, text);
     }
     return obj;
 }
 
 field newpassword(const char *text, rect r)
 {
-    field obj = newchildwin("edit", NULL,
-			    WS_BORDER | ES_LEFT | ES_AUTOHSCROLL
-			    | ES_PASSWORD, r, NULL);
-    if (obj) {
-	obj->kind = FieldObject;
-	settextfont(obj, SystemFont);
-	settext(obj, text);
+    field obj = newchildwin("edit", NULL, WS_BORDER | ES_LEFT | ES_AUTOHSCROLL | ES_PASSWORD, r, NULL);
+    if (obj)
+    {
+        obj->kind = FieldObject;
+        settextfont(obj, SystemFont);
+        settext(obj, text);
     }
     return obj;
 }
@@ -960,29 +977,25 @@ field newpassword(const char *text, rect r)
 textbox newtextbox(const char *text, rect r)
 {
     textbox obj = newchildwin("edit", NULL,
-			      /* WS_HSCROLL | ES_AUTOHSCROLL | */
-			      WS_VSCROLL | ES_AUTOVSCROLL |
-			      WS_BORDER | ES_LEFT |
-			      ES_MULTILINE,
-			      r, NULL);
-    if (obj) {
-	obj->kind = TextboxObject;
-	settext(obj, text);
+                              /* WS_HSCROLL | ES_AUTOHSCROLL | */
+                              WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE, r, NULL);
+    if (obj)
+    {
+        obj->kind = TextboxObject;
+        settext(obj, text);
     }
     return obj;
 }
 
 textbox newtextarea(const char *text, rect r)
 {
-    textbox obj = newchildwin("edit", NULL,
-			      WS_HSCROLL | ES_AUTOHSCROLL |
-			      WS_VSCROLL | ES_AUTOVSCROLL |
-			      WS_BORDER | ES_LEFT |
-			      ES_MULTILINE,
-			      r, NULL);
-    if (obj) {
-	obj->kind = TextboxObject;
-	settext(obj, text);
+    textbox obj = newchildwin(
+        "edit", NULL, WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE, r,
+        NULL);
+    if (obj)
+    {
+        obj->kind = TextboxObject;
+        settext(obj, text);
     }
     return obj;
 }
@@ -991,20 +1004,19 @@ textbox newrichtextarea(const char *text, rect r)
 {
     textbox obj;
     if (!LoadLibrary("riched20.dll")) /* RichEdit version 2.0, not included in Win95 */
-	LoadLibrary("riched32.dll");  /* RichEdit version 1.0 */
+        LoadLibrary("riched32.dll");  /* RichEdit version 1.0 */
 
     /* RichEdit20A uses the non-UTF-8 ANSI encoding even when Rgui uses UTF-8
        as ACP via its manifest. Only Unicode strings may be sent to RichEdit20W
        window via messages, e.g. EM_FINDTEXTTEXW. */
     obj = newchildwin("RichEdit20W", NULL,
-		      WS_HSCROLL | ES_AUTOHSCROLL |
-		      WS_VSCROLL | ES_AUTOVSCROLL |
-		      ES_LEFT | ES_MULTILINE | ES_NOHIDESEL,
-		      r, NULL);
-    if (obj) {
-	sendmessage(obj->handle, EM_SETTEXTMODE, TM_PLAINTEXT, 0);
-	obj->kind = TextboxObject;
-	settext(obj, text);
+                      WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL,
+                      r, NULL);
+    if (obj)
+    {
+        sendmessage(obj->handle, EM_SETTEXTMODE, TM_PLAINTEXT, 0);
+        obj->kind = TextboxObject;
+        settext(obj, text);
     }
     return obj;
 }
@@ -1018,24 +1030,23 @@ scrollbar newscrollbar(rect r, int max, int pagesize, scrollfn fn)
 
     r = rcanon(r);
 
-    obj = newchildwin("scrollbar", NULL,
-		      (r.width > r.height) ? SBS_HORZ : SBS_VERT,
-		      r, NULL);
-    if (obj) {
-	obj->kind = ScrollbarObject;
-	obj->hit = fn;
-	obj->value = 0;
-	obj->max = max;
-	obj->size = pagesize;
+    obj = newchildwin("scrollbar", NULL, (r.width > r.height) ? SBS_HORZ : SBS_VERT, r, NULL);
+    if (obj)
+    {
+        obj->kind = ScrollbarObject;
+        obj->hit = fn;
+        obj->value = 0;
+        obj->max = max;
+        obj->size = pagesize;
 
-	hwnd = obj->handle;
-	si.cbSize = sizeof(si);
-	si.fMask = SIF_ALL;
-	si.nMin = 0;
-	si.nMax = max + pagesize - 1;
-	si.nPage = pagesize;
-	si.nPos = 0;
-	SetScrollInfo(hwnd, SB_CTL, &si, 1);
+        hwnd = obj->handle;
+        si.cbSize = sizeof(si);
+        si.fMask = SIF_ALL;
+        si.nMin = 0;
+        si.nMax = max + pagesize - 1;
+        si.nPage = pagesize;
+        si.nPos = 0;
+        SetScrollInfo(hwnd, SB_CTL, &si, 1);
     }
     return obj;
 }
@@ -1044,8 +1055,8 @@ void changescrollbar(scrollbar obj, int where, int max, int pagesize)
 {
     HWND hwnd;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     hwnd = obj->handle;
     obj->max = max;
     obj->size = pagesize;
@@ -1063,12 +1074,9 @@ listbox newlistbox(const char *list[], rect r, scrollfn fn, actionfn dble)
 {
     listbox obj;
 
-    obj = newchildwin("listbox", NULL,
-		      LBS_NOTIFY | WS_BORDER |
-		      WS_VSCROLL | WS_HSCROLL,
-		      r, NULL);
-    if (! obj)
-	return obj;
+    obj = newchildwin("listbox", NULL, LBS_NOTIFY | WS_BORDER | WS_VSCROLL | WS_HSCROLL, r, NULL);
+    if (!obj)
+        return obj;
     obj->kind = ListboxObject;
     obj->hit = fn;
     obj->dble = dble;
@@ -1083,13 +1091,9 @@ listbox newmultilist(const char *list[], rect r, scrollfn fn, actionfn dble)
     listbox obj;
 
     obj = newchildwin("listbox", NULL,
-		      LBS_NOTIFY |
-		      LBS_MULTIPLESEL | LBS_EXTENDEDSEL |
-		      WS_BORDER |
-		      WS_VSCROLL | WS_HSCROLL,
-		      r, NULL);
-    if (! obj)
-	return obj;
+                      LBS_NOTIFY | LBS_MULTIPLESEL | LBS_EXTENDEDSEL | WS_BORDER | WS_VSCROLL | WS_HSCROLL, r, NULL);
+    if (!obj)
+        return obj;
     obj->kind = MultilistObject;
     obj->hit = fn;
     obj->dble = dble;
@@ -1104,20 +1108,19 @@ listbox newdroplist(const char *list[], rect r, scrollfn fn)
     listbox obj;
     int h, i;
 
-    initapp(0,0);
+    initapp(0, 0);
     h = getheight(SystemFont);
-    r.height = h+h;
+    r.height = h + h;
     for (i = 0; list && list[i]; i++)
-	r.height += h;
+        r.height += h;
 
     obj = newchildwin("combobox", NULL,
-		      CBS_DROPDOWNLIST | CBS_AUTOHSCROLL |
-		      //CBS_DISABLENOSCROLL |
-		      WS_BORDER |
-		      WS_VSCROLL | WS_HSCROLL,
-		      r, NULL);
-    if (! obj)
-	return obj;
+                      CBS_DROPDOWNLIST | CBS_AUTOHSCROLL |
+                          // CBS_DISABLENOSCROLL |
+                          WS_BORDER | WS_VSCROLL | WS_HSCROLL,
+                      r, NULL);
+    if (!obj)
+        return obj;
     obj->kind = DroplistObject;
     obj->hit = fn;
 
@@ -1131,41 +1134,38 @@ listbox newdropfield(const char *list[], rect r, scrollfn fn)
     listbox obj;
     int h, i;
 
-    initapp(0,0);
+    initapp(0, 0);
     h = getheight(SystemFont);
-    r.height = h+h;
+    r.height = h + h;
     for (i = 0; list && list[i]; i++)
-	r.height += h;
+        r.height += h;
 
     obj = newchildwin("combobox", NULL,
-		      CBS_DROPDOWN | CBS_AUTOHSCROLL |
-		      // CBS_DISABLENOSCROLL |
-		      WS_BORDER |
-		      WS_VSCROLL | WS_HSCROLL,
-		      r, NULL);
-    if (! obj)
-	return obj;
+                      CBS_DROPDOWN | CBS_AUTOHSCROLL |
+                          // CBS_DISABLENOSCROLL |
+                          WS_BORDER | WS_VSCROLL | WS_HSCROLL,
+                      r, NULL);
+    if (!obj)
+        return obj;
 
     /* subclass the edit control to handle TAB */
     HANDLE hwndCombo = obj->handle;
     COMBOBOXINFO cbInfo;
     cbInfo.cbSize = sizeof(COMBOBOXINFO);
     BOOL ret = GetComboBoxInfo(hwndCombo, &cbInfo);
-    if (ret) {
-	HANDLE hwndEdit = cbInfo.hwndItem; /* the edit control */
-	if (GetParent(hwndEdit) == hwndCombo) {
+    if (ret)
+    {
+        HANDLE hwndEdit = cbInfo.hwndItem; /* the edit control */
+        if (GetParent(hwndEdit) == hwndCombo)
+        {
 #ifdef _WIN64
-	    obj->edit_winproc = (WNDPROC) GetWindowLongPtr(hwndEdit,
-	                                                   GWLP_WNDPROC);
-	    SetWindowLongPtr(hwndEdit, GWLP_WNDPROC,
-	                     (LONG_PTR) edit_control_proc);
+            obj->edit_winproc = (WNDPROC)GetWindowLongPtr(hwndEdit, GWLP_WNDPROC);
+            SetWindowLongPtr(hwndEdit, GWLP_WNDPROC, (LONG_PTR)edit_control_proc);
 #else
-	    obj->edit_winproc = (WNDPROC) GetWindowLong(hwndEdit,
-	                                                GWL_WNDPROC);
-	    SetWindowLongPtr(hwndEdit, GWL_WNDPROC,
-	                     (LONG) edit_control_proc);
+            obj->edit_winproc = (WNDPROC)GetWindowLong(hwndEdit, GWL_WNDPROC);
+            SetWindowLongPtr(hwndEdit, GWL_WNDPROC, (LONG)edit_control_proc);
 #endif
-	}
+        }
     }
 
     obj->kind = DropfieldObject;
@@ -1180,46 +1180,47 @@ void setlistitem(listbox obj, int index)
 {
     int count;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     if (index < 0)
-	index = -1;
+        index = -1;
     switch (obj->kind)
     {
     case ListboxObject:
-	sendmessage(obj->handle, LB_SETCURSEL, index, 0L);
-	break;
+        sendmessage(obj->handle, LB_SETCURSEL, index, 0L);
+        break;
     case MultilistObject:
-	if (index >= 0)
-	    sendmessage(obj->handle, LB_SETSEL, TRUE, MAKELPARAM(index, 0));
-	else {
-	    count = (INT) sendmessage(obj->handle, LB_GETCOUNT, 0, 0L);
-	    sendmessage(obj->handle, LB_SELITEMRANGE, FALSE, MAKELPARAM(0,count-1));
-	}
+        if (index >= 0)
+            sendmessage(obj->handle, LB_SETSEL, TRUE, MAKELPARAM(index, 0));
+        else
+        {
+            count = (INT)sendmessage(obj->handle, LB_GETCOUNT, 0, 0L);
+            sendmessage(obj->handle, LB_SELITEMRANGE, FALSE, MAKELPARAM(0, count - 1));
+        }
     case DroplistObject:
     case DropfieldObject:
-	sendmessage(obj->handle, CB_SETCURSEL, index, 0L);
-	break;
+        sendmessage(obj->handle, CB_SETCURSEL, index, 0L);
+        break;
     default:
-	break;
+        break;
     }
 }
 
 int isselected(listbox obj, int index)
 {
-    if (! obj)
-	return -1;
+    if (!obj)
+        return -1;
     switch (obj->kind)
     {
     case ListboxObject:
-	return (index == (INT) sendmessage(obj->handle, LB_GETCURSEL, 0, 0L));
+        return (index == (INT)sendmessage(obj->handle, LB_GETCURSEL, 0, 0L));
     case MultilistObject:
-	return (INT) sendmessage(obj->handle, LB_GETSEL, index, 0L);
+        return (INT)sendmessage(obj->handle, LB_GETSEL, index, 0L);
     case DroplistObject:
     case DropfieldObject:
-	return (index == (INT) sendmessage(obj->handle, CB_GETCURSEL, 0, 0L));
+        return (index == (INT)sendmessage(obj->handle, CB_GETCURSEL, 0, 0L));
     default:
-	return 0;
+        return 0;
     }
 }
 
@@ -1227,23 +1228,23 @@ int getlistitem(listbox obj)
 {
     int index, count;
 
-    if (! obj)
-	return -1;
+    if (!obj)
+        return -1;
     switch (obj->kind)
     {
     case ListboxObject:
-	return (INT) sendmessage(obj->handle, LB_GETCURSEL, 0, 0L);
+        return (INT)sendmessage(obj->handle, LB_GETCURSEL, 0, 0L);
     case MultilistObject:
-	count = (INT) sendmessage(obj->handle, LB_GETCOUNT, 0, 0L);
-	for (index=0; index < count; index++)
-	    if (isselected(obj, index))
-		return index;
-	return -1;
+        count = (INT)sendmessage(obj->handle, LB_GETCOUNT, 0, 0L);
+        for (index = 0; index < count; index++)
+            if (isselected(obj, index))
+                return index;
+        return -1;
     case DroplistObject:
     case DropfieldObject:
-	return (INT) sendmessage(obj->handle, CB_GETCURSEL, 0, 0L);
+        return (INT)sendmessage(obj->handle, CB_GETCURSEL, 0, 0L);
     default:
-	return -1;
+        return -1;
     }
 }
 
@@ -1253,30 +1254,33 @@ void changelistbox(listbox obj, const char **list)
     HWND hwnd;
     UINT reset_msg, add_msg;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     hwnd = obj->handle;
 
-    switch (obj->kind) {
-    case ListboxObject: case MultilistObject:
-	reset_msg = LB_RESETCONTENT;
-	add_msg = LB_ADDSTRING;
-	break;
-    case DroplistObject: case DropfieldObject:
-	reset_msg = CB_RESETCONTENT;
-	add_msg = CB_ADDSTRING;
-	break;
+    switch (obj->kind)
+    {
+    case ListboxObject:
+    case MultilistObject:
+        reset_msg = LB_RESETCONTENT;
+        add_msg = LB_ADDSTRING;
+        break;
+    case DroplistObject:
+    case DropfieldObject:
+        reset_msg = CB_RESETCONTENT;
+        add_msg = CB_ADDSTRING;
+        break;
     default:
-	return;
+        return;
     }
 
     sendmessage(hwnd, WM_SETREDRAW, FALSE, 0L);
     sendmessage(hwnd, reset_msg, 0, 0L);
-    for (i=0; list && list[i]; i++)
-	sendmessage(hwnd, add_msg, 0, (LPSTR) list[i]);
+    for (i = 0; list && list[i]; i++)
+        sendmessage(hwnd, add_msg, 0, (LPSTR)list[i]);
     sendmessage(hwnd, WM_SETREDRAW, TRUE, 0L);
     if (obj->kind == ListboxObject)
-	sendmessage(hwnd, LB_SETCURSEL, 0, 0L);
+        sendmessage(hwnd, LB_SETCURSEL, 0, 0L);
 }
 
 /*
@@ -1294,77 +1298,84 @@ void handle_control(HWND hwnd, UINT message)
 
     obj = find_by_handle(hwnd);
 
-    if ((! obj) || (! (obj->state & GA_Enabled)))
-	return;
+    if ((!obj) || (!(obj->state & GA_Enabled)))
+        return;
 
     /* Only let certain events cause activation. */
     switch (obj->kind)
     {
     case CheckboxObject:
-	if (obj->state & GA_Checked)
-	    uncheck(obj);
-	else
-	    check(obj);
-	break;
+        if (obj->state & GA_Checked)
+            uncheck(obj);
+        else
+            check(obj);
+        break;
 
     case RadioObject:
-	if (!(obj->state & GA_Checked)) {
-	    uncheck_neighbours(obj);
-	    check(obj);
-	}
-	break;
+        if (!(obj->state & GA_Checked))
+        {
+            uncheck_neighbours(obj);
+            check(obj);
+        }
+        break;
 
     case ListboxObject:
-	if (message == LBN_DBLCLK) {
-	    if(obj->dble) obj->dble(obj);
-	    return;
-	}
-	/* Ignore all but selection-change events. */
-	if (message != LBN_SELCHANGE) return;
+        if (message == LBN_DBLCLK)
+        {
+            if (obj->dble)
+                obj->dble(obj);
+            return;
+        }
+        /* Ignore all but selection-change events. */
+        if (message != LBN_SELCHANGE)
+            return;
 
-	index = (INT) sendmessage(hwnd, LB_GETCURSEL, 0, 0L);
-	obj->value = index;
-	break;
+        index = (INT)sendmessage(hwnd, LB_GETCURSEL, 0, 0L);
+        obj->value = index;
+        break;
 
     case MultilistObject:
-	if (message == LBN_DBLCLK) {
-	    if(obj->dble) obj->dble(obj);
-	    return;
-	}
-	/* Ignore all but selection-change events. */
-	if (message != LBN_SELCHANGE)
-	    return;
-	index = (INT) sendmessage(hwnd, LB_GETCARETINDEX, 0, 0L);
-	/* We do want to see de-selection events too
-	   if (! (INT) sendmessage(hwnd, LB_GETSEL, index, 0L))
-	   return;*/
-	obj->value = index;
-	break;
+        if (message == LBN_DBLCLK)
+        {
+            if (obj->dble)
+                obj->dble(obj);
+            return;
+        }
+        /* Ignore all but selection-change events. */
+        if (message != LBN_SELCHANGE)
+            return;
+        index = (INT)sendmessage(hwnd, LB_GETCARETINDEX, 0, 0L);
+        /* We do want to see de-selection events too
+           if (! (INT) sendmessage(hwnd, LB_GETSEL, index, 0L))
+           return;*/
+        obj->value = index;
+        break;
 
     case DroplistObject:
     case DropfieldObject:
-	/* Ignore all but selection-change events. */
-	if (message != CBN_SELCHANGE)
-	    return;
-	index = (INT) sendmessage(hwnd, CB_GETCURSEL, 0, 0L);
-	obj->value = index;
-	break;
+        /* Ignore all but selection-change events. */
+        if (message != CBN_SELCHANGE)
+            return;
+        index = (INT)sendmessage(hwnd, CB_GETCURSEL, 0, 0L);
+        obj->value = index;
+        break;
 
     case FieldObject:
     case TextboxObject:
-	if (message == EN_MAXTEXT) {
-	    /* increase the character limit in the editor by 50%
-	       if the limit is reached, but this should not
-	       happen */
-	    setlimittext(obj, 1.5 * getlimittext(obj));
-	}
-	/* Ignore everything else but killfocus. */
-	else if (message != EN_KILLFOCUS)
-	    return;
-	break;
+        if (message == EN_MAXTEXT)
+        {
+            /* increase the character limit in the editor by 50%
+               if the limit is reached, but this should not
+               happen */
+            setlimittext(obj, 1.5 * getlimittext(obj));
+        }
+        /* Ignore everything else but killfocus. */
+        else if (message != EN_KILLFOCUS)
+            return;
+        break;
 
     default:
-	break;
+        break;
     }
     /* activate the control's callback */
     activatecontrol(obj);
@@ -1380,16 +1391,14 @@ progressbar newprogressbar(rect r, int pbmin, int pbmax, int incr, int smooth)
 
     ensure_window();
     r = rcanon(r);
-    sm = smooth ? PBS_SMOOTH : 0 ;
-    hwnd = CreateWindowEx(0, PROGRESS_CLASS, NULL,
-			  (WS_CHILD | WS_VISIBLE | sm),
-			  r.x, r.y, r.width, r.height,
-			  current_window->handle,
-			  (HMENU) child_id, this_instance, NULL);
+    sm = smooth ? PBS_SMOOTH : 0;
+    hwnd = CreateWindowEx(0, PROGRESS_CLASS, NULL, (WS_CHILD | WS_VISIBLE | sm), r.x, r.y, r.width, r.height,
+                          current_window->handle, (HMENU)child_id, this_instance, NULL);
     obj = new_object(ControlObject, hwnd, current_window);
-    if (! obj) {
-	DestroyWindow(hwnd);
-	return NULL;
+    if (!obj)
+    {
+        DestroyWindow(hwnd);
+        return NULL;
     }
     obj->die = private_delcontrol;
     obj->rect = r;
@@ -1400,27 +1409,29 @@ progressbar newprogressbar(rect r, int pbmin, int pbmax, int incr, int smooth)
     set_new_winproc(obj); /* set custom winproc */
     settextfont(obj, SystemFont);
     obj->kind = ListboxObject;
-    SendMessage(hwnd, PBM_SETRANGE32, (WPARAM) pbmin, (LPARAM) pbmax);
-    SendMessage(hwnd, PBM_SETSTEP, (WPARAM) incr, 0);
+    SendMessage(hwnd, PBM_SETRANGE32, (WPARAM)pbmin, (LPARAM)pbmax);
+    SendMessage(hwnd, PBM_SETSTEP, (WPARAM)incr, 0);
 
     return obj;
 }
 
 void setprogressbar(progressbar obj, int n)
 {
-    if (! obj) return;
-    SendMessage(obj->handle, PBM_SETPOS, (WPARAM) n, 0);
+    if (!obj)
+        return;
+    SendMessage(obj->handle, PBM_SETPOS, (WPARAM)n, 0);
 }
 
 void stepprogressbar(progressbar obj, int n)
 {
-    if (! obj) return;
+    if (!obj)
+        return;
     SendMessage(obj->handle, PBM_STEPIT, 0, 0);
 }
 
 void setprogressbarrange(progressbar obj, int pbmin, int pbmax)
 {
-    if (! obj) return;
-    SendMessage(obj->handle, PBM_SETRANGE32, (WPARAM) pbmin,
-		(LPARAM) pbmax);
+    if (!obj)
+        return;
+    SendMessage(obj->handle, PBM_SETRANGE32, (WPARAM)pbmin, (LPARAM)pbmax);
 }

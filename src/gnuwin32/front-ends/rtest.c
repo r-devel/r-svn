@@ -37,13 +37,14 @@
    frequently. See rterm.c and ../system.c for one approach using
    a separate thread for input.
 */
-int myReadConsole(const char *prompt, unsigned char *buf, int len,
-                  int addtohistory)
+int myReadConsole(const char *prompt, unsigned char *buf, int len, int addtohistory)
 {
     fputs(prompt, stdout);
     fflush(stdout);
-    if(fgets((char *)buf, len, stdin)) return 1;
-    else return 0;
+    if (fgets((char *)buf, len, stdin))
+        return 1;
+    else
+        return 0;
 }
 
 void myWriteConsoleEx(const char *buf, int len, int otype)
@@ -67,24 +68,25 @@ static void my_onintr(int sig)
     UserBreak = 1;
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     structRstart rp;
     Rstart Rp = &rp;
     char Rversion[25], *RHome;
 
     snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
-    if(strcmp(getDLLVersion(), Rversion) != 0) {
+    if (strcmp(getDLLVersion(), Rversion) != 0)
+    {
         fprintf(stderr, "Error: R.DLL version does not match\n");
         exit(1);
     }
 
     R_setStartTime();
     R_DefParamsEx(Rp, RSTART_VERSION);
-    if((RHome = get_R_HOME()) == NULL) {
-	fprintf(stderr, 
-		"R_HOME must be set in the environment or Registry\n");
-	exit(1);
+    if ((RHome = get_R_HOME()) == NULL)
+    {
+        fprintf(stderr, "R_HOME must be set in the environment or Registry\n");
+        exit(1);
     }
     Rp->rhome = RHome;
     Rp->home = getRUser();
@@ -115,8 +117,9 @@ int main (int argc, char **argv)
     run_Rmainloop();
 #else
     R_ReplDLLinit();
-    while(R_ReplDLLdo1() > 0) {
-/* add user actions here if desired */
+    while (R_ReplDLLdo1() > 0)
+    {
+        /* add user actions here if desired */
     }
 /* only get here on EOF (not q()) */
 #endif

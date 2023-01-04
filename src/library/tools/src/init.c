@@ -28,49 +28,45 @@ void Renctest(char **x)
     Rprintf("'%s', nbytes = %d\n", x[0], strlen(x[0]));
 }
 
-static const R_CMethodDef CEntries[]  = {
-    {"Renctest", (DL_FUNC) &Renctest, 1},
-    {NULL, NULL, 0}
-};
+static const R_CMethodDef CEntries[] = {{"Renctest", (DL_FUNC)&Renctest, 1}, {NULL, NULL, 0}};
 #endif
 
-#define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define CALLDEF(name, n)                                                                                               \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-static const R_CallMethodDef CallEntries[] = {
-    CALLDEF(codeFilesAppend, 2),
-    CALLDEF(delim_match, 2),
-    CALLDEF(dirchmod, 2),
-    CALLDEF(getfmts, 1),
-    CALLDEF(Rmd5, 1),
-    CALLDEF(check_nonASCII, 2),
-    CALLDEF(check_nonASCII2, 1),
-    CALLDEF(doTabExpand, 2),
-    CALLDEF(ps_kill, 2),
-    CALLDEF(ps_sigs, 1),
-    CALLDEF(ps_priority, 2),
-    CALLDEF(startHTTPD, 2),
-    CALLDEF(stopHTTPD, 0),
-    CALLDEF(deparseRd, 2),
-    CALLDEF(splitString, 2),
-    CALLDEF(package_dependencies_scan, 1),
+static const R_CallMethodDef CallEntries[] = {CALLDEF(codeFilesAppend, 2),
+                                              CALLDEF(delim_match, 2),
+                                              CALLDEF(dirchmod, 2),
+                                              CALLDEF(getfmts, 1),
+                                              CALLDEF(Rmd5, 1),
+                                              CALLDEF(check_nonASCII, 2),
+                                              CALLDEF(check_nonASCII2, 1),
+                                              CALLDEF(doTabExpand, 2),
+                                              CALLDEF(ps_kill, 2),
+                                              CALLDEF(ps_sigs, 1),
+                                              CALLDEF(ps_priority, 2),
+                                              CALLDEF(startHTTPD, 2),
+                                              CALLDEF(stopHTTPD, 0),
+                                              CALLDEF(deparseRd, 2),
+                                              CALLDEF(splitString, 2),
+                                              CALLDEF(package_dependencies_scan, 1),
 
-    {NULL, NULL, 0}
-};
+                                              {NULL, NULL, 0}};
 
-#define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
-static const R_ExternalMethodDef ExtEntries[] = {
-    EXTDEF(parseLatex, 4),
-    EXTDEF(parseRd, 9),
+#define EXTDEF(name, n)                                                                                                \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
+static const R_ExternalMethodDef ExtEntries[] = {EXTDEF(parseLatex, 4),
+                                                 EXTDEF(parseRd, 9),
 
-    {NULL, NULL, 0}
-};
+                                                 {NULL, NULL, 0}};
 
-
-void attribute_visible
-R_init_tools(DllInfo *dll)
+void attribute_visible R_init_tools(DllInfo *dll)
 {
     R_registerRoutines(dll, NULL, CallEntries, NULL, ExtEntries);
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, FALSE);
 }
-

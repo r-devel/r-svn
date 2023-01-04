@@ -18,7 +18,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 #define NO_NLS
 #include <Defn.h>
@@ -32,24 +32,23 @@
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
-#define _(String) dgettext ("tcltk", String)
+#define _(String) dgettext("tcltk", String)
 #else
 #define _(String) (String)
 #endif
 
 /* R event structure */
-typedef struct {
+typedef struct
+{
     Tcl_EventProc *proc;
     struct Tcl_Event *nextPtr;
 } RTcl_Event;
 
-
-
 #define R_INTERFACE_PTRS 1
-#include <Rinterface.h>  /* R_GUIType and more for console */
+#include <Rinterface.h> /* R_GUIType and more for console */
 /* Add/delete Tcl/Tk event handler */
 
-static void (* OldHandler)(void);
+static void (*OldHandler)(void);
 static int OldRwait;
 static int Tcl_loaded = 0;
 
@@ -59,60 +58,63 @@ static void TclSpinLoop(void *data)
 {
     /* In the past, Tcl_ServiceAll() wasn't enough and we used
 
-	  while (Tcl_DoOneEvent(TCL_DONT_WAIT)) ;
+      while (Tcl_DoOneEvent(TCL_DONT_WAIT)) ;
 
        but that seems no longer needed and causes infinite recursion
        with R handlers that have a re-entrancy guard, when TclSpinLoop
        is invoked from such a handler (seen with Rhttp server).
 
-       However, handling certain Tcl events tend to generate further 
+       However, handling certain Tcl events tend to generate further
        events (closing a window is typically followed by a WM event
-       saying that the window is now closed, etc.), so we run 
-       Tcl_ServiceAll() a small number of times to try and clear the 
+       saying that the window is now closed, etc.), so we run
+       Tcl_ServiceAll() a small number of times to try and clear the
        queue. Otherwise, the processing of such "knock-on" events would
        have to wait until the next polling event.
     */
 
     int i = R_TCL_SPIN_MAX;
-	
+
     while (i-- && Tcl_ServiceAll())
         ;
 }
 
-//extern Rboolean R_isForkedChild;
+// extern Rboolean R_isForkedChild;
 static void TclHandler(void)
 {
     if (!R_isForkedChild)
-	/* there is a reentrancy guard in Tcl_ServiceAll */
-	(void) R_ToplevelExec(TclSpinLoop, NULL);
-    
+        /* there is a reentrancy guard in Tcl_ServiceAll */
+        (void)R_ToplevelExec(TclSpinLoop, NULL);
+
     OldHandler();
 }
 
 static void addTcl(void)
 {
-    if (Tcl_loaded) return; // error(_("Tcl already loaded"));
+    if (Tcl_loaded)
+        return; // error(_("Tcl already loaded"));
     Tcl_loaded = 1;
     OldHandler = R_PolledEvents;
     OldRwait = R_wait_usec;
     R_PolledEvents = TclHandler;
-    if (R_wait_usec > 1000 || R_wait_usec == 0) R_wait_usec = 1000;
+    if (R_wait_usec > 1000 || R_wait_usec == 0)
+        R_wait_usec = 1000;
 }
 
 #ifdef UNUSED
 /* Note that although this cleans up R's event loop, it does not attempt
    to clean up Tcl's, to which Tcl_unix_setup added an event source.
    We could call Tcl_DeleteEventSource.
-   
+
    But for now un/re-loading the interpreter seems to cause crashes.
 */
 void delTcl(void)
 {
-    if (!Tcl_loaded) error(_("Tcl is not loaded"));
+    if (!Tcl_loaded)
+        error(_("Tcl is not loaded"));
     Tcl_DeleteInterp(RTcl_interp);
     Tcl_Finalize();
     if (R_PolledEvents != TclHandler)
-	error(_("Tcl is not last loaded handler"));
+        error(_("Tcl is not last loaded handler"));
     R_PolledEvents = OldHandler;
     R_wait_usec = OldRwait;
     Tcl_loaded = 0;
@@ -130,8 +132,8 @@ static int RTcl_eventProc(Tcl_Event *evPtr, int flags)
 {
     fd_set *readMask = R_checkActivity(0 /*usec*/, 1 /*ignore_stdin*/);
 
-    if (readMask==NULL)
-	return TRUE;
+    if (readMask == NULL)
+        return TRUE;
 
     R_runHandlers(R_InputHandlers, readMask);
     return TRUE;
@@ -139,16 +141,15 @@ static int RTcl_eventProc(Tcl_Event *evPtr, int flags)
 static void RTcl_checkProc(ClientData clientData, int flags)
 {
     fd_set *readMask = R_checkActivity(0 /*usec*/, 1 /*ignore_stdin*/);
-    RTcl_Event * evPtr;
+    RTcl_Event *evPtr;
     if (readMask == NULL)
-	return;
+        return;
 
-    evPtr = (RTcl_Event*) Tcl_Alloc(sizeof(RTcl_Event));
+    evPtr = (RTcl_Event *)Tcl_Alloc(sizeof(RTcl_Event));
     evPtr->proc = RTcl_eventProc;
 
-    Tcl_QueueEvent((Tcl_Event*) evPtr, TCL_QUEUE_HEAD);
+    Tcl_QueueEvent((Tcl_Event *)evPtr, TCL_QUEUE_HEAD);
 }
-
 
 void Tcl_unix_setup(void)
 {
@@ -158,16 +159,11 @@ void Tcl_unix_setup(void)
     Tcl_CreateEventSource(RTcl_setupProc, RTcl_checkProc, 0);
 }
 
-
-
 /* ----- Tcl/Tk console routines ----- */
-
 
 /* Fill a text buffer with user typed console input. */
 
-static int
-RTcl_ReadConsole (const char *prompt, unsigned char *buf, int len,
-		  int addtohistory)
+static int RTcl_ReadConsole(const char *prompt, unsigned char *buf, int len, int addtohistory)
 {
     Tcl_Obj *cmd[3];
     int i, code;
@@ -176,42 +172,38 @@ RTcl_ReadConsole (const char *prompt, unsigned char *buf, int len,
     cmd[1] = Tcl_NewStringObj(prompt, -1);
     cmd[2] = Tcl_NewIntObj(addtohistory);
 
-    for (i = 0 ; i < 3 ; i++)
-	Tcl_IncrRefCount(cmd[i]);
+    for (i = 0; i < 3; i++)
+        Tcl_IncrRefCount(cmd[i]);
 
     code = Tcl_EvalObjv(RTcl_interp, 3, cmd, 0);
     if (code != TCL_OK)
-	return 0;
-    else {
-	    char *buf_utf8;
-	    Tcl_DString buf_utf8_ds;
-	    Tcl_DStringInit(&buf_utf8_ds);
-	    buf_utf8 =
-		    Tcl_UtfToExternalDString(NULL,
-		    			     Tcl_GetStringResult(RTcl_interp),
-					     len,
-					     &buf_utf8_ds);
-            strncpy((char *)buf, buf_utf8, len);
-	    Tcl_DStringFree(&buf_utf8_ds);
+        return 0;
+    else
+    {
+        char *buf_utf8;
+        Tcl_DString buf_utf8_ds;
+        Tcl_DStringInit(&buf_utf8_ds);
+        buf_utf8 = Tcl_UtfToExternalDString(NULL, Tcl_GetStringResult(RTcl_interp), len, &buf_utf8_ds);
+        strncpy((char *)buf, buf_utf8, len);
+        Tcl_DStringFree(&buf_utf8_ds);
     }
 
     /* At some point we need to figure out what to do if the result is
      * longer than "len"... For now, just truncate. */
 
-    for (i = 0 ; i < 3 ; i++)
-	Tcl_DecrRefCount(cmd[i]);
+    for (i = 0; i < 3; i++)
+        Tcl_DecrRefCount(cmd[i]);
 
     return 1;
 }
 
 /* Write a text buffer to the console. */
 /* All system output is filtered through this routine. */
-static void
-RTcl_WriteConsole (const char *buf, int len)
+static void RTcl_WriteConsole(const char *buf, int len)
 {
     Tcl_Obj *cmd[2];
     char *buf_utf8;
-    Tcl_DString  buf_utf8_ds;
+    Tcl_DString buf_utf8_ds;
 
     Tcl_DStringInit(&buf_utf8_ds);
     buf_utf8 = Tcl_ExternalToUtfDString(NULL, buf, -1, &buf_utf8_ds);
@@ -231,25 +223,21 @@ RTcl_WriteConsole (const char *buf, int len)
 }
 
 /* Indicate that input is coming from the console */
-static void
-RTcl_ResetConsole (void)
+static void RTcl_ResetConsole(void)
 {
 }
 
 /* Stdio support to ensure the console file buffer is flushed */
-static void
-RTcl_FlushConsole (void)
+static void RTcl_FlushConsole(void)
 {
 }
-
 
 /* Reset stdin if the user types EOF on the console. */
-static void
-RTcl_ClearerrConsole (void)
+static void RTcl_ClearerrConsole(void)
 {
 }
 
-void RTcl_ActivateConsole (void)
+void RTcl_ActivateConsole(void)
 {
     ptr_R_ReadConsole = RTcl_ReadConsole;
     ptr_R_WriteConsole = RTcl_WriteConsole;

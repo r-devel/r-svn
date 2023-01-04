@@ -39,9 +39,10 @@
 
 int baseRegisterIndex = -1;
 
-GPar* dpptr(pGEDevDesc dd) {
+GPar *dpptr(pGEDevDesc dd)
+{
     if (baseRegisterIndex == -1)
-	error(_("the base graphics system is not registered"));
+        error(_("the base graphics system is not registered"));
     baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
     return &(bss->dp);
 }
@@ -49,7 +50,7 @@ GPar* dpptr(pGEDevDesc dd) {
 static SEXP R_INLINE getSymbolValue(SEXP symbol)
 {
     if (TYPEOF(symbol) != SYMSXP)
-	error("argument to 'getSymbolValue' is not a symbol");
+        error("argument to 'getSymbolValue' is not a symbol");
     return findVar(symbol, R_BaseEnv);
 }
 
@@ -135,45 +136,53 @@ pGEDevDesc GEcurrentDevice(void)
     /* If there are no active devices
      * check the options for a "default device".
      * If there is one, start it up. */
-    if (NoDevices()) {
-	SEXP defdev = GetOption1(install("device"));
-	if (isString(defdev) && length(defdev) > 0) {
-	    SEXP devName = installTrChar(STRING_ELT(defdev, 0));
-	    /*  Not clear where this should be evaluated, since
-		grDevices need not be in the search path.
-		So we look for it first on the global search path.
-	    */
-	    defdev = findVar(devName, R_GlobalEnv);
-	    if(defdev != R_UnboundValue) {
-		PROTECT(defdev = lang1(devName));
-		eval(defdev, R_GlobalEnv);
-		UNPROTECT(1);
-	    } else {
-		/* Not globally visible:
-		   try grDevices namespace if loaded.
-		   The option is unlikely to be set if it is not loaded,
-		   as the default setting is in grDevices:::.onLoad.
-		*/
-		SEXP ns = findVarInFrame(R_NamespaceRegistry,
-					 install("grDevices"));
-		PROTECT(ns);
-		if(ns != R_UnboundValue &&
-		   findVar(devName, ns) != R_UnboundValue) {
-		    PROTECT(defdev = lang1(devName));
-		    eval(defdev, ns);
-		    UNPROTECT(1);
-		} else
-		    error(_("no active or default device"));
-		UNPROTECT(1);
-	    }
-	} else if(TYPEOF(defdev) == CLOSXP) {
-	    PROTECT(defdev = lang1(defdev));
-	    eval(defdev, R_GlobalEnv);
-	    UNPROTECT(1);
-	} else
-	    error(_("no active or default device"));
-	if (NoDevices()) // the startup above may have failed
-	    error(_("no active device and default getOption(\"device\") is invalid"));
+    if (NoDevices())
+    {
+        SEXP defdev = GetOption1(install("device"));
+        if (isString(defdev) && length(defdev) > 0)
+        {
+            SEXP devName = installTrChar(STRING_ELT(defdev, 0));
+            /*  Not clear where this should be evaluated, since
+            grDevices need not be in the search path.
+            So we look for it first on the global search path.
+            */
+            defdev = findVar(devName, R_GlobalEnv);
+            if (defdev != R_UnboundValue)
+            {
+                PROTECT(defdev = lang1(devName));
+                eval(defdev, R_GlobalEnv);
+                UNPROTECT(1);
+            }
+            else
+            {
+                /* Not globally visible:
+                   try grDevices namespace if loaded.
+                   The option is unlikely to be set if it is not loaded,
+                   as the default setting is in grDevices:::.onLoad.
+                */
+                SEXP ns = findVarInFrame(R_NamespaceRegistry, install("grDevices"));
+                PROTECT(ns);
+                if (ns != R_UnboundValue && findVar(devName, ns) != R_UnboundValue)
+                {
+                    PROTECT(defdev = lang1(devName));
+                    eval(defdev, ns);
+                    UNPROTECT(1);
+                }
+                else
+                    error(_("no active or default device"));
+                UNPROTECT(1);
+            }
+        }
+        else if (TYPEOF(defdev) == CLOSXP)
+        {
+            PROTECT(defdev = lang1(defdev));
+            eval(defdev, R_GlobalEnv);
+            UNPROTECT(1);
+        }
+        else
+            error(_("no active or default device"));
+        if (NoDevices()) // the startup above may have failed
+            error(_("no active device and default getOption(\"device\") is invalid"));
     }
     return R_Devices[R_CurrentDevice];
 }
@@ -188,43 +197,50 @@ int curDevice(void)
     return R_CurrentDevice;
 }
 
-
 int nextDevice(int from)
 {
     if (R_NumDevices == 1)
-	return 0;
-    else {
-	int i = from;
-	int nextDev = 0;
-	while ((i < (R_MaxDevices-1)) && (nextDev == 0))
-	    if (active[++i]) nextDev = i;
-	if (nextDev == 0) {
-	    /* start again from 1 */
-	    i = 0;
-	    while ((i < (R_MaxDevices-1)) && (nextDev == 0))
-		if (active[++i]) nextDev = i;
-	}
-	return nextDev;
+        return 0;
+    else
+    {
+        int i = from;
+        int nextDev = 0;
+        while ((i < (R_MaxDevices - 1)) && (nextDev == 0))
+            if (active[++i])
+                nextDev = i;
+        if (nextDev == 0)
+        {
+            /* start again from 1 */
+            i = 0;
+            while ((i < (R_MaxDevices - 1)) && (nextDev == 0))
+                if (active[++i])
+                    nextDev = i;
+        }
+        return nextDev;
     }
 }
 
 int prevDevice(int from)
 {
     if (R_NumDevices == 1)
-	return 0;
-    else {
-	int i = from;
-	int prevDev = 0;
-	if (i < R_MaxDevices)
-	    while ((i > 1) && (prevDev == 0))
-		if (active[--i]) prevDev = i;
-	if (prevDev == 0) {
-	    /* start again from R_MaxDevices */
-	    i = R_MaxDevices;
-	    while ((i > 1) && (prevDev == 0))
-		if (active[--i]) prevDev = i;
-	}
-	return prevDev;
+        return 0;
+    else
+    {
+        int i = from;
+        int prevDev = 0;
+        if (i < R_MaxDevices)
+            while ((i > 1) && (prevDev == 0))
+                if (active[--i])
+                    prevDev = i;
+        if (prevDev == 0)
+        {
+            /* start again from R_MaxDevices */
+            i = R_MaxDevices;
+            while ((i > 1) && (prevDev == 0))
+                if (active[--i])
+                    prevDev = i;
+        }
+        return prevDev;
     }
 }
 
@@ -236,7 +252,8 @@ int GEdeviceNumber(pGEDevDesc dd)
 {
     int i;
     for (i = 1; i < R_MaxDevices; i++)
-	if (R_Devices[i] == dd) return i;
+        if (R_Devices[i] == dd)
+            return i;
     return 0;
 }
 
@@ -247,8 +264,8 @@ int ndevNumber(pDevDesc dd)
 {
     int i;
     for (i = 1; i < R_MaxDevices; i++)
-	if (R_Devices[i] != NULL && R_Devices[i]->dev == dd)
-	    return i;
+        if (R_Devices[i] != NULL && R_Devices[i]->dev == dd)
+            return i;
     return 0;
 }
 
@@ -257,75 +274,76 @@ int selectDevice(int devNum)
     /* Valid to select nullDevice, but that will open a new device.
        See ?dev.set.
      */
-    if((devNum >= 0) && (devNum < R_MaxDevices) &&
-       (R_Devices[devNum] != NULL) && active[devNum])
+    if ((devNum >= 0) && (devNum < R_MaxDevices) && (R_Devices[devNum] != NULL) && active[devNum])
     {
-	pGEDevDesc gdd;
+        pGEDevDesc gdd;
 
-	if (!NoDevices()) {
-	    pGEDevDesc oldd = GEcurrentDevice();
-	    if (oldd->dev->deactivate) oldd->dev->deactivate(oldd->dev);
-	}
+        if (!NoDevices())
+        {
+            pGEDevDesc oldd = GEcurrentDevice();
+            if (oldd->dev->deactivate)
+                oldd->dev->deactivate(oldd->dev);
+        }
 
-	R_CurrentDevice = devNum;
+        R_CurrentDevice = devNum;
 
-	/* maintain .Device */
-	gsetVar(R_DeviceSymbol,
-		elt(getSymbolValue(R_DevicesSymbol), devNum),
-		R_BaseEnv);
+        /* maintain .Device */
+        gsetVar(R_DeviceSymbol, elt(getSymbolValue(R_DevicesSymbol), devNum), R_BaseEnv);
 
-	gdd = GEcurrentDevice(); /* will start a device if current is null */
-	if (!NoDevices()) /* which it always will be */
-	    if (gdd->dev->activate) gdd->dev->activate(gdd->dev);
-	return devNum;
+        gdd = GEcurrentDevice(); /* will start a device if current is null */
+        if (!NoDevices())        /* which it always will be */
+            if (gdd->dev->activate)
+                gdd->dev->activate(gdd->dev);
+        return devNum;
     }
     else
-	return selectDevice(nextDevice(devNum));
+        return selectDevice(nextDevice(devNum));
 }
 
 /* historically the close was in the [kK]illDevices.
    only use findNext = FALSE when shutting R dowm, and .Device[s] are not
    updated.
 */
-static
-void removeDevice(int devNum, Rboolean findNext)
+static void removeDevice(int devNum, Rboolean findNext)
 {
     /* Not vaild to remove nullDevice */
-    if((devNum > 0) && (devNum < R_MaxDevices) &&
-       (R_Devices[devNum] != NULL) && active[devNum])
+    if ((devNum > 0) && (devNum < R_MaxDevices) && (R_Devices[devNum] != NULL) && active[devNum])
     {
-	int i;
-	SEXP s;
-	pGEDevDesc g = R_Devices[devNum];
+        int i;
+        SEXP s;
+        pGEDevDesc g = R_Devices[devNum];
 
-	active[devNum] = FALSE; /* stops it being selected again */
-	R_NumDevices--;
+        active[devNum] = FALSE; /* stops it being selected again */
+        R_NumDevices--;
 
-	if(findNext) {
-	    /* maintain .Devices */
-	    PROTECT(s = getSymbolValue(R_DevicesSymbol));
-	    for (i = 0; i < devNum; i++) s = CDR(s);
-	    SETCAR(s, mkString(""));
-	    UNPROTECT(1);
+        if (findNext)
+        {
+            /* maintain .Devices */
+            PROTECT(s = getSymbolValue(R_DevicesSymbol));
+            for (i = 0; i < devNum; i++)
+                s = CDR(s);
+            SETCAR(s, mkString(""));
+            UNPROTECT(1);
 
-	    /* determine new current device */
-	    if (devNum == R_CurrentDevice) {
-		R_CurrentDevice = nextDevice(R_CurrentDevice);
-		/* maintain .Device */
-		gsetVar(R_DeviceSymbol,
-			elt(getSymbolValue(R_DevicesSymbol), R_CurrentDevice),
-			R_BaseEnv);
+            /* determine new current device */
+            if (devNum == R_CurrentDevice)
+            {
+                R_CurrentDevice = nextDevice(R_CurrentDevice);
+                /* maintain .Device */
+                gsetVar(R_DeviceSymbol, elt(getSymbolValue(R_DevicesSymbol), R_CurrentDevice), R_BaseEnv);
 
-		/* activate new current device */
-		if (R_CurrentDevice) {
-		    pGEDevDesc gdd = GEcurrentDevice();
-		    if(gdd->dev->activate) gdd->dev->activate(gdd->dev);
-		}
-	    }
-	}
-	g->dev->close(g->dev);
-	GEdestroyDevDesc(g);
-	R_Devices[devNum] = NULL;
+                /* activate new current device */
+                if (R_CurrentDevice)
+                {
+                    pGEDevDesc gdd = GEcurrentDevice();
+                    if (gdd->dev->activate)
+                        gdd->dev->activate(gdd->dev);
+                }
+            }
+        }
+        g->dev->close(g->dev);
+        GEdestroyDevDesc(g);
+        R_Devices[devNum] = NULL;
     }
 }
 
@@ -339,7 +357,6 @@ void killDevice(int devNum)
     removeDevice(devNum, TRUE);
 }
 
-
 /* Used by front-ends via R_CleanUp to shutdown all graphics devices
    at the end of a session. Not the same as graphics.off(), and leaves
    .Devices and .Device in an invalid state. */
@@ -349,8 +366,9 @@ void KillAllDevices(void)
        while (R_NumDevices > 1) killDevice(R_CurrentDevice);
     */
     int i;
-    for(i = R_MaxDevices-1; i > 0; i--) removeDevice(i, FALSE);
-    R_CurrentDevice = 0;  /* the null device, for tidyness */
+    for (i = R_MaxDevices - 1; i > 0; i--)
+        removeDevice(i, FALSE);
+    R_CurrentDevice = 0; /* the null device, for tidyness */
 
     /* <FIXME> Disable this for now */
     /*
@@ -364,9 +382,10 @@ void KillAllDevices(void)
      * but this is a good proxy for now.
      */
     // unregisterBase();
-    if (baseRegisterIndex != -1) {
-	GEunregisterSystem(baseRegisterIndex);
-	baseRegisterIndex = -1;
+    if (baseRegisterIndex != -1)
+    {
+        GEunregisterSystem(baseRegisterIndex);
+        baseRegisterIndex = -1;
     }
 }
 
@@ -375,8 +394,8 @@ pGEDevDesc desc2GEDesc(pDevDesc dd)
 {
     int i;
     for (i = 1; i < R_MaxDevices; i++)
-	if (R_Devices[i] != NULL && R_Devices[i]->dev == dd)
-	    return R_Devices[i];
+        if (R_Devices[i] != NULL && R_Devices[i]->dev == dd)
+            return R_Devices[i];
     /* shouldn't happen ...
        but might if device is not yet registered or being killed */
     return R_Devices[0]; /* safe as will not replay a displayList */
@@ -387,13 +406,15 @@ pGEDevDesc desc2GEDesc(pDevDesc dd)
 void R_CheckDeviceAvailable(void)
 {
     if (R_NumDevices >= R_MaxDevices - 1)
-	error(_("too many open devices"));
+        error(_("too many open devices"));
 }
 
 Rboolean R_CheckDeviceAvailableBool(void)
 {
-    if (R_NumDevices >= R_MaxDevices - 1) return FALSE;
-    else return TRUE;
+    if (R_NumDevices >= R_MaxDevices - 1)
+        return FALSE;
+    else
+        return TRUE;
 }
 
 void GEaddDevice(pGEDevDesc gdd)
@@ -405,25 +426,29 @@ void GEaddDevice(pGEDevDesc gdd)
 
     PROTECT(s = getSymbolValue(R_DevicesSymbol));
 
-    if (!NoDevices())  {
-	oldd = GEcurrentDevice();
-	if(oldd->dev->deactivate) oldd->dev->deactivate(oldd->dev);
+    if (!NoDevices())
+    {
+        oldd = GEcurrentDevice();
+        if (oldd->dev->deactivate)
+            oldd->dev->deactivate(oldd->dev);
     }
 
     /* find empty slot for new descriptor */
     i = 1;
     if (CDR(s) == R_NilValue)
-	appnd = TRUE;
-    else {
-	s = CDR(s);
-	appnd = FALSE;
+        appnd = TRUE;
+    else
+    {
+        s = CDR(s);
+        appnd = FALSE;
     }
-    while (R_Devices[i] != NULL) {
-	i++;
-	if (CDR(s) == R_NilValue)
-	    appnd = TRUE;
-	else
-	    s = CDR(s);
+    while (R_Devices[i] != NULL)
+    {
+        i++;
+        if (CDR(s) == R_NilValue)
+            appnd = TRUE;
+        else
+            s = CDR(s);
     }
     R_CurrentDevice = i;
     R_NumDevices++;
@@ -431,14 +456,15 @@ void GEaddDevice(pGEDevDesc gdd)
     active[i] = TRUE;
 
     GEregisterWithDevice(gdd);
-    if(gdd->dev->activate) gdd->dev->activate(gdd->dev);
+    if (gdd->dev->activate)
+        gdd->dev->activate(gdd->dev);
 
     /* maintain .Devices (.Device has already been set) */
     t = PROTECT(duplicate(getSymbolValue(R_DeviceSymbol)));
     if (appnd)
-	SETCDR(s, CONS(t, R_NilValue));
+        SETCDR(s, CONS(t, R_NilValue));
     else
-	SETCAR(s, t);
+        SETCAR(s, t);
 
     UNPROTECT(2);
 
@@ -447,9 +473,10 @@ void GEaddDevice(pGEDevDesc gdd)
        then call killDevice here.  This ensures that the device gets a
        chance to deallocate its resources and the current active
        device is restored to a sane value. */
-    if (i == R_MaxDevices - 1) {
-	killDevice(i);
-	error(_("too many open devices"));
+    if (i == R_MaxDevices - 1)
+    {
+        killDevice(i);
+        error(_("too many open devices"));
     }
 }
 
@@ -464,16 +491,16 @@ void GEaddDevice2(pGEDevDesc gdd, const char *name)
 void GEaddDevice2f(pGEDevDesc gdd, const char *name, const char *file)
 {
     SEXP f = PROTECT(mkString(name));
-    if(file) {
-      SEXP s_filepath = install("filepath");
-      setAttrib(f, s_filepath, mkString(file));
+    if (file)
+    {
+        SEXP s_filepath = install("filepath");
+        setAttrib(f, s_filepath, mkString(file));
     }
     gsetVar(R_DeviceSymbol, f, R_BaseEnv);
     UNPROTECT(1);
     GEaddDevice(gdd);
     GEinitDisplayList(gdd);
 }
-
 
 Rboolean Rf_GetOptionDeviceAsk(void); /* from options.c */
 
@@ -485,44 +512,47 @@ pGEDevDesc GEcreateDevDesc(pDevDesc dev)
      * device description (add graphics engine information
      * to the device description).
      */
-    pGEDevDesc gdd = (GEDevDesc*) calloc(1, sizeof(GEDevDesc));
+    pGEDevDesc gdd = (GEDevDesc *)calloc(1, sizeof(GEDevDesc));
     /* NULL the gesd array
      */
     int i;
     if (!gdd)
-	error(_("not enough memory to allocate device (in GEcreateDevDesc)"));
-    for (i = 0; i < MAX_GRAPHICS_SYSTEMS; i++) gdd->gesd[i] = NULL;
+        error(_("not enough memory to allocate device (in GEcreateDevDesc)"));
+    for (i = 0; i < MAX_GRAPHICS_SYSTEMS; i++)
+        gdd->gesd[i] = NULL;
     gdd->dev = dev;
     gdd->displayListOn = dev->displayListOn;
-    gdd->displayList = R_NilValue; /* gc needs this */
+    gdd->displayList = R_NilValue;   /* gc needs this */
     gdd->savedSnapshot = R_NilValue; /* gc needs this */
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_dirty")) {
+    if (getenv("R_GE_DEBUG_dirty"))
+    {
         printf("GEcreateDevDesc: dirty = FALSE\n");
     }
 #endif
     gdd->dirty = FALSE;
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_record")) {
+    if (getenv("R_GE_DEBUG_record"))
+    {
         printf("GEcreateDevDesc: record = TRUE\n");
     }
 #endif
     gdd->recordGraphics = TRUE;
     gdd->ask = Rf_GetOptionDeviceAsk();
-    gdd->dev->eventEnv = R_NilValue;  /* gc needs this */
+    gdd->dev->eventEnv = R_NilValue; /* gc needs this */
     gdd->appending = FALSE;
     return gdd;
 }
-
 
 attribute_hidden void InitGraphics(void)
 {
     R_Devices[0] = &nullDevice;
     active[0] = TRUE;
     // these are static arrays, not really needed
-    for (int i = 1; i < R_MaxDevices; i++) {
-	R_Devices[i] = NULL;
-	active[i] = FALSE;
+    for (int i = 1; i < R_MaxDevices; i++)
+    {
+        R_Devices[i] = NULL;
+        active[i] = FALSE;
     }
 
     /* init .Device and .Devices */
@@ -533,15 +563,17 @@ attribute_hidden void InitGraphics(void)
     UNPROTECT(2);
 }
 
-
 void NewFrameConfirm(pDevDesc dd)
 {
-    if(!R_Interactive) return;
+    if (!R_Interactive)
+        return;
     /* dd->newFrameConfirm(dd) will either handle this, or return
        FALSE to ask the engine to do so. */
-    if(dd->newFrameConfirm && dd->newFrameConfirm(dd)) ;
-    else {
-	unsigned char buf[1024];
-	R_ReadConsole(_("Hit <Return> to see next plot: "), buf, 1024, 0);
+    if (dd->newFrameConfirm && dd->newFrameConfirm(dd))
+        ;
+    else
+    {
+        unsigned char buf[1024];
+        R_ReadConsole(_("Hit <Return> to see next plot: "), buf, 1024, 0);
     }
 }

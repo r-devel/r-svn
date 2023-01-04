@@ -32,9 +32,9 @@
 double rcauchy(double location, double scale)
 {
     if (ISNAN(location) || !R_FINITE(scale) || scale < 0)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
     if (scale == 0. || !R_FINITE(location))
-	return location;
+        return location;
     else
-	return location + scale * tan(M_PI * unif_rand());
+        return location + scale * tan(M_PI * unif_rand());
 }

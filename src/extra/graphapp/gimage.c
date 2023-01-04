@@ -33,127 +33,143 @@
  *  indexed 8-bit image.
  *  Returns NULL if more than 256 colours are found.
  */
-static image copy2image8 (drawing dw)
+static image copy2image8(drawing dw)
 {
     image new_img;
-    long   x, y, w, h, j;
-    GAbyte * pixel8;
-    int    cmapsize;
+    long x, y, w, h, j;
+    GAbyte *pixel8;
+    int cmapsize;
     int low, high, mid;
-    rgb    col;
-    rgb    cmap[256];
+    rgb col;
+    rgb cmap[256];
     point p;
     w = getwidth(dw);
     h = getheight(dw);
     /* the first colour goes into the cmap automatically: */
-    cmapsize = 0;  mid = 0;
+    cmapsize = 0;
+    mid = 0;
 
-    for (y = 0; y < h; y++) {
-	p.y = y;
-	for (x = 0; x < w; x++) {
-	    p.x = x;
-	    col = ggetpixel(dw, p);
-	    /* only allow one transparent colour in the cmap: */
-	    if (col & 0xF0000000UL)
-		col  = 0xFFFFFFFFUL;	/* transparent */
-	    else
-		col &= 0x00FFFFFFUL;	/* opaque */
-	    /* binary search the cmap: */
-	    low = 0;  high = cmapsize - 1;
-	    while (low <= high) {
-		mid = (low + high)/2;
-		if      (col < cmap[mid]) high = mid - 1;
-		else if (col > cmap[mid]) low  = mid + 1;
-		else break;
-	    }
+    for (y = 0; y < h; y++)
+    {
+        p.y = y;
+        for (x = 0; x < w; x++)
+        {
+            p.x = x;
+            col = ggetpixel(dw, p);
+            /* only allow one transparent colour in the cmap: */
+            if (col & 0xF0000000UL)
+                col = 0xFFFFFFFFUL; /* transparent */
+            else
+                col &= 0x00FFFFFFUL; /* opaque */
+            /* binary search the cmap: */
+            low = 0;
+            high = cmapsize - 1;
+            while (low <= high)
+            {
+                mid = (low + high) / 2;
+                if (col < cmap[mid])
+                    high = mid - 1;
+                else if (col > cmap[mid])
+                    low = mid + 1;
+                else
+                    break;
+            }
 
-	    if (high < low) {
-		/* didn't find colour in cmap, insert it: */
-		if (cmapsize >= 256)
-		    return NULL;
-		for (j = cmapsize; j > low; j--)
-		    cmap[j] = cmap[j-1];
-		cmap[low] = col;
-		cmapsize ++;
-	    }
-	}
+            if (high < low)
+            {
+                /* didn't find colour in cmap, insert it: */
+                if (cmapsize >= 256)
+                    return NULL;
+                for (j = cmapsize; j > low; j--)
+                    cmap[j] = cmap[j - 1];
+                cmap[low] = col;
+                cmapsize++;
+            }
+        }
     }
 
     /* now create the 8-bit indexed image: */
 
     new_img = newimage(w, h, 8);
-    if (! new_img)
-	return new_img;
+    if (!new_img)
+        return new_img;
     setpalette(new_img, cmapsize, cmap);
     /* now convert each 32-bit pixel into an 8-bit pixel: */
 
-    pixel8 = (GAbyte *) new_img->pixels;
+    pixel8 = (GAbyte *)new_img->pixels;
 
-    for (y = 0; y < h; y++) {
-	p.y = y;
-	for (x = 0; x < w; x++) {
-	    p.x =  x;
-	    col = ggetpixel(dw, p);
-	    /* only allow one transparent colour in the cmap: */
-	    if (col & 0xF0000000UL)
-		col  = 0xFFFFFFFFUL;	/* transparent */
-	    else
-		col &= 0x00FFFFFFUL;	/* opaque */
-	    /* binary search the cmap (the colour must be there): */
-	    low = 0;  high = cmapsize - 1;
-	    while (low <= high) {
-		mid = (low + high)/2;
-		if      (col < cmap[mid]) high = mid - 1;
-		else if (col > cmap[mid]) low  = mid + 1;
-		else break;
-	    }
+    for (y = 0; y < h; y++)
+    {
+        p.y = y;
+        for (x = 0; x < w; x++)
+        {
+            p.x = x;
+            col = ggetpixel(dw, p);
+            /* only allow one transparent colour in the cmap: */
+            if (col & 0xF0000000UL)
+                col = 0xFFFFFFFFUL; /* transparent */
+            else
+                col &= 0x00FFFFFFUL; /* opaque */
+            /* binary search the cmap (the colour must be there): */
+            low = 0;
+            high = cmapsize - 1;
+            while (low <= high)
+            {
+                mid = (low + high) / 2;
+                if (col < cmap[mid])
+                    high = mid - 1;
+                else if (col > cmap[mid])
+                    low = mid + 1;
+                else
+                    break;
+            }
 
-	    if (high < low) {
-		/* impossible situation */
-		delimage(new_img);
-		return NULL;
-	    }
-	    *(pixel8++) = mid;
-	}
+            if (high < low)
+            {
+                /* impossible situation */
+                delimage(new_img);
+                return NULL;
+            }
+            *(pixel8++) = mid;
+        }
     }
     return new_img;
 }
-
 
 /*
  *  Try to generate a 32-bit version.
  *  Return NULL if there is no memory left.
  */
-static image copy2image32 (drawing dw)
+static image copy2image32(drawing dw)
 {
     image new_img;
     rgb *pixel32;
-    long  x, y, w, h;
+    long x, y, w, h;
     point p;
     w = getwidth(dw);
     h = getheight(dw);
     new_img = newimage(w, h, 32);
-    if (! new_img)
-	return new_img;
+    if (!new_img)
+        return new_img;
 
-    pixel32 = (rgb *) new_img->pixels;
-    for (y = 0; y < h; y++) {
-	p.y = y;
-	for (x = 0; x < w; x++) {
-	    p.x = x;
-	    *(pixel32++) = ggetpixel(dw, p);
-	}
+    pixel32 = (rgb *)new_img->pixels;
+    for (y = 0; y < h; y++)
+    {
+        p.y = y;
+        for (x = 0; x < w; x++)
+        {
+            p.x = x;
+            *(pixel32++) = ggetpixel(dw, p);
+        }
     }
     return new_img;
 }
-
-
 
 /*
  *  Try to generate an image (with depth 8 or 32)  from drawing dw:
  *  Return NULL on failure.
  */
-image bitmaptoimage (drawing dw)
+image bitmaptoimage(drawing dw)
 {
     image new_img;
     rect r = ggetcliprect(dw);
@@ -161,7 +177,7 @@ image bitmaptoimage (drawing dw)
     gsetcliprect(dw, getrect(dw));
     new_img = copy2image8(dw);
     if (!new_img)
-	new_img = copy2image32(dw);
+        new_img = copy2image32(dw);
     gsetcliprect(dw, r);
     return new_img;
 }

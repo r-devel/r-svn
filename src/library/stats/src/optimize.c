@@ -25,9 +25,9 @@
 
 #define NO_NLS
 #include <Defn.h>
-#include <float.h>		/* for DBL_MAX */
-#include <R_ext/Applic.h>	/* for optif9, fdhess */
-#include <R_ext/RS.h>	       	/* for Memcpy */
+#include <float.h>        /* for DBL_MAX */
+#include <R_ext/Applic.h> /* for optif9, fdhess */
+#include <R_ext/RS.h>     /* for Memcpy */
 
 #include "statsR.h"
 #include "stats.h" // R_zeroin2
@@ -35,16 +35,15 @@
 #undef _
 #ifdef ENABLE_NLS
 #include <libintl.h>
-#define _(String) dgettext ("stats", String)
+#define _(String) dgettext("stats", String)
 #else
 #define _(String) (String)
 #endif
 
-
 /* Formerly in src/appl/fmim.c */
 
 /* fmin.f -- translated by f2c (version 19990503).
-*/
+ */
 
 /* R's  optimize() :   function	fmin(ax,bx,f,tol)
    =    ==========		~~~~~~~~~~~~~~~~~
@@ -90,9 +89,7 @@
 #include <Rmath.h>
 #include <R_ext/Applic.h>
 
-static
-double Brent_fmin(double ax, double bx, double (*f)(double, void *),
-		  void *info, double tol)
+static double Brent_fmin(double ax, double bx, double (*f)(double, void *), void *info, double tol)
 {
     /*  c is the squared inverse of the golden ratio */
     const double c = (3. - sqrt(5.)) * .5;
@@ -101,9 +98,9 @@ double Brent_fmin(double ax, double bx, double (*f)(double, void *),
     double a, b, d, e, p, q, r, u, v, w, x;
     double t2, fu, fv, fw, fx, xm, eps, tol1, tol3;
 
-/*  eps is approximately the square root of the relative machine precision. */
+    /*  eps is approximately the square root of the relative machine precision. */
     eps = DBL_EPSILON;
-    tol1 = eps + 1.;/* the smallest 1.000... > 1 */
+    tol1 = eps + 1.; /* the smallest 1.000... > 1 */
     eps = sqrt(eps);
 
     a = ax;
@@ -112,96 +109,127 @@ double Brent_fmin(double ax, double bx, double (*f)(double, void *),
     w = v;
     x = v;
 
-    d = 0.;/* -Wall */
+    d = 0.; /* -Wall */
     e = 0.;
     fx = (*f)(x, info);
     fv = fx;
     fw = fx;
     tol3 = tol / 3.;
 
-/*  main loop starts here ----------------------------------- */
+    /*  main loop starts here ----------------------------------- */
 
-    for(;;) {
-	xm = (a + b) * .5;
-	tol1 = eps * fabs(x) + tol3;
-	t2 = tol1 * 2.;
+    for (;;)
+    {
+        xm = (a + b) * .5;
+        tol1 = eps * fabs(x) + tol3;
+        t2 = tol1 * 2.;
 
-	/* check stopping criterion */
+        /* check stopping criterion */
 
-	if (fabs(x - xm) <= t2 - (b - a) * .5) break;
-	p = 0.;
-	q = 0.;
-	r = 0.;
-	if (fabs(e) > tol1) { /* fit parabola */
+        if (fabs(x - xm) <= t2 - (b - a) * .5)
+            break;
+        p = 0.;
+        q = 0.;
+        r = 0.;
+        if (fabs(e) > tol1)
+        { /* fit parabola */
 
-	    r = (x - w) * (fx - fv);
-	    q = (x - v) * (fx - fw);
-	    p = (x - v) * q - (x - w) * r;
-	    q = (q - r) * 2.;
-	    if (q > 0.) p = -p; else q = -q;
-	    r = e;
-	    e = d;
-	}
+            r = (x - w) * (fx - fv);
+            q = (x - v) * (fx - fw);
+            p = (x - v) * q - (x - w) * r;
+            q = (q - r) * 2.;
+            if (q > 0.)
+                p = -p;
+            else
+                q = -q;
+            r = e;
+            e = d;
+        }
 
-	if (fabs(p) >= fabs(q * .5 * r) ||
-	    p <= q * (a - x) || p >= q * (b - x)) { /* a golden-section step */
+        if (fabs(p) >= fabs(q * .5 * r) || p <= q * (a - x) || p >= q * (b - x))
+        { /* a golden-section step */
 
-	    if (x < xm) e = b - x; else e = a - x;
-	    d = c * e;
-	}
-	else { /* a parabolic-interpolation step */
+            if (x < xm)
+                e = b - x;
+            else
+                e = a - x;
+            d = c * e;
+        }
+        else
+        { /* a parabolic-interpolation step */
 
-	    d = p / q;
-	    u = x + d;
+            d = p / q;
+            u = x + d;
 
-	    /* f must not be evaluated too close to ax or bx */
+            /* f must not be evaluated too close to ax or bx */
 
-	    if (u - a < t2 || b - u < t2) {
-		d = tol1;
-		if (x >= xm) d = -d;
-	    }
-	}
+            if (u - a < t2 || b - u < t2)
+            {
+                d = tol1;
+                if (x >= xm)
+                    d = -d;
+            }
+        }
 
-	/* f must not be evaluated too close to x */
+        /* f must not be evaluated too close to x */
 
-	if (fabs(d) >= tol1)
-	    u = x + d;
-	else if (d > 0.)
-	    u = x + tol1;
-	else
-	    u = x - tol1;
+        if (fabs(d) >= tol1)
+            u = x + d;
+        else if (d > 0.)
+            u = x + tol1;
+        else
+            u = x - tol1;
 
-	fu = (*f)(u, info);
+        fu = (*f)(u, info);
 
-	/*  update  a, b, v, w, and x */
+        /*  update  a, b, v, w, and x */
 
-	if (fu <= fx) {
-	    if (u < x) b = x; else a = x;
-	    v = w;    w = x;   x = u;
-	    fv = fw; fw = fx; fx = fu;
-	} else {
-	    if (u < x) a = u; else b = u;
-	    if (fu <= fw || w == x) {
-		v = w; fv = fw;
-		w = u; fw = fu;
-	    } else if (fu <= fv || v == x || v == w) {
-		v = u; fv = fu;
-	    }
-	}
+        if (fu <= fx)
+        {
+            if (u < x)
+                b = x;
+            else
+                a = x;
+            v = w;
+            w = x;
+            x = u;
+            fv = fw;
+            fw = fx;
+            fx = fu;
+        }
+        else
+        {
+            if (u < x)
+                a = u;
+            else
+                b = u;
+            if (fu <= fw || w == x)
+            {
+                v = w;
+                fv = fw;
+                w = u;
+                fw = fu;
+            }
+            else if (fu <= fv || v == x || v == w)
+            {
+                v = u;
+                fv = fu;
+            }
+        }
     }
     /* end of main loop */
 
     return x;
 } // Brent_fmin()
 
-
 /* One Dimensional Minimization --- just wrapper for
  * Brent's "fmin" above */
 
-struct callinfo {
-  SEXP R_fcall;
-  SEXP R_env;
-} ;
+struct callinfo
+{
+    SEXP R_fcall;
+    SEXP R_env;
+};
 
 /*static SEXP R_fcall1;
   static SEXP R_env1; */
@@ -213,29 +241,36 @@ static double fcn1(double x, struct callinfo *info)
     SETCADR(info->R_fcall, sx);
     s = eval(info->R_fcall, info->R_env);
     UNPROTECT(1);
-    switch(TYPEOF(s)) {
+    switch (TYPEOF(s))
+    {
     case INTSXP:
-	if (length(s) != 1) goto badvalue;
-	if (INTEGER(s)[0] == NA_INTEGER) {
-	    warning(_("NA replaced by maximum positive value"));
-	    return DBL_MAX;
-	}
-	else return INTEGER(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (INTEGER(s)[0] == NA_INTEGER)
+        {
+            warning(_("NA replaced by maximum positive value"));
+            return DBL_MAX;
+        }
+        else
+            return INTEGER(s)[0];
+        break;
     case REALSXP:
-	if (length(s) != 1) goto badvalue;
-	if (!R_FINITE(REAL(s)[0])) {
-	    warning(_("NA/Inf replaced by maximum positive value"));
-	    return DBL_MAX;
-	}
-	else return REAL(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (!R_FINITE(REAL(s)[0]))
+        {
+            warning(_("NA/Inf replaced by maximum positive value"));
+            return DBL_MAX;
+        }
+        else
+            return REAL(s)[0];
+        break;
     default:
-	goto badvalue;
+        goto badvalue;
     }
- badvalue:
+badvalue:
     error(_("invalid function value in 'optimize'"));
-    return 0;/* for -Wall */
+    return 0; /* for -Wall */
 }
 
 /* fmin(f, xmin, xmax tol) */
@@ -252,41 +287,38 @@ SEXP do_fmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     v = CAR(args);
     if (!isFunction(v))
-	error(_("attempt to minimize non-function"));
+        error(_("attempt to minimize non-function"));
     args = CDR(args);
 
     /* xmin */
 
     xmin = asReal(CAR(args));
     if (!R_FINITE(xmin))
-	error(_("invalid '%s' value"), "xmin");
+        error(_("invalid '%s' value"), "xmin");
     args = CDR(args);
 
     /* xmax */
 
     xmax = asReal(CAR(args));
     if (!R_FINITE(xmax))
-	error(_("invalid '%s' value"), "xmax");
+        error(_("invalid '%s' value"), "xmax");
     if (xmin >= xmax)
-	error(_("'xmin' not less than 'xmax'"));
+        error(_("'xmin' not less than 'xmax'"));
     args = CDR(args);
 
     /* tol */
 
     tol = asReal(CAR(args));
     if (!R_FINITE(tol) || tol <= 0.0)
-	error(_("invalid '%s' value"), "tol");
+        error(_("invalid '%s' value"), "tol");
 
     info.R_env = rho;
     PROTECT(info.R_fcall = lang2(v, R_NilValue));
     PROTECT(res = allocVector(REALSXP, 1));
-    REAL(res)[0] = Brent_fmin(xmin, xmax,
-			      (double (*)(double, void*)) fcn1, &info, tol);
+    REAL(res)[0] = Brent_fmin(xmin, xmax, (double (*)(double, void *))fcn1, &info, tol);
     UNPROTECT(2);
     return res;
 }
-
-
 
 // One Dimensional Root Finding --  just wrapper code for
 // Brent's "zeroin"
@@ -299,35 +331,44 @@ static double fcn2(double x, struct callinfo *info)
     SETCADR(info->R_fcall, sx);
     s = eval(info->R_fcall, info->R_env);
     UNPROTECT(1);
-    switch(TYPEOF(s)) {
+    switch (TYPEOF(s))
+    {
     case INTSXP:
-	if (length(s) != 1) goto badvalue;
-	if (INTEGER(s)[0] == NA_INTEGER) {
-	    warning(_("NA replaced by maximum positive value"));
-	    return	DBL_MAX;
-	}
-	else return INTEGER(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (INTEGER(s)[0] == NA_INTEGER)
+        {
+            warning(_("NA replaced by maximum positive value"));
+            return DBL_MAX;
+        }
+        else
+            return INTEGER(s)[0];
+        break;
     case REALSXP:
-	if (length(s) != 1) goto badvalue;
-	if (!R_FINITE(REAL(s)[0])) {
-	    if(REAL(s)[0] == R_NegInf) { // keep sign for root finding !
-		warning(_("-Inf replaced by maximally negative value"));
-		return -DBL_MAX;
-	    } else {
-		warning(_("NA/Inf replaced by maximum positive value"));
-		return DBL_MAX;
-	    }
-	}
-	else return REAL(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (!R_FINITE(REAL(s)[0]))
+        {
+            if (REAL(s)[0] == R_NegInf)
+            { // keep sign for root finding !
+                warning(_("-Inf replaced by maximally negative value"));
+                return -DBL_MAX;
+            }
+            else
+            {
+                warning(_("NA/Inf replaced by maximum positive value"));
+                return DBL_MAX;
+            }
+        }
+        else
+            return REAL(s)[0];
+        break;
     default:
-	goto badvalue;
+        goto badvalue;
     }
- badvalue:
+badvalue:
     error(_("invalid function value in 'zeroin'"));
-    return 0;/* for -Wall */
-
+    return 0; /* for -Wall */
 }
 
 /* zeroin2(f, ax, bx, f.ax, f.bx, tol, maxiter) */
@@ -344,75 +385,82 @@ SEXP zeroin2(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* the function to be minimized */
     v = CAR(args);
-    if (!isFunction(v)) error(_("attempt to minimize non-function"));
+    if (!isFunction(v))
+        error(_("attempt to minimize non-function"));
     args = CDR(args);
 
     /* xmin */
     xmin = asReal(CAR(args));
-    if (!R_FINITE(xmin)) error(_("invalid '%s' value"), "xmin");
+    if (!R_FINITE(xmin))
+        error(_("invalid '%s' value"), "xmin");
     args = CDR(args);
 
     /* xmax */
     xmax = asReal(CAR(args));
-    if (!R_FINITE(xmax)) error(_("invalid '%s' value"), "xmax");
-    if (xmin >= xmax) error(_("'xmin' not less than 'xmax'"));
+    if (!R_FINITE(xmax))
+        error(_("invalid '%s' value"), "xmax");
+    if (xmin >= xmax)
+        error(_("'xmin' not less than 'xmax'"));
     args = CDR(args);
 
     /* f(ax) = f(xmin) */
     f_ax = asReal(CAR(args));
-    if (ISNA(f_ax)) error(_("NA value for '%s' is not allowed"), "f.lower");
+    if (ISNA(f_ax))
+        error(_("NA value for '%s' is not allowed"), "f.lower");
     args = CDR(args);
 
     /* f(bx) = f(xmax) */
     f_bx = asReal(CAR(args));
-    if (ISNA(f_bx)) error(_("NA value for '%s' is not allowed"), "f.upper");
+    if (ISNA(f_bx))
+        error(_("NA value for '%s' is not allowed"), "f.upper");
     args = CDR(args);
 
     /* tol */
     tol = asReal(CAR(args));
-    if (!R_FINITE(tol) || tol <= 0.0) error(_("invalid '%s' value"), "tol");
+    if (!R_FINITE(tol) || tol <= 0.0)
+        error(_("invalid '%s' value"), "tol");
     args = CDR(args);
 
     /* maxiter */
     iter = asInteger(CAR(args));
-    if (iter <= 0) error(_("'maxiter' must be positive"));
+    if (iter <= 0)
+        error(_("'maxiter' must be positive"));
 
     info.R_env = rho;
     PROTECT(info.R_fcall = lang2(v, R_NilValue)); /* the info used in fcn2() */
     PROTECT(res = allocVector(REALSXP, 3));
-    REAL(res)[0] =
-	R_zeroin2(xmin, xmax, f_ax, f_bx, (double (*)(double, void*)) fcn2,
-		 (void *) &info, &tol, &iter);
+    REAL(res)[0] = R_zeroin2(xmin, xmax, f_ax, f_bx, (double (*)(double, void *))fcn2, (void *)&info, &tol, &iter);
     REAL(res)[1] = (double)iter;
     REAL(res)[2] = tol;
     UNPROTECT(2);
     return res;
 }
-
-
 
 /* General Nonlinear Optimization */
 
-#define FT_SIZE 5		/* default size of table to store computed
-				   function values */
+#define FT_SIZE                                                                                                        \
+    5 /* default size of table to store computed                                                                       \
+ function values */
 
-typedef struct {
-  double   fval;
-  double  *x;
-  double  *grad;
-  double  *hess;
+typedef struct
+{
+    double fval;
+    double *x;
+    double *grad;
+    double *hess;
 } ftable;
 
-typedef struct {
-  SEXP R_fcall;	      /* unevaluated call to R function */
-  SEXP R_env;	      /* where to evaluate the calls */
-  int have_gradient;
-  int have_hessian;
-/*  int n;	      -* length of the parameter (x) vector */
-  int FT_size;	      /* size of table to store computed
-			 function values */
-  int FT_last;	      /* Newest entry in the table */
-  ftable *Ftable;
+typedef struct
+{
+    SEXP R_fcall; /* unevaluated call to R function */
+    SEXP R_env;   /* where to evaluate the calls */
+    int have_gradient;
+    int have_hessian;
+    /*  int n;	      -* length of the parameter (x) vector */
+    int FT_size; /* size of table to store computed
+        function values */
+    int FT_last; /* Newest entry in the table */
+    ftable *Ftable;
 } function_info;
 
 /* Initialize the storage in the table of computed function values */
@@ -428,18 +476,22 @@ static void FT_init(int n, int FT_size, function_info *state)
 
     Ftable = (ftable *)R_alloc(FT_size, sizeof(ftable));
 
-    for (i = 0; i < FT_size; i++) {
-	Ftable[i].x = (double *)R_alloc(n, sizeof(double));
-				/* initialize to unlikely parameter values */
-	for (j = 0; j < n; j++) {
-	    Ftable[i].x[j] = DBL_MAX;
-	}
-	if (have_gradient) {
-	    Ftable[i].grad = (double *)R_alloc(n, sizeof(double));
-	    if (have_hessian) {
-		Ftable[i].hess = (double *)R_alloc(n * n, sizeof(double));
-	    }
-	}
+    for (i = 0; i < FT_size; i++)
+    {
+        Ftable[i].x = (double *)R_alloc(n, sizeof(double));
+        /* initialize to unlikely parameter values */
+        for (j = 0; j < n; j++)
+        {
+            Ftable[i].x[j] = DBL_MAX;
+        }
+        if (have_gradient)
+        {
+            Ftable[i].grad = (double *)R_alloc(n, sizeof(double));
+            if (have_hessian)
+            {
+                Ftable[i].hess = (double *)R_alloc(n * n, sizeof(double));
+            }
+        }
     }
     state->Ftable = Ftable;
     state->FT_size = FT_size;
@@ -448,19 +500,21 @@ static void FT_init(int n, int FT_size, function_info *state)
 
 /* Store an entry in the table of computed function values */
 
-static void FT_store(int n, const double f, const double *x, const double *grad,
-		     const double *hess, function_info *state)
+static void FT_store(int n, const double f, const double *x, const double *grad, const double *hess,
+                     function_info *state)
 {
     int ind;
 
     ind = (++(state->FT_last)) % (state->FT_size);
     state->Ftable[ind].fval = f;
     Memcpy(state->Ftable[ind].x, x, n);
-    if (grad) {
-	Memcpy(state->Ftable[ind].grad, grad, n);
-	if (hess) {
-	    Memcpy(state->Ftable[ind].hess, hess, n * n);
-	}
+    if (grad)
+    {
+        Memcpy(state->Ftable[ind].grad, grad, n);
+        if (hess)
+        {
+            Memcpy(state->Ftable[ind].hess, hess, n * n);
+        }
     }
 }
 
@@ -478,114 +532,132 @@ static int FT_lookup(int n, const double *x, function_info *state)
     FT_size = state->FT_size;
     Ftable = state->Ftable;
 
-    for (i = 0; i < FT_size; i++) {
-	ind = (FT_last - i) % FT_size;
-				/* why can't they define modulus correctly */
-	if (ind < 0) ind += FT_size;
-	ftx = Ftable[ind].x;
-	if (ftx) {
-	    matched = 1;
-	    for (j = 0; j < n; j++) {
-		if (x[j] != ftx[j]) {
-		    matched = 0;
-		    break;
-		}
-	    }
-	    if (matched) return ind;
-	}
+    for (i = 0; i < FT_size; i++)
+    {
+        ind = (FT_last - i) % FT_size;
+        /* why can't they define modulus correctly */
+        if (ind < 0)
+            ind += FT_size;
+        ftx = Ftable[ind].x;
+        if (ftx)
+        {
+            matched = 1;
+            for (j = 0; j < n; j++)
+            {
+                if (x[j] != ftx[j])
+                {
+                    matched = 0;
+                    break;
+                }
+            }
+            if (matched)
+                return ind;
+        }
     }
     return -1;
 }
 
 /* This how the optimizer sees them */
 
-static void fcn(int n, const double x[], double *f, function_info
-		*state)
+static void fcn(int n, const double x[], double *f, function_info *state)
 {
     SEXP s, R_fcall;
     ftable *Ftable;
-    double *g = (double *) 0, *h = (double *) 0;
+    double *g = (double *)0, *h = (double *)0;
     int i;
 
     R_fcall = state->R_fcall;
     Ftable = state->Ftable;
-    if ((i = FT_lookup(n, x, state)) >= 0) {
-	*f = Ftable[i].fval;
-	return;
+    if ((i = FT_lookup(n, x, state)) >= 0)
+    {
+        *f = Ftable[i].fval;
+        return;
     }
-				/* calculate for a new value of x */
+    /* calculate for a new value of x */
     s = allocVector(REALSXP, n);
     SETCADR(R_fcall, s);
-    for (i = 0; i < n; i++) {
-	if (!R_FINITE(x[i])) error(_("non-finite value supplied by 'nlm'"));
-	REAL(s)[i] = x[i];
+    for (i = 0; i < n; i++)
+    {
+        if (!R_FINITE(x[i]))
+            error(_("non-finite value supplied by 'nlm'"));
+        REAL(s)[i] = x[i];
     }
     s = PROTECT(eval(state->R_fcall, state->R_env));
-    switch(TYPEOF(s)) {
+    switch (TYPEOF(s))
+    {
     case INTSXP:
-	if (length(s) != 1) goto badvalue;
-	if (INTEGER(s)[0] == NA_INTEGER) {
-	    warning(_("NA replaced by maximum positive value"));
-	    *f = DBL_MAX;
-	}
-	else *f = INTEGER(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (INTEGER(s)[0] == NA_INTEGER)
+        {
+            warning(_("NA replaced by maximum positive value"));
+            *f = DBL_MAX;
+        }
+        else
+            *f = INTEGER(s)[0];
+        break;
     case REALSXP:
-	if (length(s) != 1) goto badvalue;
-	if (!R_FINITE(REAL(s)[0])) {
-	    warning(_("NA/Inf replaced by maximum positive value"));
-	    *f = DBL_MAX;
-	}
-	else *f = REAL(s)[0];
-	break;
+        if (length(s) != 1)
+            goto badvalue;
+        if (!R_FINITE(REAL(s)[0]))
+        {
+            warning(_("NA/Inf replaced by maximum positive value"));
+            *f = DBL_MAX;
+        }
+        else
+            *f = REAL(s)[0];
+        break;
     default:
-	goto badvalue;
+        goto badvalue;
     }
-    if (state->have_gradient) {
-	g = REAL(PROTECT(coerceVector(getAttrib(s, install("gradient")), REALSXP)));
-	if (state->have_hessian) {
-	    h = REAL(PROTECT(coerceVector(getAttrib(s, install("hessian")), REALSXP)));
-	}
+    if (state->have_gradient)
+    {
+        g = REAL(PROTECT(coerceVector(getAttrib(s, install("gradient")), REALSXP)));
+        if (state->have_hessian)
+        {
+            h = REAL(PROTECT(coerceVector(getAttrib(s, install("hessian")), REALSXP)));
+        }
     }
     FT_store(n, *f, x, g, h, state);
     UNPROTECT(1 + state->have_gradient + state->have_hessian);
     return;
 
- badvalue:
+badvalue:
     error(_("invalid function value in 'nlm' optimizer"));
 }
-
 
 static void Cd1fcn(int n, const double x[], double *g, function_info *state)
 {
     int ind;
 
-    if ((ind = FT_lookup(n, x, state)) < 0) {	/* shouldn't happen */
-	fcn(n, x, g, state);
-	if ((ind = FT_lookup(n, x, state)) < 0) {
-	    error(_("function value caching for optimization is seriously confused"));
-	}
+    if ((ind = FT_lookup(n, x, state)) < 0)
+    { /* shouldn't happen */
+        fcn(n, x, g, state);
+        if ((ind = FT_lookup(n, x, state)) < 0)
+        {
+            error(_("function value caching for optimization is seriously confused"));
+        }
     }
     Memcpy(g, state->Ftable[ind].grad, n);
 }
 
-
-static void Cd2fcn(int nr, int n, const double x[], double *h,
-		   function_info *state)
+static void Cd2fcn(int nr, int n, const double x[], double *h, function_info *state)
 {
     int j, ind;
 
-    if ((ind = FT_lookup(n, x, state)) < 0) {	/* shouldn't happen */
-	fcn(n, x, h, state);
-	if ((ind = FT_lookup(n, x, state)) < 0) {
-	    error(_("function value caching for optimization is seriously confused"));
-	}
+    if ((ind = FT_lookup(n, x, state)) < 0)
+    { /* shouldn't happen */
+        fcn(n, x, h, state);
+        if ((ind = FT_lookup(n, x, state)) < 0)
+        {
+            error(_("function value caching for optimization is seriously confused"));
+        }
     }
-    for (j = 0; j < n; j++) {  /* fill in lower triangle only */
-	Memcpy( h + j*(n + 1), state->Ftable[ind].hess + j*(n + 1), n - j);
+    for (j = 0; j < n; j++)
+    { /* fill in lower triangle only */
+        Memcpy(h + j * (n + 1), state->Ftable[ind].hess + j * (n + 1), n - j);
     }
 }
-
 
 static double *fixparam(SEXP p, int *n)
 {
@@ -593,99 +665,105 @@ static double *fixparam(SEXP p, int *n)
     int i;
 
     if (!isNumeric(p))
-	error(_("numeric parameter expected"));
+        error(_("numeric parameter expected"));
 
-    if (*n) {
-	if (LENGTH(p) != *n)
-	    error(_("conflicting parameter lengths"));
+    if (*n)
+    {
+        if (LENGTH(p) != *n)
+            error(_("conflicting parameter lengths"));
     }
-    else {
-	if (LENGTH(p) <= 0)
-	    error(_("invalid parameter length"));
-	*n = LENGTH(p);
+    else
+    {
+        if (LENGTH(p) <= 0)
+            error(_("invalid parameter length"));
+        *n = LENGTH(p);
     }
 
-    x = (double*)R_alloc(*n, sizeof(double));
-    switch(TYPEOF(p)) {
+    x = (double *)R_alloc(*n, sizeof(double));
+    switch (TYPEOF(p))
+    {
     case LGLSXP:
     case INTSXP:
-	for (i = 0; i < *n; i++) {
-	    if (INTEGER(p)[i] == NA_INTEGER)
-		error(_("missing value in parameter"));
-	    x[i] = INTEGER(p)[i];
-	}
-	break;
+        for (i = 0; i < *n; i++)
+        {
+            if (INTEGER(p)[i] == NA_INTEGER)
+                error(_("missing value in parameter"));
+            x[i] = INTEGER(p)[i];
+        }
+        break;
     case REALSXP:
-	for (i = 0; i < *n; i++) {
-	    if (!R_FINITE(REAL(p)[i]))
-		error(_("missing value in parameter"));
-	    x[i] = REAL(p)[i];
-	}
-	break;
+        for (i = 0; i < *n; i++)
+        {
+            if (!R_FINITE(REAL(p)[i]))
+                error(_("missing value in parameter"));
+            x[i] = REAL(p)[i];
+        }
+        break;
     default:
-	error(_("invalid parameter type"));
+        error(_("invalid parameter type"));
     }
     return x;
 }
 
-	/* Fatal errors - we don't deliver an answer */
+/* Fatal errors - we don't deliver an answer */
 
 NORET static void opterror(int nerr)
 {
-    switch(nerr) {
+    switch (nerr)
+    {
     case -1:
-	error(_("non-positive number of parameters in nlm"));
+        error(_("non-positive number of parameters in nlm"));
     case -2:
-	error(_("nlm is inefficient for 1-d problems"));
+        error(_("nlm is inefficient for 1-d problems"));
     case -3:
-	error(_("invalid gradient tolerance in nlm"));
+        error(_("invalid gradient tolerance in nlm"));
     case -4:
-	error(_("invalid iteration limit in nlm"));
+        error(_("invalid iteration limit in nlm"));
     case -5:
-	error(_("minimization function has no good digits in nlm"));
+        error(_("minimization function has no good digits in nlm"));
     case -6:
-	error(_("no analytic gradient to check in nlm!"));
+        error(_("no analytic gradient to check in nlm!"));
     case -7:
-	error(_("no analytic Hessian to check in nlm!"));
+        error(_("no analytic Hessian to check in nlm!"));
     case -21:
-	error(_("probable coding error in analytic gradient"));
+        error(_("probable coding error in analytic gradient"));
     case -22:
-	error(_("probable coding error in analytic Hessian"));
+        error(_("probable coding error in analytic Hessian"));
     default:
-	error(_("*** unknown error message (msg = %d) in nlm()\n*** should not happen!"), nerr);
+        error(_("*** unknown error message (msg = %d) in nlm()\n*** should not happen!"), nerr);
     }
 }
 
-
-	/* Warnings - we return a value, but print a warning */
+/* Warnings - we return a value, but print a warning */
 
 static void optcode(int code)
 {
-    switch(code) {
+    switch (code)
+    {
     case 1:
-	Rprintf(_("Relative gradient close to zero.\n"));
-	Rprintf(_("Current iterate is probably solution.\n"));
-	break;
+        Rprintf(_("Relative gradient close to zero.\n"));
+        Rprintf(_("Current iterate is probably solution.\n"));
+        break;
     case 2:
-	Rprintf(_("Successive iterates within tolerance.\n"));
-	Rprintf(_("Current iterate is probably solution.\n"));
-	break;
+        Rprintf(_("Successive iterates within tolerance.\n"));
+        Rprintf(_("Current iterate is probably solution.\n"));
+        break;
     case 3:
-	Rprintf(_("Last global step failed to locate a point lower than x.\n"));
-	Rprintf(_("Either x is an approximate local minimum of the function,\n\
+        Rprintf(_("Last global step failed to locate a point lower than x.\n"));
+        Rprintf(_("Either x is an approximate local minimum of the function,\n\
 the function is too non-linear for this algorithm,\n\
 or steptol is too large.\n"));
-	break;
+        break;
     case 4:
-	Rprintf(_("Iteration limit exceeded.  Algorithm failed.\n"));
-	break;
+        Rprintf(_("Iteration limit exceeded.  Algorithm failed.\n"));
+        break;
     case 5:
-	Rprintf(_("Maximum step size exceeded 5 consecutive times.\n\
+        Rprintf(_("Maximum step size exceeded 5 consecutive times.\n\
 Either the function is unbounded below,\n\
 becomes asymptotic to a finite value\n\
-from above in some direction,\n"\
-"or stepmx is too small.\n"));
-	break;
+from above in some direction,\n"
+                  "or stepmx is too small.\n"));
+        break;
     }
     Rprintf("\n");
 }
@@ -696,29 +774,26 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP value, names, v, R_gradientSymbol, R_hessianSymbol;
 
-    double *x, *typsiz, fscale, gradtl, stepmx,
-	steptol, *xpls, *gpls, fpls, *a, *wrk, dlt;
+    double *x, *typsiz, fscale, gradtl, stepmx, steptol, *xpls, *gpls, fpls, *a, *wrk, dlt;
 
-    int code, i, j, k, itnlim, method, iexp, omsg, msg,
-	n, ndigit, iagflg, iahflg, want_hessian, itncnt;
+    int code, i, j, k, itnlim, method, iexp, omsg, msg, n, ndigit, iagflg, iahflg, want_hessian, itncnt;
 
-
-/* .Internal(
- *	nlm(function(x) f(x, ...), p, hessian, typsize, fscale,
- *	    msg, ndigit, gradtol, stepmax, steptol, iterlim)
- */
+    /* .Internal(
+     *	nlm(function(x) f(x, ...), p, hessian, typsize, fscale,
+     *	    msg, ndigit, gradtol, stepmax, steptol, iterlim)
+     */
     function_info *state;
 
     args = CDR(args);
     PrintDefaults();
 
-    state = (function_info *) R_alloc(1, sizeof(function_info));
+    state = (function_info *)R_alloc(1, sizeof(function_info));
 
     /* the function to be minimized */
 
     v = CAR(args);
     if (!isFunction(v))
-	error(_("attempt to minimize non-function"));
+        error(_("attempt to minimize non-function"));
     PROTECT(state->R_fcall = lang2(v, R_NilValue));
     args = CDR(args);
 
@@ -731,7 +806,8 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* `hessian' : H. required? */
 
     want_hessian = asLogical(CAR(args));
-    if (want_hessian == NA_LOGICAL) want_hessian = 0;
+    if (want_hessian == NA_LOGICAL)
+        want_hessian = 0;
     args = CDR(args);
 
     /* `typsize' : typical size of parameter elements */
@@ -742,86 +818,104 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* `fscale' : expected function size */
 
     fscale = asReal(CAR(args));
-    if (ISNA(fscale)) error(_("invalid NA value in parameter"));
+    if (ISNA(fscale))
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     /* `msg' (bit pattern) */
     omsg = msg = asInteger(CAR(args));
-    if (msg == NA_INTEGER) error(_("invalid NA value in parameter"));
+    if (msg == NA_INTEGER)
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     ndigit = asInteger(CAR(args));
-    if (ndigit == NA_INTEGER) error(_("invalid NA value in parameter"));
+    if (ndigit == NA_INTEGER)
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     gradtl = asReal(CAR(args));
-    if (ISNA(gradtl)) error(_("invalid NA value in parameter"));
+    if (ISNA(gradtl))
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     stepmx = asReal(CAR(args));
-    if (ISNA(stepmx)) error(_("invalid NA value in parameter"));
+    if (ISNA(stepmx))
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     steptol = asReal(CAR(args));
-    if (ISNA(steptol)) error(_("invalid NA value in parameter"));
+    if (ISNA(steptol))
+        error(_("invalid NA value in parameter"));
     args = CDR(args);
 
     /* `iterlim' (def. 100) */
     itnlim = asInteger(CAR(args));
-    if (itnlim == NA_INTEGER) error(_("invalid NA value in parameter"));
+    if (itnlim == NA_INTEGER)
+        error(_("invalid NA value in parameter"));
 
     state->R_env = rho;
 
     /* force one evaluation to check for the gradient and hessian */
-    iagflg = 0;			/* No analytic gradient */
-    iahflg = 0;			/* No analytic hessian */
+    iagflg = 0; /* No analytic gradient */
+    iahflg = 0; /* No analytic hessian */
     state->have_gradient = 0;
     state->have_hessian = 0;
     R_gradientSymbol = install("gradient");
     R_hessianSymbol = install("hessian");
 
     v = allocVector(REALSXP, n);
-    for (i = 0; i < n; i++) REAL(v)[i] = x[i];
+    for (i = 0; i < n; i++)
+        REAL(v)[i] = x[i];
     SETCADR(state->R_fcall, v);
     PROTECT(value = eval(state->R_fcall, state->R_env));
 
     v = getAttrib(value, R_gradientSymbol);
-    if (v != R_NilValue) {
-	if (LENGTH(v) == n && (isReal(v) || isInteger(v))) {
-	    iagflg = 1;
-	    state->have_gradient = 1;
-	    v = getAttrib(value, R_hessianSymbol);
+    if (v != R_NilValue)
+    {
+        if (LENGTH(v) == n && (isReal(v) || isInteger(v)))
+        {
+            iagflg = 1;
+            state->have_gradient = 1;
+            v = getAttrib(value, R_hessianSymbol);
 
-	    if (v != R_NilValue) {
-		if (LENGTH(v) == (n * n) && (isReal(v) || isInteger(v))) {
-		    iahflg = 1;
-		    state->have_hessian = 1;
-		} else {
-		    warning(_("hessian supplied is of the wrong length or mode, so ignored"));
-		}
-	    }
-	} else {
-	    warning(_("gradient supplied is of the wrong length or mode, so ignored"));
-	}
+            if (v != R_NilValue)
+            {
+                if (LENGTH(v) == (n * n) && (isReal(v) || isInteger(v)))
+                {
+                    iahflg = 1;
+                    state->have_hessian = 1;
+                }
+                else
+                {
+                    warning(_("hessian supplied is of the wrong length or mode, so ignored"));
+                }
+            }
+        }
+        else
+        {
+            warning(_("gradient supplied is of the wrong length or mode, so ignored"));
+        }
     }
     UNPROTECT(1); /* value */
-    if (((msg/4) % 2) && !iahflg) { /* skip check of analytic Hessian */
-      msg -= 4;
+    if (((msg / 4) % 2) && !iahflg)
+    { /* skip check of analytic Hessian */
+        msg -= 4;
     }
-    if (((msg/2) % 2) && !iagflg) { /* skip check of analytic gradient */
-      msg -= 2;
+    if (((msg / 2) % 2) && !iagflg)
+    { /* skip check of analytic gradient */
+        msg -= 2;
     }
     FT_init(n, FT_SIZE, state);
     /* Plug in the call to the optimizer here */
 
-    method = 1;	/* Line Search */
+    method = 1;            /* Line Search */
     iexp = iahflg ? 0 : 1; /* Function calls are expensive */
     dlt = 1.0;
 
-    xpls = (double*)R_alloc(n, sizeof(double));
-    gpls = (double*)R_alloc(n, sizeof(double));
-    a = (double*)R_alloc(n*n, sizeof(double));
-    wrk = (double*)R_alloc(8*n, sizeof(double));
+    xpls = (double *)R_alloc(n, sizeof(double));
+    gpls = (double *)R_alloc(n, sizeof(double));
+    a = (double *)R_alloc(n * n, sizeof(double));
+    wrk = (double *)R_alloc(8 * n, sizeof(double));
 
     /*
      *	 Dennis + Schnabel Minimizer
@@ -843,28 +937,27 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
      *	 I think we always check gradients and hessians
      */
 
-    optif9(n, n, x, (fcn_p) fcn, (fcn_p) Cd1fcn, (d2fcn_p) Cd2fcn,
-	   state, typsiz, fscale, method, iexp, &msg, ndigit, itnlim,
-	   iagflg, iahflg, dlt, gradtl, stepmx, steptol, xpls, &fpls,
-	   gpls, &code, a, wrk, &itncnt);
+    optif9(n, n, x, (fcn_p)fcn, (fcn_p)Cd1fcn, (d2fcn_p)Cd2fcn, state, typsiz, fscale, method, iexp, &msg, ndigit,
+           itnlim, iagflg, iahflg, dlt, gradtl, stepmx, steptol, xpls, &fpls, gpls, &code, a, wrk, &itncnt);
 
     if (msg < 0)
-	opterror(msg);
-    if (code != 0 && (omsg&8) == 0)
-	optcode(code);
+        opterror(msg);
+    if (code != 0 && (omsg & 8) == 0)
+        optcode(code);
 
-    if (want_hessian) {
-	PROTECT(value = allocVector(VECSXP, 6));
-	PROTECT(names = allocVector(STRSXP, 6));
-	fdhess(n, xpls, fpls, (fcn_p) fcn, state, a, n, &wrk[0], &wrk[n],
-	       ndigit, typsiz);
-	for (i = 0; i < n; i++)
-	    for (j = 0; j < i; j++)
-		a[i + j * n] = a[j + i * n];
+    if (want_hessian)
+    {
+        PROTECT(value = allocVector(VECSXP, 6));
+        PROTECT(names = allocVector(STRSXP, 6));
+        fdhess(n, xpls, fpls, (fcn_p)fcn, state, a, n, &wrk[0], &wrk[n], ndigit, typsiz);
+        for (i = 0; i < n; i++)
+            for (j = 0; j < i; j++)
+                a[i + j * n] = a[j + i * n];
     }
-    else {
-	PROTECT(value = allocVector(VECSXP, 5));
-	PROTECT(names = allocVector(STRSXP, 5));
+    else
+    {
+        PROTECT(value = allocVector(VECSXP, 5));
+        PROTECT(names = allocVector(STRSXP, 5));
     }
     k = 0;
 
@@ -875,21 +968,22 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(names, k, mkChar("estimate"));
     SET_VECTOR_ELT(value, k, allocVector(REALSXP, n));
     for (i = 0; i < n; i++)
-	REAL(VECTOR_ELT(value, k))[i] = xpls[i];
+        REAL(VECTOR_ELT(value, k))[i] = xpls[i];
     k++;
 
     SET_STRING_ELT(names, k, mkChar("gradient"));
     SET_VECTOR_ELT(value, k, allocVector(REALSXP, n));
     for (i = 0; i < n; i++)
-	REAL(VECTOR_ELT(value, k))[i] = gpls[i];
+        REAL(VECTOR_ELT(value, k))[i] = gpls[i];
     k++;
 
-    if (want_hessian) {
-	SET_STRING_ELT(names, k, mkChar("hessian"));
-	SET_VECTOR_ELT(value, k, allocMatrix(REALSXP, n, n));
-	for (i = 0; i < n * n; i++)
-	    REAL(VECTOR_ELT(value, k))[i] = a[i];
-	k++;
+    if (want_hessian)
+    {
+        SET_STRING_ELT(names, k, mkChar("hessian"));
+        SET_VECTOR_ELT(value, k, allocMatrix(REALSXP, n, n));
+        for (i = 0; i < n * n; i++)
+            REAL(VECTOR_ELT(value, k))[i] = a[i];
+        k++;
     }
 
     SET_STRING_ELT(names, k, mkChar("code"));

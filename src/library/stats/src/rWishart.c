@@ -18,19 +18,18 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <math.h>
-#include <string.h>  // memset, memcpy
+#include <string.h> // memset, memcpy
 #include <R.h>
 #include <Rinternals.h>
 #include <Rmath.h>
-#include <R_ext/Lapack.h>        /* for Lapack (dpotrf, etc.) and BLAS */
+#include <R_ext/Lapack.h> /* for Lapack (dpotrf, etc.) and BLAS */
 
 #include "stats.h" // for _()
 #include "statsR.h"
-
 
 /**
  * Simulate the Cholesky factor of a standardized Wishart variate with
@@ -44,23 +43,24 @@
  *
  * @return ans
  */
-static double
-*std_rWishart_factor(double nu, int p, int upper, double ans[])
+static double *std_rWishart_factor(double nu, int p, int upper, double ans[])
 {
     int pp1 = p + 1;
 
-    if (nu < (double) p || p <= 0)
-	error(_("inconsistent degrees of freedom and dimension"));
+    if (nu < (double)p || p <= 0)
+        error(_("inconsistent degrees of freedom and dimension"));
 
     memset(ans, 0, p * p * sizeof(double));
-    for (int j = 0; j < p; j++) {	/* jth column */
-	ans[j * pp1] = sqrt(rchisq(nu - (double) j));
-	for (int i = 0; i < j; i++) {
-	    int uind = i + j * p, /* upper triangle index */
-		lind = j + i * p; /* lower triangle index */
-	    ans[(upper ? uind : lind)] = norm_rand();
-	    ans[(upper ? lind : uind)] = 0;
-	}
+    for (int j = 0; j < p; j++)
+    { /* jth column */
+        ans[j * pp1] = sqrt(rchisq(nu - (double)j));
+        for (int i = 0; i < j; i++)
+        {
+            int uind = i + j * p, /* upper triangle index */
+                lind = j + i * p; /* lower triangle index */
+            ans[(upper ? uind : lind)] = norm_rand();
+            ans[(upper ? lind : uind)] = 0;
+        }
     }
     return ans;
 }
@@ -74,17 +74,16 @@ static double
  *
  * @return
  */
-SEXP
-rWishart(SEXP ns, SEXP nuP, SEXP scal)
+SEXP rWishart(SEXP ns, SEXP nuP, SEXP scal)
 {
     SEXP ans;
-    int *dims = INTEGER(getAttrib(scal, R_DimSymbol)), info,
-	n = asInteger(ns), psqr;
+    int *dims = INTEGER(getAttrib(scal, R_DimSymbol)), info, n = asInteger(ns), psqr;
     double *scCp, *ansp, *tmp, nu = asReal(nuP), one = 1, zero = 0;
 
     if (!isMatrix(scal) || !isReal(scal) || dims[0] != dims[1])
-	error(_("'scal' must be a square, real matrix"));
-    if (n <= 0) n = 1;
+        error(_("'scal' must be a square, real matrix"));
+    if (n <= 0)
+        n = 1;
     // allocate early to avoid memory leaks in R_Callocs below.
     PROTECT(ans = alloc3DArray(REALSXP, dims[0], dims[0], n));
     psqr = dims[0] * dims[0];
@@ -95,26 +94,25 @@ rWishart(SEXP ns, SEXP nuP, SEXP scal)
     memset(tmp, 0, psqr * sizeof(double));
     F77_CALL(dpotrf)("U", &(dims[0]), scCp, &(dims[0]), &info FCONE); // LAPACK
     if (info)
-	error(_("'scal' matrix is not positive-definite"));
+        error(_("'scal' matrix is not positive-definite"));
     ansp = REAL(ans);
     GetRNGstate();
-    for (int j = 0; j < n; j++) {
-	double *ansj = ansp + j * psqr;
-	std_rWishart_factor(nu, dims[0], 1, tmp);
-	F77_CALL(dtrmm)("R", "U", "N", "N", dims, dims,
-			&one, scCp, dims, tmp, dims
-			FCONE FCONE FCONE FCONE); // BLAS
-	F77_CALL(dsyrk)("U", "T", &(dims[1]), &(dims[1]),
-			&one, tmp, &(dims[1]),
-			&zero, ansj, &(dims[1]) FCONE FCONE); // BLAS
+    for (int j = 0; j < n; j++)
+    {
+        double *ansj = ansp + j * psqr;
+        std_rWishart_factor(nu, dims[0], 1, tmp);
+        F77_CALL(dtrmm)("R", "U", "N", "N", dims, dims, &one, scCp, dims, tmp, dims FCONE FCONE FCONE FCONE); // BLAS
+        F77_CALL(dsyrk)
+        ("U", "T", &(dims[1]), &(dims[1]), &one, tmp, &(dims[1]), &zero, ansj, &(dims[1])FCONE FCONE); // BLAS
 
-	for (int i = 1; i < dims[0]; i++)
-	    for (int k = 0; k < i; k++)
-		ansj[i + k * dims[0]] = ansj[k + i * dims[0]];
+        for (int i = 1; i < dims[0]; i++)
+            for (int k = 0; k < i; k++)
+                ansj[i + k * dims[0]] = ansj[k + i * dims[0]];
     }
 
     PutRNGstate();
-    R_Free(scCp); R_Free(tmp);
+    R_Free(scCp);
+    R_Free(tmp);
     UNPROTECT(1);
     return ans;
 }

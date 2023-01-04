@@ -32,7 +32,7 @@
  * MUST match R structures in ../library/grDevices/R/clippath.R
  */
 
-int R_GE_clipPathFillRule(SEXP path) {
+int R_GE_clipPathFillRule(SEXP path)
+{
     return INTEGER(getAttrib(path, install("rule")))[0];
 }
-

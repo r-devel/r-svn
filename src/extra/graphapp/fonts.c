@@ -35,17 +35,17 @@
 /*
  *  Pre-defined library fonts.
  */
-__declspec(dllexport)	font SystemFont = NULL;
-__declspec(dllexport)	font FixedFont  = NULL;
-__declspec(dllexport)	font Times      = NULL;
-__declspec(dllexport)	font Helvetica  = NULL;
-__declspec(dllexport)	font Courier    = NULL;
+__declspec(dllexport) font SystemFont = NULL;
+__declspec(dllexport) font FixedFont = NULL;
+__declspec(dllexport) font Times = NULL;
+__declspec(dllexport) font Helvetica = NULL;
+__declspec(dllexport) font Courier = NULL;
 
 /*
  *  Dots per inch for the screen.
  */
-	static int screen_dpix = 96;	/* logical dpi for VGA */
-	static int screen_dpiy = 96;	/* logical dpi for VGA */
+static int screen_dpix = 96; /* logical dpi for VGA */
+static int screen_dpiy = 96; /* logical dpi for VGA */
 
 /*
  *  Private font destructor. Calls the Windows functions needed
@@ -54,7 +54,7 @@ __declspec(dllexport)	font Courier    = NULL;
 static void private_delfont(font f)
 {
     if (f && (f != SystemFont) && (f != FixedFont) && (f->handle))
-	DeleteObject(f->handle);
+        DeleteObject(f->handle);
 }
 
 /*
@@ -64,8 +64,8 @@ static object get_font_base(void)
 {
     static object font_base = NULL;
 
-    if (! font_base)
-	font_base = new_object(BaseObject, 0, NULL);
+    if (!font_base)
+        font_base = new_object(BaseObject, 0, NULL);
     return font_base;
 }
 
@@ -77,9 +77,10 @@ PROTECTED font new_font_object(HFONT hf)
     object obj;
 
     obj = new_object(FontObject, hf, get_font_base());
-    if (! obj) {
-	DeleteObject(hf);
-	return NULL;
+    if (!obj)
+    {
+        DeleteObject(hf);
+        return NULL;
     }
     obj->die = private_delfont;
 
@@ -96,14 +97,13 @@ PROTECTED font new_font_object(HFONT hf)
     SelectObject(dc, old);
     ReleaseDC(0, dc);
 
-    return (font) obj;
+    return (font)obj;
 }
 
 rect getSysFontSize()
 {
-    return  SystemFont->rect;
+    return SystemFont->rect;
 }
-
 
 /*
  *  Private font initialisation function.
@@ -130,7 +130,8 @@ void init_fonts(void)
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
     ncm.lfMenuFont.lfCharSet = default_font_charset();
     SystemFont = new_font_object(CreateFontIndirect(&ncm.lfMenuFont));
-    if (SystemFont) SystemFont->text = new_string("SystemFont");
+    if (SystemFont)
+        SystemFont->text = new_string("SystemFont");
 
     FixedFont = new_font_object(GetStockObject(OEM_FIXED_FONT));
     Times = newfont("Times New Roman", Plain, -10);
@@ -155,11 +156,11 @@ void init_fonts(void)
 */
 UINT default_font_charset()
 {
-    if (GetACP() == 65001) {
-	CHARSETINFO csinfo;
-	if (TranslateCharsetInfo((DWORD *)(ULONG_PTR)65001, &csinfo,
-	                         TCI_SRCCODEPAGE))
-	    return csinfo.ciCharset;
+    if (GetACP() == 65001)
+    {
+        CHARSETINFO csinfo;
+        if (TranslateCharsetInfo((DWORD *)(ULONG_PTR)65001, &csinfo, TCI_SRCCODEPAGE))
+            return csinfo.ciCharset;
     }
     return DEFAULT_CHARSET;
 }
@@ -173,7 +174,7 @@ font newfont(const char *name, int style, int size)
     HFONT hf;
     LOGFONT lf;
 
-    initapp(0,NULL);
+    initapp(0, NULL);
 
     /* This next calculation should convert from point size to
        pixels.  We use this since we always use the MM_TEXT mode,
@@ -182,49 +183,59 @@ font newfont(const char *name, int style, int size)
        to specify point size, positive to specify pixel size. */
 
     if (size < 0) /* negative size indicates this is a point size */
-	lf.lfHeight = ((screen_dpiy * size)/72);
+        lf.lfHeight = ((screen_dpiy * size) / 72);
     else /* positive size indicates a pixel height for the font */
-	lf.lfHeight = size;
+        lf.lfHeight = size;
 
     lf.lfWidth = lf.lfEscapement = lf.lfOrientation = 0;
     lf.lfWeight = FW_NORMAL;
     lf.lfItalic = lf.lfUnderline = lf.lfStrikeOut = 0;
     lf.lfCharSet = default_font_charset(); /* used to be ANSI_CHARSET */
-    if ((! string_diff(name, "Symbol"))
-	|| (! string_diff(name, "Wingdings"))
-	|| (! string_diff(name, "TT Symbol"))
-	|| (! string_diff(name, "TT Wingdings")))
-	lf.lfCharSet = SYMBOL_CHARSET;
+    if ((!string_diff(name, "Symbol")) || (!string_diff(name, "Wingdings")) || (!string_diff(name, "TT Symbol")) ||
+        (!string_diff(name, "TT Wingdings")))
+        lf.lfCharSet = SYMBOL_CHARSET;
     lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
     lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
     lf.lfQuality = DEFAULT_QUALITY;
     lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
     if ((name != 0) && (*name != '\0'))
-	strncpy(lf.lfFaceName, name, LF_FACESIZE-1);
+        strncpy(lf.lfFaceName, name, LF_FACESIZE - 1);
 
     if (style & Italic)
-	lf.lfItalic = 1;
+        lf.lfItalic = 1;
     if (style & Bold)
-	lf.lfWeight = FW_BOLD;
+        lf.lfWeight = FW_BOLD;
     if (style & FixedWidth)
-	lf.lfPitchAndFamily |= FIXED_PITCH;
+        lf.lfPitchAndFamily |= FIXED_PITCH;
     if (style & SansSerif)
-	lf.lfPitchAndFamily |= FF_SWISS;
+        lf.lfPitchAndFamily |= FF_SWISS;
 
     if ((hf = CreateFontIndirect(&lf)) == 0)
-	return NULL;
+        return NULL;
 
     obj = new_font_object(hf);
     if (obj)
-	obj->text = new_string(name);
+        obj->text = new_string(name);
 
-    return (font) obj;
+    return (font)obj;
 }
 
 /*
  *  Discover the sizes of a font.
  */
-int fontwidth(font obj)   { return obj->rect.width; }
-int fontheight(font obj)  { return obj->rect.height; }
-int fontascent(font obj)  { return obj->rect.x; }
-int fontdescent(font obj) { return obj->rect.y; }
+int fontwidth(font obj)
+{
+    return obj->rect.width;
+}
+int fontheight(font obj)
+{
+    return obj->rect.height;
+}
+int fontascent(font obj)
+{
+    return obj->rect.x;
+}
+int fontdescent(font obj)
+{
+    return obj->rect.y;
+}

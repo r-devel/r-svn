@@ -22,7 +22,8 @@
 #include <Rmath.h>
 
 #include <stdio.h>
-typedef enum {
+typedef enum
+{
     BUGGY_KINDERMAN_RAMAGE,
     AHRENS_DIETER,
     BOX_MULLER,
@@ -31,10 +32,9 @@ typedef enum {
     KINDERMAN_RAMAGE
 } N01type;
 
-int
-main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-/* something to force the library to be included */
+    /* something to force the library to be included */
     qnorm(0.7, 0.0, 1.0, 0, 0);
     printf("*** loaded '%s'\n", argv[0]);
     set_seed(123, 456);
@@ -43,6 +43,6 @@ main(int argc, char** argv)
     set_seed(123, 456);
     N01_kind = BOX_MULLER;
     printf("normal via BM %f\n", norm_rand());
-    
+
     return 0;
 }

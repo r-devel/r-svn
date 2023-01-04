@@ -27,7 +27,7 @@
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
-#define _(String) dgettext ("stats", String)
+#define _(String) dgettext("stats", String)
 #else
 #define _(String) (String)
 #endif
@@ -38,34 +38,37 @@ SEXP call_dqagi(SEXP args);
 
 typedef struct int_struct
 {
-    SEXP f;    /* function */
-    SEXP env;  /* where to evaluate the calls */
+    SEXP f;   /* function */
+    SEXP env; /* where to evaluate the calls */
 } int_struct, *IntStruct;
-
 
 /* This is *the* ``integr_fn f'' used when called from R : */
 static void Rintfn(double *x, int n, void *ex)
 {
     SEXP args, resultsxp, tmp;
     int i;
-    IntStruct IS = (IntStruct) ex;
+    IntStruct IS = (IntStruct)ex;
 
     PROTECT(args = allocVector(REALSXP, n));
-    for(i = 0; i < n; i++) REAL(args)[i] = x[i];
+    for (i = 0; i < n; i++)
+        REAL(args)[i] = x[i];
 
-    PROTECT(tmp = lang2(IS->f , args));
+    PROTECT(tmp = lang2(IS->f, args));
     PROTECT(resultsxp = eval(tmp, IS->env));
 
-    if(length(resultsxp) != n)
-	error("evaluation of function gave a result of wrong length");
-    if(TYPEOF(resultsxp) == INTSXP) {
-	resultsxp = coerceVector(resultsxp, REALSXP);
-    } else if(TYPEOF(resultsxp) != REALSXP)
-	error("evaluation of function gave a result of wrong type");
-    for(i = 0; i < n; i++) {
-	x[i] = REAL(resultsxp)[i];
-	if(!R_FINITE(x[i]))
-	    error("non-finite function value");
+    if (length(resultsxp) != n)
+        error("evaluation of function gave a result of wrong length");
+    if (TYPEOF(resultsxp) == INTSXP)
+    {
+        resultsxp = coerceVector(resultsxp, REALSXP);
+    }
+    else if (TYPEOF(resultsxp) != REALSXP)
+        error("evaluation of function gave a result of wrong type");
+    for (i = 0; i < n; i++)
+    {
+        x[i] = REAL(resultsxp)[i];
+        if (!R_FINITE(x[i]))
+            error("non-finite function value");
     }
     UNPROTECT(3);
     return;
@@ -79,22 +82,30 @@ SEXP call_dqags(SEXP args)
     int neval, ier, limit, lenw, last, *iwork;
 
     args = CDR(args);
-    is.f = CAR(args); args = CDR(args);
-    is.env = CAR(args); args = CDR(args);
-    if(length(CAR(args)) > 1) error(_("'%s' must be of length one"), "lower");
-    lower = asReal(CAR(args)); args = CDR(args);
-    if(length(CAR(args)) > 1) error(_("'%s' must be of length one"), "upper");
-    upper = asReal(CAR(args)); args = CDR(args);
-    epsabs = asReal(CAR(args)); args = CDR(args);
-    epsrel = asReal(CAR(args)); args = CDR(args);
-    limit = asInteger(CAR(args)); args = CDR(args);
+    is.f = CAR(args);
+    args = CDR(args);
+    is.env = CAR(args);
+    args = CDR(args);
+    if (length(CAR(args)) > 1)
+        error(_("'%s' must be of length one"), "lower");
+    lower = asReal(CAR(args));
+    args = CDR(args);
+    if (length(CAR(args)) > 1)
+        error(_("'%s' must be of length one"), "upper");
+    upper = asReal(CAR(args));
+    args = CDR(args);
+    epsabs = asReal(CAR(args));
+    args = CDR(args);
+    epsrel = asReal(CAR(args));
+    args = CDR(args);
+    limit = asInteger(CAR(args));
+    args = CDR(args);
     lenw = 4 * limit;
-    iwork = (int *) R_alloc((size_t) limit, sizeof(int));
-    work = (double *) R_alloc((size_t) lenw, sizeof(double));
+    iwork = (int *)R_alloc((size_t)limit, sizeof(int));
+    work = (double *)R_alloc((size_t)lenw, sizeof(double));
 
-    Rdqags(Rintfn, (void*)&is,
-	   &lower, &upper, &epsabs, &epsrel, &result,
-	   &abserr, &neval, &ier, &limit, &lenw, &last, iwork, work);
+    Rdqags(Rintfn, (void *)&is, &lower, &upper, &epsabs, &epsrel, &result, &abserr, &neval, &ier, &limit, &lenw, &last,
+           iwork, work);
 
     PROTECT(ans = allocVector(VECSXP, 4));
     PROTECT(ansnames = allocVector(STRSXP, 4));
@@ -123,20 +134,28 @@ SEXP call_dqagi(SEXP args)
     int inf, neval, ier, limit, lenw, last, *iwork;
 
     args = CDR(args);
-    is.f = CAR(args); args = CDR(args);
-    is.env = CAR(args); args = CDR(args);
-    if(length(CAR(args)) > 1) error(_("'%s' must be of length one"), "bound");
-    bound = asReal(CAR(args)); args = CDR(args);
-    inf = asInteger(CAR(args)); args = CDR(args);
-    epsabs = asReal(CAR(args)); args = CDR(args);
-    epsrel = asReal(CAR(args)); args = CDR(args);
-    limit = asInteger(CAR(args)); args = CDR(args);
+    is.f = CAR(args);
+    args = CDR(args);
+    is.env = CAR(args);
+    args = CDR(args);
+    if (length(CAR(args)) > 1)
+        error(_("'%s' must be of length one"), "bound");
+    bound = asReal(CAR(args));
+    args = CDR(args);
+    inf = asInteger(CAR(args));
+    args = CDR(args);
+    epsabs = asReal(CAR(args));
+    args = CDR(args);
+    epsrel = asReal(CAR(args));
+    args = CDR(args);
+    limit = asInteger(CAR(args));
+    args = CDR(args);
     lenw = 4 * limit;
-    iwork = (int *) R_alloc((size_t) limit, sizeof(int));
-    work = (double *) R_alloc((size_t) lenw, sizeof(double));
+    iwork = (int *)R_alloc((size_t)limit, sizeof(int));
+    work = (double *)R_alloc((size_t)lenw, sizeof(double));
 
-    Rdqagi(Rintfn, (void*)&is, &bound,&inf,&epsabs,&epsrel,&result,
-	   &abserr,&neval,&ier,&limit,&lenw,&last,iwork,work);
+    Rdqagi(Rintfn, (void *)&is, &bound, &inf, &epsabs, &epsrel, &result, &abserr, &neval, &ier, &limit, &lenw, &last,
+           iwork, work);
 
     PROTECT(ans = allocVector(VECSXP, 4));
     PROTECT(ansnames = allocVector(STRSXP, 4));

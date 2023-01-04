@@ -30,7 +30,7 @@ double qlnorm(double p, double meanlog, double sdlog, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(meanlog) || ISNAN(sdlog))
-	return p + meanlog + sdlog;
+        return p + meanlog + sdlog;
 #endif
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 

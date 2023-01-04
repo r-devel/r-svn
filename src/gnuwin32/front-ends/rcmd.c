@@ -19,9 +19,9 @@
 
 #include <stdlib.h> /* for exit */
 
-extern int rcmdfn (int cmdarg, int argc, char **argv); /* in rcmdfn.c */
+extern int rcmdfn(int cmdarg, int argc, char **argv); /* in rcmdfn.c */
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     exit(rcmdfn(1, argc, argv));
 }

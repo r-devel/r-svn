@@ -17,21 +17,21 @@
    USA.  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #ifdef _LIBC
-# define __need_NULL
-# include <stddef.h>
+#define __need_NULL
+#include <stddef.h>
 #else
-# include <stdlib.h>		/* Just for NULL.  */
+#include <stdlib.h> /* Just for NULL.  */
 #endif
 
 #include "gettextP.h"
 #ifdef _LIBC
-# include <libintl.h>
+#include <libintl.h>
 #else
-# include "libgnuintl.h"
+#include "libgnuintl.h"
 #endif
 
 #include <locale.h>
@@ -43,11 +43,11 @@
    code is also used in GNU C Library where the names have a __
    prefix.  So we have to make a difference here.  */
 #ifdef _LIBC
-# define NGETTEXT __ngettext
-# define DCNGETTEXT __dcngettext
+#define NGETTEXT __ngettext
+#define DCNGETTEXT __dcngettext
 #else
-# define NGETTEXT libintl_ngettext
-# define DCNGETTEXT libintl_dcngettext
+#define NGETTEXT libintl_ngettext
+#define DCNGETTEXT libintl_dcngettext
 #endif
 
 /* Look up MSGID in the current default message catalog for the current
@@ -55,15 +55,15 @@
    text).  */
 /* This does not need to be visible: packages use dngettext */
 #ifdef HAVE_VISIBILITY_ATTRIBUTE
-__attribute__ ((visibility ("default")))
+__attribute__((visibility("default")))
 #endif
 char *
-NGETTEXT (const char *msgid1, const char *msgid2, unsigned long int n)
+NGETTEXT(const char *msgid1, const char *msgid2, unsigned long int n)
 {
-  return DCNGETTEXT (NULL, msgid1, msgid2, n, LC_MESSAGES);
+    return DCNGETTEXT(NULL, msgid1, msgid2, n, LC_MESSAGES);
 }
 
 #ifdef _LIBC
 /* Alias for function name in GNU C Library.  */
-weak_alias (__ngettext, ngettext);
+weak_alias(__ngettext, ngettext);
 #endif

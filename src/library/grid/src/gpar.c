@@ -22,47 +22,56 @@
 #include <string.h>
 
 /* Some access methods for gpars */
-SEXP gpFontSizeSXP(SEXP gp) {
+SEXP gpFontSizeSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_FONTSIZE);
 }
-double gpFontSize(SEXP gp, int i) {
+double gpFontSize(SEXP gp, int i)
+{
     SEXP fontsize = gpFontSizeSXP(gp);
     return REAL(fontsize)[i % LENGTH(fontsize)];
 }
-double gpFontSize2(SEXP gp, int i, int* gpIsScalar) {
+double gpFontSize2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP fontsize = gpFontSizeSXP(gp);
     gpIsScalar[GP_FONTSIZE] = LENGTH(fontsize) == 1;
     return REAL(fontsize)[i % LENGTH(fontsize)];
 }
 
-SEXP gpLineHeightSXP(SEXP gp) {
+SEXP gpLineHeightSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LINEHEIGHT);
 }
 
-double gpLineHeight(SEXP gp, int i) {
+double gpLineHeight(SEXP gp, int i)
+{
     SEXP lineheight = gpLineHeightSXP(gp);
     return REAL(lineheight)[i % LENGTH(lineheight)];
 }
-double gpLineHeight2(SEXP gp, int i, int* gpIsScalar) {
+double gpLineHeight2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP lineheight = gpLineHeightSXP(gp);
     gpIsScalar[GP_LINEHEIGHT] = LENGTH(lineheight) == 1;
     return REAL(lineheight)[i % LENGTH(lineheight)];
 }
 
-SEXP gpColSXP(SEXP gp) {
+SEXP gpColSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_COL);
 }
 /* grid has no concept of 'colour 0' (bg in base) */
-int gpCol(SEXP gp, int i) {
+int gpCol(SEXP gp, int i)
+{
     SEXP col = gpColSXP(gp);
     int result;
     if (isNull(col))
-	result = R_TRANWHITE;
+        result = R_TRANWHITE;
     else
-	result = RGBpar3(col, i % LENGTH(col), R_TRANWHITE);
+        result = RGBpar3(col, i % LENGTH(col), R_TRANWHITE);
     return result;
 }
-int gpCol2(SEXP gp, int i, int* gpIsScalar) {
+int gpCol2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP col = gpColSXP(gp);
     gpIsScalar[GP_COL] = LENGTH(col) == 1;
     int result;
@@ -73,20 +82,23 @@ int gpCol2(SEXP gp, int i, int* gpIsScalar) {
     return result;
 }
 
-SEXP gpFillSXP(SEXP gp) {
+SEXP gpFillSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_FILL);
 }
 
-int gpFill(SEXP gp, int i) {
+int gpFill(SEXP gp, int i)
+{
     SEXP fill = gpFillSXP(gp);
     int result;
     if (isNull(fill))
-	result = R_TRANWHITE;
+        result = R_TRANWHITE;
     else
-	result = RGBpar3(fill, i % LENGTH(fill), R_TRANWHITE);
+        result = RGBpar3(fill, i % LENGTH(fill), R_TRANWHITE);
     return result;
 }
-int gpFill2(SEXP gp, int i, int* gpIsScalar) {
+int gpFill2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP fill = gpFillSXP(gp);
     gpIsScalar[GP_FILL] = LENGTH(fill) == 1;
     int result;
@@ -97,155 +109,188 @@ int gpFill2(SEXP gp, int i, int* gpIsScalar) {
     return result;
 }
 
-SEXP gpGammaSXP(SEXP gp) {
+SEXP gpGammaSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_GAMMA);
 }
 
-double gpGamma(SEXP gp, int i) {
+double gpGamma(SEXP gp, int i)
+{
     SEXP gamma = gpGammaSXP(gp);
     return REAL(gamma)[i % LENGTH(gamma)];
 }
-double gpGamma2(SEXP gp, int i, int* gpIsScalar) {
+double gpGamma2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP gamma = gpGammaSXP(gp);
     gpIsScalar[GP_GAMMA] = LENGTH(gamma) == 1;
     return REAL(gamma)[i % LENGTH(gamma)];
 }
 
-SEXP gpLineTypeSXP(SEXP gp) {
+SEXP gpLineTypeSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LTY);
 }
 
-int gpLineType(SEXP gp, int i) {
+int gpLineType(SEXP gp, int i)
+{
     SEXP linetype = gpLineTypeSXP(gp);
     return GE_LTYpar(linetype, i % LENGTH(linetype));
 }
-int gpLineType2(SEXP gp, int i, int* gpIsScalar) {
+int gpLineType2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP linetype = gpLineTypeSXP(gp);
     gpIsScalar[GP_LTY] = LENGTH(linetype) == 1;
     return GE_LTYpar(linetype, i % LENGTH(linetype));
 }
 
-SEXP gpLineWidthSXP(SEXP gp) {
+SEXP gpLineWidthSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LWD);
 }
 
-double gpLineWidth(SEXP gp, int i) {
+double gpLineWidth(SEXP gp, int i)
+{
     SEXP linewidth = gpLineWidthSXP(gp);
     return REAL(linewidth)[i % LENGTH(linewidth)];
 }
-double gpLineWidth2(SEXP gp, int i, int* gpIsScalar) {
+double gpLineWidth2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP linewidth = gpLineWidthSXP(gp);
     gpIsScalar[GP_LWD] = LENGTH(linewidth) == 1;
     return REAL(linewidth)[i % LENGTH(linewidth)];
 }
 
-SEXP gpCexSXP(SEXP gp) {
+SEXP gpCexSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_CEX);
 }
 
-double gpCex(SEXP gp, int i) {
+double gpCex(SEXP gp, int i)
+{
     SEXP cex = gpCexSXP(gp);
     return REAL(cex)[i % LENGTH(cex)];
 }
-double gpCex2(SEXP gp, int i, int* gpIsScalar) {
+double gpCex2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP cex = gpCexSXP(gp);
     gpIsScalar[GP_CEX] = LENGTH(cex) == 1;
     return REAL(cex)[i % LENGTH(cex)];
 }
 
-SEXP gpFontSXP(SEXP gp) {
+SEXP gpFontSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_FONT);
 }
 
-int gpFont(SEXP gp, int i) {
+int gpFont(SEXP gp, int i)
+{
     SEXP font = gpFontSXP(gp);
     return INTEGER(font)[i % LENGTH(font)];
 }
-int gpFont2(SEXP gp, int i, int* gpIsScalar) {
+int gpFont2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP font = gpFontSXP(gp);
     gpIsScalar[GP_FONT] = LENGTH(font) == 1;
     return INTEGER(font)[i % LENGTH(font)];
 }
 
-SEXP gpFontFamilySXP(SEXP gp) {
+SEXP gpFontFamilySXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_FONTFAMILY);
 }
 
-const char* gpFontFamily(SEXP gp, int i) {
+const char *gpFontFamily(SEXP gp, int i)
+{
     SEXP fontfamily = gpFontFamilySXP(gp);
     return CHAR(STRING_ELT(fontfamily, i % LENGTH(fontfamily)));
 }
-const char* gpFontFamily2(SEXP gp, int i, int* gpIsScalar) {
+const char *gpFontFamily2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP fontfamily = gpFontFamilySXP(gp);
     gpIsScalar[GP_FONTFAMILY] = LENGTH(fontfamily) == 1;
     return CHAR(STRING_ELT(fontfamily, i % LENGTH(fontfamily)));
 }
 
-SEXP gpAlphaSXP(SEXP gp) {
+SEXP gpAlphaSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_ALPHA);
 }
 
-double gpAlpha(SEXP gp, int i) {
+double gpAlpha(SEXP gp, int i)
+{
     SEXP alpha = gpAlphaSXP(gp);
     return REAL(alpha)[i % LENGTH(alpha)];
 }
-double gpAlpha2(SEXP gp, int i, int* gpIsScalar) {
+double gpAlpha2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP alpha = gpAlphaSXP(gp);
     gpIsScalar[GP_ALPHA] = LENGTH(alpha) == 1;
     return REAL(alpha)[i % LENGTH(alpha)];
 }
 
-SEXP gpLineEndSXP(SEXP gp) {
+SEXP gpLineEndSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LINEEND);
 }
 
-R_GE_lineend gpLineEnd(SEXP gp, int i) {
+R_GE_lineend gpLineEnd(SEXP gp, int i)
+{
     SEXP lineend = gpLineEndSXP(gp);
     return GE_LENDpar(lineend, i % LENGTH(lineend));
 }
-R_GE_lineend gpLineEnd2(SEXP gp, int i, int* gpIsScalar) {
+R_GE_lineend gpLineEnd2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP lineend = gpLineEndSXP(gp);
     gpIsScalar[GP_LINEEND] = LENGTH(lineend) == 1;
     return GE_LENDpar(lineend, i % LENGTH(lineend));
 }
 
-SEXP gpLineJoinSXP(SEXP gp) {
+SEXP gpLineJoinSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LINEJOIN);
 }
 
-R_GE_linejoin gpLineJoin(SEXP gp, int i) {
+R_GE_linejoin gpLineJoin(SEXP gp, int i)
+{
     SEXP linejoin = gpLineJoinSXP(gp);
     return GE_LJOINpar(linejoin, i % LENGTH(linejoin));
 }
-R_GE_linejoin gpLineJoin2(SEXP gp, int i, int* gpIsScalar) {
+R_GE_linejoin gpLineJoin2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP linejoin = gpLineJoinSXP(gp);
     gpIsScalar[GP_LINEJOIN] = LENGTH(linejoin) == 1;
     return GE_LJOINpar(linejoin, i % LENGTH(linejoin));
 }
 
-SEXP gpLineMitreSXP(SEXP gp) {
+SEXP gpLineMitreSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LINEMITRE);
 }
 
-double gpLineMitre(SEXP gp, int i) {
+double gpLineMitre(SEXP gp, int i)
+{
     SEXP linemitre = gpLineMitreSXP(gp);
     return REAL(linemitre)[i % LENGTH(linemitre)];
 }
-double gpLineMitre2(SEXP gp, int i, int* gpIsScalar) {
+double gpLineMitre2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP linemitre = gpLineMitreSXP(gp);
     gpIsScalar[GP_LINEMITRE] = LENGTH(linemitre) == 1;
     return REAL(linemitre)[i % LENGTH(linemitre)];
 }
 
-SEXP gpLexSXP(SEXP gp) {
+SEXP gpLexSXP(SEXP gp)
+{
     return VECTOR_ELT(gp, GP_LEX);
 }
 
-double gpLex(SEXP gp, int i) {
+double gpLex(SEXP gp, int i)
+{
     SEXP lex = gpLexSXP(gp);
     return REAL(lex)[i % LENGTH(lex)];
 }
-double gpLex2(SEXP gp, int i, int* gpIsScalar) {
+double gpLex2(SEXP gp, int i, int *gpIsScalar)
+{
     SEXP lex = gpLexSXP(gp);
     gpIsScalar[GP_LEX] = LENGTH(lex) == 1;
     return REAL(lex)[i % LENGTH(lex)];
@@ -257,7 +302,7 @@ double gpLex2(SEXP gp, int i, int* gpIsScalar) {
  */
 
 /*
- * Combine gpar alpha with alpha level stored in colour 
+ * Combine gpar alpha with alpha level stored in colour
  *
  * finalAlpha = gpAlpha*(R_ALPHA(col)/255)
  *
@@ -272,13 +317,13 @@ double gpLex2(SEXP gp, int i, int* gpIsScalar) {
  *        must be 1 (i.e., only way to get fully opaque is if both
  *        alpha levels are fully opaque).
  */
-static unsigned int combineAlpha(double alpha, int col) 
+static unsigned int combineAlpha(double alpha, int col)
 {
-    unsigned int newAlpha = (unsigned int)((alpha*(R_ALPHA(col)/255.0))*255);
+    unsigned int newAlpha = (unsigned int)((alpha * (R_ALPHA(col) / 255.0)) * 255);
     return R_RGBA(R_RED(col), R_GREEN(col), R_BLUE(col), newAlpha);
 }
 
-static SEXP resolveFill(SEXP pattern, int i) 
+static SEXP resolveFill(SEXP pattern, int i)
 {
     SEXP resolveFn, R_fcall, index, result;
     PROTECT(index = allocVector(INTSXP, 1));
@@ -290,7 +335,7 @@ static SEXP resolveFill(SEXP pattern, int i)
     return result;
 }
 
-static SEXP unresolveFill(SEXP pattern) 
+static SEXP unresolveFill(SEXP pattern)
 {
     SEXP unresolveFn, R_fcall, result;
     PROTECT(unresolveFn = findFun(install("unresolveFill"), R_gridEvalEnv));
@@ -300,11 +345,11 @@ static SEXP unresolveFill(SEXP pattern)
     return result;
 }
 
-SEXP resolveGPar(SEXP gp) 
+SEXP resolveGPar(SEXP gp)
 {
     SEXP result = R_NilValue;
-    if (Rf_inherits(gpFillSXP(gp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(gp), "GridPatternList")) {
+    if (Rf_inherits(gpFillSXP(gp), "GridPattern") || Rf_inherits(gpFillSXP(gp), "GridPatternList"))
+    {
         SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), 0));
         SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
         result = resolvedFill;
@@ -313,9 +358,9 @@ SEXP resolveGPar(SEXP gp)
     return result;
 }
 
-/* 
+/*
  * Generate an R_GE_gcontext from a gpar
- * 
+ *
  * Regarding the gp$fill ...
  *
  * This is only called by functions ...
@@ -325,7 +370,7 @@ SEXP resolveGPar(SEXP gp)
  *    have already called resolveFill()
  * OR when pushing a viewport
  * ... so ...
- *    the fill either does not matter 
+ *    the fill either does not matter
  * OR we only need a single (resolved) fill
  * OR (when pushing a viewport) we are using the viewport parent gpar
  *    which is typically resolved, but MIGHT be called in the middle
@@ -333,36 +378,46 @@ SEXP resolveGPar(SEXP gp)
  *    that parent fill because the viewport is a temporary one for
  *    calculating transformations, so the fill is unimportant).
  */
-void gcontextFromgpar(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd) 
+void gcontextFromgpar(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd)
 {
-    /* 
+    /*
      * Combine gpAlpha with col and fill
      */
     gc->col = combineAlpha(gpAlpha(gp, i), gpCol(gp, i));
     /*
      * Fill could be colour OR pattern
      */
-    if (Rf_inherits(gpFillSXP(gp), "GridPattern")) {
-        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPattern")) {
+    if (Rf_inherits(gpFillSXP(gp), "GridPattern"))
+    {
+        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPattern"))
+        {
             SEXP fillRef = getListElement(gpFillSXP(gp), "ref");
             gc->fill = R_TRANWHITE;
             gc->patternFill = fillRef;
-        } else {
+        }
+        else
+        {
             gc->fill = R_TRANWHITE;
             gc->patternFill = R_NilValue;
         }
-    } else if (Rf_inherits(gpFillSXP(gp), "GridPatternList")) {
-        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList")) {
-            SEXP fill = VECTOR_ELT(gpFillSXP(gp), 
-                                   i % LENGTH(gpFillSXP(gp)));
+    }
+    else if (Rf_inherits(gpFillSXP(gp), "GridPatternList"))
+    {
+        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList"))
+        {
+            SEXP fill = VECTOR_ELT(gpFillSXP(gp), i % LENGTH(gpFillSXP(gp)));
             SEXP fillRef = getListElement(fill, "ref");
             gc->fill = R_TRANWHITE;
             gc->patternFill = fillRef;
-        } else {
+        }
+        else
+        {
             gc->fill = R_TRANWHITE;
             gc->patternFill = R_NilValue;
         }
-    } else {
+    }
+    else
+    {
         gc->fill = combineAlpha(gpAlpha(gp, i), gpFill(gp, i));
         gc->patternFill = R_NilValue;
     }
@@ -371,8 +426,7 @@ void gcontextFromgpar(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd)
      * Combine gpLex with lwd
      * Also scale by GSS_SCALE (a "zoom" factor)
      */
-    gc->lwd = gpLineWidth(gp, i) * gpLex(gp, i) * 
-	REAL(gridStateElement(dd, GSS_SCALE))[0];
+    gc->lwd = gpLineWidth(gp, i) * gpLex(gp, i) * REAL(gridStateElement(dd, GSS_SCALE))[0];
     gc->lty = gpLineType(gp, i);
     gc->lend = gpLineEnd(gp, i);
     gc->ljoin = gpLineJoin(gp, i);
@@ -387,42 +441,42 @@ void gcontextFromgpar(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd)
     strcpy(gc->fontfamily, gpFontFamily(gp, i));
 }
 
-SEXP L_setGPar(SEXP gpars) 
+SEXP L_setGPar(SEXP gpars)
 {
     /* Set the value of the current gpars on the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
+     * list works
      */
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     setGridStateElement(dd, GSS_GPAR, gpars);
     return R_NilValue;
 }
 
-SEXP L_getGPar(void) 
+SEXP L_getGPar(void)
 {
     /* Get the value of the current gpars on the current device
      * Need to do this in here so that redrawing via R BASE display
-     * list works 
+     * list works
      */
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_GPAR);
 }
 
-SEXP L_getGPsaved(void) 
+SEXP L_getGPsaved(void)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     return gridStateElement(dd, GSS_GPSAVED);
 }
 
-SEXP L_setGPsaved(SEXP gpars) 
+SEXP L_setGPsaved(SEXP gpars)
 {
-    /* Get the current device 
+    /* Get the current device
      */
     pGEDevDesc dd = getDevice();
     setGridStateElement(dd, GSS_GPSAVED, gpars);
@@ -435,7 +489,7 @@ void initGPar(pGEDevDesc dd)
     SEXP gpar, gparnames, class;
     SEXP gpfill, gpcol, gpgamma, gplty, gplwd, gpcex, gpfs, gplh, gpfont;
     SEXP gpfontfamily, gpalpha, gplineend, gplinejoin, gplinemitre, gplex;
-    SEXP gsd = (SEXP) dd->gesd[gridRegisterIndex]->systemSpecific;
+    SEXP gsd = (SEXP)dd->gesd[gridRegisterIndex]->systemSpecific;
     PROTECT(gpar = allocVector(VECSXP, 15));
     PROTECT(gparnames = allocVector(STRSXP, 15));
     SET_STRING_ELT(gparnames, GP_FILL, mkChar("fill"));
@@ -481,7 +535,7 @@ void initGPar(pGEDevDesc dd)
     INTEGER(gpfont)[0] = dev->startfont;
     SET_VECTOR_ELT(gpar, GP_FONT, gpfont);
     PROTECT(gpfontfamily = allocVector(STRSXP, 1));
-    /* 
+    /*
      * A font family of "" means that the default font
      * set up by the device will be used.
      */
@@ -511,68 +565,84 @@ void initGPar(pGEDevDesc dd)
 
 // Minimal primitive gc setters
 // These should only be called after gcontextFromgpar has been called once
-void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int* gpIsScalar, 
-                  const pGEcontext gcCache) 
+void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int *gpIsScalar, const pGEcontext gcCache)
 {
     int i = 0;
-    /* 
+    /*
      * Combine gpAlpha with col and fill
      */
-    gcCache->col = gc->col = 
-        combineAlpha(gpAlpha2(gp, i, gpIsScalar), gpCol2(gp, i, gpIsScalar));
-    if (Rf_inherits(gpFillSXP(gp), "GridPattern")) {
-        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPattern")) {
-            /* This handles case where (scalar) pattern fill has already been 
+    gcCache->col = gc->col = combineAlpha(gpAlpha2(gp, i, gpIsScalar), gpCol2(gp, i, gpIsScalar));
+    if (Rf_inherits(gpFillSXP(gp), "GridPattern"))
+    {
+        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPattern"))
+        {
+            /* This handles case where (scalar) pattern fill has already been
              * resolved before calling initGContext() */
             SEXP fillRef = getListElement(gpFillSXP(gp), "ref");
             gcCache->fill = gc->fill = R_TRANWHITE;
             gcCache->patternFill = gc->patternFill = fillRef;
             gpIsScalar[GP_FILL] = 1;
-        } else {
-            /* This handles case where pattern fill has not yet 
+        }
+        else
+        {
+            /* This handles case where pattern fill has not yet
              * been resolved */
-            if (!LOGICAL(getListElement(gpFillSXP(gp), "group"))[0]) {
+            if (!LOGICAL(getListElement(gpFillSXP(gp), "group"))[0])
+            {
                 /* Pattern will be resolved for each individual shape
                  * in updateGContext, so do not bother here.
                  */
                 gpIsScalar[GP_FILL] = 0;
-            } else if (Rf_inherits(gpFillSXP(gp), "GridGrobPattern")) {
+            }
+            else if (Rf_inherits(gpFillSXP(gp), "GridGrobPattern"))
+            {
                 SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), 0));
                 /* Pattern may not resolve (e.g., we are filling a stroke) */
-                if (Rf_inherits(resolvedFill, "GridResolvedPattern")) {
+                if (Rf_inherits(resolvedFill, "GridResolvedPattern"))
+                {
                     SEXP fillRef = getListElement(resolvedFill, "ref");
                     gcCache->fill = gc->fill = R_TRANWHITE;
                     gcCache->patternFill = gc->patternFill = fillRef;
                     /* Store resolved gp$fill in currentgp (which is duplicate
                      * of 'grid' state currentgp) */
                     SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
-                } else {
+                }
+                else
+                {
                     gcCache->fill = gc->fill = R_TRANWHITE;
                     gcCache->patternFill = gc->patternFill = R_NilValue;
                 }
                 UNPROTECT(1);
                 gpIsScalar[GP_FILL] = 1;
-            } else {
+            }
+            else
+            {
                 /* Fallback is to use no fill */
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = R_NilValue;
                 gpIsScalar[GP_FILL] = 1;
             }
         }
-    } else if (Rf_inherits(gpFillSXP(gp), "GridPatternList")) {
-        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList")) {
-            /* This handles case where list of patterns fill has already been 
+    }
+    else if (Rf_inherits(gpFillSXP(gp), "GridPatternList"))
+    {
+        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList"))
+        {
+            /* This handles case where list of patterns fill has already been
              * resolved */
             SEXP fill = VECTOR_ELT(gpFillSXP(gp), 0);
             SEXP fillRef = getListElement(fill, "ref");
             gcCache->fill = gc->fill = R_TRANWHITE;
             gcCache->patternFill = gc->patternFill = fillRef;
-        } else {
-            /* This handles case where list of pattern fills has not yet 
+        }
+        else
+        {
+            /* This handles case where list of pattern fills has not yet
              * been resolved */
             SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), 0));
             /* Pattern may not resolve (e.g., we are filling a stroke) */
-            if (Rf_inherits(resolvedFill, "GridResolvedPatternList")) {
+            if (Rf_inherits(resolvedFill, "GridResolvedPatternList"))
+            {
                 SEXP fill = VECTOR_ELT(resolvedFill, 0);
                 SEXP fillRef = getListElement(fill, "ref");
                 gcCache->fill = gc->fill = R_TRANWHITE;
@@ -580,16 +650,19 @@ void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int* gpIsScalar,
                 /* Store resolved gp$fill in currentgp (which is duplicate
                  * of 'grid' state currentgp) */
                 SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
-            } else {
+            }
+            else
+            {
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = R_NilValue;
             }
-            UNPROTECT(1);           
+            UNPROTECT(1);
         }
         gpIsScalar[GP_FILL] = 0;
-    } else {
-        gcCache->fill = gc->fill = 
-            combineAlpha(gpAlpha(gp, i), gpFill2(gp, i, gpIsScalar));
+    }
+    else
+    {
+        gcCache->fill = gc->fill = combineAlpha(gpAlpha(gp, i), gpFill2(gp, i, gpIsScalar));
         gcCache->patternFill = gc->patternFill = R_NilValue;
     }
     gcCache->gamma = gc->gamma = gpGamma2(gp, i, gpIsScalar);
@@ -597,8 +670,8 @@ void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int* gpIsScalar,
      * Combine gpLex with lwd
      * Also scale by GSS_SCALE (a "zoom" factor)
      */
-    gcCache->lwd = gc->lwd = gpLineWidth2(gp, i, gpIsScalar) * 
-        gpLex2(gp, i, gpIsScalar) * REAL(gridStateElement(dd, GSS_SCALE))[0];
+    gcCache->lwd = gc->lwd =
+        gpLineWidth2(gp, i, gpIsScalar) * gpLex2(gp, i, gpIsScalar) * REAL(gridStateElement(dd, GSS_SCALE))[0];
     gcCache->lty = gc->lty = gpLineType2(gp, i, gpIsScalar);
     gcCache->lend = gc->lend = gpLineEnd2(gp, i, gpIsScalar);
     gcCache->ljoin = gc->ljoin = gpLineJoin2(gp, i, gpIsScalar);
@@ -607,33 +680,42 @@ void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int* gpIsScalar,
     /*
      * Scale by GSS_SCALE (a "zoom" factor)
      */
-    gcCache->ps = gc->ps = gpFontSize2(gp, i, gpIsScalar) * 
-        REAL(gridStateElement(dd, GSS_SCALE))[0];
+    gcCache->ps = gc->ps = gpFontSize2(gp, i, gpIsScalar) * REAL(gridStateElement(dd, GSS_SCALE))[0];
     gcCache->lineheight = gc->lineheight = gpLineHeight2(gp, i, gpIsScalar);
     gcCache->fontface = gc->fontface = gpFont2(gp, i, gpIsScalar);
     strcpy(gc->fontfamily, gpFontFamily2(gp, i, gpIsScalar));
     strcpy(gcCache->fontfamily, gc->fontfamily);
 }
-void updateGContext(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd, 
-                    int* gpIsScalar, const pGEcontext gcCache)
+void updateGContext(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd, int *gpIsScalar, const pGEcontext gcCache)
 {
-    if (gpIsScalar[0] == -1) {
+    if (gpIsScalar[0] == -1)
+    {
         error(_("updateGContext must only be called after initGContext"));
     }
-    if (!(gpIsScalar[GP_ALPHA] && gpIsScalar[GP_COL])) {
+    if (!(gpIsScalar[GP_ALPHA] && gpIsScalar[GP_COL]))
+    {
         double alpha = gpAlpha(gp, i);
-        if (alpha == 1.0) gc->col = gpCol(gp, i);
-        else gc->col = combineAlpha(alpha, gpCol(gp, i));
-    } else {
+        if (alpha == 1.0)
+            gc->col = gpCol(gp, i);
+        else
+            gc->col = combineAlpha(alpha, gpCol(gp, i));
+    }
+    else
+    {
         gc->col = gcCache->col;
     }
-    if (Rf_inherits(gpFillSXP(gp), "GridPattern")) {
-        if (gpIsScalar[GP_FILL]) {
+    if (Rf_inherits(gpFillSXP(gp), "GridPattern"))
+    {
+        if (gpIsScalar[GP_FILL])
+        {
             gc->fill = gcCache->fill;
             gc->patternFill = gcCache->patternFill;
-        } else {
-            if (!LOGICAL(getListElement(gpFillSXP(gp), "group"))[0]) {
-                /* Pattern needs to be resolved for each grob shape 
+        }
+        else
+        {
+            if (!LOGICAL(getListElement(gpFillSXP(gp), "group"))[0])
+            {
+                /* Pattern needs to be resolved for each grob shape
                  * so UNresolve the saved pattern */
                 SEXP unresolvedFill = PROTECT(unresolveFill(gpFillSXP(gp)));
                 SET_VECTOR_ELT(gp, GP_FILL, unresolvedFill);
@@ -641,71 +723,88 @@ void updateGContext(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd,
             }
             SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), i));
             /* Pattern may not resolve (e.g., we are filling a stroke) */
-            if (Rf_inherits(resolvedFill, "GridResolvedPattern")) {
+            if (Rf_inherits(resolvedFill, "GridResolvedPattern"))
+            {
                 SEXP fillRef = getListElement(resolvedFill, "ref");
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = fillRef;
                 /* Store resolved gp$fill in currentgp (which is duplicate
                  * of 'grid' state currentgp) */
                 SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
-            } else {
+            }
+            else
+            {
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = R_NilValue;
             }
             UNPROTECT(1);
         }
-    } else if (Rf_inherits(gpFillSXP(gp), "GridPatternList")) {
-        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList")) {
-            SEXP fill = VECTOR_ELT(gpFillSXP(gp), 
-                                   i % LENGTH(gpFillSXP(gp)));
+    }
+    else if (Rf_inherits(gpFillSXP(gp), "GridPatternList"))
+    {
+        if (Rf_inherits(gpFillSXP(gp), "GridResolvedPatternList"))
+        {
+            SEXP fill = VECTOR_ELT(gpFillSXP(gp), i % LENGTH(gpFillSXP(gp)));
             SEXP fillRef = getListElement(fill, "ref");
             gcCache->fill = gc->fill = R_TRANWHITE;
             gcCache->patternFill = gc->patternFill = fillRef;
-        } else {
+        }
+        else
+        {
             SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), i));
             /* Pattern may not resolve (e.g., we are filling a stroke) */
-            if (Rf_inherits(resolvedFill, "GridResolvedPatternList")) {
-                SEXP fill = VECTOR_ELT(gpFillSXP(gp), 
-                                       i % LENGTH(gpFillSXP(gp)));
+            if (Rf_inherits(resolvedFill, "GridResolvedPatternList"))
+            {
+                SEXP fill = VECTOR_ELT(gpFillSXP(gp), i % LENGTH(gpFillSXP(gp)));
                 SEXP fillRef = getListElement(fill, "ref");
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = fillRef;
                 /* Store resolved gp$fill in currentgp (which is duplicate
                  * of 'grid' state currentgp) */
                 SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
-            } else {
+            }
+            else
+            {
                 gcCache->fill = gc->fill = R_TRANWHITE;
                 gcCache->patternFill = gc->patternFill = R_NilValue;
             }
-            UNPROTECT(1);            
+            UNPROTECT(1);
         }
-    } else {
-        if (!(gpIsScalar[GP_ALPHA] && gpIsScalar[GP_FILL])) {
+    }
+    else
+    {
+        if (!(gpIsScalar[GP_ALPHA] && gpIsScalar[GP_FILL]))
+        {
             double alpha = gpAlpha(gp, i);
-            if (alpha == 1.0) gc->fill = gpFill(gp, i);
-            else gc->fill = combineAlpha(alpha, gpFill(gp, i));
-        } else {
+            if (alpha == 1.0)
+                gc->fill = gpFill(gp, i);
+            else
+                gc->fill = combineAlpha(alpha, gpFill(gp, i));
+        }
+        else
+        {
             gc->fill = gcCache->fill;
         }
         gc->patternFill = gcCache->patternFill;
     }
     gc->gamma = gpIsScalar[GP_GAMMA] ? gcCache->gamma : gpGamma(gp, i);
-    gc->lwd = (gpIsScalar[GP_LWD] && gpIsScalar[GP_LEX]) ? gcCache->lwd :
-        gpLineWidth(gp, i) * gpLex(gp, i) * 
-            REAL(gridStateElement(dd, GSS_SCALE))[0];
+    gc->lwd = (gpIsScalar[GP_LWD] && gpIsScalar[GP_LEX])
+                  ? gcCache->lwd
+                  : gpLineWidth(gp, i) * gpLex(gp, i) * REAL(gridStateElement(dd, GSS_SCALE))[0];
     gc->lty = gpIsScalar[GP_LTY] ? gcCache->lty : gpLineType(gp, i);
     gc->lend = gpIsScalar[GP_LINEEND] ? gcCache->lend : gpLineEnd(gp, i);
     gc->ljoin = gpIsScalar[GP_LINEJOIN] ? gcCache->ljoin : gpLineJoin(gp, i);
     gc->lmitre = gpIsScalar[GP_LINEMITRE] ? gcCache->lmitre : gpLineMitre(gp, i);
     gc->cex = gpIsScalar[GP_CEX] ? gcCache->cex : gpCex(gp, i);
-    gc->ps = gpIsScalar[GP_FONTSIZE] ? gcCache->ps : gpFontSize(gp, i) * 
-        REAL(gridStateElement(dd, GSS_SCALE))[0];
-    gc->lineheight = gpIsScalar[GP_LINEHEIGHT] ? gcCache->lineheight :
-        gpLineHeight(gp, i);
+    gc->ps = gpIsScalar[GP_FONTSIZE] ? gcCache->ps : gpFontSize(gp, i) * REAL(gridStateElement(dd, GSS_SCALE))[0];
+    gc->lineheight = gpIsScalar[GP_LINEHEIGHT] ? gcCache->lineheight : gpLineHeight(gp, i);
     gc->fontface = gpIsScalar[GP_FONT] ? gcCache->fontface : gpFont(gp, i);
-    if (gpIsScalar[GP_FONTFAMILY]) {
+    if (gpIsScalar[GP_FONTFAMILY])
+    {
         strcpy(gc->fontfamily, gcCache->fontfamily);
-    } else {
+    }
+    else
+    {
         strcpy(gc->fontfamily, gpFontFamily(gp, i));
     }
 }

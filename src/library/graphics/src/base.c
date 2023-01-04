@@ -32,15 +32,15 @@
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #undef _
-#define _(String) dgettext ("graphics", String)
+#define _(String) dgettext("graphics", String)
 #else
 #define _(String) (String)
 #endif
 
-
-static R_INLINE GPar* dpSavedptr(pGEDevDesc dd) {
+static R_INLINE GPar *dpSavedptr(pGEDevDesc dd)
+{
     if (baseRegisterIndex == -1)
-	error(_("no base graphics system is registered"));
+        error(_("no base graphics system is registered"));
     baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
     return &(bss->dpSaved);
 }
@@ -143,17 +143,20 @@ static void restoredpSaved(pGEDevDesc dd)
     nc = dpptr(dd)->numcols = dpSavedptr(dd)->numcols;
     dpptr(dd)->currentFigure = dpSavedptr(dd)->currentFigure;
     dpptr(dd)->lastFigure = dpSavedptr(dd)->lastFigure;
-    for (i = 0; i < nr && i < MAX_LAYOUT_ROWS; i++) {
-	dpptr(dd)->heights[i] = dpSavedptr(dd)->heights[i];
-	dpptr(dd)->cmHeights[i] = dpSavedptr(dd)->cmHeights[i];
+    for (i = 0; i < nr && i < MAX_LAYOUT_ROWS; i++)
+    {
+        dpptr(dd)->heights[i] = dpSavedptr(dd)->heights[i];
+        dpptr(dd)->cmHeights[i] = dpSavedptr(dd)->cmHeights[i];
     }
-    for (j = 0; j < nc && j < MAX_LAYOUT_COLS; j++) {
-	dpptr(dd)->widths[j] = dpSavedptr(dd)->widths[j];
-	dpptr(dd)->cmWidths[j] = dpSavedptr(dd)->cmWidths[j];
+    for (j = 0; j < nc && j < MAX_LAYOUT_COLS; j++)
+    {
+        dpptr(dd)->widths[j] = dpSavedptr(dd)->widths[j];
+        dpptr(dd)->cmWidths[j] = dpSavedptr(dd)->cmWidths[j];
     }
-    for (i = 0; i < nr*nc && i < MAX_LAYOUT_CELLS; i++) {
-	dpptr(dd)->order[i] = dpSavedptr(dd)->order[i];
-	dpptr(dd)->respect[i] = dpSavedptr(dd)->respect[i];
+    for (i = 0; i < nr * nc && i < MAX_LAYOUT_CELLS; i++)
+    {
+        dpptr(dd)->order[i] = dpSavedptr(dd)->order[i];
+        dpptr(dd)->respect[i] = dpSavedptr(dd)->respect[i];
     }
     dpptr(dd)->rspct = dpSavedptr(dd)->rspct;
     dpptr(dd)->layout = dpSavedptr(dd)->layout;
@@ -197,83 +200,83 @@ static SEXP baseCallback(GEevent task, pGEDevDesc dd, SEXP data)
     baseSystemState *bss, *bss2;
     SEXP result = R_NilValue;
 
-    switch (task) {
-    case GE_FinaliseState:
-	/* called from unregisterOne */
-	sd = dd->gesd[baseRegisterIndex];
-	free(sd->systemSpecific);
-	sd->systemSpecific = NULL;
-	break;
-    case GE_InitState:
+    switch (task)
     {
-	/* called from registerOne */
-	pDevDesc dev;
-	GPar *ddp;
-	sd = dd->gesd[baseRegisterIndex];
-	dev = dd->dev;
-	bss = sd->systemSpecific = malloc(sizeof(baseSystemState));
+    case GE_FinaliseState:
+        /* called from unregisterOne */
+        sd = dd->gesd[baseRegisterIndex];
+        free(sd->systemSpecific);
+        sd->systemSpecific = NULL;
+        break;
+    case GE_InitState: {
+        /* called from registerOne */
+        pDevDesc dev;
+        GPar *ddp;
+        sd = dd->gesd[baseRegisterIndex];
+        dev = dd->dev;
+        bss = sd->systemSpecific = malloc(sizeof(baseSystemState));
         /* Bail out if necessary */
-        if (!bss) return result;
-	/* Make sure initialized, or valgrind may complain. */
+        if (!bss)
+            return result;
+        /* Make sure initialized, or valgrind may complain. */
         memset(bss, 0, sizeof(baseSystemState));
-	ddp = &(bss->dp);
-	GInit(ddp);
-	/* For some things, the device sets the starting value at least. */
-	ddp->ps = dev->startps;
-	ddp->col = ddp->fg = dev->startcol;
-	ddp->bg = dev->startfill;
-	ddp->font = dev->startfont;
-	ddp->lty = dev->startlty;
-	ddp->gamma = dev->startgamma;
-	/* Initialise the gp settings too: formerly in addDevice. */
-	copyGPar(ddp, &(bss->gp));
-	GReset(dd);
-	/*
-	 * The device has not yet received any base output
-	 */
-	bss->baseDevice = FALSE;
+        ddp = &(bss->dp);
+        GInit(ddp);
+        /* For some things, the device sets the starting value at least. */
+        ddp->ps = dev->startps;
+        ddp->col = ddp->fg = dev->startcol;
+        ddp->bg = dev->startfill;
+        ddp->font = dev->startfont;
+        ddp->lty = dev->startlty;
+        ddp->gamma = dev->startgamma;
+        /* Initialise the gp settings too: formerly in addDevice. */
+        copyGPar(ddp, &(bss->gp));
+        GReset(dd);
+        /*
+         * The device has not yet received any base output
+         */
+        bss->baseDevice = FALSE;
         /* Indicate success */
         result = R_BlankString;
-	break;
+        break;
     }
-    case GE_CopyState:
-    {
-	/* called from GEcopyDisplayList */
-	pGEDevDesc curdd = GEcurrentDevice();
-	bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-	bss2 = curdd->gesd[baseRegisterIndex]->systemSpecific;
-	copyGPar(&(bss->dpSaved), &(bss2->dpSaved));
-	restoredpSaved(curdd);
-	copyGPar(&(bss2->dp), &(bss2->gp));
-	GReset(curdd);
-	break;
+    case GE_CopyState: {
+        /* called from GEcopyDisplayList */
+        pGEDevDesc curdd = GEcurrentDevice();
+        bss = dd->gesd[baseRegisterIndex]->systemSpecific;
+        bss2 = curdd->gesd[baseRegisterIndex]->systemSpecific;
+        copyGPar(&(bss->dpSaved), &(bss2->dpSaved));
+        restoredpSaved(curdd);
+        copyGPar(&(bss2->dp), &(bss2->gp));
+        GReset(curdd);
+        break;
     }
     case GE_SaveState:
-	/* called from GEinitDisplayList */
-	bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-	copyGPar(&(bss->dp), &(bss->dpSaved));
-	break;
+        /* called from GEinitDisplayList */
+        bss = dd->gesd[baseRegisterIndex]->systemSpecific;
+        copyGPar(&(bss->dp), &(bss->dpSaved));
+        break;
     case GE_RestoreState:
-	/* called from GEplayDisplayList */
-	bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-	restoredpSaved(dd);
-	copyGPar(&(bss->dp), &(bss->gp));
-	GReset(dd);
-	break;
+        /* called from GEplayDisplayList */
+        bss = dd->gesd[baseRegisterIndex]->systemSpecific;
+        restoredpSaved(dd);
+        copyGPar(&(bss->dp), &(bss->gp));
+        GReset(dd);
+        break;
     case GE_SaveSnapshotState:
         /* called from GEcreateSnapshot */
-        { 
+        {
             SEXP pkgName;
             bss = dd->gesd[baseRegisterIndex]->systemSpecific;
             /* Changed from INTSXP in 2.7.0: but saved graphics lists
                are protected by an R version number */
             PROTECT(result = allocVector(RAWSXP, sizeof(GPar)));
-            copyGPar(&(bss->dpSaved), (GPar*) RAW(result));
+            copyGPar(&(bss->dpSaved), (GPar *)RAW(result));
             PROTECT(pkgName = mkString("graphics"));
             setAttrib(result, install("pkgName"), pkgName);
             UNPROTECT(2);
         }
-	break;
+        break;
     case GE_RestoreSnapshotState:
         /* called from GEplaySnapshot */
         {
@@ -285,35 +288,38 @@ static SEXP baseCallback(GEevent task, pGEDevDesc dd, SEXP data)
              * Assume 'graphics' is first state in snapshot
              * (though this could be fatal).
              */
-            PROTECT(snapshotEngineVersion = 
-                    getAttrib(data, install("engineVersion")));
-            if (isNull(snapshotEngineVersion)) {
+            PROTECT(snapshotEngineVersion = getAttrib(data, install("engineVersion")));
+            if (isNull(snapshotEngineVersion))
+            {
                 graphicsState = VECTOR_ELT(data, 1);
-            } else {
-                for (i=0; i<nState; i++) {
+            }
+            else
+            {
+                for (i = 0; i < nState; i++)
+                {
                     SEXP state = VECTOR_ELT(data, i + 1);
-                    if (!strcmp(CHAR(STRING_ELT(getAttrib(state, 
-                                                          install("pkgName")), 
-                                                0)), 
-                                "graphics")) {
+                    if (!strcmp(CHAR(STRING_ELT(getAttrib(state, install("pkgName")), 0)), "graphics"))
+                    {
                         graphicsState = state;
                     }
                 }
             }
-            if (!isNull(graphicsState)) {
+            if (!isNull(graphicsState))
+            {
                 /* Check that RAW blob being restored is same size
                  * as GPar struct in current R version.
                  * Any version difference will have been warned about,
                  * but a difference here means STOP.
                  */
-                if (LENGTH(graphicsState) != sizeof(GPar)) {
+                if (LENGTH(graphicsState) != sizeof(GPar))
+                {
                     error(_("Incompatible graphics state"));
                 }
                 bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-                copyGPar((GPar*) RAW(graphicsState), &(bss->dpSaved));
+                copyGPar((GPar *)RAW(graphicsState), &(bss->dpSaved));
                 /* These are probably redundant because GE_RestoreState
                  * will follow from GEplayDisplayList(), but no harm
-                 * is done 
+                 * is done
                  * AND there is at least one place that
                  * depends on this ('gridGraphics' package replays
                  * an empty DL to do restoredpSaved() on new page)
@@ -328,31 +334,30 @@ static SEXP baseCallback(GEevent task, pGEDevDesc dd, SEXP data)
             }
             UNPROTECT(2);
         }
-	break;
+        break;
     case GE_CheckPlot:
-	/* called from GEcheckState:
-	   Check that the current plotting state is "valid"
-	 */
-	bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-	result = ScalarLogical(bss->baseDevice ?
-			       (bss->gp.state == 1) && bss->gp.valid :
-			       TRUE);
-	break;
-    case GE_ScalePS:
-    {
-	/* called from GEhandleEvent in devWindows.c */
-	GPar *ddp, *ddpSaved;
-	bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-	ddp = &(bss->dp);
-	ddpSaved = &(bss->dpSaved);
-	if (isReal(data) && LENGTH(data) == 1) {
-	    double rf = REAL(data)[0];
-	    ddp->scale *= rf;
-	    /* Modify the saved settings so this effects display list too */
-	    ddpSaved->scale *= rf;
-	} else
-	  error("event 'GE_ScalePS' requires a single numeric value");
-	break;
+        /* called from GEcheckState:
+           Check that the current plotting state is "valid"
+         */
+        bss = dd->gesd[baseRegisterIndex]->systemSpecific;
+        result = ScalarLogical(bss->baseDevice ? (bss->gp.state == 1) && bss->gp.valid : TRUE);
+        break;
+    case GE_ScalePS: {
+        /* called from GEhandleEvent in devWindows.c */
+        GPar *ddp, *ddpSaved;
+        bss = dd->gesd[baseRegisterIndex]->systemSpecific;
+        ddp = &(bss->dp);
+        ddpSaved = &(bss->dpSaved);
+        if (isReal(data) && LENGTH(data) == 1)
+        {
+            double rf = REAL(data)[0];
+            ddp->scale *= rf;
+            /* Modify the saved settings so this effects display list too */
+            ddpSaved->scale *= rf;
+        }
+        else
+            error("event 'GE_ScalePS' requires a single numeric value");
+        break;
     }
     }
     return result;
@@ -360,15 +365,15 @@ static SEXP baseCallback(GEevent task, pGEDevDesc dd, SEXP data)
 
 /* (un)Register the base graphics system with the graphics engine
  */
-void
-registerBase(void) {
+void registerBase(void)
+{
     GEregisterSystem(baseCallback, &baseRegisterIndex);
 }
 
-void
-unregisterBase(void) {
+void unregisterBase(void)
+{
     GEunregisterSystem(baseRegisterIndex);
-    baseRegisterIndex = -1;   
+    baseRegisterIndex = -1;
 }
 
 SEXP RunregisterBase(void)
@@ -380,24 +385,27 @@ SEXP RunregisterBase(void)
 /* FIXME: Make this a macro to avoid function call overhead?
    Inline it if you really think it matters.
  */
-GPar* gpptr(pGEDevDesc dd) {
+GPar *gpptr(pGEDevDesc dd)
+{
     if (baseRegisterIndex == -1)
-	error(_("the base graphics system is not registered"));
+        error(_("the base graphics system is not registered"));
     baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
     return &(bss->gp);
 }
 
-GPar* dpptr(pGEDevDesc dd) {
+GPar *dpptr(pGEDevDesc dd)
+{
     if (baseRegisterIndex == -1)
-	error(_("the base graphics system is not registered"));
+        error(_("the base graphics system is not registered"));
     baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
     return &(bss->dp);
 }
 
 /* called in GNewPlot to mark device as 'dirty' */
-void Rf_setBaseDevice(Rboolean val, pGEDevDesc dd) {
+void Rf_setBaseDevice(Rboolean val, pGEDevDesc dd)
+{
     if (baseRegisterIndex == -1)
-	error(_("the base graphics system is not registered"));
+        error(_("the base graphics system is not registered"));
     baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
     bss->baseDevice = val;
 }

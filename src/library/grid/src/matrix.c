@@ -18,56 +18,57 @@
  *  https://www.R-project.org/Licenses/
  */
 
-#include "grid.h" 
+#include "grid.h"
 #include <math.h>
 
 /* Code for matrices, matrix multiplication, etc for performing
  *  2D affine transformations:  translations, scaling, and rotations.
  */
 
-double locationX(LLocation l) {
+double locationX(LLocation l)
+{
     return l[0];
 }
 
-double locationY(LLocation l) {
+double locationY(LLocation l)
+{
     return l[1];
 }
 
 void copyTransform(LTransform t1, LTransform t2)
 {
     int i, j;
-    for (i=0; i<3; i++) 
-	for (j=0; j<3; j++)
-	    t2[i][j] = t1[i][j];
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 3; j++)
+            t2[i][j] = t1[i][j];
 }
 
 void invTransform(LTransform t, LTransform invt)
 {
-    double det = t[0][0]*(t[2][2]*t[1][1] - t[2][1]*t[1][2]) - 
-	t[1][0]*(t[2][2]*t[0][1] - t[2][1]*t[0][2]) +
-	t[2][0]*(t[1][2]*t[0][1] - t[1][1]*t[0][2]);
+    double det = t[0][0] * (t[2][2] * t[1][1] - t[2][1] * t[1][2]) - t[1][0] * (t[2][2] * t[0][1] - t[2][1] * t[0][2]) +
+                 t[2][0] * (t[1][2] * t[0][1] - t[1][1] * t[0][2]);
     if (det == 0)
-	error(_("singular transformation matrix"));
-    invt[0][0] = 1/det*(t[2][2]*t[1][1] - t[2][1]*t[1][2]);
-    invt[0][1] = -1/det*(t[2][2]*t[0][1] - t[2][1]*t[0][2]);
-    invt[0][2] = 1/det*(t[1][2]*t[0][1] - t[1][1]*t[0][2]);
-    invt[1][0] = -1/det*(t[2][2]*t[1][0] - t[2][0]*t[1][2]);
-    invt[1][1] = 1/det*(t[2][2]*t[0][0] - t[2][0]*t[0][2]);
-    invt[1][2] = -1/det*(t[1][2]*t[0][0] - t[1][0]*t[0][2]);
-    invt[2][0] = 1/det*(t[2][1]*t[1][0] - t[2][0]*t[1][1]);
-    invt[2][1] = -1/det*(t[2][1]*t[0][0] - t[2][0]*t[0][1]);
-    invt[2][2] = 1/det*(t[1][1]*t[0][0] - t[1][0]*t[0][1]);
+        error(_("singular transformation matrix"));
+    invt[0][0] = 1 / det * (t[2][2] * t[1][1] - t[2][1] * t[1][2]);
+    invt[0][1] = -1 / det * (t[2][2] * t[0][1] - t[2][1] * t[0][2]);
+    invt[0][2] = 1 / det * (t[1][2] * t[0][1] - t[1][1] * t[0][2]);
+    invt[1][0] = -1 / det * (t[2][2] * t[1][0] - t[2][0] * t[1][2]);
+    invt[1][1] = 1 / det * (t[2][2] * t[0][0] - t[2][0] * t[0][2]);
+    invt[1][2] = -1 / det * (t[1][2] * t[0][0] - t[1][0] * t[0][2]);
+    invt[2][0] = 1 / det * (t[2][1] * t[1][0] - t[2][0] * t[1][1]);
+    invt[2][1] = -1 / det * (t[2][1] * t[0][0] - t[2][0] * t[0][1]);
+    invt[2][2] = 1 / det * (t[1][1] * t[0][0] - t[1][0] * t[0][1]);
 }
 
-void identity(LTransform m) 
+void identity(LTransform m)
 {
     int i, j;
-    for (i=0; i<3; i++) 
-	for (j=0; j<3; j++)
-	    if (i == j)
-		m[i][j] = 1;
-	    else
-		m[i][j] = 0;
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 3; j++)
+            if (i == j)
+                m[i][j] = 1;
+            else
+                m[i][j] = 0;
 }
 
 void translation(double tx, double ty, LTransform m)
@@ -86,7 +87,7 @@ void scaling(double sx, double sy, LTransform m)
 
 void rotation(double theta, LTransform m)
 {
-    double thetarad = theta/180*M_PI;
+    double thetarad = theta / 180 * M_PI;
     double costheta = cos(thetarad);
     double sintheta = sin(thetarad);
     identity(m);
@@ -98,15 +99,15 @@ void rotation(double theta, LTransform m)
 
 void multiply(LTransform m1, LTransform m2, LTransform m)
 {
-    m[0][0] = m1[0][0]*m2[0][0] + m1[0][1]*m2[1][0] + m1[0][2]*m2[2][0];
-    m[0][1] = m1[0][0]*m2[0][1] + m1[0][1]*m2[1][1] + m1[0][2]*m2[2][1];
-    m[0][2] = m1[0][0]*m2[0][2] + m1[0][1]*m2[1][2] + m1[0][2]*m2[2][2];
-    m[1][0] = m1[1][0]*m2[0][0] + m1[1][1]*m2[1][0] + m1[1][2]*m2[2][0];
-    m[1][1] = m1[1][0]*m2[0][1] + m1[1][1]*m2[1][1] + m1[1][2]*m2[2][1];
-    m[1][2] = m1[1][0]*m2[0][2] + m1[1][1]*m2[1][2] + m1[1][2]*m2[2][2];
-    m[2][0] = m1[2][0]*m2[0][0] + m1[2][1]*m2[1][0] + m1[2][2]*m2[2][0];
-    m[2][1] = m1[2][0]*m2[0][1] + m1[2][1]*m2[1][1] + m1[2][2]*m2[2][1];
-    m[2][2] = m1[2][0]*m2[0][2] + m1[2][1]*m2[1][2] + m1[2][2]*m2[2][2];
+    m[0][0] = m1[0][0] * m2[0][0] + m1[0][1] * m2[1][0] + m1[0][2] * m2[2][0];
+    m[0][1] = m1[0][0] * m2[0][1] + m1[0][1] * m2[1][1] + m1[0][2] * m2[2][1];
+    m[0][2] = m1[0][0] * m2[0][2] + m1[0][1] * m2[1][2] + m1[0][2] * m2[2][2];
+    m[1][0] = m1[1][0] * m2[0][0] + m1[1][1] * m2[1][0] + m1[1][2] * m2[2][0];
+    m[1][1] = m1[1][0] * m2[0][1] + m1[1][1] * m2[1][1] + m1[1][2] * m2[2][1];
+    m[1][2] = m1[1][0] * m2[0][2] + m1[1][1] * m2[1][2] + m1[1][2] * m2[2][2];
+    m[2][0] = m1[2][0] * m2[0][0] + m1[2][1] * m2[1][0] + m1[2][2] * m2[2][0];
+    m[2][1] = m1[2][0] * m2[0][1] + m1[2][1] * m2[1][1] + m1[2][2] * m2[2][1];
+    m[2][2] = m1[2][0] * m2[0][2] + m1[2][1] * m2[1][2] + m1[2][2] * m2[2][2];
 }
 
 void location(double x, double y, LLocation v)
@@ -118,9 +119,9 @@ void location(double x, double y, LLocation v)
 
 void trans(LLocation vin, LTransform m, LLocation vout)
 {
-    vout[0] = vin[0]*m[0][0] + vin[1]*m[1][0] + vin[2]*m[2][0];
-    vout[1] = vin[0]*m[0][1] + vin[1]*m[1][1] + vin[2]*m[2][1];
-    vout[2] = vin[0]*m[0][2] + vin[1]*m[1][2] + vin[2]*m[2][2];
+    vout[0] = vin[0] * m[0][0] + vin[1] * m[1][0] + vin[2] * m[2][0];
+    vout[1] = vin[0] * m[0][1] + vin[1] * m[1][1] + vin[2] * m[2][1];
+    vout[2] = vin[0] * m[0][2] + vin[1] * m[1][2] + vin[2] * m[2][2];
 }
 
 /* Testing code
@@ -130,16 +131,16 @@ void trans(LLocation vin, LTransform m, LLocation vout)
  */
 
 /*
-  main() 
+  main()
   {
-  LLocation v1, v2; 
+  LLocation v1, v2;
   LTransform m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11;
   location(9, 10, v1);
   translation(-5, -6, m1);
   scaling(1/7.0, 1/8.0, m2);
   scaling(7, 8, m3);
-  identity(m4);  
-  rotation(3.141592 / 2, m4); 
+  identity(m4);
+  rotation(3.141592 / 2, m4);
   translation(4, 4, m5);
   scaling(1/3.0, 1/4.0, m6);
   multiply(m1, m2, m7);
@@ -148,7 +149,6 @@ void trans(LLocation vin, LTransform m, LLocation vout)
   multiply(m9, m5, m10);
   multiply(m10, m6, m11);
   transform(v1, m11, v2);
-  printf("%1.2f %1.2f %1.2f\n", v2[0], v2[1], v2[2]);	  
+  printf("%1.2f %1.2f %1.2f\n", v2[0], v2[1], v2[2]);
   }
 */
-

@@ -18,34 +18,32 @@
    Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 /* Specification.  */
 #include "hash-string.h"
 
-
 /* Defines the so called `hashpjw' function by P.J. Weinberger
    [see Aho/Sethi/Ullman, COMPILERS: Principles, Techniques and Tools,
    1986, 1987 Bell Telephone Laboratories, Inc.]  */
-unsigned long int
-__hash_string (const char *str_param)
+unsigned long int __hash_string(const char *str_param)
 {
-  unsigned long int hval, g;
-  const char *str = str_param;
+    unsigned long int hval, g;
+    const char *str = str_param;
 
-  /* Compute the hash value for the given string.  */
-  hval = 0;
-  while (*str != '\0')
+    /* Compute the hash value for the given string.  */
+    hval = 0;
+    while (*str != '\0')
     {
-      hval <<= 4;
-      hval += (unsigned char) *str++;
-      g = hval & ((unsigned long int) 0xf << (HASHWORDBITS - 4));
-      if (g != 0)
-	{
-	  hval ^= g >> (HASHWORDBITS - 8);
-	  hval ^= g;
-	}
+        hval <<= 4;
+        hval += (unsigned char)*str++;
+        g = hval & ((unsigned long int)0xf << (HASHWORDBITS - 4));
+        if (g != 0)
+        {
+            hval ^= g >> (HASHWORDBITS - 8);
+            hval ^= g;
+        }
     }
-  return hval;
+    return hval;
 }

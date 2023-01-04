@@ -24,7 +24,7 @@
 #include <shlobj.h>
 
 static int ShellGetPersonalDirectory(char *folder)
-  /* Folder is assumed to be at least MAX_PATH long */
+/* Folder is assumed to be at least MAX_PATH long */
 {
     LPMALLOC g_pMalloc;
     LPITEMIDLIST pidlUser;
@@ -33,17 +33,19 @@ static int ShellGetPersonalDirectory(char *folder)
     result = 0;
 
     /* Get the shell's allocator. */
-    if (SUCCEEDED(SHGetMalloc(&g_pMalloc))) {
+    if (SUCCEEDED(SHGetMalloc(&g_pMalloc)))
+    {
 
-	/* Get the PIDL of the user's Directory. */
-	if (SUCCEEDED(SHGetSpecialFolderLocation(0, CSIDL_PERSONAL, &pidlUser))) {
-	    if (SUCCEEDED(SHGetPathFromIDList(pidlUser, folder))) result = 1;
-	    g_pMalloc->lpVtbl->Free(g_pMalloc, pidlUser);
-	}
+        /* Get the PIDL of the user's Directory. */
+        if (SUCCEEDED(SHGetSpecialFolderLocation(0, CSIDL_PERSONAL, &pidlUser)))
+        {
+            if (SUCCEEDED(SHGetPathFromIDList(pidlUser, folder)))
+                result = 1;
+            g_pMalloc->lpVtbl->Free(g_pMalloc, pidlUser);
+        }
     }
-    return(result);
+    return (result);
 }
-
 
 static char RUser[MAX_PATH];
 #include <winbase.h>
@@ -56,24 +58,37 @@ char *getRUser()
      */
     char *p, *q;
 
-    if ((p = getenv("R_USER"))) {
-	if(strlen(p) >= MAX_PATH) R_Suicide("Invalid R_USER");
-	strcpy(RUser, p);
-    } else if ((p = getenv("HOME"))) {
-	if(strlen(p) >= MAX_PATH) R_Suicide("Invalid HOME");
-	strcpy(RUser, p);
-    } else if (ShellGetPersonalDirectory(RUser)) {
-	/* nothing to do */;
-    } else if ((p = getenv("HOMEDRIVE")) && (q = getenv("HOMEPATH"))) {
-	if(strlen(p) >= MAX_PATH) R_Suicide("Invalid HOMEDRIVE");
-	strcpy(RUser, p);
-	if(strlen(RUser) + strlen(q) >= MAX_PATH)
-	    R_Suicide("Invalid HOMEDRIVE+HOMEPATH");
-	strcat(RUser, q);
-    } else {
-	GetCurrentDirectory(MAX_PATH, RUser);
+    if ((p = getenv("R_USER")))
+    {
+        if (strlen(p) >= MAX_PATH)
+            R_Suicide("Invalid R_USER");
+        strcpy(RUser, p);
+    }
+    else if ((p = getenv("HOME")))
+    {
+        if (strlen(p) >= MAX_PATH)
+            R_Suicide("Invalid HOME");
+        strcpy(RUser, p);
+    }
+    else if (ShellGetPersonalDirectory(RUser))
+    {
+        /* nothing to do */;
+    }
+    else if ((p = getenv("HOMEDRIVE")) && (q = getenv("HOMEPATH")))
+    {
+        if (strlen(p) >= MAX_PATH)
+            R_Suicide("Invalid HOMEDRIVE");
+        strcpy(RUser, p);
+        if (strlen(RUser) + strlen(q) >= MAX_PATH)
+            R_Suicide("Invalid HOMEDRIVE+HOMEPATH");
+        strcat(RUser, q);
+    }
+    else
+    {
+        GetCurrentDirectory(MAX_PATH, RUser);
     }
     p = RUser + (strlen(RUser) - 1);
-    if (*p == '/' || *p == '\\') *p = '\0';
+    if (*p == '/' || *p == '\\')
+        *p = '\0';
     return RUser;
 }

@@ -25,34 +25,43 @@
    curve(log1p(exp(x)) - x,       33.1, 33.5, n=2^10)
    curve(x+exp(-x) - log1p(exp(x)), 15, 25,   n=2^11)
 */
-double log1pexp(double x) {
-    if(x <= 18.) return log1p(exp(x));
-    if(x > 33.3) return x;
+double log1pexp(double x)
+{
+    if (x <= 18.)
+        return log1p(exp(x));
+    if (x > 33.3)
+        return x;
     // else: 18.0 < x <= 33.3 :
     return x + exp(-x);
 }
 
 // API.  For now, continue using macro R_Log1_Exp() in our own code.
-double log1mexp(double x) { return R_Log1_Exp(-x); }
+double log1mexp(double x)
+{
+    return R_Log1_Exp(-x);
+}
 
-double plogis(double x, double location, double scale,
-	      int lower_tail, int log_p)
+double plogis(double x, double location, double scale, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(location) || ISNAN(scale))
-	return x + location + scale;
+        return x + location + scale;
 #endif
-    if (scale <= 0.0)	ML_WARN_return_NAN;
+    if (scale <= 0.0)
+        ML_WARN_return_NAN;
 
     x = (x - location) / scale;
-    if (ISNAN(x))	ML_WARN_return_NAN;
+    if (ISNAN(x))
+        ML_WARN_return_NAN;
     R_P_bounds_Inf_01(x);
 
-    if(log_p) {
-	// log(1 / (1 + exp( +- x ))) = -log(1 + exp( +- x))
-	return -log1pexp(lower_tail ? -x : x);
-    } else {
-	return 1 / (1 + exp(lower_tail ? -x : x));
+    if (log_p)
+    {
+        // log(1 / (1 + exp( +- x ))) = -log(1 + exp( +- x))
+        return -log1pexp(lower_tail ? -x : x);
+    }
+    else
+    {
+        return 1 / (1 + exp(lower_tail ? -x : x));
     }
 }
-

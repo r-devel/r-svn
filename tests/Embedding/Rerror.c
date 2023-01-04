@@ -7,14 +7,12 @@
 #include "embeddedRCall.h"
 #include "R_ext/RStartup.h"
 
-
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     SEXP e;
     int errorOccurred;
     char *localArgs[] = {"R", "--silent"};
-    init_R(sizeof(localArgs)/sizeof(localArgs[0]), localArgs);
+    init_R(sizeof(localArgs) / sizeof(localArgs[0]), localArgs);
 
     /*
       Evaluates the two expressions:
@@ -28,11 +26,12 @@ main(int argc, char *argv[])
 
     PROTECT(e = lang1(install("foo")));
     R_tryEval(e, R_GlobalEnv, &errorOccurred);
-    fprintf(stderr, "Trying again (yes it will fail also!)\n");fflush(stderr);
+    fprintf(stderr, "Trying again (yes it will fail also!)\n");
+    fflush(stderr);
     R_tryEval(e, R_GlobalEnv, &errorOccurred);
     UNPROTECT(1);
 
     end_R();
 
-    return(0);
+    return (0);
 }

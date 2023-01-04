@@ -20,40 +20,46 @@
 #include <stdlib.h> /* for exit */
 #include <string.h>
 
-extern int rcmdfn (int cmdarg, int argc, char **argv); /* in rcmdfn.c */
+extern int rcmdfn(int cmdarg, int argc, char **argv); /* in rcmdfn.c */
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     int cmdarg = 0;
 
-    if (argc > 1) {
-	if (strcmp(argv[1], "-h") == 0
-	 	|| strcmp(argv[1], "--help") == 0) cmdarg = 1;
-	else {
-	    /* see if any arg is 'CMD' */
-	    for(int i = 1; i < argc; i++)
-		if(strcmp(argv[i], "CMD") == 0) {
-		    cmdarg = i + 1;
-		    break;		    
-		}
-	    if (cmdarg >= 3) { /* something before CMD */
-		/* Cannot set to empty value on Windows */
-		char *Init = "R_PROFILE_USER=\r", *Site="R_RPOFILE=\r",
-		    *Env1="R_ENVIRON=\r", *Env2="R_ENVIRON_USER=\r";
-		for(int i = 1; i < cmdarg; i++) {
-		    char *a = argv[i];
-		    if (strcmp(a, "--no-init-file") == 0 ||
-			strcmp(a, "--vanilla") == 0) putenv(Init);
-		    if (strcmp(a, "--no-site-file") == 0 ||
-			strcmp(a, "--vanilla") == 0) putenv(Site);
-		    if (strcmp(a, "--no-environ") == 0 ||
-			strcmp(a, "--vanilla") == 0) {
-			putenv(Env1); putenv(Env2);
-		    }
-		}
-	    }
-	}
+    if (argc > 1)
+    {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
+            cmdarg = 1;
+        else
+        {
+            /* see if any arg is 'CMD' */
+            for (int i = 1; i < argc; i++)
+                if (strcmp(argv[i], "CMD") == 0)
+                {
+                    cmdarg = i + 1;
+                    break;
+                }
+            if (cmdarg >= 3)
+            { /* something before CMD */
+                /* Cannot set to empty value on Windows */
+                char *Init = "R_PROFILE_USER=\r", *Site = "R_RPOFILE=\r", *Env1 = "R_ENVIRON=\r",
+                     *Env2 = "R_ENVIRON_USER=\r";
+                for (int i = 1; i < cmdarg; i++)
+                {
+                    char *a = argv[i];
+                    if (strcmp(a, "--no-init-file") == 0 || strcmp(a, "--vanilla") == 0)
+                        putenv(Init);
+                    if (strcmp(a, "--no-site-file") == 0 || strcmp(a, "--vanilla") == 0)
+                        putenv(Site);
+                    if (strcmp(a, "--no-environ") == 0 || strcmp(a, "--vanilla") == 0)
+                    {
+                        putenv(Env1);
+                        putenv(Env2);
+                    }
+                }
+            }
+        }
     }
 
     exit(rcmdfn(cmdarg, argc, argv));
- }
+}

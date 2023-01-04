@@ -21,15 +21,14 @@
 /* <UTF8> char here is handled as a whole string */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 #include <Defn.h>
 
 int Rf_initialize_R(int ac, char **av); /* in ../unix/system.c */
-void setup_Rmainloop(void); /* in main.c */
-void fpu_setup(Rboolean start);  /* in ../unix/sys-std.c */
+void setup_Rmainloop(void);             /* in main.c */
+void fpu_setup(Rboolean start);         /* in ../unix/sys-std.c */
 extern void R_CleanTempDir(void);
-
 
 /*
  This is the routine that can be called to initialize the R environment
@@ -47,9 +46,9 @@ extern void R_CleanTempDir(void);
  initialization code so that will we never return here.)
 
  Example:
-	 0) name of executable
-	 1) don't load the X11 module
-	 2) don't show the banner at startup.
+     0) name of executable
+     1) don't load the X11 module
+     2) don't show the banner at startup.
 
 
     char *argv[]= {"REmbeddedPostgres", "--gui=none", "--silent"};
@@ -59,9 +58,9 @@ extern void R_CleanTempDir(void);
 int Rf_initEmbeddedR(int argc, char **argv)
 {
     Rf_initialize_R(argc, argv);
-    R_Interactive = TRUE;  /* Rf_initialize_R set this based on isatty */
+    R_Interactive = TRUE; /* Rf_initialize_R set this based on isatty */
     setup_Rmainloop();
-    return(1);
+    return (1);
 }
 
 /* use fatal !=0 for emergency bail out */
@@ -69,9 +68,10 @@ void Rf_endEmbeddedR(int fatal)
 {
     R_RunExitFinalizers();
     CleanEd();
-    if(!fatal) KillAllDevices();
+    if (!fatal)
+        KillAllDevices();
     R_CleanTempDir();
-    if(!fatal && R_CollectWarnings)
-	PrintWarnings();	/* from device close and .Last */
+    if (!fatal && R_CollectWarnings)
+        PrintWarnings(); /* from device close and .Last */
     fpu_setup(FALSE);
 }

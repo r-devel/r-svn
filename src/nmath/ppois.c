@@ -29,12 +29,16 @@ double ppois(double x, double lambda, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(lambda))
-	return x + lambda;
+        return x + lambda;
 #endif
-    if(lambda < 0.) ML_WARN_return_NAN;
-    if (x < 0)		return R_DT_0;
-    if (lambda == 0.)	return R_DT_1;
-    if (!R_FINITE(x))	return R_DT_1;
+    if (lambda < 0.)
+        ML_WARN_return_NAN;
+    if (x < 0)
+        return R_DT_0;
+    if (lambda == 0.)
+        return R_DT_1;
+    if (!R_FINITE(x))
+        return R_DT_1;
     x = floor(x + 1e-7);
 
     return pgamma(lambda, x + 1, 1., !lower_tail, log_p);

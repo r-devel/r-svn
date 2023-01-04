@@ -30,11 +30,12 @@ double qweibull(double p, double shape, double scale, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(shape) || ISNAN(scale))
-	return p + shape + scale;
+        return p + shape + scale;
 #endif
-    if (shape <= 0 || scale <= 0) ML_WARN_return_NAN;
+    if (shape <= 0 || scale <= 0)
+        ML_WARN_return_NAN;
 
     R_Q_P01_boundaries(p, 0, ML_POSINF);
 
-    return scale * pow(- R_DT_Clog(p), 1./shape) ;
+    return scale * pow(-R_DT_Clog(p), 1. / shape);
 }

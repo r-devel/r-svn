@@ -20,32 +20,18 @@
 /* Originally contributed by David Meyer */
 
 #include <stdlib.h>
-#include <string.h>  // memcpy
+#include <string.h> // memcpy
 
 #include <R.h>
 #include "ts.h"
 
-void HoltWinters (double *x,
-		  int    *xl,
-		  double *alpha,
-		  double *beta,
-		  double *gamma,
-		  int    *start_time,
-		  int    *seasonal,
-		  int    *period,
-		  int    *dotrend,
-		  int    *doseasonal,
+void HoltWinters(double *x, int *xl, double *alpha, double *beta, double *gamma, int *start_time, int *seasonal,
+                 int *period, int *dotrend, int *doseasonal,
 
-		  double *a,
-		  double *b,
-		  double *s,
+                 double *a, double *b, double *s,
 
-		  /* return values */
-		  double *SSE,
-		  double *level,
-		  double *trend,
-		  double *season
-    )
+                 /* return values */
+                 double *SSE, double *level, double *trend, double *season)
 
 {
     double res = 0, xhat = 0, stmp = 0;
@@ -53,47 +39,46 @@ void HoltWinters (double *x,
 
     /* copy start values to the beginning of the vectors */
     level[0] = *a;
-    if (*dotrend == 1) trend[0] = *b;
-    if (*doseasonal == 1) memcpy(season, s, *period * sizeof(double));
+    if (*dotrend == 1)
+        trend[0] = *b;
+    if (*doseasonal == 1)
+        memcpy(season, s, *period * sizeof(double));
 
-    for (i = *start_time - 1; i < *xl; i++) {
-	/* indices for period i */
-	i0 = i - *start_time + 2;
-	s0 = i0 + *period - 1;
+    for (i = *start_time - 1; i < *xl; i++)
+    {
+        /* indices for period i */
+        i0 = i - *start_time + 2;
+        s0 = i0 + *period - 1;
 
-	/* forecast *for* period i */
-	xhat = level[i0 - 1] + (*dotrend == 1 ? trend[i0 - 1] : 0);
-	stmp = *doseasonal == 1 ? season[s0 - *period] : (*seasonal != 1);
-	if (*seasonal == 1)
-	    xhat += stmp;
-	else
-	    xhat *= stmp;
+        /* forecast *for* period i */
+        xhat = level[i0 - 1] + (*dotrend == 1 ? trend[i0 - 1] : 0);
+        stmp = *doseasonal == 1 ? season[s0 - *period] : (*seasonal != 1);
+        if (*seasonal == 1)
+            xhat += stmp;
+        else
+            xhat *= stmp;
 
-	/* Sum of Squared Errors */
-	res   = x[i] - xhat;
-	*SSE += res * res;
+        /* Sum of Squared Errors */
+        res = x[i] - xhat;
+        *SSE += res * res;
 
-	/* estimate of level *in* period i */
-	if (*seasonal == 1)
-	    level[i0] = *alpha       * (x[i] - stmp)
-		      + (1 - *alpha) * (level[i0 - 1] + trend[i0 - 1]);
-	else
-	    level[i0] = *alpha       * (x[i] / stmp)
-		      + (1 - *alpha) * (level[i0 - 1] + trend[i0 - 1]);
+        /* estimate of level *in* period i */
+        if (*seasonal == 1)
+            level[i0] = *alpha * (x[i] - stmp) + (1 - *alpha) * (level[i0 - 1] + trend[i0 - 1]);
+        else
+            level[i0] = *alpha * (x[i] / stmp) + (1 - *alpha) * (level[i0 - 1] + trend[i0 - 1]);
 
-	/* estimate of trend *in* period i */
-	if (*dotrend == 1)
-	    trend[i0] = *beta        * (level[i0] - level[i0 - 1])
-		      + (1 - *beta)  * trend[i0 - 1];
+        /* estimate of trend *in* period i */
+        if (*dotrend == 1)
+            trend[i0] = *beta * (level[i0] - level[i0 - 1]) + (1 - *beta) * trend[i0 - 1];
 
-	/* estimate of seasonal component *in* period i */
-	if (*doseasonal == 1) {
-	    if (*seasonal == 1)
-		season[s0] = *gamma       * (x[i] - level[i0])
-			   + (1 - *gamma) * stmp;
-	    else
-		season[s0] = *gamma       * (x[i] / level[i0])
-			   + (1 - *gamma) * stmp;
-	}
+        /* estimate of seasonal component *in* period i */
+        if (*doseasonal == 1)
+        {
+            if (*seasonal == 1)
+                season[s0] = *gamma * (x[i] - level[i0]) + (1 - *gamma) * stmp;
+            else
+                season[s0] = *gamma * (x[i] / level[i0]) + (1 - *gamma) * stmp;
+        }
     }
 }

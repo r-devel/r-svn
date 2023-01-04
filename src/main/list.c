@@ -38,52 +38,61 @@
 /* The following code is used to recursive traverse a block */
 /* of code and extract all the symbols present in that code. */
 
-typedef struct {
- SEXP	ans;
- int	UniqueNames;
- int	IncludeFunctions;
- int	StoreValues;
- int	ItemCounts;
- int	MaxCount;
+typedef struct
+{
+    SEXP ans;
+    int UniqueNames;
+    int IncludeFunctions;
+    int StoreValues;
+    int ItemCounts;
+    int MaxCount;
 } NameWalkData;
 
 static void namewalk(SEXP s, NameWalkData *d)
 {
     SEXP name;
 
-    switch(TYPEOF(s)) {
+    switch (TYPEOF(s))
+    {
     case SYMSXP:
-	name = PRINTNAME(s);
-	/* skip blank symbols */
-	if(CHAR(name)[0] == '\0') goto ignore;
-	if(d->ItemCounts < d->MaxCount) {
-	    if(d->StoreValues) {
-		if(d->UniqueNames) {
-		    for(int j = 0 ; j < d->ItemCounts ; j++) {
-			if(STRING_ELT(d->ans, j) == name)
-			    goto ignore;
-		    }
-		}
-		SET_STRING_ELT(d->ans, d->ItemCounts, name);
-	    }
-	    d->ItemCounts++;
-	}
+        name = PRINTNAME(s);
+        /* skip blank symbols */
+        if (CHAR(name)[0] == '\0')
+            goto ignore;
+        if (d->ItemCounts < d->MaxCount)
+        {
+            if (d->StoreValues)
+            {
+                if (d->UniqueNames)
+                {
+                    for (int j = 0; j < d->ItemCounts; j++)
+                    {
+                        if (STRING_ELT(d->ans, j) == name)
+                            goto ignore;
+                    }
+                }
+                SET_STRING_ELT(d->ans, d->ItemCounts, name);
+            }
+            d->ItemCounts++;
+        }
     ignore:
-	break;
+        break;
     case LANGSXP:
-	if(!d->IncludeFunctions) s = CDR(s);
-	while(s != R_NilValue) {
-	    namewalk(CAR(s), d);
-	    s = CDR(s);
-	}
-	break;
+        if (!d->IncludeFunctions)
+            s = CDR(s);
+        while (s != R_NilValue)
+        {
+            namewalk(CAR(s), d);
+            s = CDR(s);
+        }
+        break;
     case EXPRSXP:
-	for(R_xlen_t i = 0 ; i < XLENGTH(s) ; i++)
-	    namewalk(VECTOR_ELT(s, i), d);
-	break;
+        for (R_xlen_t i = 0; i < XLENGTH(s); i++)
+            namewalk(VECTOR_ELT(s, i), d);
+        break;
     default:
-	/* it seems the intention is to do nothing here! */
-	break;
+        /* it seems the intention is to do nothing here! */
+        break;
     }
 }
 
@@ -101,19 +110,20 @@ attribute_hidden SEXP do_allnames(SEXP call, SEXP op, SEXP args, SEXP env)
     args = CDR(args);
 
     data.IncludeFunctions = asLogical(CAR(args));
-    if(data.IncludeFunctions == NA_LOGICAL)
-	data.IncludeFunctions = 0;
+    if (data.IncludeFunctions == NA_LOGICAL)
+        data.IncludeFunctions = 0;
     args = CDR(args);
 
     data.MaxCount = asInteger(CAR(args));
-    if(data.MaxCount == -1) data.MaxCount = INT_MAX;
-    if(data.MaxCount < 0 || data.MaxCount == NA_INTEGER)
-	data.MaxCount = 0;
+    if (data.MaxCount == -1)
+        data.MaxCount = INT_MAX;
+    if (data.MaxCount < 0 || data.MaxCount == NA_INTEGER)
+        data.MaxCount = 0;
     args = CDR(args);
 
     data.UniqueNames = asLogical(CAR(args));
-    if(data.UniqueNames == NA_LOGICAL)
-	data.UniqueNames = 1;
+    if (data.UniqueNames == NA_LOGICAL)
+        data.UniqueNames = 1;
 
     namewalk(expr, &data);
     savecount = data.ItemCounts;
@@ -124,12 +134,13 @@ attribute_hidden SEXP do_allnames(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ItemCounts = 0;
     namewalk(expr, &data);
 
-    if(data.ItemCounts != savecount) {
-	PROTECT(expr = data.ans);
-	data.ans = allocVector(STRSXP, data.ItemCounts);
-	for(i = 0 ; i < data.ItemCounts ; i++)
-	    SET_STRING_ELT(data.ans, i, STRING_ELT(expr, i));
-	UNPROTECT(1);
+    if (data.ItemCounts != savecount)
+    {
+        PROTECT(expr = data.ans);
+        data.ans = allocVector(STRSXP, data.ItemCounts);
+        for (i = 0; i < data.ItemCounts; i++)
+            SET_STRING_ELT(data.ans, i, STRING_ELT(expr, i));
+        UNPROTECT(1);
     }
 
     return data.ans;

@@ -18,7 +18,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 #define NO_NLS
 #include <Defn.h>
@@ -34,15 +34,14 @@ SEXP do_substitute_direct(SEXP f, SEXP env)
 {
     SEXP s;
     if (TYPEOF(env) == VECSXP)
-	env = NewEnvironment(R_NilValue, VectorToPairList(env), R_BaseEnv);
+        env = NewEnvironment(R_NilValue, VectorToPairList(env), R_BaseEnv);
     else if (TYPEOF(env) == LISTSXP)
-	env = NewEnvironment(R_NilValue, duplicate(env), R_BaseEnv);
-    if(TYPEOF(env) != ENVSXP)
-	error(_("invalid list for substitution"));
+        env = NewEnvironment(R_NilValue, duplicate(env), R_BaseEnv);
+    if (TYPEOF(env) != ENVSXP)
+        error(_("invalid list for substitution"));
     PROTECT(env);
     PROTECT(f);
     s = substitute(f, env);
     UNPROTECT(2);
-    return(s);
+    return (s);
 }
-

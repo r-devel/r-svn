@@ -20,7 +20,7 @@
 /* <UTF8> OK since this is intended to treat chars as byte streams */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <Defn.h>
@@ -44,34 +44,42 @@ SEXP Rmd5(SEXP files)
     FILE *fp;
     unsigned char resblock[16];
 
-    if(!isString(files)) error(_("argument 'files' must be character"));
+    if (!isString(files))
+        error(_("argument 'files' must be character"));
     PROTECT(ans = allocVector(STRSXP, nfiles));
-    for(i = 0; i < nfiles; i++) {
+    for (i = 0; i < nfiles; i++)
+    {
 #ifdef _WIN32
-	wpath = filenameToWchar(STRING_ELT(files, i), FALSE);
-	fp = _wfopen(wpath, L"rb");
+        wpath = filenameToWchar(STRING_ELT(files, i), FALSE);
+        fp = _wfopen(wpath, L"rb");
 #else
-	path = translateChar(STRING_ELT(files, i));
-	fp = fopen(path, "r");
+        path = translateChar(STRING_ELT(files, i));
+        fp = fopen(path, "r");
 #endif
-	if(!fp) {
-	    SET_STRING_ELT(ans, i, NA_STRING);
-	} else {
-	    res = md5_stream(fp, &resblock);
-	    if(res) {
+        if (!fp)
+        {
+            SET_STRING_ELT(ans, i, NA_STRING);
+        }
+        else
+        {
+            res = md5_stream(fp, &resblock);
+            if (res)
+            {
 #ifdef _WIN32
-		warning(_("md5 failed on file '%ls'"), wpath);
+                warning(_("md5 failed on file '%ls'"), wpath);
 #else
-		warning(_("md5 failed on file '%s'"), path);
+                warning(_("md5 failed on file '%s'"), path);
 #endif
-		SET_STRING_ELT(ans, i, NA_STRING);
-	    } else {
-		for(j = 0; j < 16; j++)
-		    snprintf (out+2*j, 33-2*j, "%02x", resblock[j]);
-		SET_STRING_ELT(ans, i, mkChar(out));
-	    }
-	    fclose(fp);
-	}
+                SET_STRING_ELT(ans, i, NA_STRING);
+            }
+            else
+            {
+                for (j = 0; j < 16; j++)
+                    snprintf(out + 2 * j, 33 - 2 * j, "%02x", resblock[j]);
+                SET_STRING_ELT(ans, i, mkChar(out));
+            }
+            fclose(fp);
+        }
     }
     UNPROTECT(1);
     return ans;

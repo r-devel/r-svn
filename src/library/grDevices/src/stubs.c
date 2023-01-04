@@ -76,7 +76,6 @@ SEXP setGraphicsEventEnv(SEXP call, SEXP op, SEXP args, SEXP env)
 SEXP bringtotop(SEXP sdev, SEXP sstay);
 SEXP msgwindow(SEXP sdev, SEXP stype);
 
-
 SEXP bringToTop(SEXP sdev, SEXP sstay)
 {
     return bringtotop(sdev, sstay);
@@ -89,7 +88,6 @@ SEXP msgWindow(SEXP sdev, SEXP stype)
 
 #endif
 
-
 #include <R_ext/GraphicsEngine.h>
 
 SEXP devAskNewPage(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -99,14 +97,16 @@ SEXP devAskNewPage(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean oldask = gdd->ask;
 
     args = CDR(args);
-    if (!isNull(CAR(args))) {
-	ask = asLogical(CAR(args));
-	if (ask == NA_LOGICAL) error(_("invalid '%s' argument"), "ask");
-	gdd->ask = ask;
-	R_Visible = FALSE;
-    } else R_Visible = TRUE;
+    if (!isNull(CAR(args)))
+    {
+        ask = asLogical(CAR(args));
+        if (ask == NA_LOGICAL)
+            error(_("invalid '%s' argument"), "ask");
+        gdd->ask = ask;
+        R_Visible = FALSE;
+    }
+    else
+        R_Visible = TRUE;
 
     return ScalarLogical(oldask);
 }
-
-

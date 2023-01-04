@@ -121,47 +121,50 @@ attribute_hidden void R_run_onexits(RCNTXT *cptr)
 {
     RCNTXT *c;
 
-    for (c = R_GlobalContext; c != cptr; c = c->nextcontext) {
-	// a user embedding R incorrectly triggered this (PR#15420)
-	if (c == NULL)
-	    error("bad target context--should NEVER happen if R was called correctly");
-	if (c->cend != NULL) {
-	    void (*cend)(void *) = c->cend;
-	    c->cend = NULL; /* prevent recursion */
-	    R_HandlerStack = c->handlerstack;
-	    R_RestartStack = c->restartstack;
-	    cend(c->cenddata);
-	}
-	if (c->cloenv != R_NilValue && c->conexit != R_NilValue) {
-	    SEXP s = c->conexit;
-	    RCNTXT* savecontext = R_ExitContext;
-	    R_ExitContext = c;
-	    c->conexit = R_NilValue; /* prevent recursion */
-	    /* we are in intermediate jump, so returnValue is undefined */
-	    c->returnValue = NULL;
-	    R_HandlerStack = c->handlerstack;
-	    R_RestartStack = c->restartstack;
-	    PROTECT(s);
-	    /* Since these are run before any jumps rather than after
-	       jumping to the context where the exit handler was set
-	       we need to make sure there is enough room on the
-	       evaluation stack in case the jump is from handling a
-	       stack overflow. To be safe it is good to also call
-	       R_CheckStack. LT */
-	    R_Expressions = R_Expressions_keep + 500;
-	    R_CheckStack();
-	    for (; s != R_NilValue; s = CDR(s)) {
-		c->conexit = CDR(s);
-		eval(CAR(s), c->cloenv);
-	    }
-	    UNPROTECT(1);
-	    R_ExitContext = savecontext;
-	}
-	if (R_ExitContext == c)
-	    R_ExitContext = NULL; /* Not necessary?  Better safe than sorry. */
+    for (c = R_GlobalContext; c != cptr; c = c->nextcontext)
+    {
+        // a user embedding R incorrectly triggered this (PR#15420)
+        if (c == NULL)
+            error("bad target context--should NEVER happen if R was called correctly");
+        if (c->cend != NULL)
+        {
+            void (*cend)(void *) = c->cend;
+            c->cend = NULL; /* prevent recursion */
+            R_HandlerStack = c->handlerstack;
+            R_RestartStack = c->restartstack;
+            cend(c->cenddata);
+        }
+        if (c->cloenv != R_NilValue && c->conexit != R_NilValue)
+        {
+            SEXP s = c->conexit;
+            RCNTXT *savecontext = R_ExitContext;
+            R_ExitContext = c;
+            c->conexit = R_NilValue; /* prevent recursion */
+            /* we are in intermediate jump, so returnValue is undefined */
+            c->returnValue = NULL;
+            R_HandlerStack = c->handlerstack;
+            R_RestartStack = c->restartstack;
+            PROTECT(s);
+            /* Since these are run before any jumps rather than after
+               jumping to the context where the exit handler was set
+               we need to make sure there is enough room on the
+               evaluation stack in case the jump is from handling a
+               stack overflow. To be safe it is good to also call
+               R_CheckStack. LT */
+            R_Expressions = R_Expressions_keep + 500;
+            R_CheckStack();
+            for (; s != R_NilValue; s = CDR(s))
+            {
+                c->conexit = CDR(s);
+                eval(CAR(s), c->cloenv);
+            }
+            UNPROTECT(1);
+            R_ExitContext = savecontext;
+        }
+        if (R_ExitContext == c)
+            R_ExitContext = NULL; /* Not necessary?  Better safe than sorry. */
     }
 }
-
 
 /* R_restore_globals - restore global variables from a target context
    before a LONGJMP.  The target context itself is not restored here
@@ -179,12 +182,13 @@ static void R_restore_globals(RCNTXT *cptr)
     R_interrupts_suspended = cptr->intsusp;
     R_HandlerStack = cptr->handlerstack;
     R_RestartStack = cptr->restartstack;
-    while (R_PendingPromises != cptr->prstack) {
-	/* The value 2 installed in PRSEEN 2 allows forcePromise in
-	   eval.c to signal a warning when asked to evaluate a promise
-	   whose evaluation has been interrupted by a jump. */
-	SET_PRSEEN(R_PendingPromises->promise, 2);
-	R_PendingPromises = R_PendingPromises->next;
+    while (R_PendingPromises != cptr->prstack)
+    {
+        /* The value 2 installed in PRSEEN 2 allows forcePromise in
+           eval.c to signal a warning when asked to evaluate a promise
+           whose evaluation has been interrupted by a jump. */
+        SET_PRSEEN(R_PendingPromises->promise, 2);
+        R_PendingPromises = R_PendingPromises->next;
     }
     /* Need to reset R_Expressions in case we are jumping after
        handling a stack overflow. */
@@ -198,20 +202,21 @@ static RCNTXT *first_jump_target(RCNTXT *cptr, int mask)
 {
     RCNTXT *c;
 
-    for (c = R_GlobalContext; c && c != cptr; c = c->nextcontext) {
-	if ((c->cloenv != R_NilValue && c->conexit != R_NilValue) ||
-	    c->callflag == CTXT_UNWIND) {
-	    c->jumptarget = cptr;
-	    c->jumpmask = mask;
-	    return c;
-	}
+    for (c = R_GlobalContext; c && c != cptr; c = c->nextcontext)
+    {
+        if ((c->cloenv != R_NilValue && c->conexit != R_NilValue) || c->callflag == CTXT_UNWIND)
+        {
+            c->jumptarget = cptr;
+            c->jumpmask = mask;
+            return c;
+        }
     }
     return cptr;
 }
 
 /* R_jumpctxt - jump to the named context */
 
-attribute_hidden void NORET R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
+attribute_hidden void NORET R_jumpctxt(RCNTXT *targetcptr, int mask, SEXP val)
 {
     Rboolean savevis = R_Visible;
     RCNTXT *cptr;
@@ -232,21 +237,19 @@ attribute_hidden void NORET R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 
     /* if we are in the process of handling a C stack overflow we need
        to restore the C stack limit before the jump */
-    if (R_OldCStackLimit != 0) {
-	R_CStackLimit = R_OldCStackLimit;
-	R_OldCStackLimit = 0;
+    if (R_OldCStackLimit != 0)
+    {
+        R_CStackLimit = R_OldCStackLimit;
+        R_OldCStackLimit = 0;
     }
 
     LONGJMP(cptr->cjmpbuf, mask);
 }
 
-
 /* begincontext - begin an execution context */
 
 /* begincontext and endcontext are used in dataentry.c and modules */
-void begincontext(RCNTXT * cptr, int flags,
-		  SEXP syscall, SEXP env, SEXP sysp,
-		  SEXP promargs, SEXP callfun)
+void begincontext(RCNTXT *cptr, int flags, SEXP syscall, SEXP env, SEXP sysp, SEXP promargs, SEXP callfun)
 {
     cptr->cstacktop = R_PPStackTop;
     cptr->gcenabled = R_GCEnabled;
@@ -279,50 +282,50 @@ void begincontext(RCNTXT * cptr, int flags,
     R_GlobalContext = cptr;
 }
 
-
 /* endcontext - end an execution context */
 
-void endcontext(RCNTXT * cptr)
+void endcontext(RCNTXT *cptr)
 {
     void R_FixupExitingHandlerResult(SEXP); /* defined in error.c */
-    SEXP R_UnwindHandlerStack(SEXP); /* defined in error.c */
+    SEXP R_UnwindHandlerStack(SEXP);        /* defined in error.c */
     R_HandlerStack = R_UnwindHandlerStack(cptr->handlerstack);
     R_RestartStack = cptr->restartstack;
     RCNTXT *jumptarget = cptr->jumptarget;
-    if (cptr->cloenv != R_NilValue && cptr->conexit != R_NilValue ) {
-	SEXP s = cptr->conexit;
-	Rboolean savevis = R_Visible;
-	RCNTXT* savecontext = R_ExitContext;
-	SEXP saveretval = R_ReturnedValue;
-	R_ExitContext = cptr;
-	cptr->conexit = R_NilValue; /* prevent recursion */
-	cptr->jumptarget = NULL; /* in case on.exit expr calls return() */
-	PROTECT(saveretval);
-	PROTECT(s);
-	R_FixupExitingHandlerResult(saveretval);
-	if (cptr->returnValue) // why is this needed???
-	    INCREMENT_LINKS(cptr->returnValue);
-	for (; s != R_NilValue; s = CDR(s)) {
-	    cptr->conexit = CDR(s);
-	    eval(CAR(s), cptr->cloenv);
-	}
-	if (cptr->returnValue) // why is this needed???
-	    DECREMENT_LINKS(cptr->returnValue);
-	R_ReturnedValue = saveretval;
-	UNPROTECT(2);
-	R_ExitContext = savecontext;
-	R_Visible = savevis;
+    if (cptr->cloenv != R_NilValue && cptr->conexit != R_NilValue)
+    {
+        SEXP s = cptr->conexit;
+        Rboolean savevis = R_Visible;
+        RCNTXT *savecontext = R_ExitContext;
+        SEXP saveretval = R_ReturnedValue;
+        R_ExitContext = cptr;
+        cptr->conexit = R_NilValue; /* prevent recursion */
+        cptr->jumptarget = NULL;    /* in case on.exit expr calls return() */
+        PROTECT(saveretval);
+        PROTECT(s);
+        R_FixupExitingHandlerResult(saveretval);
+        if (cptr->returnValue) // why is this needed???
+            INCREMENT_LINKS(cptr->returnValue);
+        for (; s != R_NilValue; s = CDR(s))
+        {
+            cptr->conexit = CDR(s);
+            eval(CAR(s), cptr->cloenv);
+        }
+        if (cptr->returnValue) // why is this needed???
+            DECREMENT_LINKS(cptr->returnValue);
+        R_ReturnedValue = saveretval;
+        UNPROTECT(2);
+        R_ExitContext = savecontext;
+        R_Visible = savevis;
     }
     if (R_ExitContext == cptr)
-	R_ExitContext = NULL;
+        R_ExitContext = NULL;
     /* continue jumping if this was reached as an intermetiate jump */
     if (jumptarget)
-	/* cptr->returnValue is undefined */
-	R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
+        /* cptr->returnValue is undefined */
+        R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
 
     R_GlobalContext = cptr->nextcontext;
 }
-
 
 /* findcontext - find the correct context */
 
@@ -330,38 +333,34 @@ attribute_hidden void NORET findcontext(int mask, SEXP env, SEXP val)
 {
     RCNTXT *cptr;
     cptr = R_GlobalContext;
-    if (mask & CTXT_LOOP) {		/* break/next */
-	for (cptr = R_GlobalContext;
-	     cptr != NULL && cptr->callflag != CTXT_TOPLEVEL;
-	     cptr = cptr->nextcontext)
-	    if (cptr->callflag & CTXT_LOOP && cptr->cloenv == env )
-		R_jumpctxt(cptr, mask, val);
-	error(_("no loop for break/next, jumping to top level"));
+    if (mask & CTXT_LOOP)
+    { /* break/next */
+        for (cptr = R_GlobalContext; cptr != NULL && cptr->callflag != CTXT_TOPLEVEL; cptr = cptr->nextcontext)
+            if (cptr->callflag & CTXT_LOOP && cptr->cloenv == env)
+                R_jumpctxt(cptr, mask, val);
+        error(_("no loop for break/next, jumping to top level"));
     }
-    else {				/* return; or browser */
-	for (cptr = R_GlobalContext;
-	     cptr != NULL && cptr->callflag != CTXT_TOPLEVEL;
-	     cptr = cptr->nextcontext)
-	    if ((cptr->callflag & mask) && cptr->cloenv == env)
-		R_jumpctxt(cptr, mask, val);
-	error(_("no function to return from, jumping to top level"));
+    else
+    { /* return; or browser */
+        for (cptr = R_GlobalContext; cptr != NULL && cptr->callflag != CTXT_TOPLEVEL; cptr = cptr->nextcontext)
+            if ((cptr->callflag & mask) && cptr->cloenv == env)
+                R_jumpctxt(cptr, mask, val);
+        error(_("no function to return from, jumping to top level"));
     }
 }
 
 attribute_hidden void NORET R_JumpToContext(RCNTXT *target, int mask, SEXP val)
 {
     RCNTXT *cptr;
-    for (cptr = R_GlobalContext;
-	 cptr != NULL && cptr->callflag != CTXT_TOPLEVEL;
-	 cptr = cptr->nextcontext) {
-	if (cptr == target)
-	    R_jumpctxt(cptr, mask, val);
-	if (cptr == R_ExitContext)
-	    R_ExitContext = NULL;
+    for (cptr = R_GlobalContext; cptr != NULL && cptr->callflag != CTXT_TOPLEVEL; cptr = cptr->nextcontext)
+    {
+        if (cptr == target)
+            R_jumpctxt(cptr, mask, val);
+        if (cptr == R_ExitContext)
+            R_ExitContext = NULL;
     }
     error(_("target context is not on the stack"));
 }
-
 
 /* R_sysframe - look back up the context stack until the */
 /* nth closure context and return that cloenv. */
@@ -372,35 +371,38 @@ attribute_hidden void NORET R_JumpToContext(RCNTXT *target, int mask, SEXP val)
 attribute_hidden SEXP R_sysframe(int n, RCNTXT *cptr)
 {
     if (n == 0)
-	return(R_GlobalEnv);
+        return (R_GlobalEnv);
 
-    if (n == NA_INTEGER) error(_("NA argument is invalid"));
+    if (n == NA_INTEGER)
+        error(_("NA argument is invalid"));
 
     if (n > 0)
-	n = framedepth(cptr) - n;
+        n = framedepth(cptr) - n;
     else
-	n = -n;
+        n = -n;
 
-    if(n < 0)
-	error(_("not that many frames on the stack"));
+    if (n < 0)
+        error(_("not that many frames on the stack"));
 
-    while (cptr->nextcontext != NULL) {
-	if (cptr->callflag & CTXT_FUNCTION ) {
-	    if (n == 0) {  /* we need to detach the enclosing env */
-		return cptr->cloenv;
-	    }
-	    else
-		n--;
-	}
-	cptr = cptr->nextcontext;
+    while (cptr->nextcontext != NULL)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+        {
+            if (n == 0)
+            { /* we need to detach the enclosing env */
+                return cptr->cloenv;
+            }
+            else
+                n--;
+        }
+        cptr = cptr->nextcontext;
     }
-    if(n == 0 && cptr->nextcontext == NULL)
-	return R_GlobalEnv;
+    if (n == 0 && cptr->nextcontext == NULL)
+        return R_GlobalEnv;
     else
-	error(_("not that many frames on the stack"));
-    return R_NilValue;	   /* just for -Wall */
+        error(_("not that many frames on the stack"));
+    return R_NilValue; /* just for -Wall */
 }
-
 
 /* We need to find the environment that can be returned by sys.frame */
 /* (so it needs to be on the cloenv pointer of a context) that matches */
@@ -412,42 +414,45 @@ int attribute_hidden R_sysparent(int n, RCNTXT *cptr)
 {
     int j;
     SEXP s;
-    if(n <= 0)
-	errorcall(R_ToplevelContext->call,
-		  _("only positive values of 'n' are allowed"));
-    while (cptr->nextcontext != NULL && n > 1) {
-	if (cptr->callflag & CTXT_FUNCTION )
-	    n--;
-	cptr = cptr->nextcontext;
+    if (n <= 0)
+        errorcall(R_ToplevelContext->call, _("only positive values of 'n' are allowed"));
+    while (cptr->nextcontext != NULL && n > 1)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+            n--;
+        cptr = cptr->nextcontext;
     }
     /* make sure we're looking at a return context */
-    while (cptr->nextcontext != NULL && !(cptr->callflag & CTXT_FUNCTION) )
-	cptr = cptr->nextcontext;
+    while (cptr->nextcontext != NULL && !(cptr->callflag & CTXT_FUNCTION))
+        cptr = cptr->nextcontext;
     s = cptr->sysparent;
-    if(s == R_GlobalEnv)
-	return 0;
+    if (s == R_GlobalEnv)
+        return 0;
     j = 0;
-    while (cptr != NULL ) {
-	if (cptr->callflag & CTXT_FUNCTION) {
-	    j++;
-	    if( cptr->cloenv == s )
-		n=j;
-	}
-	cptr = cptr->nextcontext;
+    while (cptr != NULL)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+        {
+            j++;
+            if (cptr->cloenv == s)
+                n = j;
+        }
+        cptr = cptr->nextcontext;
     }
     n = j - n + 1;
     if (n < 0)
-	n = 0;
+        n = 0;
     return n;
 }
 
 int attribute_hidden framedepth(RCNTXT *cptr)
 {
     int nframe = 0;
-    while (cptr->nextcontext != NULL) {
-	if (cptr->callflag & CTXT_FUNCTION )
-	    nframe++;
-	cptr = cptr->nextcontext;
+    while (cptr->nextcontext != NULL)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+            nframe++;
+        cptr = cptr->nextcontext;
     }
     return nframe;
 }
@@ -457,15 +462,16 @@ static SEXP getCallWithSrcref(RCNTXT *cptr)
     SEXP result;
 
     PROTECT(result = shallow_duplicate(cptr->call));
-    if (cptr->srcref && !isNull(cptr->srcref)) {
-	SEXP sref;
-	if (cptr->srcref == R_InBCInterpreter)
-	    /* FIXME: this is expensive, it might be worth changing sys.call */
-	    /* to return srcrefs only on request (add `with.source` option) */
-	    sref = R_findBCInterpreterSrcref(cptr);
-	else
-	    sref = cptr->srcref;
-	setAttrib(result, R_SrcrefSymbol, duplicate(sref));
+    if (cptr->srcref && !isNull(cptr->srcref))
+    {
+        SEXP sref;
+        if (cptr->srcref == R_InBCInterpreter)
+            /* FIXME: this is expensive, it might be worth changing sys.call */
+            /* to return srcrefs only on request (add `with.source` option) */
+            sref = R_findBCInterpreterSrcref(cptr);
+        else
+            sref = cptr->srcref;
+        setAttrib(result, R_SrcrefSymbol, duplicate(sref));
     }
     UNPROTECT(1);
     return result;
@@ -476,142 +482,156 @@ attribute_hidden SEXP R_syscall(int n, RCNTXT *cptr)
     /* negative n counts back from the current frame */
     /* positive n counts up from the globalEnv */
     if (n > 0)
-	n = framedepth(cptr) - n;
+        n = framedepth(cptr) - n;
     else
-	n = - n;
-    if(n < 0)
-	error(_("not that many frames on the stack"));
-    while (cptr->nextcontext != NULL) {
-	if (cptr->callflag & CTXT_FUNCTION ) {
-	    if (n == 0)
-		return getCallWithSrcref(cptr);
-	    else
-		n--;
-	}
-	cptr = cptr->nextcontext;
+        n = -n;
+    if (n < 0)
+        error(_("not that many frames on the stack"));
+    while (cptr->nextcontext != NULL)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+        {
+            if (n == 0)
+                return getCallWithSrcref(cptr);
+            else
+                n--;
+        }
+        cptr = cptr->nextcontext;
     }
     if (n == 0 && cptr->nextcontext == NULL)
-	return getCallWithSrcref(cptr);
+        return getCallWithSrcref(cptr);
     error(_("not that many frames on the stack"));
-    return R_NilValue;	/* just for -Wall */
+    return R_NilValue; /* just for -Wall */
 }
 
 attribute_hidden SEXP R_sysfunction(int n, RCNTXT *cptr)
 {
     if (n > 0)
-	n = framedepth(cptr) - n;
+        n = framedepth(cptr) - n;
     else
-	n = - n;
+        n = -n;
     if (n < 0)
-	error(_("not that many frames on the stack"));
-    while (cptr->nextcontext != NULL) {
-	if (cptr->callflag & CTXT_FUNCTION ) {
-	    if (n == 0)
-		return duplicate(cptr->callfun);  /***** do we need to DUP? */
-	    else
-		n--;
-	}
-	cptr = cptr->nextcontext;
+        error(_("not that many frames on the stack"));
+    while (cptr->nextcontext != NULL)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+        {
+            if (n == 0)
+                return duplicate(cptr->callfun); /***** do we need to DUP? */
+            else
+                n--;
+        }
+        cptr = cptr->nextcontext;
     }
     if (n == 0 && cptr->nextcontext == NULL)
-	return duplicate(cptr->callfun);  /***** do we need to DUP? */
+        return duplicate(cptr->callfun); /***** do we need to DUP? */
     error(_("not that many frames on the stack"));
-    return R_NilValue;	/* just for -Wall */
+    return R_NilValue; /* just for -Wall */
 }
 
 /* count how many contexts of the specified type are present on the stack */
 /* browser contexts are a bit special because they are transient and for  */
 /* any closure context with the debug bit set one will be created; so we  */
 /* need to count those as well                                            */
-int countContexts(int ctxttype, int browser) {
-    int n=0;
+int countContexts(int ctxttype, int browser)
+{
+    int n = 0;
     RCNTXT *cptr;
 
     cptr = R_GlobalContext;
-    while( cptr != R_ToplevelContext) {
-	if( cptr->callflag == ctxttype )
-	    n++;
-	else if( browser ) {
-	   if(cptr->callflag & CTXT_FUNCTION && RDEBUG(cptr->cloenv) )
-	      n++;
-	}
-	cptr = cptr->nextcontext;
+    while (cptr != R_ToplevelContext)
+    {
+        if (cptr->callflag == ctxttype)
+            n++;
+        else if (browser)
+        {
+            if (cptr->callflag & CTXT_FUNCTION && RDEBUG(cptr->cloenv))
+                n++;
+        }
+        cptr = cptr->nextcontext;
     }
     return n;
 }
-
 
 /* functions to support looking up information about the browser */
 /* contexts that are in the evaluation stack */
 
 attribute_hidden SEXP do_sysbrowser(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP rval=R_NilValue;
+    SEXP rval = R_NilValue;
     RCNTXT *cptr;
     RCNTXT *prevcptr = NULL;
     int n;
 
     checkArity(op, args);
     n = asInteger(CAR(args));
-    if(n < 1 ) error(_("number of contexts must be positive"));
+    if (n < 1)
+        error(_("number of contexts must be positive"));
 
     /* first find the closest  browser context */
     cptr = R_GlobalContext;
-    while (cptr != R_ToplevelContext) {
-	if (cptr->callflag == CTXT_BROWSER) {
-		break;
-	}
-	cptr = cptr->nextcontext;
+    while (cptr != R_ToplevelContext)
+    {
+        if (cptr->callflag == CTXT_BROWSER)
+        {
+            break;
+        }
+        cptr = cptr->nextcontext;
     }
     /* error if not a browser context */
 
-    if( !(cptr->callflag == CTXT_BROWSER) )
-	error(_("no browser context to query"));
+    if (!(cptr->callflag == CTXT_BROWSER))
+        error(_("no browser context to query"));
 
-    switch (PRIMVAL(op)) {
+    switch (PRIMVAL(op))
+    {
     case 1: /* text */
     case 2: /* condition */
-	/* first rewind to the right place if needed */
-	/* note we want n>1, as we have already      */
-	/* rewound to the first context              */
-	if( n > 1 ) {
-	   while (cptr != R_ToplevelContext && n > 0 ) {
-	       if (cptr->callflag == CTXT_BROWSER) {
-		   n--;
-		   break;
-	       }
-	       cptr = cptr->nextcontext;
-	   }
-	}
-	if( !(cptr->callflag == CTXT_BROWSER) )
-	   error(_("not that many calls to browser are active"));
+        /* first rewind to the right place if needed */
+        /* note we want n>1, as we have already      */
+        /* rewound to the first context              */
+        if (n > 1)
+        {
+            while (cptr != R_ToplevelContext && n > 0)
+            {
+                if (cptr->callflag == CTXT_BROWSER)
+                {
+                    n--;
+                    break;
+                }
+                cptr = cptr->nextcontext;
+            }
+        }
+        if (!(cptr->callflag == CTXT_BROWSER))
+            error(_("not that many calls to browser are active"));
 
-	if( PRIMVAL(op) == 1 )
-	    rval = CAR(cptr->promargs);
-	else
-	    rval = CADR(cptr->promargs);
-	break;
+        if (PRIMVAL(op) == 1)
+            rval = CAR(cptr->promargs);
+        else
+            rval = CADR(cptr->promargs);
+        break;
     case 3: /* turn on debugging n levels up */
-	while ( (cptr != R_ToplevelContext) && n > 0 ) {
-	    if (cptr->callflag & CTXT_FUNCTION)
-		  n--;
-	    prevcptr = cptr;
-	    cptr = cptr->nextcontext;
-	}
-	if( !(cptr->callflag & CTXT_FUNCTION) )
-	    error(_("not that many functions on the call stack"));
-	if( prevcptr && prevcptr->srcref == R_InBCInterpreter ) {
-	    if ( TYPEOF(cptr->callfun) == CLOSXP &&
-		    TYPEOF(BODY(cptr->callfun)) == BCODESXP )
-		warning(_("debug flag in compiled function has no effect"));
-	    else
-		warning(_("debug will apply when function leaves "
-			  "compiled code"));
-	}
-	SET_RDEBUG(cptr->cloenv, 1);
-	break;
+        while ((cptr != R_ToplevelContext) && n > 0)
+        {
+            if (cptr->callflag & CTXT_FUNCTION)
+                n--;
+            prevcptr = cptr;
+            cptr = cptr->nextcontext;
+        }
+        if (!(cptr->callflag & CTXT_FUNCTION))
+            error(_("not that many functions on the call stack"));
+        if (prevcptr && prevcptr->srcref == R_InBCInterpreter)
+        {
+            if (TYPEOF(cptr->callfun) == CLOSXP && TYPEOF(BODY(cptr->callfun)) == BCODESXP)
+                warning(_("debug flag in compiled function has no effect"));
+            else
+                warning(_("debug will apply when function leaves "
+                          "compiled code"));
+        }
+        SET_RDEBUG(cptr->cloenv, 1);
+        break;
     }
-    return(rval);
+    return (rval);
 }
 
 /* An implementation of S's frame access functions. They usually count */
@@ -622,7 +642,7 @@ attribute_hidden SEXP do_sysbrowser(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 attribute_hidden SEXP do_sys(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    int i, n  = -1, nframe;
+    int i, n = -1, nframe;
     SEXP rval, t;
     RCNTXT *cptr;
 
@@ -630,74 +650,77 @@ attribute_hidden SEXP do_sys(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* first find the context that sys.xxx needs to be evaluated in */
     cptr = R_GlobalContext;
     t = cptr->sysparent;
-    while (cptr != R_ToplevelContext) {
-	if (cptr->callflag & CTXT_FUNCTION )
-	    if (cptr->cloenv == t)
-		break;
-	cptr = cptr->nextcontext;
+    while (cptr != R_ToplevelContext)
+    {
+        if (cptr->callflag & CTXT_FUNCTION)
+            if (cptr->cloenv == t)
+                break;
+        cptr = cptr->nextcontext;
     }
 
-    if (length(args) == 1) n = asInteger(CAR(args));
+    if (length(args) == 1)
+        n = asInteger(CAR(args));
 
-    switch (PRIMVAL(op)) {
+    switch (PRIMVAL(op))
+    {
     case 1: /* parent */
-	if(n == NA_INTEGER)
-	    error(_("invalid '%s' argument"), "n");
-	i = nframe = framedepth(cptr);
-	/* This is a pretty awful kludge, but the alternative would be
-	   a major redesign of everything... -pd */
-	while (n-- > 0)
-	    i = R_sysparent(nframe - i + 1, cptr);
-	return ScalarInteger(i);
+        if (n == NA_INTEGER)
+            error(_("invalid '%s' argument"), "n");
+        i = nframe = framedepth(cptr);
+        /* This is a pretty awful kludge, but the alternative would be
+           a major redesign of everything... -pd */
+        while (n-- > 0)
+            i = R_sysparent(nframe - i + 1, cptr);
+        return ScalarInteger(i);
     case 2: /* call */
-	if(n == NA_INTEGER)
-	    error(_("invalid '%s' argument"), "which");
-	return R_syscall(n, cptr);
+        if (n == NA_INTEGER)
+            error(_("invalid '%s' argument"), "which");
+        return R_syscall(n, cptr);
     case 3: /* frame */
-	if(n == NA_INTEGER)
-	    error(_("invalid '%s' argument"), "which");
-	return R_sysframe(n, cptr);
+        if (n == NA_INTEGER)
+            error(_("invalid '%s' argument"), "which");
+        return R_sysframe(n, cptr);
     case 4: /* sys.nframe */
-	return ScalarInteger(framedepth(cptr));
+        return ScalarInteger(framedepth(cptr));
     case 5: /* sys.calls */
-	nframe = framedepth(cptr);
-	PROTECT(rval = allocList(nframe));
-	t=rval;
-	for(i = 1; i <= nframe; i++, t = CDR(t))
-	    SETCAR(t, R_syscall(i, cptr));
-	UNPROTECT(1);
-	return rval;
+        nframe = framedepth(cptr);
+        PROTECT(rval = allocList(nframe));
+        t = rval;
+        for (i = 1; i <= nframe; i++, t = CDR(t))
+            SETCAR(t, R_syscall(i, cptr));
+        UNPROTECT(1);
+        return rval;
     case 6: /* sys.frames */
-	nframe = framedepth(cptr);
-	PROTECT(rval = allocList(nframe));
-	t = rval;
-	for(i = 1; i <= nframe; i++, t = CDR(t))
-	    SETCAR(t, R_sysframe(i, cptr));
-	UNPROTECT(1);
-	return rval;
+        nframe = framedepth(cptr);
+        PROTECT(rval = allocList(nframe));
+        t = rval;
+        for (i = 1; i <= nframe; i++, t = CDR(t))
+            SETCAR(t, R_sysframe(i, cptr));
+        UNPROTECT(1);
+        return rval;
     case 7: /* sys.on.exit */
-	{
-	    SEXP conexit = cptr->conexit;
-	    if (conexit == R_NilValue)
-		return R_NilValue;
-	    else if (CDR(conexit) == R_NilValue)
-		return CAR(conexit);
-	    else
-		return LCONS(R_BraceSymbol, conexit);
-	}
+    {
+        SEXP conexit = cptr->conexit;
+        if (conexit == R_NilValue)
+            return R_NilValue;
+        else if (CDR(conexit) == R_NilValue)
+            return CAR(conexit);
+        else
+            return LCONS(R_BraceSymbol, conexit);
+    }
     case 8: /* sys.parents */
-	nframe = framedepth(cptr);
-	rval = allocVector(INTSXP, nframe);
-	for(i = 0; i < nframe; i++)
-	    INTEGER(rval)[i] = R_sysparent(nframe - i, cptr);
-	return rval;
+        nframe = framedepth(cptr);
+        rval = allocVector(INTSXP, nframe);
+        for (i = 0; i < nframe; i++)
+            INTEGER(rval)[i] = R_sysparent(nframe - i, cptr);
+        return rval;
     case 9: /* sys.function */
-	if(n == NA_INTEGER)
-	    error(_("invalid '%s' value"), "which");
-	return(R_sysfunction(n, cptr));
+        if (n == NA_INTEGER)
+            error(_("invalid '%s' value"), "which");
+        return (R_sysfunction(n, cptr));
     default:
-	error(_("internal error in 'do_sys'"));
-	return R_NilValue;/* just for -Wall */
+        error(_("internal error in 'do_sys'"));
+        return R_NilValue; /* just for -Wall */
     }
 }
 
@@ -706,26 +729,26 @@ attribute_hidden SEXP do_parentframe(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
 
     int n = asInteger(CAR(args));
-    if(n == NA_INTEGER || n < 1 )
-	error(_("invalid '%s' value"), "n");
+    if (n == NA_INTEGER || n < 1)
+        error(_("invalid '%s' value"), "n");
 
     RCNTXT *cptr = R_findParentContext(R_GlobalContext, n);
 
     if (cptr)
-	return cptr->sysparent;
+        return cptr->sysparent;
     else
-	return R_GlobalEnv;
+        return R_GlobalEnv;
 }
 
 /* R_findExecContext - Find a context frame older than `cptr` that has
    `envir` as execution environment (the `cloenv` field). */
-attribute_hidden
-RCNTXT *R_findExecContext(RCNTXT *cptr, SEXP envir)
+attribute_hidden RCNTXT *R_findExecContext(RCNTXT *cptr, SEXP envir)
 {
-    while (cptr->nextcontext != NULL) {
-	if ((cptr->callflag & CTXT_FUNCTION) != 0 && cptr->cloenv == envir)
-	    return cptr;
-	cptr = cptr->nextcontext;
+    while (cptr->nextcontext != NULL)
+    {
+        if ((cptr->callflag & CTXT_FUNCTION) != 0 && cptr->cloenv == envir)
+            return cptr;
+        cptr = cptr->nextcontext;
     }
     return NULL;
 }
@@ -735,13 +758,13 @@ RCNTXT *R_findExecContext(RCNTXT *cptr, SEXP envir)
    calling environment (`sysparent` field). In other words, find the
    frame where `cptr->syscall` was (seemingly) called. This algorithm
    powers `parent.frame()`. */
-attribute_hidden
-RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
+attribute_hidden RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
 {
-    while ((cptr = R_findExecContext(cptr, cptr->sysparent)) != NULL) {
-	if (n == 1)
-	    return cptr;
-	n--;
+    while ((cptr = R_findExecContext(cptr, cptr->sysparent)) != NULL)
+    {
+        if (n == 1)
+            return cptr;
+        n--;
     }
     return NULL;
 }
@@ -755,11 +778,10 @@ RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
 Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
 {
     RCNTXT thiscontext;
-    RCNTXT * volatile saveToplevelContext;
+    RCNTXT *volatile saveToplevelContext;
     volatile SEXP topExp, oldHStack, oldRStack, oldRVal;
     volatile Rboolean oldvis;
     Rboolean result;
-
 
     PROTECT(topExp = R_CurrentExpr);
     PROTECT(oldHStack = R_HandlerStack);
@@ -770,14 +792,14 @@ Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
     R_RestartStack = R_NilValue;
     saveToplevelContext = R_ToplevelContext;
 
-    begincontext(&thiscontext, CTXT_TOPLEVEL, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
+    begincontext(&thiscontext, CTXT_TOPLEVEL, R_NilValue, R_GlobalEnv, R_BaseEnv, R_NilValue, R_NilValue);
     if (SETJMP(thiscontext.cjmpbuf))
-	result = FALSE;
-    else {
-	R_GlobalContext = R_ToplevelContext = &thiscontext;
-	fun(data);
-	result = TRUE;
+        result = FALSE;
+    else
+    {
+        R_GlobalContext = R_ToplevelContext = &thiscontext;
+        fun(data);
+        result = TRUE;
     }
     endcontext(&thiscontext);
 
@@ -793,10 +815,10 @@ Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
 }
 
 /* Return the current environment. */
-SEXP R_GetCurrentEnv(void) {
+SEXP R_GetCurrentEnv(void)
+{
     return R_GlobalContext->sysparent;
 }
-
 
 /*
   This is a simple interface for evaluating R expressions
@@ -814,26 +836,26 @@ SEXP R_GetCurrentEnv(void) {
 
   R_tryEval is in Rinternals.h (so public), but not in the API.
  */
-typedef struct {
+typedef struct
+{
     SEXP expression;
     SEXP val;
     SEXP env;
 } ProtectedEvalData;
 
-static void
-protectedEval(void *d)
+static void protectedEval(void *d)
 {
     ProtectedEvalData *data = (ProtectedEvalData *)d;
     SEXP env = R_GlobalEnv;
-    if(data->env) {
-	env = data->env;
+    if (data->env)
+    {
+        env = data->env;
     }
     data->val = eval(data->expression, env);
     R_PreserveObject(data->val);
 }
 
-SEXP
-R_tryEval(SEXP e, SEXP env, int *ErrorOccurred)
+SEXP R_tryEval(SEXP e, SEXP env, int *ErrorOccurred)
 {
     Rboolean ok;
     ProtectedEvalData data;
@@ -843,15 +865,16 @@ R_tryEval(SEXP e, SEXP env, int *ErrorOccurred)
     data.env = env;
 
     ok = R_ToplevelExec(protectedEval, &data);
-    if (ErrorOccurred) {
-	*ErrorOccurred = (ok == FALSE);
+    if (ErrorOccurred)
+    {
+        *ErrorOccurred = (ok == FALSE);
     }
     if (ok == FALSE)
-	data.val = NULL;
+        data.val = NULL;
     else
-	R_ReleaseObject(data.val);
+        R_ReleaseObject(data.val);
 
-    return(data.val);
+    return (data.val);
 }
 
 /* Temporary hack to suppress error message printing around a
@@ -870,14 +893,12 @@ SEXP R_tryEvalSilent(SEXP e, SEXP env, int *ErrorOccurred)
     return val;
 }
 
-SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
-		       void (*cleanfun)(void *), void *cleandata)
+SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data, void (*cleanfun)(void *), void *cleandata)
 {
     RCNTXT cntxt;
     SEXP result;
 
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
     cntxt.cend = cleanfun;
     cntxt.cenddata = cleandata;
 
@@ -889,10 +910,10 @@ SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
     return result;
 }
 
-
 /* Unwind-protect mechanism to support C++ stack unwinding. */
 
-typedef struct {
+typedef struct
+{
     int jumpmask;
     RCNTXT *jumptarget;
 } unwind_cont_t;
@@ -902,7 +923,7 @@ SEXP R_MakeUnwindCont(void)
     return CONS(R_NilValue, allocVector(RAWSXP, sizeof(unwind_cont_t)));
 }
 
-#define RAWDATA(x) ((void *) RAW0(x))
+#define RAWDATA(x) ((void *)RAW0(x))
 
 NORET void R_ContinueUnwind(SEXP cont)
 {
@@ -911,9 +932,8 @@ NORET void R_ContinueUnwind(SEXP cont)
     R_jumpctxt(u->jumptarget, u->jumpmask, retval);
 }
 
-SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
-		     void (*cleanfun)(void *data, Rboolean jump),
-		     void *cleandata, SEXP cont)
+SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data, void (*cleanfun)(void *data, Rboolean jump), void *cleandata,
+                     SEXP cont)
 {
     RCNTXT thiscontext;
     SEXP result;
@@ -923,34 +943,36 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
        result in a failure in allocation or exceeding the PROTECT
        stack limit before calling fun(), so fun() and cleanfun should
        be written accordingly. */
-    if (cont == NULL) {
-	PROTECT(cont = R_MakeUnwindCont());
-	result = R_UnwindProtect(fun, data, cleanfun, cleandata, cont);
-	UNPROTECT(1);
-	return result;
+    if (cont == NULL)
+    {
+        PROTECT(cont = R_MakeUnwindCont());
+        result = R_UnwindProtect(fun, data, cleanfun, cleandata, cont);
+        UNPROTECT(1);
+        return result;
     }
 
-    begincontext(&thiscontext, CTXT_UNWIND, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    if (SETJMP(thiscontext.cjmpbuf)) {
-	jump = TRUE;
-	SETCAR(cont, R_ReturnedValue);
-	unwind_cont_t *u = RAWDATA(CDR(cont));
-	u->jumpmask = thiscontext.jumpmask;
-	u->jumptarget = thiscontext.jumptarget;
-	thiscontext.jumptarget = NULL;
+    begincontext(&thiscontext, CTXT_UNWIND, R_NilValue, R_GlobalEnv, R_BaseEnv, R_NilValue, R_NilValue);
+    if (SETJMP(thiscontext.cjmpbuf))
+    {
+        jump = TRUE;
+        SETCAR(cont, R_ReturnedValue);
+        unwind_cont_t *u = RAWDATA(CDR(cont));
+        u->jumpmask = thiscontext.jumpmask;
+        u->jumptarget = thiscontext.jumptarget;
+        thiscontext.jumptarget = NULL;
     }
-    else {
-	result = fun(data);
-	SETCAR(cont, result);
-	jump = FALSE;
+    else
+    {
+        result = fun(data);
+        SETCAR(cont, result);
+        jump = FALSE;
     }
     endcontext(&thiscontext);
 
     cleanfun(cleandata, jump);
 
     if (jump)
-	R_ContinueUnwind(cont);	
+        R_ContinueUnwind(cont);
 
     return result;
 }

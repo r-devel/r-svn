@@ -37,18 +37,18 @@
 #endif
 
 #if defined(Win32)
-#  include <io.h>
+#include <io.h>
 #else
-#  ifdef HAVE_UNISTD_H
-#    include <unistd.h>
-#  endif
-#  include <netdb.h>
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <netinet/tcp.h>
-#  ifdef HAVE_FCNTL_H
-#    include <fcntl.h>
-#  endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 #endif
 
 #include <R_ext/Error.h>
@@ -61,25 +61,25 @@
 int R_close_socket(SOCKET s)
 {
 #ifdef Win32
-    return(closesocket(s));
+    return (closesocket(s));
 #else
-    return(close(s));
+    return (close(s));
 #endif
 }
 
 int R_socket_errno(void)
 {
 #ifdef Win32
-    return(WSAGetLastError());
+    return (WSAGetLastError());
 #else
-    return(errno);
+    return (errno);
 #endif
 }
 
 int R_invalid_socket(SOCKET s)
 {
 #ifdef Win32
-    return(s == INVALID_SOCKET);
+    return (s == INVALID_SOCKET);
 #else
     return s < 0;
 #endif
@@ -88,7 +88,7 @@ int R_invalid_socket(SOCKET s)
 int R_socket_error(int s)
 {
 #ifdef Win32
-    return(s == SOCKET_ERROR);
+    return (s == SOCKET_ERROR);
 #else
     return s < 0;
 #endif
@@ -97,18 +97,18 @@ int R_socket_error(int s)
 int R_invalid_socket_eintr(SOCKET s)
 {
 #ifdef Win32
-    return(s == INVALID_SOCKET && WSAGetLastError() == WSAEINTR);
+    return (s == INVALID_SOCKET && WSAGetLastError() == WSAEINTR);
 #else
-    return(s == -1 && errno == EINTR);
+    return (s == -1 && errno == EINTR);
 #endif
 }
 
 int R_socket_error_eintr(int s)
 {
 #ifdef Win32
-    return(s == SOCKET_ERROR && WSAGetLastError() == WSAEINTR);
+    return (s == SOCKET_ERROR && WSAGetLastError() == WSAEINTR);
 #else
-    return(s == -1 && errno == EINTR);
+    return (s == -1 && errno == EINTR);
 #endif
 }
 
@@ -117,17 +117,18 @@ char *R_socket_strerror(int errnum)
 #ifdef Win32
     /* formatError() is not accessible */
     static char buf[1000];
-    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                  NULL, errnum,
-                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                  buf, 1000, NULL);
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errnum,
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), buf, 1000, NULL);
     size_t i = strlen(buf);
-    if (i > 0 && buf[i-1] == '\n') buf[--i] = '\0';
-    if (i > 0 && buf[i-1] == '\r') buf[--i] = '\0';
-    if (i > 0 && buf[i-1] == '.') buf[--i] = '\0';
+    if (i > 0 && buf[i - 1] == '\n')
+        buf[--i] = '\0';
+    if (i > 0 && buf[i - 1] == '\r')
+        buf[--i] = '\0';
+    if (i > 0 && buf[i - 1] == '.')
+        buf[--i] = '\0';
     return buf;
 #else
-    return(strerror(errnum));
+    return (strerror(errnum));
 #endif
 }
 
@@ -137,25 +138,27 @@ int R_set_nonblocking(SOCKET s)
 
 #ifdef Win32
     {
-	u_long one = 1;
-	status = ioctlsocket(s, FIONBIO, &one) == SOCKET_ERROR ? -1 : 0;
+        u_long one = 1;
+        status = ioctlsocket(s, FIONBIO, &one) == SOCKET_ERROR ? -1 : 0;
     }
 #else
-# ifdef HAVE_FCNTL
-    if ((status = fcntl(s, F_GETFL, 0)) != -1) {
-#  ifdef O_NONBLOCK
-	status |= O_NONBLOCK;
-#  else /* O_NONBLOCK */
-#   ifdef F_NDELAY
-	status |= F_NDELAY;
-#   endif
-#  endif /* !O_NONBLOCK */
-	status = fcntl(s, F_SETFL, status);
+#ifdef HAVE_FCNTL
+    if ((status = fcntl(s, F_GETFL, 0)) != -1)
+    {
+#ifdef O_NONBLOCK
+        status |= O_NONBLOCK;
+#else /* O_NONBLOCK */
+#ifdef F_NDELAY
+        status |= F_NDELAY;
+#endif
+#endif /* !O_NONBLOCK */
+        status = fcntl(s, F_SETFL, status);
     }
-# endif // HAVE_FCNTL
-    if (status < 0) {
-	R_close_socket(s);
-	return -1;
+#endif // HAVE_FCNTL
+    if (status < 0)
+    {
+        R_close_socket(s);
+        return -1;
     }
 #endif
     /* Will return 0 (success) when running on Unix without the necessary
@@ -166,11 +169,11 @@ int R_set_nonblocking(SOCKET s)
 int R_set_nodelay(SOCKET s)
 {
     int val = 1;
-    return setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &val, sizeof(val));
+    return setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *)&val, sizeof(val));
 }
 
 #if defined(__hpux)
-   extern int h_errno; /* HP-UX 9.05 forgets to declare this in netdb.h */
+extern int h_errno; /* HP-UX 9.05 forgets to declare this in netdb.h */
 #endif
 
 extern struct hostent *R_gethostbyname(const char *name);
@@ -179,9 +182,10 @@ extern struct hostent *R_gethostbyname(const char *name);
 
 static int Sock_error(Sock_error_t perr, int e, int he)
 {
-    if (perr != NULL) {
-	perr->error = e;
-	perr->h_error = he;
+    if (perr != NULL)
+    {
+        perr->error = e;
+        perr->h_error = he;
     }
     return -1;
 }
@@ -189,10 +193,11 @@ static int Sock_error(Sock_error_t perr, int e, int he)
 /* <FIXME> is this classic Mac OS? */
 #ifdef MACINTOSH
 extern void __sinit(void);
-extern int __initialize (void *ignoredParameter);
-int __initialize(void *ignoredParameter) {
+extern int __initialize(void *ignoredParameter);
+int __initialize(void *ignoredParameter)
+{
     __sinit();
-    return(0);
+    return (0);
 }
 #endif
 /* </FIXME> */
@@ -204,17 +209,18 @@ int Sock_init(void)
     WSADATA wsaData;
     WORD wVers = MAKEWORD(1, 1);
     if (WSAStartup(wVers, &wsaData) != 0)
-	return 1;
+        return 1;
 #elif defined(MACINTOSH)
     GUSISetup(GUSIwithInternetSockets);
 #elif defined(SIGPIPE)
     struct sigaction act;
     if (sigaction(SIGPIPE, (struct sigaction *)NULL, &act) < 0)
-	return 1;
-    if (act.sa_handler == SIG_DFL) {
-	act.sa_handler = SIG_IGN;
-	if (sigaction(SIGPIPE, &act, (struct sigaction *)NULL) < 0)
-	    return 1;
+        return 1;
+    if (act.sa_handler == SIG_DFL)
+    {
+        act.sa_handler = SIG_IGN;
+        if (sigaction(SIGPIPE, &act, (struct sigaction *)NULL) < 0)
+            return 1;
     }
 #endif
     return 0;
@@ -228,31 +234,34 @@ int Sock_open(Sock_port_t port, int blocking, Sock_error_t perr)
 #ifdef Win32
     static int use_no_handle_inherit = 1;
 
-    if (use_no_handle_inherit) {
-# ifndef WSA_FLAG_NO_HANDLE_INHERIT
-#  define WSA_FLAG_NO_HANDLE_INHERIT 0x80
-# endif
-	/* WSA_FLAG_NO_HANDLE_INHERIT is supported from Windows 7 SP1,
-	   on older versions of Windows, WSASocket will fail when used.
-	   Try once, fall back to socket() which does not use the flag. */
-	sock = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0,
-			 WSA_FLAG_NO_HANDLE_INHERIT);
-	if (R_invalid_socket(sock)) {
-	    use_no_handle_inherit = 0;
-	    sock = socket(AF_INET, SOCK_STREAM, 0);
-	}
-    } else
-	    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (use_no_handle_inherit)
+    {
+#ifndef WSA_FLAG_NO_HANDLE_INHERIT
+#define WSA_FLAG_NO_HANDLE_INHERIT 0x80
+#endif
+        /* WSA_FLAG_NO_HANDLE_INHERIT is supported from Windows 7 SP1,
+           on older versions of Windows, WSASocket will fail when used.
+           Try once, fall back to socket() which does not use the flag. */
+        sock = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_NO_HANDLE_INHERIT);
+        if (R_invalid_socket(sock))
+        {
+            use_no_handle_inherit = 0;
+            sock = socket(AF_INET, SOCK_STREAM, 0);
+        }
+    }
+    else
+        sock = socket(AF_INET, SOCK_STREAM, 0);
 #else
     sock = socket(AF_INET, SOCK_STREAM, 0);
 #endif
 
-    if (R_invalid_socket(sock)) 
-	return Sock_error(perr, R_socket_errno(), 0);
+    if (R_invalid_socket(sock))
+        return Sock_error(perr, R_socket_errno(), 0);
 
-    if (!blocking && R_set_nonblocking(sock)) {
-	R_close_socket(sock);
-	return Sock_error(perr, R_socket_errno(), 0);
+    if (!blocking && R_set_nonblocking(sock))
+    {
+        R_close_socket(sock);
+        return Sock_error(perr, R_socket_errno(), 0);
     }
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
@@ -287,7 +296,7 @@ int Sock_open(Sock_port_t port, int blocking, Sock_error_t perr)
        `socket'/`bind'/`listen' part of setting up a server socket,
        which is only needed once per server instance, from the
        `accept' part, which is needed for each connection.  LT
-       
+
        As of 77803,  we have serverSocket() for `socket'/`bind'/`listen', so
        a listening server socket can be re-used to `accept` multiple
        connections.  For security reasons on Windows, Microsoft recommends [1]
@@ -302,41 +311,44 @@ int Sock_open(Sock_port_t port, int blocking, Sock_error_t perr)
        [1] https://docs.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
        */
     {
-	int val = 1;
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &val, sizeof(val));
+        int val = 1;
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&val, sizeof(val));
     }
 #endif
 
 #if defined(HAVE_FCNTL_H) && defined(HAVE_UNISTD_H) && !defined(Win32)
     /* Set FD_CLOEXEC so that child processes, including those run via system(),
        do not inherit the listening socket, thus blocking the port. */
-    if ((status = fcntl(sock, F_GETFD, 0)) != -1) {
-	status |= FD_CLOEXEC;
-	status = fcntl(sock, F_SETFD, status);
+    if ((status = fcntl(sock, F_GETFD, 0)) != -1)
+    {
+        status |= FD_CLOEXEC;
+        status = fcntl(sock, F_SETFD, status);
     }
-    if (status == -1) {
-	close(sock);
-	return Sock_error(perr, errno, 0);
+    if (status == -1)
+    {
+        close(sock);
+        return Sock_error(perr, errno, 0);
     }
 #elif defined(Win32)
-    if (!use_no_handle_inherit) 
-	/* Clearing the flag after WSASocket does not work with non-IFS LSPs
-	   where "sock" is just a proxy for a real socket, hence we use
-	   WSASocket with WSA_FLAG_NO_HANDLE_INHERIT when supported. */
-	SetHandleInformation((HANDLE)(uintptr_t)sock,
-	                     HANDLE_FLAG_INHERIT, 0);
+    if (!use_no_handle_inherit)
+        /* Clearing the flag after WSASocket does not work with non-IFS LSPs
+           where "sock" is just a proxy for a real socket, hence we use
+           WSASocket with WSA_FLAG_NO_HANDLE_INHERIT when supported. */
+        SetHandleInformation((HANDLE)(uintptr_t)sock, HANDLE_FLAG_INHERIT, 0);
 #endif
 
     status = bind(sock, (struct sockaddr *)&server, sizeof(server));
-    if (R_socket_error(status)) {
-	R_close_socket(sock);
-	return Sock_error(perr, R_socket_errno(), 0);
+    if (R_socket_error(status))
+    {
+        R_close_socket(sock);
+        return Sock_error(perr, R_socket_errno(), 0);
     }
-    
+
     status = listen(sock, MAXBACKLOG);
-    if (R_socket_error(status)) {
-	R_close_socket(sock);
-	return Sock_error(perr, R_socket_errno(), 0);
+    if (R_socket_error(status))
+    {
+        R_close_socket(sock);
+        return Sock_error(perr, R_socket_errno(), 0);
     }
 
     return sock;
@@ -351,23 +363,23 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
     struct hostent *hostptr;
 
     do
-	retval = accept(fd, (struct sockaddr *)(&net_client), &len);
+        retval = accept(fd, (struct sockaddr *)(&net_client), &len);
     while (R_invalid_socket_eintr(retval));
     if (R_invalid_socket(retval))
-	return Sock_error(perr, R_socket_errno(), 0);
+        return Sock_error(perr, R_socket_errno(), 0);
 
-    if (cname != NULL && buflen > 0) {
-	size_t nlen;
-	const char *name;
-	struct in_addr *iaddr = &(net_client.sin_addr);
-	hostptr = gethostbyaddr((char *)iaddr, sizeof(struct in_addr),
-				AF_INET);
-	name = (hostptr == NULL) ? "unknown" :  hostptr->h_name;
-	nlen = strlen(name);
-	if (buflen < nlen + 1)
-	    nlen = buflen - 1;
-	strncpy(cname, name, nlen);
-	cname[nlen] = 0;
+    if (cname != NULL && buflen > 0)
+    {
+        size_t nlen;
+        const char *name;
+        struct in_addr *iaddr = &(net_client.sin_addr);
+        hostptr = gethostbyaddr((char *)iaddr, sizeof(struct in_addr), AF_INET);
+        name = (hostptr == NULL) ? "unknown" : hostptr->h_name;
+        nlen = strlen(name);
+        if (buflen < nlen + 1)
+            nlen = buflen - 1;
+        strncpy(cname, name, nlen);
+        cname[nlen] = 0;
     }
     return retval;
 }
@@ -380,27 +392,28 @@ int Sock_connect(Sock_port_t port, char *sname, Sock_error_t perr)
     SOCKET sock;
     int retval;
 
-    if (! (hp = R_gethostbyname(sname))) 
+    if (!(hp = R_gethostbyname(sname)))
 #ifdef Win32
-	return Sock_error(perr, R_socket_errno(), WSAGetLastError());
+        return Sock_error(perr, R_socket_errno(), WSAGetLastError());
 #else
-	return Sock_error(perr, R_socket_errno(), h_errno);
+        return Sock_error(perr, R_socket_errno(), h_errno);
 #endif
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (R_invalid_socket(sock))
-	return Sock_error(perr, R_socket_errno(), 0);
+        return Sock_error(perr, R_socket_errno(), 0);
 
     memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
     server.sin_port = htons((short)port);
     server.sin_family = AF_INET;
 
     do
-	retval = connect(sock, (struct sockaddr *) &server, sizeof(server));
+        retval = connect(sock, (struct sockaddr *)&server, sizeof(server));
     while (R_socket_error_eintr(retval));
-    if (R_socket_error(retval)) {
-	R_close_socket(sock);
-	return Sock_error(perr, R_socket_errno(), 0);
+    if (R_socket_error(retval))
+    {
+        R_close_socket(sock);
+        return Sock_error(perr, R_socket_errno(), 0);
     }
     return sock;
 }
@@ -410,13 +423,13 @@ int Sock_close(int fd, Sock_error_t perr)
 {
 #ifdef Win32
     if (closesocket(fd) != 0)
-	return Sock_error(perr, WSAENOTSOCK, 0);
+        return Sock_error(perr, WSAENOTSOCK, 0);
 #else
     if (close(fd) < 0)
-	return Sock_error(perr, errno, 0);
+        return Sock_error(perr, errno, 0);
 #endif
     else
-	return 0;
+        return 0;
 }
 
 /* read from a socket */
@@ -424,12 +437,12 @@ ssize_t Sock_read(int fd, void *buf, size_t size, Sock_error_t perr)
 {
     ssize_t retval;
     do
-	retval = recv(fd, buf, size, 0);
-    while(R_socket_error_eintr((int)retval));
+        retval = recv(fd, buf, size, 0);
+    while (R_socket_error_eintr((int)retval));
     if (R_socket_error((int)retval))
-	return Sock_error(perr, R_socket_errno(), 0);
+        return Sock_error(perr, R_socket_errno(), 0);
     else
-	return retval;
+        return retval;
 }
 
 /* write to a socket */
@@ -437,10 +450,10 @@ ssize_t Sock_write(int fd, const void *buf, size_t size, Sock_error_t perr)
 {
     ssize_t retval;
     do
-	retval = send(fd, buf, size, 0);
+        retval = send(fd, buf, size, 0);
     while (R_socket_error_eintr((int)retval));
     if (R_socket_error((int)retval))
-	return Sock_error(perr, R_socket_errno(), 0);
+        return Sock_error(perr, R_socket_errno(), 0);
     else
-	return retval;
+        return retval;
 }

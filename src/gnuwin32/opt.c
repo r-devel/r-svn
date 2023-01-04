@@ -27,9 +27,8 @@
 #include <Fileio.h>
 
 #ifndef MAX_PATH
-# include <windows.h>
+#include <windows.h>
 #endif
-
 
 static FILE *ff = NULL;
 static char optfl[MAX_PATH];
@@ -37,88 +36,89 @@ static int optln;
 
 void optclosefile(void)
 {
-    if (!ff) return;
+    if (!ff)
+        return;
     fclose(ff);
     ff = NULL;
 }
 
-
 int optopenfile(const char *fname)
 {
     optclosefile();
-    if (!fname || !(ff = R_fopen(fname,"r"))) return 0;
-    strcpy(optfl,fname);
+    if (!fname || !(ff = R_fopen(fname, "r")))
+        return 0;
+    strcpy(optfl, fname);
     optln = 0;
     return 1;
 }
 
-char *
-optfile(void)
+char *optfile(void)
 {
     return optfl;
 }
 
-int
-optline(void)
+int optline(void)
 {
     return optln;
 }
 
-
 static char *rmspace(char *s)
 {
-    int   i;
+    int i;
 
     for (i = strlen(s) - 1; i >= 0 && s[i] == ' '; i--)
-	s[i] = '\0';
-    for (i = 0; s[i] == ' '; i++);
+        s[i] = '\0';
+    for (i = 0; s[i] == ' '; i++)
+        ;
     return &s[i];
 }
-
 
 int optread(char *opt[], const char sep)
 {
     static char sm[120];
     char *p, *s;
-    int   l;
+    int l;
 
     if (!ff)
-	return 0;
+        return 0;
     l = 0;
-    while (l == 0) {
-	if (!fgets(sm, 120, ff)) {
-	    fclose(ff);
-	    ff = NULL;
-	    return 0;
-	}
-	optln += 1;
-	l = strlen(sm);
-	if (sm[l - 1] != '\n')
-	    return 1;
-	else
-	    sm[l - 1] = '\0';
-	s = rmspace(sm);
-	l = (*s == '#') ? 0 : strlen(s);
+    while (l == 0)
+    {
+        if (!fgets(sm, 120, ff))
+        {
+            fclose(ff);
+            ff = NULL;
+            return 0;
+        }
+        optln += 1;
+        l = strlen(sm);
+        if (sm[l - 1] != '\n')
+            return 1;
+        else
+            sm[l - 1] = '\0';
+        s = rmspace(sm);
+        l = (*s == '#') ? 0 : strlen(s);
     }
     for (p = s; *p; p++)
-	if (*p == '#') {
-	    *p = '\0';
-	    s = rmspace(s);
-	    l = strlen(s);
-	    break;
-	}
+        if (*p == '#')
+        {
+            *p = '\0';
+            s = rmspace(s);
+            l = strlen(s);
+            break;
+        }
     for (p = s; *p; p++)
-	if (*p == sep)
-	    break;
+        if (*p == sep)
+            break;
     if (!*p)
-	return 1;
+        return 1;
     *p = '\0';
     opt[0] = rmspace(s);
     opt[1] = rmspace(p + 1);
     if (strlen(opt[0]) && strlen(opt[1]))
-	return 2;
+        return 2;
     else if (strlen(opt[0]))
-	return 3;
+        return 3;
     else
-	return 1;
+        return 1;
 }

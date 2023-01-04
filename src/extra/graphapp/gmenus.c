@@ -29,31 +29,33 @@
 
 static void mdimenu(menuitem m)
 {
-    switch (getvalue(m)) {
+    switch (getvalue(m))
+    {
     case 1:
-	SendMessage(hwndClient,WM_MDICASCADE,0,0);
-	break;
+        SendMessage(hwndClient, WM_MDICASCADE, 0, 0);
+        break;
     case 2:
-	SendMessage(hwndClient,WM_MDITILE,MDITILE_HORIZONTAL,0);
-	break;
+        SendMessage(hwndClient, WM_MDITILE, MDITILE_HORIZONTAL, 0);
+        break;
     case 3:
-	SendMessage(hwndClient,WM_MDITILE,MDITILE_VERTICAL,0);
-	break;	
+        SendMessage(hwndClient, WM_MDITILE, MDITILE_VERTICAL, 0);
+        break;
     case 4:
-	SendMessage(hwndClient,WM_MDIICONARRANGE,0,0);
-	break;
+        SendMessage(hwndClient, WM_MDIICONARRANGE, 0, 0);
+        break;
     }
 }
 
 menu newmdimenu()
 {
-    menu m ;
-    if (!ismdi()) return NULL;
+    menu m;
+    if (!ismdi())
+        return NULL;
     m = newmenu(G_("Windows"));
-    setvalue(newmenuitem(G_("Cascade"),0,mdimenu),1);
-    setvalue(newmenuitem(G_("Tile &Horizontally"),0,mdimenu),2);
-    setvalue(newmenuitem(G_("Tile &Vertically"),0,mdimenu),3);
-    setvalue(newmenuitem(G_("Arrange Icons"),0,mdimenu),4);
+    setvalue(newmenuitem(G_("Cascade"), 0, mdimenu), 1);
+    setvalue(newmenuitem(G_("Tile &Horizontally"), 0, mdimenu), 2);
+    setvalue(newmenuitem(G_("Tile &Vertically"), 0, mdimenu), 3);
+    setvalue(newmenuitem(G_("Arrange Icons"), 0, mdimenu), 4);
     current_menubar->menubar = m;
     return m;
 }
@@ -61,8 +63,9 @@ menu newmdimenu()
 menu newpopup(actionfn fn)
 {
     menu mnew;
-    if (!current_window) return 0;
-    mnew = newsubmenu(current_window,"");
+    if (!current_window)
+        return 0;
+    mnew = newsubmenu(current_window, "");
     mnew->action = fn;
     current_window->popup = mnew;
     current_menu = mnew;
@@ -77,48 +80,58 @@ void gchangepopup(window w, menu m)
 void gchangemenubar(menubar mb)
 {
     window w = current_window;
-    if (!w) return;
+    if (!w)
+        return;
     w->menubar = mb;
     SetMenu(w->handle, mb->handle);
-    if (ismdi()) {
-	menu mdi = (w->menubar)->menubar;
-	SendMessage(hwndClient, WM_MDISETMENU,
-		    (WPARAM)w->menubar->handle,
-		    (LPARAM)(mdi ? (mdi->handle) : 0));
-	DrawMenuBar(hwndFrame);
-    } else
-	DrawMenuBar(w->handle);
+    if (ismdi())
+    {
+        menu mdi = (w->menubar)->menubar;
+        SendMessage(hwndClient, WM_MDISETMENU, (WPARAM)w->menubar->handle, (LPARAM)(mdi ? (mdi->handle) : 0));
+        DrawMenuBar(hwndFrame);
+    }
+    else
+        DrawMenuBar(w->handle);
 }
 
 /* FIXME: only one level of sub-menu - no checks -*/
-static int addmenuitemarray(menu m,MenuItem a[])
+static int addmenuitemarray(menu m, MenuItem a[])
 {
-    menu ma  = m;
+    menu ma = m;
     int i = 0;
-    while (a[i].nm) {
-	if (!strcmp(a[i].nm,"@STARTMENU")) {
-	    i += 1;
-	    ma = newsubmenu(m, G_(a[i].nm));
-	}
-	else if (!strcmp(a[i].nm,"@ENDMENU")) {
-	    i += 1;
-	    ma = m;
-	}
-	else if (!strcmp(a[i].nm,"@STARTSUBMENU")) {
-	    i += 1;
-	    newsubmenu(ma,a[i].nm);
-	}
-	else if (!strcmp(a[i].nm,"@ENDSUBMENU")) {
-	    i += 1;
-	}
-	else if (!strcmp(a[i].nm,"@MDIMENU")) {
-	    if (!(a[i].m = newmdimenu())) return 0;
-	    ma = a[i].m;
-	}
-	else {
-	    if (!(a[i].m = newmenuitem(G_(a[i].nm), a[i].key, a[i].fn))) return 0;
-	}
-	i += 1;
+    while (a[i].nm)
+    {
+        if (!strcmp(a[i].nm, "@STARTMENU"))
+        {
+            i += 1;
+            ma = newsubmenu(m, G_(a[i].nm));
+        }
+        else if (!strcmp(a[i].nm, "@ENDMENU"))
+        {
+            i += 1;
+            ma = m;
+        }
+        else if (!strcmp(a[i].nm, "@STARTSUBMENU"))
+        {
+            i += 1;
+            newsubmenu(ma, a[i].nm);
+        }
+        else if (!strcmp(a[i].nm, "@ENDSUBMENU"))
+        {
+            i += 1;
+        }
+        else if (!strcmp(a[i].nm, "@MDIMENU"))
+        {
+            if (!(a[i].m = newmdimenu()))
+                return 0;
+            ma = a[i].m;
+        }
+        else
+        {
+            if (!(a[i].m = newmenuitem(G_(a[i].nm), a[i].key, a[i].fn)))
+                return 0;
+        }
+        i += 1;
     }
     return 1;
 }
@@ -126,24 +139,27 @@ static int addmenuitemarray(menu m,MenuItem a[])
 menubar gmenubar(actionfn fn, MenuItem a[])
 {
     menubar m = newmenubar(fn);
-    if (m)  {
-	if (!addmenuitemarray(m,a)) {
-	    del(m);
-	    m = NULL;
-	}
+    if (m)
+    {
+        if (!addmenuitemarray(m, a))
+        {
+            del(m);
+            m = NULL;
+        }
     }
     return m;
 }
 
-
 popup gpopup(actionfn fn, MenuItem a[])
 {
     popup m = newpopup(fn);
-    if (m)  {
-	if (!addmenuitemarray(m,a)) {
-	    del(m);
-	    m = NULL;
-	}
+    if (m)
+    {
+        if (!addmenuitemarray(m, a))
+        {
+            del(m);
+            m = NULL;
+        }
     }
     return m;
 }

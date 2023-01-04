@@ -20,11 +20,12 @@
 
 #include "grid.h"
 
-Rboolean isClipPath(SEXP clip) {
+Rboolean isClipPath(SEXP clip)
+{
     return Rf_inherits(clip, "GridClipPath");
 }
 
-SEXP resolveClipPath(SEXP path, pGEDevDesc dd) 
+SEXP resolveClipPath(SEXP path, pGEDevDesc dd)
 {
     SEXP resolveFn, R_fcall, result;
     setGridStateElement(dd, GSS_RESOLVINGPATH, ScalarLogical(TRUE));
@@ -33,6 +34,5 @@ SEXP resolveClipPath(SEXP path, pGEDevDesc dd)
     result = eval(R_fcall, R_gridEvalEnv);
     setGridStateElement(dd, GSS_RESOLVINGPATH, ScalarLogical(FALSE));
     UNPROTECT(2);
-    return result;    
+    return result;
 }
-

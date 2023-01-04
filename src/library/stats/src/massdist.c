@@ -34,11 +34,12 @@
 /* NB: this only works on the lower half of y, but pads with zeros. */
 SEXP BinDist(SEXP sx, SEXP sw, SEXP slo, SEXP shi, SEXP sn)
 {
-    PROTECT(sx = coerceVector(sx, REALSXP)); 
+    PROTECT(sx = coerceVector(sx, REALSXP));
     PROTECT(sw = coerceVector(sw, REALSXP));
     int n = asInteger(sn);
-    if (n == NA_INTEGER || n <= 0) error("invalid '%s' argument", "n");
-    SEXP ans = allocVector(REALSXP, 2*n);
+    if (n == NA_INTEGER || n <= 0)
+        error("invalid '%s' argument", "n");
+    SEXP ans = allocVector(REALSXP, 2 * n);
     PROTECT(ans);
     double xlo = asReal(slo), xhi = asReal(shi);
     double *x = REAL(sx), *w = REAL(sw), *y = REAL(ans);
@@ -46,23 +47,30 @@ SEXP BinDist(SEXP sx, SEXP sw, SEXP slo, SEXP shi, SEXP sn)
     int ixmin = 0, ixmax = n - 2;
     double xdelta = (xhi - xlo) / (n - 1);
 
-    for(int i = 0; i < 2*n ; i++) y[i] = 0;
+    for (int i = 0; i < 2 * n; i++)
+        y[i] = 0;
 
-    for(R_xlen_t i = 0; i < XLENGTH(sx) ; i++) {
-	if(R_FINITE(x[i])) {
-	    double xpos = (x[i] - xlo) / xdelta;
-	    // avoid integer overflows for ix.
-	    if (xpos > INT_MAX || xpos < INT_MIN) continue;
-	    int ix = (int) floor(xpos);
-	    double fx = xpos - ix;
-	    double wi = w[i];
-	    if(ixmin <= ix && ix <= ixmax) {
-		y[ix] += (1 - fx) * wi;
-		y[ix + 1] += fx * wi;
-	    }
-	    else if(ix == -1) y[0] += fx * wi;
-	    else if(ix == ixmax + 1) y[ix] += (1 - fx) * wi;
-	}
+    for (R_xlen_t i = 0; i < XLENGTH(sx); i++)
+    {
+        if (R_FINITE(x[i]))
+        {
+            double xpos = (x[i] - xlo) / xdelta;
+            // avoid integer overflows for ix.
+            if (xpos > INT_MAX || xpos < INT_MIN)
+                continue;
+            int ix = (int)floor(xpos);
+            double fx = xpos - ix;
+            double wi = w[i];
+            if (ixmin <= ix && ix <= ixmax)
+            {
+                y[ix] += (1 - fx) * wi;
+                y[ix + 1] += fx * wi;
+            }
+            else if (ix == -1)
+                y[0] += fx * wi;
+            else if (ix == ixmax + 1)
+                y[ix] += (1 - fx) * wi;
+        }
     }
     UNPROTECT(3);
     return ans;

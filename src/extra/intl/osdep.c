@@ -17,9 +17,9 @@
    USA.  */
 
 #if defined __CYGWIN__
-# include "intl-exports.c"
+#include "intl-exports.c"
 #elif defined __EMX__
-# include "os2compat.c"
+#include "os2compat.c"
 #else
 /* Avoid AIX compiler warning.  */
 typedef int dummy;

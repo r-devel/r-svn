@@ -21,7 +21,6 @@
 #include <Rinternals.h>
 #include "tools.h"
 
-
 extern int extR_HTTPDCreate(const char *ip, int port);
 extern void extR_HTTPDStop(void);
 
@@ -29,8 +28,9 @@ SEXP startHTTPD(SEXP sIP, SEXP sPort)
 {
     const char *ip = 0;
     if (sIP != R_NilValue && (TYPEOF(sIP) != STRSXP || LENGTH(sIP) != 1))
-	error(_("invalid bind address specification"));
-    if (sIP != R_NilValue) ip = CHAR(STRING_ELT(sIP, 0));
+        error(_("invalid bind address specification"));
+    if (sIP != R_NilValue)
+        ip = CHAR(STRING_ELT(sIP, 0));
     return ScalarInteger(extR_HTTPDCreate(ip, asInteger(sPort)));
 }
 

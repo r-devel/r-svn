@@ -22,155 +22,190 @@
 #include <string.h>
 
 /* Some access methods for viewports */
-SEXP viewportX(SEXP vp) {
+SEXP viewportX(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_X);
 }
 
-SEXP viewportY(SEXP vp) {
+SEXP viewportY(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_Y);
 }
 
-SEXP viewportWidth(SEXP vp) {
+SEXP viewportWidth(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_WIDTH);
 }
 
-SEXP viewportHeight(SEXP vp) {
+SEXP viewportHeight(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_HEIGHT);
 }
 
-SEXP viewportClipSXP(SEXP vp) {
+SEXP viewportClipSXP(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_CLIP);
 }
 
-Rboolean viewportClip(SEXP vp) {
+Rboolean viewportClip(SEXP vp)
+{
     return LOGICAL(VECTOR_ELT(vp, VP_CLIP))[0];
 }
 
-SEXP viewportMaskSXP(SEXP vp) {
-    return(VECTOR_ELT(vp, VP_MASK));
+SEXP viewportMaskSXP(SEXP vp)
+{
+    return (VECTOR_ELT(vp, VP_MASK));
 }
 
-Rboolean viewportMask(SEXP vp) {
+Rboolean viewportMask(SEXP vp)
+{
     SEXP mask = viewportMaskSXP(vp);
     if (!isLogical(mask))
         error(_("Mask is not logical value ('none' or 'inherit')"));
     return LOGICAL(VECTOR_ELT(vp, VP_MASK))[0];
 }
 
-double viewportXScaleMin(SEXP vp) {
+double viewportXScaleMin(SEXP vp)
+{
     return numeric(VECTOR_ELT(vp, VP_XSCALE), 0);
 }
 
-double viewportXScaleMax(SEXP vp) {
+double viewportXScaleMax(SEXP vp)
+{
     return numeric(VECTOR_ELT(vp, VP_XSCALE), 1);
 }
 
-double viewportYScaleMin(SEXP vp) {
+double viewportYScaleMin(SEXP vp)
+{
     return numeric(VECTOR_ELT(vp, VP_YSCALE), 0);
 }
 
-double viewportYScaleMax(SEXP vp) {
+double viewportYScaleMax(SEXP vp)
+{
     return numeric(VECTOR_ELT(vp, VP_YSCALE), 1);
 }
 
-double viewportAngle(SEXP vp) {
+double viewportAngle(SEXP vp)
+{
     return numeric(VECTOR_ELT(vp, VP_ANGLE), 0);
 }
 
-SEXP viewportLayout(SEXP vp) {
+SEXP viewportLayout(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_LAYOUT);
 }
 
-double viewportHJust(SEXP vp) {
+double viewportHJust(SEXP vp)
+{
     return REAL(VECTOR_ELT(vp, VP_VALIDJUST))[0];
 }
 
-double viewportVJust(SEXP vp) {
+double viewportVJust(SEXP vp)
+{
     return REAL(VECTOR_ELT(vp, VP_VALIDJUST))[1];
 }
 
-SEXP viewportLayoutPosRow(SEXP vp) {
+SEXP viewportLayoutPosRow(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_VALIDLPOSROW);
 }
 
-SEXP viewportLayoutPosCol(SEXP vp) {
+SEXP viewportLayoutPosCol(SEXP vp)
+{
     return VECTOR_ELT(vp, VP_VALIDLPOSCOL);
 }
 
-SEXP viewportgpar(SEXP vp) {
+SEXP viewportgpar(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_GPAR);
 }
 
-const char* viewportFontFamily(SEXP vp) {
-    return CHAR(STRING_ELT(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_FONTFAMILY),
-			   0));
+const char *viewportFontFamily(SEXP vp)
+{
+    return CHAR(STRING_ELT(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_FONTFAMILY), 0));
 }
 
-int viewportFont(SEXP vp) {
+int viewportFont(SEXP vp)
+{
     return INTEGER(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_FONT))[0];
 }
 
-double viewportFontSize(SEXP vp) {
+double viewportFontSize(SEXP vp)
+{
     return REAL(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_FONTSIZE))[0];
 }
 
-double viewportLineHeight(SEXP vp) {
+double viewportLineHeight(SEXP vp)
+{
     return REAL(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_LINEHEIGHT))[0];
 }
 
-double viewportCex(SEXP vp) {
+double viewportCex(SEXP vp)
+{
     return numeric(VECTOR_ELT(VECTOR_ELT(vp, PVP_GPAR), GP_CEX), 0);
 }
 
-SEXP viewportTransform(SEXP vp) {
+SEXP viewportTransform(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_TRANS);
 }
 
-SEXP viewportLayoutWidths(SEXP vp) {
+SEXP viewportLayoutWidths(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_WIDTHS);
 }
 
-SEXP viewportLayoutHeights(SEXP vp) {
+SEXP viewportLayoutHeights(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_HEIGHTS);
 }
 
-SEXP viewportWidthCM(SEXP vp) {
+SEXP viewportWidthCM(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_WIDTHCM);
 }
 
-SEXP viewportHeightCM(SEXP vp) {
+SEXP viewportHeightCM(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_HEIGHTCM);
 }
 
-SEXP viewportRotation(SEXP vp) {
+SEXP viewportRotation(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_ROTATION);
 }
 
-SEXP viewportClipRect(SEXP vp) {
+SEXP viewportClipRect(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_CLIPRECT);
 }
 
-SEXP viewportParent(SEXP vp) {
+SEXP viewportParent(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_PARENT);
 }
 
-SEXP viewportChildren(SEXP vp) {
+SEXP viewportChildren(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_CHILDREN);
 }
 
-SEXP viewportDevWidthCM(SEXP vp) {
+SEXP viewportDevWidthCM(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_DEVWIDTHCM);
 }
 
-SEXP viewportDevHeightCM(SEXP vp) {
+SEXP viewportDevHeightCM(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_DEVHEIGHTCM);
 }
 
-SEXP viewportParentGPar(SEXP vp) {
+SEXP viewportParentGPar(SEXP vp)
+{
     return VECTOR_ELT(vp, PVP_PARENTGPAR);
 }
 
-void fillViewportLocationFromViewport(SEXP vp, LViewportLocation *vpl) 
+void fillViewportLocationFromViewport(SEXP vp, LViewportLocation *vpl)
 {
     vpl->x = viewportX(vp);
     vpl->y = viewportY(vp);
@@ -180,8 +215,7 @@ void fillViewportLocationFromViewport(SEXP vp, LViewportLocation *vpl)
     vpl->vjust = viewportVJust(vp);
 }
 
-void fillViewportContextFromViewport(SEXP vp, 
-				     LViewportContext *vpc)
+void fillViewportContextFromViewport(SEXP vp, LViewportContext *vpc)
 {
     vpc->xscalemin = viewportXScaleMin(vp);
     vpc->xscalemax = viewportXScaleMax(vp);
@@ -197,12 +231,13 @@ void copyViewportContext(LViewportContext vpc1, LViewportContext *vpc2)
     vpc2->yscalemax = vpc1.yscalemax;
 }
 
-void gcontextFromViewport(SEXP vp, const pGEcontext gc, pGEDevDesc dd) {
+void gcontextFromViewport(SEXP vp, const pGEcontext gc, pGEDevDesc dd)
+{
     gcontextFromgpar(viewportgpar(vp), 0, gc, dd);
 }
 
 /* The idea is to produce a transformation for this viewport which
- * will take any location in INCHES and turn it into a location on the 
+ * will take any location in INCHES and turn it into a location on the
  * Device in INCHES.
  * The reason for working in INCHES is because we want to be able to
  * do rotations as part of the transformation.
@@ -210,8 +245,7 @@ void gcontextFromViewport(SEXP vp, const pGEcontext gc, pGEDevDesc dd) {
  * values of the parent.  Otherwise, we have to recurse and recalculate
  * everything from scratch.
  */
-void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental,
-			   pGEDevDesc dd)
+void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental, pGEDevDesc dd)
 {
     int i, j;
     double vpWidthCM, vpHeightCM, rotationAngle;
@@ -229,109 +263,94 @@ void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental,
     /* This should never be true when we are doing an incremental
      * calculation
      */
-    if (isNull(parent)) {
-	/* We have a top-level viewport; the parent is the device
-	 */
-	getDeviceSize(dd, &parentWidthCM, &parentHeightCM);
-	/* For a device the transform is the identity transform
-	 */
-	identity(parentTransform);
-	/* For a device, xmin=0, ymin=0, xmax=1, ymax=1, and
-	 */
-	parentContext.xscalemin = 0;
-	parentContext.yscalemin = 0;
-	parentContext.xscalemax = 1;
-	parentContext.yscalemax = 1;
-	/* FIXME:  How do I figure out the device fontsize ?
-	 * From ps.options etc, ... ?
-	 * FIXME:  How do I figure out the device lineheight ??
-	 * FIXME:  How do I figure out the device cex ??
-	 * FIXME:  How do I figure out the device font ??
-	 * FIXME:  How do I figure out the device fontfamily ??
-	 */
-	parentgc.ps = 10;
-	parentgc.lineheight = 1.2;
-	parentgc.cex = 1;
-	parentgc.fontface = 1;
-	parentgc.fontfamily[0] = '\0';  // This picks up the device default
-	/* The device is not rotated
-	 */
-	parentAngle = 0;
-	fillViewportLocationFromViewport(vp, &vpl);
-    } else {
-	/* Get parent transform (etc ...)
-	 * If necessary, recalculate the parent transform (etc ...)
-	 */
-	if (!incremental)
-	    calcViewportTransform(parent, viewportParent(parent), 0, dd);
-	/* Get information required to transform viewport location
-	 */
-	parentWidthCM = REAL(viewportWidthCM(parent))[0];
-	parentHeightCM = REAL(viewportHeightCM(parent))[0];
-	parentAngle = REAL(viewportRotation(parent))[0];
-	for (i=0; i<3; i++)
-	    for (j=0; j<3; j++)
-		parentTransform[i][j] = 
-		    REAL(viewportTransform(parent))[i +3*j];
-	fillViewportContextFromViewport(parent, &parentContext);
-	/* 
-	 * Don't get gcontext from parent because the most recent
-	 * previous gpar setting may have come from a gTree
-	 * So we look at this viewport's parentgpar slot instead
-	 * 
-	 * WAS gcontextFromViewport(parent, &parentgc);
-	 */
-	gcontextFromgpar(viewportParentGPar(vp), 0, &parentgc, dd);
-	/* In order for the vp to get its vpl from a layout
-	 * it must have specified a layout.pos and the parent
-	 * must have a layout
-	 * FIXME:  Actually, in addition, layout.pos.row and
-	 * layout.pos.col must be valid for the layout
-	 */
-	if ((isNull(viewportLayoutPosRow(vp)) && 
-	     isNull(viewportLayoutPosCol(vp))) ||
-	    isNull(viewportLayout(parent)))
-	    fillViewportLocationFromViewport(vp, &vpl);
-	else if (checkPosRowPosCol(vp, parent))
-	    calcViewportLocationFromLayout(viewportLayoutPosRow(vp),
-					   viewportLayoutPosCol(vp),
-					   parent,
-					   &vpl);
+    if (isNull(parent))
+    {
+        /* We have a top-level viewport; the parent is the device
+         */
+        getDeviceSize(dd, &parentWidthCM, &parentHeightCM);
+        /* For a device the transform is the identity transform
+         */
+        identity(parentTransform);
+        /* For a device, xmin=0, ymin=0, xmax=1, ymax=1, and
+         */
+        parentContext.xscalemin = 0;
+        parentContext.yscalemin = 0;
+        parentContext.xscalemax = 1;
+        parentContext.yscalemax = 1;
+        /* FIXME:  How do I figure out the device fontsize ?
+         * From ps.options etc, ... ?
+         * FIXME:  How do I figure out the device lineheight ??
+         * FIXME:  How do I figure out the device cex ??
+         * FIXME:  How do I figure out the device font ??
+         * FIXME:  How do I figure out the device fontfamily ??
+         */
+        parentgc.ps = 10;
+        parentgc.lineheight = 1.2;
+        parentgc.cex = 1;
+        parentgc.fontface = 1;
+        parentgc.fontfamily[0] = '\0'; // This picks up the device default
+        /* The device is not rotated
+         */
+        parentAngle = 0;
+        fillViewportLocationFromViewport(vp, &vpl);
+    }
+    else
+    {
+        /* Get parent transform (etc ...)
+         * If necessary, recalculate the parent transform (etc ...)
+         */
+        if (!incremental)
+            calcViewportTransform(parent, viewportParent(parent), 0, dd);
+        /* Get information required to transform viewport location
+         */
+        parentWidthCM = REAL(viewportWidthCM(parent))[0];
+        parentHeightCM = REAL(viewportHeightCM(parent))[0];
+        parentAngle = REAL(viewportRotation(parent))[0];
+        for (i = 0; i < 3; i++)
+            for (j = 0; j < 3; j++)
+                parentTransform[i][j] = REAL(viewportTransform(parent))[i + 3 * j];
+        fillViewportContextFromViewport(parent, &parentContext);
+        /*
+         * Don't get gcontext from parent because the most recent
+         * previous gpar setting may have come from a gTree
+         * So we look at this viewport's parentgpar slot instead
+         *
+         * WAS gcontextFromViewport(parent, &parentgc);
+         */
+        gcontextFromgpar(viewportParentGPar(vp), 0, &parentgc, dd);
+        /* In order for the vp to get its vpl from a layout
+         * it must have specified a layout.pos and the parent
+         * must have a layout
+         * FIXME:  Actually, in addition, layout.pos.row and
+         * layout.pos.col must be valid for the layout
+         */
+        if ((isNull(viewportLayoutPosRow(vp)) && isNull(viewportLayoutPosCol(vp))) || isNull(viewportLayout(parent)))
+            fillViewportLocationFromViewport(vp, &vpl);
+        else if (checkPosRowPosCol(vp, parent))
+            calcViewportLocationFromLayout(viewportLayoutPosRow(vp), viewportLayoutPosCol(vp), parent, &vpl);
     }
     /* NOTE that we are not doing a transformLocn here because
-     * we just want locations and dimensions (in INCHES) relative to 
+     * we just want locations and dimensions (in INCHES) relative to
      * the parent, NOT relative to the device.
      */
     /* First, convert the location of the viewport into CM
      */
-    xINCHES = transformXtoINCHES(vpl.x, 0, parentContext, &parentgc,
-				 parentWidthCM, parentHeightCM, 
-				 dd);
-    yINCHES = transformYtoINCHES(vpl.y, 0, parentContext, &parentgc,
-				 parentWidthCM, parentHeightCM, 
-				 dd);
+    xINCHES = transformXtoINCHES(vpl.x, 0, parentContext, &parentgc, parentWidthCM, parentHeightCM, dd);
+    yINCHES = transformYtoINCHES(vpl.y, 0, parentContext, &parentgc, parentWidthCM, parentHeightCM, dd);
     /* Calculate the width and height of the viewport in CM too
      * so that any viewports within this one can do transformations
      */
-    vpWidthCM = transformWidthtoINCHES(vpl.width, 0, parentContext, &parentgc,
-				       parentWidthCM, parentHeightCM,
-				       dd)*2.54;
-    vpHeightCM = transformHeighttoINCHES(vpl.height, 0, parentContext, 
-					 &parentgc,
-					 parentWidthCM, 
-					 parentHeightCM, 
-					 dd)*2.54;
+    vpWidthCM =
+        transformWidthtoINCHES(vpl.width, 0, parentContext, &parentgc, parentWidthCM, parentHeightCM, dd) * 2.54;
+    vpHeightCM =
+        transformHeighttoINCHES(vpl.height, 0, parentContext, &parentgc, parentWidthCM, parentHeightCM, dd) * 2.54;
     /* Fall out if location or size are non-finite
      */
-    if (!R_FINITE(xINCHES) || 
-	!R_FINITE(yINCHES) || 
-	!R_FINITE(vpWidthCM) || 
-	!R_FINITE(vpHeightCM))
-	error(_("non-finite location and/or size for viewport"));
+    if (!R_FINITE(xINCHES) || !R_FINITE(yINCHES) || !R_FINITE(vpWidthCM) || !R_FINITE(vpHeightCM))
+        error(_("non-finite location and/or size for viewport"));
     /* Determine justification required
      */
-    justification(vpWidthCM, vpHeightCM, vpl.hjust, vpl.vjust,
-		  &xadj, &yadj);
+    justification(vpWidthCM, vpHeightCM, vpl.hjust, vpl.vjust, &xadj, &yadj);
     /* Next, produce the transformation to add the location of
      * the viewport to the location.
      */
@@ -339,10 +358,10 @@ void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental,
      */
     translation(xINCHES, yINCHES, thisLocation);
     if (viewportAngle(vp) != 0)
-	rotation(viewportAngle(vp), thisRotation);
+        rotation(viewportAngle(vp), thisRotation);
     else
-	identity(thisRotation);
-    translation(xadj/2.54, yadj/2.54, thisJustification);
+        identity(thisRotation);
+    translation(xadj / 2.54, yadj / 2.54, thisJustification);
     /* Position relative to origin of rotation THEN rotate.
      */
     multiply(thisJustification, thisRotation, tempTransform);
@@ -358,10 +377,11 @@ void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental,
     /* Finally, allocate the rows and columns for this viewport's
      * layout if it has one
      */
-    if (!isNull(viewportLayout(vp))) {
-	fillViewportContextFromViewport(vp, &vpc);
-	gcontextFromViewport(vp, &gc, dd);
-	calcViewportLayout(vp, vpWidthCM, vpHeightCM, vpc, &gc, dd);
+    if (!isNull(viewportLayout(vp)))
+    {
+        fillViewportContextFromViewport(vp, &vpc);
+        gcontextFromViewport(vp, &gc, dd);
+        calcViewportLayout(vp, vpWidthCM, vpHeightCM, vpc, &gc, dd);
     }
     /* Record all of the answers in the viewport
      * (the layout calculations are done within calcViewportLayout)
@@ -370,9 +390,9 @@ void calcViewportTransform(SEXP vp, SEXP parent, Rboolean incremental,
     PROTECT(currentHeightCM = ScalarReal(vpHeightCM));
     PROTECT(currentRotation = ScalarReal(rotationAngle));
     PROTECT(currentTransform = allocMatrix(REALSXP, 3, 3));
-    for (i=0; i<3; i++)
-	for (j=0; j<3; j++)
-	    REAL(currentTransform)[i + 3*j] = transform[i][j];
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 3; j++)
+            REAL(currentTransform)[i + 3 * j] = transform[i][j];
     SET_VECTOR_ELT(vp, PVP_WIDTHCM, currentWidthCM);
     SET_VECTOR_ELT(vp, PVP_HEIGHTCM, currentHeightCM);
     SET_VECTOR_ELT(vp, PVP_ROTATION, currentRotation);
@@ -385,13 +405,13 @@ void initVP(pGEDevDesc dd)
     SEXP vpfnname, vpfn, vp;
     SEXP xscale, yscale;
     SEXP currentgp = gridStateElement(dd, GSS_GPAR);
-    SEXP gsd = (SEXP) dd->gesd[gridRegisterIndex]->systemSpecific;
+    SEXP gsd = (SEXP)dd->gesd[gridRegisterIndex]->systemSpecific;
     PROTECT(vpfnname = findFun(install("grid.top.level.vp"), R_gridEvalEnv));
     PROTECT(vpfn = lang1(vpfnname));
     PROTECT(vp = eval(vpfn, R_GlobalEnv));
-    /* 
+    /*
      * Set the "native" scale of the top viewport to be the
-     * natural device coordinate system (e.g., points in 
+     * natural device coordinate system (e.g., points in
      * postscript, pixels in X11, ...)
      */
     PROTECT(xscale = allocVector(REALSXP, 2));
@@ -405,7 +425,8 @@ void initVP(pGEDevDesc dd)
     SET_VECTOR_ELT(vp, PVP_GPAR, currentgp);
     vp = doSetViewport(vp, TRUE, TRUE, dd);
 #ifdef R_GE_DEBUG
-    if (getenv("R_GE_DEBUG_viewports")) {
+    if (getenv("R_GE_DEBUG_viewports"))
+    {
         printf("initVP: ");
         Rf_PrintValue(vp);
     }
@@ -413,4 +434,3 @@ void initVP(pGEDevDesc dd)
     SET_VECTOR_ELT(gsd, GSS_VP, vp);
     UNPROTECT(5);
 }
-

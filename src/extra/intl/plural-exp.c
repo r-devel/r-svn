@@ -18,7 +18,7 @@
    USA.  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <ctype.h>
@@ -27,40 +27,22 @@
 
 #include "plural-exp.h"
 
-#if (defined __GNUC__ && !(__APPLE_CC__ > 1) && !defined __cplusplus) \
-    || (defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L)
+#if (defined __GNUC__ && !(__APPLE_CC__ > 1) && !defined __cplusplus) ||                                               \
+    (defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L)
 
 /* These structs are the constant expression for the germanic plural
    form determination.  It represents the expression  "n != 1".  */
-static const struct expression plvar =
-{
-  .nargs = 0,
-  .operation = var,
+static const struct expression plvar = {
+    .nargs = 0,
+    .operation = var,
 };
-static const struct expression plone =
-{
-  .nargs = 0,
-  .operation = num,
-  .val =
-  {
-    .num = 1
-  }
-};
-struct expression GERMANIC_PLURAL =
-{
-  .nargs = 2,
-  .operation = not_equal,
-  .val =
-  {
-    .args =
-    {
-      [0] = (struct expression *) &plvar,
-      [1] = (struct expression *) &plone
-    }
-  }
-};
+static const struct expression plone = {.nargs = 0, .operation = num, .val = {.num = 1}};
+struct expression GERMANIC_PLURAL = {
+    .nargs = 2,
+    .operation = not_equal,
+    .val = {.args = {[0] = (struct expression *)&plvar, [1] = (struct expression *)&plone}}};
 
-# define INIT_GERMANIC_PLURAL()
+#define INIT_GERMANIC_PLURAL()
 
 #else
 
@@ -71,85 +53,81 @@ static struct expression plvar;
 static struct expression plone;
 struct expression GERMANIC_PLURAL;
 
-static void
-init_germanic_plural ()
+static void init_germanic_plural()
 {
-  if (plone.val.num == 0)
+    if (plone.val.num == 0)
     {
-      plvar.nargs = 0;
-      plvar.operation = var;
+        plvar.nargs = 0;
+        plvar.operation = var;
 
-      plone.nargs = 0;
-      plone.operation = num;
-      plone.val.num = 1;
+        plone.nargs = 0;
+        plone.operation = num;
+        plone.val.num = 1;
 
-      GERMANIC_PLURAL.nargs = 2;
-      GERMANIC_PLURAL.operation = not_equal;
-      GERMANIC_PLURAL.val.args[0] = &plvar;
-      GERMANIC_PLURAL.val.args[1] = &plone;
+        GERMANIC_PLURAL.nargs = 2;
+        GERMANIC_PLURAL.operation = not_equal;
+        GERMANIC_PLURAL.val.args[0] = &plvar;
+        GERMANIC_PLURAL.val.args[1] = &plone;
     }
 }
 
-# define INIT_GERMANIC_PLURAL() init_germanic_plural ()
+#define INIT_GERMANIC_PLURAL() init_germanic_plural()
 
 #endif
 
-void
-internal_function
-EXTRACT_PLURAL_EXPRESSION (const char *nullentry,
-			   const struct expression **pluralp,
-			   unsigned long int *npluralsp)
+void internal_function EXTRACT_PLURAL_EXPRESSION(const char *nullentry, const struct expression **pluralp,
+                                                 unsigned long int *npluralsp)
 {
-  if (nullentry != NULL)
+    if (nullentry != NULL)
     {
-      const char *plural;
-      const char *nplurals;
+        const char *plural;
+        const char *nplurals;
 
-      plural = strstr (nullentry, "plural=");
-      nplurals = strstr (nullentry, "nplurals=");
-      if (plural == NULL || nplurals == NULL)
-	goto no_plural;
-      else
-	{
-	  char *endp;
-	  unsigned long int n;
-	  struct parse_args args;
+        plural = strstr(nullentry, "plural=");
+        nplurals = strstr(nullentry, "nplurals=");
+        if (plural == NULL || nplurals == NULL)
+            goto no_plural;
+        else
+        {
+            char *endp;
+            unsigned long int n;
+            struct parse_args args;
 
-	  /* First get the number.  */
-	  nplurals += 9;
-	  while (*nplurals != '\0' && isspace ((unsigned char) *nplurals))
-	    ++nplurals;
-	  if (!(*nplurals >= '0' && *nplurals <= '9'))
-	    goto no_plural;
+            /* First get the number.  */
+            nplurals += 9;
+            while (*nplurals != '\0' && isspace((unsigned char)*nplurals))
+                ++nplurals;
+            if (!(*nplurals >= '0' && *nplurals <= '9'))
+                goto no_plural;
 #if defined HAVE_STRTOUL || defined _LIBC
-	  n = strtoul (nplurals, &endp, 10);
+            n = strtoul(nplurals, &endp, 10);
 #else
-	  for (endp = nplurals, n = 0; *endp >= '0' && *endp <= '9'; endp++)
-	    n = n * 10 + (*endp - '0');
+            for (endp = nplurals, n = 0; *endp >= '0' && *endp <= '9'; endp++)
+                n = n * 10 + (*endp - '0');
 #endif
-	  if (nplurals == endp)
-	    goto no_plural;
-	  *npluralsp = n;
+            if (nplurals == endp)
+                goto no_plural;
+            *npluralsp = n;
 
-	  /* Due to the restrictions bison imposes onto the interface of the
-	     scanner function we have to put the input string and the result
-	     passed up from the parser into the same structure which address
-	     is passed down to the parser.  */
-	  plural += 7;
-	  args.cp = plural;
-	  if (PLURAL_PARSE (&args) != 0)
-	    goto no_plural;
-	  *pluralp = args.res;
-	}
+            /* Due to the restrictions bison imposes onto the interface of the
+               scanner function we have to put the input string and the result
+               passed up from the parser into the same structure which address
+               is passed down to the parser.  */
+            plural += 7;
+            args.cp = plural;
+            if (PLURAL_PARSE(&args) != 0)
+                goto no_plural;
+            *pluralp = args.res;
+        }
     }
-  else
+    else
     {
-      /* By default we are using the Germanic form: singular form only
-         for `one', the plural form otherwise.  Yes, this is also what
-         English is using since English is a Germanic language.  */
+        /* By default we are using the Germanic form: singular form only
+           for `one', the plural form otherwise.  Yes, this is also what
+           English is using since English is a Germanic language.  */
     no_plural:
-      INIT_GERMANIC_PLURAL ();
-      *pluralp = &GERMANIC_PLURAL;
-      *npluralsp = 2;
+        INIT_GERMANIC_PLURAL();
+        *pluralp = &GERMANIC_PLURAL;
+        *npluralsp = 2;
     }
 }

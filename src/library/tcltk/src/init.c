@@ -23,7 +23,10 @@
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
-#define C_DEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define C_DEF(name, n)                                                                                                 \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
 static const R_CMethodDef CEntries[] = {
 #ifdef Win32
@@ -33,34 +36,33 @@ static const R_CMethodDef CEntries[] = {
     C_DEF(tcltk_init, 1),
     C_DEF(RTcl_ActivateConsole, 0),
 #endif
-    {NULL, NULL, 0}
-};
+    {NULL, NULL, 0}};
 
-#define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define EXTDEF(name, n)                                                                                                \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-static const R_ExternalMethodDef ExternEntries[] = {
-    EXTDEF(dotTcl, -1),
-    EXTDEF(dotTclObjv, 1),
-    EXTDEF(dotTclcallback, -1),
-    EXTDEF(RTcl_ObjFromVar, 1),
-    EXTDEF(RTcl_AssignObjToVar, 2),
-    EXTDEF(RTcl_StringFromObj, 1),
-    EXTDEF(RTcl_ObjAsCharVector, 1),
-    EXTDEF(RTcl_ObjAsDoubleVector, 1),
-    EXTDEF(RTcl_ObjAsIntVector, 1),
-    EXTDEF(RTcl_ObjAsRawVector, 1),
-    EXTDEF(RTcl_ObjFromCharVector, 2),
-    EXTDEF(RTcl_ObjFromDoubleVector, 2),
-    EXTDEF(RTcl_ObjFromIntVector, 2),
-    EXTDEF(RTcl_ObjFromRawVector, 1),
-    /* (..FromRaw... has only 1 arg, no drop=) */
-    EXTDEF(RTcl_ServiceMode, 1),
-    EXTDEF(RTcl_GetArrayElem, 2),
-    EXTDEF(RTcl_RemoveArrayElem, 2),
-    EXTDEF(RTcl_SetArrayElem, 3),
-    {NULL, NULL, 0}
-};
-
+static const R_ExternalMethodDef ExternEntries[] = {EXTDEF(dotTcl, -1),
+                                                    EXTDEF(dotTclObjv, 1),
+                                                    EXTDEF(dotTclcallback, -1),
+                                                    EXTDEF(RTcl_ObjFromVar, 1),
+                                                    EXTDEF(RTcl_AssignObjToVar, 2),
+                                                    EXTDEF(RTcl_StringFromObj, 1),
+                                                    EXTDEF(RTcl_ObjAsCharVector, 1),
+                                                    EXTDEF(RTcl_ObjAsDoubleVector, 1),
+                                                    EXTDEF(RTcl_ObjAsIntVector, 1),
+                                                    EXTDEF(RTcl_ObjAsRawVector, 1),
+                                                    EXTDEF(RTcl_ObjFromCharVector, 2),
+                                                    EXTDEF(RTcl_ObjFromDoubleVector, 2),
+                                                    EXTDEF(RTcl_ObjFromIntVector, 2),
+                                                    EXTDEF(RTcl_ObjFromRawVector, 1),
+                                                    /* (..FromRaw... has only 1 arg, no drop=) */
+                                                    EXTDEF(RTcl_ServiceMode, 1),
+                                                    EXTDEF(RTcl_GetArrayElem, 2),
+                                                    EXTDEF(RTcl_RemoveArrayElem, 2),
+                                                    EXTDEF(RTcl_SetArrayElem, 3),
+                                                    {NULL, NULL, 0}};
 
 void attribute_visible R_init_tcltk(DllInfo *dll)
 {
@@ -68,4 +70,3 @@ void attribute_visible R_init_tcltk(DllInfo *dll)
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, FALSE);
 }
-

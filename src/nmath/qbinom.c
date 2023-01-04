@@ -34,16 +34,15 @@
 #include "dpq.h"
 
 #ifdef DEBUG_qbinom
-# define R_DBG_printf(...) REprintf(__VA_ARGS__)
+#define R_DBG_printf(...) REprintf(__VA_ARGS__)
 #else
-# define R_DBG_printf(...)
+#define R_DBG_printf(...)
 #endif
-
 
 #define _thisDIST_ binom
 #define _dist_PARS_DECL_ double n, double pr
-#define _dist_PARS_      n, pr
-#define _dist_MAX_y  n
+#define _dist_PARS_ n, pr
+#define _dist_MAX_y n
 //                  ===  Binomial  Y <= n
 
 #include "qDiscrete_search.h"
@@ -53,33 +52,31 @@ double qbinom(double p, double n, double pr, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(n) || ISNAN(pr))
-	return p + n + pr;
+        return p + n + pr;
 #endif
-    if(!R_FINITE(n) || !R_FINITE(pr))
-	ML_WARN_return_NAN;
+    if (!R_FINITE(n) || !R_FINITE(pr))
+        ML_WARN_return_NAN;
     /* if log_p is true, p = -Inf is a legitimate value */
-    if(!R_FINITE(p) && !log_p)
-	ML_WARN_return_NAN;
+    if (!R_FINITE(p) && !log_p)
+        ML_WARN_return_NAN;
 
     n = R_forceint(n);
 
     if (pr < 0 || pr > 1 || n < 0)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
     R_Q_P01_boundaries(p, 0, n);
 
-    if (pr == 0. || n == 0) return 0.;
-    if (pr == 1.)           return n; /* covers the full range of the distribution */
+    if (pr == 0. || n == 0)
+        return 0.;
+    if (pr == 1.)
+        return n; /* covers the full range of the distribution */
 
     // (NB: unavoidable cancellation for pr ~= 1)
-    double
-	q = 1 - pr,
-	mu = n * pr,
-	sigma = sqrt(n * pr * q),
-	gamma = (q - pr) / sigma;
+    double q = 1 - pr, mu = n * pr, sigma = sqrt(n * pr * q), gamma = (q - pr) / sigma;
 
-    R_DBG_printf("qbinom(p=%.12g, n=%.15g, pr=%.7g, l.t.=%d, log=%d): sigma=%g, gamma=%g;\n",
-		 p, n,pr, lower_tail, log_p, sigma, gamma);
+    R_DBG_printf("qbinom(p=%.12g, n=%.15g, pr=%.7g, l.t.=%d, log=%d): sigma=%g, gamma=%g;\n", p, n, pr, lower_tail,
+                 log_p, sigma, gamma);
 
     q_DISCRETE_01_CHECKS();
     q_DISCRETE_BODY();

@@ -34,40 +34,46 @@ SEXP isoreg(SEXP y)
     PROTECT(ans = mkNamed(VECSXP, anms));
 
     SET_VECTOR_ELT(ans, 0, y);
-    SET_VECTOR_ELT(ans, 1, yc = allocVector(REALSXP, n+1));
+    SET_VECTOR_ELT(ans, 1, yc = allocVector(REALSXP, n + 1));
     SET_VECTOR_ELT(ans, 2, yf = allocVector(REALSXP, n));
-    SET_VECTOR_ELT(ans, 3, iKnots= allocVector(INTSXP, n));
+    SET_VECTOR_ELT(ans, 3, iKnots = allocVector(INTSXP, n));
 
-    if (n == 0) {
-	UNPROTECT(1); /* ans */
-	return ans; /* avoid segfault below */
+    if (n == 0)
+    {
+        UNPROTECT(1); /* ans */
+        return ans;   /* avoid segfault below */
     }
 
     /* yc := cumsum(0,y) */
     REAL(yc)[0] = 0.;
     tmp = 0.;
-    for (i = 0; i < n; i++) {
-	tmp += REAL(y)[i];
-	REAL(yc)[i + 1] = tmp;
+    for (i = 0; i < n; i++)
+    {
+        tmp += REAL(y)[i];
+        REAL(yc)[i + 1] = tmp;
     }
-    known = 0; ip = 0, n_ip = 0;
-    do {
-	slope = R_PosInf;/*1e+200*/
-	for (i = known + 1; i <= n; i++) {
-	    tmp = (REAL(yc)[i] - REAL(yc)[known]) / (i - known);
-	    if (tmp < slope) {
-		slope = tmp;
-		ip = i;
-	    }
-	}/* tmp := max{i= kn+1,.., n} slope(p[kn] -> p[i])  and
-	  *  ip = argmax{...}... */
-	INTEGER(iKnots)[n_ip++] = ip;
-	for (i = known; i < ip; i++)
-	    REAL(yf)[i] = (REAL(yc)[ip] - REAL(yc)[known]) / (ip - known);
+    known = 0;
+    ip = 0, n_ip = 0;
+    do
+    {
+        slope = R_PosInf; /*1e+200*/
+        for (i = known + 1; i <= n; i++)
+        {
+            tmp = (REAL(yc)[i] - REAL(yc)[known]) / (i - known);
+            if (tmp < slope)
+            {
+                slope = tmp;
+                ip = i;
+            }
+        } /* tmp := max{i= kn+1,.., n} slope(p[kn] -> p[i])  and
+           *  ip = argmax{...}... */
+        INTEGER(iKnots)[n_ip++] = ip;
+        for (i = known; i < ip; i++)
+            REAL(yf)[i] = (REAL(yc)[ip] - REAL(yc)[known]) / (ip - known);
     } while ((known = ip) < n);
 
     if (n_ip < n)
-	SET_VECTOR_ELT(ans, 3, lengthgets(iKnots, n_ip));
+        SET_VECTOR_ELT(ans, 3, lengthgets(iKnots, n_ip));
     UNPROTECT(1);
-    return(ans);
+    return (ans);
 }

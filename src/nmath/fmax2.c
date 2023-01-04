@@ -22,8 +22,8 @@
 double fmax2(double x, double y)
 {
 #ifdef IEEE_754
-	if (ISNAN(x) || ISNAN(y))
-		return x + y;
+    if (ISNAN(x) || ISNAN(y))
+        return x + y;
 #endif
-	return (x < y) ? y : x;
+    return (x < y) ? y : x;
 }

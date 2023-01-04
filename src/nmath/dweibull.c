@@ -30,18 +30,20 @@ double dweibull(double x, double shape, double scale, int give_log)
     double tmp1, tmp2;
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(shape) || ISNAN(scale))
-	return x + shape + scale;
+        return x + shape + scale;
 #endif
-    if (shape <= 0 || scale <= 0) ML_WARN_return_NAN;
+    if (shape <= 0 || scale <= 0)
+        ML_WARN_return_NAN;
 
-    if (x < 0) return R_D__0;
-    if (!R_FINITE(x)) return R_D__0;
+    if (x < 0)
+        return R_D__0;
+    if (!R_FINITE(x))
+        return R_D__0;
     /* need to handle x == 0 separately */
-    if(x == 0 && shape < 1) return ML_POSINF;
+    if (x == 0 && shape < 1)
+        return ML_POSINF;
     tmp1 = pow(x / scale, shape - 1);
     tmp2 = tmp1 * (x / scale);
     /* These are incorrect if tmp1 == 0 */
-    return  give_log ?
-	-tmp2 + log(shape * tmp1 / scale) :
-	shape * tmp1 * exp(-tmp2) / scale;
+    return give_log ? -tmp2 + log(shape * tmp1 / scale) : shape * tmp1 * exp(-tmp2) / scale;
 }

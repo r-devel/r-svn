@@ -43,7 +43,7 @@
 #include "internal.h"
 #include <richedit.h>
 
-# define alloca(x) __builtin_alloca((x))
+#define alloca(x) __builtin_alloca((x))
 
 /*
  *  Setting control call-backs.
@@ -51,111 +51,112 @@
 void setaction(control obj, actionfn fn)
 {
     if (obj)
-	obj->action = fn;
+        obj->action = fn;
 }
 
 void sethit(control obj, intfn fn)
 {
     if (obj)
-	obj->hit = fn;
+        obj->hit = fn;
 }
 
 void setdel(control obj, actionfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->die = fn;
+        if (obj->call)
+            obj->call->die = fn;
 }
 
 void setclose(control obj, actionfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->close = fn;
+        if (obj->call)
+            obj->call->close = fn;
 }
 
 void setredraw(control obj, drawfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->redraw = fn;
+        if (obj->call)
+            obj->call->redraw = fn;
 }
 
 void setresize(control obj, drawfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->resize = fn;
+        if (obj->call)
+            obj->call->resize = fn;
 }
 
 void setkeydown(control obj, keyfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->keydown = fn;
+        if (obj->call)
+            obj->call->keydown = fn;
 }
 
 void setkeyaction(control obj, keyfn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->keyaction = fn;
+        if (obj->call)
+            obj->call->keyaction = fn;
 }
 
 void setmousedown(control obj, mousefn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->mousedown = fn;
+        if (obj->call)
+            obj->call->mousedown = fn;
 }
 
 void setmouseup(control obj, mousefn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->mouseup = fn;
+        if (obj->call)
+            obj->call->mouseup = fn;
 }
 
 void setmousemove(control obj, mousefn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->mousemove = fn;
+        if (obj->call)
+            obj->call->mousemove = fn;
 }
 
 void setmousedrag(control obj, mousefn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->mousedrag = fn;
+        if (obj->call)
+            obj->call->mousedrag = fn;
 }
 
 void setmouserepeat(control obj, mousefn fn)
 {
     if (obj)
-	if (obj->call)
-	    obj->call->mouserepeat = fn;
+        if (obj->call)
+            obj->call->mouserepeat = fn;
 }
 
 void setdrop(control obj, dropfn fn)
 {
     if (obj)
-	if (obj->call) {
-	    DragAcceptFiles(obj->handle, TRUE);
-	    obj->call->drop = fn;
-	}
+        if (obj->call)
+        {
+            DragAcceptFiles(obj->handle, TRUE);
+            obj->call->drop = fn;
+        }
 }
 
 void setonfocus(control obj, actionfn fn)
 {
     if (obj)
-	obj->call->focus = fn;
+        obj->call->focus = fn;
 }
 
 void setim(control obj, imfn fn)
 {
     if (obj)
-	obj->call->im = fn;
+        obj->call->im = fn;
 }
 
 /*
@@ -166,22 +167,23 @@ void clear(control obj)
     drawing prev;
     rgb old;
 
-    if (! obj)
-	return;
-    if (! isvisible(obj))
-	return;
-    if (! isvisible(parentwindow(obj)))
-	return;
+    if (!obj)
+        return;
+    if (!isvisible(obj))
+        return;
+    if (!isvisible(parentwindow(obj)))
+        return;
     if (obj->bg == Transparent)
-	return;
+        return;
     prev = current->dest;
     drawto(obj);
     old = currentrgb();
     setrgb(obj->bg);
     fillrect(getrect(obj));
-    if (prev) {
-	setrgb(old);
-	drawto(prev);
+    if (prev)
+    {
+        setrgb(old);
+        drawto(prev);
     }
 }
 
@@ -190,27 +192,30 @@ void draw(control obj)
     drawing prev;
     drawstate old = NULL;
 
-    if (! obj)
-	return;
-    if (obj->kind == MenubarObject) {
-	DrawMenuBar(obj->parent->handle);
-	return;
+    if (!obj)
+        return;
+    if (obj->kind == MenubarObject)
+    {
+        DrawMenuBar(obj->parent->handle);
+        return;
     }
 
-    if (! isvisible(obj))
-	return;
-    if (! isvisible(parentwindow(obj)))
-	return;
+    if (!isvisible(obj))
+        return;
+    if (!isvisible(parentwindow(obj)))
+        return;
     if ((obj->call == NULL) || (obj->call->redraw == NULL))
-	return;
+        return;
     prev = current->dest;
     drawto(obj);
-    if (prev) old = copydrawstate();
-    moveto(pt(0,0));
+    if (prev)
+        old = copydrawstate();
+    moveto(pt(0, 0));
     obj->call->redraw(obj, getrect(obj));
-    if (prev) {
-	restoredrawstate(old);
-	drawto(prev);
+    if (prev)
+    {
+        restoredrawstate(old);
+        drawto(prev);
     }
 }
 
@@ -230,7 +235,6 @@ void redraw(control obj)
 /*      r->height = W.bottom - W.top; */
 /*  } */
 
-
 /* The original here used GetWindowRect (which used screen coordinates)
    and MoveWindow (which uses client coordinates) so got the positioning
    hopelessly wrong.  This version works for WindowObjects, but I would be
@@ -242,37 +246,41 @@ void resize(control obj, rect r)
     WINDOWPLACEMENT W;
     int dw, dh, dx, dy;
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     r = rcanon(r);
-    if (obj->kind == WindowObject) {
-	W.length = sizeof(WINDOWPLACEMENT);
-	r.x = obj->rect.x;
-	r.y = obj->rect.y;
-	if (!equalr(r, obj->rect)) {
-	    GetWindowPlacement(obj->handle, &W);
-	    if (!isvisible(obj)) W.showCmd = SW_HIDE;  /* stops the resize from revealing the window */
-	    dx = r.x - obj->rect.x;
-	    dy = r.y - obj->rect.y;
-	    /* don't believe current sizes!
-	       dw = r.width - obj->rect.width;
-	       dh = r.height - obj->rect.height;
-	       Rprintf("dw %d dh %d\n", dw, dh); */
-	    GetClientRect(obj->handle, &R);
-	    dw = r.width - (R.right - R.left);
-	    dh = r.height - (R.bottom - R.top);
-	    W.rcNormalPosition.left += dx;
-	    W.rcNormalPosition.top += dy;
-	    W.rcNormalPosition.right += dx + dw;
-	    W.rcNormalPosition.bottom += dy + dh;
-	    SetWindowPlacement(obj->handle, &W);
-	}
+    if (obj->kind == WindowObject)
+    {
+        W.length = sizeof(WINDOWPLACEMENT);
+        r.x = obj->rect.x;
+        r.y = obj->rect.y;
+        if (!equalr(r, obj->rect))
+        {
+            GetWindowPlacement(obj->handle, &W);
+            if (!isvisible(obj))
+                W.showCmd = SW_HIDE; /* stops the resize from revealing the window */
+            dx = r.x - obj->rect.x;
+            dy = r.y - obj->rect.y;
+            /* don't believe current sizes!
+               dw = r.width - obj->rect.width;
+               dh = r.height - obj->rect.height;
+               Rprintf("dw %d dh %d\n", dw, dh); */
+            GetClientRect(obj->handle, &R);
+            dw = r.width - (R.right - R.left);
+            dh = r.height - (R.bottom - R.top);
+            W.rcNormalPosition.left += dx;
+            W.rcNormalPosition.top += dy;
+            W.rcNormalPosition.right += dx + dw;
+            W.rcNormalPosition.bottom += dy + dh;
+            SetWindowPlacement(obj->handle, &W);
+        }
     }
-    else {
-	if (! equalr(r, obj->rect))
-	    MoveWindow(obj->handle, r.x, r.y, r.width, r.height, 1);
-	obj->rect.x = r.x;
-	obj->rect.y = r.y;
+    else
+    {
+        if (!equalr(r, obj->rect))
+            MoveWindow(obj->handle, r.x, r.y, r.width, r.height, 1);
+        obj->rect.x = r.x;
+        obj->rect.y = r.y;
     }
     obj->rect.width = r.width;
     obj->rect.height = r.height;
@@ -283,45 +291,55 @@ void resize(control obj, rect r)
  */
 void show(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject: case MenuitemObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+    case MenuitemObject:
+        break;
     case WindowObject:
-	obj->state |= GA_Visible;
-	show_window(obj);
-	break;
+        obj->state |= GA_Visible;
+        show_window(obj);
+        break;
     default:
-	ShowWindow(obj->handle, SW_SHOWNORMAL);
-	SetFocus(obj->handle);
-	UpdateWindow(obj->handle);
+        ShowWindow(obj->handle, SW_SHOWNORMAL);
+        SetFocus(obj->handle);
+        UpdateWindow(obj->handle);
     }
     obj->state |= GA_Visible;
 }
 
 void hide(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject: case MenuitemObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+    case MenuitemObject:
+        break;
     case WindowObject:
-	hide_window(obj);
-	break;
+        hide_window(obj);
+        break;
     default:
-	ShowWindow(obj->handle, SW_HIDE);
+        ShowWindow(obj->handle, SW_HIDE);
     }
     obj->state &= ~GA_Visible;
 }
 
 int isvisible(control obj)
 {
-    if (! obj)
-	return 0;
+    if (!obj)
+        return 0;
     return (obj->state & GA_Visible) ? 1 : 0;
 }
 
@@ -330,58 +348,68 @@ int isvisible(control obj)
  */
 void enable(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
     case MenubarObject:
-	break;
-    case MenuObject: case MenuitemObject:
-	EnableMenuItem(obj->parent->handle,
-		       obj->id, MF_ENABLED | MF_BYCOMMAND);
-	break;
-    case FieldObject: case TextboxObject:
-	sendmessage(obj->handle, EM_SETREADONLY, FALSE, 0L);
-	break;
+        break;
+    case MenuObject:
+    case MenuitemObject:
+        EnableMenuItem(obj->parent->handle, obj->id, MF_ENABLED | MF_BYCOMMAND);
+        break;
+    case FieldObject:
+    case TextboxObject:
+        sendmessage(obj->handle, EM_SETREADONLY, FALSE, 0L);
+        break;
     default:
-	if (! isenabled(obj)) {
-	    EnableWindow(obj->handle, 1);
-	    obj->state |= GA_Enabled;
-	    draw(obj);
-	}
+        if (!isenabled(obj))
+        {
+            EnableWindow(obj->handle, 1);
+            obj->state |= GA_Enabled;
+            draw(obj);
+        }
     }
     obj->state |= GA_Enabled;
 }
 
 void disable(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+        break;
     case MenuitemObject:
-	EnableMenuItem(obj->parent->handle,
-		       obj->id, MF_GRAYED | MF_BYCOMMAND);
-	break;
-    case FieldObject: case TextboxObject:
-	sendmessage(obj->handle, EM_SETREADONLY, TRUE, 0L);
-	break;
+        EnableMenuItem(obj->parent->handle, obj->id, MF_GRAYED | MF_BYCOMMAND);
+        break;
+    case FieldObject:
+    case TextboxObject:
+        sendmessage(obj->handle, EM_SETREADONLY, TRUE, 0L);
+        break;
     default:
-	if (isenabled(obj)) {
-	    EnableWindow(obj->handle, 0);
-	    obj->state &= ~GA_Enabled;
-	    draw(obj);
-	}
+        if (isenabled(obj))
+        {
+            EnableWindow(obj->handle, 0);
+            obj->state &= ~GA_Enabled;
+            draw(obj);
+        }
     }
     obj->state &= ~GA_Enabled;
 }
 
 int isenabled(control obj)
 {
-    if (! obj)
-	return 0;
+    if (!obj)
+        return 0;
     return (obj->state & GA_Enabled) ? 1 : 0;
 }
 
@@ -390,71 +418,80 @@ int isenabled(control obj)
  */
 void check(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+        break;
     case MenuitemObject:
-	CheckMenuItem(obj->parent->handle, obj->id,
-		      MF_CHECKED | MF_BYCOMMAND);
-	break;
+        CheckMenuItem(obj->parent->handle, obj->id, MF_CHECKED | MF_BYCOMMAND);
+        break;
 #if USE_NATIVE_BUTTONS
     case ButtonObject:
-	sendmessage(obj->handle, BM_SETCHECK, 1, 0L);
-	break;
+        sendmessage(obj->handle, BM_SETCHECK, 1, 0L);
+        break;
 #endif
 #if USE_NATIVE_TOGGLES
-    case CheckboxObject: case RadioObject:
-	sendmessage(obj->handle, BM_SETCHECK, 1, 0L);
-	break;
+    case CheckboxObject:
+    case RadioObject:
+        sendmessage(obj->handle, BM_SETCHECK, 1, 0L);
+        break;
 #endif
     default:
-	if (! ischecked(obj)) {
-	    obj->state |= GA_Checked;
-	    draw(obj);
-	}
+        if (!ischecked(obj))
+        {
+            obj->state |= GA_Checked;
+            draw(obj);
+        }
     }
     obj->state |= GA_Checked;
-
 }
 
 void uncheck(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+        break;
     case MenuitemObject:
-	CheckMenuItem(obj->parent->handle, obj->id,
-		      MF_UNCHECKED | MF_BYCOMMAND);
-	break;
+        CheckMenuItem(obj->parent->handle, obj->id, MF_UNCHECKED | MF_BYCOMMAND);
+        break;
 #if USE_NATIVE_BUTTONS
     case ButtonObject:
-	sendmessage(obj->handle, BM_SETCHECK, 0, 0L);
-	break;
+        sendmessage(obj->handle, BM_SETCHECK, 0, 0L);
+        break;
 #endif
 #if USE_NATIVE_TOGGLES
-    case CheckboxObject: case RadioObject:
-	sendmessage(obj->handle, BM_SETCHECK, 0, 0L);
-	break;
+    case CheckboxObject:
+    case RadioObject:
+        sendmessage(obj->handle, BM_SETCHECK, 0, 0L);
+        break;
 #endif
     default:
-	if (ischecked(obj)) {
-	    obj->state &= ~GA_Checked;
-	    draw(obj);
-	}
+        if (ischecked(obj))
+        {
+            obj->state &= ~GA_Checked;
+            draw(obj);
+        }
     }
     obj->state &= ~GA_Checked;
 }
 
 int ischecked(control obj)
 {
-    if (! obj)
-	return 0;
+    if (!obj)
+        return 0;
     return (obj->state & GA_Checked) ? 1 : 0;
 }
 
@@ -463,68 +500,84 @@ int ischecked(control obj)
  */
 void highlight(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject: case MenuitemObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+    case MenuitemObject:
+        break;
 #if USE_NATIVE_BUTTONS
     case ButtonObject:
-	sendmessage(obj->handle, BM_SETSTATE, 1, 0L);
-	break;
+        sendmessage(obj->handle, BM_SETSTATE, 1, 0L);
+        break;
 #endif
 #if USE_NATIVE_TOGGLES
-    case CheckboxObject: case RadioObject:
-	sendmessage(obj->handle, BM_SETSTATE, 1, 0L);
-	break;
+    case CheckboxObject:
+    case RadioObject:
+        sendmessage(obj->handle, BM_SETSTATE, 1, 0L);
+        break;
 #endif
-    case FieldObject: case TextboxObject:
-	sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(0,-1));
-	break;
+    case FieldObject:
+    case TextboxObject:
+        sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(0, -1));
+        break;
     default:
-	if (! ishighlighted(obj)) {
-	    obj->state |= GA_Highlighted;
-	    draw(obj);
-	}
+        if (!ishighlighted(obj))
+        {
+            obj->state |= GA_Highlighted;
+            draw(obj);
+        }
     }
     obj->state |= GA_Highlighted;
 }
 
 void unhighlight(control obj)
 {
-    if (! obj)
-	return;
-    switch (obj->kind) {
-    case CursorObject: case FontObject: case BitmapObject:
-    case MenubarObject: case MenuObject: case MenuitemObject:
-	break;
+    if (!obj)
+        return;
+    switch (obj->kind)
+    {
+    case CursorObject:
+    case FontObject:
+    case BitmapObject:
+    case MenubarObject:
+    case MenuObject:
+    case MenuitemObject:
+        break;
 #if USE_NATIVE_BUTTONS
     case ButtonObject:
-	sendmessage(obj->handle, BM_SETSTATE, 0, 0L);
-	break;
+        sendmessage(obj->handle, BM_SETSTATE, 0, 0L);
+        break;
 #endif
 #if USE_NATIVE_TOGGLES
-    case CheckboxObject: case RadioObject:
-	sendmessage(obj->handle, BM_SETSTATE, 0, 0L);
-	break;
+    case CheckboxObject:
+    case RadioObject:
+        sendmessage(obj->handle, BM_SETSTATE, 0, 0L);
+        break;
 #endif
-    case FieldObject: case TextboxObject:
-	sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(0,0));
-	break;
+    case FieldObject:
+    case TextboxObject:
+        sendmessage(obj->handle, EM_SETSEL, 0, MAKELONG(0, 0));
+        break;
     default:
-	if (ishighlighted(obj)) {
-	    obj->state &= ~GA_Highlighted;
-	    draw(obj);
-	}
+        if (ishighlighted(obj))
+        {
+            obj->state &= ~GA_Highlighted;
+            draw(obj);
+        }
     }
     obj->state &= ~GA_Highlighted;
 }
 
 int ishighlighted(control obj)
 {
-    if (! obj)
-	return 0;
+    if (!obj)
+        return 0;
     return (obj->state & GA_Highlighted) ? 1 : 0;
 }
 
@@ -559,13 +612,13 @@ void flashcontrol(control obj)
  */
 void activatecontrol(control obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     drawto(obj);
     if (obj->action != NULL)
-	obj->action(obj);
+        obj->action(obj);
     else if (obj->hit != NULL)
-	obj->hit(obj, obj->value);
+        obj->hit(obj, obj->value);
 }
 
 /*
@@ -591,87 +644,94 @@ long getstate(control obj)
 void setvalue(control obj, int value)
 {
     if (obj)
-	obj->value = value;
+        obj->value = value;
 }
 
 int getvalue(control obj)
 {
     if (obj)
-	return obj->value;
+        return obj->value;
     else
-	return 0;
+        return 0;
 }
 
 void setforeground(control obj, rgb fg)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     obj->fg = fg;
-    if (obj->kind == TextboxObject) {
-    	if (obj->handle) {    
-    	    CHARFORMAT format;
-    	    COLORREF wincolour = RGB((fg&gaRed)>>16,(fg&gaGreen)>>8,(fg&gaBlue)); 
-    	    format.cbSize = sizeof(format);
-    	    format.dwMask = CFM_COLOR;
-    	    format.dwEffects = 0;
-    	    format.crTextColor = wincolour;
+    if (obj->kind == TextboxObject)
+    {
+        if (obj->handle)
+        {
+            CHARFORMAT format;
+            COLORREF wincolour = RGB((fg & gaRed) >> 16, (fg & gaGreen) >> 8, (fg & gaBlue));
+            format.cbSize = sizeof(format);
+            format.dwMask = CFM_COLOR;
+            format.dwEffects = 0;
+            format.crTextColor = wincolour;
 
-	    sendmessage(obj->handle, EM_SETCHARFORMAT, 0, (LPARAM)&format);
-	}
-    } else {
-    	InvalidateRect(obj->handle, NULL, TRUE);
-    	redraw(obj);
+            sendmessage(obj->handle, EM_SETCHARFORMAT, 0, (LPARAM)&format);
+        }
+    }
+    else
+    {
+        InvalidateRect(obj->handle, NULL, TRUE);
+        redraw(obj);
     }
 }
 
 rgb getforeground(control obj)
 {
     if (obj)
-	return obj->fg;
+        return obj->fg;
     else
-	return Black;
+        return Black;
 }
 
 void setbackground(control obj, rgb bg)
 {
-    COLORREF wincolour = RGB((bg&gaRed)>>16,(bg&gaGreen)>>8,(bg&gaBlue));
+    COLORREF wincolour = RGB((bg & gaRed) >> 16, (bg & gaGreen) >> 8, (bg & gaBlue));
 
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     obj->bg = bg;
-    if (obj->kind == TextboxObject) {
-    	if (obj->handle)
-	    sendmessage(obj->handle, EM_SETBKGNDCOLOR, 0, wincolour);
-    } else {
-    	if (obj->bgbrush)
-	    DeleteObject(obj->bgbrush);
-    	obj->bgbrush = CreateSolidBrush(wincolour);
+    if (obj->kind == TextboxObject)
+    {
+        if (obj->handle)
+            sendmessage(obj->handle, EM_SETBKGNDCOLOR, 0, wincolour);
+    }
+    else
+    {
+        if (obj->bgbrush)
+            DeleteObject(obj->bgbrush);
+        obj->bgbrush = CreateSolidBrush(wincolour);
 
-    	InvalidateRect(obj->handle, NULL, TRUE);
-    	redraw(obj);
+        InvalidateRect(obj->handle, NULL, TRUE);
+        redraw(obj);
     }
 }
 
 rgb getbackground(control obj)
 {
     if (obj)
-	return obj->bg;
+        return obj->bg;
     else
-	return Transparent;
+        return Transparent;
 }
 
 void setdata(control obj, void *data)
 {
     if (obj)
-	obj->data = data;
+        obj->data = data;
 }
 
 void *getdata(control obj)
 {
     if (obj)
-	return obj->data;
+        return obj->data;
     else
-	return NULL;
+        return NULL;
 }
 
 /* These two are in none of the headers */
@@ -679,15 +739,15 @@ void *getdata(control obj)
 void _setextradata(control obj, void *data)
 {
     if (obj)
-	obj->extra = data;
+        obj->extra = data;
 }
 
 void *_getextradata(control obj)
 {
     if (obj)
-	return obj->extra;
+        return obj->extra;
     else
-	return NULL;
+        return NULL;
 }
 #endif
 
@@ -700,50 +760,55 @@ void settext(control obj, const char *text)
 {
     char *old_text;
 
-    if (! obj)
-	return;
-    if (! text)
-	text = "";
+    if (!obj)
+        return;
+    if (!text)
+        text = "";
     old_text = GA_gettext(obj);
     if (old_text && strcmp(old_text, text) == 0)
-	return; /* no changes to be made */
-    if (obj->text) {
-	/* discard prior information */
-	discard(obj->text);
-	obj->text = NULL;
+        return; /* no changes to be made */
+    if (obj->text)
+    {
+        /* discard prior information */
+        discard(obj->text);
+        obj->text = NULL;
     }
     /* Set the new text. */
     obj->text = new_string(text);
-    if (text) {
-	if (obj->kind & ControlObject) {
-	    text = to_dos_string(text);
-	    if(localeCP > 0 && (localeCP != GetACP())) {
-		/* This seems not actually to work */
-		wchar_t *wc;
-		int nc = strlen(text) + 1;
-		wc = (wchar_t*) alloca(nc*sizeof(wchar_t));
-		mbstowcs(wc, text, nc);
-		SetWindowTextW(obj->handle, wc);
-	    } else SetWindowText(obj->handle, text);
-	    discard(text);
-	}
-	if (obj->kind == MenuitemObject) {
-	    if(localeCP > 0 && (localeCP != GetACP())) {
-		/* But this does */
-		wchar_t wc[1000];
-		mbstowcs(wc, text, 1000);
-		ModifyMenuW(obj->parent->handle, obj->id,
-			    MF_BYCOMMAND|MF_STRING, obj->id, wc);
-
-	    } else
-		ModifyMenu(obj->parent->handle, obj->id,
-			   MF_BYCOMMAND|MF_STRING, obj->id, text);
-	}
-
+    if (text)
+    {
+        if (obj->kind & ControlObject)
+        {
+            text = to_dos_string(text);
+            if (localeCP > 0 && (localeCP != GetACP()))
+            {
+                /* This seems not actually to work */
+                wchar_t *wc;
+                int nc = strlen(text) + 1;
+                wc = (wchar_t *)alloca(nc * sizeof(wchar_t));
+                mbstowcs(wc, text, nc);
+                SetWindowTextW(obj->handle, wc);
+            }
+            else
+                SetWindowText(obj->handle, text);
+            discard(text);
+        }
+        if (obj->kind == MenuitemObject)
+        {
+            if (localeCP > 0 && (localeCP != GetACP()))
+            {
+                /* But this does */
+                wchar_t wc[1000];
+                mbstowcs(wc, text, 1000);
+                ModifyMenuW(obj->parent->handle, obj->id, MF_BYCOMMAND | MF_STRING, obj->id, wc);
+            }
+            else
+                ModifyMenu(obj->parent->handle, obj->id, MF_BYCOMMAND | MF_STRING, obj->id, text);
+        }
     }
     /* Redraw it if it's a redrawable object. */
     if (obj->call && obj->call->redraw)
-	redraw(obj);
+        redraw(obj);
 }
 
 /*
@@ -760,56 +825,59 @@ char *GA_gettext(control obj)
     UINT len_msg, gettext_msg;
     WPARAM arg1, arg2;
 
-    if (! obj)
-	return empty;
+    if (!obj)
+        return empty;
     if ((obj->kind & ControlObject) == 0)
-	return obj->text ? obj->text : empty;
+        return obj->text ? obj->text : empty;
 
     hwnd = obj->handle;
 
-    switch (obj->kind) {
+    switch (obj->kind)
+    {
     case ListboxObject:
     case MultilistObject:
-	len_msg = LB_GETTEXTLEN;
-	gettext_msg = LB_GETTEXT;
-	index = getlistitem(obj);
-	if (index < 0) return empty;
-	arg1 = arg2 = index;
-	break;
+        len_msg = LB_GETTEXTLEN;
+        gettext_msg = LB_GETTEXT;
+        index = getlistitem(obj);
+        if (index < 0)
+            return empty;
+        arg1 = arg2 = index;
+        break;
     case DroplistObject:
-	len_msg = CB_GETLBTEXTLEN;
-	gettext_msg = CB_GETLBTEXT;
-	index = getlistitem(obj);
-	if (index < 0) return empty;
-	arg1 = arg2 = index;
-	break;
+        len_msg = CB_GETLBTEXTLEN;
+        gettext_msg = CB_GETLBTEXT;
+        index = getlistitem(obj);
+        if (index < 0)
+            return empty;
+        arg1 = arg2 = index;
+        break;
     case DropfieldObject:
-	// use default mechanism
+    // use default mechanism
     default:
-	len_msg = WM_GETTEXTLENGTH;
-	gettext_msg = WM_GETTEXT;
-	arg1 = 0;
-	/* FIXME: INT in wine/riched20, unsigned types in other */
-	arg2 = (LRESULT) sendmessage(hwnd, len_msg, 0, 0L)+1;
-	break;
+        len_msg = WM_GETTEXTLENGTH;
+        gettext_msg = WM_GETTEXT;
+        arg1 = 0;
+        /* FIXME: INT in wine/riched20, unsigned types in other */
+        arg2 = (LRESULT)sendmessage(hwnd, len_msg, 0, 0L) + 1;
+        break;
     }
 
     /* Free any previous information. */
     if (obj->text)
-	discard(obj->text);
+        discard(obj->text);
     /* Find the length of the string. */
     /* FIXME: properly cast the result */
-    length = (LRESULT) sendmessage(obj->handle, len_msg, arg1, 0L);
+    length = (LRESULT)sendmessage(obj->handle, len_msg, arg1, 0L);
     if (length == 0)
-	return (obj->text = new_string(NULL));
+        return (obj->text = new_string(NULL));
     /* Copy the text from the object. */
-    text = array(length+2, char);
-    sendmessage(obj->handle, gettext_msg, arg2, (LPCSTR) text);
+    text = array(length + 2, char);
+    sendmessage(obj->handle, gettext_msg, arg2, (LPCSTR)text);
     obj->text = to_c_string(text);
     discard(text);
     /* Return the resultant string. */
-    if (! obj->text)
-	obj->text = new_string(NULL);
+    if (!obj->text)
+        obj->text = new_string(NULL);
     return obj->text;
 }
 
@@ -818,17 +886,19 @@ char *GA_gettext(control obj)
  */
 void settextfont(object obj, font f)
 {
-    if (! obj)
-	return;
-    if (! f)
-	f = SystemFont;
-    if (obj->drawstate) {
-	decrease_refcount(obj->drawstate->fnt);
-	obj->drawstate->fnt = f;
-	increase_refcount(f);
+    if (!obj)
+        return;
+    if (!f)
+        f = SystemFont;
+    if (obj->drawstate)
+    {
+        decrease_refcount(obj->drawstate->fnt);
+        obj->drawstate->fnt = f;
+        increase_refcount(f);
     }
-    else {
-	sendmessage(obj->handle, WM_SETFONT, f->handle, 0L);
+    else
+    {
+        sendmessage(obj->handle, WM_SETFONT, f->handle, 0L);
     }
 }
 
@@ -838,12 +908,13 @@ void settextfont(object obj, font f)
 font gettextfont(object obj)
 {
     font f = NULL;
-    if (obj) {
-	if (obj->drawstate)
-	    f = obj->drawstate->fnt;
+    if (obj)
+    {
+        if (obj->drawstate)
+            f = obj->drawstate->fnt;
     }
-    if (! f)
-	f = SystemFont;
+    if (!f)
+        f = SystemFont;
     return f;
 }
 
@@ -853,12 +924,13 @@ font gettextfont(object obj)
  */
 window parentwindow(control obj)
 {
-    while (obj) {
-	if (obj->kind == WindowObject)
-	    break;
-	obj = obj->parent;
+    while (obj)
+    {
+        if (obj->kind == WindowObject)
+            break;
+        obj = obj->parent;
     }
-    return (window) obj;
+    return (window)obj;
 }
 
 /*
@@ -869,27 +941,28 @@ rect objrect(object obj)
     rect r;
     image img;
 
-    if (! obj)
-	return rect(0,0,0,0);
+    if (!obj)
+        return rect(0, 0, 0, 0);
 
     switch (obj->kind)
     {
-    case Image8: case Image32:
-	img = (image) obj;
-	r = rect(0,0,img->width,img->height);
-	break;
+    case Image8:
+    case Image32:
+        img = (image)obj;
+        r = rect(0, 0, img->width, img->height);
+        break;
     case BitmapObject:
     case FontObject:
     case CursorObject:
     case PrinterObject:
-	r = obj->rect;
-	break;
+        r = obj->rect;
+        break;
     case MetafileObject:
-	r = obj->rect;
-	break;
+        r = obj->rect;
+        break;
     default:
-	GetClientRect(obj->handle, rect2RECT(&r));
-	break;
+        GetClientRect(obj->handle, rect2RECT(&r));
+        break;
     }
     return r;
 }
@@ -911,24 +984,25 @@ int objdepth(object obj)
     HDC screendc;
     int depth;
 
-    if (! obj)
-	return 0;
+    if (!obj)
+        return 0;
 
     switch (obj->kind)
     {
-    case Image8: case Image32:
-	depth = ((image)obj)->depth;
-	break;
+    case Image8:
+    case Image32:
+        depth = ((image)obj)->depth;
+        break;
     case BitmapObject:
-    case FontObject: case CursorObject:
-	depth = obj->depth;
-	break;
+    case FontObject:
+    case CursorObject:
+        depth = obj->depth;
+        break;
     default:
-	screendc = GetDC(NULL);
-	depth = GetDeviceCaps(screendc, BITSPIXEL) *
-	    GetDeviceCaps(screendc, PLANES);
-	ReleaseDC(NULL, screendc);
-	break;
+        screendc = GetDC(NULL);
+        depth = GetDeviceCaps(screendc, BITSPIXEL) * GetDeviceCaps(screendc, PLANES);
+        ReleaseDC(NULL, screendc);
+        break;
     }
 
     return depth;
@@ -936,66 +1010,72 @@ int objdepth(object obj)
 
 void delobj(object obj)
 {
-    if (! obj)
-	return;
+    if (!obj)
+        return;
     switch (obj->kind)
     {
     case Image8:
     case Image32:
-	delimage((image)obj);
-	break;
+        delimage((image)obj);
+        break;
     default:
-	/* if (obj->refcount == 1)   why would this test be here?? */
-	decrease_refcount(obj);
-	break;
+        /* if (obj->refcount == 1)   why would this test be here?? */
+        decrease_refcount(obj);
+        break;
     }
 }
 
 void setcaret(object obj, int x, int y, int width, int height)
 {
-    if (! obj)
-    	return;
-    if (width > 0 && !(obj->state & GA_Focus)) {
-	/* prevent against accidental corruption of caret data while not in focus,
-	   such as during a screen redraw triggered by disabling the window when
-	   using the menu (e.g. when accessing GUI preferences from the console) */
-	return;
+    if (!obj)
+        return;
+    if (width > 0 && !(obj->state & GA_Focus))
+    {
+        /* prevent against accidental corruption of caret data while not in focus,
+           such as during a screen redraw triggered by disabling the window when
+           using the menu (e.g. when accessing GUI preferences from the console) */
+        return;
     }
-    if (width != obj->caretwidth || height != obj->caretheight) {
-	if (obj->caretwidth > 0) {
-	  if (obj->caretshowing) /* preserve caretshowing */
-              HideCaret(obj->handle);
-	  /* we destroy the WinAPI caret also when loosing focus, as suggested */
-	  /* in Microsoft documentation */
-	  DestroyCaret();
-	  obj->caretexists = 0;
+    if (width != obj->caretwidth || height != obj->caretheight)
+    {
+        if (obj->caretwidth > 0)
+        {
+            if (obj->caretshowing) /* preserve caretshowing */
+                HideCaret(obj->handle);
+            /* we destroy the WinAPI caret also when loosing focus, as suggested */
+            /* in Microsoft documentation */
+            DestroyCaret();
+            obj->caretexists = 0;
         }
-	obj->caretwidth = width;
-	obj->caretheight = height;
-	if (width > 0) {
-	    if (obj->state & GA_Focus) {
-		CreateCaret(obj->handle, (HBITMAP) NULL, width, height);
-		obj->caretexists = 1;
-	        if (obj->caretshowing)
-		    /* match preserved caretshowing */
-		    ShowCaret(obj->handle);
+        obj->caretwidth = width;
+        obj->caretheight = height;
+        if (width > 0)
+        {
+            if (obj->state & GA_Focus)
+            {
+                CreateCaret(obj->handle, (HBITMAP)NULL, width, height);
+                obj->caretexists = 1;
+                if (obj->caretshowing)
+                    /* match preserved caretshowing */
+                    ShowCaret(obj->handle);
             }
-	}
+        }
     }
-    if (obj->state & GA_Focus) {
-    	SetCaretPos(x, y);
-	obj->caretx = x;
-	obj->carety = y;
+    if (obj->state & GA_Focus)
+    {
+        SetCaretPos(x, y);
+        obj->caretx = x;
+        obj->carety = y;
     }
 }
 
 void showcaret(object obj, int showing)
 {
-    if (! obj || ! obj->caretexists || showing == obj->caretshowing)
-    	return;
+    if (!obj || !obj->caretexists || showing == obj->caretshowing)
+        return;
     obj->caretshowing = showing;
     if (showing)
-    	ShowCaret(obj->handle);
+        ShowCaret(obj->handle);
     else
-    	HideCaret(obj->handle);
+        HideCaret(obj->handle);
 }

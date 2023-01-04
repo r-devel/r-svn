@@ -28,74 +28,85 @@ extern char *getRHOME(int); /* in ../rhome.c */
 extern size_t quoted_arg_len(const char *arg); /* in rcmdfn.c */
 extern char *quoted_arg_cat(char *dest, const char *arg);
 
-static void Usage (char *RCMD, char *arch)
+static void Usage(char *RCMD, char *arch)
 {
     fprintf(stderr, "%s %s %s", "Usage:", RCMD, "[command args]\n\n");
-    fprintf(stderr, "%s%s%s",
-	    "where 'command args' can be\n\n",
-	    "  --arch n   for n=i386, x64, 32 or 64\n",
-	    "  any other arguments listed by ");
+    fprintf(stderr, "%s%s%s", "where 'command args' can be\n\n", "  --arch n   for n=i386, x64, 32 or 64\n",
+            "  any other arguments listed by ");
     fprintf(stderr, "%s --arch %s --help\n", RCMD, arch);
 }
 
 #define CMD_LEN 10000
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     int cmdarg = 1;
     int interactive = 0;
     char arch[10] = R_ARCH, cmd[CMD_LEN], *p;
 
-    if (argc > 1 && strcmp(argv[1], "--help") == 0) {
-	Usage(argv[0], arch);
-	exit(0);
-    }
-    
-    if (argc > 1 && strcmp(argv[1], "--arch") == 0) {
-	cmdarg = 3;
-	if(argc < 3) {
-	    Usage(argv[0], arch);
-	    exit(0);
-	}
-	strncpy(arch, argv[2], 10); arch[9] = '\0';
-	if(strcmp(arch, "32") == 0) strcpy(arch, "i386");
-	if(strcmp(arch, "64") == 0) strcpy(arch, "x64");
-	if(strcmp(arch, "i386") && strcmp(arch, "x64")) {
-	    fprintf(stderr, "valid values for --arch are i386, x64, 32, 64\n");
-	    exit(1);
-	}
-    } else if ((p = getenv("R_ARCH"))) {
-	strncpy(arch, p+1, 10 - 1); /* skip leading slash */
-	arch[10 - 1] = '\0';
-    }
-    
-    if (stricmp(argv[0] + strlen(argv[0]) - 11, "Rscript.exe") == 0
-	|| stricmp(argv[0] + strlen(argv[0]) - 7, "Rscript") == 0)
-	snprintf(cmd, CMD_LEN, "\"\"%s\\bin\\%s\\Rscript.exe\"", getRHOME(2), arch);
-    else {
-    	snprintf(cmd, CMD_LEN, "\"\"%s\\bin\\%s\\R.exe\"", getRHOME(2), arch);
-	interactive = 1;
+    if (argc > 1 && strcmp(argv[1], "--help") == 0)
+    {
+        Usage(argv[0], arch);
+        exit(0);
     }
 
-    for(int i = cmdarg; i < argc; i++) {
-	if (interactive && !strcmp(argv[i], "CMD"))
-	    interactive = 0;
-	if (strlen(cmd) + quoted_arg_len(argv[i]) + 2 > CMD_LEN) {
-	    fprintf(stderr, "command line too long\n");
-	    exit(27);
-	}
-	strcat(cmd, " ");
-	quoted_arg_cat(cmd, argv[i]);
+    if (argc > 1 && strcmp(argv[1], "--arch") == 0)
+    {
+        cmdarg = 3;
+        if (argc < 3)
+        {
+            Usage(argv[0], arch);
+            exit(0);
+        }
+        strncpy(arch, argv[2], 10);
+        arch[9] = '\0';
+        if (strcmp(arch, "32") == 0)
+            strcpy(arch, "i386");
+        if (strcmp(arch, "64") == 0)
+            strcpy(arch, "x64");
+        if (strcmp(arch, "i386") && strcmp(arch, "x64"))
+        {
+            fprintf(stderr, "valid values for --arch are i386, x64, 32, 64\n");
+            exit(1);
+        }
+    }
+    else if ((p = getenv("R_ARCH")))
+    {
+        strncpy(arch, p + 1, 10 - 1); /* skip leading slash */
+        arch[10 - 1] = '\0';
+    }
+
+    if (stricmp(argv[0] + strlen(argv[0]) - 11, "Rscript.exe") == 0 ||
+        stricmp(argv[0] + strlen(argv[0]) - 7, "Rscript") == 0)
+        snprintf(cmd, CMD_LEN, "\"\"%s\\bin\\%s\\Rscript.exe\"", getRHOME(2), arch);
+    else
+    {
+        snprintf(cmd, CMD_LEN, "\"\"%s\\bin\\%s\\R.exe\"", getRHOME(2), arch);
+        interactive = 1;
+    }
+
+    for (int i = cmdarg; i < argc; i++)
+    {
+        if (interactive && !strcmp(argv[i], "CMD"))
+            interactive = 0;
+        if (strlen(cmd) + quoted_arg_len(argv[i]) + 2 > CMD_LEN)
+        {
+            fprintf(stderr, "command line too long\n");
+            exit(27);
+        }
+        strcat(cmd, " ");
+        quoted_arg_cat(cmd, argv[i]);
     }
     /* the outermost double quotes are needed for cmd.exe */
-    if (strlen(cmd) + 1 > CMD_LEN) {
-	fprintf(stderr, "command line too long\n");
-	exit(27);
+    if (strlen(cmd) + 1 > CMD_LEN)
+    {
+        fprintf(stderr, "command line too long\n");
+        exit(27);
     }
     strcat(cmd, "\"");
 
     if (interactive)
-	/* Ignore Ctrl-C so that Rterm.exe can handle it */
-	SetConsoleCtrlHandler(NULL, TRUE);   
-    
+        /* Ignore Ctrl-C so that Rterm.exe can handle it */
+        SetConsoleCtrlHandler(NULL, TRUE);
+
     exit(system(cmd));
- }
+}

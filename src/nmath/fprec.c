@@ -60,51 +60,69 @@ double fprec(double x, double digits)
     double l10, pow10, sgn, p10, P10;
     int e10, e2, do_round, dig;
     // Max.expon. of 10 (w/o denormalizing or overflow; = R's  trunc( log10(.Machine$double.xmax) )
-    const static int max10e = (int) DBL_MAX_10_EXP; // == 308 ("IEEE")
+    const static int max10e = (int)DBL_MAX_10_EXP; // == 308 ("IEEE")
 
     if (ISNAN(x) || ISNAN(digits))
-	return x + digits;
-    if (!R_FINITE(x)) return x;
-    if (!R_FINITE(digits)) {
-	if(digits > 0.0) return x;
-	else digits = 1.0;
+        return x + digits;
+    if (!R_FINITE(x))
+        return x;
+    if (!R_FINITE(digits))
+    {
+        if (digits > 0.0)
+            return x;
+        else
+            digits = 1.0;
     }
-    if(x == 0) return x;
+    if (x == 0)
+        return x;
     dig = (int)round(digits);
-    if (dig > MAX_DIGITS) {
-	return x;
-    } else if (dig < 1)
-	dig = 1;
+    if (dig > MAX_DIGITS)
+    {
+        return x;
+    }
+    else if (dig < 1)
+        dig = 1;
 
     sgn = 1.0;
-    if(x < 0.0) {
-	sgn = -sgn;
-	x = -x;
+    if (x < 0.0)
+    {
+        sgn = -sgn;
+        x = -x;
     }
     l10 = log10(x);
-    e10 = (int)(dig-1-floor(l10));
-    if(fabs(l10) < max10e - 2) {
-	p10 = 1.0;
-	if(e10 > max10e) { /* numbers less than 10^(dig-1) * 1e-308 */
-	    p10 =  R_pow_di(10., e10-max10e);
-	    e10 = max10e;
-	}
-	if(e10 > 0) { /* Try always to have pow >= 1
-			 and so exactly representable */
-	    pow10 = R_pow_di(10., e10);
-	    return(sgn*(nearbyint((x*pow10)*p10)/pow10)/p10);
-	} else {
-	    pow10 = R_pow_di(10., -e10);
-	    return(sgn*(nearbyint((x/pow10))*pow10));
-	}
-    } else { /* -- LARGE or small -- */
-	do_round = max10e - l10	 >= R_pow_di(10., -dig);
-	e2 = dig + ((e10>0)? 1 : -1) * MAX_DIGITS;
-	p10 = R_pow_di(10., e2);	x *= p10;
-	P10 = R_pow_di(10., e10-e2);	x *= P10;
-	/*-- p10 * P10 = 10 ^ e10 */
-	if(do_round) x += 0.5;
-	x = floor(x) / p10;
-	return(sgn*x/P10);
+    e10 = (int)(dig - 1 - floor(l10));
+    if (fabs(l10) < max10e - 2)
+    {
+        p10 = 1.0;
+        if (e10 > max10e)
+        { /* numbers less than 10^(dig-1) * 1e-308 */
+            p10 = R_pow_di(10., e10 - max10e);
+            e10 = max10e;
+        }
+        if (e10 > 0)
+        { /* Try always to have pow >= 1
+     and so exactly representable */
+            pow10 = R_pow_di(10., e10);
+            return (sgn * (nearbyint((x * pow10) * p10) / pow10) / p10);
+        }
+        else
+        {
+            pow10 = R_pow_di(10., -e10);
+            return (sgn * (nearbyint((x / pow10)) * pow10));
+        }
+    }
+    else
+    { /* -- LARGE or small -- */
+        do_round = max10e - l10 >= R_pow_di(10., -dig);
+        e2 = dig + ((e10 > 0) ? 1 : -1) * MAX_DIGITS;
+        p10 = R_pow_di(10., e2);
+        x *= p10;
+        P10 = R_pow_di(10., e10 - e2);
+        x *= P10;
+        /*-- p10 * P10 = 10 ^ e10 */
+        if (do_round)
+            x += 0.5;
+        x = floor(x) / p10;
+        return (sgn * x / P10);
     }
 }

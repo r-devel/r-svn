@@ -29,11 +29,12 @@ double plnorm(double x, double meanlog, double sdlog, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(meanlog) || ISNAN(sdlog))
-	return x + meanlog + sdlog;
+        return x + meanlog + sdlog;
 #endif
-    if (sdlog < 0) ML_WARN_return_NAN;
+    if (sdlog < 0)
+        ML_WARN_return_NAN;
 
     if (x > 0)
-	return pnorm(log(x), meanlog, sdlog, lower_tail, log_p);
+        return pnorm(log(x), meanlog, sdlog, lower_tail, log_p);
     return R_DT_0;
 }

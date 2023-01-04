@@ -76,7 +76,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <Defn.h>
@@ -87,7 +87,7 @@
 /* clock_gettime, timespec_get time are in <time.h> */
 #ifdef HAVE_SYS_TIME_H
 /* gettimeoday, including on Windows */
-# include <sys/time.h>
+#include <sys/time.h>
 #endif
 
 double currentTime(void)
@@ -97,14 +97,14 @@ double currentTime(void)
 #ifdef HAVE_TIMESPEC_GET
     struct timespec tp;
     int res = timespec_get(&tp, TIME_UTC);
-    if(res != 0)
-	ans = (double) tp.tv_sec + 1e-9 * (double) tp.tv_nsec;
+    if (res != 0)
+        ans = (double)tp.tv_sec + 1e-9 * (double)tp.tv_nsec;
 #elif defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_REALTIME)
     /* Has 2038 issue if time_t: tv.tv_sec is 32-bit. */
     struct timespec tp;
     int res = clock_gettime(CLOCK_REALTIME, &tp);
-    if(res == 0)
-	ans = (double) tp.tv_sec + 1e-9 * (double) tp.tv_nsec;
+    if (res == 0)
+        ans = (double)tp.tv_sec + 1e-9 * (double)tp.tv_nsec;
 
 #elif defined(HAVE_GETTIMEOFDAY)
     /* macOS , mingw.org, used on mingw-w64.
@@ -112,15 +112,15 @@ double currentTime(void)
      */
     struct timeval tv;
     int res = gettimeofday(&tv, NULL);
-    if(res == 0)
-	ans = (double) tv.tv_sec + 1e-6 * (double) tv.tv_usec;
+    if (res == 0)
+        ans = (double)tv.tv_sec + 1e-6 * (double)tv.tv_usec;
 
 #else
     /* No known current OSes */
     time_t res = time(NULL);
-    if(res != (time_t)(-1)) /* -1 must be an error as the real value -1
-			       was ca 1969 */
-	ans = (double) res;
+    if (res != (time_t)(-1)) /* -1 must be an error as the real value -1
+                    was ca 1969 */
+        ans = (double)res;
 #endif
 
 #ifndef HAVE_POSIX_LEAPSECONDS
@@ -129,8 +129,9 @@ double currentTime(void)
        http://www.mail-archive.com/leapsecs@rom.usno.navy.mil/msg00109.html
        https://en.wikipedia.org/wiki/Unix_time
     */
-    if (!ISNAN(ans)) {
-	ans -= n_leapseconds;
+    if (!ISNAN(ans))
+    {
+        ans -= n_leapseconds;
     }
 #endif
     return ans;
@@ -152,20 +153,20 @@ attribute_hidden unsigned int TimeToSeed(void)
     unsigned int seed, pid = getpid();
 #if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_REALTIME)
     {
-	struct timespec tp;
-	clock_gettime(CLOCK_REALTIME, &tp);
-	seed = (unsigned int)(((uint_least64_t) tp.tv_nsec << 16) ^ tp.tv_sec);
+        struct timespec tp;
+        clock_gettime(CLOCK_REALTIME, &tp);
+        seed = (unsigned int)(((uint_least64_t)tp.tv_nsec << 16) ^ tp.tv_sec);
     }
 #elif defined(HAVE_GETTIMEOFDAY)
     {
-	struct timeval tv;
-	gettimeofday (&tv, NULL);
-	seed = (unsigned int)(((uint_least64_t) tv.tv_usec << 16) ^ tv.tv_sec);
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        seed = (unsigned int)(((uint_least64_t)tv.tv_usec << 16) ^ tv.tv_sec);
     }
 #else
     /* C89, so must work */
-    seed = (Int32) time(NULL);
+    seed = (Int32)time(NULL);
 #endif
-    seed ^= (pid <<16);
+    seed ^= (pid << 16);
     return seed;
 }

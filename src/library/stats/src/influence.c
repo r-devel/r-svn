@@ -25,19 +25,19 @@
 SEXP influence(SEXP mqr, SEXP e, SEXP stol)
 {
     SEXP qr = getListElement(mqr, "qr"), qraux = getListElement(mqr, "qraux");
-    int n = nrows(qr), k = asInteger(getListElement(mqr, "rank")),
-	q = ncols(e);
+    int n = nrows(qr), k = asInteger(getListElement(mqr, "rank")), q = ncols(e);
     double tol = asReal(stol);
 
     SEXP hat = PROTECT(allocVector(REALSXP, n));
     double *rh = REAL(hat);
     SEXP sigma = PROTECT(allocMatrix(REALSXP, n, q));
-    F77_CALL(lminfl)(REAL(qr), &n, &n, &k, &q, REAL(qraux),
-		     REAL(e), rh, REAL(sigma), &tol);
+    F77_CALL(lminfl)(REAL(qr), &n, &n, &k, &q, REAL(qraux), REAL(e), rh, REAL(sigma), &tol);
 
-    for (int i = 0; i < n; i++) if (rh[i] > 1. - tol) rh[i] = 1.;
+    for (int i = 0; i < n; i++)
+        if (rh[i] > 1. - tol)
+            rh[i] = 1.;
     SEXP ans = PROTECT(allocVector(VECSXP, 2));
-    SEXP nm =  allocVector(STRSXP, 2);
+    SEXP nm = allocVector(STRSXP, 2);
     setAttrib(ans, R_NamesSymbol, nm);
     int m = 0;
     SET_VECTOR_ELT(ans, m, hat);

@@ -18,7 +18,6 @@
  *  https://www.R-project.org/Licenses/
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -29,7 +28,7 @@
 
 #ifndef min
 /* in stdlib.h in Win64 headers */
-# define min(a, b) (a < b ? a : b)
+#define min(a, b) (a < b ? a : b)
 #endif
 
 #include <Rinternals.h>
@@ -44,10 +43,10 @@ static int gl_tab(char *buf, int offset, int *loc)
 
     len = strlen(buf);
     count = 8 - (offset + *loc) % 8;
-    for (i=len; i >= *loc; i--)
-	buf[i+count] = buf[i];
-    for (i=0; i < count; i++)
-	buf[*loc+i] = ' ';
+    for (i = len; i >= *loc; i--)
+        buf[i + count] = buf[i];
+    for (i = 0; i < count; i++)
+        buf[*loc + i] = ' ';
     i = *loc;
     *loc = i + count;
     return i;
@@ -62,63 +61,69 @@ static int rt_completion(char *buf, int offset, int *loc)
     ParseStatus status;
     const void *vmax = NULL;
 
-    if(!completion_available) return gl_tab(buf, offset, loc);
+    if (!completion_available)
+        return gl_tab(buf, offset, loc);
 
-    if(completion_available < 0) {
-	char *p = getenv("R_COMPLETION");
-	if(p && strcmp(p, "FALSE") == 0) {
-	    completion_available = 0;
-	    return gl_tab(buf, offset, loc);
-	}
-	/* First check if namespace is loaded */
-	if(findVarInFrame(R_NamespaceRegistry, install("utils"))
-	   != R_UnboundValue) completion_available = 1;
-	else { /* Then try to load it */
-	    char *p = "try(loadNamespace('utils'), silent=TRUE)";
-	    PROTECT(cmdSexp = mkString(p));
-	    cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
-	    if(status == PARSE_OK) {
-		for(i = 0; i < length(cmdexpr); i++)
-		    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
-	    }
-	    UNPROTECT(2);
-	    if(findVarInFrame(R_NamespaceRegistry, install("utils"))
-	       != R_UnboundValue) completion_available = 1;
-	    else {
-		completion_available = 0;
-		return -1; /* no change */
-	    }
-	}
+    if (completion_available < 0)
+    {
+        char *p = getenv("R_COMPLETION");
+        if (p && strcmp(p, "FALSE") == 0)
+        {
+            completion_available = 0;
+            return gl_tab(buf, offset, loc);
+        }
+        /* First check if namespace is loaded */
+        if (findVarInFrame(R_NamespaceRegistry, install("utils")) != R_UnboundValue)
+            completion_available = 1;
+        else
+        { /* Then try to load it */
+            char *p = "try(loadNamespace('utils'), silent=TRUE)";
+            PROTECT(cmdSexp = mkString(p));
+            cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
+            if (status == PARSE_OK)
+            {
+                for (i = 0; i < length(cmdexpr); i++)
+                    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
+            }
+            UNPROTECT(2);
+            if (findVarInFrame(R_NamespaceRegistry, install("utils")) != R_UnboundValue)
+                completion_available = 1;
+            else
+            {
+                completion_available = 0;
+                return -1; /* no change */
+            }
+        }
     }
 
     alen = strlen(partial_line);
-    char orig[alen + 1], pline[2*alen + 1],
-            *pchar = pline, achar;
+    char orig[alen + 1], pline[2 * alen + 1], *pchar = pline, achar;
     strcpy(orig, partial_line);
-    for (i = 0; i < alen; i++) {
+    for (i = 0; i < alen; i++)
+    {
         achar = orig[i];
-	if (achar == '"' || achar == '\\') *pchar++ = '\\';
-	*pchar++ = achar;
+        if (achar == '"' || achar == '\\')
+            *pchar++ = '\\';
+        *pchar++ = achar;
     }
     *pchar = 0;
     size_t plen = strlen(pline);
-    size_t len = plen + 100; 
+    size_t len = plen + 100;
     char cmd[len];
-    snprintf(cmd, len,
-	     "utils:::.win32consoleCompletion(\"%.*s\", %d)",
-	     (int)plen, pline, cursor_position);
+    snprintf(cmd, len, "utils:::.win32consoleCompletion(\"%.*s\", %d)", (int)plen, pline, cursor_position);
     PROTECT(cmdSexp = mkString(cmd));
     cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
-    if (status != PARSE_OK) {
-	UNPROTECT(2);
-	/* Uncomment next line to debug */
-	/* Rprintf("failed: %s \n", cmd); */
-	/* otherwise pretend that nothing happened and return */
-	return -1; /* no change */
+    if (status != PARSE_OK)
+    {
+        UNPROTECT(2);
+        /* Uncomment next line to debug */
+        /* Rprintf("failed: %s \n", cmd); */
+        /* otherwise pretend that nothing happened and return */
+        return -1; /* no change */
     }
     /* Loop is needed here as EXPRSEXP will be of length > 1 */
-    for(i = 0; i < length(cmdexpr); i++)
-	ans = eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
+    for (i = 0; i < length(cmdexpr); i++)
+        ans = eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
     UNPROTECT(2);
     PROTECT(ans);
 
@@ -135,28 +140,30 @@ static int rt_completion(char *buf, int offset, int *loc)
 
     vmax = vmaxget();
     alen = length(VECTOR_ELT(ans, POSSIBLE));
-    if (alen) {
-	int max_show = 10;
-	printf("\n"); /* finish current line */
-	for (i = 0; i < min(alen, max_show); i++) {
-	    printf("%s\n", translateChar(STRING_ELT(VECTOR_ELT(ans, POSSIBLE), i)));
-	}
-	if (alen > max_show)
-	    printf("\n[...truncated]\n");
-	cursor_position = -2; /* Need to redisplay whole line */
+    if (alen)
+    {
+        int max_show = 10;
+        printf("\n"); /* finish current line */
+        for (i = 0; i < min(alen, max_show); i++)
+        {
+            printf("%s\n", translateChar(STRING_ELT(VECTOR_ELT(ans, POSSIBLE), i)));
+        }
+        if (alen > max_show)
+            printf("\n[...truncated]\n");
+        cursor_position = -2; /* Need to redisplay whole line */
     }
-    additional_text = translateChar(STRING_ELT( VECTOR_ELT(ans, ADDITION), 0 ));
+    additional_text = translateChar(STRING_ELT(VECTOR_ELT(ans, ADDITION), 0));
     alen = strlen(additional_text);
-    if (alen) {
-	int cp = *loc;
-	memcpy(buf+cp, additional_text, alen+1);
-	*loc = cp + alen;
+    if (alen)
+    {
+        int cp = *loc;
+        memcpy(buf + cp, additional_text, alen + 1);
+        *loc = cp + alen;
     }
     vmaxset(vmax);
     UNPROTECT(1); /* ans */
     return cursor_position;
 }
-
 
 void R_gl_tab_set(void)
 {

@@ -30,35 +30,35 @@ attribute_hidden SEXP do_debug(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans = R_NilValue;
 
-    checkArity(op,args);
-#define find_char_fun \
-    if (isValidString(CAR(args))) {				\
-	SEXP s;							\
-	PROTECT(s = installTrChar(STRING_ELT(CAR(args), 0)));	\
-	SETCAR(args, findFun(s, rho));				\
-	UNPROTECT(1);						\
+    checkArity(op, args);
+#define find_char_fun                                                                                                  \
+    if (isValidString(CAR(args)))                                                                                      \
+    {                                                                                                                  \
+        SEXP s;                                                                                                        \
+        PROTECT(s = installTrChar(STRING_ELT(CAR(args), 0)));                                                          \
+        SETCAR(args, findFun(s, rho));                                                                                 \
+        UNPROTECT(1);                                                                                                  \
     }
     find_char_fun
 
-    if (TYPEOF(CAR(args)) != CLOSXP &&
-	TYPEOF(CAR(args)) != SPECIALSXP &&
-	TYPEOF(CAR(args)) != BUILTINSXP)
-	error(_("argument must be a function"));
-    switch(PRIMVAL(op)) {
+        if (TYPEOF(CAR(args)) != CLOSXP && TYPEOF(CAR(args)) != SPECIALSXP && TYPEOF(CAR(args)) != BUILTINSXP)
+            error(_("argument must be a function"));
+    switch (PRIMVAL(op))
+    {
     case 0: // debug()
-	SET_RDEBUG(CAR(args), 1);
-	break;
+        SET_RDEBUG(CAR(args), 1);
+        break;
     case 1: // undebug()
-	if( RDEBUG(CAR(args)) != 1 )
-	    warning("argument is not being debugged");
-	SET_RDEBUG(CAR(args), 0);
-	break;
+        if (RDEBUG(CAR(args)) != 1)
+            warning("argument is not being debugged");
+        SET_RDEBUG(CAR(args), 0);
+        break;
     case 2: // isdebugged()
-	ans = ScalarLogical(RDEBUG(CAR(args)));
-	break;
+        ans = ScalarLogical(RDEBUG(CAR(args)));
+        break;
     case 3: // debugonce()
-	SET_RSTEP(CAR(args), 1);
-	break;
+        SET_RSTEP(CAR(args), 1);
+        break;
     }
     return ans;
 }
@@ -70,22 +70,20 @@ attribute_hidden SEXP do_trace(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     find_char_fun
 
-    if (TYPEOF(CAR(args)) != CLOSXP &&
-	TYPEOF(CAR(args)) != SPECIALSXP &&
-	TYPEOF(CAR(args)) != BUILTINSXP)
-	    errorcall(call, _("argument must be a function"));
+        if (TYPEOF(CAR(args)) != CLOSXP && TYPEOF(CAR(args)) != SPECIALSXP && TYPEOF(CAR(args)) != BUILTINSXP)
+            errorcall(call, _("argument must be a function"));
 
-    switch(PRIMVAL(op)) {
+    switch (PRIMVAL(op))
+    {
     case 0:
-	SET_RTRACE(CAR(args), 1);
-	break;
+        SET_RTRACE(CAR(args), 1);
+        break;
     case 1:
-	SET_RTRACE(CAR(args), 0);
-	break;
+        SET_RTRACE(CAR(args), 0);
+        break;
     }
     return R_NilValue;
 }
-
 
 /* maintain global trace & debug state */
 
@@ -99,25 +97,31 @@ attribute_hidden SEXP do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP onOff = CAR(args);
-    Rboolean trace = (PRIMVAL(op) == 0),
-	prev = trace ? GET_TRACE_STATE : GET_DEBUG_STATE;
+    Rboolean trace = (PRIMVAL(op) == 0), prev = trace ? GET_TRACE_STATE : GET_DEBUG_STATE;
 
-    if(length(onOff) > 0) {
-	Rboolean _new = asLogical(onOff);
-	if(_new == TRUE || _new == FALSE)
-	    if(trace) SET_TRACE_STATE(_new);
-	    else      SET_DEBUG_STATE(_new);
-	else
-	    error(_("Value for '%s' must be TRUE or FALSE"),
-		  trace ? "tracingState" : "debuggingState");
+    if (length(onOff) > 0)
+    {
+        Rboolean _new = asLogical(onOff);
+        if (_new == TRUE || _new == FALSE)
+            if (trace)
+                SET_TRACE_STATE(_new);
+            else
+                SET_DEBUG_STATE(_new);
+        else
+            error(_("Value for '%s' must be TRUE or FALSE"), trace ? "tracingState" : "debuggingState");
     }
     return ScalarLogical(prev);
 }
 
 // GUIs, packages, etc can query:
-Rboolean R_current_debug_state(void) { return GET_DEBUG_STATE; }
-Rboolean R_current_trace_state(void) { return GET_TRACE_STATE; }
-
+Rboolean R_current_debug_state(void)
+{
+    return GET_DEBUG_STATE;
+}
+Rboolean R_current_trace_state(void)
+{
+    return GET_TRACE_STATE;
+}
 
 /* memory tracing */
 /* report when a traced object is duplicated */
@@ -133,23 +137,19 @@ attribute_hidden SEXP do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
     check1arg(args, call, "x");
 
     object = CAR(args);
-    if (TYPEOF(object) == CLOSXP ||
-	TYPEOF(object) == BUILTINSXP ||
-	TYPEOF(object) == SPECIALSXP)
-	errorcall(call, _("argument must not be a function"));
+    if (TYPEOF(object) == CLOSXP || TYPEOF(object) == BUILTINSXP || TYPEOF(object) == SPECIALSXP)
+        errorcall(call, _("argument must not be a function"));
 
-    if(object == R_NilValue)
-	errorcall(call, _("cannot trace NULL"));
+    if (object == R_NilValue)
+        errorcall(call, _("cannot trace NULL"));
 
-    if(TYPEOF(object) == ENVSXP || TYPEOF(object) == PROMSXP)
-	errorcall(call,
-		  _("'tracemem' is not useful for promise and environment objects"));
-    if(TYPEOF(object) == EXTPTRSXP || TYPEOF(object) == WEAKREFSXP)
-	errorcall(call,
-		  _("'tracemem' is not useful for weak reference or external pointer objects"));
+    if (TYPEOF(object) == ENVSXP || TYPEOF(object) == PROMSXP)
+        errorcall(call, _("'tracemem' is not useful for promise and environment objects"));
+    if (TYPEOF(object) == EXTPTRSXP || TYPEOF(object) == WEAKREFSXP)
+        errorcall(call, _("'tracemem' is not useful for weak reference or external pointer objects"));
 
     SET_RTRACE(object, 1);
-    snprintf(buffer, 21, "<%p>", (void *) object);
+    snprintf(buffer, 21, "<%p>", (void *)object);
     return mkString(buffer);
 }
 
@@ -160,14 +160,12 @@ attribute_hidden SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
     check1arg(args, call, "x");
 
-    object=CAR(args);
-    if (TYPEOF(object) == CLOSXP ||
-	TYPEOF(object) == BUILTINSXP ||
-	TYPEOF(object) == SPECIALSXP)
-	errorcall(call, _("argument must not be a function"));
+    object = CAR(args);
+    if (TYPEOF(object) == CLOSXP || TYPEOF(object) == BUILTINSXP || TYPEOF(object) == SPECIALSXP)
+        errorcall(call, _("argument must not be a function"));
 
     if (RTRACE(object))
-	SET_RTRACE(object, 0);
+        SET_RTRACE(object, 0);
     return R_NilValue;
 }
 
@@ -190,7 +188,8 @@ attribute_hidden NORET SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rh
 #endif /* R_MEMORY_PROFILING */
 
 #ifndef R_MEMORY_PROFILING
-void memtrace_report(void* old, void *_new) {
+void memtrace_report(void *old, void *_new)
+{
     return;
 }
 #else
@@ -198,22 +197,22 @@ static void memtrace_stack_dump(void)
 {
     RCNTXT *cptr;
 
-    for (cptr = R_GlobalContext; cptr; cptr = cptr->nextcontext) {
-	if ((cptr->callflag & (CTXT_FUNCTION | CTXT_BUILTIN))
-	    && TYPEOF(cptr->call) == LANGSXP) {
-	    SEXP fun = CAR(cptr->call);
-	    Rprintf("%s ",
-		    TYPEOF(fun) == SYMSXP ? translateChar(PRINTNAME(fun)) :
-		    "<Anonymous>");
-	}
+    for (cptr = R_GlobalContext; cptr; cptr = cptr->nextcontext)
+    {
+        if ((cptr->callflag & (CTXT_FUNCTION | CTXT_BUILTIN)) && TYPEOF(cptr->call) == LANGSXP)
+        {
+            SEXP fun = CAR(cptr->call);
+            Rprintf("%s ", TYPEOF(fun) == SYMSXP ? translateChar(PRINTNAME(fun)) : "<Anonymous>");
+        }
     }
     Rprintf("\n");
 }
 
-void memtrace_report(void * old, void * _new)
+void memtrace_report(void *old, void *_new)
 {
-    if (!R_current_trace_state()) return;
-    Rprintf("tracemem[%p -> %p]: ", (void *) old, _new);
+    if (!R_current_trace_state())
+        return;
+    Rprintf("tracemem[%p -> %p]: ", (void *)old, _new);
     memtrace_stack_dump();
 }
 
@@ -225,44 +224,47 @@ attribute_hidden SEXP do_retracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP object, previous, ans, argList;
     char buffer[21];
     static SEXP do_retracemem_formals = NULL;
-    Rboolean visible; 
+    Rboolean visible;
 
     if (do_retracemem_formals == NULL)
-	do_retracemem_formals = allocFormalsList2(install("x"),
-						  R_PreviousSymbol);
+        do_retracemem_formals = allocFormalsList2(install("x"), R_PreviousSymbol);
 
-    PROTECT(argList =  matchArgs_NR(do_retracemem_formals, args, call));
-    if(CAR(argList) == R_MissingArg) SETCAR(argList, R_NilValue);
-    if(CADR(argList) == R_MissingArg) SETCAR(CDR(argList), R_NilValue);
+    PROTECT(argList = matchArgs_NR(do_retracemem_formals, args, call));
+    if (CAR(argList) == R_MissingArg)
+        SETCAR(argList, R_NilValue);
+    if (CADR(argList) == R_MissingArg)
+        SETCAR(CDR(argList), R_NilValue);
 
     object = CAR(argList);
-    if (TYPEOF(object) == CLOSXP ||
-	TYPEOF(object) == BUILTINSXP ||
-	TYPEOF(object) == SPECIALSXP)
-	errorcall(call, _("argument must not be a function"));
+    if (TYPEOF(object) == CLOSXP || TYPEOF(object) == BUILTINSXP || TYPEOF(object) == SPECIALSXP)
+        errorcall(call, _("argument must not be a function"));
 
     previous = CADR(argList);
-    if(!isNull(previous) && (!isString(previous) || LENGTH(previous) != 1))
-	    errorcall(call, _("invalid '%s' argument"), "previous");
+    if (!isNull(previous) && (!isString(previous) || LENGTH(previous) != 1))
+        errorcall(call, _("invalid '%s' argument"), "previous");
 
-    if (RTRACE(object)) {
-	snprintf(buffer, 21, "<%p>", (void *) object);
-	visible = TRUE;
-	ans = mkString(buffer);
-    } else {
-	visible = FALSE;
-	ans = R_NilValue;
+    if (RTRACE(object))
+    {
+        snprintf(buffer, 21, "<%p>", (void *)object);
+        visible = TRUE;
+        ans = mkString(buffer);
+    }
+    else
+    {
+        visible = FALSE;
+        ans = R_NilValue;
     }
 
-    if (previous != R_NilValue){
-	SET_RTRACE(object, 1);
-	if (R_current_trace_state()) {
-	    /* FIXME: previous will have <0x....> whereas other values are
-	       without the < > */
-	    Rprintf("tracemem[%s -> %p]: ",
-		    translateChar(STRING_ELT(previous, 0)), (void *) object);
-	    memtrace_stack_dump();
-	}
+    if (previous != R_NilValue)
+    {
+        SET_RTRACE(object, 1);
+        if (R_current_trace_state())
+        {
+            /* FIXME: previous will have <0x....> whereas other values are
+               without the < > */
+            Rprintf("tracemem[%s -> %p]: ", translateChar(STRING_ELT(previous, 0)), (void *)object);
+            memtrace_stack_dump();
+        }
     }
     UNPROTECT(1);
     R_Visible = visible;

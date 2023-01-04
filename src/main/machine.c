@@ -21,7 +21,7 @@
 /* Formerly part of platform.c */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <Defn.h>
@@ -40,40 +40,31 @@
 #undef ABS
 
 #ifdef HAVE_LONG_DOUBLE
-# define DTYPE long double
-# define MACH_NAME machar_LD
-# define ABS fabsl
-# include "machar.c"
-# undef DTYPE
-# undef MACH_NAME
-# undef ABS
+#define DTYPE long double
+#define MACH_NAME machar_LD
+#define ABS fabsl
+#include "machar.c"
+#undef DTYPE
+#undef MACH_NAME
+#undef ABS
 #endif
 
-#ifdef  USE_INTERNAL_MKTIME
+#ifdef USE_INTERNAL_MKTIME
 // for R_time_t
-# include "datetime.h"
+#include "datetime.h"
 #else
 // for time_t
-# include <time.h>
+#include <time.h>
 #endif
 
 void attribute_hidden Init_R_Machine(SEXP rho)
 {
-    machar(&R_AccuracyInfo.ibeta,
-	   &R_AccuracyInfo.it,
-	   &R_AccuracyInfo.irnd,
-	   &R_AccuracyInfo.ngrd,
-	   &R_AccuracyInfo.machep,
-	   &R_AccuracyInfo.negep,
-	   &R_AccuracyInfo.iexp,
-	   &R_AccuracyInfo.minexp,
-	   &R_AccuracyInfo.maxexp,
-	   &R_AccuracyInfo.eps,
-	   &R_AccuracyInfo.epsneg,
-	   &R_AccuracyInfo.xmin,
-	   &R_AccuracyInfo.xmax);
+    machar(&R_AccuracyInfo.ibeta, &R_AccuracyInfo.it, &R_AccuracyInfo.irnd, &R_AccuracyInfo.ngrd,
+           &R_AccuracyInfo.machep, &R_AccuracyInfo.negep, &R_AccuracyInfo.iexp, &R_AccuracyInfo.minexp,
+           &R_AccuracyInfo.maxexp, &R_AccuracyInfo.eps, &R_AccuracyInfo.epsneg, &R_AccuracyInfo.xmin,
+           &R_AccuracyInfo.xmax);
 
-    R_dec_min_exponent = (int) floor(log10(R_AccuracyInfo.xmin)); /* smallest decimal exponent */
+    R_dec_min_exponent = (int)floor(log10(R_AccuracyInfo.xmin)); /* smallest decimal exponent */
 
     /*
 #ifdef HAVE_LONG_DOUBLE
@@ -83,10 +74,10 @@ void attribute_hidden Init_R_Machine(SEXP rho)
 #endif
     */
     int MACH_SIZE = 19;
-    if (sizeof(LDOUBLE) > sizeof(double)) MACH_SIZE += 10;
-    
-    SEXP ans = PROTECT(allocVector(VECSXP, MACH_SIZE)),
-	 nms = PROTECT(allocVector(STRSXP, MACH_SIZE));
+    if (sizeof(LDOUBLE) > sizeof(double))
+        MACH_SIZE += 10;
+
+    SEXP ans = PROTECT(allocVector(VECSXP, MACH_SIZE)), nms = PROTECT(allocVector(STRSXP, MACH_SIZE));
 
     SET_STRING_ELT(nms, 0, mkChar("double.eps"));
     SET_VECTOR_ELT(ans, 0, ScalarReal(R_AccuracyInfo.eps));
@@ -147,7 +138,7 @@ void attribute_hidden Init_R_Machine(SEXP rho)
     SET_VECTOR_ELT(ans, 17, ScalarInteger(sizeof(SEXP)));
 
     SET_STRING_ELT(nms, 18, mkChar("sizeof.time_t"));
-#ifdef  USE_INTERNAL_MKTIME
+#ifdef USE_INTERNAL_MKTIME
     SET_VECTOR_ELT(ans, 18, ScalarInteger(sizeof(R_time_t)));
 #else
     SET_VECTOR_ELT(ans, 18, ScalarInteger(sizeof(time_t)));
@@ -158,55 +149,47 @@ void attribute_hidden Init_R_Machine(SEXP rho)
    (as on ARM).  So do the same as capabilities("long.double")
 */
 #ifdef HAVE_LONG_DOUBLE
-    if (sizeof(LDOUBLE) > sizeof(double)) {
-	static struct {
-	    int ibeta, it, irnd, ngrd, machep, negep, iexp, minexp, maxexp;
-	    long double eps, epsneg, xmin, xmax;
-	} R_LD_AccuracyInfo;
-	
-	machar_LD(&R_LD_AccuracyInfo.ibeta,
-		  &R_LD_AccuracyInfo.it,
-		  &R_LD_AccuracyInfo.irnd,
-		  &R_LD_AccuracyInfo.ngrd,
-		  &R_LD_AccuracyInfo.machep,
-		  &R_LD_AccuracyInfo.negep,
-		  &R_LD_AccuracyInfo.iexp,
-		  &R_LD_AccuracyInfo.minexp,
-		  &R_LD_AccuracyInfo.maxexp,
-		  &R_LD_AccuracyInfo.eps,
-		  &R_LD_AccuracyInfo.epsneg,
-		  &R_LD_AccuracyInfo.xmin,
-		  &R_LD_AccuracyInfo.xmax);
+    if (sizeof(LDOUBLE) > sizeof(double))
+    {
+        static struct
+        {
+            int ibeta, it, irnd, ngrd, machep, negep, iexp, minexp, maxexp;
+            long double eps, epsneg, xmin, xmax;
+        } R_LD_AccuracyInfo;
+
+        machar_LD(&R_LD_AccuracyInfo.ibeta, &R_LD_AccuracyInfo.it, &R_LD_AccuracyInfo.irnd, &R_LD_AccuracyInfo.ngrd,
+                  &R_LD_AccuracyInfo.machep, &R_LD_AccuracyInfo.negep, &R_LD_AccuracyInfo.iexp,
+                  &R_LD_AccuracyInfo.minexp, &R_LD_AccuracyInfo.maxexp, &R_LD_AccuracyInfo.eps,
+                  &R_LD_AccuracyInfo.epsneg, &R_LD_AccuracyInfo.xmin, &R_LD_AccuracyInfo.xmax);
 #define PT1 19
-	SET_STRING_ELT(nms, PT1+0, mkChar("longdouble.eps"));
-	SET_VECTOR_ELT(ans, PT1+0, ScalarReal((double) R_LD_AccuracyInfo.eps));
+        SET_STRING_ELT(nms, PT1 + 0, mkChar("longdouble.eps"));
+        SET_VECTOR_ELT(ans, PT1 + 0, ScalarReal((double)R_LD_AccuracyInfo.eps));
 
-	SET_STRING_ELT(nms, PT1+1, mkChar("longdouble.neg.eps"));
-	SET_VECTOR_ELT(ans, PT1+1, ScalarReal((double) R_LD_AccuracyInfo.epsneg));
-	SET_STRING_ELT(nms, PT1+2, mkChar("longdouble.digits"));
-	SET_VECTOR_ELT(ans, PT1+2, ScalarInteger(R_LD_AccuracyInfo.it));
+        SET_STRING_ELT(nms, PT1 + 1, mkChar("longdouble.neg.eps"));
+        SET_VECTOR_ELT(ans, PT1 + 1, ScalarReal((double)R_LD_AccuracyInfo.epsneg));
+        SET_STRING_ELT(nms, PT1 + 2, mkChar("longdouble.digits"));
+        SET_VECTOR_ELT(ans, PT1 + 2, ScalarInteger(R_LD_AccuracyInfo.it));
 
-	SET_STRING_ELT(nms, PT1+3, mkChar("longdouble.rounding"));
-	SET_VECTOR_ELT(ans, PT1+3, ScalarInteger(R_LD_AccuracyInfo.irnd));
+        SET_STRING_ELT(nms, PT1 + 3, mkChar("longdouble.rounding"));
+        SET_VECTOR_ELT(ans, PT1 + 3, ScalarInteger(R_LD_AccuracyInfo.irnd));
 
-	SET_STRING_ELT(nms, PT1+4, mkChar("longdouble.guard"));
-	SET_VECTOR_ELT(ans, PT1+4, ScalarInteger(R_LD_AccuracyInfo.ngrd));
+        SET_STRING_ELT(nms, PT1 + 4, mkChar("longdouble.guard"));
+        SET_VECTOR_ELT(ans, PT1 + 4, ScalarInteger(R_LD_AccuracyInfo.ngrd));
 
-	SET_STRING_ELT(nms, PT1+5, mkChar("longdouble.ulp.digits"));
-	SET_VECTOR_ELT(ans, PT1+5, ScalarInteger(R_LD_AccuracyInfo.machep));
+        SET_STRING_ELT(nms, PT1 + 5, mkChar("longdouble.ulp.digits"));
+        SET_VECTOR_ELT(ans, PT1 + 5, ScalarInteger(R_LD_AccuracyInfo.machep));
 
-	SET_STRING_ELT(nms, PT1+6, mkChar("longdouble.neg.ulp.digits"));
-	SET_VECTOR_ELT(ans, PT1+6, ScalarInteger(R_LD_AccuracyInfo.negep));
+        SET_STRING_ELT(nms, PT1 + 6, mkChar("longdouble.neg.ulp.digits"));
+        SET_VECTOR_ELT(ans, PT1 + 6, ScalarInteger(R_LD_AccuracyInfo.negep));
 
-	SET_STRING_ELT(nms, PT1+7, mkChar("longdouble.exponent"));
-	SET_VECTOR_ELT(ans, PT1+7, ScalarInteger(R_LD_AccuracyInfo.iexp));
+        SET_STRING_ELT(nms, PT1 + 7, mkChar("longdouble.exponent"));
+        SET_VECTOR_ELT(ans, PT1 + 7, ScalarInteger(R_LD_AccuracyInfo.iexp));
 
-	SET_STRING_ELT(nms, PT1+8, mkChar("longdouble.min.exp"));
-	SET_VECTOR_ELT(ans, PT1+8, ScalarInteger(R_LD_AccuracyInfo.minexp));
+        SET_STRING_ELT(nms, PT1 + 8, mkChar("longdouble.min.exp"));
+        SET_VECTOR_ELT(ans, PT1 + 8, ScalarInteger(R_LD_AccuracyInfo.minexp));
 
-	SET_STRING_ELT(nms, PT1+9, mkChar("longdouble.max.exp"));
-	SET_VECTOR_ELT(ans, PT1+9, ScalarInteger(R_LD_AccuracyInfo.maxexp));
-
+        SET_STRING_ELT(nms, PT1 + 9, mkChar("longdouble.max.exp"));
+        SET_VECTOR_ELT(ans, PT1 + 9, ScalarInteger(R_LD_AccuracyInfo.maxexp));
     }
 #endif
 
@@ -214,4 +197,3 @@ void attribute_hidden Init_R_Machine(SEXP rho)
     defineVar(install(".Machine"), ans, rho);
     UNPROTECT(2);
 }
-

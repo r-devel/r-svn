@@ -34,23 +34,24 @@
 
 #include "IOStuff.h"
 
-
 /* Move the iob->write_buf pointer to the next */
 /* BufferListItem in the chain. If there no next */
 /* buffer item, then one is added. */
 
 static int NextWriteBufferListItem(IoBuffer *iob)
 {
-    if (iob->write_buf->next) {
-	iob->write_buf = iob->write_buf->next;
+    if (iob->write_buf->next)
+    {
+        iob->write_buf = iob->write_buf->next;
     }
-    else {
-	BufferListItem *_new;
-	if (!(_new = (BufferListItem*)malloc(sizeof(BufferListItem))))
-	    return 0;
-	_new->next = NULL;
-	iob->write_buf->next = _new;
-	iob->write_buf = iob->write_buf->next;
+    else
+    {
+        BufferListItem *_new;
+        if (!(_new = (BufferListItem *)malloc(sizeof(BufferListItem))))
+            return 0;
+        _new->next = NULL;
+        iob->write_buf->next = _new;
+        iob->write_buf = iob->write_buf->next;
     }
     iob->write_ptr = iob->write_buf->buf;
     iob->write_offset = 0;
@@ -68,13 +69,12 @@ static int NextReadBufferListItem(IoBuffer *iob)
     return 1;
 }
 
-
 /* Reset the read/write pointers of an IoBuffer */
 
 int attribute_hidden R_IoBufferWriteReset(IoBuffer *iob)
 {
     if (iob == NULL || iob->start_buf == NULL)
-	return 0;
+        return 0;
     iob->write_buf = iob->start_buf;
     iob->write_ptr = iob->write_buf->buf;
     iob->write_offset = 0;
@@ -89,7 +89,7 @@ int attribute_hidden R_IoBufferWriteReset(IoBuffer *iob)
 int attribute_hidden R_IoBufferReadReset(IoBuffer *iob)
 {
     if (iob == NULL || iob->start_buf == NULL)
-	return 0;
+        return 0;
     iob->read_buf = iob->start_buf;
     iob->read_ptr = iob->read_buf->buf;
     iob->read_offset = 0;
@@ -101,9 +101,11 @@ int attribute_hidden R_IoBufferReadReset(IoBuffer *iob)
 
 int attribute_hidden R_IoBufferInit(IoBuffer *iob)
 {
-    if (iob == NULL) return 0;
-    iob->start_buf = (BufferListItem*)malloc(sizeof(BufferListItem));
-    if (iob->start_buf == NULL) return 0;
+    if (iob == NULL)
+        return 0;
+    iob->start_buf = (BufferListItem *)malloc(sizeof(BufferListItem));
+    if (iob->start_buf == NULL)
+        return 0;
     iob->start_buf->next = NULL;
     return R_IoBufferWriteReset(iob);
 }
@@ -116,12 +118,13 @@ int attribute_hidden R_IoBufferFree(IoBuffer *iob)
 {
     BufferListItem *thisItem, *nextItem;
     if (iob == NULL || iob->start_buf == NULL)
-	return 0;
+        return 0;
     thisItem = iob->start_buf;
-    while (thisItem) {
-	nextItem = thisItem->next;
-	free(thisItem);
-	thisItem = nextItem;
+    while (thisItem)
+    {
+        nextItem = thisItem->next;
+        free(thisItem);
+        thisItem = nextItem;
     }
     return 1;
 }
@@ -131,10 +134,10 @@ int attribute_hidden R_IoBufferFree(IoBuffer *iob)
 int attribute_hidden R_IoBufferPutc(int c, IoBuffer *iob)
 {
     if (iob->write_offset == IOBSIZE)
-	NextWriteBufferListItem(iob);
-    *(iob->write_ptr)++ = (char) c;
+        NextWriteBufferListItem(iob);
+    *(iob->write_ptr)++ = (char)c;
     iob->write_offset++;
-    return 0;/*not used*/
+    return 0; /*not used*/
 }
 
 /* Add a (null terminated) string to an IoBuffer */
@@ -143,9 +146,10 @@ int attribute_hidden R_IoBufferPuts(char *s, IoBuffer *iob)
 {
     char *p;
     int n = 0;
-    for (p = s; *p; p++) {
-	R_IoBufferPutc(*p, iob);
-	n++;
+    for (p = s; *p; p++)
+    {
+        R_IoBufferPutc(*p, iob);
+        n++;
     }
     return n;
 }
@@ -154,10 +158,10 @@ int attribute_hidden R_IoBufferPuts(char *s, IoBuffer *iob)
 
 int attribute_hidden R_IoBufferGetc(IoBuffer *iob)
 {
-    if (iob->read_buf == iob->write_buf &&
-       iob->read_offset >= iob->write_offset)
-	return EOF;
-    if (iob->read_offset == IOBSIZE) NextReadBufferListItem(iob);
+    if (iob->read_buf == iob->write_buf && iob->read_offset >= iob->write_offset)
+        return EOF;
+    if (iob->read_offset == IOBSIZE)
+        NextReadBufferListItem(iob);
     iob->read_offset++;
     return *(iob->read_ptr)++;
 }
@@ -167,19 +171,21 @@ int attribute_hidden R_IoBufferGetc(IoBuffer *iob)
 int attribute_hidden R_IoBufferReadOffset(IoBuffer *iob)
 {
     int result = iob->read_offset;
-    BufferListItem* buf = iob->start_buf;
-    while(buf && buf != iob->read_buf) {
-    	result += IOBSIZE;
-    	buf = buf->next;
+    BufferListItem *buf = iob->start_buf;
+    while (buf && buf != iob->read_buf)
+    {
+        result += IOBSIZE;
+        buf = buf->next;
     }
     return result;
 }
-    
+
 /* Initialization code for text buffers */
 
 static void transferChars(unsigned char *p, const char *q)
 {
-    while (*q) *p++ = *q++;
+    while (*q)
+        *p++ = *q++;
     *p++ = '\n';
     *p++ = '\0';
 }
@@ -188,49 +194,52 @@ static void transferChars(unsigned char *p, const char *q)
 static const char *translateCharWithOverride(SEXP x)
 {
     if (!IS_LATIN1(x) && !mbcslocale && known_to_be_utf8)
-	/* A hack to allow UTF-8 string literals, comments when
-	   parsing on Windows. Note that the parser cannot handle
-	   invalid characters when running in UTF-8 locale. */
-	return CHAR(x);
+        /* A hack to allow UTF-8 string literals, comments when
+           parsing on Windows. Note that the parser cannot handle
+           invalid characters when running in UTF-8 locale. */
+        return CHAR(x);
     else
-	return translateChar(x);
+        return translateChar(x);
 }
 
 int attribute_hidden R_TextBufferInit(TextBuffer *txtb, SEXP text)
 {
     int i, k, l, n;
-    if (isString(text)) {
-	// translateChar might allocate
-	void *vmax = vmaxget();
-	n = length(text);
-	l = 0;
-	for (i = 0; i < n; i++) {
-	    if (STRING_ELT(text, i) != R_NilValue) {
-		k = (int) strlen(translateCharWithOverride(STRING_ELT(text, i)));
-		if (k > l)
-		    l = k;
-	    }
-	}
-	vmaxset(vmax);
-	txtb->vmax = vmax;
-	txtb->buf = (unsigned char *)R_alloc(l+2, sizeof(char)); /* '\n' and '\0' */
-	txtb->bufp = txtb->buf;
-	txtb->text = text;
-	txtb->ntext = n;
-	txtb->offset = 0;
-	transferChars(txtb->buf,
-		      translateCharWithOverride(STRING_ELT(txtb->text, txtb->offset)));
-	txtb->offset++;
-	return 1;
+    if (isString(text))
+    {
+        // translateChar might allocate
+        void *vmax = vmaxget();
+        n = length(text);
+        l = 0;
+        for (i = 0; i < n; i++)
+        {
+            if (STRING_ELT(text, i) != R_NilValue)
+            {
+                k = (int)strlen(translateCharWithOverride(STRING_ELT(text, i)));
+                if (k > l)
+                    l = k;
+            }
+        }
+        vmaxset(vmax);
+        txtb->vmax = vmax;
+        txtb->buf = (unsigned char *)R_alloc(l + 2, sizeof(char)); /* '\n' and '\0' */
+        txtb->bufp = txtb->buf;
+        txtb->text = text;
+        txtb->ntext = n;
+        txtb->offset = 0;
+        transferChars(txtb->buf, translateCharWithOverride(STRING_ELT(txtb->text, txtb->offset)));
+        txtb->offset++;
+        return 1;
     }
-    else {
-	txtb->vmax = vmaxget();
-	txtb->buf = NULL;
-	txtb->bufp = NULL;
-	txtb->text = R_NilValue;
-	txtb->ntext = 0;
-	txtb->offset = 1;
-	return 0;
+    else
+    {
+        txtb->vmax = vmaxget();
+        txtb->buf = NULL;
+        txtb->bufp = NULL;
+        txtb->text = R_NilValue;
+        txtb->ntext = 0;
+        txtb->offset = 1;
+        return 0;
     }
 }
 
@@ -239,7 +248,7 @@ int attribute_hidden R_TextBufferInit(TextBuffer *txtb, SEXP text)
 int attribute_hidden R_TextBufferFree(TextBuffer *txtb)
 {
     vmaxset(txtb->vmax);
-    return 0;/* not used */
+    return 0; /* not used */
 }
 
 /* Getc for text buffers */
@@ -247,20 +256,22 @@ int attribute_hidden R_TextBufferFree(TextBuffer *txtb)
 int attribute_hidden R_TextBufferGetc(TextBuffer *txtb)
 {
     if (txtb->buf == NULL)
-	return EOF;
-    if (*(txtb->bufp) == '\0') {
-	if (txtb->offset == txtb->ntext) {
-	    txtb->buf = NULL;
-	    return EOF;
-	} else {
-	    const void *vmax = vmaxget();
-	    transferChars(txtb->buf,
-			  translateCharWithOverride(STRING_ELT(txtb->text,
-			                                       txtb->offset)));
-	    txtb->bufp = txtb->buf;
-	    txtb->offset++;
-	    vmaxset(vmax);
-	}
+        return EOF;
+    if (*(txtb->bufp) == '\0')
+    {
+        if (txtb->offset == txtb->ntext)
+        {
+            txtb->buf = NULL;
+            return EOF;
+        }
+        else
+        {
+            const void *vmax = vmaxget();
+            transferChars(txtb->buf, translateCharWithOverride(STRING_ELT(txtb->text, txtb->offset)));
+            txtb->bufp = txtb->buf;
+            txtb->offset++;
+            vmaxset(vmax);
+        }
     }
     return *txtb->bufp++;
 }

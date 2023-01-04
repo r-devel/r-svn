@@ -31,7 +31,6 @@
 #include <trioremap.h> /* for %lld */
 #endif
 
-
 /***
  *** ALTREP Concrete Class Implementations
  ***/
@@ -49,17 +48,15 @@
 #define SET_COMPACT_SEQ_EXPANDED(x, v) R_set_altrep_data2(x, v)
 
 /* needed for now for objects serialized with INTSXP state */
-#define COMPACT_INTSEQ_SERIALIZED_STATE_LENGTH(info) \
-    (TYPEOF(info) == INTSXP ? INTEGER0(info)[0] : (R_xlen_t) REAL0(info)[0])
-#define COMPACT_INTSEQ_SERIALIZED_STATE_FIRST(info) \
-    (TYPEOF(info) == INTSXP ? INTEGER0(info)[1] : (int) REAL0(info)[1])
-#define COMPACT_INTSEQ_SERIALIZED_STATE_INCR(info) \
-    (TYPEOF(info) == INTSXP ? INTEGER0(info)[2] : (int) REAL0(info)[2])
+#define COMPACT_INTSEQ_SERIALIZED_STATE_LENGTH(info)                                                                   \
+    (TYPEOF(info) == INTSXP ? INTEGER0(info)[0] : (R_xlen_t)REAL0(info)[0])
+#define COMPACT_INTSEQ_SERIALIZED_STATE_FIRST(info) (TYPEOF(info) == INTSXP ? INTEGER0(info)[1] : (int)REAL0(info)[1])
+#define COMPACT_INTSEQ_SERIALIZED_STATE_INCR(info) (TYPEOF(info) == INTSXP ? INTEGER0(info)[2] : (int)REAL0(info)[2])
 
 /* info is stored as REALSXP to allow for long vector length */
-#define COMPACT_INTSEQ_INFO_LENGTH(info) ((R_xlen_t) REAL0(info)[0])
-#define COMPACT_INTSEQ_INFO_FIRST(info) ((int) REAL0(info)[1])
-#define COMPACT_INTSEQ_INFO_INCR(info) ((int) REAL0(info)[2])
+#define COMPACT_INTSEQ_INFO_LENGTH(info) ((R_xlen_t)REAL0(info)[0])
+#define COMPACT_INTSEQ_INFO_FIRST(info) ((int)REAL0(info)[1])
+#define COMPACT_INTSEQ_INFO_INCR(info) ((int)REAL0(info)[2])
 
 /* By default, compact integer sequences are marked as not mutable at
    creation time. Thus even when expanded the expanded data will
@@ -76,7 +73,7 @@ static SEXP compact_intseq_Serialized_state(SEXP x)
     /* This drops through to standard serialization for expanded
        compact vectors */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return NULL;
+        return NULL;
 #endif
     return COMPACT_SEQ_INFO(x);
 }
@@ -91,29 +88,31 @@ static SEXP compact_intseq_Unserialize(SEXP class, SEXP state)
     int inc = COMPACT_INTSEQ_SERIALIZED_STATE_INCR(state);
 
     if (inc == 1)
-	return new_compact_intseq(n, n1,  1);
+        return new_compact_intseq(n, n1, 1);
     else if (inc == -1)
-	return new_compact_intseq(n, n1,  -1);
+        return new_compact_intseq(n, n1, -1);
     else
-	error("compact sequences with increment %d not supported yet", inc);
+        error("compact sequences with increment %d not supported yet", inc);
 }
- 
+
 static SEXP compact_intseq_Coerce(SEXP x, int type)
 {
 #ifdef COMPACT_INTSEQ_MUTABLE
     /* This drops through to standard coercion for expanded compact
        vectors */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return NULL;
+        return NULL;
 #endif
-    if (type == REALSXP) {
-	SEXP info = COMPACT_SEQ_INFO(x);
-	R_xlen_t n = COMPACT_INTSEQ_INFO_LENGTH(info);
-	int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
-	int inc = COMPACT_INTSEQ_INFO_INCR(info);
-	return new_compact_realseq(n, n1, inc);
+    if (type == REALSXP)
+    {
+        SEXP info = COMPACT_SEQ_INFO(x);
+        R_xlen_t n = COMPACT_INTSEQ_INFO_LENGTH(info);
+        int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
+        int inc = COMPACT_INTSEQ_INFO_INCR(info);
+        return new_compact_realseq(n, n1, inc);
     }
-    else return NULL;
+    else
+        return NULL;
 }
 
 static SEXP compact_intseq_Duplicate(SEXP x, Rboolean deep)
@@ -124,27 +123,26 @@ static SEXP compact_intseq_Duplicate(SEXP x, Rboolean deep)
     return val;
 }
 
-static
-Rboolean compact_intseq_Inspect(SEXP x, int pre, int deep, int pvec,
-				void (*inspect_subtree)(SEXP, int, int, int))
+static Rboolean compact_intseq_Inspect(SEXP x, int pre, int deep, int pvec,
+                                       void (*inspect_subtree)(SEXP, int, int, int))
 {
     int inc = COMPACT_INTSEQ_INFO_INCR(COMPACT_SEQ_INFO(x));
     if (inc != 1 && inc != -1)
-	error("compact sequences with increment %d not supported yet", inc);
+        error("compact sequences with increment %d not supported yet", inc);
 
 #ifdef COMPACT_INTSEQ_MUTABLE
-    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue) {
-	Rprintf("  <expanded compact integer sequence>\n");
-	inspect_subtree(COMPACT_SEQ_EXPANDED(x), pre, deep, pvec);
-	return TRUE;
+    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
+    {
+        Rprintf("  <expanded compact integer sequence>\n");
+        inspect_subtree(COMPACT_SEQ_EXPANDED(x), pre, deep, pvec);
+        return TRUE;
     }
 #endif
 
     R_xlen_t n = XLENGTH(x); // int .. LENGTH(.) not ok, e.g. for -1e9:2e9
     int n1 = INTEGER_ELT(x, 0);
-    int n2 = (int) ((inc == 1) ? n1 + n - 1 : n1 - n + 1);
-    Rprintf(" %d : %d (%s)", n1, n2,
-	    COMPACT_SEQ_EXPANDED(x) == R_NilValue ? "compact" : "expanded");
+    int n2 = (int)((inc == 1) ? n1 + n - 1 : n1 - n + 1);
+    Rprintf(" %d : %d (%s)", n1, n2, COMPACT_SEQ_EXPANDED(x) == R_NilValue ? "compact" : "expanded");
     Rprintf("\n");
     return TRUE;
 }
@@ -157,31 +155,34 @@ static R_INLINE R_xlen_t compact_intseq_Length(SEXP x)
 
 static void *compact_intseq_Dataptr(SEXP x, Rboolean writeable)
 {
-    if (COMPACT_SEQ_EXPANDED(x) == R_NilValue) {
-	/* no need to re-run if expanded data exists */
-	PROTECT(x);
-	SEXP info = COMPACT_SEQ_INFO(x);
-	R_xlen_t n = COMPACT_INTSEQ_INFO_LENGTH(info);
-	int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
-	int inc = COMPACT_INTSEQ_INFO_INCR(info);
-	SEXP val = allocVector(INTSXP, n);
-	int *data = INTEGER(val);
+    if (COMPACT_SEQ_EXPANDED(x) == R_NilValue)
+    {
+        /* no need to re-run if expanded data exists */
+        PROTECT(x);
+        SEXP info = COMPACT_SEQ_INFO(x);
+        R_xlen_t n = COMPACT_INTSEQ_INFO_LENGTH(info);
+        int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
+        int inc = COMPACT_INTSEQ_INFO_INCR(info);
+        SEXP val = allocVector(INTSXP, n);
+        int *data = INTEGER(val);
 
-	if (inc == 1) {
-	    /* compact sequences n1 : n2 with n1 <= n2 */
-	    for (R_xlen_t i = 0; i < n; i++)
-		data[i] = (int) (n1 + i);
-	}
-	else if (inc == -1) {
-	    /* compact sequences n1 : n2 with n1 > n2 */
-	    for (R_xlen_t i = 0; i < n; i++)
-		data[i] = (int) (n1 - i);
-	}
-	else
-	    error("compact sequences with increment %d not supported yet", inc);
+        if (inc == 1)
+        {
+            /* compact sequences n1 : n2 with n1 <= n2 */
+            for (R_xlen_t i = 0; i < n; i++)
+                data[i] = (int)(n1 + i);
+        }
+        else if (inc == -1)
+        {
+            /* compact sequences n1 : n2 with n1 > n2 */
+            for (R_xlen_t i = 0; i < n; i++)
+                data[i] = (int)(n1 - i);
+        }
+        else
+            error("compact sequences with increment %d not supported yet", inc);
 
-	SET_COMPACT_SEQ_EXPANDED(x, val);
-	UNPROTECT(1);
+        SET_COMPACT_SEQ_EXPANDED(x, val);
+        UNPROTECT(1);
     }
     return DATAPTR(COMPACT_SEQ_EXPANDED(x));
 }
@@ -196,21 +197,21 @@ static int compact_intseq_Elt(SEXP x, R_xlen_t i)
 {
     SEXP ex = COMPACT_SEQ_EXPANDED(x);
     if (ex != R_NilValue)
-	return INTEGER0(ex)[i];
-    else {
-	SEXP info = COMPACT_SEQ_INFO(x);
-	int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
-	int inc = COMPACT_INTSEQ_INFO_INCR(info);
-	return (int) (n1 + inc * i);
+        return INTEGER0(ex)[i];
+    else
+    {
+        SEXP info = COMPACT_SEQ_INFO(x);
+        int n1 = COMPACT_INTSEQ_INFO_FIRST(info);
+        int inc = COMPACT_INTSEQ_INFO_INCR(info);
+        return (int)(n1 + inc * i);
     }
 }
 
-#define CHECK_NOT_EXPANDED(x)					\
-    if (DATAPTR_OR_NULL(x) != NULL)				\
-	error("method should only handle unexpanded vectors")
+#define CHECK_NOT_EXPANDED(x)                                                                                          \
+    if (DATAPTR_OR_NULL(x) != NULL)                                                                                    \
+    error("method should only handle unexpanded vectors")
 
-static R_xlen_t
-compact_intseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
+static R_xlen_t compact_intseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 {
     /* should not get here if x is already expanded */
     CHECK_NOT_EXPANDED(sx);
@@ -221,18 +222,20 @@ compact_intseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
     int inc = COMPACT_INTSEQ_INFO_INCR(info);
 
     R_xlen_t ncopy = size - i > n ? n : size - i;
-    if (inc == 1) {
-	for (R_xlen_t k = 0; k < ncopy; k++)
-	    buf[k] = (int) (n1 + k + i);
-	return ncopy;
+    if (inc == 1)
+    {
+        for (R_xlen_t k = 0; k < ncopy; k++)
+            buf[k] = (int)(n1 + k + i);
+        return ncopy;
     }
-    else if (inc == -1) {
-	for (R_xlen_t k = 0; k < ncopy; k++)
-	    buf[k] = (int) (n1 - k - i);
-	return ncopy;
+    else if (inc == -1)
+    {
+        for (R_xlen_t k = 0; k < ncopy; k++)
+            buf[k] = (int)(n1 - k - i);
+        return ncopy;
     }
     else
-	error("compact sequences with increment %d not supported yet", inc);
+        error("compact sequences with increment %d not supported yet", inc);
 }
 
 static int compact_intseq_Is_sorted(SEXP x)
@@ -240,7 +243,7 @@ static int compact_intseq_Is_sorted(SEXP x)
 #ifdef COMPACT_INTSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return UNKNOWN_SORTEDNESS;
+        return UNKNOWN_SORTEDNESS;
 #endif
     int inc = COMPACT_INTSEQ_INFO_INCR(COMPACT_SEQ_INFO(x));
     return inc < 0 ? SORTED_DECR : SORTED_INCR;
@@ -251,7 +254,7 @@ static int compact_intseq_No_NA(SEXP x)
 #ifdef COMPACT_INTSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return FALSE;
+        return FALSE;
 #endif
     return TRUE;
 }
@@ -263,8 +266,8 @@ static SEXP compact_intseq_Sum(SEXP x, Rboolean narm)
 {
 #ifdef COMPACT_INTSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
-    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue) 
-	return NULL;
+    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
+        return NULL;
 #endif
     double tmp;
     SEXP info = COMPACT_SEQ_INFO(x);
@@ -272,13 +275,12 @@ static SEXP compact_intseq_Sum(SEXP x, Rboolean narm)
     R_xlen_t n1 = COMPACT_INTSEQ_INFO_FIRST(info);
     int inc = COMPACT_INTSEQ_INFO_INCR(info);
     tmp = (size / 2.0) * (n1 + n1 + inc * (size - 1));
-    if(tmp > INT_MAX || tmp < R_INT_MIN)
-	/**** check for overflow of exact integer range? */
-	return ScalarReal(tmp);
+    if (tmp > INT_MAX || tmp < R_INT_MIN)
+        /**** check for overflow of exact integer range? */
+        return ScalarReal(tmp);
     else
-	return ScalarInteger((int) tmp);
+        return ScalarInteger((int)tmp);
 }
-
 
 /*
  * Class Objects and Method Tables
@@ -288,8 +290,7 @@ R_altrep_class_t R_compact_intseq_class;
 
 static void InitCompactIntegerClass(void)
 {
-    R_altrep_class_t cls = R_make_altinteger_class("compact_intseq", "base",
-						   NULL);
+    R_altrep_class_t cls = R_make_altinteger_class("compact_intseq", "base", NULL);
     R_compact_intseq_class = cls;
 
     /* override ALTREP methods */
@@ -312,23 +313,23 @@ static void InitCompactIntegerClass(void)
     R_set_altinteger_Sum_method(cls, compact_intseq_Sum);
 }
 
-
 /*
  * Constructor
  */
 
 static SEXP new_compact_intseq(R_xlen_t n, int n1, int inc)
 {
-    if (n == 1) return ScalarInteger(n1);
+    if (n == 1)
+        return ScalarInteger(n1);
 
     if (inc != 1 && inc != -1)
-	error("compact sequences with increment %d not supported yet", inc);
+        error("compact sequences with increment %d not supported yet", inc);
 
     /* info used REALSXP to allow for long vectors */
     SEXP info = allocVector(REALSXP, 3);
-    REAL0(info)[0] = (double) n;
-    REAL0(info)[1] = (double) n1;
-    REAL0(info)[2] = (double) inc;
+    REAL0(info)[0] = (double)n;
+    REAL0(info)[1] = (double)n1;
+    REAL0(info)[2] = (double)inc;
 
     SEXP ans = R_new_altrep(R_compact_intseq_class, info, R_NilValue);
 #ifndef COMPACT_INTSEQ_MUTABLE
@@ -338,7 +339,6 @@ static SEXP new_compact_intseq(R_xlen_t n, int n1, int inc)
     return ans;
 }
 
-
 /**
  ** Compact Real Sequences
  **/
@@ -347,7 +347,7 @@ static SEXP new_compact_intseq(R_xlen_t n, int n1, int inc)
  * Methods
  */
 
-#define COMPACT_REALSEQ_INFO_LENGTH(info) ((R_xlen_t) REAL0(info)[0])
+#define COMPACT_REALSEQ_INFO_LENGTH(info) ((R_xlen_t)REAL0(info)[0])
 #define COMPACT_REALSEQ_INFO_FIRST(info) REAL0(info)[1]
 #define COMPACT_REALSEQ_INFO_INCR(info) REAL0(info)[2]
 
@@ -363,11 +363,11 @@ static SEXP compact_realseq_Unserialize(SEXP class, SEXP state)
     double n1 = COMPACT_REALSEQ_INFO_FIRST(state);
 
     if (inc == 1)
-	return new_compact_realseq(len, n1,  1);
+        return new_compact_realseq(len, n1, 1);
     else if (inc == -1)
-	return new_compact_realseq(len, n1, -1);
+        return new_compact_realseq(len, n1, -1);
     else
-	error("compact sequences with increment %f not supported yet", inc);
+        error("compact sequences with increment %f not supported yet", inc);
 }
 
 static SEXP compact_realseq_Duplicate(SEXP x, Rboolean deep)
@@ -378,55 +378,56 @@ static SEXP compact_realseq_Duplicate(SEXP x, Rboolean deep)
     return val;
 }
 
-static
-Rboolean compact_realseq_Inspect(SEXP x, int pre, int deep, int pvec,
-				 void (*inspect_subtree)(SEXP, int, int, int))
+static Rboolean compact_realseq_Inspect(SEXP x, int pre, int deep, int pvec,
+                                        void (*inspect_subtree)(SEXP, int, int, int))
 {
     double inc = COMPACT_REALSEQ_INFO_INCR(COMPACT_SEQ_INFO(x));
     if (inc != 1 && inc != -1)
-	error("compact sequences with increment %f not supported yet", inc);
+        error("compact sequences with increment %f not supported yet", inc);
 
     R_xlen_t n = XLENGTH(x);
-    R_xlen_t n1 = (R_xlen_t) REAL_ELT(x, 0);
+    R_xlen_t n1 = (R_xlen_t)REAL_ELT(x, 0);
     R_xlen_t n2 = inc == 1 ? n1 + n - 1 : n1 - n + 1;
-    Rprintf(" %lld : %lld (%s)", n1, n2,
-	    COMPACT_SEQ_EXPANDED(x) == R_NilValue ? "compact" : "expanded");
+    Rprintf(" %lld : %lld (%s)", n1, n2, COMPACT_SEQ_EXPANDED(x) == R_NilValue ? "compact" : "expanded");
     Rprintf("\n");
     return TRUE;
 }
 
 static R_INLINE R_xlen_t compact_realseq_Length(SEXP x)
 {
-    return (R_xlen_t) REAL0(COMPACT_SEQ_INFO(x))[0];
+    return (R_xlen_t)REAL0(COMPACT_SEQ_INFO(x))[0];
 }
 
 static void *compact_realseq_Dataptr(SEXP x, Rboolean writeable)
 {
-    if (COMPACT_SEQ_EXPANDED(x) == R_NilValue) {
-	PROTECT(x);
-	SEXP info = COMPACT_SEQ_INFO(x);
-	R_xlen_t n = COMPACT_REALSEQ_INFO_LENGTH(info);
-	double n1 = COMPACT_REALSEQ_INFO_FIRST(info);
-	double inc = COMPACT_REALSEQ_INFO_INCR(info);
-	
-	SEXP val = allocVector(REALSXP, (R_xlen_t) n);
-	double *data = REAL(val);
+    if (COMPACT_SEQ_EXPANDED(x) == R_NilValue)
+    {
+        PROTECT(x);
+        SEXP info = COMPACT_SEQ_INFO(x);
+        R_xlen_t n = COMPACT_REALSEQ_INFO_LENGTH(info);
+        double n1 = COMPACT_REALSEQ_INFO_FIRST(info);
+        double inc = COMPACT_REALSEQ_INFO_INCR(info);
 
-	if (inc == 1) {
-	    /* compact sequences n1 : n2 with n1 <= n2 */
-	    for (R_xlen_t i = 0; i < n; i++)
-		data[i] = n1 + i;
-	}
-	else if (inc == -1) {
-	    /* compact sequences n1 : n2 with n1 > n2 */
-	    for (R_xlen_t i = 0; i < n; i++)
-		data[i] = n1 - i;
-	}
-	else
-	    error("compact sequences with increment %f not supported yet", inc);
+        SEXP val = allocVector(REALSXP, (R_xlen_t)n);
+        double *data = REAL(val);
 
-	SET_COMPACT_SEQ_EXPANDED(x, val);
-	UNPROTECT(1);
+        if (inc == 1)
+        {
+            /* compact sequences n1 : n2 with n1 <= n2 */
+            for (R_xlen_t i = 0; i < n; i++)
+                data[i] = n1 + i;
+        }
+        else if (inc == -1)
+        {
+            /* compact sequences n1 : n2 with n1 > n2 */
+            for (R_xlen_t i = 0; i < n; i++)
+                data[i] = n1 - i;
+        }
+        else
+            error("compact sequences with increment %f not supported yet", inc);
+
+        SET_COMPACT_SEQ_EXPANDED(x, val);
+        UNPROTECT(1);
     }
     return DATAPTR(COMPACT_SEQ_EXPANDED(x));
 }
@@ -441,17 +442,17 @@ static double compact_realseq_Elt(SEXP x, R_xlen_t i)
 {
     SEXP ex = COMPACT_SEQ_EXPANDED(x);
     if (ex != R_NilValue)
-	return REAL0(ex)[i];
-    else {
-	SEXP info = COMPACT_SEQ_INFO(x);
-	double n1 = COMPACT_REALSEQ_INFO_FIRST(info);
-	double inc = COMPACT_REALSEQ_INFO_INCR(info);
-	return n1 + inc * i;
+        return REAL0(ex)[i];
+    else
+    {
+        SEXP info = COMPACT_SEQ_INFO(x);
+        double n1 = COMPACT_REALSEQ_INFO_FIRST(info);
+        double inc = COMPACT_REALSEQ_INFO_INCR(info);
+        return n1 + inc * i;
     }
 }
 
-static R_xlen_t
-compact_realseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
+static R_xlen_t compact_realseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
 {
     /* should not get here if x is already expanded */
     CHECK_NOT_EXPANDED(sx);
@@ -462,26 +463,28 @@ compact_realseq_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
     double inc = COMPACT_REALSEQ_INFO_INCR(info);
 
     R_xlen_t ncopy = size - i > n ? n : size - i;
-    if (inc == 1) {
-	for (R_xlen_t k = 0; k < ncopy; k++)
-	    buf[k] = n1 + k + i;
-	return ncopy;
+    if (inc == 1)
+    {
+        for (R_xlen_t k = 0; k < ncopy; k++)
+            buf[k] = n1 + k + i;
+        return ncopy;
     }
-    else if (inc == -1) {
-	for (R_xlen_t k = 0; k < ncopy; k++)
-	    buf[k] = n1 - k - i;
-	return ncopy;
+    else if (inc == -1)
+    {
+        for (R_xlen_t k = 0; k < ncopy; k++)
+            buf[k] = n1 - k - i;
+        return ncopy;
     }
     else
-	error("compact sequences with increment %f not supported yet", inc);
+        error("compact sequences with increment %f not supported yet", inc);
 }
-    
+
 static int compact_realseq_Is_sorted(SEXP x)
 {
 #ifdef COMPACT_REALSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return UNKNOWN_SORTEDNESS;
+        return UNKNOWN_SORTEDNESS;
 #endif
     double inc = COMPACT_REALSEQ_INFO_INCR(COMPACT_SEQ_INFO(x));
     return inc < 0 ? SORTED_DECR : SORTED_INCR;
@@ -492,7 +495,7 @@ static int compact_realseq_No_NA(SEXP x)
 #ifdef COMPACT_REALSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
     if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
-	return FALSE;
+        return FALSE;
 #endif
     return TRUE;
 }
@@ -501,28 +504,25 @@ static SEXP compact_realseq_Sum(SEXP x, Rboolean narm)
 {
 #ifdef COMPACT_INTSEQ_MUTABLE
     /* If the vector has been expanded it may have been modified. */
-    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue) 
-	return NULL;
+    if (COMPACT_SEQ_EXPANDED(x) != R_NilValue)
+        return NULL;
 #endif
     SEXP info = COMPACT_SEQ_INFO(x);
-    double size = (double) COMPACT_REALSEQ_INFO_LENGTH(info);
+    double size = (double)COMPACT_REALSEQ_INFO_LENGTH(info);
     double n1 = COMPACT_REALSEQ_INFO_FIRST(info);
     double inc = COMPACT_REALSEQ_INFO_INCR(info);
-    return ScalarReal((size / 2.0) *(n1 + n1 + inc * (size - 1)));
+    return ScalarReal((size / 2.0) * (n1 + n1 + inc * (size - 1)));
 }
-
 
 /*
  * Class Objects and Method Tables
  */
 
-
 R_altrep_class_t R_compact_realseq_class;
 
 static void InitCompactRealClass(void)
 {
-    R_altrep_class_t cls = R_make_altreal_class("compact_realseq", "base",
-						NULL);
+    R_altrep_class_t cls = R_make_altreal_class("compact_realseq", "base", NULL);
     R_compact_realseq_class = cls;
 
     /* override ALTREP methods */
@@ -544,17 +544,17 @@ static void InitCompactRealClass(void)
     R_set_altreal_Sum_method(cls, compact_realseq_Sum);
 }
 
-
 /*
  * Constructor
  */
 
 static SEXP new_compact_realseq(R_xlen_t n, double n1, double inc)
 {
-    if (n == 1) return ScalarReal(n1);
+    if (n == 1)
+        return ScalarReal(n1);
 
     if (inc != 1 && inc != -1)
-	error("compact sequences with increment %f not supported yet", inc);
+        error("compact sequences with increment %f not supported yet", inc);
 
     SEXP info = allocVector(REALSXP, 3);
     REAL(info)[0] = n;
@@ -567,7 +567,6 @@ static SEXP new_compact_realseq(R_xlen_t n, double n1, double inc)
     return ans;
 }
 
-
 /**
  ** Compact Integer/Real Sequences
  **/
@@ -577,14 +576,13 @@ attribute_hidden SEXP R_compact_intrange(R_xlen_t n1, R_xlen_t n2)
     R_xlen_t n = n1 <= n2 ? n2 - n1 + 1 : n1 - n2 + 1;
 
     if (n >= R_XLEN_T_MAX)
-	error("result would be too long a vector");
+        error("result would be too long a vector");
 
     if (n1 <= INT_MIN || n1 > INT_MAX || n2 <= INT_MIN || n2 > INT_MAX)
-	return new_compact_realseq(n, n1, n1 <= n2 ? 1 : -1);
+        return new_compact_realseq(n, n1, n1 <= n2 ? 1 : -1);
     else
-	return new_compact_intseq(n, (int) n1, n1 <= n2 ? 1 : -1);
+        return new_compact_intseq(n, (int)n1, n1 <= n2 ? 1 : -1);
 }
-
 
 /**
  ** Deferred String Coercions
@@ -595,7 +593,7 @@ attribute_hidden SEXP R_compact_intrange(R_xlen_t n1, R_xlen_t n2)
  */
 
 #define DEFERRED_STRING_STATE(x) R_altrep_data1(x)
-#define	CLEAR_DEFERRED_STRING_STATE(x) R_set_altrep_data1(x, R_NilValue)
+#define CLEAR_DEFERRED_STRING_STATE(x) R_set_altrep_data1(x, R_NilValue)
 #define DEFERRED_STRING_EXPANDED(x) R_altrep_data2(x)
 #define SET_DEFERRED_STRING_EXPANDED(x, v) R_set_altrep_data2(x, v)
 
@@ -603,22 +601,22 @@ attribute_hidden SEXP R_compact_intrange(R_xlen_t n1, R_xlen_t n2)
 #define DEFERRED_STRING_STATE_ARG(s) CAR(s)
 #define DEFERRED_STRING_STATE_INFO(s) CDR(s)
 
-#define DEFERRED_STRING_ARG(x) \
-    DEFERRED_STRING_STATE_ARG(DEFERRED_STRING_STATE(x))
-#define DEFERRED_STRING_INFO(x) \
-    DEFERRED_STRING_STATE_INFO(DEFERRED_STRING_STATE(x))
-#define DEFERRED_STRING_SCIPEN(x) \
-    INTEGER0(DEFERRED_STRING_STATE_INFO(DEFERRED_STRING_STATE(x)))[0]
+#define DEFERRED_STRING_ARG(x) DEFERRED_STRING_STATE_ARG(DEFERRED_STRING_STATE(x))
+#define DEFERRED_STRING_INFO(x) DEFERRED_STRING_STATE_INFO(DEFERRED_STRING_STATE(x))
+#define DEFERRED_STRING_SCIPEN(x) INTEGER0(DEFERRED_STRING_STATE_INFO(DEFERRED_STRING_STATE(x)))[0]
 
 /* work-around for package code that mutates things it shouldn't and
    makes serialize and inspect infinite-loop */
-#define DEFERRED_STRING_FIXUP_ARG_ATTRIBS(state) do {			\
-	if (state != R_NilValue && ATTRIB(CAR(state)) != R_NilValue) {	\
-	    SETCAR(state, shallow_duplicate(CAR(state)));		\
-	    SET_ATTRIB(CAR(state), R_NilValue);				\
-	}								\
+#define DEFERRED_STRING_FIXUP_ARG_ATTRIBS(state)                                                                       \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (state != R_NilValue && ATTRIB(CAR(state)) != R_NilValue)                                                   \
+        {                                                                                                              \
+            SETCAR(state, shallow_duplicate(CAR(state)));                                                              \
+            SET_ATTRIB(CAR(state), R_NilValue);                                                                        \
+        }                                                                                                              \
     } while (0)
-    
+
 static SEXP R_OutDecSym = NULL;
 
 static R_INLINE const char *DEFERRED_STRING_OUTDEC(SEXP x)
@@ -627,12 +625,13 @@ static R_INLINE const char *DEFERRED_STRING_OUTDEC(SEXP x)
        something different at the time the deferred string conversion
        is created then the current value is stored as an attribute. */
     if (R_OutDecSym == NULL)
-	R_OutDecSym = install("OutDec");
+        R_OutDecSym = install("OutDec");
     SEXP info = DEFERRED_STRING_INFO(x);
-    if (ATTRIB(info) != R_NilValue) {
-	SEXP outdecattr = getAttrib(info, R_OutDecSym);
-	if (TYPEOF(outdecattr) == STRSXP && XLENGTH(outdecattr) == 1)
-	    return CHAR(STRING_ELT(outdecattr, 0));
+    if (ATTRIB(info) != R_NilValue)
+    {
+        SEXP outdecattr = getAttrib(info, R_OutDecSym);
+        if (TYPEOF(outdecattr) == STRSXP && XLENGTH(outdecattr) == 1)
+            return CHAR(STRING_ELT(outdecattr, 0));
     }
     return ".";
 }
@@ -656,20 +655,21 @@ static SEXP deferred_string_Unserialize(SEXP class, SEXP state)
     return R_deferred_coerceToString(arg, info);
 }
 
-static
-Rboolean deferred_string_Inspect(SEXP x, int pre, int deep, int pvec,
-				 void (*inspect_subtree)(SEXP, int, int, int))
+static Rboolean deferred_string_Inspect(SEXP x, int pre, int deep, int pvec,
+                                        void (*inspect_subtree)(SEXP, int, int, int))
 {
     SEXP state = DEFERRED_STRING_STATE(x);
-    if (state != R_NilValue) {
-	DEFERRED_STRING_FIXUP_ARG_ATTRIBS(state);
-	SEXP arg = DEFERRED_STRING_STATE_ARG(state);
-	Rprintf("  <deferred string conversion>\n");
-	inspect_subtree(arg, pre, deep, pvec);
+    if (state != R_NilValue)
+    {
+        DEFERRED_STRING_FIXUP_ARG_ATTRIBS(state);
+        SEXP arg = DEFERRED_STRING_STATE_ARG(state);
+        Rprintf("  <deferred string conversion>\n");
+        inspect_subtree(arg, pre, deep, pvec);
     }
-    else {
-	Rprintf("  <expanded string conversion>\n");
-	inspect_subtree(DEFERRED_STRING_EXPANDED(x), pre, deep, pvec);
+    else
+    {
+        Rprintf("  <expanded string conversion>\n");
+        inspect_subtree(DEFERRED_STRING_EXPANDED(x), pre, deep, pvec);
     }
     return TRUE;
 }
@@ -677,9 +677,7 @@ Rboolean deferred_string_Inspect(SEXP x, int pre, int deep, int pvec,
 static R_INLINE R_xlen_t deferred_string_Length(SEXP x)
 {
     SEXP state = DEFERRED_STRING_STATE(x);
-    return state == R_NilValue ?
-	XLENGTH(DEFERRED_STRING_EXPANDED(x)) :
-	XLENGTH(DEFERRED_STRING_STATE_ARG(state));
+    return state == R_NilValue ? XLENGTH(DEFERRED_STRING_EXPANDED(x)) : XLENGTH(DEFERRED_STRING_STATE_ARG(state));
 }
 
 static R_INLINE SEXP ExpandDeferredStringElt(SEXP x, R_xlen_t i)
@@ -687,53 +685,57 @@ static R_INLINE SEXP ExpandDeferredStringElt(SEXP x, R_xlen_t i)
     /* make sure the STRSXP for the expanded string is allocated */
     /* not yet expanded strings are NULL in the STRSXP */
     SEXP val = DEFERRED_STRING_EXPANDED(x);
-    if (val == R_NilValue) {
-	R_xlen_t n = XLENGTH(x);
-	val = allocVector(STRSXP, n);
-	memset(STDVEC_DATAPTR(val), 0, n * sizeof(SEXP));
-	SET_DEFERRED_STRING_EXPANDED(x, val);
+    if (val == R_NilValue)
+    {
+        R_xlen_t n = XLENGTH(x);
+        val = allocVector(STRSXP, n);
+        memset(STDVEC_DATAPTR(val), 0, n * sizeof(SEXP));
+        SET_DEFERRED_STRING_EXPANDED(x, val);
     }
 
     SEXP elt = STRING_ELT(val, i);
-    if (elt == NULL) {
-	int warn; /* not used by the coercion functions */
-	int savedigits, savescipen;
-	SEXP data = DEFERRED_STRING_ARG(x);
-	switch(TYPEOF(data)) {
-	case INTSXP:
-	    elt = StringFromInteger(INTEGER_ELT(data, i), &warn);
-	    break;
-	case REALSXP:
-	    savedigits = R_print.digits;
-	    savescipen = R_print.scipen;
-	    R_print.digits = DBL_DIG;/* MAX precision */
-	    R_print.scipen = DEFERRED_STRING_SCIPEN(x);
-	    const char *myoutdec = DEFERRED_STRING_OUTDEC(x);
-	    if (strcmp(OutDec, myoutdec)) {
-		/* The current and saved OutDec values differ. The
-		   value to use is put in a static buffer and OutDec
-		   temporarily points to this buffer while
-		   StringFromReal is called and then reset. The buffer
-		   originally pointed to by OutDec cannot be used as
-		   it wil not be writable if the default "." has not
-		   been changed. */
-		static char buf[10];
-		strncpy(buf, myoutdec, sizeof buf);
-		buf[sizeof(buf) - 1] = '\0';
-		char *savedOutDec = OutDec;
-		OutDec = buf;
-		elt = StringFromReal(REAL_ELT(data, i), &warn);
-		OutDec = savedOutDec;
-	    }
-	    else
-		elt = StringFromReal(REAL_ELT(data, i), &warn);
-	    R_print.digits = savedigits;
-	    R_print.scipen = savescipen;
-	    break;
-	default:
-	    error("unsupported type for deferred string coercion");
-	}
-	SET_STRING_ELT(val, i, elt);
+    if (elt == NULL)
+    {
+        int warn; /* not used by the coercion functions */
+        int savedigits, savescipen;
+        SEXP data = DEFERRED_STRING_ARG(x);
+        switch (TYPEOF(data))
+        {
+        case INTSXP:
+            elt = StringFromInteger(INTEGER_ELT(data, i), &warn);
+            break;
+        case REALSXP:
+            savedigits = R_print.digits;
+            savescipen = R_print.scipen;
+            R_print.digits = DBL_DIG; /* MAX precision */
+            R_print.scipen = DEFERRED_STRING_SCIPEN(x);
+            const char *myoutdec = DEFERRED_STRING_OUTDEC(x);
+            if (strcmp(OutDec, myoutdec))
+            {
+                /* The current and saved OutDec values differ. The
+                   value to use is put in a static buffer and OutDec
+                   temporarily points to this buffer while
+                   StringFromReal is called and then reset. The buffer
+                   originally pointed to by OutDec cannot be used as
+                   it wil not be writable if the default "." has not
+                   been changed. */
+                static char buf[10];
+                strncpy(buf, myoutdec, sizeof buf);
+                buf[sizeof(buf) - 1] = '\0';
+                char *savedOutDec = OutDec;
+                OutDec = buf;
+                elt = StringFromReal(REAL_ELT(data, i), &warn);
+                OutDec = savedOutDec;
+            }
+            else
+                elt = StringFromReal(REAL_ELT(data, i), &warn);
+            R_print.digits = savedigits;
+            R_print.scipen = savescipen;
+            break;
+        default:
+            error("unsupported type for deferred string coercion");
+        }
+        SET_STRING_ELT(val, i, elt);
     }
     return elt;
 }
@@ -741,17 +743,18 @@ static R_INLINE SEXP ExpandDeferredStringElt(SEXP x, R_xlen_t i)
 static R_INLINE void expand_deferred_string(SEXP x)
 {
     SEXP state = DEFERRED_STRING_STATE(x);
-    if (state != R_NilValue) {
-	/* expanded data may be incomplete until original data is removed */
-	PROTECT(x);
-	R_xlen_t n = XLENGTH(x), i;
-	if (n == 0)
-	    SET_DEFERRED_STRING_EXPANDED(x, allocVector(STRSXP, 0));
-	else
-	    for (i = 0; i < n; i++)
-		ExpandDeferredStringElt(x, i);
-	CLEAR_DEFERRED_STRING_STATE(x); /* allow arg to be reclaimed */
-	UNPROTECT(1);
+    if (state != R_NilValue)
+    {
+        /* expanded data may be incomplete until original data is removed */
+        PROTECT(x);
+        R_xlen_t n = XLENGTH(x), i;
+        if (n == 0)
+            SET_DEFERRED_STRING_EXPANDED(x, allocVector(STRSXP, 0));
+        else
+            for (i = 0; i < n; i++)
+                ExpandDeferredStringElt(x, i);
+        CLEAR_DEFERRED_STRING_STATE(x); /* allow arg to be reclaimed */
+        UNPROTECT(1);
     }
 }
 
@@ -771,14 +774,15 @@ static SEXP deferred_string_Elt(SEXP x, R_xlen_t i)
 {
     SEXP state = DEFERRED_STRING_STATE(x);
     if (state == R_NilValue)
-	/* string is fully expanded */
-	return STRING_ELT(DEFERRED_STRING_EXPANDED(x), i);
-    else {
-	/* expand only the requested element */
-	PROTECT(x);
-	SEXP elt = ExpandDeferredStringElt(x, i);
-	UNPROTECT(1);
-	return elt;
+        /* string is fully expanded */
+        return STRING_ELT(DEFERRED_STRING_EXPANDED(x), i);
+    else
+    {
+        /* expand only the requested element */
+        PROTECT(x);
+        SEXP elt = ExpandDeferredStringElt(x, i);
+        UNPROTECT(1);
+        return elt;
     }
 }
 
@@ -798,16 +802,21 @@ static int deferred_string_No_NA(SEXP x)
 {
     SEXP state = DEFERRED_STRING_STATE(x);
     if (state == R_NilValue)
-	/* string is fully expanded and may have been modified. */
-	return FALSE;
-    else {
-	/* defer to the argument */
-	SEXP arg = DEFERRED_STRING_STATE_ARG(state);
-	switch(TYPEOF(arg)) {
-	case INTSXP: return INTEGER_NO_NA(arg);
-	case REALSXP: return REAL_NO_NA(arg);
-	default: return FALSE;
-	}
+        /* string is fully expanded and may have been modified. */
+        return FALSE;
+    else
+    {
+        /* defer to the argument */
+        SEXP arg = DEFERRED_STRING_STATE_ARG(state);
+        switch (TYPEOF(arg))
+        {
+        case INTSXP:
+            return INTEGER_NO_NA(arg);
+        case REALSXP:
+            return REAL_NO_NA(arg);
+        default:
+            return FALSE;
+        }
     }
 }
 
@@ -815,22 +824,21 @@ static SEXP deferred_string_Extract_subset(SEXP x, SEXP indx, SEXP call)
 {
     SEXP result = NULL;
 
-    if (! OBJECT(x) && ATTRIB(x) == R_NilValue &&
-	DEFERRED_STRING_STATE(x) != R_NilValue) {
-	/* For deferred string coercions, create a new conversion
-	   using the subset of the argument.  Could try to
-	   preserve/share coercions already done, if there are any. */
-	SEXP data = DEFERRED_STRING_ARG(x);
-	SEXP info = DEFERRED_STRING_INFO(x);
-	PROTECT(result = ExtractSubset(data, indx, call));
-	result = R_deferred_coerceToString(result, info);
-	UNPROTECT(1);
-	return result;
+    if (!OBJECT(x) && ATTRIB(x) == R_NilValue && DEFERRED_STRING_STATE(x) != R_NilValue)
+    {
+        /* For deferred string coercions, create a new conversion
+           using the subset of the argument.  Could try to
+           preserve/share coercions already done, if there are any. */
+        SEXP data = DEFERRED_STRING_ARG(x);
+        SEXP info = DEFERRED_STRING_INFO(x);
+        PROTECT(result = ExtractSubset(data, indx, call));
+        result = R_deferred_coerceToString(result, info);
+        UNPROTECT(1);
+        return result;
     }
 
     return result;
 }
-
 
 /*
  * Class Object and Method Table
@@ -840,8 +848,7 @@ static R_altrep_class_t R_deferred_string_class;
 
 static void InitDefferredStringClass(void)
 {
-    R_altrep_class_t cls = R_make_altstring_class("deferred_string", "base",
-						  NULL);
+    R_altrep_class_t cls = R_make_altstring_class("deferred_string", "base", NULL);
     R_deferred_string_class = cls;
 
     /* override ALTREP methods */
@@ -862,7 +869,6 @@ static void InitDefferredStringClass(void)
     R_set_altstring_No_NA_method(cls, deferred_string_No_NA);
 }
 
-
 /*
  * Constructor
  */
@@ -870,33 +876,35 @@ static void InitDefferredStringClass(void)
 attribute_hidden SEXP R_deferred_coerceToString(SEXP v, SEXP info)
 {
     SEXP ans = R_NilValue;
-    switch (TYPEOF(v)) {
+    switch (TYPEOF(v))
+    {
     case INTSXP:
     case REALSXP:
-	PROTECT(v); /* may not be needed, but to be safe ... */
-	if (info == NULL) {
-	    PrintDefaults(); /* to set R_print from options */
-	    info = ScalarInteger(R_print.scipen);
-	    if (strcmp(OutDec, ".")) {
-		/* non-default OutDec setting -- attach as an attribute */
-		PROTECT(info);
-		if (R_OutDecSym == NULL)
-		    R_OutDecSym = install("OutDec");
-		setAttrib(info, R_OutDecSym, GetOption1(R_OutDecSym));
-		UNPROTECT(1); /* info */
-	    }
-	}
-	MARK_NOT_MUTABLE(v); /* make sure it can't change once captured */
-	ans = PROTECT(MAKE_DEFERRED_STRING_STATE(v, info));
-	ans = R_new_altrep(R_deferred_string_class, ans, R_NilValue);
-	UNPROTECT(2); /* ans, v */
-	break;
+        PROTECT(v); /* may not be needed, but to be safe ... */
+        if (info == NULL)
+        {
+            PrintDefaults(); /* to set R_print from options */
+            info = ScalarInteger(R_print.scipen);
+            if (strcmp(OutDec, "."))
+            {
+                /* non-default OutDec setting -- attach as an attribute */
+                PROTECT(info);
+                if (R_OutDecSym == NULL)
+                    R_OutDecSym = install("OutDec");
+                setAttrib(info, R_OutDecSym, GetOption1(R_OutDecSym));
+                UNPROTECT(1); /* info */
+            }
+        }
+        MARK_NOT_MUTABLE(v); /* make sure it can't change once captured */
+        ans = PROTECT(MAKE_DEFERRED_STRING_STATE(v, info));
+        ans = R_new_altrep(R_deferred_string_class, ans, R_NilValue);
+        UNPROTECT(2); /* ans, v */
+        break;
     default:
-	error("unsupported type for deferred string coercion");
+        error("unsupported type for deferred string coercion");
     }
     return ans;
 }
-
 
 /**
  ** Memory Mapped Vectors
@@ -914,7 +922,7 @@ attribute_hidden SEXP R_deferred_coerceToString(SEXP v, SEXP info)
  */
 
 /* State is held in a LISTSXP of length 3, and includes
-   
+
        file
        size and length in a REALSXP
        type, ptrOK, wrtOK, serOK in an INTSXP
@@ -924,16 +932,21 @@ attribute_hidden SEXP R_deferred_coerceToString(SEXP v, SEXP info)
  */
 
 #ifndef Win32
-static SEXP make_mmap_state(SEXP file, size_t size, int type,
-			    Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK)
+static SEXP make_mmap_state(SEXP file, size_t size, int type, Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK)
 {
     SEXP sizes = PROTECT(allocVector(REALSXP, 2));
     double *dsizes = REAL(sizes);
     dsizes[0] = size;
-    switch(type) {
-    case INTSXP: dsizes[1] = size / sizeof(int); break;
-    case REALSXP: dsizes[1] = size / sizeof(double); break;
-    default: error("mmap for %s not supported yet", type2char(type));
+    switch (type)
+    {
+    case INTSXP:
+        dsizes[1] = size / sizeof(int);
+        break;
+    case REALSXP:
+        dsizes[1] = size / sizeof(double);
+        break;
+    default:
+        error("mmap for %s not supported yet", type2char(type));
     }
 
     SEXP info = PROTECT(allocVector(INTSXP, 4));
@@ -950,13 +963,12 @@ static SEXP make_mmap_state(SEXP file, size_t size, int type,
 #endif
 
 #define MMAP_STATE_FILE(x) CAR(x)
-#define MMAP_STATE_SIZE(x) ((size_t) REAL_ELT(CADR(x), 0))
-#define MMAP_STATE_LENGTH(x) ((size_t) REAL_ELT(CADR(x), 1))
+#define MMAP_STATE_SIZE(x) ((size_t)REAL_ELT(CADR(x), 0))
+#define MMAP_STATE_LENGTH(x) ((size_t)REAL_ELT(CADR(x), 1))
 #define MMAP_STATE_TYPE(x) INTEGER(CADDR(x))[0]
 #define MMAP_STATE_PTROK(x) INTEGER(CADDR(x))[1]
 #define MMAP_STATE_WRTOK(x) INTEGER(CADDR(x))[2]
 #define MMAP_STATE_SEROK(x) INTEGER(CADDR(x))[3]
-
 
 /*
  * MMAP Classes and Objects
@@ -976,28 +988,28 @@ static R_altrep_class_t mmap_real_class;
 
 #ifndef Win32
 static void register_mmap_eptr(SEXP eptr);
-static SEXP make_mmap(void *p, SEXP file, size_t size, int type,
-		      Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK)
+static SEXP make_mmap(void *p, SEXP file, size_t size, int type, Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK)
 {
-    SEXP state = PROTECT(make_mmap_state(file, size,
-					 type, ptrOK, wrtOK, serOK));
+    SEXP state = PROTECT(make_mmap_state(file, size, type, ptrOK, wrtOK, serOK));
     SEXP eptr = PROTECT(R_MakeExternalPtr(p, R_NilValue, state));
     register_mmap_eptr(eptr);
 
     R_altrep_class_t class;
-    switch(type) {
+    switch (type)
+    {
     case INTSXP:
-	class = mmap_integer_class;
-	break;
+        class = mmap_integer_class;
+        break;
     case REALSXP:
-	class = mmap_real_class;
-	break;
-    default: error("mmap for %s not supported yet", type2char(type));
+        class = mmap_real_class;
+        break;
+    default:
+        error("mmap for %s not supported yet", type2char(type));
     }
 
     SEXP ans = R_new_altrep(class, eptr, state);
-    if (ptrOK && ! wrtOK)
-	MARK_NOT_MUTABLE(ans);
+    if (ptrOK && !wrtOK)
+        MARK_NOT_MUTABLE(ans);
 
     UNPROTECT(2); /* state, eptr */
     return ans;
@@ -1019,7 +1031,7 @@ static R_INLINE void *MMAP_ADDR(SEXP x)
     void *addr = R_ExternalPtrAddr(eptr);
 
     if (addr == NULL)
-	error("object has been unmapped");
+        error("object has been unmapped");
     return addr;
 }
 
@@ -1029,7 +1041,6 @@ static R_INLINE void *MMAP_ADDR(SEXP x)
    to run a finalizer after unloading would result in an illegal
    instruction. */
 
-
 #ifndef Win32
 static SEXP mmap_list = NULL;
 
@@ -1038,28 +1049,26 @@ static SEXP mmap_list = NULL;
 static void mmap_finalize(SEXP eptr);
 static void register_mmap_eptr(SEXP eptr)
 {
-    if (mmap_list == NULL) {
-	mmap_list = CONS(R_NilValue, R_NilValue);
-	R_PreserveObject(mmap_list);
+    if (mmap_list == NULL)
+    {
+        mmap_list = CONS(R_NilValue, R_NilValue);
+        R_PreserveObject(mmap_list);
     }
-    
+
     /* clean out the weak list every MAXCOUNT calls*/
     static int cleancount = MAXCOUNT;
-    if (--cleancount <= 0) {
-	cleancount = MAXCOUNT;
-	for (SEXP last = mmap_list, next = CDR(mmap_list);
-	     next != R_NilValue;
-	     next = CDR(next))
-	    if (R_WeakRefKey(CAR(next)) == R_NilValue)
-		SETCDR(last, CDR(next));
-	    else
-		last = next;
+    if (--cleancount <= 0)
+    {
+        cleancount = MAXCOUNT;
+        for (SEXP last = mmap_list, next = CDR(mmap_list); next != R_NilValue; next = CDR(next))
+            if (R_WeakRefKey(CAR(next)) == R_NilValue)
+                SETCDR(last, CDR(next));
+            else
+                last = next;
     }
 
     /* add a weak reference with a finalizer to the list */
-    SETCDR(mmap_list, 
-	   CONS(R_MakeWeakRefC(eptr, R_NilValue, mmap_finalize, TRUE),
-		CDR(mmap_list)));
+    SETCDR(mmap_list, CONS(R_MakeWeakRefC(eptr, R_NilValue, mmap_finalize, TRUE), CDR(mmap_list)));
 
     /* store the weak reference in the external pointer for do_munmap_file */
     R_SetExternalPtrTag(eptr, CAR(CDR(mmap_list)));
@@ -1070,15 +1079,14 @@ static void register_mmap_eptr(SEXP eptr)
 static void finalize_mmap_objects()
 {
     if (mmap_list == NULL)
-	return;
-    
+        return;
+
     /* finalize any remaining mmap objects before unloading */
     for (SEXP next = CDR(mmap_list); next != R_NilValue; next = CDR(next))
-	R_RunWeakRefFinalizer(CAR(next));
+        R_RunWeakRefFinalizer(CAR(next));
     R_ReleaseObject(mmap_list);
 }
 #endif
-
 
 /*
  * ALTREP Methods
@@ -1092,9 +1100,9 @@ static SEXP mmap_Serialized_state(SEXP x)
        be expanded again when unserializing, in a context where the
        result may be different. */
     if (MMAP_SEROK(x))
-	return MMAP_STATE(x);
+        return MMAP_STATE(x);
     else
-	return NULL;
+        return NULL;
 }
 
 static SEXP mmap_file(SEXP, int, Rboolean, Rboolean, Rboolean, Rboolean);
@@ -1108,19 +1116,19 @@ static SEXP mmap_Unserialize(SEXP class, SEXP state)
     Rboolean serOK = MMAP_STATE_SEROK(state);
 
     SEXP val = mmap_file(file, type, ptrOK, wrtOK, serOK, TRUE);
-    if (val == NULL) {
-	/**** The attempt to memory map failed. Eventually it would be
-	      good to have a mechanism to allow the user to try to
-	      resolve this.  For now, return a length zero vector with
-	      another warning. */
-	warning("memory mapping failed; returning vector of length zero");
-	return allocVector(type, 0);
+    if (val == NULL)
+    {
+        /**** The attempt to memory map failed. Eventually it would be
+              good to have a mechanism to allow the user to try to
+              resolve this.  For now, return a length zero vector with
+              another warning. */
+        warning("memory mapping failed; returning vector of length zero");
+        return allocVector(type, 0);
     }
     return val;
 }
 
-static Rboolean mmap_Inspect(SEXP x, int pre, int deep, int pvec,
-			     void (*inspect_subtree)(SEXP, int, int, int))
+static Rboolean mmap_Inspect(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int))
 {
     Rboolean ptrOK = MMAP_PTROK(x);
     Rboolean wrtOK = MMAP_WRTOK(x);
@@ -1129,7 +1137,6 @@ static Rboolean mmap_Inspect(SEXP x, int pre, int deep, int pvec,
     Rprintf(" [ptr=%d,wrt=%d,ser=%d]\n", ptrOK, wrtOK, serOK);
     return TRUE;
 }
-
 
 /*
  * ALTVEC Methods
@@ -1146,16 +1153,15 @@ static void *mmap_Dataptr(SEXP x, Rboolean writeable)
     void *addr = MMAP_ADDR(x);
 
     if (MMAP_PTROK(x))
-	return addr;
+        return addr;
     else
-	error("cannot access data pointer for this mmaped vector");
+        error("cannot access data pointer for this mmaped vector");
 }
 
 static const void *mmap_Dataptr_or_null(SEXP x)
 {
     return MMAP_PTROK(x) ? MMAP_ADDR(x) : NULL;
 }
-
 
 /*
  * ALTINTEGER Methods
@@ -1167,18 +1173,16 @@ static int mmap_integer_Elt(SEXP x, R_xlen_t i)
     return p[i];
 }
 
-static
-R_xlen_t mmap_integer_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
+static R_xlen_t mmap_integer_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 {
     int *x = MMAP_ADDR(sx);
     R_xlen_t size = XLENGTH(sx);
     R_xlen_t ncopy = size - i > n ? n : size - i;
     for (R_xlen_t k = 0; k < ncopy; k++)
-	buf[k] = x[k + i];
-    //memcpy(buf, x + i, ncopy * sizeof(int));
+        buf[k] = x[k + i];
+    // memcpy(buf, x + i, ncopy * sizeof(int));
     return ncopy;
 }
-
 
 /*
  * ALTREAL Methods
@@ -1190,35 +1194,32 @@ static double mmap_real_Elt(SEXP x, R_xlen_t i)
     return p[i];
 }
 
-static
-R_xlen_t mmap_real_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
+static R_xlen_t mmap_real_Get_region(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
 {
     double *x = MMAP_ADDR(sx);
     R_xlen_t size = XLENGTH(sx);
     R_xlen_t ncopy = size - i > n ? n : size - i;
     for (R_xlen_t k = 0; k < ncopy; k++)
-	buf[k] = x[k + i];
-    //memcpy(buf, x + i, ncopy * sizeof(double));
+        buf[k] = x[k + i];
+    // memcpy(buf, x + i, ncopy * sizeof(double));
     return ncopy;
 }
-
 
 /*
  * Class Objects and Method Tables
  */
 
 #ifdef SIMPLEMMAP
-# define MMAPPKG "simplemmap"
+#define MMAPPKG "simplemmap"
 #else
-# define MMAPPKG "base"
+#define MMAPPKG "base"
 #endif
 
 static void InitMmapIntegerClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altinteger_class("mmap_integer", MMAPPKG, dll);
+    R_altrep_class_t cls = R_make_altinteger_class("mmap_integer", MMAPPKG, dll);
     mmap_integer_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, mmap_Unserialize);
     R_set_altrep_Serialized_state_method(cls, mmap_Serialized_state);
@@ -1236,8 +1237,7 @@ static void InitMmapIntegerClass(DllInfo *dll)
 
 static void InitMmapRealClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altreal_class("mmap_real", MMAPPKG, dll);
+    R_altrep_class_t cls = R_make_altreal_class("mmap_real", MMAPPKG, dll);
     mmap_real_class = cls;
 
     /* override ALTREP methods */
@@ -1255,7 +1255,6 @@ static void InitMmapRealClass(DllInfo *dll)
     R_set_altreal_Get_region_method(cls, mmap_real_Get_region);
 }
 
-
 /*
  * Constructor
  */
@@ -1268,8 +1267,7 @@ static void mmap_finalize(SEXP eptr)
 }
 */
 
-static SEXP mmap_file(SEXP file, int type, Rboolean ptrOK, Rboolean wrtOK,
-		      Rboolean serOK, Rboolean warn)
+static SEXP mmap_file(SEXP file, int type, Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK, Rboolean warn)
 {
     error("mmap objects not supported on Windows yet");
 }
@@ -1284,7 +1282,10 @@ static SEXP mmap_file(SEXP file, int type, Rboolean ptrOK, Rboolean wrtOK,
 #include <sys/mman.h>
 
 //#define DEBUG_PRINT(x) REprintf(x);
-#define DEBUG_PRINT(x) do { } while (0)
+#define DEBUG_PRINT(x)                                                                                                 \
+    do                                                                                                                 \
+    {                                                                                                                  \
+    } while (0)
 
 static void mmap_finalize(SEXP eptr)
 {
@@ -1292,44 +1293,48 @@ static void mmap_finalize(SEXP eptr)
     void *p = R_ExternalPtrAddr(eptr);
     size_t size = MMAP_STATE_SIZE(MMAP_EPTR_STATE(eptr));
 
-    if (p != NULL) {
-	munmap(p, size); /* don't check for errors */
-	R_SetExternalPtrAddr(eptr, NULL);
+    if (p != NULL)
+    {
+        munmap(p, size); /* don't check for errors */
+        R_SetExternalPtrAddr(eptr, NULL);
     }
     DEBUG_PRINT("done\n");
 }
 
-#define MMAP_FILE_WARNING_OR_ERROR(str, ...) do {	\
-	if (warn) {					\
-	    warning(str, __VA_ARGS__);			\
-	    return NULL;				\
-	}						\
-	else error(str, __VA_ARGS__);			\
+#define MMAP_FILE_WARNING_OR_ERROR(str, ...)                                                                           \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (warn)                                                                                                      \
+        {                                                                                                              \
+            warning(str, __VA_ARGS__);                                                                                 \
+            return NULL;                                                                                               \
+        }                                                                                                              \
+        else                                                                                                           \
+            error(str, __VA_ARGS__);                                                                                   \
     } while (0)
-	    
-static SEXP mmap_file(SEXP file, int type, Rboolean ptrOK, Rboolean wrtOK,
-		      Rboolean serOK, Rboolean warn)
+
+static SEXP mmap_file(SEXP file, int type, Rboolean ptrOK, Rboolean wrtOK, Rboolean serOK, Rboolean warn)
 {
     const char *efn = R_ExpandFileName(translateCharFP(STRING_ELT(file, 0)));
     struct stat sb;
 
     /* Target not link */
     if (stat(efn, &sb) != 0)
-	MMAP_FILE_WARNING_OR_ERROR("stat: %s", strerror(errno));
+        MMAP_FILE_WARNING_OR_ERROR("stat: %s", strerror(errno));
 
-    if (! S_ISREG(sb.st_mode))
-	MMAP_FILE_WARNING_OR_ERROR("%s is not a regular file", efn);
+    if (!S_ISREG(sb.st_mode))
+        MMAP_FILE_WARNING_OR_ERROR("%s is not a regular file", efn);
 
     int oflags = wrtOK ? O_RDWR : O_RDONLY;
     int fd = open(efn, oflags);
     if (fd == -1)
-	MMAP_FILE_WARNING_OR_ERROR("open: %s", strerror(errno));
+        MMAP_FILE_WARNING_OR_ERROR("open: %s", strerror(errno));
 
     int pflags = wrtOK ? PROT_READ | PROT_WRITE : PROT_READ;
     void *p = mmap(0, sb.st_size, pflags, MAP_SHARED, fd, 0);
     close(fd); /* don't care if this fails */
     if (p == MAP_FAILED)
-	MMAP_FILE_WARNING_OR_ERROR("mmap: %s", strerror(errno));
+        MMAP_FILE_WARNING_OR_ERROR("mmap: %s", strerror(errno));
 
     return make_mmap(p, file, sb.st_size, type, ptrOK, wrtOK, serOK);
 }
@@ -1356,23 +1361,23 @@ attribute_hidden SEXP do_mmap_file(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP sserOK = CADDDR(CDR(args));
 
     int type = REALSXP;
-    if (stype != R_NilValue) {
-	const char *typestr = CHAR(asChar(stype));
-	if (strcmp(typestr, "double") == 0)
-	    type = REALSXP;
-	else if (strcmp(typestr, "integer") == 0 ||
-		 strcmp(typestr, "int") == 0)
-	    type = INTSXP;
-	else
-	    error("type '%s' is not supported", typestr);
-    }    
+    if (stype != R_NilValue)
+    {
+        const char *typestr = CHAR(asChar(stype));
+        if (strcmp(typestr, "double") == 0)
+            type = REALSXP;
+        else if (strcmp(typestr, "integer") == 0 || strcmp(typestr, "int") == 0)
+            type = INTSXP;
+        else
+            error("type '%s' is not supported", typestr);
+    }
 
     Rboolean ptrOK = sptrOK == R_NilValue ? TRUE : asLogicalNA(sptrOK, FALSE);
     Rboolean wrtOK = swrtOK == R_NilValue ? FALSE : asLogicalNA(swrtOK, FALSE);
     Rboolean serOK = sserOK == R_NilValue ? FALSE : asLogicalNA(sserOK, FALSE);
 
     if (TYPEOF(file) != STRSXP || LENGTH(file) != 1 || file == NA_STRING)
-	error("invalud 'file' argument");
+        error("invalud 'file' argument");
 
     return mmap_file(file, type, ptrOK, wrtOK, serOK, FALSE);
 }
@@ -1388,19 +1393,17 @@ attribute_hidden SEXP do_munmap_file(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP x = CAR(args);
 
     /**** would be useful to have R_mmap_class virtual class as parent here */
-    if (! (R_altrep_inherits(x, mmap_integer_class) ||
-	   R_altrep_inherits(x, mmap_real_class)))
-	error("not a memory-mapped object");
+    if (!(R_altrep_inherits(x, mmap_integer_class) || R_altrep_inherits(x, mmap_real_class)))
+        error("not a memory-mapped object");
 
     /* using the finalizer is a cheat to avoid yet another #ifdef Windows */
     SEXP eptr = MMAP_EPTR(x);
     errno = 0;
     R_RunWeakRefFinalizer(R_ExternalPtrTag(eptr));
     if (errno)
-	error("munmap: %s", strerror(errno));
+        error("munmap: %s", strerror(errno));
     return R_NilValue;
 }
-
 
 /**
  ** Attribute and Meta Data Wrappers
@@ -1435,10 +1438,11 @@ static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
     /* If the data might be shared and is accessed for possible
        modification, then it needs to be duplicated now. */
     SEXP data = WRAPPER_WRAPPED(x);
-    if (MAYBE_SHARED(data)) {
-	PROTECT(x);
-	WRAPPER_SET_WRAPPED(x, shallow_duplicate(data));
-	UNPROTECT(1);
+    if (MAYBE_SHARED(data))
+    {
+        PROTECT(x);
+        WRAPPER_SET_WRAPPED(x, shallow_duplicate(data));
+        UNPROTECT(1);
     }
 
     /* The meta data also needs to be cleared as it may no longer be
@@ -1446,11 +1450,10 @@ static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
     SEXP meta = WRAPPER_METADATA(x);
     INTEGER(meta)[0] = UNKNOWN_SORTEDNESS;
     for (int i = 1; i < NMETA; i++)
-	INTEGER(meta)[i] = 0;
+        INTEGER(meta)[i] = 0;
 
     return WRAPPER_WRAPPED(x);
 }
-
 
 /*
  * ALTREP Methods
@@ -1462,10 +1465,8 @@ static SEXP wrapper_Serialized_state(SEXP x)
        metadata then return NULL to allow this to be serialized as a
        standard object. This avoids serializing potentially large
        attributes on the wrapped value (PR18142). */
-    if (! ALTREP(WRAPPER_WRAPPED(x)) &&
-	WRAPPER_SORTED(x) == UNKNOWN_SORTEDNESS &&
-	! WRAPPER_NO_NA(x))
-	return NULL;
+    if (!ALTREP(WRAPPER_WRAPPED(x)) && WRAPPER_SORTED(x) == UNKNOWN_SORTEDNESS && !WRAPPER_NO_NA(x))
+        return NULL;
 
     return CONS(WRAPPER_WRAPPED(x), WRAPPER_METADATA(x));
 }
@@ -1486,11 +1487,11 @@ static SEXP wrapper_Duplicate(SEXP x, Rboolean deep)
        reference counting the reference count will be incremented when
        the data is installed in the new wrapper object. */
     if (deep)
-	data = duplicate(data);
+        data = duplicate(data);
 #ifndef SWITCH_TO_REFCNT
     else
-	/* not needed with reference counting */
-	MARK_NOT_MUTABLE(data);
+        /* not needed with reference counting */
+        MARK_NOT_MUTABLE(data);
 #endif
     PROTECT(data);
 
@@ -1503,8 +1504,7 @@ static SEXP wrapper_Duplicate(SEXP x, Rboolean deep)
     return ans;
 }
 
-static Rboolean wrapper_Inspect(SEXP x, int pre, int deep, int pvec,
-				void (*inspect_subtree)(SEXP, int, int, int))
+static Rboolean wrapper_Inspect(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int))
 {
     Rboolean srt = WRAPPER_SORTED(x);
     Rboolean no_na = WRAPPER_NO_NA(x);
@@ -1518,7 +1518,6 @@ static R_xlen_t wrapper_Length(SEXP x)
     return XLENGTH(WRAPPER_WRAPPED(x));
 }
 
-
 /*
  * ALTVEC Methods
  */
@@ -1526,10 +1525,10 @@ static R_xlen_t wrapper_Length(SEXP x)
 static void *wrapper_Dataptr(SEXP x, Rboolean writeable)
 {
     if (writeable)
-	return DATAPTR(WRAPPER_WRAPPED_RW(x));
+        return DATAPTR(WRAPPER_WRAPPED_RW(x));
     else
-	/**** could avoid the cast by having separate methods */
-	return (void *) DATAPTR_RO(WRAPPER_WRAPPED(x));
+        /**** could avoid the cast by having separate methods */
+        return (void *)DATAPTR_RO(WRAPPER_WRAPPED(x));
 }
 
 static const void *wrapper_Dataptr_or_null(SEXP x)
@@ -1539,9 +1538,8 @@ static const void *wrapper_Dataptr_or_null(SEXP x)
 
 static SEXP wrapper_Extract_subset(SEXP x, SEXP indx, SEXP call)
 {
-  return ExtractSubset(WRAPPER_WRAPPED(x), indx, call);
+    return ExtractSubset(WRAPPER_WRAPPED(x), indx, call);
 }
-
 
 /*
  * ALTINTEGER Methods
@@ -1552,8 +1550,7 @@ static int wrapper_integer_Elt(SEXP x, R_xlen_t i)
     return INTEGER_ELT(WRAPPER_WRAPPED(x), i);
 }
 
-static
-R_xlen_t wrapper_integer_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
+static R_xlen_t wrapper_integer_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
     return INTEGER_GET_REGION(WRAPPER_WRAPPED(x), i, n, buf);
 }
@@ -1561,21 +1558,20 @@ R_xlen_t wrapper_integer_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 static int wrapper_integer_Is_sorted(SEXP x)
 {
     if (WRAPPER_SORTED(x) != UNKNOWN_SORTEDNESS)
-	return WRAPPER_SORTED(x);
+        return WRAPPER_SORTED(x);
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return INTEGER_IS_SORTED(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return INTEGER_IS_SORTED(WRAPPER_WRAPPED(x));
 }
 
 static int wrapper_integer_no_NA(SEXP x)
 {
     if (WRAPPER_NO_NA(x))
-	return TRUE;
+        return TRUE;
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return INTEGER_NO_NA(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return INTEGER_NO_NA(WRAPPER_WRAPPED(x));
 }
-
 
 /*
  * ALTLOGICAL Methods
@@ -1586,8 +1582,7 @@ static int wrapper_logical_Elt(SEXP x, R_xlen_t i)
     return LOGICAL_ELT(WRAPPER_WRAPPED(x), i);
 }
 
-static
-R_xlen_t wrapper_logical_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
+static R_xlen_t wrapper_logical_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
     return LOGICAL_GET_REGION(WRAPPER_WRAPPED(x), i, n, buf);
 }
@@ -1595,21 +1590,20 @@ R_xlen_t wrapper_logical_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 static int wrapper_logical_Is_sorted(SEXP x)
 {
     if (WRAPPER_SORTED(x) != UNKNOWN_SORTEDNESS)
-	return WRAPPER_SORTED(x);
+        return WRAPPER_SORTED(x);
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return LOGICAL_IS_SORTED(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return LOGICAL_IS_SORTED(WRAPPER_WRAPPED(x));
 }
 
 static int wrapper_logical_no_NA(SEXP x)
 {
     if (WRAPPER_NO_NA(x))
-	return TRUE;
+        return TRUE;
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return LOGICAL_NO_NA(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return LOGICAL_NO_NA(WRAPPER_WRAPPED(x));
 }
-
 
 /*
  * ALTREAL Methods
@@ -1620,8 +1614,7 @@ static double wrapper_real_Elt(SEXP x, R_xlen_t i)
     return REAL_ELT(WRAPPER_WRAPPED(x), i);
 }
 
-static
-R_xlen_t wrapper_real_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf)
+static R_xlen_t wrapper_real_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf)
 {
     return REAL_GET_REGION(WRAPPER_WRAPPED(x), i, n, buf);
 }
@@ -1629,21 +1622,20 @@ R_xlen_t wrapper_real_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, double *buf)
 static int wrapper_real_Is_sorted(SEXP x)
 {
     if (WRAPPER_SORTED(x) != UNKNOWN_SORTEDNESS)
-	return WRAPPER_SORTED(x);
+        return WRAPPER_SORTED(x);
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return REAL_IS_SORTED(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return REAL_IS_SORTED(WRAPPER_WRAPPED(x));
 }
 
 static int wrapper_real_no_NA(SEXP x)
 {
     if (WRAPPER_NO_NA(x))
-	return TRUE;
+        return TRUE;
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return REAL_NO_NA(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return REAL_NO_NA(WRAPPER_WRAPPED(x));
 }
-
 
 /*
  * ALTCOMPLEX Methods
@@ -1654,13 +1646,10 @@ static Rcomplex wrapper_complex_Elt(SEXP x, R_xlen_t i)
     return COMPLEX_ELT(WRAPPER_WRAPPED(x), i);
 }
 
-static
-R_xlen_t wrapper_complex_Get_region(SEXP x, R_xlen_t i, R_xlen_t n,
-				    Rcomplex *buf)
+static R_xlen_t wrapper_complex_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rcomplex *buf)
 {
     return COMPLEX_GET_REGION(WRAPPER_WRAPPED(x), i, n, buf);
 }
-
 
 /*
  * ALTRAW Methods
@@ -1671,12 +1660,10 @@ static Rbyte wrapper_raw_Elt(SEXP x, R_xlen_t i)
     return RAW_ELT(WRAPPER_WRAPPED(x), i);
 }
 
-static
-R_xlen_t wrapper_raw_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf)
+static R_xlen_t wrapper_raw_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, Rbyte *buf)
 {
     return RAW_GET_REGION(WRAPPER_WRAPPED(x), i, n, buf);
 }
-
 
 /*
  * ALTSTRING Methods
@@ -1695,21 +1682,20 @@ static void wrapper_string_Set_elt(SEXP x, R_xlen_t i, SEXP v)
 static int wrapper_string_Is_sorted(SEXP x)
 {
     if (WRAPPER_SORTED(x) != UNKNOWN_SORTEDNESS)
-	return WRAPPER_SORTED(x);
+        return WRAPPER_SORTED(x);
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return STRING_IS_SORTED(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return STRING_IS_SORTED(WRAPPER_WRAPPED(x));
 }
 
 static int wrapper_string_no_NA(SEXP x)
 {
     if (WRAPPER_NO_NA(x))
-	return TRUE;
+        return TRUE;
     else
-	/* If the  meta data bit is not set, defer to the wrapped object. */
-	return STRING_NO_NA(WRAPPER_WRAPPED(x));
+        /* If the  meta data bit is not set, defer to the wrapped object. */
+        return STRING_NO_NA(WRAPPER_WRAPPED(x));
 }
-
 
 /*
  * Class Objects and Method Tables
@@ -1719,10 +1705,9 @@ static int wrapper_string_no_NA(SEXP x)
 
 static void InitWrapIntegerClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altinteger_class("wrap_integer", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altinteger_class("wrap_integer", WRAPPKG, dll);
     wrap_integer_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1744,10 +1729,9 @@ static void InitWrapIntegerClass(DllInfo *dll)
 
 static void InitWrapLogicalClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altlogical_class("wrap_logical", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altlogical_class("wrap_logical", WRAPPKG, dll);
     wrap_logical_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1769,10 +1753,9 @@ static void InitWrapLogicalClass(DllInfo *dll)
 
 static void InitWrapRealClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altreal_class("wrap_real", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altreal_class("wrap_real", WRAPPKG, dll);
     wrap_real_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1794,10 +1777,9 @@ static void InitWrapRealClass(DllInfo *dll)
 
 static void InitWrapComplexClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altcomplex_class("wrap_complex", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altcomplex_class("wrap_complex", WRAPPKG, dll);
     wrap_complex_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1817,10 +1799,9 @@ static void InitWrapComplexClass(DllInfo *dll)
 
 static void InitWrapRawClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altraw_class("wrap_raw", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altraw_class("wrap_raw", WRAPPKG, dll);
     wrap_raw_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1840,10 +1821,9 @@ static void InitWrapRawClass(DllInfo *dll)
 
 static void InitWrapStringClass(DllInfo *dll)
 {
-    R_altrep_class_t cls =
-	R_make_altstring_class("wrap_string", WRAPPKG, dll);
+    R_altrep_class_t cls = R_make_altstring_class("wrap_string", WRAPPKG, dll);
     wrap_string_class = cls;
- 
+
     /* override ALTREP methods */
     R_set_altrep_Unserialize_method(cls, wrapper_Unserialize);
     R_set_altrep_Serialized_state_method(cls, wrapper_Serialized_state);
@@ -1863,7 +1843,6 @@ static void InitWrapStringClass(DllInfo *dll)
     R_set_altstring_No_NA_method(cls, wrapper_string_no_NA);
 }
 
-
 /*
  * Constructor
  */
@@ -1872,86 +1851,112 @@ static SEXP make_wrapper(SEXP x, SEXP meta)
 {
     /* If x is itself a wrapper it might be a good idea to fuse */
     R_altrep_class_t cls;
-    switch(TYPEOF(x)) {
-    case INTSXP: cls = wrap_integer_class; break;
-    case LGLSXP: cls = wrap_logical_class; break;
-    case REALSXP: cls = wrap_real_class; break;
-    case CPLXSXP: cls = wrap_complex_class; break;
-    case RAWSXP: cls = wrap_raw_class; break;
-    case STRSXP: cls = wrap_string_class; break;
-    default: error("unsupported type");
+    switch (TYPEOF(x))
+    {
+    case INTSXP:
+        cls = wrap_integer_class;
+        break;
+    case LGLSXP:
+        cls = wrap_logical_class;
+        break;
+    case REALSXP:
+        cls = wrap_real_class;
+        break;
+    case CPLXSXP:
+        cls = wrap_complex_class;
+        break;
+    case RAWSXP:
+        cls = wrap_raw_class;
+        break;
+    case STRSXP:
+        cls = wrap_string_class;
+        break;
+    default:
+        error("unsupported type");
     }
 
     SEXP ans = R_new_altrep(cls, x, meta);
 
 #define WRAPATTRIB
 #ifdef WRAPATTRIB
-    if (ATTRIB(x) != R_NilValue) {
-	/* could just move attributes if there are no references to x */
-	PROTECT(ans);
-	SET_ATTRIB(ans, shallow_duplicate(ATTRIB(x)));
-	SET_OBJECT(ans, OBJECT(x));
-	IS_S4_OBJECT(x) ? SET_S4_OBJECT(ans) : UNSET_S4_OBJECT(ans);
-	UNPROTECT(1); /* ans */
+    if (ATTRIB(x) != R_NilValue)
+    {
+        /* could just move attributes if there are no references to x */
+        PROTECT(ans);
+        SET_ATTRIB(ans, shallow_duplicate(ATTRIB(x)));
+        SET_OBJECT(ans, OBJECT(x));
+        IS_S4_OBJECT(x) ? SET_S4_OBJECT(ans) : UNSET_S4_OBJECT(ans);
+        UNPROTECT(1); /* ans */
     }
 #endif
 
 #ifndef SWITCH_TO_REFCNT
     if (MAYBE_REFERENCED(x))
-	/* make sure no mutation can happen through another reference */
-	MARK_NOT_MUTABLE(x);
+        /* make sure no mutation can happen through another reference */
+        MARK_NOT_MUTABLE(x);
 #endif
-    
+
     return ans;
 }
 
 static R_INLINE int is_wrapper(SEXP x)
 {
     if (ALTREP(x))
-	switch(TYPEOF(x)) {
-	case INTSXP: return R_altrep_inherits(x, wrap_integer_class);
-	case LGLSXP: return R_altrep_inherits(x, wrap_logical_class);
-	case REALSXP: return R_altrep_inherits(x, wrap_real_class);
-	case CPLXSXP: return R_altrep_inherits(x, wrap_complex_class);
-	case RAWSXP: return R_altrep_inherits(x, wrap_raw_class);
-	case STRSXP: return R_altrep_inherits(x, wrap_string_class);
-	default: return FALSE;
-	}
-    else return FALSE;
+        switch (TYPEOF(x))
+        {
+        case INTSXP:
+            return R_altrep_inherits(x, wrap_integer_class);
+        case LGLSXP:
+            return R_altrep_inherits(x, wrap_logical_class);
+        case REALSXP:
+            return R_altrep_inherits(x, wrap_real_class);
+        case CPLXSXP:
+            return R_altrep_inherits(x, wrap_complex_class);
+        case RAWSXP:
+            return R_altrep_inherits(x, wrap_raw_class);
+        case STRSXP:
+            return R_altrep_inherits(x, wrap_string_class);
+        default:
+            return FALSE;
+        }
+    else
+        return FALSE;
 }
 
 static SEXP wrap_meta(SEXP x, int srt, int no_na)
 {
-    switch(TYPEOF(x)) {
+    switch (TYPEOF(x))
+    {
     case INTSXP:
     case REALSXP:
     case LGLSXP:
     case CPLXSXP:
     case RAWSXP:
-    case STRSXP: break;
-    default: return x;
+    case STRSXP:
+        break;
+    default:
+        return x;
     }
 
     /* avoid wrappers of wrappers, at least in some cases */
     if (is_wrapper(x) && srt == UNKNOWN_SORTEDNESS && no_na == FALSE)
-	return shallow_duplicate(x);
+        return shallow_duplicate(x);
 
 #ifndef WRAPATTRIB
     if (ATTRIB(x) != R_NilValue)
-	/* For objects without references we could move the attributes
-	   to the wrapper. For objects with references the attributes
-	   would have to be shallow duplicated at least. The object/S4
-	   bits would need to be moved as well.	*/
-	/* For now, just return the original object. */
-	return x;
+        /* For objects without references we could move the attributes
+           to the wrapper. For objects with references the attributes
+           would have to be shallow duplicated at least. The object/S4
+           bits would need to be moved as well.	*/
+        /* For now, just return the original object. */
+        return x;
 #endif
 
-    if (!KNOWN_SORTED(srt) && srt != KNOWN_UNSORTED &&
-	srt != UNKNOWN_SORTEDNESS)
-	error("srt must be -2, -1, 0, or +1, +2, or NA");
-    
+    if (!KNOWN_SORTED(srt) && srt != KNOWN_UNSORTED && srt != UNKNOWN_SORTEDNESS)
+        error("srt must be -2, -1, 0, or +1, +2, or NA");
+
     if (no_na < 0 || no_na > 1)
-	error("no_na must be 0 or +1");
+        error("no_na must be 0 or +1");
 
     SEXP meta = allocVector(INTSXP, NMETA);
     INTEGER(meta)[0] = srt;
@@ -1995,32 +2000,32 @@ attribute_hidden SEXP do_tryWrap(SEXP call, SEXP op, SEXP args, SEXP env)
    will be referenced from C code after it is cleared. */
 attribute_hidden SEXP R_tryUnwrap(SEXP x)
 {
-    if (! MAYBE_SHARED(x) && is_wrapper(x) &&
-	WRAPPER_SORTED(x) == UNKNOWN_SORTEDNESS && ! WRAPPER_NO_NA(x)) {
-	SEXP data = WRAPPER_WRAPPED(x);
-	if (! MAYBE_SHARED(data)) {
-	    SET_ATTRIB(data, ATTRIB(x));
-	    SET_OBJECT(data, OBJECT(x));
-	    IS_S4_OBJECT(x) ? SET_S4_OBJECT(data) : UNSET_S4_OBJECT(data);
+    if (!MAYBE_SHARED(x) && is_wrapper(x) && WRAPPER_SORTED(x) == UNKNOWN_SORTEDNESS && !WRAPPER_NO_NA(x))
+    {
+        SEXP data = WRAPPER_WRAPPED(x);
+        if (!MAYBE_SHARED(data))
+        {
+            SET_ATTRIB(data, ATTRIB(x));
+            SET_OBJECT(data, OBJECT(x));
+            IS_S4_OBJECT(x) ? SET_S4_OBJECT(data) : UNSET_S4_OBJECT(data);
 
-	    /* Clear the fields to drop reference counts and set the
-	       type to LISTSXP to limit errors in case the object is
-	       still live. */
-	    SET_TYPEOF(x, LISTSXP);
-	    SET_ATTRIB(x, R_NilValue);
-	    SETCAR(x, R_NilValue);
-	    SETCDR(x, R_NilValue);
-	    SET_TAG(x, R_NilValue);
-	    SET_OBJECT(x, 0);
-	    UNSET_S4_OBJECT(x);
-	    /* NAMED should be zero */
+            /* Clear the fields to drop reference counts and set the
+               type to LISTSXP to limit errors in case the object is
+               still live. */
+            SET_TYPEOF(x, LISTSXP);
+            SET_ATTRIB(x, R_NilValue);
+            SETCAR(x, R_NilValue);
+            SETCDR(x, R_NilValue);
+            SET_TAG(x, R_NilValue);
+            SET_OBJECT(x, 0);
+            UNSET_S4_OBJECT(x);
+            /* NAMED should be zero */
 
-	    return data;
-	}
+            return data;
+        }
     }
     return x;
 }
-
 
 /**
  ** Initialize ALTREP Classes

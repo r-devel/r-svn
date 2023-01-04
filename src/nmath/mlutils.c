@@ -18,8 +18,8 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
-# undef fprintf
+#include <config.h>
+#undef fprintf
 #endif
 #include "nmath.h"
 
@@ -33,7 +33,7 @@ int R_finite(double x)
 {
 #ifdef HAVE_WORKING_ISFINITE
     return isfinite(x);
-# else
+#else
     return (!isnan(x) & (x != ML_POSINF) & (x != ML_NEGINF));
 #endif
 }
@@ -53,53 +53,72 @@ static double myfmod(double x1, double x2)
 
 double R_pow(double x, double y) /* = x ^ y */
 {
-    if(x == 1. || y == 0.)
-	return(1.);
-    if(x == 0.) {
-	if(y > 0.) return(0.);
-	/* y < 0 */return(ML_POSINF);
+    if (x == 1. || y == 0.)
+        return (1.);
+    if (x == 0.)
+    {
+        if (y > 0.)
+            return (0.);
+        /* y < 0 */ return (ML_POSINF);
     }
     if (R_FINITE(x) && R_FINITE(y))
-	return(pow(x,y));
-    if (ISNAN(x) || ISNAN(y)) {
+        return (pow(x, y));
+    if (ISNAN(x) || ISNAN(y))
+    {
 #ifdef IEEE_754
-	return(x + y);
+        return (x + y);
 #else
-	return(ML_NAN);
+        return (ML_NAN);
 #endif
     }
-    if(!R_FINITE(x)) {
-	if(x > 0)		/* Inf ^ y */
-	    return((y < 0.)? 0. : ML_POSINF);
-	else {			/* (-Inf) ^ y */
-	    if(R_FINITE(y) && y == floor(y)) /* (-Inf) ^ n */
-		return((y < 0.) ? 0. : (myfmod(y,2.) ? x  : -x));
-	}
+    if (!R_FINITE(x))
+    {
+        if (x > 0) /* Inf ^ y */
+            return ((y < 0.) ? 0. : ML_POSINF);
+        else
+        {                                     /* (-Inf) ^ y */
+            if (R_FINITE(y) && y == floor(y)) /* (-Inf) ^ n */
+                return ((y < 0.) ? 0. : (myfmod(y, 2.) ? x : -x));
+        }
     }
-    if(!R_FINITE(y)) {
-	if(x >= 0) {
-	    if(y > 0)		/* y == +Inf */
-		return((x >= 1)? ML_POSINF : 0.);
-	    else		/* y == -Inf */
-		return((x < 1) ? ML_POSINF : 0.);
-	}
+    if (!R_FINITE(y))
+    {
+        if (x >= 0)
+        {
+            if (y > 0) /* y == +Inf */
+                return ((x >= 1) ? ML_POSINF : 0.);
+            else /* y == -Inf */
+                return ((x < 1) ? ML_POSINF : 0.);
+        }
     }
-    return(ML_NAN);		/* all other cases: (-Inf)^{+-Inf,
-				   non-int}; (neg)^{+-Inf} */
+    return (ML_NAN); /* all other cases: (-Inf)^{+-Inf,
+                non-int}; (neg)^{+-Inf} */
 }
 
 double R_pow_di(double x, int n)
 {
     double pow = 1.0;
 
-    if (ISNAN(x)) return x;
-    if (n != 0) {
-	if (!R_FINITE(x)) return R_pow(x, (double)n);
-	if (n < 0) { n = -n; x = 1/x; }
-	for(;;) {
-	    if(n & 01) pow *= x;
-	    if(n >>= 1) x *= x; else break;
-	}
+    if (ISNAN(x))
+        return x;
+    if (n != 0)
+    {
+        if (!R_FINITE(x))
+            return R_pow(x, (double)n);
+        if (n < 0)
+        {
+            n = -n;
+            x = 1 / x;
+        }
+        for (;;)
+        {
+            if (n & 01)
+                pow *= x;
+            if (n >>= 1)
+                x *= x;
+            else
+                break;
+        }
     }
     return pow;
 }

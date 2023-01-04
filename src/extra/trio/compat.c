@@ -9,10 +9,8 @@ int trio_sprintf(char *buffer, const char *format, ...);
 int trio_vsprintf(char *buffer, const char *format, va_list args);
 int trio_vfprintf(FILE *file, const char *format, va_list args);
 int trio_snprintf(char *buffer, size_t max, const char *format, ...);
-int trio_vsnprintf(char *buffer, size_t bufferSize, const char *format,
-		   va_list args);
+int trio_vsnprintf(char *buffer, size_t bufferSize, const char *format, va_list args);
 int trio_vasprintf(char **ret, const char *format, va_list args);
-
 
 int printf(const char *format, ...)
 {
@@ -44,12 +42,10 @@ int sprintf(char *buffer, const char *format, ...)
     return res;
 }
 
-
 int vprintf(const char *format, va_list args)
 {
     return trio_vprintf(format, args);
 }
-
 
 int vsprintf(char *buffer, const char *format, va_list args)
 {
@@ -62,7 +58,7 @@ int vfprintf(FILE *file, const char *format, va_list args)
 }
 
 /* The test below excludes both 32 and 64 bit Windows */
-#ifndef _WIN32 
+#ifndef _WIN32
 /* These are needed as MinGW's stdio.h has inline snprintf and vnsprintf.
    Include the trioremap.h header file to get the replacements */
 int snprintf(char *buffer, size_t max, const char *format, ...)

@@ -18,7 +18,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <string.h>
@@ -65,43 +65,51 @@ SEXP charClass(SEXP x, SEXP scl)
 {
     int nProtect = 0;
     if (!isString(scl) || length(scl) != 1)
-	error(_("argument 'class' must be a character string"));
+        error(_("argument 'class' must be a character string"));
     const char *cl = CHAR(STRING_ELT(scl, 0));
     wctype_t wcl = wctype(cl);
-    if(wcl == 0)
-	error("character class \"%s\" is invalid", cl);
+    if (wcl == 0)
+        error("character class \"%s\" is invalid", cl);
 
     R_xlen_t n;
     SEXP ans;
-    if (isString(x)) {
-	if (XLENGTH(x) != 1)
-	    error(_("argument 'x' must be a length-1 character vector"));
-	SEXP sx = STRING_ELT(x, 0);
-	if (!(IS_ASCII(sx) || IS_UTF8(sx) || (utf8locale && !ENC_KNOWN(sx))))
-	    error(_("argument 'x' must be UTF-8 encoded (including ASCII)"));
-	const wchar_t *wx = Rf_wtransChar(sx);
-	n = wcslen(wx);;
-	PROTECT(ans = allocVector(LGLSXP, n));
-	nProtect++;
-	int *pans = LOGICAL(ans);
-	for (R_xlen_t i = 0; i < n; i++) {
-	    // casting in case wchar_t is signed short: avoid sign extension
-	    int this = (int)(unsigned int)wx[i];
-	    pans[i] = iswctype(this, wcl);
-	}
-    } else {
-	PROTECT(x = coerceVector(x, INTSXP));
-	nProtect++;
-	n = XLENGTH(x);
-	const int* px = INTEGER(x);
-	PROTECT(ans = allocVector(LGLSXP, n));
-	nProtect++;
-	int *pans = LOGICAL(ans);
-	for (R_xlen_t i = 0; i < n; i++) {
-	    int this = px[i];
-	    if (this < 0) pans[i] = NA_LOGICAL;
-	    else pans[i] = iswctype(this, wcl);
-	}
+    if (isString(x))
+    {
+        if (XLENGTH(x) != 1)
+            error(_("argument 'x' must be a length-1 character vector"));
+        SEXP sx = STRING_ELT(x, 0);
+        if (!(IS_ASCII(sx) || IS_UTF8(sx) || (utf8locale && !ENC_KNOWN(sx))))
+            error(_("argument 'x' must be UTF-8 encoded (including ASCII)"));
+        const wchar_t *wx = Rf_wtransChar(sx);
+        n = wcslen(wx);
+        ;
+        PROTECT(ans = allocVector(LGLSXP, n));
+        nProtect++;
+        int *pans = LOGICAL(ans);
+        for (R_xlen_t i = 0; i < n; i++)
+        {
+            // casting in case wchar_t is signed short: avoid sign extension
+            int this = (int)(unsigned int)wx[i];
+            pans[i] = iswctype(this, wcl);
+        }
+    }
+    else
+    {
+        PROTECT(x = coerceVector(x, INTSXP));
+        nProtect++;
+        n = XLENGTH(x);
+        const int *px = INTEGER(x);
+        PROTECT(ans = allocVector(LGLSXP, n));
+        nProtect++;
+        int *pans = LOGICAL(ans);
+        for (R_xlen_t i = 0; i < n; i++)
+        {
+            int this = px[i];
+            if (this < 0)
+                pans[i] = NA_LOGICAL;
+            else
+                pans[i] = iswctype(this, wcl);
+        }
     }
     UNPROTECT(nProtect);
     return ans;
@@ -114,19 +122,19 @@ SEXP charClass(SEXP x, SEXP scl)
 }
 #endif
 
-
 #include <lzma.h>
 
 SEXP crc64(SEXP in)
 {
     uint64_t crc = 0;
     char ans[17];
-    if (!isString(in)) error("input must be a character string");
+    if (!isString(in))
+        error("input must be a character string");
     const char *str = CHAR(STRING_ELT(in, 0));
 
     /* Seems this is really 64-bit only on 64-bit platforms */
     crc = lzma_crc64((uint8_t *)str, strlen(str), crc);
-    snprintf(ans, 17, "%lx", (long unsigned int) crc);
+    snprintf(ans, 17, "%lx", (long unsigned int)crc);
     return mkString(ans);
 }
 
@@ -140,26 +148,33 @@ SEXP crc64(SEXP in)
 SEXP nsl(SEXP hostname)
 {
     SEXP ans = R_NilValue;
-    const char *name; char ip[] = "xxx.xxx.xxx.xxx";
+    const char *name;
+    char ip[] = "xxx.xxx.xxx.xxx";
     struct hostent *hp;
 
     if (!isString(hostname) || length(hostname) != 1)
-	error(_("'hostname' must be a character vector of length 1"));
+        error(_("'hostname' must be a character vector of length 1"));
     name = translateChar(STRING_ELT(hostname, 0));
 
     hp = gethostbyname(name);
 
-    if (hp == NULL) {		/* cannot resolve the address */
-	warning(_("nsl() was unable to resolve host '%s'"), name);
-    } else {
-	if (hp->h_addrtype == AF_INET) {
-	    struct in_addr in;
-	    memcpy(&in.s_addr, *(hp->h_addr_list), sizeof (in.s_addr));
-	    strcpy(ip, inet_ntoa(in));
-	} else {
-	    warning(_("unknown format returned by 'gethostbyname'"));
-	}
-	ans = mkString(ip);
+    if (hp == NULL)
+    { /* cannot resolve the address */
+        warning(_("nsl() was unable to resolve host '%s'"), name);
+    }
+    else
+    {
+        if (hp->h_addrtype == AF_INET)
+        {
+            struct in_addr in;
+            memcpy(&in.s_addr, *(hp->h_addr_list), sizeof(in.s_addr));
+            strcpy(ip, inet_ntoa(in));
+        }
+        else
+        {
+            warning(_("unknown format returned by 'gethostbyname'"));
+        }
+        ans = mkString(ip);
     }
     return ans;
 }

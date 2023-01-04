@@ -6,12 +6,9 @@
    The mingw-w64-crt is different.
 */
 
-extern void 
-GA_startgraphapp(HINSTANCE Instance, HINSTANCE PrevInstance, int CmdShow);
+extern void GA_startgraphapp(HINSTANCE Instance, HINSTANCE PrevInstance, int CmdShow);
 
-int PASCAL
-WinMain (HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine,
-	 int CmdShow)
+int PASCAL WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int CmdShow)
 {
     extern void AppMain(int argc, char **argv);
 

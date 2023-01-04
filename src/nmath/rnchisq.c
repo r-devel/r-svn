@@ -42,15 +42,15 @@
   R code that works is
 
     rchisq0 <- function(n, ncp) {
-	p <- 0 < (K <- rpois(n, lambda = ncp / 2))
-	r <- numeric(n)
-	r[p] <- rchisq(sum(p), df = 2*K[p])
-	r
+    p <- 0 < (K <- rpois(n, lambda = ncp / 2))
+    r <- numeric(n)
+    r[p] <- rchisq(sum(p), df = 2*K[p])
+    r
     }
 
     rchisq <- function(n, df, ncp=0) {
-	if(missing(ncp)) .Internal(rchisq(n, df))
-	else rchisq0(n, ncp) + .Internal(rchisq(n, df))
+    if(missing(ncp)) .Internal(rchisq(n, df))
+    else rchisq0(n, ncp) + .Internal(rchisq(n, df))
     }
  */
 
@@ -59,15 +59,19 @@
 double rnchisq(double df, double lambda)
 {
     if (ISNAN(df) || !R_FINITE(lambda) || df < 0. || lambda < 0.)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
-    if(lambda == 0.) {
-	return (df == 0.) ? 0. : rgamma(df / 2., 2.);
+    if (lambda == 0.)
+    {
+        return (df == 0.) ? 0. : rgamma(df / 2., 2.);
     }
-    else {
-	double r = rpois( lambda / 2.);
-	if (r > 0.)  r = rchisq(2. * r);
-	if (df > 0.) r += rgamma(df / 2., 2.);
-	return r;
+    else
+    {
+        double r = rpois(lambda / 2.);
+        if (r > 0.)
+            r = rchisq(2. * r);
+        if (df > 0.)
+            r += rgamma(df / 2., 2.);
+        return r;
     }
 }

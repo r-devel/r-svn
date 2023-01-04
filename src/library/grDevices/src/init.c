@@ -34,102 +34,104 @@
 static SEXP cairoProps(SEXP in)
 {
     int which = asInteger(in);
-    if(which == 1)
-	return ScalarLogical(
+    if (which == 1)
+        return ScalarLogical(
 #ifdef HAVE_WORKING_CAIRO
-	    1
+            1
 #else
-	    0
+            0
 #endif
-	    );
-    else if(which == 2)
-	return ScalarLogical(
+        );
+    else if (which == 2)
+        return ScalarLogical(
 #ifdef HAVE_PANGOCAIRO
-	    1
+            1
 #else
-	    0
+            0
 #endif
-	    );
+        );
     return R_NilValue;
 }
 #endif
 
-#define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define CALLDEF(name, n)                                                                                               \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-static const R_CallMethodDef CallEntries[] = {
-    CALLDEF(Type1FontInUse, 2),
-    CALLDEF(CIDFontInUse, 2),
-    CALLDEF(R_CreateAtVector, 4),
-    CALLDEF(R_GAxisPars, 3),
-    CALLDEF(chull, 1),
-    CALLDEF(gray, 2),
-    CALLDEF(RGB2hsv, 1),
-    CALLDEF(rgb, 6),
-    CALLDEF(hsv, 4),
-    CALLDEF(hcl, 5),
-    CALLDEF(col2rgb, 2),
-    CALLDEF(colors, 0),
-    CALLDEF(palette, 1),
-    CALLDEF(palette2, 1),
-    CALLDEF(cairoVersion, 0),
-    CALLDEF(pangoVersion, 0),
-    CALLDEF(cairoFT, 0),
-    CALLDEF(bmVersion, 0),
+static const R_CallMethodDef CallEntries[] = {CALLDEF(Type1FontInUse, 2),
+                                              CALLDEF(CIDFontInUse, 2),
+                                              CALLDEF(R_CreateAtVector, 4),
+                                              CALLDEF(R_GAxisPars, 3),
+                                              CALLDEF(chull, 1),
+                                              CALLDEF(gray, 2),
+                                              CALLDEF(RGB2hsv, 1),
+                                              CALLDEF(rgb, 6),
+                                              CALLDEF(hsv, 4),
+                                              CALLDEF(hcl, 5),
+                                              CALLDEF(col2rgb, 2),
+                                              CALLDEF(colors, 0),
+                                              CALLDEF(palette, 1),
+                                              CALLDEF(palette2, 1),
+                                              CALLDEF(cairoVersion, 0),
+                                              CALLDEF(pangoVersion, 0),
+                                              CALLDEF(cairoFT, 0),
+                                              CALLDEF(bmVersion, 0),
 
 #ifndef _WIN32
-    CALLDEF(makeQuartzDefault, 0),
-    CALLDEF(cairoProps, 1),
+                                              CALLDEF(makeQuartzDefault, 0),
+                                              CALLDEF(cairoProps, 1),
 #else
-    CALLDEF(bringToTop, 2),
-    CALLDEF(msgWindow, 2),
+                                              CALLDEF(bringToTop, 2),
+                                              CALLDEF(msgWindow, 2),
 #endif
-    {NULL, NULL, 0}
-};
+                                              {NULL, NULL, 0}};
 
-#define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define EXTDEF(name, n)                                                                                                \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-static const R_ExternalMethodDef ExtEntries[] = {
-    EXTDEF(PicTeX, 6),
-    EXTDEF(PostScript, 19),
-    EXTDEF(XFig, 14),
-    EXTDEF(PDF, 20),
-    EXTDEF(devCairo, 12),
-    EXTDEF(devcap, 1),
-    EXTDEF(devcapture, 1),
-    EXTDEF(devcontrol, 1),
-    EXTDEF(devcopy, 1),
-    EXTDEF(devcur, 0),
-    EXTDEF(devdisplaylist, 0),
-    EXTDEF(devholdflush, 1),
-    EXTDEF(devnext, 1),
-    EXTDEF(devoff, 1),
-    EXTDEF(devprev, 1),
-    EXTDEF(devset, 1),
-    EXTDEF(devsize, 0),
-    EXTDEF(contourLines, 4),
-    EXTDEF(getSnapshot, 0),
-    EXTDEF(playSnapshot, 1),
-    EXTDEF(getGraphicsEvent, 1),
-    EXTDEF(getGraphicsEventEnv, 1),
-    EXTDEF(setGraphicsEventEnv, 2),
-    EXTDEF(setPattern, 1),
-    EXTDEF(setClipPath, 2),
-    EXTDEF(setMask, 2),
-    EXTDEF(defineGroup, 3),
-    EXTDEF(useGroup, 2),
-    EXTDEF(devUp, 0),
-    EXTDEF(devAskNewPage, 1),
+static const R_ExternalMethodDef ExtEntries[] = {EXTDEF(PicTeX, 6),
+                                                 EXTDEF(PostScript, 19),
+                                                 EXTDEF(XFig, 14),
+                                                 EXTDEF(PDF, 20),
+                                                 EXTDEF(devCairo, 12),
+                                                 EXTDEF(devcap, 1),
+                                                 EXTDEF(devcapture, 1),
+                                                 EXTDEF(devcontrol, 1),
+                                                 EXTDEF(devcopy, 1),
+                                                 EXTDEF(devcur, 0),
+                                                 EXTDEF(devdisplaylist, 0),
+                                                 EXTDEF(devholdflush, 1),
+                                                 EXTDEF(devnext, 1),
+                                                 EXTDEF(devoff, 1),
+                                                 EXTDEF(devprev, 1),
+                                                 EXTDEF(devset, 1),
+                                                 EXTDEF(devsize, 0),
+                                                 EXTDEF(contourLines, 4),
+                                                 EXTDEF(getSnapshot, 0),
+                                                 EXTDEF(playSnapshot, 1),
+                                                 EXTDEF(getGraphicsEvent, 1),
+                                                 EXTDEF(getGraphicsEventEnv, 1),
+                                                 EXTDEF(setGraphicsEventEnv, 2),
+                                                 EXTDEF(setPattern, 1),
+                                                 EXTDEF(setClipPath, 2),
+                                                 EXTDEF(setMask, 2),
+                                                 EXTDEF(defineGroup, 3),
+                                                 EXTDEF(useGroup, 2),
+                                                 EXTDEF(devUp, 0),
+                                                 EXTDEF(devAskNewPage, 1),
 
 #ifdef _WIN32
-    EXTDEF(savePlot, 4),
-    EXTDEF(devga, 21),
+                                                 EXTDEF(savePlot, 4),
+                                                 EXTDEF(devga, 21),
 #else
-    EXTDEF(savePlot, 3),
-    EXTDEF(Quartz, 11),
-    EXTDEF(X11, 18),
+                                                 EXTDEF(savePlot, 3),
+                                                 EXTDEF(Quartz, 11),
+                                                 EXTDEF(X11, 18),
 #endif
-    {NULL, NULL, 0}
-};
+                                                 {NULL, NULL, 0}};
 
 #ifdef HAVE_AQUA
 extern void setup_RdotApp(void);
@@ -144,8 +146,9 @@ void attribute_visible R_init_grDevices(DllInfo *dll)
     R_forceSymbols(dll, TRUE);
 
 #ifdef HAVE_AQUA
-/* R.app will run event loop, so if we are running under that we don't
-   need to run one here */
-    if(useaqua) setup_RdotApp();
+    /* R.app will run event loop, so if we are running under that we don't
+       need to run one here */
+    if (useaqua)
+        setup_RdotApp();
 #endif
 }

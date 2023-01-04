@@ -32,38 +32,46 @@ double atanpi(double);
 #include "nmath.h"
 #include "dpq.h"
 
-double pcauchy(double x, double location, double scale,
-	       int lower_tail, int log_p)
+double pcauchy(double x, double location, double scale, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(location) || ISNAN(scale))
-	return x + location + scale;
+        return x + location + scale;
 #endif
-    if (scale <= 0) ML_WARN_return_NAN;
+    if (scale <= 0)
+        ML_WARN_return_NAN;
 
     x = (x - location) / scale;
-    if (ISNAN(x)) ML_WARN_return_NAN;
+    if (ISNAN(x))
+        ML_WARN_return_NAN;
 #ifdef IEEE_754
-    if(!R_FINITE(x)) {
-	if(x < 0) return R_DT_0;
-	else return R_DT_1;
+    if (!R_FINITE(x))
+    {
+        if (x < 0)
+            return R_DT_0;
+        else
+            return R_DT_1;
     }
 #endif
     if (!lower_tail)
-	x = -x;
-    /* for large x, the standard formula suffers from cancellation.
-     * This is from Morten Welinder thanks to  Ian Smith's  atan(1/x) : */
+        x = -x;
+        /* for large x, the standard formula suffers from cancellation.
+         * This is from Morten Welinder thanks to  Ian Smith's  atan(1/x) : */
 #ifdef HAVE_ATANPI
-    if (fabs(x) > 1) {
-	double y = atanpi(1/x);
-	return (x > 0) ? R_D_Clog(y) : R_D_val(-y);
-    } else
-	return R_D_val(0.5 + atanpi(x));
+    if (fabs(x) > 1)
+    {
+        double y = atanpi(1 / x);
+        return (x > 0) ? R_D_Clog(y) : R_D_val(-y);
+    }
+    else
+        return R_D_val(0.5 + atanpi(x));
 #else
-    if (fabs(x) > 1) {
-	double y = atan(1/x) / M_PI;
-	return (x > 0) ? R_D_Clog(y) : R_D_val(-y);
-    } else
-	return R_D_val(0.5 + atan(x) / M_PI);
+    if (fabs(x) > 1)
+    {
+        double y = atan(1 / x) / M_PI;
+        return (x > 0) ? R_D_Clog(y) : R_D_val(-y);
+    }
+    else
+        return R_D_val(0.5 + atan(x) / M_PI);
 #endif
 }

@@ -40,7 +40,7 @@ void blas_dummy()
     F77_CALL(idamax)();
     F77_CALL(lsame)();
 #ifdef HAVE_FORTRAN_DOUBLE_COMPLEX
-/* cmplxblas.o */
+    /* cmplxblas.o */
     F77_CALL(dcabs1)();
     F77_CALL(dzasum)();
     F77_CALL(dznrm2)();
@@ -81,6 +81,6 @@ void blas_dummy()
     F77_CALL(ztrsm)();
     F77_CALL(ztrsv)();
 #endif
-/* other
-    F77_CALL(xerbla)(); */
+    /* other
+        F77_CALL(xerbla)(); */
 }

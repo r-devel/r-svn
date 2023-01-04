@@ -29,13 +29,13 @@ double dexp(double x, double scale, int give_log)
 {
 #ifdef IEEE_754
     /* NaNs propagated correctly */
-    if (ISNAN(x) || ISNAN(scale)) return x + scale;
+    if (ISNAN(x) || ISNAN(scale))
+        return x + scale;
 #endif
-    if (scale <= 0.0) ML_WARN_return_NAN;
+    if (scale <= 0.0)
+        ML_WARN_return_NAN;
 
     if (x < 0.)
-	return R_D__0;
-    return (give_log ?
-	    (-x / scale) - log(scale) :
-	    exp(-x / scale) / scale);
+        return R_D__0;
+    return (give_log ? (-x / scale) - log(scale) : exp(-x / scale) / scale);
 }

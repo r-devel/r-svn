@@ -27,14 +27,13 @@
 #endif
 
 #ifdef _WIN32
-# include <fcntl.h>
+#include <fcntl.h>
 
-static void __attribute__((constructor))
-init(void)
+static void __attribute__((constructor)) init(void)
 {
     /* gfortran initialization sets these to _O_BINARY */
-    setmode(1,_O_TEXT); /* stdout */
-    setmode(2,_O_TEXT); /* stderr */
+    setmode(1, _O_TEXT); /* stdout */
+    setmode(2, _O_TEXT); /* stderr */
     return;
 }
 #endif

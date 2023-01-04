@@ -20,11 +20,9 @@
 
 /* <UTF8> char here is handled as a whole string */
 
-
 /* This provides a table of built-in C and Fortran functions.
    We include this table, even when we have dlopen and friends.
    This is so that the functions are actually loaded at link time. */
-
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -38,14 +36,13 @@
 #endif
 
 #ifdef HAVE_DLFCN_H
-# include <dlfcn.h>
-# define HAVE_DYNAMIC_LOADING
+#include <dlfcn.h>
+#define HAVE_DYNAMIC_LOADING
 #endif
 
 #ifdef HAVE_DYNAMIC_LOADING
 
-static void *loadLibrary(const char *path, int asLocal, int now,
-			 const char *search);
+static void *loadLibrary(const char *path, int asLocal, int now, const char *search);
 static void closeLibrary(void *handle);
 static DL_FUNC R_local_dlsym(DllInfo *info, char const *name);
 static void getFullDLLPath(SEXP call, char *buf, const char *path);
@@ -71,16 +68,15 @@ static void getSystemError(char *buf, int len)
     strcpy(buf, dlerror());
 }
 
-static void *loadLibrary(const char *path, int asLocal, int now,
-			 const char *search)
+static void *loadLibrary(const char *path, int asLocal, int now, const char *search)
 {
     void *handle;
     int openFlag = 0;
 
     openFlag = computeDLOpenFlag(asLocal, now);
-    handle = (void *) dlopen(path,openFlag);
+    handle = (void *)dlopen(path, openFlag);
 
-    return(handle);
+    return (handle);
 }
 
 static void closeLibrary(HINSTANCE handle)
@@ -88,28 +84,27 @@ static void closeLibrary(HINSTANCE handle)
     dlclose(handle);
 }
 
- /*
-    Computes the flag to be passed as the second argument to dlopen(),
-    controlling whether the local or global symbol integration and
-    lazy or eager resolution of the undefined symbols.  The arguments
-    determine which of each of these possibilities to use and the
-    results are or'ed together. We need a separate routine to keep
-    things clean(er) because some symbolic constants may not be
-    defined, such as RTLD_LOCAL long ago. In such cases, we emit a
-    warning message and use the default by not modifying the value of
-    the flag.
+/*
+   Computes the flag to be passed as the second argument to dlopen(),
+   controlling whether the local or global symbol integration and
+   lazy or eager resolution of the undefined symbols.  The arguments
+   determine which of each of these possibilities to use and the
+   results are or'ed together. We need a separate routine to keep
+   things clean(er) because some symbolic constants may not be
+   defined, such as RTLD_LOCAL long ago. In such cases, we emit a
+   warning message and use the default by not modifying the value of
+   the flag.
 
-    Called only by AddDLL().
-  */
+   Called only by AddDLL().
+ */
 static int computeDLOpenFlag(int asLocal, int now)
 {
 #if !defined(RTLD_LOCAL) || !defined(RTLD_GLOBAL) || !defined(RTLD_NOW) || !defined(RTLD_LAZY)
     static char *warningMessages[] = {
-	N_("Explicit local dynamic loading not supported on this platform. Using default."),
-	N_("Explicit global dynamic loading not supported on this platform. Using default."),
-	N_("Explicit non-lazy dynamic loading not supported on this platform. Using default."),
-	N_("Explicit lazy dynamic loading not supported on this platform. Using default.")
-    };
+        N_("Explicit local dynamic loading not supported on this platform. Using default."),
+        N_("Explicit global dynamic loading not supported on this platform. Using default."),
+        N_("Explicit non-lazy dynamic loading not supported on this platform. Using default."),
+        N_("Explicit lazy dynamic loading not supported on this platform. Using default.")};
     /* Define a local macro for issuing the warnings.
        This allows us to redefine it easily so that it only emits the
        warning once as in
@@ -120,47 +115,51 @@ static int computeDLOpenFlag(int asLocal, int now)
        or to control the emission via the options currently in effect at
        call time.
     */
-# define DL_WARN(i) \
-    if(asInteger(GetOption1(install("warn"))) == 1 || \
-       asInteger(GetOption1(install("verbose"))) > 0) \
-	warning(_(warningMessages[i]))
+#define DL_WARN(i)                                                                                                     \
+    if (asInteger(GetOption1(install("warn"))) == 1 || asInteger(GetOption1(install("verbose"))) > 0)                  \
+    warning(_(warningMessages[i]))
 #endif
 
-    int openFlag = 0;		/* Default value so no-ops for undefined
-				   flags should do nothing in the
-				   resulting dlopen(). */
+    int openFlag = 0; /* Default value so no-ops for undefined
+             flags should do nothing in the
+             resulting dlopen(). */
 
-    if(asLocal != 0) {
+    if (asLocal != 0)
+    {
 #ifndef RTLD_LOCAL
-	DL_WARN(0);
+        DL_WARN(0);
 #else
-	openFlag = RTLD_LOCAL;
+        openFlag = RTLD_LOCAL;
 #endif
-    } else {
+    }
+    else
+    {
 #ifndef RTLD_GLOBAL
-	DL_WARN(1);
+        DL_WARN(1);
 #else
-	openFlag = RTLD_GLOBAL;
+        openFlag = RTLD_GLOBAL;
 #endif
     }
 
-    if(now != 0) {
+    if (now != 0)
+    {
 #ifndef RTLD_NOW
-	DL_WARN(2);
+        DL_WARN(2);
 #else
-	openFlag |= RTLD_NOW;
+        openFlag |= RTLD_NOW;
 #endif
-    } else {
+    }
+    else
+    {
 #ifndef RTLD_LAZY
-	DL_WARN(3);
+        DL_WARN(3);
 #else
-	openFlag |= RTLD_LAZY;
+        openFlag |= RTLD_LAZY;
 #endif
     }
 
-    return(openFlag);
+    return (openFlag);
 }
-
 
 /*
   This is the system/OS-specific version for resolving a
@@ -171,14 +170,16 @@ static int computeDLOpenFlag(int asLocal, int now)
   If we were, this would need to use dlerror() before and after
   dlsym, and check the second value is NULL.
  */
-typedef union {void *p; DL_FUNC fn;} fn_ptr;
+typedef union {
+    void *p;
+    DL_FUNC fn;
+} fn_ptr;
 static DL_FUNC R_local_dlsym(DllInfo *info, char const *name)
 {
     fn_ptr tmp;
     tmp.p = dlsym(info->handle, name);
     return tmp.fn;
 }
-
 
 /*
   In the future, this will receive an additional argument
@@ -189,21 +190,21 @@ static DL_FUNC R_local_dlsym(DllInfo *info, char const *name)
   that registers its routines.
  */
 
-
-
 static void getFullDLLPath(SEXP call, char *buf, const char *path)
 {
-    if(path[0] == '~')
-	strcpy(buf, R_ExpandFileName(path));
-    else if(path[0] != '/') {
+    if (path[0] == '~')
+        strcpy(buf, R_ExpandFileName(path));
+    else if (path[0] != '/')
+    {
 #ifdef HAVE_GETCWD
-	if(!getcwd(buf, PATH_MAX))
+        if (!getcwd(buf, PATH_MAX))
 #endif
-	    errorcall(call, _("cannot get working directory!"));
-	strcat(buf, "/");
-	strcat(buf, path);
+            errorcall(call, _("cannot get working directory!"));
+        strcat(buf, "/");
+        strcat(buf, path);
     }
-    else strcpy(buf, path);
+    else
+        strcpy(buf, path);
 }
 
 #endif /* end of `ifdef HAVE_DYNAMIC_LOADING' */

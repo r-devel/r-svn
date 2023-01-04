@@ -32,7 +32,7 @@
  * MUST match R structures in ../library/grDevices/R/mask.R
  */
 
-int R_GE_maskType(SEXP mask) {
+int R_GE_maskType(SEXP mask)
+{
     return INTEGER(getAttrib(mask, install("type")))[0];
 }
-

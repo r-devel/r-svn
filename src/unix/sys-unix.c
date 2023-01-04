@@ -24,11 +24,10 @@
    Chopping final \n is OK in UTF-8.
  */
 
-
 /* See system.txt for a description of functions */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #define R_USE_SIGNALS 1
@@ -39,23 +38,23 @@
 #include "Runix.h"
 
 #ifdef HAVE_UNISTD_H
-# include <unistd.h>
+#include <unistd.h>
 #endif
 
 #ifndef HAVE_GETRUSAGE
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/times.h>
-# endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/times.h>
+#endif
 #endif
 
 #ifdef HAVE_FCNTL_H
-# include <fcntl.h>
+#include <fcntl.h>
 #endif
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(HAVE_GETRUSAGE)
 /* on macOS it seems sys/resource.h needs sys/time.h first */
-# include <sys/time.h>
-# include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #endif
 
 #include <errno.h>
@@ -64,106 +63,121 @@
  *  4) INITIALIZATION AND TERMINATION ACTIONS
  */
 
-attribute_hidden
-FILE *R_OpenInitFile(void)
+attribute_hidden FILE *R_OpenInitFile(void)
 {
     char buf[PATH_MAX], *home, *p = getenv("R_PROFILE_USER");
     FILE *fp;
 
     fp = NULL;
-    if (LoadInitFile) {
-	if(p) {
-	    if(!*p) return NULL;  /* set to "" */
-	    return R_fopen(R_ExpandFileName(p), "r");
-	}
-	if((fp = R_fopen(".Rprofile", "r")))
-	    return fp;
-	if((home = getenv("HOME")) == NULL)
-	    return NULL;
-	snprintf(buf, PATH_MAX, "%s/.Rprofile", home);
-	if((fp = R_fopen(buf, "r")))
-	    return fp;
+    if (LoadInitFile)
+    {
+        if (p)
+        {
+            if (!*p)
+                return NULL; /* set to "" */
+            return R_fopen(R_ExpandFileName(p), "r");
+        }
+        if ((fp = R_fopen(".Rprofile", "r")))
+            return fp;
+        if ((home = getenv("HOME")) == NULL)
+            return NULL;
+        snprintf(buf, PATH_MAX, "%s/.Rprofile", home);
+        if ((fp = R_fopen(buf, "r")))
+            return fp;
     }
     return fp;
 }
-    /*
-     *   R_CleanUp is interface-specific
-     */
+/*
+ *   R_CleanUp is interface-specific
+ */
 
 /*
  *  5) FILESYSTEM INTERACTION
  */
 
+/*
+ *   R_ShowFiles is interface-specific
+ */
 
-    /*
-     *   R_ShowFiles is interface-specific
-     */
-
-    /*
-     *   R_ChooseFile is interface-specific
-     */
+/*
+ *   R_ChooseFile is interface-specific
+ */
 
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_TILDE_EXPAND_WORD)
-char *R_ExpandFileName_readline(const char *s, char *buff);  /* sys-std.c */
+char *R_ExpandFileName_readline(const char *s, char *buff); /* sys-std.c */
 #endif
 
 #if defined(HAVE_PWD_H)
-# include <pwd.h>
+#include <pwd.h>
 #endif
 
 static const char *R_ExpandFileName_unix(const char *s, char *buff)
 {
-    if(s[0] != '~') return s;
+    if (s[0] != '~')
+        return s;
 
     const char *user, *temp, *s2, *home;
     char buff2[PATH_MAX];
     struct passwd *pass;
 
     temp = strchr(s + 1, '/');
-    if (temp == NULL) { // ~name
-	user = s + 1;
-    } else { // ~name/path
-	/* extract text befoe first slash */
-	size_t len = (size_t)(temp - s + 1);
-	(void) strncpy(buff2, s + 1, len - 2);
-	buff2[len - 2] = '\0';
-	user = buff2;
-	s2 = s + len;
+    if (temp == NULL)
+    { // ~name
+        user = s + 1;
     }
-    if (user[0] == 0) {
-	// follow readline (and not libedit) in preferring HOME
-	home = getenv("HOME");
+    else
+    { // ~name/path
+        /* extract text befoe first slash */
+        size_t len = (size_t)(temp - s + 1);
+        (void)strncpy(buff2, s + 1, len - 2);
+        buff2[len - 2] = '\0';
+        user = buff2;
+        s2 = s + len;
+    }
+    if (user[0] == 0)
+    {
+        // follow readline (and not libedit) in preferring HOME
+        home = getenv("HOME");
 #if defined(HAVE_GETPWUID) && defined(HAVE_GETUID)
-	if(home == NULL || streql(home, "")) {
-	   pass = getpwuid(getuid());
-           if(pass == NULL) return s;
-	   home = pass->pw_dir;
-	}
+        if (home == NULL || streql(home, ""))
+        {
+            pass = getpwuid(getuid());
+            if (pass == NULL)
+                return s;
+            home = pass->pw_dir;
+        }
 #endif
-	if(home == NULL) return s;
-    } else {
+        if (home == NULL)
+            return s;
+    }
+    else
+    {
 #ifdef HAVE_GETPWNAM
-	pass = getpwnam(user);
-	if(pass == NULL) return s;
-	home = pass->pw_dir;
+        pass = getpwnam(user);
+        if (pass == NULL)
+            return s;
+        home = pass->pw_dir;
 #else
         return s;
 #endif
     }
 
-    if (temp == NULL) { // ~name
-	strcpy(buff, home);
-    } else { // ~name/path
-	// ask snprintf to compute the length, as GCC 12 complains otherwise.
-	size_t len = snprintf(NULL, 0, "%s/%s", home, s2);
-	// buff is passed from R_ExpandFileName, uses static array of
-	// size PATH_MAX.
-	if (len >= PATH_MAX) {
-	    warning(_("expanded path length %d would be too long for\n%s\n"),
-		       len, s);
-	    return s;
-	}
-	(void)snprintf(buff, len + 1,  "%s/%s", home, s2);
+    if (temp == NULL)
+    { // ~name
+        strcpy(buff, home);
+    }
+    else
+    { // ~name/path
+        // ask snprintf to compute the length, as GCC 12 complains otherwise.
+        size_t len = snprintf(NULL, 0, "%s/%s", home, s2);
+        // buff is passed from R_ExpandFileName, uses static array of
+        // size PATH_MAX.
+        if (len >= PATH_MAX)
+        {
+            warning(_("expanded path length %d would be too long for\n%s\n"), len, s);
+            return s;
+        }
+        (void)snprintf(buff, len + 1, "%s/%s", home, s2);
     }
 
     return buff;
@@ -186,16 +200,16 @@ static char newFileName[PATH_MAX];
 const char *R_ExpandFileName(const char *s)
 {
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_TILDE_EXPAND_WORD)
-    if(UsingReadline) {
-	const char * c = R_ExpandFileName_readline(s, newFileName);
-	/* we can return the result only if tilde_expand is not broken */
-	if (!c || c[0]!='~' || (c[1]!='\0' && c[1]!='/'))
-	    return c;
+    if (UsingReadline)
+    {
+        const char *c = R_ExpandFileName_readline(s, newFileName);
+        /* we can return the result only if tilde_expand is not broken */
+        if (!c || c[0] != '~' || (c[1] != '\0' && c[1] != '/'))
+            return c;
     }
 #endif
     return R_ExpandFileName_unix(s, newFileName);
 }
-
 
 /*
  *  7) PLATFORM DEPENDENT FUNCTIONS
@@ -207,27 +221,27 @@ attribute_hidden SEXP do_machine(SEXP call, SEXP op, SEXP args, SEXP env)
     return mkString("Unix");
 }
 
-# ifdef HAVE_SYS_TIMES_H
-#  include <sys/times.h> /* times */
-# endif
+#ifdef HAVE_SYS_TIMES_H
+#include <sys/times.h> /* times */
+#endif
 
 static double clk_tck, StartTime;
 
 void R_setStartTime(void)
 {
 #ifdef HAVE_SYSCONF
-    clk_tck = (double) sysconf(_SC_CLK_TCK);
+    clk_tck = (double)sysconf(_SC_CLK_TCK);
 #else
-# ifndef CLK_TCK
+#ifndef CLK_TCK
 /* this is in ticks/second, generally 60 on BSD style Unix, 100? on SysV
  */
-#  ifdef HZ
-#   define CLK_TCK HZ
-#  else
-#   define CLK_TCK 60
-#  endif
-# endif /* not CLK_TCK */
-    clk_tck = (double) CLK_TCK;
+#ifdef HZ
+#define CLK_TCK HZ
+#else
+#define CLK_TCK 60
+#endif
+#endif /* not CLK_TCK */
+    clk_tck = (double)CLK_TCK;
 #endif
     /* printf("CLK_TCK = %d\n", CLK_TCK); */
     StartTime = currentTime();
@@ -238,25 +252,20 @@ void R_setStartTime(void)
    clock ticks (which can overflow).  It is possible this version uses
    time() and so is in seconds.  But even Cygwin has gettimeofday.
  */
-attribute_hidden
-void R_getProcTime(double *data)
+attribute_hidden void R_getProcTime(double *data)
 {
     /* docs say this is rounded to the nearest ms */
     double et = currentTime() - StartTime;
-    data[2] = 1e-3 * rint(1000*et);
+    data[2] = 1e-3 * rint(1000 * et);
 #ifdef HAVE_GETRUSAGE
     /* all known current OSes */
     struct rusage self, children;
     getrusage(RUSAGE_SELF, &self);
     getrusage(RUSAGE_CHILDREN, &children);
-    data[0] = (double) self.ru_utime.tv_sec +
-	1e-3 * (self.ru_utime.tv_usec/1000);
-    data[1] = (double) self.ru_stime.tv_sec +
-	1e-3 * (self.ru_stime.tv_usec/1000);
-    data[3] = (double) children.ru_utime.tv_sec +
-	1e-3 * (children.ru_utime.tv_usec/1000);
-    data[4] = (double) children.ru_stime.tv_sec +
-	1e-3 * (children.ru_stime.tv_usec/1000);
+    data[0] = (double)self.ru_utime.tv_sec + 1e-3 * (self.ru_utime.tv_usec / 1000);
+    data[1] = (double)self.ru_stime.tv_sec + 1e-3 * (self.ru_stime.tv_usec / 1000);
+    data[3] = (double)children.ru_utime.tv_sec + 1e-3 * (children.ru_utime.tv_usec / 1000);
+    data[4] = (double)children.ru_stime.tv_sec + 1e-3 * (children.ru_stime.tv_usec / 1000);
 #else
     /* Not known to be currently used */
     struct tms timeinfo;
@@ -270,15 +279,13 @@ void R_getProcTime(double *data)
 
 /* used in memory.c */
 /* FIXME: maybe should try to find the increment for getrusage */
-attribute_hidden
-double R_getClockIncrement(void)
+attribute_hidden double R_getClockIncrement(void)
 {
     return 1.0 / clk_tck;
 }
 
-
 #ifdef HAVE_SYS_WAIT_H
-# include <sys/wait.h>
+#include <sys/wait.h>
 #endif
 
 /* The timeout support is inspired by timeout utility from coreutils.
@@ -325,14 +332,14 @@ double R_getClockIncrement(void)
    As follows from empirical observations, SIGTERM can sometimes terminate
    applications that cannot be terminated by SIGINT. */
 
-int kill_signals[] = { KILL_SIGNAL1, KILL_SIGNAL2, KILL_SIGNAL3 };
-static struct {
+int kill_signals[] = {KILL_SIGNAL1, KILL_SIGNAL2, KILL_SIGNAL3};
+static struct
+{
     pid_t child_pid;
-    int timedout; /* set when the child has been timed out */
+    int timedout;      /* set when the child has been timed out */
     int kill_attempts; /* 1 after sending KILL_SIGNAL1, etc */
     sigset_t oldset;
-    struct sigaction oldalrm, oldint, oldquit, oldhup, oldterm, oldttin,
-                     oldttou, oldchld;
+    struct sigaction oldalrm, oldint, oldquit, oldhup, oldterm, oldttin, oldttou, oldchld;
     RCNTXT cntxt; /* for popen/pclose */
     FILE *fp;     /* for popen/pclose, sanity check */
 } tost;
@@ -402,40 +409,48 @@ static void timeout_cleanup(void)
 static void timeout_handler(int sig)
 {
     if (sig == SIGCHLD)
-	return; /* needed for sigsuspend() to be interrupted */
-    if (tost.child_pid > 0 && sig == SIGALRM) {
-	tost.timedout = 1;
-	if (tost.kill_attempts < 3) {
-	    sig = kill_signals[tost.kill_attempts];
-	    if (tost.kill_attempts < 2) {
-		int saveerrno = errno;
-		alarm(EMERGENCY_TIMEOUT);
-		errno = saveerrno;
-	    }
-	    tost.kill_attempts++;
-	} else
-	    sig = KILL_SIGNAL1; /* should not happen */
+        return; /* needed for sigsuspend() to be interrupted */
+    if (tost.child_pid > 0 && sig == SIGALRM)
+    {
+        tost.timedout = 1;
+        if (tost.kill_attempts < 3)
+        {
+            sig = kill_signals[tost.kill_attempts];
+            if (tost.kill_attempts < 2)
+            {
+                int saveerrno = errno;
+                alarm(EMERGENCY_TIMEOUT);
+                errno = saveerrno;
+            }
+            tost.kill_attempts++;
+        }
+        else
+            sig = KILL_SIGNAL1; /* should not happen */
     }
-    if (tost.child_pid > 0) {
-	/* parent, received a signal */
+    if (tost.child_pid > 0)
+    {
+        /* parent, received a signal */
 
-	kill(tost.child_pid, sig);
-	/* NOTE: don't signal the group and  don't send SIGCONT
-	         for interactive jobs */
-	int saveerrno = errno;
-	/* on macOS, killpg fails with EPERM for groups with zombies */
-	killpg(tost.child_pid, sig);
-	errno = saveerrno;
-	if (sig != SIGKILL && sig != SIGCONT) {
-	    kill(tost.child_pid, SIGCONT);
-	    saveerrno = errno;
-	    /* on macOS, killpg fails with EPERM for groups with zombies */
-	    killpg(tost.child_pid, SIGCONT);
-	    errno = saveerrno;
-	}
-    } else if (tost.child_pid == 0) {
-	/* child */
-	_exit(128 + sig); /* arbitrary status, such as in timeout utility */
+        kill(tost.child_pid, sig);
+        /* NOTE: don't signal the group and  don't send SIGCONT
+                 for interactive jobs */
+        int saveerrno = errno;
+        /* on macOS, killpg fails with EPERM for groups with zombies */
+        killpg(tost.child_pid, sig);
+        errno = saveerrno;
+        if (sig != SIGKILL && sig != SIGCONT)
+        {
+            kill(tost.child_pid, SIGCONT);
+            saveerrno = errno;
+            /* on macOS, killpg fails with EPERM for groups with zombies */
+            killpg(tost.child_pid, SIGCONT);
+            errno = saveerrno;
+        }
+    }
+    else if (tost.child_pid == 0)
+    {
+        /* child */
+        _exit(128 + sig); /* arbitrary status, such as in timeout utility */
     }
     /* tost.child_pid is -1 when child process no longer exists */
 }
@@ -452,24 +467,25 @@ static pid_t timeout_wait(int *wstatus)
     sigprocmask(SIG_BLOCK, &ss, &unblocked_ss);
 
     int saveerrno = errno;
-    while((wres = waitpid(tost.child_pid, wstatus, WNOHANG)) == 0)
-	sigsuspend(&unblocked_ss);
+    while ((wres = waitpid(tost.child_pid, wstatus, WNOHANG)) == 0)
+        sigsuspend(&unblocked_ss);
 
     if (errno == EINTR)
-	/* EINTR is not really an error but expected situation here, however,
-	   R's "system" call would report any non-zero errno as an error. */
-	errno = saveerrno;
+        /* EINTR is not really an error but expected situation here, however,
+           R's "system" call would report any non-zero errno as an error. */
+        errno = saveerrno;
     if (wres == tost.child_pid)
-	tost.child_pid = -1; /* the process no longer exists */
+        tost.child_pid = -1; /* the process no longer exists */
     timeout_cleanup();
     return wres;
 }
 
 static void timeout_cend(void *data)
 {
-    if (tost.child_pid > 0) {
-	timeout_handler(SIGALRM);
-	timeout_wait(NULL);
+    if (tost.child_pid > 0)
+    {
+        timeout_handler(SIGALRM);
+        timeout_wait(NULL);
     }
     timeout_cleanup();
 }
@@ -479,7 +495,7 @@ static void timeout_cend(void *data)
    SIGCHLD is unblocked in the parent after the call. */
 static void timeout_fork(void)
 {
-    sigset_t css; 
+    sigset_t css;
     sigemptyset(&css);
     sigaddset(&css, SIGCHLD);
     sigprocmask(SIG_BLOCK, &css, NULL);
@@ -502,21 +518,25 @@ static void timeout_fork(void)
 static FILE *R_popen_timeout(const char *cmd, const char *type, int timeout)
 {
     /* close-on-exec is not supported */
-    if (!type || type[1] ||  (type[0] != 'r' && type[0] != 'w')) {
-	errno = EINVAL;
-	return NULL;
+    if (!type || type[1] || (type[0] != 'r' && type[0] != 'w'))
+    {
+        errno = EINVAL;
+        return NULL;
     }
     int doread = (type[0] == 'r');
     int pipefd[2];
     int parent_end, child_end;
     if (pipe(pipefd) < 0)
-	return NULL;
-    if (doread) {
-	parent_end = pipefd[0];
-	child_end = pipefd[1];
-    } else {
-	parent_end = pipefd[1];
-	child_end = pipefd[0];
+        return NULL;
+    if (doread)
+    {
+        parent_end = pipefd[0];
+        child_end = pipefd[1];
+    }
+    else
+    {
+        parent_end = pipefd[1];
+        child_end = pipefd[0];
     }
 
     /* Earlier version of R would block SIGPROF here on old Apple systems
@@ -526,8 +546,7 @@ static FILE *R_popen_timeout(const char *cmd, const char *type, int timeout)
     timeout_init();
 
     /* set up a context to recover from R error between popen and pclose */
-    begincontext(&tost.cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
+    begincontext(&tost.cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
     tost.cntxt.cenddata = NULL;
     tost.cntxt.cend = &timeout_cend;
 
@@ -535,49 +554,56 @@ static FILE *R_popen_timeout(const char *cmd, const char *type, int timeout)
     signal(SIGTTOU, SIG_IGN);
     timeout_fork();
 
-    if (tost.child_pid == 0) {
-	/* child */
-	setpgid(0, 0); /* NOTE: don't create new group in interactive jobs */
-	signal(SIGTTIN, SIG_DFL);
-	signal(SIGTTOU, SIG_DFL);
-	dup2(child_end, doread ? 1 : 0);
-	close(child_end);
-	close(parent_end);
-	close(doread ? 0 : 1);
-	/* ensure there is no read from terminal to avoid SIGTTIN */
-	if (open("/dev/null", O_RDONLY) < 0) {
-	    perror("Cannot open /dev/null for reading:");
-	    _exit(127);
-	}
-	execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
-	_exit(127); /* execl failed */
-    } else if (tost.child_pid > 0) {
-	/* parent */
-	close(child_end);
+    if (tost.child_pid == 0)
+    {
+        /* child */
+        setpgid(0, 0); /* NOTE: don't create new group in interactive jobs */
+        signal(SIGTTIN, SIG_DFL);
+        signal(SIGTTOU, SIG_DFL);
+        dup2(child_end, doread ? 1 : 0);
+        close(child_end);
+        close(parent_end);
+        close(doread ? 0 : 1);
+        /* ensure there is no read from terminal to avoid SIGTTIN */
+        if (open("/dev/null", O_RDONLY) < 0)
+        {
+            perror("Cannot open /dev/null for reading:");
+            _exit(127);
+        }
+        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+        _exit(127); /* execl failed */
+    }
+    else if (tost.child_pid > 0)
+    {
+        /* parent */
+        close(child_end);
         tost.fp = fdopen(parent_end, type);
-	if (!tost.fp) {
-	    close(parent_end);
-	    return NULL;
-	}
+        if (!tost.fp)
+        {
+            close(parent_end);
+            return NULL;
+        }
 
-	sigset_t ss;
-	sigemptyset(&ss);
-	sigaddset(&ss, SIGALRM);
-	sigprocmask(SIG_UNBLOCK, &ss, NULL);
-	alarm(timeout); /* will get SIGALRM on timeout */
+        sigset_t ss;
+        sigemptyset(&ss);
+        sigaddset(&ss, SIGALRM);
+        sigprocmask(SIG_UNBLOCK, &ss, NULL);
+        alarm(timeout); /* will get SIGALRM on timeout */
 
-	return tost.fp;
-    } else {
-	close(parent_end);
-	return NULL;
+        return tost.fp;
+    }
+    else
+    {
+        close(parent_end);
+        return NULL;
     }
 }
 
 int R_pclose_timeout(FILE *fp)
 {
     if (fp != tost.fp)
-	/* should not happen */
-	error("Invalid file pointer in pclose");
+        /* should not happen */
+        error("Invalid file pointer in pclose");
 
     /* Do not use fclose, because on Solaris it sets errno to "Invalid seek"
        when the pipe is already closed (e.g. because of timeout). fclose would
@@ -585,7 +611,7 @@ int R_pclose_timeout(FILE *fp)
        then be reported by R's "system" function. */
     int fd = fileno(fp);
     if (fd >= 0)
-	close(fd);
+        close(fd);
 
     pid_t wres;
     int wstatus;
@@ -594,7 +620,7 @@ int R_pclose_timeout(FILE *fp)
     endcontext(&tost.cntxt);
 
     if (wres < 0)
-	return -1;
+        return -1;
     return wstatus;
 }
 
@@ -605,7 +631,7 @@ int R_pclose_timeout(FILE *fp)
 static int R_system_timeout(const char *cmd, int timeout)
 {
     if (!cmd)
-	return R_system(cmd);
+        return R_system(cmd);
 
     /* Earlier version of R would block SIGPROF here on old Apple systems
        following Luke's recommendation on how to fix PR#1140 (see R_open,
@@ -616,68 +642,75 @@ static int R_system_timeout(const char *cmd, int timeout)
     signal(SIGTTOU, SIG_IGN);
     timeout_fork();
 
-    if (tost.child_pid == 0) {
-	/* child */
-	close(0);
-	/* ensure there is no read from terminal to avoid SIGTTIN */
-	if (open("/dev/null", O_RDONLY) < 0) {
-	    perror("Cannot open /dev/null for reading:");
-	    _exit(127);
-	}
-	setpgid(0, 0);
-	signal(SIGTTIN, SIG_DFL);
-	signal(SIGTTOU, SIG_DFL);
+    if (tost.child_pid == 0)
+    {
+        /* child */
+        close(0);
+        /* ensure there is no read from terminal to avoid SIGTTIN */
+        if (open("/dev/null", O_RDONLY) < 0)
+        {
+            perror("Cannot open /dev/null for reading:");
+            _exit(127);
+        }
+        setpgid(0, 0);
+        signal(SIGTTIN, SIG_DFL);
+        signal(SIGTTOU, SIG_DFL);
 
-	execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
-	_exit(127); /* execl failed */
-    } else if (tost.child_pid > 0) {
-	/* parent */
-	sigset_t ss;
-	sigemptyset(&ss);
-	sigaddset(&ss, SIGALRM);
-	sigprocmask(SIG_UNBLOCK, &ss, NULL);
-	alarm(timeout); /* will get SIGALRM on timeout */
+        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+        _exit(127); /* execl failed */
+    }
+    else if (tost.child_pid > 0)
+    {
+        /* parent */
+        sigset_t ss;
+        sigemptyset(&ss);
+        sigaddset(&ss, SIGALRM);
+        sigprocmask(SIG_UNBLOCK, &ss, NULL);
+        alarm(timeout); /* will get SIGALRM on timeout */
 
-	int wstatus;
-	timeout_wait(&wstatus);
-	if (tost.child_pid != -1)
-	    return -1;
+        int wstatus;
+        timeout_wait(&wstatus);
+        if (tost.child_pid != -1)
+            return -1;
 #ifdef HAVE_SYS_WAIT_H
-	if (WIFEXITED(wstatus)) wstatus = WEXITSTATUS(wstatus);
+        if (WIFEXITED(wstatus))
+            wstatus = WEXITSTATUS(wstatus);
 #else
-	/* assume that this is shifted if a multiple of 256 */
-	if ((wstatus % 256) == 0) wstatus = wstatus/256;
+        /* assume that this is shifted if a multiple of 256 */
+        if ((wstatus % 256) == 0)
+            wstatus = wstatus / 256;
 #endif
-        if (wstatus == -1) {
-	    /* this means that system() failed badly - it didn't
-	       even get to try to run the shell */
-	    warning(_("system call failed: %s"), strerror(errno));
-	    /* R system() is documented to return 127 on failure, and a lot of
-	       code relies on that - it will misinterpret -1 as success */
-	    wstatus = 127;
-	}
-	return wstatus;
-    } else
-	return -1;
+        if (wstatus == -1)
+        {
+            /* this means that system() failed badly - it didn't
+               even get to try to run the shell */
+            warning(_("system call failed: %s"), strerror(errno));
+            /* R system() is documented to return 127 on failure, and a lot of
+               code relies on that - it will misinterpret -1 as success */
+            wstatus = 127;
+        }
+        return wstatus;
+    }
+    else
+        return -1;
 }
 
 static void warn_status(const char *cmd, int res)
 {
     if (!res)
-	return;
+        return;
 
     if (errno)
-	/* FIXME: TK: non-zero errno is a sign of an error only when
-	   a function that modified it also signals an error by its
-	   return value, usually -1 or EOF. We should not be reporting
-	   an error here (CERT ERR30-C).*/
-	/* on Solaris, if the command ends with non-zero status and timeout
-	   is 0, "Illegal seek" error is reported; the timeout version
-	   works this around by using close(fileno) */
-	warning(_("running command '%s' had status %d and error message '%s'"),
-		cmd, res, strerror(errno));
+        /* FIXME: TK: non-zero errno is a sign of an error only when
+           a function that modified it also signals an error by its
+           return value, usually -1 or EOF. We should not be reporting
+           an error here (CERT ERR30-C).*/
+        /* on Solaris, if the command ends with non-zero status and timeout
+           is 0, "Illegal seek" error is reported; the timeout version
+           works this around by using close(fileno) */
+        warning(_("running command '%s' had status %d and error message '%s'"), cmd, res, strerror(errno));
     else
-	warning(_("running command '%s' had status %d"), cmd, res);
+        warning(_("running command '%s' had status %d"), cmd, res);
 }
 
 NORET static void cmdError(const char *cmd, const char *format, ...)
@@ -687,15 +720,15 @@ NORET static void cmdError(const char *cmd, const char *format, ...)
 
     va_list(ap);
     va_start(ap, format);
-    SEXP cond = R_vmakeErrorCondition(call, "cmdError", NULL,
-				      nextra, format, ap);
+    SEXP cond = R_vmakeErrorCondition(call, "cmdError", NULL, nextra, format, ap);
     va_end(ap);
 
     PROTECT(cond);
     R_setConditionField(cond, 2, "cmd", mkString(cmd));
-    if (errno) {
-	R_setConditionField(cond, 3, "errno", ScalarInteger(errno));
-	R_setConditionField(cond, 4, "error", mkString(strerror(errno)));
+    if (errno)
+    {
+        R_setConditionField(cond, 3, "errno", ScalarInteger(errno));
+        R_setConditionField(cond, 4, "error", mkString(strerror(errno)));
     }
 
     R_signalErrorCondition(cond, call);
@@ -711,179 +744,196 @@ attribute_hidden SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     checkArity(op, args);
     if (!isValidStringF(CAR(args)))
-	error(_("non-empty character argument expected"));
+        error(_("non-empty character argument expected"));
     intern = asLogical(CADR(args));
     if (intern == NA_INTEGER)
-	error(_("'intern' must be logical and not NA"));
+        error(_("'intern' must be logical and not NA"));
     timeout = asInteger(CADDR(args));
     if (timeout == NA_INTEGER || timeout < 0)
-	error(_("invalid '%s' argument"), "timeout");
+        error(_("invalid '%s' argument"), "timeout");
     const char *cmd = translateCharFP(STRING_ELT(CAR(args), 0));
-    if (timeout > 0) {
-	/* command ending with & is not supported by timeout */
-	const void *vmax = vmaxget();
-	const char *c = trCharUTF8(STRING_ELT(CAR(args), 0));
-	int last_is_amp = 0;
-	int len = 0;
-	for(;*c; c += len) {
-	    len = utf8clen(*c);
-	    if (len == 1) {
-		if (*c == '&')
-		    last_is_amp = 1;
-		else if (*c != ' ' && *c != '\t' && *c != '\r' && *c != '\n')
-		    last_is_amp = 0;
-	    } else
-		last_is_amp = 0;
-	}
-	if (last_is_amp)
-	    error("Timeout with background running processes is not supported.");
-	vmaxset(vmax);
+    if (timeout > 0)
+    {
+        /* command ending with & is not supported by timeout */
+        const void *vmax = vmaxget();
+        const char *c = trCharUTF8(STRING_ELT(CAR(args), 0));
+        int last_is_amp = 0;
+        int len = 0;
+        for (; *c; c += len)
+        {
+            len = utf8clen(*c);
+            if (len == 1)
+            {
+                if (*c == '&')
+                    last_is_amp = 1;
+                else if (*c != ' ' && *c != '\t' && *c != '\r' && *c != '\n')
+                    last_is_amp = 0;
+            }
+            else
+                last_is_amp = 0;
+        }
+        if (last_is_amp)
+            error("Timeout with background running processes is not supported.");
+        vmaxset(vmax);
     }
-    if (intern) { /* intern = TRUE */
-	FILE *fp;
-	char *x = "r",
+    if (intern)
+    { /* intern = TRUE */
+        FILE *fp;
+        char *x = "r",
 #ifdef HAVE_GETLINE
-	    *buf = NULL;
-	size_t buf_len = 0;
+             *buf = NULL;
+        size_t buf_len = 0;
 #else
-	    buf[INTERN_BUFSIZE + MB_LEN_MAX],
-	    buf2[MB_LEN_MAX + 1]; /* overflow bytes from MBCS truncation */
+             buf[INTERN_BUFSIZE + MB_LEN_MAX], buf2[MB_LEN_MAX + 1]; /* overflow bytes from MBCS truncation */
 #endif
-	int i, j, res;
-	SEXP tchar, rval;
+        int i, j, res;
+        SEXP tchar, rval;
 
-	PROTECT(tlist);
-	errno = 0; /* precaution */
-	if (timeout == 0)
-	    fp = R_popen(cmd, x);
-	else
-	    fp = R_popen_timeout(cmd, x, timeout);
-	if(!fp)
-	    cmdError(cmd, _("cannot popen '%s', probable reason '%s'"),
-		     cmd, strerror(errno));
+        PROTECT(tlist);
+        errno = 0; /* precaution */
+        if (timeout == 0)
+            fp = R_popen(cmd, x);
+        else
+            fp = R_popen_timeout(cmd, x, timeout);
+        if (!fp)
+            cmdError(cmd, _("cannot popen '%s', probable reason '%s'"), cmd, strerror(errno));
 #ifdef HAVE_GETLINE
         size_t read;
-        for(i = 0; (read = getline(&buf, &buf_len, fp)) != (size_t)-1; i++) {
-	    if (buf[read - 1] == '\n')
+        for (i = 0; (read = getline(&buf, &buf_len, fp)) != (size_t)-1; i++)
+        {
+            if (buf[read - 1] == '\n')
 #else
-	size_t read = 0;
-	size_t truncb = 0; /* number of overflow bytes from MBCS truncation */
-	buf[0] = '\0';
-	for (i = 0; fgets(buf + truncb, INTERN_BUFSIZE, fp) || truncb; i++) {
-	    buf2[0] = '\0';
-	    read = strlen(buf);
-	    if (read >= INTERN_BUFSIZE - 1 + truncb) {
-		warning(_("line %d may be truncated in call to system(, intern = TRUE)"), i + 1);
-		/* save trailing bytes in buf2 in case they are from incomplete
-		   multi-byte character, and hence will be removed from buf by
-		   mbcsTruncateToValid */
-		memcpy(buf2, buf + read - MB_LEN_MAX, MB_LEN_MAX);
-		buf2[MB_LEN_MAX] = '\0';
-		mbcsTruncateToValid(buf);
-		truncb = read - strlen(buf);
-	    }
-	    else truncb = 0;
+        size_t read = 0;
+        size_t truncb = 0; /* number of overflow bytes from MBCS truncation */
+        buf[0] = '\0';
+        for (i = 0; fgets(buf + truncb, INTERN_BUFSIZE, fp) || truncb; i++)
+        {
+            buf2[0] = '\0';
+            read = strlen(buf);
+            if (read >= INTERN_BUFSIZE - 1 + truncb)
+            {
+                warning(_("line %d may be truncated in call to system(, intern = TRUE)"), i + 1);
+                /* save trailing bytes in buf2 in case they are from incomplete
+                   multi-byte character, and hence will be removed from buf by
+                   mbcsTruncateToValid */
+                memcpy(buf2, buf + read - MB_LEN_MAX, MB_LEN_MAX);
+                buf2[MB_LEN_MAX] = '\0';
+                mbcsTruncateToValid(buf);
+                truncb = read - strlen(buf);
+            }
+            else
+                truncb = 0;
 
-	    if (read > 0 && buf[read-1] == '\n')
+            if (read > 0 && buf[read - 1] == '\n')
 #endif
-		buf[read - 1] = '\0'; /* chop final CR */
-	    tchar = mkChar(buf);
-	    UNPROTECT(1);
-	    PROTECT(tlist = CONS(tchar, tlist));
+                buf[read - 1] = '\0'; /* chop final CR */
+            tchar = mkChar(buf);
+            UNPROTECT(1);
+            PROTECT(tlist = CONS(tchar, tlist));
 #ifndef HAVE_GETLINE
-	    if (truncb > 0 && truncb <= MB_LEN_MAX) 
-		/* recover overflow bytes and prepend them for next line */
-		strcpy(buf, buf2 + (MB_LEN_MAX - truncb));
+            if (truncb > 0 && truncb <= MB_LEN_MAX)
+                /* recover overflow bytes and prepend them for next line */
+                strcpy(buf, buf2 + (MB_LEN_MAX - truncb));
 #endif
-	}
+        }
 #ifdef HAVE_GETLINE
         if (buf != NULL)
-          free(buf);
+            free(buf);
 #endif
-	if (timeout == 0)
-	    res = pclose(fp);
-	else 
-	    res = R_pclose_timeout(fp);
+        if (timeout == 0)
+            res = pclose(fp);
+        else
+            res = R_pclose_timeout(fp);
 
-	/* On Solaris, pclose sometimes returns -1 and sets errno to ESPIPE
-	   (Illegal seek). In that case, do_system reports 0 exit status and
-	   displays a warning via warn_status. ESPIPE is not mentioned by
-	   POSIX as possible outcome of pclose. */
+            /* On Solaris, pclose sometimes returns -1 and sets errno to ESPIPE
+               (Illegal seek). In that case, do_system reports 0 exit status and
+               displays a warning via warn_status. ESPIPE is not mentioned by
+               POSIX as possible outcome of pclose. */
 
 #ifdef HAVE_SYS_WAIT_H
-	if (WIFEXITED(res)) res = WEXITSTATUS(res);
-	else res = 0;
+        if (WIFEXITED(res))
+            res = WEXITSTATUS(res);
+        else
+            res = 0;
 #else
-	/* assume that this is shifted if a multiple of 256 */
-	if ((res % 256) == 0) res = res/256;
+        /* assume that this is shifted if a multiple of 256 */
+        if ((res % 256) == 0)
+            res = res / 256;
 #endif
-	if ((res & 0xff)  == 127) {/* 127, aka -1 */
-	    if (errno)
-		cmdError(cmd, _("error in running command: '%s'"),
-			 strerror(errno));
-	    else
-		cmdError(cmd, _("error in running command"));
-	}
+        if ((res & 0xff) == 127)
+        { /* 127, aka -1 */
+            if (errno)
+                cmdError(cmd, _("error in running command: '%s'"), strerror(errno));
+            else
+                cmdError(cmd, _("error in running command"));
+        }
 
-	if (timeout && tost.timedout) {
-	    res = 124;
-	    warning(_("command '%s' timed out after %ds"), cmd, timeout);
-	} else
-	    warn_status(cmd, res);
+        if (timeout && tost.timedout)
+        {
+            res = 124;
+            warning(_("command '%s' timed out after %ds"), cmd, timeout);
+        }
+        else
+            warn_status(cmd, res);
 
-	rval = PROTECT(allocVector(STRSXP, i));
-	for (j = (i - 1); j >= 0; j--) {
-	    SET_STRING_ELT(rval, j, CAR(tlist));
-	    tlist = CDR(tlist);
-	}
-	if(res) {
-	    SEXP lsym = install("status");
-	    setAttrib(rval, lsym, ScalarInteger(res));
-	    if(errno) {
-		lsym = install("errmsg");
-		setAttrib(rval, lsym, mkString(strerror(errno)));
-	    }
-	}
-	UNPROTECT(2);
-	return rval;
+        rval = PROTECT(allocVector(STRSXP, i));
+        for (j = (i - 1); j >= 0; j--)
+        {
+            SET_STRING_ELT(rval, j, CAR(tlist));
+            tlist = CDR(tlist);
+        }
+        if (res)
+        {
+            SEXP lsym = install("status");
+            setAttrib(rval, lsym, ScalarInteger(res));
+            if (errno)
+            {
+                lsym = install("errmsg");
+                setAttrib(rval, lsym, mkString(strerror(errno)));
+            }
+        }
+        UNPROTECT(2);
+        return rval;
     }
-    else { /* intern =  FALSE */
+    else
+    { /* intern =  FALSE */
 #ifdef HAVE_AQUA
-	R_Busy(1);
+        R_Busy(1);
 #endif
-	tlist = PROTECT(allocVector(INTSXP, 1));
-	fflush(stdout);
-	int res;
-	if (timeout == 0)
-	    res = R_system(cmd);
-	else 
-	    res = R_system_timeout(cmd, timeout);
-	if (res == 127) 
-	    warning(_("error in running command"));
-	if (timeout && tost.timedout) {
-	    res = 124;
-	    warning(_("command '%s' timed out after %ds"), cmd, timeout);
-	} 
-	INTEGER(tlist)[0] = res;
+        tlist = PROTECT(allocVector(INTSXP, 1));
+        fflush(stdout);
+        int res;
+        if (timeout == 0)
+            res = R_system(cmd);
+        else
+            res = R_system_timeout(cmd, timeout);
+        if (res == 127)
+            warning(_("error in running command"));
+        if (timeout && tost.timedout)
+        {
+            res = 124;
+            warning(_("command '%s' timed out after %ds"), cmd, timeout);
+        }
+        INTEGER(tlist)[0] = res;
 #ifdef HAVE_AQUA
-	R_Busy(0);
+        R_Busy(0);
 #endif
-	UNPROTECT(1);
-	R_Visible = 0;
-	return tlist;
+        UNPROTECT(1);
+        R_Visible = 0;
+        return tlist;
     }
 }
 
 #ifdef HAVE_SYS_UTSNAME_H
-# include <sys/utsname.h>
+#include <sys/utsname.h>
 
-# ifdef HAVE_UNISTD_H
-#  include <unistd.h>
-# endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
-# ifdef HAVE_PWD_H
-#  include <pwd.h>
-# endif
+#ifdef HAVE_PWD_H
+#include <pwd.h>
+#endif
 
 attribute_hidden SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
@@ -893,9 +943,10 @@ attribute_hidden SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     checkArity(op, args);
     PROTECT(ans = allocVector(STRSXP, 8));
-    if(uname(&name) == -1) {
-	UNPROTECT(1);
-	return R_NilValue;
+    if (uname(&name) == -1)
+    {
+        UNPROTECT(1);
+        return R_NilValue;
     }
     SET_STRING_ELT(ans, 0, mkChar(name.sysname));
     SET_STRING_ELT(ans, 1, mkChar(name.release));
@@ -906,18 +957,18 @@ attribute_hidden SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, 5, login ? mkChar(login) : mkChar("unknown"));
 #if defined(HAVE_PWD_H) && defined(HAVE_GETPWUID) && defined(HAVE_GETUID)
     {
-	struct passwd *stpwd;
-	stpwd = getpwuid(getuid());
-	SET_STRING_ELT(ans, 6, stpwd ? mkChar(stpwd->pw_name) : mkChar("unknown"));
+        struct passwd *stpwd;
+        stpwd = getpwuid(getuid());
+        SET_STRING_ELT(ans, 6, stpwd ? mkChar(stpwd->pw_name) : mkChar("unknown"));
     }
 #else
     SET_STRING_ELT(ans, 6, mkChar("unknown"));
 #endif
 #if defined(HAVE_PWD_H) && defined(HAVE_GETPWUID) && defined(HAVE_GETEUID)
     {
-	struct passwd *stpwd;
-	stpwd = getpwuid(geteuid());
-	SET_STRING_ELT(ans, 7, stpwd ? mkChar(stpwd->pw_name) : mkChar("unknown"));
+        struct passwd *stpwd;
+        stpwd = getpwuid(geteuid());
+        SET_STRING_ELT(ans, 7, stpwd ? mkChar(stpwd->pw_name) : mkChar("unknown"));
     }
 #else
     SET_STRING_ELT(ans, 7, mkChar("unknown"));
@@ -935,11 +986,11 @@ attribute_hidden SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
     UNPROTECT(2);
     return ans;
 }
-#else /* not HAVE_SYS_UTSNAME_H */
+#else  /* not HAVE_SYS_UTSNAME_H */
 SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     warning(_("Sys.info() is not implemented on this system"));
-    return R_NilValue;		/* -Wall */
+    return R_NilValue; /* -Wall */
 }
 #endif /* not HAVE_SYS_UTSNAME_H */
 
@@ -955,25 +1006,26 @@ void R_ProcessEvents(void)
 #ifdef HAVE_AQUA
     /* disable ProcessEvents in child,
        since we can't call CoreFoundation there. */
-    if (ptr_R_ProcessEvents && !R_isForkedChild) ptr_R_ProcessEvents();
+    if (ptr_R_ProcessEvents && !R_isForkedChild)
+        ptr_R_ProcessEvents();
 #else
     /* We might in due course want to always inhibit in a child */
-    if (ptr_R_ProcessEvents) ptr_R_ProcessEvents();
+    if (ptr_R_ProcessEvents)
+        ptr_R_ProcessEvents();
 #endif
     R_PolledEvents();
     if (cpuLimit > 0.0 || elapsedLimit > 0.0)
-	R_CheckTimeLimits();
+        R_CheckTimeLimits();
 }
-
 
 /*
  *  helpers for start-up code
  */
 
 #ifdef __FreeBSD__
-# ifdef HAVE_FLOATINGPOINT_H
-#  include <floatingpoint.h>
-# endif
+#ifdef HAVE_FLOATINGPOINT_H
+#include <floatingpoint.h>
+#endif
 #endif
 
 /* patch from Ei-ji Nakama for Intel compilers on ix86.
@@ -988,34 +1040,37 @@ void R_ProcessEvents(void)
 /* exported for Rembedded.h */
 void fpu_setup(Rboolean start)
 {
-    if (start) {
+    if (start)
+    {
 #ifdef __FreeBSD__
-    fpsetmask(0);
+        fpsetmask(0);
 #endif
 
 #if (defined(__i386) || defined(__x86_64)) && defined(__INTEL_COMPILER) && __INTEL_COMPILER > 800
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
+        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+        _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
 #endif
 
 #if defined(__ARM_ARCH) && defined(__ARM_32BIT_STATE) && defined(__ARM_FP)
-    uint32_t fpscr;
+        uint32_t fpscr;
 
-    __asm__ volatile("vmrs %0, fpscr" : "=r"(fpscr));
-    /* clear/disable DN (default NaN) and FZ (flush to zero) bits */
-    fpscr = fpscr & 0xfcffffff;
-    __asm__ volatile("vmsr fpscr, %0" : : "r"(fpscr));
+        __asm__ volatile("vmrs %0, fpscr" : "=r"(fpscr));
+        /* clear/disable DN (default NaN) and FZ (flush to zero) bits */
+        fpscr = fpscr & 0xfcffffff;
+        __asm__ volatile("vmsr fpscr, %0" : : "r"(fpscr));
 #elif defined(__ARM_ARCH) && defined(__ARM_64BIT_STATE) && defined(__ARM_FP)
-    uint64_t fpcr;
+        uint64_t fpcr;
 
-    __asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
-    /* clear/disable DN (default NaN) and FZ (flush to zero) bits */
-    fpcr = fpcr & 0xfffffffffcffffff;
-    __asm__ volatile("msr fpcr, %0" : : "r"(fpcr));
+        __asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
+        /* clear/disable DN (default NaN) and FZ (flush to zero) bits */
+        fpcr = fpcr & 0xfffffffffcffffff;
+        __asm__ volatile("msr fpcr, %0" : : "r"(fpcr));
 #endif
-    } else {
+    }
+    else
+    {
 #ifdef __FreeBSD__
-    fpsetmask(~0);
+        fpsetmask(~0);
 #endif
     }
 }

@@ -35,6 +35,6 @@
 double sign(double x)
 {
     if (ISNAN(x))
-	return x;
-    return ((x > 0) ? 1 : ((x == 0)? 0 : -1));
+        return x;
+    return ((x > 0) ? 1 : ((x == 0) ? 0 : -1));
 }

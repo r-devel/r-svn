@@ -29,14 +29,13 @@ double pweibull(double x, double shape, double scale, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(shape) || ISNAN(scale))
-	return x + shape + scale;
+        return x + shape + scale;
 #endif
-    if(shape <= 0 || scale <= 0) ML_WARN_return_NAN;
+    if (shape <= 0 || scale <= 0)
+        ML_WARN_return_NAN;
 
     if (x <= 0)
-	return R_DT_0;
+        return R_DT_0;
     x = -pow(x / scale, shape);
-    return lower_tail
-	? (log_p ? R_Log1_Exp(x) : -expm1(x))
-	: R_D_exp(x);
+    return lower_tail ? (log_p ? R_Log1_Exp(x) : -expm1(x)) : R_D_exp(x);
 }

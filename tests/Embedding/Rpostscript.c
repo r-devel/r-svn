@@ -1,5 +1,5 @@
 /*
-  Tests using the postcript device from within 
+  Tests using the postcript device from within
   an application that embeds the R interpreter.
   Equivalent of evaluating the expressions:
     postscript()
@@ -8,8 +8,7 @@
  */
 #include "embeddedRCall.h"
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     SEXP e, e1;
     /* char *localArgs[] = {"R", "--no-save", "--silent"}; */
@@ -35,5 +34,5 @@ main(int argc, char *argv[])
     UNPROTECT(1);
 
     end_R();
-    return(0);
+    return (0);
 }

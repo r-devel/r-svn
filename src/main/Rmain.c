@@ -30,8 +30,17 @@ int main(int ac, char **av)
     return 0;
 }
 
-	/* Declarations to keep f77 happy */
+/* Declarations to keep f77 happy */
 
-int MAIN_(int ac, char **av)  {return 0;}
-int MAIN__(int ac, char **av) {return 0;}
-int __main(int ac, char **av) {return 0;}
+int MAIN_(int ac, char **av)
+{
+    return 0;
+}
+int MAIN__(int ac, char **av)
+{
+    return 0;
+}
+int __main(int ac, char **av)
+{
+    return 0;
+}

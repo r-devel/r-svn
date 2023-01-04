@@ -28,53 +28,57 @@
 
 #include "internal.h"
 
-static char MDIStatusText[256] = "" ;
+static char MDIStatusText[256] = "";
 #ifndef SBARS_SIZEGRIP
 #include "commctrl.h"
 #endif
 
-static HWND intMDIStatus=0;
+static HWND intMDIStatus = 0;
 
 int addstatusbar()
 {
     int a[1] = {-1};
-    if (!MDIFrame) return 0;
-    if (MDIStatus) return 1;
-    if(!intMDIStatus) {
-	InitCommonControls();
-	intMDIStatus = CreateStatusWindow(WS_CHILD|SBARS_SIZEGRIP|WS_VISIBLE,
-					  "", hwndFrame, 121);
-	if (!intMDIStatus) return 0;
-	SendMessage(intMDIStatus,SB_SETPARTS,(WPARAM)1,(LPARAM)a);
-	SendMessage(intMDIStatus,SB_SETTEXT,
-		    (WPARAM) 0|0, (LPARAM)MDIStatusText);
+    if (!MDIFrame)
+        return 0;
+    if (MDIStatus)
+        return 1;
+    if (!intMDIStatus)
+    {
+        InitCommonControls();
+        intMDIStatus = CreateStatusWindow(WS_CHILD | SBARS_SIZEGRIP | WS_VISIBLE, "", hwndFrame, 121);
+        if (!intMDIStatus)
+            return 0;
+        SendMessage(intMDIStatus, SB_SETPARTS, (WPARAM)1, (LPARAM)a);
+        SendMessage(intMDIStatus, SB_SETTEXT, (WPARAM)0 | 0, (LPARAM)MDIStatusText);
     }
     MDIStatus = intMDIStatus;
-    SendMessage(hwndFrame,WM_PAINT,(WPARAM) 0,(LPARAM) 0);
+    SendMessage(hwndFrame, WM_PAINT, (WPARAM)0, (LPARAM)0);
     return 1;
 }
 
 int delstatusbar()
 {
-    if (!MDIFrame) return 0;
+    if (!MDIFrame)
+        return 0;
     MDIStatus = 0; /* handle_mdiframeresize notices this */
-    SendMessage(hwndFrame,WM_PAINT,(WPARAM) 0,(LPARAM) 0);
+    SendMessage(hwndFrame, WM_PAINT, (WPARAM)0, (LPARAM)0);
     return 1;
 }
 
 PROTECTED void updatestatus(const char *text)
 {
     /* strncpy(MDIStatusText, text, 255); */
-    if (!MDIStatus) return;
-    SendMessage(MDIStatus,SB_SETTEXT,
-		(WPARAM) 0|0, (LPARAM)MDIStatusText);
+    if (!MDIStatus)
+        return;
+    SendMessage(MDIStatus, SB_SETTEXT, (WPARAM)0 | 0, (LPARAM)MDIStatusText);
     SendMessage(MDIStatus, WM_PAINT, (WPARAM)0, (LPARAM)0);
 }
 
 void setstatus(const char *text)
 {
     strncpy(MDIStatusText, text, 255);
-    if (!MDIStatus || !current_window) return;
+    if (!MDIStatus || !current_window)
+        return;
     strncpy(current_window->status, text, 255);
     updatestatus(text);
 }

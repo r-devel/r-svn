@@ -30,14 +30,16 @@
 
 double rt(double df)
 {
-    if (ISNAN(df) || df <= 0.0)	ML_WARN_return_NAN;
+    if (ISNAN(df) || df <= 0.0)
+        ML_WARN_return_NAN;
 
-    if(!R_FINITE(df))
-	return norm_rand();
-    else {
-/* Some compilers (including MW6) evaluated this from right to left
-	return norm_rand() / sqrt(rchisq(df) / df); */
-	double num = norm_rand();
-	return num / sqrt(rchisq(df) / df);
+    if (!R_FINITE(df))
+        return norm_rand();
+    else
+    {
+        /* Some compilers (including MW6) evaluated this from right to left
+            return norm_rand() / sqrt(rchisq(df) / df); */
+        double num = norm_rand();
+        return num / sqrt(rchisq(df) / df);
     }
 }

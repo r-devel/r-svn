@@ -22,8 +22,8 @@
 double fmin2(double x, double y)
 {
 #ifdef IEEE_754
-	if (ISNAN(x) || ISNAN(y))
-		return x + y;
+    if (ISNAN(x) || ISNAN(y))
+        return x + y;
 #endif
-	return (x < y) ? x : y;
+    return (x < y) ? x : y;
 }

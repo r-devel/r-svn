@@ -18,50 +18,66 @@
  */
 
 #include <math.h>
-#include <R.h>			/* for NA_REAL, includes math.h */
+#include <R.h> /* for NA_REAL, includes math.h */
 #include <Rinternals.h>
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
-#define _(String) dgettext ("stats", String)
+#define _(String) dgettext("stats", String)
 #else
 #define _(String) (String)
 #endif
 
 static double dokern(double x, int kern)
 {
-    if(kern == 1) return(1.0);
-    if(kern == 2) return(exp(-0.5*x*x));
-    return(0.0); /* -Wall */
+    if (kern == 1)
+        return (1.0);
+    if (kern == 2)
+        return (exp(-0.5 * x * x));
+    return (0.0); /* -Wall */
 }
 
-static void BDRksmooth(double *x, double *y, R_xlen_t n,
-		       double *xp, double *yp, R_xlen_t np,
-		       int kern, double bw)
+static void BDRksmooth(double *x, double *y, R_xlen_t n, double *xp, double *yp, R_xlen_t np, int kern, double bw)
 {
     R_xlen_t imin = 0;
     double cutoff = 0.0, num, den, x0, w;
 
     /* bandwidth is in units of half inter-quartile range. */
-    if(kern == 1) {bw *= 0.5; cutoff = bw;}
-    if(kern == 2) {bw *= 0.3706506; cutoff = 4*bw;}
-    while(x[imin] < xp[0] - cutoff && imin < n) imin++;
-    for(R_xlen_t j = 0; j < np; j++) {
-	num = den = 0.0;
-	x0 = xp[j];
-	for(R_xlen_t i = imin; i < n; i++) {
-	    if(x[i] < x0 - cutoff) imin = i;
-	    else {
-		if(x[i] > x0 + cutoff) break;
-		w = dokern(fabs(x[i] - x0)/bw, kern);
-		num += w*y[i];
-		den += w;
-	    }
-	}
-	if(den > 0) yp[j] = num/den; else yp[j] = NA_REAL;
+    if (kern == 1)
+    {
+        bw *= 0.5;
+        cutoff = bw;
+    }
+    if (kern == 2)
+    {
+        bw *= 0.3706506;
+        cutoff = 4 * bw;
+    }
+    while (x[imin] < xp[0] - cutoff && imin < n)
+        imin++;
+    for (R_xlen_t j = 0; j < np; j++)
+    {
+        num = den = 0.0;
+        x0 = xp[j];
+        for (R_xlen_t i = imin; i < n; i++)
+        {
+            if (x[i] < x0 - cutoff)
+                imin = i;
+            else
+            {
+                if (x[i] > x0 + cutoff)
+                    break;
+                w = dokern(fabs(x[i] - x0) / bw, kern);
+                num += w * y[i];
+                den += w;
+            }
+        }
+        if (den > 0)
+            yp[j] = num / den;
+        else
+            yp[j] = NA_REAL;
     }
 }
-
 
 // called only from  spline()  in ./ppr.f
 NORET void F77_SUB(bdrsplerr)(void)
@@ -69,22 +85,19 @@ NORET void F77_SUB(bdrsplerr)(void)
     error(_("only 2500 rows are allowed for sm.method=\"spline\""));
 }
 
-void F77_SUB(splineprt)(double* df, double* gcvpen, int* ismethod,
-			      double* lambda, double *edf)
+void F77_SUB(splineprt)(double *df, double *gcvpen, int *ismethod, double *lambda, double *edf)
 {
-    Rprintf("spline(df=%5.3g, g.pen=%11.6g, ismeth.=%+2d) -> (lambda, edf) = (%.7g, %5.2f)\n",
-	    *df, *gcvpen, *ismethod, *lambda, *edf);
+    Rprintf("spline(df=%5.3g, g.pen=%11.6g, ismeth.=%+2d) -> (lambda, edf) = (%.7g, %5.2f)\n", *df, *gcvpen, *ismethod,
+            *lambda, *edf);
     return;
 }
 
 // called only from smooth(..., trace=TRUE)  in ./ppr.f :
-void F77_SUB(smoothprt)(double* span, int* iper, double* var, double* cvar)
+void F77_SUB(smoothprt)(double *span, int *iper, double *var, double *cvar)
 {
-    Rprintf("smooth(span=%4g, iper=%+2d) -> (var, cvar) = (%g, %g)\n",
-	    *span, *iper, *var, *cvar);
+    Rprintf("smooth(span=%4g, iper=%+2d) -> (var, cvar) = (%g, %g)\n", *span, *iper, *var, *cvar);
     return;
 }
-
 
 SEXP ksmooth(SEXP x, SEXP y, SEXP xp, SEXP skrn, SEXP sbw)
 {

@@ -30,21 +30,24 @@
 #include "dpq.h"
 
 double dgeom(double x, double p, int give_log)
-{ 
+{
     double prob;
 
 #ifdef IEEE_754
-    if (ISNAN(x) || ISNAN(p)) return x + p;
+    if (ISNAN(x) || ISNAN(p))
+        return x + p;
 #endif
 
-    if (p <= 0 || p > 1) ML_WARN_return_NAN;
+    if (p <= 0 || p > 1)
+        ML_WARN_return_NAN;
 
     R_D_nonint_check(x);
-    if (x < 0 || !R_FINITE(x) || p == 0) return R_D__0;
+    if (x < 0 || !R_FINITE(x) || p == 0)
+        return R_D__0;
     x = R_forceint(x);
 
     /* prob = (1-p)^x, stable for small p */
-    prob = dbinom_raw(0.,x, p,1-p, give_log);
+    prob = dbinom_raw(0., x, p, 1 - p, give_log);
 
-    return((give_log) ? log(p) + prob : p*prob);
+    return ((give_log) ? log(p) + prob : p * prob);
 }

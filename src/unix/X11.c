@@ -18,7 +18,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <Defn.h>
@@ -29,13 +29,13 @@
 
 #ifdef HAVE_X11
 
-#include <Rmodules/RX11.h>   /* typedefs for the module routine types */
+#include <Rmodules/RX11.h> /* typedefs for the module routine types */
 
 static R_X11Routines routines, *ptr = &routines;
 
 static int initialized = 0;
 
-R_X11Routines * R_setX11Routines(R_X11Routines *routines)
+R_X11Routines *R_setX11Routines(R_X11Routines *routines)
 {
     R_X11Routines *tmp;
     tmp = ptr;
@@ -47,17 +47,20 @@ attribute_hidden int R_X11_Init(void)
 {
     int res;
 
-    if(initialized) return initialized;
+    if (initialized)
+        return initialized;
 
     initialized = -1;
-    if(strcmp(R_GUIType, "none") == 0) {
-	warning(_("X11 module is not available under this GUI"));
-	return initialized;
+    if (strcmp(R_GUIType, "none") == 0)
+    {
+        warning(_("X11 module is not available under this GUI"));
+        return initialized;
     }
     res = R_moduleCdynload("R_X11", 1, 1);
-    if(!res) return initialized;
-    if(!ptr->access)
-	error(_("X11 routines cannot be accessed in module"));
+    if (!res)
+        return initialized;
+    if (!ptr->access)
+        error(_("X11 routines cannot be accessed in module"));
     initialized = 1;
     return initialized;
 }
@@ -72,11 +75,12 @@ attribute_hidden Rboolean R_access_X11(void)
 SEXP do_X11(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     R_X11_Init();
-    if(initialized > 0)
-	return (*ptr->X11)(call, op, args, rho);
-    else {
-	error(_("X11 module cannot be loaded"));
-	return R_NilValue;
+    if (initialized > 0)
+        return (*ptr->X11)(call, op, args, rho);
+    else
+    {
+        error(_("X11 module cannot be loaded"));
+        return R_NilValue;
     }
 }
 
@@ -84,11 +88,12 @@ SEXP do_X11(SEXP call, SEXP op, SEXP args, SEXP rho)
 SEXP do_saveplot(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     R_X11_Init();
-    if(initialized > 0)
-	return (*ptr->saveplot)(call, op, args, rho);
-    else {
-	error(_("X11 module cannot be loaded"));
-	return R_NilValue;
+    if (initialized > 0)
+        return (*ptr->saveplot)(call, op, args, rho);
+    else
+    {
+        error(_("X11 module cannot be loaded"));
+        return R_NilValue;
     }
 }
 
@@ -96,38 +101,40 @@ SEXP do_saveplot(SEXP call, SEXP op, SEXP args, SEXP rho)
 Rboolean R_GetX11Image(int d, void *pximage, int *pwidth, int *pheight)
 {
     R_X11_Init();
-    if(initialized > 0)
-	return (*ptr->image)(d, pximage, pwidth, pheight);
-    else {
-	error(_("X11 module cannot be loaded"));
-	return FALSE;
+    if (initialized > 0)
+        return (*ptr->image)(d, pximage, pwidth, pheight);
+    else
+    {
+        error(_("X11 module cannot be loaded"));
+        return FALSE;
     }
 }
 
 attribute_hidden Rboolean R_ReadClipboard(Rclpconn clpcon, char *type)
 {
     R_X11_Init();
-    if(initialized > 0)
-	return (*ptr->readclp)(clpcon, type);
-    else {
-	error(_("X11 module cannot be loaded"));
-	return FALSE;
+    if (initialized > 0)
+        return (*ptr->readclp)(clpcon, type);
+    else
+    {
+        error(_("X11 module cannot be loaded"));
+        return FALSE;
     }
 }
 
 SEXP do_bmVersion(void)
 {
-   SEXP ans = PROTECT(allocVector(STRSXP, 3)),
-	nms = PROTECT(allocVector(STRSXP, 3));
+    SEXP ans = PROTECT(allocVector(STRSXP, 3)), nms = PROTECT(allocVector(STRSXP, 3));
     setAttrib(ans, R_NamesSymbol, nms);
     SET_STRING_ELT(nms, 0, mkChar("libpng"));
     SET_STRING_ELT(nms, 1, mkChar("jpeg"));
     SET_STRING_ELT(nms, 2, mkChar("libtiff"));
     R_X11_Init();
-    if(initialized > 0) {
-	SET_STRING_ELT(ans, 0, mkChar((*ptr->R_pngVersion)()));
-	SET_STRING_ELT(ans, 1, mkChar((*ptr->R_jpegVersion)()));
-	SET_STRING_ELT(ans, 2, mkChar((*ptr->R_tiffVersion)()));
+    if (initialized > 0)
+    {
+        SET_STRING_ELT(ans, 0, mkChar((*ptr->R_pngVersion)()));
+        SET_STRING_ELT(ans, 1, mkChar((*ptr->R_jpegVersion)()));
+        SET_STRING_ELT(ans, 2, mkChar((*ptr->R_tiffVersion)()));
     }
     UNPROTECT(2);
     return ans;
@@ -165,8 +172,7 @@ attribute_hidden Rboolean R_ReadClipboard(Rclpconn con, char *type)
 
 SEXP do_bmVersion(void)
 {
-    SEXP ans = PROTECT(allocVector(STRSXP, 3)),
-	nms = PROTECT(allocVector(STRSXP, 3));
+    SEXP ans = PROTECT(allocVector(STRSXP, 3)), nms = PROTECT(allocVector(STRSXP, 3));
     setAttrib(ans, R_NamesSymbol, nms);
     SET_STRING_ELT(nms, 0, mkChar("libpng"));
     SET_STRING_ELT(nms, 1, mkChar("jpeg"));

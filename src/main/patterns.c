@@ -32,12 +32,13 @@
  * MUST match R structures in ../library/grDevices/R/patterns.R
  */
 
-Rboolean R_GE_isPattern(SEXP x) {
+Rboolean R_GE_isPattern(SEXP x)
+{
     return Rf_inherits(x, "Pattern");
 }
 
 /* Pattern type is always component 0 */
-int R_GE_patternType(SEXP pattern) 
+int R_GE_patternType(SEXP pattern)
 {
     return INTEGER(VECTOR_ELT(pattern, 0))[0];
 }
@@ -51,9 +52,9 @@ int R_GE_patternType(SEXP pattern)
 #define linear_gradient_colours 6
 #define linear_gradient_extend 7
 
-#define checkLinearGradient() \
-    if (!(R_GE_patternType(pattern) == R_GE_linearGradientPattern)) \
-        error(_("pattern is not a linear gradient"))
+#define checkLinearGradient()                                                                                          \
+    if (!(R_GE_patternType(pattern) == R_GE_linearGradientPattern))                                                    \
+    error(_("pattern is not a linear gradient"))
 
 double R_GE_linearGradientX1(SEXP pattern)
 {
@@ -79,25 +80,25 @@ double R_GE_linearGradientY2(SEXP pattern)
     return REAL(VECTOR_ELT(pattern, linear_gradient_y2))[0];
 }
 
-int R_GE_linearGradientNumStops(SEXP pattern) 
+int R_GE_linearGradientNumStops(SEXP pattern)
 {
     checkLinearGradient();
     return LENGTH(VECTOR_ELT(pattern, linear_gradient_stops));
 }
 
-double R_GE_linearGradientStop(SEXP pattern, int i) 
+double R_GE_linearGradientStop(SEXP pattern, int i)
 {
     checkLinearGradient();
     return REAL(VECTOR_ELT(pattern, linear_gradient_stops))[i];
 }
 
-rcolor R_GE_linearGradientColour(SEXP pattern, int i) 
+rcolor R_GE_linearGradientColour(SEXP pattern, int i)
 {
     checkLinearGradient();
     return RGBpar(VECTOR_ELT(pattern, linear_gradient_colours), i);
 }
 
-int R_GE_linearGradientExtend(SEXP pattern) 
+int R_GE_linearGradientExtend(SEXP pattern)
 {
     checkLinearGradient();
     return INTEGER(VECTOR_ELT(pattern, linear_gradient_extend))[0];
@@ -114,9 +115,9 @@ int R_GE_linearGradientExtend(SEXP pattern)
 #define radial_gradient_colours 8
 #define radial_gradient_extend 9
 
-#define checkRadialGradient() \
-    if (!(R_GE_patternType(pattern) == R_GE_radialGradientPattern)) \
-        error(_("pattern is not a radial gradient"))
+#define checkRadialGradient()                                                                                          \
+    if (!(R_GE_patternType(pattern) == R_GE_radialGradientPattern))                                                    \
+    error(_("pattern is not a radial gradient"))
 
 double R_GE_radialGradientCX1(SEXP pattern)
 {
@@ -154,25 +155,25 @@ double R_GE_radialGradientR2(SEXP pattern)
     return REAL(VECTOR_ELT(pattern, radial_gradient_r2))[0];
 }
 
-int R_GE_radialGradientNumStops(SEXP pattern) 
+int R_GE_radialGradientNumStops(SEXP pattern)
 {
     checkRadialGradient();
     return LENGTH(VECTOR_ELT(pattern, radial_gradient_stops));
 }
 
-double R_GE_radialGradientStop(SEXP pattern, int i) 
+double R_GE_radialGradientStop(SEXP pattern, int i)
 {
     checkRadialGradient();
     return REAL(VECTOR_ELT(pattern, radial_gradient_stops))[i];
 }
 
-rcolor R_GE_radialGradientColour(SEXP pattern, int i) 
+rcolor R_GE_radialGradientColour(SEXP pattern, int i)
 {
     checkRadialGradient();
     return RGBpar(VECTOR_ELT(pattern, radial_gradient_colours), i);
 }
 
-int R_GE_radialGradientExtend(SEXP pattern) 
+int R_GE_radialGradientExtend(SEXP pattern)
 {
     checkRadialGradient();
     return INTEGER(VECTOR_ELT(pattern, radial_gradient_extend))[0];
@@ -180,50 +181,48 @@ int R_GE_radialGradientExtend(SEXP pattern)
 
 /* Tiling patterns */
 #define tiling_pattern_function 1
-#define tiling_pattern_x        2
-#define tiling_pattern_y        3
-#define tiling_pattern_width    4
-#define tiling_pattern_height   5
-#define tiling_pattern_extend   6
+#define tiling_pattern_x 2
+#define tiling_pattern_y 3
+#define tiling_pattern_width 4
+#define tiling_pattern_height 5
+#define tiling_pattern_extend 6
 
-#define checkTilingPattern() \
-    if (!(R_GE_patternType(pattern) == R_GE_tilingPattern)) \
-        error(_("pattern is not a tiling pattern"))
+#define checkTilingPattern()                                                                                           \
+    if (!(R_GE_patternType(pattern) == R_GE_tilingPattern))                                                            \
+    error(_("pattern is not a tiling pattern"))
 
-SEXP R_GE_tilingPatternFunction(SEXP pattern) 
+SEXP R_GE_tilingPatternFunction(SEXP pattern)
 {
     checkTilingPattern();
     return VECTOR_ELT(pattern, tiling_pattern_function);
 }
 
-double R_GE_tilingPatternX(SEXP pattern) 
+double R_GE_tilingPatternX(SEXP pattern)
 {
     checkTilingPattern();
     return REAL(VECTOR_ELT(pattern, tiling_pattern_x))[0];
 }
 
-double R_GE_tilingPatternY(SEXP pattern) 
+double R_GE_tilingPatternY(SEXP pattern)
 {
     checkTilingPattern();
     return REAL(VECTOR_ELT(pattern, tiling_pattern_y))[0];
 }
 
-double R_GE_tilingPatternWidth(SEXP pattern) 
+double R_GE_tilingPatternWidth(SEXP pattern)
 {
     checkTilingPattern();
     return REAL(VECTOR_ELT(pattern, tiling_pattern_width))[0];
 }
 
-double R_GE_tilingPatternHeight(SEXP pattern) 
+double R_GE_tilingPatternHeight(SEXP pattern)
 {
     checkTilingPattern();
     return REAL(VECTOR_ELT(pattern, tiling_pattern_height))[0];
 }
 
-int R_GE_tilingPatternExtend(SEXP pattern) 
+int R_GE_tilingPatternExtend(SEXP pattern)
 {
     checkTilingPattern();
     return INTEGER(VECTOR_ELT(pattern, tiling_pattern_extend))[0];
 }
-
-

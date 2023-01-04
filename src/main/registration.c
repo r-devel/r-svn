@@ -41,14 +41,13 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #include <Defn.h>
 #include <R_ext/Rdynload.h>
 #include <R_ext/Applic.h>
 #include <R_ext/Linpack.h>
-
 
 /*  These get the declarations of some routines referenced here but
     not explicitly declared.    This is necessary when we link with
@@ -60,37 +59,31 @@
 
 #include "basedecl.h"
 
+#define CALLDEF(name, n)                                                                                               \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-
-#define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
-
-static R_CallMethodDef callMethods [] = {
+static R_CallMethodDef callMethods[] = {
     /* Top-level task callbacks: .Call as .Internal does not work */
     CALLDEF(R_addTaskCallback, 4),
     CALLDEF(R_getTaskCallbackNames, 0),
     CALLDEF(R_removeTaskCallback, 1),
 
-    {NULL, NULL, 0}
-};
+    {NULL, NULL, 0}};
 
-
-#define FDEF(name, n)  {#name, (DL_FUNC) &F77_SYMBOL(name), n, NULL}
+#define FDEF(name, n)                                                                                                  \
+    {                                                                                                                  \
+#name, (DL_FUNC)&F77_SYMBOL(name), n, NULL                                                                     \
+    }
 static R_FortranMethodDef fortranMethods[] = {
     /* LINPACK */
     FDEF(dqrcf, 8), // qr and auxiliaries
-    FDEF(dqrdc2, 9),
-    FDEF(dqrqty, 7),
-    FDEF(dqrqy, 7),
-    FDEF(dqrrsd, 7),
-    FDEF(dqrxb, 7),
-    FDEF(dtrco, 6), // .kappa_tri
+    FDEF(dqrdc2, 9), FDEF(dqrqty, 7), FDEF(dqrqy, 7), FDEF(dqrrsd, 7), FDEF(dqrxb, 7), FDEF(dtrco, 6), // .kappa_tri
 
-    {NULL, NULL, 0}
-};
+    {NULL, NULL, 0}};
 
-
-attribute_hidden void
-R_init_base(DllInfo *dll)
+attribute_hidden void R_init_base(DllInfo *dll)
 {
     R_registerRoutines(dll, NULL, callMethods, fortranMethods, NULL);
     R_useDynamicSymbols(dll, FALSE);

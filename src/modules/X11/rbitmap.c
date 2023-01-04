@@ -43,11 +43,11 @@
 #include <stdlib.h>
 
 /* 8 bits red, green and blue channel */
-#define DECLARESHIFTS int RSHIFT=(bgr)?0:16, GSHIFT=8, BSHIFT=(bgr)?16:0
-#define GETRED(col)    (((col) >> RSHIFT) & 0xFF)
-#define GETGREEN(col)  (((col) >> GSHIFT) & 0xFF)
-#define GETBLUE(col)   (((col) >> BSHIFT) & 0xFF)
-#define GETALPHA(col)   (((col) >> 24) & 0xFF)
+#define DECLARESHIFTS int RSHIFT = (bgr) ? 0 : 16, GSHIFT = 8, BSHIFT = (bgr) ? 16 : 0
+#define GETRED(col) (((col) >> RSHIFT) & 0xFF)
+#define GETGREEN(col) (((col) >> GSHIFT) & 0xFF)
+#define GETBLUE(col) (((col) >> BSHIFT) & 0xFF)
+#define GETALPHA(col) (((col) >> 24) & 0xFF)
 
 #include "bitmap.h"
 
@@ -63,7 +63,7 @@
  * Try to save the content of the device 'd' in 'filename' as png.
  * If numbers of colors is less than 256 we use a 'palette' png.
  * Return 1 on success, 0 on failure
-*/
+ */
 
 /*
     I don't use 'error' since (1) we must free 'scanline' and
@@ -72,29 +72,28 @@
 */
 NORET static void my_png_error(png_structp png_ptr, png_const_charp msg)
 {
-    R_ShowMessage((char *) msg);
+    R_ShowMessage((char *)msg);
 #if PNG_LIBPNG_VER < 10400
-    longjmp(png_ptr->jmpbuf,1);
+    longjmp(png_ptr->jmpbuf, 1);
 #else
-    longjmp(png_jmpbuf(png_ptr),1);
+    longjmp(png_jmpbuf(png_ptr), 1);
 #endif
 }
 
 static void my_png_warning(png_structp png_ptr, png_const_charp msg)
 {
-    warning("libpng: %s",(char *) msg);
+    warning("libpng: %s", (char *)msg);
 }
 
-int R_SaveAsPng(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		int bgr, FILE *fp, unsigned int transparent, int res)
+int R_SaveAsPng(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, FILE *fp,
+                unsigned int transparent, int res)
 {
     png_structp png_ptr;
     png_infop info_ptr;
-    unsigned int  col, palette[256];
+    unsigned int col, palette[256];
     png_color pngpalette[256];
     png_bytep pscanline;
-    png_bytep scanline = (png_bytep) calloc((size_t)(4*width),sizeof(png_byte));
+    png_bytep scanline = (png_bytep)calloc((size_t)(4 * width), sizeof(png_byte));
     png_byte trans[256];
     png_color_16 trans_values[1];
     int i, j, r, ncols, mid, high, low, withpalette, have_alpha;
@@ -102,11 +101,12 @@ int R_SaveAsPng(void  *d, int width, int height,
 
     /* Have we enough memory?*/
     if (scanline == NULL)
-	return 0;
+        return 0;
 
-    if (fp == NULL) {
-	free(scanline);
-	return 0;
+    if (fp == NULL)
+    {
+        free(scanline);
+        return 0;
     }
 
     /* Create and initialize the png_struct with the desired error handler
@@ -116,17 +116,19 @@ int R_SaveAsPng(void  *d, int width, int height,
      * in case we are using dynamically linked libraries.  REQUIRED.
      */
     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (png_ptr == NULL) {
-	free(scanline);
-	return 0;
+    if (png_ptr == NULL)
+    {
+        free(scanline);
+        return 0;
     }
 
     /* Allocate/initialize the image information data.  REQUIRED */
     info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == NULL) {
-	free(scanline);
-	png_destroy_write_struct(&png_ptr,  (png_infopp)NULL);
-	return 0;
+    if (info_ptr == NULL)
+    {
+        free(scanline);
+        png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+        return 0;
     }
 
     /* Set error handling.  REQUIRED if you aren't supplying your own
@@ -137,11 +139,11 @@ int R_SaveAsPng(void  *d, int width, int height,
 #else
     if (setjmp(png_jmpbuf(png_ptr)))
 #endif
-{
-	/* If we get here, we had a problem writing the file */
-	free(scanline);
-	png_destroy_write_struct(&png_ptr, &info_ptr);
-	return 0;
+    {
+        /* If we get here, we had a problem writing the file */
+        free(scanline);
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        return 0;
     }
     png_set_error_fn(png_ptr, NULL, my_png_error, my_png_warning);
 
@@ -149,35 +151,47 @@ int R_SaveAsPng(void  *d, int width, int height,
     png_init_io(png_ptr, fp);
     /* Have we less than 256 different colors? */
     ncols = 0;
-    if(transparent) palette[ncols++] = transparent & 0xFFFFFF;
+    if (transparent)
+        palette[ncols++] = transparent & 0xFFFFFF;
     mid = ncols;
     withpalette = 1;
     have_alpha = 0;
-    for (i = 0; (i < height) && withpalette ; i++) {
-	for (j = 0; (j < width) && withpalette ; j++) {
-	    col = gp(d,i,j);
-	    if (GETALPHA(col) < 255) have_alpha = 1;
-	    /* binary search the palette: */
-	    low = 0;
-	    high = ncols - 1;
-	    while (low <= high) {
-		mid = (low + high)/2;
-		if ( col < palette[mid] ) high = mid - 1;
-		else if ( col > palette[mid] ) low  = mid + 1;
-		else break;
-	    }
-	    if (high < low) {
-		/* didn't find colour in palette, insert it: */
-		if (ncols >= 256) {
-		    withpalette = 0;
-		} else {
-		    for (r = ncols; r > low; r--)
-			palette[r] = palette[r-1] ;
-		    palette[low] = col;
-		    ncols ++;
-		}
-	    }
-	}
+    for (i = 0; (i < height) && withpalette; i++)
+    {
+        for (j = 0; (j < width) && withpalette; j++)
+        {
+            col = gp(d, i, j);
+            if (GETALPHA(col) < 255)
+                have_alpha = 1;
+            /* binary search the palette: */
+            low = 0;
+            high = ncols - 1;
+            while (low <= high)
+            {
+                mid = (low + high) / 2;
+                if (col < palette[mid])
+                    high = mid - 1;
+                else if (col > palette[mid])
+                    low = mid + 1;
+                else
+                    break;
+            }
+            if (high < low)
+            {
+                /* didn't find colour in palette, insert it: */
+                if (ncols >= 256)
+                {
+                    withpalette = 0;
+                }
+                else
+                {
+                    for (r = ncols; r > low; r--)
+                        palette[r] = palette[r - 1];
+                    palette[low] = col;
+                    ncols++;
+                }
+            }
+        }
     }
 
     have_alpha &= (transparent == 0);
@@ -191,50 +205,55 @@ int R_SaveAsPng(void  *d, int width, int height,
      * currently be PNG_COMPRESSION_TYPE_BASE and PNG_FILTER_TYPE_BASE. REQUIRED
      */
     png_set_IHDR(png_ptr, info_ptr, width, height, 8,
-		 withpalette ? PNG_COLOR_TYPE_PALETTE :
-		 (have_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB),
-		 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE,
-		 PNG_FILTER_TYPE_BASE);
+                 withpalette ? PNG_COLOR_TYPE_PALETTE : (have_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB),
+                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
-    if (withpalette) {
-	for (i = 0; i < ncols ; i++) {
-	    col = palette[i];
-	    if(transparent) {
-		trans[i] = (col == transparent) ? 0:255;
-		pngpalette[i].red = GETRED(col);
-		pngpalette[i].green = GETGREEN(col);
-		pngpalette[i].blue = GETBLUE(col);
-	    } else {
-		/* PNG needs NON-premultiplied alpha */
-		int a = GETALPHA(col);
-		trans[i] = (png_byte) a;
-		if(a == 255 || a == 0) {
-		    pngpalette[i].red = GETRED(col);
-		    pngpalette[i].green = GETGREEN(col);
-		    pngpalette[i].blue = GETBLUE(col);
-		} else {
-		    pngpalette[i].red = (png_byte)(0.49 + 255.0*GETRED(col)/a);
-		    pngpalette[i].green = (png_byte)(0.49 + 255.0*GETGREEN(col)/a);
-		    pngpalette[i].blue = (png_byte)(0.49 + 255.0*GETBLUE(col)/a);
-
-		}
-	    }
-	}
-	png_set_PLTE(png_ptr, info_ptr, pngpalette, ncols);
-	if (transparent || have_alpha)
-	    png_set_tRNS(png_ptr, info_ptr, trans, ncols, trans_values);
+    if (withpalette)
+    {
+        for (i = 0; i < ncols; i++)
+        {
+            col = palette[i];
+            if (transparent)
+            {
+                trans[i] = (col == transparent) ? 0 : 255;
+                pngpalette[i].red = GETRED(col);
+                pngpalette[i].green = GETGREEN(col);
+                pngpalette[i].blue = GETBLUE(col);
+            }
+            else
+            {
+                /* PNG needs NON-premultiplied alpha */
+                int a = GETALPHA(col);
+                trans[i] = (png_byte)a;
+                if (a == 255 || a == 0)
+                {
+                    pngpalette[i].red = GETRED(col);
+                    pngpalette[i].green = GETGREEN(col);
+                    pngpalette[i].blue = GETBLUE(col);
+                }
+                else
+                {
+                    pngpalette[i].red = (png_byte)(0.49 + 255.0 * GETRED(col) / a);
+                    pngpalette[i].green = (png_byte)(0.49 + 255.0 * GETGREEN(col) / a);
+                    pngpalette[i].blue = (png_byte)(0.49 + 255.0 * GETBLUE(col) / a);
+                }
+            }
+        }
+        png_set_PLTE(png_ptr, info_ptr, pngpalette, ncols);
+        if (transparent || have_alpha)
+            png_set_tRNS(png_ptr, info_ptr, trans, ncols, trans_values);
     }
     /* Deal with transparency */
-    if(transparent && !withpalette) {
-	trans_values[0].red = GETRED(transparent);
-	trans_values[0].blue = GETBLUE(transparent);
-	trans_values[0].green = GETGREEN(transparent);
-	png_set_tRNS(png_ptr, info_ptr, trans, ncols, trans_values);
+    if (transparent && !withpalette)
+    {
+        trans_values[0].red = GETRED(transparent);
+        trans_values[0].blue = GETBLUE(transparent);
+        trans_values[0].green = GETGREEN(transparent);
+        png_set_tRNS(png_ptr, info_ptr, trans, ncols, trans_values);
     }
 
-    if(res > 0)
-	png_set_pHYs(png_ptr, info_ptr, (png_uint_32)(res/0.0254), 
-		     (png_uint_32)(res/0.0254), PNG_RESOLUTION_METER);
+    if (res > 0)
+        png_set_pHYs(png_ptr, info_ptr, (png_uint_32)(res / 0.0254), (png_uint_32)(res / 0.0254), PNG_RESOLUTION_METER);
 
     /* Write the file header information.  REQUIRED */
     png_write_info(png_ptr, info_ptr);
@@ -242,44 +261,60 @@ int R_SaveAsPng(void  *d, int width, int height,
     /*
      * Now, write the pixels
      */
-    for (i = 0 ; i < height ; i++) {
-	/* Build the scanline */
-	pscanline = scanline;
-	for (j = 0 ; j < width ; j++) {
-	    col = gp(d, i, j);
-	    if (withpalette) {
-		/* binary search the palette (the colour must be there): */
-		low = 0;  high = ncols - 1;
-		while (low <= high) {
-		    mid = (low + high)/2;
-		    if      (col < palette[mid]) high = mid - 1;
-		    else if (col > palette[mid]) low  = mid + 1;
-		    else break;
-		}
-		*pscanline++ = (png_byte) mid;
-	    } else {
-		if(have_alpha) {
-		    /* PNG needs NON-premultiplied alpha */
-		    int a = GETALPHA(col);
-		    if(a == 255 || a == 0) {
-			*pscanline++ = GETRED(col) ;
-			*pscanline++ = GETGREEN(col) ;
-			*pscanline++ = GETBLUE(col) ;
-			*pscanline++ = (png_byte) a;
-		    } else {
-			*pscanline++ = (png_byte)(0.49 + 255.0*GETRED(col)/a) ;
-			*pscanline++ = (png_byte)(0.49 + 255.0*GETGREEN(col)/a) ;
-			*pscanline++ = (png_byte)(0.49 + 255.0*GETBLUE(col)/a) ;
-			*pscanline++ = (png_byte) a;
-		    }
-		} else {
-		    *pscanline++ = GETRED(col) ;
-		    *pscanline++ = GETGREEN(col) ;
-		    *pscanline++ = GETBLUE(col) ;
-		}
-	    }
-	}
-	png_write_row(png_ptr, scanline);
+    for (i = 0; i < height; i++)
+    {
+        /* Build the scanline */
+        pscanline = scanline;
+        for (j = 0; j < width; j++)
+        {
+            col = gp(d, i, j);
+            if (withpalette)
+            {
+                /* binary search the palette (the colour must be there): */
+                low = 0;
+                high = ncols - 1;
+                while (low <= high)
+                {
+                    mid = (low + high) / 2;
+                    if (col < palette[mid])
+                        high = mid - 1;
+                    else if (col > palette[mid])
+                        low = mid + 1;
+                    else
+                        break;
+                }
+                *pscanline++ = (png_byte)mid;
+            }
+            else
+            {
+                if (have_alpha)
+                {
+                    /* PNG needs NON-premultiplied alpha */
+                    int a = GETALPHA(col);
+                    if (a == 255 || a == 0)
+                    {
+                        *pscanline++ = GETRED(col);
+                        *pscanline++ = GETGREEN(col);
+                        *pscanline++ = GETBLUE(col);
+                        *pscanline++ = (png_byte)a;
+                    }
+                    else
+                    {
+                        *pscanline++ = (png_byte)(0.49 + 255.0 * GETRED(col) / a);
+                        *pscanline++ = (png_byte)(0.49 + 255.0 * GETGREEN(col) / a);
+                        *pscanline++ = (png_byte)(0.49 + 255.0 * GETBLUE(col) / a);
+                        *pscanline++ = (png_byte)a;
+                    }
+                }
+                else
+                {
+                    *pscanline++ = GETRED(col);
+                    *pscanline++ = GETGREEN(col);
+                    *pscanline++ = GETBLUE(col);
+                }
+            }
+        }
+        png_write_row(png_ptr, scanline);
     }
 
     /* It is REQUIRED to call this to finish writing the rest of the file */
@@ -293,16 +328,14 @@ int R_SaveAsPng(void  *d, int width, int height,
     return 1;
 }
 #else
-int R_SaveAsPng(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		int bgr, FILE *fp, unsigned int transparent, int res)
+int R_SaveAsPng(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, FILE *fp,
+                unsigned int transparent, int res)
 {
     warning("No png support in this version of R");
     return 0;
 }
 
 #endif /* HAVE_PNG */
-
 
 #ifdef HAVE_JPEG
 
@@ -314,62 +347,61 @@ int R_SaveAsPng(void  *d, int width, int height,
 
 /* Here's the extended error handler struct */
 
-struct my_error_mgr {
-    struct jpeg_error_mgr pub;	/* "public" fields */
-    jmp_buf setjmp_buffer;	/* for return to caller */
+struct my_error_mgr
+{
+    struct jpeg_error_mgr pub; /* "public" fields */
+    jmp_buf setjmp_buffer;     /* for return to caller */
 };
 
-typedef struct my_error_mgr * my_error_ptr;
+typedef struct my_error_mgr *my_error_ptr;
 
 /*
  * Here's the routine that will replace the standard error_exit method:
-*/
+ */
 
-NORET static void my_error_exit (j_common_ptr cinfo)
+NORET static void my_error_exit(j_common_ptr cinfo)
 {
     /* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
-    my_error_ptr myerr = (my_error_ptr) cinfo->err;
+    my_error_ptr myerr = (my_error_ptr)cinfo->err;
 
     /* Always display the message. */
-    (*cinfo->err->output_message) (cinfo);
+    (*cinfo->err->output_message)(cinfo);
 
     /* Return control to the setjmp point */
     longjmp(myerr->setjmp_buffer, 1);
 }
 
 /* We also replace the output method */
-static void my_output_message (j_common_ptr cinfo)
+static void my_output_message(j_common_ptr cinfo)
 {
     char buffer[JMSG_LENGTH_MAX];
 
     /* Create the message */
-    (*cinfo->err->format_message) (cinfo, buffer);
+    (*cinfo->err->format_message)(cinfo, buffer);
 
     /* and show it */
     R_ShowMessage(buffer);
 }
 
-
-
-int R_SaveAsJpeg(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		int bgr, int quality, FILE *outfile, int res)
+int R_SaveAsJpeg(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, int quality,
+                 FILE *outfile, int res)
 {
     struct jpeg_compress_struct cinfo;
     struct my_error_mgr jerr;
     /* More stuff */
-    JSAMPLE *pscanline, *scanline = (JSAMPLE *) calloc(3*width,sizeof(JSAMPLE));
+    JSAMPLE *pscanline, *scanline = (JSAMPLE *)calloc(3 * width, sizeof(JSAMPLE));
     int i, j;
     unsigned int col;
     volatile DECLARESHIFTS;
 
     /* Have we enough memory?*/
     if (scanline == NULL)
-	return 0;
+        return 0;
 
-    if (outfile == NULL) {
-	free(scanline);
-	return 0;
+    if (outfile == NULL)
+    {
+        free(scanline);
+        return 0;
     }
 
     /* Step 1: allocate and initialize JPEG compression object */
@@ -379,17 +411,19 @@ int R_SaveAsJpeg(void  *d, int width, int height,
      * and output_message
      */
     cinfo.err = jpeg_std_error(&jerr.pub);
-    jerr.pub.error_exit = my_error_exit ;
-    jerr.pub.output_message = my_output_message ;
+    jerr.pub.error_exit = my_error_exit;
+    jerr.pub.output_message = my_output_message;
     /* Establish the setjmp return context for my_error_exit to use. */
-    if (setjmp(jerr.setjmp_buffer)) {
-	/* If we get here, the JPEG code has signaled an error.
-	 * We need to clean up the JPEG object, close the input file, and return.
-	 */
-	jpeg_destroy_compress(&cinfo);
-	free(scanline);
-	if (outfile) fclose(outfile);
-	return 0;
+    if (setjmp(jerr.setjmp_buffer))
+    {
+        /* If we get here, the JPEG code has signaled an error.
+         * We need to clean up the JPEG object, close the input file, and return.
+         */
+        jpeg_destroy_compress(&cinfo);
+        free(scanline);
+        if (outfile)
+            fclose(outfile);
+        return 0;
     }
     /* Now we can initialize the JPEG compression object. */
     jpeg_create_compress(&cinfo);
@@ -401,15 +435,16 @@ int R_SaveAsJpeg(void  *d, int width, int height,
     /* First we supply a description of the input image.
      * Four fields of the cinfo struct must be filled in:
      */
-    cinfo.image_width = width;	/* image width and height, in pixels */
+    cinfo.image_width = width; /* image width and height, in pixels */
     cinfo.image_height = height;
-    cinfo.input_components = 3;		/* # of color components per pixel */
-    cinfo.in_color_space = JCS_RGB;	/* colorspace of input image */
+    cinfo.input_components = 3;     /* # of color components per pixel */
+    cinfo.in_color_space = JCS_RGB; /* colorspace of input image */
     jpeg_set_defaults(&cinfo);
-    if(res > 0) {
-	cinfo.density_unit = 1;  /* pixels per inch */
-	cinfo.X_density = (UINT16) res;
-	cinfo.Y_density = (UINT16) res;
+    if (res > 0)
+    {
+        cinfo.density_unit = 1; /* pixels per inch */
+        cinfo.X_density = (UINT16)res;
+        cinfo.Y_density = (UINT16)res;
     }
     jpeg_set_quality(&cinfo, quality, TRUE);
     /* Step 4: Start compressor */
@@ -417,16 +452,18 @@ int R_SaveAsJpeg(void  *d, int width, int height,
 
     /* Step 5: while (scan lines remain to be written) */
     /*           jpeg_write_scanlines(...); */
-    for (i=0 ; i<height ; i++) {
-	/* Build the scanline */
-	pscanline = scanline;
-	for ( j=0 ; j<width ; j++) {
-	    col = gp(d, i, j) & 0xFFFFFF;
-	    *pscanline++ = GETRED(col) ;
-	    *pscanline++ = GETGREEN(col) ;
-	    *pscanline++ = GETBLUE(col) ;
-	}
-	jpeg_write_scanlines(&cinfo, (JSAMPARRAY) &scanline, 1);
+    for (i = 0; i < height; i++)
+    {
+        /* Build the scanline */
+        pscanline = scanline;
+        for (j = 0; j < width; j++)
+        {
+            col = gp(d, i, j) & 0xFFFFFF;
+            *pscanline++ = GETRED(col);
+            *pscanline++ = GETGREEN(col);
+            *pscanline++ = GETBLUE(col);
+        }
+        jpeg_write_scanlines(&cinfo, (JSAMPARRAY)&scanline, 1);
     }
 
     /* Step 6: Finish compression */
@@ -439,15 +476,13 @@ int R_SaveAsJpeg(void  *d, int width, int height,
     free(scanline);
     jpeg_destroy_compress(&cinfo);
 
-
     /* And we're done! */
     return 1;
 }
 
 #else
-int R_SaveAsJpeg(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		int bgr, int quality, FILE *outfile, int res)
+int R_SaveAsJpeg(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, int quality,
+                 FILE *outfile, int res)
 {
     warning("No jpeg support in this version of R");
     return 0;
@@ -458,9 +493,8 @@ int R_SaveAsJpeg(void  *d, int width, int height,
 
 #include <tiffio.h>
 
-int R_SaveAsTIFF(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		int bgr, const char *outfile, int res, int compression)
+int R_SaveAsTIFF(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, const char *outfile,
+                 int res, int compression)
 {
     TIFF *out;
     int sampleperpixel;
@@ -472,19 +506,22 @@ int R_SaveAsTIFF(void  *d, int width, int height,
     DECLARESHIFTS;
 
     for (i = 0; i < height; i++)
-	for (j = 0; j < width; j++) {
-	    col = gp(d,i,j);
-	    if (GETALPHA(col) < 255) {
-		have_alpha = 1;
-		break;
-	    }
-	}
+        for (j = 0; j < width; j++)
+        {
+            col = gp(d, i, j);
+            if (GETALPHA(col) < 255)
+            {
+                have_alpha = 1;
+                break;
+            }
+        }
     sampleperpixel = 3 + have_alpha;
 
     out = TIFFOpen(outfile, "w");
-    if (!out) {
-	warning("unable to open TIFF file '%s'", outfile);
-	return 0;
+    if (!out)
+    {
+        warning("unable to open TIFF file '%s'", outfile);
+        return 0;
     }
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(out, TIFFTAG_IMAGELENGTH, height);
@@ -506,60 +543,72 @@ int R_SaveAsTIFF(void  *d, int width, int height,
     */
     TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 #endif
-    if(compression > 1) {
-	if (compression > 10) {
-	    TIFFSetField(out, TIFFTAG_COMPRESSION, compression - 10);
-	    TIFFSetField(out, TIFFTAG_PREDICTOR, 2);
-	} else 
-	    TIFFSetField(out, TIFFTAG_COMPRESSION, compression);
+    if (compression > 1)
+    {
+        if (compression > 10)
+        {
+            TIFFSetField(out, TIFFTAG_COMPRESSION, compression - 10);
+            TIFFSetField(out, TIFFTAG_PREDICTOR, 2);
+        }
+        else
+            TIFFSetField(out, TIFFTAG_COMPRESSION, compression);
     }
 
-    if (res > 0) {
-	TIFFSetField(out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
-	TIFFSetField(out, TIFFTAG_XRESOLUTION, (float) res);
-	TIFFSetField(out, TIFFTAG_YRESOLUTION, (float) res);
+    if (res > 0)
+    {
+        TIFFSetField(out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+        TIFFSetField(out, TIFFTAG_XRESOLUTION, (float)res);
+        TIFFSetField(out, TIFFTAG_YRESOLUTION, (float)res);
     }
 
     linebytes = sampleperpixel * width;
     if (TIFFScanlineSize(out))
-	buf =(unsigned char *)_TIFFmalloc(linebytes);
+        buf = (unsigned char *)_TIFFmalloc(linebytes);
     else
-	buf = (unsigned char *)_TIFFmalloc(TIFFScanlineSize(out));
+        buf = (unsigned char *)_TIFFmalloc(TIFFScanlineSize(out));
 
-    for (i = 0; i < height; i++) {
-	pscanline = buf;
-	for(j = 0; j < width; j++) {
-	    col = gp(d, i, j);
-	    *pscanline++ = GETRED(col) ;
-	    *pscanline++ = GETGREEN(col) ;
-	    *pscanline++ = GETBLUE(col) ;
-	    if(have_alpha) *pscanline++ = GETALPHA(col) ;
-	}
-	TIFFWriteScanline(out, buf, i, 0);
+    for (i = 0; i < height; i++)
+    {
+        pscanline = buf;
+        for (j = 0; j < width; j++)
+        {
+            col = gp(d, i, j);
+            *pscanline++ = GETRED(col);
+            *pscanline++ = GETGREEN(col);
+            *pscanline++ = GETBLUE(col);
+            if (have_alpha)
+                *pscanline++ = GETALPHA(col);
+        }
+        TIFFWriteScanline(out, buf, i, 0);
     }
     TIFFClose(out);
     _TIFFfree(buf);
     return 1;
 }
 #else
-int R_SaveAsTIFF(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int),
-		 int bgr, const char *outfile, int res, int compression)
+int R_SaveAsTIFF(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, const char *outfile,
+                 int res, int compression)
 {
     warning("No TIFF support in this version of R");
     return 0;
 }
-#endif  /* HAVE_TIFF */
+#endif /* HAVE_TIFF */
 
 /*
  * Try to save the content of the device 'd' in 'filename' as Windows BMP.
  * If numbers of colors is less than 256 we use a 'palette' BMP.
  * Return 1 on success, 0 on failure
-*/
+ */
 
-#define BMPERROR {error("Problems writing to 'bmp' file");return 0;}
+#define BMPERROR                                                                                                       \
+    {                                                                                                                  \
+        error("Problems writing to 'bmp' file");                                                                       \
+        return 0;                                                                                                      \
+    }
 
-#define BMPPUTC(a) if(fputc(a,fp)==EOF) BMPERROR;
+#define BMPPUTC(a)                                                                                                     \
+    if (fputc(a, fp) == EOF)                                                                                           \
+        BMPERROR;
 #define BMPW(a) bmpw(a, fp)
 #define BMPDW(a) bmpdw(a, fp)
 
@@ -567,10 +616,10 @@ static void bmpw(unsigned short x, FILE *fp)
 {
     unsigned short wrd = x;
 #ifdef WORDS_BIGENDIAN
-    wrd =  (x << 8) | (x >> 8);
+    wrd = (x << 8) | (x >> 8);
 #endif
-    if(fwrite(&wrd,sizeof(unsigned short),1,fp)!=1)
-	error("Problems writing to 'bmp' file");
+    if (fwrite(&wrd, sizeof(unsigned short), 1, fp) != 1)
+        error("Problems writing to 'bmp' file");
 }
 static void bmpdw(unsigned int x, FILE *fp)
 {
@@ -578,135 +627,166 @@ static void bmpdw(unsigned int x, FILE *fp)
 #ifdef WORDS_BIGENDIAN
     dwrd = (x << 24) | ((x & 0xff00) << 8) | ((x & 0xff0000) >> 8) | (x >> 24);
 #endif
-    if(fwrite(&dwrd,sizeof(unsigned int),1,fp)!=1)
-	error("Problems writing to 'bmp' file");
+    if (fwrite(&dwrd, sizeof(unsigned int), 1, fp) != 1)
+        error("Problems writing to 'bmp' file");
 }
-
 
 #define HEADERSIZE 54
 
-int R_SaveAsBmp(void  *d, int width, int height,
-		unsigned int (*gp)(void *, int, int), int bgr, FILE *fp,
-		int res)
+int R_SaveAsBmp(void *d, int width, int height, unsigned int (*gp)(void *, int, int), int bgr, FILE *fp, int res)
 {
-    unsigned int  col, palette[256];
+    unsigned int col, palette[256];
     int i, j, r, ncols, mid, high, low, withpalette;
-    int bfOffBits, bfSize, biBitCount, biClrUsed , pad;
+    int bfOffBits, bfSize, biBitCount, biClrUsed, pad;
     int lres;
     DECLARESHIFTS;
 
     if (fp == NULL)
-	return 0;
+        return 0;
 
     /* Have we less than 256 different colors? */
     ncols = mid = 0;
     withpalette = 1;
-    for (i = 0; i < 256 ; i++) palette[i] = 0;
-    for (i = 0; (i < height) && withpalette ; i++) {
-	for (j = 0; (j < width) && withpalette ; j++) {
-	    col = gp(d,i,j) & 0xFFFFFF ;
-	    /* binary search the palette: */
-	    low = 0;
-	    high = ncols - 1;
-	    while (low <= high) {
-		mid = (low + high)/2;
-		if ( col < palette[mid] ) high = mid - 1;
-		else if ( col > palette[mid] ) low  = mid + 1;
-		else break;
-	    }
-	    if (high < low) {
-		/* didn't find colour in palette, insert it: */
-		if (ncols >= 256) {
-		    withpalette = 0;
-		} else {
-		    for (r = ncols; r > low; r--)
-			palette[r] = palette[r-1] ;
-		    palette[low] = col;
-		    ncols ++;
-		}
-	    }
-	}
+    for (i = 0; i < 256; i++)
+        palette[i] = 0;
+    for (i = 0; (i < height) && withpalette; i++)
+    {
+        for (j = 0; (j < width) && withpalette; j++)
+        {
+            col = gp(d, i, j) & 0xFFFFFF;
+            /* binary search the palette: */
+            low = 0;
+            high = ncols - 1;
+            while (low <= high)
+            {
+                mid = (low + high) / 2;
+                if (col < palette[mid])
+                    high = mid - 1;
+                else if (col > palette[mid])
+                    low = mid + 1;
+                else
+                    break;
+            }
+            if (high < low)
+            {
+                /* didn't find colour in palette, insert it: */
+                if (ncols >= 256)
+                {
+                    withpalette = 0;
+                }
+                else
+                {
+                    for (r = ncols; r > low; r--)
+                        palette[r] = palette[r - 1];
+                    palette[low] = col;
+                    ncols++;
+                }
+            }
+        }
     }
     /* Compute some part of the header */
-    if (withpalette) {
-	bfOffBits = HEADERSIZE + 4 * 256;
-	bfSize = bfOffBits + width * height ;
-	biBitCount = 8;
-	biClrUsed = 256;
-    } else {
-	bfOffBits = HEADERSIZE + 4;
-	bfSize = bfOffBits + 3 * width * height ;
-	biBitCount = 24;
-	biClrUsed = 0;
+    if (withpalette)
+    {
+        bfOffBits = HEADERSIZE + 4 * 256;
+        bfSize = bfOffBits + width * height;
+        biBitCount = 8;
+        biClrUsed = 256;
+    }
+    else
+    {
+        bfOffBits = HEADERSIZE + 4;
+        bfSize = bfOffBits + 3 * width * height;
+        biBitCount = 24;
+        biClrUsed = 0;
     }
 
     /* write the header */
 
-    BMPPUTC('B');BMPPUTC('M');
+    BMPPUTC('B');
+    BMPPUTC('M');
     BMPDW(bfSize); /*bfSize*/
-    BMPW(0);BMPW(0); /* bfReserved1 and bfReserved2 must be 0*/
-    BMPDW(bfOffBits); /* bfOffBits */
-    BMPDW(40);	/* Windows V3. size 40 bytes */
-    BMPDW(width); /* biWidth */
-    BMPDW(height); /* biHeight */
-    BMPW(1);	/* biPlanes - must be 1 */
-    BMPW((unsigned short) biBitCount); /* biBitCount */
-    BMPDW(0); /* biCompression=BI_RGB */
-    BMPDW(0); /* biSizeImage (with BI_RGB not needed)*/
+    BMPW(0);
+    BMPW(0);                          /* bfReserved1 and bfReserved2 must be 0*/
+    BMPDW(bfOffBits);                 /* bfOffBits */
+    BMPDW(40);                        /* Windows V3. size 40 bytes */
+    BMPDW(width);                     /* biWidth */
+    BMPDW(height);                    /* biHeight */
+    BMPW(1);                          /* biPlanes - must be 1 */
+    BMPW((unsigned short)biBitCount); /* biBitCount */
+    BMPDW(0);                         /* biCompression=BI_RGB */
+    BMPDW(0);                         /* biSizeImage (with BI_RGB not needed)*/
     if (res > 0)
-	lres = (int)(0.5 + res/0.0254);
-    else lres = 2835; // 72ppi = 2835 pixels/metre.
-    BMPDW(lres); /* XPels/M */
-    BMPDW(lres); /* XPels/M */
+        lres = (int)(0.5 + res / 0.0254);
+    else
+        lres = 2835;  // 72ppi = 2835 pixels/metre.
+    BMPDW(lres);      /* XPels/M */
+    BMPDW(lres);      /* XPels/M */
     BMPDW(biClrUsed); /* biClrUsed */
-    BMPDW(0) ; /* biClrImportant All colours are important */
+    BMPDW(0);         /* biClrImportant All colours are important */
 
     /* and now the image */
-    if (withpalette) {
-	/* 8 bit image; write the palette */
-	for (i = 0; i < 256; i++) {
-	    col = palette[i];
-	    BMPPUTC(GETBLUE(col));
-	    BMPPUTC(GETGREEN(col));
-	    BMPPUTC(GETRED(col));
-	    BMPPUTC(0);
-	}
-	/* Rows must be padded to 4-byte boundary */
-	for (pad = 0; ((width+pad) & 3) != 0; pad++);
-	/* and then the pixels */
-	for (i = height-1 ; i >= 0 ; i--) {
-	    for (j = 0 ; j < width ; j++) {
-		col = gp(d, i, j) & 0xFFFFFF;
-		/* binary search the palette (the colour must be there): */
-		low = 0;  high = ncols - 1;
-		while (low <= high) {
-		    mid = (low + high)/2;
-		    if      (col < palette[mid]) high = mid - 1;
-		    else if (col > palette[mid]) low  = mid + 1;
-		    else break;
-		}
-		BMPPUTC(mid);
-	    }
-	    for (j = 0; j < pad; j++) BMPPUTC(0);
-	}
-    } else {
-	/* 24 bits image */
-	BMPDW(0); /* null bmiColors */
-	for (pad = 0; ((3*width+pad) & 3) != 0; pad++); /*padding*/
-	for (i = height-1 ; i>=0 ; i--) {
-	    for (j = 0 ; j < width ; j++) {
-		col = gp(d, i, j) & 0xFFFFFF;
-		BMPPUTC(GETBLUE(col));
-		BMPPUTC(GETGREEN(col));
-		BMPPUTC(GETRED(col));
-	    }
-	    for (j = 0; j < pad; j++) BMPPUTC(0);
-	}
+    if (withpalette)
+    {
+        /* 8 bit image; write the palette */
+        for (i = 0; i < 256; i++)
+        {
+            col = palette[i];
+            BMPPUTC(GETBLUE(col));
+            BMPPUTC(GETGREEN(col));
+            BMPPUTC(GETRED(col));
+            BMPPUTC(0);
+        }
+        /* Rows must be padded to 4-byte boundary */
+        for (pad = 0; ((width + pad) & 3) != 0; pad++)
+            ;
+        /* and then the pixels */
+        for (i = height - 1; i >= 0; i--)
+        {
+            for (j = 0; j < width; j++)
+            {
+                col = gp(d, i, j) & 0xFFFFFF;
+                /* binary search the palette (the colour must be there): */
+                low = 0;
+                high = ncols - 1;
+                while (low <= high)
+                {
+                    mid = (low + high) / 2;
+                    if (col < palette[mid])
+                        high = mid - 1;
+                    else if (col > palette[mid])
+                        low = mid + 1;
+                    else
+                        break;
+                }
+                BMPPUTC(mid);
+            }
+            for (j = 0; j < pad; j++)
+                BMPPUTC(0);
+        }
+    }
+    else
+    {
+        /* 24 bits image */
+        BMPDW(0); /* null bmiColors */
+        for (pad = 0; ((3 * width + pad) & 3) != 0; pad++)
+            ; /*padding*/
+        for (i = height - 1; i >= 0; i--)
+        {
+            for (j = 0; j < width; j++)
+            {
+                col = gp(d, i, j) & 0xFFFFFF;
+                BMPPUTC(GETBLUE(col));
+                BMPPUTC(GETGREEN(col));
+                BMPPUTC(GETRED(col));
+            }
+            for (j = 0; j < pad; j++)
+                BMPPUTC(0);
+        }
     }
     return 1;
 }
 
-const char * in_R_pngVersion(void)
+const char *in_R_pngVersion(void)
 {
 #ifdef HAVE_PNG
     return png_get_header_ver(NULL /*ignored*/);
@@ -714,14 +794,14 @@ const char * in_R_pngVersion(void)
     return "";
 #endif
 }
-const char * in_R_jpegVersion(void)
+const char *in_R_jpegVersion(void)
 {
 #ifdef HAVE_JPEG
     static char ans[10];
 #ifdef JPEG_LIB_VERSION_MAJOR
     snprintf(ans, 10, "%d.%d", JPEG_LIB_VERSION_MAJOR, JPEG_LIB_VERSION_MINOR);
 #else
-    snprintf(ans, 10, "%d.%d", JPEG_LIB_VERSION/10, JPEG_LIB_VERSION%10);
+    snprintf(ans, 10, "%d.%d", JPEG_LIB_VERSION / 10, JPEG_LIB_VERSION % 10);
 #endif
     return ans;
 #else
@@ -729,7 +809,7 @@ const char * in_R_jpegVersion(void)
 #endif
 }
 
-const char * in_R_tiffVersion(void)
+const char *in_R_tiffVersion(void)
 {
 #ifdef HAVE_TIFF
     return TIFFGetVersion();

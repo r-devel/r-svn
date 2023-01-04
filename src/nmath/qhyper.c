@@ -25,25 +25,24 @@
 #include "nmath.h"
 #include "dpq.h"
 
-double qhyper(double p, double NR, double NB, double n,
-	      int lower_tail, int log_p)
+double qhyper(double p, double NR, double NB, double n, int lower_tail, int log_p)
 {
-/* This is basically the same code as  ./phyper.c  *used* to be --> FIXME! */
+    /* This is basically the same code as  ./phyper.c  *used* to be --> FIXME! */
     double N, xstart, xend, xr, xb, sum, term;
     int small_N;
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(NR) || ISNAN(NB) || ISNAN(n))
-	return p + NR + NB + n;
+        return p + NR + NB + n;
 #endif
-    if(!R_FINITE(p) || !R_FINITE(NR) || !R_FINITE(NB) || !R_FINITE(n))
-	ML_WARN_return_NAN;
+    if (!R_FINITE(p) || !R_FINITE(NR) || !R_FINITE(NB) || !R_FINITE(n))
+        ML_WARN_return_NAN;
 
     NR = R_forceint(NR);
     NB = R_forceint(NB);
     N = NR + NB;
     n = R_forceint(n);
     if (NR < 0 || NB < 0 || n < 0 || n > N)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
     /* Goal:  Find  xr (= #{red balls in sample}) such that
      *   phyper(xr,  NR,NB, n) >= p > phyper(xr - 1,  NR,NB, n)
@@ -55,30 +54,35 @@ double qhyper(double p, double NR, double NB, double n,
     R_Q_P01_boundaries(p, xstart, xend);
 
     xr = xstart;
-    xb = n - xr;/* always ( = #{black balls in sample} ) */
+    xb = n - xr; /* always ( = #{black balls in sample} ) */
 
     small_N = (N < 1000); /* won't have underflow in product below */
     /* if N is small,  term := product.ratio( bin.coef );
        otherwise work with its logarithm to protect against underflow */
     term = lfastchoose(NR, xr) + lfastchoose(NB, xb) - lfastchoose(N, n);
-    if(small_N) term = exp(term);
+    if (small_N)
+        term = exp(term);
     NR -= xr;
     NB -= xb;
 
-    if(!lower_tail || log_p) {
-	p = R_DT_qIv(p);
+    if (!lower_tail || log_p)
+    {
+        p = R_DT_qIv(p);
     }
-    p *= 1 - 1000*DBL_EPSILON; /* was 64, but failed on FreeBSD sometimes */
+    p *= 1 - 1000 * DBL_EPSILON; /* was 64, but failed on FreeBSD sometimes */
     sum = small_N ? term : exp(term);
 
-    while(sum < p && xr < xend) {
-	xr++;
-	NB++;
-	if (small_N) term *= (NR / xr) * (xb / NB);
-	else term += log((NR / xr) * (xb / NB));
-	sum += small_N ? term : exp(term);
-	xb--;
-	NR--;
+    while (sum < p && xr < xend)
+    {
+        xr++;
+        NB++;
+        if (small_N)
+            term *= (NR / xr) * (xb / NB);
+        else
+            term += log((NR / xr) * (xb / NB));
+        sum += small_N ? term : exp(term);
+        xb--;
+        NR--;
     }
     return xr;
 }

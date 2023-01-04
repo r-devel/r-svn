@@ -34,15 +34,14 @@
 #include "dpq.h"
 
 #ifdef DEBUG_qpois
-# define R_DBG_printf(...) REprintf(__VA_ARGS__)
+#define R_DBG_printf(...) REprintf(__VA_ARGS__)
 #else
-# define R_DBG_printf(...)
+#define R_DBG_printf(...)
 #endif
-
 
 #define _thisDIST_ pois
 #define _dist_PARS_DECL_ double lambda
-#define _dist_PARS_      lambda
+#define _dist_PARS_ lambda
 
 #include "qDiscrete_search.h"
 //        ------------------>  do_search() and all called by q_DISCRETE_*() below
@@ -51,26 +50,28 @@ double qpois(double p, double lambda, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(p) || ISNAN(lambda))
-	return p + lambda;
+        return p + lambda;
 #endif
-    if(!R_FINITE(lambda))
-	ML_WARN_return_NAN;
-    if(lambda < 0) ML_WARN_return_NAN;
+    if (!R_FINITE(lambda))
+        ML_WARN_return_NAN;
+    if (lambda < 0)
+        ML_WARN_return_NAN;
     R_Q_P01_check(p);
-    if(lambda == 0) return 0;
-    if(p == R_DT_0) return 0;
-    if(p == R_DT_1) return ML_POSINF;
+    if (lambda == 0)
+        return 0;
+    if (p == R_DT_0)
+        return 0;
+    if (p == R_DT_1)
+        return ML_POSINF;
 
-    double
-	mu = lambda,
-	sigma = sqrt(lambda),
-	// had gamma = sigma; PR#8058 should be kurtosis which is mu^-0.5 = 1/sigma
-	gamma = 1.0/sigma;
+    double mu = lambda, sigma = sqrt(lambda),
+           // had gamma = sigma; PR#8058 should be kurtosis which is mu^-0.5 = 1/sigma
+        gamma = 1.0 / sigma;
 
-     R_DBG_printf("qpois(p=%.12g, lambda=%.15g, l.t.=%d, log=%d):"
-		  " mu=%g, sigma=%g, gamma=%g;\n",
-		  p, lambda, lower_tail, log_p, mu, sigma, gamma);
+    R_DBG_printf("qpois(p=%.12g, lambda=%.15g, l.t.=%d, log=%d):"
+                 " mu=%g, sigma=%g, gamma=%g;\n",
+                 p, lambda, lower_tail, log_p, mu, sigma, gamma);
 
-     // never "needed" here (FIXME?):   q_DISCRETE_01_CHECKS();
-     q_DISCRETE_BODY();
+    // never "needed" here (FIXME?):   q_DISCRETE_01_CHECKS();
+    q_DISCRETE_BODY();
 }

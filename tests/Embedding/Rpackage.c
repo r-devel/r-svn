@@ -4,17 +4,15 @@ static void doSplinesExample();
 extern int Rf_initEmbeddedR(int argc, char *argv[]);
 extern void Rf_endEmbeddedR(int fatal);
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     Rf_initEmbeddedR(argc, argv);
     doSplinesExample();
     Rf_endEmbeddedR(0);
-    return(0);
+    return (0);
 }
 
-static void
-doSplinesExample()
+static void doSplinesExample()
 {
     SEXP e;
     int errorOccurred;

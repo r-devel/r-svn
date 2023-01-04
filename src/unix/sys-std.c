@@ -25,13 +25,12 @@
    ? use of isspace OK?
  */
 
-
 /* See system.txt for a description of functions */
 
 /* select() is essential here, but configure has required it */
 
 #ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
 #endif
 
 #define R_USE_SIGNALS 1
@@ -39,8 +38,8 @@
 #include <Internal.h>
 
 #ifdef HAVE_STRINGS_H
-   /* may be needed to define bzero in FD_ZERO (eg AIX) */
-  #include <strings.h>
+/* may be needed to define bzero in FD_ZERO (eg AIX) */
+#include <strings.h>
 #endif
 
 #include "Fileio.h"
@@ -48,7 +47,7 @@
 #include "Startup.h"
 #include <R_ext/Riconv.h>
 #include <R_ext/Print.h> // for REprintf
-#include <R_ext/RS.h> // for R_Calloc
+#include <R_ext/RS.h>    // for R_Calloc
 
 #define __SYSTEM__
 /* includes <sys/select.h> and <sys/time.h> */
@@ -56,12 +55,12 @@
 #undef __SYSTEM__
 
 #ifdef HAVE_UNISTD_H
-# include <unistd.h>		/* for unlink */
+#include <unistd.h> /* for unlink */
 #endif
 
 extern SA_TYPE SaveAction;
 extern Rboolean UsingReadline;
-extern FILE* ifp; /* from system.c */
+extern FILE *ifp; /* from system.c */
 
 /*
  *  1) FATAL MESSAGES AT STARTUP
@@ -78,16 +77,14 @@ attribute_hidden void Rstd_Suicide(const char *s)
  *  2. CONSOLE I/O
  */
 
+/*--- I/O Support Code ---*/
 
-
-	/*--- I/O Support Code ---*/
-
-	/* These routines provide hooks for supporting console I/O.
-	 * Under raw Unix these routines simply provide a
-	 * connection to the stdio library.
-	 * Under a Motif interface the routines would be
-	 * considerably more complex.
-	 */
+/* These routines provide hooks for supporting console I/O.
+ * Under raw Unix these routines simply provide a
+ * connection to the stdio library.
+ * Under a Motif interface the routines would be
+ * considerably more complex.
+ */
 
 /*
   The following provides a version of select() that catches interrupts
@@ -112,76 +109,76 @@ NORET static void handleSelectInterrupt(int dummy)
     SIGLONGJMP(seljmpbuf, 1);
 }
 
-int R_SelectEx(int  n,  fd_set  *readfds,  fd_set  *writefds,
-	       fd_set *exceptfds, struct timeval *timeout,
-	       void (*intr)(void))
+int R_SelectEx(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout, void (*intr)(void))
 {
     /* FD_SETSIZE should be at least 1024 on all supported
        platforms. If this still turns out to be limiting we will
        probably need to rewrite internals to use poll() instead of
        select().  LT */
     if (n > FD_SETSIZE)
-	error("file descriptor is too large for select()");
+        error("file descriptor is too large for select()");
 
     if (timeout != NULL && timeout->tv_sec == 0 && timeout->tv_usec == 0)
-	return select(n, readfds, writefds, exceptfds, timeout);
-    else {
-	volatile sel_intr_handler_t myintr = intr != NULL ?
-	    intr : onintr;
-	volatile int old_interrupts_suspended = R_interrupts_suspended;
-	volatile double base_time = currentTime();
-	struct timeval tm;
-	if (timeout != NULL)
-	    tm = *timeout;
+        return select(n, readfds, writefds, exceptfds, timeout);
+    else
+    {
+        volatile sel_intr_handler_t myintr = intr != NULL ? intr : onintr;
+        volatile int old_interrupts_suspended = R_interrupts_suspended;
+        volatile double base_time = currentTime();
+        struct timeval tm;
+        if (timeout != NULL)
+            tm = *timeout;
     retry:
-	if (SIGSETJMP(seljmpbuf, 1)) {
-	    myintr();
+        if (SIGSETJMP(seljmpbuf, 1))
+        {
+            myintr();
 
-	    if (timeout != NULL) {
-		/* Ajdust timeout for elapsed complete seconds; ignore
-		   microseconde for now. This modifies the data pointed to
-		   by timeval, which is what select() on Linux does as
-		   well. */
-		double new_time = currentTime();
-		double elapsed = new_time - base_time;
-		base_time = new_time;
-		time_t elapsed_sec = (time_t) elapsed;
-		if (tm.tv_sec > elapsed_sec)
-		    tm.tv_sec -= elapsed_sec;
-		else
-		    tm.tv_sec = 0;
-		*timeout = tm;
-	    }
+            if (timeout != NULL)
+            {
+                /* Ajdust timeout for elapsed complete seconds; ignore
+                   microseconde for now. This modifies the data pointed to
+                   by timeval, which is what select() on Linux does as
+                   well. */
+                double new_time = currentTime();
+                double elapsed = new_time - base_time;
+                base_time = new_time;
+                time_t elapsed_sec = (time_t)elapsed;
+                if (tm.tv_sec > elapsed_sec)
+                    tm.tv_sec -= elapsed_sec;
+                else
+                    tm.tv_sec = 0;
+                *timeout = tm;
+            }
 
-	    goto retry;
-	}
-	else {
-	    int val;
+            goto retry;
+        }
+        else
+        {
+            int val;
 
-	    /* make sure interrupts are enabled -- this will be
-	       restored if there is a LONGJMP from myintr() to another
-	       context. */
-	    R_interrupts_suspended = FALSE;
+            /* make sure interrupts are enabled -- this will be
+               restored if there is a LONGJMP from myintr() to another
+               context. */
+            R_interrupts_suspended = FALSE;
 
-	    /* check for and handle any pending interrupt registered
-	       by the standard handler. */
-	    if (R_interrupts_pending)
-		myintr();
+            /* check for and handle any pending interrupt registered
+               by the standard handler. */
+            if (R_interrupts_pending)
+                myintr();
 
-	    /* install a temporary signal handler for breaking out of
-	       a blocking select */
-	    oldSigintHandler = signal(SIGINT, handleSelectInterrupt);
+            /* install a temporary signal handler for breaking out of
+               a blocking select */
+            oldSigintHandler = signal(SIGINT, handleSelectInterrupt);
 
-	    /* now do the (possibly blocking) select, restore the
-	       signal handler, and return the result of the select. */
-	    val = select(n, readfds, writefds, exceptfds, timeout);
-	    signal(SIGINT, oldSigintHandler);
-	    R_interrupts_suspended = old_interrupts_suspended;
-	    return val;
-	}
+            /* now do the (possibly blocking) select, restore the
+               signal handler, and return the result of the select. */
+            val = select(n, readfds, writefds, exceptfds, timeout);
+            signal(SIGINT, oldSigintHandler);
+            R_interrupts_suspended = old_interrupts_suspended;
+            return val;
+        }
     }
 }
-
 
 /*
    This object is used for the standard input and its file descriptor
@@ -200,15 +197,14 @@ InputHandler *R_InputHandlers = &BasicInputHandler;
   Initialize the input source handlers used to check for input on the
   different file descriptors.
  */
-InputHandler * initStdinHandler(void)
+InputHandler *initStdinHandler(void)
 {
     InputHandler *inputs;
 
-    inputs = addInputHandler(R_InputHandlers, fileno(stdin), NULL,
-			     StdinActivity);
+    inputs = addInputHandler(R_InputHandlers, fileno(stdin), NULL, StdinActivity);
     /* Defer the X11 registration until it is loaded and actually used. */
 
-    return(inputs);
+    return (inputs);
 }
 
 /*
@@ -220,12 +216,10 @@ InputHandler * initStdinHandler(void)
   Returns the newly created handler which can be used in a call to
   removeInputHandler.
  */
-InputHandler *
-addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler,
-		int activity)
+InputHandler *addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler, int activity)
 {
     InputHandler *input, *tmp;
-//    input = (InputHandler*) calloc(1, sizeof(InputHandler));
+    //    input = (InputHandler*) calloc(1, sizeof(InputHandler));
     input = R_Calloc(1, InputHandler);
 
     input->activity = activity;
@@ -234,18 +228,20 @@ addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler,
 
     tmp = handlers;
 
-    if(handlers == NULL) {
-	R_InputHandlers = input;
-	return(input);
+    if (handlers == NULL)
+    {
+        R_InputHandlers = input;
+        return (input);
     }
 
     /* Go to the end of the list to append the new one.  */
-    while(tmp->next != NULL) {
-	tmp = tmp->next;
+    while (tmp->next != NULL)
+    {
+        tmp = tmp->next;
     }
     tmp->next = input;
 
-    return(input);
+    return (input);
 }
 
 /*
@@ -253,8 +249,7 @@ addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler,
 
   See getInputHandler() for first locating the target handler instance.
  */
-int
-removeInputHandler(InputHandler **handlers, InputHandler *it)
+int removeInputHandler(InputHandler **handlers, InputHandler *it)
 {
     InputHandler *tmp;
 
@@ -263,42 +258,45 @@ removeInputHandler(InputHandler **handlers, InputHandler *it)
        element as the first argument.
     */
 
-    if (it == NULL) return(0);
+    if (it == NULL)
+        return (0);
 
-    if(*handlers == it) {
-	*handlers = (*handlers)->next;
-	R_Free(it); // use R_Free to match allocation with R_Calloc
-	return(1);
+    if (*handlers == it)
+    {
+        *handlers = (*handlers)->next;
+        R_Free(it); // use R_Free to match allocation with R_Calloc
+        return (1);
     }
 
     tmp = *handlers;
 
-    while(tmp) {
-	if(tmp->next == it) {
-	    tmp->next = it->next;
-	    R_Free(it); // use R_Free to match allocation with R_Calloc
-	    return(1);
-	}
-	tmp = tmp->next;
+    while (tmp)
+    {
+        if (tmp->next == it)
+        {
+            tmp->next = it->next;
+            R_Free(it); // use R_Free to match allocation with R_Calloc
+            return (1);
+        }
+        tmp = tmp->next;
     }
 
-    return(0);
+    return (0);
 }
 
-
-InputHandler *
-getInputHandler(InputHandler *handlers, int fd)
+InputHandler *getInputHandler(InputHandler *handlers, int fd)
 {
     InputHandler *tmp;
     tmp = handlers;
 
-    while(tmp != NULL) {
-	if(tmp->fileDescriptor == fd)
-	    return(tmp);
-	tmp = tmp->next;
+    while (tmp != NULL)
+    {
+        if (tmp->fileDescriptor == fd)
+            return (tmp);
+        tmp = tmp->next;
     }
 
-    return(tmp);
+    return (tmp);
 }
 
 /*
@@ -319,18 +317,18 @@ getInputHandler(InputHandler *handlers, int fd)
    point to a non-dummy routine and setting R_wait_usec to a suitable
    timeout value (e.g. 100000) */
 
-static void nop(void){}
+static void nop(void)
+{
+}
 
-void (* R_PolledEvents)(void) = nop;
+void (*R_PolledEvents)(void) = nop;
 int R_wait_usec = 0; /* 0 means no timeout */
 
 /* For X11 devices */
-void (* Rg_PolledEvents)(void) = nop;
+void (*Rg_PolledEvents)(void) = nop;
 int Rg_wait_usec = 0;
 
-
 static int setSelectMask(InputHandler *, fd_set *);
-
 
 fd_set *R_checkActivityEx(int usec, int ignore_stdin, void (*intr)(void))
 {
@@ -338,25 +336,27 @@ fd_set *R_checkActivityEx(int usec, int ignore_stdin, void (*intr)(void))
     struct timeval tv;
     static fd_set readMask;
 
-    if (R_interrupts_pending) {
-	if (intr != NULL) intr();
-	else onintr();
+    if (R_interrupts_pending)
+    {
+        if (intr != NULL)
+            intr();
+        else
+            onintr();
     }
 
     /* Solaris (but not POSIX) requires these times to be normalized.
        POSIX requires up to 31 days to be supported, and we only
        use up to 2147 secs here.
      */
-    tv.tv_sec = usec/1000000;
+    tv.tv_sec = usec / 1000000;
     tv.tv_usec = usec % 1000000;
     maxfd = setSelectMask(R_InputHandlers, &readMask);
     if (ignore_stdin)
-	FD_CLR(fileno(stdin), &readMask);
-    if (R_SelectEx(maxfd+1, &readMask, NULL, NULL,
-		   (usec >= 0) ? &tv : NULL, intr) > 0)
-	return(&readMask);
+        FD_CLR(fileno(stdin), &readMask);
+    if (R_SelectEx(maxfd + 1, &readMask, NULL, NULL, (usec >= 0) ? &tv : NULL, intr) > 0)
+        return (&readMask);
     else
-	return(NULL);
+        return (NULL);
 }
 
 fd_set *R_checkActivity(int usec, int ignore_stdin)
@@ -374,50 +374,51 @@ fd_set *R_checkActivity(int usec, int ignore_stdin)
   file descriptor.
  */
 
-static int
-setSelectMask(InputHandler *handlers, fd_set *readMask)
+static int setSelectMask(InputHandler *handlers, fd_set *readMask)
 {
     int maxfd = -1;
     InputHandler *tmp = handlers;
     FD_ZERO(readMask);
 
     /* If we are dealing with BasicInputHandler always put stdin */
-    if(handlers == &BasicInputHandler)
-	handlers->fileDescriptor = fileno(stdin);
+    if (handlers == &BasicInputHandler)
+        handlers->fileDescriptor = fileno(stdin);
 
-    while(tmp) {
-	FD_SET(tmp->fileDescriptor, readMask);
-	maxfd = maxfd < tmp->fileDescriptor ? tmp->fileDescriptor : maxfd;
-	tmp = tmp->next;
+    while (tmp)
+    {
+        FD_SET(tmp->fileDescriptor, readMask);
+        maxfd = maxfd < tmp->fileDescriptor ? tmp->fileDescriptor : maxfd;
+        tmp = tmp->next;
     }
 
-    return(maxfd);
+    return (maxfd);
 }
 
 void R_runHandlers(InputHandler *handlers, fd_set *readMask)
 {
     InputHandler *tmp = handlers, *next;
 
-    if (readMask == NULL) {
-	Rg_PolledEvents();
-	R_PolledEvents();
-    } else
-	while(tmp) {
-	    /* Do this way as the handler function might call
-	       removeInputHandlers */
-	    next = tmp->next;
-	    if(FD_ISSET(tmp->fileDescriptor, readMask)
-	       && tmp->handler != NULL)
-		tmp->handler((void*) tmp->userData);
-	    tmp = next;
-	}
+    if (readMask == NULL)
+    {
+        Rg_PolledEvents();
+        R_PolledEvents();
+    }
+    else
+        while (tmp)
+        {
+            /* Do this way as the handler function might call
+               removeInputHandlers */
+            next = tmp->next;
+            if (FD_ISSET(tmp->fileDescriptor, readMask) && tmp->handler != NULL)
+                tmp->handler((void *)tmp->userData);
+            tmp = next;
+        }
 }
 
 /* The following routine is still used by the internet routines, but
  * it should eventually go away. */
 
-InputHandler *
-getSelectedHandler(InputHandler *handlers, fd_set *readMask)
+InputHandler *getSelectedHandler(InputHandler *handlers, fd_set *readMask)
 {
     InputHandler *tmp = handlers;
 
@@ -425,21 +426,21 @@ getSelectedHandler(InputHandler *handlers, fd_set *readMask)
       Temporarily skip the first one if a) there is another one, and
       b) this is the BasicInputHandler.
     */
-    if(handlers == &BasicInputHandler && handlers->next)
-	tmp = handlers->next;
+    if (handlers == &BasicInputHandler && handlers->next)
+        tmp = handlers->next;
 
-    while(tmp) {
-	if(FD_ISSET(tmp->fileDescriptor, readMask))
-	    return(tmp);
-	tmp = tmp->next;
+    while (tmp)
+    {
+        if (FD_ISSET(tmp->fileDescriptor, readMask))
+            return (tmp);
+        tmp = tmp->next;
     }
     /* Now deal with the first one. */
-    if(FD_ISSET(handlers->fileDescriptor, readMask))
-	return(handlers);
+    if (FD_ISSET(handlers->fileDescriptor, readMask))
+        return (handlers);
 
-    return((InputHandler*) NULL);
+    return ((InputHandler *)NULL);
 }
-
 
 #ifdef HAVE_LIBREADLINE
 /* As from R 3.4.0, this implies we have the headers too.
@@ -474,49 +475,47 @@ getSelectedHandler(InputHandler *handlers, fd_set *readMask)
    rl_sort_completion_matches (>= 6.0)
  */
 
-# include <readline/readline.h>
+#include <readline/readline.h>
 
 /* For compatibility with pre-readline-4.2 systems, also missing in
    Apple's emulation via the NetBSD editline library, aka libedit.
    _RL_FUNCTION_TYPEDEF is not currently defined anywhere.
 */
-# if !defined (_RL_FUNCTION_TYPEDEF)
-typedef void rl_vcpfunc_t (char *);
-# endif /* _RL_FUNCTION_TYPEDEF */
+#if !defined(_RL_FUNCTION_TYPEDEF)
+typedef void rl_vcpfunc_t(char *);
+#endif /* _RL_FUNCTION_TYPEDEF */
 
-# if defined(RL_READLINE_VERSION) && RL_READLINE_VERSION >= 0x0603
+#if defined(RL_READLINE_VERSION) && RL_READLINE_VERSION >= 0x0603
 /* readline 6.3's rl_callback_handler_install() no longer installs
    signal handlers, so as from that version we need an explicit
    one. (PR#16604)  (This could have been controlled in earlier versions
    by setting rl_catch_sigwinch.)
  */
-#  define NEED_INT_HANDLER
-# endif
+#define NEED_INT_HANDLER
+#endif
 
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_TILDE_EXPAND_WORD)
-attribute_hidden
-char *R_ExpandFileName_readline(const char *s, char *buff)
+attribute_hidden char *R_ExpandFileName_readline(const char *s, char *buff)
 {
     char *s2 = tilde_expand_word(s);
     size_t len = strlen(s2);
 
     strncpy(buff, s2, PATH_MAX);
-    if(len >= PATH_MAX) {
-	buff[PATH_MAX-1] = '\0';
-	warning(_("expanded path length %d would be too long for\n%s\n"), len, s);
+    if (len >= PATH_MAX)
+    {
+        buff[PATH_MAX - 1] = '\0';
+        warning(_("expanded path length %d would be too long for\n%s\n"), len, s);
     }
     free(s2);
     return buff;
 }
 #endif
 
-# ifdef HAVE_READLINE_HISTORY_H
-#  include <readline/history.h>
-# endif
-
+#ifdef HAVE_READLINE_HISTORY_H
+#include <readline/history.h>
+#endif
 
 /* callback for rl_callback_read_char */
-
 
 /*
 
@@ -548,32 +547,32 @@ DTL.
 
 typedef struct _R_ReadlineData R_ReadlineData;
 
-struct _R_ReadlineData {
+struct _R_ReadlineData
+{
 
- int readline_gotaline;
- int readline_addtohistory;
- int readline_len;
- int readline_eof;
- unsigned char *readline_buf;
- R_ReadlineData *prev;
-
+    int readline_gotaline;
+    int readline_addtohistory;
+    int readline_len;
+    int readline_eof;
+    unsigned char *readline_buf;
+    R_ReadlineData *prev;
 };
 
 static R_ReadlineData *rl_top = NULL;
 
 #define MAX_READLINE_NESTING 10
 
-static struct {
-  int current;
-  int max;
-  rl_vcpfunc_t *fun[MAX_READLINE_NESTING];
+static struct
+{
+    int current;
+    int max;
+    rl_vcpfunc_t *fun[MAX_READLINE_NESTING];
 } ReadlineStack = {-1, MAX_READLINE_NESTING - 1};
 
 #ifdef NEED_INT_HANDLER
 static volatile Rboolean caught_sigwinch = FALSE;
 
-static void
-R_readline_sigwinch_handler(int sig)
+static void R_readline_sigwinch_handler(int sig)
 {
     caught_sigwinch = TRUE;
 }
@@ -583,15 +582,17 @@ R_readline_sigwinch_handler(int sig)
   Registers the specified routine and prompt with readline
   and keeps a record of it on the top of the R readline stack.
  */
-static void
-pushReadline(const char *prompt, rl_vcpfunc_t f)
+static void pushReadline(const char *prompt, rl_vcpfunc_t f)
 {
-   if(ReadlineStack.current >= ReadlineStack.max) {
-     warning(_("An unusual circumstance has arisen in the nesting of readline input. Please report using bug.report()"));
-   } else
-     ReadlineStack.fun[++ReadlineStack.current] = f;
+    if (ReadlineStack.current >= ReadlineStack.max)
+    {
+        warning(
+            _("An unusual circumstance has arisen in the nesting of readline input. Please report using bug.report()"));
+    }
+    else
+        ReadlineStack.fun[++ReadlineStack.current] = f;
 
-   rl_callback_handler_install(prompt, f);
+    rl_callback_handler_install(prompt, f);
 
 #ifdef NEED_INT_HANDLER
     struct sigaction sa;
@@ -601,9 +602,9 @@ pushReadline(const char *prompt, rl_vcpfunc_t f)
     sigaction(SIGWINCH, &sa, NULL);
 #endif
 
-   /* flush stdout in case readline wrote the prompt, but didn't flush
-      stdout to make it visible. (needed for Apple's readline emulation). */
-   fflush(stdout);
+    /* flush stdout in case readline wrote the prompt, but didn't flush
+       stdout to make it visible. (needed for Apple's readline emulation). */
+    fflush(stdout);
 }
 
 #if defined(RL_READLINE_VERSION) && RL_READLINE_VERSION >= 0x0600
@@ -622,16 +623,15 @@ pushReadline(const char *prompt, rl_vcpfunc_t f)
 static void resetReadline(void)
 {
     rl_free_line_state();
-/* This might be helpful/needed in future, but we cannot tell until
-   readline 7.0 is released.  Only info so far:
-   https://lists.gnu.org/archive/html/bug-readline/2016-02/msg00000.html
-#ifdef HAVE_RL_CALLBACK_SIGCLEANUP
-    rl_callback_sigcleanup();
-#endif
-*/
+    /* This might be helpful/needed in future, but we cannot tell until
+       readline 7.0 is released.  Only info so far:
+       https://lists.gnu.org/archive/html/bug-readline/2016-02/msg00000.html
+    #ifdef HAVE_RL_CALLBACK_SIGCLEANUP
+        rl_callback_sigcleanup();
+    #endif
+    */
     rl_cleanup_after_signal();
-    RL_UNSETSTATE(RL_STATE_ISEARCH | RL_STATE_NSEARCH | RL_STATE_VIMOTION |
-		  RL_STATE_NUMERICARG | RL_STATE_MULTIKEY);
+    RL_UNSETSTATE(RL_STATE_ISEARCH | RL_STATE_NSEARCH | RL_STATE_VIMOTION | RL_STATE_NUMERICARG | RL_STATE_MULTIKEY);
     /* The following two lines should be equivalent, but doing both
        won't hurt. */
     rl_line_buffer[rl_point = rl_end = rl_mark = 0] = 0;
@@ -645,15 +645,16 @@ static void resetReadline(void)
 */
 static void popReadline(void)
 {
-  if(ReadlineStack.current > -1) {
+    if (ReadlineStack.current > -1)
+    {
 #if defined(RL_READLINE_VERSION) && RL_READLINE_VERSION >= 0x0600
-     resetReadline();
+        resetReadline();
 #endif
-     rl_callback_handler_remove();
-     ReadlineStack.fun[ReadlineStack.current--] = NULL;
-     if(ReadlineStack.current > -1 && ReadlineStack.fun[ReadlineStack.current])
-	rl_callback_handler_install("", ReadlineStack.fun[ReadlineStack.current]);
-  }
+        rl_callback_handler_remove();
+        ReadlineStack.fun[ReadlineStack.current--] = NULL;
+        if (ReadlineStack.current > -1 && ReadlineStack.fun[ReadlineStack.current])
+            rl_callback_handler_install("", ReadlineStack.fun[ReadlineStack.current]);
+    }
 }
 
 static void readline_handler(char *line)
@@ -667,31 +668,35 @@ static void readline_handler(char *line)
        undesirable indentation here when the input is empty, but the
        cursor has been moved to the next line.
        As a work-around, clear the prompt. */
-    if (line && !line[0]) rl_set_prompt("");
+    if (line && !line[0])
+        rl_set_prompt("");
 #endif
     popReadline();
 
     if ((rl_top->readline_eof = !line)) /* Yes, I don't mean ==...*/
-	return;
-    if (line[0]) {
-# ifdef HAVE_READLINE_HISTORY_H
-	if (strlen(line) && rl_top->readline_addtohistory)
-	    add_history(line);
-# endif
-	/* We need to append a \n if the completed line would fit in the
-	   buffer but not otherwise.  Byte [buflen] is zeroed in
-	   the caller.
-	*/
-	strncpy((char *)rl_top->readline_buf, line, buflen);
-	size_t l = strlen(line);
-	if(l < buflen - 1) {
-	    rl_top->readline_buf[l] = '\n';
-	    rl_top->readline_buf[l+1] = '\0';
-	}
+        return;
+    if (line[0])
+    {
+#ifdef HAVE_READLINE_HISTORY_H
+        if (strlen(line) && rl_top->readline_addtohistory)
+            add_history(line);
+#endif
+        /* We need to append a \n if the completed line would fit in the
+           buffer but not otherwise.  Byte [buflen] is zeroed in
+           the caller.
+        */
+        strncpy((char *)rl_top->readline_buf, line, buflen);
+        size_t l = strlen(line);
+        if (l < buflen - 1)
+        {
+            rl_top->readline_buf[l] = '\n';
+            rl_top->readline_buf[l + 1] = '\0';
+        }
     }
-    else {
-	rl_top->readline_buf[0] = '\n';
-	rl_top->readline_buf[1] = '\0';
+    else
+    {
+        rl_top->readline_buf[0] = '\n';
+        rl_top->readline_buf[1] = '\0';
     }
     free(line);
     rl_top->readline_gotaline = 1;
@@ -714,8 +719,7 @@ static void readline_handler(char *line)
  the host application will probably not let things get that far and trap the
  signals itself.
 */
-static void
-handleInterrupt(void)
+static void handleInterrupt(void)
 {
     popReadline();
     onintrNoResume();
@@ -730,26 +734,20 @@ handleInterrupt(void)
 static char **R_custom_completion(const char *text, int start, int end);
 static char *R_completion_generator(const char *text, int state);
 
-static SEXP
-    RComp_assignBufferSym,
-    RComp_assignStartSym,
-    RComp_assignEndSym,
-    RComp_assignTokenSym,
-    RComp_completeTokenSym,
-    RComp_getFileCompSym,
-    RComp_retrieveCompsSym;
+static SEXP RComp_assignBufferSym, RComp_assignStartSym, RComp_assignEndSym, RComp_assignTokenSym,
+    RComp_completeTokenSym, RComp_getFileCompSym, RComp_retrieveCompsSym;
 
-attribute_hidden
-void set_rl_word_breaks(const char *str)
+attribute_hidden void set_rl_word_breaks(const char *str)
 {
     static char p1[201], p2[203];
-    strncpy(p1, str, 200); p1[200]= '\0';
-    strncpy(p2, p1, 200); p2[200] = '\0';
+    strncpy(p1, str, 200);
+    p1[200] = '\0';
+    strncpy(p2, p1, 200);
+    p2[200] = '\0';
     strcat(p2, "[]");
     rl_basic_word_break_characters = p2;
     rl_completer_word_break_characters = p1;
 }
-
 
 /* Tell the GNU Readline library how to complete. */
 
@@ -759,48 +757,54 @@ static SEXP rcompgen_rho;
 #include <R_ext/Parse.h>
 static void initialize_rlcompletion(void)
 {
-    if(rcompgen_active >= 0) return;
+    if (rcompgen_active >= 0)
+        return;
 
     /* Find if package utils is around */
-    if(rcompgen_active < 0) {
-	char *p = getenv("R_COMPLETION");
-	if(p && streql(p, "FALSE")) {
-	    rcompgen_active = 0;
-	    return;
-	}
-	/* First check if namespace is loaded */
-	if(findVarInFrame(R_NamespaceRegistry, install("utils"))
-	   != R_UnboundValue) rcompgen_active = 1;
-	else { /* Then try to load it */
-	    SEXP cmdSexp, cmdexpr;
-	    ParseStatus status;
-	    int i;
-	    char *p = "try(loadNamespace('rcompgen'), silent=TRUE)";
+    if (rcompgen_active < 0)
+    {
+        char *p = getenv("R_COMPLETION");
+        if (p && streql(p, "FALSE"))
+        {
+            rcompgen_active = 0;
+            return;
+        }
+        /* First check if namespace is loaded */
+        if (findVarInFrame(R_NamespaceRegistry, install("utils")) != R_UnboundValue)
+            rcompgen_active = 1;
+        else
+        { /* Then try to load it */
+            SEXP cmdSexp, cmdexpr;
+            ParseStatus status;
+            int i;
+            char *p = "try(loadNamespace('rcompgen'), silent=TRUE)";
 
-	    PROTECT(cmdSexp = mkString(p));
-	    cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
-	    if(status == PARSE_OK) {
-		for(i = 0; i < length(cmdexpr); i++)
-		    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
-	    }
-	    UNPROTECT(2);
-	    if(findVarInFrame(R_NamespaceRegistry, install("utils"))
-	       != R_UnboundValue) rcompgen_active = 1;
-	    else {
-		rcompgen_active = 0;
-		return;
-	    }
-	}
+            PROTECT(cmdSexp = mkString(p));
+            cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
+            if (status == PARSE_OK)
+            {
+                for (i = 0; i < length(cmdexpr); i++)
+                    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
+            }
+            UNPROTECT(2);
+            if (findVarInFrame(R_NamespaceRegistry, install("utils")) != R_UnboundValue)
+                rcompgen_active = 1;
+            else
+            {
+                rcompgen_active = 0;
+                return;
+            }
+        }
     }
 
     rcompgen_rho = R_FindNamespace(mkString("utils"));
 
-    RComp_assignBufferSym  = install(".assignLinebuffer");
-    RComp_assignStartSym   = install(".assignStart");
-    RComp_assignEndSym     = install(".assignEnd");
-    RComp_assignTokenSym   = install(".assignToken");
+    RComp_assignBufferSym = install(".assignLinebuffer");
+    RComp_assignStartSym = install(".assignStart");
+    RComp_assignEndSym = install(".assignEnd");
+    RComp_assignTokenSym = install(".assignToken");
     RComp_completeTokenSym = install(".completeToken");
-    RComp_getFileCompSym   = install(".getFileComp");
+    RComp_getFileCompSym = install(".getFileComp");
     RComp_retrieveCompsSym = install(".retrieveCompletions");
 
     /* Tell the completer that we want a crack first. */
@@ -836,11 +840,8 @@ static void initialize_rlcompletion(void)
        All that might not be worth the pain though (vector names would
        be practically impossible, to begin with) */
 
-
     return;
 }
-
-
 
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
@@ -848,22 +849,19 @@ static void initialize_rlcompletion(void)
    in case we want to do some simple parsing.  Return the array of matches,
    or NULL if there aren't any. */
 
-static char **
-R_custom_completion(const char *text, int start, int end)
-     /*
-	Make some relevant information available to R, then call
-	rl_completion_matches to generate matches.  FIXME: It would be
-	nice if we could figure whether we are in a partially
-	completed line (R prompt == "+"), in which case we could keep
-	the old line buffer around and do useful things with it.
-     */
+static char **R_custom_completion(const char *text, int start, int end)
+/*
+Make some relevant information available to R, then call
+rl_completion_matches to generate matches.  FIXME: It would be
+nice if we could figure whether we are in a partially
+completed line (R prompt == "+"), in which case we could keep
+the old line buffer around and do useful things with it.
+*/
 {
     char **matches = (char **)NULL;
-    SEXP infile,
-	linebufferCall = PROTECT(lang2(RComp_assignBufferSym,
-				       mkString(rl_line_buffer))),
-	startCall = PROTECT(lang2(RComp_assignStartSym, ScalarInteger(start))),
-	endCall = PROTECT(lang2(RComp_assignEndSym,ScalarInteger(end)));
+    SEXP infile, linebufferCall = PROTECT(lang2(RComp_assignBufferSym, mkString(rl_line_buffer))),
+                 startCall = PROTECT(lang2(RComp_assignStartSym, ScalarInteger(start))),
+                 endCall = PROTECT(lang2(RComp_assignEndSym, ScalarInteger(end)));
     SEXP filecompCall;
 
     /* Don't want spaces appended at the end.  Need to do this
@@ -877,7 +875,8 @@ R_custom_completion(const char *text, int start, int end)
     matches = rl_completion_matches(text, R_completion_generator);
     filecompCall = PROTECT(lang1(RComp_getFileCompSym));
     infile = PROTECT(eval(filecompCall, rcompgen_rho));
-    if (!asLogical(infile)) rl_attempted_completion_over = 1;
+    if (!asLogical(infile))
+        rl_attempted_completion_over = 1;
     UNPROTECT(2);
     return matches;
 }
@@ -900,216 +899,235 @@ static char *R_completion_generator(const char *text, int state)
        involves saving 'text' to somewhere R can get at it, calling
        completeToken(), and retrieving the completions. */
 
-    if (!state) {
-	SEXP
-	    assignCall = PROTECT(lang2(RComp_assignTokenSym, mkString(text))),
-	    completionCall = PROTECT(lang1(RComp_completeTokenSym)),
-	    retrieveCall = PROTECT(lang1(RComp_retrieveCompsSym));
-	const void *vmax = vmaxget();
+    if (!state)
+    {
+        SEXP assignCall = PROTECT(lang2(RComp_assignTokenSym, mkString(text))),
+             completionCall = PROTECT(lang1(RComp_completeTokenSym)),
+             retrieveCall = PROTECT(lang1(RComp_retrieveCompsSym));
+        const void *vmax = vmaxget();
 
-	eval(assignCall, rcompgen_rho);
-	eval(completionCall, rcompgen_rho);
-	SEXP completions = PROTECT(eval(retrieveCall, rcompgen_rho));
-	list_index = 0;
-	ncomp = length(completions);
-	if (ncomp > 0) {
-	    compstrings = (char **) malloc(ncomp * sizeof(char*));
-	    if (!compstrings) {
-		UNPROTECT(4);
-		return (char *)NULL;
-	    }
-	    for (int i = 0; i < ncomp; i++) {
-		compstrings[i] =
-		    strdup(translateChar(STRING_ELT(completions, i)));
-		if (!compstrings[i]) {
-		    UNPROTECT(4);
-		    for (int j = 0; j < i; j++) free(compstrings[j]);
-		    free(compstrings);
-		    return (char *)NULL;
-		}
-	    }
-	}
-	UNPROTECT(4);
-	vmaxset(vmax);
+        eval(assignCall, rcompgen_rho);
+        eval(completionCall, rcompgen_rho);
+        SEXP completions = PROTECT(eval(retrieveCall, rcompgen_rho));
+        list_index = 0;
+        ncomp = length(completions);
+        if (ncomp > 0)
+        {
+            compstrings = (char **)malloc(ncomp * sizeof(char *));
+            if (!compstrings)
+            {
+                UNPROTECT(4);
+                return (char *)NULL;
+            }
+            for (int i = 0; i < ncomp; i++)
+            {
+                compstrings[i] = strdup(translateChar(STRING_ELT(completions, i)));
+                if (!compstrings[i])
+                {
+                    UNPROTECT(4);
+                    for (int j = 0; j < i; j++)
+                        free(compstrings[j]);
+                    free(compstrings);
+                    return (char *)NULL;
+                }
+            }
+        }
+        UNPROTECT(4);
+        vmaxset(vmax);
     }
 
     if (list_index < ncomp)
-	return compstrings[list_index++];
-    else {
-	/* nothing matched or remaining, so return NULL. */
-	if (ncomp > 0) free(compstrings);
+        return compstrings[list_index++];
+    else
+    {
+        /* nothing matched or remaining, so return NULL. */
+        if (ncomp > 0)
+            free(compstrings);
     }
     return (char *)NULL;
 }
 
 /* ============================================================ */
 #else
-attribute_hidden
-void set_rl_word_breaks(const char *str)
+attribute_hidden void set_rl_word_breaks(const char *str)
 {
 }
 #endif /* HAVE_RL_COMPLETION_MATCHES */
 
 #else
-static void
-handleInterrupt(void)
+static void handleInterrupt(void)
 {
     onintrNoResume();
 }
 #endif /* HAVE_LIBREADLINE */
 
-
 /* Fill a text buffer from stdin or with user typed console input. */
 static void *cd = NULL;
 
-attribute_hidden int
-Rstd_ReadConsole(const char *prompt, unsigned char *buf, int len,
-		 int addtohistory)
+attribute_hidden int Rstd_ReadConsole(const char *prompt, unsigned char *buf, int len, int addtohistory)
 {
-    if(!R_Interactive) {
-	size_t ll;
-	int err = 0;
-	if (!R_NoEcho) {
-	    fputs(prompt, stdout);
-	    fflush(stdout); /* make sure prompt is output */
-	}
-	if (fgets((char *)buf, len, ifp ? ifp: stdin) == NULL)
-	    return 0;
-	ll = strlen((char *)buf);
-	/* remove CR in CRLF ending */
-	if (ll >= 2 && buf[ll - 1] == '\n' && buf[ll - 2] == '\r') {
-	    buf[ll - 2] = '\n';
-	    buf[--ll] = '\0';
-	}
-	/* translate if necessary */
-	if(strlen(R_StdinEnc) && strcmp(R_StdinEnc, "native.enc")) {
-	    size_t res, inb = strlen((char *)buf), onb = len;
-	    /* NB: this is somewhat dangerous.  R's main loop and
-	       scan will not call it with a larger value, but
-	       contributed code might. */
-	    char obuf[CONSOLE_BUFFER_SIZE+1];
-	    const char *ib = (const char *)buf;
-	    char *ob = obuf;
-	    if(!cd) {
-		cd = Riconv_open("", R_StdinEnc);
-		if(cd == (void *)-1) error(_("encoding '%s' is not recognised"), R_StdinEnc);
-	    }
-	    res = Riconv(cd, &ib, &inb, &ob, &onb);
-	    *ob = '\0';
-	    err = res == (size_t)(-1);
-	    /* errors lead to part of the input line being ignored */
-	    if(err) {
-		printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
-		       R_StdinEnc);
-		strncpy((char *)buf, obuf, len);
-		strcat((char *)buf, "...\n");
-	    } else
-		strncpy((char *)buf, obuf, len);
-	}
-/* according to system.txt, should be terminated in \n, so check this
-   at eof and error */
-	if ((err || feof(ifp ? ifp : stdin))
-	    && (ll == 0 || buf[ll - 1] != '\n') && ll < (size_t)len) {
-	    buf[ll++] = '\n'; buf[ll] = '\0';
-	}
-	if (!R_NoEcho) {
-	    fputs((char *)buf, stdout);
-	    fflush(stdout);
-	}
-	return 1;
+    if (!R_Interactive)
+    {
+        size_t ll;
+        int err = 0;
+        if (!R_NoEcho)
+        {
+            fputs(prompt, stdout);
+            fflush(stdout); /* make sure prompt is output */
+        }
+        if (fgets((char *)buf, len, ifp ? ifp : stdin) == NULL)
+            return 0;
+        ll = strlen((char *)buf);
+        /* remove CR in CRLF ending */
+        if (ll >= 2 && buf[ll - 1] == '\n' && buf[ll - 2] == '\r')
+        {
+            buf[ll - 2] = '\n';
+            buf[--ll] = '\0';
+        }
+        /* translate if necessary */
+        if (strlen(R_StdinEnc) && strcmp(R_StdinEnc, "native.enc"))
+        {
+            size_t res, inb = strlen((char *)buf), onb = len;
+            /* NB: this is somewhat dangerous.  R's main loop and
+               scan will not call it with a larger value, but
+               contributed code might. */
+            char obuf[CONSOLE_BUFFER_SIZE + 1];
+            const char *ib = (const char *)buf;
+            char *ob = obuf;
+            if (!cd)
+            {
+                cd = Riconv_open("", R_StdinEnc);
+                if (cd == (void *)-1)
+                    error(_("encoding '%s' is not recognised"), R_StdinEnc);
+            }
+            res = Riconv(cd, &ib, &inb, &ob, &onb);
+            *ob = '\0';
+            err = res == (size_t)(-1);
+            /* errors lead to part of the input line being ignored */
+            if (err)
+            {
+                printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"), R_StdinEnc);
+                strncpy((char *)buf, obuf, len);
+                strcat((char *)buf, "...\n");
+            }
+            else
+                strncpy((char *)buf, obuf, len);
+        }
+        /* according to system.txt, should be terminated in \n, so check this
+           at eof and error */
+        if ((err || feof(ifp ? ifp : stdin)) && (ll == 0 || buf[ll - 1] != '\n') && ll < (size_t)len)
+        {
+            buf[ll++] = '\n';
+            buf[ll] = '\0';
+        }
+        if (!R_NoEcho)
+        {
+            fputs((char *)buf, stdout);
+            fflush(stdout);
+        }
+        return 1;
     }
-    else {
+    else
+    {
 #ifdef HAVE_LIBREADLINE
-	R_ReadlineData rl_data;
-	if (UsingReadline) {
-	    rl_data.readline_gotaline = 0;
-	    rl_data.readline_buf = buf;
-	    rl_data.readline_addtohistory = addtohistory;
-	    rl_data.readline_len = len;
-	    rl_data.readline_eof = 0;
-	    rl_data.prev = rl_top;
-	    rl_top = &rl_data;
-	    /* Allow conditional parsing of the ~/.inputrc file. */
-	    rl_readline_name = "R";
-	    pushReadline(prompt, readline_handler);
+        R_ReadlineData rl_data;
+        if (UsingReadline)
+        {
+            rl_data.readline_gotaline = 0;
+            rl_data.readline_buf = buf;
+            rl_data.readline_addtohistory = addtohistory;
+            rl_data.readline_len = len;
+            rl_data.readline_eof = 0;
+            rl_data.prev = rl_top;
+            rl_top = &rl_data;
+            /* Allow conditional parsing of the ~/.inputrc file. */
+            rl_readline_name = "R";
+            pushReadline(prompt, readline_handler);
 #ifdef HAVE_RL_COMPLETION_MATCHES
-	    initialize_rlcompletion();
+            initialize_rlcompletion();
 #endif
-	}
-	else
+        }
+        else
 #endif /* HAVE_LIBREADLINE */
-	{
-	    fputs(prompt, stdout);
-	    fflush(stdout);
-	}
+        {
+            fputs(prompt, stdout);
+            fflush(stdout);
+        }
 
-	if(R_InputHandlers == NULL)
-	    initStdinHandler();
+        if (R_InputHandlers == NULL)
+            initStdinHandler();
 
-	for (;;) {
-	    fd_set *what;
+        for (;;)
+        {
+            fd_set *what;
 
-	    int wt = -1;
-	    if (R_wait_usec > 0) wt = R_wait_usec;
-	    if (Rg_wait_usec > 0 && (wt < 0 || wt > Rg_wait_usec))
-		wt = Rg_wait_usec;
-	    what = R_checkActivityEx(wt, 0, handleInterrupt);
+            int wt = -1;
+            if (R_wait_usec > 0)
+                wt = R_wait_usec;
+            if (Rg_wait_usec > 0 && (wt < 0 || wt > Rg_wait_usec))
+                wt = Rg_wait_usec;
+            what = R_checkActivityEx(wt, 0, handleInterrupt);
 #ifdef NEED_INT_HANDLER
-            if (UsingReadline && caught_sigwinch) {
-		caught_sigwinch = FALSE;
-		// introduced in readline 4.0: only used for >= 6.3
+            if (UsingReadline && caught_sigwinch)
+            {
+                caught_sigwinch = FALSE;
+                // introduced in readline 4.0: only used for >= 6.3
 #ifdef HAVE_RL_RESIZE_TERMINAL
-		rl_resize_terminal();
-		static int oldwidth;
-		int height, width;
-		rl_get_screen_size(&height,&width);
-		if (oldwidth >= 0 && oldwidth != width) {
-		    static SEXP opsym = NULL;
-		    if (! opsym)
-			opsym = install("setWidthOnResize");
-		    Rboolean setOK = asLogical(GetOption1(opsym));
-		    oldwidth = width;
-		    if (setOK != NA_LOGICAL && setOK)
-			R_SetOptionWidth(width);
-		}
+                rl_resize_terminal();
+                static int oldwidth;
+                int height, width;
+                rl_get_screen_size(&height, &width);
+                if (oldwidth >= 0 && oldwidth != width)
+                {
+                    static SEXP opsym = NULL;
+                    if (!opsym)
+                        opsym = install("setWidthOnResize");
+                    Rboolean setOK = asLogical(GetOption1(opsym));
+                    oldwidth = width;
+                    if (setOK != NA_LOGICAL && setOK)
+                        R_SetOptionWidth(width);
+                }
 #endif
             }
 #endif
 
-	    /* This is slightly clumsy. We have advertised the
-	     * convention that R_wait_usec == 0 means "wait forever",
-	     * but we also need to enable R_checkActivity to return
-	     * immediately. */
+            /* This is slightly clumsy. We have advertised the
+             * convention that R_wait_usec == 0 means "wait forever",
+             * but we also need to enable R_checkActivity to return
+             * immediately. */
 
-	    R_runHandlers(R_InputHandlers, what);
-	    if (what == NULL)
-		continue;
-	    if (FD_ISSET(fileno(stdin), what)) {
-		/* We could make this a regular handler, but we need
-		 * to pass additional arguments. */
+            R_runHandlers(R_InputHandlers, what);
+            if (what == NULL)
+                continue;
+            if (FD_ISSET(fileno(stdin), what))
+            {
+                /* We could make this a regular handler, but we need
+                 * to pass additional arguments. */
 #ifdef HAVE_LIBREADLINE
-		if (UsingReadline) {
-		    rl_callback_read_char();
-		    if(rl_data.readline_eof || rl_data.readline_gotaline) {
-			rl_top = rl_data.prev;
-			return(rl_data.readline_eof ? 0 : 1);
-		    }
-		}
-		else
+                if (UsingReadline)
+                {
+                    rl_callback_read_char();
+                    if (rl_data.readline_eof || rl_data.readline_gotaline)
+                    {
+                        rl_top = rl_data.prev;
+                        return (rl_data.readline_eof ? 0 : 1);
+                    }
+                }
+                else
 #endif /* HAVE_LIBREADLINE */
-		{
-		    if(fgets((char *)buf, len, stdin) == NULL)
-			return 0;
-		    else
-			return 1;
-		}
-	    }
-	}
+                {
+                    if (fgets((char *)buf, len, stdin) == NULL)
+                        return 0;
+                    else
+                        return 1;
+                }
+            }
+        }
     }
 }
 
-	/* Write a text buffer to the console. */
-	/* All system output is filtered through this routine (unless R_Consolefile is used). */
+/* Write a text buffer to the console. */
+/* All system output is filtered through this routine (unless R_Consolefile is used). */
 
 attribute_hidden void Rstd_WriteConsole(const char *buf, int len)
 {
@@ -1122,28 +1140,26 @@ attribute_hidden void Rstd_WriteConsole(const char *buf, int len)
 attribute_hidden void Rstd_WriteConsoleEx(const char *buf, int len, int otype)
 {
     if (otype)
-      printf("\033[1m%s\033[0m", buf);
+        printf("\033[1m%s\033[0m", buf);
     else
-      printf("%s", buf);
+        printf("%s", buf);
     fflush(stdout);
 }
 
-
-	/* Indicate that input is coming from the console */
+/* Indicate that input is coming from the console */
 
 attribute_hidden void Rstd_ResetConsole(void)
 {
 }
 
-
-	/* Stdio support to ensure the console file buffer is flushed */
+/* Stdio support to ensure the console file buffer is flushed */
 
 attribute_hidden void Rstd_FlushConsole(void)
 {
     /* fflush(stdin);  really work on Solaris on pipes */
 }
 
-	/* Reset stdin if the user types EOF on the console. */
+/* Reset stdin if the user types EOF on the console. */
 
 attribute_hidden void Rstd_ClearerrConsole(void)
 {
@@ -1181,86 +1197,98 @@ void R_CleanTempDir(void)
 {
     char buf[1024];
 
-    if((Sys_TempDir)) {
+    if ((Sys_TempDir))
+    {
 // Only __sun is neeed on Solaris >= 10 (2005).
 #if defined(__sun) || defined(sun)
-	/* On Solaris the working directory must be outside this one */
-	chdir(R_HomeDir());
+        /* On Solaris the working directory must be outside this one */
+        chdir(R_HomeDir());
 #endif
-	snprintf(buf, 1024, "rm -Rf %s", Sys_TempDir);
-	buf[1023] = '\0';
-	R_system(buf);
+        snprintf(buf, 1024, "rm -Rf %s", Sys_TempDir);
+        buf[1023] = '\0';
+        R_system(buf);
     }
 }
 
-
-attribute_hidden NORET
-void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
+attribute_hidden NORET void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
 {
-    if(saveact == SA_DEFAULT) /* The normal case apart from R_Suicide */
-	saveact = SaveAction;
+    if (saveact == SA_DEFAULT) /* The normal case apart from R_Suicide */
+        saveact = SaveAction;
 
-    if(saveact == SA_SAVEASK) {
-	if(R_Interactive) {
-	    unsigned char buf[1024];
-	qask:
+    if (saveact == SA_SAVEASK)
+    {
+        if (R_Interactive)
+        {
+            unsigned char buf[1024];
+        qask:
 
-	    R_ClearerrConsole();
-	    R_FlushConsole();
-	    int res = R_ReadConsole("Save workspace image? [y/n/c]: ",
-				    buf, 128, 0);
-	    if(res) {
-		switch (buf[0]) {
-		case 'y':
-		case 'Y':
-		    saveact = SA_SAVE;
-		    break;
-		case 'n':
-		case 'N':
-		    saveact = SA_NOSAVE;
-		    break;
-		case 'c':
-		case 'C':
-		    jump_to_toplevel();
-		    break;
-		default:
-		    goto qask;
-		}
-	    } else saveact = SA_NOSAVE; /* probably EOF */
-	} else
-	    saveact = SaveAction;
+            R_ClearerrConsole();
+            R_FlushConsole();
+            int res = R_ReadConsole("Save workspace image? [y/n/c]: ", buf, 128, 0);
+            if (res)
+            {
+                switch (buf[0])
+                {
+                case 'y':
+                case 'Y':
+                    saveact = SA_SAVE;
+                    break;
+                case 'n':
+                case 'N':
+                    saveact = SA_NOSAVE;
+                    break;
+                case 'c':
+                case 'C':
+                    jump_to_toplevel();
+                    break;
+                default:
+                    goto qask;
+                }
+            }
+            else
+                saveact = SA_NOSAVE; /* probably EOF */
+        }
+        else
+            saveact = SaveAction;
     }
-    switch (saveact) {
+    switch (saveact)
+    {
     case SA_SAVE:
-	if(runLast) R_dot_Last();
-	if(R_DirtyImage) R_SaveGlobalEnv();
+        if (runLast)
+            R_dot_Last();
+        if (R_DirtyImage)
+            R_SaveGlobalEnv();
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY_H)
-	if(R_Interactive && UsingReadline) {
-	    int err;
-	    R_setupHistory(); /* re-read the history size and filename */
-	    stifle_history(R_HistorySize);
-	    err = write_history(R_HistoryFile);
-	    if(err) warning(_("problem in saving the history file '%s'"),
-			    R_HistoryFile);
-	}
+        if (R_Interactive && UsingReadline)
+        {
+            int err;
+            R_setupHistory(); /* re-read the history size and filename */
+            stifle_history(R_HistorySize);
+            err = write_history(R_HistoryFile);
+            if (err)
+                warning(_("problem in saving the history file '%s'"), R_HistoryFile);
+        }
 #endif
-	break;
+        break;
     case SA_NOSAVE:
-	if(runLast) R_dot_Last();
-	break;
+        if (runLast)
+            R_dot_Last();
+        break;
     case SA_SUICIDE:
     default:
-	break;
+        break;
     }
     R_RunExitFinalizers();
     CleanEd();
-    if(saveact != SA_SUICIDE) KillAllDevices();
+    if (saveact != SA_SUICIDE)
+        KillAllDevices();
     R_CleanTempDir();
-    if(saveact != SA_SUICIDE && R_CollectWarnings)
-	PrintWarnings();	/* from device close and (if run) .Last */
-    if(ifp) {
-	fclose(ifp);    /* input file from -f or --file= */
-	ifp = NULL; 	/* To avoid trying to close it again */
+    if (saveact != SA_SUICIDE && R_CollectWarnings)
+        PrintWarnings(); /* from device close and (if run) .Last */
+    if (ifp)
+    {
+        fclose(ifp); /* input file from -f or --file= */
+        ifp = NULL;  /* To avoid trying to close it again */
     }
     fpu_setup(FALSE);
 
@@ -1271,76 +1299,76 @@ void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
  *  7) PLATFORM DEPENDENT FUNCTIONS
  */
 
-# include <errno.h>
+#include <errno.h>
 
-attribute_hidden int
-Rstd_ShowFiles(int nfile,		/* number of files */
-	       const char **file,		/* array of filenames */
-	       const char **headers,	/* the `headers' args of file.show.
-					   Printed before each file. */
-	       const char *wtitle,	/* title for window
-					   = `title' arg of file.show */
-	       Rboolean del,	/* should files be deleted after use? */
-	       const char *pager)		/* pager to be used */
+attribute_hidden int Rstd_ShowFiles(int nfile,            /* number of files */
+                                    const char **file,    /* array of filenames */
+                                    const char **headers, /* the `headers' args of file.show.
+                                             Printed before each file. */
+                                    const char *wtitle,   /* title for window
+                                                 = `title' arg of file.show */
+                                    Rboolean del,         /* should files be deleted after use? */
+                                    const char *pager)    /* pager to be used */
 
 {
-/*
-	This function can be used to display the named files with the
-	given titles and overall title.	 On GUI platforms we could
-	use a read-only window to display the result.  Here we just
-	make up a temporary file and invoke a pager on it.
-*/
+    /*
+        This function can be used to display the named files with the
+        given titles and overall title.	 On GUI platforms we could
+        use a read-only window to display the result.  Here we just
+        make up a temporary file and invoke a pager on it.
+    */
 
     int c, i, res;
     char *filename;
     FILE *fp, *tfp;
     char buf[1024];
 
-    if (nfile > 0) {
-	if (pager == NULL || strlen(pager) == 0) pager = "more";
-	filename = R_tmpnam(NULL, R_TempDir); /* mallocs result */
-	if ((tfp = R_fopen(filename, "w")) != NULL) {
-	    for(i = 0; i < nfile; i++) {
-		if (headers[i] && *headers[i])
-		    fprintf(tfp, "%s\n\n", headers[i]);
-		errno = 0; /* some systems require this */
-		/* File expansion is now done in file.show(), but
-		   left here in case other callers assumed it */
-		if ((fp = R_fopen(R_ExpandFileName(file[i]), "r"))
-		    != NULL) {
-		    while ((c = fgetc(fp)) != EOF)
-			fputc(c, tfp);
-		    fprintf(tfp, "\n");
-		    fclose(fp);
-		    if(del)
-			unlink(R_ExpandFileName(file[i]));
-		}
-		else
-		    fprintf(tfp, _("Cannot open file '%s': %s\n\n"),
-			    file[i], strerror(errno));
-	    }
-	    fclose(tfp);
-	}
-	snprintf(buf, 1024, "'%s' < '%s'", pager, filename); //might contain spaces
-	res = R_system(buf);
-	if (res == 127)
-	    warningcall(R_NilValue, _("error in running command"));
-	unlink(filename);
-	free(filename);
-	return (res != 0);
+    if (nfile > 0)
+    {
+        if (pager == NULL || strlen(pager) == 0)
+            pager = "more";
+        filename = R_tmpnam(NULL, R_TempDir); /* mallocs result */
+        if ((tfp = R_fopen(filename, "w")) != NULL)
+        {
+            for (i = 0; i < nfile; i++)
+            {
+                if (headers[i] && *headers[i])
+                    fprintf(tfp, "%s\n\n", headers[i]);
+                errno = 0; /* some systems require this */
+                /* File expansion is now done in file.show(), but
+                   left here in case other callers assumed it */
+                if ((fp = R_fopen(R_ExpandFileName(file[i]), "r")) != NULL)
+                {
+                    while ((c = fgetc(fp)) != EOF)
+                        fputc(c, tfp);
+                    fprintf(tfp, "\n");
+                    fclose(fp);
+                    if (del)
+                        unlink(R_ExpandFileName(file[i]));
+                }
+                else
+                    fprintf(tfp, _("Cannot open file '%s': %s\n\n"), file[i], strerror(errno));
+            }
+            fclose(tfp);
+        }
+        snprintf(buf, 1024, "'%s' < '%s'", pager, filename); // might contain spaces
+        res = R_system(buf);
+        if (res == 127)
+            warningcall(R_NilValue, _("error in running command"));
+        unlink(filename);
+        free(filename);
+        return (res != 0);
     }
     return 1;
 }
 
+/*
+   Prompt the user for a file name.  Return the length of
+   the name typed.  On Gui platforms, this should bring up
+   a dialog box so a user can choose files that way.
+*/
 
-    /*
-       Prompt the user for a file name.  Return the length of
-       the name typed.  On Gui platforms, this should bring up
-       a dialog box so a user can choose files that way.
-    */
-
-
-#include <ctype.h>  /* for isspace */
+#include <ctype.h> /* for isspace */
 
 attribute_hidden int Rstd_ChooseFile(int _new, char *buf, int len)
 {
@@ -1350,22 +1378,21 @@ attribute_hidden int Rstd_ChooseFile(int _new, char *buf, int len)
     namelen = strlen(buf);
     bufp = &buf[namelen - 1];
     while (bufp >= buf && isspace((int)*bufp))
-	*bufp-- = '\0';
-    return (int) strlen(buf);
+        *bufp-- = '\0';
+    return (int)strlen(buf);
 }
-
 
 attribute_hidden void Rstd_ShowMessage(const char *s)
 {
     REprintf("%s\n", s);
 }
 
-
 attribute_hidden void Rstd_read_history(const char *s)
 {
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY_H)
-    if(R_Interactive && UsingReadline) {
-	read_history(s);
+    if (R_Interactive && UsingReadline)
+    {
+        read_history(s);
     }
 #endif
 }
@@ -1378,16 +1405,19 @@ attribute_hidden void Rstd_loadhistory(SEXP call, SEXP op, SEXP args, SEXP env)
 
     sfile = CAR(args);
     if (!isString(sfile) || LENGTH(sfile) < 1)
-	errorcall(call, _("invalid '%s' argument"), "file");
+        errorcall(call, _("invalid '%s' argument"), "file");
     p = R_ExpandFileName(translateCharFP(STRING_ELT(sfile, 0)));
-    if(strlen(p) > PATH_MAX - 1)
-	errorcall(call, _("'file' argument is too long"));
+    if (strlen(p) > PATH_MAX - 1)
+        errorcall(call, _("'file' argument is too long"));
     strcpy(file, p);
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY_H)
-    if(R_Interactive && UsingReadline) {
-	clear_history();
-	read_history(file);
-    } else errorcall(call, _("no history mechanism available"));
+    if (R_Interactive && UsingReadline)
+    {
+        clear_history();
+        read_history(file);
+    }
+    else
+        errorcall(call, _("no history mechanism available"));
 #else
     errorcall(call, _("no history mechanism available"));
 #endif
@@ -1401,24 +1431,29 @@ attribute_hidden void Rstd_savehistory(SEXP call, SEXP op, SEXP args, SEXP env)
 
     sfile = CAR(args);
     if (!isString(sfile) || LENGTH(sfile) < 1)
-	errorcall(call, _("invalid '%s' argument"), "file");
+        errorcall(call, _("invalid '%s' argument"), "file");
     p = R_ExpandFileName(translateCharFP(STRING_ELT(sfile, 0)));
-    if(strlen(p) > PATH_MAX - 1)
-	errorcall(call, _("'file' argument is too long"));
+    if (strlen(p) > PATH_MAX - 1)
+        errorcall(call, _("'file' argument is too long"));
     strcpy(file, p);
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY_H)
-    if(R_Interactive && UsingReadline) {
-	int err;
-	err = write_history(file);
-	if(err) error(_("problem in saving the history file '%s'"), file);
-	/* Note that q() uses stifle_history, but here we do not want
-	 * to truncate the active history when saving during a session */
+    if (R_Interactive && UsingReadline)
+    {
+        int err;
+        err = write_history(file);
+        if (err)
+            error(_("problem in saving the history file '%s'"), file);
+            /* Note that q() uses stifle_history, but here we do not want
+             * to truncate the active history when saving during a session */
 #ifdef HAVE_HISTORY_TRUNCATE_FILE
-	R_setupHistory(); /* re-read the history size */
-	err = history_truncate_file(file, R_HistorySize);
-	if(err) warning(_("problem in truncating the history file"));
+        R_setupHistory(); /* re-read the history size */
+        err = history_truncate_file(file, R_HistorySize);
+        if (err)
+            warning(_("problem in truncating the history file"));
 #endif
-    } else errorcall(call, _("no history available to save"));
+    }
+    else
+        errorcall(call, _("no history available to save"));
 #else
     errorcall(call, _("no history available to save"));
 #endif
@@ -1432,43 +1467,46 @@ attribute_hidden void Rstd_addhistory(SEXP call, SEXP op, SEXP args, SEXP env)
     checkArity(op, args);
     stamp = CAR(args);
     if (!isString(stamp))
-	errorcall(call, _("invalid timestamp"));
+        errorcall(call, _("invalid timestamp"));
 #if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY_H)
-    if(R_Interactive && UsingReadline)
-	for (i = 0; i < LENGTH(stamp); i++)
-	    add_history(CHAR(STRING_ELT(stamp, i))); /* ASCII */
-# endif
+    if (R_Interactive && UsingReadline)
+        for (i = 0; i < LENGTH(stamp); i++)
+            add_history(CHAR(STRING_ELT(stamp, i))); /* ASCII */
+#endif
 }
-
 
 #define R_MIN(a, b) ((a) < (b) ? (a) : (b))
 
 void Rsleep(double timeint)
 {
     double tm = timeint * 1e6, start = currentTime(), elapsed;
-    for (;;) {
-	fd_set *what;
-	tm = R_MIN(tm, 2e9); /* avoid integer overflow */
+    for (;;)
+    {
+        fd_set *what;
+        tm = R_MIN(tm, 2e9); /* avoid integer overflow */
 
-	int wt = -1;
-	if (R_wait_usec > 0) wt = R_wait_usec;
-	if (Rg_wait_usec > 0 && (wt < 0 || wt > Rg_wait_usec))
-	    wt = Rg_wait_usec;
-	int Timeout = (int) (wt > 0 ? R_MIN(tm, wt) : tm);
-	what = R_checkActivity(Timeout, 1);
-	/* For polling, elapsed time limit ... */
-	R_CheckUserInterrupt();
-	/* Time up? */
-	elapsed = currentTime() - start;
-	if(elapsed >= timeint) break;
+        int wt = -1;
+        if (R_wait_usec > 0)
+            wt = R_wait_usec;
+        if (Rg_wait_usec > 0 && (wt < 0 || wt > Rg_wait_usec))
+            wt = Rg_wait_usec;
+        int Timeout = (int)(wt > 0 ? R_MIN(tm, wt) : tm);
+        what = R_checkActivity(Timeout, 1);
+        /* For polling, elapsed time limit ... */
+        R_CheckUserInterrupt();
+        /* Time up? */
+        elapsed = currentTime() - start;
+        if (elapsed >= timeint)
+            break;
 
-	/* Nope, service pending events */
-	R_runHandlers(R_InputHandlers, what);
+        /* Nope, service pending events */
+        R_runHandlers(R_InputHandlers, what);
 
-	/* Servicing events might take some time, so recheck: */
-	elapsed = currentTime() - start;
-	if(elapsed >= timeint) break;
+        /* Servicing events might take some time, so recheck: */
+        elapsed = currentTime() - start;
+        if (elapsed >= timeint)
+            break;
 
-	tm = 1e6*(timeint - elapsed);
+        tm = 1e6 * (timeint - elapsed);
     }
 }

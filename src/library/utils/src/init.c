@@ -28,50 +28,53 @@
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
+#define CALLDEF(name, n)                                                                                               \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
-#define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
+static const R_CallMethodDef CallEntries[] = {CALLDEF(crc64, 1),
+                                              CALLDEF(flushconsole, 0),
+                                              CALLDEF(menu, 1),
+                                              CALLDEF(nsl, 1),
+                                              CALLDEF(objectSize, 1),
+                                              CALLDEF(processevents, 0),
+                                              CALLDEF(octsize, 1),
+                                              CALLDEF(charClass, 2),
+                                              CALLDEF(tzcode_type, 0),
 
-static const R_CallMethodDef CallEntries[] = {
-    CALLDEF(crc64, 1),
-    CALLDEF(flushconsole, 0),
-    CALLDEF(menu, 1),
-    CALLDEF(nsl, 1),
-    CALLDEF(objectSize, 1),
-    CALLDEF(processevents, 0),
-    CALLDEF(octsize, 1),
-    CALLDEF(charClass, 2),
-    CALLDEF(tzcode_type, 0),
-
-    /* Sockets */
-    CALLDEF(sockconnect, 2),
-    CALLDEF(sockread, 2),
-    CALLDEF(sockclose, 1),
-    CALLDEF(sockopen, 1),
-    CALLDEF(socklisten, 1),
-    CALLDEF(sockwrite, 2),
+                                              /* Sockets */
+                                              CALLDEF(sockconnect, 2),
+                                              CALLDEF(sockread, 2),
+                                              CALLDEF(sockclose, 1),
+                                              CALLDEF(sockopen, 1),
+                                              CALLDEF(socklisten, 1),
+                                              CALLDEF(sockwrite, 2),
 
 #ifdef Win32
-    CALLDEF(winver, 0),
-    CALLDEF(dllversion, 1),
-    CALLDEF(getClipboardFormats, 0),
-    CALLDEF(readClipboard, 2),
-    CALLDEF(writeClipboard, 2),
-    CALLDEF(getIdentification, 0),
-    CALLDEF(getWindowTitle, 0),
-    CALLDEF(setWindowTitle, 1),
-    CALLDEF(setStatusBar, 1),
-    CALLDEF(chooseFiles, 5),
-    CALLDEF(chooseDir, 2),
-    CALLDEF(getWindowsHandle, 1),
-    CALLDEF(getWindowsHandles, 2),
-    CALLDEF(loadRconsole, 1),
-    CALLDEF(shortpath, 1),
+                                              CALLDEF(winver, 0),
+                                              CALLDEF(dllversion, 1),
+                                              CALLDEF(getClipboardFormats, 0),
+                                              CALLDEF(readClipboard, 2),
+                                              CALLDEF(writeClipboard, 2),
+                                              CALLDEF(getIdentification, 0),
+                                              CALLDEF(getWindowTitle, 0),
+                                              CALLDEF(setWindowTitle, 1),
+                                              CALLDEF(setStatusBar, 1),
+                                              CALLDEF(chooseFiles, 5),
+                                              CALLDEF(chooseDir, 2),
+                                              CALLDEF(getWindowsHandle, 1),
+                                              CALLDEF(getWindowsHandles, 2),
+                                              CALLDEF(loadRconsole, 1),
+                                              CALLDEF(shortpath, 1),
 #endif
 
-    {NULL, NULL, 0}
-};
+                                              {NULL, NULL, 0}};
 
-#define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
+#define EXTDEF(name, n)                                                                                                \
+    {                                                                                                                  \
+#name, (DL_FUNC)&name, n                                                                                       \
+    }
 
 static const R_ExternalMethodDef ExtEntries[] = {
 #ifdef Win32
@@ -124,12 +127,9 @@ static const R_ExternalMethodDef ExtEntries[] = {
     EXTDEF(arrangeWindows, 4),
 #endif
 
-    {NULL, NULL, 0}
-};
+    {NULL, NULL, 0}};
 
-
-void attribute_visible
-R_init_utils(DllInfo *dll)
+void attribute_visible R_init_utils(DllInfo *dll)
 {
     R_registerRoutines(dll, NULL, CallEntries, NULL, ExtEntries);
     R_useDynamicSymbols(dll, FALSE);

@@ -47,78 +47,77 @@
 #include "nmath.h"
 #include "dpq.h"
 
-static double pdhyper (double x, double NR, double NB, double n, int log_p)
+static double pdhyper(double x, double NR, double NB, double n, int log_p)
 {
-/*
- * Calculate
- *
- *	    phyper (x, NR, NB, n, TRUE, FALSE)
- *   [log]  ----------------------------------
- *	       dhyper (x, NR, NB, n, FALSE)
- *
- * without actually calling phyper.  This assumes that
- *
- *     x * (NR + NB) <= n * NR
- *
- */
+    /*
+     * Calculate
+     *
+     *	    phyper (x, NR, NB, n, TRUE, FALSE)
+     *   [log]  ----------------------------------
+     *	       dhyper (x, NR, NB, n, FALSE)
+     *
+     * without actually calling phyper.  This assumes that
+     *
+     *     x * (NR + NB) <= n * NR
+     *
+     */
     LDOUBLE sum = 0;
     LDOUBLE term = 1;
 
-    while (x > 0 && term >= DBL_EPSILON * sum) {
-	term *= x * (NB - n + x) / (n + 1 - x) / (NR + 1 - x);
-	sum += term;
-	x--;
+    while (x > 0 && term >= DBL_EPSILON * sum)
+    {
+        term *= x * (NB - n + x) / (n + 1 - x) / (NR + 1 - x);
+        sum += term;
+        x--;
     }
 
-    double ss = (double) sum;
+    double ss = (double)sum;
     return log_p ? log1p(ss) : 1 + ss;
 }
-
 
 /* FIXME: The old phyper() code was basically used in ./qhyper.c as well
  * -----  We need to sync this again!
                       q         m           n         k   */
-double phyper (double x, double NR, double NB, double n,
-	       int lower_tail, int log_p)
+double phyper(double x, double NR, double NB, double n, int lower_tail, int log_p)
 {
-/* Sample of  n balls from  NR red  and	 NB black ones;	 x are red */
+    /* Sample of  n balls from  NR red  and	 NB black ones;	 x are red */
 
     double d, pd;
 
 #ifdef IEEE_754
-    if(ISNAN(x) || ISNAN(NR) || ISNAN(NB) || ISNAN(n))
-	return x + NR + NB + n;
+    if (ISNAN(x) || ISNAN(NR) || ISNAN(NB) || ISNAN(n))
+        return x + NR + NB + n;
 #endif
 
-    x = floor (x + 1e-7);
+    x = floor(x + 1e-7);
     NR = R_forceint(NR);
     NB = R_forceint(NB);
-    n  = R_forceint(n);
+    n = R_forceint(n);
 
     if (NR < 0 || NB < 0 || !R_FINITE(NR + NB) || n < 0 || n > NR + NB)
-	ML_WARN_return_NAN;
+        ML_WARN_return_NAN;
 
-    if (x * (NR + NB) > n * NR) {
-	/* Swap tails.	*/
-	double oldNB = NB;
-	NB = NR;
-	NR = oldNB;
-	x = n - x - 1;
-	lower_tail = !lower_tail;
+    if (x * (NR + NB) > n * NR)
+    {
+        /* Swap tails.	*/
+        double oldNB = NB;
+        NB = NR;
+        NR = oldNB;
+        x = n - x - 1;
+        lower_tail = !lower_tail;
     }
 
     /* support of dhyper() as a function of its parameters
      * R:  .suppHyper <- function(m,n,k) max(0, k-n) : min(k, m)
      * --  where R's (m,n, k) == (NR,NB, n)  here */
     if (x < 0 || x < n - NB)
-	return R_DT_0;
+        return R_DT_0;
     if (x >= NR || x >= n)
-	return R_DT_1;
-    d  = dhyper (x, NR, NB, n, log_p);
+        return R_DT_1;
+    d = dhyper(x, NR, NB, n, log_p);
     // dhyper(.., log_p=FALSE) > 0 mathematically, but not always numerically :
-    if((!log_p && d == 0.) ||
-        (log_p && d == ML_NEGINF))
-	return R_DT_0;
+    if ((!log_p && d == 0.) || (log_p && d == ML_NEGINF))
+        return R_DT_0;
     pd = pdhyper(x, NR, NB, n, log_p);
 
     return log_p ? R_DT_Log(d + pd) : R_D_Lval(d * pd);

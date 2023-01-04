@@ -26,8 +26,8 @@
 */
 
 /* Copyright (C) 2022  The R Core Team
-   
-   avoid stack corruption on long lines  
+
+   avoid stack corruption on long lines
 */
 
 #include "internal.h"
@@ -40,71 +40,94 @@ static size_t max_line_size(const char *s)
     size_t size = 0;
     size_t i;
 
-    for(i = 0; s[i]; i++) {
-	if (s[i] == '\t') size += 8;
-	else size++;
+    for (i = 0; s[i]; i++)
+    {
+        if (s[i] == '\t')
+            size += 8;
+        else
+            size++;
     }
     return size + 1;
 }
 
 static const char *get_next_line(char *line, int width, const char *s)
 {
-    const char *t; char  *k;
-    int	word_width, line_width;
-    int	sp, tab, nl;
+    const char *t;
+    char *k;
+    int word_width, line_width;
+    int sp, tab, nl;
 
-    line_width  = 0;
+    line_width = 0;
 
-    for (t=s, k=line; *t!='\0'; line=k, s=t)
+    for (t = s, k = line; *t != '\0'; line = k, s = t)
     {
-	for (nl=tab=sp=0; (*t!='\0') && isspace(*t) && !nl; t++)
-	{
+        for (nl = tab = sp = 0; (*t != '\0') && isspace(*t) && !nl; t++)
+        {
 #if COMPRESS_WHITESPACE
-	    if (*t == '\n') nl++;
-	    else if (*t == '\t') tab++;
-	    else sp++;
+            if (*t == '\n')
+                nl++;
+            else if (*t == '\t')
+                tab++;
+            else
+                sp++;
 #else
-	    if (*t == '\n') nl++;
-	    else if (*t == '\t') { /* expand tabs */
-		for (tab=4; tab; tab--)
-		    *k++ = ' ';
-	    }
-	    else
-		*k++ = *t;
+            if (*t == '\n')
+                nl++;
+            else if (*t == '\t')
+            { /* expand tabs */
+                for (tab = 4; tab; tab--)
+                    *k++ = ' ';
+            }
+            else
+                *k++ = *t;
 #endif
-	}
+        }
 
-	s = t;
+        s = t;
 
-	if (nl)	{ *k++ = '\n'; break; }
-	else if (tab)	{ *k++ = ' '; *k++ = ' '; }
-	else if (sp)	{ *k++ = ' ';  }
+        if (nl)
+        {
+            *k++ = '\n';
+            break;
+        }
+        else if (tab)
+        {
+            *k++ = ' ';
+            *k++ = ' ';
+        }
+        else if (sp)
+        {
+            *k++ = ' ';
+        }
 
-	/* fetch the next word to draw */
+        /* fetch the next word to draw */
 
-	for (*k='\0'; (*t!='\0') && !isspace(*t); *k='\0') {
-	    if (*t == '-') {
-		*k++ = *t++;
-		*k = '\0';
-		break;
-	    }
-	    *k++ = *t++;
-	}
+        for (*k = '\0'; (*t != '\0') && !isspace(*t); *k = '\0')
+        {
+            if (*t == '-')
+            {
+                *k++ = *t++;
+                *k = '\0';
+                break;
+            }
+            *k++ = *t++;
+        }
 
-	/* determine where the word should be drawn */
+        /* determine where the word should be drawn */
 
-	while (((word_width = strwidth(current->fnt,line)) > width)
-	       && (k>line))
-	{
-	    *(--k) = '\0';
-	    --t;
-	}
+        while (((word_width = strwidth(current->fnt, line)) > width) && (k > line))
+        {
+            *(--k) = '\0';
+            --t;
+        }
 
-	if (word_width > (width - line_width)) {
-	    k = line;
-	    break;
-	} else
-	    line_width += word_width;
+        if (word_width > (width - line_width))
+        {
+            k = line;
+            break;
+        }
+        else
+            line_width += word_width;
     }
 
     *k = '\0';
@@ -123,17 +146,16 @@ int textheight(int width, const char *s)
     line = (char *)malloc(size * sizeof(char));
     height = getheight(current->fnt);
 
-    for(y=0; s; y+=height)
+    for (y = 0; s; y += height)
     {
-	s = get_next_line(line, width, s);
+        s = get_next_line(line, width, s);
     }
 
     free(line);
     return y;
 }
 
-static const char *draw_text_left(char *line, rect r, int line_height,
-				  int underline, const char *s)
+static const char *draw_text_left(char *line, rect r, int line_height, int underline, const char *s)
 {
     char *k;
     point p;
@@ -142,66 +164,29 @@ static const char *draw_text_left(char *line, rect r, int line_height,
 
     f = current->fnt;
 
-    for(p=pt(r.x,r.y); (p.y<=r.y+r.height) && (s); p.y+=line_height)
+    for (p = pt(r.x, r.y); (p.y <= r.y + r.height) && (s); p.y += line_height)
     {
-	s = get_next_line(line, r.width, s);
+        s = get_next_line(line, r.width, s);
 
-	for (k=line; *k!='\0'; k++)
-	    continue;
-	for (--k; (k>=line) && isspace(*k); k--)
-	    *k = '\0';
+        for (k = line; *k != '\0'; k++)
+            continue;
+        for (--k; (k >= line) && isspace(*k); k--)
+            *k = '\0';
 
-	drawstr(p, line);
+        drawstr(p, line);
 
-	if (underline) {
-	    width = strwidth(f, line);
-	    height = p.y+getheight(f)-getdescent(f)+2;
-	    drawline(pt(p.x+1, height), pt(p.x+width-1, height));
-	}
+        if (underline)
+        {
+            width = strwidth(f, line);
+            height = p.y + getheight(f) - getdescent(f) + 2;
+            drawline(pt(p.x + 1, height), pt(p.x + width - 1, height));
+        }
     }
 
     return s;
 }
 
-static const char *draw_text_right(char *line, rect r, int line_height,
-			     int underline, const char *s)
-{
-    char *k;
-    int w;
-    point p;
-    int width, height;
-    font f;
-
-    f = current->fnt;
-
-    for(p=pt(r.x,r.y); (p.y<=r.y+r.height) && (s); p.y+=line_height)
-    {
-	s = get_next_line(line, r.width, s);
-
-	for (k=line; *k!='\0'; k++)
-	    continue;
-	for (--k; (k>=line) && isspace(*k); k--)
-	    *k = '\0';
-	for (k=line; (*k!='\0') && isspace(*k); k++)
-	    continue;
-
-	w = strwidth(current->fnt, k);
-	p.x = r.x+r.width - w;
-
-	drawstr(p, k);
-
-	if (underline) {
-	    width = strwidth(f, k);
-	    height = p.y+getheight(f)-getdescent(f)+2;
-	    drawline(pt(p.x+1, height), pt(p.x+width-1, height));
-	}
-    }
-
-    return s;
-}
-
-static const char *draw_text_centered(char *line, rect r, int line_height,
-				      int underline, const char *s)
+static const char *draw_text_right(char *line, rect r, int line_height, int underline, const char *s)
 {
     char *k;
     int w;
@@ -211,34 +196,71 @@ static const char *draw_text_centered(char *line, rect r, int line_height,
 
     f = current->fnt;
 
-    for(p=pt(r.x,r.y); (p.y<=r.y+r.height) && (s); p.y+=line_height)
+    for (p = pt(r.x, r.y); (p.y <= r.y + r.height) && (s); p.y += line_height)
     {
-	s = get_next_line(line, r.width, s);
+        s = get_next_line(line, r.width, s);
 
-	for (k=line; *k!='\0'; k++)
-	    continue;
-	for (--k; (k>=line) && isspace(*k); k--)
-	    *k = '\0';
-	for(k=line; (*k!='\0') && isspace(*k); k++)
-	    continue;
+        for (k = line; *k != '\0'; k++)
+            continue;
+        for (--k; (k >= line) && isspace(*k); k--)
+            *k = '\0';
+        for (k = line; (*k != '\0') && isspace(*k); k++)
+            continue;
 
-	w = strwidth(current->fnt, k);
-	p.x = r.x + (r.width-w)/2;
+        w = strwidth(current->fnt, k);
+        p.x = r.x + r.width - w;
 
-	drawstr(p, k);
+        drawstr(p, k);
 
-	if (underline) {
-	    width = strwidth(f, k);
-	    height = p.y+getheight(f)-getdescent(f)+2;
-	    drawline(pt(p.x+1, height), pt(p.x+width-1, height));
-	}
+        if (underline)
+        {
+            width = strwidth(f, k);
+            height = p.y + getheight(f) - getdescent(f) + 2;
+            drawline(pt(p.x + 1, height), pt(p.x + width - 1, height));
+        }
     }
 
     return s;
 }
 
-static const char *draw_text_justified(char *line, rect r, int line_height,
-				       int underline, const char *s)
+static const char *draw_text_centered(char *line, rect r, int line_height, int underline, const char *s)
+{
+    char *k;
+    int w;
+    point p;
+    int width, height;
+    font f;
+
+    f = current->fnt;
+
+    for (p = pt(r.x, r.y); (p.y <= r.y + r.height) && (s); p.y += line_height)
+    {
+        s = get_next_line(line, r.width, s);
+
+        for (k = line; *k != '\0'; k++)
+            continue;
+        for (--k; (k >= line) && isspace(*k); k--)
+            *k = '\0';
+        for (k = line; (*k != '\0') && isspace(*k); k++)
+            continue;
+
+        w = strwidth(current->fnt, k);
+        p.x = r.x + (r.width - w) / 2;
+
+        drawstr(p, k);
+
+        if (underline)
+        {
+            width = strwidth(f, k);
+            height = p.y + getheight(f) - getdescent(f) + 2;
+            drawline(pt(p.x + 1, height), pt(p.x + width - 1, height));
+        }
+    }
+
+    return s;
+}
+
+static const char *draw_text_justified(char *line, rect r, int line_height, int underline, const char *s)
 {
     char *j, *k;
     int w, xw, nl, sc, sw, space_width;
@@ -249,48 +271,53 @@ static const char *draw_text_justified(char *line, rect r, int line_height,
     space_width = strwidth(current->fnt, " ");
     f = current->fnt;
 
-    for(p=pt(r.x,r.y); (p.y<=r.y+r.height) && (s); p.y+=line_height)
+    for (p = pt(r.x, r.y); (p.y <= r.y + r.height) && (s); p.y += line_height)
     {
-	s = get_next_line(line, r.width, s);
+        s = get_next_line(line, r.width, s);
 
-	p.x = r.x;
+        p.x = r.x;
 
-	for(j=line; (*j!='\0') && isspace(*j); j++)
-	    p.x += space_width;
-	for (sc=0, k=j; *k!='\0'; k++)
-	    if (isspace(*k))
-		sc++;
-	for (nl=0, --k; (k>=j) && isspace(*k); k--) {
-	    if (*k == '\n')
-		nl++;
-	    *k = '\0';
-	    sc--;
-	}
+        for (j = line; (*j != '\0') && isspace(*j); j++)
+            p.x += space_width;
+        for (sc = 0, k = j; *k != '\0'; k++)
+            if (isspace(*k))
+                sc++;
+        for (nl = 0, --k; (k >= j) && isspace(*k); k--)
+        {
+            if (*k == '\n')
+                nl++;
+            *k = '\0';
+            sc--;
+        }
 
-	if ((sc==0) || nl || (! s)) {
-	    drawstr(p, j);
-	    width = strwidth(f, j);
-	}
-	else {
-	    w = strwidth(f, j);
-	    sw = space_width + (r.x+r.width-p.x-w)/sc;
-	    xw = (r.x+r.width-p.x-w)%sc;
+        if ((sc == 0) || nl || (!s))
+        {
+            drawstr(p, j);
+            width = strwidth(f, j);
+        }
+        else
+        {
+            w = strwidth(f, j);
+            sw = space_width + (r.x + r.width - p.x - w) / sc;
+            xw = (r.x + r.width - p.x - w) % sc;
 
-	    for(j=strtok(j," "); j; j=strtok(NULL," "))
-	    {
-		drawstr(p, j);
-		p.x += sw + strwidth(f, j);
-		if (xw) {
-		    p.x++;
-		    xw--;
-		}
-	    }
-	    width = r.width;
-	}
-	if (underline) {
-	    height = p.y+getheight(f)-getdescent(f)+2;
-	    drawline(pt(p.x+1, height), pt(p.x+width-1, height));
-	}
+            for (j = strtok(j, " "); j; j = strtok(NULL, " "))
+            {
+                drawstr(p, j);
+                p.x += sw + strwidth(f, j);
+                if (xw)
+                {
+                    p.x++;
+                    xw--;
+                }
+            }
+            width = r.width;
+        }
+        if (underline)
+        {
+            height = p.y + getheight(f) - getdescent(f) + 2;
+            drawline(pt(p.x + 1, height), pt(p.x + width - 1, height));
+        }
     }
 
     return s;
@@ -307,49 +334,53 @@ const char *drawtext(rect r, int alignment, const char *s)
     char *line;
     size_t size;
 
-
-    initapp(0,0);
-    if (! s) return (char *) NULL;
+    initapp(0, 0);
+    if (!s)
+        return (char *)NULL;
     size = max_line_size(s);
     line = (char *)malloc(size * sizeof(char));
 
-    if (! current->fnt)
-	current->fnt = SystemFont;
+    if (!current->fnt)
+        current->fnt = SystemFont;
 
     clip = getcliprect();
     setcliprect(r);
 
     line_height = getheight(current->fnt);
 
-    if ((alignment & VCenter) == VCenter) {
-	h = textheight(r.width, s);
-	if (h < r.height)
-	    r.y += (r.height-h)/2;
+    if ((alignment & VCenter) == VCenter)
+    {
+        h = textheight(r.width, s);
+        if (h < r.height)
+            r.y += (r.height - h) / 2;
     }
-    else if ((alignment & VJustify) == VJustify) {
-	h = textheight(r.width, s);
-	if (h < r.height) {
-	    nlines = h / line_height;
-	    if (nlines > 1)
-		line_height += ((r.height-h) / (nlines-1));
-	}
+    else if ((alignment & VJustify) == VJustify)
+    {
+        h = textheight(r.width, s);
+        if (h < r.height)
+        {
+            nlines = h / line_height;
+            if (nlines > 1)
+                line_height += ((r.height - h) / (nlines - 1));
+        }
     }
-    else if ((alignment & AlignBottom) == AlignBottom) {
-	h = textheight(r.width, s);
-	if (h < r.height)
-	    r.y += (r.height-h);
+    else if ((alignment & AlignBottom) == AlignBottom)
+    {
+        h = textheight(r.width, s);
+        if (h < r.height)
+            r.y += (r.height - h);
     }
 
     u = (alignment & Underline);
 
     if ((alignment & Center) == Center)
-	remains = draw_text_centered(line, r, line_height, u, s);
+        remains = draw_text_centered(line, r, line_height, u, s);
     else if ((alignment & Justify) == Justify)
-	remains = draw_text_justified(line, r, line_height, u, s);
+        remains = draw_text_justified(line, r, line_height, u, s);
     else if ((alignment & AlignRight) == AlignRight)
-	remains = draw_text_right(line, r, line_height, u, s);
+        remains = draw_text_right(line, r, line_height, u, s);
     else
-	remains = draw_text_left(line, r, line_height, u, s);
+        remains = draw_text_left(line, r, line_height, u, s);
 
     setcliprect(clip);
     free(line);
@@ -358,7 +389,7 @@ const char *drawtext(rect r, int alignment, const char *s)
 
 int gprintf(const char *fmt, ...)
 {
-    static point p = {0,0};
+    static point p = {0, 0};
     int count;
     int line_height;
     char *s, *t;
@@ -368,30 +399,34 @@ int gprintf(const char *fmt, ...)
     va_start(argptr, fmt);
     count = vsprintf(str, fmt, argptr);
 
-    initapp(0,0);
-    if (! current->fnt)
-	current->fnt = SystemFont;
+    initapp(0, 0);
+    if (!current->fnt)
+        current->fnt = SystemFont;
     line_height = getheight(current->fnt);
 
-    for (s=t=str; *s!='\0'; t++) {
-	if (current->p.y != p.y) {
-	    /* typewriter ping! */
-	    p = current->p;
-	}
-	if (*t == '\n') {
-	    /* print everything from s to t and move point down */
-	    *t = '\0';
-	    drawstr(p, s);
-	    current->p.y += line_height;
-	    /* go past the substring just printed */
-	    s = t+1;
-	}
-	else if (*t == '\0') {
-	    /* print final string without newline */
-	    p.x += drawstr(p, s);
-	    /* go to end of string, signal termination */
-	    s = t;
-	}
+    for (s = t = str; *s != '\0'; t++)
+    {
+        if (current->p.y != p.y)
+        {
+            /* typewriter ping! */
+            p = current->p;
+        }
+        if (*t == '\n')
+        {
+            /* print everything from s to t and move point down */
+            *t = '\0';
+            drawstr(p, s);
+            current->p.y += line_height;
+            /* go past the substring just printed */
+            s = t + 1;
+        }
+        else if (*t == '\0')
+        {
+            /* print final string without newline */
+            p.x += drawstr(p, s);
+            /* go to end of string, signal termination */
+            s = t;
+        }
     }
 
     va_end(argptr);

@@ -29,20 +29,25 @@ double pbinom(double x, double n, double p, int lower_tail, int log_p)
 {
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(n) || ISNAN(p))
-	return x + n + p;
-    if (!R_FINITE(n) || !R_FINITE(p)) ML_WARN_return_NAN;
+        return x + n + p;
+    if (!R_FINITE(n) || !R_FINITE(p))
+        ML_WARN_return_NAN;
 
 #endif
-    if(R_nonint(n)) {
-	MATHLIB_WARNING(_("non-integer n = %f"), n);
-	ML_WARN_return_NAN;
+    if (R_nonint(n))
+    {
+        MATHLIB_WARNING(_("non-integer n = %f"), n);
+        ML_WARN_return_NAN;
     }
     n = R_forceint(n);
     /* PR#8560: n=0 is a valid value */
-    if(n < 0 || p < 0 || p > 1) ML_WARN_return_NAN;
+    if (n < 0 || p < 0 || p > 1)
+        ML_WARN_return_NAN;
 
-    if (x < 0) return R_DT_0;
+    if (x < 0)
+        return R_DT_0;
     x = floor(x + 1e-7);
-    if (n <= x) return R_DT_1;
+    if (n <= x)
+        return R_DT_1;
     return pbeta(p, x + 1, n - x, !lower_tail, log_p);
 }

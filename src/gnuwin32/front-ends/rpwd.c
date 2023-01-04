@@ -27,7 +27,7 @@
 #error mingw-runtime version 3.11 or later is required
 #endif
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     /* tasks:
        find pwd of (only) arg
@@ -37,19 +37,29 @@ int main (int argc, char **argv)
     char *p, buf[MAX_PATH];
     int hasspace = 0;
 
-    if(argc == 2) {
-	if(chdir(argv[1])) exit(1);
+    if (argc == 2)
+    {
+        if (chdir(argv[1]))
+            exit(1);
     }
-    if(argc <= 2) {
-	getcwd(buf, MAX_PATH);
-	for (p = buf; *p; p++) 
-	    if (isspace(*p)) { hasspace = 1; break; }
-	if (hasspace)
-	    /* NOTE: short names are not always enabled */
-	    GetShortPathName(buf, buf, MAX_PATH);
-	for (p = buf; *p; p++)
-	    if (*p == '\\') *p = '/';
-	printf("%s", buf);
-	exit(0);
-    } else exit(2);
+    if (argc <= 2)
+    {
+        getcwd(buf, MAX_PATH);
+        for (p = buf; *p; p++)
+            if (isspace(*p))
+            {
+                hasspace = 1;
+                break;
+            }
+        if (hasspace)
+            /* NOTE: short names are not always enabled */
+            GetShortPathName(buf, buf, MAX_PATH);
+        for (p = buf; *p; p++)
+            if (*p == '\\')
+                *p = '/';
+        printf("%s", buf);
+        exit(0);
+    }
+    else
+        exit(2);
 }
