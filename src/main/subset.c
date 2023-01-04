@@ -647,7 +647,7 @@ static int ExtractExactArg(SEXP args)
 }
 
 /* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
-   Also defined in subassign.c */
+   Also defined in subassign.c and attrib.c* */
 static R_INLINE
 int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
 		    SEXP rho, SEXP *ans)

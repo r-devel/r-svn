@@ -1520,7 +1520,7 @@ static R_INLINE int SubAssignArgs(SEXP args, SEXP *x, SEXP *s, SEXP *y)
 }
 
 /* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
-   Also defined in subset.c */
+   Also defined in subset.c and attrib.c*/
 static R_INLINE
 int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
 		    SEXP rho, SEXP *ans)

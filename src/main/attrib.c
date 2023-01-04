@@ -1169,7 +1169,7 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{ 
+{
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1860,36 +1860,77 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
     return obj;
 }
 
+/* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
+   Also defined in subassign.c and attrib.c* */
+static R_INLINE
+int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
+		    SEXP rho, SEXP *ans)
+{
+    SEXP prom = NULL;
+    if (args != R_NilValue && CAR(args) != R_DotsSymbol) {
+	SEXP x = eval(CAR(args), rho);
+	PROTECT(x);
+	INCREMENT_LINKS(x);
+	if (! OBJECT(x)) {
+	    *ans = CONS_NR(x, evalListKeepMissing(CDR(args), rho));
+	    DECREMENT_LINKS(x);
+	    UNPROTECT(1);
+	    return FALSE;
+	}
+	prom = R_mkEVPROMISE_NR(CAR(args), x);
+	args = CONS(prom, CDR(args));
+	UNPROTECT(1);
+    }
+    PROTECT(args);
+    int disp = DispatchOrEval(call, op, generic, args, rho, ans, 0, 0);
+    if (prom) DECREMENT_LINKS(PRVALUE(prom));
+    UNPROTECT(1);
+    return disp;
+}
+
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP  nlist, object, ans, klass;
+   SEXP name, object, ans, klass, cell;
 
     checkArity(op, args);
-    if(!isMethodsDispatchOn())
-	error(_("formal classes cannot be used without the 'methods' package"));
-    nlist = CADR(args);
-    /* Do some checks here -- repeated in R_do_slot, but on repeat the
-     * test expression should kick out on the first element. */
-    if(!(isSymbol(nlist) || (isString(nlist) && LENGTH(nlist) == 1)))
-	error(_("invalid type or length for slot name"));
-    if(isString(nlist)) nlist = installTrChar(STRING_ELT(nlist, 0));
     PROTECT(object = eval(CAR(args), env));
-    if(!s_dot_Data) init_slot_handling();
-    if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
-	klass = getAttrib(object, R_ClassSymbol);
-	if(length(klass) == 0)
-	    error(_("trying to get slot \"%s\" from an object of a basic class (\"%s\") with no slots"),
-		  CHAR(PRINTNAME(nlist)),
-		  CHAR(STRING_ELT(R_data_class(object, FALSE), 0)));
-	else
-	    error(_("trying to get slot \"%s\" from an object (class \"%s\") that is not an S4 object "),
-		  CHAR(PRINTNAME(nlist)),
-		  translateChar(STRING_ELT(klass, 0)));
+    name = CADR(args);
+    if (isString(name))
+        name = installTrChar(STRING_ELT(name, 0));
+
+    if (IS_S4_OBJECT(object))
+    {
+        if (!s_dot_Data)
+            init_slot_handling();
+        ans = R_do_slot(object, name);
+        UNPROTECT(1);
+        return ans;
     }
 
-    ans = R_do_slot(object, nlist);
+    if (OBJECT(object))
+    {
+        PROTECT(args = fixSubset3Args(call, args, env, NULL));
+        if (R_DispatchOrEvalSP(call, op, "@", args, env, &ans))
+        {
+            if (NAMED(ans))
+                ENSURE_NAMEDMAX(ans);
+            UNPROTECT(2); /* args */
+            return (ans);
+        }
+        UNPROTECT(1);
+    }
+
+    ans = R_NilValue;
+    for (SEXP cell = ATTRIB(object); cell != R_NilValue; cell = CDR(cell))
+        if (TAG(cell) == name)
+        {
+            ans = CAR(cell);
+            MARK_NOT_MUTABLE(ans);
+            break;
+        }
+
     UNPROTECT(1);
-    return ans;
+    return (ans);
 }
 
 /* Return a suitable S3 object (OK, the name of the routine comes from
