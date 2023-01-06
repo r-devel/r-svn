@@ -1613,8 +1613,13 @@ attribute_hidden SEXP do_attrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 	    PROTECT(obj = shallow_duplicate(obj));
 	else
 	    PROTECT(obj);
+
+	if (IS_S4_OBJECT(obj)) {
 	check_slot_assign(obj, input, value, env);
 	obj = R_do_slot_assign(obj, input, value);
+	} else {
+		setAttrib(obj, input, value);
+	}
 	UNPROTECT(2);
 	SETTER_CLEAR_NAMED(obj);
 	return obj;
@@ -1890,7 +1895,7 @@ int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-   SEXP name, object, ans, klass, cell;
+   SEXP name, object, ans, klass;
 
     checkArity(op, args);
     PROTECT(object = eval(CAR(args), env));
@@ -1920,15 +1925,7 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
         UNPROTECT(1);
     }
 
-    ans = R_NilValue;
-    for (SEXP cell = ATTRIB(object); cell != R_NilValue; cell = CDR(cell))
-        if (TAG(cell) == name)
-        {
-            ans = CAR(cell);
-            MARK_NOT_MUTABLE(ans);
-            break;
-        }
-
+	ans = getAttrib(object, name);
     UNPROTECT(1);
     return (ans);
 }
