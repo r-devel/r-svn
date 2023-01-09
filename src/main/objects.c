@@ -993,16 +993,19 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 
     int nprot = 1;
 
-    if (inherits(what, "R7_class"))
-    {
-        SEXP R7_ns = R_FindNamespace(mkString("R7"));
-        SEXP cl = PROTECT(lang2(install("R7_class_name"), what));
-        what = PROTECT(eval(cl, R7_ns));
-        nprot += 2;
-    }
+	if (!isString(what))
+	{
+		if (inherits(what, "R7_class"))
+		{
+			SEXP R7_ns = R_FindNamespace(mkString("R7"));
+			SEXP cl = PROTECT(lang2(install("R7_class_name"), what));
+			what = PROTECT(eval(cl, R7_ns));
+			nprot += 2;
+		}
+		if (!isString(what))
+			error(_("'what' must be a character vector or an <R7_class>"));
+	}
 
-    if(!isString(what))
-	error(_("'what' must be a character vector or an <R7_class>"));
     int j, nwhat = LENGTH(what);
 
 	if (!isLogical(which) || (LENGTH(which) != 1))
