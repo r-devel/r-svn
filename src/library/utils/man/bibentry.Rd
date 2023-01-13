@@ -127,7 +127,7 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
   Some Rd markup may remain after converting the Rd format to LaTeX format; 
   use \code{\usepackage{Rd}} in the preamble of a LaTeX document 
   to make the standard Rd macros available when compiling, 
-  e.g. with \code{texi2pdf}.
+  e.g. with \code{\link{texi2pdf}}.
 
   When printing bibentry objects in citation style, a
   \code{header}/\code{footer} for each item can be displayed as well as
