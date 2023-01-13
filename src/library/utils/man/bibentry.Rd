@@ -113,13 +113,21 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
   R code (\code{"R"}),
   and a simple copy of the \code{textVersion} elements (style
   \code{"textVersion"}).
+
   The \code{"text"}, \code{"html"} and \code{"latex"} styles make use
-  of the \code{.bibstyle} argument using the \code{\link{bibstyle}}
-  function.  In addition, one can use the \code{macros} argument to
+  of the \code{.bibstyle} argument: a style defined by the \code{\link{bibstyle}}
+  function for rendering the bibentry into \file{Rd} format. 
+  The Rd format uses the macros documented in the \sQuote{Rd format} section 
+  of the \sQuote{Writing R Extensions} manual, e.g. \code{\bold}. 
+  In addition, one can use the \code{macros} argument to
   provide additional (otherwise unknown, presumably LaTeX-style) Rd
   macros, either by giving the path to a file with Rd macros to be
   loaded via \code{\link[tools]{loadRdMacros}}, or an object with macros
-  already loaded.
+  already loaded. 
+  Some Rd markup may remain after converting the Rd format to LaTeX format; 
+  use \code{\usepackage{Rd}} in the preamble of a LaTeX document 
+  to make the standard Rd macros available when compiling, 
+  e.g. with \code{texi2pdf}.
 
   When printing bibentry objects in citation style, a
   \code{header}/\code{footer} for each item can be displayed as well as
