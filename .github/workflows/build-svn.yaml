@@ -46,13 +46,14 @@ jobs:
         InstallMiktex -ErrorAction SilentlyContinue;
 
     - name: "Fix rsync-recommended"
-      shell: bash
       run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
+      shell: msys2 {0}
 
     - name: Build and Check
       run: ./.github/workflows/rtools40-build.sh
+      shell: msys2 {0}
 
     - name: Print failed tests
       if: failure()
-      shell: bash
       run: tail -n100 tests/*.fail
+      shell: msys2 {0}
