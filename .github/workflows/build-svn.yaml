@@ -14,7 +14,16 @@ jobs:
     env:
       R_CRAN_WEB: "https://cran.rstudio.com"
       CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MSYS
+        install: git make perl curl
+        update: true
 
     - name: Prepare git
       run: git config --global core.autocrlf false
@@ -24,14 +33,7 @@ jobs:
       with:
         fetch-depth: 100
 
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: MSYS
-        install: git make perl
-        update: true
-
     - name: "Setup rtools43 toolchain"
-      shell: bash
       run: |
         url="https://github.com/r-windows/files/releases/download/5493/rtools43-toolchain-libs-base-5493.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
@@ -47,13 +49,10 @@ jobs:
 
     - name: "Fix rsync-recommended"
       run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
-      shell: msys2 {0}
 
     - name: Build and Check
       run: ./.github/workflows/rtools40-build.sh
-      shell: msys2 {0}
 
     - name: Print failed tests
       if: failure()
       run: tail -n100 tests/*.fail
-      shell: msys2 {0}
