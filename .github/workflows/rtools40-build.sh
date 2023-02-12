@@ -1,8 +1,4 @@
 #!/bin/sh
-# Minimal script to build R for Windows from SVN.
-# You must run this script inside the rtools40 shell.
-# This builds and checks a single architecture (no manuals or installer)
-
 # Run script safely and emit some verbose output
 set -e
 set -x
@@ -11,7 +7,7 @@ set -x
 srcdir=$(dirname $(realpath $0))
 
 # Put pdflatex on the path (needed only for CMD check)
-export PATH="/ucrt64/bin:$PATH:$HOME/AppData/Local/Programs/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX 2.9/miktex/bin/x64"
+export PATH="c:/x86_64-w64-mingw32.static.posix/bin:$PATH:$HOME/AppData/Local/Programs/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX 2.9/miktex/bin/x64"
 echo "PATH: $PATH"
 pdflatex --version
 texindex --version
@@ -27,13 +23,8 @@ curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 ./tools/rsync-recommended
 ./.github/workflows/svn-info.sh
 
-# Install system libs
-pacman -Sy --noconfirm
-pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-{gcc,gcc-fortran,icu,libtiff,libjpeg,libpng,pcre2,xz,bzip2,zlib,cairo,tk,curl,libwebp}
-
 # Create the TCL bundle required by tcltk package
-mkdir -p Tcl/{bin,lib}
-${srcdir}/create-tcltk-bundle.sh
+curl -OL https://cran.r-project.org/bin/windows/Rtools/rtools43/files/tcltk-5493-5412.zip
 
 # Build just the core pieces (no manuals or installer)
 TEXINDEX=$(cygpath -m $(which texindex))
