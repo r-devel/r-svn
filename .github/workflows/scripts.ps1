@@ -109,23 +109,11 @@ Function InstallMiktex {
 
   Write-Host "Installing CTAN packages"
   mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-  mpm --admin --verbose --update-db
-  mpm --admin --verbose --update
-  mpm --admin --install=inconsolata
-  #mpm --admin --install=fancyvrb  
-  #mpm --admin --install=epsf
-  #mpm --admin --install=preprint
+  miktex --admin packages update-package-database --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+  miktex --admin packages update --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+	miktex --admin packages install inconsolata
 
-  # See https://tex.stackexchange.com/a/129523/12890
-  # $conffile = "C:\Program Files\MiKTeX\miktex\config\updmap.cfg"
-  # Write-Host "Adding zi4.map"
-  # initexmf --admin --update-fndb
-  # Add-Content $conffile "`nMap zi4.map`n"
-  # initexmf --admin --mkmaps
-
-  # First time running 'pdflatex' always fails with some inite
-  # Write-Host "Trying pdflatex..."
-  # pdflatex.exe --version
+	# Log
   Get-Content -Path C:\ProgramData\MiKTeX\miktex\log\mpmcli_admin.log
   Write-Host "MiKTeX installation: Done" -ForegroundColor Green
 }
