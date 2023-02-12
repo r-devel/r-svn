@@ -109,9 +109,9 @@ Function InstallMiktex {
 
   Write-Host "Installing CTAN packages"
   mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-  miktex --admin packages update-package-database --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-  miktex --admin packages update --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-	miktex --admin packages install inconsolata
+  miktex --admin packages update-package-database --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+  #miktex --admin packages update --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+	miktex --admin packages install inconsolata --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
 
 	# Log
   Get-Content -Path C:\ProgramData\MiKTeX\miktex\log\mpmcli_admin.log
