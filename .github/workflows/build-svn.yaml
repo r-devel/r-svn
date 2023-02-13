@@ -45,7 +45,6 @@ jobs:
       run: |
         Import-Module .\.github\workflows\scripts.ps1
         SetTimezone
-        InstallRtoolsExe
         InstallMiktex -ErrorAction SilentlyContinue;
 
     - name: "Fix rsync-recommended"
