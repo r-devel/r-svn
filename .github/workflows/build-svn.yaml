@@ -23,7 +23,6 @@ jobs:
       with:
         msystem: MSYS
         install: git make perl curl texinfo texinfo-tex
-        update: true
 
     - name: Prepare git
       run: git config --global core.autocrlf false
