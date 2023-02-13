@@ -22,7 +22,7 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         msystem: MSYS
-        install: git make perl curl texinfo
+        install: git make perl curl texinfo texinfo-tex
         update: true
 
     - name: Prepare git
@@ -37,7 +37,8 @@ jobs:
       run: |
         url="https://github.com/r-windows/files/releases/download/5493/rtools43-toolchain-libs-base-5493.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
-        echo "c:/x86_64-w64-mingw32.static.posix/bin" >> $GITHUB_PATH
+        echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
+        echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
     - name: System dependencies
       shell: powershell
