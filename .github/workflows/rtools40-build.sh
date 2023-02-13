@@ -29,8 +29,8 @@ unzip tcltk-5493-5412.zip
 
 # Build just the core pieces (no manuals or installer)
 #TEXINDEX=$(cygpath -m $(which texindex))
-#cd "src/gnuwin32"
-#sed -e "s|@texindex@|${TEXINDEX}|" "${srcdir}/MkRules.local.in" > MkRules.local
+cd "src/gnuwin32"
+sed -e "s|@texindex@|${TEXINDEX}|" "${srcdir}/MkRules.local.in" > MkRules.local
 #cat MkRules.local
 make all cairodevices recommended vignettes manuals
 
