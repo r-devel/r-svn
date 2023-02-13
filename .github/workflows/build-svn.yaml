@@ -44,18 +44,17 @@ jobs:
         #echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
         #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
-    - name: System dependencies
+    - name: Install Miktex
       shell: powershell
       run: |
         Import-Module .\.github\scripts\installers.ps1
         SetTimezone
         InstallMiktex -ErrorAction SilentlyContinue;
 
-    - name: "Fix rsync-recommended"
-      run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
-
     - name: Build and Check
-      run: ./.github/scripts/win-${{matrix.script}}.sh
+      run: |
+        sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
+        ./.github/scripts/win-${{matrix.script}}.sh
 
     - name: Print failed tests
       if: failure() && matrix.script == 'check'
@@ -64,6 +63,7 @@ jobs:
     - name: Run Installer
       run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
       if: matrix.script == 'installer'
+      shell: powershell
 
     - uses: actions/upload-artifact@v3
       with:
