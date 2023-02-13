@@ -37,13 +37,13 @@ jobs:
       run: |
         url="https://github.com/r-windows/files/releases/download/5493/rtools43-toolchain-libs-base-5493.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
-        echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
-        echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
+        #echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
+        #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
     - name: System dependencies
       shell: powershell
       run: |
-        Import-Module .\.github\workflows\scripts.ps1
+        Import-Module .\.github\scripts\installers.ps1
         SetTimezone
         InstallMiktex -ErrorAction SilentlyContinue;
 
@@ -51,7 +51,7 @@ jobs:
       run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
 
     - name: Build and Check
-      run: ./.github/workflows/rtools40-build.sh
+      run: ./.github/scripts/win-check.sh
 
     - name: Print failed tests
       if: failure()
