@@ -32,7 +32,7 @@ unzip tcltk-5493-5412.zip
 cd "src/gnuwin32"
 sed -e "s|@texindex@|${TEXINDEX}|" "${srcdir}/MkRules.local.in" > MkRules.local
 #cat MkRules.local
-make all cairodevices recommended vignettes
+make all cairodevices recommended vignettes manuals
 
 # Optional: run checks
 make check-all

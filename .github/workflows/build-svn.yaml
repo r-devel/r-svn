@@ -19,18 +19,19 @@ jobs:
         shell: msys2 {0}
     steps:
 
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: MSYS
-        install: git make perl curl texinfo texinfo-tex rsync unzip
-
     - name: Prepare git
       run: git config --global core.autocrlf false
+      shell: bash
 
     - name: Checkout
       uses: actions/checkout@v3
       with:
         fetch-depth: 100
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MSYS
+        install: git make perl curl texinfo texinfo-tex rsync unzip
 
     - name: "Download rtools43 toolchain"
       run: |
