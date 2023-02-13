@@ -25,12 +25,13 @@ curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 
 # Create the TCL bundle required by tcltk package
 curl -OL https://cran.r-project.org/bin/windows/Rtools/rtools43/files/tcltk-5493-5412.zip
+unzip tcltk-5493-5412.zip
 
 # Build just the core pieces (no manuals or installer)
-TEXINDEX=$(cygpath -m $(which texindex))
-cd "src/gnuwin32"
-sed -e "s|@texindex@|${TEXINDEX}|" "${srcdir}/MkRules.local.in" > MkRules.local
-cat MkRules.local
+#TEXINDEX=$(cygpath -m $(which texindex))
+#cd "src/gnuwin32"
+#sed -e "s|@texindex@|${TEXINDEX}|" "${srcdir}/MkRules.local.in" > MkRules.local
+#cat MkRules.local
 make all cairodevices recommended vignettes manuals
 
 # Optional: run checks
