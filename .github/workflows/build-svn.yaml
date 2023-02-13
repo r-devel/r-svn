@@ -17,6 +17,10 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        script: [ 'check', 'installer' ]
     steps:
 
     - name: Prepare git
@@ -51,8 +55,18 @@ jobs:
       run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
 
     - name: Build and Check
-      run: ./.github/scripts/win-check.sh
+      run: ./.github/scripts/win-${{matrix.script}}.sh
 
     - name: Print failed tests
-      if: failure()
+      if: failure() && matrix.script == 'check'
       run: tail -n100 tests/*.fail
+
+    - name: Run Installer
+      run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
+      if: matrix.script == 'installer'
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: installer
+        path: src/gnuwin32/installer/R-devel-win.exe
+      if: matrix.script == 'installer'
