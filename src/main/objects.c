@@ -998,36 +998,34 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
     const void *vmax = vmaxget();
     SEXP klass, rval = R_NilValue /* -Wall */;
 
+    int nprot = 0;
     if(IS_S4_OBJECT(x))
 	PROTECT(klass = R_data_class2(x)); // -> := S4_extends( "class(x)" )
     else
 	PROTECT(klass = R_data_class(x, FALSE));
+    nprot++;
 
-    int nprot = 1;
 
-	if (!isString(what))
-	{
-		if (inherits(what, "R7_class"))
-		{
-			SEXP R7_ns = R_FindNamespace(mkString("R7"));
-			SEXP cl = PROTECT(lang2(install("R7_class_name"), what));
-			what = PROTECT(eval(cl, R7_ns));
-			nprot += 2;
-		}
-		if (!isString(what))
-			error(_("'what' must be a character vector or an <R7_class>"));
+    if (!isString(what)) {
+	if (inherits(what, "S7_class")) {
+	    SEXP S7_ns = R_FindNamespace(mkString("S7"));
+	    SEXP cl = PROTECT(lang2(install("S7_class_name"), what));
+	    what = PROTECT(eval(cl, S7_ns));
+	    nprot += 2;
 	}
+	if (!isString(what))
+	    error(_("'what' must be a character vector or an <S7_class>"));
+    }
 
     int j, nwhat = LENGTH(what);
 
-	if (!isLogical(which) || (LENGTH(which) != 1))
+    if (!isLogical(which) || (LENGTH(which) != 1))
 	error(_("'which' must be a length 1 logical vector"));
     Rboolean isvec = asLogical(which);
 
-    if (isvec)
-	{
+    if (isvec) {
 	PROTECT(rval = allocVector(INTSXP, nwhat));
-    nprot++;
+	nprot++;
     }
 
     for(j = 0; j < nwhat; j++) {
@@ -1046,7 +1044,7 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	UNPROTECT(nprot);
 	return mkFalse();
     }
-	UNPROTECT(nprot);
+    UNPROTECT(nprot);
     return rval;
 }
 
