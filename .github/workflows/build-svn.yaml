@@ -22,7 +22,7 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         msystem: MSYS
-        install: git make perl curl texinfo texinfo-tex
+        install: git make perl curl texinfo texinfo-tex rsync
 
     - name: Prepare git
       run: git config --global core.autocrlf false
@@ -32,7 +32,7 @@ jobs:
       with:
         fetch-depth: 100
 
-    - name: "Setup rtools43 toolchain"
+    - name: "Download rtools43 toolchain"
       run: |
         url="https://github.com/r-windows/files/releases/download/5493/rtools43-toolchain-libs-base-5493.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
