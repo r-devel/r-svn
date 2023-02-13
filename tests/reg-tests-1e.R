@@ -15,6 +15,7 @@ getVaW <- function(expr) {
     structure(val, warning = W)
 }
 options(nwarnings = 10000, # (rather than just 50)
+        warn = 2, # only caught or asserted warnings
         width = 99) # instead of 80
 
 onWindows <- .Platform$OS.type == "windows"
@@ -400,10 +401,110 @@ stopifnot(exprs = {
 })
 ## as.data.frame.<cls>(.) worked w/o deprecation warning in R <= 4.2.x
 
+## useMethod() dispatch error in case of long class strings - PR#18447
+mkCh <- function(n, st=1L) substr(strrep("123456789 ", ceiling(n/10)), st, n)
+useMethErr <- function(n=500, nrep=25)
+    (function(.) UseMethod("foo")(.))(
+        structure(1, class = paste(sep=":", format(1:nrep),
+                                   mkCh(n, 2L + (nrep > 9)))))
+tools::assertError( useMethErr(500,25) )
+## gave a segfault  in R <= 4.2.2
+clsMethErr <- function(...) {
+ sub(    '"[^"]*$', "",
+     sub('^[^"]*"', "", tryCmsg(useMethErr(...))))
+}
+showC <- function(..., n1=20, n2=16) {
+    r <- clsMethErr(...)
+    cat(sprintf('%d: "%s<....>%s"\n', (nr <- nchar(r)),
+                substr(r, 1,n1), substr(r, nr-n2, nr)))
+    invisible(r)
+}
+invisible(lapply(11:120, function(n) showC(n, 1030 %/% n)))
+## (mostly the truncation works "nicely", but sometimes even misses the closing quote)
 
-## predict.lm() in *rank deficient* case -- PR#15072, PR#16158
 
-## ... always gave warning about problem (current "simple") in R <= 4.2.x
+## download.file() with invalid option -- PR#18455
+op <- options(download.file.method = "no way")
+Edl <- tryCid(download.file("http://httpbin.org/get", "ping.txt"))
+stopifnot(inherits(Edl, "error"),
+          !englishMsgs || grepl("should be one of .auto.,", conditionMessage(Edl)))
+options(op)
+## error was  "object 'status' not found"  in R <= 4.2.2
+
+
+## handling of invalid Encoding / unsupported conversion in packageDescription()
+dir.create(pkgpath <- tempfile())
+writeLines(c("Version: 1.0", "Encoding: FTU-8"), # (sic!)
+           file.path(pkgpath, "DESCRIPTION"))
+stopifnot(suppressWarnings(packageVersion(basename(pkgpath),
+                                          dirname(pkgpath))) == "1.0")
+## outputs try()-catched iconv() errors but does not fail
+## gave a "packageNotFoundError" in 3.5.0 <= R <= 4.2.2
+
+
+## format.bibentry() with preloaded Rd macros
+ref <- bibentry("misc", author = "\\authors", year = 2023)
+macros <- tools::loadRdMacros(textConnection("\\newcommand{\\authors}{\\R}"))
+stopifnot(identical(print(format(ref, macros = macros)), "R (2023)."))
+## macro definitions were not used in R <= 4.2.2
+
+
+## predict.lm() environment used for evaluating offset -- PR#18456
+mod <- local({
+     y <- rep(0,10)
+     x <- rep(c(0,1), each=5)
+     list(lm(y ~ x),
+          lm(y ~ offset(x)))
+})
+stopifnot(exprs = {
+    ## works fine, using the x variable of the local environment
+    identical(predict(mod[[1]], newdata=data.frame(z=1:10)),
+              setNames(rep(0,10), as.character(1:10)))
+    ## gave  error in offset(x) : object 'x' not found :
+    identical(predict(mod[[2]], newdata=data.frame(z=1:10)),
+              setNames(rep(c(-.5,.5), each=5), as.character(1:10)))
+})
+x <- rep(1,5)
+mod2 <- local({
+    x <- rep(2,5) # 2, not 1
+    y <- rep(0,5)
+    lm(rep(0,5) ~ x + offset({ print("hello"); x+2*y }),
+       offset = { print("world"); x-y })
+}) # rank-deficient in "subtle" way {warning/NA may not be needed}; just show for now:
+nd <- data.frame(x = 1:5)
+tools::assertWarning(print(predict(mod2, newdata=nd, rankdeficient = "warnif")))
+                           predict(mod2, newdata=nd, rankdeficient = "NA")
+nm5 <- as.character(1:5)
+stopifnot(exprs = {
+    all.equal(setNames(rep(0, 5), nm5), predict(mod2), tol=1e-13) # pred: 1.776e-15
+    is.numeric(p2 <- predict(mod2, newdata = data.frame(y=rep(1,5)))) # no warning, no NA:
+    identical(p2,    predict(mod2, newdata = data.frame(y=rep(1,5)), rankdeficient="NA"))
+    all.equal(p2, setNames(rep(1, 5), nm5), tol=1e-13)# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
+})
+## fine, using model.offset() now
+
+
+## "numeric_version" methods
+x <- numeric_version(c("1", "2.0"))
+stopifnot(identical(format(x[,2]), c(NA_character_, "0")))
+is.na(x)[1] <- TRUE; stopifnot(identical(is.na(x), c(TRUE, FALSE)))
+## gave two spurious warnings in R <= 4.2.2
+
+
+mChk <- function(m) stopifnot(exprs = {
+    identical(attributes(m), list(dim=2:3))
+    identical(class(m), c("matrix", "array"))
+})
+(m <- m0 <- diag(1:3, 2,3))
+mChk(m)
+##
+class(m) <- "matrix"  # instead of c("matrix", "array") ...
+mChk(m); stopifnot(identical(m, m0))# .. m is *unchanged* - back compatibly
+## since R 4.0.0,
+class(m) # is  "matrix" "array"
+class(m) <- class(m) # should *not* change 'm'
+mChk(m); stopifnot(identical(m, m0))# m is unchanged as it should, but
+## failed in R version v  4.0.0 <= v <= 4.2.x : 'm' got a class *attribute* there.
 
 
 

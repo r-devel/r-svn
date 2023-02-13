@@ -3564,8 +3564,8 @@ add_dummies <- function(dir, Log)
                 checkingLog(Log, "compilation flags used")
                 lines <- readLines(instlog, warn = FALSE)
                 ## skip stuff before building libs
-                ll <- grep("^[*][*][*] libs", lines, useBytes = TRUE)
-                if (length(ll)) lines <- lines(-1:ll[1L])
+                ll <- grep("^[*][*] libs", lines, useBytes = TRUE)
+                if (length(ll)) lines <- lines[-seq_len(ll[1L])]
                 poss <- grep(" -[Wmf]", lines,  useBytes = TRUE, value = TRUE)
                 ## compilation lines start at the left margin,
                 ## and are not configure/echo lines
@@ -4126,7 +4126,7 @@ add_dummies <- function(dir, Log)
                            !run_dontrun, !run_donttest)
             Rout <- tempfile("Rout")
             ## any arch will do here
-            status <- R_runR0(cmd, R_opts2, "LC_ALL=C",
+            status <- R_runR0(cmd, R_opts2,
                               stdout = Rout, stderr = Rout)
             exfile <- paste0(pkgname, "-Ex.R")
             if (status) {
@@ -4205,7 +4205,7 @@ add_dummies <- function(dir, Log)
                                        !run_dontrun, FALSE)
                         Rout <- tempfile("Rout")
                         ## any arch will do here
-                        status <- R_runR0(cmd, R_opts2, "LC_ALL=C",
+                        status <- R_runR0(cmd, R_opts2,
                                           stdout = Rout, stderr = Rout)
                         exfile <- paste0(pkgname, "-Ex.R")
                         if (status) {
@@ -5338,8 +5338,9 @@ add_dummies <- function(dir, Log)
                 if (install != "check")
                     lines <- readLines(outfile, warn = FALSE)
 
-                lines00 <- grep("^using (C compiler|C[+][+] compiler|Fortran conpiler|SDK)",
-                                lines, value = TRUE)
+                ## A few packages call SHLIB twice.
+                lines00 <- unique(grep("^using (C compiler|C[+][+] compiler|Fortran compiler|SDK)",
+                                       lines, value = TRUE))
 
                 lines0 <- lines
                 warn_re <- c("^WARNING:",
@@ -5479,7 +5480,11 @@ add_dummies <- function(dir, Log)
                              ## gcc and clang reports on use of #warning
                              ## but not suppressing the warning itself.
                              "\\[-Wcpp\\] ",
-                             "\\[-W#warnings\\]"
+                             "\\[-W#warnings\\]",
+                             "\\[-Wrange-loop-construct\\]",
+                             "\\[-Warray-parameter=\\]",
+                             ## clang version (not Apple clang)
+                             "\\[-Warray-parameter\\]"
                             )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -5553,7 +5558,11 @@ add_dummies <- function(dir, Log)
                              "warning: .* \\[-Wunneeded-internal-declaration\\]",
                              ## LLVM clang 15
                              "warning: .* \\[-Winvalid-utf8\\]",
-                             "warning: .* \\[-Wunqualified-std-cast-call\\]"
+                             "warning: .* \\[-Wunqualified-std-cast-call\\]",
+                             "warning: .* \\[-Wincompatible-pointer-types-discards-qualifiers\\]",
+
+                             ## LLVM clang 16
+                             " warning: use of unary operator that may be intended as compound assignment"
                              )
 
                 warn_re <- paste0("(", paste(warn_re, collapse = "|"), ")")
@@ -5566,6 +5575,7 @@ add_dummies <- function(dir, Log)
                               value = TRUE, useBytes = TRUE, invert = TRUE)
 
                 ## Filter out boost/armadillo header warnings
+                ## 2023-01: still have class-memaccess from BH with gcc
                 ex_re <- "(BH/include/boost|RcppArmadillo/include/armadillo_bits)/.*\\[-W(tautological-overlap-compare|class-memaccess)\\]"
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
@@ -5600,6 +5610,7 @@ add_dummies <- function(dir, Log)
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## And deprecated declarations in Eigen and boost
+                ## unary_function in boost < 1.81, auto_ptr in boost/smart_ptr.
                 ex_re <- "(include/Eigen|include/boost|boost/smart_ptr).* warning: .* \\[-Wdeprecated-declarations\\]"
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
@@ -5782,6 +5793,19 @@ add_dummies <- function(dir, Log)
                 if (length(lines00)) {
                     ll <- sub("using", "used", lines00)
                     for (l in ll)  messageLog(Log, l)
+                }
+                line <- unique(grep("^using C[+][+][12]", lines0, value = TRUE))
+                if (length(line)) {
+                    checkingLog(Log, "C++ specification")
+                    std <- as.numeric(sub("using C[+][+]", "", line))
+                    if (std < 17) {
+                        noteLog(Log,
+                                sprintf("  Specified C++%d: please drop specification unless essential", std))
+                    } else if (std >= 17) {
+                        resultLog(Log, "OK")
+                        printLog(Log,
+                                 sprintf("  Not all R platforms support C++%s\n", std))
+                    } else resultLog(Log, "OK")
                 }
             }   ## end of case B
         }

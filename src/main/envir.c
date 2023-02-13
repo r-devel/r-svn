@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2022  The R Core Team.
+ *  Copyright (C) 1999--2023  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2472,11 +2472,10 @@ attribute_hidden SEXP do_emptyenv(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 static void set_attach_frame_value(SEXP p, SEXP s)
 {
-    defineVar(TAG(p), lazy_duplicate(CAR(p)), s);
-    if (IS_ACTIVE_BINDING(p)) {
-	SEXP np = findVarLocInFrame(s, TAG(p), NULL);
-	SET_ACTIVE_BINDING_BIT(np);
-    }
+    if (IS_ACTIVE_BINDING(p))
+	R_MakeActiveBinding(TAG(p), CAR(p), s);
+    else
+	defineVar(TAG(p), lazy_duplicate(CAR(p)), s);
 }
 
 attribute_hidden SEXP do_attach(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -4066,6 +4065,20 @@ SEXP mkChar(const char *name)
     if (len > INT_MAX)
 	error("R character strings are limited to 2^31-1 bytes");
     return mkCharLenCE(name, (int) len, CE_NATIVE);
+}
+
+attribute_hidden SEXP mkCharWUTF8(const wchar_t *wname)
+{
+    const void *vmax = vmaxget();
+    size_t nb = wcstoutf8(NULL, wname, INT_MAX);
+    if ((int)nb-1 > INT_MAX) {
+	error("R character strings are limited to 2^31-1 bytes");
+    }
+    char *name = R_alloc(nb, 1);
+    nb = wcstoutf8(name, wname, nb);
+    SEXP ans = mkCharLenCE(name, (int)nb-1, CE_UTF8);
+    vmaxset(vmax);
+    return ans;
 }
 
 /* Global CHARSXP cache and code for char-based hash tables */

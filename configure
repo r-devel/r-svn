@@ -882,6 +882,10 @@ DUMPBIN
 LD
 FGREP
 LIBTOOL
+C99FLAGS
+CC99
+C90FLAGS
+CC90
 C23FLAGS
 CC23
 C17FLAGS
@@ -1904,7 +1908,7 @@ Optional Packages:
                           Level of additional instrumentation for Valgrind
                           (0/1/2) [0]
   --with-system-valgrind-headers
-                          use system valgrind headers (if available) [no]
+                          use system valgrind headers (if available) [yes]
   --with-internal-tzcode  use internal time-zone code [no, yes on macOS]
   --with-internal-towlower
                           use internal code for towlower/upper [no, yes on
@@ -2418,6 +2422,49 @@ fi
 
 } # ac_fn_objc_try_compile
 
+# ac_fn_c_try_run LINENO
+# ----------------------
+# Try to run conftest.$ac_ext, and return whether this succeeded. Assumes that
+# executables *can* be run.
+ac_fn_c_try_run ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  if { { ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+printf "%s\n" "$ac_try_echo"; } >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } && { ac_try='./conftest$ac_exeext'
+  { { case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+printf "%s\n" "$ac_try_echo"; } >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+then :
+  ac_retval=0
+else $as_nop
+  printf "%s\n" "$as_me: program exited with status $ac_status" >&5
+       printf "%s\n" "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+       ac_retval=$ac_status
+fi
+  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} # ac_fn_c_try_run
+
 # ac_fn_c_try_link LINENO
 # -----------------------
 # Try to link conftest.$ac_ext, and return whether this succeeded.
@@ -2786,49 +2833,6 @@ printf "%s\n" "$ac_res" >&6; }
   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
 
 } # ac_fn_c_check_type
-
-# ac_fn_c_try_run LINENO
-# ----------------------
-# Try to run conftest.$ac_ext, and return whether this succeeded. Assumes that
-# executables *can* be run.
-ac_fn_c_try_run ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  if { { ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-printf "%s\n" "$ac_try_echo"; } >&5
-  (eval "$ac_link") 2>&5
-  ac_status=$?
-  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && { ac_try='./conftest$ac_exeext'
-  { { case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-printf "%s\n" "$ac_try_echo"; } >&5
-  (eval "$ac_try") 2>&5
-  ac_status=$?
-  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; }
-then :
-  ac_retval=0
-else $as_nop
-  printf "%s\n" "$as_me: program exited with status $ac_status" >&5
-       printf "%s\n" "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-       ac_retval=$ac_status
-fi
-  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-  as_fn_set_status $ac_retval
-
-} # ac_fn_c_try_run
 
 # ac_fn_c_compute_int LINENO EXPR VAR INCLUDES
 # --------------------------------------------
@@ -4909,14 +4913,8 @@ fi
 # Check whether --with-system-valgrind-headers was given.
 if test ${with_system_valgrind_headers+y}
 then :
-  withval=$with_system_valgrind_headers; if test "${withval}" = no; then
-  use_system_valgrind=no
-else
-  use_system_valgrind=yes
-fi
-
-else $as_nop
-  use_system_valgrind=no
+  withval=$with_system_valgrind_headers; { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-system-valgrind-headers is defunct" >&5
+printf "%s\n" "$as_me: WARNING: --with-system-valgrind-headers is defunct" >&2;}
 fi
 
 
@@ -9763,17 +9761,367 @@ fi
 R_DEFS=${DEFS}
 
 
-## Other C standards -- first pass
-: ${CC17="${CC} -std=gnu17"}
-: ${C17FLAGS="${CFLAGS}"}
+CC_SUB=`echo "${CC}" | sed 's/-std=[^ ]*//'`
+CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[^ ]*//'`
+
+## Other C standards
+CC_save=${CC}
+CFLAGS_save=${CFLAGS}
+: ${CC17="${CC_SUB} -std=gnu17"}
+: ${C17FLAGS="${CFLAGS_SUB}"}
+CC=${CC17}
+CFLAGS=${C17FLAGS}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C17 compiler" >&5
+printf %s "checking whether ${CC} is a C17 compiler... " >&6; }
+if test ${r_cv_C17+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C17=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ > 201710L
+# error "Compiler claims to be later than C17"
+# elif __STDC_VERSION__ < 199901L
+# error "Compiler does not claim C99 compliance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+// C89 example from autoconf 2.71.
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+
+// From rmumps
+typedef enum { true=1, false=0 } bool;
+
+// simplified from survival
+static void addup();
+void agsurv3(int *sn)
+{
+    addup(4, 0.0, 0.0);
+}
+static void addup(int itime, double haz, double var){}
+
+int main(void) {
+     return 0;
+}
 
 
-: ${CC23="${CC} -std=gnu2x"}
-: ${C23FLAGS="${CFLAGS}"}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C17=yes
+else $as_nop
+  r_cv_C17=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C17" >&5
+printf "%s\n" "$r_cv_C17" >&6; }
+
+if test x${r_cv_C17} = xno; then
+unset r_cv_C17
+CC17="${CC_SUB} -std=gnu11"
+CC=${CC17}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C17 compiler" >&5
+printf %s "checking whether ${CC} is a C17 compiler... " >&6; }
+if test ${r_cv_C17+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C17=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ > 201710L
+# error "Compiler claims to be later than C17"
+# elif __STDC_VERSION__ < 199901L
+# error "Compiler does not claim C99 compliance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+// C89 example from autoconf 2.71.
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+
+// From rmumps
+typedef enum { true=1, false=0 } bool;
+
+// simplified from survival
+static void addup();
+void agsurv3(int *sn)
+{
+    addup(4, 0.0, 0.0);
+}
+static void addup(int itime, double haz, double var){}
+
+int main(void) {
+     return 0;
+}
 
 
-r_c17_compiler="${CC17} ${C17FLAGS}"
-r_c23_compiler="${CC23} ${C23FLAGS}"
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C17=yes
+else $as_nop
+  r_cv_C17=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C17" >&5
+printf "%s\n" "$r_cv_C17" >&6; }
+
+fi
+if test x${r_cv_C17} = xno; then
+CC17=
+C17FLAGS=
+fi
+
+
+
+: ${CC23="${CC_SUB} -std=gnu23"}
+: ${C23FLAGS="${CFLAGS_SUB}"}
+CC=${CC23}
+CFLAGS=${C23FLAGS}
+unset r_cv_C23
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C23 compiler" >&5
+printf %s "checking whether ${CC} is a C23 compiler... " >&6; }
+if test ${r_cv_C23+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C23=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ < 202000L
+#  error "Compiler does not claim C23 conformance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+int main(void) {
+     return 0;
+}
+
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C23=yes
+else $as_nop
+  r_cv_C23=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C23" >&5
+printf "%s\n" "$r_cv_C23" >&6; }
+
+if test x${r_cv_C23} = xno; then
+unset r_cv_C23
+CC23="${CC_SUB} -std=gnu2x"
+CC=${CC23}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C23 compiler" >&5
+printf %s "checking whether ${CC} is a C23 compiler... " >&6; }
+if test ${r_cv_C23+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C23=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ < 202000L
+#  error "Compiler does not claim C23 conformance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+int main(void) {
+     return 0;
+}
+
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C23=yes
+else $as_nop
+  r_cv_C23=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C23" >&5
+printf "%s\n" "$r_cv_C23" >&6; }
+
+fi
+if test x${r_cv_C23} = xno; then
+CC23=
+C23FLAGS=
+fi
+
+
+
+: ${CC90="${CC_SUB} -std=gnu90"}
+: ${C90FLAGS="${CFLAGS_SUB}"}
+CC=${CC90}
+CFLAGS=${C90FLAGS}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C90 compiler" >&5
+printf %s "checking whether ${CC} is a C90 compiler... " >&6; }
+if test ${r_cv_C90+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C90=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#if defined  __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
+# error "Compiler claims to be later than C90"
+#endif
+
+/* C90 example from autoconf 2.71 */
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+int main(void) {
+     return 0;
+}
+
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C90=yes
+else $as_nop
+  r_cv_C90=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C90" >&5
+printf "%s\n" "$r_cv_C90" >&6; }
+
+if test x${r_cv_C90} = xno; then
+CC90=
+C90FLAGS=
+fi
+
+
+
+: ${CC99="${CC_SUB} -std=gnu99"}
+: ${C99FLAGS="${CFLAGS_SUB}"}
+CC=${CC99}
+CFLAGS=${C99FLAGS}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} is a C99 compiler" >&5
+printf %s "checking whether ${CC} is a C99 compiler... " >&6; }
+if test ${r_cv_C99+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  r_cv_C99=no
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ != 199901L
+#  error "Compiler does not claim C99 compliance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+/* C90 example from autoconf 2.71. */
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+
+int main(void) {
+     return 0;
+}
+
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  r_cv_C99=yes
+else $as_nop
+  r_cv_C99=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_C99" >&5
+printf "%s\n" "$r_cv_C99" >&6; }
+
+if test x${r_cv_C99} = xno; then
+CC99=
+C99FLAGS=
+fi
+
+
+CC=${CC_save}
+CFLAGS=${CFLAGS_save}
 
 ## Libtool.
 ## (Run this after selecting the Fortan compiler as AC_PROG_LIBTOOL
@@ -26706,7 +27054,7 @@ _ACEOF
 # flags.
 r_save_CFLAGS=$CFLAGS
 CFLAGS="$CFLAGS $r_verb"
-(eval echo $as_me:26711: \"$ac_link\") >&5
+(eval echo $as_me:27059: \"$ac_link\") >&5
 r_c_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$r_c_v_output" >&5
 CFLAGS=$r_save_CFLAGS
@@ -26782,7 +27130,7 @@ _ACEOF
 # flags.
 r_save_CFLAGS=$CFLAGS
 CFLAGS="$CFLAGS $r_cv_prog_c_v"
-(eval echo $as_me:26787: \"$ac_link\") >&5
+(eval echo $as_me:27135: \"$ac_link\") >&5
 r_c_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$r_c_v_output" >&5
 CFLAGS=$r_save_CFLAGS
@@ -30110,7 +30458,7 @@ printf "%s\n" "$ac_res" >&6; }
 
     if test x$ac_success = xno; then
                     for alternative in ${ax_cxx_compile_alternatives}; do
-      for switch in -std=c++${alternative} -std=sun${alternative}; do
+      for switch in -std=c++${alternative} +std=c++${alternative}; do
         cachevar=`printf "%s\n" "ax_cv_cxx_compile_cxx11_$switch" | $as_tr_sh`
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++11 features with $switch" >&5
 printf %s "checking whether $CXX supports C++11 features with $switch... " >&6; }
@@ -30844,7 +31192,7 @@ else $as_nop
 #elif __cplusplus < 201402L
 # error "This is not a C++14 compiler"
 #elif __cplusplus >= 201703L
-# error "This is a C++17 compiler"
+# error "This is a C++17 or later compiler"
 #else
 
 
@@ -31267,7 +31615,7 @@ else $as_nop
 #elif __cplusplus < 201402L
 # error "This is not a C++14 compiler"
 #elif __cplusplus >= 201703L
-# error "This is a C++17 compiler"
+# error "This is a C++17 or later compiler"
 #else
 
 
@@ -31680,7 +32028,7 @@ printf "%s\n" "$ac_res" >&6; }
 
     if test x$ac_success = xno; then
                     for alternative in ${ax_cxx_compile_alternatives}; do
-      for switch in -std=c++${alternative} -std=sun${alternative}; do
+      for switch in -std=c++${alternative} +std=c++${alternative}; do
         cachevar=`printf "%s\n" "ax_cv_cxx_compile_cxx14_$switch" | $as_tr_sh`
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++14 features with $switch" >&5
 printf %s "checking whether $CXX supports C++14 features with $switch... " >&6; }
@@ -31697,7 +32045,7 @@ else $as_nop
 #elif __cplusplus < 201402L
 # error "This is not a C++14 compiler"
 #elif __cplusplus >= 201703L
-# error "This is a C++17 compiler"
+# error "This is a C++17 or later compiler"
 #else
 
 
@@ -32126,7 +32474,7 @@ else $as_nop
 #elif __cplusplus < 201402L
 # error "This is not a C++14 compiler"
 #elif __cplusplus >= 201703L
-# error "This is a C++17 compiler"
+# error "This is a C++17 or later compiler"
 #else
 
 
@@ -32624,7 +32972,7 @@ else $as_nop
 #elif __cplusplus < 201703L
 #error "This is not a C++17 compiler"
 #elif __cplusplus >= 202002L
-# error "This is a C++20 compiler"
+# error "This is a C++20 or later compiler"
 #else
 
 
@@ -33410,7 +33758,7 @@ else $as_nop
 #elif __cplusplus < 201703L
 #error "This is not a C++17 compiler"
 #elif __cplusplus >= 202002L
-# error "This is a C++20 compiler"
+# error "This is a C++20 or later compiler"
 #else
 
 
@@ -34186,7 +34534,7 @@ printf "%s\n" "$ac_res" >&6; }
 
     if test x$ac_success = xno; then
                     for alternative in ${ax_cxx_compile_alternatives}; do
-      for switch in -std=c++${alternative} -std=sun${alternative}; do
+      for switch in -std=c++${alternative} +std=c++${alternative}; do
         cachevar=`printf "%s\n" "ax_cv_cxx_compile_cxx17_$switch" | $as_tr_sh`
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++17 features with $switch" >&5
 printf %s "checking whether $CXX supports C++17 features with $switch... " >&6; }
@@ -34203,7 +34551,7 @@ else $as_nop
 #elif __cplusplus < 201703L
 #error "This is not a C++17 compiler"
 #elif __cplusplus >= 202002L
-# error "This is a C++20 compiler"
+# error "This is a C++20 or later compiler"
 #else
 
 
@@ -34995,7 +35343,7 @@ else $as_nop
 #elif __cplusplus < 201703L
 #error "This is not a C++17 compiler"
 #elif __cplusplus >= 202002L
-# error "This is a C++20 compiler"
+# error "This is a C++20 or later compiler"
 #else
 
 
@@ -35854,7 +36202,7 @@ else $as_nop
 #ifndef __cplusplus
 #error "This is not a C++ compiler"
 #elif __cplusplus < 202002L
-#error "This is not a C++20 compiler"
+#error "This is not a C++20 or later compiler"
 #else
 
 
@@ -36638,7 +36986,7 @@ else $as_nop
 #ifndef __cplusplus
 #error "This is not a C++ compiler"
 #elif __cplusplus < 202002L
-#error "This is not a C++20 compiler"
+#error "This is not a C++20 or later compiler"
 #else
 
 
@@ -37414,7 +37762,7 @@ printf "%s\n" "$ac_res" >&6; }
 
     if test x$ac_success = xno; then
                     for alternative in ${ax_cxx_compile_alternatives}; do
-      for switch in -std=c++${alternative} -std=sun${alternative}; do
+      for switch in -std=c++${alternative} +std=c++${alternative}; do
         cachevar=`printf "%s\n" "ax_cv_cxx_compile_cxx20_$switch" | $as_tr_sh`
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++20 features with $switch" >&5
 printf %s "checking whether $CXX supports C++20 features with $switch... " >&6; }
@@ -37429,7 +37777,7 @@ else $as_nop
 #ifndef __cplusplus
 #error "This is not a C++ compiler"
 #elif __cplusplus < 202002L
-#error "This is not a C++20 compiler"
+#error "This is not a C++20 or later compiler"
 #else
 
 
@@ -38219,7 +38567,7 @@ else $as_nop
 #ifndef __cplusplus
 #error "This is not a C++ compiler"
 #elif __cplusplus < 202002L
-#error "This is not a C++20 compiler"
+#error "This is not a C++20 or later compiler"
 #else
 
 
@@ -40638,7 +40986,7 @@ printf "%s\n" "$ac_res" >&6; }
 
     if test x$ac_success = xno; then
                     for alternative in ${ax_cxx_compile_alternatives}; do
-      for switch in -std=c++${alternative} -std=sun${alternative}; do
+      for switch in -std=c++${alternative} +std=c++${alternative}; do
         cachevar=`printf "%s\n" "ax_cv_cxx_compile_cxx23_$switch" | $as_tr_sh`
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++23 features with $switch" >&5
 printf %s "checking whether $CXX supports C++23 features with $switch... " >&6; }
@@ -42268,24 +42616,33 @@ fi
 
 
 
-## Set default C++ compiler to C++14 if available, otherwise C++11
-## Do not set if neither is available.
+## Set default C++ compiler to C++17 if available, otherwise C++14 or C++11
+## Do not set if none is available.
 if test -n "${CXX}" && test -z "${CXXSTD}"; then
-  if test -n "${CXX14}"; then
-    CXX=${CXX14}
-    CXXSTD=${CXX14STD}
-    CXXFLAGS=${CXX14FLAGS}
-    CXXPICFLAGS=${CXX14PICFLAGS}
+  if test -n "${CXX17}"; then
+    CXX=${CXX17}
+    CXXSTD=${CXX17STD}
+    CXXFLAGS=${CXX17FLAGS}
+    CXXPICFLAGS=${CXX17PICFLAGS}
   elif test -n "${CXX11}"; then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: C++14 is not available so the default C++ standard is C++11" >&5
-printf "%s\n" "$as_me: WARNING: C++14 is not available so the default C++ standard is C++11" >&2;}
-    CXX=${CXX11}
-    CXXSTD=${CXX11STD}
-    CXXFLAGS=${CXX11FLAGS}
-    CXXPICFLAGS=${CXX11PICFLAGS}
+    if test -n "${CXX14}"; then
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: C++17 is not available so the default C++ standard is C++14" >&5
+printf "%s\n" "$as_me: WARNING: C++17 is not available so the default C++ standard is C++14" >&2;}
+      CXX=${CXX14}
+      CXXSTD=${CXX14STD}
+      CXXFLAGS=${CXX14FLAGS}
+      CXXPICFLAGS=${CXX14PICFLAGS}
+    else
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: C++17 is not available so the default C++ standard is C++11" >&5
+printf "%s\n" "$as_me: WARNING: C++17 is not available so the default C++ standard is C++11" >&2;}
+      CXX=${CXX11}
+      CXXSTD=${CXX11STD}
+      CXXFLAGS=${CXX11FLAGS}
+      CXXPICFLAGS=${CXX11PICFLAGS}
+    fi
   else
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Neither C++14 nor C++11 is available so no default C++ compiler is set" >&5
-printf "%s\n" "$as_me: WARNING: Neither C++14 nor C++11 is available so no default C++ compiler is set" >&2;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: None of C++17, C++14 nor C++11 is available so no default C++ compiler is set" >&5
+printf "%s\n" "$as_me: WARNING: None of C++17, C++14 nor C++11 is available so no default C++ compiler is set" >&2;}
   fi
 fi
 
@@ -52906,7 +53263,7 @@ if test ${valgrind_level} -eq 0; then
 
 printf "%s\n" "#define NVALGRIND 1" >>confdefs.h
 
-elif test "${use_system_valgrind}" = yes; then
+else
   ac_fn_c_check_header_compile "$LINENO" "valgrind/memcheck.h" "ac_cv_header_valgrind_memcheck_h" "$ac_includes_default"
 if test "x$ac_cv_header_valgrind_memcheck_h" = xyes
 then :
@@ -52914,6 +53271,10 @@ then :
 
 fi
 
+  if test "${ac_cv_header_valgrind_memcheck_h}" != yes; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: system valgrind headers not found -- using internal copies" >&5
+printf "%s\n" "$as_me: WARNING: system valgrind headers not found -- using internal copies" >&2;}
+  fi
 fi
 
 
@@ -61329,8 +61690,6 @@ R is now configured for ${host}
   C++23 compiler:              ${r_cxx23_compiler}
   Fortran free-form compiler:  ${r_f95_compiler}
   Obj-C compiler:	       ${r_objc_compiler}
-  C17 compiler:                ${r_c17_compiler}
-  C23 compiler:                ${r_c23_compiler}
 
   Interfaces supported:        ${r_interfaces}
   External libraries:          ${r_external_libs}
@@ -61359,8 +61718,6 @@ R is now configured for ${host}
   C++23 compiler:              ${r_cxx23_compiler}
   Fortran free-form compiler:  ${r_f95_compiler}
   Obj-C compiler:	       ${r_objc_compiler}
-  C17 compiler:                ${r_c17_compiler}
-  C23 compiler:                ${r_c23_compiler}
 
   Interfaces supported:        ${r_interfaces}
   External libraries:          ${r_external_libs}

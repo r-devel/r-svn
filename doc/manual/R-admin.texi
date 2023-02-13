@@ -333,12 +333,17 @@ make check-all
 @end example
 
 @noindent
-see file @file{tests/README} and @ref{Testing a Unix-alike Installation}
+see @ref{Testing a Unix-alike Installation}
 for the possibilities of doing this in parallel.  Note that these checks
 are only run completely if the recommended packages are installed.  If
 you have a local CRAN mirror, these checks can be speeded up by either
 setting environment variable @env{R_CRAN_WEB} to its URL, or having a
 file @file{.R/repositories} specifying it (see @code{?setRepositories}).
+
+Parallel make is supported for building @R{} but not for the
+@samp{check} targets (as the output is likely to be unreadably
+interleaved, although where supported@footnote{not by the version
+supplied by macOS.} GNU make's @option{-O} may help).
 
 If the @command{configure} and @command{make} commands execute
 successfully, a shell-script front-end called @file{R} will be created
@@ -1106,15 +1111,16 @@ Intel compilers.  Currently accepted values are (plus some synonyms)
 @example
 g++:     c++11 gnu+11 c++14 gnu++14 c++17 gnu++17 c++2a gnu++2a (from 8)
          c++20 gnu++20 (from 10) c++23 gnu++23 c++2b gnu++2b (from 11)
-Intel:   c++11 c++14 (from 16.0) c++17 (from 17.0) c++20 (from 19.0?)
+Intel:   c++11 c++14 (from 16.0) c++17 (from 17.0) c++20 (from 2021.1)
+         c++23 (from 2022.2)
 @end example
 @noindent
 (Those for LLVM @command{clang++} are documented at
 @uref{https://clang.llvm.org/cxx_status.html}, and follow @code{g++}:
 @code{-std=c++20} is supported from Clang 10, @code{-std=c++2b} from
-Clang 13.)
+Clang 13.  Apple Clang supports @code{-std=c++2b} from 13.1.6.)
 
-@c c++1y does not pass the configure test in 4.9.3
+@c c++1y does not pass the configure test in gcc 4.9.3
 @c , with @option{-std=c++1y} (introduced@footnote{See
 @c @uref{https://gcc.gnu.org/projects/cxx-status.html#cxx14} for which
 @c C++14 features it supported.} in version 4.9.x) remaining as a deprecated
@@ -1125,12 +1131,14 @@ extensions': what those are is hard to track down.
 
 For the use of C++11 and later in @R{} packages see the `Writing R
 Extensions' manual.  Prior to @R{} 3.6.0 the default C++ standard was
-that of the compiler used: currently it is C++14 (if available): this
+that of the compiler used: currently it is C++17 (if available): this
 can be overridden by setting @samp{CXXSTD} when @R{} is configured.
 
 @uref{https://en.cppreference.com/w/cpp/compiler_support} indicates
 which versions of common compilers support (parts of) which C++
-standards.
+standards.  GCC 5 was the minimum version with sufficient C++14
+support. GCC introduced C++17 support gradually, but version 7 should
+suffice.
 
 @node C standards, Link-Time Optimization, C++ Support, Other Options
 @subsection C standards
@@ -1148,9 +1156,9 @@ be used as identifiers.  Those for C23 should support new types such as
 
 Some compilers warn enthusiastically about prototypes.  For most,
 omitting @option{-Wstrict-prototypes} in @code{C17FLAGS} suffices.
-Howver, versions 15 and later of LLVM @command{clang} warn by default in
-all modes if @option{-Wall} is used, and may need
-@option{-Wno-strict-prototypes}.
+However, versions 15 and later of LLVM @command{clang} warn by default
+in all modes if @option{-Wall} or @option{-pedantic} is used, and may
+need @option{-Wno-strict-prototypes}.
 
 @node Link-Time Optimization,  , C standards, Other Options
 @subsection Link-Time Optimization
@@ -3332,7 +3340,8 @@ by calling @code{pcre_config()}.
 @c libcurl 7.26.0 was released in May 2012, still in Debian 7 Wheezy LTS,
 @c   end-of-life May 2018. 
 @c libcurl 7.28.0 was released in Oct 2012
-@c Ubuntu 16.04LTS has 7.47.0
+@c libcurl 7.32.0 was released in Aug 2013
+@c Ubuntu 14.04LTS has 7.35.0  RHEL/Centos 7 has 7.29.0 (we are told)
 Library @code{libcurl} (version 7.28.0 or later@footnote{but not a major
 version greater than 7 should there ever be one: the major version has
 been 7 since 2000.}) is required.  Information on @code{libcurl} is

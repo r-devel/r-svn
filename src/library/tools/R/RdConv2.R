@@ -1,7 +1,7 @@
 #  File src/library/tools/R/RdConv2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -103,9 +103,8 @@ RweaveRdOptions <- function(options)
 
     for(opt in names(options)){
         if(opt %notin% NOLOGOPTS) {
-            oldval <- options[[opt]]
-            if(!is.logical(options[[opt]])){
-                options[[opt]] <- c2l(options[[opt]])
+            if(!is.logical(oldval <- options[[opt]])){
+                options[[opt]] <- c2l(oldval)
             }
             if(is.na(options[[opt]]))
                 stop(gettextf("invalid value for '%s' : %s", opt, oldval),
@@ -117,13 +116,14 @@ RweaveRdOptions <- function(options)
     }
 
     if(!is.null(options$results))
-        options$results <- tolower(as.character(options$results))
-    options$results <- match.arg(options$results,
-                                 c("text", "verbatim", "rd", "hide"))
+        options$results <- match.arg(tolower(options$results),
+                                     c("text", "verbatim", "rd", "hide"))
     if(!is.null(options$stage))
-    	options$stage <- tolower(as.character(options$stage))
-    options$stage <- match.arg(options$stage,
-    				 c("build", "install", "render"))
+        options$stage <- match.arg(tolower(options$stage),
+                                   c("build", "install", "render"))
+    if(!is.null(options$strip.white))
+        options$strip.white <- tolower(options$strip.white)
+
     options
 }
 
@@ -276,7 +276,7 @@ processRdChunk <- function(code, stage, options, env, macros)
 		    if(options$strip.white == "all")
 		      output <- sub("\n[[:space:]]*\n", "\n", output)
 		}
-		res <- c(res, output)
+		res <- c(res, output, "\n")
 		remove(output)
 	    }
 	}
@@ -497,7 +497,7 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     ## Check other sections are unique
     unique_tags <-
         paste0("\\",
-               c("usage", "arguments", "synopsis",
+               c("usage", "arguments",
                  "format", "details", "value", "references", "source",
                  "seealso", "examples", "author", "encoding"))
     for (tag in unique_tags) {
@@ -986,8 +986,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
             tagtitle <- sQuote(as.character(title))
     	} else tagtitle <- tag
         has_text <<- FALSE
-        if (tag == "\\synopsis")
-            stopRd(section, Rdfile, "\\synopsis was removed in R 3.1.0")
+        ## if (tag == "\\synopsis")  # already removed via prepare_Rd
+        ##     stopRd(section, Rdfile, "\\synopsis was removed in R 3.1.0")
         if (tag %in% c("\\usage", "\\examples"))
             checkCodeBlock(section, tag)
     	else checkContent(section, tag)
@@ -1058,7 +1058,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
     unique_tags <-
         paste0("\\",
                c("name", "title", # "description" checked above
-                 "usage", "arguments",  "synopsis",
+                 "usage", "arguments",
                  "format", "details", "value", "references", "source",
                  "seealso", "examples", "author", "encoding"))
     for(tag in intersect(sections[duplicated(sections)], unique_tags))

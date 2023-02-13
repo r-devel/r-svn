@@ -503,9 +503,8 @@ AC_ARG_WITH([valgrind-instrumentation],
 [valgrind_level=0])
 
 AC_ARG_WITH([system-valgrind-headers],
-[AS_HELP_STRING([--with-system-valgrind-headers],[use system valgrind headers (if available) @<:@no@:>@])],
-[R_ARG_USE_SYSTEM(valgrind)],
-[use_system_valgrind=no])
+[AS_HELP_STRING([--with-system-valgrind-headers],[use system valgrind headers (if available) @<:@yes@:>@])],
+[AC_MSG_WARN([--with-system-valgrind-headers is defunct])])
 
 AC_ARG_WITH([internal-tzcode],
 [AS_HELP_STRING([--with-internal-tzcode],[use internal time-zone code @<:@no, yes on macOS@:>@])],
@@ -787,17 +786,77 @@ R_PROG_OBJCXX
 R_DEFS=${DEFS}
 AC_SUBST(R_DEFS)
 
-## Other C standards -- first pass
-: ${CC17="${CC} -std=gnu17"}
-: ${C17FLAGS="${CFLAGS}"}
+CC_SUB=`echo "${CC}" | sed 's/-std=[[^ ]]*//'`
+CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[[^ ]]*//'`
+dnl echo "CC_SUB = ${CC_SUB}"
+dnl echo "CFLAGS_SUB = ${CFLAGS_SUB}"
+
+## Other C standards
+CC_save=${CC}
+CFLAGS_save=${CFLAGS}
+: ${CC17="${CC_SUB} -std=gnu17"}
+: ${C17FLAGS="${CFLAGS_SUB}"}
+CC=${CC17}
+CFLAGS=${C17FLAGS}
+R_C17
+if test x${r_cv_C17} = xno; then
+unset r_cv_C17
+CC17="${CC_SUB} -std=gnu11"
+CC=${CC17}
+R_C17
+fi
+if test x${r_cv_C17} = xno; then
+CC17=
+C17FLAGS=
+fi
 AC_SUBST(CC17)
 AC_SUBST(C17FLAGS)
-: ${CC23="${CC} -std=gnu2x"}
-: ${C23FLAGS="${CFLAGS}"}
+
+dnl this is a hack until -std=gnu23 is widely accepted.
+: ${CC23="${CC_SUB} -std=gnu23"}
+: ${C23FLAGS="${CFLAGS_SUB}"}
+CC=${CC23}
+CFLAGS=${C23FLAGS}
+unset r_cv_C23
+R_C23
+if test x${r_cv_C23} = xno; then
+unset r_cv_C23
+CC23="${CC_SUB} -std=gnu2x"
+CC=${CC23}
+R_C23
+fi
+if test x${r_cv_C23} = xno; then
+CC23=
+C23FLAGS=
+fi
 AC_SUBST(CC23)
 AC_SUBST(C23FLAGS)
-r_c17_compiler="${CC17} ${C17FLAGS}"
-r_c23_compiler="${CC23} ${C23FLAGS}"
+
+: ${CC90="${CC_SUB} -std=gnu90"}
+: ${C90FLAGS="${CFLAGS_SUB}"}
+CC=${CC90}
+CFLAGS=${C90FLAGS}
+R_C90
+if test x${r_cv_C90} = xno; then
+CC90=
+C90FLAGS=
+fi
+AC_SUBST(CC90)
+AC_SUBST(C90FLAGS)
+
+: ${CC99="${CC_SUB} -std=gnu99"}
+: ${C99FLAGS="${CFLAGS_SUB}"}
+CC=${CC99}
+CFLAGS=${C99FLAGS}
+R_C99
+if test x${r_cv_C99} = xno; then
+CC99=
+C99FLAGS=
+fi
+AC_SUBST(CC99)
+AC_SUBST(C99FLAGS)
+CC=${CC_save}
+CFLAGS=${CFLAGS_save}
 
 ## Libtool.
 ## (Run this after selecting the Fortan compiler as AC_PROG_LIBTOOL
@@ -1820,22 +1879,30 @@ R_STDCXX([17], [CXX17], [CXX14])
 R_STDCXX([20], [CXX20], [CXX17])
 R_STDCXX([23], [CXX23], [CXX20])
 
-## Set default C++ compiler to C++14 if available, otherwise C++11
-## Do not set if neither is available.
+## Set default C++ compiler to C++17 if available, otherwise C++14 or C++11
+## Do not set if none is available.
 if test -n "${CXX}" && test -z "${CXXSTD}"; then
-  if test -n "${CXX14}"; then
-    CXX=${CXX14}
-    CXXSTD=${CXX14STD}
-    CXXFLAGS=${CXX14FLAGS}
-    CXXPICFLAGS=${CXX14PICFLAGS}
+  if test -n "${CXX17}"; then
+    CXX=${CXX17}
+    CXXSTD=${CXX17STD}
+    CXXFLAGS=${CXX17FLAGS}
+    CXXPICFLAGS=${CXX17PICFLAGS}
   elif test -n "${CXX11}"; then
-    AC_MSG_WARN([C++14 is not available so the default C++ standard is C++11])
-    CXX=${CXX11}
-    CXXSTD=${CXX11STD}
-    CXXFLAGS=${CXX11FLAGS}
-    CXXPICFLAGS=${CXX11PICFLAGS}
+    if test -n "${CXX14}"; then
+      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++14])
+      CXX=${CXX14}
+      CXXSTD=${CXX14STD}
+      CXXFLAGS=${CXX14FLAGS}
+      CXXPICFLAGS=${CXX14PICFLAGS}
+    else
+      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++11])
+      CXX=${CXX11}
+      CXXSTD=${CXX11STD}
+      CXXFLAGS=${CXX11FLAGS}
+      CXXPICFLAGS=${CXX11PICFLAGS}
+    fi
   else
-    AC_MSG_WARN([Neither C++14 nor C++11 is available so no default C++ compiler is set])
+    AC_MSG_WARN([None of C++17, C++14 nor C++11 is available so no default C++ compiler is set])
   fi
 fi
 
@@ -2541,8 +2608,11 @@ AC_FUNC_FSEEKO
 ## Valgrind instrumentation
 if test ${valgrind_level} -eq 0; then
   AC_DEFINE(NVALGRIND, 1, [Define to disable Valgrind instrumentation])
-elif test "${use_system_valgrind}" = yes; then
+else
   AC_CHECK_HEADERS([valgrind/memcheck.h])
+  if test "${ac_cv_header_valgrind_memcheck_h}" != yes; then
+  AC_MSG_WARN([system valgrind headers not found -- using internal copies])
+  fi
 fi
 
 AC_DEFINE_UNQUOTED(VALGRIND_LEVEL, ${valgrind_level}, [Define as 1 or 2 to specify levels of Valgrind instrumentation])
@@ -3098,8 +3168,6 @@ R is now configured for ${host}
   C++23 compiler:              ${r_cxx23_compiler}
   Fortran free-form compiler:  ${r_f95_compiler}
   Obj-C compiler:	       ${r_objc_compiler}
-  C17 compiler:                ${r_c17_compiler}
-  C23 compiler:                ${r_c23_compiler}
 
   Interfaces supported:        ${r_interfaces}
   External libraries:          ${r_external_libs}

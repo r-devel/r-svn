@@ -24,7 +24,7 @@
 */
 
 /* Copyright (C) 2004, 2009	The R Foundation
-   Copyright (C) 2013-2022	The R Core Team
+   Copyright (C) 2013-2023	The R Core Team
 
    Changes for R, Chris Jackson, 2004
    Handle find-and-replace modeless dialogs
@@ -35,6 +35,8 @@
    Add waitevent() function
    Caret handling improvements (see comments in controls.c)
    Allow to leave a dropfield (combo box) with TAB key
+   Allow navigating to previous controls with Shift+TAB key
+   Path length limitations
  */
 
 #include "internal.h"
@@ -457,18 +459,19 @@ static void handle_colour(HDC dc, object obj)
    #endif
 #endif
 
-static char dfilename[MAX_PATH + 1];
 static void handle_drop(object obj, HANDLE dropstruct)
 {
     if (obj->call && obj->call->drop) {
 	int len = DragQueryFile(dropstruct, 0, NULL, 0);
-	if (len > MAX_PATH) {
+	char *dfilename = (char*)malloc(len + 1);
+	if (!dfilename) {
 	    DragFinish(dropstruct);
 	    return;
 	}
-	DragQueryFile(dropstruct, 0, dfilename, MAX_PATH);
+	DragQueryFile(dropstruct, 0, dfilename, len + 1);
 	DragFinish(dropstruct);
 	obj->call->drop(obj, dfilename);
+	free(dfilename);
     }
 }
 
@@ -924,7 +927,7 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     int prevent_activation = 0;
     int key;
     long result;
-    object obj, next;
+    object obj, next, prev;
 
     /* Find the library object associated with the hwnd. */
     obj = find_by_handle(hwnd);
@@ -935,7 +938,8 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (! obj->winproc)
 	return 0; /* Nowhere to send events! */
 
-    next = find_valid_sibling(obj->next);
+    next = find_next_valid_sibling(obj->next);
+    prev = find_prev_valid_sibling(obj->prev);
 
     if (message == WM_KEYDOWN)
 	handle_keydown(key);
@@ -947,14 +951,22 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
 	if (obj->kind == TextboxObject) {
 	    handle_virtual_keydown(obj, key); /* call user's virtual key handler */
-	    if ((key == VK_TAB) && (keystate & CtrlKey)) {
-		SetFocus(next->handle);
-		return 0;
+	    if (key == VK_TAB) {
+		if (keystate & ShiftKey) {
+		    SetFocus(prev->handle);
+		    return 0;
+		} else if (keystate & CtrlKey) {
+		    SetFocus(next->handle);
+		    return 0;
+		}
 	    }
 	    break;
 	}
 	if (key == VK_TAB) {
-	    SetFocus(next->handle);
+	    if (keystate & ShiftKey)
+		SetFocus(prev->handle);
+	    else
+		SetFocus(next->handle);
 	    return 0;
 	}
 	else if ((key == VK_RETURN) || (key == VK_ESCAPE)) {
@@ -1031,7 +1043,7 @@ long WINAPI
 edit_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int key;
-    object obj, next;
+    object obj, next, prev;
     HANDLE hwndCombo;
 
     /* Find the library (dropfield/combo box) object associated
@@ -1047,7 +1059,8 @@ edit_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (! obj->edit_winproc)
 	return 0; /* Nowhere to send events! */
 
-    next = find_valid_sibling(obj->next);
+    next = find_next_valid_sibling(obj->next);
+    prev = find_prev_valid_sibling(obj->prev);
 
     if (message == WM_KEYDOWN)
 	handle_keydown(key);
@@ -1058,7 +1071,10 @@ edit_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_KEYDOWN:
 	if (key == VK_TAB) {
-	    SetFocus(next->handle);
+	    if (keystate & ShiftKey)
+		SetFocus(prev->handle);
+	    else
+		SetFocus(next->handle);
 	    return 0;
 	}
 	break;

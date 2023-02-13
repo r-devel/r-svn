@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2022  The R Core Team.
+ *  Copyright (C) 2000-2023  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -934,7 +934,7 @@ static Rboolean valid_POSIXlt(SEXP x, int nm)
 	    error(_("invalid '%s'"), "attr(x, \"tzone\")");
 	int l = LENGTH(tz);
 	if(l != 1 && l != 3)
-	    error(_("attr(x, \"tzone\") shouls have length 1 or 3"));
+	    error(_("attr(x, \"tzone\") should have length 1 or 3"));
     }
 
     return TRUE;
@@ -1282,8 +1282,8 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 		    /* truncate to avoid nuisances such as PR#14579 */
 		    double s = tm.tm_sec + (secs - fsecs), t = Rexp10((double) ns);
 		    s = ((int) (s*t))/t;
-		    // FIXME uae snprintf
-		    sprintf(p2, "%0*.*f", ns+3, ns, s);
+		    snprintf(p2, sizeof(buf2) - (p2 - buf2), "%0*.*f",
+			     ns+3, ns, s);
 		    strcat(buf2, p+nused);
 		} else {
 		    strcat(p2, "%S");

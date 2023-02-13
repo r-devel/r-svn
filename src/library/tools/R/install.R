@@ -269,7 +269,7 @@ if(FALSE) {
             "      --use-vanilla	do not read any Renviron or Rprofile files",
             "      --use-LTO         use Link-Time Optimization",
             "      --no-use-LTO      do not use Link-Time Optimization",
-            "      --use-C17         use a C standard at most C17",
+            "      --use-C17         use a C standard at most C17 (also C90, C99)",
             "      --use-C23         use a C standard at least C23",
             "\nfor Unix",
             "      --configure-args=ARGS",
@@ -405,8 +405,12 @@ if(FALSE) {
                         break
                     }
                 }
-                if(any(grepl("USE_C17", sys_requires))) use_C <<- 17
-                if(any(grepl("USE_C23", sys_requires))) use_C <<- 23
+                if(is.na(use_C)) {
+                    if(any(grepl("USE_C17", sys_requires))) use_C <<- 17
+                    if(any(grepl("USE_C23", sys_requires))) use_C <<- 23
+                    if(any(grepl("USE_C90", sys_requires))) use_C <<- 90
+                    if(any(grepl("USE_C99", sys_requires))) use_C <<- 99
+                }
             }
         }
 
@@ -614,7 +618,9 @@ if(FALSE) {
                       if(isTRUE(use_LTO)) "--use-LTO",
                       if(isFALSE(use_LTO)) "--no-use-LTO",
                       if(isTRUE(use_C == "17")) "--use-C17"
-                      else if(isTRUE(use_C == "23")) "--use-C23",
+                      else if(isTRUE(use_C == "23")) "--use-C23"
+                      else if(isTRUE(use_C == "90")) "--use-C90"
+                      else if(isTRUE(use_C == "99")) "--use-C99",
                       "-o", paste0(pkg_name, SHLIB_EXT),
                       srcs)
             if (WINDOWS && debug) args <- c(args, "--debug")
@@ -1168,11 +1174,25 @@ if(FALSE) {
 
         if (use_configure) {
             if (WINDOWS) {
-                if (file.exists("configure.ucrt")) {
-                    res <- system("sh ./configure.ucrt")
-                    if (res) pkgerrmsg("configuration failed", pkg_name)
-                } else if (file.exists("configure.win")) {
-                    res <- system("sh ./configure.win")
+                if (file.exists(f <- "./configure.ucrt") ||
+                    file.exists(f <- "./configure.win")) {
+                    ## an approach with less quoting hell
+                    ev <- c("CC", "CFLAGS", "CXX", "CXXFLAGS", "CPPFLAGS",
+                            "LDFLAGS", "FC", "FCFLAGS")
+                    ## skip any which are already set.
+                    ev <- ev[!nzchar(Sys.getenv(ev))]
+                    ev1 <- ev
+                    if (!is.na(use_C))
+                        ev1 <- c(sprintf(c("CC%s", "C%sFLAGS"), use_C),
+                                 ev[!(ev %in% c("CC", "CFLAGS"))])
+                    ev2 <- lapply(ev1, function(x)
+                        system2(file.path(R.home("bin"), "Rcmd.exe"),
+                                c("config", x), stdout = TRUE))
+                    names(ev2) <- ev1
+                    do.call(Sys.setenv, ev2)
+                    res <- system(paste("sh", f))
+                    ## as we skipped those already set, unsetting is safe.
+                    Sys.unsetenv(ev2)
                     if (res) pkgerrmsg("configuration failed", pkg_name)
                 } else if (file.exists("configure"))
                     message("\n",
@@ -1191,6 +1211,21 @@ if(FALSE) {
                     ## in case the configure script calls SHLIB (some do)
                     cmd <- paste("_R_SHLIB_BUILD_OBJECTS_SYMBOL_TABLES_=false",
                                  cmd)
+                    ev <- c("CC", "CFLAGS", "CXX", "CXXFLAGS", "CPPFLAGS",
+                            "LDFLAGS", "FC", "FCFLAGS")
+                    ## skip any which are already set.
+                    ev <- ev[!nzchar(Sys.getenv(ev))]
+                    ev1 <- ev
+                    if (!is.na(use_C))
+                        ev1 <- c(sprintf(c("CC%s", "C%sFLAGS"), use_C),
+                                 ev[-(1:2)])
+                    ev2 <- sapply(ev1, function(x)
+                        system2(file.path(R.home("bin"), "R"), c("CMD", "config", x),
+                                stdout = TRUE))
+                    ev3 <- paste0(ev, "=", shQuote(ev2))
+                    ## skip any which are empty, possible for CXX)
+                    ev3 <- ev3[nzchar(ev2)]
+                    cmd <- paste(c(ev3, cmd), collapse = " ")
                     res <- system(cmd)
                     if (res) pkgerrmsg("configuration failed", pkg_name)
                 }  else if (file.exists("configure"))
@@ -1254,40 +1289,25 @@ if(FALSE) {
             dir.create(libdir, showWarnings = FALSE)
             if (WINDOWS) {
                 owd <- setwd("src")
-                ## makefiles <- character()
-                ## if (!is.na(f <- Sys.getenv("R_MAKEVARS_USER",
-                ##                            NA_character_))) {
-                ##     if (file.exists(f))  makefiles <- f
-                ## } else if (file.exists(f <- path.expand("~/.R/Makevars.ucrt")))
-                ##     makefiles <- f
-                ## else if (file.exists(f <- path.expand("~/.R/Makevars.win")))
-                ##     makefiles <- f
-                ## else if (file.exists(f <- path.expand("~/.R/Makevars")))
-                ##     makefiles <- f
                 if (file.exists(f <- "Makefile.ucrt") || file.exists(f <- "Makefile.win")) {
-                    ## for consistency this should be
-                    ## system_makefile <-
-                    ##     file.path(R.home(), paste0("etc", rarch), "Makeconf")
-                    ## makefiles <- c(system_makefile,
-                    ##                makevars_site(),
-                    ##                f,
-                    ##                makevars_user())
 
-                    makefiles <- c(f, makevars_user())
+                    system_makefile <-
+                        file.path(R.home(), paste0("etc", rarch), "Makeconf")
+                    makefiles <- c(system_makefile,
+                                   makevars_site(),
+                                   f,
+                                   makevars_user())
+
                     message(paste0("  running 'src/", f, "' ..."), domain = NA)
-                    ## Yhere is no point in setting CCxx or CxxFLAGS until
-                    ## the system Makeconf is included.
-                    ## p1 <- function(...) paste(..., collapse = " ")
-                    ## makeargs <-
-                    ##     if (!is.na(use_C))
-                    ##         sprintf(c("CC='$(CC%s)'", "CFLAGS='$(C%sFLAGS)'"), use_C)
-                    ##     else character()
-                    ## cmd <- paste("make --no-print-directory",
-                    ##              p1("-f", shQuote(makefiles)),
-                    ##              p1(makeargs))
-                    ## res <- system(cmd)
-                    res <- system(paste("make --no-print-directory",
-                                        paste("-f", shQuote(makefiles), collapse = " ")))
+                    p1 <- function(...) paste(..., collapse = " ")
+                    makeargs <-
+                        if (!is.na(use_C))
+                            sprintf(c("CC='$(CC%s)'", "CFLAGS='$(C%sFLAGS)'"), use_C)
+                        else character()
+                    cmd <- paste("make --no-print-directory",
+                                 p1("-f", shQuote(makefiles)),
+                                 p1(makeargs))
+                    res <- system(cmd)
                     if (res == 0L) shlib_install(instdir, rarch)
                     else has_error <- TRUE
                 } else { ## no src/Makefile.win
@@ -2113,6 +2133,10 @@ if(FALSE) {
             use_C <- 17
         } else if (a == "--use-C23") {
             use_C <- 23
+        } else if (a == "--use-C90") {
+            use_C <- 90
+        } else if (a == "--use-C99") {
+            use_C <- 99
         } else if (a == "--staged-install") {
             staged_install <- TRUE
         } else if (a == "--no-staged-install") {
@@ -2430,11 +2454,9 @@ if(FALSE) {
             "  -c, --clean		remove files created during compilation",
             "  --preclean		remove files created during a previous run",
             "  -n, --dry-run		dry run, showing commands that would be used",
-#            "",
-#            "Unix only:",
             "  --use-LTO		use Link-Time Optimization",
             "  --no-use-LTO		do not use Link-Time Optimization",
-            "  --use-C17	        use a C standard at most C17",
+            "  --use-C17	        use a C standard at most C17 (alsp C90, C99)",
             "  --use-C23	        use a C standard at least C23",
             "",
             "Windows only:",
@@ -2492,12 +2514,9 @@ if(FALSE) {
     ## and similarly elsewhere
     objs <- character()
     shlib <- ""
-    site <- Sys.getenv("R_MAKEVARS_SITE", NA_character_)
-    if (is.na(site))
-        site <- file.path(paste0(R.home("etc"), rarch), "Makevars.site")
     makefiles <-
         c(file.path(paste0(R.home("etc"), rarch), "Makeconf"),
-          if(file.exists(site)) site,
+          makevars_site(),
           file.path(R.home("share"), "make",
                     if (WINDOWS) "winshlib.mk" else "shlib.mk"))
     shlib_libadd <- if (nzchar(SHLIB_LIBADD)) SHLIB_LIBADD else character()
@@ -2548,6 +2567,10 @@ if(FALSE) {
             use_C <- 17
         } else if (a == "--use-C23") {
             use_C <- 23
+        } else if (a == "--use-C90") {
+            use_C <- 90
+        } else if (a == "--use-C99") {
+            use_C <- 99
         } else if (a == "-o") {
             if (length(args) >= 2L) {shlib <- args[2L]; args <- args[-1L]}
             else stop("-o option without value", call. = FALSE)
@@ -2595,22 +2618,7 @@ if(FALSE) {
 
     if (length(objs)) objs <- paste0(objs, OBJ_EXT, collapse = " ")
 
-    if (WINDOWS) {
-        if (!is.na(f <- Sys.getenv("R_MAKEVARS_USER", NA_character_))) {
-            if (file.exists(f))  makefiles <- c(makefiles, f)
-        } else if (rarch == "/x64" &&
-                   file.exists(f <- path.expand("~/.R/Makevars.ucrt")))
-            makefiles <- c(makefiles, f)
-        else if (rarch == "/x64" &&
-                   file.exists(f <- path.expand("~/.R/Makevars.win64")))
-            makefiles <- c(makefiles, f)
-        else if (file.exists(f <- path.expand("~/.R/Makevars.win")))
-            makefiles <- c(makefiles, f)
-        else if (file.exists(f <- path.expand("~/.R/Makevars")))
-            makefiles <- c(makefiles, f)
-    } else {
-        makefiles <- c(makefiles, makevars_user())
-    }
+    makefiles <- c(makefiles, makevars_user())
 
     makeobjs <- paste0("OBJECTS=", shQuote(objs))
     if (WINDOWS && (file.exists(fn <- "Makevars.ucrt") || file.exists(fn <- "Makevars.win"))) {
@@ -2775,25 +2783,30 @@ if(FALSE) {
         if (with_c) {
             cc <- lines[grep("^CC =", lines)]
             cc <- sub("CC = ", "", cc)
-            cc <- sub(" .*", "", cc)
-            cc_ver <- try(system2(cc, "--version", TRUE, TRUE), silent = TRUE)
+            ## We do not strip flags in configure so leave them here
+            ## cc <- sub(" -.*", "", cc)
+            ## As this might be more than one word we use system not system2.
+            cc_ver <- try(system(paste(cc, "--version"),
+                                 intern = TRUE), silent = TRUE)
             if(!inherits(cc_ver, "try-error"))
                 message("using C compiler: ", sQuote(cc_ver[1L]))
         }
         if (with_f77 || with_f9x) {
             fc <- lines[grep("^FC =", lines)]
             fc <- sub("FC = ", "", fc)
-            fc <- sub(" .*", "", fc)
-            fc_ver <- try(system2(fc, "--version", TRUE, TRUE), silent = TRUE)
+            ## fc <- sub(" -.*", "", fc)
+            fc_ver <- try(system(paste(fc, "--version"),
+                                 intern = TRUE), silent = TRUE)
             if(!inherits(fc_ver, "try-error"))
                 message("using Fortran compiler: ", sQuote(fc_ver[1L]))
         }
         if (with_cxx) {
             cxx <- lines[grep("^CXX =", lines)]
             cxx <- sub("CXX = ", "", cxx)
-            cxx <- sub(" .*", "", cxx)
+            ## cxx <- sub(" -.*", "", cxx)
             if(nzchar(cxx)) {
-                cxx_ver <- try(system2(cxx, "--version", TRUE, TRUE), silent = TRUE)
+                cxx_ver <- try(system(paste(cxx, "--version"),
+                                 intern = TRUE), silent = TRUE)
                 if(!inherits(cxx_ver, "try-error")) {
                     message("using C++ compiler: ", sQuote(cxx_ver[1L]))
                     if(!is.null(use_cxxstd))
