@@ -31,7 +31,7 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         msystem: MSYS
-        install: git make perl curl texinfo texinfo-tex rsync unzip
+        install: git make perl curl texinfo texinfo-tex rsync unzip diffutils
 
     - name: "Download rtools43 toolchain"
       run: |
