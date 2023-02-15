@@ -1613,13 +1613,8 @@ attribute_hidden SEXP do_attrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 	    PROTECT(obj = shallow_duplicate(obj));
 	else
 	    PROTECT(obj);
-
-	if (IS_S4_OBJECT(obj)) {
 	check_slot_assign(obj, input, value, env);
 	obj = R_do_slot_assign(obj, input, value);
-	} else {
-		setAttrib(obj, input, value);
-	}
 	UNPROTECT(2);
 	SETTER_CLEAR_NAMED(obj);
 	return obj;
