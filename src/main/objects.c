@@ -1026,7 +1026,7 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 
     int j, nwhat = LENGTH(what);
 
-    if (!isLogical(which) || (LENGTH(which) != 1))
+    if( !isLogical(which) || (LENGTH(which) != 1) )
 	error(_("'which' must be a length 1 logical vector"));
     Rboolean isvec = asLogical(which);
 
