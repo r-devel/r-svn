@@ -1239,22 +1239,20 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     if (PRIMVAL(op) == 0) /* %*% is primitive, the others are .Internal() */
     {
-        if ((IS_S4_OBJECT(x) || IS_S4_OBJECT(y)) && R_has_methods(op))
-        {
-            SEXP s, value;
-            /* Remove argument names to ensure positional matching */
-            for (s = args; s != R_NilValue; s = CDR(s))
-                SET_TAG(s, R_NilValue);
-            value = R_possible_dispatch(call, op, args, rho, FALSE);
-            if (value)
-                return value;
-        }
-
-        if (OBJECT(x) || OBJECT(y))
-        {
-            if (DispatchGroup("Ops", call, op, args, rho, &ans))
-                return (ans);
-        }
+	if ((IS_S4_OBJECT(x) || IS_S4_OBJECT(y)) && R_has_methods(op))
+	{
+	    SEXP s, value;
+	    /* Remove argument names to ensure positional matching */
+	    for (s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
+	    value = R_possible_dispatch(call, op, args, rho, FALSE);
+	    if (value)
+		return value;
+	}
+	else if (OBJECT(x) || OBJECT(y))
+	{
+	    if (DispatchGroup("Ops", call, op, args, rho, &ans))
+		return (ans);
+	}
     }
 
     checkArity(op, args);
