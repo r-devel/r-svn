@@ -96,6 +96,9 @@
       \code{"+"}, \code{"-"}, \code{"*"}, \code{"/"},
       \code{"^"}, \code{"\%\%"}, \code{"\%/\%"}
       % do_arith() [arithmetic.c:240]: if (DispatchGroup("Ops", ...))
+      
+      \item \code{"\%*\%"}
+      % do_matprod [array.c:1251]: if (DispatchGroup("Ops", ...))
 
       \item \code{"&"}, \code{"|"}, \code{"!"}
       % do_logic() [logic.c:32]:   if (DispatchGroup("Ops",...))
