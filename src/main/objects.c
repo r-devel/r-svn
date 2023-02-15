@@ -1023,7 +1023,7 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	error(_("'which' must be a length 1 logical vector"));
     Rboolean isvec = asLogical(which);
 
-    if (isvec) {
+    if(isvec) {
 	PROTECT(rval = allocVector(INTSXP, nwhat));
 	nprot++;
     }
