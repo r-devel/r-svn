@@ -1169,7 +1169,7 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{
+{ 
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
