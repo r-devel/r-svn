@@ -1020,8 +1020,10 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	    // allow previous `what` to be gc'd
 	    SETCADR(S7_class_name_call, R_NilValue); 
 	}
-	if (!isString(what))
+	if (!isString(what)) {
+	    UNPROTECT(nprot);
 	    error(_("'what' must be a character vector or an <S7_class>"));
+	}
     }
 
     int j, nwhat = LENGTH(what);
