@@ -1005,13 +1005,20 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	PROTECT(klass = R_data_class(x, FALSE));
     nprot++;
 
-
     if (!isString(what)) {
 	if (inherits(what, "S7_class")) {
-	    SEXP S7_ns = R_FindNamespace(mkString("S7"));
-	    SEXP cl = PROTECT(lang2(install("S7_class_name"), what));
-	    what = PROTECT(eval(cl, S7_ns));
-	    nprot += 2;
+	    static SEXP S7_ns = NULL, S7_class_name_call = NULL;
+	    if (S7_class_name_call == NULL) {
+		S7_ns = R_FindNamespace(mkString("S7"));
+		S7_class_name_call = lang2(install("S7_class_name"),
+					   R_NilValue);
+		R_PreserveObject(S7_class_name_call);
+	    }
+	    SETCADR(S7_class_name_call, what);
+	    what = PROTECT(eval(S7_class_name_call, S7_ns));
+	    nprot += 1;
+	    // allow previous `what` to be gc'd
+	    SETCADR(S7_class_name_call, R_NilValue); 
 	}
 	if (!isString(what))
 	    error(_("'what' must be a character vector or an <S7_class>"));
