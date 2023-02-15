@@ -28,13 +28,17 @@ Function InstallMiktex {
   initexmf --admin --enable-installer
   initexmf --admin --set-config-value "[MPM]AutoInstall=1"
 
-  Write-Host "Installing CTAN packages"
-  mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-  miktex --admin packages update-package-database --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-  miktex --admin packages update --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
-	miktex --admin packages install inconsolata --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+  try {
+    Write-Host "Installing CTAN packages"
+    mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+    miktex --admin packages update-package-database --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+    miktex --admin packages update --repository https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+    miktex --admin packages install inconsolata --repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+  } catch {
+    "Problem installing MiKTeX"
+  }
 
-	# Log
+  # Log
   Get-Content -Path C:\ProgramData\MiKTeX\miktex\log\mpmcli_admin.log
   Write-Host "MiKTeX installation: Done" -ForegroundColor Green
 }
