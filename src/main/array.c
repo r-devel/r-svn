@@ -446,11 +446,11 @@ attribute_hidden SEXP do_length(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (length(ans) == 1 && TYPEOF(ans) == REALSXP) {
 	    double d = REAL(ans)[0];
 	    if (R_FINITE(d) && d >= 0. && d <= INT_MAX && floor(d) == d) {
-                PROTECT(ans);
-                ans = coerceVector(ans, INTSXP);
-                UNPROTECT(1);
-                return(ans);
-            }
+		PROTECT(ans);
+		ans = coerceVector(ans, INTSXP);
+		UNPROTECT(1);
+		return(ans);
+	    }
 	}
 	return(ans);
     }
@@ -475,17 +475,17 @@ attribute_hidden R_len_t dispatch_length(SEXP x, SEXP call, SEXP rho) {
 attribute_hidden R_xlen_t dispatch_xlength(SEXP x, SEXP call, SEXP rho) {
     static SEXP length_op = NULL;
     if (isObject(x)) {
-        SEXP len, args;
-        if (length_op == NULL)
-            length_op = R_Primitive("length");
-        PROTECT(args = list1(x));
+	SEXP len, args;
+	if (length_op == NULL)
+	    length_op = R_Primitive("length");
+	PROTECT(args = list1(x));
 	/* DispatchOrEval internal generic: length */
-        if (DispatchOrEval(call, length_op, "length", args, rho, &len, 0, 1)) {
-            UNPROTECT(1);
-            return (R_xlen_t)
-                (TYPEOF(len) == REALSXP ? REAL(len)[0] : asInteger(len));
-        }
-        UNPROTECT(1);
+	if (DispatchOrEval(call, length_op, "length", args, rho, &len, 0, 1)) {
+	    UNPROTECT(1);
+	    return (R_xlen_t)
+		(TYPEOF(len) == REALSXP ? REAL(len)[0] : asInteger(len));
+	}
+	UNPROTECT(1);
     }
     return(xlength(x));
 }
@@ -511,7 +511,7 @@ static SEXP do_lengths_long(SEXP x, SEXP call, SEXP rho)
     x_len = dispatch_xlength(x, call, rho);
     PROTECT(ans = allocVector(REALSXP, x_len));
     for (i = 0, ans_elt = REAL(ans); i < x_len; i++, ans_elt++)
-        *ans_elt = (double) getElementLength(x, i, call, rho);
+	*ans_elt = (double) getElementLength(x, i, call, rho);
     UNPROTECT(1);
     return ans;
 }
@@ -566,13 +566,13 @@ attribute_hidden SEXP do_lengths(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     SEXP dim = getAttrib(x, R_DimSymbol);
     if(!isNull(dim)) {
-        setAttrib(ans, R_DimSymbol, dim);
+	setAttrib(ans, R_DimSymbol, dim);
     }
     if(useNames) {
 	SEXP names = getAttrib(x, R_NamesSymbol);
 	if(!isNull(names)) setAttrib(ans, R_NamesSymbol, names);
-        SEXP dimnames = getAttrib(x, R_DimNamesSymbol);
-        if(!isNull(dimnames)) setAttrib(ans, R_DimNamesSymbol, dimnames);
+	SEXP dimnames = getAttrib(x, R_DimNamesSymbol);
+	if(!isNull(dimnames)) setAttrib(ans, R_DimNamesSymbol, dimnames);
     }
     UNPROTECT(1);
     return ans;
@@ -619,7 +619,7 @@ attribute_hidden SEXP do_rowscols(SEXP call, SEXP op, SEXP args, SEXP rho)
  A precise version of the function could be implemented as
 
        for (R_xlen_t i = 0; i < n; i++)
-           if (!R_FINITE(x[i])) return TRUE;
+	   if (!R_FINITE(x[i])) return TRUE;
        return FALSE;
 
  The present version is imprecise, but faster.
@@ -696,7 +696,7 @@ static Rboolean cmayHaveNaNOrInf_simd(Rcomplex *x, R_xlen_t n)
 }
 
 static void internal_matprod(double *x, int nrx, int ncx,
-                             double *y, int nry, int ncy, double *z)
+			     double *y, int nry, int ncy, double *z)
 {
     LDOUBLE sum;
 #define MATPROD_BODY					\
@@ -712,14 +712,14 @@ static void internal_matprod(double *x, int nrx, int ncx,
 }
 
 static void simple_matprod(double *x, int nrx, int ncx,
-                           double *y, int nry, int ncy, double *z)
+			   double *y, int nry, int ncy, double *z)
 {
     double sum;
     MATPROD_BODY;
 }
 
 static void internal_crossprod(double *x, int nrx, int ncx,
-                               double *y, int nry, int ncy, double *z)
+			       double *y, int nry, int ncy, double *z)
 {
     LDOUBLE sum;
 #define CROSSPROD_BODY					\
@@ -735,14 +735,14 @@ static void internal_crossprod(double *x, int nrx, int ncx,
 }
 
 static void simple_crossprod(double *x, int nrx, int ncx,
-                             double *y, int nry, int ncy, double *z)
+			     double *y, int nry, int ncy, double *z)
 {
     double sum;
     CROSSPROD_BODY;
 }
 
 static void internal_tcrossprod(double *x, int nrx, int ncx,
-                                double *y, int nry, int ncy, double *z)
+				double *y, int nry, int ncy, double *z)
 {
     LDOUBLE sum;
 #define TCROSSPROD_BODY					\
@@ -758,7 +758,7 @@ static void internal_tcrossprod(double *x, int nrx, int ncx,
 }
 
 static void simple_tcrossprod(double *x, int nrx, int ncx,
-                              double *y, int nry, int ncy, double *z)
+			      double *y, int nry, int ncy, double *z)
 {
     double sum;
     TCROSSPROD_BODY;
@@ -822,7 +822,7 @@ static void matprod(double *x, int nrx, int ncx,
 }
 
 static void internal_cmatprod(Rcomplex *x, int nrx, int ncx,
-                              Rcomplex *y, int nry, int ncy, Rcomplex *z)
+			      Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     LDOUBLE sum_i, sum_r;
 #define CMATPROD_BODY					    \
@@ -846,14 +846,14 @@ static void internal_cmatprod(Rcomplex *x, int nrx, int ncx,
 }
 
 static void simple_cmatprod(Rcomplex *x, int nrx, int ncx,
-                            Rcomplex *y, int nry, int ncy, Rcomplex *z)
+			    Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     double sum_i, sum_r;
     CMATPROD_BODY;
 }
 
 static void internal_ccrossprod(Rcomplex *x, int nrx, int ncx,
-                                Rcomplex *y, int nry, int ncy, Rcomplex *z)
+				Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     LDOUBLE sum_i, sum_r;
 #define CCROSSPROD_BODY					    \
@@ -877,14 +877,14 @@ static void internal_ccrossprod(Rcomplex *x, int nrx, int ncx,
 }
 
 static void simple_ccrossprod(Rcomplex *x, int nrx, int ncx,
-                              Rcomplex *y, int nry, int ncy, Rcomplex *z)
+			      Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     double sum_i, sum_r;
     CCROSSPROD_BODY;
 }
 
 static void internal_tccrossprod(Rcomplex *x, int nrx, int ncx,
-                                 Rcomplex *y, int nry, int ncy, Rcomplex *z)
+				 Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     LDOUBLE sum_i, sum_r;
 #define TCCROSSPROD_BODY				    \
@@ -908,7 +908,7 @@ static void internal_tccrossprod(Rcomplex *x, int nrx, int ncx,
 }
 
 static void simple_tccrossprod(Rcomplex *x, int nrx, int ncx,
-                               Rcomplex *y, int nry, int ncy, Rcomplex *z)
+			       Rcomplex *y, int nry, int ncy, Rcomplex *z)
 {
     double sum_i, sum_r;
     TCCROSSPROD_BODY;
@@ -956,7 +956,7 @@ static void cmatprod(Rcomplex *x, int nrx, int ncx,
     one.r = 1.0; one.i = zero.r = zero.i = 0.0;
 
     F77_CALL(zgemm)(transa, transb, &nrx, &ncy, &ncx, &one,
-                    x, &nrx, y, &nry, &zero, z, &nrx FCONE FCONE);
+		    x, &nrx, y, &nry, &zero, z, &nrx FCONE FCONE);
 #endif
 }
 
@@ -1046,7 +1046,7 @@ static void crossprod(double *x, int nrx, int ncx,
 			&nry, x, &ione, &zero, z, &ione FCONE);
     else /* matrix-matrix  or outer product */
 	F77_CALL(dgemm)(transT, transN, &ncx, &ncy, &nrx, &one,
-		        x, &nrx, y, &nry, &zero, z, &ncx FCONE FCONE);
+			x, &nrx, y, &nry, &zero, z, &ncx FCONE FCONE);
 }
 
 static void ccrossprod(Rcomplex *x, int nrx, int ncx,
@@ -1092,7 +1092,7 @@ static void ccrossprod(Rcomplex *x, int nrx, int ncx,
     one.r = 1.0; one.i = zero.r = zero.i = 0.0;
 
     F77_CALL(zgemm)(transa, transb, &ncx, &ncy, &nrx, &one,
-                    x, &nrx, y, &nry, &zero, z, &ncx FCONE FCONE);
+		    x, &nrx, y, &nry, &zero, z, &ncx FCONE FCONE);
 #endif
 }
 
@@ -1225,7 +1225,7 @@ static void tccrossprod(Rcomplex *x, int nrx, int ncx,
     one.r = 1.0; one.i = zero.r = zero.i = 0.0;
 
     F77_CALL(zgemm)(transa, transb, &nrx, &nry, &ncx, &one,
-                    x, &nrx, y, &nry, &zero, z, &nrx FCONE FCONE);
+		    x, &nrx, y, &nry, &zero, z, &nrx FCONE FCONE);
 #endif
 }
 
@@ -1237,22 +1237,19 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP x = CAR(args), y = CADR(args), xdims, ydims, ans;
     Rboolean sym;
 
-    if (PRIMVAL(op) == 0) /* %*% is primitive, the others are .Internal() */
-    {
-	if ((IS_S4_OBJECT(x) || IS_S4_OBJECT(y)) && R_has_methods(op))
-	{
-	    SEXP s, value;
-	    /* Remove argument names to ensure positional matching */
-	    for (s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
+
+    if (PRIMVAL(op) == 0 &&
+        (OBJECT(x) || OBJECT(y))) { /* %*% is primitive, the others are .Internal() */
+	SEXP s, value;
+	/* Remove argument names to ensure positional matching */
+	for (s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
+
+	if ((IS_S4_OBJECT(x) || IS_S4_OBJECT(y)) && R_has_methods(op)){
 	    value = R_possible_dispatch(call, op, args, rho, FALSE);
-	    if (value)
-		return value;
+	    if (value) return value;
 	}
-	else if (OBJECT(x) || OBJECT(y))
-	{
-	    if (DispatchGroup("Ops", call, op, args, rho, &ans))
-		return (ans);
-	}
+	else if (DispatchGroup("Ops", call, op, args, rho, &ans))
+	    return ans;
     }
 
     checkArity(op, args);
@@ -1278,7 +1275,7 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if (PRIMVAL(op) == 0) {
 		nrx = 1;
 		ncx = LENGTH(x);
-		if(ncx == 1) {	        // y as row vector
+		if(ncx == 1) {		// y as row vector
 		    ncy = nry;
 		    nry = 1;
 		}
