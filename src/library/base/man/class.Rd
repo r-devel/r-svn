@@ -32,7 +32,8 @@ oldClass(x) <- value
 \arguments{
   \item{x}{a \R object}
   \item{what, value}{a character vector naming classes.  \code{value}
-    can also be \code{NULL}.}
+    can also be \code{NULL}. For \code{inherits()}, \code{what} can also 
+    be an S7 class object.}
   \item{which}{logical affecting return value: see \sQuote{Details}.}
 }
 
