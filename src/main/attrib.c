@@ -1860,11 +1860,55 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
     return obj;
 }
 
+
+/* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
+   Also defined in subassign.c and subset.c */
+static R_INLINE
+int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
+		    SEXP rho, SEXP *ans)
+{
+    SEXP prom = NULL;
+    if (args != R_NilValue && CAR(args) != R_DotsSymbol) {
+	SEXP x = eval(CAR(args), rho);
+	PROTECT(x);
+	INCREMENT_LINKS(x);
+	if (! OBJECT(x)) {
+	    *ans = CONS_NR(x, evalListKeepMissing(CDR(args), rho));
+	    DECREMENT_LINKS(x);
+	    UNPROTECT(1);
+	    return FALSE;
+	}
+	prom = R_mkEVPROMISE_NR(CAR(args), x);
+	args = CONS(prom, CDR(args));
+	UNPROTECT(1);
+    }
+    PROTECT(args);
+    int disp = DispatchOrEval(call, op, generic, args, rho, ans, 0, 0);
+    if (prom) DECREMENT_LINKS(PRVALUE(prom));
+    UNPROTECT(1);
+    return disp;
+}
+
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP  nlist, object, ans, klass;
 
     checkArity(op, args);
+    PROTECT(object = eval(CAR(args), env));
+
+    if(OBJECT(object) && !IS_S4_OBJECT(object)) {
+        /* try dispatch to @ method or error */
+	PROTECT(args = fixSubset3Args(call, args, env, NULL));
+	if (R_DispatchOrEvalSP(call, op, "@", args, env, &ans)) {
+	    if (NAMED(ans))
+		ENSURE_NAMEDMAX(ans);
+	    UNPROTECT(2); /* args */
+	    return (ans);
+	}
+	UNPROTECT(2);
+	error(_("trying to access `@` on object with no `@` method."));
+    }
+
     if(!isMethodsDispatchOn())
 	error(_("formal classes cannot be used without the 'methods' package"));
     nlist = CADR(args);
@@ -1873,7 +1917,6 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
     if(!(isSymbol(nlist) || (isString(nlist) && LENGTH(nlist) == 1)))
 	error(_("invalid type or length for slot name"));
     if(isString(nlist)) nlist = installTrChar(STRING_ELT(nlist, 0));
-    PROTECT(object = eval(CAR(args), env));
     if(!s_dot_Data) init_slot_handling();
     if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
 	klass = getAttrib(object, R_ClassSymbol);
