@@ -1999,8 +1999,7 @@ char * R_tmpnam(const char * prefix, const char * tempdir)
 /* returns malloc'd result */
 char * R_tmpnam2(const char *prefix, const char *tempdir, const char *fileext)
 {
-    char tm[PATH_MAX], *res;
-    unsigned int n, done = 0, pid = getpid();
+    unsigned int n, pid = getpid();
 #ifdef Win32
     char filesep[] = "\\";
 #else
@@ -2010,34 +2009,31 @@ char * R_tmpnam2(const char *prefix, const char *tempdir, const char *fileext)
     if(!prefix) prefix = "";	/* NULL */
     if(!fileext) fileext = "";  /*  "   */
 
-#if RAND_MAX > 16777215
-#define RAND_WIDTH 8
-#else
-#define RAND_WIDTH 12
-#endif
-
-    if(strlen(tempdir) + 1 + strlen(prefix) + RAND_WIDTH + strlen(fileext) >= PATH_MAX)
-	error(_("temporary name too long"));
-
     for (n = 0; n < 100; n++) {
 	/* try a random number at the end.  Need at least 6 hex digits */
+	int r1 = rand();
 #if RAND_MAX > 16777215
-	snprintf(tm, PATH_MAX, "%s%s%s%x%x%s", tempdir, filesep, prefix, pid, rand(), fileext);
+# define TMPNAM2_SNPRINTF(BUF, SIZE) \
+	snprintf(BUF, SIZE, "%s%s%s%x%x%s", tempdir, filesep, prefix, pid, r1, fileext)
 #else
-	snprintf(tm, PATH_MAX, "%s%s%s%x%x%x%s", tempdir, filesep, prefix, pid, rand(), rand(), fileext);
+	int r2 = rand();
+# define TMPNAM2_SNPRINTF(BUF, SIZE) \
+	snprintf(BUF, SIZE, "%s%s%s%x%x%x%s", tempdir, filesep, prefix, pid, r1, r2, fileext)
 #endif
-	if(!R_FileExists(tm)) {
-	    done = 1;
-	    break;
-	}
+	size_t needed = TMPNAM2_SNPRINTF(NULL, 0) + 1;
+#ifdef Unix
+	if (needed > PATH_MAX)
+	    error(_("temporary name too long"));
+#endif
+	char *res = (char *) malloc(needed);
+	if(!res)
+	    error(_("allocation failed in R_tmpnam2"));
+	TMPNAM2_SNPRINTF(res, needed);
+	if (!R_FileExists(res))
+	    return res;
+	free(res);
     }
-    if(!done)
-	error(_("cannot find unused tempfile name"));
-    res = (char *) malloc((strlen(tm)+1) * sizeof(char));
-    if(!res)
-	error(_("allocation failed in R_tmpnam2"));
-    strcpy(res, tm);
-    return res;
+    error(_("cannot find unused tempfile name"));
 }
 
 void R_free_tmpnam(char *name)
