@@ -889,7 +889,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     if (!d->active) return;
 
     Rboolean hasS4_t = TYPEOF(s) == S4SXP;
-    if (IS_S4_OBJECT(s) || hasS4_t) {
+    if (IS_S4_OBJECT(s)) {
 	d->isS4 = TRUE;
 	/* const void *vmax = vmaxget(); */
 	SEXP class = getAttrib(s, R_ClassSymbol),

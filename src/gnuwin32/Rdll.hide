@@ -112,6 +112,7 @@
  R_IoBufferReadOffset
  R_IoBufferReadReset
  R_IoBufferWriteReset
+ R_IsDirPath
  R_Is_Running
  R_JumpToContext
  R_KeepSource
@@ -208,6 +209,8 @@
  R_fixslash
  R_getClockIncrement
  R_getDllTable
+ R_getFullPathName
+ R_getFullPathNameW
  R_getProcTime
  R_getRegisteredRoutines
  R_getS4DataSlot
@@ -257,9 +260,13 @@
  R_warn_partial_match_args
  R_warn_partial_match_attr
  R_warn_partial_match_dollar
+ R_wclosedir
  R_wfixbackslash
  R_wfixslash
  R_wfopen
+ R_wopendir
+ R_wreaddir
+ Rasprintf_malloc
  Rconn_getline
  Rcons_vprintf
  Rconsolesetwidth
