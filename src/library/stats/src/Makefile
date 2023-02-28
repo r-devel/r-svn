@@ -3,9 +3,9 @@
 
 pkg = stats
 
-VPATH = @srcdir@
-srcdir = @srcdir@
-top_srcdir = @top_srcdir@
+
+srcdir = .
+top_srcdir = ../../../..
 
 top_builddir = ../../../..
 subdir = src/library/$(pkg)/src
@@ -36,16 +36,16 @@ DEPENDS = $(SOURCES_C:.c=.d)
 OBJECTS = $(SOURCES_C:.c=.o) $(SOURCES_F:.f=.o)
 # need config.h
 PKG_CPPFLAGS = -I../../../include -I$(top_srcdir)/src/include -DHAVE_CONFIG_H
-PKG_CFLAGS = @R_OPENMP_CFLAGS@ $(C_VISIBILITY)
+PKG_CFLAGS = -fopenmp $(C_VISIBILITY)
 PKG_FFLAGS = $(F_VISIBILITY)
 
-SHLIB = $(pkg)@SHLIB_EXT@
+SHLIB = $(pkg).so
 
 ## <FIXME>
 ## We should really add FLIBS to SHLIB_LIBADD, but we need to include
 ## the shlib Makeconf at a later stage, and its default value would
 ## override our setting.
-PKG_LIBS = @R_OPENMP_CFLAGS@ $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
+PKG_LIBS = -fopenmp $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 ## </FIXME>
 
 
@@ -61,18 +61,18 @@ Makedeps: Makefile $(DEPENDS)
 
 shlib: $(SHLIB)
 	@$(MKINSTALLDIRS) \
-	  $(top_builddir)/library/$(pkg)/libs@R_ARCH@
+	  $(top_builddir)/library/$(pkg)/libs
 	@$(SHELL) $(top_srcdir)/tools/copy-if-change $(SHLIB) \
-	  $(top_builddir)/library/$(pkg)/libs@R_ARCH@/$(SHLIB)
+	  $(top_builddir)/library/$(pkg)/libs/$(SHLIB)
 
 include $(R_HOME)/etc${R_ARCH}/Makeconf
 include $(top_srcdir)/share/make/shlib.mk
 ## override to use LTO for linking with --enable-lto=R
-LTO_FC = @LTO_FC@
+LTO_FC = 
 
 ## Meeded with i386 gcc 4.5.0 -- PR#14427
 ## (SHLIB_FFLAGS is apparently currently unused)
-portsrc_FFLAGS=$(FPICFLAGS) $(SHLIB_FFLAGS) @SAFE_FFLAGS@ $(LTO_FC)
+portsrc_FFLAGS=$(FPICFLAGS) $(SHLIB_FFLAGS) -Wall -g -O2 -pedantic -mmacosx-version-min=11.0 -mtune=native $(LTO_FC)
 portsrc.o: portsrc.f
 	$(FC) $(portsrc_FFLAGS) -c $< -o $@
 
