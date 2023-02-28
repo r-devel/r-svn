@@ -62,7 +62,7 @@ double R_zeroin2(double ax, double bx, double fa, double fb,
 		 double (*f)(double x, void *info), void *info, 
 		 double *Tol, int *Maxit);
 
-void free_dendrapply_list();
+void free_dendrapply_list(void);
 
 
 #endif
