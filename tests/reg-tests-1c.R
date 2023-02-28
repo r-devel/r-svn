@@ -885,6 +885,12 @@ matrix(foo, 3, 3, byrow = TRUE)
 #               list("C", list("A", "B"), "C")))
 ## dendrapply(D, labels) failed in R-devel for a day or two
 
+## This is a modified version of the same test
+(D <- as.dendrogram(hclust(dist(cbind(setNames(c(0,1,4), LETTERS[1:3]))))))
+stopifnot(
+    identical(labels(D), c("C", "A", "B")),
+    identical(suppressWarnings(dendrapply(D, labels)),
+              list("C", list("A", "B"))))
 
 ## poly() / polym() predict()ion
 library(datasets)
