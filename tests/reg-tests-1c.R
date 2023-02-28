@@ -336,7 +336,6 @@ badstructure <- function(depth, key)
 badstructure(20, "children")
 ## overran, segfaulted for the original reporter.
 
-
 ## PR#15702 and PR#15703
 d <- as.dendrogram(hclust(dist(sin(1:7))))
 (dl <- d[[c(2,1,2)]]) # single-leaf dendrogram
@@ -460,7 +459,6 @@ stopifnot(length(gg$objs) == 1)
 stopifnot(identical(options(list()), options(NULL)))
 ## options(list()) failed in R <= 3.1.1
 
-
 ## merge.dendrogram(), PR#15648
 mkDend <- function(n, lab, method = "complete",
                    ## gives *ties* often:
@@ -493,7 +491,6 @@ try(bw.SJ (c(NA,2,3)))
 try(bw.bcv(c(-Inf,2,3)))
 try(bw.ucv(c(1,NaN,3,4)))
 ## seg.faulted  in  3.0.0 <= R <= 3.1.1
-
 
 ## as.dendrogram() with wrong input
 x <- rbind(c( -6, -9), c(  0, 13),
@@ -877,20 +874,13 @@ matrix(foo, 3, 3, byrow = TRUE)
 
 ## labels.dendrogram(), dendrapply(), etc -- see comment #15 of PR#15215 :
 ## Aidan: I'm not sure how to replicate this use-case.
-# (D <- as.dendrogram(hclust(dist(cbind(setNames(c(0,1,4), LETTERS[1:3]))))))
-# stopifnot(
-#     identical(labels(D), c("C", "A", "B")),
-#     ## has been used in "CRAN package space"
-#     identical(suppressWarnings(dendrapply(D, labels)),
-#               list("C", list("A", "B"), "C")))
+## (D <- as.dendrogram(hclust(dist(cbind(setNames(c(0,1,4), LETTERS[1:3]))))))
+## stopifnot(
+##     identical(labels(D), c("C", "A", "B")),
+##     ## has been used in "CRAN package space"
+##     identical(suppressWarnings(dendrapply(D, labels)),
+##               list("C", list("A", "B"), "C")))
 ## dendrapply(D, labels) failed in R-devel for a day or two
-
-## This is a modified version of the same test
-(D <- as.dendrogram(hclust(dist(cbind(setNames(c(0,1,4), LETTERS[1:3]))))))
-stopifnot(
-    identical(labels(D), c("C", "A", "B")),
-    identical(suppressWarnings(dendrapply(D, labels)),
-              list("C", list("A", "B"))))
 
 ## poly() / polym() predict()ion
 library(datasets)
@@ -1378,7 +1368,6 @@ stopifnot(
     identical(f.raw[["default"]], f.raw[[opts["gzip"]]]))
 ## compress = "gzip" failed (PR#16653), but compress = c(a = "xz") did too
 
-
 ## recursive dendrogram methods and deeply nested dendrograms
 op <- options(expressions = 999)# , verbose = 2) # -> max. depth= 961
 set.seed(11); d <- mkDend(1500, "A", method="single")
@@ -1620,7 +1609,6 @@ tsp(z) <- NULL
 stopifnot(identical(c(FALSE,  TRUE),
                     c("mts","matrix") %in% class(z)))
 ## kept "mts" in 3.2.4, PR#16769
-
 
 ## as.hclust() and str() for deeply nested dendrograms
 op <- options(expressions = 300) # so problem triggers early
