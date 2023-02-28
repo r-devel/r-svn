@@ -822,26 +822,39 @@ merge.dendrogram <- function(x, y, ..., height,
     midcache.dendrogram(r, quiet=TRUE)
 }
 
-dendrapply <- function(X, FUN, ...)
-{
-    ## Purpose: "dendrogram" recursive apply {to each node}
-    ## ----------------------------------------------------------------------
-    ## Author: Martin Maechler, Date: 26 Jun 2004, 22:43
-    FUN <- match.fun(FUN)
-    if( !inherits(X, "dendrogram") ) stop("'X' is not a dendrogram")
-
-    ## Node apply recursively:
-    Napply <- function(d) {
-	r <- FUN(d, ...)
-	if(!is.leaf(d)) {
-	    if(!is.list(r)) r <- as.list(r) # fixing unsafe FUN()s
-	    if(length(r) < (n <- length(d))) r[seq_len(n)] <- vector("list", n)
-	    ## and overwrite recursively, possibly keeping "attr"
-	    r[] <- lapply(d, Napply)
-        }
-	r
+dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
+  ##
+  ## dendrapply: applies function recursively to dendrogram object
+  ## -------------
+  ## Author: Aidan Lakshman (AHL27@pitt.edu), Date: 2/28/2023
+  ## Original function by Martin Maechler, 2004
+  ##
+  apply_method <- match.arg(how)
+  travtype <- switch(apply_method,
+                     pre.order=0L,
+                     post.order=1L)
+  ## Free allocated memory in case of early termination
+  on.exit(.C(C_free_dendrapply_list))
+  if( !inherits(X, "dendrogram") ) stop("'X' is not a dendrogram")
+  wrapper <- \(node) {
+    # I'm not sure why VECTOR_ELT unclasses the object
+    # nodes coming in should always be dendrograms
+    class(node) <- 'dendrogram'
+    res<-FUN(node, ...)
+    if(length(node)!=1){
+      if(!(inherits(res,c('dendrogram', 'list')))){
+        res <- lapply(unclass(node), \(x) x)
+      } 
     }
-    Napply(X)
+    res
+  }
+  # If we only have one node, it'll hang
+  # We can get around this by just applying the function to the leaf
+  # and returning--no need for C code here.
+  if(!is.null(attr(X, 'leaf')) && attr(X,'leaf')){
+    return(wrapper(X))
+  }
+  return(.Call(C_do_dendrapply, X, wrapper, parent.frame(), travtype))
 }
 
 

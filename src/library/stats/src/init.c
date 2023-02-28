@@ -40,6 +40,7 @@ static const R_CMethodDef CEntries[]  = {
     C_DEF(kmeans_Lloyd, 9),
     C_DEF(kmeans_MacQueen, 9),
     C_DEF(rcont2,  8),
+    C_DEF(free_dendrapply_list, 0),
     {NULL, NULL, 0}
 };
 
@@ -144,6 +145,7 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(chisq_sim, 4),
     CALLDEF(d2x2xk, 5),
     CALLDEF(Smirnov_sim, 4),
+    CALLDEF(do_dendrapply, 4),
 
     CALLDEF_MATH2_1(dchisq),
     CALLDEF_MATH2_1(dexp),
