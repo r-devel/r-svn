@@ -535,6 +535,7 @@ specialCompletions <- function(text, spl)
 
     comps <- specialOpCompletionsHelper(op, suffix, prefix)
     if (length(comps) == 0L) comps <- ""
+    comps <- vapply(comps, \(comp) deparse1(as.name(comp), backtick = TRUE))
     sprintf("%s%s%s", prefix, op, comps)
 }
 
