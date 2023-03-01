@@ -77,7 +77,7 @@ local({
         a <- attributes(n)
         i <<- i+1
         attr(n, "nodePar") <-
-            c(a$nodePar, list(lab.col = mycols[i], lab.font = i%%3))
+            c(a$nodePar, list(lab.col = mycols[i], lab.font = i\%\%3))
       }
       n
   }
