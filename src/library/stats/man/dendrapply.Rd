@@ -40,9 +40,6 @@ Usually a dendrogram of the same (graph) structure as \code{X}. For that, the fu
 
 If the function provided does not return the node, the result is a nested list of the same structure as \code{X}, or as close as can be achieved with the return values. If the function should only be applied to the leaves of \code{X}, consider using \code{\link[base]{rapply}} instead.
 }
-\references{
-%% ~put references to the literature/web site here ~
-}
 \author{
 Aidan Lakshman \email{ahl27@pitt.edu}
 
