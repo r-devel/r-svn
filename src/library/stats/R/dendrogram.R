@@ -841,7 +841,7 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
     # but for now this is necessary
     class(node) <- 'dendrogram'
     res<-FUN(node, ...)
-    if(!is.leaf(node)){
+    if(travtype == 0L && !is.leaf(node)){
       ## catch for dendrapply(d, labels)
       if(!is.list(res)){
         res <- as.list(res)
