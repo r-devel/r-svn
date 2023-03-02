@@ -836,16 +836,24 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   on.exit(.C(C_free_dendrapply_list))
   if( !inherits(X, "dendrogram") ) stop("'X' is not a dendrogram")
   wrapper <- function(node) {
-    # I'm not sure why VECTOR_ELT unclasses the object
-    # nodes coming in should always be dendrograms
+    # VECTOR_ELT always unclasses the object
+    # Going to refactor C code slightly to change this,
+    # but for now this is necessary
     class(node) <- 'dendrogram'
     res<-FUN(node, ...)
     if(!is.leaf(node)){
-      res1 <- res
-      if(!(inherits(res,c('dendrogram', 'list')))){
-        res1 <- lapply(unclass(node), \(x) x)
+      ## catch for dendrapply(d, labels)
+      if(!is.list(res)){
+        res <- as.list(res)
       }
-      res[seq_along(res1)] <- res1
+      ## catch for dendrapply(d, \(x) list())
+      if(length(res) < (n <- length(node))){
+        res <- vector('list', n)
+      }
+      ## catch for dendrapply(d, \(x) vector('list', length(x)))
+      if(!all(vapply(seq_len(n), \(i) is(res[[i]],'dendrogram'), logical(1L)))){
+        res[seq_len(n)] <- node
+      }
     }
     res
   }
