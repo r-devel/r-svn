@@ -50,4 +50,11 @@ checkDollarSuggestions("odd_named_list$a", "a")
 checkDollarSuggestions("odd_named_list$b", c("b", "`b c`"))
 checkDollarSuggestions("odd_named_list$`", R"(`\`\\\``)")
 checkDollarSuggestions("odd_named_list$", c("a", "b", "`b c`", R"(`\`\\\``)", ""))
+rm(odd_named_list)
+
+arith_named_list <- list(`abc+def` = 1, `def-abc` = 2, `abc-def` = 3, defabc = 4)
+checkDollarSuggestions("arith_named_list$a", c("`abc+def`", "`abc-def`"))
+checkDollarSuggestions("arith_named_list$def", c("`def-abc`", "defabc"))
+checkDollarSuggestions("arith_named_list$", c("`abc+def`", "`def-abc`", "`abc-def`", "defabc"))
+rm(arith_named_list)
 
