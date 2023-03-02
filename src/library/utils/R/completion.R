@@ -119,6 +119,12 @@ findFuzzyMatches <- function(pattern, values) {
     else exact.matches
 }
 
+syntacticName <- function(nms) {
+  if (length(nms) == 0) return(nms)
+  non_empty <- nzchar(nms)
+  nms[non_empty] <- vapply(nms[non_empty], \(nm) deparse1(as.name(nm), backtick = TRUE), "")
+  nms
+}
 
 findMatches <- function(pattern, values)
 {
@@ -126,10 +132,7 @@ findMatches <- function(pattern, values)
         findFuzzyMatches(pattern, values)
     else
         findExactMatches(pattern, values)
-    if (length(matches) == 0L) return(matches)
-    non_empty <- nzchar(matches)
-    matches[non_empty] <- vapply(matches[non_empty], \(match) deparse1(as.name(match), backtick = TRUE), "")
-    matches
+    syntacticName(matches)
 }
 
 fuzzyApropos <- function(what)
@@ -159,7 +162,7 @@ fuzzyApropos <- function(what)
 
 .DollarNames.environment <- function(x, pattern = "") {
     if (!.CompletionEnv$settings[["fuzzy"]])
-        ls(x, all.names = TRUE, pattern = pattern) # more efficient
+        syntacticName(ls(x, all.names = TRUE, pattern = pattern)) # more efficient
     else
         findMatches(pattern, ls(x, all.names = TRUE))
 }
