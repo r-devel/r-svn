@@ -36,8 +36,6 @@ testLine("method?\"coerce,AN")
 ## testLine("")
 ## testLine("")
 
-odd_named_list <- list(a = 1, b = 2, `b c` = 3, 4, 5)
-names(odd_named_list)[4L] <- "`\\`"
 checkDollarSuggestions <- function(text, completions) {
   spl <- utils:::specialOpLocs(text)
   prefix <- sub("[$][^$]*$", "$", text)
@@ -46,6 +44,9 @@ checkDollarSuggestions <- function(text, completions) {
   actual <- substring(actual, nchar(prefix) + 1L)
   stopifnot(identical(actual, completions))
 }
+
+odd_named_list <- list(a = 1, b = 2, `b c` = 3, 4, 5)
+names(odd_named_list)[4L] <- "`\\`"
 checkDollarSuggestions("odd_named_list$a", "a")
 checkDollarSuggestions("odd_named_list$b", c("b", "`b c`"))
 checkDollarSuggestions("odd_named_list$`", R"(`\`\\\``)")
