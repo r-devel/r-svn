@@ -850,10 +850,8 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
       if(length(res) < (n <- length(node))){
         res <- vector('list', n)
       }
-      ## catch for dendrapply(d, \(x) vector('list', length(x)))
-      if(!all(vapply(seq_len(n), \(i) is(res[[i]],'dendrogram'), logical(1L)))){
-        res[seq_len(n)] <- node
-      }
+      
+      res[seq_len(n)] <- node
     }
     res
   }
