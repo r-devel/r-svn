@@ -122,10 +122,14 @@ findFuzzyMatches <- function(pattern, values) {
 
 findMatches <- function(pattern, values)
 {
-    if (.CompletionEnv$settings[["fuzzy"]])
+    matches <- if (.CompletionEnv$settings[["fuzzy"]])
         findFuzzyMatches(pattern, values)
     else
         findExactMatches(pattern, values)
+    if (length(matches) == 0L) return(matches)
+    non_empty <- nzchar(matches)
+    matches[non_empty] <- vapply(matches[non_empty], \(match) deparse1(as.name(match), backtick = TRUE), "")
+    matches
 }
 
 fuzzyApropos <- function(what)
@@ -535,9 +539,6 @@ specialCompletions <- function(text, spl)
 
     comps <- specialOpCompletionsHelper(op, suffix, prefix)
     if (length(comps) == 0L) comps <- ""
-    non_empty <- nzchar(comps)
-    comps[non_empty] <-
-      vapply(comps[non_empty], \(comp) deparse1(as.name(comp), backtick = TRUE), "")
     sprintf("%s%s%s", prefix, op, comps)
 }
 
