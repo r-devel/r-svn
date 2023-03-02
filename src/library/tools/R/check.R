@@ -3857,6 +3857,30 @@ add_dummies <- function(dir, Log)
                         "see the messages for details.\n")
             } else resultLog(Log, "OK")
         }
+
+        ## Look to see if there is a startup function.
+        Rcmd <- sprintf("ls(asNamespace('%s'), all = TRUE)", pkgname)
+        out <- R_runR0(Rcmd, opts, arch = arch)
+        if (any(grepl("[.]on(Load|Attach)", out))) {
+            checkingLog(Log, "startup messages can be suppressed")
+            Rcmd <- sprintf("suppressPackageStartupMessages(library(%s, lib.loc = '%s',  warn.conflicts=FALSE))", pkgname, libdir)
+            opts <- if(nzchar(arch)) R_opts4 else R_opts2
+            env <- character()
+            if(nzchar(arch)) env <- c(env, "R_DEFAULT_PACKAGES=NULL")
+            t1 <- proc.time()
+            out <- R_runR0(Rcmd, opts, env, arch = arch)
+            t2 <- proc.time()
+            print_time(t1, t2, Log)
+            if (length(out)) {
+                noteLog(Log)
+                printLog0(Log, paste(c(out, ""), collapse = "\n"))
+                wrapLog("\nIt looks like this package",
+                        "(or a package it requires)",
+                        "has a startup message which cannot be suppressed:",
+                        "see ?packageStartupMessage.\n")
+            } else resultLog(Log, "OK")
+        }
+
         if(!extra_arch && !is_base_pkg) {
             check_S3reg <-
                 Sys.getenv("_R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_", "NA")
@@ -5484,7 +5508,8 @@ add_dummies <- function(dir, Log)
                              "\\[-Wrange-loop-construct\\]",
                              "\\[-Warray-parameter=\\]",
                              ## clang version (not Apple clang)
-                             "\\[-Warray-parameter\\]"
+                             "\\[-Warray-parameter\\]",
+                             "\\[-Wuse-after-free\\]"
                             )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -5607,6 +5632,10 @@ add_dummies <- function(dir, Log)
                 ## and gfortran 10 warnings
                 ex_re <- "^Warning: Array.*is larger than limit set"
 ##                ex_re <- "^(Warning: Rank mismatch between actual argument|Warning: Array.*is larger than limit set)"
+                lines <- filtergrep(ex_re, lines, useBytes = TRUE)
+
+                ## Filter out gcc 12 warnings that are not certain
+                ex_re <- "may be used after.*\\[-Wuse-after-free\\]"
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## And deprecated declarations in Eigen and boost

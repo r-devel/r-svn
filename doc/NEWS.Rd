@@ -254,12 +254,17 @@
       \code{grDevices::glyphInfo()} and \code{grid::grid.glyph()}.
 
       Rendering of typeset glyphs is only supported so far on the
-      Cairo-based graphics devices and on the \code{pdf()} device.
+      Cairo-based graphics devices and on the \code{pdf()} and
+      \code{quartz()} devices.
 
       \item The defined behaviour for \code{"clear"} and \code{"source"}
       compositing operators (via \code{grid::grid.group()}) has been
       changed (to align better with
       simple interpretation of original Porter-Duff definitions).
+
+      \item Support for gradients, patterns, clipping paths, masks,
+      groups, compositing operators, and affine transformations has
+      been added to the \code{quartz()} device.
     }
   }
 
@@ -424,6 +429,9 @@
 
       \item New macro \code{CAD5R()} is provided in \file{Rinternals.h}
       and used in a few places in the \R sources.
+
+      \item ALTREP now supports \code{VECSXP} vectors. Contributed by
+      Gabor Csardi in \PR{17620}.
     }
   }
 
@@ -673,6 +681,12 @@
       \code{gray()}, \code{rainbow()}, or \code{hcl.colors()} works
       correctly now, thanks to Achim Zeileis' report and patch in
       \PR{18476}.
+
+      \item Formatting and \code{print()}ing of \code{bibentry} objects has
+      dropped the deprecated \code{citation.bibtex.max} argument, such that
+      the \code{bibtex} argument's default for \code{print.bibentry()}
+      depends directly on the \code{citation.bibtex.max} option, whereas in
+      \code{format.bibentry()} the option no longer applies.
     }
   }
 }
