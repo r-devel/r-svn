@@ -100,7 +100,7 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
   SEXP node, call, newnode, leafVal;
 
   if(travtype == 0){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
+    call = PROTECT(lang2(f, head->node));
     REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
     UNPROTECT(1);
   }
@@ -117,7 +117,7 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
       leafVal = getAttrib(newnode, leafSymbol);
       ptr->isLeaf = (isNull(leafVal) || (!LOGICAL(leafVal)[0])) ? length(newnode) : 0;
       ptr->origLength = ptr->isLeaf;
-      call = PROTECT(LCONS(f, LCONS(newnode, R_NilValue)));
+      call = PROTECT(lang2(f, newnode));
       newnode = PROTECT(R_forceAndCall(call, 1, env));
       n = length(ptr->parent->node);
       nv = ptr->v;
@@ -196,7 +196,7 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
   }
 
   if (travtype == 1){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
+    call = PROTECT(lang2(f, head->node));
     REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
     UNPROTECT(1);
   }
