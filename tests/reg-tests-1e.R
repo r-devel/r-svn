@@ -514,6 +514,42 @@ stopifnot(all.equal(urf$root, 0.88653, tol = 1e-4))
 ## Instead of 0.886.., gave a small *negative* root in R <= 4.3.0
 
 
+## Check that `packageNotFoundError` is signalled with the corresponding restart
+expectPackageNotFound <- function(expr, package) {
+  out <- catchPackageNotFound(expr)
+  stopifnot(
+    inherits(out$restart, "restart"),
+    identical(out$package, package)
+  )
+}
+catchPackageNotFound <- function(expr) {
+  tryCatch(
+    withCallingHandlers(
+      {
+        expr
+        stop("Unexpected state in `catchPackageNotFound()`.")
+      },
+      packageNotFoundError = function(cnd) {
+        signalCondition(errorCondition(
+          "",
+          data = list(
+            restart = findRestart("retry_loadNamespace"),
+            package = cnd$package
+          ),
+          class = "testHandler"
+        ))
+      }
+    ),
+    testHandler = function(cnd) cnd$data
+  )
+}
+## Worked before R 4.3.0
+expectPackageNotFound(loadNamespace("foobar"), "foobar")
+expectPackageNotFound(foobar::qux, "foobar")
+expectPackageNotFound(foobar:::qux, "foobar")
+## Didn't work before R 4.3.0
+expectPackageNotFound(library(foobar), "foobar")
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
