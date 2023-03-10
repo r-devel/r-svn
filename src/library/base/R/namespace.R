@@ -46,7 +46,17 @@ getNamespace <- function(name) {
 
 loadedNamespaces <- function() names(.Internal(getNamespaceRegistry()))
 
-isNamespaceLoaded <- function(name) .Internal(isRegisteredNamespace(name))
+isNamespaceLoaded <- function(name) {
+    if (!.Internal(isRegisteredNamespace(name)))
+	return(FALSE)
+
+    ## During namespace load, a namespace can be registered even though
+    ## the package hasn't finished loading. Check for this here to
+    ## prevent issues in case of cyclic loading when a user load hook
+    ## attempts to access the exports of a package that is currently
+    ## being loaded.
+    !as.character(name) %in% dynGet("__NameSpacesLoading__", NULL)
+}
 
 getNamespaceName <- function(ns) {
     ns <- asNamespace(ns)
@@ -821,8 +831,14 @@ loadNamespace <- function (package, lib.loc = NULL,
         }
 	if(lev > 2L) message("--- processing exports for ", dQuote(package))
         namespaceExport(ns, exports)
+
+	## Seal namespace and remove ourselves from the packages being
+	## loaded.  This signals to `isNamespaceLoaded()` that a
+	## namespace is fully loaded.
 	if(lev > 2L) message("--- sealing exports for ", dQuote(package))
         sealNamespace(ns)
+	"__NameSpacesLoading__" <- loading
+
         runUserHook(package, pkgpath)
         on.exit()
 	if(lev > 0L) message("- done loading ", dQuote(package))

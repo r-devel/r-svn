@@ -150,6 +150,10 @@
       \item In \pkg{methods}, \code{setOldClass(..., S4Class = )}
       no longer warns about undefined subclasses when the supplied S4
       class inherits from a class union.
+
+      \item \code{isNamespaceLoaded()} now detects packages that are currently
+      being loaded. This fixes issues involving user hooks trying to access
+      the exports of a package that hasn't finished loading.
     }
   }
 }
