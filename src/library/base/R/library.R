@@ -298,7 +298,7 @@ function(package, help, pos = 2, lib.loc = NULL, character.only = FALSE,
 	    ## pkgpath <- find.package(package, lib.loc, quiet = TRUE, verbose = !quietly)
 	    ##   'verbose' here means to warn about packages found more than once
 	    pkgpath <- find.package(package, lib.loc, quiet = TRUE,
-                                    verbose = verbose)
+                                    verbose = verbose, restart = TRUE)
             if(length(pkgpath) == 0L) {
                 if(length(lib.loc) && !logical.return)
                     stop(packageNotFoundError(package, lib.loc, sys.call()))
@@ -755,7 +755,7 @@ function(package = NULL, quiet = FALSE)
 ## As from 2.9.0 ignore versioned installs
 find.package <-
 function(package = NULL, lib.loc = NULL, quiet = FALSE,
-         verbose = getOption("verbose"))
+         verbose = getOption("verbose"), restart = FALSE)
 {
     if(is.null(package) && is.null(lib.loc) && !verbose) {
         ## We only want the paths to the attached packages.
@@ -828,9 +828,15 @@ function(package = NULL, lib.loc = NULL, quiet = FALSE,
             paths <- paths[ok]
         }
 
-        if(length(paths) == 0L) {
-            bad <- c(bad, pkg)
-            next
+        if (length(paths) == 0L) {
+	    if (restart && tryPackageNotFoundRestart(pkg, lib.loc)) {
+		paths <- find.package(pkg, lib.loc, quiet = TRUE,
+		      	  	      verbose = verbose, restart = FALSE)
+	    }
+	    if (length(paths) == 0L) {
+		bad <- c(bad, pkg)
+		next
+	    }
         }
         if(length(paths) > 1L) {
             ## If a package was found more than once ...
@@ -866,6 +872,18 @@ function(package, lib.loc, call = NULL) {
                       paste(sQuote(package), collapse = ", "))
     errorCondition(msg, package = package, lib.loc = lib.loc, call = call,
                    class = "packageNotFoundError")
+}
+
+tryPackageNotFoundRestart <- function(package, lib.loc = NULL, call = sys.call(-1)) {
+    withRestarts(
+	{
+	    signalCondition(packageNotFoundError(package, lib.loc, call))
+	    FALSE
+	},
+	retry_loadNamespace = function() {
+	    TRUE
+	}
+    )
 }
 
 format.packageInfo <-

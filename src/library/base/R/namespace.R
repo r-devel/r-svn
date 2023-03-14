@@ -361,16 +361,11 @@ loadNamespace <- function (package, lib.loc = NULL,
         } ## end{assignNativeRoutines}
 
         ## find package, allowing a calling handler to retry if not found.
-        ## could move the retry functionality into find.package.
         fp.lib.loc <- c(libpath, lib.loc)
-        pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE)
-        if (length(pkgpath) == 0L) {
-            cond <- packageNotFoundError(package, fp.lib.loc, sys.call())
-            withRestarts(stop(cond), retry_loadNamespace = function() NULL)
-            pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE)
-            if (length(pkgpath) == 0L)
-                stop(cond)
-        }
+        pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE, restart = TRUE)
+        if (length(pkgpath) == 0L)
+            stop(packageNotFoundError(package, fp.lib.loc, sys.call()))
+
         bindTranslations(package, pkgpath)
         package.lib <- dirname(pkgpath)
         package <- basename(pkgpath) # need the versioned name
