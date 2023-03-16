@@ -404,7 +404,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define RAW(x)		((Rbyte *) DATAPTR(x))
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
 #define REAL(x)		((double *) DATAPTR(x))
-#define VECTOR_ELT(x,i)	((SEXP *) DATAPTR(x))[i]
 #define STRING_PTR(x)	((SEXP *) DATAPTR(x))
 #define VECTOR_PTR(x)	((SEXP *) DATAPTR(x))
 #define LOGICAL_RO(x)	((const int *) DATAPTR_RO(x))
@@ -678,6 +677,8 @@ Rcomplex ALTCOMPLEX_ELT(SEXP x, R_xlen_t i);
 void ALTCOMPLEX_SET_ELT(SEXP x, R_xlen_t i, Rcomplex v);
 Rbyte ALTRAW_ELT(SEXP x, R_xlen_t i);
 void ALTRAW_SET_ELT(SEXP x, R_xlen_t i, Rbyte v);
+SEXP ALTLIST_ELT(SEXP, R_xlen_t);
+void ALTLIST_SET_ELT(SEXP, R_xlen_t, SEXP);
 
 /* invoking ALTREP class methods */
 SEXP ALTINTEGER_SUM(SEXP x, Rboolean narm);
@@ -1327,6 +1328,9 @@ enum {
     CTXT_BUILTIN  = 64, /* used in profiling */
     CTXT_UNWIND   = 128
 };
+
+extern0 RCNTXT *getLexicalContext(SEXP);
+extern0 SEXP getLexicalCall(SEXP);
 
 /*
 TOP   0 0 0 0 0 0  = 0
@@ -2066,7 +2070,7 @@ SEXP R_data_class(SEXP , Rboolean);
 SEXP R_data_class2(SEXP);
 char *R_LibraryFileName(const char *, char *, size_t);
 SEXP R_LoadFromFile(FILE*, int);
-SEXP R_NewHashedEnv(SEXP, SEXP);
+SEXP R_NewHashedEnv(SEXP, int);
 extern int R_Newhashpjw(const char *);
 FILE* R_OpenLibraryFile(const char *);
 SEXP R_Primitive(const char *);

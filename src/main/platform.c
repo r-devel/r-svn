@@ -50,7 +50,7 @@
 #include <string.h>
 #include <stdlib.h>			/* for realpath */
 #include <time.h>			/* for ctime */
-# include <errno.h>
+#include <errno.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h> /* for symlink, getpid */
@@ -64,13 +64,8 @@
 #endif
 
 #ifdef Win32
-/* Mingw-w64 defines this to be 0x0502 */
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0500 /* for CreateHardLink */
-#endif
 #include <windows.h>
 typedef BOOLEAN (WINAPI *PCSL)(LPWSTR, LPWSTR, DWORD);
-static PCSL pCSL = NULL;
 const char *formatError(DWORD res);  /* extra.c */
 /* Windows does not have link(), but it does have CreateHardLink() on NTFS */
 #undef HAVE_LINK
@@ -563,14 +558,6 @@ attribute_hidden SEXP do_filesymlink(SEXP call, SEXP op, SEXP args, SEXP rho)
 	return allocVector(LGLSXP, 0);
     n = (n1 > n2) ? n1 : n2;
 
-#ifdef Win32
-    // Vista, Server 2008 and later
-    pCSL = (PCSL) GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-				 "CreateSymbolicLinkW");
-    if(!pCSL)
-	error(_("symbolic links are not supported on this version of Windows"));
-#endif
-
 #ifdef HAVE_SYMLINK
     PROTECT(ans = allocVector(LGLSXP, n));
     for (i = 0; i < n; i++) {
@@ -589,7 +576,7 @@ attribute_hidden SEXP do_filesymlink(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    to = filenameToWchar(STRING_ELT(f2, i%n2), TRUE);
 	    _wstati64(from, &sb);
 	    int isDir = (sb.st_mode & S_IFDIR) > 0;
-	    LOGICAL(ans)[i] = pCSL(to, from, isDir) != 0;
+	    LOGICAL(ans)[i] = CreateSymbolicLinkW(to, from, isDir) != 0;
 	    if(!LOGICAL(ans)[i])
 		warning(_("cannot symlink '%ls' to '%ls', reason '%s'"),
 			from, to, formatError(GetLastError()));
@@ -1659,9 +1646,18 @@ attribute_hidden SEXP do_fileexists(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < nfile; i++) {
 	LOGICAL(ans)[i] = 0;
 	if (STRING_ELT(file, i) != NA_STRING) {
+	    /* documented to silently report false for paths that would be too
+	       long after expansion */
 #ifdef Win32
-	    LOGICAL(ans)[i] =
-		R_WFileExists(filenameToWchar(STRING_ELT(file, i), TRUE));
+	    /* Package XML sends arbitrarily long strings to file.exists! */
+	    size_t len = strlen(CHAR(STRING_ELT(file, i)));
+	    /* 32767 bytes will still fit to the wide char buffer used
+	       by filenameToWchar */
+	    if (len > 32767)
+		LOGICAL(ans)[i] = FALSE;
+	    else
+		LOGICAL(ans)[i] =
+		    R_WFileExists(filenameToWchar(STRING_ELT(file, i), TRUE));
 #else
 	    // returns NULL if not translatable
 	    const char *p = translateCharFP2(STRING_ELT(file, i));
@@ -3558,11 +3554,21 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, i, mkChar(p));
     SET_STRING_ELT(nms, i++, mkChar("PCRE"));
 #ifdef USE_ICU
-    UVersionInfo icu;
-    char pu[U_MAX_VERSION_STRING_LENGTH];
-    u_getVersion(icu);
-    u_versionToString(icu, pu);
-    SET_STRING_ELT(ans, i, mkChar(pu));
+    int use_icu = 1;
+#ifdef Win32
+    /* ICU 72 requires this function (and other from Windows 7) */
+    if (!GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+                        "ResolveLocaleName"))
+	use_icu = 0;
+#endif
+    if (use_icu) {
+	UVersionInfo icu;
+	char pu[U_MAX_VERSION_STRING_LENGTH];
+	u_getVersion(icu);
+	u_versionToString(icu, pu);
+	SET_STRING_ELT(ans, i, mkChar(pu));
+    } else
+	SET_STRING_ELT(ans, i, mkChar(""));
 #else
     SET_STRING_ELT(ans, i, mkChar(""));
 #endif

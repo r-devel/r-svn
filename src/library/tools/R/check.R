@@ -1974,11 +1974,11 @@ add_dummies <- function(dir, Log)
                       sprintf("tools::checkS3methods(dir = \"%s\")\n", pkgdir))
         out <- R_runR2(Rcmd)
         if (length(out)) {
-            pos <- which(startsWith(out,
-                                    "Found the following apparent S3 methods"))
+            pos <- which(startsWith(out, "Mismatches for") |
+                         startsWith(out, "Apparent methods"))
             if(!length(pos)) {
                 out1 <- out
-                out2 <-character()
+                out2 <- character()
             } else {
                 pos <- pos[1L]
                 out1 <- out[seq_len(pos - 1L)]
@@ -3857,6 +3857,32 @@ add_dummies <- function(dir, Log)
                         "see the messages for details.\n")
             } else resultLog(Log, "OK")
         }
+
+        if(!extra_arch && !is_base_pkg) {
+            ## Look to see if there is a startup function.
+            Rcmd <- sprintf("ls(asNamespace('%s'), all = TRUE)", pkgname)
+            out <- R_runR0(Rcmd, opts, arch = arch)
+            if (any(grepl("[.]on(Load|Attach)", out))) {
+                checkingLog(Log, "startup messages can be suppressed")
+                Rcmd <- sprintf("suppressWarnings(suppressPackageStartupMessages(library(%s, lib.loc = '%s',  warn.conflicts=FALSE)))", pkgname, libdir)
+                opts <- if(nzchar(arch)) R_opts4 else R_opts2
+                env <- character()
+                if(nzchar(arch)) env <- c(env, "R_DEFAULT_PACKAGES=NULL")
+                t1 <- proc.time()
+                out <- R_runR0(Rcmd, opts, env, arch = arch)
+                t2 <- proc.time()
+                print_time(t1, t2, Log)
+                if (length(out)) {
+                    noteLog(Log)
+                    printLog0(Log, paste(c(out, ""), collapse = "\n"))
+                    wrapLog("\nIt looks like this package",
+                            "(or a package it requires)",
+                            "has a startup message which cannot be suppressed:",
+                            "see ?packageStartupMessage.\n")
+                } else resultLog(Log, "OK")
+            }
+        }
+
         if(!extra_arch && !is_base_pkg) {
             check_S3reg <-
                 Sys.getenv("_R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_", "NA")
@@ -5484,7 +5510,8 @@ add_dummies <- function(dir, Log)
                              "\\[-Wrange-loop-construct\\]",
                              "\\[-Warray-parameter=\\]",
                              ## clang version (not Apple clang)
-                             "\\[-Warray-parameter\\]"
+                             "\\[-Warray-parameter\\]",
+                             "\\[-Wuse-after-free\\]"
                             )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -5607,6 +5634,10 @@ add_dummies <- function(dir, Log)
                 ## and gfortran 10 warnings
                 ex_re <- "^Warning: Array.*is larger than limit set"
 ##                ex_re <- "^(Warning: Rank mismatch between actual argument|Warning: Array.*is larger than limit set)"
+                lines <- filtergrep(ex_re, lines, useBytes = TRUE)
+
+                ## Filter out gcc 12 warnings that are not certain
+                ex_re <- "may be used after.*\\[-Wuse-after-free\\]"
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## And deprecated declarations in Eigen and boost
@@ -6673,7 +6704,6 @@ add_dummies <- function(dir, Log)
         if(is.na(prev)) Sys.setenv("_R_CHECK_SCREEN_DEVICE_" = "stop")
         Sys.setenv("_R_CHECK_CODE_USAGE_VIA_NAMESPACES_" = "TRUE")
         Sys.setenv("_R_CHECK_CODE_USAGE_WITH_ONLY_BASE_ATTACHED_" = "TRUE")
-        Sys.setenv("_R_CHECK_S3_METHODS_NOT_REGISTERED_" = "TRUE")
         Sys.setenv("_R_CHECK_PACKAGE_DATASETS_SUPPRESS_NOTES_" = "TRUE")
         prev <- Sys.getenv("_R_CHECK_PACKAGES_USED_IGNORE_UNUSED_IMPORTS_",
                            NA_character_)
@@ -6697,7 +6727,6 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_ORPHANED_" = "TRUE")
         Sys.setenv("_R_CHECK_EXCESSIVE_IMPORTS_" = "20")
         Sys.setenv("_R_CHECK_DEPENDS_ONLY_DATA_" = "TRUE")
-        Sys.setenv("_R_OPTIONS_STRINGS_AS_FACTORS_" = "FALSE")
 ##        Sys.setenv("_R_CHECK_XREFS_PKGS_ARE_DECLARED_" = "TRUE")
 ##        Sys.setenv("_R_CHECK_XREFS_MIND_SUSPECT_ANCHORS_" = "TRUE")
         ## allow this to be overridden if there is a problem elsewhere
