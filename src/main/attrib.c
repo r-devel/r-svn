@@ -1891,48 +1891,89 @@ int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP  nlist, object, ans, klass;
-
+    SEXP nlist, nlist_str, object, object_prom, ans, args2;
     checkArity(op, args);
-    PROTECT(object = eval(CAR(args), env));
 
-    if(OBJECT(object) && !IS_S4_OBJECT(object)) {
-        /* try dispatch to @ method or error */
-	PROTECT(args = fixSubset3Args(call, args, env, NULL));
-	if (R_DispatchOrEvalSP(call, op, "@", args, env, &ans)) {
-	    if (NAMED(ans))
-		ENSURE_NAMEDMAX(ans);
-	    UNPROTECT(2); /* args */
-	    return (ans);
-	}
-	UNPROTECT(2);
-	error(_("trying to access `@` on object with no `@` method."));
-    }
-
-    if(!isMethodsDispatchOn())
-	error(_("formal classes cannot be used without the 'methods' package"));
+    object = PROTECT(eval(CAR(args), env));
     nlist = CADR(args);
-    /* Do some checks here -- repeated in R_do_slot, but on repeat the
-     * test expression should kick out on the first element. */
-    if(!(isSymbol(nlist) || (isString(nlist) && LENGTH(nlist) == 1)))
-	error(_("invalid type or length for slot name"));
-    if(isString(nlist)) nlist = installTrChar(STRING_ELT(nlist, 0));
-    if(!s_dot_Data) init_slot_handling();
-    if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
-	klass = getAttrib(object, R_ClassSymbol);
-	if(length(klass) == 0)
-	    error(_("trying to get slot \"%s\" from an object of a basic class (\"%s\") with no slots"),
-		  CHAR(PRINTNAME(nlist)),
-		  CHAR(STRING_ELT(R_data_class(object, FALSE), 0)));
-	else
-	    error(_("trying to get slot \"%s\" from an object (class \"%s\") that is not an S4 object "),
-		  CHAR(PRINTNAME(nlist)),
-		  translateChar(STRING_ELT(klass, 0)));
+
+    // Don't dispatch on S4 objects, S4 objects are handled by R_do_slot()
+    if (IS_S4_OBJECT(object)) {
+	if (!s_dot_Data) init_slot_handling();
+	if (!isMethodsDispatchOn()) {
+	    UNPROTECT(1); // object
+	    error(_("formal classes cannot be used without the 'methods' package"));
+	}
+
+        // ensure nlist is a symbol, like R_do_slot() and getAttrib() want.
+        if (isString(nlist)) {
+            if (LENGTH(nlist) != 1) {
+                UNPROTECT(1); // object
+                error(_("invalid length for slot name"));
+            }
+            nlist = installTrChar(STRING_ELT(nlist, 0));
+        }
+        else if (!isSymbol(nlist)) {
+            UNPROTECT(1); // object
+            error(_("invalid type for slot name"));
+        }
+
+    	ans = R_do_slot(object, nlist);
+	UNPROTECT(1); // object
+    	return ans;
     }
 
-    ans = R_do_slot(object, nlist);
-    UNPROTECT(1);
-    return ans;
+    // Try dispatch on S3 objects
+
+    // First prepare the second argument for DispatchOrEval(), so
+    // methods get the name as a string, not as a symbol.
+    PROTECT(nlist_str = allocVector(STRSXP, 1));
+    if (isSymbol(nlist)) {
+    	SET_STRING_ELT(nlist_str, 0, PRINTNAME(nlist));
+    }
+    else if(isString(nlist)) {
+        if (LENGTH(nlist) != 1) {
+	    UNPROTECT(2); // nlist_str, object
+            error(_("invalid length for property name"));
+        }
+    	SET_STRING_ELT(nlist_str, 0, STRING_ELT(nlist, 0));
+    }
+    else {
+        UNPROTECT(2); // nlist_str, object
+    	error(_("invalid type '%s' for property name"),
+    		type2char(TYPEOF(nlist)));
+    	return R_NilValue; /*-Wall*/
+    }
+
+    // Create a promise for the first argument, so that substitute(x) works in @ methods
+    INCREMENT_LINKS(object);
+    object_prom = R_mkEVPROMISE_NR(CAR(args), object);
+    args2 = PROTECT(list2(object_prom, nlist_str));
+
+    /* DispatchOrEval internal generic: @ */
+    int disp = DispatchOrEval(call, op, "@", args2, env, &ans, 0, 0);
+    DECREMENT_LINKS(object);
+    UNPROTECT(2); // args2, nlist_str
+    if(disp) {
+        UNPROTECT(1); // object
+        return(ans);
+    }
+
+    // not S4, S3 dispatch failed
+    // for backcompat, invoke the S4 pathway if nlist is '.Data'
+    if (!s_dot_Data) init_slot_handling();
+    if (nlist == s_dot_Data) {
+        ans = R_do_slot(object, nlist);
+        UNPROTECT(1); // object
+        return ans;
+    }
+
+    // not S4, S3 dispatch failed, nlist != '.Data'
+    // so error (could alternatively fallback to getAttrib())
+    UNPROTECT(1); // object
+    error(_("trying to access `@` on an object with no `@` method."));
+    return R_NilValue; /*-Wall*/
+
 }
 
 /* Return a suitable S3 object (OK, the name of the routine comes from
