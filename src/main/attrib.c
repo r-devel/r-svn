@@ -1888,55 +1888,83 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP nlist, input, object, ans, klass;
-    // nlist == name of slot
-    // input == name of slot as a string
-
+    SEXP nlist, nlist_str, object, ans, klass;
     checkArity(op, args);
-    PROTECT(input = allocVector(STRSXP, 1));
+
+    object = PROTECT(eval(CAR(args), env));
     nlist = CADR(args);
 
+    // ensure nlist is a symbol, like R_do_slot() and getAttrib() want.
+    if (isString(nlist)) {
+        if (LENGTH(nlist) != 1) {
+            UNPROTECT(1);
+            error(_("invalid length for slot name"));
+        }
+        nlist = installTrChar(STRING_ELT(nlist, 0));
+    }
+    else if (!isSymbol(nlist)) {
+        UNPROTECT(1);
+        error(_("invalid type for slot name"));
+    }
+
+    // Don't dispatch on S4 objects, S4 objects are handled by R_do_slot()
+    if (IS_S4_OBJECT(object)) {
+	if (!s_dot_Data) init_slot_handling();
+	if (!isMethodsDispatchOn()) {
+	    UNPROTECT(1);
+	    error(_("formal classes cannot be used without the 'methods' package"));
+	}
+
+    	ans = R_do_slot(object, nlist);
+	UNPROTECT(1);
+    	return ans;
+    }
+
+    // Try dispatch on S3 objects
+
+    // First prepare the second argument for DispatchOrEval(), so
+    // methods get the name as a string, not as a symbol.
+    PROTECT(nlist_str = allocVector(STRSXP, 1));
     if (isSymbol(nlist)) {
-        printf("isSymbol(nlist)\n");
-    	SET_STRING_ELT(input, 0, PRINTNAME(nlist));
+    	SET_STRING_ELT(nlist_str, 0, PRINTNAME(nlist));
     }
     else if(isString(nlist)) {
         if (LENGTH(nlist) != 1)
             error(_("invalid length for property or slot name"));
-    	SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+    	SET_STRING_ELT(nlist_str, 0, STRING_ELT(nlist, 0));
     }
     else {
-        UNPROTECT(1);
+        UNPROTECT(2);
     	error(_("invalid type '%s' for property or slot name"),
     		type2char(TYPEOF(nlist)));
     	return R_NilValue; /*-Wall*/
     }
 
     /* replace the second argument with a string */
-    SETCADR(args, input);
-    UNPROTECT(1); // 'input' is now protected
+    SETCADR(args, nlist_str);
+    UNPROTECT(1); // 'nlist_str' is now protected
 
     /* DispatchOrEval internal generic: @ */
-    if(DispatchOrEval(call, op, "@", args, env, &ans, 0, 0))
+    if(DispatchOrEval(call, op, "@", args, env, &ans, 0, /* argsevald = */ 1)) {
+        UNPROTECT(1);
         return(ans);
-
-    // no dispatch. Check for S4 object or error
-    object = PROTECT(CAR(ans)); // the evaled object
-
-    if(!s_dot_Data) init_slot_handling();
-    if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
-        UNPROTECT(1);
-        error(_("trying to access `@` on an object with no `@` method."));
     }
 
-    if(!isMethodsDispatchOn()) {
+    // not S4, S3 dispatch failed
+    // for backcompat, invoke the S4 pathway if nlist is '.Data'
+    if (!s_dot_Data) init_slot_handling();
+    if (nlist == s_dot_Data) {
+        ans = R_do_slot(object, nlist);
         UNPROTECT(1);
-	error(_("formal classes cannot be used without the 'methods' package"));
+        return ans;
     }
 
-    ans = R_do_slot(object, nlist);
+    // not S4, S3 dispatch failed, nlist != '.Data'
+    // so error (could alternatively fallback to getAttrib())
     UNPROTECT(1);
-    return ans;
+    error(_("trying to access `@` on an object with no `@` method."));
+    return R_NilValue; /*-Wall*/
+
 }
 
 /* Return a suitable S3 object (OK, the name of the routine comes from
