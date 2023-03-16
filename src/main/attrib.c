@@ -1861,73 +1861,77 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
 }
 
 
-/* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
-   Also defined in subassign.c and subset.c */
-static R_INLINE
-int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
-		    SEXP rho, SEXP *ans)
-{
-    SEXP prom = NULL;
-    if (args != R_NilValue && CAR(args) != R_DotsSymbol) {
-	SEXP x = eval(CAR(args), rho);
-	PROTECT(x);
-	INCREMENT_LINKS(x);
-	if (! OBJECT(x)) {
-	    *ans = CONS_NR(x, evalListKeepMissing(CDR(args), rho));
-	    DECREMENT_LINKS(x);
-	    UNPROTECT(1);
-	    return FALSE;
-	}
-	prom = R_mkEVPROMISE_NR(CAR(args), x);
-	args = CONS(prom, CDR(args));
-	UNPROTECT(1);
-    }
-    PROTECT(args);
-    int disp = DispatchOrEval(call, op, generic, args, rho, ans, 0, 0);
-    if (prom) DECREMENT_LINKS(PRVALUE(prom));
-    UNPROTECT(1);
-    return disp;
-}
+
+	// SEXP input, nlist, ans, value;
+	// PROTECT(input = allocVector(STRSXP, 1));
+
+	// nlist = CADR(args);
+	// if (isSymbol(nlist))
+	//     SET_STRING_ELT(input, 0, PRINTNAME(nlist));
+	// else if(isString(nlist) )
+	//     SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+	// else {
+	//     error(_("invalid type '%s' for slot name"),
+	// 	  type2char(TYPEOF(nlist)));
+	//     return R_NilValue; /*-Wall*/
+	// }
+
+	// /* replace the second argument with a string */
+	// SETCADR(args, input);
+	// UNPROTECT(1); // 'input' is now protected
+
+	// /* DispatchOrEval internal generic: @<- */
+	// if(DispatchOrEval(call, op, "@<-", args, env, &ans, 0, 0))
+	//     return(ans);
+
+
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP  nlist, object, ans, klass;
+    SEXP nlist, input, object, ans, klass;
+    // nlist == name of slot
+    // input == name of slot as a string
 
     checkArity(op, args);
-    PROTECT(object = eval(CAR(args), env));
+    PROTECT(input = allocVector(STRSXP, 1));
+    nlist = CADR(args);
 
-    if(OBJECT(object) && !IS_S4_OBJECT(object)) {
-        /* try dispatch to @ method or error */
-	PROTECT(args = fixSubset3Args(call, args, env, NULL));
-	if (R_DispatchOrEvalSP(call, op, "@", args, env, &ans)) {
-	    if (NAMED(ans))
-		ENSURE_NAMEDMAX(ans);
-	    UNPROTECT(2); /* args */
-	    return (ans);
-	}
-	UNPROTECT(2);
-	error(_("trying to access `@` on object with no `@` method."));
+    if (isSymbol(nlist)) {
+        printf("isSymbol(nlist)\n");
+    	SET_STRING_ELT(input, 0, PRINTNAME(nlist));
+    }
+    else if(isString(nlist)) {
+        if (LENGTH(nlist) != 1)
+            error(_("invalid length for property or slot name"));
+    	SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+    }
+    else {
+        UNPROTECT(1);
+    	error(_("invalid type '%s' for property or slot name"),
+    		type2char(TYPEOF(nlist)));
+    	return R_NilValue; /*-Wall*/
     }
 
-    if(!isMethodsDispatchOn())
-	error(_("formal classes cannot be used without the 'methods' package"));
-    nlist = CADR(args);
-    /* Do some checks here -- repeated in R_do_slot, but on repeat the
-     * test expression should kick out on the first element. */
-    if(!(isSymbol(nlist) || (isString(nlist) && LENGTH(nlist) == 1)))
-	error(_("invalid type or length for slot name"));
-    if(isString(nlist)) nlist = installTrChar(STRING_ELT(nlist, 0));
+    /* replace the second argument with a string */
+    SETCADR(args, input);
+    UNPROTECT(1); // 'input' is now protected
+
+    /* DispatchOrEval internal generic: @ */
+    if(DispatchOrEval(call, op, "@", args, env, &ans, 0, 0))
+        return(ans);
+
+    // no dispatch. Check for S4 object or error
+    object = PROTECT(CAR(ans)); // the evaled object
+
     if(!s_dot_Data) init_slot_handling();
     if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
-	klass = getAttrib(object, R_ClassSymbol);
-	if(length(klass) == 0)
-	    error(_("trying to get slot \"%s\" from an object of a basic class (\"%s\") with no slots"),
-		  CHAR(PRINTNAME(nlist)),
-		  CHAR(STRING_ELT(R_data_class(object, FALSE), 0)));
-	else
-	    error(_("trying to get slot \"%s\" from an object (class \"%s\") that is not an S4 object "),
-		  CHAR(PRINTNAME(nlist)),
-		  translateChar(STRING_ELT(klass, 0)));
+        UNPROTECT(1);
+        error(_("trying to access `@` on an object with no `@` method."));
+    }
+
+    if(!isMethodsDispatchOn()) {
+        UNPROTECT(1);
+	error(_("formal classes cannot be used without the 'methods' package"));
     }
 
     ans = R_do_slot(object, nlist);
