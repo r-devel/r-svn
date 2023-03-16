@@ -1169,7 +1169,7 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{ 
+{
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1888,35 +1888,36 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP nlist, nlist_str, object, ans, klass;
+    SEXP nlist, nlist_str, object, object_prom, ans, args2;
     checkArity(op, args);
 
     object = PROTECT(eval(CAR(args), env));
     nlist = CADR(args);
 
-    // ensure nlist is a symbol, like R_do_slot() and getAttrib() want.
-    if (isString(nlist)) {
-        if (LENGTH(nlist) != 1) {
-            UNPROTECT(1);
-            error(_("invalid length for slot name"));
-        }
-        nlist = installTrChar(STRING_ELT(nlist, 0));
-    }
-    else if (!isSymbol(nlist)) {
-        UNPROTECT(1);
-        error(_("invalid type for slot name"));
-    }
 
     // Don't dispatch on S4 objects, S4 objects are handled by R_do_slot()
     if (IS_S4_OBJECT(object)) {
 	if (!s_dot_Data) init_slot_handling();
 	if (!isMethodsDispatchOn()) {
-	    UNPROTECT(1);
+	    UNPROTECT(1); // object
 	    error(_("formal classes cannot be used without the 'methods' package"));
 	}
 
+        // ensure nlist is a symbol, like R_do_slot() and getAttrib() want.
+        if (isString(nlist)) {
+            if (LENGTH(nlist) != 1) {
+                UNPROTECT(1); // object
+                error(_("invalid length for slot name"));
+            }
+            nlist = installTrChar(STRING_ELT(nlist, 0));
+        }
+        else if (!isSymbol(nlist)) {
+            UNPROTECT(1); // object
+            error(_("invalid type for slot name"));
+        }
+
     	ans = R_do_slot(object, nlist);
-	UNPROTECT(1);
+	UNPROTECT(1); // object
     	return ans;
     }
 
@@ -1929,24 +1930,30 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
     	SET_STRING_ELT(nlist_str, 0, PRINTNAME(nlist));
     }
     else if(isString(nlist)) {
-        if (LENGTH(nlist) != 1)
-            error(_("invalid length for property or slot name"));
+        if (LENGTH(nlist) != 1) {
+	    UNPROTECT(2); // nlist_str, object
+            error(_("invalid length for property name"));
+        }
     	SET_STRING_ELT(nlist_str, 0, STRING_ELT(nlist, 0));
     }
     else {
-        UNPROTECT(2);
-    	error(_("invalid type '%s' for property or slot name"),
+        UNPROTECT(2); // nlist_str, object
+    	error(_("invalid type '%s' for property name"),
     		type2char(TYPEOF(nlist)));
     	return R_NilValue; /*-Wall*/
     }
 
-    /* replace the second argument with a string */
-    SETCADR(args, nlist_str);
-    UNPROTECT(1); // 'nlist_str' is now protected
+    // Create a promise for the first argument, so that substitute(x) works in @ methods
+    INCREMENT_LINKS(object);
+    object_prom = R_mkEVPROMISE_NR(CAR(args), object);
+    args2 = PROTECT(list2(object_prom, nlist_str));
 
     /* DispatchOrEval internal generic: @ */
-    if(DispatchOrEval(call, op, "@", args, env, &ans, 0, /* argsevald = */ 1)) {
-        UNPROTECT(1);
+    int disp = DispatchOrEval(call, op, "@", args2, env, &ans, 0, 0);
+    DECREMENT_LINKS(object);
+    UNPROTECT(2); // args2, nlist_str
+    if(disp) {
+        UNPROTECT(1); // object
         return(ans);
     }
 
@@ -1955,13 +1962,13 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
     if (!s_dot_Data) init_slot_handling();
     if (nlist == s_dot_Data) {
         ans = R_do_slot(object, nlist);
-        UNPROTECT(1);
+        UNPROTECT(1); // object
         return ans;
     }
 
     // not S4, S3 dispatch failed, nlist != '.Data'
     // so error (could alternatively fallback to getAttrib())
-    UNPROTECT(1);
+    UNPROTECT(1); // object
     error(_("trying to access `@` on an object with no `@` method."));
     return R_NilValue; /*-Wall*/
 
