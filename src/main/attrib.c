@@ -1169,7 +1169,7 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{
+{ 
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1860,32 +1860,6 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
     return obj;
 }
 
-
-
-	// SEXP input, nlist, ans, value;
-	// PROTECT(input = allocVector(STRSXP, 1));
-
-	// nlist = CADR(args);
-	// if (isSymbol(nlist))
-	//     SET_STRING_ELT(input, 0, PRINTNAME(nlist));
-	// else if(isString(nlist) )
-	//     SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
-	// else {
-	//     error(_("invalid type '%s' for slot name"),
-	// 	  type2char(TYPEOF(nlist)));
-	//     return R_NilValue; /*-Wall*/
-	// }
-
-	// /* replace the second argument with a string */
-	// SETCADR(args, input);
-	// UNPROTECT(1); // 'input' is now protected
-
-	// /* DispatchOrEval internal generic: @<- */
-	// if(DispatchOrEval(call, op, "@<-", args, env, &ans, 0, 0))
-	//     return(ans);
-
-
-
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP nlist, nlist_str, object, object_prom, ans, args2;
@@ -1893,7 +1867,6 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 
     object = PROTECT(eval(CAR(args), env));
     nlist = CADR(args);
-
 
     // Don't dispatch on S4 objects, S4 objects are handled by R_do_slot()
     if (IS_S4_OBJECT(object)) {
