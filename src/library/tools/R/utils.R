@@ -814,7 +814,17 @@ function(x, dir, add = FALSE)
 .find_calls <-
 function(x, predicate = NULL, recursive = FALSE)
 {
-    x <- if(is.call(x)) list(x) else as.list(x)
+    calls <- list()
+
+    if(!is.recursive(x) || isS4(x)) return(calls)
+    
+    x <- if(is.call(x))
+             list(x)
+         else {
+             if(is.object(x))
+                 class(x) <- NULL
+             as.list(x)
+         }
 
     f <- if(is.null(predicate))
         function(e) is.call(e)
@@ -823,12 +833,16 @@ function(x, predicate = NULL, recursive = FALSE)
 
     if(!recursive) return(Filter(f, x))
 
-    calls <- list()
     gatherer <- function(e) {
         if(f(e)) calls <<- c(calls, list(e))
-        if(is.recursive(e))
+        if(is.recursive(e) && !is.environment(e) && !isS4(e)) {
+            if(is.object(e))
+                class(e) <- NULL
+            e <- as.list(e)
             for(i in seq_along(e)) gatherer(e[[i]])
+        }
     }
+
     gatherer(x)
 
     calls
@@ -845,7 +859,8 @@ function(file, encoding = NA, predicate = NULL, recursive = FALSE)
 ### ** .find_calls_in_package_code
 
 .find_calls_in_package_code <-
-function(dir, predicate = NULL, recursive = FALSE, .worker = NULL)
+function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
+         which = "code")
 {
     dir <- file_path_as_absolute(dir)
 
@@ -857,14 +872,43 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL)
         .worker <- function(file, encoding)
             .find_calls_in_file(file, encoding, predicate, recursive)
 
+    which <- match.arg(which,
+                       c("code", "vignettes", "NAMESPACE", "CITATION"),
+                       several.ok = TRUE)
     code_files <-
-        list_files_with_type(file.path(dir, "R"), "code",
-                             OS_subdirs = c("unix", "windows"))
+        c(character(),
+          if("code" %in% which)
+              list_files_with_type(file.path(dir, "R"), "code",
+                                   OS_subdirs = c("unix", "windows")),
+          if(("vignettes" %in% which) &&
+             dir.exists(fp <- file.path(dir, "inst", "doc")))
+              list_files_with_type(fp, "code"),
+          if(("NAMESPACE" %in% which) &&
+             file.exists(fp <- file.path(dir, "NAMESPACE")))
+              fp,
+          if(("CITATION" %in% which) &&
+             file.exists(fp <- file.path(dir, "inst", "CITATION")))
+              fp)
+
     calls <- lapply(code_files, .worker, encoding)
     names(calls) <-
         .file_path_relative_to_dir(code_files, dirname(dir))
 
     calls
+}
+
+.predicate_for_calls_with_names <-
+function(nms)
+{
+    function(e) {
+        (is.call(e) &&
+         ((is.name(x <- e[[1L]]) &&
+           as.character(x) %in% nms)) ||
+         ((is.call(x <- e[[1L]]) &&
+           is.name(x[[1L]]) &&
+           (as.character(x[[1L]]) %in% c("::", ":::")) &&
+           as.character(x[[3L]]) %in% nms)))
+    }
 }
 
 ### ** .find_owner_env
@@ -1728,15 +1772,13 @@ nonS3methods <- function(package)
     stopList <-
         list(base = c("all.equal", "all.names", "all.vars",
              "as.data.frame.vector",
-             "expand.grid",
-             "format.char", "format.info", "format.pval",
+             "format.info", "format.pval",
              "max.col",
-             "pmax.int", "pmin.int",
              ## the next two only exist in *-defunct.Rd.
-             "print.atomic", "print.coefmat",
+             ## "print.atomic", "print.coefmat",
              "qr.Q", "qr.R", "qr.X", "qr.coef", "qr.fitted", "qr.qty",
              "qr.qy", "qr.resid", "qr.solve",
-             "rep.int", "sample.int", "seq.int", "sort.int", "sort.list"),
+             "rep.int", "seq.int", "sort.int", "sort.list"),
              AMORE = "sim.MLPnet",
              BSDA = "sign.test",
              ChemometricsWithR = "lda.loofun",

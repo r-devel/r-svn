@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 2003	      The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,7 +59,7 @@ static SEXP CSingSymbol = NULL;
 // Odd: 'type' is really this enum
 enum {NOT_DEFINED, FILENAME, DLL_HANDLE, R_OBJECT};
 typedef struct {
-    char DLLname[PATH_MAX];
+    char DLLname[R_PATH_MAX];
     HINSTANCE dll;
     SEXP  obj;
     int type;
@@ -372,7 +372,7 @@ static SEXP naokfind(SEXP args, int * len, int *naok, DllReference *dll)
 	    dll->obj = CAR(s);  // really?
 	    if(TYPEOF(CAR(s)) == STRSXP) {
 		p = translateChar(STRING_ELT(CAR(s), 0));
-		if(strlen(p) > PATH_MAX - 1)
+		if(strlen(p) > R_PATH_MAX - 1)
 		    error(_("DLL name is too long"));
 		dll->type = FILENAME;
 		strcpy(dll->DLLname, p);
@@ -423,7 +423,7 @@ static void setDLLname(SEXP s, char *DLLname)
     /* allow the package: form of the name, as returned by find */
     if(strncmp(name, "package:", 8) == 0)
 	name += 8;
-    if(strlen(name) > PATH_MAX - 1)
+    if(strlen(name) > R_PATH_MAX - 1)
 	error(_("PACKAGE argument is too long"));
     strcpy(DLLname, name);
 }
@@ -2025,14 +2025,19 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 			    type2char(t), na + 1);
 	    /* Used read-only, so this is safe */
 #ifdef USE_RINTERNALS
-	    cargs[na] = (void*) DATAPTR(s);
+            if (!ALTREP(s))
+                cargs[na] = (void*) DATAPTR(s);
+            else {
 #else
-	    n = XLENGTH(s);
-	    SEXP *lptr = (SEXP *) R_alloc(n, sizeof(SEXP));
-	    for (R_xlen_t i = 0 ; i < n ; i++) lptr[i] = VECTOR_ELT(s, i);
-	    cargs[na] = (void*) lptr;
+                n = XLENGTH(s);
+                SEXP *lptr = (SEXP *) R_alloc(n, sizeof(SEXP));
+                for (R_xlen_t i = 0 ; i < n ; i++) lptr[i] = VECTOR_ELT(s, i);
+                cargs[na] = (void*) lptr;
 #endif
-	    break;
+#ifdef USE_RINTERNALS
+            }
+#endif
+            break;
 	case CLOSXP:
 	case BUILTINSXP:
 	case SPECIALSXP:

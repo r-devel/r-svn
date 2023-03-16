@@ -41,10 +41,6 @@
 #include "console.h"
 #include "rui.h"
 #define WIN32_LEAN_AND_MEAN 1
-/* Mingw-w64 defines this to be 0x0502 */
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0500
-#endif
 #include <windows.h>
 #include "devWindows.h"
 #define DEVWINDOWS 1
@@ -3954,7 +3950,15 @@ static R_cairoFT_t R_cairoFT = NULL;
 static int Load_Rcairo_Dll()
 {
     if (!RcairoAlreadyLoaded) {
-	char szFullPath[PATH_MAX];
+	size_t needed = strlen(R_HomeDir())
+	                + strlen("/library/grDevices/libs/")
+			+ strlen(R_ARCH)
+			+ strlen("/winCairo.dll") + 1;
+	char *szFullPath = malloc(needed);
+	if (!szFullPath) {
+	    R_ShowMessage("Not enough memory to create buffer for path.");
+	    return -1;
+	}
 	strcpy(szFullPath, R_HomeDir());
 	strcat(szFullPath, "/library/grDevices/libs/");
 	strcat(szFullPath, R_ARCH);
@@ -3977,6 +3981,7 @@ static int Load_Rcairo_Dll()
 	    snprintf(buf, 1000, "Unable to load '%s'", szFullPath);
 	    R_ShowMessage(buf);
 	}
+	free(szFullPath);
     }
     return (RcairoAlreadyLoaded > 0);
 }

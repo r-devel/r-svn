@@ -39,10 +39,6 @@
 #include <direct.h>
 #include "graphapp/ga.h"
 #include "rlocale.h"
-/* Mingw-w64 defines this to be 0x0502 */
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0502 /* for GetLongPathName, KEY_WOW64_64KEY */
-#endif
 #include <windows.h>
 #include "rui.h"
 #undef ERROR
@@ -387,47 +383,7 @@ const char *formatError(DWORD res)
     return buf;
 }
 
-#if _WIN32_WINNT < 0x0600
-/* FIXME: also used in sysutils.c */
-/* available from Windows Vista */
-typedef enum _FILE_INFO_BY_HANDLE_CLASS {
-  FileBasicInfo,
-  FileStandardInfo,
-  FileNameInfo,
-  FileRenameInfo,
-  FileDispositionInfo,
-  FileAllocationInfo,
-  FileEndOfFileInfo,
-  FileStreamInfo,
-  FileCompressionInfo,
-  FileAttributeTagInfo,
-  FileIdBothDirectoryInfo,
-  FileIdBothDirectoryRestartInfo,
-  FileIoPriorityHintInfo,
-  FileRemoteProtocolInfo,
-  FileFullDirectoryInfo,
-  FileFullDirectoryRestartInfo,
-  FileStorageInfo,
-  FileAlignmentInfo,
-  FileIdInfo,
-  FileIdExtdDirectoryInfo,
-  FileIdExtdDirectoryRestartInfo,
-  FileDispositionInfoEx,
-  FileRenameInfoEx,
-  MaximumFileInfoByHandleClass,
-  FileCaseSensitiveInfo,
-  FileNormalizedNameInfo
-} FILE_INFO_BY_HANDLE_CLASS, *PFILE_INFO_BY_HANDLE_CLASS;
-
-/* MinGW defines this structure even for Vista. Older versions of MinGW
-   define it differently from Windows (two ULONGLONG fields). Newer
-   versions and Windows use
- 
-typedef struct _FILE_ID_128 {
-  BYTE Identifier[16];
-} FILE_ID_128, *PFILE_ID_128;
-*/
-#elif _WIN32_WINNT < 0x0602
+#if _WIN32_WINNT < 0x0602
 /* These constants were added to FILE_INFO_BY_HANDLE_CLASS in Windows 8 */
 enum {
   FileStorageInfo = FileFullDirectoryRestartInfo + 1,
@@ -451,23 +407,12 @@ typedef BOOL (WINAPI *LPFN_GFIBH_EX) (HANDLE, FILE_INFO_BY_HANDLE_CLASS,
 
 static int isSameFile(HANDLE a, HANDLE b)
 {
-    static LPFN_GFIBH_EX gfibh = NULL;
-    static Rboolean initialized = FALSE;
     FILE_ID_INFO aid, bid;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfibh = (LPFN_GFIBH_EX) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFileInformationByHandleEx");
-    }
-    if (gfibh == NULL)
-	return -1;
 
     memset(&aid, 0, sizeof(FILE_ID_INFO));
     memset(&bid, 0, sizeof(FILE_ID_INFO));
-    if (!gfibh(a, FileIdInfo, &aid, sizeof(FILE_ID_INFO)) ||
-        !gfibh(b, FileIdInfo, &bid, sizeof(FILE_ID_INFO)))
+    if (!GetFileInformationByHandleEx(a, FileIdInfo, &aid, sizeof(FILE_ID_INFO)) ||
+        !GetFileInformationByHandleEx(b, FileIdInfo, &bid, sizeof(FILE_ID_INFO)))
 	/* on Vista and Win7 it is expected to fail because FileIdInfo
 	   is not supported */
 	return -1;
@@ -480,44 +425,11 @@ static int isSameFile(HANDLE a, HANDLE b)
 	return 0;
 }
 
-#if _WIN32_WINNT < 0x0600
-/* available from Windows Vista */
-typedef DWORD (WINAPI *LPFN_GFPNBH) (HANDLE, LPSTR, DWORD, DWORD);
-typedef DWORD (WINAPI *LPFN_GFPNBHW) (HANDLE, LPWSTR, DWORD, DWORD);
-/*
-DWORD GetFinalPathNameByHandle(
-    HANDLE hFile,
-    LPSTR lpszFilePath,
-    DWORD cchFilePath,
-    DWORD dwFlags);
-
-DWORD GetFinalPathNameByHandleW(
-    HANDLE hFile,
-    LPWSTR lpszFilePath,
-    DWORD  cchFilePath,
-    DWORD  dwFlags
-);
-*/
-#endif
-
 /* returns R_alloc'd result */
 static char *getFinalPathName(const char *orig)
 {
     HANDLE horig, hres;
     int ret, ret1;
-#if _WIN32_WINNT < 0x0600
-    static LPFN_GFPNBH gfpnbh = NULL;
-    static Rboolean initialized = FALSE;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfpnbh = (LPFN_GFPNBH) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFinalPathNameByHandleA");
-    }
-    if (gfpnbh == NULL)
-	return NULL;
-#endif
 
     /* FILE_FLAG_BACKUP_SEMANTICS needed to open a directory */
     horig = CreateFile(orig, 0,
@@ -528,11 +440,7 @@ static char *getFinalPathName(const char *orig)
     if (horig == INVALID_HANDLE_VALUE) 
 	return NULL;
 
-#if _WIN32_WINNT < 0x0600
-    ret = gfpnbh(horig, NULL, 0, VOLUME_NAME_DOS);
-#else
     ret = GetFinalPathNameByHandle(horig, NULL, 0, VOLUME_NAME_DOS);
-#endif
     if (ret <= 0) {
 	CloseHandle(horig);
 	return NULL;
@@ -543,11 +451,7 @@ static char *getFinalPathName(const char *orig)
     ret++;
 
     char *res = R_alloc(ret, 1);
-#if _WIN32_WINNT < 0x0600
-    ret1 = gfpnbh(horig, res, ret, VOLUME_NAME_DOS);
-#else
     ret1 = GetFinalPathNameByHandle(horig, res, ret, VOLUME_NAME_DOS);
-#endif
     if (ret1 <= 0 || ret1 >= ret) {
 	CloseHandle(horig);
 	return NULL;
@@ -603,19 +507,6 @@ static wchar_t *getFinalPathNameW(const wchar_t *orig)
 {
     HANDLE horig, hres;
     int ret, ret1;
-#if _WIN32_WINNT < 0x0600
-    static LPFN_GFPNBHW gfpnbhw = NULL;
-    static Rboolean initialized = FALSE;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfpnbhw = (LPFN_GFPNBHW) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFinalPathNameByHandleW");
-    }
-    if (gfpnbhw == NULL)
-	return NULL;
-#endif
 
     /* FILE_FLAG_BACKUP_SEMANTICS needed to open a directory */
     horig = CreateFileW(orig, 0,
@@ -626,22 +517,14 @@ static wchar_t *getFinalPathNameW(const wchar_t *orig)
     if (horig == INVALID_HANDLE_VALUE) 
 	return NULL;
 
-#if _WIN32_WINNT < 0x0600
-    ret = gfpnbhw(horig, NULL, 0, VOLUME_NAME_DOS);
-#else
     ret = GetFinalPathNameByHandleW(horig, NULL, 0, VOLUME_NAME_DOS);
-#endif
     if (ret <= 0) {
 	CloseHandle(horig);
 	return NULL;
     }
 
     wchar_t *wres = (wchar_t *)R_alloc(ret, sizeof(wchar_t));
-#if _WIN32_WINNT < 0x0600
-    ret1 = gfpnbhw(horig, wres, ret, VOLUME_NAME_DOS);
-#else
     ret1 = GetFinalPathNameByHandleW(horig, wres, ret, VOLUME_NAME_DOS);
-#endif
     if (ret1 <= 0 || ret1 >= ret) {
 	CloseHandle(horig);
 	return NULL;
@@ -694,7 +577,7 @@ static wchar_t *getFinalPathNameW(const wchar_t *orig)
 }
 
 /* returns R_alloc'd result */
-static wchar_t *getFullPathNameW(const wchar_t *orig)
+attribute_hidden wchar_t *R_getFullPathNameW(const wchar_t *orig)
 {
     DWORD ret, ret1;
 
@@ -710,7 +593,7 @@ static wchar_t *getFullPathNameW(const wchar_t *orig)
 }
 
 /* returns R_alloc'd result */
-static char *getFullPathName(const char *orig)
+attribute_hidden char *R_getFullPathName(const char *orig)
 {
     DWORD ret, ret1;
 
@@ -724,7 +607,7 @@ static char *getFullPathName(const char *orig)
 	    cnt++;
 	    wchar_t *worig = (wchar_t*) R_alloc(cnt, sizeof(wchar_t));
 	    mbstowcs(worig, orig, cnt);
-	    wchar_t *wres = getFullPathNameW(worig);
+	    wchar_t *wres = R_getFullPathNameW(worig);
 	    if (wres) {
 		cnt = wcstombs(NULL, wres, 0) + 1;
 		if (cnt != (size_t)-1) {
@@ -811,7 +694,7 @@ SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 		warningcall(call, "path[%d]=NA", i+1);
 	} else if(getCharCE(el) == CE_UTF8) {
 	    const wchar_t *wel = filenameToWchar(el, FALSE);
-	    wchar_t *wfull = getFullPathNameW(wel);
+	    wchar_t *wfull = R_getFullPathNameW(wel);
 	    wchar_t *wnorm = getFinalPathNameW(wel);
 
 	    /* if normalized to UNC path but full path is D:..., fall back
@@ -821,6 +704,7 @@ SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 	        wfull[1] == L':') wnorm = NULL;
 	    if (!wnorm && wfull)
 		/* silently fall back to GetFullPathName/GetLongPathName */
+		/* getLongPathName will fail for non-existent paths */
 		wnorm = getLongPathNameW(wfull);
 	    if (wnorm) {
 		if (fslash)
@@ -834,18 +718,24 @@ SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    warningcall(call, "path[%d]=\"%ls\": %s", i+1, 
 				wel, formatError(GetLastError()));
 		}
-		const char *elutf8 = translateCharUTF8(el);
-		if (fslash) {
-		    char *normutf8 = R_alloc(strlen(elutf8) + 1, 1);
-		    strcpy(normutf8, elutf8);
-		    R_UTF8fixslash(normutf8);
-		    result = mkCharCE(normutf8, CE_UTF8);
-		} else
-		    result = mkCharCE(elutf8, CE_UTF8);
+		if (wfull) {
+		    if (fslash)
+			R_wfixslash(wfull);
+		    result = mkCharWUTF8(wfull);
+		} else {
+		    const char *elutf8 = translateCharUTF8(el);
+		    if (fslash) {
+			char *normutf8 = R_alloc(strlen(elutf8) + 1, 1);
+			strcpy(normutf8, elutf8);
+			R_UTF8fixslash(normutf8);
+			result = mkCharCE(normutf8, CE_UTF8);
+		    } else
+			result = mkCharCE(elutf8, CE_UTF8);
+		}
 	    }
 	} else {
 	    const char *tel = translateChar(el);
-	    char *full = getFullPathName(tel);
+	    char *full = R_getFullPathName(tel);
 	    char *norm = getFinalPathName(tel);
 
 	    /* if normalized to UNC path but full path is D:..., fall back
@@ -854,6 +744,7 @@ SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 		full && isalpha(full[0]) && full[1] == ':') norm = NULL;
 	    if (!norm && full)
 		/* silently fall back to GetFullPathName/GetLongPathName */
+		/* getLongPathName will fail for non-existent paths */
 		norm = getLongPathName(full);
 	    if (norm) {
 		if (fslash)
@@ -867,7 +758,11 @@ SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    warningcall(call, "path[%d]=\"%s\": %s", i+1, 
 				tel, formatError(GetLastError()));
 		}
-		if (fslash) {
+		if (full) {
+		    if (fslash)
+			R_fixslash(full);
+		    result = mkChar(full);
+		} else if (fslash) {
 		    norm = R_alloc(strlen(tel) + 1, 1);
 		    strcpy(norm, tel);
 		    R_fixslash(norm);
