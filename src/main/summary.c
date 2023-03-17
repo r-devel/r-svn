@@ -27,6 +27,7 @@
 #include <R_ext/Itermacros.h>
 
 #include <float.h> // for DBL_MAX
+#include <stdbool.h> // for bool
 
 #include "duplicate.h"
 
@@ -1125,63 +1126,55 @@ attribute_hidden SEXP do_which(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP v = CAR(args);
     if (!isLogical(v))
 	error(_("argument to 'which' is not logical"));
-    R_xlen_t len = xlength(v), i, j = 0;
+    R_xlen_t len = xlength(v), count = 0;
     SEXP ans;
+    bool *where = (bool *) R_alloc(len, sizeof(bool));
+    /* use iteration macros to be ALTREP safe and pull ptr retrieval out of tight loop */
+    ITERATE_BY_REGION(v, ptr, idx, nb, int, LOGICAL, {
+        for (R_xlen_t i = 0; i < nb; i++) {
+            const bool elt = ptr[i] == TRUE;
+            count += elt;
+            where[idx + i] = elt;
+        }
+    });
 #ifdef LONG_VECTOR_SUPPORT
     if (len > R_SHORT_LEN_MAX) {
-    R_xlen_t xoffset = 1; // 1 for 1-based indexing of response
-    double *buf = (double *) R_alloc(len, sizeof(double));
-    ITERATE_BY_REGION(v, ptr, idx, nb, int, LOGICAL, {
-	    for(R_xlen_t i = 0; i < nb; i++) {
-		if(ptr[i] == TRUE) {
-		    buf[j] = (double)(xoffset + i); // offset has +1 built in
-		    j++;
-		}
-	    }
-	    xoffset += nb; // move to beginning of next buffer (+1 since R-based)
-	});
-
-    len = j;
-    PROTECT(ans = allocVector(REALSXP, len));
-    // buf has doubles in it, memcopy if we found any indices.
-    if(len) memcpy(REAL(ans), buf, sizeof(double) * len);
+    PROTECT(ans = allocVector(REALSXP, count));
+    double *pans = REAL0(ans);
+    for (R_xlen_t i = 0, j = 0; j < count; i++) {
+        pans[j] = i + 1;
+        j += where[i];
+    }
     } else
 #endif
     {
-    int ioffset = 1;
-    int *buf = (int *) R_alloc(len, sizeof(int));
-    /* use iteration macros to be ALTREP safe and pull ptr retrieval out of tight loop */
-    ITERATE_BY_REGION(v, ptr, idx, nb, int, LOGICAL, {
-	    for(int i = 0; i < nb; i++) {
-		if(ptr[i] == TRUE) {
-		    buf[j] = ioffset + i; // offset has +1 built in
-		    j++;
-		}
-	    }
-	    ioffset += nb; // move to beginning of next buffer
-	});
-
-    len = j;
-    // buf has ints in it and we're returning ints, memcopy if we found any indices;
-    PROTECT(ans = allocVector(INTSXP, len));
-    if(len) memcpy(INTEGER(ans), buf, sizeof(int) * len);
+    PROTECT(ans = allocVector(INTSXP, count));
+    int *pans = INTEGER0(ans);
+    for (R_xlen_t i = 0, j = 0; j < count; i++) {
+        pans[j] = i + 1;
+        j += where[i];
+    }
     }
 
     SEXP v_nms = getAttrib(v, R_NamesSymbol);
     if (v_nms != R_NilValue) {
-	SEXP ans_nms = PROTECT(allocVector(STRSXP, len));
+	SEXP ans_nms = PROTECT(allocVector(STRSXP, count));
 #ifdef LONG_VECTOR_SUPPORT
-	if (TYPEOF(ans) == REALSXP)
-	for (i = 0; i < len; i++) {
+	if (TYPEOF(ans) == REALSXP) {
+	const double *pans = REAL_RO(ans);
+	for (R_xlen_t i = 0; i < count; i++) {
 	    SET_STRING_ELT(ans_nms, i,
-			   STRING_ELT(v_nms, (R_xlen_t)REAL(ans)[i] - 1));
+			   STRING_ELT(v_nms, (R_xlen_t)pans[i] - 1));
 	}
-	else
+	} else
 #endif
-	for (i = 0; i < len; i++) {
+        {
+        const int *pans = INTEGER_RO(ans);
+	for (R_xlen_t i = 0; i < count; i++) {
 	    SET_STRING_ELT(ans_nms, i,
-			   STRING_ELT(v_nms, (R_xlen_t)INTEGER(ans)[i] - 1));
+			   STRING_ELT(v_nms, (R_xlen_t)pans[i] - 1));
 	}
+        }
 	setAttrib(ans, R_NamesSymbol, ans_nms);
 	UNPROTECT(1);
     }
