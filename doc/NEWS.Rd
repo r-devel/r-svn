@@ -200,6 +200,21 @@
       \item \sQuote{Object not found} and \sQuote{Missing argument}
       errors now give a more accurate error context. Patch provided by
       Lionel Henry in \PR{18241}.
+
+      \item The \code{@} operator is now an S3 generic. Based on
+      contributions by Tomasz Kalinowski in \PR{18482}.
+
+      \item Detection of BLAS/LAPACK in use (\code{sessionInfo()}) with
+      FlexiBLAS now reports the current backend.
+
+      \item \code{subset.data.frame()} now warns about extraneous
+      arguments, typically catching the use of \samp{=} instead of
+      \samp{==} in the \code{subset} expression.
+
+      \item Calling \code{a:b} when numeric \code{a} or \code{b} is longer
+      than one may now be made into an error by setting environment variable
+      \env{_R_CHECK_LENGTH_COLON_} to a true value, along the proposal in
+      \PR{18419} by Henrik Bengtsson.
     }
   }
 
@@ -722,6 +737,15 @@
       the \code{bibtex} argument's default for \code{print.bibentry()}
       depends directly on the \code{citation.bibtex.max} option, whereas in
       \code{format.bibentry()} the option no longer applies.
+
+      \item Attempting to use a character string naming a foreign
+      function entry point in a foreign function call in a package will
+      now signal an error if the packages has called
+      \code{R_forceSymbols} to specify that symbols must be
+      used.
+
+      \item An error in \code{table()} could permanently set
+      \code{options(warn=2)} promoting all subsequent warnings to errors.
     }
   }
 }

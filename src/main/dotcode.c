@@ -1745,6 +1745,8 @@ R_FindNativeSymbolFromDLL(char *name, DllReference *dll,
 	info = (DllInfo *) R_ExternalPtrAddr(tmp);
 	if(!info)
 	    error(_("NULL value for DLLInfoReference when looking for DLL"));
+	if (info->forceSymbols)
+	    error(_("DLL requires the use of native symbols"));
 	fun = R_dlsym(info, name, symbol);
     }
 

@@ -82,8 +82,8 @@
 #endif
 
 /* For speed in cases when the argument is known to not be an ALTREP list. */
-#define VECTOR_ELT_0(x,i)        ((SEXP *) DATAPTR(x))[i]
-#define SET_VECTOR_ELT_0(x,i, v) (((SEXP *) DATAPTR(x))[i] = (v))
+#define VECTOR_ELT_0(x,i)        ((SEXP *) STDVEC_DATAPTR(x))[i]
+#define SET_VECTOR_ELT_0(x,i, v) (((SEXP *) STDVEC_DATAPTR(x))[i] = (v))
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
@@ -4102,12 +4102,16 @@ SEXP (SET_VECTOR_ELT)(SEXP x, R_xlen_t i, SEXP v) {
     if (i < 0 || i >= XLENGTH(x))
 	error(_("attempt to set index %lld/%lld in SET_VECTOR_ELT"),
 	      (long long)i, (long long)XLENGTH(x));
-    FIX_REFCNT(x, VECTOR_ELT_0(x, i), v);
-    CHECK_OLD_TO_NEW(x, v);
-    if (ALTREP(x))
+    if (ALTREP(x)) {
+        FIX_REFCNT(x, VECTOR_ELT(x, i), v);
+        CHECK_OLD_TO_NEW(x, v);
         ALTLIST_SET_ELT(x, i, v);
-    else
+    }
+    else {
+        FIX_REFCNT(x, VECTOR_ELT_0(x, i), v);
+        CHECK_OLD_TO_NEW(x, v);
         SET_VECTOR_ELT_0(x, i, v);
+    }
     return v;
 }
 

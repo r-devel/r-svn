@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2023-03-15 r83984) -- "Unsuffered Consequences"
+R Under development (unstable) (2023-03-16 r83996) -- "Unsuffered Consequences"
 Copyright (C) 2023 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu (64-bit)
 
@@ -162,8 +162,8 @@ evaluating ax
 called `@.foo`(x = ax, name = 'prop1')
 > 
 > try(letters@foo) # error
-Error in try(letters@foo) : 
-  trying to access `@` on an object with no `@` method.
+Error in letters@foo : 
+  no applicable method for `@` applied to an object of class "character"
 > 
 > # doesn't dispatch for S4
 > setClass("Person",

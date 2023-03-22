@@ -33,7 +33,7 @@ Name,Country,City,URL,Host,Maintainer,OK,CountryCode,Comment
 "China (Xianyang) [https]",China,Xianyang,https://mirrors.nwafu.edu.cn/cran/,"Northwest A&F University (NWAFU)","dingyuxiao99 # nwafu.edu.cn",0,cn
 "Colombia (Cali) [https]",Colombia,Cali,https://www.icesi.edu.co/CRAN/,"Icesi University","adminred # Icesi.edu.co",1,co,"secure_mirror_from_master"
 "Costa Rica [https]","Costa Rica","San José",https://mirror.uned.ac.cr/cran/,"Distance State University (UNED)","rherrerav # uned.ac.cr",1,cr,"secure_mirror_from_master"
-"Cyprus [https]",Cyprus,Nicosia,https://mirror.library.ucy.ac.cy/cran/,"University of Cyprus","mirror # ucy.ac.cy",1,cy,"secure_mirror_from_master"
+"Cyprus [https]",Cyprus,Nicosia,https://mirror.library.ucy.ac.cy/cran/,"University of Cyprus","mirror # ucy.ac.cy",0,cy,"secure_mirror_from_master"
 "Czech Republic [https]","Czech Republic","Prague",https://mirrors.nic.cz/R/,"CZ.NIC, Prague","mirrors # nic.cz",1,cz,"secure_mirror_from_master"
 "Denmark [https]",Denmark,Aalborg,https://mirrors.dotsrc.org/cran/,"Aalborg University","staff # dotsrc.org",1,dk,"secure_mirror_from_master"
 "East Asia [https]",0-Cloud-East-Asia,0-Cloud-East-Asia,"https://cran.asia/","Personnel Psychology Laboratory, Kwangwoon University (sites: Seoul, Tokyo, Singapore, Manila, Bangalore)","admin # cran.asia",1,asia,"secure_mirror_from_master"
@@ -63,7 +63,7 @@ Name,Country,City,URL,Host,Maintainer,OK,CountryCode,Comment
 "Korea (Gyeongsan-si) [https]",Korea,Gyeongsan-si,https://cran.yu.ac.kr/,"Yeungnam University","sysop # yu.ac.kr",1,kr,"secure_mirror_from_master"
 "Korea (Seoul 1) [https]",Korea,Seoul,https://cran.seoul.go.kr/,"Bigdata Campus, Seoul Metropolitan Govermment","bigdata # seoul.go.kr",0,kr,"secure_mirror_from_master"
 "Korea (Seoul 2)",Korea,Seoul,http://healthstat.snu.ac.kr/CRAN/,"Graduate School of Public Health, Seoul National University, Seoul","Sunghow # gmail.com",0,kr,
-"Korea (Ulsan) [https]",Korea,Ulsan,https://cran.biodisk.org/,"The Genome Institute of UNIST (Ulsan National Institute of Science and Technology)","ldsrman # gmail.com",1,kr,"secure_mirror_from_master"
+"Korea (Ulsan) [https]",Korea,Ulsan,https://cran.biodisk.org/,"The Genome Institute of UNIST (Ulsan National Institute of Science and Technology)","ldsrman # gmail.com",0,kr,"secure_mirror_from_master"
 "Malaysia [https]",Malaysia,Serdang,https://mirrors.upm.edu.my/CRAN/,"Universiti Putra Malaysia","Ng Keng Yap <kengyap # upm.edu.my>",1,my,"secure_mirror_from_master"
 "Mexico (Mexico City) [https]",Mexico,"Mexico City",https://cran.itam.mx/,"Instituto Tecnologico Autonomo de Mexico","Ernesto Barrios <ebarrios # Itam.mx>",1,mx,"secure_mirror_from_master"
 "Mexico (Texcoco) [https]",Mexico,Texcoco,https://www.est.colpos.mx/,"Colegio de Postgraduados, Texcoco","perpdgo # gmail.com",1,mx,"secure_mirror_from_master"
@@ -100,6 +100,6 @@ Thailand,Thailand,Hatyai,http://mirrors.psu.ac.th/pub/cran/,"Prince of Songkla U
 "USA (PA 1)",USA,Pittsburgh,http://lib.stat.cmu.edu/R/CRAN/,"Statlib, Carnegie Mellon University, Pittsburgh, PA","Carl Skipper <remarks # stat.cmu.edu>",1,us
 "USA (PA 2) [https]",USA,Pittsburgh,https://cran.mirrors.hoobly.com/,"Hoobly Classifieds, Pittsburgh, PA","Peter Grigor <pgrigor # hoobly.com>",1,us
 "USA (TN) [https]",USA,"Oak Ridge",https://mirrors.nics.utk.edu/cran/,"National Institute for Computational Sciences, Oak Ridge, TN","help # nics.utk.edu",1,us,"secure_mirror_from_master"
-"USA (TX 1) [https]",USA,Dallas,https://cran.microsoft.com/,"Revolution Analytics, Dallas, TX","Joseph Chandy <Joseph.Chandy # microsoft.com>",1,us,"secure_mirror_from_master,maintainer_address_bounces"
+"USA (TX 1) [https]",USA,Dallas,https://cran.microsoft.com/,"Revolution Analytics, Dallas, TX","Joseph Chandy <Joseph.Chandy # microsoft.com>",0,us,"secure_mirror_from_master,maintainer_address_bounces"
 "United Arab Emirates [https]","United Arab Emirates","Abu Dhabi",https://cran.nyuad.nyu.edu/,"New York University in Abu Dhabi","nyuad.cran # nyu.edu",1,ae,"secure_mirror_from_master"
 "Uruguay [https]",Uruguay,Montevideo,https://espejito.fder.edu.uy/cran/,"Facultad de Derecho, Universidad de la República","root # fder.edu.uy",1,uy,"secure_mirror_from_master"
