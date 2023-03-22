@@ -132,3 +132,19 @@ stopifnot(exprs = {
     inherits(classx_instance, "ClassX")
     inherits(classx_instance, ClassX)
 })
+
+## Some tests for `pickOpsMethod()`, called from C DispatchGroup() when 2 methods are found
+foo_obj <- structure(1, class = "foo")
+bar_obj <- structure(1, class = "bar")
+
+`+.foo` <- function(e1, e2) "foo"
+`+.bar` <- function(e1, e2) "bar"
+
+tryCatch(foo_obj + bar_obj, warning = stop) # error
+
+pickOpsMethod.bar <- function(x, y, mx, my, reverse) TRUE
+
+stopifnot(exprs = {
+    identical(foo_obj + bar_obj, "bar")
+    identical(bar_obj + foo_obj, "bar")
+})

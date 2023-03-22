@@ -3991,6 +3991,16 @@ static SEXP classForGroupDispatch(SEXP obj) {
 	    : getAttrib(obj, R_ClassSymbol);
 }
 
+static Rboolean R_pickOpsMethod(SEXP x, SEXP y, SEXP x_method_sxp, SEXP y_method_sxp, 
+				SEXP rho, Rboolean reverse) {
+    SEXP call, ans;
+    PROTECT(call = lang6(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, ScalarLogical(reverse)));
+    PROTECT(ans = eval(call, rho));
+    Rboolean pick_left = ans == R_NilValue ? FALSE : asLogical(ans);
+    UNPROTECT(2);
+    return pick_left;
+}
+
 attribute_hidden
 int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		  SEXP *ans)
@@ -4086,10 +4096,19 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	         srcref ignored (as per default)
 	    */
 	    else if (!R_compute_identical(lsxp, rsxp, 16 + 1 + 2 + 4)) {
-		warning(_("Incompatible methods (\"%s\", \"%s\") for \"%s\""),
-			lname, rname, generic);
-		UNPROTECT(4);
-		return 0;
+		SEXP x = CAR(args), y = CADR(args);
+		if (R_pickOpsMethod(x, y, lsxp, rsxp, rho, FALSE)) {
+		    rsxp = R_NilValue;
+		}
+		else if (R_pickOpsMethod(y, x, rsxp, lsxp, rho, TRUE)) {
+		    lsxp = R_NilValue;
+		}
+		else {
+		    warning(_("Incompatible methods (\"%s\", \"%s\") for \"%s\""),
+			    lname, rname, generic);
+		    UNPROTECT(4);
+		    return 0;
+		}
 	    }
 	}
 	/* if the right hand side is the one */
