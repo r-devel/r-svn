@@ -164,6 +164,51 @@
       expression as the first argument in an extraction call, such as
       \code{_$coef}. More generally, it can be used as the head of a
       chain of extractions, such as \code{_$coef[[2]]}.
+
+      \item Spaces in the environment variable used to choose the \R
+      session's temporary directory (\env{TMPDIR}, \env{TMP} and
+      \env{TEMP} are tried in turn) are now fatal.  (On Windows the
+      \sQuote{short path} version of the path is tried and used if that
+      does not contain a space.)
+
+      \item \code{all.equal.numeric()} gets a new optional switch
+      \code{giveErr} to return the numeric error as attribute.  Relatedly,
+      \code{stopifnot(all.equal<some>(a, b, ..))} is as \dQuote{smart} now,
+      as \code{stopifnot(all.equal(....))} has been already, thus allowing
+      customized \code{all.equal<Some>()} wrappers.
+
+      \item \R on Windows is now able to work with path names longer than
+      260 characters when these are enabled in the system (requires at least
+      Windows 10 version 1607).  Packages should be updated to work with
+      long paths as well, instead of assuming \code{PATH_MAX} to be the
+      maximum length.  Custom front-ends and applications embedding \R need
+      to update their manifests if they wish to allow this feature.  See
+      \url{https://blog.r-project.org/2023/03/07/path-length-limit-on-windows}
+      for more information.
+
+      \item \sQuote{Object not found} and \sQuote{Missing argument}
+      errors now give a more accurate error context. Patch provided by
+      Lionel Henry in \PR{18241}.
+
+      \item The \code{@} operator is now an S3 generic. Based on
+      contributions by Tomasz Kalinowski in \PR{18482}.
+      
+      \item \code{inherits(x, what)} now accepts values other than a simple 
+      character vector for argument \code{what}. A new generic, \code{nameOfClass()}, 
+      is called to resolve the class name from \code{what}. 
+      Based on contributions by Tomasz Kalinowski.
+
+      \item Detection of BLAS/LAPACK in use (\code{sessionInfo()}) with
+      FlexiBLAS now reports the current backend.
+
+      \item \code{subset.data.frame()} now warns about extraneous
+      arguments, typically catching the use of \samp{=} instead of
+      \samp{==} in the \code{subset} expression.
+
+      \item Calling \code{a:b} when numeric \code{a} or \code{b} is longer
+      than one may now be made into an error by setting environment variable
+      \env{_R_CHECK_LENGTH_COLON_} to a true value, along the proposal in
+      \PR{18419} by Henrik Bengtsson.
     }
   }
 
