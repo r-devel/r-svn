@@ -1863,6 +1863,35 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
     return obj;
 }
 
+
+/* Version of DispatchOrEval for "[" and friends that speeds up simple cases.
+   Also defined in subassign.c and subset.c */
+static R_INLINE
+int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
+		    SEXP rho, SEXP *ans)
+{
+    SEXP prom = NULL;
+    if (args != R_NilValue && CAR(args) != R_DotsSymbol) {
+	SEXP x = eval(CAR(args), rho);
+	PROTECT(x);
+	INCREMENT_LINKS(x);
+	if (! OBJECT(x)) {
+	    *ans = CONS_NR(x, evalListKeepMissing(CDR(args), rho));
+	    DECREMENT_LINKS(x);
+	    UNPROTECT(1);
+	    return FALSE;
+	}
+	prom = R_mkEVPROMISE_NR(CAR(args), x);
+	args = CONS(prom, CDR(args));
+	UNPROTECT(1);
+    }
+    PROTECT(args);
+    int disp = DispatchOrEval(call, op, generic, args, rho, ans, 0, 0);
+    if (prom) DECREMENT_LINKS(PRVALUE(prom));
+    UNPROTECT(1);
+    return disp;
+}
+
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP  nlist, object, ans;

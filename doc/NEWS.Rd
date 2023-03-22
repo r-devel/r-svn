@@ -20,6 +20,22 @@
 
   \subsection{NEW FEATURES}{
     \itemize{
+        
+      \item The \code{@} operator now an S3 generic.
+      Contributed by Tomasz Kalinowski.
+      
+      \item The matrix multiply operator \code{"\%*\%"} is now an S3 
+      generic. Contributed by Tomasz Kalinowski.
+      
+      \item \code{base::inherits()} now accepts an \code{S7_class} 
+      object for the \code{what} argument.
+      Contributed by Tomasz Kalinowski.
+      
+      \item Ops Group Generics will now invoke registered S7 methods in 
+      cases of double dispatch where multiple suitable methods were 
+      found. (Previously they would error). 
+      Contributed by Tomasz Kalinowski.
+      
       \item The included BLAS sources have been updated to those shipped
       with LAPACK version 3.10.1.  (This caused some platform-dependent
       changes to package check output.)  And then to the sources from
