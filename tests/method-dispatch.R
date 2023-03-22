@@ -140,7 +140,7 @@ bar_obj <- structure(1, class = "bar")
 `+.foo` <- function(e1, e2) "foo"
 `+.bar` <- function(e1, e2) "bar"
 
-tryCatch(foo_obj + bar_obj, warning = stop) # error
+invisible(foo_obj + bar_obj)  # Warning: Incompatible methods
 
 pickOpsMethod.bar <- function(x, y, mx, my, reverse) TRUE
 
