@@ -948,7 +948,7 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	PROTECT(klass = R_data_class(x, FALSE));
 
     if(!isString(what))
-	error(_("'what' must be a character vector"));
+	error(_("'what' must be a character vector or an object with a nameOfClass() method."));
     int j, nwhat = LENGTH(what);
 
     if( !isLogical(which) || (LENGTH(which) != 1) )
@@ -981,6 +981,21 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
+ 
+    SEXP what = CADR(args);
+    if (OBJECT(what)) {
+	static SEXP nameOfClass_call = NULL;
+	if(nameOfClass_call == NULL) {
+	    nameOfClass_call = lang2(install("nameOfClass"), R_NilValue);
+	    R_PreserveObject(nameOfClass_call);
+	}
+	SETCADR(nameOfClass_call, what);
+	what = PROTECT(eval(nameOfClass_call, env));
+        SETCADR(nameOfClass_call, R_NilValue); 
+	if (what != R_NilValue)
+	    SETCADR(args, what);
+        UNPROTECT(1);
+    }
 
     return inherits3(/* x = */ CAR(args),
 		     /* what = */ CADR(args),
