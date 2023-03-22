@@ -1,5 +1,5 @@
 #### Testing  UseMethod() and even more NextMethod()
-#### -------------------- 
+#### --------------------
 #### i.e.,  S3 methods *only*. For S4, see  reg-S4.R
 ##                                          ~~~~~~~~
 
@@ -60,3 +60,91 @@ abc(e0)
 abc(e1)
 abc(e0[[1]])
 abc(e1[[1]])
+
+
+## Some tests for `@` dispatching
+## make sure that
+## - `@` evals the first args only once,
+## -  doesn't dispatch for S4
+## -  works on `.Data` even for nonS4 objects
+
+x <- structure(list(), class = "foo", prop1 = 'prop1val')
+registerS3method("@", "foo",
+    function(x, name) {
+        stopifnot(typeof(name) == "character", length(name) == 1L)
+        cat(sprintf("called `@.foo`(x = %s, name = '%s')\n",
+                     deparse1(substitute(x), "\n"), name))
+        attr(x, name, TRUE)
+    }
+)
+x@prop1
+
+abc <- x
+abc@prop1
+
+{
+    cat("new x\n")
+    structure(list(), class = "foo", prop1 = 'prop1val')
+}@prop1
+
+makeActiveBinding("ax", function(x) {
+    cat("evaluating ax\n")
+    get("x", envir = parent.frame())
+}, environment())
+
+ax@prop1
+
+stopifnot(exprs = {
+    identical( x@prop1, "prop1val")
+    identical(ax@prop1, "prop1val")
+
+    identical(letters@.Data, letters)
+})
+
+try(letters@foo) # error
+
+# doesn't dispatch for S4
+setClass("Person",
+  slots = c(
+    name = "character",
+    age = "numeric"
+  )
+)
+
+`@.Person` <- function(x, name) {
+  stop("called @.Person()\n")
+}
+
+p <- new("Person", name = "Who", age = -1)
+stopifnot(p@name == "Who")
+
+
+
+## Some tests for `nameOfClass()`, called from inherits()
+ClassX <- structure(list(), name = "ClassX",
+                    class = c("S3pp_class", "S3pp_object"))
+
+classx_instance <- structure(list(), class = c("ClassX", "S3pp_object"))
+
+nameOfClass.S3pp_class <- function(x) attr(x, "name", TRUE)
+
+stopifnot(exprs = {
+    inherits(classx_instance, "ClassX")
+    inherits(classx_instance, ClassX)
+})
+
+## Some tests for `pickOpsMethod()`, called from C DispatchGroup() when 2 methods are found
+foo_obj <- structure(1, class = "foo")
+bar_obj <- structure(1, class = "bar")
+
+`+.foo` <- function(e1, e2) "foo"
+`+.bar` <- function(e1, e2) "bar"
+
+tryCatch(foo_obj + bar_obj, warning = stop) # error
+
+pickOpsMethod.bar <- function(x, y, mx, my, reverse) TRUE
+
+stopifnot(exprs = {
+    identical(foo_obj + bar_obj, "bar")
+    identical(bar_obj + foo_obj, "bar")
+})
