@@ -188,10 +188,14 @@
       \item The \code{@} operator is now an S3 generic. Based on
       contributions by Tomasz Kalinowski in \PR{18482}.
       
-      \item \code{inherits(x, what)} now accepts values other than a simple 
-      character vector for argument \code{what}. A new generic, \code{nameOfClass()}, 
-      is called to resolve the class name from \code{what}. 
+      \item \code{inherits(x, what)} now accepts values other than a simple
+      character vector for argument \code{what}. A new generic, \code{nameOfClass()},
+      is called by \code{inherits()} to resolve the class name from \code{what}.
       Based on contributions by Tomasz Kalinowski.
+      
+      \item new generic \code{pickOpsMethod()} provides a mechanism for
+      objects to resolve cases where two suitable methods are found for
+      an Ops Group Generic. Based on contributions by Tomasz Kalinowski.
 
       \item Detection of BLAS/LAPACK in use (\code{sessionInfo()}) with
       FlexiBLAS now reports the current backend.
