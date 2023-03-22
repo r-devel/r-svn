@@ -117,3 +117,18 @@ setClass("Person",
 
 p <- new("Person", name = "Who", age = -1)
 stopifnot(p@name == "Who")
+
+
+
+## Some tests for `nameOfClass()`, called from inherits()
+ClassX <- structure(list(), name = "ClassX",
+                    class = c("S3pp_class", "S3pp_object"))
+
+classx_instance <- structure(list(), class = c("ClassX", "S3pp_object"))
+
+nameOfClass.S3pp_class <- function(x) attr(x, "name", TRUE)
+
+stopifnot(exprs = {
+    inherits(classx_instance, "ClassX")
+    inherits(classx_instance, ClassX)
+})
