@@ -1005,27 +1005,8 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	PROTECT(klass = R_data_class(x, FALSE));
     nprot++;
 
-    if (!isString(what)) {
-	if (inherits(what, "S7_class")) {
-	    static SEXP S7_ns = NULL, S7_class_name_call = NULL;
-	    if (S7_class_name_call == NULL) {
-		S7_ns = R_FindNamespace(mkString("S7"));
-		S7_class_name_call = lang2(install("S7_class_name"),
-					   R_NilValue);
-		R_PreserveObject(S7_class_name_call);
-	    }
-	    SETCADR(S7_class_name_call, what);
-	    what = PROTECT(eval(S7_class_name_call, S7_ns));
-	    nprot += 1;
-	    // allow previous `what` to be gc'd
-	    SETCADR(S7_class_name_call, R_NilValue); 
-	}
-	if (!isString(what)) {
-	    UNPROTECT(nprot);
-	    error(_("'what' must be a character vector or an <S7_class>"));
-	}
-    }
-
+    if(!isString(what))
+	error(_("'what' must be a character vector or an object with a nameOfClass() method."));
     int j, nwhat = LENGTH(what);
 
     if( !isLogical(which) || (LENGTH(which) != 1) )
@@ -1060,6 +1041,21 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
+ 
+    SEXP what = CADR(args);
+    if (OBJECT(what)) {
+	static SEXP nameOfClass_call = NULL;
+	if(nameOfClass_call == NULL) {
+	    nameOfClass_call = lang2(install("nameOfClass"), R_NilValue);
+	    R_PreserveObject(nameOfClass_call);
+	}
+	SETCADR(nameOfClass_call, what);
+	what = PROTECT(eval(nameOfClass_call, env));
+        SETCADR(nameOfClass_call, R_NilValue); 
+	if (what != R_NilValue)
+	    SETCADR(args, what);
+        UNPROTECT(1);
+    }
 
     return inherits3(/* x = */ CAR(args),
 		     /* what = */ CADR(args),
