@@ -3994,7 +3994,7 @@ static SEXP classForGroupDispatch(SEXP obj) {
 static Rboolean R_pickOpsMethod(SEXP x, SEXP y, SEXP x_method_sxp, SEXP y_method_sxp, 
 				SEXP call, SEXP rho, Rboolean reverse) {
     SEXP call, ans;
-    PROTECT(call = lang6(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, call,
+    PROTECT(call = lang7(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, call,
 			 ScalarLogical(reverse)));
     PROTECT(ans = eval(call, rho));
     Rboolean pick_left = ans == R_NilValue ? FALSE : asLogical(ans);
