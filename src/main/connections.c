@@ -205,15 +205,24 @@ static void conFinalizer(SEXP ptr)
 	    break;
 	}
     if(i >= NCONNECTIONS) return;
+
+    char buf[R_PATH_MAX + 50]; /* much longer than limit for warning */
+    Rboolean warn = FALSE;
     {
 	Rconnection this = getConnection(ncon);
-	if(this->isopen && strcmp(this->class, "textConnection"))
-	    warning(_("closing unused connection %d (%s)\n"),
-		    ncon, this->description);
+	if(this->isopen && strcmp(this->class, "textConnection")) {
+	    warn = TRUE;
+	    snprintf(buf, sizeof(buf),
+	             _("closing unused connection %d (%s)\n"),
+	             ncon, this->description);
+	}
     }
 
     con_destroy(ncon);
     R_ClearExternalPtr(ptr); /* not really needed */
+
+    if (warn)
+	warning(buf); /* may be turned into error */
 }
 
 
@@ -705,13 +714,15 @@ static Rboolean isDir(FILE *fd)
 }
 
 /* returns FALSE on error */
-static Rboolean isDirPath(const char *path)
+attribute_hidden Rboolean R_IsDirPath(const char *path)
 {
 #ifdef HAVE_SYS_STAT_H
 # ifdef Win32
+    /* to support > 2GB files */
     struct _stati64 sb;
     if (!_stati64(path, &sb) && (sb.st_mode & S_IFDIR))
 	return TRUE;
+    /* This is FALSE for D: */
 # else
     struct stat sb;
     if (!stat(path, &sb) && S_ISDIR(sb.st_mode))
@@ -762,16 +773,16 @@ static Rboolean file_open(Rconnection con)
 	    Rf_utf8towcs(wname, name, n+1);
 	    fp = _wfopen(wname, wmode);
 	    if(!fp) {
-		warning(_("cannot open file '%ls': %s"), wname, strerror(errno));
 		if (temp)
 		    free((char *)name);
+		warning(_("cannot open file '%ls': %s"), wname, strerror(errno));
 		return FALSE;
 	    }
 	    if (isDir(fp)) {
-		warning(_("cannot open file '%ls': it is a directory"), wname);
 		fclose(fp);
 		if (temp)
 		    free((char *)name);
+		warning(_("cannot open file '%ls': it is a directory"), wname);
 		return FALSE;
 	    }
 	} else {
@@ -802,8 +813,8 @@ static Rboolean file_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	if (temp)
 	    free((char *)name);
 	return FALSE;
@@ -1440,6 +1451,31 @@ static Rconnection newfifo(const char *description, const char *mode)
     return new;
 }
 
+static void cend_con_destroy(void *data)
+{
+    int ncon = *(int *)data;
+    con_destroy(ncon);
+} 
+
+static void checked_open(int ncon)
+{
+    Rconnection con = Connections[ncon];
+    RCNTXT cntxt;
+
+    /* Set up a context which will destroy the connection on error,
+       including warning turned into error (PR#18491) */
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &cend_con_destroy;
+    cntxt.cenddata = &ncon;
+    Rboolean success = con->open(con);
+    endcontext(&cntxt);
+    if(!success) {
+	con_destroy(ncon);
+	error(_("cannot open the connection"));
+    }
+}
+
 attribute_hidden SEXP do_fifo(SEXP call, SEXP op, SEXP args, SEXP env)
 {
 #if (defined(HAVE_MKFIFO) && defined(HAVE_FCNTL_H)) || defined(_WIN32)
@@ -1482,13 +1518,8 @@ attribute_hidden SEXP do_fifo(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -1653,13 +1684,8 @@ attribute_hidden SEXP do_pipe(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -1716,7 +1742,7 @@ static Rboolean gzfile_open(Rconnection con)
     name = R_ExpandFileName(con->description);
     /* We cannot use isDir, because we cannot get the fd from gzFile
        (it would be possible with gzdopen, if supported) */
-    if (isDirPath(name)) {
+    if (R_IsDirPath(name)) {
 	warning(_("cannot open file '%s': it is a directory"), name);
 	return FALSE;
     }
@@ -1868,8 +1894,8 @@ static Rboolean bzfile_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	return FALSE;
     }
     if(con->canread) {
@@ -2064,8 +2090,8 @@ static Rboolean xzfile_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(xz->fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(xz->fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	return FALSE;
     }
     if(con->canread) {
@@ -2340,13 +2366,8 @@ attribute_hidden SEXP do_gzfile(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -2470,12 +2491,12 @@ static void clp_writeout(Rconnection con)
 	s[wlen] = L'\0';
 	GlobalUnlock(hglb);
 	if (!OpenClipboard(NULL) || !EmptyClipboard()) {
-	    warning(_("unable to open the clipboard"));
 	    GlobalFree(hglb);
+	    warning(_("unable to open the clipboard"));
 	} else {
 	    if(!SetClipboardData(CF_UNICODETEXT, hglb)) {
-		warning(_("unable to write to the clipboard"));
 		GlobalFree(hglb);
+		warning(_("unable to write to the clipboard"));
 	    }
 	    CloseClipboard();
 	}
@@ -2588,8 +2609,8 @@ static size_t clp_write(const void *ptr, size_t size, size_t nitems,
 #endif
 
     if (used < len && !this->warned) {
-	warning(_("clipboard buffer is full and output lost"));
 	this->warned = TRUE;
+	warning(_("clipboard buffer is full and output lost"));
     }
     if(this->last < this->pos) this->last = this->pos;
     return (size_t) used/size;
@@ -3537,13 +3558,8 @@ attribute_hidden SEXP do_sockconn(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -3591,13 +3607,8 @@ attribute_hidden SEXP do_unz(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -3749,7 +3760,6 @@ static int con_close1(Rconnection con)
     return status;
 }
 
-
 static void con_destroy(int i)
 {
     Rconnection con=NULL;
@@ -3759,7 +3769,6 @@ static void con_destroy(int i)
     free(Connections[i]);
     Connections[i] = NULL;
 }
-
 
 attribute_hidden SEXP do_close(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -5663,13 +5672,8 @@ attribute_hidden SEXP do_url(SEXP call, SEXP op, SEXP args, SEXP env)
 					    R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));

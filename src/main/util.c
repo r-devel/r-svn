@@ -42,6 +42,8 @@
 #include <unistd.h>
 #endif
 
+#include <stdarg.h>
+
 #ifdef Win32
 void R_UTF8fixslash(char *s);
 void R_wfixslash(wchar_t *s);
@@ -769,8 +771,8 @@ SEXP static intern_getwd(void)
 	}
     }
 #else
-    char buf[4*PATH_MAX+1];
-    char *res = getcwd(buf, PATH_MAX); /* can return NULL */
+    char buf[4*R_PATH_MAX+1];
+    char *res = getcwd(buf, R_PATH_MAX); /* can return NULL */
     if(res) rval = mkString(buf);
 #endif
     return(rval);
@@ -822,15 +824,6 @@ attribute_hidden SEXP do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* remove portion of path before file separator if one exists */
 
 #ifdef Win32
-static void R_wrmtrailingslash(wchar_t *s)
-{
-    /* remove trailing forward slashes */
-    if (s && *s) {
-	wchar_t *p = s + wcslen(s) - 1;
-	while (p >= s && *p == L'/') *(p--) = L'\0';
-    }
-}
-
 attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
@@ -851,7 +844,13 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    buf = (wchar_t *)R_alloc(wcslen(pp) + 1, sizeof(wchar_t));
 	    wcscpy(buf, pp);
 	    R_wfixslash(buf);
-	    R_wrmtrailingslash(buf);
+	    /* remove trailing file separator(s) */
+	    if (*buf) {
+		p = buf + wcslen(buf) - 1;
+		/* turns D:/ to D: */
+		/* FIXME: basename of D:/ is D:, is that a good behavior? */
+		while (p >= buf && *p == L'/') *(p--) = L'\0';
+	    }
 	    if ((p = wcsrchr(buf, L'/'))) p++; else p = buf;
 	    size_t needed = wcstoutf8(NULL, p, INT_MAX);
 	    sp = R_alloc(needed + 1, 1);
@@ -866,7 +865,7 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char  buf[PATH_MAX], *p, fsp = FILESEP[0];
+    char  buf[R_PATH_MAX], *p, fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -879,7 +878,7 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > PATH_MAX - 1)
+	    if (strlen(pp) > R_PATH_MAX - 1)
 		error(_("path too long"));
 	    strcpy (buf, pp);
 	    if (*buf) {
@@ -925,8 +924,12 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 		buf = (wchar_t*)R_alloc(wcslen(pp) + 1, sizeof(wchar_t));
 		wcscpy (buf, pp);
 		R_wfixslash(buf);
-		R_wrmtrailingslash(buf);
+		/* remove trailing file separator(s), preserve D:/, / */
+		p = buf + wcslen(buf) - 1;
+		while (p > buf && *p == L'/'
+		       && (p > buf+2 || *(p-1) != L':')) *p-- = L'\0';
 		p = wcsrchr(buf, L'/');
+		/* FIXME: dirname of D: is ., is this a good behavior? */
 		if(p == NULL) wcscpy(buf, L".");
 		else {
 		    while(p > buf && *p == L'/'
@@ -948,7 +951,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char buf[PATH_MAX], *p, fsp = FILESEP[0];
+    char buf[R_PATH_MAX], *p, fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -961,7 +964,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > PATH_MAX - 1)
+	    if (strlen(pp) > R_PATH_MAX - 1)
 		error(_("path too long"));
 	    size_t ll = strlen(pp);
 	    if (ll) { // svMisc calls this with ""
@@ -995,7 +998,7 @@ attribute_hidden SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP ans, paths = CAR(args), elp;
     int i, n = LENGTH(paths);
     const char *path;
-    char abspath[PATH_MAX+1];
+    char abspath[R_PATH_MAX+1];
 
     checkArity(op, args);
     if (!isString(paths))
@@ -1048,12 +1051,12 @@ attribute_hidden SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    continue;
 	}
 	path = translateCharFP(elp);
-	OK = strlen(path) <= PATH_MAX;
+	OK = strlen(path) <= R_PATH_MAX;
 	if (OK) {
-	    if (path[0] == '/') strncpy(abspath, path, PATH_MAX);
+	    if (path[0] == '/') strncpy(abspath, path, R_PATH_MAX);
 	    else {
-		OK = getcwd(abspath, PATH_MAX) != NULL;
-		OK = OK && (strlen(path) + strlen(abspath) + 1 <= PATH_MAX);
+		OK = getcwd(abspath, R_PATH_MAX) != NULL;
+		OK = OK && (strlen(path) + strlen(abspath) + 1 <= R_PATH_MAX);
 		if (OK) {strcat(abspath, "/"); strcat(abspath, path);}
 	    }
 	}
@@ -1077,7 +1080,8 @@ attribute_hidden SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef USE_INTERNAL_MKTIME
 const char *getTZinfo(void)
 {
-    static char def_tz[PATH_MAX+1] = "";
+    /* FIXME: use filesystem-agnostic limit?*/
+    static char def_tz[R_PATH_MAX+1] = "";
     if (def_tz[0]) return def_tz;
 
     // call Sys.timezone()
@@ -2366,19 +2370,13 @@ static const char *getLocale(void)
     //        use ICU by default on Windows yet for collation, even though
     //        already having UTF-8 as the native encoding.
 
-    // This call is >= Vista/Server 2008
     // ICU should accept almost all of these, e.g. en-US and uz-Latn-UZ
-    PGSDLN pGSDLN = (PGSDLN)
-	GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-		       "GetSystemDefaultLocaleName");
-    if(pGSDLN) {
-	WCHAR wcBuffer[BUFFER_SIZE];
-	pGSDLN(wcBuffer, BUFFER_SIZE);
-	static char locale[BUFFER_SIZE];
-	WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
-			    locale, BUFFER_SIZE, NULL, NULL);
-	return locale;
-    } else return "root";
+    WCHAR wcBuffer[BUFFER_SIZE];
+    GetSystemDefaultLocaleName(wcBuffer, BUFFER_SIZE);
+    static char locale[BUFFER_SIZE];
+    WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
+			locale, BUFFER_SIZE, NULL, NULL);
+    return locale;
 }
 #else
 static const char *getLocale(void)
@@ -2410,7 +2408,16 @@ attribute_hidden SEXP do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(streql(s, "ASCII")) {
 		collationLocaleSet = 2;
 	    } else {
-		if(strcmp(s, "none")) {
+		int usable_icu = 1;
+#ifdef Win32
+		/* ICU 72 requires this function (and other from Windows 7) */
+		if (!GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+		                    "ResolveLocaleName")) {
+		    usable_icu = 0;
+		    warning("cannot use ICU on this system");
+		}
+#endif
+		if(usable_icu && strcmp(s, "none")) {
 		    if(streql(s, "default"))
 			uloc_setDefault(getLocale(), &status);
 		    else uloc_setDefault(s, &status);
@@ -2498,7 +2505,16 @@ int Scollate(SEXP a, SEXP b)
 	/* FIXME: as ICU does not support C as locale, could we use the Unix
 	   behavior on all systems? */
 	const char *p = getenv("R_ICU_LOCALE");
-	if(p && p[0] && (!useC || !strcmp(p, "C"))) {
+	int use_icu = p && p[0] && (!useC || !strcmp(p, "C"));
+
+	/* ICU 72 requires this function (and other from Windows 7) */
+	if (use_icu &&
+	    !GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+			    "ResolveLocaleName")) {
+	    use_icu = 0;
+	    warning("cannot use ICU on this system");
+	}
+	if(use_icu) {
 #endif
 	    UErrorCode status = U_ZERO_ERROR;
 	    uloc_setDefault(getLocale(), &status);
@@ -3114,4 +3130,41 @@ SEXP do_compareNumericVersion(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-    
+attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    char dummy[1];
+
+    *str = NULL;
+
+    va_start(ap, fmt);
+    /* could optimize by using non-zero initial size, large
+       enough so that most prints with fill */
+    /* trio does not accept NULL as str */
+    ret = vsnprintf(dummy, 0, fmt, ap); 
+    va_end(ap);
+
+    if (ret <= 0)
+	/* error or empty print */
+	return ret;
+
+    size_t needed = ret + 1;
+    char *buf = (char *) malloc(needed);
+    if (!buf) {
+	errno = ENOMEM;
+	return -1;
+    }
+
+    va_start(ap, fmt);
+    ret = vsnprintf(buf, needed, fmt, ap);
+    va_end(ap);
+
+    if (ret < 0 || (size_t)ret >= needed)
+	/* error */
+	free(buf);
+    else
+	*str = buf;
+    return ret;
+}
+ 
