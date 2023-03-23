@@ -119,7 +119,6 @@ p <- new("Person", name = "Who", age = -1)
 stopifnot(p@name == "Who")
 
 
-
 ## Some tests for `nameOfClass()`, called from inherits()
 ClassX <- structure(list(), name = "ClassX",
                     class = c("S3pp_class", "S3pp_object"))

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  file dounzip.c
- *  first part Copyright (C) 2002-2020  The R Core Team
+ *  first part Copyright (C) 2002-2023  The R Core Team
  *  second part Copyright (C) 1998-2010 Gilles Vollant
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,6 +32,7 @@
 # include <sys/stat.h>
 #endif
 #include <errno.h>
+#include <stdlib.h>
 
 #ifdef Win32
 #include <io.h> /* for mkdir */
@@ -41,11 +42,17 @@
 static int R_mkdir(char *path)
 {
 #ifdef Win32
-    char local[PATH_MAX];
+    char *local = (char *)malloc(strlen(path) + 1);
+    if (!local) {
+	errno = ENOMEM;
+	return -1;
+    }
     strcpy(local, path);
     /* needed DOS paths on Win 9x */
     R_fixbackslash(local);
-    return mkdir(local);
+    int res = mkdir(local);
+    free(local);
+    return res;
 #endif
 #ifdef Unix
     return mkdir(path, 0777);
@@ -110,23 +117,23 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 {
     int err = UNZ_OK;
     FILE *fout;
-    char  outname[PATH_MAX], dirs[PATH_MAX], buf[BUF_SIZE], *p, *pp;
-    char *fn, fn0[PATH_MAX];
+    char  outname[R_PATH_MAX], dirs[R_PATH_MAX], buf[BUF_SIZE], *p, *pp;
+    char *fn, fn0[R_PATH_MAX];
 
     err = unzOpenCurrentFile(uf);
     if (err != UNZ_OK) return err;
-    if (strlen(dest) > PATH_MAX - 1) return 1;
+    if (strlen(dest) > R_PATH_MAX - 1) return 1;
     strcpy(outname, dest);
     strcat(outname, FILESEP);
     unz_file_info64 file_info;
-    char filename_inzip[PATH_MAX];
+    char filename_inzip[R_PATH_MAX];
     err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
 				  sizeof(filename_inzip), NULL, 0, NULL, 0);
     fn = filename_inzip; /* might be UTF-8 ... */
     if (filename) {
-	if (strlen(dest) + strlen(filename) > PATH_MAX - 2) return 1;
-	strncpy(fn0, filename, PATH_MAX);
-	fn0[PATH_MAX - 1] = '\0';
+	if (strlen(dest) + strlen(filename) > R_PATH_MAX - 2) return 1;
+	strncpy(fn0, filename, R_PATH_MAX);
+	fn0[R_PATH_MAX - 1] = '\0';
 	fn = fn0;
     }
 #ifdef Win32
@@ -275,7 +282,7 @@ static SEXP ziplist(const char *zipname)
     SET_VECTOR_ELT(ans, 2, dates = allocVector(STRSXP, nfiles));
 
     for (i = 0; i < nfiles; i++) {
-	char filename_inzip[PATH_MAX], date[50];
+	char filename_inzip[R_PATH_MAX], date[50];
 	unz_file_info64 file_info;
 
 	err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
@@ -315,7 +322,7 @@ static SEXP ziplist(const char *zipname)
 SEXP Runzip(SEXP args)
 {
     SEXP  fn, ans, names = R_NilValue;
-    char  zipname[PATH_MAX], dest[PATH_MAX];
+    char  zipname[R_PATH_MAX], dest[R_PATH_MAX];
     const char *p, **topics = NULL;
     int   i, ntopics, list, overwrite, junk, setTime, rc, nnames = 0;
     const void *vmax = vmaxget();
@@ -323,7 +330,7 @@ SEXP Runzip(SEXP args)
     if (!isString(CAR(args)) || LENGTH(CAR(args)) != 1)
 	error(_("invalid zip name argument"));
     p = R_ExpandFileName(translateCharFP(STRING_ELT(CAR(args), 0)));
-    if (strlen(p) > PATH_MAX - 1)
+    if (strlen(p) > R_PATH_MAX - 1)
 	error(_("zip path is too long"));
     strcpy(zipname, p);
     args = CDR(args);
@@ -340,7 +347,7 @@ SEXP Runzip(SEXP args)
     if (!isString(CAR(args)) || LENGTH(CAR(args)) != 1)
 	error(_("invalid '%s' argument"), "exdir");
     p = R_ExpandFileName(translateCharFP(STRING_ELT(CAR(args), 0)));
-    if (strlen(p) > PATH_MAX - 1)
+    if (strlen(p) > R_PATH_MAX - 1)
 	error(_("'exdir' is too long"));
     strcpy(dest, p);
     if (!R_FileExists(dest))
@@ -406,7 +413,7 @@ typedef struct unzconn {
 static Rboolean unz_open(Rconnection con)
 {
     unzFile uf;
-    char path[2*PATH_MAX], *p;
+    char path[2*R_PATH_MAX], *p;
     const char *tmp;
     int mlen;
 
@@ -415,7 +422,7 @@ static Rboolean unz_open(Rconnection con)
 	return FALSE;
     }
     tmp = R_ExpandFileName(con->description);
-    if (strlen(tmp) > PATH_MAX - 1) {
+    if (strlen(tmp) > R_PATH_MAX - 1) {
 	warning(_("zip path is too long"));
 	return FALSE;
     }
