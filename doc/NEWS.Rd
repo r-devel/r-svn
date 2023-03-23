@@ -21,10 +21,6 @@
   \subsection{NEW FEATURES}{
     \itemize{
 
-      \item \code{base::inherits()} now accepts an \code{S7_class} 
-      object for the \code{what} argument.
-      Contributed by Tomasz Kalinowski.
-
       \item The included BLAS sources have been updated to those shipped
       with LAPACK version 3.10.1.  (This caused some platform-dependent
       changes to package check output.)  And then to the sources from

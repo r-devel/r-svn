@@ -942,12 +942,10 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
     const void *vmax = vmaxget();
     SEXP klass, rval = R_NilValue /* -Wall */;
 
-    int nprot = 0;
     if(IS_S4_OBJECT(x))
 	PROTECT(klass = R_data_class2(x)); // -> := S4_extends( "class(x)" )
     else
 	PROTECT(klass = R_data_class(x, FALSE));
-    nprot++;
 
     if(!isString(what))
 	error(_("'what' must be a character vector or an object with a nameOfClass() method."));
@@ -957,10 +955,8 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	error(_("'which' must be a length 1 logical vector"));
     Rboolean isvec = asLogical(which);
 
-    if(isvec) {
+    if(isvec)
 	PROTECT(rval = allocVector(INTSXP, nwhat));
-	nprot++;
-    }
 
     for(j = 0; j < nwhat; j++) {
 	const char *ss = translateChar(STRING_ELT(what, j));
@@ -969,16 +965,16 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	    INTEGER(rval)[j] = i+1; /* 0 when ss is not in klass */
 	else if (i >= 0) {
 	    vmaxset(vmax);
-	    UNPROTECT(nprot);
+	    UNPROTECT(1);
 	    return mkTrue();
 	}
     }
     vmaxset(vmax);
     if(!isvec) {
-	UNPROTECT(nprot);
+	UNPROTECT(1);
 	return mkFalse();
     }
-    UNPROTECT(nprot);
+    UNPROTECT(2);
     return rval;
 }
 
