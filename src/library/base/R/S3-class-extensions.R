@@ -16,10 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-nameOfClass <- function(x) UseMethod("nameOfClass")
-
-nameOfClass.default <- function(x) NULL
-
 
 pickOpsMethod <- function(x, y, mx, my, cl, reverse = FALSE) UseMethod("pickOpsMethod")
 
