@@ -298,7 +298,17 @@
       \code{grDevices::glyphInfo()} and \code{grid::grid.glyph()}.
 
       Rendering of typeset glyphs is only supported so far on the
-      Cairo-based graphics devices and on the \code{pdf()} device.
+      Cairo-based graphics devices and on the \code{pdf()} and
+      \code{quartz()} devices.
+
+      \item The defined behaviour for \code{"clear"} and \code{"source"}
+      compositing operators (via \code{grid::grid.group()}) has been
+      changed (to align better with
+      simple interpretation of original Porter-Duff definitions).
+
+      \item Support for gradients, patterns, clipping paths, masks,
+      groups, compositing operators, and affine transformations has
+      been added to the \code{quartz()} device.
     }
   }
 
@@ -405,8 +415,8 @@
 	  be useful if a package assumes them if C17 is specified and
 	  they are not implemented.}
 	\item{USE_C23}{Use C23 (or in future, later).  Compiler/library
-	  support for C23 is still being implemented, but LLVM clang 15 and
-	  the upcoming GCC 13 have quite extensive support.
+	  support for C23 is still being implemented, but LLVM clang
+	  from 15.0.0 and the upcoming GCC 13 have quite extensive support.
 	}
       }
       These can be specified as part of the \samp{SystemRequirements}
@@ -463,6 +473,9 @@
 
       \item New macro \code{CAD5R()} is provided in \file{Rinternals.h}
       and used in a few places in the \R sources.
+
+      \item ALTREP now supports \code{VECSXP} vectors. Contributed by
+      Gabor Csardi in \PR{17620}.
     }
   }
 
@@ -699,13 +712,39 @@
       \code{is.mts()} is documented \emph{and} stricter.
 
       \item \code{Rd2txt()} now preserves line breaks of \verb{\verb} Rd
-      content.  This also fixes the rendering of verbatim output from Rd
+      content and from duplicated \verb{\cr}.  The former also
+      fixes the rendering of verbatim output from Rd
       \verb{\Sexpr} in plain-text help.
+
+      \item \code{uniroot(f, interval)} should no longer wrongly converge
+      \emph{outside} the interval in some cases where \code{abs(f(x)) == Inf}
+      for an \code{x} at the interval boundary, thanks to posts by Ben
+      Bolker and Serguei Sokol on R-devel.
+
+      \item Vectorized alpha handling in palette functions such as in
+      \code{gray()}, \code{rainbow()}, or \code{hcl.colors()} works
+      correctly now, thanks to Achim Zeileis' report and patch in
+      \PR{18476}.
+
+      \item Formatting and \code{print()}ing of \code{bibentry} objects has
+      dropped the deprecated \code{citation.bibtex.max} argument, such that
+      the \code{bibtex} argument's default for \code{print.bibentry()}
+      depends directly on the \code{citation.bibtex.max} option, whereas in
+      \code{format.bibentry()} the option no longer applies.
+
+      \item Attempting to use a character string naming a foreign
+      function entry point in a foreign function call in a package will
+      now signal an error if the packages has called
+      \code{R_forceSymbols} to specify that symbols must be
+      used.
+
+      \item An error in \code{table()} could permanently set
+      \code{options(warn=2)} promoting all subsequent warnings to errors.
     }
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.2.2 patched}{
+\section{\Rlogo CHANGES IN R 4.2.3}{
   \subsection{C-LEVEL FACILITIES}{
     \itemize{
       \item The definition of \code{DL_FUNC} in \file{R_ext/Rdynload.h}
