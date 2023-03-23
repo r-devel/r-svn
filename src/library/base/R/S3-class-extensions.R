@@ -21,6 +21,6 @@ nameOfClass <- function(x) UseMethod("nameOfClass")
 nameOfClass.default <- function(x) NULL
 
 
-pickOpsMethod <- function(x, y, mx, my, reverse = FALSE) UseMethod("pickOpsMethod")
+pickOpsMethod <- function(x, y, mx, my, cl, reverse = FALSE) UseMethod("pickOpsMethod")
 
-pickOpsMethod.default <- function(x, y, mx, my, reverse = FALSE) FALSE
+pickOpsMethod.default <- function(x, y, mx, my, cl, reverse = FALSE) FALSE

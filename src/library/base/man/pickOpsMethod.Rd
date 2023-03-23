@@ -5,7 +5,7 @@
 
 \name{pickOpsMethod}
 \title{Choose the Appropriate Method for Ops}
-\usage{pickOpsMethod(x, y, mx, my, reverse = TRUE)}
+\usage{pickOpsMethod(x, y, mx, my, cl, reverse = TRUE)}
 \alias{pickOpsMethod}
 
 \description{
@@ -23,6 +23,7 @@
 \arguments{
   \item{x,y}{The objects being dispatched on by the group generic.}
   \item{mx,my}{The methods found for objects \code{x} and \code{y}.}
+  \item(cl}{The call to the group generic.}
   \item{reverse}{A logical value indicating whether \code{x} and \code{y} are
       reversed from the way they were supplied to the generic.}
 }

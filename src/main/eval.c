@@ -3992,9 +3992,10 @@ static SEXP classForGroupDispatch(SEXP obj) {
 }
 
 static Rboolean R_pickOpsMethod(SEXP x, SEXP y, SEXP x_method_sxp, SEXP y_method_sxp, 
-				SEXP rho, Rboolean reverse) {
+				SEXP call, SEXP rho, Rboolean reverse) {
     SEXP call, ans;
-    PROTECT(call = lang6(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, ScalarLogical(reverse)));
+    PROTECT(call = lang6(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, call,
+			 ScalarLogical(reverse)));
     PROTECT(ans = eval(call, rho));
     Rboolean pick_left = ans == R_NilValue ? FALSE : asLogical(ans);
     UNPROTECT(2);
@@ -4098,10 +4099,10 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	    */
 	    else if (!R_compute_identical(lsxp, rsxp, 16 + 1 + 2 + 4)) {
 		SEXP x = CAR(args), y = CADR(args);
-		if (R_pickOpsMethod(x, y, lsxp, rsxp, rho, FALSE)) {
+		if (R_pickOpsMethod(x, y, lsxp, rsxp, call, rho, FALSE)) {
 		    rsxp = R_NilValue;
 		}
-		else if (R_pickOpsMethod(y, x, rsxp, lsxp, rho, TRUE)) {
+		else if (R_pickOpsMethod(y, x, rsxp, lsxp, call, rho, TRUE)) {
 		    lsxp = R_NilValue;
 		}
 		else {

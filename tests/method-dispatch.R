@@ -128,7 +128,7 @@ bar_obj <- structure(1, class = "bar")
 
 invisible(foo_obj + bar_obj)  # Warning: Incompatible methods
 
-pickOpsMethod.bar <- function(x, y, mx, my, reverse) TRUE
+pickOpsMethod.bar <- function(x, y, mx, my, cl, reverse) TRUE
 
 stopifnot(exprs = {
     identical(foo_obj + bar_obj, "bar")
