@@ -20,7 +20,6 @@
 
   \subsection{NEW FEATURES}{
     \itemize{
-
       \item The included BLAS sources have been updated to those shipped
       with LAPACK version 3.10.1.  (This caused some platform-dependent
       changes to package check output.)  And then to the sources from
@@ -192,7 +191,7 @@
       \item \code{inherits(x, what)} now accepts values other than a simple 
       character vector for argument \code{what}. A new generic, \code{nameOfClass()}, 
       is called to resolve the class name from \code{what}. 
-      Based on contributions by Tomasz Kalinowski.
+      Based on contributions by Tomasz Kalinowski in \PR{18485}.
 
       \item Detection of BLAS/LAPACK in use (\code{sessionInfo()}) with
       FlexiBLAS now reports the current backend.
