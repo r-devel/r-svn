@@ -25,7 +25,7 @@ is.name <- is.symbol
 .knownS3Generics <- local({
 
     ## include the S3 group generics here
-    baseGenerics <- c("Math", "Ops", "Summary", "Complex",
+    baseGenerics <- c("Math", "Ops", "Summary", "Complex", "matrixOps",
         "as.character", "as.data.frame", "as.environment", "as.matrix", "as.vector",
         "cbind", "labels", "print", "rbind", "rep", "seq", "seq.int",
         "plot", "sequence", "solve", "summary", "t")
