@@ -3991,12 +3991,13 @@ static SEXP classForGroupDispatch(SEXP obj) {
 	    : getAttrib(obj, R_ClassSymbol);
 }
 
-static Rboolean R_pickOpsMethod(SEXP x, SEXP y, SEXP x_method_sxp, SEXP y_method_sxp, 
+static Rboolean R_pickOpsMethod(SEXP x, SEXP y, SEXP x_method_sxp, SEXP y_method_sxp,
 				SEXP call, SEXP rho, Rboolean reverse) {
-    SEXP call, ans;
-    PROTECT(call = lang7(install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, call,
-			 ScalarLogical(reverse)));
-    PROTECT(ans = eval(call, rho));
+    SEXP pickOpsMethod_call, ans;
+    PROTECT(pickOpsMethod_call = lang7(
+	install("pickOpsMethod"), x, y, x_method_sxp, y_method_sxp, call,
+	ScalarLogical(reverse)));
+    PROTECT(ans = eval(pickOpsMethod_call, rho));
     Rboolean pick_left = ans == R_NilValue ? FALSE : asLogical(ans);
     UNPROTECT(2);
     return pick_left;
