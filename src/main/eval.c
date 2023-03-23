@@ -4088,12 +4088,6 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		     (streql(rname, "+.POSIXt") || streql(rname, "+.Date")) )
 		lsxp = R_NilValue;
 
-		/* when both an S7 and a non-S7 object define a method,
-		   prefer the S7 method */
-	    else if (inherits(CAR(args), "S7_object"))
-		rsxp = R_NilValue;
-	    else if (inherits(CADR(args), "S7_object"))
-		lsxp = R_NilValue;
 
 	    /* Strict comparison, the docs requires methods to be "the same":
 	      16 to take environments into account
