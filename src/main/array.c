@@ -1238,7 +1238,7 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
     Rboolean sym;
 
     if (PRIMVAL(op) == 0 && /* %*% is primitive, the others are .Internal() */
-        (OBJECT(x) || OBJECT(y))) {
+	(OBJECT(x) || OBJECT(y))) {
 	SEXP s, value;
 	/* Remove argument names to ensure positional matching */
 	for(s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
@@ -1247,7 +1247,7 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    value = R_possible_dispatch(call, op, args, rho, FALSE);
 	    if (value) return value;
 	}
-	else if (DispatchGroup("Ops", call, op, args, rho, &ans))
+	else if (DispatchGroup("matrixOps", call, op, args, rho, &ans))
 	    return ans;
     }
 
