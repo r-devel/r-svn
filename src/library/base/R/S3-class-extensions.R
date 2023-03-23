@@ -17,6 +17,6 @@
 #  https://www.R-project.org/Licenses/
 
 
-pickOpsMethod <- function(x, y, mx, my, cl, reverse = FALSE) UseMethod("pickOpsMethod")
+pickOpsMethod <- function(x, y, mx, my, cl, reverse) UseMethod("pickOpsMethod")
 
-pickOpsMethod.default <- function(x, y, mx, my, cl, reverse = FALSE) FALSE
+pickOpsMethod.default <- function(x, y, mx, my, cl, reverse) FALSE

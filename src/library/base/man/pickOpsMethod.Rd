@@ -5,7 +5,7 @@
 
 \name{pickOpsMethod}
 \title{Choose the Appropriate Method for Ops}
-\usage{pickOpsMethod(x, y, mx, my, cl, reverse = TRUE)}
+\usage{pickOpsMethod(x, y, mx, my, cl, reverse)}
 \alias{pickOpsMethod}
 
 \description{
