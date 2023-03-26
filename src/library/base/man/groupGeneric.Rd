@@ -1,6 +1,6 @@
 % File src/library/base/man/groupGeneric.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{groupGeneric}
@@ -32,9 +32,10 @@
 \special{Ops(e1, e2)}
 \special{Complex(z)}
 \special{Summary(\dots, na.rm = FALSE)}
+\special{matrixOps(x, y)}
 }
 \arguments{
-  \item{x, z, e1, e2}{objects.}
+  \item{x, y, z, e1, e2}{objects.}
   \item{\dots}{further arguments passed to methods.}
   \item{na.rm}{logical: should missing values be removed?}
 }
@@ -114,7 +115,10 @@
     examined to see if there is a matching specific (preferred) or
     \code{Ops} method.  If a method is found for just one argument or
     the same method is found for both, it is used.
-    If different methods are found, there is a warning about
+    If different methods are found, then the generic \code{pickOpsMethod()} 
+    is called to pick the appropriate method. (See \code{?pickOpsMethod} for details).
+    If \code{pickOpsMethod()} does not resolve the method, 
+    then there is a warning about
     \sQuote{incompatible methods}: in that case or if no method is found
     for either argument the internal method is used.
 
@@ -150,6 +154,15 @@
       % do_cmathfuns() [complex.c:267]: if(DispatchGroup("Complex",...))
     }
     Members of this group dispatch on \code{z}.
+
+    \item Group \code{"matrixOps"}:
+    \itemize{
+      \item \code{"\%*\%"}
+      % do_matprod [array.c:1251]: if (DispatchGroup("matrixOps", ...))
+    }
+    This group contains only the matrix multiply operator \code(\%*\%)
+    binary operator presently. It has the same dispatch semantics as
+    the "Ops" group.
   }
 
   Note that a method will be used for one of these groups or one of its
