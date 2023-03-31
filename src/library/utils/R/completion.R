@@ -160,6 +160,16 @@ fuzzyApropos <- function(what)
         findMatches(pattern, ls(x, all.names = TRUE))
 }
 
+.AtNames <- function(x, pattern) UseMethod(".AtNames")
+
+.AtNames.default <- function(x, pattern = "") {
+    if(isS4(x))
+        findMatches(pattern, nmmethods::slotNames(x))
+    else
+        character()
+}
+
+
 ## if (is.environment(object))
 ## {
 ##     ls(object,
@@ -373,8 +383,7 @@ specialOpCompletionsHelper <- function(op, suffix, prefix)
                        suffix
                    else
                    {
-                       findMatches(sprintf("^%s", makeRegexpSafe(suffix)),
-                                   methods::slotNames(object))
+                        .AtNames(object, pattern = sprintf("^%s", makeRegexpSafe(suffix)))
                    }
                } else suffix
            },
