@@ -286,7 +286,10 @@ static void curlCommon(CURL *hnd, int redirect, int verify)
     long timeout = (timeout0 == NA_INTEGER) ? 0 : (1000L * timeout0);
     current_timeout = (timeout0 == NA_INTEGER) ? 0 : timeout0;
     curl_easy_setopt(hnd, CURLOPT_CONNECTTIMEOUT_MS, timeout);
-    curl_easy_setopt(hnd, CURLOPT_TIMEOUT_MS, timeout);
+
+    /* aborts if slower than 100 bytes/sec during 60 seconds */
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, timeout);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 100L);
     if (redirect) {
 	curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 20L);
