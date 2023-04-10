@@ -11,6 +11,7 @@
 \alias{sort.bibentry}
 \alias{print.citation}
 \alias{format.citation}
+\alias{toBibtex.bibentry}
 \description{
   Functionality for representing and manipulating bibliographic
   information in enhanced BibTeX style.
@@ -20,17 +21,21 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
          key = NULL, \dots, other = list(),
          mheader = NULL, mfooter = NULL)
 
-\method{print}{bibentry}(x, style = "text", .bibstyle, \dots)
+\method{print}{bibentry}(x, style = "text", .bibstyle,
+      bibtex = length(x) <= getOption("citation.bibtex.max", 1),
+      \dots)
 
 \method{format}{bibentry}(x, style = "text", .bibstyle = NULL,
-       citation.bibtex.max = getOption("citation.bibtex.max", 1),
-       bibtex = length(x) <= citation.bibtex.max,
+       bibtex = length(x) <= 1,
+       citMsg = missing(bibtex),
        sort = FALSE, macros = NULL, \dots)
 
 \method{sort}{bibentry}(x, decreasing = FALSE, .bibstyle = NULL, drop = FALSE, \dots)
 
-\method{print}{citation}(x, style = "citation", \dots)
+\method{print}{citation} (x, style = "citation", \dots)
 \method{format}{citation}(x, style = "citation", \dots)
+
+\method{toBibtex}{bibentry}(object, escape = FALSE, ...)
 }
 \arguments{
   \item{bibtype}{a character string with a BibTeX entry type.
@@ -59,6 +64,8 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
 
     For the \code{citation} class methods, arguments passed to the next
     method, i.e., the corresponding \code{bibentry} one.
+
+    For the \code{toBibtex()} method, currently not used.
   }
   \item{other}{a list of arguments as in \code{\dots} (useful in
     particular for fields named the same as formals of
@@ -75,24 +82,24 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     the sort direction.}
   \item{.bibstyle}{a character string naming a bibliography style,
     see \code{\link{bibstyle}}.}
-  \item{citation.bibtex.max}{(\emph{deprecated}, use
-    \code{bibtex = T|F}
-    instead!) a number, say \eqn{m}, indicating that the bibtex
-    code should be given in addition to the formatted text \emph{when}
-    there are not more than \eqn{m} entries.  The default is taken as
-    \code{\link{getOption}("citation.bibtex.max", 1)} which is \code{1}
-    typically.  For example, to see no bibtex at all, you can change the
-    default by \code{\link{options}(citation.bibtex.max = 0)}.}
-  \item{bibtex}{logical indicating if bibtex code should be given
+  \item{bibtex}{\code{\link{logical}} indicating if BibTeX code should be given
     additionally; currently applies only to \code{style = "citation"}.
-    The default depends on the number of (bib) entries and
-    \code{\link{getOption}("citation.bibtex.max")}.}
+    The default for the \code{print()} method depends on the number of
+    (bib) entries and \code{\link{getOption}("citation.bibtex.max")} (which
+    itself is 1 by default).  For example, to see no bibtex at all, you can change the
+    default by \code{\link{options}(citation.bibtex.max = 0)}.}
+  \item{citMsg}{\code{\link{logical}} indicating if a \dQuote{message} should be
+    added (to the footer) about how to get BibTeX code when \code{bibtex}
+    is false \emph{and} \code{style = "citation"}.}
   \item{sort}{logical indicating if bibentries should be sorted, using
     \code{\link[tools]{bibstyle}(.bibstyle)$sortKeys(x)}.}
   \item{macros}{a character string or an object with already loaded Rd
     macros, see \bold{Details}.}
   \item{drop}{logical used as \code{x[ ..., drop=drop]} inside the
     \code{sort()} method.}
+  \item{object}{an object inheriting from class \code{"bibentry"}.}
+  \item{escape}{a logical indicating whether non-ASCII characters should
+    be translated to LaTeX escape sequences.}
 }
 \details{
   The bibentry objects created by \code{bibentry} can represent an
@@ -129,8 +136,8 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
   already loaded.
   Note that the \code{"latex"} result may contain commands from the
   \LaTeX style file \file{Rd.sty} shipped with \R;
-  put \verb{\usepackage{Rd}} in the preamble of a LaTeX document 
-  to make these available when compiling, 
+  put \verb{\usepackage{Rd}} in the preamble of a LaTeX document
+  to make these available when compiling,
   e.g. with \code{\link{texi2pdf}}.
 
   When printing bibentry objects in citation style, a
@@ -302,6 +309,9 @@ toBibtex(bref)
 
 ## Transform
 transform(rref, address = paste0(address, ", Europe"))
+
+## BibTeX reminder message (in case of >= 2 refs):
+print(bref, style = "citation")
 
 ## Format in R style
 ## One bibentry() call for each bibentry:

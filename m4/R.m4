@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2022 R Core Team
+### Copyright (C) 1998-2023 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -989,9 +989,12 @@ dnl Yes we need to double quote this ...
 # define F77_SYMBOL(x)   x
 #endif
 
-typedef struct {
-        double r;
-        double i;
+typedef union {
+    struct {
+	double r;
+	double i;
+    };
+    double _Complex private_data_c;
 } Rcomplex;
 
 extern void F77_SYMBOL(cftest)(Rcomplex *x);
@@ -4620,7 +4623,7 @@ LIBS="${CURL_LIBS} ${LIBS}"
 AC_CHECK_HEADERS(curl/curl.h, [have_libcurl=yes], [have_libcurl=no])
 
 if test "x${have_libcurl}" = "xyes"; then
-AC_CACHE_CHECK([if libcurl is version 7 and >= 7.28.0], [r_cv_have_curl728],
+AC_CACHE_CHECK([if libcurl is >= 7.28.0], [r_cv_have_curl728],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #include <curl/curl.h>
@@ -4628,7 +4631,7 @@ int main(void)
 {
 #ifdef LIBCURL_VERSION_MAJOR
 #if LIBCURL_VERSION_MAJOR > 7
-  exit(1);
+  exit(0);
 #elif LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 28
   exit(0);
 #else

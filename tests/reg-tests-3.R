@@ -236,3 +236,45 @@ if(require("Matrix", .Library)) {
 
     detach("package:Matrix", unload=TRUE)
 }##{Matrix}
+
+## citation() / bibentry: year will change but check is sloppy
+options(width=88) # format.bibentry() using strwrap()
+print(c1 <- citation())
+fc1B <- format(c1)
+fc1N <- format(c1, bibtex=FALSE)
+stopifnot(exprs = {
+    identical(fc1B[-2], fc1N[-2])
+    (b2 <- fc1B[2]) != (n2 <- fc1N[2]) # bibtex left away (at end of line 2)
+    startsWith(b2, n2)
+})
+
+pkg <- "nlme"
+(hasME <- requireNamespace(pkg, quietly=TRUE, lib.loc = .Library))
+if(hasME) withAutoprint({
+    c2 <- citation(package=pkg)
+    ## avoid spurious diffs:
+    c2$author[[1]]$given[[1]] <- "J."
+    c2$year[[1]] <- "9999"
+    c2$note[[1]] <- sub("3.1-[0-9]*$", "3.1-999", c2$note[[1]])
+    print(c2)
+    print(c2, bibtex=FALSE) # no final message
+    print(c2, bibtex=TRUE)  # w/ two bibTeX
+    stopifnot(length(c2) >= 2)
+    f2N <- format(c2) # -> format.bibentry(*, style="citation")
+    f2B <- format(c2, bibtex=TRUE)
+    stopifnot(exprs = {
+        print(n <- length(f2N)) == length(f2B)
+        identical(f2N[1], f2B[1])
+        grepl("see these entries in BibTeX",       f2N[n], fixed=TRUE)
+        grepl("'format(<citation>, bibtex=TRUE)'", f2N[n], fixed=TRUE) # "format(..)" was "print(..)"
+        f2B[n] == ""
+        (ie <- -c(1,n)) < 0
+        grepl("A BibTeX entry ", f2B[ie], fixed=TRUE)
+        grepl(" @[A-Z]", f2B[ie]) # @Book etc
+       !grepl(" @[A-Z]", f2N[ie]) # *not* there
+        nchar(f2N[ie]) < nchar(f2B[ie])
+        startsWith(f2B[ie], f2N[ie])
+      })
+})
+
+cat('Time elapsed: ', proc.time(),'\n')

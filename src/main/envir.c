@@ -368,15 +368,14 @@ static SEXP R_NewHashTable(int size)
   size.  The only non-static hash table function.
 */
 
-SEXP R_NewHashedEnv(SEXP enclos, SEXP size)
+SEXP R_NewHashedEnv(SEXP enclos, int size)
 {
     SEXP s;
 
     PROTECT(enclos);
-    PROTECT(size);
     PROTECT(s = NewEnvironment(R_NilValue, R_NilValue, enclos));
-    SET_HASHTAB(s, R_NewHashTable(asInteger(size)));
-    UNPROTECT(3);
+    SET_HASHTAB(s, R_NewHashTable(size));
+    UNPROTECT(2);
     return s;
 }
 
@@ -672,7 +671,7 @@ attribute_hidden void InitGlobalEnv(void)
 {
     R_NamespaceSymbol = install(".__NAMESPACE__.");
 
-    R_GlobalEnv = R_NewHashedEnv(R_BaseEnv, ScalarInteger(0));
+    R_GlobalEnv = R_NewHashedEnv(R_BaseEnv, 0);
     R_MethodsNamespace = R_GlobalEnv; // so it is initialized.
 #ifdef NEW_CODE /* Not used */
     HASHTAB(R_GlobalEnv) = R_NewHashTable(100);
@@ -688,7 +687,7 @@ attribute_hidden void InitGlobalEnv(void)
     SET_SYMVALUE(install(".BaseNamespaceEnv"), R_BaseNamespace);
     R_BaseNamespaceName = ScalarString(mkChar("base"));
     R_PreserveObject(R_BaseNamespaceName);
-    R_NamespaceRegistry = R_NewHashedEnv(R_NilValue, ScalarInteger(0));
+    R_NamespaceRegistry = R_NewHashedEnv(R_NilValue, 0);
     R_PreserveObject(R_NamespaceRegistry);
     defineVar(R_BaseSymbol, R_BaseNamespace, R_NamespaceRegistry);
     /**** needed to properly initialize the base namespace */
@@ -1974,17 +1973,15 @@ attribute_hidden SEXP do_remove(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     /* .Internal(remove(list, envir, inherits)) */
 
-    SEXP name, envarg, tsym, tenv;
-    int ginherits = 0;
-    int done, i, hashcode;
     checkArity(op, args);
 
-    name = CAR(args);
+    SEXP name = CAR(args);
+    if(TYPEOF(name) == NILSXP) return R_NilValue;
     if (!isString(name))
 	error(_("invalid first argument"));
     args = CDR(args);
 
-    envarg = CAR(args);
+    SEXP envarg = CAR(args);
     if (TYPEOF(envarg) == NILSXP)
 	error(_("use of NULL environment is defunct"));
     if (TYPEOF(envarg) != ENVSXP &&
@@ -1992,18 +1989,18 @@ attribute_hidden SEXP do_remove(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "envir");
     args = CDR(args);
 
-    ginherits = asLogical(CAR(args));
+    int ginherits = asLogical(CAR(args));
     if (ginherits == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "inherits");
 
-    for (i = 0; i < LENGTH(name); i++) {
-	done = 0;
-	tsym = installTrChar(STRING_ELT(name, i));
+    for (int i = 0, done = 0; i < LENGTH(name); i++) {
+	SEXP tsym = installTrChar(STRING_ELT(name, i));
+	int hashcode;
 	if( !HASHASH(PRINTNAME(tsym)) )
 	    hashcode = R_Newhashpjw(CHAR(PRINTNAME(tsym)));
 	else
 	    hashcode = HASHVALUE(PRINTNAME(tsym));
-	tenv = envarg;
+	SEXP tenv = envarg;
 	while (tenv != R_EmptyEnv) {
 	    done = RemoveVariable(tsym, hashcode, tenv);
 	    if (done || !ginherits)
@@ -3619,12 +3616,8 @@ attribute_hidden SEXP do_mkUnbound(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* C version of new.env */
 SEXP R_NewEnv(SEXP enclos, int hash, int size)
 {
-    if (hash) {
-	SEXP ssize = PROTECT(ScalarInteger(size));
-	SEXP ans = R_NewHashedEnv(enclos, ssize);
-	UNPROTECT(1); /* ssize */
-	return ans;
-    }
+    if (hash) 
+	return R_NewHashedEnv(enclos, size);
     else
 	return NewEnvironment(R_NilValue, R_NilValue, enclos);
 }
@@ -3767,6 +3760,7 @@ static SEXP checkNSname(SEXP call, SEXP name)
     return name;
 }
 
+// .Internal(registerNamespace(name, env))
 attribute_hidden SEXP do_regNS(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP name, val;
@@ -3779,6 +3773,7 @@ attribute_hidden SEXP do_regNS(SEXP call, SEXP op, SEXP args, SEXP rho)
     return R_NilValue;
 }
 
+// .Internal(unregisterNamespace(nsname))
 attribute_hidden SEXP do_unregNS(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP name;
@@ -3795,6 +3790,8 @@ attribute_hidden SEXP do_unregNS(SEXP call, SEXP op, SEXP args, SEXP rho)
     return R_NilValue;
 }
 
+// .Internal(getRegisteredNamespace(name))  ==  .getNamespace(name)
+// .Internal(isRegisteredNamespace (name))  ==  isNamespaceLoaded(name)
 attribute_hidden SEXP do_getRegNS(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP name, val;

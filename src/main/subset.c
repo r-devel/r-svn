@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -147,7 +147,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    EXTRACT_SUBSET_LOOP(COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
 				COMPLEX0(result)[i] = NA_CPLX);
 	}
@@ -346,7 +346,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    MATRIX_SUBSET_LOOP(COMPLEX0(result)[ij] = COMPLEX_ELT(x, iijj),
 			       COMPLEX0(result)[ij] = NA_CPLX);
 	}
@@ -517,7 +517,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    ARRAY_SUBSET_LOOP(COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
 			      COMPLEX0(result)[i] = NA_CPLX);
 	}
@@ -1224,8 +1224,11 @@ fixSubset3Args(SEXP call, SEXP args, SEXP env, SEXP* syminp)
 	if (syminp != NULL)
 	    *syminp = nlist;
 	SET_STRING_ELT(input, 0, PRINTNAME(nlist));
-    } else if(isString(nlist) )
+    } else if(isString(nlist) ) {
+	if (LENGTH(nlist) != 1)
+	    error(_("invalid subscript length"));
 	SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+    }
     else {
 	errorcall(call,_("invalid subscript type '%s'"),
 		  type2char(TYPEOF(nlist)));

@@ -4022,6 +4022,11 @@ Off by default because this can result in false positives.
 @item _R_CHECK_RD_CHECKRD_MINLEVEL_
 Controls the minimum level for reporting warnings from @code{checkRd}.
 Default: -1.
+@item _R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_
+Control whether empty items inside @code{\\describe} are allowed without
+a warning. This is a temporary stop gap measure meant to support legacy
+packages, and is likely to be removed in future versions of R.
+Default: false.
 @item _R_CHECK_XREFS_REPOSITORIES_
 If set to a non-empty value, a space-separated list of repositories to
 use to determine known packages.  Default: empty, when the CRAN
@@ -4250,11 +4255,6 @@ Default: true.
 @item _R_CHECK_EXIT_ON_FIRST_ERROR_
 If set to a true value, the check will exit on the first error.
 Default: false.
-
-@item _R_CHECK_S3_METHODS_NOT_REGISTERED_
-If set to a true value, report (apparent) S3 methods exported but not
-registered.
-Default: true.
 
 @item _R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_
 If set to a true value, report already registered S3 methods in
@@ -4640,7 +4640,6 @@ _R_CHECK_DEPRECATED_DEFUNCT_=TRUE
 _R_CHECK_REPLACING_IMPORTS_=TRUE
 _R_CHECK_SCREEN_DEVICE_=stop
 _R_CHECK_TOPLEVEL_FILES_=TRUE
-_R_CHECK_S3_METHODS_NOT_REGISTERED_=TRUE
 _R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_=TRUE
 _R_CHECK_PRAGMAS_=TRUE
 _R_CHECK_COMPILATION_FLAGS_=TRUE

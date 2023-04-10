@@ -1020,13 +1020,17 @@ SEXP eval(SEXP e, SEXP rho)
 	else
 	    tmp = findVar(e, rho);
 	if (tmp == R_UnboundValue)
-	    error(_("object '%s' not found"), EncodeChar(PRINTNAME(e)));
+	    errorcall(getLexicalCall(rho),
+		      _("object '%s' not found"),
+		      EncodeChar(PRINTNAME(e)));
 	/* if ..d is missing then ddfindVar will signal */
 	else if (tmp == R_MissingArg && !DDVAL(e) ) {
 	    const char *n = CHAR(PRINTNAME(e));
-	    if(*n) error(_("argument \"%s\" is missing, with no default"),
-			 CHAR(PRINTNAME(e)));
-	    else error(_("argument is missing, with no default"));
+	    if(*n) errorcall(getLexicalCall(rho),
+			     _("argument \"%s\" is missing, with no default"),
+			     CHAR(PRINTNAME(e)));
+	    else errorcall(getLexicalCall(rho),
+			   _("argument is missing, with no default"));
 	}
 	else if (TYPEOF(tmp) == PROMSXP) {
 	    if (PRVALUE(tmp) == R_UnboundValue) {
@@ -2501,10 +2505,10 @@ attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     PROTECT(Cond = eval(CAR(args), rho));
     if (asLogicalNoNA(Cond, call, rho))
-	Stmt = CAR(CDR(args));
+	Stmt = CADR(args);
     else {
 	if (length(args) > 2)
-	    Stmt = CAR(CDR(CDR(args)));
+	    Stmt = CADDR(args);
 	else
 	    vis = 1;
     }
@@ -2925,7 +2929,7 @@ attribute_hidden void R_initAssignSymbols(void)
     for (int i = 0; i < NUM_ASYM; i++)
 	asymSymbol[i] = install(asym[i]);
 
-    R_ReplaceFunsTable = R_NewHashedEnv(R_EmptyEnv, ScalarInteger(1099));
+    R_ReplaceFunsTable = R_NewHashedEnv(R_EmptyEnv, 1099);
     R_PreserveObject(R_ReplaceFunsTable);
 
     R_SubsetSym = install("[");
@@ -3987,6 +3991,43 @@ static SEXP classForGroupDispatch(SEXP obj) {
 	    : getAttrib(obj, R_ClassSymbol);
 }
 
+static Rboolean R_chooseOpsMethod(SEXP x, SEXP y, SEXP mx, SEXP my,
+				  SEXP call, Rboolean rev, SEXP rho) {
+    static SEXP expr = NULL;
+    static SEXP xSym = NULL;
+    static SEXP ySym = NULL;
+    static SEXP mxSym = NULL;
+    static SEXP mySym = NULL;
+    static SEXP clSym = NULL;
+    static SEXP revSym = NULL;
+    if (expr == NULL) {
+	xSym = install("x");
+	ySym = install("y");
+	mxSym = install("mx");
+	mySym = install("my");
+	clSym = install("cl");
+	revSym = install("rev");
+	expr = R_ParseString("base::chooseOpsMethod(x, y, mx, my, cl, rev)");
+	R_PreserveObject(expr);
+    }
+    
+    SEXP newrho = PROTECT(R_NewEnv(rho, FALSE, 0));
+    defineVar(xSym, x, newrho); INCREMENT_NAMED(x);
+    defineVar(ySym, y, newrho); INCREMENT_NAMED(y);
+    defineVar(mxSym, mx, newrho); INCREMENT_NAMED(mx);
+    defineVar(mySym, my, newrho); INCREMENT_NAMED(my);
+    defineVar(clSym, call, newrho); INCREMENT_NAMED(cl);
+    defineVar(revSym, ScalarLogical(rev), newrho);
+
+    SEXP ans = eval(expr, newrho);
+#ifdef ADJUST_ENVIR_REFCNTS
+    R_CleanupEnvir(newrho, R_NilValue);
+#endif
+    UNPROTECT(1); /* newrho */
+
+    return ans == R_NilValue ? FALSE : asLogical(ans);
+}
+
 attribute_hidden
 int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		  SEXP *ans)
@@ -4002,7 +4043,7 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	return 0;
 
     SEXP s;
-    Rboolean isOps = strcmp(group, "Ops") == 0;
+    Rboolean isOps = strcmp(group, "Ops") == 0 || strcmp(group, "matrixOps") == 0;
 
     /* try for formal method */
     if(length(args) == 1 && !IS_S4_OBJECT(CAR(args))) {
@@ -4082,10 +4123,20 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	         srcref ignored (as per default)
 	    */
 	    else if (!R_compute_identical(lsxp, rsxp, 16 + 1 + 2 + 4)) {
-		warning(_("Incompatible methods (\"%s\", \"%s\") for \"%s\""),
-			lname, rname, generic);
-		UNPROTECT(4);
-		return 0;
+		SEXP x = CAR(args), y = CADR(args);
+		if (R_chooseOpsMethod(x, y, lsxp, rsxp, call, FALSE, rho)) {
+		    rsxp = R_NilValue;
+		}
+		else if (R_chooseOpsMethod(y, x, rsxp, lsxp, call, TRUE, rho)) {
+		    lsxp = R_NilValue;
+		}
+		else {
+		    warning(_("Incompatible methods "
+			      "(\"%s\", \"%s\") for \"%s\""),
+			    lname, rname, generic);
+		    UNPROTECT(4);
+		    return 0;
+		}
 	    }
 	}
 	/* if the right hand side is the one */
@@ -5387,19 +5438,23 @@ static R_INLINE SEXP GET_BINDING_CELL_CACHE(SEXP symbol, SEXP rho,
     }
 }
 
-NORET static void MISSING_ARGUMENT_ERROR(SEXP symbol)
+NORET static void MISSING_ARGUMENT_ERROR(SEXP symbol, SEXP rho)
 {
     const char *n = CHAR(PRINTNAME(symbol));
-    if(*n) error(_("argument \"%s\" is missing, with no default"), n);
-    else error(_("argument is missing, with no default"));
+    if(*n) errorcall(getLexicalCall(rho),
+		     _("argument \"%s\" is missing, with no default"), n);
+    else errorcall(getLexicalCall(rho),
+		   _("argument is missing, with no default"));
 }
 
-#define MAYBE_MISSING_ARGUMENT_ERROR(symbol, keepmiss) \
-    do { if (! keepmiss) MISSING_ARGUMENT_ERROR(symbol); } while (0)
+#define MAYBE_MISSING_ARGUMENT_ERROR(symbol, keepmiss, rho) \
+    do { if (! keepmiss) MISSING_ARGUMENT_ERROR(symbol, rho); } while (0)
 
-NORET static void UNBOUND_VARIABLE_ERROR(SEXP symbol)
+NORET static void UNBOUND_VARIABLE_ERROR(SEXP symbol, SEXP rho)
 {
-    error(_("object '%s' not found"), EncodeChar(PRINTNAME(symbol)));
+    errorcall(getLexicalCall(rho),
+	      _("object '%s' not found"),
+	      EncodeChar(PRINTNAME(symbol)));
 }
 
 static R_INLINE SEXP FORCE_PROMISE(SEXP value, SEXP symbol, SEXP rho,
@@ -5443,9 +5498,9 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	value = findVar(symbol, rho);
 
     if (value == R_UnboundValue)
-	UNBOUND_VARIABLE_ERROR(symbol);
+	UNBOUND_VARIABLE_ERROR(symbol, rho);
     else if (value == R_MissingArg)
-	MAYBE_MISSING_ARGUMENT_ERROR(symbol, keepmiss);
+	MAYBE_MISSING_ARGUMENT_ERROR(symbol, keepmiss, rho);
     else if (TYPEOF(value) == PROMSXP) {
 	SEXP pv = PRVALUE(value);
 	if (pv == R_UnboundValue) {
@@ -7812,7 +7867,7 @@ static SEXP bcEval(SEXP body, SEXP rho, Rboolean useCache)
 	  args = duplicate(CDR(call));
 	  SETSTACK(-2, args);
 	  /* insert evaluated promise for LHS as first argument */
-	  /* promise won't be captured so don't track refrences */
+	  /* promise won't be captured so don't track references */
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
 	  SETCAR(args, prom);
 	  /* make the call */
@@ -8675,7 +8730,15 @@ SEXP R_ParseEvalString(const char *str, SEXP env)
 	LENGTH(ps) != 1)
 	error("parse error");
 
-    SEXP val = eval(VECTOR_ELT(ps, 0), env);
+    SEXP val = VECTOR_ELT(ps, 0);
+    if (env != NULL)
+	val = eval(val, env);
+
     UNPROTECT(2); /* s, ps */
     return val;
+}
+
+SEXP R_ParseString(const char *str)
+{
+    return R_ParseEvalString(str, NULL);
 }
