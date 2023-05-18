@@ -40,7 +40,7 @@ checkHT <- function(n, d) {
         gettextf("invalid 'n' - length(n) must be <= length(dim(x)), got %d > %d",
                  len, length(d))
     else return(invisible())
-    stop(simpleError(msg, call = sys.call(-1)), domain = NA)
+    stop(simpleError(msg, call = sys.call(-1)))
 }
 
 
