@@ -272,13 +272,13 @@ SEXP R_LookupMethod(SEXP method, SEXP rho, SEXP callrho, SEXP defrho)
 	PROTECT(table);
 	REPROTECT(val = findVarInFrame3(table, method, TRUE), validx);
 	UNPROTECT(1); /* table */
-	if (TYPEOF(val) == PROMSXP) 
+	if (TYPEOF(val) == PROMSXP)
 	    REPROTECT(val = eval(val, rho), validx);
 	if(val != R_UnboundValue) {
 	    UNPROTECT(2); /* top, val */
 	    return val;
 	}
-    } 
+    }
 
     if (top == R_GlobalEnv)
 	top = R_BaseEnv;
@@ -1066,7 +1066,7 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	    UNPROTECT(1); /* cl */
 	    return ans;
 	}
-    /* if not found directly, then look for a match among the nonvirtual 
+    /* if not found directly, then look for a match among the nonvirtual
        superclasses, possibly after finding the environment 'rho' in which
        class(x) is defined */
     if(IS_S4_OBJECT(x)) {
@@ -1095,8 +1095,8 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	}
 	SEXP classDef = PROTECT(R_getClassDef(class));
 	PROTECT(classExts = R_do_slot(classDef, s_contains));
-	/* .selectSuperClasses(getClassDef(class)@contains, 
-	 *                     dropVirtual = TRUE, namesOnly = TRUE, 
+	/* .selectSuperClasses(getClassDef(class)@contains,
+	 *                     dropVirtual = TRUE, namesOnly = TRUE,
 	 *                     directOnly = FALSE, simpleOnly = TRUE):
 	 */
 	PROTECT(_call = lang6(s_selectSuperCl, classExts,

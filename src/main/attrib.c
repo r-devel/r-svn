@@ -914,7 +914,7 @@ attribute_hidden SEXP do_namesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     if (MAYBE_SHARED(CAR(args)) ||
 	((! IS_ASSIGNMENT_CALL(call)) && MAYBE_REFERENCED(CAR(args))))
 	SETCAR(args, R_shallow_duplicate_attr(CAR(args)));
-    if (TYPEOF(CAR(args)) == S4SXP) {
+    if (IS_S4_OBJECT(CAR(args))) {
 	const char *klass = CHAR(STRING_ELT(R_data_class(CAR(args), FALSE), 0));
 	error(_("invalid to use names()<- on an S4 object of class '%s'"),
 	      klass);
@@ -1169,7 +1169,7 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{ 
+{
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1775,7 +1775,7 @@ int R_has_slot(SEXP obj, SEXP name) {
     if(isString(name)) name = installTrChar(STRING_ELT(name, 0))
 
     R_SLOT_INIT;
-    if(name == s_dot_Data && TYPEOF(obj) != S4SXP)
+    if(name == s_dot_Data && !IS_S4_OBJECT(obj))
 	return(1);
     /* else */
     return(getAttrib(obj, name) != R_NilValue);
