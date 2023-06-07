@@ -1007,9 +1007,7 @@ FUNTAB R_FunTab[] =
 {"curlDownload",do_curlDownload, 0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"compilerVersion",do_compilerVersion, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 
-
-{".new_object",	do_dot_new_object, 0,	0,	1,	{PP_FUNCALL,  PREC_FN,	 0}},
-
+{"object",	do_dot_new_object,  0,	11,	1,	{PP_FUNCALL,  PREC_FN,	 0}},
 
 {NULL,		NULL,		0,	0,	0,	{PP_INVALID, PREC_FN,	0}},
 };

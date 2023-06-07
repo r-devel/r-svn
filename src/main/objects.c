@@ -1021,10 +1021,10 @@ attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
     return inherits3(x, what, which);
 }
 
-attribute_hidden SEXP do_dot_new_object(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_object(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    // returns an S4SXP/OBJSXP object. If the first arg is a character vector,
-    // it is set as the class of the object. The S4 bit is not set.
+    // returns an SXP with type S4SXP/OBJSXP. If the first arg is a character vector,
+    // it is set as the (S3) class attr of the object. The S4 bit is not set.
     checkArity(op, args);
     SEXP class = CAR(args);
 

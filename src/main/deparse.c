@@ -1509,7 +1509,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     case OBJSXP: {
 	// d->sourceable = FALSE;
 	// print2buff("<object>", d);
-	print2buff(".new_object()", d);
+	print2buff("object()", d);
 	break;
     }
     default:
