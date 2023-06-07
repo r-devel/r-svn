@@ -224,9 +224,12 @@ inherits <- function(x, what, which = FALSE)
     .Internal(inherits(x, what, which))
 
 object <- function(class = NULL, ...) {
-    if(...length())
-      structure(.Internal(object(class)), ...)
-     else
+    if(...length()) {
+      out <- .Internal(object(NULL))
+      attributes(out) <- if(is.null(class))
+        list(...) else list(class = class, ...)
+      out
+    } else
         .Internal(object(class))
 }
 
