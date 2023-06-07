@@ -223,6 +223,8 @@ capabilities <- function(what = NULL,
 inherits <- function(x, what, which = FALSE)
     .Internal(inherits(x, what, which))
 
+object <- function(class = NULL) .Internal(object(class))
+
 isa <- function(x, what) {
     if(isS4(x))
         methods::is(x, what)
