@@ -1507,10 +1507,9 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	print2buff("<weak reference>", d);
 	break;
     case OBJSXP: {
-	// d->sourceable = FALSE;
-	// print2buff("<object>", d);
-	print2buff("object()", d);
-	// if(attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
+	print2buff("object(", d);
+	if(attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
+	print2buff(")", d);
 	break;
     }
     default:
