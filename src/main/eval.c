@@ -2435,6 +2435,24 @@ static SEXP replaceCall(SEXP fun, SEXP val, SEXP args, SEXP rhs)
 }
 
 
+static R_INLINE SEXP asBool(SEXP cond, SEXP env)
+{
+    static SEXP call = NULL;
+    static SEXP xsym = NULL;
+    if (call == NULL) {
+	xsym = install("x");
+	call = R_ParseString("base::as.bool(x)");
+	R_PreserveObject(call);
+    }
+
+    SEXP callenv = PROTECT(R_NewEnv(env, FALSE, 0));
+    defineVar(xsym, cond, callenv);
+    INCREMENT_NAMED(cond);
+    SEXP out = eval(call, callenv);
+    UNPROTECT(1); /* callenv */
+    return out;
+}
+
 /* rho is only needed for _R_CHECK_LENGTH_1_CONDITION_=package:name and for
      detecting the current package in related diagnostic messages; it should
      be removed when length >1 condition is turned into an error
@@ -2442,6 +2460,13 @@ static SEXP replaceCall(SEXP fun, SEXP val, SEXP args, SEXP rhs)
 static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
 {
     Rboolean cond = NA_LOGICAL;
+
+    if(OBJECT(s)) {
+	s = PROTECT(asBool(s, rho));
+	cond = asLogicalNoNA(s, call, rho);
+	UNPROTECT(1);
+	return cond;
+    }
 
     /* handle most common special case directly */
     if (IS_SCALAR(s, LGLSXP)) {

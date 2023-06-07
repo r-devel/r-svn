@@ -24,3 +24,9 @@ chooseOpsMethod <- function(x, y, mx, my, cl, reverse)
     UseMethod("chooseOpsMethod")
 
 chooseOpsMethod.default <- function(x, y, mx, my, cl, reverse) FALSE
+
+
+
+as.bool <- function(x) UseMethod("as.bool")
+
+as.bool.default <- function(x) isTRUE(x) || is.numeric(x) && x != 0
