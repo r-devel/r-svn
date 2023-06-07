@@ -387,7 +387,7 @@ static void save_tagbuf(char *save, size_t n)
     else
 	error("tagbuf overflow");
 }
-    
+
 static void PrintObject(SEXP s, R_PrintData *data)
 {
     /* Save the tagbuffer to restore indexing tags after evaluation
@@ -482,7 +482,7 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 		} else
 		    snprintf(pbuf, 115, "numeric,%d", LENGTH(s_i));
 		break;
-	    case CPLXSXP: 
+	    case CPLXSXP:
 		if (LENGTH(s_i) == 1) {
 		    const Rcomplex *x = COMPLEX_RO(s_i);
 		    if (ISNA(x[0].r) || ISNA(x[0].i))
@@ -967,11 +967,16 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case WEAKREFSXP:
 	Rprintf("<weak reference>\n");
 	break;
-    case S4SXP:
-	/*  we got here because no show method, usually no class.
-	    Print the "slots" as attributes, since we don't know the class.
-	*/
-	Rprintf("<S4 Type Object>\n");
+    case OBJSXP:
+        if(IS_S4_OBJECT(s)) {
+            /*  we got here because no show method, usually no class.
+                Print the "slots" as attributes, since we don't know the class.
+            */
+	    Rprintf("<S4 Type Object>\n");
+	} else {
+	    /* OBJSXP type, S4 obj bit not set*/
+	    Rprintf("<Object>\n");
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("PrintValueRec", s);
