@@ -1510,6 +1510,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	// d->sourceable = FALSE;
 	// print2buff("<object>", d);
 	print2buff("object()", d);
+	// if(attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
 	break;
     }
     default:
