@@ -1021,6 +1021,21 @@ attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
     return inherits3(x, what, which);
 }
 
+attribute_hidden SEXP do_dot_new_object(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    // returns an S4SXP/OBJSXP object. If the first arg is a character vector,
+    // it is set as the class of the object. The S4 bit is not set.
+    checkArity(op, args);
+    SEXP class = CAR(args);
+
+    SEXP obj = PROTECT(Rf_allocSExp(OBJSXP));
+
+    if (TYPEOF(class) == STRSXP && LENGTH(class) >= 1)
+        Rf_classgets(obj, class);
+    UNPROTECT(1);
+
+    return obj;
+}
 
 /*
    ==============================================================
