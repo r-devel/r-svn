@@ -1956,7 +1956,7 @@ attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP x = CAR(args);
-    if(TYPEOF(x) == S4SXP && !IS_S4_OBJECT(x))
+    if(TYPEOF(x) == OBJSXP && !IS_S4_OBJECT(x))
 	return mkString("object");
     else
 	return type2rstr(TYPEOF(x));
