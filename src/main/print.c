@@ -975,7 +975,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	    Rprintf("<S4 Type Object>\n");
 	} else {
 	    /* OBJSXP type, S4 obj bit not set*/
-	    Rprintf("<Object>\n");
+	    Rprintf("<object>\n");
 	}
 	break;
     default:
