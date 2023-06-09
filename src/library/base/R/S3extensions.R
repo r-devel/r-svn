@@ -25,8 +25,3 @@ chooseOpsMethod <- function(x, y, mx, my, cl, reverse)
 
 chooseOpsMethod.default <- function(x, y, mx, my, cl, reverse) FALSE
 
-
-
-as.TRUEorFALSE <- function(x) UseMethod("as.TRUEorFALSE")
-
-as.TRUEorFALSE.default <- function(x) isTRUE(x) || is.numeric(x) && length(x) == 1L && x != 0

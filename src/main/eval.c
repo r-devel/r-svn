@@ -2435,13 +2435,13 @@ static SEXP replaceCall(SEXP fun, SEXP val, SEXP args, SEXP rhs)
 }
 
 
-static R_INLINE SEXP asTRUEorFALSE(SEXP cond, SEXP env)
+static R_INLINE SEXP as_logical_generic(SEXP cond, SEXP env)
 {
     static SEXP call = NULL;
     static SEXP xsym = NULL;
     if (call == NULL) {
 	xsym = install("x");
-	call = R_ParseString("base::as.TRUEorFALSE(x)");
+	call = R_ParseString("base::as.logical(x)");
 	R_PreserveObject(call);
     }
 
@@ -2462,7 +2462,7 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho, Rboolean dis
     Rboolean cond = NA_LOGICAL;
 
     if(dispatch_ok && OBJECT(s)) {
-	s = PROTECT(asTRUEorFALSE(s, rho));
+	s = PROTECT(as_logical_generic(s, rho));
 	cond = asLogicalNoNA(s, call, rho, FALSE);
 	UNPROTECT(1);
 	return cond;
