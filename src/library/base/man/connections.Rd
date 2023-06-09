@@ -1,6 +1,6 @@
 % File src/library/base/man/connections.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{connections}
@@ -207,11 +207,6 @@ socketTimeout(socket, timeout = -1)
   \code{close} closes and destroys a connection.  This will happen
   automatically in due course (with a warning) if there is no longer an
   \R object referring to the connection.
-
-  A maximum of 128 connections can be allocated (not necessarily open)
-  at any one time.  Three of these are pre-allocated (see
-  \code{\link{stdout}}).   The OS will impose limits on the numbers of
-  connections of various types, but these are usually larger than 125.
 
   \code{flush} flushes the output stream of a connection open for
   write/append (where implemented, currently for file and clipboard
@@ -587,6 +582,38 @@ socketTimeout(socket, timeout = -1)
   being used supports can be seen by calling \code{\link{libcurlVersion}()}.
 }
 
+\section{Number of connections}{
+  There is a limit on the number of connections which can be allocated
+  (not necessarily open) at any one time.  It is good practice to close
+  connections when finished with, but if necessary garbage-collection
+  will be invoked to close those connections without any \R object
+  referring to them.
+
+  The default limit is 128 (including the three terminal connections,
+  \code{stdin}, \code{stdout} and \code{stderr}).  This can be increased
+  when \R is started using the option \option{--max-connections=N}, where
+  the maximum allowed value is 4096.
+
+  However, many types of connections use other resources which are
+  themselves limited.  Notably on Unix, \sQuote{file descriptors} which
+  by default are per-process limited: this limits the number of
+  connections using files, pipes and fifos.  (The default limit is 256
+  on macOS (and Solaris) but 1024 on Linux.  The limit can be raised in the
+  shell used to launch \R, for example by \command{ulimit -n}.)  File
+  descriptors are used for many other purposes including dynamically
+  loading DSO/DLLs (see \code{\link{dyn.load}}) which may use up to 60\%
+  of the limit.
+
+  Windows has a default limit of 512 open C file streams: these are used
+  by at least \code{file}, \code{gzfile}, \code{bzfile}, \code{xzfile},
+  \code{pipe}, \code{url} and \code{unz} connections applied to files
+  (rather than URLs).
+  %% fifos on Windows use the Windows API for named pipes.
+
+  Package \pkg{parallel}'s \code{\link{makeCluster}} uses socket
+  connections to communicate with the worker processes, one per worker.
+}
+
 \note{
   \R's connections are modelled on those in S version 4 (see Chambers,
   1998).  However \R goes well beyond the S model, for example in output
@@ -595,7 +622,7 @@ socketTimeout(socket, timeout = -1)
   This differs from S, where it is the equivalent of \code{"r+"},
   known as \code{"*"}.
 
-  On (rare) platforms where \code{vsnprintf} does not return the needed
+  On (historic) platforms where \code{vsnprintf} does not return the needed
   length of output there is a 100,000 byte output limit on the length of
   a line for text output on \code{fifo}, \code{gzfile}, \code{bzfile} and
   \code{xzfile} connections: longer lines will be truncated with a

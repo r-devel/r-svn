@@ -1376,6 +1376,7 @@ if test -n "${XMKMF}"; then
 fi
 
 ## Step 2.  GNU compilers.
+## (And those C/C++ compilers claiming conformity.)
 if test "${GCC}" = yes; then
   case "${host_cpu}" in
 ## Sparc has only an 8k global object table, 1024 entries on 64-bit.
@@ -1405,8 +1406,9 @@ if test "${ac_cv_fc_compiler_gnu}" = yes; then
   esac
 fi
 ## Assume flang is the same as clang (it is a modified front end)
+## Also flang-new
 case "${FC}" in
-  *flang|flang-*)
+  *flang|*flang-new)
     fpicflags=${cpicflags}
     ;;
 esac
@@ -2135,6 +2137,8 @@ R_CHECK_FUNCS([thr_stksegment], [
 #include <thread.h>
 #include <signal.h>
 ])
+## stpcpy is POSIX 2008 (extension to C)
+AC_CHECK_FUNCS([stpcpy])
 
 ## Lots of uses of getwd(), file.access(), Sys.glob().
 ## We don't need times() except as a fallback for getrusage and

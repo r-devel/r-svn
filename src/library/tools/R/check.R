@@ -3773,7 +3773,7 @@ add_dummies <- function(dir, Log)
                         opWarn_string, pkgname)
             env2 <- Sys.getenv("_R_LOAD_CHECK_S4_EXPORTS_", "NA")
             env2 <- paste0("_R_LOAD_CHECK_S4_EXPORTS_=",
-                           if(env2 == "all") env else pkgname)
+                           if(env2 == "all") env2 else pkgname)
             t1 <- proc.time()
             out <- R_runR0(Rcmd, opts, c(env, env1, env2), arch = arch)
             t2 <- proc.time()
@@ -6076,14 +6076,36 @@ add_dummies <- function(dir, Log)
                            .pretty_format(sort(bad)))
                 noteLog(Log, msg)
             }
+
+            ## Look for S4 exports when 'methods' is not a strong dependency:
+            ## - loadNamespace() silently ignores S4 export directives when
+            ##   there is no S4 metadata; seen: exportClass(<S3 class>)
+            ## - 'Suggests: methods' is not sufficient to ensure that S4 exports
+            ##   are processed when loading under R_DEFAULT_PACKAGES=NULL
+            pi <- .split_description(.read_description(file.path(pkgdir, "DESCRIPTION")))
+            dependsMethods <- "methods" %in% c(names(pi$Depends), names(pi$Imports))
+            if (!dependsMethods &&
+                length(bad <- Filter(length, ns[c("exportClasses",
+                                                  "exportMethods",
+                                                  "exportClassPatterns")]))) {
+                OK <- FALSE
+                noteLog(Log, ngettext(length(bad),
+                    "Found export directive that requires package 'methods':",
+                    "Found export directives that require package 'methods':",
+                    domain = NA))
+                printLog0(Log, paste0(.pretty_format(names(bad)), collapse = "\n"), "\n")
+                wrapLog("Remove all such namespace directives (if obsolete)",
+                        "or ensure that the DESCRIPTION Depends or Imports",
+                        "field contains 'methods'.")
+            }
+
+            ## Check for missing R version requirement
             nS3methods <- nrow(ns$S3methods)
             if (nS3methods > 500L) {
                 ## check that this is installable in R 3.0.1
-                meta <- .read_description(file.path(pkgdir, "DESCRIPTION"))
-                deps <- .split_description(meta, verbose = TRUE)$Rdepends2
                 status <- 0L
                 current <- as.numeric_version("3.0.1")
-                for(depends in deps) {
+                for(depends in pi$Rdepends2) {
                     ## .check_package_description will insist on these operators
                     if(depends$op %notin% c("<=", ">=", "<", ">", "==", "!="))
                         next

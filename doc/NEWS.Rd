@@ -35,6 +35,15 @@
       \item Serializations can now be interrupted (e.g., by \kbd{Ctrl-C} on
       a Unix-alike) if they take too long, as e.g., from \code{save.image()},
       thanks to suggestions by Ivan Krylov and others on R-devel.
+
+      \item New startup option \option{--max-connections} to set the
+      maximum number of connections for the session.  Defaults to 128 as
+      before: allowed values up to 4096 (but resource limits may in practice
+      restrict to smaller values).
+
+      \item \R on Windows (since Windows 10 2004) now uses the new Segment
+      Heap allocator. This may improve performance of some memory intensive
+      applications.
     }
   }
 
@@ -99,11 +108,15 @@
       \item \code{tools::xgettext()} no longer extracts the
       (non-translatable) class names from \code{warningCondition} and
       \code{errorCondition} calls.
+
+      \item \code{S3method(<gen>, <class>, <func>)} in the \file{NAMESPACE}
+      file now works (again) when \code{<func>} is visible from the
+      namespace, e.g., imported, or in base.
     }
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.3.0 patched}{
+\section{\Rlogo CHANGES IN R 4.3.1}{
   \subsection{C-LEVEL FACILITIES}{
     \itemize{
       \item The C-level API version of \R's \code{integrate()},
@@ -143,12 +156,30 @@
       \item \code{.S3methods()}, typically called from \code{methods()},
       again marks methods from package \pkg{base} as \code{visible}.
 
+      Also, the visibility of non-\pkg{base} methods is again determined by
+      the method's presence in \code{\link{search}()}.
+
       \item \code{tools::Rdiff()} is now more robust against invalid
       strings, fixing installation tests on Windows without Rtools
       installed (\PR{18530}).
 
+      \item Fix (new) bug in \code{hcl.colors(2, *)}, by Achim Zeileis (\PR{18523}).
+
       \item \code{head(., <illegal>)} and \code{tail(..)} now produce
       more useful \code{"Error in ...."} error messages, fixing \PR{18362}.
+
+      \item Package code syntax on Windows is checked in UTF-8 when UTF-8 is
+      the native encoding.
+
+      \item \code{na.contiguous(x)} now also returns the first run, when it
+      is at the beginning and there is a later one of the same length;
+      reported to R-devel, including a fix, by Georgi Boshnakov.
+      Further, by default, it modifies only an existing
+      \code{attr(*,"tsp")} but otherwise no longer sets one.
+
+      \item \code{chol(<not pos.def>, pivot = <T|F>)} now gives a correct
+      error or warning message (depending on \code{pivot}), thanks to
+      Mikael Jagan's (\PR{18541}).
     }
   }
 }

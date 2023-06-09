@@ -5449,10 +5449,7 @@ platforms (and has onerous requirements to install from source) and has
 capabilities@footnote{For example, the ability to handle @samp{https://}
 URLs.} that vary by build but are not documented.  Several recent
 versions of @command{pandoc} for macOS did not work on @R{}'s target of
-High Sierra (and this too was undocumented): at the time of writing
-@samp{2.14.0} to @samp{2.16.2} did, but not @samp{2.17.0.1}.  (Currently
-@command{pandoc} is only available from the official site for Intel
-macOS but that build works well enough on @cputype{arm64} machines.)
+High Sierra (and this too was undocumented).
 Another example is the Rust compilation system (@command{cargo} and
 @command{rustc}).
 
@@ -5610,7 +5607,7 @@ especially those near boundaries (problems have most often be seen in
 with offsets not in whole hours (Adelaide, Chatham Islands, @dots{}).
 More extreme examples are @samp{Africa/Conakry} (permanent UTC),
 @samp{Asia/Calcutta} (no DST, permanent half-hour offset)
-and @samp{Pacific/Kiritimati]}(no DST, more than 12 hours ahead of UTC).
+and @samp{Pacific/Kiritimati}(no DST, more than 12 hours ahead of UTC).
 
 @end itemize
 
@@ -5662,8 +5659,8 @@ See @uref{https://ghostscript.readthedocs.io/en/latest/VectorDevices.html} for
 more such and consider all the options for image downsampling).  There
 have been examples in @acronym{CRAN} packages for which current versions
 of Ghostscript produced much bigger reductions than earlier ones (e.g.@:
-at the upgrades from @code{9.50} to @code{9.52} and from @code{9.55} to
-@code{9.56}).
+at the upgrades from @code{9.50} to @code{9.52}, from @code{9.55} to
+@code{9.56} and then to @code{10.00.0}).
 
 We come across occasionally large PDF files containing excessively
 complicated figures using PDF vector graphics: such figures are often
@@ -5795,6 +5792,7 @@ so it is strongly recommended to check in a UTF-8 locale.
 
 @menu
 * Common symbols::
+* C++17 issues::
 @end menu
 
 Writing portable C and C++ code is mainly a matter of observing the
@@ -6316,7 +6314,7 @@ Some additional information for C++ is available at
 @uref{https://journal.r-project.org/archive/2011-2/RJournal_2011-2_Plummer.pdf}
 by Martyn Plummer.
 
-@node Common symbols,  , Portable C and C++ code, Portable C and C++ code
+@node Common symbols, C++17 issues, Portable C and C++ code, Portable C and C++ code
 @subsubsection Common symbols
 
 Most OSes (including all those commonly used for @R{}) have the concept
@@ -6328,7 +6326,7 @@ object, or to a non-tentative definition.  However,
 @uref{https://gcc.gnu.org/gcc-10/porting_to.html}.} and
 LLVM @command{clang}@tie{}11@footnote{See
 @uref{https://prereleases.llvm.org/11.0.0/rc2/tools/clang/docs/ReleaseNotes.html#modified-compiler-flags}.}
-have changed their default so that tentative definitions cannot be
+changed their default so that tentative definitions cannot be
 merged and the linker will give an error if the same variable is defined
 in more than one object file.  To avoid this, all but one of the C
 source files should declare the variable @code{extern} --- which means
@@ -6356,6 +6354,68 @@ versions of @command{gcc} and @command{clang}.
 @option{-fno-common} is said to be particularly beneficial for ARM cpus.
 
 This is not pertinent to C++ which does not permit tentative definitions.
+
+@node C++17 issues,  , Common symbols, Portable C and C++ code
+@subsubsection C++17 issues
+
+@R{} 4.3.0 and later default to C++17 when compiling C++, and that
+finally removed many C++98 features which were deprecated as long ago as
+C++11.  Compiler/runtime authors have been slow to remove these, but
+LLVM @command{clang} with its @code{libc++} runtime library finally
+started to do so in 2023 -- some others warn but some do not.
+
+The principal offender is the `Boost' collection of C++ headers and
+libraries.  There are two little-documented ways to work around aspects
+of its outdated code.  One is to add
+@example
+-D_HAS_AUTO_PTR_ETC=0
+@end example
+@noindent
+to @code{PKG_CPPLAGS} in @file{src/Makevars}, @file{src/Makevars.win}
+and @file{src/Makevars.ucrt}.  This covers
+the removal of
+@example
+std::auto_ptr
+std::unary_function
+std::binary_function
+std::random_shuffle
+std::binder1st
+std::binder2nd
+@end example
+@noindent
+with most issues seen with code that includes @file{boost/functional.hpp},
+usually indirectly.
+
+A rarer issue is the use of illegal values for @code{enum} types,
+usually negative ones such as
+@example
+BOOST_MPL_AUX_STATIC_CAST(AUX_WRAPPER_VALUE_TYPE, (value - 1));
+@end example
+@noindent
+in @file{boost/mpl/aux_/integral_wrapper.hpp}.  Adding
+@example
+ -Wno-error=enum-constexpr-conversion
+@end example
+@noindent
+to @code{PKG_CXXFLAGS} will allow this, but that flag is only accepted
+by recent versions of LLVM @command{clang} so needs a @command{configure} test.
+
+Pre=built versions of current @command{clang}/@code{libc++} are
+usually available from
+@uref{https://github.com/llvm/llvm-project/releases} for a wide range of
+platforms (but the Windows builds there are not compatible with
+@code{Rtools} and the macOS ones are unsigned).  To select
+@code{libc++} add @option{-stdlib=libc++} to @code{CXX}, for example
+by having
+@example
+CXX="/path/to/clang/clang++ -std=gnu++17 -stdlib=libc++"
+@end example
+@noindent
+in @file{~/.R/Makevars}.
+
+Another build for Windows which may be sufficiently compatible with
+@code{Rtools} can be found at
+@uref{https://github.com/mstorsjo/llvm-mingw}: this uses @code{libc++}.
 
 @node Binary distribution,  , Portable C and C++ code, Writing portable packages
 @subsection Binary distribution

@@ -5957,7 +5957,8 @@ function(package, dir, lib.loc = NULL)
                             dunno <- TRUE
                     } else {
                         if(!identical(class(pkg), "character") &&
-                           isTRUE(mc$character.only))
+                           !is.null(co <- mc$character.only) &&
+                           !isFALSE(co))
                             dunno <- TRUE
                     }
                     ## </NOTE>
@@ -6425,7 +6426,8 @@ function(db, files)
                             dunno <- TRUE
                     } else {
                         if(!identical(class(pkg), "character") &&
-                           isTRUE(mc$character.only))
+                           !is.null(co <- mc$character.only) &&
+                           !isFALSE(co))
                             dunno <- TRUE
                     }
                     if(!dunno) {
@@ -7409,18 +7411,26 @@ function(dir, localOnly = FALSE, pkgSize = NA)
     uses <-  BUGS <- ACM <- character()
     for (field in c("Depends", "Imports", "Suggests")) {
         p <- strsplit(meta[field], " *, *")[[1L]]
-        p2 <- grep("^(multicore|snow|igraph0|doSNOW)( |\\(|$)", p, value = TRUE)
+        ## multicore has been superseded by parallel.  Almost all of
+        ## snow has been too, so it should be optional.
+        p2 <- grep("^(multicore|snow|doSNOW)( |\\(|$)", p, value = TRUE)
         uses <- c(uses, p2)
-        p2 <- grep("^(BRugs|R2OpenBUGS|R2WinBUGS|mzR|xcms|MSnbase)( |\\(|$)",
+        ## BRugs and R2OpenBUGS have a SystemRequirements of OpenBUGS.
+        ## which requires ix86 (not x86-64) and currently installs
+        ## only on Linux using a compiler supporting -m32.
+        ## Some of R2WinBUGS requires a version of BUGS, but not all.
+        ##
+        ## mzR has a long record of not installing: in 2023 with neither
+        ## gcc 13 nor clang 16.  xcms and MSnbase require it.
+        p2 <- grep("^(BRugs|R2OpenBUGS|mzR|xcms|MSnbase)( |\\(|$)",
                    p, value = TRUE)
         BUGS <- c(BUGS, p2)
-        p2 <- grep("^(Akima|tripack)( |\\(|$)",
-                   p, value = TRUE)
+        p2 <- grep("^(Akima|tripack)( |\\(|$)", p, value = TRUE)
         ACM <- c(ACM, p2)
     }
     if (length(uses))
         out$uses <- sort(unique(gsub("[[:space:]]+", " ", uses)))
-    if (length(BUGS))
+    if (length(BUGS)) ## and other non-portable packages
         out$BUGS <- sort(unique(gsub("[[:space:]]+", " ", BUGS)))
     if (length(ACM))
         out$ACM <- sort(unique(gsub("[[:space:]]+", " ", ACM)))
@@ -8814,7 +8824,7 @@ function(x, ...)
             if(length(y <- x$descr_bad_DOIs)) {
                 paste(c("The Description field contains",
                         paste0("  ", y),
-                        "Please write DOIs as <doi:10.prefix/suffix>."),
+                        "Please write DOIs as <doi:prefix/suffix>."),
                       collapse = "\n")
             },
             if(length(y <- x$descr_bad_arXiv_ids)) {
