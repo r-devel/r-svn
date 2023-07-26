@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2023-03-07 r83944) -- "Unsuffered Consequences"
+R Under development (unstable) (2023-07-20 r84714) -- "Unsuffered Consequences"
 Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -1019,12 +1019,16 @@ In as.dist.default(x) : non-square matrix
 > if(!inherits(res, 'try-error')) report(is.numeric(res))
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: integer)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
 [1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: integer)
 > if(!inherits(res, 'try-error')) report(is.package_version(res))
 > res <- try(as.pairlist( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.pairlist(res))
@@ -1133,6 +1137,8 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 IS: [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: integer)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -1143,6 +1149,8 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: integer)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.package_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -1248,6 +1256,8 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric( f )))
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: integer)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
 [1] TRUE
 > f <- try(as.octmode( x ), silent = TRUE)
@@ -1257,6 +1267,8 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
 [1] TRUE
 > f <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: integer)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.package_version( f )))
 > f <- try(as.pairlist( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.pairlist( f )))
@@ -1345,6 +1357,8 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.numeric(res))
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -1354,6 +1368,8 @@ In lapply(strsplit(x[ok], "[.-]"), as.integer) :
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -1466,6 +1482,8 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 IS: [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -1479,6 +1497,8 @@ In lapply(strsplit(x[ok], "[.-]"), as.integer) :
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -1587,6 +1607,8 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric( f )))
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -1598,6 +1620,8 @@ In lapply(strsplit(x[ok], "[.-]"), as.integer) :
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
 [1] TRUE
 > f <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: double)
 Warning message:
 In lapply(strsplit(x[ok], "[.-]"), as.integer) :
   NAs introduced by coercion to integer range
@@ -2010,12 +2034,16 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.numeric(res))
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
 [1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error')) report(is.package_version(res))
 > res <- try(as.pairlist( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.pairlist(res))
@@ -2123,6 +2151,8 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -2133,6 +2163,8 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.package_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -2233,6 +2265,8 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric( f )))
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
 [1] TRUE
 > f <- try(as.octmode( x ), silent = TRUE)
@@ -2241,6 +2275,8 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
 [1] TRUE
 > f <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.package_version( f )))
 > f <- try(as.pairlist( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.pairlist( f )))
@@ -2326,10 +2362,14 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.numeric(res))
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error')) report(is.package_version(res))
 > res <- try(as.pairlist( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.pairlist(res))
@@ -2440,6 +2480,8 @@ Calls: report -> stopifnot
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -2448,6 +2490,8 @@ Calls: report -> stopifnot
 +    report({if(is.ordered(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 > res <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.package_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
@@ -2548,12 +2592,16 @@ In doTryCatch(return(expr), name, parentenv, handler) :
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric( f )))
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_numeric_version) :
+  invalid non-character version specification 'x' (type: list)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
 > f <- try(as.octmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.octmode( f )))
 > f <- try(as.ordered( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
 > f <- try(as.package_version( x ), silent = TRUE)
+Warning in .make_numeric_version(x, strict, .standard_regexps()$valid_package_version,  :
+  invalid non-character version specification 'x' (type: list)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.package_version( f )))
 > f <- try(as.pairlist( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.pairlist( f )))
@@ -2593,6 +2641,6 @@ In as.dist.default(x) : non-square matrix
 > f <- try(as.ts( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ts( f )))
 > cat('Time elapsed: ', proc.time() - .proctime00,'\n')
-Time elapsed:  0.112 0.008 0.121 0 0 
+Time elapsed:  0.102 0.017 0.118 0 0 
 > 
 > 

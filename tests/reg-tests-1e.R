@@ -382,7 +382,7 @@ cls <- c("raw", "logical", "integer", "numeric", "complex",
 names(cls) <- cls
 be <- baseenv()
 asF  <- lapply(cls, \(cl) be[[paste0("as.",cl)]] %||% be[[cl]])
-obs  <- lapply(cls, \(cl) asF[[cl]](switch(cl, "difftime" = "2:1:0", "noquote" = letters, 1:2)))
+obs  <- lapply(cls, \(cl) asF[[cl]](switch(cl, "difftime" = "2:1:0", "noquote" = letters, "numeric_version" = as.character(1:2), 1:2)))
 asDF <- lapply(cls, \(cl) getVaW(be[[paste0("as.data.frame.", cl)]](obs[[cl]])))
 r <- local({ g <- as.data.frame.logical; f <- function(L=TRUE) g(L)
     getVaW(f()) })
@@ -658,6 +658,80 @@ m4 <- methi(coef)
 stopifnot(!m4["coef.foo", "visible"],
            m4["coef.foo", "from"] == "registered S3method for coef")
 ## coef.foo  part  always worked
+
+
+## R <= 4.3.1 would split into two invalid characters (PR#18546)
+splitmbcs <- length(strsplit("\u00e4", "^", perl=TRUE)[[1]])
+stopifnot(identical(splitmbcs, 1L))
+
+
+## contrib.url() should "recycle0"
+stopifnot(identical(contrib.url(character()), character()))
+## R < 4.4.0 returned "/src/contrib" or similar
+
+
+## .local() S4 method when generic has '...'  *not* at end, PR#18538
+foo <- function(x, ..., z = 22) z
+setMethod("foo", "character", function(x, y = -5, z = 22) y)
+stopifnot(identical(foo("a"), -5))
+removeGeneric("foo")
+## foo("a") gave -22 in R <= 4.3.1
+
+
+## `substr<-` overrun in case of UTF-8 --- private bug report by 'Architect 95'
+s0 <- "123456"; nchar(s0) #  6
+substr(s0, 6, 7) <- "cc"
+s0 ; nchar(s0) # {"12345c", 6}: all fine: no overrun, silent truncation
+(s1 <- intToUtf8(c(23383, 97, 97, 97, 97, 97))); nchar(s1)  # "字aaaaa" , 6
+substr(s1, 6, 7) <- "cc"
+# Now s1 should be "字aaaac", but  actually did overrunn nchar(s1);
+s1; nchar(s1) ## was "字aaaacc", nchar  = 7
+(s2 <- intToUtf8(c(23383, 98, 98))); nchar(s2)  # "字bb" 3
+substr(s2, 4, 5) <- "dd" # should silently truncate as with s0:
+## --> s2 should be "字bb", but was "字bbdddd\x97" (4.1.3) or "字bbdd字" (4.3.1)
+s2; nchar(s2) ## was either 6 or  "Error ... : invalid multibyte string, element 1"
+#-------------
+## Example where a partial UTF-8 character is included in the second string
+## 3) all fine
+(s3 <- intToUtf8(c(23383, 97, 97, 97, 97, 97))); nchar(s3)  # "字aaaaa" 6
+substr(s3, 6, 6) <- print(intToUtf8(23383))  # "字"
+s3 ; nchar(s3) # everything as expected:  ("字aaaa字", 6)
+## 4) not good
+(s4 <- intToUtf8(c(23383, 98, 98, 98, 98))); nchar(s4) # "字bbbb" 5
+substr(s4, 5, 7) <- "ddd"
+# Now s4 should be "字bbbd", but was "字bbbddd\x97", (\x97 = last byte of "字" in UTF-8)
+s4; nchar(s4)## gave "字bbbddd\x97" and "Error ...: invalid multibyte string, element 1"
+stopifnot(exprs = {
+    identical(s0, "12345c") # always ok
+    identical(utf8ToInt(s1), c(23383L, rep(97L, 4), 99L))           ; nchar(s1) == 6
+    identical(utf8ToInt(s2), c(23383L, 98L, 98L))                   ; nchar(s2) == 3
+    identical(utf8ToInt(s3), c(23383L, 97L, 97L, 97L, 97L, 23383L)) ; nchar(s3) == 6
+    identical(utf8ToInt(s4), c(23383L, 98L, 98L, 98L, 100L))        ; nchar(s4) == 5
+    Encoding(c(s1,s2,s3,s4)) == rep("UTF-8", 4)
+})
+## did partly overrun to invalid strings, nchar(.) giving error in R <= 4.3.1
+
+
+## PR#18555 : see ---> ./misc-devel.R
+
+
+## PR#18557 readChar() with large 'nchars'
+ch <- "hello\n"; tf <- tempfile(); writeChar(ch, tf)
+tools::assertWarning((c2 <- readChar(tf, 4e8)))
+stopifnot(identical(c2, "hello\n"))
+## had failed w/   cannot allocate memory block of size 16777216 Tb
+
+
+## Deprecation of *direct* calls to as.data.frame.<someVector>
+dpi <- as.data.frame(pi)
+d1 <- data.frame(dtime = as.POSIXlt("2023-07-06 11:11")) # gave F.P. warning
+r <- lapply(list(1L, T=T, pi=pi), as.data.frame)
+stopifnot(is.list(r), is.data.frame(d1), inherits(d1[,1], "POSIXt"), is.data.frame(r$pi), r$pi == pi)
+stopifnot(local({adf <- as.data.frame; identical(adf(1L),(as.data.frame)(1L))}))
+## Gave 1 + 3 + 2  F.P. deprecation warnings in 4.3.0 <= R <= 4.3.1
+str(d2 <- mapply(as.data.frame, x=1:3, row.names=letters[1:3]))
+stopifnot(is.list(d2), identical(unlist(unname(d2)), 1:3))
+## gave Error .. sys.call(-1L)[[1L]] .. comparison (!=) is possible only ..
 
 
 

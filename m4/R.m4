@@ -202,6 +202,12 @@ if test "${r_cv_prog_texi2any_v5}" != yes; then
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
+if test "${r_cv_prog_texi2any_v7}" != yes; then 
+  HAVE_TEXI2ANY_V7_TRUE='#'
+else
+  HAVE_TEXI2ANY_V7_TRUE=
+fi
+AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
@@ -212,23 +218,37 @@ fi
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
 AC_DEFUN([_R_PROG_TEXI2ANY_VERSION],
-[AC_CACHE_CHECK([whether texi2any version is at least 5.1],
+[AC_CACHE_VAL([r_cv_prog_texi2any_version],
+[r_cv_prog_texi2any_version=`${TEXI2ANY} --version | \
+  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
+[r_cv_prog_texi2any_version_maj=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f1 -d.`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
+[r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f2 -d. | tr -dc '0123456789.'`])
+AC_CACHE_CHECK([whether texi2any version is at least 5.1],
                 [r_cv_prog_texi2any_v5],
-[texi2any_version=`${TEXI2ANY} --version | \
-  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`
-texi2any_version_maj=`echo ${texi2any_version} | cut -f1 -d.`
-texi2any_version_min=`echo ${texi2any_version} | \
-  cut -f2 -d. | tr -dc '0123456789.' `
-if test -z "${texi2any_version_maj}" \
-     || test -z "${texi2any_version_min}"; then
+[if test -z "${r_cv_prog_texi2any_version_maj}" \
+     || test -z "${r_cv_prog_texi2any_version_min}"; then
   r_cv_prog_texi2any_v5=no
-elif test ${texi2any_version_maj} -gt 5; then
+elif test ${r_cv_prog_texi2any_version_maj} -gt 5; then
   r_cv_prog_texi2any_v5=yes
-elif test ${texi2any_version_maj} -lt 5 \
-     || test ${texi2any_version_min} -lt 1; then
+elif test ${r_cv_prog_texi2any_version_maj} -lt 5 \
+     || test ${r_cv_prog_texi2any_version_min} -lt 1; then
   r_cv_prog_texi2any_v5=no
 else
   r_cv_prog_texi2any_v5=yes
+fi])
+  ## Also record whether texi2any is at least 7 to appropriately handle
+  ## HTML and EPUB output changes, see
+  ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
+AC_CACHE_VAL([r_cv_prog_texi2any_v7],
+[if test ${r_cv_prog_texi2any_v5} = yes \
+     && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
+  r_cv_prog_texi2any_v7=yes
+else
+  r_cv_prog_texi2any_v7=no
 fi])
 ])# _R_PROG_TEXI2ANY_VERSION
 
@@ -3926,6 +3946,7 @@ fi
 dnl Need to exclude Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icx.
 case  "${CC}" in
   ## Intel compiler: note that -c99 may have been appended
   *icc*)
@@ -3951,6 +3972,7 @@ fi
 dnl Need to exclude Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
   ## Intel compiler
   *icc*|*icpc*)
@@ -3973,7 +3995,8 @@ if test "${r_cv_prog_fc_vis}" = yes; then
     F_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl need to exclude Intel compilers.
+dnl flang accepts this but ignores it.
+dnl Need to exclude Intel compilers, but ifx seems to work.
 case  "${FC}" in
   ## Intel compiler
   *ifc|*ifort)
@@ -4247,6 +4270,7 @@ dnl Compiler types
 dnl C: AC_PROG_CC does
 dnl   If using the GNU C compiler, set shell variable `GCC' to `yes'.
 dnl   Alternatively, could use ac_cv_c_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here
 if test "${GCC}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gcc"
 else
@@ -4262,6 +4286,7 @@ fi
 dnl C++: AC_PROG_CXX does
 dnl   If using the GNU C++ compiler, set shell variable `GXX' to `yes'.
 dnl   Alternatively, could use ac_cv_cxx_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here
 if test "${GXX}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gxx"
 else
@@ -4277,7 +4302,9 @@ dnl Fortran (fixed- then free-form):
 if test "${ac_cv_fc_compiler_gnu}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gfortran,gfortran"
 else
+dnl Needs entries here for flang-new and Intel (ifort, ifx)
 case "${FC}" in
+  ## This means Classic flang
   *flang)
     R_SYSTEM_ABI="${R_SYSTEM_ABI},flang,flang"
     ;;

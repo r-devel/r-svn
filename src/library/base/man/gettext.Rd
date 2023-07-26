@@ -1,6 +1,6 @@
 % File src/library/base/man/gettext.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{gettext}
@@ -28,7 +28,6 @@ ngettext(n, msg1, msg2, domain = NULL)
 bindtextdomain(domain, dirname = NULL)
 
 Sys.setLanguage(lang, unset = "en")
-
 }
 \arguments{
   \item{\dots}{One or more character vectors.}
@@ -36,7 +35,7 @@ Sys.setLanguage(lang, unset = "en")
     \code{gettext()} should happen.  \code{trim = FALSE} may be needed for
     compiled code (C / C++) messages which often end with \code{\\n}.}
   \item{domain}{the \sQuote{domain} for the translation, a \code{character}
-    string, or \code{\link{NULL}} to flush the cache; see \sQuote{Details}.}
+    string, or \code{\link{NULL}}; see \sQuote{Details}.}
   \item{n}{a non-negative integer.}
   \item{msg1}{the message to be used in English for \code{n = 1}.}
   \item{msg2}{the message to be used in English for \code{n = 0, 2, 3, \dots}.}
@@ -71,8 +70,8 @@ Sys.setLanguage(lang, unset = "en")
 
   The \emph{language} to be used for message translation is determined by
   your OS default and/or the locale setting at \R's startup, see
-  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment
-  variable.
+  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment 
+  variable, and also \code{Sys.setLanguage()} here.
 
   Conventionally the domain for \R warning/error messages in package
   \pkg{pkg} is \code{"R-pkg"}, and that for C-level messages is \code{"pkg"}.
@@ -98,6 +97,10 @@ Sys.setLanguage(lang, unset = "en")
   \code{textdomain(textdomain(NULL))} for the purpose of flushing (i.e.,
   emptying) the cache of already translated strings; it returns \code{TRUE}
   when NLS is enabled.
+
+  The utility \code{Sys.setlanguage(lang)} combines setting the
+  \env{LANGUAGE} environment variable with flushing the translation cache
+  by \code{bindtextdomain(NULL)}.
 }
 \value{
   For \code{gettext}, a character vector, one element per string in

@@ -58,6 +58,12 @@
 
 #include <errno.h>
 
+/* Intel compilers for Linux do have matherr, but they do not have the
+   defines in math.h.  So we skip this for Intel */
+
+#if defined __INTEL_COMPILER || defined __INTEL_LLVM_COMPILER
+#undef HAVE_MATHERR
+#endif
 #ifdef HAVE_MATHERR
 
 /* Override the SVID matherr function:
@@ -601,7 +607,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	    if(ny != 0)
 		warningcall(call, _(
 	"Recycling array of length 1 in array-vector arithmetic is deprecated.\n\
-  Use c() or as.vector() instead.\n"));
+  Use c() or as.vector() instead."));
     	    REPROTECT(x = duplicate(x), xpi);
     	    setAttrib(x, R_DimSymbol, R_NilValue);
     	}
@@ -609,7 +615,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	    if(nx != 0)
 		warningcall(call, _(
 	"Recycling array of length 1 in vector-array arithmetic is deprecated.\n\
-  Use c() or as.vector() instead.\n"));
+  Use c() or as.vector() instead."));
     	    REPROTECT(y = duplicate(y), ypi);
     	    setAttrib(y, R_DimSymbol, R_NilValue);
     	}

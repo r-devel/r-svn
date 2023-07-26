@@ -19,6 +19,22 @@
 
   \subsection{NEW FEATURES}{
     \itemize{
+      \item The \code{confint()} methods for \code{"glm"} and
+      \code{"nls"} objects have been copied to the \pkg{stats}
+      package.  Previously, they were stubs which called versions in
+      package \pkg{MASS}. The \pkg{MASS} namespace is no longer loaded
+      if you invoke (say) \code{confint(glmfit)}.  Further, the
+      \code{"glm"} method for \code{profile()} and the \code{plot()}
+      and \code{pairs()} mesthods for class \code{"profile"} have been
+      copied from \pkg{MASS} to \pkg{stats}.  (\code{profile.nls()} and
+      \code{plot.profile.nls()} were already in \code{stats}.)
+
+      \item The \code{confint()} and \code{profile} methods for
+      \code{"glm"} objects have gained a possibility to do profiling
+      based on the Rao Score statistic in addition to the default
+      Likelihood Ratio. This is controlled by a new \code{test=}
+      argument.
+
       \item The \code{"glm"} method for \code{anova()} computes test
       statistics and p-values by default, using a chi-squared test or
       an F test depending on whether the dispersion is fixed or
@@ -40,6 +56,28 @@
       maximum number of connections for the session.  Defaults to 128 as
       before: allowed values up to 4096 (but resource limits may in practice
       restrict to smaller values).
+
+      \item \R on Windows (since Windows 10 2004) now uses the new Segment
+      Heap allocator. This may improve performance of some memory-intensive
+      applications.
+
+      \item When \R packages are built, typically by \command{R CMD build <pkg>},
+      the new \command{--user=<build_user>} option overrides the
+      (internally determined) user name, currently \code{Sys.info()["user"]}
+      or \env{LOGNAME}.  This is a (modified) fulfillment of Will Landau's
+      suggestion in \PR{17530}.
+
+      \item \pkg{tools}\code{::testInstalledBasic()} gets new optional
+      arguments \code{outDir} and \code{testSrcdir}, e.g., allowing to use
+      it in a \sQuote{<builddir> != <srcdir>} setup, and in standard
+      \dQuote{binary} Windows installation \bold{if} a source \file{tests/}
+      folder is present.
+
+      \item \code{range(<DT_with_Inf>, finite=TRUE)} now work for objects
+      of class \code{"Date"}, \code{"POSIXct"}, and \code{"POSIXlt"} with
+      infinite entries, analogously to \code{range.default()}, as proposed
+      by Davis Vaughan on R-devel.  Other \code{range()}-methods can make
+      use of new \code{.rangeNum()}.
     }
   }
 
@@ -51,6 +89,10 @@
 
       \item \command{configure} will warn if it encounters a 32-bit
       build, as that is nowadays almost untested.
+
+      \item There is some support for building with Intel's LLVM-based
+      compilers on \samp{x86_64} Linux, such as (C) \command{icx}, (C++)
+      \command{ipcx} and (Fortran) \command{ifx} from oneAPI 2023.x.0.
     }
   }
 
@@ -60,8 +102,36 @@
   %%   }
   %% }
 
+  \subsection{UTILITIES}{
+    \itemize{
+      \item \command{R CMD check} notes when S4-style exports are used
+      without declaring a strong dependence on package \pkg{methods}.
+
+      \item \code{tools::checkRd()} (used by \command{R CMD check})
+      detects more problems with \verb{\Sexpr}-based dynamic content,
+      including bad nesting of \verb{\Sexpr}s and invalid arguments.
+
+      \item \code{tools::checkRd()} now reports Rd titles and section
+      names ending in a period; this is ignored by \command{R CMD check}
+      unless environment variable \env{_R_CHECK_RD_CHECKRD_MINLEVEL_} is
+      set to -5 or smaller.
+
+      \item \command{R CMD check} now notes Rd files without an
+      \verb{\alias}, as long documented in \sQuote{Writing R Extensions}
+      §1.3.1.
+      The check for a missing \verb{\description} has been moved from
+      \code{tools::checkRd()} to \code{tools::checkRdContents()}.
+    }
+  }
+
   \subsection{BUG FIXES}{
     \itemize{
+      \item Arguments are now properly forwarded to methods on S4 generics
+      with \dots{} in the middle of their formal arguments. This was
+      broken for the case when a method introduced an argument but did
+      not include \dots{} in its own formals. Thanks to Hervé Pagès for
+      the report \PR{18538}.
+
       \item Probability distribution functions \code{[dpq]<distrib>(x, *)},
       but also \code{bessel[IKJY](x, .)} are now consistently preserving
       \code{attributes(x)} when \code{length(x) == 0}, e.g., for a
@@ -92,7 +162,7 @@
       GraphApp has been fixed (\PR{13870}).
 
       \item \code{density()} more consistently computes grid values for the
-      FFT based convolution, following Robert Schlicht's analysis and
+      FFT-based convolution, following Robert Schlicht's analysis and
       proposal in \PR{18337}, correcting density values typically by a
       factor of about 0.999.  Optional \code{old.coords=TRUE} provides
       back compatibility.
@@ -108,6 +178,65 @@
       \item \code{S3method(<gen>, <class>, <func>)} in the \file{NAMESPACE}
       file now works (again) when \code{<func>} is visible from the
       namespace, e.g., imported, or in base.
+
+      \item \code{getParseData(f)} now also works for a function defined
+      in the first of several \file{<pkg>/R/*.R} source files, thanks to
+      Kirill Müller's report and Duncan Murdoch's patch in \PR{16756}.
+
+      \item \code{tools::checkRd()} no longer produces spurious notes
+      about \dQuote{unnecessary braces} from multi-line Rd results of
+      \verb{\Sexpr} macros.
+
+      \item Rd \verb{\Sexpr} macros with nested \verb{#ifdef}
+      conditionals were not processed.
+
+      \item A non-blocking connection with non-default encoding such as a
+      socket, now correctly returns from \code{readLines()} after new data
+      has arrived also when its EOF had been reached previously.  Thanks to
+      Peter Meilstrup's report on R-devel and Ivan Krylov's report and
+      patch proposal in \PR{18555}.
+
+      \item \code{tools::checkRdContents()} failed to detect empty
+      argument descriptions when they spanned multiple lines,
+      including those generated by \code{prompt()}.
+      These cases are now noted by \command{R CMD check}.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.3.1 patched}{
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item The default initialization of the \code{"repos"} option
+      from the \file{repositories} file at startup can be skipped by
+      setting environment variable \env{R_REPOSITORIES} to \code{NULL}
+      such that \code{getOption("repos")} is empty if not set elsewhere.
+
+      \item \code{qr.X()} is now an implicit S4 generic in \pkg{methods}.
+
+      \item \code{iconv(to = "ASCII//TRANSLIT")} is emulated using
+      substitution on platforms which do not support it (notably Alpine
+      Linux).  This should give a human-readable conversion in ASCII on
+      all platforms (rather than \code{NA_character_}).
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{substr(x, n, L) <- cc} now works (more) correctly for
+      multibyte UTF-8 strings \code{x} when \code{L > nchar(x)}, thanks to
+      a report and patch by \sQuote{Architect 95}.
+
+      \item \code{contrib.url(character())} now returns 0-length
+      \code{character()} as documented, which also avoids spurious
+      warnings from \code{available.packages()} et al.\sspace{}in the
+      edge case of an empty vector of repository URLs.
+
+      \item \code{readChar(., 4e8)} no longer fails, thanks to Kodi Arfer's
+      report (\PR{18557}).
+
+      \item \code{lapply(<list>, as.data.frame)} no longer warns falsely for
+      some base vector components.
     }
   }
 }
@@ -1298,7 +1427,7 @@
     \itemize{
       \item Writing to a clipboard connection works again, fixing a
       regression in \R 4.2.0 (\PR{18332}).  Re-using a closed clipboard
-      connection longer issues a spurious warning about an ignored
+      connection no longer issues a spurious warning about an ignored
       encoding argument.
 
       \item C function \code{getlocale} no longer attempts to query an

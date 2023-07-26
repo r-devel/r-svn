@@ -51,3 +51,26 @@ stopifnot(grepl("10.1000/456#789", out[5], fixed = TRUE),
           grepl("10.1000/{}", out[7], fixed = TRUE),
           grepl("doi.org/10.1000/%7B%7D", out[7], fixed = TRUE))
 ## R < 4.2.0 failed to encode the hash and lost {}
+
+
+## \title and \section name should not end in a period
+rd <- parse_Rd(textConnection(r"(
+\name{test}
+\title{title.}
+\description{description}
+\section{section.}{nothing}
+)"))
+stopifnot(identical(endsWith(print(checkRd(rd)), "end in a period"),
+                    rep(TRUE, 2)))
+
+## checkRd() with duplicated \name (is documented to fail from prepare_Rd)
+assertError(checkRd(parse_Rd(textConnection(r"(
+\name{test}\title{test}\name{test2}
+)"))), verbose = TRUE)
+## no error in R < 4.4.0
+
+## prepared NEWS should check cleanly
+NEWS_Rd <- readRDS(file.path(R.home("doc"), "NEWS.rds"))
+stopifnot(inherits(NEWS_Rd, "Rd"),
+          length(print(checkRd(NEWS_Rd))) == 0L)
+## "Must have a \description" in R < 4.4.0, now moved to checkRdContents()

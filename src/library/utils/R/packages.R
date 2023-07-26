@@ -835,6 +835,7 @@ contrib.url <- function(repos, type = getOption("pkgType"))
         stop("invalid 'type'; must be a character string")
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
+    if(!length(repos)) return(character())
     if("@CRAN@" %in% repos && interactive()) {
         cat(gettext("--- Please select a CRAN mirror for use in this session ---"),
             "\n", sep = "")
@@ -955,7 +956,7 @@ setRepositories <-
     function(graphics = getOption("menu.graphics"), ind = NULL,
              addURLs = character(), name = NULL)
 {
-    if(is.null(ind) && !interactive())
+    if(is.null(name) && is.null(ind) && !interactive())
         stop("cannot set repositories non-interactively")
     a <- .get_repositories()
     pkgType <- getOption("pkgType")
@@ -1179,7 +1180,8 @@ compareVersion <- function(a, b)
 .get_repositories <- function()
 {
     rfile <- Sys.getenv("R_REPOSITORIES", unset = NA_character_)
-    if(is.na(rfile) || !file_test("-f", rfile)) {
+    ## "NULL" has a special meaning during .onLoad()
+    if(is.na(rfile) || rfile == "NULL" || !file_test("-f", rfile)) {
         rfile <- file.path(Sys.getenv("HOME"), ".R", "repositories")
         if(!file_test("-f", rfile))
             rfile <- file.path(R.home("etc"), "repositories")

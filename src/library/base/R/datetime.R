@@ -1,7 +1,7 @@
 #  File src/library/base/R/datetime.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -530,7 +530,9 @@ Math.POSIXt <- function (x, ...)
     if(length(tzs)) tzs[1L] else NULL
 }
 
-Summary.POSIXct <- function (..., na.rm)
+## NB: 'na.rm' is part of the Summary generic,
+## --  but 'finite' is not: argument only of range.default() and these:
+Summary.POSIXct <- function (..., na.rm, finite = FALSE)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if (!ok)
@@ -541,7 +543,7 @@ Summary.POSIXct <- function (..., na.rm)
     .POSIXct(NextMethod(.Generic), tz = tz, cl = oldClass(args[[1L]]))
 }
 
-Summary.POSIXlt <- function (..., na.rm)
+Summary.POSIXlt <- function (..., na.rm, finite = FALSE)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if (!ok)
@@ -550,7 +552,9 @@ Summary.POSIXlt <- function (..., na.rm)
     args <- list(...)
     tz <- do.call(.check_tzones, args)
     args <- lapply(args, as.POSIXct)
-    val <- do.call(.Generic, c(args, na.rm = na.rm))
+    val <- switch(.Generic,
+                  max = , min = do.call(.Generic, c(args, na.rm = na.rm)), # not (yet?) finite
+                  range =       do.call(range,    c(args, na.rm = na.rm, finite = finite)))
     as.POSIXlt(.POSIXct(val, tz))
 }
 
@@ -1318,7 +1322,7 @@ function(x, units = c("secs", "mins", "hours", "days", "months", "years"))
 
 as.data.frame.POSIXlt <- function(x, row.names = NULL, optional = FALSE, ...)
 {
-    value <- as.data.frame.POSIXct(as.POSIXct(x), row.names, optional, ...)
+    value <- as.data.frame.vector(as.POSIXct(x), row.names, optional, ...)
     if (!optional)
         names(value) <- deparse1(substitute(x))
     value

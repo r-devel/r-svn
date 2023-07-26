@@ -1228,7 +1228,8 @@ C++@footnote{either or both of which may not be supported on particular
 platforms.  Their main use is on macOS, but unfortunately recent
 versions of the macOS SDK have removed much of the support for Objective
 C v1.0 and Objective C++.} with associated extensions @file{.c},
-@file{.cc} or @file{.cpp}, @file{.f}, @file{.f90} or @file{.f95},
+@file{.cc} or @file{.cpp}, @file{.f}, @file{.f90} or
+@file{.f95},@footnote{This is not accepted by the Intel Fortran compiler.}
 @file{.m}, and @file{.mm}, respectively.  We recommend using @file{.h}
 for headers, also for C++@footnote{Using @file{.hpp} is not guaranteed
 to be portable.} or Fortran 9x include files.  (Use of extension
@@ -2199,9 +2200,10 @@ double-complex BLAS routines, but no single-precision nor complex
 routines.  If @code{BLAS_LIBS} is included, then @code{FLIBS} also needs
 to be@footnote{at least on Unix-alikes: the Windows build currently
 resolves such dependencies to a static Fortran library when
-@file{Rblas.dll} is built.  Also, not if @code{USE_FC_TO_LINK} is used.}
-included following it, as most BLAS libraries are written at least
-partially in Fortran.
+@file{Rblas.dll} is built.}  included following it, as most BLAS
+libraries are written at least partially in Fortran.  However, it can
+be omitted if the package contains Fortran source code as that will add
+@code{FLIBS} to the link line.
 
 @item LAPACK_LIBS
 @vindex LAPACK_LIBS
@@ -2214,10 +2216,11 @@ point to an external LAPACK library, or may be empty if an external BLAS
 library also contains LAPACK.
 
 [@code{libRlapack} includes all the double-precision LAPACK routines
-which were current in 2003: a list of which routines are included is in
-file @file{src/modules/lapack/README}. Note that an external LAPACK/BLAS
-library need not do so, as some were `deprecated' (and not compiled by
-default) in LAPACK 3.6.0 in late 2015.]
+which were current in 2003 and a few more recent ones: a list of which
+routines are included is in file @file{src/modules/lapack/README}. Note
+that an external LAPACK/BLAS library need not do so, as some were
+`deprecated' (and not compiled by default) in LAPACK 3.6.0 in late
+2015.]
 
 For portability, the macros @code{BLAS_LIBS} and @code{FLIBS} should
 always be included @emph{after} @code{LAPACK_LIBS} (and in that order).
@@ -2845,31 +2848,30 @@ or by setting the environment variables @code{ODBC_INCLUDE} and
 
 @R{} assumes that source files with extension @file{.f} are fixed-form
 Fortran 90 (which includes Fortran 77), and passes them to the compiler
-specified by macro @samp{FC}.  On known platforms the Fortran compiler
-will also accept free-form Fortran 90/95 code with extension @file{.f90}
-or @file{.f95}, but those are not used by @R{} itself so this is not
-required.
+specified by macro @samp{FC}.  The Fortran compiler will also accept
+free-form Fortran 90/95 code with extension @file{.f90} or @file{.f95}.
 
 @vindex PKG_FCFLAGS
-The same compiler is used@footnote{for versions of @R{} since 3.6.0.}
-for both fixed-form and free-form Fortran code (with different file
-extensions and possibly different flags).  Macro @code{PKG_FFLAGS} can
-be used for package-specific flags: for the un-encountered case that both
-are included in a single package and that different flags are needed for
-the two forms, macro @code{PKG_FCFLAGS} is also available for free-form
-Fortran.
+The same compiler is used for both fixed-form and free-form Fortran code
+(with different file extensions and possibly different flags).  Macro
+@code{PKG_FFLAGS} can be used for package-specific flags: for the
+un-encountered case that both are included in a single package and that
+different flags are needed for the two forms, macro @code{PKG_FCFLAGS}
+is also available for free-form Fortran.
 
 The code used to build @R{} allows a `Fortran 90' compiler to be
 selected as @samp{FC}, so platforms might be encountered which only
-support Fortran 90.  However, Fortran 95 is widely supported.
+support Fortran 90.  However, Fortran 95 is supported on all known
+platforms.
 
-Some compilers specified by @samp{FC} will accept Fortran 2003, 2008 or
+Most compilers specified by @samp{FC} will accept Fortran 2003, 2008 or
 2018 code: such code should still use file extension @file{.f90} or
 @file{.f95}.  Almost all current platforms use @command{gfortran} where
 you may need to include @option{-std=f2003}, @option{-std=f2008} or
 (from version 8) @option{-std=f2018} in @code{PKG_FFLAGS} or
-@code{PKG_FCFLAGS}: the default is `GNU Fortran', Fortran 95 with
-non-standard extensions.
+@code{PKG_FCFLAGS}: the default is `GNU Fortran', currently Fortran 2018
+(but Fortran 95 prior to @command{gfortran}@tie{}8) with non-standard
+extensions.
 @c The Oracle @command{f95} compiler `accepts some Fortran 2003/8 features'
 @c (search for `Oracle Developer Studio 12.6: Fortran User's Guide' and
 @c look for §4.6).
@@ -3118,11 +3120,22 @@ C++17 as from @R{} 3.4.0, for C++20 from @R{} 4.0.0 and for C++23 from
 @R{} 4.3.0 (although they may not be supported by the compilers
 in use).  C++11 support became mandatory in @R{} 4.0.0.
 
+The @file{.so}/@file{.dll} in a package may need to be linked by the
+C++ compiler if it or any library it links to contains compiled C++
+code.  Dynamic linking usually brings in the C++ runtime library
+(commonly @code{libstdc++} but can be, for example, @code{libc++}) but
+static linking (as used for external libraries on Windows and macOS)
+will not.  @command{R CMD INSTALL} will link with the C++ compiler if
+there are any top-level C++ files in @file{src}, but not if these are
+all in subdirectories.  The simplest way to force linking by the C++
+compiler is to include an empty C++ file in @file{src}, as used by
+package @pkg{rgeos}.
+
 @node C standards, Using @command{cmake}, Using C++ code, Configure and cleanup
 @subsection C standards
 
-C has had standards C89/C90, C99, C11, C17 (also known as C18) and C23
-is in final draft and expected to be published during 2023.  C11 was a
+C has had standards C89/C90, C99, C11, C17 (also known as C18), and C23
+is in final draft and expected to be published in early 2024.  C11 was a
 minor change to C99 which introduced some new features and made others
 optional, and C17 is a `bug-fix' update to C11.  On the other hand, C23
 makes extensive changes, including making @code{bool}, @code{true} and
@@ -3166,9 +3179,9 @@ for example @code{__STDC_VERSION_LIMITS_H__}.
 
 However, note the `claimed' as no compiler had 100% conformance, and it
 is better to use @command{configure} to test for the feature you want to
-use that to condition on the value of @code{__STDC_VERSION__}.  In
-particular, alignment functionality such as @code{_Alignas} and
-@code{aligned_alloc} are not implemented on Windows.
+use than to condition on the value of @code{__STDC_VERSION__}.  In
+particular, C11 alignment functionality such as @code{_Alignas} and
+@code{aligned_alloc} is not implemented on Windows.
 
 End users can specify a standard by something like @command{R CMD
 INSTALL --use-C17}.  This overrides the @samp{SystemRequirements} field,
@@ -4689,8 +4702,12 @@ standard function @code{c} in @pkg{base}.
 
 Some additional steps are needed for packages which make use of formal
 (S4-style) classes and methods (unless these are purely used
-internally).  The package should have @code{Depends: methods} in its
-@file{DESCRIPTION} and @code{import(methods)} or
+internally).  The package should have
+@code{Depends: methods}@footnote{@code{Imports: methods} may suffice,
+but package code is little exercised without the @pkg{methods} package
+on the search path and may not be fully robust to this scenario.
+@c https://bugs.R-project.org/show_bug.cgi?id=18540#c10
+} in its @file{DESCRIPTION} and @code{import(methods)} or
 @code{importFrom(methods, ...)} plus any classes and methods which are
 to be exported need to be declared in the @file{NAMESPACE} file.  For
 example, the @pkg{stats4} package has
@@ -5331,9 +5348,9 @@ does not mention any options, and what calling it without options does
 is platform-dependent.  Stripping a @file{.so} file could even prevent
 it being dynamically loaded into @R{} on an untested platform.
 
-@command{ld -S} invokes @command{strip --strip-debug} on GNU
-@command{ld} but is not portable: in particular on Solaris it did
-something completely different and took an argument.
+@command{ld -S} invokes @command{strip --strip-debug} for GNU
+@command{ld} (and similarly on macOS) but is not portable: in particular
+on Solaris it did something completely different and took an argument.
 
 @item
 Some people have a need to set a locale.  Locale names are not portable,
@@ -5388,7 +5405,7 @@ names, which are (confusingly)
 @noindent
 and as from 2018 a year.month scheme such as @samp{18.9} is also in
 use.  Fortunately only the integer values are likely to be relevant.
-If at all possible, use one of the LTS versions (8, 11, 17, 21 @dots{})
+If at all possible, use one of the @acronym{LTS} versions (8, 11, 17, 21 @dots{})
 as the minimum version.  The preferred form of version specification is
 @example
 SystemRequirements: Java (>= 11)
@@ -5427,7 +5444,11 @@ Java code produced by others, so their requirements need to be checked
 (they are often not documented accurately) and accounted for.  It should
 be possible to check the class-file version @emph{via} command-line
 utility @command{javap}, if necessary after extracting the @file{.class}
-files from a @file{.jar} archive.
+files from a @file{.jar} archive.  For example,
+@example
+jar xvf some.jar
+javap -verbose path/to/some.class | grep major
+@end example
 
 Some packages have stated a requirement on a particular JDK, but a
 package should only be requiring a JRE unless providing its own Java
@@ -6901,30 +6922,31 @@ As an example, let us look at a simplified version of
 \alias@{load@}
 \title@{Reload Saved Datasets@}
 \description@{
-  Reload the datasets written to a file with the function
-  \code@{save@}.
+  Reload datasets written with the function \code@{save@}.
 @}
 \usage@{
-load(file, envir = parent.frame())
+load(file, envir = parent.frame(), verbose = FALSE)
 @}
 \arguments@{
-  \item@{file@}@{a connection or a character string giving the
-    name of the file to load.@}
-  \item@{envir@}@{the environment where the data should be
-    loaded.@}
+  \item@{file@}@{a (readable binary-mode) \link@{connection@}
+    or a character string giving the name of the file to load
+    (when \link@{tilde expansion@} is done).@}
+  \item@{envir@}@{the environment where the data should be loaded.@}
+  \item@{verbose@}@{should item names be printed during loading?@}
+@}
+\value@{
+  A character vector of the names of objects created, invisibly.
 @}
 \seealso@{
   \code@{\link@{save@}@}.
 @}
 \examples@{
+@c reproducing only a minimal and simplified subset of the examples here
 ## save all data
-save(list = ls(), file= "all.RData")
+save(list = ls(all.names = TRUE), file = "all.RData")
 
 ## restore the saved values to the current environment
 load("all.RData")
-
-## restore the saved values to the workspace
-load("all.RData", .GlobalEnv)
 @}
 \keyword@{file@}
 @end smallexample
@@ -7184,7 +7206,9 @@ Description of the function's arguments, using an entry of the form
 @end example
 
 @noindent for each element of the argument list.  (Note that there is
-no whitespace between the three parts of the entry.) There may be
+no whitespace between the three parts of the entry.)  Arguments can also
+be described jointly by separating their names with commas (and optional
+whitespace) in the @code{\item} label.  There may be
 optional text outside the @code{\item} entries, for example to give
 general information about groups of parameters.
 
@@ -7340,11 +7364,12 @@ Do strongly consider using @code{\concept} (@pxref{Indices}) instead of
 @code{\keyword} if you are about to use more than very few non-standard
 keywords.
 
-The special keyword @samp{internal} marks a page of internal objects
-that are not part of the package's API.  If the help page for object
+The special keyword @samp{internal} marks a page of internal topics
+(typically, objects that are not part of the package's API).
+If the help page for topic
 @code{foo} has keyword @samp{internal}, then @code{help(foo)} gives this
-help page, but @code{foo} is excluded from several object indices,
-including the alphabetical list of objects in the @HTML{} help system.
+help page, but @code{foo} is excluded from several topic indices,
+including the alphabetical list of topics in the @HTML{} help system.
 
 @code{help.search()} can search by keyword, including user-defined
 values: however the `Search Engine & Keywords' @HTML{} page accessed
@@ -7491,10 +7516,10 @@ another @file{Rd} file, it is helpful to use this as an additional
 @code{\alias}.
 
 Skeletons of documentation for a package can be generated using the
-function @code{promptPackage()}.  If the @code{final = LIBS} argument
+function @code{promptPackage()}.  If the @code{final = TRUE} argument
 is used, then the @file{Rd} file will be generated in final form, containing
-the information that would be produced up to
-@code{library(help = @var{pkgname})}.  Otherwise (the default) comments
+the information that would be produced by
+@code{library(help = @var{pkgname})}. Otherwise (the default) comments
 will be inserted giving suggestions for content.
 
 Apart from the mandatory @code{\name} and @code{\title} and the
@@ -7530,7 +7555,8 @@ For example
 @noindent
 For consistency with the pre-assigned sections, the section name (the
 first argument to @code{\section}) should be capitalized (but not all
-upper case).  Whitespace between the first and second braced expressions
+upper case) and not end in a period.
+Whitespace between the first and second braced expressions
 is not allowed.  Markup (e.g.@: @code{\code}) within the section title
 may cause problems with the latex conversion (depending on the version
 of macro packages such as @samp{hyperref}) and so should be avoided.
@@ -7823,8 +7849,9 @@ Packages referred to by these `other forms' should be declared in the
 @findex \deqn
 
 Mathematical formulae should be set beautifully for printed
-documentation yet we still want something useful for text and @HTML{}
-online help.  To this end, the two commands
+documentation and in KaTeX/MathJax-enhanced @HTML{} help (as from
+@R{} 4.2.0) yet we still want something useful for plain-text (and
+legacy @HTML{}) help.  To this end, the two commands
 @code{\eqn@{@var{latex}@}@{@var{ascii}@}} and
 @code{\deqn@{@var{latex}@}@{@var{ascii}@}} are used.  Whereas @code{\eqn}
 is used for ``inline'' formulae (corresponding to @TeX{}'s
@@ -7848,19 +7875,19 @@ The following example is from @file{Poisson.Rd}:
 @end example
 
 @iftex
-For the @LaTeX{} manual, this becomes
+For the @LaTeX{} manual and in enhanced @HTML{} help, this becomes
 @c: this is TeXinfo markup, not the result of the conversions.
 @quotation
 @cartouche
 @tex
-$$ p(x) = \lambda^x\ {e^{-\lambda} \over x!} $$
+$$ p(x) = {\lambda^x e^{-\lambda} \over x!} $$
 for $x = 0, 1, 2, \ldots$.
 @end tex
 @end cartouche
 @end quotation
 @end iftex
 
-For text on-line help we get
+In plain-text help we get
 
 @quotation
 @cartouche
@@ -7872,12 +7899,13 @@ for x = 0, 1, 2, ....
 @end cartouche
 @end quotation
 
-Greek letters (both cases) will be rendered in @HTML{} if preceded by a
+In legacy @HTML{} help, Greek letters (both cases) will be rendered if preceded by a
 backslash, @code{\dots} and @code{\ldots} will be rendered as ellipses
 and @code{\sqrt}, @code{\ge} and @code{\le} as mathematical symbols.
 
 Note that only basic @LaTeX{} can be used, there being no provision to
-specify @LaTeX{} style files such as the AMS extensions.
+specify @LaTeX{} style files, but AMS extensions are supported
+as from @R{} 4.2.2.
 
 @node Figures, Insertions, Mathematics, Writing R documentation files
 @section Figures
@@ -7925,9 +7953,10 @@ best choice in reference manuals.)  Specify the filename relative to
 @section Insertions
 
 @findex \R
-Use @code{\R} for the @R{} system itself.  Use @code{\dots}
+Use @code{\R} for the @R{} system itself.  The @code{\dots}
 @findex \dots
-for the dots in function argument lists @samp{@dots{}}, and
+macro is a historical alternative to using literal @samp{@dots{}}
+for the dots in function argument lists; use
 @code{\ldots}
 @findex \ldots
 for ellipsis dots in ordinary text.@footnote{There is only a fine
@@ -7935,7 +7964,7 @@ distinction between @code{\dots} and @code{\ldots}.  It is technically
 incorrect to use @code{\ldots} in code blocks and @code{tools::checkRd}
 will warn about this---on the other hand the current converters treat
 them the same way in code blocks, and elsewhere apart from the small
-distinction between the two in @LaTeX{}.}  These can be followed by
+distinction between the two in @LaTeX{}.}  These macros can be followed by
 @code{@{@}}, and should be unless followed by whitespace.
 
 After an unescaped @samp{%}, you can put your own comments regarding the

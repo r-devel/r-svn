@@ -252,7 +252,7 @@ assign("log", function(x, base=exp(1)) UseMethod("log"),
 assign("names<-", function(x, value) UseMethod("names<-"),
        envir = .GenericArgsEnv)
 assign("rep", function(x, ...) UseMethod("rep"), envir = .GenericArgsEnv)
-assign("round", function(x, digits=0) UseMethod("round"),
+assign("round", function(x, digits = 0, ...) UseMethod("round"),
        envir = .GenericArgsEnv)
 assign("seq.int", function(from, to, by, length.out, along.with, ...)
        UseMethod("seq.int"), envir = .GenericArgsEnv)
@@ -576,6 +576,8 @@ matrix(c("!", "hexmode",
          "qr", "default",
          "quarters", "Date",
          "quarters", "POSIXt",
+         "range", "Date",
+         "range", "POSIXct",
          "range", "default",
          "rbind", "data.frame",
          "rep", "Date",
@@ -665,8 +667,9 @@ local({
     bdy <- body(as.data.frame.vector)
     bdy <- bdy[c(1:2, seq_along(bdy)[-1L])] # taking [(1,2,2:n)] to insert at [2]:
     ## deprecation warning only when not called by method dispatch from as.data.frame():
-    bdy[[2L]] <- quote(if((sys.nframe() <= 1L || sys.call(-1L)[[1L]] != quote(as.data.frame)) &&
-                          nzchar(Sys.getenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_")))
+    bdy[[2L]] <- quote(if((sys.nframe() <= 1L ||
+                           (!identical(sys.function(-1L), as.data.frame))
+                          ) && nzchar(Sys.getenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_")))
 	.Deprecated(
 	    msg = gettextf(
 		"Direct call of '%s()' is deprecated.  Use '%s()' or '%s()' instead",

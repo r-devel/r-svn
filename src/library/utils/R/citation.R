@@ -81,20 +81,24 @@ function(given = NULL, family = NULL, middle = NULL,
             family <- last
         }
 
-        ## Set all empty arguments to NULL.
-        if(.is_not_nonempty_text(given)) given <- NULL
-        if(.is_not_nonempty_text(family)) family <- NULL
-        if(.is_not_nonempty_text(email)) email <- NULL
-        if(.is_not_nonempty_text(role)) {
-            if(!is.null(role))
-                warning(sprintf(ngettext(length(role),
-                                         "Invalid role specification: %s.",
-                                         "Invalid role specifications: %s."),
-                                paste(sQuote(role), collapse = ", ")),
-                        domain = NA)
-            role <- NULL
-        }
-        if(.is_not_nonempty_text(comment)) comment <- NULL
+        ## Canonicalize: set all empty arguments to NULL, and remove
+        ## leading/trailing whitespace otherwise (which in turn coerces
+        ## to character).
+        ## In principle, all non-NULL arguments whould be character:
+        ## maybe this should be checked for?
+        .canonicalize <- function(s)
+            if(.is_not_nonempty_text(s)) NULL else trimws(s)
+        given <- .canonicalize(given)
+        family <- .canonicalize(family)
+        email <- .canonicalize(email)
+        if(.is_not_nonempty_text(role) && !is.null(role))
+            warning(sprintf(ngettext(length(role),
+                                     "Invalid role specification: %s.",
+                                     "Invalid role specifications: %s."),
+                            paste(sQuote(role), collapse = ", ")),
+                    domain = NA)
+        role <- .canonicalize(role)
+        comment <- .canonicalize(comment)
 
         ## <FIXME>
         ## Use something along the lines of
@@ -427,7 +431,7 @@ function(x,
     if(style == "R") return(.format_person_as_R_code(x))
 
     args <- c("given", "family", "email", "role", "comment")
-    include <- sapply(include, match.arg, args)
+    include <- vapply(include, match.arg, "", args)
 
     ## process defaults
     braces <- braces[args]
@@ -482,7 +486,7 @@ function(x,
 	paste(do.call(c, rval), collapse = " ")
     }
 
-    sapply(x, format_person1)
+    vapply(x, format_person1, "")
 }
 
 as.character.person <-
@@ -492,7 +496,7 @@ function(x, ...)
 toBibtex.person <-
 function(object, escape = FALSE, ...)
 {
-    object <- sapply(object, function(p) {
+    object <- vapply(object, function(p) {
          br <- if(is.null(p$family)) c("{", "}") else c("", "")
          s <- format(p, include = c("family", "given"),
                      braces = list(given = br, family = c("", ",")))
@@ -500,7 +504,7 @@ function(object, escape = FALSE, ...)
             (Encoding(s <- enc2utf8(s)) == "UTF-8"))
              tools::encoded_text_to_latex(s, "UTF-8")
          else s
-    })
+    }, "")
     paste(object[nzchar(object)], collapse = " and ")
 }
 
@@ -736,7 +740,7 @@ function(x, style = "text", .bibstyle = NULL,
         else if(is.character(macros))
             macros <- tools::loadRdMacros(macros,
                                           tools:::initialRdMacros())
-        sapply(.bibentry_expand_crossrefs(x),
+        vapply(.bibentry_expand_crossrefs(x),
                function(y) {
                    txt <- tools::toRd(y, style = .bibstyle)
                    ## <FIXME>
@@ -757,7 +761,8 @@ function(x, style = "text", .bibstyle = NULL,
                      outputEncoding = "UTF-8", ...)
                    paste(readLines(out, encoding = "UTF-8"),
                          collapse = "\n")
-               })
+               },
+               "")
     }
 
     format_as_citation <- function(x, msg) { # also (.., bibtex)
@@ -1121,7 +1126,7 @@ function(..., recursive = FALSE)
 toBibtex.bibentry <-
 function(object, escape = FALSE, ...)
 {
-    format_author <- function(author) paste(sapply(author, function(p) {
+    format_author <- function(author) paste(vapply(author, function(p) {
 	fnms <- p$family
 	only_given_or_family <-
             (is.null(fnms) || is.null(p$given)) &&
@@ -1132,7 +1137,7 @@ function(object, escape = FALSE, ...)
 	gbrc <- if(only_given_or_family) c("{", "}") else ""
         format(p, include = c("given", "family"),
                braces = list(given = gbrc, family = fbrc))
-    }), collapse = " and ")
+    }, ""), collapse = " and ")
 
     format_bibentry1 <- function(object) {
 	object <- unclass(object)[[1L]]
@@ -1143,8 +1148,10 @@ function(object, escape = FALSE, ...)
             object$editor <- format_author(object$editor)
 
         rval <- c(rval,
-                  sapply(names(object), function (n)
-                         paste0("  ", n, " = {", object[[n]], "},")),
+                  vapply(names(object),
+                         function (n)
+                             paste0("  ", n, " = {", object[[n]], "},"),
+                         ""),
                   "}", "")
         if(isTRUE(escape)) {
             rval <- enc2utf8(rval)
@@ -1367,6 +1374,7 @@ function(package = "base", lib.loc = NULL, auto = NULL)
               note = paste("R package version", meta$Version)
               )
 
+    ## CRAN-style repositories: CRAN, R-Forge, Bioconductor
     if(identical(meta$Repository, "CRAN"))
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
@@ -1389,6 +1397,32 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             sprintf("https://bioconductor.org/packages/%s", package)
         z$doi <-
             sprintf("10.18129/B9.bioc.%s", package)
+    }
+    
+    ## Git repositories: GitHub, GitLab, ...
+    if(identical(meta$RemoteType, "github") && identical(meta$RemoteHost, "api.github.com")) {
+        if(!is.null(meta$RemoteUsername) && !is.null(meta$RemoteRepo)) {
+            z$url <- sprintf("https://github.com/%s/%s", meta$RemoteUsername, meta$RemoteRepo)
+        }
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
+    }
+
+    if(identical(meta$RemoteType, "gitlab")) {
+        if(!is.null(meta$RemoteHost) && !is.null(meta$RemoteUsername) && !is.null(meta$RemoteRepo)) {
+            z$url <- sprintf("https://%s/%s/%s", meta$RemoteHost, meta$RemoteUsername, meta$RemoteRepo)
+        }
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
+    }
+
+    if(identical(meta$RemoteType, "git") || identical(meta$RemoteType, "xgit")) {
+        z$url <- meta$RemoteUrl
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
     }
 
     if(!length(z$url) && !is.null(url <- meta$URL)) {
@@ -1508,7 +1542,7 @@ function(x)
         x <- .read_authors_at_R_field(x)
     header <- attr(x, "header")
     footer <- attr(x, "footer")
-    x <- sapply(x, .format_person_for_plain_author_spec)
+    x <- vapply(x, .format_person_for_plain_author_spec, "")
     ## Drop persons with irrelevant roles.
     x <- x[nzchar(x)]
     ## And format.
@@ -1595,7 +1629,7 @@ local({
 	}
 
 	authorList <- function(paper)
-	    sapply(paper$author, shortName)
+	    vapply(paper$author, shortName, "")
 
 	if (!missing(previous))
 	    cited <<- previous

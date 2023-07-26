@@ -2613,7 +2613,9 @@ function(package, dir, lib.loc = NULL)
         ## Drop the ones where gArgs is NULL (presumably the language
         ## elements) or mArgs is NULL (a primitive?).
         if(is.null(gArgs) || is.null(mArgs)) return()
-        if(gName == "round" && mName == "round.POSIXt") return() # exception
+        ## handle round.POSIXt and packages defining methods for round()
+        ## without a ... argument.
+        if(gName == "round" && length(mArgs) >= 1 && mArgs[[1]] == "x") return()
         if(gName == "plot") gArgs <- gArgs[-2L] # drop "y"
         ## FIXME: not quite right, could be another plot generic ...
         ogArgs <- gArgs
@@ -3115,10 +3117,9 @@ function(dir, force_suggests = TRUE, check_incoming = FALSE,
     ## and we cannot have cycles
     ## this check needs a package db from repository(s), so
     repos <- getOption("repos")
-    if(any(grepl("@CRAN@", repos)))
+    if(any(repos == "@CRAN@"))
         repos <- .get_standard_repository_URLs()
-    if(!any(grepl("@CRAN@", repos))) {
-        ## Not getting here should no longer be possble ...
+    if(length(repos)) {
         available <- utils::available.packages(repos = repos)
         ad <- .check_dependency_cycles(db, available)
         pkgname <- db[["Package"]]
@@ -7060,8 +7061,6 @@ function(dir, silent = FALSE, def_enc = FALSE, minlevel = -1)
     pg <- dir(file.path(dir, "man"), pattern = "[.][Rr]d$", full.names = TRUE)
     bad <- character()
     for (f in pg) {
-        ## Kludge for now
-        if(basename(f) %in% c("iconv.Rd", "showNonASCII.Rd")) def_enc <- TRUE
         ## FIXME: this may not work for no/fake install if the expressions
         ## involve the package under check.
         tmp <- tryCatch(suppressMessages(checkRd(f, encoding = enc,
@@ -7349,6 +7348,10 @@ function(dir, localOnly = FALSE, pkgSize = NA)
         stop("Package has no 'Version' field", call. = FALSE)
     if(grepl("(^|[.-])0[0-9]+", ver))
         out$version_with_leading_zeroes <- ver
+    if((ver == "@VERSION@") &&
+       !is.na(meta["Priority"]) &&
+       (meta["Priority"] == "base"))
+        ver <- meta["Version"] <- format(getRversion())
     unlisted_version <- unlist(package_version(ver))
     if(any(unlisted_version >= 1234 &
            unlisted_version != as.integer(format(Sys.Date(), "%Y"))) &&
@@ -7382,8 +7385,11 @@ function(dir, localOnly = FALSE, pkgSize = NA)
         startsWith(language, "en-")) &&
        config_val_to_logical(Sys.getenv("_R_CHECK_CRAN_INCOMING_USE_ASPELL_",
                                         "FALSE"))) {
-        a <- .aspell_package_description_for_CRAN(dir)
-        if(NROW(a))
+        a <- tryCatch(.aspell_package_description_for_CRAN(dir),
+                      error = identity)
+        if(inherits(a, "error"))
+            out$aspell_package_description_error <- conditionMessage(a)
+        else if(NROW(a))
             out$spelling <- a
     }
 
@@ -7411,18 +7417,26 @@ function(dir, localOnly = FALSE, pkgSize = NA)
     uses <-  BUGS <- ACM <- character()
     for (field in c("Depends", "Imports", "Suggests")) {
         p <- strsplit(meta[field], " *, *")[[1L]]
-        p2 <- grep("^(multicore|snow|igraph0|doSNOW)( |\\(|$)", p, value = TRUE)
+        ## multicore has been superseded by parallel.  Almost all of
+        ## snow has been too, so it should be optional.
+        p2 <- grep("^(multicore|snow|doSNOW)( |\\(|$)", p, value = TRUE)
         uses <- c(uses, p2)
-        p2 <- grep("^(BRugs|R2OpenBUGS|R2WinBUGS|mzR|xcms|MSnbase)( |\\(|$)",
+        ## BRugs and R2OpenBUGS have a SystemRequirements of OpenBUGS.
+        ## which requires ix86 (not x86-64) and currently installs
+        ## only on Linux using a compiler supporting -m32.
+        ## Some of R2WinBUGS requires a version of BUGS, but not all.
+        ##
+        ## mzR has a long record of not installing: in 2023 with neither
+        ## gcc 13 nor clang 16.  xcms and MSnbase require it.
+        p2 <- grep("^(BRugs|R2OpenBUGS|mzR|xcms|MSnbase)( |\\(|$)",
                    p, value = TRUE)
         BUGS <- c(BUGS, p2)
-        p2 <- grep("^(Akima|tripack)( |\\(|$)",
-                   p, value = TRUE)
+        p2 <- grep("^(Akima|tripack)( |\\(|$)", p, value = TRUE)
         ACM <- c(ACM, p2)
     }
     if (length(uses))
         out$uses <- sort(unique(gsub("[[:space:]]+", " ", uses)))
-    if (length(BUGS))
+    if (length(BUGS)) ## and other non-portable packages
         out$BUGS <- sort(unique(gsub("[[:space:]]+", " ", BUGS)))
     if (length(ACM))
         out$ACM <- sort(unique(gsub("[[:space:]]+", " ", ACM)))
@@ -8037,7 +8051,7 @@ function(dir, localOnly = FALSE, pkgSize = NA)
 
     ## If a package has a FOSS license, check whether any of its strong
     ## recursive dependencies restricts use.
-    if(!localOnly && foss) {
+    if(foss) {
         available <-
             utils::available.packages(utils::contrib.url(urls, "source"),
                                       filters = c("R_version", "duplicates"))
@@ -8499,6 +8513,9 @@ function(x, ...)
                                       }))),
                       collapse = "\n")
             })),
+      if(length(y <- x$aspell_package_description_error)) {
+          paste(y, collapse = "\n")
+      },
       if(NROW(y <- x$spelling)) {
           s <- split(sprintf("%d:%d", y$Line, y$Column), y$Original)
           paste(c("Possibly misspelled words in DESCRIPTION:",
@@ -8885,35 +8902,26 @@ function(package, dir, lib.loc = NULL)
 
     out <- structure(list(), class = "check_Rd_metadata")
 
-    if(!missing(package)) {
+    meta <- if(!missing(package)) {
         if(length(package) != 1L)
             stop("argument 'package' must be of length 1")
         dir <- find.package(package, lib.loc)
         rds <- file.path(dir, "Meta", "Rd.rds")
-        if(file_test("-f", rds)) {
-            meta <- readRDS(rds)
-            files <- meta$File
-            names <- meta$Name
-            aliases <- meta$Aliases
-        } else {
-            return(out)
-        }
+        if(file_test("-f", rds)) { # should always exist, potentially 0-row
+            readRDS(rds)
+        } # else NULL
     } else {
-        if(dir.exists(file.path(dir, "man"))) {
-            db <- Rd_db(dir = dir)
-            files <- basename(names(db))
-            names <- sapply(db, .Rd_get_metadata, "name")
-            aliases <- lapply(db, .Rd_get_metadata, "alias")
-        } else {
-            return(out)
-        }
+        package <- .get_package_metadata(dir)["Package"]
+        Rd_contents(Rd_db(dir = dir))
     }
 
-    ## <FIXME>
-    ## Remove eventually, as .Rd_get_metadata() and hence Rd_info() now
-    ## eliminate duplicated entries ...
-    aliases <- lapply(aliases, unique)
-    ## </FIXME>
+    if (NROW(meta) == 0L)
+        return(out)
+
+    files <- meta$File
+    names <- meta$Name
+    aliases <- meta$Aliases
+    doctypes <- meta$Type
 
     files_grouped_by_names <- split(files, names)
     files_with_duplicated_names <-
@@ -8922,8 +8930,9 @@ function(package, dir, lib.loc = NULL)
         out$files_with_duplicated_names <-
             files_with_duplicated_names
 
+    nAliases <- lengths(aliases)
     files_grouped_by_aliases <-
-        split(rep.int(files, lengths(aliases)),
+        split(rep.int(files, nAliases),
               unlist(aliases, use.names = FALSE))
     files_with_duplicated_aliases <-
         files_grouped_by_aliases[lengths(files_grouped_by_aliases) > 1L]
@@ -8931,6 +8940,25 @@ function(package, dir, lib.loc = NULL)
         out$files_with_duplicated_aliases <-
             files_with_duplicated_aliases
 
+    files_without_aliases <- files[nAliases == 0L]
+    if(length(files_without_aliases))
+        out$files_without_aliases <- files_without_aliases
+
+    aliases <- unlist(aliases)
+    names(aliases) <- rep.int(files, nAliases) # again ...
+    all_package_aliases <- aliases[endsWith(aliases, "-package")]
+    the_package_alias <- sprintf("%s-package", package)
+    if(the_package_alias %in% all_package_aliases) {
+        ## Be nice: package names in standard repositories are unique
+        ## ignoring case.
+        all_package_aliases <-
+            all_package_aliases[tolower(all_package_aliases) !=
+                                tolower(the_package_alias)]
+    }
+    if(length(all_package_aliases))
+        out$files_with_bad_package_aliases <-
+            split(all_package_aliases, names(all_package_aliases))
+                                
     out
 }
 
@@ -8953,10 +8981,24 @@ function(x, ...)
                                 nm),
                        .pretty_format(bad[[nm]]))
                  }))
+      },
+      if(length(bad <- x$files_without_aliases)) {
+          c(gettext("Rd files without \\alias:"),
+            .pretty_format(bad))
+      },
+      if(length(bad <- x$files_with_bad_package_aliases)) {
+          unlist(lapply(names(bad),
+                        function(nm) {
+                            c(gettextf("Invalid package aliases in Rd file '%s':",
+                                       nm),
+                              .pretty_format(bad[[nm]]))
+                        }))
       })
 }
 
 ## * checkRdContents
+
+## NOTE: this checks displayed content, not Rd_contents() metadata
 
 checkRdContents <- # was  .check_Rd_contents <-
 function(package, dir, lib.loc = NULL, chkInternal = FALSE)
@@ -8997,20 +9039,27 @@ function(package, dir, lib.loc = NULL, chkInternal = FALSE)
     for(nm in names(db)) {
         rd <- db[[nm]]
 
+        ## \description is mandatory except for package overviews
+        missing_description <-
+            !identical("package", .Rd_get_doc_type(rd)) &&
+            "\\description" %notin% RdTags(rd)
+
         ## Arguments with no description.
         arg_table <- .Rd_get_argument_table(rd)
         arguments_with_no_description <-
-            arg_table[grepl("^[[:blank:]]*$", arg_table[, 2L]),
+            arg_table[grepl("^[[:space:]]*$", arg_table[, 2L]),
                       1L]
 
         ## Autogenerated Rd content which needs editing.
         offending_autogenerated_content <-
             .Rd_get_offending_autogenerated_content(rd)
 
-        if(length(arguments_with_no_description)
+        if(missing_description
+           || length(arguments_with_no_description)
            || length(offending_autogenerated_content)) {
             out[[nm]] <-
-                list(arguments_with_no_description =
+                list(missing_description = missing_description,
+                     arguments_with_no_description =
                      arguments_with_no_description,
                      offending_autogenerated_content =
                      offending_autogenerated_content)
@@ -9025,7 +9074,8 @@ function(x, ...)
 {
     .fmt <- function(nm) {
         y <- x[[nm]]
-        c(if(length(arguments_with_no_description <-
+        c(character(),
+          if(length(arguments_with_no_description <-
                     y[["arguments_with_no_description"]])) {
               c(gettextf("Argument items with no description in Rd object '%s':",
                          nm),
@@ -9036,11 +9086,14 @@ function(x, ...)
               c(gettextf("Auto-generated content requiring editing in Rd object '%s':",
                          nm),
                 sprintf("  %s", offending_autogenerated_content[, 1L]))
-          },
-          "")
+          })
     }
 
-    as.character(unlist(lapply(names(x), .fmt)))
+    c(character(),
+      if (length(res <- which(vapply(x, `[[`, TRUE, "missing_description"))))
+          c(gettext("Rd objects without \\description:"),
+            .pretty_format(names(res))),
+      as.character(unlist(lapply(names(x), .fmt))))
 }
 
 ### * .check_Rd_line_widths

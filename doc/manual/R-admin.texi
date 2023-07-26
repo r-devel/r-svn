@@ -1067,8 +1067,8 @@ Intel compilers.  Currently accepted values are (plus some synonyms)
 @example
 g++:     c++11 gnu+11 c++14 gnu++14 c++17 gnu++17 c++2a gnu++2a (from 8)
          c++20 gnu++20 (from 10) c++23 gnu++23 c++2b gnu++2b (from 11)
-Intel:   c++11 c++14 (from 16.0) c++17 (from 17.0) c++20 (from 2021.1)
-         c++23 (from 2022.2)
+Intel:   c++11  gnu+11 c++14 gnu++14 c++17 gnu++17
+         c++20 gnu++20 (from 2021.1) c++2b gnu++2b (from 2022.2)
 @end example
 @noindent
 (Those for LLVM @command{clang++} are documented at
@@ -1100,7 +1100,8 @@ suffice.
 @subsection C standards
 
 Compiling @R{} requires C99 or later: C11 and C17 are minor updates, but
-the substantial update planned for C23 will also be supported.
+the substantial update planned for `C23' (now expected in 2024) will
+also be supported.
 
 As from @R{} 4.3.0 there is support for packages to indicate their
 preferred C version.  Macros @code{CC17}, @code{C17FLAGS}, @code{CC23}
@@ -1113,7 +1114,7 @@ be used as identifiers.  Those for C23 should support new types such as
 Some compilers warn enthusiastically about prototypes.  For most,
 omitting @option{-Wstrict-prototypes} in @code{C17FLAGS} suffices.
 However, versions 15 and later of LLVM @command{clang} and 14.0.3 and
-later on Apple clang warn by default in all modes if @option{-Wall} or
+later of Apple clang warn by default in all modes if @option{-Wall} or
 @option{-pedantic} is used, and may need
 @option{-Wno-strict-prototypes}.
 
@@ -1221,9 +1222,10 @@ confused compiler messages.
 
 LLVM supports another type of LTO called `Thin LTO' as well as a similar
 implementation to GCC, sometimes called `Full LTO'.  (See
-@uref{https://clang.llvm.org/docs/ThinLTO.html}.)  Currently the only
-LLVM compiler relevant to @R{} is @command{clang} for which this can be
-selected by setting macro @samp{LTO=-flto=thin}.  LLVM has
+@uref{https://clang.llvm.org/docs/ThinLTO.html}.)  Currently the LLVM
+compilers relevant to @R{} are @command{clang} and @command{flang} for
+which this can be selected by setting macro @samp{LTO=-flto=thin}.  LLVM
+has
 @example
 AR=llvm-ar
 RANLIB=llvm-ranlib
@@ -1245,6 +1247,17 @@ code compiled with @command{gfortran}.
 
 It is said to be particularly beneficial to use @option{-O3} for
 @command{clang} in conjunction with LTO.
+
+It seems that @command{flang} may support LTO, but with no documentation
+as yet.
+
+The 2020s versions of Intel's C/C++ compilers are based on LLVM and as
+such support LLVM-style LTO, both `full' and `thin'.  This might use
+something like
+@example
+LTO=-flto=thin -flto-jobs=8
+@end example
+
 
 @node LTO for package checking,  , LTO with LLVM, Link-Time Optimization
 @subsubsection LTO for package checking
@@ -2168,9 +2181,10 @@ Note that most binary packages which include compiled code are tied to a
 particular series (e.g.@: @R{} 4.4.x or 4.3.x) of @R{}.
 
 Installing source packages which do not contain compiled code should
-work with no additional tools. For others you will need the
-`Command Line Tools' for @command{Xcode} and compilers which match those
-used to build @R{}: see @ref{macOS}.
+work with no additional tools. For others you will need the `Command
+Line Tools' for @command{Xcode} and compilers which match those used to
+build @R{}, plus a Fortran compiler for packages which contain Fortran
+code: see @ref{macOS}.
 
 Package @CRANpkg{rJava} and those which depend on it need a Java runtime
 installed and several packages need X11 installed, including those using
@@ -2281,18 +2295,18 @@ differ from the Open Source project.} available @emph{via}
 @uref{https://opensource.apple.com} -- this has been used for
 @code{iodbc}.
 
-Those using Command Line Tools / Xcode 12 or later (as released for
-macOS 11 `Big Sur') probably want to arrange that the flag
+@c Those using Command Line Tools / Xcode 12 or later (as released for
+@c macOS 11 `Big Sur') probably want to arrange that the flag
 
-@example
--Wno-implicit-function-declaration
-@end example
+@c @example
+@c -Wno-implicit-function-declaration
+@c @end example
 
-@noindent
-is part of @code{CFLAGS}.  Apple has changed the default to make
-implicit declarations a compilation error and authors of packages and
-external software have been unaware that this might be done --- most
-issues seen were in @command{configure} scripts.
+@c @noindent
+@c is part of @code{CFLAGS}.  Apple has changed the default to make
+@c implicit declarations a compilation error and authors of packages and
+@c external software have been unaware that this might be done --- most
+@c issues seen were in @command{configure} scripts.
 
 Some care may be needed with selecting compilers when installing external
 software for use with packages.  The `system' compilers as used when
@@ -2310,15 +2324,17 @@ consistency one can use
 @end example
 
 @noindent
-(avoiding @command{autoconf}'s default @option{-g}).  Be careful if you
-put the @file{/usr/local/gfortran/bin} directory on your path as that
-contains (real) @command{gcc} and @command{g++} which may be found
-rather the Apple-provided commands, and may not be able to find the
-headers and libraries@footnote{From Big Sur those libraries are not
-publicly visible: rather the system compilers link to `text-based
-definition' (@file{.tbd}) files.} of the SDK.  As from @R{} 4.3.0,
-@command{R CMD INSTALL} and @code{install.packages()} try to invoke
-@command{configure} with the same compilers and flags used to build @R{}.
+(avoiding @command{autoconf}'s default @option{-g}).
+@c Be careful if you
+@c put the @file{/usr/local/gfortran/bin} directory on your path as that
+@c contains (real) @command{gcc} and @command{g++} which may be found
+@c rather the Apple-provided commands, and may not be able to find the
+@c headers and libraries@footnote{From Big Sur those libraries are not
+@c publicly visible: rather the system compilers link to `text-based
+@c definition' (@file{.tbd}) files.} of the SDK.
+As from @R{} 4.3.0, @command{R CMD INSTALL} and
+@code{install.packages()} try to invoke @command{configure} with the
+same compilers and flags used to build @R{}.
 
 For @cputype{arm64}, not all configure scripts have been updated to
 recognize the platform and so might need the flag
@@ -3873,22 +3889,24 @@ in the BLIS libraries.
 @node MKL, Shared BLAS, OpenBLAS and BLIS, BLAS
 @subsubsection Intel MKL
 For Intel processors (and perhaps others) and some distributions of
-Linux, there is Intel's Math Kernel Library@footnote{Sometimes known as
+Linux, there is Intel's Math Kernel Library@footnote{Nowadays known as
 `Intel oneAPI Math Kernel Library' or even `oneMKL'.}.  You are
-encouraged to read the documentation which is installed with the
-library before attempting to link to MKL.  This includes a `link line
-advisor' which will suggest appropriate incantations: its use is
-recommended.  Or see
-@uref{https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html#gs.vpt6qp}.
+encouraged to read the documentation which is installed with the library
+before attempting to link to MKL.  This includes a `link line advisor'
+which will suggest appropriate incantations: its use is recommended.  Or
+see
+@uref{https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html#gs.vpt6qp}
+(which at the time of writing selected the Intel library for linking with
+GCC).
 
 There are also versions of MKL for macOS@footnote{The issue for macOS
 has been the use of double-complex routines.} and Windows, but when
 these have been tried they did not work with the default compilers used
 for @R{} on those platforms.
 
-The MKL interface has changed several times but has been stable in
-recent years: the following examples have been used with versions 10.3
-to 2023.0.0, for GCC compilers on @cputype{x86_64} CPUs.
+The following examples have been used with MKL versions 10.3 to
+2023.2.0, for GCC compilers on @cputype{x86_64} CPUs.  (See also
+@ref{Intel compilers}.)
 
 To use a sequential version of MKL we used
 
@@ -3929,8 +3947,12 @@ from Debian/Ubuntu package @code{r-base} would use it.  It is, however,
 still essential to set @code{MKL_INTERFACE_LAYER} and
 @code{MKL_THREADING_LAYER} before running @R{}, otherwise MKL computations
 will produce incorrect results. @R{} does not have to be rebuilt to use MKL,
-but @code{configure} include tests which may discover some errors such as a
+but @code{configure} includes tests which may discover some errors such as a
 failure to set the correct OpenMP and MKL interface layer.
+
+Note that the Debian/Ubuntu distribution can be quite old (for example
+@code{2020.4} in mid-2023 when @code{2023.1} was current): this can be
+important for the LAPACK version included.
 
 @noindent
 The default number of threads will be chosen by the OpenMP software, but
@@ -3944,6 +3966,15 @@ applications that require some of the FFTW3 functionality unsupported in
 MKL.  Please see the MKL manuals for description of these limitations and
 for instructions on how to create a custom version of MKL which excludes the
 FFTW3 wrappers.
+
+There is Intel documentation for building @R{} with MKL at
+@uref{https://www.intel.com/content/www/us/en/developer/articles/technical/using-onemkl-with-r.html}:
+that includes
+@example
+-Wl,--no-as-needed
+@end example
+@noindent
+which we have not found necessary.
 
 @c https://stat.ethz.ch/pipermail/r-devel/2015-September/071717.html
 @c It was reported in 2015 that
@@ -4996,12 +5027,100 @@ tested with @R{}.
 @node Intel compilers,  , flang, Linux
 @subsection Intel compilers
 
-There have been no recent reports on the use of Intel compilers: this
-section is left in case it provides helpful hints.
+@menu
+* `Classic compilers'::
+@end menu
 
-Intel compilers have been used under @cputype{ix86} and @cputype{x86_64}
-Linux.  Brian Ripley used version 9.0 of the compilers for
-@cputype{x86_64} on Fedora Core 5 with
+In late 2020 Intel revamped their C/C++ compilers (and later their
+Fortran compiler) to use an LLVM back-end (and for the C/C++ compilers,
+a modified version of @command{clang} as the front-end).  Those
+compilers are only for @cputype{x86_64}: the earlier compilers (now
+branded `Classic') also supported @cputype{ix86} and 32-bit builds on
+@cputype{x86_64}.
+
+The compilers are now all under Intel's `oneAPI' brand. The revamped
+ones are @command{icx}, @command{icpx} and @command{ifx}; they
+are identiifed by the C/C++ macro @code{__INTEL_LLVM_COMPILER} (and do
+not define @code{__INTEL_COMPILER}).
+
+Standalone installers (which are free-of-charge) are available from
+@uref{https://www.intel.com/content/www/us/en/developer/articles/tool/oneapi-standalone-components.html}:
+they are also part of the oneAPI Base and HPC (for Fortran) ToolKits.
+
+We tried the LLVM-based compilers in oneAPI 2023.2.0 using
+@example
+IP=/path/to/compilers/bin/intel64
+CC=$IP/icx
+CXX=$IP/icpx
+FC=$IP/ifx
+CFLAGS="-O3 -fp-model precise -Wall"
+FFLAGS="-O3 -fp-model precise -warn all,noexternals"
+FCFLAGS="-free -O3 -fp-model precise -warn all,noexternals"
+CXXFLAGS="-O3 -fp-model precise -Wall"
+LDFLAGS="-L/path/to/compilers/compiler/lib/intel64_lin -L/usr/local/lib64"
+@end example
+@noindent
+but the build segfaulted in the checks (in complex arithmetic in
+@file{lapack.R}).
+
+Intel document building @R with MKL: for the Intel compilers this needed
+something like
+@example
+MKL_LIB_PATH=/path/to/intel_mkl/mkl/lib/intel64
+export LD_LIBRARY_PATH="$MKL_LIB_PATH"
+MKL="-L$@{MKL_LIB_PATH@} -lmkl_intel_lp64 -lmkl_core -lmkl_sequential"
+./configure --with-blas="$MKL" --with-lapack
+@end example
+@noindent
+and the build passed its checks.  It may also be possible to use
+a compiler option like @option{-qmkl=sequential}.
+
+One quirk is that the Intel Fortran compilers do not accept @file{.f95}
+files, only @file{.f90} for free-format Fortran.  @command{configure}
+adds @option{-Tf} which tells the compiler this is indeed a Fortran file
+(and needs to immediately precede the file name), but @option{-free} is
+needed to say it is free-format.  Hence setting the @code{FCFLAGS}
+macro.
+@c https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2023-2/file-extensions.html
+
+The compilers have many options, some of which are still under
+development. As the C/C++ and Fortran compilers have different origins
+for their front-ends, there is little consistency in their options. They
+support clang-style LTO, at least for C/C++.
+
+Unresolved issue: all CPU times in e.g.@: @code{proc.time()} are reported
+as zero.
+
+@node `Classic compilers',  , Intel compilers, Intel compilers
+@subsubsection `Classic' compilers
+
+The classic compilers were @command{icc}, @command{icpc} and
+@command{ifort}.  They are identiifed by the C/C++ macro
+@code{__INTEL_COMPILER}.
+
+The classic compilers remained available until the second half of 2023.
+Version 2021.9.0 (shipped as part of oneAPI 2023.1.0) was tested in July
+2023 using
+
+@example
+IP=/path/to/compilers/bin/intel64
+CC=$IP/icc 
+CXX=$IP/icpc
+FC=$IP/ifort
+CFLAGS="-O3 -ip -fp-model precise"
+FFLAGS="-O3 -fp-model precise"
+CXXFLAGS="-O3  -fp-model precise"
+LDFLAGS="-L/path/to/compilers/compiler/lib/intel64_lin -L/usr/local/lib64"
+@end example
+@noindent
+but also segfaulted in the checks.
+
+There have been no other recent reports on the use of these compilers:
+the rest of this section is left in case it provides helpful hints for
+people using them while they are still available.
+
+Brian Ripley used version 9.0 of the compilers for @cputype{x86_64} on
+Fedora Core 5 with
 
 @example
 CC=icc
@@ -5084,22 +5203,23 @@ but are untested there.)
 @node Prerequisites, Fortran compilers, macOS, macOS
 @subsection Prerequisites
 
-The Intel components install into @file{/opt/R/x86_64}, the
-@cputype{arm64} ones into @file{/opt/R/arm64} which may not exist so it
-it is simplest to first create that directory and adjust its ownership
-if desired:
+The Intel components install into @file{/opt/R/x86_64}, the Apple
+silicon ones into @file{/opt/R/arm64}.  This may not exist@footnote{it
+will if @R{} has been installed from @acronym{CRAN} since @R{} 4.3.0.}
+so it is simplest to first create the directory and adjust its ownership
+if desired: for example by
 
 @example
 sudo mkdir -p /opt/R/arm64
 sudo chown -R $USER /opt/R
 @end example
 @noindent
-and add @file{/opt/R/arm64/bin} to your path.
+Also, add @file{/opt/R/x86_64/bin} or @file{/opt/R/arm64/bin} to your path.
 
 Define an appropriate variable in your Terminal:
 @example
-set LOCAL=//opt/R/x86_64 # Intel
-set LOCAL=/opt/R/arm64 # Apple Silicon
+set LOCAL=/opt/R/x86_64 # Intel
+set LOCAL=/opt/R/arm64  # Apple Silicon
 @end example
 @noindent
 to use the code snippets here.
@@ -5233,8 +5353,8 @@ PKG_CONFIG_PATH=$LOCAL/lib/pkgconfig:/usr/lib/pkgconfig
 further flags are desirable in @file{config.site}:
 @example
 CFLAGS="-falign-functions=8 -g -O2"
-FFLAGS="-g -O2 -mmacosx-version-min=11.0"
-FCFLAGS="-g -O2 -mmacosx-version-min=11.0"
+FFLAGS="-g -O2 -mmacos-version-min=11.0"
+FCFLAGS="-g -O2 -mmacos-version-min=11.0"
 @end example
 @noindent
 (the first flag in @code{CFLAGS} is needed to inter-work with the
@@ -5276,7 +5396,7 @@ builds work.  This has been far rarer since macOS 13.
 
 If you are using the macOS 13 SDK@footnote{@command{ls -l `xcrun
 -show-sdk-path`} in a terminal will show you which SDK is selected.},
-you may need to add something like @code{-mmacosx-version-min=12.0} to
+you may need to add something like @code{-mmacos-version-min=12.0} to
 @samp{CFLAGS}.
 
 Linker warnings like
@@ -5299,8 +5419,7 @@ by Apple.  And not just packages, as this has been seen for executables
 contained in tarballs/zipfiles (for example, for @command{pandoc}).
 Usually one can use @samp{Open With} (Control/right/two-finger-click in
 Finder), then select @samp{Installer} and @samp{Open} if you get a
-further warning message.  This sometimes applies also to `nightly
-builds' from @uref{https://mac.R-project.org/}.
+further warning message.
 
 If you run into problems with `quarantine' for tarballs downloaded in a
 browser, consider using @command{curl -OL} to download (as illustrated
@@ -5444,12 +5563,12 @@ last tested@footnote{with @command{gcc} 10.2.} it was not possible to
 use @command{gcc} to build the @code{quartz()} device, so
 @command{configure --without-aqua} may be required.
 
-It usually possible to add some OpenMP support to the Apple
+It is usually possible to add some OpenMP support to the Apple
 @command{clang} compilers: see @uref{https://mac.r-project.org/openmp/}.
 Note that that approach is somewhat fragile as it needs a
 @file{libomp.dylib} library matching the version of the compiler
 used---and for example at the time of writing none was offered for the
-current compilers in Xcode/CLT 14.3.
+current compilers in Xcode/CLT 14.3 nor 15.
 
 @node Other libraries, Tcl/Tk headers and libraries, Other C/C++ compilers, macOS
 @subsection Other libraries
