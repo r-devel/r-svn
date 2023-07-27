@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2022	The R Core Team.
+ *  Copyright (C) 2000-2023	The R Core Team.
  *  Copyright (C) 1995-1998	Robert Gentleman and Ross Ihaka.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -968,15 +968,15 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("<weak reference>\n");
 	break;
     case OBJSXP:
-        if(IS_S4_OBJECT(s)) {
-            /*  we got here because no show method, usually no class.
-                Print the "slots" as attributes, since we don't know the class.
-            */
-	    Rprintf("<S4 Type Object>\n");
-	} else {
-	    /* OBJSXP type, S4 obj bit not set*/
-	    Rprintf("<object>\n");
-	}
+      if(IS_S4_OBJECT(s)) {
+	/*  we got here because no show method, usually no class.
+	    Print the "slots" as attributes, since we don't know the class.
+	*/
+	Rprintf("<S4 Type Object>\n");
+      } else {
+	  /* OBJSXP type, S4 obj bit not set*/
+	  Rprintf("<object>\n");
+      }
 	break;
     default:
 	UNIMPLEMENTED_TYPE("PrintValueRec", s);

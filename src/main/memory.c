@@ -215,7 +215,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case BCODESXP:	return "BCODESXP";
     case EXTPTRSXP:	return "EXTPTRSXP";
     case WEAKREFSXP:	return "WEAKREFSXP";
-    case OBJSXP:	return "OBJSXP";
+    case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";

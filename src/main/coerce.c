@@ -1955,11 +1955,10 @@ Rcomplex asComplex(SEXP x)
 attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP x = CAR(args);
-    if(TYPEOF(x) == OBJSXP && !IS_S4_OBJECT(x))
-	return mkString("object");
-    else
-	return type2rstr(TYPEOF(x));
+  if(TYPEOF(CAR(args)) == OBJSXP && !IS_S4_OBJECT(CAR(args)))
+    return mkString("object");
+  else
+    return type2rstr(TYPEOF(CAR(args)));
 }
 
 /* Define many of the <primitive> "is.xxx" functions :
