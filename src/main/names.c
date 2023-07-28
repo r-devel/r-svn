@@ -159,7 +159,6 @@ FUNTAB R_FunTab[] =
 {"getNamespaceValue",	do_getNSValue,	0,	211,	3,	{PP_FUNCALL, PREC_FN,	  0}},
 
 
-
 /* Binary Operators, all primitives */
 /* these are group generic and so need to eval args */
 {"+",		do_arith,	PLUSOP,	1,	-1,	{PP_BINARY,  PREC_SUM,	  0}},
@@ -1006,8 +1005,6 @@ FUNTAB R_FunTab[] =
 {"curlGetHeaders",do_curlGetHeaders,0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"curlDownload",do_curlDownload, 0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"compilerVersion",do_compilerVersion, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
-
-/* {"object",	do_object,  0,	11,	1,	{PP_FUNCALL,  PREC_FN,	 0}}, */
 
 {NULL,		NULL,		0,	0,	0,	{PP_INVALID, PREC_FN,	0}},
 };

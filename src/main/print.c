@@ -387,7 +387,7 @@ static void save_tagbuf(char *save, size_t n)
     else
 	error("tagbuf overflow");
 }
-
+    
 static void PrintObject(SEXP s, R_PrintData *data)
 {
     /* Save the tagbuffer to restore indexing tags after evaluation
@@ -482,7 +482,7 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 		} else
 		    snprintf(pbuf, 115, "numeric,%d", LENGTH(s_i));
 		break;
-	    case CPLXSXP:
+	    case CPLXSXP: 
 		if (LENGTH(s_i) == 1) {
 		    const Rcomplex *x = COMPLEX_RO(s_i);
 		    if (ISNA(x[0].r) || ISNA(x[0].i))
@@ -852,7 +852,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 		Rprintf("<S4 object without a class>\n");
 	    else
 		Rprintf("<Object of type '%s' with S4 bit but without a class>\n",
-			type2char(TYPEOF(s)));
+			R_typeToChar(s));
 	} else {
 	    SEXP pkg = getAttrib(s, R_PackageSymbol);
 	    if(isNull(pkg)) {

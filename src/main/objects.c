@@ -272,13 +272,13 @@ SEXP R_LookupMethod(SEXP method, SEXP rho, SEXP callrho, SEXP defrho)
 	PROTECT(table);
 	REPROTECT(val = findVarInFrame3(table, method, TRUE), validx);
 	UNPROTECT(1); /* table */
-	if (TYPEOF(val) == PROMSXP)
+	if (TYPEOF(val) == PROMSXP) 
 	    REPROTECT(val = eval(val, rho), validx);
 	if(val != R_UnboundValue) {
 	    UNPROTECT(2); /* top, val */
 	    return val;
 	}
-    }
+    } 
 
     if (top == R_GlobalEnv)
 	top = R_BaseEnv;
@@ -1021,22 +1021,6 @@ attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
     return inherits3(x, what, which);
 }
 
-/* attribute_hidden SEXP do_object(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    // returns an S4SXP/OBJSXP. If the first arg is a character vector,
-    // it is set as the (S3) class attr of the object. The S4 bit is not set.
-    checkArity(op, args);
-    SEXP class = CAR(args);
-
-    SEXP obj = PROTECT(Rf_allocSExp(OBJSXP));
-
-    if (TYPEOF(class) == STRSXP && LENGTH(class) >= 1)
-        Rf_classgets(obj, class);
-    UNPROTECT(1);
-
-    return obj;
-}
-*/
 
 /*
    ==============================================================
@@ -1067,7 +1051,7 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	    UNPROTECT(1); /* cl */
 	    return ans;
 	}
-    /* if not found directly, then look for a match among the nonvirtual
+    /* if not found directly, then look for a match among the nonvirtual 
        superclasses, possibly after finding the environment 'rho' in which
        class(x) is defined */
     if(IS_S4_OBJECT(x)) {
@@ -1096,8 +1080,8 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	}
 	SEXP classDef = PROTECT(R_getClassDef(class));
 	PROTECT(classExts = R_do_slot(classDef, s_contains));
-	/* .selectSuperClasses(getClassDef(class)@contains,
-	 *                     dropVirtual = TRUE, namesOnly = TRUE,
+	/* .selectSuperClasses(getClassDef(class)@contains, 
+	 *                     dropVirtual = TRUE, namesOnly = TRUE, 
 	 *                     directOnly = FALSE, simpleOnly = TRUE):
 	 */
 	PROTECT(_call = lang6(s_selectSuperCl, classExts,
@@ -1437,7 +1421,7 @@ SEXP do_set_prim_method(SEXP op, const char *code_string, SEXP fundef,
     else if(fundef && !isNull(fundef) && !prim_generics[offset]) {
 	if(TYPEOF(fundef) != CLOSXP)
 	    error(_("the formal definition of a primitive generic must be a function object (got type '%s')"),
-		  type2char(TYPEOF(fundef)));
+		  R_typeToChar(fundef));
 	R_PreserveObject(fundef);
 	prim_generics[offset] = fundef;
     }
