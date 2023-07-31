@@ -5,6 +5,7 @@
 @setchapternewpage on
 @defcodeindex en
 @documentencoding UTF-8
+@documentlanguage en
 @c %**end of header
 
 @syncodeindex fn vr
@@ -559,7 +560,7 @@ contents use
 @end example
 
 @noindent
-or 
+or
 @example
 \ifthenelse@{\boolean@{Rd@@use@@hyper@}@}@{\hypersetup@{linktoc=all@}@}@{@}
 @end example
@@ -750,7 +751,7 @@ make install-pdf
 @noindent
 Once again, it is optional to specify @code{prefix}, @code{libdir} or
 @code{rhome} (the PDF manuals are installed under the @R{} home
-directory).  
+directory).
 
 More precise control is possible.  For info, the setting used is that of
 @code{infodir} (default @file{@var{prefix}/info}, set by configure
@@ -1431,7 +1432,7 @@ and packages may need to be adapted.
 The binary distribution of @R{} is currently built with tools
 from
 @uref{https://CRAN.R-project.org/bin/windows/Rtools/rtools43/rtools.html,Rtools43
-for Windows}. See 
+for Windows}. See
 @uref{https://CRAN.R-project.org/bin/windows/base/howto-R-devel.html, Building
 R and packages} for more details on how to use it.
 
@@ -1805,7 +1806,7 @@ installed version.
 @chapter Running R
 
 How to start @R{} and what command-line options are available is discussed
-in 
+in
 @ifset UseExternalXrefs
 @ref{Invoking R, , Invoking R, R-intro, An Introduction to R}.
 @end ifset
@@ -2606,7 +2607,7 @@ there should be directory trees for one or more of the following types
 of package distributions:
 
 @itemize
-@item 
+@item
 @code{"source"}: located at @file{src/contrib} and containing
 @file{.tar.gz} files.  Other forms of compression can be used, e.g.@:
 @file{.tar.bz2} or @file{.tar.xz} files.  Complete repositories contain
@@ -2614,17 +2615,17 @@ the sources corresponding to any binary packages, and in any case it is
 wise to have a @file{src/contrib} area with a possibly empty
 @file{PACKAGES} file.
 
-@item 
+@item
 @code{"win.binary"}: located at @file{bin/windows/contrib/@var{x.y}} for
 @R{} versions @var{x.y.z} and containing @file{.zip} files for Windows.
 
-@item 
+@item
 @code{"mac.binary"}: located at
 @file{bin/macosx/contrib/@var{4.y}} for the @acronym{CRAN} builds for
 macOS for @R{} versions @var{4.y.z}, containing
 @file{.tgz} files.
 
-@item 
+@item
 @code{"mac.binary.el-capitan"}: located at
 @file{bin/macosx/el-capitan/contrib/@var{3.y}} for the @acronym{CRAN}
 builds for @R{} versions @var{3.y.z}, containing @file{.tgz} files.
@@ -2885,7 +2886,7 @@ too.
 default.
 
 R-level and C-level domains are subtly different, for example in the way
-strings are canonicalized before being passed for translation. 
+strings are canonicalized before being passed for translation.
 
 Translations are looked for by domain according to the currently
 specified language, as specifically as possible, so for example an
@@ -2956,7 +2957,7 @@ not for @code{NA_INTEGER} nor the distinction between @code{NA} and
 @code{NaN} for doubles.
 
 A little care is needed to use the random-number routines. You will
-need to supply the uniform random number generator 
+need to supply the uniform random number generator
 
 @example
     double unif_rand(void)
@@ -3246,7 +3247,7 @@ suffices.  If building PCRE1 for use with @R{} a suitable
 @example
 ./configure --enable-utf --enable-unicode-properties --enable-jit --disable-cpp
 @end example
-@noindent  
+@noindent
 The @option{--enable-jit} flag is supported for most common CPUs but
 does not work (well or at all) for @cputype{arm64} macOS.
 
@@ -3257,7 +3258,7 @@ by calling @code{pcre_config()}.
 @c libcurl 7.22.0 was released in Sep 2011, in Ubuntu 12.04 LTS,
 @c   end-of-life Apr 2017
 @c libcurl 7.26.0 was released in May 2012, still in Debian 7 Wheezy LTS,
-@c   end-of-life May 2018. 
+@c   end-of-life May 2018.
 @c libcurl 7.28.0 was released in Oct 2012
 @c libcurl 7.32.0 was released in Aug 2013
 @c Ubuntu 14.04LTS has 7.35.0  RHEL/Centos 7 has 7.29.0 (we are told)
@@ -3942,7 +3943,7 @@ MKL interface layer then has to be selected via environment variables.  With
 64-bit builds and the GCC compilers, we used
 
 @example
-export MKL_INTERFACE_LAYER=GNU,LP64 
+export MKL_INTERFACE_LAYER=GNU,LP64
 export MKL_THREADING_LAYER=GNU
 @end example
 
@@ -4387,7 +4388,7 @@ most common cases.  If libraries are still not found, then maybe your
 compiler/linker does not support re-ordering of @option{-L} and
 @option{-l} flags.
 @c (years ago this was reported to be a problem on HP-UX with the native
-@c @command{cc}).  
+@c @command{cc}).
 In this case, use a different compiler (or a front-end shell script
 which does the re-ordering).
 
@@ -5110,7 +5111,7 @@ Version 2021.9.0 (shipped as part of oneAPI 2023.1.0) was tested in July
 
 @example
 IP=/path/to/compilers/bin/intel64
-CC=$IP/icc 
+CC=$IP/icc
 CXX=$IP/icpc
 FC=$IP/ifort
 CFLAGS="-O3 -ip -fp-model precise"
@@ -5153,7 +5154,7 @@ need add flags to @code{CFLAGS}, @code{FFLAGS} and
 @code{CXXFLAGS} such as @option{-mp} (shown above) or @option{-fp-model
 precise -fp-model source}, depending on the compiler version.
 
-Others have reported success with versions 10.x and 11.x.  
+Others have reported success with versions 10.x and 11.x.
 @c https://stat.ethz.ch/pipermail/r-devel/2015-September/071717.html
 Bjørn-Helge Mevik reported success with version 2015.3 of the compilers,
 using (for a SandyBridge CPU on Centos 6.x)
@@ -5233,7 +5234,7 @@ to use the code snippets here.
 The following are essential to build @R{}:
 
 @itemize
-@item 
+@item
 Apple's `Command Line Tools': these can be (re-)installed by running
 @command{xcode-select --install} in a terminal.
 
@@ -5487,7 +5488,7 @@ Version: 2.2.8
 Description: expat XML parser
 URL: http://www.libexpat.org
 Libs: -lexpat
-Cflags: 
+Cflags:
 @end example
 @noindent
 Note that the list of components is liable to change: running
@@ -5656,7 +5657,7 @@ the @file{bin} directory of a binary installation of @R{}, usually
 @command{R CMD check --as-cran} makes use of `HTML Tidy'.  macOS has
 a version in @file{/usr/bin/tidy} dating from 2006 which is far too
 old and is skipped.  Up-to-date versions can be installed from
-@uref{http://binaries.html-tidy.org/}. 
+@uref{http://binaries.html-tidy.org/}.
 
 One macOS quirk is that the default path has @file{/usr/local/bin} after
 @file{/usr/bin}, contrary to common practice on Unix-alikes.  This means
@@ -5702,7 +5703,7 @@ Tk with @option{--enable-aqua}.} or a binary distribution from
 @uref{https://www.activestate.com/products/tcl/}.  For the latter,
 configure @R{} with
 @example
---with-tcl-config=/Library/Frameworks/Tcl.framework/tclConfig.sh 
+--with-tcl-config=/Library/Frameworks/Tcl.framework/tclConfig.sh
 --with-tk-config=/Library/Frameworks/Tk.framework/tkConfig.sh
 @end example
 
@@ -6036,7 +6037,7 @@ with the @file{README} file in that directory.
 @c reporting in the non-existent DST variant.  Using @command{configure}
 @c option @option{--with-internal-tzcode} is recommended, and required if
 @c you find time-zone abbreviations being given odd values (as has been
-@c seen on 64-bit builds without it). It is also required for 
+@c seen on 64-bit builds without it). It is also required for
 @c @command{make check} to pass on Solaris 10.
 
 @c Using configure options @option{--with-internal-iswxxxxx} and
@@ -6205,7 +6206,7 @@ with the @file{README} file in that directory.
 @c LDFLAGS="-L/opt/csw/lib -L/usr/local/lib"
 @c @end example
 
-@c For an @cputype{amd64} target we used 
+@c For an @cputype{amd64} target we used
 
 @c @example
 @c CC="gcc -m64"

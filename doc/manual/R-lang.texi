@@ -3,6 +3,7 @@
 @setfilename R-lang.info
 @settitle R Language Definition
 @setchapternewpage on
+@documentlanguage en
 @c %**end of header
 
 @syncodeindex fn vr
@@ -61,19 +62,19 @@ forth.
 @end ifnottex
 
 @menu
-* Introduction::                
-* Objects::                     
-* Evaluation of expressions::   
-* Functions::                   
-* Object-oriented programming::  
-* Computing on the language::   
-* System and foreign language interfaces::  
-* Exception handling::          
-* Debugging::                   
-* Parser::                      
-* Function and Variable Index::  
-* Concept Index::               
-* References::                  
+* Introduction::
+* Objects::
+* Evaluation of expressions::
+* Functions::
+* Object-oriented programming::
+* Computing on the language::
+* System and foreign language interfaces::
+* Exception handling::
+* Debugging::
+* Parser::
+* Function and Variable Index::
+* Concept Index::
+* References::
 @end menu
 
 @node Introduction, Objects, Top, Top
@@ -127,20 +128,20 @@ preferred usage.
 
 Some familiarity with @R{} is assumed.  This is not an introduction to
 @R{} but rather a programmers' reference manual.  Other manuals provide
-complementary information: in particular 
+complementary information: in particular
 @ifset UseExternalXrefs
-@ref{Preface, , , R-intro, An Introduction to R} 
+@ref{Preface, , , R-intro, An Introduction to R}
 @end ifset
 @ifclear UseExternalXrefs
 manual `An Introduction to R'
 @end ifclear
-provides an introduction to @R{} and 
+provides an introduction to @R{} and
 @ifset UseExternalXrefs
 @ref{System and foreign language interfaces, , , R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
 section `System and foreign language interfaces' in the `Writing R
-Extensions' manual 
+Extensions' manual
 @end ifclear
 details how to extend @R{} using compiled code.
 
@@ -186,7 +187,7 @@ The following table describes the possible values returned by
 @item @code{"closure"}  @tab a function
 @item @code{"environment"} @tab an environment
 @cindex evaluation, lazy
-@item @code{"promise"}  @tab an object used to implement lazy evaluation 
+@item @code{"promise"}  @tab an object used to implement lazy evaluation
 @item @code{"language"} @tab an @R{} language construct
 @item @code{"special"}  @tab an internal function that does not evaluate its arguments
 @item @code{"builtin"}  @tab an internal function that evaluates its arguments
@@ -256,9 +257,9 @@ languages or the operating system it is often necessary to ensure that
 an object is of the correct type.
 
 @menu
-* Basic types::                 
-* Attributes::                  
-* Special compound objects::    
+* Basic types::
+* Attributes::
+* Special compound objects::
 @end menu
 
 @node Basic types, Attributes, Objects, Objects
@@ -267,18 +268,18 @@ an object is of the correct type.
 
 
 @menu
-* Vector objects::              
-* List objects::                
-* Language objects::            
-* Expression objects::          
-* Function objects::            
-* NULL object::                 
-* Builtin objects and special forms::  
-* Promise objects::             
-* Dot-dot-dot::                 
-* Environment objects::         
-* Pairlist objects::            
-* Any-type::                    
+* Vector objects::
+* List objects::
+* Language objects::
+* Expression objects::
+* Function objects::
+* NULL object::
+* Builtin objects and special forms::
+* Promise objects::
+* Dot-dot-dot::
+* Environment objects::
+* Pairlist objects::
+* Any-type::
 @end menu
 
 @node Vector objects, List objects, Basic types, Basic types
@@ -373,7 +374,7 @@ parse tree can be extracted using the standard
 indexing operations.
 
 @menu
-* Symbol objects::              
+* Symbol objects::
 @end menu
 
 @node Symbol objects,  , Language objects, Language objects
@@ -595,10 +596,10 @@ matching symbol is found its value will be returned.  If not, the
 enclosing environment is then accessed and the process repeated.
 Environments form a tree structure in which the enclosures play the
 role of parents.  The tree of environments is rooted in an empty
-@findex emptyenv 
+@findex emptyenv
 environment, available through @code{emptyenv()}, which has no parent.
 It is the direct parent of the environment of the base package
-@findex baseenv 
+@findex baseenv
 (available through the @code{baseenv()} function).
 @c Formerly @code{baseenv()} had the special value @code{NULL}, but as from
 @c version 2.4.0, the use of @code{NULL} as an environment is defunct.
@@ -708,12 +709,12 @@ evaluation.  The class structure in @R{} is described in detail
 in @ref{Object-oriented programming}.
 
 @menu
-* Names::                       
-* Dimensions::                  
-* Dimnames::                    
-* Classes::                     
-* Time series attributes::      
-* Copying of attributes::       
+* Names::
+* Dimensions::
+* Dimnames::
+* Classes::
+* Time series attributes::
+* Copying of attributes::
 @end menu
 
 @node Names, Dimensions, Attributes, Attributes
@@ -817,8 +818,8 @@ are sorted along with the object.
 @section Special compound objects
 
 @menu
-* Factors::                     
-* Data frame objects::          
+* Factors::
+* Data frame objects::
 @end menu
 
 @node Factors, Data frame objects, Special compound objects, Special compound objects
@@ -957,21 +958,21 @@ be sufficient documentation.
 Users can construct expressions and invoke the evaluator on them.
 
 @menu
-* Simple evaluation::           
-* Control structures::          
-* Elementary arithmetic operations::  
-* Indexing::                    
-* Scope of variables::          
+* Simple evaluation::
+* Control structures::
+* Elementary arithmetic operations::
+* Indexing::
+* Scope of variables::
 @end menu
 
 @node Simple evaluation, Control structures, Evaluation of expressions, Evaluation of expressions
 @section Simple evaluation
 
 @menu
-* Constants::                   
-* Symbol lookup::               
-* Function calls::              
-* Operators::                   
+* Constants::
+* Symbol lookup::
+* Function calls::
+* Operators::
 @end menu
 
 @node Constants, Symbol lookup, Simple evaluation, Simple evaluation
@@ -991,7 +992,7 @@ numeric value will be unimportant as R will do the right thing when
 using the numbers.  There are, however, times when we would like to
 explicitly create an integer value for a constant.  We can do this by
 calling the function @code{as.integer} or using various other
-techniques. But perhaps the simplest approach is to qualify our 
+techniques. But perhaps the simplest approach is to qualify our
 constant with the suffix character `L'.
 For example, to create the integer value 1, we might use
 
@@ -1307,12 +1308,12 @@ block.
 @end example
 
 @menu
-* if::                          
-* Looping::                     
-* repeat::                      
-* while::                       
-* for::                         
-* switch::                      
+* if::
+* Looping::
+* repeat::
+* while::
+* for::
+* switch::
 @end menu
 
 @node if, Looping, Control structures, Control structures
@@ -1394,7 +1395,7 @@ permitted.
 looping.@footnote{Looping is the repeated evaluation of a statement or
 block of statements.}  They are @code{for}, @code{while} and
 @code{repeat}.  The two built-in constructs, @code{next} and
-@code{break}, provide additional control over the evaluation. 
+@code{break}, provide additional control over the evaluation.
 @R{} provides other functions for
 implicit looping such as @code{tapply}, @code{apply}, and @code{lapply}.
 In addition many operations, especially arithmetic ones, are vectorized
@@ -1541,10 +1542,10 @@ via @code{eval(x[[condition]])}.
 @section Elementary arithmetic operations
 
 @menu
-* Recycling rules::             
-* Propagation of names::        
-* Dimensional attributes::      
-* NA handling::                 
+* Recycling rules::
+* Propagation of names::
+* Dimensional attributes::
+* NA handling::
 @end menu
 
 In this section, we discuss the finer points of the rules that apply to
@@ -1684,10 +1685,10 @@ to evaluate an expression to find the index, use @code{x[[expr]]}.
 Applying @code{$} to a non-recursive object is an error.
 
 @menu
-* Indexing by vectors::         
-* Indexing matrices and arrays::  
-* Indexing other structures::   
-* Subset assignment::           
+* Indexing by vectors::
+* Indexing matrices and arrays::
+* Indexing other structures::
+* Subset assignment::
 @end menu
 
 @node Indexing by vectors, Indexing matrices and arrays, Indexing, Indexing
@@ -1710,7 +1711,7 @@ If @code{i} is positive and exceeds @code{length(x)} then the
 corresponding selection is @code{NA}.  Negative out of bounds values
 for @code{i} are silently disregarded since R version 2.6.0, S compatibly,
 as they mean to drop non-existing elements and that is an empty operation
-(``no-op''). 
+(``no-op'').
 
 A special case is the zero index, which has null effects: @code{x[0]} is
 an empty vector and otherwise including zeros among positive or negative
@@ -1903,8 +1904,8 @@ rm(`*tmp*`)
 
 Note that the index is first converted to a numeric index and then the
 elements are replaced sequentially along the numeric index, as if a
-@code{for} loop had been used.  Any existing variable called 
-@code{`*tmp*`} will be overwritten and deleted, and this variable name 
+@code{for} loop had been used.  Any existing variable called
+@code{`*tmp*`} will be overwritten and deleted, and this variable name
 should not be used in code.
 
 The same mechanism can be applied to functions other than @code{[}.  The
@@ -1939,7 +1940,7 @@ also permitted:
 @example
 names(x)[3] <<- "Three"
 @end example
-is equivalent to 
+is equivalent to
 @example
 `*tmp*` <<- get(x, envir=parent.env(), inherits=TRUE)
 names(`*tmp*`)[3] <- "Three"
@@ -1953,7 +1954,7 @@ x <<- "names<-"(`*tmp*`, value="[<-"(names(`*tmp*`), 3, value="Three"))
 rm(`*tmp*`)
 @end example
 
-Only the target variable is evaluated in the enclosing environment, so 
+Only the target variable is evaluated in the enclosing environment, so
 @example
 e<-c(a=1,b=2)
 i<-1
@@ -1967,7 +1968,7 @@ uses the local value of @code{i} on both the LHS and RHS, and the local
 value of @code{e} on the RHS of the superassignment statement.  It sets
 @code{e} in the outer environment to
 @example
- a  b 
+ a  b
  1 12
 @end example
 That is, the superassignment is equivalent to the four lines
@@ -1982,7 +1983,7 @@ Similarly
 @example
 x[is.na(x)] <<- 0
 @end example
-is equivalent to 
+is equivalent to
 @example
 `*tmp*` <- get(x,envir=parent.env(), inherits=TRUE)
 `*tmp*`[is.na(x)] <- 0
@@ -2072,10 +2073,10 @@ allows dynamic creation and manipulation of functions and language
 objects, and has additional features reflecting this fact.
 
 @menu
-* Global environment::          
-* Lexical environment::         
-* Stacks::                      
-* Search path::                 
+* Global environment::
+* Lexical environment::
+* Stacks::
+* Search path::
 @end menu
 
 @node Global environment, Lexical environment, Scope of variables, Scope of variables
@@ -2113,7 +2114,7 @@ particular, they are not copied on assignment.
 A closure (mode @code{"function"}) object will contain the environment
 in which it is created as part of its definition (By default.  The
 environment can be manipulated using @code{environment<-}).  When the
-function is subsequently called, its 
+function is subsequently called, its
 @cindex environment, evaluation
 evaluation environment is created with the closure's environment as
 enclosure.  Notice that this is not
@@ -2122,7 +2123,7 @@ necessarily the environment of the caller!
 Thus, when a variable is requested inside a
 @cindex function
 function, it is first sought
-in the 
+in the
 @cindex environment, evaluation
 evaluation environment, then in the enclosure, the enclosure of
 the enclosure, etc.; once the global environment or the environment of
@@ -2217,9 +2218,9 @@ packages.
 @chapter Functions
 
 @menu
-* Writing functions::           
-* Functions as objects::        
-* Evaluation::                  
+* Writing functions::
+* Functions as objects::
+* Evaluation::
 @end menu
 
 @node Writing functions, Functions as objects, Functions, Functions
@@ -2234,7 +2235,7 @@ if they want to, change the system level functions to functions that
 they find more appropriate.
 
 @R{} also provides facilities that make it easy to document any
-functions that you have created.  
+functions that you have created.
 @ifset UseExternalXrefs
 @xref{Writing R documentation, , , R-exts, Writing R Extensions}.
 @end ifset
@@ -2244,8 +2245,8 @@ manual.
 @end ifclear
 
 @menu
-* Syntax and examples::         
-* Arguments::                   
+* Syntax and examples::
+* Arguments::
 @end menu
 
 @node Syntax and examples, Arguments, Writing functions, Writing functions
@@ -2329,17 +2330,17 @@ can then be extracted by functions called subsequently.
 
 Functions are first class objects in @R{}.  They can be used anywhere
 that an @R{} object is required.  In particular they can be passed as
-arguments to functions and returned as values from functions.  See 
+arguments to functions and returned as values from functions.  See
 @ref{Function objects} for the details.
 
 @node Evaluation,  , Functions as objects, Functions
 @section Evaluation
 
 @menu
-* Evaluation environment::      
-* Argument matching::           
-* Argument evaluation::         
-* Scope::                       
+* Evaluation environment::
+* Argument matching::
+* Argument evaluation::
+* Scope::
 @end menu
 
 @node Evaluation environment, Argument matching, Evaluation, Evaluation
@@ -2452,7 +2453,7 @@ assignment may not take place.
 It is also worth noting that the effect of @code{foo(x <- y)} if the
 argument is evaluated is to change the value of @code{x} in the calling
 @cindex environment
-environment and not in the 
+environment and not in the
 @cindex environment, evaluation
 evaluation environment of @code{foo}.
 
@@ -2592,7 +2593,7 @@ variables.
 When @code{h(3)} is evaluated we see that its body is that of
 @code{g}. Within that body @code{x} is bound to the formal argument
 and @code{y} is unbound.  In a language with
-@cindex scope 
+@cindex scope
 lexical scope @code{x} will be associated with the value 3 and
 @code{y} with the value 10 local to @code{f} so @code{h(3)} should return the value 13.
 In @R{} this is indeed what happens.
@@ -2703,13 +2704,13 @@ when it exists.
 @c </FIXME>
 
 @menu
-* Definition::                  
-* Inheritance::                 
-* Method dispatching::          
-* UseMethod::                   
-* NextMethod::                  
-* Group methods::               
-* Writing methods::             
+* Definition::
+* Inheritance::
+* Method dispatching::
+* UseMethod::
+* NextMethod::
+* Group methods::
+* Writing methods::
 @end menu
 
 @node Definition, Inheritance, Object-oriented programming, Object-oriented programming
@@ -2877,7 +2878,7 @@ FIXME: something is missing here
 @cindex function, generic
 Generic functions should consist of a single statement.  They should
 usually be of the form @code{foo <- function(x, ...) UseMethod("foo",
-x)}.  When @code{UseMethod} is called, it determines the appropriate 
+x)}.  When @code{UseMethod} is called, it determines the appropriate
 method and then that method is invoked with the same arguments, in
 the same order as the call to the generic, as if the call had been made
 directly to the method.
@@ -3086,7 +3087,7 @@ The following table lists the functions for the different Groups.
 @table @samp
 @item Math
 abs, acos, acosh, asin, asinh, atan, atanh, ceiling, cos, cosh, cospi, cumsum,
-exp, floor, gamma, lgamma, log, log10, round, signif, sin, sinh, sinpi, 
+exp, floor, gamma, lgamma, log, log10, round, signif, sin, sinh, sinpi,
 tan, tanh, tanpi, trunc
 
 @item Summary
@@ -3189,12 +3190,12 @@ In this chapter, we give an introduction to the set of facilities that
 are available for computing on the language.
 
 @menu
-* Direct manipulation of language objects::  
-* Substitutions::               
-* More on evaluation::          
-* Evaluation of expression objects::  
-* Manipulation of function calls::  
-* Manipulation of functions::   
+* Direct manipulation of language objects::
+* Substitutions::
+* More on evaluation::
+* Evaluation of expression objects::
+* Manipulation of function calls::
+* Manipulation of functions::
 @end menu
 
 @node Direct manipulation of language objects, Substitutions, Computing on the language, Computing on the language
@@ -3787,9 +3788,9 @@ set.
 @chapter System and foreign language interfaces
 
 @menu
-* Operating system access::     
-* Foreign language interfaces::  
-* .Internal and .Primitive::    
+* Operating system access::
+* Foreign language interfaces::
+* .Internal and .Primitive::
 @end menu
 
 @node Operating system access, Foreign language interfaces, System and foreign language interfaces, System and foreign language interfaces
@@ -3819,17 +3820,17 @@ environment can be accessed and manipulated with
 @multitable @columnfractions 0.3 0.7
 @item @code{Sys.getenv} @tab OS environment variables
 @findex Sys.getenv
-@item @code{Sys.putenv}                               
+@item @code{Sys.putenv}
 @findex Sys.putenv
-@item @code{Sys.getlocale} @tab System locale         
+@item @code{Sys.getlocale} @tab System locale
 @findex Sys.getlocale
-@item @code{Sys.putlocale}                            
+@item @code{Sys.putlocale}
 @findex Sys.putlocale
-@item @code{Sys.localeconv}                           
+@item @code{Sys.localeconv}
 @findex Sys.localeconv
-@item @code{Sys.time} @tab Current time               
+@item @code{Sys.time} @tab Current time
 @findex Sys.time
-@item @code{Sys.timezone} @tab Time zone              
+@item @code{Sys.timezone} @tab Time zone
 @findex Sys.timezone
 @end multitable
 @end quotation
@@ -3838,27 +3839,27 @@ environment can be accessed and manipulated with
 A uniform set of file access functions is provided on all platforms:
 @quotation
 @multitable @columnfractions 0.3 0.7
-@item @code{file.access} @tab Ascertain File Accessibility 
+@item @code{file.access} @tab Ascertain File Accessibility
 @findex file.access
-@item @code{file.append} @tab Concatenate files            
+@item @code{file.append} @tab Concatenate files
 @findex file.append
-@item @code{file.choose} @tab Prompt user for file name    
+@item @code{file.choose} @tab Prompt user for file name
 @findex file.choose
-@item @code{file.copy}  @tab Copy files                    
+@item @code{file.copy}  @tab Copy files
 @findex file.copy
-@item @code{file.create} @tab Create or truncate a files   
+@item @code{file.create} @tab Create or truncate a files
 @findex file.create
-@item @code{file.exists} @tab Test for existence           
+@item @code{file.exists} @tab Test for existence
 @findex file.exists
-@item @code{file.info} @tab Miscellaneous file information 
+@item @code{file.info} @tab Miscellaneous file information
 @findex file.info
-@item @code{file.remove} @tab remove files                 
+@item @code{file.remove} @tab remove files
 @findex file.remove
-@item @code{file.rename} @tab rename files                 
+@item @code{file.rename} @tab rename files
 @findex file.rename
-@item @code{file.show} @tab Display a text file            
+@item @code{file.show} @tab Display a text file
 @findex file.show
-@item @code{unlink} @tab Remove files or directories.      
+@item @code{unlink} @tab Remove files or directories.
 @findex unlink
 @end multitable
 @end quotation
@@ -3867,13 +3868,13 @@ There are also functions for manipulating file names and paths in a
 platform-independent way.
 @quotation
 @multitable @columnfractions 0.3 0.7
-@item @code{basename} @tab File name without directory     
+@item @code{basename} @tab File name without directory
 @findex basename
-@item @code{dirname} @tab Directory name                   
+@item @code{dirname} @tab Directory name
 @findex dirname
-@item @code{file.path} @tab Construct path to file         
+@item @code{file.path} @tab Construct path to file
 @findex file.path
-@item @code{path.expand} @tab Expand @code{~} in Unix path 
+@item @code{path.expand} @tab Expand @code{~} in Unix path
 @findex path.expand
 @end multitable
 @end quotation
@@ -3887,7 +3888,7 @@ platform-independent way.
 
 See
 @ifset UseExternalXrefs
-@ref{System and foreign language interfaces, , , R-exts, Writing R Extensions} 
+@ref{System and foreign language interfaces, , , R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
 section `System and foreign language interfaces' in the `Writing R
@@ -3929,10 +3930,10 @@ called directly or options such as @code{"warn"} can be used to control
 the handling of problems.
 
 @menu
-* stop::                        
-* warning::                     
-* on.exit::                     
-* Error options::               
+* stop::
+* warning::
+* on.exit::
+* Error options::
 @end menu
 
 @node stop, warning, Exception handling, Exception handling
@@ -4085,10 +4086,10 @@ next statement that is evaluated in @R{}. A symbolic debugger such as
 @code{gdb} can be used to debug compiled code.
 
 @menu
-* browser::                     
-* debug/undebug::               
-* trace/untrace::               
-* traceback::                   
+* browser::
+* debug/undebug::
+* trace/untrace::
+* traceback::
 @end menu
 
 @node browser, debug/undebug, Debugging, Debugging
@@ -4202,11 +4203,11 @@ is itself an @R{} object and can be saved and otherwise manipulated
 within the @R{} system.
 
 @menu
-* The parsing process::         
-* Comments::                    
-* Tokens::                      
-* Expressions::                 
-* Directives::                  
+* The parsing process::
+* Comments::
+* Tokens::
+* Expressions::
+* Directives::
 @end menu
 
 @node The parsing process, Comments, Parser, Parser
@@ -4214,9 +4215,9 @@ within the @R{} system.
 @section The parsing process
 
 @menu
-* Modes of parsing::            
-* Internal representation::     
-* Deparsing::                   
+* Modes of parsing::
+* Internal representation::
+* Deparsing::
 @end menu
 
 @node Modes of parsing, Internal representation, The parsing process, The parsing process
@@ -4315,14 +4316,14 @@ at least) takes place prior to the syntactic analysis performed by the
 parser itself.
 
 @menu
-* Literal constants::           
-* Identifiers::                 
-* Reserved words::              
-* Special operators::           
-* Separators::                  
-* Operator tokens::             
-* Grouping::                    
-* Indexing tokens::             
+* Literal constants::
+* Identifiers::
+* Reserved words::
+* Special operators::
+* Separators::
+* Operator tokens::
+* Grouping::
+* Indexing tokens::
 @end menu
 
 @node Literal constants, Identifiers, Tokens, Tokens
@@ -4355,7 +4356,7 @@ once.
 @end example
 
 Numeric constants can also be hexadecimal, starting with @samp{0x} or
-@samp{0x} followed by zero or more digits, @samp{a-f} or @samp{A-F}.  
+@samp{0x} followed by zero or more digits, @samp{a-f} or @samp{A-F}.
 Hexadecimal floating point constants are supported using C99 syntax, e.g.
 @samp{0x1.1p1}.
 
@@ -4530,7 +4531,7 @@ Newlines have a function which is a combination of token separator and
 expression terminator.  If an expression can terminate at the end of
 the line the parser will assume it does so, otherwise the newline is
 treated as whitespace.  Semicolons (@samp{;}) may be used to separate
-elementary 
+elementary
 @cindex expression
 expressions on the same line.
 
@@ -4597,12 +4598,12 @@ The following sections detail the various syntactical constructs that
 are available.
 
 @menu
-* Function calls (expressions)::  
-* Infix and prefix operators::  
-* Index constructions::         
-* Compound expressions::        
-* Flow control elements::       
-* Function definitions::        
+* Function calls (expressions)::
+* Infix and prefix operators::
+* Index constructions::
+* Compound expressions::
+* Flow control elements::
+* Function definitions::
 @end menu
 
 @c  need "(expressions)" or something to differentiate from node
@@ -4669,7 +4670,7 @@ $ @@
 =                  @r{(as assignment)}
 @end example
 Note that @code{:} precedes binary +/-, but not @code{^}. Hence,
-@code{1:3-1} is @math{0 1 2}, but @code{1:2^3} is @code{1:8}. 
+@code{1:3-1} is @math{0 1 2}, but @code{1:2^3} is @code{1:8}.
 
 The exponentiation operator @samp{^} and the
 @cindex assignment
@@ -4824,7 +4825,7 @@ expressions.
 
 @cindex #line
 
-The parser currently only supports one directive, @code{#line}.  
+The parser currently only supports one directive, @code{#line}.
 This is similar to the C-preprocessor directive of the same name.  The
 syntax is
 
@@ -4832,7 +4833,7 @@ syntax is
 @var{#line} @var{nn} [ @code{"filename"} ]
 @end example
 
-where @var{nn} is an integer line number, and the optional @var{filename} 
+where @var{nn} is an integer line number, and the optional @var{filename}
 (in required double quotes) names the source file.
 
 Unlike the C directive, @code{#line} must appear as the first five characters
@@ -4840,7 +4841,7 @@ on a line.  As in C, @var{nn} and @code{"filename"} entries may be separated
 from it by whitespace.  And unlike C, any following text on the line will be
 treated as a comment and ignored.
 
-This directive tells the parser that the following line should be assumed to 
+This directive tells the parser that the following line should be assumed to
 be line @var{nn} of file @var{filename}.  (If the filename is not given,
 it is assumed to be the same as for the previous directive.)  This is not
 typically used by users, but may be used by preprocessors so that
