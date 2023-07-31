@@ -25,7 +25,7 @@
       package \pkg{MASS}. The \pkg{MASS} namespace is no longer loaded
       if you invoke (say) \code{confint(glmfit)}.  Further, the
       \code{"glm"} method for \code{profile()} and the \code{plot()}
-      and \code{pairs()} mesthods for class \code{"profile"} have been
+      and \code{pairs()} methods for class \code{"profile"} have been
       copied from \pkg{MASS} to \pkg{stats}.  (\code{profile.nls()} and
       \code{plot.profile.nls()} were already in \code{stats}.)
 
@@ -49,7 +49,7 @@
       with a \samp{.} should be included.
 
       \item Serializations can now be interrupted (e.g., by \kbd{Ctrl-C} on
-      a Unix-alike) if they take too long, as e.g., from \code{save.image()},
+      a Unix-alike) if they take too long, e.g., from \code{save.image()},
       thanks to suggestions by Ivan Krylov and others on R-devel.
 
       \item New startup option \option{--max-connections} to set the
@@ -96,6 +96,10 @@
       \item There is some support for building with Intel's LLVM-based
       compilers on \samp{x86_64} Linux, such as (C) \command{icx}, (C++)
       \command{ipcx} and (Fortran) \command{ifx} from oneAPI 2023.x.0.
+
+      \item Enviroment variable \env{R_SYSTEM_ABI} is no longer used and
+      so no longer recorded in \file{etc/Renviron} (it is not on Windows
+      and was only ever used when preparing package \pkg{tools}).
     }
   }
 
@@ -227,6 +231,11 @@
       substitution on platforms which do not support it (notably Alpine
       Linux).  This should give a human-readable conversion in ASCII on
       all platforms (rather than \code{NA_character_}).
+
+      \item \code{trans3d()} gains options \code{continuous} and
+      \code{verbose} addressing the problem of possible \dQuote{wrap
+	around} when projecting too long curves, as reported by Achim Zeileis
+      in \PR{18537}.
     }
   }
 
@@ -246,6 +255,18 @@
 
       \item \code{lapply(<list>, as.data.frame)} no longer warns falsely for
       some base vector components.
+
+      \item Communication between parent and child processes in the
+      \code{multicore} part of \code{parallel} could fail on platforms
+      that do not support an arbitrarily large payload in system
+      functions \code{read()}/\code{write()} on pipes (seen on macOS
+      where a restriction to \code{INT_MAX} bytes is documented, without
+      doing a partial read unlike Linux). The payload is now split into
+      1Gb chunks to avoid that problem. (\PR{18571})
+
+      \item \code{qqplot(x,y, conf.level=.)} gives better confidence bounds
+      when \code{length(x) != length(y)}, thanks to Alexander Ploner's
+      report and patch proposal (\PR{18557}).
     }
   }
 }
