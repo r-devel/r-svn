@@ -625,7 +625,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     int itmp = 0, icum = 0, warn = 0 /* dummy */;
     Rboolean use_isum = TRUE; // indicating if isum() should used; otherwise irsum()
     isum_INT iLtmp = (isum_INT)0, iLcum = iLtmp; // for isum() only
-    SEXPTYPE ans_type;/* only INTEGER, REAL, COMPLEX or STRSXP here */
+    SEXPTYPE ans_type; /* only INTEGER, REAL, COMPLEX or STRSXP here */
 
     int iop = PRIMVAL(op);
     switch(iop) {
