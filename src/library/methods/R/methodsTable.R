@@ -752,11 +752,12 @@
   if(length(methods) == 1L)
     return(methods[[1L]]) # the method
   else if(length(methods) == 0L) {
-    cnames <- paste0("\"", vapply(classes, as.character, ""), "\"",
+    cnames <- paste0(head(fdef@signature, length(classes)), "=\"", vapply(classes, as.character, ""), "\"",
 		     collapse = ", ")
     stop(gettextf("unable to find an inherited method for function %s for signature %s",
                   sQuote(fdef@generic),
                   sQuote(cnames)),
+	 call. = FALSE,
          domain = NA)
   }
   else
