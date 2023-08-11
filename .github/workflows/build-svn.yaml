@@ -27,7 +27,7 @@ jobs:
         set -e
         apt-get update -y
         apt-get install -y ${{matrix.CC}} wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
-        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev
+        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev libdeflate-dev
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
     - name: Checkout
@@ -42,7 +42,8 @@ jobs:
         ./.github/scripts/wget-recommended.sh
         ./.github/scripts/svn-info.sh
     - name: Configure
-      run: CC=${{matrix.CC}} ./configure --enable-R-shlib --with-blas --with-lapack --disable-java
+      run: CC=${{matrix.CC}} ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --with-libdeflate-compression
+
 
     - name: Build
       run: make
@@ -67,7 +68,7 @@ jobs:
     steps:
     - name: System dependencies
       run: |
-        brew install gcc gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
+        brew install gcc gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget libdeflate
         echo "FC=/usr/local/opt/gcc/bin/gfortran" >> $GITHUB_ENV
         echo "/Library/TeX/texbin" >> $GITHUB_PATH
         echo "/usr/local/opt/texinfo/bin" >> $GITHUB_PATH
@@ -82,7 +83,7 @@ jobs:
         ./.github/scripts/wget-recommended.sh
         ./.github/scripts/svn-info.sh
     - name: Configure
-      run: CC=clang ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
+      run: CC=clang ./configure --with-libdeflate-compression --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
 
