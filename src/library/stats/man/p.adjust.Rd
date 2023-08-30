@@ -55,9 +55,7 @@ p.adjust.methods
   The \code{"BH"} (aka \code{"fdr"}) and \code{"BY"} methods of
   Benjamini, Hochberg, and Yekutieli control the false discovery rate,
   the expected proportion of false discoveries amongst the rejected
-  hypotheses.  The false discovery rate is a less stringent condition
-  than the family-wise error rate, so these methods are more powerful
-  than the others.  The false discovery rate as implemented by the 
+  hypotheses.  The false discovery rate as implemented by the 
   \code{"BH"} method is a less stringent condition than the 
   family-wise error rate, so this method is more powerful than the others.
 
