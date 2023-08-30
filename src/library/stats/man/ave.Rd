@@ -4,28 +4,32 @@
 % Distributed under GPL 2 or later
 
 \name{ave}
-\title{Group Averages Over Level Combinations of Factors}
+\title{Apply Function Over Level Combinations of Factors}
 \usage{
 ave(x, \dots, FUN = mean)
 }
 \alias{ave}
 \arguments{
-  \item{x}{A numeric.}
+  \item{x}{A vector containing values to be divided into groups.}
   \item{\dots}{Grouping variables, typically factors, all of the same
-    \code{length} as \code{x}.}
-  \item{FUN}{Function to apply for each factor level combination.}
+    length as \code{x}.}
+  \item{FUN}{Function to apply for each factor level combination. 
+  N.B. this argument must be named.  It cannot be matched by
+  position, since it follows \code{\dots}}
 }
 \description{
-  Subsets of \code{x[]} are averaged, where each subset consist of those
-  observations with the same factor levels.
+  A specified function (defaulting to \code{mean}) is applied to subsets of
+  \code{x[]}, where each subset consist of those observations with the same factor levels.
 }
 \value{
-  A numeric vector, say \code{y} of length \code{length(x)}.
-  If \code{\dots} is \code{g1, g2}, e.g.,
-  \code{y[i]} is equal to \code{FUN(x[j]}, for all \code{j} with
-  \code{g1[j] == g1[i]} and \code{g2[j] == g2[i])}.
+  A vector \code{y} of the same length as \code{x}.
+  If \code{\dots} is missing, all elements of \code{y} are equal
+  to \code{FUN(x)}. If \code{\dots} consists of one or more grouping variables 
+  e.g. \code{g1, g2}, then \code{y[i]} is equal to \code{FUN(x[j])}, for all 
+  \code{j} with \code{g1[j] == g1[i]} and \code{g2[j] == g2[i])}.
 }
-\seealso{\code{\link{mean}}, \code{\link{median}}.}
+
+\seealso{\code{\link{mean}}, \code{\link{median}}, \code{\link{split}}.}
 \examples{
 require(graphics)
 
@@ -42,6 +46,9 @@ lines(ave(breaks, wool, tension, FUN = median), type = "s", col = "green")
 legend(40, 70, c("mean", "median"), lty = 1,
       col = c("blue","green"), bg = "gray90")
 detach()
+
+# Sequence of occurrence of values
+xts <- sample(LETTERS[1:3], 20, replace = TRUE)
+xseq <- ave(xts, xts, FUN = seq_along) 
 }
 \keyword{univar}
-
