@@ -30,9 +30,8 @@ p.adjust.methods
   (\code{"bonferroni"}) in which the p-values are multiplied by the
   number of comparisons.  Less conservative corrections are also
   included by Holm (1979) (\code{"holm"}), Hochberg (1988)
-  (\code{"hochberg"}), Hommel (1988) (\code{"hommel"}), Benjamini &
-  Hochberg (1995) (\code{"BH"} or its alias \code{"fdr"}), and Benjamini &
-  Yekutieli (2001) (\code{"BY"}), respectively.
+  (\code{"hochberg"}), Hommel (1988) (\code{"hommel"}), and Benjamini &
+  Hochberg (1995) (\code{"BH"} or its alias \code{"fdr"}).
   The \code{"BY"} correction implements the method of Theorem 1.3 in Benjamini
   & Yekutieli (2001), which controls the FDR under the most general form
   of dependence structure. This can be very conservative.
