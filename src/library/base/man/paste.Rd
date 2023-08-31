@@ -23,7 +23,7 @@ paste0(\dots,            collapse = NULL, recycle0 = FALSE)
     \code{\link{character}(0)}. This argument interacts with \code{collapse}
     such that under the conditions \code{recycle0} is \code{TRUE} and
     \code{collapse} is not \code{NULL}, zero-length arguments instead output as
-    \code{""} .}
+    \code{""}.}
 }
 \description{
   Concatenate vectors after converting to character.
