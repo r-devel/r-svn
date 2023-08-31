@@ -148,7 +148,7 @@ SEXP do_rhyper(SEXP sn, SEXP sa, SEXP sb, SEXP sc);
 
 SEXP do_rmultinom(SEXP sn, SEXP ssize, SEXP sprob);
 
-SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);
+SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);
 
 /* Declarations for .External[2] entry points */
 
