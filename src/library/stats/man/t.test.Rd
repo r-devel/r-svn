@@ -38,9 +38,9 @@ t.test(x, \dots)
     (or Satterthwaite) approximation to the degrees of freedom is used.}
   \item{conf.level}{confidence level of the interval.}
   \item{formula}{a formula of the form \code{lhs ~ rhs} where \code{lhs}
-    is a numeric variable giving the data values and \code{rhs} either 
+    is a numeric variable giving the data values and \code{rhs} either
     \code{1} for a one-sample or paired test or a factor
-    with two levels giving the corresponding groups. If \code{lhs} is of 
+    with two levels giving the corresponding groups. If \code{lhs} is of
     class \code{"\link{Pair}"} and \code{rhs} is \code{1}, a paired test
     is done.}
   \item{data}{an optional matrix or data frame (or similar: see
@@ -93,26 +93,32 @@ t.test(x, \dots)
   \code{\link{prop.test}}
 }
 \examples{
-require(graphics)
-
+# Two-sample t-test ----
 t.test(1:10, y = c(7:20))      # P = .00001855
 t.test(1:10, y = c(7:20, 200)) # P = .1245    -- NOT significant anymore
 
-## Classical example: Student's sleep data
-plot(extra ~ group, data = sleep)
 ## Traditional interface
-with(sleep, t.test(extra[group == 1], extra[group == 2]))
+with(mtcars, t.test(mpg[am == 0], mpg[am == 1]))
 
 ## Formula interface
-t.test(extra ~ group, data = sleep)
+t.test(mpg ~ am, data = mtcars)
 
-## Formula interface to one-sample test
+# One-sample t-test ----
+## Traditional interface
+t.test(sleep$extra)
+
+## Formula interface
 t.test(extra ~ 1, data = sleep)
 
-## Formula interface to paired test
+# Paired t-test ----
 ## The sleep data are actually paired, so could have been in wide format:
-sleep2 <- reshape(sleep, direction = "wide", 
+sleep2 <- reshape(sleep, direction = "wide",
                   idvar = "ID", timevar = "group")
+
+## Traditional interface
+t.test(sleep2$extra.1, sleep2$extra.2, paired = TRUE)
+
+## Formula interface
 t.test(Pair(extra.1, extra.2) ~ 1, data = sleep2)
 }
 \keyword{htest}
