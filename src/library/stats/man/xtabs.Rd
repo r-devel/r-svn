@@ -83,6 +83,10 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
   Note that when \code{addNA} is false as by default, and \code{na.action}
   is not specified (or set to \code{NULL}), in effect \code{na.action =
     getOption("na.action", default=na.omit)} is used; see also the examples.
+
+  Also note that if \code{na.action = na.omit} and the data frame is passed to the 
+  function in a wide form, it may result in the loss of counts as complete 
+  rows are omitted if there is an \code{NA} present in any collum. 
 }
 \value{
   By default, when \code{sparse = FALSE},
