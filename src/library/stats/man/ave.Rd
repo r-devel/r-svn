@@ -19,7 +19,7 @@ ave(x, \dots, FUN = mean)
 }
 \description{
   A specified function (defaulting to \code{mean}) is applied to subsets of
-  \code{x[]}, where each subset consist of those observations with the same factor levels.
+  \code{x[]}, where each subset consists of those observations with the same factor levels.
 }
 \value{
   A vector \code{y} of the same length as \code{x}.
