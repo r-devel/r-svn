@@ -101,6 +101,9 @@ stopifnot(\dots, exprs, exprObject, local = TRUE)
   \code{stopifnot()} for testing warnings and errors.
 }
 \examples{
+# Note that these examples run all the way through only in batch
+# mode or fully interactive mode but now when run with example(stopifnot)
+
 stopifnot(1 == 1, all.equal(pi, 3.14159265), 1 < 2) # all TRUE
 
 m <- matrix(c(1,3,3,1), 2, 2)
