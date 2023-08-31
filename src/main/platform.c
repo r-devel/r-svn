@@ -50,7 +50,7 @@
 #include <string.h>
 #include <stdlib.h>			/* for realpath */
 #include <time.h>			/* for ctime */
-# include <errno.h>
+#include <errno.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h> /* for symlink, getpid */
@@ -64,13 +64,8 @@
 #endif
 
 #ifdef Win32
-/* Mingw-w64 defines this to be 0x0502 */
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0500 /* for CreateHardLink */
-#endif
 #include <windows.h>
 typedef BOOLEAN (WINAPI *PCSL)(LPWSTR, LPWSTR, DWORD);
-static PCSL pCSL = NULL;
 const char *formatError(DWORD res);  /* extra.c */
 /* Windows does not have link(), but it does have CreateHardLink() on NTFS */
 #undef HAVE_LINK
@@ -377,13 +372,33 @@ attribute_hidden SEXP do_fileshow(SEXP call, SEXP op, SEXP args, SEXP rho)
 # define APPENDBUFSIZE (128*1024)
 #endif
 
+/* RC_fopen but fails when fn is a directory.
+
+   On Linux, a directory can be opened for reading, but not on Windows
+   (PR#17337). */
+static FILE
+*RC_fopen_notdir(const SEXP fn, const char *mode, const Rboolean expand)
+{
+    FILE *f = RC_fopen(fn, mode, expand);
+#ifdef HAVE_SYS_STAT_H
+    if (f) {
+	struct stat sb;
+	if (!fstat(fileno(f), &sb) && S_ISDIR(sb.st_mode)) {
+	    fclose(f);
+	    return NULL;
+	}
+    }
+#endif
+    return f;
+}
+
 static int R_AppendFile(SEXP file1, SEXP file2)
 {
     FILE *fp1, *fp2;
     size_t nchar;
     int status = 0;
-    if ((fp1 = RC_fopen(file1, "ab", TRUE)) == NULL) return 0;
-    if ((fp2 = RC_fopen(file2, "rb", TRUE)) == NULL) {
+    if ((fp1 = RC_fopen_notdir(file1, "ab", TRUE)) == NULL) return 0;
+    if ((fp2 = RC_fopen_notdir(file2, "rb", TRUE)) == NULL) {
 	fclose(fp1);
 	return 0;
     }
@@ -430,12 +445,12 @@ attribute_hidden SEXP do_fileappend(SEXP call, SEXP op, SEXP args, SEXP rho)
 	int status = 0;
 	size_t nchar;
 	if (STRING_ELT(f1, 0) == NA_STRING ||
-	    !(fp1 = RC_fopen(STRING_ELT(f1, 0), "ab", TRUE)))
+	    !(fp1 = RC_fopen_notdir(STRING_ELT(f1, 0), "ab", TRUE)))
 	   goto done;
 	for (int i = 0; i < n; i++) {
 	    status = 0;
 	    if (STRING_ELT(f2, i) == NA_STRING ||
-	       !(fp2 = RC_fopen(STRING_ELT(f2, i), "rb", TRUE))) continue;
+	       !(fp2 = RC_fopen_notdir(STRING_ELT(f2, i), "rb", TRUE))) continue;
 	    char *buf = (char *)malloc(APPENDBUFSIZE);
 	    if (!buf) {
 		fclose(fp1);
@@ -537,7 +552,7 @@ attribute_hidden SEXP do_fileremove(SEXP call, SEXP op, SEXP args, SEXP rho)
    (i) It needs Windows >= Vista
    (ii) It matters whether 'from' is a file or a dir, and we could only
    know if it exists already.
-   (iii) This needs specific privileges which in general only Adminstrators
+   (iii) This needs specific privileges which in general only Administrators
    have, and which many people report granting in the Policy Editor
    fails to work.
 */
@@ -563,14 +578,6 @@ attribute_hidden SEXP do_filesymlink(SEXP call, SEXP op, SEXP args, SEXP rho)
 	return allocVector(LGLSXP, 0);
     n = (n1 > n2) ? n1 : n2;
 
-#ifdef Win32
-    // Vista, Server 2008 and later
-    pCSL = (PCSL) GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-				 "CreateSymbolicLinkW");
-    if(!pCSL)
-	error(_("symbolic links are not supported on this version of Windows"));
-#endif
-
 #ifdef HAVE_SYMLINK
     PROTECT(ans = allocVector(LGLSXP, n));
     for (i = 0; i < n; i++) {
@@ -589,7 +596,7 @@ attribute_hidden SEXP do_filesymlink(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    to = filenameToWchar(STRING_ELT(f2, i%n2), TRUE);
 	    _wstati64(from, &sb);
 	    int isDir = (sb.st_mode & S_IFDIR) > 0;
-	    LOGICAL(ans)[i] = pCSL(to, from, isDir) != 0;
+	    LOGICAL(ans)[i] = CreateSymbolicLinkW(to, from, isDir) != 0;
 	    if(!LOGICAL(ans)[i])
 		warning(_("cannot symlink '%ls' to '%ls', reason '%s'"),
 			from, to, formatError(GetLastError()));
@@ -1076,6 +1083,9 @@ attribute_hidden SEXP do_direxists(SEXP call, SEXP op, SEXP args, SEXP rho)
 
    R_opendir/R_readdir/R_closedir implement a subset of the functionality,
    on Unix they fall back to POSIX API, on Windows they support long paths.
+   Unlike MinGW-W64, they use wide-string search functions internally to
+   support file names up to MAX_PATH wide characters.
+   Note that d_name pointer may change between readdir operations.
 
    R_wopendir/R_wreaddir/R_wclosedir are wide-string variants for Windows. */
 
@@ -1093,14 +1103,46 @@ attribute_hidden SEXP do_direxists(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 struct R_DIR_INTERNAL {
 #ifdef Win32
-    char *pattern;
-    WIN32_FIND_DATA fdata;
+    wchar_t *pattern;
+    WIN32_FIND_DATAW fdata;
     HANDLE hfind;
+    R_StringBuffer cbuff;
 #else
     DIR *dirp;
 #endif
     struct R_dirent de;
 };
+
+#ifdef Win32
+static wchar_t* search_wpattern(const wchar_t *name)
+{
+    const void *vmax = vmaxget();
+    wchar_t *apath = R_getFullPathNameW(name);
+    if (!apath) {
+	errno = EFAULT;
+	vmaxset(vmax);
+	return NULL;
+    }
+    size_t len = wcslen(apath);
+    /* <slash><star><null> */
+    wchar_t *pattern = malloc((len + 3) * sizeof(wchar_t));
+    if (!pattern) {
+	errno = EFAULT;
+	vmaxset(vmax);
+	return NULL;
+    }
+    memcpy(pattern, apath, len * sizeof(wchar_t));
+    /* apath is not D: (that would have been expanded) */
+
+    /* add separator if not present and pattern not empty */
+    if (len > 0 && pattern[len-1] != L'\\' && pattern[len-1] != L'/')
+	pattern[len++] = L'/';
+    pattern[len++] = L'*';
+    pattern[len] = L'\0';
+    vmaxset(vmax);
+    return pattern;
+}
+#endif
 
 R_DIR *R_opendir(const char *name)
 {
@@ -1121,34 +1163,25 @@ R_DIR *R_opendir(const char *name)
 	free(rdir);
 	return NULL;
     }
-
+    int nc = (int) mbstowcs(NULL, name, 0);
+    if (nc < 0) {
+	errno = ENOENT;
+	free(rdir);
+	return NULL;
+    }
     const void *vmax = vmaxget();
-    char *apath = R_getFullPathName(name);
-    if (!apath) {
-	errno = EFAULT;
+    wchar_t *wname = (wchar_t *) R_alloc(nc + 1, sizeof(wchar_t));
+    mbstowcs(wname, name, nc + 1);
+    rdir->pattern = search_wpattern(wname); /* malloc'd */
+    if (!rdir->pattern) {
 	vmaxset(vmax);
 	free(rdir);
 	return NULL;
-    }
-    size_t len = strlen(apath);
-    char *pattern = malloc(len + 3); /* <slash><star><null> */
-    if (!pattern) {
-	errno = EFAULT;
-	vmaxset(vmax);
-	free(rdir);
-	return NULL;
-    }
-    memcpy(pattern, apath, len);
-    /* apath is not D: (that would have been expanded) */
-
-    /* add separator if not present and pattern not empty */
-    if (len > 0 && pattern[len-1] != '\\' && pattern[len-1] != '/')
-	pattern[len++] = '/';
-    pattern[len++] = '*';
-    pattern[len] = '\0';
-
-    rdir->pattern = pattern;
+    }	
     rdir->hfind = INVALID_HANDLE_VALUE;
+    rdir->cbuff.data = NULL;
+    rdir->cbuff.bufsize = 0;
+    rdir->cbuff.defaultSize = MAXELTSIZE;
     vmaxset(vmax);
 #else
     rdir->dirp = opendir(name);
@@ -1169,24 +1202,34 @@ struct R_dirent *R_readdir(R_DIR *rdir)
 #ifdef Win32
     if (rdir->pattern) {
 	/* starting the search */
-	rdir->hfind = FindFirstFile(rdir->pattern, &rdir->fdata);
+	rdir->hfind = FindFirstFileW(rdir->pattern, &rdir->fdata);
 	free(rdir->pattern);
 	rdir->pattern = NULL;
 	if (rdir->hfind == INVALID_HANDLE_VALUE)
 	    /* keep errno, no files, even though not likely (., ..) */
 	    return NULL;
-	rdir->de.d_name = (char *)&rdir->fdata.cFileName;
-	return &rdir->de;
     } else if (rdir->hfind != INVALID_HANDLE_VALUE) {
 	/* continuing the search */
-	if (!FindNextFile(rdir->hfind, &rdir->fdata))
+	if (!FindNextFileW(rdir->hfind, &rdir->fdata)) {
+	    if (GetLastError() != ERROR_NO_MORE_FILES)
+		warning(_("error while listing a directory: '%s'"),
+		    formatError(GetLastError()));
 	    /* keep errno, no more files */
 	    return NULL;
-	return &rdir->de;
+	}
     } else {
 	errno = EFAULT;
 	return NULL;
     }
+    wchar_t *wname = (wchar_t *)&rdir->fdata.cFileName;
+    int nb = (int) wcstombs(NULL, wname, 0);
+    if (nb < 0)
+	/* invalid strings stop the search */
+	return NULL;
+    R_AllocStringBuffer(nb + 1, &rdir->cbuff);
+    wcstombs(rdir->cbuff.data, wname, nb + 1);
+    rdir->de.d_name = rdir->cbuff.data;
+    return &rdir->de;
 #else
     struct dirent *de;
     de = readdir(rdir->dirp);
@@ -1205,6 +1248,7 @@ int R_closedir(R_DIR *rdir)
 	return -1;
     }
 #ifdef Win32
+    R_FreeStringBuffer(&rdir->cbuff);
     if (rdir->pattern)
 	free(rdir->pattern);
     BOOL r = 0;
@@ -1251,36 +1295,12 @@ attribute_hidden R_WDIR *R_wopendir(const wchar_t *name)
 	free(rdir);
 	return NULL;
     }
-
-    const void *vmax = vmaxget();
-    wchar_t *apath = R_getFullPathNameW(name);
-    if (!apath) {
-	errno = EFAULT;
-	vmaxset(vmax);
+    rdir->pattern = search_wpattern(name); /* malloc'd */
+    if (!rdir->pattern) {
 	free(rdir);
 	return NULL;
-    }
-    size_t len = wcslen(apath);
-    /* <slash><star><null> */
-    wchar_t *pattern = malloc((len + 3) * sizeof(wchar_t));
-    if (!pattern) {
-	errno = EFAULT;
-	vmaxset(vmax);
-	free(rdir);
-	return NULL;
-    }
-    memcpy(pattern, apath, len * sizeof(wchar_t));
-    /* apath is not D: (that would have been expanded) */
-
-    /* add separator if not present and pattern not empty */
-    if (len > 0 && pattern[len-1] != L'\\' && pattern[len-1] != L'/')
-	pattern[len++] = L'/';
-    pattern[len++] = L'*';
-    pattern[len] = L'\0';
-
-    rdir->pattern = pattern;
+    }	
     rdir->hfind = INVALID_HANDLE_VALUE;
-    vmaxset(vmax);
     return rdir;
 }
 
@@ -1659,9 +1679,18 @@ attribute_hidden SEXP do_fileexists(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < nfile; i++) {
 	LOGICAL(ans)[i] = 0;
 	if (STRING_ELT(file, i) != NA_STRING) {
+	    /* documented to silently report false for paths that would be too
+	       long after expansion */
 #ifdef Win32
-	    LOGICAL(ans)[i] =
-		R_WFileExists(filenameToWchar(STRING_ELT(file, i), TRUE));
+	    /* Package XML sends arbitrarily long strings to file.exists! */
+	    size_t len = strlen(CHAR(STRING_ELT(file, i)));
+	    /* 32767 bytes will still fit to the wide char buffer used
+	       by filenameToWchar */
+	    if (len > 32767)
+		LOGICAL(ans)[i] = FALSE;
+	    else
+		LOGICAL(ans)[i] =
+		    R_WFileExists(filenameToWchar(STRING_ELT(file, i), TRUE));
 #else
 	    // returns NULL if not translatable
 	    const char *p = translateCharFP2(STRING_ELT(file, i));
@@ -2510,8 +2539,13 @@ attribute_hidden SEXP do_capabilities(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* This is true iff winCairo.dll is available */
     struct stat sb;
     char path[1000]; // R_HomeDir() should be at most 260 chars
+# ifdef R_ARCH
     snprintf(path, 1000, "%s/library/grDevices/libs/%s/winCairo.dll",
 	     R_HomeDir(), R_ARCH);
+# else
+    snprintf(path, 1000, "%s/library/grDevices/libs/winCairo.dll",
+	     R_HomeDir());
+# endif
     LOGICAL(ans)[i++] = stat(path, &sb) == 0;
 }
 #else
@@ -3528,6 +3562,10 @@ extern int dladdr(void *addr, Dl_info *info);
 extern void *dlsym(void *handle, const char *symbol);
 #endif
 
+#ifdef HAVE_LIBDEFLATE
+# include <libdeflate.h>
+#endif
+
 /* extSoftVersion only detects versions of libraries that are available
    without loading any modules; libraries available via modules are
    treated individually (libcurlVersion(), La_version(), etc)
@@ -3536,8 +3574,8 @@ attribute_hidden SEXP
 do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP ans = PROTECT(allocVector(STRSXP, 9));
-    SEXP nms = PROTECT(allocVector(STRSXP, 9));
+    SEXP ans = PROTECT(allocVector(STRSXP, 10));
+    SEXP nms = PROTECT(allocVector(STRSXP, 10));
     setAttrib(ans, R_NamesSymbol, nms);
     unsigned int i = 0;
     char p[256];
@@ -3550,6 +3588,13 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     snprintf(p, 256, "%s", lzma_version_string());
     SET_STRING_ELT(ans, i, mkChar(p));
     SET_STRING_ELT(nms, i++, mkChar("xz"));
+#ifdef HAVE_LIBDEFLATE
+    snprintf(p, 256, "%s", LIBDEFLATE_VERSION_STRING);
+    SET_STRING_ELT(ans, i, mkChar(p));
+#else
+    SET_STRING_ELT(ans, i, mkChar(""));
+#endif
+    SET_STRING_ELT(nms, i++, mkChar("libdeflate"));
 #ifdef HAVE_PCRE2
     pcre2_config(PCRE2_CONFIG_VERSION, p);
 #else
@@ -3558,11 +3603,21 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, i, mkChar(p));
     SET_STRING_ELT(nms, i++, mkChar("PCRE"));
 #ifdef USE_ICU
-    UVersionInfo icu;
-    char pu[U_MAX_VERSION_STRING_LENGTH];
-    u_getVersion(icu);
-    u_versionToString(icu, pu);
-    SET_STRING_ELT(ans, i, mkChar(pu));
+    int use_icu = 1;
+#ifdef Win32
+    /* ICU 72 requires this function (and other from Windows 7) */
+    if (!GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+                        "ResolveLocaleName"))
+	use_icu = 0;
+#endif
+    if (use_icu) {
+	UVersionInfo icu;
+	char pu[U_MAX_VERSION_STRING_LENGTH];
+	u_getVersion(icu);
+	u_versionToString(icu, pu);
+	SET_STRING_ELT(ans, i, mkChar(pu));
+    } else
+	SET_STRING_ELT(ans, i, mkChar(""));
 #else
     SET_STRING_ELT(ans, i, mkChar(""));
 #endif
@@ -3661,10 +3716,15 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     char buf[R_PATH_MAX+1];
     if (ok && dladdr(dgemm_addr, &dl_info1)) {
 	char *res = realpath(dl_info1.dli_fname, buf);
-	if (res)
-	    SET_STRING_ELT(ans, i, mkChar(res));
-	else if (errno == ENOENT)
-	    /* macOs (Big Sur) has uses a cache for system-provided dynamic
+	if (res) {
+	    SEXP nfo = R_NilValue;
+	    if (strstr(res, "flexiblas"))
+		nfo = R_flexiblas_info();
+	    if (isNull(nfo))
+		nfo = mkChar(res);
+	    SET_STRING_ELT(ans, i, nfo);
+	} else if (errno == ENOENT)
+	    /* macOs (Big Sur) has a cache for system-provided dynamic
 	       libraries and they no longer exist as regular files. The 
 	       dynamic linker knows how to find them, but not regular file
 	       operations such as realpath(). Hence, when the file is not

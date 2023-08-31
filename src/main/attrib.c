@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -694,7 +694,7 @@ static SEXP R_S4_extends_table = 0;
 static SEXP cache_class(const char *class, SEXP klass)
 {
     if(!R_S4_extends_table) {
-	R_S4_extends_table = R_NewHashedEnv(R_NilValue, ScalarInteger(0));
+	R_S4_extends_table = R_NewHashedEnv(R_NilValue, 0);
 	R_PreserveObject(R_S4_extends_table);
     }
     if(isNull(klass)) {
@@ -713,7 +713,7 @@ static SEXP S4_extends(SEXP klass, Rboolean use_tab) {
     if(!s_extends) {
 	s_extends = install("extends");
 	s_extendsForS3 = install(".extendsForS3");
-	R_S4_extends_table = R_NewHashedEnv(R_NilValue, ScalarInteger(0));
+	R_S4_extends_table = R_NewHashedEnv(R_NilValue, 0);
 	R_PreserveObject(R_S4_extends_table);
     }
     if(!isMethodsDispatchOn()) {
@@ -1334,7 +1334,7 @@ attribute_hidden SEXP do_levelsgets(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden SEXP do_attributesgets(SEXP call, SEXP op, SEXP args, SEXP env)
 {
 /* NOTE: The following code ensures that when an attribute list */
-/* is attached to an object, that the "dim" attibute is always */
+/* is attached to an object, that the "dim" attribute is always */
 /* brought to the front of the list.  This ensures that when both */
 /* "dim" and "dimnames" are set that the "dim" is attached first. */
 
@@ -1590,8 +1590,11 @@ attribute_hidden SEXP do_attrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 	nlist = CADR(args);
 	if (isSymbol(nlist))
 	    SET_STRING_ELT(input, 0, PRINTNAME(nlist));
-	else if(isString(nlist) )
+	else if(isString(nlist) ) {
+	    if (LENGTH(nlist) != 1)
+		error(_("invalid slot name length"));
 	    SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+	}
 	else {
 	    error(_("invalid type '%s' for slot name"),
 		  type2char(TYPEOF(nlist)));
@@ -1862,9 +1865,27 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value) {
 
 attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP  nlist, object, ans, klass;
+    SEXP  nlist, object, ans;
 
     checkArity(op, args);
+
+    PROTECT(object = eval(CAR(args), env));
+
+    if (OBJECT(object) && ! IS_S4_OBJECT(object)) {
+	//**** could modify fixSubset3Args to provide abetter error message
+	// could also use in more places, e.g. for @<-
+	PROTECT(args = fixSubset3Args(call, args, env, NULL));
+	SETCAR(args, R_mkEVPROMISE_NR(CAR(args), object));
+	/* DispatchOrEval internal generic: @ */
+	if (DispatchOrEval(call, op, "@", args, env, &ans, 0, 0)) {
+	    UNPROTECT(2); /* object, args */
+	    return ans;
+	}
+	UNPROTECT(1); /* args */
+
+	/* fall through to handle @.Data or signal an error */
+    }
+
     if(!isMethodsDispatchOn())
 	error(_("formal classes cannot be used without the 'methods' package"));
     nlist = CADR(args);
@@ -1873,22 +1894,18 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
     if(!(isSymbol(nlist) || (isString(nlist) && LENGTH(nlist) == 1)))
 	error(_("invalid type or length for slot name"));
     if(isString(nlist)) nlist = installTrChar(STRING_ELT(nlist, 0));
-    PROTECT(object = eval(CAR(args), env));
     if(!s_dot_Data) init_slot_handling();
     if(nlist != s_dot_Data && !IS_S4_OBJECT(object)) {
-	klass = getAttrib(object, R_ClassSymbol);
-	if(length(klass) == 0)
-	    error(_("trying to get slot \"%s\" from an object of a basic class (\"%s\") with no slots"),
-		  CHAR(PRINTNAME(nlist)),
-		  CHAR(STRING_ELT(R_data_class(object, FALSE), 0)));
-	else
-	    error(_("trying to get slot \"%s\" from an object (class \"%s\") that is not an S4 object "),
-		  CHAR(PRINTNAME(nlist)),
+	SEXP klass = getAttrib(object, R_ClassSymbol);
+	errorcall(call, _("no applicable method for `@` "
+			  "applied to an object of class \"%s\""),
+		  length(klass) == 0 ?
+		  CHAR(STRING_ELT(R_data_class(object, FALSE), 0)) :
 		  translateChar(STRING_ELT(klass, 0)));
     }
 
     ans = R_do_slot(object, nlist);
-    UNPROTECT(1);
+    UNPROTECT(1); /* object */
     return ans;
 }
 

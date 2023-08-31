@@ -1,7 +1,7 @@
 #  File src/library/tools/R/urltools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2015-2022 The R Core Team
+#  Copyright (C) 2015-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -207,6 +207,11 @@ function(meta)
             "([^>\"])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])"
         m <- gregexpr(pattern, v)
         urls <- c(urls, .gregexec_at_pos(pattern, v, m, 3L))
+        regmatches(v, m) <- ""
+        pattern <- "<([A-Za-z][A-Za-z0-9.+-]*:[^>]+)>"
+        ##   scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+        m <- gregexpr(pattern, v)
+        urls <- c(urls, .gregexec_at_pos(pattern, v, m, 2L))
     }
 
     url_db(urls, rep.int("DESCRIPTION", length(urls)))
@@ -292,7 +297,7 @@ function(dir, installed = FALSE)
 
 url_db_from_package_sources <-
 function(dir, add = FALSE) {
-    meta <- .read_description(file.path(dir, "DESCRIPTION"))
+    meta <- .get_package_metadata(dir, FALSE)
     db <- rbind(url_db_from_package_metadata(meta),
                 url_db_from_package_Rd_db(Rd_db(dir = dir)),
                 url_db_from_package_citation(dir, meta),
@@ -569,9 +574,18 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
 
     ## Invalid URI schemes.
     schemes <- parts[, 1L]
-    ind <- is.na(match(schemes,
+    ind <- is.na(match(tolower(schemes),
                        c("",
                          IANA_URI_scheme_db$URI_Scheme,
+                         "arxiv",
+                         ## Also allow 'isbn' and 'issn', which in fact
+                         ## are registered URN namespaces but not
+                         ## registered URI schemes, see
+                         ## <https://www.iana.org/assignments/urn-formal/isbn>
+                         ## <https://www.iana.org/assignments/urn-formal/issn>
+                         ## <https://doi.org/10.17487/rfc3986>
+                         ## <https://doi.org/10.17487/rfc8141>.
+                         "isbn", "issn",
                          ## Also allow 'javascript' scheme, see
                          ## <https://tools.ietf.org/html/draft-hoehrmann-javascript-scheme-03>
                          ## (but apparently never registered with IANA).
@@ -585,6 +599,9 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
         bad <- rbind(bad,
                      .gather(urls[ind], parents[ind], m = msg))
     }
+    
+    ## Could check urn URIs at least for appropriate namespaces using
+    ## <https://www.iana.org/assignments/urn-namespaces/urn-namespaces-1.csv>
 
     ## ftp.
     pos <- which(schemes == "ftp")
@@ -607,7 +624,7 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
 
     ## http/https.
     pos <- which(schemes == "http" | schemes == "https")
-    if(length(pos)) {
+    if(length(pos) && remote) {
         urlspos <- urls[pos]
         ## Check DOI URLs via the DOI handle API, as we nowadays do for
         ## checking DOIs.

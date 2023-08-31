@@ -120,9 +120,10 @@ findFuzzyMatches <- function(pattern, values) {
 }
 
 
-findMatches <- function(pattern, values)
+findMatches <- function(pattern, values, fuzzy)
 {
-    if (.CompletionEnv$settings[["fuzzy"]])
+    if (missing(fuzzy)) fuzzy <- .CompletionEnv$settings[["fuzzy"]]
+    if (fuzzy)
         findFuzzyMatches(pattern, values)
     else
         findExactMatches(pattern, values)
@@ -158,6 +159,18 @@ fuzzyApropos <- function(what)
         ls(x, all.names = TRUE, pattern = pattern) # more efficient
     else
         findMatches(pattern, ls(x, all.names = TRUE))
+}
+
+## generic and default method to generate completion after @
+
+.AtNames <- function(x, pattern)
+    UseMethod(".AtNames")
+
+.AtNames.default <- function(x, pattern = "") {
+    if (isS4(x))
+        findMatches(pattern, methods::slotNames(x))
+    else
+        character()
 }
 
 ## if (is.environment(object))
@@ -360,7 +373,6 @@ specialOpCompletionsHelper <- function(op, suffix, prefix)
                        suffix
                    else
                    {
-                       ## ## suffix must match names(object) (or ls(object) for environments)
                        .DollarNames(object, pattern = sprintf("^%s", makeRegexpSafe(suffix)))
                    }
                } else suffix
@@ -373,8 +385,7 @@ specialOpCompletionsHelper <- function(op, suffix, prefix)
                        suffix
                    else
                    {
-                       findMatches(sprintf("^%s", makeRegexpSafe(suffix)),
-                                   methods::slotNames(object))
+                       .AtNames(object, pattern = sprintf("^%s", makeRegexpSafe(suffix)))
                    }
                } else suffix
            },
@@ -838,6 +849,7 @@ functionArgs <-
 ## completions are found.  We could return "" as the only completion,
 ## but that produces an irritating blank line on
 ## list-possible-completions (or whatever the correct name is).
+
 ## Instead (since we don't want to reinvent the wheel), we use the
 ## following scheme: If the character just preceding our token is " or
 ## ', we immediately go to file name completion.  If not, we do our
@@ -969,11 +981,11 @@ fileCompletions <- function(token)
 ## completion when called from C code.
 
 
-.completeToken <- function()
+.completeToken <- function(custom = TRUE)
 {
     ## Allow override by user-specified function
     custom.completer <- rc.getOption("custom.completer")
-    if (is.function(custom.completer))
+    if (custom && is.function(custom.completer))
         return (custom.completer(.CompletionEnv))
     text <- .CompletionEnv[["token"]]
     if (isInsideQuotes())

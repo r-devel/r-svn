@@ -1891,6 +1891,11 @@ static void InitWrapListClass(DllInfo *dll)
     R_set_altrep_Inspect_method(cls, wrapper_Inspect);
     R_set_altrep_Length_method(cls, wrapper_Length);
 
+    /* override ALTVEC methods */
+    R_set_altvec_Dataptr_method(cls, wrapper_Dataptr);
+    R_set_altvec_Dataptr_or_null_method(cls, wrapper_Dataptr_or_null);
+    R_set_altvec_Extract_subset_method(cls, wrapper_Extract_subset);
+
     /* override ALTLIST methods */
     R_set_altlist_Elt_method(cls, wrapper_list_Elt);
     R_set_altlist_Set_elt_method(cls, wrapper_list_Set_elt);
@@ -1963,7 +1968,8 @@ static SEXP wrap_meta(SEXP x, int srt, int no_na)
     case LGLSXP:
     case CPLXSXP:
     case RAWSXP:
-    case STRSXP: break;
+    case STRSXP:
+    case VECSXP: break;
     default: return x;
     }
 
@@ -2026,7 +2032,7 @@ attribute_hidden SEXP do_tryWrap(SEXP call, SEXP op, SEXP args, SEXP env)
 
    This function can be used at the end of a complex assignment
    operation. It could be used in other places, but extreme caution is
-   needed to make sure there is no possibliity that the wrapper object
+   needed to make sure there is no possibility that the wrapper object
    will be referenced from C code after it is cleared. */
 attribute_hidden SEXP R_tryUnwrap(SEXP x)
 {

@@ -15,7 +15,7 @@
 #  https://www.R-project.org/Licenses/
 
 # Statlib code by John Chambers, Bell Labs, 1994
-# Changes Copyright (C) 1998-2022 The R Core Team
+# Changes Copyright (C) 1998-2023 The R Core Team
 
 
 ## As from R 2.4.0, row.names can be either character or integer.
@@ -1052,12 +1052,7 @@ data.frame <-
             }
 	}
     else if(p > 0L)
-      for(jjj in p:1L) { # we might delete columns with NULL
-        ## ... and for that reason, we'd better ensure that jseq is increasing!
-        o <- order(jseq)
-        jseq <- jseq[o]
-        jvseq <- jvseq[o]
-
+      for(jjj in order(jseq)[p:1L]) { # we might delete columns with NULL
         jj <- jseq[jjj]
         v <- value[[ jvseq[[jjj]] ]]
         ## This is consistent with the have.i case rather than with
@@ -1702,13 +1697,7 @@ Summary.data.frame <- function(..., na.rm)
 }
 
 xtfrm.data.frame <- function(x) {
-    if(tolower(Sys.getenv("_R_STOP_ON_XTFRM_DATA_FRAME_")) %in%
-       c("1", "yes", "true"))
-        stop("cannot xtfrm data frames")
-    else {
-        warning("cannot xtfrm data frames")
-        NextMethod("xtfrm")
-    }
+    stop("cannot xtfrm data frames")
 }
 
 list2DF <-

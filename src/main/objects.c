@@ -948,7 +948,8 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 	PROTECT(klass = R_data_class(x, FALSE));
 
     if(!isString(what))
-	error(_("'what' must be a character vector"));
+	error(_("'what' must be a character vector "
+		"or an object with a nameOfClass() method"));
     int j, nwhat = LENGTH(what);
 
     if( !isLogical(which) || (LENGTH(which) != 1) )
@@ -978,13 +979,46 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
     return rval;
 }
 
+static R_INLINE SEXP nameOfClass(SEXP what, SEXP env)
+{
+    static SEXP call = NULL;
+    static SEXP Xsym = NULL;
+    if (call == NULL) {
+	Xsym = install("X");
+	call = R_ParseString("base::nameOfClass(X)");
+	R_PreserveObject(call);
+    }
+
+    SEXP callenv = PROTECT(R_NewEnv(env, FALSE, 0));
+    defineVar(Xsym, what, callenv);
+    INCREMENT_NAMED(what);
+    SEXP name = eval(call, callenv);
+    /* could remove 'what' from callenv to drop REFCNT */
+    UNPROTECT(1); /* callenv */
+
+    return name;
+}
+
 attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    return inherits3(/* x = */ CAR(args),
-		     /* what = */ CADR(args),
-		     /* which = */ CADDR(args));
+    SEXP x = CAR(args);
+    SEXP what = CADR(args);
+    SEXP which = CADDR(args);
+
+    if (OBJECT(what) && TYPEOF(what) != STRSXP) {
+	SEXP name = nameOfClass(what, env);
+	if (name != R_NilValue) {
+	    PROTECT(name);
+	    SEXP val = inherits3(x, name, which);
+	    UNPROTECT(1); /* name */
+	    return val;
+	}
+	/* fall through */
+    }
+
+    return inherits3(x, what, which);
 }
 
 
@@ -1538,7 +1572,7 @@ R_possible_dispatch(SEXP call, SEXP op, SEXP args, SEXP rho,
 		PROTECT(s = promiseArgs(CDR(call), rho));
 		if (length(s) != length(args)) error(_("dispatch error"));
 		for (a = args, b = s; a != R_NilValue; a = CDR(a), b = CDR(b))
-		    SET_PRVALUE(CAR(b), CAR(a));
+		    IF_PROMSXP_SET_PRVALUE(CAR(b), CAR(a));
 		value =  applyClosure(call, value, s, rho, suppliedvars);
 #ifdef ADJUST_ENVIR_REFCNTS
 		unpromiseArgs(s);
@@ -1568,7 +1602,7 @@ R_possible_dispatch(SEXP call, SEXP op, SEXP args, SEXP rho,
 	PROTECT(s = promiseArgs(CDR(call), rho));
 	if (length(s) != length(args)) error(_("dispatch error"));
 	for (a = args, b = s; a != R_NilValue; a = CDR(a), b = CDR(b))
-	    SET_PRVALUE(CAR(b), CAR(a));
+	    IF_PROMSXP_SET_PRVALUE(CAR(b), CAR(a));
 	value = applyClosure(call, fundef, s, rho, R_NilValue);
 	UNPROTECT(1);
     } else {

@@ -171,9 +171,9 @@ SEXP tukeyline(SEXP x, SEXP y, SEXP iter, SEXP call);
 SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev);
 SEXP influence(SEXP mqr, SEXP e, SEXP stol);
 
-SEXP pSmirnov2x(SEXP statistic, SEXP snx, SEXP sny);
-SEXP pKolmogorov2x(SEXP statistic, SEXP sn);
-SEXP pKS2(SEXP sn, SEXP stol);
+SEXP psmirnov_exact(SEXP sq, SEXP sm, SEXP sn, SEXP sz, SEXP stwo, SEXP slower);
+SEXP pkolmogorov_two_exact(SEXP sq, SEXP sn);
+SEXP pkolmogorov_two_limit(SEXP sq, SEXP slower, SEXP stol);
 
 SEXP ksmooth(SEXP x, SEXP y, SEXP snp, SEXP skrn, SEXP sbw);
 

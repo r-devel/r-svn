@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2022-05-29 r82419) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin21.5.0 (64-bit)
+R Under development (unstable) (2023-07-11 r84677) -- "Unsuffered Consequences"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin22.5.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -204,7 +204,7 @@ Error in assertWarning(ff()) :
 > bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
 +     fmtPrefix = function(paper) paste0("[", paper$.index, "]"),
 +        .init = TRUE)
-<environment: 0x12a8be408>
+<environment: 0x126cbf4f8>
 > print(refs, .bibstyle = "unsorted")
 [1] R Core Team (2013). _R: A Language and Environment for Statistical
 Computing_. R Foundation for Statistical Computing, Vienna, Austria.
@@ -423,6 +423,32 @@ doi:10.1111/j.2517-6161.1964.tb00553.x
 > 
 > 
 > cleanEx()
+> nameEx("checkRd")
+> ### * checkRd
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: checkRd
+> ### Title: Check an Rd Object
+> ### Aliases: checkRd
+> ### Keywords: utilities documentation
+> 
+> ### ** Examples
+> 
+> ## parsed Rd from the installed version of _this_ help file
+> rd <- Rd_db("tools")[["checkRd.Rd"]]
+> stopifnot(length(checkRd(rd)) == 0)  # there should be no issues
+> 
+> ## make up \tabular issues
+> bad <- r"(\name{bad}\title{bad}\description{\tabular{p}{1 \tab 2}})"
+> (res <- checkRd(parse_Rd(textConnection(bad))))
+checkRd: (7) <connection>:1: Unrecognized \tabular format: p
+checkRd: (7) <connection>:1: Only 1 column allowed in this table
+> stopifnot(length(res) > 0)
+> 
+> 
+> 
+> cleanEx()
 > nameEx("checkRdaFiles")
 > ### * checkRdaFiles
 > 
@@ -533,9 +559,9 @@ attr(,"match.length")
 > 
 > ### ** Examples
 > 
-> x <- "fa\xE7ile"
+> x <- "fran\xE7ais"
 > encoded_text_to_latex(x, "latin1")
-[1] "fa{\\c c}ile"
+[1] "fran{\\c c}ais"
 > ## Not run: 
 > ##D ## create a tex file to show the upper half of 8-bit charsets
 > ##D x <- rawToChar(as.raw(160:255), multiple = TRUE)
@@ -830,7 +856,7 @@ function (x, ...)
 > ### ** Examples
 > 
 > out <- c(
-+ "fa\xE7ile test of showNonASCII():",
++ "fran\xE7ais: test of showNonASCII():",
 + "\\details{",
 + "   This is a good line",
 + "   This has an \xfcmlaut in it.",
@@ -840,7 +866,7 @@ function (x, ...)
 > cat(out, file = f, sep = "\n")
 > 
 > showNonASCIIfile(f)
-1: fa<e7>ile test of showNonASCII():
+1: fran<e7>ais: test of showNonASCII():
 4:    This has an <fc>mlaut in it.
 > unlink(f)
 > 
@@ -974,6 +1000,17 @@ An illustration of lexical scoping.
 > ## IGNORE_RDIFF_BEGIN
 > R_user_dir("FOO", "cache")
 [1] "/Users/ripley/Library/Caches/org.R-project.R/R/FOO"
+> ## Create one, platform agnostically, must work if <normal> :
+> (Rdb <- R_user_dir("base"))
+[1] "/Users/ripley/Library/Application Support/org.R-project.R/R/base"
+> if(noD <- !dir.exists(Rdb)) # should work user specifically:
++     dir.create(Rdb, recursive=TRUE)
+> stopifnot(dir.exists(Rdb)) # "everywhere"
+> dir(Rdb) # typically empty
+character(0)
+> if(noD) unlink(Rdb) # cleaning up
+> list.files(R_user_dir("grid"), full.names = TRUE)
+character(0)
 > ## IGNORE_RDIFF_END
 > 
 > 
@@ -1086,23 +1123,28 @@ List of 5
 +   "  # calls with domain=NA are skipped",
 +   "  if (x == 0) cat(gettext('x is 0!\n', domain=NA))",
 +   "  # gettext strings may be ignored due to 'outer' domain=NA",
-+   "  if (x > 10) stop('x is ', gettextf('%.2f', x), domain=NA)",
++   "  if (x > 10) warning('x is ', gettextf('%.2f', x), domain=NA)",
++   "  # using a custom condition class",
++   "  if (x == 42)",
++   "    stop(errorCondition(gettext('needs Deep Thought'), class='myError'))",
 +   "  x",
 +   "}")
 > 
 > writeLines(fnChar, con = file.path(tmpRDir, "foo.R"))
 > 
 > ## [[1]] : suppressing (tmpfile) name to make example Rdiff-able
-> xgettext(tmpPkg, asCall=TRUE )[[1]] # default; shows  ' sqrt(as.complex(x)) '
+> xgettext(tmpPkg, asCall=TRUE )[[1]] # default; shows calls
 too small
 sqrt(x) is
 sqrt(as.complex(x))
 , which may be too small
+errorCondition(gettext("needs Deep Thought"), class = "myError")
 > xgettext(tmpPkg, asCall=FALSE)[[1]] # doesn't ; but then ' %.2f '
 too small
 sqrt(x) is
 , which may be too small
 %.2f
+needs Deep Thought
 > 
 > unlink(tmpRDir, recursive=TRUE)
 > 
@@ -1113,7 +1155,7 @@ sqrt(x) is
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.135 0.011 0.147 0 0 
+Time elapsed:  0.132 0.012 0.145 0 0 
 > grDevices::dev.off()
 null device 
           1 

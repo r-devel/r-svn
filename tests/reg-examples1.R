@@ -12,8 +12,7 @@ example(DateTimeClasses, run.donttest = TRUE)
 example(Dates, run.donttest = TRUE)
 example(Ops.Date, run.donttest = TRUE)
 example(Random, run.donttest = TRUE)
-head(s <- Sys.getenv(), 12) # from Sys.getenv.Rd
-writeLines(formatDL(s, style = "list")) # from formatDL.Rd
+writeLines(formatDL(Sys.getenv(), style = "list")) # from formatDL.Rd
 example(Sys.getpid, run.donttest = TRUE)
 example(Sys.sleep, run.donttest = TRUE)
 example(Sys.time, run.donttest = TRUE)
@@ -46,6 +45,7 @@ if(require("microbenchmark")) {
 
 ## utils
 example(news, run.donttest = TRUE)
+example(packageDescription, run.donttest = TRUE)
 example(sessionInfo, run.donttest = TRUE)
 
 ## datasets

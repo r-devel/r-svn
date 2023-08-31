@@ -31,9 +31,6 @@
 #include <Rmath.h>
 #define WIN32_LEAN_AND_MEAN 1
 
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0502 /* for SetDllDirectory */
-#endif
 #include <direct.h>
 #include <windows.h>
 
@@ -75,7 +72,7 @@ static void closeLibrary(HINSTANCE handle)
     FreeLibrary(handle);
 }
 
-void InitFunctionHashing()
+void InitFunctionHashing(void)
 {
     R_osDynSymbol->loadLibrary = R_loadLibrary;
     R_osDynSymbol->dlsym = getRoutine;

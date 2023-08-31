@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2022 R Core Team
+### Copyright (C) 1998-2023 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -19,7 +19,8 @@
 ### https://www.r-project.org/Licenses/
 
 ### Please use dnl for first-col comments within definitions, as
-### PD's autoconf leaves ## in but others (e.g. Fedora's) strip them
+### PD's autoconf leaves ## in but most others strip them.
+### Or indent them by spaces, which seems to be left in by all.
 
 ### * General support macros
 
@@ -202,6 +203,14 @@ if test "${r_cv_prog_texi2any_v5}" != yes; then
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
+if test "${r_cv_prog_texi2any_v7}" != yes; then 
+  HAVE_TEXI2ANY_V7_TRUE='#'
+else
+  HAVE_TEXI2ANY_V7_TRUE=
+fi
+AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
+AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
+AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
@@ -212,23 +221,37 @@ fi
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
 AC_DEFUN([_R_PROG_TEXI2ANY_VERSION],
-[AC_CACHE_CHECK([whether texi2any version is at least 5.1],
+[AC_CACHE_VAL([r_cv_prog_texi2any_version],
+[r_cv_prog_texi2any_version=`${TEXI2ANY} --version | \
+  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
+[r_cv_prog_texi2any_version_maj=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f1 -d.`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
+[r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f2 -d. | tr -dc '0123456789.'`])
+AC_CACHE_CHECK([whether texi2any version is at least 5.1],
                 [r_cv_prog_texi2any_v5],
-[texi2any_version=`${TEXI2ANY} --version | \
-  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`
-texi2any_version_maj=`echo ${texi2any_version} | cut -f1 -d.`
-texi2any_version_min=`echo ${texi2any_version} | \
-  cut -f2 -d. | tr -dc '0123456789.' `
-if test -z "${texi2any_version_maj}" \
-     || test -z "${texi2any_version_min}"; then
+[if test -z "${r_cv_prog_texi2any_version_maj}" \
+     || test -z "${r_cv_prog_texi2any_version_min}"; then
   r_cv_prog_texi2any_v5=no
-elif test ${texi2any_version_maj} -gt 5; then
+elif test ${r_cv_prog_texi2any_version_maj} -gt 5; then
   r_cv_prog_texi2any_v5=yes
-elif test ${texi2any_version_maj} -lt 5 \
-     || test ${texi2any_version_min} -lt 1; then
+elif test ${r_cv_prog_texi2any_version_maj} -lt 5 \
+     || test ${r_cv_prog_texi2any_version_min} -lt 1; then
   r_cv_prog_texi2any_v5=no
 else
   r_cv_prog_texi2any_v5=yes
+fi])
+  ## Also record whether texi2any is at least 7 to appropriately handle
+  ## HTML and EPUB output changes, see
+  ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
+AC_CACHE_VAL([r_cv_prog_texi2any_v7],
+[if test ${r_cv_prog_texi2any_v5} = yes \
+     && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
+  r_cv_prog_texi2any_v7=yes
+else
+  r_cv_prog_texi2any_v7=no
 fi])
 ])# _R_PROG_TEXI2ANY_VERSION
 
@@ -989,9 +1012,12 @@ dnl Yes we need to double quote this ...
 # define F77_SYMBOL(x)   x
 #endif
 
-typedef struct {
-        double r;
-        double i;
+typedef union {
+    struct {
+	double r;
+	double i;
+    };
+    double _Complex private_data_c;
 } Rcomplex;
 
 extern void F77_SYMBOL(cftest)(Rcomplex *x);
@@ -3443,6 +3469,27 @@ else
 fi
 ])# R_BZLIB
 
+## R_LIBDEFLATE
+## ------------
+## Try finding libdeflate library and headers.
+## We check that both are installed,
+AC_DEFUN([R_LIBDEFLATE],
+[
+  AC_CHECK_HEADERS(libdeflate.h, [have_libdeflate=yes], [have_libdeflate=no])
+if test "${have_libdeflate}" = yes; then
+  AC_CHECK_LIB(deflate, libdeflate_alloc_compressor, [have_libdeflate=yes], [have_libdeflate=no])
+fi
+if test "x${r_cv_have_libdeflate}" = xno; then
+  have_libdeflate=no
+fi
+if test "x${have_libdeflate}" = xyes; then
+  AC_MSG_RESULT([yes])
+  LIBS="-ldeflate ${LIBS}"
+  AC_DEFINE(HAVE_LIBDEFLATE, 1,
+            [Define to 1 if you have libdeflate headers and library.])
+fi
+])# R_LIBDEFLATE
+
 ## R_TRE
 ## -------
 ## Try finding tre library and headers.
@@ -3923,6 +3970,7 @@ fi
 dnl Need to exclude Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icx.
 case  "${CC}" in
   ## Intel compiler: note that -c99 may have been appended
   *icc*)
@@ -3948,6 +3996,7 @@ fi
 dnl Need to exclude Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
   ## Intel compiler
   *icc*|*icpc*)
@@ -3970,7 +4019,8 @@ if test "${r_cv_prog_fc_vis}" = yes; then
     F_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl need to exclude Intel compilers.
+dnl flang accepts this but ignores it.
+dnl Need to exclude Intel compilers, but ifx seems to work.
 case  "${FC}" in
   ## Intel compiler
   *ifc|*ifort)
@@ -4121,6 +4171,7 @@ int main ()
 AC_DEFUN([R_MKTIME_ERRNO],
 [AC_CACHE_CHECK([whether mktime sets errno], [r_cv_mktime_errno],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <limits.h>
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
@@ -4128,13 +4179,45 @@ AC_DEFUN([R_MKTIME_ERRNO],
 int main(void)
 {
     struct tm tm;
+    time_t res;
     /* It's hard to know what is an error, since mktime is allowed to
-       fix up times. But this worked for now (yes on Solaris, no on glibc). */
+       fix up times.
+
+       POSIX requires that mktime() sets errno, but it was optional
+       in earlier versions. Test whether once (time_t)-1 is returned
+       as an indication error, errno is set (see also PR#18532).
+       At time of writing, Linux & Windows set errno, macOS does not.
+       
+       The tests below are POSIX only, because ISO C does not specify the
+       meaning of time_t values, and hence we cannot know for sure that the
+       result is an indication of error and not a valid representation of
+       the date.  On POSIX, it is the number of seconds since Epoch. */
+
+    /* test year 4900, which will fail with 32-bit time_t */
     tm.tm_year = 3000; tm.tm_mon = 0; tm.tm_mday = 0;
     tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
     errno = 0;
-    mktime(&tm);
-    exit(errno == 0);
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);
+
+    /* try harder to produce invalid date */
+    tm.tm_year = INT_MAX; tm.tm_mon = INT_MAX; tm.tm_mday = INT_MAX;
+    tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
+    errno = 0;
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);
+      
+    /* try year 1848 */
+    tm.tm_year = -52; tm.tm_mon = 0; tm.tm_mday = 0;
+    tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
+    errno = 0;
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);    
+      
+    exit(1); /* fall back to errno not set */
 }
 ]])],
               [r_cv_mktime_errno=yes],
@@ -4188,6 +4271,8 @@ fi
 ## ------------
 ## This gets recorded in etc/Renviron and used in tools/R/sotools.R
 ## It is a comma-separated string of 5 items, OS,C,CXX,F77,F95 .
+## These days f77 and f90 are the same compiler.
+## Hard-coded in sotools.R for Windows.
 AC_DEFUN([R_ABI],
 [## System type.
 case "${host_os}" in
@@ -4211,6 +4296,8 @@ dnl Compiler types
 dnl C: AC_PROG_CC does
 dnl   If using the GNU C compiler, set shell variable `GCC' to `yes'.
 dnl   Alternatively, could use ac_cv_c_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here as
+dnl we list alternatives in sotools.R
 if test "${GCC}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gcc"
 else
@@ -4226,6 +4313,8 @@ fi
 dnl C++: AC_PROG_CXX does
 dnl   If using the GNU C++ compiler, set shell variable `GXX' to `yes'.
 dnl   Alternatively, could use ac_cv_cxx_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here as
+dnl we list alternatives in sotools.R
 if test "${GXX}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gxx"
 else
@@ -4237,13 +4326,22 @@ case "${host_os}" in
   R_SYSTEM_ABI="${R_SYSTEM_ABI},?"
 esac
 fi
-dnl Fortran (fixed- then free-form):
+dnl Fortran (fixed- then free-form).  These days always the same compiler.
 if test "${ac_cv_fc_compiler_gnu}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gfortran,gfortran"
 else
 case "${FC}" in
+  *flang-new)
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},flang-new,flang-new"
+    ;;
+  ## This means Classic flang
   *flang)
-    R_SYSTEM_ABI="${R_SYSTEM_ABI},flang,flang"
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},ClassicFlang,ClassicFlang"
+    ;;
+  ## We need not consider ifort as it will be discontinued in 2023,
+  ## but it seems to have the same runtime as ifx.
+  *ifx|*ifort)
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},intel,intel"
     ;;
   *)
     case "${host_os}" in
@@ -4325,7 +4423,7 @@ int main(void) {
     putenv("TZ=Europe/London");
     tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
     tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 120; tm.tm_isdst = -1;
-    // test 2020-01-01, whoch is assumed to be in GMT
+    // test 2020-01-01, which is assumed to be in GMT
     res = mktime(&tm);
 #ifdef PRINT
     printf("res %ld\n", res);
@@ -4620,7 +4718,7 @@ LIBS="${CURL_LIBS} ${LIBS}"
 AC_CHECK_HEADERS(curl/curl.h, [have_libcurl=yes], [have_libcurl=no])
 
 if test "x${have_libcurl}" = "xyes"; then
-AC_CACHE_CHECK([if libcurl is version 7 and >= 7.28.0], [r_cv_have_curl728],
+AC_CACHE_CHECK([if libcurl is >= 7.28.0], [r_cv_have_curl728],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #include <curl/curl.h>
@@ -4628,7 +4726,7 @@ int main(void)
 {
 #ifdef LIBCURL_VERSION_MAJOR
 #if LIBCURL_VERSION_MAJOR > 7
-  exit(1);
+  exit(0);
 #elif LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 28
   exit(0);
 #else

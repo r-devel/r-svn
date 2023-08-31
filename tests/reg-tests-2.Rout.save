@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2023-02-09 r83784) -- "Unsuffered Consequences"
+R Under development (unstable) (2023-08-17 r84982) -- "Unsuffered Consequences"
 Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -2444,10 +2444,6 @@ Residual Deviance: 4.551 	AIC: 28.51
 Call:
 glm(formula = y ~ x1 + x2 + x3)
 
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.0572  -0.4836   0.0799   0.4424   1.2699  
-
 Coefficients: (1 not defined because of singularities)
             Estimate Std. Error t value Pr(>|t|)
 (Intercept)   1.4719     0.9484   1.552    0.165
@@ -2748,6 +2744,9 @@ Residuals 10 2.7404 0.27404
 $fit
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
+attr(,"non-estim")
+ 1  2  3  4  5  6  7  8  9 10 
+ 1  2  3  4  5  6  7  8  9 10 
 
 $se.fit
  [1] 0 0 0 0 0 0 0 0 0 0
@@ -2827,10 +2826,6 @@ Residual Deviance: 2.74 	AIC: 17.43
 Call:
 glm(formula = y ~ 0)
 
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--1.36919  -0.21073   0.00840   0.08437   0.55292  
-
 No Coefficients
 
 (Dispersion parameter for gaussian family taken to be 0.2740358)
@@ -2851,8 +2846,8 @@ Response: y
 Terms added sequentially (first to last)
 
 
-     Df Deviance Resid. Df Resid. Dev
-NULL                    10     2.7404
+     Df Deviance Resid. Df Resid. Dev F Pr(>F)
+NULL                    10     2.7404         
 > predict(fit)
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
@@ -2916,10 +2911,6 @@ Residual Deviance: 2.74 	AIC: 17.43
 Call:
 glm(formula = y ~ x + 0)
 
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--1.36919  -0.21073   0.00840   0.08437   0.55292  
-
 Coefficients: (1 not defined because of singularities)
   Estimate Std. Error t value Pr(>|t|)
 x       NA         NA      NA       NA
@@ -2942,9 +2933,9 @@ Response: y
 Terms added sequentially (first to last)
 
 
-     Df Deviance Resid. Df Resid. Dev
-NULL                    10     2.7404
-x     0        0        10     2.7404
+     Df Deviance Resid. Df Resid. Dev F Pr(>F)
+NULL                    10     2.7404         
+x     0        0        10     2.7404         
 > predict(fit)
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
@@ -2955,6 +2946,9 @@ x     0        0        10     2.7404
 $fit
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
+attr(,"non-estim")
+ 1  2  3  4  5  6  7  8  9 10 
+ 1  2  3  4  5  6  7  8  9 10 
 
 $se.fit
  [1] 0 0 0 0 0 0 0 0 0 0
@@ -5166,10 +5160,6 @@ D1 30 60
 Call:
 glm(formula = y ~ x, weights = w)
 
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.7806  -0.1416   0.1863   0.5690   1.2057  
-
 Coefficients:
             Estimate Std. Error t value Pr(>|t|)
 (Intercept)  -0.7532     0.7862  -0.958    0.370
@@ -5190,10 +5180,6 @@ In summary.glm(glm(y ~ x, weights = w)) :
 
 Call:
 glm(formula = y ~ x, subset = w > 0)
-
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.7806  -0.1582   0.3726   0.5896   1.2057  
 
 Coefficients:
             Estimate Std. Error t value Pr(>|t|)
@@ -6368,7 +6354,7 @@ function(given = NULL) {
     if (is.null(given)) callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x25ac880>
+<bytecode: 0x5555f08>
 > print(foo, useSource = FALSE)
 function (given = NULL) 
 {
@@ -6379,7 +6365,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x25ac880>
+<bytecode: 0x5555f08>
 > attr(foo, "srcref") <- NULL
 > foo
 function (given = NULL) 
@@ -6391,7 +6377,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x25ac880>
+<bytecode: 0x5555f08>
 > (f <- structure(function(){}, note = "just a note",
 +                 yada = function() "not the same"))
 function(){}
@@ -6623,8 +6609,7 @@ Error in complete.cases(list(), list()) :
 > ## error messages from (C-level) evalList
 > tst <- function(y) { stopifnot(is.numeric(y)); y+ 1 }
 > try(tst()) # even nicer since R 3.5.0's change to sequential stopifnot()
-Error in stopifnot(is.numeric(y)) : 
-  argument "y" is missing, with no default
+Error in tst() : argument "y" is missing, with no default
 > try(c(1,,2))
 Error in c(1, , 2) : argument 2 is empty
 > ## change in 2.8.0 made these less clear
@@ -8252,4 +8237,96 @@ In packageDescription(pkg, lib.loc = lib.loc, fields = date.fields) :
   no package 'foo' was found
 > ## gave *five* warnings* in R <= 4.2.x
 > 
+> 
+> ## object not found error mentions lexical call
+> if (exists("foo")) rm(foo)
+> ## Should not mention call because called at top level
+> try(identity(foo))
+Error : object 'foo' not found
+> try(do.call("identity", alist(foo)))
+Error : object 'foo' not found
+> ##
+> ## Should mention `f()` call
+> f <- function() identity(foo)
+> try(f())
+Error in f() : object 'foo' not found
+> f <- compiler::cmpfun(f)
+> try(f())
+Error in f() : object 'foo' not found
+> f <- function() do.call("identity", alist(foo))
+> try(f())
+Error in f() : object 'foo' not found
+> f <- compiler::cmpfun(f)
+> try(f())
+Error in f() : object 'foo' not found
+> ##
+> ## Should not mention call because there is no matching execution env
+> try(do.call("identity", alist(foo), envir = new.env()))
+Error : object 'foo' not found
+> f <- function() do.call("identity", alist(foo), envir = new.env())
+> try(f())
+Error : object 'foo' not found
+> f <- compiler::cmpfun(f)
+> try(f())
+Error : object 'foo' not found
+> 
+> 
+> ## Missing argument error mentions lexical call
+> ## Local evaluation: Mentions `identity()`
+> try(identity())
+Error in identity() : argument "x" is missing, with no default
+> f <- function() identity()
+> try(f())
+Error in identity() : argument "x" is missing, with no default
+> f <- compiler::cmpfun(f)
+> try(f())
+Error in identity() : argument "x" is missing, with no default
+> ##
+> ## Promise evaluation: Mentions `f()` or `g()`
+> f <- function(arg) is.factor(arg)
+> g <- function(x) f(x)
+> try(f())
+Error in f() : argument "arg" is missing, with no default
+> try(g())
+Error in g() : argument "x" is missing, with no default
+> f <- compiler::cmpfun(f)
+> g <- compiler::cmpfun(g)
+> try(f())
+Error in f() : argument "arg" is missing, with no default
+> try(g())
+Error in g() : argument "x" is missing, with no default
+> ##
+> ## Direct evaluation, `eval()` wrapper: Mentions `eval()`
+> f <- function() eval(quote(expr = ))
+> try(f())
+Error in eval(quote(expr = )) : argument is missing, with no default
+> f <- compiler::cmpfun(f)
+> try(f())
+Error in eval(quote(expr = )) : argument is missing, with no default
+> ##
+> ## Direct evaluation, no `eval()` wrapper: Mentions `f()`
+> f <- function() {
++     eval(bquote(delayedAssign("go", .(quote(expr = )))))
++     go
++ }
+> try(f())
+Error in f() : argument is missing, with no default
+> f <- compiler::cmpfun(f)
+> try(f())
+Error in f() : argument is missing, with no default
+> 
+> 
+> ## withAutoprint({ ... }}  -- losing srcrefs - PR#18572
+> show.srcref <- function() str(sys.call())
+> {
++ #line 1 "file1.R"
++     withAutoprint({ show.srcref() })
++ }
+> {
+> #line 1 "file1.R"
+>     withAutoprint({ show.srcref() })
+ language show.srcref()
+ - attr(*, "srcref")= 'srcref' int [1:8] 1 21 1 33 21 33 3 3
+  ..- attr(*, "srcfile")=Classes 'srcfilealias', 'srcfile' <environment: 0xfeef070> 
+> ## no   attr(*, "src..")   in R <= 4.3.1
 > 

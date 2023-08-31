@@ -362,6 +362,7 @@ int R_system(const char *command)
 extern char ** environ;
 #endif
 
+// .Internal(Sys.getenv(x, unset))
 attribute_hidden SEXP do_getenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     int i, j;
@@ -376,7 +377,7 @@ attribute_hidden SEXP do_getenv(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("wrong type for argument"));
 
     i = LENGTH(CAR(args));
-    if (i == 0) {
+    if (i == 0) { // full list of environment variables
 #ifdef Win32
 	int n = 0, N;
 	wchar_t **w;
@@ -456,36 +457,37 @@ static int Rputenv(const char *nm, const char *val)
 #endif
 
 
+// .Internal(Sys.setenv(nm, val)) : (nm_1=val_1, nm_2=val_2, ..., nm_<n>=val_<n>)
 attribute_hidden SEXP do_setenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
 #if defined(HAVE_PUTENV) || defined(HAVE_SETENV)
-    int i, n;
-    SEXP ans, nm, vars;
 
     checkArity(op, args);
 
-    if (!isString(nm = CAR(args)))
+    SEXP nm = CAR(args);
+    if (!isString(nm))
 	error(_("wrong type for argument"));
-    if (!isString(vars = CADR(args)))
+    SEXP val = CADR(args);
+    if (!isString(val))
 	error(_("wrong type for argument"));
-    if(LENGTH(nm) != LENGTH(vars))
-	error(_("wrong length for argument"));
+    if(LENGTH(nm) != LENGTH(val))
+	error(_("'%s' and '%s' are of different lengths"), "names", "val");
 
-    n = LENGTH(vars);
-    PROTECT(ans = allocVector(LGLSXP, n));
+    int i, n = LENGTH(val);
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
 #ifdef HAVE_SETENV
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = setenv(translateChar(STRING_ELT(nm, i)),
-				 translateChar(STRING_ELT(vars, i)),
+				 translateChar(STRING_ELT(val, i)),
 				 1) == 0;
 #elif defined(Win32)
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = Rwputenv(wtransChar(STRING_ELT(nm, i)),
-				   wtransChar(STRING_ELT(vars, i))) == 0;
+				   wtransChar(STRING_ELT(val, i))) == 0;
 #else
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = Rputenv(translateChar(STRING_ELT(nm, i)),
-				  translateChar(STRING_ELT(vars, i))) == 0;
+				  translateChar(STRING_ELT(val, i))) == 0;
 #endif
     UNPROTECT(1);
     return ans;
@@ -495,30 +497,29 @@ attribute_hidden SEXP do_setenv(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 }
 
+// .Internal(Sys.unsetenv(nm))
 attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    int i, n;
-    SEXP ans, vars;
-
     checkArity(op, args);
 
-    if (!isString(vars = CAR(args)))
+    SEXP nm = CAR(args);
+    if (!isString(nm))
 	error(_("wrong type for argument"));
-    n = LENGTH(vars);
+    int i, n = LENGTH(nm);
 
 #if defined(HAVE_UNSETENV) || defined(HAVE_PUTENV_UNSET) || defined(HAVE_PUTENV_UNSET2)
 #ifdef HAVE_UNSETENV
-    for (i = 0; i < n; i++) unsetenv(translateChar(STRING_ELT(vars, i)));
+    for (i = 0; i < n; i++) unsetenv(translateChar(STRING_ELT(nm, i)));
 #elif defined(HAVE_PUTENV_UNSET)
     for (i = 0; i < n; i++) {
 	char buf[1000];
-	snprintf(buf, 1000, "%s",  translateChar(STRING_ELT(vars, i)));
+	snprintf(buf, 1000, "%s",  translateChar(STRING_ELT(nm, i)));
 	putenv(buf);
     }
 #elif defined(HAVE_PUTENV_UNSET2)
 # ifdef Win32
     for (i = 0; i < n; i++) {
-	const wchar_t *w = wtransChar(STRING_ELT(vars, i));
+	const wchar_t *w = wtransChar(STRING_ELT(nm, i));
 	wchar_t buf[2*wcslen(w)];
 	wcscpy(buf, w);
 	wcscat(buf, L"=");
@@ -527,7 +528,7 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 # else
     for (i = 0; i < n; i++) {
 	char buf[1000];
-	snprintf(buf, 1000, "%s=", translateChar(STRING_ELT(vars, i)));
+	snprintf(buf, 1000, "%s=", translateChar(STRING_ELT(nm, i)));
 	putenv(buf);
     }
 # endif
@@ -535,12 +536,12 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #elif defined(HAVE_PUTENV) || defined(HAVE_SETENV)
     warning(_("this system cannot unset environment variables: setting to \"\""));
-    n = LENGTH(vars);
+    n = LENGTH(nm);
     for (i = 0; i < n; i++) {
 #ifdef HAVE_SETENV
-	setenv(translateChar(STRING_ELT(vars, i)), "", 1);
+	setenv(translateChar(STRING_ELT(nm, i)), "", 1);
 #else
-	Rputenv(translateChar(STRING_ELT(vars, i)), "");
+	Rputenv(translateChar(STRING_ELT(nm, i)), "");
 #endif
     }
 
@@ -548,9 +549,9 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
     warning(_("'Sys.unsetenv' is not available on this system"));
 #endif
 
-    PROTECT(ans = allocVector(LGLSXP, n));
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
     for (i = 0; i < n; i++)
-	LOGICAL(ans)[i] = !getenv(translateChar(STRING_ELT(vars, i)));
+	LOGICAL(ans)[i] = !getenv(translateChar(STRING_ELT(nm, i)));
     UNPROTECT(1);
     return ans;
 }
@@ -590,7 +591,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
     void * utf8_obj = (iconv_t)-1;
     const char *inbuf;
     char *outbuf;
-    const char *sub;
+    const char *sub; // null for no substitution.
     size_t inb, outb, res;
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
     Rboolean isRawlist = FALSE;
@@ -689,8 +690,19 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "UTF-8", to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      "UTF-8", to);
+		    {
+			// musl does not support ASCII//TRANSLIT but has
+			// similar ASCII subsituting with *
+			// In case there are others, we set sub here.
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    utf8_obj = Riconv_open(to, "UTF-8");
+			    if(!sub) sub = "c99";
+			}
+			if(utf8_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  "UTF-8", to);
+		    }
 		#endif
 		}
 		obj = utf8_obj;
@@ -703,8 +715,16 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "latin1", to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      "latin1", to);
+		    {
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    latin1_obj = Riconv_open(to, "latin1");
+			    if(!sub) sub = "?";
+			}
+			if(latin1_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  "latin1", to);			   
+		    }
 		#endif
 		}
 		obj = latin1_obj;
@@ -716,8 +736,16 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      from, to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      from, to);
+		    {
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    arg_obj = Riconv_open(to, from);
+			    if(!sub) sub = "?";
+			}
+			if(arg_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  from, to);			   
+		    }
 		#endif
 		}
 		obj = arg_obj;
@@ -787,7 +815,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			    ucs = (R_wchar_t) wc;
 			inbuf += clen; inb -= clen;
 			if(ucs < 65536) {
-			    // gcc 7 objects to this with unsigned int
+			    // gcc 7 objected to this with unsigned int
 			    snprintf(outbuf, 7, "\\u%04x", (unsigned short) ucs);
 			    outbuf += 6; outb -= 6;
 			} else {
@@ -2253,7 +2281,7 @@ attribute_hidden SEXP do_glob(SEXP call, SEXP op, SEXP args, SEXP env)
     {
 	wchar_t *w = globbuf.gl_pathv[i];
 	char *buf;
-	int nb = wcstoutf8(NULL, w, INT_MAX);
+	size_t nb = wcstoutf8(NULL, w, (size_t)INT_MAX + 2);
 	buf = R_AllocStringBuffer(nb, &cbuff);
 	wcstoutf8(buf, w, nb);
 	SET_STRING_ELT(ans, i, mkCharCE(buf, CE_UTF8));
@@ -2276,61 +2304,9 @@ attribute_hidden SEXP do_glob(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #ifdef Win32
 
-#if _WIN32_WINNT < 0x0600
-/* available from Windows Vista */
-typedef enum _FILE_INFO_BY_HANDLE_CLASS {
-  FileBasicInfo,
-  FileStandardInfo,
-  FileNameInfo,
-  FileRenameInfo,
-  FileDispositionInfo,
-  FileAllocationInfo,
-  FileEndOfFileInfo,
-  FileStreamInfo,
-  FileCompressionInfo,
-  FileAttributeTagInfo,
-  FileIdBothDirectoryInfo,
-  FileIdBothDirectoryRestartInfo,
-  FileIoPriorityHintInfo,
-  FileRemoteProtocolInfo,
-  FileFullDirectoryInfo,
-  FileFullDirectoryRestartInfo,
-  FileStorageInfo,
-  FileAlignmentInfo,
-  FileIdInfo,
-  FileIdExtdDirectoryInfo,
-  FileIdExtdDirectoryRestartInfo,
-  FileDispositionInfoEx,
-  FileRenameInfoEx,
-  MaximumFileInfoByHandleClass,
-  FileCaseSensitiveInfo,
-  FileNormalizedNameInfo
-} FILE_INFO_BY_HANDLE_CLASS, *PFILE_INFO_BY_HANDLE_CLASS;
-
-typedef struct _FILE_NAME_INFO {
-  DWORD FileNameLength;
-  WCHAR FileName[1];
-} FILE_NAME_INFO, *PFILE_NAME_INFO;
-#endif
-
-typedef BOOL (WINAPI *LPFN_GFIBH_EX) (HANDLE, FILE_INFO_BY_HANDLE_CLASS,
-                                      LPVOID, DWORD);
-
 int attribute_hidden R_is_redirection_tty(int fd)
 {
     /* for now detects only msys/cygwin redirection tty */
-    static LPFN_GFIBH_EX gfibh = NULL;
-    static Rboolean initialized = FALSE;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfibh = (LPFN_GFIBH_EX) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFileInformationByHandleEx");
-    }
-    if (gfibh == NULL)
-	return 0;
-
     HANDLE h = (HANDLE) _get_osfhandle(fd);
     if (h == INVALID_HANDLE_VALUE || GetFileType(h) != FILE_TYPE_PIPE)
 	return 0;
@@ -2341,7 +2317,7 @@ int attribute_hidden R_is_redirection_tty(int fd)
     if (!(fnInfo = (FILE_NAME_INFO*)malloc(size)))
 	return 0;
     fnInfo->FileNameLength = 0; /* most likely not needed */
-    BOOL r = gfibh(h, FileNameInfo, fnInfo, size);
+    BOOL r = GetFileInformationByHandleEx(h, FileNameInfo, fnInfo, size);
     if (r || GetLastError() != ERROR_MORE_DATA) {
 	free(fnInfo);
 	return 0;
@@ -2353,7 +2329,7 @@ int attribute_hidden R_is_redirection_tty(int fd)
     if (!(fnInfo = (FILE_NAME_INFO*)malloc(size)))
 	return 0;
     fnInfo->FileNameLength = fnLength;
-    r = gfibh(h, FileNameInfo, fnInfo, size);
+    r = GetFileInformationByHandleEx(h, FileNameInfo, fnInfo, size);
     int res = 0;
     if (r)
 	/* note that fnInfo->FileName is not null terminated */

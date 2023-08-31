@@ -30,31 +30,7 @@ isBlankLineRd <- function(x) {
     length(grep("^[[:blank:]]*\n", x, perl = TRUE)) == length(x)   # newline required
 }
 
-stopRd <- function(block, Rdfile, ...)
-{
-    srcref <- attr(block, "srcref")
-    if (missing(Rdfile) && !is.null(srcref)) {
-    	srcfile <- attr(srcref, "srcfile")
-    	if (is.environment(srcfile))
-    	    Rdfile <- srcfile$filename
-    }
-    if (missing(Rdfile) || is.null(Rdfile)) Rdfile <- ""
-    else {
-        Rdfile <- basename(Rdfile) # Rdfile could be an absolute path (Rbuild tempdir)
-        Rdfile <- paste0(Rdfile, ":")
-    }
-
-    msg <- if (is.null(srcref))
-        paste0(Rdfile, " ", ...)
-    else {
-    	loc <- paste0(Rdfile, srcref[1L])
-    	if (srcref[1L] != srcref[3L]) loc <- paste0(loc, "-", srcref[3L])
-    	paste0(loc, ": ", ...)
-    }
-    stop(msg, call. = FALSE, domain = NA)
-}
-
-warnRd <- function(block, Rdfile, ...)
+.makeMessageRd <- function(block, Rdfile, ...)
 {
     srcref <- attr(block, "srcref")
     if (missing(Rdfile) && !is.null(srcref)) {
@@ -65,16 +41,26 @@ warnRd <- function(block, Rdfile, ...)
     Rdfile <-
         if(missing(Rdfile) || is.null(Rdfile))
             ""
-        else
-            paste0(basename(Rdfile), # Rdfile could be an absolute path (Rbuild tempdir)
-                   ":")
-    msg <- if (is.null(srcref))
+        else # Rdfile could be an absolute path (Rbuild tempdir)
+            paste0(basename(Rdfile), ":")  # or use stripPathTo(Rdfile, "man")
+    if (is.null(srcref))
         paste0(Rdfile, " ", ...)
     else {
     	loc <- paste0(Rdfile, srcref[1L])
     	if (srcref[1L] != srcref[3L]) loc <- paste0(loc, "-", srcref[3L])
-        paste0(loc, ": ", ...)
+    	paste0(loc, ": ", ...)
     }
+}
+
+stopRd <- function(block, Rdfile, ...)
+{
+    msg <- .makeMessageRd(block, Rdfile, ...)
+    stop(msg, call. = FALSE, domain = NA)
+}
+
+warnRd <- function(block, Rdfile, ...)
+{
+    msg <- .makeMessageRd(block, Rdfile, ...)
     warning(msg, call. = FALSE, domain = NA, immediate. = TRUE)
 }
 
@@ -212,7 +198,13 @@ processRdChunk <- function(code, stage, options, env, macros)
 
         # Results as a character vector for now; convert to list later
         res <- character(0)
-        code <- code[RdTags(code) != "COMMENT"]  # list attributes are lost here
+
+        tags <- RdTags(code)
+        if (length(bad <- setdiff(tags, c("RCODE", "COMMENT"))))
+            ## also USERMACROs are currently not supported inside \Sexpr{}
+            warnRd(code, Rdfile, "\\Sexpr expects R code; found ",
+                   paste0(sQuote(bad), collapse = ", "))
+        code <- code[tags != "COMMENT"]  # list attributes are lost here
 	chunkexps <- tryCatch(parse(text = code), error = identity)
 	if (inherits(chunkexps, "error"))
             stopRd(code, Rdfile, conditionMessage(chunkexps))
@@ -295,7 +287,18 @@ processRdChunk <- function(code, stage, options, env, macros)
 	    last <- res[[length(res)]]
 	    if (attr(last, "Rd_tag") == "TEXT" && (len <- length(last)))
 	        res[[length(res)]][len] <- gsub("\\n$", "", last[len])
+
 	    flag <- getDynamicFlags(res)
+            if (any(flag)) { # needs a later stage (#ifdef is processed below)
+                bad <- flag[c(stage, switch(stage, install = "build",
+                                            render = c("build", "install")))]
+                if (any(bad))
+                    warnRd(tagged(code, "\\Sexpr", codesrcref), Rdfile,
+                           "unprocessed ",
+                           paste0(sQuote(names(bad)[bad]), collapse = "/"),
+                           " macro from ", stage, "-stage \\Sexpr")
+            }
+
 	    # We may have multiple chunks now.  If they are in
 	    # a section, we can wrap them in LIST, but at top
 	    # level we can't, so we disallow multiple sections.
@@ -364,7 +367,9 @@ processRdIfdefs <- function(blocks, defines)
 	}
 	if (is.list(block)) {
 	    i <- 1L
-	    flags <- getDynamicFlags(NULL)
+	    ## save possible outer \Sexpr flags and options
+	    flags <- getDynamicFlags(block); flags["#ifdef"] <- FALSE
+	    opts <- attr(block, "Rd_option")
 	    while (i <= length(block)) {
 	    	newval <- recurse(block[[i]])
 	    	newtag <- attr(newval, "Rd_tag")
@@ -380,6 +385,7 @@ processRdIfdefs <- function(blocks, defines)
 		    i <- i+1L
 		}
 	    }
+	    attr(block, "Rd_option") <- opts
 	    setDynamicFlags(block, flags)
 	} else
 	    block
@@ -429,14 +435,12 @@ prepare_Rd <-
     concordance <- NULL
     if (is.character(Rd)) {
         Rdfile <- Rd
-        srcfile <- srcfile(stripPathTo(Rdfile, "man"))
         ## do it this way to get info in internal warnings
-        Rd <- eval(substitute(parse_Rd(f, encoding = enc, fragment = frag, srcfile = src, ...),
-                              list(f = Rd, enc = encoding, frag = fragment, src = srcfile)))
+        Rd <- eval(substitute(parse_Rd(f, encoding = enc, fragment = frag, ...),
+                              list(f = Rd, enc = encoding, frag = fragment)))
     } else if(inherits(Rd, "connection")) {
         Rdfile <- summary(Rd)$description
-        srcfile <- srcfile(stripPathTo(Rdfile, "man"))
-        Rd <- parse_Rd(Rd, srcfile = srcfile, encoding = encoding, fragment=fragment, ...)
+        Rd <- parse_Rd(Rd, srcfile = srcfile, encoding = encoding, ...)
     } else {
     	Rdfile <- attr(Rd, "Rdfile")
     	concordance <- attr(Rd, "concordance")
@@ -494,10 +498,11 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
 
     drop <- rep.int(FALSE, length(sections))
 
-    ## Check other sections are unique
+    ## Check specific sections are unique (\title and \name are checked below,
+    ## others can be repeated: \alias, \concept, \keyword, \section, \note)
     unique_tags <-
         paste0("\\",
-               c("usage", "arguments",
+               c("description", "usage", "arguments",
                  "format", "details", "value", "references", "source",
                  "seealso", "examples", "author", "encoding"))
     for (tag in unique_tags) {
@@ -520,7 +525,7 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     docTypes <- character(length(dt))
     if(length(dt)) {
         if(length(dt) > 1L)
-            warnRd(dt[[1L]], Rdfile,
+            warnRd("", Rdfile,
                    "Multiple \\docType sections are not supported")
         for(i in seq_along(dt)) {
             docType <- Rd[[dt[i]]]
@@ -530,10 +535,15 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
             docTypes[i] <- sub("^ *", "", sub(" *$", "", docType[[1L]]))
             if (docTypes[i] %notin%
                 c("data", "package", "methods", "class", "import"))
-                warnRd(dt[i], Rdfile, "docType ", sQuote(docTypes[i]),
+                warnRd(docType, Rdfile, "docType ", sQuote(docTypes[i]),
                        " is unrecognized")
          }
     }
+
+    generator <- if((sections[1L] == "COMMENT") &&
+                    startsWith(Rd[[1L]], "% Generated by"))
+                     c(Rd[[1L]])
+                 else ""
 
     ## Drop all the parts that are not rendered
     extras <- c("COMMENT", "TEXT", "\\docType", "\\Rdversion", "\\RdOpts",
@@ -556,8 +566,9 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     sortorder <- order(sectionOrder[sections])
     Rd <- Rd[sortorder]
     sections <- sections[sortorder]
-    if (!identical(sections[1:2], c("\\title", "\\name")))
-    	stopRd(Rd, Rdfile,
+    if (!identical(sections[1:2], c("\\title", "\\name"))
+        || identical(sections[3L], "\\name"))
+    	stopRd("", Rdfile,
                "Sections \\title, and \\name must exist and be unique in Rd files")
     if (length(RdTags(Rd[[2L]])) > 1L)
         stopRd(RdTags(Rd[[2L]]), Rdfile,"\\name must only contain simple text")
@@ -566,9 +577,9 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     ## ggplot2 demonstrated it
     name_text <- as.character(Rd[[2L]])
     if(grepl("[!|@]", name_text))
-        warnRd(RdTags(Rd[[2L]]), Rdfile,"\\name should not contain !, | or @")
+        warnRd(Rd[[2L]], Rdfile, "\\name should not contain !, | or @")
     ## is this really what we want?  docTypes is a vector.
-    structure(Rd, meta = list(docType = docTypes))
+    structure(Rd, meta = list(docType = docTypes, generator = generator))
 }
 
 ## auxiliary, currently called only from prepare_Rd(*, stage3 = TRUE)
@@ -583,6 +594,7 @@ prepare3_Rd <- function(Rd, Rdfile, msglevel = 0)
             for(xx in x) this <- checkEmpty(xx, this)
         else {
             tag <- attr(x, "Rd_tag")
+            if(!is.null(tag)) # guard against incompletely parsed Rd files
             switch(tag,
 		   USERMACRO =, "\\newcommand" =, "\\renewcommand" =, COMMENT =
                                                                           {},
@@ -599,7 +611,7 @@ prepare3_Rd <- function(Rd, Rdfile, msglevel = 0)
         s0 <- section <- Rd[[i]]
         tag <- attr(section, "Rd_tag")
         if(tag == "\\section") {
-            tagtitle <- sQuote(as.character(section[[1L]]))
+            tagtitle <- sQuote(trimws(.Rd_deparse(section[[1L]])))
             section <- section[[2L]]
         } else tagtitle <- tag
         for(s in section) this <- checkEmpty(s, this)
@@ -643,16 +655,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
 {
     warnRd <- function(block, Rdfile, ..., level = 0L)
     {
-        Rdfile <- sub("^\\./man/", "", Rdfile)
-        srcref <- attr(block, "srcref")
-        msg <- if (is.null(srcref))
-            paste0("file '", Rdfile, "': ", ...)
-        else {
-            loc <- paste0(Rdfile, ":", srcref[1L])
-            if (srcref[1L] != srcref[3L]) loc <- paste0(loc, "-", srcref[3L])
-            paste0(loc, ": ", ...)
-        }
-        msg <- sprintf("checkRd: (%d) %s", level, msg)
+        msg <- sprintf("checkRd: (%d) %s", level,
+                       .makeMessageRd(block, Rdfile, ...))
         .messages <<- c(.messages, msg)
     }
 
@@ -700,19 +704,26 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                stopRd(block, Rdfile, "Unrecognized macro ", block[[1L]]),
                VERB = ,
                RCODE = ,
-               TEXT = {
-                   if(!def_enc) {
-                       ## check for encoding; this is UTF-8 if known
-                       ## (but then def_enc = TRUE?)
-                       msg2 <- if(inEnc2) "in second part of \\enc" else "without declared encoding"
-                       txt <- unclass(block); attributes(txt) <- NULL
-                       msg3 <- paste0(msg2, ":\n  ", sQuote(txt))
+               TEXT = if(!grepl("^[[:space:]]*$", block)) {
+                   has_text <<- TRUE
+                   if(inEnc2 || !def_enc) {
+                       ## check for encoding; parse_Rd converts to UTF-8,
+                       ## unless encoding="ASCII", when non-ASCII content fails
+                       ## (thus used by .check_package_parseRd if !def_enc);
+                       ## so this check is only useful for the 'inEnc2' part or
+                       ## to checkRd() individual Rd files outside of packages.
+                       msg2 <- if(inEnc2) "in second part of \\enc"
+                               else "without declared encoding"
                        if(Encoding(block) == "UTF-8")
                            warnRd(block, Rdfile, level = -1,
-                                  "Non-ASCII contents ", msg3)
-                       if(grepl("<[0123456789abcdef][0123456789abcdef]>", block))
-                           warnRd(block, Rdfile, level = -3,
-                                  "Apparent non-ASCII contents ", msg3)
+                                  "Non-ASCII contents ", msg2,
+                                  ":\n  ", sQuote(trimws(block)))
+                       ## the following gives mostly false positives nowadays,
+                       ## from using such notation in the source file, as in
+                       ## iconv.Rd, showNonASCII.Rd, UTF8filepaths.Rd:
+                       ## if(grepl("<[0123456789abcdef][0123456789abcdef]>", block))
+                       ##     warnRd(block, Rdfile, level = -3,
+                       ##            "Apparent non-ASCII contents ", msg2)
                    }
                    if(tag == "TEXT") {
                        pat <- "([^\\]|^)\\\\[#$&_^~]"
@@ -726,19 +737,20 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                                   paste(txt, collapse = " "))
                        }
                    }
-                   ## check if this renders as non-whitespace
-                   if(!grepl("^[[:space:]]*$", block)) has_text <<- TRUE
                },
                USERMACRO =,
                "\\newcommand" =,
                "\\renewcommand" =,
                COMMENT = {},
                LIST = if (length(block)) {
-                   deparse <- sQuote(paste(as.character.Rd(block), collapse=""))
-                   if(!listOK)
-                       stopRd(block, Rdfile, "Unnecessary braces at ", deparse)
-                   else warnRd(block, Rdfile, level = -3,
-                               "Unnecessary braces at ", deparse)
+                   if (!inherits(block, "Rd")) { # skip wrapped \Sexpr Rd result
+                       deparse <- sQuote(.Rd_deparse(block))
+                       if(!listOK)
+                           stopRd(block, Rdfile, "Unnecessary braces at ", deparse)
+                       else warnRd(block, Rdfile, level = -3,
+                                   "Unnecessary braces at\n  ",
+                                   gsub("\n", "\n  ", deparse, fixed = TRUE))
+                   }
                    checkContent(block, tag)
                },
                "\\describe"=,
@@ -801,7 +813,10 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                    if (length(block) > 1L) checkContent(block[[2L]])
                },
                "\\tabular" = checkTabular(block),
-               "\\subsection" = checkSection(block, tag),
+               "\\subsection" = {
+                   checkSection(block, tag)
+                   has_text <<- TRUE
+               },
                "\\if" =,
                "\\ifelse" = {
     		   condition <- block[[1L]]
@@ -843,20 +858,16 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                    stopRd(block, Rdfile, "Unrecognized macro ", block[[1L]]),
                    VERB = ,
                    RCODE = ,
-                   TEXT = {
-                       if(!def_enc) {
-                           ## check for encoding; this is UTF-8 if known
-                           ## (but then def_enc = TRUE?)
-                           msg2 <- if(inEnc2) "in second part of \\enc" else "without declared encoding"
-                           if(Encoding(block) == "UTF-8")
-                               warnRd(block, Rdfile, level = -1,
-                                      "Non-ASCII contents ", msg2)
-                           if(grepl("<[0123456789abcdef][0123456789abcdef]>", block))
-                               warnRd(block, Rdfile, level = -3,
-                                      "Apparent non-ASCII contents ", msg2)
+                   TEXT = if(!grepl("^[[:space:]]*$", block)) {
+                       has_text <<- TRUE
+                       if((inEnc2 || !def_enc) && Encoding(block) == "UTF-8") {
+                           ## same as in checkBlock
+                           msg2 <- if(inEnc2) "in second part of \\enc"
+                                   else "without declared encoding"
+                           warnRd(block, Rdfile, level = -1,
+                                  "Non-ASCII contents ", msg2,
+                                  ":\n  ", sQuote(trimws(block)))
                        }
-                       ## check if this renders as non-whitespace
-                       if(!grepl("^[[:space:]]*$", block)) has_text <<- TRUE
                    },
 		   USERMACRO =,
 		   "\\newcommand" =,
@@ -922,7 +933,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                 if (col > length(format))
                     warnRd(table, Rdfile, level = 7,
                            "Only ", length(format),
-                           " columns allowed in this table")
+                           if (length(format) == 1) " column " else " columns ",
+                           "allowed in this table")
             	newcol <- FALSE
             }
             switch(tags[i],
@@ -947,8 +959,12 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
             switch(tag,
             "\\item" = {
     	    	if (!inlist) inlist <- TRUE
-                if((blocktag %in% c("\\describe", "\\arguments",
-                                    "\\value")) &&
+                CHECK_BLOCKS <- 
+                    if (config_val_to_logical(Sys.getenv("_R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_", "FALSE")))
+                        c("\\arguments", "\\value")
+                    else
+                        c("\\describe", "\\arguments", "\\value")
+                if((blocktag %in% CHECK_BLOCKS) &&
                     isBlankRd(block[[1L]]))
                     warnRd(block, Rdfile, level = 5,
                            "\\item in ", blocktag,
@@ -978,12 +994,13 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
 
     has_text <- FALSE
     checkSection <- function(section, tag) {
+    	s0 <- section
     	if (tag == "\\section" || tag == "\\subsection") {
     	    title <- section[[1L]]
     	    checkContent(title, tag)
     	    section <- section[[2L]]
             ## replace 'tag' in message below
-            tagtitle <- sQuote(as.character(title))
+            tagtitle <- sQuote(trimws(.Rd_deparse(title)))
     	} else tagtitle <- tag
         has_text <<- FALSE
         ## if (tag == "\\synopsis")  # already removed via prepare_Rd
@@ -991,44 +1008,18 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
         if (tag %in% c("\\usage", "\\examples"))
             checkCodeBlock(section, tag)
     	else checkContent(section, tag)
-        if(!has_text) warnRd(section, Rdfile, level = 3,
+        if(!has_text) warnRd(s0, Rdfile, level = 3,
                              "Empty section ", tagtitle)
-    }
 
-    checkUnique <- function(tag) { # currently only used for \description
-    	which <- which(sections == tag)
-    	if (length(which) < 1L)
-    	    warnRd(Rd, Rdfile, level = 5, "Must have a ", tag)
-    	else {
-            if (length(which) > 1L)
-    	    	warnRd(Rd[[which[2L]]], Rdfile, level = 5,
-                   "Only one ", tag, " is allowed")
-            empty <- TRUE
-            for(block in Rd[which]) {
-                switch(attr(block, "Rd_tag"),
-                       TEXT = if(!grepl("^[[:space:]]*$", block))
-                       empty <- FALSE,
-                       empty <- FALSE)
-            }
-            if(empty)
-                warnRd(Rd[[which[1L]]], Rdfile, level = 5,
-                       "Tag ", tag, " must not be empty")
+        if (tag %in% c("\\title", "\\section", "\\subsection")) {
+            rd <- .Rd_deparse(if (tag == "\\title") section else title,
+                              tag = FALSE)
+            if (grepl("[^.]\\.[[:space:]]*$", rd) &&
+                !grepl("(etc|et[[:space:]]+al)\\.[[:space:]]*$", rd))
+                warnRd(s0, Rdfile, level = -5,
+                       tag, if (tag != "\\title") " name",
+                       " should not end in a period")
         }
-    }
-
-        
-
-    dt <- which(RdTags(Rd) == "\\docType")
-    docTypes <- character(length(dt))
-    if (length(dt)) {
-        for (i in dt) {
-            docType <- Rd[[i]]
-            if(!identical(RdTags(docType), "TEXT"))
-        	warnRd(docType, Rdfile, level = 7,
-                       "'docType' must be plain text")
-            ## Some people have \docType{ package } and similar.
-            docTypes[i] <- sub("^ *", "", sub(" *$", "", docType[[1L]]))
-         }
     }
 
     .messages <- character()
@@ -1049,21 +1040,6 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
     if (length(enc)) def_enc <- TRUE
 
     inEnc2 <- FALSE
-    if(!identical("package", docTypes))
-        checkUnique("\\description")
-
-    ## Check other standard sections are unique
-    ## \alias, \keyword and \note are allowed to be repeated
-    ## Normally prepare_Rd will have dropped duplicates already
-    unique_tags <-
-        paste0("\\",
-               c("name", "title", # "description" checked above
-                 "usage", "arguments",
-                 "format", "details", "value", "references", "source",
-                 "seealso", "examples", "author", "encoding"))
-    for(tag in intersect(sections[duplicated(sections)], unique_tags))
-        warnRd(Rd, Rdfile, level = 5,
-               sprintf("Multiple sections named '%s' are not allowed", tag))
 
     for (i in seq_along(sections))
         checkSection(Rd[[i]], sections[i])

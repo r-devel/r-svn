@@ -27,7 +27,7 @@ jobs:
         set -e
         apt-get update -y
         apt-get install -y ${{matrix.CC}} wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
-        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libreadline-dev libxt-dev
+        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
     - name: Checkout
@@ -132,7 +132,7 @@ jobs:
 
     - name: "Download rtools43 toolchain"
       run: |
-        url="https://github.com/r-windows/files/releases/download/5493/rtools43-toolchain-libs-base-5493.tar.zst"
+        url="https://github.com/r-windows/files/releases/download/5550/rtools43-toolchain-libs-base-5550.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
         #echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
         #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV

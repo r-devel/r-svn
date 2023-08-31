@@ -761,7 +761,7 @@ SEXP static intern_getwd(void)
 	    DWORD res1 = GetCurrentDirectoryW(res, wbuf);
 	    if (res1 <= 0 || res1 >= res)
 		return R_NilValue;
-	    size_t needed = wcstoutf8(NULL, wbuf, INT_MAX);
+	    size_t needed = wcstoutf8(NULL, wbuf, (size_t)INT_MAX + 2);
 	    char *buf = R_alloc(needed + 1, 1);
 	    wcstoutf8(buf, wbuf, needed + 1);
 	    R_UTF8fixslash(buf);
@@ -852,7 +852,7 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 		while (p >= buf && *p == L'/') *(p--) = L'\0';
 	    }
 	    if ((p = wcsrchr(buf, L'/'))) p++; else p = buf;
-	    size_t needed = wcstoutf8(NULL, p, INT_MAX);
+	    size_t needed = wcstoutf8(NULL, p, (size_t)INT_MAX + 2);
 	    sp = R_alloc(needed + 1, 1);
 	    wcstoutf8(sp, p, needed + 1);
 	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
@@ -937,7 +937,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 			  && (p > buf+2 || *(p-1) != L':')) --p;
 		    p[1] = L'\0';
 		}
-		size_t needed = wcstoutf8(NULL, buf, INT_MAX);
+		size_t needed = wcstoutf8(NULL, buf, (size_t)INT_MAX + 2);
 		sp = R_alloc(needed + 1, 1);
 		wcstoutf8(sp, buf, needed + 1);
 	    }
@@ -2340,8 +2340,8 @@ static const struct {
     { "strength", 999 },
     { "primary ", UCOL_PRIMARY },
     { "secondary ", UCOL_SECONDARY },
-    { "teritary ", UCOL_TERTIARY },
-    { "guaternary ", UCOL_QUATERNARY },
+    { "tertiary ", UCOL_TERTIARY },
+    { "quaternary ", UCOL_QUATERNARY },
     { "identical ", UCOL_IDENTICAL },
     { "french_collation", UCOL_FRENCH_COLLATION },
     { "on", UCOL_ON },
@@ -2370,19 +2370,13 @@ static const char *getLocale(void)
     //        use ICU by default on Windows yet for collation, even though
     //        already having UTF-8 as the native encoding.
 
-    // This call is >= Vista/Server 2008
     // ICU should accept almost all of these, e.g. en-US and uz-Latn-UZ
-    PGSDLN pGSDLN = (PGSDLN)
-	GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-		       "GetSystemDefaultLocaleName");
-    if(pGSDLN) {
-	WCHAR wcBuffer[BUFFER_SIZE];
-	pGSDLN(wcBuffer, BUFFER_SIZE);
-	static char locale[BUFFER_SIZE];
-	WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
-			    locale, BUFFER_SIZE, NULL, NULL);
-	return locale;
-    } else return "root";
+    WCHAR wcBuffer[BUFFER_SIZE];
+    GetSystemDefaultLocaleName(wcBuffer, BUFFER_SIZE);
+    static char locale[BUFFER_SIZE];
+    WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
+			locale, BUFFER_SIZE, NULL, NULL);
+    return locale;
 }
 #else
 static const char *getLocale(void)
@@ -2414,7 +2408,16 @@ attribute_hidden SEXP do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(streql(s, "ASCII")) {
 		collationLocaleSet = 2;
 	    } else {
-		if(strcmp(s, "none")) {
+		int usable_icu = 1;
+#ifdef Win32
+		/* ICU 72 requires this function (and other from Windows 7) */
+		if (!GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+		                    "ResolveLocaleName")) {
+		    usable_icu = 0;
+		    warning("cannot use ICU on this system");
+		}
+#endif
+		if(usable_icu && strcmp(s, "none")) {
 		    if(streql(s, "default"))
 			uloc_setDefault(getLocale(), &status);
 		    else uloc_setDefault(s, &status);
@@ -2502,7 +2505,16 @@ int Scollate(SEXP a, SEXP b)
 	/* FIXME: as ICU does not support C as locale, could we use the Unix
 	   behavior on all systems? */
 	const char *p = getenv("R_ICU_LOCALE");
-	if(p && p[0] && (!useC || !strcmp(p, "C"))) {
+	int use_icu = p && p[0] && (!useC || !strcmp(p, "C"));
+
+	/* ICU 72 requires this function (and other from Windows 7) */
+	if (use_icu &&
+	    !GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+			    "ResolveLocaleName")) {
+	    use_icu = 0;
+	    warning("cannot use ICU on this system");
+	}
+	if(use_icu) {
 #endif
 	    UErrorCode status = U_ZERO_ERROR;
 	    uloc_setDefault(getLocale(), &status);

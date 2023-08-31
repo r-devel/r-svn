@@ -149,6 +149,12 @@ char *quoted_arg_cat(char *dest, const char *arg)
     return dest;
 }
 
+static BOOL WINAPI CtrlHandler(DWORD type)
+{
+    /* ignore Ctrl-C; R handles Ctrl+Break the same way (see psignal) */
+    return (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT);
+}
+
 #define PROCESS_CMD(ARG)	if (cmdarg + 1 < argc) {\
 	    for (i = cmdarg + 1; i < argc; i++) {\
 		strcat(cmd, ARG);\
@@ -186,7 +192,12 @@ int rcmdfn (int cmdarg, int argc, char **argv)
     int len = strlen(argv[0]);
     char *env_path;
     int timing = 1;
-    char *RHome = getRHOME(3);
+    int dirstrip = 2;
+#ifdef R_ARCH
+    if (strlen(R_ARCH) > 0)
+	dirstrip++;
+#endif 
+    char *RHome = getRHOME(dirstrip);
 
     if(!RHome)
         R_Suicide("Invalid R_HOME");
@@ -232,7 +243,9 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 	}
 	snprintf(cmd, CMD_LEN, "\"\"%s/%s/Rterm.exe\"", RHome, BINDIR);
 	/* R.exe should ignore Ctrl-C, and let Rterm.exe handle it */
-	SetConsoleCtrlHandler(NULL, TRUE);
+        /*   don't SetConsoleCtrlHandler(NULL, TRUE) to preserve
+             the current setting of the inheritable attribute */
+        SetConsoleCtrlHandler(CtrlHandler, TRUE);
 	PROCESS_CMD(" ");
     }
 
@@ -293,8 +306,9 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 		return(0);
 	    }
 	    if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
-		fprintf(stderr, "BATCH %s\n%s%s%s\n", "1.2",
-"Copyright (C) 1997-2004 R Core Team.\n",
+		fprintf(stderr, "R batch front end: %s.%s (r%d)\n\n%s%s%s%s%s\n",
+R_MAJOR, R_MINOR, R_SVN_REVISION,
+"Copyright (C) 1997-", R_YEAR, " The R Core Team.\n",
 "This is free software; see the GNU General Public Licence version 2\n",
 "or later for copying conditions.  There is NO warranty.");
 		return(0);
@@ -413,8 +427,13 @@ int rcmdfn (int cmdarg, int argc, char **argv)
     char *Rarch = malloc(30);
     if (!Rarch)
 	R_Suicide("Allocation error");
-    strcpy(Rarch, "R_ARCH=/");
-    strcat(Rarch, R_ARCH);
+    strcpy(Rarch, "R_ARCH=");
+#ifdef R_ARCH
+    if (strlen(R_ARCH) > 0) {
+	strcat(Rarch, "/");
+	strcat(Rarch, R_ARCH);
+    }
+#endif
     putenv(Rarch);
     /* no free here: storage remains in use */
 

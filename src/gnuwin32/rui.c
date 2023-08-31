@@ -401,7 +401,7 @@ static void menutools(control m)
     }
 }
 
-void showstatusbar()
+void showstatusbar(void)
 {
     if(ismdi() && !ischecked(mstatus)) {
 	addstatusbar();
@@ -499,7 +499,11 @@ static Rboolean isdebuggerpresent(void)
 
 void breaktodebugger(void)
 {
+#if (defined(__i386) || defined(__x86_64))
     __asm__("int $3");
+#elif defined(__aarch64__)
+    __asm__("brk #0xf000");
+#endif
 }
 
 static void menudebug(control m)
@@ -854,7 +858,7 @@ static Rboolean tryLoadRconsole(char *format, char *varname, struct structGUI* g
     return FALSE;
 }
 
-void readconsolecfg()
+void readconsolecfg(void)
 {
     char  fn[128];
     int   sty = Plain;
@@ -1073,7 +1077,7 @@ int RguiCommonHelp(menu m, HelpMenuItems hmenu)
     return 0;
 }
 
-static int RguiWindowMenu()
+static int RguiWindowMenu(void)
 {
     if (ismdi())
 	newmdimenu();
@@ -1126,7 +1130,7 @@ int setupui(void)
 	TRACERUI("Rgui");
 	RFrame = newwindow(
 #ifdef _WIN64
-	    "RGui (64-bit)",
+	    "RGui",
 #else
 	    "RGui (32-bit)",
 #endif
@@ -1141,7 +1145,7 @@ int setupui(void)
     } else {
 	TRACERUI("Console");
 #ifdef _WIN64
-	if (!(RConsole = newconsole("R Console (64-bit)", flags ))) return 0;
+	if (!(RConsole = newconsole("R Console", flags ))) return 0;
 #else
 	if (!(RConsole = newconsole("R Console (32-bit)", flags ))) return 0;
 #endif

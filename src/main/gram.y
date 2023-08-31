@@ -1,9 +1,9 @@
 %{
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 2009--2011  Romain Francois
+ *  Copyright (C) 1995--1997  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1504,7 +1504,7 @@ static SEXP SrcRefsToVectorList(void) {
  *
  *  The Following entry points provide language parsing facilities.
  *  Note that there are separate entry points for parsing IoBuffers
- *  (i.e. interactve use), files and R character strings.
+ *  (i.e. interactive use), files and R character strings.
  *
  *  The entry points provide the same functionality, they just
  *  set things up in slightly different ways.
@@ -2453,7 +2453,7 @@ static int SkipSpace(void)
 #ifdef Win32
     if(!mbcslocale) { /* 0xa0 is NBSP in all 8-bit Windows locales */
 	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f' ||
-	       (unsigned int) c == 0xa0) ;
+	       (unsigned int) c == 0xa0) {};
 	return c;
     } else {
 	int i, clen;
@@ -2490,7 +2490,7 @@ static int SkipSpace(void)
     } else
 #endif
 	// does not support non-ASCII spaces, unlike Windows
-	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f') ;
+	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f') {};
     return c;
 }
 
@@ -4285,7 +4285,10 @@ static void finalizeData(void){
     
     setAttrib(newdata, R_ClassSymbol, mkString("parseData"));
     
-    /* Put it into the srcfile environment */
+    /* Put it into the original or srcfile environment */
+    if (isEnvironment(PS_ORIGINAL))
+	defineVar(install("parseData"), newdata, PS_ORIGINAL);    
+    else
     if (isEnvironment(PS_SRCFILE))
 	defineVar(install("parseData"), newdata, PS_SRCFILE);
     UNPROTECT(4); /* tokens, newdata, newtext, dims */

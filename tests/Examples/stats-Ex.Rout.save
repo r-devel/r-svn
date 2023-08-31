@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2023-02-09 r83797) -- "Unsuffered Consequences"
+R Under development (unstable) (2023-07-31 r84793) -- "Unsuffered Consequences"
 Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+Platform: x86_64-apple-darwin21.6.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -517,6 +517,8 @@ s12   0.92099
 [2,] 0.03455368 0.00185109     0
 > all(phyper(x, m, n, k) == cumsum(dhyper(x, m, n, k)))  # FALSE
 [1] FALSE
+> stopifnot(abs(phyper(x, m, n, k) - cumsum(dhyper(x, m, n, k))) < 5e-16)
+> 
 > 
 > 
 > cleanEx()
@@ -1267,15 +1269,15 @@ Residual standard error: 0.04103 on 7 degrees of freedom
 +             trace=TRUE, control = list(maxiter = 10)) )
 0.01722077  (5.34e+02): par = (0.6168807 -1.783839 2.050204 0.2004597)
 3.308943e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
-2.571069e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-1.669346e-23 (5.53e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
-2.285755e-29 (1.59e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.345909e-29 (1.20e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+2.571050e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
+1.672513e-23 (5.07e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.398240e-29 (2.39e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.346295e-29 (1.19e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
 Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  : 
   number of iterations exceeded maximum of 10
 > ## End(Don't show)
@@ -1288,10 +1290,10 @@ Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  :
   It.   2, fac=           1, eval (no.,total): ( 1,  2): new dev = 2.57108e-11
 2.571081e-11  (2.53e-06): par = (0.5793882 -1.78778 2.029276 0.1915479)
   It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66926e-23
-1.669257e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.670550e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
+1.669255e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.670549e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
 > all.equal(coef(fm1), coef(fmX1), tolerance=0) # ... rel.diff.: 1.57e-6
-[1] "Mean relative difference: 1.574118e-06"
+[1] "Mean relative difference: 1.574113e-06"
 > all.equal(coef(fm1), coef(fmX),  tolerance=0) # ... rel.diff.: 1.03e-12
 [1] "Mean relative difference: 1.032123e-12"
 > ## IGNORE_RDIFF_END
@@ -2572,6 +2574,15 @@ supp   0.5     1     2
   OJ 13.23 22.70 26.06
   VC  7.98 16.77 26.14
 > 
+> ## Formula interface via 'by' (for pipe operations)
+> ToothGrowth |> aggregate(len ~ ., FUN = mean)
+  supp dose   len
+1   OJ  0.5 13.23
+2   VC  0.5  7.98
+3   OJ  1.0 22.70
+4   VC  1.0 16.77
+5   OJ  2.0 26.06
+6   VC  2.0 26.14
 > 
 > ## Compute the average annual approval ratings for American presidents.
 > aggregate(presidents, nfrequency = 1, FUN = mean)
@@ -2628,7 +2639,7 @@ Frequency = 1
 > require(utils)
 > example("glm", echo = FALSE)
 > ## End(Don't show)
-> anova(glm.D93)
+> anova(glm.D93, test = FALSE)
 Analysis of Deviance Table
 
 Model: poisson, link: log
@@ -4589,7 +4600,7 @@ X-squared = 4.3, df = 4, p-value = 0.3669
 > 
 > ### Name: confint
 > ### Title: Confidence Intervals for Model Parameters
-> ### Aliases: confint confint.default confint.lm
+> ### Aliases: confint confint.default confint.lm confint.glm confint.nls
 > ### Keywords: models
 > 
 > ### ** Examples
@@ -4606,7 +4617,25 @@ am          -0.614677730 0.926307310
        2.5 %   97.5 %
 wt 0.3800887 1.622518
 > 
-> 
+> ## from example(glm)
+> counts <- c(18,17,15,20,10,20,25,13,12)
+> outcome <- gl(3, 1, 9); treatment <- gl(3, 3)
+> glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
+> confint(glm.D93) # needs MASS to be installed
+Waiting for profiling to be done...
+                 2.5 %      97.5 %
+(Intercept)  2.6958215  3.36655581
+outcome2    -0.8577018 -0.06255840
+outcome3    -0.6753696  0.08244089
+treatment2  -0.3932548  0.39325483
+treatment3  -0.3932548  0.39325483
+> confint.default(glm.D93)  # based on asymptotic normality
+                 2.5 %      97.5 %
+(Intercept)  2.7095672  3.37947764
+outcome2    -0.8505027 -0.05800787
+outcome3    -0.6707552  0.08478093
+treatment2  -0.3919928  0.39199279
+treatment3  -0.3919928  0.39199279
 > 
 > 
 > cleanEx()
@@ -5047,7 +5076,7 @@ function (V)
     r[cbind(1L:p, 1L:p)] <- 1
     r
 }
-<bytecode: 0x559cc7b53620>
+<bytecode: 0x7fa76c205b90>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
@@ -6185,12 +6214,12 @@ Call:
 Data: faithful$eruptions (272 obs.);	Bandwidth 'bw' = 0.14
 
        x               y            
- Min.   :1.180   Min.   :0.0001834  
- 1st Qu.:2.265   1st Qu.:0.0422638  
- Median :3.350   Median :0.1709243  
- Mean   :3.350   Mean   :0.2301726  
- 3rd Qu.:4.435   3rd Qu.:0.4134348  
- Max.   :5.520   Max.   :0.5945634  
+ Min.   :1.180   Min.   :0.0001814  
+ 1st Qu.:2.265   1st Qu.:0.0421820  
+ Median :3.350   Median :0.1706817  
+ Mean   :3.350   Mean   :0.2299476  
+ 3rd Qu.:4.435   3rd Qu.:0.4130131  
+ Max.   :5.520   Max.   :0.5940669  
 > plot(d)
 > 
 > plot(d, type = "n")
@@ -6208,14 +6237,15 @@ Data: faithful$eruptions (272 obs.);	Bandwidth 'bw' = 0.14
 > ## use 'counts / n' as weights:
 > dw <- density(unique(fe), weights = table(fe)/length(fe), bw = d$bw)
 > utils::str(dw) ## smaller n: only 126, but identical estimate:
-List of 7
- $ x        : num [1:512] 1.18 1.19 1.2 1.21 1.21 ...
- $ y        : num [1:512] 0.000183 0.000223 0.00027 0.000328 0.000397 ...
- $ bw       : num 0.14
- $ n        : int 126
- $ call     : language density.default(x = unique(fe), bw = d$bw, weights = table(fe)/length(fe))
- $ data.name: chr "unique(fe)"
- $ has.na   : logi FALSE
+List of 8
+ $ x         : num [1:512] 1.18 1.19 1.2 1.21 1.21 ...
+ $ y         : num [1:512] 0.000181 0.000221 0.000267 0.000325 0.000393 ...
+ $ bw        : num 0.14
+ $ n         : int 126
+ $ old.coords: logi FALSE
+ $ call      : language density.default(x = unique(fe), bw = d$bw, weights = table(fe)/length(fe))
+ $ data.name : chr "unique(fe)"
+ $ has.na    : logi FALSE
  - attr(*, "class")= chr "density"
 > stopifnot(all.equal(d[1:3], dw[1:3]))
 > 
@@ -6228,6 +6258,7 @@ List of 7
 > lines(density(x.new), col = "blue")
 > 
 > 
+> ## The available kernels:
 > (kernels <- eval(formals(density.default)$kernel))
 [1] "gaussian"     "epanechnikov" "rectangular"  "triangular"   "biweight"    
 [6] "cosine"       "optcosine"   
@@ -6250,6 +6281,28 @@ List of 7
 > 
 > ##-------- Semi-advanced theoretic from here on -------------
 > 
+> ## Explore the old.coords TRUE --> FALSE change:
+> set.seed(7); x <- runif(2^12) # N = 4096
+> den  <- density(x) # -> grid of n = 512 points
+> den0 <- density(x, old.coords = TRUE)
+> summary(den0$y / den$y) # 1.001 ... 1.011
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.001   1.001   1.001   1.002   1.001   1.011 
+> summary(    den0$y / den$y - 1) # ~= 1/(2n-2)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.0006768 0.0009353 0.0009784 0.0017606 0.0010349 0.0107757 
+> summary(1/ (den0$y / den$y - 1))# ~=    2n-2 = 1022
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   92.8   966.3  1022.1   918.9  1069.2  1477.6 
+> corr0 <- 1 - 1/(2*512-2) # 1 - 1/(2n-2)
+> all.equal(den$y, den0$y * corr0)# ~ 0.0001
+[1] "Mean relative difference: 9.480177e-05"
+> plot(den$x, (den0$y - den$y)/den$y, type='o', cex=1/4)
+> title("relative error of density(runif(2^12), old.coords=TRUE)")
+> abline(h = 1/1022, v = range(x), lty=2); axis(2, at=1/1022, "1/(2n-2)", las=1)
+> 
+> 
+> ## The R[K] for our kernels:
 > (RKs <- cbind(sapply(kernels,
 +                      function(k) density(kernel = k, give.Rkern = TRUE))))
                   [,1]
@@ -7162,7 +7215,7 @@ Family: gaussian
 Link function: identity 
 
 > str(nf)
-List of 11
+List of 12
  $ family    : chr "gaussian"
  $ link      : chr "identity"
  $ linkfun   :function (mu)  
@@ -7174,6 +7227,7 @@ List of 11
  $ initialize:  expression({  n <- rep.int(1, nobs)  if (is.null(etastart) && is.null(start) && is.null(mustart) && ((family$link| __truncated__
  $ validmu   :function (mu)  
  $ valideta  :function (eta)  
+ $ dispersion: num NA
  - attr(*, "class")= chr "family"
 > 
 > gf <- Gamma()
@@ -7183,7 +7237,7 @@ Family: Gamma
 Link function: inverse 
 
 > str(gf)
-List of 12
+List of 13
  $ family    : chr "Gamma"
  $ link      : chr "inverse"
  $ linkfun   :function (mu)  
@@ -7196,6 +7250,7 @@ List of 12
  $ validmu   :function (mu)  
  $ valideta  :function (eta)  
  $ simulate  :function (object, nsim)  
+ $ dispersion: num NA
  - attr(*, "class")= chr "family"
 > gf$linkinv
 function (eta) 
@@ -7669,7 +7724,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x559cc745af60>
+<environment: 0x7fa76d5bb548>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -8086,10 +8141,12 @@ Response: counts
 Terms added sequentially (first to last)
 
 
-          Df Deviance Resid. Df Resid. Dev
-NULL                          8    10.5814
-outcome    2   5.4523         6     5.1291
-treatment  2   0.0000         4     5.1291
+          Df Deviance Resid. Df Resid. Dev Pr(>Chi)  
+NULL                          8    10.5814           
+outcome    2   5.4523         6     5.1291  0.06547 .
+treatment  2   0.0000         4     5.1291  1.00000  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 > ## Computing AIC [in many ways]:
 > (A0 <- AIC(glm.D93))
 [1] 56.76132
@@ -8116,10 +8173,6 @@ treatment  2   0.0000         4     5.1291
 Call:
 glm(formula = lot1 ~ log(u), family = Gamma, data = clotting)
 
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--0.04008  -0.03756  -0.02637   0.02905   0.08641  
-
 Coefficients:
               Estimate Std. Error t value Pr(>|t|)    
 (Intercept) -0.0165544  0.0009275  -17.85 4.28e-07 ***
@@ -8139,10 +8192,6 @@ Number of Fisher Scoring iterations: 3
 
 Call:
 glm(formula = lot2 ~ log(u), family = Gamma, data = clotting)
-
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--0.05574  -0.02925   0.01030   0.01714   0.06371  
 
 Coefficients:
               Estimate Std. Error t value Pr(>|t|)    
@@ -8903,6 +8952,8 @@ totss        60.99123 60.99123
 > 
 > ## random starts do help here with too many clusters
 > ## (and are often recommended anyway!):
+> ## The ordering of the clusters may be platform-dependent.
+> ## IGNORE_RDIFF_BEGIN
 > (cl <- kmeans(x, 5, nstart = 25))
 K-means clustering with 5 clusters of sizes 12, 24, 24, 15, 25
 
@@ -8927,6 +8978,7 @@ Available components:
 
 [1] "cluster"      "centers"      "totss"        "withinss"     "tot.withinss"
 [6] "betweenss"    "size"         "iter"         "ifault"      
+> ## IGNORE_RDIFF_END
 > plot(x, col = cl$cluster)
 > points(cl$centers, col = 1:5, pch = 8)
 > 
@@ -9075,8 +9127,9 @@ alternative hypothesis: the CDF of x lies below that of y
 
 > 
 > # with ties, example from Schröer and Trenkler (1995)
-> # D = 3 / 7, p = 0.2424242
-> ks.test(c(1, 2, 2, 3, 3), c(1, 2, 3, 3, 4, 5, 6), exact = TRUE)
+> # D = 3/7, p = 8/33 = 0.242424..
+> ks.test(c(1, 2, 2, 3, 3),
++         c(1, 2, 3, 3, 4, 5, 6))# -> exact
 
 	Exact two-sample Kolmogorov-Smirnov test
 
@@ -9420,6 +9473,13 @@ List of 8
 >   stopifnot(id(unname(lm.$coef), lm..$coef),
 + 	    id(unname(lmw$coef), lm.w$coef))
 > ## End(Don't show)
+> ## fits w/o intercept:
+> all.equal(unname(coef(lm(y ~ X-1))),
++           unname(coef( lm.fit(X,y))))
+[1] TRUE
+> all.equal(unname(coef( lm.fit(X,y))),
++                  coef(.lm.fit(X,y)))
+[1] TRUE
 > 
 > 
 > 
@@ -9466,7 +9526,7 @@ $df
 
 > # to allow extrapolation
 > cars.lo2 <- loess(dist ~ speed, cars,
-+   control = loess.control(surface = "direct"))
++                   control = loess.control(surface = "direct"))
 > predict(cars.lo2, data.frame(speed = seq(5, 30, 1)), se = TRUE)
 $fit
          1          2          3          4          5          6          7 
@@ -11208,17 +11268,17 @@ Warning in nls(formula = y ~ Const + A * exp(B * x), algorithm = "default",  :
 Initializing ‘Const’, ‘A’, ‘B’ to '1.'.
 Consider specifying 'start' or using a selfStart model
 1017460.306    (4.15e+02): par = (1 1 1)
-758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543745)
+758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543746)
 269506.3539    (3.23e+02): par = (51.75719815 -13.09155956 0.8428607704)
-68969.21896    (1.03e+02): par = (76.0006985 -1.93522674 1.019085799)
-633.3672231    (1.29e+00): par = (100.3761515 8.624648403 5.104490265)
-151.4400225    (9.39e+00): par = (100.6344391 4.913490981 0.2849209558)
-53.08739902    (7.24e+00): par = (100.6830407 6.899303306 0.4637755073)
-1.344478646    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
+68969.21897    (1.03e+02): par = (76.00069849 -1.935226737 1.019085799)
+633.3672232    (1.29e+00): par = (100.3761515 8.624648408 5.104490268)
+151.4400219    (9.39e+00): par = (100.6344391 4.913490983 0.2849209569)
+53.08739856    (7.24e+00): par = (100.6830407 6.899303315 0.4637755075)
+1.344478639    (5.97e-01): par = (100.0368306 9.897714142 0.5169294938)
 0.9908415909   (1.55e-02): par = (100.0300625 9.9144191 0.5023516843)
-0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207337)
-0.9906046054   (9.94e-08): par = (100.028875 9.916228366 0.50252165)
-0.9906046054   (5.87e-10): par = (100.028875 9.916228388 0.5025216549)
+0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207336)
+0.9906046054   (9.96e-08): par = (100.028875 9.916228366 0.50252165)
+0.9906046054   (5.05e-10): par = (100.028875 9.916228388 0.5025216549)
 Nonlinear regression model
   model: y ~ Const + A * exp(B * x)
    data: parent.frame()
@@ -12222,6 +12282,35 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > 
 > graphics::par(get("par.postscript", pos = 'CheckExEnv'))
 > cleanEx()
+> nameEx("plot.profile")
+> ### * plot.profile
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: plot.profile
+> ### Title: Plotting Functions for 'profile' Objects
+> ### Aliases: plot.profile pairs.profile
+> ### Keywords: models hplot
+> 
+> ### ** Examples
+> 
+> ## see ?profile.glm for an example using glm fits.
+> 
+> ## a version of example(profile.nls) from R >= 2.8.0
+> fm1 <- nls(demand ~ SSasympOrig(Time, A, lrc), data = BOD)
+> pr1 <- profile(fm1, alphamax = 0.1)
+> stats:::plot.profile(pr1) ## override dispatch to plot.profile.nls
+> pairs(pr1) # a little odd since the parameters are highly correlated
+> 
+> ## an example from ?nls
+> x <- -(1:100)/10
+> y <- 100 + 10 * exp(x / 2) + rnorm(x)/10
+> nlmod <- nls(y ~  Const + A * exp(B * x), start=list(Const=100, A=10, B=1))
+> pairs(profile(nlmod))
+> 
+> 
+> 
+> cleanEx()
 > nameEx("plot.profile.nls")
 > ### * plot.profile.nls
 > 
@@ -12529,14 +12618,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x559cc678ac48>
-<environment: 0x559cc67943c0>
+<bytecode: 0x7fa76744cb40>
+<environment: 0x7fa767453608>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x559cc678aaf8>
-<environment: 0x559cc67943c0>
+<bytecode: 0x7fa76744c9f0>
+<environment: 0x7fa767453608>
 
 > 
 > 
@@ -13234,10 +13323,6 @@ $se
 
 Call:
 glm(formula = SF ~ sex * ldose, family = binomial)
-
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--1.39849  -0.32094  -0.07592   0.38220   1.10375  
 
 Coefficients:
             Estimate Std. Error z value Pr(>|z|)    
@@ -14073,6 +14158,32 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > 
 > 
 > 
+> cleanEx()
+> nameEx("profile.glm")
+> ### * profile.glm
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: profile.glm
+> ### Title: Method for Profiling glm Objects
+> ### Aliases: profile.glm
+> ### Keywords: regression models
+> 
+> ### ** Examples
+> 
+> options(contrasts = c("contr.treatment", "contr.poly"))
+> ldose <- rep(0:5, 2)
+> numdead <- c(1, 4, 9, 13, 18, 20, 0, 2, 6, 10, 12, 16)
+> sex <- factor(rep(c("M", "F"), c(6, 6)))
+> SF <- cbind(numdead, numalive = 20 - numdead)
+> budworm.lg <- glm(SF ~ sex*ldose, family = binomial)
+> pr1 <- profile(budworm.lg)
+> plot(pr1)
+> pairs(pr1)
+> 
+> 
+> 
+> base::options(contrasts = c(unordered = "contr.treatment",ordered = "contr.poly"))
 > cleanEx()
 > nameEx("profile.nls")
 > ### * profile.nls
@@ -15972,7 +16083,7 @@ Contrast 1 Contrast 2 Contrast 3
 > getInitial(weight ~ mySSlogis(Time, Asym, xmid, scal),
 +            data = subset(ChickWeight, Chick == 1))
      Asym      xmid      scal 
-937.03011  35.22296  11.40521 
+937.03003  35.22296  11.40521 
 > ## Don't show: 
 > ## IGNORE_RDIFF_END
 > ## End(Don't show)
@@ -16081,7 +16192,7 @@ W = 0.93092, p-value = 5.616e-05
 > 
 > ### Name: sigma
 > ### Title: Extract Residual Standard Deviation 'Sigma'
-> ### Aliases: sigma sigma.default sigma.mlm
+> ### Aliases: sigma sigma.default sigma.mlm sigma.glm
 > ### Keywords: models
 > 
 > ### ** Examples
@@ -16106,7 +16217,7 @@ W = 0.93092, p-value = 5.616e-05
 > sex <- factor(rep(c("M", "F"), c(6, 6)))
 > SF <- cbind(numdead, numalive = 20-numdead)
 > sigma(budworm.lg <- glm(SF ~ sex*ldose, family = binomial))
-[1] 0.7900734
+[1] 1
 > 
 > ## -- b) Poisson -- from ?glm :
 > ## Dobson (1990) Page 93: Randomized Controlled Trial :
@@ -16114,15 +16225,15 @@ W = 0.93092, p-value = 5.616e-05
 > outcome <- gl(3,1,9)
 > treatment <- gl(3,3)
 > sigma(glm.D93 <- glm(counts ~ outcome + treatment, family = poisson()))
-[1] 1.13238
-> ## (currently) *differs* from
-> summary(glm.D93)$dispersion # == 1
+[1] 1
+> ## equal to
+> sqrt(summary(glm.D93)$dispersion) # == 1
 [1] 1
 > ## and the *Quasi*poisson's dispersion
 > sigma(glm.qD93 <- update(glm.D93, family = quasipoisson()))
-[1] 1.13238
-> sigma (glm.qD93)^2 # 1.282285 is close, but not the same
-[1] 1.282285
+[1] 1.137234
+> sigma (glm.qD93)^2 # 1.2933 equal to
+[1] 1.2933
 > summary(glm.qD93)$dispersion # == 1.2933
 [1] 1.2933
 > 
@@ -16811,10 +16922,12 @@ Response: counts
 Terms added sequentially (first to last)
 
 
-          Df Deviance Resid. Df Resid. Dev
-NULL                          8    10.5814
-outcome    2   5.4523         6     5.1291
-treatment  2   0.0000         4     5.1291
+          Df Deviance Resid. Df Resid. Dev Pr(>Chi)  
+NULL                          8    10.5814           
+outcome    2   5.4523         6     5.1291  0.06547 .
+treatment  2   0.0000         4     5.1291  1.00000  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 > stat.anova(ag$table, test = "Cp",
 +            scale = sum(resid(glm.D93, "pearson")^2)/4,
 +            df.scale = 4, n = 9)
@@ -16875,8 +16988,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x559cc5e2a130>
-<environment: 0x559cc6c7fd00>
+<bytecode: 0x7fa769fc5aa0>
+<environment: 0x7fa76d7d28e0>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -19356,10 +19469,6 @@ Call:
 glm(formula = cbind(ncases, ncontrols) ~ agegp + C(tobgp, , 1) + 
     C(alcgp, , 1), family = binomial(), data = esoph)
 
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--2.3018  -0.7234  -0.2306   0.5737   2.4290  
-
 Coefficients:
                 Estimate Std. Error z value Pr(>|z|)    
 (Intercept)     -1.15264    0.20326  -5.671 1.42e-08 ***
@@ -19390,7 +19499,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  6.39 0.204 6.597 0 0 
+Time elapsed:  6.593 0.645 7.828 0 0 
 > grDevices::dev.off()
 null device 
           1 

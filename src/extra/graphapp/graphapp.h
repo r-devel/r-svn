@@ -239,6 +239,7 @@ typedef void (*imfn)(control c, font *f, point *xy);
 #define checklimittext		GA_checklimittext
 #define clear		GA_clear
 #define cleartext		GA_cleartext
+#define clickbutton            GA_clickbutton
 #define clipboardhastext		GA_clipboardhastext
 #define clipr		GA_clipr
 #define compare_strings		GAI_compare_strings
@@ -628,7 +629,7 @@ typedef void (*imfn)(control c, font *f, point *xy);
 #define edit_control_proc	GAI_edit_control_proc
 #define edit_control_procedure	GAI_edit_control_procedure
 #define hAccel			GAI_hAccel
-#define hwndClient		GAI_hwndClient
+#define hwndClient		GA_hwndClient
 #define hwndFrame		GAI_hwndFrame
 #define hwndMain		GAI_hwndMain
 #define is_NT			GA_isNT
@@ -665,6 +666,16 @@ typedef void (*imfn)(control c, font *f, point *xy);
 #define print_image		GA_print_image
 #define save_image		GA_save_image
 #define stop_image		GA_stop_image
+
+#define askfilenameW		GA_askfilenameW
+#define askfilenamesW		GA_askfilenamesW
+#define askfilesaveW		GA_askfilesaveW
+#define gcopyalpha2		GA_gcopyalpha2
+#define gdrawimage		GA_gdrawimage
+#define gfillpolypolygon	GA_gfillpolypolygon
+#define gmaskimage		GAI_gmaskimage
+#define gstrwidth1		GA_gstrwidth1
+#define setuserfilterW		GA_setuserfilterW
 #endif
 
 /*
@@ -793,9 +804,9 @@ void	setdrawmode(int mode);
 #define DnandS	 0x07
 #define DandS	 0x08
 #define DxnorS	 0x09
-#define D	 0x0A
+#define GA_D	 0x0A
 #define DornotS	 0x0B
-#define S	 0x0C
+#define GA_S	 0x0C
 #define notDorS	 0x0D
 #define DorS	 0x0E
 #define Ones	 0x0F
@@ -1187,6 +1198,7 @@ char *	askfilename(const char *title, const char *default_name);
 char *  askfilenamewithdir(const char *title, const char *default_name, const char *dir);
 char *	askfilesave(const char *title, const char *default_name);
 char *	askUserPass(const char *title);
+void    clickbutton(window w, button b);
 
 /*
  *  Time functions.

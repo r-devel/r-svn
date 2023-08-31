@@ -1,16 +1,37 @@
+## 2023-04 this relied on eu.httpbin.org which had become slow/unreliable.
+## switched to httpbin,org which seems more reliable if sometimes slow.
+
+## original commit
+# r75890 | maechler | 2018-12-23 17:39:19 +0000 (Sun, 23 Dec 2018) | 1 line
+# provide `headers` option to url() and download.file(), thanks to Gábor Csárdi
+
+site <- "developer.R-project.org"
+prefix <- "/inet-tests"
+rx <- paste0("Host.*", site)
 
 ## Tests for HTTP headers -----------------------------------------------
 
+## header names are case-insensitive - we could to better, but this
+## should be good enough for tests.
+grep_hdr <- function(regex, h) any(grepl(regex, h, TRUE))
+
 is_online <- function() {
-  tryCatch({
-    con <- suppressWarnings(socketConnection("8.8.8.8", port = 53))
-    close(con)
-    con <- url("http://eu.httpbin.org/headers")
-    lines <- readLines(con)
-    close(con)
-    stopifnot(any(grepl("Host.*eu.httpbin.org", lines)))
-    TRUE
-  }, error = function(e) FALSE)
+    tryCatch({
+        ## 8.8.8.8 is Google DNS
+        ## FIXME: many local networks block DNS requests to any non-local DNS
+        ##        servers so this almost never works. Do we really need this?
+        ## con <- suppressWarnings(socketConnection("8.8.8.8", port = 53))
+        ## close(con)
+        ## We may as well use socket to the site instead as a test ...
+        con <- suppressWarnings(socketConnection(site, port = 443))
+        close(con)
+        URL <- paste0("http://", site, prefix, "/anything")
+        con <- url(URL)
+        lines <- readLines(con)
+        close(con)
+        stopifnot(grep_hdr(rx, lines))
+        TRUE
+    }, error = function(e) FALSE)
 }
 
 get_headers <- function(path = "anything", quiet = TRUE, ...,
@@ -29,7 +50,7 @@ get_headers_url <- function(path = "anything", ..., protocol = "http") {
 }
 
 get_path <- function(path = "anything", protocol = "http") {
-  paste0(protocol, "://", "eu.httpbin.org/", path)
+  paste0(protocol, "://", site, prefix, "/", path)
 }
 
 with_options <- function(opts, expr) {
@@ -42,20 +63,20 @@ tests <- function() {
   cat("- User agent is still set\n")
   with_options(list(HTTPUserAgent = "foobar"), {
     h <- get_headers()
-    stopifnot(any(grepl("User-Agent.*foobar", h)))
+    stopifnot(grep_hdr("User-Agent.*foobar", h))
   })
 
   with_options(list(HTTPUserAgent = "foobar"), {
-    h <- get_headers(headers = c(foo = "bar", zzzz = "bee"))
-    stopifnot(any(grepl("User-Agent.*foobar", h)))
-    stopifnot(any(grepl("Foo.*bar", h)))
-    stopifnot(any(grepl("Zzzz.*bee", h)))
+      h <- get_headers(headers = c(foo = "bar", zzzz = "bee"))
+    stopifnot(grep_hdr("User-Agent.*foobar", h))
+    stopifnot(grep_hdr("Foo.*bar", h))
+    stopifnot(grep_hdr("Zzzz.*bee", h))
   })
 
   cat("- Can supply headers\n")
   h <- get_headers(headers = c(foo = "bar", zzzz = "bee"))
-  stopifnot(any(grepl("Foo.*bar", h)))
-  stopifnot(any(grepl("Zzzz.*bee", h)))
+  stopifnot(grep_hdr("Foo.*bar", h))
+  stopifnot(grep_hdr("Zzzz.*bee", h))
 
   cat("- Basic auth\n")
   ret <- tryCatch({
@@ -77,17 +98,17 @@ tests <- function() {
     if (status == 0L) {
         h1 <- readLines(tmp1)
         h2 <- readLines(tmp2)
-        stopifnot(any(grepl("Foo.*bar", h1)))
-        stopifnot(any(grepl("Zzzz.*bee", h1)))
-        stopifnot(any(grepl("Foo.*bar", h2)))
-        stopifnot(any(grepl("Zzzz.*bee", h2)))
+        stopifnot(grep_hdr("Foo.*bar", h1))
+        stopifnot(grep_hdr("Zzzz.*bee", h1))
+        stopifnot(grep_hdr("Foo.*bar", h2))
+        stopifnot(grep_hdr("Zzzz.*bee", h2))
     }
   }
 
   cat("- HTTPS\n")
   h <- get_headers(headers = c(foo = "bar", zzzz = "bee"), protocol = "https")
-  stopifnot(any(grepl("Foo.*bar", h)))
-  stopifnot(any(grepl("Zzzz.*bee", h)))
+  stopifnot(grep_hdr("Foo.*bar", h))
+  stopifnot(grep_hdr("Zzzz.*bee", h))
 
   cat("- If headers not named, then error\n")
   ret <- tryCatch(
@@ -114,14 +135,14 @@ tests <- function() {
   cat("- user agent is set in url()\n")
   with_options(list(HTTPUserAgent = "foobar"), {
     h <- get_headers_url()
-    stopifnot(any(grepl("User-Agent.*foobar", h)))
+    stopifnot(grep_hdr("User-Agent.*foobar", h))
   })
 
   cat("- file() still works with URLs\n")
   con <- file(get_path("anything", "http"))
   on.exit(close(con), add = TRUE)
   h <- readLines(con)
-  stopifnot(any(grepl("Host.*eu.httpbin.org", h)))
+  stopifnot(grep_hdr(rx, h))
 
   cat("- If headers not named, then url() errors\n")
   ret <- tryCatch(
@@ -142,21 +163,20 @@ tests <- function() {
 
   cat("- Can supply headers in url()\n")
   h <- get_headers_url(headers = c(foo = "bar", zzzz = "bee"))
-  stopifnot(any(grepl("Foo.*bar", h)))
-  stopifnot(any(grepl("Zzzz.*bee", h)))
+  stopifnot(grep_hdr("Foo.*bar", h))
+  stopifnot(grep_hdr("Zzzz.*bee", h))
 
   cat("- HTTPS with url()\n")
   h <- get_headers_url(headers = c(foo = "bar", zzzz = "bee"),
                        protocol = "https")
-  stopifnot(any(grepl("Foo.*bar", h)))
-  stopifnot(any(grepl("Zzzz.*bee", h)))
+  stopifnot(grep_hdr("Foo.*bar", h))
+  stopifnot(grep_hdr("Zzzz.*bee", h))
 }
 
 main <- function() {
-    if (capabilities("libcurl")) {
-        cat("\nlibcurl method\n")
-        with_options(c(download.file.method = "libcurl"), tests())
-    }
+    ## all builds have libcurl as from R 4.2.0.
+    cat("\nlibcurl method\n")
+    with_options(c(download.file.method = "libcurl"), tests())
 
     if (.Platform$OS.type == "windows")  {
         ## This is deprecated and will give warnings.
@@ -165,6 +185,9 @@ main <- function() {
     }
 }
 
-options(warn = 1)
+options(warn = 1L)
 
+## if URL is unresponsive or times out, this silently skips all the checks
 if (is_online()) main()
+
+proc.time()

@@ -50,10 +50,10 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \item{extra}{character vector of additional command-line arguments for
     the \code{"wget"} and \code{"curl"} methods.}
 
-  \item{headers}{named character vector of HTTP headers to use in HTTP
-    requests.  It is ignored for non-HTTP URLs.  The \code{User-Agent}
-    header taken from the \code{HTTPUserAgent} option (see
-    \code{\link{options}}) is automatically used as the first header.}
+  \item{headers}{named character vector of additional HTTP headers to
+    use in HTTP[S] requests.  It is ignored for non-HTTP[S] URLs.  The
+    \code{User-Agent} header taken from the \code{HTTPUserAgent} option
+    (see \code{\link{options}}) is automatically used as the first header.}
 
   \item{\dots}{allow additional arguments to be passed, unused.}
 }
@@ -154,14 +154,14 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   The choice of binary transfer (\code{mode = "wb"} or \code{"ab"}) is
   important on Windows, since unlike Unix-alikes it does distinguish
-  between text and binary files and for text transfers changes \code{\\n}
-  line endings to \code{\\r\\n} (aka \file{CRLF}).
+  between text and binary files and for text transfers changes \samp{\\n}
+  line endings to \samp{\\r\\n} (aka \file{CRLF}).
 
   On Windows, if \code{mode} is not supplied (\code{\link{missing}()})
-  and \code{url} ends in one of \code{.gz}, \code{.bz2}, \code{.xz},
-  \code{.tgz}, \code{.zip}, \code{.jar}, \code{.rda}, \code{.rds} or
-  \code{.RData}, \code{mode = "wb"} is set so that a binary transfer
-  is done to help unwary users.
+  and \code{url} ends in one of \samp{.gz}, \samp{.bz2}, \samp{.xz},
+  \samp{.tgz}, \samp{.zip}, \samp{.jar}, \samp{.rda}, \samp{.rds},
+  \samp{.RData} or \samp{.pdf}, \code{mode = "wb"} is set so that a binary
+  transfer is done to help unwary users.
 
   Code written to download binary files must use \code{mode = "wb"} (or
   \code{"ab"}), but the problems incurred by a text transfer will only
@@ -252,7 +252,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   available.
 }
 
-\section{\code{ftp://} URLs}{
+\section{\samp{ftp://} URLs}{
   Most modern browsers do not support such URLs, and \samp{https://}
   ones are much preferred for use in \R. \samp{ftps://} URLs have always
   been rare, and are nowadays even less supported.

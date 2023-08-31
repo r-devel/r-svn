@@ -1614,7 +1614,7 @@ recommended in
 @ref{Memory allocation, , Memory allocation, R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions'
+section `Memory allocation' in the `Writing R Extensions' manual
 @end ifclear
 @findex R_alloc
 @findex R_Calloc
@@ -1845,7 +1845,7 @@ We make use of the visibility mechanisms discussed in
 @ref{Controlling visibility, , Controlling visibility, R-exts, Writing R Extensions},
 @end ifset
 @ifclear UseExternalXrefs
-section `Controlling Visibility' in `Writing R Extensions',
+section `Controlling Visibility' in the `Writing R Extensions' manual,
 @end ifclear
 C entry points not needed outside the main @R{} executable/dynamic
 library (and in particular in no package nor module) should be prefixed
@@ -2384,7 +2384,7 @@ in an @R{} package is described in
 @ref{Internationalization, , Internationalization, R-exts, Writing R Extensions},
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions',
+section `Internationalization' in the `Writing R Extensions' manual,
 @end ifclear
 and the standard packages included with @R{} have (with an exception in
 @pkg{grDevices} for the menus of the @code{windows()} device) been
@@ -2512,9 +2512,15 @@ See file @file{po/README} for how to update the message templates and catalogs.
 * Help::                        
 @end menu
 
-The structure of a @emph{source} packages is described in @ref{Creating
-R packages, , Creating R packages, R-exts, Writing R Extensions}: this
-chapter is concerned with the structure of @emph{installed} packages.
+The structure of a @emph{source} packages is described in 
+@ifset UseExternalXrefs
+@ref{Creating R packages, , Creating R packages, R-exts, Writing R Extensions}: 
+@end ifset
+@ifclear UseExternalXrefs
+section `Creating R packages' in the `Writing R Extensions' manual:
+@end ifclear
+this chapter is concerned with the structure of @emph{installed}
+packages. 
 
 An installed package has a top-level file @file{DESCRIPTION}, a copy of
 the file of that name in the package sources with a @samp{Built} field
@@ -2599,7 +2605,7 @@ The columns are @samp{File} (the file name with extension), @samp{Name}
 (the @samp{\name} section), @samp{Type} (from the optional
 @samp{\docType} section), @samp{Title}, @samp{Encoding}, @samp{Aliases},
 @samp{Concepts} and @samp{Keywords}.  All columns are character vectors
-apart from @samp{Aliases}, which is a list of character vectors.
+apart from the last three, which are lists of character vectors.
 
 File @file{hsearch.rds} records the information to be used by
 @samp{help.search}.  This is a list of four unnamed elements which are
@@ -4022,6 +4028,11 @@ Off by default because this can result in false positives.
 @item _R_CHECK_RD_CHECKRD_MINLEVEL_
 Controls the minimum level for reporting warnings from @code{checkRd}.
 Default: -1.
+@item _R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_
+Control whether empty items inside @code{\\describe} are allowed without
+a warning. This is a temporary stop gap measure meant to support legacy
+packages, and is likely to be removed in future versions of R.
+Default: false.
 @item _R_CHECK_XREFS_REPOSITORIES_
 If set to a non-empty value, a space-separated list of repositories to
 use to determine known packages.  Default: empty, when the CRAN
@@ -4151,6 +4162,12 @@ aggregate) the ratio of CPU time to elapsed time exceeds this threshold
 Windows.
 Default: @code{NA}.
 
+@item _R_CHECK_INSTALL_TIMING_CPU_TO_ELAPSED_THRESHOLD_
+Report if for installation the ratio of CPU time to elapsed time exceeds
+this threshold (and the CPU time is at least one second).  Not supported
+on Windows, only uses if @code{_R_CHECK_TIMINGS_} is set
+Default: @code{NA}.
+
 @item _R_CHECK_CODETOOLS_PROFILE_
 A string with comma-separated @code{@var{name}=@var{value}} pairs (with
 @var{value} a logical constant) giving additional arguments for the
@@ -4251,11 +4268,6 @@ Default: true.
 If set to a true value, the check will exit on the first error.
 Default: false.
 
-@item _R_CHECK_S3_METHODS_NOT_REGISTERED_
-If set to a true value, report (apparent) S3 methods exported but not
-registered.
-Default: true.
-
 @item _R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_
 If set to a true value, report already registered S3 methods in
 base/recommended packages which are overwritten when this package's
@@ -4299,7 +4311,7 @@ See
 @ref{Writing portable packages, , Writing portable packages, R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions'
+section `Writing portable packages' in the `Writing R Extensions' manual
 @end ifclear
 for the rationale of this check (and why even @option{-Werror} is
 unsafe).
@@ -4556,6 +4568,25 @@ If set to a true value, trap non-interactive debugger invocations.
 These are most likely caused by leftover @code{browser()} statements
 in package code.
 Default: unset (but true for CRAN submission checks).
+
+@item _R_CHECK_URLS_SHOW_301_STATUS_
+If set to a true value, checking URLs show check status 301 for HTTP
+response status code ``301 Moved Permanently''.
+Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_UNDOC_USE_ALL_NAMES_
+If set to a true value, checking for undocumented objects does not
+ignore objects with names starting with a dot (which prior to the advent
+of namespaces conventionally were considered as ``internal'').
+Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_
+Default: false (but true for CRAN submission checks).
+If set to a true value, checking S3 methods also notes ``possible
+issues'', including issues with apparent methods not registered and
+methods registered for non-generics.
+Default: false (but true for CRAN submission checks).
+
 @end vtable
 
 The following variables control checks for undeclared/unconditional use
@@ -4609,7 +4640,7 @@ Default: the value of @env{_R_CHECK_DEPENDS_ONLY_} or false if that is unset.
 
 @item _R_CHECK_NO_RECOMMENDED_
 If set to a true value, augment the previous checks to make recommended
-packages unavailable unless declared (even if installed in @code{.library}).
+packages unavailable unless declared (even if installed in @code{.Library}).
 Default: false (but true for CRAN submission checks).
 
 This may give false positives on code which uses
@@ -4640,7 +4671,6 @@ _R_CHECK_DEPRECATED_DEFUNCT_=TRUE
 _R_CHECK_REPLACING_IMPORTS_=TRUE
 _R_CHECK_SCREEN_DEVICE_=stop
 _R_CHECK_TOPLEVEL_FILES_=TRUE
-_R_CHECK_S3_METHODS_NOT_REGISTERED_=TRUE
 _R_CHECK_OVERWRITE_REGISTERED_S3_METHODS_=TRUE
 _R_CHECK_PRAGMAS_=TRUE
 _R_CHECK_COMPILATION_FLAGS_=TRUE
@@ -4665,6 +4695,9 @@ _R_CHECK_RD_VALIDATE_RD2HTML_=true
 _R_CHECK_RD_MATH_RENDERING_=true
 _R_CHECK_NEWS_IN_PLAIN_TEXT_=true
 _R_CHECK_BROWSER_NONINTERACTIVE_=true
+_R_CHECK_URLS_SHOW_301_STATUS_=true
+_R_CHECK_UNDOC_USE_ALL_NAMES_=true
+_R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_=true
 @end example
 
 @noindent

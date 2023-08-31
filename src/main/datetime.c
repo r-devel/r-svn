@@ -132,7 +132,7 @@ There are two implementation paths here.
    mktime, gmtime_r, localtime_r, strftime with a R_ prefix.  The
    system strftime is used for locale-dependent names in R_strptime
    and R_strftime.  This uses the time-zone tables shipped with R and
-   installed into R_HOME/share/zoneinfo , with facilites to switch to
+   installed into R_HOME/share/zoneinfo , with facilities to switch to
    others using environment variable TZDIR.
 
    Our own versions of time_t (64-bit) and struct tm (including the
@@ -175,7 +175,7 @@ extern char *tzname[2];
 #include <Defn.h>
 #include <Internal.h>
 
-Rboolean warn1902 = FALSE;
+static Rboolean warn1902 = FALSE;
 
 /* Substitute based on glibc code. */
 #include "Rstrptime.h"
@@ -1043,8 +1043,8 @@ attribute_hidden SEXP do_asPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     END_MAKElt
-    UNPROTECT(6);
     if(settz) reset_tz(oldtz);
+    UNPROTECT(6);
     return ans;
 } // asPOSIXlt
 
@@ -1123,16 +1123,23 @@ attribute_hidden SEXP do_asPOSIXct(SEXP call, SEXP op, SEXP args, SEXP env)
 	    errno = 0;
 	    // Interface to mktime or timegm00, PATH-specific
 	    double tmp = mktime0(&tm, !isUTC);
-#ifdef MKTIME_SETS_ERRNO
-	    REAL(ans)[i] = errno ? NA_REAL : tmp + (secs - fsecs);
-#else
+/*
+    POSIX
+
+    POSIX requires that on error, mktime() returns (time_t)-1 and sets errno,
+    but previous versions of the specification made setting of errno optional.
+    errno on its own is not a reliable indication of error (PR#18532).
+*/
 	    REAL(ans)[i] = ((tmp == -1.)
+#ifdef MKTIME_SETS_ERRNO
+	                    && errno
+#else
 			    /* avoid silly gotcha at epoch minus one sec */
 			    && (tm.tm_sec != 59)
 			    && ((tm.tm_sec = 58), (mktime0(&tm, !isUTC) != -2.))
+#endif
 			    ) ?
 	      NA_REAL : tmp + (secs - fsecs);
-#endif
 	}
     }
 
@@ -1343,6 +1350,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 
 
     SEXP nm = getAttrib(VECTOR_ELT(x, 5), R_NamesSymbol);
+    PROTECT(nm);
     // nm has length nlen[5] ; ans has length N
     // so first pad nm to length n, then recycle to length N.
     if (nm != R_NilValue) {
@@ -1355,7 +1363,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if(settz) reset_tz(oldtz);
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -1499,8 +1507,8 @@ attribute_hidden SEXP do_strptime(SEXP call, SEXP op, SEXP args, SEXP env)
 	    setAttrib(VECTOR_ELT(ans, 5), R_NamesSymbol, nm3);
 	}
     }
-    UNPROTECT(5);
     if(settz) reset_tz(oldtz);
+    UNPROTECT(5);
     return ans;
 } // strptime()
 
@@ -1563,11 +1571,12 @@ attribute_hidden SEXP do_D2POSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	INTEGER(VECTOR_ELT(ans, 10))[i] = 0;
     }
     SEXP tzone = mkString(tz);
+    PROTECT(tzone);
     Rboolean settz = FALSE;
     char oldtz[1] = ""; // unused
     END_MAKElt
 
-    UNPROTECT(4);
+    UNPROTECT(5);
     return ans;
 }
 
@@ -1625,7 +1634,7 @@ attribute_hidden SEXP do_POSIXlt2D(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
+static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
 {
     MAYBE_INIT_balanced
     const SEXP _filled_ = ScalarLogical(NA_LOGICAL);

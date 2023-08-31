@@ -29,7 +29,7 @@
 
 #include "win-nls.h"
 
-
+#include <float.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -39,9 +39,6 @@
 #include <direct.h>
 #include "graphapp/ga.h"
 #include "rlocale.h"
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x0502 /* for GetLongPathName, KEY_WOW64_64KEY */
-#endif
 #include <windows.h>
 #include "rui.h"
 #undef ERROR
@@ -146,9 +143,11 @@ void Rwin_fpset(void)
     /* Under recent MinGW this is what fpreset does.  It sets the
        control word to 0x37f which corresponds to 0x8001F as used by
        _controlfp.  That is all errors are masked, 64-bit mantissa and
-       rounding are selected. */
+       rounding are selected:
 
-    __asm__ ( "fninit" ) ;
+       __asm__ ( "fninit" ) ;
+    */
+    _fpreset();
 }
 
 
@@ -234,6 +233,8 @@ SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(NULL != pGNSI) pGNSI(&si); else GetSystemInfo(&si);
 	if(si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
 	    strcat(ver, " x64");
+	else if(si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
+	    strcat(ver, " arm64");
     }
     SET_STRING_ELT(ans, 1, mkChar(ver));
 
@@ -250,7 +251,9 @@ SEXP do_sysinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
     GetComputerNameW(name, &namelen);
     wcstoutf8(buf, name, sizeof(buf));
     SET_STRING_ELT(ans, 3, mkCharCE(buf, CE_UTF8));
-#ifdef _WIN64
+#ifdef __aarch64__
+    SET_STRING_ELT(ans, 4, mkChar("aarch64"));
+#elif defined(_WIN64)
     SET_STRING_ELT(ans, 4, mkChar("x86-64"));
 #else
     SET_STRING_ELT(ans, 4, mkChar("x86"));
@@ -386,47 +389,7 @@ const char *formatError(DWORD res)
     return buf;
 }
 
-#if _WIN32_WINNT < 0x0600
-/* FIXME: also used in sysutils.c */
-/* available from Windows Vista */
-typedef enum _FILE_INFO_BY_HANDLE_CLASS {
-  FileBasicInfo,
-  FileStandardInfo,
-  FileNameInfo,
-  FileRenameInfo,
-  FileDispositionInfo,
-  FileAllocationInfo,
-  FileEndOfFileInfo,
-  FileStreamInfo,
-  FileCompressionInfo,
-  FileAttributeTagInfo,
-  FileIdBothDirectoryInfo,
-  FileIdBothDirectoryRestartInfo,
-  FileIoPriorityHintInfo,
-  FileRemoteProtocolInfo,
-  FileFullDirectoryInfo,
-  FileFullDirectoryRestartInfo,
-  FileStorageInfo,
-  FileAlignmentInfo,
-  FileIdInfo,
-  FileIdExtdDirectoryInfo,
-  FileIdExtdDirectoryRestartInfo,
-  FileDispositionInfoEx,
-  FileRenameInfoEx,
-  MaximumFileInfoByHandleClass,
-  FileCaseSensitiveInfo,
-  FileNormalizedNameInfo
-} FILE_INFO_BY_HANDLE_CLASS, *PFILE_INFO_BY_HANDLE_CLASS;
-
-/* MinGW defines this structure even for Vista. Older versions of MinGW
-   define it differently from Windows (two ULONGLONG fields). Newer
-   versions and Windows use
- 
-typedef struct _FILE_ID_128 {
-  BYTE Identifier[16];
-} FILE_ID_128, *PFILE_ID_128;
-*/
-#elif _WIN32_WINNT < 0x0602
+#if _WIN32_WINNT < 0x0602
 /* These constants were added to FILE_INFO_BY_HANDLE_CLASS in Windows 8 */
 enum {
   FileStorageInfo = FileFullDirectoryRestartInfo + 1,
@@ -450,23 +413,12 @@ typedef BOOL (WINAPI *LPFN_GFIBH_EX) (HANDLE, FILE_INFO_BY_HANDLE_CLASS,
 
 static int isSameFile(HANDLE a, HANDLE b)
 {
-    static LPFN_GFIBH_EX gfibh = NULL;
-    static Rboolean initialized = FALSE;
     FILE_ID_INFO aid, bid;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfibh = (LPFN_GFIBH_EX) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFileInformationByHandleEx");
-    }
-    if (gfibh == NULL)
-	return -1;
 
     memset(&aid, 0, sizeof(FILE_ID_INFO));
     memset(&bid, 0, sizeof(FILE_ID_INFO));
-    if (!gfibh(a, FileIdInfo, &aid, sizeof(FILE_ID_INFO)) ||
-        !gfibh(b, FileIdInfo, &bid, sizeof(FILE_ID_INFO)))
+    if (!GetFileInformationByHandleEx(a, FileIdInfo, &aid, sizeof(FILE_ID_INFO)) ||
+        !GetFileInformationByHandleEx(b, FileIdInfo, &bid, sizeof(FILE_ID_INFO)))
 	/* on Vista and Win7 it is expected to fail because FileIdInfo
 	   is not supported */
 	return -1;
@@ -479,44 +431,11 @@ static int isSameFile(HANDLE a, HANDLE b)
 	return 0;
 }
 
-#if _WIN32_WINNT < 0x0600
-/* available from Windows Vista */
-typedef DWORD (WINAPI *LPFN_GFPNBH) (HANDLE, LPSTR, DWORD, DWORD);
-typedef DWORD (WINAPI *LPFN_GFPNBHW) (HANDLE, LPWSTR, DWORD, DWORD);
-/*
-DWORD GetFinalPathNameByHandle(
-    HANDLE hFile,
-    LPSTR lpszFilePath,
-    DWORD cchFilePath,
-    DWORD dwFlags);
-
-DWORD GetFinalPathNameByHandleW(
-    HANDLE hFile,
-    LPWSTR lpszFilePath,
-    DWORD  cchFilePath,
-    DWORD  dwFlags
-);
-*/
-#endif
-
 /* returns R_alloc'd result */
 static char *getFinalPathName(const char *orig)
 {
     HANDLE horig, hres;
     int ret, ret1;
-#if _WIN32_WINNT < 0x0600
-    static LPFN_GFPNBH gfpnbh = NULL;
-    static Rboolean initialized = FALSE;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfpnbh = (LPFN_GFPNBH) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFinalPathNameByHandleA");
-    }
-    if (gfpnbh == NULL)
-	return NULL;
-#endif
 
     /* FILE_FLAG_BACKUP_SEMANTICS needed to open a directory */
     horig = CreateFile(orig, 0,
@@ -527,11 +446,7 @@ static char *getFinalPathName(const char *orig)
     if (horig == INVALID_HANDLE_VALUE) 
 	return NULL;
 
-#if _WIN32_WINNT < 0x0600
-    ret = gfpnbh(horig, NULL, 0, VOLUME_NAME_DOS);
-#else
     ret = GetFinalPathNameByHandle(horig, NULL, 0, VOLUME_NAME_DOS);
-#endif
     if (ret <= 0) {
 	CloseHandle(horig);
 	return NULL;
@@ -542,11 +457,7 @@ static char *getFinalPathName(const char *orig)
     ret++;
 
     char *res = R_alloc(ret, 1);
-#if _WIN32_WINNT < 0x0600
-    ret1 = gfpnbh(horig, res, ret, VOLUME_NAME_DOS);
-#else
     ret1 = GetFinalPathNameByHandle(horig, res, ret, VOLUME_NAME_DOS);
-#endif
     if (ret1 <= 0 || ret1 >= ret) {
 	CloseHandle(horig);
 	return NULL;
@@ -602,19 +513,6 @@ static wchar_t *getFinalPathNameW(const wchar_t *orig)
 {
     HANDLE horig, hres;
     int ret, ret1;
-#if _WIN32_WINNT < 0x0600
-    static LPFN_GFPNBHW gfpnbhw = NULL;
-    static Rboolean initialized = FALSE;
-
-    if (!initialized) {
-	initialized = TRUE;
-	gfpnbhw = (LPFN_GFPNBHW) GetProcAddress(
-	    GetModuleHandle(TEXT("kernel32")),
-	    "GetFinalPathNameByHandleW");
-    }
-    if (gfpnbhw == NULL)
-	return NULL;
-#endif
 
     /* FILE_FLAG_BACKUP_SEMANTICS needed to open a directory */
     horig = CreateFileW(orig, 0,
@@ -625,22 +523,14 @@ static wchar_t *getFinalPathNameW(const wchar_t *orig)
     if (horig == INVALID_HANDLE_VALUE) 
 	return NULL;
 
-#if _WIN32_WINNT < 0x0600
-    ret = gfpnbhw(horig, NULL, 0, VOLUME_NAME_DOS);
-#else
     ret = GetFinalPathNameByHandleW(horig, NULL, 0, VOLUME_NAME_DOS);
-#endif
     if (ret <= 0) {
 	CloseHandle(horig);
 	return NULL;
     }
 
     wchar_t *wres = (wchar_t *)R_alloc(ret, sizeof(wchar_t));
-#if _WIN32_WINNT < 0x0600
-    ret1 = gfpnbhw(horig, wres, ret, VOLUME_NAME_DOS);
-#else
     ret1 = GetFinalPathNameByHandleW(horig, wres, ret, VOLUME_NAME_DOS);
-#endif
     if (ret1 <= 0 || ret1 >= ret) {
 	CloseHandle(horig);
 	return NULL;

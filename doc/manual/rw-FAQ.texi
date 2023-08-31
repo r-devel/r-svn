@@ -158,10 +158,12 @@ Windows Vista SP2 and Windows Server 2008 SP2.
 @c 8 went end of life 2016-01-12, but 8.1 is still supported
 @c Server 2008 R2 went end of life 2020-01-14
 
-We only test on versions of Windows currently supported by Microsoft,
-recently mainly Windows 10, Windows Server 2022 and Windows 11.  The most
-thorough testing is done via CRAN packages checks: for R 4.3 this has been
-on Windows Server 2022.
+We primarily test on versions of Windows currently supported by Microsoft,
+recently mainly Windows 10, Windows Server 2022 and sometimes on Windows 11. 
+The most thorough testing is done via CRAN packages checks: for R 4.3 this
+has been on Windows Server 2022.  R 4.3.0 has been tested to install, start
+and pass its own checks also on Windows 7 and Windows 8.1, but it has not
+been tested with contributed packages.
 
 For UTF-8 to be the native encoding, you need R at least 4.2 and at least
 Windows 10 (version 1903) on desktop systems, Windows Server 2022 on
@@ -526,6 +528,17 @@ short name (something like @samp{PROGRA~1}; you can get it as the
 Windows, and from @command{dir /X} in a @samp{Command Prompt} window),
 and using the function @code{shortPathName} from R code. See also Q2.2.
 
+Yet another complication is a 260 character limit on the length of the
+entire path name imposed by Windows.  The limit applies only to some system
+functions, and hence it is possible to create a long path using one
+application yet inaccessible to another.  It is sometimes possible to
+reduce the path length by creating a drive mapping using @command{subst} and
+accessing files via that drive.  As of Windows 10 version 1607 and R 4.3,
+one can remove this limit via Windows registry by setting
+@code{Computer\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled}
+to @code{1}.  Long paths still may not always work reliably: some
+applications or packages may not be able to work with them and Windows
+cannot execute an application with long path as the current directory.
 
 @node Does R use the Registry?, Does R support automation?, R can't find my file, Installation and Usage
 @section Does R use the Registry?
@@ -582,7 +595,7 @@ We have had several reports of this, although they do work for us on
 @emph{all} of our machines.  There are two known possible causes.
 
 (a) A proxy needs to be set up: see @code{?download.file}. Note that this is
-specific to the download method and the default method changed in \R 4.2.0.
+specific to the download method and the default method changed in R 4.2.0.
 
 (b) Firewall settings are blocking the R executables from contacting the
 Internet (but this should result in informative error messages from the
@@ -668,7 +681,7 @@ use multiple CPUs or multiple threads.
 
 R 4.3 code base still conservatively uses features of Windows 7 and
 later only when available, and otherwise falls back to older features, so it
-might still run on 7, but this is not tested (see Q2.2), and the code
+might still run on 7, but this is minimally tested (see Q2.2), and the code
 is tuned for newer systems.  Some performance work-arounds for old Windows
 systems past their end of support may be removed, such as a custom memory
 allocator removed in R 4.2.
@@ -878,7 +891,7 @@ process to take advantage of more than 4GB of RAM (if available) and for
 R's memory manager to more easily handle large objects (in particular
 those of 1GB or more).  The disadvantages are that all the pointers are
 8 rather than 4 bytes and so small objects are larger and more data has
-to be moved around, and that less external software is available for
+to be moved around, and that less external software is (was) available for
 64-bit versions of the OS. The 64-bit compilers are able to take
 advantage of extra features of all x86-64 chips (more registers, SSE2/3
 instructions, @dots{}) and so the code may run faster despite using

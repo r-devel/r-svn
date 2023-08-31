@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2022   The R Core Team.
+ *  Copyright (C) 1998-2023   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -311,8 +311,14 @@ static int scanchar(Rboolean inQuote, LocalData *d)
 static void scan_cleanup(void *data)
 {
     LocalData *ld = data;
-    if(!ld->ttyflag && !ld->wasopen) ld->con->close(ld->con);
-    if (ld->quoteset[0]) free(ld->quoteset);
+    if(ld->con && !ld->ttyflag && !ld->wasopen) {
+	ld->con->close(ld->con);
+	ld->con = NULL;
+    }
+    if(ld->quoteset && ld->quoteset[0]) {
+	free(ld->quoteset);
+	ld->quoteset = NULL;
+    }
 }
 
 #include "RBufferUtils.h"
@@ -554,7 +560,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 		       int flush, SEXP stripwhite, int blskip, LocalData *d)
 {
     SEXP ans, bns;
-    int c, strip, bch;
+    int c, strip, bch, ic;
     R_xlen_t i, blocksize, linesread, n, nprev;
     char *buffer;
     R_StringBuffer strBuf = {NULL, 0, MAXELTSIZE};
@@ -572,8 +578,12 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 
     strip = asLogical(stripwhite);
 
+    ic = 9999;
     for (;;) {
-	if(n % 10000 == 9999) R_CheckUserInterrupt();
+	if(!ic) {
+	    R_CheckUserInterrupt();
+	    ic = 9999;
+	}
 	if (bch == R_EOF) {
 	    if (d->ttyflag) R_ClearerrConsole();
 	    break;
@@ -605,6 +615,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 	}
 	else {
 	    extractItem(buffer, ans, n, d);
+	    ic--;
 	    if (++n == maxitems) {
 		if (d->ttyflag && bch != '\n') { /* MBCS-safe */
 		    while ((c = scanchar(FALSE, d)) != '\n')
@@ -671,7 +682,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 {
     SEXP ans, new, old, w;
     char *buffer = NULL;
-    int c, strip, bch;
+    int c, strip, bch, ic;
     R_xlen_t blksize, i, ii, j, n, nc, linesread, colsread;
     R_xlen_t badline;
     R_StringBuffer buf = {NULL, 0, MAXELTSIZE};
@@ -711,14 +722,19 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
     Rboolean vec_strip = (xlength(stripwhite) == xlength(what));
     strip = lstrip[0];
 
+    ic = 999;
     for (;;) {
-	if(linesread % 1000 == 999) R_CheckUserInterrupt();
+	if(!ic) {
+	    R_CheckUserInterrupt();
+	    ic = 999;
+	}
 
 	if (bch == R_EOF) {
 	    if (d->ttyflag) R_ClearerrConsole();
 	    goto done;
 	}
 	else if (bch == '\n') {
+	    ic--;
 	    linesread++;
 	    if (colsread != 0) {
 		if (fill) {
@@ -909,6 +925,13 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	error(_("invalid decimal separator"));
 
+    /* set up a context which will close the connection if there is
+       an error or user interrupt */
+    begincontext(&cntxt, CTXT_CCODE, R_GlobalContext->call, R_BaseEnv,
+		 R_BaseEnv, R_NilValue, R_NilValue);
+    cntxt.cend = &scan_cleanup;
+    cntxt.cenddata = &data;
+
     if (isString(quotes)) {
 	const char *sc = translateChar(STRING_ELT(quotes, 0));
 	if (strlen(sc)) data.quoteset = Rstrdup(sc);
@@ -952,19 +975,21 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(!data.con->canread)
 		error(_("cannot read from this connection"));
 	}
-	for (R_xlen_t i = 0; i < nskip; i++) /* MBCS-safe */
-	    while ((c = scanchar(FALSE, &data)) != '\n' && c != R_EOF);
+	for(R_xlen_t i = 0, j = 10000; i < nskip; i++) { /* MBCS-safe */
+	    for(;;) {
+		c = scanchar(FALSE, &data);
+		if (!j--) {
+		    R_CheckUserInterrupt();
+		    j = 10000;
+		}
+		if (c == '\n' || c == R_EOF)
+		    break;
+	    }
+	}
     }
 
     ans = R_NilValue;		/* -Wall */
     data.save = 0;
-
-    /* set up a context which will close the connection if there is
-       an error or user interrupt */
-    begincontext(&cntxt, CTXT_CCODE, R_GlobalContext->call, R_BaseEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    cntxt.cend = &scan_cleanup;
-    cntxt.cenddata = &data;
 
     switch (TYPEOF(what)) {
     case LGLSXP:

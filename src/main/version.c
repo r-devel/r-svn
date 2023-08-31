@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998--2021  The R Core Team
+ *  Copyright (C) 1998--2023  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # include <config.h>
 #endif
 
-#include "Defn.h"
+#include <Defn.h>
 #include <Internal.h>
 #include <Rversion.h>
 
@@ -157,10 +157,14 @@ attribute_hidden void PrintVersion_part_1(char *s, size_t len)
     }
     SPRINTF_2("\nCopyright (C) %s The R Foundation for Statistical Computing\n",
 	      R_YEAR);
-/*  strcat(s, "ISBN 3-900051-07-0\n");  */
     SPRINTF_2("Platform: %s", R_PLATFORM);
+#ifdef R_ARCH
     if(strlen(R_ARCH)) { SPRINTF_2("/%s", R_ARCH); }
-    SPRINTF_2(" (%d-bit)\n", 8*(int)sizeof(void *));
+#endif
+    if(sizeof(void *) != 8) {
+	SPRINTF_2(" (%d-bit)", 8*(int)sizeof(void *));
+    }
+    strcat(s, "\n");
 }
 
 attribute_hidden SEXP do_internalsID(SEXP call, SEXP op, SEXP args, SEXP env)

@@ -676,7 +676,7 @@ static void FreeX11Colors(void)
 static Rboolean SetupX11Color(void)
 {
     if (depth <= 1) {
-	/* On monchome displays we must use black/white */
+	/* On monochrome displays we must use black/white */
 	model = MONOCHROME;
 	SetupMonochrome();
     }
@@ -1252,7 +1252,9 @@ static int R_X11Err(Display *dsp, XErrorEvent *event)
     if (event->error_code == BadWindow) return 0;
 
     XGetErrorText(dsp, event->error_code, buff, 1000);
-    warning(_("X11 protocol error: %s"), buff);
+    /* Unsafe to use warning() as it can be escalated to error() */
+    REprintf(_("X11 protocol error: %s"), buff);
+    REprintf("\n");
     return 0;
 }
 
@@ -3234,7 +3236,7 @@ static SEXP in_do_X11(SEXP call, SEXP op, SEXP args, SEXP env)
     display = CHAR(STRING_ELT(CAR(args), 0)); args = CDR(args);
     width = asReal(CAR(args));	args = CDR(args);
     height = asReal(CAR(args)); args = CDR(args);
-    if (width <= 0 || height <= 0)
+    if (R_IsNaN(width) || R_IsNaN(height) || width <= 0 || height <= 0)
 	errorcall(call, _("invalid 'width' or 'height'"));
     ps = asReal(CAR(args)); args = CDR(args);
     gamma = asReal(CAR(args)); args = CDR(args);

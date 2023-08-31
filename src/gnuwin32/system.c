@@ -35,9 +35,6 @@
 #include "getline/getline.h"
 #include "getline/wc_history.h"
 #define WIN32_LEAN_AND_MEAN 1
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500     /* for MEMORYSTATUSEX */
-#endif
 #include <windows.h>		/* for CreateEvent,.. */
 #include <shlobj.h>		/* for SHGetKnownFolderPath */
 #include <knownfolders.h>
@@ -83,8 +80,8 @@ Rboolean DebugMenuitem = FALSE;  /* exported for rui.c */
 static FILE *ifp = NULL;
 static char *ifile = NULL;
 
-__declspec(dllexport) UImode  CharacterMode = RGui; /* some compilers want initialized for export */
-__declspec(dllexport) Rboolean EmitEmbeddedUTF8 = FALSE;
+UImode  CharacterMode = RGui; /* some compilers want initialized for export */
+Rboolean EmitEmbeddedUTF8 = FALSE;
 int ConsoleAcceptCmd;
 Rboolean set_workspace_name(const char *fn); /* ../main/startup.c */
 
@@ -93,7 +90,7 @@ Rboolean AllDevicesKilled = FALSE;
 
 static char oldtitle[512];
 
-__declspec(dllexport) Rboolean UserBreak = FALSE;
+Rboolean UserBreak = FALSE;
 
 /* callbacks */
 static void R_DoNothing(void) {}
@@ -102,7 +99,7 @@ static void R_DoNothing(void) {}
  *   Called at I/O, during eval etc to process GUI events.
  */
 
-typedef void (*DO_FUNC)();
+typedef void (*DO_FUNC)(void);
 static void (* R_Tcl_do)(void) = NULL; /* Initialized to be sure */
 
 void set_R_Tcldo(DO_FUNC ptr)
@@ -880,7 +877,11 @@ void R_SetWin32(Rstart Rp)
     char *gccversion = (char *)malloc(30);
     if (!gccversion)
 	R_Suicide("Allocation error");
+#ifdef __clang__
+    snprintf(gccversion, 30, "R_COMPILED_BY=clang %d.%d.%d", __clang_major__, __clang_minor__, __clang_patchlevel__);
+#else
     snprintf(gccversion, 30, "R_COMPILED_BY=gcc %d.%d.%d", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif
     putenv(gccversion);
     /* no free here: storage remains in use */
 
@@ -987,6 +988,8 @@ char *PrintUsage(void)
 	"  --vanilla             Combine --no-save, --no-restore, --no-site-file,\n                          --no-init-file and --no-environ\n",
 	msg2b[] =
 	"  --max-ppsize=N        Set max size of protect stack to N\n",
+	msg2c[] =
+	"-  -max-connections=N   Set max number of connections to N\n",
 	msg3[] =
 	"  -q, --quiet           Don't print startup message\n  --silent              Same as --quiet\n  --no-echo             Make R run as quietly as possible\n  --verbose             Print more information about progress\n  --args                Skip the rest of the command line\n",
 	msg4[] =
@@ -999,6 +1002,7 @@ char *PrintUsage(void)
     strcat(msg, msg1);
     strcat(msg, msg2);
     strcat(msg, msg2b);
+    strcat(msg, msg2c);
     strcat(msg, msg3);
     if(CharacterMode == RTerm) strcat(msg, msg4);
     strcat(msg, msg5);
@@ -1063,7 +1067,12 @@ int cmdlineoptions(int ac, char **av)
     Rboolean usedRdata = FALSE, processing = TRUE;
 
     /* ensure R_Home gets set early: we are in rgui or rterm here */
-    RHome = getRHOME(3);
+    int dirstrip = 2;
+#ifdef R_ARCH
+    if (strlen(R_ARCH) > 0)
+	dirstrip++;
+#endif 
+    RHome = getRHOME(dirstrip);
     if(!RHome)
 	R_Suicide("Invalid R_HOME");
     R_Home = RHome;
@@ -1371,7 +1380,7 @@ void saveConsoleTitle(void)
  * This function returns 16,777,216 based on
  * https://blogs.technet.microsoft.com/markrussinovich/2009/09/29/pushing-the-limits-of-windows-handles
  */
-int R_GetFDLimit()
+int R_GetFDLimit(void)
 {
     long limit = 16L*1024L*1024L;
     return (limit > INT_MAX) ? INT_MAX : limit;

@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2022-07-07 r82558) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
+R Under development (unstable) (2023-03-28 r84086) -- "Unsuffered Consequences"
+Copyright (C) 2023 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -2176,12 +2176,14 @@ Response: cbind(ncases, ncontrols)
 Terms added sequentially (first to last)
 
 
-            Df Deviance Resid. Df Resid. Dev
-NULL                           87     367.95
-agegp        5  121.045        82     246.91
-tobgp        3   36.639        79     210.27
-alcgp        3  127.933        76      82.34
-tobgp:alcgp  9    5.451        67      76.89
+            Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                           87     367.95              
+agegp        5  121.045        82     246.91 < 2.2e-16 ***
+tobgp        3   36.639        79     210.27 5.485e-08 ***
+alcgp        3  127.933        76      82.34 < 2.2e-16 ***
+tobgp:alcgp  9    5.451        67      76.89    0.7934    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 > ## Try a linear effect of alcohol and tobacco
 > model2 <- glm(cbind(ncases, ncontrols) ~ agegp + unclass(tobgp)
 +                                          + unclass(alcgp),
@@ -2191,10 +2193,6 @@ tobgp:alcgp  9    5.451        67      76.89
 Call:
 glm(formula = cbind(ncases, ncontrols) ~ agegp + unclass(tobgp) + 
     unclass(alcgp), family = binomial(), data = esoph)
-
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--2.3018  -0.7234  -0.2306   0.5737   2.4290  
 
 Coefficients:
                Estimate Std. Error z value Pr(>|z|)    
@@ -2410,10 +2408,6 @@ Call:
 glm(formula = case ~ spontaneous + induced, family = binomial(), 
     data = infert)
 
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.6678  -0.8360  -0.5772   0.9030   1.9362  
-
 Coefficients:
             Estimate Std. Error z value Pr(>|z|)    
 (Intercept)  -1.7079     0.2677  -6.380 1.78e-10 ***
@@ -2437,10 +2431,6 @@ Number of Fisher Scoring iterations: 4
 Call:
 glm(formula = case ~ age + parity + education + spontaneous + 
     induced, family = binomial(), data = infert)
-
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.7603  -0.8162  -0.4956   0.8349   2.6536  
 
 Coefficients:
                  Estimate Std. Error z value Pr(>|z|)    
@@ -2728,10 +2718,6 @@ Model 2: Speed ~ Run + Expt
 Call:
 glm(formula = Freq ~ origin + destination + Diag + Rscore:Cscore, 
     family = poisson, data = occupationalStatus)
-
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--2.6521  -0.6267   0.0000   0.5913   2.0964  
 
 Coefficients:
               Estimate Std. Error z value Pr(>|z|)    
@@ -3606,7 +3592,7 @@ c0   -5.14
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  5.453 0.122 5.614 0 0 
+Time elapsed:  1.134 0.029 1.167 0 0 
 > grDevices::dev.off()
 null device 
           1 

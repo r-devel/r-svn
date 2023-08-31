@@ -47,7 +47,8 @@ rpackages-cross:
 cairodevices:
 ifneq "$(USE_CAIRO)" ""
 	@$(MK) -C ../library/grDevices/src/cairo -f Makefile.win all \
-	  WIN=$(WIN) CAIRO_LIBS=$(CAIRO_LIBS) CAIRO_CPPFLAGS=$(CAIRO_CPPFLAGS)
+	  CAIRO_LIBS=$(CAIRO_LIBS) CAIRO_CPPFLAGS=$(CAIRO_CPPFLAGS) \
+	  R_ARCH=$(R_ARCH)
 endif
 
 ifeq ($(wildcard MkRules?local),MkRules.local)
@@ -63,7 +64,9 @@ FFLAGS = -O3 $(EOPTS) $(LTO)
 
 ifdef DEBUG
  CFLAGS += $(G_FLAG)
- FFLAGS += $(G_FLAG)
+ ifndef USE_LLVM
+  FFLAGS += $(G_FLAG)
+ endif
 else
  DLLFLAGS += -s
 endif
@@ -98,6 +101,7 @@ R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
 
 CPPFLAGS = -I../include -I. -I../extra -DHAVE_CONFIG_H -DR_DLL_BUILD
 extra-CPPFLAGS = -I../library/grDevices/src
+system-CPPFLAGS = $(arch_DEFS)
 
 Rpwd.exe: front-ends/Rpwd.exe
 	$(CP) $< $@
@@ -158,7 +162,8 @@ fixed/fixdesc:
 dllversion.o: ../include/Rversion.h
 
 ## Rdll.hide has decoration which 64-bit builds lack
-ifeq "$(WIN)" "64"
+ifneq "$(WIN)" "32"
+  ## 64-bit
 R.dll: $(OBJS) $(MAINLIBS) $(EXTRALIBS)
 	@$(ECHO) EXPORTS > R.def
 	@$(NM) $^ | $(SED) -n  $(SYMPAT) | LC_COLLATE=C $(SORT) | \
@@ -305,7 +310,8 @@ distclean: cleaninstaller distcleaninstaller clean0
 	$(RM) ../../etc/Makeconf ../../etc/Rconsole ../../etc/Rdevga \
 	../../etc/Rprofile.site ../../etc/rgb.txt ../../etc/Rcmd_environ \
 	../../tests/*.Rout ../../tests/*.Rout.fail
-	$(RM) -R ../../etc/i386 ../../etc/x64 # do both sub-archs
+	# do both sub-archs
+	$(RM) -R ../../etc$(R_ARCH)/Makeconf ../../etc/i386 ../../etc/x64
 	$(RM) -R ../../share/zoneinfo
 	$(MAKE) -C fixed distclean
 	$(MAKE) -C ../include -f Makefile.win distclean
@@ -329,7 +335,8 @@ cleanwin0: MkRules fixfiles
 	$(MAKE) -C fixed clean
 	$(MAKE) -C getline clean
 	$(MAKE) -C front-ends clean
-	$(MAKE) -C ../library/grDevices/src/cairo -f Makefile.win clean WIN=$(WIN)
+	$(MAKE) -C ../library/grDevices/src/cairo -f Makefile.win clean \
+	        R_ARCH=$(R_ARCH)
 
 cleanwin: cleaninstaller cleanwin0
 

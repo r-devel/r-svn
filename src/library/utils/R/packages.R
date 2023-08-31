@@ -835,6 +835,7 @@ contrib.url <- function(repos, type = getOption("pkgType"))
         stop("invalid 'type'; must be a character string")
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
+    if(!length(repos)) return(character())
     if("@CRAN@" %in% repos && interactive()) {
         cat(gettext("--- Please select a CRAN mirror for use in this session ---"),
             "\n", sep = "")
@@ -953,9 +954,9 @@ chooseBioCmirror <- function(graphics = getOption("menu.graphics"), ind = NULL,
 
 setRepositories <-
     function(graphics = getOption("menu.graphics"), ind = NULL,
-             addURLs = character())
+             addURLs = character(), name = NULL)
 {
-    if(is.null(ind) && !interactive())
+    if(is.null(name) && is.null(ind) && !interactive())
         stop("cannot set repositories non-interactively")
     a <- .get_repositories()
     pkgType <- getOption("pkgType")
@@ -984,7 +985,13 @@ setRepositories <-
 
     default <- a[["default"]]
 
-    res <- if(length(ind)) as.integer(ind)
+    res <- if (length(name)) {
+        m <- match(tolower(name), tolower(row.names(a)))
+        if (any(is.na(m)))
+            stop("No matching repositories found for ",
+                 paste(name[is.na(m)], collapse=', '))
+        m
+    } else if(length(ind)) as.integer(ind)
     else {
         title <- if(graphics) "Repositories" else gettext("--- Please select repositories for use in this session ---\n")
         match(select.list(a[, 1L], a[default, 1L], multiple = TRUE, title,
@@ -1173,7 +1180,8 @@ compareVersion <- function(a, b)
 .get_repositories <- function()
 {
     rfile <- Sys.getenv("R_REPOSITORIES", unset = NA_character_)
-    if(is.na(rfile) || !file_test("-f", rfile)) {
+    ## "NULL" has a special meaning during .onLoad()
+    if(is.na(rfile) || rfile == "NULL" || !file_test("-f", rfile)) {
         rfile <- file.path(Sys.getenv("HOME"), ".R", "repositories")
         if(!file_test("-f", rfile))
             rfile <- file.path(R.home("etc"), "repositories")

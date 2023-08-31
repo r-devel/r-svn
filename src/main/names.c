@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -665,9 +665,9 @@ FUNTAB R_FunTab[] =
 {"internalsID",	do_internalsID,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	  0}},
 
 #ifdef Win32
-{"system",	do_system,	0,	211,	6,	{PP_FUNCALL, PREC_FN,	0}},
+{"system",	do_system,	0,	211,	7,	{PP_FUNCALL, PREC_FN,	0}},
 #else
-{"system",	do_system,	0,	211,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"system",	do_system,	0,	211,	4,	{PP_FUNCALL, PREC_FN,	0}},
 #endif
 
 #ifdef Win32
@@ -977,8 +977,11 @@ FUNTAB R_FunTab[] =
 {"La_dlange",	do_lapack,	6,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_dgecon",	do_lapack,	7,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_dtrcon",	do_lapack,	8,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_dtrcon3",	do_lapack,	81,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_zlange",	do_lapack,	61,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_zgecon",	do_lapack,	9,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_ztrcon",	do_lapack,	10,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_ztrcon3",	do_lapack,	13,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_solve_cmplx",do_lapack,    11,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_solve",	do_lapack,	100,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_qr",	do_lapack,	101,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -1024,7 +1027,7 @@ FUNTAB R_FunTab[] =
    This is now also used for screening out syntactically special
    functions fromuse on the RHS of a pipe. If a
    non-syntactically-special symbol is added here it would neet to be
-   explicutly allowed in the pipe code. */
+   explicitly allowed in the pipe code. */
 
 static char *Spec_name[] = {
     "if", "while", "repeat", "for", "break", "next", "return", "function",

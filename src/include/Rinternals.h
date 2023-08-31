@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2022  The R Core Team.
+ *  Copyright (C) 1999--2023  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This header file is free software; you can redistribute it and/or modify
@@ -166,7 +166,7 @@ typedef enum {
     RAWSXP	= 24,	/* raw bytes */
     S4SXP	= 25,	/* S4 non-vector */
 
-    NEWSXP      = 30,   /* fresh node creaed in new page */
+    NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */
 
     FUNSXP	= 99	/* Closure or Builtin */
@@ -547,6 +547,7 @@ int R_nchar(SEXP string, nchar_type type_,
 	    Rboolean allowNA, Rboolean keepNA, const char* msg_name);
 
 SEXP R_ParseEvalString(const char *, SEXP);
+SEXP R_ParseString(const char *);
 void Rf_PrintValue(SEXP);
 #ifndef INLINE_PROTECT
 SEXP Rf_protect(SEXP);

@@ -63,6 +63,11 @@ static void key1(control c, int ch)
 rect getSysFontSize(void); /* in graphapp/fonts.c */
 RECT *RgetMDIsize(void); /* in rui.c */
 
+static void selectlist_close(window win)
+{
+    clickbutton(win, bCancel);
+}
+
 SEXP Win_selectlist(SEXP args)
 {
     SEXP choices, preselect, ans = R_NilValue;
@@ -120,6 +125,7 @@ SEXP Win_selectlist(SEXP args)
     }
     bFinish = newbutton(G_("OK"), rect(xmax-160, ymax-40, 70, 25), finish);
     bCancel = newbutton(G_("Cancel"), rect(xmax-80, ymax-40, 70, 25), cancel);
+    setclose(wselect, selectlist_close);
     setkeydown(wselect, key1);
     show(wselect);
     done = 0;
@@ -169,7 +175,7 @@ static int countFilenamesW(const wchar_t *list)
 
 static SEXP mkCharUTF8(const wchar_t *wc)
 {
-    size_t needed = wcstoutf8(NULL, wc, INT_MAX) + 1;
+    size_t needed = wcstoutf8(NULL, wc, (size_t)INT_MAX + 2) + 1;
     char *s = R_alloc(needed, 1);
     wcstoutf8(s, wc, needed);
     return mkCharCE(s, CE_UTF8);

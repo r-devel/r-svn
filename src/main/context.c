@@ -88,7 +88,7 @@
  *
  *	void findcontext(int mask, SEXP env, SEXP val)
  *
- *  This causes "val" to be stuffed into a globally accessable place and
+ *  This causes "val" to be stuffed into a globally accessible place and
  *  then a search to take place back through the context list for an
  *  appropriate context.  The kind of context sort is determined by the
  *  value of "mask".  The value of mask should be the logical OR of all
@@ -315,7 +315,7 @@ void endcontext(RCNTXT * cptr)
     }
     if (R_ExitContext == cptr)
 	R_ExitContext = NULL;
-    /* continue jumping if this was reached as an intermetiate jump */
+    /* continue jumping if this was reached as an intermediate jump */
     if (jumptarget)
 	/* cptr->returnValue is undefined */
 	R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
@@ -620,22 +620,42 @@ attribute_hidden SEXP do_sysbrowser(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* We don't want to count the closure that do_sys is contained in, so the */
 /* indexing is adjusted to handle this. */
 
+/* Return first `CTXT_FUNCTION` context whose execution
+   env matches `rho` */
+attribute_hidden RCNTXT *getLexicalContext(SEXP rho)
+{
+    RCNTXT *cptr = R_GlobalContext;
+
+    while (cptr && cptr != R_ToplevelContext) {
+	if (cptr->callflag & CTXT_FUNCTION && cptr->cloenv == rho)
+	    break;
+	cptr = cptr->nextcontext;
+    }
+
+    return cptr;
+}
+
+/* Return call of the first `CTXT_FUNCTION` context whose
+   execution env matches `rho` */
+attribute_hidden SEXP getLexicalCall(SEXP rho)
+{
+    RCNTXT *cptr = getLexicalContext(rho);
+    if (cptr)
+	return cptr->call;
+    else
+	return R_NilValue;
+}
+
 attribute_hidden SEXP do_sys(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int i, n  = -1, nframe;
-    SEXP rval, t;
-    RCNTXT *cptr;
+    SEXP rval;
 
     checkArity(op, args);
+
     /* first find the context that sys.xxx needs to be evaluated in */
-    cptr = R_GlobalContext;
-    t = cptr->sysparent;
-    while (cptr != R_ToplevelContext) {
-	if (cptr->callflag & CTXT_FUNCTION )
-	    if (cptr->cloenv == t)
-		break;
-	cptr = cptr->nextcontext;
-    }
+    SEXP t = R_GlobalContext->sysparent;
+    RCNTXT *cptr = getLexicalContext(t);
 
     if (length(args) == 1) n = asInteger(CAR(args));
 
@@ -747,7 +767,7 @@ RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
 }
 
 /* R_ToplevelExec - call fun(data) within a top level context to
-   insure that this functin cannot be left by a LONGJMP.  R errors in
+   insure that this function cannot be left by a LONGJMP.  R errors in
    the call to fun will result in a jump to top level. The return
    value is TRUE if fun returns normally, FALSE if it results in a
    jump to top level. */
@@ -919,7 +939,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
     SEXP result;
     Rboolean jump;
 
-    /* Allow simple usage with a NULL continuotion token. This _could_
+    /* Allow simple usage with a NULL continuation token. This _could_
        result in a failure in allocation or exceeding the PROTECT
        stack limit before calling fun(), so fun() and cleanfun should
        be written accordingly. */

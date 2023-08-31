@@ -34,10 +34,12 @@ y <- 1 + x1 + x2 + x3 + x4 + c(-.5,.5,.5,-.5, 0,
 cbind(x1,x2,x3,x4,y)
 ## Fit a model
 mod1234 <- lm(y ~ x1 + x2 + x3 + x4)
-(al <- alias(mod1234)) # x3: 3*x1 - 2*x2  \\  x4 :  4 -x1 +x2
-stopifnot(all.equal(rbind(x3 = c(0,  3,-2),
-                          x4 = c(4, -1, 1)),
-                    unclass(al$Complete), check.attributes=FALSE))
+if(requireNamespace("MASS")) {
+    (al <- alias(mod1234)) # x3: 3*x1 - 2*x2  \\  x4 :  4 -x1 +x2
+    stopifnot(all.equal(rbind(x3 = c(0,  3,-2),
+                              x4 = c(4, -1, 1)),
+                        unclass(al$Complete), check.attributes=FALSE))
+}
 ## new.x
 new.x <- data.frame(
     row.names = LETTERS[1:6],
@@ -91,24 +93,27 @@ cf8.9 <- c(X1 = 45822.830422, X2 = -22908.915871, X3 = 45824.830295)
 all.equal(cf8.9, coef(fm8.9), tol=0)# -> "Mean rel..diff.: 5.3e-9 | 5.15e-12
 ## was < 2e-8 in R 4.2.2
 ## x86_64 Linux/gcc12 gives ca 5e-12
-## vanilla M1mac gives 6.16e-11, Accelerate on M1 macOS gives 3.99e-10
-stopifnot(all.equal(cf8.9, coef(fm8.9), tol = 5e-10))
+## vanilla M1mac gives 6.16e-11, Accelerate on M1 macOS gives 3.99e-10;
+## Debian with "generic" (i.e. not R's) BLAS/Lapack *still* gave 5.2985e-09 (?!)
+stopifnot(all.equal(cf8.9, coef(fm8.9), tol = 7e-9))
 
 ## predict :
 nd <- d8[,-1] + rep(outer(c(-2:2),10^(1:3)), 3) # 5 * 9 = 45 = 15 * 3 (nrow * ncol)
 row.names(nd) <- LETTERS[1:nrow(nd)]
-tools::assertWarning(verbose=TRUE,
-ps  <- predict(fm8. , newdata=nd, rankdeficient = "simple") )
-tools::assertWarning(verbose=TRUE, # "... default "simple" may change ... "
-ps. <- predict(fm8. , newdata=nd) ) # default
+tools::assertWarning(verbose=TRUE, # "... rank-deficient .. consider predict(., rankdeficient="NA")
+ ps <- predict(fm8. , newdata=nd, rankdeficient = "simple") )
+tools::assertWarning(verbose=TRUE, # "... rank-deficient ..  attr(*, "non-estim") has doubtful cases
+ ps.<- predict(fm8. , newdata=nd) ) # default
 pN  <- predict(fm8. , newdata=nd, rankdeficient = "NA")
 pne <- predict(fm8. , newdata=nd, rankdeficient = "non-estim")
 p.9 <- predict(fm8.9, newdata=nd)
 print(digits=9, cbind(ps, pne, pN, p.9))
 all.equal(p.9, ps, tol=0)# 0.035..
+dropAtt <- function(x) `attributes<-`(x, NULL)
 stopifnot(exprs = {
-    identical(ps, ps.)
-    identical(unname(ps), `attributes<-`(pne, NULL))
+    ps == ps. # numbers;
+    identical(unname(ps), dropAtt(ps.))
+    identical(ps., pne) # both have "non-estim"
     identical(i.ne <- attr(pne, "non-estim"),
               c(K = 11L, L = 12L, N = 14L, O = 15L))
     is.na(pN[i.ne])

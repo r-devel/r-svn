@@ -1,6 +1,6 @@
 % File src/library/base/man/stopifnot.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{stopifnot}
@@ -75,7 +75,10 @@ stopifnot(\dots, exprs, exprObject, local = TRUE)
   Since \R version 3.4.0, when an expression (from \code{\dots}) is not
   true \emph{and} is a call to \code{\link{all.equal}}, the error
   message will report the (first part of the) differences reported by
-  \code{\link{all.equal}(*)}.
+  \code{\link{all.equal}(*)}; since \R 4.3.0, this happens for all calls
+  where \code{"all.equal"} \code{\link{pmatch}()}es the function called,
+  e.g., when that is called \code{all.equalShow}, see the example in
+  \code{\link{all.equal}}.
 }
 \note{
  Trying to use the \code{stopifnot(exprs = ..)} version via a shortcut,
@@ -133,6 +136,18 @@ stopifnot("m must be symmetric"= m == t(m))
 #=> Error: m must be symmetric
 
 options(op)  # revert to previous error handler
+
+##' warnifnot(): a "only-warning" version of stopifnot()
+##'   {Yes, learn how to use do.call(substitute, ...) in a powerful manner !!}
+warnifnot <- stopifnot ; N <- length(bdy <- body(warnifnot))
+bdy        <- do.call(substitute, list(bdy,   list(stopifnot = quote(warnifnot))))
+bdy[[N-1]] <- do.call(substitute, list(bdy[[N-1]], list(stop = quote(warning))))
+body(warnifnot) <- bdy
+warnifnot(1 == 1, 1 < 2, 2 < 2) # => warns " 2 < 2 is not TRUE  "
+warnifnot(exprs = {
+    1 == 1
+    3 < 3  # => warns "3 < 3 is not TRUE"
+})
 }
 \keyword{environment}
 \keyword{programming}

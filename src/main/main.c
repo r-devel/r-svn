@@ -31,7 +31,7 @@
 
 #define __MAIN__
 #define R_USE_SIGNALS 1
-#include "Defn.h"
+#include <Defn.h>
 #include <Internal.h>
 #include "Rinterface.h"
 #include "IOStuff.h"
@@ -55,7 +55,7 @@ attribute_hidden void nl_Rdummy(void)
    src/gnuwin/front-ends/graphappmain.c on Windows, unless of course
    R is embedded */
 
-/* Global Variables:  For convenience, all interpeter global symbols
+/* Global Variables:  For convenience, all interpreter global symbols
  * ================   are declared in Defn.h as extern -- and defined here.
  *
  * NOTE: This is done by using some preprocessor trickery.  If __MAIN__
@@ -651,7 +651,13 @@ static void *signal_stack;
 #define R_USAGE 100000 /* Just a guess */
 static void init_signal_handlers(void)
 {
-    /* Do not set the (since 2005 experimantal) SEGV handler
+    /* On Windows, C signal handling functions are replaced by psignal.
+       Initialization of a psignal Ctrl handler happens on the first
+       signal-related call (typically here). Signal handlers for
+       Ctrl signals set using C API before psignal initialization
+       will have no effect. */
+
+    /* Do not set the (since 2005 experimental) SEGV handler
        UI if R_NO_SEGV_HANDLER env var is non-empty.
        This is needed to debug crashes in the handler
        (which happen as they involve the console interface). */
@@ -678,7 +684,8 @@ static void init_signal_handlers(void)
 #endif
     }
 
-    signal(SIGINT,  handleInterrupt);
+    if (signal(SIGINT, handleInterrupt) == SIG_IGN)
+	signal(SIGINT, SIG_IGN);
     signal(SIGUSR1, onsigusr1);
     signal(SIGUSR2, onsigusr2);
     signal(SIGPIPE, handlePipe);
@@ -687,7 +694,8 @@ static void init_signal_handlers(void)
 #else /* not sigaltstack and sigaction and sigemptyset*/
 static void init_signal_handlers(void)
 {
-    signal(SIGINT,  handleInterrupt);
+    if (signal(SIGINT,  handleInterrupt) == SIG_IGN)
+	signal(SIGINT, SIG_IGN);
     signal(SIGUSR1, onsigusr1);
     signal(SIGUSR2, onsigusr2);
 #ifndef Win32
@@ -903,8 +911,13 @@ void setup_Rmainloop(void)
 
 	/* We set R_ARCH here: Unix does it in the shell front-end */
 	char Rarch[30];
-	strcpy(Rarch, "R_ARCH=/");
-	strcat(Rarch, R_ARCH);
+	strcpy(Rarch, "R_ARCH=");
+# ifdef R_ARCH
+	if (strlen(R_ARCH) > 0) {
+	    strcat(Rarch, "/");
+	    strcat(Rarch, R_ARCH);
+	}
+# endif
 	putenv(Rarch);
     }
 #else /* not Win32 */
@@ -1494,6 +1507,20 @@ attribute_hidden SEXP do_quit(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 static R_ToplevelCallbackEl *Rf_ToplevelTaskHandlers = NULL;
 
+  /* The handler currently running or NULL. */
+static R_ToplevelCallbackEl *Rf_CurrentToplevelHandler = NULL;
+
+  /* A running handler attempted to remove itself from Rf_ToplevelTaskHandlers,
+     do it after it finishes. */
+static Rboolean Rf_DoRemoveCurrentToplevelHandler = FALSE;
+
+  /* A handler has been removed from the Rf_ToplevelTaskHandlers. */
+static Rboolean Rf_RemovedToplevelHandlers = FALSE;
+
+  /* Flag to ensure that the top-level handlers aren't called recursively.
+     Simple state to indicate that they are currently being run. */
+static Rboolean Rf_RunningToplevelHandlers = FALSE;
+
 /**
   This is the C-level entry point for registering a handler
   that is to be called when each top-level task completes.
@@ -1544,6 +1571,19 @@ Rf_addTaskCallback(R_ToplevelCallback cb, void *data,
     return(el);
 }
 
+static void removeToplevelHandler(R_ToplevelCallbackEl *e)
+{
+    if (Rf_CurrentToplevelHandler == e)
+	Rf_DoRemoveCurrentToplevelHandler = TRUE; /* postpone */
+    else {
+	Rf_RemovedToplevelHandlers = TRUE;
+	if(e->finalizer)
+	    e->finalizer(e->data);
+	free(e->name);
+	free(e);
+    }
+}
+
 Rboolean
 Rf_removeTaskCallbackByName(const char *name)
 {
@@ -1566,14 +1606,11 @@ Rf_removeTaskCallbackByName(const char *name)
 	prev = el;
 	el = el->next;
     }
-    if(el) {
-	if(el->finalizer)
-	    el->finalizer(el->data);
-	free(el->name);
-	free(el);
-    } else {
+    if(el)
+	removeToplevelHandler(el);
+    else 
 	status = FALSE;
-    }
+
     return(status);
 }
 
@@ -1607,14 +1644,10 @@ Rf_removeTaskCallbackByIndex(int id)
 	    }
 	}
     }
-    if(tmp) {
-	if(tmp->finalizer)
-	    tmp->finalizer(tmp->data);
-	free(tmp->name);
-	free(tmp);
-    } else {
+    if(tmp)
+	removeToplevelHandler(tmp);
+    else
 	status = FALSE;
-    }
 
     return(status);
 }
@@ -1681,10 +1714,6 @@ R_getTaskCallbackNames(void)
   We currently do not pass this to the handler.
  */
 
-  /* Flag to ensure that the top-level handlers aren't called recursively.
-     Simple state to indicate that they are currently being run. */
-static Rboolean Rf_RunningToplevelHandlers = FALSE;
-
 /* This is not used in R and in no header */
 void
 Rf_callToplevelHandlers(SEXP expr, SEXP value, Rboolean succeeded,
@@ -1699,7 +1728,29 @@ Rf_callToplevelHandlers(SEXP expr, SEXP value, Rboolean succeeded,
     h = Rf_ToplevelTaskHandlers;
     Rf_RunningToplevelHandlers = TRUE;
     while(h) {
+	Rf_RemovedToplevelHandlers = FALSE;
+	Rf_DoRemoveCurrentToplevelHandler = FALSE;
+	Rf_CurrentToplevelHandler = h;
 	again = (h->cb)(expr, value, succeeded, visible, h->data);
+	Rf_CurrentToplevelHandler = NULL;
+
+	if (Rf_DoRemoveCurrentToplevelHandler) {
+	    /* the handler attempted to remove itself, PR#18508 */
+	    Rf_DoRemoveCurrentToplevelHandler = FALSE;
+	    again = FALSE;
+	}
+	if (Rf_RemovedToplevelHandlers) {
+	    /* some handlers were removed, but not "h" -> recompute "prev" */
+	    prev = NULL;
+	    R_ToplevelCallbackEl *h2 = Rf_ToplevelTaskHandlers;
+	    while(h2 != h) {
+		prev = h2;
+		h2 = h2->next;
+		if (!h2)
+		    R_Suicide("list of toplevel callbacks was corrupted");
+	    }
+	}
+
 	if(R_CollectWarnings) {
 	    REprintf(_("warning messages from top-level task callback '%s'\n"),
 		     h->name);

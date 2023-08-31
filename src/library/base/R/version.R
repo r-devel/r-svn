@@ -42,14 +42,36 @@ function(x, strict = TRUE, regexp, classes = NULL)
     ## Internal creator for numeric version objects.
 
     nms <- names(x)
-    x <- as.character(x)
-    y <- rep.int(list(integer()), length(x))
-    valid_numeric_version_regexp <- sprintf("^%s$", regexp)
-    if(length(x)) {
+
+    if(!length(x)) {
+        y <- list()
+    } else {
+        if(!is.character(x)) {
+            msg <- gettextf("invalid non-character version specification 'x' (type: %s)",
+                            typeof(x))
+            if(nzchar(Sys.getenv("_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_")))
+                stop(msg, domain = NA)
+            else
+                warning(msg, domain = NA, immediate. = TRUE)        
+            if(nzchar(Sys.getenv("_R_CALLS_INVALID_NUMERIC_VERSION_"))) {
+                ## Showing the call stack as part of warning() may
+                ## truncate, so do it via message() ...
+                calls <- sys.calls()
+                msg <- paste0(gettext("Calls"), ":\n",
+                              paste0(sprintf("%2i: ", seq_along(calls)),
+                                     vapply(calls, deparse1, "",
+                                            collapse = "\n    "),
+                                     collapse = "\n"))
+                message(msg, domain = NA)
+            }
+        }
+        x <- as.character(x)
+        y <- rep.int(list(integer()), length(x))
+        valid_numeric_version_regexp <- sprintf("^%s$", regexp)
         ok <- grepl(valid_numeric_version_regexp, x)
-        if(!all(ok) && strict)
+        if(strict && !all(i <- (ok | is.na(x))))
             stop(gettextf("invalid version specification %s",
-                          paste(sQuote(unique(x[!ok])), collapse = ", ")),
+                          paste(sQuote(unique(x[!i])), collapse = ", ")),
                  call. = FALSE, domain = NA)
         y[ok] <- lapply(strsplit(x[ok], "[.-]"), as.integer)
     }
@@ -61,9 +83,13 @@ function(x, strict = TRUE, regexp, classes = NULL)
 ## Basic numeric versions.
 
 numeric_version <-
-function(x, strict = TRUE)
+function(x, strict = TRUE) {
+    ## Be nice.        
+    if(is.numeric_version(x))
+        return(x)
     .make_numeric_version(x, strict,
                           .standard_regexps()$valid_numeric_version)
+}
 
 is.numeric_version <-
 function(x)
@@ -97,6 +123,9 @@ function(x)
 package_version <-
 function(x, strict = TRUE)
 {
+    ## Be nice.
+    if(is.package_version(x))
+        return(x)
     ## Special-case R version lists.
     ## Currently, do this here for backward compatibility.
     ## Should this be changed eventually?
@@ -145,7 +174,7 @@ function(x)
     classes <- class(x)
     nms <- names(x)
     x <- unclass(x)
-    lens <- vapply(x, length, 0L)
+    lens <- lengths(x)
     y <- lapply(x, function(e) sprintf("%o", e))
     ## Maximal number of octal digits needed.
     width <- max(nchar(unlist(y)), 0L)
@@ -356,7 +385,7 @@ function(x, recursive = FALSE)
 {
     ## <NOTE>
     ## Assuming *valid* numeric_version objects, we could simply do:
-    ##   any(vapply(unclass(x), length, 0L) == 0L)
+    ##   any(lengths(unclass(x)) == 0L)
     ## </NOTE>
     anyNA(.encode_numeric_version(x))
 }

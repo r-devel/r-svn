@@ -73,17 +73,12 @@
 #endif
 
 #ifndef NVALGRIND
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include "valgrind/memcheck.h"
-# else
-// internal version of headers
-#  include "vg/memcheck.h"
-# endif
+# include "valgrind/memcheck.h"
 #endif
 
 /* For speed in cases when the argument is known to not be an ALTREP list. */
-#define VECTOR_ELT_0(x,i)        ((SEXP *) DATAPTR(x))[i]
-#define SET_VECTOR_ELT_0(x,i, v) (((SEXP *) DATAPTR(x))[i] = (v))
+#define VECTOR_ELT_0(x,i)        ((SEXP *) STDVEC_DATAPTR(x))[i]
+#define SET_VECTOR_ELT_0(x,i, v) (((SEXP *) STDVEC_DATAPTR(x))[i] = (v))
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
@@ -831,7 +826,7 @@ static R_size_t R_NodesInUse = 0;
 #define NO_FREE_NODES() (R_NodesInUse >= R_NSize)
 #define GET_FREE_NODE(s) CLASS_GET_FREE_NODE(0,s)
 
-/* versions that assume nodes are avaialble without adding a new page */
+/* versions that assume nodes are available without adding a new page */
 #define CLASS_QUICK_GET_FREE_NODE(c,s) do {		\
 	SEXP __n__ = R_GenHeap[c].Free;			\
 	if (__n__ == R_GenHeap[c].New)			\
@@ -1169,7 +1164,7 @@ static void AdjustHeapSize(R_size_t size_needed)
 	R_size_t change =
 	    (R_size_t)(R_NGrowIncrMin + R_NGrowIncrFrac * R_NSize);
 
-	/* for early andjustments grow more agressively */
+	/* for early adjustments grow more aggressively */
 	static R_size_t last_in_use = 0;
 	static int adjust_count = 1;
 	if (adjust_count < 50) {
@@ -3324,7 +3319,7 @@ NORET void R_signal_protect_error(void)
     cntxt.cend = &reset_pp_stack;
     cntxt.cenddata = &oldpps;
 
-    /* condiiton is pre-allocated and protected with R_PreserveObject */
+    /* condition is pre-allocated and protected with R_PreserveObject */
     SEXP cond = R_getProtectStackOverflowError();
 
     if (R_PPStackSize < R_RealPPStackSize) {
@@ -3936,8 +3931,14 @@ SEXP (VECTOR_ELT)(SEXP x, R_xlen_t i) {
        TYPEOF(x) != WEAKREFSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
 	      "VECTOR_ELT", "list", type2char(TYPEOF(x)));
-    if (ALTREP(x))
-        return CHK(ALTLIST_ELT(CHK(x), i));
+    if (ALTREP(x)) {
+	SEXP ans = CHK(ALTLIST_ELT(CHK(x), i));
+	/* the element is marked as not mutable since complex
+	   assignment can't see reference counts on any intermediate
+	   containers in an ALTREP */
+	MARK_NOT_MUTABLE(ans);
+        return ans;
+    }
     else
         return CHK(VECTOR_ELT_0(CHK(x), i));
 }
@@ -4102,12 +4103,13 @@ SEXP (SET_VECTOR_ELT)(SEXP x, R_xlen_t i, SEXP v) {
     if (i < 0 || i >= XLENGTH(x))
 	error(_("attempt to set index %lld/%lld in SET_VECTOR_ELT"),
 	      (long long)i, (long long)XLENGTH(x));
-    FIX_REFCNT(x, VECTOR_ELT_0(x, i), v);
-    CHECK_OLD_TO_NEW(x, v);
     if (ALTREP(x))
         ALTLIST_SET_ELT(x, i, v);
-    else
+    else {
+        FIX_REFCNT(x, VECTOR_ELT_0(x, i), v);
+        CHECK_OLD_TO_NEW(x, v);
         SET_VECTOR_ELT_0(x, i, v);
+    }
     return v;
 }
 
@@ -4430,9 +4432,26 @@ SEXP (PRVALUE)(SEXP x) { return CHK(PRVALUE(CHK(x))); }
 int (PRSEEN)(SEXP x) { return PRSEEN(CHK(x)); }
 
 void (SET_PRENV)(SEXP x, SEXP v){ FIX_REFCNT(x, PRENV(x), v); CHECK_OLD_TO_NEW(x, v); PRENV(x) = v; }
-void (SET_PRVALUE)(SEXP x, SEXP v) { FIX_REFCNT(x, PRVALUE(x), v); CHECK_OLD_TO_NEW(x, v); PRVALUE(x) = v; }
 void (SET_PRCODE)(SEXP x, SEXP v) { FIX_REFCNT(x, PRCODE(x), v); CHECK_OLD_TO_NEW(x, v); PRCODE(x) = v; }
 void (SET_PRSEEN)(SEXP x, int v) { SET_PRSEEN(CHK(x), v); }
+
+void (SET_PRVALUE)(SEXP x, SEXP v)
+{
+    if (TYPEOF(x) != PROMSXP)
+	error("expecting a 'PROMSXP', not a '%s'", type2char(TYPEOF(x)));
+    FIX_REFCNT(x, PRVALUE(x), v);
+    CHECK_OLD_TO_NEW(x, v);
+    PRVALUE(x) = v;
+}
+
+attribute_hidden
+void IF_PROMSXP_SET_PRVALUE(SEXP x, SEXP v)
+{
+    /* promiseArgs produces a list containing promises or R_MissingArg.
+       Using IF_PROMSXP_SET_PRVALUE avoids corrupting R_MissingArg. */
+    if (TYPEOF(x) == PROMSXP)
+        SET_PRVALUE(x, v);
+}
 
 /* Hashing Accessors */
 #ifdef TESTING_WRITE_BARRIER
@@ -4501,7 +4520,7 @@ attribute_hidden
 Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b) { return NO_SPECIAL_SYMBOLS(CHK(b)); }
 
 /* R_FunTab accessors, only needed when write barrier is on */
-/* Not hidden to allow experimentaiton without rebuilding R - LT */
+/* Not hidden to allow experimentation without rebuilding R - LT */
 /* attribute_hidden */
 int (PRIMVAL)(SEXP x) { return PRIMVAL(CHK(x)); }
 /* attribute_hidden */

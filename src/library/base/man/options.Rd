@@ -1,6 +1,6 @@
 % File src/library/base/man/options.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{options}
@@ -111,7 +111,7 @@ getOption(x, default = NULL)
 
     %%  default is set in ../../profile/Common.R :
     \item{\code{defaultPackages}:}{the packages that are attached by
-      default when \R starts up.  Initially set from value of the
+      default when \R starts up.  Initially set from the value of the
       environment variable \env{R_DEFAULT_PACKAGES}, or if that is unset
       to \code{c("datasets", "utils", "grDevices", "graphics", "stats",
         "methods")}.  (Set \env{R_DEFAULT_PACKAGES} to \code{NULL} or
@@ -258,9 +258,10 @@ getOption(x, default = NULL)
     \item{\code{OutDec}:}{character string containing a single
       character.  The preferred character to be used as the decimal
       point in output conversions, that is in printing, plotting,
-      \code{\link{format}} and \code{\link{as.character}} but not when
-      deparsing nor by \code{\link{sprintf}} nor \code{\link{formatC}}
-      (which are sometimes used prior to printing.)
+      \code{\link{format}}, \code{\link{formatC}} and
+      \code{\link{as.character}} but not when 
+      deparsing nor by \code{\link{sprintf}}
+      (which is sometimes used prior to printing).
     }
 
     \item{\code{pager}:}{the command used for displaying text files by
@@ -739,10 +740,12 @@ getOption(x, default = NULL)
       installs.
     }
 
-    \item{\code{repos}:}{URLs of the repositories for use by
-      \code{\link{update.packages}}.  Initially set from entries marked as
-      default in the \file{repositories} file, see \link{R_REPOSITORIES}.
-      The \sQuote{factory-fresh} setting from \file{etc/repositories} is
+    \item{\code{repos}:}{character vector of repository URLs for use by
+      \code{\link{available.packages}} and related functions.  Initially
+      set from entries marked as default in the \file{repositories} file,
+      whose path is configurable via environment variable \env{R_REPOSITORIES}
+      (set this to \code{NULL} to skip initialization at startup).
+      The \sQuote{factory-fresh} setting from the file in \code{R.home("etc")} is
       \code{c(CRAN="@CRAN@")}, a value that causes some utilities to
       prompt for a CRAN mirror.  To avoid this do set the CRAN mirror,
       by something like \preformatted{
@@ -781,7 +784,7 @@ local({
   These will be set when package \pkg{parallel} (or its namespace)
   is loaded if not already set.
   \describe{
-    \item{\code{mc.cores}:}{a integer giving the maximum allowed number
+    \item{\code{mc.cores}:}{an integer giving the maximum allowed number
       of \emph{additional} \R processes allowed to be run in parallel to
       the current \R process.  Defaults to the setting of the
       environment variable \env{MC_CORES} if set.  Most applications

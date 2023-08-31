@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2022 R Core Team
+### Copyright (C) 1998-2023 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -399,6 +399,9 @@ AM_CONDITIONAL(BUILD_LTO, [test "x${want_lto}" != xno])
 AM_CONDITIONAL(BUILD_LTO_ALL, [test "x${ltoall}" = xyes])
 AM_CONDITIONAL(BUILD_LTO_CHECK, [test "x${want_lto}" = xcheck])
 
+## needed for some versions of icx, but we do not know which
+AC_SUBST(INTEL_ICX_FIX)
+
 AC_ARG_ENABLE([java],
 [AS_HELP_STRING([--enable-java],[enable Java @<:@yes@:>@])],
 [want_java="${enableval}"],
@@ -503,7 +506,7 @@ AC_ARG_WITH([valgrind-instrumentation],
 [valgrind_level=0])
 
 AC_ARG_WITH([system-valgrind-headers],
-[AS_HELP_STRING([--with-system-valgrind-headers],[use system valgrind headers (if available) @<:@yes@:>@])],
+[AS_HELP_STRING([--with-system-valgrind-headers],[defunct])],
 [AC_MSG_WARN([--with-system-valgrind-headers is defunct])])
 
 AC_ARG_WITH([internal-tzcode],
@@ -512,12 +515,12 @@ AC_ARG_WITH([internal-tzcode],
 [use_internal_tzcode=default])
 
 AC_ARG_WITH([internal-towlower],
-[AS_HELP_STRING([--with-internal-towlower],[use internal code for towlower/upper @<:@no, yes on macOS and Solaris@:>@])],
+[AS_HELP_STRING([--with-internal-towlower],[use internal code for towlower/upper @<:@no, yes on macOS@:>@])],
 [use_internal_towlower=${withval}],
 [use_internal_towlower=default])
 
 AC_ARG_WITH([internal-iswxxxxx],
-[AS_HELP_STRING([--with-internal-iswxxxxx],[use internal iswprint etc. @<:@no, yes on macOS, Solaris and AIX@:>@])],
+[AS_HELP_STRING([--with-internal-iswxxxxx],[use internal iswprint etc. @<:@no, yes on macOS@:>@])],
 [use_internal_iswxxxxx=${withval}],
 [use_internal_iswxxxxx=default])
 
@@ -677,9 +680,16 @@ R_PROG_INSTALL
 
 ## we would like a POSIX sed, and need one on Solaris
 AC_PATH_PROGS(SED, sed, /bin/sed, [/usr/xpg4/bin:$PATH])
+
 ## 'which' is not POSIX, and might be a shell builtin or alias
 ##  (but should not be in 'sh')
 AC_PATH_PROGS(WHICH, which, which)
+if test "${WHICH}" = which ; then
+  ## needed to build and run R
+  ## ends up hard-coded in the utils package
+  AC_MSG_ERROR([[which is required but missing]])
+fi
+
 ## Make
 : ${MAKE=make}
 AC_SUBST(MAKE)
@@ -1222,7 +1232,6 @@ esac
 
 ## This was -ffloat-store on all gfortran/g77 platforms prior to R 3.5.0
 ## Suggestion adopted from https://gcc.gnu.org/wiki/FloatingPointMath
-## It was already the default on 32-bit macOS
 if test "${SAFE_FFLAGS+set}" != set; then
   if test "x${ac_cv_fc_compiler_gnu}" = xyes; then
     case "${host_cpu}" in
@@ -1237,28 +1246,6 @@ if test "${SAFE_FFLAGS+set}" != set; then
     SAFE_FFLAGS="${FFLAGS}"
   fi
 fi
-
-## If the Fortran compiler is gfortran >= 7, add
-## -fno-optimize-sibling-calls to avoid recent gfortran optimizations
-## that break with LAPACK/BLAS-style passing of length-1 strings
-## (without hidden arguments giving their lengths).
-## No longer used once all packages are passing char lengths.
-dnl AC_MSG_CHECKING([if need -fno-optimize-sibling-calls for gfortran])
-dnl AC_CACHE_VAL([r_cv_have_gfortran7],
-dnl [r_cv_have_gfortran7=no
-dnl if test "x${GFC}" = xyes; then
-dnl   gfortran_version_maj=`echo "__GNUC__" | ${FC} -E -P - | ${SED} 's/ //g'`
-dnl   if test ${gfortran_version_maj} -ge 7; then
-dnl     r_cv_have_gfortran7=yes
-dnl   fi
-dnl fi])
-
-dnl if test "x${r_cv_have_gfortran7}" = xyes; then
-dnl   AC_MSG_RESULT([yes])
-dnl   R_XTRA_FFLAGS="-fno-optimize-sibling-calls"
-dnl else
-dnl   AC_MSG_RESULT([no])
-dnl fi
 
 ### type for Fortran 'hidden' character lengths, if any
 ### Try setting FPIFLAGS if not already set.
@@ -1393,6 +1380,7 @@ if test -n "${XMKMF}"; then
 fi
 
 ## Step 2.  GNU compilers.
+## (And those C/C++ compilers claiming conformity.)
 if test "${GCC}" = yes; then
   case "${host_cpu}" in
 ## Sparc has only an 8k global object table, 1024 entries on 64-bit.
@@ -1422,8 +1410,9 @@ if test "${ac_cv_fc_compiler_gnu}" = yes; then
   esac
 fi
 ## Assume flang is the same as clang (it is a modified front end)
+## Also flang-new
 case "${FC}" in
-  *flang|flang-*)
+  *flang|*flang-new)
     fpicflags=${cpicflags}
     ;;
 esac
@@ -1475,8 +1464,17 @@ case "${host_os}" in
     darwin_pic="-fPIC"
     dylib_undefined_allowed=no
     darwin_dylib_ldflags="-dynamiclib"
-    shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -single_module -multiply_defined suppress"
-    ## * recent ld has -single_module so it doesn't need -fno-common
+    ##  -single_module is default and -multiply_defined is obsolete
+    ## at least since macOS 11 (darwin 20)
+    case "${host_os}" in
+      darwin1*)
+        shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -single_module -multiply_defined suppress"
+      ;;
+      *)
+        shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup"
+      ;;
+    esac
+## * recent ld has -single_module so it doesn't need -fno-common
     ##   we have to use dylib instead of a bundle
     ## * dylib+single_module+flat_namespace=pretty much what other platforms call .so
     ##   but there can be no multiple symbols (due to flat namespace)
@@ -1509,7 +1507,14 @@ rm -f libconftest${DYLIB_EXT} conftest.c
        r_cv_has_dynlookup=forced-no
     fi
     if test "${r_cv_has_dynlookup}" != "yes"; then
-       shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress -single_module -multiply_defined suppress"
+      case "${host_os}" in
+         darwin1*)
+          shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress -single_module -multiply_defined suppress"
+         ;;
+         *)
+           shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress"
+         ;;
+       esac
        dylib_undefined_allowed=yes
     fi
 	
@@ -1579,7 +1584,7 @@ dnl     ;;
     esac
     case  "${FC}" in
       ## Intel compilers
-      *ifc|*ifort)
+      *ifc|*ifort|*ifx)
         fpicflags="-fpic"
         ;;
       ## Nvidia (formerly Portland Group)
@@ -2051,8 +2056,7 @@ AC_CHECK_FUNCS([atanpi atan2pi cospi exp10 pown sinpi tanpi __cospi __sinpi __ta
 #endif])
 
 ## fseeko/ftello are POSIX, may be macros
-## matherr is SVID, redefined in arithmetic.c if present
-AC_CHECK_FUNCS(fseeko ftello matherr)
+AC_CHECK_FUNCS(fseeko ftello)
 
 ## POSIX functions
 R_CHECK_FUNCS([fcntl], [#include <fcntl.h>])
@@ -2152,6 +2156,8 @@ R_CHECK_FUNCS([thr_stksegment], [
 #include <thread.h>
 #include <signal.h>
 ])
+## stpcpy is POSIX 2008 (extension to C)
+AC_CHECK_FUNCS([stpcpy])
 
 ## Lots of uses of getwd(), file.access(), Sys.glob().
 ## We don't need times() except as a fallback for getrusage and
@@ -2564,6 +2570,26 @@ R_BZLIB
 ## LZMA headers and libraries from xz-utils
 R_LZMA
 
+## libdeflate headers and libraries.
+R_LIBDEFLATE
+
+AC_ARG_WITH([libdeflate-compression],
+[AS_HELP_STRING([--with-libdeflate-compression],[use libdeflate (if available) to (de)compress lazy-loaded R objects @<:@no@:>@])],
+[use_libdeflate=${withval}],
+[use_libdeflate=unset])
+if test "x$use_libdeflate" = xunset; then
+  if test "x$R_USE_LIBDEFLATE_FOR_LAZYLOAD" = xyes; then
+    use_libdeflate=yes
+  elif test "x$R_USE_LIBDEFLATE_FOR_LAZYLOAD" = xno; then
+    use_libdeflate=no
+  else
+    use_libdeflate=no
+  fi
+fi
+if test "x$use_libdeflate" = xyes; then
+  AC_DEFINE(USE_LIBDEFLATE, 1, [Define to use libdefault rather than libz for lazy-loaded R objects])
+fi
+
 ## PCRE[12] headers and libraries.
 R_PCRE
 
@@ -2611,7 +2637,7 @@ if test ${valgrind_level} -eq 0; then
 else
   AC_CHECK_HEADERS([valgrind/memcheck.h])
   if test "${ac_cv_header_valgrind_memcheck_h}" != yes; then
-  AC_MSG_WARN([system valgrind headers not found -- using internal copies])
+  AC_MSG_ERROR([system valgrind headers not found.])
   fi
 fi
 
@@ -3082,6 +3108,9 @@ fi
 if test "x$ac_cv_header_curl_curl_h" = xyes; then
   R_SH_VAR_ADD(r_external_libs, [curl], [, ])
 fi
+if test "x$have_libdeflate" = xyes; then
+  R_SH_VAR_ADD(r_external_libs, [libdeflate], [, ])
+fi
 
 r_capabilities=
 r_no_capabilities=
@@ -3148,6 +3177,13 @@ if test "${use_strict_barrier}" = yes; then
 fi
 if test "${want_prebuilt_html}" = yes; then
   R_SH_VAR_ADD(r_options, [static HTML], [, ])
+fi
+if test "x$have_libdeflate" = xyes && test "x$use_libdeflate" = xyes; then
+  R_SH_VAR_ADD(r_options, [libdeflate for lazyload], [, ])
+fi
+
+if test "x$have_libdeflate" != xyes && test "x$use_libdeflate" = xyes; then
+  AC_MSG_WARN([--with-libdeflate-compression requires libdeflate])
 fi
 
 AC_MSG_RESULT(
@@ -3223,6 +3259,9 @@ if test -n "${warn_browser}"; then
 fi
 if test -n "${warn_pdfviewer}"; then
   AC_MSG_WARN([${warn_pdfviewer}])
+fi
+if test "${ac_cv_sizeof_size_t}" = 4; then
+  AC_MSG_WARN([32-bit build -- this is little tested])
 fi
 
 ### Local variables: ***

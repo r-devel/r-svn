@@ -69,6 +69,25 @@
    is 64-bit on Windows.
 */
 
+/*
+  NCONNECTIONS.  Prior to R 4.4.0 this was set to 128 in this file.
+  There was concern that file-like connections use file descriptions
+  which have a quite low default limit (256 on macOS, 1024 on Linux),
+  and are needed for other uses including loading DLLs.  (Parallel
+  clusters use a file connection per cluster member.)  Windows is said
+  to have a default limit of 512 file handlws per process.
+
+  As from R 4.4.0 the defailt limit remains 128. but can be overriden
+  by the startup option --max-connections.  This does not allow it to
+  be set below 128 but has a limit of 4096 (see CommandLineArgs.c).
+  The upper limit is conservative, but as creating a new connection
+  uses a linear search in the connections table, some limit is
+  needed. (When checked the table used 488 bytes per connection.)
+
+  Using a dynamic upper limit would not be hard, but not very useful
+  because of the non-dynamic fd limit.
+*/
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -127,10 +146,12 @@ typedef long long int _lli_t;
 # include <Startup.h>
 #endif
 
-#define NCONNECTIONS 128 /* need one per cluster node */
+static int NCONNECTIONS = 128; /* need one per cluster node */
+//static Rconnection Connections[NCONNECTIONS];
 #define NSINKS 21
 
-static Rconnection Connections[NCONNECTIONS];
+#include <R_ext/RStartup.h>
+static Rconnection * Connections;
 static SEXP OutTextData;
 
 static int R_SinkNumber;
@@ -153,8 +174,10 @@ static int NextConnection(void)
 	R_gc(); /* Try to reclaim unused ones */
 	for(i = 3; i < NCONNECTIONS; i++)
 	    if(!Connections[i]) break;
+	/* To make this dynamic, realloc Connections and set the new
+	   members to NULL. */
 	if(i >= NCONNECTIONS)
-	    error(_("all connections are in use"));
+	    error(_("all %d connections are in use"), NCONNECTIONS);
     }
     return i;
 }
@@ -205,15 +228,24 @@ static void conFinalizer(SEXP ptr)
 	    break;
 	}
     if(i >= NCONNECTIONS) return;
+
+    char buf[R_PATH_MAX + 50]; /* much longer than limit for warning */
+    Rboolean warn = FALSE;
     {
 	Rconnection this = getConnection(ncon);
-	if(this->isopen && strcmp(this->class, "textConnection"))
-	    warning(_("closing unused connection %d (%s)\n"),
-		    ncon, this->description);
+	if(this->isopen && strcmp(this->class, "textConnection")) {
+	    warn = TRUE;
+	    snprintf(buf, sizeof(buf),
+	             _("closing unused connection %d (%s)\n"),
+	             ncon, this->description);
+	}
     }
 
     con_destroy(ncon);
     R_ClearExternalPtr(ptr); /* not really needed */
+
+    if (warn)
+	warning(buf); /* may be turned into error */
 }
 
 
@@ -339,7 +371,7 @@ static double buff_seek(Rconnection con, double where, int origin, int rw)
     return con->seek(con, where, origin, rw);
 }
 
-void set_buffer(Rconnection con) {
+static void set_buffer(Rconnection con) {
     if (con->canread && con->text) {
 	buff_init(con);
     }
@@ -376,7 +408,7 @@ void set_iconv(Rconnection con)
 	   glibc's iconv cannot. Aargh ... */
 	if(streql(con->encname, "UCS-2LE") ||
 	   streql(con->encname, "UTF-16LE")) con->inavail = -2;
-	/* Discaard BOM */
+	/* Discard BOM */
 	if(streql(con->encname, "UTF-8-BOM")) con->inavail = -3;
     }
     if(con->canwrite) {
@@ -497,10 +529,9 @@ int dummy_vfprintf(Rconnection con, const char *format, va_list ap)
 
 int dummy_fgetc(Rconnection con)
 {
-    int c;
-    Rboolean checkBOM = FALSE, checkBOM8 = FALSE;
-
     if(con->inconv) {
+	Rboolean checkBOM = FALSE, checkBOM8 = FALSE;
+	con->EOF_signalled = FALSE; /* e.g. for a non-blocking connection; PR#18555 */
 	while(con->navail <= 0) {
 	    /* Probably in all cases there will be at most one iteration
 	       of the loop. It could iterate multiple times only if the input
@@ -523,10 +554,9 @@ int dummy_fgetc(Rconnection con)
 	    }
 	    p = con->iconvbuff + con->inavail;
 	    for(i = con->inavail; i < 25; i++) {
-		if (con->buff)
-		    c = buff_fgetc(con);
-		else
-		    c = con->fgetc_internal(con);
+		int c = (con->buff)
+		    ? buff_fgetc(con)
+		    : con->fgetc_internal(con);
 		if(c == R_EOF){ con->EOF_signalled = TRUE; break; }
 		*p++ = (char) c;
 		con->inavail++;
@@ -764,16 +794,16 @@ static Rboolean file_open(Rconnection con)
 	    Rf_utf8towcs(wname, name, n+1);
 	    fp = _wfopen(wname, wmode);
 	    if(!fp) {
-		warning(_("cannot open file '%ls': %s"), wname, strerror(errno));
 		if (temp)
 		    free((char *)name);
+		warning(_("cannot open file '%ls': %s"), wname, strerror(errno));
 		return FALSE;
 	    }
 	    if (isDir(fp)) {
-		warning(_("cannot open file '%ls': it is a directory"), wname);
 		fclose(fp);
 		if (temp)
 		    free((char *)name);
+		warning(_("cannot open file '%ls': it is a directory"), wname);
 		return FALSE;
 	    }
 	} else {
@@ -804,8 +834,8 @@ static Rboolean file_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	if (temp)
 	    free((char *)name);
 	return FALSE;
@@ -1394,7 +1424,7 @@ static int fifo_fgetc_internal(Rconnection con)
     /* Check available bytes on named pipe */
     PeekNamedPipe(this->hdl_namedpipe, NULL, 0, NULL, &available_bytes, NULL);
 
-    /* Read char if available bytes > 0, otherwize, return R_EOF */
+    /* Read char if available bytes > 0, otherwise, return R_EOF */
     if (available_bytes > 0) {
 	ReadFile(this->hdl_namedpipe, &c, len, &read_byte, NULL);
 	return (read_byte == len) ? (char) c : R_EOF;
@@ -1442,6 +1472,31 @@ static Rconnection newfifo(const char *description, const char *mode)
     return new;
 }
 
+static void cend_con_destroy(void *data)
+{
+    int ncon = *(int *)data;
+    con_destroy(ncon);
+} 
+
+static void checked_open(int ncon)
+{
+    Rconnection con = Connections[ncon];
+    RCNTXT cntxt;
+
+    /* Set up a context which will destroy the connection on error,
+       including warning turned into error (PR#18491) */
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &cend_con_destroy;
+    cntxt.cenddata = &ncon;
+    Rboolean success = con->open(con);
+    endcontext(&cntxt);
+    if(!success) {
+	con_destroy(ncon);
+	error(_("cannot open the connection"));
+    }
+}
+
 attribute_hidden SEXP do_fifo(SEXP call, SEXP op, SEXP args, SEXP env)
 {
 #if (defined(HAVE_MKFIFO) && defined(HAVE_FCNTL_H)) || defined(_WIN32)
@@ -1484,13 +1539,8 @@ attribute_hidden SEXP do_fifo(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -1510,6 +1560,10 @@ attribute_hidden SEXP do_fifo(SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* ------------------- pipe connections --------------------- */
 
+/* This implementation is no longer used on Windows, even in Rterm,
+   because of termination of background processes using Ctrl+C (PR#17764). */
+
+#ifndef Win32
 static Rboolean pipe_open(Rconnection con)
 {
     FILE *fp;
@@ -1538,8 +1592,12 @@ static Rboolean pipe_open(Rconnection con)
 	    return FALSE;
 	}
     } else
-#endif
+	/* this implementation is prone to termination of background
+	   processes using Ctrl+C (PR#17764) */
 	fp = R_popen(con->description, mode);
+#else
+	fp = R_popen_pg(con->description, mode);
+#endif
     if(!fp) {
 	warning(_("cannot open pipe() cmd '%s': %s"), con->description,
 		strerror(errno));
@@ -1561,7 +1619,11 @@ static Rboolean pipe_open(Rconnection con)
 
 static void pipe_close(Rconnection con)
 {
+#ifdef Win32
     con->status = pclose(((Rfileconn)(con->private))->fp);
+#else
+    con->status = R_pclose_pg(((Rfileconn)(con->private))->fp);
+#endif
     con->isopen = FALSE;
 }
 
@@ -1602,7 +1664,7 @@ newpipe(const char *description, int ienc, const char *mode)
     return new;
 }
 
-#ifdef Win32
+#else
 extern Rconnection
 newWpipe(const char *description, int enc, const char *mode);
 #endif
@@ -1644,24 +1706,18 @@ attribute_hidden SEXP do_pipe(SEXP call, SEXP op, SEXP args, SEXP env)
 
     ncon = NextConnection();
 #ifdef Win32
-    if(CharacterMode != RTerm)
-	con = newWpipe(file, ienc, strlen(open) ? open : "r");
-    else
+    con = newWpipe(file, ienc, strlen(open) ? open : "r");
+#else
+    con = newpipe(file, ienc, strlen(open) ? open : "r");
 #endif
-	con = newpipe(file, ienc, strlen(open) ? open : "r");
     Connections[ncon] = con;
     strncpy(con->encname, CHAR(STRING_ELT(enc, 0)), 100); /* ASCII */
     con->encname[100 - 1] = '\0';
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -1680,7 +1736,6 @@ attribute_hidden SEXP do_pipe(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* ------------------- [bgx]zipped file connections --------------------- */
-
 #include "gzio.h"
 
 /* needs to be declared before con_close1 */
@@ -1870,8 +1925,8 @@ static Rboolean bzfile_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	return FALSE;
     }
     if(con->canread) {
@@ -2066,8 +2121,8 @@ static Rboolean xzfile_open(Rconnection con)
 	return FALSE;
     }
     if (isDir(xz->fp)) {
-	warning(_("cannot open file '%s': it is a directory"), name);
 	fclose(xz->fp);
+	warning(_("cannot open file '%s': it is a directory"), name);
 	return FALSE;
     }
     if(con->canread) {
@@ -2342,13 +2397,8 @@ attribute_hidden SEXP do_gzfile(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -2472,12 +2522,12 @@ static void clp_writeout(Rconnection con)
 	s[wlen] = L'\0';
 	GlobalUnlock(hglb);
 	if (!OpenClipboard(NULL) || !EmptyClipboard()) {
-	    warning(_("unable to open the clipboard"));
 	    GlobalFree(hglb);
+	    warning(_("unable to open the clipboard"));
 	} else {
 	    if(!SetClipboardData(CF_UNICODETEXT, hglb)) {
-		warning(_("unable to write to the clipboard"));
 		GlobalFree(hglb);
+		warning(_("unable to write to the clipboard"));
 	    }
 	    CloseClipboard();
 	}
@@ -2590,8 +2640,8 @@ static size_t clp_write(const void *ptr, size_t size, size_t nitems,
 #endif
 
     if (used < len && !this->warned) {
-	warning(_("clipboard buffer is full and output lost"));
 	this->warned = TRUE;
+	warning(_("clipboard buffer is full and output lost"));
     }
     if(this->last < this->pos) this->last = this->pos;
     return (size_t) used/size;
@@ -3539,13 +3589,8 @@ attribute_hidden SEXP do_sockconn(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -3593,13 +3638,8 @@ attribute_hidden SEXP do_unz(SEXP call, SEXP op, SEXP args, SEXP env)
     con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -3751,7 +3791,6 @@ static int con_close1(Rconnection con)
     return status;
 }
 
-
 static void con_destroy(int i)
 {
     Rconnection con=NULL;
@@ -3761,7 +3800,6 @@ static void con_destroy(int i)
     free(Connections[i]);
     Connections[i] = NULL;
 }
-
 
 attribute_hidden SEXP do_close(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -4012,7 +4050,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(ans = allocVector(STRSXP, nn));
     for(nread = 0; nread < nnn; nread++) {
 	if(nread >= nn) {
-	    double dnn = 2.* nn;
+	    double dnn = 2. * (double) nn;
 	    if (dnn > R_XLEN_T_MAX) error("too many items");
 	    ans2 = allocVector(STRSXP, 2*nn);
 	    for(i = 0; i < nn; i++)
@@ -4124,7 +4162,7 @@ attribute_hidden SEXP do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
 
     /* New for 2.7.0: split the output if sink was split.
        It would be slightly simpler just to call Rvprintf if the
-       connection was stdout(), but this way is more efficent */
+       connection was stdout(), but this way is more efficient */
     if(con_num == R_OutputCon) {
 	int j = 0;
 	Rconnection con0;
@@ -4734,18 +4772,16 @@ readFixedString(Rconnection con, int len, int useBytes, Rboolean *warnOnNul)
     const void *vmax = vmaxget();
 
     if(utf8locale && !useBytes) {
-	int i, clen;
-	char *p, *q;
-
-	p = buf = (char *) R_alloc(R_MB_CUR_MAX*len+1, sizeof(char));
-	memset(buf, 0, R_MB_CUR_MAX*len+1);
+	R_SIZE_T count = R_MB_CUR_MAX * (R_SIZE_T)len +1;
+	char *p = buf = (char *) R_alloc(count, sizeof(char));
+	memset(buf, 0, count);
 	mbstate_t mb_st;
 	mbs_init(&mb_st);
-	for(i = 0; i < len; i++) {
-	    q = p;
+	for(int i = 0; i < len; i++) {
+	    char *q = p;
 	    m = (int) con->read(p, sizeof(char), 1, con);
 	    if(!m) { if(i == 0) return R_NilValue; else break;}
-	    clen = utf8clen(*p++);
+	    int clen = utf8clen(*p++);
 	    if(clen > 1) {
 		m = (int) con->read(p, sizeof(char), clen - 1, con);
 		if(m < clen - 1) error(_("invalid UTF-8 input in readChar()"));
@@ -4778,25 +4814,22 @@ readFixedString(Rconnection con, int len, int useBytes, Rboolean *warnOnNul)
 static SEXP
 rawFixedString(Rbyte *bytes, int len, int nbytes, int *np, int useBytes)
 {
-    char *buf;
-    SEXP res;
-    const void *vmax = vmaxget();
-
     if(*np + len > nbytes) {
 	len = nbytes - *np;
 	if (!len) return(R_NilValue);
     }
 
+    SEXP res;
+    const void *vmax = vmaxget();
+    char *buf;
+
     /* Note: mkCharLenCE signals an error on embedded nuls. */
     if(utf8locale && !useBytes) {
 	int i, clen, iread = *np;
-	char *p;
-	Rbyte *q;
-
-	p = buf = (char *) R_alloc(R_MB_CUR_MAX*len+1, sizeof(char));
+	char *p = buf = (char *) R_alloc(R_MB_CUR_MAX*(R_SIZE_T)len +1, sizeof(char));
 	for(i = 0; i < len; i++, p += clen, iread += clen) {
 	    if (iread >= nbytes) break;
-	    q = bytes + iread;
+	    Rbyte *q = bytes + iread;
 	    clen = utf8clen(*q);
 	    if (iread + clen > nbytes)
 		error(_("invalid UTF-8 input in readChar()"));
@@ -5297,9 +5330,17 @@ void WinCheckUTF8(void)
 
 /* ------------------- admin functions  --------------------- */
 
+attribute_hidden void R_SetNconn(int nconn)
+{
+    if (nconn > 128) NCONNECTIONS = nconn;
+}
+
+
 attribute_hidden void InitConnections(void)
 {
-    int i;
+    Connections = (Rconnection *) malloc(NCONNECTIONS * sizeof(Rconnection));
+    if (!Connections)
+	R_Suicide("could not allocate space for the connections table");
     Connections[0] = newterminal("stdin", "r");
     Connections[0]->fgetc = stdin_fgetc;
     Connections[1] = newterminal("stdout", "w");
@@ -5308,7 +5349,7 @@ attribute_hidden void InitConnections(void)
     Connections[2] = newterminal("stderr", "w");
     Connections[2]->vfprintf = stderr_vfprintf;
     Connections[2]->fflush = stderr_fflush;
-    for(i = 3; i < NCONNECTIONS; i++) Connections[i] = NULL;
+    for(int i = 3; i < NCONNECTIONS; i++) Connections[i] = NULL;
     R_OutputCon = 1;
     R_SinkNumber = 0;
     SinkCons[0] = 1; R_ErrorCon = 2;
@@ -5665,13 +5706,8 @@ attribute_hidden SEXP do_url(SEXP call, SEXP op, SEXP args, SEXP env)
 					    R_NilValue));
 
     /* open it if desired */
-    if(strlen(open)) {
-	Rboolean success = con->open(con);
-	if(!success) {
-	    con_destroy(ncon);
-	    error(_("cannot open the connection"));
-	}
-    }
+    if(strlen(open))
+	checked_open(ncon);
 
     PROTECT(ans = ScalarInteger(ncon));
     PROTECT(class = allocVector(STRSXP, 2));
@@ -6066,9 +6102,8 @@ attribute_hidden SEXP do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* code for in-memory (de)compression
-   of data stored in a scalar string. Uses a 4-byte header of length,
-   in XDR order. */
+/* code for in-memory (de)compression of data stored in a raw vector. 
+   Uses a 4-byte header of length, in XDR order. */
 
 #ifndef WORDS_BIGENDIAN
 static unsigned int uiSwap (unsigned int x)
@@ -6081,26 +6116,93 @@ static unsigned int uiSwap (unsigned int x)
 
 /* These are all hidden and used only in serialize.c,
    so managing R_alloc stack is prudence. */
+
+#if defined(HAVE_LIBDEFLATE) && defined(USE_LIBDEFLATE)
+# include <libdeflate.h>
+
 attribute_hidden
 SEXP R_compress1(SEXP in)
 {
-    const void *vmax = vmaxget();
-    unsigned int inlen;
-    uLong outlen;
-    int res;
-    Bytef *buf;
-    SEXP ans;
-
     if(TYPEOF(in) != RAWSXP)
 	error("R_compress1 requires a raw vector");
-    inlen = LENGTH(in);
-    outlen = (uLong)(1.001*inlen + 20);
-    buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
+
+    static struct libdeflate_compressor *c = NULL;
+    if(c == NULL) {
+       c = libdeflate_alloc_compressor(6);
+       if(c == NULL)
+           error("allocation error in R_compress1 with libdeflate");
+    }
+
+    const void *vmax = vmaxget();
+
+    unsigned int inlen = LENGTH(in);
+    size_t outlen = libdeflate_zlib_compress_bound(c, inlen);
+    Bytef *buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
     /* we want this to be system-independent */
     *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
-    res = compress(buf + 4, &outlen, (Bytef *)RAW(in), inlen);
+    size_t res =
+	libdeflate_zlib_compress(c, RAW(in), inlen, buf + 4, outlen);
+    if(res == 0)
+	error("internal libdeflate error in R_compress1 with libdeflate");
+    SEXP ans = allocVector(RAWSXP, res + 4);
+    memcpy(RAW(ans), buf, res + 4);
+    vmaxset(vmax);
+    return ans;
+}
+
+attribute_hidden
+SEXP R_decompress1(SEXP in, Rboolean *err)
+{
+    if(TYPEOF(in) != RAWSXP)
+	error("R_decompress1 requires a raw vector");
+
+    const void *vmax = vmaxget();
+
+    static struct libdeflate_decompressor *d = NULL;
+    if(d == NULL) {
+	d = libdeflate_alloc_decompressor();
+	if(d == NULL)
+	    error("allocation error in R_decompress1 with libdeflate");
+    }
+
+    unsigned char *p = RAW(in);
+    size_t inlen = LENGTH(in);
+    size_t outlen = uiSwap(*((unsigned int *) p));
+    Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+    size_t actual_out;
+    enum libdeflate_result res =
+	libdeflate_zlib_decompress(d, p + 4, inlen - 4, buf,
+				   outlen, &actual_out);
+
+    if(res != LIBDEFLATE_SUCCESS) {
+	warning("internal error %d in R_decompress1 with libdeflate", res);
+	*err = TRUE;
+	return R_NilValue;
+    }
+    SEXP ans = allocVector(RAWSXP, actual_out);
+    memcpy(RAW(ans), buf, actual_out);
+    vmaxset(vmax);
+    return ans;
+}
+
+#else
+
+attribute_hidden
+SEXP R_compress1(SEXP in)
+{
+    if(TYPEOF(in) != RAWSXP)
+	error("R_compress1 requires a raw vector");
+
+    const void *vmax = vmaxget();
+
+    unsigned int inlen = LENGTH(in);
+    uLong outlen = (uLong)(1.001*inlen + 20);
+    Bytef *buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
+    /* we want this to be system-independent */
+    *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
+    int res = compress(buf + 4, &outlen, (Bytef *)RAW(in), inlen);
     if(res != Z_OK) error("internal error %d in R_compress1", res);
-    ans = allocVector(RAWSXP, outlen + 4);
+    SEXP ans = allocVector(RAWSXP, outlen + 4);
     memcpy(RAW(ans), buf, outlen + 4);
     vmaxset(vmax);
     return ans;
@@ -6109,29 +6211,27 @@ SEXP R_compress1(SEXP in)
 attribute_hidden
 SEXP R_decompress1(SEXP in, Rboolean *err)
 {
-    const void *vmax = vmaxget();
-    uLong inlen, outlen;
-    int res;
-    Bytef *buf;
-    unsigned char *p = RAW(in);
-    SEXP ans;
-
     if(TYPEOF(in) != RAWSXP)
 	error("R_decompress1 requires a raw vector");
-    inlen = LENGTH(in);
-    outlen = (uLong) uiSwap(*((unsigned int *) p));
-    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-    res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
+
+    const void *vmax = vmaxget();
+
+    unsigned char *p = RAW(in);
+    uLong inlen = LENGTH(in);
+    uLong outlen = (uLong) uiSwap(*((unsigned int *) p));
+    Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+    int res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
     if(res != Z_OK) {
 	warning("internal error %d in R_decompress1", res);
 	*err = TRUE;
 	return R_NilValue;
     }
-    ans = allocVector(RAWSXP, outlen);
+    SEXP ans = allocVector(RAWSXP, outlen);
     memcpy(RAW(ans), buf, outlen);
     vmaxset(vmax);
     return ans;
 }
+#endif
 
 attribute_hidden
 SEXP R_compress2(SEXP in)
@@ -6145,7 +6245,7 @@ SEXP R_compress2(SEXP in)
     if(TYPEOF(in) != RAWSXP)
 	error("R_compress2 requires a raw vector");
     inlen = LENGTH(in);
-    outlen = (unsigned int)(1.01*inlen + 600);
+    outlen = inlen + inlen/100 + 600; // 1.01 * ..  staying int
     buf = R_alloc(outlen + 5, sizeof(char));
     /* we want this to be system-independent */
     *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
@@ -6442,6 +6542,9 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
     return ans;
 }
 
+#ifdef HAVE_LIBDEFLATE
+# include <libdeflate.h>
+#endif
 attribute_hidden SEXP
 do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -6455,6 +6558,26 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
     switch(type) {
     case 1: break; /* none */
     case 2: /*gzip */
+#ifdef HAVE_LIBDEFLATE
+    {
+	static struct libdeflate_compressor *c = NULL;
+	if(c == NULL) {
+	    c = libdeflate_alloc_compressor(6);
+	    if(c == NULL)
+		error("allocation error in memCompress with libdeflate");
+	}
+	size_t inlen = XLENGTH(from);
+	size_t outlen = libdeflate_zlib_compress_bound(c, inlen);
+	Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+        size_t res =
+	    libdeflate_zlib_compress(c, RAW(from), inlen, buf, outlen);
+	if(res == 0)
+	    error("internal libdeflate error in memCompress");
+	ans = allocVector(RAWSXP, res);
+	memcpy(RAW(ans), buf, res);
+	break;
+    }
+#else
     {
 	Bytef *buf;
 	/* could use outlen = compressBound(inlen) */
@@ -6467,6 +6590,7 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+#endif
     case 3: /* bzip */
     {
 	// bzlib does not support long inputs
@@ -6500,8 +6624,7 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	ret = lzma_stream_encoder(&strm, filters, LZMA_CHECK_CRC32);
 	if (ret != LZMA_OK) error("internal error %d in memCompress", ret);
 
-	outlen = (unsigned int)(1.01 * inlen + 600); /* FIXME, copied
-						        from bzip2 case */
+	outlen = inlen + inlen/100 + 600; /* FIXME, copied from bzip2 case */
 	buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
 	strm.next_in = RAW(from);
 	strm.avail_in = inlen;
@@ -6524,6 +6647,19 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+#ifdef HAVE_LIBDEFLATE
+// from libdeflate/programs/gzip.c
+typedef uint8_t u8;
+typedef uint32_t u32;
+static inline u32
+get_unaligned_le32(const u8 *p)
+{
+    return ((u32)p[3] << 24) | ((u32)p[2] << 16) |
+	((u32)p[1] << 8) | p[0];
+}
+#endif
+
+
 attribute_hidden SEXP
 do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -6536,8 +6672,11 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
     type = asInteger(CADR(args));
     if (type == 5) {/* type = 5 is "unknown" */
 	char *p = (char *) RAW(from);
+	/* zlib commression starts with 2 bytes, which for default settings are
+	   \x78\x9c.  We could use that */
 	if (strncmp(p, "BZh", 3) == 0) type = 3; /* bzip2 always uses a header */
 	else if(p[0] == '\x1f' && p[1] == '\x8b') type = 2; /* gzip files */
+	else if(p[0] == '\x78' && p[1] == '\x9c') type = 2; /* gzip files */
 	else if((p[0] == '\xFD') && !strncmp(p+1, "7zXZ", 4)) type = 4;
 	else if((p[0] == '\xFF') && !strncmp(p+1, "LZMA", 4)) {
 	    type = 4; subtype = 1;
@@ -6552,6 +6691,57 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
     switch(type) {
     case 1: break; /* none */
     case 2: /* gzip */
+#ifdef HAVE_LIBDEFLATE
+    {
+	static struct libdeflate_decompressor *d = NULL;
+	if(d == NULL) {
+	    d = libdeflate_alloc_decompressor();
+	    if(d == NULL)
+		error("allocation error in memDecompress with libdeflate");
+	}
+
+	size_t inlen = XLENGTH(from), outlen = 3*inlen, actual_out;
+        enum libdeflate_result res;
+	Bytef *buf, *p = (Bytef *)RAW(from);
+
+	if (p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
+	    while(1) {
+		outlen = get_unaligned_le32(&p[inlen - 4]);
+		if (outlen == 0) outlen = 1;
+
+		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+		res = libdeflate_gzip_decompress(d, RAW(from), inlen,
+						 buf, outlen, &actual_out);
+		if(res == LIBDEFLATE_INSUFFICIENT_SPACE) {
+		    // should not happen but recorded length might be wrong.
+		    if(outlen < ULONG_MAX/2) {
+			outlen *= 2; continue;
+		    } else break;
+		}
+		if(res == LIBDEFLATE_SUCCESS) break;
+		error("internal error %d in memDecompress(%s)", res,
+		      "type = \"libdeflate\"");
+	    }
+	} else {
+	    while(1) {
+		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+		res = libdeflate_zlib_decompress(d, RAW(from), inlen,
+						 buf, outlen, &actual_out);
+		if(res == LIBDEFLATE_INSUFFICIENT_SPACE) {
+		    if(outlen < ULONG_MAX/2) {
+			outlen *= 2; continue;
+		    } else break;
+		}
+		if(res == LIBDEFLATE_SUCCESS) break;
+		error("internal error %d in memDecompress(%s)", res,
+		      "type = \"libdeflate\"");
+	    }
+	}
+	ans = allocVector(RAWSXP, actual_out);
+	memcpy(RAW(ans), buf, actual_out);
+	break;
+    }
+#else
     {
 	uLong inlen = XLENGTH(from), outlen = 3*inlen;
 	Bytef *buf, *p = (Bytef *)RAW(from);
@@ -6563,6 +6753,7 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	while(1) {
 	    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+	    // R_uncompress is in gzio.h
 	    int res = R_uncompress(buf, &outlen, p, inlen, opt);
 	    if(res == Z_BUF_ERROR) {
 		if(outlen < ULONG_MAX/2) {
@@ -6574,40 +6765,11 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 		  "type = \"gzip\"");
 	}
 
-	/*
-	if (p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
-	    // in this case we could read outlen from the trailer
-	    while(1) {
-		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-		int res = R_gzuncompress(buf, &outlen, p, inlen, 16); // force gzip format
-		if(res == Z_BUF_ERROR) {
-		    if(outlen < ULONG_MAX/2) {
-			outlen *= 2; continue;
-		    } else break;
-		}
-		if(res >= 0) break;
-		error("internal error %d in memDecompress(%s)", res,
-		      "type = \"gzip\"");
-	    }
-	} else {
-	    while(1) {
-		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-		int res = uncompress(buf, &outlen, p, inlen);
-		if(res == Z_BUF_ERROR) {
-		    if(outlen < ULONG_MAX/2) {
-			outlen *= 2; continue;
-		    } else break;
-		}
-		if(res == Z_OK) break;
-		error("internal error %d in memDecompress(%s)", res,
-		      "type = \"gzip\"");
-	    }
-	}
-	*/
 	ans = allocVector(RAWSXP, outlen);
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+#endif
     case 3: /* bzip2 */
     {
 	// bzlib does not support long inputs
@@ -6685,6 +6847,7 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+    // case 5 is "unknown', covered above
     default:
 	break;
     }

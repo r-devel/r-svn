@@ -1,7 +1,7 @@
 #  File src/library/base/R/zzz.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ is.name <- is.symbol
 .knownS3Generics <- local({
 
     ## include the S3 group generics here
-    baseGenerics <- c("Math", "Ops", "Summary", "Complex",
+    baseGenerics <- c("Math", "Ops", "Summary", "Complex", "matrixOps",
         "as.character", "as.data.frame", "as.environment", "as.matrix", "as.vector",
         "cbind", "labels", "print", "rbind", "rep", "seq", "seq.int",
         "plot", "sequence", "solve", "summary", "t")
@@ -58,7 +58,6 @@ is.name <- is.symbol
 
 assign("::", function(pkg, name) NULL, envir = .ArgsEnv)
 assign(":::", function(pkg, name) NULL, envir = .ArgsEnv)
-assign("%*%", function(x, y) NULL, envir = .ArgsEnv)
 assign("...length", function() NULL, envir = .ArgsEnv)
 assign("...names",  function() NULL, envir = .ArgsEnv)
 assign("...elt", function(n) NULL, envir = .ArgsEnv)
@@ -160,7 +159,9 @@ assign("untracemem", function(x) NULL, envir = .ArgsEnv)
     "c", "dim", "dim<-", "dimnames", "dimnames<-",
     "is.array", "is.finite",
     "is.infinite", "is.matrix", "is.na", "is.nan", "is.numeric",
-    "length", "length<-", "levels<-", "names", "names<-", "rep",
+    "length", "length<-", "levels<-",
+    "log2", "log10",
+    "names", "names<-", "rep",
     "seq.int", "xtfrm")
 
 .GenericArgsEnv <- local({
@@ -191,6 +192,13 @@ assign("untracemem", function(x) NULL, envir = .ArgsEnv)
     fx <- function(e1, e2) {}
     for(f in c("+", "-", "*", "/", "^", "%%", "%/%", "&", "|",
                "==", "!=", "<", "<=", ">=", ">")) {
+        body(fx) <- substitute(UseMethod(ff), list(ff=f))
+        environment(fx) <- .BaseNamespaceEnv
+        assign(f, fx, envir = env)
+    }
+
+    fx <- function(x, y) {} ## "matrixOps"
+    for(f in c("%*%")) {
         body(fx) <- substitute(UseMethod(ff), list(ff=f))
         environment(fx) <- .BaseNamespaceEnv
         assign(f, fx, envir = env)
@@ -244,7 +252,7 @@ assign("log", function(x, base=exp(1)) UseMethod("log"),
 assign("names<-", function(x, value) UseMethod("names<-"),
        envir = .GenericArgsEnv)
 assign("rep", function(x, ...) UseMethod("rep"), envir = .GenericArgsEnv)
-assign("round", function(x, digits=0) UseMethod("round"),
+assign("round", function(x, digits = 0, ...) UseMethod("round"),
        envir = .GenericArgsEnv)
 assign("seq.int", function(from, to, by, length.out, along.with, ...)
        UseMethod("seq.int"), envir = .GenericArgsEnv)
@@ -254,8 +262,7 @@ assign("trunc", function(x, ...) UseMethod("trunc"), envir = .GenericArgsEnv)
 #assign("xtfrm", function(x) UseMethod("xtfrm"), envir = .GenericArgsEnv)
 
 ## make this the same object as as.double
-assign("as.numeric", get("as.double", envir = .GenericArgsEnv),
-       envir = .GenericArgsEnv)
+assign("as.numeric", .GenericArgsEnv$as.double, envir = .GenericArgsEnv)
 
 ## Keep this in sync with ../../tools/R/utils.R
 ##   tools:::.make_S3_methods_table_for_base()
@@ -442,6 +449,7 @@ matrix(c("!", "hexmode",
          "c", "warnings",
          "cbind", "data.frame",
          "chol", "default",
+         "chooseOpsMethod", "default",
          "close", "connection",
          "close", "srcfile",
          "close", "srcfilealias",
@@ -521,6 +529,7 @@ matrix(c("!", "hexmode",
          "months", "Date",
          "months", "POSIXt",
          "mtfrm", "default",
+         "nameOfClass", "default",
          "names", "POSIXlt",
          "names<-", "POSIXlt",
          "open", "connection",
@@ -567,6 +576,8 @@ matrix(c("!", "hexmode",
          "qr", "default",
          "quarters", "Date",
          "quarters", "POSIXt",
+         "range", "Date",
+         "range", "POSIXct",
          "range", "default",
          "rbind", "data.frame",
          "rep", "Date",
@@ -656,8 +667,9 @@ local({
     bdy <- body(as.data.frame.vector)
     bdy <- bdy[c(1:2, seq_along(bdy)[-1L])] # taking [(1,2,2:n)] to insert at [2]:
     ## deprecation warning only when not called by method dispatch from as.data.frame():
-    bdy[[2L]] <- quote(if((sys.nframe() <= 1L || sys.call(-1L)[[1L]] != quote(as.data.frame)) &&
-                          nzchar(Sys.getenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_")))
+    bdy[[2L]] <- quote(if((sys.nframe() <= 1L ||
+                           (!identical(sys.function(-1L), as.data.frame))
+                          ) && nzchar(Sys.getenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_")))
 	.Deprecated(
 	    msg = gettextf(
 		"Direct call of '%s()' is deprecated.  Use '%s()' or '%s()' instead",

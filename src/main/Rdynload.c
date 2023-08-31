@@ -1376,7 +1376,7 @@ Rf_MakeDLLInfo(DllInfo *info)
     SEXP ref, elNames, tmp;
     int i, n;
     const char *const names[] = {"name", "path", "dynamicLookup",
-				 "handle", "info"};
+				 "handle", "info", "forceSymbols"};
 
     n = sizeof(names)/sizeof(names[0]);
 
@@ -1394,6 +1394,7 @@ Rf_MakeDLLInfo(DllInfo *info)
     SEXP einfo = Rf_makeDllInfoReference(info);
     SET_VECTOR_ELT(ref, 4, einfo);
     R_registerSymbolEptr(ehandle, einfo);
+    SET_VECTOR_ELT(ref, 5, ScalarLogical(info->forceSymbols));
 
     PROTECT(elNames = allocVector(STRSXP, n));
     for(i = 0; i < n; i++)
@@ -1697,13 +1698,13 @@ static SEXP get_package_CEntry_table(const char *package)
     SEXP penv, pname;
 
     if (CEntryTable == NULL) {
-	CEntryTable = R_NewHashedEnv(R_NilValue, ScalarInteger(0));
+	CEntryTable = R_NewHashedEnv(R_NilValue, 0);
 	R_PreserveObject(CEntryTable);
     }
     pname = install(package);
     penv = findVarInFrame(CEntryTable, pname);
     if (penv == R_UnboundValue) {
-	penv = R_NewHashedEnv(R_NilValue, ScalarInteger(0));
+	penv = R_NewHashedEnv(R_NilValue, 0);
 	defineVar(pname, penv, CEntryTable);
     }
     return penv;

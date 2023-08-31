@@ -305,7 +305,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 /* The same bit can be used to mark calls used in complex assignments
    to allow replacement functions to determine when they are being
    called in an assignment context and can modify an object with one
-   refrence */
+   reference */
 #define MARK_ASSIGNMENT_CALL(call) SET_ASSIGNMENT_PENDING(call, TRUE)
 #define IS_ASSIGNMENT_CALL(call) ASSIGNMENT_PENDING(call)
 
@@ -636,6 +636,7 @@ void (SET_PRSEEN)(SEXP x, int v);
 void SET_PRENV(SEXP x, SEXP v);
 void SET_PRVALUE(SEXP x, SEXP v);
 void SET_PRCODE(SEXP x, SEXP v);
+void IF_PROMSXP_SET_PRVALUE(SEXP x, SEXP v);
 
 /* Hashing Functions */
 int  (HASHASH)(SEXP x);
@@ -1328,6 +1329,9 @@ enum {
     CTXT_BUILTIN  = 64, /* used in profiling */
     CTXT_UNWIND   = 128
 };
+
+extern0 RCNTXT *getLexicalContext(SEXP);
+extern0 SEXP getLexicalCall(SEXP);
 
 /*
 TOP   0 0 0 0 0 0  = 0
@@ -2067,7 +2071,7 @@ SEXP R_data_class(SEXP , Rboolean);
 SEXP R_data_class2(SEXP);
 char *R_LibraryFileName(const char *, char *, size_t);
 SEXP R_LoadFromFile(FILE*, int);
-SEXP R_NewHashedEnv(SEXP, SEXP);
+SEXP R_NewHashedEnv(SEXP, int);
 extern int R_Newhashpjw(const char *);
 FILE* R_OpenLibraryFile(const char *);
 SEXP R_Primitive(const char *);
@@ -2081,6 +2085,7 @@ Rboolean R_seemsOldStyleS4Object(SEXP object);
 int R_SetOptionWarn(int);
 int R_SetOptionWidth(int);
 void R_Suicide(const char *);
+SEXP R_flexiblas_info(void);
 void R_getProcTime(double *data);
 int R_isMissing(SEXP symbol, SEXP rho);
 const char *sexptype2char(SEXPTYPE type);
@@ -2157,6 +2162,7 @@ R_size_t R_GetMaxNSize(void);
 void R_SetMaxNSize(R_size_t);
 R_size_t R_Decode2Long(char *p, int *ierr);
 void R_SetPPSize(R_size_t);
+void R_SetNconn(int);
 
 void R_expand_binding_value(SEXP);
 
@@ -2272,6 +2278,10 @@ double R_atof(const char *str);
 
 /* unix/sys-std.c, main/options.c */
 void set_rl_word_breaks(const char *str);
+
+/* unix/sys-unix.c, main/connections.c */
+FILE *R_popen_pg(const char *cmd, const char *type);
+int R_pclose_pg(FILE *fp);
 
 /* From localecharset.c */
 extern const char *locale2charset(const char *);

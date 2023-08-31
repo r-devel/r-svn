@@ -768,13 +768,6 @@ stopifnot(length(strsplit(msg,"\n")[[1]]) == 1+3+1)
 ## was wrong for months in R-devel only
 
 
-## available.packages() (not) caching in case of errors
-tools::assertWarning(ap1 <- available.packages(repos = "http://foo.bar"))
-tools::assertWarning(ap2 <- available.packages(repos = "http://foo.bar"))
-stopifnot(nrow(ap1) == 0, identical(ap1, ap2))
-## had failed for a while in R-devel (left empty *.rds file)
-
-
 ## rep()/rep.int() : when 'times' is a list
 stopifnot(exprs = {
     identical(rep    (4,   list(3)), c(4,4,4))
@@ -5443,8 +5436,10 @@ stopifnot({
 ## had a trailing ".1" for a while in R-devel only
 ##
 ## table(<d.fr.>, <d.fr.>) now signals an error (PR#18224):
+options(warn=0) -> op2
 r <- tryCid( table(warpbreaks[2], warpbreaks[3]) )
 stopifnot(inherits(r, "error"),
+          getOption("warn") == 0,
           grepl("cannot\\b.* data frame", conditionMessage(r)))
 m1 <- tryCmsg(table(exclude=NA, warpbreaks[2], warpbreaks[3]))
 m2 <- tryCmsg(table(data.frame(a = 1, d = I(data.frame(x = 1)))))
@@ -5453,6 +5448,7 @@ stopifnot(exprs = {
     identical(m1, m2)
     !englishMsgs || grepl("cannot xtfrm data frames", m1)
 })
+options(op2)
 ## factor(<POSIXlt>) works fine, hence table(), does too:
 tm <- as.POSIXlt(c("1990-07-01", "1990-07-01", "1991-01-01"))
 stopifnot(exprs = {
@@ -5481,7 +5477,7 @@ stopifnot(eval(e3) == 2.5,
 m <- tryCmsg(remove.packages("stats"))
 if(englishMsgs)
     stopifnot(grepl("a base package\\b.*\\bcannot be removed", m))
-stopifnot(is.function(mad))# 'stats' still there ..
+stopifnot(dir.exists(file.path(.Library, "stats")))# 'stats' still there ..
 
 
 ## check that internal index in lapply is guarded against mutation
