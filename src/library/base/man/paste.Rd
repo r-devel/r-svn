@@ -121,19 +121,19 @@ paste(month.abb, nth, sep = ": ", collapse = "; ")
     width = 30), collapse = "\n"))
 plot(dist ~ speed, cars, main = title)
 
-# zero length arguments recycled as `""`
-paste({}, 1:2)
+## zero length arguments recycled as `""`
+paste(character(), 1:2)
 
 ## zero length arguments result in character(0) when 'recycle0 = TRUE'
-paste("The value is", {}, "-- not so good!")
-paste("The value is", {}, "-- good: empty!", recycle0 = TRUE) # -> character(0)
+paste("The value is", character(), "-- not so good!")
+paste("The value is", character(), "-- good: empty!", recycle0 = TRUE) # -> character(0)
 ## When  'collapse = <string>',  the result is a length-1 string :
-paste("foo", {}, "bar", collapse = "|")                  # |-->  "foo  bar"
-paste("foo", {}, "bar", collapse = "|", recycle0 = TRUE) # |-->  ""
+paste("foo", character(), "bar", collapse = "|")                  # |-->  "foo  bar"
+paste("foo", character(), "bar", collapse = "|", recycle0 = TRUE) # |-->  ""
 ## all empty args
 paste(	  collapse = "|")                  # |-->  ""  as do all these:
 paste(	  collapse = "|", recycle0 = TRUE)
-paste({}, collapse = "|")
-paste({}, collapse = "|", recycle0 = TRUE)
+paste(character(), collapse = "|")
+paste(character(), collapse = "|", recycle0 = TRUE)
 }
 \keyword{character}
