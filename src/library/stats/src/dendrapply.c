@@ -72,6 +72,18 @@ ll_S_dendrapply* drp_alloc_link(ll_S_dendrapply* parentlink, int i){
   return link;
 }
 
+/*
+ * Get the i'th element of a dendrogram node
+ * Replicates functionality of stats:::`[[.dendrogram` 
+ * without having to go back into R
+ */
+SEXP drp_get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
+  SEXP curnode = VECTOR_ELT(link->node, i);
+  if(shouldReclass)
+    classgets(curnode, class);
+  return(curnode);
+}
+
 /* 
  * Assign the child of a node to a link
  * Some traversals use lazy evaluation; this fills in these unevaluated nodes
@@ -84,18 +96,6 @@ ll_S_dendrapply* drp_assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrappl
   link->origLength = link->isLeaf;
 
   return link;
-}
-
-/*
- * Get the i'th element of a dendrogram node
- * Replicates functionality of stats:::`[[.dendrogram` 
- * without having to go back into R
- */
-SEXP drp_get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
-  SEXP curnode = VECTOR_ELT(link->node, i);
-  if(shouldReclass)
-    classgets(curnode, class);
-  return(curnode);
 }
 
 /* 
