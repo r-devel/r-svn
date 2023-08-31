@@ -19,7 +19,7 @@ t.test(x, \dots)
        mu = 0, paired = FALSE, var.equal = FALSE,
        conf.level = 0.95, \dots)
 
-\method{t.test}{formula}(formula, data, subset, na.action, \dots)
+\method{t.test}{formula}(formula, data, subset, na.action = "na.pass", \dots)
 }
 \arguments{
   \item{x}{a (non-empty) numeric vector of data values.}
@@ -50,8 +50,7 @@ t.test(x, \dots)
   \item{subset}{an optional vector specifying a subset of observations
     to be used.}
   \item{na.action}{a function which indicates what should happen when
-    the data contain \code{NA}s.  Defaults to
-    \code{getOption("na.action")}.}
+    the data contain \code{NA}s.}
   \item{\dots}{further arguments to be passed to or from methods.}
 }
 \details{
