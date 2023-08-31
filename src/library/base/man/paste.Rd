@@ -31,12 +31,12 @@ paste0(\dots,            collapse = NULL, recycle0 = FALSE)
 \details{
   \code{paste} converts its arguments (\emph{via}
   \code{\link{as.character}}) to character strings, and concatenates
-  them (separating them by the string given by \code{sep}).  If the
-  arguments are vectors, they are concatenated term-by-term to give a
-  character vector result.
+  them (separating them by the string given by \code{sep}).
 
-  Vector arguments are recycled as needed.  Zero-length arguments are recycled
-  as \code{""} unless \code{recycle0} is \code{TRUE} and \code{collapse} is \code{NULL}.
+  If the arguments are vectors, they are concatenated term-by-term to give a
+  character vector result.  Vector arguments are recycled as needed.
+  Zero-length arguments are recycled as \code{""} unless \code{recycle0}
+  is \code{TRUE} and \code{collapse} is \code{NULL}.
 
   Note that \code{paste()} coerces \code{\link{NA_character_}}, the
   character missing value, to \code{"NA"} which may seem
