@@ -6122,7 +6122,7 @@ static void addRadialGradient(SEXP gradient, char* colormodel,
         break;
     case R_GE_patternExtendRepeat:
     case R_GE_patternExtendReflect:
-        warning(_("Repeat or reflect pattern not supported on PDF device"_);
+        warning(_("Repeat or reflect pattern not supported on PDF device"));
     case R_GE_patternExtendNone:
         strcpy(extend, "false");
     }
