@@ -85,7 +85,7 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
     getOption("na.action", default=na.omit)} is used; see also the examples.
 
   Also note that `na.action` is called over `data ` and this may result in the loss 
-  function in a wide form, it may result in the loss of counts as complete 
+  of counts as complete rows are omitted if there is an \code{NA} present in 
   rows are omitted if there is an \code{NA} present in any collum. 
 }
 \value{
