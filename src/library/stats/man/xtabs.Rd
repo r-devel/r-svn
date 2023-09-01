@@ -84,7 +84,7 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
   is not specified (or set to \code{NULL}), in effect \code{na.action =
     getOption("na.action", default=na.omit)} is used; see also the examples.
 
-  Also note that if \code{na.action = na.omit} and the data frame is passed to the 
+  Also note that `na.action` is called over `data ` and this may result in the loss 
   function in a wide form, it may result in the loss of counts as complete 
   rows are omitted if there is an \code{NA} present in any collum. 
 }
