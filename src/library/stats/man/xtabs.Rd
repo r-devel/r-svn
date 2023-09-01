@@ -86,7 +86,7 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
 
   Also note that `na.action` is called over `data ` and this may result in the loss 
   of counts as complete rows are omitted if there is an \code{NA} present in 
-  rows are omitted if there is an \code{NA} present in any collum. 
+  any collum.
 }
 \value{
   By default, when \code{sparse = FALSE},
