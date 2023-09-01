@@ -285,9 +285,9 @@ void clowess(double *x, double *y, int n,
 #include <Rinternals.h>
 SEXP lowess(SEXP x, SEXP y, SEXP sf, SEXP siter, SEXP sdelta)
 {
-    if(TYPEOF(x) != REALSXP || TYPEOF(y) != REALSXP) error("invalid input");
+    if(TYPEOF(x) != REALSXP || TYPEOF(y) != REALSXP) error(_("invalid input"));
     int nx = LENGTH(x);
-    if (nx == NA_INTEGER || nx == 0) error("invalid input");
+    if (nx == NA_INTEGER || nx == 0) error(_("invalid input"));
     double f = asReal(sf);
     if (!R_FINITE(f) || f <= 0) error(_("'f' must be finite and > 0"));
     int iter = asInteger(siter);

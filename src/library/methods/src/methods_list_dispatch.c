@@ -599,7 +599,7 @@ static Rboolean is_missing_arg(SEXP symbol, SEXP ev)
     R_varloc_t loc;
 
     /* Sanity check, so don't translate */
-    if (!isSymbol(symbol)) error("'symbol' must be a SYMSXP");
+    if (!isSymbol(symbol)) error(_("'symbol' must be a SYMSXP"));
     loc = R_findVarLocInFrame(ev, symbol);
     if (R_VARLOC_IS_NULL(loc))
 	error(_("could not find symbol '%s' in frame of call"),
@@ -1088,11 +1088,11 @@ SEXP R_dispatchGeneric(SEXP fname, SEXP ev, SEXP fdef)
     PROTECT(siglength = findVarInFrame(f_env, R_siglength)); nprotect++;
     if(sigargs == R_UnboundValue || siglength == R_UnboundValue ||
        mtable == R_UnboundValue)
-	error("generic \"%s\" seems not to have been initialized for table dispatch---need to have '.SigArgs' and '.AllMtable' assigned in its environment");
+	error(_("generic \"%s\" seems not to have been initialized for table dispatch---need to have '.SigArgs' and '.AllMtable' assigned in its environment"));
     nargs = asInteger(siglength);
     PROTECT(classes = allocVector(VECSXP, nargs)); nprotect++;
     if (nargs > LENGTH(sigargs))
-	error("'.SigArgs' is shorter than '.SigLength' says it should be");
+	error(_("'.SigArgs' is shorter than '.SigLength' says it should be"));
     for(i = 0; i < nargs; i++) {
 	SEXP arg_sym = VECTOR_ELT(sigargs, i);
 	if(is_missing_arg(arg_sym, ev))

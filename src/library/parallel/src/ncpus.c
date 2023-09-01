@@ -87,7 +87,7 @@ static Rboolean ncpus_ex(int *ians)
                 if (!buffer) error(_("memory allocation error"));
 
             } else
-		error("in reading processor information, probable cause: %d",
+		error(_("in reading processor information, probable cause: %d"),
 		      GetLastError());
         } else
 	    done = TRUE;
@@ -122,7 +122,7 @@ static Rboolean ncpus_ex(int *ians)
 		         malloc(returnLength);
                 if (!buffer) error(_("memory allocation error"));
             } else
-		error("in reading processor information, probable cause: %d",
+		error(_("in reading processor information, probable cause: %d"),
 		      GetLastError());
         } else done = TRUE;
     }
@@ -177,7 +177,7 @@ SEXP ncpus(SEXP virtual)
             if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
                 buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION) malloc(returnLength);
                 if (!buffer) error(_("memory allocation error"));
-            } else error("in reading processor information, probable cause: %d", GetLastError());
+            } else error(_("in reading processor information, probable cause: %d"), GetLastError());
         } else done = TRUE;
     }
 

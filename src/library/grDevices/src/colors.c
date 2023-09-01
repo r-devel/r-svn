@@ -519,9 +519,9 @@ SEXP RGB2hsv(SEXP rgb)
     int n, i, i3;
 
     rgb = PROTECT(coerceVector(rgb, REALSXP));
-    if(!isMatrix(rgb)) error("rgb is not a matrix (internally)");
+    if(!isMatrix(rgb)) error(_("rgb is not a matrix (internally)"));
     dd = getAttrib(rgb, R_DimSymbol);
-    if(INTEGER(dd)[0] != 3) error("rgb must have 3 rows (internally)");
+    if(INTEGER(dd)[0] != 3) error(_("rgb must have 3 rows (internally)"));
     n = INTEGER(dd)[1];
 
     ans = PROTECT(allocMatrix(REALSXP, 3, n));
@@ -1542,7 +1542,7 @@ SEXP palette2(SEXP val)
     int n = length(val), *ians = INTEGER(ans); 
     for (int i = 0; i < PaletteSize; i++) ians[i] = (int)Palette[i];
     if (n) {
-	if (TYPEOF(val) != INTSXP) error("requires INTSXP argument");
+	if (TYPEOF(val) != INTSXP) error(_("requires INTSXP argument"));
 	if (n > MAX_PALETTE_SIZE)
 	    error(_("maximum number of colors is %d"), MAX_PALETTE_SIZE);
 	for (int i = 0; i < n; i++) Palette[i] = (rcolor)INTEGER(val)[i];

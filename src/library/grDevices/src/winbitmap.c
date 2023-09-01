@@ -75,7 +75,7 @@ static void my_png_error(png_structp png_ptr, png_const_charp msg)
 
 static void my_png_warning(png_structp png_ptr, png_const_charp msg)
 {
-    warning("libpng: %s",(char *) msg);
+    warning(_("libpng: %s"),(char *) msg);
 }
 
 int R_SaveAsPng(void  *d, int width, int height,
@@ -458,7 +458,7 @@ int R_SaveAsTIFF(void  *d, int width, int height,
 
     out = TIFFOpen(outfile, "w");
     if (!out) {
-	warning("unable to open TIFF file '%s'", outfile);
+	warning(_("unable to open TIFF file '%s'"), outfile);
 	return 0;
     }
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);

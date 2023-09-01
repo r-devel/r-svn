@@ -439,8 +439,8 @@ static SEXP D(SEXP expr, SEXP var)
 	}
 	else if (CAR(expr) == LogSymbol) {
 	    if (length(expr) != 2)
-		error("only single-argument calls to log() are supported;\n"
-		      "  maybe use log(x,a) = log(x)/log(a)");
+		error(_("only single-argument calls to log() are supported;\n"
+		        "  maybe use log(x,a) = log(x)/log(a)"));
 	    ans = simplify(DivideSymbol,
 			   PP(D(CADR(expr), var)),
 			   CADR(expr));

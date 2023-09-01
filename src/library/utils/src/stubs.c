@@ -311,7 +311,7 @@ SEXP octsize(SEXP size)
     double s = asReal(size);
     SEXP ans = allocVector(RAWSXP, 11);
     Rbyte *ra = RAW(ans);
-    if (!R_FINITE(s) && s >= 0) error("size must be finite and >= 0");
+    if (!R_FINITE(s) && s >= 0) error(_("size must be finite and >= 0"));
     /* We have to be able to do this on a 32-bit system */
     for (int i = 0; i < 11; i++) {
 	double s2 = floor(s/8.);

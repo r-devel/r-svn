@@ -250,7 +250,7 @@
 	naRealCheck(REAL(value)[2], what);
 	if(REAL(value)[0] * REAL(value)[1] < 0 ||
 	   REAL(value)[0] * REAL(value)[2] < 0)
-	    warning("`mgp[1:3]' are of differing sign");
+	    warning(_("`mgp[1:3]' are of differing sign"));
 	R_DEV__(mgp[0]) = REAL(value)[0];
 	R_DEV__(mgp[1]) = REAL(value)[1];
 	R_DEV__(mgp[2]) = REAL(value)[2];
