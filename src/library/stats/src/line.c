@@ -27,6 +27,13 @@
 # include <R_ext/Print.h>
 #endif
 
+#ifdef ENABLE_NLS
+#include <libintl.h>
+#define _(String) dgettext ("stats", String)
+#else
+#define _(String) (String)
+#endif
+
 /* Speed up by `inlining' these (as macros) [since R version 1.2] : */
 #if 1
 #define il(n,x)	(int)floor((n - 1) * x)
