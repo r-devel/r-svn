@@ -30,6 +30,13 @@
 #include <R_ext/Arith.h> // includes math.h
 #include <Rinternals.h>
 
+#ifdef ENABLE_NLS
+#include <libintl.h>
+#define _(String) dgettext ("stats", String)
+#else
+#define _(String) (String)
+#endif
+
 /* NB: this only works on the lower half of y, but pads with zeros. */
 SEXP BinDist(SEXP sx, SEXP sw, SEXP slo, SEXP shi, SEXP sn)
 {
