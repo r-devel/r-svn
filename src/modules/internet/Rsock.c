@@ -181,7 +181,7 @@ void in_Rsockwrite(int *sockp, char **buf, int *start, int *end, int *len)
 #include <sys/select.h>
 #endif
 
-struct hostent *R_gethostbyname(const char *name);
+struct addrinfo *R_getaddrinfo(const char *name, int port);
 
 #ifdef Unix
 #include <R_ext/eventloop.h>
@@ -387,8 +387,7 @@ int R_SockConnect(int port, char *host, int timeout)
     struct timeval tv;
     int status = 0;
     double used = 0.0;
-    struct sockaddr_in server;
-    struct hostent *hp;
+    struct addrinfo *hp;
 
     check_init();
     s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -399,14 +398,9 @@ int R_SockConnect(int port, char *host, int timeout)
     if (R_set_nonblocking(s))
 	return -1;
 
-    if (! (hp = R_gethostbyname(host))) CLOSE_N_RETURN(-1);
+    if (! (hp = R_getaddrinfo(host, port))) CLOSE_N_RETURN(-1);
 
-    memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
-    server.sin_port = htons((short)port);
-    server.sin_family = AF_INET;
-
-    if (R_socket_error(connect(s, (struct sockaddr *) &server,
-                               sizeof(server)))) {
+    if (R_socket_error(connect(s, hp->ai_addr, hp->ai_addrlen))) {
 
 	switch (R_socket_errno()) {
 #if !defined(Win32)
@@ -671,15 +665,22 @@ ssize_t R_SockWrite(int sockp, const void *buf, size_t len, int timeout)
     return out;
 }
 
-struct hostent *R_gethostbyname(const char *name)
+struct addrinfo *R_getaddrinfo(const char *name, int port)
 {
-    struct hostent *ans = gethostbyname(name);
-
-    /* hard-code IPv4 address for localhost to be robust against
-       misconfigured systems */
-
-    if (ans == NULL && !strcmp(name, "localhost"))
-	ans = gethostbyname("127.0.0.1");
-    return ans;
+    struct addrinfo hints;
+    struct addrinfo *addr = NULL;
+    memset(&hints,0,sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    char service[10];
+    sprintf(service, "%d", port);
+    if(getaddrinfo(name, service, &hints, &addr)){
+      printf("Failure in getaddrinfo() for %s:%s\n", name, service);
+      /* hard-code IPv4 address for localhost to be robust against
+         misconfigured systems */
+      if(!strcmp(name, "localhost"))
+        getaddrinfo("127.0.0.1", service, &hints, &addr);
+    }
+    return addr;
 }
-

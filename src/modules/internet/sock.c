@@ -173,7 +173,7 @@ int R_set_nodelay(SOCKET s)
    extern int h_errno; /* HP-UX 9.05 forgets to declare this in netdb.h */
 #endif
 
-extern struct hostent *R_gethostbyname(const char *name);
+extern struct addrinfo *R_getaddrinfo(const char *name, int port);
 
 #define MAXBACKLOG SOMAXCONN
 
@@ -376,27 +376,23 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
 int Sock_connect(Sock_port_t port, char *sname, Sock_error_t perr)
 {
     struct sockaddr_in server;
-    struct hostent *hp;
+    struct addrinfo *hp;
     SOCKET sock;
     int retval;
 
-    if (! (hp = R_gethostbyname(sname))) 
+    if (! (hp = R_getaddrinfo(sname, port))) 
 #ifdef Win32
 	return Sock_error(perr, R_socket_errno(), WSAGetLastError());
 #else
 	return Sock_error(perr, R_socket_errno(), h_errno);
 #endif
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (R_invalid_socket(sock))
 	return Sock_error(perr, R_socket_errno(), 0);
 
-    memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
-    server.sin_port = htons((short)port);
-    server.sin_family = AF_INET;
-
     do
-	retval = connect(sock, (struct sockaddr *) &server, sizeof(server));
+	retval = connect(sock, hp->ai_addr, hp->ai_addrlen);
     while (R_socket_error_eintr(retval));
     if (R_socket_error(retval)) {
 	R_close_socket(sock);

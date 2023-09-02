@@ -42,7 +42,8 @@ ssize_t Sock_write(int fd, const void *buf, size_t nbytes, Sock_error_t perr);
 #ifndef Win32
 # define SOCKET int
 #else
-# define FD_SETSIZE 1024
+# undef S /* both ws2tcpip.h and graphapp.h define macro S */
+# include<ws2tcpip.h>
 # include<winsock2.h>
 #endif
 
