@@ -833,15 +833,15 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   travtype <- switch(apply_method,
                      pre.order=0L,
                      post.order=1L)
-  
+
   ## At some point I'd like to open this up to general nested lists
   ## This would require an alternate way to determine what is a leaf
-  if (!inherits(X, "dendrogram")) 
+  if (!inherits(X, "dendrogram"))
     stop("'X' is not a dendrogram")
-  
+
   ## Free allocated memory in case of early termination
   on.exit(.C(C_free_dendrapply_list))
-  
+
   ## Main function
   wrapper <- function(node) {
     res<-FUN(node, ...)
@@ -854,14 +854,14 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
     }
     res
   }
-  
+
   ## If we only have one node, it'll hang
   ## We can get around this by just applying the function to the leaf
   ## and returning--no need for C code here.
   if(!is.null(attr(X, "leaf")) && attr(X,"leaf")){
     return(wrapper(X))
   }
-  
+
   ## Else we apply the function to all nodes
   return(.Call(C_dendrapply, X, wrapper, parent.frame(), travtype))
 }
