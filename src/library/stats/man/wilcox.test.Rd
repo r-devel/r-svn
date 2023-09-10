@@ -22,7 +22,7 @@ wilcox.test(x, \dots)
             conf.int = FALSE, conf.level = 0.95,
             tol.root = 1e-4, digits.rank = Inf, \dots)
 
-\method{wilcox.test}{formula}(formula, data, subset, na.action, \dots)
+\method{wilcox.test}{formula}(formula, data, subset, \dots)
 }
 \arguments{
   \item{x}{numeric vector of data values.  Non-finite (e.g., infinite or

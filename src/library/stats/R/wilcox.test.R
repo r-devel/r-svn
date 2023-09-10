@@ -443,10 +443,12 @@ function(x, y = NULL, alternative = c("two.sided", "less", "greater"),
 }
 
 wilcox.test.formula <-
-function(formula, data, subset, na.action, ...)
+function(formula, data, subset, ...)
 {
     if(missing(formula) || (length(formula) != 3L))
         stop("'formula' missing or incorrect")
+    if ("paired" %in% ...names())
+        stop("cannot use 'paired' in formula method")        
     oneSampleOrPaired <- FALSE
     if (length(attr(terms(formula[-2L]), "term.labels")) != 1L)
         if (formula[[3L]] == 1L)
@@ -456,6 +458,7 @@ function(formula, data, subset, na.action, ...)
     m <- match.call(expand.dots = FALSE)
     if (is.matrix(eval(m$data, parent.frame())))
         m$data <- as.data.frame(data)
+    m$na.action <- "na.pass"        
     ## need stats:: for non-standard evaluation
     m[[1L]] <- quote(stats::model.frame)
     m$... <- NULL
