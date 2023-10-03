@@ -27,6 +27,13 @@
 # include <R_ext/Print.h>
 #endif
 
+#ifdef ENABLE_NLS
+#include <libintl.h>
+#define _(String) dgettext ("stats", String)
+#else
+#define _(String) (String)
+#endif
+
 /* Speed up by `inlining' these (as macros) [since R version 1.2] : */
 #if 1
 #define il(n,x)	(int)floor((n - 1) * x)
@@ -144,7 +151,7 @@ void tukeyline0(double *x, double *y, double *z, double *w, int *n,
 SEXP tukeyline(SEXP x, SEXP y, SEXP iter, SEXP call)
 {
     int n = LENGTH(x);
-    if (n < 2) error("insufficient observations");
+    if (n < 2) error(_("insufficient observations"));
     SEXP ans;
     ans = PROTECT(allocVector(VECSXP, 4));
     SEXP nm = allocVector(STRSXP, 4);

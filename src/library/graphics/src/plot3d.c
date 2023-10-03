@@ -34,7 +34,7 @@
 static void TypeCheck(SEXP s, SEXPTYPE type)
 {
     if (TYPEOF(s) != type)
-	error("invalid type passed to graphics function");
+	error(_("invalid type passed to graphics function"));
 }
 
 

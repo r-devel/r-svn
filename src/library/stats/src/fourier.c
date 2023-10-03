@@ -88,7 +88,7 @@ SEXP fft(SEXP z, SEXP inverse)
 		error(_("fft factorization error"));
 	    smaxf = maxf;
 	    if (smaxf > maxsize)
-		error("fft too large");
+		error(_("fft too large"));
 	    work = (double*)R_alloc(4 * smaxf, sizeof(double));
 	    iwork = (int*)R_alloc(maxp, sizeof(int));
 	    fft_work(&(COMPLEX(z)[0].r), &(COMPLEX(z)[0].i),
@@ -112,7 +112,7 @@ SEXP fft(SEXP z, SEXP inverse)
 	    }
 	    smaxf = maxmaxf;
 	    if (smaxf > maxsize)
-		error("fft too large");
+		error(_("fft too large"));
 	    work = (double*)R_alloc(4 * smaxf, sizeof(double));
 	    iwork = (int*)R_alloc(maxmaxp, sizeof(int));
 	    nseg = LENGTH(z);
@@ -179,7 +179,7 @@ SEXP mvfft(SEXP z, SEXP inverse)
 	    error(_("fft factorization error"));
 	smaxf = maxf;
 	if (smaxf > maxsize)
-	    error("fft too large");
+	    error(_("fft too large"));
 	work = (double*)R_alloc(4 * smaxf, sizeof(double));
 	iwork = (int*)R_alloc(maxp, sizeof(int));
 	for (i = 0; i < p; i++) {

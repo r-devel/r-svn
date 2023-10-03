@@ -378,7 +378,7 @@ static void init_PS_PDF(void)
 
     initS = findVarInFrame3(grNS, install("initPSandPDFfonts"), TRUE);
     if(initS == R_UnboundValue)
-	error("missing initPSandPDFfonts() in grDevices namespace: this should not happen");
+	error(_("missing initPSandPDFfonts() in grDevices namespace: this should not happen"));
     PROTECT(call = lang1(initS));
     eval(call, R_GlobalEnv);
     UNPROTECT(1);
@@ -571,7 +571,7 @@ static void RFontInit()
 	oops[0] = '\0';
 	notdone = optread(opt, ':');
 	if (notdone == 1)
-	    snprintf(oops, 256, "[%s] Error at line %d.", optfile(), optline());
+	    snprintf(oops, 256, G_("[%s] Error at line %d."), optfile(), optline());
 	else if (notdone == 2) {
 	    fontname[fontnum] = strdup(opt[0]);
 	    if (!fontname[fontnum])
@@ -586,7 +586,7 @@ static void RFontInit()
 		else if (!strcmpi(opt[1], "bold&italic"))
 		    fontstyle[fontnum] = BoldItalic;
 		else
-		    snprintf(oops, 256, "Unknown style at line %d. ", optline());
+		    snprintf(oops, 256, G_("Unknown style at line %d. "), optline());
 		fontnum += 1;
 	    }
 	}
@@ -715,12 +715,12 @@ static void SetFont(pGEcontext gc, double rot, gadesc *xd)
 				"Arial", fontstyle[face - 1],
 				size, rot, usePoints, quality);
 	    if (!xd->font)
-		error("unable to set or substitute a suitable font");
+		error(_("unable to set or substitute a suitable font"));
 	    xd->fontface = face;
 	    xd->fontsize = size;
 	    xd->fontangle = rot;
 	    strcpy(xd->fontfamily, "Arial");
-	    warning("unable to set font: using Arial");
+	    warning(_("unable to set font: using Arial"));
 	}
     }
 }
@@ -1573,7 +1573,7 @@ setupScreenDevice(pDevDesc dd, gadesc *xd, double w, double h,
 				    Document | StandardWindow | Menubar |
 				    VScrollbar | HScrollbar | CanvasSize)
 		)) {
-	    warning("unable to open window");
+	    warning(_("unable to open window"));
 	    return FALSE;
 	}
     }
@@ -1800,7 +1800,7 @@ static Rboolean GA_Open(pDevDesc dd, gadesc *xd, const char *dsp,
 	xd->fast = 0; /* use scalable line widths */
 	xd->gawin = newprinter(MM_PER_INCH * w, MM_PER_INCH * h, &dsp[10]);
 	if (!xd->gawin) {
-	    warning("unable to open printer");
+	    warning(_("unable to open printer"));
 	    return FALSE;
 	}
     } else if (!strncmp(dsp, "png:", 4) || !strncmp(dsp,"bmp:", 4)) {
@@ -1902,7 +1902,7 @@ static Rboolean GA_Open(pDevDesc dd, gadesc *xd, const char *dsp,
 	if (ls > ld)
 	    return FALSE;
 	if (strncmp(dsp, s, ls) || (dsp[ls] && (dsp[ls] != ':'))) {
-	    warning("invalid specification for file name in win.metafile()");
+	    warning(_("invalid specification for file name in win.metafile()"));
 	    return FALSE;
 	}
 	if(ld > ls && strlen(&dsp[ls + 1]) >= 512)
@@ -2307,7 +2307,7 @@ static void GA_Activate(pDevDesc dd)
 	snprintf(t, 140, xd->title, ndevNumber(dd) + 1);
 	t[139] = '\0';
     } else {
-	snprintf(t, 150, "R Graphics: Device %d", ndevNumber(dd) + 1);
+	snprintf(t, 150, G_("R Graphics: Device %d"), ndevNumber(dd) + 1);
     }
     strcat(t, " (ACTIVE)");
     settext(xd->gawin, t);
@@ -2335,7 +2335,7 @@ static void GA_Deactivate(pDevDesc dd)
 	snprintf(t, 140, xd->title, ndevNumber(dd) + 1);
 	t[139] = '\0';
     } else {
-	snprintf(t, 150, "R Graphics: Device %d", ndevNumber(dd) + 1);
+	snprintf(t, 150, G_("R Graphics: Device %d"), ndevNumber(dd) + 1);
     }
     strcat(t, " (inactive)");
     settext(xd->gawin, t);
@@ -3328,7 +3328,7 @@ Rboolean GADeviceDriver(pDevDesc dd, const char *display, double width,
 
     /* allocate new device description */
     if (!(xd = (gadesc *) malloc(sizeof(gadesc)))) {
-	warning("allocation failed in GADeviceDriver");
+	warning(_("allocation failed in GADeviceDriver"));
 	return FALSE;
     }
 
@@ -3373,7 +3373,7 @@ Rboolean GADeviceDriver(pDevDesc dd, const char *display, double width,
 
     if (!GA_Open(dd, xd, display, width, height, recording, resize, canvas,
 		 gamma, xpos, ypos, bg)) {
-	warning("opening device failed");
+	warning(_("opening device failed"));
 	free(xd);
 	return FALSE;
     }
@@ -3985,7 +3985,7 @@ static int Load_Rcairo_Dll()
 	    if (hRcairoDll != NULL) FreeLibrary(hRcairoDll);
 	    RcairoAlreadyLoaded = -1;
 	    char buf[1000];
-	    snprintf(buf, 1000, "Unable to load '%s'", szFullPath);
+	    snprintf(buf, 1000, G_("Unable to load '%s'"), szFullPath);
 	    R_ShowMessage(buf);
 	}
 	free(szFullPath);
@@ -3999,7 +3999,7 @@ static int Load_Rcairo_Dll()
 SEXP devCairo(SEXP args)
 {
     if (!Load_Rcairo_Dll())
-	error("unable to load winCairo.dll: was it built?");
+	error(_("unable to load winCairo.dll: was it built?"));
     else (R_devCairo)(args);
     return R_NilValue;
 }

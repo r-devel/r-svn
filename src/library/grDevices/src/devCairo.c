@@ -47,7 +47,7 @@ static int Load_Rcairo_Dll(void)
     int res = R_cairoCdynload(1, 1);
     if(!res) return initialized;
     R_devCairo = (R_cairo) R_FindSymbol("in_Cairo", "cairo", NULL);
-    if (!R_devCairo) error("failed to load cairo DLL");
+    if (!R_devCairo) error(_("failed to load cairo DLL"));
     R_cairoVersion = (R_cairoVersion_t) R_FindSymbol("in_CairoVersion", "cairo", NULL);
     R_pangoVersion = (R_pangoVersion_t) R_FindSymbol("in_PangoVersion", "cairo", NULL);
     R_cairoFT = (R_cairoFT_t) R_FindSymbol("in_CairoFT", "cairo", NULL);
@@ -58,7 +58,7 @@ static int Load_Rcairo_Dll(void)
 
 SEXP devCairo(SEXP args)
 {
-    if (Load_Rcairo_Dll() < 0) warning("failed to load cairo DLL");
+    if (Load_Rcairo_Dll() < 0) warning(_("failed to load cairo DLL"));
     else (R_devCairo)(args);
     return R_NilValue;
 }

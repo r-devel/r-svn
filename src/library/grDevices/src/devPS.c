@@ -589,7 +589,7 @@ PostScriptLoadFontMetrics(const char * const fontpath,
 
 	case FontBBox:
 	    if (!GetFontBBox(buf, metrics)) {
-		warning("'FontBBox' could not be parsed");
+		warning(_("'FontBBox' could not be parsed"));
 		goto pserror;
 	    }
 	    break;
@@ -597,7 +597,7 @@ PostScriptLoadFontMetrics(const char * const fontpath,
 	case C:
 	    if (mode != StartFontMetrics) goto pserror;
 	    if (!GetCharInfo(buf, metrics, charnames, encnames, reencode)) {
-		warning("'CharInfo' could not be parsed");
+		warning(_("'CharInfo' could not be parsed"));
 		goto pserror;
 	    }
 	    break;
@@ -4404,7 +4404,7 @@ next_char:
 
     Riconv_close(cd);
     if (status == (size_t)-1)  /* internal error? */
-	error("conversion failure from %s to %s on '%s' in 'mbcsToSbcs'",
+	error(_("conversion failure from %s to %s on '%s' in 'mbcsToSbcs'"),
 	      (enc == CE_UTF8) ? "UTF-8" : "native", encoding, in);
 }
 
@@ -6085,7 +6085,7 @@ static void addLinearGradient(SEXP gradient, char* colormodel,
         break;
     case R_GE_patternExtendRepeat:
     case R_GE_patternExtendReflect:
-        warning("Repeat or reflect pattern not supported on PDF device");
+        warning(_("Repeat or reflect pattern not supported on PDF device"));
     case R_GE_patternExtendNone:
         strcpy(extend, "false");
     }
@@ -6138,7 +6138,7 @@ static void addRadialGradient(SEXP gradient, char* colormodel,
         break;
     case R_GE_patternExtendRepeat:
     case R_GE_patternExtendReflect:
-        warning("Repeat or reflect pattern not supported on PDF device");
+        warning(_("Repeat or reflect pattern not supported on PDF device"));
     case R_GE_patternExtendNone:
         strcpy(extend, "false");
     }
@@ -6194,7 +6194,7 @@ static int addShadingSoftMask(SEXP pattern, PDFDesc *pd)
         addRadialGradient(pattern, "gray", xobjDefn, pd);
         break;
     default:
-        warning("Shading type not yet supported");
+        warning(_("Shading type not yet supported"));
         return -1;
     }
     catDefn(">>\n/ExtGState << /G0 << /CA 1 /ca 1 >> >>\n",
@@ -6282,7 +6282,7 @@ static SEXP addShading(SEXP pattern, PDFDesc *pd)
         addRadialGradient(pattern, pd->colormodel, defNum, pd);
         break;
     default:
-        warning("Shading type not yet supported");
+        warning(_("Shading type not yet supported"));
         return R_NilValue;
     }
     catDefn(">>\nendobj\n", defNum, pd);
@@ -7332,7 +7332,7 @@ static void writeRasterXObject(rasterImage raster, int n,
         outlen += (inlen >> 10) + 20; // (1.001*inlen + 20) warns [-Wconversion]; 2^(-10) ~= 0.001
 	buf2 = R_Calloc(outlen, Bytef);
 	int res = compress(buf2, &outlen, buf, inlen);
-	if(res != Z_OK) error("internal error %d in writeRasterXObject", res);
+	if(res != Z_OK) error(_("internal error %d in writeRasterXObject"), res);
 	R_Free(buf);
 	buf = buf2;
     }
@@ -7382,7 +7382,7 @@ static void writeMaskXObject(rasterImage raster, int n, PDFDesc *pd)
         outlen += (inlen >> 10) + 20;
 	buf2 = R_Calloc(outlen, Bytef);
 	int res = compress(buf2, &outlen, buf, inlen);
-	if(res != Z_OK) error("internal error %d in writeRasterXObject", res);
+	if(res != Z_OK) error(_("internal error %d in writeRasterXObject"), res);
 	R_Free(buf);
 	buf = buf2;
     }
@@ -7563,7 +7563,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     if(!pd->pos) {
 	PDFcleanup(1, pd);
 	free(dd);
-	error("cannot allocate pd->pos");
+	error(_("cannot allocate pd->pos"));
     }
     /* This one is dynamic: initial allocation */
     pd->pagemax = 100;
@@ -7571,7 +7571,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     if(!pd->pageobj) {
 	PDFcleanup(2, pd);
 	free(dd);
-	error("cannot allocate pd->pageobj");
+	error(_("cannot allocate pd->pageobj"));
     }
 
 
@@ -8567,7 +8567,7 @@ static void PDF_endfile(PDFDesc *pd)
 	int new =  pd->nobjs + nraster + nmask + npattern + 500;
 	void *tmp = realloc(pd->pos, new * sizeof(int));
 	if(!tmp)
-	    error("unable to increase object limit: please shutdown the pdf device");
+	    error(_("unable to increase object limit: please shutdown the pdf device"));
 	pd->pos = (int *) tmp;
 	pd->max_nobjs = new;
     }
@@ -8592,7 +8592,7 @@ static void PDF_endfile(PDFDesc *pd)
 	int new = tempnobj + 500;
 	void *tmp = realloc(pd->pos, new * sizeof(int));
 	if(!tmp)
-	    error("unable to increase object limit: please shutdown the pdf device");
+	    error(_("unable to increase object limit: please shutdown the pdf device"));
 	pd->pos = (int *) tmp;
 	pd->max_nobjs = new;
     }
@@ -8821,7 +8821,7 @@ static void PDF_endfile(PDFDesc *pd)
 	pd->pdffp = R_fopen(pd->filename, "rb"); 
 	while((nc = fread(buf, 1, APPENDBUFSIZE, pd->pdffp))) {
 	    if(nc != fwrite(buf, 1, nc, pd->pipefp))
-		error("write error");
+		error(_("write error"));
 	    if (nc < APPENDBUFSIZE) break;
 	}
 	fclose(pd->pdffp);
@@ -8944,7 +8944,7 @@ static void PDF_endpage(PDFDesc *pd)
 	int new =  pd->nobjs + 2*(pd->numRasters - pd->writtenRasters) + 2000;
 	void *tmp = realloc(pd->pos, new * sizeof(int));
 	if(!tmp)
-	    error("unable to increase object limit: please shutdown the pdf device");
+	    error(_("unable to increase object limit: please shutdown the pdf device"));
 	pd->pos = (int *) tmp;
 	pd->max_nobjs = new;
     }
@@ -8979,7 +8979,7 @@ static void PDF_NewPage(const pGEcontext gc,
     if(pd->pageno >= pd->pagemax) {
 	void * tmp = realloc(pd->pageobj, 2*pd->pagemax * sizeof(int));
 	if(!tmp)
-	    error("unable to increase page limit: please shutdown the pdf device");
+	    error(_("unable to increase page limit: please shutdown the pdf device"));
 	pd->pageobj = (int *) tmp;
 	pd->pagemax *= 2;
     }
@@ -8987,7 +8987,7 @@ static void PDF_NewPage(const pGEcontext gc,
 	int new = pd->max_nobjs + 2000;
 	void *tmp = realloc(pd->pos, new * sizeof(int));
 	if(!tmp)
-	    error("unable to increase object limit: please shutdown the pdf device");
+	    error(_("unable to increase object limit: please shutdown the pdf device"));
 	pd->pos = (int *) tmp;
 	pd->max_nobjs = new;
     }

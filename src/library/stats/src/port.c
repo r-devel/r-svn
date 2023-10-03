@@ -317,7 +317,7 @@ double* check_gv(SEXP gr, SEXP hs, SEXP rho, int n, double *gv, double *hv)
 	error(_("gradient function must return a numeric vector of length %d"), n);
     Memcpy(gv, REAL(gval), n);
     for (int i = 0; i < n; i++)
-	if(ISNAN(gv[i])) error("NA/NaN gradient evaluation");
+	if(ISNAN(gv[i])) error(_("NA/NaN gradient evaluation"));
     if (hv) {
 	SEXP hval = PROTECT(eval(hs, rho));
 	SEXP dim = getAttrib(hval, R_DimSymbol);
@@ -331,7 +331,7 @@ double* check_gv(SEXP gr, SEXP hs, SEXP rho, int n, double *gv, double *hv)
 	for (i = 0, pos = 0; i < n; i++) /* copy lower triangle row-wise */
 	    for (j = 0; j <= i; j++) {
 		hv[pos] = rhval[i + j * n];
-		if(ISNAN(hv[pos])) error("NA/NaN Hessian evaluation");
+		if(ISNAN(hv[pos])) error(_("NA/NaN Hessian evaluation"));
 		pos++;
 	    }
 	UNPROTECT(1);
@@ -419,7 +419,7 @@ SEXP port_nlminb(SEXP fn, SEXP gr, SEXP hs, SEXP rho,
 	else {
 	    fx = asReal(eval(fn, rho));
 	    if (ISNAN(fx)) {
-		warning("NA/NaN function evaluation");
+		warning(_("NA/NaN function evaluation"));
 		fx = R_PosInf;
 	    }
 	}

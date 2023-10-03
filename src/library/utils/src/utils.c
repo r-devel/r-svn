@@ -69,7 +69,7 @@ SEXP charClass(SEXP x, SEXP scl)
     const char *cl = CHAR(STRING_ELT(scl, 0));
     wctype_t wcl = wctype(cl);
     if(wcl == 0)
-	error("character class \"%s\" is invalid", cl);
+	error(_("character class \"%s\" is invalid"), cl);
 
     R_xlen_t n;
     SEXP ans;
@@ -109,7 +109,7 @@ SEXP charClass(SEXP x, SEXP scl)
 #else
 SEXP charClass(SEXP x, SEXP scl)
 {
-    error("'charClass' is not available on this platform");
+    error(_("'charClass' is not available on this platform"));
     return R_NilValue;
 }
 #endif
@@ -121,7 +121,7 @@ SEXP crc64(SEXP in)
 {
     uint64_t crc = 0;
     char ans[17];
-    if (!isString(in)) error("input must be a character string");
+    if (!isString(in)) error(_("input must be a character string"));
     const char *str = CHAR(STRING_ELT(in, 0));
 
     /* Seems this is really 64-bit only on 64-bit platforms */

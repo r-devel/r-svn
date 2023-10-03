@@ -28,7 +28,7 @@ const char *getPRIMNAME(SEXP object);
 SEXP R_get_primname(SEXP object)
 {
     if(TYPEOF(object) != BUILTINSXP && TYPEOF(object) != SPECIALSXP)
-	error("'R_get_primname' called on a non-primitive");
+	error(_("'R_get_primname' called on a non-primitive"));
     return mkString(getPRIMNAME(object));
 }
 

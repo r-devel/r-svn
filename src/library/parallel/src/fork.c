@@ -680,7 +680,7 @@ SEXP mc_close_stderr(SEXP toNULL)
 SEXP mc_close_fds(SEXP sFDS) 
 {
     int *fd, fds, i = 0;
-    if (TYPEOF(sFDS) != INTSXP) error("descriptors must be integers");
+    if (TYPEOF(sFDS) != INTSXP) error(_("descriptors must be integers"));
     fds = LENGTH(sFDS);
     fd = INTEGER(sFDS);
     while (i < fds) close_non_child_fd(fd[i++]);
@@ -793,7 +793,7 @@ SEXP mc_send_child_stdin(SEXP sPid, SEXP what)
     int pid = asInteger(sPid);
     if (!is_master) 
 	error(_("only the master process can send data to a child process"));
-    if (TYPEOF(what) != RAWSXP) error("what must be a raw vector");
+    if (TYPEOF(what) != RAWSXP) error(_("what must be a raw vector"));
     child_info_t *ci = children;
     pid_t ppid = getpid();
     while (ci) {
@@ -848,7 +848,7 @@ SEXP mc_select_children(SEXP sTimeout, SEXP sWhich)
 		while (k < wlen) {
 		    if (which[k++] == ci->pid) {
 			if (ci->pfd > FD_SETSIZE)
-			    error("file descriptor is too large for select()");
+			    error(_("file descriptor is too large for select()"));
 			FD_SET(ci->pfd, &fs);
 			if (ci->pfd > maxfd) maxfd = ci->pfd;
 #ifdef MC_DEBUG
@@ -861,7 +861,7 @@ SEXP mc_select_children(SEXP sTimeout, SEXP sWhich)
 	    } else {
 		/* not sure if this should be allowed */
 		if (ci->pfd > FD_SETSIZE)
-		    error("file descriptor is too large for select()");
+		    error(_("file descriptor is too large for select()"));
 		FD_SET(ci->pfd, &fs);
 		if (ci->pfd > maxfd) maxfd = ci->pfd;
 #ifdef MC_DEBUG

@@ -321,7 +321,7 @@ static void array_op(Array arr1, Array arr2, char op, Array ans)
 		VECTOR(ans)[i] = VECTOR(arr1)[i] - VECTOR(arr2)[i];
 	    break;
 	default:
-	    printf("Unknown op in array_op");
+	    printf(_("Unknown op in array_op"));
     }
 }
 
@@ -351,7 +351,7 @@ static void scalar_op(Array arr, double s, char op, Array ans)
 		VECTOR(ans)[i] = VECTOR(arr)[i] - s;
 	    break;
 	default:
-	    printf("Unknown op in array_op");
+	    printf(_("Unknown op in array_op"));
     }
 }
 

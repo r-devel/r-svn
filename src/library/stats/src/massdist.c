@@ -30,13 +30,20 @@
 #include <R_ext/Arith.h> // includes math.h
 #include <Rinternals.h>
 
+#ifdef ENABLE_NLS
+#include <libintl.h>
+#define _(String) dgettext ("stats", String)
+#else
+#define _(String) (String)
+#endif
+
 /* NB: this only works on the lower half of y, but pads with zeros. */
 SEXP BinDist(SEXP sx, SEXP sw, SEXP slo, SEXP shi, SEXP sn)
 {
     PROTECT(sx = coerceVector(sx, REALSXP));
     PROTECT(sw = coerceVector(sw, REALSXP));
     int n = asInteger(sn);
-    if (n == NA_INTEGER || n <= 0) error("invalid '%s' argument", "n");
+    if (n == NA_INTEGER || n <= 0) error(_("invalid '%s' argument"), "n");
     SEXP ans = allocVector(REALSXP, 2*n);
     PROTECT(ans);
     double xlo = asReal(slo), xhi = asReal(shi);

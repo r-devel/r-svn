@@ -938,7 +938,7 @@ SEXP readtablehead(SEXP args)
 	    SET_STRING_ELT(ans, nread, mkChar(buf));
 	    nread++;
 	    if (strlen(buf) < nbuf) // PR#15625
-		warning("line %d appears to contain embedded nulls", nread);
+		warning(_("line %d appears to contain embedded nulls"), nread);
 	}
 	if(c == R_EOF) goto no_more_lines;
     }

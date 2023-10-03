@@ -4486,7 +4486,7 @@ static void UseState(ParseState *state) {
 static void PushState(void) {
     if (busy) {
     	ParseState *prev = malloc(sizeof(ParseState));
-	if (prev == NULL) error("unable to allocate in PushState");
+	if (prev == NULL) error(_("unable to allocate in PushState"));
     	PutState(prev);
     	parseState.prevState = prev;
     } else 

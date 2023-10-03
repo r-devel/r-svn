@@ -144,7 +144,7 @@ stem_leaf(double *x, int n, double scale, int width, double atom)
 /* The R wrapper has removed NAs from x */
 SEXP C_StemLeaf(SEXP x, SEXP scale, SEXP swidth, SEXP atom)
 {
-    if(TYPEOF(x) != REALSXP || TYPEOF(scale) != REALSXP) error("invalid input");
+    if(TYPEOF(x) != REALSXP || TYPEOF(scale) != REALSXP) error(_("invalid input"));
 #ifdef LONG_VECTOR_SUPPORT
     if (IS_LONG_VEC(x))
 	error(_("long vector '%s' is not supported"), "x");
@@ -186,7 +186,7 @@ C_bincount(double *x, R_xlen_t n, double *breaks, R_xlen_t nb, int *count,
 		}
 #ifdef LONG_VECTOR_SUPPORT
 		if(count[lo] >= INT_MAX)
-		    error("count for a bin exceeds INT_MAX");
+		    error(_("count for a bin exceeds INT_MAX"));
 #endif
 		count[lo]++;
 	    }

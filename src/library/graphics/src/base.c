@@ -351,7 +351,7 @@ static SEXP baseCallback(GEevent task, pGEDevDesc dd, SEXP data)
 	    /* Modify the saved settings so this effects display list too */
 	    ddpSaved->scale *= rf;
 	} else
-	  error("event 'GE_ScalePS' requires a single numeric value");
+	  error(_("event 'GE_ScalePS' requires a single numeric value"));
 	break;
     }
     }

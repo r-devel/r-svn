@@ -155,9 +155,9 @@ check_nonASCII(SEXP text, SEXP ignore_quotes)
     char quote= '\0';
     Rboolean ign, inquote = FALSE;
 
-    if(TYPEOF(text) != STRSXP) error("invalid input");
+    if(TYPEOF(text) != STRSXP) error(_("invalid input"));
     ign = asLogical(ignore_quotes);
-    if(ign == NA_LOGICAL) error("'ignore_quotes' must be TRUE or FALSE");
+    if(ign == NA_LOGICAL) error(_("'ignore_quotes' must be TRUE or FALSE"));
 
     for (i = 0; i < LENGTH(text); i++) {
 	p = CHAR(STRING_ELT(text, i)); // ASCII or not not affected by charset
@@ -191,7 +191,7 @@ SEXP check_nonASCII2(SEXP text)
     int i, m = 0, m_all = 100, *ind, *ians, yes;
     const char *p;
 
-    if(TYPEOF(text) != STRSXP) error("invalid input");
+    if(TYPEOF(text) != STRSXP) error(_("invalid input"));
     ind = R_Calloc(m_all, int);
     for (i = 0; i < LENGTH(text); i++) {
 	p = CHAR(STRING_ELT(text, i));
@@ -264,9 +264,9 @@ SEXP doTabExpand(SEXP strings, SEXP starts)  /* does tab expansion for UTF-8 str
 SEXP splitString(SEXP string, SEXP delims)
 {
     if(!isString(string) || length(string) != 1)
-	error("first arg must be a single character string");
+	error(_("first arg must be a single character string"));
     if(!isString(delims) || length(delims) != 1)
-	error("first arg must be a single character string");
+	error(_("second arg must be a single character string"));
 
     if(STRING_ELT(string, 0) == NA_STRING)
 	return ScalarString(NA_STRING);

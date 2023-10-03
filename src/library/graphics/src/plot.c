@@ -34,7 +34,7 @@
 static R_INLINE void TypeCheck(SEXP s, SEXPTYPE type)
 {
     if (TYPEOF(s) != type)
-	error("invalid type passed to graphics function");
+	error(_("invalid type passed to graphics function"));
 }
 
 
@@ -1870,13 +1870,13 @@ SEXP C_path(SEXP args)
     xx = (double*) R_alloc(nx, sizeof(double));
     yy = (double*) R_alloc(nx, sizeof(double));
     if (!xx || !yy)
-	error("unable to allocate memory (in GPath)");
+	error(_("unable to allocate memory (in GPath)"));
     for (i=0; i<nx; i++) {
         xx[i] = REAL(sx)[i];
         yy[i] = REAL(sy)[i];
         GConvert(&(xx[i]), &(yy[i]), USER, DEVICE, dd);
         if (!(R_FINITE(xx[i]) && R_FINITE(yy[i])))
-            error("invalid 'x' or 'y' (in 'GPath')");
+            error(_("invalid 'x' or 'y' (in 'GPath')"));
     }
 
     if (INTEGER(lty)[0] == NA_INTEGER)
@@ -4063,7 +4063,7 @@ SEXP C_xspline(SEXP args)
     xx = (double *) R_alloc(nx, sizeof(double));
     yy = (double *) R_alloc(nx, sizeof(double));
     if (!xx || !yy)
-	error("unable to allocate memory (in xspline)");
+	error(_("unable to allocate memory (in xspline)"));
     for (i = 0; i < nx; i++) {
 	xx[i] = x[i];
 	yy[i] = y[i];
@@ -4115,16 +4115,16 @@ SEXP C_clip(SEXP args)
 
     args = CDR(args);
     x1 = asReal(CAR(args));
-    if(!R_FINITE(x1)) error("invalid '%s' argument", "x1");
+    if(!R_FINITE(x1)) error(_("invalid '%s' argument"), "x1");
     args = CDR(args);
     x2 = asReal(CAR(args));
-    if(!R_FINITE(x2)) error("invalid '%s' argument", "x2");
+    if(!R_FINITE(x2)) error(_("invalid '%s' argument"), "x2");
     args = CDR(args);
     y1 = asReal(CAR(args));
-    if(!R_FINITE(y1)) error("invalid '%s' argument", "y1");
+    if(!R_FINITE(y1)) error(_("invalid '%s' argument"), "y1");
     args = CDR(args);
     y2 = asReal(CAR(args));
-    if(!R_FINITE(y2)) error("invalid '%s' argument", "y2");
+    if(!R_FINITE(y2)) error(_("invalid '%s' argument"), "y2");
 
     GConvert(&x1, &y1, USER, DEVICE, dd);
     GConvert(&x2, &y2, USER, DEVICE, dd);

@@ -213,7 +213,7 @@ R_xlen_t R_firstNA_dbl(const double x[], R_xlen_t n) {
 // .Call()ed from ../R/runmed.R
 SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 {
-    if (TYPEOF(sx) != REALSXP) error("numeric 'x' required");
+    if (TYPEOF(sx) != REALSXP) error(_("numeric 'x' required"));
     double *x = REAL(sx), *xx;
     R_xlen_t n = XLENGTH(sx);
     int type        = asInteger(stype),
@@ -273,7 +273,7 @@ SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 
     if (type == 1) {
 	if (IS_LONG_VEC(sx))
-	    error("long vectors are not supported for algorithm = \"Turlach\"");
+	    error(_("long vectors are not supported for algorithm = \"Turlach\""));
 	Trunmed(xx, REAL(ans), nn, k, end_rule, print_level);
     } else {
 	Srunmed(xx, REAL(ans), nn, k, end_rule, print_level);

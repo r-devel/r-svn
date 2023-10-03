@@ -152,14 +152,14 @@ QuartzDesc_t QuartzBitmap_DeviceCreate(void *dd, QuartzFunctions_t *fn, QuartzPa
         /* QuartzDesc_t qd; */
         /* Allocate sufficient space */
         QuartzBitmapDevice *dev = malloc(sizeof(QuartzBitmapDevice)+s);
-	if(dev == NULL) error("allocation failure in QuartzBitmap_DeviceCreate");
+	if(dev == NULL) error(_("allocation failure in QuartzBitmap_DeviceCreate"));
         dev->length = (unsigned int) s;
         // dev->uti  = type ? strdup(type) : NULL;
 	if(type) { // code above forces this
 	    dev->uti = strdup(type);
 	    if(dev->uti == NULL) {
 		free(dev);
-		error("allocation failure in QuartzBitmap_DeviceCreate");
+		error(_("allocation failure in QuartzBitmap_DeviceCreate"));
 	    }
 	} else dev->uti = NULL;
         // dev->path = par->file ? strdup(par->file) : NULL;
@@ -168,7 +168,7 @@ QuartzDesc_t QuartzBitmap_DeviceCreate(void *dd, QuartzFunctions_t *fn, QuartzPa
 	    if (dev->path == NULL) {
 		if (dev->uti) free(dev->uti);
 		free(dev);
-		error("allocation failure in QuartzBitmap_DeviceCreate");
+		error(_("allocation failure in QuartzBitmap_DeviceCreate"));
 	    }
 	} else dev->path = NULL;
         dev->page = 0;
