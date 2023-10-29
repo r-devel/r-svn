@@ -5105,7 +5105,7 @@ function (V)
         stop("'V' is not a square numeric matrix")
     Is <- sqrt(1/diag(V))
     if (any(!is.finite(Is))) 
-        warning("diag(.) had 0 or NA entries; non-finite result is doubtful")
+        warning("diag(V) had 0, NA or NaN entries; finite result is doubtful")
     r <- V
     r[] <- Is * V * rep(Is, each = p)
     r[cbind(1L:p, 1L:p)] <- 1
