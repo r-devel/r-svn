@@ -3,6 +3,7 @@
 @setfilename R-data.info
 @settitle R Data Import/Export
 @setchapternewpage on
+@documentlanguage en
 @c %**end of header
 
 @syncodeindex fn vr
@@ -55,19 +56,19 @@ This is a guide to importing and exporting data to and from R.
 @end ifnottex
 
 @menu
-* Acknowledgements::            
-* Introduction::                
-* Spreadsheet-like data::       
-* Importing from other statistical systems::  
-* Relational databases::        
-* Binary files::                
-* Image files::                 
-* Connections::                 
-* Network interfaces::          
-* Reading Excel spreadsheets::  
-* References::                  
-* Function and variable index::  
-* Concept index::               
+* Acknowledgements::
+* Introduction::
+* Spreadsheet-like data::
+* Importing from other statistical systems::
+* Relational databases::
+* Binary files::
+* Image files::
+* Connections::
+* Network interfaces::
+* Reading Excel spreadsheets::
+* References::
+* Function and variable index::
+* Concept index::
 @end menu
 
 @node Acknowledgements, Introduction, Top, Top
@@ -194,9 +195,9 @@ packages has increased a hundredfold since.  For specialist data formats
 it is worth searching to see if a suitable package already exists.
 
 @menu
-* Imports::                     
-* Export to text files::        
-* XML::                         
+* Imports::
+* Export to text files::
+* XML::
 @end menu
 
 @node Imports, Export to text files, Introduction, Introduction
@@ -219,7 +220,7 @@ on their computers for that purpose).  However, this is not always
 possible, and @ref{Importing from other statistical systems} discusses
 what facilities are available to access such files directly from @R{}.
 For Excel spreadsheets, the available methods are summarized in
-@ref{Reading Excel spreadsheets}.  
+@ref{Reading Excel spreadsheets}.
 @c For ODS spreadsheets from Open
 @c Office, see the Omegahat package@footnote{Currently not available from
 @c that repository but as a source package for download from
@@ -239,7 +240,7 @@ extraction operation can be done directly from an @R{} package:
 discussed in @ref{Network interfaces}.
 
 @menu
-* Encodings::                   
+* Encodings::
 @end menu
 
 @node Encodings,  , Imports, Imports
@@ -288,7 +289,7 @@ editor to work out its encoding.
 
 Note that @code{utf8} is not a valid encoding name (@code{UTF-8} is),
 and @code{macintosh} is the most portable name for what is sometimes
-called `Mac Roman' encoding. 
+called `Mac Roman' encoding.
 
 @node Export to text files, XML, Imports, Introduction
 @section Export to text files
@@ -476,7 +477,7 @@ graphical displays, mathematics and so on.
 although it does not require it.
 
 The @CRANpkg{XML} package provides general facilities for reading and
-writing @acronym{XML} documents within @R{}. 
+writing @acronym{XML} documents within @R{}.
 @c A description of the facilities of the @CRANpkg{XML} package is outside
 @c the scope of this document: see the package's Web page at
 @c @uref{http://www.omegahat.net/RSXML} for details and examples.
@@ -494,12 +495,12 @@ emphasis on human-readability: it is supported by package
 @cindex Spreadsheet-like data
 
 @menu
-* Variations on read.table::    
-* Fixed-width-format files::    
-* Data Interchange Format (DIF)::  
-* Using scan directly::         
-* Re-shaping data::             
-* Flat contingency tables::     
+* Variations on read.table::
+* Fixed-width-format files::
+* Data Interchange Format (DIF)::
+* Using scan directly::
+* Re-shaping data::
+* Flat contingency tables::
 @end menu
 
 In @ref{Export to text files} we saw a number of variations on the
@@ -559,7 +560,7 @@ Normally looking at the file will determine the field separator to be
 used, but with white-space separated files there may be a choice between
 the default @code{sep = ""} which uses any white space (spaces, tabs or
 newlines) as a separator, @code{sep = " "} and @code{sep = "\t"}.  Note
-that the choice of separator affects the input of quoted strings.  
+that the choice of separator affects the input of quoted strings.
 
 If you have a tab-delimited file containing empty fields be sure to use
 @code{sep = "\t"}.
@@ -644,7 +645,7 @@ vectors to factors (only).  Using @code{colClasses} allows the desired
 class to be set for each column in the input: it will be faster and use
 less memory.
 
-Note that @code{colClasses} and @code{as.is} are specified @emph{per} 
+Note that @code{colClasses} and @code{as.is} are specified @emph{per}
 column, not @emph{per} variable, and so include the column of row names
 (if any).
 
@@ -734,7 +735,7 @@ If the options to @code{read.table} are specified incorrectly, the error
 message will usually be of the form
 
 @example
-Error in scan(file = file, what = what, sep = sep, : 
+Error in scan(file = file, what = what, sep = sep, :
         line 1 did not have 5 elements
 @end example
 
@@ -742,7 +743,7 @@ Error in scan(file = file, what = what, sep = sep, :
 or
 
 @example
-Error in read.table("files.dat", header = TRUE) : 
+Error in read.table("files.dat", header = TRUE) :
         more columns than column names
 @end example
 
@@ -787,11 +788,11 @@ using Fortran-style column specifications.
 @section Data Interchange Format (DIF)
 @cindex Data Interchange Format (DIF)
 
-An old format sometimes used for spreadsheet-like data is DIF, or Data Interchange 
-format.  
+An old format sometimes used for spreadsheet-like data is DIF, or Data Interchange
+format.
 
 @findex read.DIF
-Function @code{read.DIF} provides a simple way to read such files.  It takes 
+Function @code{read.DIF} provides a simple way to read such files.  It takes
 arguments similar to @code{read.table} for assigning types to each of the columns.
 
 On Windows, spreadsheet programs often store spreadsheet data copied to
@@ -847,7 +848,7 @@ A <- as.matrix(read.table("matrix.dat"))
 @end example
 
 @noindent
-took 10 seconds (and more memory), and 
+took 10 seconds (and more memory), and
 
 @example
 A <- as.matrix(read.table("matrix.dat", header = FALSE, nrows = 200,
@@ -862,7 +863,7 @@ efficiently (in particular, specifying @code{colClasses}) and 125 if
 used naively.
 
 
-Note that timings can depend on the type read and the data. 
+Note that timings can depend on the type read and the data.
 Consider reading a million distinct integers:
 @example
 writeLines(as.character((1+1e6):2e6), "ints.dat")
@@ -996,7 +997,7 @@ for the six largest departments in 1973 classified by admission and sex.
 > data(UCBAdmissions)
 > ftable(UCBAdmissions)
                 Dept   A   B   C   D   E   F
-Admit    Gender                             
+Admit    Gender
 Admitted Male        512 353 120 138  53  22
          Female       89  17 202 131  94  24
 Rejected Male        313 207 205 279 138 351
@@ -1029,7 +1030,7 @@ in the data, and create the contingency table from this using
 
 In this chapter we consider the problem of reading a binary data file
 written by another statistical system.  This is often best avoided, but
-may be unavoidable if the originating system is not available. 
+may be unavoidable if the originating system is not available.
 
 In all cases the facilities described were written for data files from
 specific versions of the other system (often in the early 2000s), and
@@ -1037,8 +1038,8 @@ have not necessarily been updated for the most recent versions of the
 other system.
 
 @menu
-* EpiInfo Minitab SAS S-PLUS SPSS Stata Systat::  
-* Octave::                      
+* EpiInfo Minitab SAS S-PLUS SPSS Stata Systat::
+* Octave::
 @end menu
 
 @node EpiInfo Minitab SAS S-PLUS SPSS Stata Systat, Octave, Importing from other statistical systems, Importing from other statistical systems
@@ -1152,9 +1153,9 @@ and lists) ones.
 @cindex DBMS
 
 @menu
-* Why use a database?::         
-* Overview of RDBMSs::          
-* R interface packages::        
+* Why use a database?::
+* Overview of RDBMSs::
+* R interface packages::
 @end menu
 
 @node Why use a database?, Overview of RDBMSs, Relational databases, Relational databases
@@ -1216,7 +1217,7 @@ applications, including Mail and Address Book, use SQLite.
 
 Traditionally there had been large (and expensive) commercial RDBMSs
 (@uref{https://www.ibm.com/products/informix, Informix};
-@uref{https://www.oracle.com, Oracle}; 
+@uref{https://www.oracle.com, Oracle};
 Sybase;
 @uref{https://www.ibm.com/products/db2, IBM's DB2};
 @uref{https://www.microsoft.com/sql-server/, Microsoft @acronym{SQL}
@@ -1247,8 +1248,8 @@ and Kline 2001) which these DBMSs support to varying degrees.
 
 
 @menu
-* SQL queries::                 
-* Data types::                  
+* SQL queries::
+* Data types::
 @end menu
 
 @node SQL queries, Data types, Overview of RDBMSs, Overview of RDBMSs
@@ -1369,7 +1370,7 @@ communicate with DBMSs.  They provide different levels of abstraction.
 Some provide means to copy whole data frames to and from databases.  All
 have functions to select data within the database via @acronym{SQL}
 queries, and to retrieve the result as a whole as a
-data frame or in pieces (usually as groups of rows).  
+data frame or in pieces (usually as groups of rows).
 
 All except @CRANpkg{RODBC} are tied to one DBMS, but there has been a
 proposal for a unified `front-end' package @CRANpkg{DBI}
@@ -1394,8 +1395,8 @@ which are queried using JavaScript rather than SQL.  Package
 
 
 @menu
-* DBI::                         
-* RODBC::                       
+* DBI::
+* RODBC::
 @end menu
 
 
@@ -1542,7 +1543,7 @@ returns a handle used for subsequent access to the database.  Printing a
 connection will provide some details of the ODBC connection, and calling
 @code{odbcGetInfo} will give details on the client and server.
 
- 
+
 @findex odbcClose
 @findex close
 A connection is closed by a call to @code{close} or @code{odbcClose},
@@ -1594,7 +1595,7 @@ Panel (`Data Sources (ODBC)' in the `Administrative Tools' section).
 ## list the tables in the database
 > sqlTables(channel)
   TABLE_QUALIFIER TABLE_OWNER TABLE_NAME TABLE_TYPE REMARKS
-1                              usarrests      TABLE        
+1                              usarrests      TABLE
 ## list it
 > sqlFetch(channel, "USArrests", rownames = "state")
                murder assault urbanpop rape
@@ -1770,8 +1771,8 @@ differences.
 @cindex Binary files
 
 @menu
-* Binary data formats::         
-* dBase files (DBF)::           
+* Binary data formats::
+* dBase files (DBF)::
 @end menu
 
 Binary connections (@ref{Connections}) are now the preferred way to
@@ -1889,11 +1890,11 @@ flexible interface to file-like objects.
 
 
 @menu
-* Types of connections::        
-* Output to connections::       
-* Input from connections::      
-* Listing and manipulating connections::  
-* Binary connections::          
+* Types of connections::
+* Output to connections::
+* Input from connections::
+* Listing and manipulating connections::
+* Binary connections::
 @end menu
 
 
@@ -1996,7 +1997,7 @@ read from, and both client and server sockets can be used.
 @findex write.table
 @findex sink
 We have described functions @code{cat}, @code{write}, @code{write.table}
-and @code{sink} as writing to a file, possibly appending to a file if 
+and @code{sink} as writing to a file, possibly appending to a file if
 argument @code{append = TRUE}, and this is what they did prior to @R{}
 version 1.2.0.
 
@@ -2018,7 +2019,7 @@ Some simple examples are
 
 @example
 zz <- file("ex.data", "w")  # open an output file connection
-cat("TITLE extra line", "2 3 5 7", "", "11 13 17", 
+cat("TITLE extra line", "2 3 5 7", "", "11 13 17",
     file = zz, sep = "\n")
 cat("One more line\n", file = zz)
 close(zz)
@@ -2082,7 +2083,7 @@ HTTPS @acronym{URL}, the @acronym{URL} is opened for reading via
 @code{url}.  Specifying files via @samp{file://foo.bar} is also allowed.
 
 @menu
-* Pushback::                    
+* Pushback::
 @end menu
 
 @node Pushback,  , Input from connections, Input from connections
@@ -2116,7 +2117,7 @@ Read 4 items
 > pushBack(c("aa", "bb"), zz)
 > scan(zz, "", 4)
 Read 4 items
-[1] "aa" "bb" "G"  "H" 
+[1] "aa" "bb" "G"  "H"
 > close(zz)
 @end example
 
@@ -2160,8 +2161,8 @@ reading, and mode @code{"wb"} or @code{"ab"} (where appropriate) for
 writing.  The functions have arguments
 
 @example
-readBin(con, what, n = 1, size = NA, endian = .Platform$endian) 
-writeBin(object, con, size = NA, endian = .Platform$endian) 
+readBin(con, what, n = 1, size = NA, endian = .Platform$endian)
+writeBin(object, con, size = NA, endian = .Platform$endian)
 @end example
 
 In each case @code{con} is a connection which will be opened if
@@ -2211,7 +2212,7 @@ of bytes terminated by a zero byte.  Functions @code{readChar} and
 
 
 @menu
-* Special values::              
+* Special values::
 @end menu
 
 @node Special values,  , Binary connections, Binary connections
@@ -2249,8 +2250,8 @@ by re-assigning them once read).
 @chapter Network interfaces
 
 @menu
-* Reading from sockets::        
-* Using download.file::         
+* Reading from sockets::
+* Using download.file::
 @end menu
 
 Some limited facilities are available to exchange data at a lower level
