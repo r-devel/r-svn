@@ -1507,8 +1507,9 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	print2buff("<weak reference>", d);
 	break;
     case S4SXP: {
-	error("'S4SXP': should not happen - please report");
-      break;
+        d->sourceable = FALSE;
+        print2buff("<S4 object>", d);
+        break;
     }
     default:
 	d->sourceable = FALSE;
