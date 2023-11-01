@@ -1605,7 +1605,7 @@ field).  @command{R CMD check} will warn if it finds a
 @samp{LazyDataCompression} being set.  If you see that, run
 @code{CheckLazyDataCompression()} and set the field -- to @code{gzip} in
 the unlikely event@footnote{For all the @acronym{CRAN} packages tested,
-either @code{gz} or @code{bzip2} provided a very substantial reduction
+either @code{xz} or @code{bzip2} provided a very substantial reduction
 in installed size.} that is the best choice.
 
 @c DESCRIPTION field SysDataCompression
