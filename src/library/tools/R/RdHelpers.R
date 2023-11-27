@@ -26,7 +26,7 @@ Rd_expr_PR <-
 function(x)
 {
     baseurl <- "https://bugs.R-project.org/show_bug.cgi?id"
-    sprintf("\\ifelse{text}{%s}{\\ifelse{latex}{%s}{PR%s}}", 
+    sprintf("\\ifelse{text}{%s=%s}{\\ifelse{latex}{%s}{PR%s}}", 
         baseurl, x, 
 	sprintf("\\href{%s=%s}{PR#%s}", baseurl, x, x), 
 	x)
