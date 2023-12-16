@@ -200,6 +200,6 @@ cov2cor <- function(V)
     r <- V # keep dimnames
     r[] <- Is * V * rep(Is, each = p)
     ##	== D %*% V %*% D  where D = diag(Is)
-    r[cbind(1L:p,1L:p)] <- 1 # exact in diagonal
+    if(p) r[seq.int(from = 1L, by = p + 1, length.out = p)] <- 1 # exact in diagonal
     r
 }
