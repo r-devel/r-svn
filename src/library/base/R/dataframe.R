@@ -598,14 +598,14 @@ data.frame <-
 ###  These are a little less general than S
 
 `[.data.frame` <-
-    function(x, i, j, drop = if(missing(i)) TRUE else length(cols) == 1)
+    function(x, i, j, drop = if(missing(i)) TRUE else length(cols) == 1, pmatch.rows = TRUE)
 {
     mdrop <- missing(drop)
     Narg <- nargs() - !mdrop  # number of arg from x,i,j that were specified
     has.j <- !missing(j)
-    if(!all(names(sys.call()) %in% c("", "drop"))
+    if(!all(names(sys.call()) %in% c("", "drop", "pmatch.rows"))
        && !isS4(x)) # at least don't warn for callNextMethod!
-        warning("named arguments other than 'drop' are discouraged")
+        warning("named arguments other than 'drop', 'pmatch.rows' are discouraged")
 
     if(Narg < 3L) {  # list-like indexing or matrix indexing
         if(!mdrop) warning("'drop' argument will be ignored")
@@ -686,7 +686,11 @@ data.frame <-
             ## for consistency with [, <length-1>]
             if(is.character(i)) {
                 rows <- attr(xx, "row.names")
-                i <- pmatch(i, rows, duplicates.ok = TRUE)
+                i <- if (pmatch.rows) {
+                    pmatch(i, rows, duplicates.ok = TRUE)
+                } else {
+                    match(i, rows)
+                }
             }
             ## need to figure which col was selected:
             ## cannot use .subset2 directly as that may
@@ -706,7 +710,11 @@ data.frame <-
                  # as this can be expensive.
     if(is.character(i)) {
         rows <- attr(xx, "row.names")
-        i <- pmatch(i, rows, duplicates.ok = TRUE)
+        i <- if (pmatch.rows) {
+            pmatch(i, rows, duplicates.ok = TRUE)
+        } else {
+            match(i, rows)
+        }
     }
     for(j in seq_along(x)) {
         xj <- xx[[ sxx[j] ]]
