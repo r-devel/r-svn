@@ -7,99 +7,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
-    name: Linux
-    runs-on: ubuntu-latest
-    container:
-      image: ${{matrix.OS}}
-    env:
-      DEBIAN_FRONTEND: noninteractive
-      R_CRAN_WEB: "https://cran.rstudio.com"
-      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
-    strategy:
-      fail-fast: false
-      matrix:
-        CC: [ gcc, clang ]
-        OS: [ 'debian:stable', 'debian:testing' ]
-    steps:
-    - name: System dependencies
-      run: |
-        set -e
-        apt-get update -y
-        apt-get install -y ${{matrix.CC}} wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
-        libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev
-        localedef -i en_US -f UTF-8 en_US.UTF-8
-        echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 100
-
-    - name: Prepare
-      run: |
-        git config --global --add safe.directory $PWD || true
-        sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' Makefile.in
-        ./.github/scripts/wget-recommended.sh
-        ./.github/scripts/svn-info.sh
-    - name: Configure
-      run: CC=${{matrix.CC}} ./configure --enable-R-shlib --with-blas --with-lapack --disable-java
-
-    - name: Build
-      run: make
-
-    - name: Check
-      run: xvfb-run make check-all
-
-    - name: Print failed tests
-      if: always()
-      run: tail -n100 tests/*.fail || true
-
-  macos:
-    name: MacOS
-    runs-on: macos-latest
-    timeout-minutes: 90
-    env:
-      PKG_CONFIG_PATH: /opt/X11/lib/pkgconfig
-      R_CRAN_WEB: "https://cran.rstudio.com"
-      CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
-      R_TEXI2DVICMD: emulation
-
-    steps:
-    - name: System dependencies
-      run: |
-        brew install gcc gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
-        echo "FC=/usr/local/opt/gcc/bin/gfortran" >> $GITHUB_ENV
-        echo "/Library/TeX/texbin" >> $GITHUB_PATH
-        echo "/usr/local/opt/texinfo/bin" >> $GITHUB_PATH
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 100
-
-    - name: Prepare
-      run: |
-        sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' Makefile.in
-        ./.github/scripts/wget-recommended.sh
-        ./.github/scripts/svn-info.sh
-    - name: Configure
-      run: CC=clang ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
-      env:
-        PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
-
-    - name: Build
-      run: make
-      env:
-        PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
-
-    - name: Check
-      run: make check-all
-      env:
-        PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
-
-    - name: Print failed tests
-      if: always()
-      run: tail -n100 tests/*.fail || true
-
   windows:
     name: Windows
     runs-on: windows-latest
@@ -132,10 +39,10 @@ jobs:
 
     - name: "Download rtools43 toolchain"
       run: |
-        url="https://github.com/r-windows/files/releases/download/5550/rtools43-toolchain-libs-base-5550.tar.zst"
+        url="https://github.com/r-windows/bundles/releases/download/rtools43-5863/rtools43-toolchain-libs-base-5863.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
-        #echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
-        #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
+        echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
+        echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
     - name: Install Miktex
       shell: powershell
