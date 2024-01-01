@@ -953,6 +953,49 @@ attribute_hidden SEXP do_namesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     return CAR(args);
 }
 
+/* (Dim)names could have attributes, so validate them first */
+static SEXP as_character_names(SEXP names)
+{
+  if (names != R_NilValue &&
+      ! (TYPEOF(names) == STRSXP && ATTRIB(names) == R_NilValue)) {
+      SEXP call;
+      PROTECT(call = allocList(2));
+      SET_TYPEOF(call, LANGSXP);
+      SETCAR(call, R_AsCharacterSymbol);
+      SETCADR(call, names);
+      names = eval(call, R_BaseEnv); /* Is this the right env? */
+      SETCADR(call, R_NilValue); /* decrements REFCNT on names */
+      UNPROTECT(1);
+  }
+  return names;
+}
+
+/* Alternate version that replaces the as_char_simpl() function */
+// static SEXP as_character_names(SEXP names)
+// {
+//   if (names == R_NilValue) {
+//     return names;
+//   }
+//   
+//   if (inherits(names, "factor")) {
+//     return asCharacterFactor(names);
+//   }
+//   
+//   /* mimic as.character.default and strip attributes*/
+//   if (!isString(names) || ATTRIB(names) != R_NilValue) {
+//     if (!isString(names)) {
+//       names = PROTECT(coerceVector(names, STRSXP));
+//     } else {
+//       names = PROTECT(duplicate(names));
+//     }
+//     SET_ATTRIB(names, R_NilValue);
+//     SET_OBJECT(names, 0);
+//     UNPROTECT(1);
+//   }
+//   
+//   return names;
+// }
+
 SEXP namesgets(SEXP vec, SEXP val)
 {
     int i;
@@ -974,13 +1017,13 @@ SEXP namesgets(SEXP vec, SEXP val)
 	    for (i = 0, tval = val;
 		 i < length(vec) && tval != R_NilValue;
 		 i++, tval = CDR(tval)) {
-		s = coerceVector(CAR(tval), STRSXP);
+		s = as_character_names(CAR(tval));
 		SET_STRING_ELT(rval, i, STRING_ELT(s, 0));
 	    }
 	    UNPROTECT(1);
 	    val = rval;
 	}
-    } else val = coerceVector(val, STRSXP);
+    } else val = as_character_names(val);
     UNPROTECT(1);
     PROTECT(val);
 
@@ -1063,27 +1106,6 @@ attribute_hidden SEXP do_dimnamesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     return CAR(args);
 }
 
-// simplistic version of as.character.default()
-static SEXP as_char_simpl(SEXP val1)
-{
-    if (LENGTH(val1) == 0) return R_NilValue;
-    /* if (isObject(val1)) dispatch on as.character.foo, but we don't
-       have the context at this point to do so */
-
-    if (inherits(val1, "factor"))  /* mimic as.character.factor */
-	return asCharacterFactor(val1);
-
-    if (!isString(val1)) { /* mimic as.character.default */
-	SEXP this2 = PROTECT(coerceVector(val1, STRSXP));
-	SET_ATTRIB(this2, R_NilValue);
-	SET_OBJECT(this2, 0);
-	UNPROTECT(1);
-	return this2;
-    }
-    return val1;
-}
-
-
 SEXP dimnamesgets(SEXP vec, SEXP val)
 {
     PROTECT(vec);
@@ -1139,7 +1161,12 @@ SEXP dimnamesgets(SEXP vec, SEXP val)
 	    if (INTEGER(dims)[i] != LENGTH(_this) && LENGTH(_this) != 0)
 		error(_("length of 'dimnames' [%d] not equal to array extent"),
 		      i+1);
-	    SET_VECTOR_ELT(val, i, as_char_simpl(_this));
+	    if (length(_this) == 0) {
+	      /* Length zero dimnames should be NULL, not character(0) */
+	      SET_VECTOR_ELT(val, i, R_NilValue);
+	    } else {
+  	    SET_VECTOR_ELT(val, i, as_character_names(_this));
+	    }
 	}
     }
     installAttrib(vec, R_DimNamesSymbol, val);
