@@ -297,7 +297,7 @@ stopifnot(pnv == "1+1i", pnv == format(zv),
           pnv == prettyNum(zv, drop0trailing = TRUE))
 ## more digits change the picture:
 options(digits = 8)
-head(fv <- format(zv), 3)
+utils::head(fv <- format(zv), 3)
 prettyNum(fv)
 prettyNum(fv, drop0trailing = TRUE) # a bit nicer
 options(op)

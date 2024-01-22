@@ -63,7 +63,8 @@ stopifnot(identical(L [sort.list(names(L ))],
 
 ## now add to e -- can be seen as a fast "multi-assign":
 list2env(list(abc = LETTERS, note = "just an example",
-              df = data.frame(x = rnorm(20), y = rbinom(20, 1, prob = 0.2))),
+              df = data.frame(x = stats::rnorm(20),
+                              y = stats::rbinom(20, 1, prob = 0.2))),
          envir = e)
 utils::ls.str(e)
 }

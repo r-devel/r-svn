@@ -169,7 +169,7 @@ as.POSIXct(strptime("2010-10-31 01:30:00", "\%Y-\%m-\%d \%H:\%M:\%S"))
 unclass(z)                    # a large integer
 floor(unclass(z)/86400)       # the number of days since 1970-01-01 (UTC)
 (now <- as.POSIXlt(Sys.time())) # the current datetime, as class "POSIXlt"
-str(unclass(now))             # the internal list ; use now$hour, etc :
+utils::str(unclass(now))      # the internal list ; use now$hour, etc :
 now$year + 1900               # see ?DateTimeClasses
 months(now); weekdays(now)    # see ?months; using LC_TIME locale
 

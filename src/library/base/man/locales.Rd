@@ -197,7 +197,7 @@ Sys.setenv("LANGUAGE" = "es") # set the language for error/warning messages
  ##' show a "full" Sys.getlocale() nicely:
  showL <- function(loc) {
      sl <- strsplit(strsplit(loc, sep)[[1L]], "=")
-     setNames(sapply(sl, `[[`, 2L), sapply(sl, `[[`, 1L))
+     stats::setNames(sapply(sl, `[[`, 2L), sapply(sl, `[[`, 1L))
  }
  print.Dlist(lloc <- showL(Sys.getlocale()))
  ## R-supported ones (but LC_ALL):

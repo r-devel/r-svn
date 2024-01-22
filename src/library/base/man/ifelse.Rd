@@ -80,7 +80,7 @@ ifelse(x >= 0, sqrt(x), NA)
 x <- seq(as.Date("2000-02-29"), as.Date("2004-10-04"), by = "1 month")
 ## has many "yyyy-mm-29", but a few "yyyy-03-01" in the non-leap years
 y <- ifelse(as.POSIXlt(x)$mday == 29, x, NA)
-head(y) # not what you expected ... ==> need restore the class attribute:
+utils::head(y) # not what you expected ... ==> need restore the class attribute:
 class(y) <- class(x)
 y
 ## This is a (not atypical) case where it is better *not* to use ifelse(),

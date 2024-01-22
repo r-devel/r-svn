@@ -113,6 +113,7 @@ stopifnot(exprs = {
   identical(packBits(       0:31) ,
             packBits(as.raw(0:31)))
 })
+require(utils)
 str(pBi <- packBits(intToBits(i)))
 data.frame(B = matrix(pBi, nrow=6, byrow=TRUE),
            hex = format(as.hexmode(i)), i)
@@ -147,7 +148,7 @@ bitC(1+2^-(1:53))# from 0.5 converge to 1
 d2bI <- function(x) vapply(as.double(x), function(x) intToBits(numToInts(x)), raw(64L))
 d2b  <- function(x) vapply(as.double(x), function(x)           numToBits(x) , raw(64L))
 set.seed(1)
-x <- c(sort(rt(2048, df=1.5)),  2^(-10:10), 1+2^-(1:53))
+x <- c(sort(stats::rt(2048, df=1.5)),  2^(-10:10), 1+2^-(1:53))
 str(bx <- d2b(x)) # a  64 x 2122  raw matrix
 stopifnot( identical(bx, d2bI(x)) )
 

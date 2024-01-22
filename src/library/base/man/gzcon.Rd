@@ -55,7 +55,7 @@ z <- gzcon(url("https://www.stats.ox.ac.uk/pub/datasets/csb/ch12.dat.gz"))
 # read.table can only read from a text-mode connection.
 raw <- textConnection(readLines(z))
 close(z)
-dat <- read.table(raw)
+dat <- utils::read.table(raw)
 close(raw)
 dat[1:4, ]
 }

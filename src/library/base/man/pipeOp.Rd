@@ -59,8 +59,9 @@
 }
 \examples{
 # simple uses:
-mtcars |> head()                      # same as head(mtcars)
-mtcars |> head(2)                     # same as head(mtcars, 2)
+require(utils)
+mtcars |> head()               # same as head(mtcars)
+mtcars |> head(2)              # same as head(mtcars, 2)
 mtcars |> subset(cyl == 4) |> nrow()  # same as nrow(subset(mtcars, cyl == 4))
 
 # to pass the lhs into an argument other than the first, either

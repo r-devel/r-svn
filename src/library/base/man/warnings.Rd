@@ -89,7 +89,7 @@ for(w in -1:1) {
 }
 ## at the end prints all three warnings, from the 'option(warn = 0)' above
 options(ow) # reset to previous, typically 'warn = 0'
-tail(warnings(), 2) # see the last two warnings only (via '[' method)
+utils::tail(warnings(), 2) # see the last two warnings only (via '[' method)
 
 ## Often the most useful way to look at many warnings:
 summary(warnings())

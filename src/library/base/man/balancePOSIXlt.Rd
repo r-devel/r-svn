@@ -76,14 +76,14 @@ Sys.setenv(TZ = "UTC")
 d1 <- as.POSIXlt("2000-01-02 3:45")
 d1$min <- d1$min + (0:16)*20L
 (f1 <- format(d1))
-str(unclass(d1))      # only $min is of length > 1
+utils::str(unclass(d1))      # only $min is of length > 1
 df <- balancePOSIXlt(d1, fill.only = TRUE) # a "POSIXlt" object
-str(unclass(df))      # all of length 17; 'min' unchanged
+utils::str(unclass(df))      # all of length 17; 'min' unchanged
 db <- balancePOSIXlt(d1, classed = FALSE)  # a list
 stopifnot(identical(
     unCfillPOSIXlt(d1),
     balancePOSIXlt(d1, fill.only = TRUE, classed = FALSE)))
-str(db) # of length 17 *and* in range
+utils::str(db) # of length 17 *and* in range
 \dontshow{
 stopifnot(exprs = {
     identical(f1, format(df))

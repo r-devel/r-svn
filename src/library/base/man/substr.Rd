@@ -102,7 +102,7 @@ substring(x, 2, 4:6)
 X <- x
 names(X) <- LETTERS[seq_along(x)]
 comment(X) <- noquote("is a named vector")
-str(aX <- attributes(X))
+utils::str(aX <- attributes(X))
 substring(x, 2) <- c("..", "+++")
 substring(X, 2) <- c("..", "+++")
 X
