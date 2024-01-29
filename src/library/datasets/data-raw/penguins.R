@@ -29,4 +29,4 @@ save(penguins, file = "./src/library/datasets/data/penguins.rda")
 # Check identical with version palmerpenguins package
 # rm(penguins)
 # load("./src/library/datasets/data/penguins.rda")
-# identical(penguins, palmerpenguins:::penguins_df) # without sample TRUE
+# identical(penguins, palmerpenguins:::penguins_df)

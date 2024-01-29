@@ -101,6 +101,6 @@ save(penguins_raw, file = "./src/library/datasets/data/penguins_raw.rda")
 # load("./src/library/datasets/data/penguins_raw.rda")
 # pp_penguins_raw <- palmerpenguins:::penguins_raw_df
 # attr(pp_penguins_raw, "spec") <- NULL
-# identical(penguins_raw[, 1:17], pp_penguins_raw) # without sample TRUE
+# identical(penguins_raw[, 1:17], pp_penguins_raw) # TRUE without Sample col
 # all.equal(tibble::as_tibble(penguins_raw[, 1:17]), palmerpenguins::penguins_raw, check.attributes = FALSE) # without sample TRUE
 
