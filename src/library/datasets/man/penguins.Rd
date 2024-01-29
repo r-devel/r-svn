@@ -1,4 +1,5 @@
 \name{penguins}
+\encoding{UTF-8}
 \docType{data}
 \alias{penguins}
 \title{Size Measurements for Adult Foraging Penguins near Palmer Station, Antarctica}
@@ -11,7 +12,7 @@ This is a subset of \code{\link{penguins_raw}}.
 \format{
   A tibble with 344 rows and 8 variables:
   \describe{
-    \item{species}{a factor denoting penguin species (Adélie, Chinstrap and Gentoo)}
+    \item{species}{a factor denoting penguin species (Adelie, Chinstrap and Gentoo)}
     \item{island}{a factor denoting island in Palmer Archipelago, Antarctica (Biscoe, Dream or Torgersen)}
     \item{bill_length_mm}{a number denoting bill length (millimeters)}
     \item{bill_depth_mm}{a number denoting bill depth (millimeters)}
@@ -21,15 +22,15 @@ This is a subset of \code{\link{penguins_raw}}.
     \item{year}{an integer denoting the study year (2007, 2008, or 2009)}
   }
 }
+\source{
+\enc{Adélie}{Adelie} penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female \enc{Adélie}{Adelie} penguins (Pygoscelis adeliae) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 5. Environmental Data Initiative, \doi{10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f}.
+
+Gentoo penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female Gentoo penguin (Pygoscelis papua) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 5. Environmental Data Initiative, \doi{10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689}.
+
+Chinstrap penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female Chinstrap penguin (Pygoscelis antarcticus) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 6. Environmental Data Initiative, \doi{10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e}.
+}
 \references{
 Gorman, K. B., Williams, T. D. and Fraser, W. R. (2014) Ecological Sexual Dimorphism and Environmental Variability within a Community of Antarctic Penguins (Genus Pygoscelis). PLoS ONE \bold{9}, 3, e90081. doi:10.1371/journal.pone.0090081.
-}
-\source{
-{Adélie penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female Adélie penguins (Pygoscelis adeliae) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 5. Environmental Data Initiative.} \ifelse{text}{doi: 10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f (URL: https://doi.org/10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f)}{\ifelse{latex}{doi:\out{\nobreakspace{}}\href{https://doi.org/10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f}{10.6073\out{\slash{}}pasta\out{\slash{}}98b16d7d563f265cb52372c8ca99e60f}}{doi: \href{https://doi.org/10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f}{10.6073/pasta/98b16d7d563f265cb52372c8ca99e60f}}}
-
-{Gentoo penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female Gentoo penguin (Pygoscelis papua) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 5. Environmental Data Initiative.} \ifelse{text}{doi: 10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689 (URL: https://doi.org/10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689)}{\ifelse{latex}{doi:\out{\nobreakspace{}}\href{https://doi.org/10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689}{10.6073\out{\slash{}}pasta\out{\slash{}}7fca67fb28d56ee2ffa3d9370ebda689}}{doi: \href{https://doi.org/10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689}{10.6073/pasta/7fca67fb28d56ee2ffa3d9370ebda689}}}
-
-{Chinstrap penguins: Palmer Station Antarctica LTER and K. Gorman. 2020. Structural size measurements and isotopic signatures of foraging among adult male and female Chinstrap penguin (Pygoscelis antarcticus) nesting along the Palmer Archipelago near Palmer Station, 2007-2009 ver 6. Environmental Data Initiative.} \ifelse{text}{doi: 10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e (URL: https://doi.org/10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e)}{\ifelse{latex}{doi:\out{\nobreakspace{}}\href{https://doi.org/10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e}{10.6073\out{\slash{}}pasta\out{\slash{}}c14dfcfada8ea13a17536e73eb6fbe9e}}{doi: \href{https://doi.org/10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e}{10.6073/pasta/c14dfcfada8ea13a17536e73eb6fbe9e}}}
 }
 \note{
 This data is also available in the \CRANpkg{palmerpenguins} package. See also \url{https://allisonhorst.github.io/palmerpenguins/} for further details and resources.
