@@ -2,7 +2,7 @@
 # by Allison Horst, Alison Hill, and Kristen Gorman
 # https://github.com/allisonhorst/palmerpenguins
 
-source("./src/library/datasets/data/penguins_raw.R")
+load("./src/library/datasets/data/penguins_raw.rda")
 
 penguins <- penguins_raw[, c("Species", "Island", 
                              "Culmen Length (mm)", "Culmen Depth (mm)", 
@@ -24,4 +24,9 @@ penguins$year <- regmatches(penguins$year,
                             regexpr("\\d{4}", penguins$year))
 penguins$year <- as.integer(penguins$year)
 
-dump("penguins", "./src/library/datasets/data/penguins.R")
+save(penguins, file = "./src/library/datasets/data/penguins.rda")
+
+# Check identical with version palmerpenguins package
+# rm(penguins)
+# load("./src/library/datasets/data/penguins.rda")
+# identical(penguins, palmerpenguins:::penguins_df) # without sample TRUE

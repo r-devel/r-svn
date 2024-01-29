@@ -94,4 +94,13 @@ Sample <- c(Adelie_sample, Gentoo_sample, Chinstrap_sample)
 # Add sample column to penguins_raw
 penguins_raw$Sample <- Sample
 
-dump("penguins_raw", "./src/library/datasets/data/penguins_raw.R")
+save(penguins_raw, file = "./src/library/datasets/data/penguins_raw.rda")
+
+# Check identical with version palmerpenguins package
+# rm(penguins_raw)
+# load("./src/library/datasets/data/penguins_raw.rda")
+# pp_penguins_raw <- palmerpenguins:::penguins_raw_df
+# attr(pp_penguins_raw, "spec") <- NULL
+# identical(penguins_raw[, 1:17], pp_penguins_raw) # without sample TRUE
+# all.equal(tibble::as_tibble(penguins_raw[, 1:17]), palmerpenguins::penguins_raw, check.attributes = FALSE) # without sample TRUE
+
