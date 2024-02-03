@@ -132,7 +132,7 @@ jobs:
 
     - name: "Download rtools43 toolchain"
       run: |
-        url="https://github.com/r-windows/files/releases/download/5550/rtools43-toolchain-libs-base-5550.tar.zst"
+        url="https://github.com/r-windows/rtools-chocolatey/releases/download/5948/gcc12_ucrt3_base_5948.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
         #echo "RTOOLS43_HOME=c:" >> $GITHUB_ENV
         #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
