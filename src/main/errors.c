@@ -142,6 +142,13 @@ void R_CheckUserInterrupt(void)
        asynchronous events if interrupts are suspended. */
     if (R_interrupts_suspended) return;
 
+    /* throttle repeated calls within 0.1s for performance */
+    static double last_check = 0;
+    double now = currentTime();
+    if(now - last_check < 0.1)
+        return;
+    last_check = now;
+
     /* This is the point where GUI systems need to do enough event
        processing to determine whether there is a user interrupt event
        pending.  Need to be careful not to do too much event
