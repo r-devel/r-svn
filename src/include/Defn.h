@@ -2294,6 +2294,7 @@ SEXP fixup_NaRm(SEXP args); /* summary.c */
 void invalidate_cached_recodings(void);  /* from sysutils.c */
 void resetICUcollator(Rboolean disable); /* from util.c */
 void dt_invalidate_locale(void); /* from Rstrptime.h */
+extern void CurlCleanup(void); /* from internet.c */
 extern int R_OutputCon; /* from connections.c */
 extern int R_InitReadItemDepth, R_ReadItemDepth; /* from serialize.c */
 void get_current_mem(size_t *,size_t *,size_t *); /* from memory.c */

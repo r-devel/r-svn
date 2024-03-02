@@ -1242,6 +1242,7 @@ void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
     R_RunExitFinalizers();
     CleanEd();
     if(saveact != SA_SUICIDE) KillAllDevices();
+    CurlCleanup();
     R_CleanTempDir();
     if(saveact != SA_SUICIDE && R_CollectWarnings)
 	PrintWarnings();	/* from device close and (if run) .Last */

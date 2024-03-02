@@ -70,6 +70,7 @@ void Rf_endEmbeddedR(int fatal)
     R_RunExitFinalizers();
     CleanEd();
     if(!fatal) KillAllDevices();
+    CurlCleanup();
     R_CleanTempDir();
     if(!fatal && R_CollectWarnings)
 	PrintWarnings();	/* from device close and .Last */

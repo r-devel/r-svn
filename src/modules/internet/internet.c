@@ -39,6 +39,7 @@ typedef int_fast64_t DLsize_t; // used for download lengths and sizes
 SEXP in_do_curlVersion(SEXP call, SEXP op, SEXP args, SEXP rho);
 SEXP in_do_curlGetHeaders(SEXP call, SEXP op, SEXP args, SEXP rho);
 SEXP in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho);
+void in_curlCleanup(void);
 Rconnection
 in_newCurlUrl(const char *description, const char * const mode, SEXP headers, int type);
 
@@ -729,6 +730,7 @@ R_init_internet(DllInfo *info)
     tmp->curlVersion = in_do_curlVersion;
     tmp->curlGetHeaders = in_do_curlGetHeaders;
     tmp->curlDownload = in_do_curlDownload;
+    tmp->curlCleanup = in_curlCleanup;
     tmp->newcurlurl =  in_newCurlUrl;
 
     R_setInternetRoutines(tmp);
