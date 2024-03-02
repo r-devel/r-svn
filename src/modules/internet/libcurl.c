@@ -565,8 +565,8 @@ static void download_cleanup(void *data)
 	if (c->hnd && c->hnd[i])
 	    curl_easy_cleanup(c->hnd[i]);
     }
-    if (c->mhnd)
-	curl_multi_cleanup(c->mhnd);
+    //if (c->mhnd)
+	//curl_multi_cleanup(c->mhnd);
     if (c->headers)
 	curl_slist_free_all(c->headers);
 
@@ -668,7 +668,11 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	c.headers = headers = tmp;
     }
 
-    CURLM *mhnd = curl_multi_init();
+    static CURLM *mhnd = NULL;
+    if(!mhnd) {
+      //REprintf("Creating new multi handle!\n");
+      mhnd = curl_multi_init();
+    }
     if (!mhnd)
 	error(_("could not create curl handle"));
     c.mhnd = mhnd;
