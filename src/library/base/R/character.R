@@ -30,8 +30,19 @@ substring <- function(text, first, last=1000000L)
     .Internal(substr(text, as.integer(first), as.integer(last)))
 }
 
-startsWith <- function(x, prefix) .Internal(startsWith(x, prefix))
-endsWith   <- function(x, suffix) .Internal(endsWith  (x, suffix))
+startsWith <- function(x, prefix)
+{
+    if(!is.character(x)) x <- as.character(x)
+    if(!is.character(prefix)) prefix <- as.character(prefix)
+    .Internal(startsWith(x, prefix))
+}
+
+endsWith <- function(x, suffix)
+{
+    if(!is.character(x)) x <- as.character(x)
+    if(!is.character(suffix)) suffix <- as.character(suffix)
+    .Internal(endsWith(x, suffix))
+}
 
 `substr<-` <- function(x, start, stop, value)
     .Internal(`substr<-`(x, as.integer(start), as.integer(stop), value))
