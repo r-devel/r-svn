@@ -40,11 +40,12 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
     are no higher-order sparse array classes yet).
   }
   \item{na.action}{a \code{\link{function}} which indicates what should happen when
-    the data contain \code{\link{NA}}s.  If unspecified, and
-    \code{addNA} is true, this is set to \code{\link{na.pass}}.  When it
-    is \code{\link{na.omit}} and \code{formula} has a left hand side (with
-    counts), \code{\link{sum}(*, na.rm = TRUE)} is used instead of
-    \code{sum(*)} for the counts.}
+    \code{data} contain \code{\link{NA}}s.  If unspecified, and
+    \code{addNA} is true, this is set to \code{\link{na.pass}}.  \code{na.action} also 
+    has an impact on how NAs are treated inside `sum()`.  If `na.action = na.pass` 
+    and \code{formula} has a left hand side (with counts), \code{\link{sum}(*), if it 
+    set to \code{NULL} it will use \code{getOption("na.action", default = na.omit)}, 
+    otherwise it will use \code{\link{sum}(*, na.rm = TRUE).}
   \item{addNA}{logical indicating if \code{NA}s should get a separate
     level and be counted, using \code{\link{addNA}(*, ifany=TRUE)} and
     setting the default for \code{na.action} to \code{na.pass}.}
@@ -83,6 +84,10 @@ xtabs(formula = ~., data = parent.frame(), subset, sparse = FALSE,
   Note that when \code{addNA} is false as by default, and \code{na.action}
   is not specified (or set to \code{NULL}), in effect \code{na.action =
     getOption("na.action", default=na.omit)} is used; see also the examples.
+
+  Also note that `na.action` is called over `data ` and this may result in the loss 
+  of counts as complete rows are omitted if there is an \code{NA} present in 
+  any collum.
 }
 \value{
   By default, when \code{sparse = FALSE},
