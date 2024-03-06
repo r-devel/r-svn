@@ -198,8 +198,8 @@ rbind(1:4, c = 2, "a++" = 10, dd, deparse.level = 1) # 3 rownames (default)
 rbind(1:4, c = 2, "a++" = 10, dd, deparse.level = 2) # 4 rownames
 
 ## cheap row names:
-b0 <- gl(3,4, labels=letters[1:3])
-bf <- setNames(b0, paste0("o", seq_along(b0)))
+b0 <- bf <- gl(3,4, labels=letters[1:3])
+names(bf) <- paste0("o", seq_along(b0))
 df  <- data.frame(a = 1, B = b0, f = gl(4,3))
 df. <- data.frame(a = 1, B = bf, f = gl(4,3))
 new <- data.frame(a = 8, B ="B", f = "1")

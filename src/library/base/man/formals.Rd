@@ -64,7 +64,7 @@ names(formals(lm))
 methods:: formalArgs(lm)     # same
 
 ## formals returns a pairlist. Arguments with no default have type symbol (aka name).
-str(formals(lm))
+utils::str(formals(lm))
 
 ## formals returns NULL for primitive functions.  Use it in combination with
 ## args for this case.

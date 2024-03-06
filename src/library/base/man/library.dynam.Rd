@@ -118,6 +118,7 @@ library.dynam()
 
 ## More on library.dynam.unload() :
 \donttest{require(nlme)
+require(utils)
 nlme:::.onUnload # shows library.dynam.unload() call
 detach("package:nlme")  # by default, unload=FALSE ,  so,
 tail(library.dynam(), 2)# nlme still there

@@ -103,7 +103,7 @@ dget(fil) - xx # slight rounding on some platforms
 dput(xx, fil, control = "hexNumeric"); dget(fil) - xx
 unlink(fil)
 
-xn <- setNames(xx, paste0("pi^",1:3))
+xn <- stats::setNames(xx, paste0("pi^",1:3))
 dput(xn) # nicer, now "niceNames" being part of default 'control'
 dput(xn, control = "S_compat") # no names
 ## explicitly asking for output as in R < 3.5.0:

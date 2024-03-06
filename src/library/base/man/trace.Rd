@@ -255,7 +255,7 @@ require(stats)
 
 ##  Very simple use
 trace(sum)
-hist(rnorm(100)) # shows about 3-4 calls to sum()
+graphics::hist(rnorm(100)) # shows about 3-4 calls to sum()
 untrace(sum)
 
 ## Show how pt() is called from inside power.t.test():

@@ -66,7 +66,7 @@ proc.time()
 \examples{\donttest{
 ## a way to time an R expression: system.time is preferred
 ptm <- proc.time()
-for (i in 1:50) mad(stats::runif(500))
+for (i in 1:50) stats::mad(stats::runif(500))
 proc.time() - ptm
 }}
 \keyword{utilities}

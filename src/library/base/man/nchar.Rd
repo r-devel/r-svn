@@ -153,7 +153,7 @@ nchar(deparse(mean))
 # 18 17  <-- unless mean differs from base::mean
 
 ## NA behaviour as function of keepNA=* :
-logi <- setNames(, c(FALSE, NA, TRUE))
+logi <- stats::setNames(, c(FALSE, NA, TRUE))
 sapply(logi, \(k) data.frame(nchar =  nchar (NA, keepNA=k),
                              nzchar = nzchar(NA, keepNA=k)))
 

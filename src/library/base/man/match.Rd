@@ -126,8 +126,8 @@ unique(zN) # the "NA" and the 3 different non-NA NaN's
 stopifnot(identical(unique(zN), zN[c(1, 7,9,10)]))
 
 ## very strict equality would have 4 duplicates (of 12):
-symnum(outer(zN, zN, Vectorize(identical,c("x","y")),
-                     FALSE,FALSE,FALSE,FALSE))
+stats::symnum(outer(zN, zN, Vectorize(identical,c("x","y")),
+                            FALSE,FALSE,FALSE,FALSE))
 ## removing "(very strictly) duplicates",
 i <- c(5,8,11,12)  # we get 8 pairwise non-identicals :
 Ixy <- outer(zN[-i], zN[-i], Vectorize(identical,c("x","y")),

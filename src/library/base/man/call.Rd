@@ -121,8 +121,10 @@ g
 eval(g)
 
 ## Special calls (and some regular ones):
-L <- as.list(E <- setNames( , c("if", "for", "while", "repeat", "function",
-                                  "(", "{", "[",  "<-", "<<-", "->", "=")))
+E <- c("if", "for", "while", "repeat", "function",
+       "(", "{", "[",  "<-", "<<-", "->", "=")
+names(E) <- E
+L <- as.list(E)
 for(i in seq_along(L)) L[[i]] <- call(E[[i]]) # instead of lapply(E, call) ..
 list_ <- function (...) `names<-`(list(...), vapply(sys.call()[-1L], as.character, ""))
 (Tab <- noquote(sapply(list_(is.call, typeof, class, mode), \(F) sapply(L, F))))

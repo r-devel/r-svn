@@ -327,6 +327,7 @@ OlsonNames(tzdir = NULL)
 }
 
 \examples{
+require(utils)
 Sys.timezone()
 
 str(OlsonNames()) ## typically around six hundred names,

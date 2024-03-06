@@ -232,7 +232,7 @@ try(iconv(x, "latin1", "ASCII//TRANSLIT"))  # platform-dependent
 iconv(x, "latin1", "ASCII", sub = "byte")
 
 ## and for Windows' 'Unicode'
-str(xx <- iconv(x, "latin1", "UTF-16LE", toRaw = TRUE))
+utils::str(xx <- iconv(x, "latin1", "UTF-16LE", toRaw = TRUE))
 iconv(xx, "UTF-16LE", "UTF-8")
 
 emoji <- "\U0001f604"

@@ -157,7 +157,7 @@ identical(f, g)                        # TRUE, as bytecode is ignored by default
 identical(f, g, ignore.bytecode=FALSE) # FALSE: bytecode differs
 
 ## GLM families contain several functions, some of which share an environment:
-p1 <- poisson() ; p2 <- poisson()
+p1 <- stats::poisson() ; p2 <- stats::poisson()
 identical(p1, p2)                          # FALSE
 identical(p1, p2, ignore.environment=TRUE) # TRUE
 

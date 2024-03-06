@@ -182,7 +182,7 @@ format(2^31-1)
 format(2^31-1, scientific = TRUE)
 ## scientific = numeric scipen (= {sci}entific notation {pen}alty) :
 x <- c(1e5, 1000, 10, 0.1, .001, .123)
-t(sapply(setNames(,-4:1),
+t(sapply(stats::setNames(,-4:1),
          \(sci) sapply(x, format, scientific=sci)))
 
 

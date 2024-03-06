@@ -192,7 +192,7 @@ an error
 "
 sf <- srcfile("txt")
 tryCatch(parse(text = txt, srcfile = sf), error = function(e) "Syntax error.")
-getParseData(sf)
+utils::getParseData(sf)
 }
 \keyword{file}
 \keyword{programming}

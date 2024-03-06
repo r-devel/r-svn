@@ -148,7 +148,7 @@ writeLines(x) # see also ?strwrap
 ## non-standard.)
 `x y` <- 1:5
 `x y`
-d <- data.frame(`1st column` = rchisq(5, 2), check.names = FALSE)
+d <- data.frame(`1st column` = stats::rchisq(5, 2), check.names = FALSE)
 d$`1st column`
 
 ## Backslashes followed by up to three numbers are interpreted as
