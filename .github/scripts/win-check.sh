@@ -21,9 +21,8 @@ curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 ./.github/scripts/svn-info.sh
 
 # Download the TCL bundle required by tcltk package
-#curl -OL https://cran.r-project.org/bin/windows/Rtools/rtools43/files/tcltk-5493-5412.zip
-curl -OL https://github.com/r-windows/rtools-chocolatey/releases/download/5948/Tcl-5948-5877.zip
-unzip Tcl-5948-5877.zip
+curl -OL https://github.com/r-windows/rtools-chocolatey/releases/download/6104/tcltk-6104-6025.zip
+unzip tcltk-6104-6025.zip
 
 # Add custom flags to MkRules.local
 cp .github/scripts/MkRules.local src/gnuwin32/
