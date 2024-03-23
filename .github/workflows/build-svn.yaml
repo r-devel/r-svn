@@ -71,13 +71,13 @@ jobs:
     steps:
     - name: Download CRAN system libraries
       run: |
+        echo "ARCH=$(uname -m)" >> $GITHUB_ENV
         curl --retry 3 -fsSL https://github.com/r-universe-org/cranlibs/releases/download/2023-12-18/cranlibs-everything.tar.xz -o libs.tar.xz
         sudo tar -xf libs.tar.xz -C / opt
         rm -f libs.tar.xz
 
     - name: Remove homebrew
       run: |
-        ARCH=$(uname -m)
         echo "/opt/R/${ARCH}/bin" >> $GITHUB_PATH
         echo "CPPFLAGS=-I/opt/R/${ARCH}/include" >> $GITHUB_ENV
         echo "PKG_CONFIG_PATH=/opt/R/${ARCH}/lib/pkgconfig:/opt/R/${ARCH}/share/pkgconfig" >> $GITHUB_ENV
@@ -106,7 +106,7 @@ jobs:
         ./.github/scripts/svn-info.sh
 
     - name: Configure
-      run: CC=clang ./configure --prefix=/opt/R --disable-java --with-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
+      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
 
@@ -117,14 +117,14 @@ jobs:
 
     - name: Install
       run: |
-        mkdir -p /opt/R/r-devel
-        make install DESTDIR="/opt/R/r-devel"
-        (cd /opt/R; tar cfJ "/opt/R/r-devel.tar.xz" r-devel)
+        mkdir -p /opt/R/${ARCH}/r-devel
+        make install DESTDIR="/opt/R/${ARCH}/r-devel"
+        (cd /opt/R/${ARCH}/r-devel; tar cfJ "/opt/R/r-devel-${ARCH}.tar.xz" .)
 
     - uses: actions/upload-artifact@v4
       with:
         name: R-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}
-        path: /opt/R/r-devel.tar.xz
+        path: /opt/R/r-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}.tar.xz
 
     - name: Check
       run: make check-all
