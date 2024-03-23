@@ -56,7 +56,11 @@ jobs:
 
   macos:
     name: MacOS
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        OS: [ 'macOS-13', 'macOS-14' ]
+    runs-on: ${{matrix.OS}}
     timeout-minutes: 90
     env:
       PKG_CONFIG_PATH: /opt/X11/lib/pkgconfig
@@ -65,14 +69,33 @@ jobs:
       R_TEXI2DVICMD: emulation
 
     steps:
-    - name: System dependencies
+    - name: Download CRAN system libraries
       run: |
-        brew install gcc gettext gmp isl jpeg libmpc libpng mpfr pcre2 pkg-config readline xz texinfo wget
-        echo "FC=/usr/local/opt/gcc/bin/gfortran" >> $GITHUB_ENV
+        echo "ARCH=$(uname -m)" >> $GITHUB_ENV
+        curl --retry 3 -fsSL https://github.com/r-universe-org/cranlibs/releases/download/2023-12-18/cranlibs-everything.tar.xz -o libs.tar.xz
+        sudo tar -xf libs.tar.xz -C / opt
+        rm -f libs.tar.xz
+
+    - name: Remove homebrew
+      run: |
+        echo "/opt/R/${ARCH}/bin" >> $GITHUB_PATH
+        echo "CPPFLAGS=-I/opt/R/${ARCH}/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=/opt/R/${ARCH}/lib/pkgconfig:/opt/R/${ARCH}/share/pkgconfig" >> $GITHUB_ENV
         echo "/Library/TeX/texbin" >> $GITHUB_PATH
         echo "/usr/local/opt/texinfo/bin" >> $GITHUB_PATH
+        cp -fv $(which wget) "/opt/R/${ARCH}/bin"
+        brew unlink $(brew list --formula) || true
+
+    - name: Install CRAN fortran build
+      run: |
+        curl --retry 3 -fsSLO https://github.com/R-macos/gcc-12-branch/releases/download/12.2-darwin-r0.1/gfortran-12.2-universal.pkg
+        sudo installer -pkg "gfortran-12.2-universal.pkg" -target /
+        rm -f gfortran-12.2-universal.pkg
+        echo "/opt/gfortran/bin" >> $GITHUB_PATH
+        echo "FC=/opt/gfortran/bin/gfortran" >> $GITHUB_ENV
+
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 100
 
@@ -81,8 +104,9 @@ jobs:
         sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' Makefile.in
         ./.github/scripts/wget-recommended.sh
         ./.github/scripts/svn-info.sh
+
     - name: Configure
-      run: CC=clang ./configure --disable-java --without-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
+      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
 
@@ -90,6 +114,17 @@ jobs:
       run: make
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
+
+    - name: Install
+      run: |
+        mkdir -p /opt/R/${ARCH}/r-devel
+        make install DESTDIR="/opt/R/${ARCH}/r-devel"
+        (cd /opt/R/${ARCH}/r-devel; tar cfJ "/opt/R/r-devel-${ARCH}.tar.xz" .)
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: R-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}
+        path: /opt/R/r-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}.tar.xz
 
     - name: Check
       run: make check-all
