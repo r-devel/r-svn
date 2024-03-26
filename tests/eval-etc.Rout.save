@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2023-02-21 r83888) -- "Unsuffered Consequences"
+R Under development (unstable) (2023-09-20 r85183) -- "Unsuffered Consequences"
 Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -208,6 +208,7 @@ Levels: a b <NA>
 + )
 > ## partly failed in R 3.4.0 alpha
 > rm(CO) # as its deparse() depends on if utils was installed w/ keep.source.pkgs=TRUE
+> rm(r2)
 > 
 > srcdir <- file.path(Sys.getenv("SRCDIR"), "eval-fns.R")
 > source(if(file.exists(srcdir)) srcdir else "./eval-fns.R", echo = TRUE)
@@ -218,7 +219,8 @@ Levels: a b <NA>
 > id_epd <- function(expr, control = "all", ...) eval(pd0(expr, 
 +     control = control, ...))
 
-> dPut <- function(x, control = "all") dput(x, control = control)
+> dPut <- function(x, control = c("quoteExpression", 
++     "showAttributes", "niceNames", "keepInteger")) dput(x, control = control)
 
 > hasReal <- function(x) {
 +     if (is.double(x) || is.complex(x)) 
@@ -596,21 +598,22 @@ as.pairlist(alist(obj = , show = quote(!hasReal(obj)), oNam = quote(deparse(subs
     "t2", "ydata")), eq.tol = quote(if (noLdbl) 2 * .Machine$double.eps else 0)))
 __ not parse()able __: hasMissObj(.) is true 
 --=--=--=--=--
-dPut: function (x, control = "all") 
+dPut: function (x, control = c("quoteExpression", "showAttributes", 
+    "niceNames", "keepInteger")) 
 dput(x, control = control)
  --> checking list(*): Ok
 checking body(.):
 quote(dput(x, control = control))
  --> checking list(*): Ok
 checking formals(.):
-as.pairlist(alist(x = , control = "all"))
+as.pairlist(alist(x = , control = quote(c("quoteExpression", 
+    "showAttributes", "niceNames", "keepInteger"))))
 __ not parse()able __: hasMissObj(.) is true 
 --=--=--=--=--
 e: <environment>
 __ not parse()able __: environment 
 --=--=--=--=--
-e1: quote(c(F = (f <- 0.29999999999999999), `Tail area` = 2 * if (f < 
-    1) 30 else 90))
+e1: quote(c(F = (f <- 0.3), `Tail area` = 2 * if (f < 1) 30 else 90))
  --> checking list(*): Ok
 --=--=--=--=--
 e2: quote(c(`a b c` = 1, b = 2))
@@ -876,34 +879,24 @@ r1: list(value = quote({
     if (!evaluated) {
         exprs <- substitute(exprs)
         if (is.call(exprs)) {
-            if (exprs[[1]] == quote(`{`)) 
-                exprs <- as.list(exprs[-1])
+            if (exprs[[1]] == quote(`{`)) {
+                exprs <- as.list(exprs)[-1]
+                if (missing(skip.echo) && is.list(srcrefs <- attr(exprs, 
+                  "srcref"))) {
+                  skip.echo <- srcrefs[[1L]][7L] - 1L
+                }
+            }
         }
     }
     source(exprs = exprs, local = local, print.eval = print., 
         echo = echo, max.deparse.length = max.deparse.length, 
         width.cutoff = width.cutoff, deparseCtrl = deparseCtrl, 
-        ...)
+        skip.echo = skip.echo, ...)
 }), visible = TRUE)
  --> checking list(*): Ok
 --=--=--=--=--
 r13: structure(c(1, 2, 3), names = c("use.names", "recursive", "one"
 ))
- --> checking list(*): Ok
---=--=--=--=--
-r2: list(value = quote({
-    if (!evaluated) {
-        exprs <- substitute(exprs)
-        if (is.call(exprs)) {
-            if (exprs[[1]] == quote(`{`)) 
-                exprs <- as.list(exprs[-1])
-        }
-    }
-    source(exprs = exprs, local = local, print.eval = print., 
-        echo = echo, max.deparse.length = max.deparse.length, 
-        width.cutoff = width.cutoff, deparseCtrl = deparseCtrl, 
-        ...)
-}), visible = TRUE)
  --> checking list(*): Ok
 --=--=--=--=--
 runEPD_checks: function (env = .GlobalEnv) 
@@ -989,26 +982,21 @@ ysmooth: 1:10
  --> checking list(*): Ok
 --=--=--=--=--
 Warning messages:
-1: In dput(x, control = control) : deparse may be incomplete
-2: In dput(x, control = control) : deparse may be incomplete
+1: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
+2: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
 3: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
 4: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
-5: In dput(x, control = control) : deparse may be incomplete
+5: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
 6: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
-7: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
-8: In dput(x, control = control) : deparse may be incomplete
-9: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
-10: In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
 > 
 > summary(warnings())
-Summary of (a total of 10) warning messages:
-4x : In dput(x, control = control) : deparse may be incomplete
-6x : In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
+6 identical warnings:
+In deparse(expr, backtick = backtick, ...) : deparse may be incomplete
 > ## "dput    may be incomplete"
 > ## "deparse may be incomplete"
 > 
 > 
 > ## at the very end
 > cat('Time elapsed: ', proc.time() - .proctime00,'\n')
-Time elapsed:  0.739 0.042 0.791 0 0 
+Time elapsed:  0.103 0.009 0.112 0 0 
 > 

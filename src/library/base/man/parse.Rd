@@ -49,7 +49,7 @@ str2expression(text)
     \code{\link{options}(encoding=)}: see the example under
     \code{\link{file}}. Arguments \code{encoding = "latin1"} and 
     \code{encoding = "UTF-8"} are ignored with a warning when running
-    in a MBCS locale.}
+    in a \abbr{MBCS} locale.}
   \item{s}{a \code{\link{character}} vector of length \code{1}, i.e., a
     \dQuote{string}.}
 }
@@ -82,13 +82,13 @@ str2expression(text)
   preference to \code{file}.
 
   All versions of \R accept input from a connection with end of line
-  marked by LF (as used on Unix), CRLF (as used on DOS/Windows)
-  or CR (as used on classic Mac OS).  The final line can be incomplete,
-  that is missing the final EOL marker.
+  marked by \abbr{LF} (as used on Unix), \abbr{CRLF} (as used on DOS/Windows)
+  or \abbr{CR} (as used on classic Mac OS).  The final line can be incomplete,
+  that is missing the final \abbr{EOL} marker.
 
   When input is taken from the console, \code{n = NULL} is equivalent to
-  \code{n = 1}, and \code{n < 0} will read until an EOF character is
-  read.  (The EOF character is Ctrl-Z for the Windows front-ends.)  The
+  \code{n = 1}, and \code{n < 0} will read until an \abbr{EOF} character is
+  read.  (The \abbr{EOF} character is \abbr{Ctrl}-Z for the Windows front-ends.)  The
   line-length limit is 4095 bytes when reading from the console (which
   may impose a lower limit: see \sQuote{An Introduction to R}).
 

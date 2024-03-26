@@ -1,7 +1,7 @@
 #  File src/library/utils/R/help.search.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2022 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -122,7 +122,7 @@ function(pattern, fields = c("alias", "concept", "title"),
 {
     ### Argument handling.
     .wrong_args <- function(args)
-	gettextf("argument %s must be a single character string", sQuote(args))
+	gettextf("argument %s must be a character string", sQuote(args))
     if(is.logical(verbose)) verbose <- 2 * as.integer(verbose)
     fuzzy <- agrep
     if(!missing(pattern)) {
@@ -766,7 +766,7 @@ function(x, ...)
     outConn <- file(outFile, open = "w")
     typeinstruct <-
         c(vignette =
-              paste("Type 'vignette(\"FOO\", package=\"PKG\")' to",
+              paste("Type 'vignette(PKG::FOO)' to",
                     "inspect entries 'PKG::FOO'."),
           help =
               paste("Type '?PKG::FOO' to",
@@ -785,11 +785,16 @@ function(x, ...)
                                        matchtype, "matching:")),
 			 "\n"),
 		       outConn)
+            top <- dbtemp[ , "Topic"]
+            ind <- (top != make.names(top))
+            if(type == "help")
+                ind <- ind & !grepl("-(class|method|package)$", top)
+            top[ind] <- paste0("`", top[ind], "`")
             fields <- fields_for_match_details[[type]]
             chunks <- split.data.frame(dbtemp,
                                        paste0(dbtemp[, "Package"],
                                               "::",
-                                              dbtemp[ , "Topic"]))
+                                              top))
             nms <- names(chunks)
             for(i in seq_along(nms)) {
                 chunk <- chunks[[i]]

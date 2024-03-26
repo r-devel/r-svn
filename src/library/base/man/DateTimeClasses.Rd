@@ -1,6 +1,6 @@
 % File src/library/base/man/DateTimeClasses.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{DateTimeClasses}
@@ -28,7 +28,6 @@
 \alias{[<-.POSIXlt}
 \alias{[[.POSIXlt}
 \alias{[[<-.POSIXlt}
-\alias{as.data.frame.POSIXct}
 \alias{as.data.frame.POSIXlt}
 \alias{as.list.POSIXct}
 \alias{as.list.POSIXlt}
@@ -81,10 +80,10 @@
     should be high enough to represent the least important time unit
     exactly.}
   \item{\dots}{further arguments to be passed from or to other methods.}
-  \item{time}{date-time objects}
+  \item{time}{date-time objects.}
   \item{time1, time2}{date-time objects or character vectors.  (Character
     vectors are converted by \code{\link{as.POSIXct}}.)}
-  \item{z}{a numeric vector (in seconds)}
+  \item{z}{a numeric vector (in seconds).}
   \item{lop}{one of \code{==}, \code{!=}, \code{<}, \code{<=}, \code{>}
     or \code{>=}.}
 }
@@ -100,11 +99,11 @@
   and sometimes (both \emph{optional})
   \code{zone}, a string for the time zone, and
   \code{gmtoff}, offset in seconds from GMT,
-  see the section \sQuote{Details on POSIXlt} below for more details.
+  see the section \sQuote{Details on \I{POSIXlt}} below for more details.
 
   The classes correspond to the POSIX/C99 constructs of \sQuote{calendar
-    time} (the \code{time_t} data type, \dQuote{ct}), and \sQuote{local time}
-  (or broken-down time, the \samp{struct tm} data type, \dQuote{lt}),
+    time} (the \code{time_t} data type, \dQuote{\I{ct}}), and \sQuote{local time}
+  (or broken-down time, the \samp{struct tm} data type, \dQuote{\I{lt}}),
   from which they also inherit their names.
 
   \code{"POSIXct"} is more convenient for including in data frames, and
@@ -176,14 +175,14 @@
   attribute. % No longer true: (e.g., by \code{c(x)}).
 }
 
-\section{Details on POSIXlt}{
+\section{Details on \I{POSIXlt}}{
   Class \code{"POSIXlt"} is internally a named \code{\link{list}} of
   vectors representing date-times, with the following list components
   \describe{
     \item{\code{sec}}{0--61: seconds, allowing for leap seconds.}
     \item{\code{min}}{0--59: minutes.}
     \item{\code{hour}}{0--23: hours.}
-    \item{\code{mday}}{1--31: day of the month}
+    \item{\code{mday}}{1--31: day of the month.}
     \item{\code{mon}}{0--11: months after the first of the year.}
     \item{\code{year}}{years since 1900.}
     \item{\code{wday}}{0--6 day of the week, starting on Sunday.}
@@ -226,7 +225,7 @@
   end of DST: typically 1am to 2am occurs twice, first in DST and then
   in standard time.  At all other times \code{isdst} can be deduced from
   the first six values, but the behaviour if it is set incorrectly is
-  platform-dependent.  For example Linux/glibc when checked fixed up
+  platform-dependent.  For example Linux/\I{glibc} when checked fixed up
   incorrect values in time zones which support DST but gave an error on
   value \code{1} in those without DST.
   % POSIX says used 'initially', so it should probably be ignored.
@@ -307,7 +306,7 @@
   \code{\link{difftime}} for time intervals.
 
   \code{\link{balancePOSIXlt}()} for balancing or filling \dQuote{ragged}
-  POSIXlt objects.
+  \I{POSIXlt} objects.
 
   \code{\link{cut.POSIXt}}, \code{\link{seq.POSIXt}},
   \code{\link{round.POSIXt}} and \code{\link{trunc.POSIXt}} for methods
@@ -339,15 +338,15 @@
   order for efficiency.
 }
 \examples{
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 (z <- Sys.time())             # the current date, as class "POSIXct"
 
 Sys.time() - 3600             # an hour ago
 
 as.POSIXlt(Sys.time(), "GMT") # the current time in GMT
 format(.leap.seconds)         # the leap seconds in your time zone
-print(.leap.seconds, tz = "PST8PDT")  # and in Seattle's
-## IGNORE_RDIFF_END
+print(.leap.seconds, tz = "America/Los_Angeles")  # and in Seattle's
+}
 
 ## look at *internal* representation of "POSIXlt" :
 leapS <- as.POSIXlt(.leap.seconds)

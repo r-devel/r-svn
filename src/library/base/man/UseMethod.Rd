@@ -3,6 +3,8 @@
 % Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{UseMethod}
 \title{Class Methods}
 \alias{UseMethod}
@@ -93,8 +95,9 @@ NextMethod(generic = NULL, object = NULL, \dots)
   comments will be slightly different than those in Chambers(1992).
   (See also the draft \sQuote{R Language Definition}.)
   \code{UseMethod} creates a new function call with
-  arguments matched as they came in to the generic.  Any local variables
-  defined before the call to \code{UseMethod} are retained (unlike S).  Any
+  arguments matched as they came in to the generic.  [Previously local
+  variables defined before the call to \code{UseMethod} were retained;
+  as of \R 4.4.0 this is no longer the case.] Any
   statements after the call to \code{UseMethod} will not be evaluated as
   \code{UseMethod} does not return.  \code{UseMethod} can be called with
   more than two arguments: a warning will be given and additional
@@ -164,7 +167,7 @@ NextMethod(generic = NULL, object = NULL, \dots)
   method.  It is possible to change the method that \code{NextMethod}
   would dispatch by manipulating \code{.Class}, but \sQuote{this is not
     recommended unless you understand the inheritance mechanism
-    thoroughly} (Chambers & Hastie, 1992, p.\sspace{}469).
+    thoroughly} (\bibcite{Chambers & Hastie, 1992, p.\sspace{}469}).
 }
 \note{
   This scheme is called \emph{S3} (S version 3).  For new projects,

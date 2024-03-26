@@ -1140,8 +1140,12 @@ stopifnot(diff(tmp$mday) == c(0, 1, 0, 0))
 ## Methods, 2nd ed., Wiley, 1999, pp. 180-181).
 x <- c(-0.15, 8.6, 5, 3.71, 4.29, 7.74, 2.48, 3.25, -1.15, 8.38)
 y <- c(2.55, 12.07, 0.46, 0.35, 2.69, -0.94, 1.73, 0.73, -0.35, -0.37)
-stopifnot(round(ks.test(x, y)$p.value, 4) == 0.0524)
-
+KSxy <- ks.test(x, y)
+stopifnot(exprs = {
+    round(KSxy$p.value, 4) == 0.0524
+    all.equal(c(D = 0.6), KSxy$statistic, tol = 1e-15) # see 1.85 e-16
+    all.equal( 15/286,    KSxy$p.value,   tol = 1e-15) #  "  2.646e-16
+})
 
 ## PR 1150.  Wilcoxon rank sum and signed rank tests did not return the
 ## Hodges-Lehmann estimators of the associated confidence interval
@@ -3062,10 +3066,24 @@ stopifnot(identical(cumprod(x), r))
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
 # complex
-x <- c(1+1i, NA, 3)
-r <- c(1+1i, NA, NA)
-stopifnot(identical(cumsum(x), r))
-stopifnot(identical(cumprod(x), r))
+cx <- function(r,i) complex(real=r, imaginary=i)
+NA.1 <- cx(NA, 1)
+NA.2 <- cx(NA, 2)
+NA_C <- NA_complex_ # = complex(r=NA, i=NA)
+y <- x <- c(1+1i, NA, 3)
+stopifnot(identical(x[2], cx(NA,0))) # newly true
+y[2] <- NA.1
+stopifnot(exprs = {
+    identical(Im(cumsum(x)), cumsum(Im(x)))
+    identical(Re(cumsum(x)), cumsum(Re(x)))
+    identical(Im(cumsum(y)), cumsum(Im(y)))
+    identical(Re(cumsum(y)), cumsum(Re(y)))
+    identical( sum(x), tail( cumsum(x), 1L))
+    identical(prod(x), tail(cumprod(x), 1L))
+    identical(cumsum (x), c(1+1i, NA.1, NA.1)) # new
+    identical(cumsum (y), c(1+1i, NA.2, NA.2)) #  "
+    identical(cumprod(x), c(1+1i, NA_C, NA_C))
+})
 # integer
 x <- c(1L, NA, 3L)
 r <- c(1L, NA, NA)

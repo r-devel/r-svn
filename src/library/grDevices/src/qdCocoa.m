@@ -331,6 +331,24 @@ static QuartzFunctions_t *qf;
     ci->pdfMode = NO;
 }
 
+/* we need at least macOS 11 target to worry about the Sonoma bug */
+#if defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 110000)
+/* since this is a run-time problem, we can't use avalability checks,
+   since we are using macOS 11 SDK target, so we have to determine the
+   run-time version of the macOS */
+static int sonoma_bug = -1; /* -1 = macOS not checked yet, 0 = no, 1 = yes */
+static int has_sonoma_bug() {
+    if (sonoma_bug == -1) { /* detect os version to work around the nasty Sonoma drawing bug */
+    NSOperatingSystemVersion osver = [[NSProcessInfo processInfo] operatingSystemVersion];
+    sonoma_bug = (osver.majorVersion == 14 && osver.minorVersion > 1) ? 1 : 0;
+    /* Rprintf("macOS %d.%d.%d, buggy = %d\n", (int)osver.majorVersion, (int)osver.minorVersion,
+       (int)osver.patchVersion, sonoma_bug); */
+    }
+    return sonoma_bug;
+}
+#define CHECK_SONOMA_BUG 1
+#endif
+
 - (void)drawRect:(NSRect)aRect
 {
     CGRect rect;
@@ -342,16 +360,18 @@ static QuartzFunctions_t *qf;
             CGContextRelease(ci->context);
         CGContextRetain(ctx);
     }
+
     ci->context = ctx;
     ci->bounds = [self bounds];        
+    /* Rprintf("drawRect, ctx=%p, bounds=(%f x %f)\n", ctx, ci->bounds.size.width, ci->bounds.size.height); */
     rect = CGRectMake(0.0, 0.0, ci->bounds.size.width, ci->bounds.size.height);
     
     if (ci->pdfMode) {
+	/* Rprintf("  pdfMode - replaying list\n"); */
 	qf->ReplayDisplayList(ci->qd);
 	return;
     }
 
-    /* Rprintf("drawRect, ctx=%p, bounds=(%f x %f)\n", ctx, ci->bounds.size.width, ci->bounds.size.height); */
     if (!ci->layer) {
         CGSize size = CGSizeMake(ci->bounds.size.width, ci->bounds.size.height);
         /* Rprintf(" - have no layer, creating one (%f x %f)\n", ci->bounds.size.width, ci->bounds.size.height); */
@@ -389,8 +409,26 @@ static QuartzFunctions_t *qf;
         }
     }
     if ([self inLiveResize]) CGContextSetAlpha(ctx, 0.6); 
-    if (ci->layer)
+    if (ci->layer) {
+#ifdef CHECK_SONOMA_BUG
+	/* macOS 14.3.1 has a very bizarre bug which appears to be some kind
+	   of over-zealous optimization where it won't update the view even if
+	   the contents changed after drawing the CGLayer. The only way to prevent
+	   this from happening seems to be to draw something different than
+	   CGLayer each time in the same location before drawing the CGLayer. */
+	if (has_sonoma_bug()) {
+	    static double _q = 0.0;
+	    CGContextSaveGState(ctx);
+	    CGRect cr = { 0.0, 0.0, 1.0, 1.0 };
+	    CGContextAddRect(ctx, cr);
+	    CGContextSetRGBFillColor(ctx, _q, 1.0, 1.0, 1.0);
+	    _q += 0.1; if (_q > 1.0) _q -= 1.0;
+	    CGContextFillPath(ctx);
+	    CGContextRestoreGState(ctx);
+	}
+#endif
         CGContextDrawLayerInRect(ctx, rect, ci->layer);
+    }
     if ([self inLiveResize]) CGContextSetAlpha(ctx, 1.0); 
 }
 
@@ -682,6 +720,7 @@ static void initialize_cocoa() {
 
 static CGContextRef QuartzCocoa_GetCGContext(QuartzDesc_t dev, void *userInfo) {
     QuartzCocoaDevice *qd = (QuartzCocoaDevice*)userInfo;
+    /* if (!qd->pdfMode) Rprintf("QuartzCocoa_GetCGContext(layer=%p) -> %p (check %p)\n", qd->layer, qd->layerContext, qd->layer ? CGLayerGetContext(qd->layer) : 0); */
     return qd->pdfMode ? qd->context : qd->layerContext;
 }
 
@@ -765,6 +804,7 @@ static void QuartzCocoa_NewPage(QuartzDesc_t dev,void *userInfo, int flags) {
         ci->inHistory = -1;
     }
     if (ci->layer) {
+        /* Rprintf(" - releasing old layer (%p - ctx: %p)\n", ci->layer, ci->layerContext); */
         CGLayerRelease(ci->layer);
         ci->layer = 0;
         ci->layerContext = 0;
@@ -785,6 +825,7 @@ static void QuartzCocoa_Sync(QuartzDesc_t dev,void *userInfo) {
      * via setNeedsDisplay: YES has issues since dev.flush() won't
      * be synchronous and thus animation using dev.flush(); dev.hold()
      * will break by the time the event loop is run */
+    /* Rprintf("QuartzCocoa_Sync()\n"); */
     [ci->view display];
 }
 

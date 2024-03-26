@@ -3,15 +3,17 @@
 % Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{KalmanLike}
 \alias{KalmanLike}%-> ../R/Kalman.R
 \alias{KalmanRun}
 \alias{KalmanSmooth}
 \alias{KalmanForecast}
 \alias{makeARIMA}%-> ../R/arima.R
-\title{Kalman Filtering}
+\title{\I{Kalman} Filtering}
 \description{
-  Use Kalman Filtering to find the (Gaussian) log-likelihood, or for
+  Use \I{Kalman} Filtering to find the (Gaussian) log-likelihood, or for
   forecasting or smoothing.
 }
 \usage{
@@ -73,7 +75,7 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
   \code{makeARIMA} constructs the state-space model for an ARIMA model,
   see also \code{\link{arima}}.
 
-  The state-space initialization has used Gardner \emph{et al}'s method
+  The state-space initialization has used Gardner \abbr{et al.}'s method
   (\code{SSinit = "Gardner1980"}), as only method for years.  However,
   that suffers sometimes from deficiencies when close to non-stationarity.
   For this reason, it may be replaced as default in the future and only
@@ -81,12 +83,13 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
   \code{SSinit} is therefore recommended, notably also in
   \code{\link{arima}()}.
   The \code{"Rossignol2011"} method has been proposed and partly
-  documented by Raphael Rossignol, Univ. Grenoble, on 2011-09-20 (see
-  PR#14682, below), and later been ported to C by Matwey V. Kornilov.
+  documented by \I{Raphael Rossignol}, Univ. Grenoble, on 2011-09-20 (see
+  PR#14682, below), and later been ported to C by \I{Matwey V. Kornilov}.
   It computes the covariance matrix of
   \eqn{(X_{t-1},...,X_{t-p},Z_t,...,Z_{t-q})}
-  by the method of difference equations (page 93 of Brockwell and Davis),
-  apparently suggested by a referee of  Gardner \emph{et al} (see p.314 of
+  by the method of difference equations
+  (page 93 of \bibcite{Brockwell and Davis (1991)}),
+  apparently suggested by a referee of Gardner \abbr{et al.}\sspace(see p.314 of
   their paper).
 }
 
@@ -121,6 +124,10 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
 }
 
 \references{
+  Brockwell, P. J. and Davis, R. A. (1991).
+  \emph{Time Series: Theory and Methods}, second edition.
+  Springer.
+  
   Durbin, J. and Koopman, S. J. (2001).
   \emph{Time Series Analysis by State Space Methods}.
   Oxford University Press.

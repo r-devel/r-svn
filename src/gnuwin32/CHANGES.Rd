@@ -27,13 +27,13 @@
 
       \item \code{postscript(file = "|cmd")} now works on Windows.
       
-      \item \code{file.symlink()} is now implemented on NTFS file
+      \item \code{file.symlink()} is now implemented on \abbr{NTFS} file
       systems on Vista or later, for accounts which have suitable
       permissions (and most will not).  It can link existing
       directories, and existing-or-not files.
 
       \item There is a new function \code{Sys.junction()} to create
-      junction points on NTFS file systems.
+      junction points on \abbr{NTFS} file systems.
 
       \item C-level error formats now use the trio library, and so for
       example output \samp{1.53e-11} (as required by C99) rather than
@@ -77,7 +77,7 @@
   \subsection{NEW FEATURES}{
     \itemize{
       \item \code{bitmap()} and \code{dev2bitmap()} look for
-      \command{gswin64c.exe} (as used by 64-bit GhostScript), in
+      \command{gswin64c.exe} (as used by 64-bit \I{GhostScript}), in
       preference to \command{gswin32c.exe}.
     }
   }
@@ -85,7 +85,7 @@
   \subsection{INSTALLATION}{
     \itemize{
       \item The sources (and packages) can now be compiled using the
-      multilib toolchain developed for \R 2.15.x: see the
+      \I{multilib} toolchain developed for \R 2.15.x: see the
       \samp{MULTI} macro in \file{MkRules.dist}.  This toolchain is used
       for the CRAN binary distribution.
     }
@@ -113,11 +113,11 @@
   \subsection{BUG FIXES}{
     \itemize{
       \item Using a prompt of more than 80 characters in
-      \code{readline()} could cause a buffer overflow in Rterm.
-      (Reported by Henrik Bengtsson.)
+      \code{readline()} could cause a buffer overflow in \I{Rterm}.
+      (Reported by \I{Henrik Bengtsson}.)
 
       \item Some of the custom messages in the installer were corrupted:
-      add a BOM mark to the file as now required by Unicode Inno Setup.
+      add a \abbr{BOM} mark to the file as now required by Unicode \I{Inno Setup}.
       (\PR{14816})
     }
   }
@@ -131,7 +131,7 @@
 
       \item In package \pkg{parallel}, \code{detectCores(logical =
 	FALSE)} makes an OS-dependent attempt to find the number of
-      physical cores.  It usually succeeds, even on XP.
+      physical cores.  It usually succeeds, even on \I{XP}.
     }
   }
   
@@ -168,7 +168,7 @@
       \item \command{R CMD build} once again attempts to preserve file
       permissions on Windows.
 
-      \item There is support for cairographics-based devices using the
+      \item There is support for \I{cairographics}-based devices using the
       same code as on Unix-alikes.  This can be selected by the new
       \code{type} argument of the bitmap devices \code{bmp()},
       \code{jpeg()}, \code{png()} and \code{tiff()}, and devices
@@ -182,8 +182,8 @@
       \item All the Windows-specific graphics devices now have a
       \code{family} argument.  If non-empty this specifies an initial
       family to be used for fonts 1--4.  If empty the fonts specified in
-      the \file{Rdevga} configuration file are used for the Windows GDI
-      devices and \code{"sans"} for cairographics-based devices.
+      the \file{Rdevga} configuration file are used for the Windows \abbr{GDI}
+      devices and \code{"sans"} for \I{cairographics}-based devices.
 
       This will generally be a Windows font name such as
       \code{"Lucida Bright"} or one of the device-independent names
@@ -202,12 +202,12 @@
       settings: this argument should at least be able to turn it
       off.  The default behaviour (unchanged from before) is that Windows
       will use anti-aliasing for screen devices (and bitmap devices, as
-      they plot on a hidden screen) if ClearType has been enabled.  For
-      those not using ClearType, \code{windows.options(antialias =
+      they plot on a hidden screen) if \I{ClearType} has been enabled.  For
+      those not using \I{ClearType}, \code{windows.options(antialias =
 	"cleartype")} will make this the default, and it will probably
       give more legible plots. 
 
-      The argument can also be used for the cairographics-based versions
+      The argument can also be used for the \I{cairographics}-based versions
       of the bitmap devices.
 
       \item The \sQuote{Update packages ...} menu item now runs
@@ -224,7 +224,7 @@
       small delay after removing a directory to counteract some
       interference from anti-virus software.
 
-      \item There is a Danish translation of the RGui menus.
+      \item There is a Danish translation of the \I{RGui} menus.
     }
   }
 
@@ -242,7 +242,7 @@
       file association for \file{.RData} files defaults to 64-bit R (it
       defaulted to 32-bit in R 2.12.x and 2.13.x).
 
-      \item There is preliminary support for \sQuote{multilib}
+      \item There is preliminary support for \sQuote{\I{multilib}}
       toolchains which use options \option{--m32} or \option{--m64} to
       select the architecture; set the appropriate macros in
       \file{MkRules.local}.
@@ -255,8 +255,8 @@
   \subsection{PACKAGE INSTALLATION}{
     \itemize{
       \item \file{Rzlib.dll} (sometimes used in packages \emph{via}
-      \samp{$(ZLIB_LIBS)}) does not include the buggy gzio   % for balance: $
-      interface from zlib 1.2.5.
+      \samp{$(ZLIB_LIBS)}) does not include the buggy \I{gzio}   % for balance: $
+      interface from \I{zlib} 1.2.5.
     }
   }
 
@@ -271,7 +271,7 @@
     \itemize{
       \item Raster drawing on \code{win.metafile()} (or copying a plot
       that includes a raster image from another device to a Metafile)
-      now does not crash.  (Reported by Stefan Gelissen.)
+      now does not crash.  (Reported by \I{Stefan Gelissen}.)
     }
   }
 }
@@ -311,7 +311,7 @@
   
   \subsection{BUG FIXES}{
     \itemize{
-      \item Launching the PDF manuals from the Rgui menus did not work
+      \item Launching the PDF manuals from the \I{Rgui} menus did not work
       on some versions of Windows.
       
       \item The windows() screen device would sometimes fail to plot
@@ -345,8 +345,8 @@
   \subsection{NEW FEATURES}{
     \itemize{
       \item \code{win_iconv} has been updated: this version has a change
-      in the behaviour with BOMs on UTF-16 and UTF-32 files -- it
-      removes BOMs when reading and adds them when writing.  (This is
+      in the behaviour with \abbr{BOM}s on UTF-16 and UTF-32 files -- it
+      removes \abbr{BOM}s when reading and adds them when writing.  (This is
       consistent with Microsoft applications, but Unix versions of
       \code{iconv} usually ignore them.)
 
@@ -354,7 +354,7 @@
       64-bit Windows binaries for \R 2.11.x only) has been removed.
 
       \item The installers no longer put an \sQuote{Uninstall} item on
-      the start menu (to conform to current Microsoft UI guidelines).
+      the start menu (to conform to current Microsoft \abbr{UI} guidelines).
 
       \item Running \R always sets the environment variable \env{R_ARCH}
       (as it does on a Unix-alike from the shell-script front-end).
@@ -450,7 +450,7 @@
       limitations).
       
       \item The graphical dialog version of \code{select.list()} could
-      cause later dialogs to fail if Windows events were not processed
+      cause later \I{dialogs} to fail if Windows events were not processed
       between the calls.
     }
   }
@@ -477,9 +477,9 @@
 
   \subsection{INSTALLATION}{
     \itemize{
-      \item The MSI installer is now made by an \R script, and there is
-      now support for 64-bit builds.  (Unlike the Inno Setup installer,
-      there are separate MSI installers for 32- and 64-bit Windows.)
+      \item The \abbr{MSI} installer is now made by an \R script, and there is
+      now support for 64-bit builds.  (Unlike the \I{Inno Setup} installer,
+      there are separate \abbr{MSI} installers for 32- and 64-bit Windows.)
 
       It is now built using \command{WiX 3.x} rather than \command{WiX
 	2.0}.  (As a result it is about 25\% smaller.)
@@ -543,7 +543,7 @@
        \code{Sd2d} are now handled internally rather by shell scripts.
       
       \item \command{Rcmd} has a new sub-command \command{texify} to run
-       MiKTeX's \file{texify.exe} with arguments to find files such as
+       \I{MiKTeX}'s \file{texify.exe} with arguments to find files such as
        \file{Sweave.sty}.  See the examples in \code{?Sweave}.
 
        \item \code{system(intern = FALSE)} now returns \code{127} (the
@@ -578,7 +578,7 @@
         The default package type is \code{"win.binary"} on both 32- and
         64-bit builds: a single repository contains binary packages for
         both architectures.  This is in place for CRAN, CRAN extras and
-        BioC: \code{type = "win64.binary"} can still be used for any
+        \I{BioC}: \code{type = "win64.binary"} can still be used for any
         repositories which follow the \R 2.11.x convention.  With the
         default filters (see \code{?available.packages}) packages will
         only be offered if they are available for the current
@@ -667,7 +667,7 @@
        locale (as they were in most previous releases, but not in
        2.11.0).
       
-      \item \command{R CMD INSTALL} can install zipfiles as binary
+      \item \command{R CMD INSTALL} can install \I{zipfiles} as binary
       packages.
         
       \item Errors in the \file{Rconsole} file are ignored: silently on
@@ -699,7 +699,7 @@
       \item \code{file.rename()} can work across volumes (by copy-and-delete).
         
       \item The main HTML help page now links to this \file{CHANGES} file.
-       (Suggested by Henrik Bengtsson.) 
+       (Suggested by \I{Henrik Bengtsson}.) 
       
       \item \code{strftime(format = "\%z")} now gives the timezone names
        used by the Olson database and not those used by Windows.
@@ -732,7 +732,7 @@
        \file{MkRules.local} can be generated by copying and editing
        \file{MkRules.dist}.
       
-      \item The MSI installer defaults to an all-user (per machine)
+      \item The \abbr{MSI} installer defaults to an all-user (per machine)
        install (by setting the \code{ALLUSERS} property to \code{1}).
        This can be changed at installation, and it can be built for a
        user-mode install (see \file{MkRules.dist}).
@@ -779,7 +779,7 @@
        
       \item The HTML package index was not constructed properly when the
        library path was specified with backslashes.  (Patch submitted
-       by Gabor Grothendieck.)
+       by \I{Gabor Grothendieck}.)
     }
   }
 }
@@ -833,7 +833,7 @@
        Binary packages are installed without CHM help if they contain
        it (as those intended for 2.9.x may).
       
-      \item It is possible to install source packages without Rtools
+      \item It is possible to install source packages without \I{Rtools}
        provided they have no compiled code and no \file{configure.win} or
        \file{cleanup.win} script.
     }
@@ -851,7 +851,7 @@
       \item The categories in the installers have been simplified.  Now the
        files to support installation of source packages are always
        installed (they are now only 0.7Mb), and there are no longer
-       categories 'chtml', 'html/help', 'latex' and 'Rd'.
+       categories '\I{chtml}', 'html/help', 'latex' and 'Rd'.
       
       
     }

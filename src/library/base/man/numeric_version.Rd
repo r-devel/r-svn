@@ -1,6 +1,6 @@
 % File src/library/base/man/numeric_version.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{numeric_version}
@@ -22,7 +22,6 @@
 \alias{Summary.numeric_version}
 \alias{anyNA.numeric_version}
 \alias{as.character.numeric_version}
-\alias{as.data.frame.numeric_version}
 \alias{as.list.numeric_version}
 \alias{c.numeric_version}
 \alias{duplicated.numeric_version}
@@ -67,7 +66,7 @@ is.package_version(x)
   character strings with the elements of the sequence concatenated and
   separated by single \samp{.} or \samp{-} characters.  \R package
   versions consist of at least two such integers, an \R system version
-  of exactly three (major, minor and patchlevel).
+  of exactly three (major, minor and patch level).
 
   Functions \code{numeric_version}, \code{package_version} and
   \code{R_system_version} create a representation from such strings (if

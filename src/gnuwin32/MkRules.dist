@@ -4,9 +4,11 @@
 ## etc/*/Makeconf: see fixed/Makefile
 
 ## Customize by copying to MkRules.local and uncommenting and editing 
-## some of the definitions there. The values are tailored to Rtools43, the
-## currently recommented toolchain using gcc 12.2, MinGW-w64 10, 64-bit only,
-## UCRT. R is only intended to be built for 64-bit UCRT as of R 4.2. 
+## some of the definitions there. The values are tailored to Rtools44, the
+## currently recommented toolchain using gcc 13, MinGW-w64 11, 64-bit only,
+## UCRT. R is only intended to be built for 64-bit UCRT as of R 4.2. The
+## values also work with Rtools44 on aarch64 (LLVM 17, clang/flang-new, lld,
+## libc++) via USE_LLVM=1 and WIN=.
 
 ## =========== configuration macros for building packages ================
 
@@ -32,7 +34,7 @@
 # collection via LOCAL_SOFT, so LOCAL_SOFT is set up by default to also
 # point to the Rtools software. This may be changed in the future.
 #
-# To build R from source with Rtools43 (installed from installer as well as
+# To build R from source with Rtools44 (installed from installer as well as
 # tarball), gcc has to be on PATH and LOCAL_SOFT can be computed as follows:
 #
 # LOCAL_SOFT ?= $(shell which `echo $(CC) | sed -e 's/ .*//g'` | sed -e 's!/bin/[^/]\+!!g')
@@ -43,7 +45,6 @@
 # libpng, libjpeg, libtiff, xz.
 # EXT_LIBS = $(LOCAL_SOFT)
 
-# an alternative is to use -gstabs here, if the debugger supports only stabs.
 # G_FLAG = -gdwarf-2
 
 # Set to YES and specify the path if you want to use the ATLAS BLAS.
@@ -56,15 +57,6 @@
 # checkout with no modifications).
 # USE_SVNVERSION = YES
 
-# With the previously recommended gcc 4.6.3 toolchain, set this to 32 or 64
-# MULTI =
-# If the toolchain's bin directory is not in your path, set this to the path
-# (including the trailing /, and use / not \).
-# TOOL_PATH =
-# for other toolchains leave these empty and set the more detailed options below
-
-
-### BEGIN more detailed options
 # Some of the toolchains have prefixes for e.g. ar, gcc.
 # This can also be used to give the full path to the compiler, 
 # including a trailing / .  
@@ -83,15 +75,12 @@
 
 # The gcc 4.9.3 64 bit toolchain is set up for the 'medium code' model and needs
 # to remove the .refptr and .weak entries from the exports list; this is the default
-# when WIN = 64, with blank for WIN = 32:
 # NM_FILTER = | $(SED) -e '/[.]refptr[.]/d' -e '/[.]weak[.]/d'
 
 # We normally link directly against DLLs, 
 # but this macro forces the use of import libs
 # Has been needed for some versions of MinGW-w64
 # USE_IMPLIBS = YES
-
-### END more detailed options
 
 
 # set to use ICU
@@ -178,7 +167,6 @@
 
 # Full paths of extra DLLs that need to be shipped
 # e.g
-# DLLs32 =
 # DLLs64 =
 
 

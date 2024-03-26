@@ -46,7 +46,8 @@ static SEXP GetObject(RCNTXT *cptr)
 	for (b = cptr->promargs ; b != R_NilValue ; b = CDR(b))
 	    if (TAG(b) != R_NilValue && pmatch(tag, TAG(b), 1)) {
 		if (s != NULL)
-		    error(_("formal argument \"%s\" matched by multiple actual arguments"), tag);
+		    error(_("formal argument \"%s\" matched by multiple actual arguments"),
+		          CHAR(PRINTNAME(tag)));
 		else
 		    s = CAR(b);
 	    }
@@ -56,7 +57,8 @@ static SEXP GetObject(RCNTXT *cptr)
 	    for (b = cptr->promargs ; b != R_NilValue ; b = CDR(b))
 		if (TAG(b) != R_NilValue && pmatch(tag, TAG(b), 0)) {
 		    if ( s != NULL)
-			error(_("formal argument \"%s\" matched by multiple actual arguments"), tag);
+			error(_("formal argument \"%s\" matched by multiple actual arguments"),
+			      CHAR(PRINTNAME(tag)));
 		    else
 			s = CAR(b);
 		}
@@ -78,7 +80,7 @@ static SEXP GetObject(RCNTXT *cptr)
 	s = CAR(cptr->promargs);
 
     if (TYPEOF(s) == PROMSXP) {
-	if (PRVALUE(s) == R_UnboundValue)
+	if (! PROMISE_IS_EVALUATED(s))
 	    s = eval(s, R_BaseEnv);
 	else
 	    s = PRVALUE(s);
@@ -115,7 +117,7 @@ static SEXP applyMethod(SEXP call, SEXP op, SEXP args, SEXP rho, SEXP newvars)
 	vmaxset(vmax);
     }
     else if (TYPEOF(op) == CLOSXP) {
-	ans = applyClosure(call, op, args, rho, newvars);
+	ans = applyClosure(call, op, args, rho, newvars, FALSE);
     }
     else
 	ans = R_NilValue;  /* for -Wall */
@@ -378,9 +380,80 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
 		    break;
 		}
 	    if (!matched) {
+#ifdef USEMETHOD_FORWARD_LOCALS
 		UNPROTECT(1); /* newvars */
 		newvars = PROTECT(CONS(CAR(s), newvars));
 		SET_TAG(newvars, TAG(s));
+#else
+		static int option = -1;
+		if (option == -1) {
+		    option = 2; // none: the default
+		    const char *val = getenv("R_USEMETHOD_FORWARD_LOCALS");
+		    if (val != NULL) {
+			if (strcmp(val, "all") == 0)
+			    option = 0;
+			else if (strcmp(val, "S4") == 0)
+			    option = 1;
+			else if (strcmp(val, "none") == 0)
+			    option = 2;
+			else if (strcmp(val, "error") == 0)
+			    option = 3;
+			else if (strcmp(val, "warning") == 0)
+			    option = 4;
+			else
+			    warning("bad value for R_USEMETHOD_FORWARD_LOCALS");
+		    }
+		}
+		SEXP val;
+		char buf[8192];
+		switch(option) {
+		case 0: // forward all, as in the past before R 4.4.0
+		    UNPROTECT(1); /* newvars */
+		    newvars = PROTECT(CONS(CAR(s), newvars));
+		    SET_TAG(newvars, TAG(s));
+		    break;
+		case 1: // forward only S4 variables
+		    if (TAG(s) == R_dot_defined ||
+			TAG(s) == R_dot_Method ||
+			TAG(s) == R_dot_target ||
+			TAG(s) == R_dot_Generic ||
+			TAG(s) == R_dot_Methods) {
+			UNPROTECT(1); /* newvars */
+			newvars = PROTECT(CONS(CAR(s), newvars));
+			SET_TAG(newvars, TAG(s));
+		    }
+		    break;
+		case 2: // don't forward any variables
+		    break;
+		case 3: // forward all, with an error when used
+#ifdef WARN_ON_FORWARDING		    
+		    if (TAG(s) != R_dot_defined &&
+			TAG(s) != R_dot_Method &&
+			TAG(s) != R_dot_target &&
+			TAG(s) != R_dot_Generic &&
+			TAG(s) != R_dot_Methods)
+			warningcall_immediate(R_NilValue,
+					      "UseMethod forwarding '%s' "
+					      "in generic '%s'",
+				CHAR(PRINTNAME(TAG(s))),
+				generic);
+#endif
+		    snprintf(buf, sizeof(buf),
+			     "stop(\"getting UseMethod variable '%s' "
+			     "from generic '%s'; "
+			     "this is no longer supported\")",
+			     CHAR(PRINTNAME(TAG(s))),
+			     generic);
+		    val = mkPROMISE(R_ParseString(buf), R_GlobalEnv);
+		    UNPROTECT(1); /* newvars */
+		    newvars = PROTECT(CONS(val, newvars));
+		    SET_TAG(newvars, TAG(s));
+		    break;
+		default:
+		    option = 0;
+		    warning("bad value for R_USEMETHOD_FORWARD_LOCALS");
+		}
+#endif
 	    }
 	}
     }
@@ -1421,7 +1494,7 @@ SEXP do_set_prim_method(SEXP op, const char *code_string, SEXP fundef,
     else if(fundef && !isNull(fundef) && !prim_generics[offset]) {
 	if(TYPEOF(fundef) != CLOSXP)
 	    error(_("the formal definition of a primitive generic must be a function object (got type '%s')"),
-		  type2char(TYPEOF(fundef)));
+		  R_typeToChar(fundef));
 	R_PreserveObject(fundef);
 	prim_generics[offset] = fundef;
     }
@@ -1573,17 +1646,15 @@ R_possible_dispatch(SEXP call, SEXP op, SEXP args, SEXP rho,
 		if (length(s) != length(args)) error(_("dispatch error"));
 		for (a = args, b = s; a != R_NilValue; a = CDR(a), b = CDR(b))
 		    IF_PROMSXP_SET_PRVALUE(CAR(b), CAR(a));
-		value =  applyClosure(call, value, s, rho, suppliedvars);
-#ifdef ADJUST_ENVIR_REFCNTS
-		unpromiseArgs(s);
-#endif
+		value =  applyClosure(call, value, s, rho, suppliedvars, TRUE);
 		UNPROTECT(2);
 		return value;
 	    } else {
 		/* INC/DEC of REFCNT needed for non-tracking args */
 		for (SEXP a = args; a != R_NilValue; a = CDR(a))
 		    INCREMENT_REFCNT(CAR(a));
-		value = applyClosure(call, value, args, rho, suppliedvars);
+		value = applyClosure(call, value, args, rho,
+				     suppliedvars, FALSE);
 		for (SEXP a = args; a != R_NilValue; a = CDR(a))
 		    DECREMENT_REFCNT(CAR(a));
                 UNPROTECT(1);
@@ -1603,13 +1674,13 @@ R_possible_dispatch(SEXP call, SEXP op, SEXP args, SEXP rho,
 	if (length(s) != length(args)) error(_("dispatch error"));
 	for (a = args, b = s; a != R_NilValue; a = CDR(a), b = CDR(b))
 	    IF_PROMSXP_SET_PRVALUE(CAR(b), CAR(a));
-	value = applyClosure(call, fundef, s, rho, R_NilValue);
+	value = applyClosure(call, fundef, s, rho, R_NilValue, TRUE);
 	UNPROTECT(1);
     } else {
 	/* INC/DEC of REFCNT needed for non-tracking args */
 	for (SEXP a = args; a != R_NilValue; a = CDR(a))
 	    INCREMENT_REFCNT(CAR(a));
-	value = applyClosure(call, fundef, args, rho, R_NilValue);
+	value = applyClosure(call, fundef, args, rho, R_NilValue, FALSE);
 	for (SEXP a = args; a != R_NilValue; a = CDR(a))
 	    DECREMENT_REFCNT(CAR(a));
     }
@@ -1709,7 +1780,7 @@ SEXP R_do_new_object(SEXP class_def)
     PROTECT(value = duplicate(R_do_slot(class_def, s_prototype)));
     Rboolean xDataType = TYPEOF(value) == ENVSXP || TYPEOF(value) == SYMSXP ||
 	TYPEOF(value) == EXTPTRSXP;
-    if((TYPEOF(value) == S4SXP || getAttrib(e, R_PackageSymbol) != R_NilValue) &&
+    if((TYPEOF(value) == OBJSXP || getAttrib(e, R_PackageSymbol) != R_NilValue) &&
        !xDataType)
     {
 	setAttrib(value, R_ClassSymbol, e);

@@ -57,7 +57,7 @@ dQuote(x, q = getOption("useFancyQuotes"))
   length four, the first two entries are used for beginning and ending
   single quotes and the second two for beginning and ending double
   quotes: this can be used to implement non-English quoting conventions
-  such as the use of guillemets.
+  such as the use of \I{guillemet}s.
 
   Where fancy quotes are used, you should be aware that they may not be
   rendered correctly as not all fonts include the requisite glyphs: for
@@ -65,7 +65,7 @@ dQuote(x, q = getOption("useFancyQuotes"))
   quotes.
 #ifdef windows
   This is particularly troublesome in Windows \sQuote{Command Prompt}
-  windows, which by default are set up to run in the so-called OEM
+  windows, which by default are set up to run in the so-called \abbr{OEM}
   codepage, which in most locales uses a different encoding from
   Windows.  Further, if the codepage is changed (with \code{chcp.exe},
   e.g.\sspace{}to 1252 in a Western European language), the default raster fonts
@@ -78,8 +78,8 @@ dQuote(x, q = getOption("useFancyQuotes"))
   To work around this, the default for \code{options("useFancyQuotes")}
   is \code{FALSE} on Windows except for the \code{Rgui} console.  There
   fancy quotes work with the default Courier New font and more elegantly with
-  Lucida Console and default East Asian fonts, but directional double
-  quotes are missing in raster fonts such as Courier and FixedSys.
+  \I{Lucida Console} and default East Asian fonts, but directional double
+  quotes are missing in raster fonts such as Courier and \I{FixedSys}.
 #endif
 }
 \value{

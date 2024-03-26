@@ -72,9 +72,11 @@ typedef int R_len_t;
     typedef ptrdiff_t R_xlen_t;
 # define R_XLEN_T_MAX 4503599627370496
 # define R_SHORT_LEN_MAX 2147483647
+# define R_PRIdXLEN_T "td"
 #else
     typedef int R_xlen_t;
 # define R_XLEN_T_MAX R_LEN_T_MAX
+# define R_PRIdXLEN_T "d"
 #endif
 
 #ifndef TESTING_WRITE_BARRIER
@@ -129,7 +131,8 @@ typedef unsigned int SEXPTYPE;
 #define EXTPTRSXP   22    /* external pointer */
 #define WEAKREFSXP  23    /* weak reference */
 #define RAWSXP      24    /* raw bytes */
-#define S4SXP       25    /* S4, non-vector */
+#define OBJSXP      25    /* object, non-vector  */
+#define S4SXP       25    /* same as OBJSXP, retained for back compatability */
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -164,7 +167,7 @@ typedef enum {
     EXTPTRSXP	= 22,	/* external pointer */
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
-    S4SXP	= 25,	/* S4 non-vector */
+    OBJSXP	= 25,	/* S4 non-vector */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */
@@ -304,8 +307,8 @@ int STRING_NO_NA(SEXP x);
 
 /* List Access Functions */
 /* These also work for ... objects */
-#define CONS(a, b)	cons((a), (b))		/* data lists */
-#define LCONS(a, b)	lcons((a), (b))		/* language lists */
+#define CONS(a, b)	Rf_cons((a), (b))		/* data lists */
+#define LCONS(a, b)	Rf_lcons((a), (b))		/* language lists */
 
 SEXP (TAG)(SEXP e);
 SEXP (CDR)(SEXP e);
@@ -487,7 +490,6 @@ SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_allocVector3(SEXPTYPE, R_xlen_t, R_allocator_t*);
 R_xlen_t Rf_any_duplicated(SEXP x, Rboolean from_last);
 R_xlen_t Rf_any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last);
-SEXP Rf_applyClosure(SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP Rf_classgets(SEXP, SEXP);
 SEXP Rf_cons(SEXP, SEXP);
 void Rf_copyMatrix(SEXP, SEXP, Rboolean);
@@ -528,6 +530,7 @@ SEXP Rf_installTrChar(SEXP);
 Rboolean Rf_isOrdered(SEXP);
 Rboolean Rf_isUnordered(SEXP);
 Rboolean Rf_isUnsorted(SEXP, Rboolean);
+Rboolean R_isTRUE(SEXP);
 SEXP Rf_lengthgets(SEXP, R_len_t);
 SEXP Rf_xlengthgets(SEXP, R_xlen_t);
 SEXP R_lsInternal(SEXP, Rboolean);
@@ -561,6 +564,10 @@ SEXP Rf_topenv(SEXP, SEXP);
 const char * Rf_translateChar(SEXP);
 const char * Rf_translateCharUTF8(SEXP);
 const char * Rf_type2char(SEXPTYPE);
+const char * R_typeToChar(SEXP);
+#ifdef USE_TYPE2CHAR_2
+const char * R_typeToChar2(SEXP, SEXPTYPE);
+#endif
 SEXP Rf_type2rstr(SEXPTYPE);
 SEXP Rf_type2str(SEXPTYPE);
 SEXP Rf_type2str_nowarn(SEXPTYPE);
@@ -678,9 +685,9 @@ Rboolean R_HasFancyBindings(SEXP rho);
 
 /* ../main/errors.c : */
 /* needed for R_load/savehistory handling in front ends */
-NORET void Rf_errorcall(SEXP, const char *, ...);
-void Rf_warningcall(SEXP, const char *, ...);
-void Rf_warningcall_immediate(SEXP, const char *, ...);
+NORET void Rf_errorcall(SEXP, const char *, ...) R_PRINTF_FORMAT(2, 3);
+void Rf_warningcall(SEXP, const char *, ...) R_PRINTF_FORMAT(2, 3);
+void Rf_warningcall_immediate(SEXP, const char *, ...) R_PRINTF_FORMAT(2, 3);
 
 /* Save/Load Interface */
 #define R_XDR_DOUBLE_SIZE 8
@@ -997,7 +1004,6 @@ void R_orderVector1(int *indx, int n, SEXP x,       Rboolean nalast, Rboolean de
 #define readS3VarsFromFrame	Rf_readS3VarsFromFrame
 #define reEnc			Rf_reEnc
 #define reEnc3			Rf_reEnc3
-#define rownamesgets		Rf_rownamesgets
 #define S3Class                 Rf_S3Class
 #define ScalarComplex		Rf_ScalarComplex
 #define ScalarInteger		Rf_ScalarInteger

@@ -48,7 +48,7 @@ xgettext2pot(dir, potFile, name = "R", version, bugs)
 }
 \details{
   Leading and trailing white space (space, tab and linefeed
-  (aka newline, i.e., \code{\\n})) is removed
+  (aka newline, i.e., \samp{\\n})) is removed
   for all the calls extracted by \code{xgettext()}, see
   \sQuote{Description} above,
   as it is by the internal code that passes strings for translation.
@@ -63,7 +63,7 @@ xgettext2pot(dir, potFile, name = "R", version, bugs)
   and writes a PO template file (to \code{potFile}) for use with the \pkg{GNU Gettext}
   tools.  This ensures that the strings for simple translation are
   unique in the file (as \pkg{GNU Gettext} requires), but does not do so
-  for \code{ngettext} calls (and the rules are not stated in the Gettext
+  for \code{ngettext} calls (and the rules are not stated in the \I{Gettext}
   manual, but \command{msgfmt} complains if there is duplication between
   the sets.).
 

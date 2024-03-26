@@ -120,7 +120,7 @@ int R_SelectEx(int  n,  fd_set  *readfds,  fd_set  *writefds,
        platforms. If this still turns out to be limiting we will
        probably need to rewrite internals to use poll() instead of
        select().  LT */
-    if (n > FD_SETSIZE)
+    if (n >= FD_SETSIZE)
 	error("file descriptor is too large for select()");
 
     if (timeout != NULL && timeout->tv_sec == 0 && timeout->tv_usec == 0)
@@ -229,6 +229,8 @@ addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler,
     input = R_Calloc(1, InputHandler);
 
     input->activity = activity;
+    if (fd >= FD_SETSIZE)
+	error("file descriptor is too large for select()");
     input->fileDescriptor = fd;
     input->handler = handler;
 
@@ -382,8 +384,11 @@ setSelectMask(InputHandler *handlers, fd_set *readMask)
     FD_ZERO(readMask);
 
     /* If we are dealing with BasicInputHandler always put stdin */
-    if(handlers == &BasicInputHandler)
+    if(handlers == &BasicInputHandler) {
 	handlers->fileDescriptor = fileno(stdin);
+	if (handlers->fileDescriptor >= FD_SETSIZE)
+	    error("file descriptor is too large for select()");
+    }
 
     while(tmp) {
 	FD_SET(tmp->fileDescriptor, readMask);
@@ -503,7 +508,8 @@ char *R_ExpandFileName_readline(const char *s, char *buff)
     strncpy(buff, s2, R_PATH_MAX);
     if(len >= R_PATH_MAX) {
 	buff[R_PATH_MAX-1] = '\0';
-	warning(_("expanded path length %d would be too long for\n%s\n"), len, s);
+	warning(_("expanded path length %lld would be too long for\n%s\n"),
+	        (long long)len, s);
     }
     free(s2);
     return buff;
@@ -775,7 +781,7 @@ static void initialize_rlcompletion(void)
 	    SEXP cmdSexp, cmdexpr;
 	    ParseStatus status;
 	    int i;
-	    char *p = "try(loadNamespace('rcompgen'), silent=TRUE)";
+	    char *p = "try(loadNamespace('utils'), silent=TRUE)";
 
 	    PROTECT(cmdSexp = mkString(p));
 	    cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
@@ -999,6 +1005,8 @@ Rstd_ReadConsole(const char *prompt, unsigned char *buf, int len,
 	    err = res == (size_t)(-1);
 	    /* errors lead to part of the input line being ignored */
 	    if(err) {
+		Riconv(cd, NULL, NULL, &ob, &onb);
+		*ob = '\0';
 		printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
 		       R_StdinEnc);
 		strncpy((char *)buf, obuf, len);

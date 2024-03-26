@@ -6,8 +6,8 @@
 \name{download.file}
 \alias{download.file}
 \concept{proxy}
-\concept{ftp}
-\concept{http}
+\concept{\I{ftp}}
+\concept{\I{http}}
 \title{Download File from the Internet}
 \description{
   This function can be used to download a file from the Internet.
@@ -142,7 +142,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \describe{
     \item{On Windows}{If the file length is known, the
       full width of the bar is the known length.  Otherwise the initial
-      width represents 100 Kbytes and is doubled whenever the current width
+      width represents 100 \abbr{Kbyte}s and is doubled whenever the current width
       is exceeded.  (In non-interactive use this uses a text version.  If the
       file length is known, an equals sign represents 2\% of the transfer
       completed: otherwise a dot represents 10Kb.)}
@@ -154,14 +154,14 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   The choice of binary transfer (\code{mode = "wb"} or \code{"ab"}) is
   important on Windows, since unlike Unix-alikes it does distinguish
-  between text and binary files and for text transfers changes \code{\\n}
-  line endings to \code{\\r\\n} (aka \file{CRLF}).
+  between text and binary files and for text transfers changes \samp{\\n}
+  line endings to \samp{\\r\\n} (aka \file{CRLF}).
 
   On Windows, if \code{mode} is not supplied (\code{\link{missing}()})
-  and \code{url} ends in one of \code{.gz}, \code{.bz2}, \code{.xz},
-  \code{.tgz}, \code{.zip}, \code{.jar}, \code{.rda}, \code{.rds} or
-  \code{.RData}, \code{mode = "wb"} is set so that a binary transfer
-  is done to help unwary users.
+  and \code{url} ends in one of \samp{.gz}, \samp{.bz2}, \samp{.xz},
+  \samp{.tgz}, \samp{.zip}, \samp{.jar}, \samp{.rda}, \samp{.rds},
+  \samp{.RData} or \samp{.pdf}, \code{mode = "wb"} is set so that a binary
+  transfer is done to help unwary users.
 
   Code written to download binary files must use \code{mode = "wb"} (or
   \code{"ab"}), but the problems incurred by a text transfer will only
@@ -181,7 +181,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   \command{wget} (\url{https://www.gnu.org/software/wget/}) is commonly
   installed on Unix-alikes (but not macOS).  Windows binaries are
-  available from MSYS2 and elsewhere.
+  available from \abbr{MSYS2} and elsewhere.
 
   \command{curl} (\url{https://curl.se/}) is installed on macOS and
   increasingly commonly on Unix-alikes.  Windows binaries are available
@@ -208,7 +208,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   On Windows with \code{method = "libcurl"}, the CA root certificates
   are provided by the OS when \R was linked with \code{libcurl} with
-  \code{Schannel} enabled, which is the current default in Rtools.  This
+  \code{Schannel} enabled, which is the current default in \I{Rtools}.  This
   can be verified by checking that \code{libcurlVersion()} returns a
   version string containing \samp{"Schannel"}.  If it does not, for
   verification to be on the environment variable \env{CURL_CA_BUNDLE}
@@ -226,7 +226,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   On Windows with \code{method = "libcurl"}, when \R was linked with
   \code{libcurl} with \code{Schannel} enabled, the connection fails if it
   cannot be established that the certificate has not been revoked.  Some
-  MITM proxies present particularly in corporate environments do not work
+  \abbr{MITM} proxies present particularly in corporate environments do not work
   with this behavior. It can be changed by setting environment variable
   \env{R_LIBCURL_SSL_REVOKE_BEST_EFFORT} to \code{TRUE}, with the
   consequence of reducing security.
@@ -252,7 +252,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   available.
 }
 
-\section{\code{ftp://} URLs}{
+\section{\samp{ftp://} URLs}{
   Most modern browsers do not support such URLs, and \samp{https://}
   ones are much preferred for use in \R. \samp{ftps://} URLs have always
   been rare, and are nowadays even less supported.

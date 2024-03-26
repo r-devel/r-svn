@@ -1,5 +1,5 @@
 ### MikTex Mirror
-$MIKTEX_MIRROR = "https://github.com/r-windows/files/releases/download/miktex-22.10/basic-miktex-22.10-x64.exe"
+$MIKTEX_MIRROR = "https://github.com/r-windows/bundles/releases/download/miktex-23.10/basic-miktex-23.10-x64.exe"
 
 function CheckExitCode($msg) {
   if ($LastExitCode -ne 0) {

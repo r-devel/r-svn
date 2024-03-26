@@ -1,7 +1,7 @@
 #  File src/library/grDevices/R/postscript.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -224,7 +224,7 @@ postscript <- function(file = if(onefile) "Rplots.ps" else "Rplot%03d.ps",
     old <- check.options(new, name.opt = ".PostScript.Options", envir = .PSenv)
 
     if(is.null(old$command) || old$command == "default")
-        old$command <- if(!is.null(cmd <- getOption("printcmd"))) cmd else ""
+        old$command <- getOption("printcmd") %||% ""
 
     # need to handle this case before encoding
     if(!missing(family) &&
@@ -259,7 +259,7 @@ postscript <- function(file = if(onefile) "Rplots.ps" else "Rplot%03d.ps",
             stop("invalid 'family' argument")
         old$family <- family
     }
-    if(grepl("[\n\r\f\127]", old$title))
+    if(grepl("[\n\r\f\177]", old$title))
         ## title with these characters generates corrupt postscript file
         stop(gettextf("'title' argument \"%s\" contains invalid characters",
                       old$title), domain = NA)
@@ -285,6 +285,10 @@ xfig <- function (file = if(onefile) "Rplots.fig" else "Rplot%03d.fig",
                   pagecentre = TRUE,
                   defaultfont = FALSE, textspecial = FALSE)
 {
+    msg <- gettextf("'%s' is deprecated.\n", "xfig")
+    msg <- paste(msg, "Consider an SVG device instead.")
+    .Deprecated(msg = msg)
+
     ## do initialization if needed
     initPSandPDFfonts()
 
@@ -778,6 +782,23 @@ postscriptFonts(# Default Serif font is Times
                   c("n021003l.afm", "n021004l.afm",
                     "n021023l.afm", "n021024l.afm",
                     "s050000l.afm")),
+                ## URW 2.0 ewuivalents
+                URW2Helvetica = Type1Font("URW2Helvetica",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Oblique.afm", "NimbusSans-BoldOblique.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2HelveticaItalic = Type1Font("URW2HelveticaItalic",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Italic.afm", "NimbusSans-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2Times = Type1Font("URW2Times",
+                  c("NimbusRoman-Regular.afm", "NimbusRoman-Bold.afm",
+                    "NimbusRoman-Italic.afm", "NimbusRoman-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                NimbusMonoPS = Type1Font("NimbusMonoPS",
+                  c("NimbusMonoPS-Regular.afm", "NimbusMonoPS-Bold.afm",
+                    "NimbusMonoPS-Italic.afm", "NimbusMonoPS-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
                 ## And Monotype Arial
                 ArialMT = Type1Font("ArialMT",
                   c("ArialMT.afm", "ArialMT-Bold.afm",
@@ -961,7 +982,8 @@ embedFonts <- function(file, # The ps or pdf file to convert
                        )
 {
     if(!is.character(file) || length(file) != 1L || !nzchar(file))
-        stop("'file' must be a non-empty character string")
+        stop(gettextf("'%s' must be a non-empty character string", "file"),
+             domain = NA)
     gsexe <- tools::find_gs_cmd()
     if(!nzchar(gsexe)) stop("GhostScript was not found")
     if(.Platform$OS.type == "windows") gsexe <- shortPathName(gsexe)
@@ -991,15 +1013,23 @@ embedFonts <- function(file, # The ps or pdf file to convert
 }
 
 ## 'file' is the pdf file to convert
-## 'glyphInfo' is RGlyphInfo 
+## 'glyphInfo' is RGlyphInfo (or list thereof)
 ## 'outfile' is the new pdf file
 ## 'options' are additional options to ghostscript
 embedGlyphs <- function(file, glyphInfo, outfile = file,
                         options = character()) {
     if (!is.character(file) || length(file) != 1L || !nzchar(file))
         stop("'file' must be a non-empty character string")
-    if (!inherits(glyphInfo, "RGlyphInfo"))
-        stop("Invalid 'glyphInfo'")
+    infoList <- FALSE
+    if (!inherits(glyphInfo, "RGlyphInfo")) {
+        if (is.list(glyphInfo)) {
+            if (!all(sapply(glyphInfo, inherits, "RGlyphInfo"))) {
+                stop("Invalid 'glyphInfo'")
+            } else {
+                infoList <- TRUE
+            }
+        }
+    }
     gsexe <- tools::find_gs_cmd()
     if(!nzchar(gsexe)) stop("GhostScript was not found")
     if(.Platform$OS.type == "windows") gsexe <- shortPathName(gsexe)
@@ -1008,8 +1038,15 @@ embedGlyphs <- function(file, glyphInfo, outfile = file,
     tmpfile <- tempfile("Rembed")
     ## Generate cidfmap to relate font names to font files
     cidfmap <- file.path(tempdir(), "cidfmap")
-    fontfile <- unique(sapply(glyphInfo$fonts, function(x) x$file))
-    fontname <- unique(sapply(glyphInfo$fonts, function(x) x$PSname))
+    infoFiles <- function(info) unique(sapply(info$fonts, function(x) x$file))
+    infoNames <- function(info) unique(sapply(info$fonts, function(x) x$PSname))
+    if (infoList) {
+        fontfile <- unique(unlist(lapply(glyphInfo, infoFiles)))
+        fontname <- unique(unlist(lapply(glyphInfo, infoNames)))
+    } else {
+        fontfile <- infoFiles(glyphInfo)
+        fontname <- infoNames(glyphInfo)
+    }
     writeLines(paste0("/", fontname,
                       " << /FileType /TrueType /Path (", fontfile,
                       ") /SubfontID 0 /CSI [(Identity) 0] >>;"),
@@ -1020,13 +1057,13 @@ embedGlyphs <- function(file, glyphInfo, outfile = file,
               ## Make sure ghostscript can see the cidfmap
               paste0("-I", shQuote(tempdir())),
               options, shQuote(file))
+    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
     ret <- system2(gsexe, args)
     if (ret != 0)
         stop(gettextf("status %d in running command '%s'", ret, cmd),
              domain = NA)
     if (outfile != file)
         args[2] <- paste0(" -sOutputFile=", shQuote(outfile))
-    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
     file.copy(tmpfile, outfile, overwrite = TRUE)
     invisible(cmd)
 }

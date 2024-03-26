@@ -115,17 +115,17 @@ untar(tarfile, files = NULL, list = FALSE, exdir = ".",
     %% bsdtar had it in FreeBSB 5.3 (2004)
     \item{\code{bsdtar}:}{macOS 10.6 and later (and FreeBSD and some
       other OSes) have a \command{tar}
-      from the libarchive project which detects all three forms
+      from the \I{libarchive} project which detects all three forms
       of compression automagically (even if undocumented in macOS).}
 
-    \item{NetBSD:}{It is undocumented if NetBSD's \command{tar} can
+    \item{NetBSD:}{It is undocumented if \I{NetBSD}'s \command{tar} can
       detect compression automagically: for versions before 8 the flag
       for \command{xz} compression was \option{--xz} not \option{-J}.
       So \code{support_old_tars = TRUE} is recommended (or use
       \command{bsdtar} if installed).}
 
     %% https://news.ycombinator.com/item?id=10722697
-    \item{OpenBSD:}{OpenBSD's \command{tar} does not detect compression
+    \item{OpenBSD:}{\I{OpenBSD}'s \command{tar} does not detect compression
       automagically.  It has no support for \command{xz} beyond reporting
       that the file is \command{xz}-compressed.  So \code{support_old_tars
 	= TRUE} is recommended.}
@@ -167,7 +167,7 @@ untar(tarfile, files = NULL, list = FALSE, exdir = ".",
   compression.  It does not guard against restoring absolute file paths,
   as some \command{tar} implementations do.  It will create the parent
   directories for directories or files in the archive if necessary.  It
-  handles the USTAR/POSIX, GNU and \command{pax} ways of handling file
+  handles the \I{USTAR}/POSIX, GNU and \command{pax} ways of handling file
   paths of more than 100 bytes, and the GNU way of handling link targets
   of more than 100 bytes.
 
@@ -179,7 +179,7 @@ untar(tarfile, files = NULL, list = FALSE, exdir = ".",
   handles it, and look carefully at the resulting files.  There may also
   be the warning \preformatted{    using pax extended headers}
   This indicates that additional information may have been discarded,
-  such as ACLs, encodings \dots.
+  such as \abbr{ACL}s, encodings \dots.
 
   The former standards only supported ASCII filenames (indeed, only
   alphanumeric plus period, underscore and hyphen).  \code{untar} makes

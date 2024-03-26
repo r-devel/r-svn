@@ -1,7 +1,7 @@
 #  File src/library/base/R/source.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ function(file, local = FALSE, echo = verbose, print.eval = echo,
 	 max.deparse.length = 150, width.cutoff = 60L,
          deparseCtrl = "showAttributes", ## rather?  c("keepInteger", "showAttributes", "keepNA"),
          chdir = FALSE,
+         catch.aborts = FALSE,
          encoding = getOption("encoding"),
          continue.echo = getOption("continue"),
          skip.echo = 0, keep.source = getOption("keep.source"))
@@ -222,7 +223,11 @@ function(file, local = FALSE, echo = verbose, print.eval = echo,
 	    }
 	}
 	if (!tail) {
-	    yy <- withVisible(eval(ei, envir))
+	    yy <- if(catch.aborts)
+		      withRestarts(
+			  withVisible(eval(ei, envir)),
+			  abort = function() list(value = NULL, visible = FALSE))
+		  else withVisible(eval(ei, envir))
 	    i.symbol <- mode(ei[[1L]]) == "name"
 	    if (!i.symbol) {
 		## ei[[1L]] : the function "<-" or other
@@ -288,17 +293,23 @@ withAutoprint <- function(exprs, evaluated = FALSE, local = parent.frame(),
                           print. = TRUE, echo = TRUE, max.deparse.length = Inf,
                           width.cutoff = max(20, getOption("width")),
                           deparseCtrl = c("keepInteger", "showAttributes", "keepNA"),
+                          skip.echo = 0,
                           ...)
 {
     if(!evaluated) {
 	exprs <- substitute(exprs)
 	if(is.call(exprs)) {
-	    if(exprs[[1]] == quote(`{`))
-		exprs <- as.list(exprs[-1])
+	    if(exprs[[1]] == quote(`{`)) {
+		exprs <- as.list(exprs)[-1]
+                if (missing(skip.echo) && is.list(srcrefs <- attr(exprs, "srcref"))) {
+                    ## first source reference[first_parse] - 1   ; srcref() in ./srcfile.R
+                    skip.echo <- srcrefs[[1L]][7L] - 1L
+                }
+            }
 	    ## else: use that call
 	} ## else can be 'symbol' or e.g. numeric constant
     }
     source(exprs = exprs, local = local, print.eval = print., echo = echo,
            max.deparse.length = max.deparse.length, width.cutoff = width.cutoff,
-	   deparseCtrl = deparseCtrl, ...)
+	   deparseCtrl = deparseCtrl, skip.echo = skip.echo, ...)
 }

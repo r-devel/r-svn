@@ -32,7 +32,7 @@
 #include <wchar.h>
 #include <wctype.h>
 static void
-mbcsToSbcs(const char *in, char *out, const char *encoding, int enc);
+mbcsToSbcs(const char *in, char *out, const char *encoding, int enc, int silent);
 
 
 #include <R_ext/Riconv.h>
@@ -56,6 +56,9 @@ extern int errno;
 #ifndef max
 #define max(a,b) ((a > b) ? a : b)
 #endif
+#ifndef min
+#define min(a,b) ((a > b) ? b : a)
+#endif
 
 /* from connections.o */
 extern gzFile R_gzopen (const char *path, const char *mode);
@@ -68,7 +71,7 @@ extern int R_gzclose (gzFile file);
 #undef USE_HYPHEN
 /* In ISOLatin1, minus is 45 and hyphen is 173 */
 #ifdef USE_HYPHEN
-static char PS_hyphen = 173;
+static unsigned char PS_hyphen = 173;
 #endif
 
 #define USERAFM 999
@@ -116,6 +119,9 @@ static const char *CIDBoldFontStr2 =
 /* Part 1.  AFM File Parsing.  */
 
 /* These are the basic entities in the AFM file */
+
+// The structure is defined in
+// https://adobe-type-tools.github.io/font-tech-notes/pdfs/5004.AFM_Spec.pdf
 
 #define BUFSIZE 512
 #define NA_SHORT -30000
@@ -287,6 +293,8 @@ typedef struct {
 
 
 /* If reencode > 0, remap to new encoding */
+// File format in
+// https://adobe-type-tools.github.io/font-tech-notes/pdfs/5004.AFM_Spec.pdf
 static int GetCharInfo(char *buf, FontMetricInfo *metrics,
 		       CNAME *charnames, CNAME *encnames,
 		       int reencode)
@@ -329,6 +337,7 @@ static int GetCharInfo(char *buf, FontMetricInfo *metrics,
 
     if (!MatchKey(p, "B ")) return 0;
     p = SkipToNextItem(p);
+    // Bounding box is llx lly urx ury, y measured from baseline.
     sscanf(p, "%hd %hd %hd %hd",
 	   &(metrics->CharInfo[nchar].BBox[0]),
 	   &(metrics->CharInfo[nchar].BBox[1]),
@@ -459,24 +468,43 @@ static void seticonvName(const char *encpath, char *convname)
      */
     char *p;
     strcpy(convname, "latin1");
-    if(pathcmp(encpath, "ISOLatin1")==0)
+    if(pathcmp(encpath, "ISOLatin1") == 0)
 	strcpy(convname, "latin1");
-    else if(pathcmp(encpath, "ISOLatin2")==0)
+    else if (pathcmp(encpath, "WinAnsi") == 0)
+	strcpy(convname, "cp1252");
+#ifdef OS_MUSL
+    else if(pathcmp(encpath, "ISOLatin2") == 0)
+	strcpy(convname, "iso88592");
+    else if(pathcmp(encpath, "ISOLatin7") == 0)
+	strcpy(convname, "iso885913");
+    else if(pathcmp(encpath, "ISOLatin9") == 0)
+	strcpy(convname, "iso885915");
+    else if(pathcmp(encpath, "Greek") == 0)
+	strcpy(convname, "iso88597");
+    else if(pathcmp(encpath, "Cyrillic") == 0)
+	strcpy(convname, "iso88595");
+#else
+    else if(pathcmp(encpath, "ISOLatin2") == 0)
 	strcpy(convname, "latin2");
-    else if(pathcmp(encpath, "ISOLatin7")==0)
+    else if(pathcmp(encpath, "ISOLatin7") == 0)
 	strcpy(convname, "latin7");
-    else if(pathcmp(encpath, "ISOLatin9")==0)
+    else if(pathcmp(encpath, "ISOLatin9") == 0)
 	strcpy(convname, "latin-9");
-    else if (pathcmp(encpath, "WinAnsi")==0)
-	strcpy(convname, "CP1252");
+    else if(pathcmp(encpath, "Greek") == 0)
+	strcpy(convname, "iso-8859-7");
+    else if(pathcmp(encpath, "Cyrillic") == 0)
+	strcpy(convname, "iso-8859-5");
+#endif
     else {
 	/*
 	 * Last resort = trim .enc off encpath to produce convname
+	 * Used for CP12xx, KOI8-?
 	 */
 	strcpy(convname, encpath);
 	p = strrchr(convname, '.');
 	if(p) *p = '\0';
     }
+    //fprintf(stderr, "mapping %s to %s\n", encpath, convname);
 }
 
 /* Load encoding array from a file: defaults to the R_HOME/library/grDevices/afm directory */
@@ -715,10 +743,8 @@ static double
 			  Rboolean useKerning,
 			  int face, const char *encoding)
 {
-    int sum = 0, i;
-    short wx;
+    int sum = 0;
     const unsigned char *p = NULL, *str1 = str;
-    unsigned char p1, p2;
 
     int status;
     if(!metrics && (face % 5) != 0) {
@@ -733,7 +759,8 @@ static double
 	    R_ucs2_t ucs2s[ucslen];
 	    status = (int) mbcsToUcs2((char *)str, ucs2s, (int) ucslen, enc);
 	    if (status >= 0)
-		for(i = 0 ; i < ucslen ; i++) {
+		for(int i = 0 ; i < ucslen ; i++) {
+		    short wx;
 #ifdef USE_RI18N_WIDTH
 		    wx = (short)(500 * Ri18n_wcwidth(ucs2s[i]));
 #else
@@ -756,10 +783,12 @@ static double
 	    * see postscriptFonts()
 	    */
 	   (face % 5) != 0) {
-	    R_CheckStack2(strlen((char *)str)+1);
-	    char buff[strlen((char *)str)+1];
-	    /* Output string cannot be longer */
-	    mbcsToSbcs((char *)str, buff, encoding, enc);
+	    R_CheckStack2(2*strlen((char *)str)+1);
+	    /* Output string cannot be longer
+	       -- but it can be in bytes if transliteration is used */
+	    char *buff = alloca(2*strlen((char *)str)+1);
+	    // Do not show warnings (but throw any errors)
+	    mbcsToSbcs((char *)str, buff, encoding, enc, 1);
 	    str1 = (unsigned char *)buff;
 	}
 
@@ -770,6 +799,7 @@ static double
     /* Now we know we have an 8-bit encoded string in the encoding to
        be used for output. */
     for (p = str1; *p; p++) {
+	short wx;
 #ifdef USE_HYPHEN
 	if (*p == '-' && !isdigit(p[1]))
 	    wx = metrics->CharInfo[(int)PS_hyphen].WX;
@@ -777,13 +807,14 @@ static double
 #endif
 	    wx = metrics->CharInfo[*p].WX;
 	if(wx == NA_SHORT)
-	    warning(_("font width unknown for character 0x%x"), *p);
+	    warning(_("font width unknown for character 0x%02x in encoding %s" ),
+		    *p, encoding);
 	else sum += wx;
 
 	if(useKerning) {
 	    /* check for kerning adjustment */
-	    p1 = p[0]; p2 = p[1];
-	    for (i =  metrics->KPstart[p1]; i < metrics->KPend[p1]; i++)
+	    unsigned char p1 = p[0], p2 = p[1];
+	    for (int i =  metrics->KPstart[p1]; i < metrics->KPend[p1]; i++)
 		/* second test is a safety check: should all start with p1 */
 		if(metrics->KernPairs[i].c2 == p2 &&
 		   metrics->KernPairs[i].c1 == p1) {
@@ -803,6 +834,8 @@ static double
    When called in an MBCS locale and font != 5, chars < 128 are sent
    as is (we assume that is ASCII) and others are re-encoded to
    Unicode in GEText (and interpreted as Unicode in GESymbol).
+
+   FIXME: this assumes the mbcs is UTF-8.
 */
 # ifdef WORDS_BIGENDIAN
 static const char UCS2ENC[] = "UCS-2BE";
@@ -813,6 +846,7 @@ static const char UCS2ENC[] = "UCS-2LE";
 static void
 PostScriptMetricInfo(int c, double *ascent, double *descent, double *width,
 		     FontMetricInfo *metrics,
+		     Rboolean useKerning,
 		     Rboolean isSymbol,
 		     const char *encoding)
 {
@@ -825,55 +859,121 @@ PostScriptMetricInfo(int c, double *ascent, double *descent, double *width,
 	return;
     }
 
-    if (c < 0) { Unicode = TRUE; c = -c; }
-    /* We don't need the restriction to 65536 here any more as we could
-       convert from  UCS4ENC, but there are few language chars above 65536. */
-    if(Unicode && !isSymbol && c >= 128 && c < 65536) { /* Unicode */
-	void *cd = NULL;
-	const char *i_buf; char *o_buf, out[2];
-	size_t i_len, o_len, status;
-	unsigned short w[2];
-
-	if ((void*)-1 == (cd = Riconv_open(encoding, UCS2ENC)))
-	    error(_("unknown encoding '%s' in 'PostScriptMetricInfo'"),
-		  encoding);
-
-	/* Here we use terminated strings, but could use one char */
-	w[0] = (unsigned short) c; w[1] = 0;
-	i_buf = (char *)w;
-	i_len = 4;
-	o_buf = out;
-	o_len = 2;
-	status = Riconv(cd, &i_buf, (size_t *)&i_len,
-			(char **)&o_buf, (size_t *)&o_len);
-	Riconv_close(cd);
-	if (status == (size_t)-1) {
+    if (c < 0) { Unicode = TRUE; c = -c;}
+    
+    if(Unicode && !isSymbol && c >= 128) { // don't really need to except ASCII
+	if (c >= 65536) {
+	    // No afm nor enc has entries for chars beyond the basic plane */
 	    *ascent = 0;
 	    *descent = 0;
 	    *width = 0;
-	    warning(_("font metrics unknown for Unicode character U+%04x"), c);
+	    // wchar_t might be 16-bit so do not attempt to print
+	    warning(_("font metrics unknown for Unicode character U+%04X"), c);
 	    return;
-	} else {
-	    c = out[0] & 0xff;
 	}
-    }
+        char str[10]; // one Unicode point in an mbcs, almost always UTF-8.
+	{
+	    void *cd = NULL;
+	    const char *i_buf; char *o_buf;
+	    size_t i_len, o_len, status;
+	    unsigned short w[2];
+	    // need to convert Unicode point c (in BMP) to the mbcs.
+	    if ((void*)-1 == (cd = Riconv_open("UTF-8", UCS2ENC)))
+		error(_("unknown encoding '%s' in 'PostScriptMetricInfo'"),
+		      encoding);
+	    /* Here we use terminated strings, but could use one char */
+	    memset(str, 0, 10);
+	    w[0] = (unsigned short) c; w[1] = 0;
+	    //printf("converting %lc\n", w[0]);
+	    i_buf = (char *)w;
+	    i_len = 4;
+	    o_buf = str;
+	    o_len = 10;
+	    status = Riconv(cd, &i_buf, (size_t *)&i_len,
+			    (char **)&o_buf, (size_t *)&o_len);
+	    Riconv_close(cd);
+	    if (status == (size_t)-1) {
+		*ascent = 0;
+		*descent = 0;
+		*width = 0;
+		warning(_("Unicode character %lc (U+%04X) cannot be converted"),
+			(wint_t)c, c);
+		return;
+	    }
+	}
+	char out[10]; // one Unicode point in an sbcs, with possible transliteration.
+	// Do not show warnings (but do throw errors)
+	mbcsToSbcs(str, out, encoding, CE_UTF8, 1);
 
-    if (c > 255) { /* Unicode */
-	*ascent = 0;
-	*descent = 0;
-	*width = 0;
-	warning(_("font metrics unknown for Unicode character U+%04x"), c);
+	int a = -9999, d = 9999;
+	short wx = 0;
+	for (char *p = out; *p; p++) {
+	    unsigned char c = *p;
+#ifdef USE_HYPHEN
+	    if (c == '-') c = PS_hyphen;
+#endif
+	    short w = metrics->CharInfo[c].WX;
+	    // WX = NA_SHORT means that all the metrics are missing:
+	    if(w == NA_SHORT)
+		warning(_("font metrics unknown for character 0x%02x in encoding %s"), c, encoding);
+	    /* FIXME;  The AFM spec says
+	       B llx lly urx ury
+	       (Optional.) Character bounding box where llx, lly, urx, and ury
+	       are all numbers. If a character makes no marks on the page
+	       (for example, the space character), this field reads B 0 0 0 0,
+	       and these values are not considered when computing the FontBBox.
+
+ 	       Also NBSP and Euro in some fonts.  Should that be
+ 	       skipped for acent and descent?  However:
+	       1) There are currently no transliterations including 
+	       space/NBSP (although macOS did at one point).
+	       2) The graphivs engine does not do this.
+	    else if
+	       (metrics->CharInfo[c].BBox[0] == 0 &&
+		metrics->CharInfo[c].BBox[1] == 0 &&
+		metrics->CharInfo[c].BBox[2] == 0 &&
+		metrics->CharInfo[c].BBox[3] == 0) {
+		warning(_("character 0x%02x in encoding %s makes no mark"), c, encoding);
+                wx += w;
+            }
+	    */
+	    else {
+		wx += w;
+		a = max(a, metrics->CharInfo[c].BBox[3]);
+		d = min(d, metrics->CharInfo[c].BBox[1]);
+		if (useKerning) {
+		    unsigned char p1 = p[0], p2 = p[1];
+		    for (int i =  metrics->KPstart[p1]; i < metrics->KPend[p1]; i++)
+			if(metrics->KernPairs[i].c2 == p2 &&
+			   metrics->KernPairs[i].c1 == p1) {
+			    wx += metrics->KernPairs[i].kern;
+			    break;
+			}
+		}
+	    }
+	}
+	// printf("MetricInfo for %s: %d %d %d\n", out, wx, a, d);
+	*width = 0.001 * wx;
+	// the original 8-bit version treated missing as 0.
+	if (a == -9999) a = 0;
+	if (d == 9999) d = 0;
+	*ascent =  0.001 * a;
+	*descent = 0.001 * -d;
+	return;
     } else {
-	short wx;
-
+	// 8-bit case
+#ifdef USE_HYPHEN
+	    if (c == '-') c = PS_hyphen;
+#endif
 	*ascent = 0.001 * metrics->CharInfo[c].BBox[3];
 	*descent = -0.001 * metrics->CharInfo[c].BBox[1];
-	wx = metrics->CharInfo[c].WX;
+	short wx = metrics->CharInfo[c].WX;
 	if(wx == NA_SHORT) {
-	    warning(_("font metrics unknown for character 0x%x"), c);
+	    warning(_("font metrics unknown for character 0x%02x in encoding %s"), c, encoding);
 	    wx = 0;
 	}
 	*width = 0.001 * wx;
+	return;
     }
 }
 
@@ -884,7 +984,7 @@ PostScriptCIDMetricInfo(int c, double *ascent, double *descent, double *width)
        cope sensibly. */
     if(!mbcslocale && c > 0) {
 	if (c > 255)
-	    error(_("invalid character (%04x) sent to 'PostScriptCIDMetricInfo' in a single-byte locale"),
+	    error(_("invalid character (%04X) sent to 'PostScriptCIDMetricInfo' in a single-byte locale"),
 		  c);
 	else {
 	    /* convert to UCS-2 to use wcwidth. */
@@ -3935,6 +4035,7 @@ static void PS_MetricInfo(int c,
     if (isType1Font(gc->fontfamily, PostScriptFonts, pd->defaultFont)) {
 	PostScriptMetricInfo(c, ascent, descent, width,
 			     metricInfo(gc->fontfamily, face, pd),
+			     TRUE,
 			     face == 5, convname(gc->fontfamily, pd));
     } else { /* cidfont(gc->fontfamily, PostScriptFonts) */
 	if (face < 5) {
@@ -3942,7 +4043,7 @@ static void PS_MetricInfo(int c,
 	} else {
 	    PostScriptMetricInfo(c, ascent, descent, width,
 				 CIDsymbolmetricInfo(gc->fontfamily, pd),
-				 TRUE, "");
+				 FALSE, TRUE, "");
 	}
     }
     *ascent = floor(gc->cex * gc->ps + 0.5) * *ascent;
@@ -4357,42 +4458,150 @@ static void drawSimpleText(double x, double y, const char *str,
    currently this is only called in a UTF-8 locale.
  */
 static void mbcsToSbcs(const char *in, char *out, const char *encoding,
-		       int enc)
+		       int enc, int silent)
 {
     void *cd = NULL;
     const char *i_buf; char *o_buf;
     size_t i_len, o_len, status;
 
-#if 0
-    if(enc != CE_UTF8 &&
-       ( !strcmp(encoding, "latin1") || !strcmp(encoding, "ISOLatin1")) ) {
-	mbcsToLatin1(in, out); /* more tolerant */
-	return;
-    }
-#endif
-
     if ((void*)-1 ==
 	(cd = Riconv_open(encoding, (enc == CE_UTF8) ? "UTF-8" : "")))
 	error(_("unknown encoding '%s' in 'mbcsToSbcs'"), encoding);
 
+    if (!silent) {
+	const char *p = getenv("_R_SILENT_PDF_SUBSTITUTION_");
+	if(p) silent = 1;
+    }
     i_buf = (char *) in;
     i_len = strlen(in)+1; /* include terminator */
     o_buf = (char *) out;
-    o_len = i_len; /* must be the same or fewer chars */
+    /* libiconv in macOS 14 can expand 1 UTF-8 char to at least 4 (o/oo) */
+    o_len = 2*i_len;
 next_char:
     status = Riconv(cd, &i_buf, &i_len, &o_buf, &o_len);
-    /* libiconv 1.13 gives EINVAL on \xe0 in UTF-8 (as used in fBasics) */
+    /* GNU libiconv 1.13 gave EINVAL on \xe0 in UTF-8 (as used in fBasics) */
     if(status == (size_t) -1 && (errno == EILSEQ || errno == EINVAL)) {
-	warning(_("conversion failure on '%s' in 'mbcsToSbcs': dot substituted for <%02x>"),
-		in, (unsigned char) *i_buf),
-	*o_buf++ = '.'; i_buf++; o_len--; i_len--;
+	Riconv(cd, NULL, NULL, &o_buf, &o_len);
+	const char *m = getenv("_R_CHECK_MBCS_CONVERSION_FAILURE_");
+	int fail = (m != NULL);
+	if (m && streql(m, "silent")) silent = 0;
+	if (utf8locale) {
+	    /* We attempt to do better here in a UTF-8 locale if the
+	       input is valid and give transliteration or one dot per
+	       UTF-8 character.  However, packages PBSmodelling and
+	       fBasics used invalid 8-bit inputs.
+	    */
+	    int clen = utf8clen(*i_buf);
+	    wchar_t wc;
+	    int res =
+		(int) utf8toucs(&wc, i_buf); // gives -1 for a conversion error
+	    if (res != -1) {
+		char *fix = NULL;
+		// four-char fixups
+		if (wc == 0x2030) fix = "o/oo"; // permille, done by macOS
+		else if (wc == 0x33C2) fix = "a.m.";
+		else if (wc == 0x33D8) fix = "p.m.";
+		
+		// three-char fixups, done by macOS
+		else if (wc == 0xFB03) fix = "ffi";
+		else if (wc == 0xFB04) fix = "ffl";
+		else if (wc == 0x2194) fix = "<->";
+		else if (wc == 0x21D4) fix = "<=>";
+		else if (wc == 0x22D8) fix = "<<<";
+		else if (wc == 0x22D9) fix = ">>>";
+		else if (wc == 0x2026) fix = "...";
+		else if (wc == 0x22EF) { // done by macOS in latin1
+		    /* In most 8-bit encodings B7 is the 'middle dot',
+		       U+00D7,, but not all, e.g. KOI8-?.
+		       Very rare, so don't worry about speed.
+		    */
+		    if (streql(encoding, "latin1") ||
+			streql(encoding, "latin2") ||
+			streql(encoding, "latin7") ||
+			streql(encoding, "latin-9") ||
+			streql(encoding, "iso-8859-7") ||
+			streql(encoding, "cp1252") ||
+			streql(encoding, "cp1253") ||
+			streql(encoding, "cp1257") ||
+			streql(encoding, "iso88592") ||
+			streql(encoding, "iso88597") ||
+			streql(encoding, "iso885913") ||
+			streql(encoding, "iso885915"))
+			fix = "\267\267\267";
+		    else fix = "...";
+		}
+		// Possible future re-mapping
+		// else if (wc == 0x20AC) fix = "EUR";
+
+		// two-char fixups
+		// left and right arrows, 0x2190 0x2192 0xFFE9 0xFFEB done by macOS
+		else if(wc == 0x2190 || wc == 0xFFE9) fix = "<-";
+		else if(wc == 0x2192 || wc == 0x2794 || wc == 0x279C ||
+			wc == 0x279D || wc == 0x279E || wc == 0x279F ||
+			wc == 0x27a1 || wc == 0x27a2 || wc == 0xFFEB)
+		    fix = "->";
+		// more done by macOS
+		else if(wc == 0x2260) fix = "/=";
+		else if(wc == 0x226A) fix = "<<";
+		else if(wc == 0x226B) fix = ">>";
+		else if(wc == 0x2025) fix = "..";
+		else if(wc == 0x203C) fix = "!!";
+		// some common ligatures: AE and ae are latin1.
+		// all done by macOS
+		else if(wc == 0xFB00) fix = "ff";
+		else if(wc == 0xFB01) fix = "fi";
+		else if(wc == 0xFB02) fix = "fl";
+		else if(wc == 0x0152) fix = "OE";
+		else if(wc == 0x0153) fix = "oe";
+		else if(wc == 0x2122) fix = "TM";
+		// The next two could and probably should be done by plotmath.
+		else if(wc == 0x2264) fix = "<=";
+		else if(wc == 0x2265) fix = ">=";
+
+		// one-char fixups
+		else if (wc == 0x2013 || wc == 0x2014 || wc == 0x2212)
+		    fix = "-"; // dashes, minus, done by macOS
+		// done by macOS, latter to acute accent U+00B4 in Latin-1 (but not Latin-7)
+		else if (wc == 0x2018 || wc == 0x2019) fix = "'";
+		else if (wc == 0x201C || wc == 0x201D) fix = "\""; // done by macOS
+		else if (wc == 0x2022) fix = "."; // 'bullet', changed to "o" by macOS
+		else if (wc == 0x2605 || wc == 0x2737) fix = "*";
+		if (!fix) {
+		    if (fail)
+			error("conversion failure on '%s' in 'mbcsToSbcs': for %lc (U+%04X)", in, wc, wc);
+		    else if(!silent)
+			warning("conversion failure on '%s' in 'mbcsToSbcs': for %lc (U+%04X)", in, wc, wc);
+		    fix = ".";  // default fix is one dot per char
+		} else if(!silent)
+		    warning("for '%s' in 'mbcsToSbcs': %s substituted for %lc (U+%04X)", in, fix, wc, wc);
+		size_t nfix = strlen(fix);
+		for (int j = 0; j < nfix; j++) *o_buf++ = *fix++;
+		o_len -= nfix; i_buf += clen; i_len -= clen;
+	    } else { // invalid UTF-8 so one dot per byte
+		if (fail)
+		    error(_("conversion failure on '%s' in 'mbcsToSbcs': for <%02x>"), in, (unsigned char) *i_buf);
+		else if(!silent)
+		    warning(_("conversion failure on '%s' in 'mbcsToSbcs': dot substituted for <%02x>"), in, (unsigned char) *i_buf);
+		*o_buf++ = '.'; o_len--; i_buf++; i_len--;
+	    }
+	} else { // non-UTF-8, one dot per byte
+	    if (fail)
+		error(_("conversion failure on '%s' in 'mbcsToSbcs': for <%02x>"), in, (unsigned char) *i_buf);
+	    else if(!silent)
+		warning(_("conversion failure on '%s' in 'mbcsToSbcs': dot substituted for <%02x>"), in, (unsigned char) *i_buf);
+	    *o_buf++ = '.'; o_len--; i_buf++; i_len--;
+	}
 	if(i_len > 0) goto next_char;
     }
 
     Riconv_close(cd);
-    if (status == (size_t)-1)  /* internal error? */
+    if (status == (size_t)-1) {  /* internal error? */
+	// 'in' might not be valid in the session encoding.
+	Rboolean valid = mbcsValid(in);
 	error("conversion failure from %s to %s on '%s' in 'mbcsToSbcs'",
-	      (enc == CE_UTF8) ? "UTF-8" : "native", encoding, in);
+	      (enc == CE_UTF8) ? "UTF-8" : "native", encoding,
+	      valid ? in : "invalid input");
+    }
 }
 
 static void PS_Text0(double x, double y, const char *str, int enc,
@@ -4507,9 +4716,12 @@ static void PS_Text0(double x, double y, const char *str, int enc,
        CJK MBCS.
     */
     if((enc == CE_UTF8 || mbcslocale) && !strIsASCII(str)) {
-	R_CheckStack2(strlen(str)+1);
-	buff = alloca(strlen(str)+1); /* Output string cannot be longer */
-	mbcsToSbcs(str, buff, convname(gc->fontfamily, pd), enc);
+	R_CheckStack2(2*strlen(str)+1);
+	/* Output string cannot be longer
+	   -- but it can be in bytes if transliteration is used
+	 */
+	buff = alloca(2*strlen(str)+1);
+	mbcsToSbcs(str, buff, convname(gc->fontfamily, pd), enc, 0);
 	str1 = buff;
     }
     drawSimpleText(x, y, str1, rot, hadj,
@@ -5462,7 +5674,7 @@ static void XFig_MetricInfo(int c,
 
     PostScriptMetricInfo(c, ascent, descent, width,
 			 &(pd->fonts->family->fonts[face-1]->metrics),
-			 face == 5, "");
+			 FALSE, face == 5, "");
     *ascent = floor(gc->cex * gc->ps + 0.5) * *ascent;
     *descent = floor(gc->cex * gc->ps + 0.5) * *descent;
     *width = floor(gc->cex * gc->ps + 0.5) * *width;
@@ -8216,7 +8428,6 @@ static void PDF_Encodings(PDFDesc *pd)
 
 	fprintf(pd->pdffp, "%d 0 obj\n<<\n/Type /Encoding ", pd->nobjs);
 	if (strcmp(encoding->name, "WinAnsiEncoding") == 0 ||
-	    strcmp(encoding->name, "MacRomanEncoding") == 0 ||
 	    strcmp(encoding->name, "PDFDocEncoding") == 0) {
 	    fprintf(pd->pdffp, "/BaseEncoding /%s\n", encoding->name);
 	    fprintf(pd->pdffp, "/Differences [ 45/minus ]\n");
@@ -9643,7 +9854,7 @@ static void PDFWriteString(const char *str, size_t nb, PDFDesc *pd)
 	case '-':
 #ifdef USE_HYPHEN
 	    if (!isdigit((int)str[1]))
-                PDFwrite(buf, 2, PS_hyphen, pd);
+                PDFwrite(buf, 2, "%c", pd, PS_hyphen);
 	    else
 #endif
                 PDFwrite(buf, 2, "%c", pd, *str);
@@ -9683,7 +9894,7 @@ static void PDFWriteT1KerningString(const char *str,
 	p2 = str[i+1];
 #ifdef USE_HYPHEN
 	if (p1 == '-' && !isdigit((int)p2))
-	    p1 = (unsigned char)PS_hyphen;
+	    p1 = PS_hyphen;
 #endif
 	for (j = metrics->KPstart[p1]; j < metrics->KPend[p1]; j++)
 	    if(metrics->KernPairs[j].c2 == p2 &&
@@ -9708,7 +9919,7 @@ static void PDFWriteT1KerningString(const char *str,
 	    case '-':
 #ifdef USE_HYPHEN
 		if (!isdigit((int)str[i+1]))
-                    PDFwrite(buf, 10, PS_hyphen, pd);
+		    PDFwrite(buf, 2, "%c", pd, PS_hyphen);
 		else
 #endif
                 PDFwrite(buf, 2, "%c", pd, str[i]);
@@ -10002,9 +10213,12 @@ static void PDF_Text0(double x, double y, const char *str, int enc,
                 a, b, bm, a, x, y);
         if((enc == CE_UTF8 || mbcslocale) && !strIsASCII(str) && face < 5) {
             /* face 5 handled above */
-            R_CheckStack2(strlen(str)+1);
-            buff = alloca(strlen(str)+1); /* Output string cannot be longer */
-            mbcsToSbcs(str, buff, PDFconvname(gc->fontfamily, pd), enc);
+            R_CheckStack2(2*strlen(str)+1);
+	    /* Output string cannot be longer
+	       -- but it can be in bytes if transliteration is used
+	     */
+            buff = alloca(2*strlen(str)+1);
+            mbcsToSbcs(str, buff, PDFconvname(gc->fontfamily, pd), enc, 0);
             str1 = buff;
         } else str1 = str;
 
@@ -10240,14 +10454,14 @@ void PDF_MetricInfo(int c,
 	PostScriptMetricInfo(c, ascent, descent, width,
 			     PDFmetricInfo(gc->fontfamily,
 					   gc->fontface, pd),
-			     face == 5, PDFconvname(gc->fontfamily, pd));
+			     TRUE, face == 5, PDFconvname(gc->fontfamily, pd));
     } else { /* cidfont(gc->fontfamily) */
 	if (face < 5) {
 	    PostScriptCIDMetricInfo(c, ascent, descent, width);
 	} else {
 	    PostScriptMetricInfo(c, ascent, descent, width,
 				 PDFCIDsymbolmetricInfo(gc->fontfamily, pd),
-				 TRUE, "");
+				 FALSE, TRUE, "");
 	}
     }
     *ascent = floor(gc->cex * gc->ps + 0.5) * *ascent;
@@ -10567,7 +10781,10 @@ SEXP PostScript(SEXP args)
 
     vmax = vmaxget();
     args = CDR(args); /* skip entry point name */
-    file = translateCharFP(asChar(CAR(args)));  args = CDR(args);
+    SEXP tmp = asChar(CAR(args));
+    if (tmp == NA_STRING)
+	error(_("invalid 'file' parameter in %s"), call);
+    file = translateCharFP(tmp);  args = CDR(args);
     paper = CHAR(asChar(CAR(args))); args = CDR(args);
 
     /* 'family' can be either one string or a 5-vector of afmpaths. */
@@ -10656,7 +10873,10 @@ SEXP XFig(SEXP args)
 
     vmax = vmaxget();
     args = CDR(args); /* skip entry point name */
-    file = translateCharFP(asChar(CAR(args)));  args = CDR(args);
+    SEXP tmp = asChar(CAR(args));
+    if (tmp == NA_STRING)
+	error(_("invalid 'file' parameter in %s"), "xfig");
+    file = translateCharFP(tmp);  args = CDR(args);
     paper = CHAR(asChar(CAR(args))); args = CDR(args);
     family = CHAR(asChar(CAR(args)));  args = CDR(args);
     bg = CHAR(asChar(CAR(args)));    args = CDR(args);

@@ -1,6 +1,6 @@
 % File src/library/base/man/source.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{source}
@@ -27,6 +27,7 @@ source(file, local = FALSE, echo = verbose, print.eval = echo,
        max.deparse.length = 150, width.cutoff = 60L,
        deparseCtrl = "showAttributes",
        chdir = FALSE,
+       catch.aborts = FALSE,
        encoding = getOption("encoding"),
        continue.echo = getOption("continue"),
        skip.echo = 0, keep.source = getOption("keep.source"))
@@ -35,6 +36,7 @@ withAutoprint(exprs, evaluated = FALSE, local = parent.frame(),
               print. = TRUE, echo = TRUE, max.deparse.length = Inf,
               width.cutoff = max(20, getOption("width")),
               deparseCtrl = c("keepInteger", "showAttributes", "keepNA"),
+              skip.echo = 0,
               \dots)
 }
 \arguments{
@@ -83,6 +85,8 @@ withAutoprint(exprs, evaluated = FALSE, local = parent.frame(),
   \item{chdir}{logical; if \code{TRUE} and \code{file} is a pathname,
     the \R working directory is temporarily changed to the directory
     containing \code{file} for evaluating.}
+  \item{catch.aborts}{logical indicating that \I{\dQuote{abort}ing} errors
+    should be caught.}
   \item{encoding}{character vector.  The encoding(s) to be assumed when
     \code{file} is a character string: see \code{\link{file}}.  A
     possible value is \code{"unknown"} when the encoding is guessed: see
@@ -111,9 +115,10 @@ withAutoprint(exprs, evaluated = FALSE, local = parent.frame(),
   \code{\link{withVisible}}.
 
   All versions of \R accept input from a connection with end of line
-  marked by LF (as used on Unix), CRLF (as used on DOS/Windows) or CR
-  (as used on classic Mac OS) and map this to newline.  The final line
-  can be incomplete, that is missing the final end-of-line marker.
+  marked by \abbr{LF} (as used on Unix), \abbr{CRLF} (as used on
+  DOS/Windows) or \abbr{CR} (as used on classic Mac OS) and map this to
+  newline.  The final line can be incomplete, that is missing the final
+  end-of-line marker. 
 
   If \code{keep.source} is true (the default in interactive use), the
   source of functions is kept so they can be listed exactly as input.
@@ -189,24 +194,34 @@ if(someCond) withAutoprint({
 
 ## If you want to source() a bunch of files, something like
 ## the following may be useful:
- sourceDir <- function(path, trace = TRUE, ...) {
-    op <- options(); on.exit(options(op)) # to reset after each 
+sourceDir <- function(path, trace = TRUE, ...) {
+    op <- options(); on.exit(options(op)) # to reset after each
     for (nm in list.files(path, pattern = "[.][RrSsQq]$")) {
        if(trace) cat(nm,":")
        source(file.path(path, nm), ...)
        if(trace) cat("\n")
        options(op)
     }
- }
+}
 
 suppressWarnings( rm(x,y) ) # remove 'x' or 'y' from global env
-withAutoprint({ x <- 1:2; cat("x=",x,"\n"); y <- x^2 })
+withAutoprint({ x <- 1:2; cat("x=",x, "\n"); y <- x^2 })
 ## x and y now exist:
 stopifnot(identical(x, 1:2), identical(y, x^2))
 
 withAutoprint({ formals(sourceDir); body(sourceDir) },
               max.deparse.length = 20, verbose = TRUE)
 %% --> tests in  ../../../../tests/eval-etc.R
+
+## Continuing after (catchable) errors:
+tc <- textConnection('1:3
+ 2 + "3"
+ cat(" .. in spite of error: happily continuing! ..\n")
+ 6*7')
+r <- source(tc, catch.aborts = TRUE)
+## Error in 2 + "3" ....
+## .. in spite of error: happily continuing! ..
+stopifnot(identical(r, list(value = 42, visible=TRUE)))
 }
 \keyword{file}
 \keyword{programming}

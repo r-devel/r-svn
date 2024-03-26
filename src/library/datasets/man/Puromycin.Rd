@@ -3,6 +3,8 @@
 % Copyright 1995-2014 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{Puromycin}
 \docType{data}
 \alias{Puromycin}
@@ -10,7 +12,7 @@
 \description{
   The \code{Puromycin} data frame has 23 rows and 3 columns of the
   reaction velocity versus substrate concentration in an enzymatic
-  reaction involving untreated cells or cells treated with Puromycin.
+  reaction involving untreated cells or cells treated with \I{Puromycin}.
 }
 \usage{Puromycin}
 \format{
@@ -31,12 +33,12 @@
 }
 \details{
   Data on the velocity of an enzymatic reaction were obtained
-  by Treloar (1974).  The number of counts per minute of radioactive
+  by \bibcite{Treloar (1974)}.  The number of counts per minute of radioactive
   product from the reaction was measured as a function of substrate
   concentration in parts per million (ppm) and from these counts the
   initial rate (or velocity) of the reaction was calculated
   (counts/min/min).  The experiment was conducted once with the enzyme
-  treated with Puromycin, and once with the enzyme untreated.
+  treated with \I{Puromycin}, and once with the enzyme untreated.
 }
 \source{
   Bates, D.M. and Watts, D.G. (1988),

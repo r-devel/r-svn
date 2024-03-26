@@ -713,16 +713,7 @@ remove.packages <- function(pkgs, lib)
             message("Updating HTML index of packages in '.Library'")
             make.packages.html(.Library)
         }
-        ## FIXME: only needed for packages installed < 2.13.0,
-        ## so remove eventually
-        ## is this the lib now empty?
-        Rcss <- file.path(lib, "R.css")
-        if (file.exists(Rcss)) {
-            pkgs <- Sys.glob(file.path(lib, "*", "Meta", "package.rds"))
-            if (!length(pkgs)) unlink(Rcss)
-        }
     }
-
 
     if(missing(lib) || is.null(lib)) {
         lib <- .libPaths()[1L]
@@ -835,6 +826,7 @@ contrib.url <- function(repos, type = getOption("pkgType"))
         stop("invalid 'type'; must be a character string")
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
+    if(!length(repos)) return(character())
     if("@CRAN@" %in% repos && interactive()) {
         cat(gettext("--- Please select a CRAN mirror for use in this session ---"),
             "\n", sep = "")
@@ -955,7 +947,7 @@ setRepositories <-
     function(graphics = getOption("menu.graphics"), ind = NULL,
              addURLs = character(), name = NULL)
 {
-    if(is.null(ind) && !interactive())
+    if(is.null(name) && is.null(ind) && !interactive())
         stop("cannot set repositories non-interactively")
     a <- .get_repositories()
     pkgType <- getOption("pkgType")
@@ -1073,7 +1065,7 @@ compareVersion <- function(a, b)
     if(!length(xx)) return(list(character(), character()))
     ## Then check for those we already have installed
     pkgs <- installed[, "Package"]
-    have <- sapply(xx, function(x) {
+    have <- vapply(xx, function(x) {
         if(length(x) == 3L) {
             if (! x[[1L]] %in% pkgs ) return(FALSE)
             if(x[[2L]] != ">=") return(TRUE)
@@ -1084,7 +1076,7 @@ compareVersion <- function(a, b)
             target <- as.package_version(x[[3L]])
             any(do.call(x$op, list(current, target)))
         } else x[[1L]] %in% pkgs
-    })
+    }, NA)
     xx <- xx[!have]
     if(!length(xx)) return(list(character(), character()))
     ## now check if we can satisfy the missing dependencies
@@ -1179,7 +1171,8 @@ compareVersion <- function(a, b)
 .get_repositories <- function()
 {
     rfile <- Sys.getenv("R_REPOSITORIES", unset = NA_character_)
-    if(is.na(rfile) || !file_test("-f", rfile)) {
+    ## "NULL" has a special meaning during .onLoad()
+    if(is.na(rfile) || rfile == "NULL" || !file_test("-f", rfile)) {
         rfile <- file.path(Sys.getenv("HOME"), ".R", "repositories")
         if(!file_test("-f", rfile))
             rfile <- file.path(R.home("etc"), "repositories")
@@ -1209,7 +1202,7 @@ compareVersion <- function(a, b)
 }
 
 ## default is included in setRepositories.Rd (via \Sexpr)
-.BioC_version_associated_with_R_version_default <- "3.17"
+.BioC_version_associated_with_R_version_default <- "3.19"
 .BioC_version_associated_with_R_version <- function ()
     numeric_version(Sys.getenv("R_BIOC_VERSION",
                                .BioC_version_associated_with_R_version_default))

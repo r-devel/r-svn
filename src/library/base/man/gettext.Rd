@@ -1,6 +1,6 @@
 % File src/library/base/man/gettext.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{gettext}
@@ -12,7 +12,7 @@
 \description{
   Translation of text messages typically from calls to
   \code{\link{stop}()}, \code{\link{warning}()}, or \code{\link{message}()}
-  happens when Native Language Support (NLS) was enabled in this build of
+  happens when Native Language Support (\abbr{NLS}) was enabled in this build of
   \R as it is almost always, see also the \code{bindtextdomain()} example.
 
   The functions documented here are the low level building blocks used
@@ -28,19 +28,18 @@ ngettext(n, msg1, msg2, domain = NULL)
 bindtextdomain(domain, dirname = NULL)
 
 Sys.setLanguage(lang, unset = "en")
-
 }
 \arguments{
-  \item{\dots}{One or more character vectors.}
+  \item{\dots}{one or more character vectors.}
   \item{trim}{logical indicating if the white space trimming in
     \code{gettext()} should happen.  \code{trim = FALSE} may be needed for
     compiled code (C / C++) messages which often end with \code{\\n}.}
   \item{domain}{the \sQuote{domain} for the translation, a \code{character}
-    string, or \code{\link{NULL}} to flush the cache; see \sQuote{Details}.}
+    string, or \code{\link{NULL}}; see \sQuote{Details}.}
   \item{n}{a non-negative integer.}
   \item{msg1}{the message to be used in English for \code{n = 1}.}
   \item{msg2}{the message to be used in English for \code{n = 0, 2, 3, \dots}.}
-  \item{dirname}{The directory in which to find translated message
+  \item{dirname}{the directory in which to find translated message
     catalogs for the domain.}
   \item{lang}{a \code{\link{character}} string specifying a language for
     which translations should be sought.}
@@ -71,8 +70,8 @@ Sys.setLanguage(lang, unset = "en")
 
   The \emph{language} to be used for message translation is determined by
   your OS default and/or the locale setting at \R's startup, see
-  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment
-  variable.
+  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment 
+  variable, and also \code{Sys.setLanguage()} here.
 
   Conventionally the domain for \R warning/error messages in package
   \pkg{pkg} is \code{"R-pkg"}, and that for C-level messages is \code{"pkg"}.
@@ -83,7 +82,7 @@ Sys.setLanguage(lang, unset = "en")
 
   \code{ngettext} is used where the message needs to vary by a single
   integer.  Translating such messages is subject to very specific rules
-  for different languages: see the GNU Gettext Manual.  The string
+  for different languages: see the GNU \I{Gettext} Manual.  The string
   will often contain a single instance of \code{\%d} to be used in
   \code{\link{sprintf}}.  If English is used, \code{msg1} is returned if
   \code{n == 1} and \code{msg2} in all other cases.
@@ -92,12 +91,16 @@ Sys.setLanguage(lang, unset = "en")
   name: your system may have a \command{man} page for it.  With a
   non-\code{NULL} \code{dirname} it specifies where to look for message
   catalogues: with \code{dirname = NULL} it returns the current location.
-  If NLS is not enabled, \code{bindtextdomain(*,*)} returns \code{NULL}.
+  If \abbr{NLS} is not enabled, \code{bindtextdomain(*,*)} returns \code{NULL}.
   %%
   The special case \code{bindtextdomain(NULL)} calls C level
   \code{textdomain(textdomain(NULL))} for the purpose of flushing (i.e.,
   emptying) the cache of already translated strings; it returns \code{TRUE}
-  when NLS is enabled.
+  when \abbr{NLS} is enabled.
+
+  The utility \code{Sys.setlanguage(lang)} combines setting the
+  \env{LANGUAGE} environment variable with flushing the translation cache
+  by \code{bindtextdomain(NULL)}.
 }
 \value{
   For \code{gettext}, a character vector, one element per string in
@@ -131,8 +134,7 @@ for(n in 0:3)
                               "\%d variables have missing values"),
                   n))
 
-\dontrun{
-## for translation, those strings should appear in R-pkg.pot as
+\dontrun{## for translation, those strings should appear in R-pkg.pot as
 msgid        "\%d variable has missing values"
 msgid_plural "\%d variables have missing values"
 msgstr[0] ""
@@ -171,9 +173,8 @@ errMsg(1 + "2")
 ## Usually, you would reset the language to "previous" via
 Sys.setLanguage(oldSet)
 
-## A show off of translations -- platform (font etc) dependent:
+\dontdiff{## A show off of translations -- platform (font etc) dependent:
 ## The translation languages available for "base" R in this version of R:
-## IGNORE_RDIFF_BEGIN
 if(capabilities("NLS")) withAutoprint({
   langs <- list.files(bindtextdomain("R"),
 		      pattern = "^[a-z]{2}(_[A-Z]{2}|@quot)?$")
@@ -185,7 +186,7 @@ if(capabilities("NLS")) withAutoprint({
   (nTrans <- length(unique(txts)))
   (not_translated <- names(txts[txts == txts[["en"]]]))
 })
-## IGNORE_RDIFF_END
+}
 ## Here, we reset to the *original* setting before the full example started:
 if(nzchar(thisLang)) { ## reset to previous and check
   Sys.setLanguage(thisLang)

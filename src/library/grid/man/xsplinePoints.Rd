@@ -7,14 +7,14 @@
 \alias{xsplinePoints}
 \alias{bezierPoints}
 \title{
-  Return the points that would be used to draw an Xspline
-  (or a Bezier curve).
+  Return the points that would be used to draw an \I{xspline}
+  (or a Bezier curve)
 }
 \description{
-  Rather than drawing an Xspline (or Bezier curve), this function returns
+  Rather than drawing an \I{xspline} (or Bezier curve), this function returns
   the points that would be used to draw the series of line
-  segments for the Xspline.  This may be useful to post-process
-  the Xspline curve, for example, to clip the curve.
+  segments for the \I{xspline}.  This may be useful to post-process
+  the \I{xspline} curve, for example, to clip the curve.
 }
 \usage{
 xsplinePoints(x)
@@ -22,8 +22,8 @@ bezierPoints(x)
 }
 \arguments{
   \item{x}{
-    An Xspline grob, as produced by the \code{xsplineGrob()} function
-    (or a beziergrob, as produced by the \code{bezierGrob()} function).
+    An \I{xspline} grob, as produced by the \code{xsplineGrob()} function
+    (or a \I{beziergrob}, as produced by the \code{bezierGrob()} function).
   }
 }
 \details{
@@ -31,9 +31,9 @@ bezierPoints(x)
   for the drawing context in force when this function was called.
 }
 \value{
-  Depends on how many Xsplines would be drawn.  If only one, then
+  Depends on how many \I{xspline}s would be drawn.  If only one, then
   a list with two components, named x and y, both of which are
-  unit objects (in inches).  If several Xsplines would be drawn
+  unit objects (in inches).  If several \I{xspline}s would be drawn
   then the result of this function is a list of lists.
 }
 \author{

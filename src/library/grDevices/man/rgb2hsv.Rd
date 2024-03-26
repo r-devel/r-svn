@@ -17,7 +17,7 @@ rgb2hsv(r, g = NULL, b = NULL, maxColorValue = 255)
 }
 \arguments{
   \item{r}{vector of \sQuote{red} values in \eqn{[0, M]}, (\eqn{M
-      = }\code{maxColorValue}) or 3-row rgb matrix.}
+      = }\code{maxColorValue}) or 3-row RGB matrix.}
   \item{g}{vector of \sQuote{green} values, or \code{\link{NULL}} when
     \code{r} is a matrix.}
   \item{b}{vector of \sQuote{blue} values, or \code{\link{NULL}} when
@@ -32,7 +32,7 @@ rgb2hsv(r, g = NULL, b = NULL, maxColorValue = 255)
   Saturation is the amount of Hue mixed into the color.
 
   An HSV colorspace is relative to an RGB colorspace, which in \R
-  is sRGB, which has an implicit gamma correction.
+  is \abbr{sRGB}, which has an implicit gamma correction.
 }
 \value{
   A matrix with a column for each color.  The three rows of the matrix

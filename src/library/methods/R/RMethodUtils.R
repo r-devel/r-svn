@@ -382,7 +382,7 @@ rematchDefinition <- function(definition, generic, mnames, fnames, signature)
              call. = FALSE)
     clArgs <- fnames[useNames]
     ## leave newCall as a list while checking the trailing args
-    if(keepsDots && dotsPos < length(fnames)) {
+    if((keepsDots || added) && dotsPos < length(fnames)) {
 	## Trailing arguments (those after "...") are required to match.  This is a little
 	## stronger than necessary, but this is a dicey case, because
 	## the argument-matching may not be consistent otherwise (in
@@ -1729,8 +1729,7 @@ if(FALSE) {
         names <- names(signature)
         pkgs <- character(length(signature))
         for(i in seq_along(pkgs)) {
-            pkgi <- attr(signature[[i]], "package")
-            pkgs[[i]] <- if(is.null(pkgi)) "" else pkgi
+            pkgs[[i]] <- attr(signature[[i]], "package") %||% ""
         }
     }
     msgs <- character(); level <- integer()

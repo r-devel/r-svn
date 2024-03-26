@@ -17,14 +17,14 @@
  *   Edin Hodzic, Eric J Bivona, Kai Uwe Rommel, Danny Quah, Ulrich Betzler
  */
 
- /* Copyright (C) 2018-2022 The R Core Team */
+ /* Copyright (C) 2018-2024 The R Core Team */
 
 #include       "getline.h"
 
-static int      gl_tab();  /* forward reference needed for gl_tab_hook */
-int 		(*gl_in_hook)() = 0;
-int 		(*gl_out_hook)() = 0;
-int 		(*gl_tab_hook)() = gl_tab;
+static int      gl_tab(char *, int, int *);  /* forward reference needed for gl_tab_hook */
+int 		(*gl_in_hook)(char *) = 0;
+int 		(*gl_out_hook)(char *) = 0;
+int 		(*gl_tab_hook)(char *, int, int *) = gl_tab;
 
 #include <Rconfig.h>
 #include <R_ext/Riconv.h>
@@ -80,7 +80,7 @@ static void     gl_char_init(void);	/* get ready for no echo input */
 static void     gl_char_cleanup(void);	/* undo gl_char_init */
 static size_t   gl_w_strlen(const char *); /* width of a string */
 static size_t   gl_e_strlen(const char *); /* edit units in a string */
-static size_t 	(*gl_w_promptlen)() = (size_t(*)())gl_w_strlen; 
+static size_t 	(*gl_w_promptlen)(const char *) = gl_w_strlen; 
 					/* returns printable prompt width */
 
 static void     gl_addchar(int);	/* install specified char */
@@ -99,9 +99,9 @@ static void     gl_word(int);		/* move a word */
 static void     gl_killword(int);
 
 void     gl_hist_init(int, int);	/* initializes hist pointers */
-char    *gl_hist_next();		/* return ptr to next item */
-char    *gl_hist_prev();		/* return ptr to prev item */
-static char    *hist_save();		/* makes copy of a string, without NL */
+char    *gl_hist_next(void);		/* return ptr to next item */
+char    *gl_hist_prev(void);		/* return ptr to prev item */
+static char    *hist_save(const char *);/* makes copy of a string, without NL */
 
 static void     search_addchar(int);	/* increment search string */
 static void     search_term(void);	/* reset with current contents */
@@ -130,7 +130,7 @@ static HANDLE Win32OutputStream, Win32InputStream = NULL;
 static DWORD OldWin32Mode, AltIsDown;
 
 static void
-gl_char_init()			/* turn off input echo */
+gl_char_init(void)		/* turn off input echo */
 {
    if (!Win32InputStream) {
        Win32InputStream = GetStdHandle(STD_INPUT_HANDLE);
@@ -182,6 +182,12 @@ gl_getc(void)
 
     /* Initial version by Guido Masarotto (3/12/98):
          "get Ansi char code from a Win32 console" */
+
+    /* A pending sequence of characters to return, e.g. ANSI, stored
+       in reverse order. Used to emit an ANSI escape sequence. */ 
+    static int seq_buf[128];
+    static int seq_len = 0;
+
     DWORD a;
     INPUT_RECORD r;
     DWORD st;
@@ -190,6 +196,9 @@ gl_getc(void)
     wchar_t high = 0;
     int bbb = 0, nAlt=0, n, hex = 0;
     static int debug_codes = 0;
+
+    if (seq_len > 0)
+	return seq_buf[--seq_len];
 
     c = 0; 
     while (!c) {
@@ -289,9 +298,15 @@ gl_getc(void)
 	    c = '\020';
 	else if (vk == VK_DOWN)
 	    c = '\016';
-	else if (vk == VK_DELETE)
-	    c = '\004';
-	else 
+	else if (vk == VK_DELETE) {
+	    /* Previously mapped to ^D (c = '\004'), but that closes the session
+	       when the input line is empty. */
+	    seq_buf[0] = '~';
+	    seq_buf[1] = '3';
+	    seq_buf[2] = '['; /* CSI */
+	    seq_len = 3;
+	    c = '\033'; /* ESC */
+	} else 
             /* Only characters from BMP obtained this way. */
             c = r.Event.KeyEvent.uChar.UnicodeChar;
       }
@@ -519,13 +534,13 @@ gl_edit_unit_size(int loc, int cursor)
 }
 
 static int
-gl_edit_unit_size_left()
+gl_edit_unit_size_left(void)
 {
     return gl_edit_unit_size(-1 /* left */, gl_pos);
 }
 
 static int
-gl_edit_unit_size_right()
+gl_edit_unit_size_right(void)
 {
     return gl_edit_unit_size(0 /* right */, gl_pos);
 }
@@ -620,8 +635,10 @@ update_map(size_t change)
 	outbuf = (char *)&uc;
 	last_inbytesleft = inbytesleft;
 	status = Riconv(gl_nat_to_ucs, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-	if (status == (size_t)-1 && errno != E2BIG)
+	if (status == (size_t)-1 && errno != E2BIG) {
+	    Riconv(gl_nat_to_ucs, NULL, NULL, NULL, NULL);
 	    gl_error("\n*** Error: getline(): invalid multi-byte character.\n");
+	}
 
 	width = iswprint(uc) ? Ri18n_wcwidth(uc) : 0;
 
@@ -715,7 +732,7 @@ getline(const char *prompt, char *buf, int buflen)
 		  gl_kill(0);
 		  gl_fixup(gl_prompt, -2, BUF_SIZE);
 		break;
-	      case '\004':					/* ^D, VK_DELETE */
+	      case '\004':					/* ^D */
 		if (gl_cnt == 0) {
 		    gl_buf[0] = 0;
 		    gl_cleanup();
@@ -799,6 +816,13 @@ getline(const char *prompt, char *buf, int buflen)
 		        break;
 		    case 'D':                                  /* left */
 			gl_fixup(gl_prompt, -1, gl_pos - gl_edit_unit_size_left());
+			break;
+		    case '3':
+			c = gl_getc();
+			if (c == '~')
+			    gl_del(0);                         /* VK_DELETE */
+			else
+			    gl_putc('\007');
 			break;
 		    default: gl_putc('\007');                  /* who knows */
 		        break;
@@ -1299,8 +1323,7 @@ gl_tab(char *buf, int offset, int *loc)
 /******************* strlen stuff **************************************/
 
 /* hook to install a custom gl_w_promptlen, used _only_ for the prompt  */
-void gl_strwidth(func)
-size_t (*func)();
+void gl_strwidth(size_t (*func)(const char *))
 {
     if (func != 0) {
 	gl_w_promptlen = func;
@@ -1321,8 +1344,10 @@ gl_w_strlen(const char *s)
 	outbytesleft = 4;
 	outbuf = (char *)&uc;
 	status = Riconv(gl_nat_to_ucs, &s, &inbytesleft, &outbuf, &outbytesleft);
-	if (status == (size_t)-1 && errno != E2BIG)
+	if (status == (size_t)-1 && errno != E2BIG) {
+	    Riconv(gl_nat_to_ucs, NULL, NULL, NULL, NULL);
 	    gl_error("\n*** Error: getline(): invalid multi-byte character.\n");
+	}
 
 	if (iswprint(uc))
 	    width += Ri18n_wcwidth(uc);
@@ -1344,8 +1369,10 @@ gl_e_strlen(const char *s)
 	outbytesleft = 4;
 	outbuf = (char *)&uc;
 	status = Riconv(gl_nat_to_ucs, &s, &inbytesleft, &outbuf, &outbytesleft);
-	if (status == (size_t)-1 && errno != E2BIG)
+	if (status == (size_t)-1 && errno != E2BIG) {
+	    Riconv(gl_nat_to_ucs, NULL, NULL, NULL, NULL);
 	    gl_error("\n*** Error: getline(): invalid multi-byte character.\n");
+	}
 
 	if (iswprint(uc) && Ri18n_wcwidth(uc) > 0)
 	    /* this is an approximation, ideally use complete grapheme here */
@@ -1489,7 +1516,6 @@ void gl_savehistory(const char *file, int size)
 void gl_loadhistory(const char *file)
 {
     FILE *fp;
-    int i;
     char buf[1000];
 
     if (!file) return;
@@ -1497,7 +1523,7 @@ void gl_loadhistory(const char *file)
     if (!fp) {
        return;
     }
-    for(i = 0;; i++) {
+    for(;;) {
 	if(!fgets(buf, 1000, fp)) break;
 	gl_histadd(buf);
     }

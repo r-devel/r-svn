@@ -1,7 +1,7 @@
 #  File src/library/tools/R/checktools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2013-2022 The R Core Team
+#  Copyright (C) 2013-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ function(dir,
          xvfb = FALSE,
          Ncpus = getOption("Ncpus", 1L),
          clean = TRUE,
+         install_args = list(),
+         parallel_args = list(),
          ...)
 {
     owd <- getwd()
@@ -278,14 +280,17 @@ function(dir,
         names(iflags) <- pnames_using_install_fake
         tmpdir <- tempfile(tmpdir = outdir)
         dir.create(tmpdir)
-        utils::install.packages(depends, lib = libdir,
+        do.call(utils::install.packages, c(
+                            list(pkgs = depends, lib = libdir,
                                 contriburl = curls,
                                 available = available,
                                 dependencies = NA,
                                 INSTALL_opts = iflags,
                                 keep_outputs = tmpdir,
                                 Ncpus = Ncpus,
-                                type = "source")
+                                type = "source"), 
+                            install_args))
+        
         outfiles <- Sys.glob(file.path(tmpdir, "*.out"))
         file.rename(outfiles,
                     file.path(outdir,
@@ -347,19 +352,24 @@ function(dir,
 
     if(Ncpus > 1L) {
         if(os_type != "windows") {
-            timings <- parallel::mclapply(pfiles,
-                                          check_package,
-                                          check_args_db,
-                                          check_env_db,
-                                          mc.cores = Ncpus)
+            timings <- do.call(parallel::mclapply, c(
+                                        list(X = pfiles,
+                                          FUN = check_package,
+                                          args_db = check_args_db,
+                                          env_db = check_env_db,
+                                          mc.cores = Ncpus),
+                                        parallel_args))
         } else {
             cl <- parallel::makeCluster(Ncpus)
-            timings <- parallel::parLapply(cl,
-                                           pfiles,
-                                           check_package,
-                                           check_args_db,
-                                           check_env_db)
-            parallel::stopCluster(cl)
+            on.exit(parallel::stopCluster(cl), add = TRUE)
+            timings <- do.call(parallel::parLapply, c(
+                                         list(cl = cl, 
+                                           X = pfiles, 
+                                           fun = check_package,
+                                           args_db = check_args_db,
+                                           env_db = check_env_db),
+                                         parallel_args))
+
         }
     } else {
         timings <- lapply(pfiles,
@@ -963,13 +973,13 @@ function(dir, logs = NULL, drop_ok = TRUE, ...)
         if(!length(out))
             return(matrix(character(), ncol = 6L))
         chunks <- lapply(out, `[[`, "Chunks")
-        package <- sapply(out, `[[`, "Package")
+        package <- vapply(out, `[[`, "", "Package")
         lens <- lengths(chunks)
         cbind(rep.int(package, lens),
-              rep.int(sapply(out, `[[`, "Version"), lens),
+              rep.int(vapply(out, `[[`, "", "Version"), lens),
               matrix(as.character(unlist(chunks)), ncol = 3L,
                      byrow = TRUE),
-              rep.int(sapply(out, `[[`, "Flags"),
+              rep.int(vapply(out, `[[`, "", "Flags"),
                       lens))
     }
 

@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2latex.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -72,20 +72,17 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                 writeLines(x, con, useBytes = TRUE, ...)
         } else {
             function(x, con, outputEncoding, ...) {
-                x <- iconv(x, "UTF-8", outputEncoding,  mark = FALSE)
-                if (anyNA(x)) {
-                    x <- iconv(x, "UTF-8", outputEncoding,
+                y <- iconv(x, "UTF-8", outputEncoding,  mark = FALSE)
+                if (anyNA(y)) {
+                    y <- iconv(x, "UTF-8", outputEncoding,
                                sub = "byte", mark = FALSE)
                     encode_warn <<- TRUE
                 }
-                writeLines(x, con, useBytes = TRUE, ...)
+                writeLines(y, con, useBytes = TRUE, ...)
             }
     }
 
-    if (concordance)
-    	conc <- activeConcordance()
-    else
-    	conc <- NULL
+    conc <- if(concordance) activeConcordance() # else NULL
     
     last_char <- ""
     of0 <- function(...) of1(paste0(...))
@@ -404,6 +401,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                    inCode <<- FALSE
                },
                ## simple wrappers
+               "\\abbr" =,
                "\\acronym" =,
                "\\bold"=,
                "\\dfn"=,
@@ -442,7 +440,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                "\\dots" =,
                "\\ldots" = of1(if(inCode || inCodeBlock) "..."  else tag),
                "\\R" = of0(tag, "{}"),
-               "\\donttest" = writeContent(block, tag),
+               "\\donttest" =, "\\dontdiff" = writeContent(block, tag),
                "\\dontrun"= writeDR(block, tag),
                "\\enc" = {
                    ## some people put more things in \enc than a word,
@@ -567,11 +565,11 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                               "\\arguments"={
                               	  if (concordance)
                               	      conc$saveSrcref(block[[1L]])
-                                  of1('\\item[\\code{')
+                                  of1('\\item[')
                                   inCode <<- TRUE
-                                  writeContent(block[[1L]], tag)
+                                  writeItemAsCode(tag, block[[1L]])
                                   inCode <<- FALSE
-                                  of1('}] ')
+                                  of1('] ')
                                   if (concordance)
                                       conc$saveSrcref(block[[2L]])
                                   writeContent(block[[2L]], tag)
@@ -655,6 +653,23 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
             of0("\\end{", title, "}\n")
         }
         sectionLevel <<- save
+    }
+
+    writeItemAsCode <- function(blocktag, block) {
+        ## Keep this in rsync with writeItemAsCode() in Rd2HTML.R!
+
+        ## Argh.  Quite a few packages put the items in their value
+        ## section inside \code.
+        for(i in which(RdTags(block) == "\\code"))
+            attr(block[[i]], "Rd_tag") <- "Rd"
+
+        s <- as.character.Rd(block)
+        s[s %in% c("\\dots", "\\ldots")] <- "..."
+        s <- trimws(strsplit(paste(s, collapse = ""), ",", fixed = TRUE)[[1]])
+        s <- s[nzchar(s)]
+        s <- sprintf("\\code{%s}", texify(s))
+        s <- paste0(s, collapse = ", ")
+        of1(s)
     }
 
     Rd <- prepare_Rd(Rd, defines=defines, stages=stages, fragment=fragment, ...)

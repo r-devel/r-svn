@@ -254,7 +254,7 @@ default.stringsAsFactors() # use stringsAsFactors = FALSE instead.
   \code{unix} was a \emph{deprecated} (since the 1990s) alternative to
   \code{\link{system}}, available for backwards compatibility with S.
 
-  \code{gammaCody} was the \eqn{(\Gamma)} function from the Specfun
+  \code{gammaCody} was the \eqn{(\Gamma)} function from the \I{Specfun}
   package used at C level in the Bessel code. The \R-level interface was
   here for experimental purposes.
 

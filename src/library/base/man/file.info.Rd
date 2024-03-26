@@ -23,7 +23,7 @@ file.size(\dots)
 \arguments{
   \item{\dots}{character vectors containing file paths.  Tilde-expansion
     is done: see \code{\link{path.expand}}.}
-  \item{extra_cols}{Logical: return all cols rather than just the
+  \item{extra_cols}{logical: return all cols rather than just the
     first six.}
 }
 \details{
@@ -44,7 +44,7 @@ file.size(\dots)
   On most systems symbolic links are followed, so information is given
   about the file to which the link points rather than about the link.}
  \item{On Windows:}{
-  File modes are probably only useful on NTFS file systems, and it seems
+  File modes are probably only useful on \abbr{NTFS} file systems, and it seems
   all three digits refer to the file's owner.
   The execute/search bits are set for directories, and for files based
   on their extensions (e.g., \file{.exe}, \file{.com}, \file{.cmd}
@@ -103,7 +103,7 @@ file.size(\dots)
 
   The resolution of the file times depends on both the OS and the type
   of the file system.  Modern file systems typically record times to an
-  accuracy of a microsecond or better: notable exceptions are HFS+ on
+  accuracy of a microsecond or better: notable exceptions are \abbr{HFS+} on
   macOS (recorded in seconds) and modification time on older FAT systems
   (recorded in increments of 2 seconds).  Note that \code{"POSIXct"}
   times are by default printed in whole seconds: to change that see
@@ -113,7 +113,7 @@ file.size(\dots)
   convenience wrappers returning just one of the columns.
 }
 \note{
-  Some (now old) unix alike systems allow files of more than 2Gb to be created but
+  Some (now old) unix alike systems allow files of more than 2\abbr{Gb} to be created but
   not accessed by the \code{stat} system call.  Such files may show up
   as non-readable (and very likely not be readable by any of \R's input
   functions).

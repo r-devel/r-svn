@@ -3,6 +3,8 @@
 % Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{qqnorm}
 \title{Quantile-Quantile Plots}
 \usage{
@@ -58,15 +60,15 @@ qqplot(x, y, plot.it = TRUE,
 
   \code{qqplot} produces a QQ plot of two datasets. If \code{conf.level} is
   given, a confidence band for a function transforming the distribution of
-  \code{x} into the distribution of \code{y} is plotted based on Switzer
-  (1976). The QQ plot can be understood as an estimate of such a 
+  \code{x} into the distribution of \code{y} is plotted based on
+  \bibcite{Switzer (1976)}. The QQ plot can be understood as an estimate of such a 
   treatment function. If \code{exact = NULL} (the default), an
   exact confidence band is computed if the product of
   the sample sizes is less than 10000, with or
   without ties. Otherwise, asymptotic distributions are used whose approximations may
   be inaccurate in small samples. Monte-Carlo approximations based on
   \code{B} random permutations are computed when \code{simulate = TRUE}.
-  Confidence bands are in agreement with Smirnov's test, that is, the
+  Confidence bands are in agreement with \I{Smirnov}'s test, that is, the
   bisecting line is covered by the band iff the null of both samples coming 
   from the same distribution cannot be rejected at the same level.
 

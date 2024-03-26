@@ -1,7 +1,7 @@
 #  File src/library/utils/R/str.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## A pearl from ggplot2 et al.  NB: often needs '(.)' :   <lhs> %||% ( <rhs> )
-## *not exported* [should rather be in 'base' than exported here]
-`%||%` <- function(L,R) if(is.null(L)) R else L
 
 ####------ str : show STRucture of an R object
 str <- function(object, ...) UseMethod("str")
@@ -474,7 +471,7 @@ str.default <-
 			       )
 	    }
 	} else if(typeof(object) %in%
-		  c("externalptr", "weakref", "environment", "bytecode")) {
+		  c("externalptr", "weakref", "environment", "bytecode", "object")) {
 	    ## Careful here, we don't want to change pointer objects
 	    if(has.class)
                 cat(pClass(cl))
@@ -633,8 +630,12 @@ str.default <-
 	}
 	else { # not char.like
 	    if(!exists("format.fun"))
-		format.fun <-
-		    if(mod == "num" || mod == "cplx") format else as.character
+		format.fun <- switch(mod,
+				     "num" =,
+				     "cplx" = format,
+				     "language" = deParse,
+				     ## otherwise :
+				     as.character)
 	    ## v.len <- max(1,round(v.len))
 	    ile <- min(v.len, le)
 	    formObj <- function(x) maybe_truncate(paste(format.fun(x), collapse = " "),

@@ -1,6 +1,6 @@
 % File src/library/base/man/pipeOp.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{pipeOp}
@@ -18,8 +18,8 @@
   \item{rhs}{a call expression.}% or an expression of the form \code{symbol => call}
 }
 \details{
-  A pipe expression passes, or pipes, the result of the left-hand side
-  expression \code{lhs} to the right-hand side expression \code{rhs}.
+  A pipe expression passes, or \sQuote{pipes}, the result of the left-hand-side
+  expression \code{lhs} to the right-hand-side expression \code{rhs}.
 
   The \code{lhs} is
   inserted as the first argument in the call. So \code{x |> f(y)} is
@@ -32,18 +32,18 @@
   \code{_} in the \code{rhs} call to specify where the \code{lhs} is to
   be inserted.  The placeholder can only appear once on the \code{rhs}.
   
-  As an experimental feature the placeholder can also be used as the
-  first argument in an extraction call, such as \code{_$coef}. More
-  generally, it can be used as the head of a chain of extractions, such
-  as \code{_$coef[[2]]}, using a sequence of the extraction functions
-  \code{$}, \code{[}, \code{[[}, or \code{@}.
+  The placeholder can also be used as the first argument in an
+  extraction call, such as \code{_$coef}. More generally, it can be used
+  as the head of a chain of extractions, such as \code{_$coef[[2]]},
+  using a sequence of the extraction functions \code{$}, \code{[},
+  \code{[[}, or \code{@}.
 
   Pipe notation allows a nested sequence of calls to be written in a way
   that may make the sequence of processing steps easier to follow.
 
   Currently, pipe operations are implemented as syntax transformations.
   So an expression written as \code{x |> f(y)} is parsed as \code{f(x,
-  y)}. It is worth emphasizing that while the code in a pipeline is
+  y)}.  It is worth emphasizing that while the code in a pipeline is
   written sequentially, regular R semantics for evaluation apply and
   so piped expressions will be evaluated only when first used in the
   \code{rhs} expression.
@@ -53,9 +53,13 @@
 }
 \section{Background}{
   The forward pipe operator is motivated by the pipe introduced in the
-  \CRANpkg{magrittr} package, but is more streamlined. It is similar to
+  \CRANpkg{magrittr} package, but is more streamlined.  It is similar to
   the pipe or pipeline operators introduced in other languages, including
   F#, Julia, and JavaScript.
+}
+\section{Warning}{
+  This was introduced in \R 4.1.0.  Code using it will not be parsed
+  as intended (probably with an error) in earlier versions of \R.
 }
 \examples{
 # simple uses:

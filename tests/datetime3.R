@@ -1,4 +1,4 @@
-## Date-time egression tests for R >= 4.3.0
+## Date-time regression tests for R >= 4.3.0
 ## originally added to reg-tests-1d.R
 
 .pt <- proc.time()
@@ -45,7 +45,7 @@ cc <- capture.output(print(dt <- .POSIXct(154e7 + (0:200)*60)))
 c2 <- capture.output(print(dt, max = 6))
 writeLines(tail(cc, 4))
 writeLines(c2)
-stopifnot(expr = {
+stopifnot(exprs = {
     grepl("omitted 151 entries", tail(cc, 1))
                   !anyDuplicated(tail(cc, 2))
     grepl("omitted 195 entries", tail(c2, 1))
@@ -527,6 +527,53 @@ stopifnot(exprs = {
 (b1 <- balancePOSIXlt(lt., fill.only=TRUE))
 (b2 <- balancePOSIXlt(lt.))
 stopifnot(b1 == b2)
+
+
+## range(<Date>|<POSIXt>, finite = TRUE) [R-devel mails, Davis Vaughan and MM, April 28, 2023ff]
+d <- .Date(c(10, Inf, 11, 12, Inf))
+(dN <- c(d, .Date(c(NA, NaN))))
+## Just the numbers :
+str(x  <- unclass(d))
+str(xN <- unclass(dN), vec.len=9)
+stopifnot(exprs = {
+    identical3(print(range(d)), .Date(range(unclass(d))),# "1970-01-11" "Inf"
+               c(min(d),max(d)))
+    is.na(range(dN))
+    identical3(range(d, finite = TRUE), .Date(range(x, finite=TRUE)),
+               range(dN,finite = TRUE) -> rd)
+    identical(rd, structure(c(10, 12), class = "Date"))
+})
+## POSIXct/lt -----
+ct <- as.POSIXct(d)
+ctN<- as.POSIXct(dN)
+lt <- as.POSIXlt(ct)
+ltN<- as.POSIXlt(ctN)
+str(y  <- unclass(ct))
+str(yN <- unclass(ctN), vec.len=9)
+stopifnot(exprs = {
+    identical(print(range(ct)), .POSIXct(range(unclass(ct)), tz="UTC"))
+    identical3(range(ct, finite = TRUE), .POSIXct(range(y, finite=TRUE), tz="UTC"),
+               range(ctN,finite = TRUE) -> rct)
+    is.na(range(ctN))
+    identical(range(ctN, na.rm=TRUE), range(ct))
+    identical(rct, structure(c(10, 12) * 24*60*60,
+                             class = c("POSIXct", "POSIXt"), tzone = "UTC"))
+    ## POSIXlt
+    identical3(print(range(lt)), as.POSIXlt(range(ct)), # "1970-01-11" "Inf"
+               c(min(lt), max(lt))) # failed for a few days
+    identical3(range(lt, finite = TRUE), as.POSIXlt(rct),
+               range(ltN,finite = TRUE))
+    is.na(range(ltN))
+    identical(range(ltN, na.rm=TRUE), range(lt))
+})
+
+
+## Losing 1 sec in ct -> lt conversion for tzcode=internal (USE_INTERNAL_MKTIME) -- PR#16856
+ct <- .POSIXct(c(-1.25, -1, 0, 1), tz = "UTC")
+(d1 <- (lt <- as.POSIXlt(ct)) - ct)
+(d2 <-        as.POSIXlt(as.POSIXct(lt)) - ct)
+stopifnot(d1 == 0, d2 == 0)
+## where (1 0 0 0) and (2 0 0 0) {w/ "internal" tz src} in R <= 4.3.1
 
 
 

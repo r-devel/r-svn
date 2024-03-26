@@ -147,7 +147,7 @@ mccollect(jobs, wait = TRUE, timeout = 0, intermediate = FALSE)
   Simon Urbanek and R Core.
 
   Derived from the \pkg{multicore} package formerly on
-  \acronym{CRAN}. (but with different handling of the RNG stream).
+  \abbr{CRAN}. (but with different handling of the RNG stream).
 }
 \seealso{
   \code{\link{pvec}}, \code{\link{mclapply}}
@@ -158,14 +158,12 @@ q <- mcparallel(1:20)
 # wait for both jobs to finish and collect all results
 res <- mccollect(list(p, q))
 
-## IGNORE_RDIFF_BEGIN
-## reports process ids, so not reproducible
+\dontdiff{% reports process ids, so not reproducible
 p <- mcparallel(1:10)
 mccollect(p, wait = FALSE, 10) # will retrieve the result (since it's fast)
 mccollect(p, wait = FALSE)     # will signal the job as terminating
 mccollect(p, wait = FALSE)     # there is no longer such a job
-## IGNORE_RDIFF_END
-
+}
 \dontshow{set.seed(123, "L'Ecuyer"); mc.reset.stream()}
 # a naive parallel lapply can be created using mcparallel alone:
 jobs <- lapply(1:10, function(x) mcparallel(rnorm(x), name = x))

@@ -52,7 +52,7 @@ heatmap(x, Rowv = NULL, Colv = if(symm)"Rowv" else NULL,
   \item{symm}{logical indicating if \code{x} should be treated
     \bold{symm}etrically; can only be true when \code{x} is a square matrix.}
   \item{revC}{logical indicating if the column order should be
-    \code{\link{rev}}ersed for plotting, such that e.g., for the
+    \I{\code{\link{rev}}ersed} for plotting, such that e.g., for the
     symmetric case, the symmetry axis is as usual.}
   \item{scale}{character indicating if the values should be centered and
     scaled in either the row direction or the column direction, or

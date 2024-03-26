@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2023-05-04 r84393) -- "Unsuffered Consequences"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin22.4.0 (64-bit)
+R Under development (unstable) (2024-02-26 r85989) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -165,7 +163,7 @@ $allowed
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: adjustcolor
-> ### Title: Adjust Colors in One or More Directions Conveniently.
+> ### Title: Adjust Colors in One or More Directions Conveniently
 > ### Aliases: adjustcolor
 > 
 > ### ** Examples
@@ -459,8 +457,9 @@ NULL
 $out
 [1] 1000
 
+> 
 > ## no outlier treatment:
-> boxplot.stats(x, coef = 0)
+> (b3 <- boxplot.stats(x, coef = 0))
 $stats
 [1]    1   26   51   76 1000
 
@@ -473,20 +472,11 @@ $conf
 $out
 numeric(0)
 
+> stopifnot(b3$stats == fivenum(x))
 > 
-> boxplot.stats(c(x, NA)) # slight change : n is 101
-$stats
-[1]   1  26  51  76 100
-
-$n
-[1] 101
-
-$conf
-[1] 43.13921 58.86079
-
-$out
-[1] 1000
-
+> ## missing values are ignored
+> stopifnot(identical(boxplot.stats(c(x, NA)), b1))
+> ## ... infinite values are not:
 > (r <- boxplot.stats(c(x, -1:1/0)))
 $stats
 [1]   1.0  25.5  51.0  76.5 100.0
@@ -630,13 +620,9 @@ $ch
 > X <- matrix(stats::rnorm(2000), ncol = 2)
 > chull(X)
  [1]  61 442 165 899 697 446 975 656 232 557 938 295 495
-> ## Not run: 
-> ##D   # Example usage from graphics package
-> ##D   plot(X, cex = 0.5)
-> ##D   hpts <- chull(X)
-> ##D   hpts <- c(hpts, hpts[1])
-> ##D   lines(X[hpts, ])
-> ## End(Not run)
+> 
+> plot(X, cex = 0.5)
+> polygon(X[chull(X), ])
 > 
 > 
 > 
@@ -715,6 +701,20 @@ blue    0 239
 red          0      223       97
 green        0       83      208
 blue         0      107       79
+> 
+> # long and short form of hexadecimal notation
+> col2rgb(c(long = "#559955", short = "#595"))
+      long short
+red     85    85
+green  153   153
+blue    85    85
+> # with alpha
+> col2rgb(c(long = "#559955BB", short = "#595B"), alpha = TRUE)
+      long short
+red     85    85
+green  153   153
+blue    85    85
+alpha  187   187
 > 
 > ##-- NON-INTRODUCTORY examples --
 > 
@@ -1398,7 +1398,7 @@ yellow4              139   139    0
 yellowgreen          154   205   50
 > 
 > ## How many names are 'aliases' of each other?
-> ccodes <- c(256^(2:0) %*% crgb)  #% = internal codes
+> ccodes <- c(256^(2:0) %*% crgb)
 > cl <- split(cc, ccodes)
 > length(cl) # 502 distinct colors
 [1] 502
@@ -1514,15 +1514,9 @@ List of 150
 > 
 > ## Look at the color cube:
 > tc <- t(crgb[, !duplicated(ccodes)])
-> table(is.gray <- tc[,1] == tc[,2] & tc[,2] == tc[,3])  # (397, 105)
-
-FALSE  TRUE 
-  397   105 
-> if(requireNamespace("lattice", quietly = TRUE))
-+     lattice::cloud(blue ~ red + green, data = as.data.frame(tc),
-+                    col = rownames(tc))
-> tc <- t(crgb[, !duplicated(ccodes)])
 > cNms <- rownames(tc)
+> if(requireNamespace("lattice", quietly = TRUE))
++     lattice::cloud(blue ~ red + green, data = as.data.frame(tc), col = cNms)
 > ## The 8 corners of the color cube:
 > isC <- rowSums(tc == 0 | tc == 255) == 3
 > cNms[isC] # "white" "black" "blue" "cyan" "green" "magenta" "red" "yellow"
@@ -1532,12 +1526,14 @@ FALSE  TRUE
 > stopifnot(setequal(cNms[isC],
 +      c("white","black","blue","cyan","green","magenta","red","yellow")))
 > ## End(Don't show)
-> table(is.gray <- tc[,1] == tc[,2] & tc[,2] == tc[,3])# (397, 105)
+> table(is.gray <- tc[,1] == tc[,2] & tc[,2] == tc[,3])  # (397, 105)
 
 FALSE  TRUE 
   397   105 
-> ## Not run: ##D 
-> ##D  if(require("rgl")) { ## Look at the color cube dynamically :
+> 
+> ## Not run: 
+> ##D ## Look at the color cube dynamically:##D 
+> ##D  if(require("rgl")) {
 > ##D    open3d(windowRect = c(50,50, 950, 950)) # large, so we see details
 > ##D    plot3d (tc, col = cNms, size = 11) # --> rotate w/ mouse; enlarged corners:
 > ##D    points3d(tc[isC,], col = cNms[isC], size=22)
@@ -2702,19 +2698,21 @@ Sturges   Scott      FD
 [13] "Tableau 10"      "Classic Tableau" "Polychrome 36"   "Alphabet"       
 > 
 > ## Demonstrate the colors 1:8 in different palettes using a custom matplot()
-> sinplot <- function(main=NULL) {
+> sinplot <- function(main=NULL, n = 8) {
 +     x <- outer(
 + 	seq(-pi, pi, length.out = 50),
-+ 	seq(0, pi, length.out = 8),
++ 	seq(  0, pi, length.out = n),
 + 	function(x, y) sin(x - y)
 +     )
-+     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:8, ylab = "", main=main)
++     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:n, ylab = "", main=main)
 + }
 > sinplot("default palette")
 > 
 > palette("R3");        sinplot("R3")
 > palette("Okabe-Ito"); sinplot("Okabe-Ito")
-> palette("Tableau")  ; sinplot("Tableau")
+> palette("Tableau")  ; sinplot("Tableau", n = 10)
+> palROB <- colorRampPalette(c("red", "darkorange2", "blue"), space = "Lab")
+> palette(palROB(16)); sinplot("palROB(16)", n = 16)
 > palette("default") # reset
 > 
 > ## color swatches for palette.colors()
@@ -2938,6 +2936,8 @@ List of 18
 > ## End(Don't show)
 > 
 > pictex()
+Warning in pictex() : 'pictex' is deprecated.
+ Consider a TiKZ device instead.
 > plot(1:11, (-5:5)^2, type = "b", main = "Simple Example Plot")
 > dev.off()
 pdf 
@@ -3346,6 +3346,66 @@ $encoding
 attr(,"class")
 [1] "Type1Font"
 
+$URW2Helvetica
+$family
+[1] "URW2Helvetica"
+
+$metrics
+[1] "NimbusSans-Regular.afm"     "NimbusSans-Bold.afm"       
+[3] "NimbusSans-Oblique.afm"     "NimbusSans-BoldOblique.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2HelveticaItalic
+$family
+[1] "URW2HelveticaItalic"
+
+$metrics
+[1] "NimbusSans-Regular.afm"    "NimbusSans-Bold.afm"      
+[3] "NimbusSans-Italic.afm"     "NimbusSans-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"    
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2Times
+$family
+[1] "URW2Times"
+
+$metrics
+[1] "NimbusRoman-Regular.afm"    "NimbusRoman-Bold.afm"      
+[3] "NimbusRoman-Italic.afm"     "NimbusRoman-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$NimbusMonoPS
+$family
+[1] "NimbusMonoPS"
+
+$metrics
+[1] "NimbusMonoPS-Regular.afm"    "NimbusMonoPS-Bold.afm"      
+[3] "NimbusMonoPS-Italic.afm"     "NimbusMonoPS-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"      
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
 $ArialMT
 $family
 [1] "ArialMT"
@@ -3565,10 +3625,11 @@ attr(,"class")
 [13] "URWBookman"           "NimbusMon"            "NimbusSan"           
 [16] "URWHelvetica"         "NimbusSanCond"        "CenturySch"          
 [19] "URWPalladio"          "NimbusRom"            "URWTimes"            
-[22] "ArialMT"              "Japan1"               "Japan1HeiMin"        
-[25] "Japan1GothicBBB"      "Japan1Ryumin"         "Korea1"              
-[28] "Korea1deb"            "CNS1"                 "GB1"                 
-[31] "Jp_UCS-2"            
+[22] "URW2Helvetica"        "URW2HelveticaItalic"  "URW2Times"           
+[25] "NimbusMonoPS"         "ArialMT"              "Japan1"              
+[28] "Japan1HeiMin"         "Japan1GothicBBB"      "Japan1Ryumin"        
+[31] "Korea1"               "Korea1deb"            "CNS1"                
+[34] "GB1"                  "Jp_UCS-2"            
 > 
 > 
 > 
@@ -3585,20 +3646,18 @@ attr(,"class")
 > 
 > ### ** Examples
 > 
-> ## time-dependent ==> ignore diffs:
 > ## IGNORE_RDIFF_BEGIN
 > pretty(Sys.Date())
-[1] "2023-05-02" "2023-05-03" "2023-05-04" "2023-05-05" "2023-05-06"
-[6] "2023-05-07"
+[1] "2024-02-24" "2024-02-25" "2024-02-26" "2024-02-27" "2024-02-28"
+[6] "2024-02-29"
 > pretty(Sys.time(), n = 10)
- [1] "2023-05-04 11:29:57 BST" "2023-05-04 11:29:58 BST"
- [3] "2023-05-04 11:29:59 BST" "2023-05-04 11:30:00 BST"
- [5] "2023-05-04 11:30:01 BST" "2023-05-04 11:30:02 BST"
- [7] "2023-05-04 11:30:03 BST" "2023-05-04 11:30:04 BST"
- [9] "2023-05-04 11:30:05 BST" "2023-05-04 11:30:06 BST"
-[11] "2023-05-04 11:30:07 BST"
+ [1] "2024-02-26 13:27:03 CET" "2024-02-26 13:27:04 CET"
+ [3] "2024-02-26 13:27:05 CET" "2024-02-26 13:27:06 CET"
+ [5] "2024-02-26 13:27:07 CET" "2024-02-26 13:27:08 CET"
+ [7] "2024-02-26 13:27:09 CET" "2024-02-26 13:27:10 CET"
+ [9] "2024-02-26 13:27:11 CET" "2024-02-26 13:27:12 CET"
+[11] "2024-02-26 13:27:13 CET"
 > ## IGNORE_RDIFF_END
-> 
 > pretty(as.Date("2000-03-01")) # R 1.0.0 came in a leap year
 [1] "2000-02-28" "2000-02-29" "2000-03-01" "2000-03-02" "2000-03-03"
 [6] "2000-03-04"
@@ -3764,27 +3823,6 @@ List of 18
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
-> if(.Platform$OS.type == "unix") { # includes Mac
-+ 
-+  utils::str( quartzFonts() ) # a list(serif = .., sans = .., mono = ..)
-+  quartzFonts("mono") # the list(mono = ..) sublist of quartzFonts()
-+ ## Not run: 
-+ ##D   ## for East Asian locales you can use something like
-+ ##D   quartzFonts(sans = quartzFont(rep("AppleGothic", 4)),
-+ ##D 	      serif = quartzFont(rep("AppleMyungjp", 4)))
-+ ##D   ## since the default fonts may well not have the glyphs needed
-+ ## End(Not run)
-+ }
-List of 3
- $ serif: chr [1:4] "Times-Roman" "Times-Bold" "Times-Italic" "Times-BoldItalic"
- $ sans : chr [1:4] "Helvetica" "Helvetica-Bold" "Helvetica-Oblique" "Helvetica-BoldOblique"
- $ mono : chr [1:4] "Courier" "Courier-Bold" "Courier-Oblique" "Courier-BoldOblique"
-$mono
-[1] "Courier"             "Courier-Bold"        "Courier-Oblique"    
-[4] "Courier-BoldOblique"
-
-> 
 > 
 > 
 > cleanEx()
@@ -3963,6 +4001,34 @@ v 0.98039216 0.7647059 0.4588235 0.8549020 0.9960784
 > ## See  help(persp) {after attaching the 'graphics' package}
 > ##      -----------
 > 
+> ## Example for 'continuous = TRUE' (vs default):
+> require(graphics)
+> x <- -10:10/10 # [-1, 1]
+> y <- -16:16/16 # [-1, 1] ==> z = fxy := outer(x,y) is also in [-1,1]
+> 
+> p <- persp(x, y, fxy <- outer(x,y), phi = 20, theta = 15, r = 3, ltheta = -75,
++            shade = 0.8, col = "green3", ticktype = "detailed")
+> ## 5 axis-parallel auxiliary lines in x-y  and y-z planes :
+> lines(trans3d(-.5 , y=-1:1, z=min(fxy),  pmat=p), lty=2)
+> lines(trans3d(  0 , y=-1:1, z=min(fxy),  pmat=p), lty=2)
+> lines(trans3d(-1:1, y= -.7, z=min(fxy),  pmat=p), lty=2)
+> lines(trans3d( -1,  y= -.7, z=c(-1,1) ,  pmat=p), lty=2)
+> lines(trans3d( -1,  y=-1:1, z= -.5    ,  pmat=p), lty=2)
+> ## 2 pillars to carry the horizontals below:
+> lines(trans3d(-.5 , y= -.7, z=c(-1,-.5), pmat=p), lwd=1.5, col="gray10")
+> lines(trans3d( 0  , y= -.7, z=c(-1,-.5), pmat=p), lwd=1.5, col="gray10")
+> ## now some "horizontal rays" (going from center to very left or very right):
+> doHor <- function(x1, x2, z, CNT=FALSE, ...)
++     lines(trans3d(x=seq(x1, x2, by=0.5), y= -0.7, z = z, pmat = p, continuous = CNT),
++           lwd = 3, type="b", xpd=NA, ...)
+> doHor(-10,  0, z = -0.5, col = 2)  # x in [-10, 0] -- to the very left : fine
+> doHor(-.5,  2, z = -0.52,col = 4) # x in [-0.5, 2] only {to the right} --> all fine
+> ## but now, x in [-0.5, 20] -- "too far" ==> "wrap around" problem (without 'continuous=TRUE'):
+> doHor(-.5, 20, z = -0.58, col = "steelblue", lty=2)
+> ## but it is fixed with continuous = CNT = TRUE:
+> doHor(-.5, 20, z = -0.55, CNT=TRUE, col = "skyblue")
+points cut off after point[39]
+> 
 > 
 > 
 > cleanEx()
@@ -4021,24 +4087,6 @@ v 0.98039216 0.7647059 0.4588235 0.8549020 0.9960784
 > 
 > ### ** Examples
 > 
-> if(.Platform$OS.type == "windows") withAutoprint({
-+   windowsFonts()
-+   windowsFonts("mono")
-+ })
-> ## Not run: 
-> ##D ## set up for Japanese: needs the fonts installed
-> ##D windows()  # make sure we have the right device type (available on Windows only)
-> ##D Sys.setlocale("LC_ALL", "ja")
-> ##D windowsFonts(JP1 = windowsFont("MS Mincho"),
-> ##D              JP2 = windowsFont("MS Gothic"),
-> ##D              JP3 = windowsFont("Arial Unicode MS"))
-> ##D plot(1:10)
-> ##D text(5, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1")
-> ##D text(7, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1", font = 2)
-> ##D text(5, 1.5, "\u{4E10}\u{4E00}\u{4E01}", family = "JP2")
-> ##D text(9, 2, "\u{5100}", family = "JP3")
-> ## End(Not run)
-> 
 > 
 > cleanEx()
 > nameEx("x11")
@@ -4074,9 +4122,8 @@ v 0.98039216 0.7647059 0.4588235 0.8549020 0.9960784
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
 > ## IGNORE_RDIFF_BEGIN
-> if(capabilities()[["X11"]]) withAutoprint({
+> if(capabilities("X11")) withAutoprint({
 + X11Fonts()
 + X11Fonts("mono")
 + utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
@@ -4117,7 +4164,6 @@ $mono
 > utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
 > X11Fonts(utopia = utopia)
 > ## IGNORE_RDIFF_END
-> 
 > 
 > 
 > cleanEx()
@@ -4400,7 +4446,7 @@ NULL
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  20.995 0.589 21.609 0 0 
+Time elapsed:  29.951 0.398 30.64 0 0 
 > grDevices::dev.off()
 null device 
           1 

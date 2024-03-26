@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022   The R Core Team
+ *  Copyright (C) 1998-2023   The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *  Copyright (C) 2004        The R Foundation
  *
@@ -796,7 +796,7 @@ attribute_hidden SEXP do_psort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if (!R_FINITE(rl[i])) error(_("NA or infinite index"));
 	    l[i] = (R_xlen_t) rl[i];
 	    if (l[i] < 1 || l[i] > n)
-		error(_("index %ld outside bounds"), l[i]);
+		error(_("index %lld outside bounds"), (long long)l[i]);
 	}
     } else {
 	int *il = INTEGER(p);
@@ -1504,7 +1504,7 @@ attribute_hidden SEXP do_rank(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP sn = CADR(args);
     R_xlen_t n;
     if (TYPEOF(sn) == REALSXP)  {
-	double d = REAL(x)[0];
+	double d = REAL(sn)[0];
 	if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
@@ -1570,7 +1570,7 @@ attribute_hidden SEXP do_rank(SEXP call, SEXP op, SEXP args, SEXP rho)
 		switch(ties_kind) {
 		case AVERAGE:
 		    for (k = i; k <= j; k++)
-			rk[in[k]] = (i + j + 2) / 2.;
+			rk[in[k]] = ((double)i + j + 2) / 2.;
 		    break;
 		case MAX:
 		    for (k = i; k <= j; k++) ik[in[k]] = j+1;
@@ -1599,7 +1599,7 @@ attribute_hidden SEXP do_xtfrm(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(fn = findFun(install("xtfrm.default"), rho));
     PROTECT(prargs = promiseArgs(args, R_GlobalEnv));
     IF_PROMSXP_SET_PRVALUE(CAR(prargs), CAR(args));
-    ans = applyClosure(call, fn, prargs, rho, R_NilValue);
+    ans = applyClosure(call, fn, prargs, rho, R_NilValue, TRUE);
     UNPROTECT(2);
     return ans;
 

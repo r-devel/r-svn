@@ -1,14 +1,17 @@
 % File src/library/grDevices/man/xfig.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{xfig}
 \alias{xfig}
-\title{XFig Graphics Device}
+\title{\I{XFig} Graphics Device}
 \description{
-  \code{xfig} starts the graphics device driver for producing XFig
+  \code{xfig} starts the graphics device driver for producing \I{XFig}
   (version 3.2) graphics.
+
+  It was deprecated in \R 4.4.0: consider using an SVG device for
+  editable graphics.
 
   The auxiliary function \code{ps.options} can be used to set and view
   (if called without arguments) default values for the arguments to
@@ -24,9 +27,11 @@ xfig(file = if(onefile) "Rplots.fig" else "Rplot\%03d.fig",
 }
 \arguments{
   \item{file}{a character string giving the file path.   For use
-    with \code{onefile = FALSE} give a C integer format such as
+    with \code{onefile = FALSE}, give a C integer format such as
     \code{"Rplot\%03d.fig"} (the default in that case).
-    (See \code{\link{postscript}} for further details.)
+
+    See section \sQuote{File specifications} in the help
+    for \code{\link{pdf}} for further details.
   }
   \item{onefile}{logical: if true allow multiple figures
     in one file. If false, assume only one page per file and generate a
@@ -40,7 +45,7 @@ xfig(file = if(onefile) "Rplots.fig" else "Rplot\%03d.fig",
   \item{paper}{the size of paper region.  The choices
     are \code{"A4"}, \code{"Letter"} and \code{"Legal"} (and these
     can be lowercase).  A further choice is \code{"default"}, which
-    is the default.  If this is selected, the papersize is taken
+    is the default.  If this is selected, the paper size is taken
     from the option \code{"papersize"} if that is set to a non-empty
     value, otherwise \code{"A4"}.}
   \item{horizontal}{the orientation of the printed image, a
@@ -60,15 +65,15 @@ xfig(file = if(onefile) "Rplots.fig" else "Rplot\%03d.fig",
   \item{fg}{the initial foreground color to be used.}
   \item{pagecentre}{logical: should the device region be centred on the
     page?}
-  \item{defaultfont}{logical: should the device use xfig's default
+  \item{defaultfont}{logical: should the device use \I{XFig}'s default
     font?}
-  \item{textspecial}{logical: should the device set the textspecial flag
-  for all text elements. This is useful when generating pstex from xfig
+  \item{textspecial}{logical: should the device set the \I{textspecial} flag
+  for all text elements? This is useful when generating \I{pstex} from \I{XFig}
   figures.}
 }
 %%>>> REAL DOC in SOURCE:    ../../../main/devices.c  &   ../../../unix/devPS.c
 \details{
-  Although \code{xfig} can produce multiple plots in one file, the XFig
+  Although \code{xfig} can produce multiple plots in one file, the \I{XFig}
   format does not say how to separate or view them.  So
   \code{onefile = FALSE} is the default.
 
@@ -81,13 +86,15 @@ xfig(file = if(onefile) "Rplots.fig" else "Rplot\%03d.fig",
   5/6*1/72 inch.  Multiples less than 1 are allowed.  \code{pch = "."} with
   \code{cex = 1} corresponds to a square of side 1/72 inch.
 
-  Windows users can make use of WinFIG
-  (\url{http://www.schmidt-web-berlin.de/WinFIG.htm}, shareware), or
-  XFig under Cygwin.
+  %% Did not work when tested.
+  %% Inkscape (\url{https://inkscape.org/}) can imoort and edit \I{XFig} files
+  %% and has Windows and macOS binaries.
+  
+  Windows users could make use of \I{WinFIG} (\url{http://winfig.com/}, shareware).
 }
 \note{
   Only some line textures (\code{0 <= lty < 4}) are used.  Eventually this
-  may be partially remedied, but the XFig file format does not allow as
+  may be partially remedied, but the \I{XFig} file format does not allow as
   general line textures as the \R model.  Unimplemented line textures
   are displayed as \emph{dash-double-dotted}.
 

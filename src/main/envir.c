@@ -1328,8 +1328,8 @@ findVar1(SEXP symbol, SEXP rho, SEXPTYPE mode, int inherits)
  */
 
 static SEXP
-findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, int inherits,
-	     Rboolean doGet)
+findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, Rboolean wants_S4,
+	     int inherits, Rboolean doGet)
 {
     SEXP vl;
     int tl;
@@ -1353,7 +1353,14 @@ findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, int inherits,
 	    if (tl == INTSXP) tl = REALSXP;
 	    if (tl == FUNSXP || tl ==  BUILTINSXP || tl == SPECIALSXP)
 		tl = CLOSXP;
-	    if (tl == mode) return vl;
+	    if (tl == mode) {
+		if (tl == OBJSXP) {
+		    if ((wants_S4 && IS_S4_OBJECT(vl)) ||
+			(! wants_S4 && ! IS_S4_OBJECT(vl)))
+			return vl;
+		}
+		else return vl;
+	    }
 	}
 	if (inherits)
 	    rho = ENCLOS(rho);
@@ -1563,9 +1570,8 @@ SEXP findFun3(SEXP symbol, SEXP rho, SEXP call)
 #endif
 	if (vl != R_UnboundValue) {
 	    if (TYPEOF(vl) == PROMSXP) {
-		SEXP pv = PRVALUE(vl);
-		if (pv != R_UnboundValue)
-		    vl = pv;
+		if (PROMISE_IS_EVALUATED(vl))
+		    vl = PRVALUE(vl);
 		else {
 		    PROTECT(vl);
 		    vl = eval(vl, rho);
@@ -1843,7 +1849,7 @@ void gsetVar(SEXP symbol, SEXP value, SEXP rho)
 }
 
 /* get environment from a subclass if possible; else return NULL */
-#define simple_as_environment(arg) (IS_S4_OBJECT(arg) && (TYPEOF(arg) == S4SXP) ? R_getS4DataSlot(arg, ENVSXP) : R_NilValue)
+#define simple_as_environment(arg) (IS_S4_OBJECT(arg) && (TYPEOF(arg) == OBJSXP) ? R_getS4DataSlot(arg, ENVSXP) : R_NilValue)
 
 
 
@@ -2049,10 +2055,26 @@ void R_removeVarFromFrame(SEXP name, SEXP env)
       get0   (x, envir, mode, inherits, value_if_not_exists)
 */
 
+static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4)
+{
+    if (!strcmp(modestr, "function"))
+	return FUNSXP;
+    else if (!strcmp(modestr, "S4")) {
+	if (pS4 != NULL)
+	    *pS4 = TRUE;
+	return OBJSXP;
+    }
+    else {
+	SEXPTYPE gmode = str2type(modestr);
+	if(gmode == (SEXPTYPE) (-1))
+	    error(_("invalid '%s' argument '%s'"), "mode", modestr);
+	return gmode;
+    }
+}
+
 attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP rval, genv, t1 = R_NilValue;
-    SEXPTYPE gmode;
     int ginherits = 0, where;
     checkArity(op, args);
 
@@ -2092,12 +2114,11 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
        storage.mode.
     */
 
-    if (isString(CADDR(args))) {
-	if (!strcmp(CHAR(STRING_ELT(CADDR(args), 0)), "function")) /* ASCII */
-	    gmode = FUNSXP;
-	else
-	    gmode = str2type(CHAR(STRING_ELT(CADDR(args), 0))); /* ASCII */
-    } else {
+    SEXPTYPE gmode;
+    Rboolean wants_S4 = FALSE;
+    if (isString(CADDR(args)))
+	gmode = str2mode(CHAR(STRING_ELT(CADDR(args), 0)), &wants_S4);
+    else {
 	error(_("invalid '%s' argument"), "mode");
 	gmode = FUNSXP;/* -Wall */
     }
@@ -2107,7 +2128,7 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "inherits");
 
     /* Search for the object */
-    rval = findVar1mode(t1, genv, gmode, ginherits, PRIMVAL(op));
+    rval = findVar1mode(t1, genv, gmode, wants_S4, ginherits, PRIMVAL(op));
     if (rval == R_MissingArg)
 	error(_("argument \"%s\" is missing, with no default"),
 	      CHAR(PRINTNAME(t1)));
@@ -2150,7 +2171,8 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 #undef GET_VALUE
 
-static SEXP gfind(const char *name, SEXP env, SEXPTYPE mode,
+static SEXP gfind(const char *name, SEXP env,
+		  SEXPTYPE mode, Rboolean wants_S4,
 		  SEXP ifnotfound, int inherits, SEXP enclos)
 {
     SEXP rval, t1, R_fcall, var;
@@ -2158,7 +2180,7 @@ static SEXP gfind(const char *name, SEXP env, SEXPTYPE mode,
     t1 = install(name);
 
     /* Search for the object - last arg is 1 to 'get' */
-    rval = findVar1mode(t1, env, mode, inherits, 1);
+    rval = findVar1mode(t1, env, mode, wants_S4, inherits, 1);
 
     if (rval == R_UnboundValue) {
 	if( isFunction(ifnotfound) ) {
@@ -2235,17 +2257,12 @@ attribute_hidden SEXP do_mget(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(ans = allocVector(VECSXP, nvals));
 
     for(int i = 0; i < nvals; i++) {
-	SEXPTYPE gmode;
-	if (!strcmp(CHAR(STRING_ELT(CADDR(args), i % nmode)), "function"))
-	    gmode = FUNSXP;
-	else {
-	    gmode = str2type(CHAR(STRING_ELT(CADDR(args), i % nmode)));
-	    if(gmode == (SEXPTYPE) (-1))
-		error(_("invalid '%s' argument"), "mode");
-	}
+	Rboolean wants_S4 = FALSE;
+	const char *modestr = CHAR(STRING_ELT(CADDR(args), i % nmode));
+	SEXPTYPE gmode = str2mode(modestr, &wants_S4);
+	SEXP nf = VECTOR_ELT(ifnotfound, i % nifnfnd);
 	SEXP ans_i = gfind(translateChar(STRING_ELT(x, i % nvals)), env,
-			   gmode, VECTOR_ELT(ifnotfound, i % nifnfnd),
-			   ginherits, rho);
+			   gmode, wants_S4, nf, ginherits, rho);
 	SET_VECTOR_ELT(ans, i, lazy_duplicate(ans_i));
     }
 
@@ -2279,14 +2296,15 @@ static SEXP findRootPromise(SEXP p) {
     return p;
 }
 
-int attribute_hidden
-R_isMissing(SEXP symbol, SEXP rho)
+// missing() for the case of promise aka *un*evaluated symbol:
+attribute_hidden
+Rboolean R_isMissing(SEXP symbol, SEXP rho)
 {
     int ddv=0;
     SEXP vl, s;
 
     if (symbol == R_MissingArg) /* Yes, this can happen */
-	return 1;
+	return TRUE;
 
     /* check for infinite recursion */
     R_CheckStack();
@@ -2299,27 +2317,27 @@ R_isMissing(SEXP symbol, SEXP rho)
 	s = symbol;
 
     if (rho == R_BaseEnv || rho == R_BaseNamespace)
-	return 0;  /* is this really the right thing to do? LT */
+	return FALSE;  /* is this really the right thing to do? LT */
 
     vl = findVarLocInFrame(rho, s, NULL);
     if (vl != R_NilValue) {
 	if (DDVAL(symbol)) {
 	    if (length(CAR(vl)) < ddv || CAR(vl) == R_MissingArg)
-		return 1;
+		return TRUE;
 	    /* defineVar(symbol, value, R_GlobalEnv); */
 	    else
 		vl = nthcdr(CAR(vl), ddv-1);
 	}
 	if (MISSING(vl) == 1 ||
 	    (BNDCELL_TAG(vl) == 0 && CAR(vl) == R_MissingArg))
-	    return 1;
+	    return TRUE;
 	if (IS_ACTIVE_BINDING(vl))
-	    return 0;
+	    return FALSE;
 	if (BNDCELL_TAG(vl))
-	    return 0;
+	    return FALSE;
 	SETCAR(vl, findRootPromise(CAR(vl)));
 	if (TYPEOF(CAR(vl)) == PROMSXP &&
-	    PRVALUE(CAR(vl)) == R_UnboundValue &&
+	    ! PROMISE_IS_EVALUATED(CAR(vl)) &&
 	    TYPEOF(PREXPR(CAR(vl))) == SYMSXP) {
 	    /* This code uses the PRSEEN value to detect cycles.  If a
 	       cycle occurs then a missing argument was encountered,
@@ -2331,13 +2349,12 @@ R_isMissing(SEXP symbol, SEXP rho)
 	       for an active binding a longjmp should only happen if
 	       the stack check fails.  LT */
 	    if (PRSEEN(CAR(vl)) == 1)
-		return 1;
+		return TRUE;
 	    else {
-		int val;
 		int oldseen = PRSEEN(CAR(vl));
 		SET_PRSEEN(CAR(vl), 1);
 		PROTECT(vl);
-		val = R_isMissing(PREXPR(CAR(vl)), PRENV(CAR(vl)));
+		int val = R_isMissing(PREXPR(CAR(vl)), PRENV(CAR(vl)));
 		UNPROTECT(1); /* vl */
 		/* The oldseen value will usually be 0, but might be 2
 		   from an interrupted evaluation. LT */
@@ -2346,68 +2363,66 @@ R_isMissing(SEXP symbol, SEXP rho)
 	    }
 	}
 	else
-	    return 0;
+	    return FALSE;
     }
-    return 0;
+    return FALSE;
+}
+
+// workhorse of do_missing()  == R's missing(); more generally useful -> ./bind.c
+attribute_hidden
+Rboolean R_missing(SEXP var, SEXP rho)
+{
+    int ddv = 0;
+    SEXP s = var;
+    if (DDVAL(var)) {
+	ddv = ddVal(var);
+	var = R_DotsSymbol;
+    }
+
+    SEXP t = findVarLocInFrame(rho, var, NULL);
+    if (t != R_NilValue) {
+	if (DDVAL(s)) {
+	    if (length(CAR(t)) < ddv  || CAR(t) == R_MissingArg) {
+		return TRUE;
+	    }
+	    else
+		t = nthcdr(CAR(t), ddv-1);
+	}
+	if (BNDCELL_TAG(t)) return FALSE;
+	if (MISSING(t) || CAR(t) == R_MissingArg) {
+	    return TRUE;
+	}
+    }
+    else  /* it wasn't an argument to the function */
+	error(_("'missing(%s)' did not find an argument"), CHAR(PRINTNAME(var)));
+
+    t = CAR(t);
+    if (TYPEOF(t) != PROMSXP) {
+	return FALSE;
+    }
+    // deal with promise :
+    t = findRootPromise(t);
+    if (!isSymbol(PREXPR(t)))
+	return FALSE;
+    else {
+	return R_isMissing(PREXPR(t), PRENV(t));
+    }
 }
 
 /* this is primitive and a SPECIALSXP */
 attribute_hidden SEXP do_missing(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    int ddv=0;
-    SEXP rval, t, sym, s;
-
     checkArity(op, args);
     check1arg(args, call, "x");
-    s = sym = CAR(args);
+    SEXP sym = CAR(args);
     if( isString(sym) && length(sym)==1 )
-	s = sym = installTrChar(STRING_ELT(CAR(args), 0));
+	sym = installTrChar(STRING_ELT(CAR(args), 0));
     if (!isSymbol(sym))
 	errorcall(call, _("invalid use of 'missing'"));
 
-    if (DDVAL(sym)) {
-	ddv = ddVal(sym);
-	sym = R_DotsSymbol;
-    }
-
-    PROTECT(t = findVarLocInFrame(rho, sym, NULL));
-    rval = allocVector(LGLSXP,1);
-    LOGICAL(rval)[0] = 0;
+    SEXP rval = PROTECT(allocVector(LGLSXP, 1));
+    LOGICAL(rval)[0] = R_missing(sym, rho);
     UNPROTECT(1);
-    if (t != R_NilValue) {
-	if (DDVAL(s)) {
-	    if (length(CAR(t)) < ddv  || CAR(t) == R_MissingArg) {
-		LOGICAL(rval)[0] = 1;
-		return rval;
-	    }
-	    else
-		t = nthcdr(CAR(t), ddv-1);
-	}
-	if (BNDCELL_TAG(t)) return rval;
-	if (MISSING(t) || CAR(t) == R_MissingArg) {
-	    LOGICAL(rval)[0] = 1;
-	    return rval;
-	}
-	else goto havebinding;
-    }
-    else  /* it wasn't an argument to the function */
-	errorcall(call, _("'missing' can only be used for arguments"));
-
- havebinding:
-
-    t = CAR(t);
-    if (TYPEOF(t) != PROMSXP) {
-	LOGICAL(rval)[0] = 0;
-	return rval;
-    }
-
-    t = findRootPromise(t);
-    if (!isSymbol(PREXPR(t))) LOGICAL(rval)[0] = 0;
-    else {
-	PROTECT(rval);
-	LOGICAL(rval)[0] = R_isMissing(PREXPR(t), PRENV(t));
-	UNPROTECT(1);
-    }
     return rval;
 }
 
@@ -2946,7 +2961,7 @@ attribute_hidden SEXP do_env2list(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("use of NULL environment is defunct"));
     if( !isEnvironment(env) ) {
 	SEXP xdata;
-	if( IS_S4_OBJECT(env) && TYPEOF(env) == S4SXP &&
+	if( IS_S4_OBJECT(env) && TYPEOF(env) == OBJSXP &&
 	    (xdata = R_getS4DataSlot(env, ENVSXP)) != R_NilValue)
 	    env = xdata;
 	else
@@ -3266,7 +3281,7 @@ do_as_environment(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
 	errorcall(call,_("using 'as.environment(NULL)' is defunct"));
 	return R_BaseEnv;	/* -Wall */
-    case S4SXP: {
+    case OBJSXP: {
 	/* dispatch was tried above already */
 	SEXP dot_xData = R_getS4DataSlot(arg, ENVSXP);
 	if(!isEnvironment(dot_xData))
@@ -3292,7 +3307,7 @@ do_as_environment(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 void R_LockEnvironment(SEXP env, Rboolean bindings)
 {
-    if(IS_S4_OBJECT(env) && (TYPEOF(env) == S4SXP))
+    if(IS_S4_OBJECT(env) && (TYPEOF(env) == OBJSXP))
 	env = R_getS4DataSlot(env, ANYSXP); /* better be an ENVSXP */
     if (env == R_BaseEnv || env == R_BaseNamespace) {
 	if (bindings) {
@@ -3616,7 +3631,7 @@ attribute_hidden SEXP do_mkUnbound(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* C version of new.env */
 SEXP R_NewEnv(SEXP enclos, int hash, int size)
 {
-    if (hash) 
+    if (hash)
 	return R_NewHashedEnv(enclos, size);
     else
 	return NewEnvironment(R_NilValue, R_NilValue, enclos);
@@ -4221,7 +4236,7 @@ static void reportInvalidString(SEXP cval, int actionWhenInvalid)
 	    from = "UTF-8";
 	else if (IS_LATIN1(cval))
 	    from = "CP1252";
-	
+
 	native_str = reEnc3(CHAR(cval), from, "", 1);
 	if (actionWhenInvalid == 1)
 	    warning("invalid string %s", native_str);

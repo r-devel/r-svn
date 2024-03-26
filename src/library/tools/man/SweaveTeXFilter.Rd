@@ -7,7 +7,7 @@
 \alias{SweaveTeXFilter}
 \title{Strip R Code out of Sweave File}
 \description{
-  This function blanks out code chunks and Noweb markup in an Sweave
+  This function blanks out code chunks and \I{Noweb} markup in an Sweave
   input file, for spell checking or other uses.
 }
 \usage{
@@ -22,7 +22,7 @@ SweaveTeXFilter(ifile, encoding = "unknown")
   }
 }
 \details{
-  This function blanks out all Noweb markup and code chunks from an
+  This function blanks out all \I{Noweb} markup and code chunks from an
   Sweave input file, leaving behind the LaTeX source, so that a
   LaTeX-aware spelling checker can check it and report errors in their
   original locations.

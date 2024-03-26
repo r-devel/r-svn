@@ -23,6 +23,8 @@ Rd2HTML(Rd, out = "", package = "", defines = .Platform$OS.type,
         texmath = getOption("help.htmlmath"),
         concordance = FALSE,
         standalone = TRUE,
+        hooks = list(),
+        toc = isTRUE(getOption("help.htmltoc")),
         Rhtml = FALSE,
         ...)
 
@@ -61,8 +63,8 @@ Rd2ex(Rd, out = "", defines = .Platform$OS.type,
   \item{texmath}{character: controls how mathematics in \verb{\eqn} and
       \verb{\deqn} commands are typeset in HTML output. Useful values
       are \code{"katex"} (default) and \code{"mathjax"} to use
-      \href{https://katex.org/}{KaTeX} or
-      \href{https://www.mathjax.org/}{MathJax} respectively, otherwise
+      \href{https://katex.org/}{\I{KaTeX}} or
+      \href{https://www.mathjax.org/}{\I{MathJax}} respectively, otherwise
       basic substitutions are used. May be ignored under certain
       circumstances, e.g., if the help page already uses macros from the
       \code{\link[mathjaxr]{mathjaxr}} package.
@@ -73,7 +75,13 @@ Rd2ex(Rd, out = "", defines = .Platform$OS.type,
     standalone HTML file. If \code{FALSE}, the header and footer are
     omitted, so that the output can be combined with other fragments.
   }
-  \item{Rhtml}{logical: whether the output is intended to be a Rhtml
+  \item{hooks}{A list of functions controlling details of
+    output. Currently the only component used is \code{pkg_href}, which
+    is used by \code{pkg2HTML} to determine the output HTML file path
+    given a package name as input. }
+  \item{toc}{logical: whether the HTML output should include a table
+      of contents. Ignored unless \code{standalone = TRUE}. }
+  \item{Rhtml}{logical: whether the output is intended to be a \I{Rhtml}
       file that can be processed using \CRANpkg{knitr}. If \code{TRUE}, the
       examples section is wrapped inside a \code{rcode} block. }
   \item{Links, Links2}{\code{NULL} or a named (by topics) character vector of
@@ -170,15 +178,19 @@ Rd2ex(Rd, out = "", defines = .Platform$OS.type,
 }
 
 \value{
-  These functions are executed mainly for the side effect of
-  writing the converted help page.  Their value is the name of the output
-  file (invisibly).  For \code{Rd2latex}, the output name is given an
+  These functions are executed mainly for the side effect of writing the
+  converted help page.  Their value is the name of the output file
+  (invisibly).  For \code{Rd2latex}, the output name is given an
   attribute \code{"latexEncoding"} giving the encoding of the file in a
-  form suitable for use with the LaTeX \samp{inputenc} package.
+  form suitable for use with the LaTeX \samp{inputenc} package. For
+  \code{Rd2HTML} with \code{standalone = FALSE}, an attribute
+  \code{"info"} gives supplementary information such as the contents of
+  the \code{name} and \code{title} fields. This is currently
+  experimental, and the details are subject to change.
   
-For \code{Rd2HTML} and \code{Rd2latex} with \code{concordance = TRUE}, a 
-\code{"concordance"} attribute is added, containing an
-\code{\link{Rconcordance}} object.
+  For \code{Rd2HTML} and \code{Rd2latex} with \code{concordance = TRUE}, a 
+  \code{"concordance"} attribute is added, containing an
+  \code{\link{Rconcordance}} object.
 }
 \author{
   Duncan Murdoch, Brian Ripley
@@ -189,21 +201,14 @@ For \code{Rd2HTML} and \code{Rd2latex} with \code{concordance = TRUE}, a
   \code{\link{findHTMLlinks}}, \code{\link{Rd2txt_options}},
   \code{\link{matchConcordance}}.
 }
-\examples{\donttest{
-
-\dontrun{
-## Simulate install and rendering of this page in HTML and text format:
-
-Rd <- file.path("src/library/tools/man/Rd2HTML.Rd")
+\examples{\donttest{% timestamp, browseURL()
+## Simulate rendering of this (installed) page in HTML and text format
+Rd <- Rd_db("tools")[["Rd2HTML.Rd"]]
 
 outfile <- tempfile(fileext = ".html")
-browseURL(Rd2HTML(Rd, outfile, package = "tools",
-          stages = c("install", "render")))
+Rd2HTML(Rd, outfile, package = "tools") |> browseURL()
 
 outfile <- tempfile(fileext = ".txt")
-file.show(Rd2txt(Rd, outfile, package = "tools",
-          stages = c("install", "render")))
-
-checkRd(Rd) # A stricter test than Rd2HTML uses
-}}}
+Rd2txt(Rd, outfile, package = "tools") |> file.show()
+}}
 \keyword{ documentation }

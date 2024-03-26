@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2021-11-06 17:18+0100\n"
+"POT-Creation-Date: 2023-11-30 14:40+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -17,9 +17,9 @@ msgid "bandwidth/span of running medians is larger than n"
 msgstr "einamųjų medianų pralaidumas / span yra didesnis nei n"
 
 #: Srunmed.c:262
-#, c-format
-msgid "runmed(x, .., na.action=\"na.fail\"): have NAs starting at x[%ld]"
-msgstr "runmed(x, .., na.action=\"na.fail\"): turi NA, pradedant nuo x[%ld]"
+#, fuzzy, c-format
+msgid "runmed(x, .., na.action=\"na.fail\"): have NAs starting at x[%lld]"
+msgstr "runmed(x, .., na.action=\"na.fail\"): turi NA, pradedant nuo x[%lld]"
 
 #: Srunmed.c:265
 msgid "runmed(): invalid 'na.action'"
@@ -135,11 +135,16 @@ msgstr "kaip kintamojo pavadinimas naudojamas tik pirmasis elementas"
 msgid "invalid expression in '%s'"
 msgstr "neleistina išraiška, esanti '%s'"
 
-#: deriv.c:1085 model.c:99
+#: deriv.c:872
+#, fuzzy
+msgid "too many variables"
+msgstr "per daug faktorių"
+
+#: deriv.c:1087 model.c:99
 msgid "invalid variable names"
 msgstr "neleistini kintamųjų pavadinimai"
 
-#: deriv.c:1094
+#: deriv.c:1095 deriv.c:1097
 msgid "invalid tag"
 msgstr "netinkama žymė"
 
@@ -155,11 +160,11 @@ msgstr "distance(): neleistinas p"
 msgid "distance(): invalid distance"
 msgstr "distance(): netinkamas atstumas"
 
-#: distn.c:44
+#: distn.c:47
 msgid "NaNs produced"
 msgstr "NaN sukurti"
 
-#: distn.c:45
+#: distn.c:48
 msgid "Non-numeric argument to mathematical function"
 msgstr "Neskaitinis matematinės funkcijos argumentas"
 
@@ -178,12 +183,12 @@ msgstr "Argumentas %s turi būti netuščias skaitinis vektorius"
 msgid "argument %s must be a numeric vector of length 1 or length %d"
 msgstr "argumentas %s turi būti 1 ilgio arba ilgio %d skaitinis vektorius"
 
-#: fexact.c:273
+#: fexact.c:276
 #, c-format
 msgid "integer overflow would happen in 'mult * ldkey' = %g"
 msgstr "sveikojo skaičiaus perpilda įvyktų 'mult * ldkey' = %g"
 
-#: fexact.c:653
+#: fexact.c:656
 #, c-format
 msgid ""
 "FEXACT error 6.  LDKEY=%d is too small for this problem,\n"
@@ -194,12 +199,14 @@ msgstr ""
 "  (ii:= key2[itp=%d] = %d, ldstp=%d)\n"
 "Pabandykite padidinti darbo srities dydį ir galbūt 'mult'"
 
-#: fexact.c:1037
+#: fexact.c:1040
 #, c-format
-msgid "Bug in fexact3, it[i=%d]=%d: negative key %d (kyy=%d)\n"
-msgstr "Klaida fexact3, it[i=%d]=%d: neigiamas raktas %d (kyy=%d)\n"
+msgid ""
+"FEXACT[f3xact()] error: hash key %.0g > INT_MAX, kyy=%d, it[i (= nco = %d)]= %d.\n"
+"Rather set 'simulate.p.value=TRUE'\n"
+msgstr ""
 
-#: fexact.c:1069
+#: fexact.c:1073
 #, c-format
 msgid ""
 "FEXACT error 30.  Stack length exceeded in f3xact,\n"
@@ -210,7 +217,7 @@ msgstr ""
 "  (ldst=%d, key=%d, ipn=%d, itp=%d, ist[ii=%d]=%d).\n"
 "Padidinkite darbo sritį arba apsvarstykite galimybę naudoti 'simulate.p.value=TRUE'"
 
-#: fexact.c:1404
+#: fexact.c:1407
 #, c-format
 msgid ""
 "FEXACT error 6 (f5xact).  LDKEY=%d is too small for this problem: kval=%d.\n"
@@ -219,7 +226,7 @@ msgstr ""
 "FEXACT klaida 6 (f5xact).  LDKEY=%d yra per mažas šiai problemai: kval=%d.\n"
 "Pabandykite padidinti darbo srities dydį."
 
-#: fexact.c:1417
+#: fexact.c:1420
 #, c-format
 msgid ""
 "FEXACT error 7(%s). LDSTP=%d is too small for this problem,\n"
@@ -230,7 +237,7 @@ msgstr ""
 "  (kval =%d, itop-ldstp=%d).\n"
 "Padidinkite darbo sritį arba apsvarstykite galimybę naudoti 'simulate.p.value=TRUE'."
 
-#: fexact.c:1454
+#: fexact.c:1458
 #, c-format
 msgid ""
 "FEXACT error 7(%s). LDSTP=%d is too small for this problem,\n"
@@ -259,9 +266,9 @@ msgid "nextn() found no solution < %d = INT_MAX (the maximal integer); pass '0+ 
 msgstr "nextn() nerado sprendimo < %d = INT_MAX (maksimalus sveikasis skaičius); naudoti '0+ n' vietoj 'n'"
 
 #: fourier.c:233
-#, c-format
-msgid "nextn<64>() found no solution < %ld = UINT64_MAX (the maximal integer)"
-msgstr "nextn<64>() nerado sprendimo < %ld = UINT64_MAX (maksimalus sveikasis skaičius)"
+#, fuzzy, c-format
+msgid "nextn<64>() found no solution < %llu = UINT64_MAX (the maximal integer)"
+msgstr "nextn<64>() nerado sprendimo < %llu = UINT64_MAX (maksimalus sveikasis skaičius)"
 
 #: fourier.c:249
 msgid "no factors"
@@ -289,6 +296,11 @@ msgstr "nextn() = %<PRIu64> > 2^53 gali būti tiksliai atvaizduojamas R (kaip \"
 msgid "'%s' must be of length one"
 msgstr "'%s' ilgis turi būti vienas"
 
+#: isoreg.c:53
+#, c-format
+msgid "non-finite sum(y) == %g is not allowed"
+msgstr ""
+
 #: ksmooth.c:69
 msgid "only 2500 rows are allowed for sm.method=\"spline\""
 msgstr "sm.method=\"spline\" leidžiama tik 2500 eilučių"
@@ -298,9 +310,9 @@ msgid "'x' is not a matrix"
 msgstr "'x' nėra matrica"
 
 #: lm.c:62
-#, c-format
-msgid "dimensions of 'x' (%d,%d) and 'y' (%d) do not match"
-msgstr "‘x’ (%d,%d) ir ‘y’ (%d) dimensijos nesutampa"
+#, fuzzy, c-format
+msgid "dimensions of 'x' (%d,%d) and 'y' (%lld) do not match"
+msgstr "‘x’ (%d,%d) ir ‘y’ (%lld) dimensijos nesutampa"
 
 #: lm.c:77 lm.c:81
 #, c-format
@@ -958,6 +970,10 @@ msgstr "neteisinga pabaigos taisyklė vykdant 3 medianą: %d"
 #, c-format
 msgid "missing value in last %d observations"
 msgstr "trūkstama reikšmė paskutiniuose %d stebėjimuose"
+
+#, c-format
+#~ msgid "Bug in fexact3, it[i=%d]=%d: negative key %d (kyy=%d)\n"
+#~ msgstr "Klaida fexact3, it[i=%d]=%d: neigiamas raktas %d (kyy=%d)\n"
 
 #~ msgid "'expr' must be an expression or call"
 #~ msgstr "'expr' turi būti išraiška arba kreipinys"

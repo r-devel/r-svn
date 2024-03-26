@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-2022   The R Core Team.
+ *  Copyright (C) 2001-2023   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -127,7 +127,7 @@ static SEXP R_conditionMessage(SEXP cond)
     /* Type check return value so callers can safely extract a C string */
     if (TYPEOF(out) != STRSXP)
 	error(_("unexpected type '%s' for condition message"),
-	      type2char(TYPEOF(out)));
+	      R_typeToChar(out));
     if (length(out) != 1)
 	error(_("condition message must be length 1"));
 
@@ -499,11 +499,9 @@ SEXP R_getGeneric(SEXP name, SEXP mustFind, SEXP env, SEXP package)
     value = get_generic(name, env, package);
     if(value == R_UnboundValue) {
 	if(asLogical(mustFind)) {
-	    if(env == R_GlobalEnv)
-		error(_("no generic function definition found for '%s'"),
-		  CHAR(asChar(name)));
-	    else
-		error(_("no generic function definition found for '%s' in the supplied environment"),
+	    error((env == R_GlobalEnv)
+		  ? _("no generic function definition found for '%s'")
+		  : _("no generic function definition found for '%s' in the supplied environment"),
 		  CHAR(asChar(name)));
 	}
 	value = R_NilValue;
@@ -984,7 +982,7 @@ SEXP R_getClassFromCache(SEXP class, SEXP table)
 	else /* may return a list if multiple instances of class */
 	    return value;
     }
-    else if(TYPEOF(class) != S4SXP) {
+    else if(TYPEOF(class) != OBJSXP) {
 	error(_("class should be either a character-string name or a class definition"));
 	return R_NilValue; /* NOT REACHED */
     } else /* assumes a class def, but might check */
@@ -1090,7 +1088,7 @@ SEXP R_dispatchGeneric(SEXP fname, SEXP ev, SEXP fdef)
     PROTECT(siglength = findVarInFrame(f_env, R_siglength)); nprotect++;
     if(sigargs == R_UnboundValue || siglength == R_UnboundValue ||
        mtable == R_UnboundValue)
-	error("generic \"%s\" seems not to have been initialized for table dispatch---need to have '.SigArgs' and '.AllMtable' assigned in its environment");
+	error("generic seems not to have been initialized for table dispatch---need to have '.SigArgs' and '.AllMtable' assigned in its environment");
     nargs = asInteger(siglength);
     PROTECT(classes = allocVector(VECSXP, nargs)); nprotect++;
     if (nargs > LENGTH(sigargs))

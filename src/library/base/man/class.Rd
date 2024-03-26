@@ -33,7 +33,7 @@ oldClass(x) <- value
 .class2(x)
 }
 \arguments{
-  \item{x}{a \R object}
+  \item{x}{an \R object.}
   \item{what, value}{a character vector naming classes. \code{value}
     can also be \code{NULL}. \code{what} can also be a
     non-character R object with a \code{nameOfClass()} method.}
@@ -59,8 +59,7 @@ oldClass(x) <- value
   but for type \code{"language"} and \code{\link{mode}} \code{"call"},
   where the following extra classes exist for the corresponding function
   \code{\link{call}}s:
-  \code{if}, \code{while}, \code{for}, \code{=}, \code{<-}, \code{(},
-  \code{\{}, \code{call}.
+  \code{if}, \code{for}, \code{while}, \code{(}, \code{\{}, \code{<-}, \code{=}.
 
   Note that for objects \code{x} of an implicit (or an S4) class, when a
   (S3) generic function \code{foo(x)} is called, method dispatch may use
@@ -122,8 +121,6 @@ oldClass(x) <- value
 }
 
 \note{
-  Functions \code{oldClass} and \code{oldClass<-} behave in the same way
-  as functions of those names in S-PLUS 5/6, \emph{but} in \R
   \code{\link{UseMethod}} dispatches on the class as returned by
   \code{class} (with some interpolated classes: see the link) rather
   than \code{oldClass}.  \emph{However}, \link{group generic}s dispatch

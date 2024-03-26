@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2022	The R Core Team.
+ *  Copyright (C) 2000-2023	The R Core Team.
  *  Copyright (C) 1995-1998	Robert Gentleman and Ross Ihaka.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -191,7 +191,7 @@ static void PrintClosure(SEXP s, R_PrintData *data)
     PrintLanguage(s, data);
 
     if (isByteCode(BODY(s)))
-	Rprintf("<bytecode: %p>\n", BODY(s));
+	Rprintf("<bytecode: %p>\n", (void *)BODY(s));
     SEXP t = CLOENV(s);
     if (t != R_GlobalEnv)
 	Rprintf("%s\n", EncodeEnvironment(t));
@@ -844,15 +844,15 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	havecontext = TRUE;
     }
 #endif
-    if(!isMethodsDispatchOn() && (IS_S4_OBJECT(s) || TYPEOF(s) == S4SXP) ) {
+    if(!isMethodsDispatchOn() && (IS_S4_OBJECT(s) || TYPEOF(s) == OBJSXP) ) {
 	SEXP cl = getAttrib(s, R_ClassSymbol);
 	if(isNull(cl)) {
 	    /* This might be a mistaken S4 bit set */
-	    if(TYPEOF(s) == S4SXP)
+	    if(TYPEOF(s) == OBJSXP)
 		Rprintf("<S4 object without a class>\n");
 	    else
 		Rprintf("<Object of type '%s' with S4 bit but without a class>\n",
-			type2char(TYPEOF(s)));
+			R_typeToChar(s));
 	} else {
 	    SEXP pkg = getAttrib(s, R_PackageSymbol);
 	    if(isNull(pkg)) {
@@ -898,7 +898,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("%s\n", EncodeEnvironment(s));
 	break;
     case PROMSXP:
-	Rprintf("<promise: %p>\n", s);
+	Rprintf("<promise: %p>\n", (void *)s);
 	break;
     case DOTSXP:
 	Rprintf("<...>\n");
@@ -962,16 +962,21 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("<pointer: %p>\n", R_ExternalPtrAddr(s));
 	break;
     case BCODESXP:
-	Rprintf("<bytecode: %p>\n", s);
+	Rprintf("<bytecode: %p>\n", (void *)s);
 	break;
     case WEAKREFSXP:
 	Rprintf("<weak reference>\n");
 	break;
-    case S4SXP:
-	/*  we got here because no show method, usually no class.
-	    Print the "slots" as attributes, since we don't know the class.
-	*/
-	Rprintf("<S4 Type Object>\n");
+    case OBJSXP:
+	if(IS_S4_OBJECT(s)) {
+	    /*  we got here because no show method, usually no class.
+		Print the "slots" as attributes, since we don't know the class.
+	    */
+	    Rprintf("<S4 Type Object>\n");
+	} else {
+	    /* OBJSXP type, S4 obj bit not set*/
+	    Rprintf("<object>\n");
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("PrintValueRec", s);

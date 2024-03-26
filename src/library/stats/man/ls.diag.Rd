@@ -24,7 +24,7 @@ ls.diag(ls.out)
   \item{std.res}{standardized residuals}
   \item{stud.res}{studentized residuals}
   \item{cooks}{Cook's distances}
-  \item{dfits}{DFITS statistics}
+  \item{dfits}{\I{DFITS} statistics}
   \item{correlation}{correlation matrix}
   \item{std.err}{standard errors of the regression coefficients}
   \item{cov.scaled}{Scaled covariance matrix of the coefficients}

@@ -72,12 +72,13 @@
                                       "16" = "Big Sur ...",
                                       ""),
                                ver)
-                   else if(ver1[1L] <= "13")
+                   else if(ver1[1L] <= "14")
                         sprintf("macOS %s %s",
                                switch(ver1[1L],
                                       "11" = "Big Sur",
                                       "12" = "Monterey",
-                                      "13" = "Ventura"),
+                                      "13" = "Ventura",
+                                      "14" = "Sonoma"),
                                ver)
                    else
                        sprintf("macOS %s", ver)
@@ -134,7 +135,7 @@ sessionInfo <- function(package = NULL)
     }
     z$matprod <- as.character(options("matprod"))
     es <- extSoftVersion()
-    z$BLAS <- as.character(es["BLAS"]) #drop name
+    z$BLAS <- es[["BLAS"]] #drop name
     z$LAPACK <- La_library()
     z$LA_version <- La_version()
     l10n <- l10n_info()

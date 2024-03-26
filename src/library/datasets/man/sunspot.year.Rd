@@ -29,7 +29,7 @@ sunspot.year
   and \code{\link{sunspots}}.
   
   Regularly updated yearly sunspot numbers are available from
-  WDC-SILSO, Royal Observatory of Belgium, at
+  \I{WDC-SILSO}, Royal Observatory of Belgium, at
   \url{http://www.sidc.be/silso/datafiles}
 }
 \examples{

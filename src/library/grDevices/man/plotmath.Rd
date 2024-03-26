@@ -67,16 +67,16 @@
     \code{x + y}   \tab x plus y   \cr
     \code{x - y}   \tab x minus y \cr
     \code{x*y}    \tab juxtapose x and y \cr
-    \code{x/y}    \tab x forwardslash y \cr
+    \code{x/y}    \tab x \I{forwardslash} y \cr
     \code{x \%+-\% y}   \tab x plus or minus y \cr
     \code{x \%/\% y}   \tab x divided by y \cr
     \code{x \%*\% y}   \tab x times y \cr
-    \code{x \%.\% y}   \tab x cdot y \cr
+    \code{x \%.\% y}   \tab x \I{cdot} y \cr
     \code{x[i]}   \tab x subscript i \cr
     \code{x^2}    \tab x superscript 2 \cr
     \code{paste(x, y, z)} \tab juxtapose x, y, and z \cr
     \code{sqrt(x)}   \tab square root of x \cr
-    \code{sqrt(x, y)}   \tab yth root of x \cr
+    \code{sqrt(x, y)}   \tab y-th root of x \cr
     \code{x == y}   \tab x equals y \cr
     \code{x != y}   \tab x is not equal to y \cr
     \code{x < y}   \tab x is less than y \cr
@@ -92,7 +92,7 @@
     \code{plain(x)}   \tab draw x in normal font \cr
     \code{bold(x)}   \tab draw x in bold font \cr
     \code{italic(x)}   \tab draw x in italic font \cr
-    \code{bolditalic(x)} \tab draw x in bolditalic font \cr
+    \code{bolditalic(x)} \tab draw x in bold italic font \cr
     \code{symbol(x)} \tab draw x in symbol font \cr
     \code{list(x, y, z)} \tab comma-separated list \cr
     \code{...}    \tab ellipsis (height varies) \cr
@@ -109,9 +109,9 @@
     \code{tilde(x)}   \tab x with a tilde \cr
     \code{dot(x)} \tab x with a dot \cr
     \code{ring(x)}   \tab x with a ring \cr
-    \code{bar(xy)}   \tab xy with bar \cr
-    \code{widehat(xy)}   \tab xy with a wide circumflex \cr
-    \code{widetilde(xy)} \tab xy with a wide tilde \cr
+    \code{bar(xy)}   \tab \I{xy} with bar \cr
+    \code{widehat(xy)}   \tab \I{xy} with a wide circumflex \cr
+    \code{widetilde(xy)} \tab \I{xy} with a wide tilde \cr
     \code{x \%<->\% y}   \tab x double-arrow y \cr
     \code{x \%->\% y}   \tab x right-arrow y \cr
     \code{x \%<-\% y}   \tab x left-arrow y \cr
@@ -177,7 +177,7 @@
   The symbol font uses Adobe Symbol encoding so, for example, a lower
   case mu can be obtained either by the special symbol \code{mu} or by
   \code{symbol("m")}.  This provides access to symbols that have no
-  special symbol name, for example, the universal, or forall, symbol is
+  special symbol name, for example, the universal, or \I{forall}, symbol is
   \code{symbol("\\042")}.  To see what symbols are available in this way
   use \code{TestChars(font=5)} as given in the examples for
   \code{\link{points}}: some are only available on some devices.
@@ -191,7 +191,7 @@
   \code{sigma1} is also known as \code{stigma}, its Unicode name.
 
   Control characters (e.g., \samp{\\n}) are not interpreted in character
-  strings in plotmath, unlike normal plotting.
+  strings in \I{plotmath}, unlike normal plotting.
 
   The fonts used are taken from the current font family, and so can be
   set by \code{\link{par}(family=)} in base graphics, and
@@ -206,11 +206,11 @@
   On many OSes and some graphics devices many other symbols are
   available as part of the standard text font, and all of the symbols in
   the Adobe Symbol encoding are in principle available \emph{via}
-  changing the font face or (see \sQuote{Details}) plotmath: see the
+  changing the font face or (see \sQuote{Details}) \I{plotmath}: see the
   examples section of \code{\link{points}} for a function to display
   them.  (\sQuote{In principle} because some of the glyphs are missing
   from some implementations of the symbol font.)  Unfortunately,
-  \code{\link{postscript}} and \code{\link{pdf}} have support for little
+  \code{\link{pdf}} and \code{\link{postscript}} have support for little
   more than European (not Greek) and CJK characters and the Adobe Symbol
   encoding (and in a few fonts, also Cyrillic characters).
 
@@ -220,9 +220,12 @@
   \samp{\\uxxxx} or \samp{\\Uxxxxxxxx} escape sequence, but the issue is
   whether the graphics device is able to display the character.  The
   widest range of characters is likely to be available in the
-  \code{\link{X11}} device using cairo: see its help page for how
+  \code{\link{X11}} device using \I{cairo}: see its help page for how
   installing additional fonts can help.  This can often be used to
   display Greek \emph{letters} in bold or italic.
+
+  On macOS the \code{\link{quartz}} device and the default system fonts
+  have quite large coverage.
 
   In non-UTF-8 locales there is normally no support for symbols not in
   the languages for which the current encoding was intended.
