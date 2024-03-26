@@ -2794,7 +2794,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
     volatile int bgn;
     volatile SEXP v, val, cell;
     int dbg, val_type;
-    SEXP sym, body;
+    SEXP sym, body, iterator_exhausted_sentinel;
     RCNTXT cntxt;
     PROTECT_INDEX vpi;
 
@@ -2828,9 +2828,10 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
     val_type = TYPEOF(val);
 
     if(val_type == CLOSXP) {
-	SEXP tmp = lang1(val);
+	SEXP tmp = lang2(val, allocSExp(OBJSXP));
 	UNPROTECT(1); /* val from above */
 	PROTECT(val = tmp);
+	iterator_exhausted_sentinel = CADR(val);
     }
 
     if (isList(val) || isNull(val))
@@ -2880,7 +2881,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CLOSXP:
 	    /* call val() function */
 	    REPROTECT(v = eval(val, rho), vpi);
-	    if (v == R_NilValue) {
+	    if (v == iterator_exhausted_sentinel) {
 		goto for_break; /* iterator exhausted */
 	    }
 	    n++;
@@ -7627,10 +7628,10 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	    BCNPUSH_NLNK(value);
 	    break;
 	case CLOSXP:
-	    value = eval(lang1(seq), rho);
-	    INCREMENT_NAMED(value);
-	    BCNPUSH_NLNK(value);
-	    break;
+	    // prepare the iterator call. The iterator is called with the
+	    // sentinal the iterator is supposed to return when it is exhausted
+	    seq = lang2(seq, allocSExp(OBJSXP));
+	    SETSTACK(-3, seq);
 
 	default: BCNPUSH(R_NilValue);
 	}
@@ -7741,10 +7742,12 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	    ENSURE_NAMEDMAX(value);
 	    break;
 	  case CLOSXP:
-	    value = eval(lang1(seq), rho);
-	    INCREMENT_NAMED(value);
-	    if(value == R_NilValue) NEXT();/* iterator exhausted */
-            loopinfo->len++;
+		value = eval(seq, rho);
+		if (value == CADR(seq)) // iterator exhausted
+		  NEXT();
+	        SETSTACK_NLNK(-1, value);
+		INCREMENT_NAMED(value);
+		loopinfo->idx--;
 	    break;
 	  default:
 	    error(_("invalid sequence argument in for loop"));
