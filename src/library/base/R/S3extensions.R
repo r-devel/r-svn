@@ -24,3 +24,4 @@ chooseOpsMethod <- function(x, y, mx, my, cl, reverse)
     UseMethod("chooseOpsMethod")
 
 chooseOpsMethod.default <- function(x, y, mx, my, cl, reverse) FALSE
+
