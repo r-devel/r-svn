@@ -17,7 +17,7 @@ grobX(x, theta)
 grobY(x, theta)
 }
 \arguments{
-  \item{x}{A grob, or gList, or gTree, or gPath.}
+  \item{x}{A grob, or \I{gList}, or \I{gTree}, or \I{gPath}.}
   \item{theta}{An angle indicating where the location is
     on the grob boundary.  Can be one of \code{"east"},
     \code{"north"}, \code{"west"}, or \code{"south"},
@@ -35,7 +35,7 @@ grobY(x, theta)
   If the grob describes multiple shapes, the boundary
   value will either correspond to the edge of a bounding box around all of
   the shapes described by the grob (for multiple rectangles, circles,
-  xsplines, or text), or to a
+  \I{xspline}s, or text), or to a
   convex hull around all vertices of all shapes described by the grob
   (for multiple polygons, points, lines, polylines,
   and segments).

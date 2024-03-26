@@ -1,6 +1,6 @@
 % File src/library/stats/man/arima.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{arima}
@@ -108,14 +108,14 @@ arima(x, order = c(0L, 0L, 0L),
   \deqn{X_t= a_1 X_{t-1}+\cdots+ a_p X_{t-p} + e_t + b_1 e_{t-1}+\cdots+b_q e_{t-q}
   }{X[t] = a[1]X[t-1] + \dots + a[p]X[t-p] + e[t] + b[1]e[t-1] + \dots + b[q]e[t-q]}
 
-  and so the MA coefficients differ in sign from those of S-PLUS.
-  Further, if \code{include.mean} is true (the default for an ARMA
-  model), this formula applies to \eqn{X - m} rather than \eqn{X}.  For
-  ARIMA models with differencing, the differenced series follows a
-  zero-mean ARMA model. If an \code{xreg} term is included, a linear
-  regression (with a constant term if \code{include.mean} is true and
-  there is no differencing) is fitted with an ARMA model for the error
-  term.
+  and so the MA coefficients differ in sign from those used in
+  documentation written for S-PLUS.  Further, if \code{include.mean} is
+  true (the default for an ARMA model), this formula applies to \eqn{X -
+  m} rather than \eqn{X}.  For ARIMA models with differencing, the
+  differenced series follows a zero-mean ARMA model. If an \code{xreg}
+  term is included, a linear regression (with a constant term if
+  \code{include.mean} is true and there is no differencing) is fitted
+  with an ARMA model for the error term.
 
   The variance matrix of the estimates is found from the Hessian of
   the log-likelihood, and so may only be a rough guide.
@@ -127,11 +127,11 @@ arima(x, order = c(0L, 0L, 0L),
 \section{Fitting methods}{
   The exact likelihood is computed via a state-space representation of
   the ARIMA process, and the innovations and their variance found by a
-  Kalman filter.  The initialization of the differenced ARMA process uses
-  stationarity and is based on Gardner \emph{et al} (1980).  For a
+  \I{Kalman} filter.  The initialization of the differenced ARMA process uses
+  stationarity and is based on Gardner \abbr{et al.}\sspace(1980).  For a
   differenced process the non-stationary components are given a diffuse
   prior (controlled by \code{kappa}).  Observations which are still
-  controlled by the diffuse prior (determined by having a Kalman gain of
+  controlled by the diffuse prior (determined by having a \I{Kalman} gain of
   at least \code{1e4}) are excluded from the likelihood calculations.
   (This gives comparable results to \code{\link{arima0}} in the absence
   of missing values, when the observations excluded are precisely those
@@ -197,7 +197,7 @@ arima(x, order = c(0L, 0L, 0L),
     can also be extracted via \code{\link{nobs}()} and is used by
     \code{\link{BIC}}.}
 
-  \item{model}{A list representing the Kalman Filter used in the
+  \item{model}{A list representing the \I{Kalman} filter used in the
     fitting.  See \code{\link{KalmanLike}}.}
 }
 \references{
@@ -234,11 +234,6 @@ arima(x, order = c(0L, 0L, 0L),
 }
 
 \note{
-  The results are likely to be different from S-PLUS's
-  \code{arima.mle}, which computes a conditional likelihood and does
-  not include a mean in the model.  Further, the convention used by
-  \code{arima.mle} reverses the signs of the MA coefficients.
-
   \code{arima} is very similar to \code{\link{arima0}} for
   ARMA models or for differenced models without missing values,
   but handles differenced models with missing values exactly.

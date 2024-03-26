@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  (C) Copyright 2008-2011 Simon Urbanek
- *      Copyright 2011-2022 R Core Team.
+ *      Copyright 2011-2023 R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,12 @@
 
 #include <Rinterface.h> /* for R_Interactive */
 #include <R_ext/eventloop.h> /* for R_SelectEx */
+
+/* read()/write() on pipes may not support arbitrary lengths, so
+   this is the largest chunk we'll ever send with one call between
+   a child and the parent. On macOS empirically this has to be at
+   most a 32-bit number. Current default is 1Gb. */
+#define MC_MAX_CHUNK 0x40000000
 
 #ifdef MC_DEBUG
   /* NOTE: the logging is not safe to use in signal handler because printf is
@@ -769,7 +775,10 @@ SEXP mc_send_master(SEXP what)
     }
     ssize_t n;
     for (R_xlen_t i = 0; i < len; i += n) {
-	n = writerep(master_fd, b + i, len - i);
+	size_t to_send = len - i;
+	if (to_send > MC_MAX_CHUNK)
+	    to_send = MC_MAX_CHUNK;
+	n = writerep(master_fd, b + i, to_send);
 	if (n < 1) {
 	    close(master_fd);
 	    master_fd = -1;
@@ -807,6 +816,8 @@ SEXP mc_send_child_stdin(SEXP sPid, SEXP what)
 void fdcopy(fd_set *dst, fd_set *src, int nfds)
 {
     FD_ZERO(dst);
+    if (nfds > FD_SETSIZE)
+	error("file descriptor is too large for select()");
     for(int i = 0; i < nfds; i++)
 	if (FD_ISSET(i, src)) FD_SET(i, dst);
 }
@@ -838,7 +849,7 @@ SEXP mc_select_children(SEXP sTimeout, SEXP sWhich)
 		unsigned int k = 0;
 		while (k < wlen) {
 		    if (which[k++] == ci->pid) {
-			if (ci->pfd > FD_SETSIZE)
+			if (ci->pfd >= FD_SETSIZE)
 			    error("file descriptor is too large for select()");
 			FD_SET(ci->pfd, &fs);
 			if (ci->pfd > maxfd) maxfd = ci->pfd;
@@ -851,7 +862,7 @@ SEXP mc_select_children(SEXP sTimeout, SEXP sWhich)
 		}
 	    } else {
 		/* not sure if this should be allowed */
-		if (ci->pfd > FD_SETSIZE)
+		if (ci->pfd >= FD_SETSIZE)
 		    error("file descriptor is too large for select()");
 		FD_SET(ci->pfd, &fs);
 		if (ci->pfd > maxfd) maxfd = ci->pfd;
@@ -986,7 +997,10 @@ static SEXP read_child_ci(child_info_t *ci)
 	unsigned char *rvb = RAW(rv);
 	R_xlen_t i = 0;
 	while (i < len) {
-	    n = readrep(fd, rvb + i, len - i);
+	    size_t to_read = len - i;
+	    if (to_read > MC_MAX_CHUNK)
+		to_read = MC_MAX_CHUNK;
+	    n = readrep(fd, rvb + i, to_read);
 #ifdef MC_DEBUG
 	    Dprintf("read_child_ci(%d) - read %lld at %lld returned %lld\n",
 	            ci->pid, (long long)len-i, (long long)i, (long long)n);
@@ -1049,7 +1063,11 @@ SEXP mc_read_children(SEXP sTimeout)
     while (ci) {
 	if (!ci->detached && ci->ppid == ppid) {
 	    if (ci->pfd > maxfd) maxfd = ci->pfd;
-	    if (ci->pfd >= 0) FD_SET(ci->pfd, &fs);
+	    if (ci->pfd >= 0) {
+		if (ci->pfd >= FD_SETSIZE)
+		    error("file descriptor is too large for select()");
+		FD_SET(ci->pfd, &fs);
+	    }
 	}
 	ci = ci -> next;
     }

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023  The R Core Team.
+ *  Copyright (C) 1998--2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -110,9 +110,9 @@ static void gc_error(const char *msg)
     if (gc_fail_on_error)
 	R_Suicide(msg);
     else if (R_in_gc)
-	REprintf(msg);
+	REprintf("%s", msg);
     else
-	error(msg);
+	error("%s", msg);
 }
 
 /* These are used in profiling to separate out time in GC */
@@ -215,7 +215,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case BCODESXP:	return "BCODESXP";
     case EXTPTRSXP:	return "EXTPTRSXP";
     case WEAKREFSXP:	return "WEAKREFSXP";
-    case S4SXP:		return "S4SXP";
+    case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";
@@ -421,10 +421,23 @@ R_size_t attribute_hidden R_GetMaxVSize(void)
     return R_MaxVSize * vsfac;
 }
 
-attribute_hidden void R_SetMaxVSize(R_size_t size)
+attribute_hidden Rboolean R_SetMaxVSize(R_size_t size)
 {
-    if (size == R_SIZE_T_MAX) return;
-    if (size / vsfac >= R_VSize) R_MaxVSize = (size + 1) / vsfac;
+    if (size == R_SIZE_T_MAX) {
+	R_MaxVSize = R_SIZE_T_MAX;
+	return TRUE;
+    }
+    if (vsfac == 1) {
+	if (size >= R_VSize) {
+	    R_MaxVSize = size;
+	    return TRUE;
+	}
+    } else 
+	if (size / vsfac >= R_VSize) {
+	    R_MaxVSize = (size + 1) / vsfac;
+	    return TRUE;
+	}
+    return FALSE;
 }
 
 R_size_t attribute_hidden R_GetMaxNSize(void)
@@ -432,9 +445,13 @@ R_size_t attribute_hidden R_GetMaxNSize(void)
     return R_MaxNSize;
 }
 
-attribute_hidden void R_SetMaxNSize(R_size_t size)
+attribute_hidden Rboolean R_SetMaxNSize(R_size_t size)
 {
-    if (size >= R_NSize) R_MaxNSize = size;
+    if (size >= R_NSize) {
+	R_MaxNSize = size;
+	return TRUE;
+    }
+    return FALSE;
 }
 
 attribute_hidden void R_SetPPSize(R_size_t size)
@@ -450,8 +467,13 @@ attribute_hidden SEXP do_maxVSize(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (newval > 0) {
 	if (newval == R_PosInf)
 	    R_MaxVSize = R_SIZE_T_MAX;
-	else
-	    R_SetMaxVSize((R_size_t) (newval * MB));
+	else {
+	    double newbytes = newval * MB;
+	    if (newbytes >= (double) R_SIZE_T_MAX)
+		R_MaxVSize = R_SIZE_T_MAX;
+	    else if (!R_SetMaxVSize((R_size_t) newbytes))
+		warning(_("a limit lower than current usage, so ignored"));
+	}
     }
 
     if (R_MaxVSize == R_SIZE_T_MAX)
@@ -467,8 +489,12 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (newval > 0) {
 	if (newval == R_PosInf)
 	    R_MaxNSize = R_SIZE_T_MAX;
-	else
-	    R_SetMaxNSize((R_size_t) newval);
+	else {
+	    if (newval >= (double) R_SIZE_T_MAX) 
+		R_MaxNSize = R_SIZE_T_MAX;
+	    else if (!R_SetMaxNSize((R_size_t) newval))
+		warning(_("a limit lower than current usage, so ignored"));
+	}
     }
 
     if (R_MaxNSize == R_SIZE_T_MAX)
@@ -696,7 +722,7 @@ static R_size_t R_NodesInUse = 0;
   case CPLXSXP: \
   case WEAKREFSXP: \
   case RAWSXP: \
-  case S4SXP: \
+  case OBJSXP: \
     break; \
   case STRSXP: \
     { \
@@ -719,13 +745,13 @@ static R_size_t R_NodesInUse = 0;
     dc__action__(HASHTAB(__n__), dc__extra__); \
     break; \
   case LISTSXP: \
+  case PROMSXP: \
     dc__action__(TAG(__n__), dc__extra__); \
     if (BOXED_BINDING_CELLS || BNDCELL_TAG(__n__) == 0) \
       dc__action__(CAR0(__n__), dc__extra__); \
     dc__action__(CDR(__n__), dc__extra__); \
     break; \
   case CLOSXP: \
-  case PROMSXP: \
   case LANGSXP: \
   case DOTSXP: \
   case SYMSXP: \
@@ -1039,7 +1065,7 @@ static void TryToReleasePages(void)
 
 	    maxrel = R_GenHeap[i].AllocCount;
 	    for (gen = 0; gen < NUM_OLD_GENERATIONS; gen++)
-		maxrel -= (int)((1.0 + R_MaxKeepFrac) * 
+		maxrel -= (int)((1.0 + R_MaxKeepFrac) *
 				R_GenHeap[i].OldCount[gen]);
 	    maxrel_pages = maxrel > 0 ? maxrel / page_count : 0;
 
@@ -1792,7 +1818,8 @@ static int RunGenCollect(R_size_t size_needed)
 	FORWARD_NODE(ctxt->handlerstack);  /* the condition handler stack */
 	FORWARD_NODE(ctxt->restartstack);  /* the available restarts stack */
 	FORWARD_NODE(ctxt->srcref);	   /* the current source reference */
-	FORWARD_NODE(ctxt->returnValue);   /* For on.exit calls */
+	if (ctxt->returnValue.tag == 0)    /* For on.exit calls */
+	    FORWARD_NODE(ctxt->returnValue.u.sxpval);
     }
 
     FORWARD_NODE(R_PreciousList);
@@ -2132,21 +2159,40 @@ attribute_hidden SEXP do_gc(SEXP call, SEXP op, SEXP args, SEXP rho)
     return value;
 }
 
-
 NORET static void mem_err_heap(R_size_t size)
 {
-    errorcall(R_NilValue, _("vector memory exhausted (limit reached?)"));
-}
+    if (R_MaxVSize == R_SIZE_T_MAX)
+	errorcall(R_NilValue, _("vector memory exhausted"));
+    else {
+	double l = R_GetMaxVSize() / 1024.0;
+	const char *unit = "Kb";
 
+	if (l > 1024.0*1024.0) {
+	    l /= 1024.0*1024.0;
+	    unit = "Gb";
+	} else if (l > 1024.0) {
+	    l /= 1024.0;
+	    unit = "Mb";
+	}
+	errorcall(R_NilValue,
+	          _("vector memory limit of %0.1f %s reached, see mem.maxVSize()"),
+	          l, unit);
+    }
+}
 
 NORET static void mem_err_cons(void)
 {
-    errorcall(R_NilValue, _("cons memory exhausted (limit reached?)"));
+    if (R_MaxNSize == R_SIZE_T_MAX)
+        errorcall(R_NilValue, _("cons memory exhausted"));
+    else
+        errorcall(R_NilValue,
+	          _("cons memory limit of %llu nodes reached, see mem.maxNSize()"),
+	          (unsigned long long)R_MaxNSize);
 }
 
 NORET static void mem_err_malloc(R_size_t size)
 {
-    errorcall(R_NilValue, _("memory exhausted (limit reached?)"));
+    errorcall(R_NilValue, _("memory exhausted"));
 }
 
 /* InitMemory : Initialise the memory to be used in R. */
@@ -2579,7 +2625,7 @@ attribute_hidden SEXP mkPROMISE(SEXP expr, SEXP rho)
     SET_TYPEOF(s, PROMSXP);
     PRCODE(s) = CHK(expr); INCREMENT_REFCNT(expr);
     PRENV(s) = CHK(rho); INCREMENT_REFCNT(rho);
-    PRVALUE(s) = R_UnboundValue;
+    PRVALUE0(s) = R_UnboundValue;
     PRSEEN(s) = 0;
     ATTRIB(s) = R_NilValue;
     return s;
@@ -2711,7 +2757,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    size = 0;
 	else {
 	    if (length > R_SIZE_T_MAX / sizeof(int))
-		error(_("cannot allocate vector of length %d"), length);
+		error(_("cannot allocate vector of length %lld"),
+		      (long long)length);
 	    size = INT2VEC(length);
 #if VALGRIND_LEVEL > 0
 	    actual_size = length*sizeof(int);
@@ -2723,7 +2770,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    size = 0;
 	else {
 	    if (length > R_SIZE_T_MAX / sizeof(double))
-		error(_("cannot allocate vector of length %d"), length);
+		error(_("cannot allocate vector of length %lld"),
+		      (long long)length);
 	    size = FLOAT2VEC(length);
 #if VALGRIND_LEVEL > 0
 	    actual_size = length * sizeof(double);
@@ -2735,7 +2783,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    size = 0;
 	else {
 	    if (length > R_SIZE_T_MAX / sizeof(Rcomplex))
-		error(_("cannot allocate vector of length %d"), length);
+		error(_("cannot allocate vector of length %lld"),
+		      (long long)length);
 	    size = COMPLEX2VEC(length);
 #if VALGRIND_LEVEL > 0
 	    actual_size = length * sizeof(Rcomplex);
@@ -2749,7 +2798,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    size = 0;
 	else {
 	    if (length > R_SIZE_T_MAX / sizeof(SEXP))
-		error(_("cannot allocate vector of length %d"), length);
+		error(_("cannot allocate vector of length %lld"),
+		      (long long)length);
 	    size = PTR2VEC(length);
 #if VALGRIND_LEVEL > 0
 	    actual_size = length * sizeof(SEXP);
@@ -2770,8 +2820,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 #endif
 	return allocList((int) length);
     default:
-	error(_("invalid type/length (%s/%d) in vector allocation"),
-	      type2char(type), length);
+	error(_("invalid type/length (%s/%lld) in vector allocation"),
+	      type2char(type), (long long)length);
     }
 
     if (allocator) {
@@ -2947,8 +2997,15 @@ SEXP allocList(int n)
 SEXP allocS4Object(void)
 {
    SEXP s;
-   GC_PROT(s = allocSExpNonCons(S4SXP));
+   GC_PROT(s = allocSExpNonCons(OBJSXP));
    SET_S4_OBJECT(s);
+   return s;
+}
+
+attribute_hidden SEXP R_allocObject(void)
+{
+   SEXP s;
+   GC_PROT(s = allocSExpNonCons(OBJSXP));
    return s;
 }
 
@@ -3101,7 +3158,7 @@ attribute_hidden void R_check_thread(const char *s)
     }
 }
 # else
-/* This could be implemented for Windows using their threading API */ 
+/* This could be implemented for Windows using their threading API */
 attribute_hidden void R_check_thread(const char *s) {}
 # endif
 #endif
@@ -3467,9 +3524,9 @@ void *R_chk_calloc(size_t nelem, size_t elsize)
 	return(NULL);
 #endif
     p = calloc(nelem, elsize);
-    if(!p) /* problem here is that we don't have a format for size_t. */
-	error(_("'R_Calloc' could not allocate memory (%.0f of %u bytes)"),
-	      (double) nelem, elsize);
+    if(!p)
+	error(_("'R_Calloc' could not allocate memory (%llu of %llu bytes)"),
+	      (unsigned long long)nelem, (unsigned long long)elsize);
     return(p);
 }
 
@@ -3479,8 +3536,8 @@ void *R_chk_realloc(void *ptr, size_t size)
     /* Protect against broken realloc */
     if(ptr) p = realloc(ptr, size); else p = malloc(size);
     if(!p)
-	error(_("'R_Realloc' could not re-allocate memory (%.0f bytes)"),
-	      (double) size);
+	error(_("'R_Realloc' could not re-allocate memory (%llu bytes)"),
+	      (unsigned long long)size);
     return(p);
 }
 
@@ -3817,7 +3874,7 @@ void (MARK_ASSIGNMENT_CALL)(SEXP x) { MARK_ASSIGNMENT_CALL(CHK(x)); }
 void (SET_ATTRIB)(SEXP x, SEXP v) {
     if(TYPEOF(v) != LISTSXP && TYPEOF(v) != NILSXP)
 	error("value of 'SET_ATTRIB' must be a pairlist or NULL, not a '%s'",
-	      type2char(TYPEOF(v)));
+	      R_typeToChar(v));
     FIX_REFCNT(x, ATTRIB(x), v);
     CHECK_OLD_TO_NEW(x, v);
     ATTRIB(x) = v;
@@ -3875,7 +3932,7 @@ static R_INLINE SEXP CHK2(SEXP x)
 {
     x = CHK(x);
     if(nvec[TYPEOF(x)])
-	error("LENGTH or similar applied to %s object", type2char(TYPEOF(x)));
+	error("LENGTH or similar applied to %s object", R_typeToChar(x));
     return x;
 }
 
@@ -3890,7 +3947,7 @@ void (SETLENGTH)(SEXP x, R_xlen_t v)
 	error("SETLENGTH() cannot be applied to an ALTVEC object.");
     if (! isVector(x))
 	error(_("SETLENGTH() can only be applied to a standard vector, "
-		"not a '%s'"), type2char(TYPEOF(x)));
+		"not a '%s'"), R_typeToChar(x));
     SET_STDVEC_LENGTH(CHK2(x), v);
 }
 
@@ -3908,14 +3965,14 @@ R_xlen_t Rf_XLENGTH(SEXP x) { return XLENGTH(x); }
 const char *(R_CHAR)(SEXP x) {
     if(TYPEOF(x) != CHARSXP) // Han-Tak proposes to prepend  'x && '
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "CHAR", "CHARSXP", type2char(TYPEOF(x)));
+	      "CHAR", "CHARSXP", R_typeToChar(x));
     return (const char *) CHAR(CHK(x));
 }
 
 SEXP (STRING_ELT)(SEXP x, R_xlen_t i) {
     if(TYPEOF(x) != STRSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "STRING_ELT", "character vector", type2char(TYPEOF(x)));
+	      "STRING_ELT", "character vector", R_typeToChar(x));
     if (ALTREP(x))
 	return CHK(ALTSTRING_ELT(CHK(x), i));
     else {
@@ -3930,7 +3987,7 @@ SEXP (VECTOR_ELT)(SEXP x, R_xlen_t i) {
        TYPEOF(x) != EXPRSXP &&
        TYPEOF(x) != WEAKREFSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "VECTOR_ELT", "list", type2char(TYPEOF(x)));
+	      "VECTOR_ELT", "list", R_typeToChar(x));
     if (ALTREP(x)) {
 	SEXP ans = CHK(ALTLIST_ELT(CHK(x), i));
 	/* the element is marked as not mutable since complex
@@ -3965,7 +4022,7 @@ void *(STDVEC_DATAPTR)(SEXP x)
 	error("cannot get STDVEC_DATAPTR from ALTREP object");
     if (! isVector(x) && TYPEOF(x) != WEAKREFSXP)
 	error("STDVEC_DATAPTR can only be applied to a vector, not a '%s'",
-	      type2char(TYPEOF(x)));
+	      R_typeToChar(x));
     CHKZLN(x);
     return STDVEC_DATAPTR(x);
 }
@@ -3973,7 +4030,7 @@ void *(STDVEC_DATAPTR)(SEXP x)
 int *(LOGICAL)(SEXP x) {
     if(TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "LOGICAL",  "logical", type2char(TYPEOF(x)));
+	      "LOGICAL",  "logical", R_typeToChar(x));
     CHKZLN(x);
     return LOGICAL(x);
 }
@@ -3981,7 +4038,7 @@ int *(LOGICAL)(SEXP x) {
 const int *(LOGICAL_RO)(SEXP x) {
     if(TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "LOGICAL",  "logical", type2char(TYPEOF(x)));
+	      "LOGICAL",  "logical", R_typeToChar(x));
     CHKZLN(x);
     return LOGICAL_RO(x);
 }
@@ -3990,7 +4047,7 @@ const int *(LOGICAL_RO)(SEXP x) {
 int *(INTEGER)(SEXP x) {
     if(TYPEOF(x) != INTSXP && TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "INTEGER", "integer", type2char(TYPEOF(x)));
+	      "INTEGER", "integer", R_typeToChar(x));
     CHKZLN(x);
     return INTEGER(x);
 }
@@ -3998,7 +4055,7 @@ int *(INTEGER)(SEXP x) {
 const int *(INTEGER_RO)(SEXP x) {
     if(TYPEOF(x) != INTSXP && TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "INTEGER", "integer", type2char(TYPEOF(x)));
+	      "INTEGER", "integer", R_typeToChar(x));
     CHKZLN(x);
     return INTEGER_RO(x);
 }
@@ -4006,7 +4063,7 @@ const int *(INTEGER_RO)(SEXP x) {
 Rbyte *(RAW)(SEXP x) {
     if(TYPEOF(x) != RAWSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "RAW", "raw", type2char(TYPEOF(x)));
+	      "RAW", "raw", R_typeToChar(x));
     CHKZLN(x);
     return RAW(x);
 }
@@ -4014,7 +4071,7 @@ Rbyte *(RAW)(SEXP x) {
 const Rbyte *(RAW_RO)(SEXP x) {
     if(TYPEOF(x) != RAWSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "RAW", "raw", type2char(TYPEOF(x)));
+	      "RAW", "raw", R_typeToChar(x));
     CHKZLN(x);
     return RAW(x);
 }
@@ -4022,7 +4079,7 @@ const Rbyte *(RAW_RO)(SEXP x) {
 double *(REAL)(SEXP x) {
     if(TYPEOF(x) != REALSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "REAL", "numeric", type2char(TYPEOF(x)));
+	      "REAL", "numeric", R_typeToChar(x));
     CHKZLN(x);
     return REAL(x);
 }
@@ -4030,7 +4087,7 @@ double *(REAL)(SEXP x) {
 const double *(REAL_RO)(SEXP x) {
     if(TYPEOF(x) != REALSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "REAL", "numeric", type2char(TYPEOF(x)));
+	      "REAL", "numeric", R_typeToChar(x));
     CHKZLN(x);
     return REAL_RO(x);
 }
@@ -4038,7 +4095,7 @@ const double *(REAL_RO)(SEXP x) {
 Rcomplex *(COMPLEX)(SEXP x) {
     if(TYPEOF(x) != CPLXSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "COMPLEX", "complex", type2char(TYPEOF(x)));
+	      "COMPLEX", "complex", R_typeToChar(x));
     CHKZLN(x);
     return COMPLEX(x);
 }
@@ -4046,7 +4103,7 @@ Rcomplex *(COMPLEX)(SEXP x) {
 const Rcomplex *(COMPLEX_RO)(SEXP x) {
     if(TYPEOF(x) != CPLXSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "COMPLEX", "complex", type2char(TYPEOF(x)));
+	      "COMPLEX", "complex", R_typeToChar(x));
     CHKZLN(x);
     return COMPLEX_RO(x);
 }
@@ -4054,7 +4111,7 @@ const Rcomplex *(COMPLEX_RO)(SEXP x) {
 SEXP *(STRING_PTR)(SEXP x) {
     if(TYPEOF(x) != STRSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "STRING_PTR", "character", type2char(TYPEOF(x)));
+	      "STRING_PTR", "character", R_typeToChar(x));
     CHKZLN(x);
     return STRING_PTR(x);
 }
@@ -4062,7 +4119,7 @@ SEXP *(STRING_PTR)(SEXP x) {
 const SEXP *(STRING_PTR_RO)(SEXP x) {
     if(TYPEOF(x) != STRSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "STRING_PTR_RO", "character", type2char(TYPEOF(x)));
+	      "STRING_PTR_RO", "character", R_typeToChar(x));
     CHKZLN(x);
     return STRING_PTR_RO(x);
 }
@@ -4075,10 +4132,10 @@ NORET SEXP * (VECTOR_PTR)(SEXP x)
 void (SET_STRING_ELT)(SEXP x, R_xlen_t i, SEXP v) {
     if(TYPEOF(CHK(x)) != STRSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "SET_STRING_ELT", "character vector", type2char(TYPEOF(x)));
+	      "SET_STRING_ELT", "character vector", R_typeToChar(x));
     if(TYPEOF(CHK(v)) != CHARSXP)
        error("Value of SET_STRING_ELT() must be a 'CHARSXP' not a '%s'",
-	     type2char(TYPEOF(v)));
+	     R_typeToChar(v));
     if (i < 0 || i >= XLENGTH(x))
 	error(_("attempt to set index %lld/%lld in SET_STRING_ELT"),
 	      (long long)i, (long long)XLENGTH(x));
@@ -4098,7 +4155,7 @@ SEXP (SET_VECTOR_ELT)(SEXP x, R_xlen_t i, SEXP v) {
        TYPEOF(x) != EXPRSXP &&
        TYPEOF(x) != WEAKREFSXP) {
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "SET_VECTOR_ELT", "list", type2char(TYPEOF(x)));
+	      "SET_VECTOR_ELT", "list", R_typeToChar(x));
     }
     if (i < 0 || i >= XLENGTH(x))
 	error(_("attempt to set index %lld/%lld in SET_VECTOR_ELT"),
@@ -4132,7 +4189,7 @@ static R_INLINE SEXP CHKCONS(SEXP e)
 	return CHK(e);
     default:
 	error("CAR/CDR/TAG or similar applied to %s object",
-	      type2char(TYPEOF(e)));
+	      R_typeToChar(e));
     }
 }
 #else
@@ -4177,6 +4234,8 @@ attribute_hidden void R_expand_binding_value(SEXP b)
 #if BOXED_BINDING_CELLS
     SET_BNDCELL_TAG(b, 0);
 #else
+    int enabled = R_GCEnabled;
+    R_GCEnabled = FALSE;
     int typetag = BNDCELL_TAG(b);
     if (typetag) {
 	union {
@@ -4210,8 +4269,18 @@ attribute_hidden void R_expand_binding_value(SEXP b)
 	    break;
 	}
     }
+    R_GCEnabled = enabled;
 #endif
 }
+
+#ifdef IMMEDIATE_PROMISE_VALUES
+attribute_hidden SEXP R_expand_promise_value(SEXP x)
+{
+    if (PROMISE_TAG(x))
+	R_expand_binding_value(x);
+    return PRVALUE0(x);
+}
+#endif
 
 attribute_hidden void R_args_enable_refcnt(SEXP args)
 {
@@ -4430,6 +4499,12 @@ SEXP (PRCODE)(SEXP x) { return CHK(PRCODE(CHK(x))); }
 SEXP (PRENV)(SEXP x) { return CHK(PRENV(CHK(x))); }
 SEXP (PRVALUE)(SEXP x) { return CHK(PRVALUE(CHK(x))); }
 int (PRSEEN)(SEXP x) { return PRSEEN(CHK(x)); }
+attribute_hidden
+int (PROMISE_IS_EVALUATED)(SEXP x)
+{
+    x = CHK(x);
+    return PROMISE_IS_EVALUATED(x);
+}
 
 void (SET_PRENV)(SEXP x, SEXP v){ FIX_REFCNT(x, PRENV(x), v); CHECK_OLD_TO_NEW(x, v); PRENV(x) = v; }
 void (SET_PRCODE)(SEXP x, SEXP v) { FIX_REFCNT(x, PRCODE(x), v); CHECK_OLD_TO_NEW(x, v); PRCODE(x) = v; }
@@ -4438,10 +4513,16 @@ void (SET_PRSEEN)(SEXP x, int v) { SET_PRSEEN(CHK(x), v); }
 void (SET_PRVALUE)(SEXP x, SEXP v)
 {
     if (TYPEOF(x) != PROMSXP)
-	error("expecting a 'PROMSXP', not a '%s'", type2char(TYPEOF(x)));
-    FIX_REFCNT(x, PRVALUE(x), v);
+	error("expecting a 'PROMSXP', not a '%s'", R_typeToChar(x));
+#ifdef IMMEDIATE_PROMISE_VALUES
+    if (PROMISE_TAG(x)) {
+	SET_PROMISE_TAG(x, 0);
+	PRVALUE0(x) = R_UnboundValue;
+    }
+#endif
+    FIX_REFCNT(x, PRVALUE0(x), v);
     CHECK_OLD_TO_NEW(x, v);
-    PRVALUE(x) = v;
+    PRVALUE0(x) = v;
 }
 
 attribute_hidden
@@ -4471,7 +4552,7 @@ SEXP (SET_CXTAIL)(SEXP x, SEXP v) {
 #ifdef USE_TYPE_CHECKING
     if(TYPEOF(v) != CHARSXP && TYPEOF(v) != NILSXP)
 	error("value of 'SET_CXTAIL' must be a char or NULL, not a '%s'",
-	      type2char(TYPEOF(v)));
+	      R_typeToChar(v));
 #endif
     /*CHECK_OLD_TO_NEW(x, v); *//* not needed since not properly traced */
     ATTRIB(x) = v;
@@ -4615,7 +4696,8 @@ static void R_InitMemReporting(SEXP filename, int append,
     if(R_MemReportingOutfile != NULL) R_EndMemReporting();
     R_MemReportingOutfile = RC_fopen(filename, append ? "a" : "w", TRUE);
     if (R_MemReportingOutfile == NULL)
-	error(_("Rprofmem: cannot open output file '%s'"), filename);
+	error(_("Rprofmem: cannot open output file '%s'"),
+	      translateChar(filename));
     R_MemReportingThreshold = threshold;
     R_IsMemReporting = 1;
     return;
@@ -4624,14 +4706,20 @@ static void R_InitMemReporting(SEXP filename, int append,
 SEXP do_Rprofmem(SEXP args)
 {
     SEXP filename;
-    R_size_t threshold;
+    R_size_t threshold = 0;
     int append_mode;
 
     if (!isString(CAR(args)) || (LENGTH(CAR(args))) != 1)
 	error(_("invalid '%s' argument"), "filename");
     append_mode = asLogical(CADR(args));
     filename = STRING_ELT(CAR(args), 0);
-    threshold = (R_size_t) REAL(CADDR(args))[0];
+    double tdbl = REAL(CADDR(args))[0];
+    if (tdbl > 0) {
+	if (tdbl >= (double) R_SIZE_T_MAX)
+	    threshold = R_SIZE_T_MAX;
+	else
+	    threshold = (R_size_t) tdbl;
+    }
     if (strlen(CHAR(filename)))
 	R_InitMemReporting(filename, append_mode, threshold);
     else

@@ -3,18 +3,20 @@
 % Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{cmdscale}
 \alias{cmdscale}
 \concept{ordination}
-\concept{MDS}
+\concept{\I{MDS}}
 \title{Classical (Metric) Multidimensional Scaling}
 \usage{
 cmdscale(d, k = 2, eig = FALSE, add = FALSE, x.ret = FALSE,
          list. = eig || add || x.ret)
 }
 \description{
-  Classical multidimensional scaling (MDS) of a data matrix.
-  Also known as \emph{principal coordinates analysis} (Gower, 1966).
+  Classical multidimensional scaling (\abbr{MDS}) of a data matrix.
+  Also known as \emph{principal coordinates analysis} (\bibcite{Gower, 1966}).
 }
 \arguments{
   \item{d}{a distance structure such as that returned by \code{dist}
@@ -38,7 +40,7 @@ cmdscale(d, k = 2, eig = FALSE, add = FALSE, x.ret = FALSE,
 
   A set of Euclidean distances on \eqn{n} points can be represented
   exactly in at most \eqn{n - 1} dimensions.  \code{cmdscale} follows
-  the analysis of Mardia (1978), and returns the best-fitting
+  the analysis of \bibcite{Mardia (1978)}, and returns the best-fitting
   \eqn{k}-dimensional representation, where \eqn{k} may be less than the
   argument \code{k}.
 
@@ -51,9 +53,9 @@ cmdscale(d, k = 2, eig = FALSE, add = FALSE, x.ret = FALSE,
   When \code{add = TRUE}, a minimal additive constant \eqn{c*} is
   computed such that the dissimilarities \eqn{d_{ij} + c*}{d[i,j] +
   c*} are Euclidean and hence can be represented in \code{n - 1}
-  dimensions.  Whereas S (Becker \emph{et al}, 1988) computes this
-  constant using an approximation suggested by Torgerson, \R uses the
-  analytical solution of Cailliez (1983), see also Cox and Cox (2001).
+  dimensions.  Whereas S (Becker \abbr{et al.}, 1988) computes this
+  constant using an approximation suggested by \I{Torgerson}, \R uses the
+  analytical solution of \bibcite{Cailliez (1983)}, see also Cox and Cox (2001).
   Note that because of numerical errors the computed eigenvalues need
   not all be non-negative, and even theoretically the representation
   could be in fewer than \code{n - 1} dimensions.

@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2023 R Core Team
+### Copyright (C) 1998-2024 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -20,7 +20,7 @@
 ### along with R; if not, a copy is available at
 ### https://www.r-project.org/Licenses/
 
-AC_PREREQ(2.69)
+AC_PREREQ([2.71])
 
 ## We want to get the version number from file 'VERSION' (rather than
 ## specifying the version info in 'configure.ac'.  Hence, we need a bit
@@ -134,6 +134,11 @@ AC_SUBST(R_OSTYPE)
 
 R_CONFIG_ARGS="${ac_configure_args}"
 AC_SUBST(R_CONFIG_ARGS)
+
+## Shortcut for musl which refuses to identify itself at C level
+if test "${host_os}" == "linux-musl"; then
+  AC_DEFINE(OS_MUSL, 1, [Define if running on Linux-musl])
+fi
 
 ### ** Defaults.
 
@@ -370,13 +375,8 @@ elif  test "x${want_lto}" = xR; then
   LTO="${uLTO}"
   LTO_FC="${uLTO_FC}"
 elif  test "x${want_lto}" = xcheck; then
-  ltoall=yes
-  LTO="${uLTO}"
-  LTOALL="${uLTO}"
-  LTO_FC="${uLTO_FC}"
-  LTOALL_FC="${uLTO_FC}"
-  LIBR0="-L\"\$(R_HOME)/lib\$(R_ARCH)\""
-  LIBR1="${LIBR1} -lLinpack"
+  AC_MSG_WARN([--enable-lto=check has been withdrawn and will be ignored])
+  want_lto=no
 elif  test "x${want_lto}" != xno; then
   AC_MSG_WARN([Unknown value --enable-lto=${enableval}])
   want_lto=no
@@ -397,7 +397,9 @@ AC_SUBST(LTO_LD)
 ## used in src/main/Makefile
 AM_CONDITIONAL(BUILD_LTO, [test "x${want_lto}" != xno])
 AM_CONDITIONAL(BUILD_LTO_ALL, [test "x${ltoall}" = xyes])
-AM_CONDITIONAL(BUILD_LTO_CHECK, [test "x${want_lto}" = xcheck])
+
+## needed for some versions of icx, but we do not know which
+AC_SUBST(INTEL_ICX_FIX)
 
 AC_ARG_ENABLE([java],
 [AS_HELP_STRING([--enable-java],[enable Java @<:@yes@:>@])],
@@ -409,13 +411,13 @@ AM_CONDITIONAL(WANT_JAVA, [test "x${want_java}" = xyes])
 
 ## BLAS.
 AC_ARG_WITH([blas],
-[AS_HELP_STRING([--with-blas],[use system BLAS library (if available), or specify it @<:@no@:>@])],
+[AS_HELP_STRING([--with-blas],[use system BLAS library (if available), or specify it @<:@unset@:>@])],
 [R_ARG_USE(blas)],
 [use_blas=unset])
 
 ## LAPACK.
 AC_ARG_WITH([lapack],
-[AS_HELP_STRING([--with-lapack],[use system LAPACK library (if available), or specify it @<:@no@:>@])],
+[AS_HELP_STRING([--with-lapack],[use system LAPACK library (if available), or specify it @<:@unset@:>@])],
 [R_ARG_USE(lapack)],
 [use_lapack=unset])
 
@@ -503,7 +505,7 @@ AC_ARG_WITH([valgrind-instrumentation],
 [valgrind_level=0])
 
 AC_ARG_WITH([system-valgrind-headers],
-[AS_HELP_STRING([--with-system-valgrind-headers],[use system valgrind headers (if available) @<:@yes@:>@])],
+[AS_HELP_STRING([--with-system-valgrind-headers],[defunct])],
 [AC_MSG_WARN([--with-system-valgrind-headers is defunct])])
 
 AC_ARG_WITH([internal-tzcode],
@@ -512,12 +514,12 @@ AC_ARG_WITH([internal-tzcode],
 [use_internal_tzcode=default])
 
 AC_ARG_WITH([internal-towlower],
-[AS_HELP_STRING([--with-internal-towlower],[use internal code for towlower/upper @<:@no, yes on macOS and Solaris@:>@])],
+[AS_HELP_STRING([--with-internal-towlower],[use internal code for towlower/upper @<:@no, yes on macOS@:>@])],
 [use_internal_towlower=${withval}],
 [use_internal_towlower=default])
 
 AC_ARG_WITH([internal-iswxxxxx],
-[AS_HELP_STRING([--with-internal-iswxxxxx],[use internal iswprint etc. @<:@no, yes on macOS, Solaris and AIX@:>@])],
+[AS_HELP_STRING([--with-internal-iswxxxxx],[use internal iswprint etc. @<:@no, yes on macOS@:>@])],
 [use_internal_iswxxxxx=${withval}],
 [use_internal_iswxxxxx=default])
 
@@ -677,6 +679,7 @@ R_PROG_INSTALL
 
 ## we would like a POSIX sed, and need one on Solaris
 AC_PATH_PROGS(SED, sed, /bin/sed, [/usr/xpg4/bin:$PATH])
+
 ## 'which' is not POSIX, and might be a shell builtin or alias
 ##  (but should not be in 'sh')
 AC_PATH_PROGS(WHICH, which, which)
@@ -740,8 +743,7 @@ AC_ARG_VAR([PKG_CONFIG_PATH], [directories to add to pkg-config's search path])
 AC_ARG_VAR([PKG_CONFIG_LIBDIR], [path overriding pkg-config's default search path])
 
 AC_PROG_CC
-AC_PROG_GCC_TRADITIONAL
-dnl AC_GNU_SOURCE ## see note above
+dnl AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS ## see note above
 
 AC_PROG_CPP
@@ -1395,6 +1397,12 @@ if test "${GCC}" = yes; then
   esac
   shlib_ldflags="-shared"
 fi
+## autconf checks for gfortran by compiling a program with
+dnl #ifndef __GNUC__
+dnl       choke me
+dnl #endif
+
+## Use same flang for gfortran as for gcc.
 if test "${ac_cv_fc_compiler_gnu}" = yes; then
   case "${host_cpu}" in
     aarch64*|alpha*|sparc*|ppc64*|powerpc64*|s390*)
@@ -1404,14 +1412,28 @@ if test "${ac_cv_fc_compiler_gnu}" = yes; then
       fpicflags="-fpic"
       ;;
   esac
+else
+## Otherwise check for flang (including classic flang)
+## and treat as for clang (you cannot really use flang without clang).
+## Set fc_is_clang in case needed elsewhere.
+cat > conftestf.F <<EOF
+      program main
+#ifndef __flang__
+       choke me
+#endif
+      end
+EOF
+${FC} ${FFLAGS} -c conftestf.F 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD
+if test ${?} = 0; then
+   fc_is_clang=yes
+   fpicflags=${cpicflags}
+else
+   fc_is_clang=no
 fi
-## Assume flang is the same as clang (it is a modified front end)
-## Also flang-new
-case "${FC}" in
-  *flang|*flang-new)
-    fpicflags=${cpicflags}
-    ;;
-esac
+rm -Rf conftestf.* core
+## echo "is this flang? ${fc_is_clang}"
+fi
+
 if test "${GXX}" = yes; then
   case "${host_cpu}" in
     aarch64*|alpha*|sparc*|ppc64*|powerpc64*|s390*)
@@ -1460,8 +1482,17 @@ case "${host_os}" in
     darwin_pic="-fPIC"
     dylib_undefined_allowed=no
     darwin_dylib_ldflags="-dynamiclib"
-    shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -single_module -multiply_defined suppress"
-    ## * recent ld has -single_module so it doesn't need -fno-common
+    ##  -single_module is default and -multiply_defined is obsolete
+    ## at least since macOS 11 (darwin 20)
+    case "${host_os}" in
+      darwin1*)
+        shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -single_module -multiply_defined suppress"
+      ;;
+      *)
+        shlib_ldflags="-dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup"
+      ;;
+    esac
+## * recent ld has -single_module so it doesn't need -fno-common
     ##   we have to use dylib instead of a bundle
     ## * dylib+single_module+flat_namespace=pretty much what other platforms call .so
     ##   but there can be no multiple symbols (due to flat namespace)
@@ -1494,7 +1525,14 @@ rm -f libconftest${DYLIB_EXT} conftest.c
        r_cv_has_dynlookup=forced-no
     fi
     if test "${r_cv_has_dynlookup}" != "yes"; then
-       shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress -single_module -multiply_defined suppress"
+      case "${host_os}" in
+         darwin1*)
+          shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress -single_module -multiply_defined suppress"
+         ;;
+         *)
+           shlib_ldflags="-dynamiclib -flat_namespace -undefined suppress"
+         ;;
+       esac
        dylib_undefined_allowed=yes
     fi
 	
@@ -1564,7 +1602,7 @@ dnl     ;;
     esac
     case  "${FC}" in
       ## Intel compilers
-      *ifc|*ifort)
+      *ifc|*ifort|*ifx)
         fpicflags="-fpic"
         ;;
       ## Nvidia (formerly Portland Group)
@@ -1829,6 +1867,8 @@ fi
 : ${INTERNET_LIBS="${internet_libs}"}
 AC_SUBST(INTERNET_LIBS)
 
+dnl Used in appl/Makefile.in; Darwin-specific setting there.
+dnl Also used for support for Apple Accelerate.
 AM_CONDITIONAL(DYLIB_UNDEFINED_ALLOWED, [test "x${dylib_undefined_allowed}" = xyes])
 
 AC_SUBST(MAIN_LD)
@@ -1864,30 +1904,15 @@ R_STDCXX([17], [CXX17], [CXX14])
 R_STDCXX([20], [CXX20], [CXX17])
 R_STDCXX([23], [CXX23], [CXX20])
 
-## Set default C++ compiler to C++17 if available, otherwise C++14 or C++11
-## Do not set if none is available.
+## Set default C++ compiler to C++17 if available, otherwise unset
 if test -n "${CXX}" && test -z "${CXXSTD}"; then
   if test -n "${CXX17}"; then
     CXX=${CXX17}
     CXXSTD=${CXX17STD}
     CXXFLAGS=${CXX17FLAGS}
     CXXPICFLAGS=${CXX17PICFLAGS}
-  elif test -n "${CXX11}"; then
-    if test -n "${CXX14}"; then
-      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++14])
-      CXX=${CXX14}
-      CXXSTD=${CXX14STD}
-      CXXFLAGS=${CXX14FLAGS}
-      CXXPICFLAGS=${CXX14PICFLAGS}
-    else
-      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++11])
-      CXX=${CXX11}
-      CXXSTD=${CXX11STD}
-      CXXFLAGS=${CXX11FLAGS}
-      CXXPICFLAGS=${CXX11PICFLAGS}
-    fi
   else
-    AC_MSG_WARN([None of C++17, C++14 nor C++11 is available so no default C++ compiler is set])
+    AC_MSG_WARN([No C++17 compiler is available so no default C++ compiler is set])
   fi
 fi
 
@@ -2036,8 +2061,7 @@ AC_CHECK_FUNCS([atanpi atan2pi cospi exp10 pown sinpi tanpi __cospi __sinpi __ta
 #endif])
 
 ## fseeko/ftello are POSIX, may be macros
-## matherr is SVID, redefined in arithmetic.c if present
-AC_CHECK_FUNCS(fseeko ftello matherr)
+AC_CHECK_FUNCS(fseeko ftello)
 
 ## POSIX functions
 R_CHECK_FUNCS([fcntl], [#include <fcntl.h>])
@@ -2205,11 +2229,6 @@ AC_CHECK_DECLS([mkdtemp, strdup, strncasecmp])
 AC_SEARCH_LIBS(connect, [socket])
 # gethostbyname was removed in POSIX 2008 (in favour of getaddrinfo, POSIX 2001)
 AC_SEARCH_LIBS(gethostbyname, [nsl socket])
-## -lnsl is needed on Solaris
-## 2018: Sun RPC is being unbundled from glibc, at least in Fedora 28
-## (https://fedoraproject.org/wiki/Changes/SunRPCRemoval)
-## Use libtirpc instead, which has been a possible source since ca 2007
-AC_SEARCH_LIBS(xdr_string, [nsl tirpc])
 R_FUNC_CALLOC
 if test "${ac_cv_have_decl_isfinite}" = "yes"; then
 R_FUNC_ISFINITE
@@ -2551,6 +2570,17 @@ R_BZLIB
 ## LZMA headers and libraries from xz-utils
 R_LZMA
 
+## libdeflate headers and libraries.
+R_LIBDEFLATE
+
+AC_ARG_WITH([libdeflate-compression],
+[AS_HELP_STRING([--with-libdeflate-compression],[use libdeflate (if available) to (de)compress lazy-loaded R objects @<:@yes@:>@])],
+[use_libdeflate=${withval}],
+[use_libdeflate=yes])
+if test "x$use_libdeflate" = xyes; then
+  AC_DEFINE(USE_LIBDEFLATE, 1, [Define to use libdefault rather than libz for lazy-loaded R objects])
+fi
+
 ## PCRE[12] headers and libraries.
 R_PCRE
 
@@ -2891,6 +2921,73 @@ case "${host_os}" in
     ;;
 esac
 
+AC_ARG_WITH([newAccelerate],
+[AS_HELP_STRING([--with-newAccelerate],[use macOS Accelerate in macOS >= 13.3 for BLAS and LAPACK. @<:@no@:>@])],
+[use_accelerate=${withval}],
+[use_accelerate=no])
+
+if test "x$use_accelerate" = xlapack; then
+  use_accelerate=yes
+  use_accelerate_lapack=yes
+else
+  use_accelerate_lapack=no
+fi
+
+if test "x$use_accelerate" = xyes; then
+  if test "x$use_blas" = xyes; then
+    AC_MSG_ERROR([--with-newAccelerate cannot be used with --with-blas])
+  fi
+  if test "x$use_lapack" = xyes; then
+    AC_MSG_ERROR([--with-newAccelerate cannot be used with --with-lapack])
+  fi
+fi
+dnl We test for macOS then for an entry point in -framework Accelerate
+dnl Alternatively we could #include <Accelerate/Acclereate.h> and
+dnl use nm on the object.
+if test "x$use_accelerate" = xyes; then
+  case "${host_os}" in
+      darwin*)
+      ;;
+      *)
+       AC_MSG_ERROR([--with-newAccelerate requires macOS.])
+      ;;    
+  esac
+  r_save_LIBS="${LIBS}"
+  LIBS="${LIBS} -framework Accelerate"
+  AC_LINK_IFELSE([AC_LANG_SOURCE(
+[[
+// avoid interpretation of $
+#define ndgemm dgemm ## $ ## NEWLAPACK
+// Accelerate.h declares dgemm_ but remaps to entry point dgemm$NEWLAPACK
+void
+ndgemm(const char *transa, const char *transb, const int *m,
+       const int *n, const int *k, const double *alpha,
+       const double *a, const int *lda,
+       const double *b, const int *ldb,
+       const double *beta, double *c, const int *ldc);
+
+    int main(void)
+    {
+        int nrx, ncx, nry, ncy;
+        double *x,  *y,  *z;
+        double one = 1.0, zero = 0.0;
+        ndgemm("N", "N", &nrx, &ncy, &ncx, &one, x,
+               &nrx, y, &nry, &zero, z, &nrx);
+    }
+]])],
+sdk_OK=yes,
+sdk_OK=no)
+  LIBS="${r_save_LIBS}"
+  if test "x$sdk_OK" != xyes; then
+    AC_MSG_ERROR([--with-newAccelerate requires macOS SDK >= 14.3.])
+  fi
+dnl No longer used as we only build (or not) BLAS and LAPACK shims
+dnl  AC_DEFINE(USE_NEW_ACCELERATE, 1, [Define to use Apple's (new) Accelerate])
+fi
+AM_CONDITIONAL(BUILD_NEW_ACCELERATE, [test "x${use_accelerate}" == xyes])
+AM_CONDITIONAL(BUILD_NEW_ACCELERATE_LAPACK,
+              [test "x${use_accelerate_lapack}" == xyes])
+
 dnl record compiler versions
 CC_VER=`${CC} --version | ${SED} -n 1p`
 FC_VER=`${FC} --version | ${SED} -n 1p`
@@ -3069,6 +3166,9 @@ fi
 if test "x$ac_cv_header_curl_curl_h" = xyes; then
   R_SH_VAR_ADD(r_external_libs, [curl], [, ])
 fi
+if test "x$have_libdeflate" = xyes; then
+  R_SH_VAR_ADD(r_external_libs, [libdeflate], [, ])
+fi
 
 r_capabilities=
 r_no_capabilities=
@@ -3135,6 +3235,16 @@ if test "${use_strict_barrier}" = yes; then
 fi
 if test "${want_prebuilt_html}" = yes; then
   R_SH_VAR_ADD(r_options, [static HTML], [, ])
+fi
+if test "x$have_libdeflate" = xyes && test "x$use_libdeflate" = xyes; then
+  R_SH_VAR_ADD(r_options, [libdeflate for lazyload], [, ])
+fi
+
+if test "x$have_libdeflate" != xyes && test "x$use_libdeflate" = xyes; then
+  AC_MSG_WARN([--with-libdeflate-compression requires libdeflate])
+fi
+if test "${use_accelerate}" = yes; then
+  R_SH_VAR_ADD(r_options, [new Accelerate], [, ])
 fi
 
 AC_MSG_RESULT(

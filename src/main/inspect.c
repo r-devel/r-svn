@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2009-2021 The R Core Team.
+ *  Copyright (C) 2009-2023 The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,8 @@ static void pp(int pre) {
 }
 
 static const char *typename(SEXP v) {
+    if(TYPEOF(v) == OBJSXP && IS_S4_OBJECT(v))
+	return "S4SXP";
     return sexptype2char(TYPEOF(v)); // -> memory.c
 }
 
@@ -90,7 +92,7 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
        It is invalid on 64-bit Windows.
     */
 #ifdef _WIN64
-    Rprintf("@%p %02d %s g%dc%d [", v, TYPEOF(v), typename(v),
+    Rprintf("@%p %02d %s g%dc%d [", (void *)v, TYPEOF(v), typename(v),
 	    v->sxpinfo.gcgen, v->sxpinfo.gccls);
 #else
     Rprintf("@%lx %02d %s g%dc%d [", (long) v, TYPEOF(v), typename(v),
@@ -115,7 +117,7 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
 	if (IS_GLOBAL_FRAME(v)) { if (a) Rprintf(","); Rprintf("GL"); a = 1; }
     }
     if (TYPEOF(v) == PROMSXP) {
-	if (PRVALUE(v) != R_UnboundValue) { if (a) Rprintf(","); Rprintf("VAL"); a = 1; }
+	if (PROMISE_IS_EVALUATED(v)) { if (a) Rprintf(","); Rprintf("VAL"); a = 1; }
     }
     if (LEVELS(v)) { if (a) Rprintf(","); Rprintf("gp=0x%x", LEVELS(v)); a = 1; }
     if (ATTRIB(v) && ATTRIB(v) != R_NilValue) { if (a) Rprintf(","); Rprintf("ATT"); a = 1; }
@@ -133,7 +135,7 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
     switch (TYPEOF(v)) {
     case VECSXP: case STRSXP: case LGLSXP: case INTSXP: case RAWSXP:
     case REALSXP: case CPLXSXP: case EXPRSXP:
-	Rprintf("(len=%ld, tl=%ld)", XLENGTH(v), XTRUELENGTH(v));
+	Rprintf("(len=%ld, tl=%ld)", (long)XLENGTH(v), (long)XTRUELENGTH(v));
     }
     if (TYPEOF(v) == ENVSXP) /* NOTE: this is not a trivial OP since it involves looking up things
 				in the environment, so for a low-level debugging we may want to

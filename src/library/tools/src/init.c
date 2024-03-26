@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2003-2017   The R Core Team.
+ *  Copyright (C) 2003-2023   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,18 +21,18 @@
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
-#ifdef UNUSED
+// used in ../../../../tests/encodings.R
 /* a test for re-encoding */
 void Renctest(char **x)
 {
-    Rprintf("'%s', nbytes = %d\n", x[0], strlen(x[0]));
+    Rprintf("'%s', nbytes = %lld\n", x[0], (long long)strlen(x[0]));
 }
 
 static const R_CMethodDef CEntries[]  = {
     {"Renctest", (DL_FUNC) &Renctest, 1},
     {NULL, NULL, 0}
 };
-#endif
+
 
 #define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
 
@@ -53,13 +53,14 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(deparseRd, 2),
     CALLDEF(splitString, 2),
     CALLDEF(package_dependencies_scan, 1),
+    CALLDEF(nonASCII, 1),
 
     {NULL, NULL, 0}
 };
 
 #define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
 static const R_ExternalMethodDef ExtEntries[] = {
-    EXTDEF(parseLatex, 4),
+    EXTDEF(parseLatex, 5),
     EXTDEF(parseRd, 9),
 
     {NULL, NULL, 0}
@@ -69,7 +70,7 @@ static const R_ExternalMethodDef ExtEntries[] = {
 void attribute_visible
 R_init_tools(DllInfo *dll)
 {
-    R_registerRoutines(dll, NULL, CallEntries, NULL, ExtEntries);
+    R_registerRoutines(dll, CEntries, CallEntries, NULL, ExtEntries);
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, TRUE);
 }

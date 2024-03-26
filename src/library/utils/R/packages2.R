@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ if (.Platform$OS.type == "windows")
     .install.macbinary <- function(...) NULL	# globalVariables isn't available, so use this to suppress the warning
 
 isBasePkg <- function(pkg) {
-  priority <- tryCatch(packageDescription(pkg, fields = "Priority"),
+  priority <- tryCatch(packageDescription(pkg, fields = "Priority", encoding = NA),
                        error = function(e) e, warning = function(e) e)
   identical(priority, "base")
 }
@@ -168,8 +168,8 @@ install.packages <-
              keep_outputs = FALSE,
              ...)
 {
-    if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+    if(!(is.character(type) && length(type) == 1L))
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     type2 <- .Platform$pkgType
     if (type == "binary") {
         if (type2 == "source")
@@ -880,7 +880,12 @@ install.packages <-
                 pkgs <- update[, 1L]
                 tss <- sub("[.]ts$", "", dir(".", pattern = "[.]ts$"))
                 failed <- pkgs[!pkgs %in% tss]
-		for (pkg in failed) system(paste0("cat ", pkg, ".out"))
+                for (pkg in failed) {
+                    ## targets with failed dependencies are not made (even with -k)
+                    if (file.exists(outfile <- paste0(pkg, ".out")))
+                        system2("cat", outfile)
+                    ##else cat("skipped installing package ", pkg, "\n", sep = "")
+                }
                 n <- length(failed)
                 if (n == 1L)
                     warning(gettextf("installation of package %s failed",
@@ -897,8 +902,11 @@ install.packages <-
                                 domain = NA)
                      }
             }
-            if(keep_outputs)
-                file.copy(paste0(update[, 1L], ".out"), outdir)
+            if(keep_outputs) {
+                outfiles <- paste0(update[, 1L], ".out") # some could be missing
+                file.copy(outfiles[file.exists(outfiles)],
+                          outdir, overwrite = TRUE)
+            }
             ## Keep binary packages possibly created via --build
             file.copy(Sys.glob(paste0(update[, 1L], "*.zip")), cwd)
             file.copy(Sys.glob(paste0(update[, 1L], "*.tgz")), cwd)
@@ -938,7 +946,7 @@ install.packages <-
                 }
             }
             if(keep_outputs)
-                file.copy(outfiles, outdir)
+                file.copy(outfiles, outdir, overwrite = TRUE)
             unlink(tmpd2, recursive = TRUE)
         }
         ## Using stderr is the wish of PR#16420
@@ -995,11 +1003,8 @@ registerNames <- function(names, package, .listFile, add = TRUE) {
 packageName <- function(env = parent.frame()) {
     if (!is.environment(env)) stop("'env' must be an environment")
     env <- topenv(env)
-    if (!is.null(pn <- get0(".packageName", envir = env, inherits = FALSE)))
-	pn
-    else if (identical(env, .BaseNamespaceEnv))
-	"base"
-    ## else NULL
+    get0(".packageName", envir = env, inherits = FALSE) %||%
+        if(identical(env, .BaseNamespaceEnv)) "base" ## else NULL
 }
 
 ##' R's .libPaths() to be used in 'R CMD ...' or similar,

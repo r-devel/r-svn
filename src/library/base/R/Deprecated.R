@@ -1,7 +1,7 @@
 #  File src/library/base/R/Deprecated.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -36,7 +36,8 @@
 
     if (missing(new)) new <- NULL
     warning(warningCondition(msg, old = old, new = new, package = package,
-                             class = "deprecatedWarning"))
+                             class = "deprecatedWarning",
+                             call = sys.call(sys.parent())))
 }
 
 ## consider keeping one (commented) entry here, for easier additions
@@ -55,3 +56,42 @@
 ## }
 ## </entry>
 
+## Deprecated in 4.4.0
+is.R <- function() {
+    p <- Sys.getenv("_R_DEPRECATED_IS_R_")
+    if(nzchar(p)) {
+        choices <- "error"
+        if (!is.na(i<- pmatch(p, choices)))
+            p <- choices[i]
+        else
+            message("unsupported value of _R_DEPRECATED_IS_R_, ", sQuote(p),
+                    ", will be ignored")
+        if (p == "error") {
+            .Deprecated(package = "base")
+            ## stop will flush out deferred warnings
+            ## temporary, so do not translate
+            stop('deprecation turned into an error', domain = NA)
+        }
+    }
+    .Deprecated(package = "base")
+
+    TRUE
+}
+
+## Docu-deprecated in 4.3.0
+## Formally deprecated in 4.4.0
+
+## as.data.frame.raw <- function(x, row.names = NULL, optional = FALSE, ..., nm = deparse1(substitute(x))) {.....}
+## as.data.frame.logical ....
+## as.data.frame.integer ...
+## as.data.frame.numeric ..
+## as.data.frame.complex
+## as.data.frame.factor
+## as.data.frame.ordered
+## as.data.frame.Date
+## as.data.frame.difftime
+## as.data.frame.POSIXct
+## as.data.frame.noquote
+## as.data.frame.numeric_version
+##                vvvvv
+## >>> *end* of ./zzz.R : creating a modified version of as.data.frame.vector and assigning that in for() loop

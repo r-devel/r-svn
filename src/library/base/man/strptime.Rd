@@ -1,6 +1,6 @@
 % File src/library/base/man/strptime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strptime}
@@ -27,25 +27,25 @@ strftime(x, format = "", tz = "", usetz = FALSE, \dots)
 strptime(x, format, tz = "")
 }
 \arguments{
-  \item{x}{An object to be converted: a character vector for
+  \item{x}{an object to be converted: a character vector for
     \code{strptime}, an object which can be converted to
     \code{"\link{POSIXlt}"} for \code{strftime}.}
-  \item{tz}{A character string specifying the time zone to be used for
+  \item{tz}{a character string specifying the time zone to be used for
     the conversion.  System-specific (see \code{\link{as.POSIXlt}}), but
     \code{""} is the current time zone, and \code{"GMT"} is UTC.
     Invalid values are most commonly treated as UTC, on some platforms with
     a warning.}
-  \item{format}{A character string.  The default for the \code{format}
+  \item{format}{a character string.  The default for the \code{format}
     methods is
     \code{"\%Y-\%m-\%d \%H:\%M:\%S"} if any element has a time
     component which is not midnight, and \code{"\%Y-\%m-\%d"}
     otherwise.  If \code{\link{options}("digits.secs")} is set, up to
     the specified number of digits will be printed for seconds.}
-  \item{\dots}{Further arguments to be passed from or to other methods.}
+  \item{\dots}{further arguments to be passed from or to other methods.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended
     to the output?  This is used in printing times, and more reliable
     than using \code{"\%Z"}.}
-  \item{digits}{integer determining the \code{format()}ing of seconds when
+  \item{digits}{integer determining the \I{\code{format()}ing} of seconds when
     needed.  Note that the defaults for \code{format()} and
     \code{as.character()} differ on purpose, \code{as.character()} giving
     close to full accuracy as it does for numbers.}
@@ -164,7 +164,8 @@ strptime(x, format, tz = "")
       If the week (starting on Monday) containing 1 January has four or
       more days in the new year, then it is considered week 1.  Otherwise, it
       is the last week of the previous year, and the next week is week
-      1.  (Accepted but ignored on input.)}
+      1. See \code{\%G} (\code{\%g}) for the year corresponding to the
+      week given by \code{\%V}. (Accepted but ignored on input.)}
     \item{\code{\%w}}{Weekday as decimal number (0--6, Sunday is 0).}
     \item{\code{\%W}}{Week of the year as decimal number (00--53) using
       Monday as the first day of week (and typically with the
@@ -264,7 +265,7 @@ strptime(x, format, tz = "")
   Everyone agrees that years from 1000 to 9999 should be printed with 4
   digits, but the standards do not define what is to be done outside
   that range.  For years 0 to 999 most OSes pad with zeros or spaces to
-  4 characters, but Linux/glibc outputs just the number.
+  4 characters, but Linux/\I{glibc} outputs just the number.
 
   OS facilities will probably not print years before 1 CE (aka 1 AD)
   \sQuote{correctly} (they tend to assume the existence of a year 0: see
@@ -275,7 +276,7 @@ strptime(x, format, tz = "")
   more characters.
 
   Some platforms support modifiers from POSIX 2008 (and others).  On
-  Linux/glibc the format \code{"\%04Y"} assures a minimum of four
+  Linux/\I{glibc} the format \code{"\%04Y"} assures a minimum of four
   characters and zero-padding (the default is no padding).  The internal
   code (as used on Windows and by default on macOS) uses zero-padding by
   default (this can be controlled by environment variable
@@ -360,7 +361,7 @@ strptime(x, format, tz = "")
 
   On some platforms (including Windows and by default on macOS) the
   system's \code{strftime} is replaced (along with most of the rest of
-  the C-level datetime code) by code modified from IANA's \samp{tzcode}
+  the C-level datetime code) by code modified from \abbr{IANA}'s \samp{tzcode}
   distribution (\url{https://www.iana.org/time-zones}).
 
   Note that as \code{strftime} is used for output (and not
@@ -432,6 +433,7 @@ as.character(z3) # ditto
 options(op)
 
 ## time zone names are not portable, but 'EST5EDT' comes pretty close.
+## (but its interpretation may not be universal: see ?timezones)
 z4 <- strptime(c("2006-01-08 10:07:52", "2006-08-07 19:33:02"),
                "\%Y-\%m-\%d \%H:\%M:\%S", tz = "EST5EDT")
 \donttest{z4 }

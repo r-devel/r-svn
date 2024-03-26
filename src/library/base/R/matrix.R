@@ -1,7 +1,7 @@
 #  File src/library/base/R/matrix.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,17 +30,14 @@ nrow <- function(x) dim(x)[1L]
 ncol <- function(x) dim(x)[2L]
 
 NROW <- function(x) if(length(d <- dim(x)))      d[1L] else length(x)
-NCOL <- function(x) if(length(d <- dim(x)) > 1L) d[2L] else 1L
+NCOL <- function(x)
+    if(is.null(x)) 0L else if(length(d <- dim(x)) > 1L) d[2L] else 1L
 
 rownames <- function(x, do.NULL = TRUE, prefix = "row")
 {
-    dn <- dimnames(x)
-    if(!is.null(dn[[1L]]))
-	dn[[1L]]
-    else {
+    dimnames(x)[[1L]] %||% if(do.NULL) NULL else {
         nr <- NROW(x)
-	if(do.NULL) NULL
-        else if(nr > 0L) paste0(prefix, seq_len(nr))
+        if(nr > 0L) paste0(prefix, seq_len(nr))
         else character()
     }
 }
@@ -68,14 +65,10 @@ rownames <- function(x, do.NULL = TRUE, prefix = "row")
 colnames <- function(x, do.NULL = TRUE, prefix = "col")
 {
     if(is.data.frame(x) && do.NULL)
-	return(names(x))
-    dn <- dimnames(x)
-    if(!is.null(dn[[2L]]))
-	dn[[2L]]
-    else {
+        names(x)
+    else dimnames(x)[[2L]] %||% if(do.NULL) NULL else {
         nc <- NCOL(x)
-	if(do.NULL) NULL
-        else if(nc > 0L) paste0(prefix, seq_len(nc))
+        if(nc > 0L) paste0(prefix, seq_len(nc))
         else character()
     }
 }
@@ -134,9 +127,9 @@ upper.tri <- function(x, diag = FALSE) {
     if(diag) .row(d) <= .col(d) else .row(d) < .col(d)
 }
 
-
-crossprod <- function(x, y=NULL) .Internal(crossprod(x,y))
-tcrossprod <- function(x, y=NULL) .Internal(tcrossprod(x,y))
+## R >= 4.4.0: are primitive
+## crossprod  <- function(x, y=NULL) .Internal( crossprod(x,y))
+## tcrossprod <- function(x, y=NULL) .Internal(tcrossprod(x,y))
 
 t <- function(x) UseMethod("t")
 ## t.default is <primitive>

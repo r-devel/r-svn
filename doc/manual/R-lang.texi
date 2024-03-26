@@ -87,11 +87,11 @@ manual details and defines the @R{} language.
 
 The @R{} language is a dialect of @Sl{} which was designed in the 1980s
 and has been in widespread use in the statistical community since.
-Its principal designer, John M. Chambers, was awarded the 1998 ACM
+Its principal designer, John M. Chambers, was awarded the 1998 @abbr{ACM}
 Software Systems Award for @Sl{}.
 
 The language syntax has a superficial similarity with C, but the
-semantics are of the FPL (functional programming language) variety with
+semantics are of the @abbr{FPL} (functional programming language) variety with
 stronger affinities with Lisp and @acronym{APL}.  In particular, it
 allows ``computing on the language'', which in turn makes it possible to
 write functions that take expressions as input, something that is often
@@ -104,7 +104,7 @@ go beyond that level, others will want to write their own functions
 either in an ad hoc fashion to systematize repetitive work or with the
 perspective of writing add-on packages for new functionality.
 
-The purpose of this manual is to document the language @emph{per se}.
+The purpose of this manual is to document the language @emph{@I{per se}}.
 That is, the objects that it works on, and the details of the expression
 evaluation process, which are useful to know when programming @R{}
 functions.  Major subsystems for specific tasks, such as graphics, are
@@ -127,10 +127,22 @@ preferred usage.
 
 Some familiarity with @R{} is assumed.  This is not an introduction to
 @R{} but rather a programmers' reference manual.  Other manuals provide
-complementary information: in particular @ref{Preface, , , R-intro, An
-Introduction to R} provides an introduction to @R{} and @ref{System and
-foreign language interfaces, , , R-exts, Writing R Extensions} details
-how to extend @R{} using compiled code.
+complementary information: in particular 
+@ifset UseExternalXrefs
+@ref{Preface, , , R-intro, An Introduction to R} 
+@end ifset
+@ifclear UseExternalXrefs
+manual `An Introduction to R'
+@end ifclear
+provides an introduction to @R{} and 
+@ifset UseExternalXrefs
+@ref{System and foreign language interfaces, , , R-exts, Writing R Extensions}
+@end ifset
+@ifclear UseExternalXrefs
+section `System and foreign language interfaces' in the `Writing R
+Extensions' manual 
+@end ifclear
+details how to extend @R{} using compiled code.
 
 
 
@@ -204,8 +216,8 @@ Users cannot easily get hold of objects of types marked with a `***'.
 @findex mode
 @cindex mode
 Function @code{mode} gives information about the @dfn{mode} of an object
-in the sense of Becker, Chambers & Wilks (1988), and is more compatible
-with other implementations of the @Sl{} language.
+in the sense of @I{Becker}, @I{Chambers} & @I{Wilks} (1988), and is more
+compatible with other implementations of the @Sl{} language.
 @c FIXME:
 @c Should say that many R functions, such as vector(), actually have an
 @c argument `mode' rather than `type'.  E.g., vector(mode = "double")
@@ -213,7 +225,7 @@ with other implementations of the @Sl{} language.
 @c </FIXME>
 @findex storage.mode
 Finally, the function @code{storage.mode} returns the @dfn{storage mode}
-of its argument in the sense of Becker et al.@: (1988).  It is generally
+of its argument in the sense of Becker @I{et al.}@: (1988).  It is generally
 used when calling functions written in another language, such as C or
 FORTRAN, to ensure that @R{} objects have the data type expected by the
 routine being called.  (In the @Sl{} language, vectors with integer or
@@ -289,7 +301,7 @@ the different vector types are listed in the following table.
 
 @quotation
 @multitable {@code{character}} {@code{character}} {@code{character}}
-@headitem typeof       @tab mode             @tab storage.mode
+@headitem @I{typeof}       @tab mode             @tab storage.mode
 @item @code{logical}   @tab @code{logical}   @tab @code{logical}
 @item @code{integer}   @tab @code{numeric}   @tab @code{integer}
 @item @code{double}    @tab @code{numeric}   @tab @code{double}
@@ -305,9 +317,11 @@ types.  Vectors with length zero are possible (and useful).
 
 A single element of a character vector is often referred to as a
 @emph{character string} or short @emph{string}.
-@footnote{Note that character vectors internally are @code{STRSXP} types and each
- element (we call @emph{string} above) is of C type @code{CHARSXP}
- (with @emph{internal only} @code{typeof(.) == "char"}, @pxref{typeof-char}).}
+@footnote{Note that, internally, character vectors are of type @code{STRSXP} and each
+element is of type @code{CHARSXP}
+(with @emph{internal only} @code{typeof(.) == "char"}, @pxref{typeof-char}).
+Thus, an @R{} @emph{string} is internally a @code{STRSXP} with one element, a
+@code{CHARSXP}.}
 
 
 @node List objects, Language objects, Vector objects, Basic types
@@ -624,10 +638,10 @@ be created by (e.g.) the @code{pairlist} function. A zero-length
 pairlist is @code{NULL}, as would be expected in Lisp but in contrast to
 a zero-length list.
 @findex pairlist
-Each such object has three slots, a CAR value, a CDR value and a TAG
-value.  The TAG value is a text string and CAR and CDR usually
+Each such object has three slots, a @I{CAR} value, a @I{CDR} value and a TAG
+value.  The TAG value is a text string and @I{CAR} and @I{CDR} usually
 represent, respectively, a list item (head) and the remainder (tail) of
-the list with a NULL object as terminator (the CAR/CDR terminology is
+the list with a NULL object as terminator (the @I{CAR}/@I{CDR} terminology is
 traditional Lisp and originally referred to the address and decrement
 registers on an early 60's IBM computer).
 @c FIXME: Check: Is it *required* that TAG is a STRSXP and CDR is a
@@ -776,8 +790,8 @@ series with periodic substructure such as monthly or quarterly data.
 @subsection Copying of attributes
 
 Whether attributes should be copied when an object is altered is a
-complex area, but there are some general rules (Becker, Chambers &
-Wilks, 1988, pp. 144--6).
+complex area, but there are some general rules (@I{Becker}, @I{Chambers}
+& @I{Wilks}, 1988, pp. 144--6).
 
 Scalar functions (those which operate element-by-element on a vector and
 whose output is similar to the input) should preserve attributes (except
@@ -791,7 +805,7 @@ operator.
 
 Subsetting (other than by an empty index) generally drops all attributes
 except @code{names}, @code{dim} and @code{dimnames} which are reset as
-appropriate.  On the other hand, subassignment generally preserves
+appropriate.  On the other hand, @I{subassignment} generally preserves
 attributes even if the length is changed.  Coercion drops all
 attributes.
 
@@ -1168,6 +1182,8 @@ below.
 @tab Kronecker product, binary
 @item @code{%in%}
 @tab Matching operator, binary (in model formulae: nesting)
+@item @code{%||%}
+@tab Null coalescing operator, binary
 @item @code{<}
 @tab Less than, binary
 @item @code{>}
@@ -1605,13 +1621,13 @@ or collation involving @code{NaN} will result in @code{NA}.  They are
 regarded as matching any @code{NaN} value (and no other value, not even
 @code{NA}) by @code{match}.
 
-The @code{NA} of character type is as from R 1.5.0 distinct from the
+The @code{NA} of character type is distinct from the
 string @code{"NA"}.  Programmers who need to specify an explicit string
 @code{NA} should use @samp{NA_character_} rather than @code{"NA"}, or
 set elements to @code{NA} using @code{is.na<-}.
 
-There are constants @code{NA_integer_}, @code{NA_real_},
-@code{NA_complex_} and @code{NA_character_} which will generate (in the
+The constants @code{NA_integer_}, @code{NA_real_},
+@code{NA_complex_} and @code{NA_character_} will generate (in the
 parser) an @code{NA} value of the appropriate type, and will be used in
 deparsing when it is not otherwise possible to identify the type of an
 @code{NA} (and the @code{control} options ask for this to be done).
@@ -1624,7 +1640,7 @@ There is no @code{NA} value for raw vectors.
 
 @R{} contains several constructs which allow access to individual
 elements or subsets through indexing operations.  In the case of the
-basic vector types one can access the i-th element using @code{x[i]},
+basic vector types one can access the @I{i-th} element using @code{x[i]},
 but there is also indexing of lists, matrices, and multi-dimensional
 arrays.  There are several forms of indexing in addition to indexing
 with a single integer.  Indexing can be used both to extract part of an
@@ -1651,7 +1667,7 @@ they have some slight semantic differences from the @code{[} form (e.g.
 it drops any @code{names} or @code{dimnames} attribute, and that partial
 matching is used for character indices).  When indexing
 multi-dimensional structures with a single index, @code{x[[i]]} or
-@code{x[i]} will return the @code{i}th sequential element of @code{x}.
+@code{x[i]} will return the @I{@code{i}-th} sequential element of @code{x}.
 
 For lists, one generally uses @code{[[} to select any single element,
 whereas @code{[} returns a list of the selected elements.
@@ -1950,13 +1966,13 @@ local(@{
 @})
 @end example
 uses the local value of @code{i} on both the LHS and RHS, and the local
-value of @code{e} on the RHS of the superassignment statement.  It sets
+value of @code{e} on the RHS of the @I{superassignment} statement.  It sets
 @code{e} in the outer environment to
 @example
  a  b 
  1 12
 @end example
-That is, the superassignment is equivalent to the four lines
+That is, the @I{superassignment} is equivalent to the four lines
 @example
 `*tmp*` <- get(e, envir=parent.env(), inherits=TRUE)
 `*tmp*`[i] <- e[i]+1
@@ -1985,7 +2001,7 @@ rm(`*tmp*`)
 These two candidate interpretations differ only if there is also a
 local variable @code{x}.  It is a good idea to avoid having a local
 variable with the same name as the target variable of a
-superassignment.  As this case was handled incorrectly in versions
+@I{superassignment}.  As this case was handled incorrectly in versions
 1.9.1 and earlier there must not be a serious need for such code.
 
 
@@ -2220,8 +2236,14 @@ if they want to, change the system level functions to functions that
 they find more appropriate.
 
 @R{} also provides facilities that make it easy to document any
-functions that you have created.  @xref{Writing R documentation, , ,
-R-exts, Writing R Extensions}.
+functions that you have created.  
+@ifset UseExternalXrefs
+@xref{Writing R documentation, , , R-exts, Writing R Extensions}.
+@end ifset
+@ifclear UseExternalXrefs
+See section `Writing R documentation' in the `Writing R Extensions'
+manual.
+@end ifclear
 
 @menu
 * Syntax and examples::         
@@ -2372,7 +2394,7 @@ matches exactly with the first part of a formal argument then the two
 arguments are considered to be matched.  It is an error to have multiple
 partial matches.  Notice that if @code{f <- function(fumble,
 fooey) fbody}, then @code{f(f = 1, fo = 2)} is illegal, even though the
-2nd actual argument only matches @code{fooey}.  @code{f(f = 1, fooey =
+@I{2nd} actual argument only matches @code{fooey}.  @code{f(f = 1, fooey =
 2)} @emph{is} legal though since the second argument matches exactly and
 is removed from consideration for partial matching.  If the formal
 arguments contain @code{...} then partial matching is only applied to
@@ -2803,8 +2825,8 @@ Consider the following simple example.  A point in two-dimensional
 Euclidean space can be specified by its Cartesian (x-y) or polar
 (r-theta) coordinates.  Hence, to store information about the location
 of the point, we could define two classes, @code{"xypoint"} and
-@code{"rthetapoint"}.  All the `xypoint' data structures are lists with
-an x-component and a y-component.  All `rthetapoint' objects are lists
+@code{"rthetapoint"}.  All the `@I{xypoint}' data structures are lists with
+an x-component and a y-component.  All `@I{rthetapoint}' objects are lists
 with an r-component and a theta-component.
 
 Now, suppose we want to get the x-position from either type of object.
@@ -2847,7 +2869,7 @@ The class attribute of an object can have several elements.  When a
 @cindex function, generic
 generic function is called the first inheritance is mainly handled
 through @code{NextMethod}.  @code{NextMethod} determines the method
-currently being evaluated, finds the next class from th
+currently being evaluated, finds the next class from the
 
 FIXME: something is missing here
 
@@ -2886,7 +2908,7 @@ When a generic function is invoked the class of its first argument is
 examined.
 
 @node UseMethod, NextMethod, Method dispatching, Object-oriented programming
-@section UseMethod
+@section @code{UseMethod}
 @findex UseMethod
 
 @code{UseMethod} is a special function and it behaves differently from
@@ -2950,11 +2972,11 @@ The body of the method is then evaluated in the standard fashion.  In
 particular variable look-up in the body follows the rules for the
 method.  So if the method has an associated environment then that is
 used.  In effect we have replaced the call to the generic by a call to
-the method.  Any local
+the method.  [Prior to @R{} 4.4.0 any local
 @cindex assignment
-assignments in the frame of the generic will be
-carried forward into the call to the method.  Use of this @emph{feature}
-is discouraged.  It is important to realize that control will never
+assignments in the frame of the generic would be
+carried forward into the call to the method; this is no longer the case.]
+It is important to realize that control will never
 return to the generic and hence any expressions after a call to
 @code{UseMethod} will never be executed.
 
@@ -2973,7 +2995,7 @@ is in contrast to @code{NextMethod} where the arguments in the call to
 the next method can be altered.
 
 @node NextMethod, Group methods, UseMethod, Object-oriented programming
-@section NextMethod
+@section @code{NextMethod}
 @findex NextMethod
 
 @code{NextMethod} is used to provide a simple inheritance mechanism.
@@ -2985,7 +3007,7 @@ call to the current method.  This means that they are the same as for
 the call to the generic.  However, the expressions for the arguments are
 the names of the corresponding formal arguments of the current method.
 Thus the arguments will have values that correspond to their value at
-the time NextMethod was invoked.
+the time @code{NextMethod} was invoked.
 
 Unevaluated arguments remain unevaluated.  Missing arguments remain
 missing.
@@ -3023,19 +3045,19 @@ An issue for discussion is the behaviour of the @code{...} argument to
 
 What I would like to do is:
 
--first do the argument matching for NextMethod;
+-first do the argument matching for @code{NextMethod};
   -if the object or generic are changed fine
   -first if a named list element matches an argument (named or not) the
   list value replaces the argument value.
   - the first unnamed list element
 
 Values for lookup:
- Class: comes first from .Class, second from the first argument to the
- method and last from the object specified in the call to NextMethod
+ Class: comes first from @code{.Class}, second from the first argument to the
+ method and last from the object specified in the call to @code{NextMethod}
 
- Generic: comes first from .Generic, if nothing then from the first
+ Generic: comes first from @code{.Generic}, if nothing then from the first
  argument to the method and if it's still missing from the call to
- NextMethod
+ @code{NextMethod}
 
  Method: this should just be the current function name.
 
@@ -3065,15 +3087,19 @@ The following table lists the functions for the different Groups.
 
 @table @samp
 @item Math
-abs, acos, acosh, asin, asinh, atan, atanh, ceiling, cos, cosh, cospi, cumsum,
-exp, floor, gamma, lgamma, log, log10, round, signif, sin, sinh, sinpi, 
-tan, tanh, tanpi, trunc
+@code{abs}, @code{acos}, @code{acosh}, @code{asin}, @code{asinh},
+@code{atan}, @code{atanh}, @code{ceiling}, @code{cos}, @code{cosh},
+@code{cospi}, @code{cumsum}, @code{exp}, @code{floor}, @code{gamma},
+@code{lgamma}, @code{log}, @code{log10}, @code{round}, @code{signif},
+@code{sin}, @code{sinh}, @code{sinpi}, @code{tan}, @code{tanh},
+@code{tanpi}, @code{trunc}
 
 @item Summary
-all, any, max, min, prod, range, sum
+@code{all}, @code{any}, @code{max}, @code{min}, @code{prod},
+@code{range}, @code{sum}
 
 @item Ops
-@code{+}, @code{-}, @code{*}, @code{/}, @code{^}, @code{<} , @code{>},
+@code{+}, @code{-}, @code{*}, @code{/}, @code{^}, @code{<}, @code{>},
 @code{<=}, @code{>=}, @code{!=}, @code{==}, @code{%%}, @code{%/%},
 @code{&}, @code{|}, @code{!}
 @end table
@@ -3267,13 +3293,13 @@ argument.
 
 This is a bit unfortunate, but it is not easy to write a
 @cindex parsing
-parser/deparser
+parser/@I{deparser}
 combination that both preserves user input, stores it in minimal form
 and ensures that parsing a deparsed expression gives the same expression
 back.
 
 As it happens, @R{}'s parser is not perfectly invertible, nor is its
-deparser, as the following examples show
+@I{deparser}, as the following examples show
 
 @example
 > str(quote(c(1,2)))
@@ -3526,7 +3552,7 @@ behaves almost identically to the compound language object
 Call objects are indistinguishable from subexpressions in a parse tree.
 This means that they are automatically evaluated in the same way a
 subexpression would be.  Expression objects can be recognized during
-evaluation and in a sense retain their quotedness.  The evaluator will
+evaluation and in a sense retain their @I{quotedness}.  The evaluator will
 not evaluate an expression object recursively, only when it is passed
 directly to @code{eval} function as above.  The difference can be seen
 like this:
@@ -3538,7 +3564,7 @@ like this:
 [1] "expression"
 @end example
 
-The deparser represents an expression object by the call
+The @I{deparser} represents an expression object by the call
 that creates it.  This is similar to the way it handles numerical
 vectors and several other objects that do not have a specific external
 representation.  However, it does lead to the following bit of
@@ -3579,7 +3605,7 @@ f(y = 1, 2, z = 3, 4)
 
 However, this is not really useful except for debugging because it
 requires the function to keep track of argument matching in order to
-interpret the call.  For instance, it must be able to see that the 2nd
+interpret the call.  For instance, it must be able to see that the @I{2nd}
 actual argument gets matched to the first formal one (@code{x} in the
 above example).
 
@@ -3865,9 +3891,15 @@ platform-independent way.
 @findex .Call
 @findex .External
 
-See @ref{System and foreign language interfaces, , , R-exts, Writing R
-Extensions} for the details of adding functionality to @R{} via compiled
-code.
+See
+@ifset UseExternalXrefs
+@ref{System and foreign language interfaces, , , R-exts, Writing R Extensions} 
+@end ifset
+@ifclear UseExternalXrefs
+section `System and foreign language interfaces' in the `Writing R
+Extensions' manual
+@end ifclear
+for the details of adding functionality to @R{} via compiled code.
 
 Functions @code{.C} and @code{.Fortran} provide a standard interface to
 compiled code that has been linked into @R{}, either at build time or
@@ -3885,7 +3917,13 @@ compiled code (primarily compiled @C{} code) to manipulate @R{} objects.
 
 The @code{.Internal} and @code{.Primitive} interfaces are used to call
 @C{} code compiled into @R{} at build time.
+@ifset UseExternalXrefs
 @xref{.Internal vs .Primitive, , , R-ints, R Internals}.
+@end ifset
+@ifclear UseExternalXrefs
+See section `.Internal vs .Primitive' in the `R Internals' manual.
+@end ifclear
+
 
 
 @node Exception handling, Debugging, System and foreign language interfaces, Top
@@ -4082,7 +4120,7 @@ Browse[1]>
 @end example
 
 @node debug/undebug, trace/untrace, browser, Debugging
-@section debug/undebug
+@section @code{debug}/@code{undebug}
 @findex debug
 @findex undebug
 
@@ -4299,8 +4337,10 @@ parser itself.
 
 There are five types of constants: integer, logical, numeric, complex and string.
 
-In addition, there are four special constants, @code{NULL}, @code{NA},
-@code{Inf}, and @code{NaN}.
+In addition, there is the special constant @code{NULL}.
+Also, the numeric @code{Inf}, and @code{NaN}, the logical
+@code{NA}, and @code{NA_character_}, @code{NA_integer_}, @code{NA_real_},
+and @code{NA_complex_} deserve mentioning; for the latter, see @ref{NA handling}.
 
 @code{NULL} is used to indicate the empty object.  @code{NA} is used for
 absent (``Not Available'') data values.  @code{Inf} denotes infinity and
@@ -4308,7 +4348,7 @@ absent (``Not Available'') data values.  @code{Inf} denotes infinity and
 (results of the operations respectively @math{1/0} and @math{0/0}, for
 instance).
 
-Logical constants are either @code{TRUE} or @code{FALSE}.
+Logical constants are either @code{TRUE}, @code{FALSE} or @code{NA}.
 
 Numeric constants follow a similar syntax to that of the @C{} language.
 They consist of an integer part consisting of zero or more digits,
@@ -4409,7 +4449,7 @@ eight hex digits.
 A single quote may also be embedded directly in a double-quote delimited
 string and vice versa.
 
-A `nul' (@code{\0}) is not allowed in a character string, so using
+A @abbr{NUL} (@code{\0}) is not allowed in a character string, so using
 @code{\0} in a string constant terminates the constant (usually with a
 warning): further characters up to the closing quote are scanned but
 ignored.
@@ -4470,10 +4510,10 @@ string of characters delimited by the @samp{%} character.  The string
 can contain any printable character except @samp{%}.  The escape sequences
 for strings do not apply here.
 
-Note that the following operators are predefined
+Note that the following operators are predefined:
 
 @example
-%% %*% %/% %in% %o% %x%
+%% %*% %/% %in% %o% %x% %||%
 @end example
 
 @c  @node Special symbols, Separators, Special operators, Tokens
@@ -4488,7 +4528,7 @@ Note that the following operators are predefined
 @subsection Separators
 
 Although not strictly tokens, stretches of whitespace characters
-(spaces, tabs and formfeeds, on Windows and UTF-8 locales other Unicode
+(spaces, tabs and form feeds, on Windows and UTF-8 locales other Unicode
 whitespace characters@footnote{such as @code{U+A0}, non-breaking space,
 and @code{U+3000}, ideographic space.}) serve to delimit tokens in case of
 ambiguity, (compare @code{x<-5} and @code{x < -5}).
@@ -4521,7 +4561,7 @@ indices.
 
 @quotation
 @multitable @columnfractions 0.3 0.6
-@item @code{+ - * / %% ^} @tab arithmetic
+@item @code{+ - * / %% %/% ^} @tab arithmetic
 @item @code{> >= < <= == !=} @tab relational
 @item @code{! & |} @tab logical
 @item @code{~} @tab model formulae
@@ -4690,7 +4730,7 @@ similar although with somewhat different semantics:
 @findex [[
 
 The @var{object} can formally be any valid expression, but it is
-understood to denote or evaluate to a subsettable object.  The arguments
+understood to denote or evaluate to a @I{subsettable} object.  The arguments
 generally evaluate to numerical or character indices, but other kinds of
 arguments are possible (notably @code{drop = FALSE}).
 
@@ -4832,8 +4872,9 @@ diagnostic messages refer to the original file.
 @node References,  , Concept Index, Top
 @appendix References
 
-Richard A.@: Becker, John M.@: Chambers and Allan R.@: Wilks (1988),
-@emph{The New S Language.} Chapman & Hall, New York.
+@I{Richard A.@: Becker}, @I{John M.@: Chambers} and @I{Allan R.@: Wilks} (1988),
+@emph{The New S Language.}
+Chapman & Hall, New York.
 This book is often called the ``@emph{Blue Book}''.
 
 @bye

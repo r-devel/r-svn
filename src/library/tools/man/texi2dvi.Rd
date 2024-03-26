@@ -9,7 +9,7 @@
 \title{Compile LaTeX Files}
 \description{
   Run \code{latex}/\code{pdflatex}, \code{makeindex} and \code{bibtex}
-  until all cross-references are resolved to create a dvi or a PDF file.
+  until all cross-references are resolved to create a \abbr{DVI} or a PDF file.
 }
 \usage{
 texi2dvi(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
@@ -23,19 +23,19 @@ texi2pdf(file, clean = FALSE, quiet = TRUE,
 \arguments{
   \item{file}{character string.  Name of the LaTeX source file.}
   \item{pdf}{logical.  If \code{TRUE}, a PDF file is produced instead of
-    the default dvi file (\code{texi2dvi} command line option \option{--pdf}).}
+    the default \abbr{DVI} file (\code{texi2dvi} command line option \option{--pdf}).}
   \item{clean}{logical.  If \code{TRUE}, all auxiliary files created
     during the conversion are removed.}
   \item{quiet}{logical.  No output unless an error occurs.}
   \item{texi2dvi}{character string (or \code{NULL}).  Script or program
-    used to compile a TeX file to dvi or PDF. The default (selected
+    used to compile a TeX file to \abbr{DVI} or PDF. The default (selected
     by \code{""} or \code{"texi2dvi"} or \code{NULL}) is to look
     for a program or script named \command{texi2dvi} on the path and
     otherwise emulate the script with \code{system2} calls (which
     can be selected by the value \code{"emulation"}).  See also
     \sQuote{Details}.} 
   \item{texinputs}{\code{NULL} or a character vector of paths to add to
-    the LaTeX and bibtex input search paths.}
+    the LaTeX and BibTeX input search paths.}
   \item{index}{logical: should indices be prepared?}
 }
 \details{
@@ -68,14 +68,14 @@ texi2pdf(file, clean = FALSE, quiet = TRUE,
 #endif
 
 #ifdef windows
-  On Windows the option \code{"texi2dvi"} is normally unset.  The MiKTeX
+  On Windows the option \code{"texi2dvi"} is normally unset.  The \I{MiKTeX}
   command \command{texify.exe} is a suitable choice for \code{texi2dvi},
   and is tried as from \R 3.2.3 if the argument is blank or \code{NULL}
   and a program or script \code{texi2dvi} is not found.
 
-  MiKTeX had a \code{texi2dvi} executable until Sept 2015, but no other
+  \I{MiKTeX} had a \code{texi2dvi} executable until Sept 2015, but no other
   Windows TeX installation that we know of does, so emulation is used on
-  e.g.\sspace{}TeXLive installations on Windows.
+  e.g.\sspace{}\I{TeXLive} installations on Windows.
 #endif
 
   Occasionally indices contain special characters which cause indexing
@@ -105,7 +105,7 @@ texi2pdf(file, clean = FALSE, quiet = TRUE,
   such files).
   
   Where supported (\command{texi2dvi} 5.0 and later;
-  \command{texify.exe} from MiKTeX), option \option{--max-iterations=20}
+  \command{texify.exe} from \I{MiKTeX}), option \option{--max-iterations=20}
   is used to avoid infinite retries.
   
   The emulation mode supports \code{quiet = TRUE} from \R 3.2.3 only.
@@ -118,11 +118,11 @@ texi2pdf(file, clean = FALSE, quiet = TRUE,
   full paths to the corresponding commands.
 }
 \value{
-  Invisible \code{NULL}.  Used for the side effect of creating a dvi or
+  Invisible \code{NULL}.  Used for the side effect of creating a \abbr{DVI} or
   PDF file in the current working directory (and maybe other files,
   especially if \code{clean = FALSE}).
 }
 \author{
-  Originally Achim Zeileis but largely rewritten by R-core.
+  Originally \I{Achim Zeileis} but largely rewritten by R-core.
 }
 \keyword{utilities}

@@ -768,13 +768,6 @@ stopifnot(length(strsplit(msg,"\n")[[1]]) == 1+3+1)
 ## was wrong for months in R-devel only
 
 
-## available.packages() (not) caching in case of errors
-tools::assertWarning(ap1 <- available.packages(repos = "http://foo.bar"))
-tools::assertWarning(ap2 <- available.packages(repos = "http://foo.bar"))
-stopifnot(nrow(ap1) == 0, identical(ap1, ap2))
-## had failed for a while in R-devel (left empty *.rds file)
-
-
 ## rep()/rep.int() : when 'times' is a list
 stopifnot(exprs = {
     identical(rep    (4,   list(3)), c(4,4,4))
@@ -896,8 +889,8 @@ set.seed(7)
 cf2 <- t(sapply(2:50, function(k) {
     x <- sample.int(k)
     line(x, 1-2*x)$coefficients }))
-stopifnot(all.equal(cfs, matrix(c(2,  1), 49, 2, byrow=TRUE), tol = 1e-14), # typically exact
-          all.equal(cf2, matrix(c(1, -2), 49, 2, byrow=TRUE), tol = 1e-14))
+stopifnot(all.equal(cfs, matrix(c(2,  1), 49, 2, byrow=TRUE), tolerance = 1e-14), # typically exact
+          all.equal(cf2, matrix(c(1, -2), 49, 2, byrow=TRUE), tolerance = 1e-14))
 ## had incorrect medians of the left/right third of the data (x_L, x_R), in R < 3.5.0
 
 ## aggregate.data.frame() producing spurious names  PR#17283
@@ -911,7 +904,7 @@ stopifnot(exprs = {
     identical(unlist(a2$Population), a1$Population)
     all.equal(unlist(a2$Population),
               c(8802.8, 4208.12, 7233.83, 4582.57, 1360.5, 2372.17, 970.167),
-              tol = 1e-6)
+              tolerance = 1e-6)
 })
 ## in R <= 3.4.x, a2$Population had spurious names
 
@@ -1674,7 +1667,7 @@ if(requireNamespace('Matrix', lib.loc=.Library, quietly = TRUE)) {
     stopifnot(exprs = {
 	inherits(SM, "sparseMatrix")
 	all.equal(scale(SM, Matrix::colMeans(SM)),
-		  scale(SM, Matrix::colMeans(SM, sparse=TRUE)),
+		  scale(SM, Matrix::colMeans(SM, sparseResult=TRUE)),
 		  check.attributes=FALSE)
     })
 }
@@ -3117,7 +3110,7 @@ stopifnot(is.character(mc), inherits(mc, "MethodsFunction"),
 
 
 ## PR#17580 -- using max.lines, "truncated"
-op <- options(error = expression(NULL)) # {careful! : errors do *NOT* stop}
+op <- options(catch.script.errors = TRUE) # {careful! : errors do *NOT* stop}
 is.t.back <- function(x) is.pairlist(x) && all(vapply(x, is.character, NA))
 f <- function(...) stop(deparse(substitute(...)))
 g <- function(...) f(...)
@@ -3283,8 +3276,8 @@ a1 <- structure(array(1:7,  7  ), class = "foo")
 a3 <- structure(array(1:24, 2:4), class = "foo")
 stopifnot(exprs = {
     ## these all work as previously
-    head(cForm,1) == `~`()
-    head(cForm,2) == ~some
+    head(cForm,1) == quote(`~`())
+    head(cForm,2) == quote(~some)
     head(cForm) == cForm
     is.call(cl <- quote((Days|Subject)))
     is.call(fL)
@@ -3657,10 +3650,10 @@ stopifnot(identical(y ~ x + x1, UFN[[1]]))
 
 
 ## Corner cases in choose(),
-## misbehaved when n was _nearly_ int, and n - k < k
-stopifnot(choose(4 - 1e-7, 4) == 1)
-stopifnot(choose(4 + 1e-7, 4) == 1)
-## These gave 0 and 4 in R <= 3.6.x
+## misbehaved when n was _nearly_ int, and n - k < k ; thread ending at .../r-devel/2020-January/078948.html
+eps <- c(outer(10^-(6:9), -20:20)) # choose( ~4, 4) ~ 1 :
+stopifnot(abs(choose(4+eps, 4) - 1) < 1e-4)
+## choose(4 -/+ 1e-7, 4) gave 0 and 4 in R <= 3.6.x
 
 
 ## correct error message:
@@ -5220,7 +5213,7 @@ psmm.o <- lapply(h.u, function(hu)
     lapply(fsS, function(f) # older R: f.min = 20 hardwired:
         lapply(nns, pretty, x = c(0, mm/f), high.u=hu, f.min = 20) ))
 summary(warnings())## many; mostly  "very small range 'cell'=0, corrected to 4.45015e-307"
-(To <- table(psAo <- unlist(psmm.o)))
+(To <- table(psAo <- signif(unlist(psmm.o), 13)))
 (nTo <- as.numeric(names(To)))
 range(rEdo <- abs(5e-307/diff(nTo) - 1))
 stopifnot(nTo >= 0, length(nTo) == 11,
@@ -5484,7 +5477,7 @@ stopifnot(eval(e3) == 2.5,
 m <- tryCmsg(remove.packages("stats"))
 if(englishMsgs)
     stopifnot(grepl("a base package\\b.*\\bcannot be removed", m))
-stopifnot(is.function(mad))# 'stats' still there ..
+stopifnot(dir.exists(file.path(.Library, "stats")))# 'stats' still there ..
 
 
 ## check that internal index in lapply is guarded against mutation
@@ -5608,7 +5601,7 @@ stopifnot(is.list(h1), length(h1) == 1, is.function(h1$message))
 stopifnot(identical(capture.output(message("boom")), "Hey, message : boom"))
 ## Now try to remove all global calling handlers while having active
 ## calling handlers; gives a non-tryCatch()able (!) error, hence:
-op <- options(error = expression(NULL)) # careful!!
+op <- options(catch.script.errors = TRUE) # careful!!
 ## ... "should not be called with handlers on the stack"  [as expected]
 withCallingHandlers(globalCallingHandlers(NULL), foo = identity)
 options(op)# revert to sanity.  Then:

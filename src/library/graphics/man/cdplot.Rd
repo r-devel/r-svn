@@ -82,7 +82,7 @@ cdplot(x, \dots)
   conditional distributions}, Unpublished Manuscript.
 }
 \author{
-  Achim Zeileis \email{Achim.Zeileis@R-project.org}
+  \I{Achim Zeileis} \email{Achim.Zeileis@R-project.org}
 }
 \examples{
 ## NASA space shuttle o-ring failures

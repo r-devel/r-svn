@@ -321,7 +321,7 @@ findMatches(pattern, values, fuzzy)
     .assignStart(start)
     .assignEnd(end)
 
-    .completeToken()
+    .completeToken(custom = TRUE)
     .retrieveCompletions()
     .getFileComp()
 
@@ -345,7 +345,9 @@ findMatches(pattern, values, fuzzy)
   \code{rc.options("custom.completer")}; if not \code{NULL}, this
   function is called to compute potential completions.  This facility is
   meant to help in situations where completing as R code is not
-  appropriate. See source code for more details.
+  appropriate. See source code for more details. Custom completion can
+  be disabled by setting \code{custom = FALSE} when calling
+  \code{.completeToken}.
 
   If the cursor is inside quotes, completion may be suppressed.  The
   function \code{.getFileComp} can be used after a call to
@@ -355,13 +357,13 @@ findMatches(pattern, values, fuzzy)
 
   The \code{.guessTokenFromLine} function is provided for use with
   backends that do not already break a line into tokens.  It requires
-  the linebuffer and endpoint (cursor position) to be already set, and
+  the \I{linebuffer} and endpoint (cursor position) to be already set, and
   itself sets the token and the start position.  It returns the token as
   a character string.
 
   The \code{.win32consoleCompletion} is similar in spirit, but is more
   geared towards the Windows GUI (or rather, any front-end that has no
-  completion facilities of its own).  It requires the linebuffer
+  completion facilities of its own).  It requires the \I{linebuffer}
   and cursor position as arguments, and returns a list with three
   components, \code{addition}, \code{possible} and \code{comps}.  If
   there is an unambiguous extension at the current position,
@@ -380,9 +382,9 @@ findMatches(pattern, values, fuzzy)
   to try completion on every keypress).  If \code{check.repeat} is
   \code{TRUE}, it is detected if the same completion is being requested
   more than once in a row, and ambiguous completions are returned only
-  in that case.  This is an attempt to emulate GNU Readline behaviour,
+  in that case.  This is an attempt to emulate \I{GNU Readline} behaviour,
   where a single TAB completes up to any unambiguous part, and multiple
-  possibilities are reported only on two consecutive TABs.
+  possibilities are reported only on two consecutive \abbr{TAB}s.
 
   As the various front-end interfaces evolve, the details of these
   functions are likely to change as well.

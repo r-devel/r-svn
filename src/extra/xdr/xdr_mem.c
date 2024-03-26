@@ -38,8 +38,8 @@ static uint32_t ntohl (uint32_t x)
 /*********************************************************************
  * RPC for the Windows NT Operating System
  * 1993 by Martin F. Gergeleit
- * Users may use, copy or modify Sun RPC for the Windows NT Operating 
- * System according to the Sun copyright below.
+ * Users may use, copy or modify RPC for the Windows NT Operating 
+ * System according to the Oracle copyright below.
  *
  * RPC for the Windows NT Operating System COMES WITH ABSOLUTELY NO 
  * WARRANTY, NOR WILL I BE LIABLE FOR ANY DAMAGES INCURRED FROM THE 
@@ -48,47 +48,43 @@ static uint32_t ntohl (uint32_t x)
 
 /* @(#)xdr_mem.c	2.1 88/07/29 4.0 RPCSRC */
 /*
- * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
- * unrestricted use provided that this legend is included on all tape
- * media and as a part of the software program in whole or part.  Users
- * may copy or modify Sun RPC without charge, but are not authorized
- * to license or distribute it to anyone else except as part of a product or
- * program developed by the user.
- * 
- * SUN RPC IS PROVIDED AS IS WITH NO WARRANTIES OF ANY KIND INCLUDING THE
- * WARRANTIES OF DESIGN, MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE, OR ARISING FROM A COURSE OF DEALING, USAGE OR TRADE PRACTICE.
- * 
- * Sun RPC is provided with no support and without any obligation on the
- * part of Sun Microsystems, Inc. to assist in its use, correction,
- * modification or enhancement.
- * 
- * SUN MICROSYSTEMS, INC. SHALL HAVE NO LIABILITY WITH RESPECT TO THE
- * INFRINGEMENT OF COPYRIGHTS, TRADE SECRETS OR ANY PATENTS BY SUN RPC
- * OR ANY PART THEREOF.
- * 
- * In no event will Sun Microsystems, Inc. be liable for any lost revenue
- * or profits or other special, indirect and consequential damages, even if
- * Sun has been advised of the possibility of such damages.
- * 
- * Sun Microsystems, Inc.
- * 2550 Garcia Avenue
- * Mountain View, California  94043
- */
-#if !defined(lint) && defined(SCCSIDS)
-static char sccsid[] = "@(#)xdr_mem.c 1.19 87/08/11 Copyr 1984 Sun Micro";
-#endif
-
-/*
- * xdr_mem.h, XDR implementation using memory buffers.
+ * xdr_mem.c, XDR implementation using memory buffers.
  *
- * Copyright (C) 1984, Sun Microsystems, Inc.
+ * Copyright (c) 2010, Oracle America, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials
+ *       provided with the distribution.
+ *     * Neither the name of the "Oracle America, Inc." nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *   COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ *   INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *   GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *   WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ *   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * If you have some data to be interpreted as external data representation
  * or to be converted to external data representation in a memory buffer,
  * then this is the package for you.
- *
  */
+#if !defined(lint) && defined(SCCSIDS)
+static char sccsid[] = "@(#)xdr_mem.c 1.19 87/08/11 Copyr 2010 Oracle America";
+#endif
 
 #include <string.h> /* for memcpy */
 #include <rpc/types.h>
@@ -97,14 +93,14 @@ static char sccsid[] = "@(#)xdr_mem.c 1.19 87/08/11 Copyr 1984 Sun Micro";
 /* The use of 'long' here would be problematic if it were ever to be
    used on a 64-bit system */
 
-static bool_t	xdrmem_getlong();
-static bool_t	xdrmem_putlong();
-static bool_t	xdrmem_getbytes();
-static bool_t	xdrmem_putbytes();
-static u_int	xdrmem_getpos();
-static bool_t	xdrmem_setpos();
-static long *	xdrmem_inline();
-static void	xdrmem_destroy();
+static bool_t	xdrmem_getlong(XDR *xdrs, int32_t *lp);
+static bool_t	xdrmem_putlong(XDR *xdrs, int32_t *lp);
+static bool_t	xdrmem_getbytes(XDR *, caddr_t, u_int);
+static bool_t	xdrmem_putbytes(XDR *, caddr_t, u_int);
+static u_int	xdrmem_getpos(XDR *);
+static bool_t	xdrmem_setpos(XDR *, u_int);
+static long *	xdrmem_inline(XDR *, u_int);
+static void	xdrmem_destroy(XDR *);
 
 static struct	xdr_ops xdrmem_ops = {
 	xdrmem_getlong,
@@ -122,11 +118,11 @@ static struct	xdr_ops xdrmem_ops = {
  * memory buffer.  
  */
 void
-xdrmem_create(xdrs, addr, size, op)
-	register XDR *xdrs;
-	caddr_t addr;
-	u_int size;
-	enum xdr_op op;
+xdrmem_create(
+	register XDR *xdrs,
+	caddr_t addr,
+	u_int size,
+	enum xdr_op op)
 {
 
 	xdrs->x_op = op;
@@ -136,8 +132,8 @@ xdrmem_create(xdrs, addr, size, op)
 }
 
 static void
-xdrmem_destroy(/*xdrs*/)
-	/*XDR *xdrs;*/
+xdrmem_destroy(
+	XDR *xdrs)
 {
 }
 
@@ -164,10 +160,10 @@ xdrmem_putlong(XDR *xdrs, int32_t *lp)
 }
 
 static bool_t
-xdrmem_getbytes(xdrs, addr, len)
-	register XDR *xdrs;
-	caddr_t addr;
-	register u_int len;
+xdrmem_getbytes(
+	register XDR *xdrs,
+	caddr_t addr,
+	register u_int len)
 {
 
 	if ((xdrs->x_handy -= len) < 0)
@@ -178,10 +174,10 @@ xdrmem_getbytes(xdrs, addr, len)
 }
 
 static bool_t
-xdrmem_putbytes(xdrs, addr, len)
-	register XDR *xdrs;
-	caddr_t addr;
-	register u_int len;
+xdrmem_putbytes(
+	register XDR *xdrs,
+	caddr_t addr,
+	register u_int len)
 {
 
 	if ((xdrs->x_handy -= len) < 0)
@@ -192,17 +188,17 @@ xdrmem_putbytes(xdrs, addr, len)
 }
 
 static u_int
-xdrmem_getpos(xdrs)
-	register XDR *xdrs;
+xdrmem_getpos(
+	register XDR *xdrs)
 {
 
 	return ((uintptr_t)xdrs->x_private - (uintptr_t)xdrs->x_base);
 }
 
 static bool_t
-xdrmem_setpos(xdrs, pos)
-	register XDR *xdrs;
-	u_int pos;
+xdrmem_setpos(
+	register XDR *xdrs,
+	u_int pos)
 {
 	register caddr_t newaddr = xdrs->x_base + pos;
 	register caddr_t lastaddr = xdrs->x_private + xdrs->x_handy;
@@ -215,9 +211,9 @@ xdrmem_setpos(xdrs, pos)
 }
 
 static long *
-xdrmem_inline(xdrs, len)
-	register XDR *xdrs;
-	int len;
+xdrmem_inline(
+	register XDR *xdrs,
+	u_int len)
 {
 	long *buf = 0;
 

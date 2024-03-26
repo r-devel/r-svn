@@ -1,6 +1,6 @@
 % File src/library/base/man/Dates.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Dates}
@@ -14,7 +14,6 @@
 \alias{[<-.Date}
 \alias{length<-.Date}
 \alias{[[.Date}
-\alias{as.data.frame.Date}
 \alias{as.list.Date}
 \alias{c.Date}
 \alias{mean.Date}
@@ -48,7 +47,7 @@
   that calendar was not in use long ago (it was adopted in 1752 in
   Great Britain and its colonies).  When printing there is assumed to
   be a year zero.
-  % man cal on Linux refers to this as 'the Britixh empire'
+  % man cal on Linux refers to this as 'the British empire'
   
   It is intended that the date should be an integer value, but this is
   not enforced in the internal representation.  Fractional days will be

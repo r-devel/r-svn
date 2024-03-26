@@ -65,6 +65,7 @@
  EncodeReal2
  HASHASH
  INIT_BNDCELL
+ IF_PROMSXP_SET_PRVALUE
  IS_ACTIVE_BINDING
  IS_BYTES
  IS_LATIN1
@@ -81,6 +82,8 @@
  NO_SPECIAL_SYMBOLS
  PrintUsage
  ProfileEvent
+ PROMISE_IS_EVALUATED
+ REvprintf_internal
  RExitContext
  R_BCIntActive
  R_BCNodeStackBase
@@ -136,7 +139,6 @@
  R_InitSrcRefState
  R_InitialData
  R_InsertRestartHandlers
- R_Interactive
  R_IoBufferFree
  R_IoBufferGetc
  R_IoBufferInit
@@ -168,7 +170,6 @@
  R_PCRE_limit_recursion
  R_PCRE_study
  R_PCRE_use_JIT
- R_PPStackSize
  R_Parse1Buffer
  R_Parse1File
  R_ParseBuffer
@@ -246,7 +247,6 @@
  R_do_set_class
  R_dotCallFn
  R_dot_Class
- R_dot_Generic
  R_dot_GenericCallEnv
  R_dot_GenericDefEnv
  R_dot_Group
@@ -277,7 +277,7 @@
  R_has_methods
  R_in_gc
  R_initAsignSymbols
- R_initAssignSymbols
+ R_initEvalSymbols
  R_init_altrep
  R_init_base
  R_init_jit_enabled
@@ -300,6 +300,7 @@
  R_makeNotSubsettableError
  R_makeOutOfBoundsError
  R_max_num_math_threads
+ R_missing
  R_mkEVPROMISE_NR
  R_mktime
  R_moduleCdynload
@@ -350,6 +351,7 @@
  Rconn_getline
  Rcons_vprintf
  Rconsolesetwidth
+ Rf_applyClosure
  Rf_AdobeSymbol2ucs2
  Rf_BindDomain
  Rf_CheckFormals
@@ -510,9 +512,7 @@
  Rf_tspgets
  Rf_ucstomb
  Rf_unbindVar
- Rf_unpromiseArgs
  Rf_usemethod
- Rf_utf8toucs
  Rf_utf8toucs32
  Rf_vectorIndex
  Rf_wcs4toutf8
@@ -771,6 +771,7 @@
  do_curlGetHeaders
  do_curlVersion
  do_date
+ do_declare
  do_debug
  do_delayed
  do_deparse
@@ -1156,6 +1157,7 @@
  do_sysumask
  do_syswhich
  do_tabulate
+ do_tailcall
  do_tempdir
  do_tempfile
  do_textconnection
@@ -1463,7 +1465,6 @@
  lzma_vli_size
  mb_char_len
  mbcsTruncateToValid
- mbcsValid
  menuclear
  menuconfig
  menueditornew
@@ -1660,7 +1661,6 @@
  tzname
  tzset
  unregisterBase
- utf8clen
  wgl_hist_init
  wgl_hist_next
  wgl_hist_prev

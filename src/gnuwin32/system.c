@@ -80,8 +80,8 @@ Rboolean DebugMenuitem = FALSE;  /* exported for rui.c */
 static FILE *ifp = NULL;
 static char *ifile = NULL;
 
-__declspec(dllexport) UImode  CharacterMode = RGui; /* some compilers want initialized for export */
-__declspec(dllexport) Rboolean EmitEmbeddedUTF8 = FALSE;
+UImode  CharacterMode = RGui; /* some compilers want initialized for export */
+Rboolean EmitEmbeddedUTF8 = FALSE;
 int ConsoleAcceptCmd;
 Rboolean set_workspace_name(const char *fn); /* ../main/startup.c */
 
@@ -90,7 +90,7 @@ Rboolean AllDevicesKilled = FALSE;
 
 static char oldtitle[512];
 
-__declspec(dllexport) Rboolean UserBreak = FALSE;
+Rboolean UserBreak = FALSE;
 
 /* callbacks */
 static void R_DoNothing(void) {}
@@ -99,7 +99,7 @@ static void R_DoNothing(void) {}
  *   Called at I/O, during eval etc to process GUI events.
  */
 
-typedef void (*DO_FUNC)();
+typedef void (*DO_FUNC)(void);
 static void (* R_Tcl_do)(void) = NULL; /* Initialized to be sure */
 
 void set_R_Tcldo(DO_FUNC ptr)
@@ -292,8 +292,9 @@ GuiReadConsole(const char *prompt, unsigned char *buf, int len,
                int addtohistory)
 {
     int res;
+    const void *vmax = vmaxget();
     const char *NormalPrompt =
-	CHAR(STRING_ELT(GetOption1(install("prompt")), 0));
+	translateChar(STRING_ELT(GetOption1(install("prompt")), 0));
 
     if(!R_is_running) {
 	R_is_running = 1;
@@ -302,6 +303,8 @@ GuiReadConsole(const char *prompt, unsigned char *buf, int len,
     ConsoleAcceptCmd = !strcmp(prompt, NormalPrompt);
     res = consolereads(RConsole, prompt, (char *)buf, len, addtohistory);
     ConsoleAcceptCmd = 0;
+    vmaxset(vmax);
+
     return !res;
 }
 
@@ -430,8 +433,12 @@ FileReadConsole(const char *prompt, unsigned char *buf, int len, int addhistory)
 	*ob = '\0';
 	err = (res == (size_t)(-1));
 	/* errors lead to part of the input line being ignored */
-	if(err) printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
+	if(err) {
+	    Riconv(cd, NULL, NULL, &ob, &onb);
+	    *ob = '\0';
+	    printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
 		       R_StdinEnc);
+	}
 	strncpy((char *)buf, obuf, len);
     }
 
@@ -674,7 +681,7 @@ int R_ShowFiles(int nfile, const char **file, const char **headers,
 			snprintf(buf, 1024,
 				 _("cannot open file '%s': %s"),
 				 file[i], strerror(errno));
-			warning(buf);
+			warning("%s", buf);
 		    }
 		} else {
 		    /* Quote path if not quoted */
@@ -683,13 +690,13 @@ int R_ShowFiles(int nfile, const char **file, const char **headers,
 		    else
 			snprintf(buf, 1024, "%s \"%s\"", pager, file[i]);
 		    ll = runcmd(buf, CE_NATIVE, 0, 1, NULL, NULL, NULL);
-		    if (ll == NOLAUNCH) warning(runerror());
+		    if (ll == NOLAUNCH) warning("%s", runerror());
 		}
 	    } else {
 		snprintf(buf, 1024,
 			 _("file.show(): file '%s' does not exist\n"),
 			 file[i]);
-		warning(buf);
+		warning("%s", buf);
 	    }
 	}
 	return 0;
@@ -730,7 +737,7 @@ int R_EditFiles(int nfile, const char **file, const char **title,
 		else
 		    snprintf(buf, 1024, "%s \"%s\"", editor, file[i]);
 		ll = runcmd(buf, CE_UTF8, 0, 1, NULL, NULL, NULL);
-		if (ll == NOLAUNCH) warning(runerror());
+		if (ll == NOLAUNCH) warning("%s", runerror());
 	    }
 
 	}
@@ -877,7 +884,11 @@ void R_SetWin32(Rstart Rp)
     char *gccversion = (char *)malloc(30);
     if (!gccversion)
 	R_Suicide("Allocation error");
+#ifdef __clang__
+    snprintf(gccversion, 30, "R_COMPILED_BY=clang %d.%d.%d", __clang_major__, __clang_minor__, __clang_patchlevel__);
+#else
     snprintf(gccversion, 30, "R_COMPILED_BY=gcc %d.%d.%d", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif
     putenv(gccversion);
     /* no free here: storage remains in use */
 
@@ -1063,7 +1074,12 @@ int cmdlineoptions(int ac, char **av)
     Rboolean usedRdata = FALSE, processing = TRUE;
 
     /* ensure R_Home gets set early: we are in rgui or rterm here */
-    RHome = getRHOME(3);
+    int dirstrip = 2;
+#ifdef R_ARCH
+    if (strlen(R_ARCH) > 0)
+	dirstrip++;
+#endif 
+    RHome = getRHOME(dirstrip);
     if(!RHome)
 	R_Suicide("Invalid R_HOME");
     R_Home = RHome;
@@ -1371,7 +1387,7 @@ void saveConsoleTitle(void)
  * This function returns 16,777,216 based on
  * https://blogs.technet.microsoft.com/markrussinovich/2009/09/29/pushing-the-limits-of-windows-handles
  */
-int R_GetFDLimit()
+int R_GetFDLimit(void)
 {
     long limit = 16L*1024L*1024L;
     return (limit > INT_MAX) ? INT_MAX : limit;

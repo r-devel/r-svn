@@ -51,7 +51,7 @@ capabilities(what = NULL,
     contacted unless a \code{X11} device has already been used.}
 
   \item{aqua}{is the \code{\link{quartz}} function operational?
-    Only on some macOS builds, including \acronym{CRAN} binary
+    Only on some macOS builds, including \abbr{CRAN} binary
     distributions of \R.
 
     Note that this is distinct from \code{.Platform$GUI == "AQUA"},
@@ -114,7 +114,7 @@ capabilities(what = NULL,
 
     Although not guaranteed, it is a reasonable assumption that if
     present long doubles will have at least as much range and accuracy
-    as the ISO/IEC 60559 80-bit \sQuote{extended precision} format.  Since
+    as the ISO/\abbr{IEC} 60559 80-bit \sQuote{extended precision} format.  Since
     \R{}\sspace{}4.0.0 \code{\link{.Machine}} gives information on the
     long-double type (if present).
   }

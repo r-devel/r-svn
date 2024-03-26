@@ -106,10 +106,10 @@ comments about when features were introduced: this version is for the
 @end menu
 
 @node SEXPs, Environments and variable lookup, R Internal Structures, R Internal Structures
-@section SEXPs
+@section @I{SEXPs}
 
-@cindex SEXP
-@cindex SEXPRREC
+@cindex @I{SEXP}
+@cindex @I{SEXPREC}
 What @R{} users think of as @emph{variables} or @emph{objects} are
 symbols which are bound to a value.  The value can be thought of as
 either a @code{SEXP} (a pointer), or the structure it points to, a
@@ -142,19 +142,19 @@ The first five bits of the @code{sxpinfo} header specify one of up to 32
 @end menu
 
 @node SEXPTYPEs, Rest of header, SEXPs, SEXPs
-@subsection SEXPTYPEs
+@subsection @I{SEXPTYPE}s
 
-@cindex SEXPTYPE
+@cindex @I{SEXPTYPE}
 Currently @code{SEXPTYPE}s 0:10 and 13:25 are in use.  Values 11 and 12
 were used for internal factors and ordered factors and have since been
 withdrawn.  Note that the @code{SEXPTYPE} numbers are stored in
 @code{save}d objects and that the ordering of the types is used, so the
 gap cannot easily be reused.
 
-@cindex SEXPTYPE table
+@cindex @I{SEXPTYPE} table
 @quotation
 @multitable {no} {SPECIALSXPXXX} {S4 classes not of simple type}
-@headitem no @tab  SEXPTYPE@tab  Description
+@headitem no @tab  @I{SEXPTYPE} @tab  Description
 @item @code{0}   @tab @code{NILSXP}      @tab @code{NULL}
 @item @code{1}   @tab @code{SYMSXP}      @tab symbols
 @item @code{2}   @tab @code{LISTSXP}     @tab pairlists
@@ -171,14 +171,14 @@ gap cannot easily be reused.
 @item @code{15}   @tab @code{CPLXSXP}    @tab complex vectors
 @item @code{16}   @tab @code{STRSXP}     @tab character vectors
 @item @code{17}   @tab @code{DOTSXP}     @tab dot-dot-dot object
-@item @code{18}   @tab @code{ANYSXP}     @tab make ``any'' args work
+@item @code{18}   @tab @code{ANYSXP}     @tab make ``any'' @I{args} work
 @item @code{19}   @tab @code{VECSXP}     @tab list (generic vector)
 @item @code{20}   @tab @code{EXPRSXP}    @tab expression vector
 @item @code{21}   @tab @code{BCODESXP}   @tab byte code
 @item @code{22}   @tab @code{EXTPTRSXP}  @tab external pointer
 @item @code{23}   @tab @code{WEAKREFSXP} @tab weak reference
 @item @code{24}   @tab @code{RAWSXP}     @tab raw vector
-@item @code{25}   @tab @code{S4SXP}      @tab S4 classes not of simple type
+@item @code{25}   @tab @code{OBJSXP}     @tab objects not of simple type
 @end multitable
 @end quotation
 
@@ -216,8 +216,8 @@ these are sometimes lumped into a pseudo-type @code{FUNSXP} with code
 have formals, body and environment.
 
 @cindex S4 type
-The @code{SEXPTYPE} @code{S4SXP} is for S4 objects which do not consist
-solely of a simple type such as an atomic vector or function.
+The @code{SEXPTYPE} @code{OBJ} is for S4 and other objects which do not
+consist solely of a simple type such as an atomic vector or function.
 
 
 @node Rest of header, The 'data', SEXPTYPEs, SEXPs
@@ -411,14 +411,14 @@ and @code{truelength} is the number of primary slots in use, for the
 reference hash tables in serialization (@code{VECSXP}s), and for `growable'
 vectors (atomic vectors, @code{VECSXP}s and @code{EXPRSXP}s) which are
 created by slightly over-committing when enlarging a vector during
-subassignment, so that some number of the following enlargements during
-subassignment can be performed in place), where @code{truelength} is the
+@I{subassignment}, so that some number of the following enlargements during
+@I{subassignment} can be performed in place), where @code{truelength} is the
 number of slots in use.  } of the vector, and then followed by the data
-(aligned as required: on most 32-bit systems with a 24-byte
+(aligned as required: on most 32-bit systems with a 28-byte
 @code{VECTOR_SEXPREC} node the data can follow immediately after the node). 
 The data are a block of memory of the appropriate length to store `true
 length' elements (rounded up to a multiple of 8 bytes, with the 8-byte
-blocks being the `Vcells' referred in the documentation for @code{gc()}).
+blocks being the `@I{Vcells}' referred in the documentation for @code{gc()}).
 
 The `data' for the various types are given in the table below.  A lot of
 this is interpretation, i.e.@: the types are not checked.
@@ -436,7 +436,7 @@ the last is a pointer to the appropriate @code{SEXPREC}.)  Many symbols
 have @code{SYMVALUE} @code{R_UnboundValue}.
 
 @item LISTSXP
-Pointers to the CAR, CDR (usually a @code{LISTSXP} or @code{NULL}) and
+Pointers to the @I{CAR}, @I{CDR} (usually a @code{LISTSXP} or @code{NULL}) and
 TAG (a @code{SYMSXP} or @code{NULL}).
 
 @item CLOSXP
@@ -445,7 +445,7 @@ Pointers to the formals (a pairlist), the body and the environment.
 @item ENVSXP
 Pointers to the frame, enclosing environment and hash table (@code{NULL} or a
 @code{VECSXP}).  A frame is a tagged pairlist with tag the symbol and
-CAR the bound value.
+@I{CAR} the bound value.
 
 @item PROMSXP
 Pointers to the value, expression and environment (in which to evaluate
@@ -453,9 +453,9 @@ the expression).  Once an promise has been evaluated, the environment is
 set to @code{NULL}.
 
 @item LANGSXP
-A special type of @code{LISTSXP} used for function calls.  (The CAR
+A special type of @code{LISTSXP} used for function calls.  (The @I{CAR}
 references the function (perhaps via a symbol or language object), and
-the CDR the argument list with tags for named arguments.)  @R{}-level
+the @I{CDR} the argument list with tags for named arguments.)  @R{}-level
 documentation references to `expressions' / `language objects' are
 mainly @code{LANGSXP}s, but can be symbols (@code{SYMSXP}s) or
 expression vectors (@code{EXPRSXP}s).
@@ -515,7 +515,7 @@ and the @samp{finalizer} is a function or @code{NULL}.
 @item RAWSXP
 @code{length}, @code{truelength} followed by a block of bytes.
 
-@item S4SXP
+@item OBJSXP
 two unused pointers and a tag.
 @end table
 
@@ -531,7 +531,7 @@ allocator vector nodes 6 and `large' vector nodes being of class 7.  The
 64 and 128 bytes: larger vectors are @code{malloc}-ed individually
 whereas the `small' nodes are allocated from pages of about 2000
 bytes. Vector nodes allocated using custom allocators (via
-@code{allocVector3}) are not counted in the gc memory usage statistics
+@code{allocVector3}) are not counted in the @abbr{GC} memory usage statistics
 since their memory semantics is not under R's control and may be
 non-standard (e.g., memory could be partially shared across nodes).
 
@@ -689,7 +689,7 @@ accessed/set by the macros/functions @code{ATTRIB} and
 if the attributes are @code{NULL} or to reset them.  Otherwise access
 goes through the functions @code{getAttrib} and @code{setAttrib} which
 impose restrictions on the attributes.  One thing to watch is that if
-you copy attributes from one object to another you may (un)set the
+you copy attributes from one object to another you may @I{(un)set} the
 @code{"class"} attribute and so need to copy the object and S4 bits as
 well.  There is a macro/function @code{DUPLICATE_ATTRIB} to automate
 this.
@@ -737,7 +737,7 @@ environments populated from @R{} code in a package.
 @cindex attributes, preserving
 @cindex preserving attributes
 When should attributes be preserved under operations on an object?
-Becker, Chambers & Wilks (1988, pp. 144--6) give some guidance.  Scalar
+@I{Becker, Chambers & Wilks} (1988, pp. 144--6) give some guidance.  Scalar
 functions (those which operate element-by-element on a vector and whose
 output is similar to the input) should preserve attributes (except
 perhaps class, and if they do preserve class they need to preserve the
@@ -751,7 +751,7 @@ for the operator.
 
 Subsetting (other than by an empty index) generally drops all attributes
 except @code{names}, @code{dim} and @code{dimnames} which are reset as
-appropriate.  On the other hand, subassignment generally preserves such
+appropriate.  On the other hand, @I{subassignment} generally preserves such
 attributes even if the length is changed.  Coercion drops all
 attributes. For example:
 
@@ -913,8 +913,7 @@ If the closure is an S3 generic (that is, contains a call to
 which to do dispatch (normally the first) will be evaluated if it has
 not been already.  If a method has been found which is a closure, a new
 evaluation environment is created for it containing the matched
-arguments of the method plus any new variables defined so far during the
-evaluation of the body of the generic.  (Note that this means changes to
+arguments.  (Note that this means changes to
 the values of the formal arguments in the body of the generic are
 discarded when calling the method, but @emph{actual} argument promises
 which have been forced retain the values found when they were forced.
@@ -1038,9 +1037,9 @@ example the internal code of @code{switch} in file
 @file{src/main/builtin.c}.
 
 @node Autoprinting, The write barrier, Argument evaluation, R Internal Structures
-@section Autoprinting
+@section @I{Autoprinting}
 
-@cindex autoprinting
+@cindex @I{autoprinting}
 @findex R_Visible
 
 Whether the returned value of a top-level @R{} expression is printed is
@@ -1083,7 +1082,7 @@ Internal and primitive functions force the documented setting of
 @code{R_Visible} on return, unless the C code is allowed to change it
 (the exceptions above are indicated by @code{PRIMPRINT} having value 2).
 
-The actual autoprinting is done by @code{PrintValueEnv} in file
+The actual @I{autoprinting} is done by @code{PrintValueEnv} in file
 @file{print.c}.  If the object to be printed has the S4 bit set and S4
 methods dispatch is on, @code{show} is called to print the object.
 Otherwise, if the object bit is set (so the object has a
@@ -1148,7 +1147,7 @@ their earlier `internal' dot-name versions) and
 serialize to (a file, a connection, a raw vector) and whether they are
 intended to serialize a single object or a collection of objects
 (typically the workspace).  @code{save} writes a header at the beginning
-of the file (a single LF-terminated line) which the lower-level versions
+of the file (a single @abbr{LF}-terminated line) which the lower-level versions
 do not.
 
 @code{save} and @code{saveRDS} allow various forms of compression, and
@@ -1194,7 +1193,7 @@ references after the first are written out as a reference marker indexed
 by the table entry.
 
 Version-2 serialization first writes a header indicating the format
-(normally @samp{X\n} for an XDR format binary save, but @samp{A\n},
+(normally @samp{X\n} for an @abbr{XDR} format binary save, but @samp{A\n},
 ASCII, and @samp{B\n}, native word-order binary, can also occur) and
 then three integers giving the version of the format and two @R{}
 versions (packed by the @code{R_Version} macro from @file{Rversion.h}).
@@ -1217,7 +1216,7 @@ indicating if there are any attributes and if there is a tag (for the
 pairlist types), an unused bit and then the @code{gp}
 field@footnote{Currently the only relevant bits are 0:1, 4, 14:15.} in
 bits 12:27.  Pairlist-like objects write their attributes (if any), tag
-(if any), CAR and then CDR (using tail recursion): other objects write
+(if any), @I{CAR} and then @I{CDR} (using tail recursion): other objects write
 their attributes after themselves.  Atomic vector objects write their
 length followed by the data: generic vector-list objects write their
 length followed by a call to @code{WriteItem} for each element.  The
@@ -1234,8 +1233,8 @@ name.  `Normal' environments are written out as @code{ENVSXP}s with an
 integer indicating if the environment is locked followed by the
 enclosure, frame, `tag' (the hash table) and attributes.
 
-In the `XDR' format integers and doubles are written in bigendian order:
-however the format is not fully XDR (as defined in RFC 1832) as byte
+In the `@abbr{XDR}' format integers and doubles are written in big-endian order:
+however the format is not fully @abbr{XDR} (as defined in RFC 1832) as byte
 quantities (such as the contents of @code{CHARSXP} and @code{RAWSXP}
 types) are written as-is and not padded to a multiple of four bytes.
 
@@ -1252,9 +1251,9 @@ current native encoding at serialization time, so that unflagged strings can
 be converted if unserialized in R running under different native encoding.
 
 @node Encodings for CHARSXPs, The CHARSXP cache, Serialization Formats, R Internal Structures
-@section Encodings for CHARSXPs
+@section Encodings for @code{CHARSXP}s
 
-Character data in @R{} are stored in the sexptype @code{CHARSXP}.
+Character data in @R{} are stored in the @code{SEXPTYPE} @code{CHARSXP}.
 
 There is support for encodings other than that of the current locale, in
 particular UTF-8 and the multi-byte encodings used on Windows for CJK
@@ -1290,7 +1289,7 @@ lacking a powerful enough @code{iconv}), it is likely that they work in
 Latin-1, the old @R{} assumption. Then the parser can return a
 UTF-8-encoded string if it encounters a @samp{\uxxxx} escape for a
 Unicode point that cannot be represented in the current charset.  (This
-needs MBCS support, and in the past was only enabled@footnote{See define
+needs @abbr{MBCS} support, and in the past was only enabled@footnote{See define
 @code{USE_UTF8_IF_POSSIBLE} in old versions of file @file{src/main/gram.c}.} on
 Windows.)  Now this is enabled for all platforms, and a @samp{\uxxxx} or
 @samp{\Uxxxxxxxx} escape ensures that the parsed string will be marked
@@ -1307,23 +1306,23 @@ strings without re-encoding to the native character set, by setting
 @code{textUTF8} and @code{strWidthUTF8} that expect UTF-8-encoded
 inputs.  Normally the symbol font is encoded in Adobe Symbol encoding,
 but that can be re-encoded to UTF-8 by setting @code{wantSymbolUTF8} to
-@samp{TRUE}.  The Windows' port of cairographics has a rather peculiar
+@samp{TRUE}.  The Windows' port of @I{cairographics} has a rather peculiar
 assumption: it wants the symbol font to be encoded in UTF-8 as if it
 were encoded in Latin-1 rather than Adobe Symbol: this is selected by
 @code{wantSymbolUTF8 = NA_LOGICAL}.
 
-Windows with MSVCRT as the C runtime has no UTF-8 locales, but rather expects to work with
-UCS-2@footnote{or UTF-16 if support for surrogates is enabled in the OS,
+Windows with @abbr{MSVCRT} as the C runtime has no UTF-8 locales, but rather expects to work with
+@I{UCS-2}@footnote{or UTF-16 if support for surrogates is enabled in the OS,
 which it used not to be when encoding support was added to @R{}.}
 strings.  @R{} (being written in standard C) would not work internally
-with UCS-2 without extensive changes.  The @file{Rgui}
-console@footnote{but not the GraphApp toolkit.} uses UCS-2 internally,
+with @I{UCS-2} without extensive changes.  The @file{Rgui}
+console@footnote{but not the @I{GraphApp} toolkit.} uses @I{UCS-2} internally,
 but communicates with the @R{} engine in the native encoding.  To allow
 UTF-8 strings to be printed in UTF-8 in @file{Rgui.exe}, an escape
 convention is used (see header file @file{rgui_UTF8.h}) by
-@code{cat}, @code{print} and autoprinting.
+@code{cat}, @code{print} and @I{autoprinting}.
 
-`Unicode' (UCS-2LE) files are common in the Windows world, and
+`Unicode' (@I{UCS-2LE}) files are common in the Windows world, and
 @code{readLines} and @code{scan} will read them into UTF-8 strings on
 Windows if the encoding is declared explicitly on an unopened
 connection passed to those functions.
@@ -1332,7 +1331,7 @@ Windows have multiple notions of the current locale encoding, one is in the
 C runtime (C library) and another is the active code page (system locale). 
 The active code page is used when calling non-UTF-16 variants of Windows API
 functions (earlier referred to as ANSI calls), either directly or indirectly
-via POSIX wrappers inside MinGW-w64, from R, R packages and libraries they
+via POSIX wrappers inside @I{MinGW-w64}, from R, R packages and libraries they
 link to.  While R has handled many cases by calling directly the UTF-16
 variants of the Windows API, it still may sometimes use the non-UTF-16 ones,
 and external libraries also primarily developed for POSIX systems typically
@@ -1340,7 +1339,7 @@ do that.  Therefore, for R to reliably work with (non-ASCII) strings on
 Windows, both the C locale encoding and the active code page on Windows must
 be the same, and by default they are.
 
-The Windows UCRT C runtime supports UTF-8 locales.  Historically, the active
+The Windows @abbr{UCRT} C runtime supports UTF-8 locales.  Historically, the active
 code page was a system-wide setting, changing which required a reboot, and
 UTF-8 was not supported.  Later a "BETA: Use Unicode UTF-8 for worldwide
 language support" feature has been added to set the active code page to
@@ -1348,21 +1347,21 @@ UTF-8, but this still required a reboot and impacted all applications, many
 of which would not work correctly with that unexpected setting, so it could
 not be used in practice.
 
-Windows since Windows 10 (version 1903), Windows Server 2022 (LTSC), and
+Windows since Windows 10 (version 1903), Windows Server 2022 (@I{LTSC}), and
 Windows Server 1903 (semi-annual channel) allow setting the active code page
 to UTF-8 in the application manifest.  This changes the active code page
 only for the given application and does so together with changing also the
-UCRT C locale to UTF-8. R 4.2 for Windows uses this feature to get UTF-8 as
+@abbr{UCRT} C locale to UTF-8. R 4.2 for Windows uses this feature to get UTF-8 as
 the native encoding on Windows. To make that possible, R had to switch to
-UCRT, which in turn required creation of Rtools42.
+@abbr{UCRT}, which in turn required creation of @I{Rtools42}.
 
 Older versions of Windows still rely on the previous encoding support where
-the native encoding cannot be UTF-8. R 4.2 requires UCRT to work, but UCRT
+the native encoding cannot be UTF-8. R 4.2 requires @abbr{UCRT} to work, but @abbr{UCRT}
 can be installed on Windows since Vista SP2 and Windows Server 2008 SP2. It
 is shipped with Windows since Windows 10 and Windows Server 2016.
 
 @node The CHARSXP cache, Warnings and errors, Encodings for CHARSXPs, R Internal Structures
-@section The CHARSXP cache
+@section The @code{CHARSXP} cache
 
 @findex mkChar
 There is a global cache for @code{CHARSXP}s created by @code{mkChar} ---
@@ -1449,7 +1448,7 @@ has not been set.]
 
 S4 objects can be of any @code{SEXPTYPE}.  They are either an object of
 a simple type (such as an atomic vector or function) with S4 class
-information or of type @code{S4SXP}.  In all cases, the `S4 bit' (bit 4
+information or of type @code{OBJSXP}.  In all cases, the `S4 bit' (bit 4
 of the `general purpose' field) is set, and can be tested by the
 macro/function @code{IS_S4_OBJECT}.
 
@@ -1479,7 +1478,7 @@ Since these are just objects, they are subject to the normal scoping
 rules and can be imported and exported from namespaces like other
 objects.  The directives @code{importClassesFrom} and
 @code{exportClasses} are merely convenient ways to refer to class
-objects without needing to know their internal `metaname' (although
+objects without needing to know their internal `@I{metaname}' (although
 @code{exportClasses} does a little sanity checking via @code{isClass}).
 
 @node S4 methods, Mechanics of S4 dispatch, S4 classes, S4 objects
@@ -1591,14 +1590,14 @@ refers to generics by name and partly by function, and maps
 the name used by packages exporting methods for it).
 
 Some elements of the language are implemented as primitives, for example
-@code{@}}.  This includes the subset and subassignment `functions' and
+@code{@}}.  This includes the subset and @I{subassignment} `functions' and
 they are S4 generic, again piggybacking on S3 dispatch.
 
 @code{.BasicFunsList} is generated when @pkg{methods} is installed, by
 computing all primitives, initially disallowing methods on all and then
 setting generics for members of @code{.GenericArgsEnv}, the S4 group
 generics and a short exceptions list in file @file{BasicFunsList.R}: this
-currently contains the subsetting and subassignment operators and an
+currently contains the subsetting and @I{subassignment} operators and an
 override for @code{c}.
 
 @node Memory allocators, Internal use of global and base environments, S4 objects, R Internal Structures
@@ -1614,7 +1613,7 @@ recommended in
 @ref{Memory allocation, , Memory allocation, R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions'
+section `Memory allocation' in the `Writing R Extensions' manual
 @end ifclear
 @findex R_alloc
 @findex R_Calloc
@@ -1654,7 +1653,7 @@ that
 @noindent
 is called immediately after the allocation (as @R{}'s stack checking
 mechanism will warn far enough from the stack limit to allow for modest
-use of alloca).  (@code{do_makeunique} in file @file{src/main/unique.c}
+use of @code{alloca}).  (@code{do_makeunique} in file @file{src/main/unique.c}
 provides an example of both points.)
 
 There is an alternative check,
@@ -1720,7 +1719,7 @@ static R_StringBuffer ex_buff = @{NULL, 0, MAXELTSIZE@};
 @end menu
 
 @node Internals of R_alloc,  , Memory allocators, Memory allocators
-@subsection Internals of R_alloc
+@subsection Internals of @code{R_alloc}
 
 The memory used by @code{R_alloc} is allocated as @R{} vectors, of type
 @code{RAWSXP}.  Thus the allocation is in units of 8 bytes, and is
@@ -1731,7 +1730,7 @@ cases 1 byte is added before rounding up so the allocation is always
 
 The vectors allocated are protected via the setting of @code{R_VStack},
 as the garbage collector marks everything that can be reached from that
-location.  When a vector is @code{R_alloc}ated, its @code{ATTRIB}
+location.  When a vector is @I{@code{R_alloc}ated}, its @code{ATTRIB}
 pointer is set to the current @code{R_VStack}, and @code{R_VStack} is
 set to the latest allocation.  Thus @code{R_VStack} is a single-linked
 chain of the vectors currently allocated via @code{R_alloc}.  Function
@@ -1845,7 +1844,7 @@ We make use of the visibility mechanisms discussed in
 @ref{Controlling visibility, , Controlling visibility, R-exts, Writing R Extensions},
 @end ifset
 @ifclear UseExternalXrefs
-section `Controlling Visibility' in `Writing R Extensions',
+section `Controlling Visibility' in the `Writing R Extensions' manual,
 @end ifclear
 C entry points not needed outside the main @R{} executable/dynamic
 library (and in particular in no package nor module) should be prefixed
@@ -1895,7 +1894,7 @@ Windows is unique in that it conventionally treats importing variables
 differently from functions: variables that are imported from a DLL need
 to be specified  by a prefix (often @samp{_imp_}) when being linked to
 (`imported') but not when being linked from (`exported').  The details
-depend on the compiler system, and have changed for MinGW during the
+depend on the compiler system, and have changed for @I{MinGW} during the
 lifetime of that port.  They are in the main hidden behind some macros
 defined in header file @file{R_ext/libextern.h}.
 
@@ -1906,9 +1905,9 @@ such as @file{Rgraphapp.dll}) should be declared with prefix
 to be considered for any public header and also @file{Defn.h}.
 
 It would nowadays be possible to make use of the `auto-import' feature
-of the MinGW port of @command{ld} to fix up imports from DLLs (and if
-@R{} is built for the Cygwin platform this is what happens).  However,
-this was not possible when the MinGW build of @R{} was first constructed
+of the @I{MinGW} port of @command{ld} to fix up imports from DLLs (and if
+@R{} is built for the @I{Cygwin} platform this is what happens).  However,
+this was not possible when the @I{MinGW} build of @R{} was first constructed
 in ca 1998, allows less control of visibility and would not work for
 other Windows compiler suites.
 
@@ -1930,7 +1929,7 @@ and @file{data} subdirectories.  The database consists of two files,
 is a concatenation of serialized objects, and the @file{.rdx} file
 contains an index.  The objects are stored in (usually) a
 @command{gzip}-compressed format with a 4-byte header giving the
-uncompressed serialized length (in XDR, that is big-endian, byte order)
+uncompressed serialized length (in @abbr{XDR}, that is big-endian, byte order)
 and read by a call to the primitive @code{lazyLoadDBfetch}.  (Note that
 this makes lazy-loading unsuitable for really large objects: the
 unserialized length of an @R{} object can exceed 4GB.)
@@ -2267,7 +2266,7 @@ arguments conditional on which are non-missing.
 @code{log}, @code{round} and @code{signif} are special to allow default
 values to be given to missing arguments.
 
-The subsetting, subassignment and @code{@@} operators are all special.
+The subsetting, @I{subassignment} and @code{@@} operators are all special.
 (For both extraction and replacement forms, @code{$} and @code{@@}
 take a symbol argument, and @code{[} and @code{[[} allow missing
 arguments.)
@@ -2384,7 +2383,7 @@ in an @R{} package is described in
 @ref{Internationalization, , Internationalization, R-exts, Writing R Extensions},
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions',
+section `Internationalization' in the `Writing R Extensions' manual,
 @end ifclear
 and the standard packages included with @R{} have (with an exception in
 @pkg{grDevices} for the menus of the @code{windows()} device) been
@@ -2512,9 +2511,15 @@ See file @file{po/README} for how to update the message templates and catalogs.
 * Help::                        
 @end menu
 
-The structure of a @emph{source} packages is described in @ref{Creating
-R packages, , Creating R packages, R-exts, Writing R Extensions}: this
-chapter is concerned with the structure of @emph{installed} packages.
+The structure of a @emph{source} packages is described in 
+@ifset UseExternalXrefs
+@ref{Creating R packages, , Creating R packages, R-exts, Writing R Extensions}: 
+@end ifset
+@ifclear UseExternalXrefs
+section `Creating R packages' in the `Writing R Extensions' manual:
+@end ifclear
+this chapter is concerned with the structure of @emph{installed}
+packages. 
 
 An installed package has a top-level file @file{DESCRIPTION}, a copy of
 the file of that name in the package sources with a @samp{Built} field
@@ -2599,7 +2604,7 @@ The columns are @samp{File} (the file name with extension), @samp{Name}
 (the @samp{\name} section), @samp{Type} (from the optional
 @samp{\docType} section), @samp{Title}, @samp{Encoding}, @samp{Aliases},
 @samp{Concepts} and @samp{Keywords}.  All columns are character vectors
-apart from @samp{Aliases}, which is a list of character vectors.
+apart from the last three, which are lists of character vectors.
 
 File @file{hsearch.rds} records the information to be used by
 @samp{help.search}.  This is a list of four unnamed elements which are
@@ -2795,7 +2800,7 @@ device).
 @item when drawing starts or finishes (e.g.@: used to flush graphics to
 the screen when drawing stops).
 @item wait for an event, for example a mouse click or keypress.
-@item an `onexit' action, to clean up if plotting is interrupted (by an
+@item an `@I{onexit}' action, to clean up if plotting is interrupted (by an
 error or by the user).
 @item capture the current contents of the device as a raster image.
 @item close the device.
@@ -2806,7 +2811,7 @@ error or by the user).
 The device also sets a number of variables, mainly Boolean flags
 indicating its capabilities.  Devices work entirely in `device units'
 which are up to its developer: they can be in pixels, big points (1/72
-inch), twips, @dots{}, and can differ@footnote{although that needs to be
+inch), @I{twip}s, @dots{}, and can differ@footnote{although that needs to be
 handled carefully, as for example the @code{circle} callback is given a
 radius (and that should be interpreted as in the x units).} in the
 @samp{x} and @samp{y} directions.
@@ -2817,7 +2822,7 @@ the device (although the graphics subsystems do talk directly to
 devices).  This is responsible for clipping lines, rectangles and
 polygons, converting the @code{pch} values @code{0...26} to sets of
 lines/circles, centring (and otherwise adjusting) text, rendering
-mathematical expressions (`plotmath') and mapping colour descriptions
+mathematical expressions (`@I{plotmath}') and mapping colour descriptions
 such as names to the internal representation.
 
 @c graphics.c looks at device dimensions, locator, metricinfo
@@ -3168,7 +3173,7 @@ void metricInfo(int c, pGEcontext gc,
 
 @noindent
 The @samp{gc} parameter provides the graphics context, most importantly
-the current font and fontsize, and @samp{dd} is a pointer to the active
+the current font and font size, and @samp{dd} is a pointer to the active
 device's structure.
 
 The @code{text} callback should plot @samp{str} at @samp{(x,
@@ -3191,14 +3196,14 @@ the character is placed.  For @code{ascent} and @code{descent} this is
 intended to be the bounding box of the `ink' put down by the glyph and
 not the box which might be used when assembling a line of conventional
 text (it needs to be for e.g.@: @code{hat(beta)} to work correctly).
-However, the @code{width} is used in plotmath to advance to the next
+However, the @code{width} is used in @I{plotmath} to advance to the next
 character, and so needs to include left and right bearings.
 
 The @emph{interpretation} of @samp{c} depends on the locale.  In a
 single-byte locale values @code{32...255} indicate the corresponding
 character in the locale (if present).  For the symbol font (as used by
 @samp{graphics::par(font=5)}, @samp{grid::gpar(fontface=5}) and by
-`plotmath'), values @code{32...126, 161...239, 241...254} indicate
+`@I{plotmath}'), values @code{32...126, 161...239, 241...254} indicate
 glyphs in the Adobe Symbol encoding.  In a multibyte locale, @code{c}
 represents a Unicode point (except in the symbol font).  So the function
 needs to include code like
@@ -3339,7 +3344,7 @@ apart (that is with 2pt leading).
 
 @item
 The default font family should be a sans serif font, e.g Helvetica or
-similar (e.g.@: Arial on Windows).
+similar (e.g.@: @I{Arial} on Windows).
 
 @item
 @code{lwd = 1} should correspond to a line width of 1/96 inch.  This
@@ -3355,7 +3360,7 @@ pixel.
 
 @item
 How RGB colour values will be interpreted should be documented, and
-preferably be sRGB.
+preferably be @abbr{sRGB}.
 
 @item
 The help page should describe its policy on these conventions.
@@ -3467,7 +3472,7 @@ screen, but some users do try to use smaller sizes and even 6 and 8
 point bitmapped fonts do not look good.
 
 Introduction of UTF-8 locales has caused another wave of difficulties.
-X11 has very few genuine UTF-8 fonts, and produces composite fontsets
+X11 has very few genuine UTF-8 fonts, and produces composite @I{fontset}s
 for the @code{iso10646-1} encoding.  Unfortunately these seem to have
 low coverage apart from a few monospaced fonts in a few sizes (which are
 not suitable for graph annotation), and where glyphs are missing what is
@@ -3478,27 +3483,27 @@ The current approach is to make use of more modern toolkits, namely
 management---because these are associated with @code{Gtk+2} they are
 widely available.  Cairo supports translucent colours and alpha-blending
 (@emph{via} @code{Xrender}), and anti-aliasing for the display of lines
-and text.  Pango's font management is based on @code{fontconfig} and
-somewhat mysterious, but it seems mainly to use Type 1 and TrueType
-fonts on the machine running @R{} and send grayscale bitmaps to cairo.
+and text.  @I{Pango}'s font management is based on @code{fontconfig} and
+somewhat mysterious, but it seems mainly to use Type 1 and @I{TrueType}
+fonts on the machine running @R{} and send grayscale bitmaps to @I{cairo}.
 
 
 @node windows(),  , X11(), Specific devices
 @subsubsection windows()
 
 The @code{windows()} device is a family of devices: it supports plotting
-to Windows (enhanced) metafiles, @code{BMP}, @code{JPEG}, @code{PNG} and
-@code{TIFF} files as well as to Windows printers.
+to Windows (enhanced) metafiles, @I{BMP}, @I{JPEG}, @I{PNG} and
+@I{TIFF} files as well as to Windows printers.
 
 In most of these cases the primary plotting is to a bitmap: this is used
 for the (default) buffering of the screen device, which also enables the
-current plot to be saved to BMP, JPEG, PNG or TIFF (it is the internal
+current plot to be saved to @I{BMP}, @I{JPEG}, @I{PNG} or @I{TIFF} (it is the internal
 bitmap which is copied to the file in the appropriate format).
 
 The device units are pixels (logical ones on a metafile device).
 
-The code was originally written by Guido Masarotto with extensive use of
-macros, which can make it hard to disentangle.
+The code was originally written by @I{Guido Masarotto} with extensive
+use of macros, which can make it hard to disentangle.
 
 For a screen device, @code{xd->gawin} is the canvas of the screen, and
 @code{xd->bm} is the off-screen bitmap.  So macro @code{DRAW} arranges
@@ -3506,8 +3511,8 @@ to plot to @code{xd->bm}, and if buffering is off, also to
 @code{xd->gawin}.  For all other device, @code{xd->gawin} is the canvas,
 a bitmap for the @code{jpeg()} and @code{png()} device, and an internal
 representation of a Windows metafile for the @code{win.metafile()} and
-@code{win.print} device.  Since `plotting' is done by Windows GDI calls
-to the appropriate canvas, its precise nature is hidden by the GDI
+@code{win.print} device.  Since `plotting' is done by Windows @abbr{GDI} calls
+to the appropriate canvas, its precise nature is hidden by the @abbr{GDI}
 system.
 
 Buffering on the screen device is achieved by running a timer, which
@@ -3521,10 +3526,10 @@ Resizes are handled by replaying the display list: this might not be
 necessary if a fixed canvas with scrollbars is being used, but that is
 the least popular of the three forms of resizing.
 
-Text on the device has moved to `Unicode' (UCS-2) in recent years.
+Text on the device has moved to `Unicode' (@I{UCS-2}) in recent years.
 UTF-8 is requested (@code{hasTextUTF8 = TRUE}) for standard text, and
-converted to UCS-2 in the plotting functions in file
-@file{src/extra/graphapp/gdraw.c}.  However, GDI has no support for
+converted to @I{UCS-2} in the plotting functions in file
+@file{src/extra/graphapp/gdraw.c}.  However, @abbr{GDI} has no support for
 Unicode symbol fonts, and symbols are handled in Adobe Symbol encoding.
 
 There is support for translucent colours (with alpha channel between 0
@@ -3555,7 +3560,7 @@ near-white canvas.  Where a palette is used in the PNG file (if less
 than 256 colours were used) then this colour is recorded with full
 transparency and the remaining colours as opaque.  If 32-bit colour were
 available then we could add a full alpha channel, but this is dependent
-on the graphics hardware and undocumented properties of GDI.
+on the graphics hardware and undocumented properties of @abbr{GDI}.
 
 
 @node Colours, Base graphics, Graphics devices, Graphics Devices
@@ -3574,7 +3579,7 @@ macros are defined in @file{R_ext/GraphicsDevice.h} to extract the
 various components.
 
 Colours in the base graphics system were originally adopted from S (and
-before that the GRZ library from Bell Labs), with the concept of a
+before that the @I{GRZ} library from Bell Labs), with the concept of a
 (variable-sized) palette of colours referenced by numbers
 @samp{1...@var{N}} plus @samp{0} (the background colour of the current
 device).  @R{} introduced the idea of referring to colours by character
@@ -3606,8 +3611,8 @@ matters when re-playing the display list, e.g.@: when a device is
 resized or @code{dev.copy} is used.  The palette should be thought of as
 per-session: it is stored in package @pkg{grDevices}.
 
-The convention is that devices use the colorspace `sRGB'. This is an
-industry standard: it is used by Web browsers and JPEGs from all but
+The convention is that devices use the colorspace `@abbr{sRGB}'. This is an
+industry standard: it is used by Web browsers and @abbr{JPEG}s from all but
 high-end digital cameras.  The interpretation is a matter for graphics
 devices and for code that manipulates colours, but not for the graphics
 engine or subsystems.
@@ -3734,7 +3739,7 @@ The handling of missing values differs in the two classes of uses.
 Generally these are errors when used in @code{par} but cause the
 corresponding element of the plot to be omitted when used as an element
 of a vector argument.  Originally the interpretation of arguments was
-mainly left to the device, but nowadays some of this is pre-empted in
+mainly left to the device, but nowadays some of this is @I{pre-empted} in
 the graphics engine (but for example the handling of @code{lwd = 0}
 remains device-specific, with some interpreting it as a `thinnest
 possible' line).
@@ -3755,7 +3760,7 @@ and launches a console as part of its startup code or by the user
 running a specific function: package @CRANpkg{Rcmdr} is a well-known
 example with a Tk-based GUI.
 
-There used to be a Gtk-based console invoked by @command{R --gui=GNOME}:
+There used to be a GTK-based console invoked by @command{R --gui=GNOME}:
 this relied on special-casing in the front-end shell script to launch a
 different executable.  There still is @command{R --gui=Tk}, which starts
 terminal-based @R{} and runs @code{tcltk::tkStartGui()} as part of the
@@ -3774,7 +3779,7 @@ of @R{} and the code for the console is currently in @file{R.dll}.
 @section R.app
 
 @command{R.app} is a macOS application which provides a console.  Its
-sources are a separate project@footnote{an Xcode project, in SVN at
+sources are a separate project@footnote{an @I{Xcode} project, in SVN at
 @uref{https://svn.r-project.org/R-packages/trunk/Mac-GUI/}.}, and its binaries
 link to an @R{} installation which it runs as a dynamic library
 @file{libR.dylib}.  The standard @acronym{CRAN} distribution of @R{} for
@@ -4020,10 +4025,17 @@ Control whether @code{check_T_and_F()} also looks for ``bad'' (global)
 @samp{T}/@samp{F} uses in examples.
 Off by default because this can result in false positives.
 @item _R_CHECK_RD_CHECKRD_MINLEVEL_
-Controls the minimum level for reporting warnings from @code{checkRd}.
+Controls the minimum level for reporting warnings from @code{checkRd()}.
 Default: -1.
+@item _R_CHECK_RD_NOTE_LOST_BRACES_
+Control whether some of the ``lost braces'' that @code{checkRd()} finds in
+@LaTeX{}-like Rd contexts are reported (by raising their warning level
+to -1). This will often detect missing initial backslashes for Rd
+macros, unescaped in-text set braces, and @code{\describe}-style
+@code{\item@{label@}@{desc@}} entries within @code{\itemize}.
+Default: true.
 @item _R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_
-Control whether empty items inside @code{\\describe} are allowed without
+Control whether empty items inside @code{\describe} are allowed without
 a warning. This is a temporary stop gap measure meant to support legacy
 packages, and is likely to be removed in future versions of R.
 Default: false.
@@ -4044,7 +4056,7 @@ about unused code constituents (as spotted by GCC with command line
 option @option{-Wunused}, which is implied by @option{-Wall}).
 Default: true.
 @item _R_CHECK_WALL_FORTRAN_
-Control whether gfortran 4.0 or later @option{-Wall} warnings are used in
+Control whether @I{GFortran} 4.0 or later @option{-Wall} warnings are used in
 the analysis of installation output.
 Default: false, even though the warnings are justifiable.
 @item _R_CHECK_ASCII_CODE_
@@ -4124,7 +4136,7 @@ running/re-building vignettes as part of the check log.  The format is
 @samp{[as/bs]} for the total CPU time (including child processes)
 @samp{a} and elapsed time @samp{b}, except on Windows, when it is
 @samp{[bs]}.  In most cases timings are only given for @samp{OK} checks.
-Times with an elapsed component over 10 mins are reported in minutes
+Times with an elapsed component over 10 @abbr{min}s are reported in minutes
 (with abbreviation @samp{m}).  The value is the smallest numerical value
 in elapsed seconds that should be reported: non-numerical values
 indicate that no report is required, a value of @samp{0} that a report
@@ -4154,6 +4166,12 @@ Report if when running/re-building vignettes (individually or in
 aggregate) the ratio of CPU time to elapsed time exceeds this threshold
 (and the CPU time is at least one second).  Not supported on
 Windows.
+Default: @code{NA}.
+
+@item _R_CHECK_INSTALL_TIMING_CPU_TO_ELAPSED_THRESHOLD_
+Report if for installation the ratio of CPU time to elapsed time exceeds
+this threshold (and the CPU time is at least one second).  Not supported
+on Windows, only uses if @code{_R_CHECK_TIMINGS_} is set
 Default: @code{NA}.
 
 @item _R_CHECK_CODETOOLS_PROFILE_
@@ -4299,7 +4317,7 @@ See
 @ref{Writing portable packages, , Writing portable packages, R-exts, Writing R Extensions}
 @end ifset
 @ifclear UseExternalXrefs
-`Writing R Extensions'
+section `Writing portable packages' in the `Writing R Extensions' manual
 @end ifclear
 for the rationale of this check (and why even @option{-Werror} is
 unsafe).
@@ -4367,7 +4385,7 @@ No longer in use: conditions of length greater than one in @code{if} or
 @item _R_CHECK_VIGNETTES_SKIP_RUN_MAYBE_
 Should running the @R{} code in the vignettes be skipped if vignette
 outputs are to be rebuilt (which will involve running that code).
-Default: false (but true for CRAN checking)
+Default: true.
 
 @item _R_CHECK_BUILD_VIGNETTES_SEPARATELY_
 Prior to @R{} 3.6.0, re-building the vignette outputs was done in a
@@ -4375,14 +4393,14 @@ single @R{} session which allowed accidental reliance of one vignette on
 another (for example, in the loading of packages).  The current default
 is to use a separate session for each vignette; this option allows
 testing the older behaviour,
-Default: true
+Default: true.
 
 @item _R_CHECK_SYSTEM_CLOCK_
 As part of the `checking for future file timestamps' enabled by
 @option{--as-cran}, check the system clock against an external clock to
 catch errors such as the wrong day or even year.  Not necessary on
 systems doing repeated checks.
-Default: true (but false for CRAN checking)
+Default: true (but false for CRAN checking).
 
 @item _R_CHECK_AUTOCONF_
 For packages with a @file{configure} file generated by GNU
@@ -4406,7 +4424,7 @@ the check directory.
 Default: false (but true for CRAN submission checks).
 
 @item _R_CHECK_THINGS_IN_TEMP_DIR_
-Check and report at the end of tthe check run if files would have been
+Check and report at the end of the check run if files would have been
 left in the temporary directory (usually @file{/tmp} on a Unix-alike).
 It does this by setting the environment variable @env{TEMPDIR} to a
 subdirectory of the @R{} session directory for the @code{check} process:
@@ -4414,7 +4432,7 @@ if any files or directories are left there they are removed.  Since some
 of these might be out of the user's control, environment variable
 @env{_R_CHECK_THINGS_IN_TEMP_DIR_EXCLUDE_} can specify an (extended
 regex) pattern of file paths not to be reported -- CRAN uses
-@samp{^ompi.} for directories left behind by OpenMPI.  There are rare
+@samp{^ompi.} for directories left behind by @I{OpenMPI}.  There are rare
 instances where @env{TEMPDIR} is not respected and so files are left in
 @file{/tmp} (and not reported, but see the next item): one example is
 @file{/tmp/boost_interprocess} on some OSes.
@@ -4426,7 +4444,7 @@ Check and report at the end of the check run if new files or directories
 are created in a selected set of directories during the check run.
 (This is confined to files owned by the user running the check process.)
 Currently the directories monitored are the home directory, @file{/tmp}
-(excluding @file{RtmpXXXXXX} dirs), @file{/dav/shm}, @file{~/.cache}
+(excluding @file{RtmpXXXXXX} directories), @file{/dav/shm}, @file{~/.cache}
 (recursively) and @file{~/.local/share} (recursively) or their
 equivalents on Windows and macOS (the directories in which the default
 settings for @code{tools::R_user_dir()} use a @file{R} subdirectory).
@@ -4456,7 +4474,7 @@ Default: false
 
 @item _R_CHECK_BASHISMS_
 Check the top-level scripts @file{configure} (unless generated by
-@file{autoconf}) and @file{cleanup} for non-Bourne-shell code, using the
+@file{autoconf}) and @file{cleanup} for non-@I{Bourne}-shell code, using the
 Perl script @command{checkbashisms} if available.  This includes
 reporting scripts using the non-portable @code{#! /bin/bash}.
 (Script @command{checkbashisms} is available in most Linux distributions
@@ -4529,7 +4547,7 @@ Default: false (but true for CRAN submission checks). @option{--as-cran}
 can be overridden by setting this variable to a false value.
 
 @item _R_CHECK_RD_MATH_RENDERING_
-Check whether HTML math rendering via KaTeX works (if package
+Check whether HTML math rendering via @I{KaTeX} works (if package
 @CRANpkg{V8} is available).
 See 
 @uref{https://blog.r-project.org/2022/04/08/enhancements-to-html-documentation/}.
@@ -4544,7 +4562,7 @@ Default: false (but true for CRAN submission checks).
 Check whether arguments passed to the Windows C runtime are valid. When
 enabled and a C runtime function is called with an invalid parameter, R
 prints diagnostic information and unconditionally terminates. By default,
-R for Windows following MinGW-W64 default causes UCRT to ignore invalid
+R for Windows following @I{MinGW-W64} default causes @abbr{UCRT} to ignore invalid
 parameters, but they may cause R to abort e.g. when R is embedded into
 applications built with a different compiler toolchain. One may set the
 value to @code{"watson"} for interactive debugging on Windows via
@@ -4575,6 +4593,20 @@ issues'', including issues with apparent methods not registered and
 methods registered for non-generics.
 Default: false (but true for CRAN submission checks).
 
+@item _R_CHECK_MBCS_CONVERSION_FAILURE_
+If set to a non-empty value, makes warnings from @code{pdf()} and
+@code{postscript()} about conversion failures from an @abbr{MBCS} (usually
+UTF-8) into errors. Unless the value is @samp{silent}, when the warnings
+are suppressed.
+Default: unset (but true for CRAN submission checks).
+
+@item _R_CHECK_VALIDATE_UTF8_
+If set to a non-empty value, makes installation warnings about non-UTF-8
+strings in a package's code (@file{R/.*R}) and help (@file{man/*.Rd}) files
+into errors.  On most platforms invalid bytes in these files get
+converted to escapes (see @code{iconv(sub = "byte")}), but on others
+these lead to installation failure.
+Default: unset (but true for CRAN submission checks).
 @end vtable
 
 The following variables control checks for undeclared/unconditional use
@@ -4590,7 +4622,7 @@ non-empty value.} to installed packages not also in @code{.Library}.
 @item _R_CHECK_INSTALL_DEPENDS_
 If set to a true value and a test installation is to be done, this is
 done with a temporary library populated by all the
-Depends/Imports/LinkingTo packages.
+@I{Depends}/@I{Imports}/@I{LinkingTo} packages.
 Default: false (but true for CRAN submission checks).
 
 Note that this is actually implemented in @command{R CMD INSTALL}, so it
@@ -4628,7 +4660,7 @@ Default: the value of @env{_R_CHECK_DEPENDS_ONLY_} or false if that is unset.
 
 @item _R_CHECK_NO_RECOMMENDED_
 If set to a true value, augment the previous checks to make recommended
-packages unavailable unless declared (even if installed in @code{.library}).
+packages unavailable unless declared (even if installed in @code{.Library}).
 Default: false (but true for CRAN submission checks).
 
 This may give false positives on code which uses
@@ -4638,7 +4670,7 @@ This may give false positives on code which uses
 various contrasts functions if @code{sparse = TRUE} is used.)
 @end vtable
 
-CRAN's submission checks use something like
+The CRAN submission checks use something like
 
 @example
 _R_CHECK_CRAN_INCOMING_=TRUE
@@ -4674,7 +4706,6 @@ _R_CHECK_DATALIST_=true
 _R_CHECK_THINGS_IN_CHECK_DIR_=true
 _R_CHECK_THINGS_IN_TEMP_DIR_=true
 _R_CHECK_BASHISMS_=true
-_R_CLASS_MATRIX_ARRARY_=true
 _R_CHECK_ORPHANED_=true
 _R_CHECK_BOGUS_RETURN_=true
 _R_CHECK_MATRIX_DATA_=TRUE
@@ -4686,6 +4717,7 @@ _R_CHECK_BROWSER_NONINTERACTIVE_=true
 _R_CHECK_URLS_SHOW_301_STATUS_=true
 _R_CHECK_UNDOC_USE_ALL_NAMES_=true
 _R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_=true
+_R_CHECK_RD_NOTE_LOST_BRACES_=true
 @end example
 
 @noindent
@@ -4783,7 +4815,7 @@ The following tools can ``safely be assumed'' for @R{} extensions.
 @itemize @bullet
 @item
 An ISO C99 C compiler.  Note that extensions such as @acronym{POSIX}
-1003.1 must be tested for, typically using Autoconf unless you are sure
+1003.1 must be tested for, typically using @I{Autoconf} unless you are sure
 they are supported on all mainstream @R{} platforms (including Windows
 and macOS).
 
@@ -4808,13 +4840,13 @@ Windows-specific makefiles can assume @acronym{GNU} @command{make} 3.79
 or later, as no other @command{make} is viable on that platform.
 
 @item
-A Bourne shell and the ``traditional'' Unix programming tools, including
+A @I{Bourne} shell and the ``traditional'' Unix programming tools, including
 @command{grep}, @command{sed}, and @command{awk}.
 
 There are @acronym{POSIX} standards for these tools, but these may not
 be fully supported.  Baseline features could be determined from a book
-such as @cite{The UNIX Programming Environment} by Brian W. Kernighan &
-Rob Pike.  Note in particular that @samp{|} in a regexp is an extended
+such as @cite{The UNIX Programming Environment} by @I{Brian W. Kernighan} &
+@I{Rob Pike}.  Note in particular that @samp{|} in a regexp is an extended
 regexp, and is not supported by all versions of @command{grep} or
 @command{sed}.  The Open Group Base Specifications, Issue 7, which are
 technically identical to  IEEE Std 1003.1 (POSIX), 2008,
@@ -4829,7 +4861,7 @@ they can be assumed to have followed the instructions in ``the Windows
 toolset'' appendix of the ``R Installation and Administration'' manual
 to obtain them.  Redirection cannot be assumed to be available via
 @command{system} as this does not use a standard shell (let alone a
-Bourne shell).
+@I{Bourne} shell).
 
 @noindent
 In addition, the following tools are needed for certain tasks.
@@ -4842,7 +4874,7 @@ Perl version 5 is needed for the maintainer-only script
 
 @item
 @command{texinfo} version 5.1 or later is needed to build the HTML, PDF
-and Info files for the @R{} manuals written in the @acronym{GNU} Texinfo
+and Info files for the @R{} manuals written in the @acronym{GNU} @I{Texinfo}
 system.  And that requires Perl.
 @findex makeinfo
 @end itemize
@@ -4930,7 +4962,7 @@ directory @file{doc/manual}.
 @code{tools::texi2dvi} makes use of a system command @command{texi2dvi}
 where available.  On a Unix-alike this is usually part of
 @samp{texinfo}, whereas on Windows if it exists at all it would be an
-executable, part of MiKTeX.  If none is available, the @R{} code runs
+executable, part of @I{MiKTeX}.  If none is available, the @R{} code runs
 a sequence of @command{(pdf)latex}, @command{bibtex} and
 @command{makeindex} commands.
 

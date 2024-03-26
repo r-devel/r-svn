@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -144,8 +144,8 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     /* Enlarge the vector itself. */
     len = xlength(x);
     if (LOGICAL(GetOption1(R_CheckBoundsSymbol))[0])
-	warning(_("assignment outside vector/list limits (extending from %d to %d)"),
-		len, newlen);
+	warning(_("assignment outside vector/list limits (extending from %lld to %lld)"),
+		(long long)len, (long long)newlen);
 
     /* if the vector is not shared, is growable. and has room, then
        increase its length */
@@ -273,12 +273,17 @@ static SEXP EnlargeNames(SEXP names, R_xlen_t len, R_xlen_t newlen)
 }
 
 /* used instead of coerceVector to embed a non-vector in a list for
-   purposes of SubassignTypeFix, for cases in wich coerceVector should
-   fail; namely, S4SXP */
+   purposes of SubassignTypeFix, for cases in which coerceVector should
+   fail; currently used only for OBJSXP = S4SXP */
 static SEXP embedInVector(SEXP v, SEXP call)
 {
     SEXP ans;
-    warningcall(call, "implicit list embedding of S4 objects is deprecated");
+    if(IS_S4_OBJECT(v))
+	warningcall(call,
+		    "implicit list embedding of S4 objects is deprecated");
+    else
+	errorcall(call,
+		  "implicit list embedding of \"object\" is not possible");
     PROTECT(ans = allocVector(VECSXP, 1));
     SET_VECTOR_ELT(ans, 0, v);
     UNPROTECT(1);
@@ -403,7 +408,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch, int level,
 	}
 	break;
 
-    case 1925: /* vector <- S4 */
+    case 1925: /* vector <- S4|OBJ */
 
 	if (level == 1) {
 	    /* Embed the RHS into a list */
@@ -452,7 +457,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch, int level,
 	}
 	break;
 
-    case 2025: /* expression <- S4 */
+    case 2025: /* expression <- S4|OBJ */
 
 	if (level == 1) {
 	    /* Embed the RHS into a list */
@@ -463,19 +468,19 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch, int level,
 	}
 	break;
 
-    case 1025: /* logical   <- S4 */
-    case 1325: /* integer   <- S4 */
-    case 1425: /* real      <- S4 */
-    case 1525: /* complex   <- S4 */
-    case 1625: /* character <- S4 */
-    case 2425: /* raw       <- S4 */
+    case 1025: /* logical   <- S4|OBJ */
+    case 1325: /* integer   <- S4|OBJ */
+    case 1425: /* real      <- S4|OBJ */
+    case 1525: /* complex   <- S4|OBJ */
+    case 1625: /* character <- S4|OBJ */
+    case 2425: /* raw       <- S4|OBJ */
         if (dispatch_asvector(y, call, rho)) {
             return SubassignTypeFix(x, y, stretch, level, call, rho);
         }
 
     default:
 	error(_("incompatible types (from %s to %s) in subassignment type fix"),
-	      type2char(which%100), type2char(which/100));
+	      R_typeToChar(*x), R_typeToChar(*y));
     }
 
     if (stretch) {
@@ -1122,7 +1127,7 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
     default:
 	error(_("incompatible types (from %s to %s) in matrix subset assignment"),
-		  type2char(which%100), type2char(which/100));
+		  R_typeToChar(x), R_typeToChar(y));
     }
     UNPROTECT(2);
     return x;
@@ -1356,7 +1361,7 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
     default:
 	error(_("incompatible types (from %s to %s) in array subset assignment"),
-	      type2char(which%100), type2char(which/100));
+	      R_typeToChar(x), R_typeToChar(y));
     }
 
     UNPROTECT(3);
@@ -1590,7 +1595,7 @@ NORET static void errorMissingSubscript(SEXP x)
 attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP subs, x, y;
-    int nsubs, oldtype; Rboolean S4;
+    int nsubs, oldtype;
 
     PROTECT(args);
 
@@ -1618,8 +1623,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	((! IS_ASSIGNMENT_CALL(call)) && MAYBE_REFERENCED(CAR(args))))
 	x = SETCAR(args, shallow_duplicate(CAR(args)));
 
-    S4 = IS_S4_OBJECT(x);
-
+    Rboolean S4 = IS_S4_OBJECT(x); // {before it is changed}
     oldtype = 0;
     if (TYPEOF(x) == LISTSXP || TYPEOF(x) == LANGSXP) {
 	oldtype = TYPEOF(x);
@@ -1754,13 +1758,11 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP dims, indx, names, newname, subs, x, xtop, xup, y, thesub = R_NilValue, xOrig = R_NilValue;
     int i, ndims, nsubs, which, len = 0 /* -Wall */;
     R_xlen_t  stretch, offset, off = -1; /* -Wall */
-    Rboolean S4, recursed=FALSE;
 
     PROTECT(args);
 
     nsubs = SubAssignArgs(args, &x, &subs, &y);
     PROTECT(y); /* gets cut loose in SubAssignArgs */
-    S4 = IS_S4_OBJECT(x);
 
     /* Handle NULL left-hand sides.  If the right-hand side */
     /* is NULL, just return the left-hand size otherwise, */
@@ -1787,7 +1789,8 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SETCAR(args, x = shallow_duplicate(x));
 
     /* code to allow classes to extend ENVSXP */
-    if(TYPEOF(x) == S4SXP) {
+    Rboolean S4 = IS_S4_OBJECT(x);
+    if(S4 && TYPEOF(x) == OBJSXP) {
 	xOrig = x; /* will be an S4 object */
 	x = R_getS4DataSlot(x, ANYSXP);
 	if(TYPEOF(x) != ENVSXP)
@@ -1819,6 +1822,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* new case in 1.7.0, one vector index for a list,
        more general as of 2.10.0 */
+    Rboolean recursed = FALSE;
     if (nsubs == 1) {
 	thesub = CAR(subs);
 	len = length(thesub); /* depth of recursion, small */
@@ -2019,7 +2023,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 	default:
 	    error(_("incompatible types (from %s to %s) in [[ assignment"),
-		  type2char(which%100), type2char(which/100));
+		  R_typeToChar(x), R_typeToChar(y));
 	}
 	/* If we stretched, we may have a new name. */
 	/* In this case we must create a names attribute */
@@ -2143,7 +2147,7 @@ SEXP R_subassign3_dflt(SEXP call, SEXP x, SEXP nlist, SEXP val)
 	REPROTECT(x = shallow_duplicate(x), pxidx);
 
     /* code to allow classes to extend ENVSXP */
-    if(TYPEOF(x) == S4SXP) {
+    if(TYPEOF(x) == OBJSXP) {
 	xS4 = x;
 	REPROTECT(x = R_getS4DataSlot(x, ANYSXP), pxidx);
 	if(x == R_NilValue)

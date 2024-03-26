@@ -995,11 +995,10 @@ possibleExtends <- function(class1, class2, ClassDef1, ClassDef2)
         return(FALSE)
     ## else
     ext <- ClassDef1@contains
-    if(!is.null(contained <- ext[[class2]]))
-	contained
-    else if (is.null(ClassDef2))
+    ext[[class2]] %||%
+      if (is.null(ClassDef2))
 	FALSE
-    else { ## look for class1 in the known subclasses of class2
+      else { ## look for class1 in the known subclasses of class2
 	subs <- ClassDef2@subclasses
 	## check for a classUnion definition, not a plain "classRepresentation"
 	if(!.identC(class(ClassDef2), "classRepresentation") && isClassUnion(ClassDef2))
@@ -1012,7 +1011,7 @@ possibleExtends <- function(class1, class2, ClassDef1, ClassDef2)
 	    i <- i[!is.na(i)]
 	    if(length(i)) subs[[ i[1L] ]] else FALSE
 	}
-    }
+      }
 }
 
   ## complete the extends information in the class definition, by following
@@ -1597,12 +1596,14 @@ setDataPart <- function(object, value, check = TRUE) {
             skipExt <- skipDef@contains[[to]]
             if (!is.null(skipExt)) {
                 body(f, envir = environment(f)) <-
-                    call("as", body(skipExt@replace), byExt@subClass)
+                    substitute(methods::as(BODY, TO),
+                               list(BODY = body(skipExt@replace),
+                                    TO = byExt@subClass))
             }
         } else {
             expr <- substitute({
-                .value <- as(from, BY, STRICT)
-                as(.value, TO) <- value
+                .value <- methods::as(from, BY, STRICT)
+                methods::as(.value, TO) <- value
                 value <- .value
                 BYEXPR
             }, list(BY=by, TO = to, BYEXPR = byExpr, STRICT = strictBy))
@@ -1660,9 +1661,9 @@ setDataPart <- function(object, value, check = TRUE) {
 	}
     }
     else {
-	substitute({ value <- new(CLASS)
+	substitute({ value <- methods::new(CLASS)
 		     for(what in TOSLOTS)
-			 slot(value, what) <- slot(from, what)
+                         methods::slot(value, what) <- methods::slot(from, what)
 		     value },
 		   list(CLASS = chClass, TOSLOTS = toSlots))
     }
@@ -1672,7 +1673,7 @@ setDataPart <- function(object, value, check = TRUE) {
     toSlots <- names(toDef@slots)
     substitute({
         for(what in TOSLOTS)
-            slot(from, what) <- slot(value, what)
+            methods::slot(from, what) <- methods::slot(value, what)
         from
     }, list(TOSLOTS = toSlots))
 }

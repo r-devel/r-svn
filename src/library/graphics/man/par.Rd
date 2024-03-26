@@ -6,77 +6,77 @@
 \name{par}
 \alias{par}
 \alias{.Pars}
-\concept{adj}
-\concept{ann}
-\concept{ask}
-\concept{bg}
-\concept{bty}
-\concept{cex.axis}
-\concept{cex.lab}
-\concept{cex.main}
-\concept{cex.sub}
-\concept{cex}
-\concept{cin}
-\concept{col.axis}
-\concept{col.lab}
-\concept{col.main}
-\concept{col.sub}
-\concept{col}
-\concept{cra}
-\concept{crt}
-\concept{csi}
-\concept{cxy}
-\concept{din}
-\concept{err}
-\concept{family}
-\concept{fg}
-\concept{fig}
-\concept{fin}
-\concept{font.axis}
-\concept{font.lab}
-\concept{font.main}
-\concept{font.sub}
-\concept{font}
-\concept{lab}
-\concept{las}
-\concept{lend}
-\concept{lheight}
-\concept{ljoin}
-\concept{lmitre}
-\concept{lty}
-\concept{lwd}
-\concept{mai}
-\concept{mar}
-\concept{mex}
-\concept{mfcol}
-\concept{mfg}
-\concept{mfrow}
-\concept{mgp}
-\concept{mkh}
-\concept{new}
-\concept{oma}
-\concept{omd}
-\concept{omi}
-\concept{page}
-\concept{pch}
-\concept{pin}
-\concept{plt}
-\concept{ps}
-\concept{pty}
-\concept{smo}
-\concept{srt}
-\concept{tck}
-\concept{tcl}
-\concept{usr}
-\concept{xaxp}
-\concept{xaxs}
-\concept{xaxt}
-\concept{xlog}
-\concept{xpd}
-\concept{yaxp}
-\concept{yaxs}
-\concept{yaxt}
-\concept{ylog}
+\concept{\I{adj}}
+\concept{\I{ann}}
+\concept{\I{ask}}
+\concept{\I{bg}}
+\concept{\I{bty}}
+\concept{\I{cex.axis}}
+\concept{\I{cex.lab}}
+\concept{\I{cex.main}}
+\concept{\I{cex.sub}}
+\concept{\I{cex}}
+\concept{\I{cin}}
+\concept{\I{col.axis}}
+\concept{\I{col.lab}}
+\concept{\I{col.main}}
+\concept{\I{col.sub}}
+\concept{\I{col}}
+\concept{\I{cra}}
+\concept{\I{crt}}
+\concept{\I{csi}}
+\concept{\I{cxy}}
+\concept{\I{din}}
+\concept{\I{err}}
+\concept{\I{family}}
+\concept{\I{fg}}
+\concept{\I{fig}}
+\concept{\I{fin}}
+\concept{\I{font.axis}}
+\concept{\I{font.lab}}
+\concept{\I{font.main}}
+\concept{\I{font.sub}}
+\concept{\I{font}}
+\concept{\I{lab}}
+\concept{\I{las}}
+\concept{\I{lend}}
+\concept{\I{lheight}}
+\concept{\I{ljoin}}
+\concept{\I{lmitre}}
+\concept{\I{lty}}
+\concept{\I{lwd}}
+\concept{\I{mai}}
+\concept{\I{mar}}
+\concept{\I{mex}}
+\concept{\I{mfcol}}
+\concept{\I{mfg}}
+\concept{\I{mfrow}}
+\concept{\I{mgp}}
+\concept{\I{mkh}}
+\concept{\I{new}}
+\concept{\I{oma}}
+\concept{\I{omd}}
+\concept{\I{omi}}
+\concept{\I{page}}
+\concept{\I{pch}}
+\concept{\I{pin}}
+\concept{\I{plt}}
+\concept{\I{ps}}
+\concept{\I{pty}}
+\concept{\I{smo}}
+\concept{\I{srt}}
+\concept{\I{tck}}
+\concept{\I{tcl}}
+\concept{\I{usr}}
+\concept{\I{xaxp}}
+\concept{\I{xaxs}}
+\concept{\I{xaxt}}
+\concept{\I{xlog}}
+\concept{\I{xpd}}
+\concept{\I{yaxp}}
+\concept{\I{yaxs}}
+\concept{\I{yaxt}}
+\concept{\I{ylog}}
 \concept{color}
 \concept{colour}
 \alias{graphical parameter}
@@ -310,7 +310,7 @@ par(\dots, no.readonly = FALSE)
         Specification}.  A few devices have an argument to set the
       initial value, which is otherwise \code{"black"}.}
     \item{\code{fig}}{A numerical vector of the form \code{c(x1, x2, y1,
-        y2)} which gives the (NDC) coordinates of the figure region in
+        y2)} which gives the (\abbr{NDC}) coordinates of the figure region in
       the display region of the device. If you set this, unlike S, you
       start a new plot, so to add to an existing plot use
       \code{new = TRUE} as well.}
@@ -374,7 +374,7 @@ par(\dots, no.readonly = FALSE)
       Not all devices will honour this setting.}
     \item{\code{lty}}{The line type.
       Line types can either be specified as an integer (0=blank, 1=solid
-      (default), 2=dashed, 3=dotted, 4=dotdash, 5=longdash, 6=twodash)
+      (default), 2=dashed, 3=dotted, 4=\I{dotdash}, 5=\I{longdash}, 6=\I{twodash})
       or as one of the character strings \code{"blank"}, \code{"solid"},
       \code{"dashed"}, \code{"dotted"}, \code{"dotdash"},
       \code{"longdash"}, or \code{"twodash"}, where \code{"blank"} uses
@@ -465,7 +465,7 @@ par(\dots, no.readonly = FALSE)
       \if{latex}{\figure{oma.pdf}{options: width=6cm}}
     }
     \item{\code{omd}}{A vector of the form \code{c(x1, x2, y1, y2)}
-      giving the region \emph{inside} outer margins in NDC (=
+      giving the region \emph{inside} outer margins in \abbr{NDC} (=
       normalized device coordinates), i.e., as a fraction (in \eqn{[0, 1]})
       of the device region.}
     \item{\code{omi}}{A vector of the form \code{c(bottom, left, top,
@@ -494,7 +494,7 @@ par(\dots, no.readonly = FALSE)
       and \code{omi}).
 
       What is meant by \sQuote{point size} is device-specific, but most
-      devices mean a multiple of 1bp, that is 1/72 of an inch.
+      devices mean a multiple of 1\abbr{bp}, that is 1/72 of an inch.
     }
     \item{\code{pty}}{A character specifying the type of plot region to
       be used; \code{"s"} generates a square plotting region and
@@ -607,12 +607,17 @@ par(\dots, no.readonly = FALSE)
   in terms of their RGB components with a string of the form
   \code{"#RRGGBB"} where each of the pairs \code{RR}, \code{GG},
   \code{BB} consist of two hexadecimal digits giving a value in the
-  range \code{00} to \code{FF}.  Colors can also be specified by giving
-  an index into a small table of colors, the \code{\link{palette}}:
-  indices wrap round so with the default palette of size 8, \code{10} is
-  the same as \code{2}.  This provides compatibility with S.  Index
-  \code{0} corresponds to the background color.  Note that the palette
-  (apart from \code{0} which is per-device) is a per-session setting.
+  range \code{00} to \code{FF}.  Hexadecimal colors can be in the long
+  hexadecimal form (e.g., \code{"#rrggbb"} or \code{"#rrggbbaa"}) or the
+  short form (e.g, \code{"#rgb"} or \code{"#rgba"}). The short form is
+  expanded to the long form by replicating digits (not by adding zeroes),
+  e.g., \code{"#rgb"} becomes \code{"#rrggbb"}. Colors can
+  also be specified by giving an index into a small table of colors, the 
+  \code{\link{palette}}: indices wrap round so with the default palette 
+  of size 8, \code{10} is the same as \code{2}.  This provides 
+  compatibility with S.  Index \code{0} corresponds to the background 
+  color.  Note that the palette (apart from \code{0} which is per-device)
+  is a per-session setting.
 
   Negative integer colours are errors.
 
@@ -671,9 +676,9 @@ par(\dots, no.readonly = FALSE)
   \code{\link{plot.default}} for some high-level plotting parameters;
   \code{\link{colors}}; \code{\link{clip}};
   \code{\link{options}} for other setup parameters;
-  graphic devices \code{\link{x11}}, \code{\link{postscript}} and
-  setting up device regions by \code{\link{layout}} and
-  \code{\link{split.screen}}.
+  graphic devices \code{\link{x11}}, \code{\link{pdf}},
+  \code{\link{postscript}} and setting up device regions by
+  \code{\link{layout}} and \code{\link{split.screen}}.
 }
 
 \examples{

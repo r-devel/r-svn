@@ -42,6 +42,7 @@ bitwise
 Bivariate
 bivariate
 biweight
+BLAS
 boolean
 boxplot
 boxplots
@@ -51,6 +52,8 @@ cartesian
 CCA
 CDF
 CDFs
+centroid
+changepoint
 checkbox
 Cholesky
 CIs
@@ -157,6 +160,8 @@ gif
 GIS
 GLM
 GLMs
+glyph
+glyphs
 Google
 GPD
 GPL
@@ -223,6 +228,7 @@ lognormal
 lookup
 lowess
 LRT
+macOS
 Mahalanobis
 manhattan
 MANOVA
@@ -260,6 +266,7 @@ multinomial
 multinomially
 namespace
 namespaces
+NaN
 NAs
 NCBI
 nonlinearity
@@ -324,6 +331,8 @@ Quantile
 quantile
 Quantiles
 quantiles
+quartile
+quartiles
 randomizations
 rbind
 reals

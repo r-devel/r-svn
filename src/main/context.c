@@ -138,7 +138,7 @@ attribute_hidden void R_run_onexits(RCNTXT *cptr)
 	    R_ExitContext = c;
 	    c->conexit = R_NilValue; /* prevent recursion */
 	    /* we are in intermediate jump, so returnValue is undefined */
-	    c->returnValue = NULL;
+	    c->returnValue = SEXP_TO_STACKVAL(NULL);
 	    R_HandlerStack = c->handlerstack;
 	    R_RestartStack = c->restartstack;
 	    PROTECT(s);
@@ -174,6 +174,7 @@ static void R_restore_globals(RCNTXT *cptr)
     R_BCIntActive = cptr->bcintactive;
     R_BCpc = cptr->bcpc;
     R_BCbody = cptr->bcbody;
+    R_BCFrame = cptr->bcframe;
     R_EvalDepth = cptr->evaldepth;
     vmaxset(cptr->vmax);
     R_interrupts_suspended = cptr->intsusp;
@@ -237,7 +238,12 @@ attribute_hidden void NORET R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 	R_OldCStackLimit = 0;
     }
 
-    LONGJMP(cptr->cjmpbuf, mask);
+    /* usually cptr->cjmpbuf_ptr == NULL, but bcEval_loop() sets a
+       non-NULL value to share a jmpbuf among several contexts */
+    if (cptr->cjmpbuf_ptr)
+	LONGJMP((*(cptr->cjmpbuf_ptr)), mask); //**** extra parens until Windows macro is fixed
+    else
+	LONGJMP(cptr->cjmpbuf, mask);
 }
 
 
@@ -248,10 +254,12 @@ void begincontext(RCNTXT * cptr, int flags,
 		  SEXP syscall, SEXP env, SEXP sysp,
 		  SEXP promargs, SEXP callfun)
 {
+    cptr->cjmpbuf_ptr = NULL;
     cptr->cstacktop = R_PPStackTop;
     cptr->gcenabled = R_GCEnabled;
     cptr->bcpc = R_BCpc;
     cptr->bcbody = R_BCbody;
+    cptr->bcframe = R_BCFrame;
     cptr->bcintactive = R_BCIntActive;
     cptr->evaldepth = R_EvalDepth;
     cptr->callflag = flags;
@@ -272,7 +280,7 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->srcref = R_Srcref;
     cptr->browserfinish = R_GlobalContext->browserfinish;
     cptr->nextcontext = R_GlobalContext;
-    cptr->returnValue = NULL;
+    cptr->returnValue = SEXP_TO_STACKVAL(NULL);
     cptr->jumptarget = NULL;
     cptr->jumpmask = 0;
 
@@ -300,14 +308,16 @@ void endcontext(RCNTXT * cptr)
 	PROTECT(saveretval);
 	PROTECT(s);
 	R_FixupExitingHandlerResult(saveretval);
-	if (cptr->returnValue) // why is this needed???
-	    INCREMENT_LINKS(cptr->returnValue);
+	SEXP cptr_retval =
+	    cptr->returnValue.tag == 0 ? cptr->returnValue.u.sxpval : NULL;
+	if (cptr_retval) // why is this needed???
+	    INCREMENT_LINKS(cptr_retval);
 	for (; s != R_NilValue; s = CDR(s)) {
 	    cptr->conexit = CDR(s);
 	    eval(CAR(s), cptr->cloenv);
 	}
-	if (cptr->returnValue) // why is this needed???
-	    DECREMENT_LINKS(cptr->returnValue);
+	if (cptr_retval) // why is this needed???
+	    DECREMENT_LINKS(cptr_retval);
 	R_ReturnedValue = saveretval;
 	UNPROTECT(2);
 	R_ExitContext = savecontext;
@@ -936,7 +946,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 		     void *cleandata, SEXP cont)
 {
     RCNTXT thiscontext;
-    SEXP result;
+    volatile SEXP result;
     Rboolean jump;
 
     /* Allow simple usage with a NULL continuation token. This _could_

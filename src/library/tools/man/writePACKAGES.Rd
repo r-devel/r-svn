@@ -58,7 +58,7 @@ write_PACKAGES(dir = ".", fields = NULL,
     \samp{File} in the \file{PACKAGES} file.}
   \item{rds_compress}{The type of compression to be used for
     \file{PACKAGES.rds}: see \code{\link{saveRDS}}.  The default is the
-    one found to give maximal compression, and is as used on \acronym{CRAN}.}
+    one found to give maximal compression, and is as used on \abbr{CRAN}.}
   \item{validate}{a logical indicating whether \file{DESCRIPTION} files
     should be validated, and the corresponding packages skipped in case
     this finds problems.}
@@ -111,7 +111,7 @@ write_PACKAGES(dir = ".", fields = NULL,
   work on all OSes.
 }
 \author{
-  Uwe Ligges and R-core.
+  \I{Uwe Ligges} and R-core.
 }
 \seealso{
   See \code{\link{read.dcf}} and \code{\link{write.dcf}} for reading

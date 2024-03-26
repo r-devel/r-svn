@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -73,6 +73,128 @@ attribute_hidden SEXP do_relop(SEXP call, SEXP op, SEXP args, SEXP env)
     return do_relop_dflt(call, op, arg1, arg2);
 }
 
+#define IS_SCALAR_STRING(x) (TYPEOF(x) == STRSXP && XLENGTH(x) == 1)
+#define SYMBOL_STRING_MATCH(x, y) \
+    (isSymbol(x) && IS_SCALAR_STRING(y) && Seql(PRINTNAME(x), STRING_ELT(y, 0)))
+
+
+static R_INLINE Rboolean compute_lang_equal(SEXP x, SEXP y)
+{
+    if (isSymbol(x))
+	return y == x ||
+	    (IS_SCALAR_STRING(y) && Seql(PRINTNAME(x), STRING_ELT(y, 0)));
+    else if (isSymbol(y))
+	return x == y ||
+	    (IS_SCALAR_STRING(x) && Seql(STRING_ELT(x, 0), PRINTNAME(y)));
+
+    if (TYPEOF(x) == LANGSXP && ATTRIB(x) != R_NilValue)
+	x = LCONS(CAR(x), CDR(x));
+    PROTECT(x);
+    if (TYPEOF(y) == LANGSXP && ATTRIB(y) != R_NilValue)
+	y = LCONS(CAR(y), CDR(y));
+    PROTECT(y);
+
+    Rboolean val = R_compute_identical(x, y, 16);
+    UNPROTECT(2);
+    return val;
+}
+
+static SEXP compute_language_relop(SEXP call, SEXP op, SEXP x, SEXP y)
+{
+    static enum {
+	UNINITIALIZED,
+	EQONLY,
+	IDENTICAL_CALLS,
+	IDENTICAL_CALLS_ATTR,
+	IDENTICAL,
+	ERROR_CALLS,
+	ERROR
+    } option = UNINITIALIZED;
+
+    if (option == UNINITIALIZED) {
+	option = EQONLY;
+	const char *val = getenv("_R_COMPARE_LANG_OBJECTS");
+	if (val != NULL) {
+	    if (strcmp(val, "eqonly") == 0)
+		option = EQONLY;
+	    else if (strcmp(val, "identical_calls") == 0)
+		option = IDENTICAL_CALLS;
+	    else if (strcmp(val, "identical_calls_attr") == 0)
+		option = IDENTICAL_CALLS_ATTR;
+	    else if (strcmp(val, "identical") == 0)
+		option = IDENTICAL;
+	    else if (strcmp(val, "error_calls") == 0)
+		option = ERROR_CALLS;
+	    else if (strcmp(val, "error") == 0)
+		option = ERROR;
+	}
+    }
+
+    switch(option) {
+    case EQONLY:
+	switch(PRIMVAL(op)) {
+	case EQOP: return NULL;
+	case NEOP: return NULL;
+	default:
+	    errorcall(call,
+		      _("comparison (%s) is not possible for language types"),
+		      PRIMNAME(op));
+	}
+    case IDENTICAL_CALLS:
+	/* this should reproduce the current behavior of == and != for
+	   language objects, while signaling errors for <, <=, >, and
+	   >=. */
+	switch(PRIMVAL(op)) {
+	case EQOP:
+	    return compute_lang_equal(x, y) ? R_TrueValue : R_FalseValue;
+	case NEOP:
+	    return compute_lang_equal(x, y) ? R_FalseValue : R_TrueValue;
+	default:
+	    errorcall(call,
+		      _("comparison (%s) is not possible for language types"),
+		      PRIMNAME(op));
+	}
+    case IDENTICAL_CALLS_ATTR:
+	if (isSymbol(x) && IS_SCALAR_STRING(y))
+	    y = Seql(STRING_ELT(y, 0), PRINTNAME(x)) ? x : R_NilValue;
+	else if (isSymbol(y) && IS_SCALAR_STRING(x))
+	    x = Seql(STRING_ELT(x, 0), PRINTNAME(y)) ? y : R_NilValue;
+	switch(PRIMVAL(op)) {
+	case EQOP:
+	    return R_compute_identical(x, y, 16) ? R_TrueValue : R_FalseValue;
+	case NEOP:
+	    return R_compute_identical(x, y, 16) ? R_FalseValue : R_TrueValue;
+	default:
+	    errorcall(call,
+		      _("comparison (%s) is not possible for language types"),
+		      PRIMNAME(op));
+	}
+    case IDENTICAL:
+	if (SYMBOL_STRING_MATCH(x, y) || SYMBOL_STRING_MATCH(y, x))
+	    /* identical(x, y) and the default x == y implementation
+	       would disagree, so signal an error instead */
+	    errorcall(call,
+		      _("comparing this symbol and string pair "
+			"is not supported"));
+	switch(PRIMVAL(op)) {
+	case EQOP:
+	    return R_compute_identical(x, y, 16) ? R_TrueValue : R_FalseValue;
+	case NEOP:
+	    return R_compute_identical(x, y, 16) ? R_FalseValue : R_TrueValue;
+	default: errorcall(call,
+			   _("comparison (%s) is not possible language types"),
+			   PRIMNAME(op));
+	}
+    case ERROR_CALLS:
+	if (TYPEOF(x) == LANGSXP || TYPEOF(y) == LANGSXP)
+	    errorcall(call, _("comparison of call objects is not supported"));
+	return NULL;
+    case ERROR:
+	errorcall(call, _("comparison of language objects is not supported"));
+    default: return NULL;
+    }
+}
+
 // also called from cmp_relop() in eval.c :
 attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 {
@@ -134,6 +256,15 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
 
+    if (isSymbol(x) || TYPEOF(x) == LANGSXP ||
+	isSymbol(y) || TYPEOF(y) == LANGSXP) {
+	SEXP ans = compute_language_relop(call, op, x, y);
+	if (ans != NULL) {
+	    UNPROTECT(2);
+	    return ans;
+	}
+    }
+
     Rboolean iS;
     /* That symbols and calls were allowed was undocumented prior to
        R 2.5.0.  We deparse them as deparse() would, minus attributes */
@@ -141,7 +272,9 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	SEXP tmp = allocVector(STRSXP, 1);
 	PROTECT(tmp);
 	SET_STRING_ELT(tmp, 0, (iS) ? PRINTNAME(x) :
-		       STRING_ELT(deparse1(x, 0, DEFAULTDEPARSE), 0));
+		       STRING_ELT(deparse1line_(x, 0,
+						DEFAULTDEPARSE | DIGITS17),
+				  0));
 	REPROTECT(x = tmp, xpi);
 	nx = xlength(x);
 	UNPROTECT(1);
@@ -150,7 +283,9 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	SEXP tmp = allocVector(STRSXP, 1);
 	PROTECT(tmp);
 	SET_STRING_ELT(tmp, 0, (iS) ? PRINTNAME(y) :
-		       STRING_ELT(deparse1(y, 0, DEFAULTDEPARSE), 0));
+		       STRING_ELT(deparse1line_(y, 0,
+						DEFAULTDEPARSE | DIGITS17),
+				  0));
 	REPROTECT(y = tmp, ypi);
 	ny = xlength(y);
 	UNPROTECT(1);

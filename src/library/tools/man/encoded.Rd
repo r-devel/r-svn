@@ -17,7 +17,7 @@ encoded_text_to_latex(x,
 \arguments{
   \item{x}{a character vector.}
   \item{encoding}{the encoding to be assumed.  \code{"latin9"} is
-    officially ISO-8859-15 or Latin-9, but known as latin9 to LaTeX's
+    officially ISO-8859-15 or Latin-9, but known as latin9 to LaTeX{}'s
     \code{inputenc} package.}
 }
 \details{
@@ -34,7 +34,7 @@ encoded_text_to_latex(x,
   \code{\link{iconv}}
 }
 \examples{
-x <- "fa\xE7ile"
+x <- "fran\xE7ais"
 encoded_text_to_latex(x, "latin1")
 \dontrun{
 ## create a tex file to show the upper half of 8-bit charsets
@@ -50,11 +50,11 @@ header <- c(
 "\\\\usepackage{Rd}",
 "\\\\begin{document}",
 "\\\\HeaderA{test}{}{test}",
-"\\\\begin{Details}\\relax",
+"\\\\begin{Details}\\\\relax",
 "\\\\Tabular{cccccccccccccccc}{")
 trailer <- c("}", "\\\\end{Details}", "\\\\end{document}")
 writeLines(header, con)
-writeLines(paste0(xx, "\\\\"), con)
+writeLines(paste0(xx, "\\\\\\\\"), con)
 writeLines(trailer, con)
 close(con)
 ## and some UTF_8 chars
@@ -69,7 +69,7 @@ xx[] <- encoded_text_to_latex(x, "UTF-8")
 xx <- apply(xx, 1, paste, collapse = "&")
 con <- file("test-utf8.tex", "w")
 writeLines(header, con)
-writeLines(paste(xx, "\\\\", sep = ""), con)
+writeLines(paste(xx, "\\\\\\\\", sep = ""), con)
 writeLines(trailer, con)
 close(con)
 }}

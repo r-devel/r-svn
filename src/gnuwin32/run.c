@@ -43,9 +43,21 @@
 
 static char RunError[501] = "";
 
+static Rboolean hasspace(const char *s)
+{
+    if (!s)
+	return FALSE;
+    for(;*s;s++)
+	if (isspace(*s)) return TRUE;
+    return FALSE;
+} 
+
 /* This might be given a command line (whole = 0) or just the
    executable (whole = 1).  In the later case the path may or may not
-   be quoted. */
+   be quoted. 
+
+   When whole = 0, the command will be quoted in the result if it contains
+   space. */
 static char *expandcmd(const char *cmd, int whole)
 {
     char c = '\0';
@@ -142,7 +154,8 @@ static char *expandcmd(const char *cmd, int whole)
     if (res > 0) {
 	/* perform the translation again with sufficient buffer size */
 	// This is the return value.
-	if (!(s = (char *) malloc(res + len))) { /* over-estimate */
+	if (!(s = (char *) malloc(res + len + 2))) {
+	    /* the size over-estimate, +2 in case quotes will be needed */
 	    if (fn) free(fn);
 	    strcpy(RunError, "Insufficient memory (expandcmd)");
 	    return NULL;
@@ -154,15 +167,25 @@ static char *expandcmd(const char *cmd, int whole)
 	   permissions for some component of the path. */
 	if (s) free(s);
 	// This is the return value.
-	if (!(s = (char *) malloc(d + len))) { /* over-estimate */
+	if (!(s = (char *) malloc(d + len + 2))) { /* over-estimate */
 	    if (fn) free(fn);
 	    strcpy(RunError, "Insufficient memory (expandcmd)");
 	    return NULL;
 	}
-        strncpy(s, fn, d + 1);
+	if (!whole && hasspace(fn)) 
+	    snprintf(s, d + 3, "\"%s\"", fn);
+	else
+	    strncpy(s, fn, d + 1);
+    } else if (!whole && hasspace(s)) {
+	/* GetShortPathName succeeded but it may still have returned the
+	   long path (so with spaces) */
+
+	memmove(s + 1, s, res + 1); 
+	s[0] = '"';
+	s[1 + res] = '"';
+	s[1 + res + 1] = '\0';
     }
 
-    /* FIXME: warn if the path contains space? */
     if (!whole) {
 	*q = c;         /* restore character after command */
 	strcat(s, q);   /* add the rest of input (usually arguments) */
@@ -183,10 +206,11 @@ static char *expandcmd(const char *cmd, int whole)
 
 extern size_t Rf_utf8towcs(wchar_t *wc, const char *s, size_t n);
 
+/* NOTE: this doesn't work for CE_UTF8 due to expandcmd() */
 static void pcreate(const char* cmd, cetype_t enc,
 		      int newconsole, int visible,
 		      HANDLE hIN, HANDLE hOUT, HANDLE hERR,
-		      pinfo *pi)
+		      pinfo *pi, int consignals)
 {
     DWORD ret;
     STARTUPINFO si;
@@ -205,7 +229,9 @@ static void pcreate(const char* cmd, cetype_t enc,
     sa.lpSecurityDescriptor = NULL;
     sa.bInheritHandle = TRUE;
 
-    /* FIXME: this might need to be done in wchar_t */
+    /* FIXME: this would have to be done in wchar_t/UTF-16LE to support
+       CE_UTF8; the enc==CE_UTF8 branch could be phased out once UTF-8 as
+       native encoding can be assumed on all Windows systems  */
     if (!(ecmd = expandcmd(cmd, 0))) return; /* error message already set */
 
     inpipe = (hIN != INVALID_HANDLE_VALUE)
@@ -369,7 +395,7 @@ static void pcreate(const char* cmd, cetype_t enc,
 	flags |= CREATE_SUSPENDED; /* assign to job before it runs */
     if (newconsole && (visible == 1))
 	flags |= CREATE_NEW_CONSOLE;
-    else if (newconsole)
+    else if (newconsole && !consignals)
 	/* prevent interruption of background processes by Ctrl-C, PR#17764 */
 	flags |= CREATE_NEW_PROCESS_GROUP;
     if (job && breakaway)
@@ -630,12 +656,12 @@ static int pwait2(pinfo *pi, DWORD timeoutMillis, int* timedout)
 int runcmd(const char *cmd, cetype_t enc, int wait, int visible,
 	   const char *fin, const char *fout, const char *ferr)
 {
-    return runcmd_timeout(cmd, enc, wait, visible, fin, fout, ferr, 0, NULL);
+    return runcmd_timeout(cmd, enc, wait, visible, fin, fout, ferr, 0, NULL, 1);
 }
 
 int runcmd_timeout(const char *cmd, cetype_t enc, int wait, int visible,
                    const char *fin, const char *fout, const char *ferr,
-                   int timeout, int *timedout)
+                   int timeout, int *timedout, int consignals)
 {
     if (!wait && timeout)
 	error("Timeout with background running processes is not supported.");
@@ -659,7 +685,7 @@ int runcmd_timeout(const char *cmd, cetype_t enc, int wait, int visible,
 
 
     memset(&(pi.pi), 0, sizeof(PROCESS_INFORMATION));
-    pcreate(cmd, enc, !wait, visible, hIN, hOUT, hERR, &pi);
+    pcreate(cmd, enc, !wait, visible, hIN, hOUT, hERR, &pi, consignals);
     if (pi.pi.hProcess) {
 	if (wait) {
 	    RCNTXT cntxt;
@@ -701,9 +727,9 @@ rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
     DWORD id;
     BOOL res;
     int close1 = 0, close2 = 0, close3 = 0;
-    /* newconsole (~"!wait") means gnore Ctrl handler attibute
+    /* newconsole (~"!wait") means ignore Ctrl handler attribute
        is set for child. When also visible==1, an actual text
-       console is created */
+       console is created. */
 
     if (!(r = (rpipe *) malloc(sizeof(struct structRPIPE)))) {
 	strcpy(RunError, _("Insufficient memory (rpipeOpen)"));
@@ -754,7 +780,7 @@ rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
 	if (hERR && ferr && ferr[0]) close3 = 1;
     }
     
-    pcreate(cmd, enc, newconsole, visible, hIN, hOUT, hERR, &(r->pi));
+    pcreate(cmd, enc, newconsole, visible, hIN, hOUT, hERR, &(r->pi), 0);
 
     if (close1) CloseHandle(hIN);
     if (close2) CloseHandle(hOUT);

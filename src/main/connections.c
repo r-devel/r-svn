@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2023   The R Core Team.
+ *  Copyright (C) 2000-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,9 +75,10 @@
   which have a quite low default limit (256 on macOS, 1024 on Linux),
   and are needed for other uses including loading DLLs.  (Parallel
   clusters use a file connection per cluster member.)  Windows is said
-  to have a default limit of 512 file handlws per process.
+  to have a default limit of 512 simultaneously open files at stream
+  I/O level.
 
-  As from R 4.4.0 the defailt limit remains 128. but can be overriden
+  As from R 4.4.0 the default limit remains 128, but can be overriden
   by the startup option --max-connections.  This does not allow it to
   be set below 128 but has a limit of 4096 (see CommandLineArgs.c).
   The upper limit is conservative, but as creating a new connection
@@ -86,6 +87,18 @@
 
   Using a dynamic upper limit would not be hard, but not very useful
   because of the non-dynamic fd limit.
+
+  The current implementation of socket connections uses select(). On
+  POSIX systems, only FD_SETSIZE descriptors are supported and they 
+  must have numbers between 0 and FD_SETSIZE-1, inclusive. On Linux and macOS,
+  FD_SETSIZE is normally 1024. On macOS, the limit could be overcome via
+  _DARWIN_UNLIMITED_SELECT (not used by R), but a POSIX solution would
+  be to use poll() instead of select(). On Windows, by default 1024 different
+  descriptors are supported in a single select() call, but these include
+  valid socket file descriptors of arbitrary numbers, much larger
+  than FD_SETSIZE.  On Windows, the limit can be set in the program
+  by setting FD_SETSIZE before including WinSock headers, R sets it to
+  1024 (in sock.h and here in connections.c).
 */
 
 #ifdef HAVE_CONFIG_H
@@ -245,7 +258,7 @@ static void conFinalizer(SEXP ptr)
     R_ClearExternalPtr(ptr); /* not really needed */
 
     if (warn)
-	warning(buf); /* may be turned into error */
+	warning("%s", buf); /* may be turned into error */
 }
 
 
@@ -267,7 +280,7 @@ NORET static void set_iconv_error(Rconnection con, char* from, char* to)
     char buf[100];
     snprintf(buf, 100, _("unsupported conversion from '%s' to '%s'"), from, to);
     con_destroy(ConnIndex(con));
-    error(buf);
+    error("%s", buf);
 }
 
 /* ------------------- buffering --------------------- */
@@ -513,9 +526,11 @@ int dummy_vfprintf(Rconnection con, const char *format, va_list ap)
 	    errno = 0;
 	    ires = Riconv(con->outconv, &ib, &inb, &ob, &onb);
 	    again = (ires == (size_t)(-1) && errno == E2BIG);
-	    if(ires == (size_t)(-1) && errno != E2BIG)
+	    if(ires == (size_t)(-1) && errno != E2BIG) {
+		Riconv(con->outconv, NULL, NULL, NULL, NULL);
 		/* is this safe? */
 		warning(_("invalid char string in output conversion"));
+	    }
 	    *ob = '\0';
 	    con->write(outbuf, 1, ob - outbuf, con);
 	} while(again && inb > 0);  /* it seems some iconv signal -1 on
@@ -529,37 +544,48 @@ int dummy_vfprintf(Rconnection con, const char *format, va_list ap)
 
 int dummy_fgetc(Rconnection con)
 {
-    int c;
-    Rboolean checkBOM = FALSE, checkBOM8 = FALSE;
-
     if(con->inconv) {
 	while(con->navail <= 0) {
-	    /* Probably in all cases there will be at most one iteration
-	       of the loop. It could iterate multiple times only if the input
-	       encoding could have \r or \n as a part of a multi-byte coded
-	       character.
-	    */
 	    unsigned int i, inew = 0;
 	    char *p, *ob;
 	    const char *ib;
 	    size_t inb, onb, res;
+	    Rboolean checkBOM = FALSE, checkBOM8 = FALSE;
 
 	    if(con->EOF_signalled) return R_EOF;
-	    if(con->inavail == -2) {
-		con->inavail = 0;
-		checkBOM = TRUE;
-	    }
-	    if(con->inavail == -3) {
-		con->inavail = 0;
-		checkBOM8 = TRUE;
+	    if (con->inavail < 0) {
+		switch(con->inavail) {
+		case -2:
+		    con->inavail = 0;
+		    checkBOM = TRUE;
+		    break;
+		case -3:
+		    con->inavail = 0;
+		    checkBOM8 = TRUE;
+		    break;
+		case -21:
+		    con->inavail = 1;
+		    checkBOM = TRUE;
+		    break;
+		case -31:
+		    con->inavail = 1;
+		    checkBOM8 = TRUE;
+		    break;
+		case -32:
+		    con->inavail = 2;
+		    checkBOM8 = TRUE;
+		    break;
+		}
 	    }
 	    p = con->iconvbuff + con->inavail;
 	    for(i = con->inavail; i < 25; i++) {
-		if (con->buff)
-		    c = buff_fgetc(con);
-		else
-		    c = con->fgetc_internal(con);
-		if(c == R_EOF){ con->EOF_signalled = TRUE; break; }
+		int c = (con->buff)
+		    ? buff_fgetc(con)
+		    : con->fgetc_internal(con);
+		if(c == R_EOF)
+		    /* Do not set EOF_signalled, because subsequent reads from
+		       a non-blocking connections may succeed (PR18555). */
+		    break;
 		*p++ = (char) c;
 		con->inavail++;
 		inew++;
@@ -571,6 +597,36 @@ int dummy_fgetc(Rconnection con)
 		    */
 		    break;
 	    }
+	    if (checkBOM || checkBOM8) {
+		/* Handle the case of partial BOMs, e.g. in non-blocking
+		   connections, when we do not have enough data to tell
+		   whether there is a BOM or not.  Indicate by negative
+		   con->inavail which BOM still needs to be checked and
+		   how many bytes were already checked. */
+		if(con->inavail == 0) {
+		    if (checkBOM)
+			con->inavail = -2;
+		    else if (checkBOM8)
+			con->inavail = -3;
+		    return R_EOF;
+		}
+		if (con->inavail == 1) {
+		    if (checkBOM && (((int)con->iconvbuff[0] & 0xff) == 255)) {
+			con->inavail = -21;
+			return R_EOF;
+		    }
+		    if (checkBOM8 && con->iconvbuff[0] == '\xef') {
+			con->inavail = -31;
+			return R_EOF;
+		    }
+		}
+		if (con->inavail == 2 && checkBOM8 &&
+		    con->iconvbuff[1] == '\xbb') {
+
+		    con->inavail = -32;
+		    return R_EOF;
+		}
+	    }
 	    if(inew == 0) return R_EOF;
 	    if(checkBOM && con->inavail >= 2 &&
 	       ((int)con->iconvbuff[0] & 0xff) == 255 &&
@@ -578,7 +634,6 @@ int dummy_fgetc(Rconnection con)
 		con->inavail -= (short) 2;
 		memmove(con->iconvbuff, con->iconvbuff+2, con->inavail);
 	    }
-	    if(inew == 0) return R_EOF;
 	    if(checkBOM8 && con->inavail >= 3 &&
 	       !memcmp(con->iconvbuff, "\xef\xbb\xbf", 3)) {
 		con->inavail -= (short) 3;
@@ -596,10 +651,13 @@ int dummy_fgetc(Rconnection con)
 		    /* incomplete input char or no space in output buffer */
 		    memmove(con->iconvbuff, ib, inb);
 		} else {/*  EILSEQ invalid input */
+		    Riconv(con->inconv, NULL, NULL, NULL, NULL);
 		    warning(_("invalid input found on input connection '%s'"),
 			    con->description);
 		    con->inavail = 0;
-		    if (con->navail == 0) return R_EOF;
+		    /* Set to prevent reading any more bytes from input,
+		       possibly those following the invalid bytes currently
+		       encountered. */
 		    con->EOF_signalled = TRUE;
 		}
 	    }
@@ -1738,7 +1796,6 @@ attribute_hidden SEXP do_pipe(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* ------------------- [bgx]zipped file connections --------------------- */
-
 #include "gzio.h"
 
 /* needs to be declared before con_close1 */
@@ -2742,9 +2799,10 @@ static int stdin_fgetc(Rconnection con)
 
 static int stdout_vfprintf(Rconnection con, const char *format, va_list ap)
 {
-    if(R_Outputfile) vfprintf(R_Outputfile, format, ap);
-    else Rcons_vprintf(format, ap);
-    return 0;
+    if(R_Outputfile)
+	return vfprintf(R_Outputfile, format, ap);
+    else
+	return Rcons_vprintf(format, ap);
 }
 
 static int stdout_fflush(Rconnection con)
@@ -2755,8 +2813,7 @@ static int stdout_fflush(Rconnection con)
 
 static int stderr_vfprintf(Rconnection con, const char *format, va_list ap)
 {
-    REvprintf(format, ap);
-    return 0;
+    return REvprintf_internal(format, ap);
 }
 
 static int stderr_fflush(Rconnection con)
@@ -4053,7 +4110,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(ans = allocVector(STRSXP, nn));
     for(nread = 0; nread < nnn; nread++) {
 	if(nread >= nn) {
-	    double dnn = 2.* nn;
+	    double dnn = 2. * (double) nn;
 	    if (dnn > R_XLEN_T_MAX) error("too many items");
 	    ans2 = allocVector(STRSXP, 2*nn);
 	    for(i = 0; i < nn; i++)
@@ -4087,7 +4144,8 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	    !memcmp(buf, "\xef\xbb\xbf", 3)) qbuf = buf + 3;
 	SET_STRING_ELT(ans, nread, mkCharCE(qbuf, oenc));
 	if (warn && strlen(buf) < nbuf)
-	    warning(_("line %d appears to contain an embedded nul"), nread + 1);
+	    warning(_("line %lld appears to contain an embedded nul"),
+	            (long long)nread + 1);
 	if(c == R_EOF) goto no_more_lines;
     }
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
@@ -4775,18 +4833,16 @@ readFixedString(Rconnection con, int len, int useBytes, Rboolean *warnOnNul)
     const void *vmax = vmaxget();
 
     if(utf8locale && !useBytes) {
-	int i, clen;
-	char *p, *q;
-
-	p = buf = (char *) R_alloc(R_MB_CUR_MAX*len+1, sizeof(char));
-	memset(buf, 0, R_MB_CUR_MAX*len+1);
+	R_SIZE_T count = R_MB_CUR_MAX * (R_SIZE_T)len +1;
+	char *p = buf = (char *) R_alloc(count, sizeof(char));
+	memset(buf, 0, count);
 	mbstate_t mb_st;
 	mbs_init(&mb_st);
-	for(i = 0; i < len; i++) {
-	    q = p;
+	for(int i = 0; i < len; i++) {
+	    char *q = p;
 	    m = (int) con->read(p, sizeof(char), 1, con);
 	    if(!m) { if(i == 0) return R_NilValue; else break;}
-	    clen = utf8clen(*p++);
+	    int clen = utf8clen(*p++);
 	    if(clen > 1) {
 		m = (int) con->read(p, sizeof(char), clen - 1, con);
 		if(m < clen - 1) error(_("invalid UTF-8 input in readChar()"));
@@ -4799,11 +4855,13 @@ readFixedString(Rconnection con, int len, int useBytes, Rboolean *warnOnNul)
 		warning(_("truncating string with embedded nuls"));
 	    }
 	}
+	*p = '\0';
     } else {
 	buf = (char *) R_alloc(len+1, sizeof(char));
 	memset(buf, 0, len+1);
 	m = (int) con->read(buf, sizeof(char), len, con);
 	if(len && !m) return R_NilValue;
+	buf[m] = '\0';
 	if (strlen(buf) < m && *warnOnNul) {
 	    *warnOnNul = FALSE;
 	    warning(_("truncating string with embedded nuls"));
@@ -4819,25 +4877,22 @@ readFixedString(Rconnection con, int len, int useBytes, Rboolean *warnOnNul)
 static SEXP
 rawFixedString(Rbyte *bytes, int len, int nbytes, int *np, int useBytes)
 {
-    char *buf;
-    SEXP res;
-    const void *vmax = vmaxget();
-
     if(*np + len > nbytes) {
 	len = nbytes - *np;
 	if (!len) return(R_NilValue);
     }
 
+    SEXP res;
+    const void *vmax = vmaxget();
+    char *buf;
+
     /* Note: mkCharLenCE signals an error on embedded nuls. */
     if(utf8locale && !useBytes) {
 	int i, clen, iread = *np;
-	char *p;
-	Rbyte *q;
-
-	p = buf = (char *) R_alloc(R_MB_CUR_MAX*len+1, sizeof(char));
+	char *p = buf = (char *) R_alloc(R_MB_CUR_MAX*(R_SIZE_T)len +1, sizeof(char));
 	for(i = 0; i < len; i++, p += clen, iread += clen) {
 	    if (iread >= nbytes) break;
-	    q = bytes + iread;
+	    Rbyte *q = bytes + iread;
 	    clen = utf8clen(*q);
 	    if (iread + clen > nbytes)
 		error(_("invalid UTF-8 input in readChar()"));
@@ -5964,7 +6019,7 @@ static size_t gzcon_read(void *ptr, size_t size, size_t nitems,
 	    }
 	    if (crc != priv->crc) {
 		priv->z_err = Z_DATA_ERROR;
-		REprintf(_("crc error %x %x\n"), crc, priv->crc);
+		REprintf(_("crc error %lx %lx\n"), crc, priv->crc);
 	    }
 	    /* finally, get (and ignore) length */
 	    for (n = 0; n < 4; n++) gzcon_byte(priv);
@@ -6110,9 +6165,8 @@ attribute_hidden SEXP do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* code for in-memory (de)compression
-   of data stored in a scalar string. Uses a 4-byte header of length,
-   in XDR order. */
+/* code for in-memory (de)compression of data stored in a raw vector. 
+   Uses a 4-byte header of length, in XDR order. */
 
 #ifndef WORDS_BIGENDIAN
 static unsigned int uiSwap (unsigned int x)
@@ -6125,26 +6179,93 @@ static unsigned int uiSwap (unsigned int x)
 
 /* These are all hidden and used only in serialize.c,
    so managing R_alloc stack is prudence. */
+
+#if defined(HAVE_LIBDEFLATE) && defined(USE_LIBDEFLATE)
+# include <libdeflate.h>
+
 attribute_hidden
 SEXP R_compress1(SEXP in)
 {
-    const void *vmax = vmaxget();
-    unsigned int inlen;
-    uLong outlen;
-    int res;
-    Bytef *buf;
-    SEXP ans;
-
     if(TYPEOF(in) != RAWSXP)
 	error("R_compress1 requires a raw vector");
-    inlen = LENGTH(in);
-    outlen = (uLong)(1.001*inlen + 20);
-    buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
+
+    static struct libdeflate_compressor *c = NULL;
+    if(c == NULL) {
+       c = libdeflate_alloc_compressor(6);
+       if(c == NULL)
+           error("allocation error in R_compress1 with libdeflate");
+    }
+
+    const void *vmax = vmaxget();
+
+    unsigned int inlen = LENGTH(in);
+    size_t outlen = libdeflate_zlib_compress_bound(c, inlen);
+    Bytef *buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
     /* we want this to be system-independent */
     *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
-    res = compress(buf + 4, &outlen, (Bytef *)RAW(in), inlen);
+    size_t res =
+	libdeflate_zlib_compress(c, RAW(in), inlen, buf + 4, outlen);
+    if(res == 0)
+	error("internal libdeflate error in R_compress1 with libdeflate");
+    SEXP ans = allocVector(RAWSXP, res + 4);
+    memcpy(RAW(ans), buf, res + 4);
+    vmaxset(vmax);
+    return ans;
+}
+
+attribute_hidden
+SEXP R_decompress1(SEXP in, Rboolean *err)
+{
+    if(TYPEOF(in) != RAWSXP)
+	error("R_decompress1 requires a raw vector");
+
+    const void *vmax = vmaxget();
+
+    static struct libdeflate_decompressor *d = NULL;
+    if(d == NULL) {
+	d = libdeflate_alloc_decompressor();
+	if(d == NULL)
+	    error("allocation error in R_decompress1 with libdeflate");
+    }
+
+    unsigned char *p = RAW(in);
+    size_t inlen = LENGTH(in);
+    size_t outlen = uiSwap(*((unsigned int *) p));
+    Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+    size_t actual_out;
+    enum libdeflate_result res =
+	libdeflate_zlib_decompress(d, p + 4, inlen - 4, buf,
+				   outlen, &actual_out);
+
+    if(res != LIBDEFLATE_SUCCESS) {
+	warning("internal error %d in R_decompress1 with libdeflate", res);
+	*err = TRUE;
+	return R_NilValue;
+    }
+    SEXP ans = allocVector(RAWSXP, actual_out);
+    memcpy(RAW(ans), buf, actual_out);
+    vmaxset(vmax);
+    return ans;
+}
+
+#else
+
+attribute_hidden
+SEXP R_compress1(SEXP in)
+{
+    if(TYPEOF(in) != RAWSXP)
+	error("R_compress1 requires a raw vector");
+
+    const void *vmax = vmaxget();
+
+    unsigned int inlen = LENGTH(in);
+    uLong outlen = (uLong)(1.001*inlen + 20);
+    Bytef *buf = (Bytef *) R_alloc(outlen + 4, sizeof(Bytef));
+    /* we want this to be system-independent */
+    *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
+    int res = compress(buf + 4, &outlen, (Bytef *)RAW(in), inlen);
     if(res != Z_OK) error("internal error %d in R_compress1", res);
-    ans = allocVector(RAWSXP, outlen + 4);
+    SEXP ans = allocVector(RAWSXP, outlen + 4);
     memcpy(RAW(ans), buf, outlen + 4);
     vmaxset(vmax);
     return ans;
@@ -6153,29 +6274,27 @@ SEXP R_compress1(SEXP in)
 attribute_hidden
 SEXP R_decompress1(SEXP in, Rboolean *err)
 {
-    const void *vmax = vmaxget();
-    uLong inlen, outlen;
-    int res;
-    Bytef *buf;
-    unsigned char *p = RAW(in);
-    SEXP ans;
-
     if(TYPEOF(in) != RAWSXP)
 	error("R_decompress1 requires a raw vector");
-    inlen = LENGTH(in);
-    outlen = (uLong) uiSwap(*((unsigned int *) p));
-    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-    res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
+
+    const void *vmax = vmaxget();
+
+    unsigned char *p = RAW(in);
+    uLong inlen = LENGTH(in);
+    uLong outlen = (uLong) uiSwap(*((unsigned int *) p));
+    Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+    int res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
     if(res != Z_OK) {
 	warning("internal error %d in R_decompress1", res);
 	*err = TRUE;
 	return R_NilValue;
     }
-    ans = allocVector(RAWSXP, outlen);
+    SEXP ans = allocVector(RAWSXP, outlen);
     memcpy(RAW(ans), buf, outlen);
     vmaxset(vmax);
     return ans;
 }
+#endif
 
 attribute_hidden
 SEXP R_compress2(SEXP in)
@@ -6189,7 +6308,7 @@ SEXP R_compress2(SEXP in)
     if(TYPEOF(in) != RAWSXP)
 	error("R_compress2 requires a raw vector");
     inlen = LENGTH(in);
-    outlen = (unsigned int)(1.01*inlen + 600);
+    outlen = inlen + inlen/100 + 600; // 1.01 * ..  staying int
     buf = R_alloc(outlen + 5, sizeof(char));
     /* we want this to be system-independent */
     *((unsigned int *)buf) = (unsigned int) uiSwap(inlen);
@@ -6237,7 +6356,7 @@ SEXP R_decompress2(SEXP in, Rboolean *err)
 	res = uncompress((unsigned char *) buf, &outl,
 			 (Bytef *)(p + 5), inlen - 5);
 	if(res != Z_OK) {
-	    warning("internal error %d in R_decompress1");
+	    warning("internal error %d in R_decompress1", res);
 	    *err = TRUE;
 	    return R_NilValue;
 	}
@@ -6261,6 +6380,13 @@ attribute_hidden SEXP do_sockselect(SEXP call, SEXP op, SEXP args, SEXP rho)
     int nsock, i;
     SEXP insock, write, val, insockfd;
     double timeout;
+    int fdlim;
+
+#ifdef Win32
+    fdlim = 1024; /* keep in step with sock.h */
+#else
+    fdlim = FD_SETSIZE;
+#endif
 
     checkArity(op, args);
 
@@ -6296,8 +6422,16 @@ attribute_hidden SEXP do_sockselect(SEXP call, SEXP op, SEXP args, SEXP rho)
 		warning(_("a server socket connection cannot be writeable"));
 	} else
 	    error(_("not a socket connection"));
+#ifdef Unix
+	if (INTEGER(insockfd)[i] >= fdlim && !immediate)
+	    error(_("file descriptor is too large for select()"));
+#endif
     }
 
+#ifdef Win32
+    if (nsock > fdlim && !immediate)
+	error(_("too many file descriptors for select()"));
+#endif
     if (! immediate)
 	Rsockselect(nsock, INTEGER(insockfd), LOGICAL(val), LOGICAL(write),
 		    timeout);
@@ -6440,7 +6574,7 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	init_filters();
 	ret = lzma_raw_decoder(&strm, filters);
 	if (ret != LZMA_OK) {
-	    warning("internal error %d in R_decompress3", ret);
+	    warning("internal error %d in R_decompress3", (int)ret);
 	    *err = TRUE;
 	    return R_NilValue;
 	}
@@ -6450,8 +6584,8 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	strm.avail_out = outlen;
 	ret = lzma_code(&strm, LZMA_RUN);
 	if (ret != LZMA_OK && (strm.avail_in > 0)) {
-	    warning("internal error %d in R_decompress3 %d",
-		    ret, strm.avail_in);
+	    warning("internal error %d in R_decompress3 %llu",
+		    (int)ret, (unsigned long long)strm.avail_in);
 	    *err = TRUE;
 	    return R_NilValue;
 	}
@@ -6469,7 +6603,7 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	uLong outl; int res;
 	res = uncompress(buf, &outl, (Bytef *)(p + 5), inlen - 5);
 	if(res != Z_OK) {
-	    warning("internal error %d in R_decompress1");
+	    warning("internal error %d in R_decompress1", res);
 	    *err = TRUE;
 	    return R_NilValue;
 	}
@@ -6486,6 +6620,9 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
     return ans;
 }
 
+#ifdef HAVE_LIBDEFLATE
+# include <libdeflate.h>
+#endif
 attribute_hidden SEXP
 do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -6499,6 +6636,26 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
     switch(type) {
     case 1: break; /* none */
     case 2: /*gzip */
+#ifdef HAVE_LIBDEFLATE
+    {
+	static struct libdeflate_compressor *c = NULL;
+	if(c == NULL) {
+	    c = libdeflate_alloc_compressor(6);
+	    if(c == NULL)
+		error("allocation error in memCompress with libdeflate");
+	}
+	size_t inlen = XLENGTH(from);
+	size_t outlen = libdeflate_zlib_compress_bound(c, inlen);
+	Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+        size_t res =
+	    libdeflate_zlib_compress(c, RAW(from), inlen, buf, outlen);
+	if(res == 0)
+	    error("internal libdeflate error in memCompress");
+	ans = allocVector(RAWSXP, res);
+	memcpy(RAW(ans), buf, res);
+	break;
+    }
+#else
     {
 	Bytef *buf;
 	/* could use outlen = compressBound(inlen) */
@@ -6511,6 +6668,7 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+#endif
     case 3: /* bzip */
     {
 	// bzlib does not support long inputs
@@ -6544,8 +6702,7 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	ret = lzma_stream_encoder(&strm, filters, LZMA_CHECK_CRC32);
 	if (ret != LZMA_OK) error("internal error %d in memCompress", ret);
 
-	outlen = (unsigned int)(1.01 * inlen + 600); /* FIXME, copied
-						        from bzip2 case */
+	outlen = inlen + inlen/100 + 600; /* FIXME, copied from bzip2 case */
 	buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
 	strm.next_in = RAW(from);
 	strm.avail_in = inlen;
@@ -6568,6 +6725,19 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+#ifdef HAVE_LIBDEFLATE
+// from libdeflate/programs/gzip.c
+typedef uint8_t u8;
+typedef uint32_t u32;
+static inline u32
+get_unaligned_le32(const u8 *p)
+{
+    return ((u32)p[3] << 24) | ((u32)p[2] << 16) |
+	((u32)p[1] << 8) | p[0];
+}
+#endif
+
+
 attribute_hidden SEXP
 do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -6580,8 +6750,11 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
     type = asInteger(CADR(args));
     if (type == 5) {/* type = 5 is "unknown" */
 	char *p = (char *) RAW(from);
+	/* zlib commression starts with 2 bytes, which for default settings are
+	   \x78\x9c.  We could use that */
 	if (strncmp(p, "BZh", 3) == 0) type = 3; /* bzip2 always uses a header */
 	else if(p[0] == '\x1f' && p[1] == '\x8b') type = 2; /* gzip files */
+	else if(p[0] == '\x78' && p[1] == '\x9c') type = 2; /* gzip files */
 	else if((p[0] == '\xFD') && !strncmp(p+1, "7zXZ", 4)) type = 4;
 	else if((p[0] == '\xFF') && !strncmp(p+1, "LZMA", 4)) {
 	    type = 4; subtype = 1;
@@ -6596,6 +6769,57 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
     switch(type) {
     case 1: break; /* none */
     case 2: /* gzip */
+#ifdef HAVE_LIBDEFLATE
+    {
+	static struct libdeflate_decompressor *d = NULL;
+	if(d == NULL) {
+	    d = libdeflate_alloc_decompressor();
+	    if(d == NULL)
+		error("allocation error in memDecompress with libdeflate");
+	}
+
+	size_t inlen = XLENGTH(from), outlen = 3*inlen, actual_out;
+        enum libdeflate_result res;
+	Bytef *buf, *p = (Bytef *)RAW(from);
+
+	if (p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
+	    while(1) {
+		outlen = get_unaligned_le32(&p[inlen - 4]);
+		if (outlen == 0) outlen = 1;
+
+		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+		res = libdeflate_gzip_decompress(d, RAW(from), inlen,
+						 buf, outlen, &actual_out);
+		if(res == LIBDEFLATE_INSUFFICIENT_SPACE) {
+		    // should not happen but recorded length might be wrong.
+		    if(outlen < ULONG_MAX/2) {
+			outlen *= 2; continue;
+		    } else break;
+		}
+		if(res == LIBDEFLATE_SUCCESS) break;
+		error("internal error %d in memDecompress(%s)", res,
+		      "type = \"libdeflate\"");
+	    }
+	} else {
+	    while(1) {
+		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+		res = libdeflate_zlib_decompress(d, RAW(from), inlen,
+						 buf, outlen, &actual_out);
+		if(res == LIBDEFLATE_INSUFFICIENT_SPACE) {
+		    if(outlen < ULONG_MAX/2) {
+			outlen *= 2; continue;
+		    } else break;
+		}
+		if(res == LIBDEFLATE_SUCCESS) break;
+		error("internal error %d in memDecompress(%s)", res,
+		      "type = \"libdeflate\"");
+	    }
+	}
+	ans = allocVector(RAWSXP, actual_out);
+	memcpy(RAW(ans), buf, actual_out);
+	break;
+    }
+#else
     {
 	uLong inlen = XLENGTH(from), outlen = 3*inlen;
 	Bytef *buf, *p = (Bytef *)RAW(from);
@@ -6607,6 +6831,7 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	while(1) {
 	    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+	    // R_uncompress is in gzio.h
 	    int res = R_uncompress(buf, &outlen, p, inlen, opt);
 	    if(res == Z_BUF_ERROR) {
 		if(outlen < ULONG_MAX/2) {
@@ -6618,40 +6843,11 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 		  "type = \"gzip\"");
 	}
 
-	/*
-	if (p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
-	    // in this case we could read outlen from the trailer
-	    while(1) {
-		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-		int res = R_gzuncompress(buf, &outlen, p, inlen, 16); // force gzip format
-		if(res == Z_BUF_ERROR) {
-		    if(outlen < ULONG_MAX/2) {
-			outlen *= 2; continue;
-		    } else break;
-		}
-		if(res >= 0) break;
-		error("internal error %d in memDecompress(%s)", res,
-		      "type = \"gzip\"");
-	    }
-	} else {
-	    while(1) {
-		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-		int res = uncompress(buf, &outlen, p, inlen);
-		if(res == Z_BUF_ERROR) {
-		    if(outlen < ULONG_MAX/2) {
-			outlen *= 2; continue;
-		    } else break;
-		}
-		if(res == Z_OK) break;
-		error("internal error %d in memDecompress(%s)", res,
-		      "type = \"gzip\"");
-	    }
-	}
-	*/
 	ans = allocVector(RAWSXP, outlen);
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+#endif
     case 3: /* bzip2 */
     {
 	// bzlib does not support long inputs
@@ -6716,8 +6912,9 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 		    outlen *= 2;
 		    continue;
 		} else {
-		    error("internal error %d in memDecompress(%s) at %d",
-			  ret, "type = \"xz\"", strm.avail_in);
+		    error("internal error %d in memDecompress(%s) at %llu",
+			  (int)ret, "type = \"xz\"",
+		          (unsigned long long)strm.avail_in);
 		}
 	    } else {
 		break;
@@ -6729,6 +6926,7 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	memcpy(RAW(ans), buf, outlen);
 	break;
     }
+    // case 5 is "unknown', covered above
     default:
 	break;
     }

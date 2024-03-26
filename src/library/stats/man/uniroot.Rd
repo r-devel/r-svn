@@ -71,7 +71,7 @@ uniroot(f, interval, \dots,
   possibly is extended to be such that \eqn{S\cdot f(l)\le 0}{%
     S * f(l) <= 0} and \eqn{S \cdot f(u) \ge 0}{S * f(u) >= 0}.
 
-  \code{uniroot()} uses Fortran subroutine \code{zeroin} (from Netlib)
+  \code{uniroot()} uses Fortran subroutine \code{zeroin} (from \I{Netlib})
   based on algorithms given in the reference below.  They assume a
   continuous function (which then is known to have at least one root in
   the interval).

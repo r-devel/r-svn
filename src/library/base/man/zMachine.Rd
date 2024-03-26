@@ -79,16 +79,16 @@
     \code{1024}.}
   \item{integer.max}{the largest integer which can be represented.
     Always \eqn{2^{31} - 1 = 2147483647}{2^31 - 1 = 2147483647}.}
-  \item{sizeof.long}{the number of bytes in a C \code{long} type:
+  \item{sizeof.long}{the number of bytes in a C \samp{long} type:
     \code{4} or \code{8} (most 64-bit systems, but not Windows).}
-  \item{sizeof.longlong}{the number of bytes in a C \code{long long}
+  \item{sizeof.longlong}{the number of bytes in a C \samp{long long}
     type.  Will be zero if there is no such type, otherwise usually
     \code{8}.}
-  \item{sizeof.longdouble}{the number of bytes in a C \code{long double}
+  \item{sizeof.longdouble}{the number of bytes in a C \samp{long double}
     type.  Will be zero if there is no such type (or its use was
     disabled when \R was built), otherwise possibly
     \code{12} (most 32-bit builds),  \code{16} (most 64-bit builds) or 8
-    (CPUs such as ARM where for most compilers \code{long double} is
+    (CPUs such as ARM where for most compilers \samp{long double} is
     identical to \code{double}).}
     % 64-bit ARM Linux compilers have a software-implemented
     % quad-precison as long double
@@ -104,13 +104,13 @@
   \item{longdouble.eps, longdouble.neg.eps, longdouble.digits, ...}{
     introduced in \R 4.0.0. When
     \code{\link{capabilities}("long.double")} is true, there are 10 such
-    \code{"longdouble.<kind>"} values, specifying the \code{long double}
+    \code{"longdouble.\var{kind}"} values, specifying the \samp{long double}
     property corresponding to its \code{"double.*"} counterpart.  See
     also \sQuote{Note}.}
 }
 \details{
-  The algorithm is based on Cody's (1988) subroutine MACHAR.  As all
-  current implementations of \R use 32-bit integers and use IEC 60559
+  The algorithm is based on Cody's (1988) subroutine \code{MACHAR}.  As all
+  current implementations of \R use 32-bit integers and use \abbr{IEC} 60559
   floating-point (double precision) arithmetic, the \code{"integer"} and
   \code{"double"} related values are the same for almost all \R builds.
   % differing sizeof.(long|longdouble|pointer)
@@ -121,10 +121,10 @@
 }
 \note{
   In the (typical) case where \code{\link{capabilities}("long.double")} is
-  true, \R uses the \code{long double} C type in quite a few places internally
+  true, \R uses the \samp{long double} C type in quite a few places internally
   for accumulators in e.g.\sspace{}\code{\link{sum}}, reading non-integer
   numeric constants into (binary) double precision numbers, or arithmetic
-  such as \code{x \%\% y}; also, \code{long double} can be read by
+  such as \code{x \%\% y}; also, \samp{long double} can be read by
   \code{\link{readBin}}.
   \cr%--------------------------------
   For this reason, in that case, \code{.Machine} contains ten further components,
@@ -135,16 +135,16 @@
 
   \code{sizeof.longdouble} only tells you the amount of storage
   allocated for a long double.  Often what is stored is the 80-bit extended
-  double type of IEC 60559, padded to the double alignment used on the
+  double type of \abbr{IEC} 60559, padded to the double alignment used on the
   platform --- this seems to be the case for the common \R platforms
   using ix86 and x86_64 chips.  There are other implementation of long
-  double, usually in software for example on Sparc Solaris and AIX.
+  double, usually in software for example on \I{Sparc} Solaris and \I{AIX}.
 
-  Note that it is legal for a platform to have a \code{long double} C
-  type which is identical to the \code{double} type --- this happens on
-  ARM cpus.  In that case \code{\link{capabilities}("long.double")} will
+  Note that it is legal for a platform to have a \samp{long double} C
+  type which is identical to the \samp{double} type --- this happens on
+  ARM CPUs.  In that case \code{\link{capabilities}("long.double")} will
   be false but on versions of \R prior to 4.0.4, \code{.Machine} may contain
-  \code{"longdouble.<kind>"} elements.
+  \code{"longdouble.\var{kind}"} elements.
 }
 \source{
   Uses a C translation of Fortran code in the reference, modified by the

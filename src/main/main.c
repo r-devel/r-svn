@@ -335,7 +335,9 @@ static void check_session_exit(void)
 	    R_Suicide(_("error during cleanup\n"));
 	else {
 	    exiting = TRUE;
-	    if (GetOption1(install("error")) != R_NilValue) {
+	    if (GetOption1(install("error")) != R_NilValue ||
+		R_isTRUE(GetOption1(install("catch.script.errors")))
+		) {
 		exiting = FALSE;
 		return;
 	    }
@@ -494,6 +496,8 @@ static unsigned char ConsoleBuf[CONSOLE_BUFFER_SIZE];
 
 static void sigactionSegv(int signum, siginfo_t *ip, void *context)
 {
+    /* ensure R terminates if the handler segfaults (PR#18551) */
+    signal(signum, SIG_DFL);
     char *s;
 
     /* First check for stack overflow if we know the stack position.
@@ -633,7 +637,6 @@ static void sigactionSegv(int signum, siginfo_t *ip, void *context)
 	REprintf("An irrecoverable exception occurred. R is aborting now ...\n");
     R_CleanTempDir();
     /* now do normal behaviour, e.g. core dump */
-    signal(signum, SIG_DFL);
     raise(signum);
 }
 
@@ -676,7 +679,7 @@ static void init_signal_handlers(void)
 	    warning("failed to allocate alternate signal stack");
 	sa.sa_sigaction = sigactionSegv;
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
+	sa.sa_flags = SA_ONSTACK | SA_SIGINFO | SA_NODEFER;
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGILL, &sa, NULL);
 #ifdef SIGBUS
@@ -830,7 +833,7 @@ void setup_Rmainloop(void)
 
 #ifdef DEBUG_STACK_DETECTION 
     /* testing stack base and size detection */
-    printf("stack limit %ld, start %lx dir %d \n",
+    printf("stack limit %lu, start %lu dir %d \n",
 	(unsigned long) R_CStackLimit,
         (unsigned long) R_CStackStart,
 	R_CStackDir);
@@ -911,8 +914,13 @@ void setup_Rmainloop(void)
 
 	/* We set R_ARCH here: Unix does it in the shell front-end */
 	char Rarch[30];
-	strcpy(Rarch, "R_ARCH=/");
-	strcat(Rarch, R_ARCH);
+	strcpy(Rarch, "R_ARCH=");
+# ifdef R_ARCH
+	if (strlen(R_ARCH) > 0) {
+	    strcat(Rarch, "/");
+	    strcat(Rarch, R_ARCH);
+	}
+# endif
 	putenv(Rarch);
     }
 #else /* not Win32 */
@@ -1003,7 +1011,7 @@ void setup_Rmainloop(void)
     R_Toplevel.restartstack = R_RestartStack;
     R_Toplevel.srcref = R_NilValue;
     R_Toplevel.prstack = NULL;
-    R_Toplevel.returnValue = NULL;
+    R_Toplevel.returnValue = SEXP_TO_STACKVAL(NULL);
     R_Toplevel.evaldepth = 0;
     R_Toplevel.browserfinish = 0;
     R_GlobalContext = R_ToplevelContext = R_SessionContext = &R_Toplevel;
@@ -1163,7 +1171,7 @@ void setup_Rmainloop(void)
     {
 	int i;
 	for(i = 0 ; i < ndeferred_warnings; i++)
-	    warning(deferred_warnings[i]);
+	    warning("%s", deferred_warnings[i]);
     }
     if (R_CollectWarnings) {
 	REprintf(_("During startup - "));
@@ -1320,6 +1328,58 @@ static void PrintCall(SEXP call, SEXP rho)
     R_BrowseLines = old_bl;
 }
 
+static int countBrowserContexts(void)
+{
+    /* passing TRUE for the second argument seems to over-count */
+    return countContexts(CTXT_BROWSER, FALSE);
+}
+
+#ifdef USE_BROWSER_HOOK
+struct callBrowserHookData { SEXP hook, cond, rho; };
+
+static SEXP callBrowserHook(void *data)
+{
+    struct callBrowserHookData *bhdata = data;
+    SEXP hook = bhdata-> hook;
+    SEXP cond = bhdata->cond;
+    SEXP rho = bhdata->rho;
+    SEXP args = CONS(hook, CONS(cond, CONS(rho, R_NilValue)));
+    SEXP hcall = LCONS(hook, args);
+    PROTECT(hcall);
+    R_SetOption(install("browser.hook"), R_NilValue);
+    SEXP val = eval(hcall, R_GlobalEnv);
+    UNPROTECT(1); /* hcall */
+    return val;
+}
+
+static void restoreBrowserHookOption(void *data, Rboolean jump)
+{
+    struct callBrowserHookData *bhdata = data;
+    SEXP hook = bhdata-> hook;
+    R_SetOption(install("browser.hook"), hook); // also on jumps
+}
+
+static void R_browserRepl(SEXP rho)
+{
+    /* save some stuff -- shouldn't be needed unless REPL is sloppy */
+    int savestack = R_PPStackTop;
+    SEXP topExp = PROTECT(R_CurrentExpr);
+    RCNTXT *saveToplevelContext = R_ToplevelContext;
+    RCNTXT *saveGlobalContext = R_GlobalContext;
+
+    int browselevel = countBrowserContexts();
+    R_ReplConsole(rho, savestack, browselevel);
+
+    /* restore the saved stuff */
+    R_CurrentExpr = topExp;
+    UNPROTECT(1); /* topExp */
+    R_PPStackTop = savestack;
+    R_CurrentExpr = topExp;
+    R_ToplevelContext = saveToplevelContext;
+    R_GlobalContext = saveGlobalContext;
+}
+#endif
+
 /* browser(text = "", condition = NULL, expr = TRUE, skipCalls = 0L)
  * ------- but also called from ./eval.c */
 attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -1339,6 +1399,10 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TAG(CDR(ap), install("condition"));
     SET_TAG(CDDR(ap), install("expr"));
     SET_TAG(CDDDR(ap), install("skipCalls"));
+#ifdef USE_BROWSER_HOOK
+    SETCDR(CDDDR(ap), CONS(R_NilValue, R_NilValue));
+    SET_TAG(CDR(CDDDR(ap)), install("ignoreHook"));
+#endif
     argList = matchArgs_RC(ap, args, call);
     UNPROTECT(1);
     PROTECT(argList);
@@ -1351,15 +1415,33 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SETCAR(CDDR(argList), ScalarLogical(1));
     if(CADDDR(argList) == R_MissingArg)
 	SETCAR(CDDDR(argList), ScalarInteger(0));
+#ifdef USE_BROWSER_HOOK
+    if(CAR(CDR(CDDDR(argList))) == R_MissingArg)
+	SETCAR(CDR(CDDDR(argList)), ScalarLogical(FALSE));
+#endif
 
     /* return if 'expr' is not TRUE */
-    if( !asLogical(CADDR(argList)) ) {
+    SEXP expr = CADDR(argList);
+    if (! asLogical(expr)) {
 	UNPROTECT(1);
 	return R_NilValue;
     }
 
+#ifdef USE_BROWSER_HOOK
+    /* allow environment to use to be provides as the 'expr' argument */
+    if (TYPEOF(expr) == ENVSXP)
+	rho = expr;
+
+    Rboolean ignoreHook = asLogical(CAR(CDR(CDDDR(argList))));
+    if (ignoreHook) {
+        R_browserRepl(rho);
+        UNPROTECT(1); /* argList */
+        return R_ReturnedValue;
+    }
+#endif
+
     /* trap non-interactive debugger invocation */
-    if(!R_Interactive) {
+    if(! R_Interactive) {
         char *p = getenv("_R_CHECK_BROWSER_NONINTERACTIVE_");
         if (p != NULL && StringTrue(p))
             error(_("non-interactive browser() -- left over from debugging?"));
@@ -1368,7 +1450,7 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Save the evaluator state information */
     /* so that it can be restored on exit. */
 
-    browselevel = countContexts(CTXT_BROWSER, 1);
+    browselevel = countBrowserContexts();
     savestack = R_PPStackTop;
     PROTECT(topExp = R_CurrentExpr);
     saveToplevelContext = R_ToplevelContext;
@@ -1377,6 +1459,13 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (!RDEBUG(rho)) {
 	int skipCalls = asInteger(CADDDR(argList));
 	cptr = R_GlobalContext;
+#ifdef USE_BROWSER_HOOK
+	if (! ignoreHook)
+	    /* skip over the hook closure on the stack */
+	    while ((!(cptr->callflag & CTXT_FUNCTION) || cptr->cloenv != rho)
+		   && cptr->callflag )
+	    cptr = cptr->nextcontext;		
+#endif
 	while ( ( !(cptr->callflag & CTXT_FUNCTION) || skipCalls--)
 		&& cptr->callflag )
 	    cptr = cptr->nextcontext;
@@ -1410,7 +1499,23 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	R_GlobalContext = &thiscontext;
 	R_InsertRestartHandlers(&thiscontext, "browser");
-	R_ReplConsole(rho, savestack, browselevel+1);
+#ifdef USE_BROWSER_HOOK
+	/* if a browser hook is provided, call it and use the result */
+	SEXP hook = ignoreHook ?
+	    R_NilValue : GetOption1(install("browser.hook"));
+	if (isFunction(hook)) {
+	    struct callBrowserHookData bhdata = {
+	        .hook = hook, .cond = CADR(argList), .rho = rho
+	    };
+	    R_ReturnedValue = R_UnwindProtect(callBrowserHook, &bhdata,
+					      restoreBrowserHookOption, &bhdata,
+					      NULL);
+	}
+	else
+	    R_ReplConsole(rho, savestack, browselevel + 1);
+#else
+	R_ReplConsole(rho, savestack, browselevel + 1);
+#endif
 	endcontext(&thiscontext);
     }
     endcontext(&returncontext);

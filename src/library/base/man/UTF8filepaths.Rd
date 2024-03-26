@@ -11,7 +11,7 @@
 \description{
   Most modern file systems store file-path components (names of
   directories and files) in a character encoding of wide scope: usually
-  UTF-8 on a Unix-alike and UCS-2/UTF-16 on Windows.  However, this was
+  UTF-8 on a Unix-alike and \I{UCS-2}/UTF-16 on Windows.  However, this was
   not true when \R was first developed and there are still exceptions
   amongst file systems, e.g.\sspace{}FAT32.
 
@@ -55,7 +55,7 @@
 \section{Windows}{
   Windows provides proprietary entry points to access its file systems,
   and these gained \sQuote{wide} versions in Windows NT that allowed
-  file paths in UCS-2/UTF-16 to be accessed from any locale.
+  file paths in \I{UCS-2}/UTF-16 to be accessed from any locale.
 
   Some \R functions use these entry points when file paths are marked
   as Latin-1 or UTF-8 to allow access to paths not in the current

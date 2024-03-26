@@ -1,6 +1,6 @@
 % File src/library/base/man/Memory.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Memory}
@@ -18,7 +18,7 @@
   first of these is allocated as an array of \emph{cons cells} (Lisp
   programmers will know what they are, others may think of them as the
   building blocks of the language itself, parse trees, etc.), and the
-  second are thrown on a \emph{heap} of \sQuote{Vcells} of 8 bytes each.
+  second are thrown on a \emph{heap} of \sQuote{\I{Vcell}s} of 8 bytes each.
   Each cons cell occupies 28 bytes on a 32-bit build of \R, (usually) 56
   bytes on a 64-bit build.
 
@@ -31,7 +31,8 @@
   when \R is started.  Thereafter \R will grow or shrink the areas
   depending on usage, never decreasing below the initial values.  The
   maximal vector heap size can be set with the environment variable
-  \env{R_MAX_VSIZE}.
+  \env{R_MAX_VSIZE}. An attempt to set a lower maximum than the current
+  usage is ignored. Vector heap limits are given in bytes.
 
   How much time \R spends in the garbage collector will depend on these
   initial settings and on the trade-off the memory manager makes, when

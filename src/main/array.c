@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022   The R Core Team
+ *  Copyright (C) 1998-2023   The R Core Team
  *  Copyright (C) 2002-2015   The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -27,8 +27,23 @@
 #include <Internal.h>
 #include <Rmath.h>
 #include <R_ext/RS.h>     /* for R_Calloc/R_Free, F77_CALL */
+
+// calls BLAS routines dgemm dgemv zgemm
+#ifdef USE_NEW_ACCELERATE
+# define ACCELERATE_NEW_LAPACK
+// avoid conflicts over COMPLEX
+# define USE_NON_APPLE_STANDARD_DATATYPES 0
+# include <Accelerate/Accelerate.h>
+# define FCONE
+# pragma clang diagnostic ignored "-Wincompatible-pointer-types"
+#else
 #include <R_ext/BLAS.h>
+#endif
 #include <R_ext/Itermacros.h>
+
+#ifdef Win32
+#include <trioremap.h> /* for %lld */
+#endif
 
 #include "duplicate.h"
 
@@ -84,7 +99,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
-		type2char(TYPEOF(vals)));
+		R_typeToChar(vals));
     }
     lendat = XLENGTH(vals);
     snr = CAR(args); args = CDR(args);
@@ -140,15 +155,19 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (lendat > 1 && (nrc % lendat) != 0) { // ==> nrc > 0
 	    if (((lendat > nr) && (lendat / nr) * nr != lendat) ||
 		((lendat < nr) && (nr / lendat) * lendat != nr))
-		warning(_("data length [%d] is not a sub-multiple or multiple of the number of rows [%d]"), lendat, nr);
+		warning(_("data length [%lld] is not a sub-multiple or multiple of the number of rows [%d]"),
+			(long long)lendat, nr);
 	    else if (((lendat > nc) && (lendat / nc) * nc != lendat) ||
 		     ((lendat < nc) && (nc / lendat) * lendat != nc))
-		warning(_("data length [%d] is not a sub-multiple or multiple of the number of columns [%d]"), lendat, nc);
+		warning(_("data length [%lld] is not a sub-multiple or multiple of the number of columns [%d]"),
+			(long long)lendat, nc);
 	    else if (nrc != lendat) {
 		if(nowarn)
-		    error(_("data length differs from size of matrix: [%d != %d x %d]"), lendat, nr, nc);
+		    error(_("data length differs from size of matrix: [%lld != %d x %d]"),
+			  (long long)lendat, nr, nc);
 		else
-		    warning(_("data length differs from size of matrix: [%d != %d x %d]"), lendat, nr, nc);
+		    warning(_("data length differs from size of matrix: [%lld != %d x %d]"),
+			    (long long)lendat, nr, nc);
 	    }
 	}
 	else if (lendat > 1 && nrc == 0) // for now *not* warning for e.g., matrix(NA, 0, 4)
@@ -797,7 +816,7 @@ static void matprod(double *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (mayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    mayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		mayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_matprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -944,7 +963,7 @@ static void cmatprod(Rcomplex *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (cmayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_cmatprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -1025,7 +1044,7 @@ static void crossprod(double *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (mayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    mayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		mayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_crossprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -1080,7 +1099,7 @@ static void ccrossprod(Rcomplex *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (cmayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_ccrossprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -1159,7 +1178,7 @@ static void tcrossprod(double *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (mayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    mayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		mayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_tcrossprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -1213,7 +1232,7 @@ static void tccrossprod(Rcomplex *x, int nrx, int ncx,
 	    break;
 	case MATPROD_DEFAULT_SIMD:
 	    if (cmayHaveNaNOrInf_simd(x, NRX*ncx) ||
-		    cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
+		cmayHaveNaNOrInf_simd(y, NRY*ncy)) {
 		simple_tccrossprod(x, nrx, ncx, y, nry, ncy, z);
 		return;
 	    }
@@ -1233,12 +1252,27 @@ static void tccrossprod(Rcomplex *x, int nrx, int ncx,
 /* "%*%" (op = 0), crossprod (op = 1) or tcrossprod (op = 2) */
 attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    int ldx, ldy, nrx, ncx, nry, ncy, mode;
-    SEXP x = CAR(args), y = CADR(args), xdims, ydims, ans;
-    Rboolean sym;
+    // .Primitive() ; may have 1 or 2 args, but some methods have more
+    Rboolean cross = PRIMVAL(op) != 0;
+    int nargs, min_nargs = cross ? 1 : 2;
+    if (args == R_NilValue)
+	nargs = 0;
+    else if (CDR(args) == R_NilValue)
+	nargs = 1;
+    else // if (CDDR(args) == R_NilValue)
+	nargs = 2;
+    /* else   // not relevant
+	nargs = length(args);
+    */
+    if (nargs < min_nargs)
+	errorcall(call,
+		  ngettext("%d argument passed to '%s' which requires at least %d",
+			   "%d arguments passed to '%s' which requires at least %d",
+			   (unsigned long) nargs),
+		  nargs, PRIMNAME(op), min_nargs);
 
-    if (PRIMVAL(op) == 0 && /* %*% is primitive, the others are .Internal() */
-	(OBJECT(x) || OBJECT(y))) {
+    SEXP x = CAR(args), y = CADR(args), ans;
+    if (OBJECT(x) || OBJECT(y)) {
 	SEXP s, value;
 	/* Remove argument names to ensure positional matching */
 	for(s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
@@ -1250,17 +1284,19 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else if (DispatchGroup("matrixOps", call, op, args, rho, &ans))
 	    return ans;
     }
-
-    checkArity(op, args);
-    sym = isNull(y);
+    // the default method:
+    if (CDDR(args) != R_NilValue)
+	warningcall(call, _("more than 2 arguments passed to default method of '%s'"),
+		    PRIMNAME(op));
+    Rboolean sym = isNull(y);
     if (sym && (PRIMVAL(op) > 0)) y = x;
     if ( !(isNumeric(x) || isComplex(x)) || !(isNumeric(y) || isComplex(y)) )
 	errorcall(call, _("requires numeric/complex matrix/vector arguments"));
 
-    xdims = getAttrib(x, R_DimSymbol);
-    ydims = getAttrib(y, R_DimSymbol);
-    ldx = length(xdims);
-    ldy = length(ydims);
+    SEXP xdims = getAttrib(x, R_DimSymbol),
+	 ydims = getAttrib(y, R_DimSymbol);
+    int ldx = length(xdims),
+	ldy = length(ydims), nrx, ncx, nry, ncy;
 
     if (ldx != 2 && ldy != 2) {		/* x and y non-matrices */
 	// for crossprod, allow two cases: n x n ==> (1,n) x (n,1);  1 x n = (n, 1) x (1, n)
@@ -1376,33 +1412,36 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("non-conformable arguments"));
     }
 
+    int mode;
     if (isComplex(CAR(args)) || isComplex(CADR(args)))
 	mode = CPLXSXP;
     else
 	mode = REALSXP;
-    SETCAR(args, coerceVector(CAR(args), mode));
-    SETCADR(args, coerceVector(CADR(args), mode));
+    x = PROTECT(coerceVector(x, mode));
+    y = PROTECT(coerceVector(y, mode));
 
-    if (PRIMVAL(op) == 0) {			/* op == 0 : matprod() */
+    if (PRIMVAL(op) == 0) {			/* op == 0 : matprod() =~= %*% */
 
 	PROTECT(ans = allocMatrix(mode, nrx, ncy));
 	if (mode == CPLXSXP)
-	    cmatprod(COMPLEX(CAR(args)), nrx, ncx,
-		     COMPLEX(CADR(args)), nry, ncy, COMPLEX(ans));
+	    cmatprod(COMPLEX(x), nrx, ncx,
+		     COMPLEX(y), nry, ncy, COMPLEX(ans));
 	else
-	    matprod(REAL(CAR(args)), nrx, ncx,
-		    REAL(CADR(args)), nry, ncy, REAL(ans));
+	    matprod(REAL(x), nrx, ncx,
+		    REAL(y), nry, ncy, REAL(ans));
 
-	PROTECT(xdims = getAttrib(CAR(args), R_DimNamesSymbol));
-	PROTECT(ydims = getAttrib(CADR(args), R_DimNamesSymbol));
+	PROTECT(xdims = getAttrib(x, R_DimNamesSymbol));
+	PROTECT(ydims = getAttrib(y, R_DimNamesSymbol));
 
 	if (xdims != R_NilValue || ydims != R_NilValue) {
-	    SEXP dimnames, dimnamesnames, dnx=R_NilValue, dny=R_NilValue;
+#define ALLOC_DIMNAMES_NAMES						\
+	    SEXP dimnames, dimnamesnames, dnx=R_NilValue, dny=R_NilValue; \
+									\
+	    /* allocate dimnames and dimnamesnames */			\
+	    PROTECT(dimnames = allocVector(VECSXP, 2));			\
+	    PROTECT(dimnamesnames = allocVector(STRSXP, 2))
 
-	    /* allocate dimnames and dimnamesnames */
-
-	    PROTECT(dimnames = allocVector(VECSXP, 2));
-	    PROTECT(dimnamesnames = allocVector(STRSXP, 2));
+	    ALLOC_DIMNAMES_NAMES;
 	    if (xdims != R_NilValue) {
 		if (ldx == 2 || ncx == 1) {
 		    SET_VECTOR_ELT(dimnames, 0, VECTOR_ELT(xdims, 0));
@@ -1411,6 +1450,16 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 			SET_STRING_ELT(dimnamesnames, 0, STRING_ELT(dnx, 0));
 		}
 	    }
+
+/* Since R 2.1.0, no longer attach a dimnames attribute whose elements are all NULL: */
+#define SET_DIMNAMES_NAMES						\
+	    if (VECTOR_ELT(dimnames,0) != R_NilValue ||			\
+		VECTOR_ELT(dimnames,1) != R_NilValue) {			\
+		if (dnx != R_NilValue || dny != R_NilValue)		\
+		    setAttrib(dimnames, R_NamesSymbol, dimnamesnames);	\
+		setAttrib(ans, R_DimNamesSymbol, dimnames);		\
+	    }								\
+	    UNPROTECT(2)
 
 #define YDIMS_ET_CETERA							\
 	    if (ydims != R_NilValue) {					\
@@ -1426,18 +1475,8 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 			SET_STRING_ELT(dimnamesnames, 1, STRING_ELT(dny, 0)); \
 		}							\
 	    }								\
-									\
-	    /* We sometimes attach a dimnames attribute			\
-	     * whose elements are all NULL ...				\
-	     * This is ugly but causes no real damage.			\
-	     * Now (2.1.0 ff), we don't anymore: */			\
-	    if (VECTOR_ELT(dimnames,0) != R_NilValue ||			\
-		VECTOR_ELT(dimnames,1) != R_NilValue) {			\
-		if (dnx != R_NilValue || dny != R_NilValue)		\
-		    setAttrib(dimnames, R_NamesSymbol, dimnamesnames);	\
-		setAttrib(ans, R_DimNamesSymbol, dimnames);		\
-	    }								\
-	    UNPROTECT(2)
+	    SET_DIMNAMES_NAMES;
+
 
 	    YDIMS_ET_CETERA;
 	}
@@ -1448,33 +1487,28 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	PROTECT(ans = allocMatrix(mode, ncx, ncy));
 	if (mode == CPLXSXP)
 	    if(sym)
-		ccrossprod(COMPLEX(CAR(args)), nrx, ncx,
-			   COMPLEX(CAR(args)), nry, ncy, COMPLEX(ans));
+		ccrossprod(COMPLEX(x), nrx, ncx,
+			   COMPLEX(x), nry, ncy, COMPLEX(ans));
 	    else
-		ccrossprod(COMPLEX(CAR(args)), nrx, ncx,
-			   COMPLEX(CADR(args)), nry, ncy, COMPLEX(ans));
+		ccrossprod(COMPLEX(x), nrx, ncx,
+			   COMPLEX(y), nry, ncy, COMPLEX(ans));
 	else {
 	    if(sym)
-		symcrossprod(REAL(CAR(args)), nrx, ncx, REAL(ans));
+		symcrossprod(REAL(x), nrx, ncx, REAL(ans));
 	    else
-		crossprod(REAL(CAR(args)), nrx, ncx,
-			  REAL(CADR(args)), nry, ncy, REAL(ans));
+		crossprod(REAL(x), nrx, ncx,
+			  REAL(y), nry, ncy, REAL(ans));
 	}
 
-	PROTECT(xdims = getAttrib(CAR(args), R_DimNamesSymbol));
+	PROTECT(xdims = getAttrib(x, R_DimNamesSymbol));
 	if (sym)
 	    PROTECT(ydims = xdims);
 	else
-	    PROTECT(ydims = getAttrib(CADR(args), R_DimNamesSymbol));
+	    PROTECT(ydims = getAttrib(y, R_DimNamesSymbol));
 
 	if (xdims != R_NilValue || ydims != R_NilValue) {
-	    SEXP dimnames, dimnamesnames, dnx=R_NilValue, dny=R_NilValue;
 
-	    /* allocate dimnames and dimnamesnames */
-
-	    PROTECT(dimnames = allocVector(VECSXP, 2));
-	    PROTECT(dimnamesnames = allocVector(STRSXP, 2));
-
+	    ALLOC_DIMNAMES_NAMES;
 	    if (xdims != R_NilValue) {
 		if (ldx == 2) {/* not nrx==1 : .. fixed, ihaka 2003-09-30 */
 		    SET_VECTOR_ELT(dimnames, 0, VECTOR_ELT(xdims, 1));
@@ -1493,33 +1527,28 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 	PROTECT(ans = allocMatrix(mode, nrx, nry));
 	if (mode == CPLXSXP)
 	    if(sym)
-		tccrossprod(COMPLEX(CAR(args)), nrx, ncx,
-			    COMPLEX(CAR(args)), nry, ncy, COMPLEX(ans));
+		tccrossprod(COMPLEX(x), nrx, ncx,
+			    COMPLEX(x), nry, ncy, COMPLEX(ans));
 	    else
-		tccrossprod(COMPLEX(CAR(args)), nrx, ncx,
-			    COMPLEX(CADR(args)), nry, ncy, COMPLEX(ans));
+		tccrossprod(COMPLEX(x), nrx, ncx,
+			    COMPLEX(y), nry, ncy, COMPLEX(ans));
 	else {
 	    if(sym)
-		symtcrossprod(REAL(CAR(args)), nrx, ncx, REAL(ans));
+		symtcrossprod(REAL(x), nrx, ncx, REAL(ans));
 	    else
-		tcrossprod(REAL(CAR(args)), nrx, ncx,
-			   REAL(CADR(args)), nry, ncy, REAL(ans));
+		tcrossprod(REAL(x), nrx, ncx,
+			   REAL(y), nry, ncy, REAL(ans));
 	}
 
-	PROTECT(xdims = getAttrib(CAR(args), R_DimNamesSymbol));
+	PROTECT(xdims = getAttrib(x, R_DimNamesSymbol));
 	if (sym)
 	    PROTECT(ydims = xdims);
 	else
-	    PROTECT(ydims = getAttrib(CADR(args), R_DimNamesSymbol));
+	    PROTECT(ydims = getAttrib(y, R_DimNamesSymbol));
 
 	if (xdims != R_NilValue || ydims != R_NilValue) {
-	    SEXP dimnames, dimnamesnames, dnx=R_NilValue, dny=R_NilValue;
 
-	    /* allocate dimnames and dimnamesnames */
-
-	    PROTECT(dimnames = allocVector(VECSXP, 2));
-	    PROTECT(dimnamesnames = allocVector(STRSXP, 2));
-
+	    ALLOC_DIMNAMES_NAMES;
 	    if (xdims != R_NilValue) {
 		if (ldx == 2) {
 		    SET_VECTOR_ELT(dimnames, 0, VECTOR_ELT(xdims, 0));
@@ -1536,17 +1565,10 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 			SET_STRING_ELT(dimnamesnames, 1, STRING_ELT(dny, 0));
 		}
 	    }
-	    if (VECTOR_ELT(dimnames,0) != R_NilValue ||
-		VECTOR_ELT(dimnames,1) != R_NilValue) {
-		if (dnx != R_NilValue || dny != R_NilValue)
-		    setAttrib(dimnames, R_NamesSymbol, dimnamesnames);
-		setAttrib(ans, R_DimNamesSymbol, dimnames);
-	    }
-
-	    UNPROTECT(2);
+            SET_DIMNAMES_NAMES;
 	}
     }
-    UNPROTECT(3);
+    UNPROTECT(5);
     return ans;
 }
 #undef YDIMS_ET_CETERA
@@ -1685,38 +1707,24 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
  M.Maechler : expanded	all ../include/Rdefines.h macros
  */
 
-/* this increments iip and sets j using strides */
-
-#define CLICKJ						\
-    for (itmp = 0; itmp < n; itmp++)			\
-	if (iip[itmp] == isr[itmp]-1) iip[itmp] = 0;	\
-	else {						\
-	    iip[itmp]++;				\
-	    break;					\
-	}						\
-    for (lj = 0, itmp = 0; itmp < n; itmp++)		\
-	lj += iip[itmp] * stride[itmp];
-
 /* aperm (a, perm, resize = TRUE) */
 attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP a, perm, r, dimsa, dimsr, dna;
-    int i, j, n, itmp;
-
     checkArity(op, args);
 
-    a = CAR(args);
+    SEXP a = CAR(args);
     if (!isArray(a))
 	error(_("invalid first argument, must be %s"), "an array");
 
-    PROTECT(dimsa = getAttrib(a, R_DimSymbol));
-    n = LENGTH(dimsa);
-    int *isa = INTEGER(dimsa);
+    SEXP dimsa = PROTECT(getAttrib(a, R_DimSymbol));
+    int n = LENGTH(dimsa),
+	*isa = INTEGER(dimsa);
 
     /* check the permutation */
 
+    int i;
     int *pp = (int *) R_alloc((size_t) n, sizeof(int));
-    perm = CADR(args);
+    SEXP perm = CADR(args);
     if (length(perm) == 0) {
 	for (i = 0; i < n; i++) pp[i] = n-1-i;
     } else {
@@ -1732,6 +1740,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 		error(_("'a' does not have named dimnames"));
 	    for (i = 0; i < n; i++) {
 		const char *this = translateChar(STRING_ELT(perm, i));
+		int j;
 		for (j = 0; j < n; j++)
 		    if (streql(translateChar(STRING_ELT(dnna, j)),
 			       this)) {pp[i] = j; break;}
@@ -1746,7 +1755,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
 
     R_xlen_t *iip = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
-    for (i = 0; i < n; iip[i++] = 0);
+    Memzero(iip, n);
     for (i = 0; i < n; i++)
 	if (pp[i] >= 0 && pp[i] < n) iip[pp[i]]++;
 	else error(_("value out of range in 'perm'"));
@@ -1761,20 +1770,31 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* also need to have the dimensions of r */
 
-    PROTECT(dimsr = allocVector(INTSXP, n));
+    SEXP dimsr = PROTECT(allocVector(INTSXP, n));
     int *isr = INTEGER(dimsr);
     for (i = 0; i < n; i++) isr[i] = isa[pp[i]];
 
     /* and away we go! iip will hold the incrementer */
+    Memzero(iip, n);
 
     R_xlen_t len = XLENGTH(a);
-    PROTECT(r = allocVector(TYPEOF(a), len));
-
-    for (i = 0; i < n; iip[i++] = 0);
+    SEXP r = PROTECT(allocVector(TYPEOF(a), len));
 
     R_xlen_t li, lj;
-    switch (TYPEOF(a)) {
 
+/* this increments iip and sets lj using strides */
+#define CLICKJ						\
+	for (int i_ = 0; i_ < n; i_++)			\
+	    if (iip[i_] == isr[i_]-1) iip[i_] = 0;	\
+	    else {					\
+		iip[i_]++;				\
+		break;					\
+	    }						\
+    lj = 0;						\
+    for (int i_ = 0; i_ < n; i_++)			\
+	    lj += iip[i_] * stride[i_]
+
+    switch (TYPEOF(a)) {
     case INTSXP:
 	for (lj = 0, li = 0; li < len; li++) {
 	    INTEGER(r)[li] = INTEGER(a)[lj];
@@ -1847,7 +1867,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	setAttrib(r, R_DimSymbol, dimsr);
 
-	PROTECT(dna = getAttrib(a, R_DimNamesSymbol));
+	SEXP dna = PROTECT(getAttrib(a, R_DimNamesSymbol));
 	if (dna != R_NilValue) {
 	    SEXP dnna, dnr, dnnr;
 
@@ -1903,7 +1923,7 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
     default:
 	error(_("'x' must be numeric"));
     }
-    if (n * (double)p > XLENGTH(x))
+    if ((double)n * (double)p > XLENGTH(x))
 	error(_("'x' is too short")); /* PR#16367 */
 
     int OP = PRIMVAL(op);
@@ -2071,7 +2091,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
-		type2char(TYPEOF(vals)));
+		R_typeToChar(vals));
     }
     lendat = XLENGTH(vals);
     dims = CADR(args);

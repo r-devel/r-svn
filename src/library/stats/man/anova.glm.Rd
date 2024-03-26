@@ -54,13 +54,13 @@
   the residual degrees of freedom, which is closely related to AIC (and
   a multiple of it if the dispersion is known).
   You can also choose \code{"LRT"} and
-    \code{"Rao"} for likelihood ratio tests and Rao's efficient score test.
+    \code{"Rao"} for likelihood ratio tests and \I{Rao}'s efficient score test.
     The former is synonymous with \code{"Chisq"} (although both have
     an asymptotic chi-square distribution).
 
   The dispersion estimate will be taken from the largest model, using
   the value returned by \code{\link{summary.glm}}.  As this will in most
-  cases use a Chisquared-based estimate, the F tests are not based on
+  cases use a Chi-squared-based estimate, the F tests are not based on
   the residual deviance in the analysis of deviance table shown.
 }
 \value{
@@ -82,7 +82,7 @@
   \code{\link{glm}}, \code{\link{anova}}.
 
   \code{\link{drop1}} for
-  so-called \sQuote{type II} anova where each term is dropped one at a
+  so-called \sQuote{type II} ANOVA where each term is dropped one at a
   time respecting their hierarchy.
 }
 \examples{

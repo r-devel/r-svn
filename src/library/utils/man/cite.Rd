@@ -35,7 +35,7 @@ Additional arguments to pass to the \code{cite()} function for the
 default style.
 }
   \item{textual}{
-Produce a \dQuote{textual} style of citation, i.e.\sspace{}what \code{\\citet} would
+Produce a \dQuote{textual} style of citation, i.e.\sspace{}what \samp{\\citet} would
 produce in LaTeX.
 }
   \item{before}{
@@ -81,7 +81,7 @@ Note that if \code{mode} is specified, it overrides the
 mode specification in \code{bibpunct[4]}.  Partial matching is used for
 \code{mode}.
 
-The defaults for \code{citeNatbib} have been chosen to match the JSS style, and
+The defaults for \code{citeNatbib} have been chosen to match the \abbr{JSS} style, and
 by default these are used in \code{cite}.  See \code{\link{bibstyle}}
 for how to set a different default style.
 }

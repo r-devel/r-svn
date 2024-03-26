@@ -1,13 +1,13 @@
 % File src/library/utils/man/available.packages.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{available.packages}
 \alias{available.packages}
 \alias{R_AVAILABLE_PACKAGES_CACHE_CONTROL_MAX_AGE}
 
-\title{List Available Packages at CRAN-like Repositories}
+\title{List Available Packages at \abbr{CRAN}-like Repositories}
 \description{
   \code{available.packages} returns a matrix of details corresponding to
   packages currently available at one or more repositories. The
@@ -64,7 +64,7 @@ available.packages(contriburl = contrib.url(repos, type), method,
 }
 \details{
   The list of packages is either copied from a local mirror (specified by a
-  \samp{file://} URI) or downloaded.  If downloaded and
+  \samp{file://} \abbr{URI}) or downloaded.  If downloaded and
   \code{ignore_repo_cache} is false (the default), the list is cached
   for the \R session in a per-repository file in \code{\link{tempdir}()}
   with a name like
@@ -104,10 +104,10 @@ available.packages(contriburl = contrib.url(repos, type), method,
       is in more than one repository.}
     \item{\code{"license/FOSS"}}{Include only packages for which
       installation can proceed solely based on packages which can be
-      verified as Free or Open Source Software (FOSS, e.g.,
+      verified as Free or Open Source Software (\abbr{FOSS}, e.g.,
       \url{https://en.wikipedia.org/wiki/FOSS}) employing the available
       license specifications.  Thus both the package and any packages
-      that it depends on to load need to be \emph{known to be} FOSS.
+      that it depends on to load need to be \emph{known to be} \abbr{FOSS}.
 
       Note that this does depend on the repository supplying license
       information.
@@ -116,7 +116,7 @@ available.packages(contriburl = contrib.url(repos, type), method,
       which installation can proceed solely based on packages which are
       known not to restrict use.
     }
-    \item{\code{"CRAN"}}{Use CRAN versions in preference to versions
+    \item{\code{"CRAN"}}{Use \abbr{CRAN} versions in preference to versions
       from other repositories (even if these have a higher version
       number).  This needs to be applied \emph{before} the default
       \code{"duplicates"} filter, so cannot be used with
@@ -136,7 +136,7 @@ available.packages(contriburl = contrib.url(repos, type), method,
   elements of the filter list to the default filters.
 }
 \value{
-  A matrix with one row per package, row names the package names and
+  A character matrix with one row per package, row names the package names and
   column names including \code{"Package"}, \code{"Version"},
   \code{"Priority"}, \code{"Depends"}, \code{"Imports"},
   \code{"LinkingTo"}, \code{"Suggests"}, \code{"Enhances"},
@@ -150,13 +150,14 @@ available.packages(contriburl = contrib.url(repos, type), method,
   package management tools, including \code{\link{install.packages}}.
 }
 \seealso{
+  \code{\link{packageStatus}}, \code{\link{update.packages}},
   \code{\link{install.packages}}, \code{\link{download.packages}},
   \code{\link{contrib.url}}.
 
   The \sQuote{R Installation and Administration} manual for how to
   set up a repository.
 }
-\examples{\dontrun{
+\examples{\donttest{
 ## Count package licenses
 db <- available.packages(filters = "duplicates")
 table(db[,"License"])
@@ -168,7 +169,8 @@ available.packages(filters = list(
   function (db) db[db[,"Priority"] \%in\% "recommended" &
                    db[,"NeedsCompilation"] == "no", ]
 ))
-
+}
+\dontrun{
 ## Restrict install.packages() (etc) to known-to-be-FOSS packages
 options(available_packages_filters =
   c("R_version", "OS_type", "subarch", "duplicates", "license/FOSS"))

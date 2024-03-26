@@ -51,7 +51,7 @@ browseURL(url, browser = getOption("browser"),
   it, the URL is opened in any already-running browser or a new one if
   necessary.  This mechanism currently is available for browsers which
   support the \code{"-remote openURL(...)"} interface (which includes
-  Mozilla and Opera), Galeon, KDE konqueror (\emph{via} kfmclient) and
+  Mozilla and Opera), \I{Galeon}, \I{KDE} \I{konqueror} (\emph{via} \I{kfmclient}) and
   the GNOME interface to Mozilla. (Firefox has dropped support, but
   defaults to using an already-running browser.)  Note that the type of
   browser is determined from its name, so this mechanism will only be
@@ -79,9 +79,9 @@ browseURL(url, browser = getOption("browser"),
   \code{NULL}.
   To suppress showing URLs altogether, use the value \code{"false"}.
 
-  Some browsers have required \code{:} be replaced by \code{|} in file
-  paths: others do not accept that.  All seem to accept \code{\\} as a
-  path separator even though the RFC1738 standard requires \code{/}.
+  Some browsers have required \samp{:} be replaced by \samp{|} in file
+  paths: others do not accept that.  All seem to accept \samp{\\} as a
+  path separator even though the RFC1738 standard requires \samp{/}.
 
   To suppress showing URLs altogether, set \code{browser = "false"}.
     }

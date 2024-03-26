@@ -5,7 +5,7 @@
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
+#  the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
 #  This program is distributed in the hope that it will be useful,
@@ -24,17 +24,14 @@
 ##  2) We use  ':::' instead of '::' inside the code below, for efficiency only
 
 getNamespace <- function(name) {
-    ns <- .Internal(getRegisteredNamespace(name))
-    if (! is.null(ns)) ns
-    else loadNamespace(name)
+    .Internal(getRegisteredNamespace(name)) %||% loadNamespace(name)
 }
 
 .getNamespace <- function(name) .Internal(getRegisteredNamespace(name))
 
 ..getNamespace <- function(name, where) {
-    ns <- .Internal(getRegisteredNamespace(name))
-    if (!is.null(ns)) ns
-    else tryCatch(loadNamespace(name), error = function(e) {
+    .Internal(getRegisteredNamespace(name)) %||%
+	tryCatch(loadNamespace(name), error = function(e) {
              tr <- Sys.getenv("_R_NO_REPORT_MISSING_NAMESPACES_")
              if( tr == "false" || (where != "<unknown>" && !nzchar(tr)) ) {
                  warning(gettextf("namespace %s is not available and has been replaced\nby .GlobalEnv when processing object %s",
@@ -809,7 +806,8 @@ loadNamespace <- function (package, lib.loc = NULL,
         if (length(exports)) {
             stoplist <- c(".__NAMESPACE__.", ".__S3MethodsTable__.",
                           ".packageName", ".First.lib", ".onLoad",
-                          ".onAttach", ".conflicts.OK", ".noGenerics")
+                          ".onAttach", ".conflicts.OK", ".noGenerics",
+                          ".__global__", ".__suppressForeign__")
             exports <- exports[! exports %in% stoplist]
         }
 	if(lev > 2L) message("--- processing exports for ", dQuote(package))

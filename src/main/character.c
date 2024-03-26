@@ -383,8 +383,8 @@ static void substr(const char *str, int len, int ienc, int sa, int so,
 
     if (ienc == CE_UTF8) {
 	if (!assumevalid && !utf8Valid(str)) {
-	    char msg[30];
-	    snprintf(msg, 30, "element %ld", (long)idx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "element %ld", (long)idx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 0; i < sa - 1 && str < end; i++)
@@ -588,20 +588,19 @@ substrset(char *buf, const char *const str, cetype_t ienc, int sa, int so,
 
     if (ienc == CE_UTF8) {
 	if (!utf8Valid(buf)) {
-	    char msg[30];
-	    snprintf(msg, 30, "element %ld", (long)xidx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "element %ld", (long)xidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	if (!utf8Valid(str)) {
-	    char msg[30];
-	    snprintf(msg, 30, "value element %ld", (long)vidx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "value element %ld", (long)vidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 1; i < sa; i++) buf += utf8clen(*buf);
-	for (i = sa; i <= so && in < strlen(str); i++) {
+	for (i = sa; i <= so && buf[out] && str[in]; i++) {
 	    in +=  utf8clen(str[in]);
 	    out += utf8clen(buf[out]);
-	    if (!str[in]) break;
 	}
 	if (in != out) memmove(buf+in, buf+out, strlen(buf+out)+1);
 	memcpy(buf, str, in);
@@ -619,10 +618,9 @@ substrset(char *buf, const char *const str, cetype_t ienc, int sa, int so,
 	    /* now work out how many bytes to replace by how many */
 	    mbstate_t mb_st_out;
 	    mbs_init(&mb_st_out);
-	    for (i = sa; i <= so && in < strlen(str); i++) {
-		in += (int) Mbrtowc(NULL, str+in, R_MB_CUR_MAX, &mb_st_in);
+	    for (i = sa; i <= so && buf[out] && str[in]; i++) {
+		in  += (int) Mbrtowc(NULL, str+in,  R_MB_CUR_MAX, &mb_st_in);
 		out += (int) Mbrtowc(NULL, buf+out, R_MB_CUR_MAX, &mb_st_out);
-		if (!str[in]) break;
 	    }
 	    if (in != out) memmove(buf+in, buf+out, strlen(buf+out)+1);
 	    memcpy(buf, str, in);
@@ -1035,7 +1033,7 @@ attribute_hidden SEXP do_makenames(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		wcstombs(tmp, wstr, strlen(tmp)+1);
 		R_Free(wstr);
-	    } else error(_("invalid multibyte string %d"), i+1);
+	    } else error(_("invalid multibyte string %lld"), (long long)i+1);
 	} else {
 	    for (p = tmp; *p; p++) {
 		if (*p == '.' || (allow_ && *p == '_')) /* leave alone */;
@@ -1164,7 +1162,7 @@ attribute_hidden SEXP do_tolower(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    R_Free(cbuf);
 		} else {
-		    error(_("invalid multibyte string %d"), i+1);
+		    error(_("invalid multibyte string %lld"), (long long)i+1);
 		}
 	    }
 	    vmaxset(vmax);
@@ -1593,7 +1591,8 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    ienc = CE_NATIVE;
 		}
 		if (nc < 0)
-		    error(_("invalid input multibyte string %d"), i+1);
+		    error(_("invalid input multibyte string %lld"),
+		          (long long)i+1);
 		wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t),
 						     &cbuff);
 		if (ienc == CE_UTF8) utf8towcs(wc, xi, nc + 1);

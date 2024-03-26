@@ -362,6 +362,7 @@ int R_system(const char *command)
 extern char ** environ;
 #endif
 
+// .Internal(Sys.getenv(x, unset))
 attribute_hidden SEXP do_getenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     int i, j;
@@ -376,7 +377,7 @@ attribute_hidden SEXP do_getenv(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("wrong type for argument"));
 
     i = LENGTH(CAR(args));
-    if (i == 0) {
+    if (i == 0) { // full list of environment variables
 #ifdef Win32
 	int n = 0, N;
 	wchar_t **w;
@@ -456,36 +457,37 @@ static int Rputenv(const char *nm, const char *val)
 #endif
 
 
+// .Internal(Sys.setenv(nm, val)) : (nm_1=val_1, nm_2=val_2, ..., nm_<n>=val_<n>)
 attribute_hidden SEXP do_setenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
 #if defined(HAVE_PUTENV) || defined(HAVE_SETENV)
-    int i, n;
-    SEXP ans, nm, vars;
 
     checkArity(op, args);
 
-    if (!isString(nm = CAR(args)))
+    SEXP nm = CAR(args);
+    if (!isString(nm))
 	error(_("wrong type for argument"));
-    if (!isString(vars = CADR(args)))
+    SEXP val = CADR(args);
+    if (!isString(val))
 	error(_("wrong type for argument"));
-    if(LENGTH(nm) != LENGTH(vars))
-	error(_("wrong length for argument"));
+    if(LENGTH(nm) != LENGTH(val))
+	error(_("'%s' and '%s' are of different lengths"), "names", "val");
 
-    n = LENGTH(vars);
-    PROTECT(ans = allocVector(LGLSXP, n));
+    int i, n = LENGTH(val);
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
 #ifdef HAVE_SETENV
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = setenv(translateChar(STRING_ELT(nm, i)),
-				 translateChar(STRING_ELT(vars, i)),
+				 translateChar(STRING_ELT(val, i)),
 				 1) == 0;
 #elif defined(Win32)
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = Rwputenv(wtransChar(STRING_ELT(nm, i)),
-				   wtransChar(STRING_ELT(vars, i))) == 0;
+				   wtransChar(STRING_ELT(val, i))) == 0;
 #else
     for (i = 0; i < n; i++)
 	LOGICAL(ans)[i] = Rputenv(translateChar(STRING_ELT(nm, i)),
-				  translateChar(STRING_ELT(vars, i))) == 0;
+				  translateChar(STRING_ELT(val, i))) == 0;
 #endif
     UNPROTECT(1);
     return ans;
@@ -495,30 +497,29 @@ attribute_hidden SEXP do_setenv(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 }
 
+// .Internal(Sys.unsetenv(nm))
 attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    int i, n;
-    SEXP ans, vars;
-
     checkArity(op, args);
 
-    if (!isString(vars = CAR(args)))
+    SEXP nm = CAR(args);
+    if (!isString(nm))
 	error(_("wrong type for argument"));
-    n = LENGTH(vars);
+    int i, n = LENGTH(nm);
 
 #if defined(HAVE_UNSETENV) || defined(HAVE_PUTENV_UNSET) || defined(HAVE_PUTENV_UNSET2)
 #ifdef HAVE_UNSETENV
-    for (i = 0; i < n; i++) unsetenv(translateChar(STRING_ELT(vars, i)));
+    for (i = 0; i < n; i++) unsetenv(translateChar(STRING_ELT(nm, i)));
 #elif defined(HAVE_PUTENV_UNSET)
     for (i = 0; i < n; i++) {
 	char buf[1000];
-	snprintf(buf, 1000, "%s",  translateChar(STRING_ELT(vars, i)));
+	snprintf(buf, 1000, "%s",  translateChar(STRING_ELT(nm, i)));
 	putenv(buf);
     }
 #elif defined(HAVE_PUTENV_UNSET2)
 # ifdef Win32
     for (i = 0; i < n; i++) {
-	const wchar_t *w = wtransChar(STRING_ELT(vars, i));
+	const wchar_t *w = wtransChar(STRING_ELT(nm, i));
 	wchar_t buf[2*wcslen(w)];
 	wcscpy(buf, w);
 	wcscat(buf, L"=");
@@ -527,7 +528,7 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 # else
     for (i = 0; i < n; i++) {
 	char buf[1000];
-	snprintf(buf, 1000, "%s=", translateChar(STRING_ELT(vars, i)));
+	snprintf(buf, 1000, "%s=", translateChar(STRING_ELT(nm, i)));
 	putenv(buf);
     }
 # endif
@@ -535,12 +536,12 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #elif defined(HAVE_PUTENV) || defined(HAVE_SETENV)
     warning(_("this system cannot unset environment variables: setting to \"\""));
-    n = LENGTH(vars);
+    n = LENGTH(nm);
     for (i = 0; i < n; i++) {
 #ifdef HAVE_SETENV
-	setenv(translateChar(STRING_ELT(vars, i)), "", 1);
+	setenv(translateChar(STRING_ELT(nm, i)), "", 1);
 #else
-	Rputenv(translateChar(STRING_ELT(vars, i)), "");
+	Rputenv(translateChar(STRING_ELT(nm, i)), "");
 #endif
     }
 
@@ -548,9 +549,9 @@ attribute_hidden SEXP do_unsetenv(SEXP call, SEXP op, SEXP args, SEXP env)
     warning(_("'Sys.unsetenv' is not available on this system"));
 #endif
 
-    PROTECT(ans = allocVector(LGLSXP, n));
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
     for (i = 0; i < n; i++)
-	LOGICAL(ans)[i] = !getenv(translateChar(STRING_ELT(vars, i)));
+	LOGICAL(ans)[i] = !getenv(translateChar(STRING_ELT(nm, i)));
     UNPROTECT(1);
     return ans;
 }
@@ -579,6 +580,15 @@ write_one (unsigned int namescount, const char * const *names, void *data)
 }
 #endif
 
+// Copied from platform.c (only used condiitonally there)
+// case-insensitive string comparison
+int static R_strieql(const char *a, const char *b)
+{
+    while (*a && *b && toupper(*a) == toupper(*b)) { a++; b++; }
+    return (*a == 0 && *b == 0);
+}
+
+
 #include "RBufferUtils.h"
 
 /* iconv(x, from, to, sub, mark) */
@@ -590,7 +600,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
     void * utf8_obj = (iconv_t)-1;
     const char *inbuf;
     char *outbuf;
-    const char *sub;
+    const char *sub; // null for no substitution.
     size_t inb, outb, res;
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
     Rboolean isRawlist = FALSE;
@@ -632,14 +642,24 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	toRaw = asLogical(CAR(args));
 	if(toRaw == NA_LOGICAL)
 	    error(_("invalid '%s' argument"), "toRaw");
-	/* some iconv's allow "UTF8", but libiconv does not */
-	if(streql(from, "UTF8") || streql(from, "utf8") ) from = "UTF-8";
-	if(streql(to, "UTF8") || streql(to, "utf8") ) to = "UTF-8";
+	/* some iconv's allow "UTF8", but GNU libiconv does not */
+	if(R_strieql(from, "UTF8")) from = "UTF-8";
+	if(R_strieql(to, "UTF8")) to = "UTF-8";
 	if(streql(to, "UTF-8")) isUTF8 = TRUE;
-	if(streql(to, "latin1") || streql(to, "ISO_8859-1")
-	    || streql(to, "CP1252")) isLatin1 = TRUE;
+	if(R_strieql(to, "latin1") || R_strieql(to, "ISO_8859-1")
+	    || R_strieql(to, "CP1252")) isLatin1 = TRUE;
 	if(streql(to, "") && known_to_be_latin1) isLatin1 = TRUE;
 	if(streql(to, "") && known_to_be_utf8) isUTF8 = TRUE;
+#ifdef OS_MUSL
+	if(R_strieql(from, "latin-2") || R_strieql(from, "latin2") )
+	    from = "iso88592";
+	if(R_strieql(to, "latin-2") || R_strieql(to, "latin2") )
+	    to = "iso88592";
+	if(R_strieql(from, "latin-9") || R_strieql(from, "latin9") )
+	    from = "iso885915";
+	if(R_strieql(to, "latin-9") || R_strieql(to, "latin9") )
+	    to = "iso885915";
+#endif
 	isRawlist = (TYPEOF(x) == VECSXP);
 	if(isRawlist) {
 	    if(toRaw)
@@ -689,8 +709,19 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "UTF-8", to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      "UTF-8", to);
+		    {
+			// musl does not support ASCII//TRANSLIT but has
+			// similar ASCII subsituting with *
+			// In case there are others, we set sub here.
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    utf8_obj = Riconv_open(to, "UTF-8");
+			    if(!sub) sub = "c99";
+			}
+			if(utf8_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  "UTF-8", to);
+		    }
 		#endif
 		}
 		obj = utf8_obj;
@@ -703,8 +734,16 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "latin1", to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      "latin1", to);
+		    {
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    latin1_obj = Riconv_open(to, "latin1");
+			    if(!sub) sub = "?";
+			}
+			if(latin1_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  "latin1", to);			   
+		    }
 		#endif
 		}
 		obj = latin1_obj;
@@ -716,8 +755,16 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      from, to, localeCP);
 		#else
-			error(_("unsupported conversion from '%s' to '%s'"),
-			      from, to);
+		    {
+			if(streql(to, "ASCII//TRANSLIT")) {
+			    to = "ASCII";
+			    arg_obj = Riconv_open(to, from);
+			    if(!sub) sub = "?";
+			}
+			if(arg_obj == (iconv_t)(-1))
+			    error(_("unsupported conversion from '%s' to '%s'"),
+				  from, to);			   
+		    }
 		#endif
 		}
 		obj = arg_obj;
@@ -744,6 +791,11 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	    } else if(res == -1 && sub &&
 		      (errno == EILSEQ || errno == EINVAL)) {
 		/* it seems this gets thrown for non-convertible input too */
+		res = Riconv(obj, NULL, NULL, &outbuf, &outb);	
+		if (res == -1 && errno == E2BIG) {
+		    R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
+		    goto top_of_loop;
+		}	
 		if(fromUTF8 && streql(sub, "Unicode")) {
 		    if(outb < 13) {
 			R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
@@ -759,16 +811,18 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			    ucs = (R_wchar_t) wc;
 			inbuf += clen; inb -= clen;
 			if(ucs < 65536) {
-			    // gcc 7 objects to this with unsigned int
+			    // gcc 7 objected to this with unsigned int
 			    snprintf(outbuf, 9, "<U+%04X>", (unsigned short) ucs);
 			    outbuf += 8; outb -= 8;
 			} else {
 			    /* R_wchar_t is unsigned int on Windows, 
 			       otherwise wchar_t (usually int).
 			       In any case Unicode points <= 0x10FFFF
+			       so one could argue against zero-padding here.
 			    */
-			    snprintf(outbuf, 13, "<U+%08X>", (unsigned int) ucs);
-			    outbuf += 12; outb -= 12;
+			    snprintf(outbuf, 13, "<U+%04X>", (unsigned int) ucs);
+			    size_t l = strlen(outbuf);
+			    outbuf += l; outb -= l;
 			}
 		    }
 		    goto next_char;
@@ -787,7 +841,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			    ucs = (R_wchar_t) wc;
 			inbuf += clen; inb -= clen;
 			if(ucs < 65536) {
-			    // gcc 7 objects to this with unsigned int
+			    // gcc 7 objected to this with unsigned int
 			    snprintf(outbuf, 7, "\\u%04x", (unsigned short) ucs);
 			    outbuf += 6; outb -= 6;
 			} else {
@@ -855,7 +909,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP __x__ = (x);            \
     if(TYPEOF(__x__) != CHARSXP) \
 	error(_("'%s' must be called on a CHARSXP, but got '%s'"), \
-	      __func__, type2char(TYPEOF(__x__)));                 \
+	      __func__, R_typeToChar(__x__));			   \
 } while(0);
 
 cetype_t getCharCE(SEXP x)
@@ -867,6 +921,153 @@ cetype_t getCharCE(SEXP x)
     else return CE_NATIVE;
 }
 
+#ifdef __APPLE__
+/* Work-around for libiconv in macOS 14.1. When an invalid input byte is
+   encountered while converting, one has to re-set the converter state.
+   Otherwise, subsequent valid bytes may be reported as invalid and libiconv
+   may crash R due to an assertion failure. The problem does not seem to
+   happen when the converter is re-set after error.
+
+   While often one should reset the converter in such situation in order to
+   support stateful encodings properly, the problem has been seen even when
+   converting from UTF-8 to UTF-8.
+
+   This work-around automatically re-sets the converter in Riconv in case
+   of error for stateless encodings. */
+# define R_MACOS_LIBICONV_WORKAROUND
+
+/* A hack to detect and undo transliteration (experimental, likely to change
+   or be removed).  While POSIX says that iconv should transliterate or
+   substitute valid input characters not representable in the output
+   encoding, this typically is not the case.  Instead, non-representable
+   characters usually cause an error (EILSEQ or even EINVAL) and R ended up
+   depending on that.
+
+   macOS 14.1 has a libiconv implementation which transliterates many
+   characters.
+
+   This feature, currently only available for stateless conversions together
+   with R_MACOS_LIBICONV_WORKAROUND, detects transliteration by converting
+   the result back to the original encoding, compares with the original and
+   then re-rums the conversion only to the to-be-transliterated character. 
+   This wouldn't work in cases when the conversion isn't unique, but such
+   cases are unlikely (note implementations of iconv, including libiconv in
+   macOS 14.1, do not support decomposed forms).
+   
+   Enabled at runtime via _R_ICONV_UNDO_TRANSLITERATION_.
+*/
+
+# define R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+#endif
+
+#ifdef R_MACOS_LIBICONV_WORKAROUND
+typedef struct {
+    iconv_t cd;
+    Rboolean reset_after_error;
+    iconv_t cd_back;
+    Rboolean undo_transliteration;
+    size_t buflen;
+    char *buf;
+} Riconv_cd;
+
+static Rboolean is_stateful(const char *code)
+{
+    /* list from libiconv 1.17, but names are system-specific */
+    static char *stateful[] = {
+        "utf7", "UTF-7", "UNICODE-1-1-UTF-7", "csUnicode11UTF7", "cp1255",
+        "CP1255", "WINDOWS-1255", "MS-HEBR", "cp1258", "CP1258",
+        "WINDOWS-1258", "tcvn", "TCVN", "TCVN-5712", "TCVN5712-1",
+        "TCVN5712-1:1993", "iso2022_jp", "ISO-2022-JP", "csISO2022JP",
+        "iso2022_jp1", "ISO-2022-JP-1", "iso2022_jp2", "ISO-2022-JP-2",
+        "csISO2022JP2", "iso2022_jpms", "ISO-2022-JP-MS", "CP50221",
+        "iso2022_cn", "ISO-2022-CN", "csISO2022CN", "iso2022_cn_ext",
+        "ISO-2022-CN-EXT", "hz", "HZ", "HZ-GB-2312", "big5hkscs1999",
+        "BIG5-HKSCS:1999", "big5hkscs2001", "BIG5-HKSCS:2001",
+        "big5hkscs2004", "BIG5-HKSCS:2004", "big5hkscs2008", "BIG5-HKSCS",
+        "BIG5HKSCS", "BIG5-HKSCS:2008", "iso2022_kr", "ISO-2022-KR",
+        "csISO2022KR", "euc_jisx0213", "EUC-JISX0213", "EUC-JIS-2004",
+        "shift_jisx0213", "SHIFT_JISX0213", "SHIFT_JIS-2004", "iso2022_jp3",
+        "ISO-2022-JP-3", "ISO-2022-JP-2004", NULL
+    };
+
+    if (!strcasecmp(code, "UTF-8") || !strcasecmp(code, "ISO-8859-1") ||
+        !strcasecmp(code, "latin1"))
+	return FALSE;
+
+    /* if performance of this becomes a problem, there could be a cache of
+       recently used encodings or/and a perfect hashing function */
+    for(int i = 0; stateful[i] ; i++)
+	if (!strcasecmp(code, stateful[i]))
+	    return TRUE;
+    return FALSE;
+}
+
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+static Rboolean is_unicode(const char *code)
+{
+    /* list from libiconv 1.17, but names are system-specific */
+    static char *unicode[] = {
+        "UTF-8",
+        "UCS-4", "UCS-4BE", "UCS-4LE",
+        "UTF-16", "UTF-16BE", "UTF-16LE",
+        "UTF-32", "UTF-32BE", "UTF-32LE",
+        "UTF-7",
+        "C99", "JAVA", NULL
+    };
+
+    for(int i = 0; unicode[i] ; i++)
+	if (!strcasecmp(code, unicode[i]))
+	    return TRUE;
+    return FALSE;
+}
+# endif 
+#endif
+
+static void *iconv_open_internal(const char *tocode, const char *fromcode)
+{
+#ifndef R_MACOS_LIBICONV_WORKAROUND
+    return iconv_open(tocode, fromcode);
+#else
+    iconv_t cd = iconv_open(tocode, fromcode);
+    if (cd == (iconv_t)-1)
+	return cd;
+
+    Riconv_cd *rcd = malloc(sizeof(Riconv_cd));
+    if (!rcd) {
+	errno = ENOMEM;
+	return (void *)(iconv_t)-1;
+    }
+    rcd->cd = cd;
+    rcd->reset_after_error = !(is_stateful(tocode) || is_stateful(fromcode));
+
+    rcd->undo_transliteration = FALSE;
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+    rcd->undo_transliteration =
+        !is_unicode(tocode) && rcd->reset_after_error;
+	/* (!(is_stateful(tocode) || is_stateful(fromcode))  */
+
+    char *p = getenv("_R_ICONV_UNDO_TRANSLITERATION_");
+    if (!p || !StringTrue(p))
+	rcd->undo_transliteration = FALSE;
+
+    if (rcd->undo_transliteration) {
+	rcd->cd_back = iconv_open(fromcode, tocode);
+	if (rcd->cd_back == (iconv_t)-1) {
+	    iconv_close((iconv_t)rcd->cd);
+	    return (iconv_t)-1;
+	}
+	rcd->buflen = 8192;
+	rcd->buf = malloc(rcd->buflen);
+	if (!rcd->buf) {
+	    iconv_close((iconv_t)rcd->cd);
+	    iconv_close((iconv_t)rcd->cd_back);
+	    return (iconv_t)-1;
+	}
+    }
+# endif
+    return rcd;
+#endif
+}
 
 void * Riconv_open (const char* tocode, const char* fromcode)
 {
@@ -881,16 +1082,16 @@ void * Riconv_open (const char* tocode, const char* fromcode)
     if (latin1locale) cp = "ISO-8859-1";
     else if (!utf8locale) cp = locale2charset(NULL);
 # endif
-    if (!*tocode && !*fromcode) return iconv_open(cp, cp);
-    if(!*tocode)  return iconv_open(cp, fromcode);
-    else if(!*fromcode) return iconv_open(tocode, cp);
-    else return iconv_open(tocode, fromcode);
+    if (!*tocode && !*fromcode) return iconv_open_internal(cp, cp);
+    if(!*tocode)  return iconv_open_internal(cp, fromcode);
+    else if(!*fromcode) return iconv_open_internal(tocode, cp);
+    else return iconv_open_internal(tocode, fromcode);
 #else
 // "utf8" is not valid but people keep on using it
     const char *to = tocode, *from = fromcode;
     if(strcasecmp(tocode, "utf8") == 0) to = "UTF-8";
     if(strcasecmp(fromcode, "utf8") == 0) from = "UTF-8";
-    return iconv_open(to, from);
+    return iconv_open_internal(to, from);
 #endif
 }
 
@@ -903,14 +1104,130 @@ void * Riconv_open (const char* tocode, const char* fromcode)
 size_t Riconv (void *cd, const char **inbuf, size_t *inbytesleft,
 	       char **outbuf, size_t *outbytesleft)
 {
+#ifdef R_MACOS_LIBICONV_WORKAROUND
+    Riconv_cd *rcd = (Riconv_cd *)cd;
+
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+    const char *old_inbuf = NULL;
+    size_t old_inbytesleft = 0;
+    char *old_outbuf = NULL;
+    size_t old_outbytesleft = 0;
+
+    if (rcd->undo_transliteration) {
+	old_inbuf = inbuf ? *inbuf : NULL;
+	old_inbytesleft = inbytesleft ? *inbytesleft : 0;
+	old_outbuf = outbuf ? *outbuf : NULL;
+	old_outbytesleft = outbytesleft ? *outbytesleft : 0;
+    }
+# endif
+#endif
+
     /* here libiconv has const char **, glibc has char ** for inbuf */
-    return iconv((iconv_t) cd, (ICONV_CONST char **) inbuf, inbytesleft,
-		 outbuf, outbytesleft);
+    size_t res = iconv(
+#ifdef R_MACOS_LIBICONV_WORKAROUND
+                       rcd->cd,
+#else
+                       (iconv_t)cd,
+#endif
+                       (ICONV_CONST char **) inbuf, inbytesleft,
+                       outbuf, outbytesleft);
+
+#ifdef R_MACOS_LIBICONV_WORKAROUND
+    if (rcd->reset_after_error &&
+	(res == (size_t)-1 && (errno == EILSEQ || errno == EINVAL))) {
+
+	int saveerrno = errno;
+	iconv(rcd->cd, NULL, NULL, NULL, NULL);
+	errno = saveerrno;
+	}
+
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+    if (rcd->undo_transliteration &&
+        inbuf && inbytesleft && outbuf && outbytesleft) {
+
+	int saveerrno = errno;
+	size_t needed = old_inbytesleft - *inbytesleft;
+	if (rcd->buflen < needed) {
+	    free(rcd->buf);
+	    rcd->buf = malloc(needed);
+	    if (!rcd->buf) {
+		errno = ENOMEM;
+		return -1;
+	    }
+	    rcd->buflen = needed;
+	}
+
+	const char *back_inbuf = old_outbuf;
+	size_t back_inbytesleft = old_outbytesleft - *outbytesleft;
+	char *back_outbuf = rcd->buf;
+	size_t back_outbytesleft = needed;
+
+	iconv(rcd->cd_back, NULL, NULL, NULL, NULL);
+	int back_res = iconv(rcd->cd_back,
+	      (ICONV_CONST char **) &back_inbuf,
+	      &back_inbytesleft,
+	      (ICONV_CONST char **) &back_outbuf,
+	      &back_outbytesleft);
+
+	if (back_res == (size_t)-1) {
+	    /* should not happen */
+	    errno = saveerrno;
+	    return res;
+	}
+
+	if (back_outbytesleft == 0 && back_inbytesleft == 0 &&
+	    !memcmp(rcd->buf, old_inbuf, needed)) {
+
+	    /* no transliteration happened */
+	    errno = saveerrno;
+	    return res;
+	}
+
+	size_t stored = needed - back_outbytesleft;
+	size_t i;
+	for(i = 0; i < stored; i++)
+	    if (rcd->buf[i] != old_inbuf[i]) {
+		/* byte at index i in old_inbuf was probably transliterated,
+		   so convert again only i bytes and report error */
+		*inbuf = old_inbuf;
+		*outbuf = old_outbuf;
+		*outbytesleft = old_outbytesleft;
+		size_t reduced = i;
+		res = iconv(rcd->cd,
+		            (ICONV_CONST char **) inbuf,
+		            &reduced,
+		            (ICONV_CONST char **) outbuf,
+		            outbytesleft);
+
+		/* "reduced" should be 0 now */
+		*inbytesleft = old_inbytesleft - (i - reduced);
+		errno = EILSEQ;
+		return -1;
+	    }
+	/* should not be reached */
+	errno = saveerrno;
+    } 
+# endif
+#endif
+    return res;
 }
 
 int Riconv_close (void *cd)
 {
+#ifndef R_MACOS_LIBICONV_WORKAROUND
     return iconv_close((iconv_t) cd);
+
+#else
+    Riconv_cd *rcd = (Riconv_cd *)cd;
+    int res = iconv_close(rcd->cd);
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+    if (rcd->undo_transliteration) {
+	free(rcd->buf);
+	if (iconv_close(rcd->cd_back)) res = -1;
+    }
+# endif
+    return res;
+#endif
 }
 
 typedef enum {
@@ -1005,7 +1322,8 @@ next_char:
 	R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
-	if(outb < 13) {
+	res = Riconv(obj, NULL, NULL, &outbuf, &outb);
+	if((res == -1 && errno == E2BIG) || outb < 13) {
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
@@ -1213,7 +1531,8 @@ next_char:
 	R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
-	if(outb < 5) {
+	res = Riconv(obj, NULL, NULL, &outbuf, &outb);
+	if((res == -1 && errno == E2BIG) || outb < 5) {
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
@@ -1405,7 +1724,8 @@ next_char:
 	R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
-	if(outb < 5 * sizeof(wchar_t)) {
+	res = Riconv(obj, NULL, NULL, &outbuf, &outb);
+	if((res == -1 && errno == E2BIG) || outb < 5 * sizeof(wchar_t)) {
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
@@ -1504,6 +1824,11 @@ next_char:
 	R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	goto top_of_loop;
     } else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) {
+	res = Riconv(obj, NULL, NULL, &outbuf, &outb);
+	if(res == -1 && errno == E2BIG) {
+	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
+	    goto top_of_loop;
+	}
 	size_t inb_per_char = fromWchar ? sizeof(wchar_t) : 1;
 
 	/* ensure space in cbuff for substitution */	

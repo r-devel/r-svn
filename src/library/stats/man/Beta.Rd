@@ -1,7 +1,9 @@
 % File src/library/stats/man/Beta.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
+
+\newcommand{\bibcite}{#1}
 
 \name{Beta}
 \alias{Beta}
@@ -37,7 +39,7 @@ rbeta(n, shape1, shape2, ncp = 0)
   The Beta distribution with parameters \code{shape1} \eqn{= a} and
   \code{shape2} \eqn{= b} has density
   \deqn{f(x)=\frac{\Gamma(a+b)}{\Gamma(a)\Gamma(b)}{x}^{a-1} {(1-x)}^{b-1}%
-  }{\Gamma(a+b)/(\Gamma(a)\Gamma(b))x^(a-1)(1-x)^(b-1)}
+  }{\Gamma(a+b)/(\Gamma(a)\Gamma(b)) x^(a-1) (1-x)^(b-1)}
   for \eqn{a > 0}, \eqn{b > 0} and \eqn{0 \le x \le 1}
   where the boundary values at \eqn{x=0} or \eqn{x=1} are defined as
   by continuity (as limits).
@@ -50,18 +52,21 @@ rbeta(n, shape1, shape2, ncp = 0)
   \code{[dpqr]beta()} functions are defined correspondingly.
 
   \code{pbeta} is closely related to the incomplete beta function.  As
-  defined by Abramowitz and Stegun 6.6.1
-  \deqn{B_x(a,b) = \int_0^x t^{a-1} (1-t)^{b-1} dt,}{B_x(a,b) =
-    integral_0^x t^(a-1) (1-t)^(b-1) dt,}
+  defined by \bibcite{Abramowitz and Stegun 6.6.1}
+  \deqn{B_x(a,b) = \int_0^x t^{a-1} (1-t)^{b-1} dt,}{
+    B_x(a,b) = integral_0^x t^(a-1) (1-t)^(b-1) dt,}
   and 6.6.2 \eqn{I_x(a,b) = B_x(a,b) / B(a,b)} where
   \eqn{B(a,b) = B_1(a,b)} is the Beta function (\code{\link{beta}}).
 
   \eqn{I_x(a,b)} is \code{pbeta(x, a, b)}.
 
   The noncentral Beta distribution (with \code{ncp} \eqn{ = \lambda})
-  is defined (Johnson \emph{et al}, 1995, pp.\sspace{}502) as the distribution of
+  is defined (Johnson \abbr{et al.}, 1995, pp.\sspace{}502) as the distribution of
   \eqn{X/(X+Y)} where \eqn{X \sim \chi^2_{2a}(\lambda)}{X ~ chi^2_2a(\lambda)}
   and \eqn{Y \sim \chi^2_{2b}}{Y ~ chi^2_2b}.
+  There, \eqn{\chi^2_n(\lambda)}{chi^2_n(\lambda)} is the noncentral
+  chi-squared distribution with \eqn{n} degrees of freedom and
+  non-centrality parameter \eqn{\lambda}, see \link{Chisquare}.
 }
 \value{
   \code{dbeta} gives the density, \code{pbeta} the distribution
@@ -90,7 +95,7 @@ rbeta(n, shape1, shape2, ncp = 0)
   contributed by Catherine Loader (see \code{\link{dbinom}}) if either
   shape parameter is larger than one, otherwise directly from the definition.
   The non-central case is based on the derivation as a Poisson
-  mixture of betas (Johnson \emph{et al}, 1995, pp.\sspace{}502--3).
+  mixture of betas (Johnson \abbr{et al.}, 1995, pp.\sspace{}502--3).
 
   \item The central \code{pbeta} for the default (\code{log_p = FALSE})
   uses a C translation based on
@@ -98,12 +103,14 @@ rbeta(n, shape1, shape2, ncp = 0)
   Didonato, A. and Morris, A., Jr, (1992)
   Algorithm 708: Significant digit computation of the incomplete beta
   function ratios,
-  \emph{ACM Transactions on Mathematical Software}, \bold{18}, 360--373.
+  \emph{ACM Transactions on Mathematical Software}, \bold{18}, 360--373,
+  \doi{10.1145/131766.131776}.
   (See also\cr
   Brown, B. and Lawrence Levy, L. (1994)
   Certification of algorithm 708: Significant digit computation of the
   incomplete beta,
-  \emph{ACM Transactions on Mathematical Software}, \bold{20}, 393--397.)
+  \emph{ACM Transactions on Mathematical Software}, \bold{20}, 393--397,
+  \doi{10.1145/192115.192155}.)
   \cr %%
   We have slightly tweaked the original \dQuote{TOMS 708} algorithm, and
   enhanced for \code{log.p = TRUE}.  For that (log-scale) case,
@@ -115,11 +122,14 @@ rbeta(n, shape1, shape2, ncp = 0)
   \item The non-central \code{pbeta} uses a C translation of
 
   Lenth, R. V. (1987) Algorithm AS 226: Computing noncentral beta
-  probabilities. \emph{Appl. Statist}, \bold{36}, 241--244,
+  probabilities. \emph{Applied Statistics}, \bold{36}, 241--244,
+  \doi{10.2307/2347558}, 
   incorporating\cr
-  Frick, H. (1990)'s AS R84, \emph{Appl. Statist}, \bold{39}, 311--2,
+  Frick, H. (1990)'s AS R84, \emph{Applied Statistics}, \bold{39},
+  311--2, \doi{10.2307/2347780}
   and\cr
-  Lam, M.L. (1995)'s AS R95, \emph{Appl. Statist}, \bold{44}, 551--2.
+  Lam, M.L. (1995)'s AS R95, \emph{Applied Statistics}, \bold{44},
+  551--2, \doi{10.2307/2986147}.
 
   This computes the lower tail only, so the upper tail suffers from
   cancellation and a warning will be given when this is likely to be
@@ -130,6 +140,7 @@ rbeta(n, shape1, shape2, ncp = 0)
   Cran, G. W., K. J. Martin and G. E. Thomas (1977).
   Remark AS R19 and Algorithm AS 109,
   \emph{Applied Statistics},  \bold{26}, 111--114,
+  \doi{10.2307/2346887},
   and subsequent remarks (AS83 and correction).
 
   Enhancements, notably for starting values and switching to a log-scale

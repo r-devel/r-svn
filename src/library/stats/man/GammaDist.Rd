@@ -3,6 +3,8 @@
 % Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{GammaDist}
 \alias{GammaDist}
 \alias{dgamma}
@@ -88,12 +90,12 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
 %   small \code{scale}, and warns of potential unreliability for
 %   \code{scale < 1e-10}.
 \note{
-  The S (Becker \emph{et al}, 1988) parametrization was via \code{shape}
+  The S (Becker \abbr{et al.}, 1988) parametrization was via \code{shape}
   and \code{rate}: S had no \code{scale} parameter. It is an error
   to supply both \code{scale} and \code{rate}.
 
   \code{pgamma} is closely related to the incomplete gamma function.  As
-  defined by Abramowitz and Stegun 6.5.1 (and by \sQuote{Numerical
+  defined by \bibcite{Abramowitz and Stegun 6.5.1} (and by \sQuote{Numerical
     Recipes}) this is
   \deqn{P(a,x) = \frac{1}{\Gamma(a)} \int_0^x t^{a-1} e^{-t} dt}{P(a,x) = 1/Gamma(a) integral_0^x t^(a-1) exp(-t) dt}
   \eqn{P(a, x)} is \code{pgamma(x, a)}.  Other authors (for example

@@ -1,12 +1,12 @@
 % File src/library/grDevices/man/palette.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2012 R Core Team
+% Copyright 1995-2023 R Core Team
 % Copyright 2002-2010 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{adjustcolor}
 \alias{adjustcolor}
-\title{Adjust Colors in One or More Directions Conveniently.}
+\title{Adjust Colors in One or More Directions Conveniently}
 \description{
   Adjust or modify a vector of colors by \dQuote{turning knobs} on one or more
   coordinates in \eqn{(r,g,b,\alpha)} space, typically by up or down
@@ -18,14 +18,14 @@ adjustcolor(col, alpha.f = 1, red.f = 1, green.f = 1, blue.f = 1,
             offset = c(0, 0, 0, 0),
             transform = diag(c(red.f, green.f, blue.f, alpha.f)))}
 \arguments{
-  \item{col}{vector of colors, in any format that col2rgb() accepts}
+  \item{col}{vector of colors, in any format that \code{\link{col2rgb}()} accepts}
   \item{alpha.f}{factor modifying the opacity alpha; typically in [0,1]}
   \item{red.f, green.f, blue.f}{factors modifying the \dQuote{red-},
-    \dQuote{green-} or \dQuote{blue-}ness of the colors, respectively.}
-  \item{offset}{
-  }
-  \item{transform}{
-  }
+    \dQuote{green-} or \I{\dQuote{blue-}ness} of the colors, respectively.}
+  \item{offset}{numeric vector of length 4 to offset \code{x :=
+      c(r,g,b,alpha)}, where \code{x} is the \eqn{[0,1]}-scaled result of
+    \code{\link{col2rgb}(col, alpha=TRUE)}.}
+  \item{transform}{a 4x4 numeric matrix applied to \code{x + offset}.}
 }
 \value{a color vector of the same length as \code{col}, effectively the
   result of \code{\link{rgb}()}.

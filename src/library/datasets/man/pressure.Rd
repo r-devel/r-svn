@@ -15,14 +15,14 @@
 \format{
   A data frame with 19 observations on 2 variables.
   \tabular{rlll}{
-    [, 1] \tab temperature \tab numeric \tab temperature (deg C)\cr
-    [, 2] \tab pressure    \tab numeric \tab pressure (mm)
+    [, 1] \tab \code{temperature} \tab numeric \tab temperature (deg C)\cr
+    [, 2] \tab \code{pressure}    \tab numeric \tab pressure (mm)
   }
 }
 \source{
   Weast, R. C., ed. (1973)
   \emph{Handbook of Chemistry and Physics}.
-  CRC Press.
+  \I{CRC Press}.
 }
 \references{
   McNeil, D. R. (1977)

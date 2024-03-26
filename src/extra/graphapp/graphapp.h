@@ -6,7 +6,7 @@
  *  This header file is designed to be platform-independent.
  *
  *  Copyright 2006-8	The R Foundation
- *  Copyright 2013-23	The R Core Team
+ *  Copyright 2013-24	The R Core Team
  *
  */
 
@@ -42,10 +42,22 @@ extern "C" {
 
 typedef unsigned char GAbyte;
 
+/*
+R modification for public code: disable the gui_obj below, but instead use
+an incomplete declaration of objinfo (see internal.h) in the public
+interface.  This avoids running into LTO-detected type mismatch e.g.  on
+global variable Rconsole in rui.h/rui.c.
+
 #ifndef objptr
   typedef struct { int kind; } gui_obj;
   typedef gui_obj * objptr;
 #endif
+*/
+
+typedef struct objinfo objinfo;
+typedef objinfo *objptr;
+
+/* end of R modification */
 
 typedef unsigned long rgb;    /* red-green-blue colour value */
 
@@ -804,9 +816,9 @@ void	setdrawmode(int mode);
 #define DnandS	 0x07
 #define DandS	 0x08
 #define DxnorS	 0x09
-#define D	 0x0A
+#define GA_D	 0x0A
 #define DornotS	 0x0B
-#define S	 0x0C
+#define GA_S	 0x0C
 #define notDorS	 0x0D
 #define DorS	 0x0E
 #define Ones	 0x0F

@@ -1,7 +1,7 @@
 #  File src/library/base/R/library.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -707,6 +707,12 @@ function(package, lib.loc = NULL, quietly = FALSE, warn.conflicts,
     invisible(value)
 }
 
+use <-
+function(package, include.only)
+    invisible(library(package, lib.loc = NULL, character.only = TRUE,
+                      logical.return = TRUE, include.only = include.only,
+                      attach.required = FALSE))
+
 .packages <-
 function(all.available = FALSE, lib.loc = NULL)
 {
@@ -978,6 +984,7 @@ function(pkgInfo, quietly = FALSE, lib.loc = NULL, useImports = FALSE)
     }
 }
 
+## called e.g. w/ R_LIBS_USER  in  ../../profile/Common.R
 .expand_R_libs_env_var <-
 function(x)
 {
@@ -988,10 +995,13 @@ function(x)
     R_LIBS_USER_default <- function() {
         home <- normalizePath("~", mustWork = FALSE)  # possibly /nonexistent
         ## FIXME: could re-use v from "above".
-        x.y <- paste0(R.version$major, ".",
-                      sub("[.].*", "", R.version$minor))
-        if(.Platform$OS.type == "windows")
+        x.y <- paste(R.version$major, sep=".",
+                     strsplit(R.version$minor, ".", fixed=TRUE)[[1L]][1L])
+        if(.Platform$OS.type == "windows" && s["machine"] == "x86-64")
             file.path(Sys.getenv("LOCALAPPDATA"), "R", "win-library", x.y)
+        else if (.Platform$OS.type == "windows") # including aarch64
+            file.path(Sys.getenv("LOCALAPPDATA"), "R",
+                      paste0(s["machine"],"-library"), x.y)
         else if(s["sysname"] == "Darwin")
             file.path(home, "Library", "R", s["machine"], x.y, "library")
         else
@@ -1022,3 +1032,4 @@ function(x)
 
     gsub("%%", "%", x, fixed = TRUE)
 }
+

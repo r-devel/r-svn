@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2021   The R Core Team.
+ *  Copyright (C) 2000-2023   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -596,8 +596,8 @@ static void *in_R_HTTPOpen2(const char *url, const char *agent, const char *head
 	InternetCloseHandle(wictxt->session);
 	InternetCloseHandle(wictxt->hand);
 	free(wictxt);
-	warning(_("cannot open URL '%s': %s status was '%d %s'"),
-		url, "HTTP", status, buf);
+	warning(_("cannot open URL '%s': %s status was '%lu %s'"),
+		url, "HTTP", (unsigned long)status, buf);
 	return NULL;
     }
 
@@ -620,7 +620,7 @@ static void *in_R_HTTPOpen2(const char *url, const char *agent, const char *head
 		     (int)len, (int)(len/1024));
 	else if(wictxt->length >= 0) /* signed; len is not */
 	    REprintf(" length %d bytes\n", (int)len);
-	else REprintf(" length unknown\n", len);
+	else REprintf(" length unknown\n");
 	R_FlushConsole();
     }
 

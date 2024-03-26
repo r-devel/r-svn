@@ -15,8 +15,8 @@
   A data frame with 153 observations on 6 variables.
 
   \tabular{rlll}{
-    \code{[,1]} \tab \code{Ozone}   \tab numeric \tab Ozone (ppb)\cr
-    \code{[,2]} \tab \code{Solar.R} \tab numeric \tab Solar R (lang)\cr
+    \code{[,1]} \tab \code{Ozone}   \tab numeric \tab Ozone (\abbr{ppb})\cr
+    \code{[,2]} \tab \code{Solar.R} \tab numeric \tab Solar R (\abbr{lang})\cr
     \code{[,3]} \tab \code{Wind}    \tab numeric \tab Wind (mph)\cr
     \code{[,4]} \tab \code{Temp}    \tab numeric \tab Temperature (degrees F)\cr
     \code{[,5]} \tab \code{Month}   \tab numeric \tab Month (1--12)\cr
@@ -31,12 +31,12 @@
     \item \code{Ozone}: Mean ozone in parts per
     billion from 1300 to 1500 hours at Roosevelt Island
     \item \code{Solar.R}: Solar radiation
-    in Langleys in the frequency band 4000--7700 Angstroms from
+    in \I{Langley}s in the frequency band 4000--7700 Angstroms from
     0800 to 1200 hours at Central Park
     \item \code{Wind}: Average wind speed in miles
-    per hour at 0700 and 1000 hours at LaGuardia Airport
+    per hour at 0700 and 1000 hours at \I{LaGuardia} Airport
     \item \code{Temp}: Maximum daily
-    temperature in degrees Fahrenheit at La Guardia Airport.
+    temperature in degrees Fahrenheit at \I{LaGuardia} Airport.
   }
 }
 \source{

@@ -3,6 +3,8 @@
 % Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{influence.measures}
 \title{Regression Deletion Diagnostics}
 
@@ -10,9 +12,9 @@
 \concept{standardized residuals}
 \concept{Cook's distances}
 \concept{Covariance ratios}
-\concept{DFBETAs}
-\concept{DFFITs}
-\concept{PRESS}
+\concept{\I{DFBETAs}}
+\concept{\I{DFFITs}}
+\concept{\I{PRESS}}
 
 \alias{influence.measures}
 %\alias{print.infl}
@@ -99,13 +101,13 @@ hat(x, intercept = TRUE)
 \description{
   This suite of functions can be used to compute some of the regression
   (leave-one-out deletion) diagnostics for linear and generalized linear
-  models discussed in Belsley, Kuh and Welsch (1980), Cook and Weisberg (1982),
-  etc.
+  models discussed in \bibcite{Belsley, Kuh and Welsch (1980)},
+  \bibcite{Cook and Weisberg (1982)}, etc.
 }
 \details{
   The primary high-level function is \code{influence.measures} which produces a
-  class \code{"infl"} object tabular display showing the DFBETAS for
-  each model variable, DFFITS, covariance ratios, Cook's distances and
+  class \code{"infl"} object tabular display showing the \I{DFBETA}s for
+  each model variable, \I{DFFIT}s, covariance ratios, Cook's distances and
   the diagonal elements of the hat matrix.  Cases which are influential
   with respect to any of these measures are marked with an asterisk.
 
@@ -139,7 +141,7 @@ hat(x, intercept = TRUE)
 
   For linear models, \code{rstandard(*, type = "predictive")} provides
   leave-one-out cross validation residuals, and the \dQuote{PRESS}
-  statistic (\bold{PRE}dictive \bold{S}um of \bold{S}quares, the same as
+  statistic (\I{\bold{PRE}dictive \bold{S}um of \bold{S}quares}, the same as
   the CV score) of model \code{model} is \preformatted{   PRESS <- sum(rstandard(model, type="pred")^2)}
 
   The function \code{hat()} exists mainly for S (version 2)

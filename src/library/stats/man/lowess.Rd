@@ -28,12 +28,12 @@ lowess(x, y = NULL, f = 2/3, iter = 3, delta = 0.01 * diff(range(x)))
     of \code{x}.}
 }
 \details{
-  \code{lowess} is defined by a complex algorithm, the Ratfor original
+  \code{lowess} is defined by a complex algorithm, the \I{Ratfor} original
   of which (by W. S. Cleveland) can be found in the \R sources as file
   \file{src/library/stats/src/lowess.doc}.  Normally a local linear polynomial fit is
   used, but under some circumstances (see the file) a local constant fit
   can be used.  \sQuote{Local} is defined by the distance to the
-  \code{floor(f*n)}th nearest neighbour, and tricubic weighting is used
+  \code{floor(f*n)}-th nearest neighbour, and tricubic weighting is used
   for \code{x} which fall within the neighbourhood.
 
   The initial fit is done using weighted least squares.  If

@@ -25,7 +25,7 @@ se.contrast(object, \dots)
    }
  \item{coef}{used when \code{contrast.obj} is a list; it should be a
    vector of the same length as the list with zero sum.  The default
-   value is the first Helmert contrast, which contrasts the first and
+   value is the first \I{Helmert} contrast, which contrasts the first and
    second cell means specified by the list.}
  \item{data}{The data frame used to evaluate \code{contrast.obj}.}
  \item{\dots}{further arguments passed to or from other methods.}
@@ -39,7 +39,7 @@ se.contrast(object, \dots)
   significantly different; it can be easier to use \code{se.contrast}
   than compute them directly from the coefficients.
 
-  In multistratum models, the contrasts can appear in more than one
+  In \I{multistratum} models, the contrasts can appear in more than one
   stratum, in which case the standard errors are computed in the lowest
   stratum and adjusted for efficiencies and comparisons between
   strata. (See the comments in the note in the help for

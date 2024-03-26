@@ -1,7 +1,9 @@
 % File src/library/base/man/Random.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
+
+\newcommand{\bibcite}{#1}
 
 \name{Random}
 \alias{Random}
@@ -13,7 +15,7 @@
 \title{Random Number Generation}
 \description{
   \code{.Random.seed} is an integer vector, containing the random number
-  generator (RNG) \bold{state} for random number generation in \R.  It
+  generator (\abbr{RNG}) \bold{state} for random number generation in \R.  It
   can be saved and restored, but should not be altered by the user.
 
   \code{RNGkind} is a more friendly interface to query or set the kind
@@ -63,45 +65,44 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     length 3, where each \code{r[i]} is in \code{1:(p[i] - 1)}, where
     \code{p} is the length 3 vector of primes, \code{p = (30269, 30307,
       30323)}.
-    The Wichmann--Hill generator has a cycle length of
+    The \I{Wichmann}--\I{Hill} generator has a cycle length of
     \eqn{6.9536 \times 10^{12}}{6.9536e12} (=
     \code{prod(p-1)/4}, see \emph{Applied Statistics} (1984)
     \bold{33}, 123 which corrects the original article).
-    It exhibits 12 clear failures in the TestU01 Crush suite and 22
-    in the BigCrush suite (\emph{L'Ecuyer}, 2007).}
+    It exhibits 12 clear failures in the \I{TestU01} Crush suite and 22
+    in the \I{BigCrush} suite (\bibcite{L'Ecuyer, 2007}).}
 
     \item{\code{"Marsaglia-Multicarry"}:}{
     A \emph{multiply-with-carry} RNG is used, as recommended by George
-    Marsaglia in his post to the mailing list \file{sci.stat.math}.
+    \I{Marsaglia} in his post to the mailing list \file{sci.stat.math}.
     It has a period of more than \eqn{2^{60}}{2^60}.
 
-    It exhibits 40 clear failures in L'Ecuyer's TestU01 Crush suite.
-    Combined with Ahrens-Dieter or Kinderman-Ramage it exhibits
+    It exhibits 40 clear failures in \I{L'Ecuyer}'s \I{TestU01} Crush suite.
+    Combined with \I{Ahrens}-\I{Dieter} or \I{Kinderman}-\I{Ramage} it exhibits
     deviations from normality even for univariate distribution
     generation.  See \PR{18168} for a discussion.
 
     The seed is two integers (all values allowed).}
 
     \item{\code{"Super-Duper"}:}{
-    Marsaglia's famous Super-Duper from the 70's.  This is the original
-    version which does \emph{not} pass the MTUPLE test of the Diehard
+    \I{Marsaglia}'s famous Super-Duper from the 70's.  This is the original
+    version which does \emph{not} pass the \I{MTUPLE} test of the \I{Diehard}
     battery.  It has a period of \eqn{\approx 4.6\times 10^{18}}{about
       4.6*10^18} for most initial seeds.  The seed is two integers (all
     values allowed for the first seed: the second must be odd).
 
-    We use the implementation by Reeds \emph{et al} (1982--84).
+    We use the implementation by Reeds \abbr{et al.}\sspace(1982--84).
 
-    The two seeds are the Tausworthe and congruence long integers,
-    respectively.  A one-to-one mapping to S's \code{.Random.seed[1:12]}
-    is possible but we will not publish one, not least as this generator
-    is \bold{not} exactly the same as that in recent versions of S-PLUS.
+    The two seeds are the \I{Tausworthe} and congruence long integers,
+    respectively.
 
-    It exhibits 25 clear failures in the TestU01 Crush suite (\emph{L'Ecuyer}, 2007).
+    It exhibits 25 clear failures in the \I{TestU01} Crush suite
+    (\bibcite{L'Ecuyer, 2007}). 
     }
 
     \item{\code{"Mersenne-Twister"}:}{
-      From Matsumoto and Nishimura (1998); code updated in 2002.
-      A twisted GFSR with period
+      From \bibcite{Matsumoto and Nishimura (1998)}; code updated in 2002.
+      A twisted \abbr{GFSR} with period
       \eqn{2^{19937} - 1}{2^19937 - 1} and equidistribution in 623
       consecutive dimensions (over the whole period).  The \sQuote{seed} is a
       624-dimensional set of 32-bit integers plus a current position in
@@ -109,14 +110,14 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
 
       R uses its own initialization method due to B. D. Ripley and is
       not affected by the initialization issue in the 1998 code of
-      Matsumoto and Nishimura addressed in a 2002 update.
+      \I{Matsumoto} and \I{Nishimura} addressed in a 2002 update.
 
-      It exhibits 2 clear failures in each of the TestU01 Crush and the
-      BigCrush suite (\emph{L'Ecuyer}, 2007).
+      It exhibits 2 clear failures in each of the \I{TestU01} Crush and the
+      \I{BigCrush} suite (\bibcite{L'Ecuyer, 2007}).
     }
 
     \item{\code{"Knuth-TAOCP-2002"}:}{
-      A 32-bit integer GFSR using lagged Fibonacci sequences with
+      A 32-bit integer \abbr{GFSR} using lagged Fibonacci sequences with
       subtraction.  That is, the recurrence used is
       \deqn{X_j = (X_{j-100} - X_{j-37}) \bmod 2^{30}%
       }{X[j] = (X[j-100] - X[j-37]) mod 2^30}
@@ -129,21 +130,21 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
       An earlier version from Knuth (1997).
 
       The 2002 version was not backwards compatible with the earlier
-      version: the initialization of the GFSR from the seed was altered.
+      version: the initialization of the \abbr{GFSR} from the seed was altered.
       \R did not allow you to choose consecutive seeds, the reported
       \sQuote{weakness}, and already scrambled the seeds. Otherwise,
-      the algorithm is identical to Knuth-TAOCP-2002, with the same
+      the algorithm is identical to \I{Knuth-TAOCP-2002}, with the same
       lagged Fibonacci recurrence formula.
 
       Initialization of this generator is done in interpreted \R code
       and so takes a short but noticeable time.
 
-      It exhibits 3 clear failure in the TestU01 Crush suite and
-      4 clear failures in the BigCrush suite
-      (\emph{L'Ecuyer}, 2007).
+      It exhibits 3 clear failure in the \I{TestU01} Crush suite and
+      4 clear failures in the \I{BigCrush} suite
+      (\emph{\I{L'Ecuyer}}, 2007).
     }
     \item{\code{"L'Ecuyer-CMRG"}:}{
-      A \sQuote{combined multiple-recursive generator} from L'Ecuyer
+      A \sQuote{combined multiple-recursive generator} from \I{L'Ecuyer}
       (1999), each element of which is a feedback multiplicative
       generator with three integer elements: thus the seed is a (signed)
       integer vector of length 6. The period is around
@@ -158,8 +159,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
       basis for the multiple streams used in package \pkg{parallel}.
       % See \code{\link{RngStream}}.
 
-      It exhibits 6 clear failures in each of the TestU01 Crush and the
-      BigCrush suite (\emph{L'Ecuyer}, 2007).
+      It exhibits 6 clear failures in each of the \I{TestU01} Crush and the
+      \I{BigCrush} suite (\emph{\I{L'Ecuyer}}, 2007).
     }
 
     \item{\code{"user-supplied"}:}{
@@ -172,7 +173,7 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
   \code{"Buggy Kinderman-Ramage"} (not for \code{set.seed}),
   \code{"Ahrens-Dieter"}, \code{"Box-Muller"}, \code{"Inversion"} (the
   default), or \code{"user-supplied"}.  (For inversion, see the
-  reference in \code{\link{qnorm}}.)  The Kinderman-Ramage generator
+  reference in \code{\link{qnorm}}.)  The \I{Kinderman}-\I{Ramage} generator
   used in versions prior to 1.7.0 (now called \code{"Buggy"}) had several
   approximation errors and should only be used for reproduction of old
   results.  The \code{"Box-Muller"} generator is stateful as pairs of
@@ -221,17 +222,17 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
   The object \code{.Random.seed} is only looked for in the user's
   workspace.
 
-  Do not rely on randomness of low-order bits from RNGs.  Most of the
+  Do not rely on randomness of low-order bits from \abbr{RNG}s.  Most of the
   supplied uniform generators return 32-bit integer values that are
   converted to doubles, so they take at most \eqn{2^{32}}{2^32} distinct
-  values and long runs will return duplicated values (Wichmann-Hill is
+  values and long runs will return duplicated values (\I{Wichmann}-\I{Hill} is
   the exception, and all give at least 30 varying bits.)
 }
 \value{
   \code{.Random.seed} is an \code{\link{integer}} vector whose first
   element \emph{codes} the kind of RNG and normal generator. The lowest
   two decimal digits are in \code{0:(k-1)}
-  where \code{k} is the number of available RNGs.  The hundreds
+  where \code{k} is the number of available \abbr{RNG}s.  The hundreds
   represent the type of normal generator (starting at \code{0}), and
   the ten thousands represent the type of discrete uniform sampler.
 
@@ -288,17 +289,17 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
   \emph{The Art of Computer Programming}.
   Volume 2, third edition, ninth printing.
 
-  L'Ecuyer, P. (1999).
+  \I{L'Ecuyer}, P. (1999).
   Good parameters and implementations for combined multiple recursive
   random number generators.
   \emph{Operations Research}, \bold{47}, 159--164.
   \doi{10.1287/opre.47.1.159}.
 
-  L'Ecuyer, P. and Simard, R. (2007).
-  TestU01: A C Library for Empirical Testing of Random Number Generators
+  \I{L'Ecuyer}, P. and Simard, R. (2007).
+  \I{TestU01}: A C Library for Empirical Testing of Random Number Generators
   \emph{ACM Transactions on Mathematical Software}, \bold{33}, Article 22.
   \doi{10.1145/1268776.1268777}.
-  \cr The TestU01 C library is available from
+  \cr The \I{TestU01} C library is available from
   \url{http://simul.iro.umontreal.ca/testu01/tu01.html} or also
   \url{https://github.com/umontreal-simul/TestU01-2009}.
 

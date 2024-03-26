@@ -86,12 +86,12 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     additionally; currently applies only to \code{style = "citation"}.
     The default for the \code{print()} method depends on the number of
     (bib) entries and \code{\link{getOption}("citation.bibtex.max")} (which
-    itself is 1 by default).  For example, to see no bibtex at all, you can change the
+    itself is 1 by default).  For example, to see no BibTeX at all, you can change the
     default by \code{\link{options}(citation.bibtex.max = 0)}.}
   \item{citMsg}{\code{\link{logical}} indicating if a \dQuote{message} should be
     added (to the footer) about how to get BibTeX code when \code{bibtex}
     is false \emph{and} \code{style = "citation"}.}
-  \item{sort}{logical indicating if bibentries should be sorted, using
+  \item{sort}{logical indicating if \I{bibentries} should be sorted, using
     \code{\link[tools]{bibstyle}(.bibstyle)$sortKeys(x)}.}
   \item{macros}{a character string or an object with already loaded Rd
     macros, see \bold{Details}.}
@@ -102,15 +102,14 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     be translated to LaTeX escape sequences.}
 }
 \details{
-  The bibentry objects created by \code{bibentry} can represent an
+  The \I{bibentry} objects created by \code{bibentry} can represent an
   arbitrary positive number of references.  One can use \code{c()} to
-  combine bibentry objects, and hence in particular build a multiple
+  combine \I{bibentry} objects, and hence in particular build a multiple
   reference object from single reference ones.  Alternatively, one can
   use \code{bibentry} to directly create a multiple reference object by
-  \dQuote{vectorizing} the given arguments, i.e., use character vectors
-  instead of character strings.
+  specifying the arguments as lists of character strings.
 
-  The \code{\link{print}} method for bibentry objects is based on a
+  The \code{\link{print}} method for \I{bibentry} objects is based on a
   corresponding \code{\link{format}} method and provides a choice
   between seven different styles:
   plain text (style \code{"text"}),
@@ -125,7 +124,7 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
 
   The \code{"text"}, \code{"html"} and \code{"latex"} styles make use
   of the \code{.bibstyle} argument: a style defined by the
-  \code{\link{bibstyle}} function for rendering the bibentry into
+  \code{\link{bibstyle}} function for rendering the \I{bibentry} into
   (intermediate) Rd format.
   The Rd format uses markup commands documented in the \sQuote{Rd format}
   section of the \sQuote{Writing R Extensions} manual, e.g. \verb{\bold}.
@@ -140,20 +139,20 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
   to make these available when compiling,
   e.g. with \code{\link{texi2pdf}}.
 
-  When printing bibentry objects in citation style, a
+  When printing \I{bibentry} objects in citation style, a
   \code{header}/\code{footer} for each item can be displayed as well as
   a \code{mheader}/\code{mfooter} for the whole vector of references.
 
   For formatting as R code,
   a choice between giving a character vector with one \code{bibentry()}
-  call for each bibentry (as commonly used in \file{CITATION} files), or
+  call for each \I{bibentry} (as commonly used in \file{CITATION} files), or
   a character string with one collapsed call, obtained by combining the
-  individual calls with \code{c()} if there is more than one bibentry.
+  individual calls with \code{c()} if there is more than one \I{bibentry}.
   This can be controlled by passing the argument \code{collapse=FALSE}
   (default) or \code{TRUE}, respectively, to the \code{format()} method.
   (\emph{Printing} in R style always collapses to a single call.)
 
-  It is possible to subscript bibentry objects by their keys (which are
+  It is possible to subscript \I{bibentry} objects by their keys (which are
   used for character subscripts if the names are \code{NULL}).
 
   There is also a \code{\link{toBibtex}} method for direct conversion to
@@ -201,7 +200,7 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     \item{booktitle:}{Title of a book, part of which is being cited.}
     \item{chapter:}{A chapter (or section or whatever) number.}
 
-    \item{doi:}{The DOI
+    \item{doi:}{The \abbr{DOI}
       (\url{https://en.wikipedia.org/wiki/Digital_Object_Identifier})
       for the reference.}
 
@@ -228,8 +227,8 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     \item{title:}{The work's title.}
 
     \item{url:}{A URL for the reference.
-      (If the URL is an expanded DOI, we recommend to use the \samp{doi}
-      field with the unexpanded DOI instead.)}
+      (If the URL is an expanded \abbr{DOI}, we recommend to use the
+      \samp{doi} field with the unexpanded \abbr{DOI} instead.)}
 
     \item{volume:}{The volume of a journal or multi-volume book.}
 

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2023  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,8 +159,8 @@ static const char *R_ExpandFileName_unix(const char *s, char *buff)
 	// buff is passed from R_ExpandFileName, uses static array of
 	// size R_PATH_MAX.
 	if (len >= R_PATH_MAX) {
-	    warning(_("expanded path length %d would be too long for\n%s\n"),
-		       len, s);
+	    warning(_("expanded path length %lld would be too long for\n%s\n"),
+		       (long long)len, s);
 	    return s;
 	}
 	(void)snprintf(buff, len + 1,  "%s/%s", home, s2);
@@ -249,14 +249,10 @@ void R_getProcTime(double *data)
     struct rusage self, children;
     getrusage(RUSAGE_SELF, &self);
     getrusage(RUSAGE_CHILDREN, &children);
-    data[0] = (double) self.ru_utime.tv_sec +
-	1e-3 * (self.ru_utime.tv_usec/1000);
-    data[1] = (double) self.ru_stime.tv_sec +
-	1e-3 * (self.ru_stime.tv_usec/1000);
-    data[3] = (double) children.ru_utime.tv_sec +
-	1e-3 * (children.ru_utime.tv_usec/1000);
-    data[4] = (double) children.ru_stime.tv_sec +
-	1e-3 * (children.ru_stime.tv_usec/1000);
+    data[0] = (double)     self.ru_utime.tv_sec + 1e-3 * (double)(    self.ru_utime.tv_usec/1000);
+    data[1] = (double)     self.ru_stime.tv_sec + 1e-3 * (double)(    self.ru_stime.tv_usec/1000);
+    data[3] = (double) children.ru_utime.tv_sec + 1e-3 * (double)(children.ru_utime.tv_usec/1000);
+    data[4] = (double) children.ru_stime.tv_sec + 1e-3 * (double)(children.ru_stime.tv_usec/1000);
 #else
     /* Not known to be currently used */
     struct tms timeinfo;
@@ -613,22 +609,29 @@ int R_pclose_timeout(FILE *fp)
 	/* should not happen */
 	error("Invalid file pointer in pclose");
 
-    /* Do not use fclose, because on Solaris it sets errno to "Invalid seek"
-       when the pipe is already closed (e.g. because of timeout). fclose would
-       not return an error, but it would set errno and the non-zero errno would
-       then be reported by R's "system" function. */
-    int fd = fileno(fp);
-    if (fd >= 0)
-	close(fd);
+    int saveerrno = errno;
+    int res_fclose = fclose(fp);
+    if (!res_fclose)
+	/* On Solaris, fclose sets errno to "Invalid seek" when the pipe is
+	   already closed (e.g.  because of timeout).  fclose would not
+	   return an error, but it would set errno and the non-zero errno
+	   would then be reported by R's "system" function.  */
+	errno = saveerrno;
 
     pid_t wres;
     int wstatus;
 
+    saveerrno = errno;
     wres = timeout_wait(&wstatus);
     endcontext(&tost.cntxt);
 
     if (wres < 0)
 	return -1;
+    if (res_fclose) {
+	/* wait succeeded but fclose failed */
+	errno = saveerrno;
+	return -1;
+    } 
     return wstatus;
 }
 
@@ -761,6 +764,8 @@ FILE *R_popen_pg(const char *cmd, const char *type)
 	for(ppg_t *p = ppg; p != NULL; p = p->next) {
 	    int fd = fileno(p->fp);
 	    if (fd >= 0)
+		/* do not use fclose to prevent sending FILE buffer content
+		   multiple times */
 		close(fd);
 	}
 	dup2(child_end, doread ? 1 : 0);
@@ -806,23 +811,34 @@ int R_pclose_pg(FILE *fp)
 		ppg = p->next;
 	    else
 		prev->next = p->next;
-	    int fd = fileno(fp);
-	    if (fd >= 0)
-		close(fd); /* see timeout_wait for why not to use fclose */
 
+	    int saveerrno = errno;
+	    int res_fclose = fclose(fp);
+	    if (!res_fclose)
+		/* see R_pclose_timeout for why restoring errno on success */
+		errno = saveerrno;
+    
 	    /* This may not reliably retrieve the status of the child process
 	       in case SIGCHLD was set to SIG_IGN or SA_NOCLDWAIT was set for
 	       SIGCHLD. In that case, we may get a status for another process
 	       or more likely ECHILD. */
-	    int saveerrno = errno;
+	    saveerrno = errno;
 	    for(;;) {
 		int wstatus = 0;
-		pid_t res = waitpid(p->pid, &wstatus, 0);
-		if (res != -1 || errno != EINTR) {
-		    if (errno == EINTR)
-			/* protect against incorrect error checking */
-			errno = saveerrno;
+		pid_t res_waitpid = waitpid(p->pid, &wstatus, 0);
+		if (res_waitpid != -1 || errno != EINTR) {
 		    free(p);
+		    if (res_waitpid == -1)
+			return -1;
+		    if (res_fclose) {
+			/* waitpid() succeeded but fclose failed */
+			errno = saveerrno;
+			return -1;
+		    }
+		    if (errno == EINTR)
+			/* protect against incorrect error checking, hide
+			   EINTR from any previous calls to waitpid() */
+			errno = saveerrno;
 		    return wstatus;
 		}
 	    }
@@ -845,7 +861,7 @@ static void warn_status(const char *cmd, int res)
 	   an error here (CERT ERR30-C).*/
 	/* on Solaris, if the command ends with non-zero status and timeout
 	   is 0, "Illegal seek" error is reported; the timeout version
-	   works this around by using close(fileno) */
+	   works this around by restoring errno on success */
 	warning(_("running command '%s' had status %d and error message '%s'"),
 		cmd, res, strerror(errno));
     else
@@ -880,6 +896,7 @@ attribute_hidden SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP tlist = R_NilValue;
     int intern = 0;
     int timeout = 0;
+    int consignals = 0;
 
     checkArity(op, args);
     if (!isValidStringF(CAR(args)))
@@ -890,6 +907,9 @@ attribute_hidden SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     timeout = asInteger(CADDR(args));
     if (timeout == NA_INTEGER || timeout < 0)
 	error(_("invalid '%s' argument"), "timeout");
+    consignals = asLogical(CADDDR(args));
+    if (consignals == NA_INTEGER)
+	error(_("'receive.console.signals' must be logical and not NA"));
     const char *cmd = translateCharFP(STRING_ELT(CAR(args), 0));
 
     int last_is_amp = 0;
@@ -1032,7 +1052,7 @@ attribute_hidden SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   the background processes (PR#17764). The C library system() runs
 	   background processes as (orphaned) processes in the same process
 	   group as R, so they receive SIGINT, and may terminate themselves
-	   consequently, such as R itself used to. Applications which leave
+	   consequently, such as R itself used to. Applications that leave
 	   the SIG_IGN disposition of SIGINT (set by system()) alone will not
 	   be terminated.
 
@@ -1042,8 +1062,14 @@ attribute_hidden SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   use R_system_timeout in this case, because it has undesirable
 	   consequences for job control (SIGTSTP, SIGCONT missed, so Ctrl+Z does
 	   not suspend) and termination (SIGHUP missed, so terminal close does
-	   not terminate). */
-	if (timeout == 0 && (!R_Interactive || !last_is_amp))
+	   not terminate).
+
+	   When running a background process (last_is_amp, normally via
+	   wait=FALSE), which serves as an implementation of a foreground
+	   operation (such as clusterApply()), one can use
+	   receive.console.signals=TRUE to force the non-timeout
+	   implementation. */
+	if (timeout == 0 && (!R_Interactive || !last_is_amp || consignals))
 	    res = R_system(cmd);
 	else 
 	    res = R_system_timeout(cmd, timeout);

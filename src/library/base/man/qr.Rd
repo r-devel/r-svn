@@ -43,7 +43,7 @@ as.qr(x)
   \item{k}{effective rank.}
   \item{LAPACK}{logical.  For real \code{x}, if true use LAPACK
     otherwise use LINPACK (the default).}
-  \item{\dots}{further arguments passed to or from other methods}
+  \item{\dots}{further arguments passed to or from other methods.}
 }
 \description{
   \code{qr} computes the QR decomposition of a matrix.
@@ -53,7 +53,7 @@ as.qr(x)
   statistical techniques.  In particular it can be used to solve the
   equation \eqn{\bold{Ax} = \bold{b}} for given matrix \eqn{\bold{A}},
   and vector \eqn{\bold{b}}.  It is useful for computing regression
-  coefficients and in applying the Newton-Raphson algorithm.
+  coefficients and in applying the \I{Newton}-\I{Raphson} algorithm.
 
   The functions \code{qr.coef}, \code{qr.resid}, and \code{qr.fitted}
   return the coefficients, residuals and fitted values obtained when
@@ -87,9 +87,9 @@ as.qr(x)
   error giving a positive error code: these can only be interpreted by
   detailed study of the FORTRAN code.
 }
-\section{\code{*)}\sspace{} \code{dqrdc2} instead of LINPACK's DQRDC}{
+\section{\code{*)}\sspace{} \code{dqrdc2} instead of \I{LINPACK}'s \I{DQRDC}}{
   In the (default) LINPACK case (\code{LAPACK = FALSE}), \code{qr()}
-  uses a \emph{modified} version of LINPACK's DQRDC, called
+  uses a \emph{modified} version of \I{LINPACK}'s \I{DQRDC}, called
   \sQuote{\code{dqrdc2}}.  It differs by using the tolerance \code{tol}
   for a pivoting strategy which moves columns with near-zero 2-norm to
   the right-hand edge of the x matrix.  This strategy means that
@@ -99,12 +99,12 @@ as.qr(x)
 \value{
   The QR decomposition of the matrix as computed by LINPACK(*) or LAPACK.
   The components in the returned value correspond directly
-  to the values returned by DQRDC(2)/DGEQP3/ZGEQP3.
+  to the values returned by \I{DQRDC}(2)/\I{DGEQP3}/\I{ZGEQP3}.
   \item{qr}{a matrix with the same dimensions as \code{x}.
     The upper triangle contains the \eqn{\bold{R}} of the decomposition
     and the lower triangle contains information on the \eqn{\bold{Q}} of
     the decomposition (stored in compact form).  Note that the storage
-    used by DQRDC and DGEQP3 differs.}
+    used by \I{DQRDC} and \I{DGEQP3} differs.}
   \item{qraux}{a vector of length \code{ncol(x)} which contains
     additional information on \eqn{\bold{Q}}.}
   \item{rank}{the rank of \code{x} as computed by the decomposition(*):
@@ -117,7 +117,7 @@ as.qr(x)
 }
 \note{
   To compute the determinant of a matrix (do you \emph{really} need it?),
-  the QR decomposition is much more efficient than using Eigen values
+  the QR decomposition is much more efficient than using eigenvalues
   (\code{\link{eigen}}).  See \code{\link{det}}.
 
   Using LAPACK (including in the complex case) uses column pivoting and

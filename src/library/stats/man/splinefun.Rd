@@ -3,6 +3,8 @@
 % Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
+\newcommand{\bibcite}{#1}
+
 \name{splinefun}
 \alias{spline}
 \alias{splinefun}
@@ -53,20 +55,21 @@ splinefunH(x, y, m)
 \details{
   The inputs can contain missing values which are deleted, so at least
   one complete \code{(x, y)} pair is required.
-  If \code{method = "fmm"}, the spline used is that of Forsythe, Malcolm
-  and Moler (an exact cubic is fitted through the four points at each
+  If \code{method = "fmm"}, the spline used is that of
+  \bibcite{Forsythe, Malcolm and Moler}
+  (an exact cubic is fitted through the four points at each
   end of the data, and this is used to determine the end conditions).
   Natural splines are used when \code{method = "natural"}, and periodic
   splines when \code{method = "periodic"}.
 
   The method \code{"monoH.FC"} computes a \emph{monotone} Hermite spline
-  according to the method of Fritsch and Carlson.  It does so by
+  according to the method of \I{Fritsch} and \I{Carlson}.  It does so by
   determining slopes such that the Hermite spline, determined by
   \eqn{(x_i,y_i,m_i)}{(x[i],y[i],m[i])}, is monotone (increasing or
   decreasing) \bold{iff} the data are.
 
   Method \code{"hyman"} computes a \emph{monotone} cubic spline using
-  Hyman filtering of an \code{method = "fmm"} fit for strictly monotonic
+  \I{Hyman} filtering of an \code{method = "fmm"} fit for strictly monotonic
   inputs.
 
   These interpolation splines can also be used for extrapolation, that is
