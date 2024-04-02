@@ -172,12 +172,17 @@ jobs:
         #echo "RTOOLS44_HOME=c:" >> $GITHUB_ENV
         #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
-    - name: Install Miktex
+    - name: Set timezone
       shell: powershell
+      run: tzutil /s "GMT Standard Time"
+
+    - uses: r-lib/actions/setup-tinytex@v2
+    - name: Install additional LaTeX packages
       run: |
-        Import-Module .\.github\scripts\installers.ps1
-        SetTimezone
-        InstallMiktex -ErrorAction SilentlyContinue;
+        tlmgr update --self
+        tlmgr install inconsolata
+        tlmgr list --only-installed
+      shell: powershell
 
     - name: Build and Check
       run: |
