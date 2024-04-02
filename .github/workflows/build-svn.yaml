@@ -180,7 +180,7 @@ jobs:
     - name: Install additional LaTeX packages
       run: |
         tlmgr update --self
-        tlmgr install inconsolata
+        tlmgr install inconsolata grfext parskip
         tlmgr list --only-installed
       shell: powershell
 
