@@ -183,6 +183,7 @@ jobs:
     - name: Install additional LaTeX packages
       run: |
         tlmgr update --self
+        tlmgr install texinfo
         tlmgr list --only-installed
       shell: powershell
 
