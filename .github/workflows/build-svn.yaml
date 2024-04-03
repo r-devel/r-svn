@@ -163,7 +163,7 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         msystem: MSYS
-        install: git make perl curl texinfo texinfo-tex rsync unzip diffutils
+        install: git make perl curl texinfo texinfo-tex rsync zip unzip diffutils
 
     - name: "Download rtools44 toolchain"
       run: |
@@ -177,10 +177,13 @@ jobs:
       run: tzutil /s "GMT Standard Time"
 
     - uses: r-lib/actions/setup-tinytex@v2
+      env:
+        TINYTEX_INSTALLER: TinyTeX
+
     - name: Install additional LaTeX packages
       run: |
         tlmgr update --self
-        tlmgr install inconsolata
+        tlmgr install texinfo
         tlmgr list --only-installed
       shell: powershell
 
