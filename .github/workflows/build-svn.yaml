@@ -177,10 +177,12 @@ jobs:
       run: tzutil /s "GMT Standard Time"
 
     - uses: r-lib/actions/setup-tinytex@v2
+      env:
+        TINYTEX_INSTALLER: TinyTeX
+
     - name: Install additional LaTeX packages
       run: |
         tlmgr update --self
-        tlmgr install inconsolata grfext parskip
         tlmgr list --only-installed
       shell: powershell
 
