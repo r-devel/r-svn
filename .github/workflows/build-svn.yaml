@@ -106,7 +106,7 @@ jobs:
         ./.github/scripts/svn-info.sh
 
     - name: Configure
-      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
+      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua ${{ matrix.OS != 'macOS-13' && '--with-lapack --with-blas' || '' }} --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
 
