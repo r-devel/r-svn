@@ -31,7 +31,7 @@ jobs:
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 100
 
@@ -157,7 +157,7 @@ jobs:
       shell: bash
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 100
 
