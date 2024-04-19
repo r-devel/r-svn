@@ -37,3 +37,10 @@ stopifnot(exprs = {
     is.null(model.weights(model.frame(fit5)))
 })
 ## these were all (even the model fit!) wrong in R <= 4.2.1
+
+## via formula, with stats:: namespace-qualification (#18706)
+dropIrrelevant <- \(x) x[!names(x) %in% c("variables", ".Environment")]
+termAttr1 <- dropIrrelevant(attributes(terms(y ~ 1 + offset(x))))
+termAttr2 <- dropIrrelevant(attributes(terms(y ~ 1 + stats::offset(x))))
+termAttr3 <- dropIrrelevant(attributes(terms(y ~ 1 + stats:::offset(x))))
+stopifnot(identical(termAttr1, termAttr2), identical(termAttr2, termAttr3))

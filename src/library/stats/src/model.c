@@ -1749,6 +1749,13 @@ static int TermCode(SEXP termlist, SEXP thisterm, int whichbit, SEXP term)
 }
 
 
+int isOffset(const char *s) {
+  if (!strncmp(s, "offset(", 7)) return 1;
+  if (strncmp(s, "stats::", 7)) return 0;
+  int callStart = strncmp(s+7, ":", 1) ? 7 : 8;
+  return !strncmp(s+callStart, "offset(", 7);
+}
+
 /* Internal code for the ``terms'' function */
 /* The value is a formula with an assortment */
 /* of useful attributes. */
@@ -1897,8 +1904,9 @@ SEXP termsform(SEXP args)
 
     /* first see if any of the variables are offsets */
     R_xlen_t k = 0;
-    for (R_xlen_t l = response; l < nvar; l++)
-	if (!strncmp(CHAR(STRING_ELT(varnames, l)), "offset(", 7)) k++;
+    for (R_xlen_t l = response; l < nvar; l++) {
+	if (isOffset(CHAR(STRING_ELT(varnames, l)))) k++;
+    }
     if (k > 0) {
 #ifdef DEBUG_terms
 	Rprintf(" step 2b: found k=%ld offset(.)s\n", k);
@@ -1907,7 +1915,7 @@ SEXP termsform(SEXP args)
 	/* allocate the "offsets" attribute */
 	SETCAR(a, v = allocVector(INTSXP, k));
 	for (int l = response, k = 0; l < nvar; l++)
-	    if (!strncmp(CHAR(STRING_ELT(varnames, l)), "offset(", 7))
+	    if (isOffset(CHAR(STRING_ELT(varnames, l))))
 		INTEGER(v)[k++] = l + 1;
 	SET_TAG(a, install("offset"));
 	a = CDR(a);
@@ -1923,7 +1931,7 @@ SEXP termsform(SEXP args)
 	    if(length(thisterm) == 0) break;
 	    for (int i = 1; i <= nvar; i++)
 		if (GetBit(CAR(thisterm), i) &&
-		    !strncmp(CHAR(STRING_ELT(varnames, i-1)), "offset(", 7)) {
+		    isOffset(CHAR(STRING_ELT(varnames, i-1)))) {
 		    have_offset = TRUE;
 #ifdef DEBUG_terms
 		    Rprintf(" i=%d: have_offset, ", i);
