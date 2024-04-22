@@ -522,8 +522,8 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 	if (isNAstring(buffer, 0, d))
 	    REAL(ans)[i] = NA_REAL;
 	else {
-	    REAL(ans)[i] = Strtod(buffer, &endp, TRUE, d);
-	    if (!isBlankString(endp))
+	    REAL(ans)[i] = Strtod(buffer, &endp, FALSE, d);
+	    if (!isBlankString(endp) || REAL(ans)[i] == NA_REAL)
 		expected("a real", buffer, d);
 	}
 	break;

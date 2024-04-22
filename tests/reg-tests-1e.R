@@ -1332,7 +1332,8 @@ stopifnot(exprs = {
 })
 ## as.raw(rl) and as.integer(rl) failed in R <= 4.4.x
 
-
+stopifnot("'NA' shouldn't parse as NA if it's missing from na.strings in scan()" =
+          tryCatch(scan(text="NA", what=double(), na.strings=character(), quiet=TRUE), error = \(c) TRUE))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
