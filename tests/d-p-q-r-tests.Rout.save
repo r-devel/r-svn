@@ -280,7 +280,7 @@ Time   0.068   0.000   0.068
 +           All.eq(log(pz[z.ok]), pnorm(z[z.ok], log.p=TRUE)))
 > y <- seq(-70,0, by = 10)
 > cbind(y, "log(pnorm(y))"= log(pnorm(y)), "pnorm(y, log=T)"= pnorm(y, log.p=TRUE))
-       y log(pnorm(y)) pnorm(y, log.p=TRUE)
+       y log(pnorm(y)) pnorm(y, log=T)
 [1,] -70          -Inf   -2455.1676378
 [2,] -60          -Inf   -1805.0135607
 [3,] -50          -Inf   -1254.8313611
@@ -292,7 +292,7 @@ Time   0.068   0.000   0.068
 > y <- c(1:15, seq(20,40, by=5))
 > cbind(y, "log(pnorm(y))"= log(pnorm(y)), "pnorm(y, log=T)"= pnorm(y, log.p=TRUE),
 +       "log(pnorm(-y))"= log(pnorm(-y)), "pnorm(-y, log=T)"= pnorm(-y, log.p=TRUE))
-       y log(pnorm(y)) pnorm(y, log.p=TRUE) log(pnorm(-y)) pnorm(-y, log.p=TRUE)
+       y log(pnorm(y)) pnorm(y, log=T) log(pnorm(-y)) pnorm(-y, log=T)
  [1,]  1 -1.727538e-01   -1.727538e-01      -1.841022        -1.841022
  [2,]  2 -2.301291e-02   -2.301291e-02      -3.783184        -3.783184
  [3,]  3 -1.350810e-03   -1.350810e-03      -6.607726        -6.607726
@@ -317,8 +317,8 @@ Time   0.068   0.000   0.068
 > y <- c(1:50,10^c(3:10,20,50,150,250))
 > y <- c(-y,0,y)
 > for(L in c(FALSE,TRUE))
-+     stopifnot(identical(pnorm(-y, log= L),
-+ 			pnorm(+y, log= L, lower.tail=FALSE)))
++     stopifnot(identical(pnorm(-y, log.p= L),
++ 			pnorm(+y, log.p= L, lower.tail=FALSE)))
 > 
 > ## Log norm
 > stopifnot(All.eq(pz, plnorm(exp(z))))
