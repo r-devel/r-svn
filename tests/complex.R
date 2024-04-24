@@ -74,7 +74,7 @@ all(abs(Isi-1) < 100* Meps)
 ##P table(2*abs(Isi-1)	/ Meps)
 
 set.seed(123)
-z <- complex(real = rnorm(100), imag = rnorm(100))
+z <- complex(real = rnorm(100), imaginary = rnorm(100))
 stopifnot(Mod ( 1 -  sin(z) / ( (exp(1i*z)-exp(-1i*z))/(2*1i) )) < 20 * Meps)
 ## end of moved from complex.Rd
 
@@ -103,7 +103,7 @@ stopifnot(all.equal(z, pi/2+0i))
 
 
 ## Hyperbolic
-x <- seq(-3, 3, len=200)
+x <- seq(-3, 3, length.out=200)
 Meps <- .Machine$double.eps
 stopifnot(
  Mod(cosh(x) - cos(1i*x))	< 20*Meps,
@@ -132,11 +132,11 @@ stopifnot(identical(tanh(356+0i), 1+0i))
 
 ## Not a regression test, but rather one of the good cases:
 (cNaN <- as.complex("NaN"))
-stopifnot(identical(cNaN, complex(re = NaN)), is.nan(Re(cNaN)), Im(cNaN) == 0)
+stopifnot(identical(cNaN, complex(real = NaN)), is.nan(Re(cNaN)), Im(cNaN) == 0)
 dput(cNaN) ## (real = NaN, imaginary = 0)
 ## Partly new behavior:
-(c0NaN  <- complex(real=0, im=NaN))
-(cNaNaN <- complex(re=NaN, im=NaN))
+(c0NaN  <- complex(real=0,   imaginary=NaN))
+(cNaNaN <- complex(real=NaN, imaginary=NaN))
 stopifnot(identical(cNaN, as.complex(NaN)),
           identical(vapply(c(cNaN, c0NaN, cNaNaN), format, ""),
                     c("NaN+0i", "0+NaNi", "NaN+NaNi")),
@@ -146,8 +146,8 @@ stopifnot(identical(cNaN, as.complex(NaN)),
 
           identical(cNaNaN, 1i * NaN),
           identical(cNaNaN, complex(modulus= NaN)),
-          identical(cNaNaN, complex(argument= NaN)),
-          identical(cNaNaN, complex(arg=NaN, mod=NaN)),
+          identical(cNaNaN, complex(argument=NaN)),
+          identical(cNaNaN, complex(argument=NaN, modulus=NaN)),
 
           identical(c0NaN, c0NaN+c0NaN), # !
           ## Platform dependent, not TRUE e.g. on F21 gcc 4.9.2:
