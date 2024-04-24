@@ -72,7 +72,7 @@ Type 'q()' to quit R.
 > ## Cumulative Binomial '==' Cumulative F :
 > ## Abramowitz & Stegun, p.945-6;  26.5.24  AND	26.5.28 :
 > n0 <- 50; n1 <- 16; n2 <- 20; n3 <- 8
-> for(n in rbinom(n1, size = 2*n0, p = .4)) {
+> for(n in rbinom(n1, size = 2*n0, prob = .4)) {
 +     for(p in c(0,1,rbeta(n2, 2,4))) {
 + 	for(k in rbinom(n3, size = n,  prob = runif(1)))
 + 	    ## For X ~ Bin(n,p), compute 1 - P[X > k] = P[X <= k] in three ways:
@@ -85,7 +85,7 @@ Type 'q()' to quit R.
 + }
 > 
 > ##__ 2. Geometric __
-> for(pr in seq(1e-10,1,len=15)) # p=0 is not a distribution
+> for(pr in seq(1e-10,1,length.out=15)) # p=0 is not a distribution
 +     stopifnot(All.eq((dg <- dgeom(0:10, pr)),
 + 		     pr * (1-pr)^(0:10)),
 + 	      All.eq(cumsum(dg), pgeom(0:10, pr)))
@@ -143,15 +143,15 @@ Time   0.068   0.000   0.068
 > 
 > 
 > ##__ 6. SignRank __
-> for(n in rpois(32, lam=8)) {
+> for(n in rpois(32, lambda=8)) {
 +     x <- -1:(n + 4)
 +     stopifnot(All.eq(psignrank(x, n), cumsum(dsignrank(x, n))))
 + }
 > 
 > ##__ 7. Wilcoxon (symmetry & cumulative) __
 > is.sym <- TRUE
-> for(n in rpois(5, lam=6))
-+     for(m in rpois(15, lam=8)) {
+> for(n in rpois(5, lambda=6))
++     for(m in rpois(15, lambda=8)) {
 + 	x <- -1:(n*m + 1)
 + 	fx <- dwilcox(x, n, m)
 + 	Fx <- pwilcox(x, n, m)
@@ -184,7 +184,7 @@ Time   0.068   0.000   0.068
 > scLrg <- c(2,100, 1e300*c(.1, 1,10,100), 1e307, xMax, Inf)
 > stopifnot(pgamma(Inf, 1, scale=xMax) == 1,
 +           pgamma(xMax,1, scale=Inf) == 0,
-+           all.equal(pgamma(1e300, 2, scale= scLrg, log=TRUE),
++           all.equal(pgamma(1e300, 2, scale= scLrg, log.p=TRUE),
 +                     c(0, 0, -0.000499523968713701, -1.33089326820406,
 +                       -5.36470502873211, -9.91015144019122,
 +                       -32.9293385491433, -38.707517174609, -Inf),
@@ -194,9 +194,9 @@ Time   0.068   0.000   0.068
 > p <- 7e-4; df <- 0.9
 > stopifnot(
 + abs(1-c(pchisq(qchisq(p, df),df)/p, # was 2.31e-8 for R <= 1.8.1
-+         pchisq(qchisq(1-p, df,lower=FALSE),df,lower=FALSE)/(1-p),# was 1.618e-11
-+         pchisq(qchisq(log(p), df,log=TRUE),df, log=TRUE)/log(p), # was 3.181e-9
-+         pchisq(qchisq(log1p(-p),df,log=T,lower=F),df, log=T,lower=F)/log1p(-p)
++         pchisq(qchisq(1-p, df,lower.tail=FALSE),df,lower.tail=FALSE)/(1-p),# was 1.618e-11
++         pchisq(qchisq(log(p), df,log.p=TRUE),df, log.p=TRUE)/log(p), # was 3.181e-9
++         pchisq(qchisq(log1p(-p),df,log.p=TRUE,lower=FALSE),df, log.p=TRUE,lower.tail=FALSE)/log1p(-p)
 +         )# 32b-i386: (2.2e-16, 0,0, 3.3e-16); Opteron: (2.2e-16, 0,0, 2.2e-15)
 +     ) < 1e-14
 + )
@@ -244,8 +244,8 @@ Time   0.068   0.000   0.068
 > ##--- Normal (& Lognormal) :
 > 
 > stopifnot(
-+     qnorm(0) == -Inf, qnorm(-Inf, log = TRUE) == -Inf,
-+     qnorm(1) ==  Inf, qnorm( 0,   log = TRUE) ==  Inf)
++     qnorm(0) == -Inf, qnorm(-Inf, log.p = TRUE) == -Inf,
++     qnorm(1) ==  Inf, qnorm( 0,   log.p = TRUE) ==  Inf)
 > 
 > assertWarning(stopifnot(
 +     is.nan(qnorm(1.1)),
