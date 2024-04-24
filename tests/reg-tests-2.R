@@ -98,14 +98,14 @@ for(i in c(1:5,10,15,16)) cat(i,":\t",format(pi,digits=i),"\n")
 p <- c(47,13,2,.1,.023,.0045, 1e-100)/1000
 format.pval(p)
 format.pval(p / 0.9)
-format.pval(p / 0.9, dig=3)
+format.pval(p / 0.9, digits=3)
 ## end of moved from format.Rd
 
 
 ## is.finite
 x <- c(100,-1e-13,Inf,-Inf, NaN, pi, NA)
 x #  1.000000 -3.000000       Inf      -Inf        NA  3.141593        NA
-names(x) <- formatC(x, dig=3)
+names(x) <- formatC(x, digits=3)
 is.finite(x)
 ##-   100 -1e-13 Inf -Inf NaN 3.14 NA
 ##-     T      T   .    .   .    T  .
@@ -708,7 +708,7 @@ options(oldcon)
 (qq <- sapply(0:5, function(k) {
     x <- c(rep(-Inf,k+1), 0:k, rep(Inf, k))
     sapply(1:9, function(typ)
-           quantile(x, pr=(2:10)/10, type=typ))
+           quantile(x, probs=(2:10)/10, type=typ))
 }, simplify="array"))
 x <- c(-Inf, -Inf, Inf, Inf)
 median(x)
@@ -813,12 +813,12 @@ par(mfrow = c(3,3))
 for(j.fac in 1e-12* c(10, 1, .7, .3, .2, .1, .05, .03, .01)) {
 ##           ====
     #set.seed(101) # or don't
-    x <- pi + jitter(numeric(101), f = j.fac)
-    rrtxt <- paste("rel.range =", formatC(relrange(x), dig = 4),"* EPS")
+    x <- pi + jitter(numeric(101), factor = j.fac)
+    rrtxt <- paste("rel.range =", formatC(relrange(x), digits = 4),"* EPS")
     cat("j.f = ", format(j.fac)," ;  ", rrtxt,"\n",sep="")
     plot(x, type = "l", main = rrtxt)
-    cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], wid = 10),"\n",
-        "par(\"yaxp\") :   ", formatC(par("yaxp"), wid = 10),"\n\n", sep="")
+    cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], width = 10),"\n",
+        "par(\"yaxp\") :   ", formatC(par("yaxp"), width = 10),"\n\n", sep="")
 }
 par(mfrow = c(1,1))
 ## The warnings from inside GScale() will differ in their  relrange() ...
@@ -883,9 +883,9 @@ x2 <- x1 <- 1:10
 x3 <- 0.1*(1:10)^2
 y <- x1 + rnorm(10)
 (fit <- lm(y ~ x1 + x2 + x3))
-summary(fit, cor = TRUE)
+summary(fit, correlation = TRUE)
 (fit <- glm(y ~ x1 + x2 + x3))
-summary(fit, cor = TRUE)
+summary(fit, correlation = TRUE)
 ## omitted silently in summary.glm < 1.8.0
 
 
@@ -940,8 +940,8 @@ x <- rep(0, 10)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
-predict(fit, type="terms", se=TRUE)
+predict(fit, data.frame(x=x), se.fit=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 variable.names(fit) #should be empty
 model.matrix(fit)
 
@@ -950,12 +950,12 @@ summary(fit)
 anova(fit)
 predict(fit)
 tools::assertWarning(
- predict(fit, data.frame(x=x), se=TRUE) -> p0
+ predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 )
 p0
 if(FALSE)## not yet:
 stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-predict(fit, type="terms", se=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 variable.names(fit) #should be empty
 model.matrix(fit)
 
@@ -963,20 +963,20 @@ model.matrix(fit)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
-predict(fit, type="terms", se=TRUE)
+predict(fit, data.frame(x=x), se.fit=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 
 (fit <- glm(y ~ x + 0))
 summary(fit)
 anova(fit)
 predict(fit)
 tools::assertWarning(
- predict(fit, data.frame(x=x), se=TRUE) -> p0
+ predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 )
 p0
 if(FALSE)## not yet:
 stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-predict(fit, type="terms", se=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 ## Lots of problems in 1.7.x
 
 

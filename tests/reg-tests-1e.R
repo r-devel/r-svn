@@ -238,12 +238,12 @@ set.seed(123)
 head(d. <- cbind(d., y = y0 + rnorm(20)))
 fm1  <- lm(y ~ x + f + poly(D,3), data = d.)
 fm1r <- lm(y ~ x + f + poly(D,2, raw=TRUE), data = d.)
-newd <- data.frame(x = seq(1/3, 1/2, length=5), f = gl(4,5)[5:9], D = .Date(17000 + 51:55))
+newd <- data.frame(x = seq(1/3, 1/2, length.out=5), f = gl(4,5)[5:9], D = .Date(17000 + 51:55))
 yhat <- unname(predict(fm1,  newdata = newd))
 yh.r <- unname(predict(fm1r, newdata = newd))
 cbind(yhat, yh.r)
-stopifnot(all.equal(yhat, c(96.8869, 92.3821, 81.9967, 71.2076, 60.0147), tol=1e-6), # 3e-7
-          all.equal(yh.r, c(97.7595, 93.0218, 82.3533, 71.2806, 59.8036), tol=1e-6))
+stopifnot(all.equal(yhat, c(96.8869, 92.3821, 81.9967, 71.2076, 60.0147), tolerance=1e-6), # 3e-7
+          all.equal(yh.r, c(97.7595, 93.0218, 82.3533, 71.2806, 59.8036), tolerance=1e-6))
 ## poly(D, 3) failed since R 4.1.x,  poly(.., raw=TRUE) in all earlier R versions
 
 
@@ -302,7 +302,7 @@ stopifnot(identical(myexpand(fit2)$y, 4:10)) # failed in R <= 4.2.1 with
 
 
 ## time() returning numbers very slightly on the wrong side of an integer
-x <- ts(2:252, start = c(2002, 2), freq = 12)
+x <- ts(2:252, start = c(2002, 2), frequency = 12)
 true.year <- rep(2002:2022, each = 12)[-1]
 stopifnot(floor(as.numeric(time(x))) == true.year)
 ## seen 10 differences in R <= 4.2.x
@@ -478,10 +478,10 @@ tools::assertWarning(print(predict(mod2, newdata=nd, rankdeficient = "warnif")))
                            predict(mod2, newdata=nd, rankdeficient = "NA")
 nm5 <- as.character(1:5)
 stopifnot(exprs = {
-    all.equal(setNames(rep(0, 5), nm5), predict(mod2), tol=1e-13) # pred: 1.776e-15
+    all.equal(setNames(rep(0, 5), nm5), predict(mod2), tolerance=1e-13) # pred: 1.776e-15
     is.numeric(p2 <- predict(mod2, newdata = data.frame(y=rep(1,5)))) # no warning, no NA:
     identical(p2,    predict(mod2, newdata = data.frame(y=rep(1,5)), rankdeficient="NA"))
-    all.equal(p2, setNames(rep(1, 5), nm5), tol=1e-13)# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
+    all.equal(p2, setNames(rep(1, 5), nm5), tolerance=1e-13)# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
 })
 ## fine, using model.offset() now
 
@@ -809,7 +809,7 @@ assertErrV(get("x4", .GlobalEnv, mode = "integer"))
             c(5, 7, 9)))
 ## 1) kappa(z=<n-by-n>, norm="1", method="direct")` ignores lower triangle of z
 km1d <- kappa(m, norm = "1", method = "direct")
-all.equal(km1d, 7.6, tol=0) # 1.17e-16  {was wrongly 11.907 in R <= 4.3.1}
+all.equal(km1d, 7.6, tolerance=0) # 1.17e-16  {was wrongly 11.907 in R <= 4.3.1}
 ## 2) kappa(z, norm="2", LINPACK=TRUE) silently returns estimate of the *1*-norm cond.nr.
 (km1 <- kappa(m, norm = "1")) # 4.651847 {unchanged}
 tools::assertWarning(verbose=TRUE, # now *warns*
@@ -824,25 +824,25 @@ km2La
 ## 5) rcond(x=<n-by-n>, triangular=TRUE) silently ignores the lower (rather than upper)
 ##                                      triangle of `x`, contradicting `help("rcond")`.
 ## ==> Fixing help page; but *also* adding  uplo = "U"  argument
-all.equal(4/65, (rcTm <- rcond(m, triangular=TRUE)),         tol = 0) # {always}
-all.equal(9/182,(rcTL <- rcond(m, triangular=TRUE, uplo="L")), tol=0) # 1.4e-16
+all.equal(4/65, (rcTm <- rcond(m, triangular=TRUE)),         tolerance = 0) # {always}
+all.equal(9/182,(rcTL <- rcond(m, triangular=TRUE, uplo="L")), tolerance=0) # 1.4e-16
 ##
 ## New features, can use norm "M" or "F" for exact=TRUE via  norm(*, type=<norm>)
 (kM <- kappa(m, norm="M", exact = TRUE)) # 2.25     "M" is allowed type for norm()
 (kF <- kappa(m, norm="F", exact = TRUE)) # 6.261675 "F" is allowed type for norm()
-all.equal(6.261675485, kF, tol=0) # 2.81e-11
+all.equal(6.261675485, kF, tolerance=0) # 2.81e-11
 stopifnot(exprs = {
     all.equal(4.6518474224, km1)
     km1 == kappa(m) # same computation
     km1 == kappa(qr.R(qr(m))) # "
-    all.equal(km1d, 7.6, tol = 1e-15)
+    all.equal(km1d, 7.6, tolerance = 1e-15)
     km1d == kappa(m, method = "direct") # identical computation {always ok}
     identical(km2L, km1)
     all.equal(km2La, 5.228678219)
     all.equal(kqrm2, km1) # even identical
     rcTm == rcond(m, triangular=TRUE, uplo = "U") # uplo="U" was default always
-    all.equal(4/65,  rcTm, tol = 1e-14)
-    all.equal(9/182, rcTL, tol = 1e-13)
+    all.equal(4/65,  rcTm, tolerance = 1e-14)
+    all.equal(9/182, rcTL, tolerance = 1e-13)
     1/rcond(m) == km1d # same underlying Lapack code
     ## 6) kappa(z=<m-by-0>) throws bad errors due to 1:0 in kappa.qr():
     kappa(m00 <- matrix(0, 0L, 0L)) == 0
@@ -857,7 +857,7 @@ stopifnot(exprs = {
     rcond(t(m20)) == Inf #  (ditto)
     ## norm "M" or "F" for exact=TRUE:
     2.25 == kM  # exactly
-    all.equal(6.261675485, kF, tol=1e-9)
+    all.equal(6.261675485, kF, tolerance=1e-9)
 })
 ## -- Complex matrices --------------------------------------------------
 (zm <- m + 1i*c(1,-(1:2))*(m/4))
@@ -870,8 +870,8 @@ tools::assertWarning(verbose=TRUE, # *same* warning (1-norm instead of 2-)
 kz2La
 ## 4) kappa.qr(z) implicitly assumes nrow(z$qr) >= ncol(z$qr) ..
 (kzqr2 <- kappa(qr(cbind(zm, zm + 1)))) # gave Error .. matrix should be square
-all.equal(0.058131632, (rcTm <- rcond(zm, triangular=TRUE          )), tol=0) # 3.178e-9
-all.equal(0.047891278, (rcTL <- rcond(zm, triangular=TRUE, uplo="L")), tol=0) # 4.191e-9
+all.equal(0.058131632, (rcTm <- rcond(zm, triangular=TRUE          )), tolerance=0) # 3.178e-9
+all.equal(0.047891278, (rcTL <- rcond(zm, triangular=TRUE, uplo="L")), tolerance=0) # 4.191e-9
 ## New: can use norm "M" or "F" for exact=TRUE:
 (kz <- kappa(zm, norm="M", exact = TRUE)) # 2.440468
 (kF <- kappa(zm, norm="F", exact = TRUE)) # 6.448678
@@ -881,8 +881,8 @@ stopifnot(exprs = {
     all.equal(0.058131632, rcTm) #  "
     all.equal(0.047891278, rcTL)
     all.equal(6.82135883, kzqr2)
-    all.equal(2.44046765, kz, tol = 1e-9) # 1.8844e-10
-    all.equal(6.44867822, kF, tol = 4e-9) # 4.4193e-10
+    all.equal(2.44046765, kz, tolerance = 1e-9) # 1.8844e-10
+    all.equal(6.44867822, kF, tolerance = 4e-9) # 4.4193e-10
 })
 ## norm() and  kappa(., exact=TRUE, ..)  now work ok in many more cases
 
@@ -990,7 +990,7 @@ stopifnot(roundtrip(r"(\item text)"))
 
 
 ## PR#18618: match()  incorrect  with POSIXct || POSIXlt || fractional sec
-(dCT <- seq(as.POSIXct("2010-10-31", tz = "Europe/Berlin"), by = "hour", length = 5))
+(dCT <- seq(as.POSIXct("2010-10-31", tz = "Europe/Berlin"), by = "hour", length.out = 5))
 (dd <- diff(dCT))
 chd <- as.character(dCT)
 vdt <- as.vector   (dCT)
@@ -1122,7 +1122,7 @@ stopifnot(identical(cov2cor(m00), m00))
 op <- options(warn=1)
 m <- capture.output(r <- cov2cor(D_1), type = "message")
 matrix(rep_len(c(1, rep(NaN,3)),3*3), 3) -> r0
-stopifnot(all.equal(r, r0, tol = 0, check.attributes = FALSE),# always ok
+stopifnot(all.equal(r, r0, tolerance = 0, check.attributes = FALSE),# always ok
           length(m) == 2, grepl("^ *diag.V. ", m[2]))
 options(op) # revert
 ## cov2cor() gave 2 warnings on 3 lines, the 2nd one inaccurate in R <= 4.3.2
