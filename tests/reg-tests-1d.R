@@ -1009,8 +1009,8 @@ stopifnot(all.equal(as.vector(dc), c(25, 30, 16)/15))
 dd <- data.frame(x1 = LETTERS[c(1,2,3, 1,2,3, 1,2,3)],
                  x2 = letters[c(1,2,1, 2,1,1, 1,2,1)], y = 1:9)
 (sf <- summary(fit <- lm(y ~ x1*x2, data = dd))) ## last coef is NA
-stopifnot(all.equal(sigma(fit)^2,  27/2,  tol = 1e-14),
-	  all.equal(sigma(fit), sf$sigma, tol = 1e-14))
+stopifnot(all.equal(sigma(fit)^2,  27/2,  tolerance = 1e-14),
+	  all.equal(sigma(fit), sf$sigma, tolerance = 1e-14))
 ## was too large because of wrong denom. d.f. in R <= 3.4.1
 
 
@@ -1057,8 +1057,8 @@ q.Cx <- qr(X + 0i);         cfCx <- qr.coef(q.Cx, y)
 e1 <- tryCid(qr.coef(q.Li, y[-4])); e1
 e2 <- tryCid(qr.coef(q.LA, y[-4]))
 stopifnot(exprs = {
-    all.equal(cfLi,    cfLA , tol = 1e-14)# 6.376e-16 (64b Lx)
-    all.equal(cfLi, Re(cfCx), tol = 1e-14)#  (ditto)
+    all.equal(cfLi,    cfLA , tolerance = 1e-14)# 6.376e-16 (64b Lx)
+    all.equal(cfLi, Re(cfCx), tolerance = 1e-14)#  (ditto)
     identical(conditionMessage(e1), conditionMessage(e2))
 })
 ## 1) cfLA & cfCx had no names in R <= 3.4.1
@@ -1450,10 +1450,10 @@ arF <- ar(prF)
 stopifnot(exprs = {
     all.equal(arp[c("order", "ar", "var.pred", "x.mean")],
               list(order = 3, ar = c(0.6665119, 0.2800927, -0.1716641),
-                   var.pred = 96.69082, x.mean = 56.30702), tol = 7e-7)
-    all.equal(arp$ar, arF$ar,                     tol = 0.14)
-    all.equal(arp$var.pred, arF$var.pred,         tol = 0.005)
-    all.equal(arp$asy.var.coef, arF$asy.var.coef, tol = 0.09)
+                   var.pred = 96.69082, x.mean = 56.30702), tolerance = 7e-7)
+    all.equal(arp$ar, arF$ar,                     tolerance = 0.14)
+    all.equal(arp$var.pred, arF$var.pred,         tolerance = 0.005)
+    all.equal(arp$asy.var.coef, arF$asy.var.coef, tolerance = 0.09)
 })
 ## Multivariate
 set.seed(42)
@@ -1468,15 +1468,15 @@ es.  <- ar(        y. , aic = FALSE, order.max = 2, na.action=na.pass)
 estd <- ar(unclass(y) , aic = FALSE, order.max = 2) ## Estimate VAR(2)
 es.d <- ar(unclass(y.), aic = FALSE, order.max = 2, na.action=na.pass)
 stopifnot(exprs = {
-    all.equal(est$ar[1,,], diag(0.8, 2), tol = 0.08)# seen 0.0038
-    all.equal(est[1:6], es.[1:6], tol = 5e-3)
-    all.equal(estd$x.mean, es.d$x.mean, tol = 0.01) # seen 0.0023
+    all.equal(est$ar[1,,], diag(0.8, 2), tolerance = 0.08)# seen 0.0038
+    all.equal(est[1:6], es.[1:6], tolerance = 5e-3)
+    all.equal(estd$x.mean, es.d$x.mean, tolerance = 0.01) # seen 0.0023
     all.equal(estd[c(1:3,5:6)],
-              es.d[c(1:3,5:6)], tol = 1e-3)## seen {1,3,8}e-4
+              es.d[c(1:3,5:6)], tolerance = 1e-3)## seen {1,3,8}e-4
     all.equal(lapply(estd[1:6],unname),
-              lapply(est [1:6],unname), tol = 2e-12)# almost identical
+              lapply(est [1:6],unname), tolerance = 2e-12)# almost identical
     all.equal(lapply(es.d[1:6],unname),
-              lapply(es. [1:6],unname), tol = 1e-11)
+              lapply(es. [1:6],unname), tolerance = 1e-11)
 })
 ## NA's in x gave an error, in R versions <= 3.4.3
 
@@ -1747,7 +1747,7 @@ aTab <- table(
 (MT <- mantelhaen.test(aTab))
 stopifnot(all.equal(
     lapply(MT[1:3], unname),
-    list(statistic = 9.285642, parameter = 8, p.value = 0.3187756), tol = 6e-6))
+    list(statistic = 9.285642, parameter = 8, p.value = 0.3187756), tolerance = 6e-6))
 ## gave integer overflow and error in R <= 3.4.x
 
 
@@ -2265,11 +2265,11 @@ stopifnot(is.integer(iMax <- .Machine$integer.max), iMax == 2^31-1,
           is.integer(i3t30 <- c(-t30, 0L, t30)))
 for(seq in c(seq, seq.int)) # seq() -> seq.default() to behave as seq.int() :
   stopifnot(exprs = {
-    seq(iM2, length=2L) == iM2:(iM2+1L) # overflow warning and NA
-    seq(iM2, length=3L) == iM2:(iM2+2 ) # Error in if (from == to) ....
-              seq(-t30, t30, length=3) == i3t30 # overflow warning and NA
+    seq(iM2, length.out=2L) == iM2:(iM2+1L) # overflow warning and NA
+    seq(iM2, length.out=3L) == iM2:(iM2+2 ) # Error in if (from == to) ....
+              seq(-t30, t30, length.out=3) == i3t30 # overflow warning and NA
     ## Next two ok for the "seq.cumsum-patch" (for "seq.double-patch", give "double"):
-    identical(seq(-t30, t30, length=3L),  i3t30)# Error in if(is.integer(del <- to - from)
+    identical(seq(-t30, t30, length.out=3L),  i3t30)# Error in if(is.integer(del <- to - from)
     identical(seq(-t30, t30, t30)      ,  i3t30)# Error .. invalid '(to-from)/by'+NA warn.
   })
 ## each of these gave integer overflows  errors  or  NA's + warning in  R <= 3.5.x
@@ -2279,13 +2279,13 @@ stopifnot(identical(7:10, seq.default(7L, along.with = 4:1) ))
 
 ## seq.int(*, by=<int.>, length = n) for non-integer 'from' or 'to'
 stopifnot(exprs = {
-    identical(seq.int(from = 1.5, by = 2, length = 3),
-              s <- seq(from = 1.5, by = 2, length = 3))
+    identical(seq.int(from = 1.5, by = 2, length.out = 3),
+              s <- seq(from = 1.5, by = 2, length.out = 3))
     s == c(1.5, 3.5, 5.5)
-    identical(seq.int(to = -0.1, by = -2, length = 2),
-              s <- seq(to = -0.1, by = -2, length = 2))
+    identical(seq.int(to = -0.1, by = -2, length.out = 2),
+              s <- seq(to = -0.1, by = -2, length.out = 2))
     all.equal(s, c(1.9, -0.1))
-    identical(seq.int(to = pi, by = 0, length = 1), pi)
+    identical(seq.int(to = pi, by = 0, length.out = 1), pi)
 })
 ## returned integer sequences in all R versions <= 3.5.1
 
@@ -2529,7 +2529,7 @@ plot(c(-0.1, 0.2), axes=FALSE, ann=FALSE)
 axis(2, at = a2) # was ugly
 stopifnot(exprs = {
     a2[3] == 0 # exactly
-    all.equal(a2, (-2:4)/20, tol=1e-14) # closely
+    all.equal(a2, (-2:4)/20, tolerance=1e-14) # closely
 })
 ## a2[3] was 1.38778e-17  on typical platforms in R <= 3.5.x
 
@@ -3203,8 +3203,8 @@ stopifnot(exprs = {
 (ptt2 <- power.t.test(delta=2,   sd = 1e-8,  power=0.99, sig.level=0.01))
 stopifnot(exprs = {
     all.equal(0.9, power.t.test(delta=10, sd=1, n = ptt0 $ n)$power)
-    all.equal(ptt1$n, 1.00428,   tol = 1e-5)
-    all.equal(ptt2$n, 1.1215733, tol = 1e-5)
+    all.equal(ptt1$n, 1.00428,   tolerance = 1e-5)
+    all.equal(ptt2$n, 1.1215733, tolerance = 1e-5)
 })
 ## when uniroot() was trying n < 1, the code failed previously (in 2nd and 3rd case)
 
@@ -3490,7 +3490,7 @@ set.seed(7); tt <- ts(rnorm(60), frequency=12)
 dt2 <- diff(tt, differences = 2) # Error in .cbind.ts(..): not all series have the same phase
 tsD <- ts(1:49, start=as.Date("2019-12-12"), frequency=12)
 stopifnot(exprs = {
-    all.equal(timeO, ttt - 1981, tol = 1e-8)
+    all.equal(timeO, ttt - 1981, tolerance = 1e-8)
     inherits(ttt, "ts")
     inherits(dt2, "ts")
     length(dt2) == length(tt) - 2L
@@ -3551,7 +3551,7 @@ rnd.x <- vapply(dd+1L, function(k) round(x55[k], dd[k]), 1.1)
 noquote(formatC(cbind(x55, dd, rnd.x), w=1, digits=15))
 signif (rnd.x - x55, 3) # look at .. but don't test (yet)
 stopifnot(exprs = {
-      all.equal(abs(rnd.x - x55), 5 * 10^-(dd+1), tol = 1e-11) # see diff. of 6e-13
+      all.equal(abs(rnd.x - x55), 5 * 10^-(dd+1), tolerance = 1e-11) # see diff. of 6e-13
 })
 ## more than half of the above were rounded *down* in R <= 3.6.x
 ## Some "wrong" test cases from CRAN packages (partly relying on wrong R <= 3.6.x behavior)
@@ -3580,8 +3580,8 @@ for(digi in c(0:10, 500L, 1000L, 100000L, .Machine$integer.max))
               identical(i+round(1/4, digi), round(i+1/4, digi)))
 x <- 7e-304; rx <- round(x, digits=307:322); xx <- rep(x, length(rx))
 print(cbind(rx), digits=16) # not really what ideally round() should do; but "ok"
-          all.equal(rx, xx, tol = 0)# show "average relative difference" ("5.6856 e -16")
-stopifnot(all.equal(rx, xx, tol = 1e-4)) # tol may change in future
+          all.equal(rx, xx, tolerance = 0)# show "average relative difference" ("5.6856 e -16")
+stopifnot(all.equal(rx, xx, tolerance = 1e-4)) # tol may change in future
 ## the round(i, *) failed, for ~ 2 days, in R-devel
 e <- 5.555555555555555555555e-308
 (e10 <- e * 1e298) # 5.555556e-10 -- much less extreme, for comparison
@@ -3598,9 +3598,9 @@ stopifnot(exprs = {
     ## the regularity of signif()'s result is amazing:
     is.integer(d <- ds[iSub] - 1L)
     all.equal(log10(abs(1 -  diff(unname(s.e))[iSub] * 1e308*10^d / 4)),
-              d - 16, tol = 0.08) # tol: seen 0.0294 / 0.02988 (Win 32b)
+              d - 16, tolerance = 0.08) # tol: seen 0.0294 / 0.02988 (Win 32b)
     all.equal(r.e * 1e298, r.e10,
-              check.attributes = FALSE, countEQ=TRUE, tol=1e-14)
+              check.attributes = FALSE, countEQ=TRUE, tolerance=1e-14)
 })
 ## was not true for digits = 309, 310 in R <= 3.6.x
 ##
@@ -3683,7 +3683,7 @@ set.seed(6860); N <- rhyper(1, n,n,n)
 x <- 1.99e9; Nhi <- rhyper(256, x,x,x)
 stopifnot(#identical(N, 999994112L), # (wrong) implementation detail
           is.integer(Nhi),
-          all.equal(mean(Nhi), x/2, tol = 6e-6)) # ==> also: no NAs
+          all.equal(mean(Nhi), x/2, tolerance = 6e-6)) # ==> also: no NAs
 ## NA's and warnings, incl "SHOULD NOT HAPPEN!" in R <= 3.6.2
 
 
@@ -5061,8 +5061,8 @@ relEdiff <- function(L) vapply(lapply(L, diff), relE, 1.23)
 by <- 1e307
 stopifnot(exprs = {
     ## C = R :  seq.int() <==> seq.default :
-    all.equal(Lby , LbyR, tol=1e-15)
-    all.equal(Llen, LleR, tol=1e-15)
+    all.equal(Lby , LbyR, tolerance=1e-15)
+    all.equal(Llen, LleR, tolerance=1e-15)
     ## by :
     abs(diff(s <- seq.int(-1.5e308, 1e308, by=by))/by - 1) < 1e-14
     is.matrix(rng <- vapply(Lby, range, numeric(2)))
@@ -5087,9 +5087,9 @@ stopifnot(identical(aP, list(axp = c(Inf, Inf), n = 1L)))
 
 ## all.equal(x,y) when 'x' or 'y' are close to overflowing to +/- Inf:
 set.seed(7); x <- c(outer(pi^(-4*(-3:4)), 1:7)); y <- x*(1+rt(x, 3)/1e9)
-stopifnot(all.equal(x,y, tol=8e-8))
+stopifnot(all.equal(x,y, tolerance=8e-8))
 for(f in c(10^c(-308:-300, 300:308), rlnorm(2^9, 3, 4)))
-    stopifnot(all.equal(f*x, f*y, tol=8e-8))
+    stopifnot(all.equal(f*x, f*y, tolerance=8e-8))
 ## failed for 1e301 (and larger) in R <= 4.1.0
 
 
@@ -5250,7 +5250,7 @@ for(xaxs in c("r","i")) {
   cat(sprintf('xaxs = "%s"\n==========\n', xaxs)); par(xaxs = xaxs)
   for(e2Min in c(-1074, -1070, -1060, -1050)) {
     cat("\ne2Min=",e2Min,":\n------------\n")
-    sL <- 2^seq(e2Min, mE, length=128)
+    sL <- 2^seq(e2Min, mE, length.out=128)
     mplot(sL, sin(sL))# was Error plot.window(): infinite axis extents [GEPretty(-7.19e306,inf,5)]
     print(puaxN <- parUAx())
     mplot(sL, sin(sL), log="x")
@@ -5265,7 +5265,7 @@ for(xaxs in c("r","i")) {
                                    xaxp=c(0, rep(1.5e+308,2))),
                        "i" = cbind(usr= 2^c(e2Min, mE, mE),
                                    xaxp=c(0, rep(1.5e+308,2))))[[xaxs]])
-        all.equal(10^cumsum(c(-307, rep(123, 5))), axu, tol=1e-12)# 3.4e-14 {Win64}
+        all.equal(10^cumsum(c(-307, rep(123, 5))), axu, tolerance=1e-12)# 3.4e-14 {Win64}
         all.equal(puax[1:2,"xaxp"], c(1e-307, 1e308))
         { cat("1 - u / ... : ")
             abs(print(1 - u / c(c(r=-1022, i=e2Min)[[xaxs]], mE) * log2(10))) < 5e-5 }
@@ -5291,7 +5291,7 @@ a <- mplot(LL, 0:1) # (no warning)
 stopifnot(exprs = {
     all.equal(a$a1, axTicks(1))
     all.equal(a$a1, (-3:3)*5e307)
-    all.equal(LL, puax[1:2,"usr"], tol=1e-10)
+    all.equal(LL, puax[1:2,"usr"], tolerance=1e-10)
     puax[3,] == Inf
 })
 ## These are even a bit better (no partial clipping) {gave error in R <= 4.1.0}:
@@ -5317,9 +5317,9 @@ for(yMin in c(0, 5e-324, 1e-318, 1e-312, 1e-306)) {
     atx <- axisTicks(par("usr")[3:4], log=TRUE, axp=par("yaxp")) # ditto
     if(yMin > 0) {
         print(axT <- axTicks(2)) #  1e-307 1e-244 1e-181 1e-118  1e-55  1e+08
-        stopifnot(all.equal(axT, atx, tol = 1e-15))
+        stopifnot(all.equal(axT, atx, tolerance = 1e-15))
     }
-    stopifnot(all.equal(atx, 10^cumsum(c(-307, rep(63, 5))), tol=1e-13)) # Win64: 3.3e-14
+    stopifnot(all.equal(atx, 10^cumsum(c(-307, rep(63, 5))), tolerance=1e-13)) # Win64: 3.3e-14
 }
 ## the *first* plot looked ugly in R <= 4.1.0 and failed for a few days in R-devel
 proc.time() - .pt; .pt <- proc.time()
@@ -5661,32 +5661,32 @@ i <- c(8:5, 3:4, 2:1, 9:10)# 10:1 is too special (a permutation which is its own
 ss   <- sspline_(x=x,    y=y   )
 ss.u <- sspline_(x=x[i], y=y[i])
 ## was "Component “cv.crit”: Mean relative difference: 3099.013" :
-          all.equal(noC(ss), noC(ss.u), tol=0) # TRUE (!)
-stopifnot(all.equal(noC(ss), noC(ss.u), tol=1e-14)) ## now fixed
+          all.equal(noC(ss), noC(ss.u), tolerance=0) # TRUE (!)
+stopifnot(all.equal(noC(ss), noC(ss.u), tolerance=1e-14)) ## now fixed
 ## The same with __weights__  some of which exactly 0
 table(w <- pmax(0, abs(16*e)-1)) # 2 x 0
 ssw   <- sspline_(x=x,    y=y,    w=w   )
 ssw.u <- sspline_(x=x[i], y=y[i], w=w[i])
-          all.equal(noC(ssw), noC(ssw.u), tol=0) # TRUE (!)
-stopifnot(all.equal(noC(ssw), noC(ssw.u), tol=1e-14)) ## now fixed
+          all.equal(noC(ssw), noC(ssw.u), tolerance=0) # TRUE (!)
+stopifnot(all.equal(noC(ssw), noC(ssw.u), tolerance=1e-14)) ## now fixed
 ## was "Component “cv.crit”: Mean relative difference: 60.05904"
 ## Now with  GCV instead of CV ====================
 ## 1) no weights
 ssg   <- sspline_(x=x,    y=y   , cv=FALSE)
 ssg.u <- sspline_(x=x[i], y=y[i], cv=FALSE)
-          all.equal(noC(ssg), noC(ssg.u), tol=0) # TRUE (!)
-stopifnot(all.equal(noC(ssg), noC(ssg.u), tol=1e-14)) ## now fixed
+          all.equal(noC(ssg), noC(ssg.u), tolerance=0) # TRUE (!)
+stopifnot(all.equal(noC(ssg), noC(ssg.u), tolerance=1e-14)) ## now fixed
 ## 2) with weights
 sswg   <- sspline_(x=x,    y=y,    w=w   , cv=FALSE)
 sswg.u <- sspline_(x=x[i], y=y[i], w=w[i], cv=FALSE)
-          all.equal(noC(sswg), noC(sswg.u), tol=0) # TRUE (!)
-stopifnot(all.equal(noC(sswg), noC(sswg.u), tol=1e-14)) ## now fixed
+          all.equal(noC(sswg), noC(sswg.u), tolerance=0) # TRUE (!)
+stopifnot(all.equal(noC(sswg), noC(sswg.u), tolerance=1e-14)) ## now fixed
 ## the same with 'x' that are almost identical  so will be collapsed (and weighted):
 x. <- c(1:2, (1- 1e-7)*4, 4:6, (1- 1e-9)*8, 8:10)
 ss3w   <- getVaW(sspline_(x=x.,    y=y   , w=w   ))
 ss3w.u <- getVaW(sspline_(x=x.[i], y=y[i], w=w[i]))
-          all.equal(noC(ss3w), noC(ss3w.u), tol=0) # TRUE (also previously)
-stopifnot(all.equal(noC(ss3w), noC(ss3w.u), tol=1e-14))
+          all.equal(noC(ss3w), noC(ss3w.u), tolerance=0) # TRUE (also previously)
+stopifnot(all.equal(noC(ss3w), noC(ss3w.u), tolerance=1e-14))
 ## was  "Component “cv.crit”: Mean relative difference: 60.05904"
 if(englishMsgs)
     stopifnot(attr(ss3w,"warning") ==
@@ -5694,8 +5694,8 @@ if(englishMsgs)
 ## now with GCV :
 ss3gw   <- sspline_(x=x.,    y=y   , w=w   , cv=FALSE)
 ss3gw.u <- sspline_(x=x.[i], y=y[i], w=w[i], cv=FALSE)
-          all.equal(noC(ss3gw), noC(ss3gw.u), tol=0)  # TRUE (also previously)
-stopifnot(all.equal(noC(ss3gw), noC(ss3gw.u), tol=1e-14))
+          all.equal(noC(ss3gw), noC(ss3gw.u), tolerance=0)  # TRUE (also previously)
+stopifnot(all.equal(noC(ss3gw), noC(ss3gw.u), tolerance=1e-14))
 ## non-ordered 'x' gave wrong  $cv.crit in the nx=n case in R <= 4.1.2
 
 
