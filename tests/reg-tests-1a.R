@@ -16,7 +16,7 @@ cbind(Sys.getenv(envLst))
 assertError <- tools::assertError
 
 ## regression test for PR#376
-aggregate(ts(1:20), nfreq=1/3)
+aggregate(ts(1:20), nfrequency=1/3)
 ## Comments: moved from aggregate.Rd
 
 
@@ -107,8 +107,8 @@ r <- rbind(c(1,2,3),
 r %*% y # == x = (8,4,2)
 ( y2 <- backsolve(r, x, transpose = TRUE)) # 8 -12 -5
 stopifnot(all.equal(drop(t(r) %*% y2), x))
-stopifnot(all.equal(y, backsolve(t(r), x, upper = FALSE, transpose = TRUE)))
-stopifnot(all.equal(y2, backsolve(t(r), x, upper = FALSE, transpose = FALSE)))
+stopifnot(all.equal(y, backsolve(t(r), x, upper.tri = FALSE, transpose = TRUE)))
+stopifnot(all.equal(y2, backsolve(t(r), x, upper.tri = FALSE, transpose = FALSE)))
 ## end of moved from backsolve.Rd
 
 
@@ -120,11 +120,11 @@ dirname(character(0))
 ## Bessel
 ## Check the Scaling :
 nus <- c(0:5,10,20)
-x <- seq(0,40,len=801)[-1]
+x <- seq(0,40,length.out=801)[-1]
 for(nu in nus)
-   stopifnot(abs(1- besselK(x,nu)*exp( x) / besselK(x,nu,expo=TRUE)) < 2e-15)
+   stopifnot(abs(1- besselK(x,nu)*exp( x) / besselK(x,nu,expon.scaled=TRUE)) < 2e-15)
 for(nu in nus)
-   stopifnot(abs(1- besselI(x,nu)*exp(-x) / besselI(x,nu,expo=TRUE)) < 1e-15)
+   stopifnot(abs(1- besselI(x,nu)*exp(-x) / besselI(x,nu,expon.scaled=TRUE)) < 1e-15)
 ## end of moved from Bessel.Rd
 
 
@@ -203,7 +203,7 @@ stopifnot(
  month.abb == substr(month.name, 1, 3)
 )
 
-stopifnot(all.equal(pi, 4*atan(1), tol= 2*Meps))
+stopifnot(all.equal(pi, 4*atan(1), tolerance= 2*Meps))
 
 # John Machin (1705) computed 100 decimals of pi :
 stopifnot(all.equal(pi/4, 4*atan(1/5) - atan(1/239), 4*Meps))
@@ -241,8 +241,8 @@ y <- 1
 stopifnot(eval(D.sc) ==
 	  attr(eval(dxy),"gradient")[,"x"])
 ff <- y ~ sin(cos(x) * y)
-stopifnot(all.equal(deriv(ff, c("x","y"), func = TRUE ),
-		    deriv(ff, c("x","y"), func = function(x,y){ } )))
+stopifnot(all.equal(deriv(ff, c("x","y"), function.arg = TRUE ),
+		    deriv(ff, c("x","y"), function.arg = function(x,y){ } )))
 ## end of moved from deriv.Rd
 
 
@@ -269,7 +269,7 @@ stopifnot(duplicated(iris)[143] == TRUE)
 set.seed(321, kind = "default")	 # force a particular seed
 m <- matrix(round(rnorm(25),3), 5,5)
 sm <- m + t(m) #- symmetric matrix
-em <- eigen(sm); V <- em$vect
+em <- eigen(sm); V <- em$vectors
 print(lam <- em$values) # ordered DEcreasingly
 
 stopifnot(
@@ -278,7 +278,7 @@ stopifnot(
 
 ##------- Symmetric = FALSE:  -- different to above : ---
 
-em <- eigen(sm, symmetric = FALSE); V2 <- em$vect
+em <- eigen(sm, symmetric = FALSE); V2 <- em$vectors
 print(lam2 <- em$values) # ordered decreasingly in ABSolute value !
 print(i <- rev(order(lam2)))
 stopifnot(abs(lam - lam2[i]) < 100 * Meps) # comparing two solns
@@ -334,14 +334,14 @@ for(N in 1:130) {
 ## findint
 N <- 100
 X <- sort(round(rt(N, df=2), 2))
-tt <- c(-100, seq(-2,2, len=201), +100)
+tt <- c(-100, seq(-2,2, length.out=201), +100)
 it <- findInterval(tt, X)
 
 ## See that this is N * Fn(.) :
 tt <- c(tt,X)
 stopifnot(it[c(1,203)] == c(0, 100),
 	  all.equal(N * stats::ecdf(X)(tt),
-		    findInterval(tt, X),  tol = 100 * Meps),
+		    findInterval(tt, X),  tolerance = 100 * Meps),
 	  findInterval(tt,X) ==	 apply( outer(tt, X, ">="), 1, sum)
 	  )
 ## end of moved from findint.Rd
@@ -389,7 +389,7 @@ y <- rnorm(20)
 y1 <- y[-1]; y2 <- y[-20]
 summary(g1 <- glm(y1 - y2 ~ 1))
 summary(g2 <- glm(y1 ~ offset(y2)))
-Eq <- function(x,y) all.equal(x,y, tol = 1e-12)
+Eq <- function(x,y) all.equal(x,y, tolerance = 1e-12)
 stopifnot(Eq(coef(g1), coef(g2)),
 	  Eq(deviance(g1), deviance(g2)),
 	  Eq(resid(g1), resid(g2)))
@@ -419,7 +419,7 @@ structure(list(Treat = factor(c(2L, 2L, 2L, 2L, 2L, 2L, 2L,
 anorex.1 <- glm(Postwt ~ Prewt + Treat + offset(Prewt),
 	    family = gaussian, data = anorexia)
 summary(anorex.1)
-Eq <- function(x,y) all.equal(x,y, tol = 1e-12)
+Eq <- function(x,y) all.equal(x,y, tolerance = 1e-12)
 stopifnot(Eq(AIC(anorex.1), anorex.1$aic),
 	  Eq(AIC(g1), g1$aic),
 	  Eq(AIC(g2), g2$aic))
@@ -432,7 +432,7 @@ stopifnot(all.equal(as.vector(lmx), as.vector(glmx)),
 
 
 ## Hyperbolic
-x <- seq(-3, 3, len=200)
+x <- seq(-3, 3, length.out=200)
 stopifnot(
  abs(cosh(x) - (exp(x) + exp(-x))/2) < 20*Meps,
  abs(sinh(x) - (exp(x) - exp(-x))/2) < 20*Meps,
@@ -453,22 +453,22 @@ stopifnot(abs(acosh(cx) - log(cx + sqrt(cx^2 - 1))) < 1000*Meps)
 ## Degenerate, should still work
 image(as.matrix(1))
 image(matrix(pi,2,4))
-x <- seq(0,1,len=100)
+x <- seq(0,1,length.out=100)
 image(x, 1, matrix(x), col=heat.colors(10))
 image(x, 1, matrix(x), col=heat.colors(10), oldstyle = TRUE)
-image(x, 1, matrix(x), col=heat.colors(10), breaks = seq(0.1,1.1,len=11))
+image(x, 1, matrix(x), col=heat.colors(10), breaks = seq(0.1,1.1,length.out=11))
 ## end of moved from image.Rd
 
 
 ## integrate
 (ii <- integrate(dnorm, -1.96, 1.96))
 (i1 <- integrate(dnorm, -Inf, Inf))
-stopifnot(all.equal(0.9500042097, ii$val, tol = ii$abs.err, scale=1),
-	  all.equal( 1,		  i1$val, tol = i1$abs.err, scale=1))
+stopifnot(all.equal(0.9500042097, ii$value, tolerance = ii$abs.error, scale=1),
+	  all.equal( 1,		  i1$value, tolerance = i1$abs.error, scale=1))
 
 integrand <- function(x) {1/((x+1)*sqrt(x))}
 (ii <- integrate(integrand, lower = 0, upper = Inf, rel.tol = 1e-10))
-stopifnot(all.equal(pi, ii$val, tol = ii$abs.err, scale=1))
+stopifnot(all.equal(pi, ii$value, tolerance = ii$abs.error, scale=1))
 ## end of moved from integrate.Rd
 
 
@@ -554,11 +554,11 @@ stopifnot(Mod(1+exp(pi*1i)) < 10* Meps)
 ## logistic
 eps <- 100 * Meps
 x <- c(0:4, rlogis(100))
-stopifnot(all.equal(plogis(x),	1 / (1 + exp(-x)), tol = eps))
-stopifnot(all.equal(plogis(x, lower=FALSE),  exp(-x)/ (1 + exp(-x)), tol = eps))
-stopifnot(all.equal(plogis(x, lower=FALSE, log=TRUE), -log(1 + exp(x)),
-		    tol = eps))
-stopifnot(all.equal(dlogis(x), exp(x) * (1 + exp(x))^-2, tol = eps))
+stopifnot(all.equal(plogis(x),	1 / (1 + exp(-x)), tolerance = eps))
+stopifnot(all.equal(plogis(x, lower.tail=FALSE),  exp(-x)/ (1 + exp(-x)), tolerance = eps))
+stopifnot(all.equal(plogis(x, lower.tail=FALSE, log.p=TRUE), -log(1 + exp(x)),
+		    tolerance = eps))
+stopifnot(all.equal(dlogis(x), exp(x) * (1 + exp(x))^-2, tolerance = eps))
 ## end of moved from Logistic.Rd
 
 
@@ -596,7 +596,7 @@ all.equal(m, N * pr/sum(pr)) # rel.error ~0.003
 stopifnot(max(abs(m/(N*pr/sum(pr)) - 1)) < 0.01)
 
 (Pr <- dmultinom(c(0,0,3), prob = c(1, 1, 14)))
-stopifnot(all.equal(Pr, dbinom(3, 3, p = 14/16)))
+stopifnot(all.equal(Pr, dbinom(3, 3, prob = 14/16)))
 
 X <- t(as.matrix(expand.grid(0:3, 0:3)))
 X <- X[, colSums(X) <= 3]
@@ -642,7 +642,7 @@ stopifnot((1 - X /( Q %*% R))< 100*Meps)
 dim(Qc <- qr.Q(qrstr, complete=TRUE)) # Square: dim(Qc) == rep(nrow(x),2)
 stopifnot((crossprod(Qc) - diag(nrow(x))) < 10*Meps)
 
-QD <- qr.Q(qrstr, D=1:p)      # QD == Q \%*\% diag(1:p)
+QD <- qr.Q(qrstr, Dvec=1:p)      # QD == Q \%*\% diag(1:p)
 stopifnot(QD - Q %*% diag(1:p)	< 8* Meps)
 
 dim(Rc <- qr.R(qrstr, complete=TRUE)) # == dim(x)
@@ -806,8 +806,8 @@ stopifnot(is.infinite(.Machine$double.base ^ .Machine$double.max.exp))
 
 ## PR 640 (diff.default computes an incorrect starting time)
 ## By: Laimonis Kavalieris <lkavalieris@maths.otago.ac.nz>
-y <- ts(rnorm(24), freq=12)
-x <- ts(rnorm(24), freq=12)
+y <- ts(rnorm(24), frequency=12)
+x <- ts(rnorm(24), frequency=12)
 arima0(y, xreg = x, seasonal = list(order=c(0,1,0)))
 ## Comments:
 
@@ -816,7 +816,7 @@ arima0(y, xreg = x, seasonal = list(order=c(0,1,0)))
 ## By: Uwe Ligges <ligges@statistik.uni-dortmund.de>
 x <- matrix(c(2, 2, 4, 8, 6, 0, 1, 1, 7, 8, 1, 3, 1, 3, 7, 4, 2, 2, 2,
 	      1, 1, 0, 0, 0, 0, 0, 1, 1, 2, 0, 1, 1, 0, 2, 1, 0, 0, 0),
-	    nc = 2)
+	    ncol = 2)
 fisher.test(x)
 ## Comments: (wasn't just on Windows)
 
@@ -1143,8 +1143,8 @@ y <- c(2.55, 12.07, 0.46, 0.35, 2.69, -0.94, 1.73, 0.73, -0.35, -0.37)
 KSxy <- ks.test(x, y)
 stopifnot(exprs = {
     round(KSxy$p.value, 4) == 0.0524
-    all.equal(c(D = 0.6), KSxy$statistic, tol = 1e-15) # see 1.85 e-16
-    all.equal( 15/286,    KSxy$p.value,   tol = 1e-15) #  "  2.646e-16
+    all.equal(c(D = 0.6), KSxy$statistic, tolerance = 1e-15) # see 1.85 e-16
+    all.equal( 15/286,    KSxy$p.value,   tolerance = 1e-15) #  "  2.646e-16
 })
 
 ## PR 1150.  Wilcoxon rank sum and signed rank tests did not return the
@@ -1220,8 +1220,8 @@ stopifnot(all.equal(sign(resid(glm2,"response")),sign(resid(glm2,"pearson"))))
 # shouldn't depend on link for a saturated model
 x<-rep(0:1,10)
 y<-rep(c(0,1,1,0,1),4)
-glm3<-glm(y~x,family=binomial(),control=glm.control(eps=1e-8))
-glm4<-glm(y~x,family=binomial("log"),control=glm.control(eps=1e-8))
+glm3<-glm(y~x,family=binomial(),control=glm.control(epsilon=1e-8))
+glm4<-glm(y~x,family=binomial("log"),control=glm.control(epsilon=1e-8))
 stopifnot(all.equal(resid(glm3,"pearson"),resid(glm4,"pearson")))
 
 
@@ -1236,7 +1236,7 @@ cancor(matrix(rnorm(100),100,1), matrix(rnorm(300),100,3))
 
 
 ## PR#1201: incorrect values in qbeta
-x <- seq(0, 0.8, len=1000)
+x <- seq(0, 0.8, length.out=1000)
 xx <- pbeta(qbeta(x, 0.143891, 0.05), 0.143891, 0.05)
 stopifnot(max(abs(x - xx)) < 1e-6)
 ##  Comments:  Get a range of zeroes in 1.3.1
@@ -1274,16 +1274,16 @@ DF <- data.frame(counts = c(18, 17, 15, 20, 10, 20, 25, 13, 12),
 fit <- glm(counts ~ outcome + treatment + offset(log(exposure)),
 	   family = poisson, data = DF)
 p1 <- predict(fit)
-p2 <- predict(fit, se = TRUE)  ## failed < 1.4.1
+p2 <- predict(fit, se.fit = TRUE)  ## failed < 1.4.1
 p3 <- predict(fit, newdata = DF)
-p4 <- predict(fit, newdata = DF, se = TRUE)
+p4 <- predict(fit, newdata = DF, se.fit = TRUE)
 stopifnot(all.equal(p1, p2$fit), all.equal(p1, p3), all.equal(p2, p4))
 fit <- glm(counts ~ outcome + treatment, offset = log(exposure),
 	   family = poisson, data = DF)
 p1 <- predict(fit)
-p2 <- predict(fit, se = TRUE)  ## failed < 1.4.1
+p2 <- predict(fit, se.fit = TRUE)  ## failed < 1.4.1
 p3 <- predict(fit, newdata = DF)
-p4 <- predict(fit, newdata = DF, se = TRUE)
+p4 <- predict(fit, newdata = DF, se.fit = TRUE)
 stopifnot(all.equal(p1, p2$fit), all.equal(p1, p3), all.equal(p2, p4))
 
 
@@ -1330,12 +1330,12 @@ stopifnot(identical(dimnames(c1), dimnames(c2)),
 	  identical(dimnames(qr.qty(q4,y40)), dimnames(y40)),
 	  identical(dimnames(qr.qy (q4,y04)), dimnames(y04)),
 
-	  all.equal(y1,	 qr.fitted(q4, y1 ), tol = 1e-12),
-	  all.equal(y4,	 qr.fitted(q4, y4 ), tol = 1e-12),
-	  all.equal(y40, qr.fitted(q4, y40), tol = 1e-12),
-	  all.equal(y04, qr.fitted(q4, y04), tol = 1e-12),
+	  all.equal(y1,	 qr.fitted(q4, y1 ), tolerance = 1e-12),
+	  all.equal(y4,	 qr.fitted(q4, y4 ), tolerance = 1e-12),
+	  all.equal(y40, qr.fitted(q4, y40), tolerance = 1e-12),
+	  all.equal(y04, qr.fitted(q4, y04), tolerance = 1e-12),
 
-	  all.equal(X4, qr.X(q4), tol = 1e-12)
+	  all.equal(X4, qr.X(q4), tolerance = 1e-12)
 )
 
 
@@ -1519,7 +1519,7 @@ ss <- smooth.spline(x, 10*sin(x))
 stopifnot(length(x) == length(predict(ss,deriv=1)$x))# not yet in 1.5.0
 
 ## pweibull(large, log=T):
-stopifnot(pweibull(seq(1,50,len=1001), 2,3, log = TRUE) < 0)
+stopifnot(pweibull(seq(1,50,length.out=1001), 2,3, log = TRUE) < 0)
 
 ## part of PR 1662: fisher.test with total one
 fisher.test(cbind(0, c(0,0,0,1)))
@@ -2131,7 +2131,7 @@ if(require(cluster, quietly = TRUE)) { # required package
   iC2 <- !names(hcag) %in% c("labels", "call")
   stopifnot(identical(hcagn[iC2], hcag[iC2]),
             identical(hcagn$labels, hcn$labels),
-            all.equal(hc$height, hcag$height, tol = 1e-12),
+            all.equal(hc$height, hcag$height, tolerance = 1e-12),
             all(hc$merge == hcag$merge | hc$merge == hcag$merge[ ,2:1])
             )
   detach("package:cluster")
@@ -2543,7 +2543,7 @@ stopifnot(identical(ns(x), ns(x, df = 1)),
 ## predict.bs
 ## Consistency:
 basis <- ns(women$height, df = 5)
-newX <- seq(58, 72, len = 51)
+newX <- seq(58, 72, length.out = 51)
 wh <- women$height
 bbase <- bs(wh)
 nbase <- ns(wh)
@@ -2654,11 +2654,11 @@ ep <- 32 * Meps
 for(meth in eval(formals(cor)$method)) {
     cat("method = ", meth,"\n")
     Cl <- cor(X, method = meth)
-    stopifnot(all.equal(Cl, cor(X, method= meth, use= "complete"), tol=ep),
-              all.equal(Cl, cor(X, method= meth, use= "pairwise"), tol=ep),
-              all.equal(Cl, cor(X, X, method= meth), tol=ep),
-              all.equal(Cl, cor(X, X, method= meth, use= "pairwise"), tol=ep),
-              all.equal(Cl, cor(X, X, method= meth, use= "pairwise"), tol=ep)
+    stopifnot(all.equal(Cl, cor(X, method= meth, use= "complete"), tolerance=ep),
+              all.equal(Cl, cor(X, method= meth, use= "pairwise"), tolerance=ep),
+              all.equal(Cl, cor(X, X, method= meth), tolerance=ep),
+              all.equal(Cl, cor(X, X, method= meth, use= "pairwise"), tolerance=ep),
+              all.equal(Cl, cor(X, X, method= meth, use= "pairwise"), tolerance=ep)
               )
 }
 ## "pairwise" failed in 1.8.0
@@ -3613,7 +3613,7 @@ regexpr("[a-z]", NA)
 
 ## PR#8033: density with 'Inf' in x:
 d <- density(1/0:2, kern = "rect", bw=1, from=0, to=1, n=2)
-stopifnot(all.equal(rep(1/sqrt(27), 2), d$y, tol=1e-14))
+stopifnot(all.equal(rep(1/sqrt(27), 2), d$y, tolerance=1e-14))
 ## failed in R 2.1.1 (since about 1.9.0)
 
 stopifnot(all.equal(Arg(-1), pi))
@@ -3827,7 +3827,7 @@ summary(surv)
 ## need fuzz even for ">=" :
 set.seed(1)
 stopifnot(all.equal(chisq.test(cbind(1:0, c(7,16)), simulate.p = TRUE)$p.value,
-                    0.3368315842, tol = 1e-6))
+                    0.3368315842, tolerance = 1e-6))
 ## some i686 platforms gave 0.00049975
 
 
@@ -3887,7 +3887,7 @@ aggregate(as.ts(c(1,2,3,4,5,6,7,8,9,10)),1/5,mean)
 ## prcomp(tol=1e-6)
 set.seed(16)
 x <- matrix(runif(30),ncol=10)
-s <- prcomp(x, tol=1e-6)
+s <- prcomp(x, tolerance=1e-6)
 stopifnot(length(s$sdev) == 3, ncol(s$rotation) == 2)
 summary(s)
 ## last failed in 2.2.0
@@ -4633,7 +4633,7 @@ stopifnot(plnorm(0, lower.tail=FALSE) == 1, plnorm(0, lower.tail=TRUE) == 0)
 
 
 ## supsmu with all NA values (PR#9519)
-x <- seq(0, 1, len = 100)
+x <- seq(0, 1, length.out = 100)
 y <- x + NA
 try(supsmu(x,y))
 ## segfaulted < 2.5.0
@@ -4774,12 +4774,12 @@ try({Call[] <- NULL; Call})
 x <- seq(0., 3, length = 101)
 nu <- -0.4
 stopifnot(all.equal(besselI(x,nu, TRUE),
-		    exp(-x)*besselI(x,nu, FALSE), tol = 1e-13))
+		    exp(-x)*besselI(x,nu, FALSE), tolerance = 1e-13))
 ## wrong in 2.5.0
 stopifnot(all.equal(besselY(seq(0.5, 3, 0.5), nu),
 		    c(0.309568577942, 0.568866844337, 0.626095631907,
 		      0.544013906248, 0.366321150943, 0.141533189246),
-		    tol = 1e-11))
+		    tolerance = 1e-11))
 ## wrong numbers in 2.5.0
 
 ### end of tests added in 2.5.1 ###
