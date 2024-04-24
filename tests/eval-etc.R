@@ -144,8 +144,8 @@ stopifnot(
     grepl("1L, NA_integer_", CO(withAutoprint(x <- c(1L, NA_integer_, NA))))
    ,
     identical(CO(r1 <- withAutoprint({ formals(withAutoprint); body(withAutoprint) })),
-	      CO(r2 <- source(expr = list(quote(formals(withAutoprint)),
-					  quote(body(withAutoprint)) ),
+	      CO(r2 <- source(exprs = list(quote(formals(withAutoprint)),
+					   quote(body(withAutoprint)) ),
 			      echo=TRUE))),
     identical(r1,r2)
 )
