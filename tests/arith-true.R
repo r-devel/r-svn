@@ -130,7 +130,7 @@ all.equal(digamma(n + 1/2),
 ## higher psigamma:
 all.equal(psigamma(1, deriv=c(1,3,5)),
           pi^(2*(1:3)) * c(1/6, 1/15, 8/63), tolerance = 32*Meps)
-x <- c(-100,-3:2, -99.9, -7.7, seq(-3,3, length=61), 5.1, 77)
+x <- c(-100,-3:2, -99.9, -7.7, seq(-3,3, length.out=61), 5.1, 77)
 ## Intel icc showed a < 1ulp difference in the second.
 stopifnot(all.equal( digamma(x), psigamma(x,0), tolerance = 2*Meps),
           all.equal(trigamma(x), psigamma(x,1), tolerance = 2*Meps))# TRUE (+ NaN warnings)
@@ -161,7 +161,7 @@ ok
 ## var():
 for(n in 2:10)
     print(all.equal(n*(n-1)*var(diag(n)),
-		    matrix(c(rep(c(n-1,rep(-1,n)),n-1), n-1), nr=n, nc=n),
+		    matrix(c(rep(c(n-1,rep(-1,n)),n-1), n-1), nrow=n, ncol=n),
 		    tolerance = 20*Meps)) # use tolerance = 0 to see rel.error
 
 ## pmin() & pmax() -- "attributes" !
@@ -180,20 +180,20 @@ oo <- options(warn = -1)# These four lines each would give 3-4 warnings :
 options(oo)
 
 ## pretty()
-stopifnot(pretty(1:15)	    == seq(0,16, by=2),
-	  pretty(1:15, h=2) == seq(0,15, by=5),
-	  pretty(1)	    == 0:1,
-	  pretty(pi)	    == c(2,4),
-	  pretty(pi, n=6)   == 2:4,
-	  pretty(pi, n=10)  == 2:5,
-	  pretty(pi, shr=.1)== c(3, 3.5))
+stopifnot(pretty(1:15)	              == seq(0,16, by=2),
+	  pretty(1:15, high.u.bias=2) == seq(0,15, by=5),
+	  pretty(1)	              == 0:1,
+	  pretty(pi)	              == c(2,4),
+	  pretty(pi, n=6)             == 2:4,
+	  pretty(pi, n=10)            == 2:5,
+	  pretty(pi, shrink.sml=.1)   == c(3, 3.5))
 
 ## gave infinite loop [R 0.64; Solaris], seealso PR#390 :
-all(pretty((1-1e-5)*c(1,1+3*Meps), 7) == seq(0,1,len=3))
+all(pretty((1-1e-5)*c(1,1+3*Meps), 7) == seq(0,1,length.out=3))
 
 n <- 1000
 x12 <- matrix(NA, 2,n); x12[,1] <- c(2.8,3) # Bug PR#673
-for(j in 1:2) x12[j, -1] <- round(rnorm(n-1), dig = rpois(n-1, lam=3.5) - 2)
+for(j in 1:2) x12[j, -1] <- round(rnorm(n-1), digits = rpois(n-1, lambda=3.5) - 2)
 for(i in 1:n) {
     lp <- length(p <- pretty(x <- sort(x12[,i])))
     stopifnot(p[1] <= x[1] & x[2] <= p[lp],
