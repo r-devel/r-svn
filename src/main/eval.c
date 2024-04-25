@@ -1840,7 +1840,7 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     PROTECT(call = lang2(fcall, fun));
     PROTECT(val = eval(call, R_GlobalEnv));
     if (TYPEOF(BODY(val)) != BCODESXP)
-	/* Compilation may have failed because R alocator could not malloc
+	/* Compilation may have failed because R allocator could not malloc
 	   memory to extend the R heap, so we run GC to release some pages.
 	   This problem has been observed while byte-compiling packages on
 	   installation: serialization uses malloc to allocate buffers and
@@ -2168,7 +2168,8 @@ static R_INLINE void R_CleanupEnvir(SEXP rho, SEXP val)
     }
 }
 
-#define NO_CALL_FRAME_ARGS_NR
+/* this needs more work -- PUSHCALLARG_RC needed in more places */
+//#define NO_CALL_FRAME_ARGS_NR
 
 static void unpromiseArgs(SEXP pargs)
 {
@@ -3104,14 +3105,6 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef SUPPORT_TAILCALL
     SEXP expr, env;
 
-    static Rboolean warned = FALSE;
-    if (! warned) {
-	warningcall_immediate(call,
-			      "'Tailcall' and 'Exec' are experimental and "
-			      "may be changed or removed before release");
-	warned = TRUE;
-    }
-
     if (PRIMVAL(op) == 0) { // exec
 	static SEXP formals = NULL;
 	if (formals == NULL)
@@ -4007,7 +4000,7 @@ attribute_hidden SEXP do_eval(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNPROTECT(1);
     }
     else if (TYPEOF(expr) == EXPRSXP) {
-	SEXP srcrefs = getBlockSrcrefs(expr);
+	volatile SEXP srcrefs = getBlockSrcrefs(expr);
 	PROTECT(expr);
 	tmp = R_NilValue;
 	begincontext(&cntxt, CTXT_RETURN, R_GlobalContext->call,
@@ -5094,30 +5087,30 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
     return R_binary(call, op, x, y);
 }
 
-#define Builtin1(do_fun,which,rho) do { \
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
-  SETSTACK(-1, CONS_NR(GETSTACK(-1), R_NilValue));		     \
-  SETSTACK(-1, do_fun(call, getPrimitive(which, BUILTINSXP), \
-		      GETSTACK(-1), rho));		     \
-  R_Visible = TRUE;					     \
-  NEXT(); \
-} while(0)
+#define Builtin1(do_fun,which,rho) do {					\
+	SEXP call = GETCONST(constants, GETOP());			\
+	SETSTACK(-1, CONS_NR(GETSTACK(-1), R_NilValue));		\
+	SETSTACK(-1, do_fun(call, getPrimitive(which, BUILTINSXP),	\
+			    GETSTACK(-1), rho));			\
+	R_Visible = TRUE;						\
+	NEXT();								\
+    } while(0)
 
-#define Builtin2(do_fun,which,rho) do {		     \
-  SEXP stack1 = GETSTACK(-1); \
-  SEXP stack2 = GETSTACK(-2); \
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
-  SEXP tmp = CONS_NR(stack1, R_NilValue); \
-  SETSTACK(-2, CONS_NR(stack2, tmp));     \
-  R_BCNodeStackTop--; \
-  SETSTACK(-1, do_fun(call, getPrimitive(which, BUILTINSXP),	\
-		      GETSTACK(-1), rho));			\
-  R_Visible = TRUE;						\
-  NEXT(); \
-} while(0)
+#define Builtin2(do_fun,which,rho) do {					\
+	SEXP stack1 = GETSTACK(-1);					\
+	SEXP stack2 = GETSTACK(-2);					\
+	SEXP call = GETCONST(constants, GETOP());			\
+	SEXP tmp = CONS_NR(stack1, R_NilValue);				\
+	SETSTACK(-2, CONS_NR(stack2, tmp));				\
+	R_BCNodeStackTop--;						\
+	SETSTACK(-1, do_fun(call, getPrimitive(which, BUILTINSXP),	\
+			    GETSTACK(-1), rho));			\
+	R_Visible = TRUE;						\
+	NEXT();								\
+    } while(0)
 
 #define NewBuiltin2(do_fun,opval,opsym,rho) do {	\
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
+  SEXP call = GETCONST(constants, GETOP()); \
   SEXP x = GETSTACK(-2); \
   SEXP y = GETSTACK(-1); \
   SETSTACK(-2, do_fun(call, opval, opsym, x, y,rho));	\
@@ -5127,7 +5120,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 } while(0)
 
 #define Arith1(opsym) do {		\
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
+  SEXP call = GETCONST(constants, GETOP()); \
   SEXP x = GETSTACK(-1); \
   SETSTACK(-1, cmp_arith1(call, opsym, x, rho)); \
   R_Visible = TRUE; \
@@ -5145,7 +5138,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	if (vx->tag == REALSXP) {					\
 	    double dval = fun(vx->u.dval);				\
 	    if (ISNAN(dval)) {						\
-		SEXP call = VECTOR_ELT(constants, GETOP());		\
+		SEXP call = GETCONST(constants, GETOP());		\
 		if (ISNAN(vx->u.dval)) dval = vx->u.dval;		\
 		else warningcall(call, R_MSG_NA);			\
 	    }								\
@@ -5157,7 +5150,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	else if (vx->tag == INTSXP && vx->u.ival != NA_INTEGER) {	\
 	    double dval = fun((double) vx->u.ival);			\
 	    if (ISNAN(dval)) {						\
-		SEXP call = VECTOR_ELT(constants, GETOP());		\
+		SEXP call = GETCONST(constants, GETOP());		\
 		warningcall(call, R_MSG_NA);				\
 	    }								\
 	    else SKIP_OP();						\
@@ -5249,7 +5242,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	if (vx->tag == REALSXP) {					\
 	    double dval = R_log(vx->u.dval);				\
 	    if (ISNAN(dval)) {						\
-		SEXP call = VECTOR_ELT(constants, GETOP());		\
+		SEXP call = GETCONST(constants, GETOP());		\
 		if (ISNAN(vx->u.dval)) dval = vx->u.dval;		\
 		else warningcall(call, R_MSG_NA);			\
 	    }								\
@@ -5258,7 +5251,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	    R_Visible = TRUE;						\
 	    NEXT();							\
 	}								\
-	SEXP call = VECTOR_ELT(constants, GETOP());			\
+	SEXP call = GETCONST(constants, GETOP());			\
 	SEXP args = CONS_NR(GETSTACK(-1), R_NilValue);			\
 	SETSTACK(-1, args); /* to protect */				\
 	SEXP op = getPrimitive(R_LogSym, SPECIALSXP);			\
@@ -5274,7 +5267,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	if (vx->tag == REALSXP && vy->tag == REALSXP) {			\
 	    double dval = logbase(vx->u.dval, vy->u.dval);		\
 	    if (ISNAN(dval)) {						\
-		SEXP call = VECTOR_ELT(constants, GETOP());		\
+		SEXP call = GETCONST(constants, GETOP());		\
 		if (ISNAN(vx->u.dval)) dval = vx->u.dval;		\
 		else if (ISNAN(vy->u.dval)) dval = vy->u.dval;		\
 		else warningcall(call, R_MSG_NA);			\
@@ -5285,7 +5278,7 @@ static SEXP cmp_arith2(SEXP call, int opval, SEXP opsym, SEXP x, SEXP y,
 	    R_Visible = TRUE;						\
 	    NEXT();							\
 	}								\
-	SEXP call = VECTOR_ELT(constants, GETOP());			\
+	SEXP call = GETCONST(constants, GETOP());			\
 	SEXP tmp = GETSTACK(-2);					\
 	SEXP args = CONS_NR(tmp, CONS_NR(GETSTACK(-1), R_NilValue));	\
 	R_BCNodeStackTop--;						\
@@ -5340,7 +5333,7 @@ static R_INLINE double (*getMath1Fun(int i, SEXP call))(double) {
 }
 
 #define DO_MATH1() do {							\
-	SEXP call = VECTOR_ELT(constants, GETOP());			\
+	SEXP call = GETCONST(constants, GETOP());			\
 	double (*fun)(double) = getMath1Fun(GETOP(), call);		\
 	R_bcstack_t vvx;						\
 	R_bcstack_t *vx = bcStackScalarReal(R_BCNodeStackTop - 1, &vvx); \
@@ -5367,7 +5360,7 @@ static R_INLINE double (*getMath1Fun(int i, SEXP call))(double) {
 
 #define DOTCALL_MAX 16
 #define DO_DOTCALL() do {						\
-	SEXP call = VECTOR_ELT(constants, GETOP());			\
+	SEXP call = GETCONST(constants, GETOP());			\
 	int nargs = GETOP();						\
 	DL_FUNC ofun = R_dotCallFn(GETSTACK(- nargs - 1), call, nargs);	\
 	if (ofun && nargs <= DOTCALL_MAX) {				\
@@ -5555,7 +5548,13 @@ static R_INLINE SEXP getForLoopSeq(int offset, Rboolean *iscompact)
 #define BCIPOPPTR() ((--R_BCIntStackTop)->p)
 #define BCIPOPINT() ((--R_BCIntStackTop)->i)
 
-#define BCCONSTS(e) BCODE_CONSTS(e)
+/* use a struct to force use of correct accessors */
+typedef struct { SEXP const *p; } R_bcconsts_t;
+
+#define BCCONSTS(e) \
+    (R_bcconsts_t) {((SEXP const *) DATAPTR_RO(BCODE_CONSTS(e)))}
+#define BCCONSTS_LEN(e) XLENGTH(BCODE_CONSTS(e))
+#define GETCONST(x, i) ((x).p)[i]
 
 NORET static void nodeStackOverflow(void)
 {
@@ -5566,7 +5565,7 @@ NORET static void nodeStackOverflow(void)
 }
 
 #define NELEMS_FOR_SIZE(size) \
-    ((int) ((size + sizeof(R_bcstack_t) - 1) / sizeof(R_bcstack_t)))
+    ((int) (((size) + sizeof(R_bcstack_t) - 1) / sizeof(R_bcstack_t)))
 
 /* Allocate contiguous space on the node stack */
 static R_INLINE void* BCNALLOC(size_t size)
@@ -5605,8 +5604,8 @@ static R_INLINE void BCNPOP_AND_END_CNTXT(void) {
 static SEXP bytecodeExpr(SEXP e)
 {
     if (isByteCode(e)) {
-	if (LENGTH(BCCONSTS(e)) > 0)
-	    return VECTOR_ELT(BCCONSTS(e), 0);
+	if (LENGTH(BCODE_CONSTS(e)) > 0)
+	    return VECTOR_ELT(BCODE_CONSTS(e), 0);
 	else return R_NilValue;
     }
     else return e;
@@ -5864,6 +5863,15 @@ static R_INLINE SEXP findVarEX(SEXP symbol, SEXP rho, Rboolean dd,
 	return findVar(symbol, rho);
 }
 
+#ifdef IMMEDIATE_PROMISE_VALUES
+# define SET_PROMISE_DVAL SET_BNDCELL_DVAL
+# define SET_PROMISE_IVAL SET_BNDCELL_IVAL
+# define SET_PROMISE_LVAL SET_BNDCELL_LVAL
+#endif
+#define PROMISE_DVAL BNDCELL_DVAL
+#define PROMISE_IVAL BNDCELL_IVAL
+#define PROMISE_LVAL BNDCELL_LVAL
+
 static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 			    Rboolean dd, Rboolean keepmiss,
 			    R_binding_cache_t vcache, int sidx)
@@ -5895,27 +5903,27 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     }
 }
 
-#define DO_GETVAR_FORCE_PROMISE_RETURN() do {				\
-	R_bcstack_t ubval = R_BCNodeStackTop[-1];			\
-	POP_PENDING_PROMISE(BCFRAME_PRSTACK());				\
-	SEXP prom, value;						\
-	END_BCFRAME_PROM();						\
+#ifdef IMMEDIATE_PROMISE_VALUES
+# define SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval)  do {		\
+	SEXP value;							\
 	SET_PROMISE_TAG(prom, ubval.tag);				\
-	switch (ubval.tag) {						\
-	case REALSXP: SET_PROMISE_DVAL(prom, ubval.u.dval); break;	\
-	case INTSXP: SET_PROMISE_IVAL(prom, ubval.u.ival); break;	\
-	case LGLSXP: SET_PROMISE_LVAL(prom, ubval.u.ival); break;	\
+	switch ((ubval).tag) {						\
+	case REALSXP: SET_PROMISE_DVAL(prom, (ubval).u.dval); break;	\
+	case INTSXP: SET_PROMISE_IVAL(prom, (ubval).u.ival); break;	\
+	case LGLSXP: SET_PROMISE_LVAL(prom, (ubval).u.ival); break;	\
 	default:							\
 	    value = STACKVAL_TO_SEXP(ubval);				\
 	    SET_PRVALUE(prom, value);					\
 	    ENSURE_NAMEDMAX(value);					\
 	}								\
-	SET_PRSEEN(prom, 0);						\
-	SET_PRENV(prom, R_NilValue);					\
-	UNPROTECT(1); /* prom */					\
-	BCNPUSH_STACKVAL(ubval);					\
-	NEXT();								\
-    } while (0)
+    } while(0)
+#else
+# define SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval)  do {		\
+	SEXP value = STACKVAL_TO_SEXP(ubval);				\
+	SET_PRVALUE(prom, value);					\
+	ENSURE_NAMEDMAX(value);						\
+    } while(0)
+#endif
 
 #define INLINE_GETVAR
 #ifdef INLINE_GETVAR
@@ -5934,7 +5942,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	SEXP cell = GET_SMALLCACHE_BINDING_CELL(vcache, sidx);		\
 	if (cell == R_NilValue) {					\
 	    /* make sure local variable cells are cached */		\
-	    SEXP symbol = VECTOR_ELT(constants, sidx);			\
+	    SEXP symbol = GETCONST(constants, sidx);			\
 	    cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);	\
 	}								\
 	/* handle immediate binings */					\
@@ -5979,21 +5987,14 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	    }								\
 	}								\
     }									\
-    SEXP symbol = VECTOR_ELT(constants, sidx);				\
+    SEXP symbol = GETCONST(constants, sidx);				\
     SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);		\
     if (! keepmiss && TYPEOF(value) == PROMSXP &&			\
 	! PRSEEN(value) && ! PROMISE_IS_EVALUATED(value) &&		\
 	TYPEOF(PRCODE(value)) == BCODESXP) {				\
-	SEXP prom = PROTECT(value);					\
-	SET_PRSEEN(prom, 1);						\
-	START_BCFRAME_PROM();						\
-	PUSH_PENDING_PROMISE(prom, BCFRAME_PRSTACK());			\
-	body = PRCODE(prom);						\
-	rho = PRENV(prom);						\
-	locals = bcode_setup_locals(body, rho);				\
-	RESTORE_BCEVAL_LOCALS(&locals);					\
+	START_BCFRAME_PROM(value);					\
 	NEXT();								\
-	/* continuation is handled in DO_GETVAR_FORCE_PROMISE_RETURN */	\
+	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
     }									\
     BCNPUSH(getvar(symbol, rho, dd, keepmiss, vcache, sidx));		\
     NEXT();								\
@@ -6001,7 +6002,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 #else
 #define DO_GETVAR(dd,keepmiss) do { \
   int sidx = GETOP(); \
-  SEXP symbol = VECTOR_ELT(constants, sidx); \
+  SEXP symbol = GETCONST(constants, sidx); \
   R_Visible = TRUE; \
   BCNPUSH(getvar(symbol, rho, dd, keepmiss, vcache, sidx));	\
   NEXT(); \
@@ -6157,7 +6158,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 }
 
 #define DO_STARTDISPATCH(generic) do { \
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
+  SEXP call = GETCONST(constants, GETOP()); \
   int label = GETOP(); \
   SEXP value = GETSTACK(-1); \
   if (isObject(value) && tryDispatch(generic, call, value, rho, &value)) {\
@@ -6185,7 +6186,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 } while (0)
 
 #define DO_START_ASSIGN_DISPATCH(generic) do { \
-  SEXP call = VECTOR_ELT(constants, GETOP()); \
+  SEXP call = GETCONST(constants, GETOP()); \
   int label = GETOP(); \
   SEXP lhs = GETSTACK(-2); \
   SEXP rhs = GETSTACK(-1); \
@@ -6228,7 +6229,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     int callidx = GETOP(); \
     SEXP value = GETSTACK(-1); \
     if (isObject(value)) { \
-	SEXP call = VECTOR_ELT(constants, callidx); \
+	SEXP call = GETCONST(constants, callidx); \
 	if (tryDispatch(generic, call, value, rho, &value)) { \
 	    SETSTACK(-1, value); \
 	    BC_CHECK_SIGINT(); \
@@ -6246,7 +6247,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     int label = GETOP(); \
     SEXP lhs = GETSTACK(-2); \
     if (isObject(lhs)) { \
-	SEXP call = VECTOR_ELT(constants, callidx); \
+	SEXP call = GETCONST(constants, callidx); \
 	MARK_ASSIGNMENT_CALL(call); \
 	SEXP rhs = GETSTACK(-1); \
 	if (MAYBE_SHARED(lhs)) { \
@@ -6393,7 +6394,7 @@ static R_INLINE SEXP mkVector1(SEXP s)
 
 static R_INLINE void VECSUBSET_PTR(SEXP vec, R_bcstack_t *si,
 				   R_bcstack_t *sv, SEXP rho,
-				   SEXP consts, int callidx,
+				   R_bcconsts_t consts, int callidx,
 				   Rboolean subset2)
 {
     R_xlen_t i = bcStackIndex(si) - 1;
@@ -6406,7 +6407,7 @@ static R_INLINE void VECSUBSET_PTR(SEXP vec, R_bcstack_t *si,
     args = CONS_NR(idx, R_NilValue);
     args = CONS_NR(vec, args);
     PROTECT(args);
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     if (subset2)
 	value = do_subset2_dflt(call, R_Subset2Sym, args, rho);
     else
@@ -6496,7 +6497,7 @@ static R_INLINE R_xlen_t colMajorStackIndex(SEXP dim, int rank, R_bcstack_t *si)
 static R_INLINE void MATSUBSET_PTR(R_bcstack_t *sx,
 				   R_bcstack_t *si, R_bcstack_t *sj,
 				   R_bcstack_t *sv, SEXP rho,
-				   SEXP consts, int callidx,
+				   R_bcconsts_t consts, int callidx,
 				   Rboolean subset2)
 {
     SEXP idx, jdx, args, value;
@@ -6523,7 +6524,7 @@ static R_INLINE void MATSUBSET_PTR(R_bcstack_t *sx,
     args = CONS_NR(idx, args);
     args = CONS_NR(mat, args);
     PROTECT(args);
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     if (subset2)
 	value = do_subset2_dflt(call, R_Subset2Sym, args, rho);
     else
@@ -6560,7 +6561,7 @@ static R_INLINE SEXP getStackArgsList(int n, R_bcstack_t *start)
 
 static R_INLINE void SUBSET_N_PTR(R_bcstack_t *sx, int rank,
 				  R_bcstack_t *si, R_bcstack_t *sv,
-				  SEXP rho, SEXP consts, int callidx,
+				  SEXP rho, R_bcconsts_t consts, int callidx,
 				  Rboolean subset2)
 {
     SEXP args, value;
@@ -6577,7 +6578,7 @@ static R_INLINE void SUBSET_N_PTR(R_bcstack_t *sx, int rank,
 
     /* fall through to the standard default handler */
     PROTECT(args = CONS_NR(x, getStackArgsList(rank, si)));
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     if (subset2)
 	value = do_subset2_dflt(call, R_Subset2Sym, args, rho);
     else
@@ -6649,8 +6650,8 @@ static R_INLINE Rboolean setElementFromScalar(SEXP vec, R_xlen_t i,
 
 static R_INLINE void VECSUBASSIGN_PTR(SEXP vec, R_bcstack_t *srhs,
 				      R_bcstack_t *si, R_bcstack_t *sv,
-				      SEXP rho, SEXP consts, int callidx,
-				      Rboolean subassign2)
+				      SEXP rho, R_bcconsts_t consts,
+				      int callidx, Rboolean subassign2)
 {
     SEXP idx, args, value;
 
@@ -6666,7 +6667,7 @@ static R_INLINE void VECSUBASSIGN_PTR(SEXP vec, R_bcstack_t *srhs,
     args = CONS_NR(idx, args);
     args = CONS_NR(vec, args);
     PROTECT(args);
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     MARK_ASSIGNMENT_CALL(call);
     if (subassign2)
 	vec = do_subassign2_dflt(call, R_Subassign2Sym, args, rho);
@@ -6719,8 +6720,8 @@ static R_INLINE void VECSUBASSIGN_PTR(SEXP vec, R_bcstack_t *srhs,
 static R_INLINE void MATSUBASSIGN_PTR(R_bcstack_t *sx, R_bcstack_t *srhs,
 				      R_bcstack_t *si, R_bcstack_t *sj,
 				      R_bcstack_t *sv,
-				      SEXP rho, SEXP consts, int callidx,
-				      Rboolean subassign2)
+				      SEXP rho, R_bcconsts_t consts,
+				      int callidx, Rboolean subassign2)
 {
     SEXP dim, idx, jdx, args, value;
     SEXP mat = GETSTACK_PTR(sx);
@@ -6753,7 +6754,7 @@ static R_INLINE void MATSUBASSIGN_PTR(R_bcstack_t *sx, R_bcstack_t *srhs,
     args = CONS_NR(idx, args);
     args = CONS_NR(mat, args);
     PROTECT(args);
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     MARK_ASSIGNMENT_CALL(call);
     if (subassign2)
 	mat = do_subassign2_dflt(call, R_Subassign2Sym, args, rho);
@@ -6775,8 +6776,8 @@ static R_INLINE void MATSUBASSIGN_PTR(R_bcstack_t *sx, R_bcstack_t *srhs,
 static R_INLINE void SUBASSIGN_N_PTR(R_bcstack_t *sx, int rank,
 				     R_bcstack_t *srhs,
 				     R_bcstack_t *si, R_bcstack_t *sv,
-				     SEXP rho, SEXP consts, int callidx,
-				     Rboolean subassign2)
+				     SEXP rho, R_bcconsts_t consts,
+				     int callidx, Rboolean subassign2)
 {
     SEXP dim, args, value;
     SEXP x = GETSTACK_PTR(sx);
@@ -6799,7 +6800,7 @@ static R_INLINE void SUBASSIGN_N_PTR(R_bcstack_t *sx, int rank,
     args = CONS_NR(value, R_NilValue);
     SET_TAG(args, R_valueSym);
     PROTECT(args = CONS_NR(x, addStackArgsList(rank, si, args)));
-    SEXP call = callidx < 0 ? consts : VECTOR_ELT(consts, callidx);
+    SEXP call = callidx < 0 ? R_NilValue : GETCONST(consts, callidx);
     MARK_ASSIGNMENT_CALL(call);
     if (subassign2)
 	x = do_subassign2_dflt(call, R_Subassign2Sym, args, rho);
@@ -6827,11 +6828,11 @@ static R_INLINE void SUBASSIGN_N_PTR(R_bcstack_t *sx, int rank,
 	    SETSTACK(-1, ScalarLogical(SCALAR_LVAL(val)));		\
 	else {								\
 	    if (!isNumber(val))						\
-		errorcall(VECTOR_ELT(constants, callidx),		\
+		errorcall(GETCONST(constants, callidx),			\
 			  _("invalid %s type in 'x %s y'"), arg, op);	\
 	    SETSTACK(-1, ScalarLogical(asLogical2(			\
 					   val, /*checking*/ 1,		\
-					   VECTOR_ELT(constants, callidx) \
+					   GETCONST(constants, callidx) \
 					   )));				\
 	}								\
     } while(0)
@@ -6894,7 +6895,7 @@ typedef struct {
 #define GET_FOR_LOOP_BINDING() GETSTACK_SXPVAL(-3)
 #define GET_FOR_LOOP_SEQ() GETSTACK_SXPVAL(-4)
 #define SET_FOR_LOOP_SEQ(v) SETSTACK(-4, v);
-#define SET_FOR_LOOP_BCPROT_OFFSET(v) SETSTACK_INTEGER(-5, v)
+#define SET_FOR_LOOP_BCPROT_OFFSET(v) SETSTACK_INTEGER(-5, (int) (v))
 #define GET_FOR_LOOP_BCPROT_OFFSET() GETSTACK_IVAL_PTR(R_BCNodeStackTop - 5)
 #define INSERT_FOR_LOOP_BCPROT_OFFSET() do {				\
 	/* insert space for the BCProt offset below the sequence */	\
@@ -6943,7 +6944,7 @@ static R_INLINE SEXP SymbolValue(SEXP sym)
 }
 
 #define DO_BASEGUARD() do {				\
-	SEXP expr = VECTOR_ELT(constants, GETOP());	\
+	SEXP expr = GETCONST(constants, GETOP());	\
 	int label = GETOP();				\
 	SEXP sym = CAR(expr);				\
 	if (findFun(sym, rho) != SymbolValue(sym)) {	\
@@ -6960,7 +6961,8 @@ static R_INLINE SEXP SymbolValue(SEXP sym)
 
 /* rho only needed for _R_CHECK_LENGTH_1_CONDITION_=package:name */
 static R_INLINE Rboolean GETSTACK_LOGICAL_NO_NA_PTR(R_bcstack_t *s, int callidx,
-						    SEXP constants, SEXP rho)
+						    R_bcconsts_t constants,
+						    SEXP rho)
 {
     if (s->tag == LGLSXP && s->u.ival != NA_LOGICAL)
 	return s->u.ival;
@@ -6971,7 +6973,7 @@ static R_INLINE Rboolean GETSTACK_LOGICAL_NO_NA_PTR(R_bcstack_t *s, int callidx,
 	if (lval != NA_LOGICAL)
 	    return lval;
     }
-    SEXP call = VECTOR_ELT(constants, callidx);
+    SEXP call = GETCONST(constants, callidx);
     PROTECT(value);
     Rboolean ans = asLogicalNoNA(value, call, rho);
     UNPROTECT(1);
@@ -7012,6 +7014,16 @@ static SEXP getLocTableElt(ptrdiff_t relpc, SEXP table, SEXP constants)
     return VECTOR_ELT(constants, cidx);
 }
 
+attribute_hidden ptrdiff_t R_BCRelPC(SEXP body, void *currentpc)
+{
+    /* used to capture the pc offset from its codebase at the time a
+       context is created */
+    if (body && currentpc)
+	return *((BCODE **) currentpc) - BCCODE(body);
+    else
+	return -1;
+}
+
 /* Return the srcref/expression for the current instruction/operand
    being executed by the byte-code interpreter, or the one that was
    current when the supplied context was created. */
@@ -7022,11 +7034,15 @@ static SEXP R_findBCInterpreterLocation(RCNTXT *cptr, const char *iname)
 	/* This has happened, but it is not clear how. */
 	/* (R_Srcref == R_InBCInterpreter && R_BCbody == NULL) */
 	return R_NilValue;
-    SEXP constants = BCCONSTS(body);
+    SEXP constants = BCODE_CONSTS(body);
     SEXP ltable = findLocTable(constants, iname);
     if (ltable == R_NilValue)
 	/* location table not available */
 	return R_NilValue;
+
+    /* use relpc stored in the contect if available */
+    if (cptr && cptr->relpc > 0)
+	return getLocTableElt(cptr->relpc, ltable, constants);
 
     BCODE *codebase = BCCODE(body);
     ptrdiff_t relpc = (*((BCODE **)(cptr ? cptr->bcpc : R_BCpc))) - codebase;
@@ -7220,8 +7236,7 @@ struct bcEval_globals {
     int oldevdepth;
 };
 
-static R_INLINE void save_bcEval_globals(struct bcEval_globals *g,
-					 SEXP body)
+static R_INLINE void save_bcEval_globals(struct bcEval_globals *g)
 {
     g->oldntop = R_BCNodeStackTop;
     g->oldbcintactive = R_BCIntActive;
@@ -7235,17 +7250,13 @@ static R_INLINE void save_bcEval_globals(struct bcEval_globals *g,
     g->old_bcprot_top = R_BCProtTop;
     g->old_bcprot_committed = R_BCProtCommitted;
     g->oldevdepth = R_EvalDepth;
-    if (body)
-	INCREMENT_BCSTACK_LINKS();
+    INCREMENT_BCSTACK_LINKS();
 }
 
-static R_INLINE void restore_bcEval_globals(struct bcEval_globals *g,
-					    SEXP body)
+static R_INLINE void restore_bcEval_globals(struct bcEval_globals *g)
 {
-    if (body) {
-	R_BCNodeStackTop = R_BCProtTop;
-	DECREMENT_BCSTACK_LINKS(g->old_bcprot_top);
-    }
+    R_BCNodeStackTop = R_BCProtTop;
+    DECREMENT_BCSTACK_LINKS(g->old_bcprot_top);
     R_EvalDepth = g->oldevdepth;
     R_BCProtCommitted = g->old_bcprot_committed;
     R_BCNodeStackTop = g->oldntop;
@@ -7299,15 +7310,15 @@ struct cntxt_loop_locals {
     BCODE *break_pc;
 };
 
-#define PUSH_LOOP_LOCALS() do {					\
-	struct cntxt_loop_locals *loc =			\
-	    BCNALLOC(sizeof(struct cntxt_loop_locals));	\
+#define PUSH_LOOP_LOCALS(bpc) do {				\
+	struct cntxt_loop_locals *loc =				\
+	    BCNALLOC(sizeof(struct cntxt_loop_locals));		\
 	SAVE_BCEVAL_LOCALS(&(loc->locals));			\
-	loc->break_pc = break_pc;				\
+	loc->break_pc = (bpc);					\
     } while (0)
 
 #define POP_LOOP_LOCALS() do {					\
-	BCNPOP_ALLOC(sizeof(struct cntxt_loop_locals));	\
+	BCNPOP_ALLOC(sizeof(struct cntxt_loop_locals));		\
     } while (0)
 
 static R_INLINE
@@ -7328,6 +7339,7 @@ struct R_bcFrame {
     struct bcEval_locals locals;
     RCNTXT *pcntxt; // NULL means this is a promise frame
     union {
+	struct { SEXP newrho; SEXP args; SEXP call; } callvars;
 	struct { SEXP promise; RPRSTACK prstack; } promvars;
     } u;
 };
@@ -7335,47 +7347,47 @@ struct R_bcFrame {
 #define BCFRAME_LOCALS() (&(R_BCFrame->locals))
 #define BCFRAME_GLOBALS() (&(R_BCFrame->globals))
 #define BCFRAME_CNTXT() (R_BCFrame->pcntxt)
+#define BCFRAME_NEWRHO() (R_BCFrame->u.callvars.newrho)
+#define SET_BCFRAME_NEWRHO(val) (R_BCFrame->u.callvars.newrho = (val))
+#define BCFRAME_ARGS() (R_BCFrame->u.callvars.args)
+#define SET_BCFRAME_ARGS(val) (R_BCFrame->u.callvars.args = (val))
+#define BCFRAME_CALL() (R_BCFrame->u.callvars.call)
+#define SET_BCFRAME_CALL(val) (R_BCFrame->u.callvars.call = (val))
 #define BCFRAME_PROMISE() (R_BCFrame->u.promvars.promise)
 #define SET_BCFRAME_PROMISE(val) (R_BCFrame->u.promvars.promise = (val))
 #define BCFRAME_PRSTACK() (&(R_BCFrame->u.promvars.prstack))
 
-/* Allocate R context on the node stack */
-static R_INLINE R_bcFrame_type *BCNALLOC_BCFRAME(SEXP body, Rboolean call)
+/* Allocate activation frame for inline calls on the node stack */
+static R_INLINE R_bcFrame_type *PUSH_BCFRAME(Rboolean need_cntxt)
 {
     R_bcstack_t *oldtop = R_BCNodeStackTop;
-    RCNTXT *pcntxt = call ? BCNALLOC_CNTXT() : NULL;
+    RCNTXT *pcntxt = need_cntxt ? BCNALLOC_CNTXT() : NULL;
     R_bcFrame_type *rec = (R_bcFrame_type *) BCNALLOC(sizeof(R_bcFrame_type));
-    save_bcEval_globals(&(rec->globals), body);
+    save_bcEval_globals(&(rec->globals));
+    /* modify saved stack top to the value before pushing the frame */
     rec->globals.oldntop = oldtop; // must come after save_bcEval_globals!!
     rec->pcntxt = pcntxt;
     return rec;
 }
 
-#define START_BCFRAME_PROM() do {				\
-	R_BCFrame = BCNALLOC_BCFRAME(body, FALSE);		\
-	SAVE_BCEVAL_LOCALS(BCFRAME_LOCALS());			\
-	INCREMENT_EVAL_DEPTH();					\
-	SET_BCFRAME_PROMISE(prom);				\
-	R_Visible = TRUE;					\
-    } while (0)
-
-#define END_BCFRAME_PROM() do {					\
-	prom = BCFRAME_PROMISE();				\
-	RESTORE_BCEVAL_LOCALS(BCFRAME_LOCALS());		\
-	restore_bcEval_globals(BCFRAME_GLOBALS(), body);	\
-    } while (0)
+static R_INLINE R_bcstack_t POP_BCFRAME(Rboolean has_cntxt)
+{
+    R_bcstack_t val = has_cntxt ?
+	BCFRAME_CNTXT()->returnValue :
+	R_BCNodeStackTop[-1];
+    restore_bcEval_globals(BCFRAME_GLOBALS());
+    return val;
+}
 
 struct vcache_info { R_binding_cache_t vcache; Rboolean smallcache; };
-struct bcEval_jmpbufs { JMP_BUF for_loop, loop; };
 
 static R_INLINE struct vcache_info setup_vcache(SEXP body)
 {
-    SEXP constants = BCCONSTS(body);
     R_binding_cache_t vcache = NULL;
     Rboolean smallcache = TRUE;
 
 #ifdef USE_BINDING_CACHE
-    R_xlen_t n = XLENGTH(constants);
+    R_xlen_t n = BCCONSTS_LEN(body);
 # ifdef CACHE_MAX
     if (n > CACHE_MAX) {
 	n = CACHE_MAX;
@@ -7420,68 +7432,154 @@ bcode_setup_locals(SEXP body, SEXP rho)
     return loc;
 }
 
-static SEXP
-bcEval_loop(struct bcEval_locals *,
-	    struct bcEval_globals *,
-	    struct bcEval_jmpbufs *);
+static R_INLINE struct bcEval_locals
+setup_bcframe_call(SEXP call, SEXP fun, SEXP args, SEXP rho)
+{
+    SEXP newrho = make_applyClosure_env(call, fun, args, rho, R_NilValue);
+    PROTECT(newrho);
+    R_BCFrame = PUSH_BCFRAME(TRUE);
+    begincontext(BCFRAME_CNTXT(), CTXT_RETURN, call, newrho, rho, args, fun);
+    INCREMENT_EVAL_DEPTH();
+    SET_BCFRAME_NEWRHO(newrho);
+    SET_BCFRAME_CALL(call);
+    SET_BCFRAME_ARGS(args);
+    R_Visible = TRUE;
+    return bcode_setup_locals(BODY(fun), newrho);
+}
+
+#define START_BCFRAME_CALL() do {				\
+	BC_CHECK_SIGINT();					\
+	struct bcEval_locals locals =				\
+	    setup_bcframe_call(call, fun, args, rho);		\
+	SAVE_BCEVAL_LOCALS(BCFRAME_LOCALS());			\
+	RESTORE_BCEVAL_LOCALS(&locals);				\
+    } while (0)
+
+static R_INLINE void finish_inline_closure_call(void)
+{
+    endcontext(BCFRAME_CNTXT());
+    SEXP newrho = BCFRAME_NEWRHO();
+    SEXP args = BCFRAME_ARGS();
+    SEXP call = BCFRAME_CALL();
+    R_bcstack_t unboxed_val = POP_BCFRAME(TRUE);
+
+    if (unboxed_val.tag) {
+#ifdef ADJUST_ENVIR_REFCNTS
+	R_CleanupEnvir(newrho, R_NilValue);
+	unpromiseArgs(args);
+#endif
+	UNPROTECT(1); /* newrho */
+	POP_CALL_FRAME(R_NilValue);/**** maybe unboxed version?*/
+	R_BCNodeStackTop[-1] = unboxed_val;
+    }
+    else {
+	SEXP value = unboxed_val.u.sxpval;
+#ifdef ADJUST_ENVIR_REFCNTS
+	Rboolean is_getter_call =
+	    (CADR(call) == R_TmpvalSymbol &&
+	     ! R_isReplaceSymbol(CAR(call)));
+	R_CleanupEnvir(newrho, value);
+	if (is_getter_call && MAYBE_REFERENCED(value))
+	    value = shallow_duplicate(value);
+	unpromiseArgs(args);
+#endif
+#ifdef SUPPORT_TAILCALL
+	/**** this could try to stay in the same bcEval, but don't
+	      bother for now */
+	value = handle_exec_continuation(value);
+#endif
+	UNPROTECT(1); /* newrho */
+	POP_CALL_FRAME(value);
+    }
+}
+
+#define DO_INLINE_CLOSURE_CALL_RETURN() do {			\
+	RESTORE_BCEVAL_LOCALS(BCFRAME_LOCALS());		\
+	finish_inline_closure_call();				\
+	NEXT();							\
+    } while (0)
+
+static R_INLINE struct bcEval_locals setup_bcframe_prom(SEXP prom)
+{
+    PROTECT(prom);
+    SET_PRSEEN(prom, 1);
+    R_BCFrame = PUSH_BCFRAME(FALSE);
+    INCREMENT_EVAL_DEPTH();
+    SET_BCFRAME_PROMISE(prom);
+    PUSH_PENDING_PROMISE(prom, BCFRAME_PRSTACK());
+    R_Visible = TRUE;
+    return bcode_setup_locals(PRCODE(prom), PRENV(prom));
+}
+
+#define START_BCFRAME_PROM(prom) do {				\
+	struct bcEval_locals locals =				\
+	    setup_bcframe_prom(prom);				\
+	SAVE_BCEVAL_LOCALS(BCFRAME_LOCALS());			\
+	RESTORE_BCEVAL_LOCALS(&locals);				\
+    } while (0)
+
+static R_INLINE void finish_force_promise(void)
+{
+    POP_PENDING_PROMISE(BCFRAME_PRSTACK());
+    SEXP prom = BCFRAME_PROMISE();
+    R_bcstack_t ubval = POP_BCFRAME(FALSE);
+    SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval);
+    SET_PRSEEN(prom, 0);
+    SET_PRENV(prom, R_NilValue);
+    UNPROTECT(1); /* prom */
+    BCNPUSH_STACKVAL(ubval);
+}
+
+#define DO_GETVAR_FORCE_PROMISE_RETURN() do {			\
+	RESTORE_BCEVAL_LOCALS(BCFRAME_LOCALS());		\
+	finish_force_promise();					\
+	NEXT();							\
+    } while (0)
+
+#define INLINE_CLOSURE_CALL_OK(fun)				\
+    (! R_disable_bytecode && TYPEOF(BODY(fun)) == BCODESXP &&	\
+     R_BCVersionOK(BODY(fun)) && ! RDEBUG(fun) &&		\
+     ! RSTEP(fun) && ! RDEBUG(rho) &&				\
+     R_GlobalContext->callflag != CTXT_GENERIC)
+
+static SEXP bcEval_loop(struct bcEval_locals *);
 
 static SEXP bcEval(SEXP body, SEXP rho)
 {
-  struct bcEval_globals globals;
-  save_bcEval_globals(&globals, body);
-  struct bcEval_locals locals;
-
-  R_Srcref = R_InBCInterpreter;
-  R_BCIntActive = 1;
-
   /* check version and allow bytecode to be disabled for testing */
   if (R_disable_bytecode || ! R_BCVersionOK(body))
       return eval(bytecodeExpr(body), rho);
 
+  struct bcEval_globals globals;
+  save_bcEval_globals(&globals);
+
+  R_Srcref = R_InBCInterpreter;
+  R_BCIntActive = 1;
+
   R_BCFrame = NULL;
 
-  /* LONGJMP targets to be shared by all contexts created in bcEval_loop() */
-  struct bcEval_jmpbufs jmpbufs, *jbufp = &jmpbufs;
-  switch (SETJMP(jmpbufs.for_loop)) {
-  case CTXT_BREAK:
-      locals = recover_loop_locals(FOR_LOOP_STATE_SIZE, TRUE);
-      return bcEval_loop(&locals, &globals, jbufp);
-  case CTXT_NEXT:
-      locals = recover_loop_locals(FOR_LOOP_STATE_SIZE, FALSE);
-      return bcEval_loop(&locals, &globals, jbufp);
-  }
-  switch (SETJMP(jmpbufs.loop)) {
-  case CTXT_BREAK:
-      locals = recover_loop_locals(0, TRUE);
-      return bcEval_loop(&locals, &globals, jbufp);
-  case CTXT_NEXT:
-      locals = recover_loop_locals(0, FALSE);
-      return bcEval_loop(&locals, &globals, jbufp);
-  }
-
-  locals = bcode_setup_locals(body, rho);
-  return bcEval_loop(&locals, &globals, jbufp);
+  struct bcEval_locals locals = bcode_setup_locals(body, rho);
+  SEXP value = bcEval_loop(&locals);
+  restore_bcEval_globals(&globals);
+  return value;
 }
 
-static SEXP bcEval_loop(struct bcEval_locals *ploc,
-			struct bcEval_globals *pglob,
-			struct bcEval_jmpbufs *jbufp)
+static SEXP bcEval_loop(struct bcEval_locals *ploc)
 {
   INITIALIZE_MACHINE();
 
-  struct bcEval_globals globals = *pglob;
   struct bcEval_locals locals = *ploc;
 
-  SEXP body, rho, constants;
+  SEXP body, rho;
+  R_bcconsts_t constants;
   BCODE *pc, *codebase;
   R_binding_cache_t vcache;
   Rboolean smallcache;
 
   RESTORE_BCEVAL_LOCALS(&locals);
 
-  SEXP retvalue = R_NilValue;
-
   BCODE *currentpc = NULL;
+  void *oldbcpc = R_BCpc;
   R_BCpc = &currentpc;
 
   static int evalcount = 0;
@@ -7490,13 +7588,17 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
   BEGIN_MACHINE {
     OP(BCMISMATCH, 0): error(_("byte code version mismatch"));
     OP(RETURN, 0):
-      if (R_BCFrame == 0) {
-	  retvalue = GETSTACK(-1);
-	  restore_bcEval_globals(&globals, body);
+      if (R_BCFrame == NULL) {
+	  R_BCpc = oldbcpc;
+	  SEXP retvalue = GETSTACK(-1);
 	  return retvalue;
       }
-      else
+      else if (BCFRAME_CNTXT() == NULL)
 	  DO_GETVAR_FORCE_PROMISE_RETURN();
+      else {
+	  BCFRAME_CNTXT()->returnValue = R_BCNodeStackTop[-1];
+	  DO_INLINE_CLOSURE_CALL_RETURN();
+      }
     OP(GOTO, 1):
       {
 	int label = GETOP();
@@ -7527,7 +7629,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	    RCNTXT *cntxt = BCNALLOC_CNTXT();
 	    int break_offset = GETOP();
 	    BCODE *break_pc = codebase + break_offset;
-	    PUSH_LOOP_LOCALS();
+	    struct bcEval_locals locals;
+	    SAVE_BCEVAL_LOCALS(&locals);
+	    PUSH_LOOP_LOCALS(break_pc);
 	    if (is_for_loop) {
 		/* duplicate the for loop state data on the top of the stack */
 		R_bcstack_t *loopdata = oldtop - FOR_LOOP_STATE_SIZE;
@@ -7535,20 +7639,35 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 		for (int i = 0; i < FOR_LOOP_STATE_SIZE; i++)
 		    R_BCNodeStackTop[i] = loopdata[i];
 		R_BCNodeStackTop += FOR_LOOP_STATE_SIZE;
-		SET_FOR_LOOP_BCPROT_OFFSET((int)(R_BCProtTop - R_BCNodeStackBase));
+		SET_FOR_LOOP_BCPROT_OFFSET(R_BCProtTop - R_BCNodeStackBase);
 		INCLNK_stack(R_BCNodeStackTop);
 
 		begincontext(cntxt, CTXT_LOOP, R_NilValue, rho, R_BaseEnv,
 			     R_NilValue, R_NilValue);
-		cntxt->cjmpbuf_ptr = &(jbufp->for_loop); // SETJMP replacement
+		switch (SETJMP(cntxt->cjmpbuf)) {
+		case CTXT_BREAK:
+		    locals = recover_loop_locals(FOR_LOOP_STATE_SIZE, TRUE);
+		    break;
+		case CTXT_NEXT:
+		    locals = recover_loop_locals(FOR_LOOP_STATE_SIZE, FALSE);
+		    break;
+		}
 	    }
 	    else {
 		begincontext(cntxt, CTXT_LOOP, R_NilValue, rho, R_BaseEnv,
 			     R_NilValue, R_NilValue);
-		cntxt->cjmpbuf_ptr = &(jbufp->loop); // SETJMP replacement
+		switch (SETJMP(cntxt->cjmpbuf)) {
+		case CTXT_BREAK:
+		    locals = recover_loop_locals(0, TRUE);
+		    break;
+		case CTXT_NEXT:
+		    locals = recover_loop_locals(0, FALSE);
+		    break;
+		}
 	    }
-	    /* context, offsets on stack, to be popped by ENDLOOPCNTXT */
+	    RESTORE_BCEVAL_LOCALS(&locals);
 	    NEXT();
+	    /* context, offsets on stack, to be popped by ENDLOOPCNTXT */
 	}
     OP(ENDLOOPCNTXT, 1):
 	{
@@ -7571,7 +7690,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	Rboolean iscompact = FALSE;
 	SEXP seq = getForLoopSeq(-1, &iscompact);
 	int callidx = GETOP();
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	int label = GETOP();
 
 	INSERT_FOR_LOOP_BCPROT_OFFSET();
@@ -7602,7 +7721,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	  loopinfo->len = length(seq);
 	else if (isFunction(seq))
 	  loopinfo->len = 1;
-	else errorcall(VECTOR_ELT(constants, callidx),
+	else errorcall(GETCONST(constants, callidx),
 		       _("invalid for() loop sequence"));
 #ifdef COMPACT_INTSEQ
 	loopinfo->type = iscompact ? INTSEQSXP : TYPEOF(seq);
@@ -7637,7 +7756,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	}
 	/* the seq, binding cell, and value on the stack are now boxed */
 
-	SET_FOR_LOOP_BCPROT_OFFSET((int)(R_BCProtTop - R_BCNodeStackBase));
+	SET_FOR_LOOP_BCPROT_OFFSET(R_BCProtTop - R_BCNodeStackBase);
 	INCLNK_stack(R_BCNodeStackTop);
 
 	BC_CHECK_SIGINT();
@@ -7772,7 +7891,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(LDCONST, 1):
       {
 	R_Visible = TRUE;
-	SEXP value = VECTOR_ELT(constants, GETOP());
+	SEXP value = GETCONST(constants, GETOP());
 	int type = TYPEOF(value);
 	switch(type) {
 	case REALSXP:
@@ -7812,7 +7931,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	if (smallcache)
 	    loc = GET_SMALLCACHE_BINDING_CELL(vcache, sidx);
 	else {
-	    SEXP symbol = VECTOR_ELT(constants, sidx);
+	    SEXP symbol = GETCONST(constants, sidx);
 	    loc = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);
 	}
 
@@ -7835,7 +7954,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	SEXP value = GETSTACK(-1);
 	INCREMENT_NAMED(value);
 	if (! SET_BINDING_VALUE(loc, value)) {
-	    SEXP symbol = VECTOR_ELT(constants, sidx);
+	    SEXP symbol = GETCONST(constants, sidx);
 	    PROTECT(value);
 	    defineVar(symbol, value, rho);
 	    UNPROTECT(1);
@@ -7845,7 +7964,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(GETFUN, 1):
       {
 	/* get the function */
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = findFun(symbol, rho);
 	INIT_CALL_FRAME(value);
 	if(RTRACE(value)) {
@@ -7857,7 +7976,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(GETGLOBFUN, 1):
       {
 	/* get the function */
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = findFun(symbol, R_GlobalEnv);
 	INIT_CALL_FRAME(value);
 	if(RTRACE(value)) {
@@ -7869,7 +7988,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(GETSYMFUN, 1):
       {
 	/* get the function */
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = SYMVALUE(symbol);
 	if (TYPEOF(value) == PROMSXP) {
 	    ENSURE_PROMISE_IS_EVALUATED(value);
@@ -7885,7 +8004,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(GETBUILTIN, 1):
       {
 	/* get the function */
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = getPrimitive(symbol, BUILTINSXP);
 //#define REPORT_OVERRIDEN_BUILTINS
 #ifdef REPORT_OVERRIDEN_BUILTINS
@@ -7903,7 +8022,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(GETINTLBUILTIN, 1):
       {
 	/* get the function */
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = INTERNAL(symbol);
 	if (TYPEOF(value) != BUILTINSXP)
 	  error(_("there is no .Internal function '%s'"),
@@ -7923,7 +8042,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
       }
     OP(MAKEPROM, 1):
       {
-	SEXP code = VECTOR_ELT(constants, GETOP());
+	SEXP code = GETCONST(constants, GETOP());
 	switch (CALL_FRAME_FTYPE()) {
 	case CLOSXP:
 	    PUSHCALLARG_RC(mkPROMISE(code, rho));
@@ -7952,7 +8071,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	SEXPTYPE ftype = CALL_FRAME_FTYPE();
 	int tagidx = GETOP();
 	if (ftype != SPECIALSXP) {
-	    SEXP tag = VECTOR_ELT(constants, tagidx);
+	    SEXP tag = GETCONST(constants, tagidx);
 	    SETCALLARG_TAG(tag);
 	}
 	NEXT();
@@ -7985,7 +8104,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(PUSHARG, 0): PUSHCALLARG(BCNPOP()); NEXT();
     OP(PUSHCONSTARG, 1):
       {
-	SEXP value = VECTOR_ELT(constants, GETOP());
+	SEXP value = GETCONST(constants, GETOP());
 	if (R_check_constants < 0)
 	    value = duplicate(value);
 	MARK_NOT_MUTABLE(value);
@@ -7998,7 +8117,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(CALL, 1):
       {
 	SEXP fun = CALL_FRAME_FUN();
-	SEXP call = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
 	SEXP args;
 	SEXP value = NULL;
 	int flag;
@@ -8019,7 +8138,32 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	  break;
 	case CLOSXP:
 	  args = CLOSURE_CALL_FRAME_ARGS();
-	  value = applyClosure(call, fun, args, rho, R_NilValue, TRUE);
+	  if (INLINE_CLOSURE_CALL_OK(fun)) {
+	      START_BCFRAME_CALL();
+	      volatile SEXP vbody = body; // keep gcc -Wclobbered happy
+	      if (SETJMP(BCFRAME_CNTXT()->cjmpbuf)) {
+		  RCNTXT *pcntxt = BCFRAME_CNTXT();
+		  if (! pcntxt->jumptarget) {
+		      /* ignores intermediate jumps for on.exits */
+		      pcntxt->returnValue =
+			  SEXP_TO_STACKVAL(R_ReturnedValue);
+		  }
+		  else
+		      /* might be better so use something less
+			 segfault-prone than NULL here and elsewhere */
+		      pcntxt->returnValue =
+			  SEXP_TO_STACKVAL(NULL); /* undefined */
+		  /* do NOT put on the stack -- it might be a NULL pointer */
+		  DO_INLINE_CLOSURE_CALL_RETURN();
+	      }
+	      else {
+		  body = vbody; // keep gcc -Wclobbered happy
+		  NEXT();
+		  /* return cleanup is in DO_INLINE_CLOSURE_CALL_RETURN */
+	      }
+	  }
+	  else
+	      value = applyClosure(call, fun, args, rho, R_NilValue, TRUE);
 	  break;
 	default: error(_("bad function"));
 	}
@@ -8029,7 +8173,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(CALLBUILTIN, 1):
       {
 	SEXP fun = CALL_FRAME_FUN();
-	SEXP call = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
 	SEXP args = BUILTIN_CALL_FRAME_ARGS();
 	int flag;
 	const void *vmax = vmaxget();
@@ -8057,7 +8201,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
       }
     OP(CALLSPECIAL, 1):
       {
-	SEXP call = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
 	SEXP symbol = CAR(call);
 	SEXP fun = getPrimitive(symbol, SPECIALSXP);
 	int flag;
@@ -8076,7 +8220,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
       }
     OP(MAKECLOSURE, 1):
       {
-	SEXP fb = VECTOR_ELT(constants, GETOP());
+	SEXP fb = GETCONST(constants, GETOP());
 	SEXP forms = VECTOR_ELT(fb, 0);
 	SEXP body = VECTOR_ELT(fb, 1);
 	SEXP value = mkCLOSXP(forms, body, rho);
@@ -8134,7 +8278,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	    if (refrhs) INCREMENT_REFCNT(saverhs);
 	}
 	int sidx = GETOP();
-	SEXP symbol = VECTOR_ELT(constants, sidx);
+	SEXP symbol = GETCONST(constants, sidx);
 	SEXP cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);
 	SEXP value = BINDING_VALUE(cell);
 	R_varloc_t loc;
@@ -8165,7 +8309,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	SET_ASSIGNMENT_PENDING(lhscell, FALSE);
 
 	int sidx = GETOP();
-	SEXP symbol = VECTOR_ELT(constants, sidx);
+	SEXP symbol = GETCONST(constants, sidx);
 	SEXP cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);
 	SEXP value = GETSTACK(-1); /* leave on stack for GC protection */
 	if (ALTREP(value)) {
@@ -8209,8 +8353,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(DOLLAR, 2):
       {
 	int dispatched = FALSE;
-	SEXP call = VECTOR_ELT(constants, GETOP());
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP x = GETSTACK(-1);
 	SEXP value = NULL;
 	if (isObject(x)) {
@@ -8231,8 +8375,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(DOLLARGETS, 2):
       {
 	int dispatched = FALSE;
-	SEXP call = VECTOR_ELT(constants, GETOP());
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP x = GETSTACK(-2);
 	SEXP rhs = GETSTACK(-1);
 	MARK_ASSIGNMENT_CALL(call);
@@ -8331,7 +8475,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(VISIBLE, 0): R_Visible = TRUE; NEXT();
     OP(SETVAR2, 1):
       {
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = GETSTACK(-1);
 	INCREMENT_NAMED(value);
 	setVar(symbol, value, ENCLOS(rho));
@@ -8340,7 +8484,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     OP(STARTASSIGN2, 1):
       {
 	INCLNK_stack_commit();
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	R_varloc_t loc = R_findVarLoc(symbol, rho);
 
 	if (loc.cell == NULL)
@@ -8368,7 +8512,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	SEXP lhscell = GETSTACK(-2);
 	SET_ASSIGNMENT_PENDING(lhscell, FALSE);
 
-	SEXP symbol = VECTOR_ELT(constants, GETOP());
+	SEXP symbol = GETCONST(constants, GETOP());
 	SEXP value = GETSTACK(-1); /* leave on stack for GC protection */
 	INCREMENT_NAMED(value);
 	setVar(symbol, value, ENCLOS(rho));
@@ -8389,8 +8533,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 	SEXP lhs = GETSTACK_BELOW_CALL_FRAME(-2);
 	SEXP rhs = GETSTACK_BELOW_CALL_FRAME(-1);
 	SEXP fun = CALL_FRAME_FUN();
-	SEXP call = VECTOR_ELT(constants, GETOP());
-	SEXP vexpr = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
+	SEXP vexpr = GETCONST(constants, GETOP());
 	SEXP args, prom, last;
 	MARK_ASSIGNMENT_CALL(call);
 	if (MAYBE_SHARED(lhs)) {
@@ -8452,7 +8596,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
       {
 	SEXP lhs = GETSTACK_BELOW_CALL_FRAME(-2);
 	SEXP fun = CALL_FRAME_FUN();
-	SEXP call = VECTOR_ELT(constants, GETOP());
+	SEXP call = GETCONST(constants, GETOP());
 	SEXP value = NULL;
 	SEXP args, prom;
 	switch (TYPEOF(fun)) {
@@ -8526,10 +8670,10 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
     }
     OP(DUP2ND, 0): BCNDUP2ND(); NEXT();
     OP(SWITCH, 4): {
-       SEXP call = VECTOR_ELT(constants, GETOP());
-       SEXP names = VECTOR_ELT(constants, GETOP());
-       SEXP coffsets = VECTOR_ELT(constants, GETOP());
-       SEXP ioffsets = VECTOR_ELT(constants, GETOP());
+       SEXP call = GETCONST(constants, GETOP());
+       SEXP names = GETCONST(constants, GETOP());
+       SEXP coffsets = GETCONST(constants, GETOP());
+       SEXP ioffsets = GETCONST(constants, GETOP());
        SEXP value = BCNPOP();
        if (!isVector(value) || length(value) != 1)
 	   errorcall(call, _("EXPR must be a length 1 vector"));
@@ -8636,7 +8780,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc,
 
 #ifdef THREADED_CODE
 static void bcEval_init(void) {
-    bcEval_loop(NULL, NULL, NULL);
+    bcEval_loop(NULL);
 }
 
 SEXP R_bcEncode(SEXP bytes)
@@ -8761,7 +8905,7 @@ attribute_hidden void R_registerBC(SEXP bcBytes, SEXP bcode)
        One could simply compare/duplicate the lists of all constants (the whole
        constant pools), but that turned out too expensive */
 
-    SEXP consts = BCCONSTS(bcode); /* all constants, VECSXP */
+    SEXP consts = BCODE_CONSTS(bcode); /* all constants, VECSXP */
 
 #define CHECK_ALL_CONSTANTS
 #ifndef CHECK_ALL_CONSTANTS

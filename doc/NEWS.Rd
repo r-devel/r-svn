@@ -8,6 +8,90 @@
 \section{\Rlogo CHANGES IN R-devel}{
   \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
     \itemize{
+      \item .
+    }
+  }
+
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item \code{as.integer(rl)} and hence \code{as.raw(rl)} now work for
+      a \code{list} of \code{raw(1)} elements, as proposed by Michael
+      Chirico's \PR{18696}.
+    }
+  }
+
+  \subsection{INSTALLATION on a UNIX-ALIKE}{
+    \itemize{
+      \item The minimum \command{autoconf} requirement for a maintainer
+      build has been increased to \command{autoconf}\sspace{}2.72.
+    }
+  }
+
+  \subsection{DEPRECATED AND DEFUNCT}{
+    \itemize{
+      \item \code{is.R()} is defunct.  Environment variable
+      \env{_R_DEPRECATED_IS_R_} no longer has any effect.
+    }
+  }
+
+  \subsection{INSTALLATION}{
+    \itemize{
+      \item .
+    }
+  }
+
+  \subsection{PACKAGE INSTALLATION}{
+    \itemize{
+      \item .
+    }
+  }
+
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item The non-API and hidden entry points \code{Rf_setIVector},
+      \code{Rf_setRVector} and \code{Rf_setSVector} have been removed.     
+    }
+  }
+
+  \subsection{UTILITIES}{
+    \itemize{
+      \item \command{R CMD check --as-cran} will compile C++ code with
+      \code{-DR_NO_REMAP}.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.4.0 patched}{
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item Functions \code{R_atof} and \code{R_strtod} declared in
+      header \file{R_ext/Utils.h} are now documented in
+      \sQuote{Writing R Extensions} and so formally part of the API.
+
+      \item The non-API entry points \code{Rf_setSVector},
+      \code{Rf_StringFalse}, \code{Rf_StringTrue} and
+      \code{Rf_isBlankString} have been added to those reported by
+      \command{R CMD check}.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{as.numeric()}, \code{scan()}, \code{type.convert()}
+      and other places which use the internal C function \code{R_strtod} now
+      require a \emph{non-empty} digit sequence in a decimal or binary
+      exponent.  This aligns with the C/POSIX standard for \code{strtod} and
+      with \code{?NumericConstants}.
+
+      \item \code{as.data.frame(m, make.names=NA)} now works correctly for
+      a matrix \code{m} with \code{NA}'s in row names.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.4.0}{
+  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+    \itemize{
       \item Startup banners, \command{R --version}, \code{sessionInfo()}
       and \command{R CMD check} no longer report \code{(64-bit)} as part of
       the platform as this is almost universal -- the increasingly rare
@@ -62,9 +146,9 @@
       thanks to suggestions by \I{Ivan Krylov} and others on R-devel.
 
       \item New startup option \option{--max-connections} to set the
-      maximum number of connections for the session.  Defaults to 128 as
-      before: allowed values up to 4096 (but resource limits may in practice
-      restrict to smaller values).
+      maximum number of simultaneous connections for the session.
+      Defaults to 128 as before: allowed values up to 4096 (but resource
+      limits may in practice restrict to smaller values).
 
       \item \R on Windows (since Windows 10 2004) now uses the new Segment
       Heap allocator. This may improve performance of some memory-intensive
@@ -99,8 +183,8 @@
 
       \item \code{kappa(., exact = TRUE, norm = *)} now works for all
       norms and also for complex matrices.  In symmetric / triangular
-      cases, new argument \code{uplo = "U" | "L"} allows to specify the
-      upper or lower triangular part.
+      cases, the  new argument \code{uplo = "U" | "L"} allows the
+      upper or lower triangular part to be specified.
 
       \item \code{memDecompress(type = "unknown")} recognizes compression
       in the default \sQuote{\I{zlib}} format as used by
@@ -142,12 +226,12 @@
       \item Plain-text help shows \verb{\var} markup by angle brackets.
 
       \item The new experimental primitive function \code{declare()} is
-      intended to eventually allow information about R code to be
+      intended to eventually allow information about \R{} code to be
       communicated to the interpreter, compiler, and code analysis
       tools. The syntax for declarations is still being developed.
 
       \item Functions \code{psmirnov()}, \code{qsmirnov()} and
-      \code{rsmirnov()} in package \pkg{stats} have argument
+      \code{rsmirnov()} in package \pkg{stats} have had argument
       \code{two.sided} renamed to \code{alternative}, to take into
       account that the permutation distributions of the one-sided
       statistics can be different in the case of ties.  Consequence of
@@ -249,7 +333,7 @@
       \item The included LAPACK sources have been updated to version
       3.12.0 and some further double-complex routines added.
 
-      \item There are new font families for the 2014-5 URW 2.0 fonts
+      \item There are new font families for the 2014--5 URW 2.0 fonts
       (see \code{?pdf}) which are included in recent versions of
       Ghostscript.  These have font widths for most Greek glyphs and a
       few others which were missing from the original versions (whose
@@ -275,16 +359,27 @@
       the \code{data.frame} method which can be used to sort rows of a
       data frame by one or more columns.
 
-      \item Licence headers for the \abbr{RPC} code in \file{src/extra/xdr} have
-      been updated to use the GPL-compatible licence published by
-      Oracle America in 2010.
+      \item The licence headers for the \abbr{RPC} code in
+      \file{src/extra/xdr} have been updated to use the GPL-compatible
+      licence published by Oracle America in 2010.
 
+      \item New function \code{pkg2HTML()} in \pkg{tools} to create
+      single-page HTML reference manuals for R packages.
+
+      \item The byte code evaluator now uses less C stack space for
+      recursive calls to byte-compiled functions. It also makes more of
+      an effort to avoid allocations for scalar return values.
+
+      \item New completion option \code{backtick} (disabled by default)
+      allows non-syntactic completions to be wrapped in backquotes. This
+      is currently only useful for \I{Jupyter} notebooks via the
+      \pkg{IRkernel} package, and may cause problems for other backends.
     }
   }
 
   \subsection{INSTALLATION}{
     \itemize{
-      \item The parser has been updated to work with \I{bison} 3.8.2,
+      \item The parser has been updated to work with \command{bison} 3.8.2,
       which is now used for the pre-generated parsers in \file{gram.c},
       \code{file.c}, and \file{gramRd.c}. A few parser error messages
       have changed, which may affect code that relies on exact messages.
@@ -306,7 +401,7 @@
 
       \item If the \code{libdeflate} library and headers are available,
       \code{libdeflate} rather than \code{libz} is used to (de)compress
-      \R objects in lazy-load databases,  Typically tasks spend up to 5\% of
+      \R objects in lazy-load databases.  Typically tasks spend up to 5\% of
       their time on such operations, although creating lazy-data
       databases is one of the exceptions.
 
@@ -333,6 +428,10 @@
       Compilers from the last five years should have sufficient
       support: for others macros \code{CXX} and \code{CXXSTD} can be set
       in file \file{config.site} to provide a fallback if needed.
+
+      The Objective-C++ compiler now by default uses the standard
+      selected by \R for C++ (currently C++17) rather than the default
+      standard for the C++ compiler (which on macOS is still C++98).
     }
   }
 
@@ -360,10 +459,11 @@
       and libraries (targeting 64-bit Intel CPUs).  R-devel can no longer be
       built using \I{Rtools43} without changes.
 
-      \I{Rtools44} has experimental support for 64-bit ARM (\I{aarch64}) CPUs via
-      \I{LLVM} 17 toolchain using \command{lld}, \command{clang}/\command{flang-new} and \I{libc++}.
-    }
+     \item \I{Rtools44} has experimental support for 64-bit ARM
+     (\code{aarch64}) CPUs \emph{via} the \I{LLVM} 17 toolchain using
+     \command{lld}, \command{clang}/\command{flang-new} and \code{libc++}.
   }
+}
 
 
   %% \subsection{PACKAGE INSTALLATION}{
@@ -457,6 +557,10 @@
       Object-Oriented Programming Working Group.
 
       \item New function \code{pow1p(x,y)} for accurate \code{(1+x)^y}.
+
+      \item \code{mkCharLenCE} was incorrectly documented to take a
+      \code{size_t} length but was implemented with \code{int} (and
+      character strings in \R are limited to \eqn{2^{31} - 1}{2^31 - 1} bytes).
     }
   }
 
@@ -468,7 +572,7 @@
 
       \item The legacy graphics devices \code{pictex()} and
       \code{xfig()} are now deprecated.  They do not support recent
-      graphics enhancements and their font-handling is rudimentary. The
+      graphics enhancements and their font handling is rudimentary. The
       intention is to retain them for historical interest as long as
       they remain somewhat functional.
 
@@ -503,8 +607,11 @@
 
       \item The default method for the directional comparison operators
       \code{<}, \code{>}, \code{<=}, and \code{>=} now signals an error
-      when one of the operands is a language objects, i.e. a symbol or a
+      when one of the operands is a language object, i.e. a symbol or a
       call.
+
+      \item For \code{terms.formula()}, deprecate \code{abb} and \code{neg.out}
+      arguments \emph{formally} in addition to just documenting it.
     }
   }
 
@@ -696,12 +803,27 @@
       \code{names()} and \code{colnames()}; reported by \I{Davis Vaughan}
       on the R-devel list.
 
-      \item Internal Mathlib function \code{stirlerr(n)} is now almost
+      \item Internal \I{Mathlib} function \code{stirlerr(n)} is now almost
       fully (52-bit) accurate for all \eqn{n >= ~5.9} and more accurate
       also in the range \eqn{1 -- 5.9}.  This entails small (\dQuote{after
-      12th decimal}) changes in density functions, e.g., \code{dgamma()}
+      \I{12th} decimal}) changes in density functions, e.g., \code{dgamma()}
       in  \emph{some} regions of their support.   The fix was partly
       prompted by \I{Morten Welinder}'s \PR{18640}.
+
+      \item Numbers like \code{9876543.2} are now considered non-integer by
+      \I{Mathlib} internal \code{R_nonint()}, amending original fix of \PR{15734}.
+
+      \item Rd comment lines no longer cause broken paragraphs in the
+      rendered PDF and plain-text help. In code blocks, pure comment
+      lines (starting with \samp{\%}) no longer produce an empty line.
+
+      \item \code{xtabs(Freq ~ .)} now consistently defaults to
+      \code{na.action = na.pass}, using \code{na.rm = FALSE} (added as an
+      argument) when summing over \code{Freq} (\PR{17770}).
+
+      \item \code{tools::testInstalledPackage()} is no longer silent
+      about failures from running examples or tests and its return code
+      no longer ignores failures from checking vignettes.
     }
   }
 }
@@ -1105,7 +1227,7 @@
 
       \item \code{as.data.frame()}'s default method now also works fine
       with atomic objects inheriting from classes such as \code{"roman"},
-      \code{"octmode"} and \code{"hexmode"}, such fulfilling the wish of
+      \code{"octmode"} and \code{"hexmode"}, thus fulfilling the wish of
       \PR{18421}, by \I{Benjamin Feakins}.
 
       \item The \code{as.data.frame.vector()} utility now errors for
@@ -4717,7 +4839,7 @@
       \command{configure} and \command{cleanup} scripts for
       non-\I{Bourne}-shell code (\sQuote{bashisms}).
 
-      \item \command{R CMD check --as-cran} now runs \code{\\donttest}
+      \item \command{R CMD check --as-cran} now runs \verb{\donttest}
       examples (which are run by \code{example()}) instead of
       instructing the tester to do so.  This can be temporarily
       circumvented during development by setting environment variable

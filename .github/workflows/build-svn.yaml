@@ -31,7 +31,7 @@ jobs:
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 100
 
@@ -106,9 +106,10 @@ jobs:
         ./.github/scripts/svn-info.sh
 
     - name: Configure
-      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua --with-lapack --with-blas --enable-R-shlib SED=/usr/bin/sed
+      run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua $ACCELERATE --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
+        ACCELERATE: ${{ matrix.OS != 'macOS-13' && '--with-lapack --with-blas' || '' }}
 
     - name: Build
       run: make
@@ -156,14 +157,14 @@ jobs:
       shell: bash
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 100
 
     - uses: msys2/setup-msys2@v2
       with:
         msystem: MSYS
-        install: git make perl curl texinfo texinfo-tex rsync unzip diffutils
+        install: git make perl curl texinfo texinfo-tex rsync zip unzip diffutils
 
     - name: "Download rtools44 toolchain"
       run: |
@@ -172,12 +173,20 @@ jobs:
         #echo "RTOOLS44_HOME=c:" >> $GITHUB_ENV
         #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
 
-    - name: Install Miktex
+    - name: Set timezone
       shell: powershell
+      run: tzutil /s "GMT Standard Time"
+
+    - uses: r-lib/actions/setup-tinytex@v2
+      env:
+        TINYTEX_INSTALLER: TinyTeX
+
+    - name: Install additional LaTeX packages
       run: |
-        Import-Module .\.github\scripts\installers.ps1
-        SetTimezone
-        InstallMiktex -ErrorAction SilentlyContinue;
+        tlmgr update --self
+        tlmgr install texinfo
+        tlmgr list --only-installed
+      shell: powershell
 
     - name: Build and Check
       run: |

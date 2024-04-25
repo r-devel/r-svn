@@ -28,6 +28,13 @@
 
 #define BYTECODE
 
+#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
+# define BOXED_BINDING_CELLS 1
+#else
+# define BOXED_BINDING_CELLS 0
+# define IMMEDIATE_PROMISE_VALUES
+#endif
+
 /* probably no longer needed */
 #define NEW_CONDITION_HANDLING
 
@@ -448,11 +455,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define BNDCELL_TAG(e)	((e)->sxpinfo.extra)
 #define SET_BNDCELL_TAG(e, v) ((e)->sxpinfo.extra = (v))
 
-#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
-# define BOXED_BINDING_CELLS 1
-#else
-# define BOXED_BINDING_CELLS 0
-#endif
 #if BOXED_BINDING_CELLS
 /* Use allocated scalars to hold immediate binding values. A little
    less efficient but does not change memory layout or use. These
@@ -619,6 +621,8 @@ void (SET_BNDCELL_IVAL)(SEXP cell, int v);
 void (SET_BNDCELL_LVAL)(SEXP cell, int v);
 void (INIT_BNDCELL)(SEXP cell, int type);
 void SET_BNDCELL(SEXP cell, SEXP val);
+int (PROMISE_TAG)(SEXP e);
+void (SET_PROMISE_TAG)(SEXP e, int v);
 
 /* List Access Functions */
 SEXP (CAR0)(SEXP e);
@@ -1154,29 +1158,20 @@ typedef struct {
 #define PRENV(x)	((x)->u.promsxp.env)
 #define PRSEEN(x)	((x)->sxpinfo.gp)
 #define SET_PRSEEN(x,v)	(((x)->sxpinfo.gp)=(v))
-#if ! BOXED_BINDING_CELLS
-# define IMMEDIATE_PROMISE_VALUES
-#endif
 #ifdef IMMEDIATE_PROMISE_VALUES
 # define PRVALUE0(x) ((x)->u.promsxp.value)
 # define PRVALUE(x) \
     (PROMISE_TAG(x) ? R_expand_promise_value(x) : PRVALUE0(x))
 # define PROMISE_IS_EVALUATED(x) \
     (PROMISE_TAG(x) || PRVALUE0(x) != R_UnboundValue)
-# define PROMISE_TAG  BNDCELL_TAG
-# define SET_PROMISE_TAG SET_BNDCELL_TAG
-# define SET_PROMISE_DVAL SET_BNDCELL_DVAL
-# define SET_PROMISE_IVAL SET_BNDCELL_IVAL
-# define SET_PROMISE_LVAL SET_BNDCELL_LVAL
+# define PROMISE_TAG(x)  BNDCELL_TAG(x)
+# define SET_PROMISE_TAG(x, v) SET_BNDCELL_TAG(x, v)
 #else
 # define PRVALUE0(x) ((x)->u.promsxp.value)
 # define PRVALUE(x) PRVALUE0(x)
 # define PROMISE_IS_EVALUATED(x) (PRVALUE(x) != R_UnboundValue)
 # define PROMISE_TAG(x) 0
 #endif
-#define PROMISE_DVAL BNDCELL_DVAL
-#define PROMISE_IVAL BNDCELL_IVAL
-#define PROMISE_LVAL BNDCELL_LVAL
 
 /* Hashing Macros */
 #define HASHASH(x)      ((x)->sxpinfo.gp & HASHASH_MASK)
@@ -1314,7 +1309,6 @@ typedef struct RCNTXT {
     struct RCNTXT *nextcontext;	/* The next context up the chain */
     int callflag;		/* The context "type" */
     JMP_BUF cjmpbuf;		/* C stack and register information */
-    JMP_BUF *cjmpbuf_ptr;	/* C stack and register information ptr */
     int cstacktop;		/* Top of the pointer protection stack */
     int evaldepth;	        /* evaluation depth at inception */
     SEXP promargs;		/* Promises supplied to closure */
@@ -1331,6 +1325,7 @@ typedef struct RCNTXT {
     int bcintactive;            /* R_BCIntActive value */
     SEXP bcbody;                /* R_BCbody value */
     void* bcpc;                 /* R_BCpc value */
+    ptrdiff_t relpc;            /* pc offset when begincontext is called */
     SEXP handlerstack;          /* condition handler stack */
     SEXP restartstack;          /* stack of available restarts */
     struct RPRSTACK *prstack;   /* stack of pending promises */
@@ -1612,6 +1607,7 @@ extern SEXP R_findBCInterpreterSrcref(RCNTXT*);
 #endif
 extern SEXP R_getCurrentSrcref(void);
 extern SEXP R_getBCInterpreterExpression(void);
+extern ptrdiff_t R_BCRelPC(SEXP, void *);
 
 void R_BCProtReset(R_bcstack_t *);
 
@@ -1707,7 +1703,7 @@ SEXP Rf_installS3Signature(const char *, const char *);
 Rboolean Rf_isFree(SEXP);
 Rboolean Rf_isUnmodifiedSpecSym(SEXP sym, SEXP env);
 SEXP Rf_matchE(SEXP, SEXP, int, SEXP);
-void Rf_setSVector(SEXP*, int, SEXP);
+// void Rf_setSVector(SEXP*, int, SEXP);
 SEXP Rf_stringSuffix(SEXP, int);
 const char * Rf_translateChar0(SEXP);
 
@@ -2412,7 +2408,7 @@ extern void *alloca(size_t);
 // for reproducibility for now: use exp10 or pown later if accurate enough.
 #define Rexp10(x) pow(10.0, x)
 
-// this produces an initialized structure as a _compount literal_
+// this produces an initialized structure as a _compound literal_
 #define SEXP_TO_STACKVAL(x) ((R_bcstack_t) { .tag = 0, .u.sxpval = (x) })
 
 #endif /* DEFN_H_ */
