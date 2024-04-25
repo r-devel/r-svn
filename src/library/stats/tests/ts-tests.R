@@ -133,7 +133,7 @@ fr1 <- arima(ap0, c(0, 1, 1), seasonal = list(order=c(0, 1 ,1), period=12))
 fr2 <- arima(ap0, c(0, 1, 1), seasonal = list(order=c(0, 1 ,1), period=12),
              method = "CSS")
 i <- c("coef", "sigma2", "var.coef")
-stopifnot(all.equal(fr1[i], fit[i], tol=4e-4))# 64b: 9e-5 is ok
+stopifnot(all.equal(fr1[i], fit[i], tolerance=4e-4))# 64b: 9e-5 is ok
 
 ## Structural Time Series
 ap <- log10(AirPassengers) - 2

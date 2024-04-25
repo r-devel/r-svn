@@ -126,10 +126,10 @@ chkQ0 <- function(phi,theta, tol=.Machine$double.eps^0.5,
   eig <- if(doEigen) rbind("0" = EV.k(Q0), bis = EV.k(Q0bis), ter = EV.k(Q0ter))
   ## else NULL
 
-  a.eq <- list(cRC = all.equal(Q0bis,Q0bisC(phi,theta), tol= tolC),
-               c12 = all.equal(Q0,   Q0bis, tol=tol),
-               c13 = all.equal(Q0,   Q0ter, tol=tol),
-               c23 = all.equal(Q0bis,Q0ter, tol=tol))
+  a.eq <- list(cRC = all.equal(Q0bis,Q0bisC(phi,theta), tolerance= tolC),
+               c12 = all.equal(Q0,   Q0bis, tolerance=tol),
+               c13 = all.equal(Q0,   Q0ter, tolerance=tol),
+               c23 = all.equal(Q0bis,Q0ter, tolerance=tol))
   if(strict) do.call(stopifnot, a.eq)
   invisible(list(Q0 = Q0, Q0bis = Q0bis, Q0ter = Q0ter,
                  all.eq = a.eq, eigen = eig))
@@ -197,7 +197,7 @@ ini.ph <- true.cf
 ## Default  method = "CSS-ML" works fine
 fm1 <- arima(x, order= c(1,0,1), seasonal= list(period=12, order=c(1,0,0)),
              include.mean=FALSE, init=ini.ph)
-stopifnot(all.equal(true.cf, coef(fm1), tol = 0.05))
+stopifnot(all.equal(true.cf, coef(fm1), tolerance = 0.05))
 
 ## Using  'ML'  seems "harder" :
 e1 <- try(
@@ -222,7 +222,7 @@ arima(x, order= c(1,0,1), seasonal= list(period=12, order=c(1,0,0)),
       include.mean=FALSE, init=ini.ph, method='ML', SSinit = "Rossi", transform.p=FALSE)
 
 stopifnot(all.equal(confint(fm1),
-                    confint(fm2), tol = 4e-4))
+                    confint(fm2), tolerance = 4e-4))
 
 ###---------- PR#16278 --------------------------------------
 
@@ -236,7 +236,7 @@ V. <- var(diff(x)) * (n-2) / (n-1) # 4.640e-5 : ML
 f00   <- arima0(x, c(0,1,0), method="ML", xreg=1:n)
 (fit1 <- arima (x, c(0,1,0), method="ML", xreg=1:n))
 stopifnot(all.equal(fit1$sigma2, V.), fit1$nobs == n-1,
-	  all.equal(fit1$loglik, 14.28, tol=4e-4),
+	  all.equal(fit1$loglik, 14.28, tolerance=4e-4),
 	  all.equal(f00$sigma2, fit1$sigma2),
 	  all.equal(f00$loglik, fit1$loglik))
 
@@ -250,16 +250,16 @@ xr <- poly(x., 3)
 x. <- cumsum(cumsum(cumsum(x.))) + xr %*% 10^(0:2)
 (fit3 <- arima (x., c(0,3,0), method="ML", xreg = xr))
 stopifnot(fit3$ nobs == n-3,
-	  all.equal(fit3$ sigma2, 0.00859843, tol = 1e-6),
-	  all.equal(fit3$ loglik, 22.06043, tol = 1e-6),
+	  all.equal(fit3$ sigma2, 0.00859843, tolerance = 1e-6),
+	  all.equal(fit3$ loglik, 22.06043, tolerance = 1e-6),
           all.equal(unname(coef(fit3)),
-                    c(0.70517, 9.9415, 100.106), tol = 1e-5))
+                    c(0.70517, 9.9415, 100.106), tolerance = 1e-5))
 
 x.[5:6] <- NA
 (fit3N <- arima (x., c(0,3,0), method="ML", xreg = xr))
 stopifnot(fit3N$ nobs == n-3-2, # ==  #{obs} - d - #{NA}
-	  all.equal(fit3N$ sigma2, 0.009297345, tol = 1e-6),
-	  all.equal(fit3N$ loglik, 16.73918,    tol = 1e-6),
+	  all.equal(fit3N$ sigma2, 0.009297345, tolerance = 1e-6),
+	  all.equal(fit3N$ loglik, 16.73918,    tolerance = 1e-6),
 	  all.equal(unname(coef(fit3N)),
-		    c(0.64904, 9.92660, 100.126), tol = 1e-5))
+		    c(0.64904, 9.92660, 100.126), tolerance = 1e-5))
 

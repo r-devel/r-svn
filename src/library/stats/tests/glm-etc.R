@@ -17,7 +17,7 @@ stopifnot(names(which(!jj)) == "am1:mpg"
 	, all.equal(V2[jj,jj], vcov(fm2, complete=FALSE))
 	, all.equal(c2[jj], c(`(Intercept)`= 626.0915, am1 = -249.4183,
 			      mpg = -33.74701, mpg_c = 10.97014),
-		    tol = 7e-7)# 1.01e-7 [F26 Lnx 64b]
+		    tolerance = 7e-7)# 1.01e-7 [F26 Lnx 64b]
 )
 
 
@@ -61,7 +61,7 @@ tools::assertWarning(pN.<- predict(mod1234, new.x, rankdeficient = "NAwarn"))
 (pne <- predict(mod1234, new.x, rankdeficient = "non-estim"))
 stopifnot(exprs = {
     identical(pN, pN.)
-    all.equal(fitted(mod1234), ps1, tol = 2e-15) # seen 3.11e-16
+    all.equal(fitted(mod1234), ps1, tolerance = 2e-15) # seen 3.11e-16
     identical(i.ne <- attr(pne, "non-estim"),
               c(B = 2L, E = 5L, F = 6L))
     which(!new.ok) == i.ne
@@ -86,16 +86,16 @@ d8 <- data.frame(
            -899999988, -300000004, 900000012, 450000006, 2))
 coef(fm8.  <- lm(y ~ . -1, data = d8)) # the one for X3 is NA
 cf8. <- c(X1 = -1.999854802642, X2 = 3.499496934397, X3 = NA)
-          all.equal(cf8., coef(fm8.), tol=0)# -> "Mean rel..diff.: ~ 3e-15
+          all.equal(cf8., coef(fm8.), tolerance=0)# -> "Mean rel..diff.: ~ 3e-15
 stopifnot(all.equal(cf8., coef(fm8.)))
 coef(fm8.9 <- lm(y ~ . -1, data = d8, tol = 1e-9)) # no NA , but "instable" -- not too precise
 cf8.9 <- c(X1 = 45822.830422, X2 = -22908.915871, X3 = 45824.830295)
-all.equal(cf8.9, coef(fm8.9), tol=0)# -> "Mean rel..diff.: 5.3e-9 | 5.15e-12
+all.equal(cf8.9, coef(fm8.9), tolerance=0)# -> "Mean rel..diff.: 5.3e-9 | 5.15e-12
 ## was < 2e-8 in R 4.2.2
 ## x86_64 Linux/gcc12 gives ca 5e-12
 ## vanilla M1mac gives 6.16e-11, Accelerate on M1 macOS gives 3.99e-10;
 ## Debian with "generic" (i.e. not R's) BLAS/Lapack *still* gave 5.2985e-09 (?!)
-stopifnot(all.equal(cf8.9, coef(fm8.9), tol = 7e-9))
+stopifnot(all.equal(cf8.9, coef(fm8.9), tolerance = 7e-9))
 
 ## predict :
 nd <- d8[,-1] + rep(outer(c(-2:2),10^(1:3)), 3) # 5 * 9 = 45 = 15 * 3 (nrow * ncol)
@@ -108,7 +108,7 @@ pN  <- predict(fm8. , newdata=nd, rankdeficient = "NA")
 pne <- predict(fm8. , newdata=nd, rankdeficient = "non-estim")
 p.9 <- predict(fm8.9, newdata=nd)
 print(digits=9, cbind(ps, pne, pN, p.9))
-all.equal(p.9, ps, tol=0)# 0.035..
+all.equal(p.9, ps, tolerance=0)# 0.035..
 dropAtt <- function(x) `attributes<-`(x, NULL)
 stopifnot(exprs = {
     ps == ps. # numbers;

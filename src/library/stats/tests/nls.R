@@ -341,7 +341,7 @@ stopifnot(all.equal(noC (nm.), noC (nmf)))
 ## list version (has been valid "forever", still doubtful, rather give error [FIXME] ?)
 lsN <- c(as.list(dN), list(foo="bar")); lsN[["t"]] <- 1:8
 nmL <- nls(`NO [µmol/l]` ~ a + k*exp(t), start=list(a=0,k=1), data = lsN)
-stopifnot(all.equal(coef(nmL), c(a = 5.069866, k = 0.003699669), tol = 4e-7))# seen 4.2e-8
+stopifnot(all.equal(coef(nmL), c(a = 5.069866, k = 0.003699669), tolerance = 4e-7))# seen 4.2e-8
 
 ## trivial RHS -- should work even w/o 'start='
 fi1 <- nls(y ~ a, start = list(a=1))
