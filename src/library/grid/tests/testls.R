@@ -62,18 +62,18 @@ grid.ls(vpPath("A", "B", "C"),
 ##########
 # grob with vp viewport
 g1 <- grob(vp=viewport(name="gvp"), name="g1")
-grid.ls(g1, viewports=TRUE, full=TRUE)
-grid.ls(g1, viewports=TRUE, full=TRUE, grob=FALSE)
+grid.ls(g1, viewports=TRUE, fullNames=TRUE)
+grid.ls(g1, viewports=TRUE, fullNames=TRUE, grob=FALSE)
 # grob with vp vpList
 grid.ls(grob(vp=vpList(viewport(name="vpl")), name="g1"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(grob(vp=vpList(viewport(name="vpl1"), viewport(name="vpl2")),
              name="g1"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 # grob with vp vpStack
 grid.ls(grob(vp=vpStack(viewport(name="vps1"), viewport(name="vps2")),
              name="g1"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(grob(vp=vpStack(viewport(name="vps1"), viewport(name="vps2"),
                viewport(name="vps3")),
              name="g1"),
@@ -82,11 +82,11 @@ grid.ls(grob(vp=vpStack(viewport(name="vps1"), viewport(name="vps2"),
 grid.ls(grob(vp=vpTree(viewport(name="parentvp"),
                vpList(viewport(name="cvp"))),
              name="g1"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(grob(vp=vpTree(viewport(name="parentvp"),
                vpList(viewport(name="cvp1"), viewport(name="cvp2"))),
              name="g1"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 # gTree with vp viewport
 # and child grob with vp viewport
 grid.ls(gTree(children=gList(grob(vp=viewport(name="childvp"), name="cg1"),
@@ -96,35 +96,35 @@ grid.ls(gTree(children=gList(grob(vp=viewport(name="childvp"), name="cg1"),
         viewports=TRUE)
 # gTree with childrenvp viewport
 grid.ls(gTree(childrenvp=viewport(name="vp"), name="gtree"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(childrenvp=viewport(name="vp"), name="gtree"),
-        viewports=TRUE, full=TRUE, grob=FALSE)
+        viewports=TRUE, fullNames=TRUE, grob=FALSE)
 grid.ls(gTree(children=gList(grob(name="child")),
               name="parent",
               childrenvp=viewport(name="vp")),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(children=gList(grob(name="child1"), grob(name="child2")),
               name="parent",
               childrenvp=viewport(name="vp")),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(children=gList(grob(name="child")),
               childrenvp=viewport(name="vp"),
               name="parent"), 
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(children=gList(grob(name="child1"), grob(name="child2")),
               name="parent",
               childrenvp=viewport(name="vp")),
-        viewports=TRUE, full=TRUE, grob=FALSE)
+        viewports=TRUE, fullNames=TRUE, grob=FALSE)
 # gTree with childrenvp vpTree
 grid.ls(gTree(childrenvp=vpTree(parent=viewport(name="vp1"),
                 children=vpList(viewport(name="vp2"))),
               name="gtree"),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(children=gList(grob(name="child")),
               name="parent",
               childrenvp=vpTree(parent=viewport(name="vp1"),
                 children=vpList(viewport(name="vp2")))),
-        viewports=TRUE, full=TRUE)
+        viewports=TRUE, fullNames=TRUE)
 # gTree with childrenvp vpTree
 # and child grob with vp vpPath
 # A gTree, called "parent", with childrenvp vpTree (vp2 within vp1)
