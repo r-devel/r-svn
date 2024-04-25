@@ -17,6 +17,12 @@
  *  https://www.R-project.org/Licenses/
  */
 
+/* 
+   This API is experimental and may change on short notice.
+   Package authors using this API should be prepared to adapt to changes
+   when they occur.
+*/
+
 #ifndef R_EXT_ALTREP_H_
 #define R_EXT_ALTREP_H_
 

@@ -3711,7 +3711,8 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 int main(void) {
     unsigned int ver = lzma_version_number();
     // This is 10000000*major + 10000*minor + 10*revision + [012]
-    // I.e. xyyyzzzs and 5.1.2 would be 50010020
+    // Where 2 is 'stable'.
+    // I.e. xyyyzzzs and 5.1.2 is 50010022, so this allows 5.0.3 alpha/beta
     exit(ver < 50000030);
 }
 ]])], [r_cv_have_lzma=yes], [r_cv_have_lzma=no], [r_cv_have_lzma=no])

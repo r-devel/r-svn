@@ -368,6 +368,9 @@ createRedirects <- function(file, Rdobj)
 ##    and missing links (those without an explicit package, and
 ##    those topics not in Links[2]) don't get linked anywhere.
 
+## There is a third use (from R 4.4.0), which is to generate
+## single-page HTML refmans for an entire package via pkg2HTML(),
+## which calles Rd2HTML(standalone = FALSE) for each help page. 
 
 
 Rd2HTML <-
@@ -441,9 +444,14 @@ Rd2HTML <-
         else toc_entries <- list()
     }
 
+    skipNewline <- FALSE
     of0 <- function(...)
         of1(paste0(...))
     of1 <- function(text) {
+        if (skipNewline) {
+            skipNewline <<- FALSE
+            if (text == "\n") return()
+        }
     	if (concordance)
     	    conc$addToConcordance(text)
         writeLinesUTF8(text, con, outputEncoding, sep = "")
@@ -505,7 +513,7 @@ Rd2HTML <-
 	## TODO: can we get 'start col' if no srcref ?
 	if (utils:::getSrcByte(x) == 1L) x <- psub("^\\s+", "", x)
 	if (isFALSE(inPara) && !all(grepl("^[[:blank:]\n]*$", x, perl = TRUE))) {
-	    x <- c("<p>", x)
+	    x <- paste0("<p>", x)
 	    inPara <<- TRUE
 	}
         x
@@ -614,7 +622,7 @@ Rd2HTML <-
                     if (standalone)
                         paste0("../../", urlify(package), "/help/", topic2filename(topic), ".html")
                     else
-                        topic2href(topic)
+                        topic2href(topic) # htmlfile is actually a link target within current file
                 writeHref()
                 return()
 
@@ -741,8 +749,9 @@ Rd2HTML <-
                TEXT = of1(if(doParas && !inAsIs) addParaBreaks(htmlify(block)) else vhtmlify(block)),
                USERMACRO =,
                "\\newcommand" =,
-               "\\renewcommand" =,
-               COMMENT = {},
+               "\\renewcommand" = {},
+               COMMENT = if (utils:::getSrcByte(block) == 1L)
+                             skipNewline <<- TRUE,
                LIST = writeContent(block, tag),
                "\\describe"=,
                "\\enumerate"=,
@@ -1140,7 +1149,7 @@ Rd2HTML <-
     ## Write a navigation menu (if toc == TRUE) based on toc_entries
     writeNav <- function() {
 
-        of0('<nav aria-label="Topic Navigation">\n',
+        of0('<nav class="topic" aria-label="Section Navigation">\n',
             '<div class="dropdown-menu">\n',
             '<h1>Contents</h1>\n',
             '<ul class="menu">\n')
@@ -1302,6 +1311,8 @@ Rd2HTML <-
         info$name <- name
         info$title <- rdfragment2text(title)
         info$htmltitle <- info$title # Rd2HTML(fragment = TRUE) gives unbalanced <p>
+        info$mathjaxr <- uses_mathjaxr(Rd)
+        info$pkgsummary <- FALSE # possibly updated below if alias ends with '-package'
 	if (concordance)
 	    conc$saveSrcref(title)
 	writeContent(title, sections[1])
@@ -1310,6 +1321,7 @@ Rd2HTML <-
         if (!standalone) {
             ## create empty spans with aliases as id, so that we can link
             for (a in trimws(unlist(Rd[ which(sections == "\\alias") ]))) {
+                if (endsWith(a, "-package")) info$pkgsummary <- TRUE
                 of0("<span id='", topic2id(a), "'></span>")
             }
         }
@@ -1324,7 +1336,7 @@ Rd2HTML <-
                 of0('<hr /><div style="text-align: center;">[', version,
                     if (!no_links) '<a href="00Index.html">Index</a>',
                     ']</div>')
-            of1('</main>')
+            of1('</main>\n')
             if (toc) writeNav()
             of1(paste(hfcomps$footer, collapse = "")) # write out footer
         }
@@ -1361,20 +1373,17 @@ findHTMLlinks <- function(pkgDir = "", lib.loc = NULL, level = 0:2)
 
     Links <- list()
     if (2 %in% level)
-        Links <- c(Links, lapply(rev(lib.loc), .find_HTML_links_in_library))
+        Links <- c(Links, lapply(lib.loc, .find_HTML_links_in_library))
     if (1 %in% level) {
         base <- unlist(.get_standard_package_names()[c("base", "recommended")],
                        use.names = FALSE)
-        Links <- c(Links,
-                   lapply(file.path(.Library, base),
-                          .find_HTML_links_in_package))
+        Links <- c(lapply(file.path(.Library, base),
+                          .find_HTML_links_in_package),
+                   Links)
     }
     if (0 %in% level && nzchar(pkgDir))
-        Links <- c(Links, list(.find_HTML_links_in_package(pkgDir)))
+        Links <- c(list(.find_HTML_links_in_package(pkgDir)), Links)
     Links <- unlist(Links)
-
-    ## now latest names are newest, so
-    Links <- rev(Links)
     Links <- Links[!duplicated(names(Links))]
     gsub("[Rr]d$", "html", Links)
 }
@@ -1458,8 +1467,8 @@ function(dir)
                       function(u) utils::URLencode(u, TRUE),
                       ## </FIXME>
                       2L)
-            x <- trfm("&lt;(arXiv|arxiv):([[:alnum:]/.-]+)([[:space:]]*\\[[^]]+\\])?&gt;",
-                      "&lt;<a href=\"https://arxiv.org/abs/%s\">arXiv:\\2</a>\\3&gt;",
+            x <- trfm("&lt;(arXiv|arxiv):(([[:alpha:].-]+/)?[[:digit:].]+)(v[[:digit:]]+)?([[:space:]]*\\[[^]]+\\])?&gt;",
+                      "&lt;<a href=\"https://doi.org/10.48550/arXiv.%s\">doi:10.48550/arXiv.\\2</a>&gt;",
                       x,
                       urlify,
                       2L)

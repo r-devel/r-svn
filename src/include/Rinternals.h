@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2023  The R Core Team.
+ *  Copyright (C) 1999--2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This header file is free software; you can redistribute it and/or modify
@@ -472,6 +472,7 @@ double Rf_asReal(SEXP x);
 Rcomplex Rf_asComplex(SEXP x);
 
 
+// also included in R_ext/Rallocators.h
 #ifndef R_ALLOCATOR_TYPE
 #define R_ALLOCATOR_TYPE
 typedef struct R_allocator R_allocator_t;
@@ -1012,7 +1013,7 @@ void R_orderVector1(int *indx, int n, SEXP x,       Rboolean nalast, Rboolean de
 #define ScalarString		Rf_ScalarString
 #define ScalarRaw		Rf_ScalarRaw
 #define setAttrib		Rf_setAttrib
-#define setSVector		Rf_setSVector
+//#define setSVector		Rf_setSVector
 #define setVar			Rf_setVar
 #define shallow_duplicate	Rf_shallow_duplicate
 #define str2type		Rf_str2type
@@ -1169,6 +1170,14 @@ enum {SORTED_DECR_NA_1ST = -2,
 			    sorted == SORTED_DECR_NA_1ST)
 
 
+/* ====================== public but non-API entry points =================
+
+   "not documented and subject to change without notice."
+
+   and that includes possible removal.
+ */
+
+    
 /* Experimental C interface for experimental hash table support
 
    Not in the API (at least not yet) but declared here to allow some
@@ -1196,51 +1205,59 @@ void R_maphashC(R_hashtab_type h, void (*FUN)(SEXP, SEXP, void *), void *data);
 void R_clrhash(R_hashtab_type h);
 
 
-/* stuff that probably shouldn't be in the API but is getting used */
+/* Rest of this file
+   Stuff that is not API and probably should not be but is getting used.
+ */
 
-void (SET_TYPEOF)(SEXP x, int v); // used by Rcpp
-void (SET_OBJECT)(SEXP x, int v); // used by Rcpp
-void (SET_S4_OBJECT)(SEXP x); // used by Rcpp (maybe?)
-void (UNSET_S4_OBJECT)(SEXP x); // used by Rcpp (maybe?)
-const char *R_curErrorBuf(void); // used by unix */
-int (IS_SCALAR)(SEXP x, int type); // used by symengine */
+void (SET_TYPEOF)(SEXP x, int v); // used by Rcpp and much more
+// used by Rcpp (not?), Matrix and more and in an example in R-exts.
+void (SET_OBJECT)(SEXP x, int v); // used by Rcpp (not?), Matrix and more
+void (SET_S4_OBJECT)(SEXP x); // used by Rcpp (not?) RTMB RcppInt64 data.table fstcore nanotime qs redland tau this.path tiblle
+void (UNSET_S4_OBJECT)(SEXP x); // used by Rcpp (not?) collapse data.table essentials slam vctrs
+const char *R_curErrorBuf(void); // used by Rserve gert unix
+int (IS_SCALAR)(SEXP x, int type); // used by rbedrock symengine this.path
 Rboolean Rf_psmatch(const char *, const char *, Rboolean); // used by rgl
 
-/* used in a couple of packages but should probably be dropped */
+/* used in a couple of packages but should probably be dropped 
+   error_return: grr nanonext rJava rbedrock
+   errorcall_return: Runuran(with call=NULL)
+*/
 				/* match(.) NOT reached : for -Wall */
 #define error_return(msg)	{ Rf_error(msg);	   return R_NilValue; }
 #define errorcall_return(cl,msg){ Rf_errorcall(cl, msg);   return R_NilValue; }
 
-void (SETLENGTH)(SEXP x, R_xlen_t v); // used by data.table and others
-void (SET_TRUELENGTH)(SEXP x, R_xlen_t v); // used by data.table and others
-int  (SETLEVELS)(SEXP x, int v); // used by quotedargs
+void (SETLENGTH)(SEXP x, R_xlen_t v); // used by many packages
+void (SET_TRUELENGTH)(SEXP x, R_xlen_t v); // used by many packages
+int  (SETLEVELS)(SEXP x, int v); // used by qs quotedargs
 
-void (SET_ENVFLAGS)(SEXP x, int v); // used by rlang and others
-void SET_FRAME(SEXP x, SEXP v); // used by rlang and others
-void SET_ENCLOS(SEXP x, SEXP v); // used by rlang and others
-void SET_HASHTAB(SEXP x, SEXP v); // used by rlang and others
+// used by admisc arcpbf b64 box clarabel collapse declared drake fcl rlang this.path
+void (SET_ENVFLAGS)(SEXP x, int v);
+void SET_FRAME(SEXP x, SEXP v); // used by cli mmap qs webfakes
+void SET_ENCLOS(SEXP x, SEXP v); // used by arcpbf b64 clarabel cli fcl magrittr mmap qs rlang  webfakes
+void SET_HASHTAB(SEXP x, SEXP v); // used by cli mmap qs webfakes
 
-void SET_PRENV(SEXP x, SEXP v); // used by dplyr, others
-void SET_PRVALUE(SEXP x, SEXP v); // used by dplyr, others
-void SET_PRCODE(SEXP x, SEXP v); // used by magrittr, others
+// used by S7 arcpbf b64 clarabel dplyr fcl magrittr nseval quotedargs this.path
+void SET_PRENV(SEXP x, SEXP v); 
+void SET_PRVALUE(SEXP x, SEXP v);
+void SET_PRCODE(SEXP x, SEXP v); 
 
-void *(STDVEC_DATAPTR)(SEXP x); // used by vroom
+void *(STDVEC_DATAPTR)(SEXP x); // used by vctrs vroom
 
 /* Growable vector support */ // used by multbxxc
 int (IS_GROWABLE)(SEXP x);
 void (SET_GROWABLE_BIT)(SEXP x);
 
-// used by quotedargs
+// used in quotedargs
 #define BCODE_CONSTS(x) CDR(x) // re-enable in Defn.h after removing here
-void (SET_NAMED)(SEXP x, int v);
+void (SET_NAMED)(SEXP x, int v); // used by fastmatch quotedargs
 
-// used by igraph, lazyeval, nseval, rlang
+// used in igraph lazyeval nseval rlang
 #define PREXPR(e) R_PromiseExpr(e)
 
-// used by rlang
+// used in rlang
 #define BODY_EXPR(e) R_ClosureExpr(e)
 
-// used by BIOC::matter; mightbe reasonable to include in API
+// used by BioC::matter; might be reasonable to include in API
 SEXP R_tryWrap(SEXP);
 
 #ifdef __cplusplus

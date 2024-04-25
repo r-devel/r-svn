@@ -129,10 +129,10 @@ A @emph{package} is a directory of files which extend @R{}, a
 @emph{source package} (the master files of a package), or a tarball
 containing the files of a source package, or an @emph{installed}
 package, the result of running @command{R CMD INSTALL} on a source
-package.  On some platforms (notably macOS and Windows) there are also
-@emph{binary packages}, a zip file or tarball containing the files of an
-installed package which can be unpacked rather than installing from
-sources.
+package.  On some platforms (notably macOS and @cputype{x86_64} Windows)
+there are also @emph{binary packages}, a zip file or tarball containing
+the files of an installed package which can be unpacked rather than
+installing from sources.
 
 A package is @strong{not}@footnote{although this is a persistent
 @I{mis-usage}.  It seems to stem from S, whose analogues of @R{}'s packages
@@ -575,7 +575,9 @@ The @samp{UseLTO} logical field is used to indicate if source code in
 the package@footnote{without a @file{src/Makefile*} file.}  is to be
 compiled with Link-Time Optimization (@pxref{Using Link-time
 Optimization}) if @R{} was installed with @option{--enable-lto} (default
-true) or @option{--enable-lto=R} (default false) (or on Windows if
+true) or @option{--enable-lto=R} (default false) (or on
+Windows@footnote{@abbr{LTO} is not currently supported by the toolchain
+used on @cputype{aarch64}.} if
 @code{LTO_OPT} is set in @file{MkRules}). This can be overridden by the
 flags @option{--use-LTO} and @option{--no-use-LTO}.  @abbr{LTO} is said to give
 most size and performance improvements for large and complex (heavily
@@ -593,7 +595,8 @@ The @samp{ZipData} logical field has been ignored since @R{} 2.13.0.
 
 @c DESCRIPTION field Biarch
 The @samp{Biarch} logical field is used on Windows to select the
-@command{INSTALL} option @option{--force-biarch} for this package.
+@command{INSTALL} option @option{--force-biarch} for this package.  Not
+currently relevant.
 
 @c DESCRIPTION field BuildVignettes
 The @samp{BuildVignettes} logical field can be set to a false value to
@@ -1258,12 +1261,13 @@ Fortran usually work for the platform's native compilers.
 If your code needs to depend on the platform there are certain defines
 which can used in C or C++.  On all Windows builds (even 64-bit ones)
 @samp{_WIN32} will be defined: on 64-bit Windows builds also
-@samp{_WIN64}.  On macOS @samp{__APPLE__} is defined@footnote{There is
-also @samp{__APPLE_CC__}, but that indicates a compiler with
-Apple-specific features not the OS, although for historical reasons is
-is defined by @I{LLVM} @command{clang}.  It is used in
-@file{Rinlinedfuns.h}.}; for an `Apple Silicon' platform, test for both
-@samp{__APPLE__} and @samp{__arm64__}.
+@samp{_WIN64}. For Windows on ARM, test for @samp{_M_ARM64} or both
+@samp{_WIN32} and @samp{__aarch64__}.  On macOS @samp{__APPLE__} is
+defined@footnote{There is also @samp{__APPLE_CC__}, but that indicates a
+compiler with Apple-specific features not the OS, although for
+historical reasons is is defined by @I{LLVM} @command{clang}.  It is
+used in @file{Rinlinedfuns.h}.}; for an `Apple Silicon' platform, test
+for both @samp{__APPLE__} and @samp{__arm64__}.
 
 The default rules can be tweaked by setting macros@footnote{the POSIX
 terminology, called `make variables' by GNU make.} in a file
@@ -1481,13 +1485,12 @@ small values which are in fact rounding error from zero: consider using
 
 Subdirectory @file{exec} could contain additional executable scripts the
 package needs, typically scripts for interpreters such as the shell,
-Perl, or Tcl.  NB: only files (and not directories) under @file{exec} are
-installed (and those with names starting with a dot are ignored), and
-they are all marked as executable (mode @code{755}, moderated by
+Perl, or Tcl.  NB: only files (and not directories) under @file{exec}
+are installed (and those with names starting with a dot are ignored),
+and they are all marked as executable (mode @code{755}, moderated by
 @samp{umask}) on POSIX platforms.  Note too that this is not suitable
-for executable @emph{programs} since some platforms (including Windows)
-support multiple architectures using the same installed package
-directory.
+for executable @emph{programs} since some platforms support multiple
+architectures using the same installed package directory.
 
 Subdirectory @file{po} is used for files related to @emph{localization}:
 @pxref{Internationalization}.
@@ -1967,7 +1970,7 @@ minimal version of @I{Bourne}-style @command{sh}. As from @R{} 4.2.0,
 @file{configure.ucrt}) is run the environment variables @env{R_HOME}
 (which uses @samp{/} as the file separator), @env{R_ARCH} and
 @env{R_ARCH_BIN} will be set.  Use @env{R_ARCH} to decide if this is a
-64-bit build (its value there is @samp{/x64}) and to install DLLs to the
+64-bit build for Intel (its value there is @samp{/x64}) and to install DLLs to the
 correct place (@file{$@{R_HOME@}/libs$@{R_ARCH@}}).  Use
 @env{R_ARCH_BIN} to find the correct place under the @file{bin}
 directory, e.g.@: @file{$@{R_HOME@}/bin$@{R_ARCH_BIN@}/Rscript.exe}.  If
@@ -2054,7 +2057,7 @@ to try in turn @command{pkg-config --libs} and @command{pkg-config
 to be used.
 
 @c package libproj repeatedly got this wrong in 2020.
-Static libraries are commonly used on macOS (and Windows) to facilitate
+Static libraries are commonly used on macOS and Windows to facilitate
 bundling external software with binary distributions of packages.  This
 means that portable (source) packages need to allow for this.  It is
 @emph{not} safe to just use @command{pkg-config --static --libs}, as
@@ -2435,7 +2438,7 @@ Visual C++), but might be import libraries.  See for example
 @uref{https://sourceware.org/binutils/docs-2.20/ld/WIN32.html#WIN32}.
 
 The fly in the ointment is that the DLL might not be named
-@file{libxxx.dll}, and in fact on 32-bit Windows there is a
+@file{libxxx.dll}, and in fact on 32-bit Windows there was a
 @file{libxml2.dll} whereas on one build for 64-bit Windows the DLL is
 called @file{libxml2-2.dll}.  Using import libraries can cover over
 these differences but can cause equal difficulties.
@@ -2629,7 +2632,7 @@ or @R{} itself).   Also, implementation-specific variables such as
 There is no direct support for the POSIX threads (more commonly known as
 @code{pthreads}): by the time we considered adding it several packages
 were using it unconditionally so it seems that nowadays it is
-universally available on POSIX operating systems (hence not Windows).
+universally available on POSIX operating systems.
 
 For reasonably recent versions of @command{gcc} and @command{clang} the
 correct specification is
@@ -2655,21 +2658,13 @@ versions of OpenBSD used a different library name).
 For a tutorial see
 @uref{https://hpc-tutorials.llnl.gov/posix/}.
 
-POSIX threads are not normally used on Windows, which has its own native
-concepts of threads.  However, there are two projects implementing
-@code{pthreads} on top of Windows, @code{pthreads-w32} and
-@code{winpthreads} (part of the @I{MinGW-w64} project).
-
-Whether Windows toolchains implement @code{pthreads} is up to the
-toolchain provider.  A @command{make} variable
-@code{SHLIB_PTHREAD_FLAGS} is available for use in
-@file{src/Makevars.win} or @file{Makevars.ucrt}: this should be included in both
-@code{PKG_CPPFLAGS} (or the Fortran compiler flags) and @code{PKG_LIBS}.
+POSIX threads are not normally used on Windows which has its own native
+concepts of threads: however, recent toolchains do provide the
+@code{pthreads} header and library.
 
 The presence of a working @code{pthreads} implementation cannot be
 unambiguously determined without testing for yourself: however, that
-@samp{_REENTRANT} is defined@footnote{some Windows toolchains had the
-typo @samp{_REENTRANCE} instead.} in C/C++ code is a good indication.
+@samp{_REENTRANT} is defined in C/C++ code is a good indication.
 
 Note that not all @code{pthreads} implementations are equivalent as parts
 are optional (see
@@ -2949,8 +2944,8 @@ there were also additional deprecations.} (`C++14') was published in
 December 2014 and was used by default as from @R{} 4.1.0 if
 supported.  Further revisions `C++17' (in December 2017) and `C++20'
 (with many new features in December 2020) have been published since.
-The next revision, `C++23', is expected in 2023/4 and several compilers
-already have extensive partial support for the current drafts.
+The next revision, `C++23', is expected in 2024 and several compilers
+already have extensive partial support for the final draft.
 
 The default standard for compiling @R{} packages was changed to C++17 in
 @R{} 4.3.0 if supported, and from @R{} 4.4.0 only a C++17 compiler will
@@ -3068,7 +3063,11 @@ feature tests as well as resources such as
 @uref{https://en.cppreference.com/w/cpp/compiler_support},
 @uref{https://gcc.gnu.org/projects/cxx-status.html} and
 @uref{https://clang.llvm.org/cxx_status.html} to see if the features you
-want to use are widely implemented.
+want to use are widely implemented.  In particular, for C++23 @R{}'s
+@command{configure} script only checks for a compiler claiming to be
+later than C++20.@footnote{The @code{__cplusplus} value for C++23 is not yet
+finalized and all but some of the latest compilers use values from earlier
+drafts.}
 
 Attempts to specify an unknown C++ standard are silently ignored: recent
 versions of @R{} throw an error for C++98 and for known standards for
@@ -3733,7 +3732,7 @@ Packages may be distributed in source form as ``tarballs''
 (@file{.tar.gz} files) or in binary form. The source form can be
 installed on all platforms with suitable tools and is the usual form for
 Unix-like systems; the binary form is platform-specific, and is the more
-common distribution form for the Windows and macOS platforms.
+common distribution form for the macOS and @cputype{x86_64} Windows platforms.
 
 Using @command{R CMD build}, the @R{} package builder, one can build
 @R{} package tarballs from their sources (for example, for subsequent
@@ -3918,10 +3917,10 @@ discussed in the platform-specific FAQs.
 
 Finally, at least one web-based service is available for building binary
 packages from (checked) source code: @I{WinBuilder} (see
-@uref{https://win-builder.R-project.org/}) is able to build Windows
-binaries. Note that this is intended for developers on other platforms
-who do not have access to Windows but wish to provide binaries for the
-Windows platform.
+@uref{https://win-builder.R-project.org/}) is able to build
+@cputype{x86_64} Windows binaries. Note that this is intended for
+developers on other platforms who do not have access to Windows but wish
+to provide binaries for the Windows platform.
 
 @node Writing package vignettes, Package namespaces, Checking and building packages, Creating R packages
 @section Writing package vignettes
@@ -5072,7 +5071,7 @@ for accounts ported from Mojave or earlier it is usually
 @item
 @R{} is not built by default as a shared library on non-Windows
 platforms (although it commonly is on macOS to support the GUI), so
-there need be not a file @file{libR.so} nor @file{libR.dylib}.  Users of
+there need not be a file @file{libR.so} nor @file{libR.dylib}.  Users of
 @command{cmake} or @command{rust} have all too frequently assumed
 otherwise, so do ensure your package is checked under a vanilla @R{} build.
 @ifset UseExternalXrefs
@@ -5709,18 +5708,19 @@ quality. Not only do large files take up space: they can stress the PDF
 viewer and take many minutes to print (if they can be printed at all).
 
 @command{qpdf} (@uref{https://qpdf.sourceforge.io/}) can compress
-losslessly.  It is fairly readily available (e.g.@: it has binaries for
-Windows and packages in Debian/Ubuntu/Fedora, and is installed as part
-of the @acronym{CRAN} macOS distribution of @R{}).  @command{R CMD
-build} has an option to run @command{qpdf} over PDF files under
-@file{inst/doc} and replace them if at least 10Kb and 10% is saved.  The
-full path to the @command{qpdf} command can be supplied as environment
-variable @env{R_QPDF} (and is on the @acronym{CRAN} binary of @R{} for
-macOS).  It seems @I{MiKTeX} does not use PDF object compression and so
-@command{qpdf} can reduce considerably the sizes of files it outputs:
-@I{MiKTeX}'s defaults can be overridden by code in the preamble of an Sweave
-or @LaTeX{} file --- see how this is done for the @R{} reference manual
-at @uref{https://svn.r-project.org/R/trunk/doc/manual/refman.top}.
+losslessly.  It is fairly readily available (e.g.@: it is included in
+@code{rtools}, has packages in Debian/Ubuntu/Fedora, and is
+installed as part of the @acronym{CRAN} macOS distribution of @R{}).
+@command{R CMD build} has an option to run @command{qpdf} over PDF files
+under @file{inst/doc} and replace them if at least 10Kb and 10% is
+saved.  The full path to the @command{qpdf} command can be supplied as
+environment variable @env{R_QPDF} (and is on the @acronym{CRAN} binary
+of @R{} for macOS).  It seems @I{MiKTeX} does not use PDF object
+compression and so @command{qpdf} can reduce considerably the sizes of
+files it outputs: @I{MiKTeX}'s defaults can be overridden by code in the
+preamble of an Sweave or @LaTeX{} file --- see how this is done for the
+@R{} reference manual at
+@uref{https://svn.r-project.org/R/trunk/doc/manual/refman.top}.
 
 Other tools can reduce the size of PDFs containing bitmap images at
 excessively high resolution.  These are often best re-generated (for
@@ -6313,6 +6313,11 @@ but
 @example
 #ifdef _WIN32
 // Windows-specific code
+# if defined(_M_ARM64) || defined(__aarch64__)
+// for ARM
+# else
+// for Intel
+# endif
 #else
 // Unix-alike code
 #endif
@@ -6798,7 +6803,7 @@ the default).
 
 The procedures make use of @code{msgfmt} and @code{xgettext} which are
 part of @acronym{GNU} @code{gettext} and this will need to be installed:
-Windows users can find pre-compiled binaries at
+@cputype{x86_64} Windows users can find pre-compiled binaries at
 @uref{https://www.stats.ox.ac.uk/pub/Rtools/goodies/gettext-tools.zip}.
 
 @menu
@@ -7049,7 +7054,7 @@ writing @R{} packages, particularly those intended for public
 distribution.
 
 @uref{https://win-builder.r-project.org, win-builder.r-project.org}
-offers the automated preparation of (64-bit) Windows binaries from
+offers the automated preparation of (@cputype{x86_64}) Windows binaries from
 well-tested source packages.
 
 R-Forge (@uref{https://R-Forge.r-project.org, R-Forge.r-project.org}) and
@@ -7172,7 +7177,7 @@ file ready for manual editing.  Methods are defined for documenting
 functions (which fill in the proper function and argument names) and
 data frames.  There are also functions @code{promptData},
 @code{promptPackage}, @code{promptClass}, and @code{promptMethods} for
-other types of @file{Rd} file.
+other types of @file{Rd} files.
 
 The general syntax of @file{Rd} files is summarized below.  For a detailed
 technical discussion of current @file{Rd} syntax, see
@@ -7718,9 +7723,8 @@ another @file{Rd} file, it is helpful to use this as an additional
 Skeletons of documentation for a package can be generated using the
 function @code{promptPackage()}.  If the @code{final = TRUE} argument
 is used, then the @file{Rd} file will be generated in final form, containing
-the information that would be produced by
-@code{library(help = @var{pkgname})}. Otherwise (the default) comments
-will be inserted giving suggestions for content.
+only basic information from the @file{DESCRIPTION} file. Otherwise (the
+default) comments will be inserted giving suggestions for content.
 
 Apart from the mandatory @code{\name} and @code{\title} and the
 @code{@var{pkgname}-package} alias, the only requirement for the package
@@ -8021,7 +8025,7 @@ class (in package @pkg{stats}).  To make these easy to read in the
 source file, @code{\code@{"\linkS4class@{abc@}"@}} expands to the form
 given above.
 
-There are two other forms with an optional argument, specified as
+There are two other forms with an optional `anchor' argument, specified as
 @code{\link[@var{pkg}]@{@var{foo}@}} and
 @code{\link[@var{pkg:bar}]@{@var{foo}@}}, to link to topics
 @code{@var{foo}} and @code{@var{bar}} respectively in the package
@@ -9172,7 +9176,8 @@ command-line version prior to macOS 12.
 @subsection Profiling on Windows
 
 @command{Very Sleepy}
-(@uref{https://github.com/VerySleepy/verysleepy}) has been used.  There were
+(@uref{https://github.com/VerySleepy/verysleepy}) has been used on
+@cputype{x86_64} Windows.  There were
 problems with accessing the debug information, but the best results which
 included function names were obtained by attaching the profiler to an
 existing @command{Rterm} process, either via GUI or using @option{/a:}
@@ -10806,9 +10811,9 @@ subroutine.
 On all @R{} platforms @code{int} and @code{INTEGER} are 32-bit.  Code
 ported from S-PLUS (which uses @code{long *} for @code{logical} and
 @code{integer}) will not work on all 64-bit platforms (although it may
-appear to work on some, including Windows).  Note also that if your
-compiled code is a mixture of C functions and Fortran subprograms the
-argument types must match as given in the table above.
+appear to work on some, including @cputype{x86_64} Windows).  Note also
+that if your compiled code is a mixture of C functions and Fortran
+subprograms the argument types must match as given in the table above.
 
 C type @code{Rcomplex} is a structure with @code{double} members
 @code{r} and @code{i} defined in the header file
@@ -11068,8 +11073,8 @@ environment variable, but with lowest priority: note that it does not
 include the directory from which the DLL was loaded.  It is possible to
 add a single path with quite high priority @emph{via} the @code{DLLpath}
 argument to @code{dyn.load}.  This is (by default) used by
-@code{library.dynam} to include the package's @file{libs/x64} directory
-in the DLL search path.
+@code{library.dynam} to include the package's @file{libs/x64} directory (on
+Intel) in the DLL search path.
 
 
 @node Registering native routines, Creating shared objects, dyn.load and dyn.unload, System and foreign language interfaces
@@ -14420,7 +14425,7 @@ with any other value causing the byte to produce no output.
 There is also
 
 @example
-SEXP mkCharLenCE(const char *, size_t, cetype_t);
+SEXP mkCharLenCE(const char *, int, cetype_t);
 @end example
 
 @noindent
@@ -14479,19 +14484,19 @@ header files when using these entry points.
 @end quotation
 
 This remapping can cause problems@footnote{Known problems have been
-defining @code{LENGTH}, @code{error}, @code{length}, @code{vector} and
-@code{warning}: whether these matter depends on the OS and toolchain,
-with many problem reports involving @command{clang++}.  As from @I{LLVM}
-@command{clang} 13.0.0, the remapping of @code{match} breaks the
-subsequent inclusion of @file{omp.h}.}, and can be eliminated by
-defining @code{R_NO_REMAP} (before including any @R{} headers) and
-prepending @samp{Rf_} to @emph{all} the function names used from
-@file{Rinternals.h} and @file{R_ext/Error.h}.  These problems can
-usually be avoided by including other headers (such as system headers
-and those for external software used by the package) before any @R{}
-headers. (Headers from other packages may include @R{} headers directly
-or @emph{via} inclusion from further packages, and may define
-@code{R_NO_REMAP} with or without including @file{Rinternals.h}.)
+defining @code{LENGTH}, @code{error}, @code{length}, @code{match},
+@code{vector} and @code{warning}: whether these matter depends on the OS
+and toolchain, with many problem reports involving @command{clang++}.},
+@c As from @I{LLVM} @command{clang} 13.0.0, the remapping of @code{match}
+@c breaks the subsequent inclusion of @file{omp.h}.
+and can be eliminated by defining @code{R_NO_REMAP} (before including
+any @R{} headers) and prepending @samp{Rf_} to @emph{all} the function
+names used from @file{Rinternals.h} and @file{R_ext/Error.h}.  These
+problems can usually be avoided by including other headers (such as
+system headers and those for external software used by the package)
+before any @R{} headers. (Headers from other packages may include @R{}
+headers directly or @emph{via} inclusion from further packages, and may
+define @code{R_NO_REMAP} with or without including @file{Rinternals.h}.)
 
 We can classify the entry points as
 
@@ -14514,6 +14519,12 @@ Do not use these in distributed code.
 @item hidden
 Entry points that are where possible (Windows and some modern Unix-alike
 compilers/loaders when using @R{} as a shared library) not exported.
+
+@item experimental
+Entry points declared in an installed header file that are part of an
+experimental API, such as @file{R_ext/Altrep.h}. These are subject to
+change, so package authors wishing to use these should be prepared to
+adapt.
 @end table
 
 @node Memory allocation, Error signaling, The R API, The R API
@@ -16054,6 +16065,15 @@ system call @code{tmpnam}). Freeing the result using @code{free} is no
 longer recommended. 
 @end deftypefun
 
+@deftypefun void R_atof (const char* @var{str})
+@deftypefunx void R_strtod (const char* @var{str}, char ** @var{end})
+Implementations of the C99/POSIX functions @code{atof} and @code{strtod}
+which guarantee platform-dependent behaviour, including always using the
+period as the decimal point @emph{aka} `@I{radix character}' and converting
+@code{"NA"} to R's @code{NA_REAL_} .
+@end deftypefun
+
+
 @c ----
 
 There is also the internal function used to expand file names in several
@@ -16511,6 +16531,8 @@ be used in system headers, or (preferably) to define @code{R_NO_REMAP}.
 Setting the environment variable @env{_R_CXX_USE_NO_REMAP_} to a true value
 allows the need for this to be tested, as it causes @command{R CMD
 INSTALL} to compile C++ code defining @code{R_NO_REMAP}.
+@env{_R_CXX_USE_NO_REMAP_} is set by @command{R CMD check --as-cran} and
+is planned to become the default in future.
 
 @node Generic functions and methods, Linking GUIs and other front-ends to R, The R API, Top
 @chapter Generic functions and methods
@@ -17314,6 +17336,8 @@ makes use of the stack-checking mechanism on a secondary thread.
 
 @node Embedding R under Windows,  , Embedding R under Unix-alikes, Linking GUIs and other front-ends to R
 @section Embedding R under Windows
+
+This section is only about @cputype{x86_64} Windows.
 
 All Windows interfaces to @R{} call entry points in the DLL
 @file{R.dll}, directly or indirectly.  Simpler applications may find it

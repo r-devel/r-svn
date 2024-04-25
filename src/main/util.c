@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -588,25 +588,36 @@ attribute_hidden SEXP do_nargs(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* formerly used in subscript.c, in Utils.h */
+/* formerly used in subscript.c, in Utils.h
+      Does not know about long vectors ....
+      Commented out 2024-02
 attribute_hidden void setIVector(int * vec, int len, int val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
 /* unused in R, in Utils.h, may have been used in Rcpp at some point,
-      but not any more (as per Nov. 2018)  */
+      but not any more (as per Nov. 2018).
+      Does not know about long vectors ....
+      RcppClassic has its own version.
+      Commented out 2024-02
 attribute_hidden void setRVector(double * vec, int len, double val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
-/* unused in R, in Rinternals.h */
+/* unused in R, in Defn.h, formerly remapped in Rinternals.h
+      Unused in R.
+      Does not know about long vectors ....
+      Commented out 2024-02
 void setSVector(SEXP * vec, int len, SEXP val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
 Rboolean isFree(SEXP val)
@@ -903,7 +914,7 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    size_t ff = ll;
 	    /* find start of file part */
 	    while(ff && pp[ff-1] != fsp) ff--;
-	    SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, ll-ff, CE_NATIVE));
+	    SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, (int)(ll-ff), CE_NATIVE));
 	}
     }
     UNPROTECT(1);
@@ -1025,7 +1036,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    SET_STRING_ELT(ans, i, mkCharLenCE(&fsp, 1, CE_NATIVE));
 		    continue;
 		}
-		SET_STRING_ELT(ans, i, mkCharLenCE(pp, ll, CE_NATIVE));
+		SET_STRING_ELT(ans, i, mkCharLenCE(pp, (int)ll, CE_NATIVE));
 	    } else
 		/* empty pathname is invalid, but returned */
 		SET_STRING_ELT(ans, i, mkChar(""));
@@ -1555,7 +1566,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 	    p++;
 	} else {
 	    if (IS_HIGH_SURROGATE(*p) || IS_LOW_SURROGATE(*p))
-		warning("unpaired surrogate Unicode point %x", *p);
+		warning("unpaired surrogate Unicode point %x", (unsigned int)*p);
 	    m = Rwcrtomb32(t, (R_wchar_t)(*p), n - res);
 	}
 	if (!m) break;
@@ -2063,6 +2074,27 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
     else return 0;
 }
 
+/* Introduced on 2008-03-21 with comment
+
+       use our own strtod/atof to mitigate effects of setting LC_NUMERIC
+
+   Also allows complete control of which non-numeric strings are
+   accepted; e.g. glibc allows NANxxxx, macOS NAN(s), this accepts "NA".
+
+   Exported and in Utils.h (but not in R-exts).
+
+   Variants:
+   R_strtod4 is used by scan(), allows the decimal point (byte) to be
+   specified and whether "NA" is accepted.
+
+   R_strtod5 is used by type_convert(numerals=) (utils/src/io.c)
+
+   The parser uses R_atof (and handles non-numeric strings itself).
+   That is the same as R_strtod but ignores endptr. 
+   Also used by gnuwin32/windlgs/src/ttest.c, 
+   exported and in Utils.h (but not in R-exts).
+*/
+
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact)
 {
@@ -2135,10 +2167,16 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    case '+': p++;
 	    default: ;
 	    }
-	    /* The test for n is in response to PR#16358; it's not right if the exponent is
-	       very large, but the overflow or underflow below will handle it. */
 #define MAX_EXPONENT_PREFIX 9999
-	    for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	    /* exponents beyond ca +1024/-1076 over/underflow */
+	    int ndig = 0;
+	    for (n = 0; *p >= '0' && *p <= '9'; p++, ndig++)
+		n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	    if (ndig == 0) {
+		ans = NA_REAL;
+		p = str; /* back out */
+		goto done;
+	    }
 	    if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
 		LDOUBLE fac = 1.0;
 		expn += expsign * n;
@@ -2179,13 +2217,29 @@ double R_strtod5(const char *str, char **endptr, char dec,
     strtod_EXACT_CLAUSE;
 
     if (*p == 'e' || *p == 'E') {
+	int ndigits = 0;
 	int expsign = 1;
 	switch(*++p) {
 	case '-': expsign = -1;
 	case '+': p++;
 	default: ;
 	}
-	for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	/* The test for n is in response to PR#16358; which was
+	   parsing 1e999999999999.
+	   It's not right if the exponent is very large, but the
+	   overflow or underflow below will handle it.
+	   1e308 is already Inf, but negative exponents can go down to -323
+	   before undeflowing to zero.  And people could do perverse things 
+	   like 0.00000001e312.
+	*/
+	// C17 §6.4.4.2 requires a non-empty 'digit sequence'
+	for (n = 0; *p >= '0' && *p <= '9'; p++, ndigits++)
+	    n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	if (ndigits == 0) {
+	    ans = NA_REAL;
+	    p = str; /* back out */
+	    goto done;
+	}
 	expn += expsign * n;
     }
 

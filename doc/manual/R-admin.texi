@@ -552,7 +552,7 @@ manuals are built, using @command{make -e}.)  The usual@footnote{on a
 Unix-alike, @samp{inconsolata} is omitted if not found by
 @command{configure}.}  default value for @env{R_RD4PDF} is
 @samp{times,inconsolata,hyper}: omit @samp{inconsolata} if you do not have
-@LaTeX{} package @pkg{inconsolata} installed. As from @R{} 4.2.0,
+@LaTeX{} package @pkg{inconsolata} installed.
 @samp{hyper} is always enabled (with a fallback if @LaTeX{} package
 @pkg{hyperref} is not installed).
 
@@ -878,19 +878,9 @@ R --arch=@var{name} CMD make check[-devel|all]
 to select a sub-architecture to check.
 
 Sub-architectures were also used on Windows, but by selecting executables
-within the appropriate @file{bin} directory,
-@file{@var{R_HOME}/bin/x64}.  For
-backwards compatibility there are executables
-@file{@var{R_HOME}/bin/R.exe} and @file{@var{R_HOME}/bin/Rscript.exe}:
-these will run an executable from one of the subdirectories, which one
-being taken first from the
-@enindex R_ARCH
-@env{R_ARCH} environment variable, then from the
-@option{--arch} command-line option@footnote{with possible values
-@samp{i386}, @samp{x64}, @samp{32} and @samp{64}.} and finally from the
-installation default (which is 32-bit for a combined 32/64 bit @R{}
-installation). @R{} 4.2.0 follows the scheme, but supports and includes
-only 64-bit builds.
+within the appropriate @file{bin} directory such as
+@file{@var{R_HOME}/bin/x64}. As from @R{} 4.2.0 only the @samp{x64}
+subdirectory is used.
 
 
 @node Other Options, Testing a Unix-alike Installation, Sub-architectures, Installing R under Unix-alikes
@@ -920,28 +910,26 @@ environment variable @env{TZ}.
 
 Options @option{--with-internal-iswxxxxx},
 @option{--with-internal-towlower} and @option{--with-internal-wcwidth}
-were introduced in @R{} 4.1.0.  These control the replacement of the
-system wide-character classification (such as @code{iswprint}),
-case-changing (@code{wctrans}) and width (@code{wcwidth} and
-@code{wcswidth}) functions by ones contained in the @R{} sources.
-Replacement of the classification functions has been done for many years
-on macOS and @abbr{AIX} (and Windows): option @option{--with-internal-iswxxxxx}
-allows this to be suppressed on those platforms or used on others.
-Replacing the case-changing functions was new in @R{} 4.1.0 and the
-default on macOS (and on Windows since @R{} 4.2.0).  Replacement of the
-width functions has also been done for many years and remains the
-default.  These options will only matter to those working with non-ASCII
-character data, especially in languages written in a non-Western
-script@footnote{But on Windows problems have been seen with
-case-changing functions on accented Latin-1 characters.} (which includes
-`symbols' such as emoji).  Note that one of those @code{iswxxxxx} is
-@code{iswprint} which is used to decide whether to output a character as
-a glyph or as a @samp{\U@{xxxxxx@}} escape---for example, try
-@samp{"\U1f600"}, an emoji.  The width functions are of most importance
-in East Asian locale: their values differ between such locales.
-(Replacing the system functions provides a degree of
-platform-independence (including to OS updates) but replaces it with a
-dependence on the @R{} version.)
+control the replacement of the system wide-character classification
+(such as @code{iswprint}), case-changing (@code{wctrans}) and width
+(@code{wcwidth} and @code{wcswidth}) functions by ones contained in the
+@R{} sources.  Replacement of the classification functions has been done
+for many years on macOS and @abbr{AIX} (and Windows): option
+@option{--with-internal-iswxxxxx} allows this to be suppressed on those
+platforms or used on others.  Replacing the case-changing functions is
+the default on macOS and Windows.  Replacement of the width functions
+has also been done for many years and remains the default.  These
+options will only matter to those working with non-ASCII character data,
+especially in languages written in a non-Western script@footnote{But on
+Windows problems have been seen with case-changing functions on accented
+Latin-1 characters.} (which includes `symbols' such as emoji).  Note
+that one of those @code{iswxxxxx} is @code{iswprint} which is used to
+decide whether to output a character as a glyph or as a
+@samp{\U@{xxxxxx@}} escape---for example, try @samp{"\U1f600"}, an
+emoji.  The width functions are of most importance in East Asian locale:
+their values differ between such locales.  (Replacing the system
+functions provides a degree of platform-independence (including to OS
+updates) but replaces it with a dependence on the @R{} version.)
 
 @menu
 * Debugging Symbols::
@@ -1393,9 +1381,9 @@ and use a UTF-8 or Latin-1 locale.
 [The rest of this paragraph is only relevant after release.]
 The @file{bin/windows} directory of a @acronym{CRAN} site contains
 binaries for a base distribution and a large number of add-on packages
-from @acronym{CRAN} to run on 64-bit Windows.
+from @acronym{CRAN} to run on 64-bit @cputype{x86_64} Windows.
 
-R is best tested on current versions of Windows 10 and Windows Server 2022
+R is most tested on current versions of Windows 10 and Windows Server 2022
 with UTF-8 as the charset encoding.  It works also on Windows 11.  It runs
 on older versions of Windows, but normally with other charset encoding and
 may require manual installation of the Universal C Runtime (@abbr{UCRT}).
@@ -1426,10 +1414,10 @@ information on use on older Windows systems.
 @node Building from source, Checking the build, Installing R under Windows, Installing R under Windows
 @section Building from source
 
-It is possible to use other 64-bit toolchains (including `MSYS2') with @abbr{UCRT}
-support to build @R{}, but this manual only documents that used for binary
-distributions of @R{} 4.2.x and later.  When using other toolchains, makefiles of @R{}
-and packages may need to be adapted.
+It is possible to use other 64-bit toolchains (including `MSYS2') with
+@abbr{UCRT} support to build @R{}, but this manual only documents that
+used for recent binary distributions of @R{}.  When using other
+toolchains, makefiles of @R{} and packages may need to be adapted.
 
 @menu
 * The Windows toolset::
@@ -1446,15 +1434,15 @@ for Windows}. See
 @uref{https://CRAN.R-project.org/bin/windows/base/howto-R-devel.html, Building
 R and packages} for more details on how to use it.
 
-The toolset includes compilers (GCC version 13.2.0 with selected additional
-patches) and runtime libraries from @uref{http://mingw-w64.org/,the
-`@I{MinGW-w64}' project} and a number of pre-compiled static libraries and
-headers used by @R{} and @R{} packages, compiled by
-@uref{https://mxe.cc/,'MXE'} (M cross environment, with updates
-maintained by @I{Tomas Kalibera}).
-The toolset also includes build tools from the
-@uref{https://www.msys2.org/, the 'MSYS2' project}.  Additional build tools
-packaged by 'MSYS2' may be installed via a package manager (@samp{pacman}).
+The toolset includes compilers (currently GCC version 13.2.0 with
+selected additional patches) and runtime libraries from
+@uref{http://mingw-w64.org/,the `@I{MinGW-w64}' project} and a number of
+pre-compiled static libraries and headers used by @R{} and @R{}
+packages, compiled by @uref{https://mxe.cc/,'MXE'} (M cross environment,
+with updates maintained by @I{Tomas Kalibera}).  The toolset also
+includes build tools from the @uref{https://www.msys2.org/, the 'MSYS2'
+project}.  Additional build tools packaged by 'MSYS2' may be installed
+via a package manager (@samp{pacman}).
 
 There is also an experimental variant of @I{Rtools44} with support for 64-bit
 ARM CPUs (@I{aarch64}) via @I{LLVM} 17 toolchain using @command{clang}/@command{flang-new} compilers,
@@ -2109,15 +2097,18 @@ have to use @code{library} to make its functionality available.
 What @code{install.packages} does by default is different on Unix-alikes
 (except macOS) and Windows.  On Unix-alikes it consults the list of
 available @emph{source} packages on @acronym{CRAN} (or other
-repositories), downloads the latest version of the package sources,
-and installs them (via @code{R CMD INSTALL}).  On Windows it looks (by
-default) first at the list of @emph{binary} versions of packages
-available for your version of @R{} and downloads the latest versions (if
-any).  If no binary version is available or the source version is newer,
-it will install the source versions of packages without compiled
-C/C++/Fortran code, and offer to do so for those with, if @command{make}
-is available (and this can be tuned by option
+repositories), downloads the latest version of the package sources, and
+installs them (via @code{R CMD INSTALL}).  On @cputype{x86_64} Windows
+it looks (by default) first at the list of @emph{binary} versions of
+packages available for your version of @R{} and downloads the latest
+versions (if any).  If no binary version is available or the source
+version is newer, it will install the source versions of packages
+without compiled C/C++/Fortran code, and offer to do so for those with,
+if @command{make} is available (and this can be tuned by option
 @code{"install.packages.compile.from.source"}).
+
+[At present binary packages are not distributed for @cputype{aarch64}
+Windows, so most of this subsection only applies to @cputype{x86_64}.]
 
 On Windows @code{install.packages} can also install a binary package
 from a local @file{zip} file (or the URL of such a file) by setting
@@ -2125,9 +2116,9 @@ argument @code{repos} to @code{NULL}.  @code{Rgui.exe} has a menu
 @code{Packages} with a GUI interface to @code{install.packages},
 @code{update.packages} and @code{library}.
 
-Windows binary packages for @R{} are distributed as a single binary
-containing either or both architectures (32- and 64-bit). From @R{} 4.2.0,
-they always contain only the 64-bit architecture.
+Windows binary packages for @R{} were distributed as a single binary
+containing either or both architectures (32- and 64-bit).  Prior to @R{}
+4.2.0, they might contain only the 32-bit architecture.
 
 @c A few of the binary packages need other software to be installed on your
 @c system.
@@ -2202,7 +2193,7 @@ source versions of packages without compiled C/C++/Fortran code and offer
 to do so for those with, if @command{make} is available.
 
 Note that most binary packages which include compiled code are tied to a
-particular series (e.g.@: @R{} 4.4.x or 4.3.x) of @R{}.
+particular series (e.g.@: @R{} 4.5.x or 4.4.x) of @R{}.
 
 Installing source packages which do not contain compiled code should
 work with no additional tools. For others you will need the `Command
@@ -2219,8 +2210,8 @@ at
 
 Tcl/Tk extension @code{BWidget} used to be
 distributed with @R{} but no longer is; @code{Tktable} has been
-distributed with most versions of @R{} (but not 4.0.0 and not
-@cputype{arm64} builds of 4.1.0 or 4.1.1).
+distributed with recent versions of @R{}.
+% (but not 4.0.0 and not @cputype{arm64} builds of 4.1.0 or 4.1.1).
 
 @c A few of the binary packages need other software to be installed on your
 @c system.  In particular packages using Gtk+ (@CRANpkg{RGtk2},
@@ -2356,9 +2347,9 @@ consistency one can use
 @c headers and libraries@footnote{From Big Sur those libraries are not
 @c publicly visible: rather the system compilers link to `text-based
 @c definition' (@file{.tbd}) files.} of the @abbr{SDK}.
-As from @R{} 4.3.0, @command{R CMD INSTALL} and
-@code{install.packages()} try to invoke @command{configure} with the
-same compilers and flags used to build @R{}.
+@command{R CMD INSTALL} and @code{install.packages()} try to invoke
+@command{configure} with the same compilers and flags used to build
+@R{}.
 
 For @cputype{arm64}, not all configure scripts have been updated to
 recognize the platform and so might need the flag
@@ -2448,9 +2439,9 @@ makefiles in subdirectories.  Fortunately such packages are unusual.
 @subsection Multiple sub-architectures
 
 When installing packages from their sources, there are some extra
-considerations on installations which use sub-architectures.  These are
-commonly used on Windows but can in principle be used on other
-platforms.
+considerations on installations which use sub-architectures.  These were
+commonly used on Windows prior to @R{} 4.2.0 but can in principle be
+used on other platforms.
 
 When a source package is installed by a build of @R{} which supports
 multiple sub-architectures, the normal installation process installs the
@@ -2488,8 +2479,7 @@ with a source tarball.
 @node Byte-compilation, External software, Multiple sub-architectures, Installing packages
 @subsection Byte-compilation
 
-As from @R{} 3.6.0, all packages are by default byte-compiled.
-
+Packages are by default byte-compiled on installation.
 Byte-compilation can be controlled on a per-package basis by the
 @samp{ByteCompile} field in the @file{DESCRIPTION} file.
 
@@ -2638,14 +2628,10 @@ wise to have a @file{src/contrib} area with a possibly empty
 
 @item 
 @code{"mac.binary"}: located at
-@file{bin/macosx/contrib/@var{4.y}} for the @acronym{CRAN} builds for
-macOS for @R{} versions @var{4.y.z}, containing
-@file{.tgz} files.
-
-@item 
-@code{"mac.binary.el-capitan"}: located at
-@file{bin/macosx/el-capitan/contrib/@var{3.y}} for the @acronym{CRAN}
-builds for @R{} versions @var{3.y.z}, containing @file{.tgz} files.
+@file{bin/macosx/big-sur-arm64/contrib/@var{4.y}} or
+@file{bin/macosx/big-sur-x86_64/contrib/@var{4.y}} for the @acronym{CRAN}
+builds for macOS for @R{} versions @var{4.y.z}, containing @file{.tgz}
+files. (@file{bin/macosx/contrib/@var{4.y}} for @code{@var{y}} = 0, 1 or 2.)
 @end itemize
 
 Each terminal directory must also contain a @file{PACKAGES} file.  This
@@ -2828,7 +2814,7 @@ in most of the Chinese-speaking world.
 macOS supports locales in its own particular way, but the @R{} GUI tries to
 make this easier for users. See
 @uref{https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPInternational/}
-for how users can set their locales.  As with Windows, end users will
+for how users can set their locales.  End users will
 generally only see lists of languages/territories.  Users of @R{} in a
 terminal may need to set the locale to something like @samp{en_GB.UTF-8}
 if it defaults to @samp{C} (as it sometimes does when logging in
@@ -3439,7 +3425,7 @@ The bitmapped graphics devices @code{jpeg()}, @code{png()} and
 @code{tiff()} need the appropriate headers and libraries installed:
 @code{jpeg} (version 6b or later, or @code{libjpeg-turbo}) or
 @code{libpng} (version 1.2.7 or later) and @code{zlib} or @code{libtiff}
-(versions 4.0.[5-10] and 4.[123].0 have been tested) respectively.
+respectively.
 @command{pkg-config} is used if available and so needs the appropriate
 @file{.pc} file (which requires @code{libtiff} version 4.x and is not
 available on all platforms for @code{jpeg} before version 9c).  They
@@ -3469,12 +3455,12 @@ historically has been part of @file{libc} on a Unix-alike.  (In
 principle @command{man xdr_string} should tell you which library is
 needed, but it often does not: on some OSes it is provided by
 @code{libnsl}.)  However some builds@footnote{Including that used by
-Fedora.} of @code{glibc} omit or hide it with the intention that the
-@acronym{TI-RPC} library be used, in which case @code{libtirpc} (and its
-development version) should be installed, and its headers@footnote{@R{}
-uses @file{rpc/xdr.h} but that includes @file{netconfig.h} from the top
-@file{tirpc} directory.} need to be on the C include path or under
-@file{/usr/include/tirpc}.
+Fedora 28 and later} of @code{glibc} omit or hide it with the intention
+that the @acronym{TI-RPC} library be used, in which case @code{libtirpc}
+(and its development version) should be installed, and its
+headers@footnote{@R{} uses @file{rpc/xdr.h} but that includes
+@file{netconfig.h} from the top @file{tirpc} directory.} need to be on
+the C include path or under @file{/usr/include/tirpc}.
 
 Library @code{libdeflate} (@url{https://github.com/ebiggers/libdeflate})
 is used by @code{memCompress()} and @code{memDecompress()} if available.
@@ -4686,10 +4672,10 @@ Success in building @R{} depends on the proper installation and functioning
 of support software; your results may differ if you have other versions
 of compilers and support libraries.
 
-Older versions of this manual contain notes on platforms such as @I{HP-UX},
-@abbr{IRIX}, Alpha/@I{OSF1} (for @R{} < 2.10.0, and support has since been removed
-for all of these) and @abbr{AIX} (for @R{} < = 3.5.x) for which we have had no
-recent reports.
+Older versions of this manual contain notes on platforms such as
+@I{HP-UX}, @abbr{IRIX}, Alpha/@I{OSF1} (for @R{} < 2.10.0, and support
+has since been removed for all of these) and @abbr{AIX} (for @R{} < =
+3.5.x) for which we have had no recent reports.
 
 C macros to select particular platforms can be tricky to track down
 (there is a fair amount of misinformation on the Web).  The Wiki
@@ -4707,6 +4693,7 @@ macOS: __APPLE__
 NetBSD: __NetBSD__
 OpenBSD: __OpenBSD__
 Windows: _WIN32, _WIN64
+Windows on 64-but ARM: _M_ARM64 or _WIN32 plus __aarch64__
 @end example
 
 Identifying compilers can be very tricky.  GCC defines @code{__GNUC__},
@@ -4971,8 +4958,8 @@ which does not.  One symptom is that @command{configure} does not detect
 FPIEFLAGS=-fPIE
 @end example
 @noindent
-in @file{config.site}. (As from @R{} 4.2.2 @command{configure} tries
-that value if it is unset.)
+in @file{config.site}. (@command{configure} tries that value if it is
+unset.)
 
 @node flang, Intel compilers, Clang, Linux
 @subsection @I{flang}
@@ -4983,7 +4970,7 @@ libraries.  The compiler is currently named @command{flang-new} but has been
 announced to be renamed to @command{flang} when more nearly complete (and
 at some earlier point in its development was known as @command{f18}).
 
-The version in @I{LLVM} 16 was able to build @R{} on @cputype{x86_64} Linux
+The version in @I{LLVM} 16 and later was able to build @R{} on @cputype{x86_64} Linux
 with
 @example
 FC=/path/to/flang-new
@@ -5054,7 +5041,7 @@ Standalone installers (which are free-of-charge) are available from
 @uref{https://www.intel.com/content/www/us/en/developer/articles/tool/oneapi-standalone-components.html}:
 they are also part of the @I{oneAPI} Base and HPC (for Fortran) toolkits.
 
-We tried the compilers in @I{oneAPI} 2024.0.2 and 2023.x.y using (the paths
+We tried the compilers in @I{oneAPI} 2024.1.0 and 2023.x.y using (the paths
 do differ by compiler version)
 @example
 IP=/path/to/compilers/bin/
@@ -5106,7 +5093,7 @@ version of @command{clang}: the Intel manual suggests checking
 @abbr{LTO}: it is not clear if the Fortran one does.
 
 @c https://community.intel.com/t5/Intel-C-Compiler/Troubles-with-getrusage-when-using-icx/m-p/1509374#M41116
-For some versions, including 2023.2.0, all CPU times in e.g.@:
+For some recent versions (including 2023.2.0) all CPU times in e.g.@:
 @code{proc.time()} are reported as zero.  If you see this, uncomment the
 @samp{INTEL_ICX_FIX} setting in @file{config.site} and re-build.
 

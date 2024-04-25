@@ -358,13 +358,16 @@ function(dir = NULL, files = NULL,
     } else
     	db <- list()
 
-    # The built_file is a file of partially processed Rd objects, where build time
-    # \Sexprs have been evaluated.  We'll put the object in place of its
-    # filename to continue processing.
+    ## The built_file is a file of partially processed Rd objects, where
+    ## build time \Sexprs have been evaluated.  We'll put the object in
+    ## place of its filename to continue processing.
+    ## Similarly for later_file.
 
+    basenames <- basename(files)    
     names(files) <- files
+    files <- as.list(files)
+    
     if(!is.null(built_file) && file_test("-f", built_file)) {
-        basenames <- basename(files)
  	built <- readRDS(built_file)
  	names_built <- names(built)
         ## Hmm ... why are we doing this?
@@ -379,22 +382,19 @@ function(dir = NULL, files = NULL,
  	built[names_built %notin% basenames] <- NULL
  	if (length(built)) {
  	    which <- match(names(built), basenames)
- 	    if (all(file_test("-nt", built_file, files[which]))) {
- 	    	files <- as.list(files)
+ 	    if (all(file_test("-nt", built_file, names(files)[which]))) {
 	    	files[which] <- built
 	    }
 	}
     }
     if("later" %in% stages) {
         if(!is.null(later_file) && file_test("-f", later_file)) {
-            basenames <- basename(names(files))
             later <- readRDS(later_file)
             names_later <- names(later)
             later[names_later %notin% basenames] <- NULL
             if (length(later)) {
                 which <- match(names(later), basenames)
-                if (all(file_test("-nt", later_file, files[which]))) {
-                    files <- as.list(files)
+                if (all(file_test("-nt", later_file, names(files)[which]))) {
                     files[which] <- later
                 }
             }
@@ -1110,6 +1110,79 @@ function(db, eq = NULL, katex = .make_KaTeX_checker()) {
     }
     colnames(out) <- c("path", "pos", "msg")
     out
+}
+
+### * base_aliases_db
+
+base_aliases_db <- 
+function()
+{
+    packages <- .get_standard_package_names()$base
+    aliases <-
+        lapply(packages,
+               function(p) {
+                   db <- Rd_db(p, lib.loc = .Library)
+                   aliases <- lapply(db, .Rd_get_metadata, "alias")
+                   aliases
+               })
+    names(aliases) <- packages
+    aliases
+}
+
+### * base_rdxrefs_db
+
+base_rdxrefs_db <- 
+function()
+{
+    packages <- .get_standard_package_names()$base
+    rdxrefs <-
+        lapply(packages,
+               function(p) {
+                   db <- Rd_db(p, lib.loc = .Library)
+                   rdxrefs <- lapply(db, .Rd_get_xrefs)
+                   rdxrefs <- cbind(do.call(rbind, rdxrefs),
+                                    Source = rep.int(names(rdxrefs),
+                                                     vapply(rdxrefs,
+                                                            NROW,
+                                                            0L)))
+                   rdxrefs
+               })
+    names(rdxrefs) <- packages
+    rdxrefs
+}
+
+### * .Rd_xrefs_with_missing_anchors
+
+.Rd_xrefs_with_missing_anchors <-
+function(dir)
+{
+    ## Find the Rd xrefs with non-anchored targets not in the level 0 or
+    ## 1 aliases (package itself and standard packages).
+    
+    ## Argh.
+    ## We cannot simply use
+    ##   findHTMLlinks(dir, level = c(0L, 1L))
+    ## as this takes level 0 for an *installed* package.
+    ## So we need the package Rd db for both aliases and rdxrefs.
+
+    db <- Rd_db(dir = dir)
+    if(!length(db)) return()
+    aliases <- lapply(db, .Rd_get_metadata, "alias")
+    rdxrefs <- lapply(db, .Rd_get_xrefs)
+    rdxrefs <- cbind(do.call(rbind, rdxrefs),
+                     Source = rep.int(names(rdxrefs),
+                                      vapply(rdxrefs,
+                                             NROW,
+                                             0L)))
+    anchors <- rdxrefs[, "Anchor"]
+    if(any(ind <- startsWith(anchors, "=")))
+        rdxrefs[ind, 1L : 2L] <- cbind(sub("^=", "", anchors[ind]), "")
+    rdxrefs <- rdxrefs[!nzchar(rdxrefs[, "Anchor"]), , drop = FALSE]
+    aliases <- c(unlist(aliases, use.names = FALSE),
+                 names(findHTMLlinks(dir, level = 1L)))
+    if(any(ind <- is.na(match(rdxrefs[, "Target"], aliases))))
+        unique(rdxrefs[ind, , drop = FALSE])
+    else NULL
 }
 
 ### Local variables: ***

@@ -3357,9 +3357,13 @@ function(dir, force_suggests = TRUE, check_incoming = FALSE,
                         bad_depends$suggested_but_not_installed)
         weak2 <- sapply(weak, function(x) suppressWarnings(mt(x)))
         miss2 <- is.na(weak2)
-        if (any(miss1) || any(miss2)) {
-            ## This may not be local and needs a complete CRAN mirror
-            db <- CRAN_package_db()[, c("Package", "Maintainer")]
+        if((any(miss1) || any(miss2)) &&
+           !inherits(tryCatch(db <- CRAN_package_db()[, c("Package",
+                                                          "Maintainer")],
+                              ## This may not be local and needs a
+                              ## complete CRAN mirror.
+                              error = identity),
+                     "error")) {
             orphaned <- db[db$Maintainer == "ORPHANED" , 1L]
             s2 <- intersect(strict[miss1], orphaned)
             w2 <- intersect(weak[miss2], orphaned)
@@ -7866,7 +7870,8 @@ function(dir, localOnly = FALSE, pkgSize = NA)
            "<https?:.*/10\\.\\d{4,}/.*?>",
            descr, ignore.case = TRUE)))
        out$descr_replace_by_DOI <- descr[ind]
-    if(any(ind <- grepl(paste(c("https?://arxiv.org",
+    if(any(ind <- grepl(paste(c("<(arXiv|arxiv):(([[:alpha:].-]+/)?[[:digit:].]+)(v[[:digit:]]+)?([[:space:]]*\\[[^]]+\\])?>",
+                                "https?://arxiv.org",
                                 "(^|[^<])arxiv:",
                                 "<arxiv[^:]"),
                               collapse = "|"),
@@ -8072,21 +8077,22 @@ function(dir, localOnly = FALSE, pkgSize = NA)
                     cbind(fpaths0[pos], parents[pos])
         }
         if(remote) {
-            ## Also check arXiv ids.
-            pat <- "<(arXiv:)([[:alnum:]/.-]+)([[:space:]]*\\[[^]]+\\])?>"
+            ## Also check arXiv pseuso URIs not yet converted to arXiv
+            ## DOIs.
+            pat <- "<(arXiv|arxiv):(([[:alpha:].-]+/)?[[:digit:].]+)(v[[:digit:]]+)?([[:space:]]*\\[[^]]+\\])?>"
             dsc <- meta["Description"]
             ids <- .gregexec_at_pos(pat, dsc, gregexpr(pat, dsc), 3L)
             if(length(ids)) {
-                ini <- "https://arxiv.org/abs/"
-                udb <- url_db(paste0(ini, ids),
+                ini <- "10.48550/arXiv."
+                ddb <- doi_db(paste0(ini, ids),
                               rep.int("DESCRIPTION", length(ids)))
-                bad <- tryCatch(check_url_db(udb,
+                bad <- tryCatch(check_doi_db(ddb,
                                              parallel =
                                                  check_urls_in_parallel),
                                 error = identity)
                 if(!inherits(bad, "error") && length(bad))
                     out$bad_arXiv_ids <-
-                        substring(bad$URL, nchar(ini) + 1L)
+                        substring(bad$DOI, nchar(ini) + 1L)
             }
             ## Also check ORCID iDs.
             odb <- .ORCID_iD_db_from_package_sources(dir)
@@ -8915,7 +8921,7 @@ function(x, ...)
             if(length(y <- x$descr_bad_arXiv_ids)) {
                 paste(c("The Description field contains",
                         paste0("  ", y),
-                        "Please write arXiv ids as <arXiv:YYMM.NNNNN>."),
+                        "Please refer to arXiv e-prints via their arXiv DOI <doi:10.48550/arXiv.YYMM.NNNNN>."),
                       collapse = "\n")
             },
            if(length(y <- x$descr_replace_by_DOI)) {

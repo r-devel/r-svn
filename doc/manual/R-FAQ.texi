@@ -26,7 +26,7 @@
 @c things.
 @c For now, simply hard-wire the year again.
 @c @include version.texi
-@set FAQ_YEAR 2023
+@set FAQ_YEAR 2024
 @c </FIXME>
 
 @macro CRAN{}
@@ -622,7 +622,7 @@ Books on R by R Core Team members include
 @I{Robert Gentleman} (2008),
 ``R Programming for @I{Bioinformatics}''.
 @I{Chapman & Hall/CRC}, @I{Boca Raton}, FL, ISBN 978-1-420-06367-7,
-@url{https://master.bioconductor.org/help/publications/books/r-programming-for-bioinformatics/}.
+@url{https://bioconductor.org/help/publications/books/r-programming-for-bioinformatics/}.
 
 @I{Stefano M. Iacus} (2008),
 ``Simulation and Inference for Stochastic Differential Equations: With R
@@ -1717,7 +1717,7 @@ project has matured, the functional scope of the software packages
 broadened to include the analysis of all types of genomic data, such as
 SAGE, sequence, or SNP data.  In addition, there are metadata
 (annotation, CDF and probe) and experiment data packages.  See
-@url{https://master.bioconductor.org/install/} for available packages and a
+@url{https://bioconductor.org/install/} for available packages and a
 complete taxonomy via @I{BioC Views}.
 
 @node Other add-on packages,  , Add-on packages from Bioconductor, Which add-on packages exist for R?
@@ -2762,6 +2762,9 @@ To sort the rows within a data frame, with respect to the values in one
 or more of the columns, simply use @code{order()} (e.g.,
 @code{DF[order(DF$a, DF[["b"]]), ]} to sort the data frame @code{DF} on
 columns named @code{a} and @code{b}).
+
+From R 4.4.0, @code{sort_by()} provides a less verbose alternative
+with a formula interface (e.g., @code{sort_by(DF, ~a + b)}).
 
 @node Why does the help.start() search engine not work?, Why did my .Rprofile stop working when I updated R?, How can I sort the rows of a data frame?, R Miscellanea
 @section Why does the help.start() search engine not work?
