@@ -10,9 +10,9 @@ example(smooth, package="stats")
 ## Didactical investigation:
 
 showSmooth <- function(x, leg.x = 1, leg.y = max(x)) {
-  ss <- cbind(x, "3c"  = smooth(x, "3", end="copy"),
+  ss <- cbind(x, "3c"  = smooth(x, "3", endrule="copy"),
                  "3"   = smooth(x, "3"),
-                 "3Rc" = smooth(x, "3R", end="copy"),
+                 "3Rc" = smooth(x, "3R", endrule="copy"),
                  "3R"  = smooth(x, "3R"),
               sm = smooth(x))
   k <- ncol(ss) - 1
