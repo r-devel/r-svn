@@ -1147,7 +1147,7 @@ matrix(list(), 1, 2)
 
 
 ## S compatibility change in 1.9.0
-rep(1:2, each=3, length=12)
+rep(1:2, each=3, length.out=12)
 ## used to pad with NAs.
 
 
@@ -1358,7 +1358,7 @@ write.table(data.frame(x = 0.5+1:4, y = 1:4 + 1.5i), file = "", dec=",")
 ## used '.' not ',' in 2.0.0
 
 ## splinefun() value test
-(x <- seq(0,6, length=25))
+(x <- seq(0,6, length.out=25))
 mx <- sapply(c("fmm", "nat", "per"),
              function(m) splinefun(1:5, c(1,2,4,3,1), method = m)(x))
 cbind(x,mx)
