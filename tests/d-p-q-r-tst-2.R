@@ -159,7 +159,7 @@ stopifnot(all.equal(dbeta(0.8, 0.5, 5, ncp=1000),# was way too small in R <= 2.6
           )
 
 ## df(*, ncp):
-x <- seq(0, 10, length=101)
+x <- seq(0, 10, length.out=101)
 h <- 1e-7
 dx.h <- (pf(x+h, 7, 5, ncp= 2.5) - pf(x-h, 7, 5, ncp= 2.5)) / (2*h)
 stopifnot(all.equal(dx.h, df(x, 7, 5, ncp= 2.5), tolerance = 1e-6),# (1.50 | 1.65)e-8
