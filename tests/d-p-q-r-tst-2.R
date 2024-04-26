@@ -86,9 +86,9 @@ all.equal(pgamma(x, 10, log.p = TRUE) - 10*log(x),
 all.equal(pgamma(x, 0.1, log.p = TRUE) - 0.1*log(x),
           rep(0.0498724412598364, length(x)), tolerance = 1e-13)# 7e-16 (i386)
 
-All.eq(dpois(  10*1:2, 3e-308, log.p=TRUE),
+All.eq(dpois(  10*1:2, 3e-308, log=TRUE),
        c(-7096.08037610806, -14204.2875435307))
-All.eq(dpois(1e20, 1e-290, log.p=TRUE), -7.12801378828154e+22)
+All.eq(dpois(1e20, 1e-290, log=TRUE), -7.12801378828154e+22)
 ## all gave -Inf in R 2.0.1
 
 
@@ -291,7 +291,7 @@ stopifnot(all.equal(1/(1+mu), dnbinom(0, size = 1, mu = mu), tolerance = 1e-13))
 ## was wrong in 2.7.2 (only)
 mu <- sort(outer(1:7, 10^c(0:10,50*(1:6))))
 NB <- dnbinom(5, size=1e305, mu=mu, log.p=TRUE)
-P  <- dpois  (5,                mu, log.p=TRUE)
+P  <- dpois  (5,                mu, log  =TRUE)
 stopifnot(abs(rErr(NB,P)) < 9*.Machine$double.eps)# seen 2.5*
 ## wrong in 3.1.0 and earlier
 
@@ -819,7 +819,7 @@ stopifnot(exprs = {
 x <- trunc(2^(1000+ head(seq(1,24, by=1/64), -1)))
 L <- tail(x,1)
 dpxx <-  dpois(x,x) ## had ended in many 0's
-ldpxx <- dpois(x,x, log.p=TRUE) # ... -Inf
+ldpxx <- dpois(x,x, log=TRUE) # ... -Inf
 (d <- mean(dlp <- diff(ldpxx)))# -0.005415
 stopifnot(exprs = {
     dpxx > 0
