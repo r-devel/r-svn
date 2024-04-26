@@ -1551,9 +1551,9 @@ extern0 SEXP	R_Warnings;	    /* the warnings and their calls */
 extern0 int	R_ShowErrorMessages INI_as(1);	/* show error messages? */
 extern0 SEXP	R_HandlerStack;	/* Condition handler stack */
 extern0 SEXP	R_RestartStack;	/* Stack of available restarts */
-extern0 Rboolean R_warn_partial_match_args   INI_as(TRUE);
-extern0 Rboolean R_warn_partial_match_dollar INI_as(TRUE);
-extern0 Rboolean R_warn_partial_match_attr INI_as(TRUE);
+extern0 Rboolean R_warn_partial_match_args   INI_as(FALSE);
+extern0 Rboolean R_warn_partial_match_dollar INI_as(FALSE);
+extern0 Rboolean R_warn_partial_match_attr INI_as(FALSE);
 extern0 Rboolean R_ShowWarnCalls INI_as(FALSE);
 extern0 Rboolean R_ShowErrorCalls INI_as(FALSE);
 extern0 int	R_NShowCalls INI_as(50);
