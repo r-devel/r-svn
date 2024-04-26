@@ -236,8 +236,8 @@ stopifnot(All.eq(pt(2^-30, df=10),
 ## rbinom(*, size) gave NaN for large size up to R <= 2.6.1
 M <- .Machine$integer.max
 set.seed(7) # as M is large, now "basically" rbinom(n, *) := qbinom(runif(n), *) :
-(tt <- table(rbinom(100,    M, pr = 1e-9 )) ) # had values in {0,2} only
-(t2 <- table(rbinom(100, 10*M, pr = 1e-10)) )
+(tt <- table(rbinom(100,    M, prob = 1e-9 )) ) # had values in {0,2} only
+(t2 <- table(rbinom(100, 10*M, prob = 1e-10)) )
 stopifnot(0:6 %in% names(tt), sum(tt) == 100, sum(t2) == 100) ## no NaN there
 ## related qbinom() tests:
 (binomOk <- b64 && !(Lnx && usingMKL)) # not for MKL on RHEL {R-dev.: 2023-06-22}
