@@ -1744,7 +1744,7 @@ update.formula (Reaction ~ Days + (Days | Subject), . ~ . + I(Days^2))
 
 ## PR#8528: errors in the post-2.1.0 pgamma
 pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE)
-pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower=FALSE)
+pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower.tail=FALSE)
 pgamma(c(1-1e-10, 1+1e-10)*1e100, shape = 1e100)
 pgamma(0.9*1e25, 1e25, log.p=TRUE)
 ## were NaN, -Inf etc in 2.2.1.
