@@ -1710,9 +1710,9 @@ str(dend2$upper)
 
 ## formatC on Windows (PR#8337)
 xx  <- pi * 10^(-5:4)
-cbind(formatC(xx, wid = 9))
-cbind(formatC(xx, wid = 9, flag = "-"))
-cbind(formatC(xx, wid = 9, flag = "0"))
+cbind(formatC(xx, width = 9))
+cbind(formatC(xx, width = 9, flag = "-"))
+cbind(formatC(xx, width = 9, flag = "0"))
 ## extra space on 2.2.1
 
 
