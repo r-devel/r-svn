@@ -56,7 +56,7 @@ lpb <- c(
 -3575.16952001464937783, -3557.84084050065074512, -3540.51216098665211240,
 -3523.18348147265347947, -3505.85480195865484676, -3488.52612244465621405,
 -3471.19744293065758134, -3453.86876341665894863)
-stopifnot( all.equal(lpb, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
+stopifnot( all.equal(lpb, pbeta(x,a,b,log.p=TRUE), tolerance=2e-16) )# pbeta() check
 
 
 qpb <- qbeta(lpb, a,b, log.p=TRUE)
@@ -110,7 +110,7 @@ lp1 <- c(
 -232.900727843423843350, -235.066790448639183389, -237.232854907576249937,
 -239.398921066369763294, -241.564988783926857030, -243.731057930866643141,
 -245.897128388547890981, -248.063200048177428608)
-stopifnot( all.equal(lp1, pbeta(x1,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
+stopifnot( all.equal(lp1, pbeta(x1,a,b,log.p=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp1 <- qbeta(lp1, a,b, log.p=TRUE)
 stopifnot(qp1 > 0)
@@ -134,43 +134,43 @@ proc.time() - .pt; .pt <- proc.time()
 
 
 a <- 43779; b <- 0.06728; x <- -exp(901/256)
-(qx <- qbeta(x , a,b, log=TRUE)) ## now 3 N iter. in x-scale; had 157 iter. in log_x scale
+(qx <- qbeta(x , a,b, log.p=TRUE)) ## now 3 N iter. in x-scale; had 157 iter. in log_x scale
 ## 0.9993614
-(pq <- pbeta(qx, a,b, log=TRUE)) ## = -33.7686
+(pq <- pbeta(qx, a,b, log.p=TRUE)) ## = -33.7686
 stopifnot(print(abs(1 - pq/x)) < 1e-15) # rel.err ~  8.88e-16 "perfect"
 ## but it uses probably the wrong swap_tail decision...
-curve(pbeta(exp(x), a,b, log=TRUE), -1e-3, -1e-7,   n=1025) # "the same" as
+curve(pbeta(exp(x), a,b, log.p=TRUE), -1e-3, -1e-7,   n=1025) # "the same" as
 par(new=TRUE)
-curve(pbeta(  x,    a,b, log=TRUE), 0.999, 1-1e-7, col=2, ylab="", xaxt="n"); axis(3)
+curve(pbeta(  x,    a,b, log.p=TRUE), 0.999, 1-1e-7, col=2, ylab="", xaxt="n"); axis(3)
 abline(v = qx, h = x, col="light blue", lty = 2); mtext(line=-1, sprintf("(a=%g, b=%g)",a,b))
 
 ## as is this one -- the mirror image:
 (x. <- log1p(-exp(x))) #  -2.160156e-15
-(q. <- qbeta(x., b,a, log=TRUE, lower.tail=FALSE))# very quick convergence: u0 is perfect
+(q. <- qbeta(x., b,a, log.p=TRUE, lower.tail=FALSE))# very quick convergence: u0 is perfect
 ## 1.425625e-223
-(p. <- pbeta(q., b,a, log=TRUE, lower.tail=FALSE))
+(p. <- pbeta(q., b,a, log.p=TRUE, lower.tail=FALSE))
 stopifnot(all.equal(p., x., tol = 1e-15))
 
 ## very different picture at the *other tail*:
-(q2 <- qbeta(x., b,a, log=TRUE)) ## 0.0006386087
-stopifnot(all.equal(x., pbeta(q2, b,a, log=TRUE), tolerance= 1e-13)) # Lx 64b: 2.37e-15
+(q2 <- qbeta(x., b,a, log.p=TRUE)) ## 0.0006386087
+stopifnot(all.equal(x., pbeta(q2, b,a, log.p=TRUE), tolerance= 1e-13)) # Lx 64b: 2.37e-15
 
-curve(pbeta(x, b,a, log=TRUE), 1e-30, .5, n=1025, log="x")
+curve(pbeta(x, b,a, log.p=TRUE), 1e-30, .5, n=1025, log="x")
 # Flip vertically and use log scale ==> "close" to  -x. = 2.160156e-15
-curve(-pbeta(x, b,a, log=TRUE), 1e-8, .005, n=1025, log="xy")
+curve(-pbeta(x, b,a, log.p=TRUE), 1e-8, .005, n=1025, log="xy")
 abline(v = q2, h = -x., lty=3, col=2)
 
 ### more extreme (a,b) [still computable with Rmpfr pbetaI():]
 a <- 800; b <- 2
 x <- 2^-c(10*(100:4), 37, 2*(17:14), 27:2, (8:1)/8)
-curve(pbeta(x,a,b, log=TRUE), n=1025, log="x", 1e-200, .1); mtext(R.version.string)
+curve(pbeta(x,a,b, log.p=TRUE), n=1025, log="x", 1e-200, .1); mtext(R.version.string)
 axis(1, at=0.1, padj=-1); abline(h=0, v=.1, lty=2); mtext(line=-1, sprintf("(a=%g, b=%g)",a,b))
 
 if(interactive() && require(Rmpfr)) {
     pbi <- pbetaI(x, a,b, log.p=TRUE, precBits = 2048)
     ## plus experiments, to see that 2048 bits are way enough ...
     dput(format(roundMpfr(pbi, 64))) ##
-    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )
+    stopifnot( all.equal(pbi, pbeta(x,a,b,log.p=TRUE), tolerance=2e-16) )
 } ## plus manual editing, removing all  ' " ' :
 
 lp2 <- c(-554511.058587009179178, -548965.881142529616682, -543420.703698050054243,
@@ -219,7 +219,7 @@ lp2 <- c(-554511.058587009179178, -548965.881142529616682, -543420.7036980500542
 -479.303685612597087790, -410.103507771019607286, -340.930746845646155091,
 -271.797948987745926763, -202.728589967468744076, -133.775198381652975971,
 -65.1041210297877634069)
-stopifnot( all.equal(lp2, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
+stopifnot( all.equal(lp2, pbeta(x,a,b,log.p=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp2 <- qbeta(lp2, a,b, log.p=TRUE)# 7 precision warnings in R <= 3.1.0
 pq2 <- pbeta(qp2, a,b, log.p=TRUE)
@@ -241,7 +241,7 @@ proc.time() - .pt; .pt <- proc.time()
 ### even more extreme (a,b) [still computable with Rmpfr pbetaI():]
 a <- 2^12; b <- 2
 x <- 2^-c(10*(100:2), 17, 2*(7:4), 7:1, .5, .25)
-curve(pbeta(x,a,b, log=TRUE), n=1025, log="x", 1e-300, .1)
+curve(pbeta(x,a,b, log.p=TRUE), n=1025, log="x", 1e-300, .1)
 mtext(paste("(a=2^12, b=2) --", R.version.string))
 abline(h=0, v=1, lty=3); axis(1, at=1, padj=-1, col.axis=2)
 
@@ -249,7 +249,7 @@ if(interactive() && require(Rmpfr)) {
     pbi <- pbetaI(x, a,b, log.p=TRUE, precBits = 2048)
     ## plus experiments, to see that 2048 bits are way enough ...
     dput(format(roundMpfr(pbi, 64))) ##
-    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )
+    stopifnot( all.equal(pbi, pbeta(x,a,b,log.p=TRUE), tolerance=2e-16) )
 } ## plus manual editing, removing all  ' " ' :
 
 lp3 <- c(-2839122.53356325844061, -2810731.22504752308055, -2782339.91653178772071,
@@ -290,7 +290,7 @@ lp3 <- c(-2839122.53356325844061, -2810731.22504752308055, -2782339.916531787720
 -17026.4828436463425554, -14187.3679884148968711, -11348.2699182657980446,
 -8509.20804096757424162, -5670.23129358494148988, -2831.50574442529708752,
 -1412.47477359632328309, -703.301613239304818981)
-stopifnot( all.equal(lp3, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
+stopifnot( all.equal(lp3, pbeta(x,a,b,log.p=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp3 <- qbeta(lp3, a,b, log.p=TRUE)
 pq3 <- pbeta(qp3, a,b, log.p=TRUE)
@@ -491,7 +491,7 @@ x <- 1e-311*2^(-2:5)
 a <- 9.9999e-16
 ##==> all work via  apser():
 all.equal(x^a, pbeta(x, a, 1), tolerance=0)               # 1.11e-16 -- perfect
-all.equal(a*log(x), pbeta(x, a, 1, log=TRUE), tolerance=0)# 3.5753e-13 -- less perfect
+all.equal(a*log(x), pbeta(x, a, 1, log.p=TRUE), tolerance=0)# 3.5753e-13 -- less perfect
 
 ## only very slightly larger a:
 a <- 1e-15
@@ -502,7 +502,7 @@ cbind(x, "x^a" = x^a, pbeta = p, relE = p/(x^a) - 1,
       ## interestingly, even this does *not* improve the situation:
       "pb_upp" = pbeta(x, a, 1, lower.tail=FALSE))
 
-all.equal(a*log(x), pL <- pbeta(x, a, 1, log=TRUE), tolerance=0)#
+all.equal(a*log(x), pL <- pbeta(x, a, 1, log.p=TRUE), tolerance=0)#
 ## 0.853 ... catastrophic! -- it's off for x <= 8e-311 :
 cbind(x, "a*log" = a*log(x), pbetaL = pL, relE = pL/(a*log(x)) - 1)
 
@@ -515,7 +515,7 @@ check.pb <- function(pb, true)
     stopifnot((inherits(pb, "warning") && grepl("\\bInf\\b", pb$message)) ||
               isTRUE(all.equal(print(pb), true, tol = 2e-7))) # << print(.) : see value
 
-## True values via  require(Rmpfr); asNumeric(pbetaI(326/512, 1900, 38, log=TRUE))
+## True values via  require(Rmpfr); asNumeric(pbetaI(326/512, 1900, 38, log.p=TRUE))
 ##
 ## Those with*out* a '#' mark all did  *not* underflow in R 2.9.1, nor R 2.10.1,
 ## but did give NaN in 2.11.x (x >= 0)  and -Inf later === *regression* _FIXME_
