@@ -94,9 +94,9 @@ All.eq(dpois(1e20, 1e-290, log=TRUE), -7.12801378828154e+22)
 
 x <- c(outer(1:12, 10^c(-3:2, 6:9, 10*(2:30))))
 for(nu in c(.75, 1.2, 4.5, 999, 1e50)) {
-    lfx <- dt(x, df=nu, log.p=TRUE)
+    lfx <- dt(x, df=nu, log=TRUE)
     stopifnot(is.finite(lfx), All.eq(exp(lfx), dt(x, df=nu)))
-}## dt(1e160, 1.2, log.p=TRUE) was -Inf  up to R 2.15.2
+}## dt(1e160, 1.2, log=TRUE) was -Inf  up to R 2.15.2
 
 ## pf() with large df1 or df2
 ## (was said to be PR#7099, but that is about non-central pchisq)
