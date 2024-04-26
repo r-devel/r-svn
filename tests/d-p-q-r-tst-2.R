@@ -528,9 +528,9 @@ stopifnot(is.finite(qb), qb < 1e-300, q2 == 1)
 if(ct2 > 0.020) { cat("system.time:\n"); print(ct2) }
 ## had warnings and was much slower for R <= 3.1.0
 
-## qt(p, df= Inf, ncp)  <==> qnorm(p, m=ncp)
+## qt(p, df= Inf, ncp)  <==> qnorm(p, mean=ncp)
 p <- (0:32)/32
-stopifnot(all.equal(qt(p, df=Inf, ncp=5), qnorm(p, m=5)))
+stopifnot(all.equal(qt(p, df=Inf, ncp=5), qnorm(p, mean=5)))
 ## qt(*, df=Inf, .)  gave NaN in  R <= 3.2.1
 
 ## rhyper(*, <large>);  PR#16489
