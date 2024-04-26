@@ -2860,7 +2860,7 @@ setMethod("oligoFn", signature(subset = "integer", value = "array"),	## Method _
 setMethod("oligoFn", signature(target = "matrix", value = "array"),	## Method _10_
           function(target, value) list(target=target, value=value))
 ##
-showMethods("oligoFn", include=TRUE) # F.Y.I.:  in R 3.6.0 and earlier: contains "ANY" everywhere
+showMethods("oligoFn", includeDefs=TRUE) # F.Y.I.:  in R 3.6.0 and earlier: contains "ANY" everywhere
 ##=========            ------------
 stopifnot(exprs = {
     is.function(mm <- getMethod("oligoFn",
@@ -3969,6 +3969,7 @@ rm(p)
 
 
 ## make sure there is no aliasing in assignments with partial matching
+old <- options(warnPartialMatchDollar=FALSE)
 v <- list(misc = c(1))
 v$mi[[1]] <- 2
 stopifnot(v$misc == 1)
@@ -3977,6 +3978,7 @@ v <- list(misc = c(1))
 eval(compiler::compile(quote(v$mi[[1]] <- 2)))
 stopifnot(v$misc == 1)
 rm(v)
+options(old)
 ## defensive reference counts needed; missing in R 4.0.0
 
 
