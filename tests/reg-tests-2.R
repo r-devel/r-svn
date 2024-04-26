@@ -393,7 +393,7 @@ kernel("daniell", m=c(3,5,7))
 ## fixed by patch from Adrian Trapletti 2001-03-08
 
 ## Start new year (i.e. line) at Jan:
-(tt <- ts(1:10, start = c(1920,7), end = c(1921,4), freq = 12))
+(tt <- ts(1:10, start = c(1920,7), end = c(1921,4), frequency = 12))
 cbind(tt, tt + 1)
 
 
@@ -1743,10 +1743,10 @@ update.formula (Reaction ~ Days + (Days | Subject), . ~ . + I(Days^2))
 
 
 ## PR#8528: errors in the post-2.1.0 pgamma
-pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE)
-pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE, lower=FALSE)
+pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE)
+pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower=FALSE)
 pgamma(c(1-1e-10, 1+1e-10)*1e100, shape = 1e100)
-pgamma(0.9*1e25, 1e25, log=TRUE)
+pgamma(0.9*1e25, 1e25, log.p=TRUE)
 ## were NaN, -Inf etc in 2.2.1.
 
 
