@@ -147,7 +147,7 @@ a <- rlnorm(100)
 stopifnot(All.eq(a, dbeta(0, 1, a, ncp=0)),
 	  dbeta(0, 0.9, 2.2, ncp = c(0, a)) == Inf,
 	  All.eq(65536 * dbeta(0:16/16, 5,1), db.x),
-	  All.eq(exp(16 * log(2) + dbeta(0:16/16, 5,1, log.p=TRUE)), db.x)
+	  All.eq(exp(16 * log(2) + dbeta(0:16/16, 5,1, log=TRUE)), db.x)
           )
 ## the first gave 0, the 2nd NaN in R <= 2.3.0; others use 'TRUE' values
 stopifnot(all.equal(dbeta(0.8, 0.5, 5, ncp=1000),# was way too small in R <= 2.6.2
@@ -290,8 +290,8 @@ mu <- 1e12 * 2^(0:20)
 stopifnot(all.equal(1/(1+mu), dnbinom(0, size = 1, mu = mu), tolerance = 1e-13))
 ## was wrong in 2.7.2 (only)
 mu <- sort(outer(1:7, 10^c(0:10,50*(1:6))))
-NB <- dnbinom(5, size=1e305, mu=mu, log.p=TRUE)
-P  <- dpois  (5,                mu, log  =TRUE)
+NB <- dnbinom(5, size=1e305, mu=mu, log=TRUE)
+P  <- dpois  (5,                mu, log=TRUE)
 stopifnot(abs(rErr(NB,P)) < 9*.Machine$double.eps)# seen 2.5*
 ## wrong in 3.1.0 and earlier
 
@@ -690,10 +690,10 @@ stopifnot(sum(x <= 201) == 100000)
 ## had if(!(onWindows && arch == "x86"))
 ## PR#17577 - dgamma(x, shape)  for shape < 1 (=> +Inf at x=0) and very small x
 stopifnot(exprs = {
-    all.equal(dgamma(2^-1027, shape = .99 , log.p=TRUE), 7.1127667376, tolerance=1e-10)
-    all.equal(dgamma(2^-1031, shape = 1e-2, log.p=TRUE), 702.8889158,  tolerance=1e-10)
-    all.equal(dgamma(2^-1048, shape = 1e-7, log.p=TRUE), 710.30007699, tolerance=1e-10)
-    all.equal(dgamma(2^-1048, shape = 1e-7, scale = 1e-315, log.p=TRUE),
+    all.equal(dgamma(2^-1027, shape = .99 , log=TRUE), 7.1127667376, tolerance=1e-10)
+    all.equal(dgamma(2^-1031, shape = 1e-2, log=TRUE), 702.8889158,  tolerance=1e-10)
+    all.equal(dgamma(2^-1048, shape = 1e-7, log=TRUE), 710.30007699, tolerance=1e-10)
+    all.equal(dgamma(2^-1048, shape = 1e-7, scale = 1e-315, log=TRUE),
               709.96858768, tolerance=1e-10)
 })
 ## all gave Inf in R <= 3.6.1
@@ -791,21 +791,21 @@ stopifnot(dnbinom(1:40, size=2^58, prob = 1) == 0)
 ## gave mostly 1 in R <= 4.1.0
 x <- unique(sort(c(1:12, 15, outer(c(1,2,5), 10^(1:11)))))
 sz <- 2^70 ; prb <- .9999999
-summary(dn <- dnbinom(x, size=sz, prob = prb, log.p=TRUE))
+summary(dn <- dnbinom(x, size=sz, prob = prb, log=TRUE))
 dL <- 118059167912526.5
 summary(dl.dn1 <- diff(log(dn[-1] + dL)))
 stopifnot(dn + dL > 0,
           0.09 < dl.dn1, dl.dn1 < 0.93)
 ## accuracy loss of 6 and more digits in R <= 4.1.0
 ##---- reverse case, very *small* size ---------------
-dS <- dnbinom(1:90, size=1e-15, mu=200, log.p=TRUE)
+dS <- dnbinom(1:90, size=1e-15, mu=200, log=TRUE)
 d4S <- diff(d3S <- diff(ddS <- diff(dS)))
 stopifnot(-39.1 < dS,  dS < -34.53
     ,     -0.7 < ddS, ddS < -0.01116
     , 0.000126 < d3S, d3S < 0.287683
     ,    -0.17 < d4S, d4S < -2.8859e-6
     , all.equal(c(-48.40172, -49.155492, -49.905797, -50.653012, -51.397452),
-                dnbinom(16:20, size=1e-15, prob=1/2, log.p=TRUE))
+                dnbinom(16:20, size=1e-15, prob=1/2, log=TRUE))
 )
 ## failed in R 4.1.1 (and R-devel) only
 
