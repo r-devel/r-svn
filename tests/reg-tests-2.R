@@ -11,7 +11,7 @@ options(useFancyQuotes=FALSE)
 ## abbreviate
 for(m in 1:5) {
   cat("\n",m,":\n")
-  print(as.vector(abbreviate(state.name, minl=m)))
+  print(as.vector(abbreviate(state.name, minlength=m)))
 }
 
 ## apply
@@ -43,19 +43,19 @@ x0 <- 2^(-20:10)
 plot(x0,x0, log='xy', ylab="", ylim=c(.1,1e60),type='n',
      main = "Bessel Functions -Y_nu(x)  near 0\n log - log  scale")
 for(nu in sort(c(nus,nus+.5))) lines(x0, -besselY(x0,nu=nu), col = nu+2)
-legend(3,1e50, leg=paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
+legend(3,1e50, legend =paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
 
 x <- seq(3,500);yl <- c(-.3, .2)
 plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-legend(300,-.08, leg=paste("nu=",nus), col = nus+2, lwd=1)
+legend(300,-.08, legend =paste("nu=",nus), col = nus+2, lwd=1)
 
 x <- seq(10,50000,by=10);yl <- c(-.1, .1)
 plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-summary(bY <- besselY(2,nu = nu <- seq(0,100,len=501)))
+summary(bY <- besselY(2,nu = nu <- seq(0,100,length.out=501)))
 which(bY >= 0)
-summary(bY <- besselY(2,nu = nu <- seq(3,300,len=51)))
+summary(bY <- besselY(2,nu = nu <- seq(3,300,length.out=51)))
 summary(bI <- besselI(x = x <- 10:700, 1))
 ## end of moved from Bessel.Rd
 
@@ -155,20 +155,20 @@ kronecker(fred, bill, make.dimnames = TRUE)
 # dimnames are hard work: let's test them thoroughly
 
 dimnames(bill) <- NULL
-kronecker(fred, bill, make=TRUE)
-kronecker(bill, fred, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
+kronecker(bill, fred, make.dimnames=TRUE)
 
 dim(bill) <- c(2, 2, 1)
 dimnames(bill) <- list(c("happy", "sad"), NULL, "")
-kronecker(fred, bill, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 
 bill <- array(1:24, c(3, 4, 2))
 dimnames(bill) <- list(NULL, NULL, c("happy", "sad"))
-kronecker(bill, fred, make=TRUE)
-kronecker(fred, bill, make=TRUE)
+kronecker(bill, fred, make.dimnames=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 
 fred <- outer(fred, c("frequentist"=4, "bayesian"=4000))
-kronecker(fred, bill, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 ## end of moved from kronecker.Rd
 
 ## merge
@@ -446,9 +446,9 @@ f <- function(x) UseMethod("f")
 f.foo <- function(x) { on.exit(e <<- g()); NULL }
 f.bar <- function(x) { on.exit(e <<- g()); return(NULL) }
 f(structure(1,class = "foo"))
-ls(env = e)# only "x", i.e. *not* the GlobalEnv
+ls(envir = e)# only "x", i.e. *not* the GlobalEnv
 f(structure(1,class = "bar"))
-stopifnot("x" == ls(env = e))# as above; wrongly was .GlobalEnv in R 1.3.x
+stopifnot("x" == ls(envir = e))# as above; wrongly was .GlobalEnv in R 1.3.x
 
 
 ## some tests that R supports logical variables in formulae
@@ -648,8 +648,8 @@ format(x, justify = "none")
 
 ## print.ts problems  ggrothendieck@yifan.net on R-help, 2002-04-01
 x <- 1:20
-tt1 <- ts(x,start=c(1960,2), freq=12)
-tt2 <- ts(10+x,start=c(1960,2), freq=12)
+tt1 <- ts(x,start=c(1960,2), frequency=12)
+tt2 <- ts(10+x,start=c(1960,2), frequency=12)
 cbind(tt1, tt2)
 ## 1.4.1 had `Jan 1961' as `NA 1961'
 ## ...and 1.9.1 had it as `Jan 1960'!!
@@ -1367,9 +1367,9 @@ cbind(x,mx)
 ## infinite loop in read.fwf (PR#7350)
 cat(file="test.txt", sep = "\n", "# comment 1", "1234567   # comment 2",
     "1 234567  # comment 3", "12345  67 # comment 4", "# comment 5")
-read.fwf("test.txt", width=c(2,2,3), skip=1, n=4) # looped
-read.fwf("test.txt", width=c(2,2,3), skip=1)      # 1 line short
-read.fwf("test.txt", width=c(2,2,3), skip=0)
+read.fwf("test.txt", widths=c(2,2,3), skip=1, n=4) # looped
+read.fwf("test.txt", widths=c(2,2,3), skip=1)      # 1 line short
+read.fwf("test.txt", widths=c(2,2,3), skip=0)
 unlink("test.txt")
 ##
 
@@ -1443,7 +1443,7 @@ x2 <- data.frame(a=1:2, b=I(list(a=1, b=2)))
 x2
 write.table(x2)
 
-x3 <- seq(as.Date("2005-01-01"), len=6, by="day")
+x3 <- seq(as.Date("2005-01-01"), length.out=6, by="day")
 x4 <- data.frame(x=1:6, y=x3)
 dim(x3) <- c(2,3)
 x3
@@ -1454,9 +1454,9 @@ write.table(x4) # preserves class, does not quote
 
 
 ## Problem with earlier regexp code spotted by KH
-grep("(.*s){2}", "Arkansas", v = TRUE)
-grep("(.*s){3}", "Arkansas", v = TRUE)
-grep("(.*s){3}", state.name, v = TRUE)
+grep("(.*s){2}", "Arkansas", value = TRUE)
+grep("(.*s){3}", "Arkansas", value = TRUE)
+grep("(.*s){3}", state.name, value = TRUE)
 ## Thought Arkansas had 3 s's.
 
 
@@ -2260,10 +2260,10 @@ qr.coef(qr(matrix(0:1, 1, dimnames=list(NULL, c("zero","one")))), 5)
 
 ## readChar read extra items, terminated on zeros
 x <- as.raw(65:74)
-readChar(x, nchar=c(3,3,0,3,3,3))
+readChar(x, nchars=c(3,3,0,3,3,3))
 f <- tempfile(tmpdir = getwd())
 writeChar("ABCDEFGHIJ", con=f, eos=NULL)
-readChar(f, nchar=c(3,3,0,3,3,3))
+readChar(f, nchars=c(3,3,0,3,3,3))
 unlink(f)
 ##
 
@@ -2336,7 +2336,7 @@ z[1, ]
 
 
 ## incorrect warning due to lack of fuzz.
-TS <-  ts(co2[1:192], freq=24)
+TS <-  ts(co2[1:192], frequency=24)
 tmp2 <- window(TS, start(TS), end(TS))
 ## warned in 2.8.0
 

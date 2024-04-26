@@ -28,7 +28,7 @@ Type 'q()' to quit R.
 > ## abbreviate
 > for(m in 1:5) {
 +   cat("\n",m,":\n")
-+   print(as.vector(abbreviate(state.name, minl=m)))
++   print(as.vector(abbreviate(state.name, minlength=m)))
 + }
 
  1 :
@@ -334,12 +334,12 @@ c  203  215  227  239
 > x <- seq(10,50000,by=10);yl <- c(-.1, .1)
 > plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 > for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-> summary(bY <- besselY(2,nu = nu <- seq(0,100,len=501)))
+> summary(bY <- besselY(2,nu = nu <- seq(0,100,length.out=501)))
        Min.     1st Qu.      Median        Mean     3rd Qu.        Max. 
 -3.001e+155 -1.067e+107  -1.976e+62 -9.961e+152  -2.059e+23   1.000e+00 
 > which(bY >= 0)
 [1] 1 2 3 4 5
-> summary(bY <- besselY(2,nu = nu <- seq(3,300,len=51)))
+> summary(bY <- besselY(2,nu = nu <- seq(3,300,length.out=51)))
        Min.     1st Qu.      Median        Mean     3rd Qu.        Max. 
        -Inf        -Inf -2.248e+263        -Inf -3.777e+116  -1.000e+00 
 There were 22 warnings (use warnings() to see them)
@@ -522,7 +522,7 @@ C:sad    9000 12000 18000 24000 27000 36000 36000 48000
 > # dimnames are hard work: let's test them thoroughly
 > 
 > dimnames(bill) <- NULL
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
      D:    D:    E:    E:    F:    F:    G:    G:
 A:  300   400  1200  1600  2100  2800  3000  4000
 A: 3000  4000 12000 16000 21000 28000 30000 40000
@@ -530,7 +530,7 @@ B:  600   800  1500  2000  2400  3200  3300  4400
 B: 6000  8000 15000 20000 24000 32000 33000 44000
 C:  900  1200  1800  2400  2700  3600  3600  4800
 C: 9000 12000 18000 24000 27000 36000 36000 48000
-> kronecker(bill, fred, make=TRUE)
+> kronecker(bill, fred, make.dimnames=TRUE)
      :D    :E    :F    :G    :D    :E    :F    :G
 :A  300  1200  2100  3000   400  1600  2800  4000
 :B  600  1500  2400  3300   800  2000  3200  4400
@@ -541,7 +541,7 @@ C: 9000 12000 18000 24000 27000 36000 36000 48000
 > 
 > dim(bill) <- c(2, 2, 1)
 > dimnames(bill) <- list(c("happy", "sad"), NULL, "")
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , :
 
           D:    D:    E:    E:    F:    F:    G:    G:
@@ -555,7 +555,7 @@ C:sad   9000 12000 18000 24000 27000 36000 36000 48000
 > 
 > bill <- array(1:24, c(3, 4, 2))
 > dimnames(bill) <- list(NULL, NULL, c("happy", "sad"))
-> kronecker(bill, fred, make=TRUE)
+> kronecker(bill, fred, make.dimnames=TRUE)
 , , happy:
 
    :D :E :F :G :D :E :F :G :D :E :F  :G :D :E  :F  :G
@@ -582,7 +582,7 @@ C:sad   9000 12000 18000 24000 27000 36000 36000 48000
 :B 30 75 120 165 36  90 144 198 42 105 168 231 48 120 192 264
 :C 45 90 135 180 54 108 162 216 63 126 189 252 72 144 216 288
 
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , :happy
 
    D: D: D: D: E: E: E: E: F: F: F:  F: G: G:  G:  G:
@@ -611,7 +611,7 @@ C: 45 54 63 72 90 108 126 144 135 162 189 216 180 216 252 288
 
 > 
 > fred <- outer(fred, c("frequentist"=4, "bayesian"=4000))
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , frequentist:happy
 
    D: D:  D:  D: E:  E:  E:  E:  F:  F:  F:  F:  G:  G:  G:  G:
@@ -1312,11 +1312,11 @@ character(0)
 > f.bar <- function(x) { on.exit(e <<- g()); return(NULL) }
 > f(structure(1,class = "foo"))
 NULL
-> ls(env = e)# only "x", i.e. *not* the GlobalEnv
+> ls(envir = e)# only "x", i.e. *not* the GlobalEnv
 [1] "x"
 > f(structure(1,class = "bar"))
 NULL
-> stopifnot("x" == ls(env = e))# as above; wrongly was .GlobalEnv in R 1.3.x
+> stopifnot("x" == ls(envir = e))# as above; wrongly was .GlobalEnv in R 1.3.x
 > 
 > 
 > ## some tests that R supports logical variables in formulae
@@ -1710,8 +1710,8 @@ Levels: NA a b
 > 
 > ## print.ts problems  ggrothendieck@yifan.net on R-help, 2002-04-01
 > x <- 1:20
-> tt1 <- ts(x,start=c(1960,2), freq=12)
-> tt2 <- ts(10+x,start=c(1960,2), freq=12)
+> tt1 <- ts(x,start=c(1960,2), frequency=12)
+> tt2 <- ts(10+x,start=c(1960,2), frequency=12)
 > cbind(tt1, tt2)
          tt1 tt2
 Feb 1960   1  11
@@ -4253,17 +4253,17 @@ Warning message:
 > ## infinite loop in read.fwf (PR#7350)
 > cat(file="test.txt", sep = "\n", "# comment 1", "1234567   # comment 2",
 +     "1 234567  # comment 3", "12345  67 # comment 4", "# comment 5")
-> read.fwf("test.txt", width=c(2,2,3), skip=1, n=4) # looped
+> read.fwf("test.txt", widths=c(2,2,3), skip=1, n=4) # looped
   V1 V2  V3
 1 12 34 567
 2  1 23 456
 3 12 34   5
-> read.fwf("test.txt", width=c(2,2,3), skip=1)      # 1 line short
+> read.fwf("test.txt", widths=c(2,2,3), skip=1)      # 1 line short
   V1 V2  V3
 1 12 34 567
 2  1 23 456
 3 12 34   5
-> read.fwf("test.txt", width=c(2,2,3), skip=0)
+> read.fwf("test.txt", widths=c(2,2,3), skip=0)
   V1 V2  V3
 1 12 34 567
 2  1 23 456
@@ -4423,7 +4423,7 @@ b 2 2
 "a" 1 1
 "b" 2 2
 > 
-> x3 <- seq(as.Date("2005-01-01"), len=6, by="day")
+> x3 <- seq(as.Date("2005-01-01"), length.out=6, by="day")
 > x4 <- data.frame(x=1:6, y=x3)
 > dim(x3) <- c(2,3)
 > x3
@@ -4453,11 +4453,11 @@ b 2 2
 > 
 > 
 > ## Problem with earlier regexp code spotted by KH
-> grep("(.*s){2}", "Arkansas", v = TRUE)
+> grep("(.*s){2}", "Arkansas", value = TRUE)
 [1] "Arkansas"
-> grep("(.*s){3}", "Arkansas", v = TRUE)
+> grep("(.*s){3}", "Arkansas", value = TRUE)
 character(0)
-> grep("(.*s){3}", state.name, v = TRUE)
+> grep("(.*s){3}", state.name, value = TRUE)
 [1] "Massachusetts" "Mississippi"  
 > ## Thought Arkansas had 3 s's.
 > 
@@ -5047,17 +5047,17 @@ Reaction ~ Days + (Days | Subject) + I(Days^2)
 > 
 > 
 > ## PR#8528: errors in the post-2.1.0 pgamma
-> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE)
+> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE)
  [1] -3.768207e+98 -2.314355e+98 -1.251893e+98 -5.360516e+97 -1.293294e+97
  [6] -6.931472e-01  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00
 [11]  0.000000e+00
-> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE, lower=FALSE)
+> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower=FALSE)
  [1]  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00
  [6] -6.931472e-01 -1.209836e+97 -4.689820e+97 -1.023806e+98 -1.767844e+98
 [11] -2.685645e+98
 > pgamma(c(1-1e-10, 1+1e-10)*1e100, shape = 1e100)
 [1] 0 1
-> pgamma(0.9*1e25, 1e25, log=TRUE)
+> pgamma(0.9*1e25, 1e25, log.p=TRUE)
 [1] -5.360516e+22
 > ## were NaN, -Inf etc in 2.2.1.
 > 
@@ -6134,11 +6134,11 @@ zero  one
 > 
 > ## readChar read extra items, terminated on zeros
 > x <- as.raw(65:74)
-> readChar(x, nchar=c(3,3,0,3,3,3))
+> readChar(x, nchars=c(3,3,0,3,3,3))
 [1] "ABC" "DEF" ""    "GHI" "J"  
 > f <- tempfile(tmpdir = getwd())
 > writeChar("ABCDEFGHIJ", con=f, eos=NULL)
-> readChar(f, nchar=c(3,3,0,3,3,3))
+> readChar(f, nchars=c(3,3,0,3,3,3))
 [1] "ABC" "DEF" ""    "GHI" "J"  
 > unlink(f)
 > ##
@@ -6309,7 +6309,7 @@ Error in aggregate.data.frame(z, by = z[1], FUN = sum) :
 > 
 > 
 > ## incorrect warning due to lack of fuzz.
-> TS <-  ts(co2[1:192], freq=24)
+> TS <-  ts(co2[1:192], frequency=24)
 > tmp2 <- window(TS, start(TS), end(TS))
 > ## warned in 2.8.0
 > 
