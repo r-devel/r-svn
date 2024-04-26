@@ -2676,9 +2676,9 @@ identNoE <- function(x,y, ...) identical(x,y, ignore.environment=TRUE, ...)
 stopifnot(exprs = {
     all.equal(fq1[keep], fqP[keep])
     ## quasi() failed badly "switch(vtemp, ... EXPR must be a length 1 vector" in R <= 3.6.0
-    identNoE(quasi(var = mu),        quasi(variance = "mu"))
-    identNoE(quasi(var = mu(1-mu)),  quasi(variance = "mu(1- mu)"))# both failed in R <= 3.6.0
-    identNoE(quasi(var = mu^3),      quasi(variance = "mu ^ 3"))   #  2nd failed in R <= 3.6.0
+    identNoE(quasi(variance = mu),        quasi(variance = "mu"))
+    identNoE(quasi(variance = mu(1-mu)),  quasi(variance = "mu(1- mu)"))# both failed in R <= 3.6.0
+    identNoE(quasi(variance = mu^3),      quasi(variance = "mu ^ 3"))   #  2nd failed in R <= 3.6.0
     is.character(msg <- tryCmsg(quasi(variance = "log(mu)"))) &&
         grepl("variance.*log\\(mu\\).* invalid", msg) ## R <= 3.6.0: 'variance' "NA" is invalid
 })
