@@ -136,7 +136,7 @@ c      NA 0.042807
 > set.seed(123)
 > y <- x <- 1:10
 > yeps <- y + rnorm(length(y), sd = 0.01)
-> wts <- rep(c(1, 2), length = 10); wts[5] <- 0
+> wts <- rep(c(1, 2), length.out = 10); wts[5] <- 0
 > fit0 <- lm(yeps ~ x, weights = wts)
 > ## IGNORE_RDIFF_BEGIN
 > summary(fit0, cor = TRUE)
@@ -632,7 +632,7 @@ b    NA 0.611
 > ## scoping problems
 > test <- function(trace=TRUE)
 + {
-+     x <- seq(0,5,len=20)
++     x <- seq(0,5,length.out=20)
 +     n <- 1
 +     y <- 2*x^2 + n + rnorm(x)
 +     xy <- data.frame(x=x,y=y)
@@ -766,7 +766,7 @@ Warning in nls(y ~ b0[fac] + b1 * x, start = list(b0 = c(1, 1), b1 = 101),  :
 > ## list version (has been valid "forever", still doubtful, rather give error [FIXME] ?)
 > lsN <- c(as.list(dN), list(foo="bar")); lsN[["t"]] <- 1:8
 > nmL <- nls(`NO [µmol/l]` ~ a + k*exp(t), start=list(a=0,k=1), data = lsN)
-> stopifnot(all.equal(coef(nmL), c(a = 5.069866, k = 0.003699669), tol = 4e-7))# seen 4.2e-8
+> stopifnot(all.equal(coef(nmL), c(a = 5.069866, k = 0.003699669), tolerance = 4e-7))# seen 4.2e-8
 > 
 > ## trivial RHS -- should work even w/o 'start='
 > fi1 <- nls(y ~ a, start = list(a=1))
@@ -807,8 +807,8 @@ Consider specifying 'start' or using a selfStart model
 > 
 > curve(errE(x), 1e-9, 1e-4, log="xy", n=512, ylim = c(1.5e-11, 5e-7),
 +       xlab = quote(epsilon), ylab=quote(errE(epsilon))) -> rex
-> axis(1, at = 2^-(52/2), label = quote(sqrt(epsilon[c])), col=4, col.axis=4, line=-1/2)
-> axis(1, at = 2^-(52/3), label = quote(epsilon[c]^{1/3}), col=4, col.axis=4, line=-1/2)
+> axis(1, at = 2^-(52/2), labels = quote(sqrt(epsilon[c])), col=4, col.axis=4, line=-1/2)
+> axis(1, at = 2^-(52/3), labels = quote(epsilon[c]^{1/3}), col=4, col.axis=4, line=-1/2)
 > curve(errE(x, central=TRUE), n=512, col=2, add = TRUE) -> rexC
 > ## IGNORE_RDIFF_BEGIN
 > str(xy1 <- approx(rex , xout= sqrt(2^-52)) )

@@ -89,7 +89,7 @@ if(have_MASS) {
 set.seed(123)
 y <- x <- 1:10
 yeps <- y + rnorm(length(y), sd = 0.01)
-wts <- rep(c(1, 2), length = 10); wts[5] <- 0
+wts <- rep(c(1, 2), length.out = 10); wts[5] <- 0
 fit0 <- lm(yeps ~ x, weights = wts)
 ## IGNORE_RDIFF_BEGIN
 summary(fit0, cor = TRUE)

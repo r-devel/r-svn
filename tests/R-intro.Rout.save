@@ -74,7 +74,7 @@ In sqrt(-17) : NaNs produced
 [1] TRUE
 > 
 > seq(-5, 5, by=.2) -> s3
-> s4 <- seq(length=51, from=-5, by=.2)
+> s4 <- seq(length.out=51, from=-5, by=.2)
 > all.equal(s3,s4)
 [1] TRUE
 > 
@@ -237,7 +237,7 @@ Levels: act nsw nt qld sa tas vic wa
 [4,]    4    8   12   16   20
 > 
 > n <- 60
-> b <- 5 ; blocks    <- rep(1:b, length= n)
+> b <- 5 ; blocks    <- rep(1:b, length.out= n)
 > v <- 6 ; varieties <- gl(v,10)
 > 
 > Xb <- matrix(0, n, b)
@@ -263,7 +263,7 @@ blocks 1 2 3 4 5 6
 > h <- 1:17
 > Z <- array(h, dim=c(3,4,2))
 > ## If the size of  'h' is exactly 24
-> h <- rep(h, length = 24)
+> h <- rep(h, length.out = 24)
 > Z. <- Z ## the result is the same as
 > Z <- h; dim(Z) <- c(3,4,2)
 > stopifnot(identical(Z., Z))
@@ -518,7 +518,7 @@ incomef   act nsw nt qld sa tas vic wa
 > 
 > ## <IMG> postscript("images/hist.eps", ...)
 > # make the bins smaller, make a plot of density
-> hist(eruptions, seq(1.6, 5.2, 0.2), prob=TRUE)
+> hist(eruptions, seq(1.6, 5.2, 0.2), probability=TRUE)
 > lines(density(eruptions, bw=0.1))
 > rug(eruptions) # show the actual data points
 > ## dev.off() <IMG/>
@@ -648,7 +648,7 @@ In wilcox.test.default(A, B) : cannot compute exact p-value with ties
 > ###--- @appendix A sample session
 > 
 > ## "Simulate starting a new R session, by
-> rm(list=ls(all=TRUE))
+> rm(list=ls(all.names=TRUE))
 > set.seed(123) # for repeatability
 > 
 > if(interactive())
@@ -706,7 +706,7 @@ Residual standard error: 1.92 on 18 degrees of freedom
 Multiple R-squared:  0.904,	Adjusted R-squared:  0.898 
 F-statistic:  169 on 1 and 18 DF,  p-value: 1.39e-10
 
-> fm1 <- lm(y ~ x, data=dummy, weight=1/w^2)
+> fm1 <- lm(y ~ x, data=dummy, weights=1/w^2)
 > summary(fm1)
 
 Call:
@@ -877,7 +877,7 @@ Model 2: Speed ~ Run + Expt
 > detach()
 > rm(fm, fm0)
 > 
-> x <- seq(-pi, pi, len=50)
+> x <- seq(-pi, pi, length.out=50)
 > y <- x
 > f <- outer(x, y, function(x, y) cos(y)/(1 + x^2))
 > oldpar <- par(no.readonly = TRUE)
