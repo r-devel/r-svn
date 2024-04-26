@@ -63,7 +63,7 @@ grid.ls(vpPath("A", "B", "C"),
 # grob with vp viewport
 g1 <- grob(vp=viewport(name="gvp"), name="g1")
 grid.ls(g1, viewports=TRUE, fullNames=TRUE)
-grid.ls(g1, viewports=TRUE, fullNames=TRUE, grob=FALSE)
+grid.ls(g1, viewports=TRUE, fullNames=TRUE, grobs=FALSE)
 # grob with vp vpList
 grid.ls(grob(vp=vpList(viewport(name="vpl")), name="g1"),
         viewports=TRUE, fullNames=TRUE)
@@ -98,7 +98,7 @@ grid.ls(gTree(children=gList(grob(vp=viewport(name="childvp"), name="cg1"),
 grid.ls(gTree(childrenvp=viewport(name="vp"), name="gtree"),
         viewports=TRUE, fullNames=TRUE)
 grid.ls(gTree(childrenvp=viewport(name="vp"), name="gtree"),
-        viewports=TRUE, fullNames=TRUE, grob=FALSE)
+        viewports=TRUE, fullNames=TRUE, grobs=FALSE)
 grid.ls(gTree(children=gList(grob(name="child")),
               name="parent",
               childrenvp=viewport(name="vp")),
@@ -114,7 +114,7 @@ grid.ls(gTree(children=gList(grob(name="child")),
 grid.ls(gTree(children=gList(grob(name="child1"), grob(name="child2")),
               name="parent",
               childrenvp=viewport(name="vp")),
-        viewports=TRUE, fullNames=TRUE, grob=FALSE)
+        viewports=TRUE, fullNames=TRUE, grobs=FALSE)
 # gTree with childrenvp vpTree
 grid.ls(gTree(childrenvp=vpTree(parent=viewport(name="vp1"),
                 children=vpList(viewport(name="vp2"))),
@@ -137,7 +137,7 @@ grid.ls(sampleGTree)
 # Show viewports too
 grid.ls(sampleGTree, viewports=TRUE)
 # Only show viewports
-grid.ls(sampleGTree, viewports=TRUE, grob=FALSE)
+grid.ls(sampleGTree, viewports=TRUE, grobs=FALSE)
 # Alternate displays
 # nested listing, custom indent
 grid.ls(sampleGTree, viewports=TRUE, print=nestedListing, gindent="--")
@@ -150,7 +150,7 @@ grid.ls(sampleGTree, viewports=TRUE, print=grobPathListing)
 # path listing, grobs only
 grid.ls(sampleGTree, print=pathListing)
 # path listing, viewports only
-grid.ls(sampleGTree, viewports=TRUE, grob=FALSE, print=pathListing)
+grid.ls(sampleGTree, viewports=TRUE, grobs=FALSE, print=pathListing)
 # raw flat listing
 str(grid.ls(sampleGTree, viewports=TRUE, print=FALSE))
 

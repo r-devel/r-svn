@@ -252,7 +252,7 @@ options(op)
 ## scoping problems
 test <- function(trace=TRUE)
 {
-    x <- seq(0,5,len=20)
+    x <- seq(0,5,length.out=20)
     n <- 1
     y <- 2*x^2 + n + rnorm(x)
     xy <- data.frame(x=x,y=y)
@@ -378,8 +378,8 @@ errE <- Vectorize(function(eps, central=FALSE) {
 
 curve(errE(x), 1e-9, 1e-4, log="xy", n=512, ylim = c(1.5e-11, 5e-7),
       xlab = quote(epsilon), ylab=quote(errE(epsilon))) -> rex
-axis(1, at = 2^-(52/2), label = quote(sqrt(epsilon[c])), col=4, col.axis=4, line=-1/2)
-axis(1, at = 2^-(52/3), label = quote(epsilon[c]^{1/3}), col=4, col.axis=4, line=-1/2)
+axis(1, at = 2^-(52/2), labels = quote(sqrt(epsilon[c])), col=4, col.axis=4, line=-1/2)
+axis(1, at = 2^-(52/3), labels = quote(epsilon[c]^{1/3}), col=4, col.axis=4, line=-1/2)
 curve(errE(x, central=TRUE), n=512, col=2, add = TRUE) -> rexC
 ## IGNORE_RDIFF_BEGIN
 str(xy1 <- approx(rex , xout= sqrt(2^-52)) )
