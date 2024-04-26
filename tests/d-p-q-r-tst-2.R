@@ -186,7 +186,7 @@ stopifnot(all.equal(qt(-1000, df = 4, log.p=TRUE),
                     -4.930611e108, tolerance = 1e-6))
 qtp <- qt(-(20:850), df=1.2, log.p=TRUE, lower.tail=FALSE)
 ##almost: stopifnot(all(abs(5/6 - diff(log(qtp))) < 1e-11))
-stopifnot(abs(5/6 - quantile(diff(log(qtp)), pr=c(0,0.995))) < 1e-11)
+stopifnot(abs(5/6 - quantile(diff(log(qtp)), probs=c(0,0.995))) < 1e-11)
 
 ## close to df=1 (where Taylor steps are important!):
 stopifnot(all.equal(-20, pt(qt(-20, df=1.02, log.p=TRUE),
