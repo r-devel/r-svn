@@ -56,13 +56,13 @@ lpb <- c(
 -3575.16952001464937783, -3557.84084050065074512, -3540.51216098665211240,
 -3523.18348147265347947, -3505.85480195865484676, -3488.52612244465621405,
 -3471.19744293065758134, -3453.86876341665894863)
-stopifnot( all.equal(lpb, pbeta(x,a,b,log.=TRUE), tol=2e-16) )# pbeta() check
+stopifnot( all.equal(lpb, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
 
 
 qpb <- qbeta(lpb, a,b, log.p=TRUE)
 stopifnot(qpb > 0)# ok R >= 3.2.0, not in R 3.1.x
 ## ideally   x == qbeta(pbeta(x, *), *) :
-all.equal(x, qpb, tol=0)# now 4.5666e-15; was 5.238e-15, then 4.986e-15
+all.equal(x, qpb, tolerance=0)# now 4.5666e-15; was 5.238e-15, then 4.986e-15
 (relE <- relErr(x, qpb)) # 4.5666e-15
 stopifnot(relE < 4e-14)
 
@@ -110,7 +110,7 @@ lp1 <- c(
 -232.900727843423843350, -235.066790448639183389, -237.232854907576249937,
 -239.398921066369763294, -241.564988783926857030, -243.731057930866643141,
 -245.897128388547890981, -248.063200048177428608)
-stopifnot( all.equal(lp1, pbeta(x1,a,b,log.=TRUE), tol=2e-16) )# pbeta() check
+stopifnot( all.equal(lp1, pbeta(x1,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp1 <- qbeta(lp1, a,b, log.p=TRUE)
 stopifnot(qp1 > 0)
@@ -127,7 +127,7 @@ qp1. <- qbeta(p1, a,b)
 ## TODO? maybe change log_q_cut = -5 to ~ -2 (for this example; it really should depend on (a,b) ..
 
 relE. <- 1 - qp1./x1
-stopifnot(all.equal(qp1, qp1., tol=8*.Machine$double.eps),
+stopifnot(all.equal(qp1, qp1., tolerance=8*.Machine$double.eps),
 	  print(mean(abs(relE.))) < 2e-15,  # 3.9023e-16 was 3.9572e-16,  4.0781e-16
 	  print(max (abs(relE.))) < 7e-15 ) # 1.1102e-15; was 1.3323e-15
 proc.time() - .pt; .pt <- proc.time()
@@ -153,7 +153,7 @@ stopifnot(all.equal(p., x., tol = 1e-15))
 
 ## very different picture at the *other tail*:
 (q2 <- qbeta(x., b,a, log=TRUE)) ## 0.0006386087
-stopifnot(all.equal(x., pbeta(q2, b,a, log=TRUE), tol= 1e-13)) # Lx 64b: 2.37e-15
+stopifnot(all.equal(x., pbeta(q2, b,a, log=TRUE), tolerance= 1e-13)) # Lx 64b: 2.37e-15
 
 curve(pbeta(x, b,a, log=TRUE), 1e-30, .5, n=1025, log="x")
 # Flip vertically and use log scale ==> "close" to  -x. = 2.160156e-15
@@ -170,7 +170,7 @@ if(interactive() && require(Rmpfr)) {
     pbi <- pbetaI(x, a,b, log.p=TRUE, precBits = 2048)
     ## plus experiments, to see that 2048 bits are way enough ...
     dput(format(roundMpfr(pbi, 64))) ##
-    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tol=2e-16) )
+    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )
 } ## plus manual editing, removing all  ' " ' :
 
 lp2 <- c(-554511.058587009179178, -548965.881142529616682, -543420.703698050054243,
@@ -219,16 +219,16 @@ lp2 <- c(-554511.058587009179178, -548965.881142529616682, -543420.7036980500542
 -479.303685612597087790, -410.103507771019607286, -340.930746845646155091,
 -271.797948987745926763, -202.728589967468744076, -133.775198381652975971,
 -65.1041210297877634069)
-stopifnot( all.equal(lp2, pbeta(x,a,b,log.=TRUE), tol=2e-16) )# pbeta() check
+stopifnot( all.equal(lp2, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp2 <- qbeta(lp2, a,b, log.p=TRUE)# 7 precision warnings in R <= 3.1.0
 pq2 <- pbeta(qp2, a,b, log.p=TRUE)
 stopifnot(qp2 > 0, is.finite(pq2))
 ## ideally   x == qbeta(pbeta(x, *), *) :
-all.equal(    x,      qp2,  tol=0)#  2.075e-16  was 1.956845e-08, but .. *misleading* a bit
-all.equal(log(x), log(qp2), tol=0)#  1.676e-16  was 1.0755 !!
+all.equal(    x,      qp2,  tolerance=0)#  2.075e-16  was 1.956845e-08, but .. *misleading* a bit
+all.equal(log(x), log(qp2), tolerance=0)#  1.676e-16  was 1.0755 !!
 ## ideally  lp2 == pbeta(qbeta(lp2, *), *) :
-all.equal(lp2, pq2, tol=0)# 1.26e-16;  was 1.07...
+all.equal(lp2, pq2, tolerance=0)# 1.26e-16;  was 1.07...
 relE <- 1 - qp2/x
 rel2 <- 1 - pq2/lp2
 stopifnot(print(mean(abs(relE))) < 7e-14, # 1.53e-14   was 0.9913043 (R 3.1.0), then 0.8521738
@@ -249,7 +249,7 @@ if(interactive() && require(Rmpfr)) {
     pbi <- pbetaI(x, a,b, log.p=TRUE, precBits = 2048)
     ## plus experiments, to see that 2048 bits are way enough ...
     dput(format(roundMpfr(pbi, 64))) ##
-    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tol=2e-16) )
+    stopifnot( all.equal(pbi, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )
 } ## plus manual editing, removing all  ' " ' :
 
 lp3 <- c(-2839122.53356325844061, -2810731.22504752308055, -2782339.91653178772071,
@@ -290,16 +290,16 @@ lp3 <- c(-2839122.53356325844061, -2810731.22504752308055, -2782339.916531787720
 -17026.4828436463425554, -14187.3679884148968711, -11348.2699182657980446,
 -8509.20804096757424162, -5670.23129358494148988, -2831.50574442529708752,
 -1412.47477359632328309, -703.301613239304818981)
-stopifnot( all.equal(lp3, pbeta(x,a,b,log.=TRUE), tol=2e-16) )# pbeta() check
+stopifnot( all.equal(lp3, pbeta(x,a,b,log.=TRUE), tolerance=2e-16) )# pbeta() check
 
 qp3 <- qbeta(lp3, a,b, log.p=TRUE)
 pq3 <- pbeta(qp3, a,b, log.p=TRUE)
 stopifnot(qp3 > 0, is.finite(pq3))
 ## ideally   x == qbeta(pbeta(x, *), *) :
-all.equal(    x,      qp3,  tol=0)# 1.599e-16
-all.equal(log(x), log(qp3), tol=0)# 1.405e-16
+all.equal(    x,      qp3,  tolerance=0)# 1.599e-16
+all.equal(log(x), log(qp3), tolerance=0)# 1.405e-16
 ## ideally  lp3 == pbeta(qbeta(lp3, *), *) :
-all.equal(lp3, pq3, tol=0)# 1.07... then TRUE!
+all.equal(lp3, pq3, tolerance=0)# 1.07... then TRUE!
 relE <- 1 - qp3/x
 rel2 <- 1 - pq3/lp3
 stopifnot(print(mean(abs(rel2))) < 3e-15,# 0  !!
@@ -453,20 +453,20 @@ qbeta(.0193, 1/200, 1/100) #  1.038564e-299 + warning .. not accurate
 ## PR#18302  (about qf(),  really about qbeta())  ====================
 options(warn=2) # no warnings
 qq <- qf(-37.4, df1 = 227473.5, df2 = 2.066453, log.p = TRUE)
-stopifnot(all.equal(0.027519098277, qq, tol=2e-11))
+stopifnot(all.equal(0.027519098277, qq, tolerance=2e-11))
 x <- lseq(1e-300, 1, 1000) # 1e-300  2e-300 .... 0.25.. 0.50.. 1.0
 q2L <- qf(log(x), df1 = 23e4, df2 = 2, log.p=TRUE)
 stopifnot(all.equal(log(x), pf(q2L, df1=23e4, df2=2, log.p=TRUE)))
 xN <-  -300+ (-27:7)/2
 qb. <- qbeta(xN,  1, 115000, lower.tail=FALSE, log.p=TRUE)
 pqb <- pbeta(qb., 1, 115000, lower.tail=FALSE, log.p=TRUE)
-stopifnot(all.equal(xN, pqb, tol=1e-14))
-          all.equal(xN, pqb, tol=0) # ... 1.86e-16
+stopifnot(all.equal(xN, pqb, tolerance=1e-14))
+          all.equal(xN, pqb, tolerance=0) # ... 1.86e-16
 x <- seq(-700, 0, by=1/2); x <- x[x < 0] # x == 0 <==> qf = +Inf
 qfx <- qf(x, df1 = 23e4, df2 = 2, log.p=TRUE) # gave 71 warnings
 stopifnot(0 < qfx, qfx < 2) # and even
 stopifnot(all.equal(x, pf(qfx, df1 = 23e4, df2 = 2, log.p=TRUE)))
-          all.equal(x, pf(qfx, df1 = 23e4, df2 = 2, log.p=TRUE), tol=0) # 5.6e-15
+          all.equal(x, pf(qfx, df1 = 23e4, df2 = 2, log.p=TRUE), tolerance=0) # 5.6e-15
 ## log.p=FALSE [default] cases that failed (or gave warnings)
 ps <- lseq(1e-300, 0.1, 1001)
 qf.  <- qf(ps , df1 = 227473.5, df2 = 2.06)
@@ -490,19 +490,19 @@ x <- 1e-311*2^(-2:5)
 
 a <- 9.9999e-16
 ##==> all work via  apser():
-all.equal(x^a, pbeta(x, a, 1), tol=0)               # 1.11e-16 -- perfect
-all.equal(a*log(x), pbeta(x, a, 1, log=TRUE), tol=0)# 3.5753e-13 -- less perfect
+all.equal(x^a, pbeta(x, a, 1), tolerance=0)               # 1.11e-16 -- perfect
+all.equal(a*log(x), pbeta(x, a, 1, log=TRUE), tolerance=0)# 3.5753e-13 -- less perfect
 
 ## only very slightly larger a:
 a <- 1e-15
-all.equal(x^a, p <- pbeta(x, a, 1), tol=0)# bgrat() underflow warnings # 7.12208e-13
+all.equal(x^a, p <- pbeta(x, a, 1), tolerance=0)# bgrat() underflow warnings # 7.12208e-13
 ## numbers are very close to 1 ==> not such a problem
 cbind(x, "x^a" = x^a, pbeta = p, relE = p/(x^a) - 1,
       "1-x^a (expm1)" = -expm1(a*log(x)), "1-pb" = 1-p,
       ## interestingly, even this does *not* improve the situation:
       "pb_upp" = pbeta(x, a, 1, lower.tail=FALSE))
 
-all.equal(a*log(x), pL <- pbeta(x, a, 1, log=TRUE), tol=0)#
+all.equal(a*log(x), pL <- pbeta(x, a, 1, log=TRUE), tolerance=0)#
 ## 0.853 ... catastrophic! -- it's off for x <= 8e-311 :
 cbind(x, "a*log" = a*log(x), pbetaL = pL, relE = pL/(a*log(x)) - 1)
 
