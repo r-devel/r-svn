@@ -892,7 +892,7 @@ Model 2: Speed ~ Run + Expt
 > objects(); rm(x, y, f, fa)
 [1] "f"        "fa"       "filepath" "mm"       "oldpar"  
 [6] "w"        "x"        "y"       
-> th <- seq(-pi, pi, len=100)
+> th <- seq(-pi, pi, length.out=100)
 > z <- exp(1i*th)
 > par(pty="s")
 > plot(z, type="l")
