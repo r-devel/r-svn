@@ -121,8 +121,8 @@ stopifnot(0   == qgamma(0, sh))
 p <- 10:123*1e-12
 qg <- qgamma(p, shape=19)
 qg2<- qgamma(1:100 * 1e-9, shape=11)
-stopifnot(diff(qg, diff=2) < -6e-6,
-          diff(qg2,diff=2) < -6e-6,
+stopifnot(diff(qg, differences=2) < -6e-6,
+          diff(qg2,differences=2) < -6e-6,
 	  abs(1 - pgamma(qg, 19)/ p) < 1e-13,
           All.eq(qg  [1], 2.35047385139143),
           All.eq(qg2[30], 1.11512318734547))
@@ -227,7 +227,7 @@ for(nu in df.set) {
 x <- (256:512)/1024
 P <- pbeta(x, 3, 2200, lower.tail=FALSE, log.p=TRUE)
 stopifnot(is.finite(P), P < -600,
-	  -.001 < (D3P <- diff(P, diff = 3)), D3P < 0, diff(D3P) < 0)
+	  -.001 < (D3P <- diff(P, differences = 3)), D3P < 0, diff(D3P) < 0)
 ## all but the first 43 where -Inf in R <= 2.9.1
 stopifnot(All.eq(pt(2^-30, df=10),
                  0.50000000036238542))
