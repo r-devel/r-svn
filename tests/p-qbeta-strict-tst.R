@@ -149,7 +149,7 @@ abline(v = qx, h = x, col="light blue", lty = 2); mtext(line=-1, sprintf("(a=%g,
 (q. <- qbeta(x., b,a, log.p=TRUE, lower.tail=FALSE))# very quick convergence: u0 is perfect
 ## 1.425625e-223
 (p. <- pbeta(q., b,a, log.p=TRUE, lower.tail=FALSE))
-stopifnot(all.equal(p., x., tol = 1e-15))
+stopifnot(all.equal(p., x., tolerance = 1e-15))
 
 ## very different picture at the *other tail*:
 (q2 <- qbeta(x., b,a, log.p=TRUE)) ## 0.0006386087
@@ -410,7 +410,7 @@ chk_relE(qbetShRelErr(0.967, 0.035, lower.tail=TRUE, xI = c(4.84642, 26.162)), 8
 chk_relE(qbetShRelErr(0.966, 0.035, lower.tail=TRUE, xI = c(6.99119, 44.4524)), 8e-16, 1e-15)  # had warnings
 chk_relE(qbetShRelErr(0.965, 0.035, lower.tail=TRUE), 8e-16, 1e-15)# 0 0  {much changed picture ...}
 pp. <- c(.965, .966)
-stopifnot(all.equal(tol = 1e-15, pp.,
+stopifnot(all.equal(tolerance = 1e-15, pp.,
                     pbeta(print(qbeta(pp., .0035, .097)),
                           .0035, .097)))
 
@@ -422,7 +422,7 @@ qbeta(.80, 1/100, 1/200)# gives 1 without a warning -- which *is* good:
 (qb.2 <- qbeta(.20, 1/200, 1/100)) # 2.613271e-105
 (pqb.2 <- pbeta(qb.2, 1/200, 1/100))# 0.2 -- very good:
 0.2 - pqb.2 # -2.77..e-17
-stopifnot(all.equal(0.2, pqb.2, tol = 1e-15))
+stopifnot(all.equal(0.2, pqb.2, tolerance = 1e-15))
 
 ## completely different picture: smaller values; increasing -- max (~ 2.4) -- decreasing (????)
 chk_relE(qbetShRelErr(0.96 , 0.035, to= 15, lower.tail=TRUE),  8e-16, 1e-15)# completely different (mostly decreasing, no bump)
@@ -471,12 +471,12 @@ stopifnot(all.equal(x, pf(qfx, df1 = 23e4, df2 = 2, log.p=TRUE)))
 ps <- lseq(1e-300, 0.1, 1001)
 qf.  <- qf(ps , df1 = 227473.5, df2 = 2.06)
 pqpf <- pf(qf., df1 = 227473.5, df2 = 2.06)
-          all.equal(ps, pqpf, tol = 0) # rel.diff. 7.41309e-16
-stopifnot(all.equal(ps, pqpf, tol = 8e-15))
+          all.equal(ps, pqpf, tolerance = 0) # rel.diff. 7.41309e-16
+stopifnot(all.equal(ps, pqpf, tolerance = 8e-15))
 qps <- qbeta(ps,  1.03, 115000, lower.tail = FALSE)# works (35 u-Newton steps)
 pqp <- pbeta(qps, 1.03, 115000, lower.tail = FALSE)
-          all.equal(ps, pqp, tol = 0) # rel.diff. 1.150378e-15
-stopifnot(all.equal(ps, pqp, tol = 1e-14))
+          all.equal(ps, pqp, tolerance = 0) # rel.diff. 1.150378e-15
+stopifnot(all.equal(ps, pqp, tolerance = 1e-14))
 ## NB: there are *still* gaps for other df-pairs -- but *only* from pbeta() bpser underflow problems there
 
 
@@ -513,7 +513,7 @@ try.pb <- function(x, a,b, log.p=TRUE)
     tryCatch(pbeta(x, a,b, log.p=log.p), error=identity, warning=identity)
 check.pb <- function(pb, true)
     stopifnot((inherits(pb, "warning") && grepl("\\bInf\\b", pb$message)) ||
-              isTRUE(all.equal(print(pb), true, tol = 2e-7))) # << print(.) : see value
+              isTRUE(all.equal(print(pb), true, tolerance = 2e-7))) # << print(.) : see value
 
 ## True values via  require(Rmpfr); asNumeric(pbetaI(326/512, 1900, 38, log.p=TRUE))
 ##
