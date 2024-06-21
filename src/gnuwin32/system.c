@@ -603,6 +603,7 @@ static void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
     CleanEd();
     KillAllDevices(); /* Unix does not do this under SA_SUICIDE */
     AllDevicesKilled = TRUE; /* used in devWindows.c to inhibit callbacks */
+    CurlCleanup();
     R_CleanTempDir(); /* changes directory */
     if (R_Interactive && CharacterMode == RTerm)
 	SetConsoleTitle(oldtitle);
