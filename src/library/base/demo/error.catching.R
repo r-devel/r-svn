@@ -51,7 +51,7 @@ withWarnings <- function(expr) {
 withWarnings({ warning("first"); warning("2nd"); pi })
 
 r <- withWarnings({ log(-1) + sqrt(-4); exp(1) })
-str(r, digits=14)
+str(r, digits.d=14)
 
 ##' @title tryCatch *all* warnings and messages, and an error or the final value
 ##' @param expr an \R expression to evaluate

@@ -234,14 +234,14 @@ unique(1:3, nmax = 1)
 
 ## besselI() (and others), now using sinpi() etc:
 stopifnot(all.equal(besselI(2.125,-5+1/1024),
-		    0.02679209380095711, tol= 8e-16),
-	  all.equal(lgamma(-12+1/1024), -13.053274367453049, tol=8e-16))
+		    0.02679209380095711, tolerance= 8e-16),
+	  all.equal(lgamma(-12+1/1024), -13.053274367453049, tolerance=8e-16))
 ## rel.error was 1.5e-13 / 7.5e-14 in R <= 3.0.x
 ss <- sinpi(2*(-10:10)-2^-12)
 tt <- tanpi(  (-10:10)-2^-12)
 stopifnot(ss == ss[1], tt == tt[1], # as internal arithmetic must be exact here
-	  all.equal(ss[1], -0.00076699031874270453, tol=8e-16),
-	  all.equal(tt[1], -0.00076699054434309260, tol=8e-16))
+	  all.equal(ss[1], -0.00076699031874270453, tolerance=8e-16),
+	  all.equal(tt[1], -0.00076699054434309260, tolerance=8e-16))
 ## (checked via Rmpfr) The above failed during development
 
 
@@ -273,14 +273,14 @@ assert.reparsable(2+3i)
 assert.reparsable(1:10)
 assert.reparsable(c(NA, 12, NA, 14))
 assert.reparsable(as.complex(NA))
-assert.reparsable(complex(real=Inf, i=4))
-assert.reparsable(complex(real=Inf, i=Inf))
-assert.reparsable(complex(real=Inf, i=-Inf))
-assert.reparsable(complex(real=3, i=-Inf))
-assert.reparsable(complex(real=3, i=NaN))
-assert.reparsable(complex(r=NaN, i=0))
-assert.reparsable(complex(real=NA, i=1))
-assert.reparsable(complex(real=1, i=NA))
+assert.reparsable(complex(real=Inf, imaginary=4))
+assert.reparsable(complex(real=Inf, imaginary=Inf))
+assert.reparsable(complex(real=Inf, imaginary=-Inf))
+assert.reparsable(complex(real=3, imaginary=-Inf))
+assert.reparsable(complex(real=3, imaginary=NaN))
+assert.reparsable(complex(real=NaN, imaginary=0))
+assert.reparsable(complex(real=NA, imaginary=1))
+assert.reparsable(complex(real=1, imaginary=NA))
 ## last 7 all failed
 
 
@@ -366,7 +366,7 @@ rX <- type.convert(ch, numerals = "no.loss",    as.is=FALSE)
 stopifnot(is.numeric(rr), identical(rr, rX),
           all.equal(rr, 0.999267578125),
 	  all.equal(type.convert(ch,	      numerals = "warn", as.is=FALSE),
-		    type.convert("0x1.ffap-1",numerals = "warn", as.is=FALSE), tol = 5e-15))
+		    type.convert("0x1.ffap-1",numerals = "warn", as.is=FALSE), tolerance = 5e-15))
 ## type.convert(ch) was not numeric in R 3.1.0
 ##
 ch <- "1234567890123456789"
@@ -484,9 +484,9 @@ set.seed(1) ; h1 <- as.hclust(mkDend(5, "S", method="single")); hc1 <- .HC.
 set.seed(5) ; h5 <- as.hclust(mkDend(5, "S", method="single")); hc5 <- .HC.
 set.seed(42); h3 <- as.hclust(mkDend(5, "A", method="single")); hc3 <- .HC.
 ## all failed (differently!) because of ties in R <= 3.2.3
-stopifnot(all.equal(h1[1:4], hc1[1:4], tol = 1e-12),
-	  all.equal(h5[1:4], hc5[1:4], tol = 1e-12),
-	  all.equal(h3[1:4], hc3[1:4], tol = 1e-12))
+stopifnot(all.equal(h1[1:4], hc1[1:4], tolerance = 1e-12),
+	  all.equal(h5[1:4], hc5[1:4], tolerance = 1e-12),
+	  all.equal(h3[1:4], hc3[1:4], tolerance = 1e-12))
 
 
 ## bw.SJ() and similar with NA,Inf values, PR#16024
@@ -575,8 +575,8 @@ stopifnot(identical(as.character(rd), c("MAC1:XXX\n","YYY\n")))
 ## power.t.test() failure for very large n (etc): PR#15792
 (ptt <- power.t.test(delta = 1e-4, sd = .35, power = .8))
 (ppt <- power.prop.test(p1 = .5, p2 = .501, sig.level=.001, power=0.90, tol=1e-8))
-stopifnot(all.equal(ptt$n, 192297000, tol = 1e-5),
-          all.equal(ppt$n,  10451937, tol = 1e-7))
+stopifnot(all.equal(ptt$n, 192297000, tolerance = 1e-5),
+          all.equal(ppt$n,  10451937, tolerance = 1e-7))
 ## call to uniroot() did not allow n > 1e7
 
 
@@ -671,7 +671,7 @@ for(k in 1:5) {
 m <- matrix(c(83,41), 5, 4,
 	    dimnames=list(paste0("R",1:5), paste0("C",1:4)))[-5,] + 3*diag(4)
 stopifnot( all.equal(eigen(m, only.values=TRUE) $ values,
-		     c(251, 87, 3, 3), tol=1e-14) )
+		     c(251, 87, 3, 3), tolerance=1e-14) )
 ## failed, using symmetric=FALSE and complex because of the asymmetric dimnames()
 
 
@@ -1115,7 +1115,7 @@ for(n in 1:6) { if(n %% 10 == 0) cat(n,"\n")
                          control = ctrl)
         cPr  <- predict(cars.wt)
         cPrN <- predict(cars.wt, newdata=cars)
-        stopifnot(all.equal(cPr, cPrN, check.attributes = FALSE, tol=1e-14))
+        stopifnot(all.equal(cPr, cPrN, check.attributes = FALSE, tolerance=1e-14))
     }
 }
 ## gave (typically slightly) wrong predictions in R <= 3.2.2
@@ -1138,7 +1138,7 @@ stopifnot(identical(     dim(aA), rev(da)),# including names(.)
 fm <- lm(y ~ poly(x, 3), data=data.frame(x=1:7, y=sin(1:7)))
 x <- c(1,NA,3:7)
 stopifnot(all.equal(c(predict(fm, newdata=list(x = 1:3)), `4`=NA),
-		      predict(fm, newdata=list(x=c(1:3,NA))), tol=1e-15),
+		      predict(fm, newdata=list(x=c(1:3,NA))), tolerance=1e-15),
 	  all.equal(unclass(poly(x, degree=2, raw=TRUE)),
 		    cbind(x, x^2), check.attributes=FALSE))
 ## both gave error about NA in R <= 3.2.2
@@ -1272,8 +1272,8 @@ lm9 <- lm(weight ~ group + x + I(x^2))
 dc9 <- dummy.coef(lm9)
 ## failed in R <= 3.3.0
 stopifnot( # depends on contrasts:
-    all.equal(unname(coef(fm1)), unlist(dc1, use.names=FALSE)[-2], tol= 1e-14),
-    all.equal(unname(coef(lm9)), unlist(dc9, use.names=FALSE)[-2], tol= 1e-14))
+    all.equal(unname(coef(fm1)), unlist(dc1, use.names=FALSE)[-2], tolerance= 1e-14),
+    all.equal(unname(coef(lm9)), unlist(dc9, use.names=FALSE)[-2], tolerance= 1e-14))
 ## a 'use.na=TRUE' example
 dd <- data.frame(x1 = rep(letters[1:2], each=3),
                  x2 = rep(LETTERS[1:3], 2),
@@ -1343,8 +1343,8 @@ stopifnot(identical(rf1[1:3], c("01/01/16 00:00:00", "2016-01-22 23:47:15",
 				"2016-02-13 23:34:30")),
 	  identical(rf2[1:3], c("2016-01-01 00:00:00", "01/22/16 23:47:15",
 				rf1[3])),
-	  nchar(rf1) == rep(c(17,19,19), length = length(rf1)),
-	  nchar(rf2) == rep(c(19,17,19), length = length(rf2)))
+	  nchar(rf1) == rep(c(17,19,19), length.out = length(rf1)),
+	  nchar(rf2) == rep(c(19,17,19), length.out = length(rf2)))
 options(op)
 ## Wrong-length 'zone' or short 'x' segfaulted -- PR#16685
 ## Default 'format' setting sometimes failed for length(format) > 1
@@ -1479,8 +1479,8 @@ t02 <- as.POSIXct("2002-02-02 02:02")
 (at <- chkPretty(t02 + 0:1, n = 5, min.n = 3, max.D=2))
 xU <- as.POSIXct("2002-02-02 02:02", tz = "UTC")
 x5 <- as.POSIXct("2002-02-02 02:02", tz = "EST5EDT")
-atU <- chkPretty(seq(xU, by = "30 mins", length = 2), n = 5)
-at5 <- chkPretty(seq(x5, by = "30 mins", length = 2), n = 5)
+atU <- chkPretty(seq(xU, by = "30 mins", length.out = 2), n = 5)
+at5 <- chkPretty(seq(x5, by = "30 mins", length.out = 2), n = 5)
 stopifnot(length(at) >= 4,
 	  identical(sort(names(aat <- attributes(at))), c("class", "format", "labels", "tzone")),
 	  identical(aat$labels, time2d(59+ 0:3)),
@@ -1489,7 +1489,7 @@ stopifnot(length(at) >= 4,
           identical(lat, paste("02", time2d(10* 0:4), sep=":"))
 )
 nns <- c(1:9, 15:17); names(nns) <- paste0("n=",nns)
-prSeq <- function(x, n, st, ...) pretty(seq(x, by = st, length = 2), n = n, ...)
+prSeq <- function(x, n, st, ...) pretty(seq(x, by = st, length.out = 2), n = n, ...)
 pps <- lapply(nns, function(n)
 	      lapply(steps, function(st) prSeq(x=t02, n=n, st=st)))
 ## (FIXME) relies on LC_TIME="C" (or "English",..):
@@ -1513,7 +1513,7 @@ stopifnot(identical(Ls.ok,
 		    lapply(pps[["n=5"]], attr, "label")))
 ##
 chkSeq <- function(st, x, n, max.D = if(n <= 4) 1 else if(n <= 10) 2 else 3, ...)
-    tryCatch(chkPretty(seq(x, by = st, length = 2), n = n, max.D=max.D, ...),
+    tryCatch(chkPretty(seq(x, by = st, length.out = 2), n = n, max.D=max.D, ...),
              error = conditionMessage)
 prSeq.errs <- function(tt, nset, tSteps) {
     stopifnot(length(tt) == 1)

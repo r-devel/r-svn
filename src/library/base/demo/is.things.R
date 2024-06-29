@@ -7,7 +7,7 @@
 xtraBaseNms <- c("last.dump", "last.warning", ".Last.value",
                  ".Random.seed", ".Traceback")
 ls.base <- Filter(function(nm) is.na(match(nm, xtraBaseNms)),
-                  ls("package:base", all=TRUE))
+                  ls("package:base", all.names=TRUE))
 base.is.f <- sapply(ls.base, function(x) is.function(get(x)))
 cat("\nNumber of all base objects:\t", length(ls.base),
     "\nNumber of functions from these:\t", sum(base.is.f),
@@ -129,9 +129,9 @@ is0
 ispi <- unlist(is.ALL(pi))
 all(ispi[is0.ok] == is0)
 
-is.ALL(numeric(0), true=TRUE)
-is.ALL(array(1,1:3), true=TRUE)
-is.ALL(cbind(1:3), true=TRUE)
+is.ALL(numeric(0), true.only=TRUE)
+is.ALL(array(1,1:3), true.only=TRUE)
+is.ALL(cbind(1:3), true.only=TRUE)
 
 is.ALL(structure(1:7, names = paste("a",1:7,sep="")))
 is.ALL(structure(1:7, names = paste("a",1:7,sep="")), true.only = TRUE)

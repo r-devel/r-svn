@@ -9,14 +9,14 @@ set.seed(1)
 simulate(fit1, nsim = 3)
 
 ## and weights should be taken into account
-fit2 <- lm(time ~ -1 + dist + climb, hills[-18, ], weight = 1/dist^2)
+fit2 <- lm(time ~ -1 + dist + climb, hills[-18, ], weights = 1/dist^2)
 coef(summary(fit2))
 set.seed(1); ( ys <- simulate(fit2, nsim = 3) )
 for(i in seq_len(3))
     print(coef(summary(update(fit2, ys[, i] ~ .))))
 ## should be identical to glm(*, gaussian):
 fit2. <- glm(time ~ -1 + dist + climb, family=gaussian, data=hills[-18, ],
-             weight = 1/dist^2)
+             weights = 1/dist^2)
 set.seed(1); ys. <- simulate(fit2., nsim = 3)
 stopifnot(all.equal(ys, ys.))
 

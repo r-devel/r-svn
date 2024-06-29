@@ -194,7 +194,7 @@ n= 30 : 465+0i -15+142.7155i -15+70.56945i -15+46.16525i -15+33.69055i -15+25.98
 > ##P table(2*abs(Isi-1)	/ Meps)
 > 
 > set.seed(123)
-> z <- complex(real = rnorm(100), imag = rnorm(100))
+> z <- complex(real = rnorm(100), imaginary = rnorm(100))
 > stopifnot(Mod ( 1 -  sin(z) / ( (exp(1i*z)-exp(-1i*z))/(2*1i) )) < 20 * Meps)
 > ## end of moved from complex.Rd
 > 
@@ -230,7 +230,7 @@ n= 30 : 465+0i -15+142.7155i -15+70.56945i -15+46.16525i -15+33.69055i -15+25.98
 > 
 > 
 > ## Hyperbolic
-> x <- seq(-3, 3, len=200)
+> x <- seq(-3, 3, length.out=200)
 > Meps <- .Machine$double.eps
 > stopifnot(
 +  Mod(cosh(x) - cos(1i*x))	< 20*Meps,
@@ -266,13 +266,13 @@ n= 30 : 465+0i -15+142.7155i -15+70.56945i -15+46.16525i -15+33.69055i -15+25.98
 > ## Not a regression test, but rather one of the good cases:
 > (cNaN <- as.complex("NaN"))
 [1] NaN+0i
-> stopifnot(identical(cNaN, complex(re = NaN)), is.nan(Re(cNaN)), Im(cNaN) == 0)
+> stopifnot(identical(cNaN, complex(real = NaN)), is.nan(Re(cNaN)), Im(cNaN) == 0)
 > dput(cNaN) ## (real = NaN, imaginary = 0)
 complex(real=NaN, imaginary=0)
 > ## Partly new behavior:
-> (c0NaN  <- complex(real=0, im=NaN))
+> (c0NaN  <- complex(real=0,   imaginary=NaN))
 [1] 0+NaNi
-> (cNaNaN <- complex(re=NaN, im=NaN))
+> (cNaNaN <- complex(real=NaN, imaginary=NaN))
 [1] NaN+NaNi
 > stopifnot(identical(cNaN, as.complex(NaN)),
 +           identical(vapply(c(cNaN, c0NaN, cNaNaN), format, ""),
@@ -283,8 +283,8 @@ complex(real=NaN, imaginary=0)
 + 
 +           identical(cNaNaN, 1i * NaN),
 +           identical(cNaNaN, complex(modulus= NaN)),
-+           identical(cNaNaN, complex(argument= NaN)),
-+           identical(cNaNaN, complex(arg=NaN, mod=NaN)),
++           identical(cNaNaN, complex(argument=NaN)),
++           identical(cNaNaN, complex(argument=NaN, modulus=NaN)),
 + 
 +           identical(c0NaN, c0NaN+c0NaN), # !
 +           ## Platform dependent, not TRUE e.g. on F21 gcc 4.9.2:
