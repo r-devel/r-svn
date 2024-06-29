@@ -14,7 +14,7 @@ export(closeNode, clusterApply, clusterApplyLB, clusterCall,
        mcmapply, parApply, parCapply, parLapply, parLapplyLB,
        parRapply, parSapply, parSapplyLB, pvec, recvData,
        recvOneData, sendData, setDefaultCluster, splitIndices,
-       stopCluster)
+       stopCluster, registerClusterType)
 
 S3method(print, SOCKcluster)
 S3method(print, SOCKnode)
@@ -29,6 +29,7 @@ S3method(recvOneData, SOCKcluster)
 S3method(sendData, SOCKnode)
 S3method(sendData, SOCK0node)
 S3method(stopCluster, default)
+S3method(stopCluster, SOCKcluster)
 
 ## To support snow clusters
 #S3method(closeNode, NWSnode)

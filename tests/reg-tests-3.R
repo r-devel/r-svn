@@ -201,16 +201,9 @@ nchar(x, "w", allowNA = TRUE)
 
 
 ## str() on large strings
-if (l10n_info()$"UTF-8" || l10n_info()$"Latin-1") {
-  cc <- "J\xf6reskog" # valid in "latin-1"; invalid multibyte string in UTF-8
-  .tmp <- capture.output(
-  str(cc) # failed in some R-devel versions
-  )
-  stopifnot(grepl("chr \"J.*reskog\"", .tmp))
+nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b") # 5.1 M
+str(L)
 
-  print(nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b")) # 5.1 M
-  print(str(L))
-}
 
 if(require("Matrix", .Library)) {
     M <- Matrix(diag(1:10), sparse=TRUE) # a "ddiMatrix"
@@ -237,9 +230,11 @@ if(require("Matrix", .Library)) {
     detach("package:Matrix", unload=TRUE)
 }##{Matrix}
 
-## citation() / bibentry: year will change but check is sloppy
+## citation() / bibentry
 options(width=88) # format.bibentry() using strwrap()
-print(c1 <- citation())
+c1 <- citation()
+c1$year <- "9999" # avoid tedious updates of reference output
+print(c1)
 fc1B <- format(c1)
 fc1N <- format(c1, bibtex=FALSE)
 stopifnot(exprs = {
@@ -251,7 +246,7 @@ stopifnot(exprs = {
 pkg <- "nlme"
 (hasME <- requireNamespace(pkg, quietly=TRUE, lib.loc = .Library))
 if(hasME) withAutoprint({
-    c2 <- citation(package=pkg)
+    c2 <- citation(pkg, .Library)
     ## avoid spurious diffs:
     c2$author[[1]]$given[[1]] <- "J."
     c2$year[[1]] <- "9999"
@@ -275,6 +270,13 @@ if(hasME) withAutoprint({
         nchar(f2N[ie]) < nchar(f2B[ie])
         startsWith(f2B[ie], f2N[ie])
       })
+
+    desc <- packageDescription(pkg, .Library)
+    desc$URL <- paste(URL1 <- "https://example.org",
+                      "https://example.com", sep = "\n") # via continuation line
+    desc$Repository <- NULL
+    c3 <- citation(auto = desc)
+    stopifnot(identical(print(c3$url), URL1)) # R <= 4.4.0 gave both URLs
 })
 
 cat('Time elapsed: ', proc.time(),'\n')

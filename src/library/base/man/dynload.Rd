@@ -64,7 +64,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
     loadable libraries} (abbreviated to \sQuote{DLL}) on all platforms
   except macOS, which uses the term for a different sort
   of object.  On Unix-alikes they are also called \sQuote{dynamic
-    shared objects} (\sQuote{DSO}), or \sQuote{shared objects} for
+    shared objects} (\sQuote{\abbr{DSO}}), or \sQuote{shared objects} for
   short.  (The POSIX standards use \sQuote{executable object file},
   but no one else does.)
 
@@ -72,7 +72,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
   \sQuote{R Installation and Administration} manuals for how to create
   and install a suitable DLL.
 
-  Unfortunately some rare platforms (e.g., Compaq Tru64) do not handle
+  Unfortunately some rare platforms (e.g., Compaq \I{Tru64}) do not handle
   the \code{PACKAGE} argument correctly, and may incorrectly find
   symbols linked into \R.
 
@@ -194,7 +194,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
   standard mechanism (\code{LoadLibrary}) for loading DLLs.
 
   The original code for loading DLLs in Unix-alikes was provided by
-  Heiner Schwarte.
+  \I{Heiner Schwarte}.
 }
 #ifdef windows
 \section{Windows}{
@@ -202,7 +202,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
   search order for where a DLL is found (if not given as an absolute
   path, which is preferred), \emph{and} of where its dependent DLLs will
   be found.  This search path depends on the version of Windows and its
-  security settings, but for versions since Windows XP SP1 it is
+  security settings, but for versions since \I{Windows XP SP1} it is
   \itemize{
     \item The directory from which the application was launched.
     \item The various system directories,
@@ -218,7 +218,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
   (\code{\link{library.dynam}} does that automatically in recent
   versions of \R), but the DLL search order means that DLLs in the
   launch directory and in system directories will be preferred.  On
-  Windows XP SP1 and later there is a way to modify the search order.
+  \I{Windows XP SP1} and later there is a way to modify the search order.
   If argument \code{DLLpath} is supplied to \code{dyn.load}, the latter
   makes use of the Windows system call \code{SetDllDirectory} to insert
   the value of \code{DLLpath} in second place, and removes the current

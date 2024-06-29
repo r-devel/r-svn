@@ -1,7 +1,7 @@
 #  File src/library/utils/R/citation.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -86,8 +86,15 @@ function(given = NULL, family = NULL, middle = NULL,
         ## to character).
         ## In principle, all non-NULL arguments whould be character:
         ## maybe this should be checked for?
-        .canonicalize <- function(s)
-            if(.is_not_nonempty_text(s)) NULL else trimws(s)
+        .canonicalize <- function(s) {
+            if(.is_not_nonempty_text(s)) NULL
+            else {
+                if(!is.character(s))
+                    warning(gettextf("Arguments of person() should be character or NULL"),
+                            domain = NA)
+                trimws(s)
+            }
+        }
         given <- .canonicalize(given)
         family <- .canonicalize(family)
         email <- .canonicalize(email)
@@ -1311,7 +1318,13 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             citfile <- file.path(dir, "inst", "CITATION")
             test <- file_test("-f", citfile)
         }
-        if(is.null(auto)) auto <- !test
+        if(is.null(auto) || is.na(auto))
+            auto <- !test
+        else if(!auto && !test)
+            stop(gettextf("package %s has no %s file: only auto-generation is possible",
+                          sQuote(package),
+                          sQuote("CITATION")),
+                 domain = NA)
         ## if CITATION is available
         if(!auto) {
             return(readCitationFile(citfile, meta))
@@ -1388,9 +1401,13 @@ function(package = "base", lib.loc = NULL, auto = NULL)
               )
 
     ## CRAN-style repositories: CRAN, R-Forge, Bioconductor
-    if(identical(meta$Repository, "CRAN"))
+    if(identical(meta$Repository, "CRAN")) {
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
+        if(!is.na(d <- meta[["Date/Publication"]]) &&
+           (as.Date(d) <= Sys.Date() - 1L))
+            z$doi <- sprintf("10.32614/CRAN.package.%s", package)
+    }
 
     if(identical(meta$Repository, "R-Forge")) {
         z$url <- if(!is.null(rfp <- meta$"Repository/R-Forge/Project"))
@@ -1401,8 +1418,8 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             z$note <- paste(z$note, rfr, sep = "/r")
     }
 
-    if((is.null(meta$Repository) ||
-        identical(meta$Repository, "Bioconductor")) &&
+    if((is.null(meta$Repository) || # older BioC releases
+        startsWith(meta$Repository, "Bioconductor")) && # "Bioconductor 3.19"
        !is.null(meta$git_url) &&
        startsWith(meta$git_url,
                   "https://git.bioconductor.org/packages")) {
@@ -1439,15 +1456,23 @@ function(package = "base", lib.loc = NULL, auto = NULL)
     }
 
     if(!length(z$url) && !is.null(url <- meta$URL)) {
+        ## WRE: "a list of URLs separated by commas or whitespace".
         ## Cannot have several URLs in BibTeX and bibentry object URL
         ## fields (PR #16240).
-        if(grepl("[, ]", url)) {
-            ## Show the first URL as the BibTeX url, and add the others
-            ## to the note (PR#18547).
-            z$url <- sub(",.*", "", url)
-            z$note <- paste0(z$note, sub("^[^,]*, ?", ", ", url))
-        } else
-            z$url <- url
+        ## In c84505 we followed the suggestion of PR#18547: in case
+        ## of using a URL field with multiple URLs, show the first URL
+        ## as the BibTeX url, and add the others to the note.  However,
+        ## * typically the noted (secondary) URLs get shown ahead of the
+        ##   primary (first) URL;
+        ## * showing several URLs generally is "too much" for the
+        ##   bibliographic information;
+        ## * one can typically use the primary URL to point to the
+        ##   secondary ones,
+        ## Hence, we no longer add to the note, and only put the primary
+        ## URL in the url.
+        urls <- tools:::.get_urls_from_DESCRIPTION_URL_field(meta$URL)
+        if(length(urls))
+            z$url <- urls[1L]
     }
 
     header <- if(!auto_was_meta) {
@@ -1517,9 +1542,17 @@ function(x)
 }
 
 format.citation <-
-function(x, style = "citation", ...) format.bibentry(x, style = style, ...)
+function(x, style = "citation", ...)
+    format.bibentry(x, style = style, ...)
 print.citation <-
-function(x, style = "citation", ...) print.bibentry(x, style = style, ...)
+function(x, style = "citation", ...)
+    print.bibentry(x, style = style, ...)
+
+as.data.frame.citation <-
+function(x, row.names = NULL, optional = FALSE, ...) {
+    x <- as.bibentry(x)
+    NextMethod()
+}
 
 as.bibentry <-
 function(x)

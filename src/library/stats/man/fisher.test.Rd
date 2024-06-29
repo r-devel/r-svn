@@ -86,8 +86,9 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   For \eqn{2 \times 2}{2 by 2} cases, p-values are obtained directly
   using the (central or non-central) hypergeometric
   distribution. Otherwise, computations are based on a C version of the
-  FORTRAN subroutine FEXACT which implements the network developed by
-  Mehta and Patel (1983, 1986) and improved by Clarkson, Fan and Joe (1993).
+  FORTRAN subroutine \code{FEXACT} which implements the network developed by
+  \bibcite{Mehta and Patel (1983, 1986)} and improved by
+  \bibcite{Clarkson, Fan and Joe (1993)}.
   The FORTRAN code can be obtained from
   \url{https://netlib.org/toms/643}.  Note this fails (with an error
   message) when the entries of the table are too large.  (It transposes
@@ -136,7 +137,7 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
 
   Simulation is done conditional on the row and column marginals, and
   works only if the marginals are strictly positive.  (A C translation
-  of the algorithm of Patefield (1981) is used.)
+  of the algorithm of \bibcite{Patefield (1981)} is used.)
   Note that the default number of replicates (\code{B = 2000}) implies a
   minimum p-value of about 0.0005 (\eqn{1/(B+1)}).
 }

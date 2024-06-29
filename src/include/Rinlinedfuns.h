@@ -45,6 +45,7 @@
 #ifdef COMPILING_R
 /* defined only in inlined.c: this emits standalone code there */
 # define INLINE_FUN
+# define HIDDEN attribute_hidden
 #else
 /* This section is normally only used for versions of gcc which do not
    support C99 semantics.  __GNUC_STDC_INLINE__ is defined if
@@ -58,6 +59,7 @@
 # else
 #  define INLINE_FUN extern R_INLINE
 # endif
+# define HIDDEN
 #endif /* ifdef COMPILING_R */
 
 #if C99_INLINE_SEMANTICS
@@ -75,7 +77,7 @@
 #include <string.h> /* for strlen, strcmp */
 
 /* define inline-able functions */
-#ifdef TESTING_WRITE_BARRIER
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R)
 # define STRICT_TYPECHECK
 # define CATCH_ZERO_LENGTH_ACCESS
 #endif
@@ -94,7 +96,7 @@ SEXP CAR(SEXP e);
 #endif
 
 #ifdef STRICT_TYPECHECK
-INLINE_FUN void CHKVEC(SEXP x) {
+HIDDEN INLINE_FUN void CHKVEC(SEXP x) {
     switch (TYPEOF(x)) {
     case CHARSXP:
     case LGLSXP:
@@ -209,7 +211,7 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
     return ALTREP(x) ? ALTREP_TRUELENGTH(x) : STDVEC_TRUELENGTH(x);
 }
 
-INLINE_FUN int LENGTH_EX(SEXP x, const char *file, int line)
+/*HIDDEN*/ INLINE_FUN int LENGTH_EX(SEXP x, const char *file, int line)
 {
     if (x == R_NilValue) return 0;
     R_xlen_t len = XLENGTH(x);
@@ -318,67 +320,67 @@ INLINE_FUN int LENGTH_EX(SEXP x, const char *file, int line)
 # define CHECK_VECTOR_RAW_ELT(x, i) do { } while(0)
 #endif
 
-INLINE_FUN int *LOGICAL0(SEXP x) {
+HIDDEN INLINE_FUN int *LOGICAL0(SEXP x) {
     CHECK_STDVEC_LGL(x);
     return (int *) STDVEC_DATAPTR(x);
 }
-INLINE_FUN Rboolean SCALAR_LVAL(SEXP x) {
+HIDDEN INLINE_FUN Rboolean SCALAR_LVAL(SEXP x) {
     CHECK_SCALAR_LGL(x);
     return LOGICAL0(x)[0];
 }
-INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
+HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
     CHECK_SCALAR_LGL(x);
     LOGICAL0(x)[0] = v;
 }
 
-INLINE_FUN int *INTEGER0(SEXP x) {
+HIDDEN INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
     return (int *) STDVEC_DATAPTR(x);
 }
-INLINE_FUN int SCALAR_IVAL(SEXP x) {
+HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
     return INTEGER0(x)[0];
 }
-INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
+HIDDEN INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
     INTEGER0(x)[0] = v;
 }
 
-INLINE_FUN double *REAL0(SEXP x) {
+/*HIDDEN*/ INLINE_FUN double *REAL0(SEXP x) {
     CHECK_STDVEC_REAL(x);
     return (double *) STDVEC_DATAPTR(x);
 }
-INLINE_FUN double SCALAR_DVAL(SEXP x) {
+HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
     CHECK_SCALAR_REAL(x);
     return REAL0(x)[0];
 }
-INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
+HIDDEN INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
     CHECK_SCALAR_REAL(x);
     REAL0(x)[0] = v;
 }
 
-INLINE_FUN Rcomplex *COMPLEX0(SEXP x) {
+/*HIDDEN*/ INLINE_FUN Rcomplex *COMPLEX0(SEXP x) {
     CHECK_STDVEC_CPLX(x);
     return (Rcomplex *) STDVEC_DATAPTR(x);
 }
-INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
+HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
     CHECK_SCALAR_CPLX(x);
     return COMPLEX0(x)[0];
 }
-INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
+HIDDEN INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
     CHECK_SCALAR_CPLX(x);
     COMPLEX0(x)[0] = v;
 }
 
-INLINE_FUN Rbyte *RAW0(SEXP x) {
+HIDDEN INLINE_FUN Rbyte *RAW0(SEXP x) {
     CHECK_STDVEC_RAW(x);
     return (Rbyte *) STDVEC_DATAPTR(x);
 }
-INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
+HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     CHECK_SCALAR_RAW(x);
     return RAW0(x)[0];
 }
-INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
+HIDDEN INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
     CHECK_SCALAR_RAW(x);
     RAW0(x)[0] = v;
 }
@@ -754,7 +756,7 @@ INLINE_FUN SEXP lang6(SEXP s, SEXP t, SEXP u, SEXP v, SEXP w, SEXP x)
 
 /* Check to see if the arrays "x" and "y" have the identical extents */
 
-INLINE_FUN Rboolean conformable(SEXP x, SEXP y)
+HIDDEN INLINE_FUN Rboolean conformable(SEXP x, SEXP y)
 {
     int i, n;
     PROTECT(x = getAttrib(x, R_DimSymbol));
@@ -797,7 +799,7 @@ INLINE_FUN Rboolean isValidStringF(SEXP x)
     return isValidString(x) && CHAR(STRING_ELT(x, 0))[0];
 }
 
-INLINE_FUN Rboolean isUserBinop(SEXP s)
+HIDDEN INLINE_FUN Rboolean isUserBinop(SEXP s)
 {
     if (TYPEOF(s) == SYMSXP) {
 	const char *str = CHAR(PRINTNAME(s));
@@ -888,7 +890,7 @@ INLINE_FUN Rboolean isVector(SEXP s)/* === isVectorList() or isVectorAtomic() */
     }
 }
 
-INLINE_FUN Rboolean isFrame(SEXP s)
+INLINE_FUN Rboolean isDataFrame(SEXP s)
 {
     SEXP klass;
     int i;
@@ -899,6 +901,9 @@ INLINE_FUN Rboolean isFrame(SEXP s)
     }
     return FALSE;
 }
+/* keep available under old name for now */
+INLINE_FUN Rboolean isFrame(SEXP s) { return isDataFrame(s); }
+
 
 /* DIFFERENT than R's  is.language(.) in ../main/coerce.c [do_is(), case 301:]
  *                                    which is   <=>  SYMSXP || LANGSXP || EXPRSXP */
@@ -1101,7 +1106,7 @@ INLINE_FUN SEXP mkString(const char *s)
 }
 
 /* index of a given C string in (translated) R string vector  */
-INLINE_FUN int
+HIDDEN INLINE_FUN int
 stringPositionTr(SEXP string, const char *translatedElement) {
 
     int slen = LENGTH(string);
@@ -1119,7 +1124,7 @@ stringPositionTr(SEXP string, const char *translatedElement) {
 }
 
 /* duplicate RHS value of complex assignment if necessary to prevent cycles */
-INLINE_FUN SEXP R_FixupRHS(SEXP x, SEXP y)
+HIDDEN INLINE_FUN SEXP R_FixupRHS(SEXP x, SEXP y)
 {
     if( y != R_NilValue && MAYBE_REFERENCED(y) ) {
 	if (R_cycle_detected(x, y)) {

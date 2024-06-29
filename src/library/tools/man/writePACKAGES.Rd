@@ -111,7 +111,7 @@ write_PACKAGES(dir = ".", fields = NULL,
   work on all OSes.
 }
 \author{
-  Uwe Ligges and R-core.
+  \I{Uwe Ligges} and R-core.
 }
 \seealso{
   See \code{\link{read.dcf}} and \code{\link{write.dcf}} for reading

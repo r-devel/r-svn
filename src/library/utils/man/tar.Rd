@@ -61,7 +61,7 @@ tar(tarfile, files = NULL,
   environment variable \env{TAR_OPTIONS}.  Appending \option{--force-local}
   to \env{TAR} does not work with GNU \command{tar} due to restrictions on
   how some options can be mixed.  The \command{tar} available on Windows 10
-  (libarchive's \command{bsdtar}) supports drive letters by default.  It
+  (\I{libarchive}'s \command{bsdtar}) supports drive letters by default.  It
   does not support the \option{--force-local}, but ignores
   \env{TAR_OPTIONS}.
 
@@ -73,14 +73,14 @@ tar(tarfile, files = NULL,
   to \option{--format=posix} which is the same as \code{pax} --
   it was never part of the POSIX standard for \command{tar} and should
   not be used.)
-  For libarchive's \command{bsdtar}, \option{--format=ustar} is more
+  For \I{libarchive}'s \command{bsdtar}, \option{--format=ustar} is more
   portable than the default.
   
   %% This uses -T, not supported by Solaris nor Heirloom Toolchest.
   One issue which can cause an external command to fail is a command
   line too long for the system shell: as from \R 3.5.0 this is worked
   around if the external command is detected to be GNU \command{tar} or
-  libarchive \command{tar} (aka \command{bsdtar}).
+  \I{libarchive} \command{tar} (aka \command{bsdtar}).
 
   Note that \code{files = '.'} will usually not work with an external
   \command{tar} as that would expand the list of files after
@@ -101,7 +101,7 @@ tar(tarfile, files = NULL,
 
   Many \R platforms use a version of GNU \command{tar}, but the
   behaviour seems to be changed with each version.  macOS >= 10.6,
-  FreeBSD and Windows 10 use \command{bsdtar} from the libarchive
+  FreeBSD and Windows 10 use \command{bsdtar} from the \I{libarchive}
   project (but for macOS often a quite-old version), and commercial
   Unixes will have their own versions. \command{bsdtar} is available for
   many other platforms: macOS up to at least 10.9 had GNU \command{tar}
@@ -120,7 +120,7 @@ tar(tarfile, files = NULL,
     yet another by the POSIX \command{pax} command which
     recent \command{tar} programs often support.  The internal
     implementation warns on paths of more than 100 bytes,
-    uses the \sQuote{ustar} way from the 1998 POSIX
+    uses the \sQuote{\I{ustar}} way from the 1998 POSIX
     standard which supports up to 256 bytes (depending on the path: in
     particular the final component is limited to 100 bytes) if possible,
     otherwise the GNU way (which is widely supported, including by
@@ -137,7 +137,7 @@ tar(tarfile, files = NULL,
     question arises as to how links should be unpacked on OSes that do
     not support them: for regular files file copies can be used.
 
-    Names of links in the \sQuote{ustar} format are restricted to 100
+    Names of links in the \sQuote{\I{ustar}} format are restricted to 100
     bytes.  There is an GNU extension for arbitrarily long link names,
     but \command{bsdtar} ignores it.  The internal method uses the
     GNU extension, with a warning.
@@ -147,20 +147,20 @@ tar(tarfile, files = NULL,
     behaviour but commonly used implementations did (and still do)
     not comply.
 
-    \item File sizes.  The \sQuote{ustar} format is restricted to 8GB
+    \item File sizes.  The \sQuote{\I{ustar}} format is restricted to 8GB
     per (uncompressed) file.
   }
   For portability, avoid file paths of more than 100 bytes and all links
   (especially hard links and symbolic links to directories).
 
   The internal implementation writes only the blocks of 512 bytes
-  required (including trailing blocks of nuls), unlike GNU \command{tar}
+  required (including trailing blocks of \abbr{NUL}s), unlike GNU \command{tar}
   which by default pads with \samp{nul} to a multiple of 20 blocks
   (10KB).  Implementations which pad differ on whether the block padding
   should occur before or after compression (or both): padding was
   designed for improved performance on physical tape drives.
   
-  The \sQuote{ustar} format records file modification times to a
+  The \sQuote{\I{ustar}} format records file modification times to a
   resolution of 1 second: on file systems with higher resolution it is
   conventional to discard fractional seconds.
 }
@@ -177,12 +177,12 @@ tar(tarfile, files = NULL,
   compressor \emph{via} \option{--use-compress-program lz4}: these could
   be supplied in \code{extra_flags}.
   
-  NetBSD prior to 8.0 used flag \option{--xz} rather than \option{-J},
+  \I{NetBSD} prior to 8.0 used flag \option{--xz} rather than \option{-J},
   so this should be used \emph{via} \code{extra_flags = "--xz"} rather
-  than \code{compression = "xz"}.  The commands from OpenBSD and the
-  Heirloom Toolchest are not documented to support \command{xz}.
+  than \code{compression = "xz"}.  The commands from \I{OpenBSD} and the
+  \I{Heirloom Toolchest} are not documented to support \command{xz}.
 
-  The \command{tar} programs in commercial Unixen such as AIX and
+  The \command{tar} programs in commercial Unixen such as \I{AIX} and
   Solaris do not support compression.
 }
 

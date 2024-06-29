@@ -64,7 +64,7 @@ quartz.save(file, type = "png", device = dev.cur(), dpi = 100, ...)
   output.  The following bitmap formats may be supported (depending on
   the OS version): \code{"png"}, \code{"jpeg"}, \code{"jpg"},
   \code{"jpeg2000"}, \code{"tif"}, \code{"tiff"}, \code{"gif"},
-  \code{"psd"} (Adobe Photoshop), \code{"bmp"} (Windows bitmap),
+  \code{"psd"} (Adobe \I{Photoshop}), \code{"bmp"} (Windows bitmap),
   \code{"sgi"} and \code{"pict"}.
 
   The \code{file} argument is used for off-screen drawing.  The actual
@@ -83,7 +83,7 @@ quartz.save(file, type = "png", device = dev.cur(), dpi = 100, ...)
   via \code{par(family =)} in the graphics package), the Quartz device
   makes use of the Quartz font database (see \code{quartzFonts}) to
   convert the R graphics font family to a Quartz-specific font family
-  description.  The default conversions are (MonoType TrueType versions
+  description.  The default conversions are (\I{MonoType} \I{TrueType} versions
   of) \code{Helvetica} for \code{sans}, \code{Times-Roman} for
   \code{serif} and \code{Courier} for \code{mono}.
 
@@ -98,7 +98,7 @@ quartz.save(file, type = "png", device = dev.cur(), dpi = 100, ...)
   which will show up in some viewers, including \command{Preview}.
 
   \code{title} can be used for on-screen output.  It must be a single
-  character string with an optional integer printf-style format that
+  character string with an optional integer \I{printf}-style format that
   will be substituted by the device number.  It is also optionally used
   (without a format) to give a title to a PDF file.
 

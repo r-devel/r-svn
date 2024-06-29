@@ -93,7 +93,7 @@ news(query, package = "R", lib.loc = NULL, format = NULL,
 
 \subsection{\file{NEWS.md}}{
   File \file{NEWS.md} should contain the news in Markdown (following the
-  CommonMark (\url{https://commonmark.org/}) specification), with the
+  \I{CommonMark} (\url{https://commonmark.org/}) specification), with the
   primary heading level giving the version number after a prefix
   followed by a space, and optionally followed by a space and a
   parenthesized ISO 8601 format date.  Where available, secondary

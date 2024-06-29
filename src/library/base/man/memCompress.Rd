@@ -6,9 +6,9 @@
 \name{memCompress}
 \alias{memCompress}
 \alias{memDecompress}
-\concept{gzip}
-\concept{bzip2}
-\concept{lzma}
+\concept{\I{gzip}}
+\concept{\I{bzip2}}
+\concept{\I{lzma}}
 \title{In-memory Compression and Decompression}
 \description{
   In-memory compression or decompression for raw vectors.
@@ -46,9 +46,9 @@ memDecompress(from,
 
   \command{gzip} compression uses whatever is the default compression
   level of the underlying library (usually \code{6}). This supports the
-  RFC 1950 format, sometimes known as \sQuote{zlib} format, for
+  RFC 1950 format, sometimes known as \sQuote{\I{zlib}} format, for
   compression and decompression and for decompression only RFC 1952, the
-  \sQuote{gzip} format (which wraps the \sQuote{zlib} format with a
+  \sQuote{\I{gzip}} format (which wraps the \sQuote{\I{zlib}} format with a
   header and footer).
 
   \command{bzip2} compression always adds a header (\code{"BZh"}).  The
@@ -72,14 +72,15 @@ memDecompress(from,
 
 \section{\code{libdeflate}}{
   Support for the \code{libdeflate} library was added for \R 4.4.0.  It
-  uses different code for the RFC 1950 \sQuote{zlib} format (and RFC
+  uses different code for the RFC 1950 \sQuote{\I{zlib}} format (and RFC
   1952 for decompression), expected to be substantially faster than
-  using the reference (or system) \code{zlib} library.  It is used for
+  using the reference (or system) \I{zlib} library.  It is used for
   \code{type = "gzip"} if available.
 
   The headers and sources can be downloaded from
   \url{https://github.com/ebiggers/libdeflate} and pre-built versions
-  are available for most Linux distributions.
+  are available for most Linux distributions.  It is used for binary
+  Windows distributions.
 }
 
 \value{
@@ -95,7 +96,8 @@ memDecompress(from,
   \url{https://en.wikipedia.org/wiki/Data_compression} for background on
   data compression, \url{https://zlib.net/},
   \url{https://en.wikipedia.org/wiki/Gzip}, \url{http://www.bzip.org/},
-  \url{https://en.wikipedia.org/wiki/Bzip2}, \url{https://tukaani.org/xz/}
+  \url{https://en.wikipedia.org/wiki/Bzip2},
+  %% \url{https://xz.tukaani.org/xz-utils/}
   and \url{https://en.wikipedia.org/wiki/XZ_Utils} for references about the
   particular schemes used.
 }

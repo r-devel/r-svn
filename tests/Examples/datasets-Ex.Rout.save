@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2023-03-28 r84086) -- "Unsuffered Consequences"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R Under development (unstable) (2024-03-04 r86047) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -37,35 +35,94 @@ Type 'q()' to quit R.
 > 
 > ### ** Examples
 > 
-> ## Not run: 
-> ##D ## These are quite slow and so not run by example(AirPassengers)
-> ##D 
-> ##D ## The classic 'airline model', by full ML
-> ##D (fit <- arima(log10(AirPassengers), c(0, 1, 1),
-> ##D               seasonal = list(order = c(0, 1, 1), period = 12)))
-> ##D update(fit, method = "CSS")
-> ##D update(fit, x = window(log10(AirPassengers), start = 1954))
-> ##D pred <- predict(fit, n.ahead = 24)
-> ##D tl <- pred$pred - 1.96 * pred$se
-> ##D tu <- pred$pred + 1.96 * pred$se
-> ##D ts.plot(AirPassengers, 10^tl, 10^tu, log = "y", lty = c(1, 2, 2))
-> ##D 
-> ##D ## full ML fit is the same if the series is reversed, CSS fit is not
-> ##D ap0 <- rev(log10(AirPassengers))
-> ##D attributes(ap0) <- attributes(AirPassengers)
-> ##D arima(ap0, c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12))
-> ##D arima(ap0, c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12),
-> ##D       method = "CSS")
-> ##D 
-> ##D ## Structural Time Series
-> ##D ap <- log10(AirPassengers) - 2
-> ##D (fit <- StructTS(ap, type = "BSM"))
-> ##D par(mfrow = c(1, 2))
-> ##D plot(cbind(ap, fitted(fit)), plot.type = "single")
-> ##D plot(cbind(ap, tsSmooth(fit)), plot.type = "single")
-> ## End(Not run)
+> ## The classic 'airline model', by full ML
+> (fit <- arima(log10(AirPassengers), c(0, 1, 1),
++               seasonal = list(order = c(0, 1, 1), period = 12)))
+
+Call:
+arima(x = log10(AirPassengers), order = c(0, 1, 1), seasonal = list(order = c(0, 
+    1, 1), period = 12))
+
+Coefficients:
+          ma1     sma1
+      -0.4018  -0.5569
+s.e.   0.0896   0.0731
+
+sigma^2 estimated as 0.0002543:  log likelihood = 353.96,  aic = -701.92
+> update(fit, method = "CSS")
+
+Call:
+arima(x = log10(AirPassengers), order = c(0, 1, 1), seasonal = list(order = c(0, 
+    1, 1), period = 12), method = "CSS")
+
+Coefficients:
+          ma1     sma1
+      -0.3772  -0.5724
+s.e.   0.0883   0.0704
+
+sigma^2 estimated as 0.0002619:  part log likelihood = 354.32
+> update(fit, x = window(log10(AirPassengers), start = 1954))
+
+Call:
+arima(x = window(log10(AirPassengers), start = 1954), order = c(0, 1, 1), seasonal = list(order = c(0, 
+    1, 1), period = 12))
+
+Coefficients:
+          ma1     sma1
+      -0.4797  -0.4460
+s.e.   0.1000   0.1514
+
+sigma^2 estimated as 0.0001603:  log likelihood = 208.02,  aic = -410.04
+> pred <- predict(fit, n.ahead = 24)
+> tl <- pred$pred - 1.96 * pred$se
+> tu <- pred$pred + 1.96 * pred$se
+> ts.plot(AirPassengers, 10^tl, 10^tu, log = "y", lty = c(1, 2, 2))
+> 
+> ## full ML fit is the same if the series is reversed, CSS fit is not
+> ap0 <- rev(log10(AirPassengers))
+> attributes(ap0) <- attributes(AirPassengers)
+> arima(ap0, c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12))
+
+Call:
+arima(x = ap0, order = c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12))
+
+Coefficients:
+          ma1     sma1
+      -0.4018  -0.5569
+s.e.   0.0896   0.0731
+
+sigma^2 estimated as 0.0002543:  log likelihood = 353.95,  aic = -701.91
+> arima(ap0, c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12),
++       method = "CSS")
+
+Call:
+arima(x = ap0, order = c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12), 
+    method = "CSS")
+
+Coefficients:
+          ma1     sma1
+      -0.4188  -0.5224
+s.e.   0.0875   0.0695
+
+sigma^2 estimated as 0.0002673:  part log likelihood = 353
+> 
+> ## Structural Time Series
+> ap <- log10(AirPassengers) - 2
+> (fit <- StructTS(ap, type = "BSM"))
+
+Call:
+StructTS(x = ap, type = "BSM")
+
+Variances:
+    level      slope       seas    epsilon  
+0.0001456  0.0000000  0.0002635  0.0000000  
+> par(mfrow = c(1, 2))
+> plot(cbind(ap, fitted(fit)), plot.type = "single")
+> plot(cbind(ap, tsSmooth(fit)), plot.type = "single")
 > 
 > 
+> 
+> graphics::par(get("par.postscript", pos = 'CheckExEnv'))
 > cleanEx()
 > nameEx("BOD")
 > ### * BOD
@@ -97,8 +154,8 @@ Nonlinear regression model
      A    lrc 
 19.143 -0.633 
  residual sum-of-squares: 26
-> # using the plinear algorithm  (trace o/p differs by platform)
 > ## IGNORE_RDIFF_BEGIN
+> # using the plinear algorithm  (trace o/p differs by platform)
 > fm2 <- nls(demand ~ (1-exp(-exp(lrc)*Time)), data = BOD,
 +            start = c(lrc = log(.35)), algorithm = "plinear", trace = TRUE)
 32.946    (7.09e-01): par = (-1.0498 22.126)
@@ -139,6 +196,11 @@ Residual standard error: 2.55 on 4 degrees of freedom
 > ### Keywords: datasets
 > 
 > ### ** Examples
+> 
+> require(graphics)
+> coplot(weight ~ Time | Chick, data = ChickWeight,
++        type = "b", show.given = FALSE)
+> 
 > 
 > 
 > cleanEx()
@@ -843,7 +905,7 @@ F-statistic: 5.756 on 4 and 45 DF,  p-value: 0.0007904
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: Loblolly
-> ### Title: Growth of Loblolly pine trees
+> ### Title: Growth of Loblolly Pine Trees
 > ### Aliases: Loblolly
 > ### Keywords: datasets
 > 
@@ -2537,7 +2599,7 @@ Number of Fisher Scoring iterations: 4
 > ### ** Examples
 > 
 > require(stats); require(graphics)
-> ## give the data set in the form it is used in S-PLUS:
+> ## give the data set in the form it was used in S-PLUS:
 > longley.x <- data.matrix(longley[, 1:6])
 > longley.y <- longley[, "Employed"]
 > pairs(longley, main = "longley data")
@@ -2694,6 +2756,13 @@ Model 2: Speed ~ Run + Expt
 > ### Keywords: datasets
 > 
 > ### ** Examples
+> 
+> require(stats); require(graphics)
+> nott <- window(nottem, end = c(1936,12))
+> fit <- arima(nott, order = c(1,0,0), list(order = c(2,1,0), period = 12))
+> nott.fore <- predict(fit, n.ahead = 36)
+> ts.plot(nott, nott.fore$pred, nott.fore$pred+2*nott.fore$se,
++         nott.fore$pred-2*nott.fore$se, gpars = list(col = c(1,1,4,4)))
 > 
 > 
 > 
@@ -2883,6 +2952,18 @@ Warning: not plotting observations with leverage one:
 > 
 > ### ** Examples
 > 
+> ## We could re-generate the dataset by the following R code
+> seed <- as.double(1)
+> RANDU <- function() {
++     seed <<- ((2^16 + 3) * seed) %% (2^31)
++     seed/(2^31)
++ }
+> myrandu <- matrix(NA_real_, 400, 3, dimnames = list(NULL, c("x","y","z")))
+> for(i in 1:400) {
++     U <- c(RANDU(), RANDU(), RANDU(), RANDU(), RANDU())
++     myrandu[i,] <- round(U[1:3], 6)
++ }
+> stopifnot(all.equal(randu, as.data.frame(myrandu), tolerance = 1e-5))
 > 
 > 
 > 
@@ -3613,7 +3694,7 @@ c0   -5.14
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  1.134 0.029 1.167 0 0 
+Time elapsed:  1.781 0.033 1.814 0 0 
 > grDevices::dev.off()
 null device 
           1 

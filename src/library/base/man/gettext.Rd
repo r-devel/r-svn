@@ -82,7 +82,7 @@ Sys.setLanguage(lang, unset = "en")
 
   \code{ngettext} is used where the message needs to vary by a single
   integer.  Translating such messages is subject to very specific rules
-  for different languages: see the GNU Gettext Manual.  The string
+  for different languages: see the GNU \I{Gettext} Manual.  The string
   will often contain a single instance of \code{\%d} to be used in
   \code{\link{sprintf}}.  If English is used, \code{msg1} is returned if
   \code{n == 1} and \code{msg2} in all other cases.
@@ -91,14 +91,14 @@ Sys.setLanguage(lang, unset = "en")
   name: your system may have a \command{man} page for it.  With a
   non-\code{NULL} \code{dirname} it specifies where to look for message
   catalogues: with \code{dirname = NULL} it returns the current location.
-  If NLS is not enabled, \code{bindtextdomain(*,*)} returns \code{NULL}.
+  If \abbr{NLS} is not enabled, \code{bindtextdomain(*,*)} returns \code{NULL}.
   %%
   The special case \code{bindtextdomain(NULL)} calls C level
   \code{textdomain(textdomain(NULL))} for the purpose of flushing (i.e.,
   emptying) the cache of already translated strings; it returns \code{TRUE}
-  when NLS is enabled.
+  when \abbr{NLS} is enabled.
 
-  The utility \code{Sys.setlanguage(lang)} combines setting the
+  The utility \code{Sys.setLanguage(lang)} combines setting the
   \env{LANGUAGE} environment variable with flushing the translation cache
   by \code{bindtextdomain(NULL)}.
 }
@@ -134,8 +134,7 @@ for(n in 0:3)
                               "\%d variables have missing values"),
                   n))
 
-\dontrun{
-## for translation, those strings should appear in R-pkg.pot as
+\dontrun{## for translation, those strings should appear in R-pkg.pot as
 msgid        "\%d variable has missing values"
 msgid_plural "\%d variables have missing values"
 msgstr[0] ""
@@ -174,9 +173,8 @@ errMsg(1 + "2")
 ## Usually, you would reset the language to "previous" via
 Sys.setLanguage(oldSet)
 
-## A show off of translations -- platform (font etc) dependent:
+\dontdiff{## A show off of translations -- platform (font etc) dependent:
 ## The translation languages available for "base" R in this version of R:
-## IGNORE_RDIFF_BEGIN
 if(capabilities("NLS")) withAutoprint({
   langs <- list.files(bindtextdomain("R"),
 		      pattern = "^[a-z]{2}(_[A-Z]{2}|@quot)?$")
@@ -188,7 +186,7 @@ if(capabilities("NLS")) withAutoprint({
   (nTrans <- length(unique(txts)))
   (not_translated <- names(txts[txts == txts[["en"]]]))
 })
-## IGNORE_RDIFF_END
+}
 ## Here, we reset to the *original* setting before the full example started:
 if(nzchar(thisLang)) { ## reset to previous and check
   Sys.setLanguage(thisLang)

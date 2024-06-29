@@ -72,14 +72,14 @@ postscript(file = if(onefile) "Rplots.ps" else "Rplot\%03d.ps",
     Defaults to true, that is landscape orientation on paper sizes
     with width less than height.}
   \item{pointsize}{the default point size to be used.  Strictly
-    speaking, in bp, that is 1/72 of an inch, but approximately in
+    speaking, in \abbr{bp}, that is 1/72 of an inch, but approximately in
     points.  Defaults to \code{12}.}
   \item{paper}{the size of paper in the printer.  The choices are
     \code{"a4"}, \code{"letter"} (or \code{"us"}), \code{"legal"} and
     \code{"executive"} (and these can be capitalized).
     Also, \code{"special"} can be used, when arguments \code{width}
     and \code{height} specify the paper size.  A further choice is
-    \code{"default"} (the default): If this is selected, the papersize
+    \code{"default"} (the default): If this is selected, the paper size
     is taken from the option \code{"papersize"} if that is set and to
     \code{"a4"} if it is unset or empty.}
   \item{pagecentre}{logical: should the device region be centred on the
@@ -222,7 +222,7 @@ postscript(file = if(onefile) "Rplots.ps" else "Rplot\%03d.ps",
   \code{print.it = TRUE} is used.  Suitable commands to spool a PostScript
   file to a printer can be found in \file{RedMon} suite available from
   \url{http://pages.cs.wisc.edu/~ghost/index.html}.  The command will be
-  run in a minimized window.   GSView 4.x provides \file{gsprint.exe}
+  run in a minimized window.  \I{GSView} 4.x provides \file{gsprint.exe}
   which may be more convenient (it requires Ghostscript version 6.50
   or later).
 }
@@ -274,10 +274,11 @@ postscript(file = if(onefile) "Rplots.ps" else "Rplot\%03d.ps",
   More details of font families and encodings and especially handling
   text in a non-Latin-1 encoding and embedding fonts can be found in
 
+  \bibshow{
   Paul Murrell and Brian Ripley (2006).
   \dQuote{Non-standard fonts in PostScript and PDF graphics.}
   \emph{R News}, \bold{6}(2), 41--47.
-  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.
+  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.}
 }
 
 \author{

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-04-01 09:28\n"
 "PO-Revision-Date: 2018-04-09 12:05-0600\n"
 "Last-Translator: Chel Hee Lee <gnustats@gmail.com>\n"
 "Language-Team: \n"
@@ -78,7 +78,7 @@ msgid "'sample.kind' must be a character string of length 1"
 msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
 
 msgid "malformed version string"
-msgstr "잘못된 버전 "
+msgstr "잘못된 버전"
 
 msgid "target is %s, current is %s"
 msgstr "타겟은 %s이지만, 현재는 %s 입니다"
@@ -673,7 +673,7 @@ msgid "invalid 'time' argument"
 msgstr "유효하지 않은 'time' 인자입니다"
 
 msgid "'vec' must be sorted non-decreasingly and not contain NAs"
-msgstr "'vec'는 오름차순으로 정렬되어야 하고 NA를 포함하지 않아야 합니다. "
+msgstr "'vec'는 오름차순으로 정렬되어야 하고 NA를 포함하지 않아야 합니다."
 
 msgid "'fun' is not a function"
 msgstr "'fun'은 함수가 아닙니다."
@@ -826,7 +826,7 @@ msgid "Attaching package: %s"
 msgstr "다음의 패키지를 부착합니다: %s"
 
 msgid "'verbose' and 'quietly' are both true; being verbose then .."
-msgstr "'verbose'와 'quitely' 모두 참으로 설정되어 있는데, verbose에 주어진 값을 이용합니다. "
+msgstr "'verbose'와 'quitely' 모두 참으로 설정되어 있는데, verbose에 주어진 값을 이용합니다."
 
 msgid "invalid package name"
 msgstr "유효하지 않은 패키지명입니다"
@@ -1331,7 +1331,7 @@ msgid "too large a matrix for LINPACK"
 msgstr "LINPACK에 너무 큰 행렬입니다"
 
 msgid "first argument must be a QR decomposition"
-msgstr "첫번째 인자는 반드시 QR 분해이어야 합니다. "
+msgstr "첫번째 인자는 반드시 QR 분해이어야 합니다."
 
 msgid "invalid nrow(qr$qr)"
 msgstr "유효하지 않은 nrow(qr$qr)입니다"
@@ -1443,7 +1443,7 @@ msgid "'file' must be NULL or an already open connection"
 msgstr "'file'는 반드시 NULL 또는 이미 열려있는 커넥션이어야 합니다"
 
 msgid "cannot split the message connection"
-msgstr "메시지 커넥션을 "
+msgstr "메시지 커넥션을"
 
 msgid "'file' must be NULL, a connection or a character string"
 msgstr "'file'은 반드시 NULL, 커멕션 또는 문자열이어야 합니다"
@@ -1480,7 +1480,7 @@ msgid "'x' must be atomic"
 msgstr "'x'는 반드시 atomic이어야 합니다"
 
 msgid "'index.return' only for 'na.last = NA'"
-msgstr "'index.return'은 오로지 'na.last = NA'인 경우에만 사용할 수 있습니다. "
+msgstr "'index.return'은 오로지 'na.last = NA'인 경우에만 사용할 수 있습니다."
 
 msgid "unsupported options for partial sorting"
 msgstr "부분정렬에 지원되지 않는 옵션입니다"
@@ -1495,7 +1495,7 @@ msgid "argument lengths differ"
 msgstr "인자의 길이들이 다릅니다"
 
 msgid "method = \"quick\" is only for numeric 'x'"
-msgstr "method = \"quick\" 는 오로지 수치형 'x'인 경우에만 사용할 수 있습니다. "
+msgstr "method = \"quick\" 는 오로지 수치형 'x'인 경우에만 사용할 수 있습니다."
 
 msgid ""
 "'x' must be atomic for 'sort.list', method \"shell\" and \"quick\"\n"
@@ -1524,7 +1524,7 @@ msgid "encoding = \"%s\" chosen"
 msgstr "encoding = \"%s\"로 선택되었습니다"
 
 msgid "'chdir = TRUE' makes no sense for a URL"
-msgstr "'chdir = TRUE'는 URL인 경우에는 사용할 수 없습니다. "
+msgstr "'chdir = TRUE'는 URL인 경우에는 사용할 수 없습니다."
 
 msgid "cannot 'chdir' as current directory is unknown"
 msgstr "현재의 디렉토리를 알 수 없으므로 'chdir'를 사용할 수 없습니다."
@@ -1598,7 +1598,7 @@ msgid "'exclude' containing NA and 'useNA' != \"no\"' are a bit contradicting"
 msgstr ""
 
 msgid "nothing to tabulate"
-msgstr "테이블로 보여줘야 할 것이 아무것도 없습니다. "
+msgstr "테이블로 보여줘야 할 것이 아무것도 없습니다."
 
 msgid "all arguments must have the same length"
 msgstr "모든 인자들은 반드시 같은 길이를 가져야 합니다"
@@ -1918,6 +1918,10 @@ msgid_plural ""
 "In %s :\n"
 " extra arguments %s will be disregarded"
 msgstr[0] ""
+
+#, fuzzy
+#~ msgid ", will be ignored"
+#~ msgstr "인자 'drop'은 무시되어질 것입니다"
 
 #~ msgid "norm '%s' currently always uses exact = FALSE"
 #~ msgstr "'%s'는 현재로서는 항상 exact = FALSE를 사용합니다."

@@ -484,8 +484,7 @@ SEXP modelmatrix(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(contr1 = allocVector(VECSXP, nVar));
     PROTECT(contr2 = allocVector(VECSXP, nVar));
 
-    PROTECT(expr = allocList(3));
-    SET_TYPEOF(expr, LANGSXP);
+    PROTECT(expr = allocLang(3));
     SETCAR(expr, install("contrasts"));
     SETCADDR(expr, allocVector(LGLSXP, 1));
 
@@ -1795,7 +1794,7 @@ SEXP termsform(SEXP args)
     a = CDR(a);
     if (isNull(data) || isEnvironment(data))
 	framenames = R_NilValue;
-    else if (isFrame(data))
+    else if (isDataFrame(data))
 	framenames = getAttrib(data, R_NamesSymbol);
     else
 	error(_("'data' argument is of the wrong type"));

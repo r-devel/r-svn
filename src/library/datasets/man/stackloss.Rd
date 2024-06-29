@@ -1,6 +1,6 @@
 % File src/library/datasets/man/stackloss.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{stackloss}
@@ -8,7 +8,7 @@
 \alias{stackloss}
 \alias{stack.loss}
 \alias{stack.x}
-\title{Brownlee's Stack Loss Plant Data}
+\title{\I{Brownlee}'s Stack Loss Plant Data}
 \description{
   Operational data of a plant for the oxidation of ammonia to nitric
   acid.
@@ -31,10 +31,10 @@ stack.loss
     [,4] \tab  \code{stack.loss} \tab Stack loss\cr
   }
 
-  For compatibility with S-PLUS, the data sets \code{stack.x}, a matrix
-  with the first three (independent) variables of the data frame, and
-  \code{stack.loss}, the numeric vector giving the fourth (dependent)
-  variable, are provided as well.
+  For historical compatibility with S-PLUS, the data sets
+  \code{stack.x}, a matrix with the first three (independent) variables
+  of the data frame, and \code{stack.loss}, the numeric vector giving
+  the fourth (dependent) variable, are also provided.
 }
 \source{
   Brownlee, K. A. (1960, 2nd ed.\sspace{}1965)
@@ -43,10 +43,10 @@ stack.loss
 }
 \details{
   \dQuote{Obtained from 21 days of operation of a plant for the
-    oxidation of ammonia (NH\eqn{_3}{3}) to nitric acid
-    (HNO\eqn{_3}{3}).  The nitric oxides produced are absorbed in a
+    oxidation of ammonia (\I{NH\eqn{_3}{3}}) to nitric acid
+    (\I{HNO\eqn{_3}{3}}).  The nitric oxides produced are absorbed in a
     countercurrent absorption tower}.
-  (Brownlee, cited by Dodge, slightly reformatted by MM.)
+  (\I{Brownlee}, cited by \I{Dodge}, slightly reformatted by MM.)
 
   \code{Air Flow} represents the rate of operation of the plant.
   \code{Water Temp} is the temperature of cooling water circulated

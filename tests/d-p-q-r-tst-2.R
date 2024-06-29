@@ -12,11 +12,15 @@ assertWarning <- tools::assertWarning
 as.nan <- function(x) { x[is.na(x) & !is.nan(x)] <- NaN ; x }
 ###-- these are identical in ./arith-true.R ["fixme": use source(..)]
 ## opt.conformance <- 0
+(sysinf <- Sys.info())
+Lnx   <- sysinf[["sysname"]] == "Linux"
+isMac <- sysinf[["sysname"]] == "Darwin"
+arch  <- sysinf[["machine"]]
 onWindows <- .Platform$OS.type == "windows"
 b64 <- .Machine$sizeof.pointer >= 8 # 64 (or more) bits
 str(.Machine[grep("^sizeof", names(.Machine))]) ## also differentiate long-double..
 (usingMKL <- grepl("/(lib)?mkl", La_library(), ignore.case=TRUE))
-(Lnx <- Sys.info()[["sysname"]] == "Linux")
+x86 <- arch == "x86_64"
 options(rErr.eps = 1e-30)
 rErr <- function(approx, true, eps = getOption("rErr.eps", 1e-30))
 {
@@ -683,7 +687,6 @@ p201 <- proportions( rep( c(1, epsilon), c(201, 999-201)))
 x <- sample(length(p201), 100000, prob = p201, replace = TRUE)
 stopifnot(sum(x <= 201) == 100000)
 
-arch <- Sys.info()[["machine"]]
 ## had if(!(onWindows && arch == "x86"))
 ## PR#17577 - dgamma(x, shape)  for shape < 1 (=> +Inf at x=0) and very small x
 stopifnot(exprs = {
@@ -826,6 +829,61 @@ stopifnot(exprs = {
     all.equal(ldpxx, log(dpxx), tol = 1e-15)
 })
 ## dpois(x,x) underflowed to zero in R <= 4.1.1 for such large x.
+
+
+## PR#18642 -- dgeom() accuracy --> improved via  dbinom_raw(x, n, prob) for x=0 and x=n
+x <- c(159, 171, 183, 201)
+tru1 <- c(4.64906012307645596e-240, 4.03241686836417614e-258,
+          3.4975641032381073e-276,  2.82530978257810403e-303)
+(xs <- 44400 + sort(c(outer(c(10,26), 29*(0:2), `+`))))
+tru2 <- c(2.850864888117265e-306,  2.2158779845990397e-306, 1.8056489670203573e-306,
+          1.4034680530148749e-306, 1.1436417789181365e-306, 8.8891292278883415e-307)
+stopifnot(exprs = {
+    print(abs(1 - dgeom(x, 31/32) / tru1) * 2^52) <= 4 # see 0 0 0 0     (Linux F 38, gcc)
+    print(abs(1 - dgeom(xs, 1/64) / tru2) * 2^52) <= if(onWindows) 800 else 4
+    ## on Windows: 406.5 408.0 407.0 407.0 408.0 407.5; see 0 0 0 0 0 0 (  "		)
+    ## Reprex for Windows:
+    print(2^52 * abs(1 - dgeom(44410, 1/64) / 2.850864888117265e-306)) < 606 # -> 406.5; R 4.3.2 Lnx: 252
+}) # in R <= 4.3.z, relErr * 2^52  were (238 246 254 10) and (252 242.5 252 242 252 242)
+
+
+## PR#18672 -- x = 0|1 when one or both shape = 0
+stopifnot(exprs = {
+    pbeta(0,  0, 3) == 1 # gave 0
+    pbeta(1, .1, 0) == 1 # gave 0
+    pbeta(1.1, 3,0) == 1 # gave 0
+    pbeta(0,  0, 0) == 0.5 # gave 0, should give 0.5
+    pbeta(1,  0, 0) == 1   # gave 0.5
+})
+
+
+## PR#18640 -- stirlerr(x) concerns (for *non* half-integer x) -- visible in dgamma()
+sh <- 465/32 # = 14.53125
+x0 <- 1/4 + 8:20
+dg1 <- dgamma(x0, sh)
+## 'TRUE' values { = dput(asNumeric(Rmpfr::dgamma(mpfr(x0, 512), sh)), control="digits17") } :
+dgM <- c(0.026214161736344995, 0.045350212095058476, 0.066917055544970391,
+         0.086754619023375584, 0.10102573200716865, 0.10746812620489894,
+         0.10581786016571779, 0.097460173977057932, 0.084678318901885929,
+         0.069890902339799707, 0.055117163281675971, 0.041733282935808788, 0.030464801624510086)
+relE <- dg1/dgM - 1
+relE * 2^53 # 2  2 -2  0  0  2 -1  0  0  2  0  0  2 //  was in {-95 : -91}  in R <= 4.3.*
+stopifnot(abs(relE) < 9e-16) # max{x86_64}: 2.22e-16
+
+
+## PR#18711 -- qbinom() - inversion of pbinom()
+##             but probably also fixing qpois(), qnbinom() cases
+sz <- 6040:6045
+prb <- 0.995
+(qb6 <- qbinom(p = 0.05, size = sz, prob = prb))
+(pqb6   <- pbinom(qb6,   size = sz, prob = prb))
+(pqb6_1 <- pbinom(qb6-1, size = sz, prob = prb))
+stopifnot(exprs = {
+    qb6 == c(6001:6004,6004:6005) # not in R 4.4.0, nor 4.1.1
+    1 > pqb6 & pqb6 >= 0.05       #  "
+    0.05 > pqb6_1 & pqb6_1 >= 0.035# "
+})
+## was wrong for R versions in [4.1.1, 4.4.0]
 
 
 

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2023  The R Core Team.
+ *  Copyright (C) 2000-2024  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -281,6 +281,23 @@ static int validate_tm (stm *tm)
     }
     return res;
 } // validate_tm
+
+/*
+  glibc and internal strftime are subject to integer overflow when
+  tm->tm_year + 1900 does not fit into an integer
+*/
+static int likely_strftime_overflow (stm *tm)
+{
+  double year = 1900.0 + tm->tm_year;
+
+#if SIZEOF_INT <= 4
+  return (year > INT_MAX || year < INT_MIN);
+#else
+  /* err on the safe side to avoid surprise due to imprecise floating point
+     representation of the limits */
+  return !(year < INT_MAX && year > INT_MIN);
+#endif
+}
 
 /*
    days_in_year is the same for year mod 400.
@@ -1336,7 +1353,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else if(tm.tm_min == NA_INTEGER || tm.tm_hour == NA_INTEGER || tm.tm_mday == NA_INTEGER ||
 		  tm.tm_mon == NA_INTEGER || tm.tm_year == NA_INTEGER) {
 	    SET_STRING_ELT(ans, i, NA_STRING);
-	} else if(validate_tm(&tm) < 0) {
+	} else if(validate_tm(&tm) < 0 || likely_strftime_overflow(&tm)) {
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	} else {
 	    /* We could translate to wchar_t and use wcsftime if we
@@ -1402,7 +1419,10 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 #else
 	    res = strftime(buff, 2049, buf2, &tm);
 #endif
-	    if (res == 0) { // overflow for at least internal and glibc
+	    if (res == 0 // overflow for at least internal and glibc
+	        // if not from a format string that may give zero bytes
+	        && strcmp(buf2, "%Z") && strcmp(buf2, "%z")
+	        && strcmp(buf2, "%P") && strcmp(buf2, "%p")) {
 		Rf_error("output string exceeded 2048 bytes");
 	    }
 

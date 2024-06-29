@@ -10,7 +10,7 @@
 
 \name{profile.glm}
 \alias{profile.glm}
-\title{Method for Profiling glm Objects}
+\title{Method for Profiling \code{glm} Objects}
 \description{
   Investigates the profile log-likelihood function for a fitted model of
   class \code{"glm"}.
@@ -32,7 +32,7 @@
     t-statistics.  Default value chosen to allow profiling at about
     10 parameter values.}
   \item{trace}{logical: should the progress of profiling be reported?}
-  \item{test}{profile Likelihood Ratio test or Rao Score test.}
+  \item{test}{profile Likelihood Ratio test or \I{Rao} Score test.}
   \item{\dots}{further arguments passed to or from other methods.}
 }
 \value{
@@ -40,13 +40,13 @@
   element for each parameter being profiled.  The elements are
   data-frames with two variables
   \item{par.vals}{a matrix of parameter values for each fitted model.}
-  \item{tau}{the profile z-statistics.}
+  \item{tau or z}{the profile t or z-statistics (the name depends on whether  there is an estimated dispersion parameter.)}
 }
 \details{
   The profile z-statistic is defined either as (case \code{test = "LRT"}) the square root of change in
   deviance with an
   appropriate sign, or (case \code{test = "Rao"}) as the similarly
-  signed square root of the Rao Score test
+  signed square root of the \I{Rao} Score test
   statistic. The latter is defined as the squared gradient of the profile log likelihood
   divided by the profile Fisher information, but more conveniently
   calculated via the deviance of a Gaussian GLM fitted to the residuals

@@ -32,7 +32,7 @@
 \usage{
 
 rc.settings(ops, ns, args, dots, func, ipck, S3, data, help,
-            argdb, fuzzy, quotes, files)
+            argdb, fuzzy, quotes, files, backtick)
 
 rc.status()
 rc.getOption(name)
@@ -46,7 +46,7 @@ rc.options(\dots)
 \S3method{.DollarNames}{environment}(x, pattern = "")
 \S3method{.AtNames}{default}(x, pattern = "")
 
-findMatches(pattern, values, fuzzy)
+findMatches(pattern, values, fuzzy, backtick)
 
 }
 
@@ -104,6 +104,11 @@ findMatches(pattern, values, fuzzy)
     exact matches are found.  This feature is experimental and the
     details can change. In \code{findMatches}, this argument defaults to
     the current setting. }
+
+  \item{backtick}{ Logical flag. If enabled, non-syntactic completions
+    are wrapped in backticks to make them syntactically valid. This is
+    useful only if the backend can handle such completions. In
+    \code{findMatches}, this argument defaults to the current setting. }
 
   \item{quotes}{ Logical flag. Enables completion in \R code when inside
     quotes.  This normally leads to filename completion, but can be
@@ -357,13 +362,13 @@ findMatches(pattern, values, fuzzy)
 
   The \code{.guessTokenFromLine} function is provided for use with
   backends that do not already break a line into tokens.  It requires
-  the linebuffer and endpoint (cursor position) to be already set, and
+  the \I{linebuffer} and endpoint (cursor position) to be already set, and
   itself sets the token and the start position.  It returns the token as
   a character string.
 
   The \code{.win32consoleCompletion} is similar in spirit, but is more
   geared towards the Windows GUI (or rather, any front-end that has no
-  completion facilities of its own).  It requires the linebuffer
+  completion facilities of its own).  It requires the \I{linebuffer}
   and cursor position as arguments, and returns a list with three
   components, \code{addition}, \code{possible} and \code{comps}.  If
   there is an unambiguous extension at the current position,
@@ -382,9 +387,9 @@ findMatches(pattern, values, fuzzy)
   to try completion on every keypress).  If \code{check.repeat} is
   \code{TRUE}, it is detected if the same completion is being requested
   more than once in a row, and ambiguous completions are returned only
-  in that case.  This is an attempt to emulate GNU Readline behaviour,
+  in that case.  This is an attempt to emulate \I{GNU Readline} behaviour,
   where a single TAB completes up to any unambiguous part, and multiple
-  possibilities are reported only on two consecutive TABs.
+  possibilities are reported only on two consecutive \abbr{TAB}s.
 
   As the various front-end interfaces evolve, the details of these
   functions are likely to change as well.

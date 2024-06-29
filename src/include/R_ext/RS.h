@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2022 The R Core Team.
+ *  Copyright (C) 1999-2024 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Included by R.h: mainly API */
+/* Included by R.h: nowadays almost all API */
 
 #ifndef R_RS_H
 #define R_RS_H
@@ -44,29 +44,32 @@ extern "C" {
 
 /* S Like Memory Management */
 
+/* not of themselves API */
 extern void *R_chk_calloc(R_SIZE_T, R_SIZE_T);
 extern void *R_chk_realloc(void *, R_SIZE_T);
 extern void R_chk_free(void *);
 
 #ifndef STRICT_R_HEADERS
-/* S-PLUS 3.x but not 5.x NULLed the pointer in Free */
+/* S-PLUS 3.x but not 5.x NULLed the pointer in Free.
+   Not API.
+*/
 #define Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
 #define Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
 #define Free(p)        (R_chk_free( (void *)(p) ), (p) = NULL)
 #endif
-    
+
+/* API */
 #define R_Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
 #define R_Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
 #define R_Free(p)      (R_chk_free( (void *)(p) ), (p) = NULL)
 
-/* undocumented until 4.1.2: widely used. */
+/* Nowadays API: undocumented until 4.1.2: widely used. */
 #define Memcpy(p,q,n)  memcpy( p, q, (R_SIZE_T)(n) * sizeof(*p) )
 
-/* added for 3.0.0 but undocumented until 4.1.2.
-   Used by a couple of packages. */
+/* Nowadays API: added for 3.0.0 but undocumented until 4.1.2. */
 #define Memzero(p,n)  memset(p, 0, (R_SIZE_T)(n) * sizeof(*p))
 
-/* Added in R 2.6.0 */
+/* API: Added in R 2.6.0 */
 #define CallocCharBuf(n) (char *) R_chk_calloc(((R_SIZE_T)(n))+1, sizeof(char))
 
 /* S Like Fortran Interface */
@@ -83,11 +86,7 @@ extern void R_chk_free(void *);
 #define F77_COM(x)     F77_CALL(x)
 #define F77_COMDECL(x) F77_CALL(x)
 
-/* Deprecated in R 2.15.0, non-API
-#if !defined(NO_CALL_R) && defined(DECLARE_LEGACY_CALL_R)
-void	call_R(char*, long, void**, char**, long*, char**, long, char**);
-#endif
-*/
+/* call_R was deprecated in R 2.15.0, removed in R 4.2.0 */
 
 #ifdef  __cplusplus
 }

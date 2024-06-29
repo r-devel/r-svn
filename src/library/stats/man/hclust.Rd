@@ -26,8 +26,8 @@ hclust(d, method = "complete", members = NULL)
   \item{method}{the agglomeration method to be used.  This should
     be (an unambiguous abbreviation of) one of
     \code{"ward.D"}, \code{"ward.D2"}, \code{"single"}, \code{"complete"},
-    \code{"average"} (= UPGMA), \code{"mcquitty"} (= WPGMA),
-    \code{"median"} (= WPGMC) or \code{"centroid"} (= UPGMC).}
+    \code{"average"} (= \abbr{UPGMA}), \code{"mcquitty"} (= \abbr{WPGMA}),
+    \code{"median"} (= \abbr{WPGMC}) or \code{"centroid"} (= \abbr{UPGMC}).}
 
   \item{members}{\code{NULL} or a vector with length size of
     \code{d}. See the \sQuote{Details} section.}
@@ -56,7 +56,7 @@ hclust(d, method = "complete", members = NULL)
     the size of the labels (if plotted) in the same way as \code{\link{text}}.}
 }
 \value{
-  An object of class \bold{hclust} which describes the
+  An object of class \code{"hclust"} which describes the
   tree produced by the clustering process.
   The object is a list with components:
   \item{merge}{an \eqn{n-1} by 2 matrix.
@@ -124,7 +124,7 @@ hclust(d, method = "complete", members = NULL)
   The one used by option \code{"ward.D"} (equivalent to the only Ward
   option \code{"ward"} in \R versions \eqn{\le}{<=} 3.0.3) \emph{does not} implement
   Ward's (1963) clustering criterion, whereas option \code{"ward.D2"} implements
-  that criterion (Murtagh and Legendre 2014).  With the latter, the
+  that criterion (\bibcite{Murtagh and Legendre 2014}).  With the latter, the
   dissimilarities are \emph{squared} before cluster updating.
   Note that \code{\link[cluster]{agnes}(*, method="ward")} corresponds
   to \code{hclust(*, "ward.D2")}.

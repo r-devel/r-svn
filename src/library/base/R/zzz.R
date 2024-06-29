@@ -1,7 +1,7 @@
 #  File src/library/base/R/zzz.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -619,6 +619,8 @@ matrix(c("!", "hexmode",
          "solve", "qr",
          "sort", "POSIXlt",
          "sort", "default",
+         "sort_by", "data.frame",
+         "sort_by", "default",
          "split", "Date",
          "split", "POSIXct",
          "split", "data.frame",
@@ -681,9 +683,14 @@ local({
     bdy <- body(as.data.frame.vector)
     bdy <- bdy[c(1:2, seq_along(bdy)[-1L])] # taking [(1,2,2:n)] to insert at [2]:
     ## deprecation warning only when not called by method dispatch from as.data.frame():
-    bdy[[2L]] <- quote(if((sys.nframe() <= 1L ||
-                           (!identical(sys.function(-1L), as.data.frame))
-                          ) && nzchar(Sys.getenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_")))
+    bdy[[2L]] <- quote(
+        if((sys.nframe() <= 1L ||
+	    !(identical(sys.function(-1L), as.data.frame) || ## when as.data.frame is S4 generic:
+	      (.isMethodsDispatchOn() &&
+	       methods::is(sys.function(-1L), 'derivedDefaultMethod') &&
+	       identical(sys.function(-1L)@generic,
+			 structure('as.data.frame', package = 'base'))
+	       ))))
 	.Deprecated(
 	    msg = gettextf(
 		"Direct call of '%s()' is deprecated.  Use '%s()' or '%s()' instead",

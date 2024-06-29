@@ -26,10 +26,10 @@ getWindowsHandle(which = "Console")
   A device number \tab The window handle of a graphics device
  }
   These values are not normally useful to users, but may be used by
-  developers making add-ons to \R{}.
+  developers making addons to \R{}.
 
   \code{NULL} is returned for the Frame handle if not running in MDI mode,
-  for the Console handle when running Rterm, for any unrecognized
+  for the Console handle when running \I{Rterm}, for any unrecognized
   string for \code{which}, or for a graphics device with no
   corresponding window.
 

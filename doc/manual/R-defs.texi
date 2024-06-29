@@ -30,6 +30,21 @@ $\t\$%
 @end macro
 @end ifnottex
 
+@iftex
+@macro deqn {t, a}
+@tex
+$$\t\$$%
+@end tex
+@end macro
+@end iftex
+@ifnottex
+@macro deqn {t, a}
+@display
+\a\
+@end display
+@end macro
+@end ifnottex
+
 @macro pkg {p}
 @strong{\p\}
 @end macro
@@ -44,7 +59,7 @@ $\t\$%
 
 @c -- edit these here alone -- in order keep consistency
 @macro Rcopyright{year}
-Copyright @copyright{} \year\--2023 R Core Team
+Copyright @copyright{} \year\--2024 R Core Team
 @end macro
 
 @macro permission{}
@@ -63,16 +78,8 @@ except that this permission notice may be stated in a translation
 approved by the R Core Team.
 @end macro
 
-@c This breaks HTML conversion on texinfo 4.x.
-@iftex
+@macro I{s}
+\s\
+@end macro
+
 @hyphenation{name-space name-spaces}
-@end iftex
-
-@set ISBN-FAQ 
-@set ISBN-admin 
-@set ISBN-data 
-@set ISBN-exts 
-@set ISBN-intro 
-@set ISBN-lang 
-@set ISBN-ints 
-

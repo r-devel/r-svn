@@ -35,7 +35,6 @@ englishMsgs <- {
     }
 }
 cat(sprintf("English messages: %s\n", englishMsgs))
-Sys.setenv("_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_" = "true")# just in case
 
 
 ## very small size hashed environments
@@ -260,17 +259,6 @@ factor( levels = c("a", "b"), ordered=TRUE) -> o1
 ordered(levels = c("a", "b")) -> o2
 stopifnot(identical(o1,o2))
 ## the ordered() call has failed in R <= 4.2.x
-
-
-## source() with multiple encodings
-if (l10n_info()$"UTF-8" || l10n_info()$"Latin-1") {
-    writeLines('x <- "fa\xE7ile"', tf <- tempfile(), useBytes = TRUE)
-    tools::assertError(source(tf, encoding = "UTF-8"))
-    source(tf, encoding = c("UTF-8", "latin1"))
-    ## in R 4.2.{0,1} gave Warning (that would now be an error):
-    ##   'length(x) = 2 > 1' in coercion to 'logical(1)'
-    if (l10n_info()$"UTF-8") stopifnot(identical(Encoding(x), "UTF-8"))
-}
 
 
 ## multi-line Rd macro definition
@@ -748,6 +736,13 @@ stopifnot(local({adf <- as.data.frame; identical(adf(1L),(as.data.frame)(1L))}))
 str(d2 <- mapply(as.data.frame, x=1:3, row.names=letters[1:3]))
 stopifnot(is.list(d2), identical(unlist(unname(d2)), 1:3))
 ## gave Error .. sys.call(-1L)[[1L]] .. comparison (!=) is possible only ..
+##
+## Should not warn for a call from a derivedDefaultMethod to the
+## raw S3 method -- implementation detail of S4 dispatch
+setGeneric('as.data.frame')
+as.data.frame(factor(1))
+removeGeneric('as.data.frame')
+## wrongly gave  " Direct call of 'as.data.frame.factor()' is deprecated. "
 
 
 ## qqplot(x,y, *) confidence bands for unequal sized x,y, PR#18570:
@@ -1098,9 +1093,10 @@ stopifnot(exprs = {
 }) ## all dropped 'offset' in R <= 4.3.2
 ##
 ## PR#18566:
+remattr <- function(x) { attributes(x) <- NULL; x } ## do we already have this?
 t2 <- terms(~ a + b)
 str(dt2 <- drop.terms(t2, 1, keep.response = TRUE))
-stopifnot( drop.terms(t2, 1) == dt2, dt2 == ~ b)
+stopifnot( drop.terms(t2, 1) == dt2, remattr(dt2) == quote(~ b))
 ## gave a+b ~ b in R <= 4.3.2
 
 
@@ -1179,6 +1175,274 @@ stopifnot(exprs = {
 })
 options(op)
 ## f0 and qf0 were unchanged, keeping srcref in R <= 4.3.*
+
+
+## startDynamicHelp(): port out of range, PR#18645
+op <- options(help.ports = 123456L)
+assertErrV(tools::startDynamicHelp())
+assertErrV(help.start(browser = identity))
+options(op)
+## silently failed much later in R <= 4.3.2.
+
+
+## checks for x == y when operands are call objects, PR18676
+## disabled if == for calls would signal an error
+if (is.na(Sys.getenv("_R_COMPARE_LANG_OBJECTS", unset = NA_character_))) {
+    stopifnot(quote({a}) != quote({b}))
+    stopifnot(quote(c(1)) != quote(c(1L)))
+    stopifnot(quote(c(1.234567890123456)) != quote(c(1.2345678901234567)))
+}
+
+## <POSIXlt>[] -- PR#18681
+(x <- as.POSIXlt(.POSIXct(0, tz = "UTC"))) # "1970-01-01 UTC"
+x$mon <- 12L
+stopifnot(exprs = {
+    identical(12L, x[,"mon"]) # had "balanced" attr.!
+    identical(x, (x1 <- (x[1L])))
+    identical(12L, x1$mon)				# (never bug)
+    identical("1971-01-01 UTC", format(x, usetz=TRUE))	#  "
+    identical(71L, balancePOSIXlt(x)$year)		#  "
+    is.na(attr(x1, "balanced")) # was 'TRUE'
+})
+## subsetting set "balanced" incorrectly sometimes in R 4.3.*
+
+
+## str(<classed-language>)
+x_u <- structure(quote(a > 2 * b), class = 'new_class')
+writeLines(sto <- capture.output(str(x_u)))
+stopifnot(grepl("a > 2 * b", sto[[1]], fixed=TRUE), # had ' > a 2 * b'
+          grepl('attr\\(\\*,.*"new_class"', sto[[2]]))
+## previously used as.character() as "last resort" in R <= 4.3.*
+
+
+## Rd2ex() with code directly following a \dont...{} tag
+rd <- tools::parse_Rd(textConnection(c(
+    "\\name{test}\\title{test}\\examples{",
+    "\\dontshow{if(TRUE)} stop('catch me')",
+    "print(0)}"
+)))
+tools::Rd2ex(rd, tf <- tempfile())
+tools::assertError(source(tf), verbose = TRUE)
+## skipped the stop() and printed 0 in R < 4.4.0
+
+
+## as.data.frame(<empty matrix) ; Davis Vaughan R-devel, 2024-03-21
+for(nr in 0:2) {
+    dput(d0 <- as.data.frame(matrix(nrow = nr, ncol = 0)))
+    stopifnot("names" %in% names(attributes(d0)),
+              identical(character(), names(d0)))
+}
+## had no .$names at all in R < 4.4.0
+
+
+## C level R_nonInt() less tolerant, used more often
+(gd <- getVaW(dbinom(1234560:1234570, 9876543.2, .5)))
+gp  <- getVaW(pbinom(1234560:1234570, 9876543.2, 1/8))
+(gdp <- getVaW(dpois(9876543 + (2:8)/10, 1e7)))
+stopifnot(exprs = {
+    identical(gd, structure(rep(NaN, 11), warning = "NaNs produced"))
+    identical(gd, gp)
+    identical(gdp, structure(rep(0,7), # only *last* warning:
+                             warning = "non-integer x = 9876543.800000"))
+})
+## did not warn; just treat 98... as an integer in R < 4.4.0
+
+
+## Finally deprecate terms.formula()'s  'abb' and 'neg.out' args:
+tt <- terms(y ~ a+b)
+t0 <- getVaW(terms(y ~ a+b, abb = 1))
+t1 <- getVaW(terms(y ~ a+b, neg.out = 0))
+t2 <- getVaW(terms(y ~ a+b, abb=NA, neg.out=NA))
+stopifnot(exprs = {
+    identical(t0, structure(tt, warning = "setting 'abb' in terms.formula() is deprecated"))
+    identical(t1, structure(tt, warning = "setting 'neg.out' in terms.formula() is deprecated"))
+    identical(t2, t1)
+})
+## deprecation was only on help page  for R 4.3.*
+
+
+## error jump happened after mutation through R 4.3.3
+x <- expression(a)
+tryCatch(x[[2]] <- list(), error = invisible)
+stopifnot(identical(x, expression(a)))
+
+
+## table |> as.data.frame() |> xtabs() round-trip with missing counts
+tab <- replace(UCBAdmissions[,,1], 1, NA)
+stopifnot(identical(c(xtabs(Freq ~ ., as.data.frame(tab))), c(tab)))
+## NA turned into 0 in R < 4.4.0
+
+
+## PR#16358 overflowing exponents.
+x <- 1e999999999999
+stopifnot(identical(x, Inf))
+
+
+## PR#17199: these were zero on systems where long double == double.
+x <- as.numeric(c("0x1.00000000d0000p-987",
+                  "0x1.0000000000000p-1022",
+                  "0x1.f89fc1a6f6613p-974"))
+x
+y <- c(7.645296e-298, 2.225074e-308, 1.23456e-293)
+stopifnot(all.equal(x, y))
+
+
+## require a non-empty exponent digit sequence in R_strtod.
+## R 4.4.0 (and many accounts) accepted empty one.
+{
+    ## someone set options(warn = 2) above
+    op <- options(warn = 1L)
+    stopifnot(is.na(as.numeric("1234E" )), is.na(as.numeric("0x1234p")),
+              is.na(as.numeric("1234E+")), is.na(as.numeric("0x1234p-")))
+    stopifnot(as.numeric("1234E0") == 1234, as.numeric("0x1234p0") == 4660)
+    options(op)
+}
+
+
+## as.<atomic>(<list of raw(1)>) , PR#18696
+i  <- 1:11           ; il <- as.list(i)
+ch <- as.character(i); cl <- as.list(ch)
+r  <- as.raw      (i); rl <- as.list(r)
+stopifnot(exprs = {
+    is.list(cl) ; is.list(il) ; is.list(rl)
+    ## as.<atomType>(<list of <atomType>(1)):
+    identical(ch, as.character(cl))
+    identical(i,  as.integer  (il))
+    identical(r,  as.raw      (rl))
+    ## as.integer() works for the "character list" `cl` :
+    identical(as.integer(cl), i)
+    identical(as.integer(cl),
+              as.integer(ch))
+    ## as.double() works for "integer list"  `il`
+    identical(as.double(il),
+              as.double(i))
+    ## new as.integer() for raw:
+    identical(i, as.integer(rl))
+})
+## as.raw(rl) and as.integer(rl) failed in R <= 4.4.x
+
+
+## as.data.frame.matrix(<NA in rownames>, make.names = NA)
+(m12 <- matrix(1:6, 2,3, dimnames=list(rn <- c('r1', 'r2'),
+                                       cn <- c(NA, "NA", 'c3'))))
+m2 <- m12; rownames(m2)[1] <- NA; m2
+m  <- m2 ; rownames(m )[2] <- "NA"; m
+d   <- as.data.frame(m)
+d2  <- as.data.frame(m2)
+d12 <- as.data.frame(m12)
+d0 <- d; row.names(d0) <- NULL; d0
+##   NA NA c3
+## 1  1  3  5
+## 2  2  4  6
+stopifnot(exprs = {
+    identical(2:3, dim(m))
+    identical(2:3, dim(m2))
+    identical(cn, colnames(m))
+    identical(cn, colnames(m2))
+    identical(cn, colnames(m12))
+    ## data frames too
+    identical(2:3, dim(d))
+    identical(2:3, dim(d2))
+    identical(cn, colnames(d))
+    identical(cn, colnames(d2))
+    identical(cn, colnames(d12))
+})
+## (*not* wrongly):
+rownames(d)  # [1] "NA..1" "NA."
+rownames(d2) # [1] "NA."  "r2"
+rownames(d12)# [1] "r1"   "r2"
+## want the rownames to be treated differently ---> bug for make.names=NA
+as.data.frame(m,  make.names=FALSE) |> assertErrV()
+as.data.frame(m2, make.names=FALSE) |> assertErrV()
+as.data.frame(m2, make.names=TRUE)  # (the  PR#18702 -- print.data.frame  "bug")
+(m0 <- m[FALSE, ])
+i0 <- integer(0); (d00 <- `names<-`(data.frame(i0, i0, i0), cn))
+stopifnot(exprs = {
+    identical(d00, as.data.frame(m0, make.names=TRUE))
+    identical(d00, as.data.frame(m0, make.names=NA))
+    identical(d00, as.data.frame(m0, make.names=FALSE))
+    identical(d12, as.data.frame(m12, make.names=TRUE))  ## as above; rownames "r1" "r2"
+    identical(d12, as.data.frame(m12, make.names=NA))
+    identical(d12, as.data.frame(m12, make.names=FALSE))
+    identical(d0,  as.data.frame(m,   make.names=NA)) # internal default row names
+    identical(-2L, .row_names_info(d0))
+})
+## the last lost row.names => dim(.) was 0 x 3  instead of  d0's  2 x 3, in R <= 4.4.0
+
+
+## Scan should not treat "NA" as double/complex when na.strings doesn't
+## include it (PR#17289)
+(r <- tryCid(scan(text="NA", what=double(), na.strings=character())))
+stopifnot(inherits(r, "error"))
+(r <- tryCid(scan(text="NA", what=complex(), na.strings=character())))
+stopifnot(inherits(r, "error"))
+
+
+## PR#18143: debugcall(<S3Generic>()) when an S4-generic version is cached
+stopifnot(exprs = {
+    isGeneric("summary", getNamespace("stats4"))
+    isNamespaceLoaded("stats4")
+    isS3stdGeneric(summary) # cached S4 generic is not visible
+})
+debugcall(summary(factor(1)))
+## failed in R <= 4.4.0 with Error in fdef@signature :
+##   no applicable method for `@` applied to an object of class "function"
+stopifnot(isdebugged(summary.factor))
+undebug(summary.factor)
+stopifnot(!isdebugged(summary.factor))
+unloadNamespace("stats4")
+
+
+## PR#18724 - toTitleCase(character(0))
+ch0 <- character(0L)
+stopifnot(identical(ch0, tools::toTitleCase(ch0)))
+## was list() in R <= 4.4.0
+
+
+## PR#18745 (+ PR#18702)   format.data.frame() -> as.data.frame.list()
+x <- setNames(data.frame(TRUE), NA_character_)
+(fx <- format(x))
+dN <- data.frame(a  = c(1,NA),     b  = c("a",NA),
+                 c3 = c("NA", NA), c4 = c(NA, FALSE))
+names(dN) <- nms <- c("num", "ch", NA, NA)
+(fdN <- format(dN))
+L <- list(A = FALSE); names(L) <- NA
+names(dL  <- as.data.frame.list(L))                                          # "NA."
+names(dL1 <- as.data.frame.list(L, col.names = names(L)))                    # "NA."
+names(dL2 <- as.data.frame.list(L, col.names = names(L), check.names=FALSE)) #  NA  (was "NA")
+names(dL1.<- as.data.frame.list(L,                       check.names=FALSE)) # "NA"
+names(dLn <- as.data.frame.list(L, new.names = TRUE,     check.names=FALSE)) #  NA  (was "NA")
+prblN <- c("", "var 2"); L2 <- `names<-`(list(1, 23), prblN)
+##                        check.names = TRUE, fix.empty.names = TRUE  are default :
+dp11 <- as.data.frame(L2)
+dp01 <- as.data.frame(L2, check.names=FALSE)
+dp00 <- as.data.frame(L2, check.names=FALSE, fix.empty.names=FALSE)
+dp10 <- as.data.frame(L2, check.names=TRUE , fix.empty.names=FALSE)
+L3 <- c(L, list(row.names = 2))
+names(dL3  <- as.data.frame.list(L3))                    # "NA." "row.names"
+names(dL3n <- as.data.frame.list(L3, check.names=FALSE)) #  NA   "row.names", was "NA" "rown..."
+names(dL3nn<- as.data.frame.list(L3, check.names=FALSE, new.names=FALSE)) # #     "NA" "rown..."
+stopifnot(exprs = {
+    is.na(names(x))
+    is.data.frame(fx)
+    identical(NA_character_, names(x))
+    identical(NA_character_, names(fx)) # was "NA"  wrongly
+    identical(NA_character_, names(dLn))#  "   "
+    identical(NA_character_, names(dL2))#  "   "
+    identical(nms, names( dN))
+    identical(nms, names(fdN)) # was    .. .. "NA" "NA"
+    identical(dLn, dL2) # was always TRUE;  ditto these {wrong for a couple of hours}:
+    names(dp11) == c("X1", "var.2")
+    names(dp01) == c( "1", "var 2")
+    names(dp00) == c( "" , "var 2") # == prblN
+    names(dp10) == c( "" , "var.2")
+    identical(names(L3), names(dL3n)) # now.  The next 3 are not new:
+    identical("NA.", names(dL))
+    identical("NA.", names(dL3)  [[1]])
+    identical("NA" , names(dL3nn)[[1]])
+})
+## format() and as.data.frame(<list>, col.names=*, check.names=FALSE) *did*
+## change  NA names() into "NA"  for R <= 4.4.1
 
 
 

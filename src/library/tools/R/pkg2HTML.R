@@ -1,6 +1,6 @@
 #  File src/library/tools/R/pkg2HTML.R
 #
-#  Copyright (C) 2023 The R Core Team
+#  Copyright (C) 2023-2024 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,9 @@
 ## This cannot be done per Rd file, but we can switch to mathjaxr if
 ## any Rd file in a package uses mathjaxr
 
-.convert_package_rdfiles <- function(package, dir = NULL, lib.loc = NULL, ...)
+.convert_package_rdfiles <- function(package, dir = NULL, lib.loc = NULL, ...,
+                                     stages = c("build", "later", "install", "render"),
+                                     xLinks = character(0))
 {
     ## if 'package' is an installed package (simplest) just use
     ## Rd_db(package) to get parsed Rd files. Otherwise, if 'package'
@@ -34,37 +36,52 @@
     ## and call Rd_db on those). If 'package' is missing but 'dir' is
     ## not, interpret as source package (no need to unpack)
 
-    ## TODO: support for URLs ?
+    isPkgTarball <- function(x) {
+        length(x) == 1L && 
+            endsWith(x, "tar.gz") &&
+            length(strsplit(basename(x), "_", fixed = TRUE)[[1]]) == 2L
+    }
+    isURL <- function(x) {
+        length(x) == 1L && 
+            (startsWith(x, "http://") || startsWith(x, "https://"))
+    }
     db <- 
-        if (!missing(package)) {
-            if (endsWith(package, "tar.gz")) {
-                ## TODO: need to unpack first.
-                ## Copied from src/library/utils/R/unix/mac.install.R::unpackPkg
-                tmpDir <- tempfile("pkg")
-                if (!dir.create(tmpDir))
+        if (!missing(package) && isTRUE(isPkgTarball(package)))
+        {
+            ## If URL, download first
+            if (isURL(package)) {
+                destdir <- tempfile("dir")
+                if (!dir.create(destdir))
                     stop(gettextf("unable to create temporary directory %s",
-                                  sQuote(tmpDir)))
-                utils::untar(package, exdir = tmpDir)
-                pkgdir <- list.dirs(tmpDir, recursive = FALSE)
-                if (length(pkgdir) != 1)
-                    stop(gettextf("expected one package directory, found %d.",
-                                  length(pkgdir)))
-                Rd_db(dir = pkgdir)
+                                  sQuote(destdir)))
+                utils::download.file(package, destfile = file.path(destdir, basename(package)))
+                package <- file.path(destdir, basename(package))
             }
-            else {
-                pkgdir <- system.file(package = package)
-                Rd_db(package)
-            }
+            ## Unpack first.
+            ## Copied from src/library/utils/R/unix/mac.install.R::unpackPkg
+            tmpDir <- tempfile("pkg")
+            if (!dir.create(tmpDir))
+                stop(gettextf("unable to create temporary directory %s",
+                              sQuote(tmpDir)))
+            utils::untar(package, exdir = tmpDir)
+            pkgdir <- list.dirs(tmpDir, recursive = FALSE)
+            if (length(pkgdir) != 1)
+                stop(gettextf("expected one package directory, found %d.",
+                              length(pkgdir)))
+            Rd_db(dir = pkgdir, stages = stages)
         }
-        else if (!is.null(dir)) {
-            pkgdir <- dir
-            Rd_db(dir = dir)
+        else {
+            ## FIXME: needs cleanup
+            pkgdir <- if (is.null(dir)) find.package(package, lib.loc) else dir
+            if (is.null(dir)) Rd_db(package, , lib.loc, stages = stages)
+            else Rd_db(, dir, lib.loc, stages = stages)
         }
-        else stop("one of 'package' and 'dir' must be specified.")
 
-    ## create links database for help links
-    Links <- findHTMLlinks(pkgdir, level = 0:1)
-    Links2 <- findHTMLlinks(level = 2)
+    ## create links database for help links. Level 0 links are
+    ## obtained directly from the db, which is useful for non-installed packages.
+    Links0 <- .build_links_index(Rd_contents(db), basename(pkgdir))
+    Links <- c(Links0, findHTMLlinks(pkgdir, level = 1))
+    Links2 <- if (length(xLinks)) xLinks else findHTMLlinks(level = 2) 
     
     rd2lines <- function(Rd, ...) {
         ## Rd2HTML() returns output location, which is not useful
@@ -85,35 +102,52 @@
 
 
 
-pkg2HTML <- function(package, pkgdir = NULL, descfile,
-                     ## rdfiles = list.files(file.path(pkgdir, "man"),
-                     ##                      full.names = TRUE,
-                     ##                      pattern = "\\.Rd$"),
+pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
                      outputEncoding = "UTF-8",
-                     stylesheet = "R-refman.css", # will usually not work. Can try "https://cran.r-project.org/doc/manuals/r-devel/R.css"
+                     stylesheet = file.path(R.home("doc"), "html", "R-nav.css"),
+                     hooks = list(pkg_href = function(pkg) sprintf("%s.html", pkg)),
                      texmath = getOption("help.htmlmath"),
                      prism = TRUE,
-                     out = "",
+                     out = NULL,
+                     toc_entry = c("title", "name"),
                      ...,
-                     Rhtml = tolower(file_ext(out)) == "rhtml",
+                     Rhtml = FALSE,
+                     mathjax_config = file.path(R.home("doc"), "html", "mathjax-config.js"),
                      include_description = TRUE)
 {
-    if (is.null(texmath)) texmath <- "katex"
-    hcontent <- .convert_package_rdfiles(package, pkgdir, Rhtml = Rhtml, ...)
+    toc_entry <- match.arg(toc_entry)
+    hcontent <- .convert_package_rdfiles(package = package, dir = dir, lib.loc = lib.loc,
+                                         outputEncoding = outputEncoding,
+                                         Rhtml = Rhtml, hooks = hooks,
+                                         texmath = "katex", prism = prism, ...)
     descfile <- attr(hcontent, "descfile")
     pkgname <- read.dcf(descfile, fields = "Package")[1, 1]
+    if (is.null(out)) {
+        out <- if (is.null(hooks$pkg_href)) ""
+               else hooks$pkg_href(pkgname)
+    }
     
-    ## Sort by name, as in PDF manual (check exact code)
+    ## Sort by name, as in PDF manual (check exact code). The
+    ## '<pkg>-package.Rd' summary page, if present, should come first.
     hcontent <- hcontent[order(vapply(hcontent,
                                       function(h) h$info$name,
                                       ""))]
+    if (length(hcontent) > 1 &&
+        length(wsumm <- which(vapply(hcontent,
+                                     function(h) isTRUE(h$info$pkgsummary),
+                                     FALSE))) > 0L) {
+        hcontent <- c(hcontent[wsumm], hcontent[-wsumm])
+    }
     rdnames <- vapply(hcontent, function(h) h$info$name, "")
     rdtitles <- vapply(hcontent, function(h) h$info$title[[1L]], "")
     ## rdtitles <- vapply(hcontent, function(h) h$info$htmltitle[[1L]], "") # FIXME: has extra <p>
+    use_mathjax <- any(vapply(hcontent, function(h) h$info$mathjaxr, FALSE))
+    if (missing(texmath) || is.null(texmath))
+        texmath <- if (use_mathjax) "mathjax" else "katex"
 
-    ## toclines <- sprintf("<li><a href='#%s'><em>%s</em></a></li>", rdnames, rdtitles)
-
-    toclines <- sprintf("<li><a href='#%s'>%s</a></li>", rdnames, rdtitles)
+    toclines <- sprintf("<li><a href='#%s'>%s</a></li>",
+                        name2id(rdnames),
+                        switch(toc_entry, title = rdtitles, name = rdnames))
 
     ## Now to make a file with header + DESCRIPTION + TOC + content + footer
 
@@ -123,8 +157,9 @@ pkg2HTML <- function(package, pkgdir = NULL, descfile,
                        css = stylesheet,
                        outputEncoding = outputEncoding,
                        dynamic = FALSE, prism = prism,
-                       doTexMath = TRUE, # FIXME should depend on mathjaxr use...
-                       texmath = texmath)
+                       doTexMath = TRUE,
+                       texmath = if (use_mathjax) "mathjax" else texmath,
+                       MATHJAX_CONFIG_STATIC = mathjax_config)
 
     writeHTML <- function(..., sep = "\n", append = TRUE)
         cat(..., file = out, sep = sep, append = append)
@@ -133,7 +168,7 @@ pkg2HTML <- function(package, pkgdir = NULL, descfile,
     writeHTML(hfcomps$header, sep = "", append = FALSE)
     ## writeHTML(sprintf("<header class='top'><h1>Package {%s}</h1><hr></header>",
     ##                   pkgname))
-    writeHTML('<nav aria-label="Topic Navigation">',
+    writeHTML('<nav class="package" aria-label="Topic Navigation">',
               '<div class="dropdown-menu">',
               sprintf('<h1>Package {%s}</h1>', pkgname),
               '<h2>Contents</h2>',

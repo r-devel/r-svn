@@ -82,13 +82,13 @@ str2expression(text)
   preference to \code{file}.
 
   All versions of \R accept input from a connection with end of line
-  marked by LF (as used on Unix), CRLF (as used on DOS/Windows)
-  or CR (as used on classic Mac OS).  The final line can be incomplete,
+  marked by \abbr{LF} (as used on Unix), \abbr{CRLF} (as used on DOS/Windows)
+  or \abbr{CR} (as used on classic Mac OS).  The final line can be incomplete,
   that is missing the final \abbr{EOL} marker.
 
   When input is taken from the console, \code{n = NULL} is equivalent to
   \code{n = 1}, and \code{n < 0} will read until an \abbr{EOF} character is
-  read.  (The \abbr{EOF} character is Ctrl-Z for the Windows front-ends.)  The
+  read.  (The \abbr{EOF} character is \abbr{Ctrl}-Z for the Windows front-ends.)  The
   line-length limit is 4095 bytes when reading from the console (which
   may impose a lower limit: see \sQuote{An Introduction to R}).
 

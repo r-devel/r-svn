@@ -1,6 +1,6 @@
 % File src/library/base/man/timezones.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{timezones}
@@ -36,7 +36,7 @@ OlsonNames(tzdir = NULL)
 \details{
   Time zones are a system-specific topic, but these days almost all \R
   platforms use similar underlying code, used by Linux, macOS, Solaris,
-  AIX and FreeBSD, and installed with \R on Windows.  (Unfortunately
+  \I{AIX} and FreeBSD, and installed with \R on Windows.  (Unfortunately
   there are many system-specific errors in the implementations.)  It is
   possible to use the \R sources' version of the code on Unix-alikes as
   well as on Windows: this is the default on macOS.
@@ -61,18 +61,19 @@ OlsonNames(tzdir = NULL)
   If it is unset or empty the \emph{system} time zone is used (the one
   returned by \code{Sys.timezone}).
 
-  %% arguably, 'railway time' in the UK in 1840 was earliest.  Time
-  zones did not come into use until the middle of the nineteenth century
-  and were not widely adopted until the twentieth, and \emph{daylight
-  saving time} (DST, also known as \emph{summer time}) was first
-  introduced in the early twentieth century, most widely in 1916.  Over
-  the last 100 years places have changed their affiliation between major
-  time zones, have opted out of (or in to) DST in various years or
-  adopted DST rule changes late or not at all.  (For example, the UK
-  experimented with DST throughout 1971, only.)  In a few countries (one
-  is the Irish Republic) it is the summer time which is the
-  \sQuote{standard} time and a different name is used in winter.  And
-  there can be multiple changes during a year, for example for Ramadan.
+  %% arguably, 'railway time' in the UK in 1840 was earliest.
+  Time zones did not come into use until the middle of the nineteenth
+  century and were not widely adopted until the twentieth, and
+  \emph{daylight saving time} (DST, also known as \emph{summer time})
+  was first introduced in the early twentieth century, most widely in
+  1916.  Over the last 100 years places have changed their affiliation
+  between major time zones, have opted out of (or in to) DST in various
+  years or adopted DST rule changes late or not at all.  (For example,
+  the UK experimented with DST throughout 1971, only.)  In a few
+  countries (one is the Irish Republic) it is the summer time which is
+  the \sQuote{standard} time and a different name is used in winter.
+  And there can be multiple changes during a year, for example for
+  Ramadan.
 
   A quite common system implementation of \code{POSIXct} was as signed
   32-bit integers and so only went back to the end of 1901: on such
@@ -100,8 +101,8 @@ OlsonNames(tzdir = NULL)
   \samp{Europe/Belfast}, \samp{Europe/Guernsey},
   \samp{Europe/Isle_of_Man} and \samp{Europe/Jersey}.  A few regions are
   also known by a summary of their time zone,
-  e.g.\sspace{}\samp{PST8PDT} is an alias for
-  \samp{America/Los_Angeles}.
+  e.g.\sspace{}\samp{PST8PDT} is (on most but not all systems) an alias
+  for \samp{America/Los_Angeles}.
 
   \code{OlsonNames} returns a character vector, see the examples for
   typical cases.  It may have an attribute \code{"Version"}, something
@@ -138,8 +139,13 @@ OlsonNames(tzdir = NULL)
   for more details and references.  By convention, regions with a unique
   time-zone history since 1970 have specific names in the database, but
   those with different earlier histories may not.  Each time zone has
-  one or two (the second for DST) \emph{abbreviations} used when
+  one or two (the second for \sQuote{summer}) \emph{abbreviations} used when
   formatting times.
+
+  %% Debian/Ubuntu: https://mm.icann.org/pipermail/tz/2024-March/058812.html
+  Increasingly OSes are (optionally or always) not including
+  \sQuote{legacy} names such as \code{US/Eastern}: only names of the
+  forms \code{Continent/City} and \code{Etc/...} are fully portable.
 
   The abbreviations used have changed over the years: for example France
   used \samp{PMT} (\sQuote{Paris Mean Time}) from 1891 to 1911 then
@@ -157,7 +163,7 @@ OlsonNames(tzdir = NULL)
   the currently selected Olson/\abbr{IANA} database.  The system-specific
   location in the file system varies,
   e.g.\sspace{}\file{/usr/share/zoneinfo} (Linux, macOS, FreeBSD),
-  \file{/usr/share/lib/zoneinfo} (Solaris, AIX), \ldots.  It is likely
+  \file{/usr/share/lib/zoneinfo} (Solaris, \I{AIX}), \ldots.  It is likely
   that there is a file named something like \file{zone1970.tab} or
   (older) \file{zone.tab} under that directory listing the locations
   known as time-zone names (but not for example \code{EST5EDT}).  See
@@ -205,7 +211,7 @@ OlsonNames(tzdir = NULL)
   as \sQuote{Local Mean Time} and abbreviated as \samp{LMT} in the
   databases: in many countries that was codified with a specific name
   before the switch to a standard time.  For example, Paris codified its
-  LMT as \sQuote{Paris Mean Time} in 1891 (to be used throughout
+  \abbr{LMT} as \sQuote{Paris Mean Time} in 1891 (to be used throughout
   mainland France) and switched to \samp{GMT+0} in 1911.
 
   %% it is a ksh script so could well pop up elsewhere.
@@ -247,17 +253,27 @@ OlsonNames(tzdir = NULL)
   \file{backzone} which differ only from those in the main lists prior
   to 1970 -- these are usually included but may not be in minimalist
   systems.
+
+  %% https://mm.icann.org/pipermail/tz/2024-March/025162.html
+  %% https://mm.icann.org/pipermail/tz/2024-March/025166.html
+  For many years, the legacy names \code{EST5EDT} and \code{PST8PDT}
+  were portable, but \code{musl} (the C runtime used by Alpine Linux)
+  does not use DST with those names.
 }
 
 \note{
   Since 2007 there has been considerable disruption over changes to the
-  timings of the DST transitions, originally aimed at energy
-  conservation.  These often have short notice and time-zone databases
-  may not be up to date.  (Morocco in 2013 announced a change to the end
-  of DST at \emph{a days} notice, and in 2015 North Korea gave imprecise
-  information about a change a week in advance. In 2023 there was chaos
-  in Lebanon as the authorities changed their minds repeatedly and some
-  changes were not widely implemented.)
+  timings of the DST transitions; these often have short notice and
+  time-zone databases may not be up to date.  (Morocco in 2013 announced
+  a change to the end of DST at \emph{a day's} notice.  In
+  2023 there was chaos in Lebanon as the authorities changed their minds
+  repeatedly and some changes were not widely implemented.)
+
+  There have also been changes to the \sQuote{standard} time with little
+  notice (Kazakhstan switched to a single time zone in Mar 2024 with six
+  weeks' notice), and to whether \sQuote{summer} or \sQuote{winter}
+  time is regarded as \sQuote{standard} (and hence to abbreviations).
+  %% Irish Standard time is used in summer.
 
   On platforms with case-insensitive file systems, time zone names will be
   case-insensitive.  They may or may not be on other platforms and so,
@@ -274,7 +290,7 @@ OlsonNames(tzdir = NULL)
   This section is of background interest for users of a Unix-alike, but
   may help if an \code{NA} value is returned unexpectedly.
 
-  Commercial Unixen such as Solaris and AIX set \env{TZ}, so the value
+  Commercial Unixen such as Solaris and \I{AIX} set \env{TZ}, so the value
   when \R is started is used.
 
   All other common platforms (Linux, macOS, *BSD) use similar schemes,
@@ -301,7 +317,7 @@ OlsonNames(tzdir = NULL)
     \item \sQuote{Modern} Linux systems use \code{systemd} which
     provides mechanisms to set and retrieve the time zone (amongst other
     things).  There is a command \command{timedatectl} to give details.
-    (Unfortunately RHEL/Centos 6.x were not \sQuote{modern}.)
+    (Unfortunately \I{RHEL}/\I{Centos} 6.x were not \sQuote{modern}.)
 
     \item Debian-derived systems since \emph{ca} 2007 have supplied a
     file \file{/etc/timezone}.  Its format is undocumented but

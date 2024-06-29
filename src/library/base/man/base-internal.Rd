@@ -200,7 +200,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   The functions \code{.subset} and \code{.subset2} are essentially
   equivalent to the \code{\link{[}} and \code{\link{[[}} operators,
   except that methods dispatch does not take place.  This is to avoid
-  expensive unclassing when applying the default method to an object.  They
+  expensive \I{unclassing} when applying the default method to an object.  They
   should not normally be invoked by end users.  Note that unlike the
   operators they are builtins and not specials (all arguments are
   evaluated) and hence do not allow missing arguments.
@@ -284,7 +284,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{.fixupGFortranStdout} and \code{.fixupGFortranStderr} are helper functions
   to enable standard output and standard error units in \code{gfortran} when
   executing external code via \code{system} and \code{system2}. By default, these
-  units are disabled by the Windows profile when running inside RGui.
+  units are disabled by the Windows profile when running inside \I{RGui}.
 }
 \value{
   \code{.getRequiredPackages} and \code{.getRequiredPackages2}

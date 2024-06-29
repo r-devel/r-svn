@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2023-11-12 r85514) -- "Unsuffered Consequences"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin23.1.0
+R Under development (unstable) (2024-02-26 r85989) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -622,13 +620,9 @@ $ch
 > X <- matrix(stats::rnorm(2000), ncol = 2)
 > chull(X)
  [1]  61 442 165 899 697 446 975 656 232 557 938 295 495
-> ## Not run: 
-> ##D   # Example usage from graphics package
-> ##D   plot(X, cex = 0.5)
-> ##D   hpts <- chull(X)
-> ##D   hpts <- c(hpts, hpts[1])
-> ##D   lines(X[hpts, ])
-> ## End(Not run)
+> 
+> plot(X, cex = 0.5)
+> polygon(X[chull(X), ])
 > 
 > 
 > 
@@ -2704,19 +2698,21 @@ Sturges   Scott      FD
 [13] "Tableau 10"      "Classic Tableau" "Polychrome 36"   "Alphabet"       
 > 
 > ## Demonstrate the colors 1:8 in different palettes using a custom matplot()
-> sinplot <- function(main=NULL) {
+> sinplot <- function(main=NULL, n = 8) {
 +     x <- outer(
 + 	seq(-pi, pi, length.out = 50),
-+ 	seq(0, pi, length.out = 8),
++ 	seq(  0, pi, length.out = n),
 + 	function(x, y) sin(x - y)
 +     )
-+     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:8, ylab = "", main=main)
++     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:n, ylab = "", main=main)
 + }
 > sinplot("default palette")
 > 
 > palette("R3");        sinplot("R3")
 > palette("Okabe-Ito"); sinplot("Okabe-Ito")
-> palette("Tableau")  ; sinplot("Tableau")
+> palette("Tableau")  ; sinplot("Tableau", n = 10)
+> palROB <- colorRampPalette(c("red", "darkorange2", "blue"), space = "Lab")
+> palette(palROB(16)); sinplot("palROB(16)", n = 16)
 > palette("default") # reset
 > 
 > ## color swatches for palette.colors()
@@ -2940,7 +2936,7 @@ List of 18
 > ## End(Don't show)
 > 
 > pictex()
-Warning: 'pictex' is deprecated.
+Warning in pictex() : 'pictex' is deprecated.
  Consider a TiKZ device instead.
 > plot(1:11, (-5:5)^2, type = "b", main = "Simple Example Plot")
 > dev.off()
@@ -3350,6 +3346,66 @@ $encoding
 attr(,"class")
 [1] "Type1Font"
 
+$URW2Helvetica
+$family
+[1] "URW2Helvetica"
+
+$metrics
+[1] "NimbusSans-Regular.afm"     "NimbusSans-Bold.afm"       
+[3] "NimbusSans-Oblique.afm"     "NimbusSans-BoldOblique.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2HelveticaItalic
+$family
+[1] "URW2HelveticaItalic"
+
+$metrics
+[1] "NimbusSans-Regular.afm"    "NimbusSans-Bold.afm"      
+[3] "NimbusSans-Italic.afm"     "NimbusSans-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"    
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2Times
+$family
+[1] "URW2Times"
+
+$metrics
+[1] "NimbusRoman-Regular.afm"    "NimbusRoman-Bold.afm"      
+[3] "NimbusRoman-Italic.afm"     "NimbusRoman-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$NimbusMonoPS
+$family
+[1] "NimbusMonoPS"
+
+$metrics
+[1] "NimbusMonoPS-Regular.afm"    "NimbusMonoPS-Bold.afm"      
+[3] "NimbusMonoPS-Italic.afm"     "NimbusMonoPS-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"      
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
 $ArialMT
 $family
 [1] "ArialMT"
@@ -3569,10 +3625,11 @@ attr(,"class")
 [13] "URWBookman"           "NimbusMon"            "NimbusSan"           
 [16] "URWHelvetica"         "NimbusSanCond"        "CenturySch"          
 [19] "URWPalladio"          "NimbusRom"            "URWTimes"            
-[22] "ArialMT"              "Japan1"               "Japan1HeiMin"        
-[25] "Japan1GothicBBB"      "Japan1Ryumin"         "Korea1"              
-[28] "Korea1deb"            "CNS1"                 "GB1"                 
-[31] "Jp_UCS-2"            
+[22] "URW2Helvetica"        "URW2HelveticaItalic"  "URW2Times"           
+[25] "NimbusMonoPS"         "ArialMT"              "Japan1"              
+[28] "Japan1HeiMin"         "Japan1GothicBBB"      "Japan1Ryumin"        
+[31] "Korea1"               "Korea1deb"            "CNS1"                
+[34] "GB1"                  "Jp_UCS-2"            
 > 
 > 
 > 
@@ -3589,20 +3646,18 @@ attr(,"class")
 > 
 > ### ** Examples
 > 
-> ## time-dependent ==> ignore diffs:
 > ## IGNORE_RDIFF_BEGIN
 > pretty(Sys.Date())
-[1] "2023-11-10" "2023-11-11" "2023-11-12" "2023-11-13" "2023-11-14"
-[6] "2023-11-15"
+[1] "2024-02-24" "2024-02-25" "2024-02-26" "2024-02-27" "2024-02-28"
+[6] "2024-02-29"
 > pretty(Sys.time(), n = 10)
- [1] "2023-11-12 17:41:17 GMT" "2023-11-12 17:41:18 GMT"
- [3] "2023-11-12 17:41:19 GMT" "2023-11-12 17:41:20 GMT"
- [5] "2023-11-12 17:41:21 GMT" "2023-11-12 17:41:22 GMT"
- [7] "2023-11-12 17:41:23 GMT" "2023-11-12 17:41:24 GMT"
- [9] "2023-11-12 17:41:25 GMT" "2023-11-12 17:41:26 GMT"
-[11] "2023-11-12 17:41:27 GMT"
+ [1] "2024-02-26 13:27:03 CET" "2024-02-26 13:27:04 CET"
+ [3] "2024-02-26 13:27:05 CET" "2024-02-26 13:27:06 CET"
+ [5] "2024-02-26 13:27:07 CET" "2024-02-26 13:27:08 CET"
+ [7] "2024-02-26 13:27:09 CET" "2024-02-26 13:27:10 CET"
+ [9] "2024-02-26 13:27:11 CET" "2024-02-26 13:27:12 CET"
+[11] "2024-02-26 13:27:13 CET"
 > ## IGNORE_RDIFF_END
-> 
 > pretty(as.Date("2000-03-01")) # R 1.0.0 came in a leap year
 [1] "2000-02-28" "2000-02-29" "2000-03-01" "2000-03-02" "2000-03-03"
 [6] "2000-03-04"
@@ -3768,27 +3823,6 @@ List of 18
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
-> if(.Platform$OS.type == "unix") { # includes Mac
-+ 
-+  utils::str( quartzFonts() ) # a list(serif = .., sans = .., mono = ..)
-+  quartzFonts("mono") # the list(mono = ..) sublist of quartzFonts()
-+ ## Not run: 
-+ ##D   ## for East Asian locales you can use something like
-+ ##D   quartzFonts(sans = quartzFont(rep("AppleGothic", 4)),
-+ ##D 	      serif = quartzFont(rep("AppleMyungjp", 4)))
-+ ##D   ## since the default fonts may well not have the glyphs needed
-+ ## End(Not run)
-+ }
-List of 3
- $ serif: chr [1:4] "Times-Roman" "Times-Bold" "Times-Italic" "Times-BoldItalic"
- $ sans : chr [1:4] "Helvetica" "Helvetica-Bold" "Helvetica-Oblique" "Helvetica-BoldOblique"
- $ mono : chr [1:4] "Courier" "Courier-Bold" "Courier-Oblique" "Courier-BoldOblique"
-$mono
-[1] "Courier"             "Courier-Bold"        "Courier-Oblique"    
-[4] "Courier-BoldOblique"
-
-> 
 > 
 > 
 > cleanEx()
@@ -4053,24 +4087,6 @@ points cut off after point[39]
 > 
 > ### ** Examples
 > 
-> if(.Platform$OS.type == "windows") withAutoprint({
-+   windowsFonts()
-+   windowsFonts("mono")
-+ })
-> ## Not run: 
-> ##D ## set up for Japanese: needs the fonts installed
-> ##D windows()  # make sure we have the right device type (available on Windows only)
-> ##D Sys.setlocale("LC_ALL", "ja")
-> ##D windowsFonts(JP1 = windowsFont("MS Mincho"),
-> ##D              JP2 = windowsFont("MS Gothic"),
-> ##D              JP3 = windowsFont("Arial Unicode MS"))
-> ##D plot(1:10)
-> ##D text(5, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1")
-> ##D text(7, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1", font = 2)
-> ##D text(5, 1.5, "\u{4E10}\u{4E00}\u{4E01}", family = "JP2")
-> ##D text(9, 2, "\u{5100}", family = "JP3")
-> ## End(Not run)
-> 
 > 
 > cleanEx()
 > nameEx("x11")
@@ -4106,9 +4122,8 @@ points cut off after point[39]
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
 > ## IGNORE_RDIFF_BEGIN
-> if(capabilities()[["X11"]]) withAutoprint({
+> if(capabilities("X11")) withAutoprint({
 + X11Fonts()
 + X11Fonts("mono")
 + utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
@@ -4149,7 +4164,6 @@ $mono
 > utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
 > X11Fonts(utopia = utopia)
 > ## IGNORE_RDIFF_END
-> 
 > 
 > 
 > cleanEx()
@@ -4432,7 +4446,7 @@ NULL
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  20.965 0.422 21.477 0 0 
+Time elapsed:  29.951 0.398 30.64 0 0 
 > grDevices::dev.off()
 null device 
           1 

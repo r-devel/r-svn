@@ -36,7 +36,7 @@ md5sum(files)
   32-character string of hexadecimal digits.
 }
 \source{
-  The underlying C code was written by Ulrich Drepper and extracted from
+  The underlying C code was written by \I{Ulrich Drepper} and extracted from
   a 2001 release of \code{glibc}.
 }
 \seealso{

@@ -31,7 +31,7 @@ lengths(x, use.names = TRUE)
   specific classes of objects, see \link{InternalMethods}.
 }
 \note{
-  One raison d'\enc{être}{etre} of \code{lengths(x)} is its use as a
+  One \I{raison d'\enc{être}{etre}} of \code{lengths(x)} is its use as a
   more efficient version of \code{sapply(x, length)} and similar
   \code{*apply} calls to \code{\link{length}}.  This is the reason why
   \code{x} may be an atomic vector, even though \code{lengths(x)} is

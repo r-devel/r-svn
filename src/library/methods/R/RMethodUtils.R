@@ -1,7 +1,7 @@
 #  File src/library/methods/R/RMethodUtils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -253,29 +253,6 @@ defaultDumpName <-
         paste(generic, paste(signature, collapse ="."), "R", sep=".")
 }
 
-
-mergeMethods <-
-    ## merge the methods in the second MethodsList object into the first,
-    ## and return the merged result.
-    function(m1, m2, genericLabel = character())
-{
-    .MlistDeprecated("mergeMethods()")
-    if(length(genericLabel) && is(m2, "MethodsList"))
-        m2 <- .GenericInPrimitiveMethods(m2, genericLabel)
-    if(is.null(m1) || is(m1, "EmptyMethodsList"))
-        return(m2)
-    tmp <- listFromMlist(m2)
-    sigs <- tmp[[1]]
-    methods <- tmp[[2]]
-    for(i in seq_along(sigs)) {
-        sigi <- sigs[[i]]
-        if(.noMlists() && !identical(unique(sigi), "ANY"))
-          next
-        args <- names(sigi)
-        m1 <- insertMethod(m1, as.character(sigi), args, methods[[i]], FALSE)
-    }
-    m1
-}
 
 doPrimitiveMethod <-
   ## do a primitive call to builtin function 'name' the definition and call
@@ -731,7 +708,7 @@ assignMethodsMetaData <-
 {
     where <- as.environment(where)
     if(is(value, "MethodsList")) {
-	.MlistDeprecated()
+	.MlistDefunct()
         mname <- methodsPackageMetaName("M",fdef@generic, fdef@package)
         if(exists(mname, envir = where, inherits = FALSE) &&
            bindingIsLocked(mname, where))
@@ -994,7 +971,7 @@ MethodAddCoerce <- function(method, argName, thisClass, methodClass)
             body(method, envir = environment(method)) <- newBody
         }
         else if(is(method, "MethodsList")) {
-	    .MlistDeprecated()
+	    .MlistDefunct()
             methods <- method@allMethods
             for(i in seq_along(methods))
                 methods[[i]] <- Recall(methods[[i]], addExpr)
@@ -1012,7 +989,7 @@ missingArg <- function(symbol, envir = parent.frame(), eval = FALSE)
 
 balanceMethodsList <- function(mlist, args, check = TRUE)
 {
-    .MlistDeprecated("balanceMethodsList()")
+    .MlistDefunct("balanceMethodsList()")
     moreArgs <- args[-1L]
     if(length(moreArgs) == 0L)
         return(mlist)
@@ -1243,7 +1220,7 @@ metaNameUndo <- function(strings, prefix, searchForm = FALSE)
                            list(FF = f,BODY = body(mi)))
         }
 	else if(is(mi, "MethodsList")) {
-	    .MlistDeprecated()
+	    .MlistDefunct()
             mi <- Recall(mi, f)
 	} else
             stop(sprintf("internal error: Bad methods list object in fixing methods for primitive function %s",

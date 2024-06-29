@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2009-2022 The R Core Team.
+ *  Copyright (C) 2009-2024 The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,18 @@
 
 /* This is a small HTTP server that serves requests by evaluating
  * the httpd() function and passing the result to the browser. */
+
+/* Note that the server runs partially on the main R thread (it has to,
+   because it uses R), and it also sends the response mostly from the
+   main thread. It is thus not possible to use the server from the R thread
+   itself, e.g. via download.file(), because of a deadlock between the
+   server and the client, when the data isn't sent in a single chunk.
+   On Unix, the deadlock could also happen when the client is sending a
+   request to the server (and the request isn't sent in a single chunk).
+
+   This cannot happen with the intended use of this server, when it is used
+   to serve help pages to an external client (a web browser).
+*/
 
 /* Example:
    httpd <- function(path,query=NULL,...) {
@@ -78,8 +90,8 @@
 # define donesocks()
 #else
 /* --- Windows-only --- */
+# include <winsock2.h>
 # include <windows.h>
-# include <winsock.h>
 # include <string.h>
 
 # define sockerrno WSAGetLastError()
@@ -88,8 +100,9 @@
 static int initsocks(void)
 {
     WSADATA dt;
-    /* initialize WinSock 1.1 */
-    return (WSAStartup(0x0101, &dt)) ? -1 : 0;
+    /* initialize WinSock 2.2 */
+    WORD wVers = MAKEWORD(2, 2);
+    return (WSAStartup(wVers, &dt)) ? -1 : 0;
 }
 
 # define donesocks() WSACleanup()
@@ -300,7 +313,7 @@ static int add_worker(httpd_conn_t *c) {
     for (; i < MAX_WORKERS; i++)
 	if (!workers[i]) {
 #ifdef _WIN32
-	    DBG(printf("registering worker %p as %d (thread=0x%x)\n", (void*) c, i, (int) c->thread));
+	    DBG(printf("registering worker %p as %d (thread=%p)\n", (void*) c, i, (void *) c->thread));
 #else
 	    DBG(printf("registering worker %p as %d (handler=%p)\n", (void*) c, i, (void*) c->ih));
 #endif
@@ -495,9 +508,9 @@ static void process_request(httpd_conn_t *c)
 
     /* SendMessage is synchronous, so it will wait until the message
      * is processed */
-    DBG(Rprintf("enqueuing process_request_main_thread\n"));
+    DBG(printf("enqueuing process_request_main_thread\n"));
     SendMessage(message_window, WM_RHTTP_CALLBACK, 0, (LPARAM) c);
-    DBG(Rprintf("process_request_main_thread returned\n"));
+    DBG(printf("process_request_main_thread returned\n"));
 
     ReleaseMutex(process_request_mutex);
 }
@@ -526,7 +539,7 @@ static SEXP handler_for_path(const char *path) {
 	    char fn[64];
 	    memcpy(fn, e, c - e); /* create a local C string with the name for the install() call */
 	    fn[c - e] = 0;
-	    DBG(Rprintf("handler_for_path('%s'): looking up custom handler '%s'\n", path, fn));
+	    DBG(printf("handler_for_path('%s'): looking up custom handler '%s'\n", path, fn));
 	    /* we cache custom_handlers_env so in case it has not been loaded yet, fetch it */
 	    if (!custom_handlers_env) {
 		if (!R_HandlersName) R_HandlersName = install(".httpd.handlers.env");
@@ -536,13 +549,13 @@ static SEXP handler_for_path(const char *path) {
 	    }
 	    /* we only proceed if .httpd.handlers.env really exists */
 	    if (TYPEOF(custom_handlers_env) == ENVSXP) {
-		SEXP cl = findVarInFrame3(custom_handlers_env, install(fn), TRUE);
+		SEXP cl = findVarInFrame(custom_handlers_env, install(fn));
 		if (cl != R_UnboundValue && TYPEOF(cl) == CLOSXP) /* we need a closure */
 		    return cl;
 	    }
 	}
     }
-    DBG(Rprintf(" - falling back to default httpd\n"));
+    DBG(printf(" - falling back to default httpd\n"));
     return install("httpd");
 }
 
@@ -556,7 +569,7 @@ static void process_request_(void *ptr)
     int code = 200;
     const void *vmax = NULL;
 
-    DBG(Rprintf("process request for %p\n", (void*) c));
+    DBG(printf("process request for %p\n", (void*) c));
     if (!c || !c->url) return; /* if there is not enough to process, bail out */
     vmax = vmaxget();
     s = c->url;
@@ -577,7 +590,7 @@ static void process_request_(void *ptr)
 				  LCONS(handler_for_path(c->url), sArgs),
 				  sTrue));
 	SET_TAG(CDR(CDR(x)), install("silent"));
-	DBG(Rprintf("eval(try(httpd('%s'),silent=TRUE))\n", c->url));
+	DBG(printf("eval(try(httpd('%s'),silent=TRUE))\n", c->url));
 	
 	/* evaluate the above in the tools namespace */
 	SEXP toolsNS = PROTECT(R_FindNamespace(mkString("tools")));
@@ -618,7 +631,7 @@ static void process_request_(void *ptr)
 	if (TYPEOF(x) == STRSXP && LENGTH(x) > 0) { /* string means there was an error */
 	    const char *s = translateCharUTF8(STRING_ELT(x, 0));
 	    send_http_response(c, " 500 Evaluation error\r\nConnection: close\r\nContent-type: text/plain\r\n\r\n");
-	    DBG(Rprintf("respond with 500 and content: %s\n", translateChar(STRING_ELT(x, 0))));
+	    DBG(printf("respond with 500 and content: %s\n", translateChar(STRING_ELT(x, 0))));
 	    if (c->method != METHOD_HEAD)
 		send_response(c->sock, s, strlen(s));
 	    c->attr |= CONNECTION_CLOSE; /* force close */
@@ -903,7 +916,8 @@ static void worker_input_handler(void *data) {
 	char *s = c->line_buf;
 	ssize_t n = recv(c->sock, c->line_buf + c->line_pos, 
 			 LINE_BUF_SIZE - c->line_pos - 1, 0);
-	DBG(printf("[recv n=%d, line_pos=%d, part=%d]\n", n, c->line_pos, (int)c->part));
+	DBG(printf("[recv n=%lld, line_pos=%llu, part=%d]\n", (long long)n,
+	           (unsigned long long)c->line_pos, (int)c->part));
 	if (n < 0) { /* error, scrape this worker */
 	    remove_worker(c);
 	    return;
@@ -1107,10 +1121,12 @@ static void worker_input_handler(void *data) {
     }
     if (c->part == PART_BODY && c->body) { /* BODY  - this branch always returns */
 	if (c->body_pos < c->content_length) { /* need to receive more ? */
-	    DBG(printf("BODY: body_pos=%d, content_length=%ld\n", c->body_pos, c->content_length));
+	    DBG(printf("BODY: body_pos=%llu, content_length=%ld\n",
+	        (unsigned long long)c->body_pos, c->content_length));
 	    ssize_t n = recv(c->sock, c->body + c->body_pos, 
 			    c->content_length - c->body_pos, 0);
-	    DBG(printf("      [recv n=%d - had %u of %lu]\n", n, c->body_pos, c->content_length));
+	    DBG(printf("      [recv n=%lld - had %llu of %lu]\n", (long long)n,
+	        (unsigned long long)c->body_pos, c->content_length));
 	    c->line_pos = 0;
 	    if (n < 0) { /* error, scrap this worker */
 		remove_worker(c);
@@ -1198,18 +1214,19 @@ static void worker_input_handler(void *data) {
     }
 }
 
-static void srv_input_handler(void *data);
-
 static SOCKET srv_sock = INVALID_SOCKET;
 
 #ifdef _WIN32
+static void srv_input_handler(void *data);
+static WSAEVENT server_thread_should_stop = NULL;
+
 /* Windows implementation uses threads to accept and serve
    connections, using the main event loop to synchronize with R
    through a message-only window which is created on the R thread
  */
 static LRESULT CALLBACK RhttpdWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    DBG(Rprintf("RhttpdWindowProc(%x, %x, %x, %x)\n", (int) hwnd, (int) uMsg, (int) wParam, (int) lParam));
+    DBG(printf("RhttpdWindowProc(%p, %x, %x, %x)\n", (void *) hwnd, (int) uMsg, (int) wParam, (int) lParam));
     if (hwnd == message_window && uMsg == WM_RHTTP_CALLBACK) {
 	httpd_conn_t *c = (httpd_conn_t*) lParam;
 	process_request_main_thread(c);
@@ -1222,9 +1239,29 @@ static LRESULT CALLBACK RhttpdWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
    creates worker threads
  */
 static DWORD WINAPI ServerThreadProc(LPVOID lpParameter) {
-    while (srv_sock != INVALID_SOCKET) {
-	srv_input_handler(lpParameter);
+
+    WSAEVENT srv_sock_ready = WSACreateEvent();
+    if (!srv_sock_ready ||
+	WSAEventSelect(srv_sock, srv_sock_ready, FD_ACCEPT)) {
+
+	return 1;
     }
+
+    WSAEVENT events[] = { srv_sock_ready, server_thread_should_stop };
+    for(;;) {
+	DWORD ret = WSAWaitForMultipleEvents(2, events, FALSE, WSA_INFINITE,
+	                                     FALSE);
+	if (ret == WSA_WAIT_EVENT_0) {
+	    WSANETWORKEVENTS events;
+	    /* only re-set, we know the event is FD_ACCEPT */
+	    WSAEnumNetworkEvents(srv_sock, srv_sock_ready, &events);
+	    srv_input_handler(lpParameter);
+	    continue;
+	}
+	/* exit the thread when signalled to do so or on error */
+	break;
+    }
+
     return 0;
 }
 
@@ -1243,7 +1280,7 @@ static DWORD WINAPI WorkerThreadProc(LPVOID lpParameter) {
 }
 
 /* global server thread - currently we support only one server at a time */
-HANDLE server_thread;
+static HANDLE server_thread = NULL;
 #else
 /* on unix we register all used sockets (server and workers) as input
  * handlers such that we can avoid polling */
@@ -1270,6 +1307,13 @@ static void srv_input_handler(void *data)
     if (c->ih) c->ih->userData = c;
     add_worker(c);
 #else
+    /* The accepted socket inherits properties of the socket listened to.
+       The server socket is non-blocking, because WSAEventSelect has been used on it.
+       Make sure the accepted socket is blocking. */
+    WSAEventSelect(c->sock, NULL, 0);
+    unsigned long mode = 0;
+    ioctlsocket(c->sock, FIONBIO, &mode);
+
     if (!add_worker(c)) { /* create worker thread only if the worker
 			   * was accepted */
 	if (!(c->thread = CreateThread(NULL, 0, WorkerThreadProc,
@@ -1278,6 +1322,20 @@ static void srv_input_handler(void *data)
     }
 #endif
 }
+
+#ifdef _WIN32
+void stop_server_thread(void)
+{
+    if (!server_thread || !server_thread_should_stop)
+	return;
+    WSASetEvent(server_thread_should_stop);
+    WaitForSingleObject(server_thread, INFINITE);
+    WSACloseEvent(server_thread_should_stop);
+    CloseHandle(server_thread);
+    server_thread = NULL;
+    server_thread_should_stop = NULL;
+}
+#endif
 
 int in_R_HTTPDCreate(const char *ip, int port) 
 {
@@ -1289,19 +1347,14 @@ int in_R_HTTPDCreate(const char *ip, int port)
     if (needs_init) /* initialization may need to be performed on first use */
 	first_init();
 
+#ifdef _WIN32
+    /* on Windows stop the server thread if it exists */
+    stop_server_thread();
+#endif
+
     /* is already in use, close the current socket */
     if (srv_sock != INVALID_SOCKET)
 	closesocket(srv_sock);
-
-#ifdef _WIN32
-    /* on Windows stop the server thread if it exists */
-    if (server_thread) {
-	DWORD ts = 0;
-	if (GetExitCodeThread(server_thread, &ts) && ts == STILL_ACTIVE)
-	    TerminateThread(server_thread, 0);
-	server_thread = 0;
-    }
-#endif
 
     /* create a new socket */
     srv_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -1333,8 +1386,11 @@ int in_R_HTTPDCreate(const char *ip, int port)
     }
 
     /* setup listen */
-    if (listen(srv_sock, 8))
+    if (listen(srv_sock, 8)) {
+	closesocket(srv_sock);
+	srv_sock = INVALID_SOCKET;
 	Rf_error("cannot listen to TCP port %d", port);
+    }
 
 #ifndef _WIN32
     /* all went well, register the socket as a handler */
@@ -1343,25 +1399,38 @@ int in_R_HTTPDCreate(const char *ip, int port)
 				  &srv_input_handler, HttpdServerActivity);
 #else
     /* do the desired Windows synchronization */
+    server_thread_should_stop = WSACreateEvent();
+    if (!server_thread_should_stop) {
+	closesocket(srv_sock);
+	srv_sock = INVALID_SOCKET;
+	Rf_error("cannot create synchronization event");
+    }
+    
     server_thread = CreateThread(NULL, 0, ServerThreadProc, 0, 0, 0);
+    if (!server_thread) {
+	closesocket(srv_sock);
+	srv_sock = INVALID_SOCKET;
+	WSACloseEvent(server_thread_should_stop);
+	server_thread_should_stop = NULL;
+	Rf_error("cannot create server thread");
+    }
 #endif
     return 0;
 }
 
 void in_R_HTTPDStop(void)
 {
-    if (srv_sock != INVALID_SOCKET) closesocket(srv_sock);
-    srv_sock = INVALID_SOCKET;
-
 #ifdef _WIN32
     /* on Windows stop the server thread if it exists */
-    if (server_thread) {
-	DWORD ts = 0;
-	if (GetExitCodeThread(server_thread, &ts) && ts == STILL_ACTIVE)
-	    TerminateThread(server_thread, 0);
-	server_thread = 0;
+    stop_server_thread();
+#endif
+
+    if (srv_sock != INVALID_SOCKET) {
+	closesocket(srv_sock);
+	srv_sock = INVALID_SOCKET;
     }
-#else
+
+#ifndef _WIN32
     if (srv_handler) removeInputHandler(&R_InputHandlers, srv_handler);
 #endif
 }

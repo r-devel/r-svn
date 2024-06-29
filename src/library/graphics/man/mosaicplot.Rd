@@ -119,7 +119,7 @@ mosaicplot(x, \dots)
   A more flexible and extensible implementation of mosaic plots written
   in the grid graphics system is provided in the function
   \code{\link[vcd]{mosaic}} in the contributed package \CRANpkg{vcd}
-  (Meyer, Zeileis and Hornik, 2006).
+  (\bibcite{Meyer, Zeileis and Hornik, 2006}).
 }
 \author{
   S-PLUS original by John Emerson \email{john.emerson@yale.edu}.

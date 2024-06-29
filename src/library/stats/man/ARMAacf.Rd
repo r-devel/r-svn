@@ -22,7 +22,8 @@ ARMAacf(ar = numeric(), ma = numeric(), lag.max = r, pacf = FALSE)
   \item{pacf}{logical.  Should the partial autocorrelations be returned?}
 }
 \details{
-  The methods used follow Brockwell & Davis (1991, section 3.3).  Their
+  The methods used follow
+  \bibcite{Brockwell & Davis (1991, section 3.3)}.  Their
   equations (3.3.8) are solved for the autocovariances at lags
   \eqn{0, \dots, \max(p, q+1)}{0, \dots, max(p, q+1)},
   and the remaining autocorrelations are given by a recursive filter.

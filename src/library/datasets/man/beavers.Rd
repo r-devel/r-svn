@@ -15,7 +15,7 @@ beaver2
 }
 \description{
   Reynolds (1994) describes a small part of a study of the long-term
-  temperature dynamics of beaver \emph{Castor canadensis} in
+  temperature dynamics of beaver \emph{\I{Castor canadensis}} in
   north-central Wisconsin.  Body temperature was measured by telemetry
   every 10 minutes for four females, but data from a one period of
   less than a day for each of two animals is used there.

@@ -7,7 +7,7 @@
 \alias{savePlot}
 \title{Save Cairo X11 Plot to File}
 \description{
-  Save the current page of a cairo \code{\link{X11}()} device to a file.
+  Save the current page of a \I{cairo} \code{\link{X11}()} device to a file.
 }
 \usage{
 savePlot(filename = paste0("Rplot.", type),
@@ -20,10 +20,10 @@ savePlot(filename = paste0("Rplot.", type),
   \item{device}{the device to save from.}
 }
 \details{
-  Only cairo-based \code{X11} devices are supported.
+  Only \I{cairo}-based \code{X11} devices are supported.
 
   This works by copying the image surface to a file.  For PNG
-  will always be a 24-bit per pixel PNG \sQuote{DirectClass} file, for
+  will always be a 24-bit per pixel PNG \sQuote{\I{DirectClass}} file, for
   JPEG the quality is 75\% and for TIFF there is no compression.
 
   For devices with buffering this copies the buffer's image surface, so

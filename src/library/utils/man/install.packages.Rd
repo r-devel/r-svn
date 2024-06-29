@@ -147,7 +147,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     install of more than one source package.  Values greater than one
     are supported if the \command{make} command specified by
     \code{Sys.getenv("MAKE", "make")} accepts argument
-    \option{-k -j \var{Ncpus}}.
+    \option{-k -j <Ncpus>}.
   }
   \item{verbose}{
     a logical indicating if some \dQuote{progress report} should be given.
@@ -247,10 +247,10 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   package contains no C/C++/Fortran code that needs compilation.
   Otherwise,
   \describe{
-    \item{on Windows,}{you will need to have installed the Rtools
+    \item{on Windows,}{you will need to have installed the \I{Rtools}
   collection as described in the \sQuote{R for Windows FAQ} \emph{and}
   you must have the \env{PATH} environment variable set up as required
-  by Rtools.
+  by \I{Rtools}.
 
   For a 32/64-bit installation of \R on Windows, a small minority of
   packages with compiled code need either \code{INSTALL_opts =
@@ -268,7 +268,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     \item{On Unix-alikes,}{when the package contains C/C++/Fortran code
       that needs compilation, suitable compilers and related tools need
       to be installed.  On macOS you need to have installed the
-      \sQuote{Command-line tools for Xcode} (see the
+      \sQuote{Command-line tools for \I{Xcode}} (see the
       \sQuote{R Installation and Administration} manual) and if needed
       by the package a Fortran compiler, and have them in your path.
     }
@@ -314,7 +314,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   Parallel installs are attempted if \code{pkgs} has length greater than
   one and \code{Ncpus > 1}.  It makes use of a parallel \command{make},
   so the \code{make} specified (default \command{make}) when \R was
-  built must be capable of supporting \option{make -j \var{n}}: GNU make,
+  built must be capable of supporting \command{make -j \var{N}}: GNU make,
   \command{dmake} and \command{pmake} do, but Solaris \command{make} and
   older FreeBSD \command{make} do not: if necessary environment variable
   \env{MAKE} can be set for the current session to select a suitable

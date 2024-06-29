@@ -36,7 +36,7 @@
     \code{\link{search}()} path, apart from \code{\link{.GlobalEnv}} and
     \code{package:base} (i.e., \code{\link{baseenv}()}), should be skipped
     when searching for method definitions.  The default \code{FALSE} is
-    back compatible and typically desired for \code{print()}ing, with or
+    back compatible and typically desired for \I{\code{print()}ing}, with or
     without asterisk; \code{dropPath=TRUE} has been hard coded in \R 4.3.0
     and is faster for non-small \code{\link{search}()} paths.}
   \item{x}{typically the result of \code{methods(..)}, an \R object of S3
@@ -107,7 +107,7 @@
 }
 
 \note{
-  The original \code{methods} function was written by Martin Maechler.
+  The original \code{methods} function was written by \I{Martin Maechler}.
 }
 
 \seealso{

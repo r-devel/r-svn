@@ -33,10 +33,10 @@
 \concept{encoding}
 \concept{compression}
 \concept{decompression}
-\concept{zip}
-\concept{gzip}
-\concept{bzip2}
-\concept{lzma}
+\concept{\I{zip}}
+\concept{\I{gzip}}
+\concept{\I{bzip2}}
+\concept{\I{lzma}}
 \description{
   Functions to create, open and close connections, i.e.,
   \dQuote{generalized files}, such as possibly compressed files, URLs,
@@ -159,7 +159,7 @@ socketTimeout(socket, timeout = -1)
   (such as \samp{http://}, \samp{https://}, \samp{ftp://} or
   \samp{file://}).  Method \code{"internal"} is that available since
   connections were introduced but now mainly defunct.  Method
-  \code{"wininet"} is only available on Windows (it uses the WinINet
+  \code{"wininet"} is only available on Windows (it uses the \I{WinINet}
   functions of that OS) and method \code{"libcurl"} (using the library
   of that name: \url{https://curl.se/libcurl/}) is nowadays required but
   was optional on Windows before \R 4.2.0.  Method \code{"default"}
@@ -189,7 +189,7 @@ socketTimeout(socket, timeout = -1)
   from.  This is run in a shell, on Windows that specified by the
   \env{COMSPEC} environment variable.
 
-  For \code{fifo} the description is the path of the fifo.  (Support for
+  For \code{fifo} the description is the path of the \I{fifo}.  (Support for
   \code{fifo} connections is optional but they are available on most
   Unix platforms and on Windows.)
 
@@ -213,9 +213,9 @@ socketTimeout(socket, timeout = -1)
   connections, \code{\link{stdout}} and \code{\link{stderr}}).
 
   If for a \code{file} or (on most platforms) a \code{fifo} connection
-  the description is \code{""}, the file/fifo is immediately opened (in
+  the description is \code{""}, the file/\I{fifo} is immediately opened (in
   \code{"w+"} mode unless \code{open = "w+b"} is specified) and unlinked
-  from the file system.  This provides a temporary file/fifo to write to
+  from the file system.  This provides a temporary file/\I{fifo} to write to
   and then read from.
 
   \code{socketConnection(server=TRUE)} creates a new temporary server socket
@@ -295,7 +295,7 @@ socketTimeout(socket, timeout = -1)
   \code{close} returns either \code{NULL} or an integer status,
   invisibly. The status is from when the connection was last closed and
   is available only for some types of connections (e.g., pipes, files and
-  fifos): typically zero values indicate success.  Negative values will
+  \I{fifo}s): typically zero values indicate success.  Negative values will
   result in a warning; if writing, these may indicate write failures and should
   not be ignored. Connections should be closed explicitly when finished
   with to avoid wasting resources and to reduce the risk that some buffered
@@ -333,13 +333,13 @@ socketTimeout(socket, timeout = -1)
   opened for both reading and writing.  An unsupported mode is usually
   silently substituted.
 
-  If a file or fifo is created on a Unix-alike, its permissions will be
+  If a file or \I{fifo} is created on a Unix-alike, its permissions will be
   the maximal allowed by the current setting of \code{umask} (see
   \code{\link{Sys.umask}}).
 
   For many connections there is little or no difference between text and
   binary modes.  For file-like connections on Windows, translation of
-  line endings (between LF and CRLF) is done in text mode only (but text
+  line endings (between \abbr{LF} and  \abbr{CRLF}) is done in text mode only (but text
   read operations on connections such as \code{\link{readLines}},
   \code{\link{scan}} and \code{\link{source}} work for any form of line
   ending).  Various \R operations are possible in only one of the modes:
@@ -494,7 +494,7 @@ socketTimeout(socket, timeout = -1)
 
 \section{Blocking}{
   Whether or not the connection blocks can be specified for file, url
-  (default yes), fifo and socket connections (default not).
+  (default yes), \I{fifo} and socket connections (default not).
 
   In blocking mode, functions using the connection do not return to the
   \R evaluator until the read/write is complete.  In non-blocking mode,
@@ -518,14 +518,14 @@ socketTimeout(socket, timeout = -1)
   opened).
 }
 
-\section{Fifos}{
-  Fifos default to non-blocking.  That follows S version 4 and is
+\section{\I{Fifo}s}{
+  \I{Fifo}s default to non-blocking.  That follows S version 4 and is
   probably most natural, but it does have some implications.  In
-  particular, opening a non-blocking fifo connection for writing (only)
-  will fail unless some other process is reading on the fifo.
+  particular, opening a non-blocking \I{fifo} connection for writing (only)
+  will fail unless some other process is reading on the \I{fifo}.
 
-  Opening a fifo for both reading and writing (in any mode: one can only
-  append to fifos) connects both sides of the fifo to the \R process,
+  Opening a \I{fifo} for both reading and writing (in any mode: one can only
+  append to \I{fifo}s) connects both sides of the \I{fifo} to the \R process,
   and provides an similar facility to \code{file()}.
 }
 
@@ -574,7 +574,7 @@ socketTimeout(socket, timeout = -1)
   \code{description} which is marked as being in UTF-8 is passed to
   Windows as a \sQuote{wide} character string.  This allows files with
   names not in the native encoding to be opened on file systems which
-  use Unicode file names (such as NTFS but not FAT32).
+  use Unicode file names (such as \abbr{NTFS} but not FAT32).
 }
 
 \section{\samp{ftp://} URLs}{
@@ -602,11 +602,11 @@ socketTimeout(socket, timeout = -1)
   However, many types of connections use other resources which are
   themselves limited.  Notably on Unix, \sQuote{file descriptors} which
   by default are per-process limited: this limits the number of
-  connections using files, pipes and fifos.  (The default limit is 256
+  connections using files, pipes and \I{fifo}s.  (The default limit is 256
   on macOS (and Solaris) but 1024 on Linux.  The limit can be raised in the
   shell used to launch \R, for example by \command{ulimit -n}.)  File
   descriptors are used for many other purposes including dynamically
-  loading DSO/DLLs (see \code{\link{dyn.load}}) which may use up to 60\%
+  loading \abbr{DSO}/DLLs (see \code{\link{dyn.load}}) which may use up to 60\%
   of the limit.
 
   Windows has a default limit of 512 open C file streams: these are used
@@ -711,12 +711,12 @@ seek(Tfile, 0, rw = "r") # reset to beginning
 readLines(Tfile)
 cat("ghi\n", file = Tfile)
 readLines(Tfile)
-\dontshow{## IGNORE_RDIFF_BEGIN}
+\dontdiff{
 Tfile # -> print() :  "valid" connection
 close(Tfile)
 Tfile # -> print() :  "invalid" connection
 unlink(Tpath)
-\dontshow{## IGNORE_RDIFF_END}
+}
 ## We can do the same thing with an anonymous file.
 Tfile <- file()
 cat("abc\ndef\n", file = Tfile)

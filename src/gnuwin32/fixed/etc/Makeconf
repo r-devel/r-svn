@@ -44,13 +44,13 @@ ifeq ($(R_INSTALLER_BUILD), yes)
   ifneq ($(strip $(R_CUSTOM_TOOLS_SOFT)),)
     LOCAL_SOFT = $(R_CUSTOM_TOOLS_SOFT)
   else
-    ## The rtools43 installer sets RTOOLS43_HOME (or RTOOLS43_AARCH64_HOME)
+    ## The rtools44 installer sets RTOOLS44_HOME (or RTOOLS44_AARCH64_HOME)
 
-    # INSTALLER-BUILD-x86_64: RTOOLS43_HOME ?= c:/rtools43
-    # INSTALLER-BUILD-x86_64: LOCAL_SOFT = $(subst \,/,$(RTOOLS43_HOME))/x86_64-w64-mingw32.static.posix
+    # INSTALLER-BUILD-x86_64: RTOOLS44_HOME ?= c:/rtools44
+    # INSTALLER-BUILD-x86_64: LOCAL_SOFT = $(subst \,/,$(RTOOLS44_HOME))/x86_64-w64-mingw32.static.posix
 
-    # INSTALLER-BUILD-aarch64: RTOOLS43_HOME ?= c:/rtools43-aarch64
-    # INSTALLER-BUILD-aarch64: LOCAL_SOFT = $(subst \,/,$(RTOOLS43_AARCH64_HOME))/aarch64-w64-mingw32.static.posix
+    # INSTALLER-BUILD-aarch64: RTOOLS44_HOME ?= c:/rtools44-aarch64
+    # INSTALLER-BUILD-aarch64: LOCAL_SOFT = $(subst \,/,$(RTOOLS44_AARCH64_HOME))/aarch64-w64-mingw32.static.posix
   endif
 endif
 R_TOOLS_SOFT ?= $(LOCAL_SOFT)
@@ -62,7 +62,14 @@ LOCAL_CPPFLAGS = -I"$(LOCAL_SOFT)/include"
 LOCAL_LIBS = -L"$(LOCAL_SOFT)/lib$(R_ARCH)" -L"$(LOCAL_SOFT)/lib"
 endif
 
-LLVMPREF = $(if $(USE_LLVM),llvm-,)
+LLVMPREF=
+ifdef USE_LLVM
+  # only set when BINPREF is empty or ends by /
+  #   to support e.g. BINPREF=aarch64-w64-mingw32.static.posix-
+  ifeq ($(patsubst %/,,$(lastword $(BINPREF))),)
+    LLVMPREF="llvm-"
+  endif
+endif
 CCBASE = $(if $(USE_LLVM),clang,gcc)
 DLLTOOL = $(BINPREF)$(LLVMPREF)dlltool --as $(BINPREF)$(LLVMPREF)as $(DT_ARCH)
 DLLTOOLFLAGS = -k
@@ -146,7 +153,7 @@ F_VISIBILITY =
 ## FC is the compiler used for all Fortran as from R 3.6.0
 ifdef USE_LLVM
   FC = $(BINPREF)flang $(M_ARCH)
-  FLIBS = -lFortranRuntime -lFortranDecimal -lm 
+  FLIBS = -lFortranRuntime -lFortranDecimal -lFortran_main -lc++ -lm 
 else
   FC = $(BINPREF)gfortran $(M_ARCH)
   FLIBS = -lgfortran -lm -lquadmath

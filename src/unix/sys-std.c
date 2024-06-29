@@ -200,7 +200,7 @@ InputHandler *R_InputHandlers = &BasicInputHandler;
   Initialize the input source handlers used to check for input on the
   different file descriptors.
  */
-InputHandler * initStdinHandler(void)
+attribute_hidden InputHandler * initStdinHandler(void)
 {
     InputHandler *inputs;
 
@@ -334,6 +334,7 @@ int Rg_wait_usec = 0;
 static int setSelectMask(InputHandler *, fd_set *);
 
 
+attribute_hidden
 fd_set *R_checkActivityEx(int usec, int ignore_stdin, void (*intr)(void))
 {
     int maxfd;
@@ -775,7 +776,7 @@ static void initialize_rlcompletion(void)
 	    return;
 	}
 	/* First check if namespace is loaded */
-	if(findVarInFrame(R_NamespaceRegistry, install("utils"))
+	if(R_findVarInFrame(R_NamespaceRegistry, install("utils"))
 	   != R_UnboundValue) rcompgen_active = 1;
 	else { /* Then try to load it */
 	    SEXP cmdSexp, cmdexpr;
@@ -790,7 +791,7 @@ static void initialize_rlcompletion(void)
 		    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
 	    }
 	    UNPROTECT(2);
-	    if(findVarInFrame(R_NamespaceRegistry, install("utils"))
+	    if(R_findVarInFrame(R_NamespaceRegistry, install("utils"))
 	       != R_UnboundValue) rcompgen_active = 1;
 	    else {
 		rcompgen_active = 0;

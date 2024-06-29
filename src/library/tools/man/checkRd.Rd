@@ -1,6 +1,6 @@
 % File src/library/tools/man/checkRd.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2008-2023 R Core Team
+% Copyright 2008-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{checkRd}
@@ -51,8 +51,8 @@ checkRd(Rd, defines = .Platform$OS.type, stages = "render",
     Unprocessed \sQuote{\var{stage}} macro from \var{stage}-stage \verb{\Sexpr}\cr
     All text must be in a section\cr
     Only one \var{tag name} section is allowed: the first will be used\cr
-    docType \var{type} is unrecognized\cr
-    Section \var{name} is unrecognized and will be dropped\cr
+    \I{docType \var{type} is unrecognized}\cr
+    \I{Section \var{name} is unrecognized and will be dropped}\cr
     Dropping empty section \var{name}\cr
   }
   \code{checkRd} itself can show
@@ -80,14 +80,12 @@ checkRd(Rd, defines = .Platform$OS.type, stages = "render",
     -5 \tab \verb{\title} should not end in a period\cr
   }
   and variations with \verb{\method} replaced by \verb{\S3method} or
-  \verb{\S4method}, \verb{\dontrun} replaced by \verb{\donttest} or
+  \verb{\S4method}, \verb{\dontrun} replaced by \verb{\donttest}, \verb{\dontdiff} or
   \verb{\dontshow}, and \verb{\title} replaced by \verb{\section} or
   \verb{\subsection} name.
-  (Some instances of \dQuote{Lost braces} are uprated to level -1,
-  currently only during \command{R CMD check} with option
-  \option{--as-cran}.)
-  %or if environment variable \env{_R_CHECK_RD_NOTE_LOST_BRACES_}
-  %is set to a true value.
+  \dQuote{Lost braces} are uprated to warning level -1 when they match
+  common markup mistakes, e.g., \samp{code{text}} rendered as
+  \samp{codetext} due to the missing backslash escape for the macro name.
 
   Note that both \code{prepare_Rd} and \code{checkRd} have tests for an
   empty section: that in \code{checkRd} is stricter (essentially that

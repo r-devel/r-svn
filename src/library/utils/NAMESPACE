@@ -11,6 +11,7 @@ export("?", .AtNames, .DollarNames, .S3methods, .romans, Rprof, Rprofmem,
        aspell_write_personal_dictionary_file, available.packages,
        browseEnv, browseURL, browseVignettes, bug.report,
        capture.output, changedFiles, charClass, checkCRAN,
+       .checkHT,
        chooseBioCmirror, chooseCRANmirror, citation, cite, citeNatbib,
        citEntry, citHeader, citFooter, close.socket, combn,
        compareVersion, contrib.url, count.fields, create.post, data,
@@ -148,6 +149,7 @@ S3method("[", "person")
 S3method("[[", "bibentry")
 S3method("[[", "person")
 S3method("as.data.frame", "bibentry")
+S3method("as.data.frame", "citation")
 S3method("as.data.frame", "person")
 S3method("c", "bibentry")
 S3method("c", "person")

@@ -67,6 +67,7 @@ attribute_hidden void nl_Rdummy(void)
  * in separate platform dependent modules.
  */
 
+attribute_hidden
 void Rf_callToplevelHandlers(SEXP expr, SEXP value, Rboolean succeeded,
 			     Rboolean visible);
 
@@ -194,7 +195,7 @@ typedef struct {
  The "cursor" for the input buffer is moved to the next starting
  point, i.e. the end of the first line or after the first ;.
  */
-int
+attribute_hidden int
 Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 {
     int c, browsevalue;
@@ -213,13 +214,15 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	    state->bufp = state->buf;
     }
 #ifdef SHELL_ESCAPE /* not default */
-    if (*state->bufp == '!') {
+    if (*state->bufp == '!' && state->buf == state->bufp
+        && state->prompt_type == 1) {
 	    R_system(&(state->buf[1]));
 	    state->buf[0] = '\0';
 	    return(0);
     }
 #endif /* SHELL_ESCAPE */
-    while((c = *state->bufp++)) {
+    while((c = *state->bufp)) {
+	    state->bufp++;
 	    R_IoBufferPutc(c, &R_ConsoleIob);
 	    if(c == ';' || c == '\n') break;
     }
@@ -1011,7 +1014,7 @@ void setup_Rmainloop(void)
     R_Toplevel.restartstack = R_RestartStack;
     R_Toplevel.srcref = R_NilValue;
     R_Toplevel.prstack = NULL;
-    R_Toplevel.returnValue = NULL;
+    R_Toplevel.returnValue = SEXP_TO_STACKVAL(NULL);
     R_Toplevel.evaldepth = 0;
     R_Toplevel.browserfinish = 0;
     R_GlobalContext = R_ToplevelContext = R_SessionContext = &R_Toplevel;
@@ -1073,7 +1076,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".OptRequireMethods"));
-	R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+	R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1140,7 +1143,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".First"));
-	R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+	R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1159,7 +1162,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".First.sys"));
-	R_CurrentExpr = findVar(cmd, baseNSenv);
+	R_CurrentExpr = R_findVar(cmd, baseNSenv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1541,7 +1544,7 @@ void R_dot_Last(void)
 
     R_GlobalContext = R_ToplevelContext = R_SessionContext = &R_Toplevel;
     PROTECT(cmd = install(".Last"));
-    R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+    R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
     if (R_CurrentExpr != R_UnboundValue && TYPEOF(R_CurrentExpr) == CLOSXP) {
 	PROTECT(R_CurrentExpr = lang1(cmd));
 	R_CurrentExpr = eval(R_CurrentExpr, R_GlobalEnv);
@@ -1549,7 +1552,7 @@ void R_dot_Last(void)
     }
     UNPROTECT(1);
     PROTECT(cmd = install(".Last.sys"));
-    R_CurrentExpr = findVar(cmd, R_BaseNamespace);
+    R_CurrentExpr = R_findVar(cmd, R_BaseNamespace);
     if (R_CurrentExpr != R_UnboundValue && TYPEOF(R_CurrentExpr) == CLOSXP) {
 	PROTECT(R_CurrentExpr = lang1(cmd));
 	R_CurrentExpr = eval(R_CurrentExpr, R_GlobalEnv);
@@ -1629,7 +1632,7 @@ static Rboolean Rf_RunningToplevelHandlers = FALSE;
   since they could be more identified by an invariant (rather than
   position).
  */
-R_ToplevelCallbackEl *
+attribute_hidden R_ToplevelCallbackEl *
 Rf_addTaskCallback(R_ToplevelCallback cb, void *data,
 		   void (*finalizer)(void *), const char *name, int *pos)
 {
@@ -1684,7 +1687,7 @@ static void removeToplevelHandler(R_ToplevelCallbackEl *e)
     }
 }
 
-Rboolean
+attribute_hidden Rboolean
 Rf_removeTaskCallbackByName(const char *name)
 {
     R_ToplevelCallbackEl *el = Rf_ToplevelTaskHandlers, *prev = NULL;
@@ -1718,7 +1721,7 @@ Rf_removeTaskCallbackByName(const char *name)
   Remove the top-level task handler/callback identified by
   its position in the list of callbacks.
  */
-Rboolean
+attribute_hidden Rboolean
 Rf_removeTaskCallbackByIndex(int id)
 {
     R_ToplevelCallbackEl *el = Rf_ToplevelTaskHandlers, *tmp = NULL;
@@ -1761,7 +1764,7 @@ Rf_removeTaskCallbackByIndex(int id)
 
   @see Rf_RemoveToplevelCallbackByIndex(int)
  */
-SEXP
+attribute_hidden SEXP
 R_removeTaskCallback(SEXP which)
 {
     int id;
@@ -1780,7 +1783,7 @@ R_removeTaskCallback(SEXP which)
     return ScalarLogical(val);
 }
 
-SEXP
+attribute_hidden SEXP
 R_getTaskCallbackNames(void)
 {
     SEXP ans;
@@ -1883,7 +1886,7 @@ static void defineVarInc(SEXP sym, SEXP val, SEXP rho)
     INCREMENT_NAMED(val); /* in case this is used in a NAMED build */
 }
 
-Rboolean
+attribute_hidden Rboolean
 R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
 		      Rboolean visible, void *userData)
 {
@@ -1956,7 +1959,7 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
     return(again);
 }
 
-SEXP
+attribute_hidden SEXP
 R_addTaskCallback(SEXP f, SEXP data, SEXP useData, SEXP name)
 {
     SEXP internalData;

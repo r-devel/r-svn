@@ -75,7 +75,7 @@ mcMap(f, ...)
     child process will use the child and not fork again.}
   \item{affinity.list}{a vector (atomic or list) containing the CPU
     affinity mask for each element of \code{X}.  The CPU affinity mask
-    describes on which CPU (core or hyperthread unit) a given item is
+    describes on which CPU (core or \I{hyperthread} unit) a given item is
     allowed to run, see \code{\link{mcaffinity}}.  To use this parameter
     prescheduling has to be deactivated (\code{mc.preschedule = FALSE}).}
 }
@@ -206,7 +206,7 @@ B <- runif(2500000,0,100)
 C <- runif(5000000,0,100)
 first <- function(i) head(sort(i), n = 1)
 
-# Restict all elements of X to run on CPU 1 and 2
+# Restrict all elements of X to run on CPU 1 and 2
 affL <- list(c(1,2), c(1,2), c(1,2))
 mclapply(list(A, A, A), first, mc.preschedule = FALSE, affinity.list = affL)
 

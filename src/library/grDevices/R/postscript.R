@@ -1,7 +1,7 @@
 #  File src/library/grDevices/R/postscript.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -782,6 +782,23 @@ postscriptFonts(# Default Serif font is Times
                   c("n021003l.afm", "n021004l.afm",
                     "n021023l.afm", "n021024l.afm",
                     "s050000l.afm")),
+                ## URW 2.0 ewuivalents
+                URW2Helvetica = Type1Font("URW2Helvetica",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Oblique.afm", "NimbusSans-BoldOblique.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2HelveticaItalic = Type1Font("URW2HelveticaItalic",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Italic.afm", "NimbusSans-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2Times = Type1Font("URW2Times",
+                  c("NimbusRoman-Regular.afm", "NimbusRoman-Bold.afm",
+                    "NimbusRoman-Italic.afm", "NimbusRoman-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                NimbusMonoPS = Type1Font("NimbusMonoPS",
+                  c("NimbusMonoPS-Regular.afm", "NimbusMonoPS-Bold.afm",
+                    "NimbusMonoPS-Italic.afm", "NimbusMonoPS-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
                 ## And Monotype Arial
                 ArialMT = Type1Font("ArialMT",
                   c("ArialMT.afm", "ArialMT-Bold.afm",

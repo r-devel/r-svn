@@ -1,7 +1,7 @@
 #  File src/library/tools/R/testing.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 # NB: also copyright date in Usage.
 #
@@ -399,7 +399,12 @@ testInstalledPackage <-
             if (.Platform$OS.type == "windows") Sys.setenv(R_LIBS="")
             else cmd <- paste("R_LIBS=", cmd)
             res <- system(cmd)
-            if (res) return(invisible(1L)) else file.rename(failfile, outfile)
+            if (res) {
+                message(gettextf("Error: running examples in %s failed", sQuote(Rfile)),
+                        domain = NA)
+                return(invisible(1L))
+            } else
+                file.rename(failfile, outfile)
 
             savefile <- paste0(outfile, ".save")
             if (!is.null(srcdir)) savefile <- file.path(srcdir, savefile)
@@ -475,6 +480,8 @@ testInstalledPackage <-
            res <- system(cmd)
             if (res) {
                 file.rename(outfile, paste0(outfile, ".fail"))
+                message(gettextf("Error: running the tests in %s failed", sQuote(f)),
+                        domain = NA)
                 return(invisible(1L))
             }
             savefile <- paste0(outfile, ".save")
@@ -492,8 +499,12 @@ testInstalledPackage <-
     if ("vignettes" %in% types && dir.exists(file.path(pkgdir, "doc"))) {
         message(gettextf("Running vignettes for package %s", sQuote(pkg)),
                 domain = NA)
-        writeLines(format(checkVignettes(pkg, lib.loc = lib.loc,
-                                         latex = FALSE, weave = TRUE)))
+        out <- format(checkVignettes(pkg, lib.loc = lib.loc,
+                                     latex = FALSE, weave = TRUE))
+        if (length(out)) {
+            writeLines(out)
+            return(invisible(1L))
+        }
     }
 
     invisible(0L)
@@ -629,11 +640,15 @@ testInstalledPackage <-
 ## Defaults for commenting are the same as per-3.2.0 version.
 .createExdotR <-
     function(pkg, pkgdir, silent = FALSE, use_gct = FALSE, addTiming = FALSE,
-             ..., commentDontrun = TRUE, commentDonttest = TRUE)
+             ..., commentDontrun = TRUE, commentDonttest = TRUE,
+             installed = TRUE)
 {
     Rfile <- paste0(pkg, "-Ex.R")
 
-    db <- Rd_db(basename(pkgdir), lib.loc = dirname(pkgdir))
+    db <- if(installed)
+              Rd_db(basename(pkgdir), lib.loc = dirname(pkgdir))
+          else
+              Rd_db(dir = pkgdir)
     if (!length(db)) {
         message("no parsed files found")
         return(invisible(NULL))
@@ -686,9 +701,8 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
     tests2 <- c("complex", "print-tests", "lapack", "datasets", "datetime",
                 "iec60559")
     ## regression tests (strict specific, too)
-    tests3 <- c("reg-tests-1a", "reg-tests-1b", "reg-tests-1c", "reg-tests-2",
-                "reg-tests-1d",
-                "reg-tests-1e",
+    tests3 <- c("reg-tests-1a", "reg-tests-1b", "reg-tests-1c", "reg-tests-1d",
+                "reg-tests-1e", "reg-tests-2",
                 "reg-examples1", "reg-examples2", "reg-packages",
                 "reg-S4-examples",
                 "classes-methods",
@@ -743,7 +757,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
                 stop("creation of ", sQuote(f), " failed", domain = NA)
             ## This needs an extra trailing space to match the .Rin.R rule
             cat("\n", file = f, append = TRUE)
-            on.exit(unlink(f))
+            on.exit(unlink(f), add = TRUE)
         }
         message("  running code in ", sQuote(f), domain = NA)
         outfile <- sub("rout$", "Rout", paste0(fR, "out"))
@@ -815,6 +829,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
                 comparePdf(f)
             }
         }
+        runone("reg-encodings", inC=FALSE)
         runone("reg-translation", inC=FALSE)
         runone("reg-tests-3", TRUE)
         runone("reg-examples3", TRUE)

@@ -14,6 +14,7 @@
 \alias{sendData}
 \alias{setDefaultCluster}
 \alias{getDefaultCluster}
+\alias{registerClusterType}
 \alias{R_PARALLEL_PORT}
 
 \title{
@@ -105,7 +106,7 @@ getDefaultCluster()
       load the \pkg{methods} package: not loading it saves ca 30\% of the
       startup CPU time of the cluster.}
     \item{\code{useXDR}}{Logical. If true (default) serialization will
-      use XDR: where large amounts of data are to be transferred and
+      use \I{XDR}: where large amounts of data are to be transferred and
       all the nodes are little-endian, communication may be
       substantially faster if this is set to false.}
     \item{\code{setup_strategy}}{Character.  If \code{"parallel"} (default)

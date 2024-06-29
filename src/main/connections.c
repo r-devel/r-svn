@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2023   The R Core Team.
+ *  Copyright (C) 2000-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -230,7 +230,7 @@ int getActiveSink(int n)
 
 static void conFinalizer(SEXP ptr)
 {
-    int i, ncon;
+    int i, ncon = 0;
     void *cptr = R_ExternalPtrAddr(ptr);
 
     if(!cptr) return;
@@ -2799,9 +2799,10 @@ static int stdin_fgetc(Rconnection con)
 
 static int stdout_vfprintf(Rconnection con, const char *format, va_list ap)
 {
-    if(R_Outputfile) vfprintf(R_Outputfile, format, ap);
-    else Rcons_vprintf(format, ap);
-    return 0;
+    if(R_Outputfile)
+	return vfprintf(R_Outputfile, format, ap);
+    else
+	return Rcons_vprintf(format, ap);
 }
 
 static int stdout_fflush(Rconnection con)
@@ -2812,8 +2813,7 @@ static int stdout_fflush(Rconnection con)
 
 static int stderr_vfprintf(Rconnection con, const char *format, va_list ap)
 {
-    REvprintf(format, ap);
-    return 0;
+    return REvprintf_internal(format, ap);
 }
 
 static int stderr_fflush(Rconnection con)
@@ -3291,8 +3291,7 @@ static void outtext_close(Rconnection con)
     int idx = ConnIndex(con);
     SEXP tmp, env = VECTOR_ELT(OutTextData, idx);
 
-    if(this->namesymbol &&
-       findVarInFrame3(env, this->namesymbol, FALSE) != R_UnboundValue)
+    if(this->namesymbol && R_existsVarInFrame(env, this->namesymbol))
 	R_unLockBinding(this->namesymbol, env);
     if(strlen(this->lastline) > 0) {
 	PROTECT(tmp = xlengthgets(this->data, ++this->len));
@@ -3373,8 +3372,8 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 	    PROTECT(tmp = xlengthgets(this->data, ++this->len));
 	    SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(p));
 	    if(this->namesymbol) {
-		if(findVarInFrame3(env, this->namesymbol, FALSE)
-		   != R_UnboundValue) R_unLockBinding(this->namesymbol, env);
+		if(R_existsVarInFrame(env, this->namesymbol))
+		    R_unLockBinding(this->namesymbol, env);
 		defineVar(this->namesymbol, tmp, env);
 		R_LockBinding(this->namesymbol, env);
 	    } else {

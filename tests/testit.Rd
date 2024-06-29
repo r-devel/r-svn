@@ -19,6 +19,16 @@ foo(\var{x}, \var{y}, ...)
   \item{...}{description of \dots: \ldots}
 }
 \details{
+#ifndef nonexistent
+  Included
+% neither this comment line
+  % nor this one should render a new paragraph
+  conditional content.
+#endif
+#ifdef nonexistent
+  This is not included.
+#endif
+
   Escaped backslash \code{\\x}.
 
   \code{\%\{\}}
@@ -94,5 +104,10 @@ foo(\var{x}, \var{y}, ...)
 \examples{
 \\x
 \%\{\}
-foo(\var{x}, \var{y})
+
+\dontrun{stop("doomed to fail")}
+
+foo(\var{x},
+% pure comment lines should be dropped
+    \var{y})
 }

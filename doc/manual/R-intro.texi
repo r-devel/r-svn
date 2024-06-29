@@ -114,30 +114,27 @@ statistical modelling and graphics.
 
 This introduction to @R{} is derived from an original set of notes
 describing the @Sl{} and @SPLUS{} environments written in 1990--2 by
-Bill Venables and David M. Smith when at the University of Adelaide.  We
-have made a number of small changes to reflect differences between the
-@R{} and @Sl{} programs, and expanded some of the material.
+@I{Bill Venables} and @I{David M. Smith} when at the University of
+Adelaide.  We have made a number of small changes to reflect differences
+between the @R{} and @Sl{} programs, and expanded some of the material.
 
-We would like to extend warm thanks to Bill Venables (and David Smith)
-for granting permission to distribute this modified version of the notes
-in this way, and for being a supporter of @R{} from way back.
+We would like to extend warm thanks to @I{Bill Venables} (and @I{David
+Smith}) for granting permission to distribute this modified version of
+the notes in this way, and for being a supporter of @R{} from way back.
 
 Comments and corrections are always welcome.  Please address email
 correspondence to @email{R-help@@R-project.org}.
 
 @subheading Suggestions to the reader
 
-Most @R{} novices will start with the introductory session in Appendix
-A.  This should give some familiarity with the style of @R{} sessions
+Most @R{} novices will start with @ref{A sample session}.
+This should give some familiarity with the style of @R{} sessions
 and more importantly some instant feedback on what actually happens.
 
 Many users will come to @R{} mainly for its graphical facilities.
 @xref{Graphics}, which can be read at almost any time and need not wait
 until all the preceding sections have been digested.
 
-@menu
-* Introduction and preliminaries::
-@end menu
 
 @node Introduction and preliminaries, Simple manipulations numbers and vectors, Preface, Top
 @chapter Introduction and preliminaries
@@ -148,6 +145,7 @@ until all the preceding sections have been digested.
 * R and statistics::            
 * R and the window system::     
 * Using R interactively::       
+* An introductory session::     
 * Getting help::                
 * R commands; case sensitivity etc::  
 * Recall and correction of previous commands::  
@@ -195,19 +193,19 @@ analysis.
 @section Related software and documentation
 
 @R{} can be regarded as an implementation of the @Sl{} language which
-was developed at Bell Laboratories by Rick Becker, John Chambers and
-Allan Wilks, and also forms the basis of the @SPLUS{} systems.
+was developed at Bell Laboratories by @I{Rick Becker}, @I{John Chambers}
+and @I{Allan Wilks}, and also forms the basis of the @SPLUS{} systems.
 
 The evolution of the @Sl{} language is characterized by four books by
 John Chambers and coauthors.  For @R{}, the basic reference is @emph{The
 New @Sl{} Language: A Programming Environment for Data Analysis and
-Graphics} by Richard A.@: Becker, John M.@: Chambers and Allan R.@:
-Wilks.  The new features of the 1991 release of @Sl{}
+Graphics} by @I{Richard A.@: Becker}, @I{John M.@: Chambers} and
+@I{Allan R.@: Wilks}.  The new features of the 1991 release of @Sl{}
 @c (@Sl{} version 3) JMC says the 1988 version is S3.
-are covered in @emph{Statistical Models in @Sl{}} edited by John M.@:
-Chambers and Trevor J.@: Hastie.  The formal methods and classes of the
+are covered in @emph{Statistical Models in @Sl{}} edited by @I{John M.@:
+Chambers} and @I{Trevor J.@: Hastie}.  The formal methods and classes of the 
 @pkg{methods} package are based on those described in @emph{Programming
-with Data} by John M.@: Chambers.  @xref{References}, for precise
+with Data} by @I{John M.@: Chambers}.  @xref{References}, for precise
 references.
 
 There are now a number of books which describe how to use @R{} for data
@@ -270,7 +268,7 @@ features of @R{} is a straightforward if somewhat tedious procedure, and
 will not be considered further here.  Users in difficulty should seek
 local expert help.
 
-@node Using R interactively, Getting help, R and the window system, Introduction and preliminaries
+@node Using R interactively, An introductory session, R and the window system, Introduction and preliminaries
 @section Using R interactively
 
 When you use the @R{} program it issues a prompt when it expects input
@@ -344,13 +342,14 @@ follow is basically the same.  Create a folder as the working directory,
 and set that in the @file{Start In} field in your @R{} shortcut.
 Then launch @R{} by double clicking on the icon.
 
+@node An introductory session, Getting help, Using R interactively, Introduction and preliminaries
 @section An introductory session
 
 Readers wishing to get a feel for @R{} at a computer before proceeding
 are strongly advised to work through the introductory session
 given in @ref{A sample session}.
 
-@node Getting help, R commands; case sensitivity etc, Using R interactively, Introduction and preliminaries
+@node Getting help, R commands; case sensitivity etc, An introductory session, Introduction and preliminaries
 @section Getting help with functions and features
 @findex help
 
@@ -438,7 +437,7 @@ variables.  The set of symbols which can be used in @R{} names depends
 on the operating system and country within which @R{} is being run
 (technically on the @emph{locale} in use).  Normally all alphanumeric
 symbols are allowed@footnote{For portable @R{} code (including that to
-be used in @R{} packages) only A--Za--z0--9 should be used.} (and in
+be used in @R{} packages) only A--Z, a--z, and 0--9 should be used.} (and in
 some countries this includes accented letters) plus @samp{@code{.}} and
 @samp{@code{_}}, with the restriction that a name must start with
 @samp{@code{.}} or a letter, and if it starts with @samp{@code{.}} the
@@ -456,7 +455,7 @@ newline.  Elementary commands can be grouped together into one compound
 expression by braces (@samp{@code{@{}} and @samp{@code{@}}}).
 @emph{Comments} can be put almost@footnote{@strong{not} inside strings,
 nor within the argument list of a function definition} anywhere,
-starting with a hashmark (@samp{@code{#}}), everything to the end of the
+starting with a hash mark (@samp{@code{#}}), everything to the end of the
 line is a comment.
 
 If a command is not complete at the end of a line, @R{} will
@@ -491,7 +490,7 @@ editor}.
 
 The recall and editing capabilities under UNIX are highly customizable.
 You can find out how to do this by reading the manual entry for the
-@strong{readline} library.
+@strong{@I{readline}} library.
 
 Alternatively, the Emacs text editor provides more general support
 mechanisms (via @acronym{ESS}, @emph{Emacs Speaks Statistics}) for
@@ -784,9 +783,6 @@ sqrt(-17+0i)
 @noindent
 will do the computations as complex numbers.
 
-@menu
-* Generating regular sequences::
-@end menu
 
 @node Generating regular sequences, Logical vectors, Vector arithmetic, Simple manipulations numbers and vectors
 @section Generating regular sequences
@@ -1687,10 +1683,6 @@ in this case the dimension vector is ignored.  This is not the case,
 however, if the single index is not a vector but itself an array, as we
 next discuss.
 
-@menu
-* Index matrices::
-* The array() function::
-@end menu
 
 @node Index matrices, The array() function, Array indexing, Arrays and matrices
 @section Index matrices
@@ -1957,7 +1949,7 @@ may be used to permute an array, @code{a}.  The argument @code{perm}
 must be a permutation of the integers @math{@{1, @dots{}, k@}}, where
 @math{k} is the number of subscripts in @code{a}.  The result of the
 function is an array of the same size as @code{a} but with old dimension
-given by @code{perm[j]} becoming the new @code{j}-th dimension.  The
+given by @code{perm[j]} becoming the new @I{@code{j}-th} dimension.  The
 easiest way to think of this operation is as a generalization of
 transposition for matrices.  Indeed if @code{A} is a matrix, (that is, a
 doubly subscripted array) then @code{B} given by
@@ -2059,7 +2051,7 @@ result.  The matrix @xxT{} may be calculated either by @code{cbind(x)
 @xTx{} or @xxT{} is @code{crossprod(x)} or @code{x %o% x} respectively.}
 
 @findex crossprod
-The function @code{crossprod()} forms ``crossproducts'', meaning that
+The function @code{crossprod()} forms ``cross products'', meaning that
 @code{crossprod(X, y)} is the same as @code{t(X) %*% y} but the
 operation is more efficient.  If the second argument to
 @code{crossprod()} is omitted it is taken to be the same as the first.
@@ -2116,7 +2108,7 @@ x} @ } which is used in multivariate computations, should be computed by
 something like@footnote{Even better would be to form a matrix square
 root @eqn{B, B} with @eqn{A = BB^T, A = BB'} and find the squared length
 of the solution of @eqn{By = x, By = x} , perhaps using the Cholesky or
-eigen decomposition of @eqn{A, A}.  } @code{x %*% solve(A,x)}, rather
+eigendecomposition of @eqn{A, A}.  } @code{x %*% solve(A,x)}, rather
 than computing the inverse of @code{A}.
 
 @node Eigenvalues and eigenvectors, Singular value decomposition and determinants, Linear equations and inversion, Matrix facilities
@@ -2828,9 +2820,6 @@ where the @code{header=TRUE} option specifies that the first line is a
 line of headings, and hence, by implication from the form of the file,
 that no explicit row labels are given.
 
-@menu
-* The scan() function::
-@end menu
 
 @node The scan() function, Accessing builtin datasets, The read.table() function, Reading data from files
 @section The @code{scan()} function
@@ -3004,7 +2993,7 @@ and to simulate from the distribution.
 @noindent
 Prefix the name given here by @samp{d} for the density, @samp{p} for the
 CDF, @samp{q} for the quantile function and @samp{r} for simulation
-(@emph{r}andom deviates).  The first argument is @code{x} for
+(@I{@emph{r}andom} deviates).  The first argument is @code{x} for
 @code{d@var{xxx}}, @code{q} for @code{p@var{xxx}}, @code{p} for
 @code{q@var{xxx}} and @code{n} for @code{r@var{xxx}} (except for
 @code{rhyper}, @code{rsignrank} and @code{rwilcox}, for which it is
@@ -3170,8 +3159,8 @@ qqline(x)
 @end example
 
 Finally, we might want a more formal test of agreement with normality
-(or not).  @R{} provides the Shapiro-Wilk test
-@cindex Shapiro-Wilk test
+(or not).  @R{} provides the @I{Shapiro-Wilk} test
+@cindex @I{Shapiro-Wilk} test
 @findex shapiro.test
 
 @example
@@ -3345,7 +3334,7 @@ already seen a pair of boxplots.  The following
 @noindent
 will show the two empirical CDFs, and @code{qqplot} will perform a Q-Q
 plot of the two samples.  The Kolmogorov-Smirnov test is of the maximal
-vertical distance between the two ecdf's, assuming a common continuous
+vertical distance between the two @abbr{ecdf}s, assuming a common continuous
 distribution:
 
 @example
@@ -3597,12 +3586,9 @@ Thus given a @math{n} by @math{1} vector @math{y} and an @math{n} by
 @math{X \\ y}
 @end tex
 is defined as
-@ifnottex
-(X'X)^@{-@}X'y, where (X'X)^@{-@}
-@end ifnottex
-@tex
-$(X^T X)^{-}X^T y$, where $(X^T X)^{-}$
-@end tex
+@eqn{(X^T X)^{-}X^T y, (X'X)^@{-@}X'y},
+where
+@eqn{(X^T X)^{-}, (X'X)^@{-@}}
 is a generalized inverse of @math{X'X}.
 
 @example
@@ -3748,7 +3734,7 @@ Less frequently, a function will need to refer to components of
 @samp{@dots{}}.  The expression @code{list(...)} evaluates all such
 arguments and returns them in a named list, while @code{..1},
 @code{..2}, etc. evaluate them one at a time, with @samp{..n}
-returning the n'th unmatched argument.
+returning the @I{n-th} unmatched argument.
 
 @node Assignment within functions, More advanced examples, The three dots argument, Writing your own functions
 @section Assignments within functions
@@ -3764,7 +3750,7 @@ the reader needs to be familiar with the notion of an evaluation
 topic and is not covered further here.
 
 If global and permanent assignments are intended within a function, then
-either the ``superassignment'' operator, @code{<<-} or the function
+either the `@I{superassignment}' operator, @code{<<-} or the function
 @code{assign()} can be used.  See the @code{help} document for details.
 @c @SPLUS{} users should be aware that @code{<<-} has different semantics
 @c in @R{}.  These are discussed further in @ref{Scope}.
@@ -3792,14 +3778,13 @@ levels) and @code{varieties} (@code{v} levels).  If @math{R} and
 @emph{replications} and @emph{block size} matrices, respectively, and
 @math{N} is the @math{b} by @math{v} incidence matrix, then the
 efficiency factors are defined as the eigenvalues of the matrix
-@ifnottex
-E = I_v - R^@{-1/2@}N'K^@{-1@}NR^@{-1/2@} = I_v - A'A, where
-A = K^@{-1/2@}NR^@{-1/2@}.
-@end ifnottex
 @tex
 $$E = I_v - R^{-1/2}N^T K^{-1}NR^{-1/2} = I_v - A^T A,$$
-where $A = K^{-1/2}NR^{-1/2}$.
 @end tex
+@ifnottex
+@I{E = I_v - R^@{-1/2@}N'K^@{-1@}NR^@{-1/2@} = I_v - A'A,}
+@end ifnottex
+where @eqn{A = K^{-1/2}NR^{-1/2}, A = K^@{-1/2@}NR^@{-1/2@}}.
 One way to write the function is given below.
 
 @example
@@ -3912,10 +3897,6 @@ area <- function(f, a, b, eps = 1.0e-06, lim = 10) @{
 @}
 @end example
 
-@menu
-* Scope::
-* Object orientation::
-@end menu
 
 @node Scope, Customizing the environment, More advanced examples, Writing your own functions
 @section Scope
@@ -4162,15 +4143,14 @@ To see what methods are available we can use @code{methods()}
 
 @example
 > methods(coef)
-[1] coef.aov*         coef.Arima*       coef.default*     coef.listof*
-[5] coef.nls*         coef.summary.nls*
-
-   Non-visible functions are asterisked
+[1] coef.aov*     coef.Arima*   coef.default* coef.listof*  coef.maov*   
+[6] coef.nls*    
+see '?methods' for accessing help and source code
 @end example
 
 @noindent
 In this example there are six methods, none of which can be seen by
-typing its name.  We can read these by either of
+typing its name (as indicated by the asterisk).  We can read these by either of
 
 @findex getAnywhere
 @findex getS3method
@@ -4182,17 +4162,21 @@ It was found in the following places
   namespace:stats
 with value
 
-function (object, ...)
+function (object, complete = FALSE, ...)
 @{
-    z <- object$coef
-    z[!is.na(z)]
+    cf <- object$coefficients
+    if (complete) 
+        cf
+    else cf[!is.na(cf)]
 @}
 
 > getS3method("coef", "aov")
-function (object, ...)
+function (object, complete = FALSE, ...)
 @{
-    z <- object$coef
-    z[!is.na(z)]
+    cf <- object$coefficients
+    if (complete) 
+        cf
+    else cf[!is.na(cf)]
 @}
 @end example
 
@@ -4243,10 +4227,10 @@ independent, homoscedastic errors
 
 @ifnottex
 @display
-y_i = sum_@{j=0@}^p beta_j x_@{ij@} + e_i, @ @ @ @ i = 1, @dots{}, n,
+@I{y_i = sum_@{j=0@}^p beta_j x_@{ij@} + e_i, @ @ @ @ i = 1, @dots{}, n,}
 @end display
 @noindent
-where the e_i are NID(0, sigma^2).
+where the e_i are @I{NID}(0, sigma^2).
 @end ifnottex
 @tex
 $$ y_i = \sum_{j=0}^p \beta_j x_{ij} + e_i,
@@ -4256,14 +4240,7 @@ $$
 @end tex
 In matrix terms this would be written
 
-@ifnottex
-@display
-y = X @ beta + e
-@end display
-@end ifnottex
-@tex
-$$ y = X \beta + e $$
-@end tex
+@deqn{y = X \beta + e, y = X @ beta + e}
 
 @noindent
 where the @math{y} is the response vector, @math{X} is the @emph{model
@@ -4296,13 +4273,7 @@ Simple linear regression of @math{y} on @math{x} through the origin
 (that is, without an intercept term).
 
 @item log(y) ~ x1 + x2
-Multiple regression of the transformed variable,
-@ifnottex
-log(y),
-@end ifnottex
-@tex
-$\log(y)$,
-@end tex
+Multiple regression of the transformed variable,@eqn{\log(y), log(y)},
 on @math{x1} and @math{x2} (with an implicit intercept term).
 
 @item y ~ poly(x,2)
@@ -4389,11 +4360,11 @@ explicitly removed.
 @end table
 
 The @emph{formula operators} are similar in effect to the Wilkinson and
-Rogers notation used by such programs as Glim and Genstat.  One
+Rogers notation used by such programs as @I{Glim} and @I{Genstat}.  One
 inevitable change is that the operator @samp{@code{.}} becomes
 @samp{@code{:}} since the period is a valid name character in @R{}.
 
-The notation is summarized below (based on Chambers & Hastie, 1992,
+The notation is summarized below (based on @I{Chambers & Hastie}, 1992,
 p.29):
 
 @table @code
@@ -4455,7 +4426,7 @@ a column of ones if included in the model).
 What about a @math{k}-level factor @code{A}?  The answer differs for
 unordered and ordered factors.  For @emph{unordered} factors @math{k -
 1} columns are generated for the indicators of the second, @dots{},
-@math{k}th levels of the factor. (Thus the implicit parameterization is
+@I{@math{k}-th} levels of the factor. (Thus the implicit parameterization is
 to contrast the response at each level with that at the first.)  For
 @emph{ordered} factors the @math{k - 1} columns are the orthogonal
 polynomials on @math{1, @dots{}, k}, omitting the constant term.
@@ -4473,7 +4444,7 @@ options(contrasts = c("contr.treatment", "contr.poly"))
 
 @noindent
 The main reason for mentioning this is that @R{} and @Sl{} have
-different defaults for unordered factors, @Sl{} using Helmert
+different defaults for unordered factors, @Sl{} using @I{Helmert}
 contrasts.  So if you need to compare your results to those of a textbook
 or paper which used @SPLUS{}, you will need to set
 
@@ -4668,9 +4639,9 @@ in the residual sums of squares resulting from an inclusion of
 Hence only for orthogonal experiments will the order of inclusion be
 inconsequential.
 
-For multistratum experiments the procedure is first to project the
+For @I{multistratum} experiments the procedure is first to project the
 response onto the error strata, again in sequence, and to fit the mean
-model to each projection.  For further details, see Chambers & Hastie
+model to each projection.  For further details, see @I{Chambers & Hastie}
 (1992).
 
 A more flexible alternative to the default full ANOVA table is to
@@ -4770,14 +4741,12 @@ the @emph{linear predictor}, and is usually written
 @display
 eta = beta_1 x_1 + beta_2 x_2 + @dots{} + beta_p x_p,
 @end display
-hence x_i has no influence on the distribution of @math{y} if and only if
-beta_i is zero.
 @end ifnottex
 @tex
 $$ \eta = \beta_1 x_1 + \beta_2 x_2 + \cdots + \beta_p x_p, $$
-hence $x_i$ has no influence on the distribution of @math{y} if and only
-if $\beta_i=0$.
 @end tex
+hence @math{x_i} has no influence on the distribution of @math{y} if and
+only if @eqn{\beta_i=0, beta_i is zero}.
 
 @item
 The distribution of @math{y} is of the form
@@ -4786,10 +4755,6 @@ The distribution of @math{y} is of the form
 f_Y(y; mu, phi)
   = exp((A/phi) * (y lambda(mu) - gamma(lambda(mu))) + tau(y, phi))
 @end display
-where phi is a @emph{scale parameter} (possibly known), and is constant
-for all observations, @math{A} represents a prior weight, assumed known
-but possibly varying with the observations, and $\mu$ is the mean of
-@math{y}.
 @end ifnottex
 @tex
 $$
@@ -4797,36 +4762,36 @@ f_Y(y;\mu,\varphi)
 = \exp\left[{A \over \varphi}\left\{y\lambda(\mu) -
 \gamma\left(\lambda(\mu)\right)\right\} + \tau(y,\varphi)\right]
 $$
-where $\varphi$ is a @emph{scale parameter} (possibly known), and is
-constant for all observations, $A$ represents a prior weight, assumed
-known but possibly varying with the observations, and $\mu$ is the mean
-of $y$.
 @end tex
+where @eqn{\varphi, phi} is a @emph{scale parameter} (possibly known),
+and is constant for all observations, @math{A} represents a prior
+weight, assumed known but possibly varying with the observations, and
+@eqn{\mu, mu} is the mean of @math{y}.
+
 So it is assumed that the distribution of @math{y} is determined by its
 mean and possibly a scale parameter as well.
 
 @item
+The mean, @eqn{\mu, mu}, is a smooth invertible function of the linear
+predictor:
 @ifnottex
-The mean, mu, is a smooth invertible function of the linear predictor:
 @display
 mu = m(eta),    eta = m^@{-1@}(mu) = ell(mu)
 @end display
-and this inverse function, ell(), is called the @emph{link function}.
 @end ifnottex
 @tex
-The mean, $\mu$, is a smooth invertible function of the linear predictor:
 $$ \mu = m(\eta),\qquad \eta = m^{-1}(\mu) = \ell(\mu) $$
-and this inverse function, $\ell()$, is called the @emph{link function}.
 @end tex
-
+and this inverse function, @eqn{\ell(), ell()}, is called the @emph{link
+function}. 
 @end itemize
 
 These assumptions are loose enough to encompass a wide class of models
 useful in statistical practice, but tight enough to allow the
 development of a unified methodology of estimation and inference, at
 least approximately.  The reader is referred to any of the current
-reference works on the subject for full details, such as McCullagh &
-Nelder (1989) or Dobson (1990).
+reference works on the subject for full details, such as @I{McCullagh &
+Nelder} (1989) or @I{Dobson} (1990). 
 
 @menu
 * Families::                    
@@ -4838,7 +4803,7 @@ Nelder (1989) or Dobson (1990).
 @cindex Families
 
 The class of generalized linear models handled by facilities supplied in
-@R{} includes @emph{gaussian}, @emph{binomial}, @emph{poisson},
+@R{} includes @emph{gaussian}, @emph{binomial}, @emph{@I{poisson}},
 @emph{inverse gaussian} and @emph{gamma} response distributions and also
 @emph{quasi-likelihood} models where the response distribution is not
 explicitly specified.  In the latter case the @emph{variance function}
@@ -4921,9 +4886,9 @@ we shall see later.
 
 @subsubheading The @code{binomial} family
 
-Consider a small, artificial example, from Silvey (1970).
+Consider a small, artificial example, from @I{Silvey} (1970).
 
-On the Aegean island of Kalythos the male inhabitants suffer from a
+On the Aegean island of @I{Kalythos} the male inhabitants suffer from a
 congenital eye disease, the effects of which become more marked with
 increasing age.  Samples of islander males of various ages were tested
 for blindness and the results recorded.  The data is shown below:
@@ -4946,7 +4911,7 @@ for blindness and the results recorded.  The data is shown below:
 @end ifnottex
 
 The problem we consider is to fit both logistic and probit models to
-this data, and to estimate for each model the LD50, that is the age at
+this data, and to estimate for each model the @I{LD50}, that is the age at
 which the chance of blindness for a male inhabitant is 50%.
 
 If @math{y} is the number of blind at age @math{x} and @math{n} the
@@ -4962,9 +4927,9 @@ where for the probit case,
 is the standard normal distribution function, and in the logit case
 (the default),
 @eqn{F(z) = e^z/(1+e^z),F(z) = e^z/(1+e^z)}.
-In both cases the LD50 is
+In both cases the @I{LD50} is
 @ifnottex
-LD50 = - beta_0/beta_1
+@I{LD50} = - beta_0/beta_1
 @end ifnottex
 @tex
 $$ \hbox{LD50} = -\beta_0/\beta_1 $$
@@ -5019,7 +4984,7 @@ second call.  To see the results of each fit we could use
 > summary(fml)
 @end example
 
-Both models fit (all too) well.  To find the LD50 estimate we can use a
+Both models fit (all too) well.  To find the @I{LD50} estimate we can use a
 simple function:
 
 @example
@@ -5055,7 +5020,7 @@ example:
 For all families the variance of the response will depend on the mean
 and will have the scale parameter as a multiplier.  The form of
 dependence of the variance on the mean is a characteristic of the
-response distribution; for example for the poisson distribution
+response distribution; for example for the Poisson distribution
 @eqn{\hbox{Var}[y] = \mu,Var(y) = mu}.
 
 For quasi-likelihood estimation and inference the precise response
@@ -5190,7 +5155,7 @@ fit on a new plot:
 
 The standard package @pkg{stats} provides much more extensive facilities
 for fitting non-linear models by least squares.  The model we have just
-fitted is the Michaelis-Menten model, so we can use
+fitted is the @I{Michaelis}-@I{Menten} model, so we can use
 
 @example
 > df <- data.frame(x=x, y=y)
@@ -5225,7 +5190,7 @@ K 0.7651
 Maximum likelihood is a method of nonlinear model fitting that applies
 even if the errors are not normal.  The method finds the parameter values
 which maximize the log likelihood, or equivalently which minimize the
-negative log-likelihood.  Here is an example from Dobson (1990), pp.@:
+negative log-likelihood.  Here is an example from @I{Dobson} (1990), pp.@:
 108--111.  This example fits a logistic model to dose-response data,
 which clearly could also be fit by @code{glm()}.  The data are:
 
@@ -5255,7 +5220,7 @@ We pick sensible starting values and do the fit:
 @noindent
 After the fitting, @code{out$minimum} is the negative log-likelihood,
 and @code{out$estimate} are the maximum likelihood estimates of the
-parameters.  To obtain the approximate SEs of the estimates we do:
+parameters.  To obtain the approximate @abbr{SE}s of the estimates we do:
 
 @example
 > sqrt(diag(solve(out$hessian)))
@@ -5478,7 +5443,7 @@ against every other column of @code{X} and the resulting @math{n(n-1)}
 plots are arranged in a matrix with plot scales constant over the rows
 and columns of the matrix.
 
-When three or four variables are involved a @emph{coplot} may be more
+When three or four variables are involved a @emph{@I{coplot}} may be more
 enlightening.  If @code{a} and @code{b} are numeric vectors and @code{c}
 is a numeric vector or factor object (all of the same length), then
 the command
@@ -5514,7 +5479,7 @@ appears in each panel.  The default is @code{points()} to produce a
 scatterplot but by supplying some other low-level graphics function of
 two vectors @code{x} and @code{y} as the value of @code{panel=} you can
 produce any type of plot you wish.  An example panel function useful for
-coplots is @code{panel.smooth()}.
+@I{coplots} is @code{panel.smooth()}.
 
 @node Display graphics, Arguments to high-level plotting functions, Displaying multivariate data, High-level plotting commands
 @subsection Display graphics
@@ -5556,7 +5521,7 @@ frequencies divided by bin width instead of counts.
 
 @item dotchart(x, @dots{})
 @findex dotchart
-Constructs a dotchart of the data in @code{x}.  In a dotchart the
+Constructs a dot chart of the data in @code{x}.  In a dot chart the
 @math{y}-axis gives a labelling of the data in @code{x} and the
 @math{x}-axis gives its value.  For example it allows easy visual
 selection of all data entries with values lying in specified ranges.
@@ -6331,7 +6296,7 @@ another document.  This works best when @emph{encapsulated} PostScript
 is produced: @R{} always produces conformant output, but only marks the
 output as such when the @code{onefile=FALSE} argument is supplied.  This
 unusual notation stems from @Sl{}-compatibility: it really means that
-the output will be a single page (which is part of the EPSF
+the output will be a single page (which is part of the @I{EPSF}
 specification).  Thus to produce a plot for inclusion use something like
 
 @example
@@ -6416,8 +6381,8 @@ Terminate all graphics devices on the list, except the null device.
 @R{} does not have builtin capabilities for dynamic or
 interactive graphics, e.g.@: rotating point clouds or to ``brushing''
 (interactively highlighting) points. However, extensive dynamic graphics
-facilities are available in the system GGobi by Swayne, Cook and Buja
-available from
+facilities are available in the system @I{GGobi} by @I{Swayne}, @I{Cook}
+and @I{Buja} available from
 
 @quotation
 @uref{http://ggobi.org/}
@@ -6456,7 +6421,7 @@ To see which packages are installed at your site, issue the command
 
 @noindent
 with no arguments.  To load a particular package (e.g., the @CRANpkg{boot}
-package containing functions from Davison & Hinkley (1997)), use a
+package containing functions from @I{Davison} & @I{Hinkley} (1997)), use a
 command like
 
 @example
@@ -6627,7 +6592,7 @@ package: @code{tk_choose.files} and @code{tk_choose.dir}.
 
 Functions @code{file.show} and @code{file.edit} will display and edit
 one or more files in a way appropriate to the @R{} port, using the
-facilities of a console (such as RGui on Windows or R.app on macOS) if
+facilities of a console (such as @I{RGui} on Windows or R.app on macOS) if
 one is in use.
 
 There is some support for @emph{links} in the filesystem: see functions
@@ -6672,7 +6637,7 @@ POSIX filesystems and treated as if there was only one slash.  They are
 double slashes may have a different meaning.
 
 @item
-Windows' UNC filepaths (such as @file{\\server\dir1\dir2\file} and
+Windows' @I{UNC} filepaths (such as @file{\\server\dir1\dir2\file} and
 @file{\\?\UNC\server\dir1\dir2\file}) are not supported, but they may
 work in some @R{} functions.  POSIX filesystems are allowed to treat a
 leading double slash specially.
@@ -6782,7 +6747,7 @@ Start the @HTML{} interface to on-line help (using a web browser
 available at your machine).  You should briefly explore the features of
 this facility with the mouse.
 
-Iconify the help window and move on to the next part.
+@I{Iconify} the help window and move on to the next part.
 
 @item x <- rnorm(50)
 @itemx y <- rnorm(x)
@@ -7159,7 +7124,7 @@ expressions used in this way.  Expressions containing spaces or shell
 metacharacters will need to be quoted.)
 
 @item --no-readline
-(UNIX only) Turn off command-line editing via @strong{readline}.  This
+(UNIX only) Turn off command-line editing via @strong{@I{readline}}.  This
 is useful when running @R{} from within Emacs using the @acronym{ESS}
 (``Emacs Speaks Statistics'') package.  @xref{The command-line editor},
 for more information.  Command-line editing is enabled for default
@@ -7403,7 +7368,7 @@ R CMD latex.exe mydoc
 @noindent
 will run @LaTeX{} on @file{mydoc.tex}, with the path to @R{}'s
 @file{share/texmf} macros appended to @env{TEXINPUTS}.  (Unfortunately,
-this does not help with the MiKTeX build of @LaTeX{}, but
+this does not help with the @I{MiKTeX} build of @LaTeX{}, but
 @command{R CMD texify mydoc} will work in that case.)
 
 @node Invoking R under macOS, Scripting with R, Invoking R under Windows, Invoking R
@@ -7490,7 +7455,7 @@ to their path), use
 @end example
 
 @noindent
-At least in Bourne and bash shells, the @code{#!} mechanism does
+At least in @I{Bourne} and bash shells, the @code{#!} mechanism does
 @strong{not} allow extra arguments like 
 @code{#! /usr/bin/env Rscript --vanilla}.
 
@@ -7508,8 +7473,8 @@ and @code{stdin()} refers to the script file to allow such traditional
 usage.  If you want to refer to the process's @file{stdin}, use
 @code{"stdin"} as a @code{file} connection, e.g.@: @code{scan("stdin", ...)}.
 
-Another way to write executable script files (suggested by Fran@,{c}ois
-Pinard) is to use a @emph{here document} like
+Another way to write executable script files (suggested by
+@I{Fran@,{c}ois Pinard}) is to use a @emph{here document} like
 
 @example
 #!/bin/sh
@@ -7537,10 +7502,10 @@ should not contain spaces nor shell metacharacters.
 
 @appendixsection Preliminaries
 
-When the @acronym{GNU} @strong{readline} library is available at the
+When the @acronym{GNU} @strong{@I{readline}} library is available at the
 time @R{} is configured for compilation under UNIX, an inbuilt command
 line editor allowing recall, editing and re-submission of prior commands
-is used.  Note that other versions of @strong{readline} exist and may be
+is used.  Note that other versions of @strong{@I{readline}} exist and may be
 used by the inbuilt command line editor: this is most common on macOS.
 You can find out which version (if any) is available by running
 @code{extSoftVersion()} in an @R{} session.
@@ -7556,9 +7521,9 @@ file @file{README.Rterm} for command-line editing under
 @code{Rterm.exe}.
 
 When using @R{} with GNU@footnote{It is possible to build @R{} using an
-emulation of GNU @strong{readline}, such as one based on NetBSD's
-@strong{editline} (also known as @strong{libedit}), in which case only a
-subset of the capabilities may be provided.} @strong{readline}
+emulation of GNU @strong{@I{readline}}, such as one based on @I{NetBSD}'s
+@I{editline} (also known as @I{libedit}), in which case only a
+subset of the capabilities may be provided.} @strong{@I{readline}}
 capabilities, the functions described below are available, as well as
 others (probably) documented in @command{man readline} or @command{info
 readline} on your system.
@@ -7578,7 +7543,7 @@ allowed on terminals with real Meta keys.  Note that case is significant
 for Meta characters.
 
 Some but not all versions@footnote{In particular, not versions 6.3 or
-later: this is worked around as from @R{} 3.4.0.} of @strong{readline}
+later: this is worked around as from @R{} 3.4.0.} of @strong{@I{readline}}
 will recognize resizing of the terminal window so this is best avoided.
 
 @appendixsection Editing actions
@@ -7592,7 +7557,7 @@ you are editing, displacing any characters to the right of the cursor.
 In @emph{vi} mode character insertion mode is started by @kbd{M-i} or
 @kbd{M-a}, characters are typed and insertion mode is finished by typing
 a further @key{ESC}.  (The default is Emacs-style, and only that is
-described here: for @emph{vi} mode see the @strong{readline}
+described here: for @emph{vi} mode see the @strong{@I{readline}}
 documentation.)
 
 Pressing the @key{RET} command at any time causes the command to be
@@ -7666,7 +7631,7 @@ Re-submit the command to @R{}.
 
 The final @key{RET} terminates the command line editing sequence.
 
-The @strong{readline} key bindings can be customized in the usual way
+The @strong{@I{readline}} key bindings can be customized in the usual way
 @emph{via} a @file{~/.inputrc} file.  These customizations can be
 conditioned on application @code{R}, that is by including a section like
 
@@ -7689,41 +7654,51 @@ $endif
 @node References,  , Concept index, Top
 @appendix References
 
-D.@: M.@: Bates and  D.@: G.@: Watts (1988), @emph{Nonlinear Regression
-Analysis and Its Applications.} John Wiley & Sons, New York.
+@I{D.@: M.@: Bates} and @I{D.@: G.@: Watts} (1988),
+@emph{Nonlinear Regression Analysis and Its Applications.}
+John Wiley & Sons, New York.
 
 @noindent
-Richard A.@: Becker, John M.@: Chambers and Allan R.@: Wilks (1988),
-@emph{The New S Language.} Chapman & Hall, New York.
+@I{Richard A.@: Becker}, @I{John M.@: Chambers} and @I{Allan R.@: Wilks} (1988),
+@emph{The New S Language.}
+Chapman & Hall, New York.
 This book is often called the ``@emph{Blue Book}''.
 
 @noindent
-John M.@: Chambers and Trevor J.@: Hastie eds. (1992),
-@emph{Statistical Models in S.} Chapman & Hall, New York.
+@I{John M.@: Chambers} and @I{Trevor J.@: Hastie} eds. (1992),
+@emph{Statistical Models in S.}
+Chapman & Hall, New York.
 This is also called the ``@emph{White Book}''.
 
 @noindent
-John M.@: Chambers (1998)
-@emph{Programming with Data}. Springer, New York.
+@I{John M.@: Chambers} (1998)
+@emph{Programming with Data}.
+@I{Springer}, New York.
 This is also called the ``@emph{Green Book}''.
 
 @noindent
-A.@: C.@: Davison and D.@: V.@: Hinkley (1997), @emph{Bootstrap Methods
-and Their Applications}, Cambridge University Press.
+@I{A.@: C.@: Davison} and @I{D.@: V.@: Hinkley} (1997),
+@emph{Bootstrap Methods and Their Applications},
+Cambridge University Press.
 
 @noindent
-Annette J.@: Dobson (1990), @emph{An Introduction to Generalized Linear
-Models}, Chapman and Hall, London.
+@I{Annette J.@: Dobson} (1990),
+@emph{An Introduction to Generalized Linear Models},
+Chapman and Hall, London.
 
 @noindent
-Peter McCullagh and John A.@: Nelder (1989), @emph{Generalized Linear
-Models.} Second edition, Chapman and Hall, London.
+@I{Peter McCullagh} and @I{John A.@: Nelder} (1989), 
+@emph{Generalized Linear Models.} 
+Second edition, Chapman and Hall, London.
 
 @noindent
-John A.@ Rice (1995), @emph{Mathematical Statistics and Data Analysis.}
-Second edition.  Duxbury Press, Belmont, CA.
+@I{John A.@ Rice} (1995),
+@emph{Mathematical Statistics and Data Analysis.}
+Second edition.  @I{Duxbury Press}, Belmont, CA.
 
 @noindent
-S.@: D.@: Silvey (1970), @emph{Statistical Inference.} Penguin, London.
+@I{S.@: D.@: Silvey} (1970),
+@emph{Statistical Inference.} 
+Penguin, London.
 
 @bye

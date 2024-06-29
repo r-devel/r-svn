@@ -1,8 +1,9 @@
+%define parse.error verbose
 %{
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -674,7 +675,7 @@ static SEXP xxusermacro(SEXP macro, SEXP args, YYLTYPE *lloc)
 	    }
 	}
 	str[offset] = '\0';
-	SET_STRING_ELT(ans, i+1, mkChar(str));
+	SET_STRING_ELT(ans, i+1, mkCharCE(str, CE_UTF8));
         vmaxset(vmax);
     }
     RELEASE_SV(args);
@@ -1216,6 +1217,7 @@ static keywords[] = {
     { "\\code",    RCODEMACRO },
     { "\\dontshow",RCODEMACRO },
     { "\\donttest",RCODEMACRO },
+    { "\\dontdiff",RCODEMACRO },
     { "\\testonly",RCODEMACRO },
     
     /* This macro takes one optional bracketed option and one R-like argument */

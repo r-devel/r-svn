@@ -49,7 +49,7 @@ embedGlyphs(file, glyphInfo, outfile = file, options = character())
 
   You will need \code{ghostscript}: the full path to the executable can
   be set by the environment variable \env{R_GSCMD}. If this is
-  unset, a GhostScript executable will be looked for by name on your
+  unset, a \I{GhostScript} executable will be looked for by name on your
   path: on a Unix alike \code{"gs"} is used, and on Windows the setting
   of the environment variable \env{GSC} is used, otherwise commands
   \code{"gswi64c.exe"} then \code{"gswin32c.exe"} are tried.
@@ -71,7 +71,7 @@ embedGlyphs(file, glyphInfo, outfile = file, options = character())
 
   \code{embedGlyphs()} is recommended for \code{pdf()} files
   that contain typeset glyphs (see \code{\link{glyphInfo}}),
-  but it will only work for TrueType fonts.
+  but it will only work for \I{TrueType} fonts.
 }
 \value{
   The shell command used to invoke Ghostscript is returned
@@ -82,9 +82,10 @@ embedGlyphs(file, glyphInfo, outfile = file, options = character())
   \code{\link{postscriptFonts}},
   \code{\link{Devices}}.
 
+  \bibshow{
   Paul Murrell and Brian Ripley (2006).
   \dQuote{Non-standard fonts in PostScript and PDF graphics.}
   \emph{R News}, \bold{6}(2), 41--47.
-  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.
+  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.}
 }
 \keyword{device}

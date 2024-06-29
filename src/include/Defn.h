@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023  The R Core Team.
+ *  Copyright (C) 1998--2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,13 @@
 #define COUNTING
 
 #define BYTECODE
+
+#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
+# define BOXED_BINDING_CELLS 1
+#else
+# define BOXED_BINDING_CELLS 0
+# define IMMEDIATE_PROMISE_VALUES
+#endif
 
 /* probably no longer needed */
 #define NEW_CONDITION_HANDLING
@@ -227,6 +234,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define ALTREP(x)       ((x)->sxpinfo.alt)
 #define SETALTREP(x, v) (((x)->sxpinfo.alt) = (v))
 #define SETSCALAR(x, v) (((x)->sxpinfo.scalar) = (v))
+#define ANY_ATTRIB(x) (ATTRIB(x) != R_NilValue)
 
 #if defined(COMPUTE_REFCNT_VALUES)
 # define REFCNT(x) ((x)->sxpinfo.named)
@@ -418,6 +426,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))
 #define REAL_RO(x)	((const double *) DATAPTR_RO(x))
 #define STRING_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
+#define VECTOR_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 
 /* List Access Macros */
 /* These also work for ... objects */
@@ -448,11 +457,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define BNDCELL_TAG(e)	((e)->sxpinfo.extra)
 #define SET_BNDCELL_TAG(e, v) ((e)->sxpinfo.extra = (v))
 
-#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
-# define BOXED_BINDING_CELLS 1
-#else
-# define BOXED_BINDING_CELLS 0
-#endif
 #if BOXED_BINDING_CELLS
 /* Use allocated scalars to hold immediate binding values. A little
    less efficient but does not change memory layout or use. These
@@ -619,6 +623,8 @@ void (SET_BNDCELL_IVAL)(SEXP cell, int v);
 void (SET_BNDCELL_LVAL)(SEXP cell, int v);
 void (INIT_BNDCELL)(SEXP cell, int type);
 void SET_BNDCELL(SEXP cell, SEXP val);
+int (PROMISE_TAG)(SEXP e);
+void (SET_PROMISE_TAG)(SEXP e, int v);
 
 /* List Access Functions */
 SEXP (CAR0)(SEXP e);
@@ -1152,10 +1158,22 @@ typedef struct {
 /* Promise Access Macros */
 #define PRCODE(x)	((x)->u.promsxp.expr)
 #define PRENV(x)	((x)->u.promsxp.env)
-#define PRVALUE(x)	((x)->u.promsxp.value)
 #define PRSEEN(x)	((x)->sxpinfo.gp)
 #define SET_PRSEEN(x,v)	(((x)->sxpinfo.gp)=(v))
-#define PROMISE_IS_EVALUATED(x) (PRVALUE(x) != R_UnboundValue)
+#ifdef IMMEDIATE_PROMISE_VALUES
+# define PRVALUE0(x) ((x)->u.promsxp.value)
+# define PRVALUE(x) \
+    (PROMISE_TAG(x) ? R_expand_promise_value(x) : PRVALUE0(x))
+# define PROMISE_IS_EVALUATED(x) \
+    (PROMISE_TAG(x) || PRVALUE0(x) != R_UnboundValue)
+# define PROMISE_TAG(x)  BNDCELL_TAG(x)
+# define SET_PROMISE_TAG(x, v) SET_BNDCELL_TAG(x, v)
+#else
+# define PRVALUE0(x) ((x)->u.promsxp.value)
+# define PRVALUE(x) PRVALUE0(x)
+# define PROMISE_IS_EVALUATED(x) (PRVALUE(x) != R_UnboundValue)
+# define PROMISE_TAG(x) 0
+#endif
 
 /* Hashing Macros */
 #define HASHASH(x)      ((x)->sxpinfo.gp & HASHASH_MASK)
@@ -1261,7 +1279,7 @@ Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b);
    compiled 'for' loops. This could be used more extensively in the
    future, though the ALTREP framework may be a better choice.
 
-   Allocating on the stack memory is also supported; this is currently
+   Allocating memory on the stack is also supported; this is currently
    used for jump buffers.
 */
 typedef struct {
@@ -1277,6 +1295,9 @@ typedef struct {
 # define IS_PARTIAL_SXP_TAG(x) ((x) & PARTIALSXP_MASK)
 # define RAWMEM_TAG 254
 # define CACHESZ_TAG 253
+
+/* saved bcEval() state for implementing recursion using goto */
+typedef struct R_bcFrame R_bcFrame_type;
 
 #ifdef R_USE_SIGNALS
 /* Stack entry for pending promises */
@@ -1306,15 +1327,17 @@ typedef struct RCNTXT {
     int bcintactive;            /* R_BCIntActive value */
     SEXP bcbody;                /* R_BCbody value */
     void* bcpc;                 /* R_BCpc value */
+    ptrdiff_t relpc;            /* pc offset when begincontext is called */
     SEXP handlerstack;          /* condition handler stack */
     SEXP restartstack;          /* stack of available restarts */
     struct RPRSTACK *prstack;   /* stack of pending promises */
     R_bcstack_t *nodestack;
     R_bcstack_t *bcprottop;
+    R_bcFrame_type *bcframe;
     SEXP srcref;	        /* The source line in effect */
     int browserfinish;          /* should browser finish this context without
                                    stopping */
-    SEXP returnValue;           /* only set during on.exit calls */
+    R_bcstack_t returnValue;    /* only set during on.exit calls */
     struct RCNTXT *jumptarget;	/* target for a continuing jump */
     int jumpmask;               /* associated LONGJMP argument */
 } RCNTXT, *context;
@@ -1441,6 +1464,7 @@ extern0 int	R_BCIntActive INI_as(0); /* bcEval called more recently than
                                             eval */
 extern0 void*	R_BCpc INI_as(NULL);/* current byte code instruction */
 extern0 SEXP	R_BCbody INI_as(NULL); /* current byte code object */
+extern0 R_bcFrame_type *R_BCFrame INI_as(NULL); /* bcEval() frame */
 extern0 SEXP	R_NHeap;	    /* Start of the cons cell heap */
 extern0 SEXP	R_FreeSEXP;	    /* Cons cell free list */
 extern0 R_size_t R_Collected;	    /* Number of free cons cells (after gc) */
@@ -1450,6 +1474,8 @@ extern0 int	R_Is_Running;	    /* for Windows memory manager */
 LibExtern int	R_PPStackSize	INI_as(R_PPSSIZE); /* The stack size (elements) */
 LibExtern int	R_PPStackTop;	    /* The top of the stack */
 LibExtern SEXP*	R_PPStack;	    /* The pointer protection stack */
+
+void R_ReleaseMSet(SEXP mset, int keepSize);
 
 /* Evaluation Environment */
 extern0 SEXP	R_CurrentExpr;	    /* Currently evaluating expression */
@@ -1569,7 +1595,7 @@ extern0 double elapsedLimitValue       	INI_as(-1.0);
 void resetTimeLimits(void);
 void R_CheckTimeLimits(void);
 
-#define R_BCNODESTACKSIZE 200000
+#define R_BCNODESTACKSIZE 300000
 LibExtern R_bcstack_t *R_BCNodeStackTop, *R_BCNodeStackEnd;
 extern0 R_bcstack_t *R_BCNodeStackBase;
 extern0 R_bcstack_t *R_BCProtTop;
@@ -1585,6 +1611,7 @@ extern SEXP R_findBCInterpreterSrcref(RCNTXT*);
 #endif
 extern SEXP R_getCurrentSrcref(void);
 extern SEXP R_getBCInterpreterExpression(void);
+extern ptrdiff_t R_BCRelPC(SEXP, void *);
 
 void R_BCProtReset(R_bcstack_t *);
 
@@ -1680,7 +1707,7 @@ SEXP Rf_installS3Signature(const char *, const char *);
 Rboolean Rf_isFree(SEXP);
 Rboolean Rf_isUnmodifiedSpecSym(SEXP sym, SEXP env);
 SEXP Rf_matchE(SEXP, SEXP, int, SEXP);
-void Rf_setSVector(SEXP*, int, SEXP);
+// void Rf_setSVector(SEXP*, int, SEXP);
 SEXP Rf_stringSuffix(SEXP, int);
 const char * Rf_translateChar0(SEXP);
 
@@ -1891,6 +1918,8 @@ SEXP R_GetVarLocValue(R_varloc_t);
 SEXP R_GetVarLocSymbol(R_varloc_t);
 Rboolean R_GetVarLocMISSING(R_varloc_t);
 void R_SetVarLocValue(R_varloc_t, SEXP);
+SEXP R_findVar(SEXP, SEXP);
+SEXP R_findVarInFrame(SEXP, SEXP);
 
 /* deparse option bits: change do_dump if more are added */
 
@@ -1986,7 +2015,7 @@ SEXP deparse1(SEXP,Rboolean,int);
 SEXP deparse1m(SEXP call, Rboolean abbrev, int opts);
 SEXP deparse1w(SEXP,Rboolean,int);
 SEXP deparse1line (SEXP, Rboolean);
-SEXP deparse1line_(SEXP, Rboolean, int);
+SEXP deparse1line_ex(SEXP, Rboolean, int);
 SEXP deparse1s(SEXP call);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
@@ -2079,7 +2108,8 @@ void process_site_Renviron(void);
 void process_system_Renviron(void);
 void process_user_Renviron(void);
 SEXP promiseArgs(SEXP, SEXP);
-void Rcons_vprintf(const char *, va_list);
+int Rcons_vprintf(const char *, va_list);
+int REvprintf_internal(const char *, va_list);
 SEXP R_data_class(SEXP , Rboolean);
 SEXP R_data_class2(SEXP);
 char *R_LibraryFileName(const char *, char *, size_t);
@@ -2150,6 +2180,7 @@ SEXP R_GetTraceback(int);    // including deparse()ing
 SEXP R_GetTracebackOnly(int);// no        deparse()ing
 NORET void R_signalErrorCondition(SEXP cond, SEXP call);
 NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly);
+void R_signalWarningCondition(SEXP cond);
 SEXP R_vmakeErrorCondition(SEXP call,
 			   const char *classname, const char *subclassname,
 			   int nextra, const char *format, va_list ap)
@@ -2159,6 +2190,11 @@ SEXP R_makeErrorCondition(SEXP call,
 			  const char *classname, const char *subclassname,
 			  int nextra, const char *format, ...)
      R_PRINTF_FORMAT(5,0);
+SEXP R_makeWarningCondition(SEXP call,
+			  const char *classname, const char *subclassname,
+			  int nextra, const char *format, ...)
+     R_PRINTF_FORMAT(5,0);
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);
 SEXP R_makeNotSubsettableError(SEXP x, SEXP call);
@@ -2181,6 +2217,9 @@ void R_SetPPSize(R_size_t);
 void R_SetNconn(int);
 
 void R_expand_binding_value(SEXP);
+#ifdef IMMEDIATE_PROMISE_VALUES
+SEXP R_expand_promise_value(SEXP);
+#endif
 
 void R_args_enable_refcnt(SEXP);
 void R_try_clear_args_refcnt(SEXP);
@@ -2246,6 +2285,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n);
 SEXP Rf_installTrChar(SEXP);
 
 const wchar_t *wtransChar(SEXP x); /* from sysutils.c */
+const char *Rf_reEnc3(const char *x, const char *fromcode, const char *tocode, int subst);
 
 #define mbs_init(x) memset(x, 0, sizeof(mbstate_t))
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps);
@@ -2268,7 +2308,10 @@ void invalidate_cached_recodings(void);  /* from sysutils.c */
 void resetICUcollator(Rboolean disable); /* from util.c */
 void dt_invalidate_locale(void); /* from Rstrptime.h */
 extern int R_OutputCon; /* from connections.c */
+
 extern int R_InitReadItemDepth, R_ReadItemDepth; /* from serialize.c */
+SEXP R_SerializeInfo(R_inpstream_t ips);
+
 void get_current_mem(size_t *,size_t *,size_t *); /* from memory.c */
 unsigned long get_duplicate_counter(void);  /* from duplicate.c */
 void reset_duplicate_counter(void);  /* from duplicate.c */
@@ -2380,6 +2423,9 @@ extern void *alloca(size_t);
 
 // for reproducibility for now: use exp10 or pown later if accurate enough.
 #define Rexp10(x) pow(10.0, x)
+
+// this produces an initialized structure as a _compound literal_
+#define SEXP_TO_STACKVAL(x) ((R_bcstack_t) { .tag = 0, .u.sxpval = (x) })
 
 #endif /* DEFN_H_ */
 /*

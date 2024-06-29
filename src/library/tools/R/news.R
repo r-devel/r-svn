@@ -1,7 +1,7 @@
 #  File src/library/tools/R/news.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -49,15 +49,15 @@ function(package, lib.loc = NULL, format = NULL, reader = NULL)
     dir <- system.file(package = package, lib.loc = lib.loc)
     ## Or maybe use find.package()?
 
-    ## <FIXME>
+    ## <NOTE>
     ## We had planned to eventually add support for DESCRIPTION
     ##   News/File
     ##   News/Format
     ##   News/Reader
     ##   News/Reader@R
-    ## entries.  But now that we're moving to NEWS.Rd, there seems
-    ## little point in providing format/reader support ...
-    ## </FIXME>
+    ## entries.  But now that there are NEWS.Rd and NEWS.md, there
+    ## seems little point in providing format/reader support ...
+    ## </NOTE>
 
     ## Look for new-style inst/NEWS.Rd installed as NEWS.Rd
     ## If not found, look for NEWS.md.
@@ -324,11 +324,11 @@ Rd2txt_NEWS_in_Rd_options <-
          underline_titles = FALSE)
 
 Rd2txt_NEWS_in_Rd <-
-function(f, out = "") {
+function(f, out = "", outputEncoding = "UTF-8") {
     if (endsWith(f, ".rds")) f <- readRDS(f)
     Rd2txt(f, out,
            stages = c("install", "render"),
-           outputEncoding = if(l10n_info()[["UTF-8"]]) "" else "ASCII//TRANSLIT",
+           outputEncoding = outputEncoding,
            options = Rd2txt_NEWS_in_Rd_options,
            macros = file.path(R.home("share"), "Rd", "macros", "system.Rd"))
  }

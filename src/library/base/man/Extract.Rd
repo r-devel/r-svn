@@ -115,7 +115,7 @@ x$name <- value
   Indexing can occur on the right-hand-side of an expression for
   extraction, or on the left-hand-side for replacement.  When an index
   expression appears on the left side of an assignment (known as
-  \emph{subassignment}) then that part of \code{x} is set to the value
+  \emph{\I{subassignment}}) then that part of \code{x} is set to the value
   of the right hand side of the assignment.  In this case no partial
   matching of character indices is done, and the left-hand-side is
   coerced as needed to accept the values.  For vectors, the answer will
@@ -123,11 +123,11 @@ x$name <- value
   hierarchy raw < logical < integer < double < complex < character <
   list < expression.  Attributes are preserved (although \code{names},
   \code{dim} and \code{dimnames} will be adjusted suitably).
-  Subassignment is done sequentially, so if an index is specified more
+  \I{Subassignment} is done sequentially, so if an index is specified more
   than once the latest assigned value for an index will result.
 
   It is an error to apply any of these operators to an object which is
-  not subsettable (e.g., a function).
+  not \I{subsettable} (e.g., a function).
 }
 
 \section{Atomic vectors}{
@@ -239,7 +239,7 @@ x$name <- value
   (so the two interpretations would have the same outcome).
   (The documented behaviour of S was that an \code{NA} replacement index
   \sQuote{goes nowhere} but uses up an element of \code{value}:
-  Becker \emph{et al} p.\sspace{}359.  However, that has not been true of
+  Becker \abbr{et al.}\sspace{}p.\sspace{}359.  However, that has not been true of
   other implementations.)
 }
 
@@ -278,8 +278,9 @@ x$name <- value
 \section{Character indices}{
   Character indices can in some circumstances be partially matched (see
   \code{\link{pmatch}}) to the names or dimnames of the object being
-  subsetted (but never for subassignment).  Unlike S (Becker \emph{et
-  al} p.\sspace{}358), \R never uses partial matching when extracting by
+  subsetted (but never for \I{subassignment}).
+  Unlike S (Becker \abbr{et al.}\sspace{}p.\sspace{}358), \R never uses partial
+  matching when extracting by 
   \code{[}, and partial matching is not by default used by \code{[[}
   (see argument \code{exact}).
 
@@ -298,7 +299,7 @@ x$name <- value
   Attempting to apply a subsetting operation to objects for which this is
   not possible signals an error of class
   \code{notSubsettableError}. The \code{object} component of the error
-  condition contains the non-subsettable object.
+  condition contains the non-\I{subsettable} object.
 
   Subscript out of bounds errors are signaled as errors of class
   \code{subscriptOutOfBoundsError}. The \code{object} component of the

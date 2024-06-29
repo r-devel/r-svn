@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -728,7 +728,7 @@ static SEXP S4_extends(SEXP klass, Rboolean use_tab) {
     }
     class = translateChar(STRING_ELT(klass, 0)); /* TODO: include package attr. */
     if(use_tab) {
-	val = findVarInFrame(R_S4_extends_table, install(class));
+	val = R_findVarInFrame(R_S4_extends_table, install(class));
 	vmaxset(vmax);
 	if(val != R_UnboundValue)
 	    return val;
@@ -744,7 +744,7 @@ static SEXP S4_extends(SEXP klass, Rboolean use_tab) {
     return(val);
 }
 
-SEXP R_S4_extends(SEXP klass, SEXP useTable)
+attribute_hidden SEXP R_S4_extends(SEXP klass, SEXP useTable)
 {
     return S4_extends(klass, asLogical(useTable));
 }
@@ -929,8 +929,7 @@ attribute_hidden SEXP do_namesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP names = CADR(args);
     if (names != R_NilValue &&
 	! (TYPEOF(names) == STRSXP && ATTRIB(names) == R_NilValue)) {
-	PROTECT(call = allocList(2));
-	SET_TYPEOF(call, LANGSXP);
+	PROTECT(call = allocLang(2));
 	SETCAR(call, R_AsCharacterSymbol);
 	SETCADR(call, names);
 	names = eval(call, env);
@@ -1199,8 +1198,11 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_dim(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    checkArity(op, args);
+    check1arg(args, call, "x");
+
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1209,13 +1211,6 @@ SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = getAttrib(CAR(args), R_DimSymbol);
     UNPROTECT(1);
     return ans;
-}
-
-attribute_hidden SEXP do_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    checkArity(op, args);
-    check1arg(args, call, "x");
-    return R_dim(call, op, args, env);
 }
 
 attribute_hidden SEXP do_dimgets(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -1556,9 +1551,13 @@ attribute_hidden SEXP do_attr(SEXP call, SEXP op, SEXP args, SEXP env)
 	       partial match on "names" */
 	    tag = R_NamesSymbol;
 	    PROTECT(t = getAttrib(s, tag));
-	    if(t != R_NilValue && R_warn_partial_match_attr)
-		warningcall(call, _("partial match of '%s' to '%s'"), str,
-			    CHAR(PRINTNAME(tag)));
+	    if(t != R_NilValue && R_warn_partial_match_attr) {
+		SEXP cond =
+		    R_makePartialMatchWarningCondition(call, install(str), tag);
+		PROTECT(cond);
+		R_signalWarningCondition(cond);
+		UNPROTECT(1);
+	    }
 	    UNPROTECT(2);
 	    return t;
 	}
@@ -1579,9 +1578,13 @@ attribute_hidden SEXP do_attr(SEXP call, SEXP op, SEXP args, SEXP env)
 	UNPROTECT(1);
 	return R_NilValue;
     }
-    if (match == PARTIAL && R_warn_partial_match_attr)
-	warningcall(call, _("partial match of '%s' to '%s'"), str,
-		    CHAR(PRINTNAME(tag)));
+    if (match == PARTIAL && R_warn_partial_match_attr) {
+	SEXP cond =
+	    R_makePartialMatchWarningCondition(call, install(str), tag);
+	PROTECT(cond);
+	R_signalWarningCondition(cond);
+	UNPROTECT(1);
+    }
 
     ans =  getAttrib(s, tag);
     UNPROTECT(1);
@@ -1784,7 +1787,7 @@ static SEXP set_data_part(SEXP obj,  SEXP rhs) {
     return(val);
 }
 
-SEXP S3Class(SEXP obj)
+attribute_hidden SEXP S3Class(SEXP obj)
 {
     if(!s_dot_S3Class) init_slot_handling();
     return getAttrib(obj, s_dot_S3Class);

@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,10 +21,6 @@
 Rd_info <-
 function(file, encoding = "unknown")
 {
-    ## <FIXME>
-    ## This used to work only for a given Rd file.
-    ## now only for a parsed Rd object.
-
     if(inherits(file, "Rd")) {
         Rd <- file
         description <- attr(attr(Rd, "srcref"), "srcfile")$filename
@@ -358,13 +354,16 @@ function(dir = NULL, files = NULL,
     } else
     	db <- list()
 
-    # The built_file is a file of partially processed Rd objects, where build time
-    # \Sexprs have been evaluated.  We'll put the object in place of its
-    # filename to continue processing.
+    ## The built_file is a file of partially processed Rd objects, where
+    ## build time \Sexprs have been evaluated.  We'll put the object in
+    ## place of its filename to continue processing.
+    ## Similarly for later_file.
 
+    basenames <- basename(files)    
     names(files) <- files
+    files <- as.list(files)
+    
     if(!is.null(built_file) && file_test("-f", built_file)) {
-        basenames <- basename(files)
  	built <- readRDS(built_file)
  	names_built <- names(built)
         ## Hmm ... why are we doing this?
@@ -379,22 +378,19 @@ function(dir = NULL, files = NULL,
  	built[names_built %notin% basenames] <- NULL
  	if (length(built)) {
  	    which <- match(names(built), basenames)
- 	    if (all(file_test("-nt", built_file, files[which]))) {
- 	    	files <- as.list(files)
+ 	    if (all(file_test("-nt", built_file, names(files)[which]))) {
 	    	files[which] <- built
 	    }
 	}
     }
     if("later" %in% stages) {
         if(!is.null(later_file) && file_test("-f", later_file)) {
-            basenames <- basename(names(files))
             later <- readRDS(later_file)
             names_later <- names(later)
             later[names_later %notin% basenames] <- NULL
             if (length(later)) {
                 which <- match(names(later), basenames)
-                if (all(file_test("-nt", later_file, files[which]))) {
-                    files <- as.list(files)
+                if (all(file_test("-nt", later_file, names(files)[which]))) {
                     files[which] <- later
                 }
             }
@@ -620,7 +616,7 @@ function(x, predicate)
         ## <FIXME>
         ## Should we do f(e) if not is.list(e)?
         e
-        ## <FIXME>
+        ## </FIXME>
     }
     recurse(x)
 }
@@ -987,11 +983,16 @@ function(filebase, key = NULL)
         invisible(res)
 }
 
-# The macros argument can be TRUE, in which case a new environment is created with an empty parent,
-# or the result of a previous call to this function, in which case it becomes the parent,
-# or a filename, in which case that file is loaded first, then the new file into a child environment.
+### * loadRdMacros
 
-# It is not safe to save this environment, as changes to the parser may invalidate its contents.
+## The macros argument can be TRUE, in which case a new environment is
+## created with an empty parent, or the result of a previous call to this
+## function, in which case it becomes the parent, or a filename, in
+## which case that file is loaded first, then the new file into a child
+## environment. 
+
+## It is not safe to save this environment, as changes to the parser may
+## invalidate its contents.
 
 loadRdMacros <- function(file, macros = TRUE) {
     # New macros are loaded into a clean environment
@@ -1020,6 +1021,8 @@ loadRdMacros <- function(file, macros = TRUE) {
     attr(Rd, "macros")
 }
 
+### * initialRdMacros
+
 initialRdMacros <- function(pkglist = NULL,
                             macros = file.path(R.home("share"), "Rd", "macros", "system.Rd")
                             ) {
@@ -1042,6 +1045,8 @@ initialRdMacros <- function(pkglist = NULL,
     macros
 }
 
+### * loadPkgRdMacros
+
 loadPkgRdMacros <- function(pkgdir, macros = NULL) {
     pkglist <- .get_package_metadata(pkgdir)["RdMacros"]
     if (is.na(pkglist))
@@ -1059,6 +1064,145 @@ loadPkgRdMacros <- function(pkgdir, macros = NULL) {
     	macros <- loadRdMacros(f, macros)
 
     macros
+}
+
+### * check_math_rendering_in_Rd_db
+
+check_math_rendering_in_Rd_db <-
+function(db, eq = NULL, katex = .make_KaTeX_checker()) {
+    if(is.null(eq))
+        eq <- .Rd_get_equations_from_Rd_db(db)
+    ## Now eq is a 6-column matrix with
+    ##   file tag latex ascii beg end
+    ## where tag is \eqn or \deqn.
+    out <- matrix(character(), 0L, 3L)
+    results <- lapply(eq[, 3L], katex)
+    msg <- vapply(results, `[[`, "", "error")
+    ind <- nzchar(msg)
+    if(any(ind)) {
+        msg <- msg[ind]
+        msg <- sub("^KaTeX parse error: (.*) at position.*:",
+                   "\\1 in",
+                   msg)
+        msg <- sub("^KaTeX parse error: ", "", msg)
+        ## KaTeX uses
+        ##   COMBINING LOW LINE  (U+0332)
+        ##   HORIZONTAL ELLIPSIS (U+2026)
+        ## for formatting parse errors.  These will not work in
+        ## non-UTF-8 locales and not well in UTF-8 ones, so change as
+        ## necessary ... 
+        msg <- gsub("\u2026", "...", msg)
+        msg <- gsub("\u0332", "", msg)
+        l1 <- eq[ind, 5L]
+        l2 <- eq[ind, 6L]
+        tst <- (l1 == l2)
+        pos <- is.na(tst)
+        l1[pos] <- ""
+        pos <- which(!pos)
+        l1[pos] <- paste0(":", l1[pos])
+        pos <- which(!tst[pos])
+        l1[pos] <- paste0(l1[pos], "-", l2[pos])
+        out <- cbind(eq[ind, 1L], l1, msg)
+    }
+    colnames(out) <- c("path", "pos", "msg")
+    out
+}
+
+### * base_aliases_db
+
+base_aliases_db <- 
+function()
+{
+    packages <- .get_standard_package_names()$base
+    aliases <-
+        lapply(packages,
+               function(p) {
+                   db <- Rd_db(p, lib.loc = .Library)
+                   aliases <- lapply(db, .Rd_get_metadata, "alias")
+                   aliases
+               })
+    names(aliases) <- packages
+    aliases
+}
+
+### * base_rdxrefs_db
+
+base_rdxrefs_db <- 
+function()
+{
+    packages <- .get_standard_package_names()$base
+    rdxrefs <-
+        lapply(packages,
+               function(p) {
+                   db <- Rd_db(p, lib.loc = .Library)
+                   rdxrefs <- lapply(db, .Rd_get_xrefs)
+                   rdxrefs <- cbind(do.call(rbind, rdxrefs),
+                                    Source = rep.int(names(rdxrefs),
+                                                     vapply(rdxrefs,
+                                                            NROW,
+                                                            0L)))
+                   rdxrefs
+               })
+    names(rdxrefs) <- packages
+    rdxrefs
+}
+
+### * .Rd_xrefs_with_missing_package_anchors
+
+.Rd_xrefs_with_missing_package_anchors <-
+function(dir, level = 1)
+{
+    ## Find the Rd xrefs with non-anchored targets not in the package
+    ## itself or the installed packages with the given new-style levels
+    ## (base: 1, recommended: 2, others: 3)
+    ## Note that we use 'dir' as the path to package sources (and not
+    ## the installed package), and hence use the package Rd db for both
+    ## aliases and rdxrefs.
+
+    db <- Rd_db(dir = dir)
+    if(!length(db)) return()
+    aliases <- lapply(db, .Rd_get_metadata, "alias")
+    rdxrefs <- lapply(db, .Rd_get_xrefs)
+    rdxrefs <- cbind(do.call(rbind, rdxrefs),
+                     Source = rep.int(names(rdxrefs),
+                                      vapply(rdxrefs,
+                                             NROW,
+                                             0L)))
+    anchors <- rdxrefs[, "Anchor"]
+    if(any(ind <- startsWith(anchors, "=")))
+        rdxrefs[ind, 1L : 2L] <- cbind(sub("^=", "", anchors[ind]), "")
+    rdxrefs <- rdxrefs[!nzchar(rdxrefs[, "Anchor"]), , drop = FALSE]
+    aliases <- c(unlist(aliases, use.names = FALSE),
+                 names(findHTMLlinks(level = level)))
+    if(any(ind <- is.na(match(rdxrefs[, "Target"], aliases))))
+        unique(rdxrefs[ind, , drop = FALSE])
+    else NULL
+}
+
+### * .Rd_aliases_db_to_data_frame
+
+.Rd_aliases_db_to_data_frame <-
+function(x)
+{
+    wrk <- function(a, p) {
+        cbind(unlist(a, use.names = FALSE),
+              rep.int(paste0(p, "::", names(a)), lengths(a)))
+    }
+    y <- as.data.frame(do.call(rbind, Map(wrk, x, names(x))))
+    colnames(y) <- c("Alias", "Source")
+    y
+}
+
+### * .Rd_rdxrefs_db_to_data_frame
+
+.Rd_rdxrefs_db_to_data_frame <-
+function(x)
+{
+    wrk <- function(u, p) {
+        u$Source <- sprintf("%s::%s", p, u$Source)
+        u
+    }
+    do.call(rbind, Map(wrk, lapply(x, as.data.frame), names(x)))
 }
 
 ### Local variables: ***

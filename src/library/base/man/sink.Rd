@@ -16,7 +16,7 @@ sink.number(type = c("output", "message"))
 }
 \arguments{
   \item{file}{a writable \link{connection} or a character string naming the
-    file to write to, or \code{NULL} to stop sink-ing.}
+    file to write to, or \code{NULL} to stop \I{sink-ing}.}
   \item{append}{logical.  If \code{TRUE}, output will be appended to
     \code{file}; otherwise, it will overwrite the contents of
     \code{file}.}
@@ -59,7 +59,7 @@ sink.number(type = c("output", "message"))
   the default output from \code{\link{writeLines}}: it does not split
   all output that might be sent to \code{\link{stdout}()}.
 
-  Sink-ing the messages stream should be done only with great care.
+  \I{Sink-ing} the messages stream should be done only with great care.
   For that stream \code{file} must be an already open connection, and
   there is no stack of connections.
 
@@ -101,7 +101,7 @@ i <- 1:10
 outer(i, i)
 sink()
 \dontshow{unlink("sink-examp.txt")}% don't show what confuses newbies
-\donttest{
+\donttest{% but in reg-tests-2.R
 ## capture all the output to a file.
 zz <- file("all.Rout", open = "wt")
 sink(zz)
@@ -110,7 +110,7 @@ try(log("a"))
 ## revert output back to the console -- only then access the file!
 sink(type = "message")
 sink()
-file.show("all.Rout")
+file.show("all.Rout", delete.file = TRUE)
 }}
 \keyword{file}
 \keyword{connection}

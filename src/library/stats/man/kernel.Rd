@@ -1,6 +1,6 @@
 % File src/library/stats/man/kernel.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{kernel}
@@ -36,26 +36,27 @@ is.tskernel(k)
   \item{m}{the kernel dimension(s) if \code{coef} is a name.  When \code{m}
     has length larger than one, it means the convolution of
     kernels of dimension \code{m[j]}, for \code{j in 1:length(m)}.
-    Currently this is supported only for the named "*daniell" kernels.}
+    Currently this is supported only for the named \code{"*daniell"} kernels.}
   \item{name}{the name the kernel will be called.}
-  \item{r}{the kernel order for a Fejer kernel.}
+  \item{r}{the kernel order for a \I{Fejer} kernel.}
   \item{k, x}{a \code{"tskernel"} object.}
   \item{type, xlab, ylab, main, \dots}{arguments passed to
     \code{\link{plot.default}}.}
 }
 \details{
   \code{kernel} is used to construct a general kernel or named specific
-  kernels.  The modified Daniell kernel halves the end coefficients (as
-  used by S-PLUS).
+  kernels.  The modified \I{Daniell} kernel halves the end coefficients.
 
   The \code{\link{[}} method allows natural indexing of kernel objects
   with indices in \code{(-m) : m}.  The normalization is such that for
   \code{k <- kernel(*)}, \code{sum(k[ -k$m : k$m ])} is one.
 
   \code{df.kernel} returns the \sQuote{equivalent degrees of freedom} of
-  a smoothing kernel as defined in Brockwell and Davis (1991), page
-  362, and \code{bandwidth.kernel} returns the equivalent bandwidth as
-  defined in Bloomfield (1976), p.\sspace{}201, with a continuity correction.
+  a smoothing kernel as defined in
+  \bibcite{Brockwell and Davis (1991), page 362},
+  and \code{bandwidth.kernel} returns the equivalent bandwidth as
+  defined in \bibcite{Bloomfield (1976), p.\sspace{}201},
+  with a continuity correction.
 }
 \value{
   \code{kernel()} returns an object of class \code{"tskernel"} which is

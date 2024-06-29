@@ -59,7 +59,7 @@
   also supported when reading character strings by \code{\link{scan}}
   and \code{\link{read.table}} if \code{allowEscapes = TRUE}.  Unicode
   escapes can be used to enter Unicode characters not in the current
-  locale's charset (when the string will be stored internally in UTF-8).
+  locale's \abbr{charset} (when the string will be stored internally in UTF-8).
   The maximum allowed value for \samp{\\nnn} is \samp{\\377} (the same
   character as \samp{\\xff}).
 
@@ -72,8 +72,8 @@
   These forms will also be used by \code{\link{print.default}}
   when outputting non-printable characters (including backslash).
 
-  Embedded nuls are not allowed in character strings, so using escapes
-  (such as \samp{\\0}) for a nul will result in the string being
+  Embedded \abbr{NUL}s are not allowed in character strings, so using escapes
+  (such as \samp{\\0}) for a \abbr{NUL} will result in the string being
   truncated at that point (usually with a warning).
 
   Raw character constants are also available using a syntax similar to

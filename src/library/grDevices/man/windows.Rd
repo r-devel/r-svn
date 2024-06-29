@@ -167,7 +167,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
 
   There is support for semi-transparent colours of lines, fills and text
   on the screen devices.  These work for saving (from the \sQuote{File}
-  menu) to PDF, PNG, BMP, JPEG and TIFF, but will be ignored if saving
+  menu) to PDF, PNG, \abbr{BMP}, JPEG and TIFF, but will be ignored if saving
   to Metafile and PostScript.  Limitations in the underlying Windows API
   mean that a semi-transparent object must be contained strictly within
   the device region (allowing for line widths and joins).
@@ -212,7 +212,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
 
   How the fonts look depends on the antialiasing settings, both through
   the \code{antialias} argument and the machine settings.  These are
-  hints to Windows GDI that may not be able to be followed, but
+  hints to Windows \abbr{GDI} that may not be able to be followed, but
   \code{antialias = "none"} should ensure that no antialiasing is used.
   For a screen device the default depends on the machine settings: it
   will be \code{"cleartype"} if that has been enabled.  Note that the
@@ -223,7 +223,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
   Desktop settings \emph{and} the user's local account settings are
   relevant to whether antialiasing is used.
 
-  Some fonts are intended only to be used with ClearType antialiasing,
+  Some fonts are intended only to be used with \I{ClearType} antialiasing,
   for example the \code{Meiryo} Japanese font.
 }
 % http://blogs.msdn.com/b/rds/archive/2006/09/08/747023.aspx

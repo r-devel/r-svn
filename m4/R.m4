@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2023 R Core Team
+### Copyright (C) 1998-2024 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -203,12 +203,6 @@ if test "${r_cv_prog_texi2any_v5}" != yes; then
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
-if test "${r_cv_prog_texi2any_v7}" != yes; then 
-  HAVE_TEXI2ANY_V7_TRUE='#'
-else
-  HAVE_TEXI2ANY_V7_TRUE=
-fi
-AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
 AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
 AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
@@ -663,7 +657,7 @@ dnl SHLIB_LD=ld for native C compilers (problem with non-PIC 'crt0.o',
 dnl see 'Individual platform overrides' in section 'DLL stuff' in file
 dnl 'configure.ac'.
 dnl
-dnl Using the Intel Fortran compiler (ifc) one typically gets incorrect
+dnl Using the pre-2023 Intel Fortran compiler (ifc) one typically gets incorrect
 dnl flags, as the output from _AC_PROG_F77_V_OUTPUT() contains double
 dnl quoted options, e.g. "-mGLOB_options_string=......", see also e.g.
 dnl http://www.octave.org/octave-lists/archive/octave-maintainers.2002/msg00038.html.
@@ -1359,6 +1353,7 @@ AC_DEFUN([R_PROG_OBJCXX_WORKS],
 dnl we don't use AC_LANG_xx because ObjC++ is not defined as a language (yet)
 dnl (the test program is from the gcc test suite)
 dnl but it needed an #undef (PR#15107)
+dnl 2021-11-12 changed to use Foundation as Xcode 13 breaks Object.h.
 cat << \EOF > conftest.mm
 #include <Foundation/Foundation.h>
 #include <iostream>
@@ -3152,8 +3147,8 @@ AC_SUBST(LAPACK_LIBS)
 
 ## R_LAPACK_SYSTEM_LIB
 ## -------------------
-## New for R 4.2.0
-## Look for system -llapack of version at least 3.10.0.
+## New for R 4.2.0: reduced to >=3.9.0 for 4.4.0.
+## Look for system -llapack of version at least 3.9.0.
 ## We have to test with a system BLAS.
 ## We don't want an external lapack which contains a BLAS.
 ## We document that at least ATLAS, OpenBLAS and Accelerate lapack
@@ -3291,7 +3286,7 @@ fi
 if test "${acx_lapack_ok}" = yes; then
   LIBS="-lblas -llapack ${FLIBS} ${acx_lapack_save_LIBS}"
 
-AC_CACHE_CHECK([if LAPACK version >= 3.10.0], [r_cv_lapack_ver],
+AC_CACHE_CHECK([if LAPACK version >= 3.9.0], [r_cv_lapack_ver],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 extern void ${ilaver}(int *major, int *minor, int *patch);
 
@@ -3301,7 +3296,7 @@ int main(void) {
   int major, minor, patch;
   ${ilaver}(&major, &minor, &patch);
   printf("%d.%d.%d, so ", major, minor, patch);
-  if (major < 3 || (major == 3 && minor < 10)) exit(1);
+  if (major < 3 || (major == 3 && minor < 9)) exit(1);
   exit(0);
 }
 ]])],
@@ -3710,7 +3705,8 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 int main(void) {
     unsigned int ver = lzma_version_number();
     // This is 10000000*major + 10000*minor + 10*revision + [012]
-    // I.e. xyyyzzzs and 5.1.2 would be 50010020
+    // Where 2 is 'stable'.
+    // I.e. xyyyzzzs and 5.1.2 is 50010022, so this allows 5.0.3 alpha/beta
     exit(ver < 50000030);
 }
 ]])], [r_cv_have_lzma=yes], [r_cv_have_lzma=no], [r_cv_have_lzma=no])
@@ -4145,12 +4141,12 @@ if test "${r_cv_prog_cc_vis}" = yes; then
     C_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icx.
 case  "${CC}" in
-  ## Intel compiler: note that -c99 may have been appended
+  ## Obsolete Intel compiler: note that -c99 may have been appended
   *icc*)
     C_VISIBILITY=
     ;;
@@ -4171,12 +4167,12 @@ if test "${r_cv_prog_cxx_vis}" = yes; then
     CXX_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *icc*|*icpc*)
     CXX_VISIBILITY=
     ;;
@@ -4198,9 +4194,9 @@ if test "${r_cv_prog_fc_vis}" = yes; then
   fi
 fi
 dnl flang accepts this but ignores it.
-dnl Need to exclude Intel compilers, but ifx seems to work.
+dnl Need to exclude pre-2023 Intel compilers, but ifx seems to work.
 case  "${FC}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *ifc|*ifort)
     F_VISIBILITY=
     ;;

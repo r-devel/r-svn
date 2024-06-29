@@ -1,6 +1,6 @@
 % File src/library/stats/man/arima0.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{arima0}
@@ -88,7 +88,7 @@ arima0(x, order = c(0, 0, 0),
 
   \deqn{X_t = a_1X_{t-1} + \cdots + a_pX_{t-p} + e_t + b_1e_{t-1} + \dots + b_qe_{t-q}}{X[t] = a[1]X[t-1] + \dots + a[p]X[t-p] + e[t] + b[1]e[t-1] + \dots + b[q]e[t-q]}
 
-  and so the MA coefficients differ in sign from those of
+  and so the MA coefficients differ in sign from those given by
   S-PLUS.  Further, if \code{include.mean} is true, this formula
   applies to \eqn{X-m} rather than \eqn{X}.  For ARIMA models with
   differencing, the differenced series follows a zero-mean ARMA model.
@@ -109,7 +109,7 @@ arima0(x, order = c(0, 0, 0),
 \section{Fitting methods}{
   The exact likelihood is computed via a state-space representation of
   the ARMA process, and the innovations and their variance found by a
-  Kalman filter based on Gardner \emph{et al} (1980).  This has
+  \I{Kalman} filter based on Gardner \abbr{et al.}\sspace(1980).  This has
   the option to switch to \sQuote{fast recursions} (assume an
   effectively infinite past) if the innovations variance is close
   enough to its asymptotic bound. The argument \code{delta} sets the
@@ -221,7 +221,7 @@ arima0(x, order = c(0, 0, 0),
   The standard errors of prediction exclude the uncertainty in the
   estimation of the ARMA model and the regression coefficients.
 
-  The results are likely to be different from S-PLUS's
+  The results are likely to be different from \I{S-PLUS}'s
   \code{arima.mle}, which computes a conditional likelihood and does
   not include a mean in the model.  Further, the convention used by
   \code{arima.mle} reverses the signs of the MA coefficients.

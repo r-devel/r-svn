@@ -1,7 +1,7 @@
 #  File src/library/tools/R/utils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -186,10 +186,33 @@ function(dir, type, all.files = FALSE, full.names = TRUE,
     files
 }
 
+### ** list_code_files_in_package
+
+list_code_files_in_package <-
+function(dir) {
+    dir <- normalizePath(dir)
+    code_dir <- file.path(dir, "R")
+    code_files <- list_files_with_type(code_dir, "code")
+    if(!length(code_files)) return(code_files)
+    meta <- .get_package_metadata(dir)
+    collate_fields <- c(paste0("Collate.", .OStype()), "Collate")
+    if(any(i <- (collate_fields %in% names(meta)))) {
+        collate <-
+            file.path(code_dir,
+                      .read_collate_field(meta[collate_fields[i][1L]]))
+        ## Note that matching code files and collate spec really only is
+        ## appropriate after having run configure as part of installing,
+        ## as this can create code files (e.g., from a .R.in code file).
+        ## Note also that using set ops is not appropriate here, as
+        ## these re-sort according to the current locale.
+        code_files <- collate[collate %in% code_files]
+    }
+    code_files
+}
+
+
 ### ** reQuote
 
-## <FIXME>
-## Move into base eventually ...
 reQuote <-
 function(x)
 {
@@ -199,7 +222,6 @@ function(x)
     regmatches(x, m) <- lapply(regmatches(x, m), escape)
     x
 }
-## </FIXME>
 
 ### ** showNonASCII
 
@@ -546,47 +568,6 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 
 ### * Internal utility variables.
 
-### ** .ORCID_iD_regexp
-
-.ORCID_iD_regexp <-
-    "([[:digit:]]{4}[-]){3}[[:digit:]]{3}[[:alnum:]]"
-
-### ** .ORCID_iD_variants_regexp
-
-.ORCID_iD_variants_regexp <-
-    sprintf("^<?((https?://|)orcid.org/)?(%s)>?$", .ORCID_iD_regexp)
-
-.ORCID_iD_db_from_package_sources <-
-function(dir)
-{
-    meta <- .get_package_metadata(dir, FALSE)
-    ids1 <- ids2 <- character()
-    if(!is.na(aar <- meta["Authors@R"])) {
-        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
-                        error = identity)
-        if(!inherits(aar, "error")) {
-            ids1 <- unlist(lapply(aar,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-        }
-    }
-    if(file.exists(cfile <- file.path(dir, "inst", "CITATION"))) {
-        cinfo <- .read_citation_quietly(cfile, meta)
-        if(!inherits(cinfo, "error"))
-            ids2 <- unlist(lapply(cinfo$author,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-    }
-    rbind(if(length(ids1)) cbind(ids1, "DESCRIPTION"),
-          if(length(ids2)) cbind(ids2, "inst/CITATION"))
-}
-
 ### ** .vc_dir_names
 
 ## Version control directory names: CVS, .svn (Subversion), .arch-ids
@@ -801,7 +782,7 @@ function(x)
                     "\\makeatother"),
                   collapse = ""),
             x, x)
-}     
+}
 
 ### ** .file_path_relative_to_dir
 
@@ -940,6 +921,47 @@ function(v, env, last = NA, default = NA) {
         else
             env <- parent.env(env)
     default
+}
+
+### ** .find_tidy_cmd
+
+.find_tidy_cmd <-
+function(Tidy = Sys.getenv("R_TIDYCMD", "tidy"))
+{
+    ## Require a recent enough version of HTML Tidy.
+    ## We really need HTML Tidy 5.0.0 or later, and all these versions
+    ## should have tidy --version match
+    ##   ^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)
+    ## See
+    ## <https://github.com/htacg/tidy-html5/blob/next/README/VERSION.md>
+    ## and
+    ## <https://bugs.r-project.org/show_bug.cgi?id=18731>.
+    msg <- ""
+    OK <- nzchar(Sys.which(Tidy))
+    if(OK) {
+        ver <- system2(Tidy, "--version", stdout = TRUE)
+        mat <- regexec("^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)$",
+                       ver)
+        ver <- regmatches(ver, mat)[[1L]][2L]
+        OK <- !is.na(ver)
+        if(OK) {
+            ## Minimum version requirement.
+            req <- "5.0.0"
+            OK <- numeric_version(ver) >= req
+            if(!OK)
+                msg <-
+                    sprintf("'%s' is too old: need version %s, found %s",
+                            Tidy, req, ver)
+        } else
+            msg <-
+                sprintf("'%s' doesn't look like recent enough HTML Tidy",
+                        Tidy)
+    } else msg <- sprintf("no command '%s' found", Tidy)
+    if(nzchar(msg)) {
+        Tidy <- ""
+        attr(Tidy, "msg") <- msg
+    }
+    Tidy
 }
 
 ### ** .get_BibTeX_errors_from_blg_file
@@ -1859,6 +1881,8 @@ nonS3methods <- function(package)
                          "dim.rename.nc", "open.nc", "print.nc"),
              Rmpfr = c("mpfr.is.0", "mpfr.is.integer"),
              SMPracticals = "exp.gibbs",
+             SparseM = c("as.matrix.csc","as.matrix.csr", "as.matrix.ssc", "as.matrix.ssr", "as.matrix.coo",
+                         "is.matrix.csc","is.matrix.csr", "is.matrix.ssc", "is.matrix.ssr", "is.matrix.coo"),
              TANOVA = "sigma.hat",
              TeachingDemos = "sigma.test",
              XML = "text.SAX",
@@ -1908,7 +1932,7 @@ nonS3methods <- function(package)
              splusTimeDate = "sort.list",
              splusTimeSeries = "sort.list",
 	     stats = c("anova.lmlist", "expand.model.frame", "fitted.values",
-		       "influence.measures", "lag.plot", "t.test",
+		       "influence.measures", "lag.plot", "qr.influence", "t.test",
                        "plot.spec.phase", "plot.spec.coherency"),
              stremo = "sigma.hat",
              supclust = c("sign.change", "sign.flip"),
@@ -2016,6 +2040,23 @@ function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
     out
 }
 
+### ** .package_vignettes_via_call_to_R
+
+.package_vignettes_via_call_to_R <-
+function(dir, ..., libpaths = .libPaths()) {
+    ## pkgVignettes() needs to load the namespaces of the vignette
+    ## builders in order to find the vignette engines, and cannot unload
+    ## again, which may be undesirable (e.g., when calling from the
+    ## master check process *before* installing the package checked.
+    ## pkgVignettes() has a lib.loc argument but that is not passed
+    ## through to loadVignetteBuilder(), so we use .libPaths() instead.
+    fun <- function(dir, ..., libpaths) {
+        .libPaths(libpaths)
+        pkgVignettes(dir = dir, ...)
+    }
+    R(fun, list(dir, ..., libpaths = libpaths), "--vanilla")
+}
+
 ### ** .pandoc_md_for_CRAN
 
 .pandoc_md_for_CRAN <-
@@ -2050,6 +2091,37 @@ function(file, encoding = NA, keep.source = getOption("keep.source"))
             parse(file,
                   keep.source = keep.source)
     })
+}
+
+### ** .persons_from_metadata
+
+.persons_from_metadata <- function(dir) {
+    meta <- .get_package_metadata(dir)
+    if(!is.na(aar <- meta["Authors@R"])) {
+        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
+                        error = identity)
+        if(inherits(aar, "person"))
+            return(aar)
+    }
+    NULL
+}
+
+### ** .persons_from_citation
+
+.persons_from_citation <- function(dir, installed = FALSE) {
+    meta <- .get_package_metadata(dir, installed = installed)
+    path <- if(installed)
+                "CITATION"
+            else
+                file.path("inst", "CITATION")
+    cfile <- file.path(dir, path)
+    cinfo <- .read_citation_quietly(cfile, meta)
+    if(!inherits(cinfo, "error")) {
+        aut <- do.call(c, lapply(unclass(cinfo), `[[`, "author"))
+        if(inherits(aut, "person"))
+            return(aut)
+    }
+    NULL
 }
 
 ### ** .read_additional_repositories_field
@@ -2479,8 +2551,8 @@ function(args, msg)
 ### ** R
 
 R <-
-function(fun, args = list(), opts = character(), env = character(),
-         arch = "", drop = TRUE, timeout = 0)
+function(fun, args = list(), opts = "--no-save --no-restore",
+         env = character(), arch = "", drop = TRUE, timeout = 0)
 {
     .safe_repositories <- function() {
         x <- getOption("repos")
@@ -2491,8 +2563,10 @@ function(fun, args = list(), opts = character(), env = character(),
         c(x, y[match(names(y), names(x), 0L) == 0L])
     }
 
-    tfi <- tempfile("runri")
-    tfo <- tempfile("runro")
+    ## escape issue if we use backslashes in paths, hence convert to "/"
+    tfi <- normalizePath(tempfile("runri"), winslash="/", mustWork=FALSE)
+    tfo <- normalizePath(tempfile("runro"), winslash="/", mustWork=FALSE)
+
     wrk <- c(sprintf("x <- readRDS(\"%s\")", tfi),
              "options(repos = x$repos)",
              ## need quote = TRUE in case some of args are not self-evaluating
@@ -2629,7 +2703,7 @@ function(text)
     }
     if(typeof(text) != "character")
         stop("'text' must be a character vector")
-    sapply(text, titleCase1, USE.NAMES = FALSE)
+    vapply(text, titleCase1, "<chr>", USE.NAMES = FALSE)
 }
 
 ### ** path_and_libPath
