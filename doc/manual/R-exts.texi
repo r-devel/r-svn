@@ -10304,7 +10304,7 @@ prompt.
 @item
 Set the breakpoints in your code.
 @item
-Continue execution of @R{} by typing @kbd{signal 0@key{RET}}.
+Continue execution of @R{} by typing @kbd{signal 0 @key{RET}}.
 @end itemize
 
 Under Windows signals may not be able to be used, and if so the procedure is
