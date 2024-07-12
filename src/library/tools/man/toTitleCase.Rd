@@ -18,7 +18,7 @@ toTitleCase(text)
 \details{
   This is intended for English text only.
 
-  No definition of\sQuote{title case} is universally accepted: all agree
+  No definition of \sQuote{title case} is universally accepted: all agree
   that \sQuote{principal} words are capitalized and common words like
   \sQuote{for} are not, but not which words fall into each category.
 
@@ -32,4 +32,8 @@ toTitleCase(text)
 }
 \value{
   A character vector of the same length as \code{text}, without names.
+}
+\examples{
+toTitleCase("bayesian network modeling and analysis")
+toTitleCase("ensemble tool for predictions from species distribution models")
 }
