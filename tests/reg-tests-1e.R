@@ -1399,6 +1399,11 @@ ch0 <- character(0L)
 stopifnot(identical(ch0, tools::toTitleCase(ch0)))
 ## was list() in R <= 4.4.0
 
+## Bug 18674 - tools::toTitleCase() incorrectly capitalizes conjunctions
+## (e.g. 'and') when using suspensive hyphenation
+stopifnot(identical(tools::toTitleCase("pre and post estimation"), "Pre and Post Estimation"))
+stopifnot(identical(tools::toTitleCase("pre- and post estimation"), "Pre- and Post Estimation"))
+
 
 ## PR#18745 (+ PR#18702)   format.data.frame() -> as.data.frame.list()
 x <- setNames(data.frame(TRUE), NA_character_)
