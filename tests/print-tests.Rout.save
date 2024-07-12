@@ -941,6 +941,38 @@ NULL
  [ reached getOption("max.print") -- omitted 5 entries ]
 > options(o)
 > 
+> ## max.print and max 
+> ## bug 15027 https://bugs.r-project.org/show_bug.cgi?id=15027
+> ## whenever the columns are larger than max.print, no values inside the matrix are displayed
+> print(matrix(nrow = 100, ncol = 4), max = 5) ## works
+       [,1] [,2] [,3] [,4]
+  [1,]   NA   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 99 rows ]
+> ## fix: ommiting rows **and** columns and warning printed
+> ## case: omiting rows and columns
+> print(matrix(nrow = 10, ncol = 4), max = 3)
+      [,1] [,2] [,3]
+ [1,]   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 9 rows and 1 column ]
+> ## case: omitting rows
+> print(matrix(nrow = 10, ncol = 2), max = 5)
+      [,1] [,2]
+ [1,]   NA   NA
+ [2,]   NA   NA
+ [ reached getOption("max.print") -- omitted 8 rows ]
+> ## case: omitting cols, at least one row prints
+> print(matrix(nrow = 1, ncol = 6), max = 5)
+     [,1] [,2] [,3] [,4] [,5]
+[1,]   NA   NA   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 1 column ]
+> ## in R 4.4.0 there should be a warning for ommited rows (NEW BUG)
+> print(array(dim = c(2, 4, 1)), max = 3)
+ [ reached getOption("max.print") -- omitted 1 matrix slice(s) ]
+> ## this does not print anything but it should show 
+> ## at least one element according to the logic of max.print
+> print(array(dim = c(2, 2, 1)), max = 1)
+ [ reached getOption("max.print") -- omitted 1 matrix slice(s) ]
+> 
 > ## Cleanup
 > rm(print.foo, obj, a, b, c, d, o)
 > 
