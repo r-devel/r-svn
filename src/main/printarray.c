@@ -348,35 +348,55 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     if(c > 0 && R_print.max / c < r) /* avoid integer overflow */
 	/* using floor(), not ceil(), since 'c' could be huge: */
 	r_pr = R_print.max / c;
+    int c_pr = c;
+    if (c > R_print.max) {
+        c_pr = R_print.max;
+	r_pr = 1;
+    }
     switch (TYPEOF(x)) {
     case LGLSXP:
-	printLogicalMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case INTSXP:
-	printIntegerMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case REALSXP:
-	printRealMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRealMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case CPLXSXP:
-	printComplexMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printComplexMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case STRSXP:
 	if (quote) quote = '"';
-	printStringMatrix (x, offset, r_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
+	printStringMatrix (x, offset, r_pr, r, c_pr, quote, right, rl, cl, rn, cn, TRUE);
 	break;
     case RAWSXP:
-	printRawMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
 #ifdef ENABLE_NLS
-    if(r_pr < r) // number of formats must be consistent here
-	Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-			 " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-			 r - r_pr),
-		r - r_pr);
+    if (r ==1 && (c - c_pr) > 0) {
+        Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d columns ]\n",
+	                 " [ reached getOption(\"max.print\") -- omitted %d columns ]\n",
+	                 c - c_pr),
+	        c - c_pr);	
+    }
+    if (r_pr < r) { // number of formats must be consistent here
+        if ((c - c_pr) <= 0) {
+	    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
+		             " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
+		             r - r_pr),
+	            r - r_pr);	
+	}
+	else {
+	    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row  and %d columns ]\n",
+			     " [ reached getOption(\"max.print\") -- omitted %d rows and %d columns ]\n",
+			     r - r_pr),
+		    r - r_pr,c-c_pr);
+	}
+    }
 #else
     if(r_pr < r)
 	Rprintf(" [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
