@@ -1,3 +1,4 @@
+
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
@@ -377,25 +378,33 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
 #ifdef ENABLE_NLS
-    if (r ==1 && (c - c_pr) > 0) {
-        Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d columns ]\n",
+    if (r == 1 && (c - c_pr) > 0) {
+        Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d column ]\n",
 	                 " [ reached getOption(\"max.print\") -- omitted %d columns ]\n",
 	                 c - c_pr),
-	        c - c_pr);	
+	            c - c_pr);	
     }
     if (r_pr < r) { // number of formats must be consistent here
         if ((c - c_pr) <= 0) {
-	    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-		             " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-		             r - r_pr),
-	            r - r_pr);	
-	}
-	else {
-	    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row  and %d columns ]\n",
-			     " [ reached getOption(\"max.print\") -- omitted %d rows and %d columns ]\n",
-			     r - r_pr),
-		    r - r_pr,c-c_pr);
-	}
+	        Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
+		                     " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
+		                     r - r_pr),
+	                r - r_pr);
+	    }
+	    else {
+	        if ((c-c_pr) == 1) {	    
+			    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row  and 1 column ]\n",
+			                     " [ reached getOption(\"max.print\") -- omitted %d rows and 1 column ]\n",
+			                     r - r_pr),
+		                r - r_pr);
+		    }
+		    else {
+			    Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row  and %d columns ]\n",
+			                     " [ reached getOption(\"max.print\") -- omitted %d rows and %d columns ]\n",
+			                     r - r_pr),
+		                r - r_pr, c-c_pr);
+		    }
+	    }
     }
 #else
     if(r_pr < r)
@@ -524,4 +533,3 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
     UNPROTECT(nprotect);
     vmaxset(vmax);
 }
-
