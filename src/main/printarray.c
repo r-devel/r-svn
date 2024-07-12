@@ -352,7 +352,9 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     int c_pr = c;
     if (c > R_print.max) {
         c_pr = R_print.max;
-	r_pr = 1;
+		if (r > 0) {
+	        r_pr = 1;
+		}
     }
     switch (TYPEOF(x)) {
     case LGLSXP:
