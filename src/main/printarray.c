@@ -116,8 +116,9 @@ static void MatrixRowLabel(SEXP rl, int i, int rlabw, int lbloff)
  * We define macros that will be re-used in the other functions,
  * and comment the common code here (only):
 */
-static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
-			       SEXP rl, SEXP cl, const char *rn, const char *cn,
+static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int c_pr, 
+				   int r, int c, SEXP rl, SEXP cl, 
+				   const char *rn, const char *cn,
 			       Rboolean print_ij)
 {
 /* initialization; particularly of row labels, rl= dimnames(.)[[1]] and
@@ -181,7 +182,7 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 	    MatrixRowLabel(rl, i, rlabw, lbloff);			\
 	Rprintf("\n");							\
     }									\
-    else while (jmin < c) {						\
+    else while (jmin < c_pr) {						\
 	/* print columns  jmin:(jmax-1)	 where jmax has to be determined first */ \
 									\
 	width = rlabw;							\
@@ -190,7 +191,7 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 	    width += w[jmax] _W_EXTRA_;					\
 	    jmax++;							\
 	}								\
-	while (jmax < c && width + w[jmax] _W_EXTRA_ < R_print.width);	\
+	while (jmax < c_pr && width + w[jmax] _W_EXTRA_ < R_print.width);	\
 									\
 	_PRINT_ROW_LAB;							\
 									\
@@ -220,7 +221,7 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 }
 
-static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int c_pr, int r, int c,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
 			       Rboolean print_ij)
 {
@@ -233,7 +234,7 @@ static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		   Rprintf("%s", EncodeInteger(x[i + j * (R_xlen_t) r], w[j])));
 }
 
-static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printRealMatrix(SEXP sx, int offset, int r_pr, int c_pr, int r, int c,
 			    SEXP rl, SEXP cl, const char *rn, const char *cn,
 			    Rboolean print_ij)
 {
@@ -250,7 +251,7 @@ static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
                                              w[j], d[j], e[j], OutDec)) );
 }
 
-static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printComplexMatrix(SEXP sx, int offset, int r_pr, int c_pr, int r, int c,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
 			       Rboolean print_ij)
 {
@@ -283,7 +284,7 @@ static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 					     wi[j], di[j], ei[j], OutDec)) )
 }
 
-static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printStringMatrix(SEXP sx, int offset, int r_pr, int c_pr, int r, int c,
 			      int quote, int right, SEXP rl, SEXP cl,
 			      const char *rn, const char *cn, Rboolean print_ij)
 {
@@ -309,7 +310,7 @@ static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		                        w[j], quote, right)) );
 }
 
-static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printRawMatrix(SEXP sx, int offset, int r_pr, int c_pr, int r, int c,
 			   SEXP rl, SEXP cl, const char *rn, const char *cn,
 			   Rboolean print_ij)
 {
@@ -345,43 +346,48 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	return;
     }
     r_pr = r;
+
+	//
+	int c_pr = c > R_print.max ? R_print.max : c;
+
     if(c > 0 && R_print.max / c < r) /* avoid integer overflow */
 	/* using floor(), not ceil(), since 'c' could be huge: */
 	r_pr = R_print.max / c;
+	if(c > c_pr && r_pr < 1 && r > 0) r_pr = 1;
     switch (TYPEOF(x)) {
     case LGLSXP:
-	printLogicalMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printLogicalMatrix(x, offset, r_pr, c_pr, r, c, rl, cl, rn, cn, TRUE);
 	break;
     case INTSXP:
-	printIntegerMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printIntegerMatrix(x, offset, r_pr, c_pr, r, c, rl, cl, rn, cn, TRUE);
 	break;
     case REALSXP:
-	printRealMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRealMatrix	  (x, offset, r_pr, c_pr, r, c, rl, cl, rn, cn, TRUE);
 	break;
     case CPLXSXP:
-	printComplexMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printComplexMatrix(x, offset, r_pr, c_pr, r, c, rl, cl, rn, cn, TRUE);
 	break;
     case STRSXP:
 	if (quote) quote = '"';
-	printStringMatrix (x, offset, r_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
+	printStringMatrix (x, offset, r_pr, c_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
 	break;
     case RAWSXP:
-	printRawMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRawMatrix	  (x, offset, r_pr, c_pr, r, c, rl, cl, rn, cn, TRUE);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
-#ifdef ENABLE_NLS
-    if(r_pr < r) // number of formats must be consistent here
-	Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-			 " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-			 r - r_pr),
-		r - r_pr);
-#else
-    if(r_pr < r)
-	Rprintf(" [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-		r - r_pr);
-#endif
+	if (r_pr < r || c_pr < c) {
+    	Rprintf(" [ reached getOption(\"max.print\") -- omitted");
+    	if (r_pr < r) {
+			Rprintf(ngettext(" %d row", " %d rows", r - r_pr), r - r_pr);
+		}
+	    if (c_pr < c) {
+			if (r_pr < r) Rprintf(" and");
+			Rprintf(ngettext(" %d column", " %d columns", c - c_pr), c - c_pr);
+		}
+	   	Rprintf(" ]\n");
+	}
     vmaxset(vmax);
 }
 
@@ -447,6 +453,7 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    Rboolean do_ij = nb > 0,
 		i_last = (i == nb_pr - 1); /* for the last slice */
 	    int use_nr = i_last ? nr_last : nr;
+	    int use_nc = nc;
 	    if(do_ij) {
 		int k = 1;
 		Rprintf(", ");
@@ -472,24 +479,24 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    }
 	    switch (TYPEOF(x)) {
 	    case LGLSXP:
-		printLogicalMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printLogicalMatrix(x, i * b, use_nr, use_nc, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case INTSXP:
-		printIntegerMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printIntegerMatrix(x, i * b, use_nr, use_nc, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case REALSXP:
-		printRealMatrix   (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printRealMatrix   (x, i * b, use_nr, use_nc, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case CPLXSXP:
-		printComplexMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printComplexMatrix(x, i * b, use_nr, use_nc, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case STRSXP:
 		if (quote) quote = '"';
-		printStringMatrix (x, i * b, use_nr, nr, nc,
+		printStringMatrix (x, i * b, use_nr, use_nc, nr, nc,
 				   quote, right, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case RAWSXP:
-		printRawMatrix    (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printRawMatrix    (x, i * b, use_nr, use_nc, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    }
 	    Rprintf("\n");
