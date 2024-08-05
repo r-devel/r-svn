@@ -50,15 +50,15 @@ attr(,"constant")
 > 
 > stopifnot(exprs = {
 +     all.equal(residuals(roller.glm0, type = "partial"),
-+               residuals(roller.lm0,  type = "partial"), tol = 1e-14)  # 4.0e-16
++               residuals(roller.lm0,  type = "partial"), tolerance = 1e-14)  # 4.0e-16
 +     all.equal(deviance(roller.lm),
-+               deviance(roller.glm), tol = 1e-14) # 2.4e-16
++               deviance(roller.glm), tolerance = 1e-14) # 2.4e-16
 +     all.equal(weighted.residuals(roller.lm),
-+               residuals         (roller.glm), tol = 2e-14) # 9.17e-16
++               residuals         (roller.glm), tolerance = 2e-14) # 9.17e-16
 +     all.equal(deviance(roller.lm0),
-+               deviance(roller.glm0), tol = 1e-14) # 2.78e-16
-+     all.equal(weighted.residuals(roller.lm0, drop=FALSE),
-+               residuals         (roller.glm0),  tol = 2e-14) # 6.378e-16
++               deviance(roller.glm0), tolerance = 1e-14) # 2.78e-16
++     all.equal(weighted.residuals(roller.lm0, drop0=FALSE),
++               residuals         (roller.glm0),  tolerance = 2e-14) # 6.378e-16
 + })
 > 
 > (im.lm0 <- influence.measures(roller.lm0))
@@ -95,7 +95,7 @@ Influence measures of
 + 
 +     all.equal(summary(roller.lm0)$coefficients,
 +               summary(roller.lm9)$coefficients, tolerance = 1e-14)
-+     all.equal(print(anova(roller.lm0), signif.st=FALSE),
++     all.equal(print(anova(roller.lm0), signif.stars=FALSE),
 +                     anova(roller.lm9), tolerance = 1e-14)
 + })
 Analysis of Variance Table

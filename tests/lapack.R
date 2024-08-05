@@ -67,22 +67,22 @@ Ceigenok <- function(A, E, Eps=1000*.Machine$double.eps)
 ## failed for some 64bit-Lapack-gcc combinations:
 sm <- cbind(1, 3:1, 1:3)
 eigenok(sm, eigen(sm))
-eigenok(sm, eigen(sm, sym=FALSE))
+eigenok(sm, eigen(sm, symmetric=FALSE))
 
 set.seed(123)
 sm <- matrix(rnorm(25), 5, 5)
 sm <- 0.5 * (sm + t(sm))
 eigenok(sm, eigen(sm))
-eigenok(sm, eigen(sm, sym=FALSE))
+eigenok(sm, eigen(sm, symmetric=FALSE))
 
 sm[] <- as.complex(sm)
 Ceigenok(sm, eigen(sm))
-Ceigenok(sm, eigen(sm, sym=FALSE))
+Ceigenok(sm, eigen(sm, symmetric=FALSE))
 
 sm[] <- sm + rnorm(25) * 1i
 sm <- 0.5 * (sm + Conj(t(sm)))
 Ceigenok(sm, eigen(sm))
-Ceigenok(sm, eigen(sm, sym=FALSE))
+Ceigenok(sm, eigen(sm, symmetric=FALSE))
 
 
 ##  -------  tests of integer matrices -----------------
@@ -96,7 +96,7 @@ tcrossprod(A)
 
 solve(A)
 qr(A)
-determinant(A, log = FALSE)
+determinant(A, logarithm = FALSE)
 
 rcond(A)
 rcond(A, "I")
@@ -132,7 +132,7 @@ tcrossprod(A)
 Q <- qr(A)
 zapsmall(Q$qr)
 zapsmall(Q$qraux)
-determinant(A, log = FALSE) # 0
+determinant(A, logarithm = FALSE) # 0
 
 rcond(A)
 rcond(A, "I")

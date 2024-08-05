@@ -31,8 +31,8 @@ chkDens <- function(x, n=512, verbose=TRUE, plot=verbose) {
     stopifnot(exprs = {
         identical(den0$x, den$x)
         any(inI <- min(x) <= den$x  &  den$x <= max(x))
-        all.equal(den$y[inI], den0$y[inI]*corr0, tol = tolN )   # 5.878e-5
-        all.equal(den$y     , den0$y     *corr0, tol = tolN2) # 9.48 e-5
+        all.equal(den$y[inI], den0$y[inI]*corr0, tolerance = tolN )   # 5.878e-5
+        all.equal(den$y     , den0$y     *corr0, tolerance = tolN2) # 9.48 e-5
     })
 
     ## exact integration to 1 : .. compute density further out:

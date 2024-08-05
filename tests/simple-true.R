@@ -22,7 +22,7 @@ inherits(try(parse(text = "12iL"), silent=TRUE), "try-error") # gives syntax err
 
 
 all((0:6) == pi + ((-pi):pi))
-all((0:7) == (pi+seq(-pi,pi, length=8))*7/(2*pi))
+all((0:7) == (pi+seq(-pi,pi, length.out=8))*7/(2*pi))
 
 1 == as.integer(is.na(c(pi,NA)[2]))
 1 == as.integer(is.nan(0/0))

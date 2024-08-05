@@ -28,7 +28,7 @@ Type 'q()' to quit R.
 > ## abbreviate
 > for(m in 1:5) {
 +   cat("\n",m,":\n")
-+   print(as.vector(abbreviate(state.name, minl=m)))
++   print(as.vector(abbreviate(state.name, minlength=m)))
 + }
 
  1 :
@@ -324,22 +324,22 @@ c  203  215  227  239
 > plot(x0,x0, log='xy', ylab="", ylim=c(.1,1e60),type='n',
 +      main = "Bessel Functions -Y_nu(x)  near 0\n log - log  scale")
 > for(nu in sort(c(nus,nus+.5))) lines(x0, -besselY(x0,nu=nu), col = nu+2)
-> legend(3,1e50, leg=paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
+> legend(3,1e50, legend=paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
 > 
 > x <- seq(3,500);yl <- c(-.3, .2)
 > plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 > for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-> legend(300,-.08, leg=paste("nu=",nus), col = nus+2, lwd=1)
+> legend(300,-.08, legend=paste("nu=",nus), col = nus+2, lwd=1)
 > 
 > x <- seq(10,50000,by=10);yl <- c(-.1, .1)
 > plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 > for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-> summary(bY <- besselY(2,nu = nu <- seq(0,100,len=501)))
+> summary(bY <- besselY(2,nu = nu <- seq(0,100,length.out=501)))
        Min.     1st Qu.      Median        Mean     3rd Qu.        Max. 
 -3.001e+155 -1.067e+107  -1.976e+62 -9.961e+152  -2.059e+23   1.000e+00 
 > which(bY >= 0)
 [1] 1 2 3 4 5
-> summary(bY <- besselY(2,nu = nu <- seq(3,300,len=51)))
+> summary(bY <- besselY(2,nu = nu <- seq(3,300,length.out=51)))
        Min.     1st Qu.      Median        Mean     3rd Qu.        Max. 
        -Inf        -Inf -2.248e+263        -Inf -3.777e+116  -1.000e+00 
 There were 22 warnings (use warnings() to see them)
@@ -417,7 +417,7 @@ numeric(0)
 > format.pval(p / 0.9)
 [1] "0.05222222" "0.01444444" "0.00222222" "0.00011111" "2.5556e-05"
 [6] "5.0000e-06" "< 2.22e-16"
-> format.pval(p / 0.9, dig=3)
+> format.pval(p / 0.9, digits=3)
 [1] "0.052222" "0.014444" "0.002222" "0.000111" "2.56e-05" "5.00e-06" "< 2e-16" 
 > ## end of moved from format.Rd
 > 
@@ -427,7 +427,7 @@ numeric(0)
 > x #  1.000000 -3.000000       Inf      -Inf        NA  3.141593        NA
 [1]  1.000000e+02 -1.000000e-13           Inf          -Inf           NaN
 [6]  3.141593e+00            NA
-> names(x) <- formatC(x, dig=3)
+> names(x) <- formatC(x, digits=3)
 > is.finite(x)
    100 -1e-13    Inf   -Inf    NaN   3.14     NA 
   TRUE   TRUE  FALSE  FALSE  FALSE   TRUE  FALSE 
@@ -522,7 +522,7 @@ C:sad    9000 12000 18000 24000 27000 36000 36000 48000
 > # dimnames are hard work: let's test them thoroughly
 > 
 > dimnames(bill) <- NULL
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
      D:    D:    E:    E:    F:    F:    G:    G:
 A:  300   400  1200  1600  2100  2800  3000  4000
 A: 3000  4000 12000 16000 21000 28000 30000 40000
@@ -530,7 +530,7 @@ B:  600   800  1500  2000  2400  3200  3300  4400
 B: 6000  8000 15000 20000 24000 32000 33000 44000
 C:  900  1200  1800  2400  2700  3600  3600  4800
 C: 9000 12000 18000 24000 27000 36000 36000 48000
-> kronecker(bill, fred, make=TRUE)
+> kronecker(bill, fred, make.dimnames=TRUE)
      :D    :E    :F    :G    :D    :E    :F    :G
 :A  300  1200  2100  3000   400  1600  2800  4000
 :B  600  1500  2400  3300   800  2000  3200  4400
@@ -541,7 +541,7 @@ C: 9000 12000 18000 24000 27000 36000 36000 48000
 > 
 > dim(bill) <- c(2, 2, 1)
 > dimnames(bill) <- list(c("happy", "sad"), NULL, "")
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , :
 
           D:    D:    E:    E:    F:    F:    G:    G:
@@ -555,7 +555,7 @@ C:sad   9000 12000 18000 24000 27000 36000 36000 48000
 > 
 > bill <- array(1:24, c(3, 4, 2))
 > dimnames(bill) <- list(NULL, NULL, c("happy", "sad"))
-> kronecker(bill, fred, make=TRUE)
+> kronecker(bill, fred, make.dimnames=TRUE)
 , , happy:
 
    :D :E :F :G :D :E :F :G :D :E :F  :G :D :E  :F  :G
@@ -582,7 +582,7 @@ C:sad   9000 12000 18000 24000 27000 36000 36000 48000
 :B 30 75 120 165 36  90 144 198 42 105 168 231 48 120 192 264
 :C 45 90 135 180 54 108 162 216 63 126 189 252 72 144 216 288
 
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , :happy
 
    D: D: D: D: E: E: E: E: F: F: F:  F: G: G:  G:  G:
@@ -611,7 +611,7 @@ C: 45 54 63 72 90 108 126 144 135 162 189 216 180 216 252 288
 
 > 
 > fred <- outer(fred, c("frequentist"=4, "bayesian"=4000))
-> kronecker(fred, bill, make=TRUE)
+> kronecker(fred, bill, make.dimnames=TRUE)
 , , frequentist:happy
 
    D: D:  D:  D: E:  E:  E:  E:  F:  F:  F:  F:  G:  G:  G:  G:
@@ -1205,7 +1205,7 @@ coef[ 15] = 0.0008658
 > ## fixed by patch from Adrian Trapletti 2001-03-08
 > 
 > ## Start new year (i.e. line) at Jan:
-> (tt <- ts(1:10, start = c(1920,7), end = c(1921,4), freq = 12))
+> (tt <- ts(1:10, start = c(1920,7), end = c(1921,4), frequency = 12))
      Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
 1920                           1   2   3   4   5   6
 1921   7   8   9  10                                
@@ -1312,11 +1312,11 @@ character(0)
 > f.bar <- function(x) { on.exit(e <<- g()); return(NULL) }
 > f(structure(1,class = "foo"))
 NULL
-> ls(env = e)# only "x", i.e. *not* the GlobalEnv
+> ls(envir = e)# only "x", i.e. *not* the GlobalEnv
 [1] "x"
 > f(structure(1,class = "bar"))
 NULL
-> stopifnot("x" == ls(env = e))# as above; wrongly was .GlobalEnv in R 1.3.x
+> stopifnot("x" == ls(envir = e))# as above; wrongly was .GlobalEnv in R 1.3.x
 > 
 > 
 > ## some tests that R supports logical variables in formulae
@@ -1710,8 +1710,8 @@ Levels: NA a b
 > 
 > ## print.ts problems  ggrothendieck@yifan.net on R-help, 2002-04-01
 > x <- 1:20
-> tt1 <- ts(x,start=c(1960,2), freq=12)
-> tt2 <- ts(10+x,start=c(1960,2), freq=12)
+> tt1 <- ts(x,start=c(1960,2), frequency=12)
+> tt2 <- ts(10+x,start=c(1960,2), frequency=12)
 > cbind(tt1, tt2)
          tt1 tt2
 Feb 1960   1  11
@@ -1857,7 +1857,7 @@ Coefficients:
 > (qq <- sapply(0:5, function(k) {
 +     x <- c(rep(-Inf,k+1), 0:k, rep(Inf, k))
 +     sapply(1:9, function(typ)
-+            quantile(x, pr=(2:10)/10, type=typ))
++            quantile(x, probs=(2:10)/10, type=typ))
 + }, simplify="array"))
 , , 1
 
@@ -2237,12 +2237,12 @@ Levels: A B C
 > for(j.fac in 1e-12* c(10, 1, .7, .3, .2, .1, .05, .03, .01)) {
 + ##           ====
 +     #set.seed(101) # or don't
-+     x <- pi + jitter(numeric(101), f = j.fac)
-+     rrtxt <- paste("rel.range =", formatC(relrange(x), dig = 4),"* EPS")
++     x <- pi + jitter(numeric(101), factor = j.fac)
++     rrtxt <- paste("rel.range =", formatC(relrange(x), digits = 4),"* EPS")
 +     cat("j.f = ", format(j.fac)," ;  ", rrtxt,"\n",sep="")
 +     plot(x, type = "l", main = rrtxt)
-+     cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], wid = 10),"\n",
-+         "par(\"yaxp\") :   ", formatC(par("yaxp"), wid = 10),"\n\n", sep="")
++     cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], width = 10),"\n",
++         "par(\"yaxp\") :   ", formatC(par("yaxp"), width = 10),"\n\n", sep="")
 + }
 j.f = 1e-11 ;  rel.range = 553.9 * EPS
 par("usr")[3:4]:     3.142     3.142
@@ -2403,7 +2403,7 @@ Coefficients:
 (Intercept)           x1           x2           x3  
      1.4719       0.5867           NA       0.2587  
 
-> summary(fit, cor = TRUE)
+> summary(fit, correlation = TRUE)
 
 Call:
 lm(formula = y ~ x1 + x2 + x3)
@@ -2439,7 +2439,7 @@ Coefficients:
 Degrees of Freedom: 9 Total (i.e. Null);  7 Residual
 Null Deviance:	    67.53 
 Residual Deviance: 4.551 	AIC: 28.51
-> summary(fit, cor = TRUE)
+> summary(fit, correlation = TRUE)
 
 Call:
 glm(formula = y ~ x1 + x2 + x3)
@@ -2638,7 +2638,7 @@ Residuals 10 2.7404 0.27404
 > predict(fit)
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
-> predict(fit, data.frame(x=x), se=TRUE)
+> predict(fit, data.frame(x=x), se.fit=TRUE)
 $fit
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
@@ -2652,7 +2652,7 @@ $df
 $residual.scale
 [1] 0.5234843
 
-> predict(fit, type="terms", se=TRUE)
+> predict(fit, type="terms", se.fit=TRUE)
 $fit
      
  [1,]
@@ -2738,7 +2738,7 @@ Residuals 10 2.7404 0.27404
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
 > tools::assertWarning(
-+  predict(fit, data.frame(x=x), se=TRUE) -> p0
++  predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 + )
 > p0
 $fit
@@ -2759,7 +2759,7 @@ $residual.scale
 
 > if(FALSE)## not yet:
 + stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-> predict(fit, type="terms", se=TRUE)
+> predict(fit, type="terms", se.fit=TRUE)
 $fit
    x
 1  0
@@ -2851,7 +2851,7 @@ NULL                    10     2.7404
 > predict(fit)
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
-> predict(fit, data.frame(x=x), se=TRUE)
+> predict(fit, data.frame(x=x), se.fit=TRUE)
 $fit
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
@@ -2862,7 +2862,7 @@ $se.fit
 $residual.scale
 [1] 0.5234843
 
-> predict(fit, type="terms", se=TRUE)
+> predict(fit, type="terms", se.fit=TRUE)
 $fit
      
  [1,]
@@ -2940,7 +2940,7 @@ x     0        0        10     2.7404
  1  2  3  4  5  6  7  8  9 10 
  0  0  0  0  0  0  0  0  0  0 
 > tools::assertWarning(
-+  predict(fit, data.frame(x=x), se=TRUE) -> p0
++  predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 + )
 > p0
 $fit
@@ -2958,7 +2958,7 @@ $residual.scale
 
 > if(FALSE)## not yet:
 + stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-> predict(fit, type="terms", se=TRUE)
+> predict(fit, type="terms", se.fit=TRUE)
 $fit
    x
 1  0
@@ -3624,7 +3624,7 @@ NULL
 > 
 > 
 > ## S compatibility change in 1.9.0
-> rep(1:2, each=3, length=12)
+> rep(1:2, each=3, length.out=12)
  [1] 1 1 1 2 2 2 1 1 1 2 2 2
 > ## used to pad with NAs.
 > 
@@ -4229,7 +4229,7 @@ Warning message:
 > ## used '.' not ',' in 2.0.0
 > 
 > ## splinefun() value test
-> (x <- seq(0,6, length=25))
+> (x <- seq(0,6, length.out=25))
  [1] 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00 2.25 2.50 2.75 3.00 3.25 3.50
 [16] 3.75 4.00 4.25 4.50 4.75 5.00 5.25 5.50 5.75 6.00
 > mx <- sapply(c("fmm", "nat", "per"),
@@ -4266,17 +4266,17 @@ Warning message:
 > ## infinite loop in read.fwf (PR#7350)
 > cat(file="test.txt", sep = "\n", "# comment 1", "1234567   # comment 2",
 +     "1 234567  # comment 3", "12345  67 # comment 4", "# comment 5")
-> read.fwf("test.txt", width=c(2,2,3), skip=1, n=4) # looped
+> read.fwf("test.txt", widths=c(2,2,3), skip=1, n=4) # looped
   V1 V2  V3
 1 12 34 567
 2  1 23 456
 3 12 34   5
-> read.fwf("test.txt", width=c(2,2,3), skip=1)      # 1 line short
+> read.fwf("test.txt", widths=c(2,2,3), skip=1)      # 1 line short
   V1 V2  V3
 1 12 34 567
 2  1 23 456
 3 12 34   5
-> read.fwf("test.txt", width=c(2,2,3), skip=0)
+> read.fwf("test.txt", widths=c(2,2,3), skip=0)
   V1 V2  V3
 1 12 34 567
 2  1 23 456
@@ -4436,7 +4436,7 @@ b 2 2
 "a" 1 1
 "b" 2 2
 > 
-> x3 <- seq(as.Date("2005-01-01"), len=6, by="day")
+> x3 <- seq(as.Date("2005-01-01"), length.out=6, by="day")
 > x4 <- data.frame(x=1:6, y=x3)
 > dim(x3) <- c(2,3)
 > x3
@@ -4466,11 +4466,11 @@ b 2 2
 > 
 > 
 > ## Problem with earlier regexp code spotted by KH
-> grep("(.*s){2}", "Arkansas", v = TRUE)
+> grep("(.*s){2}", "Arkansas", value = TRUE)
 [1] "Arkansas"
-> grep("(.*s){3}", "Arkansas", v = TRUE)
+> grep("(.*s){3}", "Arkansas", value = TRUE)
 character(0)
-> grep("(.*s){3}", state.name, v = TRUE)
+> grep("(.*s){3}", state.name, value = TRUE)
 [1] "Massachusetts" "Mississippi"  
 > ## Thought Arkansas had 3 s's.
 > 
@@ -4989,7 +4989,7 @@ NULL
 > 
 > ## formatC on Windows (PR#8337)
 > xx  <- pi * 10^(-5:4)
-> cbind(formatC(xx, wid = 9))
+> cbind(formatC(xx, width = 9))
       [,1]       
  [1,] "3.142e-05"
  [2,] "0.0003142"
@@ -5001,7 +5001,7 @@ NULL
  [8,] "    314.2"
  [9,] "     3142"
 [10,] "3.142e+04"
-> cbind(formatC(xx, wid = 9, flag = "-"))
+> cbind(formatC(xx, width = 9, flag = "-"))
       [,1]       
  [1,] "3.142e-05"
  [2,] "0.0003142"
@@ -5013,7 +5013,7 @@ NULL
  [8,] "314.2    "
  [9,] "3142     "
 [10,] "3.142e+04"
-> cbind(formatC(xx, wid = 9, flag = "0"))
+> cbind(formatC(xx, width = 9, flag = "0"))
       [,1]       
  [1,] "3.142e-05"
  [2,] "0.0003142"
@@ -5060,17 +5060,17 @@ Reaction ~ Days + (Days | Subject) + I(Days^2)
 > 
 > 
 > ## PR#8528: errors in the post-2.1.0 pgamma
-> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE)
+> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE)
  [1] -3.768207e+98 -2.314355e+98 -1.251893e+98 -5.360516e+97 -1.293294e+97
  [6] -6.931472e-01  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00
 [11]  0.000000e+00
-> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE, lower=FALSE)
+> pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower.tail=FALSE)
  [1]  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00  0.000000e+00
  [6] -6.931472e-01 -1.209836e+97 -4.689820e+97 -1.023806e+98 -1.767844e+98
 [11] -2.685645e+98
 > pgamma(c(1-1e-10, 1+1e-10)*1e100, shape = 1e100)
 [1] 0 1
-> pgamma(0.9*1e25, 1e25, log=TRUE)
+> pgamma(0.9*1e25, 1e25, log.p=TRUE)
 [1] -5.360516e+22
 > ## were NaN, -Inf etc in 2.2.1.
 > 
@@ -6147,11 +6147,11 @@ zero  one
 > 
 > ## readChar read extra items, terminated on zeros
 > x <- as.raw(65:74)
-> readChar(x, nchar=c(3,3,0,3,3,3))
+> readChar(x, nchars=c(3,3,0,3,3,3))
 [1] "ABC" "DEF" ""    "GHI" "J"  
 > f <- tempfile(tmpdir = getwd())
 > writeChar("ABCDEFGHIJ", con=f, eos=NULL)
-> readChar(f, nchar=c(3,3,0,3,3,3))
+> readChar(f, nchars=c(3,3,0,3,3,3))
 [1] "ABC" "DEF" ""    "GHI" "J"  
 > unlink(f)
 > ##
@@ -6322,7 +6322,7 @@ Error in aggregate.data.frame(z, by = z[1], FUN = sum) :
 > 
 > 
 > ## incorrect warning due to lack of fuzz.
-> TS <-  ts(co2[1:192], freq=24)
+> TS <-  ts(co2[1:192], frequency=24)
 > tmp2 <- window(TS, start(TS), end(TS))
 > ## warned in 2.8.0
 > 

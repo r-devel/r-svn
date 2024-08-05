@@ -197,7 +197,7 @@ stopifnot(identical(expect, gregexpr("", "abc", perl=TRUE)[[1]]))
 
 
 ## test of internal argument matching
-stopifnot(all.equal(round(d=2, x=pi), 3.14))
+stopifnot(all.equal(round(digits=2, x=pi), 3.14))
 ## used positional matching in 2.6.x
 
 
@@ -347,9 +347,13 @@ dd <- data.frame(ii = 1:10, xx = pi * -3:6)
 t1 <- try(dd[,"x"])# partial match
 t2 <- try(dd[,"C"])# no match
 stopifnot(inherits(t1, "try-error"),
-	  inherits(t2, "try-error"),
-	  ## partial matching is "ok" for '$' {hence don't use for dataframes!}
-	  identical(dd$x, dd[,"xx"]))
+	  inherits(t2, "try-error"))
+local({
+  old <- options(warnPartialMatchDollar=FALSE)
+  on.exit(options(old))
+  ## partial matching is "ok" for '$' {hence don't use for dataframes!}
+  stopifnot(identical(dd$x, dd[,"xx"]))
+})
 ## From 2.5.0 to 2.7.1, the non-match indexing gave NULL instead of error
 
 
@@ -373,7 +377,7 @@ stopifnot(rcond(cbind(1, c(3,3))) == 0)
 x <- data.frame(d=Sys.Date())
 stopifnot(sapply(x, is.numeric) == FALSE)
 # TRUE in 2.7.1, tried to dispatch on "FUN"
-(ds <- seq(from=Sys.Date(), by=1, length=4))
+(ds <- seq(from=Sys.Date(), by=1, length.out=4))
 lapply(list(d=ds), round)
 # failed in 2.7.1 with 'dispatch error' since call had '...' arg
 ## related to calls being passed unevaluated by lapply.
@@ -471,7 +475,7 @@ sx <- sd(x)# sd() -> var()
 ## all three gave "missing observations in cov/cor"  for a long time in the past
 is.NA <- function(x) is.na(x) & !is.nan(x)
 stopifnot(is.NA(v1), is.NA(v2), is.NA(sx),
-	  all.equal(0.5, var(x, na.rm=TRUE), tol=8*Meps)# should even be exact
+	  all.equal(0.5, var(x, na.rm=TRUE), tolerance=8*Meps)# should even be exact
 	  )
 
 
@@ -561,7 +565,7 @@ stopifnot(identical(rn, rn0))
 
 
 ## rounding error in windowing a time series (PR#13272)
-x <- ts(1:290, start=c(1984,10), freq=12)
+x <- ts(1:290, start=c(1984,10), frequency=12)
 window(x, start=c(2008,9), end=c(2008,9), extend=FALSE)
 window(x, start=c(2008,9), end=c(2008,9), extend=TRUE)
 ## second failed in 2.8.0
@@ -776,12 +780,12 @@ stopifnot(all.equal(bw.SJ(c(1:99, 1e6), tol = ep), 0.725, tolerance = ep))
 ## bw.SJ(x) failed for R <= 2.9.0 (in two ways!), when x had extreme outlier
 
 
-## anyDuplicated() with 'incomp' ...
+## anyDuplicated() with 'incomparables' ...
 oo <- options(warn=2) # no warnings allowed
-stopifnot(identical(0L, anyDuplicated(c(1,NA,3,NA,5), incomp=NA)),
-	  identical(5L, anyDuplicated(c(1,NA,3,NA,3), incomp=NA)),
-	  identical(4L, anyDuplicated(c(1,NA,3,NA,3), incomp= 3)),
-	  identical(0L, anyDuplicated(c(1,NA,3,NA,3), incomp=c(3,NA))))
+stopifnot(identical(0L, anyDuplicated(c(1,NA,3,NA,5), incomparables=NA)),
+	  identical(5L, anyDuplicated(c(1,NA,3,NA,3), incomparables=NA)),
+	  identical(4L, anyDuplicated(c(1,NA,3,NA,3), incomparables= 3)),
+	  identical(0L, anyDuplicated(c(1,NA,3,NA,3), incomparables=c(3,NA))))
 options(oo)
 ## missing UNPROTECT and partly wrong in development versions of R
 
@@ -1073,7 +1077,7 @@ stopifnot(identical(model.frame(~V), model.frame(~V, xlev = list(V=levels(V)))))
 
 ## ks.test gave p=1 rather than p=0.9524 because abs(1/2-4/5)>3/10 was TRUE
 ks5 <- ks.test(1:5, c(2.5,4.5))
-stopifnot(all.equal(20/21, ks5$p.value, tol=1e-15))
+stopifnot(all.equal(20/21, ks5$p.value, tolerance=1e-15))
 
 
 ## NAs in utf8ToInt and v.v.
@@ -1182,7 +1186,7 @@ stopifnot(length(newConn()) == 0)
 
 
 ## splinefun(., method = "monoH.FC")
-x <- 1:7 ; xx <- seq(0.9, 7.1, length=2^12)
+x <- 1:7 ; xx <- seq(0.9, 7.1, length.out=2^12)
 y <- c(-12, -10, 3.5, 4.45, 4.5, 140, 142)
 Smon <- splinefun(x, y, method = "monoH.FC")
 stopifnot(0 <= min(Smon(xx, deriv=1)))
@@ -1198,7 +1202,7 @@ stopifnot(px[1] == "2008-04-22", length(px) == 6)
 
 
 ## cut( d, breaks = n) - for d of class  'Date' or 'POSIXt'
-x <- seq(as.POSIXct("2000-01-01"), by = "days", length = 20)
+x <- seq(as.POSIXct("2000-01-01"), by = "days", length.out = 20)
 stopifnot(nlevels(c1 <- cut(x, breaks = 3)) == 3,
 	  nlevels(c2 <- cut(as.POSIXlt(x), breaks = 3)) == 3,
 	  nlevels(c3 <- cut(as.Date(x), breaks = 3)) == 3,

@@ -47,7 +47,7 @@ stopifnot(ok[e10 <= 7])
 ssok <- sspl[ok]
 ssGet  <- function(ch) t(sapply(ssok, `[` , ch))
 ssGet1 <- function(ch)   sapply(ssok, `[[`, ch)
-stopifnot(all.equal(ssGet1("crit"), ssGet1("cv.crit"), tol = 1e-10))# seeing rel.diff = 6.57e-12
+stopifnot(all.equal(ssGet1("crit"), ssGet1("cv.crit"), tolerance = 1e-10))# seeing rel.diff = 6.57e-12
 ## Interesting:  for really large lambda, solution "diverges" from the straight line
 ssGet(c("lambda", "df", "crit", "pen.crit"))
 
