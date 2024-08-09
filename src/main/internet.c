@@ -285,6 +285,15 @@ attribute_hidden SEXP do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
 }
 
+void CurlCleanup(void)
+{
+    if(!initialized) internet_Init();
+    if(initialized > 0)
+    (*ptr->curlCleanup)();
+    else
+    error(_("internet routines cannot be loaded"));
+}
+
 Rconnection attribute_hidden
 R_newCurlUrl(const char *description, const char * const mode, SEXP headers, int type)
 {

@@ -141,6 +141,7 @@ void Rf_endEmbeddedR(int fatal)
 {
     R_RunExitFinalizers();
     CleanEd();
+    CurlCleanup();
     R_CleanTempDir();
     if(!fatal){
 	Rf_KillAllDevices();

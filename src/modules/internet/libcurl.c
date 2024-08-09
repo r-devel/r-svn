@@ -55,12 +55,30 @@ extern void Rsleep(double timeint);
 
 static int current_timeout = 0;
 
+// The multi-handle is shared between downloads for reusing connections
+static CURLM *shared_mhnd = NULL;
+
+static CURLM attribute_hidden *get_mhnd(void)
+{
+    if(!shared_mhnd)
+      shared_mhnd = curl_multi_init();
+    return shared_mhnd;
+}
+
+void attribute_hidden in_curlCleanup(void)
+{
+    if(shared_mhnd){
+        curl_multi_cleanup(shared_mhnd);
+        shared_mhnd = NULL;
+    }
+    curl_global_cleanup();
+}
+
 # if LIBCURL_VERSION_MAJOR < 7 || (LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 28)
 
 // curl/curl.h includes <sys/select.h> and headers it requires.
 
 #define curl_multi_wait R_curl_multi_wait
-
 
 static CURLMcode
 R_curl_multi_wait(CURLM *multi_handle,
@@ -565,8 +583,6 @@ static void download_cleanup(void *data)
 	if (c->hnd && c->hnd[i])
 	    curl_easy_cleanup(c->hnd[i]);
     }
-    if (c->mhnd)
-	curl_multi_cleanup(c->mhnd);
     if (c->headers)
 	curl_slist_free_all(c->headers);
 
@@ -668,7 +684,8 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	c.headers = headers = tmp;
     }
 
-    CURLM *mhnd = curl_multi_init();
+    CURLM *mhnd = get_mhnd();
+
     if (!mhnd)
 	error(_("could not create curl handle"));
     c.mhnd = mhnd;
