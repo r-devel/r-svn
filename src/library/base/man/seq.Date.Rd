@@ -14,7 +14,7 @@
 \method{seq}{Date}(from, to, by, length.out = NULL, along.with = NULL, \dots)
 }
 \arguments{
-  \item{from}{starting date.  Required.}
+  \item{from}{starting date.  Optional.}
   \item{to}{end date.  Optional.}
   \item{by}{increment of the sequence.  Optional.  See \sQuote{Details}.}
   \item{length.out}{integer, optional.  Desired length of the sequence.}
@@ -46,6 +46,9 @@ seq(as.Date("1910/1/1"), as.Date("1999/1/1"), "years")
 seq(as.Date("2000/1/1"), by = "month", length.out = 12)
 ## quarters
 seq(as.Date("2000/1/1"), as.Date("2003/1/1"), by = "quarter")
+
+## 3-week period ending on a fixed date
+seq(to = as.Date("2024-06-18"), by = "day", length.out = 21)
 
 ## find all 7th of the month between two dates, the last being a 7th.
 st <- as.Date("1998-12-17")
