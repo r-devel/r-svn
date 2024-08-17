@@ -242,23 +242,24 @@ mean.Date <- function (x, ...)
 
 seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
 {
-    if (missing(from)) stop("'from' must be specified")
-    if (!inherits(from, "Date")) stop("'from' must be a \"Date\" object")
-        if(length(as.Date(from)) != 1L) stop("'from' must be of length 1")
-    if (!missing(to)) {
-        if (!inherits(to, "Date")) stop("'to' must be a \"Date\" object")
-        if (length(as.Date(to)) != 1L) stop("'to' must be of length 1")
-    }
     if (!missing(along.with)) {
         length.out <- length(along.with)
     }  else if (!is.null(length.out)) {
         if (length(length.out) != 1L) stop("'length.out' must be of length 1")
         length.out <- ceiling(length.out)
     }
-    status <- c(!missing(to), !missing(by), !is.null(length.out))
-    if(sum(status) != 2L)
-        stop("exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified")
-    if (missing(by)) {
+    status <- which(c(missing(from), missing(to), is.null(length.out), missing(by)))
+    if(length(status) != 1L)
+        stop("exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified")
+    if (status != 1L) {
+        if (!inherits(from, "Date")) stop(gettextf("'%s' must be a \"%s\" object", "from", "Date"), domain=NA)
+        if (length(from) != 1L) stop(gettextf("'%s' must be of length 1", "from"), domain=NA)
+    }
+    if (status != 2L) {
+        if (!inherits(to, "Date")) stop(gettextf("'%s' must be a \"%s\" object", "to", "Date"), domain=NA)
+        if (length(to) != 1L) stop(gettextf("'%s' must be of length 1", "to"), domain=NA)
+    }
+    if (status == 4L) {
         from <- unclass(as.Date(from))
         to <- unclass(as.Date(to))
         res <- seq.int(from, to, length.out = length.out)
@@ -267,10 +268,8 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
     }
 
     if (length(by) != 1L) stop("'by' must be of length 1")
-    valid <- 0L
     if (inherits(by, "difftime")) {
-        by <- switch(attr(by,"units"), secs = 1/86400, mins = 1/1440,
-                     hours = 1/24, days = 1, weeks = 7) * unclass(by)
+        by <- as.double(by, units = "days")
     } else if(is.character(by)) {
         by2 <- strsplit(by, " ", fixed = TRUE)[[1L]]
         if(length(by2) > 2L || length(by2) < 1L)
@@ -278,54 +277,24 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
         valid <- pmatch(by2[length(by2)],
                         c("days", "weeks", "months", "quarters", "years"))
         if(is.na(valid)) stop("invalid string for 'by'")
-        if(valid <= 2L) {
-            by <- c(1, 7)[valid]
-            if (length(by2) == 2L) by <- by * as.integer(by2[1L])
-        } else
-            by <- if(length(by2) == 2L) as.integer(by2[1L]) else 1
+        if(valid > 2L) { # seq.POSIXt handles the logic for non-arithmetic cases
+            res <- switch(status,
+              seq(to = as.POSIXlt(to),     by = by,             length.out = length.out), # missing(from)
+              seq(from = as.POSIXlt(from), by = by,             length.out = length.out), # missing(to)
+              seq(from = as.POSIXlt(from), to = as.POSIXlt(to), by = by)                  # is.null(length.out)
+            )
+            return(as.Date(res))
+        }
     } else if(!is.numeric(by)) stop("invalid mode for 'by'")
     if(is.na(by)) stop("'by' is NA")
 
-    if(valid <= 2L) { # days or weeks
-        from <- unclass(as.Date(from))
-        if(!is.null(length.out))
-            res <- seq.int(from, by = by, length.out = length.out)
-        else {
-            to0 <- unclass(as.Date(to))
-            ## defeat test in seq.default
-            res <- seq.int(0, to0 - from, by) + from
-        }
-        ## force double storage for consistency
-        res <- .Date(as.numeric(res))
-    } else {  # months or quarters or years
-        r1 <- as.POSIXlt(from)
-        if(valid == 5L) { # years
-            if(missing(to)) {
-                yr <- seq.int(r1$year, by = by, length.out = length.out)
-            } else {
-                to0 <- as.POSIXlt(to)
-                yr <- seq.int(r1$year, to0$year, by)
-            }
-            r1$year <- yr
-            res <- as.Date(r1)
-        } else { # months or quarters
-            if (valid == 4L) by <- by * 3
-            if(missing(to)) {
-                mon <- seq.int(r1$mon, by = by, length.out = length.out)
-            } else {
-                to0 <- as.POSIXlt(to)
-                mon <- seq.int(r1$mon, 12*(to0$year - r1$year) + to0$mon, by)
-            }
-            r1$mon <- mon
-            res <- as.Date(r1)
-        }
-    }
-    ## can overshoot
-    if (!missing(to)) {
-        to <- as.Date(to)
-        res <- if (by > 0) res[res <= to] else res[res >= to]
-    }
-    res
+    ## force double storage for consistency
+    res <- as.numeric(switch(status, # NB: status <= 3
+        seq.int(to   = unclass(to),   by = by,          length.out = length.out), # missing(from)
+        seq.int(from = unclass(from), by = by,          length.out = length.out), # missing(to)
+        seq.int(from = unclass(from), to = unclass(to), by = by)                  # is.null(length.out)
+    ))
+    .Date(res)
 }
 
 ## *very* similar to cut.POSIXt [ ./datetime.R ] -- keep in sync!

@@ -932,39 +932,41 @@ function(x, value)
 seq.POSIXt <-
 function(from, to, by, length.out = NULL, along.with = NULL, ...)
 {
-    if (missing(from)) stop("'from' must be specified")
-    if (!inherits(from, "POSIXt")) stop("'from' must be a \"POSIXt\" object")
-    cfrom <- as.POSIXct(from)
-    if(length(cfrom) != 1L) stop("'from' must be of length 1")
-    tz <- attr(cfrom , "tzone")
-    if (!missing(to)) {
-        if (!inherits(to, "POSIXt")) stop("'to' must be a \"POSIXt\" object")
-        if (length(as.POSIXct(to)) != 1) stop("'to' must be of length 1")
-    }
     if (!missing(along.with)) {
         length.out <- length(along.with)
     }  else if (!is.null(length.out)) {
         if (length(length.out) != 1L) stop("'length.out' must be of length 1")
         length.out <- ceiling(length.out)
     }
-    status <- c(!missing(to), !missing(by), !is.null(length.out))
-    if(sum(status) != 2L)
-        stop("exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified")
-    if (missing(by)) {
-        from <- unclass(cfrom)
+    status <- which(c(missing(from), missing(to), is.null(length.out), missing(by)))
+    if(length(status) != 1L)
+        stop("exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified")
+    # NB: process 'to' first so that 'tz' is overwritten to that from 'from' unless missing(from)
+    if (status != 2L) {
+        if (!inherits(to, "POSIXt")) stop(gettextf("'%s' must be a \"%s\" object", "to", "POSIXt"), domain=NA)
+        if (length(to) != 1L) stop(gettextf("'%s' must be of length 1", "to"), domain=NA)
+        cto <- as.POSIXct(to)
+        tz <- attr(cto, "tzone")
+    }
+    if (status != 1L) {
+        if (!inherits(from, "POSIXt")) stop(gettextf("'%s' must be a \"%s\" object", "from", "POSIXt"), domain=NA)
+        if (length(from) != 1L) stop(gettextf("'%s' must be of length 1", "from"), domain=NA)
+        cfrom <- as.POSIXct(from)
+        tz <- attr(cfrom, "tzone")
+    }
+    if (status == 4L) {
+        from <- unclass(as.POSIXct(from))
         to <- unclass(as.POSIXct(to))
-        ## Till (and incl.) 1.6.0 :
-        ##- incr <- (to - from)/length.out
-        ##- res <- seq.default(from, to, incr)
         res <- seq.int(from, to, length.out = length.out)
-        return(.POSIXct(res, tz))
+        tz <- attr(from, "tzone")
+        ## force double storage for consistency
+        return(.POSIXct(as.numeric(res), tz))
     }
 
     if (length(by) != 1L) stop("'by' must be of length 1")
     valid <- 0L
     if (inherits(by, "difftime")) {
-        by <- switch(attr(by,"units"), secs = 1, mins = 60, hours = 3600,
-                     days = 86400, weeks = 7*86400) * unclass(by)
+        by <- as.double(by, units = "secs")
     } else if(is.character(by)) {
         by2 <- strsplit(by, " ", fixed = TRUE)[[1L]]
         if(length(by2) > 2L || length(by2) < 1L)
@@ -981,52 +983,47 @@ function(from, to, by, length.out = NULL, along.with = NULL, ...)
     } else if(!is.numeric(by)) stop("invalid mode for 'by'")
     if(is.na(by)) stop("'by' is NA")
 
-    if(valid <= 5L) { # secs, mins, hours, days, weeks
-        from <- unclass(as.POSIXct(from))
-        if(!is.null(length.out))
-            res <- seq.int(from, by = by, length.out = length.out)
-        else {
-            to0 <- unclass(as.POSIXct(to))
-            ## defeat test in seq.default
-            res <- seq.int(0, to0 - from, by) + from
-        }
-        return(.POSIXct(res, tz))
-    } else {  # months or years or DSTdays or quarters
-        r1 <- as.POSIXlt(from)
-        if(valid == 7L) { # years
-            if(missing(to)) { # years
-                yr <- seq.int(r1$year, by = by, length.out = length.out)
-            } else {
-                to <- as.POSIXlt(to)
-                yr <- seq.int(r1$year, to$year, by)
-            }
-            r1$year <- yr
-        } else if(valid %in% c(6L, 9L)) { # months or quarters
-            if (valid == 9L) by <- by * 3
-            if(missing(to)) {
-                mon <- seq.int(r1$mon, by = by, length.out = length.out)
-            } else {
-                to0 <- as.POSIXlt(to)
-                mon <- seq.int(r1$mon, 12*(to0$year - r1$year) + to0$mon, by)
-            }
-            r1$mon <- mon
-        } else if(valid == 8L) { # DSTdays
-            if(!missing(to)) {
-                ## We might have a short day, so need to over-estimate.
-                length.out <- 2L + floor((unclass(as.POSIXct(to)) -
-                      unclass(as.POSIXct(from)))/(by * 86400))
-            }
-            r1$mday <- seq.int(r1$mday, by = by, length.out = length.out)
-        }
-    r1$isdst <- -1L
-    res <- as.POSIXct(r1)
+    # if one of secs, mins, hours, days, or weeks
+    if(valid <= 5L) { # days or weeks
+       res <- switch(status,
+           seq.int(to   = unclass(cto),   by = by,           length.out = length.out), # missing(from)
+           seq.int(from = unclass(cfrom), by = by,           length.out = length.out), # missing(to)
+           seq.int(from = unclass(cfrom), to = unclass(cto), by = by)                  # is.null(length.out)
+       )
+       return(.POSIXct(as.numeric(res), tz))
+    }
+    lres <- as.POSIXlt(if (status != 1L) from else to)
+    if (status == 3L) lto <- as.POSIXlt(to)
+    if(valid == 7L) { # years
+        lres$year <- switch(status,
+          seq.int(to   = lres$year, by = by, length.out = length.out), # missing(from)
+          seq.int(from = lres$year, by = by, length.out = length.out), # missing(to)
+          seq.int(from = lres$year, to = lto, by = by)                 # is.null(length.out)
+        )
+    } else if(valid %in% c(6L, 9L)) { # months or quarters
+        if (valid == 9L) by <- by * 3
+        lres$mon <- switch(status,
+          seq.int(to   = lres$mon, by = by, length.out = length.out), # missing(from)
+          seq.int(from = lres$mon, by = by, length.out = length.out), # missing(to)
+          seq.int(lres$mon, 12*(lto$year - lres$year) + lto$mon, by)  # is.null(length.out)
+        )
+    } else if(valid == 8L) { # DSTdays
+        lres$mday <- switch(status,
+          seq.int(to   = lres$mday, by = by, length.out = length.out), # missing(from)
+          seq.int(from = lres$mday, by = by, length.out = length.out), # missing(to)
+          ## We might have a short day, so need to over-estimate.
+          seq.int(lres$mday, by = by, length.out = 2L + floor((unclass(cto) - unclass(cfrom))/(by * 86400))) # is.null(length.out)
+        )
+    }
+    lres$isdst <- -1L
+    res <- as.POSIXct(lres)
     ## now shorten if necessary.
-    if(!missing(to)) {
-        to <- as.POSIXct(to)
-        res <- if(by > 0) res[res <= to] else res[res >= to]
+    if(status == 1L) {
+        res <- if(by > 0) res[res <= cto] else res[res >= cto]
+    } else if (status == 2L) {
+        res <- if(by > 0) res[res >= cfrom] else res[res <= cfrom]
     }
     res
-    }
 }
 
 ## *very* similar to cut.Date [ ./dates.R ] -- keep in sync!
