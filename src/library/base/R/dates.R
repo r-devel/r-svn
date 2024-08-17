@@ -285,6 +285,8 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
             )
             return(as.Date(res))
         }
+        by <- c(1, 7)[valid]
+        if (length(by2) == 2L) by <- by * as.integer(by2[1L])
     } else if(!is.numeric(by)) stop("invalid mode for 'by'")
     if(is.na(by)) stop("'by' is NA")
 
