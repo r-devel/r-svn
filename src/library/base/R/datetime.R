@@ -998,7 +998,7 @@ function(from, to, by, length.out = NULL, along.with = NULL, ...)
         lres$year <- switch(status,
           seq.int(to   = lres$year, by = by, length.out = length.out), # missing(from)
           seq.int(from = lres$year, by = by, length.out = length.out), # missing(to)
-          seq.int(from = lres$year, to = lto, by = by)                 # is.null(length.out)
+          seq.int(from = lres$year, to = lto$year, by = by)            # is.null(length.out)
         )
     } else if(valid %in% c(6L, 9L)) { # months or quarters
         if (valid == 9L) by <- by * 3
