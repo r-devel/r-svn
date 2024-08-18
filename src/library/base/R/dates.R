@@ -248,18 +248,18 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
         if (length(length.out) != 1L) stop("'length.out' must be of length 1")
         length.out <- ceiling(length.out)
     }
-    status <- which(c(missing(from), missing(to), is.null(length.out), missing(by)))
-    if(length(status) != 1L)
+    missing_arg <- names(which(c(from = missing(from), to = missing(to), length.out = is.null(length.out), by = missing(by))))
+    if(length(missing_arg) != 1L)
         stop("exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified")
-    if (status != 1L) {
+    if (missing_arg != "from") {
         if (!inherits(from, "Date")) stop(gettextf("'%s' must be a \"%s\" object", "from", "Date"), domain=NA)
         if (length(from) != 1L) stop(gettextf("'%s' must be of length 1", "from"), domain=NA)
     }
-    if (status != 2L) {
+    if (missing_arg != "to") {
         if (!inherits(to, "Date")) stop(gettextf("'%s' must be a \"%s\" object", "to", "Date"), domain=NA)
         if (length(to) != 1L) stop(gettextf("'%s' must be of length 1", "to"), domain=NA)
     }
-    if (status == 4L) {
+    if (missing_arg == "by") {
         from <- unclass(as.Date(from))
         to <- unclass(as.Date(to))
         res <- seq.int(from, to, length.out = length.out)
@@ -278,10 +278,10 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
                         c("days", "weeks", "months", "quarters", "years"))
         if(is.na(valid)) stop("invalid string for 'by'")
         if(valid > 2L) { # seq.POSIXt handles the logic for non-arithmetic cases
-            res <- switch(status,
-              seq(to = as.POSIXlt(to),     by = by,             length.out = length.out), # missing(from)
-              seq(from = as.POSIXlt(from), by = by,             length.out = length.out), # missing(to)
-              seq(from = as.POSIXlt(from), to = as.POSIXlt(to), by = by)                  # is.null(length.out)
+            res <- switch(missing_arg,
+              from       = seq(to = as.POSIXlt(to),     by = by,             length.out = length.out),
+              to         = seq(from = as.POSIXlt(from), by = by,             length.out = length.out),
+              length.out = seq(from = as.POSIXlt(from), to = as.POSIXlt(to), by = by)
             )
             return(as.Date(res))
         }
@@ -291,10 +291,10 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
     if(is.na(by)) stop("'by' is NA")
 
     ## force double storage for consistency
-    res <- as.numeric(switch(status, # NB: status <= 3
-        seq.int(to   = unclass(to),   by = by,          length.out = length.out), # missing(from)
-        seq.int(from = unclass(from), by = by,          length.out = length.out), # missing(to)
-        seq.int(from = unclass(from), to = unclass(to), by = by)                  # is.null(length.out)
+    res <- as.numeric(switch(missing_arg,
+        from       = seq.int(to   = unclass(to),   by = by,          length.out = length.out),
+        to         = seq.int(from = unclass(from), by = by,          length.out = length.out),
+        length.out = seq.int(from = unclass(from), to = unclass(to), by = by)
     ))
     .Date(res)
 }

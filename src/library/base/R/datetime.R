@@ -938,23 +938,23 @@ function(from, to, by, length.out = NULL, along.with = NULL, ...)
         if (length(length.out) != 1L) stop("'length.out' must be of length 1")
         length.out <- ceiling(length.out)
     }
-    status <- which(c(missing(from), missing(to), is.null(length.out), missing(by)))
-    if(length(status) != 1L)
+    missing_arg <- names(which(c(from = missing(from), to = missing(to), length.out = is.null(length.out), by = missing(by))))
+    if(length(missing_arg) != 1L)
         stop("exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified")
     # NB: process 'to' first so that 'tz' is overwritten to that from 'from' unless missing(from)
-    if (status != 2L) {
+    if (missing_arg != "to") {
         if (!inherits(to, "POSIXt")) stop(gettextf("'%s' must be a \"%s\" object", "to", "POSIXt"), domain=NA)
         if (length(to) != 1L) stop(gettextf("'%s' must be of length 1", "to"), domain=NA)
         cto <- as.POSIXct(to)
         tz <- attr(cto, "tzone")
     }
-    if (status != 1L) {
+    if (missing_arg != "from") {
         if (!inherits(from, "POSIXt")) stop(gettextf("'%s' must be a \"%s\" object", "from", "POSIXt"), domain=NA)
         if (length(from) != 1L) stop(gettextf("'%s' must be of length 1", "from"), domain=NA)
         cfrom <- as.POSIXct(from)
         tz <- attr(cfrom, "tzone")
     }
-    if (status == 4L) {
+    if (missing_arg == "by") {
         from <- unclass(as.POSIXct(from))
         to <- unclass(as.POSIXct(to))
         res <- seq.int(from, to, length.out = length.out)
@@ -985,40 +985,40 @@ function(from, to, by, length.out = NULL, along.with = NULL, ...)
 
     # if one of secs, mins, hours, days, or weeks
     if(valid <= 5L) { # days or weeks
-       res <- switch(status,
-           seq.int(to   = unclass(cto),   by = by,           length.out = length.out), # missing(from)
-           seq.int(from = unclass(cfrom), by = by,           length.out = length.out), # missing(to)
-           seq.int(from = unclass(cfrom), to = unclass(cto), by = by)                  # is.null(length.out)
+       res <- switch(missing_arg,
+           from       = seq.int(to   = unclass(cto),   by = by,           length.out = length.out),
+           to         = seq.int(from = unclass(cfrom), by = by,           length.out = length.out),
+           length.out = seq.int(from = unclass(cfrom), to = unclass(cto), by = by)
        )
        return(.POSIXct(as.numeric(res), tz))
     }
-    lres <- as.POSIXlt(if (status != 1L) from else to)
-    if (status == 3L) lto <- as.POSIXlt(to)
+    lres <- as.POSIXlt(if (missing_arg != "from") from else to)
+    if (missing_arg == "length.out") lto <- as.POSIXlt(to)
     if(valid == 7L) { # years
-        lres$year <- switch(status,
-          seq.int(to   = lres$year, by = by, length.out = length.out), # missing(from)
-          seq.int(from = lres$year, by = by, length.out = length.out), # missing(to)
-          seq.int(from = lres$year, to = lto$year, by = by)            # is.null(length.out)
+        lres$year <- switch(missing_arg,
+          from       = seq.int(to   = lres$year, by = by, length.out = length.out),
+          to         = seq.int(from = lres$year, by = by, length.out = length.out),
+          length.out = seq.int(from = lres$year, to = lto$year, by = by)
         )
     } else if(valid %in% c(6L, 9L)) { # months or quarters
         if (valid == 9L) by <- by * 3
-        lres$mon <- switch(status,
-          seq.int(to   = lres$mon, by = by, length.out = length.out), # missing(from)
-          seq.int(from = lres$mon, by = by, length.out = length.out), # missing(to)
-          seq.int(lres$mon, 12*(lto$year - lres$year) + lto$mon, by)  # is.null(length.out)
+        lres$mon <- switch(missing_arg,
+          from       = seq.int(to   = lres$mon, by = by, length.out = length.out),
+          to         = seq.int(from = lres$mon, by = by, length.out = length.out),
+          length.out = seq.int(lres$mon, 12*(lto$year - lres$year) + lto$mon, by)
         )
     } else if(valid == 8L) { # DSTdays
-        lres$mday <- switch(status,
-          seq.int(to   = lres$mday, by = by, length.out = length.out), # missing(from)
-          seq.int(from = lres$mday, by = by, length.out = length.out), # missing(to)
+        lres$mday <- switch(missing_arg,
+          from       = seq.int(to   = lres$mday, by = by, length.out = length.out),
+          to         = seq.int(from = lres$mday, by = by, length.out = length.out),
           ## We might have a short day, so need to over-estimate.
-          seq.int(lres$mday, by = by, length.out = 2L + floor((unclass(cto) - unclass(cfrom))/(by * 86400))) # is.null(length.out)
+          length.out = seq.int(lres$mday, by = by, length.out = 2L + floor((unclass(cto) - unclass(cfrom))/(by * 86400)))
         )
     }
     lres$isdst <- -1L
     res <- as.POSIXct(lres)
     ## now shorten if necessary.
-    if(status != 2L) {
+    if(missing_arg == "length.out") {
         res <- if(by > 0) res[res <= cto] else res[res >= cto]
     }
     res
