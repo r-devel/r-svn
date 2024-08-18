@@ -1018,10 +1018,8 @@ function(from, to, by, length.out = NULL, along.with = NULL, ...)
     lres$isdst <- -1L
     res <- as.POSIXct(lres)
     ## now shorten if necessary.
-    if(status == 1L) {
+    if(status != 2L) {
         res <- if(by > 0) res[res <= cto] else res[res >= cto]
-    } else if (status == 2L) {
-        res <- if(by > 0) res[res >= cfrom] else res[res <= cfrom]
     }
     res
 }
