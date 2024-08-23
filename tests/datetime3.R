@@ -35,7 +35,7 @@ stopifnot(identical(capture.output(D[0]), "POSIXlt of length 0"))
 ## They printed as   '[1] "Date of length 0"'  etc in R < 3.5.0
 
 
-## rep.POSIXt(*, by="n  DSTdays") - PR#17342
+## seq.POSIXt(*, by="n  DSTdays") - PR#17342
 x <- seq(as.POSIXct("1982-04-15 05:00", tz="US/Central"),
          as.POSIXct("1994-10-15",       tz="US/Central"), by="360 DSTdays")
 stopifnot(length(x) == 13, diff((as.numeric(x) - 39600)/86400) == 360)
@@ -588,7 +588,75 @@ stopifnot(exprs = {
   grepl('x[, "yday"]', print(tryCmsg(pl[["yday"]])))# new error msg
 })
 
+## from= is optional in seq.Date, seq.POSIXt
+## seq.POSIXt should always return a POSIXct object with double storage
+## various other regression tests to add confidence against regression given relatively large refactor
+from <- ISOdate(2024,1,2); to <- ISOdate(2024,3,4, 5,6,7, tz="Asia/Singapore")
+by = "2 weeks"; length.out = 4L
+stopifnot(exprs = {
+  ## NB: use 'from' on LHS of reference to ensure the time zone of 'from' is used in the result
+  identical(seq(from, to, by=by), from + 2*7*86400*(0:4))
+  identical(seq(from, to, length.out=length.out), from + seq(0, difftime(to, from, units="secs"), length.out=length.out))
+  identical(seq(from, by=by, length.out=length.out), from + 2*7*86400*seq(0, length.out-1L))
+  identical(seq(to=to, by=by, length.out=length.out), to - 2*7*86400*seq(length.out-1L, 0))
 
+  ## various invalid inputs
+  inherits(try(seq(from=from), silent=TRUE), "try-error")
+  inherits(try(seq(to=to), silent=TRUE), "try-error")
+  inherits(try(seq(from, to), silent=TRUE), "try-error")
+  inherits(try(seq(from, by=by), silent=TRUE), "try-error")
+  inherits(try(seq(from, length.out=length.out), silent=TRUE), "try-error")
+  inherits(try(seq(to=to, by=by), silent=TRUE), "try-error")
+  inherits(try(seq(to=to, length.out=length.out), silent=TRUE), "try-error")
+  inherits(try(seq(from, to, by=by, length.out=length.out), silent=TRUE), "try-error")
+
+  ## variations on 'by'
+  identical(seq(from, to, by='2 months'), from + c(0, 86400*c(31+29)))
+  identical(seq(to, from, by='-2 months'), to - c(0, 86400*c(31+29)))
+  identical(seq(from, to, by=as.difftime(30, units='days')), from + 30*86400*(0:2))
+  identical(seq(from, to, by=30*86400), from + 30*86400*(0:2))
+
+  ## missing from=
+  identical(seq(to=to, by='day', length.out=6), to - 86400*(5:0))
+  identical(seq(to=to, by='-3 days', length.out=6), to + 3*86400*(5:0))
+  identical(seq(to=to, by='2 months', length.out=3), to - 86400*c(31+29+31+30, 31+29, 0))
+  identical(seq(to=to, by='quarter', length.out=3), to - 86400*c(31+29+31+30+31+30, 31+29+31, 0))
+  identical(seq(to=to, by='year', length.out=3), to - 86400*c(366+365, 366, 0))
+
+  ## seq.POSIXt returns the proper storage type
+  typeof(seq(from, from+9, length.out=10L)) == "double"
+})
+## seq.Date
+to <- as.Date(to); from <- as.Date(from)
+stopifnot(exprs = {
+  identical(seq(from, to, by=by), from + 2*7*(0:4))
+  identical(seq(from, to, length.out=length.out), from + seq(0, difftime(to, from, units="days"), length.out=length.out))
+  identical(seq(from, by=by, length.out=length.out), from + 2*7*seq(0, length.out-1L))
+  identical(seq(to=to, by=by, length.out=length.out), to - 2*7*seq(length.out-1L, 0))
+
+  ## various invalid inputs
+  inherits(try(seq(from=from), silent=TRUE), "try-error")
+  inherits(try(seq(to=to), silent=TRUE), "try-error")
+  inherits(try(seq(from, to), silent=TRUE), "try-error")
+  inherits(try(seq(from, by=by), silent=TRUE), "try-error")
+  inherits(try(seq(from, length.out=length.out), silent=TRUE), "try-error")
+  inherits(try(seq(to=to, by=by), silent=TRUE), "try-error")
+  inherits(try(seq(to=to, length.out=length.out), silent=TRUE), "try-error")
+  inherits(try(seq(from, to, by=by, length.out=length.out), silent=TRUE), "try-error")
+
+  ## variations on 'by'
+  identical(seq(from, to, by='2 months'), from + c(0, c(31+29)))
+  identical(seq(to, from, by='-2 months'), to - c(0, c(31+29)))
+  identical(seq(from, to, by=as.difftime(30, units='days')), from + 30*(0:2))
+  identical(seq(from, to, by=30), from + 30*(0:2))
+
+  ## missing from=
+  identical(seq(to=to, by='day', length.out=6), to - (5:0))
+  identical(seq(to=to, by='-3 days', length.out=6), to + 3*(5:0))
+  identical(seq(to=to, by='2 months', length.out=3), to - c(31+29+31+30, 31+29, 0))
+  identical(seq(to=to, by='quarter', length.out=3), to - c(31+29+31+30+31+30, 31+29+31, 0))
+  identical(seq(to=to, by='year', length.out=3), to - c(366+365, 366, 0))
+})
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
