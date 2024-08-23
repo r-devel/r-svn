@@ -109,6 +109,7 @@ show <- function(object) showDefault(object)
                       nam %in% names(.getNamespaceInfo(ns, "exports"))
                   showGen <- if(exported) nam # was dQuote(nam, NULL)
                              else paste(pkg, nam, sep=":::")
+                  if (make.names(showGen) != showGen) showGen <- paste0("`", showGen, "`")
                   cat("Methods may be defined for arguments: ",
                       paste0(object@signature, collapse=", "), "\n",
                       "Use  showMethods(", showGen,
