@@ -238,6 +238,9 @@ attribute_hidden void NORET R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 	R_OldCStackLimit = 0;
     }
 
+    if (mask == 0)
+	mask = 1; // make sure the return value for SETJMP is not zero
+
     LONGJMP(cptr->cjmpbuf, mask);
 }
 
@@ -528,7 +531,7 @@ attribute_hidden SEXP R_sysfunction(int n, RCNTXT *cptr)
 /* browser contexts are a bit special because they are transient and for  */
 /* any closure context with the debug bit set one will be created; so we  */
 /* need to count those as well                                            */
-int countContexts(int ctxttype, int browser) {
+attribute_hidden int countContexts(int ctxttype, int browser) {
     int n=0;
     RCNTXT *cptr;
 

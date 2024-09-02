@@ -261,17 +261,6 @@ stopifnot(identical(o1,o2))
 ## the ordered() call has failed in R <= 4.2.x
 
 
-## source() with multiple encodings
-if (l10n_info()$"UTF-8" || l10n_info()$"Latin-1") {
-    writeLines('x <- "fa\xE7ile"', tf <- tempfile(), useBytes = TRUE)
-    tools::assertError(source(tf, encoding = "UTF-8"))
-    source(tf, encoding = c("UTF-8", "latin1"))
-    ## in R 4.2.{0,1} gave Warning (that would now be an error):
-    ##   'length(x) = 2 > 1' in coercion to 'logical(1)'
-    if (l10n_info()$"UTF-8") stopifnot(identical(Encoding(x), "UTF-8"))
-}
-
-
 ## multi-line Rd macro definition
 rd <- tools::parse_Rd(textConnection(r"(
 \newcommand{\mylongmacro}{
@@ -436,7 +425,8 @@ options(op)
 
 ## handling of invalid Encoding / unsupported conversion in packageDescription()
 dir.create(pkgpath <- tempfile())
-writeLines(c("Version: 1.0", "Encoding: FTU-8"), # (sic!)
+writeLines(c(sprintf("Package: %s", basename(pkgpath)),
+             "Version: 1.0", "Encoding: FTU-8"), # (sic!)
            file.path(pkgpath, "DESCRIPTION"))
 stopifnot(suppressWarnings(packageVersion(basename(pkgpath),
                                           dirname(pkgpath))) == "1.0")
@@ -1379,6 +1369,128 @@ stopifnot(exprs = {
     identical(-2L, .row_names_info(d0))
 })
 ## the last lost row.names => dim(.) was 0 x 3  instead of  d0's  2 x 3, in R <= 4.4.0
+
+
+## Scan should not treat "NA" as double/complex when na.strings doesn't
+## include it (PR#17289)
+(r <- tryCid(scan(text="NA", what=double(), na.strings=character())))
+stopifnot(inherits(r, "error"))
+(r <- tryCid(scan(text="NA", what=complex(), na.strings=character())))
+stopifnot(inherits(r, "error"))
+
+
+## PR#18143: debugcall(<S3Generic>()) when an S4-generic version is cached
+stopifnot(exprs = {
+    isGeneric("summary", getNamespace("stats4"))
+    isNamespaceLoaded("stats4")
+    isS3stdGeneric(summary) # cached S4 generic is not visible
+})
+debugcall(summary(factor(1)))
+## failed in R <= 4.4.0 with Error in fdef@signature :
+##   no applicable method for `@` applied to an object of class "function"
+stopifnot(isdebugged(summary.factor))
+undebug(summary.factor)
+stopifnot(!isdebugged(summary.factor))
+unloadNamespace("stats4")
+
+
+## PR#18674 - toTitleCase() incorrectly capitalizes conjunctions
+## (e.g. 'and') when using suspensive hyphenation
+stopifnot(exprs = {
+    identical(tools::toTitleCase("pre and post estimation"),  "Pre and Post Estimation")
+    identical(tools::toTitleCase("pre- and post estimation"), "Pre- and Post Estimation")
+    identical(tools::toTitleCase("pre- and post-estimation"), "Pre- and Post-Estimation")
+})
+
+## PR#18724 - toTitleCase(character(0))
+ch0 <- character(0L)
+stopifnot(identical(ch0, tools::toTitleCase(ch0)))
+## was list() in R <= 4.4.0
+
+
+## PR#18745 (+ PR#18702)   format.data.frame() -> as.data.frame.list()
+x <- setNames(data.frame(TRUE), NA_character_)
+(fx <- format(x))
+dN <- data.frame(a  = c(1,NA),     b  = c("a",NA),
+                 c3 = c("NA", NA), c4 = c(NA, FALSE))
+names(dN) <- nms <- c("num", "ch", NA, NA)
+(fdN <- format(dN))
+L <- list(A = FALSE); names(L) <- NA
+names(dL  <- as.data.frame.list(L))                                          # "NA."
+names(dL1 <- as.data.frame.list(L, col.names = names(L)))                    # "NA."
+names(dL2 <- as.data.frame.list(L, col.names = names(L), check.names=FALSE)) #  NA  (was "NA")
+names(dL1.<- as.data.frame.list(L,                       check.names=FALSE)) # "NA"
+names(dLn <- as.data.frame.list(L, new.names = TRUE,     check.names=FALSE)) #  NA  (was "NA")
+prblN <- c("", "var 2"); L2 <- `names<-`(list(1, 23), prblN)
+##                        check.names = TRUE, fix.empty.names = TRUE  are default :
+dp11 <- as.data.frame(L2)
+dp01 <- as.data.frame(L2, check.names=FALSE)
+dp00 <- as.data.frame(L2, check.names=FALSE, fix.empty.names=FALSE)
+dp10 <- as.data.frame(L2, check.names=TRUE , fix.empty.names=FALSE)
+L3 <- c(L, list(row.names = 2))
+names(dL3  <- as.data.frame.list(L3))                    # "NA." "row.names"
+names(dL3n <- as.data.frame.list(L3, check.names=FALSE)) #  NA   "row.names", was "NA" "rown..."
+names(dL3nn<- as.data.frame.list(L3, check.names=FALSE, new.names=FALSE)) # #     "NA" "rown..."
+stopifnot(exprs = {
+    is.na(names(x))
+    is.data.frame(fx)
+    identical(NA_character_, names(x))
+    identical(NA_character_, names(fx)) # was "NA"  wrongly
+    identical(NA_character_, names(dLn))#  "   "
+    identical(NA_character_, names(dL2))#  "   "
+    identical(nms, names( dN))
+    identical(nms, names(fdN)) # was    .. .. "NA" "NA"
+    identical(dLn, dL2) # was always TRUE;  ditto these {wrong for a couple of hours}:
+    names(dp11) == c("X1", "var.2")
+    names(dp01) == c( "1", "var 2")
+    names(dp00) == c( "" , "var 2") # == prblN
+    names(dp10) == c( "" , "var.2")
+    identical(names(L3), names(dL3n)) # now.  The next 3 are not new:
+    identical("NA.", names(dL))
+    identical("NA.", names(dL3)  [[1]])
+    identical("NA" , names(dL3nn)[[1]])
+})
+## format() and as.data.frame(<list>, col.names=*, check.names=FALSE) *did*
+## change  NA names() into "NA"  for R <= 4.4.1
+
+
+## warning for even *potential* underflow
+B <- 2e306
+stopifnot(beta(B, 4*B) == 0,
+          all.equal(-5.00402423538187888e306, lbeta(B, 4*B), tolerance = 5e-16))
+## no longer warns - as we require IEEE_745
+
+
+## as reg-tests-1<ch>.R run with LC_ALL=C  -- test Sys.setLanguage() here
+try( 1 + "2")
+oL <- tryCatch(warning = identity,
+               Sys.setLanguage("fr")
+               ) # e.g. on Windows: .. C locale, could not change language"
+if(inherits(oL, "warning")) {
+    print(oL)
+    oL <- structure(conditionMessage(oL), ok = FALSE)
+}
+(out <- tryCmsg(1 + "2"))
+if(attr(oL, "ok") && capabilities("NLS") && !is.na(.popath)
+   && !grepl("macOS", osVersion) # macOS fails currently
+   )
+    stopifnot(is.character(print("checking 'out' : ")),
+              grepl("^argument non num.rique pour un ", out))
+## was *not* switched to French (when this was run via 'make ..')
+
+
+## print( ls.str() ) using '<missing>' also in non-English setup:
+##                  {test may give false negative, unproblematically}
+M <- alist(.=)$.
+stopifnot(missing(M))
+try( M ) # --> Error: argument "M" is missing, with no default  (typically English)
+ls.str(pattern = "^M$") # (typically:)   M : <missing>
+(oL <- tryCatch(Sys.setLanguage("de"), warning = identity, error = identity))
+try( M ) # in good case --> Error : Argument "M" fehlt (ohne Standardwert)
+(out <- capture.output(ls.str(pattern = "^M$")))
+rm(M); if(isTRUE(attr(oL,"ok"))) Sys.setLanguage(oL) # reset LANGUAGE etc
+stopifnot(endsWith(out, "<missing>"))
+## failed in R <= 4.4.1; out was  "M : Argument \"M\" fehlt <...>"
 
 
 

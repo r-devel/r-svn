@@ -435,7 +435,8 @@ add_dummies <- function(dir, Log)
 
     snapshot <- function()
     {
-        snap1 <- function(dir, recursive = TRUE, user, notemp = FALSE)
+        snap1 <- function(dir, recursive = TRUE, user, udomain = NA,
+                          notemp = FALSE)
         {
             foo <- list.files(dir, recursive = recursive, full.names = TRUE,
                               include.dirs = TRUE, no.. = TRUE)
@@ -446,16 +447,22 @@ add_dummies <- function(dir, Log)
                 foo <- foo[!(poss & isdir)]
             }
             owner <- file.info(foo)[, "uname"]
-            foo[owner == user]
+            sel <- (owner == user)
+            if (!is.na(udomain)) {
+                odomain <- file.info(foo)[, "udomain"]
+                sel <- sel & (odomain == udomain)
+            }
+            foo[sel]
         }
         ## This should always give the uname for files created by the
         ## current user:
         user <- Sys.info()[["effective_user"]]
+        udomain <- Sys.info()["udomain"]  ## NA (nonexistent) on Unix
         home <- normalizePath("~")
         xtra <- Sys.getenv("_R_CHECK_THINGS_IN_OTHER_DIRS_XTRA_", "")
         xtra <- if (nzchar(xtra)) strsplit(xtra, ";", fixed = TRUE)[[1L]]
                 else character()
-        dirs <- c(home, "/tmp", '/dev/shm',
+        dirs <- c(home, dirname(tempdir()), '/dev/shm',
                   ## taken from tools::R_user_dir, but package rappdirs
                   ## is similar with other possibilities on Windows.
                   if (.Platform$OS.type == "windows")
@@ -470,11 +477,12 @@ add_dummies <- function(dir, Log)
                   else file.path(home, ".local", "share"),
                   xtra)
         x <- vector("list", length(dirs)); names(x) <- dirs
-        x[[1]] <- snap1(dirs[1], FALSE, user)
-        x[[2]] <- snap1(dirs[2], FALSE, user, TRUE)
-        x[[3]] <- snap1(dirs[3], TRUE, user)
-        x[[4]] <- snap1(dirs[4], TRUE, user)
-        for (i in seq_along(xtra)) x[[4+i]] <- snap1(dirs[4+i], FALSE, user)
+        x[[1]] <- snap1(dirs[1], FALSE, user, udomain)
+        x[[2]] <- snap1(dirs[2], FALSE, user, udomain, TRUE)
+        x[[3]] <- snap1(dirs[3], TRUE, user, udomain)
+        x[[4]] <- snap1(dirs[4], TRUE, user, udomain)
+        for (i in seq_along(xtra))
+            x[[4+i]] <- snap1(dirs[4+i], FALSE, user, udomain)
         x
     }
 
@@ -676,38 +684,40 @@ add_dummies <- function(dir, Log)
         }
         if (dir.exists("inst/doc") && do_install) check_doc_contents()
         if (dir.exists("vignettes")) check_vign_contents(ignore_vignettes)
-        if (!ignore_vignettes) {
-            if (dir.exists("inst/doc") && !dir.exists("vignettes")) {
-                pattern <- vignetteEngine("Sweave")$pattern
-                sources <- setdiff(list.files(file.path("inst", "doc"),
-                                              pattern = pattern),
-                                   list.files("vignettes", pattern = pattern))
-                buildPkgs <- .get_package_metadata(".")["VignetteBuilder"]
-                if (!is.na(buildPkgs)) {
-                    buildPkgs <- unlist(strsplit(buildPkgs, ","))
-                    buildPkgs <- unique(gsub('[[:space:]]', '', buildPkgs))
-                    engineList <- vignetteEngine(package = buildPkgs)
-                    for(nm in names(engineList)) {
-                        pattern <- engineList[[nm]]$pattern
-                        sources <- c(sources,
-                                     setdiff(list.files(file.path("inst", "doc"),
-                                                        pattern = pattern),
-                                             list.files("vignettes", pattern = pattern)))
-                    }
-                }
-                sources <- unique(sources)
-                if(length(sources)) {
-                    checkingLog(Log, "for old-style vignette sources")
-                    msg <- c("Vignette sources only in 'inst/doc':",
-                             strwrap(paste(sQuote(sources), collapse = ", "),
-                                     indent = 2L, exdent = 2L),
-                             "A 'vignettes' directory is required as from R 3.1.0",
-                             "and these will not be indexed nor checked")
-                    ## warning or error eventually
-                    noteLog(Log, paste(msg, collapse = "\n"))
-                }
-            }
-        }
+        ## R 4.5.0: remove this long-obsolete check
+        ## if (!ignore_vignettes) {
+        ##     if (dir.exists("inst/doc") && !dir.exists("vignettes")) {
+        ##         pattern <- vignetteEngine("Sweave")$pattern
+        ##         sources <- setdiff(list.files(file.path("inst", "doc"),
+        ##                                       pattern = pattern),
+        ##                            list.files("vignettes", pattern = pattern))
+        ##         buildPkgs <- .get_package_metadata(".")["VignetteBuilder"]
+        ##         if (!is.na(buildPkgs)) {
+        ##             buildPkgs <- unlist(strsplit(buildPkgs, ","))
+        ##             buildPkgs <- unique(gsub('[[:space:]]', '', buildPkgs))
+        ##             ## next could be character()
+        ##             engineList <- vignetteEngine(package = buildPkgs)
+        ##             for(nm in names(engineList)) {
+        ##                 pattern <- engineList[[nm]]$pattern
+        ##                 sources <- c(sources,
+        ##                              setdiff(list.files(file.path("inst", "doc"),
+        ##                                                 pattern = pattern),
+        ##                                      list.files("vignettes", pattern = pattern)))
+        ##             }
+        ##         }
+        ##         sources <- unique(sources)
+        ##         if(length(sources)) {
+        ##             checkingLog(Log, "for old-style vignette sources")
+        ##             msg <- c("Vignette sources only in 'inst/doc':",
+        ##                      strwrap(paste(sQuote(sources), collapse = ", "),
+        ##                              indent = 2L, exdent = 2L),
+        ##                      "A 'vignettes' directory is required as from R 3.1.0",
+        ##                      "and these will not be indexed nor checked")
+        ##             ## warning or error eventually
+        ##             noteLog(Log, paste(msg, collapse = "\n"))
+        ##         }
+        ##     }
+        ## }
 
         setwd(pkgoutdir)
 
@@ -1233,16 +1243,36 @@ add_dummies <- function(dir, Log)
                      strwrap(sQuote(db$file[!keep]), indent = 2L, exdent = 2L))
             printLog0(Log, paste(msg, collapse = "\n"), "\n")
         }
-        pdfs <- file.path("inst", "doc", db[keep, ]$PDF)
-        missing <- !file.exists(pdfs)
-        if(any(missing)) {
+        elts <- file.path("inst", "doc", db[keep, ]$PDF)
+        miss <- !file.exists(elts)
+        if(any(miss)) {
             if(!any) warningLog(Log)
             any <- TRUE
             msg <- c("Output(s) listed in 'build/vignette.rds' but not in package:",
-                     strwrap(sQuote(pdfs[missing]), indent = 2L, exdent = 2L))
+                     strwrap(sQuote(elts[miss]), indent = 2L, exdent = 2L))
             printLog0(Log, paste(msg, collapse = "\n"), "\n")
         }
-        if (!any) resultLog(Log, "OK")
+        elts <- db[keep, ]$File
+        miss <- (nzchar(elts) &
+                 !file.exists(file.path("inst", "doc", elts)))
+        if(any(miss)) {
+            if(!any) warningLog(Log)
+            any <- TRUE
+            msg <- c("Source(s) listed in 'build/vignette.rds' but not in package:",
+                     strwrap(sQuote(elts[miss]), indent = 2L, exdent = 2L))
+            printLog0(Log, paste(msg, collapse = "\n"), "\n")
+        }
+        elts <- db[keep, ]$R
+        miss <- (nzchar(elts) &
+                 !file.exists(file.path("inst", "doc", elts)))
+        if(any(miss)) {
+            if(!any) warningLog(Log)
+            any <- TRUE
+            msg <- c("R code(s) listed in 'build/vignette.rds' but not in package:",
+                     strwrap(sQuote(elts[miss]), indent = 2L, exdent = 2L))
+            printLog0(Log, paste(msg, collapse = "\n"), "\n")
+        }
+        if(!any) resultLog(Log, "OK")
     }
 
     check_top_level <- function()
@@ -2442,13 +2472,52 @@ add_dummies <- function(dir, Log)
                           sprintf("tools:::.check_Rd_xrefs(package = \"%s\")\n", pkgname)
                           else
                           sprintf("tools:::.check_Rd_xrefs(dir = \"%s\")\n", pkgdir))
+            any <- FALSE
             out <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
             if (length(out)) {
                 if (!all(grepl("(Package[s]? unavailable to check|Unknown package.*in Rd xrefs|Undeclared package.*in Rd xrefs)", out)))
                     warningLog(Log)
                 else noteLog(Log)
+                any <- TRUE
                 printLog0(Log, paste(c(out, ""), collapse = "\n"))
-            } else resultLog(Log, "OK")
+            }
+
+            ## The above checks whether Rd xrefs can be resolved within
+            ## the package itself, the base and recommended packages,
+            ## and its Imports and Depends.  Nowadays, we prefer that Rd
+            ## xrefs to aliases not in the package itself and the base
+            ## packages have package anchors so there is no ambiguity in
+            ## resolving the xrefs,  Hence, at least optionally note the
+            ## xrefs missing such package anchors.
+            ##
+            ## However, .Rd_xrefs_with_missing_package_anchors() uses
+            ## the package source directory whereas the above uses
+            ## .Rd_check_xrefs() typically for installed packages, so we
+            ## do the optional check separately for now.
+
+            if(config_val_to_logical(Sys.getenv("_R_CHECK_XREFS_NOTE_MISSING_PACKAGE_ANCHORS_",
+                                                "FALSE"))) {
+                bad <- tryCatch(.Rd_xrefs_with_missing_package_anchors(pkgdir),
+                                error = identity)
+                if(!inherits(bad, "error") && length(bad)) {
+                    bad <- split(bad[, "Target"], bad[, "Source"])
+                    msg <- c(if(any) "",
+                             strwrap("Found the following Rd file(s) with Rd \\link{} targets missing package anchors:"),
+                             strwrap(sprintf("  %s: %s",
+                                             names(bad),
+                                             vapply(bad, paste, "",
+                                                    collapse = ", ")),
+                                     exdent = 4L, indent = 2L),
+                             strwrap("Please provide package anchors for all Rd \\link{} targets not in the package itself and the base packages."))
+                    if(!any) {
+                        noteLog(Log)
+                        any <- TRUE
+                    }
+                    printLog0(Log, paste(c(msg, ""), collapse = "\n"))
+                }
+            }
+            if(!any)
+                resultLog(Log, "OK")
         }
 
         ## Check for missing documentation entries.
@@ -2556,7 +2625,7 @@ add_dummies <- function(dir, Log)
                   "The \\usage entries must correspond to syntactically",
                   "valid R code.\n")
             any <- FALSE
-            ## <FIXME>
+            ## <NOTE>
             ## Hack to see whether all issues are from internal Rd files
             ## checked specially and only give a NOTE in this case.
             ## Ideally, we would use R() to get the check object and be
@@ -2582,7 +2651,7 @@ add_dummies <- function(dir, Log)
                 wrapLog(msg_doc_files)
                 wrapLog(msg_writing_Rd)
             }
-            ## </FIXME>
+            ## </NOTE>
 
             if (R_check_Rd_style && haveR) {
                 msg_doc_style <-
@@ -2922,9 +2991,11 @@ add_dummies <- function(dir, Log)
             pat <- paste(vf, collapse="|")
             pat <- paste0("^(", pat, ")-[0-9]+[.]pdf")
             bad <- bad | grepl(pat, files)
+            bad <- bad & is.na(match(files, basename(vigns$docs)))
         }
         bad <- bad | grepl("^fig.*[.]pdf$", files)
         badf <- files[bad]
+
         dirs <- basename(list.dirs(doc_dir, recursive = FALSE))
         badd <- dirs[dirs %in% c("auto", "Bilder", "fig", "figs", "figures",
                                  "Figures", "img", "images", "JSSstyle",
@@ -3676,6 +3747,9 @@ add_dummies <- function(dir, Log)
                 ## skip stuff before building libs
                 ll <- grep("^[*][*] libs", lines, useBytes = TRUE)
                 if (length(ll)) lines <- lines[-seq_len(ll[1L])]
+                ## drop GCC 14 diagnostics lines with code literals
+                patt <- "^[[:digit:]]+ \\|"
+                lines <- lines[!grepl(patt, lines, useBytes = TRUE)]
                 poss <- grep(" -[Wmf]", lines,  useBytes = TRUE, value = TRUE)
                 ## compilation lines start at the left margin,
                 ## and are not configure/echo lines
@@ -3762,9 +3836,30 @@ add_dummies <- function(dir, Log)
             haveObjs <- any(grepl("^ *Object", out))
             pat <- paste("possibly from",
                          sQuote("(abort|assert|exit|_exit|_Exit|stop)"))
+            rempat <- "REAL0|COMPLEX0|ddfind|DDVAL|ENSURE_NAMEDMAX|INTERNAL|PRSEEN|SET_PRSEEN|SYMVALUE"
             if(haveObjs && any(grepl(pat, out)) && pkgname %notin% "parallel")
                 ## need _exit in forked child
                 warningLog(Log)
+            ## Very crude hack to escalete NOTE about some non-API
+            ## calls to a WARNING. Hopefully this can be dropped again
+            ## soon.
+            else if (length(grep("Found non-API", out)) &&
+                     any(grepl(rempat, out))) {
+                warningLog(Log)
+                if (any(grepl("calls", out))) {
+                    ep <- Filter(function(x) any(grepl(x, out)),
+                                 strsplit(rempat, "\\|")[[1]])
+                    epq <- paste(sQuote(ep), collapse = ", ")
+                    out <- paste(c(out,
+                                   "These entry points may be removed soon:",
+                                   epq),
+                                 collapse = "\n")
+                }
+                else
+                    out <- paste(c(out,
+                                   "This entry point may be removed soon."),
+                                 collapse = "\n")
+            }
             else {
                 ## look for Fortran detritus
                 pat1 <- paste("possibly from", sQuote("(open|close|rewind)"))
@@ -3805,9 +3900,12 @@ add_dummies <- function(dir, Log)
             if(nRS)
                 msg <- c(msg,
                          "It is good practice to register native routines and to disable symbol search.\n")
+            msg2 <- "See 'Writing portable packages' in the 'Writing R Extensions' manual"
+            msg3 <- "and section 'Moving into C API compliance' for issues with the use of non-API entry points.\n"
             wrapLog("\n", paste(msg, collapse = " "), "\n",
-                    "See 'Writing portable packages'",
-                    "in the 'Writing R Extensions' manual.\n")
+                    if(nAPIs) paste0(msg2, ",\n", msg3)
+                    else paste0(msg2, ".")
+                    )
         } else resultLog(Log, "OK")
     }
 
@@ -4124,6 +4222,27 @@ add_dummies <- function(dir, Log)
                     printLog(Log, "The error occurred in:\n\n")
                     printLog0(Log, txt, "\n")
                 }
+                if(do_timings) {
+                    theta <-
+                        as.numeric(Sys.getenv("_R_CHECK_EXAMPLE_TIMING_THRESHOLD_",
+                                              "5"))
+                    tfile <- paste0(pkgname, "-Ex.timings")
+                    times <-
+                        utils::read.table(tfile, header = TRUE, row.names = 1L,
+                                      colClasses = c("character", rep.int("numeric", 3)))
+                    o <- order(times[[1L]] + times[[2L]], decreasing = TRUE)
+                    times <- times[o, ]
+                    keep <- ((times[[1L]] + times[[2L]] > theta) |
+                             (times[[3L]] > theta))
+                    if(any(keep)) {
+                        printLog(Log,
+                                 sprintf("Examples with CPU (user + system) or elapsed time > %gs\n",
+                                         theta))
+                        out <- utils::capture.output(format(times[keep, ]))
+                        printLog0(Log, paste(out, collapse = "\n"), "\n")
+                    }
+                }
+
                 return(FALSE)
             }
 
@@ -4259,9 +4378,12 @@ add_dummies <- function(dir, Log)
                 cmd <- paste0("invisible(tools::Rdiff('",
                               exout, "', '", exsave, "',TRUE,TRUE))")
                 out <- R_runR0(cmd, R_opts2)
-                resultLog(Log, "OK")
-                if(length(out))
-                    printLog0(Log, paste(c("", out, ""), collapse = "\n"))
+                if(length(out)) {
+                    noteLog(Log)
+                    printLog0(Log, paste(out, collapse = "\n"), "\n")
+                }
+                else
+                    resultLog(Log, "OK")
             }
 
             TRUE
@@ -4291,7 +4413,7 @@ add_dummies <- function(dir, Log)
             }
             ## It ran, but did it create any examples?
             if (file.exists(exfile)) {
-                ## <FIXME>
+                ## <NOTE>
                 ## This used to be
                 ##   enc <- if (!is.na(e <- desc["Encoding"])) {
                 ##       paste0("--encoding=", e)
@@ -4309,7 +4431,7 @@ add_dummies <- function(dir, Log)
                     if(length(suppressMessages(showNonASCIIfile(exfile)))) {
                         "--encoding=UTF-8"
                     } else ""
-                ## </FIXME>
+                ## </NOTE>
                 if (!this_multiarch) {
                     exout <- paste0(pkgname, "-Ex.Rout")
                     if(!run_one_arch(exfile, exout)) maybe_exit(1L)
@@ -4500,7 +4622,9 @@ add_dummies <- function(dir, Log)
                     ## check o/p might be in a different encoding.
                     lines <- readLines(logf, warn = FALSE)
                     if(any(grepl("Running R code.*times elapsed time",
-                                 lines, useBytes = TRUE)))
+                                 lines, useBytes = TRUE)) ||
+                       any(startsWith(lines, "  Comparing") &
+                           !endsWith(lines, "... OK")))
                         any <- TRUE
                 }
                 if(any) noteLog(Log) else resultLog(Log, "OK")
@@ -5288,9 +5412,17 @@ add_dummies <- function(dir, Log)
             if(!OK1) {
                 noteLog(Log)
                 any <- TRUE
+                txt <-
+                    paste("Please obtain a recent version of HTML Tidy",
+                          "by downloading a binary release",
+                          "or compiling the source code from",
+                          "<https://www.html-tidy.org/>.")
+                txt <- paste(strwrap(txt), collapse = "\n")
                 printLog0(Log,
                           c("Skipping checking HTML validation: ",
                             attr(Tidy, "msg"),
+                            ".\n",
+                            txt,
                             "\n"))
             }
             if(OK1 && length(errors <- attr(results1, "errors"))) {
@@ -5738,9 +5870,13 @@ add_dummies <- function(dir, Log)
                              "\\[-W#warnings\\]",
                              "\\[-Wrange-loop-construct\\]",
                              "\\[-Warray-parameter=\\]",
+                             ## GCC 14's C++ stdlib (as seen for TMB headers)
+                             "\\[-Wtemplate-id-cdtor\\]",
                              ## clang version (not Apple clang)
                              "\\[-Warray-parameter\\]",
-                             "\\[-Wuse-after-free\\]"
+                             "\\[-Wuse-after-free\\]",
+                             ## rustc
+                             "^warning: use of deprecated"
                             )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -5822,7 +5958,17 @@ add_dummies <- function(dir, Log)
                              "warning: .* \\[-Wincompatible-pointer-types-discards-qualifiers\\]",
 
                              ## LLVM clang 16
-                             " warning: use of unary operator that may be intended as compound assignment"
+                             " warning: use of unary operator that may be intended as compound assignment",
+
+                             ## Apple and LLVM clang
+                             " warning: switch condition has boolean value \\[-Wswitch-bool\\]",
+                             " warning: .* \\[-Wembedded-directive\\]",
+                             " warning: using directive refers to implicitly-defined namespace",
+
+                             ## LLVM flang warnings:
+                             ## Includes Hollerith constants
+                             ## does not complain about 'Shared DO termination'
+                             "(portability: A DO loop should terminate with an END DO or CONTINUE|portability: deprecated usage|in the context: arithmetic IF statement)"
                              )
 
                 warn_re <- paste0("(", paste(warn_re, collapse = "|"), ")")
@@ -5868,8 +6014,10 @@ add_dummies <- function(dir, Log)
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## and gfortran 9 warnings about F2018
-                ex_re <- "^Warning: Fortran 2018 deleted feature:"
-                lines <- filtergrep(ex_re, lines, useBytes = TRUE)
+                ## No longer filtered in R 4.5.0.
+                ## Many are errors with -std=f2018
+                ## ex_re <- "^Warning: Fortran 2018 deleted feature:"
+                ## lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## and gfortran 10 warnings
                 ex_re <- "^Warning: Array.*is larger than limit set"
@@ -6087,10 +6235,12 @@ add_dummies <- function(dir, Log)
                     if (std < 17) {
                         noteLog(Log,
                                 sprintf("  Specified C++%d: please drop specification unless essential", std))
-                    } else if (std >= 17) {
-                        resultLog(Log, "OK")
-                        printLog(Log,
-                                 sprintf("  Not all R platforms support C++%s\n", std))
+                    ## since R 4.4.0 C++17 support is required, but
+                    ## C++20/23} support is patchy
+                    } else if (std >= 20) {
+                         resultLog(Log, "OK")
+                         printLog(Log,
+                                  sprintf("  Not all R platforms support C++%s\n", std))
                     } else resultLog(Log, "OK")
                 }
             }   ## end of case B
@@ -6383,6 +6533,7 @@ add_dummies <- function(dir, Log)
                          "hdOnly",
                          "orphaned2", "orphaned", "orphaned1",
                          "required_for_checking_but_not_installed",
+                         "no_vignettes",
                          if(!check_incoming) "bad_engine")
             if(!all(names(res) %in% allowed)) {
                 errorLog(Log)
@@ -6398,8 +6549,8 @@ add_dummies <- function(dir, Log)
                 summaryLog(Log)
                 do_exit(1L)
             } else if (length(res$required_for_checking_but_not_installed)) {
-                warningLog(Log, "Skipping vignette re-building")
-                do_build_vignettes  <<- FALSE
+                warningLog(Log, "Cannot process vignettes")
+                do_vignettes  <<- FALSE
                 printLog0(Log, paste(out, collapse = "\n"))
             } else {
                 if( length(res[["orphaned"]]) || length(res[["orphaned1"]]) )
@@ -7021,6 +7172,8 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_MBCS_CONVERSION_FAILURE_" = "TRUE")
         Sys.setenv("_R_CHECK_VALIDATE_UTF8_" = "TRUE")
         Sys.setenv("_R_CXX_USE_NO_REMAP_" = "TRUE")
+        Sys.setenv("_R_USE_STRICT_R_HEADERS_" = "TRUE")
+        Sys.setenv("_R_CHECK_XREFS_NOTE_MISSING_PACKAGE_ANCHORS_" = "TRUE")
         R_check_vc_dirs <- TRUE
         R_check_executables_exclusions <- FALSE
         R_check_doc_sizes2 <- TRUE

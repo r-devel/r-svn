@@ -234,6 +234,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define ALTREP(x)       ((x)->sxpinfo.alt)
 #define SETALTREP(x, v) (((x)->sxpinfo.alt) = (v))
 #define SETSCALAR(x, v) (((x)->sxpinfo.scalar) = (v))
+#define ANY_ATTRIB(x) (ATTRIB(x) != R_NilValue)
 
 #if defined(COMPUTE_REFCNT_VALUES)
 # define REFCNT(x) ((x)->sxpinfo.named)
@@ -425,6 +426,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))
 #define REAL_RO(x)	((const double *) DATAPTR_RO(x))
 #define STRING_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
+#define VECTOR_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 
 /* List Access Macros */
 /* These also work for ... objects */
@@ -1473,6 +1475,8 @@ LibExtern int	R_PPStackSize	INI_as(R_PPSSIZE); /* The stack size (elements) */
 LibExtern int	R_PPStackTop;	    /* The top of the stack */
 LibExtern SEXP*	R_PPStack;	    /* The pointer protection stack */
 
+void R_ReleaseMSet(SEXP mset, int keepSize);
+
 /* Evaluation Environment */
 extern0 SEXP	R_CurrentExpr;	    /* Currently evaluating expression */
 extern0 SEXP	R_ReturnedValue;    /* Slot for return-ing values */
@@ -1914,6 +1918,8 @@ SEXP R_GetVarLocValue(R_varloc_t);
 SEXP R_GetVarLocSymbol(R_varloc_t);
 Rboolean R_GetVarLocMISSING(R_varloc_t);
 void R_SetVarLocValue(R_varloc_t, SEXP);
+SEXP R_findVar(SEXP, SEXP);
+SEXP R_findVarInFrame(SEXP, SEXP);
 
 /* deparse option bits: change do_dump if more are added */
 
@@ -2009,7 +2015,7 @@ SEXP deparse1(SEXP,Rboolean,int);
 SEXP deparse1m(SEXP call, Rboolean abbrev, int opts);
 SEXP deparse1w(SEXP,Rboolean,int);
 SEXP deparse1line (SEXP, Rboolean);
-SEXP deparse1line_(SEXP, Rboolean, int);
+SEXP deparse1line_ex(SEXP, Rboolean, int);
 SEXP deparse1s(SEXP call);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
@@ -2174,6 +2180,7 @@ SEXP R_GetTraceback(int);    // including deparse()ing
 SEXP R_GetTracebackOnly(int);// no        deparse()ing
 NORET void R_signalErrorCondition(SEXP cond, SEXP call);
 NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly);
+void R_signalWarningCondition(SEXP cond);
 SEXP R_vmakeErrorCondition(SEXP call,
 			   const char *classname, const char *subclassname,
 			   int nextra, const char *format, va_list ap)
@@ -2183,6 +2190,11 @@ SEXP R_makeErrorCondition(SEXP call,
 			  const char *classname, const char *subclassname,
 			  int nextra, const char *format, ...)
      R_PRINTF_FORMAT(5,0);
+SEXP R_makeWarningCondition(SEXP call,
+			  const char *classname, const char *subclassname,
+			  int nextra, const char *format, ...)
+     R_PRINTF_FORMAT(5,0);
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);
 SEXP R_makeNotSubsettableError(SEXP x, SEXP call);
@@ -2273,6 +2285,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n);
 SEXP Rf_installTrChar(SEXP);
 
 const wchar_t *wtransChar(SEXP x); /* from sysutils.c */
+const char *Rf_reEnc3(const char *x, const char *fromcode, const char *tocode, int subst);
 
 #define mbs_init(x) memset(x, 0, sizeof(mbstate_t))
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps);
@@ -2295,7 +2308,10 @@ void invalidate_cached_recodings(void);  /* from sysutils.c */
 void resetICUcollator(Rboolean disable); /* from util.c */
 void dt_invalidate_locale(void); /* from Rstrptime.h */
 extern int R_OutputCon; /* from connections.c */
+
 extern int R_InitReadItemDepth, R_ReadItemDepth; /* from serialize.c */
+SEXP R_SerializeInfo(R_inpstream_t ips);
+
 void get_current_mem(size_t *,size_t *,size_t *); /* from memory.c */
 unsigned long get_duplicate_counter(void);  /* from duplicate.c */
 void reset_duplicate_counter(void);  /* from duplicate.c */

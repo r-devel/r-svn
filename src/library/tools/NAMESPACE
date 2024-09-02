@@ -51,12 +51,25 @@ export("CRAN_package_db",
        "CRAN_check_results",
        "CRAN_check_details",
        "CRAN_check_issues",
-##       "CRAN_memtest_notes",
-       "summarize_CRAN_check_status")
+       "summarize_CRAN_check_status",
+       "CRAN_aliases_db",
+       "CRAN_archive_db",
+       "CRAN_current_db",
+       "CRAN_rdxrefs_db",
+       "CRAN_authors_db")
+
+export("base_aliases_db",
+       "base_rdxrefs_db")
 
 export("R_user_dir")
 
 export(".print.via.format")
+
+export("check_package_urls",
+       "check_package_dois",
+       "parse_URI_reference")
+
+export("R")
 
 exportPattern("^SIG.+")
 

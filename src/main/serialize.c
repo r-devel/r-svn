@@ -1985,6 +1985,8 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    {
 		/* These are all short strings */
 		length = InInteger(stream);
+		if (length < 0)
+		    error(_("invalid length"));
 		R_CheckStack2(length+1);
 		char cbuf[length+1];
 		InString(stream, cbuf, length);
@@ -2000,7 +2002,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	case CHARSXP:
 	    /* these are currently limited to 2^31 -1 bytes */
 	    length = InInteger(stream);
-	    if (length == -1)
+	    if (length < -1)
+		error(_("invalid length"));
+	    else if (length == -1)
 		PROTECT(s = NA_STRING);
 	    else if (length < 1000) {
 		char cbuf[length+1];
@@ -2247,7 +2251,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     case 3:
     {
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	InString(stream, stream->native_encoding, nelen);
 	stream->native_encoding[nelen] = '\0';
@@ -2287,7 +2291,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     return obj;
 }
 
-SEXP R_SerializeInfo(R_inpstream_t stream)
+attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 {
     int version;
     int writer_version, min_reader_version, vv, vp, vs;
@@ -2338,7 +2342,7 @@ SEXP R_SerializeInfo(R_inpstream_t stream)
     if (version == 3) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	char nbuf[nelen + 1];
 	InString(stream, nbuf, nelen);
@@ -2537,6 +2541,7 @@ static void OutCharConn(R_outpstream_t stream, int c)
     }
 }
 
+attribute_hidden
 void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 			  R_pstream_format_t type, int version,
 			  SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2549,6 +2554,7 @@ void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 		     OutCharConn, OutBytesConn, phook, pdata);
 }
 
+attribute_hidden
 void R_InitConnInPStream(R_inpstream_t stream,  Rconnection con,
 			 R_pstream_format_t type,
 			 SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2971,7 +2977,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 }
 
 
-attribute_hidden SEXP R_unserialize(SEXP icon, SEXP fun)
+static SEXP R_unserialize(SEXP icon, SEXP fun)
 {
     struct R_inpstream_st in;
     SEXP (*hook)(SEXP, SEXP);
@@ -3219,7 +3225,7 @@ static SEXP R_getVarsFromFrame(SEXP vars, SEXP env, SEXP forcesxp)
     for (i = 0; i < len; i++) {
 	sym = installTrChar(STRING_ELT(vars, i));
 
-	tmp = findVarInFrame(env, sym);
+	tmp = R_findVarInFrame(env, sym);
 	if (tmp == R_UnboundValue) {
 /*		PrintValue(env);
 		PrintValue(R_GetTraceback(0)); */  /* DJM debugging */

@@ -666,7 +666,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     return ans;
 }
 
-R_xlen_t sorted_real_count_NANs(SEXP x) {
+attribute_hidden R_xlen_t sorted_real_count_NANs(SEXP x) {
     R_xlen_t n = XLENGTH(x);
     if(n == 0)
 	return 0;
@@ -860,7 +860,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     return ans;
 }
 
-R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
+attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
     int itmp, sorted;
     double rtmp;
     Rboolean seen_na = FALSE, seen_nan = FALSE, na1st = FALSE;
@@ -1333,6 +1333,7 @@ static SEXP asUTF8(SEXP x)
 }
     
 // workhorse of R's match() and hence also  " ix %in% itable "
+static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
     R_xlen_t n = xlength(ix);
@@ -1804,7 +1805,7 @@ static SEXP subDots(SEXP rho)
     SEXP rval, dots, a, b, t;
     int len,i;
 
-    dots = findVar(R_DotsSymbol, rho);
+    dots = R_findVar(R_DotsSymbol, rho);
 
     if (dots == R_UnboundValue)
 	error(_("... used in a situation where it does not exist"));

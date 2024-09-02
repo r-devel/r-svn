@@ -1,7 +1,7 @@
 #  File src/library/tools/R/sotools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2011-2023 The R Core Team
+#  Copyright (C) 2011-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -151,6 +151,8 @@ so_symbol_names_table <-
       "linux, Fortran, gfortran, random_number, _gfortran_rand",
       "linux, Fortran, gfortran, random_seed, _gfortran_random_seed_i4",
       "linux, Fortran, gfortran, random_seed, _gfortran_random_seed_i8",
+      "linux, Fortran, gfortran, exit, _gfortran_exit_i4",
+      "linux, Fortran, gfortran, exit, _gfortran_exit_i8",
 
       ## Classic flang from Dec 2017 (and untested since)
       "linux, Fortran, ClassicFlang, open, f90io_open03",
@@ -297,6 +299,8 @@ so_symbol_names_table <-
       "macos, Fortran, gfortran, random_number, __gfortran_rand",
       "macos, Fortran, gfortran, random_seed, __gfortran_random_seed_i4",
       "macos, Fortran, gfortran, random_seed, __gfortran_random_seed_i8",
+      "macos, Fortran, gfortran, exit, __gfortran_exit_i4",
+      "macos, Fortran, gfortran, exit, __gfortran_exit_i8",
 
       ## This is old: freebsd defaults to clang these days, and
       ## gfortran and (classic) flang are available (and 'f18' will be)
@@ -445,6 +449,8 @@ so_symbol_names_table <-
       "windows, Fortran, gfortran, random_number, _gfortran_random_r16",
       "windows, Fortran, gfortran, random_seed, _gfortran_random_seed_i4",
       "windows, Fortran, gfortran, random_seed, _gfortran_random_seed_i8",
+      "windows, Fortran, gfortran, exit, _gfortran_exit_i4",
+      "windows, Fortran, gfortran, exit, _gfortran_exit_i8",
 
       ## currently copy from Linux
       ## flang-new but executable already named 'flang'
@@ -602,7 +608,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Rf_sortVector", "Rf_strIsASCII", "Rf_strchr",
             "Rf_strrchr", "Rf_ucstomb", "Rf_utf8towcs",
             "Rf_wcstoutf8", "Rg_PolledEvents", "Rg_set_col_ptrs",
-            "Rg_wait_usec", "Ri18n_iswctype", "Ri18n_wcswidth",
+            "Rf_wait_usec", "Ri18n_iswctype", "Ri18n_wcswidth",
             "Ri18n_wctype", "Ri18n_wcwidth", "Rsockclose",
             "Rsockconnect", "Rsocklisten", "Rsockopen", "Rsockread",
             "Rsockwrite", "Runzip", "UNIMPLEMENTED_TYPE",
@@ -620,6 +626,8 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "tql2_", "tqlrat_", "tred1_", "tred2_", "utf8locale", "yylloc",
             "R_opendir", "R_readdir", "R_closedir",
             # "signrank_free", "wilcox_free" are API only from 4.2.0
+            "ENSURE_NAMEDMAX", "IS_ASCII", "IS_UTF8", "SET_PRSEEN",
+            "ddfind",
 
 ## Rinterface.h, Rembedded.h, R_ext/{RStartup,eventloop}.h
             "AllDevicesKilled", "R_CStackLimit", "R_CStackStart",
@@ -627,7 +635,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "R_DefCallbacks", "R_DefParams", "R_DefParamsEx",
             "R_DirtyImage", "R_GUIType", "R_GlobalContext",
             "R_HistoryFile", "R_HistorySize", "R_Home", "R_HomeDir",
-            "R_InputHandlers", "R_Interactive", "R_Outputfile",
+            "R_Interactive", "R_Outputfile",
             "R_PolledEvents", "R_ReplDLLdo1", "R_ReplDLLinit",
             "R_RestoreGlobalEnv", "R_RestoreGlobalEnvFromFile",
             "R_RestoreHistory", "R_RunExitFinalizers", "R_SaveGlobalEnv",
@@ -640,9 +648,9 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "R_wait_usec", "RestoreAction", "Rf_CleanEd",
             "Rf_KillAllDevices", "Rf_endEmbeddedR", "Rf_initEmbeddedR",
             "Rf_initialize_R", "Rf_jump_to_toplevel", "Rf_mainloop",
-            "SaveAction", "addInputHandler", "editorcleanall", "fpu_setup",
+            "SaveAction", "editorcleanall", "fpu_setup",
             "freeRUser", "free_R_HOME",
-            "getDLLVersion", "getInputHandler", "getRUser", "get_R_HOME",
+            "getDLLVersion", "getRUser", "get_R_HOME",
             "getSelectedHandler", "initStdinHandler",
             "process_site_Renviron", "process_system_Renviron",
             "process_user_Renviron", "ptr_R_Busy", "ptr_R_ChooseFile",
@@ -652,86 +660,45 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "ptr_R_ShowMessage", "ptr_R_Suicide", "ptr_R_WriteConsole",
             "ptr_R_WriteConsoleEx", "ptr_R_addhistory", "ptr_R_loadhistory",
             "ptr_R_savehistory", "ptr_do_dataentry", "ptr_do_dataviewer",
-            "ptr_do_selectlist", "readconsolecfg", "removeInputHandler",
+            "ptr_do_selectlist", "readconsolecfg",
             "run_Rmainloop", "setup_Rmainloop",
 
 ## non-API, removed in R 4.5.0 and long deprecated in R_ext/RS.h (and as call_S in S.h)
             "call_R",
 ## non-API, declared in Defn.h
             "Rf_setSVector",
-## non-API, declared in Utils.h
-            "Rf_StringFalse", "Rf_StringTrue", "Rf_isBlankString",
 ## non-API, declared in Rinternals.h
             ## not yet, in Rcpp headers "SET_TYPEOF",
             ## not yet, used in an example in R-exts "SET_OBJECT",
             "SET_S4_OBJECT", "UNSET_S4_OBJECT",
-            "R_curErrorBuf", "IS_SCALAR", "Rf_psmatch",
+            "R_curErrorBuf",
             "SETLENGTH", "SET_TRUELENGTH", "SETLEVELS",
             "SET_ENVFLAGS", "SET_FRAME", "SET_ENCLOS", "SET_HASHTAB",
             "SET_PRENV", "SET_PRVALUE", "SET_PRCODE", "STDVEC_DATAPTR",
-            "IS_GROWABLE", "SET_GROWABLE", "SET_NAMED",
-            "R_PromiseExpr", "R_ClosureExpr",
+            "IS_GROWABLE", "SET_GROWABLE_BIT", "SET_NAMED",
+            "R_PromiseExpr",
             "R_tryWrap",
+            "DDVAL", "NAMED", "INTERNAL", "SYMVALUE", "PRSEEN",
+            "REAL0", "COMPLEX0", "LEVELS", "FRAME", "HASHTAB",
+            "ENVFLAGS", "RDEBUG", "SET_RDEBUG",
+            "STRING_PTR", "VECTOR_PTR",
+            "SET_FORMALS", "SET_BODY", "SET_CLOENV", "Rf_findVarInFrame3",
+            "PRCODE", "PRENV", "PRVALUE", "R_nchar",
+            "Rf_NonNullStringMatch",
+            "SET_TYPEOF", "TRUELENGTH", "XLENGTH_EX",
+            "XTRUELENGTH", "Rf_gsetVar",
+            "Rf_isValidString", "Rf_isValidStringF",
+            "R_shallow_duplicate_attr",
 ## in the non-API header R_ext/Connections.h
             "R_new_custom_connection", "R_ReadConnection",
             "R_WriteConnection", "R_GetConnection",
 
-## non-API in Applic.h
-## future <- c("dqrcf_", "dqrdc2_", "dqrls_", "dqrqty_", "dqrqy_")
-## d1mach_ and i1mach_ are mentioned (since R 2.15.3) in R-exts.
+## in ../../../include/R_ext/Applic.h -- these are API now:
+## 	"dqrcf_", "dqrqty_", "dqrqy_", "dqrrsd_", "dqrxb_",
+##	"dqrdc2_", "dqrls_",
+## "d1mach_" and "i1mach_" are API now in R-exts.
             "R_Pretty") ## hidden, so unlikely to be usable
-##          "optif9")   ## used by nlme and pcaPP
-
-## ## non-API header Altrep.h: used by
-## ## arrow cli duckdb igraph isotree nanoarrow outliertree readsparse rlas stringfish vctrs vroom
-##             "R_new_altrep",
-##             "R_make_altstring_class", "R_make_altinteger_class",
-##             "R_make_alreal_class", "R_make_altlogical_class",
-##             "R_make_altraw_class", "R_make_altcomplex_class",
-##             "R_make_altslist_class",
-##             "R_altrep_inherits", "R_reinit_altrep_classes",
-##             "R_altrep_data1", "R_altrep_data2",  "R_altrep_inherits",
-##             "R_set_altcomplex_Elt_method",
-##             "R_set_altcomplex_Get_region_method",
-##             "R_set_altinteger_Elt_method",
-##             "R_set_altinteger_Get_region_method",
-##             "R_set_altinteger_Is_sorted_method",
-##             "R_set_altinteger_Max_method",
-##             "R_set_altinteger_Min_method",
-##             "R_set_altinteger_No_NA_method",
-##             "R_set_altinteger_Sum_method",
-##             "R_set_altlist_Elt_method",
-##             "R_set_altlist_Set_elt_method",
-##             "R_set_altlogical_Elt_method",
-##             "R_set_altlogical_Get_region_method",
-##             "R_set_altlogical_Is_sorted_method",
-##             "R_set_altlogical_No_NA_method",
-##             "R_set_altlogical_Sum_method",
-##             "R_set_altraw_Elt_method",
-##             "R_set_altraw_Get_region_method",
-##             "R_set_altreal_Elt_method",
-##             "R_set_altreal_Get_region_method",
-##             "R_set_altreal_Is_sorted_method",
-##             "R_set_altreal_Max_method",
-##             "R_set_altreal_Min_method",
-##             "R_set_altreal_No_NA_method",
-##             "R_set_altreal_Sum_method",
-##             "R_set_altrep_Coerce_method",
-##             "R_set_altrep_DuplicateEX_method",
-##             "R_set_altrep_Duplicate_method",
-##             "R_set_altrep_Inspect_method",
-##             "R_set_altrep_Length_method",
-##             "R_set_altrep_Serialized_state_method",
-##             "R_set_altrep_UnserializeEX_method",
-##             "R_set_altrep_Unserialize_method",
-##             "R_set_altstring_Elt_method",
-##             "R_set_altstring_Is_sorted_method",
-##             "R_set_altstring_No_NA_method",
-##             "R_set_altstring_Set_elt_method",
-##             "R_set_altvec_Dataptr_method",
-##             "R_set_altvec_Dataptr_or_null_method",
-##             "R_set_altvec_Extract_subset_method"
-##             ## maybe allow regexps here.
+##          "optif9")   ## used by pcaPP
 
 ## grDevices uses R_Home R_InputHandlers R_TempDir R_Visible R_cairoCdynload R_fopen R_gzclose R_gzgets R_gzopen R_isForkedChild Rf_envlength Rf_strIsASCII Rf_utf8towcs Rg_set_col_ptrs Ri18n_wcwidth addInputHandler do_X11 do_contourLines do_getGraphicsEventEnv do_getSnapshot do_playSnapshot do_saveplot locale2charset mbcsToUcs2 ptr_R_ProcessEvents
 

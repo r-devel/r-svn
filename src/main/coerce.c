@@ -1099,7 +1099,8 @@ static SEXP coerceVectorList(SEXP v, SEXPTYPE type)
 #endif
 	    else
 		SET_STRING_ELT(rval, i,
-			       STRING_ELT(deparse1line_(VECTOR_ELT(v, i), 0, NICE_NAMES),
+			       STRING_ELT(deparse1line_ex(VECTOR_ELT(v, i),
+							  0, NICE_NAMES),
 					  0));
 	}
     }
@@ -1329,7 +1330,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 #undef COERCE_ERROR
 
 
-SEXP CreateTag(SEXP x)
+attribute_hidden SEXP CreateTag(SEXP x)
 {
     if (isNull(x) || isSymbol(x))
 	return x;
@@ -1786,7 +1787,7 @@ attribute_hidden SEXP do_ascall(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 
 /* return int, not Rboolean, for NA_LOGICAL : */
-int asLogical2(SEXP x, int checking, SEXP call)
+attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 {
     int warn = 0;
 
@@ -1859,6 +1860,7 @@ int asInteger(SEXP x)
     return NA_INTEGER;
 }
 
+attribute_hidden /* would need to be in an installed header if not hidden */
 R_xlen_t asXLength(SEXP x)
 {
     const R_xlen_t na = -999; /* any negative number should do */
@@ -2065,7 +2067,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
 /* no longer used: is.data.frame is R code
     case 80:
-	LOGICAL0(ans)[0] = isFrame(CAR(args));
+	LOGICAL0(ans)[0] = isDataFrame(CAR(args));
 	break;
 */
 
@@ -2737,8 +2739,7 @@ attribute_hidden SEXP do_docall(SEXP call, SEXP op, SEXP args, SEXP rho)
     n = length(args);
     PROTECT(names = getAttrib(args, R_NamesSymbol));
 
-    PROTECT(c = call = allocList(n + 1));
-    SET_TYPEOF(c, LANGSXP);
+    PROTECT(c = call = allocLang(n + 1));
     if( isString(fun) ) {
 	const char *str = translateChar(STRING_ELT(fun, 0));
 	if (streql(str, ".Internal")) error("illegal usage");
@@ -2787,7 +2788,7 @@ SEXP substitute(SEXP lang, SEXP rho)
 	return substitute(PREXPR(lang), rho);
     case SYMSXP:
 	if (rho != R_NilValue) {
-	    t = findVarInFrame3( rho, lang, TRUE);
+	    t = R_findVarInFrame( rho, lang);
 	    if (t != R_UnboundValue) {
 		if (TYPEOF(t) == PROMSXP) {
 		    do {
@@ -2831,7 +2832,7 @@ attribute_hidden SEXP substituteList(SEXP el, SEXP rho)
 	    if (rho == R_NilValue)
 		h = R_UnboundValue;	/* so there is no substitution below */
 	    else
-		h = findVarInFrame3(rho, CAR(el), TRUE);
+		h = R_findVarInFrame(rho, CAR(el));
 	    if (h == R_UnboundValue)
 		h = LCONS(R_DotsSymbol, R_NilValue);
 	    else if (h == R_NilValue  || h == R_MissingArg)

@@ -1362,25 +1362,30 @@ Rd2HTML <-
 ## The following functions return 'relative' links assuming that all
 ## packages are installed in the same virtual library tree.
 
-findHTMLlinks <- function(pkgDir = "", lib.loc = NULL, level = 0:2)
+findHTMLlinks <-
+function(pkgDir, lib.loc = NULL, level = 0 : 3)
 {
-    ## The priority order is
-    ## This package (level 0)
-    ## The standard packages (level 1)
-    ## along lib.loc (level 2)
-
+    ## A variant of the above which splits levels for base and
+    ## recommended packages, such that
+    ##   Level 0: this package (installed in pkgDir)
+    ##   Level 1: base packages
+    ##   Level 2: recommended packages
+    ##   Level 3: all packages installed in lib.loc
     if (is.null(lib.loc)) lib.loc <- .libPaths()
 
     Links <- list()
-    if (2 %in% level)
+    if(3 %in% level)
         Links <- c(Links, lapply(lib.loc, .find_HTML_links_in_library))
-    if (1 %in% level) {
-        base <- unlist(.get_standard_package_names()[c("base", "recommended")],
-                       use.names = FALSE)
-        Links <- c(lapply(file.path(.Library, base),
+    if(2 %in% level)
+        Links <- c(lapply(file.path(.Library,
+                                    .get_standard_package_names()$recommended),
                           .find_HTML_links_in_package),
                    Links)
-    }
+    if(1 %in% level)
+        Links <- c(lapply(file.path(.Library,
+                                    .get_standard_package_names()$base),
+                          .find_HTML_links_in_package),
+                   Links)
     if (0 %in% level && nzchar(pkgDir))
         Links <- c(list(.find_HTML_links_in_package(pkgDir)), Links)
     Links <- unlist(Links)
@@ -1450,7 +1455,7 @@ function(dir)
         if(a) {
             ## URL regexp as in .DESCRIPTION_to_latex().  CRAN uses
             ##   &lt;(URL: *)?((https?|ftp)://[^[:space:]]+)[[:space:]]*&gt;
-            ##   ([^>\"])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])
+            ##   ([^>\"?])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])
             ## (also used in toRd.citation().
             x <- trfm("&lt;(http://|ftp://|https://)([^[:space:],>]+)&gt;",
                       "<a href=\"\\1%s\">\\1\\2</a>",
@@ -1625,9 +1630,7 @@ function(dir)
                     c(e$family,
                       paste0("<",
                              paste0("https://replace.me.by.orcid.org/",
-                                    sub(.ORCID_iD_variants_regexp,
-                                        "\\3",
-                                        comment[pos])),
+                                    .ORCID_iD_canonicalize(comment[pos])),
                              ">"))
                 e$comment <- if(len < length(comment))
                                  comment[-pos]
@@ -1693,7 +1696,7 @@ function(dir)
         ## The above already changed & to &amp; which urlify will
         ## do once more ...
         trafo <- function(s) urlify(gsub("&amp;", "&", s))
-        desc[f] <- trfm("(^|[^>\"])((https?|ftp)://[^[:space:],]*)",
+        desc[f] <- trfm("(^|[^>\"?])((https?|ftp)://[^[:space:],]*)",
                         "\\1<a href=\"%s\">\\2</a>",
                         desc[f],
                         trafo,

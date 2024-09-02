@@ -230,7 +230,7 @@ int getActiveSink(int n)
 
 static void conFinalizer(SEXP ptr)
 {
-    int i, ncon;
+    int i, ncon = 0;
     void *cptr = R_ExternalPtrAddr(ptr);
 
     if(!cptr) return;
@@ -3291,8 +3291,7 @@ static void outtext_close(Rconnection con)
     int idx = ConnIndex(con);
     SEXP tmp, env = VECTOR_ELT(OutTextData, idx);
 
-    if(this->namesymbol &&
-       findVarInFrame3(env, this->namesymbol, FALSE) != R_UnboundValue)
+    if(this->namesymbol && R_existsVarInFrame(env, this->namesymbol))
 	R_unLockBinding(this->namesymbol, env);
     if(strlen(this->lastline) > 0) {
 	PROTECT(tmp = xlengthgets(this->data, ++this->len));
@@ -3373,8 +3372,8 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 	    PROTECT(tmp = xlengthgets(this->data, ++this->len));
 	    SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(p));
 	    if(this->namesymbol) {
-		if(findVarInFrame3(env, this->namesymbol, FALSE)
-		   != R_UnboundValue) R_unLockBinding(this->namesymbol, env);
+		if(R_existsVarInFrame(env, this->namesymbol))
+		    R_unLockBinding(this->namesymbol, env);
 		defineVar(this->namesymbol, tmp, env);
 		R_LockBinding(this->namesymbol, env);
 	    } else {
@@ -5356,13 +5355,15 @@ attribute_hidden SEXP do_sink(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("sink stack is full"));
 	switch_or_tee_stdout(icon, closeOnExit, tee);
     } else {
-	if(icon < 0) {
-	    R_ReleaseObject(getConnection(R_ErrorCon)->ex_ptr);
+	if(icon < 0 || icon == 2) {
+	    if (R_ErrorCon > 2)
+		R_ReleaseObject(getConnection(R_ErrorCon)->ex_ptr);
 	    R_ErrorCon = 2;
 	} else {
-	    getConnection(icon); /* check validity */
+	    Rconnection con = getConnection(icon); /* check validity */
 	    R_ErrorCon = icon;
-	    R_PreserveObject(getConnection(icon)->ex_ptr);
+	    if (icon > 2)
+		R_PreserveObject(con->ex_ptr);
 	}
     }
 

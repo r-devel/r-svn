@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Vignettes.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -273,15 +273,20 @@ function(package, dir, lib.loc = NULL,
             ## </NOTE>
             for (i in seq_along(result$weave)) {
                 file <- names(result$weave)[i]
-                output <- result$weave[i]
+                output <- result$weave[[i]]
                 if (inherits(output, "error"))
                     next
                 if (!vignette_is_tex(output))
                     next
+                ## Ensure that the vignette dir is in TEX/BIBINPUTS.
+                ## This will often fail, however, when checking from an
+                ## installed 'package', as bib files are usually not installed
                 .eval_with_capture({
                     result$latex[[file]] <- tryCatch({
-                       texi2pdf(file = output, clean = FALSE, quiet = TRUE)
-                       find_vignette_product(name, by = "texi2pdf", engine = engine)
+                       texi2pdf(file = output, clean = FALSE, quiet = TRUE,
+                                texinputs = vigns$dir)
+                       find_vignette_product(file_path_sans_ext(output),
+                                             by = "texi2pdf", engine = engine)
                     }, error = identity)
                 })
             }
@@ -381,7 +386,7 @@ function(package, dir, subdirs = NULL, lib.loc = NULL, output = FALSE,
 
     # Locate all vignette files
     buildPkgs <- loadVignetteBuilder(dir, mustwork = FALSE, lib.loc = lib.loc)
-    engineList <- vignetteEngine(package = buildPkgs)
+    engineList <- vignetteEngine(package = buildPkgs) # could be character()
 
     docs <- names <- engines <- patterns <- character()
     allFiles <- list.files(docdir, all.files = FALSE, full.names = TRUE)
@@ -1182,6 +1187,7 @@ vignetteEngine <- local({
         key
     }
 
+    ## FIXME: return a character vector, not stop here.
     getEngine <- function(name, package) {
         if (missing(name)) {
             result <- as.list(registry)
@@ -1190,9 +1196,13 @@ vignetteEngine <- local({
                pkgs <- sapply(result, function(engine) engine$package)
                keep <- is.element(pkgs, package)
                if (!any(keep)) {
-                   stop(gettextf("None of packages %s have registered vignette engines",
-                                 paste(sQuote(package), collapse = ", ")),
-                        domain = NA)
+                   ## was stop() in R 4.4.0
+                   msg <-ngettext(length(package),
+                                  "Package %s does not have a registered vignette engine",
+                                  "None of packages %s have registered vignette engines")
+                   warning(sprintf(msg, paste(sQuote(package), collapse = ", ")),
+                           domain = NA, call. = FALSE)
+                   ## return character() below
                }
                result <- result[keep]
                pkgs <- pkgs[keep]

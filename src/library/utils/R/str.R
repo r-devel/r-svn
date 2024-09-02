@@ -699,22 +699,12 @@ print.ls_str <- function(x, max.level = 1, give.attr = FALSE,
     for(nam in x) {
 	cat(nam, ": ")
 	## check missingness, e.g. inside debug(.) :
-
-##__ Why does this give	 too many <missing> in some case?
-##__	if(eval(substitute(missing(.), list(. = as.name(nam))),
-##__		envir = E))
-##__	    cat("<missing>\n")
-##__	else
-##__	    str(get(nam, envir = E, mode = M),
-##__		max.level = max.level, give.attr = give.attr, ...)
-
-	eA <- sprintf("%s:%s", nam, n.)
+	eA <- sprintf("%s:%s", nam, n.) # need a 'mark' in case nam *is* an error object
 	o <- tryCatch(get(nam, envir = E, mode = M),
 		      error = function(e){ attr(e, eA) <- TRUE; e })
 	if(inherits(o, "error") &&  isTRUE(attr(o, eA))) {
-	    cat(## FIXME: only works with "C" (or English) LC_MESSAGES locale!
-		if(length(grep("missing|not found", o$message)))
-		"<missing>" else o$message, "\n", sep = "")
+            cat(if(inherits(o, "getMissingError")) "<missing>" else o$message,
+                "\n", sep = "")
 	}
 	else {
 	    ## do.call(str, c(list(o), strargs),

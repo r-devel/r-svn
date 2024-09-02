@@ -15,6 +15,9 @@ DISTFILES = DESCRIPTION.in Makefile.in Makefile.win NAMESPACE
 
 pkg = tools
 
+WRE_DATA = $(top_builddir)/library/$(pkg)/wre.txt
+WRE_SRC = $(top_srcdir)/doc/manual/R-exts.texi
+
 RSRC = `LC_COLLATE=C ls $(srcdir)/R/*.R`
 
 ## avoid bootstrapping issue with internal tzcode.
@@ -30,7 +33,7 @@ update:
 all: Makefile DESCRIPTION
 	@$(ECHO) "building package '$(pkg)'"
 	@$(MKINSTALLDIRS) $(top_builddir)/library/$(pkg)
-	@$(MAKE) mkR1 mkdesc2
+	@$(MAKE) mkR1 mkdesc2  $(WRE_DATA)
 	@$(MAKE) mksrc
 	@if ! test -f $(top_builddir)/library/$(pkg)/R/$(pkg); then \
 	  $(INSTALL_DATA) all.R $(top_builddir)/library/$(pkg)/R/$(pkg); \
@@ -43,6 +46,9 @@ all: Makefile DESCRIPTION
 	  R_DEFAULT_PACKAGES=NULL $(R_EXE) > /dev/null
 
 mkR: mkR1
+
+$(WRE_DATA): $(WRE_SRC)
+	@grep -E '^@(api|eapi|emb)(fun|var|hdr)' $< > $@
 
 include $(top_srcdir)/share/make/basepkg.mk
 

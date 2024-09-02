@@ -117,8 +117,7 @@ static SEXP FindTaggedItem(SEXP lst, SEXP tag)
 static SEXP makeErrorCall(SEXP fun)
 {
   SEXP call;
-  PROTECT(call = allocList(1));
-  SET_TYPEOF(call, LANGSXP);
+  PROTECT(call = allocLang(1));
   SETCAR(call, fun);
   UNPROTECT(1);
   return call;
@@ -138,7 +137,7 @@ SEXP GetOption1(SEXP tag)
     return CAR(opt);
 }
 
-int FixupWidth(SEXP width, warn_type warn)
+attribute_hidden int FixupWidth(SEXP width, warn_type warn)
 {
     int w = asInteger(width);
     if (w == NA_INTEGER || w < R_MIN_WIDTH_OPT || w > R_MAX_WIDTH_OPT) {
@@ -156,7 +155,7 @@ int GetOptionWidth(void)
     return FixupWidth(GetOption1(install("width")), iWARN);
 }
 
-int FixupDigits(SEXP digits, warn_type warn)
+attribute_hidden int FixupDigits(SEXP digits, warn_type warn)
 {
     int d = asInteger(digits);
     if (d == NA_INTEGER || d < R_MIN_DIGITS_OPT || d > R_MAX_DIGITS_OPT) {
@@ -169,7 +168,8 @@ int FixupDigits(SEXP digits, warn_type warn)
     }
     return d;
 }
-int GetOptionDigits(void)
+
+attribute_hidden int GetOptionDigits(void)
 {
     return FixupDigits(GetOption1(install("digits")), iWARN);
 }

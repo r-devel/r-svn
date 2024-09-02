@@ -59,6 +59,7 @@ hardcopy
 HPC
 ideographic
 initializer
+initializers
 inlining
 integrand
 integrators
@@ -116,6 +117,7 @@ prebuilt
 preformatted
 premultiplied
 prepending
+preprocess
 preprocessed
 preprocessor
 preprocessors
@@ -173,6 +175,7 @@ typedef
 typedefs
 unbundle
 uncomment
+uncompiled
 undefine
 unescaped
 unevaluated
