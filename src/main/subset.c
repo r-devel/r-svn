@@ -900,9 +900,8 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     if (type == LANGSXP) {
 	ax = ans;
-	PROTECT(ans = allocList(LENGTH(ax)));
+	PROTECT(ans = allocLang(LENGTH(ax)));
 	if ( LENGTH(ax) > 0 ) {
-	    SET_TYPEOF(ans, LANGSXP);
 	    SEXP px; int i;
 	    for(px = ans, i = 0 ; px != R_NilValue ; px = CDR(px))
 		SETCAR(px, VECTOR_ELT(ax, i++));
@@ -1006,7 +1005,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     if( TYPEOF(x) == ENVSXP ) {
 	if( nsubs != 1 || !isString(CAR(subs)) || length(CAR(subs)) != 1 )
 	    errorcall(call, _("wrong arguments for subsetting an environment"));
-	ans = findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
+	ans = R_findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
 	if( TYPEOF(ans) == PROMSXP ) {
 	    PROTECT(ans);
 	    ans = eval(ans, R_GlobalEnv);
@@ -1399,7 +1398,7 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	return R_NilValue;
     }
     else if( isEnvironment(x) ){
-	y = findVarInFrame(x, installTrChar(input));
+	y = R_findVarInFrame(x, installTrChar(input));
 	if( TYPEOF(y) == PROMSXP ) {
 	    PROTECT(y);
 	    y = eval(y, R_GlobalEnv);

@@ -196,27 +196,21 @@ if test -n "${TEXI2ANY}"; then
                 false)
   AC_SUBST(INSTALL_INFO)
 fi
-if test "${r_cv_prog_texi2any_v5}" != yes; then
+if test "${r_cv_prog_texi2any_v6}" != yes; then
   warn_info="you cannot build info or HTML versions of the R manuals"
   AC_MSG_WARN([${warn_info}])
   TEXI2ANY=""
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
-if test "${r_cv_prog_texi2any_v7}" != yes; then 
-  HAVE_TEXI2ANY_V7_TRUE='#'
-else
-  HAVE_TEXI2ANY_V7_TRUE=
-fi
-AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
 AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
 AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
 ## ------------------------
-## Building the R Texinfo manuals requires texinfo v5.1 or later.
-## Set shell variable r_cv_prog_texi2any_v5 to 'yes' if a recent
+## Building the R manuals requires Texinfo v6.1 or later.
+## Set shell variable r_cv_prog_texi2any_v6 to 'yes' if a recent
 ## enough texi2any aka  makeinfo is found, and to 'no' otherwise.
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
@@ -230,24 +224,24 @@ AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
 AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
 [r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
   cut -f2 -d. | tr -dc '0123456789.'`])
-AC_CACHE_CHECK([whether texi2any version is at least 5.1],
-                [r_cv_prog_texi2any_v5],
+AC_CACHE_CHECK([whether texi2any version is at least 6.1],
+                [r_cv_prog_texi2any_v6],
 [if test -z "${r_cv_prog_texi2any_version_maj}" \
      || test -z "${r_cv_prog_texi2any_version_min}"; then
-  r_cv_prog_texi2any_v5=no
-elif test ${r_cv_prog_texi2any_version_maj} -gt 5; then
-  r_cv_prog_texi2any_v5=yes
-elif test ${r_cv_prog_texi2any_version_maj} -lt 5 \
+  r_cv_prog_texi2any_v6=no
+elif test ${r_cv_prog_texi2any_version_maj} -gt 6; then
+  r_cv_prog_texi2any_v6=yes
+elif test ${r_cv_prog_texi2any_version_maj} -lt 6 \
      || test ${r_cv_prog_texi2any_version_min} -lt 1; then
-  r_cv_prog_texi2any_v5=no
+  r_cv_prog_texi2any_v6=no
 else
-  r_cv_prog_texi2any_v5=yes
+  r_cv_prog_texi2any_v6=yes
 fi])
   ## Also record whether texi2any is at least 7 to appropriately handle
   ## HTML and EPUB output changes, see
   ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
 AC_CACHE_VAL([r_cv_prog_texi2any_v7],
-[if test ${r_cv_prog_texi2any_v5} = yes \
+[if test ${r_cv_prog_texi2any_v6} = yes \
      && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
   r_cv_prog_texi2any_v7=yes
 else
@@ -663,7 +657,7 @@ dnl SHLIB_LD=ld for native C compilers (problem with non-PIC 'crt0.o',
 dnl see 'Individual platform overrides' in section 'DLL stuff' in file
 dnl 'configure.ac'.
 dnl
-dnl Using the Intel Fortran compiler (ifc) one typically gets incorrect
+dnl Using the pre-2023 Intel Fortran compiler (ifc) one typically gets incorrect
 dnl flags, as the output from _AC_PROG_F77_V_OUTPUT() contains double
 dnl quoted options, e.g. "-mGLOB_options_string=......", see also e.g.
 dnl http://www.octave.org/octave-lists/archive/octave-maintainers.2002/msg00038.html.
@@ -4114,19 +4108,28 @@ done
 AC_DEFUN([R_GCC4_VISIBILITY],
 [AC_CACHE_CHECK([whether __attribute__((visibility())) is supported],
                 [r_cv_visibility_attribute],
-[cat > conftest.c <<EOF
+[r_cv_visibility_attribute=no
+case "${host_os}" in
+    darwin*)
+      dnl Assume works on macOS
+      r_cv_visibility_attribute=yes
+      ;;
+
+  *)
+cat > conftest.c <<EOF
 int foo __attribute__ ((visibility ("hidden"))) = 1;
 int bar __attribute__ ((visibility ("default"))) = 1;
 #ifndef __GNUC__
 # error unsupported compiler
 #endif
 EOF
-r_cv_visibility_attribute=no
-if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
- if grep '\.hidden.*foo' conftest.s >/dev/null; then
-    r_cv_visibility_attribute=yes
- fi
-fi
+      if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
+        if grep '\.hidden.*foo' conftest.s >/dev/null; then
+           r_cv_visibility_attribute=yes
+        fi
+      fi
+      ;; 
+esac
 rm -f conftest.[cs]
 ])
 if test $r_cv_visibility_attribute = yes; then
@@ -4147,12 +4150,12 @@ if test "${r_cv_prog_cc_vis}" = yes; then
     C_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icx.
 case  "${CC}" in
-  ## Intel compiler: note that -c99 may have been appended
+  ## Obsolete Intel compiler: note that -c99 may have been appended
   *icc*)
     C_VISIBILITY=
     ;;
@@ -4173,12 +4176,12 @@ if test "${r_cv_prog_cxx_vis}" = yes; then
     CXX_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *icc*|*icpc*)
     CXX_VISIBILITY=
     ;;
@@ -4200,9 +4203,9 @@ if test "${r_cv_prog_fc_vis}" = yes; then
   fi
 fi
 dnl flang accepts this but ignores it.
-dnl Need to exclude Intel compilers, but ifx seems to work.
+dnl Need to exclude pre-2023 Intel compilers, but ifx seems to work.
 case  "${FC}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *ifc|*ifort)
     F_VISIBILITY=
     ;;

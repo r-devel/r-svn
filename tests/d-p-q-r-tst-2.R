@@ -741,6 +741,13 @@ stopifnot(exprs = {
 })
 ## all these where -Inf  in R <= 4.0.x
 
+## pnorm(x) returns non-zero for a bit larger |x|, now returning denormalized
+(pL <- pnorm(-38.4))
+stopifnot(pL > 0, all.equal(6.6015999e-323, pL),
+          pL == pnorm(38.4, lower.tail=FALSE),
+          pnorm(-38.46739999) == 2^-1074)
+## in R <= 4.4.x, the non-zero boundary was at -37.5193
+
 
 ## qnbinom(*, size=<large>, mu=<small>) -- PR#18095:
 qi  <- 0:16
@@ -856,6 +863,7 @@ stopifnot(exprs = {
     pbeta(1,  0, 0) == 1   # gave 0.5
 })
 
+
 ## PR#18640 -- stirlerr(x) concerns (for *non* half-integer x) -- visible in dgamma()
 sh <- 465/32 # = 14.53125
 x0 <- 1/4 + 8:20
@@ -868,6 +876,21 @@ dgM <- c(0.026214161736344995, 0.045350212095058476, 0.066917055544970391,
 relE <- dg1/dgM - 1
 relE * 2^53 # 2  2 -2  0  0  2 -1  0  0  2  0  0  2 //  was in {-95 : -91}  in R <= 4.3.*
 stopifnot(abs(relE) < 9e-16) # max{x86_64}: 2.22e-16
+
+
+## PR#18711 -- qbinom() - inversion of pbinom()
+##             but probably also fixing qpois(), qnbinom() cases
+sz <- 6040:6045
+prb <- 0.995
+(qb6 <- qbinom(p = 0.05, size = sz, prob = prb))
+(pqb6   <- pbinom(qb6,   size = sz, prob = prb))
+(pqb6_1 <- pbinom(qb6-1, size = sz, prob = prb))
+stopifnot(exprs = {
+    qb6 == c(6001:6004,6004:6005) # not so in R 4.4.0, nor 4.1.1
+    1 > pqb6 & pqb6 >= 0.05       #  "
+    0.05 > pqb6_1 & pqb6_1 >= 0.035# "
+})
+## was wrong for R versions in [4.1.1, 4.4.0]
 
 
 

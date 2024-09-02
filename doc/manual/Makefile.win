@@ -43,7 +43,6 @@ TEXI2HTML = LC_ALL=C $(TEXI2ANY) $(TEXI2ANY_HTML_OPTS)
 TEXI2TEXT = LC_ALL=C $(TEXI2ANY) $(TEXI2ANY_TEXT_OPTS)
 
 R_PAPERSIZE = a4
-# omit 'hyper' to omit the hyperlinks
 R_RD4PDF = times,inconsolata,hyper
 
 texinputs_BASE = $(R_PKGS_BASE:=-pkg.tex)
@@ -62,12 +61,14 @@ all: pdf
 ifneq "$(TEXI2ANY)" "missing"
 .texi.html:
 	@$(ECHO) "creating doc/manual/$@"
-	@$(TEXI2HTML) -D UseExternalXrefs -I$(srcdir) $< -o $@.tmp || touch $@
+	@$(TEXI2HTML) -I$(srcdir) \
+	  -c TOP_NODE_UP_URL=../html/index.html \
+	  $< -o $@.tmp || exit 1
 	@$(SED) -f $(srcdir)/quot.sed $@.tmp > $@
 	@rm -f $@.tmp
 
 .texi.info:
-	LC_ALL=C $(TEXI2ANY) --enable-encoding -D UseExternalXrefs -I$(srcdir) $<
+	LC_ALL=C $(TEXI2ANY) --enable-encoding -I$(srcdir) $<
 else
 .texi.html:
 	@$(ECHO) "texi2any is not available"
@@ -84,7 +85,7 @@ ifeq ($(strip $(TEXI2DVI)),)
 	$(PDFTEX) $<
 else
 .texi.pdf:
-	$(TEXI2DVI) --pdf --texinfo="@set UseExternalXrefs " $<
+	$(TEXI2DVI) --pdf $<
 endif
 
 
@@ -179,8 +180,9 @@ version.texi: Makefile.win $(top_srcdir)/VERSION $(SVN_REV)
 mostlyclean: clean
 clean:
 	@-rm -f *.aux *.toc *refman.i?? *.out *.log
-	@-rm -f *.cp *.cps *.en *.ens *.fn *.fns *.ky *.kys \
+	@-rm -f *.cp *.cps *.fn *.fns *.ky *.kys \
 	  *.out *.pg *.pgs *.tmp *.tp *.vr *.vrs \
+	  R-admin.en* R-exts.ae* R-exts.ap* R-exts.em* \
 	  version.tex version.texi refman.tex fullrefman.tex *-pkg.tex
 distclean: clean
 	@-rm -f *.pdf *.info* *.html

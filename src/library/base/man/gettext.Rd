@@ -1,6 +1,6 @@
 % File src/library/base/man/gettext.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{gettext}
@@ -27,7 +27,8 @@ ngettext(n, msg1, msg2, domain = NULL)
 
 bindtextdomain(domain, dirname = NULL)
 
-Sys.setLanguage(lang, unset = "en")
+Sys.setLanguage(lang, unset = "en", C.vs.en = c("msg", "warn", "silent"),
+                force = FALSE)
 }
 \arguments{
   \item{\dots}{one or more character vectors.}
@@ -46,6 +47,16 @@ Sys.setLanguage(lang, unset = "en")
   \item{unset}{a string, specifying the default language assumed to be
     current in the case \code{\link{Sys.getenv}("LANGUAGE")} is unset or
     empty.}
+  \item{C.vs.en}{a string specifying how a current (sometimes \dQuote{hard})
+    setting of language \code{"C"} is treated for \code{lang = "en"}.
+    When \code{"silent"}, nothing happens, when \code{"msg"}, a
+    \code{\link{message}()} and if \code{"warn"} a \code{\link{warning}()}
+    is signalled.}
+  \item{force}{logical indicating if in case of a \dQuote{hard} set
+    \code{"C"} locale, \code{Sys.setLanguage()} should try modifying the
+    locale (to \code{"en"}) in order to subsequently set the desired language
+    \code{lang}, currently only when \code{\link{.Platform}[["OS.type"]]}
+    is \code{"unix"}.}
 }
 \details{
   If \code{domain} is \code{NULL} (the default) in \code{gettext}
@@ -70,7 +81,7 @@ Sys.setLanguage(lang, unset = "en")
 
   The \emph{language} to be used for message translation is determined by
   your OS default and/or the locale setting at \R's startup, see
-  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment 
+  \code{\link{Sys.getlocale}()}, and notably the \env{LANGUAGE} environment
   variable, and also \code{Sys.setLanguage()} here.
 
   Conventionally the domain for \R warning/error messages in package

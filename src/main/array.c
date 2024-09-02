@@ -313,7 +313,7 @@ SEXP allocArray(SEXPTYPE mode, SEXP dims)
 /* attribute.  Note that this function mutates x. */
 /* Duplication should occur before this is called. */
 
-SEXP DropDims(SEXP x)
+attribute_hidden SEXP DropDims(SEXP x)
 {
     PROTECT(x);
     SEXP dims = getAttrib(x, R_DimSymbol);
@@ -1273,15 +1273,11 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     SEXP x = CAR(args), y = CADR(args), ans;
     if (OBJECT(x) || OBJECT(y)) {
-	SEXP s, value;
+	SEXP s; //, value;
 	/* Remove argument names to ensure positional matching */
 	for(s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
 
-	if ((IS_S4_OBJECT(x) || IS_S4_OBJECT(y)) && R_has_methods(op)){
-	    value = R_possible_dispatch(call, op, args, rho, FALSE);
-	    if (value) return value;
-	}
-	else if (DispatchGroup("matrixOps", call, op, args, rho, &ans))
+	if (DispatchGroup("matrixOps", call, op, args, rho, &ans))
 	    return ans;
     }
     // the default method:

@@ -877,3 +877,13 @@ body(cd@contains[["A"]]@coerce)[[2]] ## >>   value <- methods::new("A")
 setClass("foo", slots = c(y = "numeric"))
 setClass("bar", contains = "foo")
 body(getClass("bar")@contains[[1]]@coerce)[[2]]
+
+
+
+## ----- from here on, keep at EOF -----
+
+cat('Time elapsed: ', proc.time(),'\n')
+
+### NB: Only add new tests here _IF_   checking output,
+### --  otherwise use ./classes-methods.R
+###			^^^^^^^^^^^^^^^^^

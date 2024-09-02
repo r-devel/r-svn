@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2024-03-31 r86238) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-08-21 r87032) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin23.4.0
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -34,6 +32,8 @@ Type 'q()' to quit R.
 > ### Title: CRAN Package Repository Tools
 > ### Aliases: CRAN_package_db CRAN_check_results CRAN_check_details
 > ###   CRAN_check_issues summarize_CRAN_check_status R_CRAN_WEB R_CRAN_SRC
+> ###   CRAN_current_db CRAN_aliases_db CRAN_rdxrefs_db CRAN_archive_db
+> ###   CRAN_authors_db
 > 
 > ### ** Examples
 > 
@@ -66,6 +66,74 @@ Type 'q()' to quit R.
 <div style="text-align: center;">
 <a href="/doc/html/index.html"><img class="arrow" src="/doc/html/up.jpg" alt="[Top]" /></a>
 </div>
+> 
+> 
+> 
+> cleanEx()
+> nameEx("R")
+> ### * R
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: R
+> ### Title: Call Function in Inferior R Process
+> ### Aliases: R
+> 
+> ### ** Examples
+> 
+> ## Compute cos(0) in an inferior R process.
+> ## By default, only return the value of the function call.
+> R(cos, list(0))
+[1] 1
+> ## If 'drop = FALSE', we also get status, stdout and stderr.
+> ## IGNORE_RDIFF_BEGIN
+> R(cos, list(0), drop = FALSE)
+$value
+[1] 1
+
+$status
+[1] 0
+
+$stdout
+ [1] ""                                                                                 
+ [2] "R Under development (unstable) (2024-08-21 r87032) -- \"Unsuffered Consequences\""
+ [3] "Copyright (C) 2024 The R Foundation for Statistical Computing"                    
+ [4] "Platform: x86_64-pc-linux-gnu"                                                    
+ [5] ""                                                                                 
+ [6] "R is free software and comes with ABSOLUTELY NO WARRANTY."                        
+ [7] "You are welcome to redistribute it under certain conditions."                     
+ [8] "Type 'license()' or 'licence()' for distribution details."                        
+ [9] ""                                                                                 
+[10] "R is a collaborative project with many contributors."                             
+[11] "Type 'contributors()' for more information and"                                   
+[12] "'citation()' on how to cite R or R packages in publications."                     
+[13] ""                                                                                 
+[14] "Type 'demo()' for some demos, 'help()' for on-line help, or"                      
+[15] "'help.start()' for an HTML browser interface to help."                            
+[16] "Type 'q()' to quit R."                                                            
+[17] ""                                                                                 
+[18] "> x <- readRDS(\"/tmp/RtmppU3jOk/runri1222936a0e6877\")"                          
+[19] "> options(repos = x$repos)"                                                       
+[20] "> y <- tryCatch(list(do.call(x$fun, x$args, quote = TRUE)), error = identity)"    
+[21] "> saveRDS(y, \"/tmp/RtmppU3jOk/runro1222932d23e62e\")"                            
+[22] "> "                                                                               
+
+$stderr
+character(0)
+
+> ## IGNORE_RDIFF_END
+>     
+> 
+> ## A call giving an error:
+> (e <- tryCatch(R(stop, list("FOOBAR")), error = identity))
+<inferiorCallError: error in inferior call:
+  FOOBAR>
+> ## The inferior R process ran successfully:
+> e$status
+[1] 0
+> ## The function call gave an error:
+> e$value
+<simpleError in do.call(x$fun, x$args, quote = TRUE): FOOBAR>
 > 
 > 
 > 
@@ -185,7 +253,7 @@ Error in assertWarning(ff()) :
 > ### Name: bibstyle
 > ### Title: Select or Define a Bibliography Style
 > ### Aliases: bibstyle getBibstyle
-> ### Keywords: utilties documentation
+> ### Keywords: utilities documentation
 > 
 > ### ** Examples
 > 
@@ -212,7 +280,7 @@ Error in assertWarning(ff()) :
 > bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
 +     fmtPrefix = function(paper) paste0("[", paper$.index, "]"),
 +        .init = TRUE)
-<environment: 0x10628e238>
+<environment: 0x55a55e43e3c0>
 > print(refs, .bibstyle = "unsorted")
 [1] R Core Team (2013). _R: A Language and Environment for Statistical
 Computing_. R Foundation for Statistical Computing, Vienna, Austria.
@@ -993,6 +1061,38 @@ An illustration of lexical scoping.
 > 
 > 
 > cleanEx()
+> nameEx("toTitleCase")
+> ### * toTitleCase
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: toTitleCase
+> ### Title: Convert Titles to Title Case
+> ### Aliases: toTitleCase
+> 
+> ### ** Examples
+> 
+> toTitleCase("bayesian network modeling and analysis")
+[1] "Bayesian Network Modeling and Analysis"
+> toTitleCase("ensemble tool for predictions from species distribution models")
+[1] "Ensemble Tool for Predictions from Species Distribution Models"
+> ## Treatment after "-":
+> toTitleCase("small- and large-scale analysis") # lowercase "and"
+[1] "Small- and Large-Scale Analysis"
+> 
+> toTitleCase("a small fox is jumping")    # "a Small Fox is .."     (the 'a' may change)% i.e. BUG
+[1] "a Small Fox is Jumping"
+> toTitleCase("is a small fox jumping?")   # "Is a Small Fox .."     (fine)
+[1] "Is a Small Fox Jumping?"
+> ## After ":", start a new sentence
+> toTitleCase("a pangram: the quick brown fox jumps over the lazy dog")
+[1] "a Pangram: The Quick Brown Fox Jumps over the Lazy Dog"
+> toTitleCase("asking -- 'is a small fox jumping?'") # ".. -- Is a Small ..."     (fine)
+[1] "Asking -- 'Is a Small Fox Jumping?'"
+> 
+> 
+> 
+> cleanEx()
 > nameEx("undoc")
 > ### * undoc
 > 
@@ -1033,6 +1133,32 @@ An illustration of lexical scoping.
 > 
 > 
 > cleanEx()
+> nameEx("urltools")
+> ### * urltools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: urltools
+> ### Title: Check Package URLs
+> ### Aliases: check_package_urls parse_URI_reference
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> ## Examples from RFC 3986.
+> parse_URI_reference(c("foo://example.com:8042/over/there?name=ferret#nose",
++                       "urn:example:animal:ferret:nose",
++                       "mailto:John.Doe@example.com",
++                       "tel:+1-816-555-1212"))
+  scheme        authority                       path       query fragment
+1    foo example.com:8042                /over/there name=ferret     nose
+2    urn                  example:animal:ferret:nose                     
+3 mailto                        John.Doe@example.com                     
+4    tel                             +1-816-555-1212                     
+> 
+> 
+> 
+> cleanEx()
 > nameEx("userdir")
 > ### * userdir
 > 
@@ -1045,11 +1171,11 @@ An illustration of lexical scoping.
 > ### ** Examples
 > ## IGNORE_RDIFF_BEGIN
 > R_user_dir("FOO", "cache")
-[1] "/Users/ripley/Library/Caches/org.R-project.R/R/FOO"
+[1] "/home/Hornik/.cache/R/FOO"
 > 
 > ## Create one, platform agnostically, must work if <normal> :
 > (Rdb <- R_user_dir("base"))
-[1] "/Users/ripley/Library/Application Support/org.R-project.R/R/base"
+[1] "/home/Hornik/.local/share/R/base"
 > if(newD <- !dir.exists(Rdb)) # should work user specifically:
 +     newD <- dir.create(Rdb, recursive=TRUE)
 > dir(Rdb) # typically empty
@@ -1201,7 +1327,7 @@ needs Deep Thought
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.172 0.014 0.189 0 0 
+Time elapsed:  0.333 0.016 0.729 0.293 0.082 
 > grDevices::dev.off()
 null device 
           1 

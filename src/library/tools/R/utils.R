@@ -1,7 +1,7 @@
 #  File src/library/tools/R/utils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -213,8 +213,6 @@ function(dir) {
 
 ### ** reQuote
 
-## <FIXME>
-## Move into base eventually ...
 reQuote <-
 function(x)
 {
@@ -224,7 +222,6 @@ function(x)
     regmatches(x, m) <- lapply(regmatches(x, m), escape)
     x
 }
-## </FIXME>
 
 ### ** showNonASCII
 
@@ -359,7 +356,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         on.exit(Sys.unsetenv("TEXINDY"), add = TRUE)
         opt_pdf <- if(pdf) "--pdf" else ""
         opt_quiet <- if(quiet) "--quiet" else ""
-        opt_extra <- ""
+        opt_extra <- "--max-iterations=20"
         out <- .system_with_capture(texi2dvi, "--help")
 
         if(length(grep("--no-line-error", out$stdout)))
@@ -367,10 +364,6 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## (Maybe change eventually: the current heuristics for finding
         ## error messages in log files should work for both regular and
         ## file line error indicators.)
-
-        ## This is present in texinfo after late 2009, so really >= 5.0.
-        if(any(grepl("--max-iterations=N", out$stdout)))
-            opt_extra <- c(opt_extra, "--max-iterations=20")
 
         ## and work around a bug in texi2dvi
         ## https://stat.ethz.ch/pipermail/r-devel/2011-March/060262.html
@@ -570,47 +563,6 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 }
 
 ### * Internal utility variables.
-
-### ** .ORCID_iD_regexp
-
-.ORCID_iD_regexp <-
-    "([[:digit:]]{4}[-]){3}[[:digit:]]{3}[[:alnum:]]"
-
-### ** .ORCID_iD_variants_regexp
-
-.ORCID_iD_variants_regexp <-
-    sprintf("^<?((https?://|)orcid.org/)?(%s)>?$", .ORCID_iD_regexp)
-
-.ORCID_iD_db_from_package_sources <-
-function(dir)
-{
-    meta <- .get_package_metadata(dir, FALSE)
-    ids1 <- ids2 <- character()
-    if(!is.na(aar <- meta["Authors@R"])) {
-        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
-                        error = identity)
-        if(!inherits(aar, "error")) {
-            ids1 <- unlist(lapply(aar,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-        }
-    }
-    if(file.exists(cfile <- file.path(dir, "inst", "CITATION"))) {
-        cinfo <- .read_citation_quietly(cfile, meta)
-        if(!inherits(cinfo, "error"))
-            ids2 <- unlist(lapply(cinfo$author,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-    }
-    rbind(if(length(ids1)) cbind(ids1, "DESCRIPTION"),
-          if(length(ids2)) cbind(ids2, "inst/CITATION"))
-}
 
 ### ** .vc_dir_names
 
@@ -826,7 +778,7 @@ function(x)
                     "\\makeatother"),
                   collapse = ""),
             x, x)
-}     
+}
 
 ### ** .file_path_relative_to_dir
 
@@ -972,25 +924,48 @@ function(v, env, last = NA, default = NA) {
 .find_tidy_cmd <-
 function(Tidy = Sys.getenv("R_TIDYCMD", "tidy"))
 {
-    ## require HTML Tidy, and not macOS's ancient version.
+    ## Require a recent enough version of HTML Tidy.
+    ## We really need HTML Tidy 5.0.0 or later, and all these versions
+    ## should have tidy --version match
+    ##   ^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)
+    ## See
+    ## <https://github.com/htacg/tidy-html5/blob/next/README/VERSION.md>
+    ## and
+    ## <https://bugs.r-project.org/show_bug.cgi?id=18731>.
     msg <- ""
     OK <- nzchar(Sys.which(Tidy))
     if(OK) {
         ver <- system2(Tidy, "--version", stdout = TRUE)
-        OK <- startsWith(ver, "HTML Tidy")
+        ## Argh.  We used to match with
+        ##   ^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)$
+        ## but HTML Tidy 5.8.0 has added l10n to its version info.  For
+        ## now, this always seems to match
+        ##   ^HTML Tidy .* (\\d+\\.\\d+\\.\\d+)$
+        ## if this changes, we could try getting the version info with
+        ## LC_MESSAGES= (set to empty) which seems to get the English
+        ## default.
+        mat <- regexec("^HTML Tidy .* (\\d+\\.\\d+\\.\\d+)$", ver)
+        ver <- regmatches(ver, mat)[[1L]][2L]
+        OK <- !is.na(ver)
         if(OK) {
-            OK <- !grepl('Apple Inc. build 2649', ver)
-            if(!OK) msg <- "'tidy' is Apple's too old build"
-            ## Maybe we should also check version,
-            ## but e.g. Ubuntu 16.04 does not show one.
-        } else msg <- "'tidy' is not HTML Tidy"
-    } else msg <- "no command 'tidy' found"
+            ## Minimum version requirement.
+            req <- "5.0.0"
+            OK <- numeric_version(ver) >= req
+            if(!OK)
+                msg <-
+                    sprintf("'%s' is too old: need version %s, found %s",
+                            Tidy, req, ver)
+        } else
+            msg <-
+                sprintf("'%s' doesn't look like recent enough HTML Tidy",
+                        Tidy)
+    } else msg <- sprintf("no command '%s' found", Tidy)
     if(nzchar(msg)) {
         Tidy <- ""
         attr(Tidy, "msg") <- msg
     }
     Tidy
-}   
+}
 
 ### ** .get_BibTeX_errors_from_blg_file
 
@@ -1909,6 +1884,8 @@ nonS3methods <- function(package)
                          "dim.rename.nc", "open.nc", "print.nc"),
              Rmpfr = c("mpfr.is.0", "mpfr.is.integer"),
              SMPracticals = "exp.gibbs",
+             SparseM = c("as.matrix.csc","as.matrix.csr", "as.matrix.ssc", "as.matrix.ssr", "as.matrix.coo",
+                         "is.matrix.csc","is.matrix.csr", "is.matrix.ssc", "is.matrix.ssr", "is.matrix.coo"),
              TANOVA = "sigma.hat",
              TeachingDemos = "sigma.test",
              XML = "text.SAX",
@@ -1958,7 +1935,7 @@ nonS3methods <- function(package)
              splusTimeDate = "sort.list",
              splusTimeSeries = "sort.list",
 	     stats = c("anova.lmlist", "expand.model.frame", "fitted.values",
-		       "influence.measures", "lag.plot", "t.test",
+		       "influence.measures", "lag.plot", "qr.influence", "t.test",
                        "plot.spec.phase", "plot.spec.coherency"),
              stremo = "sigma.hat",
              supclust = c("sign.change", "sign.flip"),
@@ -2117,6 +2094,38 @@ function(file, encoding = NA, keep.source = getOption("keep.source"))
             parse(file,
                   keep.source = keep.source)
     })
+}
+
+### ** .persons_from_metadata
+
+.persons_from_metadata <- function(dir, meta = NULL) {
+    if(is.null(meta))
+        meta <- .get_package_metadata(dir)
+    if(!is.na(aar <- meta["Authors@R"])) {
+        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
+                        error = identity)
+        if(inherits(aar, "person"))
+            return(aar)
+    }
+    NULL
+}
+
+### ** .persons_from_citation
+
+.persons_from_citation <- function(dir, installed = FALSE) {
+    meta <- .get_package_metadata(dir, installed = installed)
+    path <- if(installed)
+                "CITATION"
+            else
+                file.path("inst", "CITATION")
+    cfile <- file.path(dir, path)
+    cinfo <- .read_citation_quietly(cfile, meta)
+    if(!inherits(cinfo, "error")) {
+        aut <- do.call(c, lapply(unclass(cinfo), `[[`, "author"))
+        if(inherits(aut, "person"))
+            return(aut)
+    }
+    NULL
 }
 
 ### ** .read_additional_repositories_field
@@ -2561,7 +2570,7 @@ function(fun, args = list(), opts = "--no-save --no-restore",
     ## escape issue if we use backslashes in paths, hence convert to "/"
     tfi <- normalizePath(tempfile("runri"), winslash="/", mustWork=FALSE)
     tfo <- normalizePath(tempfile("runro"), winslash="/", mustWork=FALSE)
-    
+
     wrk <- c(sprintf("x <- readRDS(\"%s\")", tfi),
              "options(repos = x$repos)",
              ## need quote = TRUE in case some of args are not self-evaluating
@@ -2590,10 +2599,11 @@ function(fun, args = list(), opts = "--no-save --no-restore",
         if (inherits(val, "condition")) {
             ## maybe wrap in a classed error and include some of res
             msg <- paste0("error in inferior call:\n  ", conditionMessage(val))
-            stop(errorCondition(msg,
+            stop(do.call(errorCondition,
+                         c(list(message = msg, 
                                 class = "inferiorCallError",
-                                res = res,
-                                error = val))
+                                value = val),
+                           res)))
         }
         else {
             val <- val[[1L]]
@@ -2606,9 +2616,10 @@ function(fun, args = list(), opts = "--no-save --no-restore",
     else
         ## again maybe wrap in a classed error  and include some of res
         ## might want to distinguish two errors by sub-classes
-        stop(errorCondition("inferior call failed",
-                            class = "inferiorCallError",
-                            res = res))
+        stop(do.call(errorCondition,
+                     c(list(message = "inferior call failed",
+                            class = "inferiorCallError"),
+                       res = res)))
 }
 
 ### ** Rcmd
@@ -2687,18 +2698,20 @@ function(text)
         ## do not remove capitalization immediately after ": " or "- "
         ind <- grep("[-:]$", xx); ind <- ind[ind + 2L <= length(l)]
         ind <- ind[(xx[ind + 1L] == " ") & grepl("^['[:alnum:]]", xx[ind + 2L])]
+        # don't capitalize lpat words after hyphenation
+        ind <- ind[!(xx[ind] == "-" & grepl(lpat, xx[ind + 2L]))]
         l[ind + 2L] <- FALSE
         ## Also after " (e.g. "A Book Title")
         ind <- which(xx == '"'); ind <- ind[ind + 1L <= length(l)]
         l[ind + 1L] <- FALSE
         xx[l] <- tolower(xx[l])
         keep <- havecaps | l | (nchar(xx) == 1L) | alone
-        xx[!keep] <- sapply(xx[!keep], do1)
+        xx[!keep] <- vapply(xx[!keep], do1, "<chr>")
         paste(xx, collapse = "")
     }
     if(typeof(text) != "character")
         stop("'text' must be a character vector")
-    sapply(text, titleCase1, USE.NAMES = FALSE)
+    vapply(text, titleCase1, "<chr>", USE.NAMES = FALSE)
 }
 
 ### ** path_and_libPath

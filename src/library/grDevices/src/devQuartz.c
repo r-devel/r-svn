@@ -1939,10 +1939,16 @@ static CFStringRef text2unichar(CTXDESC, const char *text, UniChar **buffer, int
 static double RQuartz_StrWidth(const char *text, CTXDESC)
 {
     DEVSPEC;
-    if (!ctx) NOCTXR(strlen(text) * 10.0); /* for sanity reasons */
-    RQuartz_SetFont(ctx, gc, xd);
 
-    CGFontRef font = CGContextGetFont(ctx);
+    CGFontRef font = 0;
+    if (!ctx) { /* if there is no context then don't set the font */
+        xd->async = 1; /* flag us as not having a context */
+        font = RQuartz_Font(gc, NULL);
+        if (!font) return (strlen(text) * 10.0); /* for sanity reasons */
+    } else {
+        RQuartz_SetFont(ctx, gc, xd);
+        font = CGContextGetFont(ctx);
+    }
     float aScale   = (float)((gc->cex * gc->ps * xd->tscale) /
 			     CGFontGetUnitsPerEm(font));
     UniChar *buffer;
@@ -2547,15 +2553,24 @@ RQuartz_MetricInfo(int c, const pGEcontext gc,
 		   pDevDesc dd)
 {
     DRAWSPEC;
-    if (!ctx) { /* dummy data if we have no context, for sanity reasons */
-        *ascent = 10.0;
-        *descent= 2.0;
-        *width  = 9.0;
-        NOCTX;
+    CGFontRef font = 0;
+
+    if (!ctx) {
+        xd->async = 1; /* flag us as not having a context */
+        font = RQuartz_Font(gc, NULL);
+        if (!font) {
+            /* dummy data if we have no font at all, for sanity reasons */
+            *ascent = 10.0;
+            *descent= 2.0;
+            *width  = 9.0;
+            return;
+        }
+    } else {
+        RQuartz_SetFont(ctx, gc, xd);
+        font = CGContextGetFont(ctx);
     }
-    RQuartz_SetFont(ctx, gc, xd);
+
     {
-	CGFontRef font = CGContextGetFont(ctx);
         float aScale   = (float)((gc->cex * gc->ps * xd->tscale) /
 				 CGFontGetUnitsPerEm(font));
 	UniChar  *buffer, single;
@@ -3002,14 +3017,12 @@ void RQuartz_glyph(int n, int *glyphs, double *x, double *y,
 
     Rboolean grouping = QuartzBegin(&ctx, &layer, xd);
 
-    char url[501];
-    snprintf(url, 500, "file://%s", R_GE_glyphFontFile(font));
-    CFStringRef cfFontFileName = 
-        CFStringCreateWithCString(NULL, url, kCFStringEncodingUTF8);
-    CFURLRef cfFontURL = CFURLCreateWithString(NULL, cfFontFileName, NULL);
+    const char* path = R_GE_glyphFontFile(font);
+    CFURLRef cfFontURL = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8*)path, strlen(path), false);
+    if (!cfFontURL)
+        error(_("Invalid font path: \"%s\""), path);
     CFArrayRef cfFontDescriptors = 
         CTFontManagerCreateFontDescriptorsFromURL(cfFontURL);
-    CFRelease(cfFontFileName);
     CFRelease(cfFontURL);
     int n_fonts = CFArrayGetCount(cfFontDescriptors);
     if (n_fonts > 0) {

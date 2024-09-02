@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997-2023   The R Core Team
+ *  Copyright (C) 1997-2024   The R Core Team
  *  Copyright (C) 1995-1996   Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -921,6 +921,30 @@ cetype_t getCharCE(SEXP x)
     else return CE_NATIVE;
 }
 
+Rboolean charIsASCII(SEXP x)
+{
+    CHECK_CHARSXP(x);
+    return IS_ASCII(x) ? TRUE : FALSE;
+}
+
+Rboolean charIsUTF8(SEXP x)
+{
+    CHECK_CHARSXP(x);
+    if (IS_ASCII(x) || IS_UTF8(x)) return TRUE;
+    if (IS_LATIN1(x) || IS_BYTES(x) || !utf8locale || x == NA_STRING)
+	return FALSE;
+    return TRUE;
+}
+
+Rboolean charIsLatin1(SEXP x)
+{
+    CHECK_CHARSXP(x);
+    if (IS_ASCII(x) || IS_LATIN1(x)) return TRUE;
+    if (!latin1locale || IS_UTF8(x) || IS_BYTES(x) || x == NA_STRING)
+	return FALSE;
+    return TRUE;
+}
+
 #ifdef __APPLE__
 /* Work-around for libiconv in macOS 14.1. When an invalid input byte is
    encountered while converting, one has to re-set the converter state.
@@ -1470,7 +1494,7 @@ SEXP Rf_installChar(SEXP x)
 
    Use for writeLines/Bin/Char, the first only with useBytes = TRUE.
 */
-const char *translateChar0(SEXP x)
+attribute_hidden const char *translateChar0(SEXP x)
 {
     CHECK_CHARSXP(x);
     if(IS_BYTES(x)) return CHAR(x);
@@ -1781,6 +1805,7 @@ const wchar_t *wtransChar(SEXP x)
 }
 
 /* Variant which returns NULL (with a warning) when conversion fails. */
+attribute_hidden /* would need to be in an installed header if not hidden */
 const wchar_t *wtransChar2(SEXP x)
 {
     CHECK_CHARSXP(x);
@@ -1959,6 +1984,7 @@ void reEnc2(const char *x, char *y, int ny,
 
 /* A version that works with arbitrary iconv encodings, used for getting
    escaped invalid characters for error messages. */
+attribute_hidden
 const char *reEnc3(const char *x,
                    const char *fromcode, const char *tocode, int subst)
 {
@@ -2197,6 +2223,7 @@ extern char * mkdtemp (char *template);
 # include <ctype.h>
 #endif
 
+attribute_hidden /* would need to be in an installed header if not hidden */
 void R_reInitTempDir(int die_on_fail)
 {
     char *tmp = NULL, *tm;

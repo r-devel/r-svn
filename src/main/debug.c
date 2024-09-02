@@ -115,7 +115,9 @@ attribute_hidden SEXP do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 // GUIs, packages, etc can query:
+attribute_hidden /* would need to be in an installed header if not hidden */
 Rboolean R_current_debug_state(void) { return GET_DEBUG_STATE; }
+attribute_hidden /* would need to be in an installed header if not hidden */
 Rboolean R_current_trace_state(void) { return GET_TRACE_STATE; }
 
 
@@ -190,11 +192,11 @@ attribute_hidden NORET SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rh
 #endif /* R_MEMORY_PROFILING */
 
 #ifndef R_MEMORY_PROFILING
-void memtrace_report(void* old, void *_new) {
+attribute_hidden void memtrace_report(void* old, void *_new) {
     return;
 }
 #else
-static void memtrace_stack_dump(void)
+attribute_hidden static void memtrace_stack_dump(void)
 {
     RCNTXT *cptr;
 

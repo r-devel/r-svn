@@ -126,6 +126,10 @@ void attribute_no_sanitizer_instrumentation R_CheckStack2(size_t extra)
     int dummy;
     intptr_t usage = R_CStackDir * (R_CStackStart - (uintptr_t)&dummy);
 
+    if (INTPTR_MAX - usage < extra)
+	/* addition would overflow, this is definitely too much */
+	R_SignalCStackOverflow(INTPTR_MAX);
+
     /* do it this way, as some compilers do usage + extra
        in unsigned arithmetic */
     usage += extra;
@@ -2370,7 +2374,7 @@ R_GetSrcFilename(SEXP srcref)
     SEXP srcfile = getAttrib(srcref, R_SrcfileSymbol);
     if (TYPEOF(srcfile) != ENVSXP)
 	return ScalarString(mkChar(""));
-    srcfile = findVar(install("filename"), srcfile);
+    srcfile = R_findVar(install("filename"), srcfile);
     if (TYPEOF(srcfile) != STRSXP)
 	return ScalarString(mkChar(""));
     return srcfile;
@@ -2654,7 +2658,7 @@ attribute_hidden /* for now */
 NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
 {
     /* caller must make sure that 'cond' and 'call' are protected. */
-    R_signalCondition(cond, call, FALSE, exitOnly);
+    R_signalCondition(cond, call, TRUE, exitOnly);
 
     /* the first element of 'cond' must be a scalar string to be used
        as the error message in default error processing. */
@@ -2664,14 +2668,29 @@ NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
     if (TYPEOF(elt) != STRSXP || LENGTH(elt) != 1)
 	error(_("first element of condition object must be a scalar string"));
 
-    /* handler stack has been unwound so this uses the default handler */
-    errorcall(call, "%s", CHAR(STRING_ELT(elt, 0)));
+    errorcall_dflt(call, "%s", translateChar(STRING_ELT(elt, 0)));
 }
 
 attribute_hidden /* for now */
 NORET void R_signalErrorCondition(SEXP cond, SEXP call)
 {
     R_signalErrorConditionEx(cond, call, FALSE);
+}
+
+attribute_hidden /* for now */
+void R_signalWarningCondition(SEXP cond)
+{
+    static SEXP condSym = NULL;
+    static SEXP expr = NULL;
+    if (expr == NULL) {
+        condSym = install("cond");
+        expr = R_ParseString("warning(cond)");
+        R_PreserveObject(expr);
+    }
+    SEXP env = PROTECT(R_NewEnv(R_BaseNamespace, FALSE, 0));
+    defineVar(condSym, cond, env);
+    evalKeepVis(expr, env);
+    UNPROTECT(1); /* env*/
 }
 
 
@@ -2799,10 +2818,10 @@ SEXP R_makeOutOfBoundsError(SEXP x, int subscript, SEXP sindex,
 				    "%s", R_MSG_subs_o_b);
     PROTECT(cond);
 
-    /* In some cases the 'sbscript' argument is negative, indicating
+    /* In some cases the 'subscript' argument is negative, indicating
        that which subscript is out of bounds is not known. We could
        probably do better, but for now report 'subscript' as NA in the
-       condition objec. */
+       condition object. */
     SEXP ssub = ScalarInteger(subscript >= 0 ? subscript + 1 : NA_INTEGER);
     PROTECT(ssub);
 
@@ -2846,6 +2865,75 @@ attribute_hidden SEXP R_getNodeStackOverflowError(void)
 {
     return R_nodeStackOverflowError;
 }
+
+attribute_hidden /* for now */
+SEXP R_vmakeWarningCondition(SEXP call,
+			   const char *classname, const char *subclassname,
+			   int nextra, const char *format, va_list ap)
+{
+    if (call == R_CurrentExpression)
+	/* behave like warning() */
+	call = getCurrentCall();
+    PROTECT(call);
+    int nelem = nextra + 2;
+    SEXP cond = PROTECT(allocVector(VECSXP, nelem));
+
+    Rvsnprintf_mbcs(emsg_buf, BUFSIZE, format, ap);
+    SET_VECTOR_ELT(cond, 0, mkString(emsg_buf));
+    SET_VECTOR_ELT(cond, 1, call);
+
+    SEXP names = allocVector(STRSXP, nelem);
+    setAttrib(cond, R_NamesSymbol, names);
+    SET_STRING_ELT(names, 0, mkChar("message"));
+    SET_STRING_ELT(names, 1, mkChar("call"));
+
+    SEXP klass = allocVector(STRSXP, subclassname == NULL ? 3 : 4);
+    setAttrib(cond, R_ClassSymbol, klass);
+    if (subclassname == NULL) {
+	SET_STRING_ELT(klass, 0, mkChar(classname));
+	SET_STRING_ELT(klass, 1, mkChar("warning"));
+	SET_STRING_ELT(klass, 2, mkChar("condition"));
+    }
+    else {
+	SET_STRING_ELT(klass, 0, mkChar(subclassname));
+	SET_STRING_ELT(klass, 1, mkChar(classname));
+	SET_STRING_ELT(klass, 2, mkChar("warning"));
+	SET_STRING_ELT(klass, 3, mkChar("condition"));
+    }
+
+    UNPROTECT(2); /* cond, call */
+
+    return cond;
+}
+
+attribute_hidden /* for now */
+SEXP R_makeWarningCondition(SEXP call,
+			  const char *classname, const char *subclassname,
+			  int nextra, const char *format, ...)
+{
+    va_list(ap);
+    va_start(ap, format);
+    SEXP cond = R_vmakeWarningCondition(call, classname, subclassname,
+				      nextra, format, ap);
+    va_end(ap);
+    return cond;
+}
+
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal)
+{
+    SEXP cond =
+	R_makeWarningCondition(call, "partialMatchWarning", NULL, 2,
+			       _("partial argument match of '%s' to '%s'"),
+			       CHAR(PRINTNAME(argument)),//EncodeChar??
+			       CHAR(PRINTNAME(formal)));//EncodeChar??
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "argument", argument);
+    R_setConditionField(cond, 3, "formal", formal);
+    // idealy we would want the function/object in a field also
+    UNPROTECT(1); /* cond */
+    return cond;
+}
+
 
 #define PROT_SO_MSG _("protect(): protection stack overflow")
 #define EXPR_SO_MSG _("evaluation nested too deeply: infinite recursion / options(expressions=)?")

@@ -80,7 +80,7 @@ int nrows(SEXP s) // ~== NROW(.)  in R
 	if (t == R_NilValue) return LENGTH(s);
 	return INTEGER(t)[0];
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return nrows(CAR(s));
     }
     else error(_("object is not a matrix"));
@@ -98,7 +98,7 @@ int ncols(SEXP s) // ~== NCOL(.)  in R
 	/* This is a 1D (or possibly 0D array) */
 	return 1;
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return length(s);
     }
     else error(_("object is not a matrix"));
@@ -539,7 +539,7 @@ attribute_hidden void Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 
 SEXP nthcdr(SEXP s, int n)
 {
-    if (isList(s) || isLanguage(s) || isFrame(s) || TYPEOF(s) == DOTSXP ) {
+    if (isList(s) || isLanguage(s) || isDataFrame(s) || TYPEOF(s) == DOTSXP ) {
 	while( n-- > 0 ) {
 	    if (s == R_NilValue)
 		error(_("'nthcdr' list shorter than %d"), n);
@@ -552,6 +552,7 @@ SEXP nthcdr(SEXP s, int n)
 }
 
 /* Destructively removes R_NilValue ('NULL') elements from a pairlist. */
+attribute_hidden /* would need to be in an installed header if not hidden */
 SEXP R_listCompact(SEXP s, Rboolean keep_initial) {
     if(!keep_initial)
     // skip initial NULL values
@@ -620,7 +621,7 @@ void setSVector(SEXP * vec, int len, SEXP val)
 */
 
 
-Rboolean isFree(SEXP val)
+attribute_hidden Rboolean isFree(SEXP val)
 {
     SEXP t;
     for (t = R_FreeSEXP; t != R_NilValue; t = CAR(t))
@@ -635,19 +636,19 @@ Rboolean isFree(SEXP val)
 /* a debugger such as gdb, so you don't have to remember */
 /* the names of the data structure components. */
 
-int dtype(SEXP q)
+attribute_hidden int dtype(SEXP q)
 {
     return((int)TYPEOF(q));
 }
 
 
-SEXP dcar(SEXP l)
+attribute_hidden SEXP dcar(SEXP l)
 {
     return(CAR(l));
 }
 
 
-SEXP dcdr(SEXP l)
+attribute_hidden SEXP dcdr(SEXP l)
 {
     return(CDR(l));
 }
@@ -671,7 +672,7 @@ static void isort_with_index(int *x, int *indx, int n)
 
 // body(x) without attributes "srcref", "srcfile", "wholeSrcref" :
 // NOTE: Callers typically need  PROTECT(R_body_no_src(.))
-SEXP R_body_no_src(SEXP x) {
+attribute_hidden SEXP R_body_no_src(SEXP x) {
     SEXP b = PROTECT(duplicate(BODY_EXPR(x)));
     /* R's removeSource() works *recursively* on the body()
        in  ../library/utils/R/sourceutils.R  but that seems unneeded (?) */
@@ -934,7 +935,7 @@ static SEXP root_dir_on_drive(char d)
     buf[0] = d;
     buf[1] = ':';
     buf[2] = '/';
-    return mkCharLenCE(buf, 3, CE_UTF8); 
+    return mkCharLenCE(buf, 3, CE_UTF8);
 }
 
 attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -960,7 +961,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 		R_UTF8fixslash(buf);
 		/* remove trailing file separator(s) */
 		while (ll && buf[ll-1] == '/') ll--;
-		if (ll == 2 && buf[1] == ':' && buf[2]) { 
+		if (ll == 2 && buf[1] == ':' && buf[2]) {
 		    SET_STRING_ELT(ans, i, root_dir_on_drive(buf[0]));
 		    continue;
 		}
@@ -1375,7 +1376,7 @@ utf8toucs32(wchar_t high, const char *s)
 
 /* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
    only the high surrogate is returned; call utf8toutf16low next. */
-size_t 
+size_t
 utf8toucs(wchar_t *wc, const char *s)
 {
     unsigned int byte;
@@ -1481,8 +1482,8 @@ utf8towcs(wchar_t *wc, const char *s, size_t n)
     return (size_t) res;
 }
 
-size_t
-utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
+attribute_hidden /* would need to be in an installed header if not hidden */
+size_t utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 {
     ssize_t m, res = 0;
     const char *t;
@@ -1737,7 +1738,7 @@ char *Rf_strchr(const char *s, int c)
     return (char *)NULL;
 }
 
-char *Rf_strrchr(const char *s, int c)
+attribute_hidden char *Rf_strrchr(const char *s, int c)
 {
     char *p = (char *)s, *plast = NULL;
     mbstate_t mb_st;
@@ -2081,7 +2082,7 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
    Also allows complete control of which non-numeric strings are
    accepted; e.g. glibc allows NANxxxx, macOS NAN(s), this accepts "NA".
 
-   Exported and in Utils.h (but not in R-exts).
+   Exported and in Utils.h (but only in R-exts as of 4.4.1).
 
    Variants:
    R_strtod4 is used by scan(), allows the decimal point (byte) to be
@@ -2090,8 +2091,8 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
    R_strtod5 is used by type_convert(numerals=) (utils/src/io.c)
 
    The parser uses R_atof (and handles non-numeric strings itself).
-   That is the same as R_strtod but ignores endptr. 
-   Also used by gnuwin32/windlgs/src/ttest.c, 
+   That is the same as R_strtod but ignores endptr.
+   Also used by gnuwin32/windlgs/src/ttest.c,
    exported and in Utils.h (but not in R-exts).
 */
 
@@ -2229,7 +2230,7 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	   It's not right if the exponent is very large, but the
 	   overflow or underflow below will handle it.
 	   1e308 is already Inf, but negative exponents can go down to -323
-	   before undeflowing to zero.  And people could do perverse things 
+	   before undeflowing to zero.  And people could do perverse things
 	   like 0.00000001e312.
 	*/
 	// C17 §6.4.4.2 requires a non-empty 'digit sequence'
@@ -2275,6 +2276,7 @@ done:
 }
 
 
+attribute_hidden
 double R_strtod4(const char *str, char **endptr, char dec, Rboolean NA)
 {
     return R_strtod5(str, endptr, dec, NA, FALSE);
@@ -2806,12 +2808,13 @@ attribute_hidden SEXP do_tabulate(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP xt, x, right, inside, leftOp;
+    SEXP xt, x, right, inside, leftOp, chkNA;
     xt = CAR(args); args = CDR(args);
     x = CAR(args); args = CDR(args);
     right = CAR(args); args = CDR(args);
     inside = CAR(args);args = CDR(args);
-    leftOp = CAR(args);
+    leftOp = CAR(args);args = CDR(args);
+    chkNA  = CAR(args);
     if(TYPEOF(xt) != REALSXP || TYPEOF(x) != REALSXP) error("invalid input");
 #ifdef LONG_VECTOR_SUPPORT
     if (IS_LONG_VEC(xt))
@@ -2827,15 +2830,21 @@ attribute_hidden SEXP do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "all.inside");
     SEXP ans = allocVector(INTSXP, nx);
     double *rxt = REAL(xt), *rx = REAL(x);
-    int ii = 1;
-    for(int i = 0; i < nx; i++) {
+    int ii = 1, mfl;
+    if (chkNA)
+      for(int i = 0; i < nx; i++) {
 	if (ISNAN(rx[i]))
 	    ii = NA_INTEGER;
-	else {
-	    int mfl;
-	    ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl); // -> ../appl/interv.c
-	}
+	else
+#define FIND_INT ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl) /* -> ../appl/interv.c */
+	    FIND_INT;
 	INTEGER(ans)[i] = ii;
+      }
+    else { // do *not* check ISNAN(rx[i])
+	for(int i = 0; i < nx; i++) {
+	    FIND_INT;
+	    INTEGER(ans)[i] = ii;
+	}
     }
     return ans;
 }
@@ -3224,7 +3233,7 @@ SEXP do_compareNumericVersion(SEXP call, SEXP op, SEXP args, SEXP env)
 	na = 0;
     PROTECT(ans = allocVector(INTSXP, na));
     for(i = 0; i < na; i++) {
-	INTEGER(ans)[i] = 
+	INTEGER(ans)[i] =
 	    compareNumericVersion(VECTOR_ELT(x, i % nx),
 				  VECTOR_ELT(y, i % ny));
     }
@@ -3244,7 +3253,7 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
     /* could optimize by using non-zero initial size, large
        enough so that most prints with fill */
     /* trio does not accept NULL as str */
-    ret = vsnprintf(dummy, 0, fmt, ap); 
+    ret = vsnprintf(dummy, 0, fmt, ap);
     va_end(ap);
 
     if (ret <= 0)
@@ -3269,4 +3278,5 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
 	*str = buf;
     return ret;
 }
- 
+
+

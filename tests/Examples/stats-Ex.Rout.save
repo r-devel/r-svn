@@ -1,11 +1,13 @@
 
-R Under development (unstable) (2024-02-28 r85996) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-08-21 r87038) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -4074,7 +4076,7 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > ### Name: ave
 > ### Title: Group Averages Over Level Combinations of Factors
 > ### Aliases: ave
-> ### Keywords: univar
+> ### Keywords: univar category
 > 
 > ### ** Examples
 > 
@@ -4114,6 +4116,13 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > legend(40, 70, c("mean", "median"), lty = 1,
 +       col = c("blue","green"), bg = "gray90")
 > detach()
+> 
+> # Running index per group
+> (g <- sample(c("u","s","e","R"), 24, replace = TRUE))
+ [1] "u" "R" "e" "u" "s" "u" "e" "e" "s" "s" "e" "e" "u" "u" "u" "s" "s" "s" "s"
+[20] "e" "u" "e" "u" "u"
+> ave(seq_along(g), g, FUN = seq_along)
+ [1] 1 1 1 2 1 3 2 3 2 3 4 5 4 5 6 4 5 6 7 6 7 7 8 9
 > 
 > 
 > 
@@ -5117,7 +5126,7 @@ function (V)
         r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0x55eaef3702d0>
+<bytecode: 0x55b297bbece0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
@@ -7765,7 +7774,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x55eaf1475c78>
+<environment: 0x55b2975fdb10>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -8379,6 +8388,23 @@ List of 4
 > ## "no nothing"
 > heatmap(x, Rowv = NA, Colv = NA, scale = "column",
 +         main = "heatmap(*, NA, NA) ~= image(t(x))")
+> 
+> ## Demonstration of the 'scale' argument:
+> ## The only change in the code is the 'scale' arg.
+> ## The only visible change is in the color scale on the heatmap
+> ## (the original data are not scaled).
+> 
+> heatmap(x, col = terrain.colors(128), scale = "column",
++         RowSideColors = rc,
++         ColSideColors = cc,
++         margins = c(5,10),
++         main = "heatmap(<Mtcars data>, ..., scale = \"column\")")
+> heatmap(x, col = terrain.colors(128), scale = "none",
++         RowSideColors = rc,
++         ColSideColors = cc,
++         margins = c(5,10),
++         main = "heatmap(<Mtcars data>, ..., scale = \"none\")")
+> 
 > 
 > round(Ca <- cor(attitude), 2)
            rating complaints privileges learning raises critical advance
@@ -9360,7 +9386,7 @@ it = 10 -2.083333 -2.083333
 > 
 > ### Name: lm.influence
 > ### Title: Regression Diagnostics
-> ### Aliases: lm.influence influence influence.lm influence.glm
+> ### Aliases: lm.influence influence influence.lm influence.glm qr.influence
 > ### Keywords: regression
 > 
 > ### ** Examples
@@ -9411,6 +9437,12 @@ List of 4
   ..- attr(*, "names")= chr [1:50] "Australia" "Austria" "Belgium" "Bolivia" ...
  $ wt.res      : Named num [1:50] 0.864 0.616 2.219 -0.698 3.553 ...
   ..- attr(*, "names")= chr [1:50] "Australia" "Austria" "Belgium" "Bolivia" ...
+> 
+> qRes <- qr(lm.SR) # == lm.SR $ qr
+> qrI <- qr.influence(qRes, residuals(lm.SR))
+> strip <- function(x) lapply(lapply(x, unname), drop)
+> stopifnot(identical(strip(qrI),
++                     strip(lmI[c("hat", "sigma")])))
 > 
 > ## For more "user level" examples, use example(influence.measures)
 > 
@@ -9510,8 +9542,8 @@ List of 8
 >   lm.. <- .lm.fit(X,y)
 >   lm.w <- .lm.fit(X*sqrt(w), y*sqrt(w))
 >   id <- function(x, y) all.equal(x, y, tolerance = 1e-15, scale = 1)
->   stopifnot(id(unname(lm.$coef), lm..$coef),
-+ 	    id(unname(lmw$coef), lm.w$coef))
+>   stopifnot(id(unname(lm.$coefficients), lm..$coefficients),
++ 	    id(unname(lmw$coefficients), lm.w$coefficients))
 > ## End(Don't show)
 > ## fits w/o intercept:
 > all.equal(unname(coef(lm(y ~ X-1))),
@@ -12684,14 +12716,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x55eaecedba90>
-<environment: 0x55eaef830f00>
+<bytecode: 0x55b297781bb8>
+<environment: 0x55b29752c6a0>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x55eaecedb940>
-<environment: 0x55eaef830f00>
+<bytecode: 0x55b297781a30>
+<environment: 0x55b29752c6a0>
 
 > 
 > 
@@ -15495,7 +15527,7 @@ block     N     P     K
 > 
 > ## times need not be numeric
 > df <- data.frame(id = rep(1:4, rep(2,4)),
-+                  visit = I(rep(c("Before","After"), 4)),
++                  visit = rep(c("Before","After"), 4),
 +                  x = rnorm(4), y = runif(4))
 > df
   id  visit          x          y
@@ -17050,8 +17082,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x55eaeffae968>
-<environment: 0x55eaee9043a8>
+<bytecode: 0x55b2973e08c0>
+<environment: 0x55b293689d40>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -18087,6 +18119,7 @@ Loading required namespace: Matrix
 > ## Don't show: 
 > if(!hadM) unloadNamespace("Matrix")
 > ## End(Don't show)
+> 
 > ## IGNORE_RDIFF_END
 > ## scale W to have column sums 1:
 > W. <- W / sum(wts)
@@ -18120,6 +18153,7 @@ Loading required namespace: Matrix
 > ### Name: ts
 > ### Title: Time-Series Objects
 > ### Aliases: ts as.ts as.ts.default is.ts Ops.ts cbind.ts is.mts [.ts t.ts
+> ###   head.ts tail.ts
 > ### Keywords: ts
 > 
 > ### ** Examples
@@ -18141,20 +18175,46 @@ Loading required namespace: Matrix
 +           start = c(1954, 7), frequency = 12)
 > plot(gnp) # using 'plot.ts' for time-series plot
 > 
+> 
+> ## "ts" methods for head() and tail()
+> utils:: head(lynx, 4)
+Time Series:
+Start = 1821 
+End = 1824 
+Frequency = 1 
+[1] 269 321 585 871
+> utils:: tail(lynx, -7)
+Time Series:
+Start = 1828 
+End = 1934 
+Frequency = 1 
+  [1] 5943 4950 2577  523   98  184  279  409 2285 2685 3409 1824  409  151   45
+ [16]   68  213  546 1033 2129 2536  957  361  377  225  360  731 1638 2725 2871
+ [31] 2119  684  299  236  245  552 1623 3311 6721 4254  687  255  473  358  784
+ [46] 1594 1676 2251 1426  756  299  201  229  469  736 2042 2811 4431 2511  389
+ [61]   73   39   49   59  188  377 1292 4031 3495  587  105  153  387  758 1307
+ [76] 3465 6991 6313 3794 1836  345  382  808 1388 2713 3800 3091 2985 3790  674
+ [91]   81   80  108  229  399 1132 2432 3574 2935 1537  529  485  662 1000 1590
+[106] 2657 3396
+> ## Don't show: 
+>  stopifnot(is.ts(head(lynx, -6)),
++                      is.ts(tail(lynx, 3)))
+> ## End(Don't show)
+> 
 > ## Multivariate
 > z <- ts(matrix(rnorm(300), 100, 3), start = c(1961, 1), frequency = 12)
 > class(z)
 [1] "mts"    "ts"     "matrix" "array" 
 > is.mts(z)
 [1] TRUE
-> head(z) # as "matrix"
-        Series 1   Series 2   Series 3
-[1,] -0.62036668  0.4094018  0.8936737
-[2,]  0.04211587  1.6888733 -1.0472981
-[3,] -0.91092165  1.5865884  1.9713374
-[4,]  0.15802877 -0.3309078 -0.3836321
-[5,] -0.65458464 -2.2852355  1.6541453
-[6,]  1.76728727  2.4976616  1.5122127
+> head(z) # "ts" method ==> incl. times:
+            Series 1   Series 2   Series 3
+Jan 1961 -0.62036668  0.4094018  0.8936737
+Feb 1961  0.04211587  1.6888733 -1.0472981
+Mar 1961 -0.91092165  1.5865884  1.9713374
+Apr 1961  0.15802877 -0.3309078 -0.3836321
+May 1961 -0.65458464 -2.2852355  1.6541453
+Jun 1961  1.76728727  2.4976616  1.5122127
 > plot(z)
 > plot(z, plot.type = "single", lty = 1:3)
 > 
@@ -19589,7 +19649,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  6.076 0.149 6.227 0 0 
+Time elapsed:  9.527 0.16 9.691 0 0 
 > grDevices::dev.off()
 null device 
           1 

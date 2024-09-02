@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997-2018   R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,6 +47,11 @@ static void stem_print(int close, int dist, int ndigits)
 	Rprintf("  %*d | ", ndigits, close/10);
 }
 
+static double rnd(double u, double c)
+{
+    return ((u < 0) ? (u*c - .5) : (u*c + .5));
+}
+
 static Rboolean
 stem_leaf(double *x, int n, double scale, int width, double atom)
 {
@@ -57,8 +62,10 @@ stem_leaf(double *x, int n, double scale, int width, double atom)
 
     R_rsort(x,n);
 
+#if 0
     if(n <= 1)
 	return FALSE;
+#endif
 
     Rprintf("\n");
     mu = 10;
@@ -80,16 +87,21 @@ stem_leaf(double *x, int n, double scale, int width, double atom)
 	r = atom + fabs(x[0])/scale;
 	c = R_pow_di(10.0, (int)(1.0 - floor(log10(r))));
     }
-    
-    /* Find the print width of the stem. */
 
-    lo = floor(x[0]*c/mu)*mu;
-    hi = floor(x[n-1]*c/mu)*mu;
-    ldigits = (lo < 0) ? (int) floor(log10(-(double)lo)) + 1 : 0;
-    hdigits = (hi > 0) ? (int) floor(log10((double)hi)): 0;
+    /* Find the print width of the stem. */
+    double
+      xlow  = rnd(x[0], c),
+      xhigh = rnd(x[n-1], c),
+      lo_nd = floor(xlow/mu)*mu,
+      hi_nd = floor(xhigh/mu)*mu;
+
+    ldigits = (lo_nd < 0) ? (int) floor(log10(-lo_nd)) + 1 : 0;
+    hdigits = (hi_nd > 0) ? (int) floor(log10(hi_nd)): 0;
     ndigits = (ldigits < hdigits) ? hdigits : ldigits;
 
     /* Starting cell */
+    lo = floor(x[0]*c/mu)*mu;
+    hi = floor(x[n-1]*c/mu)*mu;
 
     if(lo < 0 && floor(x[0]*c) == lo) lo = lo - mu;
     hi = lo + mu;
@@ -116,8 +128,7 @@ stem_leaf(double *x, int n, double scale, int width, double atom)
 	    stem_print((int)lo, (int)hi, ndigits);
 	j = 0;
 	do {
-	    if(x[i] < 0)xi = (int) (x[i]*c - .5);
-	    else	xi = (int) (x[i]*c + .5);
+	    xi = (int) rnd(x[i], c);
 
 	    if( (hi == 0 && x[i] >= 0)||
 		(lo <  0 && xi >  hi) ||

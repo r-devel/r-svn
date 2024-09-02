@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2024-03-11 r86096) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-08-23 r87041) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
@@ -1473,6 +1473,9 @@ Error in log("a") : non-numeric argument to mathematical function
 > 
 > ## bail out
 > closeAllConnections()
+Warning message:
+In .Internal(gc(verbose, reset, full)) :
+  closing unused connection 3 (all.Rout)
 > (foo <- showConnections())
      description class mode text isopen can read can write
 > stopifnot(nrow(foo) == 0)
@@ -3860,6 +3863,28 @@ Residuals 42  29204   695.3
   100000000 | 00000000000
 
 > ##  had integer overflows in 1.8.1, and silly shifts of decimal point
+> 
+> ## PR#8934 stem() with correct width
+> stem(c(8.48, 9.58, 9.96))
+
+  The decimal point is at the |
+
+   8 | 
+   8 | 5
+   9 | 
+   9 | 6
+  10 | 0
+
+> ## wrongly indented  '10 |'  since even before R 1.0.0
+> 
+> ## stem(<length 1>) now produces output
+> stem(123)
+
+  The decimal point is 2 digit(s) to the right of the |
+
+  1 | 2
+
+> ## length(x) == 1  was explicitly skipped in R <= 4.4.z
 > 
 > 
 > ## PR#6633 warnings with vector op matrix, and more
@@ -6366,7 +6391,7 @@ function(given = NULL) {
     if (is.null(given)) callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x562f0421fcc8>
+<bytecode: 0x5576bf5fbdf8>
 > print(foo, useSource = FALSE)
 function (given = NULL) 
 {
@@ -6377,7 +6402,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x562f0421fcc8>
+<bytecode: 0x5576bf5fbdf8>
 > attr(foo, "srcref") <- NULL
 > foo
 function (given = NULL) 
@@ -6389,7 +6414,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x562f0421fcc8>
+<bytecode: 0x5576bf5fbdf8>
 > (f <- structure(function(){}, note = "just a note",
 +                 yada = function() "not the same"))
 function(){}
@@ -8342,7 +8367,7 @@ Error in f() : argument is missing, with no default
 >     withAutoprint({ show.srcref() })
  language show.srcref()
  - attr(*, "srcref")= 'srcref' int [1:8] 1 21 1 33 21 33 3 3
-  ..- attr(*, "srcfile")=Classes 'srcfilealias', 'srcfile' <environment: 0x562f01758010> 
+  ..- attr(*, "srcfile")=Classes 'srcfilealias', 'srcfile' <environment: 0x5576bf84ef28> 
 > ## no   attr(*, "src..")   in R <= 4.3.1
 > ##
 > withAutoprint({
