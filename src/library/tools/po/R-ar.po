@@ -14,34 +14,34 @@ msgstr ""
 "X-Generator: Weblate 4.16.4\n"
 
 msgid "Checking %s"
-msgstr ""
+msgstr "جارب التحقق %s"
 
 msgid "Processing %s ..."
-msgstr ""
+msgstr "جاري المعالجة %s ..."
 
 msgid "argument 'package' must be of length 1"
-msgstr ""
+msgstr "يجب أن يكون معامل 'package' طول 1"
 
 msgid "you must specify 'package' or 'dir'"
-msgstr ""
+msgstr "يجب أن تspecify 'package' أو 'dir'"
 
 msgid "directory '%s' does not exist"
-msgstr ""
+msgstr "الملف %s  غير موجود"
 
 msgid "neither code nor data objects found"
-msgstr ""
+msgstr "لاوجد كود ولا بيانات"
 
 msgid "Undocumented code objects:"
-msgstr ""
+msgstr "كود غير محدد:"
 
 msgid "Undocumented data sets:"
-msgstr ""
+msgstr "مجموعة بيانات غير محددة:"
 
 msgid "Undocumented S4 classes:"
-msgstr ""
+msgstr "مُؤسسات S4 غير محددة:"
 
 msgid "Undocumented S4 methods:"
-msgstr ""
+msgstr "الخُطط S4 غير محددة:"
 
 msgid "Prototyped non-primitives:"
 msgstr ""
