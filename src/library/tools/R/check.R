@@ -3925,15 +3925,16 @@ add_dummies <- function(dir, Log)
 
     check_rust <- function()
     {
-        ## It is impossible to tell definiitively if a package
-        ## compiles rust code.  SystemRequirements in DESCRIPTION is
-        ## fres-format, and only advisory.  So we look at the
-        ## installation log, which we found in check_src()
+        ## A Cargo.toml file is used to identify a rust package, 
+        ## so check for Cargo.toml under src to see if rust code
+        ## is compiled in the crate
         if (is.na(InstLog)) return (NA)
+        srcd <- file.path(pkgdir, "src")
+        if (length(Sys.glob(paste0(srcd, "/**/Cargo.toml"))) == 0) return (NA)
         ##message("InstLog = ", InstLog)
         lines <- readLines(InstLog, warn = FALSE)
         l1 <- grep("(cargo build|   Compiling )", lines)
-        if(!length(l1)) return(NA)
+        if(!length(l1)) return (NA)
         l2 <- grep("   Compiling ", lines)
         checkingLog(Log, "Rust compilation")
         msg <- character(); OK <- TRUE
