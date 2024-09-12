@@ -3930,7 +3930,7 @@ add_dummies <- function(dir, Log)
         ## is compiled in the crate
         if (is.na(InstLog)) return (NA)
         srcd <- file.path(pkgdir, "src")
-        if (length(Sys.glob(paste0(srcd, "/**/Cargo.toml"))) == 0) return (NA)
+        if (length(list.files(path = srcd, pattern = "Cargo.toml", recursive = TRUE))) == 0) return (NA)
         ##message("InstLog = ", InstLog)
         lines <- readLines(InstLog, warn = FALSE)
         l1 <- grep("(cargo build|   Compiling )", lines)
