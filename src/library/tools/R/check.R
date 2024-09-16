@@ -3956,8 +3956,8 @@ add_dummies <- function(dir, Log)
             OK <- FALSE
             msg <- c(msg, "Package compiles Rust but SystemRequirements not provided")
         }
-        rustc_desc <- any(grep("rustc", sysreqs, ignore.case = TRUE))
-        cargo_desc <- any(grep("cargo", sysreqs, ignore.case = TRUE))
+        rustc_desc <- any(grep("rustc", sysreqs, ignore.case = TRUE, fixed = TRUE))
+        cargo_desc <- any(grep("cargo", sysreqs, ignore.case = TRUE, fixed = TRUE))
         if(!rustc_desc) {
             OK <- FALSE
             msg <- c(msg, "Package compiles Rust but rustc not in DESCRIPTION")
