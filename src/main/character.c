@@ -383,8 +383,8 @@ static void substr(const char *str, int len, int ienc, int sa, int so,
 
     if (ienc == CE_UTF8) {
 	if (!assumevalid && !utf8Valid(str)) {
-	    char msg[30];
-	    snprintf(msg, 30, "element %ld", (long)idx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "element %ld", (long)idx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 0; i < sa - 1 && str < end; i++)
@@ -588,13 +588,13 @@ substrset(char *buf, const char *const str, cetype_t ienc, int sa, int so,
 
     if (ienc == CE_UTF8) {
 	if (!utf8Valid(buf)) {
-	    char msg[30];
-	    snprintf(msg, 30, "element %ld", (long)xidx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "element %ld", (long)xidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	if (!utf8Valid(str)) {
-	    char msg[30];
-	    snprintf(msg, 30, "value element %ld", (long)vidx+1);
+	    char msg[40];
+	    snprintf(msg, 40, "value element %ld", (long)vidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 1; i < sa; i++) buf += utf8clen(*buf);
@@ -1033,7 +1033,7 @@ attribute_hidden SEXP do_makenames(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		wcstombs(tmp, wstr, strlen(tmp)+1);
 		R_Free(wstr);
-	    } else error(_("invalid multibyte string %d"), i+1);
+	    } else error(_("invalid multibyte string %lld"), (long long)i+1);
 	} else {
 	    for (p = tmp; *p; p++) {
 		if (*p == '.' || (allow_ && *p == '_')) /* leave alone */;
@@ -1162,7 +1162,7 @@ attribute_hidden SEXP do_tolower(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    R_Free(cbuf);
 		} else {
-		    error(_("invalid multibyte string %d"), i+1);
+		    error(_("invalid multibyte string %lld"), (long long)i+1);
 		}
 	    }
 	    vmaxset(vmax);
@@ -1219,7 +1219,7 @@ wtr_build_spec(const wchar_t *s, struct wtr_spec *trs) {
 	    _new->type = WTR_RANGE;
 	    if (s[i] > s[i + 2])
 		error(_("decreasing range specification ('%lc-%lc')"),
-		      s[i], s[i + 2]);
+		      (wint_t)s[i], (wint_t)s[i + 2]);
 	    _new->u.r.first = s[i];
 	    _new->u.r.last = s[i + 2];
 	    i = i + 3;
@@ -1591,7 +1591,8 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    ienc = CE_NATIVE;
 		}
 		if (nc < 0)
-		    error(_("invalid input multibyte string %d"), i+1);
+		    error(_("invalid input multibyte string %lld"),
+		          (long long)i+1);
 		wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t),
 						     &cbuff);
 		if (ienc == CE_UTF8) utf8towcs(wc, xi, nc + 1);

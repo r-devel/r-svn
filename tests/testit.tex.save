@@ -6,11 +6,25 @@
 \begin{verbatim}
 \x \y %{}
 
-foo(x, y)
+foo(x, y, ...)
 \end{verbatim}
 \end{Usage}
 %
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{x}, \code{y}] 
+combined arguments, in multiple Rd lines
+
+paragraph
+
+\item[\code{...}] description of \dots: \ldots
+\end{ldescription}
+\end{Arguments}
+%
 \begin{Details}
+Included
+conditional content.
+
 Escaped backslash \code{\bsl{}x}.
 
 \code{\%\{\}}
@@ -53,6 +67,10 @@ Yihui Xie's example:
 output
 }}
 --
+
+\AsIs{\texttt{
+> x<-007
+}}
 \end{Section}
 %
 \begin{Section}{\AsIs{\texttt{\bsl{}tabular}}}
@@ -92,6 +110,10 @@ and is thus output as-is in R \eqn{\ge}{} 4.4.0:
 \begin{ExampleCode}
 \x
 %{}
-foo(x, y)
+
+## Not run: stop("doomed to fail")
+
+foo(x,
+    y)
 \end{ExampleCode}
 \end{Examples}

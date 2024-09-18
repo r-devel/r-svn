@@ -1,3 +1,4 @@
+%define parse.error verbose
 %{
 /*
  *  R : A Computer Language for Statistical Data Analysis
@@ -298,6 +299,7 @@ NORET static void raiseLexError(const char *, int,
 # include <langinfo.h>
 #endif
 
+// FIXME potentially need R_wchar_t with UTF-8 Windows.
 static int mbcs_get_next(int c, wchar_t *wc)
 {
     int i, res, clen = 1; char s[9];
@@ -314,8 +316,10 @@ static int mbcs_get_next(int c, wchar_t *wc)
 	clen = utf8clen((char) c);
 	for(i = 1; i < clen; i++) {
 	    c = xxgetc();
-	    if(c == R_EOF) raiseLexError("unexpectedEOF", NO_VALUE, NULL,
-                                         _("EOF whilst reading MBCS char (%s:%d:%d)"));
+	    if(c == R_EOF) { /* EOF whilst reading MBCS char */
+		for(i--; i > 0; i--) xxungetc(s[i]);
+		return -1;
+	    }
 	    s[i] = (char) c;
 	}
 	s[clen] ='\0'; /* x86 Solaris requires this */
@@ -334,8 +338,10 @@ static int mbcs_get_next(int c, wchar_t *wc)
                     _("invalid multibyte character in parser (%s:%d:%d)"));
 	    /* so res == -2 */
 	    c = xxgetc();
-	    if(c == R_EOF) raiseLexError("unexpectedEOF", NO_VALUE, NULL,
-                               _("EOF whilst reading MBCS char (%s:%d:%d)"));
+	    if(c == R_EOF) { /* EOF whilst reading MBCS char */
+		for(i = clen - 1; i > 0; i--) xxungetc(s[i]);
+		return -1;
+	    }
 	    s[clen++] = (char) c;
 	} /* we've tried enough, so must be complete or invalid by now */
     }
@@ -2453,7 +2459,7 @@ static int SkipSpace(void)
 #ifdef Win32
     if(!mbcslocale) { /* 0xa0 is NBSP in all 8-bit Windows locales */
 	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f' ||
-	       (unsigned int) c == 0xa0) ;
+	       (unsigned int) c == 0xa0) {};
 	return c;
     } else {
 	int i, clen;
@@ -2464,6 +2470,11 @@ static int SkipSpace(void)
 	    if (c == '\n' || c == R_EOF) break;
 	    if ((unsigned int) c < 0x80) break;
 	    clen = mbcs_get_next(c, &wc);  /* always 2 */
+	    if (clen == -1) { /* EOF whilst reading MBCS char */
+		xxungetc(c);
+		c = R_EOF;
+		break;
+	    }
 	    if(! Ri18n_iswctype(wc, blankwct) ) break;
 	    for(i = 1; i < clen; i++) c = xxgetc();
 	}
@@ -2480,6 +2491,11 @@ static int SkipSpace(void)
 	    if (c == '\n' || c == R_EOF) break;
 	    if ((unsigned int) c < 0x80) break;
 	    clen = mbcs_get_next(c, &wc);
+	    if (clen == -1) { /* EOF whilst reading MBCS char */
+		xxungetc(c);
+		c = R_EOF;
+		break;
+	    }
 #if defined(USE_RI18N_FNS)
 	    if(! Ri18n_iswctype(wc, blankwct) ) break;
 #else
@@ -2490,7 +2506,7 @@ static int SkipSpace(void)
     } else
 #endif
 	// does not support non-ASCII spaces, unlike Windows
-	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f') ;
+	while ((c = xxgetc()) == ' ' || c == '\t' || c == '\f') {};
     return c;
 }
 
@@ -2741,8 +2757,10 @@ static int mbcs_get_next2(int c, ucs_t *wc)
 	clen = utf8clen(c);
 	for(i = 1; i < clen; i++) {
 	    c = xxgetc();
-	    if(c == R_EOF) raiseLexError("EOFinMBCS", NO_VALUE, NULL,
-	                               _("EOF whilst reading MBCS char (%s:%d:%d"));
+	    if(c == R_EOF) { /* EOF whilst reading MBCS char */
+		for(i--; i > 0; i--) xxungetc(s[i]);
+		return -1;
+	    }
 	    s[i] = (char) c;
 	}
 	s[clen] ='\0'; /* x86 Solaris requires this */
@@ -2760,8 +2778,10 @@ static int mbcs_get_next2(int c, ucs_t *wc)
 		    _("invalid multibyte character (%s:%d:%d)"));
 	    /* so res == -2 */
 	    c = xxgetc();
-	    if(c == R_EOF) raiseLexError("EOFinMultibyte", NO_VALUE, NULL,
-	        _("EOF whilst reading MBCS char (%s:%d:%d)"));
+	    if(c == R_EOF) {/* EOF whilst reading MBCS char */
+		for(i = clen - 1; i > 0; i--) xxungetc(s[i]);
+		return -1;
+	    }
 	    s[clen++] = c;
 	} /* we've tried enough, so must be complete or invalid by now */
     }
@@ -2872,13 +2892,19 @@ static int StringValue(int c, Rboolean forSymbol)
 	    c = '\\';
 	}
 	if (c == '\\') {
-	    c = xxgetc(); CTEXT_PUSH(c);
+	    c = xxgetc();
+	    if (c == R_EOF) break;
+	    CTEXT_PUSH(c);
 	    if ('0' <= c && c <= '7') {
 		int octal = c - '0';
-		if ('0' <= (c = xxgetc()) && c <= '7') {
+		c = xxgetc();
+		if (c == R_EOF) break;
+		if ('0' <= c && c <= '7') {
 		    CTEXT_PUSH(c);
 		    octal = 8 * octal + c - '0';
-		    if ('0' <= (c = xxgetc()) && c <= '7') {
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    if ('0' <= c && c <= '7') {
 			CTEXT_PUSH(c);
 			octal = 8 * octal + c - '0';
 		    } else {
@@ -2899,7 +2925,9 @@ static int StringValue(int c, Rboolean forSymbol)
 	    else if(c == 'x') {
 		int val = 0; int i, ext;
 		for(i = 0; i < 2; i++) {
-		    c = xxgetc(); CTEXT_PUSH(c);
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    CTEXT_PUSH(c);
 		    if(c >= '0' && c <= '9') ext = c - '0';
 		    else if (c >= 'A' && c <= 'F') ext = c - 'A' + 10;
 		    else if (c >= 'a' && c <= 'f') ext = c - 'a' + 10;
@@ -2915,6 +2943,7 @@ static int StringValue(int c, Rboolean forSymbol)
 		    }
 		    val = 16*val + ext;
 		}
+		if (c == R_EOF) break;
 		if (!val)
 		    raiseLexError("nulNotAllowed", NO_VALUE, NULL,
                         _("nul character not allowed (%s:%d:%d)"));
@@ -2928,12 +2957,16 @@ static int StringValue(int c, Rboolean forSymbol)
 		if(forSymbol) 
 		    raiseLexError("unicodeInBackticks", NO_VALUE, NULL, 
 		        _("\\uxxxx sequences not supported inside backticks (%s:%d:%d)"));
-		if((c = xxgetc()) == '{') {
+		c = xxgetc();
+		if (c == R_EOF) break;
+		if (c == '{') {
 		    delim = TRUE;
 		    CTEXT_PUSH(c);
 		} else xxungetc(c);
 		for(i = 0; i < 4; i++) {
-		    c = xxgetc(); CTEXT_PUSH(c);
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    CTEXT_PUSH(c);
 		    if(c >= '0' && c <= '9') ext = c - '0';
 		    else if (c >= 'A' && c <= 'F') ext = c - 'A' + 10;
 		    else if (c >= 'a' && c <= 'f') ext = c - 'a' + 10;
@@ -2949,8 +2982,11 @@ static int StringValue(int c, Rboolean forSymbol)
 		    }
 		    val = 16*val + ext;
 		}
+		if (c == R_EOF) break;
 		if(delim) {
-		    if((c = xxgetc()) != '}')
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    if (c != '}')
 			raiseLexError("invalidUnicode", NO_VALUE, NULL, 
 			    _("invalid \\u{xxxx} sequence (line %d)"));
 		    else CTEXT_PUSH(c);
@@ -2968,12 +3004,16 @@ static int StringValue(int c, Rboolean forSymbol)
 		if(forSymbol) 
 		    raiseLexError("unicodeInBackticks", NO_VALUE, NULL, 
 		        _("\\Uxxxxxxxx sequences not supported inside backticks (%s:%d:%d)"));
-		if((c = xxgetc()) == '{') {
+		c = xxgetc();
+		if (c == R_EOF) break;
+ 		if (c == '{') {
 		    delim = TRUE;
 		    CTEXT_PUSH(c);
 		} else xxungetc(c);
 		for(i = 0; i < 8; i++) {
-		    c = xxgetc(); CTEXT_PUSH(c);
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    CTEXT_PUSH(c);
 		    if(c >= '0' && c <= '9') ext = c - '0';
 		    else if (c >= 'A' && c <= 'F') ext = c - 'A' + 10;
 		    else if (c >= 'a' && c <= 'f') ext = c - 'a' + 10;
@@ -2989,8 +3029,11 @@ static int StringValue(int c, Rboolean forSymbol)
 		    }
 		    val = 16*val + ext;
 		}
+		if (c == R_EOF) break;
 		if(delim) {
-		    if((c = xxgetc()) != '}')
+		    c = xxgetc();
+		    if (c == R_EOF) break;
+		    if (c != '}')
 			raiseLexError("invalidUnicode", NO_VALUE, NULL,
 			    _("invalid \\U{xxxxxxxx} sequence (%s:%d:%d)"));
 		    else CTEXT_PUSH(c);
@@ -3041,8 +3084,6 @@ static int StringValue(int c, Rboolean forSymbol)
 		    c = '\v';
 		    break;
 		case '\\':
-		    c = '\\';
-		    break;
 		case '"':
 		case '\'':
 		case '`':
@@ -3061,6 +3102,11 @@ static int StringValue(int c, Rboolean forSymbol)
 	} else if(mbcslocale) {
 	    ucs_t wc;
 	    int clen = mbcs_get_next2(c, &wc);
+	    if (clen == -1) { /* EOF whilst reading MBCS char */
+		xxungetc(c);
+		c = R_EOF;
+		break;
+	    }
 	    BIDI_CHECK(wc);
 	    WTEXT_PUSH(wc);
 	    ParseState.xxbyteno += clen-1;
@@ -3204,6 +3250,11 @@ static int RawStringValue(int c0, int c)
 	    int i, clen;
 	    ucs_t wc;
 	    clen = mbcs_get_next2(c, &wc);
+	    if (clen == -1) { /* EOF whilst reading MBCS char */
+		xxungetc(c);
+		c = R_EOF;
+		break;
+	    }
 	    BIDI_CHECK(wc);
 	    WTEXT_PUSH(wc);
 	    ParseState.xxbyteno += clen-1;
@@ -3349,7 +3400,7 @@ static int SymbolValue(int c)
 	// FIXME potentially need R_wchar_t with UTF-8 Windows.
 	wchar_t wc; int i, clen;
 	clen = mbcs_get_next(c, &wc);
-	while(1) {
+	while(clen != -1) {
 	    /* at this point we have seen one char, so push its bytes
 	       and get one more */
 	    for(i = 0; i < clen; i++) {
@@ -3362,6 +3413,7 @@ static int SymbolValue(int c)
 		continue;
 	    }
 	    clen = mbcs_get_next(c, &wc);
+	    if (clen == -1) break; /* EOF whilst reading MBCS char */
 	    if(!iswalnum(wc)) break;
 	}
     } else
@@ -3392,7 +3444,7 @@ static void setParseFilename(SEXP newname) {
     SEXP class;
     
     if (isEnvironment(PS_SRCFILE)) {
-	SEXP oldname = findVar(install("filename"), PS_SRCFILE);
+	SEXP oldname = R_findVar(install("filename"), PS_SRCFILE);
     	if (isString(oldname) && length(oldname) > 0 &&
     	    strcmp(CHAR(STRING_ELT(oldname, 0)),
     	           CHAR(STRING_ELT(newname, 0))) == 0) return;
@@ -3452,7 +3504,7 @@ static SEXP install_and_save2(char * text, char * savetext)
 
 static int token(void)
 {
-    int c;
+    int c, clen, i;
     wchar_t wc;
 
     if (SavedToken) {
@@ -3519,7 +3571,8 @@ static int token(void)
     if (c == '_') return Placeholder(c);
     if(mbcslocale) {
 	// FIXME potentially need R_wchar_t with UTF-8 Windows.
-	mbcs_get_next(c, &wc);
+	if (mbcs_get_next(c, &wc) == -1)
+	    return END_OF_INPUT; /* EOF whilst reading MBCS char */
 	if (iswalpha(wc)) return SymbolValue(c);
     } else
 	if (isalpha(c)) return SymbolValue(c);
@@ -3668,10 +3721,26 @@ static int token(void)
 	yytext[1] = '\0';
 	yylval = install(yytext);
 	return c;
-    default:
-        yytext[0] = (char) c;
-        yytext[1] = '\0';
+    case '\n':
+    case ',':
+    case ';':
+	yytext[0] = (char) c;
+	yytext[1] = '\0';
 	return c;
+    default:
+	clen = 1;
+	if (mbcslocale) {
+	    // FIXME potentially need R_wchar_t with UTF-8 Windows.
+	    clen = mbcs_get_next(c, &wc);
+	    if (clen == -1)
+		return END_OF_INPUT; /* EOF whilst reading MBCS char */
+	}
+	DECLARE_YYTEXT_BUFP(yyp);
+	YYTEXT_PUSH(c, yyp);
+	for(i = 1; i < clen ; i++)
+	    YYTEXT_PUSH(xxgetc(), yyp);
+	YYTEXT_PUSH('\0', yyp);
+	return (clen == 1) ? c : ERROR;
     }
 }
 
@@ -4255,10 +4324,10 @@ static void finalizeData(void){
     PROTECT(tokens = allocVector( STRSXP, nloc ) );
     for (int i=0; i<nloc; i++) {
         int token = _TOKEN(i);
-        int xlat = yytranslate[token];
+        int xlat = YYTRANSLATE(token);
         if (xlat == 2) /* "unknown" */
             xlat = token;
-        if (xlat < YYNTOKENS + YYNNTS)
+        if (xlat >= 0 && xlat < YYNTOKENS + YYNNTS)
     	    SET_STRING_ELT(tokens, i, mkChar(yytname[xlat]));
     	else { /* we have a token which doesn't have a name, e.g. an illegal character as in PR#15518 */
     	    char name[2];
@@ -4350,7 +4419,7 @@ static const char* getFilename(void) {
     SEXP srcfile = PS_SRCFILE;
     if (!srcfile || TYPEOF(srcfile) != ENVSXP)
 	return "<input>";
-    srcfile = findVar(install("filename"), srcfile);
+    srcfile = R_findVar(install("filename"), srcfile);
     if (TYPEOF(srcfile) != STRSXP || !strlen(CHAR(STRING_ELT(srcfile, 0))))
 	return "<input>";
     else

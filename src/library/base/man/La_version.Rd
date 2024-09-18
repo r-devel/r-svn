@@ -18,7 +18,7 @@ La_version()
   A character vector of length one.
 
   Note that this is the version as reported by the library at runtime.
-  It may differ from the reference (\sQuote{netlib}) implementation, for
+  It may differ from the reference (\sQuote{\I{netlib}}) implementation, for
   example by having some optimized or patched routines.  For the version
   included with \R, the older (not Fortran 90) versions of
   \preformatted{

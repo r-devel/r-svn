@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2020  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 2002--2020  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -293,7 +293,7 @@ LogicalAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
-		  type2char(TYPEOF(x)), "LogicalAnswer");
+		  R_typeToChar(x), "LogicalAnswer");
     }
 }
 
@@ -329,7 +329,7 @@ IntegerAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
-		  type2char(TYPEOF(x)), "IntegerAnswer");
+		  R_typeToChar(x), "IntegerAnswer");
     }
 }
 
@@ -378,7 +378,7 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
-		  type2char(TYPEOF(x)), "RealAnswer");
+		  R_typeToChar(x), "RealAnswer");
     }
 }
 
@@ -417,7 +417,11 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    xi = LOGICAL(x)[i];
 	    if (xi == NA_LOGICAL) {
 		COMPLEX(data->ans_ptr)[data->ans_length].r = NA_REAL;
+#ifdef NA_TO_COMPLEX_NA
 		COMPLEX(data->ans_ptr)[data->ans_length].i = NA_REAL;
+#else
+		COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+#endif
 	    }
 	    else {
 		COMPLEX(data->ans_ptr)[data->ans_length].r = xi;
@@ -431,7 +435,11 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    xi = INTEGER(x)[i];
 	    if (xi == NA_INTEGER) {
 		COMPLEX(data->ans_ptr)[data->ans_length].r = NA_REAL;
+#ifdef NA_TO_COMPLEX_NA
 		COMPLEX(data->ans_ptr)[data->ans_length].i = NA_REAL;
+#else
+		COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+#endif
 	    }
 	    else {
 		COMPLEX(data->ans_ptr)[data->ans_length].r = xi;
@@ -451,7 +459,7 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
-		  type2char(TYPEOF(x)), "ComplexAnswer");
+		  R_typeToChar(x), "ComplexAnswer");
     }
 }
 
@@ -479,7 +487,7 @@ RawAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
-		  type2char(TYPEOF(x)), "RawAnswer");
+		  R_typeToChar(x), "RawAnswer");
     }
 }
 
@@ -1039,14 +1047,10 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 /* This is a special .Internal */
 attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP a, t, obj, method, rho, ans;
-    int mode, deparse_level;
-    Rboolean anyS4 = FALSE;
-    struct BindData data;
-    char buf[512];
-
+    // missing(deparse.level) :
+    Rboolean missingDL = (isSymbol(CAR(args)) && R_missing(CAR(args), env));
     /* since R 2.2.0: first argument "deparse.level" */
-    deparse_level = asInteger(eval(CAR(args), env));
+    int deparse_level = asInteger(eval(CAR(args), env));
     Rboolean tryS4 = deparse_level >= 0;
     /* NB: negative deparse_level should otherwise be equivalent to deparse_level == 0,
      * --  as cbind(), rbind() below only check for '== 1' and '== 2'
@@ -1084,9 +1088,12 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(args = promiseArgs(args, env));
 
     const char *generic = ((PRIMVAL(op) == 1) ? "cbind" : "rbind");
-    method = R_NilValue;
+    SEXP method = R_NilValue, a;
+    Rboolean anyS4 = FALSE;
+    char buf[512];
+
     for (a = CDR(args); a != R_NilValue && method == R_NilValue; a = CDR(a)) {
-	PROTECT(obj = eval(CAR(a), env));
+	SEXP obj = PROTECT(eval(CAR(a), env));
 	if (tryS4 && !anyS4 && isS4(obj)) anyS4 = TRUE;
 	if (isObject(obj)) {
 	    SEXP classlist = PROTECT(R_data_class2(obj));
@@ -1109,27 +1116,30 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 
     tryS4 = anyS4 && (method == R_NilValue);
     if (tryS4) {
-	// keep 'deparse.level' as first arg and *name* it:
-	SET_TAG(args, install("deparse.level"));
-	// and use methods:::cbind / rbind
+	/* use methods:::cbind / rbind */
 	method = findFun(install(generic), R_MethodsNamespace);
-    } else
-	args = CDR(args); // keeping deparse.level for S4 dispatch
+    }
     if (method != R_NilValue) { // found an S3 or S4 method
 	PROTECT(method);
-	ans = applyClosure(call, method, args, env, R_NilValue);
+	if (missingDL)
+	    args = CDR(args); /* discard 'deparse.level' */
+	else
+	    SET_TAG(args, install("deparse.level")); /* tag 'deparse.level' */
+	SEXP ans = applyClosure(call, method, args, env, R_NilValue, TRUE);
 	UNPROTECT(2);
 	return ans;
-    }
+    } else
+	args = CDR(args); /* discard 'deparse.level' */
 
     /* Dispatch based on class membership has failed. */
     /* The default code for rbind/cbind.default follows */
     /* First, extract the evaluated arguments. */
-    rho = env;
+    SEXP rho = env;
+    struct BindData data;
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
-    for (t = args; t != R_NilValue; t = CDR(t))
+    for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	AnswerType(PRVALUE(CAR(t)), 0, 0, &data, call);
 
     /* zero-extent matrices shouldn't give NULL, but cbind(NULL) should: */
@@ -1138,7 +1148,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 	return R_NilValue;
     }
 
-    mode = NILSXP;
+    int mode = NILSXP;
     if      (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
     else if (data.ans_flags & 128) mode = STRSXP;
@@ -1163,7 +1173,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 	   FIXME?  had  cbind(y ~ x, 1) work using lists, before */
     default:
 	error(_("cannot create a matrix from type '%s'"),
-	      type2char(mode));
+	      type2char(mode)); /* mode can only be EXPRSXP here */
     }
 
     if (PRIMVAL(op) == 1)
@@ -1396,6 +1406,9 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			});
 		    } else
 			/* not sure this can be reached, but to be safe: */
+                        /* `mode` is created in do_bind(), it can only
+                         be one of: NILSXP, LGLSXP, INTSXP, REALSXP,
+                         CPLXSXP, STRSXP, VECSXP, RAWSXP */
 			error(_("cannot create a matrix of type '%s'"),
 			      type2char(mode));
 		}

@@ -21,7 +21,7 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Included by R.h: API */
+/* Included by R.h: Part of the API. */
 
 #ifndef R_COMPLEX_H
 #define R_COMPLEX_H
@@ -62,7 +62,7 @@ are typically issued (-pedantic) by a C++ compiler.
 */
 
 #ifdef __cplusplus
-// Look for clang first as it defines __GNUC__ and reacts to #praema GCC
+// Look for clang first as it defines __GNUC__ and reacts to #pragma GCC
 # if defined(__clang__)
 #  pragma clang diagnostic push
 #  pragma clang diagnostic ignored "-Wgnu-anonymous-struct"

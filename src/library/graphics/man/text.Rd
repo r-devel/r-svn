@@ -39,7 +39,8 @@ text(x, \dots)
     distance (\sQuote{offset}) of the text label from the specified
     coordinate in fractions of a character width.}
   \item{vfont}{\code{NULL} for the current font family, or a character
-    vector of length 2 for Hershey vector fonts.  The first element of
+    vector of length 2 for \code{\link[grDevices]{Hershey}} vector
+    fonts.  The first element of
     the vector selects a typeface and the second element selects a
     style.  Ignored if \code{labels} is an expression.}
   \item{cex}{numeric \bold{c}haracter \bold{ex}pansion factor; multiplied
@@ -62,14 +63,23 @@ text(x, \dots)
   \code{\link{expression}} (or be coercible to such a type).
   In the latter case, quite a bit of
   mathematical notation is available such as sub- and superscripts,
-  greek letters, fractions, etc.
+  Greek letters, fractions, etc.
 
   \code{adj} allows \emph{adj}ustment of the text position with respect to
   \code{(x, y)}.
   Values of 0, 0.5, and 1 specify that \code{(x, y)} should align with
   the left/bottom, middle and
-  right/top of the text, respectively.  The default is for centered text, i.e.,
-  \code{adj = c(0.5, NA)}.  Accurate vertical centering needs
+  right/top of the text, respectively.
+  A value of \code{NA} means \dQuote{centre}, which is the same as 0.5
+  for horizontal justification, but includes descenders for vertical
+  justification (where 0.5 does not).
+  The default is for centered text, although the default horizontal
+  justification is taken from \code{par(adj)}, i.e., the default is
+  \code{adj = c(par("adj"), NA)}.
+  If only one value is provided, it is applied
+  to adjust \code{x} \emph{only}, i.e., when \code{length(adj) == 1L},
+  \code{adj} is applied as \code{adj = c(adj, NA)}.
+  Accurate vertical centering needs
   character metric information on individual characters which is
   only available on some devices.  Vertical alignment is done slightly
   differently for character strings and for expressions:
@@ -77,7 +87,6 @@ text(x, \dots)
   for strings but on the bottom of the bounding box for expressions.
   This also affects vertical centering: for strings the centering
   excludes any descenders whereas for expressions it includes them.
-  Using \code{NA} for strings centers them, including descenders.
 
   The \code{pos} and \code{offset} arguments can be used in conjunction
   with values returned by \code{identify} to recreate an interactively
@@ -107,7 +116,7 @@ text(x, \dots)
   What happens when \code{font = 5} (the symbol font) is selected can be
   both device- and locale-dependent.  Most often \code{labels} will be
   interpreted in the Adobe symbol encoding, so e.g.\sspace{}\code{"d"}
-  is delta, and \code{"\300"} is aleph.
+  is delta, and \code{"\300"} is \I{aleph}.
 }
 \section{Euro symbol}{
   The Euro symbol may not be available in older fonts.  In current
@@ -115,7 +124,7 @@ text(x, \dots)
   y, "\xA0", font = 5)} may work. People using Western European locales
   on Unix-alikes can probably select ISO-8895-15 (Latin-9) which has the
   Euro as character 165: this can also be used for
-  \code{\link{postscript}} and \code{\link{pdf}}. It is \samp{\u20ac} in
+  \code{\link{pdf}} and \code{\link{postscript}}. It is \samp{\u20ac} in
   Unicode, which can be used in UTF-8 locales.
 #ifdef unix
 

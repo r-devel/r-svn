@@ -122,7 +122,9 @@ sort.int <-
 	nlev <- nlevels(x)
  	isord <- is.ordered(x)
         x <- c(x) # drop attributes
-    } else if(!is.atomic(x))
+    } else if(is.null(x))
+        return(x)
+    else if(!is.atomic(x))
         stop("'x' must be atomic")
 
     if(has.na <- any(ina <- is.na(x))) {
@@ -295,7 +297,8 @@ xtfrm.factor <- function(x) as.integer(x) # primitive, so needs a wrapper
 
 xtfrm.AsIs <- function(x)
 {
-    if(length(cl <- class(x)) > 1) oldClass(x) <- cl[-1L]
+    cl <- oldClass(x)
+    oldClass(x) <- cl[cl != "AsIs"]
     NextMethod("xtfrm")
 }
 

@@ -1,7 +1,9 @@
-toHTML <- function(x, ...) UseMethod("toHTML")
-
+#  File src/library/tools/R/toHTML.R
+#  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
+
+toHTML <- function(x, ...) UseMethod("toHTML")
 
 HTMLheader <-
 function(title="R", logo=TRUE,
@@ -120,9 +122,9 @@ function(x, ...)
 
     vchunks <- split(x, x$Version)
     vchunks <-
-        vchunks[order(as.numeric_version(sub(" *patched", ".1",
-                                             names(vchunks))),
-                      decreasing = TRUE)]
+        vchunks[order(numeric_version(sub(" *patched", ".1", names(vchunks)),
+                                      strict = FALSE), # "R-devel" -> NA
+                      na.last = FALSE, decreasing = TRUE)]
     dates <- vapply(vchunks, function(v) v$Date[1L], "")
     vheaders <- sprintf("<h2>Changes in version %s%s</h2>",
                         names(vchunks),
@@ -340,7 +342,7 @@ function(x, header = TRUE, ...)
             ## Need to ignore results of the above translation ...
             ## Regexp based on Perl HTML::TextToHTML, note that the dash
             ## must be last ...
-            s <- .gsub_with_transformed_matches("([^>\"])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
+            s <- .gsub_with_transformed_matches("([[:space:]])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
                                                 "\\1<a href=\"%s\">\\2</a>",
                                                 s,
                                                 urlify,
@@ -539,9 +541,3 @@ HTMLcomponents <- function(title = "R", logo = FALSE,
 
     return(list(header = header, footer = footer))
 }
-
-
-
-
-
-

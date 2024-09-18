@@ -1,7 +1,7 @@
 #  File src/library/grDevices/R/postscript.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -224,7 +224,7 @@ postscript <- function(file = if(onefile) "Rplots.ps" else "Rplot%03d.ps",
     old <- check.options(new, name.opt = ".PostScript.Options", envir = .PSenv)
 
     if(is.null(old$command) || old$command == "default")
-        old$command <- if(!is.null(cmd <- getOption("printcmd"))) cmd else ""
+        old$command <- getOption("printcmd") %||% ""
 
     # need to handle this case before encoding
     if(!missing(family) &&
@@ -259,7 +259,7 @@ postscript <- function(file = if(onefile) "Rplots.ps" else "Rplot%03d.ps",
             stop("invalid 'family' argument")
         old$family <- family
     }
-    if(grepl("[\n\r\f\127]", old$title))
+    if(grepl("[\n\r\f\177]", old$title))
         ## title with these characters generates corrupt postscript file
         stop(gettextf("'title' argument \"%s\" contains invalid characters",
                       old$title), domain = NA)
@@ -285,6 +285,10 @@ xfig <- function (file = if(onefile) "Rplots.fig" else "Rplot%03d.fig",
                   pagecentre = TRUE,
                   defaultfont = FALSE, textspecial = FALSE)
 {
+    msg <- gettextf("'%s' is deprecated.\n", "xfig")
+    msg <- paste(msg, "Consider an SVG device instead.")
+    .Deprecated(msg = msg)
+
     ## do initialization if needed
     initPSandPDFfonts()
 
@@ -299,7 +303,8 @@ xfig <- function (file = if(onefile) "Rplots.fig" else "Rplot%03d.fig",
 pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
                 width, height, onefile, family, title, fonts, version,
                 paper, encoding, bg, fg, pointsize, pagecentre, colormodel,
-                useDingbats, useKerning, fillOddEven, compress)
+                useDingbats, useKerning, fillOddEven, compress,
+                timestamp, producer, author)
 {
     ## do initialization if needed
     initPSandPDFfonts()
@@ -323,6 +328,9 @@ pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
     if(!missing(useKerning)) new$useKerning <- useKerning
     if(!missing(fillOddEven)) new$fillOddEven <- fillOddEven
     if(!missing(compress)) new$compress <- compress
+    if(!missing(timestamp)) new$timestamp <- timestamp
+    if(!missing(producer)) new$producer <- producer
+    if(!missing(author)) new$author <- author
 
     old <- check.options(new, name.opt = ".PDF.Options", envir = .PSenv)
 
@@ -374,7 +382,8 @@ pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
               old$width, old$height, old$pointsize, onefile, old$pagecentre,
               old$title, old$fonts, version[1L], version[2L],
               old$colormodel, old$useDingbats, old$useKerning,
-              old$fillOddEven, old$compress)
+              old$fillOddEven, old$compress,
+              old$timestamp, old$producer, old$author)
     invisible()
 }
 
@@ -682,7 +691,10 @@ assign(".PDF.Options",
          useDingbats = FALSE,
          useKerning = TRUE,
          fillOddEven = FALSE,
-         compress = TRUE), envir = .PSenv)
+         compress = TRUE,
+         timestamp = TRUE,
+         producer = TRUE,
+         author = ""), envir = .PSenv)
 assign(".PDF.Options.default",
        get(".PDF.Options", envir = .PSenv),
        envir = .PSenv)
@@ -778,6 +790,23 @@ postscriptFonts(# Default Serif font is Times
                   c("n021003l.afm", "n021004l.afm",
                     "n021023l.afm", "n021024l.afm",
                     "s050000l.afm")),
+                ## URW 2.0 ewuivalents
+                URW2Helvetica = Type1Font("URW2Helvetica",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Oblique.afm", "NimbusSans-BoldOblique.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2HelveticaItalic = Type1Font("URW2HelveticaItalic",
+                  c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
+                    "NimbusSans-Italic.afm", "NimbusSans-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                URW2Times = Type1Font("URW2Times",
+                  c("NimbusRoman-Regular.afm", "NimbusRoman-Bold.afm",
+                    "NimbusRoman-Italic.afm", "NimbusRoman-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
+                NimbusMonoPS = Type1Font("NimbusMonoPS",
+                  c("NimbusMonoPS-Regular.afm", "NimbusMonoPS-Bold.afm",
+                    "NimbusMonoPS-Italic.afm", "NimbusMonoPS-BoldItalic.afm",
+                    "StandardSymbolsPS.afm")),
                 ## And Monotype Arial
                 ArialMT = Type1Font("ArialMT",
                   c("ArialMT.afm", "ArialMT-Bold.afm",
@@ -1036,13 +1065,13 @@ embedGlyphs <- function(file, glyphInfo, outfile = file,
               ## Make sure ghostscript can see the cidfmap
               paste0("-I", shQuote(tempdir())),
               options, shQuote(file))
+    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
     ret <- system2(gsexe, args)
     if (ret != 0)
         stop(gettextf("status %d in running command '%s'", ret, cmd),
              domain = NA)
     if (outfile != file)
         args[2] <- paste0(" -sOutputFile=", shQuote(outfile))
-    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
     file.copy(tmpfile, outfile, overwrite = TRUE)
     invisible(cmd)
 }

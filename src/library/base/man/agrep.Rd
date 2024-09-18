@@ -11,7 +11,7 @@
 \description{
   Searches for approximate matches to \code{pattern} (the first argument)
   within each element of the string \code{x} (the second argument) using
-  the generalized Levenshtein edit distance (the minimal possibly
+  the generalized \I{Levenshtein} edit distance (the minimal possibly
   weighted number of insertions, deletions and substitutions needed to
   transform one string into another).
 }
@@ -31,14 +31,14 @@ agrepl(pattern, x, max.distance = 0.1, costs = NULL,
   \item{x}{character vector where matches are sought.
     Coerced by \code{\link{as.character}} to a character vector if
     possible.}
-  \item{max.distance}{Maximum distance allowed for a match.  Expressed
+  \item{max.distance}{maximum distance allowed for a match.  Expressed
     either as integer, or as a fraction of the \emph{pattern} length
     times the maximal transformation cost (will be replaced by the
     smallest integer not less than the corresponding fraction), or a
     list with possible components
     \describe{
       \item{\code{cost}:}{maximum number/fraction of match cost
-	(generalized Levenshtein distance)}
+	(generalized \I{Levenshtein} distance)}
       \item{\code{all}:}{maximal number/fraction of \emph{all}
 	transformations (insertions, deletions and substitutions)}
       \item{\code{insertions}:}{maximum number/fraction of insertions}
@@ -52,7 +52,7 @@ agrepl(pattern, x, max.distance = 0.1, costs = NULL,
   }
   \item{costs}{a numeric vector or list with names partially matching
     \samp{insertions}, \samp{deletions} and \samp{substitutions} giving
-    the respective costs for computing the generalized Levenshtein
+    the respective costs for computing the generalized \I{Levenshtein}
     distance, or \code{NULL} (default) indicating using unit cost for
     all three possible transformations.
     Coerced to integer via \code{\link{as.integer}} if possible.}
@@ -64,21 +64,22 @@ agrepl(pattern, x, max.distance = 0.1, costs = NULL,
   \item{fixed}{logical.  If \code{TRUE} (default), the pattern is
     matched literally (as is).  Otherwise, it is matched as a regular
     expression.}
-  \item{useBytes}{logical. in a multibyte locale, should the comparison
-    be character-by-character (the default) or byte-by-byte.}
+  \item{useBytes}{logical.  If \code{TRUE} the matching is done
+    byte-by-byte rather than character-by-character.  See
+    \sQuote{Details}.}
 }
 \details{
-  The Levenshtein edit distance is used as measure of approximateness:
+  The \I{Levenshtein} edit distance is used as measure of approximateness:
   it is the (possibly cost-weighted) total number of insertions,
   deletions and substitutions required to transform one string into
   another.
 
-  This uses the \code{tre} code by Ville Laurikari
-  (\url{https://github.com/laurikari/tre}), which supports MBCS
+  This uses the \code{tre} code by \I{Ville Laurikari}
+  (\url{https://github.com/laurikari/tre}), which supports \abbr{MBCS}
   character matching.
 
-  The main effect of \code{useBytes} is to avoid errors/warnings about
-  invalid inputs and spurious matches in multibyte locales.
+  The main effect of \code{useBytes = TRUE} is to avoid errors/warnings
+  about invalid inputs and spurious matches in multibyte locales.
   It inhibits the conversion of inputs with marked encodings, and is
   forced if any input is found which is marked as \code{"bytes"} (see
   \code{\link{Encoding}}).

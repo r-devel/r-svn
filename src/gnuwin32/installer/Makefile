@@ -20,15 +20,7 @@ HelpStyle = 1
 ## Used to set Registry entries
 Producer = R-core
 
-ifeq "$(WIN)" "64"
-ifneq ($(strip $(HOME32)),)
-SUFF = win
-else
 SUFF = win64
-endif
-else
-SUFF = win32
-endif
 
 FULLVERSION=`cat ../../../VERSION`
 RPREFIX = $(shell ../../../bin$(R_ARCH)/Rscript ../fixed/rwver.R)
@@ -48,21 +40,46 @@ SHARE_DIRS = R dictionaries encodings licenses make Rd texmf zoneinfo
 all: $(RPREFIX)-win.exe
 msi: $(RPREFIX)-$(SUFF).msi
 
+RBUILD := $(if $(findstring Aarch64,$(shell file "$(R_HOME)/bin/R.exe")),aarch64,x86_64)
+
+ifeq ($(CROSS_BUILD),)
+  RTARGET := $(RBUILD)
+  R_ARCH_TARGET := $(R_ARCH)
+else
+  R_HOME_CROSS = $(CROSS_BUILD)
+  RTARGET := $(if $(findstring Aarch64,$(shell file "$(R_HOME_CROSS)/bin/R.exe")),aarch64,x86_64)
+  R_ARCH_TARGET := $(shell $(FIND) $(R_HOME_CROSS)/bin -name $R.dll | $(SED) -e  's!.*/bin\(.*\)/R.dll!\1!g')
+endif
+
 imagedir:
 	$(RM) -R $(RPREFIX)
 	$(MKDIR) $(RPREFIX)
+ifeq ($(R_HOME_CROSS),)
 	$(CP) -pR $(R_HOME)/bin $(R_HOME)/modules $(RPREFIX)
+else
+	$(CP) -pR $(R_HOME_CROSS)/bin $(R_HOME_CROSS)/modules $(RPREFIX)
+endif
 # copy base and recommended packages
 	$(MKDIR) -p $(RPREFIX)/library
+ifeq ($(R_HOME_CROSS),)
 	$(CP) -pR $(LIBFILES) $(RPREFIX)/library
+else
+	$(CP) -pR $(LIBFILES) $(RPREFIX)/library
+	$(RM) -rf $(RPREFIX)/library/*/libs
+	$(CP) -pR $(R_HOME_CROSS)/library $(RPREFIX)
+endif
 	$(RM) $(RPREFIX)/library/*/MD5
 	$(RM) $(RPREFIX)/*/Makefile.in
-	$(MKDIR) -p $(RPREFIX)/etc$(R_ARCH)
+	$(MKDIR) -p $(RPREFIX)/etc$(R_ARCH_TARGET)
 	$(CP) -p $(foreach i,$(ETC_FILES),$(R_HOME)/etc/$i) $(RPREFIX)/etc
 	if test -f "$(R_HOME)/etc/curl-ca-bundle.crt"; then \
 	  $(CP) -p "$(R_HOME)/etc/curl-ca-bundle.crt" $(RPREFIX)/etc; \
 	fi
+ifeq ($(R_HOME_CROSS),)
 	$(CP) -p $(R_HOME)/etc$(R_ARCH)/Makeconf $(RPREFIX)/etc$(R_ARCH)
+else
+	$(CP) -p $(R_HOME_CROSS)/etc$(R_ARCH_TARGET)/Makeconf $(RPREFIX)/etc$(R_ARCH_TARGET)
+endif
 # copy info and documentation files
 	$(MKDIR) -p $(RPREFIX)/doc
 	$(CP) -p $(R_HOME)/doc/CRAN_mirrors.csv $(RPREFIX)/doc
@@ -102,14 +119,15 @@ imagedir:
 # This is odd -- better to clean the copy
 	(cd ..; $(MAKE) --no-print-directory PKGDIR=. pkgclean-windlgs)
 	$(CP) -pR ../windlgs $(RPREFIX)/src/library
-ifeq "$(WIN)" "64" 
-# Edit Makeconf
-	$(SED) -i -e 's!# INSTALLER-BUILD:!!' $(RPREFIX)/etc/x64/Makeconf
-# Edit Rcmd_environ
-	$(SED) -i -e 's!# INSTALLER-BUILD:!!' $(RPREFIX)/etc/Rcmd_environ
-# Edit base package profile
-	$(SED) -i -e 's!# INSTALLER-BUILD:!!' $(RPREFIX)/library/base/R/Rprofile
-endif
+# Edit Makeconf, Rcmd_environ, base package profile
+	$(foreach F, \
+	  $(RPREFIX)/etc$(R_ARCH_TARGET)/Makeconf \
+	  $(RPREFIX)/etc/Rcmd_environ \
+	  $(RPREFIX)/library/base/R/Rprofile, \
+	      $(SED) -i -e 's!# INSTALLER-BUILD:!!' \
+	                -e 's!# INSTALLER-BUILD-$(RTARGET):!!' \
+	             $(F); \
+	)
 # test dir
 	mkdir $(RPREFIX)/tests
 	$(MAKE) --no-print-directory -C ../../../tests -f Makefile.win \
@@ -118,7 +136,7 @@ endif
 	$(FIND) $(RPREFIX) -name .svn -prune -exec rm -Rf \{\} \;
 	$(FIND) $(RPREFIX) -name \*~ -delete
 
-md5sums:
+md5sums: imagedir fixups extras
 	@echo "adding MD5 checksums"
 	@(cd $(RPREFIX); echo "tools:::.installMD5sums(\".\")" | \
 	  R_DEFAULT_PACKAGES=NULL LC_COLLATE=C R_OSTYPE=windows \
@@ -126,9 +144,18 @@ md5sums:
 
 PDF_FILES = $(wildcard $(RPREFIX)/library/*/doc/*.pdf)
 
-fixups:
+fixups: extras
+ifeq ($(R_HOME_CROSS),)
 	echo "make.packages.html(.Library,temp=FALSE,verbose=FALSE)" | $(RPREFIX)/$(BINDIR)/Rterm.exe --vanilla --no-echo LC_COLLATE=C
 	$(CP) -pRf $(R_HOME)/Tcl $(RPREFIX)
+else
+	echo "make.packages.html(\"$(RPREFIX)/library\",temp=FALSE,verbose=FALSE,docdir=\"$(RPREFIX)/doc\")" | \
+	  $(R_HOME)/$(BINDIR)/Rterm.exe --vanilla --no-echo LC_COLLATE=C
+	$(SED) -i -e 's!Packages in R-devel\\library!Packages in the standard library!g' \
+	          -e 's!href="file:///C:R-devel/library/!href="../../library/!g' \
+	          $(RPREFIX)/doc/html/packages.html
+	$(CP) -pRf $(R_HOME_CROSS)/Tcl $(RPREFIX)
+endif
 	$(RM) $(RPREFIX)/Tcl*/lib/*.lib
 ifneq ($(strip $(QPDF)),)
 	@for f in $(PDF_FILES); do \
@@ -137,41 +164,15 @@ ifneq ($(strip $(QPDF)),)
 	done
 endif
 
-32bit:
-ifeq "$(WIN)" "64"
-ifneq ($(strip $(HOME32)),)
-	@echo "------------ including 32-bit files"
-	(cd "$(HOME32)"; zip -qr9X 32bit */i386 library/*/libs/i386 bin/R.exe bin/Rscript.exe)
-	unzip -qo "$(HOME32)/32bit" -d $(RPREFIX)
-	rm "$(HOME32)/32bit.zip"
-	mkdir -p $(RPREFIX)/Tcl
-	$(CP) -pRf "$(HOME32)/Tcl/bin" "$(HOME32)/Tcl/lib" $(RPREFIX)/Tcl
-	for f in $(R_PKGS_RECOMMENDED); do \
-	   sed -e 's/Archs: x64/Archs: i386, x64/' \
-             ../../../library/$${f}/DESCRIPTION \
-             > $(RPREFIX)/library/$${f}/DESCRIPTION; \
-	done
-# Edit Makeconf file to default Rtools location
-	$(SED) -e 's!^BINPREF [?]= .*!BINPREF ?= "$$(RTOOLS40_ROOT)/mingw32/bin/"!' \
-	  $(HOME32)/etc/i386/Makeconf > $(RPREFIX)/etc/i386/Makeconf
-else
-	@echo "------------ not including 32-bit files"
-endif
-endif
-
-extras:
-	for f in $(DLLs32); do \
-	  cp "$$f" $(RPREFIX)/bin/i386; \
-	done
+extras: imagedir
 	for f in $(DLLs64); do \
-	  cp "$$f" $(RPREFIX)/bin/x64; \
+	  cp "$$f" $(RPREFIX)/bin$(R_ARCH_TARGET); \
 	done
 
 ## for Inno Setup installer
 
-R.iss: JRins.R header1.iss types3264.iss types32.iss types64.iss code.iss \
-   reg.iss reg3264.iss reg64.iss \
-   CustomMsg.iss imagedir fixups 32bit extras md5sums \
+R.iss: JRins.R header1.iss types64.iss code.iss reg64.iss \
+   CustomMsg.iss imagedir fixups extras md5sums \
   ../../../VERSION ../../../SVN-REVISION
 	../../../bin$(R_ARCH)/Rscript JRins.R \
 	  $(RPREFIX) $(RPREFIX) $(MDISDI) \
@@ -190,7 +191,7 @@ uuidgen.exe: uuidgen.o
 uuids: uuidgen.exe
 	./uuidgen 10000 > $@
 
-files.wxs: imagedir fixups 32bit extras md5sums
+files.wxs: imagedir fixups extras md5sums
 	"$(WIX3DIR)/heat" dir $(RPREFIX) -sw5150 -nologo -o $@
 
 R.wxs: WIXins.R uuids files.wxs

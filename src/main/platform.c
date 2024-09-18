@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023 The R Core Team
+ *  Copyright (C) 1998--2024 The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -65,6 +65,7 @@
 
 #ifdef Win32
 #include <windows.h>
+#include <aclapi.h>			/* for GetSecurityInfo */
 typedef BOOLEAN (WINAPI *PCSL)(LPWSTR, LPWSTR, DWORD);
 const char *formatError(DWORD res);  /* extra.c */
 /* Windows does not have link(), but it does have CreateHardLink() on NTFS */
@@ -805,13 +806,18 @@ attribute_hidden SEXP do_filerename(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_fileinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP fn, ans, ansnames, fsize, mtime, ctime, atime, isdir,
-	mode, xxclass;
+	mode, xxclass, uname = R_NilValue;
+    const void *vmax = vmaxget();
 #ifdef UNIX_EXTRAS
     SEXP uid = R_NilValue, gid = R_NilValue,
-	uname = R_NilValue, grname = R_NilValue; // silence -Wall
+	grname = R_NilValue; // silence -Wall
 #endif
 #ifdef Win32
-    SEXP exe = R_NilValue;
+    SEXP exe = R_NilValue, udomain = R_NilValue;
+    char *ubuf = NULL;
+    DWORD ubuflen = 0;
+    char *dbuf = NULL;
+    DWORD dbuflen = 0;
     struct _stati64 sb;
 #else
     struct stat sb;
@@ -829,7 +835,7 @@ attribute_hidden SEXP do_fileinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef UNIX_EXTRAS
 	ncols = 10;
 #elif defined(Win32)
-	ncols = 7;
+	ncols = 9;
 #endif
     }
     PROTECT(ans = allocVector(VECSXP, ncols));
@@ -860,6 +866,10 @@ attribute_hidden SEXP do_fileinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef Win32
 	exe = SET_VECTOR_ELT(ans, 6, allocVector(STRSXP, n));
 	SET_STRING_ELT(ansnames, 6, mkChar("exe"));
+	uname = SET_VECTOR_ELT(ans, 7, allocVector(STRSXP, n));
+	SET_STRING_ELT(ansnames, 7, mkChar("uname"));
+	udomain = SET_VECTOR_ELT(ans, 8, allocVector(STRSXP, n));
+	SET_STRING_ELT(ansnames, 8, mkChar("udomain"));
 #endif
     }
     for (int i = 0; i < n; i++) {
@@ -997,6 +1007,62 @@ attribute_hidden SEXP do_fileinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
 			}
 		    SET_STRING_ELT(exe, i, mkChar(s));
 		}
+		{
+		    HANDLE h;
+		    PSID owner_sid;
+		    SID_NAME_USE suse = SidTypeUnknown;
+		    PSECURITY_DESCRIPTOR sd = NULL;
+		    DWORD saveerr = ERROR_SUCCESS;
+		    int ok = 0;
+		    /* NOTE: GENERIC_READ would be asking too much
+		       (e.g. junctions under Users/Default in Windows 10) */
+		    h = CreateFileW(wfn, READ_CONTROL,
+				    FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+				    NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+		    ok = (h != INVALID_HANDLE_VALUE);
+
+		    ok = ok && (GetSecurityInfo(h, SE_FILE_OBJECT,
+					        OWNER_SECURITY_INFORMATION,
+					        &owner_sid,
+					        NULL, NULL, NULL, &sd)
+		                == ERROR_SUCCESS);
+		    if (ok) {
+			DWORD ulen = ubuflen;
+			DWORD dlen = dbuflen;
+			ok = LookupAccountSid(NULL, owner_sid, ubuf, &ulen,
+			                      dbuf, &dlen, &suse);
+			if (!ok
+			    && GetLastError() == ERROR_INSUFFICIENT_BUFFER
+			    && (ulen > ubuflen || dlen > dbuflen)) {
+
+			    if (ulen > ubuflen) {
+				ubuf = R_alloc(ulen, 1);
+				ubuflen = ulen;
+			    }
+			    if (dlen > dbuflen) {
+				dbuf = R_alloc(dlen, 1);
+				dbuflen = dlen;
+			    }
+			    ok = LookupAccountSid(NULL, owner_sid, ubuf, &ulen,
+			                          dbuf, &dlen, &suse);
+			}
+		    }
+		    if (!ok)
+			saveerr = GetLastError();
+		    if (sd)
+			LocalFree(sd);
+		    if (h != INVALID_HANDLE_VALUE)
+			CloseHandle(h);
+		    if (ok) {
+			SET_STRING_ELT(uname, i, mkChar(ubuf));
+			SET_STRING_ELT(udomain, i, mkChar(dbuf));
+		    } else {
+			warning(_("cannot resolve owner of file '%ls': %s"),
+				wfn, formatError(saveerr));
+			SET_STRING_ELT(uname, i, NA_STRING);
+			SET_STRING_ELT(udomain, i, NA_STRING);
+		    }
+		}
 #endif
 	    }
 	} else {
@@ -1022,6 +1088,7 @@ attribute_hidden SEXP do_fileinfo(SEXP call, SEXP op, SEXP args, SEXP rho)
     setAttrib(ans, R_NamesSymbol, ansnames);
     PROTECT(xxclass = mkString("octmode"));
     classgets(mode, xxclass);
+    vmaxset(vmax);
     UNPROTECT(3);
     return ans;
 }
@@ -1083,6 +1150,9 @@ attribute_hidden SEXP do_direxists(SEXP call, SEXP op, SEXP args, SEXP rho)
 
    R_opendir/R_readdir/R_closedir implement a subset of the functionality,
    on Unix they fall back to POSIX API, on Windows they support long paths.
+   Unlike MinGW-W64, they use wide-string search functions internally to
+   support file names up to MAX_PATH wide characters.
+   Note that d_name pointer may change between readdir operations.
 
    R_wopendir/R_wreaddir/R_wclosedir are wide-string variants for Windows. */
 
@@ -1100,14 +1170,46 @@ attribute_hidden SEXP do_direxists(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 struct R_DIR_INTERNAL {
 #ifdef Win32
-    char *pattern;
-    WIN32_FIND_DATA fdata;
+    wchar_t *pattern;
+    WIN32_FIND_DATAW fdata;
     HANDLE hfind;
+    R_StringBuffer cbuff;
 #else
     DIR *dirp;
 #endif
     struct R_dirent de;
 };
+
+#ifdef Win32
+static wchar_t* search_wpattern(const wchar_t *name)
+{
+    const void *vmax = vmaxget();
+    wchar_t *apath = R_getFullPathNameW(name);
+    if (!apath) {
+	errno = EFAULT;
+	vmaxset(vmax);
+	return NULL;
+    }
+    size_t len = wcslen(apath);
+    /* <slash><star><null> */
+    wchar_t *pattern = malloc((len + 3) * sizeof(wchar_t));
+    if (!pattern) {
+	errno = EFAULT;
+	vmaxset(vmax);
+	return NULL;
+    }
+    memcpy(pattern, apath, len * sizeof(wchar_t));
+    /* apath is not D: (that would have been expanded) */
+
+    /* add separator if not present and pattern not empty */
+    if (len > 0 && pattern[len-1] != L'\\' && pattern[len-1] != L'/')
+	pattern[len++] = L'/';
+    pattern[len++] = L'*';
+    pattern[len] = L'\0';
+    vmaxset(vmax);
+    return pattern;
+}
+#endif
 
 R_DIR *R_opendir(const char *name)
 {
@@ -1128,34 +1230,25 @@ R_DIR *R_opendir(const char *name)
 	free(rdir);
 	return NULL;
     }
-
+    int nc = (int) mbstowcs(NULL, name, 0);
+    if (nc < 0) {
+	errno = ENOENT;
+	free(rdir);
+	return NULL;
+    }
     const void *vmax = vmaxget();
-    char *apath = R_getFullPathName(name);
-    if (!apath) {
-	errno = EFAULT;
+    wchar_t *wname = (wchar_t *) R_alloc(nc + 1, sizeof(wchar_t));
+    mbstowcs(wname, name, nc + 1);
+    rdir->pattern = search_wpattern(wname); /* malloc'd */
+    if (!rdir->pattern) {
 	vmaxset(vmax);
 	free(rdir);
 	return NULL;
-    }
-    size_t len = strlen(apath);
-    char *pattern = malloc(len + 3); /* <slash><star><null> */
-    if (!pattern) {
-	errno = EFAULT;
-	vmaxset(vmax);
-	free(rdir);
-	return NULL;
-    }
-    memcpy(pattern, apath, len);
-    /* apath is not D: (that would have been expanded) */
-
-    /* add separator if not present and pattern not empty */
-    if (len > 0 && pattern[len-1] != '\\' && pattern[len-1] != '/')
-	pattern[len++] = '/';
-    pattern[len++] = '*';
-    pattern[len] = '\0';
-
-    rdir->pattern = pattern;
+    }	
     rdir->hfind = INVALID_HANDLE_VALUE;
+    rdir->cbuff.data = NULL;
+    rdir->cbuff.bufsize = 0;
+    rdir->cbuff.defaultSize = MAXELTSIZE;
     vmaxset(vmax);
 #else
     rdir->dirp = opendir(name);
@@ -1176,24 +1269,34 @@ struct R_dirent *R_readdir(R_DIR *rdir)
 #ifdef Win32
     if (rdir->pattern) {
 	/* starting the search */
-	rdir->hfind = FindFirstFile(rdir->pattern, &rdir->fdata);
+	rdir->hfind = FindFirstFileW(rdir->pattern, &rdir->fdata);
 	free(rdir->pattern);
 	rdir->pattern = NULL;
 	if (rdir->hfind == INVALID_HANDLE_VALUE)
 	    /* keep errno, no files, even though not likely (., ..) */
 	    return NULL;
-	rdir->de.d_name = (char *)&rdir->fdata.cFileName;
-	return &rdir->de;
     } else if (rdir->hfind != INVALID_HANDLE_VALUE) {
 	/* continuing the search */
-	if (!FindNextFile(rdir->hfind, &rdir->fdata))
+	if (!FindNextFileW(rdir->hfind, &rdir->fdata)) {
+	    if (GetLastError() != ERROR_NO_MORE_FILES)
+		warning(_("error while listing a directory: '%s'"),
+		    formatError(GetLastError()));
 	    /* keep errno, no more files */
 	    return NULL;
-	return &rdir->de;
+	}
     } else {
 	errno = EFAULT;
 	return NULL;
     }
+    wchar_t *wname = (wchar_t *)&rdir->fdata.cFileName;
+    int nb = (int) wcstombs(NULL, wname, 0);
+    if (nb < 0)
+	/* invalid strings stop the search */
+	return NULL;
+    R_AllocStringBuffer(nb + 1, &rdir->cbuff);
+    wcstombs(rdir->cbuff.data, wname, nb + 1);
+    rdir->de.d_name = rdir->cbuff.data;
+    return &rdir->de;
 #else
     struct dirent *de;
     de = readdir(rdir->dirp);
@@ -1212,6 +1315,7 @@ int R_closedir(R_DIR *rdir)
 	return -1;
     }
 #ifdef Win32
+    R_FreeStringBuffer(&rdir->cbuff);
     if (rdir->pattern)
 	free(rdir->pattern);
     BOOL r = 0;
@@ -1258,36 +1362,12 @@ attribute_hidden R_WDIR *R_wopendir(const wchar_t *name)
 	free(rdir);
 	return NULL;
     }
-
-    const void *vmax = vmaxget();
-    wchar_t *apath = R_getFullPathNameW(name);
-    if (!apath) {
-	errno = EFAULT;
-	vmaxset(vmax);
+    rdir->pattern = search_wpattern(name); /* malloc'd */
+    if (!rdir->pattern) {
 	free(rdir);
 	return NULL;
-    }
-    size_t len = wcslen(apath);
-    /* <slash><star><null> */
-    wchar_t *pattern = malloc((len + 3) * sizeof(wchar_t));
-    if (!pattern) {
-	errno = EFAULT;
-	vmaxset(vmax);
-	free(rdir);
-	return NULL;
-    }
-    memcpy(pattern, apath, len * sizeof(wchar_t));
-    /* apath is not D: (that would have been expanded) */
-
-    /* add separator if not present and pattern not empty */
-    if (len > 0 && pattern[len-1] != L'\\' && pattern[len-1] != L'/')
-	pattern[len++] = L'/';
-    pattern[len++] = L'*';
-    pattern[len] = L'\0';
-
-    rdir->pattern = pattern;
+    }	
     rdir->hfind = INVALID_HANDLE_VALUE;
-    vmaxset(vmax);
     return rdir;
 }
 
@@ -2526,8 +2606,13 @@ attribute_hidden SEXP do_capabilities(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* This is true iff winCairo.dll is available */
     struct stat sb;
     char path[1000]; // R_HomeDir() should be at most 260 chars
+# ifdef R_ARCH
     snprintf(path, 1000, "%s/library/grDevices/libs/%s/winCairo.dll",
 	     R_HomeDir(), R_ARCH);
+# else
+    snprintf(path, 1000, "%s/library/grDevices/libs/winCairo.dll",
+	     R_HomeDir());
+# endif
     LOGICAL(ans)[i++] = stat(path, &sb) == 0;
 }
 #else
@@ -3544,6 +3629,10 @@ extern int dladdr(void *addr, Dl_info *info);
 extern void *dlsym(void *handle, const char *symbol);
 #endif
 
+#ifdef HAVE_LIBDEFLATE
+# include <libdeflate.h>
+#endif
+
 /* extSoftVersion only detects versions of libraries that are available
    without loading any modules; libraries available via modules are
    treated individually (libcurlVersion(), La_version(), etc)
@@ -3552,8 +3641,8 @@ attribute_hidden SEXP
 do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP ans = PROTECT(allocVector(STRSXP, 9));
-    SEXP nms = PROTECT(allocVector(STRSXP, 9));
+    SEXP ans = PROTECT(allocVector(STRSXP, 10));
+    SEXP nms = PROTECT(allocVector(STRSXP, 10));
     setAttrib(ans, R_NamesSymbol, nms);
     unsigned int i = 0;
     char p[256];
@@ -3566,6 +3655,13 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     snprintf(p, 256, "%s", lzma_version_string());
     SET_STRING_ELT(ans, i, mkChar(p));
     SET_STRING_ELT(nms, i++, mkChar("xz"));
+#ifdef HAVE_LIBDEFLATE
+    snprintf(p, 256, "%s", LIBDEFLATE_VERSION_STRING);
+    SET_STRING_ELT(ans, i, mkChar(p));
+#else
+    SET_STRING_ELT(ans, i, mkChar(""));
+#endif
+    SET_STRING_ELT(nms, i++, mkChar("libdeflate"));
 #ifdef HAVE_PCRE2
     pcre2_config(PCRE2_CONFIG_VERSION, p);
 #else
@@ -3599,7 +3695,15 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef _LIBICONV_VERSION
     {
 	int ver = _libiconv_version;
+#ifdef __APPLE__
+	// Apple patch to Citrix libiconv reoprts 1.11, but might be external libiconv
+	if (ver == 0x010B)
+	    snprintf(p, 256, "Apple or GNU libiconv %d.%d", ver/0x0100, ver%0x0100);
+	else
+	    snprintf(p, 256, "GNU libiconv %d.%d", ver/0x0100, ver%0x0100);
+#else
 	snprintf(p, 256, "GNU libiconv %d.%d", ver/0x0100, ver%0x0100);
+#endif
     }
 #elif defined(_WIN32)
     snprintf(p, 256, "%s", "win_iconv");
@@ -3653,8 +3757,20 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* these calls to dladdr() convert a function pointer to an object
        pointer, which is not allowed by ISO C, but there is no compliant
        alternative to using dladdr() */
+#ifdef __clang__
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpedantic"
+#elif defined __GNUC__
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wpedantic"	
+#endif
     if (!dladdr((void *)do_eSoftVersion, &dl_info1)) ok = FALSE;
     if (!dladdr((void *)dladdr, &dl_info2)) ok = FALSE;
+#ifdef __clang__
+# pragma clang diagnostic pop
+#elif defined __GNUC__
+# pragma GCC diagnostic pop
+#endif
 
     if (ok && !strcmp(dl_info1.dli_fname, dl_info2.dli_fname)) {
 

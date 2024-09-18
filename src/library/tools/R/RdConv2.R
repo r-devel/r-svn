@@ -1,7 +1,7 @@
 #  File src/library/tools/R/RdConv2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ isBlankLineRd <- function(x) {
     length(grep("^[[:blank:]]*\n", x, perl = TRUE)) == length(x)   # newline required
 }
 
-.makeMessageRd <- function(block, Rdfile, ...)
+.makeMessageRd <- function(block, Rdfile, ..., showSource = FALSE)
 {
     srcref <- attr(block, "srcref")
     if (missing(Rdfile) && !is.null(srcref)) {
@@ -41,14 +41,27 @@ isBlankLineRd <- function(x) {
     Rdfile <-
         if(missing(Rdfile) || is.null(Rdfile))
             ""
-        else # Rdfile could be an absolute path (Rbuild tempdir)
-            paste0(basename(Rdfile), ":")  # or use stripPathTo(Rdfile, "man")
+        else { # Rdfile could be an absolute path (Rbuild tempdir)
+            OS_subdir <- intersect(basename(dirname(Rdfile)), c("unix", "windows"))
+            paste0(paste0(OS_subdir, "/", recycle0 = TRUE),
+                   basename(Rdfile), ":", recycle0 = FALSE)
+        }
     if (is.null(srcref))
         paste0(Rdfile, " ", ...)
     else {
-    	loc <- paste0(Rdfile, srcref[1L])
-    	if (srcref[1L] != srcref[3L]) loc <- paste0(loc, "-", srcref[3L])
-    	paste0(loc, ": ", ...)
+        from <- srcref[1L]
+        loc <- paste0(Rdfile, from,
+                      if (from != srcref[3L]) paste0("-", srcref[3L]))
+        src <- if (showSource) tryCatch(error = function (e) NULL, {
+            ## show first source line and column marker for the block
+            line <- getSrcLines(attr(srcref, "srcfile"), from, from) # Enc=UTF-8
+            ## FIXME: marker may be misplaced for
+            ##        expanded USERMACRO (seen srcref[5L] > srcref[6L])
+            sprintf("\n  %4s | %s", c(from, ""),
+                    c(tabExpand(line), paste0(strrep(" ", srcref[5L] - 1L), "^")))
+        })
+        paste0(loc, ": ", ...,
+               paste0(src, collapse = ""))
     }
 }
 
@@ -70,7 +83,7 @@ RweaveRdDefaults <- list(
     eval = TRUE,
     fig = FALSE,
     echo = FALSE,
-    keep.source = TRUE,
+    keep.source = TRUE, # was ignored, effectively interactive(), thus often FALSE, in R < 4.4.0
     results = "text",
     strip.white = "true",
     stage = "install")
@@ -204,21 +217,25 @@ processRdChunk <- function(code, stage, options, env, macros)
             ## also USERMACROs are currently not supported inside \Sexpr{}
             warnRd(code, Rdfile, "\\Sexpr expects R code; found ",
                    paste0(sQuote(bad), collapse = ", "))
-        code <- code[tags != "COMMENT"]  # list attributes are lost here
-	chunkexps <- tryCatch(parse(text = code), error = identity)
-	if (inherits(chunkexps, "error"))
-            stopRd(code, Rdfile, conditionMessage(chunkexps))
+	code <- structure(code[tags != "COMMENT"],
+	                  srcref = codesrcref) # retain for error locations
+	chunkexps <- tryCatch(
+	    parse(text = as.character(code), keep.source = options$keep.source),
+	    error = function (e) stopRd(code, Rdfile, conditionMessage(e))
+	)
 
 	if(length(chunkexps) == 0L)
 	    return(tagged(code, "LIST"))
 
 	srcrefs <- attr(chunkexps, "srcref")
 	lastshown <- 0L
-	thisline <- 0
 	err <- NULL
 	for(nce in seq_along(chunkexps))
 	{
 	    ce <- chunkexps[[nce]]
+
+	    if (options$echo && options$results == "verbatim") {
+
 	    if (nce <= length(srcrefs) && !is.null(srcref <- srcrefs[[nce]])) {
 		srcfile <- attr(srcref, "srcfile")
 		showfrom <- srcref[1L]
@@ -234,7 +251,7 @@ processRdChunk <- function(code, stage, options, env, macros)
 		dce <- deparse(ce, width.cutoff=0.75*getOption("width"))
 		leading <- 1L
 	    }
-	    if(options$echo && length(dce)) {
+	    if (length(dce)) {
 		res <- c(res,"\n",
                          paste0(getOption("prompt"), dce[1L:leading],
                                 collapse="\n"))
@@ -242,7 +259,8 @@ processRdChunk <- function(code, stage, options, env, macros)
 		    res <- c(res, "\n",
                              paste0(getOption("continue"), dce[-(1L:leading)],
                                     collapse="\n"))
-		thisline <- thisline + length(dce)
+	    }
+
 	    }
 
 	    tmpcon <- file()
@@ -255,10 +273,8 @@ processRdChunk <- function(code, stage, options, env, macros)
 	    ## delete empty output
 	    if(length(output) == 1L && output[1L] == "") output <- NULL
 
-	    if (inherits(err, "error")) {
-	    	attr(code, "srcref") <- codesrcref  # restore for error location
+	    if (inherits(err, "error"))
 	    	stopRd(code, Rdfile, conditionMessage(err))
-	    }
 
 	    if(length(output) && (options$results != "hide")) {
 		output <- paste(output, collapse="\n")
@@ -293,7 +309,7 @@ processRdChunk <- function(code, stage, options, env, macros)
                 bad <- flag[c(stage, switch(stage, install = "build",
                                             render = c("build", "install")))]
                 if (any(bad))
-                    warnRd(tagged(code, "\\Sexpr", codesrcref), Rdfile,
+                    warnRd(code, Rdfile,
                            "unprocessed ",
                            paste0(sQuote(names(bad)[bad]), collapse = "/"),
                            " macro from ", stage, "-stage \\Sexpr")
@@ -332,7 +348,7 @@ processRdChunk <- function(code, stage, options, env, macros)
 	                           stage2 = FALSE, stage3 = FALSE)
 	    }
 	} else if (options$results == "text")
-	    res <- tagged(err, "TEXT")
+	    res <- tagged(enc2utf8(as.character(err)), "TEXT")
 	else if (options$results == "hide" || !length(res))
 	    res <- tagged("", "COMMENT")
 	else { ## if (length(res)) 
@@ -360,9 +376,12 @@ processRdIfdefs <- function(blocks, defines)
                         block <- tagged(block[[2L]], "#expanded")
                         setDynamicFlags(block, flag)
                     } else
-                        tagged(paste(tag, target, "not active"),
-                               "COMMENT",
-                               attr(block, "srcref"))
+                        tagged(list(
+                            tagged(paste(tag, target, "not active"),
+                                   "COMMENT", attr(block, "srcref")),
+                            tagged("\n",
+                                   "TEXT", attr(block, "srcref"))
+                        ), "#expanded")
 	    }
 	}
 	if (is.list(block)) {
@@ -435,14 +454,12 @@ prepare_Rd <-
     concordance <- NULL
     if (is.character(Rd)) {
         Rdfile <- Rd
-        srcfile <- srcfile(stripPathTo(Rdfile, "man"))
         ## do it this way to get info in internal warnings
-        Rd <- eval(substitute(parse_Rd(f, encoding = enc, fragment = frag, srcfile = src, ...),
-                              list(f = Rd, enc = encoding, frag = fragment, src = srcfile)))
+        Rd <- eval(substitute(parse_Rd(f, encoding = enc, fragment = frag, ...),
+                              list(f = Rd, enc = encoding, frag = fragment)))
     } else if(inherits(Rd, "connection")) {
         Rdfile <- summary(Rd)$description
-        srcfile <- srcfile(stripPathTo(Rdfile, "man"))
-        Rd <- parse_Rd(Rd, srcfile = srcfile, encoding = encoding, fragment=fragment, ...)
+        Rd <- parse_Rd(Rd, encoding = encoding, fragment = fragment, ...)
     } else {
     	Rdfile <- attr(Rd, "Rdfile")
     	concordance <- attr(Rd, "concordance")
@@ -510,7 +527,7 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     for (tag in unique_tags) {
         where <- which(sections == tag)
         if(length(where) > 1L) {
-            warnRd(Rd[where[[2L]]], Rdfile,
+            warnRd(NULL, Rdfile,
                    sprintf("Only one %s section is allowed: the first will be used", tag))
             drop[where[-1L]] <- TRUE
         }
@@ -518,7 +535,7 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
 
     enc <- which(sections == "\\encoding")
     if (length(enc)) {
-    	encoding <- Rd[[enc]]
+    	encoding <- Rd[[enc[1L]]]
     	if (!identical(RdTags(encoding), "TEXT"))
     	    stopRd(encoding, Rdfile, "'encoding' must be plain text")
     }
@@ -527,7 +544,7 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     docTypes <- character(length(dt))
     if(length(dt)) {
         if(length(dt) > 1L)
-            warnRd("", Rdfile,
+            warnRd(NULL, Rdfile,
                    "Multiple \\docType sections are not supported")
         for(i in seq_along(dt)) {
             docType <- Rd[[dt[i]]]
@@ -541,6 +558,11 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
                        " is unrecognized")
          }
     }
+
+    generator <- if((sections[1L] == "COMMENT") &&
+                    startsWith(Rd[[1L]], "% Generated by"))
+                     c(Rd[[1L]])
+                 else ""
 
     ## Drop all the parts that are not rendered
     extras <- c("COMMENT", "TEXT", "\\docType", "\\Rdversion", "\\RdOpts",
@@ -565,18 +587,16 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     sections <- sections[sortorder]
     if (!identical(sections[1:2], c("\\title", "\\name"))
         || identical(sections[3L], "\\name"))
-    	stopRd("", Rdfile,
+    	stopRd(NULL, Rdfile,
                "Sections \\title, and \\name must exist and be unique in Rd files")
-    if (length(RdTags(Rd[[2L]])) > 1L)
-        stopRd(RdTags(Rd[[2L]]), Rdfile,"\\name must only contain simple text")
 
-    ## R-exts points out that ! | @ cause problems in \name:
-    ## ggplot2 demonstrated it
-    name_text <- as.character(Rd[[2L]])
-    if(grepl("[!|@]", name_text))
-        warnRd(Rd[[2L]], Rdfile, "\\name should not contain !, | or @")
+    ## \name (parsed verbatim) must not contain any markup
+    if (length(Rd[[2L]]) != 1L ||
+        grepl("\\", Rd[[2L]][[1L]], fixed = TRUE))
+        stopRd(Rd[[2L]], Rdfile, "\\name must only contain simple text")
+
     ## is this really what we want?  docTypes is a vector.
-    structure(Rd, meta = list(docType = docTypes))
+    structure(Rd, meta = list(docType = docTypes, generator = generator))
 }
 
 ## auxiliary, currently called only from prepare_Rd(*, stage3 = TRUE)
@@ -647,9 +667,14 @@ fsub1 <- function(pattern, replacement, x)
 
 
 ## for lists of messages, see ../man/checkRd.Rd
-checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
+checkRd <- function(Rd, defines = .Platform$OS.type, stages = "render",
                     unknownOK = TRUE, listOK = TRUE, ..., def_enc = FALSE)
 {
+    allow_empty_item_in_describe <- config_val_to_logical(
+        Sys.getenv("_R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_", "FALSE"))
+    note_lost_braces <- config_val_to_logical(
+        Sys.getenv("_R_CHECK_RD_NOTE_LOST_BRACES_", "TRUE"))
+
     warnRd <- function(block, Rdfile, ..., level = 0L)
     {
         msg <- sprintf("checkRd: (%d) %s", level,
@@ -691,9 +716,68 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                        "Invalid URL: ", u)
         }
     }
-            
-    ## blocktag is unused
-    checkBlock <- function(block, tag, blocktag)
+
+    checkLIST <- function(block, tag, blocktag, preblocks = NULL)
+    {
+        ## skip empty block or wrapped \Sexpr Rd result
+        if (!length(block) || inherits(block, "Rd"))
+            return()
+        if (!listOK)
+            stopRd(block, Rdfile, "Lost braces", showSource = TRUE)
+        level <- -3
+        msg2 <- NULL
+        showSource <- TRUE
+        if (note_lost_braces) {
+            ## try to raise real issues like "code{.}" or "{1,2}",
+            ## ignoring bib-braces, \tab *{}, \itemize{\item *{}}, {\sspace}
+            npre <- length(preblocks)
+            pretags <- vapply(preblocks, function (block) {
+                tag <- attr(block, "Rd_tag")
+                if (tag == "TEXT" && grepl("^[[:space:]]*$", block)) "BLANK"
+                else tag
+            }, "")
+            pretagsNB <- pretags[pretags != "BLANK"]
+            if (npreNB <- length(pretagsNB)) { # skip '{{...}}'
+                pretag <- pretagsNB[npreNB]
+                tags <- RdTags(block)
+                inItemize <- blocktag %in% c("\\itemize", "\\enumerate")
+                separated <- npre == 0L || pretags[npre] == "BLANK" ||
+                    (pretags[npre] == "TEXT" && # catch 'emph{Journal}', '\"{o}',
+                     ## '"[...]{...}', but ignore {P}oisson-{G}amma or ({EM})
+                     !grepl("([[:alnum:]]|\\\\[[:punct:]]|[])])$", preblocks[[npre]]))
+                ignore <-
+                    (length(tags) == 1L && startsWith(tags, "\\") &&
+                     separated) || # ignore ' {\code{...}}' but not ' code{\link{}}'
+                    (length(tags) == 2L && tags[1L] == "USERMACRO") || # '{\sspace}'
+                    (inItemize && pretag == "\\item") || # '\item {}'
+                    pretag == "\\tab" || # '\tab {}'
+                    (!is.null(srcref <- attr(block, "srcref")) &&
+                     srcref[1L] == srcref[3L] && srcref[5L] > srcref[6L]) || # kludge for Rdpack
+                    (sectiontag %in% c("\\source", "\\references") && (
+                        separated || pretag == "\\cr" # '\cr\cr{ref}' relicts
+                    ))
+                if (!ignore) {
+                    level <- -1
+                    ## extra message for frequent misuse of \item *{label} *{desc}
+                    if (inItemize && npreNB > 1L && pretag == "LIST" &&
+                        pretagsNB[npreNB - 1L] == "\\item") {
+                        msg2 <- paste0(" in ", blocktag, "; ",
+                                       if (sectiontag == "\\value")
+                                           "\\value handles \\item{}{} directly"
+                                       else "meant \\describe ?")
+                        showSource <- FALSE # misleading marker, often many \items
+                    } else if (separated && identical(tags, "TEXT")) {
+                        ## simple braced text: 'X_{i-1}' w/o \eqn, '{pkg}'
+                        msg2 <- "; missing escapes or markup?"
+                    }
+                }
+            }
+        }
+        warnRd(block, Rdfile, level = level,
+               "Lost braces", msg2, showSource = showSource)
+    }
+
+    checkBlock <- function(block, tag, blocktag, preblocks = NULL)
     {
 	switch(tag,
                ## parser already warned here
@@ -739,15 +823,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                "\\newcommand" =,
                "\\renewcommand" =,
                COMMENT = {},
-               LIST = if (length(block)) {
-                   if (!inherits(block, "Rd")) { # skip wrapped \Sexpr Rd result
-                       deparse <- sQuote(.Rd_deparse(block))
-                       if(!listOK)
-                           stopRd(block, Rdfile, "Unnecessary braces at ", deparse)
-                       else warnRd(block, Rdfile, level = -3,
-                                   "Unnecessary braces at\n  ",
-                                   gsub("\n", "\n  ", deparse, fixed = TRUE))
-                   }
+               LIST = {
+                   checkLIST(block, tag, blocktag, preblocks)
                    checkContent(block, tag)
                },
                "\\describe"=,
@@ -780,6 +857,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                "\\dots" =,
                "\\ldots" =,
                "\\R" = has_text <<- TRUE,
+               "\\abbr" =,
                "\\acronym" =,
                "\\env" =,
                "\\file" =,
@@ -806,8 +884,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                "\\eqn" =,
                "\\deqn" =,
                "\\figure" = {
-                   checkContent(block[[1L]])
-                   if (length(block) > 1L) checkContent(block[[2L]])
+                   checkContent(block[[1L]], tag)
+                   if (length(block) > 1L) checkContent(block[[2L]], tag)
                },
                "\\tabular" = checkTabular(block),
                "\\subsection" = {
@@ -826,9 +904,9 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                                             "html", "TRUE", "FALSE")
     		   if (length(unknown))
     		       warnRd(block, Rdfile, level = 7, "Unrecognized format: ", unknown)
-                   checkContent(block[[2L]])
+                   checkContent(block[[2L]], tag)
                    if (tag == "\\ifelse")
-                       checkContent(block[[3L]])
+                       checkContent(block[[3L]], tag)
                },
                "\\href" = {
                    if (!identical(RdTags(block[[1L]]), "VERB"))
@@ -890,7 +968,7 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                    } else warnRd(block, Rdfile, level = 7,
                                  "Tag ", tag, " is only valid in \\usage"),
                    "\\dontrun" =,
-                   "\\donttest" =,
+                   "\\donttest" =, "\\dontdiff" =,
                    "\\dontshow" =,
                    "\\testonly" = if(blocktag == "\\examples")
                    checkCodeBlock(block, blocktag)
@@ -930,7 +1008,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                 if (col > length(format))
                     warnRd(table, Rdfile, level = 7,
                            "Only ", length(format),
-                           " columns allowed in this table")
+                           if (length(format) == 1) " column " else " columns ",
+                           "allowed in this table")
             	newcol <- FALSE
             }
             switch(tags[i],
@@ -940,7 +1019,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
             "\\cr" = {
             	newrow <- TRUE
             },
-            checkBlock(content[[i]], tags[i], "\\tabular"))
+            checkBlock(content[[i]], tags[i], "\\tabular",
+                       content[seq_len(i-1L)]))
         }
     }
 
@@ -955,11 +1035,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
             switch(tag,
             "\\item" = {
     	    	if (!inlist) inlist <- TRUE
-                CHECK_BLOCKS <- 
-                    if (config_val_to_logical(Sys.getenv("_R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_", "FALSE")))
-                        c("\\arguments", "\\value")
-                    else
-                        c("\\describe", "\\arguments", "\\value")
+                CHECK_BLOCKS <- c(if (!allow_empty_item_in_describe) "\\describe",
+                                  "\\arguments", "\\value")
                 if((blocktag %in% CHECK_BLOCKS) &&
                     isBlankRd(block[[1L]]))
                     warnRd(block, Rdfile, level = 5,
@@ -983,7 +1060,8 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
     	    	           && !(tag == "TEXT" && isBlankRd(block))) {
     		    inlist <- FALSE
     		}
-    		checkBlock(block, tag, blocktag)
+                checkBlock(block, tag, blocktag,
+                           blocks[seq_len(i-1L)])
     	    })
 	}
     }
@@ -1029,16 +1107,25 @@ checkRd <- function(Rd, defines=.Platform$OS.type, stages = "render",
                    warningCalls = FALSE, ..., msglevel = 1)
     }, warning = .whandler)
     Rdfile <- attr(Rd, "Rdfile")
+
+    ## check \name
+    name <- as.character(Rd[[2L]])
+    if(grepl("[!|@]", name)) # these cause LaTeX indexing problems
+        warnRd(Rd[[2L]], Rdfile, level = 5,
+               "\\name should not contain !, | or @")
+    if (Encoding(name) == "UTF-8" ||
+        !all(utils::charClass(trimws(name), "print")))
+        warnRd(Rd[[2L]], Rdfile, level = -1,
+               "\\name should only contain printable ASCII characters")
+
+    ## check all sections
     sections <- RdTags(Rd)
-
-    enc <- which(sections == "\\encoding")
-    ## sanity was checked in prepare2_Rd
-    if (length(enc)) def_enc <- TRUE
-
+    if (any(sections == "\\encoding")) def_enc <- TRUE
     inEnc2 <- FALSE
-
-    for (i in seq_along(sections))
+    for (i in seq_along(sections)) {
+        sectiontag <- sections[i]
         checkSection(Rd[[i]], sections[i])
+    }
 
     structure(.messages, class = "checkRd")
 }

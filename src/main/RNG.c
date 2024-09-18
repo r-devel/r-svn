@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -329,7 +329,7 @@ static void RNG_Init(RNGtype kind, Int32 seed)
 
 static SEXP GetSeedsFromVar(void)
 {
-    SEXP seeds = findVarInFrame(R_GlobalEnv, R_SeedsSymbol);
+    SEXP seeds = R_findVarInFrame(R_GlobalEnv, R_SeedsSymbol);
     if (TYPEOF(seeds) == PROMSXP)
 	seeds = eval(R_SeedsSymbol, R_GlobalEnv);
     return seeds;
@@ -352,9 +352,9 @@ static Rboolean GetRNGkind(SEXP seeds)
     if (seeds == R_UnboundValue) return TRUE;
     if (!isInteger(seeds)) {
 	if (seeds == R_MissingArg) /* How can this happen? */
-	    error(_("'.Random.seed' is a missing argument with no default"));
+	    R_MissingArgError_c(".Random.seed", R_CurrentExpression, "getRNGError");
 	warning(_("'.Random.seed' is not an integer vector but of type '%s', so ignored"),
-		type2char(TYPEOF(seeds)));
+		R_typeToChar(seeds));
 	goto invalid;
     }
     is = INTEGER(seeds);
@@ -400,6 +400,11 @@ invalid:
     return TRUE;
 }
 
+static void copy_seeds_in(Int32 *i_seed, SEXP seeds, int len_seed)
+{
+    int *p = INTEGER(seeds); // will warn if R INTEGER type changes
+    memcpy(i_seed, p + 1, sizeof(Int32) * len_seed);
+}
 
 void GetRNGstate(void)
 {
@@ -408,9 +413,9 @@ void GetRNGstate(void)
     SEXP seeds;
 
     seeds = GetSeedsFromVar();
-    if (seeds == R_UnboundValue) {
+    if (seeds == R_UnboundValue)
 	Randomize(RNG_kind);
-    } else {
+    else {
 	/* this might re-set the generator */
 	if(GetRNGkind(seeds)) return;
 	len_seed = RNG_Table[RNG_kind].n_seed;
@@ -420,36 +425,48 @@ void GetRNGstate(void)
 	if(LENGTH(seeds) == 1 && RNG_kind != USER_UNIF)
 	    Randomize(RNG_kind);
 	else {
-	    int j, *is = INTEGER(seeds);
-	    for(j = 1; j <= len_seed; j++)
-		RNG_Table[RNG_kind].i_seed[j - 1] = is[j];
+	    copy_seeds_in(RNG_Table[RNG_kind].i_seed, seeds, len_seed);
 	    FixupSeeds(RNG_kind, 0);
 	}
     }
 }
 
+static R_INLINE void copy_seeds_out(SEXP seeds, Int32 *i_seed, int len_seed)
+{
+    int *p = INTEGER(seeds) + 1; // will warn if R INTEGER type changes
+    memcpy(p, i_seed, sizeof(Int32) * len_seed);
+}
+
 void PutRNGstate(void)
 {
-    /* Copy out seeds to  .Random.seed  */
-    int len_seed, j;
-    SEXP seeds;
-
-    if (RNG_kind > LECUYER_CMRG || N01_kind > KINDERMAN_RAMAGE || Sample_kind > REJECTION) {
+    if (RNG_kind > LECUYER_CMRG || N01_kind > KINDERMAN_RAMAGE ||
+	Sample_kind > REJECTION) {
 	warning("Internal .Random.seed is corrupt: not saving");
 	return;
     }
 
-    len_seed = RNG_Table[RNG_kind].n_seed;
+    /* Copy out seeds to  .Random.seed  */
+    int len_seed = RNG_Table[RNG_kind].n_seed;
+    int kinds = RNG_kind + 100 * N01_kind + 10000 * Sample_kind;
 
-    PROTECT(seeds = allocVector(INTSXP, len_seed + 1));
+    SEXP seeds = R_findVarInFrame(R_GlobalEnv, R_SeedsSymbol);
+    if (NOT_SHARED(seeds) && ATTRIB(seeds) == R_NilValue &&
+	TYPEOF(seeds) == INTSXP && XLENGTH(seeds) == len_seed + 1) {
+	/* it is safe to resuse the existing .Random.seed vector */
+	INTEGER(seeds)[0] = kinds;
+	copy_seeds_out(seeds, RNG_Table[RNG_kind].i_seed, len_seed);
+    }
+    else {
+	/* need to allocate a fresh .Random.seed vector */
+	seeds = PROTECT(allocVector(INTSXP, len_seed + 1));
+	INTEGER(seeds)[0] = kinds;
+	copy_seeds_out(seeds, RNG_Table[RNG_kind].i_seed, len_seed);
 
-    INTEGER(seeds)[0] = RNG_kind + 100 * N01_kind + 10000 * Sample_kind;
-    for(j = 0; j < len_seed; j++)
-	INTEGER(seeds)[j+1] = RNG_Table[RNG_kind].i_seed[j];
-
-    /* assign only in the workspace */
-    defineVar(R_SeedsSymbol, seeds, R_GlobalEnv);
-    UNPROTECT(1);
+	/* assign only in the workspace */
+	defineVar(R_SeedsSymbol, seeds, R_GlobalEnv);
+	INCREMENT_NAMED(seeds);
+	UNPROTECT(1);
+    }
 }
 
 static void RNGkind(RNGtype newkind)
@@ -580,12 +597,15 @@ attribute_hidden SEXP do_setseed (SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* The following entry points provide compatibility with S. */
 /* These entry points should not be used by new R code. */
+/* These entry points are now hidden */
 
+attribute_hidden
 void seed_in(long *ignored)
 {
     GetRNGstate();
 }
 
+attribute_hidden
 void seed_out(long *ignored)
 {
     PutRNGstate();

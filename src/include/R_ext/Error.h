@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2023   The R Core Team
+ *  Copyright (C) 1998-2024   The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +21,19 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Included by R.h: API */
+/* Included by R.h: Part of the API. */
 
 #ifndef R_ERROR_H_
 #define R_ERROR_H_
+
+#if defined(__cplusplus) && !defined(DO_NOT_USE_CXX_HEADERS)
+# include <cstddef>
+#else
+# include <stddef.h> /* for size_t */
+#endif
+
+#include <R_ext/Print.h>
+#include <Rconfig.h>            /* for HAVE_F77_UNDERSCORE */
 
 #ifdef  __cplusplus
 extern "C" {
@@ -48,13 +57,39 @@ extern "C" {
 # define NORET
 #endif
 
-NORET void Rf_error(const char *, ...);
+NORET void Rf_error(const char *, ...) R_PRINTF_FORMAT(1, 2);
+
 NORET void UNIMPLEMENTED(const char *);
 NORET void WrongArgCount(const char *);
 
-void	Rf_warning(const char *, ...);
-void 	R_ShowMessage(const char *s);
-    
+void Rf_warning(const char *, ...) R_PRINTF_FORMAT(1,2);
+
+void R_ShowMessage(const char *s);
+
+#if 0
+/* xerbla is a a C function intended to be called from Fortran.
+ * It wraps Rf_error, so use that directtly from C/C++
+*/
+#ifdef HAVE_F77_UNDERSCORE
+/* F77_NAME is in RS.h, but better not include it here (e.g. due to
+ * name conflicts involving symbols defined with !STRICT_R_HEADERS) .
+ * However, using a trailing underline is not universal, and print.c
+ * uses F77_SUB.
+ */
+# ifdef FC_LEN_T
+NORET void xerbla_(const char *srname, int *info, const FC_LEN_T srname_len);
+# else
+NORET void xerbla_(const char *srname, int *info);
+# endif
+#else
+# ifdef FC_LEN_T
+NORET void xerbla(const char *srname, int *info, const FC_LEN_T srname_len);
+# else
+NORET void xerbla(const char *srname, int *info);
+# endif
+#endif
+
+#endif
 
 #ifdef  __cplusplus
 }

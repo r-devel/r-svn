@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022   The R Core Team.
+ *  Copyright (C) 1998-2023   The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,7 @@
  *	Either accessing and/or setting a global C variable,
  *	or just accessed by e.g.  GetOption1(install("pager"))
  *
- * A (complete?!) list of these (2):
+ * A (complete?!) list of these (2) {plus some of 1)}:
  *
  *	"prompt"
  *	"continue"
@@ -72,6 +72,7 @@
  *	"error"
  *	"error.messages"
  *	"show.error.messages"
+ *      "catch.script.errors"
  *	"warn"
  *	"warning.length"
  *	"warning.expression"
@@ -116,8 +117,7 @@ static SEXP FindTaggedItem(SEXP lst, SEXP tag)
 static SEXP makeErrorCall(SEXP fun)
 {
   SEXP call;
-  PROTECT(call = allocList(1));
-  SET_TYPEOF(call, LANGSXP);
+  PROTECT(call = allocLang(1));
   SETCAR(call, fun);
   UNPROTECT(1);
   return call;
@@ -137,7 +137,7 @@ SEXP GetOption1(SEXP tag)
     return CAR(opt);
 }
 
-int FixupWidth(SEXP width, warn_type warn)
+attribute_hidden int FixupWidth(SEXP width, warn_type warn)
 {
     int w = asInteger(width);
     if (w == NA_INTEGER || w < R_MIN_WIDTH_OPT || w > R_MAX_WIDTH_OPT) {
@@ -155,7 +155,7 @@ int GetOptionWidth(void)
     return FixupWidth(GetOption1(install("width")), iWARN);
 }
 
-int FixupDigits(SEXP digits, warn_type warn)
+attribute_hidden int FixupDigits(SEXP digits, warn_type warn)
 {
     int d = asInteger(digits);
     if (d == NA_INTEGER || d < R_MIN_DIGITS_OPT || d > R_MAX_DIGITS_OPT) {
@@ -168,7 +168,8 @@ int FixupDigits(SEXP digits, warn_type warn)
     }
     return d;
 }
-int GetOptionDigits(void)
+
+attribute_hidden int GetOptionDigits(void)
 {
     return FixupDigits(GetOption1(install("digits")), iWARN);
 }
@@ -235,6 +236,11 @@ static SEXP SetOption(SEXP tag, SEXP value)
     SETCAR(opt, value);
     UNPROTECT(1); /* value */
     return old;
+}
+
+attribute_hidden SEXP R_SetOption(SEXP tag, SEXP value)
+{
+    return SetOption(tag, value);
 }
 
 /* Set the width of lines for printing i.e. like options(width=...) */
@@ -694,6 +700,15 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 		R_ShowErrorMessages = LOGICAL(argi)[0];
 	    }
+	    else if ( streql(CHAR(namei), "catch.script.errors") ) {
+#define CHECK_TRUE_FALSE_(_arg_)					\
+		if (TYPEOF(_arg_) != LGLSXP || LENGTH(_arg_) != 1 ||	\
+		    LOGICAL(_arg_)[0] == NA_LOGICAL)			\
+		    error(_("invalid value for '%s'"), CHAR(namei))
+
+		CHECK_TRUE_FALSE_(argi);
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
+	    }
 	    else if (streql(CHAR(namei), "echo")) {
 		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
 		    error(_("invalid value for '%s'"), CHAR(namei));
@@ -778,13 +793,9 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		error(_("\"par.ask.default\" has been replaced by \"device.ask.default\""));
 	    }
 	    else if (streql(CHAR(namei), "browserNLdisabled")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		if (k == NA_LOGICAL)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		R_DisableNLinBrowser = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		CHECK_TRUE_FALSE_(argi);
+		R_DisableNLinBrowser = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "CBoundsCheck")) {
 		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)

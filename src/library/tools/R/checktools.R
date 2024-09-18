@@ -1,7 +1,7 @@
 #  File src/library/tools/R/checktools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2013-2022 The R Core Team
+#  Copyright (C) 2013-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ function(dir,
          xvfb = FALSE,
          Ncpus = getOption("Ncpus", 1L),
          clean = TRUE,
+         install_args = list(),
+         parallel_args = list(),
          ...)
 {
     owd <- getwd()
@@ -143,20 +145,24 @@ function(dir,
         ## Determine and download reverse dependencies to be checked as
         ## well.
 
-        reverse <- as.list(reverse)
-        ## Merge with defaults, using partial name matching.
         defaults <- list(which = c("Depends", "Imports", "LinkingTo"),
                          recursive = FALSE,
                          repos = getOption("repos"))
-        pos <- pmatch(names(reverse), names(defaults), nomatch = 0L)
-        defaults[pos] <- reverse[pos > 0L]
+        if(!is.character(reverse)) {
+            reverse <- as.list(reverse)
+            ## Merge with defaults, using partial name matching.
+            pos <- pmatch(names(reverse), names(defaults), nomatch = 0L)
+            defaults[pos] <- reverse[pos > 0L]
+        }
 
         subset_reverse_repos <- !identical(defaults$repos, getOption("repos"))
         if(subset_reverse_repos &&
            !all(defaults$repos %in% getOption("repos")))
             stop("'reverse$repos' should be a subset of getOption(\"repos\")")
 
-        rnames <- if(is.list(defaults$which)) {
+        rnames <- if(is.character(reverse)) {
+            reverse
+        } else if(is.list(defaults$which)) {
             ## No recycling of repos for now.
             defaults$recursive <- rep_len(as.list(defaults$recursive),
                                           length(defaults$which))
@@ -278,14 +284,17 @@ function(dir,
         names(iflags) <- pnames_using_install_fake
         tmpdir <- tempfile(tmpdir = outdir)
         dir.create(tmpdir)
-        utils::install.packages(depends, lib = libdir,
+        do.call(utils::install.packages, c(
+                            list(pkgs = depends, lib = libdir,
                                 contriburl = curls,
                                 available = available,
                                 dependencies = NA,
                                 INSTALL_opts = iflags,
                                 keep_outputs = tmpdir,
                                 Ncpus = Ncpus,
-                                type = "source")
+                                type = "source"), 
+                            install_args))
+        
         outfiles <- Sys.glob(file.path(tmpdir, "*.out"))
         file.rename(outfiles,
                     file.path(outdir,
@@ -347,19 +356,24 @@ function(dir,
 
     if(Ncpus > 1L) {
         if(os_type != "windows") {
-            timings <- parallel::mclapply(pfiles,
-                                          check_package,
-                                          check_args_db,
-                                          check_env_db,
-                                          mc.cores = Ncpus)
+            timings <- do.call(parallel::mclapply, c(
+                                        list(X = pfiles,
+                                          FUN = check_package,
+                                          args_db = check_args_db,
+                                          env_db = check_env_db,
+                                          mc.cores = Ncpus),
+                                        parallel_args))
         } else {
             cl <- parallel::makeCluster(Ncpus)
-            timings <- parallel::parLapply(cl,
-                                           pfiles,
-                                           check_package,
-                                           check_args_db,
-                                           check_env_db)
-            parallel::stopCluster(cl)
+            on.exit(parallel::stopCluster(cl), add = TRUE)
+            timings <- do.call(parallel::parLapply, c(
+                                         list(cl = cl, 
+                                           X = pfiles, 
+                                           fun = check_package,
+                                           args_db = check_args_db,
+                                           env_db = check_env_db),
+                                         parallel_args))
+
         }
     } else {
         timings <- lapply(pfiles,
@@ -735,19 +749,6 @@ function(log, drop = TRUE, ...)
         }
     }
 
-    ## ## <FIXME>
-    ## ## Remove eventually.
-    ## len <- length(lines)
-    ## end <- lines[len]
-    ## if(length(end) &&
-    ##    grepl(re <- "^(\\*.*\\.\\.\\.)(\\* elapsed time.*)$", end,
-    ##          perl = TRUE, useBytes = TRUE)) {
-    ##     lines <- c(lines[seq_len(len - 1L)],
-    ##                sub(re, "\\1", end, perl = TRUE, useBytes = TRUE),
-    ##                sub(re, "\\2", end, perl = TRUE, useBytes = TRUE))
-    ## }
-    ## ## </FIXME
-
     lines
 }
 
@@ -775,7 +776,7 @@ function(log, drop_ok = TRUE, ...)
         drop_ok_status_tags <- drop_ok
         drop_ok <- TRUE
     } else {
-        drop_ok_status_tags <- c("OK", "NONE", "SKIPPED")
+        drop_ok_status_tags <- c("OK", "NONE", "SKIPPED", "INFO")
     }
 
     ## Start by reading in.
@@ -963,13 +964,13 @@ function(dir, logs = NULL, drop_ok = TRUE, ...)
         if(!length(out))
             return(matrix(character(), ncol = 6L))
         chunks <- lapply(out, `[[`, "Chunks")
-        package <- sapply(out, `[[`, "Package")
+        package <- vapply(out, `[[`, "", "Package")
         lens <- lengths(chunks)
         cbind(rep.int(package, lens),
-              rep.int(sapply(out, `[[`, "Version"), lens),
+              rep.int(vapply(out, `[[`, "", "Version"), lens),
               matrix(as.character(unlist(chunks)), ncol = 3L,
                      byrow = TRUE),
-              rep.int(sapply(out, `[[`, "Flags"),
+              rep.int(vapply(out, `[[`, "", "Flags"),
                       lens))
     }
 
@@ -1118,16 +1119,14 @@ function(new, old, outputs = FALSE)
 
     ## Drop checks that are OK in both versions
     x.issue <- !is.na(match(db$Status.x,
-                            c("ERROR","FAILURE","NOTE","WARNING")))
+                            c("NOTE", "WARNING", "ERROR", "FAILURE")))
     y.issue <- !is.na(match(db$Status.y,
-                            c("ERROR","FAILURE","NOTE","WARNING")))
+                            c("NOTE", "WARNING", "ERROR", "FAILURE")))
     db <- db[x.issue | y.issue,]
 
     ## Even with the above simplification, missing entries do not
     ## necessarily indicate "OK" (checks could have been skipped).
     ## Hence leave as missing and show as empty in the diff.
-    ## An exception to this rule is made if we find an "ERROR" result
-    ## as this may explain skipped checks.
 
     sx <- as.character(db$Status.x)
     sy <- as.character(db$Status.y)

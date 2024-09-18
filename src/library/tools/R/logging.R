@@ -103,6 +103,13 @@ function(Log, text = "")
     Log$notes <- Log$notes + 1L
 }
 
+infoLog <-
+function(Log, text = "")
+{
+    resultLog(Log, "INFO")
+    if(nzchar(text)) printLog(Log, text, "\n")
+}
+
 summaryLog <-
 function(Log)
 {
@@ -123,6 +130,7 @@ function(Log)
                                        names(counts),
                                        ifelse(counts > 1L, "s", "")),
                                collapse = ", ")))
-        message(sprintf("See\n  %s\nfor details.\n", sQuote(Log$filename)))
+        message(sprintf("See\n  %s\nfor details.", sQuote(Log$filename)))
     }
+    message("")
 }

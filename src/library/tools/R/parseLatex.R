@@ -18,43 +18,65 @@
 
 parseLatex <- function(text, filename = deparse1(substitute(text)),
                      verbose = FALSE, verbatim = c("verbatim", "verbatim*",
-                     "Sinput", "Soutput") )
+                     "Sinput", "Soutput"),
+		     verb = "\\Sexpr")
 {
     ## the internal function must get some sort of srcfile
     srcfile <- srcfilecopy(filename, text, file.mtime(filename))
     text <- paste(text, collapse="\n")
-    .External2(C_parseLatex, text, srcfile, verbose, as.character(verbatim))
+    .External2(C_parseLatex, text, srcfile, verbose, as.character(verbatim), as.character(verb))
 }
 
 
 # This converts a latex object into a single element character vector
 deparseLatex <- function(x, dropBraces = FALSE)
 {
+    specials <- c("\\", "#", "$", "%", "&", "~", "_", "^", "{", "}")
     result <- character()
     lastTag <- "TEXT"
+    expectArg <- FALSE
     for (i in seq_along(x)) {
         a <- x[[i]]
         tag <- attr(a, "latex_tag")
         if (is.null(tag)) tag <- "NULL"
+        result <- c(result,
         switch(tag,
         VERB = ,
-        TEXT = ,
         MACRO = ,
-        COMMENT = result <- c(result, a),
-        BLOCK = result <- c(result, if (dropBraces && lastTag == "TEXT") deparseLatex(a) else c("{", deparseLatex(a), "}")),
-        ENVIRONMENT = result <- c(result,
+        COMMENT = a,
+        TEXT = c(if (lastTag == "MACRO" && expectArg && grepl("^[[:alpha:]]", a))
+                     ## restore space that the parser has eaten ('\item text')
+                     " ",
+                 a),
+        BLOCK = if (dropBraces && !expectArg)
+                    Recall(a)
+                else
+                    c("{", Recall(a), "}"),
+        ENVIRONMENT = c(
         	"\\begin{", a[[1L]], "}",
-        	deparseLatex(a[[2L]]),
+        	Recall(a[[2L]]),
         	"\\end{", a[[1L]], "}"),
-        MATH = result <- c(result, "$", deparseLatex(a), "$"),
+        MATH = c("$", Recall(a), "$"), # \( and \) parse as MACRO
+        DISPLAYMATH = c("$$", Recall(a), "$$"),
         NULL = stop("Internal error, no tag", domain = NA)
-        )
+        ))
         lastTag <- tag
+        expectArg <-
+            if (tag == "MACRO")
+                a %notin% paste0("\\", c(specials, "(", ")"))
+            else
+                expectArg &&
+                    tag %in% c("BLOCK", "COMMENT") # \cmd{}{}, \cmd%
+                    ## currently ignoring \cmd  {}, \cmd[]{}, \cmd*{}
     }
     paste(result, collapse="")
 }
 
-print.LaTeX <- function(x, ...) cat(deparseLatex(x), "\n")
+print.LaTeX <- function(x, ...)
+{
+    cat(deparseLatex(x), "\n", sep = "")
+    invisible(x)
+}
 
 latex_tag <- function(x, tag)
 {
@@ -110,7 +132,8 @@ latexToUtf8 <- function(x)
 			},
 			BLOCK =,
 			ENVIRONMENT =,
-			MATH = {
+			MATH =,
+			DISPLAYMATH = {
 			    args[[k]] <- latexToUtf8(nextobj)
 			    k <- k+1L
 			    getNext <- TRUE
@@ -125,7 +148,9 @@ latexToUtf8 <- function(x)
 		    index <- c(index, switch(nexttag1,
 			    MACRO =,
 			    TEXT = nextobj1,
-			    BLOCK = deparseLatex(nextobj1, dropBraces=TRUE)))
+			    BLOCK = if (length(nextobj1))
+					deparseLatex(nextobj1, dropBraces=TRUE)
+				    else " ")) # index for empty arg {}
 		}
 		subst <- latex_tag(latexTable[[index]], "TEXT")
 
@@ -148,10 +173,7 @@ latexToUtf8 <- function(x)
 	            }
 		} else
 		    i <- j
-	    } else if (i < length(x) 
-	                && attr(x[[i+1]], "latex_tag") != "BLOCK" 
-	                && grepl("^[[:alpha:]]", x[[i+1]])) # unrecognized macro followed by letters needs space
-	        x[[i]] <- latex_tag(paste0(x[[i]], " "), "MACRO")
+	    }
 	} else if (tag == "BLOCK")
 	    x[[i]] <- latexToUtf8(a)
     }
@@ -194,7 +216,7 @@ makeLatexTable <- function(utf8table)
     	    	}
     	    } else if (nexttag == "BLOCK") {
     	    	if (!length(nextobj)) {
-    	    	    arg <- ""   # or character()?
+    	    	    arg <- " "  # index for empty arg {}
     	    	    getNext <- TRUE
     	    	} else {
     	    	    arg <- nextobj[[1L]]
@@ -240,11 +262,17 @@ makeLatexTable <- function(utf8table)
     table[["\\aa"]] <- "\u00e5"
     latexArgCount[["\\aa"]] <<- 0
 
+    ## Variants of accented i: LaTeX no longer needs dotless \i for accents
+    for (accent in c("`", "'", "^", '"')) {
+        table[[c(paste0("\\", accent), "i")]] <- table[[c(paste0("\\", accent), "\\i")]]
+        if (accent %in% c("'", "`"))
+            table[[c("\\a", accent, "i")]] <- table[[c("\\a", accent, "\\i")]]
+    }
+
     ## Also handle (some) LaTeX specials:
     table[["\\&"]] <- "&"
     latexArgCount[["\\&"]] <<- 0    
-    table[["\\~"]] <- "~"
-    latexArgCount[["\\~"]] <<- 0
+    table[["\\~"]][[" "]] <- "~"
     table[["\\%"]] <- "%"
     latexArgCount[["\\%"]] <<- 0    
     

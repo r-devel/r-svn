@@ -1,11 +1,11 @@
 % File src/library/grDevices/man/pictex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{pictex}
 \alias{pictex}
-\title{A PicTeX Graphics Driver}
+\title{A \I{PicTeX} Graphics Driver}
 \usage{
 pictex(file = "Rplots.tex", width = 5, height = 4, debug = FALSE,
        bg = "white", fg = "black")
@@ -24,7 +24,8 @@ pictex(file = "Rplots.tex", width = 5, height = 4, debug = FALSE,
 \description{
   This function produces simple graphics suitable for inclusion in TeX
   and LaTeX documents.  It dates from the very early days of \R and is
-  for historical interest only.
+  for historical interest only.  It was deprecated in \R 4.4.0.
+  Consider the \CRANpkg{tikzDevice} instead.
 }
 \details{
   This driver is much more basic than the other graphics drivers
@@ -34,7 +35,7 @@ pictex(file = "Rplots.tex", width = 5, height = 4, debug = FALSE,
   Line widths are ignored except when setting the spacing of line textures.
   \code{pch = "."} corresponds to a square of side 1pt.
 
-  This device does not support colour (nor does the PicTeX package),
+  This device does not support colour (nor does the \I{PicTeX} package),
   and all colour settings are ignored.
 
   Note that text is recorded in the file as-is, so annotations involving
@@ -75,7 +76,7 @@ pictex(file = "Rplots.tex", width = 5, height = 4, debug = FALSE,
   }
 }
 \seealso{
-  \code{\link{postscript}}, \code{\link{pdf}}, \code{\link{Devices}}.
+  \code{\link{pdf}}, \code{\link{postscript}}, \code{\link{Devices}}.
 
   The \code{tikzDevice} in the CRAN package of that name for more modern
   TeX-based graphics (\url{https://pgf.sourceforge.net/}, although

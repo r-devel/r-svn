@@ -111,7 +111,7 @@ function(x, sep = "", base = list(LETTERS), unique = TRUE)
 ## (With 'X' replaced by 'x').
 
 asplit <-
-function(x, MARGIN)
+function(x, MARGIN, drop = FALSE)
 {
     ## Ensure that x is an array object
     dl <- length(dim(x))
@@ -143,13 +143,11 @@ function(x, MARGIN)
     dn.ans  <- dn[ MARGIN]
     dimnames(x) <- NULL
 
-    d2 <- prod(d.ans)
-    newx <- aperm(x, c(s.call, s.ans))
-    dim(newx) <- c(prod(d.call), d2)
-    ans <- lapply(seq_len(d2), function(i) array(newx[,i], d.call, dn.call))
-    array(ans, d.ans, dn.ans)
+    .Internal(asplit(aperm(x, c(s.call, s.ans)),
+                     d.ans, d.call, dn.ans, dn.call,
+                     prod(d.call), prod(d.ans),
+                     as.logical(drop)))
 }
-
 
 ## Convert to data frame, mainly for list arrays produced by tapply()
 

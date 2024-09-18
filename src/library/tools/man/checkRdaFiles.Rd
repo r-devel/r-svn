@@ -11,7 +11,7 @@
 }
 \description{
   This reports for each of the files produced by \code{save} the size,
-  if it was saved in ASCII or XDR binary format, and if it was
+  if it was saved in ASCII or \I{XDR} binary format, and if it was
   compressed (and if so in what format).
 
   Usually such files have extension \file{.rda} or \file{.RData}, hence
@@ -59,7 +59,7 @@ resaveRdaFiles(paths, compress = c("auto", "gzip", "bzip2", "xz"),
     \R).}
   \item{version}{integer: positive with the version(s) of the
     \code{\link{save}()}, see there on which versions have been default in
-    which versions of \R, and \code{NA} for non-Rda files.}
+    which versions of \R, and \code{NA} for non-\abbr{Rda} files.}
 }
 \examples{\dontrun{
 ## from a package top-level source directory

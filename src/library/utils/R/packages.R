@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,8 +18,9 @@
 
 available.packages <-
 function(contriburl = contrib.url(repos, type), method,
-         fields = NULL, type = getOption("pkgType"),
-         filters = NULL, repos = getOption("repos"),
+         fields = getOption("available_packages_fields"),
+         type = getOption("pkgType"), filters = NULL,
+         repos = getOption("repos"),
          ignore_repo_cache = FALSE, max_repo_cache_age,
          quiet = TRUE, ...)
 {
@@ -713,16 +714,7 @@ remove.packages <- function(pkgs, lib)
             message("Updating HTML index of packages in '.Library'")
             make.packages.html(.Library)
         }
-        ## FIXME: only needed for packages installed < 2.13.0,
-        ## so remove eventually
-        ## is this the lib now empty?
-        Rcss <- file.path(lib, "R.css")
-        if (file.exists(Rcss)) {
-            pkgs <- Sys.glob(file.path(lib, "*", "Meta", "package.rds"))
-            if (!length(pkgs)) unlink(Rcss)
-        }
     }
-
 
     if(missing(lib) || is.null(lib)) {
         lib <- .libPaths()[1L]
@@ -757,6 +749,11 @@ download.packages <- function(pkgs, destdir, available = NULL,
         available <-
             available.packages(contriburl = contriburl, method = method, ...)
 
+    if (missing(method) || method == "auto" || method == "libcurl")
+        bulkdown <- matrix(character(), 0L, 3L)
+    else
+        bulkdown <- NULL
+   
     retval <- matrix(character(), 0L, 2L)
     for(p in unique(pkgs))
     {
@@ -808,15 +805,44 @@ download.packages <- function(pkgs, destdir, available = NULL,
                 url <- paste(repos, fn, sep = "/")
                 destfile <- file.path(destdir, fn)
 
-                res <- try(download.file(url, destfile, method, mode = "wb",
-                                         ...))
-                if(!inherits(res, "try-error") && res == 0L)
-                    retval <- rbind(retval, c(p, destfile))
-                else
-                    warning(gettextf("download of package %s failed", sQuote(p)),
-                            domain = NA, immediate. = TRUE)
+                if (is.null(bulkdown)) {
+                    # serial download
+                    res <- try(download.file(url, destfile, method, mode = "wb",
+                                             ...))
+                    if(!inherits(res, "try-error") && res == 0L)
+                        retval <- rbind(retval, c(p, destfile))
+                    else
+                        warning(gettextf("download of package %s failed", sQuote(p)),
+                                domain = NA, immediate. = TRUE)
+                } else
+                    bulkdown <- rbind(bulkdown, c(p, destfile, url))
             }
         }
+    }
+
+    if (!is.null(bulkdown) && nrow(bulkdown) > 0) {
+        # bulk download using libcurl
+        urls <- bulkdown[,3]
+        destfiles <- bulkdown[,2]
+        ps <- bulkdown[,1]
+                                           
+        res <- try(download.file(urls, destfiles, "libcurl", mode = "wb", ...))
+        if(!inherits(res, "try-error") && res == 0L) {
+            if (length(urls) > 1) {
+                retvals <- attr(res, "retvals")
+                for(i in seq_along(retvals)) {
+                    if (retvals[i] == 0L)
+                        retval <- rbind(retval, c(ps[i], destfiles[i]))
+                    else
+                        warning(gettextf("download of package %s failed",
+                                sQuote(ps[i])), domain = NA, immediate. = TRUE)
+                }
+            } else
+                retval <- rbind(retval, c(ps, destfiles))
+        } else
+            for(p in ps)
+                warning(gettextf("download of package %s failed", sQuote(p)),
+                        domain = NA, immediate. = TRUE)            
     }
 
     retval
@@ -1074,7 +1100,7 @@ compareVersion <- function(a, b)
     if(!length(xx)) return(list(character(), character()))
     ## Then check for those we already have installed
     pkgs <- installed[, "Package"]
-    have <- sapply(xx, function(x) {
+    have <- vapply(xx, function(x) {
         if(length(x) == 3L) {
             if (! x[[1L]] %in% pkgs ) return(FALSE)
             if(x[[2L]] != ">=") return(TRUE)
@@ -1085,7 +1111,7 @@ compareVersion <- function(a, b)
             target <- as.package_version(x[[3L]])
             any(do.call(x$op, list(current, target)))
         } else x[[1L]] %in% pkgs
-    })
+    }, NA)
     xx <- xx[!have]
     if(!length(xx)) return(list(character(), character()))
     ## now check if we can satisfy the missing dependencies
@@ -1198,6 +1224,26 @@ compareVersion <- function(a, b)
     db
 }
 
+.write_repositories <-
+function(repos, file = stdout(), ...)
+{
+    ## Use .write_repositories(getOption("repos")) to write the current
+    ## option to a file which can be re-used by other R processes.
+    x <- list(...)
+    n <- length(repos)
+    h <- "menu_name\tURL\tdefault\tsource\twin.binary\tmac.binary"
+    s <- sprintf(paste(rep.int("%s", 7L), collapse = "\t"),
+                 names(repos),
+                 names(repos),
+                 repos,
+                 rep_len(x$default %||% "TRUE", n),
+                 rep_len(x$source  %||% "NA", n),
+                 rep_len(x$win.binary %||% "NA", n),
+                 rep_len(x$mac.binary %||% "NA", n))
+    writeLines(c(h, s), file)
+}
+
+
 ### default changed to https: for R 3.3.0
 .expand_BioC_repository_URLs <- function(x)
 {
@@ -1211,7 +1257,7 @@ compareVersion <- function(a, b)
 }
 
 ## default is included in setRepositories.Rd (via \Sexpr)
-.BioC_version_associated_with_R_version_default <- "3.17"
+.BioC_version_associated_with_R_version_default <- "3.19"
 .BioC_version_associated_with_R_version <- function ()
     numeric_version(Sys.getenv("R_BIOC_VERSION",
                                .BioC_version_associated_with_R_version_default))

@@ -1,6 +1,6 @@
 % File src/library/grDevices/man/Type1Font.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2013 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Type1Font}
@@ -11,8 +11,8 @@
 \title{Type 1 and CID Fonts}
 \description{
   These functions are used to define the translation of a \R graphics
-  font family name to a Type 1 or CID font descriptions, used by both
-  the \code{\link{postscript}} and \code{\link{pdf}} graphics devices.
+  font family name to Type 1 or CID font descriptions, used by
+  the \code{\link{pdf}} and \code{\link{postscript}} graphics devices.
 }
 \usage{
 Type1Font(family, metrics, encoding = "default")
@@ -25,8 +25,8 @@ CIDFont(family, cmap, cmapEncoding, pdfresource = "")
     identify each family, so if you modify a family which is in use
     (see \code{\link{postscriptFonts}}) you need to change the family name.}
   \item{metrics}{a character vector of four or five strings giving paths
-    to the afm (Adobe Font Metric) files for the font.}
-  \item{cmap}{the name of a CMap file for a CID-keyed font.}
+    to the \abbr{afm} (Adobe Font Metric) files for the font.}
+  \item{cmap}{the name of a \abbr{CMap} file for a CID-keyed font.}
   \item{encoding}{for \code{Type1Font}, the name of an encoding file.
     Defaults to \code{"default"}, which maps on Unix-alikes to
     \code{"ISOLatin1.enc"} and on Windows to \code{"WinAnsi.enc"}.
@@ -34,7 +34,7 @@ CIDFont(family, cmap, cmapEncoding, pdfresource = "")
     \pkg{grDevices} package, which is used if the path does not contain a
     path separator.  An extension \code{".enc"} can be omitted.}
   \item{cmapEncoding}{
-    The name of a character encoding to be used with the named CMap
+    The name of a character encoding to be used with the named \abbr{CMap}
     file: strings will be translated to this encoding when written to
     the file.}
   \item{pdfresource}{A chunk of PDF code;  only required for using
@@ -54,7 +54,7 @@ CIDFont(family, cmap, cmapEncoding, pdfresource = "")
   compressed files with this extension.
 
   Glyphs in CID-keyed fonts are accessed by ID (number) and not by name.
-  The CMap file maps encoded strings (usually in a MBCS) to IDs, so
+  The \abbr{CMap} file maps encoded strings (usually in a \abbr{MBCS}) to IDs, so
   \code{cmap} and \code{cmapEncoding} specifications must match.  There
   are no real bold or italic versions of CID fonts (bold/italic were
   very rarely used in traditional East Asian topography), and for the
@@ -78,8 +78,8 @@ CIDFont(family, cmap, cmapEncoding, pdfresource = "")
   A list of class \code{"Type1Font"} or \code{"CIDFont"}.
 }
 \seealso{
-  \code{\link{postscript}}, \code{\link{pdf}},
-  \code{\link{postscriptFonts}}, and \code{\link{pdfFonts}}.
+  \code{\link{pdf}}, \code{\link{postscript}}, \code{\link{pdfFonts}} and
+  \code{\link{postscriptFonts}}.
 }
 \examples{
 ## This duplicates "ComputerModernItalic".

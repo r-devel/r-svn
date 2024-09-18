@@ -1,6 +1,6 @@
 % File src/library/base/man/lengths.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lengths}
@@ -16,8 +16,8 @@ lengths(x, use.names = TRUE)
 }
 \arguments{
   \item{x}{a \code{\link{list}}, list-like such as an
-    \code{\link{expression}} or an atomic vector (for which the result
-    is trivial).}
+    \code{\link{expression}}, \code{NULL} or an atomic vector (for which
+    the result is trivial).}
   \item{use.names}{logical indicating if the result should inherit the
     \code{\link{names}} from \code{x}.}
 }
@@ -31,7 +31,7 @@ lengths(x, use.names = TRUE)
   specific classes of objects, see \link{InternalMethods}.
 }
 \note{
-  One raison d'\enc{être}{etre} of \code{lengths(x)} is its use as a
+  One \I{raison d'\enc{être}{etre}} of \code{lengths(x)} is its use as a
   more efficient version of \code{sapply(x, length)} and similar
   \code{*apply} calls to \code{\link{length}}.  This is the reason why
   \code{x} may be an atomic vector, even though \code{lengths(x)} is

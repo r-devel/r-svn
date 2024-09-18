@@ -1,17 +1,34 @@
  ALTCOMPLEX_ELT
+ ALTCOMPLEX_SET_ELT
  ALTINTEGER_ELT
+ ALTINTEGER_MAX
+ ALTINTEGER_MIN
+ ALTINTEGER_SET_ELT
+ ALTINTEGER_SUM
+ ALTLIST_ELT
  ALTLIST_SET_ELT
  ALTLOGICAL_ELT
+ ALTLOGICAL_SET_ELT
+ ALTLOGICAL_SUM
  ALTRAW_ELT
+ ALTRAW_SET_ELT
  ALTREAL_ELT
+ ALTREAL_MAX
+ ALTREAL_MIN
+ ALTREAL_SET_ELT
+ ALTREAL_SUM
  ALTREP_COERCE
  ALTREP_DUPLICATE_EX
  ALTREP_INSPECT
  ALTREP_SERIALIZED_CLASS
  ALTREP_SERIALIZED_STATE
+ ALTREP_SET_TYPEOF
+ ALTREP_TRUELENGTH
  ALTREP_UNSERIALIZE_EX
  ALTSTRING_SET_ELT
+ ALTVEC_DATAPTR_OR_NULL
  ALTVEC_EXTRACT_SUBSET
+ ASSIGNMENT_PENDING
  BASE_SYM_CACHED
  BINDING_IS_LOCKED
  BM_norm_keep
@@ -54,18 +71,27 @@
  BZ2_hbMakeCodeLengths
  BZ2_indexIntoF
  BZ2_rNums
+ CAR0
  CONS_NR
  CPFun
  ConsoleAcceptCmd
+ DECREMENT_REFCNT
+ DISABLE_REFCNT
  DebugMenuitem
  DefaultPalette
+ ENABLE_REFCNT
+ ENSURE_NAMED
  EhiWakeUp
  EncodeEnvironment
  EncodeExtptr
  EncodeReal2
  HASHASH
+ IF_PROMSXP_SET_PRVALUE
+ INCREMENT_REFCNT
  INIT_BNDCELL
+ IF_PROMSXP_SET_PRVALUE
  IS_ACTIVE_BINDING
+ IS_ASSIGNMENT_CALL
  IS_BYTES
  IS_LATIN1
  IS_SPECIAL_SYMBOL
@@ -74,18 +100,31 @@
  Init_R_Machine
  Init_R_Variables
  LOCK_BINDING
+ LOGICAL_IS_SORTED
  LoadInitFile
+ MARK
+ MARK_ASSIGNMENT_CALL
+ MAYBEJIT
  MDIset
  MDIsize
+ MISSING
  MainThread
+ NOJIT
  NO_SPECIAL_SYMBOLS
+ PROMISE_IS_EVALUATED
+ PROMISE_TAG
  PrintUsage
  ProfileEvent
+ RAISE_NAMED
+ REvprintf_internal
  RExitContext
+ RSTEP
+ RTRACE
  R_BCIntActive
  R_BCNodeStackBase
  R_BCProtReset
  R_BCProtTop
+ R_BCRelPC
  R_BCVersionOK
  R_BCbody
  R_BCpc
@@ -107,6 +146,7 @@
  R_DevicesSymbol
  R_DisableNLinBrowser
  R_DotEnvSymbol
+ R_EnsureFDLimit
  R_ErrorCon
  R_EvalDepth
  R_ExactSymbol
@@ -136,7 +176,6 @@
  R_InitSrcRefState
  R_InitialData
  R_InsertRestartHandlers
- R_Interactive
  R_IoBufferFree
  R_IoBufferGetc
  R_IoBufferInit
@@ -168,7 +207,6 @@
  R_PCRE_limit_recursion
  R_PCRE_study
  R_PCRE_use_JIT
- R_PPStackSize
  R_Parse1Buffer
  R_Parse1File
  R_ParseBuffer
@@ -182,15 +220,18 @@
  R_Quiet
  R_ReadItemDepth
  R_RecursiveSymbol
+ R_ReleaseMSet
  R_RestartStack
  R_RestartToken
  R_ReturnedValue
  R_SaveToFile
  R_SaveToFileV
+ R_SerializeInfo
  R_SessionContext
  R_SetMaxNSize
  R_SetMaxVSize
  R_SetNconn
+ R_SetOption
  R_SetOptionWarn
  R_SetOptionWidth
  R_SetPPSize
@@ -221,6 +262,7 @@
  R_XDRDecodeInteger
  R_XDREncodeDouble
  R_XDREncodeInteger
+ R_allocObject
  R_args_enable_refcnt
  R_binary
  R_checkConstants
@@ -246,18 +288,19 @@
  R_do_set_class
  R_dotCallFn
  R_dot_Class
- R_dot_Generic
  R_dot_GenericCallEnv
  R_dot_GenericDefEnv
  R_dot_Group
  R_dot_Methods
  R_expand_binding_value
+ R_expand_promise_value
  R_fgetc
  R_findBCInterpreterSrcref
  R_findExecContext
  R_findParentContext
  R_fixslash
  R_flexiblas_info
+ R_gc_running
  R_getBCInterpreterExpression
  R_getClockIncrement
  R_getCurrentSrcref
@@ -277,7 +320,7 @@
  R_has_methods
  R_in_gc
  R_initAsignSymbols
- R_initAssignSymbols
+ R_initEvalSymbols
  R_init_altrep
  R_init_base
  R_init_jit_enabled
@@ -300,6 +343,7 @@
  R_makeNotSubsettableError
  R_makeOutOfBoundsError
  R_max_num_math_threads
+ R_missing
  R_mkEVPROMISE_NR
  R_mktime
  R_moduleCdynload
@@ -335,7 +379,6 @@
  R_tzset
  R_tzsetwall
  R_unary
- R_unserialize
  R_vmakeErrorCondition
  R_warn_partial_match_args
  R_warn_partial_match_attr
@@ -421,6 +464,7 @@
  Rf_WarningMessage
  Rf_addMissingVarsToNewEnv
  Rf_allocCharsxp
+ Rf_applyClosure
  Rf_asVecSize
  Rf_bd0
  Rf_chebyshev_eval
@@ -490,6 +534,7 @@
  Rf_printwhere
  Rf_promiseArgs
  Rf_qchisq_appr
+ Rf_reEnc3
  Rf_readS3VarsFromFrame
  Rf_regcomp
  Rf_regerror
@@ -510,9 +555,7 @@
  Rf_tspgets
  Rf_ucstomb
  Rf_unbindVar
- Rf_unpromiseArgs
  Rf_usemethod
- Rf_utf8toucs
  Rf_utf8toucs32
  Rf_vectorIndex
  Rf_wcs4toutf8
@@ -533,8 +576,10 @@
  Rvsnprintf_mbcs
  Rwin_rename
  Rwin_wrename
+ SETTER_CLEAR_NAMED
  SET_ACTIVE_BINDING_BIT
  SET_ASCII
+ SET_ASSIGNMENT_PENDING
  SET_BASE_SYM_CACHED
  SET_BNDCELL
  SET_BNDCELL_DVAL
@@ -544,16 +589,28 @@
  SET_BYTES
  SET_CACHED
  SET_CXTAIL
+ SET_DDVAL
  SET_HASHASH
+ SET_INTERNAL
  SET_LATIN1
+ SET_MAYBEJIT
+ SET_MISSING
+ SET_NOJIT
  SET_NO_SPECIAL_SYMBOLS
  SET_PRIMOFFSET
+ SET_PRINTNAME
+ SET_PROMISE_TAG
+ SET_RSTEP
+ SET_RTRACE
  SET_SPECIAL_SYMBOL
+ SET_SYMVALUE
  SET_UTF8
  Sys_TempDir
+ TRACKREFS
  UNIMPLEMENTED_TYPEt
  UNLOCK_BINDING
  UNSET_BASE_SYM_CACHED
+ UNSET_MAYBEJIT
  UNSET_NO_SPECIAL_SYMBOLS
  UNSET_SPECIAL_SYMBOL
  UTF8in
@@ -702,6 +759,7 @@
  do_arrangeWindows
  do_array
  do_asCharacterFactor
+ do_asplit
  do_asPOSIXct
  do_asPOSIXlt
  do_as_environment
@@ -772,6 +830,7 @@
  do_curlVersion
  do_date
  do_debug
+ do_declare
  do_delayed
  do_deparse
  do_detach
@@ -1156,6 +1215,7 @@
  do_sysumask
  do_syswhich
  do_tabulate
+ do_tailcall
  do_tempdir
  do_tempfile
  do_textconnection
@@ -1463,7 +1523,6 @@
  lzma_vli_size
  mb_char_len
  mbcsTruncateToValid
- mbcsValid
  menuclear
  menuconfig
  menueditornew
@@ -1660,7 +1719,6 @@
  tzname
  tzset
  unregisterBase
- utf8clen
  wgl_hist_init
  wgl_hist_next
  wgl_hist_prev

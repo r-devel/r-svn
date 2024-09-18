@@ -4,7 +4,7 @@
 % Distributed under GPL 2 or later
 
 \name{winMenus}
-\title{User Menus under MS Windows (Rgui)}
+\title{User Menus under MS Windows (\I{RGui})}
 \alias{winMenuAdd}
 \alias{winMenuAddItem}
 \alias{winMenuDel}

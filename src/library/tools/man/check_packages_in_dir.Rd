@@ -1,6 +1,6 @@
 % File src/library/tools/man/check_packages_in_dir.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2013-2022 R Core Team
+% Copyright 2013-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{check_packages_in_dir}
@@ -25,6 +25,8 @@ check_packages_in_dir(dir,
                       xvfb = FALSE,
                       Ncpus = getOption("Ncpus", 1L),
                       clean = TRUE,
+                      install_args = list(),
+                      parallel_args = list(),
                       ...)
 
 summarize_check_packages_in_dir_results(dir, all = TRUE,
@@ -69,11 +71,16 @@ check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE, ...)
     dependencies, respectively.}
   \item{xvfb}{a logical indicating whether to perform checking inside a
     virtual framebuffer X server (Unix only), or a character vector of
-    Xvfb options for doing so.}
+    \command{Xvfb} options for doing so.}
   \item{Ncpus}{the number of parallel processes to use for parallel
     installation and checking.}
   \item{clean}{a logical indicating whether to remove the downloaded
     reverse dependency sources.}
+  \item{install_args}{list of arguments to be passed to underlying 
+    \code{\link{install.packages}} call.}
+  \item{parallel_args}{list of arguments to be passed to underlying calls 
+    of \code{\link[parallel]{parLapply}} (on Windows) or 
+    \code{\link[parallel]{mclapply}} (on other OS).}
   \item{...}{passed to \code{\link{readLines}}, e.g. for reading log files 
     produced in a different encoding; currently not used by 
     \code{check_packages_in_dir}.}

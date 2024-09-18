@@ -1,7 +1,7 @@
 #  File src/library/utils/R/objects.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ function()
     c(names(.knownS3Generics), tools:::.get_internal_S3_generics())
 
 .S3methods <-
-function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropPath = FALSE)
+function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropPath = FALSE, useEnv = FALSE)
 {
     rbindSome <- function(df, nms, msg) {
         ## rbind.data.frame() -- dropping rows with duplicated names
@@ -88,9 +88,14 @@ function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropP
 
     S3MethodsStopList <- tools::nonS3methods(NULL)
     knownGenerics <- getKnownS3generics()
-    sp <- search()
-    if(dropPath) sp <- sp[c(1L, length(sp))]
     methods.called <- identical(sys.call(-1)[[1]], as.symbol("methods"))
+    if(useEnv) {
+        attach(envir, pos = 2L, warn.conflicts = FALSE)
+        if(methods.called) message("some methods may be unavailable outside of their namespace")
+        on.exit(detach(2L))
+    }
+    sp <- search()
+    if(dropPath) sp <- sp[c(if(useEnv) 1:2 else 1L, length(sp))]
     an <- lapply(sp, ls, all.names = all.names)
     lens <- lengths(an)
     an <- unlist(an, use.names=FALSE)
@@ -211,6 +216,7 @@ methods <-
 function(generic.function, class, all.names = FALSE, dropPath = FALSE)
 {
     envir <- parent.frame()
+    useNS <- FALSE
     if(!missing(generic.function) && !is.character(generic.function)) {
         what <- substitute(generic.function)
         generic.function <-
@@ -219,6 +225,7 @@ function(generic.function, class, all.names = FALSE, dropPath = FALSE)
                (deparse(what[[1L]], nlines=1L) %in% c("::", ":::"))) {
                 what <- as.character(what[2:3])
                 envir <- asNamespace(what[[1L]])
+                useNS <- TRUE
                 what[[2L]]
             } else
                 deparse(what)
@@ -227,7 +234,8 @@ function(generic.function, class, all.names = FALSE, dropPath = FALSE)
     if (!missing(class) && !is.character(class))
         class <- deparse1(substitute(class))
 
-    s3 <- .S3methods(generic.function, class, envir, all.names=all.names, dropPath=dropPath)
+    s3 <- .S3methods(generic.function, class, envir, all.names=all.names, dropPath=dropPath,
+                     useEnv = useNS)
     s4 <- if(.isMethodsDispatchOn()) methods::.S4methods(generic.function, class)
 
     .MethodsFunction(s3, s4, missing(generic.function))
@@ -279,9 +287,13 @@ getS3method <- function(f, class, optional = FALSE, envir = parent.frame())
         }
     }
     method <- paste(f, class, sep=".")
-    if(!is.null(m <- get0(method, envir = envir, mode = "function")))
-	## FIXME(?): consider  tools::nonS3methods(<pkg>)  same as isS3method()
-        return(m)
+    if(!is.null(m <- get0(method, envir = envir, mode = "function"))) {
+	## know: f is a knownS3generic, and method m is a visible function
+	pkg <- if(isNamespace(em <- environment(m))) environmentName(em)
+	       else if(is.primitive(m)) "base" ## else NULL
+	if(is.na(match(method, tools::nonS3methods(pkg))))
+	    return(m)
+    }
     ## also look for registered method in namespaces
     defenv <-
 	if(!is.na(w <- .knownS3Generics[f]))
@@ -358,13 +370,13 @@ isS3stdGeneric <- function(f) {
     ## protect against technically valid but bizarre
     ## function(x) { { { UseMethod("gen")}}} by
     ## repeatedly consuming the { until we get to the first non { expr
-    while(is.call(bdexpr) && bdexpr[[1L]] == "{")
+    while(is.call(bdexpr) && bdexpr[[1L]] == quote(`{`))
         bdexpr <- bdexpr[[2L]]
 
     ## We only check if it is a "standard" s3 generic. i.e. the first non-{
     ## expression is a call to UseMethod. This will return FALSE if any
     ## work occurs before the UseMethod call ("non-standard" S3 generic)
-    ret <- is.call(bdexpr) && bdexpr[[1L]] == "UseMethod"
+    ret <- is.call(bdexpr) && bdexpr[[1L]] == quote(UseMethod)
     if(ret)
         names(ret) <- bdexpr[[2L]] ## arg passed to UseMethod naming generic
     ret

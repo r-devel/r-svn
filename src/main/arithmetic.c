@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023 The R Core Team.
+ *  Copyright (C) 1998--2024 The R Core Team.
  *  Copyright (C) 2003--2023 The R Foundation
  *  Copyright (C) 1995--1997 Robert Gentleman and Ross Ihaka
  *
@@ -1587,62 +1587,113 @@ attribute_hidden SEXP do_math2(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 
+// matching of (x, ...) signature.
+// This signature is used for round() to support the POSIXt method.
+// match for 'x' will be in the first result cell (R_MissingArg for no match).
+// Any additional arguments are appended to the cell for the 'x' argument.
+#define OPTIMIZE_MATCH
+static R_INLINE SEXP match_round_gen_args(SEXP args, SEXP call)
+{
+#ifdef OPTIMIZE_MATCH
+    // for now this optimization is worth while to avoid matchArgs
+    // overhead in common cases
+    static SEXP R_x_Symbol = NULL;
+    if (R_x_Symbol == NULL)
+        R_x_Symbol = install("x");
+    if (args != R_NilValue &&           // at least one arg
+        TAG(args) == R_NilValue &&      // first arg is not named
+        TAG(CDR(args)) != R_x_Symbol && // second arg, if any, is not named 'x'
+        CDDR(args) == R_NilValue)       // no mare than two arguments
+        return args;
+#endif
+    static SEXP round_gen_formals = NULL;
+    if (round_gen_formals == NULL)
+        round_gen_formals = allocFormalsList2(install("x"), R_DotsSymbol);
+    args = matchArgs_NR(round_gen_formals, args, call);
+
+    // merge ... result back into args
+    SEXP rest = CADR(args);
+    if (rest == R_MissingArg)
+        rest = R_NilValue;
+    else if (TYPEOF(rest) == DOTSXP)
+        SET_TYPEOF(rest, LISTSXP);
+    else error("matchArg returned something weird");
+    SETCDR(args, rest);
+    return args;
+}
+
+static R_INLINE SEXP match_Math2_dflt_args(SEXP args, SEXP call)
+{
+#ifdef OPTIMIZE_MATCH
+    // for now this optimization is worth while to avoid matchArgs
+    // overhead in common cases
+    if (args == R_NilValue)
+        return list2(R_MissingArg, R_MissingArg);
+    else if (TAG(args) == R_NilValue &&
+             CDR(args) == R_NilValue) {
+        SETCDR(args, CONS_NR(R_MissingArg, R_NilValue));
+        return args;
+    }
+    else if (CDR(args) != R_NilValue &&
+             CDDR(args) == R_NilValue &&
+             TAG(args) == R_NilValue &&
+             TAG(CDR(args)) == R_NilValue)
+        return args;
+#endif
+    static SEXP do_Math2_dflt_formals = NULL;
+    if (do_Math2_dflt_formals == NULL)
+        do_Math2_dflt_formals = allocFormalsList2(install("x"),
+                                                  install("digits"));
+    return matchArgs_NR(do_Math2_dflt_formals, args, call);
+}
+
 /* The S4 Math2 group, round and signif */
 /* This is a primitive SPECIALSXP with internal argument matching */
 attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP res, call2;
-    int n, nprotect = 2;
-    static SEXP do_Math2_formals = NULL;
+    int is_signif = (PRIMVAL(op) == 10004) ? TRUE : FALSE;
+    double dflt_digits = is_signif ? 6.0 : 0.;
 
-    if (length(args) >= 2 &&
-	isSymbol(CADR(args)) && R_isMissing(CADR(args), env)) {
-#define SET_DEFAULT_digits_			\
-	double digits = 0.; /* round() */	\
-	if(PRIMVAL(op) == 10004) /* signif() */	\
-	    digits = 6.
-	SET_DEFAULT_digits_;
-	PROTECT(args = list2(CAR(args), ScalarReal(digits))); nprotect++;
+    PROTECT_INDEX api;
+    PROTECT_WITH_INDEX(args = evalListKeepMissing(args, env), &api);
+
+    if (is_signif) {
+        REPROTECT(args = match_Math2_dflt_args(args, call), api);
+
+        if (CADR(args) == R_MissingArg)
+            SETCADR(args, ScalarReal(dflt_digits));
     }
+    else
+        REPROTECT(args = match_round_gen_args(args, call), api);
 
-    PROTECT(args = evalListKeepMissing(args, env));
     R_args_enable_refcnt(args);
-    PROTECT(call2 = lang2(CAR(call), R_NilValue));
-    SETCDR(call2, args);
+    PROTECT(call2 = LCONS(CAR(call), args));
 
-    n = length(args);
-    if (n != 1 && n != 2)
-	error(ngettext("%d argument passed to '%s' which requires 1 or 2 arguments",
-		       "%d arguments passed to '%s' which requires 1 or 2 arguments", n),
-	      n, PRIMNAME(op));
+    int dispatched = DispatchGroup("Math", call2, op, args, env, &res);
 
-    static SEXP R_x_Symbol = NULL;
-    if (! DispatchGroup("Math", call2, op, args, env, &res)) {
-	if(n == 1) {
-	    if(R_x_Symbol == NULL) R_x_Symbol = install("x");
-	    // Ensure  we do not call it with a mis-named argument:
-	    if(CAR(args) == R_MissingArg ||
-	       (TAG(args) != R_NilValue && TAG(args) != R_x_Symbol))
-		error(_("argument \"%s\" is missing, with no default"), "x");
-	    SET_DEFAULT_digits_;
-	    SETCDR(args, CONS(ScalarReal(digits), R_NilValue));
-	} else {
-	    /* If named, do argument matching by name */
-	    if (TAG(args) != R_NilValue || TAG(CDR(args)) != R_NilValue) {
-		if (do_Math2_formals == NULL)
-		    do_Math2_formals = allocFormalsList2(install("x"),
-							 install("digits"));
-		PROTECT(args = matchArgs_NR(do_Math2_formals, args, call));
-		nprotect++;
-	    }
-	    if (length(CADR(args)) == 0)
-		errorcall(call, _("invalid second argument of length 0"));
-	}
-	res = do_math2(call, op, args, env);
-    }
-    UNPROTECT(nprotect);
     SETCDR(call2, R_NilValue); /* clear refcnt on args */
     R_try_clear_args_refcnt(args);
+    UNPROTECT(1); /* call2 */
+
+    if (! dispatched) {
+        if (! is_signif) {
+            REPROTECT(args = match_Math2_dflt_args(args, call), api);
+
+            if (CADR(args) == R_MissingArg)
+                SETCADR(args, ScalarReal(dflt_digits));
+        }
+
+        if (CAR(args) == R_MissingArg)
+	    R_MissingArgError_c("x", call, "MathMissingError");
+
+        if (xlength(CADR(args)) == 0)
+            errorcall(call, _("invalid second argument of length 0"));
+
+        res = do_math2(call, op, args, env);
+    }
+
+    UNPROTECT(1); /* args */
     return res;
 }
 
@@ -1733,7 +1784,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
     if (n == 1) {
 	if (CAR(args) == R_MissingArg ||
 	    (TAG(args) != R_NilValue && TAG(args) != R_x_Symbol))
-	    error(_("argument \"%s\" is missing, with no default"), "x");
+	    R_MissingArgError_c("x", call, "log1Error");
 
 	if (! DispatchGroup("Math", call, op, args, env, &res)) {
 	    if (isComplex(CAR(args)))
@@ -1751,7 +1802,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	PROTECT(args = matchArgs_NR(do_log_formals, args, call));
 
 	if(CAR(args) == R_MissingArg)
-	    error(_("argument \"%s\" is missing, with no default"), "x");
+	    R_MissingArgError_c("x", call, "log2Error");
 	if (CADR(args) == R_MissingArg)
 	    SETCADR(args, ScalarReal(DFLT_LOG_BASE));
 
@@ -2267,7 +2318,8 @@ attribute_hidden SEXP do_math5(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif /* Math5 is there */
 
 /* This is used for experimenting with parallelized nmath functions -- LT */
-CCODE R_get_arith_function(int which)
+/* Hide for now */
+attribute_hidden CCODE R_get_arith_function(int which)
 {
     switch (which) {
     case 1: return do_math1;

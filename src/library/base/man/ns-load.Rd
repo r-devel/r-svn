@@ -36,8 +36,8 @@ isNamespaceLoaded(name)
   \item{package}{string naming the package/name space to load.}
   \item{lib.loc}{character vector specifying library search path (the location
     of \R library trees to search through.}
-  \item{keep.source}{Now ignored except during package installation.}
-  \item{keep.parse.data}{Ignored except during package installation.}
+  \item{keep.source}{now ignored except during package installation.}
+  \item{keep.parse.data}{ignored except during package installation.}
   \item{partial}{logical; if true, stop just after loading code.}
   \item{versionCheck}{\code{NULL} or a version specification (a list
     with components \code{op} and \code{version}).}
@@ -137,7 +137,7 @@ isNamespaceLoaded(name)
  statL <- isNamespaceLoaded("stats")% checks work also when it is *not* loaded
  stopifnot( identical(statL, "stats" \%in\% lns) )
 
- ## The string "foo" and the symbol 'foo' can be used interchangably here:
+ ## The string "foo" and the symbol 'foo' can be used interchangeably here:
  stopifnot( identical(isNamespaceLoaded(  "foo"   ), FALSE),
             identical(isNamespaceLoaded(quote(foo)), FALSE),
             identical(isNamespaceLoaded(quote(stats)), statL))

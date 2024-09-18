@@ -87,9 +87,11 @@ contrasts(fff) <- contr.sum(5)[, 1:2]; contrasts(fff)
 
 ## using sparse contrasts: % useful, once model.matrix() works with these :
 ffs <- fff
+if(requireNamespace("Matrix", lib.loc=.Library)) withAutoprint({
 contrasts(ffs) <- contr.sum(5, sparse = TRUE)[, 1:2]; contrasts(ffs)
 stopifnot(all.equal(ffs, fff))
 contrasts(ffs) <- contr.sum(5, sparse = TRUE); contrasts(ffs)
+})
 
 # glm.Rd
 utils::data(anorexia, package = "MASS")
@@ -155,7 +157,7 @@ termplot(hills.lm, transform.x = TRUE,
 	 terms = "log(dist)", main = "Transformed")
 
 # xtabs.Rd
-if(require("Matrix")) {
+if(require("Matrix", .Library)) {
  ## similar to "nlme"s  'ergoStool' :
  d.ergo <- data.frame(Type = paste0("T", rep(1:4, 9*4)),
                       Subj = gl(9, 4, 36*4))
@@ -174,3 +176,8 @@ if(require("Matrix")) {
 ## From splines
 library(splines)
 Matrix::drop0(zapsmall(6*splineDesign(knots = 1:40, x = 4:37, sparse = TRUE)))
+
+
+## From tools
+library(tools)
+example(standard_package_names, run.donttest = TRUE)

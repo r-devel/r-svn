@@ -9,7 +9,7 @@
 \alias{Sys.chmod}
 \alias{Sys.umask}
 \concept{directory}
-\concept{mkdir}
+\concept{\I{mkdir}}
 \alias{umask} % for links
 \title{Manipulation of Directories and File Permissions}
 \description{
@@ -83,7 +83,7 @@ Sys.umask(mode = NA)
   file.  So \R interprets \code{mode} to mean set read-only if and only
   if \code{(mode & 0200) == 0} (interpreted in octal).  Windows has a much
   more extensive system of file permissions on some file systems
-  (e.g., versions of NTFS) which are unrelated to this system call.
+  (e.g., versions of \abbr{NTFS}) which are unrelated to this system call.
 #endif
 
   \code{Sys.umask} sets the \code{umask} and returns the previous value:
@@ -135,7 +135,7 @@ Sys.umask(mode = NA)
   instead.  In particular, \file{d:} is not recognized as a directory.
   Nor are \samp{\\\\?\\} prefixes (and similar) supported.
 
-  UTF-8-encoded dirnames not valid in the current locale can be used.
+  UTF-8-encoded \I{dirname}s not valid in the current locale can be used.
 }
 #endif
 

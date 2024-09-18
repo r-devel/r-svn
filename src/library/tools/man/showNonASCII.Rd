@@ -24,9 +24,13 @@ showNonASCIIfile(file)
   This was originally written to help detect non-portable text in
   files in packages.
 
-  It prints all element of \code{x} which contain non-ASCII characters,
+  It prints all elements of \code{x} which contain non-ASCII characters,
   preceded by the element number and with non-ASCII bytes highlighted
   \emph{via} \code{\link{iconv}(sub = "byte")}.
+
+  However, this rendering depends on \code{\link{iconv}(to = "ASCII")}
+  failing to convert, and macOS 14 no longer does so reliably so for
+  example \I{permille} (\samp{\u2030}) is rendered as \code{o/oo}.
 }
 \value{
   The elements of \code{x} containing non-ASCII characters will be returned
@@ -43,7 +47,7 @@ out <- c(
 f <- tempfile()
 cat(out, file = f, sep = "\n")
 
-showNonASCIIfile(f)
+\dontdiff{showNonASCIIfile(f)}
 unlink(f)
 }
 \keyword{utilities}

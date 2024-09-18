@@ -188,6 +188,7 @@ attribute_hidden SEXP do_deparse(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 // deparse1() version *looking* at getOption("deparse.max.lines")
+attribute_hidden /* would need to be in an installed header if not hidden */
 SEXP deparse1m(SEXP call, Rboolean abbrev, int opts)
 {
     Rboolean backtick = TRUE;
@@ -319,7 +320,8 @@ static SEXP deparse1WithCutoff(SEXP call, Rboolean abbrev, int cutoff,
  * This is needed in terms.formula, where we must be able
  * to deparse a term label into a single line of text so
  * that it can be reparsed correctly */
-SEXP deparse1line_(SEXP call, Rboolean abbrev, int opts)
+attribute_hidden
+SEXP deparse1line_ex(SEXP call, Rboolean abbrev, int opts)
 {
     Rboolean backtick=TRUE;
     int lines;
@@ -356,7 +358,7 @@ SEXP deparse1line_(SEXP call, Rboolean abbrev, int opts)
 
 SEXP deparse1line(SEXP call, Rboolean abbrev)
 {
-    return deparse1line_(call, abbrev, SIMPLEDEPARSE);
+    return deparse1line_ex(call, abbrev, SIMPLEDEPARSE);
 }
 
 
@@ -458,7 +460,7 @@ attribute_hidden SEXP do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
     int nout = 0;
     for (int i = 0; i < nobjs; i++, o = CDR(o)) {
 	SET_TAG(o, installTrChar(STRING_ELT(names, i)));
-	SETCAR(o, findVar(TAG(o), source));
+	SETCAR(o, R_findVar(TAG(o), source));
 	if (CAR(o) == R_UnboundValue)
 	    warning(_("object '%s' not found"), EncodeChar(PRINTNAME(TAG(o))));
 	else nout++;
@@ -911,7 +913,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	    UNPROTECT(2); // (e, cl_def)
 	    int n;
 	    Rboolean has_Data = FALSE;// does it have ".Data" slot?
-	    Rboolean hasS4_t = TYPEOF(s) == S4SXP;
+	    Rboolean hasS4_t = TYPEOF(s) == OBJSXP;
 	    if(TYPEOF(slotNms) == STRSXP && (n = LENGTH(slotNms))) {
 		PROTECT(slotNms);
 		SEXP slotlist = PROTECT(allocVector(VECSXP, n));
@@ -1506,9 +1508,15 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	d->sourceable = FALSE;
 	print2buff("<weak reference>", d);
 	break;
-    case S4SXP: {
-	error("'S4SXP': should not happen - please report");
-      break;
+    case OBJSXP: {
+	/*
+	print2buff("object(", d);
+	if(attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
+	 print2buff(")", d);
+	*/
+	d->sourceable = FALSE;
+	print2buff("<object>", d);
+	break;
     }
     default:
 	d->sourceable = FALSE;

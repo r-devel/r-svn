@@ -78,7 +78,7 @@ aov(formula, data = NULL, projections = FALSE, qr = TRUE,
 }
 \author{
   The design was inspired by the S function of the same name described
-  in Chambers \emph{et al} (1992).
+  in Chambers \abbr{et al.}\sspace(1992).
 }
 \seealso{
   \code{\link{lm}}, \code{\link{summary.aov}},
@@ -102,9 +102,7 @@ aov(terms(yield ~ block + N * P + K, keep.order = TRUE), npk)
 ## as a test, not particularly sensible statistically
 npk.aovE <- aov(yield ~  N*P*K + Error(block), npk)
 npk.aovE
-## IGNORE_RDIFF_BEGIN
-summary(npk.aovE)
-## IGNORE_RDIFF_END
+\dontdiff{summary(npk.aovE)}
 options(op)  # reset to previous
 }
 \keyword{models}

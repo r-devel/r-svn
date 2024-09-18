@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,10 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+
+#ifdef Win32
+#include <trioremap.h> /* for %lld */
+#endif
 
 static SEXP installAttrib(SEXP, SEXP, SEXP);
 static SEXP removeAttrib(SEXP, SEXP);
@@ -75,7 +79,7 @@ static SEXP row_names_gets(SEXP vec, SEXP val)
 	}
     } else if(!isString(val))
 	error(_("row names must be 'character' or 'integer', not '%s'"),
-	      type2char(TYPEOF(val)));
+	      R_typeToChar(val));
     PROTECT(vec);
     PROTECT(val);
     ans =  installAttrib(vec, R_RowNamesSymbol, val);
@@ -135,7 +139,7 @@ attribute_hidden SEXP getAttrib0(SEXP vec, SEXP name)
 		}
 		else
 		    error(_("getAttrib: invalid type (%s) for TAG"),
-			  type2char(TYPEOF(TAG(vec))));
+			  R_typeToChar(TAG(vec)));
 	    }
 	    UNPROTECT(1);
 	    if (any) {
@@ -401,9 +405,10 @@ static void checkNames(SEXP x, SEXP s)
     if (isVector(x) || isList(x) || isLanguage(x)) {
 	if (!isVector(s) && !isList(s))
 	    error(_("invalid type (%s) for 'names': must be vector or NULL"),
-		  type2char(TYPEOF(s)));
+		  R_typeToChar(s));
 	if (xlength(x) != xlength(s))
-	    error(_("'names' attribute [%d] must be the same length as the vector [%d]"), length(s), length(x));
+	    error(_("'names' attribute [%lld] must be the same length as the vector [%lld]"),
+		  (long long)xlength(s), (long long)xlength(x));
     }
     else if(IS_S4_OBJECT(x)) {
       /* leave validity checks to S4 code */
@@ -604,7 +609,7 @@ attribute_hidden SEXP do_class(SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* character elements corresponding to the syntactic types in the
    grammar */
-static SEXP lang2str(SEXP obj, SEXPTYPE t)
+static SEXP lang2str(SEXP obj)
 {
   SEXP symb = CAR(obj);
   static SEXP if_sym = 0, while_sym, for_sym, eq_sym, gets_sym,
@@ -629,8 +634,7 @@ static SEXP lang2str(SEXP obj, SEXPTYPE t)
   return PRINTNAME(call_sym);
 }
 
-/* the S4-style class: for dispatch required to be a single string;
-   for the new class() function;
+/* R's class(), for S4 dispatch required to be a single string;
    if(!singleString) , keeps S3-style multiple classes.
    Called from the methods package, so exposed.
  */
@@ -671,7 +675,10 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	    klass = mkChar("name");
 	    break;
 	  case LANGSXP:
-	    klass = lang2str(obj, t);
+	    klass = lang2str(obj);
+	    break;
+	  case OBJSXP:
+	    klass = mkChar(IS_S4_OBJECT(obj) ? "S4" : "object");
 	    break;
 	  default:
 	    klass = type2str(t);
@@ -721,7 +728,7 @@ static SEXP S4_extends(SEXP klass, Rboolean use_tab) {
     }
     class = translateChar(STRING_ELT(klass, 0)); /* TODO: include package attr. */
     if(use_tab) {
-	val = findVarInFrame(R_S4_extends_table, install(class));
+	val = R_findVarInFrame(R_S4_extends_table, install(class));
 	vmaxset(vmax);
 	if(val != R_UnboundValue)
 	    return val;
@@ -737,7 +744,7 @@ static SEXP S4_extends(SEXP klass, Rboolean use_tab) {
     return(val);
 }
 
-SEXP R_S4_extends(SEXP klass, SEXP useTable)
+attribute_hidden SEXP R_S4_extends(SEXP klass, SEXP useTable)
 {
     return S4_extends(klass, asLogical(useTable));
 }
@@ -824,7 +831,7 @@ void InitS3DefaultTypes(void)
     }
 }
 
-/* Version for S3-dispatch */
+/* Version for S3- and S4-dispatch -- workhorse for R's  .class2() */
 attribute_hidden SEXP R_data_class2 (SEXP obj)
 {
     SEXP klass = getAttrib(obj, R_ClassSymbol);
@@ -855,7 +862,7 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	if (t != LANGSXP)
 	    error("type must be LANGSXP at this point");
 	if (n == 0) {
-	    return ScalarString(lang2str(obj, t));
+	    return ScalarString(lang2str(obj));
 	}
 	/* Where on earth is this ever needed ??
 	 * __FIXME / TODO__ ??
@@ -870,7 +877,7 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	    part2 = PROTECT(mkChar("matrix")); nprot++;
 	    SET_STRING_ELT(defaultClass, 1, part2);
 	}
-	SET_STRING_ELT(defaultClass, 1+I_mat, lang2str(obj, t));
+	SET_STRING_ELT(defaultClass, 1+I_mat, lang2str(obj));
 	UNPROTECT(nprot);
 	return defaultClass;
     }
@@ -914,7 +921,7 @@ attribute_hidden SEXP do_namesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     if (MAYBE_SHARED(CAR(args)) ||
 	((! IS_ASSIGNMENT_CALL(call)) && MAYBE_REFERENCED(CAR(args))))
 	SETCAR(args, R_shallow_duplicate_attr(CAR(args)));
-    if (TYPEOF(CAR(args)) == S4SXP) {
+    if (TYPEOF(CAR(args)) == OBJSXP) {
 	const char *klass = CHAR(STRING_ELT(R_data_class(CAR(args), FALSE), 0));
 	error(_("invalid to use names()<- on an S4 object of class '%s'"),
 	      klass);
@@ -922,8 +929,7 @@ attribute_hidden SEXP do_namesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP names = CADR(args);
     if (names != R_NilValue &&
 	! (TYPEOF(names) == STRSXP && ATTRIB(names) == R_NilValue)) {
-	PROTECT(call = allocList(2));
-	SET_TYPEOF(call, LANGSXP);
+	PROTECT(call = allocLang(2));
 	SETCAR(call, R_AsCharacterSymbol);
 	SETCADR(call, names);
 	names = eval(call, env);
@@ -978,8 +984,7 @@ SEXP namesgets(SEXP vec, SEXP val)
     PROTECT(val);
 
     /* Check that the lengths and types are compatible */
-
-    if (xlength(val) < xlength(vec)) {
+    if (xlength(val) < xlength(vec)) { // recycle
 	val = xlengthgets(val, xlength(vec));
 	UNPROTECT(1);
 	PROTECT(val);
@@ -1011,12 +1016,12 @@ SEXP namesgets(SEXP vec, SEXP val)
 	installAttrib(vec, R_NamesSymbol, val);
     else
 	error(_("invalid type (%s) to set 'names' attribute"),
-	      type2char(TYPEOF(vec)));
+	      R_typeToChar(vec));
     UNPROTECT(2);
     return vec;
 }
 
-#define isS4Environment(x) (TYPEOF(x) == S4SXP &&	\
+#define isS4Environment(x) (TYPEOF(x) == OBJSXP &&	\
 			    isEnvironment(R_getS4DataSlot(x, ENVSXP)))
 
 attribute_hidden SEXP do_names(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -1057,10 +1062,9 @@ attribute_hidden SEXP do_dimnamesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     return CAR(args);
 }
 
-static SEXP dimnamesgets1(SEXP val1)
+// simplistic version of as.character.default()
+static SEXP as_char_simpl(SEXP val1)
 {
-    SEXP this2;
-
     if (LENGTH(val1) == 0) return R_NilValue;
     /* if (isObject(val1)) dispatch on as.character.foo, but we don't
        have the context at this point to do so */
@@ -1069,7 +1073,7 @@ static SEXP dimnamesgets1(SEXP val1)
 	return asCharacterFactor(val1);
 
     if (!isString(val1)) { /* mimic as.character.default */
-	PROTECT(this2 = coerceVector(val1, STRSXP));
+	SEXP this2 = PROTECT(coerceVector(val1, STRSXP));
 	SET_ATTRIB(this2, R_NilValue);
 	SET_OBJECT(this2, 0);
 	UNPROTECT(1);
@@ -1081,9 +1085,6 @@ static SEXP dimnamesgets1(SEXP val1)
 
 SEXP dimnamesgets(SEXP vec, SEXP val)
 {
-    SEXP dims, top, newval;
-    int i, k;
-
     PROTECT(vec);
     PROTECT(val);
 
@@ -1094,8 +1095,9 @@ SEXP dimnamesgets(SEXP vec, SEXP val)
     /* There are, when this gets used as names<- for 1-d arrays */
     if (!isList(val) && !isNewList(val))
 	error(_("'%s' must be a list"), "dimnames");
-    dims = getAttrib(vec, R_DimSymbol);
-    if ((k = LENGTH(dims)) < length(val))
+    SEXP dims = getAttrib(vec, R_DimSymbol);
+    int k = LENGTH(dims);
+    if (k < length(val))
 	error(_("length of 'dimnames' [%d] must match that of 'dims' [%d]"),
 	      length(val), k);
     if (length(val) == 0) {
@@ -1104,9 +1106,10 @@ SEXP dimnamesgets(SEXP vec, SEXP val)
 	return vec;
     }
     /* Old list to new list */
+    SEXP newval;
     if (isList(val)) {
 	newval = allocVector(VECSXP, k);
-	for (i = 0; i < k; i++) {
+	for (int i = 0; i < k; i++) {
 	    SET_VECTOR_ELT(newval, i, CAR(val));
 	    val = CDR(val);
 	}
@@ -1126,22 +1129,22 @@ SEXP dimnamesgets(SEXP vec, SEXP val)
     if (k != length(val))
 	error(_("length of 'dimnames' [%d] must match that of 'dims' [%d]"),
 	      length(val), k);
-    for (i = 0; i < k; i++) {
+    for (int i = 0; i < k; i++) {
 	SEXP _this = VECTOR_ELT(val, i);
 	if (_this != R_NilValue) {
 	    if (!isVector(_this))
 		error(_("invalid type (%s) for 'dimnames' (must be a vector)"),
-		      type2char(TYPEOF(_this)));
+		      R_typeToChar(_this));
 	    if (INTEGER(dims)[i] != LENGTH(_this) && LENGTH(_this) != 0)
 		error(_("length of 'dimnames' [%d] not equal to array extent"),
 		      i+1);
-	    SET_VECTOR_ELT(val, i, dimnamesgets1(_this));
+	    SET_VECTOR_ELT(val, i, as_char_simpl(_this));
 	}
     }
     installAttrib(vec, R_DimNamesSymbol, val);
     if (isList(vec) && k == 1) {
-	top = VECTOR_ELT(val, 0);
-	i = 0;
+	SEXP top = VECTOR_ELT(val, 0);
+	int i = 0;
 	for (val = vec; !isNull(val); val = CDR(val))
 	    SET_TAG(val, installTrChar(STRING_ELT(top, i++)));
     }
@@ -1168,8 +1171,11 @@ attribute_hidden SEXP do_dimnames(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{ 
+attribute_hidden SEXP do_dim(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    check1arg(args, call, "x");
+
     SEXP ans;
     /* DispatchOrEval internal generic: dim */
     if (DispatchOrEval(call, op, "dim", args, env, &ans, 0, /* argsevald: */ 1))
@@ -1178,13 +1184,6 @@ SEXP R_dim(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = getAttrib(CAR(args), R_DimSymbol);
     UNPROTECT(1);
     return ans;
-}
-
-attribute_hidden SEXP do_dim(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    checkArity(op, args);
-    check1arg(args, call, "x");
-    return R_dim(call, op, args, env);
 }
 
 attribute_hidden SEXP do_dimgets(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -1213,10 +1212,9 @@ attribute_hidden SEXP do_dimgets(SEXP call, SEXP op, SEXP args, SEXP env)
     return x;
 }
 
+// called from setAttrib(vec, R_DimSymbol, val) :
 SEXP dimgets(SEXP vec, SEXP val)
 {
-    int i, ndim;
-    R_xlen_t len, total;
     PROTECT(vec);
     PROTECT(val);
     if (!isVector(vec) && !isList(vec))
@@ -1227,12 +1225,11 @@ SEXP dimgets(SEXP vec, SEXP val)
     UNPROTECT(1);
     PROTECT(val);
 
-    len = xlength(vec);
-    ndim = length(val);
+    int ndim = length(val);
     if (ndim == 0)
 	error(_("length-0 dimension vector is invalid"));
-    total = 1;
-    for (i = 0; i < ndim; i++) {
+    R_xlen_t total = 1, len = xlength(vec);
+    for (int i = 0; i < ndim; i++) {
 	/* need this test first as NA_INTEGER is < 0 */
 	if (INTEGER(val)[i] == NA_INTEGER)
 	    error(_("the dims contain missing values"));
@@ -1241,12 +1238,16 @@ SEXP dimgets(SEXP vec, SEXP val)
 	total *= INTEGER(val)[i];
     }
     if (total != len) {
-	if (total > INT_MAX || len > INT_MAX)
-	    error(_("dims do not match the length of object"), total, len);
-	else
-	    error(_("dims [product %d] do not match the length of object [%d]"), total, len);
+	error(_("dims [product %lld] do not match the length of object [%lld]"),
+	      (long long)total, (long long)len);
     }
-    removeAttrib(vec, R_DimNamesSymbol);
+#if 0
+// currently it is documented that `dim<-` removes dimnames() .. but ..
+    SEXP odim = getAttrib0(vec, R_DimSymbol); // keep dimnames(.) if dim() entries are unchanged
+    if((LENGTH(odim) != ndim) || memcmp((void *)INTEGER(odim),
+					(void *)INTEGER(val), ndim * sizeof(int)))
+#endif
+	removeAttrib(vec, R_DimNamesSymbol);
     installAttrib(vec, R_DimSymbol, val);
 
     /* Mark as immutable so nested complex assignment can't make the
@@ -1319,8 +1320,8 @@ attribute_hidden SEXP do_levelsgets(SEXP call, SEXP op, SEXP args, SEXP env)
 	return(ans);
     PROTECT(ans);
     if(!isNull(CADR(args)) && any_duplicated(CADR(args), FALSE))
-	errorcall(call, _("factor level [%d] is duplicated"),
-		  any_duplicated(CADR(args), FALSE));
+	errorcall(call, _("factor level [%lld] is duplicated"),
+		  (long long)any_duplicated(CADR(args), FALSE));
     args = ans;
     if (MAYBE_SHARED(CAR(args)) ||
 	((! IS_ASSIGNMENT_CALL(call)) && MAYBE_REFERENCED(CAR(args))))
@@ -1348,7 +1349,7 @@ attribute_hidden SEXP do_attributesgets(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Do checks before duplication */
     if (!isNewList(attrs))
 	error(_("attributes must be a list or NULL"));
-    int nattrs = length(attrs), i;
+    int i, nattrs = length(attrs);
     if (nattrs > 0) {
 	names = getAttrib(attrs, R_NamesSymbol);
 	if (names == R_NilValue)
@@ -1491,7 +1492,7 @@ attribute_hidden SEXP do_attr(SEXP call, SEXP op, SEXP args, SEXP env)
 		match = FULL;
 		break;
 	    }
-    else if (match == PARTIAL || match == PARTIAL2) {
+	    else if (match == PARTIAL || match == PARTIAL2) {
 		/* this match is partial and we already have a partial match,
 		   so the query is ambiguous and we will return R_NilValue
 		   unless a full match comes up.
@@ -1523,9 +1524,13 @@ attribute_hidden SEXP do_attr(SEXP call, SEXP op, SEXP args, SEXP env)
 	       partial match on "names" */
 	    tag = R_NamesSymbol;
 	    PROTECT(t = getAttrib(s, tag));
-	    if(t != R_NilValue && R_warn_partial_match_attr)
-		warningcall(call, _("partial match of '%s' to '%s'"), str,
-			    CHAR(PRINTNAME(tag)));
+	    if(t != R_NilValue && R_warn_partial_match_attr) {
+		SEXP cond =
+		    R_makePartialMatchWarningCondition(call, install(str), tag);
+		PROTECT(cond);
+		R_signalWarningCondition(cond);
+		UNPROTECT(1);
+	    }
 	    UNPROTECT(2);
 	    return t;
 	}
@@ -1546,9 +1551,13 @@ attribute_hidden SEXP do_attr(SEXP call, SEXP op, SEXP args, SEXP env)
 	UNPROTECT(1);
 	return R_NilValue;
     }
-    if (match == PARTIAL && R_warn_partial_match_attr)
-	warningcall(call, _("partial match of '%s' to '%s'"), str,
-		    CHAR(PRINTNAME(tag)));
+    if (match == PARTIAL && R_warn_partial_match_attr) {
+	SEXP cond =
+	    R_makePartialMatchWarningCondition(call, install(str), tag);
+	PROTECT(cond);
+	R_signalWarningCondition(cond);
+	UNPROTECT(1);
+    }
 
     ans =  getAttrib(s, tag);
     UNPROTECT(1);
@@ -1597,7 +1606,7 @@ attribute_hidden SEXP do_attrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	else {
 	    error(_("invalid type '%s' for slot name"),
-		  type2char(TYPEOF(nlist)));
+		  R_typeToChar(nlist));
 	    return R_NilValue; /*-Wall*/
 	}
 
@@ -1751,7 +1760,7 @@ static SEXP set_data_part(SEXP obj,  SEXP rhs) {
     return(val);
 }
 
-SEXP S3Class(SEXP obj)
+attribute_hidden SEXP S3Class(SEXP obj)
 {
     if(!s_dot_S3Class) init_slot_handling();
     return getAttrib(obj, s_dot_S3Class);
@@ -1775,7 +1784,7 @@ int R_has_slot(SEXP obj, SEXP name) {
     if(isString(name)) name = installTrChar(STRING_ELT(name, 0))
 
     R_SLOT_INIT;
-    if(name == s_dot_Data && TYPEOF(obj) != S4SXP)
+    if(name == s_dot_Data && TYPEOF(obj) != OBJSXP)
 	return(1);
     /* else */
     return(getAttrib(obj, name) != R_NilValue);
@@ -1912,13 +1921,13 @@ attribute_hidden SEXP do_AT(SEXP call, SEXP op, SEXP args, SEXP env)
 /* Return a suitable S3 object (OK, the name of the routine comes from
    an earlier version and isn't quite accurate.) If there is a .S3Class
    slot convert to that S3 class.
-   Otherwise, unless type == S4SXP, look for a .Data or .xData slot.  The
-   value of type controls what's wanted.  If it is S4SXP, then ONLY
+   Otherwise, unless type == OBJSXP, look for a .Data or .xData slot.  The
+   value of type controls what's wanted.  If it is OBJSXP, then ONLY
    .S3class is used.  If it is ANYSXP, don't check except that automatic
    conversion from the current type only applies for classes that extend
-   one of the basic types (i.e., not S4SXP).  For all other types, the
+   one of the basic types (i.e., not OBJSXP).  For all other types, the
    recovered data must match the type.
-   Because S3 objects can't have type S4SXP, .S3Class slot is not searched
+   Because S3 objects can't have type OBJSXP, .S3Class slot is not searched
    for in that type object, unless ONLY that class is wanted.
    (Obviously, this is another routine that has accumulated barnacles and
    should at some time be broken into separate parts.)
@@ -1934,9 +1943,9 @@ R_getS4DataSlot(SEXP obj, SEXPTYPE type)
     s_xData = install(".xData");
     s_dotData = install(".Data");
   }
-  if(TYPEOF(obj) != S4SXP || type == S4SXP) {
+  if(TYPEOF(obj) != OBJSXP || type == OBJSXP) {
     SEXP s3class = S3Class(obj);
-    if(s3class == R_NilValue && type == S4SXP) {
+    if(s3class == R_NilValue && type == OBJSXP) {
       UNPROTECT(1); /* obj */
       return R_NilValue;
     }
@@ -1952,7 +1961,7 @@ R_getS4DataSlot(SEXP obj, SEXPTYPE type)
     }
     UNPROTECT(1); /* s3class */
     UNSET_S4_OBJECT(obj);
-    if(type == S4SXP) {
+    if(type == OBJSXP) {
       UNPROTECT(1); /* obj */
       return obj;
     }

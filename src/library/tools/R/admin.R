@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -88,16 +88,6 @@ function(dir, outDir, builtStamp=character())
     db <- c(db,
             .expand_package_description_db_R_fields(db),
             Built = Built)
-
-    ## <FIXME>
-    ## This should no longer be necessary?
-    ## <COMMENT>
-    ## ## This cannot be done in a MBCS: write.dcf fails
-    ## ctype <- Sys.getlocale("LC_CTYPE")
-    ## Sys.setlocale("LC_CTYPE", "C")
-    ## on.exit(Sys.setlocale("LC_CTYPE", ctype))
-    ## </COMMENT>
-    ## </FIXME>
 
     .write_description(db, file.path(outDir, "DESCRIPTION"))
 
@@ -318,8 +308,20 @@ function(dir, outDir)
     if(need_enc && (Sys.getlocale("LC_CTYPE") %notin% c("C", "POSIX"))) {
         con <- file(outFile, "a")
         on.exit(close(con))  # Windows does not like files left open
+        badfiles <- c()
         for(f in codeFiles) {
+            ## We needed more care here: iconv() in macOS 14.1 throws
+            ## Aborts on some incorrectly encoded inputs.
             lines <- readLines(f, warn = FALSE)
+            if (enc == "UTF-8") {
+                valid <- validUTF8(lines)
+                if (any(!valid)) {
+                    warning(sprintf("file %s is invalid UTF-8",
+                                    sQuote(basename(f))),
+                            domain = NA, call. = FALSE)
+                    badfiles <- c(badfiles, basename(f))
+                }
+            }
             tmp <- iconv(lines, from = enc, to = "")
             bad <- which(is.na(tmp))
             if(length(bad))
@@ -341,6 +343,14 @@ function(dir, outDir)
             testParse(text = c(line1, tmp))
             writeLines(line1, con)
             writeLines(tmp, con)
+        }
+        if(length(badfiles)) {
+            validate <- config_val_to_logical(Sys.getenv("_R_CHECK_VALIDATE_UTF8_",
+                                                         "FALSE"))
+            if (validate)
+                stop("invalidly encoded .R file(s)", domain = NA, call. = FALSE)
+            else warning("invalidly encoded .R file(s)",
+                         domain = NA, call. = FALSE)
         }
 	close(con); on.exit()
     } else {
@@ -690,10 +700,7 @@ function(dir, outDir, keep.source = TRUE)
              domain = NA)
 
     ## We have to be careful to avoid repeated rebuilding.
-    vignettePDFs <-
-        file.path(outVignetteDir,
-                  sub("$", ".pdf",
-                      basename(file_path_sans_ext(vigns$docs))))
+    vignettePDFs <- file.path(outVignetteDir, paste0(vigns$names, ".pdf"))
     upToDate <- file_test("-nt", vignettePDFs, vigns$docs)
 
     ## The primary use of this function is to build and install PDF
@@ -736,12 +743,8 @@ function(dir, outDir, keep.source = TRUE)
         })
         ## In case of an error, do not clean up: should we point to
         ## buildDir for possible inspection of results/problems?
-        ## We need to ensure that vignetteDir is in TEXINPUTS and BIBINPUTS.
+        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS.
         if (vignette_is_tex(output)) {
-	    ## <FIXME>
-	    ## What if this fails?
-            ## Now gives a more informative error texi2pdf fails
-            ## or if it does not produce a <name>.pdf.
             tryCatch({
                 texi2pdf(file = output, quiet = TRUE, texinputs = vigns$dir)
                 output <- find_vignette_product(name, by = "texi2pdf", engine = engine)
@@ -750,7 +753,6 @@ function(dir, outDir, keep.source = TRUE)
                  sQuote(output), conditionMessage(e)),
                  domain = NA, call. = FALSE)
             })
-	    ## </FIXME>
 	}
 
         if(!file.copy(output, outVignetteDir, overwrite = TRUE))
@@ -760,6 +762,7 @@ function(dir, outDir, keep.source = TRUE)
                  domain = NA)
     }
 
+    if (any(!upToDate))
     compactPDF(outVignetteDir, gs_quality = "ebook")
 
     ## Need to change out of this dir before we delete it,

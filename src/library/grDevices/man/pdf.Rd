@@ -1,6 +1,6 @@
 % File src/library/grDevices/man/pdf.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{pdf}
@@ -17,22 +17,12 @@
 pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     width, height, onefile, family, title, fonts, version,
     paper, encoding, bg, fg, pointsize, pagecentre, colormodel,
-    useDingbats, useKerning, fillOddEven, compress)
+    useDingbats, useKerning, fillOddEven, compress,
+    timestamp, producer, author)
 }
 \arguments{
   \item{file}{a character string giving the file path.
-    If it is of the form \code{"|cmd"}, the output is piped to the
-    command given by \command{cmd}.  If it is \code{NULL},
-    then no external file is created (effectively, no drawing occurs),
-    but the device may still be queried (e.g., for size of text).
-
-    For use with \code{onefile = FALSE} give a C integer format such
-    as \code{"Rplot\%03d.pdf"} (the default in that case).
-    (See \code{\link{postscript}} for further details.)
-
-    Tilde expansion (see \code{\link{path.expand}}) is done. An input with
-    a marked encoding is converted to the native encoding or an error is
-    given.
+    See the section \sQuote{File specifications} for further details.
   }
   \item{width, height}{the width and height of the graphics region in
     inches.  The default values are \code{7}.}
@@ -40,10 +30,12 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     in one file.  If false, generate a file with name containing the page
     number for each page.  Defaults to \code{TRUE}, and forced to true
     if \code{file} is a pipe.}
-  \item{family}{the font family to be used, see
-    \code{\link{postscript}}.  Defaults to \code{"Helvetica"}.}
+  \item{family}{the initial font family to be used, normally as a
+    character string.  See the section \sQuote{Families}.  Defaults to
+    \code{"Helvetica"}.}
   \item{title}{title string to embed as the \samp{/Title} field in the
-    file.  Defaults to \code{"R Graphics Output"}.}
+    document metadata.  Defaults to \code{"R Graphics Output"};
+    use an empty string (\code{""}) to omit the field.}
   \item{fonts}{a character vector specifying \R graphics font family
     names for additional fonts which will be included in the PDF file.
     Defaults to \code{NULL}.}
@@ -58,18 +50,34 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     The default is \code{"special"}, which means that the \code{width}
     and \code{height} specify the paper size.  A further choice is
     \code{"default"}; if this is selected, the
-    papersize is taken from the option \code{"papersize"}
+    paper size is taken from the option \code{"papersize"}
     if that is set and as \code{"a4"} if it is unset or empty.
     Defaults to \code{"special"}.
   }
-  \item{encoding}{the name of an encoding file.  See
-    \code{\link{postscript}} for details.  Defaults to \code{"default"}.}
+  \item{encoding}{the name of an encoding file.  Defaults to
+    \code{"default"}.  The latter is interpreted
+    \describe{
+      \item{on Unix-alikes}{
+	as \file{"ISOLatin1.enc"} unless the locale is recognized as
+    corresponding to a language using ISO 8859-\{2,5,7,13,15\} or \I{KOI8}-\{R,U\}.
+      }
+      \item{on Windows}{
+    as \file{"CP1250.enc"} (Central European), \code{"CP1251.enc"} (Cyrillic),
+    \code{"CP1253.enc"} (Greek) or \code{"CP1257.enc"} (Baltic) if one
+    of those codepages is in use, otherwise \file{"WinAnsi.enc"}
+    (codepage 1252).
+      }
+    }
+    The file is looked for in the \file{enc} directory of package
+    \pkg{grDevices} if the path does not contain a path separator.  An
+    extension \code{".enc"} can be omitted.
+  }
   \item{bg}{the initial background color to be used.  Defaults to
     \code{"transparent"}.}
   \item{fg}{the initial foreground color to be used.  Defaults to
    \code{"black"}.}
   \item{pointsize}{the default point size to be used.  Strictly
-    speaking, in bp, that is 1/72 of an inch, but approximately in
+    speaking, in \abbr{bp}, that is 1/72 of an inch, but approximately in
     points.  Defaults to \code{12}.}
   \item{pagecentre}{logical: should the device region be centred on the
     page? -- is only relevant for \code{paper != "special"}.
@@ -81,7 +89,7 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   \item{useDingbats}{logical.  Should small circles be rendered
     \emph{via} the Dingbats font?  Defaults to \code{FALSE}.
     If \code{TRUE}, this can produce smaller and better output, but
-    there can font display problems in broken PDF viewers: although this
+    can cause font display problems in broken PDF viewers: although this
     font is one of the 14 guaranteed to be available in all PDF viewers,
     that guarantee is not always honoured.
 
@@ -91,8 +99,14 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     setting text and calculating string widths?  Defaults to \code{TRUE}.}
   \item{fillOddEven}{logical controlling the polygon fill mode:  see
     \code{\link{polygon}} for details.  Defaults to \code{FALSE}.}
-  \item{compress}{logical.  Should PDF streams be generated with Flate
+  \item{compress}{logical.  Should PDF streams be generated with \I{Flate}
     compression?  Defaults to \code{TRUE}.}
+  \item{timestamp}{logical.  If \code{FALSE}, omit the \samp{/CreationDate}
+    and \samp{/ModDate} metadata fields.  Defaults to \code{TRUE}.}
+  \item{producer}{logical.  If \code{FALSE}, omit the \samp{/Producer}
+    metadata field.  Defaults to \code{TRUE}.}
+  \item{author}{author string to embed as the \samp{/Author} field in the
+    document metadata.  Defaults to \code{""}, omitting the field.}
 }
 \details{
   All arguments except \code{file} default to values given by
@@ -101,11 +115,6 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
 
   \code{pdf()} opens the file \code{file} and the PDF commands needed to
   plot any graphics requested are sent to that file.
-
-  The \code{file} argument is interpreted as a C integer format as used
-  by \code{\link{sprintf}}, with integer argument the page number.
-  The default gives files \file{Rplot001.pdf}, \dots, \file{Rplot999.pdf},
-  \file{Rplot1000.pdf}, \dots.
 
   The \code{family} argument can be used to specify a PDF-specific
   font family as the initial/default font for the device.  If additional
@@ -128,18 +137,14 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   software (e.g., Ghostscript) may be required to embed the fonts so
   that the PDF can be included in other documents (e.g., LaTeX): see
   \code{\link{embedFonts}}.  The URW-based families described for
-  \code{\link{postscript}} can be used with viewers, platform dependently:
+  in section \sQuote{Families}.can be used with viewers, platform dependently:
   \describe{
     \item{on Unix-alikes}{viewers set up to use URW fonts, which is
       usual with those based on \code{xpdf} or Ghostscript.}
-    \item{on Windows}{viewers such as GSView which utilise URW fonts.}
+    \item{on Windows}{viewers such as \I{GSView} which utilise URW fonts.}
   }
   Since \code{\link{embedFonts}} makes use of Ghostscript, it should be
   able to embed the URW-based families for use with other viewers.
-
-  See \code{\link{postscript}} for details of encodings, as the internal
-  code is shared between the drivers.  The native PDF encoding is given
-  in file \file{PDFDoc.enc}.
 
   The PDF produced is fairly simple, with each page being represented as
   a single stream (by default compressed and possibly with references to
@@ -178,11 +183,153 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   coloured paper, though.
 }
 
+\section{File specifications}{
+  Tilde expansion (see \code{\link{path.expand}}) is done on the
+  \code{file} argument.  An input with a marked encoding is converted to
+  the native encoding or an error is given.
+
+  For use with \code{onefile = FALSE}, give a C integer format such as
+  \code{"Rplot\%03d.pdf"} (the default in that case) which is expanded
+  using the page number, so this uses files \file{Rplot001.pdf}, \dots,
+  \file{Rplot999.pdf}, \file{Rplot1000.pdf},
+
+  A single integer format matching the \link{regular expression}
+  \code{"\%[#0 +=-]*[0-9.]*[diouxX]"} is allowed in \code{file}.  The
+  character string should not otherwise contain a \code{\%}: if it is
+  really necessary, use \code{\%\%} in the string for \code{\%} in the
+  file path.
+
+  For \code{pdf}, \code{file} can be \code{NULL} when no external file
+  is created (effectively, no drawing occurs), but the device may still
+  be queried (e.g., for the size of text by (base graphics)
+  \code{\link{strwidth}} or (\pkg{grid})
+  \code{\link[grid]{stringWidth}}).
+}
+
+\section{Families}{
+  Font families are collections of fonts covering the five font faces,
+  (conventionally plain, bold, italic, bold-italic and symbol) selected
+  by the graphics parameter \code{\link{par}(font = )} or the grid
+  parameter \code{\link{gpar}(fontface = )}.  Font families can be
+  specified either as an initial/default font family for the device
+  via the \code{family} argument or after the device is opened by
+  the graphics parameter \code{\link{par}(family = )} or the grid
+  parameter \code{\link{gpar}(fontfamily = )}.  Families which will be
+  used in addition to the initial family must be specified in the
+  \code{fonts} argument when the device is opened.
+
+  Font families are declared via a call to \code{\link{pdfFonts}}
+  or \code{\link{postscriptFonts}}.
+
+  The argument \code{family} specifies the initial/default font family
+  to be used.  In normal use it is one of \code{"AvantGarde"},
+  \code{"Bookman"}, \code{"Courier"}, \code{"Helvetica"},
+  \code{"Helvetica-Narrow"}, \code{"NewCenturySchoolbook"},
+  \code{"Palatino"} or \code{"Times"}, and refers to the standard Adobe
+  PostScript fonts families of those names which are included (or
+  cloned) in all common PDF/PostScript renderers.
+
+  Many PDF/PostScript renders (including those based on
+  Ghostscript) use the URW equivalents of these fonts, which are
+  \code{"URWGothic"}, \code{"URWBookman"}, \code{"NimbusMon"},
+  \code{"NimbusSan"}, \code{"NimbusSanCond"}, \code{"CenturySch"},
+  \code{"URWPalladio"} and \code{"NimbusRom"} respectively.  If your
+  viewer is using URW fonts, you will obtain access to more characters
+  and more appropriate metrics by using these names.  To make these
+  easier to remember, \code{"URWHelvetica" == "NimbusSan"} and
+  \code{"URWTimes" == "NimbusRom"} are also supported.  However, if the
+  viewer is not using URW fonts (for example Adobe Acrobat Reader) it
+  may substitute inappropriately or not render at all. (Consider using
+  \code{\link{embedFonts}}.)
+
+  As from \R{}\sspace{}4.4.0 there is support for URW 2.0 fonts in
+  families \code{"URW2Helvetica"} (with \samp{Oblique} fonts),
+  \code{"URW2HelveticaItalic"} (with \samp{Italic} fonts),
+  \code{"URW2Times"} and \code{"NimbusMonoPS"}.  As recent versions of
+  Ghostscript will render with (and embed) these fonts. these families
+  should be used instead of \code{"URWHelvetica"}, \code{"URWTimes"},
+  \code{"NimbusSan"}, \code{"NimbusRom"}, and \code{"NimbusMon"}
+  
+
+  Another type of family makes use of CID-keyed fonts for East Asian
+  languages -- see \code{\link{pdfFonts}}.
+
+  The \code{family} argument is normally a character string naming a
+  font family, but family objects generated by \code{\link{Type1Font}}
+  and \code{\link{CIDFont}} are also accepted.  For compatibility with
+  earlier versions of \R, the initial family can also be specified as a
+  vector of four or five \abbr{afm} files.
+
+  Note that \R does not embed the font(s) used in the PostScript output:
+  see \code{\link{embedFonts}} for a utility to help do so.
+
+  Viewers and embedding applications frequently substitute fonts for
+  those specified in the family, and the substitute will often have
+  slightly different font metrics. \code{useKerning = TRUE} spaces the
+  letters in the string using kerning corrections for the intended
+  family: this may look uglier than \code{useKerning = FALSE}.
+}
+
+\section{Encodings}{
+  Encodings describe which glyphs are used to display the character codes
+  (in the range 0--255).  Most commonly \R uses \I{ISOLatin1} encoding, and
+  the examples for \code{\link{text}} are in that encoding.  However,
+  the encoding used on machines running \R may well be different, and by
+  using the \code{encoding} argument the glyphs can be matched to
+  encoding in use.  This suffices for European and Cyrillic languages,
+  but not for East Asian languages.  For the latter, composite CID fonts are
+  used.  These fonts are useful for other languages: for example they
+  may contain Greek glyphs. (The rest of this section applies only when CID
+  fonts are not used.)
+
+  None of this will matter if only ASCII characters (codes 32--126) are
+  used as all the encodings (except \code{"TeXtext"}) agree over that
+  range.  Some encodings are supersets of \I{ISOLatin1}.  However, if
+  accented and special characters do not come out as you expect, you may
+  need to change the encoding.  Some other encodings are supplied with
+  \R: \code{"ISOLatin2.enc"} (Central/Eastern Europe),
+  \code{"ISOLatin7.enc"} (ISO 8859-13, \sQuote{Baltic Rim}),
+  \code{"ISOLatin9.enc"} (ISO 8859-15, including Euro),
+  \code{"Cyrillic.enc"} (ISO 8859-5), \code{"KOI8-R.enc"},
+  \code{"KOI8-U.enc"}, and the Windows encodings \code{"WinAnsi.enc"}
+  (also known as \code{"CP1252.enc"}, \code{"CP1250.enc"}
+  (Central/Eastern Europe), \code{"CP1251.enc"} (Cyrillic),
+  \code{"Greek.enc"} (ISO 8859-7), \code{"CP1253.enc"} (modern Greek)
+  and \code{"CP1257.enc"} (\sQuote{Baltic Rim}).  Note that many glyphs
+  in these encodings are not in the fonts corresponding to the standard
+  families.  (The Adobe ones for all but Courier, Helvetica and Times
+  cover little more than Latin-1, whereas the URW ones also cover
+  Latin-2, Latin-7, Latin-9 and Cyrillic but no Greek.  The Adobe
+  exceptions cover the Latin character sets, but not the Euro.)
+
+  NB: support for encodings other than \code{"ISOLatin1.enc"} (and the
+  Windows ones on Windows) depends on support by the platform's
+  \code{libiconv} in a UTF-8 locale.
+
+  If you specify the encoding, it is your responsibility to ensure that
+  the PostScript font contains the glyphs used.  One issue here is the
+  Euro symbol which is in several encodings (including \I{WinAnsi} and
+  \I{ISOLatin9} encodings) but may well not be in the PostScript fonts.  (It
+  is in the URW variants; it is not in the supplied Adobe Font Metric
+  files so will not be centred correctly.)
+
+  There is an exception.  Character 45 (\code{"-"}) is always set
+  as minus (its value in Adobe \I{ISOLatin1}) even though it is hyphen in
+  the other encodings.  Hyphen is available as character 173 (octal
+  0255) in all the Latin encodings, Cyrillic and Greek.  (This can be
+  entered as \code{"\u00ad"} in a UTF-8 locale.)  There are some
+  discrepancies in accounts of glyphs 39 and 96: the supplied encodings
+  (except CP1250 and CP1251) treat these as \sQuote{\I{quoteright}} and
+  \sQuote{\I{quoteleft}} (rather than \sQuote{\I{quotesingle}}/\sQuote{acute}
+  and \sQuote{grave} respectively), as they are in the Adobe
+  documentation.
+}
+
 \section{Color models}{
-  The default color model (\code{"srgb"}) is sRGB.  Model \code{"gray"}
-  (or \code{"grey"}) maps sRGB colors to greyscale using perceived
+  The default color model (\code{"srgb"}) is \abbr{sRGB}.  Model \code{"gray"}
+  (or \code{"grey"}) maps \abbr{sRGB} colors to greyscale using perceived
   luminosity (biased towards green).  \code{"cmyk"} outputs in CMYK
-  colorspace.  The simplest possible conversion from sRGB to CMYK is
+  colorspace.  The simplest possible conversion from \abbr{sRGB} to CMYK is
   used
   (\url{https://en.wikipedia.org/wiki/CMYK_color_model#Mapping_RGB_to_CMYK}),
   and raster images are output in RGB.
@@ -190,7 +337,7 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   Also available for backwards compatibility is model \code{"rgb"} which
   uses uncalibrated RGB and corresponds to the model used with that name
   in \R prior to 2.13.0.  Some viewers may render some plots in that
-  colorspace faster than in sRGB, and the plot files will be smaller.
+  colorspace faster than in \abbr{sRGB}, and the plot files will be smaller.
 }
 
 \section{Conventions}{
@@ -206,9 +353,9 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     \item Circles of any radius are allowed.  If \code{useDingbats =
       TRUE}, opaque circles of less than 10 big points radius are
     rendered using char 108 in the Dingbats font: all semi-transparent
-    and larger circles using a \enc{Bézier}{Bezier} curve for each
+    and larger circles using a \I{\enc{Bézier}{Bezier}} curve for each
     quadrant.
-    \item Colours are by default specified as sRGB.
+    \item Colours are by default specified as \abbr{sRGB}.
   }
 
   At very small line widths, the line type may be forced to solid.
@@ -267,11 +414,11 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
 </fontconfig>
 }
   Some further workarounds for problems with symbol fonts on
-  viewers using \sQuote{fontconfig} are given in the \sQuote{Cairo Fonts}
+  viewers using \sQuote{\I{fontconfig}} are given in the \sQuote{Cairo Fonts}
   section of the help for \code{\link{X11}}.
  }
  \item{On Windows:}{
-  The TeXworks PDF viewer was one of those which has been seen to fail to
+  The \I{TeXworks} PDF viewer was one of those which has been seen to fail to
   display Dingbats (used by e.g.\sspace{}\code{pch = 1}) correctly.
   Whereas on other platforms the problems seen were incorrect output, on
   Windows points were silently omitted: however recent versions seem to
@@ -296,10 +443,11 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   More details of font families and encodings and especially handling
   text in a non-Latin-1 encoding and embedding fonts can be found in
 
+  \bibshow{
   Paul Murrell and Brian Ripley (2006).
   \dQuote{Non-standard fonts in PostScript and PDF graphics.}
   \emph{R News}, \bold{6}(2), 41--47.
-  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.
+  \url{https://www.r-project.org/doc/Rnews/Rnews_2006-2.pdf}.}
 }
 \examples{
 \donttest{

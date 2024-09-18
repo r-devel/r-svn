@@ -15,7 +15,7 @@
 #  https://www.R-project.org/Licenses/
 
 # Statlib code by John Chambers, Bell Labs, 1994
-# Changes Copyright (C) 1998-2023 The R Core Team
+# Changes Copyright (C) 1998-2024 The R Core Team
 
 
 ## As from R 2.4.0, row.names can be either character or integer.
@@ -107,7 +107,7 @@ row.names.default <- function(x) if(!is.null(dim(x))) rownames(x)# else NULL
         if(isFALSE(make.names))
             stop("missing values in 'row.names' are not allowed")
         if(is.na(make.names)) # automatic row.names
-            value <- .set_row_names(n)
+            value <- .set_row_names(if(n > 0) n else length(value))
         else if(!isTRUE(make.names)) stop("invalid 'make.names'")
         else # make.names = TRUE: amend 'value' to correct ones:
             value <- make.names(value, unique=TRUE)
@@ -182,11 +182,7 @@ as.data.frame <- function(x, row.names = NULL, optional = FALSE, ...)
 }
 
 as.data.frame.default <- function(x, ...) {
-    isVectorLike <- function(x) {
-        (is.atomic(x) && !is.null(x)) ##  # <== should be new  is.atomic(x) (!)
-        ## || (is.vector(x) && !is.object(x))
-    }
-    if(isVectorLike(x))
+    if(is.atomic(x))
         as.data.frame.vector(x, ...)
     else
     stop(gettextf("cannot coerce class %s to a data.frame",
@@ -220,13 +216,12 @@ as.data.frame.data.frame <- function(x, row.names = NULL, ...)
 as.data.frame.list <-
     function(x, row.names = NULL, optional = FALSE, ...,
 	     cut.names = FALSE, col.names = names(x), fix.empty.names = TRUE,
+             new.names = !missing(col.names),
              check.names = !optional,
              stringsAsFactors = FALSE)
 {
     ## need to protect names in x.
-    ## truncate any of more than 256 (or cut.names) bytes:
-    new.nms <- !missing(col.names)
-    if(cut.names) {
+    if(cut.names) { ## truncate any of more than 256 (or cut.names) bytes:
 	maxL <- if(is.logical(cut.names)) 256L else as.integer(cut.names)
 	if(any(long <- nchar(col.names, "bytes", keepNA = FALSE) > maxL))
 	    col.names[long] <- paste(substr(col.names[long], 1L, maxL - 6L), "...")
@@ -236,12 +231,15 @@ as.data.frame.list <-
 	       ## c("row.names", "check.rows", ...., "stringsAsFactors"),
 	       col.names, 0L)
     if(any.m <- any(m)) col.names[m] <- paste0("..adfl.", col.names[m])
-    if(new.nms || any.m || cut.names) names(x) <- col.names
+    if(new.names || any.m || cut.names) names(x) <- col.names
     ## data.frame() is picky with its 'row.names':
     alis <- c(list(check.names = check.names, fix.empty.names = fix.empty.names,
 		   stringsAsFactors = stringsAsFactors),
 	      if(!missing(row.names)) list(row.names = row.names))
     x <- do.call(data.frame, c(x, alis))
+    if(new.names && !check.names && length(names(x)) == length(col.names) &&
+       any(naNm <- is.na(col.names)))
+       names(x)[naNm] <- col.names[naNm]
     if(any.m) names(x) <- sub("^\\.\\.adfl\\.", "", names(x))
     x
 }
@@ -318,7 +316,7 @@ as.data.frame.matrix <- function(x, row.names = NULL, optional = FALSE, make.nam
     ## Explicitly check for NULL in case nrows==0
     autoRN <- (is.null(row.names) || length(row.names) != nrows)
     if(length(collabs) == ncols)
-	names(value) <- collabs
+	names(value) <- collabs %||% character()
     else if(!optional)
 	names(value) <- paste0("V", ic)
     class(value) <- "data.frame"
@@ -442,7 +440,7 @@ data.frame <-
 		    domain = NA)
 	    }
 	else function(current, new, i) {
-	    if(is.null(current)) {
+	    current %||%
 		if(anyDuplicated(new)) {
 		    warning(gettextf(
                         "some row.names duplicated: %s --> row.names NOT used",
@@ -450,7 +448,6 @@ data.frame <-
                         domain = NA)
 		    current
 		} else new
-	    } else current
 	}
     object <- as.list(substitute(list(...)))[-1L]
     mirn <- missing(row.names) # record before possibly changing
@@ -1476,7 +1473,7 @@ rbind.data.frame <- function(..., deparse.level = 1, make.row.names = TRUE,
 		      stringsAsFactors = stringsAsFactors)
     } else {
 	structure(value, class = cl,
-		  row.names = if(is.null(rlabs)) .set_row_names(nrow) else rlabs)
+		  row.names = rlabs %||% .set_row_names(nrow))
     }
 }
 

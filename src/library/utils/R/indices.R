@@ -42,8 +42,7 @@ packageDescription <-
     if(is.null(pkgpath)) pkgpath <- ""
 
     if(pkgpath == "") {
-        libs <- if(is.null(lib.loc)) .libPaths() else lib.loc
-        for(lib in libs)
+        for(lib in lib.loc %||% .libPaths())
             if(file.access(file.path(lib, pkg), 5) == 0L) {
                 pkgpath <- file.path(lib, pkg)
                 break
@@ -74,6 +73,12 @@ packageDescription <-
     } else file <- ""
 
     if(nzchar(file)) {
+        ## Could have found a pkgpath matching pkg ignoring case
+        ## (PR#18751):
+        if(is.null(pkgname <- desc[["Package"]]) || (pkgname != pkg)) {
+            warning(gettextf("no package '%s' was found", pkg), domain = NA)
+            return(NA)
+        }
         ## read the Encoding field if any
         enc <- desc[["Encoding"]]
         if(!is.null(enc) && !is.na(encoding)) {

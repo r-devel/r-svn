@@ -3,7 +3,8 @@
  * Copyright (C) 1995  Brian Ripley
  * ---
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2003	The R Foundation
+ *  Copyright (C) 2003-2024	The R Core Team
+ *  Copyright (C) 2003-2023	The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,16 +21,15 @@
  *  https://www.R-project.org/Licenses/
  */
 
+// This is written to allow for long vectors, but the return values are not
+
 #include "modreg.h"
 
 SEXP isoreg(SEXP y)
 {
-    int n = LENGTH(y), i, ip, known, n_ip;
-    double tmp, slope;
+    R_xlen_t n = XLENGTH(y), i;
     SEXP yc, yf, iKnots, ans;
     const char *anms[] = {"y", "yc", "yf", "iKnots", ""};
-
-    /* unneeded: y = coerceVector(y, REALSXP); */
 
     PROTECT(ans = mkNamed(VECSXP, anms));
 
@@ -43,16 +43,19 @@ SEXP isoreg(SEXP y)
 	return ans; /* avoid segfault below */
     }
 
+    /* unneeded: y = coerceVector(y, REALSXP); */
     /* yc := cumsum(0,y) */
     REAL(yc)[0] = 0.;
-    tmp = 0.;
+    double tmp = 0.;
     for (i = 0; i < n; i++) {
 	tmp += REAL(y)[i];
 	REAL(yc)[i + 1] = tmp;
     }
-    known = 0; ip = 0, n_ip = 0;
+    if(!R_FINITE(REAL(yc)[n]))
+	 error(_("non-finite sum(y) == %g is not allowed"), REAL(yc)[n]);
+    R_xlen_t known = 0, ip = 0, n_ip = 0;
     do {
-	slope = R_PosInf;/*1e+200*/
+	double slope = R_PosInf;/*1e+200*/
 	for (i = known + 1; i <= n; i++) {
 	    tmp = (REAL(yc)[i] - REAL(yc)[known]) / (i - known);
 	    if (tmp < slope) {
@@ -61,13 +64,13 @@ SEXP isoreg(SEXP y)
 	    }
 	}/* tmp := max{i= kn+1,.., n} slope(p[kn] -> p[i])  and
 	  *  ip = argmax{...}... */
-	INTEGER(iKnots)[n_ip++] = ip;
+	INTEGER(iKnots)[n_ip++] = (int) ip;
 	for (i = known; i < ip; i++)
 	    REAL(yf)[i] = (REAL(yc)[ip] - REAL(yc)[known]) / (ip - known);
     } while ((known = ip) < n);
 
     if (n_ip < n)
-	SET_VECTOR_ELT(ans, 3, lengthgets(iKnots, n_ip));
+	SET_VECTOR_ELT(ans, 3, xlengthgets(iKnots, n_ip));
     UNPROTECT(1);
     return(ans);
 }

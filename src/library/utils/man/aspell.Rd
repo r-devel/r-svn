@@ -45,14 +45,16 @@ aspell(files, filter, control = list(), encoding = "unknown",
   obtaining the Aspell, Hunspell and (International) Ispell programs and
   dictionaries.
 
-  On Windows, Aspell is available via MSYS2.  One should use a non-Cygwin
+  On Windows, Aspell is available via \abbr{MSYS2}.  One should use a non-\I{Cygwin}
   version, e.g.  package \code{mingw-w64-x86_64-aspell}.  The version built
-  against the Cygwin runtime (package \code{aspell}) requires Unix line
+  against the \I{Cygwin} runtime (package \code{aspell}) requires Unix line
   endings in files and Unix-style paths, which is incompatible with
   \code{aspell()}.
 
   The currently available built-in filters are \code{"Rd"}
-  (corresponding to \code{\link{RdTextFilter}}), \code{"Sweave"}
+  (corresponding to \code{\link{RdTextFilter}}, with additional argument
+  \code{ignore} allowing to give regular expressions for parts of the
+  text to be ignored for spell checking), \code{"Sweave"}
   (corresponding to \code{\link{SweaveTeXFilter}}), \code{"R"},
   \code{"pot"}, \code{"dcf"} and \code{"md"}.
 

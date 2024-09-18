@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2023 R Core Team
+### Copyright (C) 1998-2024 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -196,27 +196,21 @@ if test -n "${TEXI2ANY}"; then
                 false)
   AC_SUBST(INSTALL_INFO)
 fi
-if test "${r_cv_prog_texi2any_v5}" != yes; then
+if test "${r_cv_prog_texi2any_v6}" != yes; then
   warn_info="you cannot build info or HTML versions of the R manuals"
   AC_MSG_WARN([${warn_info}])
   TEXI2ANY=""
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
-if test "${r_cv_prog_texi2any_v7}" != yes; then 
-  HAVE_TEXI2ANY_V7_TRUE='#'
-else
-  HAVE_TEXI2ANY_V7_TRUE=
-fi
-AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
 AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
 AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
 ## ------------------------
-## Building the R Texinfo manuals requires texinfo v5.1 or later.
-## Set shell variable r_cv_prog_texi2any_v5 to 'yes' if a recent
+## Building the R manuals requires Texinfo v6.1 or later.
+## Set shell variable r_cv_prog_texi2any_v6 to 'yes' if a recent
 ## enough texi2any aka  makeinfo is found, and to 'no' otherwise.
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
@@ -230,24 +224,24 @@ AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
 AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
 [r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
   cut -f2 -d. | tr -dc '0123456789.'`])
-AC_CACHE_CHECK([whether texi2any version is at least 5.1],
-                [r_cv_prog_texi2any_v5],
+AC_CACHE_CHECK([whether texi2any version is at least 6.1],
+                [r_cv_prog_texi2any_v6],
 [if test -z "${r_cv_prog_texi2any_version_maj}" \
      || test -z "${r_cv_prog_texi2any_version_min}"; then
-  r_cv_prog_texi2any_v5=no
-elif test ${r_cv_prog_texi2any_version_maj} -gt 5; then
-  r_cv_prog_texi2any_v5=yes
-elif test ${r_cv_prog_texi2any_version_maj} -lt 5 \
+  r_cv_prog_texi2any_v6=no
+elif test ${r_cv_prog_texi2any_version_maj} -gt 6; then
+  r_cv_prog_texi2any_v6=yes
+elif test ${r_cv_prog_texi2any_version_maj} -lt 6 \
      || test ${r_cv_prog_texi2any_version_min} -lt 1; then
-  r_cv_prog_texi2any_v5=no
+  r_cv_prog_texi2any_v6=no
 else
-  r_cv_prog_texi2any_v5=yes
+  r_cv_prog_texi2any_v6=yes
 fi])
   ## Also record whether texi2any is at least 7 to appropriately handle
   ## HTML and EPUB output changes, see
   ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
 AC_CACHE_VAL([r_cv_prog_texi2any_v7],
-[if test ${r_cv_prog_texi2any_v5} = yes \
+[if test ${r_cv_prog_texi2any_v6} = yes \
      && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
   r_cv_prog_texi2any_v7=yes
 else
@@ -486,8 +480,8 @@ AC_CACHE_CHECK([for inline], r_cv_c_inline,
 for ac_kw in inline __inline__ __inline; do
   AC_COMPILE_IFELSE([AC_LANG_SOURCE(
 [#ifndef __cplusplus
-static $ac_kw int static_foo () {return 0; }
-$ac_kw int foo () {return 0; }
+static $ac_kw int static_foo (void) {return 0; }
+$ac_kw int foo (void) {return 0; }
 #endif
 ])],
                     [r_cv_c_inline=$ac_kw; break])
@@ -663,7 +657,7 @@ dnl SHLIB_LD=ld for native C compilers (problem with non-PIC 'crt0.o',
 dnl see 'Individual platform overrides' in section 'DLL stuff' in file
 dnl 'configure.ac'.
 dnl
-dnl Using the Intel Fortran compiler (ifc) one typically gets incorrect
+dnl Using the pre-2023 Intel Fortran compiler (ifc) one typically gets incorrect
 dnl flags, as the output from _AC_PROG_F77_V_OUTPUT() contains double
 dnl quoted options, e.g. "-mGLOB_options_string=......", see also e.g.
 dnl http://www.octave.org/octave-lists/archive/octave-maintainers.2002/msg00038.html.
@@ -854,7 +848,7 @@ dnl Yes we need to double quote this ...
 #else
 # define F77_SYMBOL(x)   x
 #endif
-int main () {
+int main (void) {
   exit(0);
 }
 EOF]
@@ -927,7 +921,7 @@ dnl Yes we need to double quote this ...
 
 extern void F77_SYMBOL(cftest)(int *a, int *b, double *x, double *y);
 
-int main () {
+int main (void) {
   int a[3] = {17, 237, 2000000000}, b[2], res = 0;
   double x[3] = {3.14159265, 123.456789, 2.3e34}, z[3];
   double eps = 1e-6;
@@ -1022,7 +1016,7 @@ typedef union {
 
 extern void F77_SYMBOL(cftest)(Rcomplex *x);
 
-int main () {
+int main (void) {
     Rcomplex z[3];
 
     z[0].r = 3.14159265;
@@ -1359,6 +1353,7 @@ AC_DEFUN([R_PROG_OBJCXX_WORKS],
 dnl we don't use AC_LANG_xx because ObjC++ is not defined as a language (yet)
 dnl (the test program is from the gcc test suite)
 dnl but it needed an #undef (PR#15107)
+dnl 2021-11-12 changed to use Foundation as Xcode 13 breaks Object.h.
 cat << \EOF > conftest.mm
 #include <Foundation/Foundation.h>
 #include <iostream>
@@ -1372,7 +1367,7 @@ cat << \EOF > conftest.mm
 @end
 
 int
-main ()
+main (void)
 {
   std::cout << "Hello from C++\n";
   Greeter *obj = @<:@Greeter new@:>@;
@@ -1435,7 +1430,7 @@ AC_DEFUN([R_FUNC_CALLOC],
 [AC_CACHE_CHECK([for working calloc], [r_cv_func_calloc_works],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
-int main () {
+int main (void) {
   int *p = calloc(0, sizeof(int));
   exit(p == 0);
 }
@@ -1458,7 +1453,7 @@ AC_DEFUN([R_FUNC_ISFINITE],
 #include <math.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_DECL_ISFINITE
   exit(isfinite(1./0.) | isfinite(0./0.) | isfinite(-1./0.));
 #else
@@ -1487,7 +1482,7 @@ AC_DEFUN([R_FUNC_LOG1P],
 #include <math.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_LOG1P
   int k;
   double d;
@@ -2803,7 +2798,7 @@ dnl Yes we need to double quote this ...
 #endif
 extern void F77_SYMBOL(test1)(int *iflag);
 
-int main () {
+int main (void) {
   int iflag;
   F77_SYMBOL(test1)(&iflag);
   exit(iflag);
@@ -3021,7 +3016,7 @@ void blas_set () {
   F77_SYMBOL(ztrsv)();
 #endif
 }
-int main ()
+int main (void)
 {
   exit(0);
 }
@@ -3115,13 +3110,12 @@ fi
 acx_lapack_save_LIBS="${LIBS}"
 LIBS="${BLAS_LIBS} ${FLIBS} ${LIBS}"
 
-dnl LAPACK linked to by default?  (Could be in the BLAS libs.)
+dnl Check LAPACK_LIBS environment variable
 if test "${acx_lapack_ok}" = no; then
-  AC_CHECK_FUNC(${lapack}, [acx_lapack_ok=yes])
-fi
-
-dnl Next, check LAPACK_LIBS environment variable
-if test "${acx_lapack_ok}" = no; then
+  if test "x${LAPACK_LIBS}" = "x${BLAS_LIBS}"; then
+    ## make it clear that we are using LAPACK from BLAS libs
+    LAPACK_LIBS=""
+  fi
   if test "x${LAPACK_LIBS}" != x; then
     r_save_LIBS="${LIBS}"; LIBS="${LAPACK_LIBS} ${LIBS}"
     AC_MSG_CHECKING([for ${lapack} in ${LAPACK_LIBS}])
@@ -3130,6 +3124,12 @@ if test "${acx_lapack_ok}" = no; then
     LIBS="${r_save_LIBS}"
   fi
 fi
+
+dnl LAPACK linked to by default?  (Could be in the BLAS libs.)
+if test "${acx_lapack_ok}" = no; then
+  AC_CHECK_FUNC(${lapack}, [acx_lapack_ok=yes])
+fi
+
 
 dnl LAPACK in Sun Performance library?
 dnl No longer test here as will be picked up by the default test.
@@ -3147,10 +3147,12 @@ AC_SUBST(LAPACK_LIBS)
 
 ## R_LAPACK_SYSTEM_LIB
 ## -------------------
-## New for R 4.2.0
-## Look for system -llapack of version at least 3.10.0.
+## New for R 4.2.0: reduced to >=3.9.0 for 4.4.0.
+## Look for system -llapack of version at least 3.9.0.
 ## We have to test with a system BLAS.
 ## We don't want an external lapack which contains a BLAS.
+## We document that at least ATLAS, OpenBLAS and Accelerate lapack
+## is excluded (R-admin).
 AC_DEFUN([R_LAPACK_SYSTEM_LIB],
 [AC_REQUIRE([R_PROG_FC_FLIBS])
 AC_REQUIRE([R_PROG_FC_APPEND_UNDERSCORE])
@@ -3177,14 +3179,114 @@ if test "${acx_lapack_ok}" = no; then
 fi
 
 if test "${acx_lapack_ok}" = yes; then
+  LIBS="-llapack -lblas ${FLIBS} ${acx_lapack_save_LIBS}"
+  dnl Detect ATLAS liblapack.
+  dnl Note on Debian/Ubuntu, liblapack.so is generic but has a SONAME
+  dnl that may point to an optimized version, e.g. from ATLAS.
+  dnl Hence AC_CHECK_LIB doesn't work, it would never find the
+  dnl symbol.
+
+AC_CACHE_CHECK([for ATLAS routines in liblapack], [r_cv_atlas_liblapack],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <dlfcn.h>
+#include <stdlib.h>
+
+extern void ${ilaver}(int *major, int *minor, int *patch);
+int major, minor, patch;
+volatile int dummy;
+
+int main (void) {
+  ${ilaver}(&major, &minor, &patch); /* force linking LAPACK */
+  dummy = major + minor + patch;
+  
+  /* return 1 when we find an ATLAS optimized LAPACK routine dpotrf
+  
+     see do_eSoftVersion in platform.c for more on PLT and
+     RTLD_DEFAULT, RTLD_NEXT */
+  
+  if (dlsym(RTLD_DEFAULT, "ATL_dpotrf") || dlsym(RTLD_NEXT, "ATL_dpotrf"))
+    exit(1);
+  else
+    exit(0);
+}
+]])],
+[r_cv_atlas_liblapack=no],
+[r_cv_atlas_liblapack=yes],
+[r_cv_atlas_liblapack=no])])
+
+LIBS="${acx_lapack_save_LIBS}"
+
+if test "${r_cv_atlas_liblapack}" = yes; then
+ acx_lapack_ok=no
+fi
+fi
+
+if test "${acx_lapack_ok}" = yes; then
 LIBS="-lblas ${FLIBS} ${acx_lapack_save_LIBS}"
-AC_CHECK_LIB(lapack, ${lapack}, [acx_lapack_ok=yes])
+AC_CHECK_LIB(lapack, ${lapack}, [acx_lapack_ok=yes], [acx_lapack_ok=no])
+fi
+
+if test "${acx_lapack_ok}" = yes; then
+  LIBS="-llapack -lblas ${FLIBS} ${acx_lapack_save_LIBS}"
+  dnl This heuristic can detect liblapack which is e.g. part of OpenBLAS
+AC_CACHE_CHECK([for liblapack dependency with both BLAS and LAPACK routines], [r_cv_dep_lapackblas],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void *libforsym(const char *name, int current) {
+  void *addr = dlsym(current ? RTLD_DEFAULT : RTLD_NEXT, name);
+  if (!addr) return NULL;
+    
+  Dl_info nfo;
+  if (!dladdr(addr, &nfo)) return NULL;
+  return dlopen(nfo.dli_fname, RTLD_LAZY);
+}
+
+/* does a library having symbol a also have symbol b? */
+int libwithhas(const char *syma, const char *symb, int current) {
+  void *lib = libforsym(syma, current);
+  int ans = lib && dlsym(lib, symb);
+  dlclose(lib);
+  return ans;
+}
+
+extern void ${ilaver}(int *major, int *minor, int *patch);
+int major, minor, patch;
+volatile int dummy;
+
+int main (void) {
+  ${ilaver}(&major, &minor, &patch); /* force linking LAPACK */
+  dummy = major + minor + patch;
+  
+  /* return 1 when we know a dependent library which includes BLAS
+     routines also includes LAPACK routines
+      
+     see do_eSoftVersion in platform.c for more on PLT and
+     RTLD_DEFAULT, RTLD_NEXT */  
+  if (libwithhas("${dgemm}", "${lapack}", 0) ||
+     libwithhas("${dgemm}", "${lapack}", 1)) {
+     exit(1);
+  }
+  exit(0);
+}
+]])],
+[r_cv_dep_lapackblas=no],
+[r_cv_dep_lapackblas=yes],
+[r_cv_dep_lapackblas=no])])
+
+LIBS="${acx_lapack_save_LIBS}"
+
+if test "${r_cv_dep_lapackblas}" = yes; then
+ acx_lapack_ok=no
+fi
 fi
 
 if test "${acx_lapack_ok}" = yes; then
   LIBS="-lblas -llapack ${FLIBS} ${acx_lapack_save_LIBS}"
 
-AC_CACHE_CHECK([if LAPACK version >= 3.10.0], [r_cv_lapack_ver],
+AC_CACHE_CHECK([if LAPACK version >= 3.9.0], [r_cv_lapack_ver],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 extern void ${ilaver}(int *major, int *minor, int *patch);
 
@@ -3194,7 +3296,7 @@ int main(void) {
   int major, minor, patch;
   ${ilaver}(&major, &minor, &patch);
   printf("%d.%d.%d, so ", major, minor, patch);
-  if (major < 3 || (major == 3 && minor < 10)) exit(1);
+  if (major < 3 || (major == 3 && minor < 9)) exit(1);
   exit(0);
 }
 ]])],
@@ -3216,6 +3318,68 @@ fi
 AC_SUBST(LAPACK_LIBS)
 ])# R_LAPACK_SYSTEM_LIB
 
+## R_SEARCH_XDR_LIBS
+## -----------------
+## Linking a test program is not enough with address sanitizer, which on
+## Linux implements wrappers for XDR and other functions as weak symbols. 
+## So, linking succeeds even if the real functions are not available.  A
+## runtime test reveals this, calling the real function segfaults.
+##
+## This macro is a modified version of AC_SEARCH_LIBS, which runs a test
+## program using XDR instead of a link test.
+##
+## R_SEARCH_XDR_LIBS(SEARCH-LIBS,
+##                [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND],
+##                [OTHER-LIBRARIES])
+## --------------------------------------------------------
+AC_DEFUN([R_SEARCH_XDR_LIBS],
+[AS_VAR_PUSHDEF([r_Search], [r_cv_search_xdr])dnl
+AC_CACHE_CHECK([for XDR library], [r_Search],
+[r_func_search_save_LIBS=$LIBS
+cat > conftest.c <<EOF
+#include <rpc/xdr.h>
+#include <stdlib.h>
+#include "confdefs.h"
+
+int main(void) {
+  XDR xdrs;
+  int srci = 1234;
+  int dsti = 0;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  xdr_int(&xdrs, &srci);
+  xdr_destroy(&xdrs);
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_DECODE);
+  xdr_int(&xdrs, &dsti);
+  xdr_destroy(&xdrs);
+
+  if (srci == dsti) exit(0); /* SUCCESS, real XDR found */
+  exit(1);
+}
+EOF
+for r_lib in '' $1
+do
+  if test -z "$r_lib"; then
+    r_res="none required"
+  else
+    r_res=-l$r_lib
+    LIBS="-l$r_lib $4 $r_func_search_save_LIBS"
+  fi
+  AC_RUN_IFELSE([], [AS_VAR_SET([r_Search], [$r_res])])
+  AS_VAR_SET_IF([r_Search], [break])
+done
+AS_VAR_SET_IF([r_Search], , [AS_VAR_SET([r_Search], [no])])
+rm conftest.$ac_ext
+LIBS=$r_func_search_save_LIBS])
+AS_VAR_COPY([r_res], [r_Search])
+AS_IF([test "$r_res" != no],
+  [test "$r_res" = "none required" || LIBS="$r_res $LIBS"
+  $2],
+      [$3])
+AS_VAR_POPDEF([r_Search])dnl
+])
 
 ## R_XDR
 ## -----
@@ -3227,8 +3391,7 @@ if test "${ac_cv_header_rpc_types_h}" = yes ; then
   AC_CHECK_HEADER(rpc/xdr.h, , , [#include <rpc/types.h>])
 fi
 if test "${ac_cv_header_rpc_types_h}" = yes && \
-   test "${ac_cv_header_rpc_xdr_h}" = yes && \
-   test "${ac_cv_search_xdr_string}" != no ; then
+   test "${ac_cv_header_rpc_xdr_h}" = yes ; then
   r_xdr=yes
 else
   r_xdr=no
@@ -3250,6 +3413,16 @@ if test "${r_xdr}" = no ; then
     r_xdr=yes
   fi
   CPPFLAGS="${save_CPPFLAGS}"
+fi
+if test "${r_xdr}" = yes ; then
+  ## -lnsl is needed on Solaris
+  ## 2018: Sun RPC is being unbundled from glibc, at least in Fedora 28
+  ## (https://fedoraproject.org/wiki/Changes/SunRPCRemoval)
+  ## Use libtirpc instead, which has been a possible source since ca 2007
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} ${TIRPC_CPPFLAGS}"
+  R_SEARCH_XDR_LIBS([nsl tirpc],[],[r_xdr=no])
+  CPPFLAGS="${r_save_CPPFLAGS}"
 fi
 AC_MSG_CHECKING([for XDR support])
 AC_MSG_RESULT([${r_xdr}])
@@ -3469,6 +3642,27 @@ else
 fi
 ])# R_BZLIB
 
+## R_LIBDEFLATE
+## ------------
+## Try finding libdeflate library and headers.
+## We check that both are installed,
+AC_DEFUN([R_LIBDEFLATE],
+[
+  AC_CHECK_HEADERS(libdeflate.h, [have_libdeflate=yes], [have_libdeflate=no])
+if test "${have_libdeflate}" = yes; then
+  AC_CHECK_LIB(deflate, libdeflate_alloc_compressor, [have_libdeflate=yes], [have_libdeflate=no])
+fi
+if test "x${r_cv_have_libdeflate}" = xno; then
+  have_libdeflate=no
+fi
+if test "x${have_libdeflate}" = xyes; then
+  AC_MSG_RESULT([yes])
+  LIBS="-ldeflate ${LIBS}"
+  AC_DEFINE(HAVE_LIBDEFLATE, 1,
+            [Define to 1 if you have libdeflate headers and library.])
+fi
+])# R_LIBDEFLATE
+
 ## R_TRE
 ## -------
 ## Try finding tre library and headers.
@@ -3511,7 +3705,8 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 int main(void) {
     unsigned int ver = lzma_version_number();
     // This is 10000000*major + 10000*minor + 10*revision + [012]
-    // I.e. xyyyzzzs and 5.1.2 would be 50010020
+    // Where 2 is 'stable'.
+    // I.e. xyyyzzzs and 5.1.2 is 50010022, so this allows 5.0.3 alpha/beta
     exit(ver < 50000030);
 }
 ]])], [r_cv_have_lzma=yes], [r_cv_have_lzma=no], [r_cv_have_lzma=no])
@@ -3543,7 +3738,7 @@ AC_DEFUN([R_SYS_POSIX_LEAPSECONDS],
 #include <stdio.h>
 #include "confdefs.h"
 
-int main () {
+int main (void) {
   struct tm *tm;
   time_t ct = 0; /* required on 64bit AIX */
 
@@ -3672,7 +3867,7 @@ if test "$ac_cv_func_iconv" != no; then
 #include <iconv.h>
 #endif
 
-int main () {
+int main (void) {
   iconv_t cd;
   cd = iconv_open("latin1","UTF-8");
   if(cd == (iconv_t)(-1)) exit(1);
@@ -3743,7 +3938,7 @@ int main () {
 #include <iconv.h>
 #endif
 
-int main () {
+int main (void) {
   iconv_t cd;
   cd = iconv_open("CP1252","UTF-8");
   if(cd == (iconv_t)(-1)) exit(1);
@@ -3913,19 +4108,28 @@ done
 AC_DEFUN([R_GCC4_VISIBILITY],
 [AC_CACHE_CHECK([whether __attribute__((visibility())) is supported],
                 [r_cv_visibility_attribute],
-[cat > conftest.c <<EOF
+[r_cv_visibility_attribute=no
+case "${host_os}" in
+    darwin*)
+      dnl Assume works on macOS
+      r_cv_visibility_attribute=yes
+      ;;
+
+  *)
+cat > conftest.c <<EOF
 int foo __attribute__ ((visibility ("hidden"))) = 1;
 int bar __attribute__ ((visibility ("default"))) = 1;
 #ifndef __GNUC__
 # error unsupported compiler
 #endif
 EOF
-r_cv_visibility_attribute=no
-if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
- if grep '\.hidden.*foo' conftest.s >/dev/null; then
-    r_cv_visibility_attribute=yes
- fi
-fi
+      if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
+        if grep '\.hidden.*foo' conftest.s >/dev/null; then
+           r_cv_visibility_attribute=yes
+        fi
+      fi
+      ;; 
+esac
 rm -f conftest.[cs]
 ])
 if test $r_cv_visibility_attribute = yes; then
@@ -3946,12 +4150,12 @@ if test "${r_cv_prog_cc_vis}" = yes; then
     C_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icx.
 case  "${CC}" in
-  ## Intel compiler: note that -c99 may have been appended
+  ## Obsolete Intel compiler: note that -c99 may have been appended
   *icc*)
     C_VISIBILITY=
     ;;
@@ -3972,12 +4176,12 @@ if test "${r_cv_prog_cxx_vis}" = yes; then
     CXX_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *icc*|*icpc*)
     CXX_VISIBILITY=
     ;;
@@ -3999,9 +4203,9 @@ if test "${r_cv_prog_fc_vis}" = yes; then
   fi
 fi
 dnl flang accepts this but ignores it.
-dnl Need to exclude Intel compilers, but ifx seems to work.
+dnl Need to exclude pre-2023 Intel compilers, but ifx seems to work.
 case  "${FC}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *ifc|*ifort)
     F_VISIBILITY=
     ;;
@@ -4029,7 +4233,7 @@ AC_DEFUN([R_KERN_USRSTACK],
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-int main () {
+int main (void) {
   int nm[2] = {CTL_KERN, KERN_USRSTACK};
   void * base;
   size_t len = sizeof(void *);
@@ -4121,7 +4325,7 @@ AC_DEFUN([R_FUNC_SIGACTION],
 #include "confdefs.h"
 #include <stdlib.h>
 #include <signal.h>
-int main ()
+int main (void)
 {
     struct sigaction sa;
     siginfo_t si, *ip;
@@ -4221,7 +4425,7 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 
 #include <stdlib.h>
 
-int main () {
+int main (void) {
     UErrorCode  status = U_ZERO_ERROR;
     UCollator *collator;
     UCharIterator aIter;
@@ -4310,7 +4514,7 @@ if test "${ac_cv_fc_compiler_gnu}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gfortran,gfortran"
 else
 case "${FC}" in
-  *flang-new)
+  *flang-new|*flang-new-*)
     R_SYSTEM_ABI="${R_SYSTEM_ABI},flang-new,flang-new"
     ;;
   ## This means Classic flang
@@ -4815,7 +5019,7 @@ AC_DEFUN([R_FUNC_CTANH],
 #include <complex.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_CTANH
   volatile double complex z1 = 0;
   volatile double complex z2 = 365;
@@ -4926,9 +5130,15 @@ AC_CACHE_VAL([r_cv_cstack_direction],
 
 #define attribute_no_sanitizer_instrumentation
 #ifdef __has_attribute
-# undef attribute_no_sanitizer_instrumentation
-# define attribute_no_sanitizer_instrumentation \
-    __attribute__((disable_sanitizer_instrumentation))
+# if __has_attribute(disable_sanitizer_instrumentation)
+#  undef attribute_no_sanitizer_instrumentation
+#  define attribute_no_sanitizer_instrumentation \
+     __attribute__((disable_sanitizer_instrumentation))
+# elif __has_attribute(no_sanitize)
+#  undef attribute_no_sanitizer_instrumentation
+#  define attribute_no_sanitizer_instrumentation \
+     __attribute__ ((no_sanitize ("address", "thread", "leak", "undefined")))
+# endif
 #endif
 
 int attribute_no_sanitizer_instrumentation

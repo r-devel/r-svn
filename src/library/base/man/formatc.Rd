@@ -88,8 +88,9 @@ prettyNum(x, big.mark = "",   big.interval = 3L,
     \code{"#"}.}
 
   \item{flag}{for \code{formatC}, a character string giving a
-    format modifier as in Kernighan and Ritchie (1988, page 243) or the
-    C+99 standard.\describe{
+    format modifier as in
+    \bibcite{Kernighan and Ritchie (1988, page 243)} 
+    or the C+99 standard.\describe{
       \item{\code{"0"}}{pads leading zeros;}
       \item{\code{"-"}}{does left adjustment,}
       \item{\code{"+"}}{ensures a sign in all cases, i.e., \code{"+"} for

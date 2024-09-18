@@ -45,7 +45,7 @@ data(\dots, list = character(), package = NULL, lib.loc = NULL,
     (\code{data} ensures that the \pkg{utils} package is attached, in
     case it had been run \emph{via} \code{utils::data}.)
 
-    \item files ending \file{.RData} or \file{.rda} are
+    \item files ending \file{.RData} or \file{.rdata} or \file{.rda} are
     \code{\link{load}()}ed.
 
     \item files ending \file{.tab}, \file{.txt} or \file{.TXT} are read
@@ -92,11 +92,11 @@ data(\dots, list = character(), package = NULL, lib.loc = NULL,
 
   If \code{lib.loc = NULL} but \code{package} is specified as a
   character vector, the specified package(s) are searched for first
-  amongst loaded packages and then in the default library/ies
+  amongst loaded packages and then in the default libraries
   (see \code{\link{.libPaths}}).
 
   If \code{lib.loc} \emph{is} specified (and not \code{NULL}), packages
-  are searched for in the specified library/ies, even if they are
+  are searched for in the specified libraries, even if they are
   already loaded from another library.
 
   To just look in the \file{data} directory of the current working
@@ -175,7 +175,7 @@ data(\dots, list = character(), package = NULL, lib.loc = NULL,
   \code{\link{save}} for \emph{creating} the second (\file{.rda}) kind
   of data, typically the most efficient one.
 
-  The \sQuote{Writing R Extensions} for considerations in preparing the
+  The \sQuote{Writing R Extensions} manual for considerations in preparing the
   \file{data} directory of a package.
 }
 \examples{

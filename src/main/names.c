@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -124,6 +124,7 @@ FUNTAB R_FunTab[] =
 {"nargs",	do_nargs,	1,	1,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"on.exit",	do_onexit,	0,	100,	-1,	{PP_FUNCALL, PREC_FN,	  0}},
 {"forceAndCall",do_forceAndCall,	0,	0,	-1,	{PP_FUNCALL, PREC_FN,	  0}},
+{"declare",	do_declare,	0,	100,	-1,	{PP_FUNCALL, PREC_FN,	  0}},
 
 /* .Internals */
 
@@ -264,8 +265,9 @@ FUNTAB R_FunTab[] =
 {"pmatch",	do_pmatch,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"charmatch",	do_charmatch,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"match.call",	do_matchcall,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
-{"crossprod",	do_matprod,	1,	11,	2,	{PP_FUNCALL, PREC_FN,   0}},
-{"tcrossprod",	do_matprod,	2,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"crossprod",	do_matprod,	1,	1,	1,	{PP_FUNCALL, PREC_FN,   0}},
+{"tcrossprod",	do_matprod,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"asplit",	do_asplit,	0,	11,	8,	{PP_FUNCALL, PREC_FN,	0}},
 {"lengths",	do_lengths,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"sequence",	do_sequence,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 
@@ -275,7 +277,6 @@ FUNTAB R_FunTab[] =
 {"detach",	do_detach,	0,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"search",	do_search,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"setFileTime",	do_setFileTime,	0,	111,	2,	{PP_FUNCALL, PREC_FN,	0}},
-
 
 /* Mathematical Functions */
 /* primitives: these are group generic and so need to eval args (possibly internally) */
@@ -680,7 +681,7 @@ FUNTAB R_FunTab[] =
 {"parse",	do_parse,	0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
 //{"parse_Rd",	do_parseRd,	0,	11,	7,	{PP_FUNCALL, PREC_FN,	0}},
 //{"deparseRd",	do_deparseRd,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
-//{"parseLatex",  do_parseLatex,  0,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
+//{"parseLatex",  do_parseLatex,  0,      11,     5,      {PP_FUNCALL, PREC_FN,	0}},
 {"save",	do_save,	0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"saveToConn",	do_saveToConn,	0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"load",	do_load,	0,	111,	2,	{PP_FUNCALL, PREC_FN,	0}},
@@ -711,6 +712,8 @@ FUNTAB R_FunTab[] =
 {"ls",		do_ls,		1,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"typeof",	do_typeof,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"eval",	do_eval,	0,	211,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"Exec",	do_tailcall,	0,	200,	-1,	{PP_FUNCALL, PREC_FN,	0}},
+{"Tailcall",	do_tailcall,	1,	200,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"returnValue",   do_returnValue,0,     11,     1,      {PP_FUNCALL, PREC_FN,	0}},
 {"sys.parent",	do_sys,		1,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"sys.call",	do_sys,		2,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -947,7 +950,7 @@ FUNTAB R_FunTab[] =
 {"lazyLoadDBinsertValue",do_lazyLoadDBinsertValue, 0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"bincode",	do_bincode,	 0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"tabulate",	do_tabulate,	 0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
-{"findInterval",do_findinterval, 0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"findInterval",do_findinterval, 0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"pretty",	do_pretty,	0,	11,	8,	{PP_FUNCALL, PREC_FN,	0}},
 {"formatC",	do_formatC,	0,	11,	7,	{PP_FUNCALL, PREC_FN,	0}},
 {"crc64",	do_crc64,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -977,8 +980,11 @@ FUNTAB R_FunTab[] =
 {"La_dlange",	do_lapack,	6,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_dgecon",	do_lapack,	7,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_dtrcon",	do_lapack,	8,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_dtrcon3",	do_lapack,	81,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_zlange",	do_lapack,	61,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_zgecon",	do_lapack,	9,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_ztrcon",	do_lapack,	10,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_ztrcon3",	do_lapack,	13,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_solve_cmplx",do_lapack,    11,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_solve",	do_lapack,	100,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_qr",	do_lapack,	101,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -1236,7 +1242,7 @@ void attribute_hidden InitNames(void)
     for (int i = 0; Spec_name[i]; i++)
 	SET_SPECIAL_SYMBOL(install(Spec_name[i]));
 
-    R_initAssignSymbols();
+    R_initEvalSymbols();
     initializeDDVALSymbols();
     R_initialize_bcode();
     R_init_altrep();

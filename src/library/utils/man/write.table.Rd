@@ -1,6 +1,6 @@
 % File src/library/utils/man/write.table.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{write.table}
@@ -110,7 +110,7 @@ write.csv2(\dots)
   e.g.\sspace{}\code{file = file("filename", "wb")}.
 }
 \section{CSV files}{
-  By default there is no column name for a column of row names.  If
+  By default, \code{write.table} does not output a column name for a column of row names.  If
   \code{col.names = NA} and \code{row.names = TRUE} a blank column name
   is added, which is the convention used for CSV files to be read by
   spreadsheets.  Note that such CSV files can be read in \R by
@@ -144,7 +144,7 @@ write.csv2(\dots)
   (perhaps Latin-1) and \sQuote{PC-8} files.  OpenOffice 3.x asks for
   the character set when opening the file.
 
-  There is an IETF RFC4180 (\url{https://www.rfc-editor.org/rfc/rfc4180})
+  There is an \abbr{IETF} RFC4180 (\url{https://www.rfc-editor.org/rfc/rfc4180})
   for CSV files, which mandates comma as the separator and CRLF line
   endings.  \code{write.csv} writes compliant files on Windows: use
   \code{eol = "\r\n"} on other platforms.
@@ -165,7 +165,7 @@ write.csv2(\dots)
 }
 
 \examples{
-x <- data.frame(a = I("a \" quote"), b = pi)
+x <- data.frame(a = "a \" quote", b = pi)
 tf <- tempfile(fileext = ".csv")
 
 ## To write a CSV file for input to Excel one might use

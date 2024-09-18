@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2002-2014	The R Core Team.
+ *  Copyright (C) 2002-2024	The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,8 +73,8 @@ static R_CallMethodDef callMethods [] = {
     {NULL, NULL, 0}
 };
 
-
-#define FDEF(name, n)  {#name, (DL_FUNC) &F77_SYMBOL(name), n, NULL}
+#include <R_ext/RS.h>
+#define FDEF(name, n)  {#name, (DL_FUNC) &F77_SUB(name), n, NULL}
 static R_FortranMethodDef fortranMethods[] = {
     /* LINPACK */
     FDEF(dqrcf, 8), // qr and auxiliaries

@@ -1,7 +1,7 @@
 #  File src/library/utils/R/aspell.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -289,7 +289,19 @@ function(object, ...)
 }
 
 aspell_filter_db <- new.env(hash = FALSE) # small
-aspell_filter_db$Rd <- tools::RdTextFilter
+
+aspell_filter_db$Rd <- 
+function(ifile, encoding = "unknown",
+         drop = character(), keep = character(),
+         macros = file.path(R.home("share"), "Rd", "macros", "system.Rd"),
+         ignore = character())
+{
+     lines <- tools::RdTextFilter(ifile, encoding,
+                                  drop = drop, keep = keep,
+				  macros = macros)
+     blank_out_ignores_in_lines(lines, ignore)
+}
+
 aspell_filter_db$Sweave <- tools::SweaveTeXFilter
 
 aspell_find_program <-
@@ -358,34 +370,62 @@ function(x)
         lines <- readLines(f, warn = FALSE)[x$Line]
         cbind(f,
               x$Line,
+              x$Column,
               substring(lines, 1L, x$Column - 1L),
               x$Original,
               substring(lines, x$Column + nchar(x$Original)))
     },
              names(x), x)
     y <- data.frame(do.call(rbind, y), stringsAsFactors = FALSE)
-    names(y) <- c("File", "Line", "Left", "Original", "Right")
+    if(!length(y))
+        y <- list2DF(rep.int(list(character()), 6L))
+    names(y) <- c("File", "Line", "Column", "Left", "Original", "Right")
     class(y) <- c("aspell_inspect_context", "data.frame")
     y
 }
 
-print.aspell_inspect_context <-
-function(x, ...)
+format.aspell_inspect_context <-
+function(x, ..., byfile = FALSE, indent = 2L)
 {
-    s <- split(x, x$File)
-    nms <- names(s)
-    for(i in seq_along(s)) {
-        e <- s[[i]]
-        writeLines(c(sprintf("File '%s':", nms[i]),
-                     sprintf("  Line %s: \"%s\", \"%s\", \"%s\"",
-                             format(e$Line),
-                             gsub("\"", "\\\"", e$Left ), e$Original,
-                             gsub("\"", "\\\"", e$Right)),
-                     ""))
+    if(!nrow(x))
+        return(character())
+    chunks <- if(byfile) {
+        chunks <- split(x, x$File)
+        Map(function(u, e)
+                c(sprintf("File '%s':", u),
+                  sprintf("  Line %s: \"%s\", \"%s\", \"%s\"",
+                          format(e$Line),
+                          gsub("\"", "\\\"", e$Left ), e$Original,
+                          gsub("\"", "\\\"", e$Right)),
+                  ""),
+            names(chunks),
+            chunks)
+    } else {
+        p <- strrep(" ", indent)
+        y <- sprintf("%s%s:%s:%s\n%s%s%s%s\n%s%s%s",
+                     p,
+                     x$File, x$Line, x$Column,
+                     p,
+                     x$Left, x$Original, x$Right,
+                     p,
+                     strrep(" ", as.integer(x$Column) - 1L),
+                     strrep("^", nchar(x$Original)))
+        chunks <- split(y, x$Original)
+        Map(function(u, v)
+                paste(c(paste("Word:", u), v),
+                      collapse = "\n"),
+            names(chunks),
+            chunks)
     }
-    invisible(x)
+    unlist(chunks, use.names = FALSE)
 }
 
+print.aspell_inspect_context <-
+function(x, ..., byfile = FALSE)
+{        
+    writeLines(format(x, ..., byfile = byfile))
+    invisible(x)
+}
 
 ## For spell-checking the R manuals:
 
@@ -397,31 +437,55 @@ aspell_control_R_manuals <-
          c("--master=en_US",
            "--add-extra-dicts=en_GB",
            "--mode=texinfo",
+           "--add-texinfo-ignore=I",
+           "--add-texinfo-ignore=abbr",
            "--add-texinfo-ignore=acronym",
+           "--add-texinfo-ignore=anchor",           
            "--add-texinfo-ignore=deftypefun",
            "--add-texinfo-ignore=deftypefunx",
+           "--add-texinfo-ignore=dfn",
            "--add-texinfo-ignore=findex",
            "--add-texinfo-ignore=enindex",
            "--add-texinfo-ignore=include",
            "--add-texinfo-ignore=ifclear",
            "--add-texinfo-ignore=ifset",
+           "--add-texinfo-ignore=image",
+           "--add-texinfo-ignore=key",
            "--add-texinfo-ignore=math",
-           "--add-texinfo-ignore=macro",
            "--add-texinfo-ignore=multitable",
            "--add-texinfo-ignore=node",
-           "--add-texinfo-ignore=pkg",
            "--add-texinfo-ignore=printindex",
            "--add-texinfo-ignore=set",
+           "--add-texinfo-ignore=value",
            "--add-texinfo-ignore=vindex",
+           "--add-texinfo-ignore-env=direntry",
+           "--add-texinfo-ignore-env=html",
+           "--add-texinfo-ignore-env=macro",
            "--add-texinfo-ignore-env=menu",
-           "--add-texinfo-ignore=CRANpkg"
+           "--add-texinfo-ignore-env=tex",
+           "--add-texinfo-ignore=CRANpkg",
+           "--add-texinfo-ignore=cputype",
+           "--add-texinfo-ignore=deqn",
+           "--add-texinfo-ignore=eqn",
+           "--add-texinfo-ignore=pkg",
+           "--add-texinfo-ignore=apifun",
+           "--add-texinfo-ignore=apihdr",
+           "--add-texinfo-ignore=apivar",
+           "--add-texinfo-ignore=comment",
+           "--add-texinfo-ignore=defcodeindex",
+           "--add-texinfo-ignore=eapifun",
+           "--add-texinfo-ignore=eapihdr",
+           "--add-texinfo-ignore=embfun",
+           "--add-texinfo-ignore=embhdr",
+           "--add-texinfo-ignore=embvar",
+           character()
            ),
          hunspell =
          c("-d en_US,en_GB"))
 
 aspell_R_manuals <-
 function(which = NULL, dir = NULL, program = NULL,
-         dictionaries = aspell_dictionaries_R)
+         dictionaries = c(aspell_dictionaries_R, "R_manuals"))
 {
     if(is.null(dir)) dir <- tools:::.R_top_srcdir_from_Rd()
     ## Allow specifying 'R-exts' and alikes, or full paths.
@@ -454,8 +518,10 @@ aspell_control_R_Rd_files <-
          c("-d en_US,en_GB"))
 
 aspell_R_Rd_files <-
-function(which = NULL, dir = NULL, drop = "\\references",
-         program = NULL, dictionaries = aspell_dictionaries_R)
+function(which = NULL, dir = NULL, 
+         drop = c("\\abbr", "\\acronym", "\\author", "\\references"),
+         program = NULL,
+         dictionaries = c(aspell_dictionaries_R, "R_Rd_files"))
 {
     files <- character()
 
@@ -477,10 +543,29 @@ function(which = NULL, dir = NULL, drop = "\\references",
                         "docs", OS_subdirs = c("unix", "windows")),
                  use.names = FALSE))
 
+    ignore <-
+        c(sprintf("\\b(%s)\\b",
+                  paste(c("a priori", "et seq",
+                          "post-mortem", "Inter alia", "inter alia",
+                          "2nd", "4th", "20th", "100th",
+                          "equi-", "intra-", "mis-", "Pre-", "pre-",
+                          "un-", "-ary", "-ness"),
+                        collapse = "|")),
+          sprintf("(%s)\\b",
+                  paste(c("\\(De\\)", "\\(de\\)",
+                          "\\(Un\\)", "\\(un\\)",
+                          ## A literal 'nth' would even be in
+                          ## Wiktionary 
+                          ## (<https://en.wiktionary.org/wiki/nth>), but
+                          ## we typically write \eqn{n}-th which after
+                          ## Rd filtering leaves '-th' by itself ...
+                          "-th", "'th"),
+                        collapse = "|")))
+
     program <- aspell_find_program(program)
 
     aspell(files,
-           filter = list("Rd", drop = drop),
+           filter = list("Rd", drop = drop, ignore = ignore),
            control = aspell_control_R_Rd_files[[names(program)]],
            program = program,
            dictionaries = dictionaries)
@@ -489,7 +574,8 @@ function(which = NULL, dir = NULL, drop = "\\references",
 ## For spell-checking Rd files in a package:
 
 aspell_package_Rd_files <-
-function(dir, drop = c("\\author", "\\references"),
+function(dir, 
+         drop = c("\\abbr", "\\acronym", "\\author", "\\references"),
          control = list(), program = NULL, dictionaries = character())
 {
     dir <- normalizePath(dir, "/")
@@ -552,7 +638,18 @@ aspell_control_R_vignettes <-
          c("--mode=tex",
            "--master=en_US",
            "--add-extra-dicts=en_GB",
+           "--add-tex-command='I p'",
+           "--add-tex-command='abbr p'",
+           "--add-tex-command='author p'",
+           "--add-tex-command='bibliographystyle p'",
+           "--add-tex-command='citep p'",
+           "--add-tex-command='citet p'",           
            "--add-tex-command='code p'",
+           "--add-tex-command='command p'",
+           "--add-tex-command='definecolor ppp'",
+           "--add-tex-command='file p'",
+           "--add-tex-command='lstset p'",
+           "--add-tex-command='lstinputlisting p'",
            "--add-tex-command='pkg p'",
            "--add-tex-command='CRANpkg p'"
            ),
@@ -560,7 +657,8 @@ aspell_control_R_vignettes <-
          c("-t", "-d en_US,en_GB"))
 
 aspell_R_vignettes <-
-function(program = NULL, dictionaries = aspell_dictionaries_R)
+function(program = NULL,
+         dictionaries = c(aspell_dictionaries_R, "R_vignettes"))
 {
     files <- Sys.glob(file.path(tools:::.R_top_srcdir_from_Rd(),
                                 "src", "library", "*", "vignettes",
@@ -569,7 +667,11 @@ function(program = NULL, dictionaries = aspell_dictionaries_R)
     program <- aspell_find_program(program)
 
     aspell(files,
-           filter = "Sweave",
+           filter = list("Sweave+LaTeX",
+                         cmds = c("Sexpr p",
+                                  "SweaveOpts p",
+                                  "code p",
+                                  "hypersetup p")),
            control = aspell_control_R_vignettes[[names(program)]],
            program = program,
            dictionaries = dictionaries)
@@ -1069,7 +1171,7 @@ function(dir, ignore = character(),
     defaults <-
         Sys.getenv("_R_ASPELL_USE_DEFAULTS_FOR_PACKAGE_DESCRIPTION_",
                    "TRUE")
-    defaults <- if(tools:::config_val_to_logical(defaults)) {
+    defaults <- if(str2logical(defaults)) {
                     .aspell_package_defaults(dir, encoding)$description
                 } else NULL
     if(!is.null(defaults)) {
@@ -1137,6 +1239,116 @@ function(ifile, encoding = "UTF-8")
     }
     y
 }
+
+## Spell-checking LaTeX files.
+
+## Aspell provides customizable filtering of command arguments, but has
+## problems when arguments contain braces, and does not allow filtering
+## verbatims or environments.
+
+aspell_filter_db$LaTeX <-
+function(ifile, encoding = "unknown", ...)
+    aspell_filter_LaTeX_worker(readLines(ifile, encoding = encoding),
+                               ...)
+aspell_filter_LaTeX_worker <-
+function(x, vrbs = c("verbatim", "verbatim*", "Sinput", "Soutput"),
+         cmds = NULL, envs = NULL)
+{
+    ranges <- list()
+    chrran <- function(e) getSrcref(e)[c(1L, 5L, 3L, 6L)]
+    ltxtag <- function(e) {
+        tag <- attr(e, "latex_tag")
+        if(is.null(tag)) "NULL" else tag
+    }
+
+    if(length(cmds)) {
+        cmds <- c(cmds, aspell_filter_LaTeX_commands)
+        cmds <- strsplit(trimws(cmds), " +")
+        ones <- vapply(cmds, `[[`, "", 1L)
+        ## For now always ignore optional arguments.
+        twos <- vapply(cmds, `[[`, "", 2L)
+        cmds <- lapply(strsplit(gsub("[^pP]", "", twos), ""),
+                       function(e) which(e == "p"))
+        names(cmds) <- paste0("\\", ones)
+    }
+                       
+    recurse <- function(e) {
+        tag <- ltxtag(e)
+        if((tag == "VERB") ||
+           ((tag == "ENVIRONMENT") && e[[1L]] %in% envs))
+            ranges <<- c(ranges, list(chrran(e)))
+        else if(is.list(e)) {
+            if(length(cmds)) {
+                skip <- integer()
+                tags <- vapply(e, ltxtag, "")
+                ## Are there any macros listed in cmds?
+                mpos <- which(tags == "MACRO")
+                mpos <- mpos[vapply(e[mpos], `[[`, "", 1L) %in%
+                             names(cmds)]
+                if(length(mpos)) {
+                    bpos <- which(tags == "BLOCK")
+                    for(m in mpos) {
+                        skip <- c(skip,
+                                  bpos[bpos > m][cmds[[e[[m]][[1L]]]]])
+                    }
+                    for(s in skip) {
+                        ran <- chrran(e[[s]])
+                        ## Keep the braces.
+                        ran[2L] <- ran[2L] + 1L
+                        ran[4L] <- ran[4L] - 1L
+                        ranges <<- c(ranges, list(ran))
+                    }
+                    e <- e[-skip]
+                }
+            }
+            lapply(e, recurse)
+        }
+    }
+
+    recurse(tools::parseLatex(x, verbatim = vrbs))
+    blank_out_character_ranges(x, ranges)
+}
+
+aspell_filter_LaTeX_commands_from_Aspell_tex_filter_info <-
+function(dir) {
+    x <- readLines(file.path(dir, "modules/filter/tex-filter.info"),
+                   encoding = "UTF-8")
+    ## Extract 'OPTION command' block.
+    x <- x[seq.int(which(x == "OPTION command"), length(x))]
+    x <- x[seq.int(1L, which(x == "ENDOPTION")[1L])]
+    ## Extract command defaults.
+    substring(x[startsWith(x, "DEFAULT")], 9L)
+}
+
+aspell_filter_LaTeX_commands <-
+    c("addtocounter pp", "addtolength pp", "alpha p", "arabic p",
+      "fnsymbol p", "roman p", "stepcounter p", "setcounter pp",
+      "usecounter p", "value p", "newcounter po", "refstepcounter p",
+      "label p", "pageref p", "ref p", "newcommand poOP",
+      "renewcommand poOP", "newenvironment poOPP",
+      "renewenvironment poOPP", "newtheorem poPo", "newfont pp",
+      "documentclass op", "usepackage op", "begin po", "end p",
+      "setlength pp", "addtolength pp", "settowidth pp",
+      "settodepth pp", "settoheight pp", "enlargethispage p",
+      "hyphenation p", "pagenumbering p", "pagestyle p", "addvspace p",
+      "framebox ooP", "hspace p", "vspace p", "makebox ooP",
+      "parbox ooopP", "raisebox pooP", "rule opp", "sbox pO",
+      "savebox pooP", "usebox p", "include p", "includeonly p",
+      "input p", "addcontentsline ppP", "addtocontents pP",
+      "fontencoding p", "fontfamily p", "fontseries p", "fontshape p",
+      "fontsize pp", "usefont pppp", "documentstyle op", "cite p",
+      "nocite p", "psfig p", "selectlanguage p", "includegraphics op",
+      "bibitem op", "geometry p")
+
+## <FIXME>
+## Try to merge into the Sweave filter.
+## Note that currently we cannot pass filter args when using
+## aspell_package_vignettes().
+aspell_filter_db$`Sweave+LaTeX` <-
+function(ifile, encoding = "unknown", ...)
+    aspell_filter_LaTeX_worker(tools::SweaveTeXFilter(ifile, encoding),
+                               ...)
+## </FIXME>
 
 ## For spell checking packages.
 
@@ -1242,6 +1454,26 @@ function(lines, ignore)
     lines
 }
 
+## <FIXME>
+## Should this also be used in the md filter?
+blank_out_character_ranges <- function(s, ranges) {
+    for(r in ranges) {
+        ## Legibility ...
+        l1 <- r[1L]; c1 <- r[2L]
+        l2 <- r[3L]; c2 <- r[4L]
+        if(l1 == l2) {
+            substring(s[l1], c1, c2) <- strrep(" ", c2 - c1 + 1L)
+        } else {
+            substring(s[l1], c1, nchar(s[l1])) <- ""
+            for(i in seq(l1 + 1L, length.out = l2 - l1 - 1L))
+                s[i] <- ""
+            substring(s[l2], 1L, c2) <- strrep(" ", c2)
+        }
+    }
+    s
+}
+## </FIXME>
+
 find_files_in_directories <-
 function(basenames, dirnames)
 {
@@ -1260,4 +1492,70 @@ function(basenames, dirnames)
     }
 
     out
+}
+
+aspell_query_wiktionary_categories <-
+function(x)
+{
+    if(inherits(x, "aspell")) {
+        x <- unique(x$Original)
+    }
+
+    verbose <- getOption("verbose")
+
+    ## Need to split into chunks of size 50 if necessary:
+    n <- length(x)
+    k <- n %/% 50L
+    ind <- c(rep.int(seq_len(k), rep.int(50L, k)),
+             rep.int(k + 1L, n %% 50L))
+    y <- lapply(split(x, ind),
+                function(s) {
+                    q <- URLencode(sprintf("https://en.wiktionary.org/w/api.php?action=query&prop=categories&format=json&cllimit=20&titles=%s",
+                        paste(s, collapse = "|")))                    
+                    if(verbose)
+                        message(sprintf("Performing query %s", q))
+                    u <- ""
+                    v <- list()
+                    repeat {
+                        w <- jsonlite::fromJSON(paste0(q, u))
+                        v <- c(v, w$query$pages)
+                        if(is.null(u <- w$continue$clcontinue))
+                            break
+                        u <- paste0("&clcontinue=", URLencode(u))
+                    }
+                    ## Gather results.
+                    v <- do.call(rbind,
+                                 lapply(v,
+                                        function(e)
+                                            list(e$title,
+                                                 e$categories$title)))
+                    lapply(split(v[, 2L],
+                                 unlist(v[, 1L], use.names = FALSE)),
+                           unlist, use.names = FALSE)
+                                        
+                })
+    Reduce(c, y)[x]
+}
+
+aspell_update_dictionary <-
+function(dictionary, add = character())
+{
+    stopifnot(is.character(dictionary), length(dictionary) == 1L)
+    ## Handle 'dictionary' the same way as the 'dictionaries' argument
+    ## to aspell(): if there is no path separator take as an R system
+    ## dictionary.
+    if(!grepl(.Platform$file.sep, dictionary, fixed = TRUE)) {
+        dictionary <-
+            file.path(tools:::.R_top_srcdir_from_Rd(),
+                      "share", "dictionaries", dictionary)
+    }
+    txt <- paste0(dictionary, ".txt")
+    rds <- paste0(dictionary, ".rds")
+    new <- unique(c(if(file.exists(txt))
+                        readLines(txt, encoding = "UTF-8"),
+                    enc2utf8(add)))
+    new <- new[order(tolower(new), new)]
+    new <- new[nzchar(new)]
+    writeLines(new, txt, useBytes = TRUE)
+    saveRDS(new, rds)
 }

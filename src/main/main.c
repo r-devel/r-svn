@@ -67,6 +67,7 @@ attribute_hidden void nl_Rdummy(void)
  * in separate platform dependent modules.
  */
 
+attribute_hidden
 void Rf_callToplevelHandlers(SEXP expr, SEXP value, Rboolean succeeded,
 			     Rboolean visible);
 
@@ -194,7 +195,7 @@ typedef struct {
  The "cursor" for the input buffer is moved to the next starting
  point, i.e. the end of the first line or after the first ;.
  */
-int
+attribute_hidden int
 Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 {
     int c, browsevalue;
@@ -213,13 +214,15 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	    state->bufp = state->buf;
     }
 #ifdef SHELL_ESCAPE /* not default */
-    if (*state->bufp == '!') {
+    if (*state->bufp == '!' && state->buf == state->bufp
+        && state->prompt_type == 1) {
 	    R_system(&(state->buf[1]));
 	    state->buf[0] = '\0';
 	    return(0);
     }
 #endif /* SHELL_ESCAPE */
-    while((c = *state->bufp++)) {
+    while((c = *state->bufp)) {
+	    state->bufp++;
 	    R_IoBufferPutc(c, &R_ConsoleIob);
 	    if(c == ';' || c == '\n') break;
     }
@@ -335,7 +338,9 @@ static void check_session_exit(void)
 	    R_Suicide(_("error during cleanup\n"));
 	else {
 	    exiting = TRUE;
-	    if (GetOption1(install("error")) != R_NilValue) {
+	    if (GetOption1(install("error")) != R_NilValue ||
+		R_isTRUE(GetOption1(install("catch.script.errors")))
+		) {
 		exiting = FALSE;
 		return;
 	    }
@@ -494,6 +499,8 @@ static unsigned char ConsoleBuf[CONSOLE_BUFFER_SIZE];
 
 static void sigactionSegv(int signum, siginfo_t *ip, void *context)
 {
+    /* ensure R terminates if the handler segfaults (PR#18551) */
+    signal(signum, SIG_DFL);
     char *s;
 
     /* First check for stack overflow if we know the stack position.
@@ -633,7 +640,6 @@ static void sigactionSegv(int signum, siginfo_t *ip, void *context)
 	REprintf("An irrecoverable exception occurred. R is aborting now ...\n");
     R_CleanTempDir();
     /* now do normal behaviour, e.g. core dump */
-    signal(signum, SIG_DFL);
     raise(signum);
 }
 
@@ -676,7 +682,7 @@ static void init_signal_handlers(void)
 	    warning("failed to allocate alternate signal stack");
 	sa.sa_sigaction = sigactionSegv;
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
+	sa.sa_flags = SA_ONSTACK | SA_SIGINFO | SA_NODEFER;
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGILL, &sa, NULL);
 #ifdef SIGBUS
@@ -830,7 +836,7 @@ void setup_Rmainloop(void)
 
 #ifdef DEBUG_STACK_DETECTION 
     /* testing stack base and size detection */
-    printf("stack limit %ld, start %lx dir %d \n",
+    printf("stack limit %lu, start %lu dir %d \n",
 	(unsigned long) R_CStackLimit,
         (unsigned long) R_CStackStart,
 	R_CStackDir);
@@ -911,8 +917,13 @@ void setup_Rmainloop(void)
 
 	/* We set R_ARCH here: Unix does it in the shell front-end */
 	char Rarch[30];
-	strcpy(Rarch, "R_ARCH=/");
-	strcat(Rarch, R_ARCH);
+	strcpy(Rarch, "R_ARCH=");
+# ifdef R_ARCH
+	if (strlen(R_ARCH) > 0) {
+	    strcat(Rarch, "/");
+	    strcat(Rarch, R_ARCH);
+	}
+# endif
 	putenv(Rarch);
     }
 #else /* not Win32 */
@@ -1003,7 +1014,7 @@ void setup_Rmainloop(void)
     R_Toplevel.restartstack = R_RestartStack;
     R_Toplevel.srcref = R_NilValue;
     R_Toplevel.prstack = NULL;
-    R_Toplevel.returnValue = NULL;
+    R_Toplevel.returnValue = SEXP_TO_STACKVAL(NULL);
     R_Toplevel.evaldepth = 0;
     R_Toplevel.browserfinish = 0;
     R_GlobalContext = R_ToplevelContext = R_SessionContext = &R_Toplevel;
@@ -1065,7 +1076,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".OptRequireMethods"));
-	R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+	R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1132,7 +1143,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".First"));
-	R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+	R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1151,7 +1162,7 @@ void setup_Rmainloop(void)
     if (!doneit) {
 	doneit = 1;
 	PROTECT(cmd = install(".First.sys"));
-	R_CurrentExpr = findVar(cmd, baseNSenv);
+	R_CurrentExpr = R_findVar(cmd, baseNSenv);
 	if (R_CurrentExpr != R_UnboundValue &&
 	    TYPEOF(R_CurrentExpr) == CLOSXP) {
 		PROTECT(R_CurrentExpr = lang1(cmd));
@@ -1163,7 +1174,7 @@ void setup_Rmainloop(void)
     {
 	int i;
 	for(i = 0 ; i < ndeferred_warnings; i++)
-	    warning(deferred_warnings[i]);
+	    warning("%s", deferred_warnings[i]);
     }
     if (R_CollectWarnings) {
 	REprintf(_("During startup - "));
@@ -1320,6 +1331,58 @@ static void PrintCall(SEXP call, SEXP rho)
     R_BrowseLines = old_bl;
 }
 
+static int countBrowserContexts(void)
+{
+    /* passing TRUE for the second argument seems to over-count */
+    return countContexts(CTXT_BROWSER, FALSE);
+}
+
+#ifdef USE_BROWSER_HOOK
+struct callBrowserHookData { SEXP hook, cond, rho; };
+
+static SEXP callBrowserHook(void *data)
+{
+    struct callBrowserHookData *bhdata = data;
+    SEXP hook = bhdata-> hook;
+    SEXP cond = bhdata->cond;
+    SEXP rho = bhdata->rho;
+    SEXP args = CONS(hook, CONS(cond, CONS(rho, R_NilValue)));
+    SEXP hcall = LCONS(hook, args);
+    PROTECT(hcall);
+    R_SetOption(install("browser.hook"), R_NilValue);
+    SEXP val = eval(hcall, R_GlobalEnv);
+    UNPROTECT(1); /* hcall */
+    return val;
+}
+
+static void restoreBrowserHookOption(void *data, Rboolean jump)
+{
+    struct callBrowserHookData *bhdata = data;
+    SEXP hook = bhdata-> hook;
+    R_SetOption(install("browser.hook"), hook); // also on jumps
+}
+
+static void R_browserRepl(SEXP rho)
+{
+    /* save some stuff -- shouldn't be needed unless REPL is sloppy */
+    int savestack = R_PPStackTop;
+    SEXP topExp = PROTECT(R_CurrentExpr);
+    RCNTXT *saveToplevelContext = R_ToplevelContext;
+    RCNTXT *saveGlobalContext = R_GlobalContext;
+
+    int browselevel = countBrowserContexts();
+    R_ReplConsole(rho, savestack, browselevel);
+
+    /* restore the saved stuff */
+    R_CurrentExpr = topExp;
+    UNPROTECT(1); /* topExp */
+    R_PPStackTop = savestack;
+    R_CurrentExpr = topExp;
+    R_ToplevelContext = saveToplevelContext;
+    R_GlobalContext = saveGlobalContext;
+}
+#endif
+
 /* browser(text = "", condition = NULL, expr = TRUE, skipCalls = 0L)
  * ------- but also called from ./eval.c */
 attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -1339,6 +1402,10 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TAG(CDR(ap), install("condition"));
     SET_TAG(CDDR(ap), install("expr"));
     SET_TAG(CDDDR(ap), install("skipCalls"));
+#ifdef USE_BROWSER_HOOK
+    SETCDR(CDDDR(ap), CONS(R_NilValue, R_NilValue));
+    SET_TAG(CDR(CDDDR(ap)), install("ignoreHook"));
+#endif
     argList = matchArgs_RC(ap, args, call);
     UNPROTECT(1);
     PROTECT(argList);
@@ -1351,15 +1418,33 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SETCAR(CDDR(argList), ScalarLogical(1));
     if(CADDDR(argList) == R_MissingArg)
 	SETCAR(CDDDR(argList), ScalarInteger(0));
+#ifdef USE_BROWSER_HOOK
+    if(CAR(CDR(CDDDR(argList))) == R_MissingArg)
+	SETCAR(CDR(CDDDR(argList)), ScalarLogical(FALSE));
+#endif
 
     /* return if 'expr' is not TRUE */
-    if( !asLogical(CADDR(argList)) ) {
+    SEXP expr = CADDR(argList);
+    if (! asLogical(expr)) {
 	UNPROTECT(1);
 	return R_NilValue;
     }
 
+#ifdef USE_BROWSER_HOOK
+    /* allow environment to use to be provides as the 'expr' argument */
+    if (TYPEOF(expr) == ENVSXP)
+	rho = expr;
+
+    Rboolean ignoreHook = asLogical(CAR(CDR(CDDDR(argList))));
+    if (ignoreHook) {
+        R_browserRepl(rho);
+        UNPROTECT(1); /* argList */
+        return R_ReturnedValue;
+    }
+#endif
+
     /* trap non-interactive debugger invocation */
-    if(!R_Interactive) {
+    if(! R_Interactive) {
         char *p = getenv("_R_CHECK_BROWSER_NONINTERACTIVE_");
         if (p != NULL && StringTrue(p))
             error(_("non-interactive browser() -- left over from debugging?"));
@@ -1368,7 +1453,7 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Save the evaluator state information */
     /* so that it can be restored on exit. */
 
-    browselevel = countContexts(CTXT_BROWSER, 1);
+    browselevel = countBrowserContexts();
     savestack = R_PPStackTop;
     PROTECT(topExp = R_CurrentExpr);
     saveToplevelContext = R_ToplevelContext;
@@ -1377,6 +1462,13 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (!RDEBUG(rho)) {
 	int skipCalls = asInteger(CADDDR(argList));
 	cptr = R_GlobalContext;
+#ifdef USE_BROWSER_HOOK
+	if (! ignoreHook)
+	    /* skip over the hook closure on the stack */
+	    while ((!(cptr->callflag & CTXT_FUNCTION) || cptr->cloenv != rho)
+		   && cptr->callflag )
+	    cptr = cptr->nextcontext;		
+#endif
 	while ( ( !(cptr->callflag & CTXT_FUNCTION) || skipCalls--)
 		&& cptr->callflag )
 	    cptr = cptr->nextcontext;
@@ -1410,7 +1502,23 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	R_GlobalContext = &thiscontext;
 	R_InsertRestartHandlers(&thiscontext, "browser");
-	R_ReplConsole(rho, savestack, browselevel+1);
+#ifdef USE_BROWSER_HOOK
+	/* if a browser hook is provided, call it and use the result */
+	SEXP hook = ignoreHook ?
+	    R_NilValue : GetOption1(install("browser.hook"));
+	if (isFunction(hook)) {
+	    struct callBrowserHookData bhdata = {
+	        .hook = hook, .cond = CADR(argList), .rho = rho
+	    };
+	    R_ReturnedValue = R_UnwindProtect(callBrowserHook, &bhdata,
+					      restoreBrowserHookOption, &bhdata,
+					      NULL);
+	}
+	else
+	    R_ReplConsole(rho, savestack, browselevel + 1);
+#else
+	R_ReplConsole(rho, savestack, browselevel + 1);
+#endif
 	endcontext(&thiscontext);
     }
     endcontext(&returncontext);
@@ -1436,7 +1544,7 @@ void R_dot_Last(void)
 
     R_GlobalContext = R_ToplevelContext = R_SessionContext = &R_Toplevel;
     PROTECT(cmd = install(".Last"));
-    R_CurrentExpr = findVar(cmd, R_GlobalEnv);
+    R_CurrentExpr = R_findVar(cmd, R_GlobalEnv);
     if (R_CurrentExpr != R_UnboundValue && TYPEOF(R_CurrentExpr) == CLOSXP) {
 	PROTECT(R_CurrentExpr = lang1(cmd));
 	R_CurrentExpr = eval(R_CurrentExpr, R_GlobalEnv);
@@ -1444,7 +1552,7 @@ void R_dot_Last(void)
     }
     UNPROTECT(1);
     PROTECT(cmd = install(".Last.sys"));
-    R_CurrentExpr = findVar(cmd, R_BaseNamespace);
+    R_CurrentExpr = R_findVar(cmd, R_BaseNamespace);
     if (R_CurrentExpr != R_UnboundValue && TYPEOF(R_CurrentExpr) == CLOSXP) {
 	PROTECT(R_CurrentExpr = lang1(cmd));
 	R_CurrentExpr = eval(R_CurrentExpr, R_GlobalEnv);
@@ -1524,7 +1632,7 @@ static Rboolean Rf_RunningToplevelHandlers = FALSE;
   since they could be more identified by an invariant (rather than
   position).
  */
-R_ToplevelCallbackEl *
+attribute_hidden R_ToplevelCallbackEl *
 Rf_addTaskCallback(R_ToplevelCallback cb, void *data,
 		   void (*finalizer)(void *), const char *name, int *pos)
 {
@@ -1579,7 +1687,7 @@ static void removeToplevelHandler(R_ToplevelCallbackEl *e)
     }
 }
 
-Rboolean
+attribute_hidden Rboolean
 Rf_removeTaskCallbackByName(const char *name)
 {
     R_ToplevelCallbackEl *el = Rf_ToplevelTaskHandlers, *prev = NULL;
@@ -1613,7 +1721,7 @@ Rf_removeTaskCallbackByName(const char *name)
   Remove the top-level task handler/callback identified by
   its position in the list of callbacks.
  */
-Rboolean
+attribute_hidden Rboolean
 Rf_removeTaskCallbackByIndex(int id)
 {
     R_ToplevelCallbackEl *el = Rf_ToplevelTaskHandlers, *tmp = NULL;
@@ -1656,7 +1764,7 @@ Rf_removeTaskCallbackByIndex(int id)
 
   @see Rf_RemoveToplevelCallbackByIndex(int)
  */
-SEXP
+attribute_hidden SEXP
 R_removeTaskCallback(SEXP which)
 {
     int id;
@@ -1675,7 +1783,7 @@ R_removeTaskCallback(SEXP which)
     return ScalarLogical(val);
 }
 
-SEXP
+attribute_hidden SEXP
 R_getTaskCallbackNames(void)
 {
     SEXP ans;
@@ -1778,7 +1886,7 @@ static void defineVarInc(SEXP sym, SEXP val, SEXP rho)
     INCREMENT_NAMED(val); /* in case this is used in a NAMED build */
 }
 
-Rboolean
+attribute_hidden Rboolean
 R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
 		      Rboolean visible, void *userData)
 {
@@ -1851,7 +1959,7 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
     return(again);
 }
 
-SEXP
+attribute_hidden SEXP
 R_addTaskCallback(SEXP f, SEXP data, SEXP useData, SEXP name)
 {
     SEXP internalData;
@@ -1892,14 +2000,14 @@ R_addTaskCallback(SEXP f, SEXP data, SEXP useData, SEXP name)
 # include <R_ext/RS.h>
 # if defined FC_LEN_T
 # include <stddef.h>
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
 attribute_hidden void dummy54321(void)
 {
     int nc = 5;
     F77_CALL(rwarnc)("dummy", &nc, (FC_LEN_T) 5);
 }
 # else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
+void F77_SUB(rwarnc)(char *msg, int *nchar);
 attribute_hidden void dummy54321(void)
 {
     int nc = 5;

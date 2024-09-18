@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -323,16 +323,14 @@ static hlen vhash(SEXP x, R_xlen_t indx, HashData *d)
 
 static hlen vhash_one(SEXP _this, HashData *d)
 {
-    int i;
-    unsigned int key;
-
     /* Handle environments by pointer hashing. Previously,
        environments were hashed based only on length, which is not
        very effective and could be expensive to compute. */
     if (TYPEOF(_this) == ENVSXP)
 	return scatter(PTRHASH(_this), d);
 
-    key = OBJECT(_this) + 2*TYPEOF(_this) + 100U*(unsigned int) length(_this);
+    int i;
+    unsigned int key = OBJECT(_this) + 2*TYPEOF(_this) + 100U*(unsigned int) length(_this);
     /* maybe we should also look at attributes, but that slows us down */
     switch (TYPEOF(_this)) {
     case LGLSXP:
@@ -444,7 +442,7 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
 #ifdef LONG_VECTOR_SUPPORT
     /* M = 2^32 is safe, hence n <= 2^31 -1 */
     if(n < 0) /* protect against overflow to -ve */
-	error(_("length %d is too large for hashing"), n);
+	error(_("length %lld is too large for hashing"), (long long)n);
 #else
     if(n < 0 || n >= 1073741824) /* protect against overflow to -ve */
 	error(_("length %d is too large for hashing"), n);
@@ -668,7 +666,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     return ans;
 }
 
-R_xlen_t sorted_real_count_NANs(SEXP x) {
+attribute_hidden R_xlen_t sorted_real_count_NANs(SEXP x) {
     R_xlen_t n = XLENGTH(x);
     if(n == 0)
 	return 0;
@@ -862,62 +860,68 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     return ans;
 }
 
-R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
+attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
     int itmp, sorted;
     double rtmp;
     Rboolean seen_na = FALSE, seen_nan = FALSE, na1st = FALSE;
     
 #define SORTED_ANYDUP_NONNANS_FROM_LAST(start, count, tmpvar, eetype, vvtype) do { \
-	tmpvar = vvtype##_ELT(x, start + count - 1);			\
-	ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype, vvtype, \
-				      start, count - 1, {		\
-					  if(xptr[nb - 1] == tmpvar) {	\
-					      return idx + nb;		\
-					  }				\
-					  for(R_xlen_t k = nb - 2; k >= 0; k--) { \
-					      if(xptr[k + 1] == xptr[k]) { \
-						  return idx + k + 1;	\
-					      }				\
-					  }				\
-					  tmpvar = xptr[0];		\
-				      });				\
+	if (count > 1) {							\
+	    tmpvar = vvtype##_ELT(x, start + count - 1);			\
+	    ITERATE_BY_REGION_PARTIAL_REV(x, xptr, idx, nb, eetype, vvtype,	\
+					  start, count - 1, {			\
+					      if(xptr[nb - 1] == tmpvar) {	\
+						  return idx + nb;		\
+					      }					\
+					      for(R_xlen_t k = nb - 2; k >= 0; k--) { \
+						  if(xptr[k + 1] == xptr[k]) {	\
+						      return idx + k + 1;	\
+						  }				\
+					      }					\
+					      tmpvar = xptr[0];			\
+					  });					\
+	}									\
     } while(0)
 
 #define SORTED_ANYDUP_NONNANS_FROM_FIRST(start, count, tmpvar, eetype, vvtype) do { \
-	tmpvar = vvtype##_ELT(x, start);				\
-	ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype,		\
-				  vvtype, start + 1, count - 1, {	\
-				      if(xptr[0] == tmpvar) {		\
-					  return idx + 1;		\
-				      }					\
-				      for(R_xlen_t k = 1; k < nb; k++) { \
-					  if(xptr[k] == xptr[k - 1]) {	\
-					      return idx + k + 1;	\
-					  }				\
-				      }					\
-				      tmpvar = xptr[nb - 1];		\
-				  });					\
+	if (count > 1) {							\
+	    tmpvar = vvtype##_ELT(x, start);					\
+	    ITERATE_BY_REGION_PARTIAL(x, xptr, idx, nb, eetype,			\
+				      vvtype, start + 1, count - 1, {		\
+					  if(xptr[0] == tmpvar) {		\
+					      return idx + 1;			\
+					  }					\
+					  for(R_xlen_t k = 1; k < nb; k++) {	\
+					      if(xptr[k] == xptr[k - 1]) {	\
+						  return idx + k + 1;		\
+					      }					\
+					  }					\
+					  tmpvar = xptr[nb - 1];		\
+				      });					\
+	}									\
     } while(0)
 
 #define SORTED_ANYDUP_NANS(start, count, itype, istart, icond, iter) do { \
-	ITERATE_BY_REGION_##itype(x, xptr, idx, nb, double, REAL,	\
-				  start, count, {			\
-				      for(R_xlen_t i = istart; icond; iter) { \
-					  if(R_NaN_is_R_NA(xptr[i])) {	\
-					      if(seen_na) {		\
-						  return idx + i + 1;	\
-					      } else {			\
-						  seen_na = TRUE;	\
-					      }				\
-					  } else {			\
-					      if(seen_nan) {		\
-						  return idx + i + 1;	\
-					      } else {			\
-						  seen_nan = TRUE;	\
-					      }				\
-					  }				\
-				      }					\
-				  });					\
+	if (count > 1) {							\
+	    ITERATE_BY_REGION_##itype(x, xptr, idx, nb, double, REAL,		\
+				      start, count, {				\
+					  for(R_xlen_t i = istart; icond; iter) { \
+					      if(R_NaN_is_R_NA(xptr[i])) {	\
+						  if(seen_na) {			\
+						      return idx + i + 1;	\
+						  } else {			\
+						      seen_na = TRUE;		\
+						  }				\
+					      } else {				\
+						  if(seen_nan) {		\
+						      return idx + i + 1;	\
+						  } else {			\
+						      seen_nan = TRUE;		\
+						  }				\
+					      }					\
+					  }					\
+				      });					\
+	}									\
     } while(0)
 
     switch(TYPEOF(x)) {
@@ -1329,6 +1333,7 @@ static SEXP asUTF8(SEXP x)
 }
     
 // workhorse of R's match() and hence also  " ix %in% itable "
+static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
     R_xlen_t n = xlength(ix);
@@ -1491,8 +1496,8 @@ attribute_hidden SEXP do_match(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    if ((!isVector(CAR(args)) && !isNull(CAR(args)))
-	|| (!isVector(CADR(args)) && !isNull(CADR(args))))
+    if ((!isVector(CAR (args)) && !isNull(CAR (args))) ||
+	(!isVector(CADR(args)) && !isNull(CADR(args))))
 	error(_("'match' requires vector arguments"));
 
     int nomatch = asInteger(CADDR(args));
@@ -1520,35 +1525,32 @@ attribute_hidden SEXP do_match(SEXP call, SEXP op, SEXP args, SEXP env)
  * Empty strings are unmatched			      BDR 2000/2/16
  */
 
+// .Internal(pmatch(x, table, nomatch, duplicates.ok))
 attribute_hidden SEXP do_pmatch(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP ans, input, target;
-    int mtch, n_target, mtch_count, dups_ok, no_match;
-    size_t temp;
-    int *used = NULL, *ians;
-    const char **in, **tar;
-    Rboolean no_dups;
-    Rboolean useBytes = FALSE, useUTF8 = FALSE;
-
     checkArity(op, args);
-    input = CAR(args);
+    SEXP input  = CAR(args), // = x     in R
+	target = CADR(args), // = table  "
+	ans;
     R_xlen_t n_input = XLENGTH(input);
-    target = CADR(args);
-    n_target = LENGTH(target); // not allowed to be long
-    no_match = asInteger(CADDR(args));
-    dups_ok = asLogical(CADDDR(args));
+
+    int n_target = LENGTH(target), // not allowed to be long
+	no_match = asInteger(CADDR(args)),
+	dups_ok  = asLogical(CADDDR(args));
     if (dups_ok == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "duplicates.ok");
-    no_dups = !dups_ok;
+    Rboolean no_dups = !dups_ok;
 
     if (!isString(input) || !isString(target))
 	error(_("argument is not of mode character"));
 
+    int *used = NULL;
     if(no_dups) {
 	used = (int *) R_alloc((size_t) n_target, sizeof(int));
 	for (int j = 0; j < n_target; j++) used[j] = 0;
     }
 
+    Rboolean useBytes = FALSE, useUTF8 = FALSE;
     for(R_xlen_t i = 0; i < n_input; i++) {
 	if(IS_BYTES(STRING_ELT(input, i))) {
 	    useBytes = TRUE;
@@ -1570,10 +1572,11 @@ attribute_hidden SEXP do_pmatch(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
 
-    in = (const char **) R_alloc((size_t) n_input, sizeof(char *));
+    const char **in, **tar;
+    in  = (const char **) R_alloc((size_t) n_input,  sizeof(char *));
     tar = (const char **) R_alloc((size_t) n_target, sizeof(char *));
     PROTECT(ans = allocVector(INTSXP, n_input));
-    ians = INTEGER0(ans);
+    int *ians = INTEGER0(ans);
     if(useBytes) {
 	for(R_xlen_t i = 0; i < n_input; i++) {
 	    in[i] = CHAR(STRING_ELT(input, i));
@@ -1637,11 +1640,13 @@ attribute_hidden SEXP do_pmatch(SEXP call, SEXP op, SEXP args, SEXP env)
 	    const char *ss;
 	    if (ians[i]) continue;
 	    ss = in[i];
-	    temp = strlen(ss);
+	    size_t temp = strlen(ss);
 	    if (temp == 0) continue;
-	    mtch = 0;
-	    mtch_count = 0;
+	    int mtch = 0,
+		mtch_count = 0;
 	    for (int j = 0; j < n_target; j++) {
+		if (!(((size_t)i * n_target + j) & 0x1fff))
+		    R_CheckUserInterrupt();
 		if (no_dups && used[j]) continue;
 		if (strncmp(ss, tar[j], temp) == 0) {
 		    mtch = j + 1;
@@ -1800,7 +1805,7 @@ static SEXP subDots(SEXP rho)
     SEXP rval, dots, a, b, t;
     int len,i;
 
-    dots = findVar(R_DotsSymbol, rho);
+    dots = R_findVar(R_DotsSymbol, rho);
 
     if (dots == R_UnboundValue)
 	error(_("... used in a situation where it does not exist"));

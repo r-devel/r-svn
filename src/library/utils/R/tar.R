@@ -1,7 +1,7 @@
 #  File src/library/utils/R/tar.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -513,8 +513,12 @@ tar <- function(tarfile, files = NULL,
             header[117:123] <- charToRaw(sprintf("%07o", gid))
 	}
         header[137:147] <- charToRaw(sprintf("%011o", as.integer(info$mtime)))
-        if (info$isdir) header[157L] <- charToRaw("5")
-        else {
+        ## size is 0 for directories and for links.
+        size <- info$size
+        if (info$isdir) {
+            header[157L] <- charToRaw("5")
+            size <- 0
+        } else {
             lnk <- Sys.readlink(f)
             if(is.na(lnk)) lnk <- ""
             header[157L] <- charToRaw(ifelse(nzchar(lnk), "2", "0"))
@@ -529,23 +533,26 @@ tar <- function(tarfile, files = NULL,
                 size <- 0
             }
         }
-        ## size is 0 for directories and it seems for links.
-        size <- ifelse(info$isdir, 0, info$size)
         if(size >= 8^11) stop("file size is limited to 8GB")
         header[125:135] <- .Call(C_octsize, size)
         ## the next two are what POSIX says, not what GNU tar does.
         header[258:262] <- charToRaw("ustar")
         header[264:265] <- charToRaw("0")
         ## Windows does not have uname, grname
-        s <- info$uname
-        if(!is.null(s) && !is.na(s)) {
-            ns <- nchar(s, "b")
-            header[265L + (1:ns)] <- charToRaw(s)
-        }
-        s <- info$grname
-        if(!is.null(s) && !is.na(s)) {
-            ns <- nchar(s, "b")
-            header[297L + (1:ns)] <- charToRaw(s)
+        ##     too long ( > 32 ) uname, grname are truncated (PR#17871)
+        for (frag in list(list('uname',  265L),
+                          list('grname', 297L))) {
+            s <- info[[frag[[1L]]]]
+            if(!is.null(s) && !is.na(s)) {
+                ns <- nchar(s, "b")
+                if (ns > 32L) {
+                    warn1 <- c(warn1, sprintf("truncating %d character long '%s'",
+                                              ns, frag[[1L]]))
+                    ns <- 32L
+                }
+                i <- seq_len(ns)
+                header[frag[[2L]] + i] <- charToRaw(s)[i]
+            }
         }
         header[149:156] <- charToRaw(" ")
         checksum <- sum(as.integer(header)) %% 2^24 # 6 bytes

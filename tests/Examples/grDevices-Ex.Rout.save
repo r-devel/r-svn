@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2023-07-31 r84791) -- "Unsuffered Consequences"
-Copyright (C) 2023 The R Foundation for Statistical Computing
+R Under development (unstable) (2024-08-29 r87078) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -459,8 +459,9 @@ NULL
 $out
 [1] 1000
 
+> 
 > ## no outlier treatment:
-> boxplot.stats(x, coef = 0)
+> (b3 <- boxplot.stats(x, coef = 0))
 $stats
 [1]    1   26   51   76 1000
 
@@ -473,20 +474,11 @@ $conf
 $out
 numeric(0)
 
+> stopifnot(b3$stats == fivenum(x))
 > 
-> boxplot.stats(c(x, NA)) # slight change : n is 101
-$stats
-[1]   1  26  51  76 100
-
-$n
-[1] 101
-
-$conf
-[1] 43.13921 58.86079
-
-$out
-[1] 1000
-
+> ## missing values are ignored
+> stopifnot(identical(boxplot.stats(c(x, NA)), b1))
+> ## ... infinite values are not:
 > (r <- boxplot.stats(c(x, -1:1/0)))
 $stats
 [1]   1.0  25.5  51.0  76.5 100.0
@@ -630,13 +622,9 @@ $ch
 > X <- matrix(stats::rnorm(2000), ncol = 2)
 > chull(X)
  [1]  61 442 165 899 697 446 975 656 232 557 938 295 495
-> ## Not run: 
-> ##D   # Example usage from graphics package
-> ##D   plot(X, cex = 0.5)
-> ##D   hpts <- chull(X)
-> ##D   hpts <- c(hpts, hpts[1])
-> ##D   lines(X[hpts, ])
-> ## End(Not run)
+> 
+> plot(X, cex = 0.5)
+> polygon(X[chull(X), ])
 > 
 > 
 > 
@@ -715,6 +703,20 @@ blue    0 239
 red          0      223       97
 green        0       83      208
 blue         0      107       79
+> 
+> # long and short form of hexadecimal notation
+> col2rgb(c(long = "#559955", short = "#595"))
+      long short
+red     85    85
+green  153   153
+blue    85    85
+> # with alpha
+> col2rgb(c(long = "#559955BB", short = "#595B"), alpha = TRUE)
+      long short
+red     85    85
+green  153   153
+blue    85    85
+alpha  187   187
 > 
 > ##-- NON-INTRODUCTORY examples --
 > 
@@ -1526,7 +1528,7 @@ List of 150
 > stopifnot(setequal(cNms[isC],
 +      c("white","black","blue","cyan","green","magenta","red","yellow")))
 > ## End(Don't show)
-> table(is.gray <- tc[,1] == tc[,2] & tc[,2] == tc[,3])# (397, 105)
+> table(is.gray <- tc[,1] == tc[,2] & tc[,2] == tc[,3])  # (397, 105)
 
 FALSE  TRUE 
   397   105 
@@ -2698,19 +2700,21 @@ Sturges   Scott      FD
 [13] "Tableau 10"      "Classic Tableau" "Polychrome 36"   "Alphabet"       
 > 
 > ## Demonstrate the colors 1:8 in different palettes using a custom matplot()
-> sinplot <- function(main=NULL) {
+> sinplot <- function(main=NULL, n = 8) {
 +     x <- outer(
 + 	seq(-pi, pi, length.out = 50),
-+ 	seq(0, pi, length.out = 8),
++ 	seq(  0, pi, length.out = n),
 + 	function(x, y) sin(x - y)
 +     )
-+     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:8, ylab = "", main=main)
++     matplot(x, type = "l", lwd = 4, lty = 1, col = 1:n, ylab = "", main=main)
 + }
 > sinplot("default palette")
 > 
 > palette("R3");        sinplot("R3")
 > palette("Okabe-Ito"); sinplot("Okabe-Ito")
-> palette("Tableau")  ; sinplot("Tableau")
+> palette("Tableau")  ; sinplot("Tableau", n = 10)
+> palROB <- colorRampPalette(c("red", "darkorange2", "blue"), space = "Lab")
+> palette(palROB(16)); sinplot("palROB(16)", n = 16)
 > palette("default") # reset
 > 
 > ## color swatches for palette.colors()
@@ -2884,7 +2888,7 @@ Sturges   Scott      FD
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: pdf.options
-> ### Title: Auxiliary Function to Set/View Defaults for Arguments of pdf
+> ### Title: Auxiliary Function to Set/View Defaults for Arguments of 'pdf'
 > ### Aliases: pdf.options
 > ### Keywords: device
 > 
@@ -2892,7 +2896,7 @@ Sturges   Scott      FD
 > 
 > pdf.options(bg = "pink")
 > utils::str(pdf.options())
-List of 18
+List of 21
  $ width      : num 7
  $ height     : num 7
  $ onefile    : logi TRUE
@@ -2911,6 +2915,9 @@ List of 18
  $ useKerning : logi TRUE
  $ fillOddEven: logi FALSE
  $ compress   : logi TRUE
+ $ timestamp  : logi TRUE
+ $ producer   : logi TRUE
+ $ author     : chr ""
 > pdf.options(reset = TRUE) # back to factory-fresh
 > 
 > 
@@ -2934,6 +2941,8 @@ List of 18
 > ## End(Don't show)
 > 
 > pictex()
+Warning in pictex() : 'pictex' is deprecated.
+ Consider a TiKZ device instead.
 > plot(1:11, (-5:5)^2, type = "b", main = "Simple Example Plot")
 > dev.off()
 pdf 
@@ -3342,6 +3351,66 @@ $encoding
 attr(,"class")
 [1] "Type1Font"
 
+$URW2Helvetica
+$family
+[1] "URW2Helvetica"
+
+$metrics
+[1] "NimbusSans-Regular.afm"     "NimbusSans-Bold.afm"       
+[3] "NimbusSans-Oblique.afm"     "NimbusSans-BoldOblique.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2HelveticaItalic
+$family
+[1] "URW2HelveticaItalic"
+
+$metrics
+[1] "NimbusSans-Regular.afm"    "NimbusSans-Bold.afm"      
+[3] "NimbusSans-Italic.afm"     "NimbusSans-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"    
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$URW2Times
+$family
+[1] "URW2Times"
+
+$metrics
+[1] "NimbusRoman-Regular.afm"    "NimbusRoman-Bold.afm"      
+[3] "NimbusRoman-Italic.afm"     "NimbusRoman-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"     
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
+$NimbusMonoPS
+$family
+[1] "NimbusMonoPS"
+
+$metrics
+[1] "NimbusMonoPS-Regular.afm"    "NimbusMonoPS-Bold.afm"      
+[3] "NimbusMonoPS-Italic.afm"     "NimbusMonoPS-BoldItalic.afm"
+[5] "StandardSymbolsPS.afm"      
+
+$encoding
+[1] "default"
+
+attr(,"class")
+[1] "Type1Font"
+
 $ArialMT
 $family
 [1] "ArialMT"
@@ -3561,10 +3630,11 @@ attr(,"class")
 [13] "URWBookman"           "NimbusMon"            "NimbusSan"           
 [16] "URWHelvetica"         "NimbusSanCond"        "CenturySch"          
 [19] "URWPalladio"          "NimbusRom"            "URWTimes"            
-[22] "ArialMT"              "Japan1"               "Japan1HeiMin"        
-[25] "Japan1GothicBBB"      "Japan1Ryumin"         "Korea1"              
-[28] "Korea1deb"            "CNS1"                 "GB1"                 
-[31] "Jp_UCS-2"            
+[22] "URW2Helvetica"        "URW2HelveticaItalic"  "URW2Times"           
+[25] "NimbusMonoPS"         "ArialMT"              "Japan1"              
+[28] "Japan1HeiMin"         "Japan1GothicBBB"      "Japan1Ryumin"        
+[31] "Korea1"               "Korea1deb"            "CNS1"                
+[34] "GB1"                  "Jp_UCS-2"            
 > 
 > 
 > 
@@ -3581,20 +3651,18 @@ attr(,"class")
 > 
 > ### ** Examples
 > 
-> ## time-dependent ==> ignore diffs:
 > ## IGNORE_RDIFF_BEGIN
 > pretty(Sys.Date())
-[1] "2023-07-29" "2023-07-30" "2023-07-31" "2023-08-01" "2023-08-02"
-[6] "2023-08-03"
+[1] "2024-08-28" "2024-08-29" "2024-08-30" "2024-08-31" "2024-09-01"
+[6] "2024-09-02"
 > pretty(Sys.time(), n = 10)
- [1] "2023-07-31 10:42:05 CEST" "2023-07-31 10:42:06 CEST"
- [3] "2023-07-31 10:42:07 CEST" "2023-07-31 10:42:08 CEST"
- [5] "2023-07-31 10:42:09 CEST" "2023-07-31 10:42:10 CEST"
- [7] "2023-07-31 10:42:11 CEST" "2023-07-31 10:42:12 CEST"
- [9] "2023-07-31 10:42:13 CEST" "2023-07-31 10:42:14 CEST"
-[11] "2023-07-31 10:42:15 CEST"
+ [1] "2024-08-30 15:57:05 NZST" "2024-08-30 15:57:06 NZST"
+ [3] "2024-08-30 15:57:07 NZST" "2024-08-30 15:57:08 NZST"
+ [5] "2024-08-30 15:57:09 NZST" "2024-08-30 15:57:10 NZST"
+ [7] "2024-08-30 15:57:11 NZST" "2024-08-30 15:57:12 NZST"
+ [9] "2024-08-30 15:57:13 NZST" "2024-08-30 15:57:14 NZST"
+[11] "2024-08-30 15:57:15 NZST"
 > ## IGNORE_RDIFF_END
-> 
 > pretty(as.Date("2000-03-01")) # R 1.0.0 came in a leap year
 [1] "2000-02-28" "2000-02-29" "2000-03-01" "2000-03-02" "2000-03-03"
 [6] "2000-03-04"
@@ -3760,27 +3828,6 @@ List of 18
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
-> if(.Platform$OS.type == "unix") { # includes Mac
-+ 
-+  utils::str( quartzFonts() ) # a list(serif = .., sans = .., mono = ..)
-+  quartzFonts("mono") # the list(mono = ..) sublist of quartzFonts()
-+ ## Not run: 
-+ ##D   ## for East Asian locales you can use something like
-+ ##D   quartzFonts(sans = quartzFont(rep("AppleGothic", 4)),
-+ ##D 	      serif = quartzFont(rep("AppleMyungjp", 4)))
-+ ##D   ## since the default fonts may well not have the glyphs needed
-+ ## End(Not run)
-+ }
-List of 3
- $ serif: chr [1:4] "Times-Roman" "Times-Bold" "Times-Italic" "Times-BoldItalic"
- $ sans : chr [1:4] "Helvetica" "Helvetica-Bold" "Helvetica-Oblique" "Helvetica-BoldOblique"
- $ mono : chr [1:4] "Courier" "Courier-Bold" "Courier-Oblique" "Courier-BoldOblique"
-$mono
-[1] "Courier"             "Courier-Bold"        "Courier-Oblique"    
-[4] "Courier-BoldOblique"
-
-> 
 > 
 > 
 > cleanEx()
@@ -4045,24 +4092,6 @@ points cut off after point[39]
 > 
 > ### ** Examples
 > 
-> if(.Platform$OS.type == "windows") withAutoprint({
-+   windowsFonts()
-+   windowsFonts("mono")
-+ })
-> ## Not run: 
-> ##D ## set up for Japanese: needs the fonts installed
-> ##D windows()  # make sure we have the right device type (available on Windows only)
-> ##D Sys.setlocale("LC_ALL", "ja")
-> ##D windowsFonts(JP1 = windowsFont("MS Mincho"),
-> ##D              JP2 = windowsFont("MS Gothic"),
-> ##D              JP3 = windowsFont("Arial Unicode MS"))
-> ##D plot(1:10)
-> ##D text(5, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1")
-> ##D text(7, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1", font = 2)
-> ##D text(5, 1.5, "\u{4E10}\u{4E00}\u{4E01}", family = "JP2")
-> ##D text(9, 2, "\u{5100}", family = "JP3")
-> ## End(Not run)
-> 
 > 
 > cleanEx()
 > nameEx("x11")
@@ -4098,9 +4127,8 @@ points cut off after point[39]
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
 > ## IGNORE_RDIFF_BEGIN
-> if(capabilities()[["X11"]]) withAutoprint({
+> if(capabilities("X11")) withAutoprint({
 + X11Fonts()
 + X11Fonts("mono")
 + utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
@@ -4141,7 +4169,6 @@ $mono
 > utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
 > X11Fonts(utopia = utopia)
 > ## IGNORE_RDIFF_END
-> 
 > 
 > 
 > cleanEx()
@@ -4271,6 +4298,21 @@ $number
   [1] 1 1 2 4 2 1 2 8 3 2 7 1 3 5 1 1 1 1 1 1 1 1 1 2 2 1 1 1 1 1 1 1 1 3 1 2 1
  [38] 2 1 2 1 1 2 1 5 1 1 1 1 1 1 2 1 1 1 3 2 2 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1
  [75] 1 1 2 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+> 
+> ## If missing coordinates exist, they are also counted
+> iris2 <- iris[1:10, 3:4]
+> iris2[4, 2] <- NA
+> iris2[c(3, 5), ] <- NA
+> xyTable(iris2)
+$x
+[1] 1.4 1.4 1.5 1.5 1.5 1.7  NA
+
+$y
+[1] 0.2 0.3 0.1 0.2  NA 0.4  NA
+
+$number
+[1] 3 1 1 1 1 1 2
 
 > 
 > ## Discretized uncorrelated Gaussian:
@@ -4424,7 +4466,7 @@ NULL
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  38.446 0.619 39.236 0 0 
+Time elapsed:  29.539 0.389 31.994 0 0 
 > grDevices::dev.off()
 null device 
           1 

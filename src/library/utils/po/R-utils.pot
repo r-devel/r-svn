@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.4.0\n"
+"Project-Id-Version: R 4.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 15:00\n"
+"POT-Creation-Date: 2024-04-01 10:34\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -123,6 +123,9 @@ msgstr ""
 msgid "No suitable spell check program found."
 msgstr ""
 
+msgid "Performing query %s"
+msgstr ""
+
 msgid "Use <code> %s </code> \n to list the vignettes in all <strong>available</strong> packages."
 msgstr ""
 
@@ -199,9 +202,6 @@ msgid "'package' must be a character vector or NULL"
 msgstr ""
 
 msgid "data index for package %s is invalid and will be ignored"
-msgstr ""
-
-msgid "file 'filelist' is missing for directory %s"
 msgstr ""
 
 msgid "data set %s not found"
@@ -948,7 +948,7 @@ msgstr ""
 msgid "The number of tokens is not consistent across 'x'"
 msgstr ""
 
-msgid "cannot coerce %s to logical"
+msgid "cannot coerce %s to TRUE or FALSE"
 msgstr ""
 
 msgid "no lines found in %s"

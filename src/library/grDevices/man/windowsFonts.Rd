@@ -20,7 +20,7 @@ windowsFonts(...)
 }
 \arguments{
   \item{family}{a character vector containing the font family name
-    (\code{"TT"} as the first two characters indicates a TrueType font).
+    (\code{"TT"} as the first two characters indicates a \I{TrueType} font).
   }
   \item{\dots}{either character strings naming mappings to display,
     or new (named) mappings to define.}
@@ -45,16 +45,17 @@ windowsFonts(...)
   font and \code{"mono"} for a monospaced font.
 
   These mappings will only be used if the current font face is
-  1 (plain), 2 (bold), 3 (italic), or 4 (bolditalic).
+  1 (plain), 2 (bold), 3 (italic), or 4 (bold italic).
 }
 \seealso{
   \code{\link{windows}}
 }
-\examples{
+\examples{\donttest{% but in reg-examples1.R
 if(.Platform$OS.type == "windows") withAutoprint({
   windowsFonts()
   windowsFonts("mono")
 })
+
 \dontrun{## set up for Japanese: needs the fonts installed
 windows()  # make sure we have the right device type (available on Windows only)
 Sys.setlocale("LC_ALL", "ja")
@@ -66,5 +67,6 @@ text(5, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1")
 text(7, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1", font = 2)
 text(5, 1.5, "\u{4E10}\u{4E00}\u{4E01}", family = "JP2")
 text(9, 2, "\u{5100}", family = "JP3")
+}
 }}
 \keyword{device}

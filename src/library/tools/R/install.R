@@ -1,7 +1,7 @@
 #  File src/library/tools/R/install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 # NB: also copyright dates in Usages.
 #
@@ -165,7 +165,7 @@ if(FALSE) {
     WINDOWS <- .Platform$OS.type == "windows"
     cross <- Sys.getenv("R_CROSS_BUILD")
     have_cross <- nzchar(cross)
-    if(have_cross && !cross %in% "x64")
+    if(have_cross && !cross %in% c("x64","singlearch"))
         stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
     if (have_cross) {
         WINDOWS <- TRUE
@@ -177,13 +177,9 @@ if(FALSE) {
     rarch <- Sys.getenv("R_ARCH") # unix only
     if (WINDOWS && nzchar(.Platform$r_arch))
         rarch <- paste0("/", .Platform$r_arch)
-    cross <- Sys.getenv("R_CROSS_BUILD")
-    if(have_cross && !cross %in% "x64")
-        stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
     test_archs <- rarch
     if (have_cross) {
-        WINDOWS <- TRUE
-        r_arch <- paste0("/", cross)
+        rarch = if (cross == "singlearch") "" else paste0("/", cross)
         test_archs <- c()
     }
 
@@ -504,7 +500,7 @@ if(FALSE) {
     ## to be run from package source directory
     run_clean <- function()
     {
-        if (dir.exists("src") && length(dir("src", all.files = TRUE) > 2L)) {
+        if (dir.exists("src") && length(dir("src", all.files = TRUE)) > 2L) {
             if (WINDOWS) archs <- c("i386", "x64")
             else {
                 wd2 <- setwd(file.path(R.home("bin"), "exec"))
@@ -1313,10 +1309,11 @@ if(FALSE) {
                 } else { ## no src/Makefile.win
                     srcs <- dir(pattern = "\\.([cfmM]|cc|cpp|f90|f95|mm)$",
                                 all.files = TRUE)
-                    archs <- if(have_cross) cross
+                    archs <- if(have_cross) {
+                        if (cross == "singlearch") "" else cross
                     ## else if (!force_both && !grepl(" x64 ", utils::win.version()))
                     ##     "i386"
-                    else {
+                    } else {
                         ## see what is installed
                         ## NB, not R.home("bin")
                         f  <- dir(file.path(R.home(), "bin"))
@@ -1331,10 +1328,12 @@ if(FALSE) {
                         if(one_only && !force_biarch) {
                             if(parse_description_field(desc, "Biarch", FALSE))
                                 force_biarch <- TRUE
-                            else if (has_configure_ucrt)
-                                warning("this package has a non-empty 'configure.ucrt' file,\nso building only the main architecture\n", call. = FALSE, domain = NA)
-                            else
-                                warning("this package has a non-empty 'configure.win' file,\nso building only the main architecture\n", call. = FALSE, domain = NA)
+                            else if (length(archs) > 1L) {
+                                if (has_configure_ucrt)
+                                    warning("this package has a non-empty 'configure.ucrt' file,\nso building only the main architecture\n", call. = FALSE, domain = NA)
+                                else
+                                    warning("this package has a non-empty 'configure.win' file,\nso building only the main architecture\n", call. = FALSE, domain = NA)
+                            }
                         }
                     }
                     if(force_biarch) one_only <- FALSE
@@ -1469,11 +1468,11 @@ if(FALSE) {
                 setwd(wd2)
             }
         }
-        if (WINDOWS && "x64" %in% test_archs) {
-            ## we cannot actually test x64 unless this is 64-bit
-            ## Windows, even if it is installed.
-            if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
-        }
+        # if (WINDOWS && "x64" %in% test_archs) {
+        #     ## we cannot actually test x64 unless this is 64-bit
+        #    ## Windows, even if it is installed.
+        #     if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
+        #}
 
         if (have_cross) Sys.unsetenv("R_ARCH")
 
@@ -2042,14 +2041,6 @@ if(FALSE) {
             build_latex <- TRUE
         } else if (a == "--example") {
             build_example <- TRUE
-        } else if (a == "--use-zip-data") {
-            warning("use of '--use-zip-data' is defunct",
-                    call. = FALSE, domain = NA)
-            warning("use of '--use-zip-data' is deprecated",
-                    call. = FALSE, domain = NA)
-        } else if (a == "--auto-zip") {
-            warning("'--auto-zip' is defunct",
-                           call. = FALSE, domain = NA)
         } else if (a == "-l") {
             if (length(args) >= 2L) {lib <- args[2L]; args <- args[-1L]}
             else stop("-l option without value", call. = FALSE)
@@ -2471,10 +2462,10 @@ if(FALSE) {
     WINDOWS <- .Platform$OS.type == "windows"
     cross <- Sys.getenv("R_CROSS_BUILD")
     if(nzchar(cross)) {
-        if(!cross %in% c("i386", "x64"))
+        if(!cross %in% c("x64", "singlearch"))
             stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
         WINDOWS <- TRUE
-        Sys.setenv(R_ARCH = paste0("/", cross))
+        Sys.setenv(R_ARCH = if (cross == "singlearch") "" else paste0("/", cross))
     }
 
     if (!WINDOWS) {
@@ -2714,7 +2705,7 @@ if(FALSE) {
         makeargs <- c("SHLIB_LDFLAGS='$(SHLIB_FCLDFLAGS)'",
                       "SHLIB_LD='$(SHLIB_FCLD)'",
                       ## avoid $(LIBINTL) and $(LIBR)
-                      "ALL_LIBS='$(PKG_LIBS) $(SHLIB_LIBADD)'",
+                      "ALL_LIBS='$(PKG_LIBS) $(SHLIB_LIBADD) $(SAN_LIBS)'",
                       makeargs)
     if (with_objc) shlib_libadd <- c(shlib_libadd, "$(OBJC_LIBS)")
     if (with_f77 || with_f9x) {
@@ -2769,6 +2760,10 @@ if(FALSE) {
                         paste0("LTO_FC=", shQuote("$(LTO_FC_OPT)")))
                   else if(isFALSE(use_lto)) c("LTO=", "LTO_FC=")
                   )
+    if(config_val_to_logical(Sys.getenv("_R_CXX_USE_NO_REMAP_", "FALSE")))
+         makeargs <- c(makeargs, "CXX_DEFS=-DR_NO_REMAP")
+    if(config_val_to_logical(Sys.getenv("_R_USE_STRICT_R_HEADERS_", "FALSE")))
+         makeargs <- c(makeargs, "XDEFS=-DSTRICT_R_HEADERS=1")
 
     cmd <- paste(MAKE, p1(paste("-f", shQuote(makefiles))), p1(makeargs),
                  p1(makeobjs))

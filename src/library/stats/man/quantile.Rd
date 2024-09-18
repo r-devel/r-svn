@@ -62,7 +62,7 @@ quantile(x, \dots)
   \code{quantile} returns estimates of underlying distribution quantiles
   based on one or two order statistics from the supplied elements in
   \code{x} at probabilities in \code{probs}.  One of the nine quantile
-  algorithms discussed in Hyndman and Fan (1996), selected by
+  algorithms discussed in \bibcite{Hyndman and Fan (1996)}, selected by
   \code{type}, is employed.
 
   All sample quantiles are defined as weighted averages of
@@ -71,7 +71,7 @@ quantile(x, \dots)
   \deqn{Q_{i}(p) = (1 - \gamma)x_{j} + \gamma x_{j+1}}{Q[i](p) = (1 - \gamma) x[j] + \gamma x[j+1],}
   where \eqn{1 \le i \le 9},
   \eqn{\frac{j - m}{n} \le p < \frac{j - m + 1}{n}}{(j-m)/n \le p < (j-m+1)/n},
-  \eqn{x_{j}}{x[j]} is the \eqn{j}th order statistic, \eqn{n} is the
+  \eqn{x_{j}}{x[j]} is the \eqn{j}-th order statistic, \eqn{n} is the
   sample size, the value of \eqn{\gamma} is a function of
   \eqn{j = \lfloor np + m\rfloor}{j = floor(np + m)} and \eqn{g = np + m - j},
   and \eqn{m} is a constant determined by the sample quantile type.
@@ -87,7 +87,7 @@ quantile(x, \dots)
       \eqn{\gamma = 0} if \eqn{g = 0}, and 1 otherwise.}
     \item{Type 2}{Similar to type 1 but with averaging at discontinuities.
       \eqn{\gamma = 0.5} if \eqn{g = 0}, and 1 otherwise (SAS default, see
-      Wicklin(2017)).}
+      \bibcite{Wicklin (2017)}).}
     \item{Type 3}{Nearest even order statistic (SAS default till ca. 2010).
       \eqn{\gamma = 0} if \eqn{g = 0} and \eqn{j} is even,
       and 1 otherwise.}
@@ -99,24 +99,24 @@ quantile(x, \dots)
   of \eqn{p}, with \eqn{\gamma = g}{gamma = g} and \eqn{m} given below. The
   sample quantiles can be obtained equivalently by linear interpolation
   between the points \eqn{(p_k,x_k)}{(p[k],x[k])} where \eqn{x_k}{x[k]}
-  is the \eqn{k}th order statistic.  Specific expressions for
+  is the \eqn{k}-th order statistic.  Specific expressions for
   \eqn{p_k}{p[k]} are given below.
 
   \describe{
     \item{Type 4}{\eqn{m = 0}. \eqn{p_k = \frac{k}{n}}{p[k] = k / n}.
-      That is, linear interpolation of the empirical cdf.
+      That is, linear interpolation of the empirical \abbr{cdf}.
     }
 
     \item{Type 5}{\eqn{m = 1/2}.
       \eqn{p_k = \frac{k - 0.5}{n}}{p[k] = (k - 0.5) / n}.
       That is a piecewise linear function where the knots are the values
-      midway through the steps of the empirical cdf.  This is popular
+      midway through the steps of the empirical \abbr{cdf}.  This is popular
       amongst hydrologists.
     }
 
     \item{Type 6}{\eqn{m = p}. \eqn{p_k = \frac{k}{n + 1}}{p[k] = k / (n + 1)}.
       Thus \eqn{p_k = \mbox{E}[F(x_{k})]}{p[k] = E[F(x[k])]}.
-      This is used by Minitab and by SPSS.
+      This is used by \I{Minitab} and by SPSS.
     }
 
     \item{Type 7}{\eqn{m = 1-p}.
@@ -138,9 +138,10 @@ quantile(x, \dots)
       the expected order statistics if \code{x} is normally distributed.
     }
   }
-  Further details are provided in Hyndman and Fan (1996) who recommended type 8.
+  Further details are provided in \bibcite{Hyndman and Fan (1996)} who
+  recommended type 8. 
   The default method is type 7, as used by S and by \R < 2.0.0.
-  Makkonen argues for type 6, also as already proposed by Weibull in 1939.
+  \I{Makkonen} argues for type 6, also as already proposed by Weibull in 1939.
   The Wikipedia page contains further information about availability of
   these 9 types in software.
 }

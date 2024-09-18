@@ -1,6 +1,6 @@
 % File src/library/base/man/as.data.frame.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.data.frame}
@@ -9,23 +9,14 @@
 \alias{is.data.frame}
 \alias{as.data.frame.AsIs}
 \alias{as.data.frame.character}
-\alias{as.data.frame.complex}
 \alias{as.data.frame.data.frame}
 \alias{as.data.frame.default}
-\alias{as.data.frame.factor}
-\alias{as.data.frame.integer}
 \alias{as.data.frame.list}
-\alias{as.data.frame.logical}
-\alias{as.data.frame.raw}
 \alias{as.data.frame.matrix}
 \alias{as.data.frame.model.matrix}
-\alias{as.data.frame.noquote}
-\alias{as.data.frame.numeric}
-\alias{as.data.frame.ordered}
 \alias{as.data.frame.ts}
 \alias{as.data.frame.vector}
 \alias{as.data.frame.array}
-\alias{as.data.frame.difftime}
 
 \description{
   Functions to check if an object is a data frame, or coerce it if possible.
@@ -38,6 +29,7 @@ as.data.frame(x, row.names = NULL, optional = FALSE, \dots)
 
 \method{as.data.frame}{list}(x, row.names = NULL, optional = FALSE, \dots,
               cut.names = FALSE, col.names = names(x), fix.empty.names = TRUE,
+              new.names = !missing(col.names),
               check.names = !optional,
               stringsAsFactors = FALSE)
 
@@ -71,6 +63,8 @@ is.data.frame(x)
   \item{col.names}{(optional) character vector of column names.}
   \item{fix.empty.names}{logical indicating if empty column names, i.e.,
     \code{""} should be fixed up (in \code{\link{data.frame}}) or not.}
+  \item{new.names}{logical indicating that \code{col.names} should be used
+    (and possibly reset to \code{NA}) explicitly.}
   \item{check.names}{logical; passed to the \code{\link{data.frame}()} call.}
   %% matrix method:
   \item{make.names}{a \code{\link{logical}}, i.e., one of \code{FALSE, NA, TRUE},
@@ -97,13 +91,11 @@ is.data.frame(x)
   as the method.
 
   Since \R 4.3.0, the \emph{default} method will call
-  \code{as.data.frame.vector()} for atomic (as by \code{\link{is.atomic}})
-  non-\code{NULL} \code{x}.
+  \code{as.data.frame.vector} for atomic (as by \code{\link{is.atomic}}) \code{x}.
 
-  Direct calls to  \code{as.data.frame.<class>()} are still possible (base package!),
-  for 12 atomic base classes, but will deprecated (already visibly by setting
-  environment variable \env{_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_} to non-empty)
-  where calling \code{as.data.frame.vector()} instead is recommended.
+  Direct calls of \code{as.data.frame.\var{class}} are still possible (base package!),
+  for 12 atomic base classes, but are deprecated
+  where calling \code{as.data.frame.vector} instead is recommended.
 
   If a list is supplied, each element is converted to a column in the
   data frame.  Similarly, each column of a matrix is converted separately.
@@ -138,8 +130,26 @@ is.data.frame(x)
   eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
 }
 \seealso{
-  \code{\link{data.frame}}, \code{\link{as.data.frame.table}} for the
-  \code{table} method (which has additional arguments if called directly).
+  \code{\link{data.frame}} and  \code{\link{make.names}};
+  \code{\link{as.data.frame.table}} for the \code{table} method (which has
+  additional arguments).
+}
+\examples{
+L0 <- list(LETTERS[1:7], c(4L, 2:3, 5:7, 1L))
+L <- L0; names(L) <- nms <- c("nam", "age")
+ d0 <- as.data.frame(L0, col.names = nms)
+(d1 <- as.data.frame(L))
+stopifnot(identical(d0, d1))
+
+## showing possibilities  on how NA names are handled:
+L <- list(A = 1:4); names(L) <- NA
+names(dL  <- as.data.frame(L))                                          # "NA."
+names(dL1 <- as.data.frame(L, col.names = names(L)))                    # "NA."
+##
+names(dL1.<- as.data.frame(L,                       check.names=FALSE)) # "NA"
+##
+names(dL2 <- as.data.frame(L, col.names = names(L), check.names=FALSE)) #  NA
+names(dLn <- as.data.frame(L, new.names = TRUE,     check.names=FALSE)) #  NA
 }
 \keyword{classes}
 \keyword{methods}

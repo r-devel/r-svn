@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2txt.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -508,11 +508,16 @@ Rd2txt <-
         put(txt)
     }
 
-    # This function strips pending blank lines, then adds n new ones.
+    ## Strip a pending blank line
+    stripBlankLine <- function() {
+        n <- length(buffer)
+        strip <- n > 0L && grepl("^[[:blank:]]*$", buffer[n])
+        if (strip) buffer <<- buffer[-n]
+        strip
+    }
+    ## Strip pending blank lines, then add n new ones.
     blankLine <- function(n = 1L) {
-    	while (length(buffer) &&
-               grepl("^[[:blank:]]*$", buffer[length(buffer)]))
-    	    buffer <<- buffer[-length(buffer)]
+    	while (stripBlankLine()) NULL
 	flushBuffer()
 	if (n > haveBlanks) {
 	    buffer <<- rep_len("", n - haveBlanks)
@@ -543,7 +548,6 @@ Rd2txt <-
         } else {
             putf('## Not run: ')
             writeCodeBlock(block, tag)
-            blankLine(0L)
         }
     }
 
@@ -572,8 +576,11 @@ Rd2txt <-
                TEXT = if(blocktag == "\\command") putw(block) else putw(unescape(tabExpand(block))),
                USERMACRO =,
                "\\newcommand" =,
-               "\\renewcommand" =,
-               COMMENT = {},
+               "\\renewcommand" = {},
+               COMMENT = {
+                   stripBlankLine()     # drop indentation
+                   linestart <<- FALSE  # eat subsequent \n also for non-indented comments
+               },
                LIST = writeContent(block, tag),
                "\\describe" = {
                	   blankLine(0L)
@@ -622,12 +629,16 @@ Rd2txt <-
   			put(" <", utils::URLencode(lines2str(as.character(block[[1L]]))), ">")
                },
                "\\Sexpr"= put(as.character.Rd(block, deparse=TRUE)),
+               "\\abbr" =,
                "\\acronym" =,
                "\\cite"=,
                "\\dfn"= ,
-               "\\special" = ,
-               "\\var" = writeContent(block, tag),
-
+               "\\special" = writeContent(block, tag),
+               "\\var" = {
+                   put("<")
+                   writeContent(block, tag)
+                   put(">")
+               },
                "\\bold"=,
                "\\strong"= {
                    put("*")
@@ -839,16 +850,17 @@ Rd2txt <-
                    VERB =,
                    RCODE =,
                    TEXT = writeCode(tabExpand(block)),
-                   "\\donttest" =,
+                   "\\donttest" =, "\\dontdiff" =,
                    "\\special" =,
                    "\\var" = writeCodeBlock(block, tag),
                    "\\dots" =, # \ldots is not really allowed
                    "\\ldots" = put("..."),
                    "\\dontrun"= writeDR(block, tag),
+                   COMMENT = # skip over whole comment lines, only (as in Rd2ex)
+                       if (attr(block, "srcref")[2L] == 1L) linestart <<- FALSE,
 		   USERMACRO =,
 		   "\\newcommand" =,
 		   "\\renewcommand" =,
-                   COMMENT =,
                    "\\dontshow" =,
                    "\\testonly" = {}, # do nothing
                    ## All the markup such as \emph
@@ -873,15 +885,14 @@ Rd2txt <-
                                   save <- startCapture()
                                   dropBlank <<- TRUE
                                   writeContent(block[[1L]], tag)
-                                  DLlab <- endCapture(save)
+                                  DLlab <- trim(endCapture(save))
                                   indent0 <- indent
                                   opts <- Rd2txt_options()
                                   indent <<- max(opts$minIndent,
                                                  indent + opts$extraIndent)
                                   keepFirstIndent <<- TRUE
                                   putw(strrep(" ", indent0),
-                                       frmt(paste0(DLlab),
-                                            justify="left", width=indent),
+                                       DLlab,
                                        " ")
                                   writeContent(block[[2L]], tag)
 			  	  blankLine(0L)
@@ -892,12 +903,13 @@ Rd2txt <-
                                   blankLine()
                                   save <- startCapture()
                                   dropBlank <<- TRUE
-                                  writeContent(block[[1L]], tag)
-                                  DLlab <- endCapture(save)
+                                  writeItemAsCode(tag, block[[1L]])
+                                  DLlab <- trim(endCapture(save))
                                   indent0 <- indent
                                   opts <- Rd2txt_options()
                                   indent <<- max(opts$minIndent, indent + opts$extraIndent)
                                   keepFirstIndent <<- TRUE
+                                  DLlab <- paste0(DLlab[nzchar(DLlab)], collapse = " ")
                                   putw(frmt(paste0(DLlab, ": "),
                                               justify="right", width=indent))
                                   writeContent(block[[2L]], tag)
@@ -991,6 +1003,22 @@ Rd2txt <-
     	out <- summary(con)$description
     }
 
+    writeItemAsCode <- function(blocktag, block) {
+        ## Keep this in rsync with writeItemAsCode() in Rd2HTML.R!
+        
+        ## Argh.  Quite a few packages put the items in their value
+        ## section inside \code.
+        for(i in which(RdTags(block) == "\\code"))
+            attr(block[[i]], "Rd_tag") <- "Rd"
+
+        s <- as.character.Rd(block)
+        s[s %in% c("\\dots", "\\ldots")] <- "..."
+        s <- trimws(strsplit(paste(s, collapse = ""), ",", fixed = TRUE)[[1]])
+        s <- s[nzchar(s)]
+        s <- paste0(s, collapse = ", ")
+        putf(s)
+    }
+        
     Rd <- prepare_Rd(Rd, defines=defines, stages=stages, fragment=fragment, ...)
     Rdfile <- attr(Rd, "Rdfile")
     sections <- RdTags(Rd)
@@ -1004,7 +1032,8 @@ Rd2txt <-
     } else {
 	title <- .Rd_format_title(.Rd_get_title(Rd))
 
-	name <- trim(Rd[[2L]][[1L]])
+	name <- .Rd_topic_for_display(.Rd_get_name(Rd),
+                                      .Rd_get_metadata(Rd, "alias"))
 
 	if(nzchar(package)) {
 	    left <- name

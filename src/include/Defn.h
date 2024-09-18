@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023  The R Core Team.
+ *  Copyright (C) 1998--2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,13 @@
 #define COUNTING
 
 #define BYTECODE
+
+#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
+# define BOXED_BINDING_CELLS 1
+#else
+# define BOXED_BINDING_CELLS 0
+# define IMMEDIATE_PROMISE_VALUES
+#endif
 
 /* probably no longer needed */
 #define NEW_CONDITION_HANDLING
@@ -63,7 +70,11 @@
 # if __has_attribute(disable_sanitizer_instrumentation)
 #  undef attribute_no_sanitizer_instrumentation
 #  define attribute_no_sanitizer_instrumentation \
-          __attribute__((disable_sanitizer_instrumentation))
+     __attribute__((disable_sanitizer_instrumentation))
+# elif __has_attribute(no_sanitize)
+#  undef attribute_no_sanitizer_instrumentation
+#  define attribute_no_sanitizer_instrumentation \
+     __attribute__ ((no_sanitize ("address", "thread", "leak", "undefined")))
 # endif
 #endif
 
@@ -71,6 +82,8 @@
 			   and occasionally as a limit. */
 
 #include <R_ext/Complex.h>
+#include <R_ext/Print.h>
+
 void Rf_CoercionWarning(int);/* warning code */
 int Rf_LogicalFromInteger(int, int*);
 int Rf_LogicalFromReal(double, int*);
@@ -221,6 +234,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define ALTREP(x)       ((x)->sxpinfo.alt)
 #define SETALTREP(x, v) (((x)->sxpinfo.alt) = (v))
 #define SETSCALAR(x, v) (((x)->sxpinfo.scalar) = (v))
+#define ANY_ATTRIB(x) (ATTRIB(x) != R_NilValue)
 
 #if defined(COMPUTE_REFCNT_VALUES)
 # define REFCNT(x) ((x)->sxpinfo.named)
@@ -412,6 +426,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))
 #define REAL_RO(x)	((const double *) DATAPTR_RO(x))
 #define STRING_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
+#define VECTOR_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 
 /* List Access Macros */
 /* These also work for ... objects */
@@ -442,11 +457,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define BNDCELL_TAG(e)	((e)->sxpinfo.extra)
 #define SET_BNDCELL_TAG(e, v) ((e)->sxpinfo.extra = (v))
 
-#if ( SIZEOF_SIZE_T < SIZEOF_DOUBLE )
-# define BOXED_BINDING_CELLS 1
-#else
-# define BOXED_BINDING_CELLS 0
-#endif
 #if BOXED_BINDING_CELLS
 /* Use allocated scalars to hold immediate binding values. A little
    less efficient but does not change memory layout or use. These
@@ -613,6 +623,8 @@ void (SET_BNDCELL_IVAL)(SEXP cell, int v);
 void (SET_BNDCELL_LVAL)(SEXP cell, int v);
 void (INIT_BNDCELL)(SEXP cell, int type);
 void SET_BNDCELL(SEXP cell, SEXP val);
+int (PROMISE_TAG)(SEXP e);
+void (SET_PROMISE_TAG)(SEXP e, int v);
 
 /* List Access Functions */
 SEXP (CAR0)(SEXP e);
@@ -637,6 +649,7 @@ void SET_PRENV(SEXP x, SEXP v);
 void SET_PRVALUE(SEXP x, SEXP v);
 void SET_PRCODE(SEXP x, SEXP v);
 void IF_PROMSXP_SET_PRVALUE(SEXP x, SEXP v);
+int  (PROMISE_IS_EVALUATED)(SEXP x);
 
 /* Hashing Functions */
 int  (HASHASH)(SEXP x);
@@ -777,6 +790,12 @@ void SET_SCALAR_BVAL(SEXP x, Rbyte v);
 # endif
 #endif
 
+#ifdef R_CheckStack
+# if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#  undef R_CheckStack
+# endif
+#endif
+
 #endif /* USE_RINTERNALS */
 
 const char * Rf_translateCharFP(SEXP);
@@ -878,6 +897,9 @@ extern void R_WaitEvent(void);
 # define FILESEP     "/"
 #endif /* Win32 */
 
+/* F77_SYMBOL was a minimal version of F77_SUB from RS.h, 
+   used in main/util.c and main/registration.c
+   F77_QSYMBOL is unused
 #ifdef HAVE_F77_UNDERSCORE
 # define F77_SYMBOL(x)	x ## _
 # define F77_QSYMBOL(x)	#x "_"
@@ -885,6 +907,7 @@ extern void R_WaitEvent(void);
 # define F77_SYMBOL(x)	x
 # define F77_QSYMBOL(x) #x
 #endif
+*/
 
 /*  Heap and Pointer Protection Stack Sizes.  */
 
@@ -923,8 +946,8 @@ extern void R_WaitEvent(void);
 #endif
 
 
-#define Mega 1048576. /* 1 Mega Byte := 2^20 (= 1048576) Bytes */
-#define Giga 1073741824. /* 1 Giga Byte := 2^30 Bytes */
+#define Mega 1048576.    /* Misnomer !! 1 MiB (mebibyte) := 2^20 (= 1048576) Bytes */
+#define Giga 1073741824. /* Misnomer !! 1 GiB (gibibyte) := 2^30 = (2^10)^3 Bytes */
 
 /*	R_PPSSIZE  The pointer protection stack size  */
 /*	R_NSIZE	   The number of cons cells	 */
@@ -968,11 +991,11 @@ extern int putenv(char *string);
    bytes of an entire path name that may exist.  In current POSIX, when
    defined, it is the maximum number of bytes that will be stored to a
    user-supplied buffer by file-system operations which do not allow the
-   caller to provide actual size of the buffer (and such calls are rare). 
+   caller to provide actual size of the buffer (and such calls are rare).
    If the system limited path names to a certain value, it shall not be less
    than this value, if defined.
 
-   POSIX has required this to be at least 255/256, and X/Open at least 1024. 
+   POSIX has required this to be at least 255/256, and X/Open at least 1024.
    Solaris, macOS, *BSD have 1024, Linux glibc has 4192 (but glibc does not
    enforce the limit).  File names are limited to FILENAME_MAX bytes
    (usually the same as PATH_MAX) or NAME_MAX (often 255/256).
@@ -999,7 +1022,7 @@ extern int putenv(char *string);
 
    But longer paths can and do exist, they can be created using some API,
    usually UCS-2, sometimes using the extended syntax
-   (\\?\D:\very_long_path) but sometimes using the common syntax. 
+   (\\?\D:\very_long_path) but sometimes using the common syntax.
    Applications that haven't opted for "long paths" (and those also have to
    be enabled system-wide) are shielded from seeing the long paths in some
    API calls to prevent buffer-overflow and other errors in user code that
@@ -1139,9 +1162,22 @@ typedef struct {
 /* Promise Access Macros */
 #define PRCODE(x)	((x)->u.promsxp.expr)
 #define PRENV(x)	((x)->u.promsxp.env)
-#define PRVALUE(x)	((x)->u.promsxp.value)
 #define PRSEEN(x)	((x)->sxpinfo.gp)
 #define SET_PRSEEN(x,v)	(((x)->sxpinfo.gp)=(v))
+#ifdef IMMEDIATE_PROMISE_VALUES
+# define PRVALUE0(x) ((x)->u.promsxp.value)
+# define PRVALUE(x) \
+    (PROMISE_TAG(x) ? R_expand_promise_value(x) : PRVALUE0(x))
+# define PROMISE_IS_EVALUATED(x) \
+    (PROMISE_TAG(x) || PRVALUE0(x) != R_UnboundValue)
+# define PROMISE_TAG(x)  BNDCELL_TAG(x)
+# define SET_PROMISE_TAG(x, v) SET_BNDCELL_TAG(x, v)
+#else
+# define PRVALUE0(x) ((x)->u.promsxp.value)
+# define PRVALUE(x) PRVALUE0(x)
+# define PROMISE_IS_EVALUATED(x) (PRVALUE(x) != R_UnboundValue)
+# define PROMISE_TAG(x) 0
+#endif
 
 /* Hashing Macros */
 #define HASHASH(x)      ((x)->sxpinfo.gp & HASHASH_MASK)
@@ -1247,7 +1283,7 @@ Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b);
    compiled 'for' loops. This could be used more extensively in the
    future, though the ALTREP framework may be a better choice.
 
-   Allocating on the stack memory is also supported; this is currently
+   Allocating memory on the stack is also supported; this is currently
    used for jump buffers.
 */
 typedef struct {
@@ -1263,6 +1299,9 @@ typedef struct {
 # define IS_PARTIAL_SXP_TAG(x) ((x) & PARTIALSXP_MASK)
 # define RAWMEM_TAG 254
 # define CACHESZ_TAG 253
+
+/* saved bcEval() state for implementing recursion using goto */
+typedef struct R_bcFrame R_bcFrame_type;
 
 #ifdef R_USE_SIGNALS
 /* Stack entry for pending promises */
@@ -1292,15 +1331,17 @@ typedef struct RCNTXT {
     int bcintactive;            /* R_BCIntActive value */
     SEXP bcbody;                /* R_BCbody value */
     void* bcpc;                 /* R_BCpc value */
+    ptrdiff_t relpc;            /* pc offset when begincontext is called */
     SEXP handlerstack;          /* condition handler stack */
     SEXP restartstack;          /* stack of available restarts */
     struct RPRSTACK *prstack;   /* stack of pending promises */
     R_bcstack_t *nodestack;
     R_bcstack_t *bcprottop;
+    R_bcFrame_type *bcframe;
     SEXP srcref;	        /* The source line in effect */
     int browserfinish;          /* should browser finish this context without
                                    stopping */
-    SEXP returnValue;           /* only set during on.exit calls */
+    R_bcstack_t returnValue;    /* only set during on.exit calls */
     struct RCNTXT *jumptarget;	/* target for a continuing jump */
     int jumpmask;               /* associated LONGJMP argument */
 } RCNTXT, *context;
@@ -1427,6 +1468,7 @@ extern0 int	R_BCIntActive INI_as(0); /* bcEval called more recently than
                                             eval */
 extern0 void*	R_BCpc INI_as(NULL);/* current byte code instruction */
 extern0 SEXP	R_BCbody INI_as(NULL); /* current byte code object */
+extern0 R_bcFrame_type *R_BCFrame INI_as(NULL); /* bcEval() frame */
 extern0 SEXP	R_NHeap;	    /* Start of the cons cell heap */
 extern0 SEXP	R_FreeSEXP;	    /* Cons cell free list */
 extern0 R_size_t R_Collected;	    /* Number of free cons cells (after gc) */
@@ -1436,6 +1478,8 @@ extern0 int	R_Is_Running;	    /* for Windows memory manager */
 LibExtern int	R_PPStackSize	INI_as(R_PPSSIZE); /* The stack size (elements) */
 LibExtern int	R_PPStackTop;	    /* The top of the stack */
 LibExtern SEXP*	R_PPStack;	    /* The pointer protection stack */
+
+void R_ReleaseMSet(SEXP mset, int keepSize);
 
 /* Evaluation Environment */
 extern0 SEXP	R_CurrentExpr;	    /* Currently evaluating expression */
@@ -1555,7 +1599,7 @@ extern0 double elapsedLimitValue       	INI_as(-1.0);
 void resetTimeLimits(void);
 void R_CheckTimeLimits(void);
 
-#define R_BCNODESTACKSIZE 200000
+#define R_BCNODESTACKSIZE 300000
 LibExtern R_bcstack_t *R_BCNodeStackTop, *R_BCNodeStackEnd;
 extern0 R_bcstack_t *R_BCNodeStackBase;
 extern0 R_bcstack_t *R_BCProtTop;
@@ -1565,12 +1609,13 @@ extern0 int R_check_constants INI_as(0);
 extern0 int R_disable_bytecode INI_as(0);
 extern SEXP R_cmpfun1(SEXP); /* unconditional fresh compilation */
 extern void R_init_jit_enabled(void);
-extern void R_initAssignSymbols(void);
+extern void R_initEvalSymbols(void);
 #ifdef R_USE_SIGNALS
 extern SEXP R_findBCInterpreterSrcref(RCNTXT*);
 #endif
 extern SEXP R_getCurrentSrcref(void);
 extern SEXP R_getBCInterpreterExpression(void);
+extern ptrdiff_t R_BCRelPC(SEXP, void *);
 
 void R_BCProtReset(R_bcstack_t *);
 
@@ -1641,12 +1686,14 @@ int Rf_asLogical2(SEXP x, int checking, SEXP call);
 typedef enum { iSILENT, iWARN, iERROR } warn_type;
 
 /* Other Internally Used Functions, excluding those which are inline-able*/
+SEXP Rf_applyClosure(SEXP, SEXP, SEXP, SEXP, SEXP, Rboolean);
 void Rf_addMissingVarsToNewEnv(SEXP, SEXP);
 SEXP Rf_allocFormalsList2(SEXP sym1, SEXP sym2);
 SEXP Rf_allocFormalsList3(SEXP sym1, SEXP sym2, SEXP sym3);
 SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
+SEXP R_allocObject(void);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
 SEXP Rf_fixSubset3Args(SEXP, SEXP, SEXP, SEXP*);
@@ -1664,7 +1711,7 @@ SEXP Rf_installS3Signature(const char *, const char *);
 Rboolean Rf_isFree(SEXP);
 Rboolean Rf_isUnmodifiedSpecSym(SEXP sym, SEXP env);
 SEXP Rf_matchE(SEXP, SEXP, int, SEXP);
-void Rf_setSVector(SEXP*, int, SEXP);
+// void Rf_setSVector(SEXP*, int, SEXP);
 SEXP Rf_stringSuffix(SEXP, int);
 const char * Rf_translateChar0(SEXP);
 
@@ -1825,9 +1872,6 @@ void R_RestoreHashCount(SEXP rho);
 # define usemethod		Rf_usemethod
 # define ucstomb		Rf_ucstomb
 # define ucstoutf8		Rf_ucstoutf8
-#ifdef ADJUST_ENVIR_REFCNTS
-# define unpromiseArgs		Rf_unpromiseArgs
-#endif
 # define utf8toucs		Rf_utf8toucs
 # define utf8towcs		Rf_utf8towcs
 # define vectorIndex		Rf_vectorIndex
@@ -1878,6 +1922,8 @@ SEXP R_GetVarLocValue(R_varloc_t);
 SEXP R_GetVarLocSymbol(R_varloc_t);
 Rboolean R_GetVarLocMISSING(R_varloc_t);
 void R_SetVarLocValue(R_varloc_t, SEXP);
+SEXP R_findVar(SEXP, SEXP);
+SEXP R_findVarInFrame(SEXP, SEXP);
 
 /* deparse option bits: change do_dump if more are added */
 
@@ -1959,7 +2005,7 @@ R_xlen_t asVecSize(SEXP x);
 R_xlen_t asXLength(SEXP x);
 void check1arg(SEXP, SEXP, const char *);
 void Rf_checkArityCall(SEXP, SEXP, SEXP);
-void CheckFormals(SEXP);
+void CheckFormals(SEXP, const char*);
 void R_check_locale(void);
 void check_stack_balance(SEXP op, int save);
 void CleanEd(void);
@@ -1973,7 +2019,7 @@ SEXP deparse1(SEXP,Rboolean,int);
 SEXP deparse1m(SEXP call, Rboolean abbrev, int opts);
 SEXP deparse1w(SEXP,Rboolean,int);
 SEXP deparse1line (SEXP, Rboolean);
-SEXP deparse1line_(SEXP, Rboolean, int);
+SEXP deparse1line_ex(SEXP, Rboolean, int);
 SEXP deparse1s(SEXP call);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
@@ -2066,7 +2112,8 @@ void process_site_Renviron(void);
 void process_system_Renviron(void);
 void process_user_Renviron(void);
 SEXP promiseArgs(SEXP, SEXP);
-void Rcons_vprintf(const char *, va_list);
+int Rcons_vprintf(const char *, va_list);
+int REvprintf_internal(const char *, va_list);
 SEXP R_data_class(SEXP , Rboolean);
 SEXP R_data_class2(SEXP);
 char *R_LibraryFileName(const char *, char *, size_t);
@@ -2084,10 +2131,12 @@ void R_SaveToFileV(SEXP, FILE*, int, int);
 Rboolean R_seemsOldStyleS4Object(SEXP object);
 int R_SetOptionWarn(int);
 int R_SetOptionWidth(int);
+SEXP R_SetOption(SEXP, SEXP);
 void R_Suicide(const char *);
 SEXP R_flexiblas_info(void);
 void R_getProcTime(double *data);
-int R_isMissing(SEXP symbol, SEXP rho);
+Rboolean R_isMissing(SEXP symbol, SEXP rho);
+Rboolean R_missing(SEXP symbol, SEXP rho);
 const char *sexptype2char(SEXPTYPE type);
 void sortVector(SEXP, Rboolean);
 void SrcrefPrompt(const char *, SEXP);
@@ -2101,9 +2150,6 @@ SEXP type2symbol(SEXPTYPE);
 void unbindVar(SEXP, SEXP);
 #ifdef ALLOW_OLD_SAVE
 void unmarkPhase(void);
-#endif
-#ifdef ADJUST_ENVIR_REFCNTS
-void unpromiseArgs(SEXP);
 #endif
 SEXP R_LookupMethod(SEXP, SEXP, SEXP, SEXP);
 int usemethod(const char *, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP*);
@@ -2131,19 +2177,33 @@ NORET void R_jumpctxt(RCNTXT *, int, SEXP);
 SEXP ItemName(SEXP, R_xlen_t);
 
 /* ../main/errors.c : */
-NORET void errorcall_cpy(SEXP, const char *, ...);
+NORET void errorcall_cpy(SEXP, const char *, ...) R_PRINTF_FORMAT(2,3);
 NORET void ErrorMessage(SEXP, int, ...);
 void WarningMessage(SEXP, R_WARNING, ...);
 SEXP R_GetTraceback(int);    // including deparse()ing
 SEXP R_GetTracebackOnly(int);// no        deparse()ing
 NORET void R_signalErrorCondition(SEXP cond, SEXP call);
 NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly);
+void R_signalWarningCondition(SEXP cond);
 SEXP R_vmakeErrorCondition(SEXP call,
 			   const char *classname, const char *subclassname,
-			   int nextra, const char *format, va_list ap);
+			   int nextra, const char *format, va_list ap)
+     R_PRINTF_FORMAT(5,0);
+
 SEXP R_makeErrorCondition(SEXP call,
 			  const char *classname, const char *subclassname,
-			  int nextra, const char *format, ...);
+			  int nextra, const char *format, ...)
+     R_PRINTF_FORMAT(5,0);
+SEXP R_makeWarningCondition(SEXP call,
+			  const char *classname, const char *subclassname,
+			  int nextra, const char *format, ...)
+     R_PRINTF_FORMAT(5,0);
+
+NORET void R_MissingArgError     (SEXP symbol,     SEXP call, const char* subclass);
+NORET void R_MissingArgError_c   (const char *arg, SEXP call, const char* subclass);
+
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
+
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);
 SEXP R_makeNotSubsettableError(SEXP x, SEXP call);
 SEXP R_makeMissingSubscriptError(SEXP x, SEXP call);
@@ -2157,14 +2217,17 @@ SEXP R_getNodeStackOverflowError(void);
 void R_InitConditions(void);
 
 R_size_t R_GetMaxVSize(void);
-void R_SetMaxVSize(R_size_t);
+Rboolean R_SetMaxVSize(R_size_t);
 R_size_t R_GetMaxNSize(void);
-void R_SetMaxNSize(R_size_t);
+Rboolean R_SetMaxNSize(R_size_t);
 R_size_t R_Decode2Long(char *p, int *ierr);
 void R_SetPPSize(R_size_t);
 void R_SetNconn(int);
 
 void R_expand_binding_value(SEXP);
+#ifdef IMMEDIATE_PROMISE_VALUES
+SEXP R_expand_promise_value(SEXP);
+#endif
 
 void R_args_enable_refcnt(SEXP);
 void R_try_clear_args_refcnt(SEXP);
@@ -2230,6 +2293,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n);
 SEXP Rf_installTrChar(SEXP);
 
 const wchar_t *wtransChar(SEXP x); /* from sysutils.c */
+const char *Rf_reEnc3(const char *x, const char *fromcode, const char *tocode, int subst);
 
 #define mbs_init(x) memset(x, 0, sizeof(mbstate_t))
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps);
@@ -2238,16 +2302,24 @@ char *mbcsTruncateToValid(char *s);
 Rboolean utf8Valid(const char *str);
 char *Rf_strchr(const char *s, int c);
 char *Rf_strrchr(const char *s, int c);
-int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap);
-int Rsnprintf_mbcs(char *str, size_t size, const char *format, ...);
-int Rasprintf_malloc(char **str, const char *fmt, ...);
+int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
+    R_PRINTF_FORMAT(3,0);
+
+int Rsnprintf_mbcs(char *str, size_t size, const char *format, ...)
+    R_PRINTF_FORMAT(3,4);
+
+int Rasprintf_malloc(char **str, const char *fmt, ...)
+    R_PRINTF_FORMAT(2,3);
 
 SEXP fixup_NaRm(SEXP args); /* summary.c */
 void invalidate_cached_recodings(void);  /* from sysutils.c */
 void resetICUcollator(Rboolean disable); /* from util.c */
 void dt_invalidate_locale(void); /* from Rstrptime.h */
 extern int R_OutputCon; /* from connections.c */
+
 extern int R_InitReadItemDepth, R_ReadItemDepth; /* from serialize.c */
+SEXP R_SerializeInfo(R_inpstream_t ips);
+
 void get_current_mem(size_t *,size_t *,size_t *); /* from memory.c */
 unsigned long get_duplicate_counter(void);  /* from duplicate.c */
 void reset_duplicate_counter(void);  /* from duplicate.c */
@@ -2299,7 +2371,7 @@ extern const char *locale2charset(const char *);
 #  endif
 #  define gettext_noop(String) String
 #  define N_(String) gettext_noop (String)
-#  else /* not NLS */
+# else /* not NLS */
 #  define _(String) (String)
 #  define N_(String) String
 #  define ngettext(String, StringP, N) (N > 1 ? StringP: String)
@@ -2359,6 +2431,9 @@ extern void *alloca(size_t);
 
 // for reproducibility for now: use exp10 or pown later if accurate enough.
 #define Rexp10(x) pow(10.0, x)
+
+// this produces an initialized structure as a _compound literal_
+#define SEXP_TO_STACKVAL(x) ((R_bcstack_t) { .tag = 0, .u.sxpval = (x) })
 
 #endif /* DEFN_H_ */
 /*

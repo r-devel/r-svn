@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2023-07-31 r84793) -- "Unsuffered Consequences"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-apple-darwin21.6.0
+R Under development (unstable) (2024-08-21 r87038) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -971,7 +971,7 @@ cond     deg0NA deg4NA deg8NA deg0NP deg4NP deg8NP
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSasymp
-> ### Title: Self-Starting Nls Asymptotic Regression Model
+> ### Title: Self-Starting 'nls' Asymptotic Model
 > ### Aliases: SSasymp
 > ### Keywords: models
 > 
@@ -1061,7 +1061,7 @@ Residual standard error: 0.7493 on 3 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSasympOff
-> ### Title: Self-Starting Nls Asymptotic Regression Model with an Offset
+> ### Title: Self-Starting 'nls' Asymptotic Model with an Offset
 > ### Aliases: SSasympOff
 > ### Keywords: models
 > 
@@ -1143,7 +1143,7 @@ Residual standard error: 1.663 on 4 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSasympOrig
-> ### Title: Self-Starting Nls Asymptotic Regression Model through the Origin
+> ### Title: Self-Starting 'nls' Asymptotic Model through the Origin
 > ### Aliases: SSasympOrig
 > ### Keywords: models
 > 
@@ -1186,7 +1186,7 @@ Residual standard error: 1.663 on 4 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSbiexp
-> ### Title: Self-Starting Nls Biexponential model
+> ### Title: Self-Starting 'nls' Biexponential Model
 > ### Aliases: SSbiexp
 > ### Keywords: models
 > 
@@ -1269,31 +1269,32 @@ Residual standard error: 0.04103 on 7 degrees of freedom
 +             trace=TRUE, control = list(maxiter = 10)) )
 0.01722077  (5.34e+02): par = (0.6168807 -1.783839 2.050204 0.2004597)
 3.308943e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
-2.571050e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-1.672513e-23 (5.07e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.398240e-29 (2.39e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.346295e-29 (1.19e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.224935e-29 (9.62e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+2.571069e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
+1.669346e-23 (5.53e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
+2.285755e-29 (1.59e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.345909e-29 (1.20e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
 Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  : 
   number of iterations exceeded maximum of 10
 > ## End(Don't show)
-> fmX1 <- nls(conc ~ SSbiexp(time, A1, lrc1, A2, lrc2), data = datN, control = list(scaleOffset=1))
+> fmX1 <- nls(conc ~ SSbiexp(time, A1, lrc1, A2, lrc2), data = datN,
++             control = list(scaleOffset=1))
 > fmX  <- nls(conc ~ SSbiexp(time, A1, lrc1, A2, lrc2), data = datN,
-+            control = list(scaleOffset=1, printEval=TRUE, tol=1e-11, nDcentral=TRUE), trace=TRUE)
++             control = list(scaleOffset=1, printEval=TRUE, tol=1e-11, nDcentral=TRUE), trace=TRUE)
 0.01722077    (6.55e-02): par = (0.6168807 -1.783839 2.050204 0.2004597)
   It.   1, fac=           1, eval (no.,total): ( 1,  1): new dev = 3.30894e-06
 3.308942e-06  (9.08e-04): par = (0.5798674 -1.784335 2.028943 0.1920502)
   It.   2, fac=           1, eval (no.,total): ( 1,  2): new dev = 2.57108e-11
 2.571081e-11  (2.53e-06): par = (0.5793882 -1.78778 2.029276 0.1915479)
   It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66926e-23
-1.669255e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.670549e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
+1.669257e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.670550e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
 > all.equal(coef(fm1), coef(fmX1), tolerance=0) # ... rel.diff.: 1.57e-6
-[1] "Mean relative difference: 1.574113e-06"
+[1] "Mean relative difference: 1.574118e-06"
 > all.equal(coef(fm1), coef(fmX),  tolerance=0) # ... rel.diff.: 1.03e-12
 [1] "Mean relative difference: 1.032123e-12"
 > ## IGNORE_RDIFF_END
@@ -1309,7 +1310,7 @@ Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  :
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSfol
-> ### Title: Self-Starting Nls First-order Compartment Model
+> ### Title: Self-Starting 'nls' First-order Compartment Model
 > ### Aliases: SSfol
 > ### Keywords: models
 > 
@@ -1366,7 +1367,7 @@ Residual standard error: 0.732 on 8 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSfpl
-> ### Title: Self-Starting Nls Four-Parameter Logistic Model
+> ### Title: Self-Starting 'nls' Four-Parameter Logistic Model
 > ### Aliases: SSfpl
 > ### Keywords: models
 > 
@@ -1458,7 +1459,7 @@ Residual standard error: 2.351 on 8 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSgompertz
-> ### Title: Self-Starting Nls Gompertz Growth Model
+> ### Title: Self-Starting 'nls' Gompertz Growth Model
 > ### Aliases: SSgompertz
 > ### Keywords: models
 > 
@@ -1531,7 +1532,7 @@ Residual standard error: 0.02684 on 13 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSlogis
-> ### Title: Self-Starting Nls Logistic Model
+> ### Title: Self-Starting 'nls' Logistic Model
 > ### Aliases: SSlogis
 > ### Keywords: models
 > 
@@ -1580,7 +1581,7 @@ Residual standard error: 0.02684 on 13 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSmicmen
-> ### Title: Self-Starting Nls Michaelis-Menten Model
+> ### Title: Self-Starting 'nls' Michaelis-Menten Model
 > ### Aliases: SSmicmen
 > ### Keywords: models
 > 
@@ -1678,7 +1679,7 @@ Residual standard error: 10.93 on 10 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: SSweibull
-> ### Title: Self-Starting Nls Weibull Growth Curve Model
+> ### Title: Self-Starting 'nls' Weibull Growth Curve Model
 > ### Aliases: SSweibull
 > ### Keywords: models
 > 
@@ -1706,6 +1707,7 @@ attr(,"gradient")
  [9,]    1 -0.0036328431  2.3469622  6.7835933
 [10,]    1 -0.0006683898  0.5619310  1.6833949
 [11,]    1 -0.0002589123  0.2459116  0.7486834
+> 
 > ## IGNORE_RDIFF_BEGIN
 > getInitial(weight ~ SSweibull(Time, Asym, Drop, lrc, pwr), data = Chick.6)
       Asym       Drop        lrc        pwr 
@@ -1728,6 +1730,7 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 
 Residual standard error: 2.061 on 7 degrees of freedom
 
+> 
 > ## Data and Fit:
 > plot(weight ~ Time, Chick.6, xlim = c(0, 21), main = "SSweibull() fit to Chick.6")
 > ux <- par("usr")[1:2]; x <- seq(ux[1], ux[2], length.out=250)
@@ -1858,6 +1861,21 @@ Variances:
 > 
 > plot(function(x) dt(x, df = 3, ncp = 2), -3, 11, ylim = c(0, 0.32),
 +      main = "Non-central t - Density", yaxs = "i")
+> 
+> ## Relation between F_t(.) = pt(x, n) and pbeta():
+> ptBet <- function(t, n) {
++     x <- n/(n + t^2)
++     r <- pb <- pbeta(x, n/2, 1/2) / 2
++     pos <- t > 0
++     r[pos] <- 1 - pb[pos]
++     r
++ }
+> x <- seq(-5, 5, by = 1/8)
+> nu <- 3:10
+> pt. <- outer(x, nu, pt)
+> ptB <- outer(x, nu, ptBet)
+> ## matplot(x, pt., type = "l")
+> stopifnot(all.equal(pt., ptB, tolerance = 1e-15))
 > 
 > 
 > 
@@ -2550,6 +2568,28 @@ x      1  2  3  4  5  6  7 Sum
 14     40-79      30+      9        20
 15    80-119      30+      7         5
 16      120+      30+     10         3
+> 
+> ## "complete cases" vs. "available cases"
+> colSums(is.na(airquality))  # NAs in Ozone but not Temp
+  Ozone Solar.R    Wind    Temp   Month     Day 
+     37       7       0       0       0       0 
+> ## the default is to summarize *complete cases*:
+> aggregate(cbind(Ozone, Temp) ~ Month, data = airquality, FUN = mean)
+  Month    Ozone     Temp
+1     5 23.61538 66.73077
+2     6 29.44444 78.22222
+3     7 59.11538 83.88462
+4     8 59.96154 83.96154
+5     9 31.44828 76.89655
+> ## to handle missing values *per variable*:
+> aggregate(cbind(Ozone, Temp) ~ Month, data = airquality, FUN = mean,
++           na.action = na.pass, na.rm = TRUE)
+  Month    Ozone     Temp
+1     5 23.61538 65.54839
+2     6 29.44444 79.10000
+3     7 59.11538 83.90323
+4     8 59.96154 83.96774
+5     9 31.44828 76.90000
 > 
 > ## Dot notation:
 > aggregate(. ~ Species, data = iris, mean)
@@ -3988,7 +4028,7 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: as.hclust
-> ### Title: Convert Objects to Class hclust
+> ### Title: Convert Objects to Class '"hclust"'
 > ### Aliases: as.hclust as.hclust.default as.hclust.twins
 > ### Keywords: multivariate cluster
 > 
@@ -4036,7 +4076,7 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > ### Name: ave
 > ### Title: Group Averages Over Level Combinations of Factors
 > ### Aliases: ave
-> ### Keywords: univar
+> ### Keywords: univar category
 > 
 > ### ** Examples
 > 
@@ -4076,6 +4116,13 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > legend(40, 70, c("mean", "median"), lty = 1,
 +       col = c("blue","green"), bg = "gray90")
 > detach()
+> 
+> # Running index per group
+> (g <- sample(c("u","s","e","R"), 24, replace = TRUE))
+ [1] "u" "R" "e" "u" "s" "u" "e" "e" "s" "s" "e" "e" "u" "u" "u" "s" "s" "s" "s"
+[20] "e" "u" "e" "u" "u"
+> ave(seq_along(g), g, FUN = seq_along)
+ [1] 1 1 1 2 1 3 2 3 2 3 4 5 4 5 6 4 5 6 7 6 7 7 8 9
 > 
 > 
 > 
@@ -4621,7 +4668,7 @@ wt 0.3800887 1.622518
 > counts <- c(18,17,15,20,10,20,25,13,12)
 > outcome <- gl(3, 1, 9); treatment <- gl(3, 3)
 > glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
-> confint(glm.D93) # needs MASS to be installed
+> confint(glm.D93) 
 Waiting for profiling to be done...
                  2.5 %      97.5 %
 (Intercept)  2.6958215  3.36655581
@@ -5068,15 +5115,18 @@ function (V)
     p <- (d <- dim(V))[1L]
     if (!is.numeric(V) || length(d) != 2L || p != d[2L]) 
         stop("'V' is not a square numeric matrix")
-    Is <- sqrt(1/diag(V))
-    if (any(!is.finite(Is))) 
-        warning("diag(.) had 0 or NA entries; non-finite result is doubtful")
+    pos <- !is.na(Is <- D <- diag(V, names = FALSE)) & D > 0
+    Is[pos] <- sqrt(1/D[pos])
+    Is[!pos] <- NaN
+    if (any(!pos) || any(!is.finite(Is))) 
+        warning("diag(V) had non-positive or NA entries; the non-finite result may be dubious")
     r <- V
     r[] <- Is * V * rep(Is, each = p)
-    r[cbind(1L:p, 1L:p)] <- 1
+    if (p) 
+        r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0x7fa76c205b90>
+<bytecode: 0x55b297bbece0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
@@ -7724,7 +7774,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x7fa76d5bb548>
+<environment: 0x55b2975fdb10>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -7746,7 +7796,7 @@ y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 +
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: formula.nls
-> ### Title: Extract Model Formula from nls Object
+> ### Title: Extract Model Formula from 'nls' Object
 > ### Aliases: formula.nls
 > ### Keywords: models
 > 
@@ -8338,6 +8388,23 @@ List of 4
 > ## "no nothing"
 > heatmap(x, Rowv = NA, Colv = NA, scale = "column",
 +         main = "heatmap(*, NA, NA) ~= image(t(x))")
+> 
+> ## Demonstration of the 'scale' argument:
+> ## The only change in the code is the 'scale' arg.
+> ## The only visible change is in the color scale on the heatmap
+> ## (the original data are not scaled).
+> 
+> heatmap(x, col = terrain.colors(128), scale = "column",
++         RowSideColors = rc,
++         ColSideColors = cc,
++         margins = c(5,10),
++         main = "heatmap(<Mtcars data>, ..., scale = \"column\")")
+> heatmap(x, col = terrain.colors(128), scale = "none",
++         RowSideColors = rc,
++         ColSideColors = cc,
++         margins = c(5,10),
++         main = "heatmap(<Mtcars data>, ..., scale = \"none\")")
+> 
 > 
 > round(Ca <- cor(attitude), 2)
            rating complaints privileges learning raises critical advance
@@ -9045,7 +9112,6 @@ Kruskal-Wallis chi-squared = 29.267, df = 4, p-value = 6.901e-06
 > flush(stderr()); flush(stdout())
 > 
 > ### Encoding: UTF-8
-> 
 > ### Name: ks.test
 > ### Title: Kolmogorov-Smirnov Tests
 > ### Aliases: ks.test ks.test.default ks.test.formula
@@ -9320,7 +9386,7 @@ it = 10 -2.083333 -2.083333
 > 
 > ### Name: lm.influence
 > ### Title: Regression Diagnostics
-> ### Aliases: lm.influence influence influence.lm influence.glm
+> ### Aliases: lm.influence influence influence.lm influence.glm qr.influence
 > ### Keywords: regression
 > 
 > ### ** Examples
@@ -9371,6 +9437,12 @@ List of 4
   ..- attr(*, "names")= chr [1:50] "Australia" "Austria" "Belgium" "Bolivia" ...
  $ wt.res      : Named num [1:50] 0.864 0.616 2.219 -0.698 3.553 ...
   ..- attr(*, "names")= chr [1:50] "Australia" "Austria" "Belgium" "Bolivia" ...
+> 
+> qRes <- qr(lm.SR) # == lm.SR $ qr
+> qrI <- qr.influence(qRes, residuals(lm.SR))
+> strip <- function(x) lapply(lapply(x, unname), drop)
+> stopifnot(identical(strip(qrI),
++                     strip(lmI[c("hat", "sigma")])))
 > 
 > ## For more "user level" examples, use example(influence.measures)
 > 
@@ -9470,8 +9542,8 @@ List of 8
 >   lm.. <- .lm.fit(X,y)
 >   lm.w <- .lm.fit(X*sqrt(w), y*sqrt(w))
 >   id <- function(x, y) all.equal(x, y, tolerance = 1e-15, scale = 1)
->   stopifnot(id(unname(lm.$coef), lm..$coef),
-+ 	    id(unname(lmw$coef), lm.w$coef))
+>   stopifnot(id(unname(lm.$coefficients), lm..$coefficients),
++ 	    id(unname(lmw$coefficients), lm.w$coefficients))
 > ## End(Don't show)
 > ## fits w/o intercept:
 > all.equal(unname(coef(lm(y ~ X-1))),
@@ -10302,7 +10374,7 @@ McNemar's chi-squared = 16.818, df = 1, p-value = 4.115e-05
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: medpolish
-> ### Title: Median Polish (Robust Twoway Decomposition) of a Matrix
+> ### Title: Median Polish (Robust Two-way Decomposition) of a Matrix
 > ### Aliases: medpolish
 > ### Keywords: robust
 > 
@@ -10530,6 +10602,16 @@ NA        0    3    0
 > data.class(model.frame(dist ~ speed, data = cars))
 [1] "data.frame"
 > 
+> ## using a subset and an extra variable
+> model.frame(dist ~ speed, data = cars, subset = speed < 10, z = log(dist))
+  dist speed       (z)
+1    2     4 0.6931472
+2   10     4 2.3025851
+3    4     7 1.3862944
+4   22     7 3.0910425
+5   16     8 2.7725887
+6   10     9 2.3025851
+> 
 > ## get_all_vars(): new var.s are recycled (iff length matches: 50 = 2*25)
 > ncars <- get_all_vars(sqrt(dist) ~ I(speed/2), data = cars, newVar = 2:3)
 > stopifnot(is.data.frame(ncars),
@@ -10677,7 +10759,7 @@ Warning in model.matrix.default(~a + b, dd, contrasts.arg = "contr.FOO") :
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: model.tables
-> ### Title: Compute Tables of Results from an Aov Model Fit
+> ### Title: Compute Tables of Results from an 'aov' Model Fit
 > ### Aliases: model.tables model.tables.aov model.tables.aovlist
 > ### Keywords: models
 > 
@@ -11247,6 +11329,7 @@ Consider specifying 'start' or using a selfStart model
 > curve(100 + 10 * exp(x / 2), col = 4, add = TRUE)
 > lines(x, predict(nlmod), col = 2)
 > 
+> 
 > ## Here, requiring close convergence, must use more accurate numerical differentiation,
 > ## as this typically gives Error: "step factor .. reduced below 'minFactor' .."
 > ## IGNORE_RDIFF_BEGIN
@@ -11268,17 +11351,17 @@ Warning in nls(formula = y ~ Const + A * exp(B * x), algorithm = "default",  :
 Initializing ‘Const’, ‘A’, ‘B’ to '1.'.
 Consider specifying 'start' or using a selfStart model
 1017460.306    (4.15e+02): par = (1 1 1)
-758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543746)
+758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543745)
 269506.3539    (3.23e+02): par = (51.75719815 -13.09155956 0.8428607704)
-68969.21897    (1.03e+02): par = (76.00069849 -1.935226737 1.019085799)
-633.3672232    (1.29e+00): par = (100.3761515 8.624648408 5.104490268)
-151.4400219    (9.39e+00): par = (100.6344391 4.913490983 0.2849209569)
-53.08739856    (7.24e+00): par = (100.6830407 6.899303315 0.4637755075)
-1.344478639    (5.97e-01): par = (100.0368306 9.897714142 0.5169294938)
+68969.21896    (1.03e+02): par = (76.0006985 -1.93522674 1.019085799)
+633.3672231    (1.29e+00): par = (100.3761515 8.624648403 5.104490265)
+151.4400225    (9.39e+00): par = (100.6344391 4.913490981 0.2849209558)
+53.08739902    (7.24e+00): par = (100.6830407 6.899303306 0.4637755073)
+1.344478646    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
 0.9908415909   (1.55e-02): par = (100.0300625 9.9144191 0.5023516843)
-0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207336)
-0.9906046054   (9.96e-08): par = (100.028875 9.916228366 0.50252165)
-0.9906046054   (5.05e-10): par = (100.028875 9.916228388 0.5025216549)
+0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207337)
+0.9906046054   (9.94e-08): par = (100.028875 9.916228366 0.50252165)
+0.9906046054   (5.87e-10): par = (100.028875 9.916228388 0.5025216549)
 Nonlinear regression model
   model: y ~ Const + A * exp(B * x)
    data: parent.frame()
@@ -11410,7 +11493,7 @@ Residual standard error: 1.11 on 17 degrees of freedom
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: nls.control
-> ### Title: Control the Iterations in nls
+> ### Title: Control the Iterations in 'nls'
 > ### Aliases: nls.control
 > ### Keywords: nonlinear regression models
 > 
@@ -12093,7 +12176,7 @@ P value adjustment method: bonferroni
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: plot.isoreg
-> ### Title: Plot Method for isoreg Objects
+> ### Title: Plot Method for 'isoreg' Objects
 > ### Aliases: plot.isoreg lines.isoreg
 > ### Keywords: hplot print
 > 
@@ -12294,7 +12377,7 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > 
 > ### ** Examples
 > 
-> ## see ?profile.glm for an example using glm fits.
+> ## see ?profile.glm for another example using glm fits.
 > 
 > ## a version of example(profile.nls) from R >= 2.8.0
 > fm1 <- nls(demand ~ SSasympOrig(Time, A, lrc), data = BOD)
@@ -12308,6 +12391,21 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > nlmod <- nls(y ~  Const + A * exp(B * x), start=list(Const=100, A=10, B=1))
 > pairs(profile(nlmod))
 > 
+> ## example from Dobson (1990) (see ?glm)
+> counts <- c(18,17,15,20,10,20,25,13,12)
+> outcome <- gl(3,1,9)
+> treatment <- gl(3,3)
+> ## this example is only formally a Poisson model. It is really a 
+> ## comparison of 3 multinomials. Only the interaction parameters are of 
+> ## interest.
+> glm.D93i <- glm(counts ~ outcome * treatment, family = poisson())
+> pr1 <- profile(glm.D93i)
+> pr2 <- profile(glm.D93i, which=6:9)
+> plot(pr1)
+> plot(pr2)
+> pairs(pr1)
+> pairs(pr2)
+> 
 > 
 > 
 > cleanEx()
@@ -12317,7 +12415,7 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: plot.profile.nls
-> ### Title: Plot a profile.nls Object
+> ### Title: Plot a 'profile.nls' Object
 > ### Aliases: plot.profile.nls
 > ### Keywords: nonlinear regression models
 > 
@@ -12618,14 +12716,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x7fa76744cb40>
-<environment: 0x7fa767453608>
+<bytecode: 0x55b297781bb8>
+<environment: 0x55b29752c6a0>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x7fa76744c9f0>
-<environment: 0x7fa767453608>
+<bytecode: 0x55b297781a30>
+<environment: 0x55b29752c6a0>
 
 > 
 > 
@@ -13549,7 +13647,7 @@ attr(,"constant")
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: predict.loess
-> ### Title: Predict Loess Curve or Surface
+> ### Title: Predict LOESS Curve or Surface
 > ### Aliases: predict.loess
 > ### Keywords: smooth
 > 
@@ -14165,7 +14263,7 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: profile.glm
-> ### Title: Method for Profiling glm Objects
+> ### Title: Method for Profiling 'glm' Objects
 > ### Aliases: profile.glm
 > ### Keywords: regression models
 > 
@@ -14191,7 +14289,7 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: profile.nls
-> ### Title: Method for Profiling nls Objects
+> ### Title: Method for Profiling 'nls' Objects
 > ### Aliases: profile.nls
 > ### Keywords: nonlinear regression models
 > 
@@ -15429,7 +15527,7 @@ block     N     P     K
 > 
 > ## times need not be numeric
 > df <- data.frame(id = rep(1:4, rep(2,4)),
-+                  visit = I(rep(c("Before","After"), 4)),
++                  visit = rep(c("Before","After"), 4),
 +                  x = rnorm(4), y = runif(4))
 > df
   id  visit          x          y
@@ -15866,7 +15964,7 @@ R_heapsort(1, 11,..): l=6:
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: scatter.smooth
-> ### Title: Scatter Plot with Smooth Curve Fitted by Loess
+> ### Title: Scatter Plot with Smooth Curve Fitted by 'loess'
 > ### Aliases: scatter.smooth loess.smooth
 > ### Keywords: smooth
 > 
@@ -15888,7 +15986,7 @@ R_heapsort(1, 11,..): l=6:
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: screeplot
-> ### Title: Screeplots
+> ### Title: Scree Plots
 > ### Aliases: screeplot screeplot.default
 > ### Keywords: multivariate
 > 
@@ -16077,16 +16175,12 @@ Contrast 1 Contrast 2 Contrast 3
 > mySSlogis <- selfStart(~ Asym/(1 + exp((xmid - x)/scal)),
 +                        initial = initLogis,
 +                        parameters = c("Asym", "xmid", "scal"))
-> ## Don't show: 
 > ## IGNORE_RDIFF_BEGIN
-> ## End(Don't show)
 > getInitial(weight ~ mySSlogis(Time, Asym, xmid, scal),
 +            data = subset(ChickWeight, Chick == 1))
      Asym      xmid      scal 
-937.03003  35.22296  11.40521 
-> ## Don't show: 
+937.03011  35.22296  11.40521 
 > ## IGNORE_RDIFF_END
-> ## End(Don't show)
 > 
 > # 'first.order.log.model' is a function object defining a first order
 > # compartment model
@@ -16902,7 +16996,7 @@ Max.     2.00  1.03072752
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: stat.anova
-> ### Title: GLM Anova Statistics
+> ### Title: GLM ANOVA Statistics
 > ### Aliases: stat.anova
 > ### Keywords: regression models
 > 
@@ -16988,8 +17082,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x7fa769fc5aa0>
-<environment: 0x7fa76d7d28e0>
+<bytecode: 0x55b2973e08c0>
+<environment: 0x55b293689d40>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -17654,8 +17748,7 @@ attr(,"legend")
 > 
 > ### ** Examples
 > 
-> require(graphics)
-> 
+> ## Two-sample t-test
 > t.test(1:10, y = c(7:20))      # P = .00001855
 
 	Welch Two Sample t-test
@@ -17683,39 +17776,53 @@ mean of x mean of y
   5.50000  25.93333 
 
 > 
-> ## Classical example: Student's sleep data
-> plot(extra ~ group, data = sleep)
 > ## Traditional interface
-> with(sleep, t.test(extra[group == 1], extra[group == 2]))
+> with(mtcars, t.test(mpg[am == 0], mpg[am == 1]))
 
 	Welch Two Sample t-test
 
-data:  extra[group == 1] and extra[group == 2]
-t = -1.8608, df = 17.776, p-value = 0.07939
+data:  mpg[am == 0] and mpg[am == 1]
+t = -3.7671, df = 18.332, p-value = 0.001374
 alternative hypothesis: true difference in means is not equal to 0
 95 percent confidence interval:
- -3.3654832  0.2054832
+ -11.280194  -3.209684
 sample estimates:
 mean of x mean of y 
-     0.75      2.33 
+ 17.14737  24.39231 
 
 > 
 > ## Formula interface
-> t.test(extra ~ group, data = sleep)
+> t.test(mpg ~ am, data = mtcars)
 
 	Welch Two Sample t-test
 
-data:  extra by group
-t = -1.8608, df = 17.776, p-value = 0.07939
-alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
+data:  mpg by am
+t = -3.7671, df = 18.332, p-value = 0.001374
+alternative hypothesis: true difference in means between group 0 and group 1 is not equal to 0
 95 percent confidence interval:
- -3.3654832  0.2054832
+ -11.280194  -3.209684
 sample estimates:
-mean in group 1 mean in group 2 
-           0.75            2.33 
+mean in group 0 mean in group 1 
+       17.14737        24.39231 
 
 > 
-> ## Formula interface to one-sample test
+> ## One-sample t-test
+> ## Traditional interface
+> t.test(sleep$extra)
+
+	One Sample t-test
+
+data:  sleep$extra
+t = 3.413, df = 19, p-value = 0.002918
+alternative hypothesis: true mean is not equal to 0
+95 percent confidence interval:
+ 0.5955845 2.4844155
+sample estimates:
+mean of x 
+     1.54 
+
+> 
+> ## Formula interface
 > t.test(extra ~ 1, data = sleep)
 
 	One Sample t-test
@@ -17730,10 +17837,27 @@ mean of x
      1.54 
 
 > 
-> ## Formula interface to paired test
-> ## The sleep data are actually paired, so could have been in wide format:
-> sleep2 <- reshape(sleep, direction = "wide", 
+> ## Paired t-test
+> ## The sleep data is actually paired, so could have been in wide format:
+> sleep2 <- reshape(sleep, direction = "wide",
 +                   idvar = "ID", timevar = "group")
+> 
+> ## Traditional interface
+> t.test(sleep2$extra.1, sleep2$extra.2, paired = TRUE)
+
+	Paired t-test
+
+data:  sleep2$extra.1 and sleep2$extra.2
+t = -4.0621, df = 9, p-value = 0.002833
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ -2.4598858 -0.7001142
+sample estimates:
+mean difference 
+          -1.58 
+
+> 
+> ## Formula interface
 > t.test(Pair(extra.1, extra.2) ~ 1, data = sleep2)
 
 	Paired t-test
@@ -17962,9 +18086,9 @@ Warning in toeplitz(letters[1:4], LETTERS[20:26]) :
 > n <- m-k+1
 > ## Convolution
 > W <- toeplitz2(c(rep(0, m-k), wts, rep(0, m-k)), ncol=n)
+> ## IGNORE_RDIFF_BEGIN
 > ## Don't show: 
 > hadM <- isNamespaceLoaded("Matrix")
-> ## IGNORE_RDIFF_BEGIN
 > ## End(Don't show)
 > ## "display" nicely :
 > if(requireNamespace("Matrix"))
@@ -17994,8 +18118,9 @@ Loading required namespace: Matrix
 [17,]  .  .  .  .  .  .  .  .  .  .  .  .  1
 > ## Don't show: 
 > if(!hadM) unloadNamespace("Matrix")
-> ## IGNORE_RDIFF_END
 > ## End(Don't show)
+> 
+> ## IGNORE_RDIFF_END
 > ## scale W to have column sums 1:
 > W. <- W / sum(wts)
 > all.equal(rep(1, ncol(W.)), colSums(W.), check.attributes = FALSE)
@@ -18028,6 +18153,7 @@ Loading required namespace: Matrix
 > ### Name: ts
 > ### Title: Time-Series Objects
 > ### Aliases: ts as.ts as.ts.default is.ts Ops.ts cbind.ts is.mts [.ts t.ts
+> ###   head.ts tail.ts
 > ### Keywords: ts
 > 
 > ### ** Examples
@@ -18049,20 +18175,46 @@ Loading required namespace: Matrix
 +           start = c(1954, 7), frequency = 12)
 > plot(gnp) # using 'plot.ts' for time-series plot
 > 
+> 
+> ## "ts" methods for head() and tail()
+> utils:: head(lynx, 4)
+Time Series:
+Start = 1821 
+End = 1824 
+Frequency = 1 
+[1] 269 321 585 871
+> utils:: tail(lynx, -7)
+Time Series:
+Start = 1828 
+End = 1934 
+Frequency = 1 
+  [1] 5943 4950 2577  523   98  184  279  409 2285 2685 3409 1824  409  151   45
+ [16]   68  213  546 1033 2129 2536  957  361  377  225  360  731 1638 2725 2871
+ [31] 2119  684  299  236  245  552 1623 3311 6721 4254  687  255  473  358  784
+ [46] 1594 1676 2251 1426  756  299  201  229  469  736 2042 2811 4431 2511  389
+ [61]   73   39   49   59  188  377 1292 4031 3495  587  105  153  387  758 1307
+ [76] 3465 6991 6313 3794 1836  345  382  808 1388 2713 3800 3091 2985 3790  674
+ [91]   81   80  108  229  399 1132 2432 3574 2935 1537  529  485  662 1000 1590
+[106] 2657 3396
+> ## Don't show: 
+>  stopifnot(is.ts(head(lynx, -6)),
++                      is.ts(tail(lynx, 3)))
+> ## End(Don't show)
+> 
 > ## Multivariate
 > z <- ts(matrix(rnorm(300), 100, 3), start = c(1961, 1), frequency = 12)
 > class(z)
 [1] "mts"    "ts"     "matrix" "array" 
 > is.mts(z)
 [1] TRUE
-> head(z) # as "matrix"
-        Series 1   Series 2   Series 3
-[1,] -0.62036668  0.4094018  0.8936737
-[2,]  0.04211587  1.6888733 -1.0472981
-[3,] -0.91092165  1.5865884  1.9713374
-[4,]  0.15802877 -0.3309078 -0.3836321
-[5,] -0.65458464 -2.2852355  1.6541453
-[6,]  1.76728727  2.4976616  1.5122127
+> head(z) # "ts" method ==> incl. times:
+            Series 1   Series 2   Series 3
+Jan 1961 -0.62036668  0.4094018  0.8936737
+Feb 1961  0.04211587  1.6888733 -1.0472981
+Mar 1961 -0.91092165  1.5865884  1.9713374
+Apr 1961  0.15802877 -0.3309078 -0.3836321
+May 1961 -0.65458464 -2.2852355  1.6541453
+Jun 1961  1.76728727  2.4976616  1.5122127
 > plot(z)
 > plot(z, plot.type = "single", lty = 1:3)
 > 
@@ -19351,42 +19503,40 @@ Test for independence of all factors:
 22 Rejected   Male    F  351
 23 Admitted Female    F   24
 24 Rejected Female    F  317
-> tools::assertError(# 'na.fail' should fail :
-+      xtabs(Freq ~ Gender + Admit, DN, na.action=na.fail), verbose=TRUE)
-Asserted error: missing values in object
-> op <- options(na.action = "na.omit") # the "factory" default
-> (xtabs(Freq ~ Gender + Admit, DN) -> xtD)
-        Admit
-Gender   Admitted Rejected
-  Male       1078     1286
-  Female      540     1270
-> noC <- function(O) `attr<-`(O, "call", NULL)
-> ident_noC <- function(x,y) identical(noC(x), noC(y))
-> stopifnot(exprs = {
-+   ident_noC(xtD, xtabs(Freq ~ Gender + Admit, DN, na.action = na.omit))
-+   ident_noC(xtD, xtabs(Freq ~ Gender + Admit, DN, na.action = NULL))
-+ })
-> 
-> xtabs(Freq ~ Gender + Admit, DN, na.action = na.pass)
+> (xtNA <- xtabs(Freq ~ Gender + Admit, DN))     # NA prints 'invisibly'
         Admit
 Gender   Admitted Rejected
   Male       1078     1286
   Female      540         
-> ## The Female:Rejected combination has NA 'Freq' (and NA prints 'invisibly' as "")
-> (xtNA <- xtabs(Freq ~ Gender + Admit, DN, addNA = TRUE)) # ==> count NAs
+> print(xtNA, na.print = "NA")                   # show NA's better
+        Admit
+Gender   Admitted Rejected
+  Male       1078     1286
+  Female      540       NA
+> xtabs(Freq ~ Gender + Admit, DN, na.rm = TRUE) # ignore missing Freq
+        Admit
+Gender   Admitted Rejected
+  Male       1078     1286
+  Female      540     1270
+> ## Use addNA = TRUE to tabulate missing factor levels:
+> xtabs(Freq ~ Gender + Admit, DN, addNA = TRUE)
         Admit
 Gender   Admitted Rejected <NA>
   Male       1078     1286  327
   Female      540             0
   <NA>         17        0    0
-> ## show NA's better via  na.print = ".." :
-> print(xtNA, na.print= "NA")
+> xtabs(Freq ~ Gender + Admit, DN, addNA = TRUE, na.rm = TRUE)
         Admit
 Gender   Admitted Rejected <NA>
   Male       1078     1286  327
-  Female      540       NA    0
+  Female      540     1270    0
   <NA>         17        0    0
-> 
+> ## na.action = na.omit removes all rows with NAs right from the start:
+> xtabs(Freq ~ Gender + Admit, DN, na.action = na.omit)
+        Admit
+Gender   Admitted Rejected
+  Male       1078     1286
+  Female      540     1270
 > 
 > ## Create a nice display for the warp break data.
 > warpbreaks$replicate <- rep_len(1:9, 54)
@@ -19499,7 +19649,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  6.593 0.645 7.828 0 0 
+Time elapsed:  9.527 0.16 9.691 0 0 
 > grDevices::dev.off()
 null device 
           1 

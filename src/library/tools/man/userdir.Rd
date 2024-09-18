@@ -19,8 +19,8 @@ R_user_dir(package, which = c("data", "config", "cache"))
     interest.  Can be abbreviated.}
 }
 \details{
-  For desktop environments using X Windows, the freedesktop.org project
-  (formerly X Desktop Group, XDG) developed the XDG Base Directory
+  For desktop environments using X Windows, the \I{freedesktop.org} project
+  (formerly X Desktop Group, \abbr{XDG}) developed the \abbr{XDG} Base Directory
   Specification
   (\url{https://specifications.freedesktop.org/basedir-spec}) for
   standardizing the location where certain files should be placed.  CRAN
@@ -39,23 +39,22 @@ R_user_dir(package, which = c("data", "config", "cache"))
   \env{R_USER_DATA_DIR},
   \env{R_USER_CONFIG_DIR} and
   \env{R_USER_CACHE_DIR}.
-  If these are not set, the general XDG-style environment variables
+  If these are not set, the general \abbr{XDG}-style environment variables
   \env{XDG_DATA_HOME},
   \env{XDG_CONFIG_HOME} and
   \env{XDG_CACHE_HOME}
   are used if set, and otherwise, defaults appropriate for the \R
   platform in use are employed.
 }
-\examples{
-## IGNORE_RDIFF_BEGIN
+\examples{\dontdiff{
 R_user_dir("FOO", "cache")
+
 ## Create one, platform agnostically, must work if <normal> :
 (Rdb <- R_user_dir("base"))
-if(noD <- !dir.exists(Rdb)) # should work user specifically:
-    dir.create(Rdb, recursive=TRUE)
-stopifnot(dir.exists(Rdb)) # "everywhere"
+if(newD <- !dir.exists(Rdb)) # should work user specifically:
+    newD <- dir.create(Rdb, recursive=TRUE)% FALSE + warning when testing homeless
 dir(Rdb) # typically empty
-if(noD) unlink(Rdb) # cleaning up
+if(newD) unlink(Rdb) # cleaning up
+
 list.files(R_user_dir("grid"), full.names = TRUE)
-## IGNORE_RDIFF_END
-}
+}}

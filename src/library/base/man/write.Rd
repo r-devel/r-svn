@@ -15,7 +15,7 @@ write(x, file = "data",
   Write data \code{x} to a file or other \code{\link{connection}}.
   \cr
   As it simply calls \code{\link{cat}()}, less formatting happens than
-  with \code{\link{print}()}ing.
+  with \I{\code{\link{print}()}ing}.
   If \code{x} is a matrix you need to transpose it (and typically set
   \code{ncolumns}) to get the columns in \code{file} the same as those in
   the internal representation.

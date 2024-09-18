@@ -2,14 +2,14 @@
 @c %**start of header
 @setfilename rw-FAQ.info
 @settitle R for Windows FAQ
-@setchapternewpage on
 @set VERSION @RWVER@
 @set RVERSION @RVER@
+@paragraphindent 0
 @c %**end of header
-@documentlanguage en
-@documentencoding ISO-8859-1
 
 @finalout
+
+@include R-defs.texi
 
 @macro newchap{}
 @ifinfo
@@ -26,27 +26,17 @@
 @title R for Windows FAQ
 @subtitle Frequently Asked Questions on R for Windows
 @subtitle Version @value{VERSION}
-@author B. D. Ripley and D. J. Murdoch, updates by T. Kalibera
+@author B. D. Ripley and D. J. Murdoch, updates by @I{T. Kalibera}
 @end titlepage
 
 @ifinfo
 R for Windows FAQ                                       @*
 Frequently Asked Questions on R for Windows             @*
 Version for @value{VERSION}                             @*
-B. D. Ripley and D. J. Murdoch, updates by T. Kalibera  @*
+B. D. Ripley and D. J. Murdoch, updates by @I{T. Kalibera}  @*
 
 @sp 2
 @end ifinfo
-
-@ifhtml
-@html
-<h2>Version for <tt>@value{VERSION}</tt></h2>
-<address>B. D. Ripley and D. J. Murdoch, updates by T. Kalibera</address>
-<hr>
-@end html
-@end ifhtml
-
-@paragraphindent 0
 
 @contents
 
@@ -54,24 +44,21 @@ B. D. Ripley and D. J. Murdoch, updates by T. Kalibera  @*
 @sp 1
 @end ifinfo
 
-
-@node Top, Introduction, (dir), (dir)
+@node Top
 @top R for Windows FAQ
 
-@menu
-* Introduction::                
-* Installation and Usage::      
-* Languages and Internationalization::  
-* Packages::                    
-* Windows Features::            
-* Workspaces::                  
-* The R Console::               
-* Building from Source::        
-@end menu
+@ifhtml
+@html
+<h2>Version for <kbd>@value{VERSION}</kbd></h2>
+<address>B. D. Ripley and D. J. Murdoch, updates by @I{T. Kalibera}</address>
+<hr>
+@end html
+@end ifhtml
+
 
 
 @newchap{}
-@node Introduction, Installation and Usage, Top, Top
+@node Introduction
 @chapter Introduction
 
 This FAQ is for the Windows port of R: it describes features specific to
@@ -83,47 +70,17 @@ that version.  The main R FAQ can be found at
 
 The information here applies only to recent versions of R for Windows.
 It is biased towards users of 64-bit Windows and since R 4.2.0, only 64-bit
-builds of R are provided.
+builds of R are provided. R 4.4.0 has experimental native support for Windows
+on 64-bit ARM.
+
 
 
 @newchap{}
-@node Installation and Usage, Languages and Internationalization, Introduction, Top
+@node Installation and Usage
 @chapter Installation and Usage
 
-@menu
-* Where can I find the latest version?::  
-* How do I install R for Windows?::  
-* How do I check an installation?::  
-* Can I customize the installation?::  
-* How do I run it?::            
-* Can I run R from a CD or USB drive?::  
-* How do I UNinstall R?::       
-* What's the best way to upgrade?::  
-* How can I keep workspaces for different projects in different directories?::  
-* How do I print from R?::      
-* Can I use R CMD BATCH?::      
-* Can I use @RWVER@ with ESS and Emacs?::  
-* What are HOME and working directories?::  
-* How do I set environment variables?::  
-* R can't find my file::        
-* Does R use the Registry?::    
-* Does R support automation?::  
-* The Internet download functions fail.::  
-* Entering certain characters crashes Rgui.::  
-* What does 'DLL attempted to change FPU control word' mean?::  
-* Other strange crashes.::      
-* Why does R never use more than 50% of my CPU?::  
-* Does R run under Windows 7?::  
-* Quotes don't come out right on the console/terminal/pager::  
-* There is no tilde on my keyboard::  
-* Can I use R on 64-bit Windows?::  
-* Should I run 32-bit or 64-bit R?::  
-* Can both 32- and 64-bit R be installed on the same machine?::  
-* Rcmd is not found in my PATH!::  
-@end menu
 
-
-@node Where can I find the latest version?, How do I install R for Windows?, Installation and Usage, Installation and Usage
+@node Where can I find the latest version?
 @section Where can I find the latest version?
 
 Go to any CRAN site (see @uref{https://CRAN.R-project.org/@/mirrors.html}
@@ -139,16 +96,17 @@ as changes that are planned to eventually make it into the next
 @samp{x.y.0} release. @samp{r-devel} is less stable and likely to contain
 bugs, be careful if you use it.
 
-@node How do I install R for Windows?, How do I check an installation?, Where can I find the latest version?, Installation and Usage
+
+@node How do I install R for Windows?
 @section How do I install R for Windows?
 
 Current binary versions of R are known to run on Windows 7 or later. R 4.1
 is the last version that supported 32-bit versions: @xref{Can I use R on 64-bit Windows?}.
 Windows Vista is no longer supported.
 
-R 4.2.0 and later require the Universal C Runtime (UCRT), which is included in
+R 4.2.0 and later require the Universal C Runtime (@abbr{UCRT}), which is included in
 Windows 10 and Windows Server 2016 or newer. On earlier versions of Windows,
-UCRT has to be installed before installing R. UCRT is available for Windows since
+@abbr{UCRT} has to be installed before installing R.  @abbr{UCRT} is available for Windows since
 Windows Vista SP2 and Windows Server 2008 SP2. 
 
 @c 2000 went end-of-life 2010-07-13
@@ -160,8 +118,8 @@ Windows Vista SP2 and Windows Server 2008 SP2.
 
 We primarily test on versions of Windows currently supported by Microsoft,
 recently mainly Windows 10, Windows Server 2022 and sometimes on Windows 11. 
-The most thorough testing is done via CRAN packages checks: for R 4.3 this
-has been on Windows Server 2022.  R 4.3.0 has been tested to install, start
+The most thorough testing is done via CRAN packages checks: for R 4.3-4.4
+this has been on Windows Server 2022.  R 4.3-4.4.0 has been tested to install, start
 and pass its own checks also on Windows 7 and Windows 8.1, but it has not
 been tested with contributed packages.
 
@@ -169,6 +127,16 @@ For UTF-8 to be the native encoding, you need R at least 4.2 and at least
 Windows 10 (version 1903) on desktop systems, Windows Server 2022 on
 long-term support server systems or Windows Server 1903 from the semi-annual
 channel.
+
+R 4.4 has experimental native support for Windows on ARM, which requires at
+least Windows 11.  The testing of native builds of R on Windows on ARM has
+been limited.  R was tested to install, start and pass its own checks, but
+there were no regular CRAN package checks and the number of installable CRAN
+packages was lower than on Intel.  One can also install R 4.4 for Intel on
+Windows on ARM and use it via emulation, but numerical differences have been
+observed.  The native build on R for Windows on ARM installs into a
+different directory by default and uses a different library, so it can
+coexist with an installation of the Intel build.
 
 Your file system must allow case-honouring long file names (as is likely
 except perhaps for some network-mounted systems).  An installation takes
@@ -207,6 +175,8 @@ default location was the Windows "personal" directory  (typically
 @file{C:\Users\username\Documents}). Once R is installed, one may open the
 installation directory in explorer using @code{shell.exec(R.home())}.
 
+The native build for Windows on ARM uses a different installer.
+
 You may need to
 confirm that you want to proceed with installing a program from an
 `unknown' or `unidentified' publisher.
@@ -239,12 +209,13 @@ messages are in (American) English, @code{LANGUAGE=en}.
 @c see the `R Installation and Administration Manual'.
 
 
-@node How do I check an installation?, Can I customize the installation?, How do I install R for Windows?, Installation and Usage
+@node How do I check an installation?
 @section How do I check an installation is not corrupt?
 
 Relates to earlier installers, removed in R 2.11.0.
 
-@node Can I customize the installation?, How do I run it?, How do I check an installation?, Installation and Usage
+
+@node Can I customize the installation?
 @section Can I customize the installation?
 
 The normal way to customize the installation is by selecting components
@@ -283,14 +254,15 @@ after having checked the command line.
 @end table
 
 A successful installation has exit code 0: unsuccessful ones may give 1,
-2, 3, 4 or 5.  See the help for Inno Setup
+2, 3, 4 or 5.  See the help for @I{Inno Setup}
 (@uref{https://jrsoftware.org/}) for details.
 
 @c We have some facilities for building a customized installer, in
 @c particular to add packages to the installer.  See the `R Installation
 @c and Administration' manual in the subsection `Building the installers'.
 
-@node How do I run it?, Can I run R from a CD or USB drive?, Can I customize the installation?, Installation and Usage
+
+@node How do I run it?
 @section How do I run it?
 
 Just double-click on the shortcut you prepared at installation.
@@ -307,7 +279,8 @@ executables are not by default added to the @env{PATH}.)  People running
 from a terminal usually prefer to run @command{Rterm.exe} and not
 @command{Rgui.exe}.
 
-@node Can I run R from a CD or USB drive?, How do I UNinstall R?, How do I run it?, Installation and Usage
+
+@node Can I run R from a CD or USB drive?
 @section Can I run R from a CD or USB drive?
 
 Yes, with care.  A basic R installation is relocatable, so you can burn
@@ -321,8 +294,8 @@ of Windows, but otherwise does mean that it may not be possible to run R
 without creating a shortcut starting in a writable folder.
 
 
-@node How do I UNinstall R?, What's the best way to upgrade?, Can I run R from a CD or USB drive?, Installation and Usage
-@section How do I UNinstall R?
+@node How do I UNinstall R?
+@section How do I @I{UNinstall} R?
 
 Normally you can do this from the @samp{Programs and Features} group in
 the Control Panel.  If it does not appear there, run @file{unins000.exe}
@@ -338,7 +311,7 @@ If all else fails, you can just delete the whole directory in which R
 was installed.
 
 
-@node What's the best way to upgrade?, How do I UNinstall R?, Installation and Usage
+@node What's the best way to upgrade?
 @section What's the best way to upgrade?
 
 That's a matter of taste. For most people the best thing to do is to
@@ -351,6 +324,9 @@ directory with earlier versions of R), nothing has to be done when the
 major and minor version of R (@var{x.y}) stays the same, but it may still be
 an opportunity to run @code{update.packages(checkBuilt=TRUE, ask=FALSE)}.
 
+With native build of R on Windows on ARM, the folder name is different, it
+includes @file{aarch64-library} instead of @file{win-library}.
+
 When the minor or even major version of R changes, one has to install all
 required packages again.  The new version of R will use a different location
 for the personal library and the old personal library will be left intact
@@ -358,7 +334,8 @@ for the personal library and the old personal library will be left intact
 should not be copied from the old library to the new one, because they may
 be incompatible with the new version of R.
 
-@node How can I keep workspaces for different projects in different directories?, How do I print from R?, Installation and Usage
+
+@node How can I keep workspaces for different projects in different directories?
 @section How can I keep workspaces for different projects in different directories?
 
 Create a separate shortcut for each project: see Q2.5.  All the paths to
@@ -372,7 +349,7 @@ file with extension @file{.RData} onto an R shortcut.  In either case,
 the working directory will be set to that containing the file.
 
 
-@node How do I print from R?, Can I use R CMD BATCH?, How can I keep workspaces for different projects in different directories?, Installation and Usage
+@node How do I print from R?
 @section How do I print from R?
 
 It depends what you want to print.
@@ -397,7 +374,7 @@ can print help files by @code{help(fn_name, help_type="PDF")}.
 @end itemize
 
 
-@node Can I use R CMD BATCH?, Can I use @RWVER@ with ESS and Emacs?, How do I print from R?, Installation and Usage
+@node Can I use R CMD BATCH?
 @section Can I use @code{R CMD BATCH}?
 
 Yes: use @code{R CMD BATCH --help} or @code{?BATCH} for full details.
@@ -409,22 +386,24 @@ batch file might contain (as one line)
 path_to_R\bin\x64\Rterm.exe --no-restore --no-save < %1 > %1.out 2>&1
 @end example
 
+Exclude @file{\x64} from the above with native builds of R on ARM.
+
 @noindent
 The purpose of @code{2>&1} is to redirect warnings and errors to the
 same file as normal output.
 
 
-@node Can I use @RWVER@ with ESS and Emacs?, What are HOME and working directories?, Can I use R CMD BATCH?, Installation and Usage
-@section Can I use @RWVER@ with ESS and Emacs?
+@node Can I use @RWVER@ with ESS and Emacs?
+@section Can I use @RWVER@ with @I{ESS} and Emacs?
 
-Yes.  ESS has for a long time supported R under Windows: it does so by
+Yes.  @I{ESS} has for a long time supported R under Windows: it does so by
 running @code{Rterm.exe} without a visible console.
 
-For help with ESS, please send email to @email{ESS-help@@stat.ethz.ch},
+For help with @I{ESS}, please send email to @email{ESS-help@@stat.ethz.ch},
 not the R mailing lists.
 
 
-@node What are HOME and working directories?, How do I set environment variables?, Can I use @RWVER@ with ESS and Emacs?, Installation and Usage
+@node What are HOME and working directories?
 @section What are HOME and working directories?
 
 Several places in the documentation use these terms.
@@ -450,17 +429,19 @@ all of these fail, the current working directory is used.
 You can find the home directory from R code by @code{Sys.getenv("R_USER")}
 or @code{normalizePath("~")}, @samp{~} being Unix notation for the home
 directory. Note that some distributions of Unix utilities for Windows, such
-as Msys2 (and hence Rtools) or cygwin set the environment variable
+as @I{Msys2} (and hence @I{Rtools}) or @I{Cygwin} set the environment variable
 @env{HOME} to a user directory of their choice. When R is invoked from a
 shell of such an distribution, the home directory in R would hence
-typically not be the Windows "personal" directory. With Rtools40,
-Rtools42 and Rtools43, it is the user profile (e.g. @file{C:\Users\username}).
+typically not be the Windows "personal" directory. With @I{Rtools40},
+@I{Rtools42-44}, it is the user profile (e.g.,
+@file{C:\Users\username}). 
 
 The R home directory is the directory where R was installed. You can find
 this from R code by @code{R.home()} or @code{Sys.getenv("R_HOME")}. From
 outside R, you can find it by invoking @code{R RHOME}.
 
-@node How do I set environment variables?, R can't find my file, What are HOME and working directories?, Installation and Usage
+
+@node How do I set environment variables?
 @section How do I set environment variables?
 
 Environment variables can be set for @command{Rgui.exe} and
@@ -473,6 +454,8 @@ On the command line as name=value pairs.  For example in the shortcut to
 @example
 "path_to_R\bin\x64\Rgui.exe" HOME=p:/ R_LIBS=p:/myRlib
 @end example
+
+Exclude @file{\x64} from the above with native builds of R on ARM.
 
 @item
 In an environment file @file{.Renviron} in the working directory
@@ -504,7 +487,7 @@ which these options are listed, that is the command line then
 @file{.Renviron} then the inherited environment.
 
 
-@node R can't find my file, Does R use the Registry?, How do I set environment variables?, Installation and Usage
+@node R can't find my file
 @section R can't find my file, but I know it is there!
 
 How did you specify it?  Backslashes have to be doubled in R character
@@ -540,7 +523,8 @@ to @code{1}.  Long paths still may not always work reliably: some
 applications or packages may not be able to work with them and Windows
 cannot execute an application with long path as the current directory.
 
-@node Does R use the Registry?, Does R support automation?, R can't find my file, Installation and Usage
+
+@node Does R use the Registry?
 @section Does R use the Registry?
 
 Not when R itself is running.
@@ -562,7 +546,7 @@ If you do not have administrative privileges on the machine while
 running the installer, then the entries are created under
 @code{HKEY_CURRENT_USER}.  The same entries are also created under
 @code{Software\R-core\R32} or @code{Software\R-core\R64}, for 32- and
-64-bit R respectively (only 64-bit since R 4.2).
+64-bit Intel R builds respectively (only 64-bit since R 4.2).
 
 If you tick the second option (shown with administrative privileges
 only) (@samp{Associate R with .RData files}) then entries are created
@@ -576,7 +560,7 @@ administrative privileges unless run with argument @code{/Personal} and
 neither sets up nor removes the file associations.
 
 
-@node Does R support automation?, The Internet download functions fail., Does R use the Registry?, Installation and Usage
+@node Does R support automation?
 @section Does R support automation (OLE, COM)?
 
 Directly, no.  See packages such as @code{RDCOMClient} from Omegahat
@@ -586,7 +570,8 @@ source and binary packages for earlier versions of R available from
 @c @uref{https://www.omegahat.net/} 
 and the non-Free project at @uref{https://www.autstat.com/}.
 
-@node The Internet download functions fail., Entering certain characters crashes Rgui., Does R support automation?, Installation and Usage
+
+@node The Internet download functions fail.
 @section The Internet download functions fail.
 
 for example @code{update.packages()} and the menu items on the Packages menu.
@@ -607,21 +592,22 @@ best effort revocation checks via an environment variable: see
 @code{?download.file}.
 
 
-@node Entering certain characters crashes Rgui., What does 'DLL attempted to change FPU control word' mean?, The Internet download functions fail., Installation and Usage
-@section Entering certain characters crashes Rgui.
+@node Entering certain characters crashes Rgui.
+@section Entering certain characters crashes @I{RGui}.
 
 This has not been reported for many years, but used to happen
 regularly.  All the occurrences we have solved have been traced to
 faulty versions of @samp{msvcrt.dll}: we have installed a workaround
 that seems to avoid this.  A few other people have discovered this was
 caused by desktop switcher and keyboard macro programs, for example
-`Macro Magic' and `JS Pager'.
+`Macro Magic' and `@I{JS Pager}'.
 
-R 4.2 and later use UCRT as the C runtime instead of MSVCRT. No such problems have
+R 4.2 and later use @abbr{UCRT} as the C runtime instead of @abbr{MSVCRT}. No such problems have
 been reported so far.
 
-@node What does 'DLL attempted to change FPU control word' mean?, Other strange crashes., Entering certain characters crashes Rgui., Installation and Usage
-@section What does 'DLL attempted to change FPU control word' mean?
+
+@node What does 'DLL attempted to change FPU control word' mean?
+@section What does '@I{DLL attempted to change FPU control word}' mean?
 
 This is a @emph{warning} which indicates that R has taken action to
 correct the action of some (non-R) DLL which has just been loaded and
@@ -634,12 +620,16 @@ Unfortunately, because DLLs may themselves load other DLLs it is not
 possible for R to track which DLL caused the problem.
 
 This is less of a problem with 64-bit builds of R, which use SSE
-instructions for computations instead of the FPU. We may be able to remove
-this handling of the FPU control word in future versions of R.
+instructions for computations instead of the @abbr{FPU}. We may be able to remove
+this handling of the @abbr{FPU} control word in future versions of R.
+
+This handling is specific to Intel processors, it does not apply to native
+builds of R on ARM.
 
 See also @code{?dyn.load}.
 
-@node Other strange crashes., Why does R never use more than 50% of my CPU?, What does 'DLL attempted to change FPU control word' mean?, Installation and Usage
+
+@node Other strange crashes.
 @section Other strange crashes.
 
 Some users have found that @code{Rgui.exe} fails to start, exiting with
@@ -651,13 +641,14 @@ system in question: it makes changes to the floating point control word
 which are incompatible with R.  (Good practice would restore the control
 word to the state it was in when the driver code was called, and R
 tries hard to correct this before running its own code.)  For example,
-one user reported that the virtual screen manager JSP2 caused this
+one user reported that the virtual screen manager @I{JSP2} caused this
 crash. These errors are essentially impossible for us to fix or work around
 beyond the measures already taken.  The only solution we know of is for
 the user to replace the buggy system component that is causing the
 error.
 
-@node Why does R never use more than 50% of my CPU?, Does R run under Windows 7?, Other strange crashes., Installation and Usage
+
+@node Why does R never use more than 50% of my CPU?
 @section Why does R never use more than 50% of my CPU?
 
 This is a misreading of Windows' confusing Task Manager.  R's
@@ -676,17 +667,19 @@ packages, which needs to be selected by user. Some contributed R packages
 use multiple CPUs or multiple threads.
 
 
-@node Does R run under Windows 7?, Quotes don't come out right on the console/terminal/pager, Why does R never use more than 50% of my CPU?, Installation and Usage
+@node Does R run under Windows 7?
 @section Does R run under Windows 7/8/10/11/Server 2012/2016/2022?
 
-R 4.3 code base still conservatively uses features of Windows 7 and
+R 4.4 code base still conservatively uses features of Windows 7 and
 later only when available, and otherwise falls back to older features, so it
 might still run on 7, but this is minimally tested (see Q2.2), and the code
-is tuned for newer systems.  Some performance work-arounds for old Windows
+is tuned for newer systems.  Some performance @I{work-arounds} for old Windows
 systems past their end of support may be removed, such as a custom memory
 allocator removed in R 4.2.
 
 Since 4.2, R uses UTF-8 as the native encoding on recent Windows (see Q2.2).
+
+R on Windows on ARM requires at least Windows 11. 
 
 Earlier versions of Windows had user and Administrator accounts, and
 user accounts could be given administrative privileges (by being added to
@@ -701,7 +694,7 @@ Vista and later normally disable the Administrator account and expect
 software installation to be done by an account which is in the local
 Administrator group with `admin approval mode' turned on.  (The
 Administrator account by default has it turned off.)  Unlike (say)
-Windows XP, such accounts do not run programs with full administrator
+@I{Windows XP}, such accounts do not run programs with full administrator
 privileges, and this is where the issues arise.  These OSes have the
 concept of `over-the-shoulder' credentials: if you are running without
 full administrator privileges and do something which needs them you may
@@ -787,7 +780,7 @@ more reliable with these OSes (but still not 100% correct).
 @c this on for all programs.  R runs correctly with DEP enabled.
 
 
-@node Quotes don't come out right on the console/terminal/pager, There is no tilde on my keyboard, Does R run under Windows 7?, Installation and Usage
+@node Quotes don't come out right on the console/terminal/pager
 @section Quotes don't come out right on the console/terminal/pager.
 
 R 4.2 and later use UTF-8 as the native encoding on recent Windows (see Q2.2) and
@@ -824,9 +817,9 @@ The font used can affect whether quotes are rendered correctly.  The
 default font in the @code{Rgui} console and internal pager is
 @code{Courier New}, which has directional quotes on all the systems we
 tried.  @code{Lucida Console} which has elegant glyphs for directional
-quotes (but seems rather light unless ClearType is in use):
-@code{Consolas} is another font which we often select when ClearType is
-in use.  Non-TrueType fonts such as @code{Courier} and @code{FixedSys}
+quotes (but seems rather light unless @I{ClearType} is in use):
+@code{Consolas} is another font which we often select when @I{ClearType} is
+in use.  Non-@I{TrueType} fonts such as @code{Courier} and @code{FixedSys}
 lack directional double quotes on the systems we tried.
 
 There is a related problem with using @code{Sweave} output in
@@ -841,11 +834,12 @@ Western European locale)
 @noindent
 or their use suppressed by @code{options(useFancyQuotes=FALSE)}.
 
-@node There is no tilde on my keyboard, Can I use R on 64-bit Windows?, Quotes don't come out right on the console/terminal/pager, Installation and Usage
+
+@node There is no tilde on my keyboard
 @section There is no tilde on my keyboard!
 
 Where tilde does not appear on the main keyboard, it can normally be
-accessed by pressing AltGr (the right Alt key) plus some other key.
+accessed by pressing @key{AltGr} (the right @key{Alt} key) plus some other key.
 This is @code{]} in Canadian (multilingual), German and Scandinavian
 layouts, @code{1} in Eastern Europe, @code{[} in Portuguese, @code{4} or
 @code{5} in Spanish, @code{/} in Francophone Belgian, and so on.  You
@@ -856,7 +850,8 @@ On all Windows versions you should be able to get tilde by holding the
 down the left Alt key and typing 0126 on the numeric keypad (if you have
 one), then releasing the Alt key.
 
-@node Can I use R on 64-bit Windows?, Should I run 32-bit or 64-bit R?, There is no tilde on my keyboard, Installation and Usage
+
+@node Can I use R on 64-bit Windows?
 @section Can I use R on 64-bit Windows?
 
 Yes, and this is the primarily used and the only tested option now.  Since R
@@ -864,7 +859,7 @@ Yes, and this is the primarily used and the only tested option now.  Since R
 
 The 32-bit build of R for Windows (R 4.1 and earlier) will run on both 32-bit and
 64-bit@footnote{what Windows calls x64 for x86-64 CPUs, not the very
-rare ia64 Windows for Itanium CPUs.} versions of Windows.  64-bit
+rare @I{ia64} Windows for @I{Itanium} CPUs.} versions of Windows.  64-bit
 versions of Windows run 32-bit executables under the WOW (Windows on
 Windows) subsystem: they run in almost exactly the same way as on a
 32-bit version of Windows, except that the address limit for the R
@@ -875,11 +870,12 @@ When R 4.1 and earlier is installed on 64-bit Windows there is the option of ins
 using the 32-bit build, replace @samp{x64} by @samp{i386} in the
 examples in this FAQ.
 
-@node Should I run 32-bit or 64-bit R?, Can both 32- and 64-bit R be installed on the same machine?, Can I use R on 64-bit Windows?, Installation and Usage
+
+@node Should I run 32-bit or 64-bit R?
 @section Should I run 32-bit or 64-bit R?
 
-Obviously, only relevant if you are using 64-bit Windows.
-Since R 4.2.0, 32-bit builds are no longer provided.
+Since R 4.2.0, 32-bit builds are no longer provided.  With older versions of
+R, this question is only relevant if you are using 64-bit Windows.
 
 For most users we would recommend using the `native' build, that is the
 32-bit version on 32-bit Windows and the 64-bit version of 64-bit Windows.
@@ -902,20 +898,22 @@ equivalent).
 For advanced users the choice may be dictated by whether the contributed
 packages needed are available in 64-bit builds (although CRAN only
 offers 32/64-bit builds).  The considerations can be more complex: for
-example 32/64-bit @code{RODBC} need 32/64-bit ODBC drivers respectively,
+example 32/64-bit @code{RODBC} need 32/64-bit @abbr{ODBC} drivers respectively,
 and where both exist they may not be able to be installed together.  An
-extreme example is the Microsoft Access/Excel ODBC drivers: if you have
+extreme example is the Microsoft Access/Excel @abbr{ODBC} drivers: if you have
 installed 64-bit Microsoft Office you can only install the 64-bit
 drivers and so need to use 64-bit @code{RODBC} and hence R.  (And
 similarly for 32-bit Microsoft Office.)
 
-@node Can both 32- and 64-bit R be installed on the same machine?, Rcmd is not found in my PATH!, Should I run 32-bit or 64-bit R?, Installation and Usage
+
+@node Can both 32- and 64-bit R be installed on the same machine?
 @section Can both 32- and 64-bit R be installed on the same machine?
 
-Obviously, only relevant if the machine is running a 64-bit version of
+Since R 4.2.0, 32-bit builds are no longer provided.
+
+With older version of R, this question is only relevant if the machine is running a 64-bit version of
 Windows -- simply select both when using the installer.  You can also go
 back and add 64-bit components to a 32-bit install, or @emph{vice versa}.
-Since R 4.2.0, 32-bit builds are no longer provided.
 
 For many Registry items, 32- and 64-bit programs have different views of
 the Registry, but clashes can occur.  The most obvious problem is the
@@ -927,27 +925,27 @@ safest way is to edit the Registry entry
 and replace @samp{x64} by @samp{i386} or @emph{vice versa}.
 
 
-@node Rcmd is not found in my PATH!,  , Can both 32- and 64-bit R be installed on the same machine?, Installation and Usage
-@section Rcmd is not found in my PATH!
+@node Rcmd is not found in my PATH!
+@section @I{Rcmd} is not found in my PATH!
 
 This has often been reported after an upgrade.
 
 The R installer does not put @command{Rcmd.exe} (nor any other R
 executable) on your @env{PATH}.  What seems to have happened is that
 people did this for themselves in the past, upgraded R (which by default
-will install to a different location) and un-installed the old version
+will install to a different location) and @I{un-installed} the old version
 of R.  If you do that (or install R for the first time), you need to
 edit the @env{PATH}.
 
 The element you want to add to the path is something like
 
 @example
-c:\Program Files\R\R-4.3.0\bin\x64
+c:\Program Files\R\R-4.4.0\bin\x64
 @end example
 
 @noindent
 for 64-bit @command{Rcmd.exe}, replacing @code{x64} by @code{i386} for
-32-bit.
+32-bit, removing @code{x64} for native build on ARM.
 
 How you set the path depends on your OS version.  Under recent versions,
 go to `User Accounts' in the Control Panel, and select your account and
@@ -974,21 +972,13 @@ CMD /K setpath.bat
 @end example
 
 
+
 @newchap{}
-@node Languages and Internationalization, Packages, Installation and Usage, Top
+@node Languages and Internationalization
 @chapter Languages and Internationalization
 
-@menu
-* The installer does not offer my language::  
-* I want R in English!::        
-* I want to run R in Chinese/Japanese/Korean::  
-* I selected English for installation but R runs in Chinese::  
-* I would like to be able to use Japanese fonts::  
-* I don't see characters with accents at the R console::  
-* The dialog buttons are not translated::  
-@end menu
 
-@node The installer does not offer my language, I want R in English!, Languages and Internationalization, Languages and Internationalization
+@node The installer does not offer my language
 @section The installer does not offer my language.
 
 Only a limited range of languages is supported, currently
@@ -1013,9 +1003,10 @@ Portuguese (Portugal),
 Russian,
 Slovenian,
 Spanish (Spain)
-and Ukranian.
+and Ukrainian.
 
-@node I want R in English!, I want to run R in Chinese/Japanese/Korean, The installer does not offer my language, Languages and Internationalization
+
+@node I want R in English!
 @section I want R in English (and not in French/Chinese/...)!
 
 The default behaviour of R is to try to run in the language you run
@@ -1027,7 +1018,8 @@ Windows in their native language, but not R.  To do so, set
 @code{LANGUAGE=en} as discussed in Q2.2 and Q2.15, or in the
 @file{Rconsole} file.
 
-@node I want to run R in Chinese/Japanese/Korean, I selected English for installation but R runs in Chinese, I want R in English!, Languages and Internationalization
+
+@node I want to run R in Chinese/Japanese/Korean
 @section I want to run R in Chinese/Japanese/Korean.
 
 Suitable versions of Windows support what it calls `East Asian'
@@ -1074,12 +1066,13 @@ GB2312).
 
 When using @command{Rterm} the window in which it is run has to be set
 up to use a suitable font (e.g. @code{Lucida Console} or
-@code{Consolas}, not the OEM raster fonts) and a suitable codepage
-(which for the Windows Cmd shell can be done using @command{chcp}). In R 4.2
+@code{Consolas}, not the @abbr{OEM} raster fonts) and a suitable codepage
+(which for the Windows command shell can be done using @command{chcp}). In R 4.2
 and later on recent versions of Windows where UTF-8 is the native encoding,
 @command{Rterm} will automatically switch the console codepage to UTF-8.
 
-@node I selected English for installation but R runs in Chinese, I would like to be able to use Japanese fonts, I want to run R in Chinese/Japanese/Korean, Languages and Internationalization
+
+@node I selected English for installation but R runs in Chinese
 @section I selected English for installation but R runs in Chinese.
 
 Precisely, you selected English @strong{for installation}!  The language
@@ -1088,19 +1081,21 @@ is completely standard Windows practice (and necessary as different
 users of the computer may use different languages).
 
 The language R uses for menus and messages is determined by the
-@emph{locale}: please read the appropriate manual (`R Installation and
-Administration') for the details.  You can ensure that R uses English
+@emph{locale}: please read the appropriate manual
+(@ref{, , , R-admin, R Installation and Administration})
+for the details.  You can ensure that R uses English
 messages by appending @code{LANGUAGE=en} to the shortcut you use to
 start R, or setting it in the @file{Rconsole} file.
 
-@node I would like to be able to use Japanese fonts, I don't see characters with accents at the R console, I selected English for installation but R runs in Chinese, Languages and Internationalization
+
+@node I would like to be able to use Japanese fonts
 @section I would like to be able to use Japanese fonts.
 
 for example, in the console and to annotate graphs.  Similar comments
 apply to any non-Western-European language.
 
-With suitable fonts, this should just work.  You will need to set MS
-Mincho or MS Gothic as the console font to ensure that single- and
+With suitable fonts, this should just work.  You will need to set @I{MS
+Mincho} or MS Gothic as the console font to ensure that single- and
 double-width characters are handled correctly.  The default graphics
 fonts for the @code{windows()} graphics device can handle most common
 Japanese characters, but more specialized fonts may need to be set.
@@ -1116,7 +1111,8 @@ device to display Japanese characters.
 To use non-Latin-1 characters in the @code{postscript} graphics device,
 see its help page (which also applies to @code{pdf}).
 
-@node I don't see characters with accents at the R console, The dialog buttons are not translated, I would like to be able to use Japanese fonts, Languages and Internationalization
+
+@node I don't see characters with accents at the R console
 @section I don't see characters with accents at the R console, for example in ?text.
 
 You need to specify a font in @file{Rconsole} (see Q5.2) that supports
@@ -1129,13 +1125,14 @@ codepage settings) within which it is run as well as the font used by
 the terminal window.  Those are usually on legacy DOS settings and need
 to altered (see Q3.3).
 
-@node The dialog buttons are not translated,  , I don't see characters with accents at the R console, Languages and Internationalization
+
+@node The dialog buttons are not translated
 @section The dialog buttons are not translated.
 
 In most cases they actually are, but by Windows.  Setting the locale or
 the @code{LANGUAGE} environment variable does not change the Windows
-setting of its `UI language'.  Vista and later talk about the 'UI
-language' and the 'system locale' for setting the language used for
+setting of its `@I{UI language}'.  Vista and later talk about the '@I{UI
+language}' and the 'system locale' for setting the language used for
 `non-Unicode' programs (on the 'Administrative' tab in Windows 7).
 
 If you have Windows running completely in say French or Chinese these
@@ -1145,31 +1142,14 @@ handles internationalization slightly odd.
 @c For further details see
 @c @uref{http://msdn.microsoft.com/@/library/@/default.asp?url=/@/library/@/en-us/@/intl/@/nls_0ddl.asp}.
 
+
+
 @newchap{}
-@node Packages, Windows Features, Languages and Internationalization, Top
+@node Packages
 @chapter Packages
 
 
-@menu
-* Can I install packages into libraries in this version?::  
-* I don't have permission to write to the @RWVER@\library directory::  
-* The packages I installed do not appear in the HTML help system::  
-* My functions are not found by the HTML help search system.::  
-* Loading a package fails.::    
-* Package TclTk does not work.::  
-* Hyperlinks in HTML do not work.::  
-* update.packages() fails::     
-* How do I add to the list of repositories?::  
-* Help is not shown for some of the packages::  
-* How do I get static HTML pages?::  
-* How can I get a binary version of a package?::  
-* Package xxx is out of date for Windows::  
-* No binary packages appear to be available for my version of R::  
-* How do I build my package for both 32- and 64-bit R?::  
-@end menu
-
-
-@node Can I install packages into libraries in this version?, I don't have permission to write to the @RWVER@\library directory, Packages, Packages
+@node Can I install packages into libraries in this version?
 @section Can I install packages into libraries in this version?
 
 Yes, but you will need a lot of tools to do so, unless the author or the
@@ -1184,26 +1164,28 @@ CRAN or from a local @code{.zip} file by using @code{install.packages}:
 see its help page.  There are menu items on the @code{Packages} menu to
 provide a point-and-click interface to package installation.  The
 packages for each minor (4.x.?) version will be stored in a separate area,
-so for R 4.3.? the files are in @file{bin/windows/contrib/4.3}.
+so for R 4.4.? the files are in @file{bin/windows/contrib/4.4}.
 
 @c Note that the binary versions on CRAN are unsupported: see
 @c @uref{https://CRAN.R-project.org/@/bin/@/windows/@/contrib/@/4.3/@/ReadMe},
 @c which also gives the locations of a few other binary packages.
 
 If there is no binary package or that is not up-to-date or you prefer
-compiling from source, read the `R Installation and Administration'
-manual section on `Add-on Packages'.  Source packages which contain no
+compiling from source,
+@pxref{Add-on packages, , , R-admin, R Installation and Administration}.
+Source packages which contain no
 C/C++/Fortran code which needs compilation can simply be installed by
 @code{install.packages(type = "source")} or @command{R CMD INSTALL
-pkgname} at a Windows command prompt.  For packages with code that needs
+@var{pkgname}} at a Windows command prompt.  For packages with code that needs
 compilation you will need to collect and install several tools: you can
 download them via the portal at
 @uref{https://CRAN.R-project.org/bin/windows/Rtools/} and check for more
 detailed instructions there. Once you have done
-so, just run @command{R CMD INSTALL pkgname} at a Windows command
+so, just run @command{R CMD INSTALL @var{pkgname}} at a Windows command
 prompt.  To check the package (including running all the examples on its
 help pages and in its test suite, if any) use @command{R CMD check
-pkgname}: see the @emph{`Writing R Extensions'} manual.
+@var{pkgname}}:
+@pxref{Checking and building packages, , , R-exts, Writing R Extensions}.
 
 Note that setting up Windows to install a source package that needs
 compilation is rather tricky; please do ensure that you have followed
@@ -1214,7 +1196,11 @@ If you have a source package that is known to work on a Unix-alike
 system, you can try the automated Windows binary package builder
 documented at @url{https://win-builder.R-project.org}.
 
-@node I don't have permission to write to the @RWVER@\library directory, The packages I installed do not appear in the HTML help system, Can I install packages into libraries in this version?, Packages
+The native (default) builds of R 4.4.0 for Windows on ARM only install
+packages from source. This may be changed in the future.
+
+
+@node I don't have permission to write to the @RWVER@\library directory
 @section I don't have permission to write to the @file{@RWVER@\library} directory.
 
 You can install packages anywhere and use the environment variable
@@ -1237,7 +1223,8 @@ library(mypkg, lib.loc="p:/myRlib")
 You can also have a personal library, which defaults to the directory
 @file{R\win-library\@var{x.y}} of your @file{$@{LOCALAPPDATA@}} directory
 (e.g. @file{C:\Users\username\AppData\Local}) for versions
-@var{x.y.z} since R 4.2.0. With older versions of R, it was a subdirectory
+@var{x.y.z} since R 4.2.0. With native build of R on ARM, the name includes
+@file{aarch64-library} instead of @file{win-library}. With older versions of R, it was a subdirectory
 of your home directory by default. This location can be changed by setting the
 environment variable @env{R_LIBS_USER}, and can be found from inside R
 by running @code{Sys.getenv("R_LIBS_USER")}.  This will only be used if
@@ -1262,21 +1249,22 @@ There can be additional security issues under Windows Vista and later:
 @c under Vista, so we recommend that you do create a personal directory
 @c yourself.
 
-@node The packages I installed do not appear in the HTML help system, My functions are not found by the HTML help search system., I don't have permission to write to the @RWVER@\library directory, Packages
+
+@node The packages I installed do not appear in the HTML help system
 @section The packages I installed do not appear in the HTML help system.
 
 This question applied to the pre-2.10.0 HTML help system, which has been
 replaced.
 
 
-@node My functions are not found by the HTML help search system., Loading a package fails., The packages I installed do not appear in the HTML help system, Packages
+@node My functions are not found by the HTML help search system.
 @section My functions are not found by the HTML help search system.
 
 This question applied to the pre-2.10.0 search system, which has been
 replaced.
 
 
-@node Loading a package fails., Package TclTk does not work., My functions are not found by the HTML help search system., Packages
+@node Loading a package fails.
 @section Loading a package fails.
 
 Is the package installed for this version of R?   Packages need to have
@@ -1288,13 +1276,13 @@ You can tell the version the package was compiled for by looking at the
 For a small number of binary packages you need to install additional
 software and have its DLLs in your @code{PATH}.  Windows will normally
 give an informative message about a certain DLL not being found. See
-@uref{https://CRAN.R-project.org/@/bin/@/windows/@/contrib/@/4.3/@/ReadMe} for a
+@uref{https://CRAN.R-project.org/@/bin/@/windows/@/contrib/@/4.4/@/ReadMe} for a
 listing of some of these packages (notably @code{RGtk2}, @code{cairoDevice},
 @code{rggobi}, @code{rJava}, @code{rjags} and some of the packages connecting to databases).
 
 
-@node Package TclTk does not work., Hyperlinks in HTML do not work., Loading a package fails., Packages
-@section Package TclTk does not work.
+@node Package TclTk does not work.
+@section Package @I{TclTk} does not work.
 
 For package @code{tcltk} to work (try @code{demo(tkdensity)} or
 @code{demo(tkttest)} after @code{library(tcltk)}) you need to have Tcl/Tk
@@ -1310,7 +1298,7 @@ value of @env{MY_TCLTK}, and that this is set up correctly (with
 no guarantee that a 64-bit build will work: it depends on the layout it
 uses and R 4.2 and later use a different layout from previous versions.)
 
-In the past several package authors have suggested using ActiveTcl
+In the past several package authors have suggested using @I{ActiveTcl}
 (@uref{https://www.activestate.com/@/Products/@/activetcl/}) as a way to
 get Tcl/Tk extensions (but the support files do contain the most
 commonly used @code{TkTable} and @code{BWidget} extensions).  This could
@@ -1330,7 +1318,8 @@ now also 64-bit only.  The older combined 32-bit/64-bit bundle for R 4.1
 cannot be used with R 4.2 and later, because it has a different directory layout even
 for the 64-bit part.
 
-@node  Hyperlinks in HTML do not work., update.packages() fails, Package TclTk does not work., Packages
+
+@node  Hyperlinks in HTML do not work.
 @section Hyperlinks in HTML sometimes do not work.
 
 This question was much more relevant prior to version 2.10.0.
@@ -1338,7 +1327,8 @@ This question was much more relevant prior to version 2.10.0.
 They may still not work between packages installed in different libraries
 if the HTTP server has been disabled: the remedy is not to do that!
 
-@node update.packages() fails, How do I add to the list of repositories?, Hyperlinks in HTML do not work., Packages
+
+@node update.packages() fails
 @section @code{update.packages()} fails.
 
 You may not be able to update a package which is in use: Windows `locks'
@@ -1355,7 +1345,7 @@ installation process by preventing the renaming of temporary files,
 @emph{Google Desktop} being a known example.
 
 
-@node How do I add to the list of repositories?, Help is not shown for some of the packages, update.packages() fails, Packages
+@node How do I add to the list of repositories?
 @section How do I add to the list of repositories?
 
 as shown in the @code{Select repositories...} item on the
@@ -1365,13 +1355,15 @@ This reads from the tab-delimited file @file{R_HOME\etc\repositories},
 which you can edit, or put a modified copy at @file{.R\repositories}
 in your HOME directory (@pxref{What are HOME and working directories?}).
 
-@node Help is not shown for some of the packages, How do I get static HTML pages?, How do I add to the list of repositories?, Packages
+
+@node Help is not shown for some of the packages
 @section Help is not shown for some of the packages
 
 This was about Compiled HTML help, which has not been supported since R
 2.10.0.
 
-@node How do I get static HTML pages?, How can I get a binary version of a package?, Help is not shown for some of the packages, Packages
+
+@node How do I get static HTML pages?
 @section How do I get static HTML pages?
 
 We presume you want to do this for some special purpose: R's help system
@@ -1403,10 +1395,11 @@ BUILD_HTML = NO
 and them all packages installed by that build of R will (by default) be
 installed with static HTML pages.
 
-@node How can I get a binary version of a package?, Package xxx is out of date for Windows, How do I get static HTML pages?, Packages
+
+@node How can I get a binary version of a package?
 @section How can I get a binary version of a package?
 
-Presumably one not available on CRAN, BioC or a similar repository.
+Presumably one not available on CRAN, @abbr{BioC} or a similar repository.
 
 If you have a source package that is known to work on a Unix-alike
 system, you can try the automated Windows binary package builder
@@ -1426,7 +1419,8 @@ difficult (it is simple if the package contains no compiled code), so
 please attempt that for yourself before requesting help from the busy
 volunteers. See also Q4.1.
 
-@node Package xxx is out of date for Windows, No binary packages appear to be available for my version of R, How can I get a binary version of a package?, Packages
+
+@node Package xxx is out of date for Windows
 @section Package xxx is out of date for Windows
 
 Here are three possible reasons:
@@ -1447,7 +1441,8 @@ is current, but building stops once 4.(x+2) reaches alpha (pre-release,
 about a month before release).  You can always try installing from the
 sources.
 
-@node No binary packages appear to be available for my version of R, How do I build my package for both 32- and 64-bit R?, Package xxx is out of date for Windows, Packages
+
+@node No binary packages appear to be available for my version of R
 @section No binary packages appear to be available for my version of R
 
 How old is it?  The CRAN policy is to archive binary packages two years
@@ -1459,7 +1454,7 @@ but you do also have the option of installing packages from their
 source.
 
 
-@node How do I build my package for both 32- and 64-bit R?,  , No binary packages appear to be available for my version of R, Packages
+@node How do I build my package for both 32- and 64-bit R?
 @section How do I build my package for both 32- and 64-bit R?
 
 Since R 4.2.0, 32-bit builds are no longer provided. The following
@@ -1492,31 +1487,25 @@ components were selected when R was installed and option
 @option{--compile-both} is given.  Obviously, only the 32-bit
 installation can be tested.
 
+
+
 @newchap{}
-@node Windows Features, Workspaces, Packages, Top
+@node Windows Features
 @chapter Windows Features
 
-@menu
-* What should I expect to behave differently from the Unix version::  
-* I hear about some nifty features.::  
-* Circles appear as ovals on screen::  
-* How do I move focus to a graphics window or the console?::  
-* What does TAB completion do?::  
-@end menu
 
-
-@node  What should I expect to behave differently from the Unix version, I hear about some nifty features., Windows Features, Windows Features
+@node  What should I expect to behave differently from the Unix version
 @section  What should I expect to behave differently from the Unix version of R?
 
 @itemize @bullet
 @item
 R commands can be interrupted by @key{Esc} in @command{Rgui.exe}
-and @key{Ctrl-break} or @key{Ctrl-C} in @command{Rterm.exe}:
-@key{Ctrl-C} is used for copying in @command{Rgui.exe}.
+and @kbd{Ctrl-break} or @kbd{Ctrl-C} in @command{Rterm.exe}:
+@kbd{Ctrl-C} is used for copying in @command{Rgui.exe}.
 
 @item 
 Command-line editing is always available, but is somewhat simpler than the
-readline-based editing on Unix.  For @command{Rgui.exe}, the menu item
+@I{readline}-based editing on Unix.  For @command{Rgui.exe}, the menu item
 `Help | Console' will give details.  For @command{Rterm.exe} see file
 @file{README.rterm}.
 
@@ -1528,7 +1517,7 @@ of @code{shell()}.
 @end itemize
 
 
-@node I hear about some nifty features., Circles appear as ovals on screen, What should I expect to behave differently from the Unix version, Windows Features
+@node I hear about some nifty features.
 @section I hear about some nifty features: please tell me about them!
 
 You have read the file @file{README.@RWVER@}? There are file menus on
@@ -1567,7 +1556,7 @@ There is a GUI preferences editor invoked from the @code{Edit} menu which
 can be used to edit the file @file{Rconsole}.
 
 
-@node Circles appear as ovals on screen, How do I move focus to a graphics window or the console?, I hear about some nifty features., Windows Features
+@node Circles appear as ovals on screen
 @section Circles appear as ovals on screen.
 
 The graphics system asks Windows for the number of pixels per inch in
@@ -1586,7 +1575,8 @@ modes.  In fact it was a 21" monitor and 400mm x 300mm!
 This is less common with LCD screens but not unknown, particularly if
 they are not running at their native resolution.
 
-@node How do I move focus to a graphics window or the console?, What does TAB completion do?, Circles appear as ovals on screen, Windows Features
+
+@node How do I move focus to a graphics window or the console?
 @section How do I move focus to a graphics window or the console?
 
 You may want to do this from within a function, for example when calling
@@ -1600,15 +1590,15 @@ graphics windows from @command{Rterm.exe} (although Windows may not always
 act on it).
 
 
-@node What does TAB completion do?,  , How do I move focus to a graphics window or the console?, Windows Features
+@node What does TAB completion do?
 @section What does TAB completion do?
 
-Both @command{Rgui} and @command{Rterm} support @kbd{TAB} completion.
-Hitting @kbd{TAB} whilst entering a command line completes the current
-`word' as far as is unambiguously possible.  Hitting @kbd{TAB} a second
+Both @command{Rgui} and @command{Rterm} support @key{TAB} completion.
+Hitting @key{TAB} whilst entering a command line completes the current
+`word' as far as is unambiguously possible.  Hitting @key{TAB} a second
 time then shows a list of possible completions (or the first few if
 there are many): the user can then enter one or more characters and hit
-@kbd{TAB} again.
+@key{TAB} again.
 
 What is it `completing'?  There are two modes: within an unterminated
 (single- or double-) quoted expression it completes file
@@ -1617,7 +1607,7 @@ file paths, but can complete most relative or absolute file paths,
 including drives and spaces. Relative paths on drives are not handled,
 for example.}  Otherwise, it is completing R expressions: most obviously
 it will match visible R object names and keywords, so @kbd{apr} followed
-by @kbd{TAB} will (in a vanilla session) complete to @code{apropos}.
+by @key{TAB} will (in a vanilla session) complete to @code{apropos}.
 After a function name and parenthesis (e.g.@: @kbd{apropos(}) it will
 complete argument names (and @kbd{=}), and after @kbd{$} or @kbd{@@} it
 will complete list components or slot names respectively.
@@ -1639,25 +1629,20 @@ This feature is very similar to the completion available in the
 @code{readline}-based command line interface on Unix-alikes: the macOS
 GUI @code{R.app} has a different completion scheme.
 
+
+
 @newchap{}
-@node Workspaces, The R Console, Windows Features, Top
+@node Workspaces
 @chapter Workspaces
 
 
-@menu
-* My workspace gets saved in a strange place.  How do I stop this?::  
-* How do I store my workspace in a different place?::  
-* Can I load workspaces saved under Unix/GNU-Linux or macOS?::  
-@end menu
-
-
-@node My workspace gets saved in a strange place.  How do I stop this?, How do I store my workspace in a different place?, Workspaces, Workspaces
+@node My workspace gets saved in a strange place.  How do I stop this?
 @section My workspace gets saved in a strange place: how do I stop this?
 
 Have you changed the working directory?: see Q6.2.
 
 
-@node How do I store my workspace in a different place?, Can I load workspaces saved under Unix/GNU-Linux or macOS?, My workspace gets saved in a strange place.  How do I stop this?, Workspaces
+@node How do I store my workspace in a different place?
 @section How do I store my workspace in a different place?
 
 Use the `File | Change Dir...' menu item to select a new working
@@ -1669,7 +1654,7 @@ From the command line you can change the working directory by the
 function @code{setwd}: see its help page.
 
 
-@node Can I load workspaces saved under Unix/GNU-Linux or macOS?,  , How do I store my workspace in a different place?, Workspaces
+@node Can I load workspaces saved under Unix/GNU-Linux or macOS?
 @section Can I load workspaces saved under Unix/GNU-Linux or Mac macOS?
 
 Yes.  All ports of R use the same format for saved workspaces, so they
@@ -1701,25 +1686,19 @@ or confuse some software.
 As of R 4.2, when running on recent Windows, the native encoding is UTF-8
 and so these problems should disappear.
 
+
+
 @newchap{}
-@node The R Console, Building from Source, Workspaces, Top
+@node The R Console
 @chapter The R Console
 
 
-@menu
-* The output to the console seems to be delayed::  
-* Long lines seem to be truncated.::  
-@end menu
-
-
-
-
-@node The output to the console seems to be delayed, Long lines seem to be truncated., The R Console, The R Console
-@section When using Rgui the output to the console seems to be delayed.
+@node The output to the console seems to be delayed
+@section When using @I{RGui} the output to the console seems to be delayed.
 
 This is deliberate: the console output is buffered and re-written in
 chunks to be faster and less distracting.  You can turn buffering off or
-on from the `Misc' menu or the right-click menu: @key{Ctrl-W} toggles
+on from the `Misc' menu or the right-click menu: @kbd{Ctrl-W} toggles
 the setting.
 
 If you are sourcing R code or writing from a function, there is another
@@ -1727,39 +1706,29 @@ option.  A call to the R function @code{flush.console()} will write out
 the buffer and so update the console.
 
 
-@node Long lines seem to be truncated.,  , The output to the console seems to be delayed, The R Console
+@node Long lines seem to be truncated.
 @section Long lines in the console or pager are truncated.
 
 They only @strong{seem} to be truncated: that $ at the end indicates you
 can scroll the window to see the rest of the line.  Use the horizontal
-scrollbar or the @key{CTRL + left/right arrow} keys to scroll
+scrollbar or the @kbd{@key{CTRL} + left/right arrow} keys to scroll
 horizontally. (The @key{left/right arrow} keys work in the pager too.)
 
 
 
 @newchap{}
-@node Building from Source,  , The R Console, Top
+@node Building from Source
 @chapter Building from Source
 
-@menu
-* How can I compile R from source?::  
-* Can I use a fast BLAS?::      
-* How do I include compiled C code?::  
-* How do I debug code that I have compiled and dyn.load-ed?::  
-* How do I include C++ code?::  
-* The output from my C code disappears.::  
-* The output from my Fortran code disappears.::  
-* The console freezes when my compiled code is running::  
-@end menu
 
-
-@node How can I compile R from source?, Can I use a fast BLAS?, Building from Source, Building from Source
+@node How can I compile R from source?
 @section How can I compile R from source?
 
-See the `R Installation and Administration' manual (for the version of R
-you want to install).
+@xref{, , , R-admin, R Installation and Administration}
+(for the version of R you want to install).
 
-@node Can I use a fast BLAS?, How do I include compiled C code?, How can I compile R from source?, Building from Source
+
+@node Can I use a fast BLAS?
 @section  Can I use a fast BLAS?
 
 Fast BLAS (Basic Linear Algebra Subprograms,
@@ -1774,12 +1743,16 @@ matrices may run slower.
 
 BLAS support is supplied by the single DLL
 @file{R_HOME\bin\x64\Rblas.dll}, and you can add a fast BLAS just by
-replacing that.  Replacements for 32-bit R and some of the older common
-chips are available on CRAN in directory
-@file{bin/windows/contrib/ATLAS}.  See the R Installation and
-Administration' manual for how to build an ATLAS @file{Rblas.dll} tuned
+replacing that.
+@c Replacements for 32-bit R and some of the older common
+@c chips are available on CRAN in directory
+@c @file{bin/windows/contrib/ATLAS}.
+@xref{, , , R-admin, R Installation and Administration}
+for how to build an ATLAS @file{Rblas.dll} tuned
 to your system using the R sources.  Unfortunately the process has been
 less successful when tried for the common current CPUs.
+
+With a native build of R on ARM, exclude @file{\x64} from the above.
 
 @c Versions of Dr Kazushige Goto's BLAS (see
 @c @uref{https://en.wikipedia.org/wiki/Kazushige_Goto}) for 64-bit Windows
@@ -1795,27 +1768,30 @@ less successful when tried for the common current CPUs.
 Note that fast BLAS implementations may give different (and often
 slightly less accurate) results than the reference BLAS included in R.
 
-@node  How do I include compiled C code?, How do I debug code that I have compiled and dyn.load-ed?, Can I use a fast BLAS?, Building from Source
+
+@node  How do I include compiled C code?
 @section How do I include compiled C code?
 
 We strongly encourage you to do this @emph{via} building an R package:
-see the @emph{`Writing R Extensions'} manual.  In any event you should
-get and install the tools and toolchain mentioned in the `R Installation
-and Administration' manual.  Then you can use
+@pxref{, , , R-exts, Writing R Extensions}.
+In any event you should
+get and install the tools and toolchain mentioned in
+@ref{, , , R-admin, R Installation and Administration}.
+Then you can use
 @example
 ...\bin\x64\R CMD SHLIB foo.c bar.f
 @end example
 @noindent
 to make @file{foo.dll}.  Use @command{...\bin\x64\R CMD SHLIB --help} for
-further options, or see @code{?SHLIB}.
+further options, or see @code{?SHLIB}. 
+With a native build of R on ARM, exclude @file{\x64} from the above.
 
 @c If you want to use Visual C++, Borland C++ or other compilers, see the
 @c appropriate section in @file{README.packages}.
 
 
-
-@node How do I debug code that I have compiled and dyn.load-ed?, How do I include C++ code?, How do I include compiled C code?, Building from Source
-@section How do I debug code that I have compiled and dyn.load-ed?
+@node How do I debug code that I have compiled and dyn.load-ed?
+@section How do I debug code that I have compiled and @code{dyn.load}-ed?
 
 @c Debugging under Windows is often a fraught process, and sometimes does
 @c not work at all.  If all you need is a @emph{just-in-time} debugger to
@@ -1839,11 +1815,13 @@ Rcmd INSTALL --debug mypkg
 @end example
 
 @noindent
-See the `R Installation and Administration' manual (for the version of R you
+@xref{, , , R-admin, R Installation and Administration}
+(for the version of R you
 want to install) and @uref{https://CRAN.R-project.org/bin/windows/Rtools/}
 for links to detailed information on how to build R and R packages from
-source using corresponding versions of Rtools and for additional hints for
-debugging on Windows.
+source using corresponding versions of @I{Rtools} and for additional hints for
+debugging on Windows, including how to debug a native build of R on ARM. The
+description here only covers Intel builds of R.
 
 You will need a suitable version of @command{gdb} which matches your
 compiler.  Then you can debug by
@@ -1904,7 +1882,7 @@ drop control back to the debugger does not work with a MinGW version of
 @end itemize
 
 
-@node  How do I include C++ code?, The output from my C code disappears., How do I debug code that I have compiled and dyn.load-ed?, Building from Source
+@node  How do I include C++ code?
 @section  How do I include C++ code?
 
 You need to do two things:
@@ -1922,7 +1900,7 @@ as in the example in @emph{`Writing R Extensions'}.  Then build the DLL by
 @end example
 
 @noindent
-or (VC++, which requires extension @code{.cpp})
+or (@I{VC++}, which requires extension @code{.cpp})
 
 @example
 cl /MT /c X.cpp X_main.cpp
@@ -1938,7 +1916,7 @@ Note that you will not see the messages from this example in the GUI
 console: see the next section.
 
 
-@node  The output from my C code disappears., The output from my Fortran code disappears., How do I include C++ code?, Building from Source
+@node  The output from my C code disappears.
 @section  The output from my C code disappears.  Why?
 
 The @command{Rgui.exe} console is a Windows application: writing to
@@ -1952,12 +1930,12 @@ console seems to be delayed}), so that you will not normally see any
 output before returning to the R prompt.
 
 
-@node  The output from my Fortran code disappears., The console freezes when my compiled code is running, The output from my C code disappears., Building from Source
+@node  The output from my Fortran code disappears.
 @section  The output from my Fortran code disappears.  Why?
 
 Writing to Fortran output writes to a file, not the @command{Rgui} console.
-Use one of the subroutines @code{dblepr}, @code{intpr} or @code{realpr}
-documented in the @emph{`Writing R Extensions'} manual.
+Use one of the subroutines @code{dblepr}, @code{intpr} or @code{realpr},
+@pxref{Printing from Fortran, , , R-exts, Writing R Extensions}.
 
 Note that output from the console is delayed (@pxref{The output to the
 console seems to be delayed}), so that you will not normally see any
@@ -1965,7 +1943,7 @@ output before returning to the R prompt even when using the @code{xxxpr}
 subroutines.
 
 
-@node  The console freezes when my compiled code is running,  , The output from my Fortran code disappears., Building from Source
+@node  The console freezes when my compiled code is running
 @section The console freezes when my compiled code is running.
 
 The console, pagers and graphics window all run in the same thread
@@ -1974,10 +1952,11 @@ call @code{R_ProcessEvents()} periodically from your compiled code.
 If you want output to be updated on the console, call
 @code{R_FlushConsole()} and then @code{R_ProcessEvents()}.
 
-@set LASTEDIT 2022-04-12
+
+@set LASTEDIT 2024-04-05
 @ifhtml
 @html
-<hr WIDTH="100%">
+<hr>
 <address>
 Last edited @value{LASTEDIT}: comments to
 <code><a href="mailto:R-windows@@R-project.org">R-windows@@R-project.org</a></code>
@@ -1986,7 +1965,7 @@ Last edited @value{LASTEDIT}: comments to
 @end ifhtml
 @ifinfo
 @sp 2
-Last edited @value{LASTEDIT}: comments to <R-windows@@R-project.org>
+Last edited @value{LASTEDIT}: comments to @email{R-windows@@R-project.org}
 @end ifinfo
 
 @bye

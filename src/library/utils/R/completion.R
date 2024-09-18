@@ -120,13 +120,20 @@ findFuzzyMatches <- function(pattern, values) {
 }
 
 
-findMatches <- function(pattern, values, fuzzy)
+findMatches <- function(pattern, values, fuzzy, backtick)
 {
-    if (missing(fuzzy)) fuzzy <- .CompletionEnv$settings[["fuzzy"]]
-    if (fuzzy)
-        findFuzzyMatches(pattern, values)
-    else
-        findExactMatches(pattern, values)
+    if (missing(fuzzy)) fuzzy <- isTRUE(.CompletionEnv$settings[["fuzzy"]])
+    if (missing(backtick)) backtick <- isTRUE(.CompletionEnv$settings[["backtick"]])
+    comps <- 
+        if (fuzzy)
+            findFuzzyMatches(pattern, values)
+        else
+            findExactMatches(pattern, values)
+    if (backtick && length(comps) && all(nzchar(comps)))
+        comps <- vapply(comps,
+                        FUN = function(comp) deparse1(as.name(comp), backtick = TRUE),
+                        FUN.VALUE = "")
+    comps
 }
 
 fuzzyApropos <- function(what)
@@ -190,7 +197,7 @@ fuzzyApropos <- function(what)
 
 ## modifies settings:
 
-rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, fuzzy, quotes, files)
+rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, fuzzy, quotes, files, backtick)
 {
     if (length(match.call()) == 1) return(unlist(.CompletionEnv[["settings"]]))
     checkAndChange <- function(what, value)
@@ -213,6 +220,7 @@ rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, 
     if (!missing(files)) checkAndChange("files", files)
     if (!missing(quotes))checkAndChange("quotes", quotes)
     if (!missing(fuzzy)) checkAndChange("fuzzy", fuzzy)
+    if (!missing(backtick)) checkAndChange("backtick", backtick)
     invisible()
 }
 
@@ -849,6 +857,7 @@ functionArgs <-
 ## completions are found.  We could return "" as the only completion,
 ## but that produces an irritating blank line on
 ## list-possible-completions (or whatever the correct name is).
+
 ## Instead (since we don't want to reinvent the wheel), we use the
 ## following scheme: If the character just preceding our token is " or
 ## ', we immediately go to file name completion.  If not, we do our
@@ -980,11 +989,11 @@ fileCompletions <- function(token)
 ## completion when called from C code.
 
 
-.completeToken <- function()
+.completeToken <- function(custom = TRUE)
 {
     ## Allow override by user-specified function
     custom.completer <- rc.getOption("custom.completer")
-    if (is.function(custom.completer))
+    if (custom && is.function(custom.completer))
         return (custom.completer(.CompletionEnv))
     text <- .CompletionEnv[["token"]]
     if (isInsideQuotes())
@@ -1073,6 +1082,9 @@ fileCompletions <- function(token)
                                            fullToken$start-2L,
                                            fullToken$start-1L)) %in% c("::")))
             ## in anticipation that we will handle this eventually:
+
+## TODO: Detect cases where backtick has already been inserted by the user, and handle appropriately
+
 ##             probablyBacktick <- (fullToken$start >= 1L &&
 ##                                  ((substr(.CompletionEnv[["linebuffer"]],
 ##                                           fullToken$start,
@@ -1355,12 +1367,29 @@ fileCompletions <- function(token)
           "xaxp", "xaxs", "xaxt", "xpd", "yaxp", "yaxs", "yaxt",
           "page", "ylbias")
 
-    options <-
-        c(names(options()), ## + some that are NULL by default
-          "mc.cores", "dvipscmd", "warn.FPU", "aspell_program",
-          "deparse.max.lines", "digits.secs", "error", "help.ports",
-          "help_type", "save.defaults", "save.image.defaults",
-          "SweaveHooks", "SweaveSyntax", "topLevelEnvironment")
+    options <- unique(c(
+        names(.Options),
+        ## + options not yet initialized when preparing utils
+        "bitmapType", "citation.bibtex.max", "contrasts", "demo.ask",
+        "device", "device.ask.default", "editor", "example.ask",
+        "help.search.types", "help.try.all.packages", "HTTPUserAgent",
+        "internet.info", "locatorBell", "mailer", "menu.graphics",
+        "na.action", "pkgType", "repos", "show.coef.Pvalues",
+        "show.signif.stars", "str", "str.dendrogram.last",
+        "ts.eps", "ts.S.compat", "unzip", "windowsTimeout",
+        ## + options unset by default (or OS-specific)
+        "mc.cores", "dvipscmd", "warn.FPU",
+        "askYesNo", "BioC_mirror", "ccaddress", "checkPackageLicense",
+        "conflicts.policy", "de.cellwidth", "deparse.max.lines", "digits.secs",
+        "download.file.extra", "download.file.method", "error",
+        "help.htmlmath", "help.htmltoc", "help.ports", "help_type", "install.lock",
+        "install.packages.check.source",
+        "install.packages.compile.from.source",
+        "interrupt", "Ncpus", "save.defaults", "save.image.defaults",
+        "setWidthOnResize", "show.error.locations", "show.nls.convergence",
+        "SweaveHooks", "SweaveSyntax", "topLevelEnvironment",
+        "traceback.max.lines", "url.method", "warning.expression"
+    ))
 
     .addFunctionInfo(par = par, options = options)
 
@@ -1395,7 +1424,7 @@ assign("settings",
        list(ops = TRUE, ns = TRUE,
             args = TRUE, dots = TRUE, func = FALSE,
             ipck = FALSE, S3 = TRUE, data = TRUE,
-            help = TRUE, argdb = TRUE, fuzzy = FALSE,
+            help = TRUE, argdb = TRUE, fuzzy = FALSE, backtick = FALSE,
             files = TRUE, # FIXME: deprecate in favour of quotes
             quotes = TRUE),
        envir = .CompletionEnv)

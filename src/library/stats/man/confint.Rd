@@ -31,7 +31,7 @@ confint(object, parm, level = 0.95, \dots)
     names.  If missing, all parameters are considered.}
   \item{level}{the confidence level required.}
   \item{trace}{ logical.  Should profiling be traced?}
-  \item{test}{use Likelihood Ratio or Rao Score test in profiling.}
+  \item{test}{use Likelihood Ratio or \I{Rao} Score test in profiling.}
   \item{\dots}{additional argument(s) for methods.}
 }
 \value{
@@ -73,6 +73,6 @@ confint(fit, "wt")
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3, 1, 9); treatment <- gl(3, 3)
 glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
-confint(glm.D93) # needs MASS to be installed
+confint(glm.D93) 
 confint.default(glm.D93)  # based on asymptotic normality}
 \keyword{models}

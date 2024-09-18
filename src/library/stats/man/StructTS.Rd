@@ -18,7 +18,7 @@ StructTS(x, type = c("level", "trend", "BSM"), init = NULL,
 \arguments{
   \item{x}{a univariate numeric time series. Missing values are allowed.}
 
-  \item{type}{the class of structural model.  If omitted, a BSM is used
+  \item{type}{the class of structural model.  If omitted, a \abbr{BSM} is used
     for a time series with \code{frequency(x) > 1}, and a local trend
     model otherwise.  Can be abbreviated.}
 
@@ -73,7 +73,7 @@ StructTS(x, type = c("level", "trend", "BSM"), init = NULL,
  }{s[t+1] = -s[t] - \dots - s[t - s + 2] + w[t],  w[t] ~ N(0, \sigma^2_w)}
  The boundary case \eqn{\sigma^2_\omega = 0}{\sigma^2_w = 0} corresponds
  to a deterministic (but arbitrary) seasonal pattern.  (This is
- sometimes known as the \sQuote{dummy variable} version of the BSM.)
+ sometimes known as the \sQuote{dummy variable} version of the \abbr{BSM}.)
 }
 \value{
   A list of class \code{"StructTS"} with components:
@@ -93,7 +93,7 @@ StructTS(x, type = c("level", "trend", "BSM"), init = NULL,
   \item{call}{the matched call.}
   \item{series}{the name of the series \code{x}.}
   \item{code}{the \code{convergence} code returned by \code{\link{optim}}.}
-  \item{model, model0}{Lists representing the Kalman Filter used in the
+  \item{model, model0}{Lists representing the \I{Kalman} filter used in the
     fitting.  See \code{\link{KalmanLike}}.  \code{model0} is the
     initial state of the filter, \code{model} its final state.}
   \item{xtsp}{the \code{tsp} attributes of \code{x}.}
@@ -117,7 +117,7 @@ StructTS(x, type = c("level", "trend", "BSM"), init = NULL,
 \note{
   Optimization of structural models is a lot harder than many of the
   references admit.  For example, the \code{\link{AirPassengers}} data
-  are considered in Brockwell & Davis (1996): their solution appears to
+  are considered in \bibcite{Brockwell & Davis (1996)}: their solution appears to
   be a local maximum, but nowhere near as good a fit as that produced by
   \code{StructTS}.  It is quite common to find fits with one or more
   variances zero, and this can include \eqn{\sigma^2_\epsilon}{sigma^2_eps}.

@@ -4,7 +4,7 @@ set -e
 set -x
 
 # Put pdflatex on the path (needed only for CMD check)
-export PATH="/c/x86_64-w64-mingw32.static.posix/bin:$PATH:$HOME/AppData/Local/Programs/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX 2.9/miktex/bin/x64"
+export PATH="/c/x86_64-w64-mingw32.static.posix/bin:$PATH:/c/Users/$USER/AppData/Roaming/TinyTeX/bin/windows:$HOME/AppData/Local/Programs/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX/miktex/bin/x64:/c/progra~1/MiKTeX 2.9/miktex/bin/x64"
 echo "PATH: $PATH"
 pdflatex --version
 texindex --version
@@ -22,8 +22,8 @@ curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
 
 # Download the TCL bundle required by tcltk package
 #curl -OL https://cran.r-project.org/bin/windows/Rtools/rtools43/files/tcltk-5493-5412.zip
-curl -OL https://github.com/r-windows/files/releases/download/5550/tcltk-5550-5412.zip
-unzip tcltk-5550-5412.zip
+curl -OL https://github.com/r-windows/rtools-chocolatey/releases/download/5948/Tcl-5948-5877.zip
+unzip Tcl-5948-5877.zip
 
 # Add custom flags to MkRules.local
 cp .github/scripts/MkRules.local src/gnuwin32/

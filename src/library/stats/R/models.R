@@ -1,7 +1,7 @@
 #  File src/library/stats/R/models.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,7 @@ formula.default <- function (x = NULL, env = parent.frame(), ...)
     if (notnull(x$formula)) eval(x$formula)
     else if (notnull(x$terms)) {z <- x$terms; oldClass(z) <- "formula"; z}
     else if (notnull(x$call$formula))	eval(x$call$formula)
-    else if (!is.null(attr(x, "formula"))) attr(x, "formula")
-    else {
+    else attr(x, "formula") %||% {
         form <- switch(mode(x),
                        NULL = structure(list(), class = "formula"),
                        character = eval(str2expression(x)), # ever used?  formula.character!
@@ -39,8 +38,8 @@ formula.default <- function (x = NULL, env = parent.frame(), ...)
 formula.formula <- function(x, ...) x
 formula.terms <- function(x, ...) {
     env <- environment(x)
-    attributes(x) <- list(class = "formula") # dropping all other attr.
-    environment(x) <- if(is.null(env)) globalenv() else env
+    attributes(x) <- list(class = "formula") # dropping all attr. incl ".Environment"
+    environment(x) <- env %||% globalenv()
     x
 }
 
@@ -220,23 +219,26 @@ reformulate <- function (termlabels, response=NULL, intercept = TRUE, env = pare
 
 drop.terms <- function(termobj, dropx = NULL, keep.response = FALSE)
 {
-    if (is.null(dropx))
-	termobj
+    if (!length(dropx))
+	if(keep.response) termobj else delete.response(termobj)
     else {
         if(!inherits(termobj, "terms"))
             stop(gettextf("'termobj' must be a object of class %s",
                           dQuote("terms")),
                  domain = NA)
+	response <- attr(termobj, "response")
+	newformula <- attr(termobj, "term.labels")[-dropx]
+	if (!is.null(off <- attr(termobj, "offset")))
+	    newformula <- c(newformula,
+			    as.character(attr(termobj, "variables")[off + 1L]))
 	newformula <-
-	    reformulate(attr(termobj, "term.labels")[-dropx],
-			response = if(keep.response) termobj[[2L]],
+	    reformulate(newformula,
+			response = if(response && keep.response) termobj[[2L]],
 			intercept = attr(termobj, "intercept"),
 			env = environment(termobj))
 	result <- terms(newformula, specials=names(attr(termobj, "specials")))
 
 	# Edit the optional attributes
-
-	response <- attr(termobj, "response")
 	dropOpt <- if(response && !keep.response) # we have a response in termobj, but not in the result
 		       c(response, dropx + length(response))
 		   else
@@ -262,6 +264,9 @@ drop.terms <- function(termobj, dropx = NULL, keep.response = FALSE)
 {
     resp <- if (attr(termobj, "response")) termobj[[2L]]
     newformula <- attr(termobj, "term.labels")[i]
+    if (!is.null(off <- attr(termobj, "offset")))
+	newformula <- c(newformula,
+			as.character(attr(termobj, "variables")[off + 1L]))
     if (length(newformula) == 0L) newformula <- "1"
     newformula <- reformulate(newformula, resp, attr(termobj, "intercept"), environment(termobj))
     result <- terms(newformula, specials = names(attr(termobj, "specials")))
@@ -300,6 +305,8 @@ terms.formula <- function(x, specials = NULL, abb = NULL, data = NULL,
 			  neg.out = TRUE, keep.order = FALSE,
                           simplify = FALSE, ..., allowDotAsName = FALSE)
 {
+    if(!missing(abb))    .Deprecated(msg=gettextf("setting '%s' in terms.formula() is deprecated", "abb"))
+    if(!missing(neg.out)).Deprecated(msg=gettextf("setting '%s' in terms.formula() is deprecated", "neg.out"))
     if(simplify)
     fixFormulaObject <- function(object) {
         Terms <- terms(object)
@@ -454,7 +461,7 @@ deparse2 <- function(x)
 
 model.frame <- function(formula, ...) UseMethod("model.frame")
 model.frame.default <-
-    function(formula, data = NULL, subset = NULL, na.action = na.fail,
+    function(formula, data = NULL, subset = NULL, na.action,
 	     drop.unused.levels = FALSE, xlev = NULL,...)
 {
     ## first off, establish if we were passed a data frame 'newdata'
@@ -493,10 +500,11 @@ model.frame.default <-
     } else
         formula <- as.formula(formula)
     if(missing(na.action)) {
-	if(!is.null(naa <- attr(data, "na.action")) && mode(naa)!="numeric")
-	    na.action <- naa
-	else if(!is.null(naa <- getOption("na.action")))
-	    na.action <- naa
+	na.action <-
+            if(!is.null(naa <- attr(data, "na.action")) && mode(naa)!="numeric")
+                naa
+            else getOption("na.action") %||%
+                     na.fail # rarely happens (option historically unset in S, see FAQ 3.3.2)
     }
 
     ## The following logic is quite ancient and should possibly be revised
@@ -809,8 +817,7 @@ get_all_vars <- function(formula, data = NULL, ...)
     names(x) <- nms.x
     if(anyM)
         x[isM] <- lapply(x[isM], function(o) `class<-`(o, class(o)[class(o) != "AsIs"]))
-    attr(x, "row.names") <-
-        if(is.null(rownames)) .set_row_names(max(vapply(x, NROW, integer(1))))
-        else rownames # might be short form
+    attr(x, "row.names") <- rownames %||%  # might be short form
+        .set_row_names(max(vapply(x, NROW, integer(1))))
     x
 }

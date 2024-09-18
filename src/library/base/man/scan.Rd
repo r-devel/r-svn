@@ -1,6 +1,6 @@
 % File src/library/base/man/scan.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{scan}
@@ -23,7 +23,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     specified file is \code{""}, then input is taken from the keyboard
     (or whatever \code{\link{stdin}()} reads if input is redirected or
     \R is embedded).
-    (In this case input can be terminated by a blank line or an EOF
+    (In this case input can be terminated by a blank line or an \abbr{EOF}
     signal, \samp{Ctrl-D} on Unix and \samp{Ctrl-Z} on Windows.)
 
     Otherwise, the file name is interpreted \emph{relative} to the
@@ -38,8 +38,8 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     Alternatively, \code{file} can be a \code{\link{connection}},
     which will be opened if necessary, and if so closed at the end of
     the function call.  Whatever mode the connection is opened in,
-    any of LF, CRLF or CR will be accepted as the EOL marker for a line
-    and so will match \code{sep = "\n"}.
+    any of \abbr{LF}, \abbr{CRLF} or \abbr{CR} will be accepted as the
+    \abbr{EOL} marker for a line and so will match \code{sep = "\n"}.
 
     \code{file} can also be a complete URL.  (For the supported URL
     schemes, see the \sQuote{URLs} section of the help for
@@ -98,13 +98,13 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     interpreted as missing (\code{\link{NA}}) values.  Blank fields are
     also considered to be missing values in logical, integer, numeric
     and complex fields.  Note that the test happens \emph{after} 
-    white space is stripped from the input, so \code{na.strings} values 
+    white space is stripped from the input (if enabled), so \code{na.strings} values
     may need their own white space stripped in advance.}
 
   \item{flush}{logical: if \code{TRUE}, \code{scan} will flush to the
     end of the line after reading the last of the fields requested.
     This allows putting comments after the last field, but precludes
-    putting more that one record on a line.}
+    putting more than one record on a line.}
 
   \item{fill}{logical: if \code{TRUE}, \code{scan} will implicitly add
     empty fields to any lines with fewer fields than implied by
@@ -113,7 +113,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   \item{strip.white}{vector of logical value(s) corresponding to items
     in the \code{what} argument.  It is used only when \code{sep} has
     been specified, and allows the stripping of leading and trailing
-    \sQuote{white space} from \code{character} fields (\code{numeric} fields
+    \sQuote{white space} from \code{character} fields (other fields
     are always stripped).  Note: white space inside quoted strings is
     not stripped.
 
@@ -170,7 +170,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     then data are read from the value of \code{text} via a text connection.
   }
 
-  \item{skipNul}{logical: should nuls be skipped when reading character
+  \item{skipNul}{logical: should \abbr{NUL}s be skipped when reading character
     fields?}
 }
 \details{
@@ -195,7 +195,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   \code{na.strings} contains \code{""} when they are regarded as missing
   values.
 
-  The allowed input for a numeric field is optional whitespace followed
+  The allowed input for a numeric field is optional whitespace, followed by
   either \code{NA} or an optional sign followed by a decimal or
   hexadecimal constant (see \link{NumericConstants}), or \code{NaN},
   \code{Inf} or \code{infinity} (ignoring case).  Out-of-range values
@@ -244,7 +244,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   and declared as such (and the \code{encoding} argument to \code{scan}
   is ignored).  See the examples of \code{\link{readLines}}.
 
-  Embedded nuls in the input stream will terminate the field currently
+  Embedded \abbr{NUL}s in the input stream will terminate the field currently
   being read, with a warning once per call to \code{scan}.  Setting
   \code{skipNul = TRUE} causes them to be ignored.
 }

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2022	The R Core Team.
+ *  Copyright (C) 2000-2023	The R Core Team.
  *  Copyright (C) 1995-1998	Robert Gentleman and Ross Ihaka.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -84,7 +84,7 @@ static void PrintObject(SEXP, R_PrintData *);
 #define TAGBUFLEN0 (TAGBUFLEN + 6)
 static char tagbuf[TAGBUFLEN0 * 2]; /* over-allocate to allow overflow check */
 
-void PrintInit(R_PrintData *data, SEXP env)
+attribute_hidden void PrintInit(R_PrintData *data, SEXP env)
 {
     data->na_string = NA_STRING;
     data->na_string_noquote = mkChar("<NA>");
@@ -191,7 +191,7 @@ static void PrintClosure(SEXP s, R_PrintData *data)
     PrintLanguage(s, data);
 
     if (isByteCode(BODY(s)))
-	Rprintf("<bytecode: %p>\n", BODY(s));
+	Rprintf("<bytecode: %p>\n", (void *)BODY(s));
     SEXP t = CLOENV(s);
     if (t != R_GlobalEnv)
 	Rprintf("%s\n", EncodeEnvironment(t));
@@ -341,7 +341,7 @@ static void PrintObjectS4(SEXP s, R_PrintData *data)
     if (methodsNS == R_UnboundValue)
 	error("missing methods namespace: this should not happen");
 
-    SEXP fun = findVarInFrame3(methodsNS, install("show"), TRUE);
+    SEXP fun = R_findVarInFrame(methodsNS, install("show"));
     if (TYPEOF(fun) == PROMSXP) {
 	PROTECT(fun);
 	fun = eval(fun, R_BaseEnv);
@@ -627,7 +627,7 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 		    const char *ss = translateChar(STRING_ELT(klass, 0));
 		    int res = Rsnprintf_mbcs(str, 200, ".__C__%s", ss);
 		    if(res > 0 && res < 200 &&
-		       findVar(install(str), data->env) != R_UnboundValue)
+		       R_findVar(install(str), data->env) != R_UnboundValue)
 		        className = ss;
 		}
 	    }
@@ -788,18 +788,18 @@ static void PrintSpecial(SEXP s, R_PrintData *data)
     char *nm = PRIMNAME(s);
     SEXP env, s2;
     PROTECT_INDEX xp;
-    PROTECT_WITH_INDEX(env = findVarInFrame3(R_BaseEnv,
-					     install(".ArgsEnv"), TRUE),
+    PROTECT_WITH_INDEX(env = R_findVarInFrame(R_BaseEnv,
+					      install(".ArgsEnv")),
 		       &xp);
     if (TYPEOF(env) == PROMSXP) REPROTECT(env = eval(env, R_BaseEnv), xp);
-    s2 = findVarInFrame3(env, install(nm), TRUE);
+    s2 = R_findVarInFrame(env, install(nm));
     if(s2 == R_UnboundValue) {
-	REPROTECT(env = findVarInFrame3(R_BaseEnv,
-					install(".GenericArgsEnv"), TRUE),
+	REPROTECT(env = R_findVarInFrame(R_BaseEnv,
+					 install(".GenericArgsEnv")),
 		  xp);
 	if (TYPEOF(env) == PROMSXP)
 	    REPROTECT(env = eval(env, R_BaseEnv), xp);
-	s2 = findVarInFrame3(env, install(nm), TRUE);
+	s2 = R_findVarInFrame(env, install(nm));
     }
     if(s2 != R_UnboundValue) {
 	SEXP t;
@@ -844,15 +844,15 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	havecontext = TRUE;
     }
 #endif
-    if(!isMethodsDispatchOn() && (IS_S4_OBJECT(s) || TYPEOF(s) == S4SXP) ) {
+    if(!isMethodsDispatchOn() && (IS_S4_OBJECT(s) || TYPEOF(s) == OBJSXP) ) {
 	SEXP cl = getAttrib(s, R_ClassSymbol);
 	if(isNull(cl)) {
 	    /* This might be a mistaken S4 bit set */
-	    if(TYPEOF(s) == S4SXP)
+	    if(TYPEOF(s) == OBJSXP)
 		Rprintf("<S4 object without a class>\n");
 	    else
 		Rprintf("<Object of type '%s' with S4 bit but without a class>\n",
-			type2char(TYPEOF(s)));
+			R_typeToChar(s));
 	} else {
 	    SEXP pkg = getAttrib(s, R_PackageSymbol);
 	    if(isNull(pkg)) {
@@ -898,7 +898,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("%s\n", EncodeEnvironment(s));
 	break;
     case PROMSXP:
-	Rprintf("<promise: %p>\n", s);
+	Rprintf("<promise: %p>\n", (void *)s);
 	break;
     case DOTSXP:
 	Rprintf("<...>\n");
@@ -962,16 +962,21 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("<pointer: %p>\n", R_ExternalPtrAddr(s));
 	break;
     case BCODESXP:
-	Rprintf("<bytecode: %p>\n", s);
+	Rprintf("<bytecode: %p>\n", (void *)s);
 	break;
     case WEAKREFSXP:
 	Rprintf("<weak reference>\n");
 	break;
-    case S4SXP:
-	/*  we got here because no show method, usually no class.
-	    Print the "slots" as attributes, since we don't know the class.
-	*/
-	Rprintf("<S4 Type Object>\n");
+    case OBJSXP:
+	if(IS_S4_OBJECT(s)) {
+	    /*  we got here because no show method, usually no class.
+		Print the "slots" as attributes, since we don't know the class.
+	    */
+	    Rprintf("<S4 Type Object>\n");
+	} else {
+	    /* OBJSXP type, S4 obj bit not set*/
+	    Rprintf("<object>\n");
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("PrintValueRec", s);
@@ -1023,7 +1028,7 @@ static void printAttributes(SEXP s, R_PrintData *data, Rboolean useSlots)
 		if(TAG(a) == R_ClassSymbol)
 		    goto nextattr;
 	    }
-	    if(isFrame(s)) {
+	    if(isDataFrame(s)) {
 		if(TAG(a) == R_RowNamesSymbol)
 		    goto nextattr;
 	    }
@@ -1122,10 +1127,10 @@ attribute_hidden void CustomPrintValue(SEXP s, SEXP env)
 
 attribute_hidden
 #ifdef FC_LEN_T
-void F77_NAME(dblep0) (const char *label, int *nchar, double *data, int *ndata,
+void F77_SUB(dblep0) (const char *label, int *nchar, double *data, int *ndata,
 		       const FC_LEN_T label_len)
 #else
-void F77_NAME(dblep0) (const char *label, int *nchar, double *data, int *ndata)
+void F77_SUB(dblep0) (const char *label, int *nchar, double *data, int *ndata)
 #endif
 {
     int nc = *nchar;
@@ -1142,10 +1147,10 @@ void F77_NAME(dblep0) (const char *label, int *nchar, double *data, int *ndata)
 
 attribute_hidden
 #ifdef FC_LEN_T
-void F77_NAME(intpr0) (const char *label, int *nchar, int *data, int *ndata,
+void F77_SUB(intpr0) (const char *label, int *nchar, int *data, int *ndata,
 		       const FC_LEN_T label_len)
 #else
-void F77_NAME(intpr0) (const char *label, int *nchar, int *data, int *ndata)
+void F77_SUB(intpr0) (const char *label, int *nchar, int *data, int *ndata)
 #endif
 {
     int nc = *nchar;
@@ -1163,10 +1168,10 @@ void F77_NAME(intpr0) (const char *label, int *nchar, int *data, int *ndata)
 
 attribute_hidden
 #ifdef FC_LEN_T
-void F77_NAME(realp0) (const char *label, int *nchar, float *data, int *ndata,
+void F77_SUB(realp0) (const char *label, int *nchar, float *data, int *ndata,
 		      const FC_LEN_T label_len)
 #else
-void F77_NAME(realp0) (const char *label, int *nchar, float *data, int *ndata)
+void F77_SUB(realp0) (const char *label, int *nchar, float *data, int *ndata)
 #endif
 {
     int nc = *nchar, nd = *ndata;
@@ -1193,10 +1198,10 @@ void F77_NAME(realp0) (const char *label, int *nchar, float *data, int *ndata)
 /* Fortran-callable error routine for lapack */
 
 #ifdef FC_LEN_T
-NORET void F77_NAME(xerbla)(const char *srname, int *info,
+NORET void F77_SUB(xerbla)(const char *srname, int *info,
 			    const FC_LEN_T srname_len)
 #else
-NORET void F77_NAME(xerbla)(const char *srname, int *info)
+NORET void F77_SUB(xerbla)(const char *srname, int *info)
 #endif
 {
    /* srname is not null-terminated.  It will be 6 characters for

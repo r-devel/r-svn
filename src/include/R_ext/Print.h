@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2019    The R Core Team
+ *  Copyright (C) 1998-2024    The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Included by R.h: API */
+/* Included by R.h: Part of the API. */
 
 #ifndef R_EXT_PRINT_H_
 #define R_EXT_PRINT_H_
@@ -42,11 +42,33 @@ extern "C" {
 # define R_VA_LIST va_list
 #endif
 
-void Rprintf(const char *, ...);
-void REprintf(const char *, ...);
+#ifdef __GNUC__
+# ifdef _WIN32
+#  if defined(_UCRT) || ((__MSVCRT_VERSION__ >= 0x1400) || \
+                        (__MSVCRT_VERSION__ >= 0xE00 && __MSVCRT_VERSION__ < 0x1000))
+#   if defined(__clang__)
+#    define R_PRINTF_FORMAT(M,N) __attribute__ ((format (printf, M, N)))    
+#   else
+#    define R_PRINTF_FORMAT(M,N) __attribute__ ((format (gnu_printf, M, N)))    
+#   endif
+#  else
+#   define R_PRINTF_FORMAT(M,N)
+#  endif
+# else
+#  define R_PRINTF_FORMAT(M,N) __attribute__ ((format (printf, M, N)))
+# endif
+#else
+# define R_PRINTF_FORMAT(M,N)
+#endif
+
+void Rprintf(const char *, ...) R_PRINTF_FORMAT(1, 2);
+void REprintf(const char *, ...) R_PRINTF_FORMAT(1, 2);
+
 #if !defined(__cplusplus) || defined R_USE_C99_IN_CXX
-void Rvprintf(const char *, R_VA_LIST);
-void REvprintf(const char *, R_VA_LIST);
+
+void Rvprintf(const char *, R_VA_LIST) R_PRINTF_FORMAT(1, 0);
+void REvprintf(const char *, R_VA_LIST) R_PRINTF_FORMAT(1, 0);
+
 #endif
 
 #ifdef  __cplusplus

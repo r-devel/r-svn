@@ -12,22 +12,44 @@ function processMathHTML() {
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.js"
     onload="processMathHTML();"></script>
 <link rel="stylesheet" type="text/css" href="R.css" />
-</head><body><div class="container">
+</head><body><div class="container"><main>
 
 <table style="width: 100%;"><tr><td>testit</td><td style="text-align: right;">R Documentation</td></tr></table>
 
-<h2 id='testit'>An Rd Regression Test</h2>
+<h2>An Rd Regression Test</h2>
 
 <h3>Usage</h3>
 
 <pre><code class='language-R'>\x \y %{}
 
-foo(<var>x</var>, <var>y</var>)
+foo(<var>x</var>, <var>y</var>, ...)
 </code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr><td><code id="x">x</code>, <code id="y">y</code></td>
+<td>
+
+<p>combined arguments, in multiple Rd lines
+</p>
+<p>paragraph
+</p>
+</td></tr>
+<tr><td><code id="...">...</code></td>
+<td>
+<p>description of ...: ...</p>
+</td></tr>
+</table>
 
 
 <h3>Details</h3>
 
+<p>Included
+
+conditional content.
+</p>
 <p>Escaped backslash <code>\x</code>.
 </p>
 <p><code>%{}</code>
@@ -73,6 +95,10 @@ weighted.mean, <code>{</code>
 output
 &#8288;</code>
 &ndash;
+</p>
+<p><code style="white-space: pre;">&#8288;
+&gt; x&lt;-007
+&#8288;</code>
 </p>
 
 
@@ -135,9 +161,14 @@ and is thus output as-is in R <code class="reqn">\ge</code> 4.4.0:
 
 <pre><code class='language-R'>\x
 %{}
-foo(<var>x</var>, <var>y</var>)
+
+## Not run: stop("doomed to fail")
+
+foo(<var>x</var>,
+    <var>y</var>)
 </code></pre>
 
+</main>
 
 </div>
 </body></html>

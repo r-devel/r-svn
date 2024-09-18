@@ -1,6 +1,6 @@
 % File src/library/graphics/man/mtext.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2011 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mtext}
@@ -20,7 +20,7 @@ mtext(text, side = 3, line = 0, outer = FALSE, at = NA,
     the \emph{text} to be written.  Other objects are coerced by
     \code{\link{as.graphicsAnnot}}.}
   \item{side}{on which side of the plot (1=bottom, 2=left, 3=top, 4=right).}
-  \item{line}{on which MARgin line, starting at 0 counting outwards.}
+  \item{line}{on which \I{MARgin} line, starting at 0 counting outwards.}
   \item{outer}{use outer margins if available.}
   \item{at}{give location of each string in user coordinates.  If the
      component of \code{at} corresponding to a particular text item is
@@ -35,8 +35,8 @@ mtext(text, side = 3, line = 0, outer = FALSE, at = NA,
     parallel to the axis the default is to centre the string.}
   \item{padj}{adjustment for each string perpendicular to the reading
     direction (which is controlled by \code{adj}).  For strings parallel
-    to the axes, \code{padj = 0} means left or bottom alignment,
-    and \code{padj = 1} means right or top alignment (relative to the line).
+    to the axes, \code{padj = 0} means bottom alignment,
+    and \code{padj = 1} means top alignment (relative to the axis line).
     
     If \code{padj} is not a finite value (the default), the value of
     \code{par("las")} determines the adjustment.  For strings plotted
@@ -103,5 +103,10 @@ mtext("mtext(..., line= -2, adj = 0)", line = -2, adj = 0)
 ##--- log axis :
 plot(1:10, exp(1:10), log = "y", main = "log =\"y\"", xlab = "xlab")
 for(s in 1:4) mtext(paste("mtext(...,side=", s ,")"), side = s)
+
+##--- illustrating padj behavior :
+plot(0, axes=FALSE, ann=FALSE, frame.plot=TRUE)
+for(si in 1:4) mtext(c("padj=0", "-----------", "padj=1"),
+                     side = si, padj = c(0, 0.5, 1))
 }
 \keyword{aplot}

@@ -734,7 +734,6 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (cdrArgs != R_NilValue && cddrArgs == R_NilValue &&
 	TAG(cdrArgs) == R_NilValue) {
 	/* one index, not named */
-	SEXP x = CAR(args);
 	if (ATTRIB(x) == R_NilValue) {
 	    SEXP s = CAR(cdrArgs);
 	    R_xlen_t i = scalarIndex(s);
@@ -767,7 +766,6 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     else if (cddrArgs != R_NilValue && CDR(cddrArgs) == R_NilValue &&
 	     TAG(cdrArgs) == R_NilValue && TAG(cddrArgs) == R_NilValue) {
 	/* two indices, not named */
-	SEXP x = CAR(args);
 	SEXP attr = ATTRIB(x);
 	if (TAG(attr) == R_DimSymbol && CDR(attr) == R_NilValue) {
 	    /* only attribute of x is 'dim' */
@@ -902,9 +900,8 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     if (type == LANGSXP) {
 	ax = ans;
-	PROTECT(ans = allocList(LENGTH(ax)));
+	PROTECT(ans = allocLang(LENGTH(ax)));
 	if ( LENGTH(ax) > 0 ) {
-	    SET_TYPEOF(ans, LANGSXP);
 	    SEXP px; int i;
 	    for(px = ans, i = 0 ; px != R_NilValue ; px = CDR(px))
 		SETCAR(px, VECTOR_ELT(ax, i++));
@@ -967,11 +964,8 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Is partial matching ok?  When the exact arg is NA, a warning is
        issued if partial matching occurs.
      */
-    int exact = ExtractExactArg(args), pok;
-    if (exact == -1)
-	pok = exact;
-    else
-	pok = !exact;
+    int exact = ExtractExactArg(args);
+    int pok = (exact == -1) ? exact : ! exact;
 
     x = CAR(args);
 
@@ -998,10 +992,12 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, _("incorrect number of subscripts"));
 
     /* code to allow classes to extend environment */
-    if(TYPEOF(x) == S4SXP) {
+    if(TYPEOF(x) == OBJSXP) {
+	SEXP xs = x;
 	x = R_getS4DataSlot(x, ANYSXP);
 	if(x == R_NilValue)
-	  errorcall(call, _("this S4 class is not subsettable"));
+	    errorcall(call, _("this %s class is not subsettable"),
+		      IS_S4_OBJECT(xs) ? "S4" : "object");
     }
     PROTECT(x);
 
@@ -1009,7 +1005,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     if( TYPEOF(x) == ENVSXP ) {
 	if( nsubs != 1 || !isString(CAR(subs)) || length(CAR(subs)) != 1 )
 	    errorcall(call, _("wrong arguments for subsetting an environment"));
-	ans = findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
+	ans = R_findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
 	if( TYPEOF(ans) == PROMSXP ) {
 	    PROTECT(ans);
 	    ans = eval(ans, R_GlobalEnv);
@@ -1231,7 +1227,7 @@ fixSubset3Args(SEXP call, SEXP args, SEXP env, SEXP* syminp)
     }
     else {
 	errorcall(call,_("invalid subscript type '%s'"),
-		  type2char(TYPEOF(nlist)));
+		  R_typeToChar(nlist));
 	return R_NilValue; /*-Wall*/
     }
 
@@ -1287,7 +1283,7 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
     /* Optimisation to prevent repeated recalculation */
     size_t slen = strlen(translateChar(input));
     /* The mechanism to allow a class extending "environment" */
-    if( IS_S4_OBJECT(x) && TYPEOF(x) == S4SXP ){
+    if( IS_S4_OBJECT(x) && TYPEOF(x) == OBJSXP ){
 	x = R_getS4DataSlot(x, ANYSXP);
 	if(x == R_NilValue)
 	    errorcall(call, "$ operator not defined for this S4 class");
@@ -1402,7 +1398,7 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	return R_NilValue;
     }
     else if( isEnvironment(x) ){
-	y = findVarInFrame(x, installTrChar(input));
+	y = R_findVarInFrame(x, installTrChar(input));
 	if( TYPEOF(y) == PROMSXP ) {
 	    PROTECT(y);
 	    y = eval(y, R_GlobalEnv);

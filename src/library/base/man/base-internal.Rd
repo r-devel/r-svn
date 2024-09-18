@@ -147,9 +147,9 @@ lazyLoadDBfetch(key, file, compressed, hook)
     }
   }
   \item{file}{\describe{
-      \item{.getRequiredPackages():}{The full path to the
+      \item{for \code{.getRequiredPackages()}:}{the full path to the
 	\file{DESCRIPTION} file of a package.}
-      \item{lazyLoadDBfetch():}{the filepath to a lazyload database.}
+      \item{for \code{lazyLoadDBfetch()}:}{the filepath to a lazyload database.}
     }
   }
   \item{lib.loc}{a character vector describing the location of \R
@@ -160,7 +160,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
     if the package(s) are not found?}
   \item{useImports}{logical.  Should  the \code{Imports} field be processed?}
   \item{quietly}{logical: should message(s) be printed.}
-  \item{pkginfo}{A processed \file{DESCRIPTION} file of class
+  \item{pkgInfo}{a processed \file{DESCRIPTION} file of class
     \code{"packageDescription2"}.}
   %% \item{built, run}{platform strings of the form \code{"cpu-vendor-os"}.}
   \item{name}{name of image file to save or load.}
@@ -182,7 +182,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \item{cl}{an optional character vector of classes \emph{containing}
     the default classes.}
   \item{units}{see \code{\link{difftime}}.}
-  \item{\dots}{Arguments passed to non-dot name versions.}
+  \item{\dots}{arguments passed to non-dot name versions.}
   \item{pos}{an integer.}
 
   \item{same}{character vector of \emph{same} objects, masking others.}
@@ -200,7 +200,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   The functions \code{.subset} and \code{.subset2} are essentially
   equivalent to the \code{\link{[}} and \code{\link{[[}} operators,
   except that methods dispatch does not take place.  This is to avoid
-  expensive unclassing when applying the default method to an object.  They
+  expensive \I{unclassing} when applying the default method to an object.  They
   should not normally be invoked by end users.  Note that unlike the
   operators they are builtins and not specials (all arguments are
   evaluated) and hence do not allow missing arguments.
@@ -284,7 +284,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{.fixupGFortranStdout} and \code{.fixupGFortranStderr} are helper functions
   to enable standard output and standard error units in \code{gfortran} when
   executing external code via \code{system} and \code{system2}. By default, these
-  units are disabled by the Windows profile when running inside RGui.
+  units are disabled by the Windows profile when running inside \I{RGui}.
 }
 \value{
   \code{.getRequiredPackages} and \code{.getRequiredPackages2}

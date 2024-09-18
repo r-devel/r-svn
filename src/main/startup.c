@@ -34,6 +34,11 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+#endif
+
 /* These are used in ../gnuwin32/system.c, ../unix/sys-std.c */
 SA_TYPE SaveAction = SA_SAVEASK;
 SA_TYPE	RestoreAction = SA_RESTORE;
@@ -238,7 +243,8 @@ void R_SizeFromEnv(Rstart Rp)
 	else
 	    Rp->max_vsize = value;
     }
-#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE)
+#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE) \
+    && (SIZEOF_SIZE_T > 4)
     /* For now only on macOS place a default limit on the vector heap
        size to avoid having R killed due to memory overcommit.
        Setting the limit at the maximum of 16Gb and available physical
@@ -249,6 +255,17 @@ void R_SizeFromEnv(Rstart Rp)
 	R_size_t sysmem = pages * page_size;
 	R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
 	Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+    }
+#elif defined(__APPLE__) && (SIZEOF_SIZE_T > 4)
+    else {
+	R_size_t sysmem = 0;
+	R_size_t len = sizeof(sysmem);
+	if (!sysctlbyname("hw.memsize", &sysmem, &len, NULL, 0)
+	    && len == sizeof(sysmem)) {
+
+	    R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
+	    Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+	}
     }
 #endif
     if((p = getenv("R_VSIZE"))) {
@@ -309,6 +326,27 @@ static void SetSize(R_size_t vsize, R_size_t nsize)
 	R_NSize = nsize;
 }
 
+static void SetMaxSize(R_size_t vsize, R_size_t nsize)
+{
+    char msg[1024];
+
+    if (!R_SetMaxVSize(vsize)) {
+	/* vsfac is still 1 */
+	snprintf(msg, 1024,
+		 "WARNING: too small maximum for v(ector heap)size '%lu' ignored,"
+		 " the current usage %gM is already larger\n",
+		 (unsigned long) vsize, R_VSize / Mega);
+	R_ShowMessage(msg);
+    }
+
+    if (!R_SetMaxNSize(nsize)) {
+	snprintf(msg, 1024,
+		 "WARNING: too small maximum for language heap (n)size '%lu' ignored,"
+		 " the current usage '%lu' is already larger\n",
+		 (unsigned long) nsize, (unsigned long) R_NSize);
+	R_ShowMessage(msg);
+    }
+}
 
 void R_SetParams(Rstart Rp)
 {
@@ -322,8 +360,7 @@ void R_SetParams(Rstart Rp)
     LoadInitFile = Rp->LoadInitFile;
     DebugInitFile = Rp->DebugInitFile;
     SetSize(Rp->vsize, Rp->nsize);
-    R_SetMaxNSize(Rp->max_nsize);
-    R_SetMaxVSize(Rp->max_vsize);
+    SetMaxSize(Rp->max_vsize, Rp->max_nsize);
     R_SetPPSize(Rp->ppsize);
     R_SetNconn(Rp->nconnections);
 #ifdef Win32

@@ -1,6 +1,6 @@
 % File src/library/utils/man/update.packages.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{update.packages}
@@ -52,13 +52,14 @@ new.packages(lib.loc = NULL, repos = getOption("repos"),
     Incompatible with \code{type = "both"}.
   }
   \item{method}{Download method, see \code{\link{download.file}}.
-    Unused if a non-\code{NULL} \code{available} is supplied.} 
+    Unused by \code{\link{old.packages}} if a non-\code{NULL} \code{available}
+    is supplied.} 
   \item{instlib}{character string giving the library directory where to
     install the packages.}
   \item{ask}{logical indicating whether to ask the user to select
     packages before they are downloaded and installed, or the character
     string \code{"graphics"}, which brings up a widget to allow the user
-    to (de-)select from the list of packages which could be updated.
+    to (de)select from the list of packages which could be updated.
     The latter value only works on systems with a GUI version of
     \code{\link{select.list}}, and is otherwise equivalent to
     \code{ask = TRUE}. \code{ask} does not control questions asked before

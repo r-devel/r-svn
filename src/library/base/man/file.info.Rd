@@ -1,6 +1,6 @@
 % File src/library/base/man/file.info.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{file.info}
@@ -23,7 +23,7 @@ file.size(\dots)
 \arguments{
   \item{\dots}{character vectors containing file paths.  Tilde-expansion
     is done: see \code{\link{path.expand}}.}
-  \item{extra_cols}{Logical: return all cols rather than just the
+  \item{extra_cols}{logical: return all cols rather than just the
     first six.}
 }
 \details{
@@ -44,7 +44,7 @@ file.size(\dots)
   On most systems symbolic links are followed, so information is given
   about the file to which the link points rather than about the link.}
  \item{On Windows:}{
-  File modes are probably only useful on NTFS file systems, and it seems
+  File modes are probably only useful on \abbr{NTFS} file systems, and it seems
   all three digits refer to the file's owner.
   The execute/search bits are set for directories, and for files based
   on their extensions (e.g., \file{.exe}, \file{.com}, \file{.cmd}
@@ -81,6 +81,10 @@ file.size(\dots)
     \code{"win32"}, \code{"win64"} and \code{"unknown"}.  Note that a
     file (e.g., a script file) can be executable according to the mode
     bits but not executable in this sense.}
+  \item{uname:}{character, user name.}
+  \item{udomain:}{character, user domain name.}
+  User name and domain will be \code{NA} when they cannot be resolved,
+  e.g. because of insufficient permissions or a network failure.
    }}
  }
 
@@ -92,8 +96,8 @@ file.size(\dots)
   Entries for non-existent or non-readable files will be \code{NA}.
 
   The \code{uid}, \code{gid}, \code{uname} and \code{grname} columns
-  may not be supplied on a non-POSIX Unix-alike system, and will not be
-  on Windows.
+  may not be supplied on a non-POSIX Unix-alike system, and except
+  \code{uname} will not be on Windows.
 
   What is meant by the three file times depends on the OS and file
   system.  On Windows native file systems \code{ctime} is the file
@@ -103,7 +107,7 @@ file.size(\dots)
 
   The resolution of the file times depends on both the OS and the type
   of the file system.  Modern file systems typically record times to an
-  accuracy of a microsecond or better: notable exceptions are HFS+ on
+  accuracy of a microsecond or better: notable exceptions are \abbr{HFS+} on
   macOS (recorded in seconds) and modification time on older FAT systems
   (recorded in increments of 2 seconds).  Note that \code{"POSIXct"}
   times are by default printed in whole seconds: to change that see
@@ -113,7 +117,7 @@ file.size(\dots)
   convenience wrappers returning just one of the columns.
 }
 \note{
-  Some (now old) unix alike systems allow files of more than 2Gb to be created but
+  Some (now old) unix alike systems allow files of more than 2\abbr{Gb} to be created but
   not accessed by the \code{stat} system call.  Such files may show up
   as non-readable (and very likely not be readable by any of \R's input
   functions).

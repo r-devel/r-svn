@@ -86,7 +86,7 @@ srcref(srcfile, lloc)
 
   The \code{srcfilealias} function produces an object of the descendant
   class \code{srcfilealias}, which gives an alternate name to another
-  srcfile.  This is produced by the parser when a \code{#line} directive
+  \code{srcfile}.  This is produced by the parser when a \code{#line} directive
   is used.
 
   The \code{getSrcLines} function reads the specified lines from
@@ -138,7 +138,7 @@ srcref(srcfile, lloc)
   \code{\link{print.default}} using the associated \code{srcref}.  To
   see deparsed code instead, call \code{\link{print}} with argument
   \code{useSource = FALSE}.  If a \code{srcref} object
-  is printed with \code{useSource = FALSE}, the \samp{<srcref: \dots>}
+  is printed with \code{useSource = FALSE}, the \samp{<srcref: ....>}
   record will be printed.
 
   \code{.isOpen} is intended for internal use:  it checks whether the
@@ -159,14 +159,14 @@ srcref(srcfile, lloc)
   (non-primitive) function (aka \sQuote{closure}).
 }
 \author{Duncan Murdoch}
-\examples{\donttest{ # has timestamp
+\examples{
 src <- srcfile(system.file("DESCRIPTION", package = "base"))
-summary(src)
+\dontdiff{summary(src)}% timestamp
 getSrcLines(src, 1, 4)
 ref <- srcref(src, c(1, 1, 2, 1000))
 ref
 print(ref, useSource = FALSE)
-}}
+}
 
 \keyword{ debugging }
 \keyword{ utilities }

@@ -1,8 +1,8 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
- *  Copyright (C) 2000--2020	The R Core Team
+ *  Copyright (C) 2000--2024	The R Core Team
  *  Copyright (C) 2001--2012	The R Foundation
+ *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ static void MatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_left));
     }
     else {
-	Rprintf("%*s[,%ld]", w-IndexWidth(j+1)-3, "", j+1);
+	Rprintf("%*s[,%ld]", w-IndexWidth(j+1)-3, "", (long)j+1);
     }
 }
 
@@ -79,7 +79,7 @@ static void RightMatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_right));
     }
     else {
-	Rprintf("%*s[,%ld]%*s", R_print.gap, "", j+1, w-IndexWidth(j+1)-3, "");
+	Rprintf("%*s[,%ld]%*s", R_print.gap, "", (long)j+1, w-IndexWidth(j+1)-3, "");
     }
 }
 
@@ -92,7 +92,7 @@ static void LeftMatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_left), w-l, "");
     }
     else {
-	Rprintf("%*s[,%ld]%*s", R_print.gap, "", j+1, w-IndexWidth(j+1)-3, "");
+	Rprintf("%*s[,%ld]%*s", R_print.gap, "", (long)j+1, w-IndexWidth(j+1)-3, "");
     }
 }
 
@@ -106,7 +106,7 @@ static void MatrixRowLabel(SEXP rl, int i, int rlabw, int lbloff)
 		rlabw-l-lbloff, "");
     }
     else {
-	Rprintf("\n%*s[%ld,]", rlabw-3-IndexWidth(i + 1), "", i+1);
+	Rprintf("\n%*s[%ld,]", rlabw-3-IndexWidth(i + 1), "", (long)i+1);
     }
 }
 
@@ -217,7 +217,6 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeLogical(x[i + j * (R_xlen_t) r], w[j])));
-
 }
 
 static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
@@ -243,11 +242,11 @@ static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 	*e = (int *) R_alloc(c, sizeof(int));
 
     _COMPUTE_W_( formatReal(&x[j * (R_xlen_t) r], (R_xlen_t) r, &w[j],
-                            &d[j], &e[j], 0) );
+			    &d[j], &e[j], 0) );
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeReal0(x[i + j * (R_xlen_t) r],
-                                             w[j], d[j], e[j], OutDec)) );
+					     w[j], d[j], e[j], OutDec)) );
 }
 
 static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
@@ -334,7 +333,7 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     const void *vmax = vmaxget();
     const int *pdim = INTEGER_RO(dim);
     int r = pdim[0];
-    int c = pdim[1], r_pr;
+    int c = pdim[1];
     /* PR#850 */
     if ((rl != R_NilValue) && (r > length(rl)))
 	error(_("too few row labels"));
@@ -344,44 +343,51 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	Rprintf("<0 x 0 matrix>\n");
 	return;
     }
-    r_pr = r;
+
+    int r_pr = r,
+	/* Make sure we don't display more columns than max elements, see PR#15027 */
+	c_pr = c > R_print.max ? R_print.max : c;
+
     if(c > 0 && R_print.max / c < r) /* avoid integer overflow */
 	/* using floor(), not ceil(), since 'c' could be huge: */
 	r_pr = R_print.max / c;
+    /* Display at least one row in case of truncation */
+    if (c > c_pr && r_pr < 1 && r > 0)
+	r_pr = 1;
     switch (TYPEOF(x)) {
     case LGLSXP:
-	printLogicalMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case INTSXP:
-	printIntegerMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case REALSXP:
-	printRealMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRealMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case CPLXSXP:
-	printComplexMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printComplexMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case STRSXP:
 	if (quote) quote = '"';
-	printStringMatrix (x, offset, r_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
+	printStringMatrix (x, offset, r_pr, r, c_pr, quote, right, rl, cl, rn, cn, TRUE);
 	break;
     case RAWSXP:
-	printRawMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
-#ifdef ENABLE_NLS
-    if(r_pr < r) // number of formats must be consistent here
-	Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-			 " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-			 r - r_pr),
-		r - r_pr);
-#else
-    if(r_pr < r)
-	Rprintf(" [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-		r - r_pr);
-#endif
+    if (r_pr < r || c_pr < c) {
+	Rprintf(" [ reached getOption(\"max.print\") -- omitted");
+	if (r_pr < r) {
+    	    Rprintf(ngettext(" %d row", " %d rows", r - r_pr), r - r_pr);
+	}
+	if (c_pr < c) {
+	    if (r_pr < r) Rprintf(_(" and"));
+	    Rprintf(ngettext(" %d column", " %d columns", c - c_pr), c - c_pr);
+	}
+	Rprintf(" ]\n");
+    }
     vmaxset(vmax);
 }
 

@@ -595,6 +595,8 @@ SEXP in_Cairo(SEXP args)
     if (!isString(CAR(args)) || LENGTH(CAR(args)) < 1)
 	error(_("invalid '%s' argument"), "filename");
     filename = STRING_ELT(CAR(args), 0);
+    if (filename == NA_STRING)
+	error(_("invalid '%s' argument"), "filename");
     args = CDR(args);
     type = asInteger(CAR(args));
     if(type == NA_INTEGER || type <= 0)
@@ -624,8 +626,13 @@ SEXP in_Cairo(SEXP args)
 	error(_("invalid '%s' argument"), "antialias");
     args = CDR(args);
     quality = asInteger(CAR(args));
-    if(quality == NA_INTEGER || quality < 0 || quality > 100)
-	error(_("invalid '%s' argument"), "quality");
+    if(type == JPEG) {
+	if(quality == NA_INTEGER || quality < 0 || quality > 100)
+	    error(_("invalid '%s' argument"), "quality");
+    } else if(type == TIFF) {
+	if(quality == NA_INTEGER)
+	    error(_("invalid '%s' argument"), "compression");
+    }
     args = CDR(args);
     if (!isString(CAR(args)) || LENGTH(CAR(args)) < 1)
 	error(_("invalid '%s' argument"), "family");

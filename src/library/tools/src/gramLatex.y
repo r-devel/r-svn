@@ -1,3 +1,4 @@
+%define parse.error verbose
 %{
 /*
  *  R : A Computer Language for Statistical Data Analysis
@@ -126,6 +127,7 @@ struct ParseState {
 				   so, this is the string to end it. If not, 
 				   this is NULL */
     SEXP	xxVerbatimList;/* A STRSXP containing all the verbatim environment names */
+    SEXP	xxVerbList;    /* A STRSXP containing all the verbatim command names */
 
     SEXP     SrcFile;  /* parseLatex will *always* supply a srcfile */
     SEXP mset; /* precious mset for protecting parser semantic values */
@@ -145,7 +147,7 @@ static SEXP	xxlist(SEXP, SEXP);
 static void	xxsavevalue(SEXP, YYLTYPE *);
 static SEXP	xxtag(SEXP, int, YYLTYPE *);
 static SEXP 	xxenv(SEXP, SEXP, SEXP, YYLTYPE *);
-static SEXP	xxmath(SEXP, YYLTYPE *);
+static SEXP	xxmath(SEXP, YYLTYPE *, Rboolean);
 static SEXP	xxblock(SEXP, YYLTYPE *);
 static void	xxSetInVerbEnv(SEXP);
 
@@ -153,7 +155,9 @@ static int	mkMarkup(int);
 static int	mkText(int);
 static int 	mkComment(int);
 static int      mkVerb(int);
+static int	mkVerb2(const char *, int);
 static int      mkVerbEnv(void);
+static int	mkDollar(int);
 
 static SEXP R_LatexTagSymbol = NULL;
 
@@ -166,7 +170,8 @@ static SEXP R_LatexTagSymbol = NULL;
 %token		END_OF_INPUT ERROR
 %token		MACRO
 %token		TEXT COMMENT
-%token	        BEGIN END VERB
+%token	        BEGIN END VERB VERB2
+%token          TWO_DOLLARS
 
 /* Recent bison has <> to represent all of the destructors below, but we don't assume it */
 
@@ -185,8 +190,10 @@ Init:		Items END_OF_INPUT		{ xxsavevalue($1, &@$); YYACCEPT; }
 
 Items:		Item				{ $$ = xxnewlist($1); }
 	|	math				{ $$ = xxnewlist($1); }
+	|       displaymath			{ $$ = xxnewlist($1); }         
 	|	Items Item			{ $$ = xxlist($1, $2); }
-	|	Items math			{ $$ = xxlist($1, $2); } 
+	|	Items math			{ $$ = xxlist($1, $2); }
+	|	Items displaymath		{ $$ = xxlist($1, $2); }
 	
 nonMath:	Item				{ $$ = xxnewlist($1); }
 	|	nonMath Item			{ $$ = xxlist($1, $2); }
@@ -195,6 +202,7 @@ Item:		TEXT				{ $$ = xxtag($1, TEXT, &@$); }
 	|	COMMENT				{ $$ = xxtag($1, COMMENT, &@$); }
 	|	MACRO				{ $$ = xxtag($1, MACRO, &@$); }
 	|	VERB				{ $$ = xxtag($1, VERB, &@$); }
+	|	VERB2				{ $$ = xxtag($1, VERB, &@$); }
 	|	environment			{ $$ = $1; }
 	|	block				{ $$ = $1; }
 	
@@ -202,7 +210,9 @@ environment:	BEGIN '{' TEXT '}' { xxSetInVerbEnv($3); }
                 Items END '{' TEXT '}' 	{ $$ = xxenv($3, $6, $9, &@$);
                                                   RELEASE_SV($1); RELEASE_SV($7); }
 
-math:		'$' nonMath '$'			{ $$ = xxmath($2, &@$); }
+math:		'$' nonMath '$'			{ $$ = xxmath($2, &@$, FALSE); }
+
+displaymath:    TWO_DOLLARS nonMath TWO_DOLLARS { $$ = xxmath($2, &@$, TRUE); }
 
 block:		'{' Items  '}'			{ $$ = xxblock($2, &@$); }
 	|	'{' '}'				{ $$ = xxblock(NULL, &@$); }
@@ -263,16 +273,17 @@ static SEXP xxenv(SEXP begin, SEXP body, SEXP end, YYLTYPE *lloc)
     return ans;
 }
 
-static SEXP xxmath(SEXP body, YYLTYPE *lloc)
+static SEXP xxmath(SEXP body, YYLTYPE *lloc, Rboolean display)
 {
     SEXP ans;
 #if DEBUGVALS
-    Rprintf("xxmath(body=%p)", body);    
+    Rprintf("xxmath(body=%p, display=%d)", body, display);    
 #endif
     PRESERVE_SV(ans = PairToVectorList(CDR(body)));
     RELEASE_SV(body);
     setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
-    setAttrib(ans, R_LatexTagSymbol, mkString("MATH"));
+    setAttrib(ans, R_LatexTagSymbol, 
+        mkString(display ? "DISPLAYMATH" : "MATH"));
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
 #endif
@@ -483,6 +494,7 @@ static void PutState(ParseState *state) {
     state->xxinitvalue = parseState.xxinitvalue;
     state->xxInVerbEnv = parseState.xxInVerbEnv;
     state->xxVerbatimList = parseState.xxVerbatimList;
+    state->xxVerbList = parseState.xxVerbList;
     state->SrcFile = parseState.SrcFile; 
     state->prevState = parseState.prevState;
 }
@@ -496,6 +508,7 @@ static void UseState(ParseState *state) {
     parseState.xxinitvalue = state->xxinitvalue;
     parseState.xxInVerbEnv = state->xxInVerbEnv;
     parseState.xxVerbatimList = state->xxVerbatimList;
+    parseState.xxVerbList = state->xxVerbList;
     parseState.SrcFile = state->SrcFile; 
     parseState.prevState = state->prevState;
 }
@@ -603,6 +616,12 @@ static int KeywordLookup(const char *s)
 	if (strcmp(keywords[i].name, s) == 0) 
 	    return keywords[i].token;
     }
+    
+    for (i = 0; i < length(parseState.xxVerbList); i++) {
+    	if (strcmp(CHAR(STRING_ELT(parseState.xxVerbList, i)), s) == 0)
+    	    return VERB2;
+    }
+    
     return MACRO;
 }
 
@@ -698,15 +717,16 @@ static void yyerror(const char *s)
 		ParseErrorFilename, yylloc.first_line, ParseErrorMsg);
 }
 
-#define TEXT_PUSH(c) do {                  \
-	size_t nc = bp - stext;       \
+#define TEXT_PUSH(c) do {		    \
+	size_t nc = bp - stext;		    \
 	if (nc >= nstext - 1) {             \
 	    char *old = stext;              \
-            nstext *= 2;                    \
-	    stext = malloc(nstext);         \
+	    nstext *= 2;		    \
+	    stext = malloc(nstext);	    \
 	    if(!stext) error(_("unable to allocate buffer for long string at line %d"), parseState.xxlineno);\
 	    memmove(stext, old, nc);        \
-	    if(old != st0) free(old);	    \
+	    if(st1) free(st1);		    \
+	    st1 = stext;		    \
 	    bp = stext+nc; }		    \
 	*bp++ = ((char)c);		    \
 } while(0)
@@ -758,7 +778,7 @@ static int token(void)
         case R_EOF:return END_OF_INPUT; 
     	case LBRACE:return c;
     	case RBRACE:return c;
-    	case '$': return c;
+    	case '$': return mkDollar(c);
     } 	    
     return mkText(c);
 }
@@ -768,6 +788,7 @@ static int token(void)
 static int mkText(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     
@@ -787,13 +808,14 @@ static int mkText(int c)
 stop:
     xxungetc(c);
     PRESERVE_SV(yylval = mkString2(stext,  bp - stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return TEXT;
 }
 
 static int mkComment(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     
@@ -804,13 +826,26 @@ static int mkComment(int c)
     else TEXT_PUSH(c);
     
     PRESERVE_SV(yylval = mkString2(stext,  bp - stext));
-    if(stext != st0) free(stext);    
+    if(st1) free(st1);    
     return COMMENT;
+}
+
+static int mkDollar(int c)
+{
+    int retval = c;
+    
+    if ((c = xxgetc()) == '$')
+        retval = TWO_DOLLARS;
+    else
+        xxungetc(c);
+
+    return retval;
 }
 
 static int mkMarkup(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     int retval = 0;
@@ -828,18 +863,21 @@ static int mkMarkup(int c)
         retval = KeywordLookup(stext);
         if (retval == VERB)
             retval = mkVerb(c); /* This makes the yylval */
+        else if (retval == VERB2)
+            retval = mkVerb2(stext, c); /* ditto */
         else if (c != ' ') /* Eat a space, but keep other terminators */
     	    xxungetc(c);
     }
     if (retval != VERB)
 	PRESERVE_SV(yylval = mkString(stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return retval;
 }
 
 static int mkVerb(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     int delim = c;   
@@ -850,13 +888,33 @@ static int mkVerb(int c)
     if (c != R_EOF) TEXT_PUSH(c);
     
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
+    return VERB;  
+}
+
+static int mkVerb2(const char *s, int c)
+{
+    char st0[INITBUFSIZE];
+    char *st1 = NULL;
+    unsigned int nstext = INITBUFSIZE;
+    char *stext = st0, *bp = st0;
+    int delim = '}';
+    
+    while (*s) TEXT_PUSH(*s++);
+    
+    TEXT_PUSH(c);
+    while (((c = xxgetc()) != delim) && c != R_EOF) TEXT_PUSH(c);
+    if (c != R_EOF) TEXT_PUSH(c);
+    
+    PRESERVE_SV(yylval = mkString2(stext, bp - stext));
+    if(st1) free(st1);
     return VERB;  
 }
 
 static int mkVerbEnv(void)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     int matched = 0, i;
@@ -870,6 +928,7 @@ static int mkVerbEnv(void)
     	    matched = 0;
     }
     if ( !CHAR(STRING_ELT(parseState.xxInVerbEnv, 0))[matched] ) {
+        xxungetc(c);
     	for (i = matched-1; i >= 0; i--) 
     	    xxungetc(*(--bp));    	    
 	RELEASE_SV(parseState.xxInVerbEnv);
@@ -877,7 +936,7 @@ static int mkVerbEnv(void)
     }
     	    
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if (stext != st0) free(stext);
+    if (st1) free(st1);
     return VERB;
 }
 
@@ -917,7 +976,7 @@ static void PopState(void) {
 
 /* "do_parseLatex" 
 
- .External2("parseLatex", file, srcfile, verbose, basename, warningCalls)
+ .External2("parseLatex", text, srcfile, verbose, verbatim, verb)
  If there is text then that is read and the other arguments are ignored.
 */
 
@@ -944,6 +1003,7 @@ SEXP parseLatex(SEXP call, SEXP op, SEXP args, SEXP env)
     	error(_("invalid '%s' value"), "verbose");
     parseState.xxDebugTokens = asInteger(CAR(args));	args = CDR(args);
     parseState.xxVerbatimList = CAR(args); 		args = CDR(args);
+    parseState.xxVerbList = CAR(args);
 
     s = R_ParseLatex(text, &status, source);
     

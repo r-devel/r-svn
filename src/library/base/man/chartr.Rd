@@ -1,6 +1,6 @@
 % File src/library/base/man/chartr.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{chartr}
@@ -8,7 +8,7 @@
 \alias{tolower}
 \alias{toupper}
 \alias{casefold}
-\title{Character Translation and Casefolding}
+\title{Character Translation and Case Folding}
 \description{
   Translate characters in character vectors, in particular from upper to
   lower case or vice versa.
@@ -28,7 +28,7 @@ casefold(x, upper = FALSE)
   \item{new}{a character string specifying the translations. If a
     character vector of length 2 or more is supplied, the first element
     is used with a warning.}
-  \item{upper}{logical: translate to upper or lower case?.}
+  \item{upper}{logical: translate to upper or lower case?}
 }
 \details{
   \code{chartr} translates each character in \code{x} that is specified
@@ -44,7 +44,7 @@ casefold(x, upper = FALSE)
   to a single upper-case character.
 
   \code{casefold} is a wrapper for \code{tolower} and \code{toupper}
-  provided for compatibility with S-PLUS.
+  originally written for compatibility with S-PLUS.
 }
 \value{
   A character vector of the same length and with the same attributes as

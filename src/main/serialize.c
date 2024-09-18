@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2023  The R Core Team
+ *  Copyright (C) 1995--2024  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -105,16 +105,7 @@
    The output format for dotted pairs writes the ATTRIB value first
    rather than last.  This allows CDR's to be processed by iterative
    tail calls to avoid recursion stack overflows when processing long
-   lists.  The writing code does take advantage of this, but the
-   reading code does not.  It hasn't been a big issue so far--the only
-   case where it has come up is in saving a large unhashed environment
-   where saving succeeds but loading fails because the PROTECT stack
-   overflows.  With the ability to create hashed environments at the
-   user level this is likely to be even less of an issue now.  But if
-   we do need to deal with it we can do so without a change in the
-   serialization format--just rewrite ReadItem to pass the place to
-   store the CDR it reads. (It's a bit of a pain to do, that is why it
-   is being deferred until it is clearly needed.)
+   lists.
 
    CHARSXPs are now handled in a way that preserves both embedded null
    characters and NA_STRING values.
@@ -1251,7 +1242,7 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 		}
 	    }
 	    break;
-	case S4SXP:
+	case OBJSXP:
 	  break; /* only attributes (i.e., slots) count */
 	default:
 	    error(_("WriteItem: unknown type %i"), TYPEOF(s));
@@ -1804,17 +1795,88 @@ static SEXP R_FindNamespace1(SEXP info)
     return val;
 }
 
+static SEXP ReadItem_Recursive(int flags, SEXP ref_table, R_inpstream_t stream);
 
-static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
+static SEXP ReadItem_Iterative(int flags, SEXP ref_table, R_inpstream_t stream)
+{
+    /* Building dotted pair objects with recursion on the CDR will
+       overflow the PROTECT stack for long lists. Instead we build
+       pairlists in an iterative loop */
+    
+    SEXPTYPE type = DECODE_TYPE(flags);
+    SEXP s, sfirst = NULL, slast = NULL;
+    
+    /* An assertion here guarantees that we go through the loop at
+       least once. This make for cleaner exit code and avoids a
+       potential infinite loop: ReadItem_Recursive <->
+       ReadIterm_iterative */
+    R_assert(type == LISTSXP || type == LANGSXP || type == CLOSXP ||
+	     type == PROMSXP || type == DOTSXP);
+    
+    while (type == LISTSXP || type == LANGSXP || type == CLOSXP ||
+	   type == PROMSXP || type == DOTSXP) {
+	int levs, objf, hasattr, hastag;
+	UnpackFlags(flags, &type, &levs, &objf, &hasattr, &hastag);
+
+	PROTECT(s = allocSExp(type));
+	SETLEVELS(s, levs);
+	SET_OBJECT(s, objf);
+	R_ReadItemDepth++;
+	Rboolean set_lastname = FALSE;
+	SET_ATTRIB(s, hasattr ? ReadItem(ref_table, stream) : R_NilValue);
+	SET_TAG(s, hastag ? ReadItem(ref_table, stream) : R_NilValue);
+	if (hastag && R_ReadItemDepth == R_InitReadItemDepth + 1 &&
+	    isSymbol(TAG(s))) {
+	    snprintf(lastname, 8192, "%s", CHAR(PRINTNAME(TAG(s))));
+	    set_lastname = TRUE;
+	}
+	if (hastag && R_ReadItemDepth <= 0) {
+	    Rprintf("%*s", 2*(R_ReadItemDepth - R_InitReadItemDepth), "");
+	    PrintValue(TAG(s));
+	}
+	SETCAR(s, ReadItem(ref_table, stream));
+	R_ReadItemDepth--;
+	R_CheckStack();
+
+	if (sfirst == NULL) {
+	    sfirst = s; /* First iteration: start list */
+	}
+	else {
+	    SETCDR(slast, s); /* Subsequent iterations: extend list */
+	    UNPROTECT(1); /* s, which is now protected as part of sfirst */
+	}
+	slast = s;
+
+	/* For reading closures and promises stored in earlier
+	   versions, convert NULL env to baseenv() */
+	if (type == CLOSXP && CLOENV(s) == R_NilValue)
+	    SET_CLOENV(s, R_BaseEnv);
+	else if (type == PROMSXP && PRENV(s) == R_NilValue)
+	    SET_PRENV(s, R_BaseEnv);
+	if (set_lastname) strcpy(lastname, "<unknown>");
+
+	flags = InInteger(stream);
+	type = DECODE_TYPE(flags);
+    }
+
+    R_ReadItemDepth++;
+    PROTECT(s = ReadItem_Recursive(flags, ref_table, stream));
+    R_ReadItemDepth--;
+    SETCDR(slast, s);
+    UNPROTECT(2); /* s, sfirst */
+    return sfirst;
+}
+
+
+static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 {
     SEXPTYPE type;
     SEXP s;
     R_xlen_t len, count;
-    int flags, levs, objf, hasattr, hastag, length;
+    int levs, objf, hasattr, hastag, length;
 
     R_assert(TYPEOF(ref_table) == LISTSXP && TYPEOF(CAR(ref_table)) == VECSXP);
 
-    flags = InInteger(stream);
     UnpackFlags(flags, &type, &levs, &objf, &hasattr, &hastag);
 
     switch(type) {
@@ -1898,40 +1960,7 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
     case CLOSXP:
     case PROMSXP:
     case DOTSXP:
-	/* This handling of dotted pair objects still uses recursion
-	   on the CDR and so will overflow the PROTECT stack for long
-	   lists.  The save format does permit using an iterative
-	   approach; it just has to pass around the place to write the
-	   CDR into when it is allocated.  It's more trouble than it
-	   is worth to write the code to handle this now, but if it
-	   becomes necessary we can do it without needing to change
-	   the save format. */
-	PROTECT(s = allocSExp(type));
-	SETLEVELS(s, levs);
-	SET_OBJECT(s, objf);
-	R_ReadItemDepth++;
-	Rboolean set_lastname = FALSE;
-	SET_ATTRIB(s, hasattr ? ReadItem(ref_table, stream) : R_NilValue);
-	SET_TAG(s, hastag ? ReadItem(ref_table, stream) : R_NilValue);
-	if (hastag && R_ReadItemDepth == R_InitReadItemDepth + 1 &&
-	    isSymbol(TAG(s))) {
-	    snprintf(lastname, 8192, "%s", CHAR(PRINTNAME(TAG(s))));
-	    set_lastname = TRUE;
-	}
-	if (hastag && R_ReadItemDepth <= 0) {
-	    Rprintf("%*s", 2*(R_ReadItemDepth - R_InitReadItemDepth), "");
-	    PrintValue(TAG(s));
-	}
-	SETCAR(s, ReadItem(ref_table, stream));
-	R_ReadItemDepth--; /* do this early because of the recursion. */
-	R_CheckStack();
-	SETCDR(s, ReadItem(ref_table, stream));
-	/* For reading closures and promises stored in earlier versions, convert NULL env to baseenv() */
-	if      (type == CLOSXP && CLOENV(s) == R_NilValue) SET_CLOENV(s, R_BaseEnv);
-	else if (type == PROMSXP && PRENV(s) == R_NilValue) SET_PRENV(s, R_BaseEnv);
-	if (set_lastname) strcpy(lastname, "<unknown>");
-	UNPROTECT(1); /* s */
-	return s;
+	return ReadItem_Iterative(flags, ref_table, stream);
     default:
 	/* These break out of the switch to have their ATTR,
 	   LEVELS, and OBJECT fields filled in.  Each leaves the
@@ -1956,6 +1985,9 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
 	    {
 		/* These are all short strings */
 		length = InInteger(stream);
+		if (length < 0)
+		    error(_("invalid length"));
+		R_CheckStack2(length+1);
 		char cbuf[length+1];
 		InString(stream, cbuf, length);
 		cbuf[length] = '\0';
@@ -1970,7 +2002,9 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
 	case CHARSXP:
 	    /* these are currently limited to 2^31 -1 bytes */
 	    length = InInteger(stream);
-	    if (length == -1)
+	    if (length < -1)
+		error(_("invalid length"));
+	    else if (length == -1)
 		PROTECT(s = NA_STRING);
 	    else if (length < 1000) {
 		char cbuf[length+1];
@@ -2012,7 +2046,8 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
 	    R_ReadItemDepth++;
 	    for (count = 0; count < len; ++count) {
 		if (R_ReadItemDepth <= 0)
-		    Rprintf("%*s[%d]\n", 2*(R_ReadItemDepth - R_InitReadItemDepth), "", count+1);
+		    Rprintf("%*s[%lld]\n", 2*(R_ReadItemDepth - R_InitReadItemDepth),
+		            "", (long long)count+1);
 		SET_VECTOR_ELT(s, count, ReadItem(ref_table, stream));
 	    }
 	    R_ReadItemDepth--;
@@ -2047,8 +2082,8 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
 	    }
 	    }
 	    break;
-	case S4SXP:
-	    PROTECT(s = allocS4Object());
+	case OBJSXP:
+	    PROTECT(s = R_allocObject());
 	    break;
 	default:
 	    s = R_NilValue; /* keep compiler happy */
@@ -2077,6 +2112,12 @@ static SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
 	    return R_BytecodeExpr(s);
 	return s;
     }
+}
+
+static R_INLINE SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
+{
+    int flags = InInteger(stream);
+    return ReadItem_Recursive(flags, ref_table, stream);
 }
 
 static SEXP ReadBC1(SEXP ref_table, SEXP reps, R_inpstream_t stream);
@@ -2210,7 +2251,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     case 3:
     {
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	InString(stream, stream->native_encoding, nelen);
 	stream->native_encoding[nelen] = '\0';
@@ -2250,7 +2291,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     return obj;
 }
 
-SEXP R_SerializeInfo(R_inpstream_t stream)
+attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 {
     int version;
     int writer_version, min_reader_version, vv, vp, vs;
@@ -2301,7 +2342,7 @@ SEXP R_SerializeInfo(R_inpstream_t stream)
     if (version == 3) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	char nbuf[nelen + 1];
 	InString(stream, nbuf, nelen);
@@ -2500,6 +2541,7 @@ static void OutCharConn(R_outpstream_t stream, int c)
     }
 }
 
+attribute_hidden
 void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 			  R_pstream_format_t type, int version,
 			  SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2512,6 +2554,7 @@ void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 		     OutCharConn, OutBytesConn, phook, pdata);
 }
 
+attribute_hidden
 void R_InitConnInPStream(R_inpstream_t stream,  Rconnection con,
 			 R_pstream_format_t type,
 			 SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2613,6 +2656,13 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     return R_NilValue;
 }
 
+static SEXP checkNotPromise(SEXP val)
+{
+    if (TYPEOF(val) == PROMSXP)
+	error(_("cannot return a promise (PROMSXP) object"));
+    return val;
+}
+
 /* unserializeFromConn(conn, hook) used from readRDS().
    It became public in R 2.13.0, and that version added support for
    connections internally */
@@ -2662,7 +2712,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	con->close(con);
 	UNPROTECT(1);
     }
-    return ans;
+    return checkNotPromise(ans);
 }
 
 /*
@@ -2927,7 +2977,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 }
 
 
-attribute_hidden SEXP R_unserialize(SEXP icon, SEXP fun)
+static SEXP R_unserialize(SEXP icon, SEXP fun)
 {
     struct R_inpstream_st in;
     SEXP (*hook)(SEXP, SEXP);
@@ -3175,7 +3225,7 @@ static SEXP R_getVarsFromFrame(SEXP vars, SEXP env, SEXP forcesxp)
     for (i = 0; i < len; i++) {
 	sym = installTrChar(STRING_ELT(vars, i));
 
-	tmp = findVarInFrame(env, sym);
+	tmp = R_findVarInFrame(env, sym);
 	if (tmp == R_UnboundValue) {
 /*		PrintValue(env);
 		PrintValue(R_GetTraceback(0)); */  /* DJM debugging */
@@ -3293,8 +3343,8 @@ attribute_hidden SEXP
 do_serialize(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    if (PRIMVAL(op) == 2) return R_unserialize(CAR(args), CADR(args));
-
+    if (PRIMVAL(op) == 2) //return R_unserialize(CAR(args), CADR(args));
+	return checkNotPromise(R_unserialize(CAR(args), CADR(args)));
     SEXP object, icon, type, ver, fun;
     object = CAR(args); args = CDR(args);
     icon = CAR(args); args = CDR(args);

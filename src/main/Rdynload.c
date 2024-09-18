@@ -321,7 +321,7 @@ R_addExternalRoutine(DllInfo *info,
  R_init_<object name> is passed the DllInfo reference as an argument.
  Other routines must explicitly request it using this routine.
  */
-DllInfo *
+attribute_hidden DllInfo *
 R_getDllInfo(const char *path)
 {
     int i;
@@ -476,7 +476,19 @@ attribute_hidden SEXP Rf_registerRoutines(SEXP sSymbolList) {
 	SEXP sArgNum = getSymbolComponent(sSym, "numParameters", INTSXP, 1);
 	SEXP sDll = getSymbolComponent(sSym, "dll", VECSXP, 0);
 	SEXP sDllInfo = getSymbolComponent(sDll, "info", EXTPTRSXP, 0);
+#ifdef __clang__
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpedantic"
+#elif defined __GNUC__
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wpedantic"	
+#endif
 	DL_FUNC addr = (DL_FUNC) EXTPTR_PTR(sAddr);
+#ifdef __clang__
+# pragma clang diagnostic pop
+#elif defined __GNUC__
+# pragma GCC diagnostic pop
+#endif
 	R_NativePrimitiveArgType* types = NULL;
 	int numArgs = -1;
 	if (LENGTH(sName) != 1)
@@ -1095,6 +1107,8 @@ R_dlsym(DllInfo *info, char const *name,
     snprintf(buf, len, "_%s", name);
 #endif
 
+/* HAVE_F77_EXTRA_UNDERSCORE is only use here and not in F77_NAME etc.
+   It seems of only historical interest */
 #ifdef HAVE_F77_UNDERSCORE
     if(symbol && symbol->type == R_FORTRAN_SYM) {
 	strcat(buf, "_");
@@ -1702,7 +1716,7 @@ static SEXP get_package_CEntry_table(const char *package)
 	R_PreserveObject(CEntryTable);
     }
     pname = install(package);
-    penv = findVarInFrame(CEntryTable, pname);
+    penv = R_findVarInFrame(CEntryTable, pname);
     if (penv == R_UnboundValue) {
 	penv = R_NewHashedEnv(R_NilValue, 0);
 	defineVar(pname, penv, CEntryTable);
@@ -1726,7 +1740,7 @@ DL_FUNC R_GetCCallable(const char *package, const char *name)
 {
     SEXP penv = get_package_CEntry_table(package);
     PROTECT(penv);
-    SEXP eptr = findVarInFrame(penv, install(name));
+    SEXP eptr = R_findVarInFrame(penv, install(name));
     UNPROTECT(1);
     if (eptr == R_UnboundValue)
 	error(_("function '%s' not provided by package '%s'"), name, package);

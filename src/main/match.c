@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2020   The R Core Team.
+ *  Copyright (C) 1998-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -274,10 +274,13 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 				_("formal argument \"%s\" matched by multiple actual arguments"),
 				CHAR(PRINTNAME(TAG(f))));
 			if (R_warn_partial_match_args) {
-			    warningcall(call,
-					_("partial argument match of '%s' to '%s'"),
-					CHAR(PRINTNAME(TAG(b))),
-					CHAR(PRINTNAME(TAG(f))) );
+			    SEXP cond =
+				R_makePartialMatchWarningCondition(call,
+								   TAG(b),
+								   TAG(f));
+			    PROTECT(cond);
+			    R_signalWarningCondition(cond);
+			    UNPROTECT(1);
 			}
 			SETCAR(a, CAR(b));
 			if (CAR(b) != R_MissingArg) SET_MISSING(a, 0);
@@ -421,7 +424,7 @@ static R_INLINE
 void patchArgument(SEXP suppliedSlot, SEXP name, fstype_t *farg, SEXP cloenv) {
     SEXP value = CAR(suppliedSlot);
     if (value == R_MissingArg) {
-        value = findVarInFrame3(cloenv, name, TRUE);
+        value = R_findVarInFrame(cloenv, name);
         if (value == R_MissingArg) {
             if (farg) *farg = FS_MATCHED_MISSING;
             return;

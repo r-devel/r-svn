@@ -4,9 +4,19 @@ _U_s_a_g_e:
 
      \x \y %{}
      
-     foo(x, y)
+     foo(x, y, ...)
      
+_A_r_g_u_m_e_n_t_s:
+
+    x, y: combined arguments, in multiple Rd lines
+
+          paragraph
+
+     ...: description of ...: ...
+
 _D_e_t_a_i_l_s:
+
+     Included conditional content.
 
      Escaped backslash '\x'.
 
@@ -14,9 +24,9 @@ _D_e_t_a_i_l_s:
 
      a link and some to known destinations: weighted.mean, '{'
 
-     var in text.
+     var in <text>.
 
-     'foo(x, y)'.
+     'foo(<x>, <y>)'.
 
      Preformatted:
 
@@ -49,6 +59,8 @@ _V_a_l_u_e:
 
      -
 
+     > x<-007
+
 \_t_a_b_u_l_a_r:
 
         1              linked text in \tabular  <https://example.org/a&b#c> 
@@ -80,5 +92,9 @@ _E_x_a_m_p_l_e_s:
 
      \x
      %{}
-     foo(x, y)
+     
+     ## Not run: stop("doomed to fail")
+     
+     foo(x,
+         y)
      

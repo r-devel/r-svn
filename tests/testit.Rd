@@ -5,9 +5,30 @@
 \usage{
 \\x \\y \%\{\}
 
-foo(\var{x}, \var{y})
+foo(\var{x}, \var{y}, ...)
+}
+\arguments{
+  \item{
+    x,
+    y
+  }{
+    combined arguments, in multiple Rd lines
+
+    paragraph
+  }
+  \item{...}{description of \dots: \ldots}
 }
 \details{
+#ifndef nonexistent
+  Included
+% neither this comment line
+  % nor this one should render a new paragraph
+  conditional content.
+#endif
+#ifdef nonexistent
+  This is not included.
+#endif
+
   Escaped backslash \code{\\x}.
 
   \code{\%\{\}}
@@ -31,13 +52,16 @@ foo(\var{x}, \var{y})
   From gap: pedtodot.Rd -- n=split(m,par,"\034") 
   }
 }
+\RdOpts{stage=render}
 \section{\verb{\Sexpr}}{
   Yihui Xie's example:
-  \Sexpr[results=rd,stage=render]{"\\\\describe{\\\\item{def}{ghi}}"}
+  \Sexpr[results=rd]{"\\\\describe{\\\\item{def}{ghi}}"}
 
   --
-  \Sexpr[results=verbatim,stage=render,echo=TRUE,strip.white=TRUE]{cat("\noutput\n")}
+  \Sexpr[results=verbatim,echo=TRUE,strip.white=TRUE]{cat("\noutput\n")}
   --
+
+  \Sexpr[echo=TRUE,results=verbatim,keep.source=TRUE]{x<-007}
 }
 \value{
   [NULL]\cr\cr\dots
@@ -80,5 +104,10 @@ foo(\var{x}, \var{y})
 \examples{
 \\x
 \%\{\}
-foo(\var{x}, \var{y})
+
+\dontrun{stop("doomed to fail")}
+
+foo(\var{x},
+% pure comment lines should be dropped
+    \var{y})
 }

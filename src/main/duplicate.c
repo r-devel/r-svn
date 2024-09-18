@@ -192,7 +192,7 @@ SEXP lazy_duplicate(SEXP s) {
     case CPLXSXP:
     case RAWSXP:
     case STRSXP:
-    case S4SXP:
+    case OBJSXP:
 	ENSURE_NAMEDMAX(s);
 	break;
     default:
@@ -216,7 +216,7 @@ static SEXP duplicate_child(SEXP s, Rboolean deep) {
    FALSE. Could be made more efficient, at least with partial
    inlining, but probably not worth while until it starts showing up
    significantly in profiling. Based on code from Michael Lawrence. */
-Rboolean R_cycle_detected(SEXP s, SEXP child) {
+attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
     if (s == child) {
 	switch (TYPEOF(child)) {
 	case NILSXP:
@@ -354,9 +354,9 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case PROMSXP:
 	return s;
 	break;
-    case S4SXP:
+    case OBJSXP:
 	PROTECT(s);
-	PROTECT(t = allocS4Object());
+	PROTECT(t = R_allocObject());
 	DUPLICATE_ATTRIB(t, s, deep);
 	UNPROTECT(2);
 	break;

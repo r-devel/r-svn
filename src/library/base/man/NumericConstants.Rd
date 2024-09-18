@@ -27,14 +27,14 @@
   \code{L}.
 
   Hexadecimal constants start with \code{0x} or \code{0X} followed by
-  a nonempty sequence from \code{0-9 a-f A-F .} which is interpreted as a
+  a non-empty sequence from \code{0-9 a-f A-F .} which is interpreted as a
   hexadecimal number, optionally followed by a binary exponent.  A binary
   exponent consists of a \code{P} or \code{p} followed by an optional
   plus or minus sign followed by a non-empty sequence of (decimal)
   digits, and indicates multiplication by a power of two.  Thus
   \code{0x123p456} is \eqn{291 \times 2^{456}}{291 * 2^456}.
 
-  Decimal constants consist of a nonempty sequence of digits possibly
+  Decimal constants consist of a non-empty sequence of digits possibly
   containing a period (the decimal point), optionally followed by a
   decimal exponent.  A decimal exponent consists of an \code{E} or
   \code{e} followed by an optional plus or minus sign followed by a
@@ -65,7 +65,7 @@
 
   \R's own C code is used to convert constants to binary numbers, so the
   effect can be expected to be the same on all platforms implementing
-  full IEC 600559 arithmetic (the most likely area of difference being
+  full \abbr{IEC} 60559 arithmetic (the most likely area of difference being
   the handling of numbers less than \code{\link{.Machine}$double.xmin}).
   The same code is used by \code{\link{scan}}.
 }

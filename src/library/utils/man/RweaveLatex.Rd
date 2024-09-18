@@ -54,8 +54,8 @@ RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
 
   The simplest way for frequent Sweave users to ensure that
   \file{Sweave.sty} is in the TeX input path is to add
-  \file{\var{R_HOME}/share/texmf} as a \sQuote{texmf tree} (\sQuote{root
-  directory} in the parlance of the \sQuote{MiKTeX settings} utility).
+  \file{\var{R_HOME}/share/texmf} as a \sQuote{\I{texmf} tree} (\sQuote{root
+  directory} in the parlance of the \sQuote{\I{MiKTeX settings}} utility).
 
   By default, \file{Sweave.sty} loads the \samp{graphicx} \LaTeX package
   and sets the width of all included graphics to:\cr
@@ -89,14 +89,14 @@ RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
 
   \file{Sweave.sty} also supports the \samp{[nofontenc]} option, which
   skips the default inclusion of \samp{\\usepackage[T1]{fontenc}}
-  for pdfTeX processing.
+  for \I{pdfTeX} processing.
 
   It also supports the \samp{[inconsolata]} option, to render monospaced
   text in \code{inconsolata}, the font used by default for \R help
   pages.
 
   The use of fancy quotes (see \code{\link{sQuote}}) can cause problems
-  when setting \R output in non-UTF-8 locales (note that pdfTeX assumes
+  when setting \R output in non-UTF-8 locales (note that \I{pdfTeX} assumes
   UTF-8 by default since 2018).  Either set
   \code{\link{options}(useFancyQuotes = FALSE)} or arrange that \LaTeX
   is aware of the encoding used and ensure that typewriter fonts

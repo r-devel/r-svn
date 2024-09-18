@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,13 +55,15 @@ void R_wfixslash(wchar_t *s);
 extern "C" {
 #endif
 
+
+#include <R_ext/RS.h>
 #if defined FC_LEN_T
-# include <stddef.h>
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
+# include <stddef.h> // for FC_LEN_T, usually size_t
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+NORET void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar);
+void F77_SUB(rwarnc)(char *msg, int *nchar);
+NORET void F77_SUB(rexitc)(char *msg, int *nchar);
 #endif
 
 #ifdef __cplusplus
@@ -80,7 +82,7 @@ int nrows(SEXP s) // ~== NROW(.)  in R
 	if (t == R_NilValue) return LENGTH(s);
 	return INTEGER(t)[0];
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return nrows(CAR(s));
     }
     else error(_("object is not a matrix"));
@@ -98,7 +100,7 @@ int ncols(SEXP s) // ~== NCOL(.)  in R
 	/* This is a 1D (or possibly 0D array) */
 	return 1;
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return length(s);
     }
     else error(_("object is not a matrix"));
@@ -189,6 +191,15 @@ Rboolean isOrdered(SEXP s)
 	    && inherits(s, "ordered"));
 }
 
+Rboolean R_isTRUE(SEXP x)
+{
+    if (TYPEOF(x) == LGLSXP && XLENGTH(x) == 1) {
+	int val = LOGICAL(x)[0];
+	return val != NA_LOGICAL && val;
+    }
+    return FALSE;
+}
+
 
 const static struct {
     const char * const str;
@@ -219,6 +230,7 @@ TypeTable[] = {
     { "weakref",	WEAKREFSXP },
     { "raw",		RAWSXP },
     { "S4",		S4SXP },
+    { "object",		OBJSXP }, /* == S4SXP */
     /* aliases : */
     { "numeric",	REALSXP	   },
     { "name",		SYMSXP	   },
@@ -234,6 +246,7 @@ SEXPTYPE str2type(const char *s)
 	if (!strcmp(s, TypeTable[i].str))
 	    return (SEXPTYPE) TypeTable[i].type;
     }
+
     /* SEXPTYPE is an unsigned int, so the compiler warns us w/o the cast. */
     return (SEXPTYPE) -1;
 }
@@ -326,6 +339,22 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
     static char buf[50];
     snprintf(buf, 50, "unknown type #%d", t);
     return buf;
+}
+
+#ifdef USE_TYPE2CHAR_2
+const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
+    return (t != OBJSXP)
+	? type2char(t)
+	: (IS_S4_OBJECT(x) ? "S4" : "object");
+}
+#endif
+
+const char *R_typeToChar(SEXP x) {
+    // = type2char() but distinguishing {S4, object}
+    if(TYPEOF(x) == OBJSXP)
+	return IS_S4_OBJECT(x) ? "S4" : "object";
+    else
+	return type2char(TYPEOF(x));
 }
 
 #ifdef UNUSED
@@ -512,7 +541,7 @@ attribute_hidden void Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 
 SEXP nthcdr(SEXP s, int n)
 {
-    if (isList(s) || isLanguage(s) || isFrame(s) || TYPEOF(s) == DOTSXP ) {
+    if (isList(s) || isLanguage(s) || isDataFrame(s) || TYPEOF(s) == DOTSXP ) {
 	while( n-- > 0 ) {
 	    if (s == R_NilValue)
 		error(_("'nthcdr' list shorter than %d"), n);
@@ -525,6 +554,7 @@ SEXP nthcdr(SEXP s, int n)
 }
 
 /* Destructively removes R_NilValue ('NULL') elements from a pairlist. */
+attribute_hidden /* would need to be in an installed header if not hidden */
 SEXP R_listCompact(SEXP s, Rboolean keep_initial) {
     if(!keep_initial)
     // skip initial NULL values
@@ -561,28 +591,39 @@ attribute_hidden SEXP do_nargs(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* formerly used in subscript.c, in Utils.h */
+/* formerly used in subscript.c, in Utils.h
+      Does not know about long vectors ....
+      Commented out 2024-02
 attribute_hidden void setIVector(int * vec, int len, int val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
 /* unused in R, in Utils.h, may have been used in Rcpp at some point,
-      but not any more (as per Nov. 2018)  */
+      but not any more (as per Nov. 2018).
+      Does not know about long vectors ....
+      RcppClassic has its own version.
+      Commented out 2024-02
 attribute_hidden void setRVector(double * vec, int len, double val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
-/* unused in R, in Rinternals.h */
+/* unused in R, in Defn.h, formerly remapped in Rinternals.h
+      Unused in R.
+      Does not know about long vectors ....
+      Commented out 2024-02
 void setSVector(SEXP * vec, int len, SEXP val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
-Rboolean isFree(SEXP val)
+attribute_hidden Rboolean isFree(SEXP val)
 {
     SEXP t;
     for (t = R_FreeSEXP; t != R_NilValue; t = CAR(t))
@@ -597,19 +638,19 @@ Rboolean isFree(SEXP val)
 /* a debugger such as gdb, so you don't have to remember */
 /* the names of the data structure components. */
 
-int dtype(SEXP q)
+attribute_hidden int dtype(SEXP q)
 {
     return((int)TYPEOF(q));
 }
 
 
-SEXP dcar(SEXP l)
+attribute_hidden SEXP dcar(SEXP l)
 {
     return(CAR(l));
 }
 
 
-SEXP dcdr(SEXP l)
+attribute_hidden SEXP dcdr(SEXP l)
 {
     return(CDR(l));
 }
@@ -633,7 +674,7 @@ static void isort_with_index(int *x, int *indx, int n)
 
 // body(x) without attributes "srcref", "srcfile", "wholeSrcref" :
 // NOTE: Callers typically need  PROTECT(R_body_no_src(.))
-SEXP R_body_no_src(SEXP x) {
+attribute_hidden SEXP R_body_no_src(SEXP x) {
     SEXP b = PROTECT(duplicate(BODY_EXPR(x)));
     /* R's removeSource() works *recursively* on the body()
        in  ../library/utils/R/sourceutils.R  but that seems unneeded (?) */
@@ -827,9 +868,7 @@ attribute_hidden SEXP do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char *sp;
-    wchar_t  *buf, *p;
-    const wchar_t *pp;
+    const char *pp;
     int i, n;
 
     checkArity(op, args);
@@ -840,22 +879,14 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (STRING_ELT(s, i) == NA_STRING)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
-	    pp = filenameToWchar(STRING_ELT(s, i), TRUE);
-	    buf = (wchar_t *)R_alloc(wcslen(pp) + 1, sizeof(wchar_t));
-	    wcscpy(buf, pp);
-	    R_wfixslash(buf);
-	    /* remove trailing file separator(s) */
-	    if (*buf) {
-		p = buf + wcslen(buf) - 1;
-		/* turns D:/ to D: */
-		/* FIXME: basename of D:/ is D:, is that a good behavior? */
-		while (p >= buf && *p == L'/') *(p--) = L'\0';
-	    }
-	    if ((p = wcsrchr(buf, L'/'))) p++; else p = buf;
-	    size_t needed = wcstoutf8(NULL, p, (size_t)INT_MAX + 2);
-	    sp = R_alloc(needed + 1, 1);
-	    wcstoutf8(sp, p, needed + 1);
-	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
+	    pp = R_ExpandFileNameUTF8(trCharUTF8(STRING_ELT(s, i)));
+            size_t ll = strlen(pp);
+            /* remove trailing file separator(s) */
+            while(ll && (pp[ll-1] == '\\' || pp[ll-1] == '/')) ll--;
+            size_t ff = ll;
+            /* find start of file part */
+            while(ff && (pp[ff-1] != '\\' && pp[ff-1] != '/')) ff--;
+            SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, ll-ff, CE_UTF8));
 	}
     }
     UNPROTECT(1);
@@ -865,7 +896,7 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char  buf[R_PATH_MAX], *p, fsp = FILESEP[0];
+    const char fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -878,18 +909,15 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > R_PATH_MAX - 1)
+	    size_t ll = strlen(pp);
+	    if (ll > R_PATH_MAX - 1)
 		error(_("path too long"));
-	    strcpy (buf, pp);
-	    if (*buf) {
-		p = buf + strlen(buf) - 1;
-		while (p >= buf && *p == fsp) *(p--) = '\0';
-	    }
-	    if ((p = Rf_strrchr(buf, fsp)))
-		p++;
-	    else
-		p = buf;
-	    SET_STRING_ELT(ans, i, mkChar(p));
+	    /* remove trailing file separator(s) */
+	    while(ll && pp[ll-1] == fsp) ll--;
+	    size_t ff = ll;
+	    /* find start of file part */
+	    while(ff && pp[ff-1] != fsp) ff--;
+	    SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, (int)(ll-ff), CE_NATIVE));
 	}
     }
     UNPROTECT(1);
@@ -902,12 +930,21 @@ attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
    */
 
 #ifdef Win32
+static SEXP root_dir_on_drive(char d)
+{
+    char buf[3];
+
+    buf[0] = d;
+    buf[1] = ':';
+    buf[2] = '/';
+    return mkCharLenCE(buf, 3, CE_UTF8);
+}
+
 attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    wchar_t *buf, *p;
-    const wchar_t *pp;
-    char *sp;
+    char *buf;
+    const char *pp;
     int i, n;
 
     checkArity(op, args);
@@ -918,30 +955,46 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (STRING_ELT(s, i) == NA_STRING)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
-	    sp = "";
-	    pp = filenameToWchar(STRING_ELT(s, i), TRUE);
-	    if (wcslen(pp)) {
-		buf = (wchar_t*)R_alloc(wcslen(pp) + 1, sizeof(wchar_t));
-		wcscpy (buf, pp);
-		R_wfixslash(buf);
-		/* remove trailing file separator(s), preserve D:/, / */
-		p = buf + wcslen(buf) - 1;
-		while (p > buf && *p == L'/'
-		       && (p > buf+2 || *(p-1) != L':')) *p-- = L'\0';
-		p = wcsrchr(buf, L'/');
-		/* FIXME: dirname of D: is ., is this a good behavior? */
-		if(p == NULL) wcscpy(buf, L".");
-		else {
-		    while(p > buf && *p == L'/'
-			  /* this covers both drives and network shares */
-			  && (p > buf+2 || *(p-1) != L':')) --p;
-		    p[1] = L'\0';
+	    pp = R_ExpandFileNameUTF8(trCharUTF8(STRING_ELT(s, i)));
+	    size_t ll = strlen(pp);
+	    if (ll) {
+		buf = (char *)R_alloc(ll + 1, sizeof(char));
+		memcpy(buf, pp, ll + 1);
+		R_UTF8fixslash(buf);
+		/* remove trailing file separator(s) */
+		while (ll && buf[ll-1] == '/') ll--;
+		if (ll == 2 && buf[1] == ':' && buf[2]) {
+		    SET_STRING_ELT(ans, i, root_dir_on_drive(buf[0]));
+		    continue;
 		}
-		size_t needed = wcstoutf8(NULL, buf, (size_t)INT_MAX + 2);
-		sp = R_alloc(needed + 1, 1);
-		wcstoutf8(sp, buf, needed + 1);
-	    }
-	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
+		if (!ll) { /* only separators, not share */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		    continue;
+		}
+		/* remove file part */
+		while(ll && buf[ll-1] != '\\' && buf[ll-1] != '/') ll--;
+		if (!ll) { /* only file part, not share */
+		    /* FIXME: dirname of D: is ., is this good behavior? */
+		    SET_STRING_ELT(ans, i, mkChar("."));
+		    continue;
+		}
+		/* remove separator(s) after directory part */
+		while(ll && buf[ll-1] == '/') ll--;
+		if (ll == 2 && buf[1] == ':' && buf[2]) {
+		    SET_STRING_ELT(ans, i, root_dir_on_drive(buf[0]));
+		    continue;
+		}
+		if (!ll) /* only single part, not share */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		else if (ll == 2 && buf[0] == '\\' && buf[1] == '\\'
+		                 && buf[2] == '/') {
+		    /* network share with extra slashes */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		} else
+		    SET_STRING_ELT(ans, i, mkCharLenCE(buf, ll, CE_UTF8));
+	    } else
+		/* empty pathname is invalid, but returned */
+		SET_STRING_ELT(ans, i, mkChar(""));
 	}
     }
     UNPROTECT(1);
@@ -951,7 +1004,7 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char buf[R_PATH_MAX], *p, fsp = FILESEP[0];
+    const char fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -964,22 +1017,32 @@ attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > R_PATH_MAX - 1)
-		error(_("path too long"));
 	    size_t ll = strlen(pp);
+	    if (ll > R_PATH_MAX - 1)
+		error(_("path too long"));
 	    if (ll) { // svMisc calls this with ""
-		strcpy (buf, pp);
 		/* remove trailing file separator(s) */
-		while ( *(p = buf + ll - 1) == fsp  && p > buf) *p = '\0';
-		p = Rf_strrchr(buf, fsp);
-		if(p == NULL)
-		    strcpy(buf, ".");
-		else {
-		    while(p > buf && *p == fsp) --p;
-		    p[1] = '\0';
+		while(ll && pp[ll-1] == fsp) ll--;
+		if (!ll) { /* only separators */
+		    SET_STRING_ELT(ans, i, mkCharLenCE(&fsp, 1, CE_NATIVE));
+		    continue;
 		}
-	    } else buf[0] = '\0';
-	    SET_STRING_ELT(ans, i, mkChar(buf));
+		/* remove file part */
+		while(ll && pp[ll-1] != fsp) ll--;
+		if (!ll) { /* only file part */
+		    SET_STRING_ELT(ans, i, mkChar("."));
+		    continue;
+		}
+		/* remove separator(s) after directory part */
+		while(ll && pp[ll-1] == fsp) ll--;
+		if (!ll) { /* only single part */
+		    SET_STRING_ELT(ans, i, mkCharLenCE(&fsp, 1, CE_NATIVE));
+		    continue;
+		}
+		SET_STRING_ELT(ans, i, mkCharLenCE(pp, (int)ll, CE_NATIVE));
+	    } else
+		/* empty pathname is invalid, but returned */
+		SET_STRING_ELT(ans, i, mkChar(""));
 	}
     }
     UNPROTECT(1);
@@ -1286,7 +1349,7 @@ static const unsigned char utf8_table4[] = {
   2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
   3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5 };
 
-int attribute_hidden utf8clen(char c)
+int utf8clen(char c)
 {
     /* This allows through 8-bit chars 10xxxxxx, which are invalid */
     if ((c & 0xc0) != 0xc0) return 1;
@@ -1315,7 +1378,7 @@ utf8toucs32(wchar_t high, const char *s)
 
 /* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
    only the high surrogate is returned; call utf8toutf16low next. */
-size_t attribute_hidden
+size_t
 utf8toucs(wchar_t *wc, const char *s)
 {
     unsigned int byte;
@@ -1421,8 +1484,8 @@ utf8towcs(wchar_t *wc, const char *s, size_t n)
     return (size_t) res;
 }
 
-size_t
-utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
+attribute_hidden /* would need to be in an installed header if not hidden */
+size_t utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 {
     ssize_t m, res = 0;
     const char *t;
@@ -1506,7 +1569,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 	    p++;
 	} else {
 	    if (IS_HIGH_SURROGATE(*p) || IS_LOW_SURROGATE(*p))
-		warning("unpaired surrogate Unicode point %x", *p);
+		warning("unpaired surrogate Unicode point %x", (unsigned int)*p);
 	    m = Rwcrtomb32(t, (R_wchar_t)(*p), n - res);
 	}
 	if (!m) break;
@@ -1614,7 +1677,6 @@ char* mbcsTruncateToValid(char *s)
     return s;
 }
 
-attribute_hidden
 Rboolean mbcsValid(const char *str)
 {
     return  ((int)mbstowcs(NULL, str, 0) >= 0);
@@ -1678,7 +1740,7 @@ char *Rf_strchr(const char *s, int c)
     return (char *)NULL;
 }
 
-char *Rf_strrchr(const char *s, int c)
+attribute_hidden char *Rf_strrchr(const char *s, int c)
 {
     char *p = (char *)s, *plast = NULL;
     mbstate_t mb_st;
@@ -1754,9 +1816,9 @@ void R_wfixbackslash(wchar_t *s)
 #endif
 
 #if defined FC_LEN_T
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1772,9 +1834,9 @@ NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar)
 }
 
 #if defined FC_LEN_T
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
+void F77_SUB(rwarnc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1789,7 +1851,7 @@ void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
     warning("%s", buf);
 }
 
-void F77_SYMBOL(rchkusr)(void)
+void F77_SUB(rchkusr)(void)
 {
     R_CheckUserInterrupt();
 }
@@ -2015,6 +2077,27 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
     else return 0;
 }
 
+/* Introduced on 2008-03-21 with comment
+
+       use our own strtod/atof to mitigate effects of setting LC_NUMERIC
+
+   Also allows complete control of which non-numeric strings are
+   accepted; e.g. glibc allows NANxxxx, macOS NAN(s), this accepts "NA".
+
+   Exported and in Utils.h (but only in R-exts as of 4.4.1).
+
+   Variants:
+   R_strtod4 is used by scan(), allows the decimal point (byte) to be
+   specified and whether "NA" is accepted.
+
+   R_strtod5 is used by type_convert(numerals=) (utils/src/io.c)
+
+   The parser uses R_atof (and handles non-numeric strings itself).
+   That is the same as R_strtod but ignores endptr.
+   Also used by gnuwin32/windlgs/src/ttest.c,
+   exported and in Utils.h (but not in R-exts).
+*/
+
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact)
 {
@@ -2087,10 +2170,16 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    case '+': p++;
 	    default: ;
 	    }
-	    /* The test for n is in response to PR#16358; it's not right if the exponent is
-	       very large, but the overflow or underflow below will handle it. */
 #define MAX_EXPONENT_PREFIX 9999
-	    for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	    /* exponents beyond ca +1024/-1076 over/underflow */
+	    int ndig = 0;
+	    for (n = 0; *p >= '0' && *p <= '9'; p++, ndig++)
+		n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	    if (ndig == 0) {
+		ans = NA_REAL;
+		p = str; /* back out */
+		goto done;
+	    }
 	    if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
 		LDOUBLE fac = 1.0;
 		expn += expsign * n;
@@ -2131,13 +2220,29 @@ double R_strtod5(const char *str, char **endptr, char dec,
     strtod_EXACT_CLAUSE;
 
     if (*p == 'e' || *p == 'E') {
+	int ndigits = 0;
 	int expsign = 1;
 	switch(*++p) {
 	case '-': expsign = -1;
 	case '+': p++;
 	default: ;
 	}
-	for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	/* The test for n is in response to PR#16358; which was
+	   parsing 1e999999999999.
+	   It's not right if the exponent is very large, but the
+	   overflow or underflow below will handle it.
+	   1e308 is already Inf, but negative exponents can go down to -323
+	   before undeflowing to zero.  And people could do perverse things
+	   like 0.00000001e312.
+	*/
+	// C17 §6.4.4.2 requires a non-empty 'digit sequence'
+	for (n = 0; *p >= '0' && *p <= '9'; p++, ndigits++)
+	    n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	if (ndigits == 0) {
+	    ans = NA_REAL;
+	    p = str; /* back out */
+	    goto done;
+	}
 	expn += expsign * n;
     }
 
@@ -2173,6 +2278,7 @@ done:
 }
 
 
+attribute_hidden
 double R_strtod4(const char *str, char **endptr, char dec, Rboolean NA)
 {
     return R_strtod5(str, endptr, dec, NA, FALSE);
@@ -2704,12 +2810,13 @@ attribute_hidden SEXP do_tabulate(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP xt, x, right, inside, leftOp;
+    SEXP xt, x, right, inside, leftOp, chkNA;
     xt = CAR(args); args = CDR(args);
     x = CAR(args); args = CDR(args);
     right = CAR(args); args = CDR(args);
     inside = CAR(args);args = CDR(args);
-    leftOp = CAR(args);
+    leftOp = CAR(args);args = CDR(args);
+    chkNA  = CAR(args);
     if(TYPEOF(xt) != REALSXP || TYPEOF(x) != REALSXP) error("invalid input");
 #ifdef LONG_VECTOR_SUPPORT
     if (IS_LONG_VEC(xt))
@@ -2725,15 +2832,21 @@ attribute_hidden SEXP do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "all.inside");
     SEXP ans = allocVector(INTSXP, nx);
     double *rxt = REAL(xt), *rx = REAL(x);
-    int ii = 1;
-    for(int i = 0; i < nx; i++) {
+    int ii = 1, mfl;
+    if (chkNA)
+      for(int i = 0; i < nx; i++) {
 	if (ISNAN(rx[i]))
 	    ii = NA_INTEGER;
-	else {
-	    int mfl;
-	    ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl); // -> ../appl/interv.c
-	}
+	else
+#define FIND_INT ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl) /* -> ../appl/interv.c */
+	    FIND_INT;
 	INTEGER(ans)[i] = ii;
+      }
+    else { // do *not* check ISNAN(rx[i])
+	for(int i = 0; i < nx; i++) {
+	    FIND_INT;
+	    INTEGER(ans)[i] = ii;
+	}
     }
     return ans;
 }
@@ -3122,7 +3235,7 @@ SEXP do_compareNumericVersion(SEXP call, SEXP op, SEXP args, SEXP env)
 	na = 0;
     PROTECT(ans = allocVector(INTSXP, na));
     for(i = 0; i < na; i++) {
-	INTEGER(ans)[i] = 
+	INTEGER(ans)[i] =
 	    compareNumericVersion(VECTOR_ELT(x, i % nx),
 				  VECTOR_ELT(y, i % ny));
     }
@@ -3142,7 +3255,7 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
     /* could optimize by using non-zero initial size, large
        enough so that most prints with fill */
     /* trio does not accept NULL as str */
-    ret = vsnprintf(dummy, 0, fmt, ap); 
+    ret = vsnprintf(dummy, 0, fmt, ap);
     va_end(ap);
 
     if (ret <= 0)
@@ -3167,4 +3280,5 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
 	*str = buf;
     return ret;
 }
- 
+
+

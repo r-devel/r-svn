@@ -33,7 +33,7 @@
     \code{\link{glm}}.}
   \item{which}{a subset of the numbers \code{1:6}, by default \code{1:3, 5},
     referring to \enumerate{
-      \item "Residuals vs Fitted", aka \sQuote{Tukey-Anscombe} plot % 1
+      \item "Residuals vs Fitted", aka \sQuote{\I{Tukey}-\I{Anscombe}} plot % 1
       \item "Residual Q-Q" plot  % 2
       \item "Scale-Location"     % 3
       \item "Cook's distance"    % 4
@@ -144,7 +144,7 @@
   distribution.  The saddlepoint approximation is exact for the normal
   and inverse Gaussian family, and holds approximately for the Gamma
   family with small dispersion (large shape) and for the Poisson and
-  binomial families with large counts (Dunn and Smyth 2018).
+  binomial families with large counts (\bibcite{Dunn and Smyth 2018}).
 }
 
 \references{

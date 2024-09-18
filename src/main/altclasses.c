@@ -389,7 +389,7 @@ Rboolean compact_realseq_Inspect(SEXP x, int pre, int deep, int pvec,
     R_xlen_t n = XLENGTH(x);
     R_xlen_t n1 = (R_xlen_t) REAL_ELT(x, 0);
     R_xlen_t n2 = inc == 1 ? n1 + n - 1 : n1 - n + 1;
-    Rprintf(" %lld : %lld (%s)", n1, n2,
+    Rprintf(" %lld : %lld (%s)", (long long)n1, (long long)n2,
 	    COMPACT_SEQ_EXPANDED(x) == R_NilValue ? "compact" : "expanded");
     Rprintf("\n");
     return TRUE;
@@ -1125,7 +1125,7 @@ static Rboolean mmap_Inspect(SEXP x, int pre, int deep, int pvec,
     Rboolean ptrOK = MMAP_PTROK(x);
     Rboolean wrtOK = MMAP_WRTOK(x);
     Rboolean serOK = MMAP_SEROK(x);
-    Rprintf(" mmaped %s", type2char(TYPEOF(x)));
+    Rprintf(" mmaped %s", R_typeToChar(x));
     Rprintf(" [ptr=%d,wrt=%d,ser=%d]\n", ptrOK, wrtOK, serOK);
     return TRUE;
 }
@@ -2047,7 +2047,9 @@ attribute_hidden SEXP R_tryUnwrap(SEXP x)
 	    /* Clear the fields to drop reference counts and set the
 	       type to LISTSXP to limit errors in case the object is
 	       still live. */
-	    SET_TYPEOF(x, LISTSXP);
+	    void ALTREP_SET_TYPEOF(SEXP, int); /* in memory.c */
+	    ALTREP_SET_TYPEOF(x, LISTSXP);
+	    SETALTREP(x, 0);
 	    SET_ATTRIB(x, R_NilValue);
 	    SETCAR(x, R_NilValue);
 	    SETCDR(x, R_NilValue);

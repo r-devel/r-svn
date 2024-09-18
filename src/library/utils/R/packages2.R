@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -398,21 +398,42 @@ install.packages <-
         if(nonlocalrepos) {
             df <- function(p, destfile, method, ...)
                 download.file(p, destfile, method, mode = "wb", ...)
-            urls <- pkgs[web]
-            for (p in unique(urls)) {
-                this <- pkgs == p
-                destfile <- file.path(tmpd, basename(p))
-                res <- try(df(p, destfile, method, ...))
-                if(!inherits(res, "try-error") && res == 0L)
-                    pkgs[this] <- destfile
-                else {
-                    ## There will be enough notification from the try()
-                    pkgs[this] <- NA
+            urls <- unique(pkgs[web])
+            
+            if (missing(method) || method == "auto" || method == "libcurl") {
+                # bulk download using libcurl
+                destfiles <- file.path(tmpd, basename(urls))
+                res <- try(df(urls, destfiles, "libcurl", ...))
+                if(!inherits(res, "try-error") && res == 0L) {
+                    if (length(urls) > 1) {
+                        retvals <- attr(res, "retvals")
+                        for(i in seq_along(retvals)) {
+                            this <- pkgs == urls[i]
+                            if (retvals[i] == 0L)
+                                pkgs[this] <- destfiles[i]
+                            else
+                                pkgs[this] <- NA
+                        }
+                    } else
+                        pkgs[web] <- destfiles
+                } else
+                    pkgs[web] <- NA 
+            } else {
+                # serial download
+                for (p in urls) {
+                    this <- pkgs == p
+                    destfile <- file.path(tmpd, basename(p))
+                    res <- try(df(p, destfile, method, ...))
+                    if(!inherits(res, "try-error") && res == 0L)
+                        pkgs[this] <- destfile
+                    else {
+                        ## There will be enough notification from the try()
+                        pkgs[this] <- NA
+                    }
                 }
-           }
+            }
         }
     }
-
 
     ## Look at type == "both"
     ## NB it is only safe to use binary packages with a macOS
@@ -756,7 +777,8 @@ install.packages <-
     av2 <- NULL
     if(is.null(available)) {
         filters <- getOption("available_packages_filters")
-        if(!is.null(filters)) {
+        if(!is.null(filters) ||
+           any(!is.na(pmatch(...names(), "filters")))) {
             available <- available.packages(contriburl = contriburl,
                                             method = method, ...)
         } else {
@@ -880,7 +902,12 @@ install.packages <-
                 pkgs <- update[, 1L]
                 tss <- sub("[.]ts$", "", dir(".", pattern = "[.]ts$"))
                 failed <- pkgs[!pkgs %in% tss]
-		for (pkg in failed) system(paste0("cat ", pkg, ".out"))
+                for (pkg in failed) {
+                    ## targets with failed dependencies are not made (even with -k)
+                    if (file.exists(outfile <- paste0(pkg, ".out")))
+                        system2("cat", outfile)
+                    ##else cat("skipped installing package ", pkg, "\n", sep = "")
+                }
                 n <- length(failed)
                 if (n == 1L)
                     warning(gettextf("installation of package %s failed",
@@ -897,8 +924,11 @@ install.packages <-
                                 domain = NA)
                      }
             }
-            if(keep_outputs)
-                file.copy(paste0(update[, 1L], ".out"), outdir)
+            if(keep_outputs) {
+                outfiles <- paste0(update[, 1L], ".out") # some could be missing
+                file.copy(outfiles[file.exists(outfiles)],
+                          outdir, overwrite = TRUE)
+            }
             ## Keep binary packages possibly created via --build
             file.copy(Sys.glob(paste0(update[, 1L], "*.zip")), cwd)
             file.copy(Sys.glob(paste0(update[, 1L], "*.tgz")), cwd)
@@ -938,7 +968,7 @@ install.packages <-
                 }
             }
             if(keep_outputs)
-                file.copy(outfiles, outdir)
+                file.copy(outfiles, outdir, overwrite = TRUE)
             unlink(tmpd2, recursive = TRUE)
         }
         ## Using stderr is the wish of PR#16420
@@ -995,11 +1025,8 @@ registerNames <- function(names, package, .listFile, add = TRUE) {
 packageName <- function(env = parent.frame()) {
     if (!is.environment(env)) stop("'env' must be an environment")
     env <- topenv(env)
-    if (!is.null(pn <- get0(".packageName", envir = env, inherits = FALSE)))
-	pn
-    else if (identical(env, .BaseNamespaceEnv))
-	"base"
-    ## else NULL
+    get0(".packageName", envir = env, inherits = FALSE) %||%
+        if(identical(env, .BaseNamespaceEnv)) "base" ## else NULL
 }
 
 ##' R's .libPaths() to be used in 'R CMD ...' or similar,
