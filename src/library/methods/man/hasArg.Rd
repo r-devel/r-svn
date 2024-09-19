@@ -39,6 +39,8 @@ ftest(1) ## c(TRUE, FALSE)
 ftest(1, 2)  ## c(TRUE, FALSE)
 ftest(y2 = 2)   ## c(FALSE, TRUE)
 ftest(y = 2)    ## c(FALSE, FALSE) (no partial matching)
+\dontshow{ old <- options(warnPartialMatchArgs=FALSE) }
 ftest(y2 = 2, x = 1)  ## c(TRUE, TRUE) partial match x1
+\dontshow{ options(old) }
 }
 \keyword{ programming }

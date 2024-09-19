@@ -54,7 +54,7 @@ stopifnot(identical(f("B", "C"), paste(c("A","B"), "C")),
           identical(xy, c("A", "B", "Z")))
 
 ## trace a method
-trace("f", sig = c("character", "character"), quote(x <- c(x, "D")),
+trace("f", signature = c("character", "character"), quote(x <- c(x, "D")),
       exit = quote(xy <<- xyy <<- c(x, "W")), print = FALSE)
 
 stopifnot(identical(f("B", "C"), paste(c("A","B","D"), "C")))

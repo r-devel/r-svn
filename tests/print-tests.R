@@ -122,8 +122,8 @@ fm <- lapply(nonFin, format)
 w <- c(4,3,2,3)
 stopifnot(sapply(lapply(fm, nchar), max) == w,
 	  mm == rbind(w, 0, 0))# m[2,] was 2147483647; m[3,] was 1
-cnF <- c(lapply(nonFin, function(x) complex(re=x, im=x))[-3],
-         complex(re=NaN, im=-Inf))
+cnF <- c(lapply(nonFin, function(x) complex(real=x, imaginary=x))[-3],
+         complex(real=NaN, imaginary=-Inf))
 cmm <- sapply(cnF, format.info)
 cfm <- lapply(cnF, format)
 cw <- sapply(lapply(cfm, nchar), max)
@@ -156,7 +156,7 @@ outer(z, 0:6, signif) # had NaN's till 1.1.1
 
 olddig <- options(digits=14) # RH6.0 fails at 15
 z <- 1.234567891234567e27
-for(dig in 1:14) cat(formatC(dig,w=2),
+for(dig in 1:14) cat(formatC(dig,width=2),
                      format(z, digits=dig), signif(z, digits=dig), "\n")
 options(olddig)
 # The following are tests of printf inside formatC

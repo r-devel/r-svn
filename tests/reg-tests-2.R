@@ -11,7 +11,7 @@ options(useFancyQuotes=FALSE)
 ## abbreviate
 for(m in 1:5) {
   cat("\n",m,":\n")
-  print(as.vector(abbreviate(state.name, minl=m)))
+  print(as.vector(abbreviate(state.name, minlength=m)))
 }
 
 ## apply
@@ -43,19 +43,19 @@ x0 <- 2^(-20:10)
 plot(x0,x0, log='xy', ylab="", ylim=c(.1,1e60),type='n',
      main = "Bessel Functions -Y_nu(x)  near 0\n log - log  scale")
 for(nu in sort(c(nus,nus+.5))) lines(x0, -besselY(x0,nu=nu), col = nu+2)
-legend(3,1e50, leg=paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
+legend(3,1e50, legend =paste("nu=", paste(nus,nus+.5, sep=",")), col=nus+2, lwd=1)
 
 x <- seq(3,500);yl <- c(-.3, .2)
 plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-legend(300,-.08, leg=paste("nu=",nus), col = nus+2, lwd=1)
+legend(300,-.08, legend =paste("nu=",nus), col = nus+2, lwd=1)
 
 x <- seq(10,50000,by=10);yl <- c(-.1, .1)
 plot(x,x, ylim = yl, ylab="",type='n', main = "Bessel Functions  Y_nu(x)")
 for(nu in nus){xx <- x[x > .6*nu]; lines(xx,besselY(xx,nu=nu), col = nu+2)}
-summary(bY <- besselY(2,nu = nu <- seq(0,100,len=501)))
+summary(bY <- besselY(2,nu = nu <- seq(0,100,length.out=501)))
 which(bY >= 0)
-summary(bY <- besselY(2,nu = nu <- seq(3,300,len=51)))
+summary(bY <- besselY(2,nu = nu <- seq(3,300,length.out=51)))
 summary(bI <- besselI(x = x <- 10:700, 1))
 ## end of moved from Bessel.Rd
 
@@ -98,14 +98,14 @@ for(i in c(1:5,10,15,16)) cat(i,":\t",format(pi,digits=i),"\n")
 p <- c(47,13,2,.1,.023,.0045, 1e-100)/1000
 format.pval(p)
 format.pval(p / 0.9)
-format.pval(p / 0.9, dig=3)
+format.pval(p / 0.9, digits=3)
 ## end of moved from format.Rd
 
 
 ## is.finite
 x <- c(100,-1e-13,Inf,-Inf, NaN, pi, NA)
 x #  1.000000 -3.000000       Inf      -Inf        NA  3.141593        NA
-names(x) <- formatC(x, dig=3)
+names(x) <- formatC(x, digits=3)
 is.finite(x)
 ##-   100 -1e-13 Inf -Inf NaN 3.14 NA
 ##-     T      T   .    .   .    T  .
@@ -155,20 +155,20 @@ kronecker(fred, bill, make.dimnames = TRUE)
 # dimnames are hard work: let's test them thoroughly
 
 dimnames(bill) <- NULL
-kronecker(fred, bill, make=TRUE)
-kronecker(bill, fred, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
+kronecker(bill, fred, make.dimnames=TRUE)
 
 dim(bill) <- c(2, 2, 1)
 dimnames(bill) <- list(c("happy", "sad"), NULL, "")
-kronecker(fred, bill, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 
 bill <- array(1:24, c(3, 4, 2))
 dimnames(bill) <- list(NULL, NULL, c("happy", "sad"))
-kronecker(bill, fred, make=TRUE)
-kronecker(fred, bill, make=TRUE)
+kronecker(bill, fred, make.dimnames=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 
 fred <- outer(fred, c("frequentist"=4, "bayesian"=4000))
-kronecker(fred, bill, make=TRUE)
+kronecker(fred, bill, make.dimnames=TRUE)
 ## end of moved from kronecker.Rd
 
 ## merge
@@ -393,7 +393,7 @@ kernel("daniell", m=c(3,5,7))
 ## fixed by patch from Adrian Trapletti 2001-03-08
 
 ## Start new year (i.e. line) at Jan:
-(tt <- ts(1:10, start = c(1920,7), end = c(1921,4), freq = 12))
+(tt <- ts(1:10, start = c(1920,7), end = c(1921,4), frequency = 12))
 cbind(tt, tt + 1)
 
 
@@ -446,9 +446,9 @@ f <- function(x) UseMethod("f")
 f.foo <- function(x) { on.exit(e <<- g()); NULL }
 f.bar <- function(x) { on.exit(e <<- g()); return(NULL) }
 f(structure(1,class = "foo"))
-ls(env = e)# only "x", i.e. *not* the GlobalEnv
+ls(envir = e)# only "x", i.e. *not* the GlobalEnv
 f(structure(1,class = "bar"))
-stopifnot("x" == ls(env = e))# as above; wrongly was .GlobalEnv in R 1.3.x
+stopifnot("x" == ls(envir = e))# as above; wrongly was .GlobalEnv in R 1.3.x
 
 
 ## some tests that R supports logical variables in formulae
@@ -648,8 +648,8 @@ format(x, justify = "none")
 
 ## print.ts problems  ggrothendieck@yifan.net on R-help, 2002-04-01
 x <- 1:20
-tt1 <- ts(x,start=c(1960,2), freq=12)
-tt2 <- ts(10+x,start=c(1960,2), freq=12)
+tt1 <- ts(x,start=c(1960,2), frequency=12)
+tt2 <- ts(10+x,start=c(1960,2), frequency=12)
 cbind(tt1, tt2)
 ## 1.4.1 had `Jan 1961' as `NA 1961'
 ## ...and 1.9.1 had it as `Jan 1960'!!
@@ -708,7 +708,7 @@ options(oldcon)
 (qq <- sapply(0:5, function(k) {
     x <- c(rep(-Inf,k+1), 0:k, rep(Inf, k))
     sapply(1:9, function(typ)
-           quantile(x, pr=(2:10)/10, type=typ))
+           quantile(x, probs=(2:10)/10, type=typ))
 }, simplify="array"))
 x <- c(-Inf, -Inf, Inf, Inf)
 median(x)
@@ -813,12 +813,12 @@ par(mfrow = c(3,3))
 for(j.fac in 1e-12* c(10, 1, .7, .3, .2, .1, .05, .03, .01)) {
 ##           ====
     #set.seed(101) # or don't
-    x <- pi + jitter(numeric(101), f = j.fac)
-    rrtxt <- paste("rel.range =", formatC(relrange(x), dig = 4),"* EPS")
+    x <- pi + jitter(numeric(101), factor = j.fac)
+    rrtxt <- paste("rel.range =", formatC(relrange(x), digits = 4),"* EPS")
     cat("j.f = ", format(j.fac)," ;  ", rrtxt,"\n",sep="")
     plot(x, type = "l", main = rrtxt)
-    cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], wid = 10),"\n",
-        "par(\"yaxp\") :   ", formatC(par("yaxp"), wid = 10),"\n\n", sep="")
+    cat("par(\"usr\")[3:4]:", formatC(par("usr")[3:4], width = 10),"\n",
+        "par(\"yaxp\") :   ", formatC(par("yaxp"), width = 10),"\n\n", sep="")
 }
 par(mfrow = c(1,1))
 ## The warnings from inside GScale() will differ in their  relrange() ...
@@ -883,9 +883,9 @@ x2 <- x1 <- 1:10
 x3 <- 0.1*(1:10)^2
 y <- x1 + rnorm(10)
 (fit <- lm(y ~ x1 + x2 + x3))
-summary(fit, cor = TRUE)
+summary(fit, correlation = TRUE)
 (fit <- glm(y ~ x1 + x2 + x3))
-summary(fit, cor = TRUE)
+summary(fit, correlation = TRUE)
 ## omitted silently in summary.glm < 1.8.0
 
 
@@ -940,8 +940,8 @@ x <- rep(0, 10)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
-predict(fit, type="terms", se=TRUE)
+predict(fit, data.frame(x=x), se.fit=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 variable.names(fit) #should be empty
 model.matrix(fit)
 
@@ -950,12 +950,12 @@ summary(fit)
 anova(fit)
 predict(fit)
 tools::assertWarning(
- predict(fit, data.frame(x=x), se=TRUE) -> p0
+ predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 )
 p0
 if(FALSE)## not yet:
 stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-predict(fit, type="terms", se=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 variable.names(fit) #should be empty
 model.matrix(fit)
 
@@ -963,20 +963,20 @@ model.matrix(fit)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
-predict(fit, type="terms", se=TRUE)
+predict(fit, data.frame(x=x), se.fit=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 
 (fit <- glm(y ~ x + 0))
 summary(fit)
 anova(fit)
 predict(fit)
 tools::assertWarning(
- predict(fit, data.frame(x=x), se=TRUE) -> p0
+ predict(fit, data.frame(x=x), se.fit=TRUE) -> p0
 )
 p0
 if(FALSE)## not yet:
 stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
-predict(fit, type="terms", se=TRUE)
+predict(fit, type="terms", se.fit=TRUE)
 ## Lots of problems in 1.7.x
 
 
@@ -1147,7 +1147,7 @@ matrix(list(), 1, 2)
 
 
 ## S compatibility change in 1.9.0
-rep(1:2, each=3, length=12)
+rep(1:2, each=3, length.out=12)
 ## used to pad with NAs.
 
 
@@ -1366,7 +1366,7 @@ write.table(data.frame(x = 0.5+1:4, y = 1:4 + 1.5i), file = "", dec=",")
 ## used '.' not ',' in 2.0.0
 
 ## splinefun() value test
-(x <- seq(0,6, length=25))
+(x <- seq(0,6, length.out=25))
 mx <- sapply(c("fmm", "nat", "per"),
              function(m) splinefun(1:5, c(1,2,4,3,1), method = m)(x))
 cbind(x,mx)
@@ -1375,9 +1375,9 @@ cbind(x,mx)
 ## infinite loop in read.fwf (PR#7350)
 cat(file="test.txt", sep = "\n", "# comment 1", "1234567   # comment 2",
     "1 234567  # comment 3", "12345  67 # comment 4", "# comment 5")
-read.fwf("test.txt", width=c(2,2,3), skip=1, n=4) # looped
-read.fwf("test.txt", width=c(2,2,3), skip=1)      # 1 line short
-read.fwf("test.txt", width=c(2,2,3), skip=0)
+read.fwf("test.txt", widths=c(2,2,3), skip=1, n=4) # looped
+read.fwf("test.txt", widths=c(2,2,3), skip=1)      # 1 line short
+read.fwf("test.txt", widths=c(2,2,3), skip=0)
 unlink("test.txt")
 ##
 
@@ -1451,7 +1451,7 @@ x2 <- data.frame(a=1:2, b=I(list(a=1, b=2)))
 x2
 write.table(x2)
 
-x3 <- seq(as.Date("2005-01-01"), len=6, by="day")
+x3 <- seq(as.Date("2005-01-01"), length.out=6, by="day")
 x4 <- data.frame(x=1:6, y=x3)
 dim(x3) <- c(2,3)
 x3
@@ -1462,9 +1462,9 @@ write.table(x4) # preserves class, does not quote
 
 
 ## Problem with earlier regexp code spotted by KH
-grep("(.*s){2}", "Arkansas", v = TRUE)
-grep("(.*s){3}", "Arkansas", v = TRUE)
-grep("(.*s){3}", state.name, v = TRUE)
+grep("(.*s){2}", "Arkansas", value = TRUE)
+grep("(.*s){3}", "Arkansas", value = TRUE)
+grep("(.*s){3}", state.name, value = TRUE)
 ## Thought Arkansas had 3 s's.
 
 
@@ -1718,9 +1718,9 @@ str(dend2$upper)
 
 ## formatC on Windows (PR#8337)
 xx  <- pi * 10^(-5:4)
-cbind(formatC(xx, wid = 9))
-cbind(formatC(xx, wid = 9, flag = "-"))
-cbind(formatC(xx, wid = 9, flag = "0"))
+cbind(formatC(xx, width = 9))
+cbind(formatC(xx, width = 9, flag = "-"))
+cbind(formatC(xx, width = 9, flag = "0"))
 ## extra space on 2.2.1
 
 
@@ -1751,10 +1751,10 @@ update.formula (Reaction ~ Days + (Days | Subject), . ~ . + I(Days^2))
 
 
 ## PR#8528: errors in the post-2.1.0 pgamma
-pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE)
-pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log=TRUE, lower=FALSE)
+pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE)
+pgamma(seq(0.75, 1.25, by=0.05)*1e100, shape = 1e100, log.p=TRUE, lower.tail=FALSE)
 pgamma(c(1-1e-10, 1+1e-10)*1e100, shape = 1e100)
-pgamma(0.9*1e25, 1e25, log=TRUE)
+pgamma(0.9*1e25, 1e25, log.p=TRUE)
 ## were NaN, -Inf etc in 2.2.1.
 
 
@@ -2268,10 +2268,10 @@ qr.coef(qr(matrix(0:1, 1, dimnames=list(NULL, c("zero","one")))), 5)
 
 ## readChar read extra items, terminated on zeros
 x <- as.raw(65:74)
-readChar(x, nchar=c(3,3,0,3,3,3))
+readChar(x, nchars=c(3,3,0,3,3,3))
 f <- tempfile(tmpdir = getwd())
 writeChar("ABCDEFGHIJ", con=f, eos=NULL)
-readChar(f, nchar=c(3,3,0,3,3,3))
+readChar(f, nchars=c(3,3,0,3,3,3))
 unlink(f)
 ##
 
@@ -2344,7 +2344,7 @@ z[1, ]
 
 
 ## incorrect warning due to lack of fuzz.
-TS <-  ts(co2[1:192], freq=24)
+TS <-  ts(co2[1:192], frequency=24)
 tmp2 <- window(TS, start(TS), end(TS))
 ## warned in 2.8.0
 

@@ -53,7 +53,7 @@ as.Date(c(7e11, 8e11, -7e11, -8e11))
 
 ## handling of names
 # conversion of R objects
-x <- seq(as.Date("2022-09-01"), by = "weeks", length = 10)
+x <- seq(as.Date("2022-09-01"), by = "weeks", length.out = 10)
 names(x) <- paste("week", 1:10)
 x
 (xl <- as.POSIXlt(x))
@@ -77,12 +77,12 @@ y2 <- paste(y, "10:01:02"); names(y2) <- names(y)
 fmt <- c("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S %Z")
 (strptime(y2, fmt[1:2]) -> sy2)
 ## IGNORE_RDIFF_END
-sy2.15 <- strptime(y2, rep(fmt[1:2], length = 15)) # failed to recycle names
+sy2.15 <- strptime(y2, rep(fmt[1:2], length.out = 15)) # failed to recycle names
 stopifnot(suppressWarnings(sy2 == sy2.15))
 
 xl. <- xl[1:9] # length(fmt) == 3 -- fully recycles in xl.
 (strftime(xl., fmt) -> sx)
-(strftime(xl., rep(fmt, length = 15)) -> sx15)
+(strftime(xl., rep(fmt, length.out = 15)) -> sx15)
 stopifnot(exprs = { # with warnings  ".. length is not a multiple of shorter .."
     sx == sx15
     names(sx) == names(sx15)
@@ -93,4 +93,4 @@ x2$year <- xl$year[1:3]
 x2                # correctly has missing names as NA
 balancePOSIXlt(x2) # recycles names
 strftime(x2, fmt)
-strftime(x2, rep(fmt, length = 10))
+strftime(x2, rep(fmt, length.out = 10))

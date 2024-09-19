@@ -187,7 +187,7 @@ Warning in strptime("2022-01-01 -1500", "%Y-%m-%d %z", tz = "UTC") :
 > 
 > ## handling of names
 > # conversion of R objects
-> x <- seq(as.Date("2022-09-01"), by = "weeks", length = 10)
+> x <- seq(as.Date("2022-09-01"), by = "weeks", length.out = 10)
 > names(x) <- paste("week", 1:10)
 > x
       week 1       week 2       week 3       week 4       week 5       week 6 
@@ -330,7 +330,7 @@ attr(,"balanced")
                     week 9                    week 10 
 "2022-10-27 00:00:00 CEST"  "2022-11-03 10:01:02 CET" 
 > ## IGNORE_RDIFF_END
-> sy2.15 <- strptime(y2, rep(fmt[1:2], length = 15)) # failed to recycle names
+> sy2.15 <- strptime(y2, rep(fmt[1:2], length.out = 15)) # failed to recycle names
 > stopifnot(suppressWarnings(sy2 == sy2.15))
 > 
 > xl. <- xl[1:9] # length(fmt) == 3 -- fully recycles in xl.
@@ -341,7 +341,7 @@ attr(,"balanced")
              "2022-09-22"     "2022-09-29 00:00:00" "2022-10-06 00:00:00 UTC" 
                    week 7                    week 8                    week 9 
              "2022-10-13"     "2022-10-20 00:00:00" "2022-10-27 00:00:00 UTC" 
-> (strftime(xl., rep(fmt, length = 15)) -> sx15)
+> (strftime(xl., rep(fmt, length.out = 15)) -> sx15)
                    week 1                    week 2                    week 3 
              "2022-09-01"     "2022-09-08 00:00:00" "2022-09-15 00:00:00 UTC" 
                    week 4                    week 5                    week 6 
@@ -378,7 +378,7 @@ Warning in names(sx) == names(sx15) :
              "2022-09-01"     "2022-09-08 00:00:00" "2022-09-15 00:00:00 UTC" 
                      <NA>                      <NA> 
              "2022-09-22"     "2022-09-29 00:00:00" 
-> strftime(x2, rep(fmt, length = 10))
+> strftime(x2, rep(fmt, length.out = 10))
                    week 1                    week 2                    week 3 
              "2022-09-01"     "2022-09-08 00:00:00" "2022-09-15 00:00:00 UTC" 
                      <NA>                      <NA>                    week 1 

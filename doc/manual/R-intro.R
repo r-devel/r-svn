@@ -40,7 +40,7 @@ seq(2,10)
 all(seq(1,30) == seq(to=30, from=1))
 
 seq(-5, 5, by=.2) -> s3
-s4 <- seq(length=51, from=-5, by=.2)
+s4 <- seq(length.out=51, from=-5, by=.2)
 all.equal(s3,s4)
 
 s5 <- rep(x, times=5)
@@ -145,7 +145,7 @@ x[i] <- 0                     # Replace those elements by zeros.
 x
 
 n <- 60
-b <- 5 ; blocks    <- rep(1:b, length= n)
+b <- 5 ; blocks    <- rep(1:b, length.out= n)
 v <- 6 ; varieties <- gl(v,10)
 
 Xb <- matrix(0, n, b)
@@ -163,7 +163,7 @@ all(N == table(blocks,varieties))
 h <- 1:17
 Z <- array(h, dim=c(3,4,2))
 ## If the size of  'h' is exactly 24
-h <- rep(h, length = 24)
+h <- rep(h, length.out = 24)
 Z. <- Z ## the result is the same as
 Z <- h; dim(Z) <- c(3,4,2)
 stopifnot(identical(Z., Z))
@@ -324,7 +324,7 @@ hist(eruptions)
 
 ## <IMG> postscript("images/hist.eps", ...)
 # make the bins smaller, make a plot of density
-hist(eruptions, seq(1.6, 5.2, 0.2), prob=TRUE)
+hist(eruptions, seq(1.6, 5.2, 0.2), probability=TRUE)
 lines(density(eruptions, bw=0.1))
 rug(eruptions) # show the actual data points
 ## dev.off() <IMG/>
@@ -393,7 +393,7 @@ plot(ecdf(B), do.points=FALSE, verticals=TRUE, add=TRUE)
 ###--- @appendix A sample session
 
 ## "Simulate starting a new R session, by
-rm(list=ls(all=TRUE))
+rm(list=ls(all.names=TRUE))
 set.seed(123) # for repeatability
 
 if(interactive())
@@ -410,7 +410,7 @@ dummy <- data.frame(x = x, y = x + rnorm(x)*w)
 dummy
 fm <- lm(y ~ x, data=dummy)
 summary(fm)
-fm1 <- lm(y ~ x, data=dummy, weight=1/w^2)
+fm1 <- lm(y ~ x, data=dummy, weights=1/w^2)
 summary(fm1)
 attach(dummy)
 lrf <- lowess(x, y)
@@ -444,7 +444,7 @@ anova(fm0, fm)
 detach()
 rm(fm, fm0)
 
-x <- seq(-pi, pi, len=50)
+x <- seq(-pi, pi, length.out=50)
 y <- x
 f <- outer(x, y, function(x, y) cos(y)/(1 + x^2))
 oldpar <- par(no.readonly = TRUE)
@@ -457,7 +457,7 @@ par(oldpar)
 image(x, y, f)
 image(x, y, fa)
 objects(); rm(x, y, f, fa)
-th <- seq(-pi, pi, len=100)
+th <- seq(-pi, pi, length.out=100)
 z <- exp(1i*th)
 par(pty="s")
 plot(z, type="l")
