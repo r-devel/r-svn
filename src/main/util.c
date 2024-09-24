@@ -55,13 +55,15 @@ void R_wfixslash(wchar_t *s);
 extern "C" {
 #endif
 
+
+#include <R_ext/RS.h>
 #if defined FC_LEN_T
-# include <stddef.h>
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
+# include <stddef.h> // for FC_LEN_T, usually size_t
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+NORET void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar);
+void F77_SUB(rwarnc)(char *msg, int *nchar);
+NORET void F77_SUB(rexitc)(char *msg, int *nchar);
 #endif
 
 #ifdef __cplusplus
@@ -1814,9 +1816,9 @@ void R_wfixbackslash(wchar_t *s)
 #endif
 
 #if defined FC_LEN_T
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1832,9 +1834,9 @@ NORET void F77_SYMBOL(rexitc)(char *msg, int *nchar)
 }
 
 #if defined FC_LEN_T
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
+void F77_SUB(rwarnc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1849,7 +1851,7 @@ void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
     warning("%s", buf);
 }
 
-void F77_SYMBOL(rchkusr)(void)
+void F77_SUB(rchkusr)(void)
 {
     R_CheckUserInterrupt();
 }

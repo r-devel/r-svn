@@ -321,9 +321,12 @@ utilities do not accept spaces in file paths): non-English alphabetic
 characters cannot be guaranteed to be supported in all locales.  It
 would be good practice to avoid the shell metacharacters
 @code{()@{@}'[]$~}: @code{~} is also used as part of `8.3' filenames on
-Windows.  In addition, packages are normally distributed as tarballs,
-and these have a limit on path lengths: for maximal portability 100
-bytes.
+Windows.  In addition, some applications on Windows can only work with path
+names of certain length, following an earlier limit in the Windows operating
+system. Packages are normally distributed as tarballs, and these have a limit
+on path lengths. So, to be friendly to users who themselves may want to use a
+relatively long path where they extract the package, and for maximal 
+portability, 100 bytes.
 
 A source package if possible should not contain binary executable files:
 they are not portable, and a security risk if they are of the
@@ -483,7 +486,7 @@ Auto-generated package citation information takes advantage of this
 specification. The @samp{Author} and @samp{Maintainer} fields are
 auto-generated from it if needed when building@footnote{at least if this
 is done in a locale which matches the package encoding.}  or installing.
-Note that for CRAN submissions, providing @samp{Authors@R} is required,
+Note that for CRAN submissions, providing @samp{Authors@@R} is required,
 and providing @abbr{ORCID} identifiers (see @url{https://orcid.org/})
 where possible is strongly encouraged.
 
@@ -6302,20 +6305,21 @@ include it.
 Be careful if using @code{malloc} or @code{calloc}.  First, their return
 value must always be checked to see if the allocation succeeded -- it is
 almost always easier to use @R{}'s @code{R_Calloc}, which does check.
-Second, the first argument is of type @code{size_t} and recent compilers
-are warning about passing signed arguments (which could get promoted to
-ridiculously large values).
+Second, the first argument is of type @code{size_t}@footnote{an unsigned
+64-bit integer type on recent @R{} platforms.} and some recent compilers
+warn about passing @code{int} (signed) arguments (which could get
+promoted to ridiculously large values).
 
 @item
 For C code, consider using the flag @option{-Wstrict-prototypes} which
-is supported by @command{gcc} and @I{LLVM} and Apple @command{clang}.  This
-has found quite a number of errors where functions have been declared
-without arguments and is likely to become the default in future
-compilers.  (It already is for @I{LLVM} @command{clang} in C23 mode.)  Note
-that using @code{f()} for a function without any parameters was
-deprecated in C99 and C11, but it expected to be non-deprecated in C23.
-However, @code{f(void)} is supported by all standards and avoids any
-uncertainty.
+is supported by @command{gcc} and @I{LLVM} and Apple @command{clang}.
+This has found quite a number of errors where functions have been
+declared without arguments and is likely to become the default in future
+compilers.  (It already is for Apple @command{clang} and for @I{LLVM}
+@command{clang} in C23 mode.)  Note that using @code{f()} for a function
+without any parameters was deprecated in C99 and C11, but it expected to
+be non-deprecated in C23.  However, @code{f(void)} is supported by all
+standards and avoids any uncertainty.
 @c draft n3054 §6.7.6.3 point 13 and footnote.
 
 @I{LLVM} @command{clang} has a separate warning
@@ -6372,7 +6376,7 @@ something like
     error("Actual: %0.f; Expected %0.f\n", (double) XLENGTH(Robj), (double) nelem);
 @end example
 @noindent
-@c x86_64 as a 52-bit design limit.
+@c x86_64 has a 52-bit design limit.
 @c Linux and Windows are said to have 48-bit virtual address limits.
 (This could print to full precision, lengths well beyond the address space
 limits of current OSes, let alone practical limits.)
@@ -6387,6 +6391,12 @@ as @code{int64_t}.
 @c macOS maps int64_t to 'long long'
 So the values will need to be cast to the type assumed by the format
 (and @code{%lld} was not supported on Windows until @R{}@tie{}4.2.0).
+
+@item
+@I{Variadic} macros in C or C++ only portably allow a non-zero number of
+arguments, although some compilers have allowed zero, often with a
+warning. The latter was standardized in C++20 using the @code{__VA_OPT__}
+macro.  C23 will also allow zero arguments in a similar way.
 
 @end itemize
 
@@ -15353,13 +15363,15 @@ to define a function in C to be called from Fortran
 to declare a Fortran routine in C before use
 @item F77_CALL(@var{name})
 to call a Fortran routine from C
-@item F77_COMDECL(@var{name})
-to declare a Fortran common block in C
-@item F77_COM(@var{name})
-to access a Fortran common block from C
+@c Never used in R nor current packages
+@c Deprecated in R 4.4.2, removed in R 4.5.0.
+@c @item F77_COMDECL(@var{name})
+@c to declare a Fortran common block in C
+@c @item F77_COM(@var{name})
+@c to access a Fortran common block from C
 @end table
 
-On most current platforms these are all the same, but it is unwise to
+On current platforms these are the same, but it is unwise to
 rely on this.  Note that names containing underscores were not legal in
 Fortran 77, and are not portably handled by the above macros.  (Also,
 all Fortran names for use by @R{} are lower case, but this is not

@@ -128,6 +128,18 @@ function(given = NULL, family = NULL, middle = NULL,
                 else
                     names(comment)[ind] <- "ORCID"
             }
+            if(any(ind <- (names(comment) == "ORCID"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ORCID_iD_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ORCID iD: %s.",
+                                             "Invalid ORCID iDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
+            }
         }
 
         rval <- list(given = given, family = family, role = role,
@@ -526,8 +538,13 @@ function(x,
     if(any(include == "comment"))
         x <- lapply(x,
                     function(e) {
-                        e$comment <-
-                            .expand_ORCID_identifier(e$comment, style)
+                        u <- .expand_ORCID_identifier(e$comment, style)
+                        if(!is.null(v <- names(u))) {
+                            i <- which(nzchar(v))
+                            if(length(i))
+                                u[i] <- paste0(v[i], ": ", u[i])
+                        }
+                        e$comment <- u
                         e
                     })
 
@@ -1036,7 +1053,7 @@ function(x, style = "text", .bibstyle = NULL,
         switch(style,
                "text" = format_via_Rd(tools::Rd2txt),
                "html" = format_via_Rd(tools::Rd2HTML),
-               "latex" = format_via_Rd(tools::Rd2latex),
+               "latex"= format_via_Rd(tools::Rd2latex),
                "Bibtex" = {
                    unlist(lapply(x,
                                  function(y)
@@ -1598,9 +1615,7 @@ function(package = "base", lib.loc = NULL, auto = NULL)
     if(identical(meta$Repository, "CRAN")) {
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
-        if(!is.na(d <- meta[["Date/Publication"]]) &&
-           (as.Date(d) <= Sys.Date() - 1L))
-            z$doi <- sprintf("10.32614/CRAN.package.%s", package)
+        z$doi <- sprintf("10.32614/CRAN.package.%s", package)
     }
 
     if(identical(meta$Repository, "R-Forge")) {

@@ -897,6 +897,9 @@ extern void R_WaitEvent(void);
 # define FILESEP     "/"
 #endif /* Win32 */
 
+/* F77_SYMBOL was a minimal version of F77_SUB from RS.h, 
+   used in main/util.c and main/registration.c
+   F77_QSYMBOL is unused
 #ifdef HAVE_F77_UNDERSCORE
 # define F77_SYMBOL(x)	x ## _
 # define F77_QSYMBOL(x)	#x "_"
@@ -904,6 +907,7 @@ extern void R_WaitEvent(void);
 # define F77_SYMBOL(x)	x
 # define F77_QSYMBOL(x) #x
 #endif
+*/
 
 /*  Heap and Pointer Protection Stack Sizes.  */
 
@@ -942,8 +946,8 @@ extern void R_WaitEvent(void);
 #endif
 
 
-#define Mega 1048576. /* 1 Mega Byte := 2^20 (= 1048576) Bytes */
-#define Giga 1073741824. /* 1 Giga Byte := 2^30 Bytes */
+#define Mega 1048576.    /* Misnomer !! 1 MiB (mebibyte) := 2^20 (= 1048576) Bytes */
+#define Giga 1073741824. /* Misnomer !! 1 GiB (gibibyte) := 2^30 = (2^10)^3 Bytes */
 
 /*	R_PPSSIZE  The pointer protection stack size  */
 /*	R_NSIZE	   The number of cons cells	 */
@@ -2194,6 +2198,10 @@ SEXP R_makeWarningCondition(SEXP call,
 			  const char *classname, const char *subclassname,
 			  int nextra, const char *format, ...)
      R_PRINTF_FORMAT(5,0);
+
+NORET void R_MissingArgError     (SEXP symbol,     SEXP call, const char* subclass);
+NORET void R_MissingArgError_c   (const char *arg, SEXP call, const char* subclass);
+
 SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);

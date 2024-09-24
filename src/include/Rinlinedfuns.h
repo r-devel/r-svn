@@ -30,9 +30,11 @@
 #ifndef R_INLINES_H_
 #define R_INLINES_H_
 
+#if defined(__GNUC_STDC_INLINE__) && !defined(C99_INLINE_SEMANTICS)
 /* Probably not able to use C99 semantics in gcc < 4.3.0 */
-#if __GNUC__ == 4 && __GNUC_MINOR__ >= 3 && defined(__GNUC_STDC_INLINE__) && !defined(C99_INLINE_SEMANTICS)
-#define C99_INLINE_SEMANTICS 1
+# if defined(__clang__) || __GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 3
+#  define C99_INLINE_SEMANTICS 1
+# endif
 #endif
 
 /* Apple's gcc build >5400 (since Xcode 3.0) doesn't support GNU inline in C99 mode 
@@ -54,6 +56,8 @@
    Do this even for __GNUC_GNUC_INLINE__ to shut up warnings in 4.2.x.
    __GNUC_STDC_INLINE__ and __GNUC_GNU_INLINE__ were added in gcc 4.2.0.
 */
+/* object files will not contain definitions of functions declared
+   "extern inline" in gnu90 inline mode */
 # if defined(__GNUC_STDC_INLINE__) || defined(__GNUC_GNU_INLINE__)
 #  define INLINE_FUN extern __attribute__((gnu_inline)) inline
 # else
@@ -65,7 +69,7 @@
 #if C99_INLINE_SEMANTICS
 # undef INLINE_FUN
 # ifdef COMPILING_R
-/* force exported copy */
+/* force exported copy (in inlined.c) */
 #  define INLINE_FUN extern inline
 # else
 /* either inline or link to extern version at compiler's choice */
@@ -96,7 +100,7 @@ SEXP CAR(SEXP e);
 #endif
 
 #ifdef STRICT_TYPECHECK
-HIDDEN INLINE_FUN void CHKVEC(SEXP x) {
+/*HIDDEN*/ INLINE_FUN void CHKVEC(SEXP x) {
     switch (TYPEOF(x)) {
     case CHARSXP:
     case LGLSXP:
@@ -320,7 +324,7 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 # define CHECK_VECTOR_RAW_ELT(x, i) do { } while(0)
 #endif
 
-HIDDEN INLINE_FUN int *LOGICAL0(SEXP x) {
+/*HIDDEN*/ INLINE_FUN int *LOGICAL0(SEXP x) {
     CHECK_STDVEC_LGL(x);
     return (int *) STDVEC_DATAPTR(x);
 }
@@ -333,7 +337,7 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
     LOGICAL0(x)[0] = v;
 }
 
-HIDDEN INLINE_FUN int *INTEGER0(SEXP x) {
+/*HIDDEN*/ INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
     return (int *) STDVEC_DATAPTR(x);
 }
@@ -341,7 +345,7 @@ HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
     return INTEGER0(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
+/*HIDDEN*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
     INTEGER0(x)[0] = v;
 }
@@ -354,7 +358,7 @@ HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
     CHECK_SCALAR_REAL(x);
     return REAL0(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
+/*HIDDEN*/ INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
     CHECK_SCALAR_REAL(x);
     REAL0(x)[0] = v;
 }
@@ -367,12 +371,12 @@ HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
     CHECK_SCALAR_CPLX(x);
     return COMPLEX0(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
+/*HIDDEN*/ INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
     CHECK_SCALAR_CPLX(x);
     COMPLEX0(x)[0] = v;
 }
 
-HIDDEN INLINE_FUN Rbyte *RAW0(SEXP x) {
+/*HIDDEN*/ INLINE_FUN Rbyte *RAW0(SEXP x) {
     CHECK_STDVEC_RAW(x);
     return (Rbyte *) STDVEC_DATAPTR(x);
 }
@@ -380,7 +384,7 @@ HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     CHECK_SCALAR_RAW(x);
     return RAW0(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
+/*HIDDEN*/ INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
     CHECK_SCALAR_RAW(x);
     RAW0(x)[0] = v;
 }

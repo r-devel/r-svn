@@ -80,7 +80,21 @@
 
       \item \code{pnorm(x)} underflows more gracefully.
 
-      \item \code{get(nam, env)} now signals a \emph{classed} error (\code{"getMissingError"})
+      \item \code{get(nam, env)} now signals a \emph{classed} error,
+      \code{"getMissingError"}, as \dQuote{subclass} of
+      \code{"missingArgError"}  where the latter is used also in similar
+      situations, e.g., \code{f <- function(x) exp(x); try(f())} .
+
+      \item The set operations now avoid the \code{as.vector()}
+      transformation for same-kind apparently vector-like operands.
+
+      \item \code{md5sum()} can be used to compute an MD5 hash of a raw
+      vector of bytes by using the \code{bytes=} argument instead
+      of \code{files=}. The two arguments are mutually exclusive.
+
+      \item Added function \code{sha256sum()} in package \pkg{tools}
+      analogous to \code{md5sum()} implementing the \abbr{SHA}-256 hashing
+      algorithm.
     }
   }
 
@@ -91,6 +105,9 @@
 
       \item Building the HTML (and Info) versions of the R manuals now
       requires \command{texi2any} from \I{Texinfo} 6.1 or later.
+
+      \item Failures in building the manuals under \file{doc} now abort
+      the installation, removing any file which caused the failure.
     }
   }
 
@@ -208,6 +225,9 @@
       of \code{PI}, \code{Calloc}, \code{Realloc} and \code{Free}: use
       \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or \code{R_Free}
       instead.
+
+      \item The deprecated S-compatibility macros \code{F77_COM} and
+      \code{F77_COMDECL} have been removed from header \file{R_ext/RS.h}.
     }
   }
 
@@ -222,6 +242,12 @@
       \item Installation will define \code{STRICT_R_HEADERS} if
       environment variable \env{_R_USE_STRICT_R_HEADERS_} is set to a
       true value: this is done by \command{R CMD check --as-cran}.
+
+      \item \command{R CMD check} now reports more warnings on
+      long-deprecated/obsolete Fortran features from
+      \command{gfortran -Wall}.  For hints on how to modernize these,
+      see
+      \url{https://fortranwiki.org/fortran/show/Modernizing+Old+Fortran}.
     }
   }
 
@@ -262,11 +288,30 @@
 
       \item Printing \code{ls.str()} now shows \code{"<missing>"} even when
       \R's language setting is not English.
+
+      \item \code{xyTable()} now handles and reports \code{NA}s
+      fixing \PR{18654}.
+      Thanks to \I{Heather Turner} and \I{Zhian Kamvar} for report and patch.
+
+      \item \code{as(*, "raw")} now works as documented, thanks to \I{Mikael
+      Jagan}'s \PR{18795}.
+
+      \item Informational messages of e.g., \code{print(1:1e4, max=1000)},
+      now correctly mention \code{max} in addition to
+      \code{getOption("max.print")}.
     }
   }
 }
 
 \section{\Rlogo CHANGES IN R 4.4.1 patched}{
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item The S-compatibility macros \code{F77_COM} and
+      \code{F77_COMDECL} defined in header \file{R_ext/RS.h} are
+      deprecated and will be removed shortly.  We could find no record
+      of their use.
+    }
+  }
   \subsection{BUG FIXES}{
     \itemize{
       \item \I{Mathlib} function \code{lgammacor(x)} no longer warns about

@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2024-08-21 r87032) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-09-20 r87182) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
@@ -96,7 +96,7 @@ $status
 
 $stdout
  [1] ""                                                                                 
- [2] "R Under development (unstable) (2024-08-21 r87032) -- \"Unsuffered Consequences\""
+ [2] "R Under development (unstable) (2024-09-20 r87182) -- \"Unsuffered Consequences\""
  [3] "Copyright (C) 2024 The R Foundation for Statistical Computing"                    
  [4] "Platform: x86_64-pc-linux-gnu"                                                    
  [5] ""                                                                                 
@@ -796,6 +796,10 @@ character(0)
 > 
 > as.vector(md5sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
 [1] "eb723b61539feef013de476e68b5c50a"
+> md5sum(bytes=raw())
+[1] "d41d8cd98f00b204e9800998ecf8427e"
+> md5sum(bytes=charToRaw("abc"))
+[1] "900150983cd24fb0d6963f7d28e17f72"
 > 
 > 
 > 
@@ -932,6 +936,28 @@ function (x, ...)
 > ## Not run: 
 > ##D pskill(c(237, 245), SIGKILL)
 > ## End(Not run)
+> 
+> 
+> cleanEx()
+> nameEx("sha256sum")
+> ### * sha256sum
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: sha256sum
+> ### Title: Compute SHA-256 Checksums
+> ### Aliases: sha256sum
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> as.vector(sha256sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
+[1] "e6d6a009505e345fe949e1310334fcb0747f28dae2856759de102ab66b722cb4"
+> sha256sum(bytes=raw())
+[1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+> sha256sum(bytes=charToRaw("abc"))
+[1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+> 
 > 
 > 
 > cleanEx()

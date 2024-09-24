@@ -323,6 +323,7 @@ add_dummies <- function(dir, Log)
         text <- strsplit(text, "\n")[[1L]]
         printLog(Log, paste(strwrap(text), collapse = "\n"), "\n")
     }
+    InstLog <-NA_character_ # set in check_src()
 
   ## used for R_runR2 and
   ## .check_package_description
@@ -667,7 +668,9 @@ add_dummies <- function(dir, Log)
                     wrapLog(msg)
                 }
             }
-        }
+         }
+
+        check_rust()
 
         miss <- file.path("inst", "doc", c("Rplots.ps", "Rplots.pdf"))
         if (any(f <- file.exists(miss))) {
@@ -1071,12 +1074,22 @@ add_dummies <- function(dir, Log)
                 y <- sapply(y, clean_up)
                 diff <- y != yorig
                 ## <FIXME>
+                ## Quick fix for consequences of c87095.
+                if(diff[1L]
+                   && grepl("<https://orcid.org/", y[1L], fixed = TRUE)) {
+                    y1 <- gsub("ORCID: <https://orcid.org/",
+                               "<https://orcid.org/",
+                               y[1L], fixed = TRUE)
+                    diff[1L] <- clean_up(y1) != yorig[1L]
+                }
+                ## </FIXME>
+                ## <FIXME>
+                ## Remove eventually.
                 if(diff[1L]
                    && grepl("https://orcid.org/", y[1L], fixed = TRUE)) {
                     ## Argh.  Might be from using the new ORCID id
                     ## mechanism but having built with R < 3.5.0.
                     ## Let's ignore ...
-                    ## Remove eventually.
                     aar$comment <- lapply(aar$comment, unname)
                     y1 <- utils:::.format_authors_at_R_field_for_author(aar)
                     diff[1L] <- clean_up(y1) != yorig[1L]
@@ -2474,12 +2487,13 @@ add_dummies <- function(dir, Log)
                           sprintf("tools:::.check_Rd_xrefs(dir = \"%s\")\n", pkgdir))
             any <- FALSE
             out <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
-            if (length(out)) {
-                if (!all(grepl("(Package[s]? unavailable to check|Unknown package.*in Rd xrefs|Undeclared package.*in Rd xrefs)", out)))
-                    warningLog(Log)
-                else noteLog(Log)
+            if(length(out) &&
+               !all(grepl("(Package[s]? unavailable to check|Unknown package.*in Rd xrefs|Undeclared package.*in Rd xrefs)",
+                          out))) {
+                warningLog(Log)
                 any <- TRUE
                 printLog0(Log, paste(c(out, ""), collapse = "\n"))
+                out <- NULL
             }
 
             ## The above checks whether Rd xrefs can be resolved within
@@ -2516,6 +2530,18 @@ add_dummies <- function(dir, Log)
                     printLog0(Log, paste(c(msg, ""), collapse = "\n"))
                 }
             }
+
+            if(length(out)) {
+                if(!any) {
+                    if(R_check_use_install_log)
+                        infoLog(Log)
+                    else
+                        noteLog(Log)
+                    any <- TRUE
+                }
+                printLog0(Log, paste(c(out, ""), collapse = "\n"))
+            }
+
             if(!any)
                 resultLog(Log, "OK")
         }
@@ -2843,7 +2869,12 @@ add_dummies <- function(dir, Log)
             if (length(out)) {
                 bad <- startsWith(out, "Warning:")
                 bad2 <-  any(grepl("(unable to find required package|there is no package called)", out))
-                if(any(bad) || bad2) warningLog(Log) else noteLog(Log)
+                if(any(bad) || bad2)
+                    warningLog(Log)
+                else if(R_check_use_log_info)
+                    infoLog(Log)
+                else
+                    noteLog(Log)
                 printLog0(Log, .format_lines_with_indent(out), "\n")
                 if(bad2)
                     if(R_cdo_data || R_check_suggests_only)
@@ -2863,7 +2894,10 @@ add_dummies <- function(dir, Log)
             if(thislazy || lazyz0) {
                 checkingLog(Log, "LazyData")
                 if (thislazy && !dir.exists("data")) {
-                    noteLog(Log)
+                    if(R_check_use_log_info)
+                        infoLog(Log)
+                    else
+                        noteLog(Log)
                     printLog0(Log,
                               "  'LazyData' is specified without a 'data' directory\n")
                     if(lazyz0)
@@ -3345,8 +3379,14 @@ add_dummies <- function(dir, Log)
                 if(!is.na(SysReq) &&
                    grepl("GNU [Mm]ake",
                          gsub("[[:space:]]+", " ", SysReq))) {
-                    if(!config_val_to_logical(Sys.getenv("_R_CHECK_CRAN_INCOMING_NOTE_GNU_MAKE_", "FALSE"))) {
-                        noteLog(Log, "GNU make is a SystemRequirements.")
+                    if(!config_val_to_logical(Sys.getenv("_R_CHECK_CRAN_INCOMING_NOTE_GNU_MAKE_",
+                                                         "FALSE"))) {
+                        if(R_check_use_log_info)
+                            infoLog(Log,
+                                    "GNU make is a SystemRequirements.")
+                        else
+                            noteLog(Log,
+                                    "GNU make is a SystemRequirements.")
                     } else resultLog(Log, "OK")
                 } else {
                     warningLog(Log, "Found the following file(s) containing GNU extensions:")
@@ -3742,6 +3782,7 @@ add_dummies <- function(dir, Log)
                        else
                            file.path(pkgoutdir, "00install.out")
             if (file.exists(instlog) && dir.exists('src')) {
+                InstLog <<- instlog
                 checkingLog(Log, "compilation flags used")
                 lines <- readLines(instlog, warn = FALSE)
                 ## skip stuff before building libs
@@ -3907,6 +3948,40 @@ add_dummies <- function(dir, Log)
                     else paste0(msg2, ".")
                     )
         } else resultLog(Log, "OK")
+    }
+
+    check_rust <- function()
+    {
+        ## It is impossible to tell definiitively if a package
+        ## compiles rust code.  SystemRequirements in DESCRIPTION is
+        ## fres-format, and only advisory.  So we look at the
+        ## installation log, which we found in check_src()
+        if (is.na(InstLog)) return (NA)
+        ##message("InstLog = ", InstLog)
+        lines <- readLines(InstLog, warn = FALSE)
+        l1 <- grep("(cargo build|   Compiling )", lines)
+        if(!length(l1)) return(NA)
+        l2 <- grep("   Compiling ", lines)
+        checkingLog(Log, "Rust compilation")
+        msg <- character(); OK <- TRUE
+        if(any(grep("Downloading crates ...", lines, fixed = TRUE))) {
+            OK <- FALSE
+            msg <- c(msg, "Downloads Rust crates")
+        }
+        lines <- if(length(l2)) lines[1:l2[1L]] else lines[1:l1[1L]]
+        patt <- "rustc *[[:digit:]]+[].][[:digit:]]"
+        ans <- any(grepl(patt, lines, ignore.case = TRUE))
+        if(!ans) {
+            OK <- FALSE
+            msg <- c(msg, "No rustc version reported prior to compilation")
+##            print(lines)
+        }
+        if(OK)
+            resultLog(Log, "OK")
+        else {
+            msg <- paste(paste0("  ", msg), collapse = "\n")
+            warningLog(Log, msg)
+        }
     }
 
     check_loading <- function(arch = "")
@@ -5805,6 +5880,7 @@ add_dummies <- function(dir, Log)
                              ": warning: .* \\[-Wformat-overflow=\\]",
                              ": warning: .* \\[-Wformat-truncation=\\]",
                              ": warning: .* \\[-Wnonull",
+                             ## gcc warnings usually about [mc]alloc with signed argument
                              ": warning: .* \\[-Walloc-size-larger-than=\\]",
                              ": warning: .* \\[-Wterminate\\]",
                              ## Solaris warns on this next one. Also clang
@@ -5877,7 +5953,7 @@ add_dummies <- function(dir, Log)
                              "\\[-Wuse-after-free\\]",
                              ## rustc
                              "^warning: use of deprecated"
-                            )
+                             )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
                 warn_re <- c(warn_re,
@@ -5964,6 +6040,10 @@ add_dummies <- function(dir, Log)
                              " warning: switch condition has boolean value \\[-Wswitch-bool\\]",
                              " warning: .* \\[-Wembedded-directive\\]",
                              " warning: using directive refers to implicitly-defined namespace",
+                             ## same flag but different wording for clang++ 19
+                             ## C99 and C++11 require at least one argument:
+                             ## this is relaxed in C23 and C++20.
+                             "\\[-Wgnu-zero-variadic-macro-arguments\\]",
 
                              ## LLVM flang warnings:
                              ## Includes Hollerith constants
@@ -5975,9 +6055,13 @@ add_dummies <- function(dir, Log)
 
                 lines <- grep(warn_re, lines, value = TRUE, useBytes = TRUE)
 
-                ## gcc (even 9) seems not to know the size of pointers, so skip
-                ## some from -Walloc-size-larger-than= and -Wstringop-overflow=
-                lines <- grep("exceeds maximum object size.*-W(alloc-size-larger-than|stringop-overflow)", lines,
+                ## "gcc (even 9) seems not to know the size of pointers, so skip
+                ## some from -Walloc-size-larger-than= and -Wstringop-overflow="
+##                lines <- grep("exceeds maximum object size.*-W(alloc-size-larger-than|stringop-overflow)", lines,
+                ## Skip those from -Wstringop-overflow=
+                ## The alloc-size ones are genuine,
+                ## seen from malloc, alloc and (C++) new called with 'int' size
+                lines <- grep("exceeds maximum object size.*-Wstringop-overflow", lines,
                               value = TRUE, useBytes = TRUE, invert = TRUE)
 
                 ## Filter out boost/armadillo header warnings
@@ -6110,21 +6194,27 @@ add_dummies <- function(dir, Log)
                 ## something "true".
                 ## All gfortran -Wall warnings start Warning: so have been
                 ## included.  We exclude some now.
+
                 check_src_flag <- Sys.getenv("_R_CHECK_WALL_FORTRAN_", "FALSE")
                 if (!config_val_to_logical(check_src_flag)) {
                     warn_re <-
                         c("Label .* at \\(1\\) defined but not used",
-                          "Line truncated at \\(1\\)",
-                          "ASSIGN statement at \\(1\\)",
-                          "Assigned GOTO statement at \\(1\\)",
-                          "arithmetic IF statement at \\(1\\)",
-                          "Nonconforming tab character (in|at)",
-                          "Obsolescent feature:")
+                          "Line truncated at \\(1\\)", # none currently
+                          ## None of these left
+                          ## "ASSIGN statement at \\(1\\)",
+                          ## "Assigned GOTO statement at \\(1\\)",
+                          ## "arithmetic IF statement at \\(1\\)",
+                          ## Reported as from 2024-09
+                          ## "Obsolescent feature:",
+                          ## see e.g. https://fortranwiki.org/fortran/show/Modernizing+Old+Fortran
+                          "Obsolescent feature: Statement function",
+                          "Nonconforming tab character (in|at)")
                     warn_re <- c(warn_re,
                                  "Warning: .*\\[-Wconversion]",
                                  ## We retain [-Wuninitialized]
                                  "Warning: .*\\[-Wmaybe-uninitialized]",
-                                 "Warning: .*\\[-Wintrinsic-shadow]",
+                                 ## Reported as from 2004-09
+                                 ## "Warning: .*\\[-Wintrinsic-shadow]",
                                  ## R itself uses these, the latter in LAPACK
                                  "Warning: GNU Extension: DOUBLE COMPLEX",
                                  "Warning: GNU Extension: .*COMPLEX[*]16"
@@ -6265,7 +6355,10 @@ add_dummies <- function(dir, Log)
         if(!is.na(total) &&
            total > 1024 * as.numeric(Sys.getenv("_R_CHECK_PKG_SIZES_THRESHOLD_", unset = 5)) && # report at 5Mb
            pkgname != "Matrix") { # <- large recommended package
-            noteLog(Log)
+            if(R_check_use_log_info)
+                infoLog(Log)
+            else
+                noteLog(Log)
             printLog(Log, sprintf("  installed size is %4.1fMb\n", total/1024))
             rest <- res2[-nrow(res2), ]
             rest[, 2L] <- sub("./", "", rest[, 2L], fixed=TRUE)
@@ -6378,13 +6471,24 @@ add_dummies <- function(dir, Log)
                 ## Special-case when there is only the maintainer
                 ## address to note (if at all).
                 maintainer <- res$Maintainer
+                ## <FIXME>
+                ## Env var _R_CHECK_MAINTAINER_ADDRESS_ seems unused?
                 if(nzchar(maintainer) &&
                    identical(maintainer,
                              Sys.getenv("_R_CHECK_MAINTAINER_ADDRESS_"))) {
                     resultLog(Log, "OK")
                     out <- character()
                 }
-                else resultLog(Log, "Note_to_CRAN_maintainers")
+                ## </FIXME>
+                else {
+                    ## <FIXME>
+                    ## Why do we want to note the maintainer address?
+                    if(R_check_use_log_info)
+                        infoLog(Log)
+                    else
+                        resultLog(Log, "Note_to_CRAN_maintainers")
+                    ## </FIXME>
+                }
             } else if(length(res$bad_package)) {
                 errorLog(Log)
                 bad <- TRUE
@@ -6395,7 +6499,22 @@ add_dummies <- function(dir, Log)
                       isTRUE(res$empty_Maintainer_name) ||
                       isTRUE(res$Maintainer_needs_quotes))
                 warningLog(Log)
-            else if(length(res) > 1L) noteLog(Log)
+            else if(length(res) > 1L) {
+                if((all(names(res) %in%
+                        c("Maintainer",
+                          "spelling",
+                          "suggests_or_enhances_not_in_mainstream_repositories",
+                          "additional_repositories_analysis_results")))
+                   ## Maybe using Filter(NROW, res) is safe enough?
+                   && (NROW(res$spelling) == 0L)
+                   && (NROW(y <- res$additional_repositories_analysis_results)
+                       == length(res$suggests_or_enhances_not_in_mainstream_repositories))
+                   && all(y[, 2L] == "yes")
+                   && R_check_use_log_info)
+                    infoLog(Log)
+                else
+                    noteLog(Log)
+            }
             else resultLog(Log, "OK")
             printLog0(Log, c(paste(out, collapse = "\n\n"), "\n"))
             if(bad) maybe_exit(1L)
@@ -6555,7 +6674,10 @@ add_dummies <- function(dir, Log)
             } else {
                 if( length(res[["orphaned"]]) || length(res[["orphaned1"]]) )
                     warningLog(Log)
-                else noteLog(Log)
+                else if(R_check_use_log_info)
+                    infoLog(Log)
+                else
+                    noteLog(Log)
                 printLog0(Log, paste(out, collapse = "\n"))
                 ## if(length(res$orphaned2))
                 ##     wrapLog("\nSuggested packages need to be used conditionally:",
@@ -7119,6 +7241,10 @@ add_dummies <- function(dir, Log)
 
     if (!nzchar(check_subdirs)) check_subdirs <- R_check_subdirs_strict
 
+    R_check_use_log_info <-
+        config_val_to_logical(Sys.getenv("_R_CHECK_LOG_USE_INFO_",
+                                         "FALSE"))
+
     if (as_cran) {
         if (extra_arch) {
             message("'--as-cran' turns off '--extra-arch'")
@@ -7173,6 +7299,7 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_VALIDATE_UTF8_" = "TRUE")
         Sys.setenv("_R_CXX_USE_NO_REMAP_" = "TRUE")
         Sys.setenv("_R_USE_STRICT_R_HEADERS_" = "TRUE")
+        Sys.setenv("_R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_" = "TRUE")
         Sys.setenv("_R_CHECK_XREFS_NOTE_MISSING_PACKAGE_ANCHORS_" = "TRUE")
         R_check_vc_dirs <- TRUE
         R_check_executables_exclusions <- FALSE
