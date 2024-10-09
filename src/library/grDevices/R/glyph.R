@@ -5,7 +5,7 @@
 mapCharWeight <- function(x) {
     if (is.na(x))
         x
-    else 
+    else
         switch(as.character(x),
                normal=400,
                bold=700,
@@ -19,7 +19,7 @@ mapWeight <- function(x) {
         x
     } else {
         sapply(x, mapCharWeight, USE.NAMES=FALSE)
-    }   
+    }
 }
 
 fontStyles <- c("normal", "italic", "oblique")
@@ -120,14 +120,14 @@ glyphFont <- function(file, index,
     nafile <- is.na(file)
     if (any(nchar(file[!nafile], "bytes") > 500))
         warning("Font file longer than 500 will be truncated")
-    index <- as.integer(index)
-    family <- as.character(family)
+    index <- as.integer(index)[1]
+    family <- as.character(family)[1]
     nafamily <- is.na(family)
     if (any(nchar(family[!nafamily], "bytes") > 200))
         warning("Font family longer than 200 will be truncated")
-    weight <- mapWeight(weight)
-    style <- mapStyle(style)
-    PSname <- as.character(PSname)
+    weight <- mapWeight(weight)[1]
+    style <- mapStyle(style)[1]
+    PSname <- as.character(PSname)[1]
     ## Missing PSname values are "estimated"
     naPS <- is.na(PSname)
     if (any(naPS)) {
@@ -151,7 +151,7 @@ glyphFont <- function(file, index,
     names <- rle(PSname)$lengths
     if (!(all(families == files) && all(files == names)))
         stop("Font information is inconsistent")
-    
+
     font <- list(file=file, index=index,
                  family=family, weight=weight, style=style,
                  PSname=PSname)
