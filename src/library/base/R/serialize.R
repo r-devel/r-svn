@@ -53,7 +53,10 @@ readRDS <- function(file, refhook = NULL)
     } else if (inherits(file, "connection"))
 	con <- if(inherits(file, "url")) gzcon(file) else file
     else stop("bad 'file' argument")
-    .Internal(unserializeFromConn(con, refhook))
+    tryCatch(.Internal(unserializeFromConn(con, refhook)), error = function(err){
+        err$message <- paste(err$message, "in", summary(con)$description)
+        stop(err)
+    })
 }
 
 infoRDS <- function(file)
