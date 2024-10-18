@@ -669,8 +669,10 @@ add_dummies <- function(dir, Log)
                 }
             }
          }
-
-        check_rust()
+        
+        if (as_cran) {
+            check_rust()
+        }
 
         miss <- file.path("inst", "doc", c("Rplots.ps", "Rplots.pdf"))
         if (any(f <- file.exists(miss))) {
