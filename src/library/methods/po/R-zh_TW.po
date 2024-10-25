@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -307,15 +307,6 @@ msgstr "無法插入相對應於空標記的方法"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "無法將方法插入非方法串列物件(類別為 %s)"
 
-msgid "invalid method sublist"
-msgstr "方法子串列不正確"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f 不是正確的泛型函式: 方法串列是類別為 %s 的物件"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s 的值必須為 TRUE，FALSE，或是個帶名稱的邏輯向量 ; 現在得到的卻是類別為 %s 的物件"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "預設方法必須是方法定義，原始方法或 NULL，得到的卻是類別為 %s 的物件"
 
@@ -339,9 +330,6 @@ msgstr "用在函式 %3$s 上的方法標記(%1$d)裡元素比泛型標記(%2$d)
 
 msgid "no generic function found corresponding to %s"
 msgstr "%s 找不到泛型函式"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "因為其類別 %2$s 沒有定義，忽略 %1$s 此一方法串列單元"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s 和其他\"MethodsList\"後設資料目標物件都已經不推薦使用了"
@@ -501,7 +489,8 @@ msgstr "類別不能同時具有普通的和暗藏的資料種類"
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "正確的方法必須的帶一個引數的函式，收到的卻是類別為 %s 的物件"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "找不到所需要的程輯封包 %s"
 
 msgid "unable to find an environment containing class %s"
@@ -890,7 +879,8 @@ msgstr "方法骨架寫於 %s"
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "元方法表裡方法 %1$s，標籤 %2$s 的物件不對，類別不應該是 %3$s"
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+#, fuzzy
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "無效的 mlist 元素的標籤 %s 的 %d 級 (應該是方法列表或方法，類別另是 %s)"
 
 msgid "bad method object stored in method table, class %s"
@@ -1319,6 +1309,18 @@ msgstr[0] "從 %2$d 個歧義可能選擇中選 %1$s 方法"
 msgid "no definition of class %s in the specified position, %s, definition on : %s"
 msgid_plural "no definition of class %s in the specified position, %s, definitions on : %s"
 msgstr[0] "在指定的 %2$s 這個位置不存在類別 %1$s 的定義，定義在: %3$s"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "方法子串列不正確"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f 不是正確的泛型函式: 方法串列是類別為 %s 的物件"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s 的值必須為 TRUE，FALSE，或是個帶名稱的邏輯向量 ; 現在得到的卻是類別為 %s 的物件"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "因為其類別 %2$s 沒有定義，忽略 %1$s 此一方法串列單元"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "給 '%s' 進行方法指派時的呼叫發生錯誤(沒有預設方法)"

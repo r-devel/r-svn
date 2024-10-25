@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 2.13.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:29\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-22 18:10+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: http://www.feferraz.net/br/P/Projeto_Traducao_R_Portugues\n"
@@ -2377,7 +2377,8 @@ msgstr "conf.level solicitado não alcançável"
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr "impossível computar os intervalos de confiança quando todas as observações são empates"
 
-msgid "must supply either 'formula' or 'data'"
+#, fuzzy
+msgid "must supply 'formula' or 'data'"
 msgstr "necessário fornecer 'formula' ou 'data'"
 
 msgid "%s applies only to two-way tables"

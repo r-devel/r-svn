@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 2.13.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: http://www.feferraz.net/br/P/Projeto_Traducao_R_Portugues\n"
@@ -233,9 +233,6 @@ msgstr "'breaks' não é estritamente crescente"
 
 msgid "'probability' is an alias for '!freq', however they differ."
 msgstr "'probability' é um sinônimo para '!freq', porém, eles diferem."
-
-msgid "fuzz must be non-negative"
-msgstr ""
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
 msgstr "alguns valores de 'x' não computados; talvez 'breaks' não abranja todo o intervalo de 'x'"

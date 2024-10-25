@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -301,15 +301,6 @@ msgstr "wstawienie metody odpowiadającej pustej sygnaturze"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "wstawienie metody w obiekt nie będący listą metod (klasa %s)"
 
-msgid "invalid method sublist"
-msgstr "niepoprawne podlista metod"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f nie jest poprawną ogólną funkcją: lista metod była obiektem klasy %s"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s musi być TRUE, FALSE, lub nazwanym wektorem logicznym tych wartości; otrzymano obiekt klasy %s"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "domyślna metoda musi być definicją metody, prymitywną funkcją lub wartością NULL: otrzymano obiekt klasy %s"
 
@@ -333,9 +324,6 @@ msgstr "więcej elementów w sygnaturze metody (%d) niż w ogólnej sygnaturze (
 
 msgid "no generic function found corresponding to %s"
 msgstr "nie znaleziono ogólnej funkcji odpowiadającej %s"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "pomijanie elementów listy metod %s nieoczekiwanej klasy %s"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s, razem z innym użyciem obiektów metadanych 'MethodsList' jest przestarzałe."
@@ -495,7 +483,8 @@ msgstr "klasa nie może mieć jednocześnie zwykłego oraz ukrytego typu danych"
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "metoda poprawności musi być funkcją jednego argumentu, otrzymano obiekt klasy %s"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "nie można znaleźć wymaganego pakietu %s"
 
 msgid "unable to find an environment containing class %s"
@@ -884,7 +873,8 @@ msgstr "struktura metody zapisana w %s"
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "niepoprawny obiekt w meta tablicy metod dla %s, etykieta %s, otrzymano klasę %s"
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+#, fuzzy
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "niepoprawny element 'mlist' dla sygnatury %s na poziomie %d (powinno być 'MethodDefinition' lub '.Primitive', otrzymano klasę %s)"
 
 msgid "bad method object stored in method table, class %s"
@@ -1353,6 +1343,18 @@ msgid_plural "no definition of class %s in the specified position, %s, definitio
 msgstr[0] "brak definicji klasy %s we wskazanym położeniu, %s, definicja: %s"
 msgstr[1] "brak definicji klasy %s we wskazanym położeniu, %s, definicje: %s"
 msgstr[2] "brak definicji klasy %s we wskazanym położeniu, %s, definicje: %s"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "niepoprawne podlista metod"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f nie jest poprawną ogólną funkcją: lista metod była obiektem klasy %s"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s musi być TRUE, FALSE, lub nazwanym wektorem logicznym tych wartości; otrzymano obiekt klasy %s"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "pomijanie elementów listy metod %s nieoczekiwanej klasy %s"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "niepoprawne wywołanie w metodzie rozdziału do %s (brak domyślnej metody)"

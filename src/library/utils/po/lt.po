@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: utils 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2024-10-25 14:50-0700\n"
 "PO-Revision-Date: 2020-12-08 12:22+0200\n"
 "Last-Translator: r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com\n"
 "Language-Team: Lithuanian\n"
@@ -225,33 +225,33 @@ msgstr "nepalaikoma \"Windows\" versija"
 msgid "argument must be a character vector or a raw vector"
 msgstr "argumentas turi būti simbolių vektorius arba neapdorotas vektorius"
 
-#: windows/util.c:330
+#: windows/util.c:332
 msgid "unable to open the clipboard"
 msgstr "neįmanoma atidaryti mainų srities"
 
-#: windows/util.c:335
+#: windows/util.c:337
 msgid "unable to write to the clipboard"
 msgstr "neįmanoma rašyti į mainų sritį"
 
-#: windows/util.c:414
+#: windows/util.c:416
 msgid "'title' must be a character string"
 msgstr "'title' turi būti simbolių eilutė"
 
-#: windows/util.c:423
+#: windows/util.c:425
 msgid "'text' must be a character string"
 msgstr "'text' turi būti simbolių eilutė"
 
-#: windows/util.c:462
+#: windows/util.c:464
 #, c-format
 msgid "'%s' must be length 1"
 msgstr "'%s' ilgis turi būti 1"
 
-#: windows/util.c:575
+#: windows/util.c:577
 #, c-format
 msgid "'%s' must be a list"
 msgstr "'%s' turi būti sąrašas"
 
-#: windows/util.c:579
+#: windows/util.c:581
 #, c-format
 msgid "'%s' element %d is not a window handle"
 msgstr "'%s' elementas %d nėra lango rankenėlė"

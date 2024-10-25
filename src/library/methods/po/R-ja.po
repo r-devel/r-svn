@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.5.0 \n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2015-03-27 14:52+0900 \n"
 "Last-Translator: Masafumi  \n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp> \n"
@@ -304,15 +304,6 @@ msgstr "空のシグナチャ (signature) に対応するメソッドを挿入"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "メソッドをメソッドリストでないオブジェクト (クラス %s) に挿入"
 
-msgid "invalid method sublist"
-msgstr "不正なメソッドサブリスト"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f は適切な総称的関数ではありません: メソッドリストはクラス %s のオブジェクトでした"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s は TRUE, FALSE, もしくはこれらの値の名前付き論理値ベクトルでなければなりません; クラス %s のオブジェクトでした"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "既定のメソッドはメソッド定義，primitive または NULL でなければなりません: クラス %s のオブジェクトを得ました"
 
@@ -336,9 +327,6 @@ msgstr "メソッドシグナチャ (%d) 中に総称的な シグネチャ (%d)
 
 msgid "no generic function found corresponding to %s"
 msgstr "%s に対する総称的関数は見付かりません"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "メソッドリスト要素 %s をスキップします (予期しないクラス %s の)"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s を別の \"MethodsList\" のメタデータオブジェクトとともに使うことは廃止されました。"
@@ -498,7 +486,8 @@ msgstr "クラスは通常と隠れデータタイプの双方を持つことは
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "validity メソッドは一つの変数を持つ関数でなければなりません、クラス %s のオブジェクトを得ました"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "必要とされるパッケージ %s を見付けることが出来ません"
 
 msgid "unable to find an environment containing class %s"
@@ -891,7 +880,7 @@ msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "%s、ラベル %s、に対するメソッドのメタテーブル中に不正なオブジェクトがあります。クラス %s でした"
 
 #, fuzzy
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "シグネチャ %s (レベル %d) に対する不正な mlist (メソッドのリストかメソッドでなければなりません、クラス %s でした)"
 
 msgid "bad method object stored in method table, class %s"
@@ -1324,6 +1313,18 @@ msgstr[0] "メソッド %s を選択 (%d 個の曖昧な可能性から)"
 msgid "no definition of class %s in the specified position, %s, definition on : %s"
 msgid_plural "no definition of class %s in the specified position, %s, definitions on : %s"
 msgstr[0] "クラス %s の定義は指定された位置 %s にありません、以下に関する定義です: %s"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "不正なメソッドサブリスト"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f は適切な総称的関数ではありません: メソッドリストはクラス %s のオブジェクトでした"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s は TRUE, FALSE, もしくはこれらの値の名前付き論理値ベクトルでなければなりません; クラス %s のオブジェクトでした"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "メソッドリスト要素 %s をスキップします (予期しないクラス %s の)"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr " メソッド割り当て '%s' において不正な呼び出し(既定メソッドがありません) "

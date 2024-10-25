@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:29\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2018-09-16 23:38+0800\n"
 "Last-Translator: Wei-Lun Chao <bluebat@member.fsf.org>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -2411,7 +2411,8 @@ msgstr "無法達到所要求的 conf.level"
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr "所有觀察資料值都是一樣的話無法計算精確的置信區間"
 
-msgid "must supply either 'formula' or 'data'"
+#, fuzzy
+msgid "must supply 'formula' or 'data'"
 msgstr "至少要提供 'formula' 和 'data' 中間的一個"
 
 msgid "%s applies only to two-way tables"

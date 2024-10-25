@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: R Core <r-core@r-project.org>\n"
@@ -274,6 +274,10 @@ msgstr ""
 "Mailadresse und nicht-leerem Namen"
 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Das Authors@R Feld enthält Personen mit ungültigen ORCID IDs:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Das Authors@R Feld enthält Personen mit ungültigen ORCID IDs:"
 
 msgid "Encoding '%s' is not portable"
@@ -693,9 +697,6 @@ msgstr "Vignetten-Treiberpaket nicht angegeben"
 msgid "Unsupported engine name"
 msgstr "nicht unterstützter Engine Name"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Keines der Pakete %s hat Vignetten-Treiber registriert"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Vignetten-Treiber %s ist nicht registiert"
 
@@ -781,6 +782,12 @@ msgstr "Fehler: Dies ist R Version %s, benötigt wird R %s %s"
 
 msgid "loading failed"
 msgstr "Laden fehlgeschlagen"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Erhielt %s bei der Auswertung von %s: wollte %s"
@@ -1133,6 +1140,13 @@ msgstr "Paket enthält keinen R Code"
 msgid "package seems to be using lazy loading already"
 msgstr "Paket nutzt lazy loading anscheinend bereits"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' muss ein Zeichenkettenvektor sein"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1226,6 +1240,13 @@ msgstr "Argument '%s' muss eine Zeichenkette oder eine Verbindung sein"
 msgid "unimplemented encoding"
 msgstr "nicht implementierte Kodierung"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' muss eine Zeichenkette sein"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "hiefür muss 'objdump.exe' im PATH sein"
 
@@ -1250,6 +1271,10 @@ msgstr "Test von '%s' fehlgeschlagen"
 msgid "Testing examples for package %s"
 msgstr "Teste die Beispiele für Paket %s"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "Ausführen der Beispiele im Paket "
+
 msgid "comparing %s to %s ..."
 msgstr "vergleiche %s mit %s ..."
 
@@ -1273,6 +1298,10 @@ msgstr "Ausführen spezifischer Tests für das Paket %s"
 
 msgid "Running %s"
 msgstr "Ausführen von %s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "Ausführen von 'texi2dvi' für '%s' fehlgeschlagen"
 
 msgid "Running vignettes for package %s"
 msgstr "Ausführen der Vignetten für das Paket %s"
@@ -1367,7 +1396,8 @@ msgstr "Schreibe finale, aktualisierte PACKAGES Dateien."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES abgeschlossen."
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "'x' muss eine Zeichenkette sein"
 
 msgid "test '%s' is not available"
@@ -1420,6 +1450,10 @@ msgstr "Unbekannte Kodierung mit nicht-ASCII Daten: konvertiere nach ASCII"
 
 msgid "cannot source package code:"
 msgstr "kann Paketquelltext nicht einlesen:"
+
+#, fuzzy
+msgid "inferiorCallError"
+msgstr "interner Fehler"
 
 msgid "inferior call failed"
 msgstr ""
@@ -1547,6 +1581,12 @@ msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "Zusammenfassung: Verarbeitung folgender Datei fehlgeschlagen:"
 msgstr[1] "Zusammenfassung: Verarbeitung folgender Dateien fehlgeschlagen:"
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Keines der Pakete %s hat Vignetten-Treiber registriert"
+msgstr[1] "Keines der Pakete %s hat Vignetten-Treiber registriert"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
@@ -2011,9 +2051,6 @@ msgstr[1] "Zugehörige BibTeX Einträge:"
 #~ msgid "Internal error:  NULL tag"
 #~ msgstr "Interner Fehler: NULL Tag"
 
-#~ msgid "internal error"
-#~ msgstr "interner Fehler"
-
 #~ msgid "Inconsistent arg count for"
 #~ msgstr "Inkonsistenter arg count für"
 
@@ -2212,9 +2249,6 @@ msgstr[1] "Zugehörige BibTeX Einträge:"
 
 #~ msgid "cannot create HTML package index"
 #~ msgstr "kann den HTML Paketindex nicht erzeugen"
-
-#~ msgid "Running examples in package"
-#~ msgstr "Ausführen der Beispiele im Paket "
 
 #~ msgid "... done"
 #~ msgstr "... fertig"

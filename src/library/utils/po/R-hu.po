@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -167,7 +167,13 @@ msgstr ""
 msgid "Use either %s or %s but not both."
 msgstr ""
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+msgid "Arguments of person() should be character or NULL"
+msgstr ""
+
+msgid "subscript out of bounds"
+msgstr ""
+
+msgid "must have some non-empty fields"
 msgstr ""
 
 msgid "method is only applicable to %s objects"
@@ -182,9 +188,6 @@ msgstr ""
 msgid "%s has to be one of %s"
 msgstr ""
 
-msgid "subscript out of bounds"
-msgstr ""
-
 msgid "%s should be one of %s"
 msgstr ""
 
@@ -197,6 +200,9 @@ msgstr ""
 msgid ""
 "Dropping invalid entry %d:\n"
 "%s"
+msgstr ""
+
+msgid "package %s has no %s file: only auto-generation is possible"
 msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
@@ -439,7 +445,7 @@ msgstr ""
 msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
-msgid "argument %s must be a character string"
+msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "incorrect field specification"
@@ -534,6 +540,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr ""
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr ""
 
@@ -589,9 +598,6 @@ msgid "directory '%s' already exists"
 msgstr ""
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
-msgstr ""
-
-msgid "invalid 'type'; must be a character string"
 msgstr ""
 
 msgid "unable to access index for repository %s"
@@ -687,9 +693,6 @@ msgstr ""
 msgid ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
-msgstr ""
-
-msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "type 'binary' is not supported on this platform"
@@ -1246,6 +1249,11 @@ msgstr[1] ""
 
 msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
 msgstr[0] ""
 msgstr[1] ""
 

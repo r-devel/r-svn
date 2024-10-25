@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.13.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:29\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2011-04-02 \n"
 "Last-Translator: Murat Alkan <muratalk@gmail.com>\n"
 "Language-Team: Turkish <muratalk@gmail.com>\n"
@@ -2467,7 +2467,8 @@ msgstr "İstenen conf.level elde edilemiyor"
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr ""
 
-msgid "must supply either 'formula' or 'data'"
+#, fuzzy
+msgid "must supply 'formula' or 'data'"
 msgstr "'formula' veya 'data' verilmeli"
 
 #, fuzzy

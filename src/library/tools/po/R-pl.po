@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -272,6 +272,10 @@ msgstr "Pole 'Authors@R' nie zawiera danych osoby z rolą opiekuna, poprawnym ad
 
 #, fuzzy
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Pole 'Authors@R' wskazuje na osoby beż żadnych imion:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Pole 'Authors@R' wskazuje na osoby beż żadnych imion:"
 
 msgid "Encoding '%s' is not portable"
@@ -695,9 +699,6 @@ msgstr "Nie określono pakietu silnika ilustracji"
 msgid "Unsupported engine name"
 msgstr "Niewspierana nazwa silnika"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Żadne z pakietów %s nie mają zarejestrowanych silników ilustracji"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Silnik ilustracji %s nie jest zarejestrowany"
 
@@ -783,6 +784,12 @@ msgstr "BŁĄD: wersja tego programu to R %s, wymagana jest R %s %s"
 
 msgid "loading failed"
 msgstr "ładowanie nie powiodło się"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Otrzymano %s podczas wyznaczania %s; oczekiwano %s"
@@ -1137,6 +1144,13 @@ msgstr "pakiet nie zawiera kodu R"
 msgid "package seems to be using lazy loading already"
 msgstr "wygląda na to, że pakiet już wykorzystuje leniwe ładowanie"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "argument 'text' musi być wektorem tekstowym"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1232,6 +1246,13 @@ msgstr "argument '%s' musi być łańcuchem tekstowym lub połączeniem"
 msgid "unimplemented encoding"
 msgstr "niezaimplementowana strona kodowa"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "argument 'x' musi być pojedynczym łańcuchem tekstowym"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "'objdump.exe' musi być określowe w ścieżce środowiskowej PATH"
 
@@ -1256,6 +1277,10 @@ msgstr "testowanie '%s' nie powiodło się"
 msgid "Testing examples for package %s"
 msgstr "Testowanie przykładów dla pakietu %s"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "działanie 'texi2dvi' na pliku '%s' nie powiodło się"
+
 msgid "comparing %s to %s ..."
 msgstr "porównywanie %s z %s ..."
 
@@ -1279,6 +1304,10 @@ msgstr "Uruchamianie specyficznych testów dla pakietu %s"
 
 msgid "Running %s"
 msgstr "Uruchamianie %s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "działanie 'texi2dvi' na pliku '%s' nie powiodło się"
 
 msgid "Running vignettes for package %s"
 msgstr "Uruchamianie ilustracji dla pakietu %s"
@@ -1371,7 +1400,8 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "argument 'x' musi być pojedynczym łańcuchem tekstowym"
 
 msgid "test '%s' is not available"
@@ -1424,6 +1454,9 @@ msgstr "Nieznane kodowanie z danymi nie-ASCII: konwertowanie do ASCII"
 
 msgid "cannot source package code:"
 msgstr "nie można wykonać kodu pakietu:"
+
+msgid "inferiorCallError"
+msgstr ""
 
 msgid "inferior call failed"
 msgstr ""
@@ -1577,6 +1610,13 @@ msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Żadne z pakietów %s nie mają zarejestrowanych silników ilustracji"
+msgstr[1] "Żadne z pakietów %s nie mają zarejestrowanych silników ilustracji"
+msgstr[2] "Żadne z pakietów %s nie mają zarejestrowanych silników ilustracji"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2021-01-27 10:34+0100\n"
 "Last-Translator: Wei-Lun Chao <bluebat@member.fsf.org>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -61,21 +61,19 @@ msgstr "第二個引數必須為串列"
 msgid "'iconvlist' is not available on this system"
 msgstr "本系統不支援 'iconvlist'"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' 必須是字串，而且其長度只能為一(用 RNG) 。"
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' 不是正當的 RNG 縮寫"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' 必須是字串，而且其長度只能為一。"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "引數 'object' 必須解析成單一個字串"
 
 msgid "'%s' is not a valid choice"
 msgstr "%s' 不是正當的選擇"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind' 必須是字串，而且其長度只能為一。"
 
 msgid "malformed version string"
 msgstr "版本字串格式不正確"
@@ -532,6 +530,9 @@ msgstr "引數 'object' 必須解析成單一個字串"
 msgid "no Olson database found"
 msgstr "找不到 Olson 資料庫"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' 要麼是字串，要麼是連接"
 
@@ -695,9 +696,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "類別 'x' 已被捨棄"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'flag' 必須為字串，亦即長度為一"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' 只能包含字元 [0+- #'I]"
@@ -970,7 +968,7 @@ msgid "nothing specified to be save()d"
 msgstr "沒有指定要 save()的東西"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' 的值必須是長度大於零的字串"
 
 msgid "'compress' must be logical or character"
@@ -1585,6 +1583,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "warning() 裡的附加引數忽略不用"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1700,9 +1707,6 @@ msgstr "無 traceback"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "版本設定不對 %s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "版本設定不對 %s"
@@ -1939,6 +1943,16 @@ msgid_plural ""
 msgstr[0] ""
 "於 %s：\n"
 " 額外引數 %s 忽略不用"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' 必須是字串，而且其長度只能為一。"
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' 必須是字串，而且其長度只能為一。"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'flag' 必須為字串，亦即長度為一"
 
 #, fuzzy
 #~ msgid ", will be ignored"

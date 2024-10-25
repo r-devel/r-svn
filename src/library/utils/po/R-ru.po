@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-25 17:46\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-25 15:00+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -185,8 +185,15 @@ msgstr "Рекомендуется использовать %s вместо %s."
 msgid "Use either %s or %s but not both."
 msgstr "Используйте либо %s, либо %s, но не оба сразу."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Рекомендуется использовать %s/%s вместо %s/%s/%s."
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' должен быть текстом или NULL"
+
+msgid "subscript out of bounds"
+msgstr "индекс за границами"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "метод не подходит для объектов %s"
@@ -199,9 +206,6 @@ msgstr "все поля надо поименовать"
 
 msgid "%s has to be one of %s"
 msgstr "%s должен быть одним из %s"
-
-msgid "subscript out of bounds"
-msgstr "индекс за границами"
 
 msgid "%s should be one of %s"
 msgstr "%s должен быть одним из %s"
@@ -218,6 +222,9 @@ msgid ""
 msgstr ""
 "Выбрасываю неправильную запись %d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "не могу определить год для %s из файла DESCRIPTION пакета"
@@ -465,8 +472,8 @@ msgstr "Отменено пользователем"
 msgid "Unable to connect to CRAN to check R version."
 msgstr "Не могу соединиться с CRAN, чтобы проверить версию R."
 
-msgid "argument %s must be a character string"
-msgstr "аргумент %s должен быть текстовой строкой"
+msgid "'%s' must be a character string"
+msgstr "'%s' должен быть текстовой строкой"
 
 msgid "incorrect field specification"
 msgstr "неправильное указание поля"
@@ -562,6 +569,9 @@ msgstr "Единица \"%s\" не относится к стандарту \"%s\""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' -- это формальная общая функция; не похоже, что найдутся методы S3"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "не видна функция '%s'"
 
@@ -618,9 +628,6 @@ msgstr "папка '%s' уже есть"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "не могу сохранить как текст общие функции и другие объекты S4 (например, '%s'); используйте аргумент 'code_files'"
-
-msgid "invalid 'type'; must be a character string"
-msgstr "неправильный 'type'; должен быть текстовой строкой"
 
 msgid "unable to access index for repository %s"
 msgstr "недоступен индекс для хранилища %s"
@@ -718,9 +725,6 @@ msgid ""
 msgstr ""
 "Не знаю, в какой элемент 'lib' устанавливать зависимости\n"
 "пропускаю зависимости"
-
-msgid "'%s' must be a character string"
-msgstr "'%s' должен быть текстовой строкой"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "тип 'binary' на этой платформе не поддерживается"
@@ -1298,6 +1302,12 @@ msgstr[0] "Неправильное указание роли: %s."
 msgstr[1] "Неправильные указания ролей: %s."
 msgstr[2] "Неправильные указания ролей: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "Библиографическая запись типа %s должна определять поле: %s"
@@ -1465,6 +1475,15 @@ msgid_plural "invalid roman numerals: %s"
 msgstr[0] "неправильное римское число: %s"
 msgstr[1] "неправильные римские числа: %s"
 msgstr[2] "неправильные римские числа: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Рекомендуется использовать %s/%s вместо %s/%s/%s."
+
+#~ msgid "argument %s must be a character string"
+#~ msgstr "аргумент %s должен быть текстовой строкой"
+
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "неправильный 'type'; должен быть текстовой строкой"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "файл 'filelist' в папке %s не найден"

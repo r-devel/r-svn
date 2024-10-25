@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-25 16:30+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -62,20 +62,19 @@ msgstr "второй аргумент должен быть списком"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' недоступен в этой системе"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' должен быть текстовой строкой длины 1 (будет использован RNG)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' не является правильным сокращением RNG"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' должен быть текстовой строкой длины 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'name' должно быть строкой-скаляром"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' не является правильным выбором"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' должен быть текстовой строкой длины 1"
 
 msgid "malformed version string"
 msgstr "неправильно сформирована строка версии"
@@ -515,6 +514,9 @@ msgstr "компонент индекса должен быть текстовой строкой"
 msgid "no Olson database found"
 msgstr "база данных Olson не найдена"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' должен быть текстовой строкой или соединением"
 
@@ -677,9 +679,6 @@ msgstr "Не нашел метода format() для класса \"%s\""
 
 msgid "class of 'x' was discarded"
 msgstr "класс 'x' удален"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'flag' должен быть строкой, например, единичной длины"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' может содержать лишь символы только из  [0+- #'I]"
@@ -949,7 +948,8 @@ msgstr "должен быть указан 'file'"
 msgid "nothing specified to be save()d"
 msgstr "не указаны объекты для сохранения"
 
-msgid "'%s' must be a non-empty string"
+#, fuzzy
+msgid "'%s' must be a non-empty character string"
 msgstr "'%s' должен быть непустой строкой"
 
 msgid "'compress' must be logical or character"
@@ -1559,6 +1559,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "дополнительные аргументы пропущены в warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr "Sys.setenv(LANGUAGE=\"%s\") могло не сработать"
 
@@ -1670,9 +1679,6 @@ msgstr "Трассировка недоступна"
 
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "неправильное указание версии 'x' (тип: %s, должен быть строкой)"
-
-msgid "Calls"
-msgstr "Вызовы"
 
 msgid "invalid version specification %s"
 msgstr "неправильное указание версии %s"
@@ -1973,6 +1979,18 @@ msgstr[1] ""
 msgstr[2] ""
 "В %s :\n"
 " дополнительные аргументы %s не будут учтены"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' должен быть текстовой строкой длины 1"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'sample.kind' должен быть текстовой строкой длины 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'flag' должен быть строкой, например, единичной длины"
+
+#~ msgid "Calls"
+#~ msgstr "Вызовы"
 
 #~ msgid "unsupported value of _R_DEPRECATED_IS_R_,"
 #~ msgstr "непонятное значение _R_DEPRECATED_IS_R_,"

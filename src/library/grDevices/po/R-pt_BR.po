@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 2.13.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-22 18:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: http://www.feferraz.net/br/P/Projeto_Traducao_R_Portugues\n"
@@ -344,9 +344,6 @@ msgstr "formato de saída inválido"
 msgid "status %d in running command '%s'"
 msgstr "estado %d em executar comando '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' deve ser uma cadeia de caracteres não-vazia"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "'file' inválido"
@@ -445,6 +442,9 @@ msgstr "comprimentos de 'x', 'y' e 'z' diferem"
 
 msgid "'file' is missing with no default"
 msgstr "'file' está faltando sem nenhum padrão"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' deve ser uma cadeia de caracteres não-vazia"
 
 msgid "unrecognized format of gs -help"
 msgstr "formato desconhecido de gs -help"

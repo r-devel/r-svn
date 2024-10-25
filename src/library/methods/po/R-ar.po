@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-02-26 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -294,15 +294,6 @@ msgstr ""
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr ""
 
-msgid "invalid method sublist"
-msgstr ""
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr ""
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr ""
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr ""
 
@@ -325,9 +316,6 @@ msgid "more elements in the method signature (%d) than in the generic signature 
 msgstr ""
 
 msgid "no generic function found corresponding to %s"
-msgstr ""
-
-msgid "skipping methods list element %s of unexpected class %s"
 msgstr ""
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
@@ -483,7 +471,7 @@ msgstr ""
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr ""
 
-msgid "unable to find required package %s"
+msgid "unable to load required package %s"
 msgstr ""
 
 msgid "unable to find an environment containing class %s"
@@ -864,7 +852,7 @@ msgstr ""
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr ""
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr ""
 
 msgid "bad method object stored in method table, class %s"

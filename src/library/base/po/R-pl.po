@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -58,21 +58,19 @@ msgstr "drugi argument musi być listą"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' nie jest dostępne w tym systemie"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' musi być łańcuchem tekstowym o długości 1 (zostanie użyty 'RNG')."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' nie jest poprawnym skrótem dla 'RNG'"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' musi być łańcuchem tekstowym o długości 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "argument 'object' musi być konwertowalny do pojedynczego łańcucha tekstowego"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' nie jest poprawnym wyborem"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind' musi być łańcuchem tekstowym o długości 1"
 
 msgid "malformed version string"
 msgstr "zniekształcony łańcuch tekstowy wersji"
@@ -529,6 +527,9 @@ msgstr "argument 'object' musi być konwertowalny do pojedynczego łańcucha tek
 msgid "no Olson database found"
 msgstr "nie znaleziono bazy Olsona"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "argument 'file' musi być łańcuchem tekstowym lub połączeniem"
 
@@ -692,9 +693,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "klasa argumentu 'x' została odrzucona"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "argument 'flag' musi mieć długość 1"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "argument 'flag' powinien zawierać jedynie znaki z zakresu [0+- #'I]"
@@ -967,7 +965,7 @@ msgid "nothing specified to be save()d"
 msgstr "nic nie zostało określone do zapisu"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "argument 'file' musi być niepustym łańcuchem tekstowym"
 
 msgid "'compress' must be logical or character"
@@ -1582,6 +1580,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "dodatkowe argumenty zostały zignorowane w 'warning()'"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1697,9 +1704,6 @@ msgstr "Śledzenie nie jest dostepne"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "niepoprawne określenie wersji %s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "niepoprawne określenie wersji %s"
@@ -2000,6 +2004,16 @@ msgstr[1] ""
 msgstr[2] ""
 "W poleceniu '%s':\n"
 " dodatkowe argumenty %s zostaną odrzucone"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' musi być łańcuchem tekstowym o długości 1"
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' musi być łańcuchem tekstowym o długości 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "argument 'flag' musi mieć długość 1"
 
 #, fuzzy
 #~ msgid ", will be ignored"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 16:47+0100\n"
+"POT-Creation-Date: 2024-10-25 14:50-0700\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -18,48 +18,49 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 4.16.4\n"
 
-#: src/gnuwin32/console.c:1200 src/gnuwin32/console.c:1242
+#: src/gnuwin32/console.c:1204 src/gnuwin32/console.c:1246
+#: src/gnuwin32/console.c:1774
 msgid "Not enough memory"
 msgstr "Nincs elegendő memória"
 
-#: src/gnuwin32/console.c:1289 src/gnuwin32/console.c:1293
+#: src/gnuwin32/console.c:1293 src/gnuwin32/console.c:1297
 msgid "Insufficient memory: text not copied to the clipboard"
 msgstr "Nincs elegendő memória: a szöveg nem lett a vágólapra másolva"
 
-#: src/gnuwin32/console.c:1331 src/extra/graphapp/clipboard.c:53
+#: src/gnuwin32/console.c:1335 src/extra/graphapp/clipboard.c:53
 #: src/extra/graphapp/clipboard.c:79
 msgid "Unable to open the clipboard"
 msgstr "Nem sikerült megynitni a vágólapot"
 
-#: src/gnuwin32/console.c:1977
+#: src/gnuwin32/console.c:2137
 msgid "Insufficient memory. Please close the console"
 msgstr "Nincs elegendő memória. Zárja be a konzolt"
 
-#: src/gnuwin32/console.c:2033 src/gnuwin32/console.c:2087
-#: src/gnuwin32/preferences.c:342
+#: src/gnuwin32/console.c:2193 src/gnuwin32/console.c:2247
+#: src/gnuwin32/preferences.c:343
 #, c-format
 msgid ""
 "Font %s-%d-%d  not found.\n"
 "Using system fixed font"
 msgstr ""
 
-#: src/gnuwin32/console.c:2192
+#: src/gnuwin32/console.c:2352
 msgid "Save selection to"
 msgstr "Kijelölés mentése ide"
 
-#: src/gnuwin32/console.c:2194
+#: src/gnuwin32/console.c:2354
 msgid "Save console contents to"
 msgstr "A konzol tartalmának mentése ide"
 
-#: src/gnuwin32/console.c:2301
+#: src/gnuwin32/console.c:2461
 msgid "Scrolling.\n"
 msgstr "Görgetés.\n"
 
-#: src/gnuwin32/console.c:2302
+#: src/gnuwin32/console.c:2462
 msgid "  Keyboard: PgUp, PgDown, Ctrl+Arrows, Ctrl+Home, Ctrl+End,\n"
 msgstr "  Billentyűzet: PgUp, PgDown, Ctrl+Arrows, Ctrl+Home, Ctrl+End,\n"
 
-#: src/gnuwin32/console.c:2303
+#: src/gnuwin32/console.c:2463
 msgid ""
 "  Mouse: use the scrollbar(s).\n"
 "\n"
@@ -67,94 +68,94 @@ msgstr ""
 "  Egér: használja a gördülő sávo(ka)t.\n"
 "\n"
 
-#: src/gnuwin32/console.c:2304
+#: src/gnuwin32/console.c:2464
 msgid "Editing.\n"
 msgstr "Szerkesztés.\n"
 
-#: src/gnuwin32/console.c:2305
+#: src/gnuwin32/console.c:2465
 #, fuzzy
 msgid "  Moving the cursor: \n"
 msgstr ""
 "  Kurzor mozgatása: \n"
 ". \n"
 
-#: src/gnuwin32/console.c:2306
+#: src/gnuwin32/console.c:2466
 msgid "     Left arrow or Ctrl+B: move backward one character;\n"
 msgstr "     Bal nyíl vagy Ctrl+B: visszalép egy karaktert;\n"
 
-#: src/gnuwin32/console.c:2307
+#: src/gnuwin32/console.c:2467
 msgid "     Right arrow or Ctrl+F: move forward one character;\n"
 msgstr "     Jobb nyíl vagy Ctrl+F: előrelép egy karaktert;\n"
 
-#: src/gnuwin32/console.c:2308
+#: src/gnuwin32/console.c:2468
 msgid "     Home or Ctrl+A: go to beginning of line;\n"
 msgstr "     Home vagy Ctrl+A: a sor elejére lép;\n"
 
-#: src/gnuwin32/console.c:2309
+#: src/gnuwin32/console.c:2469
 msgid "     End or Ctrl+E: go to end of line;\n"
 msgstr "     End vagy Ctrl+E: a sor végére lép;\n"
 
-#: src/gnuwin32/console.c:2310
+#: src/gnuwin32/console.c:2470
 msgid "  History: Up and Down Arrows, Ctrl+P, Ctrl+N\n"
 msgstr "  Előzmények: felfelé és lefelé nyíl, illetve Ctrl+P és Ctrl+N\n"
 
-#: src/gnuwin32/console.c:2311
+#: src/gnuwin32/console.c:2471
 msgid "  Deleting:\n"
 msgstr "  Törlés:\n"
 
-#: src/gnuwin32/console.c:2312
+#: src/gnuwin32/console.c:2472
 msgid "     Del or Ctrl+D: delete current character or selection;\n"
 msgstr "     Del vagy Ctrl+D: törli az aktuális karaktert vagy a kijelölést;\n"
 
-#: src/gnuwin32/console.c:2313
+#: src/gnuwin32/console.c:2473
 msgid "     Backspace: delete preceding character;\n"
 msgstr "     Backspace: törli az előző karaktert;\n"
 
-#: src/gnuwin32/console.c:2314
+#: src/gnuwin32/console.c:2474
 msgid "     Ctrl+Del or Ctrl+K: delete text from current character to end of line.\n"
 msgstr "     Ctrl+Del vagy Ctrl+K: törli a szöveget az aktuális karaktertől a sor végéig.\n"
 
-#: src/gnuwin32/console.c:2315
+#: src/gnuwin32/console.c:2475
 msgid "     Ctrl+U: delete all text from current line.\n"
 msgstr "     Ctrl+U: az aktuális sorban töröl minden szöveget.\n"
 
-#: src/gnuwin32/console.c:2316
+#: src/gnuwin32/console.c:2476
 msgid "  Copy and paste.\n"
 msgstr "  Másolás és beillesztés.\n"
 
-#: src/gnuwin32/console.c:2317
+#: src/gnuwin32/console.c:2477
 msgid "     Use the mouse (with the left button held down) to mark (select) text.\n"
 msgstr "     Használja az egeret (a bal gomb lenyomva tartásával) a szöveg kijelölésére.\n"
 
-#: src/gnuwin32/console.c:2318
+#: src/gnuwin32/console.c:2478
 msgid "     Use Shift+Del (or Ctrl+C) to copy the marked text to the clipboard and\n"
 msgstr "     Használja a Shift+Del (vagy Ctrl+C) billentyű kombinációt a kijelölt szöveg vágólapra másolásához és\n"
 
-#: src/gnuwin32/console.c:2319
+#: src/gnuwin32/console.c:2479
 msgid "     Shift+Ins (or Ctrl+V or Ctrl+Y) to paste the content of the clipboard (if any)  \n"
 msgstr "     Shift+Ins (vagy Ctrl+V vagy Ctrl+Y) a vágólap tartalmának (ha van ott valami) beillesztése  \n"
 
-#: src/gnuwin32/console.c:2320
+#: src/gnuwin32/console.c:2480
 msgid "     to the console, Ctrl+X first copy then paste\n"
 msgstr "     a konzolra, először másolás Ctrl+X-el majd beillesztés\n"
 
-#: src/gnuwin32/console.c:2321
+#: src/gnuwin32/console.c:2481
 msgid "  Misc:\n"
 msgstr "  Egyéb:\n"
 
-#: src/gnuwin32/console.c:2322
+#: src/gnuwin32/console.c:2482
 msgid "     Ctrl+L: Clear the console.\n"
 msgstr "     Ctrl+L: Törli a konzolt.\n"
 
-#: src/gnuwin32/console.c:2323
+#: src/gnuwin32/console.c:2483
 msgid "     Ctrl+O or INS: Toggle overwrite mode: initially off.\n"
 msgstr "     Ctrl+O vagy INS: váltás felülíró módra: eredetileg kikapcsolt állapotban van.\n"
 
-#: src/gnuwin32/console.c:2324
+#: src/gnuwin32/console.c:2484
 msgid "     Ctrl+T: Interchange current char with one to the left.\n"
 msgstr "     Ctrl+T: Az aktuális karaktert és a tőle balra következőt felcseréli.\n"
 
-#: src/gnuwin32/console.c:2325
+#: src/gnuwin32/console.c:2485
 #, fuzzy
 msgid ""
 "\n"
@@ -163,7 +164,7 @@ msgstr ""
 "\n"
 "Megjegyzés: A konzol csak akkor frissül, ha valamilyen bevitelre van szükség.\n"
 
-#: src/gnuwin32/console.c:2326
+#: src/gnuwin32/console.c:2486
 #, fuzzy
 msgid ""
 "  Use Ctrl+W to toggle this feature off/on.\n"
@@ -172,7 +173,7 @@ msgstr ""
 "  Használja a Ctrl+W billentyű kombinációt ki- vagy bekapcsolásra.\n"
 "\n"
 
-#: src/gnuwin32/console.c:2327
+#: src/gnuwin32/console.c:2487
 msgid ""
 "Use ESC to stop the interpreter.\n"
 "\n"
@@ -180,7 +181,7 @@ msgstr ""
 "Használja az ESC-t az interpreter leállítására.\n"
 "\n"
 
-#: src/gnuwin32/console.c:2328
+#: src/gnuwin32/console.c:2488
 msgid ""
 "TAB starts completion of the current word.\n"
 "\n"
@@ -188,11 +189,11 @@ msgstr ""
 "A TAB lenyomásával az aktuálisan gépelt szó kiegészítése indítható el.\n"
 "\n"
 
-#: src/gnuwin32/console.c:2329
+#: src/gnuwin32/console.c:2489
 msgid "Standard Windows hotkeys can be used to switch to the\n"
 msgstr "A standard Windows gyorsbillentyűk használhatók kapcsolni a(z)\n"
 
-#: src/gnuwin32/console.c:2330
+#: src/gnuwin32/console.c:2490
 msgid "graphics device (Ctrl+Tab or Ctrl+F6 in MDI, Alt+Tab in SDI)"
 msgstr "grafikai eszköz (Ctrl+Tab vagy Ctrl+F6 az MDI, illetve Alt+Tab az SDI módban)"
 
@@ -306,7 +307,7 @@ msgid "Save script"
 msgstr "Szkript mentése"
 
 #: src/gnuwin32/editor.c:777 src/gnuwin32/pager.c:461
-#: src/library/grDevices/src/devWindows.c:1607
+#: src/library/grDevices/src/devWindows.c:1611
 #, fuzzy
 msgid "Return focus to Console"
 msgstr "Fókusz visszaadása a konzolnak"
@@ -316,13 +317,13 @@ msgid "Print script"
 msgstr "Szkript nyomtatása"
 
 #: src/gnuwin32/editor.c:782 src/gnuwin32/pager.c:456 src/gnuwin32/rui.c:1192
-#: src/library/grDevices/src/devWindows.c:1601
+#: src/library/grDevices/src/devWindows.c:1605
 msgid "Print"
 msgstr "Nyomtat"
 
 #: src/gnuwin32/editor.c:800 src/gnuwin32/pager.c:477 src/gnuwin32/rui.c:1210
-#: src/library/utils/src/windows/dataentry.c:1835
-#: src/library/grDevices/src/devWindows.c:1639
+#: src/library/utils/src/windows/dataentry.c:1837
+#: src/library/grDevices/src/devWindows.c:1643
 msgid "File"
 msgstr "Fájl"
 
@@ -343,8 +344,8 @@ msgid "Save as..."
 msgstr "Mentés másként..."
 
 #: src/gnuwin32/editor.c:810 src/gnuwin32/pager.c:480 src/gnuwin32/rui.c:1226
-#: src/library/grDevices/src/devWindows.c:1660
-#: src/library/grDevices/src/devWindows.c:1702
+#: src/library/grDevices/src/devWindows.c:1664
+#: src/library/grDevices/src/devWindows.c:1706
 msgid "Print..."
 msgstr "Nyomtat..."
 
@@ -353,7 +354,7 @@ msgid "Close script"
 msgstr "Szkript bezárása"
 
 #: src/gnuwin32/editor.c:815 src/gnuwin32/pager.c:487 src/gnuwin32/rui.c:1231
-#: src/library/utils/src/windows/dataentry.c:1841
+#: src/library/utils/src/windows/dataentry.c:1843
 msgid "Edit"
 msgstr "Szerkesztés"
 
@@ -378,8 +379,8 @@ msgid "GUI preferences..."
 msgstr "GUI beállítások..."
 
 #: src/gnuwin32/editor.c:851 src/gnuwin32/rui.c:1274
-#: src/library/utils/src/windows/dataentry.c:1742
-#: src/library/utils/src/windows/dataentry.c:1852
+#: src/library/utils/src/windows/dataentry.c:1744
+#: src/library/utils/src/windows/dataentry.c:1854
 msgid "Help"
 msgstr "Súgó"
 
@@ -399,7 +400,7 @@ msgstr "Nem lehet létrehozni szerkesztő ablakot"
 msgid "Untitled"
 msgstr "Névtelen"
 
-#: src/gnuwin32/extra.c:1052
+#: src/gnuwin32/extra.c:1130
 msgid "Select file"
 msgstr "Fájl kijelölése"
 
@@ -425,14 +426,14 @@ msgid "Paste commands to console"
 msgstr "Parancsok beillesztése a konzolra"
 
 #: src/gnuwin32/pager.c:320 src/gnuwin32/rui.c:946
-#: src/library/utils/src/windows/dataentry.c:1748
-#: src/library/grDevices/src/devWindows.c:1699
+#: src/library/utils/src/windows/dataentry.c:1750
+#: src/library/grDevices/src/devWindows.c:1703
 msgid "Stay on top"
 msgstr "Maradjon a tetején"
 
 #: src/gnuwin32/pager.c:322 src/gnuwin32/pager.c:485
-#: src/library/utils/src/windows/dataentry.c:1750
-#: src/library/utils/src/windows/dataentry.c:1837
+#: src/library/utils/src/windows/dataentry.c:1752
+#: src/library/utils/src/windows/dataentry.c:1839
 msgid "Close"
 msgstr "Bezár"
 
@@ -448,7 +449,7 @@ msgstr "Nézet"
 msgid "Unable to create pager window"
 msgstr ""
 
-#: src/gnuwin32/preferences.c:307
+#: src/gnuwin32/preferences.c:308
 msgid ""
 "The overall console properties cannot be changed\n"
 "on a running console.\n"
@@ -460,7 +461,7 @@ msgstr ""
 "\n"
 "Mentse el a beállításokat és indítsa újra az Rgui-t azok érvényesítése céljából.\n"
 
-#: src/gnuwin32/preferences.c:311
+#: src/gnuwin32/preferences.c:312
 msgid ""
 "The language for menus cannot be changed on a\n"
 " running console.\n"
@@ -471,30 +472,30 @@ msgstr ""
 "a futó konzolon.\n"
 "Mentse el beállítását és indítsa újra az Rgui-t a menükön való érvényesülés céljából.\n"
 
-#: src/gnuwin32/preferences.c:380
+#: src/gnuwin32/preferences.c:381
 msgid "Changes in pager size will not apply to any open pagers"
 msgstr ""
 
-#: src/gnuwin32/preferences.c:386
+#: src/gnuwin32/preferences.c:387
 msgid ""
 "Do not change pager type if any pager is open\n"
 "Proceed?"
 msgstr ""
 
-#: src/gnuwin32/preferences.c:420
+#: src/gnuwin32/preferences.c:421
 msgid "Select directory for file 'Rconsole'"
 msgstr "Adja meg az 'Rconsole' könyvtárat"
 
-#: src/gnuwin32/preferences.c:515
+#: src/gnuwin32/preferences.c:516
 msgid "Select 'Rconsole' file"
 msgstr "Adja meg az 'Rconsole' fájlt"
 
-#: src/gnuwin32/preferences.c:703
+#: src/gnuwin32/preferences.c:704
 #, fuzzy, c-format
 msgid "Ignored '%s' at line %d of file %s"
 msgstr "Figyelmen kívül lett hagyva '%s' a %d. sorban, az %s fájlban"
 
-#: src/gnuwin32/preferences.c:804
+#: src/gnuwin32/preferences.c:805
 msgid "Rgui Configuration Editor"
 msgstr "Rgui Beállítás Szerkesztő"
 
@@ -813,7 +814,7 @@ msgstr "a menü nem található"
 msgid "menu or item does not exist"
 msgstr "a menü vagy menüelem nem létezik"
 
-#: src/gnuwin32/system.c:565
+#: src/gnuwin32/system.c:595
 #, fuzzy
 msgid "Save workspace image?"
 msgstr "Menti a munkafolyamat állományát?"
@@ -890,9 +891,9 @@ msgid "Unable to start the print job"
 msgstr ""
 
 #: src/library/utils/src/windows/dataentry.c:251
-#: src/library/utils/src/windows/dataentry.c:1896
-#: src/library/utils/src/windows/dataentry.c:1899
-#: src/library/utils/src/windows/dataentry.c:1930
+#: src/library/utils/src/windows/dataentry.c:1898
+#: src/library/utils/src/windows/dataentry.c:1901
+#: src/library/utils/src/windows/dataentry.c:1932
 msgid "invalid argument"
 msgstr "érvénytelen argumentum"
 
@@ -906,57 +907,57 @@ msgid "Data Editor"
 msgstr "Adatszerkesztő"
 
 #: src/library/utils/src/windows/dataentry.c:359
-#: src/library/utils/src/windows/dataentry.c:1889
+#: src/library/utils/src/windows/dataentry.c:1891
 msgid "dataentry: internal memory problem"
 msgstr "adatbevitel: belső memória probléma"
 
-#: src/library/utils/src/windows/dataentry.c:662
-#: src/library/utils/src/windows/dataentry.c:1263
+#: src/library/utils/src/windows/dataentry.c:663
+#: src/library/utils/src/windows/dataentry.c:1265
 msgid "dataentry: internal memory error"
 msgstr "adatbevitel: belső memória hiba"
 
-#: src/library/utils/src/windows/dataentry.c:785
-#: src/library/utils/src/windows/dataentry.c:798
+#: src/library/utils/src/windows/dataentry.c:786
+#: src/library/utils/src/windows/dataentry.c:799
 msgid "internal type error in dataentry"
 msgstr "belső adattípus hiba az adatbevitel során"
 
-#: src/library/utils/src/windows/dataentry.c:893
+#: src/library/utils/src/windows/dataentry.c:894
 msgid "dataentry: parse error on string"
 msgstr "adatbevitel: hiba a karakterlánc feldolgozása során"
 
-#: src/library/utils/src/windows/dataentry.c:1037
+#: src/library/utils/src/windows/dataentry.c:1039
 msgid "dataentry: expression too long"
 msgstr "adatbevitel: a kifejezés túl hosszú"
 
-#: src/library/utils/src/windows/dataentry.c:1516
+#: src/library/utils/src/windows/dataentry.c:1518
 msgid "column names cannot be blank"
 msgstr "az oszlopnevek nem lehetnek üresek"
 
-#: src/library/utils/src/windows/dataentry.c:1562
+#: src/library/utils/src/windows/dataentry.c:1564
 msgid "Variable editor"
 msgstr "Változó szerkesztő"
 
-#: src/library/utils/src/windows/dataentry.c:1567
+#: src/library/utils/src/windows/dataentry.c:1569
 msgid "variable name"
 msgstr "változó név"
 
-#: src/library/utils/src/windows/dataentry.c:1569
+#: src/library/utils/src/windows/dataentry.c:1571
 msgid "type"
 msgstr "típus"
 
-#: src/library/utils/src/windows/dataentry.c:1684
+#: src/library/utils/src/windows/dataentry.c:1686
 msgid "Cell width(s)"
 msgstr "Cella szélesség(ek)"
 
-#: src/library/utils/src/windows/dataentry.c:1690
+#: src/library/utils/src/windows/dataentry.c:1692
 msgid "Cell width"
 msgstr "Cella szélesség"
 
-#: src/library/utils/src/windows/dataentry.c:1693
+#: src/library/utils/src/windows/dataentry.c:1695
 msgid "variable"
 msgstr "változó"
 
-#: src/library/utils/src/windows/dataentry.c:1736
+#: src/library/utils/src/windows/dataentry.c:1738
 msgid ""
 "Navigation.\n"
 "  Keyboard: cursor keys move selection\n"
@@ -998,218 +999,218 @@ msgstr ""
 "Jobbkattintás-menü az aktuálisan kijelölt oszlopra vonatkozó másoláshoz, beillesztéshez, automatikus méretezéshez\n"
 "\n"
 
-#: src/library/utils/src/windows/dataentry.c:1744
+#: src/library/utils/src/windows/dataentry.c:1746
 msgid "Copy selected cell"
 msgstr "Másolás a kijelölt cellából"
 
-#: src/library/utils/src/windows/dataentry.c:1745
+#: src/library/utils/src/windows/dataentry.c:1747
 msgid "Paste to selected cell"
 msgstr "Beillesztés a kijelölt cellába"
 
-#: src/library/utils/src/windows/dataentry.c:1746
+#: src/library/utils/src/windows/dataentry.c:1748
 msgid "Autosize column"
 msgstr "Oszlop automatikus méretezése"
 
-#: src/library/utils/src/windows/dataentry.c:1842
+#: src/library/utils/src/windows/dataentry.c:1844
 msgid "Copy  \tCTRL+C"
 msgstr "Másol \t CTRL+C"
 
-#: src/library/utils/src/windows/dataentry.c:1844
+#: src/library/utils/src/windows/dataentry.c:1846
 msgid "Paste \tCTRL+V"
 msgstr "Beilleszt \t CTRL+V"
 
-#: src/library/utils/src/windows/dataentry.c:1846
+#: src/library/utils/src/windows/dataentry.c:1848
 msgid "Delete\tDEL"
 msgstr "Töröl \t DEL"
 
-#: src/library/utils/src/windows/dataentry.c:1849
+#: src/library/utils/src/windows/dataentry.c:1851
 msgid "Cell widths ..."
 msgstr "Cella szélességek ..."
 
-#: src/library/utils/src/windows/dataentry.c:1853
+#: src/library/utils/src/windows/dataentry.c:1855
 msgid "Data editor"
 msgstr "Adatszerkesztő"
 
-#: src/library/grDevices/src/devWindows.c:943
+#: src/library/grDevices/src/devWindows.c:947
 msgid "Portable network graphics file"
 msgstr "Portable network graphics fájl"
 
-#: src/library/grDevices/src/devWindows.c:946
+#: src/library/grDevices/src/devWindows.c:950
 msgid "Windows bitmap file"
 msgstr "Windows bitmap fájl"
 
-#: src/library/grDevices/src/devWindows.c:949
+#: src/library/grDevices/src/devWindows.c:953
 msgid "TIFF file"
 msgstr "TIFF fájl"
 
-#: src/library/grDevices/src/devWindows.c:952
+#: src/library/grDevices/src/devWindows.c:956
 msgid "Jpeg file"
 msgstr "JPEG fájl"
 
-#: src/library/grDevices/src/devWindows.c:974
+#: src/library/grDevices/src/devWindows.c:978
 msgid "Postscript file"
 msgstr "Postscript fájl"
 
-#: src/library/grDevices/src/devWindows.c:986
+#: src/library/grDevices/src/devWindows.c:990
 msgid "PDF file"
 msgstr "PDF fájl"
 
-#: src/library/grDevices/src/devWindows.c:998
+#: src/library/grDevices/src/devWindows.c:1002
 #, fuzzy
 msgid "Enhanced metafiles"
 msgstr "Megnövekedett metaállomány"
 
-#: src/library/grDevices/src/devWindows.c:1001
-#: src/library/grDevices/src/devWindows.c:3557
+#: src/library/grDevices/src/devWindows.c:1005
+#: src/library/grDevices/src/devWindows.c:3561
 msgid "file path selected is too long: only 512 bytes are allowed"
 msgstr "a megadott fájl útvonala túl hosszú: mindössze 512 bájt megengedett"
 
-#: src/library/grDevices/src/devWindows.c:1212
+#: src/library/grDevices/src/devWindows.c:1216
 msgid "No plot to replace!"
 msgstr "Nincsen lecserélendő ábra!"
 
-#: src/library/grDevices/src/devWindows.c:1262
+#: src/library/grDevices/src/devWindows.c:1266
 msgid "Variable name"
 msgstr "Változónév"
 
-#: src/library/grDevices/src/devWindows.c:1271
+#: src/library/grDevices/src/devWindows.c:1275
 msgid "Variable doesn't contain any plots!"
 msgstr ""
 
-#: src/library/grDevices/src/devWindows.c:1286
+#: src/library/grDevices/src/devWindows.c:1290
 msgid "Name of variable to save to"
 msgstr "Változó nevét mentse mint"
 
-#: src/library/grDevices/src/devWindows.c:1595
+#: src/library/grDevices/src/devWindows.c:1599
 msgid "Copy to the clipboard as a metafile"
 msgstr "Metafájlként a vágólapra másol"
 
-#: src/library/grDevices/src/devWindows.c:1613
-#: src/library/grDevices/src/devWindows.c:1624
+#: src/library/grDevices/src/devWindows.c:1617
+#: src/library/grDevices/src/devWindows.c:1628
 #, fuzzy
 msgid "Stop locator"
 msgstr "Lokátor leállítása"
 
-#: src/library/grDevices/src/devWindows.c:1623
 #: src/library/grDevices/src/devWindows.c:1627
+#: src/library/grDevices/src/devWindows.c:1631
 msgid "Stop"
 msgstr "Leállít"
 
-#: src/library/grDevices/src/devWindows.c:1629
+#: src/library/grDevices/src/devWindows.c:1633
 msgid "Continue"
 msgstr "Folytat"
 
-#: src/library/grDevices/src/devWindows.c:1633
+#: src/library/grDevices/src/devWindows.c:1637
 msgid "Next"
 msgstr "Következő"
 
-#: src/library/grDevices/src/devWindows.c:1634
+#: src/library/grDevices/src/devWindows.c:1638
 msgid "Next plot"
 msgstr "Következő ábra"
 
-#: src/library/grDevices/src/devWindows.c:1640
+#: src/library/grDevices/src/devWindows.c:1644
 msgid "Save as"
 msgstr "Mentés másként"
 
-#: src/library/grDevices/src/devWindows.c:1649
-#: src/library/grDevices/src/devWindows.c:1651
 #: src/library/grDevices/src/devWindows.c:1653
+#: src/library/grDevices/src/devWindows.c:1655
+#: src/library/grDevices/src/devWindows.c:1657
 #, c-format
 msgid "%s quality..."
 msgstr "%s minőség..."
 
-#: src/library/grDevices/src/devWindows.c:1655
+#: src/library/grDevices/src/devWindows.c:1659
 msgid "Copy to the clipboard"
 msgstr "Vágólapra másol"
 
-#: src/library/grDevices/src/devWindows.c:1656
+#: src/library/grDevices/src/devWindows.c:1660
 msgid "as a Bitmap\tCTRL+C"
 msgstr "mint Bitmap\tCTRL+C"
 
-#: src/library/grDevices/src/devWindows.c:1657
+#: src/library/grDevices/src/devWindows.c:1661
 msgid "as a Metafile\tCTRL+W"
 msgstr "mint Metafile\t CTRL+W"
 
-#: src/library/grDevices/src/devWindows.c:1662
+#: src/library/grDevices/src/devWindows.c:1666
 msgid "close Device"
 msgstr "Eszköz bezárása"
 
-#: src/library/grDevices/src/devWindows.c:1663
+#: src/library/grDevices/src/devWindows.c:1667
 msgid "History"
 msgstr "Történet"
 
-#: src/library/grDevices/src/devWindows.c:1664
+#: src/library/grDevices/src/devWindows.c:1668
 msgid "Recording"
 msgstr "Rögzítés"
 
-#: src/library/grDevices/src/devWindows.c:1667
+#: src/library/grDevices/src/devWindows.c:1671
 msgid "Add\tINS"
 msgstr "Hozzáad\t INS"
 
-#: src/library/grDevices/src/devWindows.c:1668
+#: src/library/grDevices/src/devWindows.c:1672
 msgid "Replace"
 msgstr "Felcserél"
 
-#: src/library/grDevices/src/devWindows.c:1670
+#: src/library/grDevices/src/devWindows.c:1674
 msgid "Previous\tPgUp"
 msgstr "Előző\t PgUp"
 
-#: src/library/grDevices/src/devWindows.c:1671
+#: src/library/grDevices/src/devWindows.c:1675
 msgid "Next\tPgDown"
 msgstr "Következő\t PgDown"
 
-#: src/library/grDevices/src/devWindows.c:1673
+#: src/library/grDevices/src/devWindows.c:1677
 msgid "Save to variable..."
 msgstr "Mentés változóba..."
 
-#: src/library/grDevices/src/devWindows.c:1674
+#: src/library/grDevices/src/devWindows.c:1678
 msgid "Get from variable..."
 msgstr "Beolvas változóból..."
 
-#: src/library/grDevices/src/devWindows.c:1676
+#: src/library/grDevices/src/devWindows.c:1680
 msgid "Clear history"
 msgstr "Történet törlése"
 
-#: src/library/grDevices/src/devWindows.c:1677
+#: src/library/grDevices/src/devWindows.c:1681
 msgid "Resize"
 msgstr "Átméretez"
 
-#: src/library/grDevices/src/devWindows.c:1678
+#: src/library/grDevices/src/devWindows.c:1682
 msgid "R mode"
 msgstr "R-mód"
 
-#: src/library/grDevices/src/devWindows.c:1680
+#: src/library/grDevices/src/devWindows.c:1684
 msgid "Fit to window"
 msgstr "Képkitöltés"
 
-#: src/library/grDevices/src/devWindows.c:1682
+#: src/library/grDevices/src/devWindows.c:1686
 msgid "Fixed size"
 msgstr "Rögzített méret"
 
-#: src/library/grDevices/src/devWindows.c:1689
+#: src/library/grDevices/src/devWindows.c:1693
 msgid "Copy as metafile"
 msgstr "Másol mint metafájl"
 
-#: src/library/grDevices/src/devWindows.c:1691
+#: src/library/grDevices/src/devWindows.c:1695
 msgid "Copy as bitmap"
 msgstr "Másol mint bitmap"
 
-#: src/library/grDevices/src/devWindows.c:1694
+#: src/library/grDevices/src/devWindows.c:1698
 msgid "Save as metafile..."
 msgstr "Ment mint metafájl..."
 
-#: src/library/grDevices/src/devWindows.c:1696
+#: src/library/grDevices/src/devWindows.c:1700
 msgid "Save as postscript..."
 msgstr "Ment mint postscript..."
 
-#: src/library/grDevices/src/devWindows.c:3214
+#: src/library/grDevices/src/devWindows.c:3218
 msgid "Locator is active"
 msgstr "A lokátor aktív"
 
-#: src/library/grDevices/src/devWindows.c:3884
+#: src/library/grDevices/src/devWindows.c:3888
 msgid "Waiting to confirm page change..."
 msgstr "Az oldal megváltoztatásának megerősítésére vár..."
 
-#: src/library/grDevices/src/devWindows.c:3896
+#: src/library/grDevices/src/devWindows.c:3900
 msgid "Click or hit ENTER for next page"
 msgstr "Kattintson vagy nyomjon ENTER-t a következő oldalhoz"

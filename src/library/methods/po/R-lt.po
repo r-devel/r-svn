@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: methods 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2021-11-06 17:41+0100\n"
 "Last-Translator: r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com\n"
 "Language-Team: Lithuanian\n"
@@ -303,15 +303,6 @@ msgstr "įterpiamas metodas, atitinkantis tuščią prierašą"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "įterpiamas metodas į ne metodų sąrašo objektą (klasė %s)"
 
-msgid "invalid method sublist"
-msgstr "neteisingas metodo posąrašis"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f nėra tinkama bendrinė funkcija: metodų sąrašas buvo klasės %s objektas"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s turi būti TRUE, FALSE arba įvardytas loginių reikšmių vektorius, gaunamas klasės %s objektas"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "numatytasis metodas turi būti metodo apibrėžimas, pirminis arba NULL: gauta klasės %s objektas"
 
@@ -335,9 +326,6 @@ msgstr "daugiau elementų metodo prieraše (%d) negu bendriniame prieraše (%d) 
 
 msgid "no generic function found corresponding to %s"
 msgstr "nerasta bendrinės funkcijos atitinkančios %s"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "praleidžiamas metodų sąrašo elementas %s nenumatytos klasės %s"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s, kartu su kitais naudojamais \"MethodsList\" metaduomenų objektais, yra skirtingai naudojami."
@@ -492,7 +480,8 @@ msgstr "klasė negali turėti ir paprasto ir paslėpto duomenų tipo"
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "metodo galiojimas turi būti vieno argumento funkcija, gautas klasės %s objektas"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "nepavyko rasti būtino paketo %s"
 
 msgid "unable to find an environment containing class %s"
@@ -880,7 +869,8 @@ msgstr "Metodo struktūra įrašyta į %s"
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "neteisingas objektas metodų meta lentelėje %s, žymei %s, turėjo klasę %s"
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+#, fuzzy
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "neteisingas mlist elementas prierašui %s lygyje %d (turėtų būti MethodDefinition arba .Primitive, turi klasę %s)"
 
 msgid "bad method object stored in method table, class %s"
@@ -1349,6 +1339,18 @@ msgid_plural "no definition of class %s in the specified position, %s, definitio
 msgstr[0] "klasė %s nurodytoje pozicijoje neturi apibrėžties, %s, apibrėžimas : %s"
 msgstr[1] "klasė %s nurodytoje pozicijoje neturi apibrėžties, %s, apibrėžimai : %s"
 msgstr[2] "klasė %s nurodytoje pozicijoje neturi apibrėžties, %s, apibrėžimų : %s"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "neteisingas metodo posąrašis"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f nėra tinkama bendrinė funkcija: metodų sąrašas buvo klasės %s objektas"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s turi būti TRUE, FALSE arba įvardytas loginių reikšmių vektorius, gaunamas klasės %s objektas"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "praleidžiamas metodų sąrašo elementas %s nenumatytos klasės %s"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "neteisingas kreipinys metodo perdavime į '%s' (nėra numatytojo metodo)"

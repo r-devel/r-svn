@@ -1,0 +1,130 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.4.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2024-04-01 10:33\n"
+"PO-Revision-Date: 2024-06-18 03:05+0000\n"
+"Last-Translator: Nichole Haines <NicholeHaines54@gmail.com>\n"
+"Language-Team: none\n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.16.4\n"
+
+msgid "namespace found within local environments"
+msgstr "Helyi környezetekben található névtér"
+
+msgid "not a proper evaluation environment"
+msgstr "nem megfelelő értékelési környezet"
+
+msgid "non-namespace found within namespace environments"
+msgstr "névtérkörnyezetekben található nem névtér"
+
+msgid "namespace found within global environments"
+msgstr "Globális környezetekben található névtér"
+
+msgid "bad assignment: %s"
+msgstr "Hibás hozzárendelés: %s"
+
+msgid "cannot constant fold literal promises"
+msgstr "nem hajtogathatja állandóan a szó szerinti ígéreteket"
+
+msgid "cannot constant fold literal bytecode objects"
+msgstr "nem lehet konstansra hajtani a konstans literális bájtkód objektumokat"
+
+msgid "no offset recorded for label \"%s\""
+msgstr "nincs eltolás rögzítve a \"%s\" címkéhez"
+
+msgid "cannot compile byte code literals in code"
+msgstr "Nem lehet bájtkód-literálokat fordítani a kódban"
+
+msgid "cannot compile promise literals in code"
+msgstr "nem tud ígéret literálokat fordítani a kódban"
+
+msgid "possible error in '%s': %s"
+msgstr "Lehetséges hiba a \"%s\" esetében: %s"
+
+msgid "bad namespace import frame"
+msgstr "Hibás névtér importálási keret"
+
+msgid "bad assignment 1"
+msgstr "Rossz feladat 1"
+
+msgid "bad assignment 2"
+msgstr "Rossz feladat 1"
+
+msgid "invalid function in complex assignment"
+msgstr "Érvénytelen függvény összetett hozzárendelésben"
+
+msgid "missing arguments are not allowed"
+msgstr ""
+
+msgid "empty alternative in numeric switch"
+msgstr ""
+
+msgid "no visible global function definition for '%s'"
+msgstr ""
+
+msgid "no visible binding for global variable '%s'"
+msgstr ""
+
+msgid "no visible binding for '<<-' assignment to '%s'"
+msgstr ""
+
+msgid "wrong number of arguments to '%s'"
+msgstr ""
+
+msgid "more than one default provided in switch() call"
+msgstr ""
+
+msgid "'switch' with no alternatives"
+msgstr ""
+
+msgid "Error: compilation failed -"
+msgstr ""
+
+msgid "cannot compile a non-function"
+msgstr ""
+
+msgid "compiling '%s'"
+msgstr ""
+
+msgid "saving to file \"%s\" ..."
+msgstr ""
+
+msgid "done"
+msgstr ""
+
+msgid "'env' must be a top level environment"
+msgstr ""
+
+msgid "input and output file names are the same"
+msgstr ""
+
+msgid "empty input file; no output written"
+msgstr ""
+
+msgid "file '%s' does not exist"
+msgstr ""
+
+msgid "'%s' is not a valid compiler option"
+msgstr ""
+
+msgid "invalid environment variable value: %s==%s"
+msgstr ""
+
+msgid "invalid compiler options: optimize(==%d)<2 and jitEnabled(==%d)>2"
+msgstr ""
+
+msgid "function is not compiled"
+msgstr ""
+
+msgid "cannot compile this expression"
+msgstr ""
+
+msgid "local assignment to syntactic function: "
+msgid_plural "local assignments to syntactic functions: "
+msgstr[0] ""
+msgstr[1] ""

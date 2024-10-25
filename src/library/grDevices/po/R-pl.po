@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -334,9 +334,6 @@ msgstr "niepoprawny format wyjściowy"
 msgid "status %d in running command '%s'"
 msgstr "status '%d' w działającym poleceniu '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "argument 'file' musi być niepustym łańcuchem tekstowym"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "niepoprawny argument 'file'"
@@ -427,6 +424,9 @@ msgstr "długości zmiennych 'x', 'y' oraz 'z' różnią się"
 
 msgid "'file' is missing with no default"
 msgstr "brakuje argumentu 'file', a brak zdefiniowanej wartości domyślnej"
+
+msgid "'file' must be a non-empty character string"
+msgstr "argument 'file' musi być niepustym łańcuchem tekstowym"
 
 msgid "unrecognized format of gs -help"
 msgstr "nierozpoznany format 'gs -help'"

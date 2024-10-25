@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2018-04-09 12:06-0600\n"
 "Last-Translator: Chel Hee Lee <gnustats@gmail.com>\n"
 "Language-Team: \n"
@@ -337,9 +337,6 @@ msgstr "올바른 출력형식(output format)이 아닙니다."
 msgid "status %d in running command '%s'"
 msgstr "명령어 '%2$s'를 실행하던 중 상태 %1$d가 되었습니다"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file'은 반드시 비어있지 않은 문자열이어야 합니다"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "유효하지 않은 'file'입니다"
@@ -430,6 +427,9 @@ msgstr "'x', 'y' 그리고 'z'의 길이가 다릅니다"
 
 msgid "'file' is missing with no default"
 msgstr "'file'은 기본값 없이 누락되었습니다"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file'은 반드시 비어있지 않은 문자열이어야 합니다"
 
 msgid "unrecognized format of gs -help"
 msgstr "알수없는 gs 포맷입니다 -help"

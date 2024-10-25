@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-09-01 18:31+0000\n"
 "Last-Translator: Abdulrahman Alswaji <alswajiab@gmail.com>\n"
 "Language-Team: none\n"
@@ -252,6 +252,9 @@ msgid "Authors@R field gives no person with maintainer role, valid email address
 msgstr ""
 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr ""
+
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr ""
 
 msgid "Encoding '%s' is not portable"
@@ -650,9 +653,6 @@ msgstr ""
 msgid "Unsupported engine name"
 msgstr ""
 
-msgid "None of packages %s have registered vignette engines"
-msgstr ""
-
 msgid "Vignette engine %s is not registered"
 msgstr ""
 
@@ -733,6 +733,12 @@ msgid "ERROR: this R is version %s, required is R %s %s"
 msgstr ""
 
 msgid "loading failed"
+msgstr ""
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
 msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
@@ -1080,6 +1086,12 @@ msgstr ""
 msgid "package seems to be using lazy loading already"
 msgstr ""
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+msgid "'bytes' must be a raw vector"
+msgstr ""
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1152,6 +1164,12 @@ msgstr ""
 msgid "unimplemented encoding"
 msgstr ""
 
+msgid "x must be a single string"
+msgstr ""
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr ""
 
@@ -1176,6 +1194,9 @@ msgstr ""
 msgid "Testing examples for package %s"
 msgstr ""
 
+msgid "Error: running examples in %s failed"
+msgstr ""
+
 msgid "comparing %s to %s ..."
 msgstr ""
 
@@ -1198,6 +1219,9 @@ msgid "Running specific tests for package %s"
 msgstr ""
 
 msgid "Running %s"
+msgstr ""
+
+msgid "Error: running the tests in %s failed"
 msgstr ""
 
 msgid "Running vignettes for package %s"
@@ -1289,7 +1313,7 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
+msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "test '%s' is not available"
@@ -1341,6 +1365,9 @@ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr ""
 
 msgid "cannot source package code:"
+msgstr ""
+
+msgid "inferiorCallError"
 msgstr ""
 
 msgid "inferior call failed"
@@ -1465,6 +1492,15 @@ msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: stats 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:29\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2021-10-15 18:44+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -2387,7 +2387,8 @@ msgstr "Reikalaujamas conf.level nepasiekiamas"
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr "negali apskaičiuoti pasitikėjimo intervalo, kai visi stebėjimai yra susieti"
 
-msgid "must supply either 'formula' or 'data'"
+#, fuzzy
+msgid "must supply 'formula' or 'data'"
 msgstr "turite pateikti arba 'formula', arba 'data'"
 
 msgid "%s applies only to two-way tables"

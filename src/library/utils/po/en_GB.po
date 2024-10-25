@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2024-10-25 14:50-0700\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -223,33 +223,33 @@ msgstr "unsupported version of Windows"
 msgid "argument must be a character vector or a raw vector"
 msgstr "argument must be a character vector or a raw vector"
 
-#: windows/util.c:330
+#: windows/util.c:332
 msgid "unable to open the clipboard"
 msgstr "unable to open the clipboard"
 
-#: windows/util.c:335
+#: windows/util.c:337
 msgid "unable to write to the clipboard"
 msgstr "unable to write to the clipboard"
 
-#: windows/util.c:414
+#: windows/util.c:416
 msgid "'title' must be a character string"
 msgstr "'title' must be a character string"
 
-#: windows/util.c:423
+#: windows/util.c:425
 msgid "'text' must be a character string"
 msgstr "'text' must be a character string"
 
-#: windows/util.c:462
+#: windows/util.c:464
 #, c-format
 msgid "'%s' must be length 1"
 msgstr "'%s' must be length 1"
 
-#: windows/util.c:575
+#: windows/util.c:577
 #, c-format
 msgid "'%s' must be a list"
 msgstr "'%s' must be a list"
 
-#: windows/util.c:579
+#: windows/util.c:581
 #, c-format
 msgid "'%s' element %d is not a window handle"
 msgstr "'%s' element %d is not a window handle"

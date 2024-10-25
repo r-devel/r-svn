@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2021-01-27 10:37+0100\n"
 "Last-Translator: <r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com>\n"
 "Language-Team: Lithuanian\n"
@@ -59,20 +59,19 @@ msgstr "antras argumentas turi būti sąrašas"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' negalimas šioje sistemoje"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "kind' turi būti simbolių eilutė, kurios ilgis 1 (RNG turi būti naudojamas)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' nėra tinkama RNG santrumpa"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "normal.kind' turi būti simbolių eilutė, kurios ilgis 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "argumentas 'object' turi būti išnagrinėtas iki atskiros simbolių eilutės"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' nėra tinkamas pasirinkimas"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' turi būti simbolių eilutė, kurios ilgis 1"
 
 msgid "malformed version string"
 msgstr "netaisyklinga versijos eilutė"
@@ -521,6 +520,9 @@ msgstr "komponento apatinis indeksas turi būti simbolių eilutė"
 msgid "no Olson database found"
 msgstr "nerasta OLSON duomenų bazė"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' turi būti simbolių eilutė ar ryšys"
 
@@ -683,9 +685,6 @@ msgstr "Nerastas klasės \"%s\" format() metodas"
 
 msgid "class of 'x' was discarded"
 msgstr "'x' klasė buvo atmesta"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'arg' ilgis turi būti eilutė, pvz., 1 ilgio"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' gali būti tik simbolis iš [0+- #'I]"
@@ -959,7 +958,7 @@ msgid "nothing specified to be save()d"
 msgstr "niekas nenurodyta, kad būtų save()d"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' turi būti netuščia eilutė"
 
 msgid "'compress' must be logical or character"
@@ -1573,6 +1572,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "papildomi argumentai ignoruojami warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1685,9 +1693,6 @@ msgstr "Pėdsakas negalimas"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "netaisyklinga versijos specifikacija %s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "netaisyklinga versijos specifikacija %s"
@@ -1988,6 +1993,15 @@ msgstr[1] ""
 msgstr[2] ""
 "%s :\n"
 "%s papildomų argumentų bus ignoruojama"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "normal.kind' turi būti simbolių eilutė, kurios ilgis 1"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'sample.kind' turi būti simbolių eilutė, kurios ilgis 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'arg' ilgis turi būti eilutė, pvz., 1 ilgio"
 
 #, fuzzy
 #~ msgid ", will be ignored"

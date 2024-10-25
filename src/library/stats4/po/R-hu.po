@@ -1,0 +1,38 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.4.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2024-04-01 10:34\n"
+"PO-Revision-Date: 2024-06-17 03:05+0000\n"
+"Last-Translator: Nichole Haines <NicholeHaines54@gmail.com>\n"
+"Language-Team: none\n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.16.4\n"
+
+msgid "named list expected"
+msgstr "Elnevezett lista várható"
+
+msgid "some named values are not arguments to the supplied log-likelihood"
+msgstr "Egyes elnevezett értékek nem argumentumai a megadott log-likelihood"
+
+msgid "Mismatch in length of start values"
+msgstr "Eltérés a kezdőértékek hosszában"
+
+msgid "fixed values violate constraints"
+msgstr "A rögzített értékek megsértik a korlátozásokat"
+
+msgid "start values do not satisfy constraints"
+msgstr "A kezdő értékek nem felelnek meg a korlátozásoknak"
+
+msgid "profiling has found a better solution, so original fit had not converged"
+msgstr "A profilalkotás jobb megoldást talált, így az eredeti illeszkedés nem konvergált"
+
+msgid "levels truncated to positive values only"
+msgstr "a szintek csak a pozitív értékekre korlátozódnak"
+
+msgid "extra arguments discarded"
+msgstr "a töblet argumentumok figyelmen kívül lettek hagyva"
