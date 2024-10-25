@@ -1,0 +1,95 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.4.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2024-04-01 10:34\n"
+"PO-Revision-Date: 2024-06-08 08:39+0000\n"
+"Last-Translator: Ricardo Villalba <rikivillalba@gmail.com>\n"
+"Language-Team: none\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.16.4\n"
+
+msgid "must have at least 'ord' knots"
+msgstr "debe tener al menos 'ord' nudos"
+
+msgid "length of 'derivs' is larger than length of 'x'"
+msgstr "La longitud de 'derivs' es mayor que la longitud de 'x'"
+
+msgid "empty 'derivs'"
+msgstr "'derivs' es vacío"
+
+msgid "'ord' must be positive integer, at most the number of knots"
+msgstr "'ord' debe ser un entero positivo, a lo sumo el número de nudos"
+
+msgid "need at least %s (=%d) knots"
+msgstr "se requieren al menos %s (=%d) nudos"
+
+msgid "the 'x' data must be in the range %g to %g unless you set '%s'"
+msgstr "los datos 'x' deben estar en el rango de %g a %g a menos que establezca '%s'"
+
+msgid "%s needs package 'Matrix' correctly installed"
+msgstr "%s necesita el paquete 'Matrix' correctamente instalado"
+
+msgid "values of 'x' must be distinct"
+msgstr "los valores de 'x' deben ser distintos"
+
+msgid "must have at least 'ord'=%d points"
+msgstr "debe tener al menos 'ord' = %d puntos"
+
+msgid "'formula' must be of the form \"y ~ x\""
+msgstr "'formula' debe tener la forma \"y ~ x\""
+
+msgid "lengths of 'x' and 'y' must match"
+msgstr "Las longitudes de 'x' e 'y' deben coincidir"
+
+msgid "values of 'x' must be strictly increasing"
+msgstr "Los valores de 'x' deben ser estrictamente crecientes"
+
+msgid "'ord' must be >= 2"
+msgstr "'ord' debe ser >= 2"
+
+msgid "the range of 'x' values exceeds one period"
+msgstr "El rango de los valores de 'x' excede un período"
+
+msgid "knot positions must be non-decreasing"
+msgstr "Las posiciones de los nudos deben ser no decrecientes"
+
+msgid "lengths of 'x' and 'y' must be the same"
+msgstr "Las longitudes de 'x' e 'y' deben ser las mismas"
+
+msgid "'deriv' must be between 0 and %d"
+msgstr "'deriv' debe estar entre 0 y %d"
+
+msgid "knot positions must be strictly increasing"
+msgstr "las posiciones de los nudos deben ser estrictamente crecientes"
+
+msgid "currently implemented only for cubic splines"
+msgstr "actualmente solo se implementa para splines cúbicos"
+
+msgid "spline must be monotone"
+msgstr "La spline debe ser monótona"
+
+msgid "'degree' must be integer >= 1"
+msgstr "'degree' debe ser entero >= 1"
+
+msgid "'df' was too small; have used %d"
+msgstr "'df' era demasiado pequeño; se ha utilizado %d"
+
+msgid "non-finite knots"
+msgstr "nudos no finitos"
+
+msgid "all interior knots match left boundary knot"
+msgstr "todos los nudos interiores coinciden con el nudo límite izquierdo"
+
+msgid "all interior knots match right boundary knot"
+msgstr "todos los nudos interiores coinciden con el nudo límite derecho"
+
+msgid "shoving 'interior' knots matching boundary knots to inside"
+msgstr "moviendo los nudos 'interiores' que coinciden con los nudos de límite hacia adentro"
+
+msgid "some 'x' values beyond boundary knots may cause ill-conditioned bases"
+msgstr "Algunos valores de 'x' más allá de los nudos de contorno pueden causar bases mal condicionadas"

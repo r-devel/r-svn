@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-18 21:25+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -333,9 +333,6 @@ msgstr "無効な出力書式です"
 msgid "status %d in running command '%s'"
 msgstr "状態 %d が命令 '%s' 実行中に起きました"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' は空でない文字列でなければなりません"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "不正な 'file' です"
@@ -428,6 +425,9 @@ msgstr "'x', 'y' そして 'z' の長さが異なります"
 
 msgid "'file' is missing with no default"
 msgstr "'file' はデフォルトなしで欠損となっています"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' は空でない文字列でなければなりません"
 
 msgid "unrecognized format of gs -help"
 msgstr "gs -help の意味不明な書式です"

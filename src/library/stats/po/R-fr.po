@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.0.4\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:29\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-04-14 03:05+0000\n"
 "Last-Translator: Hugo Gruson <hugo.gruson@normalesup.org>\n"
 "Language-Team: French <R-core@r-project.org>\n"
@@ -2392,7 +2392,8 @@ msgstr "Requête 'conf.level' impossible à atteindre"
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr "impossible de calculer un intervalle de confiance avec des observations toutes égales"
 
-msgid "must supply either 'formula' or 'data'"
+#, fuzzy
+msgid "must supply 'formula' or 'data'"
 msgstr "il faut fournir soit 'formula', soit 'data'"
 
 msgid "%s applies only to two-way tables"

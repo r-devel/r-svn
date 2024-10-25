@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-09-01 10:22+0000\n"
 "Last-Translator: Ayush Bipin Patel <ayush.ap58@gmail.com>\n"
 "Language-Team: none\n"
@@ -20,9 +20,7 @@ msgid "need at least one argument"
 msgstr "कम से कम एक आर्ग्युमेंट (argument) चाहिये"
 
 msgid "zero-length inputs cannot be mixed with those of non-zero length"
-msgstr ""
-"शून्य-लंबाई वाले इनपुट को गैर-शून्य लंबाई के इनपुट के साथ मिश्रित नहीं किया "
-"जा सकता है"
+msgstr "शून्य-लंबाई वाले इनपुट को गैर-शून्य लंबाई के इनपुट के साथ मिश्रित नहीं किया जा सकता है"
 
 msgid "dim(X) must have a positive length"
 msgstr "dim(X) की लंबाई की संख्या धनात्मक होनी चाहिए"
@@ -39,7 +37,11 @@ msgstr "नाही कोई समूह 'cl' उपलब्ध करवय
 msgid "not a valid cluster"
 msgstr "मान्य समूह नही है"
 
-msgid "unknown cluster type"
+msgid "replacing registration for cluster type '%s'"
+msgstr ""
+
+#, fuzzy
+msgid "unknown cluster type: '%s'"
 msgstr "अज्ञात प्रकार का समूह"
 
 msgid "numeric 'names' must be >= 1"
@@ -64,8 +66,7 @@ msgid "invalid 'child' argument"
 msgstr "अमान्य 'child'आर्गुमेंत (argument)"
 
 msgid "'children' must be a list of processes or a single process"
-msgstr ""
-"'children' का कोई प्रक्रिया या प्रक्रीयओ कि यादी (list) होना अनिवार्य है"
+msgstr "'children' का कोई प्रक्रिया या प्रक्रीयओ कि यादी (list) होना अनिवार्य है"
 
 msgid "'process' must be of class %s"
 msgstr "'process' का class %s होना चाहिये"
@@ -86,17 +87,13 @@ msgid "%d function calls resulted in an error"
 msgstr ""
 
 msgid "'mc.preschedule' must be false if 'affinity.list' is used"
-msgstr ""
-"यदि 'affinity.list' का उपयोग किया जाता है तो 'mc.preschedule' कि संख्या "
-"false होनी चाहिए"
+msgstr "यदि 'affinity.list' का उपयोग किया जाता है तो 'mc.preschedule' कि संख्या false होनी चाहिए"
 
 msgid "all scheduled cores encountered errors in user code"
 msgstr ""
 
 msgid "Zero-length inputs cannot be mixed with those of non-zero length"
-msgstr ""
-"शून्य-लंबाई वाले इनपुट को गैर-शून्य लंबाई के इनपुट के साथ मिश्रित नहीं किया "
-"जा सकता है"
+msgstr "शून्य-लंबाई वाले इनपुट को गैर-शून्य लंबाई के इनपुट के साथ मिश्रित नहीं किया जा सकता है"
 
 msgid "invalid 'jobs' argument"
 msgstr "अमान्य 'jobs' अर्गुमेंत (argument)"
@@ -115,11 +112,8 @@ msgstr ""
 
 msgid "Cluster setup failed. %d worker of %d failed to connect."
 msgid_plural "Cluster setup failed. %d of %d workers failed to connect."
-msgstr[0] ""
-"समूह स्थापना असफल| %2$d मे से वर्कर (worker) क्रमांक %1$d संपर्क स्थापना मे "
-"असफल|"
-msgstr[1] ""
-"समूह स्थापना असफल| %2$d मे से %1$d वर्कर (worker) संपर्क स्थापना मे असफल|"
+msgstr[0] "समूह स्थापना असफल| %2$d मे से वर्कर (worker) क्रमांक %1$d संपर्क स्थापना मे असफल|"
+msgstr[1] "समूह स्थापना असफल| %2$d मे से %1$d वर्कर (worker) संपर्क स्थापना मे असफल|"
 
 msgid "socket cluster with %d nodes on host %s"
 msgid_plural "socket cluster with %d nodes on hosts %s"

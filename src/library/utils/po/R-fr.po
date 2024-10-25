@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.0.4\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: French <R-core@r-project.org>\n"
@@ -182,8 +182,15 @@ msgstr "Il est recommandé d'utiliser %s à la place de %s."
 msgid "Use either %s or %s but not both."
 msgstr "Utilisez soit %s, soit %s, mais pas les deux en même temps."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Il est recommandé d'utiliser %s/%s à la place de %s/%s/%s."
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' doit être de type caractère ou NULL"
+
+msgid "subscript out of bounds"
+msgstr "indices hors range"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "la méthode n'est applicable qu'à des objets %s"
@@ -196,9 +203,6 @@ msgstr "tous les champs doivent être nommés"
 
 msgid "%s has to be one of %s"
 msgstr "%s doit être l'un de %s"
-
-msgid "subscript out of bounds"
-msgstr "indices hors range"
 
 msgid "%s should be one of %s"
 msgstr "%s doit être l'un de %s"
@@ -215,6 +219,9 @@ msgid ""
 msgstr ""
 "L'entrée incorrecte %d est éliminée :\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "impossible de déterminer l'année de %s du fichier DESCRIPTION du package"
@@ -466,8 +473,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr "Impossible de se connecter à CRAN pour vérifier la version de R."
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "l'argument %s doit être une seule chaîne de caractères"
+msgid "'%s' must be a character string"
+msgstr "'unzip' doit être une seule chaîne de caractères"
 
 msgid "incorrect field specification"
 msgstr "spécification de champ incorrecte"
@@ -565,6 +572,9 @@ msgstr "L’unité \"%s\" ne fait pas partie du standard \"%s\""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' est une fonction générique formelle ; probablement pas de méthode S3"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "aucune fonction '%s' n'est visible"
 
@@ -621,9 +631,6 @@ msgstr "le répertoire '%s' existe déjà"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "les fonctions génériques et autres objets S4 (e.g., '%s') ne peuvent être retranscrits à l'aide de dump ; utilisez l'argument 'code_files'"
-
-msgid "invalid 'type'; must be a character string"
-msgstr "'type' incorrect ; doit être une chaîne de caractères"
 
 msgid "unable to access index for repository %s"
 msgstr "impossible d'accéder à l'index de l'entrepôt %s"
@@ -721,10 +728,6 @@ msgid ""
 msgstr ""
 "Je ne sais pas dans quel élément de 'lib' installer les dépendances\n"
 "dépendances ignorées"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip' doit être une seule chaîne de caractères"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "le type 'binary' n’est pas supporté sur cette plateforme"
@@ -1307,6 +1310,11 @@ msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Spécification de rôle incorrecte : %s."
 msgstr[1] "Spécifications de rôle incorrectes : %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "Une entrée bibentry de bibtype %s doit spécifier le champ : %s"
@@ -1446,6 +1454,16 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "nombre roman incorrect : %s"
 msgstr[1] "nombres romans incorrects : %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Il est recommandé d'utiliser %s/%s à la place de %s/%s/%s."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "l'argument %s doit être une seule chaîne de caractères"
+
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'type' incorrect ; doit être une chaîne de caractères"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "fichier 'filelist' introuvable pour le répertoire %s"

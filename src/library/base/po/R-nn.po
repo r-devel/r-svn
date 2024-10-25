@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.15.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2012-09-28 22:18+0200\n"
 "Last-Translator: Karl Ove Hufthammer <karl@huftis.org>\n"
 "Language-Team: Norwegian Nynorsk <i18n-nn@lister.ping.uio.no>\n"
@@ -56,21 +56,19 @@ msgstr "det andre argumentet må vera ei liste"
 msgid "'iconvlist' is not available on this system"
 msgstr "«iconvlist» er ikkje tilgjengeleg på dette systemet"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "«kind» må vera ein teiknstreng av lengd 1 (slumptalsgenerator som skal brukast)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "«%s» er ikkje ei gyldig kortform av ein slumptalsgenerator"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "«normal.kind» må vera ein teiknstreng av lengd 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "argumentet «object» må deparsast til ein enkelt tekststreng"
 
 msgid "'%s' is not a valid choice"
 msgstr "«%s» er ikkje eit gyldig val"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "«normal.kind» må vera ein teiknstreng av lengd 1"
 
 msgid "malformed version string"
 msgstr "ugyldig versjonsstreng"
@@ -558,6 +556,9 @@ msgstr "argumentet «object» må deparsast til ein enkelt tekststreng"
 msgid "no Olson database found"
 msgstr "fann ingen filer"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "«file» må vera ein teiknstreng eller eit samband"
 
@@ -731,10 +732,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr ""
-
-#, fuzzy
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "«arg» må ha eitt element"
 
 #, fuzzy
 msgid "'flag' should contain only characters from [0+- #'I]"
@@ -1015,7 +1012,7 @@ msgid "nothing specified to be save()d"
 msgstr "ikkje definert kva som skal lagrast"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "«file» må vera ein ikkje-tom teiknstreng"
 
 msgid "'compress' must be logical or character"
@@ -1667,6 +1664,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "fleire argument ignorerte i warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1787,9 +1793,6 @@ msgstr "Tilbakesporing finst ikkje"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "ugyldig versjonsspesifikasjon"
-
-msgid "Calls"
-msgstr ""
 
 #, fuzzy
 msgid "invalid version specification %s"
@@ -2074,6 +2077,17 @@ msgid_plural ""
 " extra arguments %s will be disregarded"
 msgstr[0] "ekstraargument(a) «%s» vert ikkje brukt(e)"
 msgstr[1] "ekstraargument(a) «%s» vert ikkje brukt(e)"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "«normal.kind» må vera ein teiknstreng av lengd 1"
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "«normal.kind» må vera ein teiknstreng av lengd 1"
+
+#, fuzzy
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "«arg» må ha eitt element"
 
 #, fuzzy
 #~ msgid ", will be ignored"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tools 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2021-11-08 10:33+0100\n"
 "Last-Translator: r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com\n"
 "Language-Team: Lithuanian\n"
@@ -268,6 +268,10 @@ msgid "Authors@R field gives no person with maintainer role, valid email address
 msgstr "Authors@R lauke nenurodomi jokie asmenys su prižiūrėtojo vaidmenimi, galiojančiu el. pašto adresu ir netuščiu vardu."
 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
 
 msgid "Encoding '%s' is not portable"
@@ -684,9 +688,6 @@ msgstr "Vinjetės variklio paketas nenurodytas"
 msgid "Unsupported engine name"
 msgstr "Nepalaikomas variklio pavadinimas"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Vinjetės variklis %s neužregistruotas"
 
@@ -772,6 +773,12 @@ msgstr "KLAIDA: ši R versija yra %s, reikalaujama R %s %s"
 
 msgid "loading failed"
 msgstr "įkėlimas nepavyko"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Gavo %s vertinant %s; reikėjo %s\\"
@@ -1124,6 +1131,13 @@ msgstr "pakete nėra R kodo"
 msgid "package seems to be using lazy loading already"
 msgstr "paketas jau naudoja atidėtąjį įkėlimą"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "text' turi būti simbolių vektorius"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1217,6 +1231,13 @@ msgstr "argumentas '%s' turi būti simbolių eilutė arba ryšys"
 msgid "unimplemented encoding"
 msgstr "neįgyvendintas kodavimas"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' turi būti vieno simbolio eilutė"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "tam reikia, kad 'objdump.exe' būtų PATH"
 
@@ -1241,6 +1262,10 @@ msgstr "bandymas '%s' nepavyko"
 msgid "Testing examples for package %s"
 msgstr "Paketo %s tikrinimo pavyzdžiai"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "nepavyko 'texi2dvi' esančio '%s' vykdymas"
+
 msgid "comparing %s to %s ..."
 msgstr "lyginant %s su %s ..."
 
@@ -1264,6 +1289,10 @@ msgstr "Vykdomi specialūs paketo %s testai"
 
 msgid "Running %s"
 msgstr "Vykdoma %s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "nepavyko 'texi2dvi' esančio '%s' vykdymas"
 
 msgid "Running vignettes for package %s"
 msgstr "Vykdomos vinjetės paketui %s"
@@ -1358,7 +1387,8 @@ msgstr "Galutinių atnaujintų PACKAGES failų rašymas."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES baigtas."
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "'x' turi būti vieno simbolio eilutė"
 
 msgid "test '%s' is not available"
@@ -1411,6 +1441,9 @@ msgstr "Nežinomas kodavimas su ne ASCII duomenimis: konvertavimas į ASCII"
 
 msgid "cannot source package code:"
 msgstr "negalima gauti paketo kodo:"
+
+msgid "inferiorCallError"
+msgstr ""
 
 msgid "inferior call failed"
 msgstr ""
@@ -1563,6 +1596,13 @@ msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "SANTRAUKA: nepavyko apdoroti šio failo:"
 msgstr[1] "SANTRAUKA: nepavyko apdoroti šių failų:"
 msgstr[2] "SANTRAUKA: nepavyko apdoroti šių failų:"
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
+msgstr[1] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
+msgstr[2] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"

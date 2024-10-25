@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2018-04-09 12:05-0600\n"
 "Last-Translator: Chel Hee Lee <gnustats@gmail.com>\n"
 "Language-Team: \n"
@@ -61,21 +61,19 @@ msgstr "두번째 인자는 반드시 리스트(list)이어야 합니다."
 msgid "'iconvlist' is not available on this system"
 msgstr "이 시스템에서는 'iconvlist'을 사용할 수 없습니다."
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind'는 반드시 길이가 1인 문자열(character string)이어야 합니다. 이는 RNG(난수생성기)에 사용됩니다."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s'는 올바른 RNG(난수생성기)의 약자가 아닙니다."
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합니다."
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s'는 유효한 선택이 아닙니다"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
 
 msgid "malformed version string"
 msgstr "잘못된 버전"
@@ -531,6 +529,9 @@ msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합�
 msgid "no Olson database found"
 msgstr "Olson 데이터베이스를 찾을 수 없습니다"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file'은 반드시 문자열 또는 커넥션이어야 합니다"
 
@@ -686,9 +687,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "클래스 'x'는 사용되지 않습니다."
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr ""
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag'는 오로지 [0+- #'I] 내에 주어진 문자만을 포함해야 합니다."
@@ -957,7 +955,7 @@ msgid "nothing specified to be save()d"
 msgstr "save()에 이용될 아무런 것도 지정되지 않았습니다"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file'은 반드시 비어있지 않은 문자열이어야 합니다"
 
 msgid "'compress' must be logical or character"
@@ -1568,6 +1566,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "warning()에서 무시된 추가적 인자들입니다"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1681,9 +1688,6 @@ msgstr ""
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "유효하지 않은 버전지정 %s입니다"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "유효하지 않은 버전지정 %s입니다"
@@ -1918,6 +1922,13 @@ msgid_plural ""
 "In %s :\n"
 " extra arguments %s will be disregarded"
 msgstr[0] ""
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
 
 #, fuzzy
 #~ msgid ", will be ignored"

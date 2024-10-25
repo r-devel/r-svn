@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: http://www.feferraz.net/br/P/Projeto_Traducao_R_Portugues\n"
@@ -59,20 +59,19 @@ msgstr "segundo argumento deve ser uma lista"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' não está disponível neste sistema"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' deve ser uma string de caracteres de comprimento 1 (RNG a ser usado)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' não é uma abreviação válida de uma RNG"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' deve ser uma string de tamanho 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'name' deve ser uma única string de caracteres"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' não é uma escolha válida"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' deve ser uma string de caracteres de tamanho 1"
 
 msgid "malformed version string"
 msgstr "string de versão mal formada"
@@ -514,6 +513,9 @@ msgstr "componente subscrito deve ser uma string de caracteres"
 msgid "no Olson database found"
 msgstr "base de dados Olson não encontrada"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' deve ser uma string ou conexão"
 
@@ -676,9 +678,6 @@ msgstr "Método format() não encontrado para classe \"%s\""
 
 msgid "class of 'x' was discarded"
 msgstr "classe de 'x' foi descartada"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'flag' deve ter ser uma string, i.e., de comprimento 1"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' deve conter somente caracteres de [0+- #'I]"
@@ -952,7 +951,7 @@ msgid "nothing specified to be save()d"
 msgstr "nada especificado para ser salvo"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' deve ser uma string não vazia"
 
 msgid "'compress' must be logical or character"
@@ -1564,6 +1563,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "argumentos adicionais ignorados em warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr "Sys.setenv(LANGUAGE=\"%s\") pode ter falhado"
 
@@ -1676,9 +1684,6 @@ msgstr "Nenhum rastreamento disponível"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "especificação de versão %s inválida"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "especificação de versão %s inválida"
@@ -1946,6 +1951,15 @@ msgstr[0] ""
 msgstr[1] ""
 "Em %s :\n"
 " argumentos extras %s serão ignorados"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' deve ser uma string de tamanho 1"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'sample.kind' deve ser uma string de caracteres de tamanho 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'flag' deve ter ser uma string, i.e., de comprimento 1"
 
 #, fuzzy
 #~ msgid ", will be ignored"

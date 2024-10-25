@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-25 17:46\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-25 14:56+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -263,6 +263,10 @@ msgid "Authors@R field gives no person with maintainer role, valid email address
 msgstr "В поле Authors@R нет никого в роли сопровождающего, с адресом электронной почты и непустым именем."
 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "В поле Authors@R есть люди с неправильными идентификаторами ORCID:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "В поле Authors@R есть люди с неправильными идентификаторами ORCID:"
 
 msgid "Encoding '%s' is not portable"
@@ -671,9 +675,6 @@ msgstr "Не определен движок очерка"
 msgid "Unsupported engine name"
 msgstr "Неподдерживаемое имя устройства"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Ни один из пакетов %s не имеет зарегистрированных движков очерков"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Движок очерка %s не зарегистрирован"
 
@@ -759,6 +760,12 @@ msgstr "ОШИБКА: это R версии %s, а требуется R %s %s"
 
 msgid "loading failed"
 msgstr "загрузка не удалась"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Получил %s проверяя %s; нужно %s"
@@ -1110,6 +1117,13 @@ msgstr "пакет не содержит кода R"
 msgid "package seems to be using lazy loading already"
 msgstr "кажется, пакет уже использует ленивую загрузку данных"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' должен быть текстовым вектором"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1203,6 +1217,13 @@ msgstr "аргумент '%s' должен быть текстовой"
 msgid "unimplemented encoding"
 msgstr "не разработанная кодировка"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "аргумент 'x' должен быть текстовой строкой"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "нужно чтобы 'objdump.exe' был указан в PATH"
 
@@ -1227,6 +1248,10 @@ msgstr "тестирование '%s' не удалось"
 msgid "Testing examples for package %s"
 msgstr "Проверяю примеры к пакету %s"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "Запускаю примеры к пакету"
+
 msgid "comparing %s to %s ..."
 msgstr "сравниваю %s и %s ..."
 
@@ -1250,6 +1275,10 @@ msgstr "Запускаю специфические тесты для пакета %s"
 
 msgid "Running %s"
 msgstr "Запускаю %s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "не удался запуск 'xgettext'"
 
 msgid "Running vignettes for package %s"
 msgstr "Запускаю миниатюры для пакета %s"
@@ -1342,7 +1371,8 @@ msgstr "Записываю окончательные варианты обновленных файлов PACKAGES."
 msgid "update_PACKAGES complete."
 msgstr "обновление_PACKAGES завершено."
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "аргумент 'x' должен быть текстовой строкой"
 
 msgid "test '%s' is not available"
@@ -1395,6 +1425,10 @@ msgstr "Неизвестная кодировка с не-ASCII данными: конвертирую в ASCII"
 
 msgid "cannot source package code:"
 msgstr "не могу выполнить код пакета:"
+
+#, fuzzy
+msgid "inferiorCallError"
+msgstr "внутренняя ошибка"
 
 msgid "inferior call failed"
 msgstr "ошибка во вложенном вызове"
@@ -1546,6 +1580,13 @@ msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "РЕЗУЛЬТАТ: обработка следующих файлов не удалась:"
 msgstr[1] "РЕЗУЛЬТАТ: обработка следующих файлов не удалась:"
 msgstr[2] "РЕЗУЛЬТАТ: обработка следующих файлов не удалась:"
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Ни один из пакетов %s не имеет зарегистрированных движков очерков"
+msgstr[1] "Ни один из пакетов %s не имеет зарегистрированных движков очерков"
+msgstr[2] "Ни один из пакетов %s не имеет зарегистрированных движков очерков"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
@@ -1992,9 +2033,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "Internal error:  NULL tag"
 #~ msgstr "Внутренняя ошибка:  тег NULL"
 
-#~ msgid "internal error"
-#~ msgstr "внутренняя ошибка"
-
 #~ msgid "Inconsistent arg count for"
 #~ msgstr "Несоответственный аргумент найден у"
 
@@ -2090,9 +2128,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "running msgconv failed"
 #~ msgstr "не удался запуск 'msgconv'"
-
-#~ msgid "running xgettext failed"
-#~ msgstr "не удался запуск 'xgettext'"
 
 #~ msgid "ERROR: --merge-multiarch can only be used on i386/x64 installations"
 #~ msgstr "ERROR: --merge-multiarch можно использовать только на i386/x64-инсталляциях"
@@ -2202,9 +2237,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "cannot create HTML package index"
 #~ msgstr "не могу создать HTML-индекс пакета"
-
-#~ msgid "Running examples in package"
-#~ msgstr "Запускаю примеры к пакету"
 
 #~ msgid "... done"
 #~ msgstr "... готово"

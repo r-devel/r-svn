@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -57,21 +57,19 @@ msgstr "第二引数はリストでなければなりません"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' はこのシステムでは使用できません"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' は長さ 1 の文字列 (使用する RNG の名称) でなければなりません"
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' は RNG の有効な省略名ではありません"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' は長さ 1 の文字列でなければなりません"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "引数 'object' は空でない単一の文字列でなければなりません"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' は有効な選択 (choice) ではありません"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind' は長さ 1 の文字列でなければなりません"
 
 msgid "malformed version string"
 msgstr "正しい形式のバージョン文字列ではありません"
@@ -531,6 +529,9 @@ msgstr "引数 'object' は空でない単一の文字列でなければなり�
 msgid "no Olson database found"
 msgstr "Olson データベースが見つかりません"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' は文字列かコネクションでなければなりません"
 
@@ -696,10 +697,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "クラス 'x' は捨てられました"
-
-#, fuzzy
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'arg' は長さ 1 でなければなりません"
 
 #, fuzzy
 msgid "'flag' should contain only characters from [0+- #'I]"
@@ -974,7 +971,7 @@ msgid "nothing specified to be save()d"
 msgstr "save() されるべきものがありません"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' は空でない文字列でなければなりません"
 
 msgid "'compress' must be logical or character"
@@ -1597,6 +1594,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "warning() 中の追加引数は無視されます"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1711,9 +1717,6 @@ msgstr "利用できる traceback がありません"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "無効なバージョンの指定 %s です"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "無効なバージョンの指定 %s です"
@@ -1950,6 +1953,17 @@ msgid_plural ""
 msgstr[0] ""
 "%s中:\n"
 " 余分な引数 %s は無視されます"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' は長さ 1 の文字列でなければなりません"
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' は長さ 1 の文字列でなければなりません"
+
+#, fuzzy
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'arg' は長さ 1 でなければなりません"
 
 #, fuzzy
 #~ msgid ", will be ignored"

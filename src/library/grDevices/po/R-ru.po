@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-25 17:46\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-25 14:29+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -329,9 +329,6 @@ msgstr "неправильный формат вывода"
 msgid "status %d in running command '%s'"
 msgstr "статус %d выполняющейся команды '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' должен быть непустой символьной строкой"
-
 msgid "Invalid 'glyphInfo'"
 msgstr "Неправильный 'glyphInfo'"
 
@@ -421,6 +418,9 @@ msgstr "длины 'x', 'y' и 'z' различаются"
 
 msgid "'file' is missing with no default"
 msgstr "пропущен 'file', умолчания нет"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' должен быть непустой символьной строкой"
 
 msgid "unrecognized format of gs -help"
 msgstr "неподдерживаемый формат gs -help"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4-3-BRANCH\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-01-04 14:29+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian https://github.com/dmedri/R-italian-lang\n"
@@ -273,6 +273,10 @@ msgid "Authors@R field gives no person with maintainer role, valid email address
 msgstr "Il campo Authors@R non indica alcuna persona con il ruolo di maintainer, email valida e nome."
 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Il campo Authors@R indica persone con identificativi ORCID non validi:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Il campo Authors@R indica persone con identificativi ORCID non validi:"
 
 msgid "Encoding '%s' is not portable"
@@ -688,9 +692,6 @@ msgstr "Pacchetto engine vignetta non specificato"
 msgid "Unsupported engine name"
 msgstr "Nome engine non supportato"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Nessuno dei pacchetti %s ha registratto engine per vignette"
-
 msgid "Vignette engine %s is not registered"
 msgstr "L'engine di vignette %s non è registrato"
 
@@ -776,6 +777,12 @@ msgstr "ERRORE: l'attuale versione di R è %s, quella richiesta è %s %s"
 
 msgid "loading failed"
 msgstr "caricamento fallito"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Rilevato %s nella valutazione di %s; richiesto %s"
@@ -1125,6 +1132,13 @@ msgstr "il pacchetto non contiene codice R"
 msgid "package seems to be using lazy loading already"
 msgstr "il pacchetto sembra utilizzare il lazy loading"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' dev'essere un vettore di caratteri"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1219,6 +1233,13 @@ msgstr "l'argomento '%s' dev'essere una stringa di caratteri o una connessione"
 msgid "unimplemented encoding"
 msgstr "codifica non implementata"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' dev'essere una stringa di caratteri"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "questo richiede a 'objdump.exe' di essere nel PATH"
 
@@ -1243,6 +1264,10 @@ msgstr "test per '%s' fallito"
 msgid "Testing examples for package %s"
 msgstr "Verifica esempi per il pacchetto %s"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "esecuzione di 'texi2dvi' su '%s' fallita"
+
 msgid "comparing %s to %s ..."
 msgstr "comparando %s a %s ..."
 
@@ -1266,6 +1291,10 @@ msgstr "Eseguendo test specifici per il pacchetto %s"
 
 msgid "Running %s"
 msgstr "Eseguendo '%s'"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "esecuzione di 'texi2dvi' su '%s' fallita"
 
 msgid "Running vignettes for package %s"
 msgstr "Eseguendo vignette per il pacchetto %s"
@@ -1360,7 +1389,8 @@ msgstr "Scrittura in corso dei file finali aggiornati PACKAGES."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES completato."
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "'x' dev'essere una stringa di caratteri"
 
 msgid "test '%s' is not available"
@@ -1413,6 +1443,9 @@ msgstr "Codifica sconosciuta con dati non-ASCII: conversione in ASCII"
 
 msgid "cannot source package code:"
 msgstr "non è possibile eseguire il codice del pacchetto:"
+
+msgid "inferiorCallError"
+msgstr "inferiorCallError"
 
 msgid "inferior call failed"
 msgstr "chiamata inferiore fallita"
@@ -1541,6 +1574,12 @@ msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "RIASSUNTO: l'analisi del seguente file è fallita:"
 msgstr[1] "RIASSUNTO: l'analisi dei seguenti file è fallita:"
 
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Nessuno dei pacchetti %s ha registratto engine per vignette"
+msgstr[1] "Nessuno dei pacchetti %s ha registratto engine per vignette"
+
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
 msgstr[0] "non è possibile ricodificare %s linea %s"
@@ -1594,9 +1633,6 @@ msgstr[1] "Voci BibTeX corrispondenti:"
 
 #~ msgid "Asserted warning: %s"
 #~ msgstr "Avvertimento: %s"
-
-#~ msgid "inferiorCallError"
-#~ msgstr "inferiorCallError"
 
 #~ msgid "duplicated vignette title:"
 #~ msgid_plural "duplicated vignette titles:"

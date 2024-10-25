@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-01-12 03:05+0000\n"
 "Last-Translator: Mandal MSH <mshmandal@gmail.com>\n"
 "Language-Team: none\n"
@@ -55,20 +55,19 @@ msgstr "দ্বিতীয় আর্গুমেন্ট লিস্ট 
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' সিস্টেমে উপলব্ধ নয়"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' একটি এক অক্ষরের স্ট্রিং হওয়া উচিত (RNG ব্যবহার করতে হবে)।"
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' কোনো RNG র যথাযথ সংক্ষিপ্তকরণ নয়"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' একটি একক অক্ষর হওয়া বাধ্যতামূলক"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'sample.kind' একক character হওয়া বাধ্যতামূলক"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' বৈধ বিকল্প নয়"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' একক character হওয়া বাধ্যতামূলক"
 
 msgid "malformed version string"
 msgstr "বিকৃত সংস্করণ স্ট্রিং"
@@ -506,6 +505,9 @@ msgstr ""
 msgid "no Olson database found"
 msgstr ""
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr ""
 
@@ -659,9 +661,6 @@ msgid "Found no format() method for class \"%s\""
 msgstr ""
 
 msgid "class of 'x' was discarded"
-msgstr ""
-
-msgid "'flag' must be a string, i.e., of length 1"
 msgstr ""
 
 msgid "'flag' should contain only characters from [0+- #'I]"
@@ -924,8 +923,9 @@ msgstr ""
 msgid "nothing specified to be save()d"
 msgstr ""
 
-msgid "'%s' must be a non-empty string"
-msgstr ""
+#, fuzzy
+msgid "'%s' must be a non-empty character string"
+msgstr "'sample.kind' একক character হওয়া বাধ্যতামূলক"
 
 msgid "'compress' must be logical or character"
 msgstr ""
@@ -1523,6 +1523,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr ""
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1631,9 +1640,6 @@ msgid "No traceback available"
 msgstr ""
 
 msgid "invalid non-character version specification 'x' (type: %s)"
-msgstr ""
-
-msgid "Calls"
 msgstr ""
 
 msgid "invalid version specification %s"
@@ -1897,6 +1903,9 @@ msgid_plural ""
 " extra arguments %s will be disregarded"
 msgstr[0] ""
 msgstr[1] ""
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' একটি একক অক্ষর হওয়া বাধ্যতামূলক"
 
 #~ msgid "defunctError"
 #~ msgstr "বিলুপ্ত ত্রুটি"

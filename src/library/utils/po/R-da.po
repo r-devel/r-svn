@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.0.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2012-01-09 20:51+0200\n"
 "Last-Translator: Joe <joedalton2@yahoo.dk>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -185,8 +185,14 @@ msgstr "Det anbefales at bruge %s i stedet for %s."
 msgid "Use either %s or %s but not both."
 msgstr "Brug enten %s eller %s men ikke begge."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Det anbefales at bruge %s/%s i stedet for %s/%s/%s."
+msgid "Arguments of person() should be character or NULL"
+msgstr ""
+
+msgid "subscript out of bounds"
+msgstr ""
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 #, fuzzy
 msgid "method is only applicable to %s objects"
@@ -202,9 +208,6 @@ msgstr "alle felter skal navngives"
 msgid "%s has to be one of %s"
 msgstr "%s skal være en af %s"
 
-msgid "subscript out of bounds"
-msgstr ""
-
 msgid "%s should be one of %s"
 msgstr "%s skal være en af %s"
 
@@ -217,6 +220,9 @@ msgstr ""
 msgid ""
 "Dropping invalid entry %d:\n"
 "%s"
+msgstr ""
+
+msgid "package %s has no %s file: only auto-generation is possible"
 msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
@@ -463,7 +469,7 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
+msgid "'%s' must be a character string"
 msgstr "»package« skal være en tegnstreng eller NULL"
 
 msgid "incorrect field specification"
@@ -559,6 +565,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr ""
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr ""
 
@@ -615,10 +624,6 @@ msgstr ""
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr ""
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "»package« skal være en tegnstreng eller NULL"
 
 msgid "unable to access index for repository %s"
 msgstr ""
@@ -718,10 +723,6 @@ msgid ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
 msgstr ""
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "»package« skal være en tegnstreng eller NULL"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr ""
@@ -1291,6 +1292,11 @@ msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Ugyldige rollespecifikationer: %s."
 msgstr[1] "Ugyldige rollespecifikationer: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] ""
@@ -1419,6 +1425,17 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "ugyldig værdi for %s: %s"
 msgstr[1] "ugyldig værdi for %s: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Det anbefales at bruge %s/%s i stedet for %s/%s/%s."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "»package« skal være en tegnstreng eller NULL"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "»package« skal være en tegnstreng eller NULL"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "fil »filelist« mangler for mappe %s"

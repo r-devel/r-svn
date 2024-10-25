@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-25 17:46\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-25 14:47+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -310,15 +310,6 @@ msgstr "вставляю метод соответствующий пустому идентификатору"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "вставляю метод в объект, не являющийся списком методов (класс %s)"
 
-msgid "invalid method sublist"
-msgstr "неверный подсписок методов"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f не является правильной общей функцией: список методов был объектом класса %s"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s должен быть TRUE, FALSE, или именованным логическим вектором этих значений; получен объект класса %s"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "метод по умолчанию должен быть определением метода, примитивом или NULL: получен объект класса %s"
 
@@ -342,9 +333,6 @@ msgstr "в идентификаторе метода (%d) больше элементов, чем в общем идентификатор
 
 msgid "no generic function found corresponding to %s"
 msgstr "нет общей функции, соответствующей %s"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "пропускаю элемент списка методов %s неожиданного класса %s"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s, также как и иное использование объектов метаданных \"MethodsList\", не рекомендуется."
@@ -499,7 +487,8 @@ msgstr "у класса не может быть одновременно обычного и скрытого типа данных"
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "метод проверки правильности должен быть функцией одного аргумента, получен объект класса %s"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "не могу найти требуемый пакет %s"
 
 msgid "unable to find an environment containing class %s"
@@ -886,7 +875,8 @@ msgstr "Каркас метода записан в %s"
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "неверный объект в мета-таблице методов для %s, метка %s, имеет класс %s"
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+#, fuzzy
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "неправильный элемент mlist для подписи %s на уровне %d (должен быть MethodDefinition либо .Primitive, имеет класс %s)"
 
 msgid "bad method object stored in method table, class %s"
@@ -1355,6 +1345,18 @@ msgid_plural "no definition of class %s in the specified position, %s, definitio
 msgstr[0] "нет определения класса %s в указанной позиции, %s, определение: %s"
 msgstr[1] "нет определения класса %s в указанной позиции, %s, определения: %s"
 msgstr[2] "нет определения класса %s в указанной позиции, %s, определения: %s"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "неверный подсписок методов"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f не является правильной общей функцией: список методов был объектом класса %s"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s должен быть TRUE, FALSE, или именованным логическим вектором этих значений; получен объект класса %s"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "пропускаю элемент списка методов %s неожиданного класса %s"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "неверный вызов в методе оправки к '%s' (нет метода по умолчанию)"

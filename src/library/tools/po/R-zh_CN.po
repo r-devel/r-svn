@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -282,6 +282,10 @@ msgstr "Authors@R域没有提供有维护作用的人和他的email"
 
 #, fuzzy
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Authors@R领域里没有有效作用的人"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Authors@R领域里没有有效作用的人"
 
 msgid "Encoding '%s' is not portable"
@@ -723,10 +727,6 @@ msgid "Unsupported engine name"
 msgstr "不支持这样的引擎名"
 
 #, fuzzy
-msgid "None of packages %s have registered vignette engines"
-msgstr "注册简介引擎"
-
-#, fuzzy
 msgid "Vignette engine %s is not registered"
 msgstr "不需要标头从属:"
 
@@ -817,6 +817,12 @@ msgstr "错误：R的版本是%s，需要的是版本为%s %s的R"
 
 msgid "loading failed"
 msgstr "载入失败"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr ""
@@ -1171,6 +1177,13 @@ msgstr "程序包没有包含任何R编码"
 msgid "package seems to be using lazy loading already"
 msgstr "程序包已经使用延迟加载了"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "参数'x'必需是字符向量"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1268,6 +1281,13 @@ msgstr "参数'%s'必需是字符串或联结"
 msgid "unimplemented encoding"
 msgstr "还没有实现的编码"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x'必需是单字符串"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr ""
 
@@ -1291,6 +1311,10 @@ msgstr "试用'%s'失败了"
 
 msgid "Testing examples for package %s"
 msgstr "试验程序包%s的范例"
+
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "调用例子在程序包"
 
 msgid "comparing %s to %s ..."
 msgstr "比较%s和%s"
@@ -1316,6 +1340,10 @@ msgstr "为程序包%s执行特定的检验程序"
 
 msgid "Running %s"
 msgstr "执行%s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "调用'make'失败"
 
 msgid "Running vignettes for package %s"
 msgstr "执行小文品给程序包%s"
@@ -1410,7 +1438,8 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "'x'必需是单字符串"
 
 msgid "test '%s' is not available"
@@ -1464,6 +1493,10 @@ msgstr "没有这样带非ASCII数据的编码: 转换为ASCII"
 #, fuzzy
 msgid "cannot source package code:"
 msgstr "无法读取程序包源编码"
+
+#, fuzzy
+msgid "inferiorCallError"
+msgstr "内部错误"
 
 msgid "inferior call failed"
 msgstr ""
@@ -1574,6 +1607,11 @@ msgstr[0] ""
 msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "在下面的Rd例子文件中遇到了有可能是全局的T或F值:"
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "注册简介引擎"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
@@ -1972,9 +2010,6 @@ msgstr[0] ""
 #~ msgid "Internal error:  NULL tag"
 #~ msgstr "内部错误：NULL标签"
 
-#~ msgid "internal error"
-#~ msgstr "内部错误"
-
 #~ msgid "Inconsistent arg count for"
 #~ msgstr "参数数目有矛盾"
 
@@ -2079,10 +2114,6 @@ msgstr[0] ""
 #~ msgid "running msgconv failed"
 #~ msgstr "调用'make'失败"
 
-#, fuzzy
-#~ msgid "running xgettext failed"
-#~ msgstr "调用'make'失败"
-
 #~ msgid "ERROR: --merge-multiarch can only be used on i386/x64 installations"
 #~ msgstr "错误：--merge-multiarch只适用i386/x64安装"
 
@@ -2184,9 +2215,6 @@ msgstr[0] ""
 
 #~ msgid "cannot create HTML package index"
 #~ msgstr "无法建立HTML程辑包索引"
-
-#~ msgid "Running examples in package"
-#~ msgstr "调用例子在程序包"
 
 #~ msgid "... done"
 #~ msgstr "…好了"

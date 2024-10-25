@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: http://www.feferraz.net/br/P/Projeto_Traducao_R_Portugues\n"
@@ -177,8 +177,15 @@ msgstr "É recomendado usar %s ao invés de %s."
 msgid "Use either %s or %s but not both."
 msgstr "Use %s ou %s, mas não ambos."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "É recomendado usar %s/%s ao invés de %s/%s/%s."
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' deve ser um caractere ou NULL"
+
+msgid "subscript out of bounds"
+msgstr "índice fora dos limites"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "método só é aplicável a objetos %s"
@@ -191,9 +198,6 @@ msgstr "todos os campos devem estar nomeados"
 
 msgid "%s has to be one of %s"
 msgstr "%s tem que ser um de %s"
-
-msgid "subscript out of bounds"
-msgstr "índice fora dos limites"
 
 msgid "%s should be one of %s"
 msgstr "%s deve ser um de %s"
@@ -210,6 +214,9 @@ msgid ""
 msgstr ""
 "Descartando registro inválido %d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "não foi possível determinar o ano para %s do arquivo DESCRIPTION do pacote"
@@ -457,8 +464,8 @@ msgstr "Cancelado pelo(a) usuário(a)"
 msgid "Unable to connect to CRAN to check R version."
 msgstr "Não é possível conectar ao CRAN para verificar a versão do R."
 
-msgid "argument %s must be a character string"
-msgstr "argumento %s deve ser uma única string"
+msgid "'%s' must be a character string"
+msgstr "'%s' deve ser uma string"
 
 msgid "incorrect field specification"
 msgstr "especificação de campo incorreta"
@@ -555,6 +562,9 @@ msgstr "Unidade \"%s\" não é parte do padrão \"%s\""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' é uma função genérica formal; métodos S3 provavelmente não serão encontrados"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "nenhuma função '%s' está visível"
 
@@ -611,9 +621,6 @@ msgstr "o diretório '%s' já existe"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "funções genéricas e outros objetos S4 (e.g., '%s') não podem ser descartados; use o argumento 'code_files'"
-
-msgid "invalid 'type'; must be a character string"
-msgstr "'type' inválido; deve ser uma string de caracteres"
 
 msgid "unable to access index for repository %s"
 msgstr "não é possível acessar o índice para o repositório %s"
@@ -711,9 +718,6 @@ msgid ""
 msgstr ""
 "Não é sabido em qual elemento de 'lib' instalar as dependências\n"
 "pulando dependências"
-
-msgid "'%s' must be a character string"
-msgstr "'%s' deve ser uma string"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "tipo 'binary' não é suportado nesta plataforma"
@@ -1288,6 +1292,11 @@ msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Especificação inválida de papel: %s."
 msgstr[1] "Especificações inválidas de papéis: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "Uma bibentry de bibtype %s deve especificar o campo: %s"
@@ -1426,6 +1435,15 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "algarismo romano inválido: %s"
 msgstr[1] "algarismos romanos inválidos: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "É recomendado usar %s/%s ao invés de %s/%s/%s."
+
+#~ msgid "argument %s must be a character string"
+#~ msgstr "argumento %s deve ser uma única string"
+
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'type' inválido; deve ser uma string de caracteres"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "arquivo 'filelist' está ausente para o diretório %s"

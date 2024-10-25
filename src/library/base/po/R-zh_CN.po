@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-12-20 13:03+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -60,20 +60,19 @@ msgstr "第二个参数必需为列表"
 msgid "'iconvlist' is not available on this system"
 msgstr "本系统不支持'iconvlist'"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' 必需是字符串，而且其长度只能为一(用RNG) 。"
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s'不是有效的RNG缩写"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "“normal.kind”必须是长度为 1 的字符串"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "“name”必须是单个字符串"
 
 msgid "'%s' is not a valid choice"
 msgstr "%s'不是有效的选择"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "“sample.kind”必须是长度为 1 的字符串"
 
 msgid "malformed version string"
 msgstr "版本字串格式有错误"
@@ -513,6 +512,9 @@ msgstr "组件下标必须是字符串"
 msgid "no Olson database found"
 msgstr "未找到 Olson 数据库"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file'要么是字符串，要么是连接"
 
@@ -675,9 +677,6 @@ msgstr "找不到类“%s”的 format() 方法"
 
 msgid "class of 'x' was discarded"
 msgstr "“X” 类被丢弃"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'flag' 必须是字符串，即长度为 1"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' 应仅包含 [0+- #'I] 中的字符"
@@ -949,7 +948,7 @@ msgid "nothing specified to be save()d"
 msgstr "没有指定要save()的东西"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file'的值必需是长度大于零的字符串"
 
 msgid "'compress' must be logical or character"
@@ -1576,6 +1575,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "warning()里的附加参数忽略不用"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1691,9 +1699,6 @@ msgstr "无traceback"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "版本设定无效%s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "版本设定无效%s"
@@ -1935,6 +1940,15 @@ msgid_plural ""
 "In %s :\n"
 " extra arguments %s will be disregarded"
 msgstr[0] "额外参数%s忽略不用"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "“normal.kind”必须是长度为 1 的字符串"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "“sample.kind”必须是长度为 1 的字符串"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'flag' 必须是字符串，即长度为 1"
 
 #, fuzzy
 #~ msgid ", will be ignored"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -177,8 +177,15 @@ msgstr "%s の代わりに %s を使うことをおすすめします。"
 msgid "Use either %s or %s but not both."
 msgstr "%s か %s のどちらかを使いますが、両方ではありません。"
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "%s/%s の代わりに %s/%s/%s を使うことをおすすめします。"
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' は文字か NULL で無ければなりません"
+
+msgid "subscript out of bounds"
+msgstr "添え字が範囲を超えています"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "メソッドは %s オブジェクトだけに適用可能です"
@@ -191,9 +198,6 @@ msgstr "すべての欄は名前を持つ必要があります"
 
 msgid "%s has to be one of %s"
 msgstr "%s は %s のどれかである必要があります"
-
-msgid "subscript out of bounds"
-msgstr "添え字が範囲を超えています"
 
 msgid "%s should be one of %s"
 msgstr "%s は %s のどれかである必要があります"
@@ -210,6 +214,9 @@ msgid ""
 msgstr ""
 "無効なエントリ %d を取り除いています:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "パッケージの DESCRIPTION ファイルから %s に対する年度を決定できませんでした"
@@ -457,8 +464,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "引数 %s は単一の文字列でなければなりません"
+msgid "'%s' must be a character string"
+msgstr "'unzip' は単一の文字列でなければなりません"
 
 msgid "incorrect field specification"
 msgstr "不正確な欄指定です"
@@ -556,6 +563,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' は形式的な総称的関数です; S3 メソッドは見付かりそうもありません"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "可視的な関数 '%s' はありません"
 
@@ -612,10 +622,6 @@ msgstr "ディレクトリ '%s' は既に存在します"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "ジェネリック関数と他の S4 オブジェクト (例えば '%s') をダンプできません。'code_files' 引数を使用してください。"
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "'unzip' は単一の文字列でなければなりません"
 
 msgid "unable to access index for repository %s"
 msgstr "リポジトリー %s に対する索引にアクセスできません"
@@ -717,10 +723,6 @@ msgid ""
 msgstr ""
 "'lib' のどの要素を依存関係のインストールに使うかわかりません\n"
 "依存関係のインストールをスキップします"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip' は単一の文字列でなければなりません"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "このプラットフォームでは type 'binary' はサポートされていません"
@@ -1316,6 +1318,10 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "role の指定が不正です: %s。"
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "bibitype %s の bibentry はフィールドを指定しなければなりません: %s"
@@ -1423,6 +1429,17 @@ msgstr[0] "最後の記録が不完全で、%d 行が捨て去られました"
 msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "不正なローマ数字です: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "%s/%s の代わりに %s/%s/%s を使うことをおすすめします。"
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "引数 %s は単一の文字列でなければなりません"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'unzip' は単一の文字列でなければなりません"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr " ディレクトリ %s に対するファイル 'filelist' がありません "

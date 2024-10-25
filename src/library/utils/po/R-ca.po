@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-20 03:05+0000\n"
 "Last-Translator: Joan Maspons <joanmaspons@gmail.com>\n"
 "Language-Team: none\n"
@@ -221,8 +221,14 @@ msgid "Use either %s or %s but not both."
 msgstr "Utilitzeu %s o %s però no ambdós."
 
 #, fuzzy
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Es recomana utilitzar %s/%s en lloc de %s/%s/%s."
+msgid "Arguments of person() should be character or NULL"
+msgstr "«priority» ha de ser un caràcter o NULL"
+
+msgid "subscript out of bounds"
+msgstr "subíndex fora dels límits"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 #, fuzzy
 msgid "method is only applicable to %s objects"
@@ -239,9 +245,6 @@ msgstr "cal anomenar tots els camps"
 #, fuzzy
 msgid "%s has to be one of %s"
 msgstr "%s ha de ser un de %s"
-
-msgid "subscript out of bounds"
-msgstr "subíndex fora dels límits"
 
 #, fuzzy
 msgid "%s should be one of %s"
@@ -262,6 +265,9 @@ msgid ""
 msgstr ""
 "S'està descartant l'entrada no vàlida %d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 #, fuzzy
 msgid "could not determine year for %s from package DESCRIPTION file"
@@ -587,8 +593,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr "No s'ha pogut connectar al CRAN per a comprovar la versió de l'R."
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "l'argument %s ha de ser una cadena de caràcters"
+msgid "'%s' must be a character string"
+msgstr "«%s» ha de ser una cadena de caràcters"
 
 #, fuzzy
 msgid "incorrect field specification"
@@ -713,6 +719,9 @@ msgstr "La unitat «%s» no forma part de l'estàndard «%s»"
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "«%s» és una funció genèrica formal; és probable que no es trobin mètodes S3"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 #, fuzzy
 msgid "no function '%s' is visible"
 msgstr "no hi ha cap funció visible «%s»"
@@ -788,10 +797,6 @@ msgstr "el directori «%s» ja existeix"
 #, fuzzy
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "les funcions genèriques i altres objectes S4 (p. ex., «%s») no es poden bolcar; utilitzeu l'argument «codefiles»"
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "«type» no vàlid; ha de ser una cadena de caràcters"
 
 #, fuzzy
 msgid "unable to access index for repository %s"
@@ -919,10 +924,6 @@ msgid ""
 msgstr ""
 "No se sap en quin element de la «lib» s'instal·laran les dependències\n"
 "s'ometen les dependències"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "«%s» ha de ser una cadena de caràcters"
 
 #, fuzzy
 msgid "type 'binary' is not supported on this platform"
@@ -1668,6 +1669,11 @@ msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Especificació de rol no vàlida: %s."
 msgstr[1] "Especificacions de rol no vàlides: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
 #, fuzzy
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
@@ -1829,6 +1835,18 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "el nombre roman no és vàlid: %s"
 msgstr[1] "nombres romans no vàlids: %s"
+
+#, fuzzy
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Es recomana utilitzar %s/%s en lloc de %s/%s/%s."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "l'argument %s ha de ser una cadena de caràcters"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "«type» no vàlid; ha de ser una cadena de caràcters"
 
 #, fuzzy
 #~ msgid "file 'filelist' is missing for directory %s"

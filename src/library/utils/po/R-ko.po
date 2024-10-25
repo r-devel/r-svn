@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: \n"
@@ -183,8 +183,15 @@ msgstr "%2$s 대신에 %1$s를 사용하는 것이 권장됩니다."
 msgid "Use either %s or %s but not both."
 msgstr "%1$s와 %2$s 두 가지를 함께 사용하기 보다 하나만을 이용하시길 바랍니다."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "%3$s/%4$s/%5$s 대신에 %1$s/%2$s를 사용하는 것이 권장됩니다."
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority'는 반드시 문자이거나 NULL이어야 합니다"
+
+msgid "subscript out of bounds"
+msgstr "첨자가 범위를 벗어났습니다."
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "객체 %s에만 사용할 수 있는 메소드입니다."
@@ -197,9 +204,6 @@ msgstr "모든 항목들에는 이름이 주어져야 합니다."
 
 msgid "%s has to be one of %s"
 msgstr "%1$s는 %2$s 중에 하나이어야 합니다."
-
-msgid "subscript out of bounds"
-msgstr "첨자가 범위를 벗어났습니다."
 
 msgid "%s should be one of %s"
 msgstr "%1$s는 %2$s 중 하나이어야 합니다"
@@ -216,6 +220,9 @@ msgid ""
 msgstr ""
 "잘못된 항목 %d를 뺍니다:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "패키지 내 DESCRIPTION 파일로부터 %s에 대한 년도를 알 수 없습니다"
@@ -463,8 +470,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "인자 %s는 반드시 한개의 문자열이어야 합니다"
+msgid "'%s' must be a character string"
+msgstr "'unzip'은 반드시 단일 문자열이어야 합니다"
 
 msgid "incorrect field specification"
 msgstr "항목지정이 잘못되었습니다"
@@ -562,6 +569,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s'은 형식적인 제네릭 함수이므로 S3 메소드를 아마 찾을 수 없을 것입니다"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "함수 '%s'는 볼 수 없습니다"
 
@@ -618,10 +628,6 @@ msgstr "디렉토리 '%s'가 이미 존재합니다"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "제네릭 함수들과 다른 S4 객체들 (즉, '%s')는 덤프되어질 수 없으므로, 'code_files'인자를 사용하세요"
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "'unzip'은 반드시 단일 문자열이어야 합니다"
 
 msgid "unable to access index for repository %s"
 msgstr "저장소 %s에 대한 인덱스에 접근할 수 없습니다"
@@ -719,10 +725,6 @@ msgid ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
 msgstr ""
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip'은 반드시 단일 문자열이어야 합니다"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "이 플랫폼에서는 유형(type) 'binary'은 지원되지 않습니다."
@@ -1303,6 +1305,10 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "올바르지 않은 역할지정(role specification)입니다: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "%1$s이라는 종류의 출판물은 다음 항목을 반드시 지정해야 합니다: %2$s"
@@ -1412,6 +1418,17 @@ msgstr[0] "마지막 레코드가 완성되지 않아 %d 번째 라인은 삭제
 msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] ""
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "%3$s/%4$s/%5$s 대신에 %1$s/%2$s를 사용하는 것이 권장됩니다."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "인자 %s는 반드시 한개의 문자열이어야 합니다"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'unzip'은 반드시 단일 문자열이어야 합니다"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "파일 'filelist'이 디렉토리 %s에 빠져있습니다"

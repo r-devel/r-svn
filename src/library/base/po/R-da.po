@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2015-03-25 14:20+0200\n"
 "Last-Translator: Joe Hansen <joedalton2@yahoo.dk>\n"
 "Language-Team: Danish <debian-l10n-danish@lists.debian.org>\n"
@@ -68,21 +68,19 @@ msgstr "andet argument skal være en liste"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' er ikke tilgængelig på dette system"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' skal være en tegnstreng af længde 1 (RNG vil blive brugt)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' er ikke en gyldig forkortelse for en RNG"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' skal være en tegnstreng af længde 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "argument 'object' skal deparse til en enkel tegnstreng"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' er ikke et gyldigt valg"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind' skal være en tegnstreng af længde 1"
 
 msgid "malformed version string"
 msgstr "forkert udformet versionsstreng"
@@ -542,6 +540,9 @@ msgstr "argument 'object' skal deparse til en enkel tegnstreng"
 msgid "no Olson database found"
 msgstr "ingen Olson-database fundet"
 
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
+
 msgid "'file' must be a character string or connection"
 msgstr "'file' skal være en tegnstreng eller forbindelse"
 
@@ -707,10 +708,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "klasse for 'x' blev fjernet"
-
-#, fuzzy
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'arg' skal have længden 1"
 
 #, fuzzy
 msgid "'flag' should contain only characters from [0+- #'I]"
@@ -984,7 +981,7 @@ msgid "nothing specified to be save()d"
 msgstr "intet angivet som skal save()d"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' skal være en streng der ikke er tom"
 
 msgid "'compress' must be logical or character"
@@ -1612,6 +1609,15 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "yderligere argumenter ignoreret i warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
@@ -1727,9 +1733,6 @@ msgstr "Ingen tilbagesporing tilgængelig"
 #, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "ugyldig versionspecifikation %s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "ugyldig versionspecifikation %s"
@@ -1998,6 +2001,17 @@ msgid_plural ""
 " extra arguments %s will be disregarded"
 msgstr[0] "ekstra argument %s vil blive ignoreret"
 msgstr[1] "ekstra argumentet %s vil blive ignoreret"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' skal være en tegnstreng af længde 1"
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' skal være en tegnstreng af længde 1"
+
+#, fuzzy
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'arg' skal have længden 1"
 
 #, fuzzy
 #~ msgid ", will be ignored"

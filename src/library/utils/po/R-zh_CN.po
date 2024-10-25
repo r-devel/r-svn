@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -184,8 +184,15 @@ msgstr "建议你用%s而不用%s。"
 msgid "Use either %s or %s but not both."
 msgstr "要么用%s,要么用%s，但不能两者都用"
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "建议你用%s/%s而不用%s/%s/%s。"
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority'的值要么是字符要么为NULL"
+
+msgid "subscript out of bounds"
+msgstr "标出界"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "这个方法只适用于%s目标对象"
@@ -198,9 +205,6 @@ msgstr "所有的项都必需有名称"
 
 msgid "%s has to be one of %s"
 msgstr "%s必需是%s这些中的一个"
-
-msgid "subscript out of bounds"
-msgstr "标出界"
 
 msgid "%s should be one of %s"
 msgstr "%s必需是%s这些中的一个"
@@ -217,6 +221,9 @@ msgid ""
 msgstr ""
 "删除无效的条目%d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "无法从程序包的DESCRIPTION文件中为%s确定年份"
@@ -464,8 +471,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "参数%s必需是单字符串"
+msgid "'%s' must be a character string"
+msgstr "'unzip'必需是单字符串"
 
 msgid "incorrect field specification"
 msgstr "域设定得不正确"
@@ -561,6 +568,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s'是正式同属函数; 很有可能找不到S3方法"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "看不到'%s'这样一个函数"
 
@@ -618,10 +628,6 @@ msgstr "已经有了'%s'这样一个目录"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "泛型函数和其他S4对象（例如'%s'）不能被转储出来；用'code_files'这个参数"
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "'unzip'必需是单字符串"
 
 msgid "unable to access index for repository %s"
 msgstr "无法在貯藏處%s中读写索引"
@@ -723,10 +729,6 @@ msgid ""
 msgstr ""
 "不知道'lib'元素里如何安装依赖程序\n"
 "因此忽略不装"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip'必需是单字符串"
 
 #, fuzzy
 msgid "type 'binary' is not supported on this platform"
@@ -1329,6 +1331,10 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "角色设定得无效: %s"
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "bibtype%s的条目必需指定这些项：%s"
@@ -1441,6 +1447,17 @@ msgstr[0] "最后一个记录不完全，%d行忽略不用"
 msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "罗马数字无效：%s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "建议你用%s/%s而不用%s/%s/%s。"
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "参数%s必需是单字符串"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'unzip'必需是单字符串"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "目录%s里缺失'filelist'这一文件"

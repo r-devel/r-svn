@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -177,8 +177,15 @@ msgstr "It is recommended to use %s instead of %s."
 msgid "Use either %s or %s but not both."
 msgstr "Use either %s or %s but not both."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "It is recommended to use %s/%s instead of %s/%s/%s."
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' must be character or NULL"
+
+msgid "subscript out of bounds"
+msgstr "subscript out of bounds"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "method is only applicable to %s objects"
@@ -191,9 +198,6 @@ msgstr "all fields have to be named"
 
 msgid "%s has to be one of %s"
 msgstr "%s has to be one of %s"
-
-msgid "subscript out of bounds"
-msgstr "subscript out of bounds"
 
 msgid "%s should be one of %s"
 msgstr "%s should be one of %s"
@@ -210,6 +214,9 @@ msgid ""
 msgstr ""
 "Dropping invalid entry %d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "could not determine year for %s from package DESCRIPTION file"
@@ -457,8 +464,8 @@ msgstr "Cancelled by user"
 msgid "Unable to connect to CRAN to check R version."
 msgstr "Unable to connect to CRAN to check R version."
 
-msgid "argument %s must be a character string"
-msgstr "argument %s must be a character string"
+msgid "'%s' must be a character string"
+msgstr "'%s' must be a character string"
 
 msgid "incorrect field specification"
 msgstr "incorrect field specification"
@@ -554,6 +561,9 @@ msgstr "Unit \"%s\" is not part of standard \"%s\""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' is a formal generic function; S3 methods will not likely be found"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "no function '%s' is visible"
 
@@ -610,9 +620,6 @@ msgstr "directory '%s' already exists"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
-
-msgid "invalid 'type'; must be a character string"
-msgstr "invalid 'type'; must be a character string"
 
 msgid "unable to access index for repository %s"
 msgstr "unable to access index for repository %s"
@@ -710,9 +717,6 @@ msgid ""
 msgstr ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
-
-msgid "'%s' must be a character string"
-msgstr "'%s' must be a character string"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "type 'binary' is not supported on this platform"
@@ -1286,6 +1290,11 @@ msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Invalid role specification: %s."
 msgstr[1] "Invalid role specifications: %s."
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "A bibentry of bibtype %s has to specify the field: %s"
@@ -1424,3 +1433,12 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "invalid roman numeral: %s"
 msgstr[1] "invalid roman numerals: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "It is recommended to use %s/%s instead of %s/%s/%s."
+
+#~ msgid "argument %s must be a character string"
+#~ msgstr "argument %s must be a character string"
+
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "invalid 'type'; must be a character string"

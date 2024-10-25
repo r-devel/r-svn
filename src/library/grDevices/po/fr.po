@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.0.4\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33-0700\n"
+"POT-Creation-Date: 2024-10-25 14:49-0700\n"
 "PO-Revision-Date: 2022-08-31 15:04+0000\n"
 "Last-Translator: Marcel Ramos <marcel.ramos@sph.cuny.edu>\n"
 "Language-Team: French <R-core@r-project.org>\n"
@@ -140,210 +140,210 @@ msgstr "palette de couleurs inconnue (il faut au moins deux couleurs)"
 msgid "maximum number of colors is %d"
 msgstr "le nombre maximum de couleurs est %d"
 
-#: devPS.c:590
+#: devPS.c:591
 #, c-format
 msgid "afm file '%s' could not be opened"
 msgstr "le fichier metafile '%s' ne peut être créé"
 
-#: devPS.c:658
+#: devPS.c:659
 msgid "unknown AFM entity encountered"
 msgstr "entité AFM inconnue rencontrée"
 
-#: devPS.c:773 devPS.c:776 devPS.c:4705 devPS.c:10201 devPicTeX.c:477
+#: devPS.c:774 devPS.c:777 devPS.c:4758 devPS.c:10268 devPicTeX.c:477
 #: devPicTeX.c:479
 #, c-format
 msgid "invalid string in '%s'"
 msgstr "argument chaîne de caractère incorrect dans '%s'"
 
-#: devPS.c:810
+#: devPS.c:811
 #, fuzzy, c-format
 msgid "font width unknown for character 0x%02x in encoding %s"
 msgstr "largeur de police inconnue pour le caractère 0x%x"
 
-#: devPS.c:871
+#: devPS.c:872
 #, fuzzy, c-format
 msgid "font metrics unknown for Unicode character U+%04X"
 msgstr "taille de police inconnue pour le caractère Unicode U+%04x"
 
-#: devPS.c:882
+#: devPS.c:883
 #, c-format
 msgid "unknown encoding '%s' in 'PostScriptMetricInfo'"
 msgstr "encodage inconnu '%s' dans 'PostScriptMetricInfo'"
 
-#: devPS.c:899
+#: devPS.c:900
 #, c-format
 msgid "Unicode character %lc (U+%04X) cannot be converted"
 msgstr ""
 
-#: devPS.c:918 devPS.c:972
+#: devPS.c:919 devPS.c:973
 #, fuzzy, c-format
 msgid "font metrics unknown for character 0x%02x in encoding %s"
 msgstr "taille de police inconnue pour le caractère 0x%x"
 
-#: devPS.c:987
+#: devPS.c:988
 #, fuzzy, c-format
 msgid "invalid character (%04X) sent to 'PostScriptCIDMetricInfo' in a single-byte locale"
 msgstr "chaîne de caractères incorrecte (%04x) envoyée à 'PostScriptCIDMetricInfo' dans une version localisée simple-octet"
 
-#: devPS.c:995
+#: devPS.c:996
 msgid "invalid character sent to 'PostScriptCIDMetricInfo' in a single-byte locale"
 msgstr "chaîne de caractères incorrecte envoyée à 'PostScriptCIDMetricInfo' dans une version localisée simple-octet"
 
-#: devPS.c:1107
+#: devPS.c:1108
 msgid "failed to allocate CID font info"
 msgstr "échec d'allocation d'information de police de Type CID"
 
-#: devPS.c:1123
+#: devPS.c:1124
 msgid "failed to allocate Type 1 font info"
 msgstr "échec d'allocation d'information de police de Type 1"
 
-#: devPS.c:1143
+#: devPS.c:1144
 msgid "failed to allocate encoding info"
 msgstr "échec d'allocation d'information d'encodage"
 
-#: devPS.c:1161
+#: devPS.c:1162
 msgid "failed to allocate CID font family"
 msgstr "échec d'allocation de la famille de police de Type CID"
 
-#: devPS.c:1174
+#: devPS.c:1175
 msgid "failed to allocate Type 1 font family"
 msgstr "échec d'allocation de la famille de police de Type 1"
 
-#: devPS.c:1213 devPS.c:1224
+#: devPS.c:1214 devPS.c:1225
 msgid "failed to allocate font list"
 msgstr "échec d'allocation de la liste de polices"
 
-#: devPS.c:1275
+#: devPS.c:1276
 msgid "failed to allocated encoding list"
 msgstr "échec d'allocation de la liste d'encodage"
 
-#: devPS.c:1424
+#: devPS.c:1425
 msgid "truncated string which was too long for copy"
 msgstr "chaîne de caractères tronquée car trop longue pour copie"
 
-#: devPS.c:1464
+#: devPS.c:1465
 #, c-format
 msgid "failed to load encoding file '%s'"
 msgstr "échec de chargement du fichier d'encodage '%s'"
 
-#: devPS.c:1563 devPS.c:1596
+#: devPS.c:1564 devPS.c:1597
 msgid "invalid font name or more than one font name"
 msgstr "nom de police incorrect ou plus d'un nom de police"
 
-#: devPS.c:1717 devPS.c:1752
+#: devPS.c:1718 devPS.c:1753
 #, c-format
 msgid "font family '%s' not found in PostScript font database"
 msgstr "famille de police '%s' introuvable dans la base de données de polices PostScript"
 
-#: devPS.c:1836 devPS.c:1918 devPS.c:1945
+#: devPS.c:1837 devPS.c:1919 devPS.c:1946
 #, c-format
 msgid "font encoding for family '%s' not found in font database"
 msgstr "encodage de police '%s' introuvable dans la base de données de polices"
 
-#: devPS.c:1863 devPS.c:1890
+#: devPS.c:1864 devPS.c:1891
 #, c-format
 msgid "font CMap for family '%s' not found in font database"
 msgstr "la police CMap pour la famille '%s' introuvable dans la base de données des polices"
 
-#: devPS.c:2085 devPS.c:2165 devPS.c:2233
+#: devPS.c:2086 devPS.c:2166 devPS.c:2234
 #, c-format
 msgid "cannot load afm file '%s'"
 msgstr "impossible de lire fichier afm '%s'"
 
-#: devPS.c:2521
+#: devPS.c:2522
 msgid "corrupt loaded encodings;  encoding not recorded"
 msgstr "encodages chargés corrompus : encodage non enregistré"
 
-#: devPS.c:2532
+#: devPS.c:2533
 msgid "failed to record device encoding"
 msgstr "échec d'enregistrement de l'encodage du périphérique"
 
-#: devPS.c:2703
+#: devPS.c:2704
 msgid "object '.ps.prolog' is not a character vector"
 msgstr "l’objet '.ps.prolog' n'est pas un vecteur de mode caractère"
 
-#: devPS.c:2778 devPS.c:8329 devWindows.c:795
+#: devPS.c:2779 devPS.c:8389 devWindows.c:799
 msgid "invalid line end"
 msgstr "extrémité de ligne incorrecte"
 
-#: devPS.c:2797 devPS.c:8349 devWindows.c:808
+#: devPS.c:2798 devPS.c:8409 devWindows.c:812
 msgid "invalid line join"
 msgstr "jointure de ligne incorrecte"
 
-#: devPS.c:2805
+#: devPS.c:2806
 msgid "invalid line mitre"
 msgstr "mitre (jointure pointue) de ligne incorrecte"
 
-#: devPS.c:3010 devPS.c:3946 devPS.c:4395 devPS.c:4422 devPS.c:5595
-#: devPS.c:10005 devPS.c:10076
+#: devPS.c:3011 devPS.c:3947 devPS.c:4396 devPS.c:4423 devPS.c:5648
+#: devPS.c:10072 devPS.c:10143
 #, c-format
 msgid "attempt to use invalid font %d replaced by font 1"
 msgstr "tentative d'utiliser la police incorrecte %d remplacée par police 1"
 
-#: devPS.c:3247 devPS.c:5048 devPS.c:7736
+#: devPS.c:3248 devPS.c:5101 devPS.c:7793
 #, c-format
 msgid "filename too long in %s()"
 msgstr "nom de fichier trop long dans %s()"
 
-#: devPS.c:3253 devPS.c:5054 devPS.c:7742
+#: devPS.c:3254 devPS.c:5107 devPS.c:7799
 #, c-format
 msgid "memory allocation problem in %s()"
 msgstr "problème d'allocation mémoire dans %s()"
 
-#: devPS.c:3271 devPS.c:7806
+#: devPS.c:3272 devPS.c:7866
 #, c-format
 msgid "encoding path is too long in %s()"
 msgstr "chemin d'accès à l'encodage trop long dans %s()"
 
-#: devPS.c:3285 devPS.c:5094
+#: devPS.c:3286 devPS.c:5147
 #, c-format
 msgid "failed to load encoding file in %s()"
 msgstr "échec de chargement du fichier d'encodage dans %s"
 
-#: devPS.c:3330 devPS.c:3393 devPS.c:7865 devPS.c:7921 devPS.c:9804
+#: devPS.c:3331 devPS.c:3394 devPS.c:7925 devPS.c:7981 devPS.c:9871
 msgid "invalid font type"
 msgstr "spécification de police incorrecte"
 
-#: devPS.c:3354
+#: devPS.c:3355
 msgid "failed to initialise default PostScript font"
 msgstr "échec d'initialisation des polices PostScript par défaut"
 
-#: devPS.c:3420
+#: devPS.c:3421
 msgid "failed to initialise additional PostScript fonts"
 msgstr "échec d'initialisation des polices PostScript supplémentaires"
 
-#: devPS.c:3436
+#: devPS.c:3437
 msgid "invalid foreground/background color (postscript)"
 msgstr "couleurs de premier/arrière plans incorrectes (postscript)"
 
-#: devPS.c:3441
+#: devPS.c:3442
 msgid "'command' is too long"
 msgstr "'command' est trop long"
 
-#: devPS.c:3446
+#: devPS.c:3447
 msgid "'postscript(print.it=TRUE)' used with an empty 'print' command"
 msgstr "'postscript(print.it=TRUE)' utilisé avec une commande 'print' vide"
 
-#: devPS.c:3497
+#: devPS.c:3498
 #, c-format
 msgid "invalid page type '%s' (postscript)"
 msgstr "type de page incorrect '%s' (postscript)"
 
-#: devPS.c:3626 devPS.c:4892 devWindows.c:2345
+#: devPS.c:3627 devPS.c:4945 devWindows.c:2349
 msgid "semi-transparency is not supported on this device: reported only once per page"
 msgstr "la semi-transparence n'est pas supportée sur ce périphérique : reporté seulement une fois par page"
 
-#: devPS.c:3737 devPS.c:3748
+#: devPS.c:3738 devPS.c:3749
 #, c-format
 msgid "cannot open 'postscript' pipe to '%s'"
 msgstr "impossible d'ouvrir une conduite 'postscript' vers '%s'"
 
-#: devPS.c:3759 devPS.c:5313 devPS.c:5326 devPS.c:9065 qdPDF.c:98
+#: devPS.c:3760 devPS.c:5366 devPS.c:5379 devPS.c:9132 qdPDF.c:98
 #, c-format
 msgid "cannot open file '%s'"
 msgstr "impossible d'ouvrir le fichier '%s'"
 
-#: devPS.c:3887 devPS.c:3902
+#: devPS.c:3888 devPS.c:3903
 #, c-format
 msgid ""
 "error from postscript() in running:\n"
@@ -352,217 +352,217 @@ msgstr ""
 "erreur de la part de postscript() en exécutant :\n"
 "    %s"
 
-#: devPS.c:3934
+#: devPS.c:3935
 #, c-format
 msgid "CID family '%s' not included in postscript() device"
 msgstr "Famille CID '%s' non incluse dans le périphérique postscript()"
 
-#: devPS.c:3952 devPS.c:3963 devPS.c:4402 devPS.c:4432 devPS.c:4645
+#: devPS.c:3953 devPS.c:3964 devPS.c:4403 devPS.c:4433 devPS.c:4698
 #, c-format
 msgid "family '%s' not included in postscript() device"
 msgstr "famille '%s' non incluse dans le périphérique postscript()"
 
-#: devPS.c:4469
+#: devPS.c:4509
 #, c-format
 msgid "unknown encoding '%s' in 'mbcsToSbcs'"
 msgstr "encodage inconnu '%s' dans 'mbcsToSbcs'"
 
-#: devPS.c:4582 devPS.c:4589
+#: devPS.c:4635 devPS.c:4642
 #, fuzzy, c-format
 msgid "conversion failure on '%s' in 'mbcsToSbcs': for <%02x>"
 msgstr "erreur de conversion de '%s' dans 'mbcsToSbcs' : le point est substitué pour <%02x>"
 
-#: devPS.c:4584 devPS.c:4591
+#: devPS.c:4637 devPS.c:4644
 #, c-format
 msgid "conversion failure on '%s' in 'mbcsToSbcs': dot substituted for <%02x>"
 msgstr "erreur de conversion de '%s' dans 'mbcsToSbcs' : le point est substitué pour <%02x>"
 
-#: devPS.c:4673
+#: devPS.c:4726
 #, c-format
 msgid "failed open converter to encoding '%s'"
 msgstr "erreur d'ouverture du convertisseur vers l'encodage '%s'"
 
-#: devPS.c:4691 devPS.c:5640 devPS.c:10176
+#: devPS.c:4744 devPS.c:5693 devPS.c:10243
 #, c-format
 msgid "failed in text conversion to encoding '%s'"
 msgstr "erreur dans la conversion du texte vers l'encodage '%s'"
 
-#: devPS.c:4906
+#: devPS.c:4959
 msgid "ran out of colors in xfig()"
 msgstr "trop de couleurs pour xfig()"
 
-#: devPS.c:4935
+#: devPS.c:4988
 #, c-format
 msgid "unimplemented line texture %08x: using Dash-double-dotted"
 msgstr "texture de lignes non implémentée %08x : utilise 'Dash-double-dotted'"
 
-#: devPS.c:5007
+#: devPS.c:5060
 #, c-format
 msgid "unknown postscript font family '%s', using Helvetica"
 msgstr "famille de police postscript '%s' inconnue, utilisation d'Helvetica"
 
-#: devPS.c:5079
+#: devPS.c:5132
 msgid "invalid foreground/background color (xfig)"
 msgstr "couleurs de premier/arrière plans incorrectes (xfig)"
 
-#: devPS.c:5112
+#: devPS.c:5165
 msgid "only Type 1 fonts supported for XFig"
 msgstr "seules les fontes Type 1 sont supportées pour XFig"
 
-#: devPS.c:5125
+#: devPS.c:5178
 msgid "failed to initialise default XFig font"
 msgstr "échec d'initialisation des polices XFig par défaut"
 
-#: devPS.c:5164
+#: devPS.c:5217
 #, c-format
 msgid "invalid page type '%s' (xfig)"
 msgstr "type de page '%s' incorrect (xfig)"
 
-#: devPS.c:5172
+#: devPS.c:5225
 #, c-format
 msgid "xfig(%s, onefile=FALSE) will only return the last plot"
 msgstr "xfig(%s, onefile=FALSE) ne retournera que le dernier graphe"
 
-#: devPS.c:5305
+#: devPS.c:5358
 msgid "empty file name"
 msgstr "nom de fichier vide"
 
-#: devPS.c:5372 devPS.c:5424 devPS.c:7560 devPS.c:7604 devPS.c:9126
+#: devPS.c:5425 devPS.c:5477 devPS.c:7616 devPS.c:7660 devPS.c:9193
 msgid "write failed"
 msgstr "échec de l'écriture"
 
-#: devPS.c:5629
+#: devPS.c:5682
 #, c-format
 msgid "unable to use encoding '%s'"
 msgstr "impossible d'utiliser l'encodage '%s'"
 
-#: devPS.c:5992
+#: devPS.c:6048
 msgid "Failed to allocate PDF definition string"
 msgstr "Impossible d'allouer la chaîne de définition PDF"
 
-#: devPS.c:6014
+#: devPS.c:6070
 msgid "failed to increase definition string (shut down PDF device)"
 msgstr "impossible d'accroître la chaîne de caractère de définition (fermez le périphérique pdf)"
 
-#: devPS.c:6064
+#: devPS.c:6120
 msgid "failed to increase 'maxDefns'"
 msgstr "échec d'augmentation de 'maxDefns'"
 
-#: devPS.c:6696
+#: devPS.c:6752
 msgid "Drawing not appended to path (contains text)"
 msgstr "Dessin non ajouté au chemin (contient du texte)"
 
-#: devPS.c:6925
+#: devPS.c:6981
 msgid "Compositing operator has no corresponding blend mode; defaulting to Normal"
 msgstr "L'opérateur de composition n'a pas de mode de fusion correspondant ; par défaut sur Normal"
 
-#: devPS.c:7198
+#: devPS.c:7254
 msgid "Failed to write PDF clipping path"
 msgstr "Impossible d'écrire le chemin de détourage PDF"
 
-#: devPS.c:7223
+#: devPS.c:7279
 msgid "Failed to write PDF stroke"
 msgstr "Échec de l'écriture du trait PDF"
 
-#: devPS.c:7244
+#: devPS.c:7300
 msgid "Failed to write PDF fill"
 msgstr "Échec de l'écriture du remplissage PDF"
 
-#: devPS.c:7265
+#: devPS.c:7321
 msgid "Failed to write PDF fillStroke"
 msgstr "Échec de l'écriture du PDF fillStroke"
 
-#: devPS.c:7311
+#: devPS.c:7367
 msgid "Glyph ID larger than 0xFFFF; output will be incorrect"
 msgstr ""
 
-#: devPS.c:7334
+#: devPS.c:7390
 msgid "invalid 'alpha' value in PDF"
 msgstr "valeur 'alpha' incorrecte dans PDF"
 
-#: devPS.c:7448 devPS.c:7451
+#: devPS.c:7504 devPS.c:7507
 msgid "failed to increase 'maxRaster'"
 msgstr "échec d'augmentation de 'maxRaster'"
 
-#: devPS.c:7463
+#: devPS.c:7519
 msgid "unable to allocate raster image"
 msgstr "impossible d'allouer une image en mode pixel"
 
-#: devPS.c:7664
+#: devPS.c:7720
 msgid "corrupt loaded encodings;  font not added"
 msgstr "encodages chargés corrompus ; police non ajoutée"
 
-#: devPS.c:7674
+#: devPS.c:7730
 msgid "failed to record device encoding; font not added"
 msgstr "échec d'enregistrement de l'encodage du périphérique ; police non ajoutée"
 
-#: devPS.c:7792
+#: devPS.c:7852
 msgid "increasing the PDF version to 1.2"
 msgstr "la version du PDF est augmentée à 1.2"
 
-#: devPS.c:7822
+#: devPS.c:7882
 msgid "failed to load default encoding"
 msgstr "échec de chargement du fichier d'encodage par défaut"
 
-#: devPS.c:7889
+#: devPS.c:7949
 msgid "failed to initialise default PDF font"
 msgstr "échec d'initialisation des polices PDF par défaut"
 
-#: devPS.c:7944
+#: devPS.c:8004
 msgid "failed to initialise additional PDF fonts"
 msgstr "échec d'initialisation des polices PDF supplémentaires"
 
-#: devPS.c:7957
+#: devPS.c:8017
 msgid "failed to allocate rasters"
 msgstr "échec d'allocation d'images en mode pixel"
 
-#: devPS.c:7964
+#: devPS.c:8024
 msgid "failed to allocate masks"
 msgstr "échec d'allocation pour des masques"
 
-#: devPS.c:7974
+#: devPS.c:8034
 msgid "failed to allocate definitions"
 msgstr "échec d'allocation de définitions"
 
-#: devPS.c:8047
+#: devPS.c:8107
 #, c-format
 msgid "invalid paper type '%s' (pdf)"
 msgstr "type de papier '%s' incorrect (pdf)"
 
-#: devPS.c:8071
+#: devPS.c:8131
 msgid "invalid foreground/background color (pdf)"
 msgstr "couleurs de premier/arrière plans incorrectes (pdf)"
 
-#: devPS.c:8178
+#: devPS.c:8238
 msgid "increasing the PDF version to 1.4"
 msgstr "la version du PDF est augmentée à 1.4"
 
-#: devPS.c:8222 devPS.c:8270
+#: devPS.c:8282 devPS.c:8330
 msgid "unknown 'colormodel', using 'srgb'"
 msgstr "'colormodel' inconnu, utilisation de 'rgb'"
 
-#: devPS.c:8494
+#: devPS.c:8554
 msgid "failed to load sRGB colorspace file"
 msgstr "échec de chargement de l'espace de couleur sRGB"
 
-#: devPS.c:8826
+#: devPS.c:8893
 msgid "corrupt encodings in PDF device"
 msgstr "encodage corrompus dans le périphérique PDF"
 
-#: devPS.c:8907
+#: devPS.c:8974
 msgid "increasing the PDF version to 1.3"
 msgstr "la version du PDF est augmentée à 1.3"
 
-#: devPS.c:9049
+#: devPS.c:9116
 #, c-format
 msgid "cannot open 'pdf' pipe to '%s'"
 msgstr "impossible d'ouvrir une conduite 'pdf' vers '%s'"
 
-#: devPS.c:9055
+#: devPS.c:9122
 msgid "file = \"|cmd\" implies 'onefile = TRUE'"
 msgstr "file = \"|cmd\" implique 'onefile = TRUE'"
 
-#: devPS.c:9199
+#: devPS.c:9266
 #, c-format
 msgid ""
 "cannot open 'pdf' file argument '%s'\n"
@@ -571,46 +571,46 @@ msgstr ""
 "impossible d'ouvrir le fichier en argument de 'pdf' '%s'\n"
 "  fermez le périphérique PDF"
 
-#: devPS.c:9220
+#: devPS.c:9287
 #, c-format
 msgid "Cannot open temporary file '%s' for compression (reason: %s); compression has been turned off for this device"
 msgstr "Impossible d’ouvrir le fichier temporaire de compression '%s' (raison : %s) ; La compression a été désactivée pour ce périphérique"
 
-#: devPS.c:9829 devPS.c:10333 devPS.c:10380
+#: devPS.c:9896 devPS.c:10400 devPS.c:10447
 msgid "failed to find or load PDF font"
 msgstr "impossible de trouver ou de charger la police PDF"
 
-#: devPS.c:10012 devPS.c:10071
+#: devPS.c:10079 devPS.c:10138
 msgid "Text not added to path containing other drawing"
 msgstr "Texte non ajouté au chemin contenant un autre dessin"
 
-#: devPS.c:10121 devPS.c:10288
+#: devPS.c:10188 devPS.c:10355
 msgid "failed to find or load PDF CID font"
 msgstr "impossible de trouver ou de charger la police PDF CID"
 
-#: devPS.c:10786 devPS.c:10878 devPicTeX.c:763
+#: devPS.c:10853 devPS.c:10945 devPicTeX.c:763
 #, fuzzy, c-format
 msgid "invalid 'file' parameter in %s"
 msgstr "paramètre 'family' incorrect dans %s"
 
-#: devPS.c:10795 devPS.c:10799 devPS.c:10963 devPS.c:10967
+#: devPS.c:10862 devPS.c:10866 devPS.c:11033 devPS.c:11037
 #, c-format
 msgid "invalid 'family' parameter in %s"
 msgstr "paramètre 'family' incorrect dans %s"
 
-#: devPS.c:10817 devPS.c:10979
+#: devPS.c:10884 devPS.c:11049
 #, c-format
 msgid "invalid 'fonts' parameter in %s"
 msgstr "paramètre 'fonts' incorrect dans %s"
 
-#: devPS.c:10823 devPS.c:10989 devPS.c:10992 devWindows.c:3761
-#: devWindows.c:3765 devWindows.c:3773 devWindows.c:3784 devWindows.c:3790
-#: devWindows.c:3797 devWindows.c:3804 devWindows.c:3808
+#: devPS.c:10890 devPS.c:11059 devPS.c:11062 devPS.c:11065 devPS.c:11068
+#: devWindows.c:3765 devWindows.c:3769 devWindows.c:3777 devWindows.c:3788
+#: devWindows.c:3794 devWindows.c:3801 devWindows.c:3808 devWindows.c:3812
 #, c-format
 msgid "invalid value of '%s'"
 msgstr "valeur incorrecte de '%s'"
 
-#: devPS.c:10836 devPS.c:10906 devPS.c:11006 devPicTeX.c:779 devWindows.c:3849
+#: devPS.c:10903 devPS.c:10973 devPS.c:11083 devPicTeX.c:779 devWindows.c:3853
 #, c-format
 msgid "unable to start %s() device"
 msgstr "impossible de démarrer le périphérique %s()"
@@ -722,182 +722,187 @@ msgstr "nom de famille pour la police de caractères trop long"
 msgid "no font could be found for family \"%s\""
 msgstr "aucune police de caractères trouvée pour la famille \"%s\""
 
-#: devQuartz.c:2682 cairo/cairoFns.c:528
+#: devQuartz.c:2697 cairo/cairoFns.c:528
 msgid "Attempt to reuse non-existent clipping path"
 msgstr "Tenter de réutiliser un chemin de détourage inexistant"
 
-#: devQuartz.c:2703 cairo/cairoFns.c:541
+#: devQuartz.c:2718 cairo/cairoFns.c:541
 #, fuzzy
 msgid "Attempt to release non-existent clipping path"
 msgstr "Tentative de libération d'un chemin de détourage inexistant"
 
-#: devQuartz.c:2719
+#: devQuartz.c:2734
 msgid "Ignored alpha mask (not supported on this device)"
 msgstr ""
 
-#: devQuartz.c:2758 cairo/cairoFns.c:688
+#: devQuartz.c:2773 cairo/cairoFns.c:688
 #, fuzzy
 msgid "Attempt to release non-existent mask"
 msgstr "Tentative de libération d'un masque inexistant"
 
-#: devQuartz.c:3040
+#: devQuartz.c:3023
+#, fuzzy, c-format
+msgid "Invalid font path: \"%s\""
+msgstr "paramètre 'fonts' incorrect dans %s"
+
+#: devQuartz.c:3053
 #, fuzzy
 msgid "Failed to load font"
 msgstr "échec d'allocation de la liste de polices"
 
-#: devQuartz.c:3135 devQuartz.c:3140
+#: devQuartz.c:3148 devQuartz.c:3153
 msgid "invalid 'file' argument"
 msgstr "argument 'file' incorrect"
 
-#: devQuartz.c:3167
+#: devQuartz.c:3180
 msgid "invalid quartz() device size"
 msgstr "taille de périphérique quartz() incorrecte"
 
-#: devQuartz.c:3195
+#: devQuartz.c:3208
 msgid "unable to create device description"
 msgstr "impossible de créer une description du périphérique"
 
-#: devQuartz.c:3245
+#: devQuartz.c:3258
 msgid "unable to create quartz() device target, given type may not be supported"
 msgstr "impossible de créer le périphérique cible quartz(), le type fourni n'est peut-être pas supporté"
 
-#: devQuartz.c:3375
+#: devQuartz.c:3388
 msgid "Quartz device is not available on this platform"
 msgstr "Périphérique Quartz non disponible sur cette architecture"
 
-#: devWindows.c:352 devWindows.c:398 devWindows.c:469
+#: devWindows.c:352 devWindows.c:398 devWindows.c:472
 msgid "Not enough memory to copy graphics window"
 msgstr "Mémoire insuffisante pour copier la fenêtre graphique"
 
-#: devWindows.c:357 devWindows.c:403 devWindows.c:474
+#: devWindows.c:357 devWindows.c:403 devWindows.c:477
 msgid "No device available to copy graphics window"
 msgstr "Aucun périphérique disponible pour copier la fenêtre graphique"
 
-#: devWindows.c:407 devWindows.c:478
+#: devWindows.c:407 devWindows.c:481
 #, c-format
 msgid "'%%' is not allowed in file name"
 msgstr "'%%' n'est pas autorisé dans le nom du fichier"
 
-#: devWindows.c:615
+#: devWindows.c:619
 msgid "invalid font specification"
 msgstr "spécification de police incorrecte"
 
-#: devWindows.c:654
+#: devWindows.c:658
 msgid "font family not found in Windows font database"
 msgstr "famille de police introuvable dans la base de données des polices Windows"
 
-#: devWindows.c:1085
+#: devWindows.c:1089
 msgid "plot history seems corrupted"
 msgstr "l'historique des graphes semble corrompu"
 
-#: devWindows.c:1092
+#: devWindows.c:1096
 msgid "no plot history!"
 msgstr "pas d'historique des graphes !"
 
-#: devWindows.c:1810
+#: devWindows.c:1814
 #, c-format
 msgid "filename too long in %s() call"
 msgstr "nom de fichier trop long dans l'appel %s()"
 
-#: devWindows.c:1815 devWindows.c:1850 devWindows.c:1880
+#: devWindows.c:1819 devWindows.c:1854 devWindows.c:1884
 #, c-format
 msgid "'width=%d, height=%d' are unlikely values in pixels"
 msgstr "'width=%d, height=%d' ne sont probablement pas des valeurs en pixels"
 
-#: devWindows.c:1823 devWindows.c:1828 devWindows.c:1853 devWindows.c:1858
-#: devWindows.c:1883 devWindows.c:1888
+#: devWindows.c:1827 devWindows.c:1832 devWindows.c:1857 devWindows.c:1862
+#: devWindows.c:1887 devWindows.c:1892
 msgid "unable to allocate bitmap"
 msgstr "impossible d'allouer un bitmap"
 
-#: devWindows.c:1834 devWindows.c:1864 devWindows.c:2185
+#: devWindows.c:1838 devWindows.c:1868 devWindows.c:2189
 #, c-format
 msgid "unable to open file '%s' for writing"
 msgstr "impossible d'ouvrir le fichier '%s' pour écriture"
 
-#: devWindows.c:1847
+#: devWindows.c:1851
 msgid "filename too long in jpeg() call"
 msgstr "nom de fichier trop long dans l'appel à jpeg()"
 
-#: devWindows.c:1877
+#: devWindows.c:1881
 msgid "filename too long in tiff() call"
 msgstr "nom de fichier trop long dans l'appel tiff()"
 
-#: devWindows.c:1909
+#: devWindows.c:1913
 msgid "filename too long in win.metafile() call"
 msgstr "nom de fichier trop long dans l'appel à win.metafile()"
 
-#: devWindows.c:1920
+#: devWindows.c:1924
 #, c-format
 msgid "unable to open metafile '%s' for writing"
 msgstr "impossible d'ouvrir le fichier metafile '%s' pour écriture"
 
-#: devWindows.c:1922
+#: devWindows.c:1926
 msgid "unable to open clipboard to write metafile"
 msgstr "impossible d'ouvrir le presse-papier pour écrire les données metafile"
 
-#: devWindows.c:2133
+#: devWindows.c:2137
 msgid "Insufficient memory for resize. Killing device"
 msgstr "Mémoire insuffisante pour modifier la taille. Le périphérique va être fermé"
 
-#: devWindows.c:2141
+#: devWindows.c:2145
 msgid "Insufficient memory for resize. Disabling alpha blending"
 msgstr "Mémoire insuffisante pour modifier la taille. L'\"alpha blending\" est désactivé"
 
-#: devWindows.c:2170
+#: devWindows.c:2174
 msgid "a clipboard metafile can store only one figure."
 msgstr "un presse-papier metafile ne peut stocker qu'une seule figure."
 
-#: devWindows.c:2176
+#: devWindows.c:2180
 #, c-format
 msgid "metafile '%s' could not be created"
 msgstr "le fichier metafile '%s' ne peut être créé"
 
-#: devWindows.c:3188 devWindows.c:3873
+#: devWindows.c:3192 devWindows.c:3877
 msgid "R Graphics"
 msgstr "R Graphes"
 
-#: devWindows.c:3202
+#: devWindows.c:3206
 msgid "attempt to use the locator after dev.hold()"
 msgstr "tentative d'utilisation du localisateur (locator) après dev.hold()"
 
-#: devWindows.c:3233
+#: devWindows.c:3237
 msgid "graphics device closed during call to locator or identify"
 msgstr "périphérique graphique fermé pendant l’appel de locator() ou d’identify()"
 
-#: devWindows.c:3508
+#: devWindows.c:3512
 msgid "option 'windowsTimeouts' should be integer"
 msgstr "l'option 'windowsTimeouts' doit être un entier"
 
-#: devWindows.c:3530
+#: devWindows.c:3534
 msgid "invalid device number in 'savePlot'"
 msgstr "numéro de périphérique incorrect dans 'savePlot'"
 
-#: devWindows.c:3532
+#: devWindows.c:3536
 msgid "invalid device in 'savePlot'"
 msgstr "périphérique incorrect dans 'savePlot'"
 
-#: devWindows.c:3535
+#: devWindows.c:3539
 msgid "invalid filename argument in 'savePlot'"
 msgstr "argument nom de fichier incorrect dans 'savePlot'"
 
-#: devWindows.c:3540
+#: devWindows.c:3544
 msgid "invalid type argument in 'savePlot'"
 msgstr "type d'argument incorrect dans 'savePlot'"
 
-#: devWindows.c:3567
+#: devWindows.c:3571
 msgid "unknown type in savePlot"
 msgstr "type inconnu dans savePlot"
 
-#: devWindows.c:3612 devWindows.c:3654 devWindows.c:3679 devWindows.c:3706
-#: devWindows.c:3727
+#: devWindows.c:3616 devWindows.c:3658 devWindows.c:3683 devWindows.c:3710
+#: devWindows.c:3731
 msgid "processing of the plot ran out of memory"
 msgstr "la réalisation du graphe manque de mémoire"
 
-#: devWindows.c:3625
+#: devWindows.c:3629
 msgid "Impossible to open "
 msgstr "Impossible d'ouvrir "
 
-#: devWindows.c:3756
+#: devWindows.c:3760
 msgid "invalid 'width' or 'height'"
 msgstr "'width' ou 'height' incorrecte"
 
