@@ -281,6 +281,10 @@
 
   \subsection{BUG FIXES}{
     \itemize{
+      \item \code{update_pkg_po()} now copies \file{.mo} files to the
+      \pkg{translation} package even if a \file{DESCRIPTION} file
+      exists, thanks to \I{Michael Chirico} fixing \PR{18694}.
+      
       \item Auto-generated \code{citation()} entries no longer include
       (additional) URLs in the \samp{note} field (\PR{18547}).
 

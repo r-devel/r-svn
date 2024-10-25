@@ -103,7 +103,8 @@ update_pkg_po <- function(pkgdir, pkg = NULL, version = NULL,
         if (missing(copyright)) copyright <- NULL
         if (missing(bugs))	bugs <- NULL
         stem <- file.path("inst", "po")
-    } else { # A base package
+    }
+    if (is.null(pkg) || pkg %in% .get_standard_package_names()$base) { # A base package
         pkg <- basename(pkgdir)
         name <- "R"
         version <- as.character(getRversion())
