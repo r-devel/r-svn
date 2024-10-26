@@ -277,8 +277,8 @@
       Strings markaed as \code{"bytes"} now give a warning rather than a
       NOTE.  These are better supplied as raw vectors.
 
-      \item \code{tools::checkDocFiles()} now also notes \emph{nullary}
-      functions shown in the usage section without corresponding \verb{\alias}.
+      \item \code{tools::checkDocFiles()} notes more cases of
+      usage documentation without corresponding \verb{\alias}.
     }
   }
 
