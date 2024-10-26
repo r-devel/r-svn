@@ -30,19 +30,19 @@
   }
 }
 \details{
-  \code{.Defunct} is called from defunct functions.  Functions should be
-  listed in \code{help("pkg-defunct")} for an appropriate \code{pkg},
-  including \code{base} (with the alias added to the respective Rd
-  file).
+  \code{.Defunct} is called from defunct functions.
+  These should be listed in \code{help("\var{pkg}-defunct")}
+  for an appropriate \var{pkg}, including \pkg{base}.
+  The alias of the defunct function is added to the same file.
 
-  \code{.Defunct} signals an error of class \code{defunctError}
+  \code{.Defunct} signals an error of class \code{"defunctError"}
   with fields \code{old}, \code{new}, and \code{package}.
 }
 \seealso{
   \code{\link{Deprecated}}.
 
-  \code{base-defunct} and so on which list the defunct functions
-  in the packages.
+  \code{help("\link{base-defunct}")} and so on which list the defunct
+  functions in the packages.
 }
 \keyword{documentation}
 \keyword{utilities}
