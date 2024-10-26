@@ -27,17 +27,17 @@
   }
   \item{msg}{
     character string: A message to be printed, if missing a default
-    message is used.}
+    message is used.
+  }
   \item{old}{character string specifying the function (default) or usage
     which is being deprecated.}
 }
 \details{
-  \code{.Deprecated("\var{new name}")} is called from deprecated
-  functions.  The original help page for these functions is often
-  available at \code{help("\var{old}-deprecated")} (note the quotes).
-  % FIXME: the above is not true any more; the old \alias is usually kept as-is.
-  Deprecated functions should be listed in \code{help("\var{pkg}-deprecated")}
+  \code{.Deprecated("\var{new name}")} is called from deprecated functions.
+  These should be listed in \code{help("\var{pkg}-deprecated")}
   for an appropriate \var{pkg}, including \pkg{base}.
+  The original help page for a deprecated function is sometimes
+  available at \code{help("\var{old}-deprecated")} (note the quotes).
 
   \code{.Deprecated} signals a warning of class \code{"deprecatedWarning"}
   with fields \code{old}, \code{new}, and \code{package}.

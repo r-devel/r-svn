@@ -1526,13 +1526,10 @@ function(package, dir, lib.loc = NULL, chkInternal = NULL)
         }
 
         ## Also test whether the objects we found from the \usage all
-        ## have aliases, provided that there is no alias which ends in
-        ## '-deprecated' (see e.g. base-deprecated.Rd).
-        ## <FIXME>
-        ## Why are we making the '-deprecated' exception?
-        ## Surely there should be aliases for such functions, and the
-        ## deprecated-Rd files in the base packages even say
-        ##   %------ PLEASE: put \alias{.} here for EACH !
+        ## have aliases, provided no alias ends in '-deprecated'.
+        ## This exception allows packages to keep the original help page of a
+        ## deprecated function at help("<fun>-deprecated") (see ?deprecated)
+        ## and alias <fun> to help("<pkg>-deprecated").
         functions_not_in_aliases <-
             if(!any(endsWith(aliases, "-deprecated"))) {
                 ## Argh.  There are good reasons for keeping \S4method{}{}
@@ -1549,7 +1546,6 @@ function(package, dir, lib.loc = NULL, chkInternal = NULL)
                 setdiff(functions, aliases)
             }
             else character()
-        ## </FIXME>
 
         if((length(arg_names_in_usage_missing_in_arg_list))
            || anyDuplicated(arg_names_in_arg_list)
