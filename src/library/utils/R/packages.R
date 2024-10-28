@@ -22,7 +22,8 @@ function(contriburl = contrib.url(repos, type), method,
          type = getOption("pkgType"), filters = NULL,
          repos = getOption("repos"),
          ignore_repo_cache = FALSE, max_repo_cache_age,
-         quiet = TRUE, ...)
+         cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
+         quiet = TRUE, verbose = FALSE, ...)
 {
     if (!is.character(type))
         stop(gettextf("'%s' must be a character string", "type"), domain = NA)
@@ -67,7 +68,8 @@ function(contriburl = contrib.url(repos, type), method,
             if(ignore_repo_cache) {
                 dest <- tempfile()
             } else {
-                dest <- file.path(tempdir(),
+                dest <- file.path(if(cache_user_dir) tools::R_user_dir("base", "cache")
+                                  else tempdir(),
                                   paste0("repos_", URLencode(repos, TRUE), ".rds"))
                 if(file.exists(dest)) {
                     age <- difftime(timestamp, file.mtime(dest), units = "secs")
@@ -169,6 +171,8 @@ function(contriburl = contrib.url(repos, type), method,
             res0 <- cbind(res0[, fields, drop = FALSE], Repository = rp)
             res <- rbind(res, res0, deparse.level = 0L)
         }
+        if(verbose) cat("added", NROW(res0), "packages, from repos", sQuote(repos),
+                        "to a total of", NROW(res), "\n")
     } ## end  for(repos in *)
 
     if(!length(res)) return(res)
@@ -628,6 +632,7 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
 
 installed.packages <-
     function(lib.loc = NULL, priority = NULL, noCache = FALSE,
+             cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
              fields = NULL, subarch = .Platform$r_arch, ...)
 {
     if(is.null(lib.loc))
@@ -652,7 +657,9 @@ installed.packages <-
             ## add length and 64-bit CRC in hex (in theory, seems
             ## it is actually 32-bit on some systems)
             enc <- sprintf("%d_%s", nchar(base), .Call(C_crc64, base))
-            dest <- file.path(tempdir(), paste0("libloc_", enc, ".rds"))
+            dest <- file.path(if(cache_user_dir) tools::R_user_dir("base", "cache")
+                              else tempdir(),
+                              paste0("libloc_", enc, ".rds"))
             test <- file.exists(dest) &&
                 file.mtime(dest) > file.mtime(lib) &&
                 (val <- readRDS(dest))$base == base
@@ -664,6 +671,8 @@ installed.packages <-
                 if(length(ret0)) {
                     retval <- rbind(retval, ret0, deparse.level = 0L)
                     ## save the cache file
+                    dir.create(dirname(dest), recursive = TRUE,
+                               showWarnings = FALSE)
                     saveRDS(list(base = base, value = ret0), dest)
                 } else unlink(dest)
             }

@@ -1,6 +1,6 @@
 % File src/library/utils/man/installed.packages.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{installed.packages}
@@ -12,7 +12,9 @@
 }
 \usage{
 installed.packages(lib.loc = NULL, priority = NULL,
-                   noCache = FALSE, fields = NULL,
+                   noCache = FALSE,
+                   cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
+                   fields = NULL,
                    subarch = .Platform$r_arch, \dots)
 }
 \arguments{
@@ -27,7 +29,10 @@ installed.packages(lib.loc = NULL, priority = NULL,
     \code{c("base", "recommended")}.  To select all packages without an
     assigned priority use \code{priority = NA_character_}.
   }
-  \item{noCache}{Do not use cached information, nor cache it.}
+  \item{noCache}{do not use cached information, nor cache it.}
+  \item{cache_user_dir}{\code{\link{logical}} indicating if caching should
+    happen in \pkg{tools}' \code{\link[tools]{R_user_dir}("base", "cache")}
+    instead of \code{\link{tempdir}()}.}
 
   \item{fields}{a character vector giving the fields to extract from
     each package's \file{DESCRIPTION} file in addition to the default

@@ -114,6 +114,9 @@
       \item More R level messages use a common format containing
       \code{"character string"} for more consistency and less translation
       work.
+
+      \item \code{available.packages()} and \code{install.packages()} get
+      an optional switch \code{cache_user_dir}, somewhat experimentally.
     }
   }
 
