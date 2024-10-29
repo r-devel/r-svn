@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2019 The R Core Team
+ *                2003-2024 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,9 @@ SEXP L_fill(SEXP path, SEXP rule)
     /* Get the current device 
      */
     pGEDevDesc dd = getDevice();
-    currentgp = gridStateElement(dd, GSS_GPAR);
+    /* currentgp has to be explicitly protected, because resolveGPar()
+       may change "dd" so that currentgp is no longer protected implicitly */
+    PROTECT(currentgp = gridStateElement(dd, GSS_GPAR));
     PROTECT(resolvedFill = resolveGPar(currentgp, FALSE));
     gcontextFromgpar(currentgp, 0, &gc, dd);
     
@@ -62,7 +64,7 @@ SEXP L_fill(SEXP path, SEXP rule)
         SEXP patternRef = getListElement(resolvedFill, "index");
         dd->dev->releasePattern(patternRef, dd->dev);
     }
-    UNPROTECT(1); /* resolvedFill */
+    UNPROTECT(2); /* resolvedFill, currentgp */
 
     GEMode(0, dd);
 
@@ -77,7 +79,9 @@ SEXP L_fillStroke(SEXP path, SEXP rule)
     /* Get the current device 
      */
     pGEDevDesc dd = getDevice();
-    currentgp = gridStateElement(dd, GSS_GPAR);
+    /* currentgp has to be explicitly protected, because resolveGPar()
+       may change dd so that currentgp is no longer protected implicitly */
+    PROTECT(currentgp = gridStateElement(dd, GSS_GPAR));
     PROTECT(resolvedFill = resolveGPar(currentgp, FALSE));
     gcontextFromgpar(currentgp, 0, &gc, dd);
     
@@ -92,7 +96,7 @@ SEXP L_fillStroke(SEXP path, SEXP rule)
         SEXP patternRef = getListElement(resolvedFill, "index");
         dd->dev->releasePattern(patternRef, dd->dev);
     }
-    UNPROTECT(1); /* resolvedFill */
+    UNPROTECT(2); /* resolvedFill, currentgp */
 
     GEMode(0, dd);
 
