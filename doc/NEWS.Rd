@@ -149,6 +149,8 @@
       \code{SignatureMethod} were made defunct, as were the
       \code{"MethodsList"} branches of functions \code{assignMethodsMetaData},
       \code{finalDefaultMethod}, and \code{MethodAddCoerce}.
+
+      \item \code{getMethods(*, table=TRUE)} is also deprecated.
     }
   }
 
