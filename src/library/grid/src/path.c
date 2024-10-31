@@ -47,9 +47,9 @@ SEXP L_fill(SEXP path, SEXP rule)
     /* Get the current device 
      */
     pGEDevDesc dd = getDevice();
-    /* currentgp has to be explicitly protected, because resolveGPar()
-       may change "dd" so that currentgp is no longer protected implicitly */
-    PROTECT(currentgp = gridStateElement(dd, GSS_GPAR));
+    /* currentgp is a snapshot from grid state that we modify when we
+       resolve any pattern fill, so duplicate and protect */
+    PROTECT(currentgp = duplicate(gridStateElement(dd, GSS_GPAR)));
     PROTECT(resolvedFill = resolveGPar(currentgp, FALSE));
     gcontextFromgpar(currentgp, 0, &gc, dd);
     
@@ -79,9 +79,9 @@ SEXP L_fillStroke(SEXP path, SEXP rule)
     /* Get the current device 
      */
     pGEDevDesc dd = getDevice();
-    /* currentgp has to be explicitly protected, because resolveGPar()
-       may change dd so that currentgp is no longer protected implicitly */
-    PROTECT(currentgp = gridStateElement(dd, GSS_GPAR));
+    /* currentgp is a snapshot from grid state that we modify when we
+       resolve any pattern fill, so duplicate and protect */
+    PROTECT(currentgp = duplicate(gridStateElement(dd, GSS_GPAR)));
     PROTECT(resolvedFill = resolveGPar(currentgp, FALSE));
     gcontextFromgpar(currentgp, 0, &gc, dd);
     
