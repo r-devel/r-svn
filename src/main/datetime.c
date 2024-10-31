@@ -66,7 +66,7 @@
   name is known or is "UTC', of length 3 including the abbreviations
   for all other timezones. (If the timezone does not use DST, the
   second abbreviation may be empty or may repeat the first, depending
-  on the platform., but it woll always be present.)  However, if the
+  on the platform., but it will always be present.)  However, if the
   call to strptime() does not specify 'tz', this attribute is omitted.
 
   Names for the date-times are optional (and rarely supplied):
@@ -113,8 +113,8 @@ There are two implementation paths here.
    Use the system time_t, struct tm and time-zone tables.
 
    This can be use on glibc, macOS and Solaris (and probably FreeBSD),
-   but all except 64-bit glibc have isues we can try to work around.
-   It could in principlw be used om Windows but the issues there are
+   but all except 64-bit glibc have issues we can try to work around.
+   It could in principle be used om Windows but the issues there are
    too severe (no support for before 1970) to work around.
 
    The system facilities are used for 1902-2037 and outside those
@@ -126,7 +126,7 @@ There are two implementation paths here.
    Other known issues are with strftime (macOS only supports offsets
    in multiple of half-hours), not having tzdata tables (possible on
    Alpine and now fatal when configuring) and odd issues reading the
-   time-zone tables, expecially fror 1939-1945.
+   time-zone tables, especially for 1939-1945.
 
 2) USE_INTERNAL_MKTIME : Use substitutes from src/extra/tzone for
    mktime, gmtime_r, localtime_r, strftime with a R_ prefix.  The
@@ -198,7 +198,7 @@ static const int month_days[12] =
   Return 0 if valid, -1 if invalid and uncorrectable, or a positive
   integer approximating the number of corrections done.
 
-  Used in both paths in mktime0, in localtimee0 in PATH 1) and in
+  Used in both paths in mktime0, in localtime0 in PATH 1) and in
   do_formatPOSIXlt, do_strptime, do_POSIXlt2D, do_balancePOSIXlt.
 */
 static int validate_tm (stm *tm)
@@ -634,7 +634,7 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 
     double dday = floor(d/86400.0);
 //    static stm ltm0, *res = &ltm0;
-    stm *res = ltm; // be like localtine_r
+    stm *res = ltm; // be like localtime_r
     // This cannot exceed (2^31-1) years in either direction from 1970
     if (fabs(dday) > 784368402400) { //bail out
 	res->tm_year = NA_INTEGER;
@@ -809,7 +809,7 @@ static Rboolean set_tz(const char *tz, tzset_info *si)
 #elif defined(HAVE_PUTENV)
     {
 	/* This could be dynamic, but setenv is strongly preferred
-	   (but not availanble on Windows)
+	   (but not available on Windows)
 	   "A program should not alter or free the string"
 	*/
 	static char buff[1010];
