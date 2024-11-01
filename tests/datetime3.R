@@ -588,6 +588,18 @@ stopifnot(exprs = {
   grepl('x[, "yday"]', print(tryCmsg(pl[["yday"]])))# new error msg
 })
 
+## seq.Date() should preserve integer, seq(from, to) should work (default by = "1 day")
+D1 <- .Date(i1 <- 11111L)
+D2 <- .Date(i2 <- 11123L)
+D3 <- .Date(i3 <- 12345L)
+(seq1 <- seq(D1, D2))# 'by = "days" is now default
+head(seq3 <- seq(D1,D3, by = "weeks"))
+stopifnot(exprs = {
+    identical(c("2000-06-03", "2000-06-15"), format(c(D1,D2)))
+    identical(unclass(seq1), i1:i2) # preserve integer type
+    typeof(seq3) == "integer"
+})
+
 
 
 ## keep at end

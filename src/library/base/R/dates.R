@@ -255,22 +255,21 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
         if (length(length.out) != 1L) stop("'length.out' must be of length 1")
         length.out <- ceiling(length.out)
     }
+    if (!missing(to) && missing(by)) {
+        from <- as.integer(as.Date(from))
+        to   <- as.integer(as.Date(to))
+        res <- seq.int(from, to, length.out = length.out)
+        return(.Date(res))
+    }
+    ## else
     status <- c(!missing(to), !missing(by), !is.null(length.out))
     if(sum(status) != 2L)
         stop("exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified")
-    if (missing(by)) {
-        from <- unclass(as.Date(from))
-        to <- unclass(as.Date(to))
-        res <- seq.int(from, to, length.out = length.out)
-        ## force double storage for consistency
-        return(.Date(as.numeric(res)))
-    }
-
     if (length(by) != 1L) stop("'by' must be of length 1")
     valid <- 0L
     if (inherits(by, "difftime")) {
         by <- switch(attr(by,"units"), secs = 1/86400, mins = 1/1440,
-                     hours = 1/24, days = 1, weeks = 7) * unclass(by)
+                     hours = 1/24, days = 1, weeks = 7) * as.integer(by)
     } else if(is.character(by)) {
         by2 <- strsplit(by, " ", fixed = TRUE)[[1L]]
         if(length(by2) > 2L || length(by2) < 1L)
@@ -279,44 +278,37 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
                         c("days", "weeks", "months", "quarters", "years"))
         if(is.na(valid)) stop("invalid string for 'by'")
         if(valid <= 2L) {
-            by <- c(1, 7)[valid]
+            by <- c(1L, 7L)[valid]
             if (length(by2) == 2L) by <- by * as.integer(by2[1L])
         } else
-            by <- if(length(by2) == 2L) as.integer(by2[1L]) else 1
+            by <- if(length(by2) == 2L) as.integer(by2[1L]) else 1L
     } else if(!is.numeric(by)) stop("invalid mode for 'by'")
     if(is.na(by)) stop("'by' is NA")
 
     if(valid <= 2L) { # days or weeks
-        from <- unclass(as.Date(from))
-        if(!is.null(length.out))
-            res <- seq.int(from, by = by, length.out = length.out)
-        else {
-            to0 <- unclass(as.Date(to))
-            ## defeat test in seq.default
-            res <- seq.int(0, to0 - from, by) + from
-        }
-        ## force double storage for consistency
-        res <- .Date(as.numeric(res))
+        from <- as.integer(as.Date(from))
+        res <- .Date(if(!is.null(length.out))
+                         seq.int(from, by = by, length.out = length.out)
+                     else # defeat test in seq.default
+                         seq.int(0L, as.integer(as.Date(to)) - from, by) + from)
     } else {  # months or quarters or years
         r1 <- as.POSIXlt(from)
         if(valid == 5L) { # years
-            if(missing(to)) {
-                yr <- seq.int(r1$year, by = by, length.out = length.out)
-            } else {
-                to0 <- as.POSIXlt(to)
-                yr <- seq.int(r1$year, to0$year, by)
-            }
-            r1$year <- yr
+            r1$year <-
+                if(missing(to))
+                    seq.int(r1$year, by = by, length.out = length.out)
+                else
+                    seq.int(r1$year, as.POSIXlt(to)$year, by)
             res <- as.Date(r1)
         } else { # months or quarters
-            if (valid == 4L) by <- by * 3
-            if(missing(to)) {
-                mon <- seq.int(r1$mon, by = by, length.out = length.out)
-            } else {
-                to0 <- as.POSIXlt(to)
-                mon <- seq.int(r1$mon, 12*(to0$year - r1$year) + to0$mon, by)
-            }
-            r1$mon <- mon
+            if (valid == 4L) by <- by * 3L
+            r1$mon <-
+                if(missing(to))
+                    seq.int(r1$mon, by = by, length.out = length.out)
+                else {
+                    to0 <- as.POSIXlt(to)
+                    seq.int(r1$mon, 12L*(to0$year - r1$year) + to0$mon, by)
+                }
             res <- as.Date(r1)
         }
     }

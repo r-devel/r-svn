@@ -1,6 +1,6 @@
 % File src/library/base/man/seq.Date.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{seq.Date}
@@ -32,10 +32,14 @@
     and a space, or followed by \code{"s"}.
 
     See \code{\link{seq.POSIXt}} for the details of \code{"month"}.
+
+    In the case \code{seq(from, to)}, the default for \code{by} is
+    \code{"day"} (or \code{"1 day"}).
   }
 }
 \value{
   A vector of class \code{"Date"}.
+  Type \code{"\link{integer}"} is preserved.
 }
 \seealso{\code{\link{Date}}}
 
