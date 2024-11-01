@@ -292,7 +292,7 @@
       \item \code{update_pkg_po()} now copies \file{.mo} files to the
       \pkg{translation} package even if a \file{DESCRIPTION} file
       exists, thanks to \I{Michael Chirico} fixing \PR{18694}.
-      
+
       \item Auto-generated \code{citation()} entries no longer include
       (additional) URLs in the \samp{note} field (\PR{18547}).
 
@@ -343,6 +343,11 @@
       \item \code{rowSums(A, dims = dd)}, \code{colMeans(..)}, etc, give a
       more helpful error message when \code{dd} is not of length one,
       thanks to \I{Michael Chirico}'s \PR{18811}.
+
+      \item \code{seq.Date()} no longer explicitly coerces results from
+      integer to double, analogously with \code{seq.default()},
+      \code{seq.int()} and \code{seq.POSIXt()}, resolving a \emph{modified}
+      \PR{18782}.
     }
   }
 }
