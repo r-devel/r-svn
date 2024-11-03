@@ -279,7 +279,7 @@
       variable \env{_R_CHECK_PACKAGE_DATASETS_SUPPRESS_NOTES_} to a
       false value for the previous behaviour.
 
-      Strings markaed as \code{"bytes"} now give a warning rather than a
+      Strings marked as \code{"bytes"} now give a warning rather than a
       NOTE.  These are better supplied as raw vectors.
 
       \item \code{tools::checkDocFiles()} notes more cases of

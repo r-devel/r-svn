@@ -82,8 +82,9 @@ will be called on the completion of the next top-level task.
   to allow C routines rather than R functions be used.
 }
 \seealso{
-  \code{\link{getTaskCallbackNames}}
+  \code{\link{getTaskCallbackNames}},
   \code{\link{taskCallbackManager}}
+
   \url{https://developer.r-project.org/TaskHandlers.pdf}
 }
 \examples{
