@@ -13,7 +13,9 @@
 \usage{
 installed.packages(lib.loc = NULL, priority = NULL,
                    noCache = FALSE,
-                   cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
+                   cache_user_dir =
+                       str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR",
+                                              FALSE)),
                    fields = NULL,
                    subarch = .Platform$r_arch, \dots)
 }
