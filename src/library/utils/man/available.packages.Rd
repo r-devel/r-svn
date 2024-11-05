@@ -20,7 +20,9 @@ available.packages(contriburl = contrib.url(repos, type), method,
                    type = getOption("pkgType"), filters = NULL,
                    repos = getOption("repos"),
                    ignore_repo_cache = FALSE, max_repo_cache_age,
-                   cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
+                   cache_user_dir =
+                       str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR",
+                                              FALSE)),
                    quiet = TRUE, verbose = FALSE, \dots)
 }
 \arguments{
@@ -62,7 +64,7 @@ available.packages(contriburl = contrib.url(repos, type), method,
   \item{quiet}{logical, passed to \code{\link{download.file}()}; change
     only if you know what you are doing.}
   \item{verbose}{logical indicating if a \dQuote{progress report} line
-    should be printed about the number of packages found in each repos.}
+    should be printed about the number of packages found in each repository.}
   % before filtering (TODO: *during* filt.)
   \item{\dots}{
     allow additional arguments to be passed from callers (which might be
