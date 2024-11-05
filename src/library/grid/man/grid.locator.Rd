@@ -36,8 +36,8 @@ grid.locator(unit = "native")
 \author{ Paul Murrell }
 \seealso{ \code{\link{viewport}}, \code{\link{unit}},
   \code{\link{locator}} in package \pkg{graphics}, and for an application
-  see \code{\link[lattice:interaction]{trellis.focus}} and
-  \code{\link[lattice:interaction]{panel.identify}} in package
+  see \code{\link[lattice]{trellis.focus}} and
+  \code{\link[lattice]{panel.identify}} in package
   \CRANpkg{lattice}.
 }
 \examples{

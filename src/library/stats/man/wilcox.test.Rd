@@ -174,7 +174,7 @@ wilcox.test(x, \dots)
 \seealso{
   \code{\link{psignrank}}, \code{\link{pwilcox}}.
 
-  \code{\link[coin:LocationTests]{wilcox_test}} in package
+  \code{\link[coin]{wilcox_test}} in package
   \CRANpkg{coin} for exact, asymptotic and Monte Carlo
   \emph{conditional} p-values, including in the presence of ties.
 

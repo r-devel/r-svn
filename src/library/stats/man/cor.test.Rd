@@ -131,8 +131,8 @@ cor.test(x, \dots)
 \seealso{
   \code{\link[Kendall:Kendall]{Kendall}} in package \CRANpkg{Kendall}.
 
-  \code{\link[SuppDists:Kendall]{pKendall}} and
-  \code{\link[SuppDists:Spearman]{pSpearman}} in package
+  \code{\link[SuppDists]{pKendall}} and
+  \code{\link[SuppDists]{pSpearman}} in package
   \CRANpkg{SuppDists},
   \code{\link[pspearman:spearman.test]{spearman.test}} in package
   \CRANpkg{pspearman},
