@@ -1540,6 +1540,19 @@ stopifnot(identical(ch1, ch2),
 ## error msg was  "'length = 2' in coercion to 'logical(1)'"
 
 
+## kappa(*, exact=TRUE)  for exactly singular cases - PR#18817
+for(x in list(x3 = {n <- 3L; x <- diag(n); x[n,n] <- 0; x},
+              z2 = rbind(1:2, 0),
+              D0 = diag(0, nrow = 3))) { print(x)
+  stopifnot(exprs = {
+    identical(Inf,      kappa(x, exact = TRUE))
+    identical(Inf,      kappa(x, exact = TRUE, norm = "2"))
+    identical(Inf, .kappa_tri(x, exact = TRUE, norm = "2"))
+  })
+}
+## kappa(..)  returned 1 or {0 with a warning} in R <= 4.4.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

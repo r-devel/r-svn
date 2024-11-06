@@ -352,6 +352,15 @@
   }
 }
 
+\section{\Rlogo CHANGES IN R 4.4.2 patched}{
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{kappa(A, exact=TRUE)} returns \code{Inf} more generally,
+      fixing  \PR{18817} reported by \I{Mikael Jagan}.
+    }
+  }
+}
+
 \section{\Rlogo CHANGES IN R 4.4.2}{
   \subsection{C-LEVEL FACILITIES}{
     \itemize{
