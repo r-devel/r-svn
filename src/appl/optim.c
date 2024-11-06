@@ -494,7 +494,7 @@ void cgmin(int n, double *Bvec, double *X, double *Fmin,
 	case 2:	    Rprintf("Method: Polak Ribiere\n");		break;
 	case 3:	    Rprintf("Method: Beale Sorenson\n");	break;
 	default:
-	    error(_("unknown 'type' in \"CG\" method of 'optim'"));
+	    error(_("unknown type in \"CG\" method of 'optim'"));
 	}
     }
     c = vect(n); g = vect(n); t = vect(n);
@@ -507,7 +507,7 @@ void cgmin(int n, double *Bvec, double *X, double *Fmin,
     if (trace) Rprintf("tolerance used in gradient test=%g\n", tol);
     f = fminfn(n, Bvec, ex);
     if (!R_FINITE(f)) {
-	error(_("Function cannot be evaluated at initial parameters"));
+	error(_("function cannot be evaluated at initial parameters"));
     } else {
 	*Fmin = f;
 	funcount = 1;
