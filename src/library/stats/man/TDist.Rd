@@ -115,7 +115,7 @@ rt(n, df, ncp)
 
   Lenth, R. V. (1989). \emph{Algorithm AS 243} ---
   Cumulative distribution function of the non-central \eqn{t} distribution,
-  \emph{Applied Statistics} \bold{38}, 185--189.
+  \emph{Applied Statistics} \bold{38}, 185--189; \doi{10.2307/2347693} .
 
   This computes the lower tail only, so the upper tail currently suffers from
   cancellation and a warning will be given when this is likely to be
@@ -124,12 +124,12 @@ rt(n, df, ncp)
   For central \code{qt}, a C translation of
 
   Hill, G. W. (1970) Algorithm 396: Student's t-quantiles.
-  \emph{Communications of the ACM}, \bold{13(10)}, 619--620. % \doi{10.1145/355598.355599}
+  \emph{Communications of the ACM}, \bold{13(10)}, 619--620; \doi{10.1145/355598.355599} .
 
   altered to take account of
 
   Hill, G. W. (1981) Remark on Algorithm 396, \emph{ACM Transactions on
-    Mathematical Software}, \bold{7}, 250--1. % \doi{10.1145/355945.355956}
+    Mathematical Software}, \bold{7}, 250--1; \doi{10.1145/355945.355956} .
 
   The non-central case is done by inversion.
 }

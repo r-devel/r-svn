@@ -89,6 +89,7 @@ substring(text, first, last = 1000000L) <- value
   Wadsworth & Brooks/Cole.  (\code{substring}.)
 }
 \seealso{
+ \code{\link{startsWith}} and \code{endsWith()};
  \code{\link{strsplit}}, \code{\link{paste}}, \code{\link{nchar}}.
 }
 \examples{

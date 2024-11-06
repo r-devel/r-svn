@@ -1,6 +1,6 @@
 % File src/library/base/man/as.POSIXlt.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.POSIX*}
@@ -208,7 +208,7 @@ as.POSIXlt(Sys.time(), "Australia/Darwin")
 }
 
 tab <- file.path(R.home("share"), "zoneinfo", "zone1970.tab")
-if(file.exists(tab)) { # typically on Windows; *not* on Linux
+if(file.exists(tab)) { # typically on Windows; on Linux when  `configure --with-internal-tzcode`
   cols <- c("code", "coordinates", "TZ", "comments")
   tmp <- read.delim(tab,
                     header = FALSE, comment.char = "#", col.names = cols)
