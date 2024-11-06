@@ -4980,18 +4980,18 @@ function(x, ...)
                            "Note: found %d marked UTF-8 string",
                            "Note: found %d marked UTF-8 strings"), n)
       },
-      if(n <- x$bytes) { ## elevated to a Warning in 4.5.0
-          sprintf(
-                  ngettext(n,
-                           "Warning: found %d string marked as \"bytes\"",
-                           "Warning: found %d strings marked as \"bytes\""), n)
-      },
-      ## if((n <- x$bytes) && !suppress_notes) {
+      ## if(n <- x$bytes) { ## elevated to a Warning in 4.5.0
       ##     sprintf(
       ##             ngettext(n,
-      ##                      "Note: found %d string marked as \"bytes\"",
-      ##                      "Note: found %d strings marked as \"bytes\""), n)
+      ##                      "Warning: found %d string marked as \"bytes\"",
+      ##                      "Warning: found %d strings marked as \"bytes\""), n)
       ## },
+      if((n <- x$bytes) && !suppress_notes) {
+          sprintf(
+                  ngettext(n,
+                           "Note: found %d string marked as \"bytes\"",
+                           "Note: found %d strings marked as \"bytes\""), n)
+      },
       if(nr <- nrow(x$unknown)) {
           msg <- ngettext(nr,
                           "Warning: found non-ASCII string",
