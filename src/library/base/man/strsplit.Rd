@@ -1,6 +1,6 @@
 % File src/library/base/man/strsplit.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strsplit}
@@ -107,11 +107,12 @@ strsplit(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE)
 \seealso{
   \code{\link{paste}} for the reverse,
   \code{\link{grep}} and \code{\link{sub}} for string search and
-  manipulation; also \code{\link{nchar}}, \code{\link{substr}}.
+  manipulation; also \code{\link{nchar}}, \code{\link{substr}},
+  \code{\link{startsWith}()}, and \code{endsWith()}.
 
   \sQuote{\link{regular expression}} for the details of the pattern
   specification.
-  
+
   Option \code{PCRE_use_JIT} controls the details when \code{perl = TRUE}.
 }
 \examples{

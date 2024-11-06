@@ -1,6 +1,6 @@
 % File src/library/base/man/list.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{list}
@@ -73,7 +73,7 @@ alist(\dots)
   \code{is.list} returns \code{TRUE} if and only if its argument
   is a \code{list} \emph{or} a \code{pairlist} of \code{length} \eqn{> 0}.
   \code{is.pairlist} returns \code{TRUE} if and only if the argument
-  is a pairlist or \code{NULL} (see below).
+  is a pairlist (or \code{NULL} which \emph{is} a pairlist, see below).
 
   The \code{"\link{environment}"} method for \code{as.list} copies the
   name-value pairs (for names not beginning with a dot) from an

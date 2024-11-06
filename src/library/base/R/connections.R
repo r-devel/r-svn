@@ -155,7 +155,7 @@ textConnection <- function(object, open = "r", local = FALSE,
     env <- if (local) parent.frame() else .GlobalEnv
     type <- match(match.arg(encoding), c("", "bytes", "UTF-8"))
     if(!(is.character(name) && length(name) == 1))
-        stop("'name' must be a single character string")
+        stop(gettextf("'%s' must be a character string", "name"), domain = NA)
     .Internal(textConnection(name, object, open, env, type))
 }
 

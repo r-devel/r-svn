@@ -30,7 +30,8 @@ write(x, file = "data",
   \item{x}{the data to be written out. }
   \item{file}{a \code{\link{connection}}, or a character string naming
     the file to write to.  If \code{""}, print to the standard output
-    connection.
+    connection, i.e., \code{""} is equivalent to \code{\link{stdout}()}
+    here.
 
     When \code{\link{.Platform}$OS.type != "windows"}, and it
     is \code{"|cmd"}, the output is piped to the command given

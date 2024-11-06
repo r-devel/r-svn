@@ -99,12 +99,12 @@ as.qr(x)
 \value{
   The QR decomposition of the matrix as computed by LINPACK(*) or LAPACK.
   The components in the returned value correspond directly
-  to the values returned by \I{DQRDC}(2)/\I{DGEQP3}/\I{ZGEQP3}.
+  to the values returned by \I{DQRDC(2)}/\I{DGEQP3}/\I{ZGEQP3}.
   \item{qr}{a matrix with the same dimensions as \code{x}.
     The upper triangle contains the \eqn{\bold{R}} of the decomposition
     and the lower triangle contains information on the \eqn{\bold{Q}} of
     the decomposition (stored in compact form).  Note that the storage
-    used by \I{DQRDC} and \I{DGEQP3} differs.}
+    used by \I{DQRDC} (LINPACK) and \I{DGEQP3} (LAPACK) differs.}
   \item{qraux}{a vector of length \code{ncol(x)} which contains
     additional information on \eqn{\bold{Q}}.}
   \item{rank}{the rank of \code{x} as computed by the decomposition(*):

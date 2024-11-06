@@ -5,15 +5,16 @@
 % Distributed under GPL 2 or later
 
 \name{format}
+\title{Encode in a Common Format}
 \alias{format}
 \alias{format.AsIs}
 \alias{format.data.frame}
 \alias{format.default}
 \alias{format.factor}
 \description{
-  Format an \R object for pretty printing.
+  Format an \R object for pretty printing, notably encoding vector or
+  column elements into a common format.
 }
-\title{Encode in a Common Format}
 \usage{
 format(x, \dots)
 
