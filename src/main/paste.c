@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -447,33 +447,27 @@ attribute_hidden SEXP do_filepath(SEXP call, SEXP op, SEXP args, SEXP env)
 		  scientific, decimal.mark) */
 attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP l, x, y, swd;
-    int il, digits, trim = 0, nsmall = 0, wd = 0, adj = -1, na, sci = 0;
-    int w, d, e;
-    int wi, di, ei, scikeep;
-    const char *strp;
-    R_xlen_t i, n;
-
     checkArity(op, args);
     PrintDefaults();
-    scikeep = R_print.scipen;
+    int scikeep = R_print.scipen;
 
-    if (isEnvironment(x = CAR(args))) {
+    SEXP x = CAR(args), y, l;
+    if (isEnvironment(x)) {
 	return mkString(EncodeEnvironment(x));
     }
     else if (TYPEOF(x) == EXTPTRSXP)
 	return mkString(EncodeExtptr(x));
-    else if (!isVector(x))
+    else if (!isVectorAtomic(x))
 	error(_("first argument must be atomic or environment"));
     args = CDR(args);
 
-    trim = asLogical(CAR(args));
+    int trim = asLogical(CAR(args));
     if (trim == NA_INTEGER)
 	error(_("invalid '%s' argument"), "trim");
     args = CDR(args);
 
     if (!isNull(CAR(args))) {
-	digits = asInteger(CAR(args));
+	int digits = asInteger(CAR(args));
 	if (digits == NA_INTEGER || digits < R_MIN_DIGITS_OPT
 	    || digits > R_MAX_DIGITS_OPT)
 	    error(_("invalid value %d for '%s' argument"), digits, "digits");
@@ -481,27 +475,28 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     args = CDR(args);
 
-    nsmall = asInteger(CAR(args));
+    int nsmall = asInteger(CAR(args));
     if (nsmall == NA_INTEGER || nsmall < 0 || nsmall > 20)
 	error(_("invalid '%s' argument"), "nsmall");
     args = CDR(args);
 
-    if (isNull(swd = CAR(args))) wd = 0; else wd = asInteger(swd);
+    int wd = isNull(l = CAR(args)) ? 0 : asInteger(l);
     if(wd == NA_INTEGER)
 	error(_("invalid '%s' argument"), "width");
     args = CDR(args);
 
-    adj = asInteger(CAR(args));
+    int adj = asInteger(CAR(args));
     if(adj == NA_INTEGER || adj < 0 || adj > 3)
 	error(_("invalid '%s' argument"), "justify");
     args = CDR(args);
 
-    na = asLogical(CAR(args));
+    int na = asLogical(CAR(args));
     if(na == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "na.encode");
     args = CDR(args);
     if(LENGTH(CAR(args)) != 1)
 	error(_("invalid '%s' argument"), "scientific");
+    int sci = 0;
     if(isLogical(CAR(args))) {
 	int tmp = LOGICAL(CAR(args))[0];
 	if(tmp == NA_LOGICAL) sci = NA_INTEGER;
@@ -532,9 +527,12 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	my_OutDec = sdec;
     }
 
-    if ((n = XLENGTH(x)) <= 0) {
+    R_xlen_t i, n = XLENGTH(x);
+    if (n <= 0) {
 	PROTECT(y = allocVector(STRSXP, 0));
     } else {
+	int w, d, e;
+	const char *strp;
 	switch (TYPEOF(x)) {
 
 	case LGLSXP:
@@ -570,6 +568,8 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 
 	case CPLXSXP:
+	{
+	    int wi, di, ei;
 	    formatComplex(COMPLEX(x), n, &w, &d, &e, &wi, &di, &ei, nsmall);
 	    if (trim) wi = w = 0;
 	    w = imax2(w, wd); wi = imax2(wi, wd);
@@ -579,23 +579,21 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 		SET_STRING_ELT(y, i, mkChar(strp));
 	    }
 	    break;
-
+	}
 	case STRSXP:
 	{
 	    /* this has to be different from formatString/EncodeString as
 	       we don't actually want to encode here */
 	    const char *s;
 	    char *q;
-	    int b, b0, cnt = 0, j;
-	    SEXP s0, xx;
-
+	    int b, cnt = 0, j;
 	    /* This is clumsy, but it saves rewriting and re-testing
 	       this complex code */
-	    PROTECT(xx = duplicate(x));
+	    SEXP xx = PROTECT(duplicate(x));
 	    for (i = 0; i < n; i++) {
-		SEXP tmp =  STRING_ELT(xx, i);
-		if(IS_BYTES(tmp)) {
-		    const char *p = CHAR(tmp), *q;
+		SEXP x_i =  STRING_ELT(xx, i);
+		if(IS_BYTES(x_i)) {
+		    const char *p = CHAR(x_i), *q;
 		    char *pp = R_alloc(4*strlen(p)+1, 1), *qq = pp, buf[5];
 		    for (q = p; *q; q++) {
 			unsigned char k = (unsigned char) *q;
@@ -608,8 +606,8 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    *qq = '\0';
 		    s = pp;
-		} else s = translateChar(tmp);
-		if(s != CHAR(tmp)) SET_STRING_ELT(xx, i, mkChar(s));
+		} else s = translateChar(x_i);
+		if(s != CHAR(x_i)) SET_STRING_ELT(xx, i, mkChar(s));
 	    }
 
 	    w = wd;
@@ -620,9 +618,10 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 		    else if (na) w = imax2(w, R_print.na_width);
 	    } else w = 0;
 	    /* now calculate the buffer size needed, in bytes */
+
 	    for (i = 0; i < n; i++)
 		if (STRING_ELT(xx, i) != NA_STRING) {
-		    il = Rstrlen(STRING_ELT(xx, i), 0);
+		    int il = Rstrlen(STRING_ELT(xx, i), 0);
 		    cnt = imax2(cnt, LENGTH(STRING_ELT(xx, i)) + imax2(0, w-il));
 		} else if (na)
 		    cnt = imax2(cnt, R_print.na_width + imax2(0, w-R_print.na_width));
@@ -634,13 +633,12 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 		    SET_STRING_ELT(y, i, NA_STRING);
 		} else {
 		    q = buff;
-		    if(STRING_ELT(xx, i) == NA_STRING) s0 = R_print.na_string;
-		    else s0 = STRING_ELT(xx, i) ;
+		    SEXP s0 = (STRING_ELT(xx, i) == NA_STRING) ? R_print.na_string : STRING_ELT(xx, i);
 		    s = CHAR(s0);
-		    il = Rstrlen(s0, 0);
+		    int il = Rstrlen(s0, 0);
 		    b = w - il;
 		    if(b > 0 && adj != Rprt_adj_left) {
-			b0 = (adj == Rprt_adj_centre) ? b/2 : b;
+			int b0 = (adj == Rprt_adj_centre) ? b/2 : b;
 			for(j = 0 ; j < b0 ; j++) *q++ = ' ';
 			b -= b0;
 		    }
@@ -747,11 +745,11 @@ attribute_hidden SEXP do_formatinfo(SEXP call, SEXP op, SEXP args, SEXP env)
     if(no > 1) {
 	INTEGER(x)[1] = d;
 	INTEGER(x)[2] = e;
-    }
-    if(no > 3) {
-	INTEGER(x)[3] = wi;
-	INTEGER(x)[4] = di;
-	INTEGER(x)[5] = ei;
+	if(no > 3) {
+	    INTEGER(x)[3] = wi;
+	    INTEGER(x)[4] = di;
+	    INTEGER(x)[5] = ei;
+	}
     }
     return x;
 }
