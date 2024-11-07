@@ -363,6 +363,9 @@
       \item \code{kappa(A, exact=TRUE)} for singular \code{A} returns
       \code{Inf} more generally, fixing \PR{18817} reported by
       \I{Mikael Jagan}.
+
+      \item Fixed URLs of the sun spots (\code{sunspot.month} etc) data
+      sets and mention future changes due to recalibration.
     }
   }
 }
