@@ -349,6 +349,10 @@
       integer to double, analogously with \code{seq.default()},
       \code{seq.int()} and \code{seq.POSIXt()}, resolving a \emph{modified}
       \PR{18782}.
+
+      \item The parser now accepts hexadecimal constants with a decimal
+      point without an exponent (taken as \code{p0}) as documented in
+      \code{?NumericConstants} (\PR{18819}).
     }
   }
 }
