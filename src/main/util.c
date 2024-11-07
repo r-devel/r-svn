@@ -2093,9 +2093,9 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
    R_strtod5 is used by type_convert(numerals=) (utils/src/io.c)
 
    The parser uses R_atof (and handles non-numeric strings itself).
-   That is the same as R_strtod but ignores endptr.
-   Also used by gnuwin32/windlgs/src/ttest.c,
-   exported and in Utils.h (but not in R-exts).
+   That is the same as R_strtod but ignores endptr.  Also used by
+   gnuwin32/windlgs/src/ttest.c, exported and in Utils.h (and
+   documeented in R-exts only since R 4.4.1 )
 */
 
 double R_strtod5(const char *str, char **endptr, char dec,
@@ -2138,6 +2138,12 @@ double R_strtod5(const char *str, char **endptr, char dec,
 
     int n, expn = 0;
     if(strlen(p) > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) { // Hexadecimal "0x....."
+	/* Prior to 4.5.0 this did not allow forms such as 0x1.234
+	   without an exponent.: C99 allow this and implictly
+	   appends "p0"".
+
+	   Changed following PR£18805
+	 */
 	int exph = -1;
 
 	/* This will overflow to Inf if appropriate */
@@ -2162,16 +2168,18 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    }								\
 	}
 	strtod_EXACT_CLAUSE;
+	/* Binary exponent, if any */
 	if (*p == 'p' || *p == 'P') {
 	    int expsign = 1;
-	    double p2 = 2.0;
 	    switch(*++p) {
 	    case '-': expsign = -1;
 	    case '+': p++;
 	    default: ;
 	    }
 #define MAX_EXPONENT_PREFIX 9999
-	    /* exponents beyond ca +1024/-1076 over/underflow */
+	    /* exponents beyond ca +1024/-1076 over/underflow 
+	       Limit exponsent from PR#16358.
+	     */
 	    int ndig = 0;
 	    for (n = 0; *p >= '0' && *p <= '9'; p++, ndig++)
 		n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
@@ -2180,28 +2188,29 @@ double R_strtod5(const char *str, char **endptr, char dec,
 		p = str; /* back out */
 		goto done;
 	    }
-	    if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
-		LDOUBLE fac = 1.0;
-		expn += expsign * n;
-		if(exph > 0) {
-		    if (expn - exph < -122) {	/* PR#17199:  fac may overflow below if expn - exph is too small.
-						   2^-122 is a bit bigger than 1E-37, so should be fine on all systems */
-			for (n = exph, fac = 1.0; n; n >>= 1, p2 *= p2)
-			    if (n & 1) fac *= p2;
-			ans /= fac;
-			p2 = 2.0;
-		    } else
-			expn -= exph;
-		}
-		if (expn < 0) {
-		    for (n = -expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+	    expn += expsign * n;
+	}
+	if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
+	    LDOUBLE fac = 1.0;
+	    double p2 = 2.0;
+	    if(exph > 0) {
+		if (expn - exph < -122) {	/* PR#17199:  fac may overflow below if expn - exph is too small.
+					       2^-122 is a bit bigger than 1E-37, so should be fine on all systems */
+		    for (n = exph, fac = 1.0; n; n >>= 1, p2 *= p2)
 			if (n & 1) fac *= p2;
 		    ans /= fac;
-		} else {
-		    for (n = expn, fac = 1.0; n; n >>= 1, p2 *= p2)
-			if (n & 1) fac *= p2;
-		    ans *= fac;
-		}
+		    p2 = 2.0;
+		} else
+		    expn -= exph;
+	    }
+	    if (expn < 0) {
+		for (n = -expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+		    if (n & 1) fac *= p2;
+		ans /= fac;
+	    } else {
+		for (n = expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+		    if (n & 1) fac *= p2;
+		ans *= fac;
 	    }
 	}
 	goto done;
