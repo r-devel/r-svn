@@ -2139,10 +2139,10 @@ double R_strtod5(const char *str, char **endptr, char dec,
     int n, expn = 0;
     if(strlen(p) > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) { // Hexadecimal "0x....."
 	/* Prior to 4.5.0 this did not allow forms such as 0x1.234
-	   without an exponent.: C99 allow this and implictly
+	   without an exponent.: C99 allow this and implicitly
 	   appends "p0"".
 
-	   Changed following PR£18805
+	   Changed following PR#18805
 	 */
 	int exph = -1;
 
@@ -2178,7 +2178,7 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    }
 #define MAX_EXPONENT_PREFIX 9999
 	    /* exponents beyond ca +1024/-1076 over/underflow 
-	       Limit exponsent from PR#16358.
+	       Limit exponent from PR#16358.
 	     */
 	    int ndig = 0;
 	    for (n = 0; *p >= '0' && *p <= '9'; p++, ndig++)

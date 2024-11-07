@@ -255,7 +255,7 @@
 
       \item The functions \code{R_strtod} and \code{R_atof} now allow
       hexadecimal constants without an exponent, for compatibility with
-      their C99 versions, (\PR{18805})
+      their C99 versions (\PR{18805}).
     }
   }
 
