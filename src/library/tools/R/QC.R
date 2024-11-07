@@ -4969,16 +4969,16 @@ function(x, ...)
 
     c(character(),
       if((n <- x$latin1) && !suppress_notes) {
-          sprintf(
-                  ngettext(n,
-                   "Note: found %d marked Latin-1 string",
-                   "Note: found %d marked Latin-1 strings"), n)
+          sprintf(ngettext(n,
+                           "Note: found %d marked Latin-1 string",
+                           "Note: found %d marked Latin-1 strings"),
+                  n)
       },
       if((n <- x$utf8) && !suppress_notes) {
-          sprintf(
-                  ngettext(n,
+          sprintf(ngettext(n,
                            "Note: found %d marked UTF-8 string",
-                           "Note: found %d marked UTF-8 strings"), n)
+                           "Note: found %d marked UTF-8 strings"),
+                  n)
       },
       ## if(n <- x$bytes) { ## elevated to a Warning in 4.5.0
       ##     sprintf(
@@ -4987,10 +4987,10 @@ function(x, ...)
       ##                      "Warning: found %d strings marked as \"bytes\""), n)
       ## },
       if((n <- x$bytes) && !suppress_notes) {
-          sprintf(
-                  ngettext(n,
+          sprintf(ngettext(n,
                            "Note: found %d string marked as \"bytes\"",
-                           "Note: found %d strings marked as \"bytes\""), n)
+                           "Note: found %d strings marked as \"bytes\""),
+                  n)
       },
       if(nr <- nrow(x$unknown)) {
           msg <- ngettext(nr,
