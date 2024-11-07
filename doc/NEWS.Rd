@@ -252,6 +252,10 @@
 
       \item The deprecated S-compatibility macros \code{F77_COM} and
       \code{F77_COMDECL} have been removed from header \file{R_ext/RS.h}.
+
+      \item The functions \code{R_strtod} and \code{R_atof} now allow
+      hexadecimal constants without an exponent, for compatibility with
+      their C99 versions, (\PR{18805})
     }
   }
 
