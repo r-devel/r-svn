@@ -206,7 +206,7 @@
   default macOS).
 
   Note that the internal list structure is somewhat hidden, as many
-  methods (including \code{\link{length}(x)}, \code{\link{print}()} and
+  methods (including \code{\link{length}()}, \code{\link{print}()} and
   \code{\link{str}()}) apply to the abstract date-time vector, as for
   \code{"POSIXct"}.  One can extract and replace \emph{single}
   components via \code{[} indexing with \emph{two} indices (see the

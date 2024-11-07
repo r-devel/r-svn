@@ -68,7 +68,7 @@
 }
 \section{Warning}{
   Do not use \code{\link{identical}()} on objects of class \code{"Date"}.
-  Their \code{\link{storage.mode}} may be \code{"dpuble"} or
+  Their \code{\link{storage.mode}} may be \code{"double"} or
   \code{"integer"}, and which is chosen has depended on the version of
   \R used to create the object.
 }

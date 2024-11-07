@@ -225,7 +225,7 @@ OlsonNames(tzdir = NULL)
 \section{Warnings}{
 %% glibc and macOS have _POSIX_TZNAME_MAX and define it as 6.
 %% Earlier versions of R's code assumed 10, and it was discovered
-%% that some implemntations did not abbreviate unusual names, thereby
+%% that some implementations did not abbreviate unusual names, thereby
 %% exceeding this.
 %% Olson's tzcode has a limit of 255 and does not check: this has been
 %% corrected in R's copy.

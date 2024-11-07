@@ -108,7 +108,7 @@ strsplit(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE)
   \code{\link{paste}} for the reverse,
   \code{\link{grep}} and \code{\link{sub}} for string search and
   manipulation; also \code{\link{nchar}}, \code{\link{substr}},
-  \code{\link{startsWith}()}, and \code{endsWith()}.
+  \code{\link{startsWith}}, and \code{\link{endsWith}}.
 
   \sQuote{\link{regular expression}} for the details of the pattern
   specification.
