@@ -1557,7 +1557,7 @@ for(x in list(x3 = {n <- 3L; x <- diag(n); x[n,n] <- 0; x},
 0x1.234p7
 0x1.234p-7
 0x1.234
-## last was a (deliberate) parse error in R < 4.5.0, but not as documented.
+## last was a (deliberate) parse error in R <= 4.4.2, but not as documented.
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
