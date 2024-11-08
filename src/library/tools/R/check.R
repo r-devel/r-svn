@@ -2494,9 +2494,11 @@ add_dummies <- function(dir, Log)
             ## the computed check results object itself.
             ## </FIXME>
             if(length(out) &&
-               !all(grepl("(Package[s]? unavailable to check|Unknown package.*in Rd xrefs|Undeclared package.*in Rd xrefs)",
-                          out))) {
-                warningLog(Log)
+               any((indb <- startsWith(out,
+                                       "Missing link(s) in Rd file")) |
+                   (inds <- startsWith(out,
+                                       "Non-topic package-anchored link(s) in Rd file")))) {
+                if(any(indb)) warningLog(Log) else noteLog(Log)
                 any <- TRUE
                 printLog0(Log, paste(c(out, ""), collapse = "\n"))
                 out <- NULL
