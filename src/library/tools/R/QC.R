@@ -4740,20 +4740,22 @@ function(package, dir, lib.loc = NULL)
         db <- cbind(db, suspect = FALSE)
     }
 
-    for (pkg in anchors) {
+    for(pkg in anchors) {
         ## we can't do this on the current uninstalled package!
         if (missing(package) && pkg == pkgname) next
         this <- have_anchor & (thispkg %in% pkg)
         top <- system.file(package = pkg, lib.loc = lib.loc)
         if(nzchar(top)) {
-            RdDB <- file.path(top, "help", "paths.rds")
-            nm <- sub("\\.[Rr]d", "", basename(readRDS(RdDB)))
-            good <- thisfile[this] %in% nm
+            aliases1 <- if(pkg %in% names(aliases))
+                            aliases[[pkg]]
+                        else
+                            Rd_aliases(pkg, lib.loc = lib.loc)
+            good <- thisfile[this] %in% aliases1
             suspect <- if(any(!good)) {
-                aliases1 <- if (pkg %in% names(aliases)) aliases[[pkg]]
-                else Rd_aliases(pkg, lib.loc = lib.loc)
-                !good & (thisfile[this] %in% aliases1)
-            } else FALSE
+                           RdDB <- file.path(top, "help", "paths.rds")
+                           nm <- sub("\\.[Rr]d", "", basename(readRDS(RdDB)))
+                           !good & (thisfile[this] %in% nm)
+                       } else FALSE
             db[this, "bad"] <- !good & !suspect
             if(mind_suspects)
                 db[this, "suspect"] <- suspect
@@ -4780,14 +4782,14 @@ function(package, dir, lib.loc = NULL)
                 next
             }
             ## message(sprintf("Using aliases db for package %s", pkg))
-            nm <- sub("\\.[Rr]d", "", basename(names(aliases)))
-            good <- thisfile[this] %in% nm
+            aliases1 <- unique(as.character(unlist(aliases,
+                                                   use.names = FALSE)))
+            good <- thisfile[this] %in% aliases1
             suspect <- if(any(!good)) {
-                aliases1 <- unique(as.character(unlist(aliases,
-                                                       use.names =
-                                                       FALSE)))
-                !good & (thisfile[this] %in% aliases1)
-            } else FALSE
+                           nm <- sub("\\.[Rr]d", "",
+                                     basename(names(aliases)))
+                           !good & (thisfile[this] %in% nm)
+                       } else FALSE
             db[this, "bad"] <- !good & !suspect
             if(mind_suspects)
                 db[this, "suspect"] <- suspect
@@ -4841,14 +4843,14 @@ function(x, ...)
     xs <- x$suspect
     if(length(xb) || length(xs)) {
         .fmtb <- function(i) {
-            c(gettextf("Missing link or links in Rd file '%s':",
+            c(gettextf("Missing link(s) in Rd file '%s':",
                        names(xb)[i]),
               ## NB, link might be empty, and was in mvbutils
               .pretty_format(unique(xb[[i]])),
               "")
         }
         .fmts <- function(i) {
-            c(gettextf("Non-file package-anchored link(s) in Rd file '%s':",
+            c(gettextf("Non-topic package-anchored link(s) in Rd file '%s':",
                        names(xs)[i]),
               .pretty_format(unique(xs[[i]])),
               "")
