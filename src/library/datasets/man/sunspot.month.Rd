@@ -11,7 +11,8 @@
 \description{
   Monthly numbers of sunspots, as from the World Data Center, aka \abbr{SIDC}.
   This is the version of the data that will occasionally be updated when
-  new counts become available.%% ~/R/MM/MISC/read-sunspots.R
+  new counts become available (or the numbers are recalibrated).\cr % ~/R/MM/MISC/read-sunspots.R
+  For strict reproducibility, hence use the \code{\link{sunspots}} data instead!
 }
 \usage{
 sunspot.month
