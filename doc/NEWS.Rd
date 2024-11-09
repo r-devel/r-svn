@@ -241,14 +241,13 @@
       string.  This is one step for \PR{18297}; from \I{Henrik Bengtsson}.
 
       \item Header \file{R_ext/Constants.h} (included by \file{R.h}) now
-      includes header \file{float.h} or \file{cfloat} for constants such
-      as \code{DBL_MAX} even if \file{STRICT_R_HEADERS} is defined.
+      always includes header \file{float.h} or \file{cfloat} for
+      constants such as \code{DBL_MAX}
 
-      \item It is intended that \file{STRICT_R_HEADERS} will become the
-      default prior to release.  This will remove the legacy definitions
-      of \code{PI}, \code{Calloc}, \code{Realloc} and \code{Free}: use
-      \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or \code{R_Free}
-      instead.
+      \item Defining \file{STRICT_R_HEADERS} is now the default.  This
+      removes the legacy definitions of \code{PI}, \code{Calloc},
+      \code{Realloc} and \code{Free}: use \code{M_PI}, \code{R_Calloc},
+      \code{R_Realloc} or \code{R_Free} instead.
 
       \item The deprecated S-compatibility macros \code{F77_COM} and
       \code{F77_COMDECL} have been removed from header \file{R_ext/RS.h}.

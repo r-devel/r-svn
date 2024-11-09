@@ -72,7 +72,7 @@ void R_ShowMessage(const char *s);
 */
 #ifdef HAVE_F77_UNDERSCORE
 /* F77_NAME is in RS.h, but better not include it here (e.g. due to
- * name conflicts involving symbols defined with !STRICT_R_HEADERS) .
+ * previous name conflicts involving symbols defined with !STRICT_R_HEADERS) .
  * However, using a trailing underline is not universal, and print.c
  * uses F77_SUB.
  */

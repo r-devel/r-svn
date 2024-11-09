@@ -43,9 +43,10 @@
 # include <float.h>  /* Defines the RHSs, C99 and later */
 #endif
 
-#ifndef STRICT_R_HEADERS
+/* #ifndef STRICT_R_HEADERS
 # define PI             M_PI
 #endif
+*/
 
 /* The DOUBLE_* defines were deprecated in R 4.2.0 and removed in 4.3.0.
 #define DOUBLE_DIGITS  DBL_MANT_DIG
