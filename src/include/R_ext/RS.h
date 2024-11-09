@@ -51,15 +51,6 @@ extern void R_chk_free(void *);
 extern void *R_chk_memcpy(void *, const void *, R_SIZE_T);
 extern void *R_chk_memset(void *, int, R_SIZE_T);
 
-#ifndef STRICT_R_HEADERS
-/* S-PLUS 3.x but not 5.x NULLed the pointer in Free.
-   Not API.
-*/
-#define Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
-#define Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
-#define Free(p)        (R_chk_free( (void *)(p) ), (p) = NULL)
-#endif
-
 /* API */
 #define R_Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
 #define R_Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
