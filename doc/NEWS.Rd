@@ -256,15 +256,21 @@
 
   \subsection{UTILITIES}{
     \itemize{
-      \item \command{R CMD check --as-cran} will compile C++ code with
-      \code{-DR_NO_REMAP}.
+      \item \command{R CMD INSTALL} (and hence \command{check}) now by
+      default compile C++ code with \code{-DR_NO_REMAP}.  For the time
+      being this can be reverted by setting environment
+      variable\env{_R_CXX_USE_NO_REMAP_} to a false value (but that will
+      be removed in the near future).
+      
+%%      \item \command{R CMD check --as-cran} will compile C++ code with
+%%      \code{-DR_NO_REMAP}.
 
       \item \command{R CMD check --as-cran} notes bad parts in the
       \file{DESCRIPTION} file's URL fields.
 
-      \item Installation will define \code{STRICT_R_HEADERS} if
-      environment variable \env{_R_USE_STRICT_R_HEADERS_} is set to a
-      true value: this is done by \command{R CMD check --as-cran}.
+%%      \item Installation will define \code{STRICT_R_HEADERS} if
+%%     environment variable \env{_R_USE_STRICT_R_HEADERS_} is set to a
+%%      true value: this is done by \command{R CMD check --as-cran}.
 
       \item \command{R CMD check} now reports more warnings on
       long-deprecated/obsolete Fortran features from
