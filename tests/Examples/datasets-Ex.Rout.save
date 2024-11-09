@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2024-03-04 r86047) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-11-08 r87310) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu
+Platform: aarch64-apple-darwin24.1.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -3158,7 +3158,7 @@ HI -126.25 31.75
 > require(stats); require(graphics)
 > ## Compare the monthly series
 > plot (sunspot.month,
-+       main="sunspot.month & sunspots [package'datasets']", col=2)
++       main="sunspot.month & sunspots [package 'datasets']", col=2)
 > lines(sunspots) # -> faint differences where they overlap
 > 
 > ## Now look at the difference :
@@ -3329,6 +3329,7 @@ FALSE  TRUE
 > ssm0 <- sunspot.month[1:2988]
 > with(as.data.frame(.sunspot.diff), ssm0[i] <<- ssm0[i] - res10/10)
 > sunspot.month.0 <- ts(ssm0, start = 1749, frequency = 12)
+> stopifnot(length(sunspot.month.0) == 2988)
 > 
 > 
 > 
@@ -3352,10 +3353,10 @@ FALSE  TRUE
 > ## The common time interval
 > (t1 <- c(max(start(sm), start(sy)),     1)) # Jan 1749
 [1] 1749    1
-> (t2 <- c(min(  end(sm)[1],end(sy)[1]), 12)) # Dec 1983
+> (t2 <- c(min(  end(sm)[1],end(sy)[1]), 12)) # Dec 1983 (will not be updated!)
 [1] 1983   12
 > s.m <- window(sm, start=t1, end=t2)
-> s.y <- window(sy, start=t1, end=t2[1]) # {irrelevant warning}
+> s.y <- window(sy, start=t1, end=t2[1])
 > stopifnot(length(s.y) * 12 == length(s.m),
 +           ## The yearly series *is* close to the averages of the monthly one:
 +           all.equal(s.y, aggregate(s.m, FUN = mean), tolerance = 0.0020))
@@ -3694,7 +3695,7 @@ c0   -5.14
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  1.781 0.033 1.814 0 0 
+Time elapsed:  1.091 0.066 1.158 0 0 
 > grDevices::dev.off()
 null device 
           1 
