@@ -244,10 +244,14 @@
       always includes header \file{float.h} or \file{cfloat} for
       constants such as \code{DBL_MAX}
 
-      \item Defining \file{STRICT_R_HEADERS} is now the default.  This
-      removes the legacy definitions of \code{PI}, \code{Calloc},
-      \code{Realloc} and \code{Free}: use \code{M_PI}, \code{R_Calloc},
-      \code{R_Realloc} or \code{R_Free} instead.
+      \item Strict R headers are now the default.  This removes the
+      legacy definitions of \code{PI}, \code{Calloc}, \code{Realloc} and
+      \code{Free}: use \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or
+      \code{R_Free} instead.
+
+      \emph{Pro tem} \code{STRICT_R_HEADERS} is defined in header
+      \file{R_ext/RS.h} if not already defined.  This is not used in \R
+      itself and will be removed before release.
 
       \item The deprecated S-compatibility macros \code{F77_COM} and
       \code{F77_COMDECL} have been removed from header \file{R_ext/RS.h}.

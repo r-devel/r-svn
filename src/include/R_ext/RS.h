@@ -38,6 +38,12 @@
 
 #include <Rconfig.h>		/* for HAVE_F77_UNDERSCORE */
 
+/* Temprorary fix for a package that assumes this is set. */
+
+#ifndef STRICT_R_HEADERS
+# define STRICT_R_HEADERS
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
