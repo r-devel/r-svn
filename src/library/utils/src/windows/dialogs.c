@@ -3,7 +3,7 @@
  *  file dialogs.c
  *  Copyright (C) 1998--2003  Guido Masarotto and Brian Ripley
  *  Copyright (C) 2004	      The R Foundation
- *  Copyright (C) 2005--2023  The R Core Team
+ *  Copyright (C) 2005--2024  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ static void pbarFinalizer(SEXP ptr)
     if(pbar-> lab) del(pbar->lab);
     del(pbar->pb);
     del(pbar->wprog);
-    Free(pbar);
+    R_Free(pbar);
     R_ClearExternalPtr(ptr); /* not really needed */
 }
 
