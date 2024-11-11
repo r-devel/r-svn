@@ -7,6 +7,7 @@ LOCAL_SOFT ?= $(shell which `echo $(CC) | sed -e 's/ .*//g'` | sed -e 's!/bin/[^
 EXT_LIBS ?= $(LOCAL_SOFT)
 G_FLAG ?= $(if $(USE_LLVM),-g3,-gdwarf-2)
 USE_ATLAS ?= NO
+USE_OPENBLAS ?= NO
 ATLAS_PATH ?= 
 TOOL_PATH ?=
 BINPREF64 ?= 

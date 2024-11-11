@@ -62,6 +62,10 @@
 # USE_ATLAS = NO
 # ATLAS_PATH =
 
+# Set to YES if you want to use OPENBLAS. OPENBLAS libraries are looked up
+# using pkg-config. OPENBLAS and pkg-config are part of Rtools.
+# USE_OPENBLAS = NO
+
 # Support for the ACML and Goto BLASes has been withdrawn: see R-admin.html
 
 # Define to use svnversion to set SVN-REVISION (slow, and requires a clean
