@@ -100,7 +100,13 @@ SEXP CAR(SEXP e);
 #endif
 
 #ifdef STRICT_TYPECHECK
-/*HIDDEN*/ INLINE_FUN void CHKVEC(SEXP x) {
+/* Functions called from other inline functions cannot be hidden, because
+   the compiler may choose to inline the caller, but not the callee, causing
+   a linking failure in the caller if the callee is hidden.  The callees
+   that were exposed due to this problem have comment "HIDDEN (inlining)",
+   below.
+ */
+/*HIDDEN (inlining)*/ INLINE_FUN void CHKVEC(SEXP x) {
     switch (TYPEOF(x)) {
     case CHARSXP:
     case LGLSXP:
@@ -324,7 +330,7 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 # define CHECK_VECTOR_RAW_ELT(x, i) do { } while(0)
 #endif
 
-/*HIDDEN*/ INLINE_FUN int *LOGICAL0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN int *LOGICAL0(SEXP x) {
     CHECK_STDVEC_LGL(x);
     return (int *) STDVEC_DATAPTR(x);
 }
@@ -337,7 +343,7 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
     LOGICAL0(x)[0] = v;
 }
 
-/*HIDDEN*/ INLINE_FUN int *INTEGER0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
     return (int *) STDVEC_DATAPTR(x);
 }
@@ -345,7 +351,7 @@ HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
     return INTEGER0(x)[0];
 }
-/*HIDDEN*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
     INTEGER0(x)[0] = v;
 }
@@ -358,7 +364,7 @@ HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
     CHECK_SCALAR_REAL(x);
     return REAL0(x)[0];
 }
-/*HIDDEN*/ INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
     CHECK_SCALAR_REAL(x);
     REAL0(x)[0] = v;
 }
@@ -371,12 +377,12 @@ HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
     CHECK_SCALAR_CPLX(x);
     return COMPLEX0(x)[0];
 }
-/*HIDDEN*/ INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
     CHECK_SCALAR_CPLX(x);
     COMPLEX0(x)[0] = v;
 }
 
-/*HIDDEN*/ INLINE_FUN Rbyte *RAW0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN Rbyte *RAW0(SEXP x) {
     CHECK_STDVEC_RAW(x);
     return (Rbyte *) STDVEC_DATAPTR(x);
 }
@@ -384,7 +390,7 @@ HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     CHECK_SCALAR_RAW(x);
     return RAW0(x)[0];
 }
-/*HIDDEN*/ INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
     CHECK_SCALAR_RAW(x);
     RAW0(x)[0] = v;
 }
