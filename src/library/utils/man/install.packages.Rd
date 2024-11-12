@@ -221,10 +221,19 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   CRAN builds for macOS.  This function can install either type, either by
   downloading a file from a repository or from a local file.
 
-  Possible values of \code{type} are (currently) \code{"source"},
-  \code{"mac.binary"}, and
-  \code{"win.binary"}: the appropriate binary type where supported can
-  also be selected as \code{"binary"}.
+  Possible values of \code{type} for binary packages are either simply
+  \code{"binary"} to denote the binaries matching the current R, or
+  a string consisting of two or three parts separated by periods: the
+  operating system (\code{"win"} or \code{"mac"}), the string
+  \code{"binary"} and optional build name (e.g., \code{"big-sur-arm64"}).
+  The last part is optional and currently only used on macOS to
+  disambiguate builds targetting different macOS versions or
+  architectures. Example values:
+  \code{"win.binary"} for Windows binaries and
+  \code{"mac.binary.big-sur-arm64"} for macOS 11 (Big Sur) arm64 binaries.
+  The corresponding binary type for the running R can be obtained via
+  \code{.Platform$pkgType}, however, it may be \code{"source"} if
+  the build does not support package binaries.
 
   For a binary install from a repository, the function checks for the
   availability of a source package on the same repository, and reports

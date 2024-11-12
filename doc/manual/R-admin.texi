@@ -2114,7 +2114,7 @@ sources on Windows without any additional tools.
 @subsection macOS
 
 On macOS @code{install.packages} works as it does on other Unix-alike
-systems, but there is an additional type @code{mac.binary} (available
+systems, but there is an additional type @code{binary} (available
 for the @acronym{CRAN} distribution but not when compiling @R{} from
 source) which can be passed to @code{install.packages} in order to
 download and install binary packages from a suitable repository.  These
@@ -2536,15 +2536,18 @@ wise to have a @file{src/contrib} area with a possibly empty
 @file{PACKAGES} file.
 
 @item 
-@code{"win.binary"}: located at @file{bin/windows/contrib/@var{x.y}} for
-@R{} versions @var{x.y.z} and containing @file{.zip} files for Windows.
-
-@item 
-@code{"mac.binary"}: located at
-@file{bin/macosx/big-sur-arm64/contrib/@var{4.y}} or
-@file{bin/macosx/big-sur-x86_64/contrib/@var{4.y}} for the @acronym{CRAN}
-builds for macOS for @R{} versions @var{4.y.z}, containing @file{.tgz}
-files. (@file{bin/macosx/contrib/@var{4.y}} for @code{@var{y}} = 0, 1 or 2.)
+@code{"binary"}: binary packages are located under
+@file{bin/@var{os}/@var{build}/contrib/@var{x.y}} for @R{} versions
+@var{x.y.z}, where @var{os} is either @file{windows} for Windows or
+@file{macosx} for macOS and OS X. The @var{build} variable is defined
+by the third part of the @code{type} value after @code{binary} and
+may be empty. For example, in @R{} 4.4.1
+@code{"mac.binary.big-sur-arm64"} specifies the
+@file{bin/macosx/big-sur-arm64/4.4} location, while
+@code{"win.binary"} specifies @file{bin/windows/contrib/4.4}. The
+platform and build specification in @acronym{CRAN} @R{} binaries can
+be obtained from @code{.Platform$pkgType}. Windows binary package
+files use @file{.zip} extension while Mac files use @file{.tgz}.
 @end itemize
 
 Each terminal directory must also contain a @file{PACKAGES} file.  This
