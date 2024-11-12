@@ -1188,7 +1188,8 @@ function(x)
         cbind(unlist(a, use.names = FALSE),
               rep.int(paste0(p, "::", names(a)), lengths(a)))
     }
-    y <- as.data.frame(do.call(rbind, Map(wrk, x, names(x))))
+    y <- as.data.frame(do.call(rbind,
+                               Map(wrk, x, names(x), USE.NAMES = FALSE)))
     colnames(y) <- c("Alias", "Source")
     y
 }
@@ -1202,7 +1203,9 @@ function(x)
         u$Source <- sprintf("%s::%s", p, u$Source)
         u
     }
-    do.call(rbind, Map(wrk, lapply(x, as.data.frame), names(x)))
+    do.call(rbind,
+            Map(wrk, lapply(x, as.data.frame), names(x),
+                USE.NAMES = FALSE))
 }
 
 ### Local variables: ***
