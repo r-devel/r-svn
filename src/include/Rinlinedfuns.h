@@ -255,23 +255,23 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
     } while (0)
 
 # define CHECK_SCALAR_LGL(x) do {				\
-	CHECK_STDVEC_LGL(x);					\
+	CHECK_VECTOR_LGL(x);					\
 	if (XLENGTH(x) != 1) error("bad LGLSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_INT(x) do {				\
-	CHECK_STDVEC_INT(x);					\
+	CHECK_VECTOR_INT(x);					\
 	if (XLENGTH(x) != 1) error("bad INTSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_REAL(x) do {				\
-	CHECK_STDVEC_REAL(x);					\
+	CHECK_VECTOR_REAL(x);					\
 	if (XLENGTH(x) != 1) error("bad REALSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_CPLX(x) do {				\
-	CHECK_STDVEC_CPLX(x);					\
+	CHECK_VECTOR_CPLX(x);					\
 	if (XLENGTH(x) != 1) error("bad CPLXSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_RAW(x) do {				\
-	CHECK_STDVEC_RAW(x);					\
+	CHECK_VECTOR_RAW(x);					\
 	if (XLENGTH(x) != 1) error("bad RAWSXP scalar");	\
     } while (0)
 
@@ -336,11 +336,11 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 }
 HIDDEN INLINE_FUN Rboolean SCALAR_LVAL(SEXP x) {
     CHECK_SCALAR_LGL(x);
-    return LOGICAL0(x)[0];
+    return LOGICAL(x)[0];
 }
 HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
     CHECK_SCALAR_LGL(x);
-    LOGICAL0(x)[0] = v;
+    LOGICAL(x)[0] = v;
 }
 
 /*HIDDEN (inlining)*/ INLINE_FUN int *INTEGER0(SEXP x) {
@@ -349,11 +349,11 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
 }
 HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
-    return INTEGER0(x)[0];
+    return INTEGER(x)[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
-    INTEGER0(x)[0] = v;
+    INTEGER(x)[0] = v;
 }
 
 /*HIDDEN*/ INLINE_FUN double *REAL0(SEXP x) {
@@ -362,11 +362,11 @@ HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
 }
 HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
     CHECK_SCALAR_REAL(x);
-    return REAL0(x)[0];
+    return REAL(x)[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
     CHECK_SCALAR_REAL(x);
-    REAL0(x)[0] = v;
+    REAL(x)[0] = v;
 }
 
 /*HIDDEN*/ INLINE_FUN Rcomplex *COMPLEX0(SEXP x) {
@@ -375,11 +375,11 @@ HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
 }
 HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
     CHECK_SCALAR_CPLX(x);
-    return COMPLEX0(x)[0];
+    return COMPLEX(x)[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
     CHECK_SCALAR_CPLX(x);
-    COMPLEX0(x)[0] = v;
+    COMPLEX(x)[0] = v;
 }
 
 /*HIDDEN (inlining)*/ INLINE_FUN Rbyte *RAW0(SEXP x) {
@@ -388,11 +388,11 @@ HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
 }
 HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     CHECK_SCALAR_RAW(x);
-    return RAW0(x)[0];
+    return RAW(x)[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
     CHECK_SCALAR_RAW(x);
-    RAW0(x)[0] = v;
+    RAW(x)[0] = v;
 }
 
 INLINE_FUN SEXP ALTREP_CLASS(SEXP x) { return TAG(x); }
