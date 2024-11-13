@@ -21,7 +21,7 @@
   the format of and amount of detail in the results.
 
   \code{sub} and \code{gsub} perform replacement of the first and all
-  matches respectively.
+  matches respectively within each element of a character vector.
 }
 \usage{
 grep(pattern, x, ignore.case = FALSE, perl = FALSE, value = FALSE,
