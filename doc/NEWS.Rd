@@ -158,11 +158,6 @@
     \itemize{
       \item Control of symbol visibility is now supported on macOS (the
       previous check only worked on ELF platforms).
-
-      \item Setting environment variable \env{_R_USE_NO_REMAP_} to a
-      true valueforces \code{R_NO_REMAP} to be defined during
-      compilation of C code, except for packages with a
-      \file{src/Makefile}.
     }
   }
 
