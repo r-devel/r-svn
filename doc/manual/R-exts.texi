@@ -10670,6 +10670,9 @@ LTO = -flto
 @node System and foreign language interfaces
 @chapter System and foreign language interfaces
 
+Many of the functions sescribed here have entry-point names with a
+@code{Rf_} prefix: if they are called from C++ code that prefix needs to
+added in the C++ code.
 
 @node  Operating system access
 @section  Operating system access
@@ -14791,6 +14794,9 @@ before any @R{} headers. (Headers from other packages may include @R{}
 headers directly or @emph{via} inclusion from further packages, and may
 define @code{R_NO_REMAP} with or without including @file{Rinternals.h}.)
 @apihdr R_ext/Error.h
+
+As from @R{} 4.5.0, @code{R_NO_REMAP} is always defined when the @R{}
+headers are included from C++ code.
 
 Some of these entry points are declared in header @file{Rmath.h}, most
 of which are remapped there.  That remapping can be eliminated by
