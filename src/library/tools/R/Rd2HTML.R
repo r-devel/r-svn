@@ -18,13 +18,15 @@
 
 ## also used by Rd2latex, but only 'topic' and 'dest'
 get_link <- function(arg, tag, Rdfile) {
-    ## 'topic' is the name to display, 'dest' is the topic to link to
-    ## optionaly in package 'pkg'.  If 'target' is set it is the file
-    ## to link to in HTML help
+    ## 'topic' is the text to display (used by Rd2latex, also as \index entry),
+    ## 'dest' is the topic to link to (unless for option [pkg:bar]).
+    ## Package-anchored links have non-NULL 'pkg' and 'targetfile',
+    ## where the latter is the topic/file to link to in HTML help.
 
-    ## \link[=bar]{foo} means shows foo but treat this as a link to bar.
-    ## \link[pkg]{bar} means show bar and link to *file* bar in package pkg
-    ## \link{pkg:bar]{foo} means show foo and link to file bar in package pkg.
+    ## \link{foo}: show and link to topic foo.
+    ## \link[=bar]{foo} means shows foo but treat this as a link to *topic* bar.
+    ## \link[pkg]{bar} means show bar and link to topic/file bar in package pkg.
+    ## \link[pkg:bar]{foo} means show foo and link to topic/file bar in package pkg.
     ## As from 2.10.0, look for topic 'bar' if file not found.
     ## As from 4.1.0, prefer topic 'bar' over file 'bar' (in which case 'targetfile' is a misnomer)
 
