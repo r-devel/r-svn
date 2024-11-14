@@ -1641,7 +1641,8 @@ function(dir)
             }
             e
         }
-        x[] <- lapply(unclass(x), format_person1)
+        x <- lapply(unclass(x), format_person1)
+        class(x) <- "person"
         utils:::.format_authors_at_R_field_for_author(x)
     }
     
