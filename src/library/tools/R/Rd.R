@@ -475,8 +475,24 @@ function(x, kind)
     x <- x[RdTags(x) == sprintf("\\%s", kind)]
     if(!length(x))
         character()
-    else
+    else {
+        ## <NOTE>
+        ## WRE says that
+        ##   Each @code{\concept} entry should give a @emph{single}
+        ##   index term (word or phrase), and not use any Rd markup.
+        ## but at least for now we use \I{...} for spell checking.
+        if(kind == "concept")
+            x <- lapply(x, function(e) {
+                if((length(e) > 1L) &&
+                   identical(attr(e[[1L]], "Rd_tag"), "USERMACRO") &&
+                   identical(attr(e[[1L]], "macro"), "\\I"))
+                    e[-1L]
+                else
+                    e
+            })
+        ## </NOTE>
         unique(trimws(vapply(x, paste, "", collapse = "\n")))
+    }
 }
 
 ### * .Rd_keywords_auto
@@ -834,7 +850,7 @@ function(x)
         tag <- attr(e, "Rd_tag")
         if(identical(tag, "\\link")) {
             val <- if(length(e)) { # mvbutils has empty links
-                arg <- as.character(e[[1L]])
+                arg <- paste(vapply(e, trimws, ""), collapse = " ")
                 opt <- attr(e, "Rd_option")
                 c(arg, if(is.null(opt)) "" else as.character(opt))
             } else c("", "")
