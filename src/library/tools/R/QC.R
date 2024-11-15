@@ -4692,7 +4692,7 @@ function(package, dir, lib.loc = NULL)
 
     ## and then check the anchored ones if we can.
     have_colon <- grepl(":", anchor, fixed = TRUE)
-    unknown <- character()
+    unknown <- undeclared <- unavailable <- character()
     thispkg <- anchor
     thisfile <- db[, 1L]
     thispkg [have_colon] <- sub("([^:]*):(.*)", "\\1", anchor[have_colon])
@@ -4725,12 +4725,6 @@ function(package, dir, lib.loc = NULL)
                 undeclared <- setdiff(undeclared, enh)
             }
         }
-        if(length(undeclared))
-            message(sprintf(ngettext(length(undeclared),
-                                     "Undeclared package %s in Rd xrefs",
-                                     "Undeclared packages %s in Rd xrefs"),
-                            paste(sQuote(undeclared), collapse = ", ")),
-                    domain = NA)
     }
 
     mind_suspects <-
@@ -4799,7 +4793,7 @@ function(package, dir, lib.loc = NULL)
     }
 
     unknown <- unique(unknown)
-    if (length(unknown)) {
+    if(length(unknown)) {
         ## respect _R_CHECK_XREFS_REPOSITORIES_ for this use
         repos <- .get_standard_repository_URLs(ForXrefs = TRUE)
         ## Also allow for additionally specified repositories.
@@ -4813,26 +4807,22 @@ function(package, dir, lib.loc = NULL)
         miss <- if(inherits(known, "try-error")) TRUE
         else unknown %in% c(known, c("GLMMGibbs", "survnnet", "yags"))
         ## from CRANextras
-        if(any(miss))
-            message(sprintf(ngettext(sum(miss),
-                                     "Package unavailable to check Rd xrefs: %s",
-                                     "Packages unavailable to check Rd xrefs: %s"),
-                             paste(sQuote(unknown[miss]), collapse = ", ")),
-                    domain = NA)
-        if(any(!miss))
-            message(sprintf(ngettext(sum(!miss),
-                                     "Unknown package %s in Rd xrefs",
-                                     "Unknown packages %s in Rd xrefs"),
-                             paste(sQuote(unknown[!miss]), collapse = ", ")),
-                    domain = NA)
+        unavailable <- unknown[miss]
+        unknown <- unknown[!miss]
     }
+        
     ## The bad ones:
     bad <- db[, "bad"] == "TRUE"
+
     out <- list(bad = split(db[bad, "report"], db[bad, "File"]))
     if(mind_suspects && any(ind <- db[, "suspect"] == "TRUE")) {
         out <- c(out, list(suspect = split(db[ind, "report"],
                                            db[ind, "File"])))
     }
+    out <- c(out, Filter(length,
+                         list(unknown = unknown,
+                              undeclared = undeclared,
+                              unavailable = unavailable)))
     structure(out, class = "check_Rd_xrefs")
 }
 
@@ -4841,7 +4831,7 @@ function(x, ...)
 {
     xb <- x$bad
     xs <- x$suspect
-    if(length(xb) || length(xs)) {
+    if(any(lengths(x)) > 0L) {
         .fmtb <- function(i) {
             c(gettextf("Missing link(s) in Rd file '%s':",
                        names(xb)[i]),
@@ -4855,9 +4845,25 @@ function(x, ...)
               .pretty_format(unique(xs[[i]])),
               "")
         }
-        c(unlist(lapply(seq_along(xb), .fmtb)),
+        c(if(length(y <- x$undeclared))
+              sprintf(ngettext(length(y),
+                               "Undeclared package %s in Rd xrefs",
+                               "Undeclared packages %s in Rd xrefs"),
+                      paste(sQuote(y), collapse = ", ")),
+          if(length(y <- x$unavailable))
+              sprintf(ngettext(length(y),
+                               "Package unavailable to check Rd xrefs: %s",
+                               "Packages unavailable to check Rd xrefs: %s"),
+                      paste(sQuote(y), collapse = ", ")),
+          if(length(y <- x$unknown))
+              sprintf(ngettext(length(y),
+                               "Unknown package %s in Rd xrefs",
+                               "Unknown packages %s in Rd xrefs"),
+                      paste(sQuote(y), collapse = ", ")),
+          unlist(lapply(seq_along(xb), .fmtb)),
           unlist(lapply(seq_along(xs), .fmts)),
-          strwrap(gettextf("See section 'Cross-references' in the 'Writing R Extensions' manual."))
+          if(length(xb) || length(xs))
+              strwrap(gettextf("See section 'Cross-references' in the 'Writing R Extensions' manual."))
           )
     } else {
         character()
