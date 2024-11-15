@@ -2845,7 +2845,7 @@ if(FALSE) {
         order(xx, toupper(x), x)
     }
 
-    html_header <- function(pkg, title, version, conn)
+    html_header <- function(pkg, title, version, encoding, conn)
     {
         cat(paste(HTMLheader(title, Rhome="../../..",
                              up="../../../doc/html/packages.html",
@@ -2854,9 +2854,15 @@ if(FALSE) {
            '<h2>Documentation for package &lsquo;', pkg, '&rsquo; version ',
             version, '</h2>\n\n', sep = "", file = conn)
 
-	cat('<ul><li><a href="../DESCRIPTION">DESCRIPTION file</a>.</li>\n', file=conn)
+	cat('<ul><li><a href="../DESCRIPTION" type="text/plain',
+            ## These days we should really always have UTF-8 ...
+            if(!is.na(encoding) && (encoding == "UTF-8"))
+                "; charset=utf-8",
+            '">DESCRIPTION file</a>.</li>\n',
+            sep = "", file=conn)
 	if (file.exists(file.path(outDir, "doc")))
-	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation.</a></li>\n', file=conn)
+	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation.</a></li>\n',
+                file=conn)
 	if (file.exists(file.path(outDir, "demo")))
 	    cat('<li><a href="../demo">Code demos</a>.  Use <a href="../../utils/help/demo">demo()</a> to run them.</li>\n',
                 sep = "", file=conn)
@@ -2984,7 +2990,7 @@ if(FALSE) {
     ## No need to handle encodings: everything is in UTF-8
 
     html_header(desc["Package"], htmlize(desc["Title"], TRUE),
-                desc["Version"], outcon)
+                desc["Version"], desc["Encoding"], outcon)
 
     use_alpha <- (nrow(M) > 100)
     if (use_alpha) {
