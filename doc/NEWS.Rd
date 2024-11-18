@@ -361,6 +361,10 @@
 
       \item \code{axisTicks(usr, ...)} documentation clarification for
       \code{log=TRUE}, fixing bug \PR{18821} thanks to Duncan Murdoch.
+
+      \item \code{debug()} and \code{debugonce(fun)} now also accept a
+      string \code{fun} when it names an S4 generic, fixing \PR{18822}
+      thanks to Michael Jagan.
     }
   }
 }

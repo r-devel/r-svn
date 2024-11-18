@@ -2,11 +2,8 @@
                          once = FALSE)
 {
     stopifnot(is.null(condition), identical(text, ""))
-    if (is.primitive(fun))
-        fun <- getGeneric(fun)
-    if(!is(fun, "genericFunction"))
-        stop("Function must be an S4 generic")
-    
+    fun <- getGeneric(fun, mustWork = TRUE)
+
     if(isdebugged(fun, signature = signature))
         return(invisible(NULL))
     
