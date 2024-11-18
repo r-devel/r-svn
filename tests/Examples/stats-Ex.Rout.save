@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2024-11-08 r87310) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-11-12 r87322) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: aarch64-apple-darwin24.1.0
 
@@ -14194,7 +14194,7 @@ NOTE: n is number in *each* group
 12     1  2  3  4  5  6
 13  7  8  9 10         
 > 
-> print(sunsp.1 <- window(sunspot.month, end=c(1756, 12)))
+> print(sunsp.1 <- window(sunspot.m2014, end=c(1756, 12)))
        Jan   Feb   Mar   Apr   May   Jun   Jul   Aug   Sep   Oct   Nov   Dec
 1749  58.0  62.6  70.0  55.7  85.0  83.5  94.8  66.3  75.9  75.5 158.6  85.2
 1750  73.3  75.9  89.2  88.3  90.0 100.0  85.4 103.0  91.2  65.7  63.3  75.4
