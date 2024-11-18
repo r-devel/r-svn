@@ -360,11 +360,15 @@
       \PR{18782}.
 
       \item \code{axisTicks(usr, ...)} documentation clarification for
-      \code{log=TRUE}, fixing bug \PR{18821} thanks to Duncan Murdoch.
+      \code{log=TRUE}, fixing bug \PR{18821} thanks to \I{Duncan Murdoch}.
 
       \item \code{debug()} and \code{debugonce(fun)} now also accept a
       string \code{fun} when it names an S4 generic, fixing \PR{18822}
-      thanks to Michael Jagan.
+      thanks to \I{Michael Jagan}.
+
+      \item \code{debugonce(<S4-simple-body>, signature=*)} now works
+      correctly when \dQuote{called twice}, fixing \PR{18824} thanks to
+      \I{Michael Jagan}.
     }
   }
 }
