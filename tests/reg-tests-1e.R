@@ -1552,12 +1552,53 @@ for(x in list(x3 = {n <- 3L; x <- diag(n); x[n,n] <- 0; x},
 }
 ## kappa(..)  returned 1 or {0 with a warning} in R <= 4.4.2
 
+
 ## hexadecimal contants with and without exponent.
 0x1.234p0
 0x1.234p7
 0x1.234p-7
 0x1.234
 ## last was a (deliberate) parse error in R <= 4.4.2, but not as documented.
+
+
+## PR#18822 -- debug("<S4-generic>")
+m0 <- selectMethod("Ops", signature = (SIG <- c("array", "array")))
+stopifnot(is.function(m0), inherits(m0, "PossibleMethod"))
+debug    ("Ops", signature = SIG) # gave Error
+(m1 <- selectMethod("Ops", SIG))
+untrace("Ops", signature=SIG) ; m2 <- selectMethod("Ops", SIG)
+debugonce("Ops", signature = SIG) # Error ..
+m3 <- selectMethod("Ops", SIG)
+untrace("Ops", signature=SIG) ; m4 <- selectMethod("Ops", SIG)
+stopifnot(exprs = {
+    is(m0, "MethodDefinition")
+    identical(m0, m2)
+    identical(m0, m4)
+    is(m1, "MethodDefinitionWithTrace")
+    is(m3, "MethodDefinitionWithTrace") # but not the same
+})
+## both debug(..) and debugonce(..) failed
+
+
+## debugonce(<simple>) error when called twice --  PR#18824
+setGeneric("zzz", function(x) standardGeneric("zzz"))
+setMethod("zzz", c(x = "NULL"), function(x) NULL)
+m0 <- selectMethod(zzz, signature = "NULL")
+debugonce(zzz, signature = "NULL")
+m1 <- selectMethod(zzz, signature = "NULL")
+debugonce(zzz, signature = "NULL") # gave error "cannot use 'at' argument unless ..."
+m2 <- selectMethod(zzz, signature = "NULL")
+untrace(zzz, signature = "NULL")
+m3 <- selectMethod(zzz, signature = "NULL")
+stopifnot(exprs = {
+    is(m0, "MethodDefinition")
+    is(m1, "MethodDefinitionWithTrace")
+    identical(m0, m3)
+    identical(m1, m2)
+})
+## 2nd debugonce() call failed in R <= 4.4.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
