@@ -331,7 +331,7 @@ Windows.  In addition, some applications on Windows can only work with path
 names of certain length, following an earlier limit in the Windows operating
 system. Packages are normally distributed as tarballs, and these have a limit
 on path lengths. So, to be friendly to users who themselves may want to use a
-relatively long path where they extract the package, and for maximal 
+relatively long path where they extract the package, and for maximal
 portability, 100 bytes.
 
 A source package if possible should not contain binary executable files:
@@ -3342,11 +3342,11 @@ mylibs:
         (cd libs; \
           CC="$(CC)" CFLAGS="$(CFLAGS)" \
           CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" \
-	  cmake . \
-	    -DCMAKE_BUILD_TYPE=Release \
-	    -DBUILD_SHARED_LIBS:bool=OFF \
-	    -DCMAKE_POSITION_INDEPENDENT_CODE:bool=ON; \
-	  $(MAKE))
+          cmake . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS:bool=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE:bool=ON; \
+          $(MAKE))
 
 @end example
 @noindent
@@ -9062,19 +9062,19 @@ The first line had to be done as root.
 
 The first report shows in which library (etc) the time was spent:
 @example
-	CPU_CLK_UNHALT...|
-	  samples|      %|
-	------------------
-	   278341 91.9947 R
-	    18290  6.0450 libc.so.6
-	     2277  0.7526 kallsyms
-	     1426  0.4713 stats.so
-	      739  0.2442 libRblas.so
-	      554  0.1831 libz.so.1.2.11
-	      373  0.1233 libm.so.6
-	      352  0.1163 libtirpc.so.3.0.0
-	      153  0.0506 ld-linux-x86-64.so.2
-	       12  0.0040 methods.so
+        CPU_CLK_UNHALT...|
+          samples|      %|
+        ------------------
+           278341 91.9947 R
+            18290  6.0450 libc.so.6
+             2277  0.7526 kallsyms
+             1426  0.4713 stats.so
+              739  0.2442 libRblas.so
+              554  0.1831 libz.so.1.2.11
+              373  0.1233 libm.so.6
+              352  0.1163 libtirpc.so.3.0.0
+              153  0.0506 ld-linux-x86-64.so.2
+               12  0.0040 methods.so
 @end example
 @noindent
 (@code{kallsyms} is the kernel.)
@@ -11719,7 +11719,7 @@ dynamically look up the address in another package. This can be done
 using @code{R_FindSymbol}:
 @example
 DL_FUNC R_FindSymbol(char const *name, char const *pkg,
-		     R_RegisteredNativeSymbol *symbol);
+                     R_RegisteredNativeSymbol *symbol);
 @end example
 @apifun R_FindSymbol
 
@@ -15227,7 +15227,7 @@ by something like (fixed-form Fortran 90 code):
           end subroutine putRNGseed
         end interface
       end module rngfuncs
-      
+
       subroutine testit
       use rngfuncs
       double precision X
@@ -16218,7 +16218,6 @@ at the result.
 
 @c None of these are remapped.
 The interfaces (defined in header @file{R_ext/Applic.h}) are
-@c There are never remapped
 
 @itemize @bullet
 @item @I{Nelder Mead}:
@@ -16526,9 +16525,10 @@ longer recommended.
 @deftypefun double R_atof (const char* @var{str})
 @deftypefunx double R_strtod (const char* @var{str}, char ** @var{end})
 Implementations of the C99/POSIX functions @code{atof} and @code{strtod}
-which guarantee platform- and locale-independent behaviour, including always using the
-period as the decimal point @emph{aka} `@I{radix character}' and returning
-R's @code{NA_REAL_} for all unconverted strings, including @code{"NA"}.
+which guarantee platform- and locale-independent behaviour, including
+always using the period as the decimal point @emph{aka} `@I{radix
+character}' and returning R's @code{NA_REAL_} for all unconverted
+strings, including @code{"NA"}.
 @end deftypefun
 
 
@@ -16605,14 +16605,14 @@ within C code:
 #include <Rinternals.h>
 
 SEXP R_tryCatchError(SEXP (*fun)(void *data), void *data,
-		     SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata);
+                     SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata);
 
 SEXP R_tryCatch(SEXP (*fun)(void *data), void *data,
-		SEXP,
-		SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata,
-		void (*clean)(void *cdata), void *cdata);
+                SEXP,
+                SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata,
+                void (*clean)(void *cdata), void *cdata);
 SEXP R_withCallingErrorHandler(SEXP (*fun)(void *data), void *data,
-			       SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata)
+                               SEXP (*hndlr)(SEXP cond, void *hdata), void *hdata)
 @end example
 @apifun R_tryCatchError
 @apifun R_tryCatch
@@ -16680,7 +16680,7 @@ available:
 
 @example
 SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
-		       void (*cleanfun)(void *), void *cleandata);
+                       void (*cleanfun)(void *), void *cleandata);
 @end example
 @apifun R_ExecWithCleanup
 @noindent
@@ -16810,11 +16810,11 @@ Code should not depend on the fields of the stream structures. Simpler
 initializers are available for serializing to or from a file pointer:
 @example
 void R_InitFileOutPStream(R_outpstream_t stream, FILE *fp,
-			  R_pstream_format_t type, int version,
-			  SEXP (*phook)(SEXP, SEXP), SEXP pdata);
+                          R_pstream_format_t type, int version,
+                          SEXP (*phook)(SEXP, SEXP), SEXP pdata);
 void R_InitFileInPStream(R_inpstream_t stream, FILE *fp,
-			 R_pstream_format_t type,
-			 SEXP (*phook)(SEXP, SEXP), SEXP pdata);
+                         R_pstream_format_t type,
+                         SEXP (*phook)(SEXP, SEXP), SEXP pdata);
 @end example
 
 Once the stream structures are set up they can be used by calling
@@ -17401,9 +17401,9 @@ that do not yet contain these entry points.
 SEXP Rf_allocLang(int n)
 @{
     if (n > 0)
-	  return LCONS(R_NilValue, Rf_allocList(n - 1));
+          return LCONS(R_NilValue, Rf_allocList(n - 1));
     else
-	  return R_NilValue;
+          return R_NilValue;
 @}
 #endif
 
@@ -17935,9 +17935,9 @@ These functions interact with a console.
 
 @code{R_ReadConsole} prints the given prompt at the console and then does a
 @code{fgets(3)}--like operation, writing up to @var{buflen} bytes into the
-buffer @var{buf}.  The last of the bytes written should be @samp{"\0"}. 
+buffer @var{buf}.  The last of the bytes written should be @samp{"\0"}.
 When there is enough space in the buffer to hold the full input line
-including the line terminator, the line terminator should be included. 
+including the line terminator, the line terminator should be included.
 Otherwise, the rest of the line should be returned in subsequent calls to
 @code{R_ReadConsole}.  The last call should return data terminated by the line
 terminator.  If @var{hist} is non-zero, then the line should be added to any
