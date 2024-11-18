@@ -6,6 +6,7 @@
 @defcodeindex ap
 @defcodeindex ae
 @defcodeindex em
+@defcodeindex for
 @c %**end of header
 
 @c Put the functions in the variable index
@@ -56,6 +57,11 @@
 @end macro
 @macro embhdr {f}
 @emindex \f\
+@end macro
+
+@macro forfun {f}
+@forindex \f\
+@findex \f\
 @end macro
 
 @copying
@@ -6373,7 +6379,7 @@ the length to double and use a double format.  So one could use
 something like
 @example
     SEXP Robj; R_xlen_t nelem;
-    error("Actual: %0.f; Expected %0.f\n", (double) XLENGTH(Robj), (double) nelem);
+    Rf_error("Actual: %0.f; Expected %0.f\n", (double) XLENGTH(Robj), (double) nelem);
 @end example
 @noindent
 @c x86_64 has a 52-bit design limit.
@@ -6381,7 +6387,7 @@ something like
 (This could print to full precision, lengths well beyond the address space
 limits of current OSes, let alone practical limits.)
 @apifun XLENGTH
-@apifun xlength
+@apifun Rf_xlength
 
 @c 'int' on 32-but platforms, 'long' on known 64-bit platforms except Windows
 If you do want to use an integer format, be aware that @code{R_xlen_t}
@@ -7250,6 +7256,9 @@ file @file{Normal.Rd} documents the density, distribution function,
 quantile function and generation of random variates for the normal
 distribution, and hence starts with
 
+@c dnorm is remapped to Rf_dnorm4
+@c pnorm is remapped to Rf_pnorm5
+@c qnorm is remapped to Rf_qnorm5
 @example
 @group
 \name@{Normal@}
@@ -10346,7 +10355,7 @@ The key to inspecting @R{} objects from compiled code is the function
 @code{PrintValue(SEXP @var{s})} which uses the normal @R{} printing
 mechanisms to print the @R{} object pointed to by @var{s}, or the safer
 version @code{R_PV(SEXP @var{s})} which will only print `objects'.
-@apifun PrintValue
+@apifun Rf_PrintValue
 @apifun R_PV
 
 One way to make use of @code{PrintValue} is to insert suitable calls
@@ -10670,9 +10679,10 @@ LTO = -flto
 @node System and foreign language interfaces
 @chapter System and foreign language interfaces
 
-Many of the functions sescribed here have entry-point names with a
-@code{Rf_} prefix: if they are called from C++ code that prefix needs to
-added in the C++ code.
+Many of the functions described here have entry-point names with a
+@code{Rf_} prefix: if they are called from C code (but not C++ code as
+from @R{} 4.5.0) that prefix can be omitted.  Users are encouraged to
+use the prefix when writing new C code.
 
 @node  Operating system access
 @section  Operating system access
@@ -11000,7 +11010,7 @@ is used.  The @code{PACKAGE} argument and registration (see the next
 section) provide good ways to avoid any ambiguity in which occurrence is
 meant.
 
-On Unix-alikes the paths used to resolve dynamically linked dependent
+On Unix-alikes the paths used to resolve dynamically-linked dependent
 libraries are fixed (for security reasons) when the process is launched,
 so @code{dyn.load} will only look for such libraries in the locations
 set by the @file{R} shell script (@emph{via} @file{etc/ldpaths}) and in
@@ -11374,9 +11384,9 @@ nm -g /path/to/splines.so | grep " T "
 @noindent
 This indicates that there are two relevant entry points. (They may or
 may not have a leading underscore, as here. Fortran entry points will
-have a trailing underscore.)  Check in the @R{} code that they are
-called by the package and how: in this case they are used by
-@code{.Call}.
+have a trailing underscore on all current platforms.)  Check in the @R{}
+code that they are called by the package and how: in this case they are
+used by @code{.Call}.
 
 Alternatively, examine the package's @R{} code for all @code{.C},
 @code{.Fortran}, @code{.Call} and @code{.External} calls.
@@ -11554,7 +11564,8 @@ If there were any entry points not intended to be used by the package we
 should try to avoid exporting them, for example by making them
 @code{static}.  Now that the two relevant entry points are only accessed
 @emph{via} the registration table, we can hide them.  There are two ways
-to do so on some Unix-alikes.  We can hide individual entry points
+to do so on some@footnote{generally those with an ELF linker and macOS
+from @R{} 4.5.0.} Unix-alikes.  We can hide individual entry points
 @emph{via}
 
 @example
@@ -11983,9 +11994,10 @@ as the library (and what that was is often undocumented).
 @c distributions.
 
 Even fewer external libraries use C++ internally but present a C
-interface, such as @CRANpkg{rgeos}.  These require the C++ runtime
-library to be linked into the package's shared object/DLL, and this is
-best done by including a dummy C++ file in the package sources.
+interface, such as GEOS used by @CRANpkg{sf} and other packages..  These
+require the C++ runtime library to be linked into the package's shared
+object/DLL, and this is best done by including a dummy C++ file in the
+package sources.
 
 There is a trend to link to the C++ interfaces offered by C software
 such as @pkg{hdf5}, @pkg{pcre} and @pkg{ImageMagick}.  Their C
@@ -12003,14 +12015,14 @@ because output is not guaranteed to appear on the @R{} console, and this
 warning applies equally to Fortran output to units @code{*}
 and @code{6}. @xref{Printing from Fortran}, which describes workarounds.
 
-In the past most Fortran compilers implemented I/O on top of the C I/O
-system and so the two interworked successfully.  This was true of
-@command{g77}, but it is less true of @command{gfortran} as used in
-@command{gcc} 4 and later.  In particular, any package that makes use of
-Fortran I/O will when compiled on Windows interfere with C I/O: when the
-Fortran I/O support code is initialized (typically when the package is
-loaded) the C @code{stdout} and @code{stderr} are switched to @abbr{LF} line
-endings.  (Function @code{init} in file
+When @R{} was first developed, most Fortran compilers implemented I/O on
+top of the C I/O system and so the two interworked successfully.  This
+was true of @command{g77}, but no longer of @command{gfortran} as used
+in @command{gcc} 4 and later.  In particular, any package that makes use
+of Fortran I/O will when compiled on Windows interfere with C I/O: when
+the Fortran I/O support code is initialized (typically when the package
+is loaded) the C @code{stdout} and @code{stderr} are switched to
+@abbr{LF} line endings.  (Function @code{init} in file
 @file{src/modules/lapack/init_win.c} shows how to mitigate this.  In a
 package this would look something like
 @example
@@ -12323,8 +12335,8 @@ right type.
 
 @apifun PROTECT
 @apifun UNPROTECT
-@apifun protect
-@apifun unprotect
+@apifun Rf_protect
+@apifun Rf_unprotect
 
 We need to know a little about the way @R{} handles memory allocation.
 The memory allocated for @R{} objects is not freed by the user; instead,
@@ -12370,7 +12382,7 @@ Here is a small example of creating an @R{} numeric vector in C code:
 
     SEXP ab;
       ....
-    ab = PROTECT(allocVector(REALSXP, 2));
+    ab = PROTECT(RF_allocVector(REALSXP, 2));
     REAL(ab)[0] = 123.45;
     REAL(ab)[1] = 67.89;
     UNPROTECT(1);
@@ -12408,7 +12420,7 @@ in a multi-set created by @code{R_NewPreciousMSet} and typically itself
 protected using @code{PROTECT}.  These functions should not be needed
 outside parsers.
 @apifun UNPROTECT_PTR
-@apifun unprotect_ptr
+@apifun Rf_unprotect_ptr
 @apifun R_PreserveInMSet
 @apifun R_ReleaseFromMSet
 @apifun R_NewPreciousMSet
@@ -12427,8 +12439,8 @@ For example (from the internal code for @code{optim})
     PROTECT_INDEX ipx;
 
     ....
-    PROTECT_WITH_INDEX(s = eval(OS->R_fcall, OS->R_env), &ipx);
-    REPROTECT(s = coerceVector(s, REALSXP), ipx);
+    PROTECT_WITH_INDEX(s = Rf_eval(OS->R_fcall, OS->R_env), &ipx);
+    REPROTECT(s = Rf_coerceVector(s, REALSXP), ipx);
 @end example
 
 Note that it is dangerous to mix @code{UNPROTECT_PTR} also with
@@ -12494,42 +12506,42 @@ and @code{UNPROTECT} does not allocate.
 @cindex Allocating storage
 
 For many purposes it is sufficient to allocate @R{} objects and
-manipulate those.  There are quite a few @code{alloc@var{Xxx}} functions
+manipulate those.  There are quite a few @code{Rf_alloc@var{Xxx}} functions
 defined in @file{Rinternals.h}---you may want to explore them.
 
-@apifun allocVector
-One that is commonly used is @code{allocVector}, the C-level equivalent
+@apifun Rf_allocVector
+One that is commonly used is @code{Rf_allocVector}, the C-level equivalent
 of @R{}-level @code{vector()} and its wrappers such as @code{integer()}
 and @code{character()}.  One distinction is that whereas the @R{}
 functions always initialize the elements of the vector,
-@code{allocVector} only does so for lists, expressions and character
+@code{Rf_allocVector} only does so for lists, expressions and character
 vectors (the cases where the elements are themselves @R{} objects).
-Other useful allocation functions are @code{alloc3DArray},
-@code{allocArray}, and @code{allocMatrix}.
-@apifun alloc3DArray
-@apifun allocArray
-@apifun allocMatrix
+Other useful allocation functions are @code{Rf_alloc3DArray},
+@code{Rf_allocArray}, and @code{Rf_allocMatrix}.
+@apifun Rf_alloc3DArray
+@apifun Rf_allocArray
+@apifun Rf_allocMatrix
 
 At times it can be useful to allocate a larger initial result vector and
 resize it to a shorter length if that is sufficient. The functions
-@code{lengthgets} and @code{xlengthgets} accomplish this; they are
+@code{Rf_lengthgets} and @code{Rf_xlengthgets} accomplish this; they are
 analogous to using @code{length(x) <- n} in @R{}. Typically these
 functions return a freshly allocated object, but in some cases they may
 re-use the supplied object.
-@apifun lengthgets
-@apifun xlengthgets
+@apifun Rf_lengthgets
+@apifun Rf_xlengthgets
 
 When creating new result objects it can be useful to fill them in with
-values from an existing object. The functions @code{copyVector} and
-@code{copyMatrix} can be used for this. @code{copyMostAttributes} can
+values from an existing object. The functions @code{Rf_copyVector} and
+@code{Rf_copyMatrix} can be used for this. @code{Rf_copyMostAttributes} can
 also simplify setting up a result object; it is used internally for
 results of arithmetic operations.
-@apifun copyVector
-@apifun copyMatrix
-@apifun copyMostAttrib
+@apifun Rf_copyVector
+@apifun Rf_copyMatrix
+@apifun Rf_copyMostAttrib
 
 If storage is required for C objects during the calculations this is
-best allocating by calling @code{R_alloc}; @pxref{Memory allocation}.
+best allocated by calling @code{R_alloc}; @pxref{Memory allocation}.
 All of these memory allocation routines do their own error-checking, so
 the programmer may assume that they will raise an error and not return
 if the memory cannot be allocated.
@@ -12574,20 +12586,20 @@ user-level evaluation.)  More details are given in
 Unless you are very sure about the type of the arguments, the code
 should check the data types.  Sometimes it may also be necessary to
 check data types of objects created by evaluating an @R{} expression in
-the C code.  You can use functions like @code{isReal}, @code{isInteger}
-and @code{isString} to do type checking.
-@apifun isReal
-@apifun isInteger
-@apifun isString
+the C code.  You can use functions like @code{Rf_isReal}, @code{Rf_isInteger}
+and @code{Rf_isString} to do type checking.
+@apifun Rf_isReal
+@apifun Rf_isInteger
+@apifun Rf_isString
 Other such functions declared in the header file @file{Rinternals.h}
-include @code{isNull}, @code{isSymbol}, @code{isLogical},
-@code{isComplex}, @code{isExpression}, and @code{isEnvironment}.
-@apifun isNull
-@apifun isSymbol
-@apifun isLogical
-@apifun isComplex
-@apifun isExpression
-@apifun isEnvironment
+include @code{Rf_iisNull}, @code{Rf_iisSymbol}, @code{Rf_iisLogical},
+@code{Rf_iisComplex}, @code{Rf_iisExpression}, and @code{Rf_iisEnvironment}.
+@apifun Rf_isNull
+@apifun Rf_isSymbol
+@apifun Rf_isLogical
+@apifun Rf_isComplex
+@apifun Rf_isExpression
+@apifun Rf_isEnvironment
 All of these take a @code{SEXP} as argument and return 1 or 0 to
 indicate @var{TRUE} or @var{FALSE}.
 
@@ -12599,9 +12611,9 @@ object to the correct type.  For example, if you find that an
 object, you can change the type by using
 
 @example
-@var{newSexp} = PROTECT(coerceVector(@var{oldSexp}, REALSXP));
+@var{newSexp} = PROTECT(Rf_coerceVector(@var{oldSexp}, REALSXP));
 @end example
-@apifun coerceVector
+@apifun Rf_coerceVector
 
 @noindent
 Protection is needed as a new @emph{object} is created; the object
@@ -12658,8 +12670,8 @@ C code to do the computations is
 
 SEXP out(SEXP x, SEXP y)
 @{
-    int nx = length(x), ny = length(y);
-    SEXP ans = PROTECT(allocMatrix(REALSXP, nx, ny));
+    int nx = Rf_length(x), ny = Rf_length(y);
+    SEXP ans = PROTECT(Rf_allocMatrix(REALSXP, nx, ny));
     double *rx = REAL(x), *ry = REAL(y), *rans = REAL(ans);
     for(int i = 0; i < nx; i++) @{
         double tmp = rx[i];
@@ -12685,8 +12697,8 @@ However, we would like to set the @code{dimnames} of the result.  We can use
 @group
 SEXP out(SEXP x, SEXP y)
 @{
-    int nx = length(x), ny = length(y);
-    SEXP ans = PROTECT(allocMatrix(REALSXP, nx, ny));
+    int nx = Rf_length(x), ny = Rf_length(y);
+    SEXP ans = PROTECT(Rf_allocMatrix(REALSXP, nx, ny));
     double *rx = REAL(x), *ry = REAL(y), *rans = REAL(ans);
 
     for(int i = 0; i < nx; i++) @{
@@ -12695,10 +12707,10 @@ SEXP out(SEXP x, SEXP y)
         rans[i + nx*j] = tmp * ry[j];
     @}
 
-    SEXP dimnames = PROTECT(allocVector(VECSXP, 2));
-    SET_VECTOR_ELT(dimnames, 0, getAttrib(x, R_NamesSymbol));
-    SET_VECTOR_ELT(dimnames, 1, getAttrib(y, R_NamesSymbol));
-    setAttrib(ans, R_DimNamesSymbol, dimnames);
+    SEXP dimnames = PROTECT(Rf_allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(dimnames, 0, Rf_getAttrib(x, R_NamesSymbol));
+    SET_VECTOR_ELT(dimnames, 1, Rf_getAttrib(y, R_NamesSymbol));
+    Rf_setAttrib(ans, R_DimNamesSymbol, dimnames);
 @end group
 
 @group
@@ -12710,10 +12722,10 @@ SEXP out(SEXP x, SEXP y)
 @apivar R_NamesSymbol
 @apivar R_DimNamesSymbol
 
-This example introduces several new features.  The @code{getAttrib} and
-@code{setAttrib}
-@apifun getAttrib
-@apifun setAttrib
+This example introduces several new features.  The @code{Rf_getAttrib} and
+@code{Rf_setAttrib}
+@apifun Rf_getAttrib
+@apifun Rf_setAttrib
 functions get and set individual attributes.  Their second argument is a
 @code{SEXP} defining the name in the symbol table of the attribute we
 want; these and many such symbols are defined in the header file
@@ -12723,33 +12735,33 @@ There are shortcuts here too: the functions @code{namesgets},
 @code{dimgets} and @code{dimnamesgets} are the internal versions of the
 default methods of @code{names<-}, @code{dim<-} and @code{dimnames<-}
 (for vectors and arrays), and there are functions such as
-@code{GetColNames}, @code{GetRowNames}, @code{GetMatrixDimnames} and
-@code{GetArrayDimnames}.
-@apifun GetArrayDimnames
-@apifun GetMatrixDimnames
-@apifun GetColNames
-@apifun GetRowNames
-@apifun namesgets
-@apifun dimnamesgets
-@apifun dimgets
+@code{Rf_GetColNames}, @code{Rf_GetRowNames}, @code{Rf_GetMatrixDimnames} and
+@code{Rf_GetArrayDimnames}.
+@apifun Rf_GetArrayDimnames
+@apifun Rf_GetMatrixDimnames
+@apifun Rf_GetColNames
+@apifun Rf_GetRowNames
+@apifun Rf_namesgets
+@apifun Rf_dimnamesgets
+@apifun Rf_dimgets
 
 What happens if we want to add an attribute that is not pre-defined? We
 need to add a symbol for it @emph{via} a call to
-@apifun install
-@code{install}.  Suppose for illustration we wanted to add an attribute
+@apifun Rf_install
+@code{Rf_install}.  Suppose for illustration we wanted to add an attribute
 @code{"version"} with value @code{3.0}.  We could use
 
 @example
 @group
 SEXP version;
-version = PROTECT(allocVector(REALSXP, 1));
+version = PROTECT(Rf_allocVector(REALSXP, 1));
 REAL(version)[0] = 3.0;
-setAttrib(ans, install("version"), version);
+Rf_setAttrib(ans, Rf_install("version"), version);
 UNPROTECT(1);
 @end group
 @end example
 
-Using @code{install} when it is not needed is harmless and provides a
+Using @code{Rf_install} when it is not needed is harmless and provides a
 simple way to retrieve the symbol from the symbol table if it is already
 installed. However, the lookup takes a non-trivial amount of time, so
 consider code such as
@@ -12757,7 +12769,7 @@ consider code such as
 @example
 static SEXP VerSymbol = NULL;
 ...
-if (VerSymbol == NULL) VerSymbol = install("version");
+if (VerSymbol == NULL) VerSymbol = Rf_install("version");
 @end example
 
 @noindent
@@ -12767,23 +12779,23 @@ This example can be simplified by another convenience function:
 
 @example
 @group
-SEXP version = PROTECT(ScalarReal(3.0));
-setAttrib(ans, install("version"), version);
+SEXP version = PROTECT(Rf_ScalarReal(3.0));
+Rf_setAttrib(ans, Rf_install("version"), version);
 UNPROTECT(1);
 @end group
 @end example
 
 If a result is to be a vector with all elements named, then
-@code{mkNamed} can be used to allocate a vector of a specified type.
+@code{Rf_mkNamed} can be used to allocate a vector of a specified type.
 Names are provided as a C vector of strings terminated by an empty
 string:
 @example
 @group
 const char *nms[] = @{"xi", "yi", "zi", ""@};
-mkNamed(VECSXP, nms);
+Rf_mkNamed(VECSXP, nms);
 @end group
 @end example
-@apifun mkNamed
+@apifun Rf_mkNamed
 
 Symbols can also be installed or retrieved based on a name in a
 @code{CHARSXP} object using either @code{Rf_installChar} or
@@ -12797,7 +12809,7 @@ encoding but have been identical since @R{} 4.0.0.
 @cindex Classes
 
 In @R{} the class is just the attribute named @code{"class"} so it can
-be handled as such, but there is a shortcut @code{classgets}.  Suppose
+be handled as such, but there is a shortcut @code{Rf_classgets}.  Suppose
 we want to give the return value in our example the class @code{"mat"}.
 We can use
 
@@ -12808,15 +12820,15 @@ We can use
       ....
     SEXP ans, dim, dimnames, class;
       ....
-    class = PROTECT(allocVector(STRSXP, 1));
-    SET_STRING_ELT(class, 0, mkChar("mat"));
-    classgets(ans, class);
+    class = PROTECT(Rf_allocVector(STRSXP, 1));
+    SET_STRING_ELT(class, 0, Rf_mkChar("mat"));
+    Rf_classgets(ans, class);
     UNPROTECT(4);
     return ans;
 @}
 @end group
 @end example
-@apifun classgets
+@apifun Rf_classgets
 
 @noindent
 As the value is a character vector, we have to know how to create that
@@ -12832,8 +12844,8 @@ in C, including:
 
 @comment FIXME: this needs fleshing out
 @example
-SEXP allocS4Object(void);
-SEXP asS4(SEXP, Rboolean, int);
+SEXP Rf_allocS4Object(void);
+SEXP Rf_asS4(SEXP, Rboolean, int);
 int R_check_class_etc(SEXP x, const char **valid);
 SEXP R_do_MAKE_CLASS(const char *what);
 SEXP R_do_new_object(SEXP class_def);
@@ -12842,8 +12854,8 @@ SEXP R_do_slot_assign(SEXP obj, SEXP name, SEXP value);
 SEXP R_getClassDef  (const char *what);
 int R_has_slot(SEXP obj, SEXP name);
 @end example
-@eapifun allocS4Object
-@eapifun asS4
+@eapifun Rf_allocS4Object
+@eapifun Rf_asS4
 @eapifun R_check_class_etc
 @eapifun R_do_MAKE_CLASS
 @eapifun R_do_new_object
@@ -12859,9 +12871,9 @@ int R_has_slot(SEXP obj, SEXP name);
 Some care is needed with lists, as @R{} moved early on from using
 LISP-like lists (now called ``pairlists'') to S-like generic vectors.
 As a result, the appropriate test for an object of mode @code{list} is
-@code{isNewList}, and we need @code{allocVector(VECSXP, @var{n}}) and
-@emph{not} @code{allocList(@var{n})}.
-@apifun allocList
+@code{Rf_isNewList}, and we need @code{Rf_allocVector(VECSXP, @var{n}}) and
+@emph{not} @code{Rf_allocList(@var{n})}.
+@apifun Rf_allocList
 
 List elements can be retrieved or set by direct access to the elements
 of the generic vector.  Suppose we have a list object
@@ -12890,11 +12902,11 @@ one in package @pkg{stats}) is very useful:
 
 SEXP getListElement(SEXP list, const char *str)
 @{
-    SEXP elmt = R_NilValue, names = getAttrib(list, R_NamesSymbol);
+    SEXP elmt = R_NilValue, names = Rf_getAttrib(list, R_NamesSymbol);
 @end group
 
 @group
-    for (int i = 0; i < length(list); i++)
+    for (int i = 0; i < Rf_length(list); i++)
         if(strcmp(CHAR(STRING_ELT(names, i)), str) == 0) @{
            /* ASCII only */
            elmt = VECTOR_ELT(list, i);
@@ -12939,22 +12951,22 @@ use).  Since @code{CHARSXP}s are immutable, the same @code{CHARSXP} can
 be shared by any @code{STRSXP} needing an element representing the same
 string. @R{} maintains a global cache of @code{CHARSXP}s so that there
 is only ever one @code{CHARSXP} representing a given string in memory.
-It most cases it is easier to use @code{translateChar}
-or @code{translateCharUTF8} to obtain the C string and it is safer
+It most cases it is easier to use @code{Rf_translateChar}
+or @code{Rf_translateCharUTF8} to obtain the C string and it is safer
 against potential future changes in R (@pxref{Character encoding
 issues}).
 
-@apifun mkChar
-@apifun mkCharLen
-You can obtain a @code{CHARSXP} by calling @code{mkChar} and providing a
+@apifun Rf_mkChar
+@apifun Rf_mkCharLen
+You can obtain a @code{CHARSXP} by calling @code{Rf_mkChar} and providing a
 @abbr{NUL}-terminated C-style string.  This function will return a pre-existing
 @code{CHARSXP} if one with a matching string already exists, otherwise
 it will create a new one and add it to the cache before returning it to
-you.   The variant @code{mkCharLen} can be used to create a
+you.   The variant @code{Rf_mkCharLen} can be used to create a
 @code{CHARSXP} from part of a buffer and will ensure null-termination.
 
 Note that @R{} character strings are restricted to @code{2^31 - 1}
-bytes, and hence so should the input to @code{mkChar} be (C allows
+bytes, and hence so should the input to @code{Rf_mkChar} be (C allows
 longer strings on 64-bit platforms).
 
 @node Working with closures
@@ -12995,19 +13007,19 @@ SEXP getvar(SEXP name, SEXP rho)
 @{
     SEXP ans;
 
-    if (!isString(name) || length(name) != 1)
-        error("name is not a single string");
-    if (!isEnvironment(rho))
-        error("rho should be an environment");
-    ans = R_getVar(installChar(STRING_ELT(name, 0)), rho, TRUE);
-    if (TYPEOF(ans) != REALSXP || length(ans) == 0)
-        error("value is not a numeric vector with at least one element");
+    if (!Rf_isString(name) || Rf_length(name) != 1)
+        Rf_error("name is not a single string");
+    if (!Rf_isEnvironment(rho))
+        Rf_error("rho should be an environment");
+    ans = R_getVar(Rf_installChar(STRING_ELT(name, 0)), rho, TRUE);
+    if (TYPEOF(ans) != REALSXP || Rf_length(ans) == 0)
+        Rf_error("value is not a numeric vector with at least one element");
     Rprintf("first value is %f\n", REAL(ans)[0]);
     return R_NilValue;
 @}
 @end group
 @end example
-@apifun installChar
+@apifun Rf_installChar
 
 The main work is done by
 @apifun R_getVar
@@ -13026,12 +13038,12 @@ to the @code{inherits} argument to the @R{} function @code{get}.
 Functions with syntax
 @example
 @group
-void defineVar(SEXP symbol, SEXP value, SEXP rho)
-void setVar(SEXP symbol, SEXP value, SEXP rho)
+void Rf_defineVar(SEXP symbol, SEXP value, SEXP rho)
+void Rf_setVar(SEXP symbol, SEXP value, SEXP rho)
 @end group
 @end example
-@apifun defineVar
-@apifun setVar
+@apifun Rf_defineVar
+@apifun Rf_setVar
 
 @noindent
 can be used to assign values to @R{} variables.  @code{defineVar}
@@ -13069,25 +13081,25 @@ Suppose we wanted to pass a single logical argument
 @code{ignore_quotes}: we could use
 
 @example
-    int ign = asLogical(ignore_quotes);
-    if(ign == NA_LOGICAL) error("'ignore_quotes' must be TRUE or FALSE");
+    int ign = Rf_asLogical(ignore_quotes);
+    if(ign == NA_LOGICAL) Rf_error("'ignore_quotes' must be TRUE or FALSE");
 @end example
 
 @noindent
 which will do any coercion needed (at least from a vector argument), and
 return @code{NA_LOGICAL} if the value passed was @code{NA} or coercion
-failed.  There are also @code{asInteger}, @code{asReal} and
-@code{asComplex}.  The function @code{asChar} returns a @code{CHARSXP}.
+failed.  There are also @code{Rf_asInteger}, @code{Rf_asReal} and
+@code{Rf_asComplex}.  The function @code{Rf_asChar} returns a @code{CHARSXP}.
 All of these functions ignore any elements of an input vector after the
 first.
-@apifun asInteger
-@apifun asLogical
-@apifun asReal
-@apifun asComplex
-@apifun asChar
-The function @code{asCharacterFactor} converts a factor to a character
+@apifun Rf_asInteger
+@apifun Rf_asLogical
+@apifun Rf_asReal
+@apifun Rf_asComplex
+@apifun Rf_asChar
+The function @code{Rf_asCharacterFactor} converts a factor to a character
 vector.
-@apifun asCharacterFactor
+@apifun Rf_asCharacterFactor
 
 To return a length-one real vector we can use
 
@@ -13095,95 +13107,95 @@ To return a length-one real vector we can use
     double x;
 
     ...
-    return ScalarReal(x);
+    return Rf_ScalarReal(x);
 @end example
 
 @noindent
 and there are versions of this for all the atomic vector types (those for
-a length-one character vector being @code{ScalarString} with argument a
-@code{CHARSXP} and @code{mkString} with argument @code{const char *}).
+a length-one character vector being @code{Rf_ScalarString} with argument a
+@code{CHARSXP} and @code{Rf_mkString} with argument @code{const char *}).
 
-@apifun ScalarReal
-@apifun ScalarInteger
-@apifun ScalarLogical
-@apifun ScalarComplex
-@apifun ScalarRaw
-@apifun ScalarString
-@apifun mkString
+@apifun Rf_ScalarReal
+@apifun Rf_ScalarInteger
+@apifun Rf_ScalarLogical
+@apifun Rf_ScalarComplex
+@apifun Rf_ScalarRaw
+@apifun Rf_ScalarString
+@apifun Rf_mkString
 @example
 @group
-SEXP ScalarReal(double);
-SEXP ScalarInteger(int);
-SEXP ScalarLogical(int)
-SEXP ScalarRaw(Rbyte);
-SEXP ScalarComplex(Rcomplex);
-SEXP ScalarString(SEXP);
-SEXP mkString(const char *);
+SEXP Rf_ScalarReal(double);
+SEXP Rf_ScalarInteger(int);
+SEXP Rf_ScalarLogical(int)
+SEXP Rf_ScalarRaw(Rbyte);
+SEXP Rf_ScalarComplex(Rcomplex);
+SEXP Rf_ScalarString(SEXP);
+SEXP Rf_mkString(const char *);
 @end group
 @end example
 
-Some of the @code{is@var{XXXX}} functions differ from their apparent
-@R{}-level counterparts: for example @code{isVector} is true for any
-atomic vector type (@code{isVectorAtomic}) and for lists and expressions
-(@code{isVectorList}) (with no check on attributes).  @code{isMatrix} is
+Some of the @code{Rf_is@var{XXXX}} functions differ from their apparent
+@R{}-level counterparts: for example @code{Rf_isVector} is true for any
+atomic vector type (@code{Rf_isVectorAtomic}) and for lists and expressions
+(@code{Rf_isVectorList}) (with no check on attributes).  @code{Rf_isMatrix} is
 a test of a length-2 @code{"dim"} attribute.
-@apifun isVector
-@apifun isVectorAtomic
-@apifun isVectorList
-@apifun isMatrix
-@apifun isPairList
-@apifun isPrimitive
-@apifun isTs
-@apifun isNumeric
-@apifun isArray
-@apifun isFactor
-@apifun isObject
-@apifun isFunction
-@apifun isLanguage
-@apifun isNewList
-@apifun isList
-@apifun isOrdered
-@apifun isUnordered
-@apifun isS4
-@apifun isNumber
-@apifun isDataFrame
+@apifun Rf_isVector
+@apifun Rf_isVectorAtomic
+@apifun Rf_isVectorList
+@apifun Rf_isMatrix
+@apifun Rf_isPairList
+@apifun Rf_isPrimitive
+@apifun Rf_isTs
+@apifun Rf_isNumeric
+@apifun Rf_isArray
+@apifun Rf_isFactor
+@apifun Rf_isObject
+@apifun Rf_isFunction
+@apifun Rf_isLanguage
+@apifun Rf_isNewList
+@apifun Rf_isList
+@apifun Rf_isOrdered
+@apifun Rf_isUnordered
+@apifun Rf_isS4
+@apifun Rf_isNumber
+@apifun Rf_isDataFrame
 @example
 @group
-Rboolean isVector(SEXP);
-Rboolean isVectorAtomic(SEXP);
-Rboolean isVectorList(SEXP);
-Rboolean isMatrix(SEXP);
-Rboolean isPairList(SEXP);
-Rboolean isPrimitive(SEXP);
-Rboolean isTs(SEXP);
-Rboolean isNumeric(SEXP);
-Rboolean isArray(SEXP);
-Rboolean isFactor(SEXP);
-Rboolean isObject(SEXP);
-Rboolean isFunction(SEXP);
-Rboolean isLanguage(SEXP);
-Rboolean isNewList(SEXP);
-Rboolean isList(SEXP);
-Rboolean isOrdered(SEXP);
-Rboolean isUnordered(SEXP);
-Rboolean isS4(SEXP);
-Rboolean isNumber(SEXP);
-Rboolean isDataFrame (SEXP);
+Rboolean Rf_isVector(SEXP);
+Rboolean Rf_isVectorAtomic(SEXP);
+Rboolean Rf_isVectorList(SEXP);
+Rboolean Rf_isMatrix(SEXP);
+Rboolean Rf_isPairList(SEXP);
+Rboolean Rf_isPrimitive(SEXP);
+Rboolean Rf_isTs(SEXP);
+Rboolean Rf_isNumeric(SEXP);
+Rboolean Rf_isArray(SEXP);
+Rboolean Rf_isFactor(SEXP);
+Rboolean Rf_isObject(SEXP);
+Rboolean Rf_isFunction(SEXP);
+Rboolean Rf_isLanguage(SEXP);
+Rboolean Rf_isNewList(SEXP);
+Rboolean Rf_isList(SEXP);
+Rboolean Rf_isOrdered(SEXP);
+Rboolean Rf_isUnordered(SEXP);
+Rboolean Rf_isS4(SEXP);
+Rboolean Rf_isNumber(SEXP);
+Rboolean Rf_isDataFrame (SEXP);
 @end group
 @end example
 Some additional predicates:
-@eapifun isBlankString
-@eapifun StringBlank
-@eapifun StringFalse
-@eapifun StringTrue
+@eapifun Rf_isBlankString
+@eapifun Rf_StringBlank
+@eapifun Rf_StringFalse
+@eapifun Rf_StringTrue
 @eapifun IS_LONG_VEC
 @eapifun IS_SCALAR
 @example
 @group
-Rboolean isBlankString(const char *);
+Rboolean Rf_isBlankString(const char *);
 Rboolean Rf_StringBlank(SEXP);
-Rboolean StringFalse(const char *);
-Rboolean StringTrue(const char *);
+Rboolean Rf_StringFalse(const char *);
+Rboolean Rf_StringTrue(const char *);
 int IS_LONG_VEC(SEXP);
 int IS_SCALAR(SEXP, int);
 @end group
@@ -13194,43 +13206,43 @@ and language objects (whose internal structures just differ by
 @code{SEXPTYPE}).  Function @code{CONS(u, v)} is the basic building
 block: it constructs a pairlist from @code{u} followed by @code{v}
 (which is a pairlist or @code{R_NilValue}).  @code{LCONS} is a variant
-that constructs a language object.  Functions @code{list1} to
-@code{list6} construct a pairlist from one to six items, and
-@code{lang1} to @code{lang6} do the same for a language object (a
+that constructs a language object.  Functions @code{Rf_list1} to
+@code{Rf_list6} construct a pairlist from one to six items, and
+@code{Rf_lang1} to @code{Rf_lang6} do the same for a language object (a
 function to call plus zero to five arguments).
 @apifun CONS
-@apifun cons
-@apifun list1
-@apifun list2
-@apifun list3
-@apifun list4
-@apifun list5
-@apifun list6
+@apifun Rf_cons
+@apifun Rf_list1
+@apifun Rf_list2
+@apifun Rf_list3
+@apifun Rf_list4
+@apifun Rf_list5
+@apifun Rf_list6
 @apifun LCONS
-@apifun lcons
-@apifun lang1
-@apifun lang2
-@apifun lang3
-@apifun lang4
-@apifun lang5
-@apifun lang6
-Functions @code{elt} and @code{lastElt} find the @I{@var{i}-th} element and
-the last element of a pairlist, and @code{nthcdr} returns a pointer to
+@apifun Rf_lcons
+@apifun Rf_lang1
+@apifun Rf_lang2
+@apifun Rf_lang3
+@apifun Rf_lang4
+@apifun Rf_lang5
+@apifun Rf_lang6
+Functions @code{Rf_elt} and @code{Rf_lastElt} find the @I{@var{i}-th} element and
+the last element of a pairlist, and @code{Rf_nthcdr} returns a pointer to
 the @I{@var{n}-th} position in the pairlist (whose @code{CAR} is the
 @I{@var{n}-th} item).
-@apifun elt
-@apifun lastElt
-@apifun nthcdr
+@apifun Rf_elt
+@apifun Rf_lastElt
+@apifun Rf_nthcdr
 
-Functions @code{str2type} and @code{type2str} map @R{} length-one
+Functions @code{Rf_str2type} and @code{Rf_type2str} map @R{} length-one
 character strings to and from @code{SEXPTYPE} numbers, and
-@code{type2char} maps numbers to C character strings.
-@code{type2str_nowarn} does not issue a warning if the @code{SEXPTYPE}
+@code{Rf_type2char} maps numbers to C character strings.
+@code{Rf_type2str_nowarn} does not issue a warning if the @code{SEXPTYPE}
 is invalid.
-@apifun str2type
-@apifun type2str
-@apifun type2char
-@apifun type2str_nowarn
+@apifun Rf_str2type
+@apifun Rf_type2str
+@apifun Rf_type2char
+@apifun Rf_type2str_nowarn
 
 @comment Want to encourage use of some of the more stable and useful R_*
 @comment and Rf_* functions:
@@ -13245,18 +13257,18 @@ is invalid.
 @subsubsection Semi-internal convenience functions
 
 There is quite a collection of functions that may be used in your C code
-@emph{if} you are willing to adapt to rare ``API'' changes.
-These typically contain ``workhorses'' of their @R{} counterparts.
+@emph{if} you are willing to adapt to rare API changes.
+These typically contain the ``workhorses'' of their @R{} counterparts.
 
-Functions @code{any_duplicated} and @code{any_duplicated3} are fast
+Functions @code{Rf_any_duplicated} and @code{Rf_any_duplicated3} are fast
 versions of @R{}'s @code{any(duplicated(.))}.
-@eapifun any_duplicated
-@eapifun any_duplicated3
+@eapifun Rf_any_duplicated
+@eapifun Rf_any_duplicated3
 
 Function @code{R_compute_identical} corresponds to @R{}'s @code{identical} function.
 @eapifun R_compute_identical
 Function @code{R_BindingIsLocked} corresponds to  @R{}'s @code{bindingIsLocked} function.
-Function @code{R_ParentEnv} corresponds to @R{}'1 @code{parent.env}.
+Function @code{R_ParentEnv} corresponds to @R{}'s @code{parent.env}.
 @apifun R_ParentEnv
 @eapifun R_ActiveBindingFunction
 @eapifun R_BindingIsActive
@@ -13267,23 +13279,24 @@ Function @code{R_ParentEnv} corresponds to @R{}'1 @code{parent.env}.
 @eapifun R_MakeActiveBinding
 @eapifun R_unLockBinding
 
-The C functions @code{inherits} and @code{topenv} correspond to the @R{}
-functions of the same name. The C function @code{GetOption1} corresponds
-to the @R{} function @code{getOption} without specifying a default.
-@apifun inherits
-@apifun topenv
-@apifun GetOption1
-@code{GetOptionWidth} returns the value of the @code{width} option as an
+The C functions @code{Rf_inherits} and @code{Rf_topenv} correspond to
+the @R{} functions of the same base name. The C function
+@code{Rf_GetOption1} corresponds to the @R{} function @code{getOption}
+without specifying a default.
+@apifun Rf_inherits
+@apifun Rf_topenv
+@apifun Rf_GetOption1
+@code{Rf_GetOptionWidth} returns the value of the @code{width} option as an
 @code{int}.
-@apifun GetOptionWidth
-The C function @code{nlevels} returns the number of levels of a factor.
+@apifun Rf_GetOptionWidth
+The C function @code{Rf_nlevels} returns the number of levels of a factor.
 Unlike its @R{} counterpart it always returns zero for non-factors.
-@eapifun nlevels
+@eapifun Rf_nlevels
 
-For vectors the C function @code{duplicated} returns a logical vector
+For vectors the C function @code{Rf_duplicated} returns a logical vector
 indicating for each element whether it is duplicated or not. A second
 argument specifies the direction of the search.
-@eapifun duplicated
+@eapifun Rf_duplicated
 
 The C function @code{R_lsInternal3} returns a character vector of the
 names of variables in an environment. The second and third arguments
@@ -13292,13 +13305,13 @@ sorted.
 @eapifun R_lsInternal3
 
 Some convenience functions for working with pairlist objects include
-@code{copyListMatrix}, @code{listAppend}, @code{isVectorizable}, @code{VectorToPairList}, and
-@code{PairToVectorList}
-@eapifun copyListMatrix
-@eapifun listAppend
-@eapifun isVectorizable
-@eapifun VectorToPairList
-@eapifun PairToVectorList
+@code{Rf_copyListMatrix}, @code{Rf_listAppend}, @code{Rf_isVectorizable}, @code{Rf_VectorToPairList}, and
+@code{Rf_PairToVectorList}
+@eapifun Rf_copyListMatrix
+@eapifun Rf_listAppend
+@eapifun Rf_isVectorizable
+@eapifun Rf_VectorToPairList
+@eapifun Rf_PairToVectorList
 
 Some convenience functions for working with name spaces and environments
 include @code{R_existsVarInFrame}, @code{R_removeVarFromFrame},
@@ -13312,17 +13325,17 @@ include @code{R_existsVarInFrame}, @code{R_removeVarFromFrame},
 @eapifun R_NamespaceEnvSpec
 @eapifun R_IsNamespaceEnv
 
-The C functions @code{match} and @code{pmatch} correspond to the @R{}
-functions by the same name.
-@eapifun match
-@eapifun pmatch
-The C-level workhorse for partial matching is provided by @code{psmatch}.
-@eapifun psmatch
+The C functions @code{Rf_match} and @code{Rf_pmatch} correspond to the @R{}
+functions of the same base name.
+@eapifun Rf_match
+@eapifun Rf_pmatch
+The C-level workhorse for partial matching is provided by @code{Rf_psmatch}.
+@eapifun Rf_psmatch
 
-The C functions @code{R_forceAndCall} and @code{isUnsorted} correspond
+The C functions @code{R_forceAndCall} and @code{Rf_isUnsorted} correspond
 to the @R{} functions @code{forceAndCall} and @code{is.unsorted}.
 @eapifun R_forceAndCall
-@eapifun isUnsorted
+@eapifun Rf_isUnsorted
 
 
 @node Named objects and copying
@@ -13345,11 +13358,11 @@ assignments @code{y} and @code{x} are bound to the same @code{SEXPREC}
 alters one of them has to make a copy before modifying the copy if the
 usual @R{} semantics are to apply.  Note that whereas @code{.C} and
 @code{.Fortran} do copy their arguments, @code{.Call} and
-@code{.External} do not.  So @code{duplicate} is commonly called on
+@code{.External} do not.  So @code{Rf_duplicate} is commonly called on
 arguments to @code{.Call} before modifying them. If only the top level
-is modified it may suffice to call @code{shallow_duplicate}.
-@apifun duplicate
-@apifun shallow_duplicate
+is modified it may suffice to call @code{Rf_shallow_duplicate}.
+@apifun Rf_duplicate
+@apifun Rf_shallow_duplicate
 
 @comment FIXME need a separate section on attributes
 At times it may be necessary to copy attributes from one object to
@@ -13469,10 +13482,10 @@ SEXP convolve2(SEXP a, SEXP b)
     double *xa, *xb, *xab;
     SEXP ab;
 
-    a = PROTECT(coerceVector(a, REALSXP));
-    b = PROTECT(coerceVector(b, REALSXP));
-    na = length(a); nb = length(b); nab = na + nb - 1;
-    ab = PROTECT(allocVector(REALSXP, nab));
+    a = PROTECT(Rf_coerceVector(a, REALSXP));
+    b = PROTECT(Rf_coerceVector(b, REALSXP));
+    na = Rf_length(a); nb = Rf_length(b); nab = na + nb - 1;
+    ab = PROTECT(Rf_allocVector(REALSXP, nab));
     xa = REAL(a); xb = REAL(b); xab = REAL(ab);
     for(int i = 0; i < nab; i++) xab[i] = 0.0;
     for(int i = 0; i < na; i++)
@@ -13511,8 +13524,8 @@ SEXP convolveE(SEXP args)
     double *xa, *xb, *xab;
     SEXP a, b, ab;
 
-    a = PROTECT(coerceVector(CADR(args), REALSXP));
-    b = PROTECT(coerceVector(CADDR(args), REALSXP));
+    a = PROTECT(Rf_coerceVector(CADR(args), REALSXP));
+    b = PROTECT(Rf_coerceVector(CADDR(args), REALSXP));
     ...
 @}
 @end group
@@ -13538,7 +13551,7 @@ of the interface they are objects that are already in use.  The macros
 @apifun CAD5R
 
 @noindent
-provide convenient ways to access the first four arguments.  More
+provide convenient ways to access the first five arguments.  More
 generally we can use the
 @apifun CAR
 @apifun CDR
@@ -13571,7 +13584,7 @@ SEXP showArgs(SEXP args)
     args = CDR(args); /* skip 'name' */
     for(int i = 0; args != R_NilValue; i++, args = CDR(args)) @{
         const char *name =
-            isNull(TAG(args)) ? "" : translateChar(PRINTNAME(TAG(args)));
+            Rf_isNull(TAG(args)) ? "" : Rf_translateChar(PRINTNAME(TAG(args)));
         SEXP el = CAR(args);
         if (length(el) == 0) @{
             Rprintf("[%d] '%s' R type, length 0\n", i+1, name);
@@ -13601,7 +13614,7 @@ SEXP showArgs(SEXP args)
 @group
         case STRSXP:
             Rprintf("[%d] '%s' %s\n", i+1, name,
-                   translateChar(STRING_ELT(el, 0)));
+                   Rf_translateChar(STRING_ELT(el, 0)));
            break;
 @end group
 @group
@@ -13707,16 +13720,16 @@ used to set @code{double}s to the special values.
 The main function we will use is
 
 @example
-SEXP eval(SEXP expr, SEXP rho);
+SEXP Rf_eval(SEXP expr, SEXP rho);
 @end example
-@apifun eval
+@apifun Rf_eval
 
 @noindent
 the equivalent of the interpreted @R{} code @code{eval(expr, envir =
 rho)} (so @code{rho} must be an environment), although we can also make
-use of @code{findVar}, @code{defineVar} and @code{findFun} (which
+use of @code{Rf_findVar}, @code{Rf_defineVar} and @code{Rf_findFun} (which
 restricts the search to functions).
-@apifun findFun
+@apifun Rf_findFun
 
 To see how this might be applied, here is a simplified internal version
 of @code{lapply} for expressions, used as
@@ -13735,17 +13748,17 @@ with C code
 @group
 SEXP lapply(SEXP list, SEXP expr, SEXP rho)
 @{
-    int n = length(list);
+    int n = Rf_length(list);
     SEXP ans;
 
-    if(!isNewList(list)) error("'list' must be a list");
-    if(!isEnvironment(rho)) error("'rho' should be an environment");
-    ans = PROTECT(allocVector(VECSXP, n));
+    if(!Rf_isNewList(list)) Rf_error("'list' must be a list");
+    if(!Rf_isEnvironment(rho)) Rf_error("'rho' should be an environment");
+    ans = PROTECT(Rf_allocVector(VECSXP, n));
     for(int i = 0; i < n; i++) @{
-        defineVar(install("x"), VECTOR_ELT(list, i), rho);
-        SET_VECTOR_ELT(ans, i, eval(expr, rho));
+        Rf_defineVar(Rf_install("x"), VECTOR_ELT(list, i), rho);
+        SET_VECTOR_ELT(ans, i, Rf_eval(expr, rho));
     @}
-    setAttrib(ans, R_NamesSymbol, getAttrib(list, R_NamesSymbol));
+    Rf_setAttrib(ans, R_NamesSymbol, Rf_getAttrib(list, R_NamesSymbol));
     UNPROTECT(1);
     return ans;
 @}
@@ -13765,16 +13778,16 @@ SEXP lapply2(SEXP list, SEXP fn, SEXP rho)
     int n = length(list);
     SEXP R_fcall, ans;
 
-    if(!isNewList(list)) error("'list' must be a list");
-    if(!isFunction(fn)) error("'fn' must be a function");
-    if(!isEnvironment(rho)) error("'rho' should be an environment");
-    R_fcall = PROTECT(lang2(fn, R_NilValue));
-    ans = PROTECT(allocVector(VECSXP, n));
+    if(!Rf_isNewList(list)) Rf_error("'list' must be a list");
+    if(!Rf_isFunction(fn)) Rf_error("'fn' must be a function");
+    if(!Rf_isEnvironment(rho)) Rf_error("'rho' should be an environment");
+    R_fcall = PROTECT(Rf_lang2(fn, R_NilValue));
+    ans = PROTECT(Rf_allocVector(VECSXP, n));
     for(int i = 0; i < n; i++) @{
         SETCADR(R_fcall, VECTOR_ELT(list, i));
-        SET_VECTOR_ELT(ans, i, eval(R_fcall, rho));
+        SET_VECTOR_ELT(ans, i, Rf_eval(R_fcall, rho));
     @}
-    setAttrib(ans, R_NamesSymbol, getAttrib(list, R_NamesSymbol));
+    Rf_setAttrib(ans, R_NamesSymbol, Rf_getAttrib(list, R_NamesSymbol));
     UNPROTECT(2);
     return ans;
 @}
@@ -13789,7 +13802,7 @@ used by
 @end example
 
 @noindent
-Function @code{lang2} creates an executable pairlist of two elements, but
+Function @code{Rf_lang2} creates an executable pairlist of two elements, but
 this will only be clear to those with a knowledge of a LISP-like
 language.
 
@@ -13799,23 +13812,23 @@ the definition of @code{do_docall} in @file{src/main/coerce.c}.
 
 @example
     SEXP s, t;
-    t = s = PROTECT(allocLang(3));
-    SETCAR(t, install("print")); t = CDR(t);
+    t = s = PROTECT(RF_allocLang(3));
+    SETCAR(t, Rf_install("print")); t = CDR(t);
     SETCAR(t,  CAR(a)); t = CDR(t);
-    SETCAR(t, ScalarInteger(digits));
-    SET_TAG(t, install("digits"));
-    eval(s, env);
+    SETCAR(t, Rf_ScalarInteger(digits));
+    SET_TAG(t, Rf_install("digits"));
+    Rf_eval(s, env);
     UNPROTECT(1);
 @end example
-@apifun allocLang
+@apifun Rf_allocLang
 @apifun SET_TAG
-The function @code{allocLang} is available as of @R{} 4.4.1; for older
-versions replace @code{allocLang(3)} with
+The function @code{Rf_allocLang} is available as of @R{} 4.4.1; for older
+versions replace @code{Rf_allocLang(3)} with
 @example
-LCONS(R_NilValue, allocList(2))
+LCONS(R_NilValue, Rf_allocList(2))
 @end example
 @apifun LCONS
-@apifun allocList
+@apifun Rf_allocList
 
 @noindent
 At this point @code{CAR(a)} is the @R{} object to be printed, the
@@ -13870,7 +13883,7 @@ The C code is
 SEXP mkans(double x)
 @{
     // no need for PROTECT() here, as REAL(.) does not allocate:
-    SEXP ans = allocVector(REALSXP, 1);
+    SEXP ans = Rf_allocVector(REALSXP, 1);
     REAL(ans)[0] = x;
     return ans;
 @}
@@ -13881,11 +13894,11 @@ double feval(double x, SEXP f, SEXP rho)
 @{
     // a version with (too) much PROTECT()ion .. "better safe than sorry"
     SEXP symbol, value;
-    PROTECT(symbol = install("x"));
+    PROTECT(symbol = Rf_install("x"));
     PROTECT(value = mkans(x));
-    defineVar(symbol, value, rho);
+    Rf_defineVar(symbol, value, rho);
     UNPROTECT(2);
-    return(REAL(eval(f, rho))[0]);
+    return(REAL(Rf_eval(f, rho))[0]);
 @}
 @end group
 
@@ -13898,7 +13911,7 @@ SEXP zero(SEXP f, SEXP guesses, SEXP stol, SEXP rho)
 @end group
 
 @group
-    if(tol <= 0.0) error("non-positive tol value");
+    if(tol <= 0.0) Rf_error("non-positive tol value");
     f0 = feval(x0, f, rho); f1 = feval(x1, f, rho);
     if(f0 == 0.0) return mkans(x0);
     if(f1 == 0.0) return mkans(x1);
@@ -13995,28 +14008,28 @@ SEXP numeric_deriv(SEXP args)
 
 @group
     expr = CADR(args);
-    if(!isString(theta = CADDR(args)))
-        error("theta should be of type character");
-    if(!isEnvironment(rho = CADDDR(args)))
-        error("rho should be an environment");
+    if(!Rf_isString(theta = CADDR(args)))
+        Rf_error("theta should be of type character");
+    if(!Rf_isEnvironment(rho = CADDDR(args)))
+        Rf_error("rho should be an environment");
 @end group
 
 @group
-    ans = PROTECT(coerceVector(eval(expr, rho), REALSXP));
-    gradient = PROTECT(allocMatrix(REALSXP, LENGTH(ans), LENGTH(theta)));
+    ans = PROTECT(Rf_coerceVector(eval(expr, rho), REALSXP));
+    gradient = PROTECT(Rf_allocMatrix(REALSXP, LENGTH(ans), LENGTH(theta)));
     rgr = REAL(gradient); rans = REAL(ans);
 @end group
 @apifun LENGTH
-@apifun length
+@apifun Rf_length
 
 @group
     for(i = 0, start = 0; i < LENGTH(theta); i++, start += LENGTH(ans)) @{
-        par = PROTECT(findVar(installChar(STRING_ELT(theta, i)), rho));
+        par = PROTECT(Rf_findVar(Rf_installChar(STRING_ELT(theta, i)), rho));
         tt = REAL(par)[0];
         xx = fabs(tt);
         delta = (xx < 1) ? eps : xx*eps;
         REAL(par)[0] += delta;
-        ans1 = PROTECT(coerceVector(eval(expr, rho), REALSXP));
+        ans1 = PROTECT(Rf_coerceVector(Rf_eval(expr, rho), REALSXP));
         for(int j = 0; j < LENGTH(ans); j++)
             rgr[j + start] = (REAL(ans1)[j] - rans[j])/delta;
         REAL(par)[0] = tt;
@@ -14025,10 +14038,10 @@ SEXP numeric_deriv(SEXP args)
 @end group
 
 @group
-    dimnames = PROTECT(allocVector(VECSXP, 2));
+    dimnames = PROTECT(Rf_allocVector(VECSXP, 2));
     SET_VECTOR_ELT(dimnames, 1,  theta);
-    dimnamesgets(gradient, dimnames);
-    setAttrib(ans, install("gradient"), gradient);
+    Rf_dimnamesgets(gradient, dimnames);
+    Rf_setAttrib(ans, Rf_install("gradient"), gradient);
     UNPROTECT(3); /* ans  gradient  dimnames */
     return ans;
 @}
@@ -14040,10 +14053,10 @@ The code to handle the arguments is
 @example
 @group
     expr = CADR(args);
-    if(!isString(theta = CADDR(args)))
-        error("theta should be of type character");
-    if(!isEnvironment(rho = CADDDR(args)))
-        error("rho should be an environment");
+    if(!Rf_isString(theta = CADDR(args)))
+        Rf_error("theta should be of type character");
+    if(!Rf_isEnvironment(rho = CADDDR(args)))
+        Rf_error("rho should be an environment");
 @end group
 @end example
 
@@ -14058,28 +14071,28 @@ The first step in the code is to evaluate the expression in the
 environment @code{rho}, by
 
 @example
-    ans = PROTECT(coerceVector(eval(expr, rho), REALSXP));
+    ans = PROTECT(Rf_coerceVector(eval(expr, rho), REALSXP));
 @end example
 
 @noindent
 We then allocate space for the calculated derivative by
 
 @example
-    gradient = PROTECT(allocMatrix(REALSXP, LENGTH(ans), LENGTH(theta)));
+    gradient = PROTECT(Rf_allocMatrix(REALSXP, LENGTH(ans), LENGTH(theta)));
 @end example
 
 @noindent
-The first argument to @code{allocMatrix} gives the @code{SEXPTYPE} of
+The first argument to @code{Rf_allocMatrix} gives the @code{SEXPTYPE} of
 the matrix: here we want it to be @code{REALSXP}.  The other two
 arguments are the numbers of rows and columns.  (Note that @code{LENGTH}
-is intended to be used for vectors: @code{length} is more generally
+is intended to be used for vectors: @code{Rf_length} is more generally
 applicable.)
-@apifun allocMatrix
+@apifun Rf_allocMatrix
 
 @example
 @group
     for(i = 0, start = 0; i < LENGTH(theta); i++, start += LENGTH(ans)) @{
-        par = PROTECT(findVar(installChar(STRING_ELT(theta, i)), rho));
+        par = PROTECT(Rf_findVar(Rf_installChar(STRING_ELT(theta, i)), rho));
 @end group
 @end example
 
@@ -14089,7 +14102,7 @@ variables.  In the @code{for} loop, we first create a symbol
 corresponding to the @I{@code{i}-th} element of the @code{STRSXP}
 @code{theta}.  Here, @code{STRING_ELT(theta, i)} accesses the
 @I{@code{i}-th} element of the @code{STRSXP} @code{theta}.
-@code{installChar()} installs the element as a name and @code{findVar}
+@code{installChar()} installs the element as a name and @code{Rf_findVar}
 finds its value.
 @apifun CHAR
 @comment FIXME in packages CHAR is remapped to R_CHAR; menion that here?
@@ -14101,7 +14114,7 @@ finds its value.
         xx = fabs(tt);
         delta = (xx < 1) ? eps : xx*eps;
         REAL(par)[0] += delta;
-        ans1 = PROTECT(coerceVector(eval(expr, rho), REALSXP));
+        ans1 = PROTECT(Rf_coerceVector(eval(expr, rho), REALSXP));
 @end group
 @end example
 
@@ -14130,10 +14143,10 @@ it is accessed: @R{} stores matrices by column (like Fortran).
 
 @example
 @group
-    dimnames = PROTECT(allocVector(VECSXP, 2));
+    dimnames = PROTECT(Rf_allocVector(VECSXP, 2));
     SET_VECTOR_ELT(dimnames, 1, theta);
-    dimnamesgets(gradient, dimnames);
-    setAttrib(ans, install("gradient"), gradient);
+    Rf_dimnamesgets(gradient, dimnames);
+    Rf_setAttrib(ans, install("gradient"), gradient);
     UNPROTECT(3);
     return ans;
 @}
@@ -14177,16 +14190,16 @@ SEXP menu_ttest3()
     ParseStatus status;
    ...
     if(done == 1) @{
-        cmdSexp = PROTECT(allocVector(STRSXP, 1));
-        SET_STRING_ELT(cmdSexp, 0, mkChar(cmd));
+        cmdSexp = PROTECT(Rf_allocVector(STRSXP, 1));
+        SET_STRING_ELT(cmdSexp, 0, Rf_mkChar(cmd));
         cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
         if (status != PARSE_OK) @{
             UNPROTECT(2);
-            error("invalid call %s", cmd);
+            Rf_error("invalid call %s", cmd);
         @}
         /* Loop is needed here as EXPSEXP will be of length > 1 */
-        for(int i = 0; i < length(cmdexpr); i++)
-            ans = eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
+        for(int i = 0; i < Rf_length(cmdexpr); i++)
+            ans = Rf_eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
         UNPROTECT(2);
     @}
     return ans;
@@ -14418,7 +14431,7 @@ A toy example of the use of weak references can be found at
 @uref{https://homepage.stat.uiowa.edu/~luke/R/references/weakfinex.html},
 but that is used to add finalizers to external pointers which can now be
 done more directly.  At the time of writing no @acronym{CRAN} or
-Bioconductor package uses weak references.
+Bioconductor package used weak references.
 
 
 @c 1-item menu: kept to avoid spurious warning from makeinfo 6.8/7.0
@@ -14440,16 +14453,16 @@ is created by
 
 @example
     SEXP ans, ptr;
-    ans = PROTECT(allocVector(INTSXP, 1));
-    ptr = R_MakeExternalPtr(thisHandle, install("RODBC_channel"), R_NilValue);
+    ans = PROTECT(Rf_allocVector(INTSXP, 1));
+    ptr = R_MakeExternalPtr(thisHandle, Rf_install("RODBC_channel"), R_NilValue);
     PROTECT(ptr);
     R_RegisterCFinalizerEx(ptr, chanFinalizer, TRUE);
             ...
     /* return the channel no */
     INTEGER(ans)[0] = nChannels;
     /* and the connection string as an attribute */
-    setAttrib(ans, install("connection.string"), constr);
-    setAttrib(ans, install("handle_ptr"), ptr);
+    Rf_setAttrib(ans, Rf_install("connection.string"), constr);
+    Rf_setAttrib(ans, Rf_install("handle_ptr"), ptr);
     UNPROTECT(3);
     return ans;
 @end example
@@ -14497,7 +14510,7 @@ are functions.)
 @apifun RAW
 @apifun COMPLEX
 There are also read-only versions that return a @code{const} data pointer.
-For example, the return type of @code{REAL_RO} is @code{const double *}
+For example, the return type of @code{REAL_RO} is @code{const double *}.
 @apifun REAL_RO
 @apifun INTEGER_RO
 @apifun LOGICAL_RO
@@ -14538,38 +14551,38 @@ have to fully materialize the object.
 @node Character encoding issues
 @section Character encoding issues
 
-@apifun translateChar
-@apifun translateCharUTF8
+@apifun Rf_translateChar
+@apifun Rf_translateCharUTF8
 @code{CHARSXP}s can be marked as coming from a known encoding (Latin-1
 or UTF-8).  This is mainly intended for human-readable output, and most
 packages can just treat such @code{CHARSXP}s as a whole.  However, if
 they need to be interpreted as characters or output at C level then it
 would normally be correct to ensure that they are converted to the
 encoding of the current locale: this can be done by accessing the data
-in the @code{CHARSXP} by @code{translateChar} rather than by
+in the @code{CHARSXP} by @code{Rf_translateChar} rather than by
 @code{CHAR}.  If re-encoding is needed this allocates memory with
 @code{R_alloc} which thus persists to the end of the
 @code{.Call}/@code{.External} call unless @code{vmaxset} is used
 (@pxref{Transient storage allocation}).
 
-There is a similar function @code{translateCharUTF8} which converts to
+There is a similar function @code{Rf_translateCharUTF8} which converts to
 UTF-8: this has the advantage that a faithful translation is almost
 always possible (whereas only a few languages can be represented in the
 encoding of the current locale unless that is UTF-8).
 
-Both @code{translateChar} and @code{translateCharUTF8} will translate
+Both @code{Rf_translateChar} and @code{Rf_translateCharUTF8} will translate
 any input, using escapes such as @samp{<A9>} and @samp{<U+0093>} to
 represent untranslatable parts of the input.
 
-@apifun getCharCE
-@apifun mkCharCE
+@apifun Rf_getCharCE
+@apifun Rf_mkCharCE
 There is a public interface to the encoding marked on @code{CHARSXPs}
 @emph{via}
 
 @example
 typedef enum @{CE_NATIVE, CE_UTF8, CE_LATIN1, CE_BYTES, CE_SYMBOL, CE_ANY@} cetype_t;
-cetype_t getCharCE(SEXP);
-SEXP mkCharCE(const char *, cetype_t);
+cetype_t Rf_getCharCE(SEXP);
+SEXP Rf_mkCharCE(const char *, cetype_t);
 @end example
 
 @noindent
@@ -14583,13 +14596,13 @@ used to indicate a character string that will not need re-encoding --
 this is used for character strings known to be in @acronym{ASCII}, and
 can also be used as an input parameter where the intention is that the
 string is treated as a series of bytes.  (See the comments under
-@code{mkChar} about the length of input allowed.)
+@code{Rf_mkChar} about the length of input allowed.)
 
 Function
 
-@eapifun charIsASCII
+@eapifun Rf_charIsASCII
 @example
-Rboolean charIsASCII(SEXP);
+Rboolean Rf_charIsASCII(SEXP);
 @end example
 
 @noindent
@@ -14599,43 +14612,43 @@ but may be faster.
 
 Function
 
-@eapifun charIsUTF8
+@eapifun Rf_charIsUTF8
 @example
-Rboolean charIsUTF8(SEXP);
+Rboolean Rf_charIsUTF8(SEXP);
 @end example
 
 @noindent
 can be used to detect whether the internal representation of a given
 @code{CHARSXP} accessed via @code{CHAR} is UTF-8 (including ASCII).  This
 function is rarely needed and specifically is not needed with
-@code{translateCharUTF8}, because such check is already included.  However,
-when needed, it is better to use it in preference of @code{getCharCE}, as it
+@code{Rf_translateCharUTF8}, because such check is already included.  However,
+when needed, it is better to use it in preference of @code{Rf_getCharCE}, as it
 is safer against future changes in the semantics of encoding marks and
 covers strings internally represented in the native encoding.  Note
 that @code{charIsUTF8()} is not equivalent to @code{getCharCE() == CE_UTF8}.
 
 Similarly, function
 
-@eapifun charIsLatin1
+@eapifun Rf_charIsLatin1
 @example
-Rboolean charIsLatin1(SEXP);
+Rboolean Rf_charIsLatin1(SEXP);
 @end example
 
 @noindent
 can be used to detect whether the internal representation of a given
 @code{CHARSXP} accessed via @code{CHAR} is latin1 (including ASCII).  It is
-not equivalent to @code{getCharCE() == CE_LATIN1}.
+not equivalent to @code{Rf_getCharCE() == CE_LATIN1}.
 
 Function
 
-@apifun reEnc
+@apifun Rf_reEnc
 @example
-const char *reEnc(const char *x, cetype_t ce_in, cetype_t ce_out,
-                  int subst);
+const char *Rf_reEnc(const char *x, cetype_t ce_in, cetype_t ce_out,
+                     int subst);
 @end example
 
 @noindent
-can be used to re-encode character strings: like @code{translateChar} it
+can be used to re-encode character strings: like @code{Rf_translateChar} it
 returns a string allocated by @code{R_alloc}.  This can translate from
 @code{CE_SYMBOL} to @code{CE_UTF8}, but not conversely.  Argument
 @code{subst} controls what to do with untranslatable characters or
@@ -14643,11 +14656,11 @@ invalid input: this is done byte-by-byte with @code{1} indicates to
 output hex of the form @code{<a0>}, and @code{2} to replace by @code{.},
 with any other value causing the byte to produce no output.
 
-@apifun mkCharLenCE
+@apifun Rf_mkCharLenCE
 There is also
 
 @example
-SEXP mkCharLenCE(const char *, int, cetype_t);
+SEXP Rf_mkCharLenCE(const char *, int, cetype_t);
 @end example
 
 @noindent
@@ -14751,7 +14764,7 @@ These functions return one of @code{SORTED_DECR}, @code{SORTED_INCR}, or
 @chapter The R @acronym{API}: entry points for C code
 
 There are a large number of entry points in the @R{} executable/DLL that
-can be called from C code (and some that can be called from Fortran
+can be called from C code (and a few that can be called from Fortran
 code).  Only those documented here are stable enough that they will only
 be changed with considerable notice.
 
@@ -14782,7 +14795,8 @@ header files when using these entry points.
 This remapping can cause problems@footnote{Known problems have been
 defining @code{LENGTH}, @code{error}, @code{length}, @code{match},
 @code{vector} and @code{warning}: whether these matter depends on the OS
-and toolchain, with many problem reports involving @command{clang++}.},
+and toolchain, with many problem reports involving Apple or LLVM
+@command{clang++}.},
 @c As from @I{LLVM} @command{clang} 13.0.0, the remapping of @code{match}
 @c breaks the subsequent inclusion of @file{omp.h}.
 and can be eliminated by defining @code{R_NO_REMAP} (before including
@@ -14797,6 +14811,16 @@ define @code{R_NO_REMAP} with or without including @file{Rinternals.h}.)
 
 As from @R{} 4.5.0, @code{R_NO_REMAP} is always defined when the @R{}
 headers are included from C++ code.
+
+If you decide to define  @code{R_NO_REMAP} in your code, do use
+something like
+@example
+#ifndef R_NO_REMAP
+# define R_NO_REMAP
+#endif
+@end example
+@noindent
+to avoid distracting compiler warnings.
 
 Some of these entry points are declared in header @file{Rmath.h}, most
 of which are remapped there.  That remapping can be eliminated by
@@ -14857,7 +14881,8 @@ identified in the source for this document with @code{@@apifun},
 @code{@@eapifun}, and @code{@@embfun} entries. Similarly,
 @code{@@apivar}, @code{@@eapivar}, and @code{@@embvar} identify
 variables, and @code{@@apihdr}, @code{@@eapihdr}, and @code{@@embhdr}
-identify headers in the API. This could be used for programmatic
+identify headers in the API.  @code{@@forfun} identifies entry points to
+be called as Fortran subroutines.  This could be used for programmatic
 extraction, but the specific format is work in progress and even the way
 this document is produced is subject to change.
 
@@ -14882,8 +14907,9 @@ included by @file{R.h}.
 @apifun S_realloc
 @apifun vmaxget
 @apifun vmaxset
-@apifun nrows
-@apifun ncols
+@apifun Rf_nrows
+@apifun Rf_ncols
+@c vmaxget and vmaxset are unmapped
 
 Here @R{} will reclaim the memory at the end of the call to @code{.C},
 @code{.Call} or @code{.External}.  Use
@@ -14984,8 +15010,8 @@ void R_Free(@var{any} *@var{p})
 providing analogues of @code{calloc}, @code{realloc} and @code{free}.
 If there is an error during allocation it is handled by @R{}, so if
 these return the memory has been successfully allocated or freed.
-@code{R_Free} will set the pointer @var{p} to @code{NULL}.  (Some but not
-all versions of @Sl{} did so.)
+@code{R_Free} will set the pointer @var{p} to @code{NULL}.
+@c (Some but not all versions of @Sl{} did so.)
 
 Users should arrange to @code{R_Free} this memory when no longer needed,
 including on error or user interrupt.  This can often be done most
@@ -15000,9 +15026,9 @@ the case on Windows prior to @R{} 4.2.0.} in particular do not use
 Memory obtained by these macros should be aligned in the same way as
 @code{malloc}, that is `suitably aligned for any kind of variable'.
 
-@apifun Calloc
-@apifun Realloc
-@apifun Free
+@c @apifun Calloc
+@c @apifun Realloc
+@c @apifun Free
 @c The R_ forms were introduced in 2016-09, hence for R 3.4.0
 Historically the macros @code{Calloc}, @code{Free} and @code{Realloc}
 were used but have been removed in \R 4.5.0.
@@ -15041,18 +15067,18 @@ The basic error signaling routines are the equivalents of @code{stop} and
 
 @example
 @group
-void error(const char * @var{format}, ...);
-void warning(const char * @var{format}, ...);
-void errorcall(SEXP @var{call}, const char * @var{format}, ...);
-void warningcall(SEXP @var{call}, const char * @var{format}, ...);
-void warningcall_immediate(SEXP @var{call}, const char * @var{format}, ...);
+void Rf_error(const char * @var{format}, ...);
+void Rf_warning(const char * @var{format}, ...);
+void Rf_errorcall(SEXP @var{call}, const char * @var{format}, ...);
+void Rf_warningcall(SEXP @var{call}, const char * @var{format}, ...);
+void Rf_warningcall_immediate(SEXP @var{call}, const char * @var{format}, ...);
 @end group
 @end example
-@apifun error
-@apifun warning
-@apifun errorcall
-@apifun warningcall
-@apifun warningcall_immediate
+@apifun Rf_error
+@apifun Rf_warning
+@apifun Rf_errorcall
+@apifun Rf_warningcall
+@apifun Rf_warningcall_immediate
 
 @noindent
 These have the same call sequences as calls to @code{printf}, but in the
@@ -15061,7 +15087,7 @@ giving the error message. (Don't do this if the string contains @samp{%}
 or might otherwise be interpreted as a format.)
 
 These are defined in header @file{R_ext/Error.h} included by @file{R.h}.
-@strong{NB}: when @code{R_NO_REMAP} is defined (as is recommended for
+@strong{NB}: when @code{R_NO_REMAP} is defined (as is done for
 C++ code), @code{Rf_error} etc must be used.
 
 
@@ -15084,8 +15110,8 @@ subroutine rexit(@var{message})
 subroutine rwarn(@var{message})
 @end group
 @end example
-@apifun rexit
-@apifun rwarn
+@forfun rexit
+@forfun rwarn
 
 Messages of more than 255 characters are truncated, with a warning.
 
@@ -15113,7 +15139,7 @@ double exp_rand();
 double R_unif_index(double);
 @end group
 @end example
-
+@c These are never remapped
 @noindent
 giving one uniform, normal or exponential pseudo-random variate.
 However, before these are used, the user must call
@@ -15133,11 +15159,13 @@ PutRNGstate();
 These essentially read in (or create) @code{.Random.seed} and write it
 out after use.
 
-These are defined in header @file{R_ext/Random.h}.
+These are defined in header @file{R_ext/Random.h}. These functiosns are
+never remapped.
+
 
 The random number generator is private to @R{}; there is no way to
-select the kind of RNG nor set the seed except by evaluating calls to the
-@R{} functions.
+select the kind of RNG nor set the seed except by evaluating calls to
+the @R{} functions which do so.
 
 The C code behind @R{}'s @code{r@var{xxx}} functions can be accessed by
 including the header file @file{Rmath.h}; @xref{Distribution functions}.
@@ -15155,7 +15183,7 @@ Those calls should also be preceded and followed by calls to
 
 It was explained earlier that Fortran random-number generators should
 not be used in @R{} packages, not least as packages cannot safely
-initialize them.  Rather a package should call @R{}'s built in
+initialize them.  Rather a package should call @R{}'s built-in
 generators: one way to do so is to use C wrappers like
 @example
 #include <R_ext/RS.h>
@@ -15244,7 +15272,7 @@ some platforms, on which @code{R_FINITE} is a macro expanding to
 @code{isfinite}.
 
 Currently in C code @code{ISNAN} is a macro calling @code{isnan}.
-(Since this gives problems on some C++ systems, if the @R{} headers is
+(Since this gives problems on some C++ systems, if the @R{} headers are
 called from C++ code a function call is used.)
 
 You can check for @code{Inf} or @code{-Inf} by testing equality to
@@ -15306,9 +15334,9 @@ avoided.
 Some subroutines are provided to ease the output of information from
 Fortran code.
 
-@apifun dblepr
-@apifun realpr
-@apifun intpr
+@forfun dblepr
+@forfun realpr
+@forfun intpr
 @example
 @group
 subroutine dblepr(@var{label}, @var{nchar}, @var{data}, @var{ndata})
@@ -15319,10 +15347,10 @@ subroutine intpr (@var{label}, @var{nchar}, @var{data}, @var{ndata})
 
 @noindent
 and from @R{}@tie{}4.0.0,
-@apifun labelpr
-@apifun dblepr1
-@apifun realpr1
-@apifun intpr1
+@forfun labelpr
+@forfun dblepr1
+@forfun realpr1
+@forfun intpr1
 @example
 @group
 subroutine labelpr(@var{label}, @var{nchar})
@@ -15433,6 +15461,7 @@ vsom.f90:20:33: note: type mismatch in parameter 9
    subroutine vsom(neurons,dt,dtrows,dtcols,xdim,ydim,alpha,train)
 vsom.f90:20:33: note: 'vsom' was previously declared here
 @end example
+@noindent
 shows that a subroutine has been registered with 9 arguments (as that is
 what the @code{.Fortran} call used) but only has 8.
 
@@ -15608,7 +15637,7 @@ the character length(s) from C to Fortran. A portable way to do this is
 (Note there is no comma before or between the @code{FCONE} invocations.)
 It is strongly recommended that packages which call from C/C++
 BLAS/LAPACK routines with character arguments adopt this approach:
-packages not using will fail to install as from @R{} 4.3.0.
+packages not using it will fail to install as from @R{} 4.3.0.
 
 @node Fortran LOGICAL
 @subsection Fortran LOGICAL
@@ -15681,6 +15710,9 @@ available and documented in the following subsections. Many of these are
 C interfaces to the code behind @R{} functions, so the @R{} function
 documentation may give further details.
 @apihdr Rmath.h
+
+If @code{R_NO_REMAP_RMATH} most of these will need to be prefixed by
+@code{Rf_}: see the header file for which ones.
 
 
 @node Distribution functions
@@ -15789,7 +15821,7 @@ functions available, and none of the non-central distributions have
 
 Additionally, a @emph{multivariate} RNG for the multinomial distribution is
 @example
-void rmultinom(int n, double* prob, int K, int* rN)
+void Rf_rmultinom(int n, double* prob, int K, int* rN)
 @end example
 @noindent
 where @code{K = length(prob)},
@@ -15809,11 +15841,13 @@ constrained to @eqn{\sum_{j=1}^K n_j = n, sum(rN[.]) == n}.
 After calls to @code{dwilcox}, @code{pwilcox} or @code{qwilcox} the
 function @code{wilcox_free()} should be called, and similarly
 @code{signrank_free()} for the signed rank functions.
-@apifun dwilcox
-@apifun pwilcox
-@apifun qwilcox
+@c should index all or none of the [dpqr] functions.
+@c @apifun dwilcox
+@c @apifun pwilcox
+@c @apifun qwilcox
 @apifun wilcox_free
 @apifun signrank_free
+@c wilcox_free and signrank_free are never remapped.
 Since @code{wilcox_free()} and @code{signrank_free()} were only added to
 @file{Rmath.h} in @R{}@tie{} 4.2.0, their use requires something like
 @example
@@ -15985,6 +16019,7 @@ Computes @code{log(gamma(@var{x} + 1))} (@emph{log(gamma(1 @I{@b{p}lus} x))}),
 accurately even for small @var{x}, i.e., @eqn{0 < x < 0.5, 0 < x < 0.5}.
 @end deftypefun
 
+@c cospi sinpi tanpi are never remapped.
 @apifun cospi
 @deftypefun double cospi (double @var{x})
 Computes @code{cos(pi * x)} (where @code{pi} is 3.14159...),
@@ -16181,7 +16216,9 @@ which passes back the gradient in the @code{gr} argument.  No function
 is provided for finite-differencing, nor for approximating the Hessian
 at the result.
 
+@c None of these are remapped.
 The interfaces (defined in header @file{R_ext/Applic.h}) are
+@c There are never remapped
 
 @itemize @bullet
 @item @I{Nelder Mead}:
@@ -16375,18 +16412,18 @@ the imaginary part.)  @code{NA}s are sorted last.
 permutation to @var{index}.  @code{NA}s are sorted last.
 @end deftypefun
 
-@apifun revsort
-@deftypefun void revsort (double* @var{x}, int* @var{index}, int @var{n})
+@apifun Rf_revsort
+@deftypefun void Rf_revsort (double* @var{x}, int* @var{index}, int @var{n})
 Is similar to @code{rsort_with_index} but sorts into decreasing order,
 and @code{NA}s are not handled.
 @end deftypefun
 
-@apifun iPsort
-@apifun rPsort
-@apifun cPsort
-@deftypefun void iPsort (int* @var{x}, int @var{n}, int @var{k})
-@deftypefunx void rPsort (double* @var{x}, int @var{n}, int @var{k})
-@deftypefunx void cPsort (Rcomplex* @var{x}, int @var{n}, int @var{k})
+@apifun Rf_iPsort
+@apifun Rf_rPsort
+@apifun Rf_cPsort
+@deftypefun void Rf_iPsort (int* @var{x}, int @var{n}, int @var{k})
+@deftypefunx void Rf_rPsort (double* @var{x}, int @var{n}, int @var{k})
+@deftypefunx void Rf_cPsort (Rcomplex* @var{x}, int @var{n}, int @var{k})
 These all provide (very) partial sorting: they permute @var{x} so that
 @code{@var{x}[@var{k}]} is in the correct place with smaller values to
 the left, larger ones to the right.
@@ -16414,8 +16451,8 @@ Note that @code{NA}s are not handled (explicitly) and you should
 use different sorting functions if @code{NA}s can be present.
 @end deftypefun
 
-@apifun qsort4
-@apifun qsort3
+@forfun qsort4
+@forfun qsort3
 @deftypefun subroutine qsort4 (double precision @var{v}, integer @var{indx}, integer @var{ii}, integer @var{jj})
 @deftypefunx subroutine qsort3 (double precision @var{v}, integer @var{ii}, integer @var{jj})
 
@@ -16627,7 +16664,7 @@ NORET void R_ContinueUnwind(SEXP cont);
 @end example
 @apifun R_MakeUnwindCont
 @apifun R_ContinueUnwind
-
+@noindent
 @code{R_MakeUnwindCont} allocates a @emph{continuation token}
 @code{cont} to pass to @code{R_UnwindProtect}. This token should be
 protected with @code{PROTECT} before calling
@@ -16646,7 +16683,7 @@ SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
 		       void (*cleanfun)(void *), void *cleandata);
 @end example
 @apifun R_ExecWithCleanup
-
+@noindent
 @code{cleanfun} is called on both regular returns and non-local
 transfers of control, but without an indication of which form of exit is
 occurring.
@@ -16658,6 +16695,7 @@ interrupts or invoking @code{abort} restarts.
 Rboolean R_ToplevelExec(void (*fun)(void *), void *data);
 @end example
 @apifun R_ToplevelExec
+@noindent
 The return value is @code{TRUE} if @code{fun} returns normally and
 @code{FALSE} if @code{fun} exits with a jump to top level.  @code{fun}
 is called with a new top-level context. Condition handlers and other
@@ -16671,6 +16709,7 @@ SEXP R_tryEvalSilent(SEXP e, SEXP env, int *ErrorOccurred)
 @end example
 @apifun R_tryEvalSilent
 @apifun R_tryEval
+@noindent
 These return a @code{NULL} pointer if evaluating the expression results
 in a jump to top level.
 
@@ -16702,8 +16741,8 @@ and from Fortran
 @example
 subroutine rchkusr()
 @end example
-@apifun rchkusr
-
+@forfun rchkusr
+@noindent
 These check if the user has requested an interrupt, and if so branch to
 @R{}'s error signaling functions.
 
@@ -16724,11 +16763,14 @@ void R_CheckStack2(size_t extra)
 @end example
 @apifun R_CheckStack
 @apifun R_CheckStack2
+@noindent
 These functions signal an error when a low stack condition is detected.
+@code{R_CheckStack2} does so when @code{extra} bytes are more than is
+available on the stack.
 
 This mechanism is not always available (@xref{Threading issues}) and it
 is best to avoid deep recursions in C and to track recursion depth when
-using recursion is not avoidable. C compilers will often optimize tail
+using recursion is unavoidable. C compilers will often optimize tail
 recursions to avoid consuming C stack, so it is best to write code in a
 tail-recursive form when possible.
 
@@ -16749,6 +16791,7 @@ like
 struct R_outpstream_st out;
 struct R_inpstream_st in;
 @end example
+@noindent
 These are filled in by calling these functions with appropriate arguments:
 @example
 void R_InitInPStream(R_inpstream_t stream, R_pstream_data_t data,
@@ -16762,6 +16805,7 @@ void R_InitOutPStream(R_outpstream_t stream, R_pstream_data_t data,
                       void (*outbytes)(R_outpstream_t, void *, int),
                       SEXP (*phook)(SEXP, SEXP), SEXP pdata);
 @end example
+@noindent
 Code should not depend on the fields of the stream structures. Simpler
 initializers are available for serializing to or from a file pointer:
 @example
@@ -16778,6 +16822,7 @@ Once the stream structures are set up they can be used by calling
 void R_Serialize(SEXP s, R_outpstream_t stream)
 SEXP R_Unserialize(R_inpstream_t stream)
 @end example
+@noindent
 Examples can be found in the @R{} sources in @file{src/main/serialize.c}.
 @eapifun R_InitFileOutPStream
 @eapifun R_InitFileInPStream
@@ -16945,7 +16990,7 @@ flags are accepted, not that they actually hide symbols.
 The visibility mechanism is not available on Windows, but there is an
 equally effective way to control which entry points are visible, by
 supplying a definitions file
-@file{@var{pkgnme}/src/@var{pkgname}-win.def}: only entry points
+@file{@var{pkgname}/src/@var{pkgname}-win.def}: only entry points
 listed in that file will be visible.  Again using @pkg{stats} as an
 example, it has
 
@@ -17086,8 +17131,8 @@ use.
 Let us re-iterate the advice to include in C++ code system headers
 before the @R{} header files, especially @file{Rinternals.h} (included
 by @file{Rdefines.h}) and @file{Rmath.h}, which redefine names which may
-be used in system headers, or (preferably and now the default) to define
-@code{R_NO_REMAP}.
+be used in system headers, or (preferably and the default since @R{}
+4.5.0) to define @code{R_NO_REMAP}.
 @c Setting the environment variable @env{_R_CXX_USE_NO_REMAP_} to a true value
 @c allows the need for this to be tested, as it causes @command{R CMD
 @c INSTALL} to compile C++ code defining @code{R_NO_REMAP}.
@@ -17157,12 +17202,12 @@ functions that should be used instead:
       Use @code{charIsASCII}, added in @R{} 4.5.0.
 @item IS_UTF8
       Use @code{charIsUTF8}, added in @R{} 4.5.0, or avoid completely.
-@item allocSExp
+@item Rf_allocSExp
       Use an appropriate constructor.
-@item findVarInFrame3
+@item Rf_findVarInFrame3
       Use @code{R_existsVarInFrame} to test for existence.
-@item findVar
-@itemx findVarInFrame
+@item Rf_findVar
+@itemx Rf_findVarInFrame
        Use @code{R_getVar} or @code{R_getVarEx}, added in @R{} 4.5.0.
        In some cases using @code{eval} may suffice.
 @item ATTRIB
@@ -17185,7 +17230,7 @@ For recently added entry points packages that need to be compiled
 under older versions that do not yet contain these entry points can
 use back-ported versions defined conditionally. @xref{Some backports}.
 
-@comment FIXME: need to figure out about allocSExp(DOTSXP)
+@comment FIXME: need to figure out about Rf_allocSExp(DOTSXP)
 
 @node Creating environments
 @subsection Creating environments
@@ -17194,11 +17239,11 @@ An idiom appearing in a number of packages is to create an environment
 as
 
 @example
-SEXP env = allocSExp(ENVSXP);
+SEXP env = Rf_allocSExp(ENVSXP);
 SET_ENCLOS(env, parent);
 @end example
 
-The function @code{allocSExp} and mutation functions like
+The function @code{Rf_allocSExp} and mutation functions like
 @code{SET_ENCLOS}, @code{SET_FRAME}, and @code{SET_HASHTAB} are not part
 of the API as they expose internal structure that might need to change
 in the future.  A proper constructor function should be used
@@ -17216,7 +17261,7 @@ Another idiom used in some packages is to create a call expression with
 space for two arguments as
 
 @example
-SEXP expr = allocList(3);
+SEXP expr = Rf_allocList(3);
 SET_TYPEOF(expr, "LANGSXP");
 @end example
 
@@ -17229,11 +17274,11 @@ any @R{} version is
 SEXP expr = LCONS(R_NilValue, allocList(2));
 @end example
 
-@R{} 4.4.1 adds the constructor @code{allocLang}, so the expression can be
-created as
+@R{} 4.4.1 added the constructor @code{Rf_allocLang}, so the expression
+can be created as
 
 @example
-SEXP env = allocLang(3);
+SEXP env = Rf_allocLang(3);
 @end example
 
 @node Creating closures
@@ -17268,25 +17313,25 @@ may have to change in the future.
 It can also be replaced by code that checks individual characters (bytes).
 
 Information provided by the other macros is available via function
-@code{getCharCE}, which has been part of the API since @R{} 2.7.0.  Before
-switching to @code{getCharCE}, packages are, however, advised to check
-whether the encoding information is really needed and whether it is used
-correctly.
+@code{Rf_getCharCE}, which has been part of the API since @R{} 2.7.0.
+Before switching to @code{Rf_getCharCE}, packages are, however, advised
+to check whether the encoding information is really needed and whether
+it is used correctly.
 
 Most code should be able to work with complete @code{CHARSXP}s and never look at
 the individual bytes.  When access to characters and bytes (of strings other
-than @code{CE_BYTES}) is needed, one would use @code{translateChar} or
-@code{translateCharUTF8}.  These functions internally already check the
+than @code{CE_BYTES}) is needed, one would use @code{Rf_translateChar} or
+@code{RftranslateCharUTF8}.  These functions internally already check the
 encoding and whether the string is ASCII and only translate when needed,
 which should be rarely since @R{} >= 4.2.0 (UTF-8 is used as native encoding
 on most systems running R).
 
 Several packages use the encoding information to find out whether an
-internal string representation visible via @code{CHAR} is UTF-8 or latin1.
-@R{} 4.5.0 provides functions @code{charIsUTF8} and @code{charIsLatin1} for
-this purpose, which are safer against future changes and handle also native
-strings when running in the corresponding locale.  Note that both will be
-true for ASCII strings.
+internal string representation visible via @code{CHAR} is UTF-8 or
+latin1.  @R{} 4.5.0 provides functions @code{Rf_charIsUTF8} and
+@code{Rf_charIsLatin1} for this purpose, which are safer against future
+changes and handle also native strings when running in the corresponding
+locale.  Note that both will be true for ASCII strings.
 
 A pattern used in several packages is
 @example
@@ -17298,7 +17343,7 @@ char *asutf8(SEXP c)
     return CHAR(s);
 @}
 @end example
-
+@noindent
 to make this code compliant, simply call
 @example
 char *asutf8(SEXP c)
@@ -17306,9 +17351,9 @@ char *asutf8(SEXP c)
   return Rf_translateCharUTF8(s); // compliant
 @}
 @end example
-
+@noindent
 as the encoding flags are already checked in @code{translateCharUTF8}. Also
-note the non-compliant check doesn't handle native encoding.
+note the non-compliant check does not handle native encoding.
 
 @node Working with attributes
 @subsection Working with attributes
@@ -17318,7 +17363,7 @@ as a linked list. It may be useful to change this at some point, so
 external code should not rely on this representation. The low-level
 functions @code{ATTRIB} and @code{SET_ATTRIB} reveal this representation
 and are therefore not part of the API. Individual attributes can be
-accessed and set with @code{getAttrib} and @code{setAttrib}. Attributes
+accessed and set with @code{Rf_getAttrib} and @code{Rf_setAttrib}. Attributes
 can be copied from one object to another with @code{DUPLICATE_ATTRIB}
 and @code{SHALLOW_DUPLICATE_ATTRIB}. The @code{CLEAR_ATTRIB} function
 added in @R{} 4.5.0 can be used to remove all attributes. These
@@ -17331,7 +17376,7 @@ Some additional functions may be added for working with attributes.
 @node Working with variable bindings
 @subsection Working variable bindings
 
-The functions @code{findVar} and @code{findVarInFrame} have been used in
+The functions @code{Rf_findVar} and @code{Rf_findVarInFrame} have been used in
 a number of packages but are too low level to be part of the API. For
 most uses the functions @code{R_getVar} and @code{R_getVarEx} added in
 @R{} 4.5.0 will be sufficient. These are analogous to the R functions
@@ -17351,17 +17396,19 @@ that do not yet contain these entry points.
 
 @example
 #if R_VERSION < R_Version(4, 4, 1)
-SEXP allocLang(int n)
+#define allocLang Rf_allocLang
+
+SEXP Rf_allocLang(int n)
 @{
     if (n > 0)
-	  return LCONS(R_NilValue, allocList(n - 1));
+	  return LCONS(R_NilValue, Rf_allocList(n - 1));
     else
 	  return R_NilValue;
 @}
 #endif
 
 #if R_VERSION < R_Version(4, 5, 0)
-# define isDataFrame(x) isFrame(x)
+# define isDataFrame(x) Rf_isFrame(x)
 # define R_ClosureFormals(x) FORMALS(x)
 # define R_ClosureEnv(x) CLOENV(x)
 # define R_ParentEnv(x) ENCLOS(x)
@@ -17788,7 +17835,7 @@ all: myfe
 myfe.o: myfe.c
         $(CC) $(ALL_CPPFLAGS) $(CFLAGS) -c myfe.c -o $@@
 
-## replace $(LIBR) $(LIBS) by $(STATIC_LIBR) if R was build with a static libR
+## replace $(LIBR) $(LIBS) by $(STATIC_LIBR) if R was built with a static libR
 myfe: myfe.o
         $(MAIN_LINK) -o $@@ myfe.o $(LIBR) $(LIBS)
 @end example
@@ -18436,12 +18483,12 @@ needed -- two ways are provided to allow this:
 for @pkg{tcltk} under Windows, for the code is
 
 @embfun R_ProcessEvents
-@apifun onintr
+@apifun Rf_onintr
 @example
 void R_ProcessEvents(void)
 @{
     while (peekevent()) doevent(); /* Windows events for GraphApp */
-    if (UserBreak) @{ UserBreak = FALSE; onintr(); @}
+    if (UserBreak) @{ UserBreak = FALSE; Rf_onintr(); @}
     R_CallBackHook();
     if(R_tcldo) R_tcldo();
 @}
@@ -18558,6 +18605,16 @@ listed here are intended to be used in distributed packages and ideally
 will only be changed after deprecation.
 
 @printindex ap
+
+
+@node Fortran API index
+@unnumbered Fortran API index
+
+Entry points listed in this index are intended to be used @emph{from
+Fortran code} in distributed packages and ideally will only be changed
+after deprecation.
+
+@printindex for
 
 
 @node Experimental API index
