@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2024-08-29 r87078) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-11-18 r87340) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
@@ -388,18 +388,26 @@ $allowed
 > axisTicks(pu[3:4], log = FALSE, nint = 10)
  [1]   0  10  20  30  40  50  60  70  80  90 100
 > 
-> plot(10*(0:10), log = "y"); (pu <- par("usr"))
+> 
+> ## --------------------  Log Scale  --------------------------------
+> x <- c(10, 1000)
+> #         _____
+> axisTicks(log10(x), log = TRUE) #  10 20 50 .... 1000
+[1]   10   20   50  100  200  500 1000
+> 
+> plot(10*(0:10), log = "y"); (pu <- par("usr")) # ... ...  0.96 2.04
 Warning in xy.coords(x, y, xlabel, ylabel, log) :
   1 y value <= 0 omitted from logarithmic plot
 [1]  0.60 11.40  0.96  2.04
-> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
+> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # 10 20 50 100 (y axis)
 [1]  10  20  50 100
 > 
 > plot(2^(0:9), log = "y"); (pu <- par("usr"))
 [1]  0.6400000 10.3600000 -0.1083708  2.8176408
 > aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
 [1]   1   2   5  10  20  50 100 200 500
-> 
+> ## 'usr' corresponds to log10(<range>) :
+> stopifnot(ya == axisTicks(log10(c(1, 512)), log=TRUE))
 > 
 > 
 > 

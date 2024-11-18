@@ -1,6 +1,6 @@
 % File src/library/grDevices/man/axisTicks.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2011-2020 R Core Team
+% Copyright 2011-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{axisTicks}
@@ -18,7 +18,9 @@ axisTicks(usr, log, axp = NULL, nint = 5)
 }
 \arguments{
   \item{usr}{numeric vector of length 2, with \code{c(min, max)} axis
-    extents.}
+    extents.  Corresponds to traditional \pkg{graphics}'
+    \code{\link[graphics]{par}("usr")}, and hence for \code{log = TRUE}
+    needs to use \code{\link{log10}()} transformed coordinates.}
   \item{log}{logical indicating if a log scale is (thought to be) in
     use.}
   \item{axp}{numeric vector of length 3, \code{c(mi, ma, n.)}, with
@@ -46,7 +48,8 @@ axisTicks(usr, log, axp = NULL, nint = 5)
 }
 \value{
   \code{axisTicks()} returns a numeric vector of potential axis tick
-  locations, of length approximately \code{nint+1}.
+  locations in case of \code{log=TRUE} in the original scale, of length
+  approximately \code{nint+1}.
 
   \code{.axisPars()} returns a \code{\link{list}} with components
   \item{axp}{numeric vector of length 2, \code{c(min., max.)}, of pretty
@@ -73,11 +76,18 @@ aX(2, print(ya <- axisTicks(pu[3:4], log = FALSE)))  # y axis
 
 axisTicks(pu[3:4], log = FALSE, nint = 10)
 
-plot(10*(0:10), log = "y"); (pu <- par("usr"))
-aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
+
+## --------------------  Log Scale  --------------------------------
+x <- c(10, 1000)
+#         _____
+axisTicks(log10(x), log = TRUE) #  10 20 50 .... 1000
+
+plot(10*(0:10), log = "y"); (pu <- par("usr")) # ... ...  0.96 2.04
+aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # 10 20 50 100 (y axis)
 
 plot(2^(0:9), log = "y"); (pu <- par("usr"))
 aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
-
+## 'usr' corresponds to log10(<range>) :
+stopifnot(ya == axisTicks(log10(c(1, 512)), log=TRUE))
 }
 \keyword{dplot}
