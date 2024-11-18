@@ -358,6 +358,9 @@
       integer to double, analogously with \code{seq.default()},
       \code{seq.int()} and \code{seq.POSIXt()}, resolving a \emph{modified}
       \PR{18782}.
+
+      \item \code{axisTicks(usr, ...)} documentation clarification for
+      \code{log=TRUE}, fixing bug \PR{18821} thanks to Duncan Murdoch.
     }
   }
 }
