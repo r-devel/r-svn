@@ -39,7 +39,7 @@ strptime(x, format, tz = "")
     methods is
     \code{"\%Y-\%m-\%d \%H:\%M:\%S"} if any element has a time
     component which is not midnight, and \code{"\%Y-\%m-\%d"}
-    otherwise.  If \code{\link{options}("digits.secs")} is set, up to
+    otherwise.  If \code{\link{options}("digits.secs")} is set,
     the specified number of digits will be printed for seconds.}
   \item{\dots}{further arguments to be passed from or to other methods.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended

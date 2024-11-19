@@ -382,7 +382,7 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
                            digits = getOption("digits.secs"), ...)
 {
     if(!inherits(x, "POSIXlt")) stop("wrong class")
-    if(any(f0 <- format == "")) {
+    if(any(f0 <- format == "" | grepl("%OS$", format))) {
         ## need list [ method here.
         times <- unlist(unclass(x)[1L:3L])[f0]
         np <- if(is.null(digits)) 0L else min(6L, digits)
