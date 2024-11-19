@@ -187,6 +187,8 @@
       embedded API entry points in the rendered versions.  This is very
       preliminary and may be dropped if a better approach emerges.
 
+      Also now for Fortran-callable entry points which are part of the API.
+
       \item \code{SET_TYPEOF} now signals an error unless the old and
       new types have compatible memory structure and content. Use of
       \code{SET_TYPE} in package C code should be avoided and may be
@@ -270,18 +272,15 @@
       variable\env{_R_CXX_USE_NO_REMAP_} to a false value (but that will
       be removed in the near future).
 
-%%      \item \command{R CMD check --as-cran} will compile C++ code with
-%%      \code{-DR_NO_REMAP}.
+      `Writing R Extensions' has been revised to describe the remapped
+      entry points, for with the \code{Rf_} prefix remains optional when
+      used from C code (but is recommended for new C code).
 
       \item \command{R CMD check --as-cran} notes bad parts in the
       \file{DESCRIPTION} file's URL fields.
 
-%%      \item Installation will define \code{STRICT_R_HEADERS} if
-%%     environment variable \env{_R_USE_STRICT_R_HEADERS_} is set to a
-%%      true value: this is done by \command{R CMD check --as-cran}.
-
       \item \command{R CMD check} now reports more warnings on
-      long-deprecated/obsolete Fortran features from
+      long-deprecated/obsolete Fortran features reported by
       \command{gfortran -Wall}.  For hints on how to modernize these,
       see
       \url{https://fortranwiki.org/fortran/show/Modernizing+Old+Fortran}.
