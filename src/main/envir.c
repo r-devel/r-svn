@@ -1287,9 +1287,9 @@ static SEXP findVarLoc(SEXP symbol, SEXP rho)
 #endif
 }
 
-R_varloc_t R_findVarLoc(SEXP rho, SEXP symbol)
+R_varloc_t R_findVarLoc(SEXP symbol, SEXP rho)
 {
-    SEXP binding = findVarLoc(rho, symbol);
+    SEXP binding = findVarLoc(symbol, rho);
     R_varloc_t val;
     val.cell = binding == R_NilValue ? NULL : binding;
     return val;
