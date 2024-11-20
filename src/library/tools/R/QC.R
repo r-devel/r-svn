@@ -2379,6 +2379,38 @@ function(x, ...)
    res
 }
 
+### Additional functions for checkS3methods
+checkTopLevelCall <- function(expr, fun_name) {
+  if (inherits(expr, "if") || !is.call(expr)) {
+    return(FALSE)
+  }
+  fun_name <- as.name(fun_name)
+  fun_called <- expr[[1]]
+  if (is.call(fun_called)) {
+    inner_called <- fun_called[[1]] 
+    if (as.character(inner_called) %in% c(":::", "::")) {
+      fun_called <- fun_called[[3]]
+    }
+  }
+  identical(fun_called, fun_name)
+}
+
+containsTopLevelCall <- function(x, fun_name) {
+  fun_body <- body(x)
+  if (inherits(fun_body, "{")) {
+    any(vapply(fun_body, checkTopLevelCall, TRUE, fun = fun_name))
+  } else {
+    checkTopLevelCall(fun_body, fun_name)
+  }
+}
+
+isDeprecated <- function(fun) {
+  containsTopLevelCall(fun, quote(.Deprecated))
+}
+isDefunct <- function(fun) {
+  containsTopLevelCall(fun, quote(.Defunct))   
+}
+
 ### * checkS3methods
 
 checkS3methods <-
