@@ -382,14 +382,14 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
                            digits = getOption("digits.secs"), ...)
 {
     if(!inherits(x, "POSIXlt")) stop("wrong class")
-    if(any(f0 <- format == "")) {
+    if(any(f0 <- format == "" | grepl("%OS$", format))) {
         ## need list [ method here.
     times <- unlist(unclass(x)[1L:3L])[f0]
     secs <- x$sec[f0]; secs <- secs[is.finite(secs)]
         np <- if(is.null(digits)) 0L else min(6L, digits)
         if(np >= 1L) # no unnecessary trailing '0' :
             for (i in seq_len(np)- 1L)
-                if(all( abs(secs - round(secs, i)) < 1e-6 )) {
+                if(all( abs(secs - trunc(secs*10^i)/10^i) < 1e-6 )) {
                     np <- i
                     break
                 }
