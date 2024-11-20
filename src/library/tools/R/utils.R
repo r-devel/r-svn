@@ -1842,6 +1842,53 @@ function(parent = parent.frame())
     }
 })
 
+### ** .make_RFC4646_langtag_regexp
+
+.make_RFC4646_langtag_regexp <-
+function()
+{
+    ## See <https://www.ietf.org/rfc/rfc4646.html>.
+    ## Language tags can be of the form (in ABNF, see
+    ## <https://tools.ietf.org/rfc/rfc4234.txt>): 
+    ##   langtag / privateuse / grandfathered
+    ## where
+    ##   privateuse    = ("x"/"X") 1*("-" (1*8alphanum))
+    ##   grandfathered = 1*3ALPHA 1*2("-" (2*8alphanum))
+    ## We only allow langtag, for which in turn we have
+    ##   (language
+    ##    ["-" script]
+    ##    ["-" region]
+    ##    *(["-" variant])
+    ##    *(["-" extension])
+    ##    ["-" privateuse]
+    ## where
+    ##   language    = (2*3ALPHA [-extlang])  ; shortest ISO 639 code
+    ##                  / 4ALPHA              ; reserved for future use
+    ##                  / 5*8ALPHA            ; registered language subtag
+    ##   extlang     = *3("-" 3*ALPHA)        ; reserved for future use
+    ##   script      = 4ALPHA                 ; ISO 15924 code
+    ##   region      = 2ALPHA                 ; ISO 3166 code
+    ##                 / 3DIGIT               ; UN M.49 code
+    ##   variant     = 5*8alphanum            ; registered variants
+    ##                 / (DIGIT 3alphanum)
+    ##   extension   = singleton 1*("-" (2*8alphanum))
+    ##   singleton   = %x41-57 / %x59-5A / %x61-77 / %x79-7A / DIGIT
+    ##               ; "a"-"w" / "y"-"z" / "A"-"W" / "Y"-"Z" / "0"-"9"
+    ##   alphanum    = (ALPHA / DIGIT)        ; letters and numbers
+
+    re_extlang <- "[[:alpha:]]{3}"
+    re_language <-
+        sprintf("[[:alpha:]]{2,3}(-%s){0,3}|[[:alpha:]]{4,8}", re_extlang)
+    re_script <- "[[:alpha:]]{4}"
+    re_region <- "[[:alpha:]]{2}|[[:digit:]]{3}"
+    re_variant <- "[[:alnum:]]{5,8}|[[:digit:]][[:alnum:]]{3}"
+    re_singleton <- "[abcdefghijklmnopqrstuvwyzABCDEFGHIJKLMNOPQRSTUVWYZ0123456789]"
+    re_extension <- sprintf("(%s)(-[[:alnum:]]{2,8}){1,}", re_singleton)
+
+    sprintf("(%s)((-%s)?)((-%s)?)((-%s)*)((-%s)*)",
+            re_language, re_script, re_region, re_variant, re_extension)
+}
+    
 ### ** nonS3methods [was .make_S3_methods_stop_list ]
 
 nonS3methods <- function(package)
