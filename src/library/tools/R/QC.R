@@ -2635,6 +2635,11 @@ function(package, dir, lib.loc = NULL)
                   function(g) {
                       methods <-
                           gen_dot_cls_matches(g, functions_in_code)
+                      method_funs <-
+                          Filter(Negate(function(x) {
+                              isDefunct(x) || isDeprecated(x)
+                              }), mget(methods, code_env))
+                      methods <- names(method_funs)
                       if((n <- length(methods)) > 0L) {
                           gargs <- nfg(g, code_env)
                           entries <-
