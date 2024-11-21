@@ -27,4 +27,3 @@ for (f in c("P", "k", "l", "s")) {
 ## week numbers
 dt2 <- as.POSIXlt(sprintf("%d-01-01 09:03;04", 2015:2018))
 cat(format(dt2, "%Y: %U %V %W"), sep = "\n")
-

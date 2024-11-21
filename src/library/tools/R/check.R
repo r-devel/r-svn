@@ -1194,6 +1194,19 @@ add_dummies <- function(dir, Log)
            }
         }
 
+        if(!is.na(lang <- db["Language"])) {
+            s <- unlist(strsplit(lang, ", *"), use.names = FALSE)
+            s <- s[!grepl(re_anchor(.make_RFC4646_langtag_regexp()), s)]
+            if(length(s)) {
+                if(!any) noteLog(Log)
+                any <- TRUE
+                printLog(Log,
+                         paste(c("Language field contains the following invalid language tags:",
+                                 paste0("  ", s)),
+                               collapse = "\n"),
+                         "\n")
+            }
+        }
 
         out <- format(.check_package_description2(dfile))
         if (length(out)) {

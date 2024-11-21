@@ -368,6 +368,12 @@
       \item \code{debugonce(<S4-simple-body>, signature=*)} now works
       correctly when \dQuote{called twice}, fixing \PR{18824} thanks to
       \I{Michael Jagan}.
+
+      \item \code{format(dtime, digits=* / format=*)} is more consistent
+      when the \code{POSIXt} date-time object \code{dtime} has fractional
+      (non integer) seconds.  Fixes \PR{17350}, thanks to new contributions
+      by \I{LatinR}'s \sQuote{\I{R Dev Day}} participants, \I{Heather
+      Turner} and \I{Dirk Eddelbuettel}.
     }
   }
 }

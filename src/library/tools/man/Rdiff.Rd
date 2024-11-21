@@ -1,6 +1,6 @@
 % File src/library/tools/man/Rdiff.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2010-2023 R Core Team
+% Copyright 2010-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Rdiff}
@@ -58,6 +58,8 @@ Rdiff(from, to, useDiff = FALSE, forEx = FALSE,
   Mainly for use in examples and tests, text from marker
   \samp{> ## IGNORE_RDIFF_BEGIN} up to (but not including)
   \samp{> ## IGNORE_RDIFF_END} is ignored.
+  In examples, since \R 4.4.0, the built-in Rd macro \verb{\dontdiff\{\}}
+  can be used instead.
 }
 \value{
   If \code{Log} is true, a list with components \code{status} (see
