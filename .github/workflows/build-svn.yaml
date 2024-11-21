@@ -16,6 +16,7 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       R_CRAN_WEB: "https://cran.rstudio.com"
       CRAN_RSYNC: 'mirrors.nic.cz::CRAN'
+      TZ: "UTC"
     strategy:
       fail-fast: false
       matrix:
