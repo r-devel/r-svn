@@ -2387,7 +2387,7 @@ checkTopLevelCall <- function(expr, fun_name) {
     fun_name <- as.name(fun_name)
     fun_called <- expr[[1]]
     if (is.call(fun_called)) {
-        inner_called <- fun_called[[1]
+        inner_called <- fun_called[[1]]
         if (identical(inner_called, quote(`:::`)) ||
             identical(inner_called, quote(`::`))) {
            fun_called <- fun_called[[3]]
