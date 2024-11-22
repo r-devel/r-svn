@@ -60,7 +60,8 @@
   representing calendar dates and times.
 }
 \usage{
-\method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL, \dots)
+\method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL,
+      digits = getOption("digits.prec"), \dots)
 
 \method{summary}{POSIXct}(object, digits = 15, \dots)
 
@@ -76,7 +77,9 @@
   \item{max}{numeric or \code{NULL}, specifying the maximal number of
     entries to be printed.  By default, when \code{NULL},
     \code{\link{getOption}("max.print")} used.}
-  \item{digits}{number of significant digits for the computations:
+  \item{digits}{number of digits to format fractional seconds in the case
+    of \code{print()};
+    number of \emph{significant} digits for the computations:
     should be high enough to represent the least important time unit
     exactly.}
   \item{\dots}{further arguments to be passed from or to other methods.}
@@ -337,16 +340,14 @@
   must not be changed, as several C-based conversion methods rely on the
   order for efficiency.
 }
-\examples{
-\dontdiff{
+\examples{\dontdiff{
 (z <- Sys.time())             # the current date, as class "POSIXct"
 
 Sys.time() - 3600             # an hour ago
 
 as.POSIXlt(Sys.time(), "GMT") # the current time in GMT
-format(.leap.seconds)         # the leap seconds in your time zone
+format(.leap.seconds)         # the leap seconds in your time zone}
 print(.leap.seconds, tz = "America/Los_Angeles")  # and in Seattle's
-}
 
 ## look at *internal* representation of "POSIXlt" :
 leapS <- as.POSIXlt(.leap.seconds)

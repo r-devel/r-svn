@@ -622,7 +622,7 @@ stopifnot(identical(fx, format(x.))) # *are* the same (for a while now)
 fD.OS <- function(d) format(x, format = paste0("%Y-%m-%d %H:%M:%OS", if(d=="_") "" else d))
 f.OSss <- vapply(c("_",0:6), fD.OS, character(length(x)))
 t(f.OSss) |> print(width=111, quote=FALSE) # shows  'trunc()'  instead of  'round()'
-stopifnot(identical(f.OSss[,"_"], f.OSss[,"6"])) # by option digits.secs 
+stopifnot(identical(f.OSss[,"_"], f.OSss[,"6"])) # by option digits.secs
 (secDig <- sub(".*:59", '', f.OSss)) ## [,"1"] is  *.0 *.0 *.2 *.2 - "bad" from using trunc() by design
 ##      ___________   ___            __          __  "factory fresh" default
 options(digits.secs = NULL, scipen = 0, digits = 7)
@@ -638,6 +638,23 @@ stopifnot(exprs = {
 options(op)
 ## Number of digits used differed in several cases in R <= 4.4.z
 
+## print(*, digits = n) now works, too -- compatibly with format()
+print(x, digits = 6) # shows full digits
+xx <- as.POSIXct("2009-08-03 12:01:59") + 0:8/8 # rare exact dbl prec
+j <- 2L*(1:4) -1L # 1,3,5,7
+(fxx2 <- format(xx, digits = 2)[j])
+print(xx,  digits = 5, usetz=FALSE)# needs only 3 digits
+pxx <- capture.output(split = TRUE,
+ print(xx[j], digits = 5, width=140)) # 2 digits suffice
+stopifnot(exprs = {
+    identical(format(x, digits = 6) |> paste(collapse=' '), sub('^\\[1\\] ', '', gsub('"', '', capture.output(
+              print (x, digits = 6, usetz = FALSE, width = 120)))))
+    is.integer(nf2 <- nchar(fxx2))
+    substr   (fxx2, nf2-1L, nf2) == c("00", "25", "50", "75")
+    identical(fxx2, sub(" [A-Z].*$", '',
+                        strsplit(split = "@",
+                                 gsub('" "', '@', sub(".$", '', sub('^\\[1\\] "', '', pxx))))[[1L]]))
+})
 
 
 ## keep at end

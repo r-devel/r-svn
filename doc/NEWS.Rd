@@ -121,6 +121,12 @@
       \item The \code{sunspot.month} data have been updated to Oct 2024;
       because of recalibration also historical numbers are changed, and we
       keep the previous data as \code{sunspot.m2014} for reproducibility.
+
+      \item The \code{print()} method for date-time objects (\code{POSIX.t})
+      gets an optional \code{digits} argument for \emph{fractional}
+      seconds, passed to improved \code{format.POSIXlt()}; consequently,
+      \code{print(<date.time>, digits = n)} allows to print fractions of
+      seconds.
     }
   }
 
@@ -369,11 +375,11 @@
 
       \item \code{debug()} and \code{debugonce(fun)} now also accept a
       string \code{fun} when it names an S4 generic, fixing \PR{18822}
-      thanks to \I{Michael Jagan}.
+      thanks to \I{Mikael Jagan}.
 
       \item \code{debugonce(<S4-simple-body>, signature=*)} now works
       correctly when \dQuote{called twice}, fixing \PR{18824} thanks to
-      \I{Michael Jagan}.
+      \I{Mikael Jagan}.
 
       \item \code{format(dtime, digits=* / format=*)} is more consistent
       when the \code{POSIXt} date-time object \code{dtime} has fractional
