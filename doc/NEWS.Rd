@@ -180,7 +180,43 @@
       now signals an error if the new parent is not an environment or if
       the change would create a cycle in the parent chain.
 
-      \item The \sQuote{Writing R Extensions} \I{Texinfo} source now
+      \item \code{SET_TYPEOF} now signals an error unless the old and
+      new types have compatible memory structure and content. Use of
+      \code{SET_TYPE} in package C code should be avoided and may be
+      deprecated in the near future. It is better to allocate an object
+      of the desired type in the first place.
+
+      \item The set of LAPACK (double and complex) routines in headers
+      \file{R_ext/Lapack.h} and \file{R_ext/Applic.h} has been extended,
+      mostly to routines actually in use by packages.
+
+      \item Memory allocation messages now use the (non-SI notation)
+      \code{"Mb"}, \code{"Gb"} , \dots, and \code{"Mbytes"} strings as
+      \emph{arguments} instead of as part of the (translatable format)
+      string.  This is one step for \PR{18297}; from \I{Henrik Bengtsson}.
+
+      \item Header \file{R_ext/Constants.h} (included by \file{R.h}) now
+      always includes header \file{float.h} or \file{cfloat} for
+      constants such as \code{DBL_MAX}.
+
+      \item Strict R headers are now the default.  This removes the
+      legacy definitions of \code{PI}, \code{Calloc}, \code{Realloc} and
+      \code{Free}: use \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or
+      \code{R_Free} instead.
+
+      \emph{Pro tem} \code{STRICT_R_HEADERS} is defined in header
+      \file{R_ext/RS.h} if not already defined.  This is not used in \R
+      itself and will be removed before release.
+
+      \item The deprecated and seemingly never-used S-compatibility
+      macros \code{F77_COM} and \code{F77_COMDECL} have been removed
+      from header \file{R_ext/RS.h}.
+    }
+  }
+
+  \subsection{C-LEVEL API}{
+    \itemize{
+      \item The \sQuote{Writing R Extensions} \I{TexInfo} source now
       contains very experimental annotations for more clearly
       identifying the API status of C entry points. These annotations
       are used to produce indices for API, experimental API, and
@@ -189,11 +225,11 @@
 
       Also now for Fortran-callable entry points which are part of the API.
 
-      \item \code{SET_TYPEOF} now signals an error unless the old and
-      new types have compatible memory structure and content. Use of
-      \code{SET_TYPE} in package C code should be avoided and may be
-      deprecated in the near future. It is better to allocate an object
-      of the proper type in the first place.
+      \item \sQuote{Writing R Extensions} has a new section
+      \sQuote{Moving into C API compliance} to help package authors move
+      away from using non-API endpoints. This section will continue to
+      be updated as work on clarifying and tightening the C API
+      continues.
 
       \item New API function \code{R_mkClosure}. This checks that its
       arguments are valid and should be used instead of
@@ -205,9 +241,10 @@
       closure components.  The existing functions \code{R_ClosureExpr}
       and \code{R_BytecodeExpr} have also been added to the API.
 
-      \item New API function \code{R_ParentEnv}.
+      \item New API function \code{R_ParentEnv} corresponding to \R's
+      \code{parent.env()}.
 
-      \item Some non-API entry points have been added to those reported
+      \item Further non-API entry points have been added to those reported
       by \command{R CMD check}: \code{COMPLEX0}, \code{ddfind},
       \code{DDVAL}, \code{ENSURE_NAMEDMAX}, \code{ENVFLAGS},
       \code{FRAME}, \code{HASHTAB}, \code{INTERNAL}, \code{IS_ASCII},
@@ -219,48 +256,17 @@
       in public header files will be removed in the near future, and
       they will be hidden where possible.
 
-      \item \sQuote{Writing R Extensions} has a new section
-      \sQuote{Moving into C API compliance} to help package authors move
-      away from using non-API endpoints. This section will continue to
-      be updated as work on clarifying and tightening the C API
-      continues.
+      \item Some \command{R CMD check} \samp{NOTE}s on the use of
+      non-API entry points have been upgraded to \samp{WARNING}s in
+      preparation for removing declarations and, where possible, hiding
+      these entry points.
 
-      \item Some \samp{NOTE}s for use of non-API entry points have been
-      upgraded to \samp{WARNING}s in preparation for removing
-      declarations and, where possible, hiding these entry points.
-
-      \item The set of LAPACK (double and complex) routines in API headers
-      \file{R_ext/Lapack.h} and \file{R_ext/Applic.h} has been extended,
-      mostly to routines actually in use from packages.
-
-      \item Additional non-API entry points added to those reported by
-      \command{R CMD check}: \code{IS_LONG_VEC}, \code{PRCODE},
-      \code{PRENV}, \code{PRVALUE}, \code{R_nchar},
+      \item Additional non-API entry points have been added to those
+      reported by \command{R CMD check}: \code{IS_LONG_VEC},
+      \code{PRCODE}, \code{PRENV}, \code{PRVALUE}, \code{R_nchar},
       \code{Rf_NonNullStringMatch}, \code{R_shallow_duplicate_attr},
-      \code{Rf_StringBlank},
-      \code{SET_TYPEOF}, \code{TRUELENGTH}, \code{XLENGTH_EX},
-      and \code{XTRUELENGTH}.
-
-      \item Memory allocation messages now use the (non-standard notation)
-      \code{"Mb"}, \code{"Gb"} , \dots, and \code{"Mbytes"} strings as
-      \emph{arguments} instead of as part of the (translatable format)
-      string.  This is one step for \PR{18297}; from \I{Henrik Bengtsson}.
-
-      \item Header \file{R_ext/Constants.h} (included by \file{R.h}) now
-      always includes header \file{float.h} or \file{cfloat} for
-      constants such as \code{DBL_MAX}
-
-      \item Strict R headers are now the default.  This removes the
-      legacy definitions of \code{PI}, \code{Calloc}, \code{Realloc} and
-      \code{Free}: use \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or
-      \code{R_Free} instead.
-
-      \emph{Pro tem} \code{STRICT_R_HEADERS} is defined in header
-      \file{R_ext/RS.h} if not already defined.  This is not used in \R
-      itself and will be removed before release.
-
-      \item The deprecated S-compatibility macros \code{F77_COM} and
-      \code{F77_COMDECL} have been removed from header \file{R_ext/RS.h}.
+      \code{Rf_StringBlank}, \code{SET_TYPEOF}, \code{TRUELENGTH},
+      \code{XLENGTH_EX}, and \code{XTRUELENGTH}.
     }
   }
 
