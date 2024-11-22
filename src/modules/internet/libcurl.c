@@ -943,10 +943,13 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	       (below) which needs the easy handle */
 	    download_close_finished(&c); /* releases resources */
 
-	if (!still_running)
-	    download_add_one_url(&next_url, scmd, mode, quiet, single, &c);
+	if (!still_running) {
+	    if (!download_add_one_url(&next_url, scmd, mode, quiet, single,
+	                              &c))
+		still_running++;
+	}
 
-	download_try_add_urls(&next_url, MAX_CONCURRENT_URLS - still_running - 1,
+	download_try_add_urls(&next_url, MAX_CONCURRENT_URLS - still_running,
 	                      scmd, mode, quiet, single, &c);
 
 	curl_multi_perform(mhnd, &still_running);
