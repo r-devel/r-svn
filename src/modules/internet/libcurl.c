@@ -619,6 +619,11 @@ static int download_add_url(int i, SEXP scmd, const char *mode,
     }
     curl_easy_setopt(c->hnd[i], CURLOPT_URL, url);
     curl_easy_setopt(c->hnd[i], CURLOPT_FAILONERROR, 1L);
+#if LIBCURL_VERSION_NUM >= 0x072b00
+    /* Wait for the first conneciton to the server to reveal whether it
+       allows multi-plexing before starting a new connection.  */
+    curl_easy_setopt(c->hnd[i], CURLOPT_PIPEWAIT, 1L);
+#endif
     /* Users will normally expect to follow redirections, although
        that is not the default in either curl or libcurl. */
     curlCommon(c->hnd[i], 1, 1);
@@ -721,9 +726,8 @@ static int download_add_one_url(int *i, SEXP scmd, const char *mode, int quiet,
 
 /* Add at most n URLs to the multi-handle, if possible. Bail out when an URL
    cannot be added (do not advance, do not report errors). The idea is that
-   when an URL cannot be added, it can be due to lack of resources (i.e.
-   connections), so it makes sense to try later. Advance only when URLs have
-   been added. */
+   when an URL cannot be added, it can be due to lack of resources, so it makes
+   sense to try later. Advance only when URLs have been added. */
 static int download_try_add_urls(int *i, int n, SEXP scmd,
                                  const char *mode, int quiet, int single,
                                  download_cleanup_info *c)
@@ -888,7 +892,19 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
        When no URL is active, at least one must be added to ensure progress.
        But if possible we add more (up to MAX_CONCURRENT_URLS) - we do that
        only optionally to reduce the risks of failing due to lack of resources.
+
+       Note that an URL may be added but the transfer be delayed. Currently
+       this can happen when the limit on the number of connections per host
+       is reached, but in principle curl can do it also in other cases.
     */
+
+#if LIBCURL_VERSION_NUM >= 0x071e00
+    /* Most current browsers would use at least 6. RFC2616 recommends at most
+       2, but this has been removed in RFC7230. The limit is important for
+       HTTP 1.1 transfers. HTTP 2 (with CURLOPT_PIPEWAIT) would multiplex
+       downloads from the same server through a single connection. */
+    curl_multi_setopt(mhnd, CURLMOPT_MAX_HOST_CONNECTIONS, 6L);
+#endif
 
     if (download_add_one_url(&next_url, scmd, mode, quiet, single, &c)) {
         // no dest files could be opened, so bail out
