@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2023  The R Core Team.
+ *  Copyright (C) 1999-2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -38,11 +38,11 @@
 #endif
 
 /* Apple's gcc build >5400 (since Xcode 3.0) doesn't support GNU inline in C99 mode 
-   FIXME: can this possibly still be needed?
-*/
+   Apple's 'gcc' is nowadays a clang wrapper.
 #if __APPLE_CC__ > 5400 && !defined(C99_INLINE_SEMANTICS) && __STDC_VERSION__ >= 199901L
 #define C99_INLINE_SEMANTICS 1
 #endif
+*/
 
 #ifdef COMPILING_R
 /* defined only in inlined.c: this emits standalone code there */
