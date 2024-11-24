@@ -86,6 +86,8 @@
 
 ## Defines for C compilation.
 ## Use this to specify defines to be used in the compilation of R,
+## (but not packages).  Can be used to overrise e.g.
+## DEFS="-DC99_INLINE_SEMANTICS=0"
 ## DEFS=
 
 ## The following additional CFLAGS to be used only in the main
