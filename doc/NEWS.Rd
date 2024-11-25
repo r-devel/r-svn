@@ -210,7 +210,7 @@
       \code{Free}: use \code{M_PI}, \code{R_Calloc}, \code{R_Realloc} or
       \code{R_Free} instead.
 
-      \emph{Pro tem} \code{STRICT_R_HEADERS} is defined in header
+      \emph{\I{Pro tem}} \code{STRICT_R_HEADERS} is defined in header
       \file{R_ext/RS.h} if not already defined.  This is not used in \R
       itself and will be removed before release.
 

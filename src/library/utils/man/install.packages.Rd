@@ -227,10 +227,10 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   operating system (\code{"win"} or \code{"mac"}), the string
   \code{"binary"} and optional build name (e.g., \code{"big-sur-arm64"}).
   The last part is optional and currently only used on macOS to
-  disambiguate builds targetting different macOS versions or
+  disambiguate builds targeting different macOS versions or
   architectures. Example values:
   \code{"win.binary"} for Windows binaries and
-  \code{"mac.binary.big-sur-arm64"} for macOS 11 (Big Sur) arm64 binaries.
+  \code{"mac.binary.big-sur-arm64"} for macOS 11 (\I{Big Sur}) arm64 binaries.
   The corresponding binary type for the running R can be obtained via
   \code{.Platform$pkgType}, however, it may be \code{"source"} if
   the build does not support package binaries.

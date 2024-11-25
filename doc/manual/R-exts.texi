@@ -11996,7 +11996,7 @@ as the library (and what that was is often undocumented).
 @c distributions.
 
 Even fewer external libraries use C++ internally but present a C
-interface, such as GEOS used by @CRANpkg{sf} and other packages..  These
+interface, such as @I{GEOS} used by @CRANpkg{sf} and other packages..  These
 require the C++ runtime library to be linked into the package's shared
 object/DLL, and this is best done by including a dummy C++ file in the
 package sources.
@@ -14797,7 +14797,7 @@ header files when using these entry points.
 This remapping can cause problems@footnote{Known problems have been
 defining @code{LENGTH}, @code{error}, @code{length}, @code{match},
 @code{vector} and @code{warning}: whether these matter depends on the OS
-and toolchain, with many problem reports involving Apple or LLVM
+and toolchain, with many problem reports involving Apple or @I{LLVM}
 @command{clang++}.},
 @c As from @I{LLVM} @command{clang} 13.0.0, the remapping of @code{match}
 @c breaks the subsequent inclusion of @file{omp.h}.
@@ -15161,7 +15161,7 @@ PutRNGstate();
 These essentially read in (or create) @code{.Random.seed} and write it
 out after use.
 
-These are defined in header @file{R_ext/Random.h}. These functiosns are
+These are defined in header @file{R_ext/Random.h}. These functions are
 never remapped.
 
 
