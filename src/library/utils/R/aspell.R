@@ -478,6 +478,7 @@ aspell_control_R_manuals <-
            "--add-texinfo-ignore=embfun",
            "--add-texinfo-ignore=embhdr",
            "--add-texinfo-ignore=embvar",
+           "--add-texinfo-ignore=forfun",
            character()
            ),
          hunspell =
