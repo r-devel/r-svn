@@ -13,9 +13,9 @@
   Monthly numbers of sunspots, as from the World Data Center, aka
   \abbr{SIDC}.  \code{sunspot.month} is the version of the data that will
   occasionally be updated when new counts become available (or the numbers
-  are recalibrated). Note that around 2014--2015 there has been an
-  international effort to recalibrate the sunspots numbers; since \R 4.5.0
-  (2025), the recalibrated series is used.
+  are \I{recalibrated}). Note that around 2014--2015 there has been an
+  international effort to \I{recalibrate} the sunspots numbers; since \R 4.5.0
+  (2025), the \I{recalibrated} series is used.
   \cr % ~/R/MM/MISC/read-sunspots.R
   The version in (too long) use from 2014 to 2024 is provided as
   \code{sunspot.m2014} for historical and reproducibility reasons.
