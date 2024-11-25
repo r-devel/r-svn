@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team.
+ *  Copyright (C) 1997--2024  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -74,9 +74,12 @@ void R_PV(SEXP s);
 /* Offset for rowlabels if there are named dimnames */
 #define R_MIN_LBLOFF 2
 
+/* Enforced in  ../main/options.c : */
 #define R_MIN_WIDTH_OPT		10
 #define R_MAX_WIDTH_OPT		10000
 #define R_MIN_DIGITS_OPT	1
 #define R_MAX_DIGITS_OPT	22
+#define R_MIN_SCIPEN_OPT        -9
+#define R_MAX_SCIPEN_OPT	9999
 
 #endif
