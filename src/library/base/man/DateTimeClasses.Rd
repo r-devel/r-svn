@@ -61,7 +61,7 @@
 }
 \usage{
 \method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL,
-      digits = getOption("digits.prec"), \dots)
+      digits = getOption("digits.secs"), \dots)
 
 \method{summary}{POSIXct}(object, digits = 15, \dots)
 
