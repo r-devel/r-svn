@@ -386,6 +386,12 @@
       (non integer) seconds.  Fixes \PR{17350}, thanks to new contributions
       by \I{LatinR}'s \sQuote{\I{R Dev Day}} participants, \I{Heather
       Turner} and \I{Dirk Eddelbuettel}.
+
+      \item \code{options(scipen = NULL)} and other invalid values now
+      signal an error instead of invalidating ops relying on a finite
+      integer value.  Newly, values outside the range -9 .. 9999 are warned
+      about and set to a respective boundary or to the default \code{0},
+      e.g., in case of an \code{NA}.
     }
   }
 }

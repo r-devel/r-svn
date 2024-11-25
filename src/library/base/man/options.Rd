@@ -366,7 +366,13 @@ getOption(x, default = NULL)
       when deciding to print numeric values in fixed or exponential
       notation.  Positive values bias towards fixed and negative towards
       scientific notation: fixed notation will be preferred unless it is
-      more than \code{scipen} digits wider.}
+      more than \code{scipen} digits wider.  The default is \code{0}.
+      Valid values are between -9 and 9999 where \dQuote{relevant} values
+      (for double precision accuracy) are in \code{-6:319}.
+      Some invalid values currently signal a \code{\link{warning}} and are set
+      to legal boundaries if finite.  These may signal an error in a future
+      version of \R.
+    }
 
     \item{\code{setWidthOnResize}:}{a logical. If set and \code{TRUE}, \R
       run in a terminal using a recent \code{readline} library will set
