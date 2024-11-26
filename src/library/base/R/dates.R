@@ -203,7 +203,7 @@ Summary.Date <- function (..., na.rm)
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if (!ok) stop(gettextf("%s not defined for \"Date\" objects", .Generic),
                   domain = NA)
-    .Date(NextMethod(.Generic), oldClass(...elt(1L)))
+    .Date(NextMethod(.Generic), oldClass(..1))
 }
 
 `[.Date` <- function(x, ..., drop = TRUE)
