@@ -1601,7 +1601,7 @@ stopifnot(exprs = {
 
 ## options(scipen = <invalid>)
 scipenO <- getOption("scipen")
-assertErrV(options(scipen = NULL))# would work (but ..) in R <= 4.2.2
+assertErrV(options(scipen = NULL))# would work (but ..) in R <= 4.4.2
 assertErrV(options(scipen = 1:2)) # would just work
 assertErrV(options(scipen = 1e99))# would "work" w/ 2 warnings and invalid setting
 stopifnot(identical(getOption("scipen"), scipenO))# unchanged
@@ -1610,6 +1610,11 @@ stopifnot(identical(getOption("scipen"), -9L))
 tools::assertWarning(verbose=TRUE, options(scipen = 100000))# warns and sets to max = 9999
 stopifnot(identical(getOption("scipen"), 9999L))
 ## setting to NULL  would invalidate as.character(Sys.time())
+
+
+## PR#18369 (patch by Mikael Jagan)
+stopifnot(!isGeneric(fdef = print), !isGeneric(fdef = c), isGeneric(fdef = show))
+## gave Error  argument "f" is missing ... in R <= 4.4.2
 
 
 
