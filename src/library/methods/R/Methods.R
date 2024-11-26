@@ -273,11 +273,10 @@ isGeneric <-
     if(is.null(fdef))
       return(FALSE)
     ## check primitives. These are never found as explicit generic functions.
-    if(isBaseFun(fdef)) {
-        if(is.character(f) && f %in% "as.double") f <- "as.numeric"
+    if(is.primitive(fdef)) {
         ## the definition of isGeneric() for a base function is that methods are defined
         ## (other than the default primitive)
-        gen <- genericForBasic(f, mustFind = FALSE)
+        gen <- genericForBasic(.primname(fdef), mustFind = FALSE)
         return(is.function(gen) && length(names(.getMethodsTable(gen))) > 1L)
     }
     if(!is(fdef, "genericFunction"))

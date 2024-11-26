@@ -392,6 +392,9 @@
       integer value.  Newly, values outside the range -9 .. 9999 are warned
       about and set to a respective boundary or to the default \code{0},
       e.g., in case of an \code{NA}.
+
+      \item \code{isGeneric(fdef = print)} now works, fixing \PR{18369} thanks to
+      \I{Mikael Jagan}.
     }
   }
 }
