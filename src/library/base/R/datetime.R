@@ -394,7 +394,7 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
                 }
         } else np <- 0L
         ## need list `[` method here to get 1:3 ~ {sec, min, hour}:
-        times <- unlist(`names<-`(unclass(x)[1L:3L], NULL))[f0]
+        times <- unlist(unclass(x)[1L:3L], use.names=FALSE)[f0]
        format[f0] <-
         if(all(times[is.finite(times)] == 0)) "%Y-%m-%d"
         else if(np == 0L) "%Y-%m-%d %H:%M:%S"
