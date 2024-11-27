@@ -25,7 +25,7 @@ qbinom(p, size, prob, lower.tail = TRUE, log.p = FALSE)
 rbinom(n, size, prob)
 }
 \arguments{
-  \item{x, q}{vector of quantiles.}
+  \item{x, q}{vector of quantiles, the number of successes.}
   \item{p}{vector of probabilities.}
   \item{n}{number of observations. If \code{length(n) > 1}, the length
     is taken to be the number required.}
