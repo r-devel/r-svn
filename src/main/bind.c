@@ -1366,10 +1366,11 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = xlength(u); /* use xlength since u can be NULL */
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		if (TYPEOF(u) <= INTSXP) { /* NILSXP or INT or LGL */
+		if (idx > 0 && TYPEOF(u) <= INTSXP) {
+		    /* NILSXP or INT or LGL
 		    /* taking INTERER(NILSXP) should segfault, and
-		     * sometimes does.  But if cbinding a NULL, there
-		     * are zero rows so nothing to do. */
+		     * sometimes does.  But if cbind-ing a NULL, there
+		     * are zero rows and u is not a matrix, so nothing to do. */
 		    if (mode <= INTSXP) {
 			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
 						n, idx, k);
@@ -1618,46 +1619,47 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
-    else { /* everything else, currently NILSXP,  REALSXP, INTSXP, LGLSXP */
+    else if (mode == INTSXP) {
 	for (t = args; t != R_NilValue; t = CDR(t)) {
-	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, REAL */
+	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, INTSXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
-		if (TYPEOF(u) <= INTSXP) {
-		    /* taking INTERER(NILSXP) should segfault, and
-		     * sometimes does.  But if rbinding a NULL, there
-		     * are zero cols so nothing to do. */
-		    if (mode <= INTSXP) {
-			xfillIntegerMatrixWithRecycle(INTEGER(result),
-						      INTEGER(u), n, rows,
-						      idx, cols, k);
-			n += idx;
-		    }
-		    else {
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    REAL(result)[didx]
-				= (INTEGER(u)[sidx]) == NA_INTEGER ? NA_REAL : INTEGER(u)[sidx];
-			n += idx;
-		    }
-		}
-		else if (TYPEOF(u) == REALSXP) {
-		    xfillRealMatrixWithRecycle(REAL(result), REAL(u), n,
-					       rows, idx, cols, k);
-		    n += idx;
-		}
-		else { /* RAWSXP */
-		    if (mode == LGLSXP) {
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    LOGICAL(result)[didx] = RAW(u)[sidx] ? TRUE : FALSE;
-		    }
-		    else // cbind covers INTSXP and RAWSXP, so this is incomplete
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    INTEGER(result)[didx] = (unsigned char) RAW(u)[sidx];
-		}
+		xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
+					  cols, k);
+		n += idx;
 	    }
 	}
     }
+     else if (mode == LGLSXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, LGLSXP);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		xfillLogicalMatrixWithRecycle(LOGICAL(result), LOGICAL(u), n, rows, idx,
+					  cols, k);
+		n += idx;
+	    }
+	}
+     }
+     else if (mode == REALSXP) {
+	 for (t = args; t != R_NilValue; t = CDR(t)) {
+	     u = PRVALUE(CAR(t));
+	     if (isMatrix(u) || length(u) >= lenmin) {
+		 u = coerceVector(u, REALSXP);
+		 R_xlen_t k = XLENGTH(u);
+		 R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		 xfillRealMatrixWithRecycle(REAL(result), REAL(u), n, rows, idx,
+					  cols, k);
+		 n += idx;
+	     }
+	 }
+     }
+     else { /* everything else, currently NILSXP so do nothing */
+     }
 
     /* Adjustment of dimnames attributes. */
     if (have_rnames || have_cnames) {

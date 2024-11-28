@@ -1617,6 +1617,49 @@ stopifnot(!isGeneric(fdef = print), !isGeneric(fdef = c), isGeneric(fdef = show)
 ## gave Error  argument "f" is missing ... in R <= 4.4.2
 
 
+## [cr]bind invoilving raw vectors -- follow up to r57065
+x <- as.raw(1:6)
+stopifnot(
+    identical(cbind(x, c(TRUE,FALSE)), cbind(x=rep(TRUE,6), c(TRUE,FALSE))),
+    identical(cbind(x, 1:6), cbind(x=1:6, 1:6)),
+    identical(cbind(x, pi), cbind(x=1:6, pi)),
+    identical(cbind(x, pi+1i), cbind(x=1:6, pi+1i)),
+
+    # first three were wrong before R 4.4.3
+    identical(rbind(x, c(TRUE,FALSE)), rbind(x=rep(TRUE,6), c(TRUE,FALSE))),
+    identical(rbind(x, 1:6), rbind(x=1:6, 1:6)),
+    identical(rbind(x, pi), rbind(x=1:6, pi)),
+    identical(rbind(x, pi+1i), rbind(x=1:6, pi+1i))
+)
+
+
+## [cr]bind had segfaults when R was bui;t for LTO and C99 inlining sematics
+## The semantics (inherited from S) are that zero-length inputs
+## (including NULL) are ignored unless all inputs are zero-length.
+## next four segafaulted
+cbind(NULL, logical(0))
+cbind(NULL, integer(0))
+rbind(NULL, integer(0))
+rbind(NULL, logical(0))
+## and these could have
+cbind(NULL, double(0))
+cbind(NULL, complex(0))
+rbind(NULL, double(0))
+rbind(NULL, complex(0))
+## and check some other edge cases
+(X <- matrix(integer(0),2,0))
+stopifnot(
+    is.null(cbind(NULL)),
+    is.null(rbind(NULL)),
+    is.null(cbind(NULL, NULL)),
+    is.null(rbind(NULL, NULL)),
+    dim(cbind(NULL, pi)) == c(1L, 1L),
+    dim(rbind(NULL, pi)) == c(1L, 1L),
+    # zero-length inputs are ignored except for zero-length result
+    identical(cbind(X, X), X),
+    identical(cbind(X, 1:2), matrix(1:2))
+)
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
