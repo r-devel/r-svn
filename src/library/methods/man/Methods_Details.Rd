@@ -166,7 +166,7 @@ either the direct class or one of its superclasses, for each argument
 in the active signature.
 For an example, suppose there is only one argument in the signature and that the class of
 the corresponding object was \code{"dgeMatrix"} (from the recommended package
-\code{Matrix}).
+\CRANpkg{Matrix}).
 This class has (currently) three direct superclasses and through these
 additional superclasses at distances 2 through 4.
 A method that had been defined for any of these classes or for class

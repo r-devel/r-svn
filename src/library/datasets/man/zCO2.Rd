@@ -49,7 +49,7 @@
   \eqn{CO_2}{CO2} concentration.  Half the plants of each type were
   chilled overnight before the experiment was conducted.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

@@ -18,7 +18,7 @@
   global variables.
 
   Typical examples are the fields and methods in reference classes,
-  which appear to be global objects to \code{codetools}.
+  which appear to be global objects to \pkg{codetools}.
   (This case is handled automatically by \code{\link{setRefClass}()} and
   friends, using the supplied field and method names.)
   
@@ -63,7 +63,7 @@ suppressForeignCheck(names, package, add = TRUE)
   \code{globalVariables} or \code{suppressForeignCheck} call(s) occur
   as top-level calls in the package's source code.
 
-  The check command, as implemented in package \code{tools}, queries
+  The check command, as implemented in package \pkg{tools}, queries
   the list before checking the \R{} source code in the package for
   possible problems.
 
@@ -85,11 +85,11 @@ suppressForeignCheck(names, package, add = TRUE)
   The global variables list really belongs to a restricted scope (a
   function or a group of method definitions, for example) rather than
   the package as a whole.  However, implementing finer control would
-  require changes in \code{check} and/or in \code{codetools}, so in this
+  require changes in \code{check} and/or in \pkg{codetools}, so in this
   version the information is stored at the package level.
 }
 \seealso{
-  \code{dontCheck}.
+  \code{\link{dontCheck}}
 }
 \examples{
 \dontrun{
