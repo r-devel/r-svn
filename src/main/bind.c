@@ -1360,13 +1360,16 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
-    else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
+    else { /* everything else, currently NILSXP, REALSXP, INTSXP, LGLSXP */
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, REAL, or NULL */
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = xlength(u); /* use xlength since u can be NULL */
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		if (TYPEOF(u) <= INTSXP) { /* INT or LGL */
+		if (TYPEOF(u) <= INTSXP) { /* NILSXP or INT or LGL */
+		    /* taking INTERER(NILSXP) should segfault, and
+		     * sometimes does.  But if cbinding a NULL, there
+		     * are zero rows so nothing to do. */
 		    if (mode <= INTSXP) {
 			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
 						n, idx, k);
@@ -1384,11 +1387,13 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
 		    n += idx;
 		}
-		else { /* RAWSXP */
+		else { /* u is a RAWSXP */
 		    /* FIXME: I'm not sure what the author intended when the sequence was
 		       defined as raw < logical -- it is possible to represent logical as
 		       raw losslessly but not vice versa. So due to the way this was
-		       defined the raw -> logical conversion is bound to be lossy .. */
+		       defined the raw -> logical conversion is bound to be lossy .. 
+		       But it is not: logicals include NAs, raws do not.
+*/
 		    if (mode == LGLSXP) {
 			R_xlen_t i, i1;
 			MOD_ITERATE1(idx, k, i, i1, {
@@ -1613,13 +1618,16 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
-    else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
+    else { /* everything else, currently NILSXP,  REALSXP, INTSXP, LGLSXP */
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, REAL */
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
 		if (TYPEOF(u) <= INTSXP) {
+		    /* taking INTERER(NILSXP) should segfault, and
+		     * sometimes does.  But if rbinding a NULL, there
+		     * are zero cols so nothing to do. */
 		    if (mode <= INTSXP) {
 			xfillIntegerMatrixWithRecycle(INTEGER(result),
 						      INTEGER(u), n, rows,
@@ -1643,7 +1651,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
 			    LOGICAL(result)[didx] = RAW(u)[sidx] ? TRUE : FALSE;
 		    }
-		    else
+		    else // cbind covers INTSXP and RAWSXP, so this is incomplete
 			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
 			    INTEGER(result)[didx] = (unsigned char) RAW(u)[sidx];
 		}
