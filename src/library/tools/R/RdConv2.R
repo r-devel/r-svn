@@ -537,7 +537,8 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     if (length(enc)) {
     	encoding <- Rd[[enc[1L]]]
     	if (!identical(RdTags(encoding), "TEXT"))
-    	    stopRd(encoding, Rdfile, "'encoding' must be plain text")
+            stopRd(encoding, Rdfile,
+                   "\\encoding must be plain text on a line by itself")
     }
 
     dt <- which(sections == "\\docType")
@@ -1124,8 +1125,8 @@ checkRd <- function(Rd, defines = .Platform$OS.type, stages = "render",
     if (any(sections == "\\encoding")) def_enc <- TRUE
     inEnc2 <- FALSE
     for (i in seq_along(sections)) {
-        sectiontag <- sections[i]
-        checkSection(Rd[[i]], sections[i])
+        sectiontag <- sections[i] # also used in checkLIST()
+        checkSection(Rd[[i]], sectiontag)
     }
 
     structure(.messages, class = "checkRd")
