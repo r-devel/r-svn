@@ -1368,7 +1368,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
 		if (idx > 0 && TYPEOF(u) <= INTSXP) {
 		    /* NILSXP or INT or LGL
-		    /* taking INTERER(NILSXP) should segfault, and
+		     * taking INTERER(NILSXP) should segfault, and
 		     * sometimes does.  But if cbind-ing a NULL, there
 		     * are zero rows and u is not a matrix, so nothing to do. */
 		    if (mode <= INTSXP) {

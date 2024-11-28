@@ -435,9 +435,9 @@
       point without an exponent (taken as \code{p0}) as documented in
       \code{?NumericConstants} (\PR{18819}).
 
-      \item \code{cbind()} now works correctly when inputs include a raw
+      \item \code{rbind()} now works correctly when inputs include a raw
       vector and a logical, integer or double vector: previously the
-      includsion of latter was garbled.
+      includsion of the latter was garbled.
      }
   }
 }
