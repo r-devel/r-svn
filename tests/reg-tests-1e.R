@@ -1661,6 +1661,16 @@ stopifnot(
 )
 
 
+## isGeneric(., getName = TRUE, ..) w/ or w/o fdef -- PR#18829
+setClass("zzz")
+setMethod("+", c(e1 = "zzz", e2 = "missing"), function(e1, e2) e1)
+(gen <- isGeneric("+", fdef = `+`, getName = TRUE)) # wrongly returned just TRUE
+stopifnot(identical(gen, isGeneric("+", getName = TRUE)), # the latter always worked
+          identical(gen, structure("+", package = "base")),
+          isGeneric("+"), isGeneric("+", fdef = `+`))
+
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
