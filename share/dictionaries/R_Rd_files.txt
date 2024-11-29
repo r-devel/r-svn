@@ -134,6 +134,7 @@ ingoing
 init
 initializations
 initializers
+inlining
 integrable
 integrand
 intercountry
