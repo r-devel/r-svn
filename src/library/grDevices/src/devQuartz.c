@@ -3024,13 +3024,12 @@ void RQuartz_glyph(int n, int *glyphs, double *x, double *y,
     CFArrayRef cfFontDescriptors = 
         CTFontManagerCreateFontDescriptorsFromURL(cfFontURL);
     CFRelease(cfFontURL);
-    int n_fonts = CFArrayGetCount(cfFontDescriptors);
-    if (n_fonts > 0) {
+    if (cfFontDescriptors) {
         /* NOTE: that the font needs an inversion (in y) matrix
            because the device has an inversion in user space 
            (for bitmap devices anyway) */
         CGAffineTransform trans = CGAffineTransformMakeScale(1.0, -1.0);
-	if (rot != 0.0) trans = CGAffineTransformRotate(trans, rot/180.*M_PI);
+        if (rot != 0.0) trans = CGAffineTransformRotate(trans, rot/180.*M_PI);
         CTFontRef ctFont = 
             CTFontCreateWithFontDescriptor((CTFontDescriptorRef) CFArrayGetValueAtIndex(cfFontDescriptors, 0), size, &trans);
 
@@ -3049,10 +3048,10 @@ void RQuartz_glyph(int n, int *glyphs, double *x, double *y,
         }
         CGColorRelease(fillColorRef);
         CFRelease(ctFont);
+        CFRelease(cfFontDescriptors);
     } else {
         warning(_("Failed to load font"));
     }
-    CFRelease(cfFontDescriptors);
     
     QuartzEnd(grouping, layer, ctx, savedCTX, xd);
 }

@@ -399,6 +399,11 @@
       \item \code{cbind()} could segfault with \code{NULL} inputs.
       (Seen when \R was built with \command{gcc14}, LTO and C99 inlining
       semantics.)
+
+      \item Fix segfault on \code{quartz()} from \code{grid.glyph()}
+      call with \code{glyphInfo()} that describes non-existent font
+      (\PR{18784}).  Thanks to \I{Tomek Gieorgijewski}.
+  
     }
   }
 }
