@@ -120,7 +120,12 @@
 
       \item The \code{sunspot.month} data have been updated to Oct 2024;
       because of recalibration also historical numbers are changed, and we
-      keep the previous data as \code{sunspot.m2014} for reproducibility.
+      keep the previous data as \code{sunspot.m2014} for
+      reproducibility.
+
+      \item The `quartz()` device now supports alpha masks.
+      Thanks to \I{George Stagg}, \I{Heather Turner}, and
+      \I{Tomek Gieorgijewski}.
 
       \item The \code{print()} method for date-time objects (\code{POSIX.t})
       gets an optional \code{digits} argument for \emph{fractional}

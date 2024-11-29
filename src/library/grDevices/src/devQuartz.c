@@ -1032,6 +1032,12 @@ static int QuartzCreateMask(SEXP mask,
 
         cs = CGColorSpaceCreateDeviceGray();
         
+        /* For alpha masks, create a bitmap with only an alpha channel */
+        uint32_t bitmapInfo = kCGImageAlphaNone;
+        if (R_GE_maskType(mask) == R_GE_alphaMask) {
+            bitmapInfo = kCGImageAlphaOnly;
+        }
+
         /* Create bitmap grahics context 
          * drawing is redirected to this context */
         quartz_bitmap = CGBitmapContextCreate(NULL,
@@ -1040,7 +1046,7 @@ static int QuartzCreateMask(SEXP mask,
                                               8,
                                               0,
                                               cs,
-                                              kCGImageAlphaNone);
+                                              bitmapInfo);
     
         quartz_mask->context = quartz_bitmap;
         xd->masks[index] = quartz_mask;
@@ -1054,6 +1060,31 @@ static int QuartzCreateMask(SEXP mask,
         R_fcall = PROTECT(lang1(mask));
         eval(R_fcall, R_GlobalEnv);
         UNPROTECT(1);
+
+        /* When working with an alpha mask, convert into a grayscale bitmap */
+        if (R_GE_maskType(mask) == R_GE_alphaMask) {
+            CGContextRef alpha_bitmap = quartz_bitmap;
+
+            /* Create a new grayscale bitmap with no alpha channel */
+            int stride = CGBitmapContextGetBytesPerRow(alpha_bitmap);
+            quartz_bitmap = CGBitmapContextCreate(NULL,
+                                                  (size_t) devWidth,
+                                                  (size_t) devHeight,
+                                                  8,
+                                                  stride,
+                                                  cs,
+                                                  kCGImageAlphaNone);
+            quartz_mask->context = quartz_bitmap;
+            
+            void *alpha_data = CGBitmapContextGetData(alpha_bitmap);
+            void *gray_data = CGBitmapContextGetData(quartz_bitmap);
+
+            /* Copy the alpha channel data into the grayscale bitmap */
+            memcpy(gray_data, alpha_data, stride * devHeight);
+
+            /* We're finished with the alpha channel bitmap now */
+            CGContextRelease(alpha_bitmap);
+        }
 
         /* Create image from bitmap context */
         CGImageRef maskImage;
@@ -2730,10 +2761,6 @@ static SEXP RQuartz_setMask(SEXP mask, SEXP ref, pDevDesc dd) {
     if (isNull(mask)) {
         /* Set NO mask */
         index = -1;
-    } else if (R_GE_maskType(mask) == R_GE_alphaMask) {
-        warning(_("Ignored alpha mask (not supported on this device)"));
-        /* Set NO mask */
-        index = -1;        
     } else {
         if (isNull(ref)) {
             /* Create a new mask */
@@ -2953,8 +2980,10 @@ static SEXP RQuartz_capabilities(SEXP capabilities) {
     SET_VECTOR_ELT(capabilities, R_GE_capability_clippingPaths, clippingPaths);
     UNPROTECT(1);
 
-    PROTECT(masks = allocVector(INTSXP, 1));
+
+    PROTECT(masks = allocVector(INTSXP, 2));
     INTEGER(masks)[0] = R_GE_luminanceMask;
+    INTEGER(masks)[1] = R_GE_alphaMask;
     SET_VECTOR_ELT(capabilities, R_GE_capability_masks, masks);
     UNPROTECT(1);
 
