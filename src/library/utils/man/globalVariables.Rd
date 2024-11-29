@@ -113,5 +113,5 @@ localvariable <- if (condition) entry1 else entry2
 if(condition) .Call(entry1, 1, 2, 3) else .Call(entry2, 1, 2, 3)
 }
 }
-\keyword{ packages }
+\keyword{ programming }
 
