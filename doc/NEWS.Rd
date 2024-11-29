@@ -132,6 +132,14 @@
       seconds, passed to improved \code{format.POSIXlt()}; consequently,
       \code{print(<date.time>, digits = n)} allows to print fractions of
       seconds.
+
+      \item \code{install.packages()} and \code{download.packages()}
+      download packages simultaneously using \code{libcurl}, significantly
+      reducing download times when installing or downloading multiple
+      packages.
+
+      \item Status reporting in \code{download.file()} has been extended to
+      report the outcome for individual files in simultaneous download.
     }
   }
 
