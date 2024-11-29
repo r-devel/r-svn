@@ -402,7 +402,7 @@
       thanks to \I{Mikael Jagan}.
 
       \item \code{cbind()} could segfault with \code{NULL} inputs.
-      (Seen when \R was built with \command{gcc14}, LTO and C99 inlining
+      (Seen when \R was built with \command{gcc14}, \abbr{LTO} and C99 inlining
       semantics.)
 
       \item Fix segfault on \code{quartz()} from \code{grid.glyph()}
@@ -418,8 +418,8 @@
     \itemize{
       \item \R can be installed using C23 (for example with
       \option{-std=gnu23} or \option{-std=gnu2x}) with recent compilers
-      including \command{gcc} 14, Apple \command{clang} 16 and LLVM
-      \command{clang} 17--19.  (LLVM \command{clang} 18 and 19 objected
+      including \command{gcc} 14, Apple \command{clang} 16 and \I{LLVM}
+      \command{clang} 17--19.  (\I{LLVM} \command{clang} 18 and 19 objected
       to apparently valid code using attributes accepted by all the
       other compilers.)
     }
