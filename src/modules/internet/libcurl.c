@@ -54,6 +54,7 @@ extern void Rsleep(double timeint);
 #endif
 
 static int current_timeout = 0;
+static double current_time = 0;
 
 # if LIBCURL_VERSION_MAJOR < 7 || (LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 28)
 
@@ -195,6 +196,7 @@ static void download_report_url_error(CURLMsg *msg)
     const char *url, *strerr, *type;
     long status = 0;
     int *url_errs = NULL;
+    int timedout = 0;
     curl_easy_getinfo(msg->easy_handle, CURLINFO_EFFECTIVE_URL, &url);
     curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE,
 		      &status);
@@ -214,7 +216,11 @@ static void download_report_url_error(CURLMsg *msg)
 		url, type, status, strerr);
     } else {
 	strerr = curl_easy_strerror(msg->data.result);
-	if (streql(strerr, "Timeout was reached"))
+	timedout = msg->data.result == CURLE_OPERATION_TIMEDOUT
+	           || msg->data.result == CURLE_ABORTED_BY_CALLBACK
+	           || streql(strerr, "Timeout was reached");
+	             
+	if (timedout)
 	    warning(_("URL '%s': Timeout of %d seconds was reached"),
 		    url, current_timeout);
 	else
@@ -240,7 +246,8 @@ static int curlMultiCheckerrs(CURLM *mhnd)
     return retval;
 }
 
-static void curlCommon(CURL *hnd, int redirect, int verify)
+static
+void curlCommon(CURL *hnd, int redirect, int verify)
 {
     const char *capath = getenv("CURL_CA_BUNDLE");
     if (verify) {
@@ -473,6 +480,7 @@ static winprogressbar pbar = {NULL, NULL, NULL};
 # define CURL_LEN double
 #endif
 
+/* display a progress bar (used when downloading a single file) */
 static
 int progress(void *clientp, CURL_LEN dltotal, CURL_LEN dlnow,
 	     CURL_LEN ultotal, CURL_LEN ulnow)
@@ -533,6 +541,38 @@ int progress(void *clientp, CURL_LEN dltotal, CURL_LEN dlnow,
     return 0;
 # endif
 }
+
+/* implement absolute-time timeout for the transfer time,
+   used when downloading multiple files */
+static
+int progress_multi(void *clientp, CURL_LEN dltotal, CURL_LEN dlnow,
+	     CURL_LEN ultotal, CURL_LEN ulnow)
+{
+    double *tstart = (double *) clientp;
+    if (tstart) {
+	if (*tstart == 0. && (dlnow > 0 || dltotal > 0)) 
+	    *tstart = current_time; /* record when transfer started */
+	else if (*tstart > 0. && (current_time - *tstart) > current_timeout)
+	    return 1; /* abort transfer */
+    }
+    return 0;
+}
+
+#if LIBCURL_VERSION_NUM >= 0x075000
+/* If this callback is available, use it to record the current time
+   as start of transfer, for the purpose of absolute-time timeout for
+   transfer time. This is to make sure that sending the request up to
+   receiving the first byte of the file, or information about file length,
+   is protected by a timeout. */
+static
+int prereq_multi(void *clientp, char *conn_primary_ip, char *conn_local_ip,
+                 int conn_primary_port, int conn_local_port)
+{
+    double *tstart = (double *) clientp;
+    *tstart = current_time;
+    return CURL_PREREQFUNC_OK;
+}
+#endif
 #endif // HAVE_LIBCURL
 
 typedef struct {
@@ -541,6 +581,7 @@ typedef struct {
     int nurls;
     CURL ***hnd;
     FILE **out;
+    double *tstart;
     SEXP sfile;
     int *errs;
 #ifdef Win32
@@ -700,7 +741,45 @@ static int download_add_url(int i, SEXP scmd, const char *mode,
 	curl_easy_setopt(c->hnd[i], CURLOPT_PROGRESSFUNCTION, progress);
 	curl_easy_setopt(c->hnd[i], CURLOPT_PROGRESSDATA, c->hnd[i]);
 #endif
-    } else curl_easy_setopt(c->hnd[i], CURLOPT_NOPROGRESS, 1L);
+    } else if (quiet && single) {
+	curl_easy_setopt(c->hnd[i], CURLOPT_NOPROGRESS, 1L);
+    } else {
+	curl_easy_setopt(c->hnd[i], CURLOPT_NOPROGRESS, 0L);
+
+	/* Implement absolute-time timeout as a replacement to CURLOPT_TIMEOUT
+	   for simultaneous download. The goal is to keep all parts of the
+	   download protected by a timeout, while reducing the risk that
+	   implementation details of the simultaneous download (such as the
+	   number of concurrent connections, limit of connections to the same
+	   server, waiting on HTTP/2 multiplexing) would cause downloads to
+	   time out unpredictably. Except contention over network bandwidth,
+	   this should also reduce the risk that timeouts that worked with
+	   sequential downloads would not be sufficient. All within the scope
+	   of R's single timeout value for internet operations. This assumes
+	   curl connection timeout is in use. CURLOPT_TIMEOUT is not used
+	   because it includes also the time transfers are queued by curl.
+	*/
+	curl_easy_setopt(c->hnd[i], CURLOPT_TIMEOUT, 0L);
+	c->tstart[i] = 0.;
+	/* cover the time from when first data is received */
+	// For libcurl >= 7.32.0 use CURLOPT_XFERINFOFUNCTION
+    #if LIBCURL_VERSION_NUM >= 0x072000
+	curl_easy_setopt(c->hnd[i], CURLOPT_XFERINFOFUNCTION, progress_multi);
+	curl_easy_setopt(c->hnd[i], CURLOPT_XFERINFODATA, &c->tstart[i]);
+    #else
+	curl_easy_setopt(c->hnd[i], CURLOPT_PROGRESSFUNCTION, progress_multi);
+	curl_easy_setopt(c->hnd[i], CURLOPT_PROGRESSDATA, &c->tstart[i]);
+    #endif
+	/* cover the time between a connection is established and first
+	   data is received */
+    #if LIBCURL_VERSION_NUM >= 0x075000
+	curl_easy_setopt(c->hnd[i], CURLOPT_PREREQFUNCTION, prereq_multi);
+	curl_easy_setopt(c->hnd[i], CURLOPT_PREREQDATA, &c->tstart[i]);
+    #elif LIBCURL_VERSION_NUM >= 0x070100
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, (long)current_timeout);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    #endif
+    }
 
     /* This would allow the negotiation of compressed HTTP transfers,
        but it is not clear it is always a good idea.
@@ -871,15 +950,18 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     CURL **hnd[nurls];
     FILE *out[nurls];
     int errs[nurls];
+    double tstart[nurls];
 
     for(int i = 0; i < nurls; i++) {
 	hnd[i] = NULL;
 	out[i] = NULL;
 	errs[i] = 0;
+	tstart[i] = 0;
     }
     c.hnd = hnd;
     c.out = out;
     c.errs = errs;
+    c.tstart = tstart;
 
     int next_url = 0;
 
@@ -906,6 +988,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     curl_multi_setopt(mhnd, CURLMOPT_MAX_HOST_CONNECTIONS, 6L);
 #endif
 
+    if (!single) current_time = currentTime();
     if (download_add_one_url(&next_url, scmd, mode, quiet, single, &c)) {
         // no dest files could be opened, so bail out
         endcontext(&cntxt);
@@ -918,9 +1001,11 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
                           mode, quiet, single, &c);
 
     R_Busy(1);
+    if (!single) current_time = currentTime();
     //  curl_multi_wait needs curl >= 7.28.0 .
     curl_multi_perform(mhnd, &still_running);
     do {
+	if (!single) current_time = currentTime();
 	int numfds;
 	CURLMcode mc = curl_multi_wait(mhnd, NULL, 0, 100, &numfds);
 	if (mc != CURLM_OK)  { // internal, do not translate
@@ -936,6 +1021,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if (repeats++ > 0) Rsleep(0.1); // do not block R process
 	} else repeats = 0;
 	R_ProcessEvents();
+	if (!single) current_time = currentTime();
 	curl_multi_perform(mhnd, &still_running);
 
 	if (!single)
@@ -952,6 +1038,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	download_try_add_urls(&next_url, MAX_CONCURRENT_URLS - still_running,
 	                      scmd, mode, quiet, single, &c);
 
+	if (!single) current_time = currentTime();
 	curl_multi_perform(mhnd, &still_running);
     } while(still_running || next_url < nurls);
     R_Busy(0);
