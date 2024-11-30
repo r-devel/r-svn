@@ -71,7 +71,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
     nocols <- p == 0L
 
     if(is.logical(quote)) # must be false
-	quote <- NULL
+	quote <- integer(0) # NULL
     else if(is.numeric(quote)) {
 	if(any(quote < 1L | quote > p))
 	    stop("invalid numbers in 'quote'")
