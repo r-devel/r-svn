@@ -1390,6 +1390,14 @@ static SEXP ascommon(SEXP call, SEXP u, SEXPTYPE type)
     else if (isVector(u) || isList(u) || isLanguage(u)
 	     || (isSymbol(u) && type == EXPRSXP)) {
 	SEXP v;
+#ifdef R_LESS_COERCION_FROM_NULL
+	if(TYPEOF(u) == NILSXP && type == REALSXP)
+	    errorcall(call, _(COERCE_ERROR_STRING),
+		      R_typeToChar(u), type2char(type));
+	if(TYPEOF(u) == NILSXP && type == INTSXP)
+	    errorcall(call, _(COERCE_ERROR_STRING),
+		      R_typeToChar(u), type2char(type));
+#endif
 	if (type != ANYSXP && TYPEOF(u) != type) v = coerceVector(u, type);
 	else v = u;
 
