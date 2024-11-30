@@ -776,8 +776,9 @@ static int download_add_url(int i, SEXP scmd, const char *mode,
 	curl_easy_setopt(c->hnd[i], CURLOPT_PREREQFUNCTION, prereq_multi);
 	curl_easy_setopt(c->hnd[i], CURLOPT_PREREQDATA, &c->tstart[i]);
     #elif LIBCURL_VERSION_NUM >= 0x070100
-	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, (long)current_timeout);
-	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+	curl_easy_setopt(c->hnd[i], CURLOPT_LOW_SPEED_TIME,
+	                 (long)current_timeout);
+	curl_easy_setopt(c->hnd[i], CURLOPT_LOW_SPEED_LIMIT, 1L);
     #endif
     }
 
