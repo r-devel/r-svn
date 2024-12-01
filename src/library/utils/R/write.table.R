@@ -43,7 +43,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
         if(is.null(d[[2L]]) && makeColnames && p > 0L)
             d[[2L]] <- paste0("V", 1L:p)
         if(qset)
-            quote <- if(is.character(x)) seq_len(p) else numeric()
+            quote <- if(is.character(x)) seq_len(p) else integer()
     } else { ## data.frame
         if(qset)
             quote <- if(length(x))
@@ -71,7 +71,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
     nocols <- p == 0L
 
     if(is.logical(quote)) # must be false
-	quote <- integer(0) # NULL
+	quote <- NULL
     else if(is.numeric(quote)) {
 	if(any(quote < 1L | quote > p))
 	    stop("invalid numbers in 'quote'")
@@ -139,6 +139,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
         x[needconv] <- lapply(x[needconv], as.character)
     }
 
+    if (is.null(quote)) quote <- integer(0)
     invisible(.External2(C_writetable, x, file, nrow(x), p, rnames, sep, eol,
                          na, dec, as.integer(quote), qmethod != "double"))
 }
