@@ -71,7 +71,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
     nocols <- p == 0L
 
     if(is.logical(quote)) # must be false
-	quote <- NULL
+	quote <- NULL # not a legitimate value, fixed up later
     else if(is.numeric(quote)) {
 	if(any(quote < 1L | quote > p))
 	    stop("invalid numbers in 'quote'")
@@ -139,7 +139,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
         x[needconv] <- lapply(x[needconv], as.character)
     }
 
-    if (is.null(quote)) quote <- integer(0)
+    if (is.null(quote)) quote <- integer(0) # avoid passing undocumented value
     invisible(.External2(C_writetable, x, file, nrow(x), p, rnames, sep, eol,
                          na, dec, as.integer(quote), qmethod != "double"))
 }
