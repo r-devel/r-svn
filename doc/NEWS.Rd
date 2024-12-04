@@ -398,16 +398,14 @@
       when the \code{POSIXt} date-time object \code{dtime} has fractional
       (non integer) seconds.  Fixes \PR{17350}, thanks to new contributions
       by \I{LatinR}'s \sQuote{\I{R Dev Day}} participants, \I{Heather
-      Turner} and \I{Dirk Eddelbuettel}.
+      Turner} and \I{Dirk Eddelbuettel}; also fixes more cases, notably
+      when \code{format} contains "%OS<nodigit>".
 
       \item \code{options(scipen = NULL)} and other invalid values now
       signal an error instead of invalidating ops relying on a finite
       integer value.  Newly values outside the range -9 .. 9999 are warned
       about and set to a respective boundary or to the default \code{0},
       e.g., in case of an \code{NA}.
-
-      \item \code{isGeneric(fdef = print)} now works, fixing \PR{18369}
-      thanks to \I{Mikael Jagan}.
 
       \item \code{cbind()} could segfault with \code{NULL} inputs.
       (Seen when \R was built with \command{gcc14}, \abbr{LTO} and C99 inlining
@@ -464,6 +462,9 @@
       \item \code{isGeneric(<primitive>, fdef=*, getName=TRUE)} now also
       returns the name instead of just \code{TRUE}, fixing \PR{18829}
       reported by \I{Mikael Jagan}.
+
+      \item \code{isGeneric(fdef = print)} now works, fixing \PR{18369}
+      thanks to \I{Mikael Jagan}.
     }
   }
 }
