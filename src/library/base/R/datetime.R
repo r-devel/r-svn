@@ -382,24 +382,35 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
                            digits = getOption("digits.secs"), ...)
 {
     if(!inherits(x, "POSIXlt")) stop("wrong class")
-    if(any(f0 <- format == "" | grepl("%OS$", format))) {
-        if(!is.null(digits)) {
-            secs <- x$sec[f0]; secs <- secs[is.finite(secs)]
-            np <- min(6L, digits)
-            ## no unnecessary trailing '0' ; use trunc() as .Internal() code:
-            for(i in seq_len(np)- 1L)
+    nf <- length(format)
+    useDig <- function(secs, digits) {
+        secs <- secs[is.finite(secs)]
+        np <- min(6L, digits)
+        if(np >= 1L) # no unnecessary trailing '0'; use trunc() as .Internal() code:
+            for (i in seq_len(np)- 1L)
                 if(all( abs(secs - trunc(secs*(ti <- 10^i))/ti) < 1e-6 )) {
                     np <- i
                     break
                 }
-        } else np <- 0L
-        ## need list `[` method here to get 1:3 ~ {sec, min, hour}:
-        times <- unlist(unclass(x)[1L:3L], use.names=FALSE)[f0]
-       format[f0] <-
-        if(all(times[is.finite(times)] == 0)) "%Y-%m-%d"
-        else if(np == 0L) "%Y-%m-%d %H:%M:%S"
-        else paste0("%Y-%m-%d %H:%M:%OS", np)
+        np
     }
+    if(any(f0 <- format == "")) {
+        x_ <- if(nf == 1L) x else x[f0]  # any(f0) & nf = 1  ==>  x[f0] = x
+        np <- if(!is.null(digits)) useDig(x_$sec, digits) else 0L
+        ## need list `[` method here to get 1:3 ~ {sec, min, hour} :
+        times <- unlist(unclass(x_)[1L:3L], use.names = FALSE)
+        format[f0] <-
+            if(all(times[is.finite(times)] == 0)) "%Y-%m-%d"
+            else if(np == 0L) "%Y-%m-%d %H:%M:%S"
+            else paste0("%Y-%m-%d %H:%M:%OS", np)
+    }
+    if(!missing(digits) && !is.null(digits) && digits != getOption("digits.secs", 0L) &&
+       any(OS. <- grepl("%OS[^0-9]", format))) { ## use digits to find n to use for "%OS<n>"
+        x_ <- if(nf == 1L) x else x[OS.]
+        np <- useDig(x_$sec, digits)
+        format[OS.] <- gsub("%OS([^0-9])", paste0("%OS", np, "\\1"), format[OS.])
+    }
+    ## C code in do_formatPOSIXlt()  *does*  recycle  {x, format}  as needed:
     .Internal(format.POSIXlt(x, format, usetz))
 }
 
