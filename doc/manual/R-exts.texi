@@ -593,7 +593,7 @@ templated) C++ projects.
 The @samp{StagedInstall} logical field controls if package installation
 is `staged', that is done to a temporary location and moved to the final
 location when successfully completed.  This field was introduced in @R{}
-3.6.0 and it true by default: it is considered to be a temporary measure
+3.6.0 and is true by default: it is considered to be a temporary measure
 which may be withdrawn in future.
 
 @c DESCRIPTION field ZipData
@@ -5173,7 +5173,7 @@ in production code.  The normal way to ensure that is to define the
 macro @code{NDEBUG}, and @command{R CMD INSTALL} does so as part of the
 compilation flags.  Beware of including headers (including from other
 packages) which could undefine it, now or in future versions.  If you
-wish to use @code{assert} during development. you can include
+wish to use @code{assert} during development, you can include
 @code{-UNDEBUG} in @code{PKG_CPPFLAGS} or @code{#undef} it in your
 headers or code files.  Note that your own @file{src/Makefile} or
 makefiles in sub-directories may also need to define @code{NDEBUG}.
@@ -11996,7 +11996,7 @@ as the library (and what that was is often undocumented).
 @c distributions.
 
 Even fewer external libraries use C++ internally but present a C
-interface, such as @I{GEOS} used by @CRANpkg{sf} and other packages..  These
+interface, such as @I{GEOS} used by @CRANpkg{sf} and other packages.  These
 require the C++ runtime library to be linked into the package's shared
 object/DLL, and this is best done by including a dummy C++ file in the
 package sources.

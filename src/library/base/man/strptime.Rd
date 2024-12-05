@@ -241,7 +241,7 @@ strptime(x, format, tz = "")
   not followed by a digit, it uses \code{digits} unless that is
   \code{NULL}, when \code{n = 0}).  Note that the precedence is
   \code{format="...\%OSn"} \eqn{\ll}{>>} \code{digits = n} \eqn{\ll}{>>}
-  \code{getOption("digits.prec")}.  Further, for \code{strptime}
+  \code{getOption("digits.secs")}.  Further, for \code{strptime}
   \code{\%OS} will input seconds including fractional seconds.  Note that
   \code{\%S} does not read fractional parts on output.
 

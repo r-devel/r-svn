@@ -20,7 +20,7 @@ tempdir(check = FALSE)
     of the name.}
   \item{tmpdir}{a non-empty character vector giving the directory name.}
   \item{fileext}{a non-empty character vector giving the file extension.}
-  \item{check}{\code{\link{logical}} indicating if \code{tmpdir()}
+  \item{check}{\code{\link{logical}} indicating if \code{tempdir()}
     should be checked and recreated if no longer valid.}
 }
 \value{
