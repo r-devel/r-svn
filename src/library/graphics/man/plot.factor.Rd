@@ -23,9 +23,10 @@
     }
 }
 \description{
-  This functions implements a scatterplot method for
+  This method is used for
   \code{\link{factor}} arguments of the \emph{generic}
-  \code{\link{plot}} function.
+  \code{\link{plot}} function,
+  possibly called from the formula method (see the Examples).
 
   If \code{y} is missing \code{\link{barplot}} is produced.
   For numeric \code{y} a \code{\link{boxplot}} is used, and for a factor

@@ -4,11 +4,11 @@
 % Distributed under GPL 2 or later
 
 \name{predict}
+\alias{predict}
 \title{Model Predictions}
 \usage{
-predict (object, \dots)
+predict(object, ...)
 }
-\alias{predict}
 \arguments{
   \item{object}{a model object for which prediction is desired.}
   \item{\dots}{additional arguments affecting the predictions produced.}
