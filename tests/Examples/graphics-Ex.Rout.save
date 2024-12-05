@@ -2174,7 +2174,12 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > ### ** Examples
 > 
 > require(grDevices)
-> plot(weight ~ group, data = PlantGrowth)           # numeric vector ~ factor
+> 
+> plot(state.region)
+> 
+> ## called from the formula method
+> plot(~ group, data = PlantGrowth)
+> plot(weight ~ group, data = PlantGrowth)           # numeric ~ factor
 > plot(cut(weight, 2) ~ group, data = PlantGrowth)   # factor ~ factor
 > ## passing "..." to spineplot() eventually:
 > plot(cut(weight, 3) ~ group, data = PlantGrowth,
