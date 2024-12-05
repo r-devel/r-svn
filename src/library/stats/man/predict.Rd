@@ -1,6 +1,6 @@
 % File src/library/stats/man/predict.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{predict}
@@ -32,7 +32,7 @@ predict (object, \dots)
   \code{n.ahead} specifying how many time steps ahead to predict.
 
   Many methods have a logical argument \code{se.fit} saying if standard
-  errors are to returned.
+  errors are to be returned.
 }
  \value{
   The form of the value returned by \code{predict} depends on the
