@@ -44,7 +44,8 @@ strptime(x, format, tz = "")
     the specified number of digits will be printed for seconds, using
     \code{"\%OS<n>"} instead of \code{"\%S"} in the format, see also
     \sQuote{Details}.}
-  \item{\dots}{further arguments to be passed from or to other methods.}
+  \item{\dots}{further arguments to be passed from or to other methods; for
+    \code{strftime()}, notably \code{digits}, passed to \code{format(<POSIXlt>)}.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended
     to the output?  This is used in printing times, and more reliable
     than using \code{"\%Z"}.}
@@ -237,13 +238,20 @@ strptime(x, format, tz = "")
   the standard interpretation.
 
   Specific to \R is \code{\%OSn}, which for output gives the seconds
-  truncated to \code{0 <= n <= 6} decimal places (and if \code{\%OS} is
-  not followed by a digit, it uses \code{digits} unless that is
-  \code{NULL}, when \code{n = 0}).  Note that the precedence is
-  \code{format="...\%OSn"} \eqn{\ll}{>>} \code{digits = n} \eqn{\ll}{>>}
-  \code{getOption("digits.secs")}.  Further, for \code{strptime}
-  \code{\%OS} will input seconds including fractional seconds.  Note that
-  \code{\%S} does not read fractional parts on output.
+  truncated to exactly \code{0 <= n <= 6} decimal places.  If \code{\%OS} is
+  not followed by a digit, it uses up to \code{digits} decimals (only as
+  many as necessary, i.e., not producing extra trailing zeros.
+  The default \code{digits = NULL} corresponds to \code{digits = 0}.
+
+  Note that the precedence is \code{format=".. \%OSn .."} \eqn{\ll}{>>}
+  \code{digits = n}, the latter initialized by default from
+  \code{getOption("digits.secs")}.
+  Currently, for output (\code{strftime()} and \code{format(<POSIX.t>)}),
+  only \emph{one} "\%OS" occurence is handled (per format string).
+  \cr
+  Further, for \code{strptime} \code{\%OS} will input seconds including
+  fractional seconds (to full precison).  Note that \code{\%S} does not
+  read or write fractional parts.
 
   The behaviour of other conversion specifications (and even if other
   character sequences commencing with \code{\%} \emph{are} conversion
