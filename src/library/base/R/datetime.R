@@ -405,13 +405,12 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
             else paste0("%Y-%m-%d %H:%M:%OS", np)
     }
     if(!missing(digits) && !is.null(digits) && digits != getOption("digits.secs", 0L) &&
-       any(OS. <- grepl("%OS[^0-9]", format))) { ## use digits to find n to use for "%OS<n>"
+       any(OS. <- grepl("%OS($|[^0-9])", format))) {
         x_ <- if(nf == 1L) x else x[OS.]
-        np <- useDig(x_$sec, digits)
-        format[OS.] <- gsub("%OS([^0-9])", paste0("%OS", np, "\\1"), format[OS.])
+        digits <- useDig(x_$sec, digits)
     }
     ## C code in do_formatPOSIXlt()  *does*  recycle  {x, format}  as needed:
-    .Internal(format.POSIXlt(x, format, usetz))
+    .Internal(format.POSIXlt(x, format, usetz, digits))
 }
 
 ## prior to 2.9.0 the same as format.POSIXlt.

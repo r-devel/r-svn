@@ -304,7 +304,7 @@ static int likely_strftime_overflow (stm *tm)
    We could avoid loops altogether by computing how many leap years
    there are between 1900 + tm->tm_year and 1900.
 
-   This will fix up tm_yday and tm_wday.
+   This will fix up tm->tm_yday and tm->tm_wday.
 
    Used in timegm00 (possibly) and guess_offset in PATH 1),
    POSIXlt2D and do_balancePOSIXlt
@@ -790,7 +790,7 @@ static void prepare_dummy_reset_tz(tzset_info *si)
     si->settz = FALSE;
     si->end_context_on_reset = FALSE;
 }
-    
+
 static Rboolean set_tz(const char *tz, tzset_info *si)
 {
     si->settz = FALSE;
@@ -1264,6 +1264,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     int UseTZ = asLogical(CADDR(args));
     if(UseTZ == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "usetz");
+    int digits = asInteger(CADDDR(args)); // checked for NA below
     SEXP tz = getAttrib(x, install("tzone"));
     if(!isNull(tz) && !isString(tz))
 	error(_("invalid '%s'"), "attr(x, \"tzone\")");
@@ -1375,7 +1376,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 		ns = *(p + 3) - '0';
 		if(ns < 0 || ns > 9) { /* not a digit */
 		    if (ns0 == -1) {
-			ns0 = asInteger(GetOption1(install("digits.secs")));
+ 			ns0 = digits;
 			if(ns0 == NA_INTEGER) ns0 = 0;
 		    }
 		    ns = ns0;
