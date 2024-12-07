@@ -415,6 +415,10 @@
       call with \code{glyphInfo()} that describes non-existent font
       (\PR{18784}).  Thanks to \I{Tomek Gieorgijewski}.
 
+      \item \code{format()} etc, using \code{decimal.mark = s}, by default
+      getting \code{s <- getOption("OutDec")}, signals a warning to become
+      an error in the future, when \code{s} is not a string with exactly
+      one character.
     }
   }
 }
