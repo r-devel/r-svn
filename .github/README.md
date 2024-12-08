@@ -46,3 +46,9 @@ The [`local`](./local) directory contains files to help with these issues:
 - [`post-checkout`](./local/post-checkout): A script to update the `SVNINFO` file after each checkout or commit.
 
 Run the [`setup.sh`](./local/setup.sh) script for automated setup.
+
+For creating `compile_commands.json` for use with LSPs (autocompletion in your IDE), use the [bear](https://github.com/rizsotto/Bear) tool:
+
+```sh
+bear -- make -j4
+```
