@@ -31,3 +31,18 @@ Build scripts for GitHub actions are always stored in the [workflows](./workflow
 The [examples](./examples) directory contains scripts to show how to build R locally. Basically these scripts just let you run the same steps as the CI in [build-svn.yaml](./workflows/build-svn.yaml) for a given platform:
 
  - [build-r-macos.sh](./examples/build-r-macos.sh): do a full prep, build, and check on MacOS.
+
+## Develop locally
+
+For local development, `git status` should accurately reflect the state of the repository.
+A default clone will have the following two problems:
+
+- A large amount of untracked unignored files.
+- A change in `Makefile.in` necessitated by having to build from a Git clone.
+
+The [local](./local) directory contains files to help with these issues:
+
+- [dot-gitignore](./local/dot-gitignore): A `.gitignore` file ready to copy to the root of the project.
+- [post-checkout](./local/post-checkout): A script to update the `SVNINFO` file after each checkout or commit.
+
+Run the [setup.sh](./local/setup.sh) script for automated setup.
