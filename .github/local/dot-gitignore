@@ -1,3 +1,6 @@
+# Copied from .github/local/dot-gitignore, do not edit by hand
+# Instead, edit the original file and run .github/local/setup.sh to update this file
+
 /.gitignore
 *.o
 *.d
