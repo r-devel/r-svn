@@ -829,7 +829,7 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* clever with memory here if we wanted to. */
 
 /* used in connections.c, attrib.c, seq.c, .. */
-SEXP xlengthgets(SEXP x, R_xlen_t len)
+SEXP Rf_xlengthgets(SEXP x, R_xlen_t len)
 {
     R_xlen_t lenx, i;
     SEXP rval, names, xnames, t;
@@ -927,7 +927,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 }
 
 /* older version */
-SEXP lengthgets(SEXP x, R_len_t len)
+SEXP Rf_lengthgets(SEXP x, R_len_t len)
 {
     return xlengthgets(x, (R_xlen_t) len);
 }

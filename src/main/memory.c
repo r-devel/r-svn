@@ -2434,7 +2434,7 @@ void *R_realloc_gc(void *p, size_t n)
 /* "allocSExp" allocate a SEXPREC */
 /* call gc if necessary */
 
-SEXP allocSExp(SEXPTYPE t)
+SEXP Rf_allocSExp(SEXPTYPE t)
 {
     if (t == NILSXP)
 	/* R_NilValue should be the only NILSXP object */
@@ -2475,7 +2475,7 @@ static SEXP allocSExpNonCons(SEXPTYPE t)
 
 /* cons is defined directly to avoid the need to protect its arguments
    unless a GC will actually occur. */
-SEXP cons(SEXP car, SEXP cdr)
+SEXP Rf_cons(SEXP car, SEXP cdr)
 {
     SEXP s;
     if (FORCE_GC || NO_FREE_NODES()) {
@@ -2683,7 +2683,7 @@ static void custom_node_free(void *ptr) {
 */
 #define intCHARSXP 73
 
-SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
+SEXP Rf_allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 {
     SEXP s;     /* For the generational collector it would be safer to
 		   work in terms of a VECSXP here, but that would
@@ -2990,7 +2990,7 @@ attribute_hidden SEXP allocCharsxp(R_len_t len)
     return allocVector(intCHARSXP, len);
 }
 
-SEXP allocList(int n)
+SEXP Rf_allocList(int n)
 {
     int i;
     SEXP result;
@@ -3000,7 +3000,7 @@ SEXP allocList(int n)
     return result;
 }
 
-SEXP allocLang(int n)
+SEXP Rf_allocLang(int n)
 {
     if (n > 0)
 	return LCONS(R_NilValue, allocList(n - 1));
@@ -3008,7 +3008,7 @@ SEXP allocLang(int n)
 	return R_NilValue;
 }
 
-SEXP allocS4Object(void)
+SEXP Rf_allocS4Object(void)
 {
    SEXP s;
    GC_PROT(s = allocSExpNonCons(OBJSXP));
@@ -3049,31 +3049,31 @@ static SEXP allocFormalsList(int nargs, ...)
 
 
 attribute_hidden /* would need to be in an installed header if not hidden */
-SEXP allocFormalsList2(SEXP sym1, SEXP sym2)
+SEXP Rf_allocFormalsList2(SEXP sym1, SEXP sym2)
 {
     return allocFormalsList(2, sym1, sym2);
 }
 
 attribute_hidden /* would need to be in an installed header if not hidden */
-SEXP allocFormalsList3(SEXP sym1, SEXP sym2, SEXP sym3)
+SEXP Rf_allocFormalsList3(SEXP sym1, SEXP sym2, SEXP sym3)
 {
     return allocFormalsList(3, sym1, sym2, sym3);
 }
 
 attribute_hidden /* would need to be in an installed header if not hidden */
-SEXP allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4)
+SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4)
 {
     return allocFormalsList(4, sym1, sym2, sym3, sym4);
 }
 
 attribute_hidden /* would need to be in an installed header if not hidden */
-SEXP allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5)
+SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5)
 {
     return allocFormalsList(5, sym1, sym2, sym3, sym4, sym5);
 }
 
 attribute_hidden /* would need to be in an installed header if not hidden */
-SEXP allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4,
+SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4,
 		       SEXP sym5, SEXP sym6)
 {
     return allocFormalsList(6, sym1, sym2, sym3, sym4, sym5, sym6);
@@ -3419,7 +3419,7 @@ NORET void R_signal_unprotect_error(void)
 }
 
 #ifndef INLINE_PROTECT
-SEXP protect(SEXP s)
+SEXP Rf_protect(SEXP s)
 {
     R_CHECK_THREAD;
     if (R_PPStackTop >= R_PPStackSize)
@@ -3431,7 +3431,7 @@ SEXP protect(SEXP s)
 
 /* "unprotect" pop argument list from top of R_PPStack */
 
-void unprotect(int l)
+void Rf_unprotect(int l)
 {
     R_CHECK_THREAD;
     if (R_PPStackTop >=  l)
@@ -3442,7 +3442,7 @@ void unprotect(int l)
 
 /* "unprotect_ptr" remove pointer from somewhere in R_PPStack */
 
-void unprotect_ptr(SEXP s)
+void Rf_unprotect_ptr(SEXP s)
 {
     R_CHECK_THREAD;
     int i = R_PPStackTop;

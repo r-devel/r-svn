@@ -368,7 +368,7 @@ static SEXP StringFromRaw(Rbyte x, int *warn)
 
 /* Conversion between the two list types (LISTSXP and VECSXP). */
 
-SEXP PairToVectorList(SEXP x)
+SEXP Rf_PairToVectorList(SEXP x)
 {
     SEXP xptr, xnew, xnames;
     int i, len = 0, named = 0;
@@ -399,7 +399,7 @@ SEXP PairToVectorList(SEXP x)
     return xnew;
 }
 
-SEXP VectorToPairList(SEXP x)
+SEXP Rf_VectorToPairList(SEXP x)
 {
     SEXP xptr, xnew, xnames;
     int i, len, named;
@@ -1180,7 +1180,7 @@ static SEXP coerceSymbol(SEXP v, SEXPTYPE type)
     return rval;
 }
 
-SEXP coerceVector(SEXP v, SEXPTYPE type)
+SEXP Rf_coerceVector(SEXP v, SEXPTYPE type)
 {
     if (TYPEOF(v) == type)
 	return v;
@@ -1330,7 +1330,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 #undef COERCE_ERROR
 
 
-attribute_hidden SEXP CreateTag(SEXP x)
+attribute_hidden SEXP Rf_CreateTag(SEXP x)
 {
     if (isNull(x) || isSymbol(x))
 	return x;
@@ -1444,7 +1444,7 @@ attribute_hidden SEXP do_asCharacterFactor(SEXP call, SEXP op, SEXP args,
 }
 
 /* used in attrib.c, eval.c and unique.c */
-SEXP asCharacterFactor(SEXP x)
+SEXP Rf_asCharacterFactor(SEXP x)
 {
     SEXP ans;
 
@@ -1802,7 +1802,7 @@ attribute_hidden SEXP do_ascall(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 
 /* return int, not Rboolean, for NA_LOGICAL : */
-attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
+attribute_hidden int Rf_asLogical2(SEXP x, int checking, SEXP call)
 {
     int warn = 0;
 
@@ -1834,13 +1834,13 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
     return NA_LOGICAL;
 }
 
-int asLogical(SEXP x)
+int Rf_asLogical(SEXP x)
 {
     return asLogical2(x, /* checking = */ 0, R_NilValue);
 }
 
 
-int asInteger(SEXP x)
+int Rf_asInteger(SEXP x)
 {
     int warn = 0, res;
 
@@ -1908,7 +1908,7 @@ R_xlen_t asXLength(SEXP x)
 	return (R_xlen_t) d;
 }
 
-double asReal(SEXP x)
+double Rf_asReal(SEXP x)
 {
     int warn = 0;
     double res;
@@ -1944,7 +1944,7 @@ double asReal(SEXP x)
     return NA_REAL;
 }
 
-Rcomplex asComplex(SEXP x)
+Rcomplex Rf_asComplex(SEXP x)
 {
     int warn = 0;
     Rcomplex z;
@@ -2795,7 +2795,7 @@ attribute_hidden SEXP do_docall(SEXP call, SEXP op, SEXP args, SEXP rho)
    Arguments to do_substitute should not be evaluated.
 */
 
-SEXP substitute(SEXP lang, SEXP rho)
+SEXP Rf_substitute(SEXP lang, SEXP rho)
 {
     SEXP t;
     switch (TYPEOF(lang)) {

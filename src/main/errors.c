@@ -391,7 +391,7 @@ static SEXP getCurrentCall(void)
 	return c ? c->call : R_NilValue;
 }
 
-void warning(const char *format, ...)
+void Rf_warning(const char *format, ...)
 {
     char buf[BUFSIZE], *p;
 
@@ -555,7 +555,7 @@ static void warningcall_dflt(SEXP call, const char *format,...)
     va_end(ap);
 }
 
-void warningcall(SEXP call, const char *format, ...)
+void Rf_warningcall(SEXP call, const char *format, ...)
 {
     va_list(ap);
     va_start(ap, format);
@@ -563,7 +563,7 @@ void warningcall(SEXP call, const char *format, ...)
     va_end(ap);
 }
 
-void warningcall_immediate(SEXP call, const char *format, ...)
+void Rf_warningcall_immediate(SEXP call, const char *format, ...)
 {
     va_list(ap);
 
@@ -908,7 +908,7 @@ NORET static void errorcall_dflt(SEXP call, const char *format,...)
     va_end(ap);
 }
 
-NORET void errorcall(SEXP call, const char *format,...)
+NORET void Rf_errorcall(SEXP call, const char *format,...)
 {
     va_list(ap);
 
@@ -950,7 +950,7 @@ attribute_hidden SEXP do_geterrmessage(SEXP call, SEXP op, SEXP args, SEXP env)
     return res;
 }
 
-void error(const char *format, ...)
+void Rf_error(const char *format, ...)
 {
     char buf[BUFSIZE];
 

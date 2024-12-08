@@ -78,7 +78,7 @@ NORET void F77_SUB(rexitc)(char *msg, int *nchar);
 
 /* Many small functions are included from ../include/Rinlinedfuns.h */
 
-int nrows(SEXP s) // ~== NROW(.)  in R
+int Rf_nrows(SEXP s) // ~== NROW(.)  in R
 {
     SEXP t;
     if (isVector(s) || isList(s)) {
@@ -94,7 +94,7 @@ int nrows(SEXP s) // ~== NROW(.)  in R
 }
 
 
-int ncols(SEXP s) // ~== NCOL(.)  in R
+int Rf_ncols(SEXP s) // ~== NCOL(.)  in R
 {
     SEXP t;
     if (isVector(s) || isList(s)) {
@@ -141,7 +141,7 @@ const static char * const falsenames[] = {
     (char *) NULL,
 };
 
-SEXP asChar(SEXP x)
+SEXP Rf_asChar(SEXP x)
 {
 	if (isVectorAtomic(x) && XLENGTH(x) >= 1) {
 	    int w, d, e, wi, di, ei;
@@ -181,14 +181,14 @@ SEXP asChar(SEXP x)
     return NA_STRING;
 }
 
-Rboolean isUnordered(SEXP s)
+Rboolean Rf_isUnordered(SEXP s)
 {
     return (TYPEOF(s) == INTSXP
 	    && inherits(s, "factor")
 	    && !inherits(s, "ordered"));
 }
 
-Rboolean isOrdered(SEXP s)
+Rboolean Rf_isOrdered(SEXP s)
 {
     return (TYPEOF(s) == INTSXP
 	    && inherits(s, "factor")
@@ -243,7 +243,7 @@ TypeTable[] = {
 };
 
 
-SEXPTYPE str2type(const char *s)
+SEXPTYPE Rf_str2type(const char *s)
 {
     int i;
     for (i = 0; TypeTable[i].str; i++) {
@@ -301,7 +301,7 @@ void InitTypeTables(void) {
     }
 }
 
-SEXP type2str_nowarn(SEXPTYPE t) /* returns a CHARSXP */
+SEXP Rf_type2str_nowarn(SEXPTYPE t) /* returns a CHARSXP */
 {
     // if (t >= 0 && t < MAX_NUM_SEXPTYPE) { /* branch not really needed */
 	SEXP res = Type2Table[t].rcharName;
@@ -310,7 +310,7 @@ SEXP type2str_nowarn(SEXPTYPE t) /* returns a CHARSXP */
     return R_NilValue;
 }
 
-SEXP type2str(SEXPTYPE t) /* returns a CHARSXP */
+SEXP Rf_type2str(SEXPTYPE t) /* returns a CHARSXP */
 {
     SEXP s = type2str_nowarn(t);
     if (s != R_NilValue) {
@@ -322,7 +322,7 @@ SEXP type2str(SEXPTYPE t) /* returns a CHARSXP */
     return mkChar(buf);
 }
 
-SEXP type2rstr(SEXPTYPE t) /* returns a STRSXP */
+SEXP Rf_type2rstr(SEXPTYPE t) /* returns a STRSXP */
 {
     // if (t < MAX_NUM_SEXPTYPE) {
 	SEXP res = Type2Table[t].rstrName;
@@ -465,7 +465,7 @@ Rboolean isBlankString(const char *s)
     return TRUE;
 }
 
-Rboolean StringBlank(SEXP x)
+Rboolean Rf_StringBlank(SEXP x)
 {
     if (x == R_NilValue) return TRUE;
     else return CHAR(x)[0] == '\0';
@@ -543,7 +543,7 @@ attribute_hidden void Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 }
 
 
-SEXP nthcdr(SEXP s, int n)
+SEXP Rf_nthcdr(SEXP s, int n)
 {
     if (isList(s) || isLanguage(s) || isDataFrame(s) || TYPEOF(s) == DOTSXP ) {
 	while( n-- > 0 ) {
@@ -627,7 +627,7 @@ void setSVector(SEXP * vec, int len, SEXP val)
 */
 
 
-attribute_hidden Rboolean isFree(SEXP val)
+attribute_hidden Rboolean Rf_isFree(SEXP val)
 {
     SEXP t;
     for (t = R_FreeSEXP; t != R_NilValue; t = CAR(t))

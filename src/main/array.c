@@ -62,7 +62,7 @@
 
  They are used in bind.c and subset.c, and advertised in Rinternals.h
 */
-SEXP GetRowNames(SEXP dimnames)
+SEXP Rf_GetRowNames(SEXP dimnames)
 {
     if (TYPEOF(dimnames) == VECSXP)
 	return VECTOR_ELT(dimnames, 0);
@@ -70,7 +70,7 @@ SEXP GetRowNames(SEXP dimnames)
 	return R_NilValue;
 }
 
-SEXP GetColNames(SEXP dimnames)
+SEXP Rf_GetColNames(SEXP dimnames)
 {
     if (TYPEOF(dimnames) == VECSXP)
 	return VECTOR_ELT(dimnames, 1);
@@ -228,7 +228,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
+SEXP Rf_allocMatrix(SEXPTYPE mode, int nrow, int ncol)
 {
     SEXP s, t;
     R_xlen_t n;
@@ -259,7 +259,7 @@ SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
  *
  * @return A 3-dimensional array of the indicated dimensions and mode
  */
-SEXP alloc3DArray(SEXPTYPE mode, int nrow, int ncol, int nface)
+SEXP Rf_alloc3DArray(SEXPTYPE mode, int nrow, int ncol, int nface)
 {
     SEXP s, t;
     R_xlen_t n;
@@ -282,7 +282,7 @@ SEXP alloc3DArray(SEXPTYPE mode, int nrow, int ncol, int nface)
 }
 
 
-SEXP allocArray(SEXPTYPE mode, SEXP dims)
+SEXP Rf_allocArray(SEXPTYPE mode, SEXP dims)
 {
     SEXP array;
     int i;
@@ -313,7 +313,7 @@ SEXP allocArray(SEXPTYPE mode, SEXP dims)
 /* attribute.  Note that this function mutates x. */
 /* Duplication should occur before this is called. */
 
-attribute_hidden SEXP DropDims(SEXP x)
+attribute_hidden SEXP Rf_DropDims(SEXP x)
 {
     PROTECT(x);
     SEXP dims = getAttrib(x, R_DimSymbol);

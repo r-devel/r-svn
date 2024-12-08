@@ -46,7 +46,7 @@
 
 
 /* used in subscript.c and subassign.c */
-Rboolean NonNullStringMatch(SEXP s, SEXP t)
+Rboolean Rf_NonNullStringMatch(SEXP s, SEXP t)
 {
     /* "" or NA string matches nothing */
     if (s == NA_STRING || t == NA_STRING) return FALSE;
@@ -57,7 +57,7 @@ Rboolean NonNullStringMatch(SEXP s, SEXP t)
 }
 
 /* currently unused outside this file */
-Rboolean psmatch(const char *f, const char *t, Rboolean exact)
+Rboolean Rf_psmatch(const char *f, const char *t, Rboolean exact)
 {
     if (exact)
 	return (Rboolean)!strcmp(f, t);
@@ -89,7 +89,7 @@ static R_INLINE SEXP charFromSexp(SEXP s)
     }
 }
 
-Rboolean pmatch(SEXP formal, SEXP tag, Rboolean exact)
+Rboolean Rf_pmatch(SEXP formal, SEXP tag, Rboolean exact)
 {
     SEXP f = charFromSexp(formal);
     SEXP t = charFromSexp(tag);

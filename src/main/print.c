@@ -1092,7 +1092,7 @@ attribute_hidden void PrintValueEnv(SEXP s, SEXP env)
 
 /* Print an S-expression using global options */
 
-void PrintValue(SEXP s)
+void Rf_PrintValue(SEXP s)
 {
     PrintValueEnv(s, R_GlobalEnv);
 }
