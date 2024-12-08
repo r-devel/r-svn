@@ -7,6 +7,8 @@
 *.a
 *.so
 *.dylib
+*.inn
+*.html
 /src/library/Recommended/*
 /.cache/
 /.editorconfig
@@ -214,3 +216,8 @@
 /tests/Examples/Makefile
 /tests/Makefile
 /tools/Makefile
+/doc/NEWS.pdf
+/doc/manual/htmlxref.cnf
+/doc/manual/stamp-images-html
+/doc/manual/version.texi
+/src/library/stamp-docs
