@@ -124,7 +124,7 @@
       reproducibility.
 
       \item The `quartz()` device now supports alpha masks.
-      Thanks to \I{George Stagg}, \I{Heather Turner}, and
+      Thanks to \I{George Stagg}, \I{Gwynn Gebeyhu}, \I{Heather Turner}, and
       \I{Tomek Gieorgijewski}.
 
       \item The \code{print()} method for date-time objects (\code{POSIX.t})
