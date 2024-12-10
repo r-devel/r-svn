@@ -117,6 +117,9 @@ glyphFont <- function(file, index,
                       family, weight, style,
                       PSname=NA) {
     file <- as.character(file)
+    if ( !file.exists(file)) {
+      stop("Font file does not exist")
+    }
     nafile <- is.na(file)
     if (any(nchar(file[!nafile], "bytes") > 500))
         warning("Font file longer than 500 will be truncated")
