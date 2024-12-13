@@ -2072,6 +2072,15 @@ static size_t bzfile_read(void *ptr, size_t size, size_t nitems,
 		if (next_unused) free(next_unused);
 	    }
 	} else if (bzerror != BZ_OK) {
+	    /* This happens also when the file accidentally starts with BZh,
+	       but is not a bzip2 file. (PR#18768) */
+	    if (bzerror == BZ_DATA_ERROR_MAGIC)
+		/* FIXME: the warning probably should also be displayed for some
+		   other errors, but not for BZ_SEQUENCE_ERROR, because that is
+		   caused by the code above when the stream ends but there are no
+		   "unused" bytes, and another read is attempted. */
+		warning(_("file '%s' appears not to be compressed by bzip2"),
+		    R_ExpandFileName(con->description));
 	    /* bzlib docs say in this case n is invalid - but historically
 	       we still used n in that case, so I keep it for now */
 	    nread += n;
