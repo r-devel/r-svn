@@ -55,7 +55,8 @@ conditional content.
 <p><code>%{}</code>
 </p>
 <p>a link and some to known destinations:
-weighted.mean, <code>{</code>
+<code>weighted.mean</code>, dito,
+<code>{</code>, <span class="env">R_HOME</span>.
 </p>
 <p>var in <var>text</var>.
 </p>

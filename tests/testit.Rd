@@ -34,7 +34,8 @@ foo(\var{x}, \var{y}, ...)
   \code{\%\{\}}
   
   \link{a link} and some to known destinations:
-  \link[stats]{weighted.mean}, \code{\link[=Paren]{\{}}
+  \code{\link[stats]{weighted.mean}}, \link[stats:weighted.mean]{dito},
+  \code{\link[=Paren]{\{}}, \link[=R_HOME]{\env{R_HOME}}.
   
   var in \var{text}.
   

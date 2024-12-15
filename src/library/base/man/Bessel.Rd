@@ -108,8 +108,8 @@ besselY(x, nu)
 }
 \seealso{
   Other special mathematical functions, such as
-  \code{\link{gamma}}, \eqn{\Gamma(x)}, and \code{\link{beta}},
-  \eqn{B(x)}.
+  \ifelse{text}{\code{gamma}}{\link[=gamma]{\eqn{\Gamma(x)}}} and
+  \ifelse{text}{\code{beta}}{\link[=beta]{\eqn{B(a,b)}}}.
 }
 \author{
   Original Fortran code:
