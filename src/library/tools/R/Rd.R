@@ -850,7 +850,7 @@ function(x)
         tag <- attr(e, "Rd_tag")
         if(identical(tag, "\\link")) {
             val <- if(length(e)) { # mvbutils has empty links
-                arg <- paste(vapply(e, trimws, ""), collapse = " ")
+                arg <- paste(trimws(unlist(e)), collapse = " ")
                 opt <- attr(e, "Rd_option")
                 c(arg, if(is.null(opt)) "" else as.character(opt))
             } else c("", "")

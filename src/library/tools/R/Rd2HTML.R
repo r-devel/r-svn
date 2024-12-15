@@ -29,10 +29,9 @@ get_link <- function(arg, tag, Rdfile) {
     ## \link[pkg:bar]{foo} means show foo and link to topic/file bar in package pkg.
     ## As from 2.10.0, look for topic 'bar' if file not found.
     ## As from 4.1.0, prefer topic 'bar' over file 'bar' (in which case 'targetfile' is a misnomer)
+    ## As from 4.5.0, allow markup in link text for variants 2 and 4.
 
-    if (!all(RdTags(arg) == "TEXT"))
-    	stopRd(arg, Rdfile, "Bad \\link text")
-
+    isTEXT <- all(RdTags(arg) == "TEXT")
     option <- attr(arg, "Rd_option")
 
     topic <- dest <- paste(unlist(arg), collapse = "")
@@ -41,16 +40,21 @@ get_link <- function(arg, tag, Rdfile) {
     if (!is.null(option)) {
         if (!identical(attr(option, "Rd_tag"), "TEXT"))
     	    stopRd(option, Rdfile, "Bad \\link option -- must be text")
-    	if (grepl("^=", option, perl = TRUE, useBytes = TRUE))
+        option <- as.character(option)
+        if (startsWith(option, "="))
     	    dest <- psub1("^=", "", option)
-    	else if (grepl(":", option, perl = TRUE, useBytes = TRUE)) {
+        else if (grepl(":", option, fixed = TRUE)) {
     	    targetfile <- psub1("^[^:]*:", "", option)
     	    pkg <- psub1(":.*", "", option)
     	} else {
+            if (!isTEXT)
+                stopRd(arg, Rdfile, "Bad \\link[pkg]{topic} -- argument must be text")
             targetfile <- dest
-    	    pkg <- as.character(option)
+            pkg <- option
     	}
-    }
+    } else if (!isTEXT)
+        stopRd(arg, Rdfile, "Bad \\link topic -- must be text")
+
     if (tag == "\\linkS4class") dest <- paste0(dest, "-class")
     list(topic = topic, dest = dest, pkg = pkg, targetfile = targetfile)
 }

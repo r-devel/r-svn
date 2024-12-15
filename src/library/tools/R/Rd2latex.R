@@ -233,11 +233,18 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 
     ## Currently ignores [option] except for [=dest] form
     ## (as documented)
+    ## FIXME: so should not output cross-package links (unless for refman ...)
     writeLink <- function(tag, block) {
-        parts <- get_link(block, tag)
+        parts <- get_link(block, tag, Rdfile)
         if (concordance)
             conc$saveSrcref(block)
-        of0("\\LinkA{", latex_escape_link(parts$topic), "}{",
+        if (all(RdTags(block) == "TEXT")) {
+            of0("\\LinkA{", latex_escape_name(parts$topic))
+        } else { # don't \index link text containing markup etc
+            of1("\\LinkB{")
+            writeContent(block, tag)
+        }
+        of0("}{",
             latex_link_trans0(parts$dest), "}")
     }
 
@@ -288,13 +295,6 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
         x <- fsub("@", "\"@", x)
         ## </FIXME>
         x
-    }
-
-    latex_escape_link <- function(x)
-    {
-        ## _ is already escaped
-        x <- fsub("\\_", "_", x)
-        latex_escape_name(x)
     }
 
     latex_link_trans0 <- function(x)
