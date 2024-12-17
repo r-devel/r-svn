@@ -247,10 +247,10 @@ strptime(x, format, tz = "")
   \code{digits = n}, the latter initialized by default from
   \code{getOption("digits.secs")}.
   Currently, for output (\code{strftime()} and \code{format(<POSIX.t>)}),
-  only \emph{one} "\%OS" occurence is handled (per format string).
+  only \emph{one} "\%OS" occurrence is handled (per format string).
   \cr
   Further, for \code{strptime} \code{\%OS} will input seconds including
-  fractional seconds (to full precison).  Note that \code{\%S} does not
+  fractional seconds (to full precision).  Note that \code{\%S} does not
   read or write fractional parts.
 
   The behaviour of other conversion specifications (and even if other
