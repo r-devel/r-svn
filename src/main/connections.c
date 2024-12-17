@@ -2387,6 +2387,58 @@ newxzfile(const char *description, const char *mode, int type, int compress)
     return new;
 }
 
+typedef enum { COMP_UNKNOWN = 0, COMP_GZ, COMP_BZ, COMP_XZ } comp_type;
+
+static comp_type
+comp_type_from_memory(char *buf, size_t len, Rboolean with_zlib, int *subtype)
+{
+    if(len >= 2 && buf[0] == '\x1f' && buf[1] == '\x8b')
+	return COMP_GZ;
+    else if(with_zlib && len>=2 && buf[0] == '\x78' && buf[1] == '\x9c')
+	/* zlib commression starts with 2 bytes, which for default settings are
+	   \x78\x9c.  We could use that */
+	return COMP_GZ;
+    else if(len >= 10 && !strncmp(buf, "BZh", 3)) { 
+	/* check also the block size and the block/eos magic to reduce
+	   the risk of picking up an uncompressed file (PR#18768) */
+	if (buf[3] >= '1' && buf[3] <= '9') {
+	    // 0x314159265359 (BCD (pi))
+	    // 0x177245385090 (BCD sqrt(pi))
+	    if (!memcmp(buf+4, "\x31\x41\x59\x26\x53\x59", 6) ||
+	        !memcmp(buf+4, "\x17\x72\x45\x38\x50\x90", 6))
+
+		return COMP_BZ;
+	}
+    } else if(len >= 5 && buf[0] == '\xFD' && !strncmp(buf+1, "7zXZ", 4)) {
+	*subtype = 0;
+	return COMP_XZ;
+    } else if(len >= 5 && buf[0] == '\xFF' && !strncmp(buf+1, "LZMA", 4)) {
+	*subtype = 1;
+	return COMP_XZ;
+    } else if(len >= 5 && !memcmp(buf, "]\0\0\200\0", 5)) {
+	*subtype = 1;
+	return COMP_XZ;
+    } else if(len >= 4 && buf[0] == '\x89' && !strncmp(buf+1, "LZO", 3))
+	error(_("this is a %s-compressed file which this build of R does not support"),
+	        "lzop");
+    return COMP_UNKNOWN; 
+}
+
+static comp_type 
+comp_type_from_file(const char *name, Rboolean with_zlib, int *subtype)
+{
+    FILE *fp = fopen(name, "rb");
+    char buf[10];
+
+    if (fp) {
+	size_t res = fread(buf, 1, sizeof(buf), fp);
+	fclose(fp);
+	if(res > 0)
+	    return comp_type_from_memory(buf, res, with_zlib, subtype);
+    }
+    return COMP_UNKNOWN;
+}
+
 /* op 0 is gzfile, 1 is bzfile, 2 is xv/lzma */
 attribute_hidden SEXP do_gzfile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -2425,27 +2477,18 @@ attribute_hidden SEXP do_gzfile(SEXP call, SEXP op, SEXP args, SEXP env)
     open = CHAR(STRING_ELT(sopen, 0)); /* ASCII */
     if (type == 0 && (!open[0] || open[0] == 'r')) {
 	/* check magic no */
-	FILE *fp = fopen(R_ExpandFileName(file), "rb");
-	char buf[7];
-	if (fp) {
-	    size_t res;
-	    memset(buf, 0, 7); res = fread(buf, 5, 1, fp); fclose(fp);
-	    if(res == 1) {
-		if(!strncmp(buf, "BZh", 3)) type = 1;
-		if((buf[0] == '\xFD') && !strncmp(buf+1, "7zXZ", 4)) type = 2;
-		if((buf[0] == '\xFF') && !strncmp(buf+1, "LZMA", 4)) {
-		    type = 2; subtype = 1;
-		}
-		if(!memcmp(buf, "]\0\0\200\0", 5)) {
-		    type = 2; subtype = 1;
-		}
-		if((buf[0] == '\x89') && !strncmp(buf+1, "LZO", 3))
-		    error(_("this is a %s-compressed file which this build of R does not support"), "lzop");
-	    }
+	comp_type ct;
+	ct = comp_type_from_file(R_ExpandFileName(file), FALSE, &subtype);
+	switch(ct) {
+	case COMP_GZ:
+	case COMP_UNKNOWN: type = 0; break;
+	case COMP_BZ: type = 1; break;
+	case COMP_XZ: type = 2; break;
 	}
     }
     switch(type) {
     case 0:
+	/* gzfile connection handles also transparent (uncompressed) files */
 	con = newgzfile(file, strlen(open) ? open : "rb", compress);
 	break;
     case 1:
@@ -5732,36 +5775,21 @@ attribute_hidden SEXP do_url(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (!raw &&
 		    (!strlen(open) || streql(open, "r") || streql(open, "rt"))) {
 		    /* check if this is a compressed file */
-		    FILE *fp = fopen(efn, "rb");
-		    char buf[7];
-		    int ztype = -1, subtype = 0, compress = 0;
-		    if (fp) {
-			memset(buf, 0, 7);
-			size_t res = fread(buf, 5, 1, fp);
-			fclose(fp);
-			if(res == 1) {
-			    if(buf[0] == '\x1f' && buf[1] == '\x8b') ztype = 0;
-			    if(!strncmp(buf, "BZh", 3)) ztype = 1;
-			    if((buf[0] == '\xFD') && !strncmp(buf+1, "7zXZ", 4))
-				ztype = 2;
-			    if((buf[0] == '\xFF') && !strncmp(buf+1, "LZMA", 4))
-			    { ztype = 2; subtype = 1;}
-			    if(!memcmp(buf, "]\0\0\200\0", 5))
-			    { ztype = 2; subtype = 1;}
-			}
-		    }
-		    switch(ztype) {
-		    case -1:
+		    int subtype = 0, compress = 0;
+		    comp_type ct = comp_type_from_file(efn, FALSE, &subtype);
+		    switch(ct) {
+		    case COMP_UNKNOWN:
 			con = newfile(url, ienc, strlen(open) ? open : "r", raw);
 			break;
-		    case 0:
+		    case COMP_GZ:
 			con = newgzfile(url, strlen(open) ? open : "rt", compress);
 			break;
-		    case 1:
+		    case COMP_BZ:
 			con = newbzfile(url, strlen(open) ? open : "rt", compress);
 			break;
-		    case 2:
-			con = newxzfile(url, strlen(open) ? open : "rt", subtype, compress);
+		    case COMP_XZ:
+			con = newxzfile(url, strlen(open) ? open : "rt", subtype,
+			                compress);
 			break;
 		    }
 		} else
@@ -6778,19 +6806,16 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
     type = asInteger(CADR(args));
     if (type == 5) {/* type = 5 is "unknown" */
 	char *p = (char *) RAW(from);
-	/* zlib commression starts with 2 bytes, which for default settings are
-	   \x78\x9c.  We could use that */
-	if (strncmp(p, "BZh", 3) == 0) type = 3; /* bzip2 always uses a header */
-	else if(p[0] == '\x1f' && p[1] == '\x8b') type = 2; /* gzip files */
-	else if(p[0] == '\x78' && p[1] == '\x9c') type = 2; /* gzip files */
-	else if((p[0] == '\xFD') && !strncmp(p+1, "7zXZ", 4)) type = 4;
-	else if((p[0] == '\xFF') && !strncmp(p+1, "LZMA", 4)) {
-	    type = 4; subtype = 1;
-	} else if(!memcmp(p, "]\0\0\200\0", 5)) {
-	    type = 4; subtype = 1;
-	} else {
+	comp_type ct;
+	ct = comp_type_from_memory(p, LENGTH(from), TRUE, &subtype);
+	switch(ct) {
+	case COMP_GZ: type = 2; break;
+	case COMP_BZ: type = 3; break;
+	case COMP_XZ: type = 4; break;
+	case COMP_UNKNOWN:
 	    warning(_("unknown compression, assuming none"));
 	    type = 1;
+	    break;
 	}
     }
 
