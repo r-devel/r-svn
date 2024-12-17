@@ -81,7 +81,7 @@
 #include <string.h> /* for strlen, strcmp */
 
 /* define inline-able functions */
-#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R)
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
 # define STRICT_TYPECHECK
 # define CATCH_ZERO_LENGTH_ACCESS
 #endif
