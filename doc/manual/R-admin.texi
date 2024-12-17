@@ -5609,7 +5609,7 @@ macOS upgrade may remove one if already installed: it is intended to be
 installed at first use.  Check if a @abbr{JRE} is installed by running
 @command{java -version} in a @command{Terminal} window: if Java is not
 installed this may prompt you to install it from Oracle@footnote{Oracle
-Java has a restrictive licence, unlike distributions based on OpenJDK.}
+Java has a restrictive licence, unlike distributions based on @I{OpenJDK}.}
 (but see the next paragraph).  We recommend you install a version with
 long-term support, e.g.@: 17 or 21@footnote{The planned @I{nextLTS}
 release is 25 in September 2025.  Java 8 @emph{aka} 1.8.0 is still
@@ -5620,7 +5620,7 @@ The currently simplest way to install Java is from
 @uref{https://adoptium.net, Adoptium}@footnote{which website works with
 Safari but not some other browsers.}: this installs into an
 Apple-standard location and so works with @command{/usr/bin/java}. Other
-builds of OpenJDK are available from
+builds of @I{OpenJDK} are available from
 @uref{https://www.azul.com/downloads/zulu-community/?os=macos&architecture=arm-64-bit&package=jdk}
 and from @I{OpenJDK} at @uref{https://jdk.java.net/}, for which
 @env{JAVA_HOME} may need to be set both when configuring @R{} and at
