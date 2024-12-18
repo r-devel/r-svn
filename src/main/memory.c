@@ -4137,10 +4137,9 @@ SEXP (VECTOR_ELT)(SEXP x, R_xlen_t i) {
    that even zero-length vectors have non-NULL data pointers, so
    return (void *) 1 instead. Zero-length CHARSXP objects still have a
    trailing zero byte so they are not handled. */
-# define CHKZLN(x) do {					   \
-	CHK(x);						   \
-	if (STDVEC_LENGTH(x) == 0 && TYPEOF(x) != CHARSXP) \
-	    return (void *) 1;				   \
+# define CHKZLN(x) do {						\
+	if (STDVEC_LENGTH(CHK(x)) == 0 && TYPEOF(x) != CHARSXP) \
+	    return (void *) 1;					\
     } while (0)
 #else
 # define CHKZLN(x) do { } while (0)
