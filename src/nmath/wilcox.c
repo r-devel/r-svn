@@ -33,8 +33,8 @@
 
  */
 
-/* 
-   Note: the checks here for R_CheckInterrupt also do stack checking.
+/*
+   Note: the checks here for R_CheckUserInterrupt also do stack checking.
 
    calloc/free are remapped for use in R, so allocation checks are done there.
    freeing is completed by an on.exit action in the R wrappers.
@@ -108,17 +108,15 @@ w_free_maybe(int m, int n)
 }
 
 
+#ifndef MATHLIB_STANDALONE
+static int ic = 99999;
+#endif
 /* This counts the number of choices with statistic = k */
 static double
 cwilcox(int k, int m, int n)
 {
-    int c, u, i, j, l;
-
-#ifndef MATHLIB_STANDALONE
-    R_CheckUserInterrupt();
-#endif
-
-    u = m * n;
+    int c, i, j,
+	u = m * n;
     if (k < 0 || k > u)
 	return(0);
     c = (int)(u / 2);
@@ -134,20 +132,27 @@ cwilcox(int k, int m, int n)
 	return (k == 0);
 
 
-    /* We can simplify things if k is small.  Consider the Mann-Whitney 
-       definition, and sort y.  Then if the statistic is k, no more 
-       than k of the y's can be <= any x[i], and since they are sorted 
+    /* We can simplify things if k is small.  Consider the Mann-Whitney
+       definition, and sort y.  Then if the statistic is k, no more
+       than k of the y's can be <= any x[i], and since they are sorted
        these can only be in the first k.  So the count is the same as
-       if there were just k y's. 
+       if there were just k y's.
     */
-    if (j > 0 && k < j) return cwilcox(k, i, k);    
-    
+    if (j > 0 && k < j) return cwilcox(k, i, k);
+
+#ifndef MATHLIB_STANDALONE
+    if (!ic--) {
+	R_CheckUserInterrupt();
+	ic = 99999;
+    }
+#endif
+
     if (w[i][j] == 0) {
 	w[i][j] = (double *) calloc((size_t) c + 1, sizeof(double));
 #ifdef MATHLIB_STANDALONE
 	if (!w[i][j]) MATHLIB_ERROR(_("wilcox allocation error %d"), 3);
 #endif
-	for (l = 0; l <= c; l++)
+	for (int l = 0; l <= c; l++)
 	    w[i][j][l] = -1;
     }
     if (w[i][j][k] < 0) {
@@ -162,8 +167,6 @@ cwilcox(int k, int m, int n)
 
 double dwilcox(double x, double m, double n, int give_log)
 {
-    double d;
-
 #ifdef IEEE_754
     /* NaNs propagated correctly */
     if (ISNAN(x) || ISNAN(m) || ISNAN(n))
@@ -182,7 +185,7 @@ double dwilcox(double x, double m, double n, int give_log)
 
     int mm = (int) m, nn = (int) n, xx = (int) x;
     w_init_maybe(mm, nn);
-    d = give_log ?
+    double d = give_log ?
 	log(cwilcox(xx, mm, nn)) - lchoose(m + n, n) :
 	    cwilcox(xx, mm, nn)  /  choose(m + n, n);
 
@@ -192,9 +195,6 @@ double dwilcox(double x, double m, double n, int give_log)
 /* args have the same meaning as R function pwilcox */
 double pwilcox(double q, double m, double n, int lower_tail, int log_p)
 {
-    int i;
-    double c, p;
-
 #ifdef IEEE_754
     if (ISNAN(q) || ISNAN(m) || ISNAN(n))
 	return(q + m + n);
@@ -215,16 +215,16 @@ double pwilcox(double q, double m, double n, int lower_tail, int log_p)
 
     int mm = (int) m, nn = (int) n;
     w_init_maybe(mm, nn);
-    c = choose(m + n, n);
-    p = 0;
+    double c = choose(m + n, n),
+	p = 0;
     /* Use summation of probs over the shorter range */
     if (q <= (m * n / 2)) {
-	for (i = 0; i <= q; i++)
+	for (int i = 0; i <= q; i++)
 	    p += cwilcox(i, mm, nn) / c;
     }
     else {
 	q = m * n - q;
-	for (i = 0; i < q; i++)
+	for (int i = 0; i < q; i++)
 	    p += cwilcox(i, mm, nn) / c;
 	lower_tail = !lower_tail; /* p = 1 - p; */
     }
@@ -236,8 +236,6 @@ double pwilcox(double q, double m, double n, int lower_tail, int log_p)
 
 double qwilcox(double x, double m, double n, int lower_tail, int log_p)
 {
-    double c, p;
-
 #ifdef IEEE_754
     if (ISNAN(x) || ISNAN(m) || ISNAN(n))
 	return(x + m + n);
@@ -261,8 +259,8 @@ double qwilcox(double x, double m, double n, int lower_tail, int log_p)
 
     int mm = (int) m, nn = (int) n;
     w_init_maybe(mm, nn);
-    c = choose(m + n, n);
-    p = 0;
+    double c = choose(m + n, n),
+	p = 0.;
     int q = 0;
     if (x <= 0.5) {
 	x = x - 10 * DBL_EPSILON;

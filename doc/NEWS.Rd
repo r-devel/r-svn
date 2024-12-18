@@ -419,6 +419,9 @@
       getting \code{s <- getOption("OutDec")}, signals a warning to become
       an error in the future, when \code{s} is not a string with exactly
       one character.
+
+      \item \code{pwilcox()} and \code{qwilcox()} now check for user
+      interrupt less frequencly.
     }
   }
 }
