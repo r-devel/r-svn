@@ -52167,6 +52167,90 @@ else
 fi
 
 
+if test "${r_xdr}" = no ; then
+  ## check internal xdr can be used
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether internal XDR can be used" >&5
+printf %s "checking whether internal XDR can be used... " >&6; }
+if test ${r_cv_internal_xdr_usable+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test "${cross_compiling}" = yes; then
+  r_cv_internal_xdr_usable=yes
+else
+  cat >conftestx.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op) {
+  (void)xdrs; (void)addr; (void)size; (void)op;
+  exit(0); /* SUCCESS, internal implementation can be called */
+}
+EOF
+  cat >conftest.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+extern void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op);
+
+int main(void) {
+  XDR xdrs;
+  char buf[4];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  exit(1); /* FAILURE, internal implementation is not called */
+}
+EOF
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} -I${srcdir}/src/extra/xdr"
+  r_cv_internal_xdr_usable=no
+  if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftestx.c \
+       1>&5 2>&5 && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c
+       1>&5 2>&5 && \
+     ${AR} ${ARFLAGS} conftestx.${libext} conftestx.${ac_objext} \
+       1>&5 2>&5 && \
+     ${RANLIB} conftestx.${libext} \
+       1>&5 2>&5 && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} conftestx.${libext} \
+       1>&5 2>&5 ; then
+
+     ./conftest${ac_exeext} 2>&5
+     if test ${?} = 0; then
+       r_cv_internal_xdr_usable=yes
+     fi
+  fi
+  rm -f conftestxi.c conftestx.c
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi # not cross-compiling
+ ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $r_cv_internal_xdr_usable" >&5
+printf "%s\n" "$r_cv_internal_xdr_usable" >&6; }
+if test "${r_cv_internal_xdr_usable}" = no ; then
+  case "${host_os}" in
+    linux*)
+      as_fn_error $? "Internal XDR cannot be used. Maybe install a development version of TI-RPC?" "$LINENO" 5
+      ;;
+    *)
+      ## unlikely
+      as_fn_error $? "Internal XDR cannot be used." "$LINENO" 5
+      ;;
+  esac
+elif test "${cross_compiling}" = yes; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Assuming internal XDR works (cross-compiling)." >&5
+printf "%s\n" "$as_me: WARNING: Assuming internal XDR works (cross-compiling)." >&2;}
+fi
+
+fi
 
 
 ## zlib headers and libraries.
