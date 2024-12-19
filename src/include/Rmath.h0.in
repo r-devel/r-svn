@@ -200,7 +200,6 @@ double  Rlog1p(double);
 #endif
 
 
-#if !defined(MATHLIB_STANDALONE)
 #define bessel_i	Rf_bessel_i
 #define bessel_j	Rf_bessel_j
 #define bessel_k	Rf_bessel_k
@@ -348,7 +347,6 @@ double  Rlog1p(double);
 #define sign		Rf_sign
 #define tetragamma	Rf_tetragamma
 #define trigamma	Rf_trigamma
-#endif
 
 #ifdef  __cplusplus
 extern "C" {
