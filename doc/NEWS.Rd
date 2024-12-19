@@ -286,6 +286,10 @@
       \code{Rf_NonNullStringMatch}, \code{R_shallow_duplicate_attr},
       \code{Rf_StringBlank}, \code{SET_TYPEOF}, \code{TRUELENGTH},
       \code{XLENGTH_EX}, and \code{XTRUELENGTH}.
+
+      \item Enable defining \env{R_NO_REMAP_RMATH} and calling
+      \code{Rf_*()} as has been documented in WRE for a while, fixing
+      \PR{18800} thanks to \I{Mikael Jagan} and \I{Suharto Anggono}.
     }
   }
 
@@ -421,7 +425,7 @@
       one character.
 
       \item \code{pwilcox()} and \code{qwilcox()} now check for user
-      interrupt less frequencly.
+      interrupt less frequently.
     }
   }
 }
