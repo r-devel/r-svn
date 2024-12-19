@@ -3318,6 +3318,91 @@ fi
 AC_SUBST(LAPACK_LIBS)
 ])# R_LAPACK_SYSTEM_LIB
 
+## R_INTERNAL_XDR_USABLE
+## ---------------------
+## Check whether the internal xdr implementation can be used. It cannot be
+## with GCC sanitizers (2024), which intercept also xdr calls. Linking turns
+## the symbols to dynamically linked and succeeds, then the program crashes
+## when invoking an xdr call.
+##
+## R_INTERNAL_XDR_USABLE()
+## -----------------------
+AC_DEFUN([R_INTERNAL_XDR_USABLE],
+[AC_REQUIRE([LT_INIT])dnl
+AC_REQUIRE([R_PROG_AR])dnl
+AC_CACHE_CHECK([whether internal XDR can be used],
+               [r_cv_internal_xdr_usable],
+[if test "${cross_compiling}" = yes; then
+  r_cv_internal_xdr_usable=yes
+else
+  cat >conftestx.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op) {
+  (void)xdrs; (void)addr; (void)size; (void)op;
+  exit(0); /* SUCCESS, internal implementation can be called */
+}
+EOF
+  cat >conftest.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+extern void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op);
+
+int main(void) {
+  XDR xdrs;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  exit(1); /* FAILURE, internal implementation is not called */
+}
+EOF
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} -I${srcdir}/src/extra/xdr"
+  r_cv_internal_xdr_usable=no
+  if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftestx.c \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${AR} ${ARFLAGS} conftestx.${libext} conftestx.${ac_objext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${RANLIB} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD ; then
+     
+     ./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD
+     if test ${?} = 0; then
+       r_cv_internal_xdr_usable=yes
+     fi
+  fi
+  rm -f conftestxi.c conftestx.c
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi # not cross-compiling
+])
+if test "${r_cv_internal_xdr_usable}" = no ; then
+  case "${host_os}" in
+    linux*)
+      AC_MSG_ERROR([Internal XDR cannot be used. Maybe install a development version of TI-RPC?])
+      ;;
+    *)
+      ## unlikely
+      AC_MSG_ERROR([Internal XDR cannot be used.])
+      ;;
+  esac
+elif test "${cross_compiling}" = yes; then
+  AC_MSG_WARN([Assuming internal XDR works (cross-compiling).])
+fi
+])# R_INTERNAL_XDR_USABLE
+
 ## R_SEARCH_XDR_LIBS
 ## -----------------
 ## Linking a test program is not enough with address sanitizer, which on
@@ -3428,6 +3513,10 @@ AC_MSG_CHECKING([for XDR support])
 AC_MSG_RESULT([${r_xdr}])
 AM_CONDITIONAL(BUILD_XDR, [test "x${r_xdr}" = xno])
 AC_SUBST(TIRPC_CPPFLAGS)
+if test "${r_xdr}" = no ; then
+  ## check internal xdr can be used
+  R_INTERNAL_XDR_USABLE()
+fi
 ])# R_XDR
 
 ## R_ZLIB
