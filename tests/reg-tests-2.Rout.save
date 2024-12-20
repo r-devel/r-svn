@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2024-09-12 r87143) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-12-19 r87451) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
@@ -1465,6 +1465,10 @@ Y    4   10   16   22
 > try(log("a"))
 Error in log("a") : non-numeric argument to mathematical function
 > 
+> op <- options(warn = -1)
+> # *ignore* warnings (for now) to keep the output deterministic wrt to
+> # warning about closing an unused connections by the gc
+> 
 > ## capture all the output to a file.
 > zz <- file("all.Rout", open="wt")
 > sink(zz)
@@ -1473,12 +1477,10 @@ Error in log("a") : non-numeric argument to mathematical function
 > 
 > ## bail out
 > closeAllConnections()
-Warning message:
-In .Internal(gc(verbose, reset, full)) :
-  closing unused connection 3 (all.Rout)
 > (foo <- showConnections())
      description class mode text isopen can read can write
 > stopifnot(nrow(foo) == 0)
+> options(op) # re-enable warnings
 > try(log("a"))
 Error in log("a") : non-numeric argument to mathematical function
 > unlink("all.Rout")
@@ -6391,7 +6393,7 @@ function(given = NULL) {
     if (is.null(given)) callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x5576bf5fbdf8>
+<bytecode: 0x6176199e3d98>
 > print(foo, useSource = FALSE)
 function (given = NULL) 
 {
@@ -6402,7 +6404,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x5576bf5fbdf8>
+<bytecode: 0x6176199e3d98>
 > attr(foo, "srcref") <- NULL
 > foo
 function (given = NULL) 
@@ -6414,7 +6416,7 @@ function (given = NULL)
         callObj$default <- TRUE
     callObj
 }
-<bytecode: 0x5576bf5fbdf8>
+<bytecode: 0x6176199e3d98>
 > (f <- structure(function(){}, note = "just a note",
 +                 yada = function() "not the same"))
 function(){}
@@ -8367,7 +8369,7 @@ Error in f() : argument is missing, with no default
 >     withAutoprint({ show.srcref() })
  language show.srcref()
  - attr(*, "srcref")= 'srcref' int [1:8] 1 21 1 33 21 33 3 3
-  ..- attr(*, "srcfile")=Classes 'srcfilealias', 'srcfile' <environment: 0x5576bf84ef28> 
+  ..- attr(*, "srcfile")=Classes 'srcfilealias', 'srcfile' <environment: 0x61761aa14088> 
 > ## no   attr(*, "src..")   in R <= 4.3.1
 > ##
 > withAutoprint({
@@ -8380,5 +8382,5 @@ Error in f() : argument is missing, with no default
 > 
 > # ----- Last line -------------
 > cat('Time elapsed: ', proc.time(),'\n')
-Time elapsed:  1.611 0.108 1.836 0.002 0.004 
+Time elapsed:  0.735 0.05 0.793 0.001 0.001 
 > 

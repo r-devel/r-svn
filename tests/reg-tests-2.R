@@ -506,6 +506,10 @@ sink(type="message")
 sink()
 try(log("a"))
 
+op <- options(warn = -1)
+# *ignore* warnings (for now) to keep the output deterministic wrt to
+# warning about closing an unused connections by the gc
+
 ## capture all the output to a file.
 zz <- file("all.Rout", open="wt")
 sink(zz)
@@ -516,6 +520,7 @@ try(log("a"))
 closeAllConnections()
 (foo <- showConnections())
 stopifnot(nrow(foo) == 0)
+options(op) # re-enable warnings
 try(log("a"))
 unlink("all.Rout")
 ## many of these were untested before 1.4.0.
