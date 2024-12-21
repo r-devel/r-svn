@@ -349,6 +349,7 @@ double  Rlog1p(double);
 #define trigamma	Rf_trigamma
 
 #ifdef  __cplusplus
+#define RCPP_SUGAR_UNDORMATH_H /* temporary only, remove before release ! */
 extern "C" {
 #endif
 	/* R's versions with !R_FINITE checks */
