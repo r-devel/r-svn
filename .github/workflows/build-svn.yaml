@@ -79,6 +79,7 @@ jobs:
     - name: Remove homebrew
       run: |
         echo "/opt/R/${ARCH}/bin" >> $GITHUB_PATH
+        echo "LDFLAGS=-L/opt/R/${ARCH}/lib" >> $GITHUB_ENV
         echo "CPPFLAGS=-I/opt/R/${ARCH}/include" >> $GITHUB_ENV
         echo "PKG_CONFIG_PATH=/opt/R/${ARCH}/lib/pkgconfig:/opt/R/${ARCH}/share/pkgconfig" >> $GITHUB_ENV
         echo "/Library/TeX/texbin" >> $GITHUB_PATH
