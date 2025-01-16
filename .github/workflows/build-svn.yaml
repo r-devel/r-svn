@@ -203,7 +203,7 @@ jobs:
       if: matrix.script == 'installer'
       shell: powershell
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: installer
         path: src/gnuwin32/installer/R-devel-win.exe
