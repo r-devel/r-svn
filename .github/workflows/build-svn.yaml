@@ -9,7 +9,7 @@ concurrency:
 jobs:
   linux:
     name: Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04${{matrix.ARCH == 'arm' && '-arm' || ''}}
     container:
       image: ${{matrix.OS}}
     env:
@@ -21,6 +21,7 @@ jobs:
       matrix:
         CC: [ gcc, clang ]
         OS: [ 'debian:stable', 'debian:testing' ]
+        ARCH: [ 'intel', 'arm']
     steps:
     - name: System dependencies
       run: |
