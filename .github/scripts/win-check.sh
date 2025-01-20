@@ -17,7 +17,8 @@ gcc --version
 cd "$(cygpath ${GITHUB_WORKSPACE})"
 sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' src/include/Makefile.win
 curl -sSL https://curl.se/ca/cacert.pem > etc/curl-ca-bundle.crt
-./tools/rsync-recommended
+#./tools/rsync-recommended
+./.github/scripts/wget-recommended.sh
 ./.github/scripts/svn-info.sh
 
 # Download the TCL bundle required by tcltk package
