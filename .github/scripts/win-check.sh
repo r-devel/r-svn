@@ -33,4 +33,6 @@ cd src/gnuwin32
 make all cairodevices recommended vignettes manuals
 
 # Run checks
+export TAR="/usr/bin/tar"
+export TAR_OPTIONS="--force-local"
 make check-all
