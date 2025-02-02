@@ -124,13 +124,13 @@ static SEXP makeErrorCall(SEXP fun)
   return call;
 }
 
-SEXP GetOption(SEXP tag, SEXP rho)
+SEXP Rf_GetOption(SEXP tag, SEXP rho)
 {
     return GetOption1(tag);
 }
 
 
-SEXP GetOption1(SEXP tag)
+SEXP Rf_GetOption1(SEXP tag)
 {
     SEXP opt = SYMVALUE(Options());
     if (!isList(opt)) error(_("corrupted options list"));
@@ -138,7 +138,7 @@ SEXP GetOption1(SEXP tag)
     return CAR(opt);
 }
 
-attribute_hidden int FixupWidth(SEXP width, warn_type warn)
+attribute_hidden int Rf_FixupWidth(SEXP width, warn_type warn)
 {
     int w = asInteger(width);
     if (w == NA_INTEGER || w < R_MIN_WIDTH_OPT || w > R_MAX_WIDTH_OPT) {
@@ -151,12 +151,12 @@ attribute_hidden int FixupWidth(SEXP width, warn_type warn)
     }
     return w;
 }
-int GetOptionWidth(void)
+int Rf_GetOptionWidth(void)
 {
     return FixupWidth(GetOption1(install("width")), iWARN);
 }
 
-attribute_hidden int FixupDigits(SEXP digits, warn_type warn)
+attribute_hidden int Rf_FixupDigits(SEXP digits, warn_type warn)
 {
     int d = asInteger(digits);
     if (d == NA_INTEGER || d < R_MIN_DIGITS_OPT || d > R_MAX_DIGITS_OPT) {
@@ -170,7 +170,7 @@ attribute_hidden int FixupDigits(SEXP digits, warn_type warn)
     return d;
 }
 
-attribute_hidden int GetOptionDigits(void)
+attribute_hidden int Rf_GetOptionDigits(void)
 {
     return FixupDigits(GetOption1(install("digits")), iWARN);
 }
