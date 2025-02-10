@@ -103,4 +103,5 @@ noquote(rbind(old_nms, nms = colnames(penguins)))
 \dontrun{ # << not in this example, keeping shorter 'penguins' names:
     colnames(penguins) <- old_nms
 }
+}
 \keyword{datasets}
