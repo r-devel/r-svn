@@ -27,7 +27,7 @@
   \code{summary.glm} objects.
 }
 \details{
-  The references define the types of residuals: Davison & Snell is a
+  The references define the types of residuals: \bibcite{Davison & Snell} is a
   good reference for the usages of each.
 
   The partial residuals are a matrix of working residuals, with each

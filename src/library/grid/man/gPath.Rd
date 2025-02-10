@@ -20,10 +20,10 @@ gPath(...)
 }
 \details{
   Grob names must only be unique amongst grobs which
-  share the same parent in a gTree.
+  share the same parent in a \I{gTree}.
 
   This function can be used to generate a specification for
-  a grob that includes the grob's parent's name
+  a grob that includes the grob{}'s parent's name
   (and the name of its parent and so on).
 
   For interactive use, it is possible to directly specify

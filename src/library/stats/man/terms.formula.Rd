@@ -5,11 +5,11 @@
 
 \name{terms.formula}
 \alias{terms.formula}
-\title{Construct a terms Object from a Formula}
+\title{Construct a \code{terms} Object from a Formula}
 \description{
   This function takes a formula and some optional arguments and
-  constructs a terms object. The terms object can then be used to
-  construct a \code{\link{model.matrix}}.
+  constructs a \code{\link[=terms.object]{terms}} object, which
+  can then be used to construct a \code{\link{model.matrix}}.
 }
 \usage{
 \method{terms}{formula}(x, specials = NULL, abb = NULL, data = NULL, neg.out = TRUE,
@@ -37,10 +37,10 @@
     remaining variables contained in \code{data}.  Exceptionally,
     \code{.} can be treated as a name for non-standard uses of formulae.}
 }
-\details{
-  Not all of the options work in the same way that they do in S and not
-  all are implemented.
-}
+%% \note{
+%%   Not all of the options work in the same way that they did in S and not
+%%   all are implemented.
+%% }
 \value{
   A \code{terms} object is returned.  It is the re-ordered formula (unless
   \code{keep.order = TRUE}) with several \code{\link{attributes}}, see

@@ -1,14 +1,14 @@
 % File src/library/stats/man/predict.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{predict}
+\alias{predict}
 \title{Model Predictions}
 \usage{
-predict (object, \dots)
+predict(object, ...)
 }
-\alias{predict}
 \arguments{
   \item{object}{a model object for which prediction is desired.}
   \item{\dots}{additional arguments affecting the predictions produced.}
@@ -32,7 +32,7 @@ predict (object, \dots)
   \code{n.ahead} specifying how many time steps ahead to predict.
 
   Many methods have a logical argument \code{se.fit} saying if standard
-  errors are to returned.
+  errors are to be returned.
 }
  \value{
   The form of the value returned by \code{predict} depends on the
@@ -71,13 +71,13 @@ require(utils)
 ## All the "predict" methods found
 ## NB most of the methods in the standard packages are hidden.
 ## Output will depend on what namespaces are (or have been) loaded.
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 for(fn in methods("predict"))
    try({
        f <- eval(substitute(getAnywhere(fn)$objs[[1]], list(fn = fn)))
        cat(fn, ":\n\t", deparse(args(f)), "\n")
        }, silent = TRUE)
-## IGNORE_RDIFF_END
+}
 \dontshow{invisible(Sys.setlocale("LC_COLLATE", old))}
 }
 \keyword{methods}

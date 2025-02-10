@@ -6,7 +6,7 @@
 \name{attenu}
 \docType{data}
 \alias{attenu}
-\title{The Joyner--Boore Attenuation Data}
+\title{The \I{Joyner}--\I{Boore} Attenuation Data}
 \description{
   This data gives peak accelerations measured at various observation
   stations for 23 earthquakes in California.  The data have been used
@@ -17,16 +17,16 @@
 \format{
   A data frame with 182 observations on 5 variables.
   \tabular{rlll}{
-    [,1] \tab event   \tab numeric \tab Event Number\cr
-    [,2] \tab mag     \tab numeric \tab Moment Magnitude\cr
-    [,3] \tab station \tab factor  \tab Station Number\cr
-    [,4] \tab dist    \tab numeric \tab Station-hypocenter distance (km)\cr
-    [,5] \tab accel   \tab numeric \tab Peak acceleration (g)}
+    [,1] \tab \code{event}   \tab numeric \tab Event Number\cr
+    [,2] \tab \code{mag}     \tab numeric \tab Moment Magnitude\cr
+    [,3] \tab \code{station} \tab factor  \tab Station Number\cr
+    [,4] \tab \code{dist}    \tab numeric \tab Station-hypocenter distance (km)\cr
+    [,5] \tab \code{accel}   \tab numeric \tab Peak acceleration (g)}
 }
 \source{
   Joyner, W.B., D.M. Boore and R.D. Porcella (1981).  Peak horizontal
   acceleration and velocity from strong-motion records including
-  records from the 1979 Imperial Valley, California earthquake.  USGS
+  records from the 1979 Imperial Valley, California earthquake.  \abbr{USGS}
   Open File report 81-365. Menlo Park, Ca.
 }
 \references{

@@ -1,6 +1,6 @@
 % File src/library/base/man/as.POSIXlt.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.POSIX*}
@@ -108,9 +108,9 @@ as.POSIXlt(x, tz = "", \dots)
 as.POSIXct(strptime("2010-10-31 01:30:00", "\%Y-\%m-\%d \%H:\%M:\%S"))
 }
   are respectively invalid (the clocks went forward at 1:00 GMT to 2:00
-  BST) and ambiguous (the clocks went back at 2:00 BST to 1:00 GMT).  What
+  \abbr{BST}) and ambiguous (the clocks went back at 2:00 \abbr{BST} to 1:00 GMT).  What
   happens in such cases is OS-specific: one should expect the first to
-  be \code{NA}, but the second could be interpreted as either BST or
+  be \code{NA}, but the second could be interpreted as either \abbr{BST} or
   GMT (and common OSes give both possible values).  Note too (see
   \code{\link{strftime}}) that OS facilities may not format invalid
   times correctly.
@@ -118,7 +118,10 @@ as.POSIXct(strptime("2010-10-31 01:30:00", "\%Y-\%m-\%d \%H:\%M:\%S"))
 
 \value{
   \code{as.POSIXct} and \code{as.POSIXlt} return an object of the
-  appropriate class.  If \code{tz} was specified, \code{as.POSIXlt}
+  appropriate class, see \code{\link{POSIXt}} and its \sQuote{Warnings}
+  section on too narrow assumptions.
+
+  If \code{tz} was specified, \code{as.POSIXlt}
   will give an appropriate \code{"tzone"} attribute.  Date-times known
   to be invalid will be returned as \code{NA}.
 }
@@ -208,7 +211,7 @@ as.POSIXlt(Sys.time(), "Australia/Darwin")
 }
 
 tab <- file.path(R.home("share"), "zoneinfo", "zone1970.tab")
-if(file.exists(tab)) { # typically on Windows; *not* on Linux
+if(file.exists(tab)) { # typically on Windows; on Linux when  `configure --with-internal-tzcode`
   cols <- c("code", "coordinates", "TZ", "comments")
   tmp <- read.delim(tab,
                     header = FALSE, comment.char = "#", col.names = cols)

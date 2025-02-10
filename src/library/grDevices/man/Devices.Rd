@@ -14,22 +14,22 @@
     \item{\code{\link{pdf}}:}{Write PDF graphics commands to a file.}
     \item{\code{\link{postscript}}:}{Writes PostScript graphics commands to
       a file.}
-    \item{\code{\link{xfig}}:}{Device for XFig graphics file format.  (Of
+    \item{\code{\link{xfig}}:}{Device for \I{XFig} graphics file format.  (Of
       historical interest only, deprecated in \R 4.4.0.)}
     \item{\code{\link{bitmap}}:}{bitmap pseudo-device via
       \code{Ghostscript} (if available).}
-    \item{\code{\link{pictex}}:}{Writes TeX/PicTeX graphics commands to a
+    \item{\code{\link{pictex}}:}{Writes TeX/\I{PicTeX} graphics commands to a
       file (of historical interest only, deprecated in R 4.4.0).}
   }
   The following devices will be functional if \R was compiled to use
   them (they exist but will return with a warning on other systems):
   \describe{
     \item{\code{\link{cairo_pdf}}, \code{cairo_ps}:}{PDF and PostScript
-      devices based on cairo graphics.}
-    \item{\code{\link{svg}}:}{SVG device based on cairo graphics}
+      devices based on \I{cairo} graphics.}
+    \item{\code{\link{svg}}:}{SVG device based on \I{cairo} graphics}
     \item{\code{\link{png}}:}{PNG bitmap device}
     \item{\code{\link{jpeg}}:}{JPEG bitmap device}
-    \item{\code{\link{bmp}}:}{BMP bitmap device}
+    \item{\code{\link{bmp}}:}{\abbr{BMP} bitmap device}
     \item{\code{\link{tiff}}:}{TIFF bitmap device}
   }
   On Unix-alikes (including macOS) only:
@@ -51,10 +51,10 @@
   otherwise.  The exception is interactive use under Unix if no screen
   device is known to be available, when \code{pdf()} is used.
 
-  It is possible for an \R package (or an \R front-end such as RStudio)
+  It is possible for an \R package (or an \R front-end such as \I{RStudio})
   to provide further graphics devices and several packages on CRAN do
   so.  These include devices outputting SVG (\CRANpkg{svglite} and
-  PGF/TiKZ (\CRANpkg{tikzDevice}, TeX-based graphics, see
+  \abbr{PGF}/\I{TiKZ} (\CRANpkg{tikzDevice}, TeX-based graphics, see
   \url{https://pgf.sourceforge.net/}).
 }
 \seealso{
@@ -75,7 +75,7 @@
   On Unix-alikes only:\cr
   \code{\link{capabilities}} to see if \code{\link{X11}},
   \code{\link{jpeg}}, \code{\link{png}}, \code{\link{tiff}},
-  \code{\link{quartz}} and the cairo-based devices are available.
+  \code{\link{quartz}} and the \I{cairo}-based devices are available.
 
 }
 \examples{\dontrun{

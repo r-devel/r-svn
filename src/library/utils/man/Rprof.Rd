@@ -28,7 +28,7 @@ Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
     real: distance (time interval) between samples in seconds.
   }
   \item{memory.profiling}{logical: write memory use information to the file?}
-  \item{gc.profiling}{logical:  record whether GC is running?}
+  \item{gc.profiling}{logical:  record whether \abbr{GC} is running?}
   \item{line.profiling}{logical:  write line locations to the file?}
   \item{filter.callframes}{logical: filter out intervening call frames
     of the call tree. See the filtering out call frames section.}
@@ -62,7 +62,7 @@ Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
   so for example excludes time when \R is waiting for input or for processes
   run by \code{\link{system}} to return.  It may go slower than
   \code{"elapsed"} when the process is often waiting for I/O to finish, but it
-  may go faster with actively computing concurrent threads (say via OpenMP)
+  may go faster with actively computing concurrent threads (say via \abbr{OpenMP})
   on a multi-core system.
 
   Note that the (timing) interval cannot be too small.  With \code{"cpu"},
@@ -207,8 +207,7 @@ line information for new files, and issue a warning when
 }
 \seealso{
   The chapter on \dQuote{Tidying and profiling R code} in
-  \sQuote{Writing R Extensions} (see the \file{doc/manual} subdirectory
-  of the \R source tree).
+  \sQuote{Writing R Extensions}: \code{\link{RShowDoc}("R-exts")}.
 
   \code{\link{summaryRprof}} to analyse the output file.
 

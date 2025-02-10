@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4-3-BRANCH\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2022-10-14 10:22+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian https://github.com/dmedri/R-italian-lang\n"
@@ -332,9 +332,6 @@ msgstr "formato di uscita non valido"
 msgid "status %d in running command '%s'"
 msgstr "status %d durante l'esecuzione del comando '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' dev'essere una stringa di caratteri non vuota"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "'file' non valido"
@@ -425,6 +422,9 @@ msgstr "le lunghezze di 'x', 'y' e 'z' differiscono"
 
 msgid "'file' is missing with no default"
 msgstr "'file' manca senza valore di default"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' dev'essere una stringa di caratteri non vuota"
 
 msgid "unrecognized format of gs -help"
 msgstr "formato non riconosciuto di gs -help"

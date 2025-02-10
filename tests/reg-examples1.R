@@ -44,6 +44,7 @@ if(require("microbenchmark")) {
 }
 
 ## utils
+example(help.search, run.donttest = TRUE)
 example(news, run.donttest = TRUE)
 example(packageDescription, run.donttest = TRUE)
 example(sessionInfo, run.donttest = TRUE)
@@ -58,15 +59,13 @@ example(grSoftVersion, run.donttest = TRUE)
 if(.Platform$OS.type == "windows") {
     example(windowsFonts, run.donttest = TRUE)
 } else {
-    example(X11Fonts, run.donttest = TRUE)
     example(quartzFonts, run.donttest = TRUE)
 }
 
 library(tools)
-example(Rd_db, run.donttest = TRUE)
-example(file_ext, run.donttest = TRUE)
-example(makevars_user, run.donttest = TRUE)
-## results are location- and OS-specific
+example(Rd_db, run.donttest = TRUE) # Rdutils.Rd
+example(file_ext, run.donttest = TRUE) # fileutils.Rd
+example(getVignetteInfo, run.donttest = TRUE)
 example(parseLatex, run.donttest = TRUE) # charset-specific
 
 ## part of example(buildVignettes) at one time

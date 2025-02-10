@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2023  The R Core Team
+ *  Copyright (C) 1999--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -180,6 +180,10 @@ const char *EncodeExtptr(SEXP x)
     return buf;
 }
 
+int Rstrwid(const char *str, int slen, cetype_t ienc, int quote); /* below */
+#define strwidth(x) Rstrwid(x, (int) strlen(x), CE_NATIVE, 0)
+
+attribute_hidden
 const char *EncodeReal(double x, int w, int d, int e, char cdec)
 {
     char dec[2];
@@ -201,14 +205,13 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
 	else snprintf(buff, NB, "%*s", min(w, (NB-1)), "-Inf");
     }
     else if (e) {
-	if(d) {
+	if(d) { // '#' flag
 	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
 	else {
 	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
 	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
@@ -216,7 +219,12 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
     }
     buff[NB-1] = '\0';
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -229,6 +237,7 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
     return out;
 }
 
+// A copy of EncodeReal0() -- additionally dropping trailing zeros:
 static const char
 *EncodeRealDrop0(double x, int w, int d, int e, const char *dec)
 {
@@ -246,12 +255,11 @@ static const char
     else if (e) {
 	if(d) {
 	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
 	else {
 	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
 	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
@@ -273,7 +281,12 @@ static const char
 	}
     }
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -910,7 +923,7 @@ int vasprintf(char **strp, const char *fmt, va_list ap)
 # define R_BUFSIZE BUFSIZE
 // similar to dummy_vfprintf in connections.c
 attribute_hidden
-void Rcons_vprintf(const char *format, va_list arg)
+int Rcons_vprintf(const char *format, va_list arg)
 {
     char buf[R_BUFSIZE], *p = buf;
     int res;
@@ -946,9 +959,11 @@ void Rcons_vprintf(const char *format, va_list arg)
 	    warning(_("printing of extremely long output is truncated"));
     }
 #endif /* HAVE_VASPRINTF */
-    R_WriteConsole(p, (int) strlen(p));
+    res = (int) strlen(p);
+    R_WriteConsole(p, res);
     if(usedRalloc) vmaxset(vmax);
     if(usedVasprintf) free(p);
+    return res;
 }
 
 void Rvprintf(const char *format, va_list arg)
@@ -985,9 +1000,11 @@ void Rvprintf(const char *format, va_list arg)
    It is also used in R_Suicide on Unix.
 */
 
-void REvprintf(const char *format, va_list arg)
+attribute_hidden
+int REvprintf_internal(const char *format, va_list arg)
 {
     static char *malloc_buf = NULL;
+    int res;
 
     if (malloc_buf) {
 	char *tmp = malloc_buf;
@@ -1001,27 +1018,28 @@ void REvprintf(const char *format, va_list arg)
 	    R_ErrorCon = 2;
 	} else {
 	    /* Parentheses added for FC4 with gcc4 and -D_FORTIFY_SOURCE=2 */
-	    (con->vfprintf)(con, format, arg);
+	    res = (con->vfprintf)(con, format, arg);
 	    con->fflush(con);
-	    return;
+	    return res;
 	}
     }
     if(R_Consolefile) {
 	/* try to interleave stdout and stderr carefully */
 	if(R_Outputfile && (R_Outputfile != R_Consolefile)) {
 	    fflush(R_Outputfile);
-	    vfprintf(R_Consolefile, format, arg);
+	    res = vfprintf(R_Consolefile, format, arg);
 	    /* normally R_Consolefile is stderr and so unbuffered, but
 	       it can be something else (e.g. stdout on Win9x) */
 	    fflush(R_Consolefile);
-	} else vfprintf(R_Consolefile, format, arg);
+	} else
+	    res = vfprintf(R_Consolefile, format, arg);
     } else {
 	char buf[BUFSIZE];
 	Rboolean printed = FALSE;
 	va_list aq;
 
 	va_copy(aq, arg);
-	int res = Rvsnprintf_mbcs(buf, BUFSIZE, format, aq);
+	res = Rvsnprintf_mbcs(buf, BUFSIZE, format, aq);
 	va_end(aq);
 	if (res >= BUFSIZE) {
 	    /* A very long string has been truncated. Try to allocate a large
@@ -1042,14 +1060,22 @@ void REvprintf(const char *format, va_list arg)
 		free(tmp);
 	    }
 	}
-	if (!printed)
-	    R_WriteConsoleEx(buf, (int) strlen(buf), 1);
+	if (!printed) {
+	    res = (int) strlen(buf);
+	    R_WriteConsoleEx(buf, res, 1);
+	}
     }
+    return res;
+}
+
+void REvprintf(const char *format, va_list arg)
+{
+    REvprintf_internal(format, arg);
 }
 
 int attribute_hidden IndexWidth(R_xlen_t n)
 {
-    return (int) (log10(n + 0.5) + 1);
+    return (int) (log10((double)n + 0.5) + 1);
 }
 
 attribute_hidden void VectorIndex(R_xlen_t i, int w)

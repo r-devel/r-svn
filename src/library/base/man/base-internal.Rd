@@ -68,6 +68,7 @@
 \alias{.kronecker}
 \alias{.packageStartupMessage}
 \alias{.rmpkg}
+\alias{.set_ops_need_as_vector}
 
 \title{Internal Objects in Package \pkg{base}}
 \description{% 'most': see e.g., .detach
@@ -136,6 +137,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
 .packageStartupMessage(message, call = NULL) 
 .rmpkg(pkg) 
 .formula2varlist(formula, data, warnLHS = TRUE, ignoreLHS = warnLHS)
+.set_ops_need_as_vector(x, y)
 }
 \arguments{
   \item{x}{an object
@@ -200,7 +202,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   The functions \code{.subset} and \code{.subset2} are essentially
   equivalent to the \code{\link{[}} and \code{\link{[[}} operators,
   except that methods dispatch does not take place.  This is to avoid
-  expensive unclassing when applying the default method to an object.  They
+  expensive \I{unclassing} when applying the default method to an object.  They
   should not normally be invoked by end users.  Note that unlike the
   operators they are builtins and not specials (all arguments are
   evaluated) and hence do not allow missing arguments.
@@ -284,7 +286,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{.fixupGFortranStdout} and \code{.fixupGFortranStderr} are helper functions
   to enable standard output and standard error units in \code{gfortran} when
   executing external code via \code{system} and \code{system2}. By default, these
-  units are disabled by the Windows profile when running inside RGui.
+  units are disabled by the Windows profile when running inside \I{RGui}.
 }
 \value{
   \code{.getRequiredPackages} and \code{.getRequiredPackages2}
@@ -296,5 +298,10 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{formula}, evaluated in \code{data}, following standard
   non-standard evaluation rules. Used in \code{\link{split}} and
   \code{\link{tapply}} to interpret a formula as a list of categorical
-  variables to split on. }
+  variables to split on.
+
+  \code{.set_ops_need_as_vector} is a helper function for the set
+  operations like \code{\link{union}}: it returns \code{TRUE} if the set
+  ops need to transform their arguments via \code{\link{as.vector}}.
+}
 \keyword{internal}

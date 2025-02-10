@@ -1,6 +1,6 @@
 % File src/library/stats/man/smooth.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{smooth}
@@ -18,7 +18,7 @@ smooth(x, kind = c("3RS3R", "3RSS", "3RSR", "3R", "3", "S"),
   \item{kind}{a character string indicating the kind of smoother required;
     defaults to \code{"3RS3R"}.}
   \item{twiceit}{logical, indicating if the result should be \sQuote{twiced}.
-    Twicing a smoother \eqn{S(y)} means \eqn{S(y) + S(y - S(y))}, i.e.,
+    \I{Twicing} a smoother \eqn{S(y)} means \eqn{S(y) + S(y - S(y))}, i.e.,
     adding smoothed residuals to the smoothed values.  This decreases
     bias (increasing variance).}
   \item{endrule}{a character string indicating the rule for smoothing at the
@@ -48,8 +48,6 @@ smooth(x, kind = c("3RS3R", "3RSS", "3RSR", "3R", "3", "S"),
   smoothed values with additional attributes.
 }
 \note{
-  S and S-PLUS use a different (somewhat better) Tukey smoother in
-  \code{smooth(*)}.
   Note that there are other smoothing methods which provide
   rather better results.  These were designed for hand calculations
   and may be used mainly for didactical purposes.
@@ -57,7 +55,7 @@ smooth(x, kind = c("3RS3R", "3RSS", "3RSR", "3R", "3", "S"),
   Since \R version 1.2, \code{smooth} \emph{does} really implement
   Tukey's end-point rule correctly (see argument \code{endrule}).
 
-  \code{kind = "3RSR"} has been the default till \R-1.1,
+  \code{kind = "3RSR"} had been the default till \R-1.1,
   but it can have very bad properties, see the examples.
 
   Note that repeated application of \code{smooth(*)} \emph{does}

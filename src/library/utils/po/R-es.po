@@ -2,16 +2,16 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:40\n"
-"PO-Revision-Date: 2022-10-17 11:27+0000\n"
-"Last-Translator: Richard Detomasi <richard.detomasi@gmail.com>\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
+"PO-Revision-Date: 2024-03-19 12:53+0000\n"
+"Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.13.1\n"
+"X-Generator: Weblate 4.16.4\n"
 
 msgid ""
 "RShowDoc() should be used with a character string argument specifying\n"
@@ -136,6 +136,9 @@ msgstr ""
 msgid "No suitable spell check program found."
 msgstr ""
 
+msgid "Performing query %s"
+msgstr ""
+
 msgid ""
 "Use <code> %s </code> \n"
 " to list the vignettes in all <strong>available</strong> packages."
@@ -168,7 +171,13 @@ msgstr ""
 msgid "Use either %s or %s but not both."
 msgstr ""
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+msgid "Arguments of person() should be character or NULL"
+msgstr ""
+
+msgid "subscript out of bounds"
+msgstr ""
+
+msgid "must have some non-empty fields"
 msgstr ""
 
 msgid "method is only applicable to %s objects"
@@ -183,9 +192,6 @@ msgstr ""
 msgid "%s has to be one of %s"
 msgstr ""
 
-msgid "subscript out of bounds"
-msgstr ""
-
 msgid "%s should be one of %s"
 msgstr ""
 
@@ -198,6 +204,9 @@ msgstr ""
 msgid ""
 "Dropping invalid entry %d:\n"
 "%s"
+msgstr ""
+
+msgid "package %s has no %s file: only auto-generation is possible"
 msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
@@ -440,7 +449,7 @@ msgstr ""
 msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
-msgid "argument %s must be a character string"
+msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "incorrect field specification"
@@ -535,6 +544,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr ""
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr ""
 
@@ -590,9 +602,6 @@ msgid "directory '%s' already exists"
 msgstr ""
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
-msgstr ""
-
-msgid "invalid 'type'; must be a character string"
 msgstr ""
 
 msgid "unable to access index for repository %s"
@@ -688,9 +697,6 @@ msgstr ""
 msgid ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
-msgstr ""
-
-msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "type 'binary' is not supported on this platform"
@@ -901,7 +907,7 @@ msgid "%s option must be a length one character vector or NULL"
 msgstr ""
 
 msgid "'file' must be a character string or connection"
-msgstr ""
+msgstr "'file' debe ser una conexión o cadena de caracteres"
 
 msgid "'as.is' should be specified by the caller; using TRUE"
 msgstr ""
@@ -1235,11 +1241,10 @@ msgid_plural "%d Sweave files for basename %s found"
 msgstr[0] ""
 msgstr[1] ""
 
-#, fuzzy
 msgid "Output/used file:  "
 msgid_plural "Output/used files:  "
-msgstr[0] "Archivo de salida:"
-msgstr[1] "Archivo de salida:"
+msgstr[0] "Archivo de salida:  "
+msgstr[1] "Archivos de salida:  "
 
 msgid "%d occurrence in %s"
 msgid_plural "%d occurrences in %s"
@@ -1248,6 +1253,11 @@ msgstr[1] ""
 
 msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
 msgstr[0] ""
 msgstr[1] ""
 

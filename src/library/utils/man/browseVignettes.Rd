@@ -9,7 +9,7 @@
 \title{List Vignettes in an HTML Browser}
 \description{
   List available vignettes in an HTML browser with links to PDF,
-  LaTeX/noweb source, and (tangled) R code (if available).
+  LaTeX/\I{Noweb} source, and (tangled) R code (if available).
 }
 \usage{
 browseVignettes(package = NULL, lib.loc = NULL, all = TRUE)

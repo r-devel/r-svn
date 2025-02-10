@@ -15,9 +15,9 @@
 \usage{faithful}
 \format{A data frame with 272 observations on 2 variables.
   \tabular{rlll}{
-    [,1]  \tab eruptions  \tab numeric  \tab Eruption time in mins \cr
-    [,2]  \tab waiting    \tab numeric  \tab Waiting time to next
-    eruption (in mins)\cr
+    [,1]  \tab \code{eruptions}  \tab numeric  \tab Eruption time in \abbr{min}s \cr
+    [,2]  \tab \code{waiting}    \tab numeric  \tab Waiting time to next
+    eruption (in \abbr{min}s)\cr
   }
 }
 \source{W. Härdle.}
@@ -37,11 +37,11 @@
   more frequent than expected under non-human measurement.  For a
   better version of the eruption times, see the example below.
 
-  There are many versions of this dataset around: Azzalini and Bowman
-  (1990) use a more complete version.
+  There are many versions of this dataset around:
+  \bibcite{Azzalini and Bowman (1990)} use a more complete version.
 }
 \seealso{
-  \code{geyser} in package \CRANpkg{MASS} for the Azzalini--Bowman version.
+  \code{geyser} in package \CRANpkg{MASS} for the \I{Azzalini}--\I{Bowman} version.
 }
 \examples{
 require(stats); require(graphics)

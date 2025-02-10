@@ -91,8 +91,9 @@ chisq.test(x, y = NULL, correct = TRUE,
   \item{residuals}{the Pearson residuals,
     \code{(observed - expected) / sqrt(expected)}.}
   \item{stdres}{standardized residuals,
-    \code{(observed - expected) / sqrt(V)}, where \code{V} is the residual cell variance (Agresti, 2007,
-    section 2.4.5 for the case where \code{x} is a matrix, \code{n * p * (1 - p)} otherwise).}
+    \code{(observed - expected) / sqrt(V)}, where \code{V} is the
+    residual cell variance (\bibcite{Agresti, 2007, section 2.4.5}
+    for the case where \code{x} is a matrix, \code{n * p * (1 - p)} otherwise).}
 }
 \seealso{
   For goodness-of-fit testing, notably of continuous distributions,

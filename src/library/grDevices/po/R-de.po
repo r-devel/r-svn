@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2022-04-13 13:19+0200\n"
 "Last-Translator: Detlef Steuer <steuer@hsu-hh.de>\n"
 "Language-Team: R-Core <R-core@r-project.org>\n"
@@ -332,9 +332,6 @@ msgstr "ungültiges Ausgabeformat"
 msgid "status %d in running command '%s'"
 msgstr "Status %d im laufenden Kommando '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' muss eine nicht-leere Zeichenkette sein"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "ungültiges 'file' Argument"
@@ -425,6 +422,9 @@ msgstr "Längen von 'x', 'y' und 'z' unterscheiden sich"
 
 msgid "'file' is missing with no default"
 msgstr "'file' fehlt ohne Standardwert"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' muss eine nicht-leere Zeichenkette sein"
 
 msgid "unrecognized format of gs -help"
 msgstr "unbekanntes Format von gs -help"

@@ -1,7 +1,7 @@
 #  File src/library/utils/R/sessionInfo.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -72,13 +72,16 @@
                                       "16" = "Big Sur ...",
                                       ""),
                                ver)
-                   else if(ver1[1L] <= "14")
+                   else if(ver1[1L] <= "15")
                         sprintf("macOS %s %s",
                                switch(ver1[1L],
                                       "11" = "Big Sur",
                                       "12" = "Monterey",
                                       "13" = "Ventura",
-                                      "14" = "Sonoma"),
+                                      "14" = "Sonoma",
+                                      "15" = "Sequoia"
+                                      ## if you add an entry here, change the <= above.
+                                      ),
                                ver)
                    else
                        sprintf("macOS %s", ver)
@@ -172,8 +175,11 @@ print.sessionInfo <- function(x, locale = TRUE, tzone = locale,
         if(nzchar(blas))   cat("BLAS:  ",   blas, "\n")
         if(nzchar(lapack)) cat("LAPACK:", lapack)
     }
-    if(nzchar(lapack) && nzchar(LAver <- x$LA_version) && !grepl(LAver, lapack, fixed=TRUE))
-        cat(";  LAPACK version", LAver)
+    if(nzchar(LAver <- x$LA_version)) {
+        if(nzchar(lapack) && !grepl(LAver, lapack, fixed=TRUE))
+            cat(";  LAPACK version", LAver)
+        else cat("  LAPACK version", LAver)
+    }
     cat("\n\n")
     if(RNG) {
         cat("Random number generation:\n"
@@ -261,7 +267,7 @@ toLatex.sessionInfo <-
 			    paste(sort(object$basePkgs), collapse = ", ")),
                       indent = 2, exdent = 4))
 
-    if(length(o.ver <- toLatexPDlist(object$otherPkg)))
+    if(length(o.ver <- toLatexPDlist(object$otherPkgs)))
         z <- c(z,
                strwrap(paste("  \\item Other packages: ", o.ver),
                        indent = 2, exdent = 4))

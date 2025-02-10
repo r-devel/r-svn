@@ -1,15 +1,15 @@
 % File src/library/stats/man/stl.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{stl}
 \alias{stl}
 % all methods -> ./stlmethods.Rd
-\title{Seasonal Decomposition of Time Series by Loess}
+\title{Seasonal Decomposition of Time Series by \I{Loess}}
 \description{
   Decompose a time series into seasonal, trend and irregular components
-  using \code{loess}, acronym STL.
+  using \code{loess}, acronym \abbr{STL}.
 }
 \usage{
 stl(x, s.window, s.degree = 0,
@@ -28,16 +28,16 @@ stl(x, s.window, s.degree = 0,
     This should be an object of class \code{"ts"} with a frequency
     greater than one.}
   \item{s.window}{either the character string \code{"periodic"} or the span (in
-    lags) of the loess window for seasonal extraction, which should
-    be odd and at least 7, according to Cleveland et al.  This has no default.}
+    lags) of the \I{loess} window for seasonal extraction, which should
+    be odd and at least 7, according to Cleveland \abbr{et al.}  This has no default.}
   \item{s.degree}{degree of locally-fitted polynomial in seasonal
     extraction.  Should be zero or one.}
-  \item{t.window}{the span (in lags) of the loess window for trend
+  \item{t.window}{the span (in lags) of the \I{loess} window for trend
     extraction, which should be odd.  If \code{NULL}, the default,
     \code{nextodd(ceiling((1.5*period) / (1-(1.5/s.window))))}, is taken.}
   \item{t.degree}{degree of locally-fitted polynomial in trend
     extraction.  Should be zero or one.}
-  \item{l.window}{the span (in lags) of the loess window of the low-pass
+  \item{l.window}{the span (in lags) of the \I{loess} window of the low-pass
     filter used for each subseries.  Defaults to the smallest odd
     integer greater than or equal to \code{frequency(x)} which is
     recommended since it prevents competition between the trend and
@@ -47,7 +47,7 @@ stl(x, s.window, s.degree = 0,
     low-pass filter.  Must be 0 or 1.}
   \item{s.jump, t.jump, l.jump}{integers at least one to increase speed of
     the respective smoother.  Linear interpolation happens between every
-    \code{*.jump}th value.}
+    \code{*.jump}-th value.}
   \item{robust}{logical indicating if robust fitting be used in the
     \code{loess} procedure.}
   \item{inner}{integer; the number of \sQuote{inner} (backfitting)
@@ -57,7 +57,7 @@ stl(x, s.window, s.degree = 0,
   \item{na.action}{action on missing values.}
 }
 \details{
-  The seasonal component is found by \emph{loess} smoothing the
+  The seasonal component is found by \emph{\I{loess}} smoothing the
   seasonal sub-series (the series of all January values, \ldots); if
   \code{s.window = "periodic"} smoothing is effectively replaced by
   taking the mean. The seasonal values are removed, and the remainder
@@ -90,12 +90,8 @@ stl(x, s.window, s.degree = 0,
   STL:  A  Seasonal-Trend  Decomposition  Procedure Based on Loess.
   \emph{Journal of Official Statistics}, \bold{6}, 3--73.
 }
-\author{B.D. Ripley; Fortran code by Cleveland \emph{et al} (1990) from
+\author{B.D. Ripley; Fortran code by Cleveland \abbr{et al.}\sspace(1990) from
   \file{netlib}.}
-
-\note{This is similar to but not identical to the \code{stl} function in
-  S-PLUS. The \code{remainder} component given by S-PLUS is the sum of
-  the \code{trend} and \code{remainder} series from this function.}
 
 \seealso{
   \code{\link{plot.stl}} for \code{stl} methods;

@@ -1,12 +1,12 @@
 % File src/library/datasets/man/longley.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{longley}
 \docType{data}
 \alias{longley}
-\title{Longley's Economic Regression Data}
+\title{\I{Longley}'s Economic Regression Data}
 \description{
   A macroeconomic data set which provides a well-known example for a
   highly collinear regression.
@@ -43,7 +43,7 @@
 }
 \examples{
 require(stats); require(graphics)
-## give the data set in the form it is used in S-PLUS:
+## give the data set in the form it was used in S-PLUS:
 longley.x <- data.matrix(longley[, 1:6])
 longley.y <- longley[, "Employed"]
 pairs(longley, main = "longley data")

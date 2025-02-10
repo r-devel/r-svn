@@ -16,7 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## exported
 summarize_CRAN_check_status <-
 function(packages, results = NULL, details = NULL, issues = NULL)
 {
@@ -211,7 +210,6 @@ function(cran, path)
     readRDS(con)
 }
 
-## exported
 CRAN_check_results <-
 function(flavors = NULL)
 {
@@ -222,7 +220,6 @@ function(flavors = NULL)
     db
 }
 
-## exported
 CRAN_check_details <-
 function(flavors = NULL)
 {
@@ -230,10 +227,6 @@ function(flavors = NULL)
                            "web/checks/check_details.rds")
     if(!is.null(flavors))
         db <- db[!is.na(match(db$Flavor, flavors)), ]
-    ## <FIXME>
-    ## Remove eventually ...
-    class(db) <- c("CRAN_check_details", "check_details", "data.frame")
-    ## </FIXME>
     db
 }
 
@@ -246,7 +239,6 @@ function(flavors = NULL)
 ##                      "web/checks/memtest_notes.rds")
 ## }
 
-## exported
 CRAN_check_issues <-
 function()
     read_CRAN_object(CRAN_baseurl_for_web_area(),
@@ -267,6 +259,11 @@ CRAN_archive_db <-
 function()
     read_CRAN_object(CRAN_baseurl_for_src_area(),
                      "src/contrib/Meta/archive.rds")
+
+CRAN_authors_db <-
+function()
+    read_CRAN_object(CRAN_baseurl_for_src_area(),
+                     "src/contrib/Meta/authors.rds")
 
 CRAN_current_db <-
 function()
@@ -384,12 +381,12 @@ function(mirrors, db = NULL, collapse = TRUE)
     addresses <- gsub("[[:space:]]*#[[:space:]]*", "@", addresses)
     to <- unique(unlist(strsplit(addresses,
                                  "[[:space:]]*,[[:space:]]*")))
-    head <- list("To" = to,
-                 "CC" = "CRAN@R-project.org",
+    head <- list("To" = "CRAN@R-project.org",
+                 "Bcc" = to,
                  "Subject" = "CRAN mirrors maintained by you",
                  "Reply-To" = "CRAN@R-project.org")
     if(collapse) {
-        head$To <- paste(head$To, collapse = ",\n    ")
+        head$Bcc <- paste(head$Bcc, collapse = ",\n    ")
         head <- sprintf("%s: %s", names(head), unlist(head))
     }
     len <- length(addresses)
@@ -566,12 +563,12 @@ function(packages, db = NULL, collapse = TRUE)
     ind <- match(packages, db[, "Package"])
     addresses <- db[ind, "Address"]
     to <- sort(unique(addresses))
-    head <- list("To" = to,
-                 "CC" = "CRAN@R-project.org",
+    head <- list("To" = "CRAN@R-project.org",
+                 "Bcc" = to,
                  "Subject" = "CRAN packages maintained by you",
                  "Reply-To" = "CRAN@R-project.org")
     if(collapse) {
-        head$To <- paste(head$To, collapse = ",\n    ")
+        head$Bcc <- paste(head$Bcc, collapse = ",\n    ")
         head <- sprintf("%s: %s", names(head), unlist(head))
     }
     lst <- split(db[ind, "Package"], db[ind, "Maintainer"])

@@ -32,6 +32,7 @@ IMPDIR = bin
 M_ARCH =
 DT_ARCH =
 RC_ARCH =
+FLIBS =
 # Used by packages tcltk and tkrplot
 TCL_HOME = $(R_HOME)/Tcl
 
@@ -44,13 +45,13 @@ ifeq ($(R_INSTALLER_BUILD), yes)
   ifneq ($(strip $(R_CUSTOM_TOOLS_SOFT)),)
     LOCAL_SOFT = $(R_CUSTOM_TOOLS_SOFT)
   else
-    ## The rtools43 installer sets RTOOLS43_HOME (or RTOOLS43_AARCH64_HOME)
+    ## The rtools44 installer sets RTOOLS44_HOME (or RTOOLS44_AARCH64_HOME)
 
-    # INSTALLER-BUILD-x86_64: RTOOLS43_HOME ?= c:/rtools43
-    # INSTALLER-BUILD-x86_64: LOCAL_SOFT = $(subst \,/,$(RTOOLS43_HOME))/x86_64-w64-mingw32.static.posix
+    # INSTALLER-BUILD-x86_64: RTOOLS44_HOME ?= c:/rtools44
+    # INSTALLER-BUILD-x86_64: LOCAL_SOFT = $(subst \,/,$(RTOOLS44_HOME))/x86_64-w64-mingw32.static.posix
 
-    # INSTALLER-BUILD-aarch64: RTOOLS43_HOME ?= c:/rtools43-aarch64
-    # INSTALLER-BUILD-aarch64: LOCAL_SOFT = $(subst \,/,$(RTOOLS43_AARCH64_HOME))/aarch64-w64-mingw32.static.posix
+    # INSTALLER-BUILD-aarch64: RTOOLS44_HOME ?= c:/rtools44-aarch64
+    # INSTALLER-BUILD-aarch64: LOCAL_SOFT = $(subst \,/,$(RTOOLS44_AARCH64_HOME))/aarch64-w64-mingw32.static.posix
   endif
 endif
 R_TOOLS_SOFT ?= $(LOCAL_SOFT)
@@ -62,8 +63,16 @@ LOCAL_CPPFLAGS = -I"$(LOCAL_SOFT)/include"
 LOCAL_LIBS = -L"$(LOCAL_SOFT)/lib$(R_ARCH)" -L"$(LOCAL_SOFT)/lib"
 endif
 
-LLVMPREF = $(if $(USE_LLVM),llvm-,)
+LLVMPREF=
+ifdef USE_LLVM
+  # only set when BINPREF is empty or ends by /
+  #   to support e.g. BINPREF=aarch64-w64-mingw32.static.posix-
+  ifeq ($(patsubst %/,,$(lastword $(BINPREF))),)
+    LLVMPREF="llvm-"
+  endif
+endif
 CCBASE = $(if $(USE_LLVM),clang,gcc)
+PKG_CONFIG = $(BINPREF)pkg-config
 DLLTOOL = $(BINPREF)$(LLVMPREF)dlltool --as $(BINPREF)$(LLVMPREF)as $(DT_ARCH)
 DLLTOOLFLAGS = -k
 NM = $(BINPREF)$(LLVMPREF)nm
@@ -71,7 +80,7 @@ RESCOMP = $(BINPREF)$(LLVMPREF)windres $(RC_ARCH)
 ## MAIN_LD needs to be set by the package
 LINKER = $(MAIN_LD)
 ## as a default
-DLL = $(CC)
+DLL = $(CC) @SANOPTS@
 
 ## Things defined in Renviron on Unix
 SED = sed
@@ -95,23 +104,23 @@ AR = $(BINPREF)$(LLVMPREF)ar
 BLAS_LIBS = -L"$(R_HOME)/$(IMPDIR)" -lRblas
 C_VISIBILITY = 
 CC = $(BINPREF)$(CCBASE) $(M_ARCH)
-CFLAGS = -O3 -Wall $(DEBUGFLAG) @EOPTS@ $(LTO)
+CFLAGS = -O3 -Wall $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CPICFLAGS = 
 CPPFLAGS =
 CC17 = $(BINPREF)$(CCBASE) $(M_ARCH)
-C17FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu17 @EOPTS@ $(LTO)
+C17FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu17 @EOPTS@ @SANOPTS@ $(LTO)
 CC23 = $(BINPREF)$(CCBASE) $(M_ARCH)
-C23FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu2x @EOPTS@ $(LTO)
+C23FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu2x @EOPTS@ @SANOPTS@ $(LTO)
 CC90 = $(BINPREF)$(CCBASE) $(M_ARCH)
-C90FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu90 @EOPTS@ $(LTO)
+C90FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu90 @EOPTS@ @SANOPTS@ $(LTO)
 CC99 = $(BINPREF)$(CCBASE) $(M_ARCH)
-C99FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@ $(LTO)
+C99FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@ @SANOPTS@ $(LTO)
 CXX = $(BINPREF)$(if $(USE_LLVM),clang++,g++) -std=gnu++17 $(M_ARCH)
 CXXCPP = $(CXX) -E
-CXXFLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ $(LTO)
+CXXFLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CXXPICFLAGS =
 CXX11 = $(BINPREF)$(if $(USE_LLVM),clang++,g++) $(M_ARCH)
-CXX11FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ $(LTO)
+CXX11FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CXX11PICFLAGS =
 CXX11STD = -std=gnu++11
 ## these settings are for GCC >= 10
@@ -146,10 +155,8 @@ F_VISIBILITY =
 ## FC is the compiler used for all Fortran as from R 3.6.0
 ifdef USE_LLVM
   FC = $(BINPREF)flang $(M_ARCH)
-  FLIBS = -lFortranRuntime -lFortranDecimal -lm 
 else
   FC = $(BINPREF)gfortran $(M_ARCH)
-  FLIBS = -lgfortran -lm -lquadmath
 endif
 FCFLAGS = -O3 $(FDEBUGFLAG) @EOPTS@ $(LTO)
 ## additional libs needed when linking with $(FC), e.g. on some Oracle compilers
@@ -226,7 +233,7 @@ SHLIB_FCLD = $(FC)
 ## ideally -shared -static-libgfortran, but not for gcc 4.2.1
 SHLIB_FCLDFLAGS = -shared
 SHLIB_FFLAGS = 
-SHLIB_LD = $(CC)
+SHLIB_LD = $(CC) @SANOPTS@
 SHLIB_LDFLAGS = -shared
 SHLIB_LIBADD =
 SHLIB_LINK = $(SHLIB_LD) -Wl,--export-all-symbols $(SHLIB_LDFLAGS) $(LDFLAGS)
@@ -265,8 +272,8 @@ SHLIB_CXX20LDFLAGS += $(CXX20FLAGS)
 endif
 
 ALL_CFLAGS = $(R_XTRA_CFLAGS) $(PKG_CFLAGS) $(CPICFLAGS) $(SHLIB_CFLAGS) $(CFLAGS)
-ALL_CPPFLAGS = $(R_XTRA_CPPFLAGS) $(PKG_CPPFLAGS) $(CLINK_CPPFLAGS) $(CPPFLAGS) $($*-CPPFLAGS) $(LOCAL_CPPFLAGS)
-ALL_CXXFLAGS = $(R_XTRA_CXXFLAGS) $(PKG_CXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(CXXFLAGS)
+ALL_CPPFLAGS = $(R_XTRA_CPPFLAGS) $(PKG_CPPFLAGS) $(CLINK_CPPFLAGS) $(CPPFLAGS) $($*-CPPFLAGS) $(LOCAL_CPPFLAGS) $(XDEFS)
+ALL_CXXFLAGS = $(R_XTRA_CXXFLAGS) $(PKG_CXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(CXXFLAGS) $(CXX_DEFS)
 ALL_OBJCFLAGS = $(PKG_OBJCFLAGS) $(CPICFLAGS) $(SHLIB_CFLAGS) $(OBJCFLAGS)
 ALL_OBJCXXFLAGS = $(PKG_OBJCXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(OBJCXXFLAGS)
 ALL_FFLAGS = $(R_XTRA_FFLAGS) $(PKG_FFLAGS) $(FPICFLAGS) $(SHLIB_FFLAGS) $(FFLAGS)

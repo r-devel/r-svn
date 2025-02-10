@@ -20,7 +20,7 @@ tempdir(check = FALSE)
     of the name.}
   \item{tmpdir}{a non-empty character vector giving the directory name.}
   \item{fileext}{a non-empty character vector giving the file extension.}
-  \item{check}{\code{\link{logical}} indicating if \code{tmpdir()}
+  \item{check}{\code{\link{logical}} indicating if \code{tempdir()}
     should be checked and recreated if no longer valid.}
 }
 \value{
@@ -61,7 +61,7 @@ tempdir(check = FALSE)
   if none succeeds the value of \env{R_USER} (see
   \code{\link{Rconsole}}) is used.  If the path to the directory
   contains a space in any of the components, the path returned will use
-  the shortnames version of the path (if that does not contain a space).
+  the short names version of the path (if that does not contain a space).
 #endif
   Note that setting any of these environment variables in the \R session
   has no effect on \code{tempdir()}: the per-session temporary directory

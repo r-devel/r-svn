@@ -1,6 +1,6 @@
 % File src/library/datasets/man/iris.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{iris}
@@ -12,8 +12,8 @@
   This famous (Fisher's or Anderson's) iris data set gives the
   measurements in centimeters of the variables sepal length and width
   and petal length and width, respectively, for 50 flowers from each
-  of 3 species of iris.  The species are \emph{Iris setosa},
-  \emph{versicolor}, and \emph{virginica}.
+  of 3 species of iris.  The species are \emph{Iris \I{setosa}},
+  \emph{\I{versicolor}}, and \emph{\I{virginica}}.
 }
 \usage{
 iris
@@ -25,7 +25,7 @@ iris3
   \code{Petal.Length}, \code{Petal.Width}, and \code{Species}.
 
   \code{iris3} gives the same data arranged as a 3-dimensional array
-  of size 50 by 4 by 3, as represented by S-PLUS.  The first dimension
+  of size 50 by 4 by 3, as once provided by S-PLUS.  The first dimension
   gives the case number within the species subsample, the second the
   measurements with names \code{Sepal L.}, \code{Sepal W.},
   \code{Petal L.}, and \code{Petal W.}, and the third the species.

@@ -1,7 +1,7 @@
 #  File src/library/methods/R/makeBasicFunsList.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -120,6 +120,14 @@ utils::globalVariables(".addBasicGeneric")
 		    knownMembers = c("Arith", "Compare", "Logic"),
                     package = "base")
 
+    ## The matrixOps group
+    members <- c("%*%")
+    for(f in members)
+	funs <- .addBasicGeneric(funs, f, function(x, y) standardGeneric(""),
+				 "matrixOps")
+
+    setGroupGeneric(where = where, "matrixOps", function(x, y) NULL,
+		    knownMembers = members, package = "base")
 
     ## The Summary group
 
@@ -243,14 +251,8 @@ utils::globalVariables(".addBasicGeneric")
     setGenericImplicit("rowMeans", where, FALSE)
     setGenericImplicit("rowSums",  where, FALSE)
 
-    setGeneric("crossprod", function(x, y = NULL, ...) standardGeneric("crossprod"),
-	       useAsDefault = function(x, y = NULL, ...) base::crossprod(x, y),
-	       signature = c("x", "y"), where = where)
-    setGeneric("tcrossprod", function(x, y = NULL, ...) standardGeneric("tcrossprod"),
-	       useAsDefault = function(x, y = NULL, ...) base::tcrossprod(x, y),
-	       signature = c("x", "y"), where = where)
-    setGenericImplicit("crossprod",  where, FALSE)
-    setGenericImplicit("tcrossprod",  where, FALSE)
+    ## "crossprod"  and
+    ## "tcrossprod" have been made internal (S3 and) S4 generics see .BasicFunsList
 
     setGeneric("sample", function(x, size, replace = FALSE, prob = NULL, ...)
 			standardGeneric("sample"),
@@ -286,6 +288,16 @@ utils::globalVariables(".addBasicGeneric")
 	       useAsDefault= function(x, ...) base::svd(x, ...),
 	       signature = "x", where = where)
     setGenericImplicit("svd", where, FALSE)
+
+    ## zapsmall(): signature  only  "x"
+    setGeneric("zapsmall", function(x, digits = getOption("digits"),
+                                    mFUN = function(x, ina) max(abs(x[!ina])), min.d = 0L, ...)
+        standardGeneric("zapsmall"),
+        useAsDefault = function(x, digits = getOption("digits"),
+                                mFUN = function(x, ina) max(abs(x[!ina])), min.d = 0L, ...)
+            base::zapsmall(x, digits=digits, mFUN=mFUN, min.d=min.d), # swallow '...'
+        signature = "x", where = where)
+    setGenericImplicit("zapsmall", where, FALSE)
 
 
     ## not implicitGeneric() which is not yet available "here"

@@ -13,6 +13,11 @@ ifeq "$(USE_ATLAS)" "YES"
 	@$(ECHO) -------- Building $@ --------
 	$(DLL) -s -shared $(DLLFLAGS) -o $@ $^ Rblas.def \
 	   -L../../../$(IMPDIR) -lR  -L"$(ATLAS_PATH)" -lf77blas -latlas
+else ifeq "$(USE_OPENBLAS)" "YES"
+../../../$(BINDIR)/Rblas.dll: blas00.o ../../gnuwin32/dllversion.o
+	@$(ECHO) -------- Building $@ --------
+	$(DLL) -s -shared $(DLLFLAGS) -o $@ $^ Rblas.def \
+	    -L../../../$(IMPDIR) -lR  $(shell $(PKG_CONFIG) --libs openblas)
 else
 ../../../$(BINDIR)/Rblas.dll: blas.o blas2.o cmplxblas.o cmplxblas2.o ../../gnuwin32/dllversion.o
 	@$(ECHO) -------- Building $@ --------

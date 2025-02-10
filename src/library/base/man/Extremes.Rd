@@ -123,7 +123,7 @@ pmin.int(\dots, na.rm = FALSE)
 }
 \seealso{
   \code{\link{range}} (\emph{both} min and max) and
-  \code{\link{which.min}} (\code{which.max}) for the \emph{arg min},
+  \code{\link{which.min}} (\code{which.max}) for the \emph{\I{arg min}},
   i.e., the location where an extreme value occurs.
 
   \sQuote{\link{plotmath}} for the use of \code{min} in plot annotation.

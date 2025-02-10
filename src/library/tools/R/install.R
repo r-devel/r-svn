@@ -1,7 +1,7 @@
 #  File src/library/tools/R/install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 # NB: also copyright dates in Usages.
 #
@@ -20,8 +20,6 @@
 
 #### R based engine for  R CMD INSTALL SHLIB Rprof
 ####
-
-##' @param args
 
 ## R developers can use this to debug the function by running it
 ## directly as tools:::.install_packages(args), where the args should
@@ -49,7 +47,6 @@ if(FALSE) {
 
 
 
-##' @return ...
 .install_packages <- function(args = NULL, no.q = interactive(), warnOption = 1)
 {
     ## calls system() on Windows for
@@ -165,7 +162,7 @@ if(FALSE) {
     WINDOWS <- .Platform$OS.type == "windows"
     cross <- Sys.getenv("R_CROSS_BUILD")
     have_cross <- nzchar(cross)
-    if(have_cross && !cross %in% "x64")
+    if(have_cross && !cross %in% c("x64","singlearch"))
         stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
     if (have_cross) {
         WINDOWS <- TRUE
@@ -177,13 +174,9 @@ if(FALSE) {
     rarch <- Sys.getenv("R_ARCH") # unix only
     if (WINDOWS && nzchar(.Platform$r_arch))
         rarch <- paste0("/", .Platform$r_arch)
-    cross <- Sys.getenv("R_CROSS_BUILD")
-    if(have_cross && !cross %in% "x64")
-        stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
     test_archs <- rarch
     if (have_cross) {
-        WINDOWS <- TRUE
-        r_arch <- paste0("/", cross)
+        rarch = if (cross == "singlearch") "" else paste0("/", cross)
         test_archs <- c()
     }
 
@@ -326,8 +319,8 @@ if(FALSE) {
         do_exit_on_error()
     }
 
-    pkgerrmsg <- function(msg, pkg)
-	errmsg(msg, " for package ", sQuote(pkg))
+    pkgerrmsg <- function(msg, pkg, ...)
+	errmsg(msg, " for package ", sQuote(pkg), ...)
 
     ## 'pkg' is the absolute path to package sources.
     do_install <- function(pkg)
@@ -1010,16 +1003,26 @@ if(FALSE) {
             if (length(miss) > 1)
                  pkgerrmsg(sprintf("dependencies %s are not available",
                                    paste(sQuote(miss), collapse = ", ")),
-                           pkg_name)
+                           pkg_name,
+			   sprintf("\nPerhaps try a variation of:\ninstall.packages(c(%s))",
+				   paste(sQuote(miss, FALSE), collapse = ", ")))
             else if (length(miss))
                 pkgerrmsg(sprintf("dependency %s is not available",
-                                  sQuote(miss)), pkg_name)
+                                  sQuote(miss)),
+                          pkg_name,
+                          sprintf("\nPerhaps try a variation of:\ninstall.packages(%s)",
+                                  sQuote(miss, FALSE)))
          }
 
         starsmsg(stars, "installing *source* package ",
                  sQuote(pkg_name), " ...")
 
         stars <- "**"
+
+        starsmsg(stars,
+                 sprintf("this is package %s version %s",
+                         sQuote(desc["Package"]),
+                         sQuote(desc["Version"])))
 
         res <- checkMD5sums(pkg_name, getwd())
         if(!is.na(res) && res) {
@@ -1313,10 +1316,11 @@ if(FALSE) {
                 } else { ## no src/Makefile.win
                     srcs <- dir(pattern = "\\.([cfmM]|cc|cpp|f90|f95|mm)$",
                                 all.files = TRUE)
-                    archs <- if(have_cross) cross
+                    archs <- if(have_cross) {
+                        if (cross == "singlearch") "" else cross
                     ## else if (!force_both && !grepl(" x64 ", utils::win.version()))
                     ##     "i386"
-                    else {
+                    } else {
                         ## see what is installed
                         ## NB, not R.home("bin")
                         f  <- dir(file.path(R.home(), "bin"))
@@ -1471,11 +1475,11 @@ if(FALSE) {
                 setwd(wd2)
             }
         }
-        if (WINDOWS && "x64" %in% test_archs) {
-            ## we cannot actually test x64 unless this is 64-bit
-            ## Windows, even if it is installed.
-            if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
-        }
+        # if (WINDOWS && "x64" %in% test_archs) {
+        #     ## we cannot actually test x64 unless this is 64-bit
+        #    ## Windows, even if it is installed.
+        #     if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
+        #}
 
         if (have_cross) Sys.unsetenv("R_ARCH")
 
@@ -1602,7 +1606,7 @@ if(FALSE) {
 	    file.remove(Sys.glob(file.path(instdir, "demo", "*")))
 	    res <- try(.install_package_demos(".", instdir))
 	    if (inherits(res, "try-error"))
-		pkgerrmsg("ERROR: installing demos failed")
+		pkgerrmsg("installing demos failed", pkg_name)
 	    Sys.chmod(Sys.glob(file.path(instdir, "demo", "*")), fmode)
 	}
 
@@ -2465,10 +2469,10 @@ if(FALSE) {
     WINDOWS <- .Platform$OS.type == "windows"
     cross <- Sys.getenv("R_CROSS_BUILD")
     if(nzchar(cross)) {
-        if(!cross %in% c("i386", "x64"))
+        if(!cross %in% c("x64", "singlearch"))
             stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
         WINDOWS <- TRUE
-        Sys.setenv(R_ARCH = paste0("/", cross))
+        Sys.setenv(R_ARCH = if (cross == "singlearch") "" else paste0("/", cross))
     }
 
     if (!WINDOWS) {
@@ -2708,7 +2712,7 @@ if(FALSE) {
         makeargs <- c("SHLIB_LDFLAGS='$(SHLIB_FCLDFLAGS)'",
                       "SHLIB_LD='$(SHLIB_FCLD)'",
                       ## avoid $(LIBINTL) and $(LIBR)
-                      "ALL_LIBS='$(PKG_LIBS) $(SHLIB_LIBADD)'",
+                      "ALL_LIBS='$(PKG_LIBS) $(SHLIB_LIBADD) $(SAN_LIBS)'",
                       makeargs)
     if (with_objc) shlib_libadd <- c(shlib_libadd, "$(OBJC_LIBS)")
     if (with_f77 || with_f9x) {
@@ -2763,6 +2767,10 @@ if(FALSE) {
                         paste0("LTO_FC=", shQuote("$(LTO_FC_OPT)")))
                   else if(isFALSE(use_lto)) c("LTO=", "LTO_FC=")
                   )
+    ## if(config_val_to_logical(Sys.getenv("_R_CXX_USE_NO_REMAP_", "TRUE")))
+    ##      makeargs <- c(makeargs, "CXX_DEFS=-DR_NO_REMAP")
+##    if(config_val_to_logical(Sys.getenv("_R_USE_STRICT_R_HEADERS_", "FALSE")))
+##         makeargs <- c(makeargs, "XDEFS=-DSTRICT_R_HEADERS=1")
 
     cmd <- paste(MAKE, p1(paste("-f", shQuote(makefiles))), p1(makeargs),
                  p1(makeobjs))
@@ -2812,7 +2820,8 @@ if(FALSE) {
             ## report the SDK in use: we want to know what it is symlinked to
             sdk <- try(system2("xcrun", "--show-sdk-path", TRUE, TRUE), silent = TRUE)
             if(!inherits(sdk, "try-error")) {
-                sdk <- Sys.readlink(sdk)
+                sdk <- if (length(attr(sdk, "status"))) NA_character_
+                       else Sys.readlink(sdk)
                 message("using SDK: ", sQuote(sdk))
             }
         }
@@ -2842,7 +2851,7 @@ if(FALSE) {
         order(xx, toupper(x), x)
     }
 
-    html_header <- function(pkg, title, version, conn)
+    html_header <- function(pkg, title, version, encoding, conn)
     {
         cat(paste(HTMLheader(title, Rhome="../../..",
                              up="../../../doc/html/packages.html",
@@ -2851,16 +2860,25 @@ if(FALSE) {
            '<h2>Documentation for package &lsquo;', pkg, '&rsquo; version ',
             version, '</h2>\n\n', sep = "", file = conn)
 
-	cat('<ul><li><a href="../DESCRIPTION">DESCRIPTION file</a>.</li>\n', file=conn)
+	cat('<ul><li><a href="../DESCRIPTION" type="text/plain',
+            ## These days we should really always have UTF-8 ...
+            if(!is.na(encoding) && (encoding == "UTF-8"))
+                "; charset=utf-8",
+            '">DESCRIPTION file</a>.</li>\n',
+            sep = "", file=conn)
 	if (file.exists(file.path(outDir, "doc")))
-	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation.</a></li>\n', file=conn)
+	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation.</a></li>\n',
+                file=conn)
 	if (file.exists(file.path(outDir, "demo")))
 	    cat('<li><a href="../demo">Code demos</a>.  Use <a href="../../utils/help/demo">demo()</a> to run them.</li>\n',
-		 sep = "", file=conn)
-	if (any(file.exists(file.path(outDir,
-                                      c("NEWS", "NEWS.Rd", "NEWS.md")))))
-	    cat('<li><a href="../NEWS">Package NEWS</a>.</li>\n',
-		 sep = "", file=conn)
+                sep = "", file=conn)
+        for(nfile in c("NEWS", "NEWS.Rd", "NEWS.md")) {
+            if(file.exists(file.path(outDir, nfile))) {
+                cat('<li><a href="../', nfile, '">Package NEWS</a>.</li>\n',
+                    sep = "", file=conn)
+                break
+            }
+        }
 
         cat('</ul>\n\n<h2>Help Pages</h2>\n\n\n',
             sep ="", file = conn)
@@ -2978,7 +2996,7 @@ if(FALSE) {
     ## No need to handle encodings: everything is in UTF-8
 
     html_header(desc["Package"], htmlize(desc["Title"], TRUE),
-                desc["Version"], outcon)
+                desc["Version"], desc["Encoding"], outcon)
 
     use_alpha <- (nrow(M) > 100)
     if (use_alpha) {
@@ -3114,7 +3132,8 @@ if(FALSE) {
             if (!file_test("-f", ff) || file_test("-nt", f, ff)) {
                 showtype(type)
                 .convert(Rd2latex(Rd, ff, defines = NULL,
-                                  outputEncoding = outenc))
+                                  outputEncoding = outenc,
+                                  writeEncoding = (outenc != "UTF-8")))
             }
         }
         if ("example" %in% types) {
@@ -3266,7 +3285,7 @@ function()
     m
 }
 
-cxx_standards <- c("23", "20", "17", "14", "11", "98")
+cxx_standards <- c("26", "23", "20", "17", "14", "11", "98")
 
 ### Local variables: ***
 ### mode: outline-minor ***

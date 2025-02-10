@@ -1,7 +1,7 @@
 #  File src/library/methods/R/Methods.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #  https://www.R-project.org/Licenses/
 
 ## copy here to avoid importing from stats and hence loading stats
-## namespace when methods if loaded
+## namespace when methods is loaded
 setNames <- stats::setNames
 
 
@@ -267,27 +267,26 @@ isGeneric <-
         ## a successful search will usually end here w/o other tests
          if(!is.null(fdef))
            return(if(getName) fdef@generic else TRUE)
-     }
+    }
     if(is.null(fdef))
         fdef <- getFunction(f, where=where, mustFind = FALSE)
     if(is.null(fdef))
       return(FALSE)
     ## check primitives. These are never found as explicit generic functions.
-    if(isBaseFun(fdef)) {
-        if(is.character(f) && f %in% "as.double") f <- "as.numeric"
-        ## the definition of isGeneric() for a base function is that methods are defined
+    if(is.primitive(fdef)) {
+        ## the definition of isGeneric() for such a function is that methods are defined
         ## (other than the default primitive)
-        gen <- genericForBasic(f, mustFind = FALSE)
-        return(is.function(gen) && length(names(.getMethodsTable(gen))) > 1L)
+        gen <- genericForBasic(.primname(fdef), mustFind = FALSE)
+        return(
+            if(is.function(gen) && length(names(.getMethodsTable(gen))) > 1L)
+                if(getName) gen@generic else TRUE
+            else FALSE)
     }
     if(!is(fdef, "genericFunction"))
         return(FALSE)
     gen <- fdef@generic # the name with package attribute
     if(missing(f) || .identC(gen, f)) {
-	if(getName)
-	    gen
-	else
-	    TRUE
+	if(getName) gen else TRUE
     }
     else {
         warning(gettextf(
@@ -351,7 +350,8 @@ getMethods <-
     function(f, where = topenv(parent.frame()), table = FALSE)
 {
     if(!table)
-      .MlistDefunct("getMethods", "findMethods")
+        .MlistDefunct("getMethods", "findMethods")
+    else .Deprecated("getMethodsForDispatch(f, TRUE)")
     nowhere <- missing(where)
     fdef <- getGeneric(f, where = where)
     f <- fdef@generic
@@ -364,41 +364,6 @@ getMethods <-
 getMethodsForDispatch <- function(fdef, inherited = FALSE)
 {
     .getMethodsTable(fdef, environment(fdef), inherited = inherited)
-}
-
-## Some functions used in MethodsListSelect, that must be safe against recursive
-## method selection.
-
-.setIfBase <- function(f, fdef, mlist) {
-    if(is.null(f))
-        FALSE
-    else {
-        found <- base::exists(f, "package:base")
-	if(found) {
-	    ## force (default) computation of mlist in MethodsListSelect
-	    base::assign(".Methods", envir = base::environment(fdef),
-			 base::get(f, "package:base"))
-	}
-        found
-    }
-}
-
-## Must NOT use the standard version to prevent recursion  {still true ?}
-.getMethodsForDispatch <- function(fdef) {
-    ev <- base::environment(fdef)
-    if(base::exists(".Methods", envir = ev))
-        base::get(".Methods", envir = ev)
-    ## else NULL
-}
-
-.setMethodsForDispatch <- function(f, fdef, mlist) {
-    ev <- environment(fdef)
-    if(!is(fdef, "genericFunction") ||
-       !exists(".Methods", envir = ev, inherits = FALSE))
-        stop(sprintf("internal error: did not get a valid generic function object for function %s",
-                      sQuote(f)),
-             domain = NA)
-    assign(".Methods", envir = ev, mlist)
 }
 
 cacheMethod <-
@@ -417,6 +382,7 @@ cacheMethod <-
 			      .getMethodsTable(fdef, ev, inherited = TRUE))
   }
 
+## for .removeSubClass() and .removeSuperClass():
 .removeCachedMethod <- function(f, sig, fdef = getGeneric(f))
     cacheMethod(f, sig, NULL, names(sig), fdef)
 

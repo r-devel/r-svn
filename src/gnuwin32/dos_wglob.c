@@ -598,7 +598,8 @@ glob0(const wchar_t *pattern, wglob_t *pglob)
 	pglob->gl_flags = oldflags;
 	return(globextend(qpat, pglob, &limit));
     }
-    else if (!(pglob->gl_flags & GLOB_NOSORT))
+    else if (!(pglob->gl_flags & GLOB_NOSORT) &&
+	      (pglob->gl_pathc - oldpathc) > 0)
 	qsort(pglob->gl_pathv + pglob->gl_offs + oldpathc,
 	      pglob->gl_pathc - oldpathc, sizeof(wchar_t *),
 	      (pglob->gl_flags & (GLOB_ALPHASORT|GLOB_NOCASE))
@@ -818,7 +819,7 @@ globextend(const wchar_t *path, wglob_t *pglob, size_t *limitp)
 	pathv = R_Calloc(newsize, wchar_t *);
     if (pathv == NULL) {
 	if (pglob->gl_pathv) {
-	    Free(pglob->gl_pathv);
+	    R_Free(pglob->gl_pathv);
 	    pglob->gl_pathv = NULL;
 	}
 	return(GLOB_NOSPACE);
@@ -924,8 +925,8 @@ dos_wglobfree(wglob_t *pglob)
 	pp = pglob->gl_pathv + pglob->gl_offs;
 	for (i = pglob->gl_pathc; i--; ++pp)
 	    if (*pp)
-		Free(*pp);
-	Free(pglob->gl_pathv);
+		R_Free(*pp);
+	R_Free(pglob->gl_pathv);
 	pglob->gl_pathv = NULL;
     }
 }

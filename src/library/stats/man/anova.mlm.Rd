@@ -39,15 +39,15 @@
   the summary table, or a test based on sphericity assumptions (i.e.
   that the covariance is proportional to a given matrix).
 
-  For the multivariate test, Wilks' statistic is most popular in the
-  literature, but the default Pillai--Bartlett statistic is
+  For the multivariate test, \I{Wilks}' statistic is most popular in the
+  literature, but the default \I{Pillai}--\I{Bartlett} statistic is
   recommended by Hand and Taylor (1987).  See
   \code{\link{summary.manova}} for further details.
 
   For the \code{"Spherical"} test, proportionality is usually with the
   identity matrix but a different matrix can be specified using \code{Sigma}.
-  Corrections for asphericity known as the Greenhouse--Geisser,
-  respectively Huynh--Feldt, epsilons are given and adjusted \eqn{F} tests are
+  Corrections for asphericity known as the \I{Greenhouse}--\I{Geisser},
+  respectively \I{Huynh}--\I{Feldt}, epsilons are given and adjusted \eqn{F} tests are
   performed.
 
   It is common to transform the observations prior to testing. This
@@ -61,7 +61,7 @@
   model formulas with respect to \code{idata} (the tests will be
   invariant to parametrization of the quotient space \code{M/X}).
 
-  As with \code{anova.lm}, all test statistics use the SSD matrix from
+  As with \code{anova.lm}, all test statistics use the \abbr{SSD} matrix from
   the largest model considered as the (generalized) denominator.
 
   Contrary to other \code{anova} methods, the intercept is not excluded
@@ -73,8 +73,8 @@
    An object of class \code{"anova"} inheriting from class \code{"data.frame"}
 }
 \note{
-  The Huynh--Feldt epsilon differs from that calculated by SAS (as of
-  v.\sspace{}8.2) except when the DF is equal to the number of observations
+  The \I{Huynh}--\I{Feldt} epsilon differs from that calculated by SAS (as of
+  v.\sspace{}8.2) except when the \abbr{DF} is equal to the number of observations
   minus one.  This is believed to be a bug in SAS, not in \R.
 }
 

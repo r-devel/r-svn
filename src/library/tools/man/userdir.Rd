@@ -19,7 +19,7 @@ R_user_dir(package, which = c("data", "config", "cache"))
     interest.  Can be abbreviated.}
 }
 \details{
-  For desktop environments using X Windows, the freedesktop.org project
+  For desktop environments using X Windows, the \I{freedesktop.org} project
   (formerly X Desktop Group, \abbr{XDG}) developed the \abbr{XDG} Base Directory
   Specification
   (\url{https://specifications.freedesktop.org/basedir-spec}) for
@@ -46,16 +46,15 @@ R_user_dir(package, which = c("data", "config", "cache"))
   are used if set, and otherwise, defaults appropriate for the \R
   platform in use are employed.
 }
-\examples{
-## IGNORE_RDIFF_BEGIN
+\examples{\dontdiff{
 R_user_dir("FOO", "cache")
+
 ## Create one, platform agnostically, must work if <normal> :
 (Rdb <- R_user_dir("base"))
-if(noD <- !dir.exists(Rdb)) # should work user specifically:
-    dir.create(Rdb, recursive=TRUE)
-stopifnot(dir.exists(Rdb)) # "everywhere"
+if(newD <- !dir.exists(Rdb)) # should work user specifically:
+    newD <- dir.create(Rdb, recursive=TRUE)% FALSE + warning when testing homeless
 dir(Rdb) # typically empty
-if(noD) unlink(Rdb) # cleaning up
+if(newD) unlink(Rdb) # cleaning up
+
 list.files(R_user_dir("grid"), full.names = TRUE)
-## IGNORE_RDIFF_END
-}
+}}

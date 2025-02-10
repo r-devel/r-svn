@@ -63,7 +63,7 @@ available in all these packages.
 However, calls from any package that imports the old version or just
 selects it from the search list will usually \emph{not} select methods.
 
-A an example, consider the function
+As an example, consider the function
 \code{\link{data.frame}()} in the base package.
 This function takes any number of objects as arguments and attempts to combine
 them as variables into a data frame object.
@@ -204,12 +204,9 @@ df1 <- data.frame(x = 1:10, y = rnorm(10), z = sample(letters,10))
 mydf1 <- new("myFrame", df1, timestamps = Sys.time())
 
 ## "myFrame" objects inherit "data.frame" S3 methods; e.g., for `[`
-
-% time dependent:
-## IGNORE_RDIFF_BEGIN
+\dontdiff{% time-dependent
 mydf1[1:2, ] # a data frame object (with extra attributes)
-## IGNORE_RDIFF_END
-
+}
 
 ## a method explicitly for "myFrame" class
 
@@ -222,10 +219,9 @@ setMethod("[",
         x
     }
 )
-
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 mydf1[1:2, ]
-## IGNORE_RDIFF_END
+}
 
 setClass("myDateTime", contains = "POSIXt")
 

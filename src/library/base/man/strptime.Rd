@@ -1,6 +1,6 @@
 % File src/library/base/man/strptime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strptime}
@@ -39,13 +39,17 @@ strptime(x, format, tz = "")
     methods is
     \code{"\%Y-\%m-\%d \%H:\%M:\%S"} if any element has a time
     component which is not midnight, and \code{"\%Y-\%m-\%d"}
-    otherwise.  If \code{\link{options}("digits.secs")} is set, up to
-    the specified number of digits will be printed for seconds.}
-  \item{\dots}{further arguments to be passed from or to other methods.}
+    otherwise.  In the first case and if \code{digits} is not \code{NULL},
+    i.e., by default when \code{\link{options}("digits.secs")} is set, up to
+    the specified number of digits will be printed for seconds, using
+    \code{"\%OS<n>"} instead of \code{"\%S"} in the format, see also
+    \sQuote{Details}.}
+  \item{\dots}{further arguments to be passed from or to other methods; for
+    \code{strftime()}, notably \code{digits}, passed to \code{format(<POSIXlt>)}.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended
     to the output?  This is used in printing times, and more reliable
     than using \code{"\%Z"}.}
-  \item{digits}{integer determining the \code{format()}ing of seconds when
+  \item{digits}{integer determining the \I{\code{format()}ing} of seconds when
     needed.  Note that the defaults for \code{format()} and
     \code{as.character()} differ on purpose, \code{as.character()} giving
     close to full accuracy as it does for numbers.}
@@ -234,12 +238,20 @@ strptime(x, format, tz = "")
   the standard interpretation.
 
   Specific to \R is \code{\%OSn}, which for output gives the seconds
-  truncated to \code{0 <= n <= 6} decimal places (and if \code{\%OS} is
-  not followed by a digit, it uses the setting of
-  \code{\link{getOption}("digits.secs")}, or if that is unset, \code{n =
-  0}).  Further, for \code{strptime} \code{\%OS} will input seconds
-  including fractional seconds.  Note that \code{\%S} does not read
-  fractional parts on output.
+  truncated to exactly \code{0 <= n <= 6} decimal places.  If \code{\%OS} is
+  not followed by a digit, it uses up to \code{digits} decimals (only as
+  many as necessary, i.e., not producing extra trailing zeros.
+  The default \code{digits = NULL} corresponds to \code{digits = 0}.
+
+  Note that the precedence is \code{format=".. \%OSn .."} \eqn{\ll}{>>}
+  \code{digits = n}, the latter initialized by default from
+  \code{getOption("digits.secs")}.
+  Currently, for output (\code{strftime()} and \code{format(<POSIX.t>)}),
+  only \emph{one} "\%OS" occurrence is handled (per format string).
+  \cr
+  Further, for \code{strptime} \code{\%OS} will input seconds including
+  fractional seconds (to full precision).  Note that \code{\%S} does not
+  read or write fractional parts.
 
   The behaviour of other conversion specifications (and even if other
   character sequences commencing with \code{\%} \emph{are} conversion
@@ -265,7 +277,7 @@ strptime(x, format, tz = "")
   Everyone agrees that years from 1000 to 9999 should be printed with 4
   digits, but the standards do not define what is to be done outside
   that range.  For years 0 to 999 most OSes pad with zeros or spaces to
-  4 characters, but Linux/glibc outputs just the number.
+  4 characters, but Linux/\I{glibc} outputs just the number.
 
   OS facilities will probably not print years before 1 CE (aka 1 AD)
   \sQuote{correctly} (they tend to assume the existence of a year 0: see
@@ -276,7 +288,7 @@ strptime(x, format, tz = "")
   more characters.
 
   Some platforms support modifiers from POSIX 2008 (and others).  On
-  Linux/glibc the format \code{"\%04Y"} assures a minimum of four
+  Linux/\I{glibc} the format \code{"\%04Y"} assures a minimum of four
   characters and zero-padding (the default is no padding).  The internal
   code (as used on Windows and by default on macOS) uses zero-padding by
   default (this can be controlled by environment variable
@@ -307,7 +319,7 @@ strptime(x, format, tz = "")
   year.  (On some platforms this works better after conversion to
   \code{"POSIXct"}.  Some platforms only recognize hour or half-hour
   offsets for output.)%% strftime in macOS 13.
-  
+
   Using \code{\%z} for input makes most sense with \code{tz = "UTC"}.
 }
 
@@ -424,15 +436,20 @@ z2 <- strptime(x, "\%m/\%d/\%y \%H:\%M:\%S")
 ## *here* (but not in general), the same as format():
 stopifnot(identical(format(z2), as.character(z2)))
 
-## time with fractional seconds
-z3 <- strptime("20/2/06 11:16:16.683", "\%d/\%m/\%y \%H:\%M:\%OS") \donttest{
-z3 # prints without fractional seconds by default, digits.sec = NULL ("= 0")}
-op <- options(digits.secs = 3)
-\donttest{z3 # shows the 3 extra digits}
-as.character(z3) # ditto
+## time with fractional seconds (setting `tz = ..` for reproducible output)
+z3 <- strptime("20/2/06 11:16:16.683", "\%d/\%m/\%y \%H:\%M:\%OS", tz = "UTC")
+z3 # prints without fractional seconds by default, digits.sec = NULL ("= 0")
+format(z3, digits = 3) # shows extra digits
+format(z3, digits = 6) # still 3 digits: *not* showing trailing zeros
+format(z3, format = "\%Y-\%m-\%d \%H:\%M:\%OS6") #  *does* keep trailing zeros
+op <- options(digits.secs = 3) # global option, the default for `digits`
+z3 # shows the 3 extra digits
 options(op)
+as.character(z3) # ditto
+
 
 ## time zone names are not portable, but 'EST5EDT' comes pretty close.
+## (but its interpretation may not be universal: see ?timezones)
 z4 <- strptime(c("2006-01-08 10:07:52", "2006-08-07 19:33:02"),
                "\%Y-\%m-\%d \%H:\%M:\%S", tz = "EST5EDT")
 \donttest{z4 }

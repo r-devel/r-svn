@@ -41,11 +41,11 @@ is.unit(x)
     \item{\code{"inches"}}{Inches.  1 in = 2.54 cm.}
     \item{\code{"mm"}}{Millimetres.  10 mm = 1 cm.}
     \item{\code{"points"}}{Points.  72.27 pt = 1 in.}
-    \item{\code{"picas"}}{Picas.  1 pc = 12 pt.}
-    \item{\code{"bigpts"}}{Big Points.  72 bp = 1 in.}
-    \item{\code{"dida"}}{Dida.  1157 dd = 1238 pt.}
+    \item{\code{"picas"}}{\I{Pica}s.  1 \abbr{pc} = 12 pt.}
+    \item{\code{"bigpts"}}{Big Points.  72 \abbr{bp} = 1 in.}
+    \item{\code{"dida"}}{\I{Dida}.  1157 dd = 1238 pt.}
     \item{\code{"cicero"}}{Cicero.  1 cc = 12 dd.}
-    \item{\code{"scaledpts"}}{Scaled Points.  65536 sp = 1 pt.}
+    \item{\code{"scaledpts"}}{Scaled Points.  65536 \abbr{sp} = 1 pt.}
     \item{\code{"lines"}}{Lines of text.  Locations and dimensions
       are in terms of multiples of the default text size of the viewport
       (as specified by the viewport's \code{fontsize} and \code{lineheight}).}
@@ -56,7 +56,7 @@ is.unit(x)
     \item{\code{"snpc"}}{Square Normalised Parent Coordinates.
       Same as Normalised Parent Coordinates, except gives the same answer for
       horizontal and vertical locations/dimensions.  It uses the
-      \emph{lesser} of npc-width and npc-height.  This is useful for making
+      \emph{lesser} of \abbr{npc}-width and \abbr{npc}-height.  This is useful for making
       things which are a proportion of the viewport, but have to be square
       (or have a fixed aspect ratio).}
     \item{\code{"strwidth"}}{Multiples of the width of the string
@@ -87,7 +87,7 @@ is.unit(x)
 }.
 
   It is possible to subset unit objects in the normal way and to perform
-  subassignment (see the examples),
+  \I{subassignment} (see the examples),
   but a special function
   \code{unit.c} is provided for combining unit objects.
 

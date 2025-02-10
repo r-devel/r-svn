@@ -66,7 +66,11 @@ static GESystemDesc* registeredSystems[MAX_GRAPHICS_SYSTEMS];
 
 static void unregisterOne(pGEDevDesc dd, int systemNumber) {
     if (dd->gesd[systemNumber] != NULL) {
-	(dd->gesd[systemNumber]->callback)(GE_FinaliseState, dd, R_NilValue);
+        /* Defensive */
+        if (dd->gesd[systemNumber]->callback != NULL) {
+            (dd->gesd[systemNumber]->callback)(GE_FinaliseState, dd, 
+                                               R_NilValue);
+        }
 	free(dd->gesd[systemNumber]);
 	dd->gesd[systemNumber] = NULL;
     }
@@ -112,13 +116,12 @@ static void registerOne(pGEDevDesc dd, int systemNumber, GEcallback cb) {
 	(GESystemDesc*) calloc(1, sizeof(GESystemDesc));
     if (dd->gesd[systemNumber] == NULL)
 	error(_("unable to allocate memory (in GEregister)"));
+    dd->gesd[systemNumber]->callback = cb;
     result = cb(GE_InitState, dd, R_NilValue);
     if (isNull(result)) {
         /* tidy up */
         free(dd->gesd[systemNumber]);
 	error(_("unable to allocate memory (in GEregister)"));
-    } else {
-        dd->gesd[systemNumber]->callback = cb;
     }
 }
 
@@ -2888,7 +2891,7 @@ void GEdirtyDevice(pGEDevDesc dd)
     dd->dirty = TRUE;
 }
 
-void GEcleanDevice(pGEDevDesc dd)
+attribute_hidden void GEcleanDevice(pGEDevDesc dd)
 {
 #ifdef R_GE_DEBUG
     if (getenv("R_GE_DEBUG_dirty")) {
@@ -3842,6 +3845,7 @@ SEXP R_GE_glyphInfoFonts(SEXP glyphInfo) {
 #define glyph_font          3
 #define glyph_size          4
 #define glyph_colour        5
+#define glyph_rotation      6
 
 SEXP R_GE_glyphID(SEXP glyphs) {
     return VECTOR_ELT(glyphs, glyph_id);
@@ -3860,6 +3864,12 @@ SEXP R_GE_glyphSize(SEXP glyphs) {
 }
 SEXP R_GE_glyphColour(SEXP glyphs) {
     return VECTOR_ELT(glyphs, glyph_colour);
+}
+SEXP R_GE_glyphRotation(SEXP glyphs) {
+  return VECTOR_ELT(glyphs, glyph_rotation);
+}
+Rboolean R_GE_hasGlyphRotation(SEXP glyphs) {
+  return LENGTH(glyphs) > glyph_rotation;
 }
 
 #define glyph_font_file     0

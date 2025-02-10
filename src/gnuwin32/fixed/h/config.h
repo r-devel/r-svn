@@ -469,9 +469,11 @@
 
 /* Define to 1 if you have libdeflate headers and library. */
 /* #undef HAVE_LIBDEFLATE */
+#define HAVE_LIBDEFLATE 1
 
 /* Define to 1 if you have the <libdeflate.h> header file. */
 /* #undef HAVE_LIBDEFLATE_H */
+#define HAVE_LIBDEFLATE_H 1
 
 /* Define to 1 if you have the `dl' library (-ldl). */
 /* #undef HAVE_LIBDL */
@@ -873,7 +875,7 @@
 /* #undef HAVE_TIMES */
 
 /* Define to 1 if you have the `timespec_get' function. */
-/* available with Rtools43, but not Rtools42 */
+/* available since Rtools43, but not in Rtools42 */
 /* #define HAVE_TIMESPEC_GET 1 */
 
 /* Define to 1 if your 'struct tm' has tm_gmtoff. */
@@ -1034,6 +1036,12 @@
 
 /* Define if you have the X11/Xmu headers and libraries. */
 /* #undef HAVE_X11_Xmu */
+
+/* Define if your system has zstd >= 1.3.3. */
+#define HAVE_ZSTD 1
+
+/* Define if zstd has ZSTD_decompressBound */
+#define HAVE_ZSTD_DECOMPRESSBOUND 1
 
 /* Define to 1 if you have the `__cospi' function. */
 /* #undef HAVE___COSPI */
@@ -1242,6 +1250,7 @@
 
 /* Define to use libdefault rather than libz for lazy-loaded R objects */
 /* #undef USE_LIBDEFLATE */
+#define USE_LIBDEFLATE 1
 
 /* Define if the POSIX multithreading library can be used. (For intl) */
 /* #undef USE_POSIX_THREADS */

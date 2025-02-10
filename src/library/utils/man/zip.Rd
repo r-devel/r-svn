@@ -27,7 +27,7 @@ zip(zipfile, files, flags = "-r9X", extras = "",
   value of \env{R_ZIPCMD}, whose default is set in \file{etc/Renviron}
   to the \code{zip} command found during configuration.  On Windows, the
   default relies on a \command{zip} program (for example that from
-  Rtools) being in the path.
+  \I{Rtools}) being in the path.
 
   The default for \code{flags} is that appropriate for zipping up a
   directory tree in a portable way: see the system-specific help for the

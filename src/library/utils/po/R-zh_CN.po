@@ -7,21 +7,23 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:40\n"
-"PO-Revision-Date: 2023-01-30 10:05+0000\n"
-"Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
+"PO-Revision-Date: 2024-03-18 21:18+0000\n"
+"Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.13.1\n"
+"X-Generator: Weblate 4.16.4\n"
 
 msgid ""
 "RShowDoc() should be used with a character string argument specifying\n"
 "   a documentation file"
-msgstr "RShowDoc()应该和指定文档文件的字符串一起使用"
+msgstr ""
+"RShowDoc() 应该与指定的字符串参数一起使用\n"
+"    文档文件"
 
 msgid "no documentation for %s found in package %s"
 msgstr "程序包%2$s里没有%1$s这样一本文档"
@@ -45,7 +47,7 @@ msgid "reference to unknown chunk %s"
 msgstr "对未知区块 %s 的引用"
 
 msgid "no Sweave file with name %s found"
-msgstr "没有名字为'%s'的Sweave文件"
+msgstr "没有名称为'%s'的Sweave文件"
 
 msgid "more than one syntax specification found, using the first one"
 msgstr "在多套語法規則里选用第一个套"
@@ -145,6 +147,9 @@ msgstr ""
 msgid "No suitable spell check program found."
 msgstr "没有可用的拼写查对器"
 
+msgid "Performing query %s"
+msgstr ""
+
 msgid ""
 "Use <code> %s </code> \n"
 " to list the vignettes in all <strong>available</strong> packages."
@@ -179,8 +184,15 @@ msgstr "建议你用%s而不用%s。"
 msgid "Use either %s or %s but not both."
 msgstr "要么用%s,要么用%s，但不能两者都用"
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "建议你用%s/%s而不用%s/%s/%s。"
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority'的值要么是字符要么为NULL"
+
+msgid "subscript out of bounds"
+msgstr "标出界"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "这个方法只适用于%s目标对象"
@@ -189,13 +201,10 @@ msgid "all arguments must be of class %s"
 msgstr "所有的参数都必需是%s类别"
 
 msgid "all fields have to be named"
-msgstr "所有的项都必需有名字"
+msgstr "所有的项都必需有名称"
 
 msgid "%s has to be one of %s"
 msgstr "%s必需是%s这些中的一个"
-
-msgid "subscript out of bounds"
-msgstr "标出界"
 
 msgid "%s should be one of %s"
 msgstr "%s必需是%s这些中的一个"
@@ -212,6 +221,9 @@ msgid ""
 msgstr ""
 "删除无效的条目%d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "无法从程序包的DESCRIPTION文件中为%s确定年份"
@@ -324,7 +336,7 @@ msgid "added factor levels in '%s'"
 msgstr "在'%s'里加上了因子水准"
 
 msgid "edited row names contain duplicates and will be ignored"
-msgstr "改过的行名中含有重复的名字，因此忽略不用"
+msgstr "改过的行名中含有重复的名称，因此忽略不用"
 
 msgid "invalid input matrix"
 msgstr "输入矩阵无效"
@@ -345,7 +357,7 @@ msgid "Line number missing"
 msgstr "缺少行数"
 
 msgid "'fix' requires a name"
-msgstr "'fix'需要名字值"
+msgstr "'fix'需要名称值"
 
 msgid "too many list items (at most up to %d)"
 msgstr "列表项太多(最多只能有%d项)"
@@ -408,7 +420,7 @@ msgid "tail(., keepnums=.) instead."
 msgstr ""
 
 msgid "'topic' should be a name, length-one character vector or reserved word"
-msgstr "'topic'的值必需是名字，长度为一的字符串或保留文字"
+msgstr "'topic'的值必需是名称，长度为一的字符串或保留文字"
 
 msgid "No documentation for %s in specified packages and libraries:"
 msgstr "在指定的程序包和图书馆里没有与%s有关的文档:"
@@ -432,7 +444,7 @@ msgid "Choose one"
 msgstr "选一个"
 
 msgid "Using the first match ..."
-msgstr "用第一个相配…"
+msgstr "用第一个匹配…"
 
 msgid "HTML help is unavailable"
 msgstr "没有HTML帮助"
@@ -459,8 +471,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "参数%s必需是单字符串"
+msgid "'%s' must be a character string"
+msgstr "'unzip'必需是单字符串"
 
 msgid "incorrect field specification"
 msgstr "域设定得不正确"
@@ -487,7 +499,7 @@ msgid "removing all entries with invalid multi-byte character data"
 msgstr "删除所有多字節字符数据出错的分錄"
 
 msgid "invalid browser name, check options(\"browser\")."
-msgstr "浏览器的名字无效，请检查options(\"browser\")的设置。"
+msgstr "浏览器的名称无效，请检查options(\"browser\")的设置。"
 
 msgid "help.start() requires the HTTP server to be running"
 msgstr "help.start()需要用HTTP服务器"
@@ -556,6 +568,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s'是正式同属函数; 很有可能找不到S3方法"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "看不到'%s'这样一个函数"
 
@@ -588,7 +603,7 @@ msgid "changing locked binding for %s in %s"
 msgstr "为%2$s里的%1$s改变锁定约束"
 
 msgid "'fixInNamespace' requires a name"
-msgstr "'fixInNamespace'需要名字值"
+msgstr "'fixInNamespace'需要名称值"
 
 msgid "only numeric indices can be used"
 msgstr "只能用数值的指标"
@@ -614,10 +629,6 @@ msgstr "已经有了'%s'这样一个目录"
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "泛型函数和其他S4对象（例如'%s'）不能被转储出来；用'code_files'这个参数"
 
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "'unzip'必需是单字符串"
-
 msgid "unable to access index for repository %s"
 msgstr "无法在貯藏處%s中读写索引"
 
@@ -634,7 +645,7 @@ msgid "invalid 'oldPkgs'; must be a character vector or a result from old.packag
 msgstr "'oldPkgs'的值无效；必需字符向量或从old.packages()得到的结果"
 
 msgid "ill-formed 'instPkgs' matrix"
-msgstr "'instPkgs'矩阵不对"
+msgstr "'instPkgs'矩阵不正确"
 
 msgid "no installed packages for (invalid?) 'lib.loc=%s'"
 msgstr "'lib.loc=%s'里没有已经安装好了的程序包"
@@ -720,10 +731,6 @@ msgstr ""
 "因此忽略不装"
 
 #, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip'必需是单字符串"
-
-#, fuzzy
 msgid "type 'binary' is not supported on this platform"
 msgstr "本平台只支持'html = TRUE'"
 
@@ -757,7 +764,7 @@ msgstr "无法建立%s"
 
 #, fuzzy
 msgid "inferring 'repos = NULL' from 'pkgs'"
-msgstr "从文件名字推断'repos = NULL'"
+msgstr "从文件名称推断'repos = NULL'"
 
 msgid "unable to create temporary directory %s"
 msgstr "无法建立临时目录%s"
@@ -834,13 +841,13 @@ msgstr ""
 "\t%s里"
 
 msgid "The namespace for package \"%s\" is locked; no changes in the global variables list may be made."
-msgstr "程序包\"%s\"的名字空间被锁定了；全局变量列表没有改变。"
+msgstr "程序包\"%s\"的命名空间被锁定了；全局变量列表没有改变。"
 
 msgid "'env' must be an environment"
 msgstr "'env'必需是环境"
 
 msgid "no object named '%s' to show"
-msgstr "找不到名字为'%s'的对象"
+msgstr "找不到名称为'%s'的对象"
 
 msgid "'file' must be \"\" or an open connection object"
 msgstr "'file'必需是\"\"或打开的联结"
@@ -855,17 +862,17 @@ msgid "'pb' is not from class %s"
 msgstr "'pb'不属于%s这一类别"
 
 msgid "cannot determine a usable name"
-msgstr "无法指定一个可以用的名字"
+msgstr "无法指定一个可以用的名称"
 
 msgid "Created file named %s."
-msgstr "建立一名字叫%s的文件。"
+msgstr "建立一名称叫%s的文件。"
 
 msgid "Edit the file and move it to the appropriate directory."
 msgstr "修改文件再把它放到合适的目录中去。"
 
 #, fuzzy
 msgid "cannot determine import name"
-msgstr "无法指定一个可以用的名字"
+msgstr "无法指定一个可以用的名称"
 
 msgid "no documentation of type %s and topic %s (or error in processing help)"
 msgstr "没有类型为%s和題目为%s的文件(或是在处理帮助文件时发生了错误)"
@@ -910,7 +917,7 @@ msgid "header and 'col.names' are of different lengths"
 msgstr "表头名称和'col.names'的长度不一样"
 
 msgid "more columns than column names"
-msgstr "列的数目比列的名字要多"
+msgstr "列的数目比列的名称要多"
 
 msgid "more column names than columns"
 msgstr "行名比行的数目要多"
@@ -937,7 +944,7 @@ msgid "invalid 'row.names' length"
 msgstr "'row.names'的长度无效"
 
 msgid "duplicate 'row.names' are not allowed"
-msgstr "'row.names'里不能有重复的名字"
+msgstr "'row.names'里不能有重复的名称"
 
 msgid "missing values in 'row.names' are not allowed"
 msgstr "'row.names'里不能有缺失值"
@@ -1022,7 +1029,7 @@ msgid "Not a validObject():"
 msgstr ""
 
 msgid "'object' does not have valid levels()"
-msgstr "'object'的levels()的值不对"
+msgstr "'object'的levels()的值不正确"
 
 msgid "'digits' and 'digits.d' are both specified and the latter is not used"
 msgstr "'digits'和'digits.d'两个都设定了，但后者没有用"
@@ -1106,7 +1113,7 @@ msgid "incomplete block: rather use gzfile(.) created connection?"
 msgstr ""
 
 msgid "invalid name field in tarball"
-msgstr "tarball里的名字域无效"
+msgstr "tarball里的名称域无效"
 
 msgid "checksum error for entry '%s'"
 msgstr "项目'%s'检查和错误"
@@ -1208,7 +1215,7 @@ msgid "'url' must be a length-one character vector"
 msgstr "'title'值要么是NULL，要么是长度为一的字符向量"
 
 msgid "'headers' must have names and must not be NA"
-msgstr ""
+msgstr "“headers”必须有名称，并且不能是 NA"
 
 #, fuzzy
 msgid "'destfile' must be a length-one character vector"
@@ -1232,9 +1239,8 @@ msgstr "下载退出状态不是零"
 msgid "'tar' returned non-zero exit code %d"
 msgstr "'tar'退出码为%d"
 
-#, fuzzy
 msgid "file %s is not a macOS binary package"
-msgstr "文件%s不是OS ​​X的二进制软件包"
+msgstr "文件%s不是OS X的二进制软件包"
 
 msgid "package %s successfully unpacked and MD5 sums checked"
 msgstr "程序包%s打开成功，MD5和检查也通过"
@@ -1247,7 +1253,7 @@ msgstr ""
 "尝试删除%s"
 
 msgid "ERROR: failed to create lock directory %s"
-msgstr "错误：无法建立锁定目录%s "
+msgstr "错误：无法建立锁定目录%s"
 
 msgid "restored %s"
 msgstr "回复了%s"
@@ -1324,6 +1330,10 @@ msgstr[0] "%2$s里%1$d出现"
 msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "角色设定得无效: %s"
+
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
 
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
@@ -1406,7 +1416,7 @@ msgstr[0] "'lib'元素%s不是可写目录"
 
 msgid "There is a binary version available but the source version is later"
 msgid_plural "There are binary versions available but the source versions are later"
-msgstr[0] "有二进制版本的，但源代码版本是后来的"
+msgstr[0] "有二进制版本，但源代码版本更新"
 
 #, fuzzy
 msgid "Do you want to install from sources the package which needs compilation?"
@@ -1428,7 +1438,7 @@ msgstr[0] "程序包%s是源码包，但不是二进制包"
 
 msgid "There is a binary version available (and will be installed) but the source version is later"
 msgid_plural "There are binary versions available (and will be installed) but the source versions are later"
-msgstr[0] "有二进制版本（将被安装），但源代码版本是后来的"
+msgstr[0] "二进制版本可用（将被安装），但源代码版本更新"
 
 msgid "last record incomplete, %d line discarded"
 msgid_plural "last record incomplete, %d lines discarded"
@@ -1437,6 +1447,17 @@ msgstr[0] "最后一个记录不完全，%d行忽略不用"
 msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "罗马数字无效：%s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "建议你用%s/%s而不用%s/%s/%s。"
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "参数%s必需是单字符串"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'unzip'必需是单字符串"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "目录%s里缺失'filelist'这一文件"
@@ -1521,8 +1542,8 @@ msgstr[0] "罗马数字无效：%s"
 #~ msgid "modes argument ignored"
 #~ msgstr "基本模式参数略过不用"
 
-#~ msgid "too many list items (at most up to number 3899)"
-#~ msgstr "串列项太多(最多只能有3899项("
+#~ msgid "too many list items (at most up to number 3999)"
+#~ msgstr "串列项太多(最多只能有3999项("
 
 #~ msgid "Packages {readRDS() sequentially}:"
 #~ msgstr "程序包{顺序readRDS()}:"

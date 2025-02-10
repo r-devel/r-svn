@@ -10,7 +10,7 @@
 \description{
   Computes a matrix norm of \code{x} using LAPACK.  The norm can be
   the one (\code{"O"}) norm, the infinity (\code{"I"}) norm, the
-  Frobenius (\code{"F"}) norm, the maximum modulus (\code{"M"}) among
+  \I{Frobenius} (\code{"F"}) norm, the maximum modulus (\code{"M"}) among
   elements of a matrix, or the \dQuote{spectral} or \code{"2"}-norm, as
   determined by the value of \code{type}.
 }
@@ -29,7 +29,7 @@ norm(x, type = c("O", "I", "F", "M", "2"))
       \item{\code{"I"} or \code{"i"}}{specifies the \bold{i}nfinity norm (maximum
 	absolute row sum);}
       \item{\code{"F"}, \code{"f"}, \code{"E"} or \code{"e"}}{specifies the
-	\bold{F}robenius norm (the \bold{E}uclidean norm of \code{x}
+	\I{\bold{F}robenius} norm (the \bold{E}uclidean norm of \code{x}
 	treated as if it were a vector);}
       \item{\code{"M"} or \code{"m"}}{specifies the \bold{m}aximum modulus of
 	all the elements in \code{x}; and}
@@ -44,7 +44,7 @@ norm(x, type = c("O", "I", "F", "M", "2"))
   \code{dlange}.
 
   Note that the 1-, Inf- and \code{"M"} norm is faster to calculate than
-  the Frobenius one.
+  the \I{Frobenius} one.
 
   Unsuccessful results from the underlying LAPACK code will result in an
   error giving a positive error code: these can only be interpreted by

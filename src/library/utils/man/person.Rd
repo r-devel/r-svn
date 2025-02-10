@@ -1,6 +1,6 @@
 % File src/library/utils/man/person.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{person}
@@ -34,7 +34,7 @@ as.person(x)
        collapse = list(given = " ", family = " ", email = ", ",
                        role = ", ", comment = ", "),
        ...,
-       style = c("text", "R")
+       style = c("text", "R", "md")
 )
 
 \method{toBibtex}{person}(object, escape = FALSE, ...)
@@ -67,7 +67,8 @@ as.person(x)
   \item{collapse}{a list of characters (see \bold{Details}).}
   \item{\dots}{currently not used.}
   \item{style}{a character string specifying the print style, with 
-    \code{"R"} yielding formatting as R code.}
+    \code{"R"} yielding formatting as R code and \code{"md"} yielding
+    Markdown (with email addresses and \I{ORCID iD}s hyperlinked).}
   \item{object}{an \R object inhering from class \code{"person"}.}
   \item{escape}{a logical indicating whether non-ASCII characters should
     be translated to LaTeX escape sequences.}
@@ -124,7 +125,7 @@ as.person(x)
   name, e.g., \code{person("R Core Team", role = "aut")}.
 
   The new scheme also adds the possibility of specifying \emph{roles}
-  based on a subset of the MARC Code List for Relators 
+  based on a subset of the MARC \I{Code List for Relators} 
   (\url{https://www.loc.gov/marc/relators/relaterm.html}).
   When giving the roles of persons in the context of authoring \R
   packages, the following usage is suggested.
@@ -137,7 +138,9 @@ as.person(x)
       substantial contributions to the package.}
     \item{\code{"cph"}}{(Copyright holder) Use for all copyright
       holders.  This is a legal concept so should use the legal name of
-      an institution or corporate body.}
+      an institution or corporate body.  Note that authors which are
+      \sQuote{natural persons} are by default copyright holders and so
+      do not need to be given this role.}
     \item{\code{"cre"}}{(Creator) Use for the package maintainer.}
     \item{\code{"ctb"}}{(Contributor) Use for authors who have made
       smaller contributions (such as code patches etc.) but should not
@@ -147,7 +150,7 @@ as.person(x)
       intellectual property.}
     \item{\code{"dtc"}}{(Data contributor) Use for persons who
       contributed data sets for the package.}
-    \item{\code{"fnd"}}{(Funder) Use for persons or organizations that
+    \item{\code{"fnd"}}{(\I{Funder}) Use for persons or organizations that
       furnished financial support for the development of the package.}
     \item{\code{"rev"}}{(Reviewer) Use for persons or organizations
       responsible for reviewing (parts of) the package.}
@@ -168,8 +171,12 @@ as.person(x)
   taken to give \abbr{ORCID} identifiers (see \url{https://orcid.org/} for more
   information), and be displayed as the corresponding \abbr{URI}s by the
   \code{print()} and \code{format()} methods (see \bold{Examples}
-  below).
-  
+  below).  Similarly, elements named \code{"ROR"} will be taken to give
+  \abbr{ROR} identifiers (see \url{https://ror.org/}).
+
+  Where more than one entity is given a \code{"cph"} role, the
+  \code{comment} field should be used to delimit who owns the copyright
+  to what parts of the package.
 }
 \seealso{
   \code{\link{citation}}
@@ -215,4 +222,8 @@ toBibtex(b)
 ## ORCID identifiers.
 (p3 <- person("Achim", "Zeileis",
               comment = c(ORCID = "0000-0003-0918-3766")))
+
+## ROR identifiers.
+(p4 <- person("R Core Team",
+              comment = c(ROR = "02zz1nj61")))
 }

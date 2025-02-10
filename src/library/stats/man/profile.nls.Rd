@@ -5,7 +5,7 @@
 
 \name{profile.nls}
 \alias{profile.nls}
-\title{Method for Profiling nls Objects}
+\title{Method for Profiling \code{nls} Objects}
 \description{
   Investigates the profile log-likelihood function for a fitted model of
   class \code{"nls"}.
@@ -57,10 +57,10 @@ fm1 <- nls(demand ~ SSasympOrig(Time, A, lrc), data = BOD)
 # get the profile for the fitted model: default level is too extreme
 pr1 <- profile(fm1, alphamax = 0.05)
 # profiled values for the two parameters
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 pr1$A
 pr1$lrc
-## IGNORE_RDIFF_END
+}
 # see also example(plot.profile.nls)
 \dontshow{options(od)}
 }

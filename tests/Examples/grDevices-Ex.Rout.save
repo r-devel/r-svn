@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2024-01-08 r85788) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-11-18 r87340) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin23.2.0
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -388,18 +388,26 @@ $allowed
 > axisTicks(pu[3:4], log = FALSE, nint = 10)
  [1]   0  10  20  30  40  50  60  70  80  90 100
 > 
-> plot(10*(0:10), log = "y"); (pu <- par("usr"))
+> 
+> ## --------------------  Log Scale  --------------------------------
+> x <- c(10, 1000)
+> #         _____
+> axisTicks(log10(x), log = TRUE) #  10 20 50 .... 1000
+[1]   10   20   50  100  200  500 1000
+> 
+> plot(10*(0:10), log = "y"); (pu <- par("usr")) # ... ...  0.96 2.04
 Warning in xy.coords(x, y, xlabel, ylabel, log) :
   1 y value <= 0 omitted from logarithmic plot
 [1]  0.60 11.40  0.96  2.04
-> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
+> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # 10 20 50 100 (y axis)
 [1]  10  20  50 100
 > 
 > plot(2^(0:9), log = "y"); (pu <- par("usr"))
 [1]  0.6400000 10.3600000 -0.1083708  2.8176408
 > aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
 [1]   1   2   5  10  20  50 100 200 500
-> 
+> ## 'usr' corresponds to log10(<range>) :
+> stopifnot(ya == axisTicks(log10(c(1, 512)), log=TRUE))
 > 
 > 
 > 
@@ -622,13 +630,9 @@ $ch
 > X <- matrix(stats::rnorm(2000), ncol = 2)
 > chull(X)
  [1]  61 442 165 899 697 446 975 656 232 557 938 295 495
-> ## Not run: 
-> ##D   # Example usage from graphics package
-> ##D   plot(X, cex = 0.5)
-> ##D   hpts <- chull(X)
-> ##D   hpts <- c(hpts, hpts[1])
-> ##D   lines(X[hpts, ])
-> ## End(Not run)
+> 
+> plot(X, cex = 0.5)
+> polygon(X[chull(X), ])
 > 
 > 
 > 
@@ -2892,7 +2896,7 @@ Sturges   Scott      FD
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: pdf.options
-> ### Title: Auxiliary Function to Set/View Defaults for Arguments of pdf
+> ### Title: Auxiliary Function to Set/View Defaults for Arguments of 'pdf'
 > ### Aliases: pdf.options
 > ### Keywords: device
 > 
@@ -2900,7 +2904,7 @@ Sturges   Scott      FD
 > 
 > pdf.options(bg = "pink")
 > utils::str(pdf.options())
-List of 18
+List of 21
  $ width      : num 7
  $ height     : num 7
  $ onefile    : logi TRUE
@@ -2919,6 +2923,9 @@ List of 18
  $ useKerning : logi TRUE
  $ fillOddEven: logi FALSE
  $ compress   : logi TRUE
+ $ timestamp  : logi TRUE
+ $ producer   : logi TRUE
+ $ author     : chr ""
 > pdf.options(reset = TRUE) # back to factory-fresh
 > 
 > 
@@ -2942,7 +2949,7 @@ List of 18
 > ## End(Don't show)
 > 
 > pictex()
-Warning: 'pictex' is deprecated.
+Warning in pictex() : 'pictex' is deprecated.
  Consider a TiKZ device instead.
 > plot(1:11, (-5:5)^2, type = "b", main = "Simple Example Plot")
 > dev.off()
@@ -3652,20 +3659,18 @@ attr(,"class")
 > 
 > ### ** Examples
 > 
-> ## time-dependent ==> ignore diffs:
 > ## IGNORE_RDIFF_BEGIN
 > pretty(Sys.Date())
-[1] "2024-01-06" "2024-01-07" "2024-01-08" "2024-01-09" "2024-01-10"
-[6] "2024-01-11"
+[1] "2024-08-28" "2024-08-29" "2024-08-30" "2024-08-31" "2024-09-01"
+[6] "2024-09-02"
 > pretty(Sys.time(), n = 10)
- [1] "2024-01-08 10:32:54 GMT" "2024-01-08 10:32:55 GMT"
- [3] "2024-01-08 10:32:56 GMT" "2024-01-08 10:32:57 GMT"
- [5] "2024-01-08 10:32:58 GMT" "2024-01-08 10:32:59 GMT"
- [7] "2024-01-08 10:33:00 GMT" "2024-01-08 10:33:01 GMT"
- [9] "2024-01-08 10:33:02 GMT" "2024-01-08 10:33:03 GMT"
-[11] "2024-01-08 10:33:04 GMT"
+ [1] "2024-08-30 15:57:05 NZST" "2024-08-30 15:57:06 NZST"
+ [3] "2024-08-30 15:57:07 NZST" "2024-08-30 15:57:08 NZST"
+ [5] "2024-08-30 15:57:09 NZST" "2024-08-30 15:57:10 NZST"
+ [7] "2024-08-30 15:57:11 NZST" "2024-08-30 15:57:12 NZST"
+ [9] "2024-08-30 15:57:13 NZST" "2024-08-30 15:57:14 NZST"
+[11] "2024-08-30 15:57:15 NZST"
 > ## IGNORE_RDIFF_END
-> 
 > pretty(as.Date("2000-03-01")) # R 1.0.0 came in a leap year
 [1] "2000-02-28" "2000-02-29" "2000-03-01" "2000-03-02" "2000-03-03"
 [6] "2000-03-04"
@@ -3831,27 +3836,6 @@ List of 18
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
-> if(.Platform$OS.type == "unix") { # includes Mac
-+ 
-+  utils::str( quartzFonts() ) # a list(serif = .., sans = .., mono = ..)
-+  quartzFonts("mono") # the list(mono = ..) sublist of quartzFonts()
-+ ## Not run: 
-+ ##D   ## for East Asian locales you can use something like
-+ ##D   quartzFonts(sans = quartzFont(rep("AppleGothic", 4)),
-+ ##D 	      serif = quartzFont(rep("AppleMyungjp", 4)))
-+ ##D   ## since the default fonts may well not have the glyphs needed
-+ ## End(Not run)
-+ }
-List of 3
- $ serif: chr [1:4] "Times-Roman" "Times-Bold" "Times-Italic" "Times-BoldItalic"
- $ sans : chr [1:4] "Helvetica" "Helvetica-Bold" "Helvetica-Oblique" "Helvetica-BoldOblique"
- $ mono : chr [1:4] "Courier" "Courier-Bold" "Courier-Oblique" "Courier-BoldOblique"
-$mono
-[1] "Courier"             "Courier-Bold"        "Courier-Oblique"    
-[4] "Courier-BoldOblique"
-
-> 
 > 
 > 
 > cleanEx()
@@ -4116,24 +4100,6 @@ points cut off after point[39]
 > 
 > ### ** Examples
 > 
-> if(.Platform$OS.type == "windows") withAutoprint({
-+   windowsFonts()
-+   windowsFonts("mono")
-+ })
-> ## Not run: 
-> ##D ## set up for Japanese: needs the fonts installed
-> ##D windows()  # make sure we have the right device type (available on Windows only)
-> ##D Sys.setlocale("LC_ALL", "ja")
-> ##D windowsFonts(JP1 = windowsFont("MS Mincho"),
-> ##D              JP2 = windowsFont("MS Gothic"),
-> ##D              JP3 = windowsFont("Arial Unicode MS"))
-> ##D plot(1:10)
-> ##D text(5, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1")
-> ##D text(7, 2, "\u{4E10}\u{4E00}\u{4E01}", family = "JP1", font = 2)
-> ##D text(5, 1.5, "\u{4E10}\u{4E00}\u{4E01}", family = "JP2")
-> ##D text(9, 2, "\u{5100}", family = "JP3")
-> ## End(Not run)
-> 
 > 
 > cleanEx()
 > nameEx("x11")
@@ -4169,9 +4135,8 @@ points cut off after point[39]
 > ### Keywords: device
 > 
 > ### ** Examples
-> 
 > ## IGNORE_RDIFF_BEGIN
-> if(capabilities()[["X11"]]) withAutoprint({
+> if(capabilities("X11")) withAutoprint({
 + X11Fonts()
 + X11Fonts("mono")
 + utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
@@ -4212,7 +4177,6 @@ $mono
 > utopia <- X11Font("-*-utopia-*-*-*-*-*-*-*-*-*-*-*-*")
 > X11Fonts(utopia = utopia)
 > ## IGNORE_RDIFF_END
-> 
 > 
 > 
 > cleanEx()
@@ -4342,6 +4306,21 @@ $number
   [1] 1 1 2 4 2 1 2 8 3 2 7 1 3 5 1 1 1 1 1 1 1 1 1 2 2 1 1 1 1 1 1 1 1 3 1 2 1
  [38] 2 1 2 1 1 2 1 5 1 1 1 1 1 1 2 1 1 1 3 2 2 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1
  [75] 1 1 2 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+> 
+> ## If missing coordinates exist, they are also counted
+> iris2 <- iris[1:10, 3:4]
+> iris2[4, 2] <- NA
+> iris2[c(3, 5), ] <- NA
+> xyTable(iris2)
+$x
+[1] 1.4 1.4 1.5 1.5 1.5 1.7  NA
+
+$y
+[1] 0.2 0.3 0.1 0.2  NA 0.4  NA
+
+$number
+[1] 3 1 1 1 1 1 2
 
 > 
 > ## Discretized uncorrelated Gaussian:
@@ -4495,7 +4474,7 @@ NULL
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  20.809 0.427 21.363 0 0 
+Time elapsed:  29.539 0.389 31.994 0 0 
 > grDevices::dev.off()
 null device 
           1 

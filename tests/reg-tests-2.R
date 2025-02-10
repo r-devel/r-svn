@@ -506,6 +506,10 @@ sink(type="message")
 sink()
 try(log("a"))
 
+op <- options(warn = -1)
+# *ignore* warnings (for now) to keep the output deterministic wrt to
+# warning about closing an unused connections by the gc
+
 ## capture all the output to a file.
 zz <- file("all.Rout", open="wt")
 sink(zz)
@@ -516,6 +520,7 @@ try(log("a"))
 closeAllConnections()
 (foo <- showConnections())
 stopifnot(nrow(foo) == 0)
+options(op) # re-enable warnings
 try(log("a"))
 unlink("all.Rout")
 ## many of these were untested before 1.4.0.
@@ -1191,6 +1196,14 @@ stem(c(rep(1, 10), 1+1.e-8))
 stem(c(rep(1, 10), 1+1.e-9))
 stem(c(rep(1, 10), 1+1.e-10), atom=0) # integer-overflow is avoided.
 ##  had integer overflows in 1.8.1, and silly shifts of decimal point
+
+## PR#8934 stem() with correct width
+stem(c(8.48, 9.58, 9.96))
+## wrongly indented  '10 |'  since even before R 1.0.0
+
+## stem(<length 1>) now produces output
+stem(123)
+## length(x) == 1  was explicitly skipped in R <= 4.4.z
 
 
 ## PR#6633 warnings with vector op matrix, and more
@@ -2907,7 +2920,8 @@ options(op)
 ## Related to PR#15190
 difftime(
     as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 12:00:00"), tz="EST5EDT"),
-    as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 00:00:00"), tz="UTC"))
+    as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 00:00:00"), tz="UTC")) |>
+    attributes()
 ## kept tzone from first arg.
 
 
@@ -3386,3 +3400,7 @@ withAutoprint({
     1 + 2
 })
 ## temporarily wrongly showed " withAutoprint({ "
+
+
+# ----- Last line -------------
+cat('Time elapsed: ', proc.time(),'\n')

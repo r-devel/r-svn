@@ -1,6 +1,6 @@
 % File src/library/stats/man/ppr.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 % file stats/man/ppr.Rd
@@ -100,7 +100,7 @@ ppr(x, \dots)
   }
   \item{trace}{logical indicating if each spline fit should produce
     diagnostic output (about \code{lambda} and \code{df}), and the
-    supsmu fit about its steps.}
+    \code{supsmu} fit about its steps.}
   \item{\dots}{arguments to be passed to or from other methods.}
   \item{model}{logical.  If true, the model frame is returned.}
 }
@@ -137,9 +137,9 @@ method functions.
 \item{model}{(only if \code{model = TRUE}) the model frame.}
 }
 \details{
-  The basic method is given by Friedman (1984), and is essentially the
-  same code used by S-PLUS's \code{ppreg}.  This code is extremely
-  sensitive to the compiler used.
+  The basic method is given by Friedman (1984) and based on his
+  code. This code has been shown to be extremely sensitive to the
+  Fortran compiler used.
 
   The algorithm first adds up to \code{max.terms} ridge terms one at a
   time; it will use less if it is unable to find a term to add that makes

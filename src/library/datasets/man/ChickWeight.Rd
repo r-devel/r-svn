@@ -43,7 +43,7 @@
   second day thereafter until day 20.  They were also measured on day
   21.  There were four groups on chicks on different protein diets.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }
@@ -61,9 +61,9 @@
   \code{\link{SSlogis}} for models fitted to this dataset.
 }
 
-\examples{\donttest{
+\examples{
 require(graphics)
 coplot(weight ~ Time | Chick, data = ChickWeight,
        type = "b", show.given = FALSE)
-}}
+}
 \keyword{datasets}

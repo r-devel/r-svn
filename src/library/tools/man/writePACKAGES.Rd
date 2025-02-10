@@ -40,7 +40,7 @@ write_PACKAGES(dir = ".", fields = NULL,
     are used.
   }
   \item{type}{
-    Type of packages: currently source \file{.tar.\{gz,bz2,xz\}} archives,
+    Type of packages: currently source \file{.tar.\{gz,bz2,xz,zstd\}} archives,
     and macOS or Windows binary (\file{.tgz} or \file{.zip},
     respectively) packages are supported.  Defaults to
     \code{"win.binary"} on Windows and to \code{"source"} otherwise.
@@ -111,7 +111,7 @@ write_PACKAGES(dir = ".", fields = NULL,
   work on all OSes.
 }
 \author{
-  Uwe Ligges and R-core.
+  \I{Uwe Ligges} and R-core.
 }
 \seealso{
   See \code{\link{read.dcf}} and \code{\link{write.dcf}} for reading

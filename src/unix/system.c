@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -190,7 +190,8 @@ int Rf_initialize_R(int ac, char **av)
 {
     int i, ioff = 1, j;
     Rboolean useX11 = TRUE, useTk = FALSE;
-    char *p, msg[1024], cmdlines[10000], **avv;
+    const int MSGSIZE = R_PATH_MAX + 128;
+    char *p, msg[MSGSIZE], cmdlines[10000], **avv;
     structRstart rstart;
     Rstart Rp = &rstart;
     Rboolean force_interactive = FALSE;
@@ -356,7 +357,7 @@ int Rf_initialize_R(int ac, char **av)
 		if(i+1 < ac) {
 		    avv++; p = *avv; ioff++;
 		} else {
-		    snprintf(msg, 1024,
+		    snprintf(msg, MSGSIZE,
 			    _("WARNING: --gui or -g without value ignored"));
 		    R_ShowMessage(msg);
 		    p = "X11";
@@ -374,10 +375,10 @@ int Rf_initialize_R(int ac, char **av)
 		useTk = TRUE;
 	    else {
 #ifdef HAVE_X11
-		snprintf(msg, 1024,
+		snprintf(msg, MSGSIZE,
 			 _("WARNING: unknown gui '%s', using X11\n"), p);
 #else
-		snprintf(msg, 1024,
+		snprintf(msg, MSGSIZE,
 			 _("WARNING: unknown gui '%s', using none\n"), p);
 #endif
 		R_ShowMessage(msg);
@@ -413,7 +414,7 @@ int Rf_initialize_R(int ac, char **av)
 		Rp->R_Interactive = FALSE;				\
 		if(strcmp(_AV_, "-")) {					\
 		    if(strlen(_AV_) >= R_PATH_MAX) {			\
-			snprintf(msg, 1024,				\
+			snprintf(msg, MSGSIZE,				\
 				 _("path given in -f/--file is too long"));	\
 			R_Suicide(msg);					\
 		    }							\
@@ -422,7 +423,7 @@ int Rf_initialize_R(int ac, char **av)
 		    *p = '\0';						\
 		    ifp = R_fopen(path, "r");				\
 		    if(!ifp) {						\
-			snprintf(msg, 1024,				\
+			snprintf(msg, MSGSIZE,				\
 				 _("cannot open file '%s': %s"),	\
 				 path, strerror(errno));		\
 			R_Suicide(msg);					\
@@ -442,7 +443,7 @@ int Rf_initialize_R(int ac, char **av)
 		    p = unescape_arg(p, *av);
 		    *p++ = '\n'; *p = '\0';
 		} else {
-		    snprintf(msg, 1024, _("WARNING: '-e %s' omitted as input is too long\n"), *av);
+		    snprintf(msg, MSGSIZE, _("WARNING: '-e %s' omitted as input is too long\n"), *av);
 		    R_ShowMessage(msg);
 		}
 	    } else if(!strcmp(*av, "--args")) {
@@ -455,11 +456,11 @@ int Rf_initialize_R(int ac, char **av)
 		// r27492: in 2003 launching from 'Finder OSX' passed this
 		if(!strncmp(*av, "-psn", 4)) break; else
 #endif
-		snprintf(msg, 1024, _("WARNING: unknown option '%s'\n"), *av);
+		snprintf(msg, MSGSIZE, _("WARNING: unknown option '%s'\n"), *av);
 		R_ShowMessage(msg);
 	    }
 	} else {
-	    snprintf(msg, 1024, _("ARGUMENT '%s' __ignored__\n"), *av);
+	    snprintf(msg, MSGSIZE, _("ARGUMENT '%s' __ignored__\n"), *av);
 	    R_ShowMessage(msg);
 	}
     }
@@ -488,8 +489,8 @@ int Rf_initialize_R(int ac, char **av)
 	    ifp = fdopen(ifd, "w+");
 	if(!ifp) R_Suicide(_("creating temporary file for '-e' failed"));
 	unlink(ifile);
-	res = fwrite(cmdlines, strlen(cmdlines)+1, 1, ifp);
-	if(res != 1) R_Suicide("fwrite error in initialize_R");
+	res = fwrite(cmdlines, 1, strlen(cmdlines), ifp);
+	if(res != strlen(cmdlines)) R_Suicide("fwrite error in initialize_R");
 	fflush(ifp);
 	rewind(ifp);
     }
@@ -591,6 +592,7 @@ int R_EditFiles(int nfile, const char **file, const char **title,
 
 /* Returns the limit on the number of open files. On error or when no
    limit is known, returns a negative number. */
+attribute_hidden /* would need to be in an installed header if not hidden */
 int R_GetFDLimit(void) {
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(HAVE_GETRLIMIT)
@@ -621,7 +623,7 @@ int R_GetFDLimit(void) {
    as desired. Returns 'desired' if successful, otherwise a smaller positive
    number giving the current limit. On error (no limit known), a negative
    number is returned. */
-int R_EnsureFDLimit(int desired) {
+attribute_hidden int R_EnsureFDLimit(int desired) {
 
 #if defined(HAVE_SYS_RESOURCE_H) && defined(HAVE_SETRLIMIT) && defined(HAVE_GETRLIMIT)
     struct rlimit rlim;

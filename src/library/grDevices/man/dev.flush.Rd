@@ -29,7 +29,7 @@ dev.flush(level = 1L)
   clears all pending holds the screen display is refreshed and normal
   operation is resumed.
 
-  This is implemented for the cairo-based \code{X11} types
+  This is implemented for the \I{cairo}-based \code{X11} types
   with buffering.  When the hold level is positive the \sQuote{watch}
   cursor is set on the device's window.
 

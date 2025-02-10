@@ -27,13 +27,7 @@
 #endif
 
 #include "Defn.h"
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include "statsErr.h"
 
 static SEXP ParenSymbol;
 static SEXP PlusSymbol;
@@ -487,8 +481,7 @@ static SEXP D(SEXP expr, SEXP var)
 	    UNPROTECT(4);
 	}
 	else if (CAR(expr) == SqrtSymbol) {
-	    PROTECT(expr1 = allocList(3));
-	    SET_TYPEOF(expr1, LANGSXP);
+	    PROTECT(expr1 = allocLang(3));
 	    SETCAR(expr1, PowerSymbol);
 	    SETCADR(expr1, CADR(expr));
 	    SETCADDR(expr1, Constant(0.5));

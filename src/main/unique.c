@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -505,6 +505,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	d->nmax = d->M = 256;
 	d->K = 8; /* unused */
 	break;
+    case EXPRSXP:
     case VECSXP:
 	d->hash = vhash;
 	d->equal = vequal;
@@ -666,7 +667,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     return ans;
 }
 
-R_xlen_t sorted_real_count_NANs(SEXP x) {
+attribute_hidden R_xlen_t sorted_real_count_NANs(SEXP x) {
     R_xlen_t n = XLENGTH(x);
     if(n == 0)
 	return 0;
@@ -860,7 +861,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     return ans;
 }
 
-R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
+attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
     int itmp, sorted;
     double rtmp;
     Rboolean seen_na = FALSE, seen_nan = FALSE, na1st = FALSE;
@@ -1097,11 +1098,8 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 */
 attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP x, dup, ans;
-    R_xlen_t i, k, n;
-
     checkArity(op, args);
-    x = CAR(args);
+    SEXP x = CAR(args);
     SEXP incomp = CADR(args);
     if (length(CADDR(args)) < 1)
 	error(_("'fromLast' must be length 1"));
@@ -1111,7 +1109,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean fL = (Rboolean) fromLast;
 
     /* handle zero length vectors, and NULL */
-    if ((n = xlength(x)) == 0)
+    R_xlen_t n = xlength(x);
+    if (n == 0) 
 	return(PRIMVAL(op) <= 1
 	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
 	       : ScalarInteger(0));
@@ -1128,6 +1127,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("'nmax' must be positive"));
     }
 
+    SEXP dup;
     if(length(incomp) && /* S has FALSE to mean empty */
        !(isLogical(incomp) && length(incomp) == 1 &&
 	 LOGICAL_ELT(incomp, 0) == 0)) {
@@ -1153,14 +1153,14 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	use the results of "duplicated" to get "unique" */
 
     /* count unique entries */
-    k = 0;
+    R_xlen_t i, k = 0;
     PROTECT(dup);
     ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
 	    for(R_xlen_t j=0; j < nb; j++)
 		if(duptr[j] == 0) k++;
 	});
     
-    PROTECT(ans = allocVector(TYPEOF(x), k));
+    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1195,6 +1195,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (LOGICAL_ELT(dup, i) == 0)
 		SET_STRING_ELT(ans, k++, STRING_ELT(x, i));
 	break;
+    case EXPRSXP:
     case VECSXP:
 	for (i = 0; i < n; i++)
 	    if (LOGICAL_ELT(dup, i) == 0)
@@ -1333,6 +1334,7 @@ static SEXP asUTF8(SEXP x)
 }
     
 // workhorse of R's match() and hence also  " ix %in% itable "
+static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
     R_xlen_t n = xlength(ix);
@@ -1804,7 +1806,7 @@ static SEXP subDots(SEXP rho)
     SEXP rval, dots, a, b, t;
     int len,i;
 
-    dots = findVar(R_DotsSymbol, rho);
+    dots = R_findVar(R_DotsSymbol, rho);
 
     if (dots == R_UnboundValue)
 	error(_("... used in a situation where it does not exist"));

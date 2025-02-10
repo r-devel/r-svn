@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2023   The R Core Team.
+ *  Copyright (C) 1998-2024   The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,7 @@
  *	Either accessing and/or setting a global C variable,
  *	or just accessed by e.g.  GetOption1(install("pager"))
  *
- * A (complete?!) list of these (2) {plus some of 1)}:
+ * An (incomplete) list of these (2) {plus some of 1)}:
  *
  *	"prompt"
  *	"continue"
@@ -57,7 +57,6 @@
  *	"keep.source.pkgs"
  *	"keep.parse.data"
  *	"keep.parse.data.pkgs"
- *	"browserNLdisabled"
 
  *	"de.cellwidth"		../unix/X11/ & ../gnuwin32/dataentry.c
  *	"device"
@@ -77,6 +76,8 @@
  *	"warning.length"
  *	"warning.expression"
  *	"nwarnings"
+
+ *	"browserNLdisabled"
 
  *	"matprod"
  *      "PCRE_study"
@@ -117,8 +118,7 @@ static SEXP FindTaggedItem(SEXP lst, SEXP tag)
 static SEXP makeErrorCall(SEXP fun)
 {
   SEXP call;
-  PROTECT(call = allocList(1));
-  SET_TYPEOF(call, LANGSXP);
+  PROTECT(call = allocLang(1));
   SETCAR(call, fun);
   UNPROTECT(1);
   return call;
@@ -138,7 +138,7 @@ SEXP GetOption1(SEXP tag)
     return CAR(opt);
 }
 
-int FixupWidth(SEXP width, warn_type warn)
+attribute_hidden int FixupWidth(SEXP width, warn_type warn)
 {
     int w = asInteger(width);
     if (w == NA_INTEGER || w < R_MIN_WIDTH_OPT || w > R_MAX_WIDTH_OPT) {
@@ -156,7 +156,7 @@ int GetOptionWidth(void)
     return FixupWidth(GetOption1(install("width")), iWARN);
 }
 
-int FixupDigits(SEXP digits, warn_type warn)
+attribute_hidden int FixupDigits(SEXP digits, warn_type warn)
 {
     int d = asInteger(digits);
     if (d == NA_INTEGER || d < R_MIN_DIGITS_OPT || d > R_MAX_DIGITS_OPT) {
@@ -169,10 +169,39 @@ int FixupDigits(SEXP digits, warn_type warn)
     }
     return d;
 }
-int GetOptionDigits(void)
+
+attribute_hidden int GetOptionDigits(void)
 {
     return FixupDigits(GetOption1(install("digits")), iWARN);
 }
+
+static
+int FixupScipen(SEXP scipen, warn_type warn)
+{
+    if (!isNumeric(scipen) || LENGTH(scipen) != 1)
+	error(_("invalid 'scipen'"));
+    int d;
+    if(TYPEOF(scipen) == REALSXP) { /* preventing warning + error : */
+	int w = 0;
+	d = IntegerFromReal(REAL_ELT(scipen, 0), &w);
+	if(w && d == NA_INTEGER)
+	    error(_("setting scipen=%g is out of range"), REAL_ELT(scipen,0));
+    } else
+	d = asInteger(scipen);
+    if (d == NA_INTEGER || d < R_MIN_SCIPEN_OPT || d > R_MAX_SCIPEN_OPT) {
+	int dnew = (d == NA_INTEGER) ? 0 :
+	      (d < R_MIN_SCIPEN_OPT) ? R_MIN_SCIPEN_OPT :
+	    /* d > R_MAX_SCIPEN_OPT */ R_MAX_SCIPEN_OPT;
+	switch(warn) {
+	case iWARN: warning(_("invalid 'scipen' %d, used %d"), d, dnew);
+	case iSILENT:
+	    return dnew; // for SILENT and WARN
+	case iERROR: error(_("invalid 'scipen' %d"), d);
+	}
+    }
+    return d;
+}
+
 
 attribute_hidden
 int GetOptionCutoff(void)
@@ -353,7 +382,7 @@ attribute_hidden void InitOptions(void)
     v = CDR(v);
 
     p = getenv("R_C_BOUNDS_CHECK");
-    R_CBoundsCheck = (p && (strcmp(p, "yes") == 0)) ? 1 : 0;
+    R_CBoundsCheck = (p && (strcmp(p, "yes") == 0)) ? TRUE : FALSE;
 
     SET_TAG(v, install("CBoundsCheck"));
     SETCAR(v, ScalarLogical(R_CBoundsCheck));
@@ -444,6 +473,11 @@ attribute_hidden SEXP do_getOption(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 
 static Rboolean warned_on_strings_as_fact = FALSE; // -> once-per-session warning
+
+static void check_TRUE_FALSE(SEXP arg, const char *chname) {
+    if(TYPEOF(arg) != LGLSXP || LENGTH(arg) != 1 || LOGICAL(arg)[0] == NA_LOGICAL)
+	error(_("invalid value for '%s'"), chname);
+}
 
 /* This needs to manage R_Visible */
 attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -556,7 +590,7 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		  "width", "deparse.cutoff", "digits", "echo", "verbose",
 		  "check.bounds", "keep.source", "keep.source.pkgs",
 		  "keep.parse.data", "keep.parse.data.pkgs", "warning.length",
-		  "nwarnings", "OutDec", "browserNLdisabled", "CBoundsCheck",
+		  "nwarnings", "OutDec", "CBoundsCheck",
 		  "matprod", "PCRE_study", "PCRE_use_JIT",
 		  "PCRE_limit_recursion", "rl_word_breaks",
 		  "max.contour.segments", "warnPartialMatchDollar",
@@ -564,12 +598,13 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		  "showWarnCalls", "showErrorCalls", "showNCalls",
 		  "browserNLdisabled",
 		  /* ^^^ from InitOptions ^^^ */
-		  "warn", "max.print", "show.error.messages",
+		  "warn", "max.print", "show.error.messages", "scipen",
 		  /* ^^^ from Common.R ^^^ */
 		  NULL};
 		for(int j = 0; mandatory[j] != NULL; j++)
 		    if (streql(CHAR(namei), mandatory[j]))
 			error(_("option '%s' cannot be deleted"), CHAR(namei));
+		// "else" :
 		SET_VECTOR_ELT(value, i, SetOption(tag, R_NilValue));
 	    } else if (streql(CHAR(namei), "width")) {
 		int k = asInteger(argi);
@@ -679,6 +714,10 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if (k < 1) error(_("invalid value for '%s'"), CHAR(namei));
 		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarInteger(k)));
 	    }
+	    else if (streql(CHAR(namei), "scipen")) {
+		int k = FixupScipen(argi, iWARN); /* to become iERROR in say 2027 */
+		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarInteger(k)));
+	    }
 	    else if (streql(CHAR(namei), "nwarnings")) {
 		int k = asInteger(argi);
 		if (k < 1) error(_("invalid value for '%s'"), CHAR(namei));
@@ -695,18 +734,12 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    }
 /* handle this here to avoid GetOption during error handling */
 	    else if ( streql(CHAR(namei), "show.error.messages") ) {
-		if( !isLogical(argi) && LENGTH(argi) != 1 )
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
+		check_TRUE_FALSE(argi, CHAR(namei));
 		R_ShowErrorMessages = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if ( streql(CHAR(namei), "catch.script.errors") ) {
-#define CHECK_TRUE_FALSE_(_arg_)					\
-		if (TYPEOF(_arg_) != LGLSXP || LENGTH(_arg_) != 1 ||	\
-		    LOGICAL(_arg_)[0] == NA_LOGICAL)			\
-		    error(_("invalid value for '%s'"), CHAR(namei))
-
-		CHECK_TRUE_FALSE_(argi);
+		check_TRUE_FALSE(argi, CHAR(namei));
 		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "echo")) {
@@ -748,39 +781,29 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		SET_VECTOR_ELT(value, i, SetOption(tag, duplicate(argi)));
 	    }
 	    else if (streql(CHAR(namei), "warnPartialMatchDollar")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_warn_partial_match_dollar = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_warn_partial_match_dollar = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "warnPartialMatchArgs")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_warn_partial_match_args = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_warn_partial_match_args = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "warnPartialMatchAttr")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_warn_partial_match_attr = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_warn_partial_match_attr = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "showWarnCalls")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_ShowWarnCalls = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_ShowWarnCalls = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "showErrorCalls")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_ShowErrorCalls = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_ShowErrorCalls = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "showNCalls")) {
 		int k = asInteger(argi);
@@ -793,16 +816,14 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		error(_("\"par.ask.default\" has been replaced by \"device.ask.default\""));
 	    }
 	    else if (streql(CHAR(namei), "browserNLdisabled")) {
-		CHECK_TRUE_FALSE_(argi);
+		check_TRUE_FALSE(argi, CHAR(namei));
 		R_DisableNLinBrowser = LOGICAL(argi)[0];
 		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "CBoundsCheck")) {
-		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
-		    error(_("invalid value for '%s'"), CHAR(namei));
-		int k = asLogical(argi);
-		R_CBoundsCheck = k;
-		SET_VECTOR_ELT(value, i, SetOption(tag, ScalarLogical(k)));
+		check_TRUE_FALSE(argi, CHAR(namei));
+		R_CBoundsCheck = LOGICAL(argi)[0];
+		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
 	    else if (streql(CHAR(namei), "matprod")) {
 		SEXP s = asChar(argi);

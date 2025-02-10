@@ -170,9 +170,10 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \code{formula}, that is first in \code{data} and then in the
   environment of \code{formula}.
 
-  For the background to warning messages about \sQuote{fitted probabilities
-    numerically 0 or 1 occurred} for binomial GLMs, see Venables &
-  Ripley (2002, pp.\sspace{}197--8).
+  For the background to warning messages about
+  \sQuote{\I{fitted probabilities numerically 0 or 1 occurred}}
+  for binomial GLMs, see
+  \bibcite{Venables & Ripley (2002, pp.\sspace{}197--8)}.
 }
 
 \section{Fitting functions}{
@@ -301,7 +302,7 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   way to fit GLMs to large datasets (especially those with many cases).
 
   \code{\link{esoph}}, \code{\link{infert}} and
-  \code{\link{predict.glm}} have examples of fitting binomial glms.
+  \code{\link{predict.glm}} have examples of fitting binomial \abbr{GLM}s.
 }
 \author{
   The original \R implementation of \code{glm} was written by Simon

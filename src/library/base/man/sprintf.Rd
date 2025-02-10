@@ -40,8 +40,9 @@ gettextf(fmt, \dots, domain = NULL, trim = TRUE)
   result in a warning. (The format \code{\%.0s} can be used to
   \dQuote{skip} an argument.)
 
-  The following is abstracted from Kernighan and Ritchie (see
-  References): however the actual implementation will follow the C99
+  The following is abstracted from
+  \bibcite{Kernighan and Ritchie (1988)}:
+  however the actual implementation will follow the C99
   standard and fine details (especially the behaviour under user error)
   may depend on the platform. References to numbered arguments come from
   POSIX.
@@ -63,7 +64,7 @@ gettextf(fmt, \dots, domain = NULL, trim = TRUE)
       \code{0}, \code{1} or \code{NA}.
     }
     \item{\code{f}}{Double precision value, in \dQuote{\bold{f}ixed
-        point} decimal notation of the form "[-]mmm.ddd".  The number of
+        point} decimal notation of the form \samp{"[-]mmm.ddd"}.  The number of
       decimal places ("d") is specified by the precision: the default is 6;
       a precision of 0 suppresses the decimal point.  Non-finite values
       are converted to \code{NA}, \code{NaN} or (perhaps a sign followed
@@ -256,12 +257,11 @@ noquote(format(xx, justify = "right"))
 sprintf("min 10-char string '\%10s'",
         c("a", "ABC", "and an even longer one"))
 
-\donttest{## Platform-dependent bad example from qdapTools 1.0.0:
-## may pad with spaces or zeroes.
-sprintf("\%09s", month.name)}
-
 n <- 1:18
 sprintf(paste0("e with \%2d digits = \%.", n, "g"), n, exp(1))
+
+\dontdiff{## Platform-dependent bad example: may pad with spaces or zeroes
+sprintf("\%09s", month.name)}
 
 ## Using arguments out of order
 sprintf("second \%2$1.0f, first \%1$5.2f, third \%3$1.0f", pi, 2, 3)

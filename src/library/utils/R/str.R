@@ -1,7 +1,7 @@
 #  File src/library/utils/R/str.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -630,8 +630,12 @@ str.default <-
 	}
 	else { # not char.like
 	    if(!exists("format.fun"))
-		format.fun <-
-		    if(mod == "num" || mod == "cplx") format else as.character
+		format.fun <- switch(mod,
+				     "num" =,
+				     "cplx" = format,
+				     "language" = deParse,
+				     ## otherwise :
+				     as.character)
 	    ## v.len <- max(1,round(v.len))
 	    ile <- min(v.len, le)
 	    formObj <- function(x) maybe_truncate(paste(format.fun(x), collapse = " "),
@@ -695,22 +699,12 @@ print.ls_str <- function(x, max.level = 1, give.attr = FALSE,
     for(nam in x) {
 	cat(nam, ": ")
 	## check missingness, e.g. inside debug(.) :
-
-##__ Why does this give	 too many <missing> in some case?
-##__	if(eval(substitute(missing(.), list(. = as.name(nam))),
-##__		envir = E))
-##__	    cat("<missing>\n")
-##__	else
-##__	    str(get(nam, envir = E, mode = M),
-##__		max.level = max.level, give.attr = give.attr, ...)
-
-	eA <- sprintf("%s:%s", nam, n.)
+	eA <- sprintf("%s:%s", nam, n.) # need a 'mark' in case nam *is* an error object
 	o <- tryCatch(get(nam, envir = E, mode = M),
 		      error = function(e){ attr(e, eA) <- TRUE; e })
 	if(inherits(o, "error") &&  isTRUE(attr(o, eA))) {
-	    cat(## FIXME: only works with "C" (or English) LC_MESSAGES locale!
-		if(length(grep("missing|not found", o$message)))
-		"<missing>" else o$message, "\n", sep = "")
+            cat(if(inherits(o, "getMissingError")) "<missing>" else o$message,
+                "\n", sep = "")
 	}
 	else {
 	    ## do.call(str, c(list(o), strargs),

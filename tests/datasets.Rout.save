@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2022-03-19 r81942) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R Under development (unstable) (2024-11-12 r87322) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -19,7 +19,7 @@ Type 'q()' to quit R.
 > 
 > options(useFancyQuotes=FALSE)
 > env <- as.environment("package:datasets")
-> d <- ls(env) # don't want .names
+> d <- setdiff(ls(env), "sunspot.month") # don't want .names, nor "changing" one
 > for(f in d) {
 +     cat("\n** structure of dataset ", f, "\n", sep="")
 +     str(get(f, envir=env, inherits=FALSE))
@@ -623,7 +623,7 @@ List of 2
   ..$ : chr [1:50] "Alabama" "Alaska" "Arizona" "Arkansas" ...
   ..$ : chr [1:8] "Population" "Income" "Illiteracy" "Life Exp" ...
 
-** structure of dataset sunspot.month
+** structure of dataset sunspot.m2014
  Time-Series [1:3177] from 1749 to 2014: 58 62.6 70 55.7 85 83.5 94.8 66.3 75.9 75.5 ...
 
 ** structure of dataset sunspot.year

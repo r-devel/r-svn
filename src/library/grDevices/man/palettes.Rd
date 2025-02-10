@@ -83,8 +83,8 @@ The \code{hcl.colors} function provides a basic and lean implementation of
 the pre-specified palettes in the \pkg{colorspace} package. In addition to the
 types above, the functions distinguish \dQuote{diverging} palettes where the two
 arms are restricted to be rather balanced as opposed to flexible
-\dQuote{divergingx} palettes that combine two sequential palettes without any
-restrictions. The latter group also includes the cividis palette as it is based
+\dQuote{\I{divergingx}} palettes that combine two sequential palettes without any
+restrictions. The latter group also includes the \I{cividis} palette as it is based
 on two different hues (blue and yellow) but it is actually a sequential palette
 (going from dark to light).
 
@@ -94,9 +94,9 @@ the palettes closely approximate palettes of the same name from various other
 packages (including \pkg{RColorBrewer}, \pkg{rcartocolor}, \pkg{viridis},
 \pkg{scico}, among others). 
 
-The default \abbr{HCL} palette is the widely used viridis palette which is a sequential
+The default \abbr{HCL} palette is the widely used \I{viridis} palette which is a sequential
 palette with relatively high chroma throughout so that it also works reasonably
-well as a qualitative palette. However, while viridis is a rather robust default
+well as a qualitative palette. However, while \I{viridis} is a rather robust default
 palette, more suitable \abbr{HCL} palettes are available for most visualizations.
 
 For example, \code{"Dark 3"} works well for shading points or lines in

@@ -1,7 +1,7 @@
 #  File src/library/base/R/files.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -197,8 +197,7 @@ system.file <- function(..., package = "base", lib.loc = NULL, mustWork = FALSE)
 {
     if(nargs() == 0L)
         return(file.path(.Library, "base"))
-    if(length(package) != 1L)
-        stop("'package' must be of length 1")
+    if (length(package) != 1L) stop(gettextf("'%s' must be of length 1", "package"), domain=NA)
     packagePath <- find.package(package, lib.loc, quiet = TRUE)
     ans <- if(length(packagePath)) {
         FILES <- file.path(packagePath, ...)

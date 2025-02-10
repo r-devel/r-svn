@@ -1,7 +1,7 @@
 #  File src/library/methods/R/RClassUtils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -1807,42 +1807,41 @@ substituteFunctionArgs <-
 
 ## bootstrap version:  all classes and methods must be in the version of the methods
 ## package being built in the toplevel environment: MUST avoid require("methods") !
-.requirePackage <- function(package, mustFind = TRUE)
+.requirePackage <- function(package, mustFind = TRUE, quietly = FALSE)
     topenv(parent.frame())
 
 ## real version of .requirePackage
-..requirePackage <- function(package, mustFind = TRUE) {
-    value <- package
+..requirePackage <- function(package, mustFind = TRUE, quietly = FALSE) {
     if(nzchar(package)) {
         ## lookup as lightning fast as possible:
-	if (.Internal(exists(package, .Internal(getNamespaceRegistry()),
-			     "any", FALSE)))
-            value <- getNamespace(package)
+        if(!is.null(ns <-.Internal(getRegisteredNamespace(package))))
+           return(ns)
         else {
             if(identical(package, ".GlobalEnv"))
                 return(.GlobalEnv)
             if(identical(package, "methods"))
                 return(topenv(parent.frame())) # booting methods
+            ## else continue
         }
     }
-    if(is.environment(value))
-        return(value)
-    topEnv <- getOption("topLevelEnvironment")
-    if(is.null(topEnv))
-        topEnv <- .GlobalEnv
+    topEnv <- getOption("topLevelEnvironment", default = .GlobalEnv)
     if(!is.null(pkgN <- get0(".packageName", topEnv, inherits=TRUE)) &&
        .identC(package, pkgN))
         return(topEnv) # kludge for source'ing package code
-    if(nzchar(package) && require(package, character.only = TRUE)) {}
+
+    ## If called from .findInheritedMethods which disables S4 primitive dispatch,
+    ## allow it here, as namespace loading hooks may need it:
+    if(!.allowPrimitiveMethods(TRUE))
+        on.exit(.allowPrimitiveMethods(FALSE))
+    if(nzchar(package) && requireNamespace(package, quietly=quietly))
+        getNamespace(package)
     else {
         if(mustFind)
-          stop(gettextf("unable to find required package %s",
+          stop(gettextf("unable to load required package %s",
                         sQuote(package)),
                domain = NA)
-        else
-          return(NULL)
     }
-    getNamespace(package)
+    ## else return(NULL)
 }
 
 .classDefEnv <- function(classDef) {

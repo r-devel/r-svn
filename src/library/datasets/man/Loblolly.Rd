@@ -6,10 +6,10 @@
 \name{Loblolly}
 \docType{data}
 \alias{Loblolly}
-\title{Growth of Loblolly pine trees}
+\title{Growth of \I{Loblolly} Pine Trees}
 \description{
   The \code{Loblolly} data frame has 84 rows and 3 columns of records of
-  the growth of Loblolly pine trees.
+  the growth of \I{Loblolly} pine trees.
 }
 \usage{Loblolly}
 \format{
@@ -30,7 +30,7 @@
   }
 }
 \details{
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

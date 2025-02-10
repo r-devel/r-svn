@@ -24,7 +24,7 @@
   not even empty ones.
 
 #ifdef unix
-  On most platforms \sQuote{file} includes symbolic links, fifos and
+  On most platforms \sQuote{file} includes symbolic links, \I{fifo}s and
   sockets.  \code{unlink(x, recursive = TRUE)}
   deletes just the symbolic link if the target of such a link is a directory.
 

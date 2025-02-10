@@ -10,7 +10,7 @@
 \description{
   The \code{CO2} data frame has 84 rows and 5 columns of data from an
   experiment on the cold tolerance of the grass species
-  \emph{Echinochloa crus-galli}.
+  \emph{\I{Echinochloa crus-galli}}.
 }
 \usage{CO2}
 \format{
@@ -35,7 +35,7 @@
       \code{chilled}
     }
     \item{conc}{
-      a numeric vector of ambient carbon dioxide concentrations (mL/L).
+      a numeric vector of ambient carbon dioxide concentrations (\abbr{mL}/L).
     }
     \item{uptake}{
       a numeric vector of carbon dioxide uptake rates
@@ -49,7 +49,7 @@
   \eqn{CO_2}{CO2} concentration.  Half the plants of each type were
   chilled overnight before the experiment was conducted.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

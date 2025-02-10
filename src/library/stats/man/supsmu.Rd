@@ -5,7 +5,7 @@
 
 \name{supsmu}
 \alias{supsmu}
-\title{Friedman's SuperSmoother}
+\title{Friedman's \I{SuperSmoother}}
 \description{
   Smooth the (x, y) values by Friedman's \sQuote{super smoother}.
 }

@@ -59,7 +59,7 @@ MkRules: MkRules.rules
 	@cat MkRules.rules > MkRules
 endif
 
-CFLAGS = -O3 -Wall -pedantic $(EOPTS) $(LTO)
+CFLAGS = -O3 -Wall -pedantic $(EOPTS) $(SANOPTS) $(LTO)
 FFLAGS = -O3 $(EOPTS) $(LTO)
 
 ifdef DEBUG
@@ -73,7 +73,7 @@ endif
 
 
 R-DLLFLAGS = -mwindows
-LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma
+LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma -lzstd
 ifdef USE_ICU
 LIBEXTRAS += -L"$(ICU_PATH)"/lib$(R_ARCH) $(ICU_LIBS)
 endif
@@ -90,7 +90,7 @@ EXTRALIBS = getline/gl.a ../extra/xdr/libxdr.a \
    ../extra/tre/libtre.a
 
 R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
-  -lRiconv -lcomctl32 -lole32 -luuid -lwinmm -lversion $(LIBEXTRAS)
+  -lRiconv -lcomctl32 -lole32 -luuid -lwinmm -lversion -ldeflate $(LIBEXTRAS)
 
 
 .PHONY:  clean veryclean rlibs fixfiles front-ends rmodules

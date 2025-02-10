@@ -34,6 +34,11 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+#endif
+
 /* These are used in ../gnuwin32/system.c, ../unix/sys-std.c */
 SA_TYPE SaveAction = SA_SAVEASK;
 SA_TYPE	RestoreAction = SA_RESTORE;
@@ -238,7 +243,8 @@ void R_SizeFromEnv(Rstart Rp)
 	else
 	    Rp->max_vsize = value;
     }
-#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE)
+#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE) \
+    && (SIZEOF_SIZE_T > 4)
     /* For now only on macOS place a default limit on the vector heap
        size to avoid having R killed due to memory overcommit.
        Setting the limit at the maximum of 16Gb and available physical
@@ -249,6 +255,17 @@ void R_SizeFromEnv(Rstart Rp)
 	R_size_t sysmem = pages * page_size;
 	R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
 	Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+    }
+#elif defined(__APPLE__) && (SIZEOF_SIZE_T > 4)
+    else {
+	R_size_t sysmem = 0;
+	R_size_t len = sizeof(sysmem);
+	if (!sysctlbyname("hw.memsize", &sysmem, &len, NULL, 0)
+	    && len == sizeof(sysmem)) {
+
+	    R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
+	    Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+	}
     }
 #endif
     if((p = getenv("R_VSIZE"))) {

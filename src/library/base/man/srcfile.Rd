@@ -1,6 +1,6 @@
 % File src/library/base/man/srcfile.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{srcfile}
@@ -86,7 +86,7 @@ srcref(srcfile, lloc)
 
   The \code{srcfilealias} function produces an object of the descendant
   class \code{srcfilealias}, which gives an alternate name to another
-  srcfile.  This is produced by the parser when a \code{#line} directive
+  \code{srcfile}.  This is produced by the parser when a \code{#line} directive
   is used.
 
   The \code{getSrcLines} function reads the specified lines from
@@ -155,18 +155,18 @@ srcref(srcfile, lloc)
 }
 \seealso{
   \code{\link{getSrcFilename}} for extracting information from a source
-  reference, or \code{\link{removeSource}} to remove it from a
-  (non-primitive) function (aka \sQuote{closure}).
+  reference, or \code{\link{removeSource}} to remove it from a language
+  object or a (non-primitive) function (aka \sQuote{closure}).
 }
 \author{Duncan Murdoch}
-\examples{\donttest{ # has timestamp
+\examples{
 src <- srcfile(system.file("DESCRIPTION", package = "base"))
-summary(src)
+\dontdiff{summary(src)}% timestamp
 getSrcLines(src, 1, 4)
 ref <- srcref(src, c(1, 1, 2, 1000))
 ref
 print(ref, useSource = FALSE)
-}}
+}
 
 \keyword{ debugging }
 \keyword{ utilities }

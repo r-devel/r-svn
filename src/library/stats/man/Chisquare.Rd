@@ -74,8 +74,8 @@ rchisq(n, df, ncp = 0)
   Note that the degrees of freedom \code{df}\eqn{= n}, can be
   non-integer, and also \eqn{n = 0} which is relevant for
   non-centrality \eqn{\lambda > 0},
-  see Johnson \emph{et al} (1995, chapter 29).
-  In that (noncentral, zero df) case, the distribution is a mixture of a
+  see Johnson \abbr{et al.}\sspace(1995, chapter 29).
+  In that (noncentral, zero \abbr{df}) case, the distribution is a mixture of a
   point mass at \eqn{x = 0} (of size \code{pchisq(0, df=0, ncp=ncp)}) and
   a continuous part, and \code{dchisq()} is \emph{not} a density with
   respect to that mixture measure but rather the limit of the density
@@ -88,7 +88,7 @@ rchisq(n, df, ncp = 0)
   The central cases are computed via the gamma distribution.
 
   The non-central \code{dchisq} and \code{rchisq} are computed as a
-  Poisson mixture of central chi-squares (Johnson \emph{et al}, 1995, p.436).
+  Poisson mixture of central chi-squares (Johnson \abbr{et al.}, 1995, p.436).
 
   The non-central \code{pchisq} is for \code{ncp < 80} computed from
   the Poisson mixture of central chi-squares and for larger \code{ncp}
@@ -96,7 +96,7 @@ rchisq(n, df, ncp = 0)
 
   Ding, C. G. (1992)
   Algorithm AS275: Computing the non-central chi-squared
-  distribution function. \emph{Appl.Statist.}, \bold{41} 478--482.
+  distribution function. \emph{Applied Statistics}, \bold{41} 478--482.
 
   which computes the lower tail only (so the upper tail suffers from
   cancellation and a warning will be given when this is likely to be

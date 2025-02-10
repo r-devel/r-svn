@@ -15,7 +15,7 @@ write(x, file = "data",
   Write data \code{x} to a file or other \code{\link{connection}}.
   \cr
   As it simply calls \code{\link{cat}()}, less formatting happens than
-  with \code{\link{print}()}ing.
+  with \I{\code{\link{print}()}ing}.
   If \code{x} is a matrix you need to transpose it (and typically set
   \code{ncolumns}) to get the columns in \code{file} the same as those in
   the internal representation.
@@ -30,7 +30,8 @@ write(x, file = "data",
   \item{x}{the data to be written out. }
   \item{file}{a \code{\link{connection}}, or a character string naming
     the file to write to.  If \code{""}, print to the standard output
-    connection.
+    connection, i.e., \code{""} is equivalent to \code{\link{stdout}()}
+    here.
 
     When \code{\link{.Platform}$OS.type != "windows"}, and it
     is \code{"|cmd"}, the output is piped to the command given

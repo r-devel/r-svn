@@ -113,7 +113,7 @@ cor.test(x, \dots)
   For Spearman's test, p-values are computed using algorithm AS 89 for
   \eqn{n < 1290} and \code{exact = TRUE}, otherwise via the asymptotic
   \eqn{t} approximation.  Note that these are \sQuote{exact} for \eqn{n
-  < 10}, and use an Edgeworth series approximation for larger sample
+  < 10}, and use an \I{Edgeworth} series approximation for larger sample
   sizes (the cutoff has been changed from the original paper).
 }
 \references{
@@ -131,8 +131,8 @@ cor.test(x, \dots)
 \seealso{
   \code{\link[Kendall:Kendall]{Kendall}} in package \CRANpkg{Kendall}.
 
-  \code{\link[SuppDists:Kendall]{pKendall}} and
-  \code{\link[SuppDists:Spearman]{pSpearman}} in package
+  \code{\link[SuppDists]{pKendall}} and
+  \code{\link[SuppDists]{pSpearman}} in package
   \CRANpkg{SuppDists},
   \code{\link[pspearman:spearman.test]{spearman.test}} in package
   \CRANpkg{pspearman},

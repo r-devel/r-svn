@@ -1,6 +1,6 @@
 % File src/library/base/man/iconv.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{iconv}
@@ -27,11 +27,13 @@ iconvlist()
   \item{sub}{character string.  If not \code{NA} it is used to replace
     any non-convertible bytes in the input.  (This would normally be a
     single character, but can be more.)  If \code{"byte"}, the indication is
-    \code{"<xx>"} with the hex code of the byte.  If \code{"Unicode"}
-    and converting from UTF-8, the Unicode point in the form
-    \code{"<U+xxxx>"}, or if \code{c99}, a C99-style escape
+    \code{"<xx>"} with the hex code of the byte.
+    %% as from R 4.4.0 always zero-pads to 4 hex digits.
+    If \code{"Unicode"} and converting from UTF-8, the Unicode point in
+    the form \code{"<U+xxxx>"}, or if \code{c99}, a C99-style escape
     \code{"\\uxxxx"}. (For points in a \sQuote{supplementary plane},
-    \code{"\Uxxxxxxxx"} is used.)}
+    %% zero-padding to eight hex digits is as prescribed by C99.
+    \code{"\Uxxxxxxxx"} is used, with zero-padding)}
   \item{mark}{logical, for expert use.  Should encodings be marked?}
   \item{toRaw}{logical.  Should a list of raw vectors be returned rather
     than a character vector?}
@@ -62,7 +64,7 @@ iconvlist()
   and \code{"POSIX"} are synonyms for ASCII.  Where
   \code{"ASCII/TRANSLIT"} is unsupported by the OS, \code{"ASCII"} is
   used with \code{sub = "c99"} if from UTF-8, else \code{sub =
-  "?"}. (However, musl's version of \code{"ASCII"} substitutes
+  "?"}. (However, \I{musl}'s version of \code{"ASCII"} substitutes
   \code{*}.)
 
   Elements of \code{x} with a declared encoding (UTF-8 or latin1, see
@@ -83,7 +85,7 @@ iconvlist()
   most common C runtime, \samp{glibc}, contains one.  Several platforms
   supply versions or emulations of GNU \samp{libiconv}, including
   previous versions of macOS and FreeBSD, in some cases with additional
-  encodings.  On Windows we use a version of Yukihiro Nakadaira's
+  encodings.  On Windows we use a version of \I{Yukihiro Nakadaira}'s
   \samp{win_iconv}, which is based on Windows' codepages.  (We have
   added many encoding names for compatibility with other systems.)  All
   three have \code{iconvlist}, ignore case in encoding names and support
@@ -106,7 +108,7 @@ iconvlist()
   Most commercial Unixes contain an implementation of \code{iconv} but
   none we have encountered have supported the encoding names we need:
   the \sQuote{R Installation and Administration} manual recommended
-  installing GNU \samp{libiconv} on Solaris and AIX.
+  installing GNU \samp{libiconv} on Solaris and \I{AIX}.
 
   %% https://wiki.musl-libc.org/functional-differences-from-glibc.html
   %% https://wiki.musl-libc.org/projects-using-musl.html
@@ -115,7 +117,7 @@ iconvlist()
   \samp{//TRANSLIT} but does inexact conversions (currently using
   \samp{*}).
 
-  There are other implementations, e.g.\sspace{}NetBSD has used one from the
+  There are other implementations, e.g.\sspace{}\I{NetBSD} has used one from the
   Citrus project (which does not support \samp{//TRANSLIT}) and there is
   an older FreeBSD port.
 
@@ -135,7 +137,7 @@ iconvlist()
 
   Encodings using character units which are more than one byte in size
   can be written on a file in either big-endian or little-endian order:
-  this applies most commonly to UCS-2, UTF-16 and UTF-32/UCS-4
+  this applies most commonly to \I{UCS-2}, UTF-16 and UTF-32/\I{UCS-4}
   encodings.  Some systems will write the Unicode character
   \code{U+FEFF} at the beginning of a file in these encodings and
   perhaps also in UTF-8.  In that usage the character is known as a \abbr{BOM},
@@ -176,8 +178,9 @@ iconvlist()
   The most portable name for the ISO 8859-15 encoding, commonly known as
   \sQuote{Latin 9}, is \code{"iso885915"}: most platforms support both
   \code{"latin-9"} and\code{"latin9"} but GNU \samp{libiconv} does not
-  support the latter. \samp{musl} (as used by Alpine Linux) supports
-  neither, but \R remaps there to \code{"iso885915"}.
+  support the latter. \samp{musl} (as used by Alpine Linux and other
+  lightweight Linux distributions) supports neither, but \R remaps there
+  to \code{"iso885915"}.
 
   Encoding names \code{"utf8"}, \code{"mac"} and \code{"macroman"} are
   not portable.  \code{"utf8"} is converted to \code{"UTF-8"} for

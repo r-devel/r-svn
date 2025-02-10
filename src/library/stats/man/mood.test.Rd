@@ -47,7 +47,7 @@ mood.test(x, \dots)
 
   There are more useful tests for this problem.
 
-  In the case of ties, the formulation of Mielke (1967) is employed.
+  In the case of ties, the formulation of \bibcite{Mielke (1967)} is employed.
 }
 \value{
   A list with class \code{"htest"} containing the following components:

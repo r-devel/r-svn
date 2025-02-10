@@ -44,7 +44,12 @@ four <- "\u2030" # permille.  macOS and R map to o/oo.
 cat(four, sep ="  "); cat("\n")
 
 ## compress = FALSE makes this humna-readable and diff-able.
-pdf("PDF-encoding.pdf", width = 5, height = 5, compress = FALSE)
+## hard-code encoding ISOLatin1.enc to match reference output
+## (e.g. Windows default WinAnsi.enc, so CP-1252, has a special character
+##  for bullet, fancy double quotes, per mille and other Unicode characters
+##  used in the tests, while ISOLatin1.enc does not)
+pdf("PDF-encoding.pdf", width = 5, height = 5, compress = FALSE,
+    encoding="ISOLatin1.enc")
 plot(1:11, 0:10, type = "n")
 text(0.5+seq_along(one), 1, one, adj = c(0,0))
 text(0.5+seq_along(two_1), 3, two_1, adj = c(0,0))
@@ -57,7 +62,7 @@ five <- c("\u03b1", "\u03bc", "\u2211", "\u25cf", "\u25b2", "\u221e", "\uB3C4")
 cat(five, sep ="  "); cat("\n")
 six <- "\U0001f604" # emoji from WhatsR
 cat(six, sep ="  "); cat("\n")
-# cyrillic fron mapmisc
+# cyrillic from mapmisc
 seven <- "\u0423\u043b\u0430\u0430\u043d\u0431\u0430\u0430\u0442\u0430\u0440"
 cat(seven, sep ="  "); cat("\n")
 ## Latin-2 example from package 'ggenealogy'
@@ -101,7 +106,7 @@ dev.off()
 
 
 ## Also try postscript
-postscript("PS-encoding.ps", width = 5, height = 5)
+postscript("PS-encoding.ps", width = 5, height = 5, encoding="ISOLatin1.enc")
 plot(1:11, 0:10, type = "n")
 text(0.5+seq_along(one), 1, one, adj = c(0,0))
 text(0.5+seq_along(two_1), 3, two_1, adj = c(0,0))
@@ -135,7 +140,11 @@ Sys.setenv("_R_CHECK_MBCS_CONVERSION_FAILURE_" = "TRUE")
 if(musl) q("no")
 
 tf <- tempfile(fileext = ".pdf")
-pdf(tf, width = 5, height = 5)
+## note that using the default on Windows (WinAnsi.enc) enables some
+## transliterations that would cause output differences in these tests
+## (alpha, micro and infinity from "five" will get transliterated by
+## Windows)
+pdf(tf, width = 5, height = 5, encoding="ISOLatin1.enc")
 plot(1:11, 0:10, type = "n")
 ## tranliterations done in mbcsToSbcs (when they will warn) if not
 ## done by the OS (which will be silent).
@@ -153,8 +162,9 @@ if(!inherits(res6, "try-error")) message("error check failed on 'six'")
 res7 <- try(text(1.5, 8, seven, adj = c(0,0)))
 if(!inherits(res7, "try-error")) message("error check failed on 'seven'")
 ## 'eight' may or may not fail -- does on glibc, does not on macOS.
-res8 <- try(text(1.5, 9, eight, adj = c(0,0)))
-if(!inherits(res8, "try-error")) message("error check failed on 'eight'")
+res8 <- try(text(1.5, 9, eight, adj = c(0,0)), silent=TRUE)
+## disable this check as the results are platform dependent
+## if(!inherits(res8, "try-error")) message("error check failed on 'eight'")
 dev.off()
 unlink(tf)
 

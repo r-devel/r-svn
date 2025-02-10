@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2023  The R Core Team.
+ *  Copyright (C) 2000-2024  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@
   name is known or is "UTC', of length 3 including the abbreviations
   for all other timezones. (If the timezone does not use DST, the
   second abbreviation may be empty or may repeat the first, depending
-  on the platform., but it woll always be present.)  However, if the
+  on the platform., but it will always be present.)  However, if the
   call to strptime() does not specify 'tz', this attribute is omitted.
 
   Names for the date-times are optional (and rarely supplied):
@@ -113,8 +113,8 @@ There are two implementation paths here.
    Use the system time_t, struct tm and time-zone tables.
 
    This can be use on glibc, macOS and Solaris (and probably FreeBSD),
-   but all except 64-bit glibc have isues we can try to work around.
-   It could in principlw be used om Windows but the issues there are
+   but all except 64-bit glibc have issues we can try to work around.
+   It could in principle be used om Windows but the issues there are
    too severe (no support for before 1970) to work around.
 
    The system facilities are used for 1902-2037 and outside those
@@ -126,7 +126,7 @@ There are two implementation paths here.
    Other known issues are with strftime (macOS only supports offsets
    in multiple of half-hours), not having tzdata tables (possible on
    Alpine and now fatal when configuring) and odd issues reading the
-   time-zone tables, expecially fror 1939-1945.
+   time-zone tables, especially for 1939-1945.
 
 2) USE_INTERNAL_MKTIME : Use substitutes from src/extra/tzone for
    mktime, gmtime_r, localtime_r, strftime with a R_ prefix.  The
@@ -198,7 +198,7 @@ static const int month_days[12] =
   Return 0 if valid, -1 if invalid and uncorrectable, or a positive
   integer approximating the number of corrections done.
 
-  Used in both paths in mktime0, in localtimee0 in PATH 1) and in
+  Used in both paths in mktime0, in localtime0 in PATH 1) and in
   do_formatPOSIXlt, do_strptime, do_POSIXlt2D, do_balancePOSIXlt.
 */
 static int validate_tm (stm *tm)
@@ -283,11 +283,28 @@ static int validate_tm (stm *tm)
 } // validate_tm
 
 /*
+  glibc and internal strftime are subject to integer overflow when
+  tm->tm_year + 1900 does not fit into an integer
+*/
+static int likely_strftime_overflow (stm *tm)
+{
+  double year = 1900.0 + tm->tm_year;
+
+#if SIZEOF_INT <= 4
+  return (year > INT_MAX || year < INT_MIN);
+#else
+  /* err on the safe side to avoid surprise due to imprecise floating point
+     representation of the limits */
+  return !(year < INT_MAX && year > INT_MIN);
+#endif
+}
+
+/*
    days_in_year is the same for year mod 400.
    We could avoid loops altogether by computing how many leap years
    there are between 1900 + tm->tm_year and 1900.
 
-   This will fix up tm_yday and tm_wday.
+   This will fix up tm->tm_yday and tm->tm_wday.
 
    Used in timegm00 (possibly) and guess_offset in PATH 1),
    POSIXlt2D and do_balancePOSIXlt
@@ -617,7 +634,7 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 
     double dday = floor(d/86400.0);
 //    static stm ltm0, *res = &ltm0;
-    stm *res = ltm; // be like localtine_r
+    stm *res = ltm; // be like localtime_r
     // This cannot exceed (2^31-1) years in either direction from 1970
     if (fabs(dday) > 784368402400) { //bail out
 	res->tm_year = NA_INTEGER;
@@ -773,7 +790,7 @@ static void prepare_dummy_reset_tz(tzset_info *si)
     si->settz = FALSE;
     si->end_context_on_reset = FALSE;
 }
-    
+
 static Rboolean set_tz(const char *tz, tzset_info *si)
 {
     si->settz = FALSE;
@@ -792,7 +809,7 @@ static Rboolean set_tz(const char *tz, tzset_info *si)
 #elif defined(HAVE_PUTENV)
     {
 	/* This could be dynamic, but setenv is strongly preferred
-	   (but not availanble on Windows)
+	   (but not available on Windows)
 	   "A program should not alter or free the string"
 	*/
 	static char buff[1010];
@@ -1247,6 +1264,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     int UseTZ = asLogical(CADDR(args));
     if(UseTZ == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "usetz");
+    int digits = asInteger(CADDDR(args)); // checked for NA below
     SEXP tz = getAttrib(x, install("tzone"));
     if(!isNull(tz) && !isString(tz))
 	error(_("invalid '%s'"), "attr(x, \"tzone\")");
@@ -1336,7 +1354,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else if(tm.tm_min == NA_INTEGER || tm.tm_hour == NA_INTEGER || tm.tm_mday == NA_INTEGER ||
 		  tm.tm_mon == NA_INTEGER || tm.tm_year == NA_INTEGER) {
 	    SET_STRING_ELT(ans, i, NA_STRING);
-	} else if(validate_tm(&tm) < 0) {
+	} else if(validate_tm(&tm) < 0 || likely_strftime_overflow(&tm)) {
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	} else {
 	    /* We could translate to wchar_t and use wcsftime if we
@@ -1358,7 +1376,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 		ns = *(p + 3) - '0';
 		if(ns < 0 || ns > 9) { /* not a digit */
 		    if (ns0 == -1) {
-			ns0 = asInteger(GetOption1(install("digits.secs")));
+ 			ns0 = digits;
 			if(ns0 == NA_INTEGER) ns0 = 0;
 		    }
 		    ns = ns0;
@@ -1402,7 +1420,10 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 #else
 	    res = strftime(buff, 2049, buf2, &tm);
 #endif
-	    if (res == 0) { // overflow for at least internal and glibc
+	    if (res == 0 // overflow for at least internal and glibc
+	        // if not from a format string that may give zero bytes
+	        && strcmp(buf2, "%Z") && strcmp(buf2, "%z")
+	        && strcmp(buf2, "%P") && strcmp(buf2, "%p")) {
 		Rf_error("output string exceeded 2048 bytes");
 	    }
 

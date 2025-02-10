@@ -28,7 +28,7 @@ xaxisGrob(at = NULL, label = TRUE, main = TRUE,
   \item{main}{A logical value indicating whether to draw the axis
     at the bottom (\code{TRUE}) or at the top (\code{FALSE}) of the
     viewport.}
-  \item{edits}{A gEdit or gEditList containing edit operations
+  \item{edits}{A \I{gEdit} or \I{gEditList} containing edit operations
     to apply (to the children of the axis)
     when the axis is first created and during redrawing
     whenever \code{at} is \code{NULL}.
@@ -42,16 +42,16 @@ xaxisGrob(at = NULL, label = TRUE, main = TRUE,
   \item{vp}{A Grid viewport object (or \code{NULL}).}
 }
 \details{
-  Both functions create an xaxis grob (a graphical object describing an
-  xaxis), but only \code{grid.xaxis}
-  draws the xaxis (and then only if \code{draw} is \code{TRUE}).
+  Both functions create an \I{xaxis} grob (a graphical object describing an
+  \I{xaxis}), but only \code{grid.xaxis}
+  draws the \I{xaxis} (and then only if \code{draw} is \code{TRUE}).
 }
 \value{
-  An xaxis grob.  \code{grid.xaxis} returns the value invisibly.
+  An \I{xaxis} grob.  \code{grid.xaxis} returns the value invisibly.
 }
 \section{Children}{
-  If the \code{at} slot of an xaxis grob is not \code{NULL} then
-  the xaxis will have the following children:
+  If the \code{at} slot of an \I{xaxis} grob is not \code{NULL} then
+  the \I{xaxis} will have the following children:
   \describe{
     \item{major}{ representing the line at the base of the
     tick marks.}

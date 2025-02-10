@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2022   The R Core Team.
+ *  Copyright (C) 1999-2024   The R Core Team.
  *
  *  Based on ACM TOMS643 (1993)
  *
@@ -1444,6 +1444,8 @@ L40: /* Find location, if any, of pastp */
 	else if (stp[ipn] > test2)
 	    ipn = nr[ipn];
 	else {
+	    if (INT_MAX - ifrq[ipn] < ifreq)
+		Rf_error("integer overflow in exact computation");
 	    ifrq[ipn] += ifreq;
 	    return;
 	}

@@ -1032,6 +1032,12 @@ static int QuartzCreateMask(SEXP mask,
 
         cs = CGColorSpaceCreateDeviceGray();
         
+        /* For alpha masks, create a bitmap with only an alpha channel */
+        uint32_t bitmapInfo = kCGImageAlphaNone;
+        if (R_GE_maskType(mask) == R_GE_alphaMask) {
+            bitmapInfo = kCGImageAlphaOnly;
+        }
+
         /* Create bitmap grahics context 
          * drawing is redirected to this context */
         quartz_bitmap = CGBitmapContextCreate(NULL,
@@ -1040,7 +1046,7 @@ static int QuartzCreateMask(SEXP mask,
                                               8,
                                               0,
                                               cs,
-                                              kCGImageAlphaNone);
+                                              bitmapInfo);
     
         quartz_mask->context = quartz_bitmap;
         xd->masks[index] = quartz_mask;
@@ -1054,6 +1060,31 @@ static int QuartzCreateMask(SEXP mask,
         R_fcall = PROTECT(lang1(mask));
         eval(R_fcall, R_GlobalEnv);
         UNPROTECT(1);
+
+        /* When working with an alpha mask, convert into a grayscale bitmap */
+        if (R_GE_maskType(mask) == R_GE_alphaMask) {
+            CGContextRef alpha_bitmap = quartz_bitmap;
+
+            /* Create a new grayscale bitmap with no alpha channel */
+            size_t stride = CGBitmapContextGetBytesPerRow(alpha_bitmap);
+            quartz_bitmap = CGBitmapContextCreate(NULL,
+                                                  (size_t) devWidth,
+                                                  (size_t) devHeight,
+                                                  8,
+                                                  stride,
+                                                  cs,
+                                                  kCGImageAlphaNone);
+            quartz_mask->context = quartz_bitmap;
+            
+            void *alpha_data = CGBitmapContextGetData(alpha_bitmap);
+            void *gray_data = CGBitmapContextGetData(quartz_bitmap);
+
+            /* Copy the alpha channel data into the grayscale bitmap */
+            memcpy(gray_data, alpha_data, stride * devHeight);
+
+            /* We're finished with the alpha channel bitmap now */
+            CGContextRelease(alpha_bitmap);
+        }
 
         /* Create image from bitmap context */
         CGImageRef maskImage;
@@ -1939,10 +1970,16 @@ static CFStringRef text2unichar(CTXDESC, const char *text, UniChar **buffer, int
 static double RQuartz_StrWidth(const char *text, CTXDESC)
 {
     DEVSPEC;
-    if (!ctx) NOCTXR(strlen(text) * 10.0); /* for sanity reasons */
-    RQuartz_SetFont(ctx, gc, xd);
 
-    CGFontRef font = CGContextGetFont(ctx);
+    CGFontRef font = 0;
+    if (!ctx) { /* if there is no context then don't set the font */
+        xd->async = 1; /* flag us as not having a context */
+        font = RQuartz_Font(gc, NULL);
+        if (!font) return (strlen(text) * 10.0); /* for sanity reasons */
+    } else {
+        RQuartz_SetFont(ctx, gc, xd);
+        font = CGContextGetFont(ctx);
+    }
     float aScale   = (float)((gc->cex * gc->ps * xd->tscale) /
 			     CGFontGetUnitsPerEm(font));
     UniChar *buffer;
@@ -2547,15 +2584,24 @@ RQuartz_MetricInfo(int c, const pGEcontext gc,
 		   pDevDesc dd)
 {
     DRAWSPEC;
-    if (!ctx) { /* dummy data if we have no context, for sanity reasons */
-        *ascent = 10.0;
-        *descent= 2.0;
-        *width  = 9.0;
-        NOCTX;
+    CGFontRef font = 0;
+
+    if (!ctx) {
+        xd->async = 1; /* flag us as not having a context */
+        font = RQuartz_Font(gc, NULL);
+        if (!font) {
+            /* dummy data if we have no font at all, for sanity reasons */
+            *ascent = 10.0;
+            *descent= 2.0;
+            *width  = 9.0;
+            return;
+        }
+    } else {
+        RQuartz_SetFont(ctx, gc, xd);
+        font = CGContextGetFont(ctx);
     }
-    RQuartz_SetFont(ctx, gc, xd);
+
     {
-	CGFontRef font = CGContextGetFont(ctx);
         float aScale   = (float)((gc->cex * gc->ps * xd->tscale) /
 				 CGFontGetUnitsPerEm(font));
 	UniChar  *buffer, single;
@@ -2715,10 +2761,6 @@ static SEXP RQuartz_setMask(SEXP mask, SEXP ref, pDevDesc dd) {
     if (isNull(mask)) {
         /* Set NO mask */
         index = -1;
-    } else if (R_GE_maskType(mask) == R_GE_alphaMask) {
-        warning(_("Ignored alpha mask (not supported on this device)"));
-        /* Set NO mask */
-        index = -1;        
     } else {
         if (isNull(ref)) {
             /* Create a new mask */
@@ -2938,8 +2980,10 @@ static SEXP RQuartz_capabilities(SEXP capabilities) {
     SET_VECTOR_ELT(capabilities, R_GE_capability_clippingPaths, clippingPaths);
     UNPROTECT(1);
 
-    PROTECT(masks = allocVector(INTSXP, 1));
+
+    PROTECT(masks = allocVector(INTSXP, 2));
     INTEGER(masks)[0] = R_GE_luminanceMask;
+    INTEGER(masks)[1] = R_GE_alphaMask;
     SET_VECTOR_ELT(capabilities, R_GE_capability_masks, masks);
     UNPROTECT(1);
 
@@ -3002,22 +3046,19 @@ void RQuartz_glyph(int n, int *glyphs, double *x, double *y,
 
     Rboolean grouping = QuartzBegin(&ctx, &layer, xd);
 
-    char url[501];
-    snprintf(url, 500, "file://%s", R_GE_glyphFontFile(font));
-    CFStringRef cfFontFileName = 
-        CFStringCreateWithCString(NULL, url, kCFStringEncodingUTF8);
-    CFURLRef cfFontURL = CFURLCreateWithString(NULL, cfFontFileName, NULL);
+    const char* path = R_GE_glyphFontFile(font);
+    CFURLRef cfFontURL = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8*)path, strlen(path), false);
+    if (!cfFontURL)
+        error(_("Invalid font path: \"%s\""), path);
     CFArrayRef cfFontDescriptors = 
         CTFontManagerCreateFontDescriptorsFromURL(cfFontURL);
-    CFRelease(cfFontFileName);
     CFRelease(cfFontURL);
-    int n_fonts = CFArrayGetCount(cfFontDescriptors);
-    if (n_fonts > 0) {
+    if (cfFontDescriptors) {
         /* NOTE: that the font needs an inversion (in y) matrix
            because the device has an inversion in user space 
            (for bitmap devices anyway) */
         CGAffineTransform trans = CGAffineTransformMakeScale(1.0, -1.0);
-	if (rot != 0.0) trans = CGAffineTransformRotate(trans, rot/180.*M_PI);
+        if (rot != 0.0) trans = CGAffineTransformRotate(trans, rot/180.*M_PI);
         CTFontRef ctFont = 
             CTFontCreateWithFontDescriptor((CTFontDescriptorRef) CFArrayGetValueAtIndex(cfFontDescriptors, 0), size, &trans);
 
@@ -3030,16 +3071,16 @@ void RQuartz_glyph(int n, int *glyphs, double *x, double *y,
         CGContextSetFillColorWithColor(ctx, fillColorRef);
         int i;
         for (i=0; i<n; i++) {
-            CGGlyph glyph = glyphs[i];
+            CGGlyph glyph = (CGGlyph) glyphs[i];
             CGPoint loc = CGPointMake(x[i], y[i]);
             CTFontDrawGlyphs(ctFont, &glyph, &loc, 1, ctx);
         }
         CGColorRelease(fillColorRef);
         CFRelease(ctFont);
+        CFRelease(cfFontDescriptors);
     } else {
         warning(_("Failed to load font"));
     }
-    CFRelease(cfFontDescriptors);
     
     QuartzEnd(grouping, layer, ctx, savedCTX, xd);
 }

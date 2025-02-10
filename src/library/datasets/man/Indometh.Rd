@@ -26,7 +26,7 @@
       a numeric vector of times at which blood samples were drawn (hr).
     }
     \item{conc}{
-      a numeric vector of plasma concentrations of indometacin (mcg/ml).
+      a numeric vector of plasma concentrations of indometacin (\abbr{mcg}/ml).
     }
   }
 }
@@ -34,7 +34,7 @@
   Each of the six subjects were given an intravenous injection of
   indometacin.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

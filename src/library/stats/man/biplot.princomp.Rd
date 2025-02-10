@@ -48,7 +48,7 @@ Biplot for Principal Components
     This is a method for the generic function \code{biplot}.  There is
     considerable confusion over the precise definitions: those of the
     original paper, Gabriel (1971), are followed here.  Gabriel and
-    Odoroff (1990) use the same definitions, but their plots actually
+    \bibcite{Odoroff (1990)} use the same definitions, but their plots actually
     correspond to \code{pc.biplot = TRUE}.
 }
 \references{

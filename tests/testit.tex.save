@@ -1,4 +1,3 @@
-\inputencoding{utf8}
 \HeaderA{testit}{An Rd Regression Test}{testit}
 \aliasB{\{}{testit}{.Rlbrace.}
 %
@@ -22,12 +21,16 @@ paragraph
 \end{Arguments}
 %
 \begin{Details}
+Included
+conditional content.
+
 Escaped backslash \code{\bsl{}x}.
 
 \code{\%\{\}}
 
 \LinkA{a link}{a link} and some to known destinations:
-\LinkA{weighted.mean}{weighted.mean}, \code{\LinkA{\{}{Paren}}
+\code{\LinkA{weighted.mean}{weighted.mean}}, \LinkA{dito}{dito},
+\code{\LinkA{\{}{Paren}}, \LinkB{\env{R\_HOME}}{R.Rul.HOME}.
 
 var in \var{text}.
 
@@ -107,6 +110,10 @@ and is thus output as-is in R \eqn{\ge}{} 4.4.0:
 \begin{ExampleCode}
 \x
 %{}
-foo(x, y)
+
+## Not run: stop("doomed to fail")
+
+foo(x,
+    y)
 \end{ExampleCode}
 \end{Examples}

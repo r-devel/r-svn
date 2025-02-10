@@ -1,7 +1,7 @@
 #  File src/library/utils/R/tar.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -50,8 +50,9 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
     if (!missing(compressed))
         warning("untar(compressed=) is deprecated", call. = FALSE, domain = NA)
     if (is.character(compressed)) {
-        cflag <- switch(match.arg(compressed, c("gzip", "bzip2", "xz")),
-                        "gzip" = "z", "bzip2" = "j", "xz" = "J")
+        cflag <- switch(match.arg(compressed, c("gzip", "bzip2", "xz", "zstd")),
+                        "gzip" = "z", "bzip2" = "j", "xz" = "J",
+                        "zstd" = "-zstd")
     } else if (is.logical(compressed)) {
         if (is.na(compressed) && support_old_tars) {
             magic <- readBin(tarfile, "raw", n = 6L)
@@ -60,6 +61,7 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             else if(rawToChar(magic[1:3]) == "BZh") cflag <- "j"
             ## (https://tukaani.org/xz/xz-file-format.txt)
             else if(all(magic[1:6] == c(0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00))) cflag <- "J"
+            else if(all(magic[1:4] == c(0x28, 0xb5, 0x2f, 0xfd))) cflag <- "-zstd"
         } else if (isTRUE(compressed)) cflag <- "z"
     } else stop("'compressed' must be logical or character")
 
@@ -82,6 +84,12 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
                 tarfile <- "-"
                 cflag <- ""
             } else stop(sprintf("No %s command found", sQuote("xz")))
+        if (cflag == "-zstd")
+            if (nzchar(Sys.which("zstd"))) {
+                TAR <- paste("zstd -dc", shQuote(tarfile), "|", TAR)
+                tarfile <- "-"
+                cflag <- ""
+            } else stop(sprintf("No %s command found", sQuote("zstd")))
     }
 
     if (list) {
@@ -368,7 +376,7 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
 }
 
 tar <- function(tarfile, files = NULL,
-                compression = c("none", "gzip", "bzip2", "xz"),
+                compression = c("none", "gzip", "bzip2", "xz", "zstd"),
                 compression_level = 6, tar = Sys.getenv("tar"),
                 extra_flags = "")
 {
@@ -391,7 +399,8 @@ tar <- function(tarfile, files = NULL,
                             "none" = "-cf",
                             "gzip" = "-zcf",
                             "bzip2" = "-jcf",
-                            "xz" = "-Jcf")
+                            "xz" = "-Jcf",
+                            "zstd" = "--zstd -cf")
 
             if (grepl("darwin", R.version$os)) {
                 ## Precaution for macOS to omit resource forks
@@ -430,7 +439,8 @@ tar <- function(tarfile, files = NULL,
                       "none" =  file(tarfile, "wb"),
                       "gzip" =  gzfile(tarfile, "wb", compression = compression_level),
                       "bzip2" = bzfile(tarfile, "wb", compression = compression_level),
-                      "xz" =    xzfile(tarfile, "wb", compression = compression_level))
+                      "xz" = xzfile(tarfile, "wb", compression = compression_level),
+                      "zstd" = zstdfile(tarfile, "wb", compression = compression_level))
         on.exit(close(con))
     } else if(inherits(tarfile, "connection")) con <- tarfile
     else stop("'tarfile' must be a character string or a connection")
@@ -513,8 +523,12 @@ tar <- function(tarfile, files = NULL,
             header[117:123] <- charToRaw(sprintf("%07o", gid))
 	}
         header[137:147] <- charToRaw(sprintf("%011o", as.integer(info$mtime)))
-        if (info$isdir) header[157L] <- charToRaw("5")
-        else {
+        ## size is 0 for directories and for links.
+        size <- info$size
+        if (info$isdir) {
+            header[157L] <- charToRaw("5")
+            size <- 0
+        } else {
             lnk <- Sys.readlink(f)
             if(is.na(lnk)) lnk <- ""
             header[157L] <- charToRaw(ifelse(nzchar(lnk), "2", "0"))
@@ -529,8 +543,6 @@ tar <- function(tarfile, files = NULL,
                 size <- 0
             }
         }
-        ## size is 0 for directories and it seems for links.
-        size <- if(info$isdir) 0 else info$size
         if(size >= 8^11) stop("file size is limited to 8GB")
         header[125:135] <- .Call(C_octsize, size)
         ## the next two are what POSIX says, not what GNU tar does.

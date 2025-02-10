@@ -56,7 +56,7 @@ lm.wfit(x, y, w, offset = NULL, method = "qr", tol = 1e-7,
   \item{coefficients}{\code{p} vector}
   \item{residuals}{\code{n} vector or matrix}
   \item{fitted.values}{\code{n} vector or matrix}
-  \item{effects}{\code{n} vector of orthogonal single-df
+  \item{effects}{\code{n} vector of orthogonal single-\abbr{df}
     effects.  The first \code{rank} of them correspond to non-aliased
     coefficients, and are named accordingly.}
   \item{weights}{\code{n} vector --- \emph{only} for the \code{*wfit*}
@@ -95,8 +95,8 @@ str(lm. <- lm.fit (x = X, y = y))
   lm.. <- .lm.fit(X,y)
   lm.w <- .lm.fit(X*sqrt(w), y*sqrt(w))
   id <- function(x, y) all.equal(x, y, tolerance = 1e-15, scale = 1)
-  stopifnot(id(unname(lm.$coef), lm..$coef),
-	    id(unname(lmw$coef), lm.w$coef))
+  stopifnot(id(unname(lm.$coefficients), lm..$coefficients),
+	    id(unname(lmw$coefficients), lm.w$coefficients))
 }
 ## fits w/o intercept:
 all.equal(unname(coef(lm(y ~ X-1))),

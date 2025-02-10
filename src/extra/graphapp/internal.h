@@ -19,6 +19,12 @@
  *     controls, cursors, etc as ordinary objects. There is
  *     no need for typecasting, so code size is reduced.
  */
+ 
+ /* The above has been modified in R 4.4.0, so that the object pointer is a
+    pointer to structure objinfo, in both internal and public interface, but
+    the structure is incomplete in the public interface.  See also
+    graphapp.h.
+  */
 
 #ifndef _GRAPH_INT_H
 #define _GRAPH_INT_H
@@ -68,10 +74,6 @@ PROTECTED void updatestatus(const char *text);
 PROTECTED font new_font_object(HFONT hf);
 UINT default_font_charset(void);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,6 +82,10 @@ extern "C" {
 
 
 #include <commdlg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef __MWERKS__
     /* Metrowerks Codewarrior Cross-Platform C/C++ Compiler */

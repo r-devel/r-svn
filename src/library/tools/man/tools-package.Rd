@@ -19,7 +19,7 @@
 
 }
 \author{
-  Kurt Hornik and Friedrich Leisch
+  \I{Kurt Hornik} and \I{Friedrich Leisch}
 
   Maintainer: R Core Team \email{R-core@r-project.org}
 }

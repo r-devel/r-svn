@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2018-04-09 12:09-0600\n"
 "Last-Translator: Chel Hee Lee <gnustats@gmail.com>\n"
 "Language-Team: \n"
@@ -306,15 +306,6 @@ msgstr "비어있는 서명에 상응하는 메소드를 삽입했습니다"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "메소드가 아닌 리스트형의 객체 (클래스 %s)에 메소드를 삽입했습니다"
 
-msgid "invalid method sublist"
-msgstr "메소드 부분리스트가 잘못되었습니다"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f는 유효한 제네릭 함수가 아닙니다: 메소드 리스트가 클래스 %s의 객체이기 때문입니다"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s는 반드시 TRUE, FALSE, 또는 이들 값들에 대한 이름을 가지는 논리형 벡터이어야합니다; 그러나 클래스 %s인 객체를 가집니다"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "디폴트 메소드는 메소드 정의, 프리미티브 또는 NULL이어야 합니다: 클래스 %s인 객체를 가집니다"
 
@@ -338,9 +329,6 @@ msgstr "함수 %3$s에 대하여  메소드 서명 (%1$d)내에 있는 구성요
 
 msgid "no generic function found corresponding to %s"
 msgstr "%s에 상응하는 제네릭 함수를 찾을 수 없습니다"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "예기치 못한 클래스 %2$s의 메소드 리스트 구성요소 %1$s를 스킵합니다"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "\"MethodsList\" 메타데이터 객체의 다른 용도에 함께 이용되는 %s는 더 이상 제공되지 않습니다."
@@ -499,7 +487,8 @@ msgstr "클래스는 일반 또는 숨겨진 데이터 유형을 동시에 함�
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "유효한 메소드는 반드시 클래스 %s의 객체 하나를 인자로 가지는 함수이어야 합니다"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "필요한 패키지 %s를 찾을 수 없습니다"
 
 msgid "unable to find an environment containing class %s"
@@ -888,8 +877,9 @@ msgstr "%s에 쓰여진 메소드의 구조"
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr ""
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
-msgstr ""
+#, fuzzy
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+msgstr "\"signature\" 인자에 대한 리스트내에 잘못된 구성요소가 있습니다; 구성요소 %d는 클래스 정의도 아니고 클래스명도 아닙니다"
 
 msgid "bad method object stored in method table, class %s"
 msgstr ""
@@ -1305,6 +1295,18 @@ msgstr[0] ""
 msgid "no definition of class %s in the specified position, %s, definition on : %s"
 msgid_plural "no definition of class %s in the specified position, %s, definitions on : %s"
 msgstr[0] ""
+
+#~ msgid "invalid method sublist"
+#~ msgstr "메소드 부분리스트가 잘못되었습니다"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f는 유효한 제네릭 함수가 아닙니다: 메소드 리스트가 클래스 %s의 객체이기 때문입니다"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s는 반드시 TRUE, FALSE, 또는 이들 값들에 대한 이름을 가지는 논리형 벡터이어야합니다; 그러나 클래스 %s인 객체를 가집니다"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "예기치 못한 클래스 %2$s의 메소드 리스트 구성요소 %1$s를 스킵합니다"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "'%s'에 대한 메소드 디스패치시 잘못된 호출이 있습니다 (기본 메소드가 없습니다)"

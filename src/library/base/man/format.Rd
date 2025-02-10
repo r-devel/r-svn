@@ -1,19 +1,20 @@
 % File src/library/base/man/format.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Copyright 2003-2016 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{format}
+\title{Encode in a Common Format}
 \alias{format}
 \alias{format.AsIs}
 \alias{format.data.frame}
 \alias{format.default}
 \alias{format.factor}
 \description{
-  Format an \R object for pretty printing.
+  Format an \R object for pretty printing, notably encoding vector or
+  column elements into a common format.
 }
-\title{Encode in a Common Format}
 \usage{
 format(x, \dots)
 
@@ -25,7 +26,7 @@ format(x, \dots)
        decimal.mark = getOption("OutDec"),
        zero.print = NULL, drop0trailing = FALSE, \dots)
 
-\method{format}{data.frame}(x, \dots, justify = "none")
+\method{format}{data.frame}(x, \dots, justify = "none", cut.names = TRUE)
 
 \method{format}{factor}(x, \dots)
 
@@ -53,6 +54,9 @@ format(x, \dots)
 
   \item{justify}{should a \emph{character} vector be left-justified (the
     default), right-justified, centred or left alone.  Can be abbreviated.}
+
+  \item{cut.names}{\code{\link{logical}} passed to the \code{list} method
+    of \code{\link{as.data.frame}()}.}
 
   \item{width}{\code{default} method: the \emph{minimum} field width or
     \code{NULL} or \code{0} for no restriction.
@@ -143,7 +147,7 @@ format(x, \dots)
 
   If \code{x} is a list, the result is a character vector obtained by
   applying \code{format.default(x, \dots)} to each element of the list
-  (after \code{\link{unlist}}ing elements which are themselves lists),
+  (after \I{\code{\link{unlist}}ing} elements which are themselves lists),
   and then collapsing the result for each element with
   \code{paste(collapse = ", ")}.  The defaults in this case are
   \code{trim = TRUE, justify = "none"} since one does not usually want

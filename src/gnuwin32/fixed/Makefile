@@ -2,8 +2,12 @@ include ../MkRules
 
 R_HOME = ../../..
 
-# FIXME:  Should find a make where $(abspath ...) works and avoid this...
-LOCAL_SOFT := $(shell ../Rpwd.exe $(LOCAL_SOFT))
+ifeq ($(OS),Windows_NT)
+  # FIXME:  Should find a make where $(abspath ...) works and avoid this...
+  LOCAL_SOFT := $(shell ../Rpwd.exe $(LOCAL_SOFT))
+else
+  LOCAL_SOFT := $(abspath $(LOCAL_SOFT))
+endif
 
 all: profiles fixhtml fixetc fixdoc svnonly
 
@@ -27,6 +31,7 @@ fixetc: $(ETC) ../MkRules Makefile
 	$(SED) -e 's/WIN = 64/WIN = $(WIN)/' \
 	  -e "s/-O3/-O2/" \
 	  -e "s/@EOPTS@/$(EOPTS)/" \
+	  -e "s/@SANOPTS@/$(SANOPTS)/" \
 	  -e "s|BINPREF =|BINPREF ?= $(BINPREF)|" \
 	  -e "s|USE_LLVM =|USE_LLVM ?= $(USE_LLVM)|" \
 	  -e "s|COMPILED_BY =|COMPILED_BY = $(COMPILED_BY)|" \
@@ -42,6 +47,7 @@ fixetc: $(ETC) ../MkRules Makefile
 	  -e "s@NM_FILTER =@NM_FILTER = $(NM_FILTER)@" \
 	  -e "s|LTO =|LTO = $(LTO)|" \
 	  -e "s|LTO_OPT =|LTO_OPT = $(LTO_OPT)|" \
+	  -e "s|FLIBS =|FLIBS = $(FLIBS)|" \
 	  etc/Makeconf > $(R_HOME)/etc$(R_ARCH)/Makeconf
 	$(SED) -e "s+@BINDIR@+$(BINDIR)+" \
 	   -e "s+@USE_LLVM@+$(USE_LLVM)+" \

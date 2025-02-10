@@ -17,14 +17,14 @@
 
   \tabular{rll}{
     No \tab Name \tab Levels \cr
-    1 \tab Hair \tab Black, Brown, Red, Blond \cr
-    2 \tab Eye \tab Brown, Blue, Hazel, Green \cr
-    3 \tab Sex \tab Male, Female
+    1 \tab \code{Hair} \tab Black, Brown, Red, Blond \cr
+    2 \tab \code{Eye}  \tab Brown, Blue, Hazel, Green \cr
+    3 \tab \code{Sex}  \tab Male, Female
   }
 }
 \details{
   The Hair \eqn{\times}{x} Eye table comes from a survey of students at
-  the University of Delaware reported by Snee (1974).  The split by
+  the University of Delaware reported by \bibcite{Snee (1974)}.  The split by
   \code{Sex} was added by Friendly (1992a) for didactic purposes.
 
   This data set is useful for illustrating various techniques for the

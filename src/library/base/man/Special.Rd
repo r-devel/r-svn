@@ -17,9 +17,9 @@
 \alias{lchoose}
 \alias{factorial}
 \alias{lfactorial}
-\concept{tetragamma}% existed till 1.9.0
-\concept{pentagamma}
-\concept{polygamma}
+\concept{\I{tetragamma}} % existed till 1.9.0
+\concept{\I{pentagamma}}
+\concept{\I{polygamma}}
 \concept{binomial coefficient}
 \concept{psi function}
 \description{
@@ -52,14 +52,15 @@ lfactorial(x)
   \deqn{B(a,b) = \frac{\Gamma(a)\Gamma(b)}{\Gamma(a+b)}.}{B(a,b) = \Gamma(a)\Gamma(b)/\Gamma(a+b).}
   The formal definition is
   \deqn{B(a, b) = \int_0^1 t^{a-1} (1-t)^{b-1} dt}{integral_0^1 t^(a-1) (1-t)^(b-1) dt}
-  (Abramowitz and Stegun section 6.2.1, page 258).  Note that it is only
+  (\bibcite{Abramowitz and Stegun section 6.2.1, page 258}).
+  Note that it is only
   defined in \R for non-negative \code{a} and \code{b}, and is infinite
   if either is zero.
 
   The functions \code{gamma} and \code{lgamma} return the gamma function
   \eqn{\Gamma(x)} and the natural logarithm of \emph{the absolute value of} the
   gamma function.  The gamma function is defined by
-  (Abramowitz and Stegun section 6.1.1, page 255)
+  (\bibcite{Abramowitz and Stegun section 6.1.1, page 255})
   \deqn{\Gamma(x) = \int_0^\infty t^{x-1} e^{-t} dt}{\Gamma(x) = integral_0^Inf t^(x-1) exp(-t) dt}
   for all real \code{x} except zero and negative integers (when
   \code{NaN} is returned).  There will be a warning on possible loss of
@@ -77,10 +78,10 @@ lfactorial(x)
   \deqn{\code{digamma(x)} = \psi(x) = \frac{d}{dx}\ln\Gamma(x) =
     \frac{\Gamma'(x)}{\Gamma(x)}}{digamma(x) = \psi(x) = d/dx{ln \Gamma(x)} = \Gamma'(x) / \Gamma(x)}
   \eqn{\psi} and its derivatives, the \code{psigamma()} functions, are
-  often called the \sQuote{polygamma} functions, e.g.\sspace{}in
-  Abramowitz and Stegun (section 6.4.1, page 260); and higher
+  often called the \sQuote{\I{polygamma}} functions, e.g.\sspace{}in
+  \bibcite{Abramowitz and Stegun (section 6.4.1, page 260)}; and higher
   derivatives (\code{deriv = 2:4}) have occasionally been called
-  \sQuote{tetragamma}, \sQuote{pentagamma}, and \sQuote{hexagamma}.
+  \sQuote{\I{tetragamma}}, \sQuote{\I{pentagamma}}, and \sQuote{\I{hexagamma}}.
 
   The functions \code{choose} and \code{lchoose} return binomial
   coefficients and the logarithms of their absolute values.  Note that
@@ -102,7 +103,7 @@ lfactorial(x)
 \source{
   \code{gamma}, \code{lgamma}, \code{beta} and \code{lbeta} are based on
   C translations of Fortran subroutines by W. Fullerton of Los Alamos
-  Scientific Laboratory (now available as part of SLATEC).
+  Scientific Laboratory (now available as part of \I{SLATEC}).
 
   \code{digamma}, \code{trigamma} and \code{psigamma} for \code{x >= 0} are based on
 

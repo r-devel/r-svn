@@ -76,7 +76,7 @@ as.single(x, \dots)
   \eqn{2 \times 10^{308}}{2e+308}.  It also has special values
   \code{\link{NaN}} (many of them), plus and minus infinity and plus and
   minus zero (although \R acts as if these are the same).  There are
-  also \emph{denormal(ized)} (or \emph{subnormal}) numbers with values
+  also \emph{\I{denormal(ized)}} (or \emph{subnormal}) numbers with values
   below the range given above but represented to less precision.
 
   See \code{\link{.Machine}} for precise information on these limits.
@@ -88,7 +88,7 @@ as.single(x, \dots)
 %% keep next the same in double.Rd & numeric.Rd
 \section{Note on names}{
   It is a historical anomaly that \R has two names for its
-  floating-point vectors, \code{\link{double}} and \code{\link{numeric}}
+  floating-point vectors, \code{double} and \code{numeric}
   (and formerly had \code{real}).
 
   \code{double} is the name of the \link{type}.

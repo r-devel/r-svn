@@ -1985,6 +1985,8 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    {
 		/* These are all short strings */
 		length = InInteger(stream);
+		if (length < 0)
+		    error(_("invalid length"));
 		R_CheckStack2(length+1);
 		char cbuf[length+1];
 		InString(stream, cbuf, length);
@@ -2000,7 +2002,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	case CHARSXP:
 	    /* these are currently limited to 2^31 -1 bytes */
 	    length = InInteger(stream);
-	    if (length == -1)
+	    if (length < -1)
+		error(_("invalid length"));
+	    else if (length == -1)
 		PROTECT(s = NA_STRING);
 	    else if (length < 1000) {
 		char cbuf[length+1];
@@ -2247,7 +2251,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     case 3:
     {
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	InString(stream, stream->native_encoding, nelen);
 	stream->native_encoding[nelen] = '\0';
@@ -2287,7 +2291,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     return obj;
 }
 
-SEXP R_SerializeInfo(R_inpstream_t stream)
+attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 {
     int version;
     int writer_version, min_reader_version, vv, vp, vs;
@@ -2338,7 +2342,7 @@ SEXP R_SerializeInfo(R_inpstream_t stream)
     if (version == 3) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
-	if (nelen > R_CODESET_MAX)
+	if (nelen > R_CODESET_MAX || nelen < 0)
 	    error(_("invalid length of encoding name"));
 	char nbuf[nelen + 1];
 	InString(stream, nbuf, nelen);
@@ -2537,6 +2541,7 @@ static void OutCharConn(R_outpstream_t stream, int c)
     }
 }
 
+attribute_hidden
 void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 			  R_pstream_format_t type, int version,
 			  SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2549,6 +2554,7 @@ void R_InitConnOutPStream(R_outpstream_t stream, Rconnection con,
 		     OutCharConn, OutBytesConn, phook, pdata);
 }
 
+attribute_hidden
 void R_InitConnInPStream(R_inpstream_t stream,  Rconnection con,
 			 R_pstream_format_t type,
 			 SEXP (*phook)(SEXP, SEXP), SEXP pdata)
@@ -2650,6 +2656,13 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     return R_NilValue;
 }
 
+static SEXP checkNotPromise(SEXP val)
+{
+    if (TYPEOF(val) == PROMSXP)
+	error(_("cannot return a promise (PROMSXP) object"));
+    return val;
+}
+
 /* unserializeFromConn(conn, hook) used from readRDS().
    It became public in R 2.13.0, and that version added support for
    connections internally */
@@ -2699,7 +2712,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	con->close(con);
 	UNPROTECT(1);
     }
-    return ans;
+    return checkNotPromise(ans);
 }
 
 /*
@@ -2738,7 +2751,8 @@ static void OutBytesBB(R_outpstream_t stream, void *buf, int length)
     if (bb->count + length > BCONBUFSIZ)
 	flush_bcon_buffer(bb);
     if (length <= BCONBUFSIZ) {
-	memcpy(bb->buf + bb->count, buf, length);
+	if (length)
+	    memcpy(bb->buf + bb->count, buf, length);
 	bb->count += length;
     }
     else if (R_WriteConnection(bb->con, buf, length) != length)
@@ -2838,7 +2852,8 @@ static void OutBytesMem(R_outpstream_t stream, void *buf, int length)
 	error(_("serialization is too large to store in a raw vector"));
 #endif
     if (needed > mb->size) resize_buffer(mb, needed);
-    memcpy(mb->buf + mb->count, buf, length);
+    if (length)
+	memcpy(mb->buf + mb->count, buf, length);
     mb->count = needed;
 }
 
@@ -2855,7 +2870,8 @@ static void InBytesMem(R_inpstream_t stream, void *buf, int length)
     membuf_t mb = stream->data;
     if (mb->count + (R_size_t) length > mb->size)
 	error(_("read error"));
-    memcpy(buf, mb->buf + mb->count, length);
+    if (length)
+	memcpy(buf, mb->buf + mb->count, length);
     mb->count += length;
 }
 
@@ -2901,7 +2917,8 @@ static SEXP CloseMemOutPStream(R_outpstream_t stream)
 	error(_("serialization is too large to store in a raw vector"));
 #endif
     PROTECT(val = allocVector(RAWSXP, mb->count));
-    memcpy(RAW(val), mb->buf, mb->count);
+    if (mb->count)
+	memcpy(RAW(val), mb->buf, mb->count);
     free_mem_buffer(mb);
     UNPROTECT(1);
     return val;
@@ -2964,7 +2981,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 }
 
 
-attribute_hidden SEXP R_unserialize(SEXP icon, SEXP fun)
+static SEXP R_unserialize(SEXP icon, SEXP fun)
 {
     struct R_inpstream_st in;
     SEXP (*hook)(SEXP, SEXP);
@@ -3107,7 +3124,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
     for (i = 0; i < used; i++)
 	if(names[i] != NULL && strcmp(cfile, names[i]) == 0) {icache = i; break;}
     if (icache >= 0) {
-	memcpy(RAW(val), ptr[icache]+offset, len);
+	if (len)
+	    memcpy(RAW(val), ptr[icache]+offset, len);
 	vmaxset(vmax);
 	return val;
     }
@@ -3145,7 +3163,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 		in = (int) fread(p, 1, filelen, fp);
 		fclose(fp);
 		if (filelen != in) error(_("read failed on %s"), cfile);
-		memcpy(RAW(val), p+offset, len);
+		if (len)
+		    memcpy(RAW(val), p+offset, len);
 	    } else {
 		if (p)
 		    free(p);
@@ -3212,7 +3231,7 @@ static SEXP R_getVarsFromFrame(SEXP vars, SEXP env, SEXP forcesxp)
     for (i = 0; i < len; i++) {
 	sym = installTrChar(STRING_ELT(vars, i));
 
-	tmp = findVarInFrame(env, sym);
+	tmp = R_findVarInFrame(env, sym);
 	if (tmp == R_UnboundValue) {
 /*		PrintValue(env);
 		PrintValue(R_GetTraceback(0)); */  /* DJM debugging */
@@ -3330,8 +3349,8 @@ attribute_hidden SEXP
 do_serialize(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    if (PRIMVAL(op) == 2) return R_unserialize(CAR(args), CADR(args));
-
+    if (PRIMVAL(op) == 2) //return R_unserialize(CAR(args), CADR(args));
+	return checkNotPromise(R_unserialize(CAR(args), CADR(args)));
     SEXP object, icon, type, ver, fun;
     object = CAR(args); args = CDR(args);
     icon = CAR(args); args = CDR(args);

@@ -1,0 +1,130 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.4.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2024-04-01 10:33\n"
+"PO-Revision-Date: 2024-06-09 05:28+0000\n"
+"Last-Translator: Ricardo Villalba <rikivillalba@gmail.com>\n"
+"Language-Team: none\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.16.4\n"
+
+msgid "namespace found within local environments"
+msgstr "espacio de nombres encontrado dentro de los entornos locales"
+
+msgid "not a proper evaluation environment"
+msgstr "no es un entorno de evaluación adecuado"
+
+msgid "non-namespace found within namespace environments"
+msgstr "entorno que no es un espacio de nombres encontrado entre los entornos de espacios de nombres"
+
+msgid "namespace found within global environments"
+msgstr "espacio de nombres encontrado dentro de entornos globales"
+
+msgid "bad assignment: %s"
+msgstr "asignación incorrecta: %s"
+
+msgid "cannot constant fold literal promises"
+msgstr "no se pueden duplicar constantemente las promesas literales"
+
+msgid "cannot constant fold literal bytecode objects"
+msgstr "No se pueden duplicar constantemente los objetos bytecode literales"
+
+msgid "no offset recorded for label \"%s\""
+msgstr "no se ha registrado ningún offset para la etiqueta \"%s\""
+
+msgid "cannot compile byte code literals in code"
+msgstr "No se pueden compilar literales de bytecode en el código"
+
+msgid "cannot compile promise literals in code"
+msgstr "no se pueden compilar promesas de literales en el código"
+
+msgid "possible error in '%s': %s"
+msgstr "posible error en '%s': %s"
+
+msgid "bad namespace import frame"
+msgstr "entorno de importación de espacio de nombres incorrecto"
+
+msgid "bad assignment 1"
+msgstr "asignación incorrecta 1"
+
+msgid "bad assignment 2"
+msgstr "asignación incorrecta 2"
+
+msgid "invalid function in complex assignment"
+msgstr "función inválida en asignación de complejos"
+
+msgid "missing arguments are not allowed"
+msgstr "no se permiten argumentos omitidos"
+
+msgid "empty alternative in numeric switch"
+msgstr "Alternativa vacía en switch numérico"
+
+msgid "no visible global function definition for '%s'"
+msgstr "no hay una definición de función global visible para '%s'"
+
+msgid "no visible binding for global variable '%s'"
+msgstr "No hay vinculación visible para la variable global '%s'"
+
+msgid "no visible binding for '<<-' assignment to '%s'"
+msgstr "no hay vinculación visible para asignación no local ('<<-') a '%s'"
+
+msgid "wrong number of arguments to '%s'"
+msgstr "número incorrecto de argumentos para '%s'"
+
+msgid "more than one default provided in switch() call"
+msgstr "más de un valor predeterminado proporcionado en la llamada a switch()"
+
+msgid "'switch' with no alternatives"
+msgstr "'switch' sin alternativas"
+
+msgid "Error: compilation failed -"
+msgstr "Error: error de compilación -"
+
+msgid "cannot compile a non-function"
+msgstr "no se puede compilar un objeto no función"
+
+msgid "compiling '%s'"
+msgstr "compilando '%s'"
+
+msgid "saving to file \"%s\" ..."
+msgstr "guardando en el archivo \"%s\" ..."
+
+msgid "done"
+msgstr "hecho"
+
+msgid "'env' must be a top level environment"
+msgstr "'env' debe ser un entorno de nivel superior"
+
+msgid "input and output file names are the same"
+msgstr "nombres de los archivos de entrada y salida son el mismo"
+
+msgid "empty input file; no output written"
+msgstr "archivo de entrada vacío; no se escribió salida"
+
+msgid "file '%s' does not exist"
+msgstr "archivo '%s' no existe"
+
+msgid "'%s' is not a valid compiler option"
+msgstr "'%s' no es una opción válida del compilador"
+
+msgid "invalid environment variable value: %s==%s"
+msgstr "valor de variable de entorno no válido: %s==%s"
+
+msgid "invalid compiler options: optimize(==%d)<2 and jitEnabled(==%d)>2"
+msgstr "opciones de compilador no válidas: optimize(==%d)<2 y jitEnabled(==%d)>2"
+
+msgid "function is not compiled"
+msgstr "la función no está compilada"
+
+msgid "cannot compile this expression"
+msgstr "no se puede compilar esta expresión"
+
+msgid "local assignment to syntactic function: "
+msgid_plural "local assignments to syntactic functions: "
+msgstr[0] "asignación local a la función sintáctica: "
+msgstr[1] "asignaciones locales a funciones sintácticas: "

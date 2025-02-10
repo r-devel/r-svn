@@ -4,40 +4,40 @@
 % Distributed under GPL 2 or later
 
 \name{terms}
-\title{Model Terms}
-\usage{
-terms(x, \dots)
-}
 \alias{terms}
 %\alias{terms.terms}
 %\alias{terms.aovlist}
 %\alias{terms.default}
 %\alias{print.terms}
 \alias{labels.terms}
+\title{Model Terms}
 \description{
   The function \code{terms} is a generic function
   which can be used to extract \emph{terms} objects
   from various kinds of \R data objects.
+}
+\usage{
+terms(x, ...)
 }
 \arguments{
   \item{x}{object used to select a method to dispatch.}
   \item{\dots}{further arguments passed to or from other methods.}
 }
 \details{
-  There are methods for classes \code{"aovlist"}, and \code{"terms"}
+  There are methods for classes \code{"aovlist"}, \code{"terms"}, and
   \code{"formula"} (see \code{\link{terms.formula}}):
   the default method just extracts the \code{terms} component of the
   object, or failing that a \code{"terms"} attribute (as used by
   \code{\link{model.frame}}).
 
   There are \code{\link{print}} and \code{\link{labels}} methods for
-  class \code{"terms"}: the latter prints the term labels (see
-  \code{\link{terms.object}}).
+  class \code{"terms"}: the latter extracts the term labels (see
+  \code{?\link{terms.object}}).
 }
 \value{
   An object of class \code{c("terms", "formula")} which contains the
   \emph{terms} representation of a symbolic model.  See
-  \code{\link{terms.object}} for its structure.
+  \code{?\link{terms.object}} for its structure.
 }
 \references{
   Chambers, J. M. and Hastie, T. J. (1992)

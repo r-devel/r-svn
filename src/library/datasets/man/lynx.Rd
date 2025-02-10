@@ -9,8 +9,8 @@
 \title{Annual Canadian Lynx trappings 1821--1934}
 \description{
   Annual numbers of lynx trappings for 1821--1934 in Canada. Taken from
-  Brockwell & Davis (1991), this appears to be the series considered
-  by Campbell & Walker (1977).
+  \bibcite{Brockwell & Davis (1991)}, this appears to be the series considered
+  by \bibcite{Campbell & Walker (1977)}.
 }
 \usage{lynx}
 \source{

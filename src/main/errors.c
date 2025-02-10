@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2023  The R Core Team.
+ *  Copyright (C) 1995--2025  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+/* -> Errormsg.h , R_ext/Error.h */
 #include <Internal.h>
-/* -> Errormsg.h */
 #include <Startup.h> /* rather cleanup ..*/
 #include <Rconnections.h>
 #include <Rinterface.h>
@@ -125,6 +125,10 @@ void attribute_no_sanitizer_instrumentation R_CheckStack2(size_t extra)
 {
     int dummy;
     intptr_t usage = R_CStackDir * (R_CStackStart - (uintptr_t)&dummy);
+
+    if (INTPTR_MAX - usage < extra)
+	/* addition would overflow, this is definitely too much */
+	R_SignalCStackOverflow(INTPTR_MAX);
 
     /* do it this way, as some compilers do usage + extra
        in unsigned arithmetic */
@@ -498,9 +502,16 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
 	if(dcall[0] == '\0') REprintf(_("Warning:"));
 	else {
 	    REprintf(_("Warning in %s :"), dcall);
+	    // This did not allow for buf containing line breaks
+	    // We can put the first line on the same line as the warning
+	    // if it fits within LONGWARN.
+	    char buf1[BUFSIZE];
+	    strncpy(buf1, buf, BUFSIZE);
+	    char *p = strstr(buf1, "\n");
+	    if(p) *p = '\0';
 	    if(!(noBreakWarning ||
-		 ( mbcslocale && 18 + wd(dcall) + wd(buf) <= LONGWARN) ||
-		 (!mbcslocale && 18 + strlen(dcall) + strlen(buf) <= LONGWARN)))
+		 ( mbcslocale && (18 + wd(dcall) + wd(buf1) <= LONGWARN)) ||
+		 (!mbcslocale && (18 + strlen(dcall) + strlen(buf1) <= LONGWARN))))
 		REprintf("\n ");
 	}
 	REprintf(" %s\n", buf);
@@ -721,9 +732,6 @@ const char *R_curErrorBuf(void) {
     return (const char *)errbuf;
 }
 
-/* temporary hook to allow experimenting with alternate error mechanisms */
-static void (*R_ErrorHook)(SEXP, char *) = NULL;
-
 static void restore_inError(void *data)
 {
     int *poldval = (int *) data;
@@ -747,9 +755,6 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	allowedConstsChecks--;
 	R_checkConstants(TRUE);
     }
-    RCNTXT cntxt;
-    char *p, *tr;
-    int oldInError;
 
     if (inError) {
 	/* fail-safe handler for recursive errors */
@@ -773,8 +778,10 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
     }
 
     /* set up a context to restore inError value on exit */
+    RCNTXT cntxt;
     begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 		 R_NilValue, R_NilValue);
+    int oldInError;
     cntxt.cend = &restore_inError;
     cntxt.cenddata = &oldInError;
     oldInError = inError;
@@ -788,22 +795,18 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	char *head = _("Error in "), *tail = "\n  ";
 	SEXP srcloc = R_NilValue; // -Wall
 	size_t len = 0;	// indicates if srcloc has been set
-	int protected = 0, skip = NA_INTEGER;
+	int protected = 0, show = 0;
 	SEXP opt = GetOption1(install("show.error.locations"));
-	if (!isNull(opt)) {
-	    if (TYPEOF(opt) == STRSXP && length(opt) == 1) {
-		if (pmatch(ScalarString(mkChar("top")), opt, 0)) skip = 0;
-		else if (pmatch(ScalarString(mkChar("bottom")), opt, 0)) skip = -1;
-	    } else if (TYPEOF(opt) == LGLSXP)
-		skip = asLogical(opt) == 1 ? 0 : NA_INTEGER;
-	    else
-		skip = asInteger(opt);
-	}
+	if (length(opt) == 1 &&
+	    (asLogical(opt) == 1 ||
+	     (TYPEOF(opt) == STRSXP &&
+	      pmatch(ScalarString(mkChar("top")), opt, 0))))
+	    	show = 1;
 
 	const char *dcall = CHAR(STRING_ELT(deparse1s(call), 0));
 	Rsnprintf_mbcs(tmp2, BUFSIZE,  "%s", head);
-	if (skip != NA_INTEGER) {
-	    PROTECT(srcloc = GetSrcLoc(R_GetCurrentSrcref(skip)));
+	if (show) {
+	    PROTECT(srcloc = GetSrcLoc(R_GetCurrentSrcref(NA_INTEGER)));
 	    protected++;
 	    len = strlen(CHAR(STRING_ELT(srcloc, 0)));
 	    if (len)
@@ -846,7 +849,7 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
     }
     else {
 	Rsnprintf_mbcs(errbuf, BUFSIZE, _("Error: "));
-	p = errbuf + strlen(errbuf);
+	char *p = errbuf + strlen(errbuf);
 	Rvsnprintf_mbcs(p, max(msg_len - strlen(errbuf), 0), format, ap);
     }
     /* Approximate truncation detection, may produce false positives.  Assumes
@@ -859,13 +862,13 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	mbcsTruncateToValid(errbuf);
 	ERRBUFCAT("...\n");
     } else {
-	p = errbuf + nc - 1;
+	char *p = errbuf + nc - 1;
 	if(*p != '\n') {
 	    ERRBUFCAT("\n");  // guaranteed to have room for this
 	    ++nc;
 	}
 	if(R_ShowErrorCalls && call != R_NilValue) {  /* assume we want to avoid deparse */
-	    tr = R_ConciseTraceback(call, 0);
+	    char *tr = R_ConciseTraceback(call, 0);
 	    size_t nc_tr = strlen(tr);
 	    if (nc_tr) {
 		char * call_trans = _("Calls:");
@@ -912,16 +915,6 @@ NORET void errorcall(SEXP call, const char *format,...)
     va_start(ap, format);
     vsignalError(call, format, ap);
     va_end(ap);
-
-    if (R_ErrorHook != NULL) {
-	char buf[BUFSIZE];
-	void (*hook)(SEXP, char *) = R_ErrorHook;
-	R_ErrorHook = NULL; /* to avoid recursion */
-	va_start(ap, format);
-	Rvsnprintf_mbcs(buf, min(BUFSIZE, R_WarnLength), format, ap);
-	va_end(ap);
-	hook(call, buf);
-    }
 
     va_start(ap, format);
     verrorcall_dflt(call, format, ap);
@@ -1495,55 +1488,6 @@ void WarningMessage(SEXP call, R_WARNING which_warn, ...)
     warningcall(call, "%s", buf);
 }
 
-#ifdef UNUSED
-/* temporary hook to allow experimenting with alternate warning mechanisms */
-static void (*R_WarningHook)(SEXP, char *) = NULL;
-
-void R_SetWarningHook(void (*hook)(SEXP, char *))
-{
-    R_WarningHook = hook;
-}
-
-void R_SetErrorHook(void (*hook)(SEXP, char *))
-{
-    R_ErrorHook = hook;
-}
-
-void R_ReturnOrRestart(SEXP val, SEXP env, Rboolean restart)
-{
-    int mask;
-    RCNTXT *c;
-
-    mask = CTXT_BROWSER | CTXT_FUNCTION;
-
-    for (c = R_GlobalContext; c; c = c->nextcontext) {
-	if (c->callflag & mask && c->cloenv == env)
-	    findcontext(mask, env, val);
-	else if (restart && IS_RESTART_BIT_SET(c->callflag))
-	    findcontext(CTXT_RESTART, c->cloenv, R_RestartToken);
-	else if (c->callflag == CTXT_TOPLEVEL)
-	    error(_("No function to return from, jumping to top level"));
-    }
-}
-
-NORET void R_JumpToToplevel(Rboolean restart)
-{
-    RCNTXT *c;
-
-    /* Find the target for the jump */
-    for (c = R_GlobalContext; c != NULL; c = c->nextcontext) {
-	if (restart && IS_RESTART_BIT_SET(c->callflag))
-	    findcontext(CTXT_RESTART, c->cloenv, R_RestartToken);
-	else if (c->callflag == CTXT_TOPLEVEL)
-	    break;
-    }
-    if (c != R_ToplevelContext)
-	warning(_("top level inconsistency?"));
-
-    R_jumpctxt(R_ToplevelContext, CTXT_TOPLEVEL, NULL);
-}
-#endif
-
 static void R_SetErrmessage(const char *s)
 {
     Rstrncpy(errbuf, s, sizeof(errbuf) - 1);
@@ -1556,6 +1500,15 @@ static void R_PrintDeferredWarnings(void)
 	PrintWarnings();
     }
 }
+
+/* if srcref indicates it is in bytecode, it needs a fixup */
+static SEXP fixBCSrcref(SEXP srcref, RCNTXT *c)
+{
+    if (srcref == R_InBCInterpreter)
+	srcref = R_findBCInterpreterSrcref(c);
+    return srcref;
+}
+
 /*
  * Return the traceback without deparsing the calls
  */
@@ -2394,25 +2347,44 @@ SEXP
 R_GetCurrentSrcref(int skip)
 {
     RCNTXT *c = R_GlobalContext;
-    SEXP srcref = R_Srcref;
+    SEXP srcref = NULL;
+    int keep_looking = skip == NA_INTEGER;
+    if (keep_looking) skip = 0;
     if (skip < 0) { /* to count up from the bottom, we need to count them all first */
 	while (c) {
-	    if (srcref && srcref != R_NilValue)
+	    if (c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN))
 		skip++;
-	    srcref = c->srcref;
 	    c = c->nextcontext;
 	};
 	if (skip < 0) return R_NilValue; /* not enough there */
 	c = R_GlobalContext;
-	srcref = R_Srcref;
     }
-    while (c && (skip || !srcref || srcref == R_NilValue)) {
-	if (srcref && srcref != R_NilValue)
+    	
+    /* If skip = NA, try current active srcref first. */
+    if (keep_looking) {
+    	srcref = R_getCurrentSrcref();
+        if (srcref && !isNull(srcref))
+    	  return srcref;
+    }
+    
+    /* Go to the first call */
+    while (c && !(c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN)))
+    	c = c->nextcontext;
+    
+    /* Now skip enough calls, regardless of srcref presence */
+    while (c && skip) {
+    	if (c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN))
 	    skip--;
-	srcref = c->srcref;
 	c = c->nextcontext;
     }
-    if (skip || !srcref)
+    /* Now get the next srcref.  If skip was not NA, don't
+       keep looking. */
+    do {
+	if (!c) break;
+        srcref = fixBCSrcref(c->srcref, c);
+        c = c->nextcontext;
+    } while (keep_looking && !(srcref && !isNull(srcref)));
+    if (!srcref)
 	srcref = R_NilValue;
     return srcref;
 }
@@ -2425,7 +2397,7 @@ R_GetSrcFilename(SEXP srcref)
     SEXP srcfile = getAttrib(srcref, R_SrcfileSymbol);
     if (TYPEOF(srcfile) != ENVSXP)
 	return ScalarString(mkChar(""));
-    srcfile = findVar(install("filename"), srcfile);
+    srcfile = R_findVar(install("filename"), srcfile);
     if (TYPEOF(srcfile) != STRSXP)
 	return ScalarString(mkChar(""));
     return srcfile;
@@ -2709,7 +2681,7 @@ attribute_hidden /* for now */
 NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
 {
     /* caller must make sure that 'cond' and 'call' are protected. */
-    R_signalCondition(cond, call, FALSE, exitOnly);
+    R_signalCondition(cond, call, TRUE, exitOnly);
 
     /* the first element of 'cond' must be a scalar string to be used
        as the error message in default error processing. */
@@ -2719,14 +2691,29 @@ NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
     if (TYPEOF(elt) != STRSXP || LENGTH(elt) != 1)
 	error(_("first element of condition object must be a scalar string"));
 
-    /* handler stack has been unwound so this uses the default handler */
-    errorcall(call, "%s", CHAR(STRING_ELT(elt, 0)));
+    errorcall_dflt(call, "%s", translateChar(STRING_ELT(elt, 0)));
 }
 
 attribute_hidden /* for now */
 NORET void R_signalErrorCondition(SEXP cond, SEXP call)
 {
     R_signalErrorConditionEx(cond, call, FALSE);
+}
+
+attribute_hidden /* for now */
+void R_signalWarningCondition(SEXP cond)
+{
+    static SEXP condSym = NULL;
+    static SEXP expr = NULL;
+    if (expr == NULL) {
+        condSym = install("cond");
+        expr = R_ParseString("warning(cond)");
+        R_PreserveObject(expr);
+    }
+    SEXP env = PROTECT(R_NewEnv(R_BaseNamespace, FALSE, 0));
+    defineVar(condSym, cond, env);
+    evalKeepVis(expr, env);
+    UNPROTECT(1); /* env*/
 }
 
 
@@ -2788,7 +2775,30 @@ SEXP R_makeErrorCondition(SEXP call,
     va_end(ap);
     return cond;
 }
-			  
+
+NORET void R_MissingArgError_c(const char* arg, SEXP call, const char* subclass)
+{
+    if (call == R_CurrentExpression) /* as error() */
+	call = getCurrentCall();
+    PROTECT(call);
+    SEXP cond;
+    if(*arg)
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+				    _("argument \"%s\" is missing, with no default"), arg);
+    else
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+				    _("argument is missing, with no default"));
+    PROTECT(cond);
+    R_signalErrorCondition(cond, call);
+    UNPROTECT(2); /* not reached */
+}
+
+NORET void R_MissingArgError(SEXP symbol, SEXP call, const char* subclass)
+{
+    R_MissingArgError_c(CHAR(PRINTNAME(symbol)), call, subclass);
+}
+
+
 attribute_hidden /* for now */
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val)
 {
@@ -2854,10 +2864,10 @@ SEXP R_makeOutOfBoundsError(SEXP x, int subscript, SEXP sindex,
 				    "%s", R_MSG_subs_o_b);
     PROTECT(cond);
 
-    /* In some cases the 'sbscript' argument is negative, indicating
+    /* In some cases the 'subscript' argument is negative, indicating
        that which subscript is out of bounds is not known. We could
        probably do better, but for now report 'subscript' as NA in the
-       condition objec. */
+       condition object. */
     SEXP ssub = ScalarInteger(subscript >= 0 ? subscript + 1 : NA_INTEGER);
     PROTECT(ssub);
 
@@ -2901,6 +2911,75 @@ attribute_hidden SEXP R_getNodeStackOverflowError(void)
 {
     return R_nodeStackOverflowError;
 }
+
+attribute_hidden /* for now */
+SEXP R_vmakeWarningCondition(SEXP call,
+			   const char *classname, const char *subclassname,
+			   int nextra, const char *format, va_list ap)
+{
+    if (call == R_CurrentExpression)
+	/* behave like warning() */
+	call = getCurrentCall();
+    PROTECT(call);
+    int nelem = nextra + 2;
+    SEXP cond = PROTECT(allocVector(VECSXP, nelem));
+
+    Rvsnprintf_mbcs(emsg_buf, BUFSIZE, format, ap);
+    SET_VECTOR_ELT(cond, 0, mkString(emsg_buf));
+    SET_VECTOR_ELT(cond, 1, call);
+
+    SEXP names = allocVector(STRSXP, nelem);
+    setAttrib(cond, R_NamesSymbol, names);
+    SET_STRING_ELT(names, 0, mkChar("message"));
+    SET_STRING_ELT(names, 1, mkChar("call"));
+
+    SEXP klass = allocVector(STRSXP, subclassname == NULL ? 3 : 4);
+    setAttrib(cond, R_ClassSymbol, klass);
+    if (subclassname == NULL) {
+	SET_STRING_ELT(klass, 0, mkChar(classname));
+	SET_STRING_ELT(klass, 1, mkChar("warning"));
+	SET_STRING_ELT(klass, 2, mkChar("condition"));
+    }
+    else {
+	SET_STRING_ELT(klass, 0, mkChar(subclassname));
+	SET_STRING_ELT(klass, 1, mkChar(classname));
+	SET_STRING_ELT(klass, 2, mkChar("warning"));
+	SET_STRING_ELT(klass, 3, mkChar("condition"));
+    }
+
+    UNPROTECT(2); /* cond, call */
+
+    return cond;
+}
+
+attribute_hidden /* for now */
+SEXP R_makeWarningCondition(SEXP call,
+			  const char *classname, const char *subclassname,
+			  int nextra, const char *format, ...)
+{
+    va_list(ap);
+    va_start(ap, format);
+    SEXP cond = R_vmakeWarningCondition(call, classname, subclassname,
+				      nextra, format, ap);
+    va_end(ap);
+    return cond;
+}
+
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal)
+{
+    SEXP cond =
+	R_makeWarningCondition(call, "partialMatchWarning", NULL, 2,
+			       _("partial argument match of '%s' to '%s'"),
+			       CHAR(PRINTNAME(argument)),//EncodeChar??
+			       CHAR(PRINTNAME(formal)));//EncodeChar??
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "argument", argument);
+    R_setConditionField(cond, 3, "formal", formal);
+    // idealy we would want the function/object in a field also
+    UNPROTECT(1); /* cond */
+    return cond;
+}
+
 
 #define PROT_SO_MSG _("protect(): protection stack overflow")
 #define EXPR_SO_MSG _("evaluation nested too deeply: infinite recursion / options(expressions=)?")

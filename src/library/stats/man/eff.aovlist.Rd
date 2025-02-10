@@ -4,7 +4,7 @@
 % Distributed under GPL 2 or later
 
 \name{eff.aovlist}
-\title{Compute Efficiencies of Multistratum Analysis of Variance}
+\title{Compute Efficiencies of \I{Multistratum} Analysis of Variance}
 \usage{
 eff.aovlist(aovlist)
 }
@@ -70,9 +70,9 @@ aovdat <- data.frame(Block, A, B, C, Yield)
 
 old <- getOption("contrasts")
 options(contrasts = c("contr.helmert", "contr.poly"))
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 (fit <- aov(Yield ~ A*B*C + Error(Block), data = aovdat))
-## IGNORE_RDIFF_END
+}
 eff.aovlist(fit)
 options(contrasts = old)
 }

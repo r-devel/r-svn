@@ -1,13 +1,13 @@
 % File src/library/stats/man/mauchly.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mauchly.test}
 \alias{mauchly.test}
 \alias{mauchly.test.SSD}
 \alias{mauchly.test.mlm}
-\title{Mauchly's Test of Sphericity}
+\title{\I{Mauchly}'s Test of Sphericity}
 \description{
   Tests whether a Wishart-distributed covariance matrix (or
   transformation thereof) is proportional to a given matrix.
@@ -16,8 +16,8 @@
 mauchly.test(object, ...)
 \method{mauchly.test}{mlm}(object, ...)
 \method{mauchly.test}{SSD}(object, Sigma = diag(nrow = p),
-   T = Thin.row(Proj(M) - Proj(X)), M = diag(nrow = p), X = ~0,
-   idata = data.frame(index = seq_len(p)), ...)
+             T = Thin.row(Proj(M) - Proj(X)), M = diag(nrow = p), X = ~0,
+             idata = data.frame(index = seq_len(p)), ...)
 }
 \arguments{
   \item{object}{object of class \code{SSD} or \code{mlm}.}
@@ -35,7 +35,7 @@ mauchly.test(object, ...)
 
   The basic method is for objects of
   class \code{SSD} the method for \code{mlm} objects just extracts the
-  SSD matrix and invokes the corresponding method with the same options
+  \abbr{SSD} matrix and invokes the corresponding method with the same options
   and arguments.
 
   The \code{T} argument is used to transform the observations prior to
@@ -53,7 +53,7 @@ mauchly.test(object, ...)
   compound symmetry in the untransformed covariance matrix.
 
   Notice that the defaults involve \code{p}, which is calculated
-  internally as the dimension of the SSD matrix, and a couple of hidden
+  internally as the dimension of the \abbr{SSD} matrix, and a couple of hidden
   functions in the \pkg{stats} namespace, namely \code{proj} which
   calculates projection matrices from design matrices or model formulas
   and \code{Thin.row} which removes linearly dependent rows from a

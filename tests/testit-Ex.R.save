@@ -6,7 +6,11 @@
 
 \x
 %{}
-foo(x, y)
+
+## Not run: stop("doomed to fail")
+
+foo(x,
+    y)
 
 
 

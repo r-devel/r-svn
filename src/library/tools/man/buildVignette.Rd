@@ -65,7 +65,7 @@ buildVignette(file, dir = ".", weave = TRUE, latex = TRUE, tangle = TRUE,
   A character vector naming the files that have been produced.
 }
 \author{
-  Henrik Bengtsson and Duncan Murdoch
+  \I{Henrik Bengtsson} and Duncan Murdoch
 }
 \seealso{
   \code{\link{buildVignettes}} for building all vignettes in a package.

@@ -1769,12 +1769,12 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 		char *ptr = R_alloc(n * sizeof(Rbyte) + 2 * NG, 1);
 		memset(ptr, FILL, n * sizeof(Rbyte) + 2 * NG);
 		ptr += NG;
-		memcpy(ptr, RAW(s), n);
+		if (n) memcpy(ptr, RAW(s), n);
 		cargs[na] = (void *) ptr;
 	    } else if (MAYBE_REFERENCED(s)) {
 		n = XLENGTH(s);
 		SEXP ss = allocVector(t, n);
-		memcpy(RAW(ss), RAW(s), n * sizeof(Rbyte));
+		if (n) memcpy(RAW(ss), RAW(s), n * sizeof(Rbyte));
 		SET_VECTOR_ELT(ans, na, ss);
 		cargs[na] = (void*) RAW(ss);
 #ifdef R_MEMORY_PROFILING
@@ -1794,11 +1794,11 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 		char *ptr = R_alloc(n * sizeof(int) + 2 * NG, 1);
 		memset(ptr, FILL, n * sizeof(int) + 2 * NG);
 		ptr += NG;
-		memcpy(ptr, INTEGER(s), n * sizeof(int));
+		if (n) memcpy(ptr, INTEGER(s), n * sizeof(int));
 		cargs[na] = (void*) ptr;
 	    } else if (MAYBE_REFERENCED(s)) {
 		SEXP ss = allocVector(t, n);
-		memcpy(INTEGER(ss), INTEGER(s), n * sizeof(int));
+		if (n) memcpy(INTEGER(ss), INTEGER(s), n * sizeof(int));
 		SET_VECTOR_ELT(ans, na, ss);
 		cargs[na] = (void*) INTEGER(ss);
 #ifdef R_MEMORY_PROFILING
@@ -1824,11 +1824,11 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 		char *ptr = R_alloc(n * sizeof(double) + 2 * NG, 1);
 		memset(ptr, FILL, n * sizeof(double) + 2 * NG);
 		ptr += NG;
-		memcpy(ptr, REAL(s), n * sizeof(double));
+		if (n) memcpy(ptr, REAL(s), n * sizeof(double));
 		cargs[na] = (void*) ptr;
 	    } else if (MAYBE_REFERENCED(s)) {
 		SEXP ss  = allocVector(t, n);
-		memcpy(REAL(ss), REAL(s), n * sizeof(double));
+		if (n) memcpy(REAL(ss), REAL(s), n * sizeof(double));
 		SET_VECTOR_ELT(ans, na, ss);
 		cargs[na] = (void*) REAL(ss);
 #ifdef R_MEMORY_PROFILING
@@ -1847,11 +1847,11 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 		char *ptr = R_alloc(n * sizeof(Rcomplex) + 2 * NG, 1);
 		memset(ptr, FILL, n * sizeof(Rcomplex) + 2 * NG);
 		ptr += NG;
-		memcpy(ptr, COMPLEX(s), n * sizeof(Rcomplex));
+		if (n) memcpy(ptr, COMPLEX(s), n * sizeof(Rcomplex));
 		cargs[na] = (void*) ptr;
 	    } else if (MAYBE_REFERENCED(s)) {
 		SEXP ss = allocVector(t, n);
-		memcpy(COMPLEX(ss), COMPLEX(s), n * sizeof(Rcomplex));
+		if (n) memcpy(COMPLEX(ss), COMPLEX(s), n * sizeof(Rcomplex));
 		SET_VECTOR_ELT(ans, na, ss);
 		cargs[na] = (void*) COMPLEX(ss);
 #ifdef R_MEMORY_PROFILING
@@ -2561,7 +2561,7 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (copy) {
 		s = allocVector(type, n);
 		unsigned char *ptr = (unsigned char *) p;
-		memcpy(RAW(s), ptr, n * sizeof(Rbyte));
+		if (n) memcpy(RAW(s), ptr, n * sizeof(Rbyte));
 		ptr += n * sizeof(Rbyte);
 		for (int i = 0; i < NG; i++)
 		    if(*ptr++ != FILL)
@@ -2580,7 +2580,7 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (copy) {
 		s = allocVector(type, n);
 		unsigned char *ptr = (unsigned char *) p;
-		memcpy(INTEGER(s), ptr, n * sizeof(int));
+		if (n) memcpy(INTEGER(s), ptr, n * sizeof(int));
 		ptr += n * sizeof(int);
 		for (int i = 0; i < NG; i++)
 		    if(*ptr++ != FILL)
@@ -2634,7 +2634,7 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 			REAL(s)[i] = (double) sptr[i];
 		} else {
 		    unsigned char *ptr = (unsigned char *) p;
-		    memcpy(REAL(s), ptr, n * sizeof(double));
+		    if (n) memcpy(REAL(s), ptr, n * sizeof(double));
 		    ptr += n * sizeof(double);
 		    for (int i = 0; i < NG; i++)
 			if(*ptr++ != FILL)
@@ -2662,7 +2662,7 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (copy) {
 		s = allocVector(type, n);
 		unsigned char *ptr = (unsigned char *) p;
-		memcpy(COMPLEX(s), p, n * sizeof(Rcomplex));
+		if (n) memcpy(COMPLEX(s), p, n * sizeof(Rcomplex));
 		ptr += n * sizeof(Rcomplex);
 		for (int i = 0; i < NG;  i++)
 		    if(*ptr++ != FILL)
@@ -2736,176 +2736,3 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
     vmaxset(vmax);
     return ans;
 }
-
-#define NO_CALL_R
-
-#ifndef NO_CALL_R
-// call_R was deprecated in R 2.15.0 and removed from RS.h in R 4.2.0
-
-static const struct {
-    const char *name;
-    const SEXPTYPE type;
-}
-
-typeinfo[] = {
-    {"logical",	  LGLSXP },
-    {"integer",	  INTSXP },
-    {"double",	  REALSXP},
-    {"complex",	  CPLXSXP},
-    {"character", STRSXP },
-    {"list",	  VECSXP },
-    {NULL,	  0      }
-};
-
-static int string2type(char *s)
-{
-    int i;
-    for (i = 0 ; typeinfo[i].name ; i++) {
-	if(!strcmp(typeinfo[i].name, s)) {
-	    return typeinfo[i].type;
-	}
-    }
-    error(_("type \"%s\" not supported in interlanguage calls"), s);
-    return 1; /* for -Wall */
-}
-
-/* This is entirely legacy, with no known users (Mar 2012).
-   So we freeze the code involved.
- */
-
-static void *RObjToCPtr2(SEXP s)
-{
-    int n;
-
-    switch(TYPEOF(s)) {
-    case LGLSXP:
-    case INTSXP:
-	n = LENGTH(s);
-	int *iptr = INTEGER(s);
-	iptr = (int*) R_alloc(n, sizeof(int));
-	for (int i = 0 ; i < n ; i++) iptr[i] = INTEGER(s)[i];
-	return (void*) iptr;
-	break;
-    case REALSXP:
-	n = LENGTH(s);
-	double *rptr = REAL(s);
-	rptr = (double*) R_alloc(n, sizeof(double));
-	for (int i = 0 ; i < n ; i++) rptr[i] = REAL(s)[i];
-	return (void*) rptr;
-	break;
-    case CPLXSXP:
-	n = LENGTH(s);
-	Rcomplex *zptr = COMPLEX(s);
-	zptr = (Rcomplex*) R_alloc(n, sizeof(Rcomplex));
-	for (int i = 0 ; i < n ; i++) zptr[i] = COMPLEX(s)[i];
-	return (void*) zptr;
-	break;
-    case STRSXP:
-	n = LENGTH(s);
-	char **cptr = (char**) R_alloc(n, sizeof(char*));
-	for (int i = 0 ; i < n ; i++) {
-	    const char *ss = translateChar(STRING_ELT(s, i));
-	    cptr[i] = (char*) R_alloc(strlen(ss) + 1, sizeof(char));
-	    strcpy(cptr[i], ss);
-	}
-	return (void*) cptr;
-	break;
-	/* From here down, probably not right */
-    case VECSXP:
-	n = length(s);
-	SEXP *lptr = (SEXP *) R_alloc(n, sizeof(SEXP));
-	for (int i = 0 ; i < n ; i++) lptr[i] = VECTOR_ELT(s, i);
-	return (void*) lptr;
-	break;
-    default:
-	return (void*) s;
-    }
-}
-
-void call_R(char *func, long nargs, void **arguments, char **modes,
-	    long *lengths, char **names, long nres, char **results)
-{
-    SEXP call, pcall, s;
-    SEXPTYPE type;
-    int i, j, n;
-
-    if (!isFunction((SEXP)func))
-	error("invalid function in call_R");
-    if (nargs < 0)
-	error("invalid argument count in call_R");
-    if (nres < 0)
-	error("invalid return value count in call_R");
-    PROTECT(pcall = call = allocList((int) nargs + 1));
-    SET_TYPEOF(call, LANGSXP);
-    SETCAR(pcall, (SEXP)func);
-    s = R_NilValue;		/* -Wall */
-    for (i = 0 ; i < nargs ; i++) {
-	pcall = CDR(pcall);
-	type = string2type(modes[i]);
-	switch(type) {
-	case LGLSXP:
-	case INTSXP:
-	    n = (int) lengths[i];
-	    SETCAR(pcall, allocVector(type, n));
-	    memcpy(INTEGER(CAR(pcall)), arguments[i], n * sizeof(int));
-	    break;
-	case REALSXP:
-	    n = (int) lengths[i];
-	    SETCAR(pcall, allocVector(REALSXP, n));
-	    memcpy(REAL(CAR(pcall)), arguments[i], n * sizeof(double));
-	    break;
-	case CPLXSXP:
-	    n = (int) lengths[i];
-	    SETCAR(pcall, allocVector(CPLXSXP, n));
-	    memcpy(REAL(CAR(pcall)), arguments[i], n * sizeof(Rcomplex));
-	    break;
-	case STRSXP:
-	    n = (int) lengths[i];
-	    SETCAR(pcall, allocVector(STRSXP, n));
-	    for (j = 0 ; j < n ; j++) {
-		char *str = (char*)(arguments[i]);
-		SET_STRING_ELT(CAR(pcall), i, mkChar(str));
-	    }
-	    break;
-	default:
-	    error(_("mode '%s' is not supported in call_R"), modes[i]);
-	}
-	if(names && names[i])
-	    SET_TAG(pcall, install(names[i]));
-	ENSURE_NAMEDMAX(CAR(pcall));
-    }
-    PROTECT(s = eval(call, R_GlobalEnv));
-    switch(TYPEOF(s)) {
-    case LGLSXP:
-    case INTSXP:
-    case REALSXP:
-    case CPLXSXP:
-    case STRSXP:
-	if(nres > 0)
-	    results[0] = (char *) RObjToCPtr2(s);
-	break;
-    case VECSXP:
-	n = length(s);
-	if (nres < n) n = (int) nres;
-	for (i = 0 ; i < n ; i++)
-	    results[i] = (char *) RObjToCPtr2(VECTOR_ELT(s, i));
-	break;
-    case LISTSXP:
-	n = length(s);
-	if(nres < n) n = (int) nres;
-	for(i = 0 ; i < n ; i++) {
-	    results[i] = (char *) RObjToCPtr2(s);
-	    s = CDR(s);
-	}
-	break;
-    }
-    UNPROTECT(2);
-    return;
-}
-
-void call_S(char *func, long nargs, void **arguments, char **modes,
-	    long *lengths, char **names, long nres, char **results)
-{
-    call_R(func, nargs, arguments, modes, lengths, names, nres, results);
-}
-#endif

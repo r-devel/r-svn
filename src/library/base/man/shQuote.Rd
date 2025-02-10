@@ -20,7 +20,7 @@ shQuote(string, type = c("sh", "csh", "cmd", "cmd2"))
 }
 \details{
   The default type of quoting supported under Unix-alikes is that for
-  the Bourne shell \code{sh}.  If the string does not contain single
+  the \I{Bourne} shell \code{sh}.  If the string does not contain single
   quotes, we can just surround it with single quotes.  Otherwise, the
   string is surrounded in double quotes, which suppresses all special
   meanings of metacharacters except dollar, backquote and backslash, so

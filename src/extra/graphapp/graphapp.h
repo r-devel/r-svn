@@ -6,7 +6,7 @@
  *  This header file is designed to be platform-independent.
  *
  *  Copyright 2006-8	The R Foundation
- *  Copyright 2013-23	The R Core Team
+ *  Copyright 2013-24	The R Core Team
  *
  */
 
@@ -21,6 +21,11 @@
  *  Assume C declarations for C++
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <R_ext/libextern.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* begin normal C declarations */
@@ -29,8 +34,6 @@ extern "C" {
  *  Definition of some constants.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 
 #ifndef Pi
 #define Pi 3.14159265359
@@ -42,10 +45,22 @@ extern "C" {
 
 typedef unsigned char GAbyte;
 
+/*
+R modification for public code: disable the gui_obj below, but instead use
+an incomplete declaration of objinfo (see internal.h) in the public
+interface.  This avoids running into LTO-detected type mismatch e.g.  on
+global variable Rconsole in rui.h/rui.c.
+
 #ifndef objptr
   typedef struct { int kind; } gui_obj;
   typedef gui_obj * objptr;
 #endif
+*/
+
+typedef struct objinfo objinfo;
+typedef objinfo *objptr;
+
+/* end of R modification */
 
 typedef unsigned long rgb;    /* red-green-blue colour value */
 
@@ -1239,7 +1254,6 @@ void	showcaret(control c, int showing);
  *  Library supplied variables.
  */
 
-#include <R_ext/libextern.h>
 #undef LibExtern
 #ifdef GA_DLL_BUILD
 # define LibExtern extern

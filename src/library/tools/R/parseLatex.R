@@ -18,12 +18,13 @@
 
 parseLatex <- function(text, filename = deparse1(substitute(text)),
                      verbose = FALSE, verbatim = c("verbatim", "verbatim*",
-                     "Sinput", "Soutput") )
+                     "Sinput", "Soutput"),
+		     verb = "\\Sexpr")
 {
     ## the internal function must get some sort of srcfile
     srcfile <- srcfilecopy(filename, text, file.mtime(filename))
     text <- paste(text, collapse="\n")
-    .External2(C_parseLatex, text, srcfile, verbose, as.character(verbatim))
+    .External2(C_parseLatex, text, srcfile, verbose, as.character(verbatim), as.character(verb))
 }
 
 
@@ -56,6 +57,7 @@ deparseLatex <- function(x, dropBraces = FALSE)
         	Recall(a[[2L]]),
         	"\\end{", a[[1L]], "}"),
         MATH = c("$", Recall(a), "$"), # \( and \) parse as MACRO
+        DISPLAYMATH = c("$$", Recall(a), "$$"),
         NULL = stop("Internal error, no tag", domain = NA)
         ))
         lastTag <- tag
@@ -130,7 +132,8 @@ latexToUtf8 <- function(x)
 			},
 			BLOCK =,
 			ENVIRONMENT =,
-			MATH = {
+			MATH =,
+			DISPLAYMATH = {
 			    args[[k]] <- latexToUtf8(nextobj)
 			    k <- k+1L
 			    getNext <- TRUE

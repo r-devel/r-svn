@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023  The R Core Team
+ *  Copyright (C) 1998--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <limits.h> /* required for MB_LEN_MAX */
+#include <string.h>
 
 #include <wchar.h>
 #include <wctype.h>
@@ -3258,7 +3259,7 @@ PSDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 
     /* initialise postscript device description */
     strcpy(pd->filename, file);
-    strcpy(pd->papername, paper);
+    safestrcpy(pd->papername, paper, 64);
     strncpy(pd->title, title, 1023);
     pd->title[1023] = '\0';
     if (streql(colormodel, "grey")) strcpy(pd->colormodel, "grey");
@@ -4453,6 +4454,30 @@ static void drawSimpleText(double x, double y, const char *str,
     }
 }
 
+#ifdef Win32
+static R_wchar_t utf8toutf32(const char *utf8char)
+{
+    void *cd = NULL;
+    cd = Riconv_open("UTF-32LE", "UTF-8");
+    if (cd == (void *)-1)
+	return 0;
+
+    R_wchar_t out;
+    char *outbuf = (char *)&out;
+    size_t status;
+    size_t inbytesleft = utf8clen(*utf8char);
+    size_t outbytesleft = 4;
+    
+    status = Riconv(cd, &utf8char, &inbytesleft, &outbuf, &outbytesleft);
+    Riconv_close(cd);
+
+    if (status == (size_t)-1)
+	return 0;
+    else
+	return out;
+}
+#endif
+
 /* <FIXME> it would make sense to cache 'cd' here, but we would also
    need to know if the current locale's charset changes.  However,
    currently this is only called in a UTF-8 locale.
@@ -4463,9 +4488,24 @@ static void mbcsToSbcs(const char *in, char *out, const char *encoding,
     void *cd = NULL;
     const char *i_buf; char *o_buf;
     size_t i_len, o_len, status;
+    const char *fromenc = (enc == CE_UTF8) ? "UTF-8" : "";
 
-    if ((void*)-1 ==
-	(cd = Riconv_open(encoding, (enc == CE_UTF8) ? "UTF-8" : "")))
+/* Win32 - disable "OS"-level transliteration. */
+#if 0
+    if (utf8locale) {
+	/* //nobestfit is not portable, only supported by R's customized
+	   copy of win_iconv */
+	size_t needed = strlen(encoding) + strlen("//nobestfit") + 1;
+	R_CheckStack2(needed);
+	char toenc[needed];
+	snprintf(toenc, needed, "%s//nobestfit", encoding);
+	cd = Riconv_open(toenc, fromenc);
+    } else
+	cd = Riconv_open(encoding, fromenc);
+#else
+    cd = Riconv_open(encoding, fromenc);
+#endif
+    if (cd == (void*)-1)
 	error(_("unknown encoding '%s' in 'mbcsToSbcs'"), encoding);
 
     if (!silent) {
@@ -4496,21 +4536,34 @@ next_char:
 	    int res =
 		(int) utf8toucs(&wc, i_buf); // gives -1 for a conversion error
 	    if (res != -1) {
+		R_wchar_t ucs = wc;
+		R_CheckStack2(clen + 1);
+		char badchar[clen + 1];
+		memcpy(badchar, i_buf, clen);
+		badchar[clen] = '\0';
+#ifdef Win32
+		if (IS_HIGH_SURROGATE(wc)) {
+		    ucs = utf8toutf32(i_buf);
+		    if (!ucs)
+			/* conversion failed (should not happen) */
+			ucs = wc;
+		}
+#endif
 		char *fix = NULL;
 		// four-char fixups
-		if (wc == 0x2030) fix = "o/oo"; // permille, done by macOS
-		else if (wc == 0x33C2) fix = "a.m.";
-		else if (wc == 0x33D8) fix = "p.m.";
+		if (ucs == 0x2030) fix = "o/oo"; // permille, done by macOS
+		else if (ucs == 0x33C2) fix = "a.m.";
+		else if (ucs == 0x33D8) fix = "p.m.";
 		
 		// three-char fixups, done by macOS
-		else if (wc == 0xFB03) fix = "ffi";
-		else if (wc == 0xFB04) fix = "ffl";
-		else if (wc == 0x2194) fix = "<->";
-		else if (wc == 0x21D4) fix = "<=>";
-		else if (wc == 0x22D8) fix = "<<<";
-		else if (wc == 0x22D9) fix = ">>>";
-		else if (wc == 0x2026) fix = "...";
-		else if (wc == 0x22EF) { // done by macOS in latin1
+		else if (ucs == 0xFB03) fix = "ffi";
+		else if (ucs == 0xFB04) fix = "ffl";
+		else if (ucs == 0x2194) fix = "<->";
+		else if (ucs == 0x21D4) fix = "<=>";
+		else if (ucs == 0x22D8) fix = "<<<";
+		else if (ucs == 0x22D9) fix = ">>>";
+		else if (ucs == 0x2026) fix = "...";
+		else if (ucs == 0x22EF) { // done by macOS in latin1
 		    /* In most 8-bit encodings B7 is the 'middle dot',
 		       U+00D7,, but not all, e.g. KOI8-?.
 		       Very rare, so don't worry about speed.
@@ -4531,49 +4584,49 @@ next_char:
 		    else fix = "...";
 		}
 		// Possible future re-mapping
-		// else if (wc == 0x20AC) fix = "EUR";
+		// else if (ucs == 0x20AC) fix = "EUR";
 
 		// two-char fixups
 		// left and right arrows, 0x2190 0x2192 0xFFE9 0xFFEB done by macOS
-		else if(wc == 0x2190 || wc == 0xFFE9) fix = "<-";
-		else if(wc == 0x2192 || wc == 0x2794 || wc == 0x279C ||
-			wc == 0x279D || wc == 0x279E || wc == 0x279F ||
-			wc == 0x27a1 || wc == 0x27a2 || wc == 0xFFEB)
+		else if(ucs == 0x2190 || ucs == 0xFFE9) fix = "<-";
+		else if(ucs == 0x2192 || ucs == 0x2794 || ucs == 0x279C ||
+			ucs == 0x279D || ucs == 0x279E || ucs == 0x279F ||
+			ucs == 0x27a1 || ucs == 0x27a2 || ucs == 0xFFEB)
 		    fix = "->";
 		// more done by macOS
-		else if(wc == 0x2260) fix = "/=";
-		else if(wc == 0x226A) fix = "<<";
-		else if(wc == 0x226B) fix = ">>";
-		else if(wc == 0x2025) fix = "..";
-		else if(wc == 0x203C) fix = "!!";
+		else if(ucs == 0x2260) fix = "/=";
+		else if(ucs == 0x226A) fix = "<<";
+		else if(ucs == 0x226B) fix = ">>";
+		else if(ucs == 0x2025) fix = "..";
+		else if(ucs == 0x203C) fix = "!!";
 		// some common ligatures: AE and ae are latin1.
 		// all done by macOS
-		else if(wc == 0xFB00) fix = "ff";
-		else if(wc == 0xFB01) fix = "fi";
-		else if(wc == 0xFB02) fix = "fl";
-		else if(wc == 0x0152) fix = "OE";
-		else if(wc == 0x0153) fix = "oe";
-		else if(wc == 0x2122) fix = "TM";
+		else if(ucs == 0xFB00) fix = "ff";
+		else if(ucs == 0xFB01) fix = "fi";
+		else if(ucs == 0xFB02) fix = "fl";
+		else if(ucs == 0x0152) fix = "OE";
+		else if(ucs == 0x0153) fix = "oe";
+		else if(ucs == 0x2122) fix = "TM";
 		// The next two could and probably should be done by plotmath.
-		else if(wc == 0x2264) fix = "<=";
-		else if(wc == 0x2265) fix = ">=";
+		else if(ucs == 0x2264) fix = "<=";
+		else if(ucs == 0x2265) fix = ">=";
 
 		// one-char fixups
-		else if (wc == 0x2013 || wc == 0x2014 || wc == 0x2212)
+		else if (ucs == 0x2013 || ucs == 0x2014 || ucs == 0x2212)
 		    fix = "-"; // dashes, minus, done by macOS
 		// done by macOS, latter to acute accent U+00B4 in Latin-1 (but not Latin-7)
-		else if (wc == 0x2018 || wc == 0x2019) fix = "'";
-		else if (wc == 0x201C || wc == 0x201D) fix = "\""; // done by macOS
-		else if (wc == 0x2022) fix = "."; // 'bullet', changed to "o" by macOS
-		else if (wc == 0x2605 || wc == 0x2737) fix = "*";
+		else if (ucs == 0x2018 || ucs == 0x2019) fix = "'";
+		else if (ucs == 0x201C || ucs == 0x201D) fix = "\""; // done by macOS
+		else if (ucs == 0x2022) fix = "."; // 'bullet', changed to "o" by macOS
+		else if (ucs == 0x2605 || ucs == 0x2737) fix = "*";
 		if (!fix) {
 		    if (fail)
-			error("conversion failure on '%s' in 'mbcsToSbcs': for %lc (U+%04X)", in, wc, wc);
+			error("conversion failure on '%s' in 'mbcsToSbcs': for %s (U+%04X)", in, badchar, (unsigned int)ucs);
 		    else if(!silent)
-			warning("conversion failure on '%s' in 'mbcsToSbcs': for %lc (U+%04X)", in, wc, wc);
+			warning("conversion failure on '%s' in 'mbcsToSbcs': for %s (U+%04X)", in, badchar, (unsigned int)ucs);
 		    fix = ".";  // default fix is one dot per char
 		} else if(!silent)
-		    warning("for '%s' in 'mbcsToSbcs': %s substituted for %lc (U+%04X)", in, fix, wc, wc);
+		    warning("for '%s' in 'mbcsToSbcs': %s substituted for %s (U+%04X)", in, fix, badchar, (unsigned int)ucs);
 		size_t nfix = strlen(fix);
 		for (int j = 0; j < nfix; j++) *o_buf++ = *fix++;
 		o_len -= nfix; i_buf += clen; i_len -= clen;
@@ -5060,7 +5113,7 @@ XFigDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 
     /* initialize xfig device description */
     strcpy(pd->filename, file);
-    strcpy(pd->papername, paper);
+    safestrcpy(pd->papername, paper, 64);
     pd->fontnum = XFigBaseNum(family);
     /* this might have changed the family, so update */
     if(pd->fontnum == 16) family = "Helvetica";
@@ -5840,6 +5893,9 @@ typedef struct {
     Rboolean dingbats, useKern;
     Rboolean fillOddEven; /* polygon fill mode */
     Rboolean useCompression;
+    Rboolean timestamp;
+    Rboolean producer;
+    char author[1024];
     char tmpname[R_PATH_MAX]; /* used before compression */
 
     /*
@@ -7712,7 +7768,8 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 		const char *title, SEXP fonts,
 		int versionMajor, int versionMinor,
 		const char *colormodel, int dingbats, int useKern,
-		Rboolean fillOddEven, Rboolean useCompression)
+		Rboolean fillOddEven, Rboolean useCompression, 
+		Rboolean timestamp, Rboolean producer, const char *author)
 {
     /* If we need to bail out with some sort of "error" */
     /* then we must free(dd) */
@@ -7777,7 +7834,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
         strcpy(pd->filename, file);
     else 
         strcpy(pd->filename, "nullPDF");
-    strcpy(pd->papername, paper);
+    safestrcpy(pd->papername, paper, 64);
     strncpy(pd->title, title, 1023);
     pd->title[1023] = '\0';
     memset(pd->fontUsed, 0, 100*sizeof(Rboolean));
@@ -7787,6 +7844,9 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pd->useKern = (useKern != 0);
     pd->fillOddEven = fillOddEven;
     pd->useCompression = useCompression;
+    pd->timestamp = timestamp;
+    pd->producer = producer;
+    safestrcpy(pd->author, author, 1024);
     if(useCompression && pd->versionMajor == 1 && pd->versionMinor < 2) {
 	pd->versionMinor = 2;
 	warning(_("increasing the PDF version to 1.2"));
@@ -8518,17 +8578,24 @@ static void PDF_startfile(PDFDesc *pd)
 
     ct = time(NULL);
     ltm = localtime(&ct);
-    fprintf(pd->pdffp,
-	    "1 0 obj\n<<\n/CreationDate (D:%04d%02d%02d%02d%02d%02d)\n",
+    fprintf(pd->pdffp, "1 0 obj\n<<\n");
+    if (pd->timestamp) {
+	fprintf(pd->pdffp,
+	    "/CreationDate (D:%04d%02d%02d%02d%02d%02d)\n",
 	    1900 + ltm->tm_year, ltm->tm_mon+1, ltm->tm_mday,
 	    ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-    fprintf(pd->pdffp,
+	fprintf(pd->pdffp,
 	    "/ModDate (D:%04d%02d%02d%02d%02d%02d)\n",
 	    1900 + ltm->tm_year, ltm->tm_mon+1, ltm->tm_mday,
 	    ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-    fprintf(pd->pdffp, "/Title (%s)\n", pd->title);
-    fprintf(pd->pdffp, "/Producer (R %s.%s)\n/Creator (R)\n>>\nendobj\n",
-	    R_MAJOR, R_MINOR);
+    }
+    if (strlen(pd->title) > 0)
+	fprintf(pd->pdffp, "/Title (%s)\n", pd->title);
+    if (strlen(pd->author) > 0)
+	fprintf(pd->pdffp, "/Author (%s)\n", pd->author);
+    if (pd->producer)
+	fprintf(pd->pdffp, "/Producer (R %s.%s)\n", R_MAJOR, R_MINOR);
+    fprintf(pd->pdffp, "/Creator (R)\n>>\nendobj\n");
 
     /* Object 2 is the Catalog, pointing to pages list in object 3 (at end) */
 
@@ -10926,6 +10993,7 @@ SEXP XFig(SEXP args)
  *  height	= height in inches
  *  ps		= pointsize
  *  onefile     = {TRUE: normal; FALSE: single page per file}
+ *  pagecentre
  *  title
  *  fonts
  *  versionMajor
@@ -10934,6 +11002,7 @@ SEXP XFig(SEXP args)
  *  useDingbats
  *  forceLetterSpacing
  *  fillOddEven
+ *  ...
  */
 
 SEXP PDF(SEXP args)
@@ -10941,10 +11010,11 @@ SEXP PDF(SEXP args)
     pGEDevDesc gdd;
     const void *vmax;
     const char *file, *paper, *encoding, *family = NULL /* -Wall */,
-	*bg, *fg, *title, call[] = "PDF", *colormodel;
+	*bg, *fg, *title, call[] = "PDF", *colormodel, *author;
     const char *afms[5];
     double height, width, ps;
-    int i, onefile, pagecentre, major, minor, dingbats, useKern, useCompression;
+    int i, onefile, pagecentre, major, minor, dingbats, useKern, useCompression, 
+	timestamp, producer;
     SEXP fam, fonts;
     Rboolean fillOddEven;
 
@@ -10990,6 +11060,13 @@ SEXP PDF(SEXP args)
     useCompression = asLogical(CAR(args)); args = CDR(args);
     if (useCompression == NA_LOGICAL)
 	error(_("invalid value of '%s'"), "useCompression");
+    timestamp = asLogical(CAR(args)); args = CDR(args);
+    if (timestamp == NA_LOGICAL)
+	error(_("invalid value of '%s'"), "timestamp");
+    producer = asLogical(CAR(args)); args = CDR(args);
+    if (producer == NA_LOGICAL)
+	error(_("invalid value of '%s'"), "producer");
+    author = translateChar(asChar(CAR(args))); args = CDR(args);
 
     R_GE_checkVersionOrDie(R_GE_version);
     R_CheckDeviceAvailable();
@@ -11001,7 +11078,7 @@ SEXP PDF(SEXP args)
 			    width, height, ps, onefile, pagecentre,
 			    title, fonts, major, minor, colormodel,
 			    dingbats, useKern, fillOddEven,
-			    useCompression)) {
+			    useCompression, timestamp, producer, author)) {
 	    /* we no longer get here: error is thrown in PDFDeviceDriver */
 	    error(_("unable to start %s() device"), "pdf");
 	}

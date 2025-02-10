@@ -17,7 +17,7 @@ NON_SVN_INSTFILES = SVN-REVISION
 DISTFILES = $(INSTFILES) \
 	ChangeLog INSTALL README VERSION VERSION-NICK \
 	Makeconf.in Makefile.in Makefile.fw \
-	config.site configure configure.ac configure.patch
+	config.site configure configure.ac
 SUBDIRS = m4 tools doc etc share src tests
 SUBDIRS_WITH_NO_BUILD = po
 
@@ -45,9 +45,8 @@ ACINCLUDE_DEPENDENCIES = \
 CONFIGURE_DEPENDENCIES = $(srcdir)/VERSION
 config.status: $(srcdir)/configure
 	@$(SHELL) ./config.status --recheck
-$(srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(srcdir)/configure.ac $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES) $(srcdir)/configure.patch
+$(srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(srcdir)/configure.ac $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
 	@BD=`pwd`; cd $(srcdir) && $(AUTOCONF) -f -B $${BD}
-	-@($(AUTOCONF) --version | sed -n 1p | grep -F 2.71) && (cd $(srcdir); patch -p0 < configure.patch)
 $(ACLOCAL_M4): $(srcdir)/configure.ac acinclude.m4
 	@BD=`pwd`; cd $(srcdir) && $(ACLOCAL) --output=$${BD}/$@ -I $${BD}
 acinclude.m4: $(srcdir)/configure.ac $(ACINCLUDE_DEPENDENCIES)
@@ -70,7 +69,7 @@ R: Makefile svnonly
 	  $(ECHO) "you should 'make docs' now ..."
 
 docs: R FORCE
-	-@(cd doc && $(MAKE) $@)
+	@(cd doc && $(MAKE) $@)
 	-@(cd src/library && $(MAKE) $@)
 FORCE:
 
@@ -288,7 +287,7 @@ checkdistcomplete:
 	rm -Rf $${dirname}; \
 	echo "Checking $${distname}.tar.gz"; \
 	$(R_GZIPCMD) -d -c $${distname}.tar.gz | $(TAR) -x -f -; \
-	diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
+	LANGUAGE=C diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
 	rm -Rf $${dirname}
 
 info pdf:

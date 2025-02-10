@@ -122,7 +122,7 @@ spineplot(x, \dots)
   \emph{Computational Statistics}, \bold{11}, 23--33.
 }
 \author{
-  Achim Zeileis \email{Achim.Zeileis@R-project.org}
+  \I{Achim Zeileis} \email{Achim.Zeileis@R-project.org}
 }
 \examples{
 ## treatment and improvement of patients with rheumatoid arthritis

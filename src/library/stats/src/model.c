@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2024  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,13 +25,7 @@
 #include <Defn.h>
 
 #include "statsR.h"
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include "statsErr.h"
 
 /* inline-able versions, used just once! */
 static R_INLINE Rboolean isUnordered_int(SEXP s)
@@ -484,8 +478,7 @@ SEXP modelmatrix(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(contr1 = allocVector(VECSXP, nVar));
     PROTECT(contr2 = allocVector(VECSXP, nVar));
 
-    PROTECT(expr = allocList(3));
-    SET_TYPEOF(expr, LANGSXP);
+    PROTECT(expr = allocLang(3));
     SETCAR(expr, install("contrasts"));
     SETCADDR(expr, allocVector(LGLSXP, 1));
 
@@ -1275,7 +1268,8 @@ static void ExtractVars(SEXP formula)
 static SEXP AllocTerm(void) // (<global> nwords)
 {
     SEXP term = allocVector(INTSXP, nwords); // caller must PROTECT
-    memset(INTEGER(term), 0, nwords * sizeof(int));
+    if (nwords)
+	memset(INTEGER(term), 0, nwords * sizeof(int));
     return term;
 }
 
@@ -1795,7 +1789,7 @@ SEXP termsform(SEXP args)
     a = CDR(a);
     if (isNull(data) || isEnvironment(data))
 	framenames = R_NilValue;
-    else if (isFrame(data))
+    else if (isDataFrame(data))
 	framenames = getAttrib(data, R_NamesSymbol);
     else
 	error(_("'data' argument is of the wrong type"));

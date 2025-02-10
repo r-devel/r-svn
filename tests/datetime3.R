@@ -3,6 +3,8 @@
 
 .pt <- proc.time()
 
+tryCmsg <- function(expr) tryCatch(expr, error = conditionMessage) # typically == *$message
+assertErrV <- function(...) tools::assertError(..., verbose=TRUE)
 options(warn = max(1, getOption("warn")))
 
 if(!nzchar(Sys.getenv("_R_CHECK_DATETIME3_NO_TZ_"))) withAutoprint({
@@ -33,7 +35,7 @@ stopifnot(identical(capture.output(D[0]), "POSIXlt of length 0"))
 ## They printed as   '[1] "Date of length 0"'  etc in R < 3.5.0
 
 
-## rep.POSIXt(*, by="n  DSTdays") - PR#17342
+## seq.POSIXt(*, by="n  DSTdays") - PR#17342
 x <- seq(as.POSIXct("1982-04-15 05:00", tz="US/Central"),
          as.POSIXct("1994-10-15",       tz="US/Central"), by="360 DSTdays")
 stopifnot(length(x) == 13, diff((as.numeric(x) - 39600)/86400) == 360)
@@ -575,6 +577,190 @@ ct <- .POSIXct(c(-1.25, -1, 0, 1), tz = "UTC")
 stopifnot(d1 == 0, d2 == 0)
 ## where (1 0 0 0) and (2 0 0 0) {w/ "internal" tz src} in R <= 4.3.1
 
+## [[ method uses underlying class names as a backup
+(pl <- as.POSIXlt(as.POSIXct("2024-04-25 12:34:56") + c(a = 0, mday = 10)))
+assertErrV(pl[["b"]])
+stopifnot(exprs = {
+  identical(pl[["a"]],    pl[[1L]]) # both as previously
+  identical(pl[["mday"]], pl[[2L]])
+  identical(pl[,"mday"], rep(25L,  2))
+  identical(pl[,"yday"], rep(115L, 2))
+  grepl('x[, "yday"]', print(tryCmsg(pl[["yday"]])))# new error msg
+})
+
+## seq.Date() should preserve integer, seq(from, to) should work (default by = "1 day")
+D1 <- .Date(i1 <- 11111L)
+D2 <- .Date(i2 <- 11123L)
+D3 <- .Date(i3 <- 12345L)
+(seq1 <- seq(D1, D2))# 'by = "days" is now default
+head(seq3 <- seq(D1,D3, by = "weeks"))
+stopifnot(exprs = {
+    identical(c("2000-06-03", "2000-06-15"), format(c(D1,D2)))
+    identical(unclass(seq1), i1:i2) # preserve integer type
+    typeof(seq3) == "integer"
+})
+
+
+## fractional seconds print(<POSIXct>) --> format.POSIXlt() -- PR#17350 (and rdev day #83)
+## Original PR#17350 example (Vitalie Spinu):
+op <- options(digits.secs = 6, scipen = 20, digits = 15)
+## what we'd desire for print()ing etc:
+chx <- paste0("2009-08-03 12:01:59", c("", paste0(".",1:3)))
+print(chx, width = 40)
+xl <- as.POSIXlt(chx)
+stopifnot(identical(xl$sec, 59 + 0:3/10)) # POSIXlt keeping full precision (always did)
+## (but all arithmetic with POSIX*t currently happens via POSIXct, losing precision)
+fxl <- format(xl) # is perfect {with getOption("digits.secs") > 0  !}
+stopifnot(identical(sub(".*:59", '', fxl), paste0(".", 0:3)))
+x <- as.POSIXct("2009-08-03 12:01:59") + 0:3/10 # using POSIXct looses prec
+x. <- structure(x, tzone = "") ## == Vitalie's explicit original ex.
+identical(x, x.) # FALSE :  x. contains `tzone = ""`
+print(x, width = 40) # now .000000 .099999 2.00000 2.999999 (as digits.secs = 6 !)
+fx <- format(x)
+stopifnot(identical(fx, format(x.))) # *are* the same (for a while now)
+## The %OS and  %OS<d> formats have been fine "always":
+fD.OS <- function(d) format(x, format = paste0("%Y-%m-%d %H:%M:%OS", if(d=="_") "" else d))
+f.OSss <- vapply(c("_",0:6), fD.OS, character(length(x)))
+t(f.OSss) |> print(width=111, quote=FALSE) # shows  'trunc()'  instead of  'round()'
+stopifnot(identical(f.OSss[,"_"], f.OSss[,"6"])) # by option digits.secs
+(secDig <- sub(".*:59", '', f.OSss)) ## [,"1"] is  *.0 *.0 *.2 *.2 - "bad" from using trunc() by design
+##      ___________   ___            __          __  "factory fresh" default
+options(digits.secs = NULL, scipen = 0, digits = 7)
+f.OSssD <- vapply(c("_",0:6), fD.OS, character(length(x))) # same call but different "digits.secs" option
+## digits = <d> now works "the same":
+fdig <- vapply(c("_",0:6), \(d) format(x, digits = if(d != "_") d), character(length(x)))
+stopifnot(exprs = {
+    nchar(t(secDig)) == c(7L, 0L, 2:7)     # as always
+    identical(f.OSssD[, 1], f.OSssD[,"0"]) # "" <--> "0"
+    identical(f.OSss [,-1], f.OSssD[, -1]) # only meaning of `empty' "%OS" changes with "digits.secs" option
+    identical(fdig, f.OSssD)
+})
+options(op)
+## Number of digits used differed in several cases in R <= 4.4.z
+
+## print(*, digits = n) now works, too -- compatibly with format()
+print(x, digits = 6) # shows full digits
+xx <- as.POSIXct("2009-08-03 12:01:59") + 0:8/8 # rare exact dbl prec
+j <- 2L*(1:4) -1L # 1,3,5,7
+(fxx2 <- format(xx, digits = 2)[j])
+print(xx,  digits = 5, usetz=FALSE)# needs only 3 digits
+pxx <- capture.output(split = TRUE,
+ print(xx[j], digits = 5, width=140)) # 2 digits suffice
+stopifnot(exprs = {
+    identical(format(x, digits = 6) |> paste(collapse=' '), sub('^\\[1\\] ', '', gsub('"', '', capture.output(
+              print (x, digits = 6, usetz = FALSE, width = 120)))))
+    is.integer(nf2 <- nchar(fxx2))
+    substr   (fxx2, nf2-1L, nf2) == c("00", "25", "50", "75")
+    identical(fxx2, sub(" [A-Z].*$", '',
+                        strsplit(split = "@",
+                                 gsub('" "', '@', sub(".$", '', sub('^\\[1\\] "', '', pxx))))[[1L]]))
+})
+
+## as.POSIXct({}) internally
+L <- list(-1:1, {}, 2:4)
+(r <- do.call(c, lapply(L, as.POSIXct)))
+stopifnot(exprs = {
+    inherits(r, "POSIXct")
+    identical(-1:4, as.vector(r))
+    identical(integer(0), as.vector(as.POSIXct({})))
+})
+## was internally "double" in R <= 4.4.x
+
+
+## `from = *` now optional in seq.Date(), seq.POSIXt() ----- PR#17672 ----------------------------
+## somewhat full set of regression tests, given relatively large refactoring
+## 1)  seq.POSIXt()
+from <- ISOdate(2024,1,2)
+to   <- ISOdate(2024,3,4, 5,6,7, tz="Asia/Singapore")
+by <- "2 weeks"
+length.out <- 4L
+frI <- `storage.mode<-`(from, "integer")
+toI <- `storage.mode<-`( to , "integer")
+## 2 weeks in sec
+wks2sec <- as.integer( 2*7*86400 )
+All.eq0 <- function(x,y, ...) all.equal(x, y, tolerance = 0, ...)
+## (Checking assumptions (dbl <-> int) here which useRs/developers should *not* make)
+stopifnot(exprs = {
+  ## NB: use 'from' on LHS of reference to ensure the time zone of 'from' is used in the result
+  identical(seq(from, to, by=by), from + wks2sec*(0:4))
+  identical(seq(from, to, by=by),
+            seq(from, to, by="2 w")) # may abbreviate
+  identical(seq(from, to, length.out=length.out),
+            from + seq(0, difftime(to, from, units="secs"), length.out=length.out))
+  ##
+  identical(seq(from,  by=by, length.out=length.out), frI + wks2sec*seq(0, length.out-1L))
+  identical(seq(to=to, by=by, length.out=length.out), toI - wks2sec*seq(length.out-1L, 0))
+  ##
+  ## variations on 'by'
+  identical(seq(from, to, by= '2 months'), from + c(0, 86400*c(31+29))) # + Warning .check_tzones() .. inconsistent
+  identical(seq(to, from, by='-2 months'),  to  - c(0, 86400*c(31+29))) # (ditto)
+  identical(seq(from, to, by=as.difftime(30, units='days')), from + 30*86400*(0:2))
+  identical(seq(from, to, by=30*86400), from + 30*86400*(0:2))
+  ##
+  ## missing from=
+  identical(seq(to=to, by='day',     length.out=6), toI -    86400L*(5:0))
+  identical(seq(to=to, by='-3 days', length.out=6), toI + 3L*86400L*(5:0))
+  identical(seq(to=to, by='2 months',length.out=3), to - 86400*c(31+29+31+30, 31+29, 0))
+  identical(seq(to=to, by='quarter', length.out=3), to - 86400*c(31+29+31+30+31+30, 31+29+31, 0))
+  identical(seq(to=to, by='year',    length.out=3), to - 86400*c(366+365, 366, 0))
+  ## type
+  is.double(from)
+  is.integer(ss <- seq(from, from+9, length.out=10L))
+})
+## various invalid inputs
+assertErrV(seq(from=from))
+assertErrV(seq(to=to))
+assertErrV(seq(from, to))
+assertErrV(seq(from, by=by))
+assertErrV(seq(from, length.out=length.out))
+assertErrV(seq(to=to, by=by))
+assertErrV(seq(to=to, length.out=length.out))
+assertErrV(seq(from, to, by=by, length.out=length.out))
+
+## 2)  seq.Date()
+to <- as.Date(to); from <- as.Date(from)
+frI <- `storage.mode<-`(from, "integer")
+toI <- `storage.mode<-`( to , "integer")
+stopifnot(exprs = {
+  identical(seq(from, to, by=by), from + 2*7*(0:4))
+  identical(seq(from, to, length.out=length.out),
+            from + seq(0, difftime(to, from, units="days"), length.out=length.out))
+  All.eq0(seq(from,  by=by, length.out=length.out), from + 2*7*seq(0, length.out-1L))
+  All.eq0(seq(to=to, by=by, length.out=length.out),   to - 2*7*seq(length.out-1L, 0))
+  identical(seq(from, to), seq(from=from, to=to, by = "days") -> s.)
+  identical(structure(19724:19727, class = "Date"), seq(from , length.out=length.out) -> s.f)
+  identical(structure(19782:19785, class = "Date"), seq(to=to, length.out=length.out) -> s.t)
+  ##
+  ## variations on 'by'
+  identical(seq(from, to, by='2 months'), from + c(0, c(31+29)))
+  identical(seq(to, from, by='-2 months'), to - c(0, c(31+29)))
+  identical(seq(to, from, by='-2 m'     ), to - c(0, c(31+29)))
+  identical(seq(from, to, by=as.difftime(30, units='days')), from + 30*(0:2))
+  identical(seq(from, to, by=30), from + 30*(0:2))
+  all.equal(seq(from, to, by = "1 week"), seq(from, by = "w", length.out = 9)) # TODO ident. ?
+  identical(seq(frI, toI, by = "1 week"), seq(from, by = "w", length.out = 9))
+  ##
+  ## missing from=
+  identical(seq(to=to, by='day',     length.out=6),
+            seq(to=to,               length.out=6))
+  All.eq0 ( seq(to=to,               length.out=6), to - (5:0))
+  All.eq0 ( seq(to=to, by='-3 days', length.out=6), to + 3*(5:0))
+  identical(seq(to=to, by='2 months',length.out=3), to - c(31+29+31+30, 31+29, 0))
+  identical(seq(to=to, by='quarter', length.out=3), to - c(31+29+31+30+31+30, 31+29+31, 0))
+  identical(seq(to=to, by='year',    length.out=3), to - c(366+365, 366, 0))
+  is.integer(sI <- seq(frI, toI))
+  is.integer(s2 <- seq(to = toI, length.out = length.out))
+  is.integer(s3 <- seq(frI,      length.out = length.out))
+  identical(sI, s.)
+  identical(s2, s.t)
+  identical(s3, s.f)
+})
+## various invalid inputs
+assertErrV(seq(from=from))
+assertErrV(seq(to=to))
+assertErrV(seq(from, by=by))
+assertErrV(seq(to=to, by=by))
+assertErrV(seq(from, to, by=by, length.out=length.out))
 
 
 ## keep at end

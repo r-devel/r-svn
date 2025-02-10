@@ -151,8 +151,6 @@ attribute_hidden SEXP do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(INTSXP, 2*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -169,13 +167,11 @@ attribute_hidden SEXP do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(2);
     return ans;
 }
-// split "real", i.e. = double = 64-bitd, to bits (<==> do_intToBits( do_numToInts(..) .. ))
+// split "real", i.e. = double = 64-bit, to bits (<==> do_intToBits( do_numToInts(..) .. ))
 attribute_hidden SEXP do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(RAWSXP, 64*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -275,6 +271,7 @@ attribute_hidden SEXP do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* Simplified version for RFC3629 definition of UTF-8 */
+attribute_hidden /* would need to be in an installed header if not hidden */
 int mbrtoint(int *w, const char *s)
 {
     unsigned int byte;
@@ -450,7 +447,7 @@ attribute_hidden SEXP do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 		this = 0x10000 + (hi << 10) + lo;
 	    }
 	    used = inttomb(buf, this);
-	    memcpy(tmp + len, buf, used);
+	    if (used) memcpy(tmp + len, buf, used);
 	    len += used;
 	}
 	PROTECT(ans = allocVector(STRSXP, 1));

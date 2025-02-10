@@ -42,8 +42,8 @@ convertColor(color, from, to, from.ref.white, to.ref.white,
   The \code{"sRGB"} color space is that used by standard PC monitors.
   \code{"Apple RGB"} is used by Apple monitors. \code{"Lab"} and
   \code{"Luv"} are approximately perceptually uniform
-  spaces standardized by the Commission Internationale
-  d'Eclairage. \code{XYZ} is a 1931 \abbr{CIE} standard capable of representing
+  spaces standardized by the \I{Commission Internationale d'Eclairage}.
+  \code{XYZ} is a 1931 \abbr{CIE} standard capable of representing
   all visible colors (and then some), but not in a perceptually uniform
   way.
 
@@ -55,7 +55,7 @@ convertColor(color, from, to, from.ref.white, to.ref.white,
   standard \abbr{CIE} illuminants supported are \code{B}, \code{C}, \code{E} and
   \code{D55}.  RGB colour spaces are defined relative to a particular
   reference white, and can be only approximately translated to other
-  reference whites.  The von Kries chromatic adaptation algorithm is used
+  reference whites.  The \I{von Kries} chromatic adaptation algorithm is used
   for this.  Prior to \R 3.6, color conversions involving color spaces
   created with \code{\link{make.rgb}} were carried out assuming a \code{D65}
   illuminant, irrespective of the actual illuminant used in the creation of the

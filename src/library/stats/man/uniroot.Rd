@@ -30,8 +30,8 @@ uniroot(f, interval, \dots,
     when \code{f()} does not have differing signs at the endpoints.  The
     default, \code{"no"}, keeps the search interval and hence produces
     an error.  Can be abbreviated.}
-  \item{check.conv}{logical indicating whether a convergence warning of the
-    underlying \code{\link{uniroot}} should be caught as an error and if
+  \item{check.conv}{logical indicating whether a convergence warning
+    should be caught as an error and if
     non-convergence in \code{maxiter} iterations should be an error
     instead of a warning.}
   \item{tol}{the desired accuracy (convergence tolerance).}
@@ -71,7 +71,7 @@ uniroot(f, interval, \dots,
   possibly is extended to be such that \eqn{S\cdot f(l)\le 0}{%
     S * f(l) <= 0} and \eqn{S \cdot f(u) \ge 0}{S * f(u) >= 0}.
 
-  \code{uniroot()} uses Fortran subroutine \code{zeroin} (from Netlib)
+  \code{uniroot()} uses Fortran subroutine \code{zeroin} (from \I{Netlib})
   based on algorithms given in the reference below.  They assume a
   continuous function (which then is known to have at least one root in
   the interval).

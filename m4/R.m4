@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2024 R Core Team
+### Copyright (C) 1998-2025 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -196,27 +196,21 @@ if test -n "${TEXI2ANY}"; then
                 false)
   AC_SUBST(INSTALL_INFO)
 fi
-if test "${r_cv_prog_texi2any_v5}" != yes; then
+if test "${r_cv_prog_texi2any_v6}" != yes; then
   warn_info="you cannot build info or HTML versions of the R manuals"
   AC_MSG_WARN([${warn_info}])
   TEXI2ANY=""
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
-if test "${r_cv_prog_texi2any_v7}" != yes; then 
-  HAVE_TEXI2ANY_V7_TRUE='#'
-else
-  HAVE_TEXI2ANY_V7_TRUE=
-fi
-AC_SUBST(HAVE_TEXI2ANY_V7_TRUE)
 AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
 AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
 ## ------------------------
-## Building the R Texinfo manuals requires texinfo v5.1 or later.
-## Set shell variable r_cv_prog_texi2any_v5 to 'yes' if a recent
+## Building the R manuals requires Texinfo v6.1 or later.
+## Set shell variable r_cv_prog_texi2any_v6 to 'yes' if a recent
 ## enough texi2any aka  makeinfo is found, and to 'no' otherwise.
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
@@ -230,24 +224,24 @@ AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
 AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
 [r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
   cut -f2 -d. | tr -dc '0123456789.'`])
-AC_CACHE_CHECK([whether texi2any version is at least 5.1],
-                [r_cv_prog_texi2any_v5],
+AC_CACHE_CHECK([whether texi2any version is at least 6.1],
+                [r_cv_prog_texi2any_v6],
 [if test -z "${r_cv_prog_texi2any_version_maj}" \
      || test -z "${r_cv_prog_texi2any_version_min}"; then
-  r_cv_prog_texi2any_v5=no
-elif test ${r_cv_prog_texi2any_version_maj} -gt 5; then
-  r_cv_prog_texi2any_v5=yes
-elif test ${r_cv_prog_texi2any_version_maj} -lt 5 \
+  r_cv_prog_texi2any_v6=no
+elif test ${r_cv_prog_texi2any_version_maj} -gt 6; then
+  r_cv_prog_texi2any_v6=yes
+elif test ${r_cv_prog_texi2any_version_maj} -lt 6 \
      || test ${r_cv_prog_texi2any_version_min} -lt 1; then
-  r_cv_prog_texi2any_v5=no
+  r_cv_prog_texi2any_v6=no
 else
-  r_cv_prog_texi2any_v5=yes
+  r_cv_prog_texi2any_v6=yes
 fi])
   ## Also record whether texi2any is at least 7 to appropriately handle
   ## HTML and EPUB output changes, see
   ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
 AC_CACHE_VAL([r_cv_prog_texi2any_v7],
-[if test ${r_cv_prog_texi2any_v5} = yes \
+[if test ${r_cv_prog_texi2any_v6} = yes \
      && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
   r_cv_prog_texi2any_v7=yes
 else
@@ -663,7 +657,7 @@ dnl SHLIB_LD=ld for native C compilers (problem with non-PIC 'crt0.o',
 dnl see 'Individual platform overrides' in section 'DLL stuff' in file
 dnl 'configure.ac'.
 dnl
-dnl Using the Intel Fortran compiler (ifc) one typically gets incorrect
+dnl Using the pre-2023 Intel Fortran compiler (ifc) one typically gets incorrect
 dnl flags, as the output from _AC_PROG_F77_V_OUTPUT() contains double
 dnl quoted options, e.g. "-mGLOB_options_string=......", see also e.g.
 dnl http://www.octave.org/octave-lists/archive/octave-maintainers.2002/msg00038.html.
@@ -1359,6 +1353,7 @@ AC_DEFUN([R_PROG_OBJCXX_WORKS],
 dnl we don't use AC_LANG_xx because ObjC++ is not defined as a language (yet)
 dnl (the test program is from the gcc test suite)
 dnl but it needed an #undef (PR#15107)
+dnl 2021-11-12 changed to use Foundation as Xcode 13 breaks Object.h.
 cat << \EOF > conftest.mm
 #include <Foundation/Foundation.h>
 #include <iostream>
@@ -3323,6 +3318,91 @@ fi
 AC_SUBST(LAPACK_LIBS)
 ])# R_LAPACK_SYSTEM_LIB
 
+## R_INTERNAL_XDR_USABLE
+## ---------------------
+## Check whether the internal xdr implementation can be used. It cannot be
+## with GCC sanitizers (2024), which intercept also xdr calls. Linking turns
+## the symbols to dynamically linked and succeeds, then the program crashes
+## when invoking an xdr call.
+##
+## R_INTERNAL_XDR_USABLE()
+## -----------------------
+AC_DEFUN([R_INTERNAL_XDR_USABLE],
+[AC_REQUIRE([LT_INIT])dnl
+AC_REQUIRE([R_PROG_AR])dnl
+AC_CACHE_CHECK([whether internal XDR can be used],
+               [r_cv_internal_xdr_usable],
+[if test "${cross_compiling}" = yes; then
+  r_cv_internal_xdr_usable=yes
+else
+  cat >conftestx.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op) {
+  (void)xdrs; (void)addr; (void)size; (void)op;
+  exit(0); /* SUCCESS, internal implementation can be called */
+}
+EOF
+  cat >conftest.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+extern void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op);
+
+int main(void) {
+  XDR xdrs;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  exit(1); /* FAILURE, internal implementation is not called */
+}
+EOF
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} -I${srcdir}/src/extra/xdr"
+  r_cv_internal_xdr_usable=no
+  if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftestx.c \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${AR} ${ARFLAGS} conftestx.${libext} conftestx.${ac_objext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${RANLIB} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD ; then
+     
+     ./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD
+     if test ${?} = 0; then
+       r_cv_internal_xdr_usable=yes
+     fi
+  fi
+  rm -f conftestxi.c conftestx.c
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi # not cross-compiling
+])
+if test "${r_cv_internal_xdr_usable}" = no ; then
+  case "${host_os}" in
+    linux*)
+      AC_MSG_ERROR([Internal XDR cannot be used. Maybe install a development version of TI-RPC?])
+      ;;
+    *)
+      ## unlikely
+      AC_MSG_ERROR([Internal XDR cannot be used.])
+      ;;
+  esac
+elif test "${cross_compiling}" = yes; then
+  AC_MSG_WARN([Assuming internal XDR works (cross-compiling).])
+fi
+])# R_INTERNAL_XDR_USABLE
+
 ## R_SEARCH_XDR_LIBS
 ## -----------------
 ## Linking a test program is not enough with address sanitizer, which on
@@ -3433,6 +3513,10 @@ AC_MSG_CHECKING([for XDR support])
 AC_MSG_RESULT([${r_xdr}])
 AM_CONDITIONAL(BUILD_XDR, [test "x${r_xdr}" = xno])
 AC_SUBST(TIRPC_CPPFLAGS)
+if test "${r_xdr}" = no ; then
+  ## check internal xdr can be used
+  R_INTERNAL_XDR_USABLE()
+fi
 ])# R_XDR
 
 ## R_ZLIB
@@ -3710,7 +3794,8 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 int main(void) {
     unsigned int ver = lzma_version_number();
     // This is 10000000*major + 10000*minor + 10*revision + [012]
-    // I.e. xyyyzzzs and 5.1.2 would be 50010020
+    // Where 2 is 'stable'.
+    // I.e. xyyyzzzs and 5.1.2 is 50010022, so this allows 5.0.3 alpha/beta
     exit(ver < 50000030);
 }
 ]])], [r_cv_have_lzma=yes], [r_cv_have_lzma=no], [r_cv_have_lzma=no])
@@ -3727,6 +3812,50 @@ else
   AC_MSG_ERROR("liblzma library and headers are required")
 fi
 ])# R_LZMA
+
+
+## R_ZSTD
+## -------
+## Try finding libzstd library and headers.
+## We check that both are installed,
+AC_DEFUN([R_ZSTD],
+[AC_CHECK_LIB(zstd, ZSTD_versionNumber, [have_zstd=yes], [have_zstd=no])
+if test "${have_zstd}" = yes; then
+  AC_CHECK_HEADERS(zstd.h, [have_zstd=yes], [have_zstd=no])
+fi
+if test "x${have_zstd}" = xyes; then
+AC_CACHE_CHECK([if zstd version >= 1.3.3], [r_cv_have_zstd],
+[AC_LANG_PUSH(C)
+r_save_LIBS="${LIBS}"
+LIBS="-lzstd ${LIBS}"
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef HAVE_ZSTD_H
+#include <zstd.h>
+#endif
+#include <stdlib.h>
+int main(void) {
+    exit(ZSTD_versionNumber() < 10303);
+}
+]])], [r_cv_have_zstd=yes], [r_cv_have_zstd=no], [r_cv_have_zstd=no])
+LIBS="${r_save_LIBS}"
+AC_LANG_POP(C)])
+fi
+if test "x${r_cv_have_zstd}" = xno; then
+  have_zstd=no
+fi
+if test "x${have_zstd}" = xyes; then
+  AC_DEFINE(HAVE_ZSTD, 1, [Define if your system has zstd >= 1.3.3.])
+  LIBS="-lzstd ${LIBS}"
+  # check if we can use single-shot decompression on stream-compressed files (was added as static in 1.4.0)
+  AC_CHECK_FUNC(ZSTD_decompressBound, [have_zstd_decompressbound=yes], [have_zstd_decompressbound=no])
+  if test "x${have_zstd_decompressbound}" = xyes; then
+    AC_DEFINE(HAVE_ZSTD_DECOMPRESSBOUND, 1, [Define if zstd has ZSTD_decompressBound])
+  fi
+# so far we don't require it, but we might
+#else
+#  AC_MSG_ERROR("libzstd library and headers are required")
+fi
+])# R_ZSTD
 
 
 ## R_SYS_POSIX_LEAPSECONDS
@@ -4112,19 +4241,28 @@ done
 AC_DEFUN([R_GCC4_VISIBILITY],
 [AC_CACHE_CHECK([whether __attribute__((visibility())) is supported],
                 [r_cv_visibility_attribute],
-[cat > conftest.c <<EOF
+[r_cv_visibility_attribute=no
+case "${host_os}" in
+    darwin*)
+      dnl Assume works on macOS
+      r_cv_visibility_attribute=yes
+      ;;
+
+  *)
+cat > conftest.c <<EOF
 int foo __attribute__ ((visibility ("hidden"))) = 1;
 int bar __attribute__ ((visibility ("default"))) = 1;
 #ifndef __GNUC__
 # error unsupported compiler
 #endif
 EOF
-r_cv_visibility_attribute=no
-if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
- if grep '\.hidden.*foo' conftest.s >/dev/null; then
-    r_cv_visibility_attribute=yes
- fi
-fi
+      if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
+        if grep '\.hidden.*foo' conftest.s >/dev/null; then
+           r_cv_visibility_attribute=yes
+        fi
+      fi
+      ;; 
+esac
 rm -f conftest.[cs]
 ])
 if test $r_cv_visibility_attribute = yes; then
@@ -4145,12 +4283,12 @@ if test "${r_cv_prog_cc_vis}" = yes; then
     C_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icx.
 case  "${CC}" in
-  ## Intel compiler: note that -c99 may have been appended
+  ## Obsolete Intel compiler: note that -c99 may have been appended
   *icc*)
     C_VISIBILITY=
     ;;
@@ -4171,12 +4309,12 @@ if test "${r_cv_prog_cxx_vis}" = yes; then
     CXX_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
 dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *icc*|*icpc*)
     CXX_VISIBILITY=
     ;;
@@ -4198,9 +4336,9 @@ if test "${r_cv_prog_fc_vis}" = yes; then
   fi
 fi
 dnl flang accepts this but ignores it.
-dnl Need to exclude Intel compilers, but ifx seems to work.
+dnl Need to exclude pre-2023 Intel compilers, but ifx seems to work.
 case  "${FC}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *ifc|*ifort)
     F_VISIBILITY=
     ;;
@@ -4808,7 +4946,7 @@ fi
 
 ## R_STDCXX
 ## --------
-## Support for C++ standards (C++11, C++14, C++17, C++20, C++23), for use in packages.
+## Support for C++ standards (C++11, C++14, C++17, C++20, C++23, C++26), for use in packages.
 ## R_STDCXX(VERSION, PREFIX, DEFAULT)
 AC_DEFUN([R_STDCXX],
 [r_save_CXX="${CXX}"
@@ -5232,7 +5370,11 @@ AC_DEFUN([R_C23],
 # error "Compiler does not advertise ISO C conformance"
 #endif
 
+// Most new features have feature tests. but bool type is fundamental.
+
 int main(void) {
+     bool x = true;
+
      return 0;
 }
 

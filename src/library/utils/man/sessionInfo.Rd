@@ -91,9 +91,9 @@ osVersion
   a human-readable form.
 
   Where \R was compiled under macOS 10.x (as the \abbr{CRAN} Intel
-  distributions were prior to \R 4.3.0) but running under \sQuote{Big
-  Sur} or later, macOS reports itself as \samp{10.16} (which \R
-  recognizes as \sQuote{Big Sur ...}) and not \samp{11}, \samp{12}, \ldots{}.
+  distributions were prior to \R 4.3.0) but running under \sQuote{\I{Big
+  Sur}} or later, macOS reports itself as \samp{10.16} (which \R 
+  recognizes as \sQuote{\I{Big Sur} ...}) and not \samp{11}, \samp{12}, \ldots{}.
 }
 \note{
   The information on \sQuote{loaded} packages and namespaces is the

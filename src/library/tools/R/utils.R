@@ -1,7 +1,7 @@
 #  File src/library/tools/R/utils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ function(x)
     ## Turn a possibly relative file path absolute, performing tilde
     ## expansion if necessary.
     if(length(x) != 1L)
-        stop("'x' must be a single character string")
+        stop(gettextf("'%s' must be a character string", "x"), domain=NA)
     if(!file.exists(epath <- path.expand(x)))
         stop(gettextf("file '%s' does not exist", x),
              domain = NA)
@@ -186,10 +186,33 @@ function(dir, type, all.files = FALSE, full.names = TRUE,
     files
 }
 
+### ** list_code_files_in_package
+
+list_code_files_in_package <-
+function(dir) {
+    dir <- normalizePath(dir)
+    code_dir <- file.path(dir, "R")
+    code_files <- list_files_with_type(code_dir, "code")
+    if(!length(code_files)) return(code_files)
+    meta <- .get_package_metadata(dir)
+    collate_fields <- c(paste0("Collate.", .OStype()), "Collate")
+    if(any(i <- (collate_fields %in% names(meta)))) {
+        collate <-
+            file.path(code_dir,
+                      .read_collate_field(meta[collate_fields[i][1L]]))
+        ## Note that matching code files and collate spec really only is
+        ## appropriate after having run configure as part of installing,
+        ## as this can create code files (e.g., from a .R.in code file).
+        ## Note also that using set ops is not appropriate here, as
+        ## these re-sort according to the current locale.
+        code_files <- collate[collate %in% code_files]
+    }
+    code_files
+}
+
+
 ### ** reQuote
 
-## <FIXME>
-## Move into base eventually ...
 reQuote <-
 function(x)
 {
@@ -199,7 +222,6 @@ function(x)
     regmatches(x, m) <- lapply(regmatches(x, m), escape)
     x
 }
-## </FIXME>
 
 ### ** showNonASCII
 
@@ -292,41 +314,34 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         } # else the provided one should work
     }
 
-    envSep <- .Platform$path.sep
-    texinputs0 <- texinputs
-    Rtexmf <- file.path(R.home("share"), "texmf")
-    Rtexinputs <- file.path(Rtexmf, "tex", "latex")
-    ## "" forces use of default paths.
-    texinputs <- paste(c(texinputs0, Rtexinputs, ""),
-                       collapse = envSep)
+    paths2env <- function(x) paste(x, collapse = .Platform$path.sep)
     ## not clear if this is needed, but works
     if(.Platform$OS.type == "windows")
         texinputs <- gsub("\\", "/", texinputs, fixed = TRUE)
-    Rbibinputs <- file.path(Rtexmf, "bibtex", "bib")
-    bibinputs <- paste(c(texinputs0, Rbibinputs, ""),
-                       collapse = envSep)
-    Rbstinputs <- file.path(Rtexmf, "bibtex", "bst")
-    bstinputs <- paste(c(texinputs0, Rbstinputs, ""),
-                       collapse = envSep)
+    Rtexmf <- file.path(R.home("share"), "texmf", fsep = "/")
+    Rtexinputs <- file.path(Rtexmf, "tex", "latex", fsep = "/")
+    Rbibinputs <- file.path(Rtexmf, "bibtex", "bib", fsep = "/")
+    Rbstinputs <- file.path(Rtexmf, "bibtex", "bst", fsep = "/")
 
     otexinputs <- Sys.getenv("TEXINPUTS", unset = NA_character_)
     if(is.na(otexinputs)) {
         on.exit(Sys.unsetenv("TEXINPUTS"))
         otexinputs <- "."
     } else on.exit(Sys.setenv(TEXINPUTS = otexinputs))
-    Sys.setenv(TEXINPUTS = paste(otexinputs, texinputs, sep = envSep))
+    ## "" below represents system paths
+    Sys.setenv(TEXINPUTS = paths2env(c(texinputs, otexinputs, Rtexinputs, "")))
     obibinputs <- Sys.getenv("BIBINPUTS", unset = NA_character_)
     if(is.na(obibinputs)) {
         on.exit(Sys.unsetenv("BIBINPUTS"), add = TRUE)
         obibinputs <- "."
     } else on.exit(Sys.setenv(BIBINPUTS = obibinputs, add = TRUE))
-    Sys.setenv(BIBINPUTS = paste(obibinputs, bibinputs, sep = envSep))
+    Sys.setenv(BIBINPUTS = paths2env(c(texinputs, obibinputs, Rbibinputs, "")))
     obstinputs <- Sys.getenv("BSTINPUTS", unset = NA_character_)
     if(is.na(obstinputs)) {
         on.exit(Sys.unsetenv("BSTINPUTS"), add = TRUE)
         obstinputs <- "."
     } else on.exit(Sys.setenv(BSTINPUTS = obstinputs), add = TRUE)
-    Sys.setenv(BSTINPUTS = paste(obstinputs, bstinputs, sep = envSep))
+    Sys.setenv(BSTINPUTS = paths2env(c(texinputs, obstinputs, Rbstinputs, "")))
 
     if(index && nzchar(texi2dvi) && .Platform$OS.type != "windows") {
         ## switch off the use of texindy in texi2dvi >= 1.157
@@ -334,7 +349,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         on.exit(Sys.unsetenv("TEXINDY"), add = TRUE)
         opt_pdf <- if(pdf) "--pdf" else ""
         opt_quiet <- if(quiet) "--quiet" else ""
-        opt_extra <- ""
+        opt_extra <- "--max-iterations=20"
         out <- .system_with_capture(texi2dvi, "--help")
 
         if(length(grep("--no-line-error", out$stdout)))
@@ -342,10 +357,6 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## (Maybe change eventually: the current heuristics for finding
         ## error messages in log files should work for both regular and
         ## file line error indicators.)
-
-        ## This is present in texinfo after late 2009, so really >= 5.0.
-        if(any(grepl("--max-iterations=N", out$stdout)))
-            opt_extra <- c(opt_extra, "--max-iterations=20")
 
         ## and work around a bug in texi2dvi
         ## https://stat.ethz.ch/pipermail/r-devel/2011-March/060262.html
@@ -433,17 +444,15 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         extra <- ""
 
         ## look for MiKTeX (which this almost certainly is)
-        ## and set the path to R's style files.
-        ## -I works in MiKTeX >= 2.4, at least
         ## http://docs.miktex.org/manual/texify.html
         ver <- system(paste(shQuote(texi2dvi), "--version"), intern = TRUE)
         if(length(grep("MiKTeX", ver[1L]))) {
-            ## AFAICS need separate -I for each element of texinputs.
-            texinputs <- c(texinputs0, Rtexinputs, Rbstinputs)
-            texinputs <- gsub("\\", "/", texinputs, fixed = TRUE)
-            paths <- paste ("-I", shQuote(texinputs))
             extra <- "--max-iterations=20"
-            extra <- paste(extra, paste(paths, collapse = " "))
+            ## setting TEXINPUTS via -I is long obsolete, EnvVars are respected
+            ## (<https://docs.miktex.org/manual/localadditions.html>)
+            ##   texinputs <- c(texinputs, Rtexinputs, Rbstinputs)
+            ##   paths <- paste ("-I", shQuote(texinputs))
+            ##   extra <- paste(extra, paste(paths, collapse = " "))
         }
         ## 'file' could be a file path
         base <- basename(file_path_sans_ext(file))
@@ -545,47 +554,6 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 }
 
 ### * Internal utility variables.
-
-### ** .ORCID_iD_regexp
-
-.ORCID_iD_regexp <-
-    "([[:digit:]]{4}[-]){3}[[:digit:]]{3}[[:alnum:]]"
-
-### ** .ORCID_iD_variants_regexp
-
-.ORCID_iD_variants_regexp <-
-    sprintf("^<?((https?://|)orcid.org/)?(%s)>?$", .ORCID_iD_regexp)
-
-.ORCID_iD_db_from_package_sources <-
-function(dir)
-{
-    meta <- .get_package_metadata(dir, FALSE)
-    ids1 <- ids2 <- character()
-    if(!is.na(aar <- meta["Authors@R"])) {
-        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
-                        error = identity)
-        if(!inherits(aar, "error")) {
-            ids1 <- unlist(lapply(aar,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-        }
-    }
-    if(file.exists(cfile <- file.path(dir, "inst", "CITATION"))) {
-        cinfo <- .read_citation_quietly(cfile, meta)
-        if(!inherits(cinfo, "error"))
-            ids2 <- unlist(lapply(cinfo$author,
-                                  function(e) {
-                                      e <- e$comment
-                                      e[names(e) == "ORCID"]
-                                  }),
-                           use.names = FALSE)
-    }
-    rbind(if(length(ids1)) cbind(ids1, "DESCRIPTION"),
-          if(length(ids2)) cbind(ids2, "inst/CITATION"))
-}
 
 ### ** .vc_dir_names
 
@@ -801,7 +769,7 @@ function(x)
                     "\\makeatother"),
                   collapse = ""),
             x, x)
-}     
+}
 
 ### ** .file_path_relative_to_dir
 
@@ -916,17 +884,23 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
     calls
 }
 
+### ** .predicate_for_calls_with_names
+
 .predicate_for_calls_with_names <-
-function(nms)
+function(funnames, pkgnames = character(), colons = c("::", ":::"))
 {
+    ## Use pkgnames = NA_character_ to match *any* PKG::FUN call with
+    ## FUN in funnames.  Strange but why not?  Or better to use "*"?
     function(e) {
-        (is.call(e) &&
+        (is.call(e) &&        
          ((is.name(x <- e[[1L]]) &&
-           as.character(x) %in% nms)) ||
+           as.character(x) %in% funnames)) ||
          ((is.call(x <- e[[1L]]) &&
            is.name(x[[1L]]) &&
-           (as.character(x[[1L]]) %in% c("::", ":::")) &&
-           as.character(x[[3L]]) %in% nms)))
+           (as.character(x[[1L]]) %in% colons) &&
+           (((length(pkgnames) == 1L) && is.na(pkgnames)) ||
+            as.character(x[[2L]]) %in% pkgnames) &&
+           as.character(x[[3L]]) %in% funnames)))
     }
 }
 
@@ -940,6 +914,54 @@ function(v, env, last = NA, default = NA) {
         else
             env <- parent.env(env)
     default
+}
+
+### ** .find_tidy_cmd
+
+.find_tidy_cmd <-
+function(Tidy = Sys.getenv("R_TIDYCMD", "tidy"))
+{
+    ## Require a recent enough version of HTML Tidy.
+    ## We really need HTML Tidy 5.0.0 or later, and all these versions
+    ## should have tidy --version match
+    ##   ^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)
+    ## See
+    ## <https://github.com/htacg/tidy-html5/blob/next/README/VERSION.md>
+    ## and
+    ## <https://bugs.r-project.org/show_bug.cgi?id=18731>.
+    msg <- ""
+    OK <- nzchar(Sys.which(Tidy))
+    if(OK) {
+        ver <- system2(Tidy, "--version", stdout = TRUE)
+        ## Argh.  We used to match with
+        ##   ^HTML Tidy .*version (\\d+\\.\\d+\\.\\d+)$
+        ## but HTML Tidy 5.8.0 has added l10n to its version info.  For
+        ## now, this always seems to match
+        ##   ^HTML Tidy .* (\\d+\\.\\d+\\.\\d+)$
+        ## if this changes, we could try getting the version info with
+        ## LC_MESSAGES= (set to empty) which seems to get the English
+        ## default.
+        mat <- regexec("^HTML Tidy .* (\\d+\\.\\d+\\.\\d+)$", ver)
+        ver <- regmatches(ver, mat)[[1L]][2L]
+        OK <- !is.na(ver)
+        if(OK) {
+            ## Minimum version requirement.
+            req <- "5.0.0"
+            OK <- numeric_version(ver) >= req
+            if(!OK)
+                msg <-
+                    sprintf("'%s' is too old: need version %s, found %s",
+                            Tidy, req, ver)
+        } else
+            msg <-
+                sprintf("'%s' doesn't look like recent enough HTML Tidy",
+                        Tidy)
+    } else msg <- sprintf("no command '%s' found", Tidy)
+    if(nzchar(msg)) {
+        Tidy <- ""
+        attr(Tidy, "msg") <- msg
+    }
+    Tidy
 }
 
 ### ** .get_BibTeX_errors_from_blg_file
@@ -1479,6 +1501,22 @@ function(texi = NULL)
     sort(unique(sub(re, "", lines[grepl(re, lines)])))
 }
 
+### ** .get_top_call_in_fun
+
+.get_top_call_in_fun <-
+function(f)
+{
+    b <- body(f)
+    repeat {
+        if(!is.call(b)) return(NULL)
+        if((length(b) > 1L) && (b[[1L]] == as.name("{")))
+            b <- b[[2L]]
+        else
+            break
+    }
+    b
+}
+
 ### ** .gregexec_at_pos
 
 .gregexec_at_pos <-
@@ -1817,6 +1855,53 @@ function(parent = parent.frame())
     }
 })
 
+### ** .make_RFC4646_langtag_regexp
+
+.make_RFC4646_langtag_regexp <-
+function()
+{
+    ## See <https://www.ietf.org/rfc/rfc4646.html>.
+    ## Language tags can be of the form (in ABNF, see
+    ## <https://tools.ietf.org/rfc/rfc4234.txt>): 
+    ##   langtag / privateuse / grandfathered
+    ## where
+    ##   privateuse    = ("x"/"X") 1*("-" (1*8alphanum))
+    ##   grandfathered = 1*3ALPHA 1*2("-" (2*8alphanum))
+    ## We only allow langtag, for which in turn we have
+    ##   (language
+    ##    ["-" script]
+    ##    ["-" region]
+    ##    *(["-" variant])
+    ##    *(["-" extension])
+    ##    ["-" privateuse]
+    ## where
+    ##   language    = (2*3ALPHA [-extlang])  ; shortest ISO 639 code
+    ##                  / 4ALPHA              ; reserved for future use
+    ##                  / 5*8ALPHA            ; registered language subtag
+    ##   extlang     = *3("-" 3*ALPHA)        ; reserved for future use
+    ##   script      = 4ALPHA                 ; ISO 15924 code
+    ##   region      = 2ALPHA                 ; ISO 3166 code
+    ##                 / 3DIGIT               ; UN M.49 code
+    ##   variant     = 5*8alphanum            ; registered variants
+    ##                 / (DIGIT 3alphanum)
+    ##   extension   = singleton 1*("-" (2*8alphanum))
+    ##   singleton   = %x41-57 / %x59-5A / %x61-77 / %x79-7A / DIGIT
+    ##               ; "a"-"w" / "y"-"z" / "A"-"W" / "Y"-"Z" / "0"-"9"
+    ##   alphanum    = (ALPHA / DIGIT)        ; letters and numbers
+
+    re_extlang <- "[[:alpha:]]{3}"
+    re_language <-
+        sprintf("[[:alpha:]]{2,3}(-%s){0,3}|[[:alpha:]]{4,8}", re_extlang)
+    re_script <- "[[:alpha:]]{4}"
+    re_region <- "[[:alpha:]]{2}|[[:digit:]]{3}"
+    re_variant <- "[[:alnum:]]{5,8}|[[:digit:]][[:alnum:]]{3}"
+    re_singleton <- "[abcdefghijklmnopqrstuvwyzABCDEFGHIJKLMNOPQRSTUVWYZ0123456789]"
+    re_extension <- sprintf("(%s)(-[[:alnum:]]{2,8}){1,}", re_singleton)
+
+    sprintf("(%s)((-%s)?)((-%s)?)((-%s)*)((-%s)*)",
+            re_language, re_script, re_region, re_variant, re_extension)
+}
+    
 ### ** nonS3methods [was .make_S3_methods_stop_list ]
 
 nonS3methods <- function(package)
@@ -1859,6 +1944,8 @@ nonS3methods <- function(package)
                          "dim.rename.nc", "open.nc", "print.nc"),
              Rmpfr = c("mpfr.is.0", "mpfr.is.integer"),
              SMPracticals = "exp.gibbs",
+             SparseM = c("as.matrix.csc","as.matrix.csr", "as.matrix.ssc", "as.matrix.ssr", "as.matrix.coo",
+                         "is.matrix.csc","is.matrix.csr", "is.matrix.ssc", "is.matrix.ssr", "is.matrix.coo"),
              TANOVA = "sigma.hat",
              TeachingDemos = "sigma.test",
              XML = "text.SAX",
@@ -1908,7 +1995,7 @@ nonS3methods <- function(package)
              splusTimeDate = "sort.list",
              splusTimeSeries = "sort.list",
 	     stats = c("anova.lmlist", "expand.model.frame", "fitted.values",
-		       "influence.measures", "lag.plot", "t.test",
+		       "influence.measures", "lag.plot", "qr.influence", "t.test",
                        "plot.spec.phase", "plot.spec.coherency"),
              stremo = "sigma.hat",
              supclust = c("sign.change", "sign.flip"),
@@ -1973,7 +2060,7 @@ function()
 ### ** .package_apply
 
 .package_apply <-
-function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
+function(packages = NULL, FUN, ..., pattern = NULL, verbose = TRUE,
          Ncpus = getOption("Ncpus", 1L))
 {
     ## Apply FUN and extra '...' args to all given packages.
@@ -1983,10 +2070,8 @@ function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
         packages <-
             unique(utils::installed.packages(priority = "high")[ , 1L])
 
-    ## For consistency with .unpacked_source_repository_apply(), take
-    ## 'pattern' as a wildcard pattern.
-    if(pattern != "*")
-        packages <- packages[grepl(utils::glob2rx(pattern), packages)]
+    if(!is.null(pattern))
+        packages <- grepv(pattern, packages)
 
     ## Keep in sync with .unpacked_source_repository_apply().
     ## <FIXME>
@@ -2014,6 +2099,88 @@ function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
 
     names(out) <- packages
     out
+}
+
+### ** .package_code_using_R_4.x_syntax
+
+.package_code_using_R_4.x_syntax <-
+function(dir)
+{
+    dir <- file_path_as_absolute(dir)
+    wrk <- function(f) {
+        p <- file.path(dir, "R", f)
+        x <- utils::getParseData(parse(p, keep.source = TRUE))
+        i1 <- which(x$token %in% c("PIPE", "'\\\\'"))
+        i2 <- which(x$token == "PLACEHOLDER")
+        if(length(i1) || length(i2)) {
+            xi <- x$id
+            xp <- x$parent
+            n1 <- rep_len("4.1.0", length(i1))
+            ## Detect experimental placeholder feature as the head of a
+            ## chain of extractions by looking at the first child of the
+            ## grandparent of the placeholder: if it is the placeholder
+            ## expression then we have the 4.3.0 syntax.
+            n2 <- ifelse(vapply(i2,
+                                function(j) {
+                                    u <- xp[j]
+                                    v <- xp[xi %in% u]
+                                    min(xi[xp %in% v]) == u
+                                },
+                                NA),
+                         "4.3.0",
+                         "4.2.0")
+            i <- c(i1, i2)
+            data.frame(token = x$token[i],
+                       needs = c(n1, n2),
+                       text = utils::getParseText(x, xp[i]),
+                       file = rep_len(f, length(i)))
+        } else
+            NULL
+    }
+    one <- function(f)
+        tryCatch(wrk(f), error = function(e) NULL)
+
+    files <- list_files_with_type(file.path(dir, "R"), "code",
+                                  full.names = FALSE,
+                                  OS_subdirs = c("unix", "windows"))
+    do.call(rbind, lapply(files, one))
+}
+
+## ** .package_depends_on_R_at_least
+
+.package_depends_on_R_at_least <-
+function(dir, v)
+{
+    .package_metadata_has_depends_on_R_at_least(.get_package_metadata(dir),
+                                                v)
+}
+
+### ** .package_metadata_has_depends_on_R_at_least
+
+.package_metadata_has_depends_on_R_at_least <-
+function(meta, v)
+{
+    for(dep in .split_description(meta)$Rdepends2) {
+        if((dep$op == '>=') && (dep$version >= v)) return(TRUE)
+    }
+    FALSE
+}
+    
+### ** .package_vignettes_via_call_to_R
+
+.package_vignettes_via_call_to_R <-
+function(dir, ..., libpaths = .libPaths()) {
+    ## pkgVignettes() needs to load the namespaces of the vignette
+    ## builders in order to find the vignette engines, and cannot unload
+    ## again, which may be undesirable (e.g., when calling from the
+    ## master check process *before* installing the package checked.
+    ## pkgVignettes() has a lib.loc argument but that is not passed
+    ## through to loadVignetteBuilder(), so we use .libPaths() instead.
+    fun <- function(dir, ..., libpaths) {
+        .libPaths(libpaths)
+        pkgVignettes(dir = dir, ...)
+    }
+    R(fun, list(dir, ..., libpaths = libpaths), "--vanilla")
 }
 
 ### ** .pandoc_md_for_CRAN
@@ -2050,6 +2217,38 @@ function(file, encoding = NA, keep.source = getOption("keep.source"))
             parse(file,
                   keep.source = keep.source)
     })
+}
+
+### ** .persons_from_metadata
+
+.persons_from_metadata <- function(dir, meta = NULL) {
+    if(is.null(meta))
+        meta <- .get_package_metadata(dir)
+    if(!is.na(aar <- meta["Authors@R"])) {
+        aar <- tryCatch(utils:::.read_authors_at_R_field(aar),
+                        error = identity)
+        if(inherits(aar, "person"))
+            return(aar)
+    }
+    NULL
+}
+
+### ** .persons_from_citation
+
+.persons_from_citation <- function(dir, installed = FALSE) {
+    meta <- .get_package_metadata(dir, installed = installed)
+    path <- if(installed)
+                "CITATION"
+            else
+                file.path("inst", "CITATION")
+    cfile <- file.path(dir, path)
+    cinfo <- .read_citation_quietly(cfile, meta)
+    if(!inherits(cinfo, "error")) {
+        aut <- do.call(c, lapply(unclass(cinfo), `[[`, "author"))
+        if(inherits(aut, "person"))
+            return(aut)
+    }
+    NULL
 }
 
 ### ** .read_additional_repositories_field
@@ -2419,12 +2618,14 @@ function(expr)
 ### ** .unpacked_source_repository_apply
 
 .unpacked_source_repository_apply <-
-function(dir, FUN, ..., pattern = "*", verbose = FALSE,
+function(dir, FUN, ..., pattern = NULL, verbose = FALSE,
          Ncpus = getOption("Ncpus", 1L))
 {
     dir <- file_path_as_absolute(dir)
 
-    dfiles <- Sys.glob(file.path(dir, pattern, "DESCRIPTION"))
+    dfiles <- Sys.glob(file.path(dir, "*", "DESCRIPTION"))
+    if(!is.null(pattern))
+        dfiles <- dfiles[grepl(pattern, basename(dirname(dfiles)))]
     paths <- dirname(dfiles)
 
     ## Keep in sync with .package_apply().
@@ -2479,8 +2680,8 @@ function(args, msg)
 ### ** R
 
 R <-
-function(fun, args = list(), opts = character(), env = character(),
-         arch = "", drop = TRUE, timeout = 0)
+function(fun, args = list(), opts = "--no-save --no-restore",
+         env = character(), arch = "", drop = TRUE, timeout = 0)
 {
     .safe_repositories <- function() {
         x <- getOption("repos")
@@ -2491,8 +2692,10 @@ function(fun, args = list(), opts = character(), env = character(),
         c(x, y[match(names(y), names(x), 0L) == 0L])
     }
 
-    tfi <- tempfile("runri")
-    tfo <- tempfile("runro")
+    ## escape issue if we use backslashes in paths, hence convert to "/"
+    tfi <- normalizePath(tempfile("runri"), winslash="/", mustWork=FALSE)
+    tfo <- normalizePath(tempfile("runro"), winslash="/", mustWork=FALSE)
+
     wrk <- c(sprintf("x <- readRDS(\"%s\")", tfi),
              "options(repos = x$repos)",
              ## need quote = TRUE in case some of args are not self-evaluating
@@ -2521,10 +2724,11 @@ function(fun, args = list(), opts = character(), env = character(),
         if (inherits(val, "condition")) {
             ## maybe wrap in a classed error and include some of res
             msg <- paste0("error in inferior call:\n  ", conditionMessage(val))
-            stop(errorCondition(msg,
+            stop(do.call(errorCondition,
+                         c(list(message = msg, 
                                 class = "inferiorCallError",
-                                res = res,
-                                error = val))
+                                value = val),
+                           res)))
         }
         else {
             val <- val[[1L]]
@@ -2537,9 +2741,10 @@ function(fun, args = list(), opts = character(), env = character(),
     else
         ## again maybe wrap in a classed error  and include some of res
         ## might want to distinguish two errors by sub-classes
-        stop(errorCondition("inferior call failed",
-                            class = "inferiorCallError",
-                            res = res))
+        stop(do.call(errorCondition,
+                     c(list(message = "inferior call failed",
+                            class = "inferiorCallError"),
+                       res = res)))
 }
 
 ### ** Rcmd
@@ -2618,18 +2823,20 @@ function(text)
         ## do not remove capitalization immediately after ": " or "- "
         ind <- grep("[-:]$", xx); ind <- ind[ind + 2L <= length(l)]
         ind <- ind[(xx[ind + 1L] == " ") & grepl("^['[:alnum:]]", xx[ind + 2L])]
+        # don't capitalize lpat words after hyphenation
+        ind <- ind[!(xx[ind] == "-" & grepl(lpat, xx[ind + 2L]))]
         l[ind + 2L] <- FALSE
         ## Also after " (e.g. "A Book Title")
         ind <- which(xx == '"'); ind <- ind[ind + 1L <= length(l)]
         l[ind + 1L] <- FALSE
         xx[l] <- tolower(xx[l])
         keep <- havecaps | l | (nchar(xx) == 1L) | alone
-        xx[!keep] <- sapply(xx[!keep], do1)
+        xx[!keep] <- vapply(xx[!keep], do1, "<chr>")
         paste(xx, collapse = "")
     }
     if(typeof(text) != "character")
         stop("'text' must be a character vector")
-    sapply(text, titleCase1, USE.NAMES = FALSE)
+    vapply(text, titleCase1, "<chr>", USE.NAMES = FALSE)
 }
 
 ### ** path_and_libPath

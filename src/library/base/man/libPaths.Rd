@@ -33,7 +33,7 @@
 }
 \details{
   \code{.Library} is a character string giving the location of the
-  default library, the \file{library} subdirectory of \env{R_HOME}.
+  default library, the \file{library} subdirectory of \var{\link{R_HOME}}.
 
   \code{.Library.site} is a (possibly empty) character vector giving the
   locations of the site libraries.
@@ -85,9 +85,9 @@
   to obtain \samp{\%}), with currently available conversion
   specifications as follows:
   \describe{
-    \item{\samp{\%V}}{\R version number including the patchlevel (e.g.,
+    \item{\samp{\%V}}{\R version number including the patch level (e.g.,
       \samp{2.5.0}).}
-    \item{\samp{\%v}}{\R version number excluding the patchlevel (e.g.,
+    \item{\samp{\%v}}{\R version number excluding the patch level (e.g.,
       \samp{2.5}).}
     \item{\samp{\%p}}{the platform for which \R was built, the value of
       \code{\link{R.version}$platform}.}

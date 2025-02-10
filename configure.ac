@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2024 R Core Team
+### Copyright (C) 1998-2025 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -20,7 +20,7 @@
 ### along with R; if not, a copy is available at
 ### https://www.r-project.org/Licenses/
 
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 ## We want to get the version number from file 'VERSION' (rather than
 ## specifying the version info in 'configure.ac'.  Hence, we need a bit
@@ -136,7 +136,7 @@ R_CONFIG_ARGS="${ac_configure_args}"
 AC_SUBST(R_CONFIG_ARGS)
 
 ## Shortcut for musl which refuses to identify itself at C level
-if test "${host_os}" == "linux-musl"; then
+if test "${host_os}" = "linux-musl"; then
   AC_DEFINE(OS_MUSL, 1, [Define if running on Linux-musl])
 fi
 
@@ -307,6 +307,11 @@ if test "x${want_R_static}" = xyes; then
   fi
 fi
 AM_CONDITIONAL(WANT_R_STATIC, [test "x${want_R_static}" = xyes])
+
+AC_ARG_WITH([C23],
+[AS_HELP_STRING([--with-C23],[use C23 if available @<:@no@:>@])],
+[R_ARG_USE(C23)],
+[use_C23=no])
 
 ## Build separate shared/dynamic library containing R's BLAS if desired 
 AC_ARG_ENABLE([BLAS-shlib],
@@ -746,6 +751,47 @@ AC_PROG_CC
 dnl AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS ## see note above
 
+dnl echo "---- initial CC = ${CC}"
+CC_save=${CC}
+CFLAGS_save=${CFLAGS}
+CC_SUB=`echo "${CC}" | sed 's/-std=[[^ ]]*//'`
+CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[[^ ]]*//'`
+dnl this is a hack until -std=gnu23 is widely accepted.
+: ${CC23="${CC_SUB} -std=gnu23"}
+: ${C23FLAGS="${CFLAGS_SUB}"}
+CC=${CC23}
+CFLAGS=${C23FLAGS}
+unset r_cv_C23
+R_C23
+if test x${r_cv_C23} = xno; then
+unset r_cv_C23
+CC23="${CC_SUB} -std=gnu2x"
+CC=${CC23}
+R_C23
+fi
+if test x${r_cv_C23} = xno; then
+CC23=
+C23FLAGS=
+fi
+AC_SUBST(CC23)
+AC_SUBST(C23FLAGS)
+
+if test x$use_C23 = xyes; then
+  if test x${r_cv_C23} = xyes; then
+    CC=${CC23}
+    CFLAGS=${C23FLAGS}
+  else
+    CC=${CC_save}
+    CFLAGS=${CFLAGS_save}
+    AC_MSG_WARN([C23 support is unavailable])
+  fi
+else
+CC=${CC_save}
+CFLAGS=${CFLAGS_save}
+fi
+dnl echo "---- final CC = ${CC}"
+
+
 AC_PROG_CPP
 R_PROG_CPP_CPPFLAGS
 
@@ -765,6 +811,7 @@ if test "${FFLAGS+set}" != set; then
   FFLAGS=${FCFLAGS}
 fi
 
+## This looks for a C++11 compiler: Apple clang++ is not by default
 AC_PROG_CXX
 ## check this actually compiles
 R_PROG_CXX
@@ -788,18 +835,14 @@ if test "${OBJC}" = gcc; then
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[id foo;])],,[OBJC=''])
   AC_LANG_POP([Objective C])
 fi
-R_PROG_OBJCXX
+## deferred until C++ standard is chosen.
+dnl R_PROG_OBJCXX
 
 ## This has to be R_DEFS as autoconf overrrides DEFS
 R_DEFS=${DEFS}
 AC_SUBST(R_DEFS)
 
-CC_SUB=`echo "${CC}" | sed 's/-std=[[^ ]]*//'`
-CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[[^ ]]*//'`
-dnl echo "CC_SUB = ${CC_SUB}"
-dnl echo "CFLAGS_SUB = ${CFLAGS_SUB}"
-
-## Other C standards
+## Other C standards -- C23 done higher up
 CC_save=${CC}
 CFLAGS_save=${CFLAGS}
 : ${CC17="${CC_SUB} -std=gnu17"}
@@ -819,26 +862,6 @@ C17FLAGS=
 fi
 AC_SUBST(CC17)
 AC_SUBST(C17FLAGS)
-
-dnl this is a hack until -std=gnu23 is widely accepted.
-: ${CC23="${CC_SUB} -std=gnu23"}
-: ${C23FLAGS="${CFLAGS_SUB}"}
-CC=${CC23}
-CFLAGS=${C23FLAGS}
-unset r_cv_C23
-R_C23
-if test x${r_cv_C23} = xno; then
-unset r_cv_C23
-CC23="${CC_SUB} -std=gnu2x"
-CC=${CC23}
-R_C23
-fi
-if test x${r_cv_C23} = xno; then
-CC23=
-C23FLAGS=
-fi
-AC_SUBST(CC23)
-AC_SUBST(C23FLAGS)
 
 : ${CC90="${CC_SUB} -std=gnu90"}
 : ${C90FLAGS="${CFLAGS_SUB}"}
@@ -1108,7 +1131,7 @@ if test "x${use_long_double}" = xyes; then
   AC_DEFINE(HAVE_LONG_DOUBLE, 1, [Define if you wish to use the 'long double' type.])
   AC_CHECK_SIZEOF(long double)
 else
-  AC_MSG_WARN([Not using the 'long double' type])
+  AC_MSG_NOTICE([Not using the 'long double' type])
 fi
 
 R_PROG_CC_MAKEFRAG
@@ -1898,38 +1921,33 @@ AC_SUBST(STATICR2)
 AC_SUBST(R_DYLIB_EXT)
 
 ## Test support for C++ standards
+## AC_PROG_CXX might have added -std=gnu++11 or similar
+save_CXX=${CXX}
+CXX=`echo "${CXX}" | sed -e 's/ *-std=[[^ ]]*//'`
 R_STDCXX([11], [CXX11], [CXX])
 R_STDCXX([14], [CXX14], [CXX11])
 R_STDCXX([17], [CXX17], [CXX14])
 R_STDCXX([20], [CXX20], [CXX17])
 R_STDCXX([23], [CXX23], [CXX20])
+R_STDCXX([26], [CXX26], [CXX23])
+CXX=${save_CXX}
 
-## Set default C++ compiler to C++17 if available, otherwise C++14 or C++11
-## Do not set if none is available.
+## Set default C++ compiler to C++17 if available, otherwise unset
 if test -n "${CXX}" && test -z "${CXXSTD}"; then
   if test -n "${CXX17}"; then
     CXX=${CXX17}
     CXXSTD=${CXX17STD}
     CXXFLAGS=${CXX17FLAGS}
     CXXPICFLAGS=${CXX17PICFLAGS}
-  elif test -n "${CXX11}"; then
-    if test -n "${CXX14}"; then
-      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++14])
-      CXX=${CXX14}
-      CXXSTD=${CXX14STD}
-      CXXFLAGS=${CXX14FLAGS}
-      CXXPICFLAGS=${CXX14PICFLAGS}
-    else
-      AC_MSG_WARN([C++17 is not available so the default C++ standard is C++11])
-      CXX=${CXX11}
-      CXXSTD=${CXX11STD}
-      CXXFLAGS=${CXX11FLAGS}
-      CXXPICFLAGS=${CXX11PICFLAGS}
-    fi
   else
-    AC_MSG_WARN([None of C++17, C++14 nor C++11 is available so no default C++ compiler is set])
+    AC_MSG_WARN([No C++17 compiler is available so no default C++ compiler is set])
   fi
 fi
+
+CXX_SAVE=${CXX}
+CXX="${CXX} ${CXXSTD}"
+R_PROG_OBJCXX
+CXX=${CXX_SAVE}
 
 ## Only now can we look for the OpenMP flag
 AC_LANG_PUSH(C++)
@@ -2585,6 +2603,9 @@ R_BZLIB
 ## LZMA headers and libraries from xz-utils
 R_LZMA
 
+## Zstd headers and libraries.
+R_ZSTD
+
 ## libdeflate headers and libraries.
 R_LIBDEFLATE
 
@@ -2999,9 +3020,9 @@ sdk_OK=no)
 dnl No longer used as we only build (or not) BLAS and LAPACK shims
 dnl  AC_DEFINE(USE_NEW_ACCELERATE, 1, [Define to use Apple's (new) Accelerate])
 fi
-AM_CONDITIONAL(BUILD_NEW_ACCELERATE, [test "x${use_accelerate}" == xyes])
+AM_CONDITIONAL(BUILD_NEW_ACCELERATE, [test "x${use_accelerate}" = xyes])
 AM_CONDITIONAL(BUILD_NEW_ACCELERATE_LAPACK,
-              [test "x${use_accelerate_lapack}" == xyes])
+              [test "x${use_accelerate_lapack}" = xyes])
 
 dnl record compiler versions
 CC_VER=`${CC} --version | ${SED} -n 1p`
@@ -3009,7 +3030,11 @@ FC_VER=`${FC} --version | ${SED} -n 1p`
 AC_DEFINE_UNQUOTED(CC_VER, "${CC_VER}", [Version of C Compiler])
 AC_SUBST(CC_VER)
 AC_DEFINE_UNQUOTED(FC_VER, "${FC_VER}", [Version of Fortran Compiler])
+AC_SUBST(REC_INSTALL_OPT)
+
+dnl Allow addiitonal options for installing recommended packages
 AC_SUBST(FC_VER)
+
 
 ### * Output.
 

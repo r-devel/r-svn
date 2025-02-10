@@ -17,11 +17,12 @@
   A data frame of 30 cases on 2 variables.
 
   \tabular{rll}{
-    [, 1] \tab weight \tab numeric \cr
-    [, 2] \tab group  \tab factor
+    [, 1] \tab \code{weight} \tab numeric \cr
+    [, 2] \tab \code{group}  \tab factor
   }
 
-  The levels of \code{group} are \sQuote{ctrl}, \sQuote{trt1}, and \sQuote{trt2}.
+  The levels of \code{group} are \sQuote{\I{ctrl}}, \sQuote{\I{trt1}},
+  and \sQuote{\I{trt2}}.
 }
 \examples{
 ## One factor ANOVA example from Dobson's book, cf. Table 7.4:
