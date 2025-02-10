@@ -9,15 +9,15 @@ penguins <- penguins_raw[, c("Species", "Island",
                              "Flipper Length (mm)", "Body Mass (g)", 
                              "Sex", "Date Egg")] 
 colnames(penguins) <- c(
-  "species", "island", "bill_length_mm", "bill_depth_mm", "flipper_length_mm",
-  "body_mass_g", "sex", "year"
+  "species", "island", "bill_len", "bill_dep", "flipper_len",
+  "body_mass", "sex", "year"
 )
 penguins$species <- regmatches(penguins$species,  
                                regexpr("^\\w+\\b", penguins$species))
 penguins$species <- as.factor(penguins$species)
 penguins$island <- as.factor(penguins$island)
-penguins$flipper_length_mm <- as.integer(penguins$flipper_length_mm)
-penguins$body_mass_g <- as.integer(penguins$body_mass_g)
+penguins$flipper_len <- as.integer(penguins$flipper_len)
+penguins$body_mass <- as.integer(penguins$body_mass)
 penguins$sex <- tolower(penguins$sex)
 penguins$sex <- as.factor(penguins$sex)
 penguins$year <- regmatches(penguins$year,  
@@ -29,4 +29,8 @@ save(penguins, file = "./src/library/datasets/data/penguins.rda")
 # Check identical with version palmerpenguins package
 # rm(penguins)
 # load("./src/library/datasets/data/penguins.rda")
+# old_nms <- sub("len", "length_mm",
+#                sub("dep","depth_mm",
+#                    sub("mass", "mass_g", colnames(penguins))))
+# colnames(penguins) <- old_nms
 # identical(penguins, palmerpenguins:::penguins_df)
