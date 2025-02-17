@@ -200,7 +200,7 @@ static int getFilenum(const char* filename) {
    even if the line isn't complete. But this isn't possible if we rely
    on writing all line profiling files first. In addition, while on Unix
    we could use write() (not fprintf) to flush, it is not guaranteed we
-   could do this on Windows with the main thread suspended. 
+   could do this on Windows with the main thread suspended.
 
    With this size hitting the limit is fairly unlikely, but if we do then
    the output file will miss some entries. Maybe writing an overflow marker
@@ -250,7 +250,7 @@ static void pb_uint(profbuf *pb, uint64_t num)
 	pb->ptr += j;
 	pb->left -= j;
     } else
-	pb->left = 0; 
+	pb->left = 0;
 }
 
 static void pb_int(profbuf *pb, int64_t num)
@@ -292,7 +292,7 @@ static void pb_int(profbuf *pb, int64_t num)
    Not suitable for re-use. */
 static void pb_dbl(profbuf *pb, double num)
 {
-    char digits[PB_MAX_DBL_DIGITS]; 
+    char digits[PB_MAX_DBL_DIGITS];
     int i, j, negative;
 
     if (!R_FINITE(num)) {
@@ -577,9 +577,9 @@ static void doprof(int sig)  /* sig is ignored in Windows */
 	pf_int(i); /* %d */
 	pf_str(": ");
 	pf_str(R_Srcfiles[i-1]);
-	pf_str("\n"); 
+	pf_str("\n");
     }
-    
+
     if(strlen(buf)) {
 	pf_str(buf);
 	pf_str("\n");
@@ -828,7 +828,7 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
 	   Solaris has CLOCK_PROF, in -lrt.
 	   FreeBSD only supports CLOCK_{REALTIME,MONOTONIC}
 	   Seems not to be supported at all on macOS.
-	*/ 
+	*/
 	struct itimerval itv;
 	itv.it_interval.tv_sec = interval / 1000000;
 	itv.it_interval.tv_usec =
@@ -2637,13 +2637,38 @@ static SEXP replaceCall(SEXP fun, SEXP val, SEXP args, SEXP rhs)
 }
 
 
+static R_INLINE SEXP as_logical_generic(SEXP cond, SEXP env)
+{
+    static SEXP call = NULL;
+    static SEXP xsym = NULL;
+    if (call == NULL) {
+	xsym = install("x");
+	call = R_ParseString("base::as.logical(x)");
+	R_PreserveObject(call);
+    }
+
+    SEXP callenv = PROTECT(R_NewEnv(env, FALSE, 0));
+    defineVar(xsym, cond, callenv);
+    INCREMENT_NAMED(cond);
+    SEXP out = eval(call, callenv);
+    UNPROTECT(1); /* callenv */
+    return out;
+}
+
 /* rho is only needed for _R_CHECK_LENGTH_1_CONDITION_=package:name and for
      detecting the current package in related diagnostic messages; it should
      be removed when length >1 condition is turned into an error
 */
-static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
+static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho, Rboolean dispatch_ok)
 {
     Rboolean cond = NA_LOGICAL;
+
+    if(dispatch_ok && OBJECT(s)) {
+	s = PROTECT(as_logical_generic(s, rho));
+	cond = asLogicalNoNA(s, call, rho, FALSE);
+	UNPROTECT(1);
+	return cond;
+    }
 
     /* handle most common special case directly */
     if (IS_SCALAR(s, LGLSXP)) {
@@ -2706,7 +2731,7 @@ attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
     int vis=0;
 
     PROTECT(Cond = eval(CAR(args), rho));
-    if (asLogicalNoNA(Cond, call, rho))
+    if (asLogicalNoNA(Cond, call, rho, TRUE))
 	Stmt = CADR(args);
     else {
 	if (length(args) > 2)
@@ -2917,7 +2942,7 @@ attribute_hidden SEXP do_while(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (SETJMP(cntxt.cjmpbuf) != CTXT_BREAK) {
 	for(;;) {
 	    SEXP cond = PROTECT(eval(CAR(args), rho));
-	    int condl = asLogicalNoNA(cond, call, rho);
+	    int condl = asLogicalNoNA(cond, call, rho, TRUE);
 	    UNPROTECT(1);
 	    if (!condl) break;
 	    if (RDEBUG(rho) && !bgn && !R_GlobalContext->browserfinish) {
@@ -4321,7 +4346,7 @@ static Rboolean R_chooseOpsMethod(SEXP x, SEXP y, SEXP mx, SEXP my,
 	expr = R_ParseString("base::chooseOpsMethod(x, y, mx, my, cl, rev)");
 	R_PreserveObject(expr);
     }
-    
+
     SEXP newrho = PROTECT(R_NewEnv(rho, FALSE, 0));
     defineVar(xSym, x, newrho); INCREMENT_NAMED(x);
     defineVar(ySym, y, newrho); INCREMENT_NAMED(y);
@@ -6918,7 +6943,7 @@ static R_INLINE Rboolean GETSTACK_LOGICAL_NO_NA_PTR(R_bcstack_t *s, int callidx,
     }
     SEXP call = GETCONST(constants, callidx);
     PROTECT(value);
-    Rboolean ans = asLogicalNoNA(value, call, rho);
+    Rboolean ans = asLogicalNoNA(value, call, rho, TRUE);
     UNPROTECT(1);
     return ans;
 }
