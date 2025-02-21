@@ -787,7 +787,7 @@ static int download_add_url(int i, SEXP scmd, const char *mode,
        curl_easy_setopt(hnd[i], CURLOPT_ACCEPT_ENCODING, "gzip, deflate");
     */
 
-    if (!quiet) REprintf(_("trying URL '%s'\n"), url);
+    if (!quiet) REprintf(_("Downloading '%s'\n"), url);
     vmaxset(vmax);
     return 0;
 }
