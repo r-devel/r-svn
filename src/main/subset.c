@@ -112,7 +112,7 @@ NORET static void errorcallMissingSubs(SEXP x, SEXP call)
 }
 
 
-attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
+attribute_hidden SEXP Rf_ExtractSubset(SEXP x, SEXP indx, SEXP call)
 {
     if (x == R_NilValue)
 	return x;
