@@ -2412,7 +2412,7 @@ classesToAM <- function(classes, includeSubclasses = FALSE,
       maybe <- if(!is.null(f <- get0(x, where))) is.function(f) else FALSE
       if(maybe)
         maybe <- is(f, "genericFunction") ||
-              (length(grep("UseMethod", deparse(f))) > 0) ||
+              any(grepl("UseMethod", deparse(f))) ||
               is.primitive(f)
       maybe
     }

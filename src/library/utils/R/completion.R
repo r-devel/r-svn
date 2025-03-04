@@ -733,15 +733,15 @@ inFunction <-
         ## note in passing whether we are the first argument (no '='
         ## and no ',' in suffix)
 
-        if ((length(grep("=", suffix, fixed = TRUE)) == 0L) &&
-            (length(grep(",", suffix, fixed = TRUE)) == 0L))
+        if ((!any(grepl("=", suffix, fixed = TRUE))) &&
+            (!any(grepl(",", suffix, fixed = TRUE))))
             setIsFirstArg(TRUE)
 
 
-        if ((length(grep("=", suffix, fixed = TRUE))) &&
-            (length(grep(",", substr(suffix,
+        if ((any(grepl("=", suffix, fixed = TRUE))) &&
+            (!any(grepl(",", substr(suffix,
                                      tail.default(gregexpr("=", suffix, fixed = TRUE)[[1L]], 1L),
-                                     1000000L), fixed = TRUE)) == 0L))
+                                     1000000L), fixed = TRUE))))
         {
             ## we are on the wrong side of a = to be an argument, so
             ## we don't care even if we are inside a function

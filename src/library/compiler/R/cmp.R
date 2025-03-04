@@ -66,7 +66,7 @@ anyDots <- function(args) {
 
 is.ddsym <- function(name) {
     (is.symbol(name) || is.character(name)) &&
-    length(grep("^\\.\\.[0-9]+$", as.character(name))) != 0
+    any(grepl("^\\.\\.[0-9]+$", as.character(name)))
 }
 
 
