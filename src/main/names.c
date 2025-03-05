@@ -1183,7 +1183,7 @@ static void initializeDDVALSymbols(void) {
     }
 }
 
-attribute_hidden SEXP installDDVAL(int n) {
+attribute_hidden SEXP Rf_installDDVAL(int n) {
     if (n < N_DDVAL_SYMBOLS)
 	return DDVALSymbols[n];
 
@@ -1254,7 +1254,7 @@ void attribute_hidden InitNames(void)
 /*  If "name" is not found, it is installed in the symbol table.
     The symbol corresponding to the string "name" is returned. */
 
-SEXP install(const char *name)
+SEXP Rf_install(const char *name)
 {
     SEXP sym;
     int i, hashcode;
@@ -1281,7 +1281,7 @@ SEXP install(const char *name)
    Like the equivalent code pattern, it discards the encoding information,
    hence in almost all cases installTrChar should be used, instead. */
 attribute_hidden
-SEXP installNoTrChar(SEXP charSXP)
+SEXP Rf_installNoTrChar(SEXP charSXP)
 {
     SEXP sym;
     int i, hashcode;
@@ -1323,7 +1323,7 @@ SEXP installNoTrChar(SEXP charSXP)
 
 #define maxLength 512
 attribute_hidden
-SEXP installS3Signature(const char *className, const char *methodName) {
+SEXP Rf_installS3Signature(const char *className, const char *methodName) {
 
     const char *src;
     char signature[maxLength];

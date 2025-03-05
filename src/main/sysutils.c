@@ -941,7 +941,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	      __func__, R_typeToChar(__x__));			   \
 } while(0);
 
-cetype_t getCharCE(SEXP x)
+cetype_t Rf_getCharCE(SEXP x)
 {
     CHECK_CHARSXP(x);
     if(IS_UTF8(x)) return CE_UTF8;
@@ -950,13 +950,13 @@ cetype_t getCharCE(SEXP x)
     else return CE_NATIVE;
 }
 
-Rboolean charIsASCII(SEXP x)
+Rboolean Rf_charIsASCII(SEXP x)
 {
     CHECK_CHARSXP(x);
     return IS_ASCII(x) ? TRUE : FALSE;
 }
 
-Rboolean charIsUTF8(SEXP x)
+Rboolean Rf_charIsUTF8(SEXP x)
 {
     CHECK_CHARSXP(x);
     if (IS_ASCII(x) || IS_UTF8(x)) return TRUE;
@@ -965,7 +965,7 @@ Rboolean charIsUTF8(SEXP x)
     return TRUE;
 }
 
-Rboolean charIsLatin1(SEXP x)
+Rboolean Rf_charIsLatin1(SEXP x)
 {
     CHECK_CHARSXP(x);
     if (IS_ASCII(x) || IS_LATIN1(x)) return TRUE;
@@ -1862,7 +1862,7 @@ const char *translateCharFP2(SEXP x)
 	return copyAndFreeStringBuffer(&cbuff);
 }
 
-SEXP installTrChar(SEXP x)
+SEXP Rf_installTrChar(SEXP x)
 {
     CHECK_CHARSXP(x);
     nttype_t t = needsTranslation(x);

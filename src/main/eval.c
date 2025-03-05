@@ -1079,7 +1079,7 @@ static void handle_eval_depth_overflow(void)
 /* Return value of "e" evaluated in "rho". */
 
 /* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
-SEXP eval(SEXP e, SEXP rho)
+SEXP Rf_eval(SEXP e, SEXP rho)
 {
     SEXP op, tmp;
     static int evalcount = 0;
@@ -2322,7 +2322,7 @@ static SEXP applyClosure_core(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 }
 
 attribute_hidden
-SEXP applyClosure(SEXP call, SEXP op, SEXP arglist, SEXP rho,
+SEXP Rf_applyClosure(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 		  SEXP suppliedvars, Rboolean unpromise)
 {
     SEXP val = applyClosure_core(call, op, arglist, rho,
