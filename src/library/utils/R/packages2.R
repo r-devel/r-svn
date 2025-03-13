@@ -812,7 +812,7 @@ install.packages <-
 	if(verbose) message(gettextf("files: %s",
                                      paste(files, collapse=", \n\t")),
                             domain = NA)
-        update <- cbind(update[found, , drop=FALSE], file = files)
+        update <- cbind(update[found, , drop=FALSE], file = files, status = "")
         if(nrow(update) > 1L) {
             upkgs <- unique(pkgs <- update[, 1L])
             DL <- .make_dependency_list(upkgs, available)
@@ -901,6 +901,7 @@ install.packages <-
                 ## Try to figure out which
                 pkgs <- update[, 1L]
                 tss <- sub("[.]ts$", "", dir(".", pattern = "[.]ts$"))
+                update[!pkgs %in% tss, 4L] <- "FAIL"
                 failed <- pkgs[!pkgs %in% tss]
                 for (pkg in failed) {
                     ## targets with failed dependencies are not made (even with -k)
@@ -957,10 +958,12 @@ install.packages <-
                 ## if this times out it will leave locks behind
                 if(!quiet && keep_outputs)
                     writeLines(readLines(outfile))
-                if(status > 0L)
+                if(status > 0L){
                     warning(gettextf("installation of package %s had non-zero exit status",
                                      sQuote(update[i, 1L])),
                             domain = NA)
+                    update[i, 4L] <- "FAIL"
+                }
 		else if(verbose) {
                     cmd <- paste(c(cmd0, args), collapse = " ")
                     message(sprintf("%d): succeeded '%s'", i, cmd),
@@ -971,17 +974,18 @@ install.packages <-
                 file.copy(outfiles, outdir, overwrite = TRUE)
             unlink(tmpd2, recursive = TRUE)
         }
-        ## Using stderr is the wish of PR#16420
-        if(!quiet && nonlocalrepos && !is.null(tmpd) && is.null(destdir))
-            cat("\n", gettextf("The downloaded source packages are in\n\t%s",
-                               sQuote(normalizePath(tmpd, mustWork = FALSE))),
-                "\n", sep = "", file = stderr())
         ## update packages.html on Unix only if .Library was installed into
         libs_used <- unique(update[, 2L])
         if(.Platform$OS.type == "unix" && .Library %in% libs_used) {
             message("Updating HTML index of packages in '.Library'")
             make.packages.html(.Library)
         }
+        ## Using stderr is the wish of PR#16420
+        if(!quiet && nonlocalrepos && !is.null(tmpd) && is.null(destdir))
+            cat("\n", gettextf("Installed %d packages in\n\t%s", sum(update[, 4L] != "FAIL"),
+                paste(sQuote(normalizePath(libs_used, mustWork = FALSE)), collapse = "\n\t")),
+                "\n", sep = "", file = stderr())
+
     } else if(!is.null(tmpd) && is.null(destdir)) unlink(tmpd, TRUE)
 
     invisible()
