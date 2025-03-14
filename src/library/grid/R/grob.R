@@ -664,7 +664,7 @@ namePos <- function(pathName, names, grep) {
 partialPathMatch <- function(pathsofar, path, strict=FALSE, grep) {
   if (strict) {
     if (!any(grep))
-      length(grep(paste0("^", pathsofar), path)) > 0L
+      any(grepl(paste0("^", pathsofar), path))
     else {
       pathSoFarElts <- explode(pathsofar)
       pathElts <- explode(path)
@@ -697,7 +697,7 @@ fullPathMatch <- function(pathsofar, gPath, strict, grep) {
       if (strict)
         match <- match(pathsofar, path, nomatch=0L)
       else
-        match <- (length(grep(paste0(path, "$"), pathsofar)) > 0L)
+        match <- any(grepl(paste0(path, "$"), pathsofar))
     else {
       pathSoFarElts <- explode(pathsofar)
       pathElts <- explode(path)
@@ -714,7 +714,7 @@ fullPathMatch <- function(pathsofar, gPath, strict, grep) {
         }
         while (match && index <= npe) {
           if (grep[index])
-            match <- (length(grep(pathElts[index], pathSoFarElts[index])) > 0L)
+            match <- any(grepl(pathElts[index], pathSoFarElts[index]))
           else
             match <- match(pathSoFarElts[index], pathElts[index], nomatch = 0L)
           index <- index + 1
