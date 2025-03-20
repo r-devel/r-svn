@@ -54,7 +54,14 @@ if(FALSE) {
 
     ## global variables
     curPkg <- character() # list of packages in current pkg
+
+	## Path to where lockdirs will be created. If empty, use lib directory
+	lockdir_prefix <- Sys.getenv("PKG_LOCKDIR_PREFIX", "")
+	if (lockdir_prefix == "") lockdir_prefix <- NULL
+	## The lockdir, relative to lockdir_prefix
     lockdir <- ""
+	## The lockdir, including the prefix
+	lockdir_with_prefix <- ""
     is_first_package <- TRUE
     stars <- "*"
     user.tmpdir <- Sys.getenv("PKG_BUILD_DIR")
@@ -105,8 +112,8 @@ if(FALSE) {
             }
 
             if (nzchar(lockdir) &&
-                dir.exists(lp <- file.path(lockdir, curPkg)) &&
-                is_subdir(lp, lockdir)) {
+                dir.exists(lp <- file.path(lockdir_with_prefix, curPkg)) &&
+                is_subdir(lp, lockdir_with_prefix)) {
                 starsmsg(stars, "restoring previous ", sQuote(pkgdir))
                 if (WINDOWS) {
                     file.copy(lp, dirname(pkgdir), recursive = TRUE,
@@ -134,7 +141,7 @@ if(FALSE) {
             if (lib == .Library && "html" %in% build_help_types)
                 utils::make.packages.html(.Library, docdir = R.home("doc"))
         }
-        if (nzchar(lockdir)) unlink(lockdir, recursive = TRUE)
+        if (nzchar(lockdir_with_prefix)) unlink(lockdir_with_prefix, recursive = TRUE)
     }
 
     do_cleanup_tmpdir <- function()
@@ -478,7 +485,7 @@ if(FALSE) {
         if (file.exists(file.path(instdir, "DESCRIPTION"))) {
             if (nzchar(lockdir))
                 system(paste("mv -f", shQuote(instdir),
-                             shQuote(file.path(lockdir, pkg))))
+                             shQuote(file.path(lockdir_with_prefix, pkg))))
             dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
         }
         TAR <- Sys.getenv("TAR", 'tar')
@@ -1041,9 +1048,9 @@ if(FALSE) {
                     if (more_than_libs) unlink(instdir, recursive = TRUE)
                 } else if (more_than_libs)
                     system(paste("mv -f ", shQuote(instdir),
-                                 shQuote(file.path(lockdir, pkg_name))))
+                                 shQuote(file.path(lockdir_with_prefix, pkg_name))))
                 else
-                    file.copy(instdir, lockdir, recursive = TRUE,
+                    file.copy(instdir, lockdir_with_prefix, recursive = TRUE,
                               copy.date = TRUE)
             } else if (more_than_libs) unlink(instdir, recursive = TRUE)
             if (more_than_libs && dir.exists(instdir))
@@ -1073,10 +1080,10 @@ if(FALSE) {
             final_rlibs <- Sys.getenv("R_LIBS")
             final_libpaths <- .libPaths()
 
-            instdir <- file.path(lockdir, "00new", pkg_name)
+            instdir <- file.path(lockdir_with_prefix, "00new", pkg_name)
             Sys.setenv(R_PACKAGE_DIR = instdir)
             dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
-            lib <- file.path(lockdir, "00new")
+            lib <- file.path(lockdir_with_prefix, "00new")
 
             rlibs <- if (nzchar(final_rlibs))
                          paste(lib, final_rlibs, sep = .Platform$path.sep)
@@ -2348,23 +2355,23 @@ if(FALSE) {
     ## if(!WINDOWS && !more_than_libs) test_load <- FALSE
 
 
-    mk_lockdir <- function(lockdir)
+    mk_lockdir <- function(lockdir_with_prefix)
     {
-        if (file.exists(lockdir)) {
+        if (file.exists(lockdir_with_prefix)) {
             message("ERROR: failed to lock directory ", sQuote(lib),
-                    " for modifying\nTry removing ", sQuote(lockdir),
+                    " for modifying\nTry removing ", sQuote(lockdir_with_prefix),
                     domain = NA)
             do_cleanup_tmpdir()
             do_exit(status = 3)
         }
-        dir.create(lockdir, recursive = TRUE)
-        if (!dir.exists(lockdir)) {
-            message("ERROR: failed to create lock directory ", sQuote(lockdir),
+        dir.create(lockdir_with_prefix, recursive = TRUE)
+        if (!dir.exists(lockdir_with_prefix)) {
+            message("ERROR: failed to create lock directory ", sQuote(lockdir_with_prefix),
                     domain = NA)
             do_cleanup_tmpdir()
             do_exit(status = 3)
         }
-        if (debug) starsmsg(stars, "created lock directory ", sQuote(lockdir))
+        if (debug) starsmsg(stars, "created lock directory ", sQuote(lockdir_with_prefix))
     }
 
     if (is.na(lock)) {
@@ -2373,7 +2380,11 @@ if(FALSE) {
     }
     if (lock && !pkglock) {
         lockdir <- file.path(lib, "00LOCK")
-        mk_lockdir(lockdir)
+		if (!is.null(lockdir_prefix))
+			lockdir_with_prefix <- file.path(lockdir_prefix, lockdir)
+		else
+			lockdir_with_prefix <- lockdir
+        mk_lockdir(lockdir_with_prefix)
     }
     if (is.na(staged_install)) {
         # environment variable intended as temporary
@@ -2418,7 +2429,11 @@ if(FALSE) {
     for(pkg in allpkgs) {
         if (pkglock) {
             lockdir <- file.path(lib, paste0("00LOCK-", basename(pkg)))
-            mk_lockdir(lockdir)
+			if (!is.null(lockdir_prefix))
+				lockdir_with_prefix <- file.path(lockdir_prefix, lockdir)
+			else
+				lockdir_with_prefix <- file.path(lockdir)
+            mk_lockdir(lockdir_with_prefix)
         }
         do_install(pkg)
     }
