@@ -423,6 +423,15 @@
 
       \item There is preliminary support for C++26 with GCC \eqn{>=} 14, Apple
       \command{clang++} \eqn{>=} 16 and \I{LLVM} \command{clang++} \eqn{>=} 17.
+
+      \item \code{install.packages()} supports setting a different path for the
+	  intermediate \code{00LOCK} directories through the environment variable
+	  \code{R_LOCKDIR_PREFIX}. This helps source package installation in some
+	  distributed filesystems available in cloud environments like databricks.
+	  Check the
+	  \dQuote{R Installation and Administration} manual for further details on
+	  this option.
+
     }
   }
 
