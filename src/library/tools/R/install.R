@@ -56,7 +56,7 @@ if(FALSE) {
     curPkg <- character() # list of packages in current pkg
 
     ## Path to where lockdirs will be created. If empty, use lib directory
-    lockdir_prefix <- Sys.getenv("PKG_LOCKDIR_PREFIX", "")
+    lockdir_prefix <- Sys.getenv("R_LOCKDIR_PREFIX", "")
     if (lockdir_prefix == "")
         lockdir_prefix <- NULL
     else
