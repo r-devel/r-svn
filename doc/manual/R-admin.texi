@@ -2061,6 +2061,20 @@ comparable age to your version of @R{}).
 Naive users sometimes forget that as well as installing a package, they
 have to use @code{library} to make its functionality available.
 
+The package installation process has some standard requirements on the
+file system where packages are installed. Specifically, when a \emph{source
+package} needs to be installed, R needs to be able
+to open files in append mode \code{open(filename, "a")}. R also expects to
+be able to perform atomic directory moves during package installation
+to ensure correct error recovery from package installation errors (see
+@uref{https://developer.r-project.org/Blog/public/2019/02/14/staged-install/index.html}).
+Both requirements are fullfilled by POSIX and Windows filesystems, but not by
+some distributed file systems. In scenarios where opening append mode is not available, the
+@env{R_LOCKDIR_PREFIX} environment variable can be set to specify the absolute path to
+a different directory (in a compliant file system) where the package can be preinstalled
+before being moved to its final destination. While this approach makes package installation
+in those file systems possible, the error recovery capabilities will not be as robust as
+on supported filesystems.
 
 @node Windows packages
 @subsection Windows
