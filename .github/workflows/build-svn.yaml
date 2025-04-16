@@ -24,7 +24,9 @@ jobs:
         OS: [ 'windows-latest', 'windows-11-arm']
     steps:
     - name: Prepare git
-      run: git config --global core.autocrlf false
+      run: |
+        git config --global core.autocrlf false
+        echo "archfix=${{ matrix.OS == 'windows-11-arm' && '-aarch64' || '' }}" >> $GITHUB_ENV
       shell: bash
 
     - name: Checkout
@@ -37,16 +39,9 @@ jobs:
         msystem: MSYS
         install: git make perl curl texinfo texinfo-tex rsync zip unzip diffutils
 
-    - name: "Download rtools45 ARM64 toolchain"
-      if: matrix.OS == 'windows-11-arm'
+    - name: "Download rtools45 toolchain"
       run: |
-        url="https://github.com/r-windows/rtools-chocolatey/releases/download/6536/rtools45-toolchain-libs-base-aarch64-6536.tar.zst"
-        curl -sSL $url | tar x --zstd -C /c/ || true
-
-    - name: "Download rtools45 Intel toolchain"
-      if: matrix.OS != 'windows-11-arm'
-      run: |
-        url="https://github.com/r-windows/rtools-chocolatey/releases/download/6536/rtools45-toolchain-libs-base-6536.tar.zst"
+        url="https://github.com/r-windows/rtools-chocolatey/releases/download/6536/rtools45-toolchain-libs-base${archfix}-6536.tar.zst"
         curl -sSL $url | tar x --zstd -C /c/ || true
 
     - name: Set timezone
@@ -80,6 +75,6 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: installer
+        name: installer${{env.archfix}}
         path: src/gnuwin32/installer/R-devel-win.exe
       if: matrix.script == 'installer'
