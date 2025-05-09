@@ -179,10 +179,11 @@ if(!startsWith(R.version$os, "darwin")) {
                     unpackPkg(foundpkgs[okp, 2L], foundpkgs[okp, 1L], lib,
                               lock = lock)
             }
+            if(!quiet && sum(oklib)){
+                cat("\n", gettextf("Successfully installed %d binary packages in\n\t%s", 
+                    sum(oklib), lib), "\n", sep = "")
+            }
         }
-        if(!quiet && !is.null(tmpd) && is.null(destdir))
-            cat("\n", gettextf("The downloaded binary packages are in\n\t%s", tmpd),
-                "\n", sep = "")
     } else if(!is.null(tmpd) && is.null(destdir)) unlink(tmpd, recursive = TRUE)
 
     invisible()
