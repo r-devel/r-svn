@@ -4044,15 +4044,16 @@ add_dummies <- function(dir, Log)
 
     check_rust <- function()
     {
-        ## It is impossible to tell definiitively if a package
-        ## compiles rust code.  SystemRequirements in DESCRIPTION is
-        ## fres-format, and only advisory.  So we look at the
-        ## installation log, which we found in check_src()
+        ## A Cargo.toml file is used to identify a rust package,
+        ## so check for Cargo.toml under src to see if rust code
+        ## is compiled in the crate
         if (is.na(InstLog)) return (NA)
+        srcd <- file.path(pkgdir, "src")
+        if (length(list.files(path = srcd, pattern = "Cargo.toml", recursive = TRUE)) == 0) return (NA)
         ##message("InstLog = ", InstLog)
         lines <- readLines(InstLog, warn = FALSE)
-        l1 <- grep("(cargo build|   Compiling )", lines)
-        if(!length(l1)) return(NA)
+        l1 <- grep(r"(cargo\N+build|   Compiling )", lines)
+        if(!length(l1)) return (NA)
         l2 <- grep("   Compiling ", lines)
         checkingLog(Log, "Rust compilation")
         msg <- character(); OK <- TRUE
@@ -4067,6 +4068,22 @@ add_dummies <- function(dir, Log)
             OK <- FALSE
             msg <- c(msg, "No rustc version reported prior to compilation")
 ##            print(lines)
+        }
+        desc <- .read_description("DESCRIPTION")
+        sysreqs <- parse_description_field(desc, "SystemRequirements", default = FALSE)
+        if(!sysreqs) {
+            OK <- FALSE
+            msg <- c(msg, "Package compiles Rust but SystemRequirements not provided")
+        }
+        rustc_desc <- any(grep("rustc", sysreqs, ignore.case = TRUE, fixed = TRUE))
+        cargo_desc <- any(grep("cargo", sysreqs, ignore.case = TRUE, fixed = TRUE))
+        if(!rustc_desc) {
+            OK <- FALSE
+            msg <- c(msg, "Package compiles Rust but rustc not in DESCRIPTION")
+        }
+        if(!cargo_desc) {
+            OK <- FALSE
+            msg <- c(msg, "Package compiles Rust but cargo not in DESCRIPTION")
         }
         if(OK)
             resultLog(Log, "OK")
