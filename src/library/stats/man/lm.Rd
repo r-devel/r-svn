@@ -37,7 +37,7 @@ lm(formula, data, subset, weights, na.action,
   \item{subset}{an optional vector specifying a subset of observations
     to be used in the fitting process. (See additional details about how
     this argument interacts with data-dependent bases under \sQuote{Details}
-    below.)
+    below.)}
 
   \item{weights}{an optional vector of weights to be used in the fitting
     process.  Should be \code{NULL} or a numeric vector.
