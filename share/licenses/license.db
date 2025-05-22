@@ -25,7 +25,7 @@ Name: GNU Library General Public License
 Abbrev: LGPL
 Version: 2
 SSS: LGPL-2
-OSI: open
+OSI: open (https://opensource.org/license/lgpl-2-0)
 FSF: free
 File: share/licenses/LGPL-2
 URL: https://www.r-project.org/Licenses/LGPL-2
