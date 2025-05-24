@@ -466,7 +466,8 @@ function(x)
                               extensions = NULL,
                               pointers = NULL,
                               is_FOSS = NA,
-                              restricts_use = NA)
+                              restricts_use = NA,
+                              spdx = "")
         list(is_empty = is_empty,
              is_canonical = is_canonical,
              bad_components = bad_components,
@@ -478,7 +479,8 @@ function(x)
              extensions = extensions,
              pointers = pointers,
              is_FOSS = is_FOSS,
-             restricts_use = restricts_use)
+             restricts_use = restricts_use,
+             spdx = spdx)
 
 
     x <- trimws(x)
@@ -495,6 +497,7 @@ function(x)
     is_verified <- FALSE
     is_FOSS <- NA
     restricts_use <- NA
+    spdx <- ""
 
     ## Try splitting into the individual components.
     components <-
@@ -611,6 +614,13 @@ function(x)
                                stringsAsFactors = FALSE)
         }
 
+        vapply(
+            expansions, FUN.VALUE = character(1),
+            FUN = function(z) {
+                paste(z[["SPDX"]], collapse = " OR ")
+            }
+        ) |>
+            paste(collapse = " OR ") -> spdx
         ## Replace expansions by their labels from the license db.
         ## (As these are unique, we can always easily get the full
         ## expansions back.)
@@ -642,7 +652,8 @@ function(x)
                   extensions = extensions,
                   pointers = pointers,
                   is_FOSS = is_FOSS,
-                  restricts_use = restricts_use)
+                  restricts_use = restricts_use,
+                  spdx = spdx)
 }
 
 .standardize_license_components <-
