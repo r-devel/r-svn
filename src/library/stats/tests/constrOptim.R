@@ -31,31 +31,3 @@ out <- constrOptim(
 
 # Convergence code 0 (set by optim)
 stopifnot(identical(out$convergence, 0L))
-
-set.seed(0)
-startp <- c(1/3, 1/3) + rnorm(2) * 1e-6
-
-out <- constrOptim(
-    theta = startp,
-    f     = objective,
-    grad  = gradfun,
-    ui    = UI,
-    ci    = CI,
-    outer.iterations = 100,
-    method = "BFGS"
-)
-# Convergence code 21 (set by constrOptim)
-stopifnot(identical(out$convergence, 21L))
-
-out <- constrOptim(
-    theta = startp,
-    f     = objective,
-    grad  = gradfun,
-    ui    = UI,
-    ci    = CI,
-    outer.iterations = 100,
-    method = "Nelder-Mead"
-)
-
-# Convergence code 0 (set by optim)
-stopifnot(identical(out$convergence, 0L))

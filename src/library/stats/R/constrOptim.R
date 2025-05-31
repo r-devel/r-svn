@@ -70,12 +70,12 @@ constrOptim <-
  	    abs(r - r.old) < (1e-3 + abs(r)) * outer.eps) break
         theta <- a$par
 
-	    if (any(ui%*%theta-ci<0) || !is.finite(r) || any(!is.finite(theta))) {
+        if (any(ui%*%theta-ci<0) || !is.finite(r) || any(!is.finite(theta))) {
             i <- i - 1
             a <- a.old
             optim_failure <- TRUE
             break
-	    }
+        }
  	
         totCounts <- totCounts + a$counts
         obj <- f(theta, ...)
