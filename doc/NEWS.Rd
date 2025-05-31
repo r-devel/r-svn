@@ -30,7 +30,13 @@
       \verb{\link[<pkg>:<myClass>-class]{<myClass>}} necessary in earlier
       versions of \R.
 
-      Packages with the new syntax need to formally depend on \samp{R >= 4.6.0}.
+      Packages with the new syntax need to formally depend on
+      \samp{R >= 4.6.0}.
+
+      \item \code{tools::analyze_license()} now also computes
+      \href{https://spdx.dev/learn/handling-license-info/}{SPDX license
+	identifiers},
+      thanks to \I{Thierry Onkelinx} and \I{LLuís Revilla}.
     }
   }
 
@@ -96,6 +102,10 @@
 
       \item Dataset \code{LifeCycleSavings} had a misspelled row name:
       \code{"Guatamala"} was corrected to \code{"Guatemala"}.
+
+      \item The \code{Pair(x,y)} construction in the formula interface to
+      paired tests did not work with the \code{subset} argument, due to the
+      absence of a \code{[.Pair} method, which has now been added.
     }
   }
 
@@ -116,7 +126,7 @@
       %% including tkrplot, loon and tcltk2
     }
   }
-  
+
   \subsection{BUG FIXES}{
     \itemize{
       \item Java detection in \code{javareconf} could not detect
@@ -142,6 +152,15 @@
 
       \item \code{signif(1.**e308, digits)} no longer truncates unnecessarily
       (but still to prevent overflow to \code{Inf}), fixing \PR{18889}.
+
+      \item \code{prettyNum(*, zero.print={>=1-char}, replace.zero=TRUE)}
+      now works as documented, thanks to Marttila Mikko and Ivan Krylov's
+      messages on R-devel.
+
+      \code{pbeta(x, a,b, ..)} for very large \code{a,b} no longer returns
+      \code{NaN} but the correct values (0 or 1, or their logs for \code{log.p = TRUE}).
+      This improves Mathlib's C level \code{bratio()} and hence also
+      \code{pnbinom()}, etc..
     }
   }
 }
