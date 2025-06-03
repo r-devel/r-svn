@@ -75,6 +75,10 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
 
     lines <- readLines(file, skipNul = TRUE, encoding = "bytes")
 
+    ## Remove comment lines (if any)
+    comments <- grepl("^#", lines)
+    if (any(comments)) lines <- lines[!comments]
+
     ## Try to find out about invalid things: mostly, lines which do not
     ## start with blanks but have no ':' ...
     ind <- grep(paste0("^[^", ascii_blank, "][^:]*$"), lines)

@@ -72,7 +72,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     bool blank_skip, field_skip = false;
     int whatlen, dynwhat, buflen = 8096; // was 100, but that re-alloced often
     char *line, *buf;
-    regex_t blankline, contline, trailblank, regline, eblankline;
+    regex_t blankline, contline, trailblank, regline, eblankline, commentline;
     regmatch_t regmatch[1];
     SEXP file, what, what2, retval, retval2, dims, dimnames;
     Rconnection con = NULL;
@@ -122,6 +122,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     tre_regcompb(&contline, "^[ \t]+", REG_EXTENDED);
     tre_regcompb(&regline, "^[^:]+:[ \t]*", REG_EXTENDED);
     tre_regcompb(&eblankline, "^[ \f\n\r\t\v]+\\.[ \f\n\r\t\v]*$", REG_EXTENDED);
+    tre_regcompb(&commentline, "^#", REG_EXTENDED);
 
     k = 0;
     lastm = -1; /* index of the field currently being recorded */
@@ -149,6 +150,8 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		field_fold = true;
 		n_eblanklines = 0;
 	    }
+        } else if(tre_regexecb(&commentline, line, 0, 0, 0) == 0) {
+            /* comment-line detected. skipping it per DCF specification */
 	} else {
 	    blank_skip = false;
 	    if(tre_regexecb(&contline, line, 1, regmatch, 0) == 0) {
@@ -308,6 +311,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     tre_regfree(&trailblank);
     tre_regfree(&regline);
     tre_regfree(&eblankline);
+    tre_regfree(&commentline);
 
     if(!blank_skip) k++;
 
