@@ -60,7 +60,7 @@ function(x, y = NULL, alternative = c("two.sided", "less", "greater"),
         if(nx < 2) stop("not enough 'x' observations")
 	df <- nx-1
 	stderr <- sqrt(vx/nx)
-        if(stderr < 10 *.Machine$double.eps * abs(mx))
+        if(!is.na(stderr) && stderr < 10 *.Machine$double.eps * abs(mx))
             stop("data are essentially constant")
 	tstat <- (mx-mu)/stderr
 	method <- if(paired) "Paired t-test" else "One Sample t-test"
@@ -91,7 +91,7 @@ function(x, y = NULL, alternative = c("two.sided", "less", "greater"),
 	    stderr <- sqrt(stderrx^2 + stderry^2)
 	    df <- stderr^4/(stderrx^4/(nx-1) + stderry^4/(ny-1))
 	}
-        if(stderr < 10 *.Machine$double.eps * max(abs(mx), abs(my)))
+        if(!is.na(stderr) && stderr < 10 *.Machine$double.eps * max(abs(mx), abs(my)))
             stop("data are essentially constant")
         tstat <- (mx - my - mu)/stderr
     }
