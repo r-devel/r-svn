@@ -66,11 +66,12 @@ function(dir, outDir, builtStamp=character())
         builtStamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S",
                              tz = "UTC", usetz = TRUE)
     }
+    ncomp <- "NeedsCompilation" %in% nm && identical(db[["NeedsCompilation"]], "yes")
     Built <-
 	paste0("R ",
 	       paste(R.version[c("major", "minor")], collapse = "."),
 	       "; ",
-	       if(dir.exists(file.path(dir, "src"))) OStype else "",
+	       if(dir.exists(file.path(dir, "src")) || ncomp) OStype else "",
 	       "; ",
                builtStamp,
 	       "; ",
