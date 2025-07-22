@@ -732,7 +732,7 @@ pathListing <- function(x, gvpSep=" | ", gAlign=TRUE) {
 	maxLen <- max(nchar(paths))
 
     # Only if grob listings
-    if (sum(!vpListings) > 0) {
+    if (!all(vpListings)) {
         if (gAlign) {
             paths[!vpListings] <- padPrefix(paths[!vpListings], maxLen)
         }
