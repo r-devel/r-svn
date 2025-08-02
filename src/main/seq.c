@@ -745,7 +745,9 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    len = lx * it * each;
 	} else { // nt != 1
 	    if(nt != (double) lx * each)
-		errorcall(call, _("invalid '%s' argument"), "times");
+		    errorcall(call,_("invalid '%s' argument: length of time = %d, expected = %d from (length of x = %d , each = %d) "),"times",nt,(int)((double) lx * each),(int) lx , (int) each );
+		    
+		     
 	    if (TYPEOF(times) == REALSXP)
 		for(i = 0; i < nt; i++) {
 		    double rt = REAL(times)[i];
