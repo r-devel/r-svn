@@ -6,16 +6,13 @@
 \name{citEntry}
 \title{Bibliography Entries (Older Interface)}
 \alias{citEntry}
-\alias{citHeader}
-\alias{citFooter}
 \description{
-  Functionality for specifying bibliographic information in enhanced
-  BibTeX style.
+  Old interface providing functionality for specifying bibliographic 
+  information in enhanced BibTeX style.  Since R 2.14.0 this has been 
+  superseded by \code{\link{bibentry}}.
 }
 \usage{
 citEntry(entry, textVersion = NULL, header = NULL, footer = NULL, ...)
-citHeader(...)
-citFooter(...)
 }
 \arguments{
   \item{entry}{a character string with a BibTeX entry type.
@@ -32,8 +29,6 @@ citFooter(...)
     respectively.
     See section \bold{Entry Fields} in \code{\link{bibentry}} for
     details.
-
-    For \code{citHeader} and \code{citFooter}, character strings.
   }
 }
 \value{

@@ -2,9 +2,10 @@ useDynLib(tools, .registration = TRUE, .fixes = "C_")
 
 ## Bootstrapping R ==> do _not_ import, rather use  ' :: '
 
-export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "Rd2ex",
+export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "Rd2latex", "Rd2txt", "Rd2txt_options", "RdTextFilter", "Rd_db",
        "Rdiff", "Rdindex", "SweaveTeXFilter", "add_datalist",
+       "as.Rconcordance",
        "assertCondition", "assertError", "assertWarning", "bibstyle",
        "buildVignette", "buildVignettes", "charset_to_Unicode",
        "checkDocFiles", "checkDocStyle", "checkFF", "checkMD5sums",
@@ -15,16 +16,18 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "Rd2ex",
        "codocData", "compactPDF", "delimMatch", "deparseLatex",
        "dependsOnPkgs", "encoded_text_to_latex", "file_ext",
        "file_path_as_absolute", "file_path_sans_ext", "findHTMLlinks",
-       "find_gs_cmd", "getBibstyle", "getVignetteInfo",
+       "find_gs_cmd", "followConcordance", "getBibstyle", "getVignetteInfo",
        langElts, "latexToUtf8", "list_files_with_exts",
        "list_files_with_type", "loadRdMacros", "loadPkgRdMacros",
        "makevars_site", "makevars_user",
+       "matchConcordance",
        nonS3methods,
-       "make_translations_pkg", "md5sum",
+       "make_translations_pkg", "md5sum", "sha256sum",
        package.dependencies,# R/package.dependencies.R man/package.dependencies.Rd
        getDepList, pkgDepends, installFoundDepends,# R/pkgDepends.R man/getDepList.Rd man/installFoundDepends.Rd
        vignetteDepends, # deprecated, too as it calls  getDepList()
 
+       standard_package_names,
        "package_dependencies",
        "package_native_routine_registration_skeleton",
        "parseLatex", "parse_Rd",
@@ -48,18 +51,36 @@ export("CRAN_package_db",
        "CRAN_check_results",
        "CRAN_check_details",
        "CRAN_check_issues",
-##       "CRAN_memtest_notes",
-       "summarize_CRAN_check_status")
+       "summarize_CRAN_check_status",
+       "CRAN_aliases_db",
+       "CRAN_archive_db",
+       "CRAN_current_db",
+       "CRAN_rdxrefs_db",
+       "CRAN_authors_db")
+
+export("base_aliases_db",
+       "base_rdxrefs_db")
 
 export("R_user_dir")
 
 export(".print.via.format")
+
+export("check_package_urls",
+       "check_package_dois",
+       "parse_URI_reference")
+
+export("R")
+
+export("analyze_license")
 
 exportPattern("^SIG.+")
 
 S3method("[", "check_details_changes")
 
 S3method("as.character", "Rd")
+S3method("as.character", "Rconcordance")
+
+S3method("as.Rconcordance", "default")
 
 S3method("as.matrix", "check_url_db")
 
@@ -130,6 +151,8 @@ S3method("print", "subdir_tests", .print.via.format)
 S3method("print", "undoc", .print.via.format)
 S3method("print", "xgettext")
 S3method("print", "xngettext")
+S3method("print", "activeConcordance")
+S3method("print", "Rconcordance")
 
 S3method("print", "checkRdContents", .print.via.format)
 S3method("print", "check_Rd_line_widths", .print.via.format)

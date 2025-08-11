@@ -1,7 +1,7 @@
 #  File src/library/base/R/namespace.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,17 +24,14 @@
 ##  2) We use  ':::' instead of '::' inside the code below, for efficiency only
 
 getNamespace <- function(name) {
-    ns <- .Internal(getRegisteredNamespace(name))
-    if (! is.null(ns)) ns
-    else loadNamespace(name)
+    .Internal(getRegisteredNamespace(name)) %||% loadNamespace(name)
 }
 
 .getNamespace <- function(name) .Internal(getRegisteredNamespace(name))
 
 ..getNamespace <- function(name, where) {
-    ns <- .Internal(getRegisteredNamespace(name))
-    if (!is.null(ns)) ns
-    else tryCatch(loadNamespace(name), error = function(e) {
+    .Internal(getRegisteredNamespace(name)) %||%
+	tryCatch(loadNamespace(name), error = function(e) {
              tr <- Sys.getenv("_R_NO_REPORT_MISSING_NAMESPACES_")
              if( tr == "false" || (where != "<unknown>" && !nzchar(tr)) ) {
                  warning(gettextf("namespace %s is not available and has been replaced\nby .GlobalEnv when processing object %s",
@@ -187,7 +184,6 @@ loadNamespace <- function (package, lib.loc = NULL,
                            partial = FALSE, versionCheck = NULL,
                            keep.parse.data = getOption("keep.parse.data.pkgs"))
 {
-    libpath <- attr(package, "LibPath")
     package <- as.character(package)[[1L]]
 
     loading <- dynGet("__NameSpacesLoading__", NULL)
@@ -200,7 +196,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
     ns <- .Internal(getRegisteredNamespace(package))
     if (! is.null(ns)) {
-        if(!is.null(zop <- versionCheck[["op"]]) &&
+        if(!is.null(zop      <- versionCheck[["op"]]) &&
            !is.null(zversion <- versionCheck[["version"]])) {
             current <- getNamespaceVersion(ns)
             if(!do.call(zop, list(as.numeric_version(current), zversion)))
@@ -208,6 +204,7 @@ loadNamespace <- function (package, lib.loc = NULL,
                               sQuote(package), current, zop, zversion),
                      domain = NA)
         }
+        ## return
         ns
     } else {
         lev <- 0L
@@ -362,7 +359,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
         ## find package, allowing a calling handler to retry if not found.
         ## could move the retry functionality into find.package.
-        fp.lib.loc <- c(libpath, lib.loc)
+        fp.lib.loc <- lib.loc
         pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE)
         if (length(pkgpath) == 0L) {
             cond <- packageNotFoundError(package, fp.lib.loc, sys.call())
@@ -414,7 +411,7 @@ loadNamespace <- function (package, lib.loc = NULL,
                      call. = FALSE, domain = NA)
             ## we need to ensure that S4 dispatch is on now if the package
             ## will require it, or the exports will be incomplete.
-            dependsMethods <- "methods" %in% names(pkgInfo$Depends)
+            dependsMethods <- "methods" %in% c(names(pkgInfo$Depends), names(vI))
             if(dependsMethods) loadNamespace("methods")
             if(!is.null(zop <- versionCheck[["op"]]) &&
                !is.null(zversion <- versionCheck[["version"]]) &&
@@ -433,7 +430,7 @@ loadNamespace <- function (package, lib.loc = NULL,
         ## moved from library() in R 3.4.0
         checkLicense <- function(pkg, pkgInfo, pkgPath)
         {
-            L <- tools:::analyze_license(pkgInfo$DESCRIPTION["License"])
+            L <- tools::analyze_license(pkgInfo$DESCRIPTION["License"])
             if(!L$is_empty && !L$is_verified) {
                 site_file <-
                     path.expand(file.path(R.home("etc"), "licensed.site"))
@@ -808,7 +805,8 @@ loadNamespace <- function (package, lib.loc = NULL,
         if (length(exports)) {
             stoplist <- c(".__NAMESPACE__.", ".__S3MethodsTable__.",
                           ".packageName", ".First.lib", ".onLoad",
-                          ".onAttach", ".conflicts.OK", ".noGenerics")
+                          ".onAttach", ".conflicts.OK", ".noGenerics",
+                          ".__global__", ".__suppressForeign__")
             exports <- exports[! exports %in% stoplist]
         }
 	if(lev > 2L) message("--- processing exports for ", dQuote(package))
@@ -828,11 +826,12 @@ requireNamespace <- function (package, ..., quietly = FALSE)
 {
     package <- as.character(package)[[1L]] # like loadNamespace
     ns <- .Internal(getRegisteredNamespace(package))
+    if (is.null(ns) && !quietly) {
+        packageStartupMessage(gettextf("Loading required namespace: %s",
+                                       package), domain = NA)
+    }
     res <- TRUE
-    if (is.null(ns)) {
-        if(!quietly)
-            packageStartupMessage(gettextf("Loading required namespace: %s",
-                                           package), domain = NA)
+    if (is.null(ns) || ...length()) {
         value <- tryCatch(loadNamespace(package, ...), error = function(e) e)
         if (inherits(value, "error")) {
             if (!quietly) {
@@ -1057,7 +1056,7 @@ namespaceImportFrom <- function(self, ns, vars, generics, packages,
                 ## and is in order of adding.
                 current <- getNamespaceInfo(self, "imports")
                 poss <- lapply(rev(current), `[`, n)
-                poss <- poss[!sapply(poss, is.na)]
+                poss <- poss[!vapply(poss, is.na, NA)]
                 if(length(poss) >= 1L) {
                     prev <- names(poss)[1L]
                     warning(sprintf(gettext("replacing previous import %s by %s when loading %s"),
@@ -1532,14 +1531,14 @@ parseNamespaceFile <- function(package, package.lib, mustExist = TRUE)
          S3methods = unique(S3methods[seq_len(nS3), , drop = FALSE]) )
 } ## end{parseNamespaceFile}
 
-## Still used inside registerS3methods().
+## used inside registerS3methods(); workhorse of .S3method()
 registerS3method <- function(genname, class, method, envir = parent.frame()) {
     addNamespaceS3method <- function(ns, generic, class, method) {
 	regs <- rbind(.getNamespaceInfo(ns, "S3methods"),
 		      c(generic, class, method, NA_character_))
         setNamespaceInfo(ns, "S3methods", regs)
     }
-    groupGenerics <- c("Math", "Ops",  "Summary", "Complex")
+    groupGenerics <- c("Math", "Ops", "matrixOps", "Summary", "Complex")
     defenv <- if(genname %in% groupGenerics) .BaseNamespaceEnv
     else {
         genfun <- get(genname, envir = envir)
@@ -1560,12 +1559,12 @@ registerS3method <- function(genname, class, method, envir = parent.frame()) {
             delayedAssign(x, get(method, envir = home), assign.env = envir)
         }
         if(!exists(method, envir = envir)) {
-            ## need to avoid conflict with message at l.1298
+            ## need to avoid conflict with any(notex) warning message
             warning(gettextf("S3 method %s was declared but not found",
                              sQuote(method)), call. = FALSE)
         } else {
 	    assignWrapped(paste(genname, class, sep = "."), method, home = envir,
-	    	    envir = table)
+			  envir = table)
         }
     }
     else if (is.function(method))
@@ -1631,15 +1630,20 @@ registerS3methods <- function(info, package, env)
     ## can remain unchanged.
     if(ncol(info) == 3L)
         info <- cbind(info, NA_character_)
-    Info <- cbind(info[, 1L : 3L, drop = FALSE], methname, info[, 4L])
+    Info <- cbind(info[, 1L:3L, drop = FALSE], methname, info[, 4L])
     loc <- names(env)
-    if(any(notex <- match(info[,3], loc, nomatch=0L) == 0L)) { # not %in%
+    if(any(notex <- match(info[,3L], loc, nomatch=0L) == 0L)) { # not %in%
+      ## Try harder, as in registerS3method(); parent since *not* in env:
+      found <- vapply(info[notex, 3L], exists, logical(1), envir = parent.env(env))
+      notex[notex] <- !found
+      if(any(notex)) {
         warning(sprintf(ngettext(sum(notex),
                                  "S3 method %s was declared in NAMESPACE but not found",
                                  "S3 methods %s were declared in NAMESPACE but not found"),
                         paste(sQuote(info[notex, 3]), collapse = ", ")),
                 call. = FALSE, domain = NA)
         Info <- Info[!notex, , drop = FALSE]
+      }
     }
     eager <- is.na(Info[, 5L])
     delayed <- Info[!eager, , drop = FALSE]

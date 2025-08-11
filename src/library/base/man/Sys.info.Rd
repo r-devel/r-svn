@@ -1,6 +1,6 @@
 % File src/library/base/man/Sys.info.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2024 R Core Team
 % Copyright      2008 The R Foundation
 % Distributed under GPL 2 or later
 
@@ -29,13 +29,16 @@ Sys.info()
     \code{"unknown"} if it
     cannot be ascertained.  This may differ from the real user in
     \sQuote{set-user-ID} processes.}
+  \item{udomain}{The domain name for the user. Only available on Windows.}
 
   \describe{
     \item{On Unix-alike platforms: }{
       The first five fields come from the \code{uname(2)} system call.  The
       login name comes from \code{getlogin(2)}, and the user names from
       \code{getpwuid(getuid())} and \code{getpwuid(geteuid())}.}
-    \item{On Windows: }{The last three fields give the same value.}
+    \item{On Windows: }{
+      Fields \code{login}, \code{user} and \code{effective_user} give the same
+      value. \code{udomain} is the corresponding domain.}
   }
 }
 \details{
@@ -70,12 +73,8 @@ Sys.info()
   used (and not the many BSD and GNU extensions).  \command{whoami} is
   equivalent to \command{id -un} (on Solaris, \command{/usr/xpg4/bin/id -un}).
 
-  Windows may report unexpected versions: there, see the help for
-#ifdef windows
-    \code{\link{win.version}()}.
-#else
-    \code{win.version()}.
-#endif
+  Windows may report unexpected versions: see the help for
+  \code{\link{win.version}}.
 }
 
 \seealso{

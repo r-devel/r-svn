@@ -68,7 +68,7 @@ for(i in digs1) { DIG(i); cat(i,":", formatC(v3, digits=i, width=8),"\n") }
 
 
 ## R-0.50: switches to NON-exp at 14, but should only at 15...
-## R-0.61++: doesn' switch at all (or at 20 only)
+## R-0.61++: doesn't switch at all (or at 20 only)
 ## S-plus: does not switch at all..
 for(i in digs1) { cat(i,":");  print(v1, digits=i) }
 
@@ -102,7 +102,7 @@ do.p <- TRUE
 do.p <- FALSE
 for(di in 1:10) {
     options(digits=di)
-    cat(if(do.p)"\n",formatC(di,w=2),":", format.info(Mm),"\n")
+    cat(if(do.p)"\n", formatC(di, width=2),":", format.info(Mm),"\n")
     if(do.p)print(Mm)
 }
 ##-- R-0.49 (4/1997)	 R-0.50-a1 (7.7.97)
@@ -338,6 +338,25 @@ as.character(1:10)
 as.complex(1:10)
 as.raw(1:10)
 options(o)
+
+## print() max.print and max for matrices (w/ many columns)  --  PR#15027
+## whenever the columns are larger than max.print, no values inside the matrix are displayed
+print(matrix(nrow = 100, ncol = 4), max = 5)
+print(matrix(nrow = 100, ncol = 100), max = 40) # omitting rows and columns
+print(matrix(nrow =  10, ncol = 4), max = 3)    #   (ditto)
+print(matrix(nrow =   0, ncol = 4), max = 3)    # omitting 1 column
+print(matrix(nrow =  10, ncol = 2), max = 5)    # omitting rows
+print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting 1 col, at least one row prints
+## ----- "higher" arrays ("rank >= 3"): --------
+print(array(dim = c(2, 2, 2)), max = 4) # omit 1 slice
+print(array(dim = c(2, 2, 2)), max = 5) # omit 1 row + 1 column
+print(array(dim = c(2, 2, 2)), max = 6) # omit 1 row
+print(array(dim = c(2, 2, 2)), max = 7) # omit 1 row
+#
+print(array(dim = c(2, 2, 1)), max = 2) # omit 1 row
+print(array(dim = c(2, 2, 1)), max = 1) # omit 1 row + 1 column
+
+
 
 ## Cleanup
 rm(print.foo, obj, a, b, c, d, o)

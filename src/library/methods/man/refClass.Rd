@@ -1,10 +1,10 @@
 % File src/library/methods/man/refClass.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2010-2014 R Core Team
+% Copyright 2010-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ReferenceClasses}
-\title{Objects With Fields Treated by Reference (OOP-style)}
+\title{Objects With Fields Treated by Reference (\abbr{OOP}-style)}
 \alias{ReferenceClasses}
 \alias{setRefClass}
 \alias{getRefClass}
@@ -29,9 +29,9 @@
 \alias{externalRefMethod-class}
 \description{
 The software described here allows packages to define \emph{reference
-  classes} that behave in the style of \dQuote{OOP} languages such as Java and
+  classes} that behave in the style of \dQuote{\abbr{OOP}} languages such as Java and
 C++.
-This model for OOP differs from the functional model implemented by S4
+This model for \abbr{OOP} differs from the functional model implemented by S4
 (and S3) classes and methods, in which methods are defined for generic
 functions.
 Methods for reference classes are \dQuote{encapsulated} in the class definition.
@@ -209,7 +209,7 @@ function in a package.  See the section on \dQuote{External Methods}
 
 The goal of the software described here is to provide a uniform
 programming style in \R for software dealing with reference classes, whether
-implemented directly in \R or through an interface to one of the OOP
+implemented directly in \R or through an interface to one of the \abbr{OOP}
 languages.
 }
 
@@ -494,7 +494,7 @@ generator for the class.  See the section on Debugging below for details.
 
 \item{\code{$usingMethods(...)}}{ %$
 Reference methods used by this method are named as the arguments
- either quoted or unquoted.  In the code analysis phase of installing the
+ either quoted or unquoted.  In the code analysis phase of installing
  the present method, the declared methods will be included.  It is essential
  to declare any methods used in a nonstandard way (e.g., via an apply function).
  Methods called directly do not need to be declared, but it is harmless to do so.
@@ -703,7 +703,7 @@ class for which this object is the generator.
 
 \item{\code{$accessors(...)}}{ %$}{
 A number of
-systems using the OOP programming paradigm recommend or enforce
+systems using the \abbr{OOP} programming paradigm recommend or enforce
 \emph{getter and setter methods}
 corresponding to each field, rather than direct access by name.
 If you like this style and want to  extract a field named \code{abc}
@@ -818,10 +818,8 @@ reference method interactively.
 }
 
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 11.)
+  \bibinfo{R:Chambers:2016}{footer}{(Chapters 9 and 11.)}
+  \bibshow{R:Chambers:2016}
 }
 
 

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 2003--2016  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -102,6 +102,7 @@ void formatStringS(SEXP x, R_xlen_t n, int *fieldwidth, int quote)
 
 
 
+attribute_hidden
 void formatLogical(const int *x, R_xlen_t n, int *fieldwidth)
 {
     *fieldwidth = 1;
@@ -119,6 +120,7 @@ void formatLogical(const int *x, R_xlen_t n, int *fieldwidth)
     }
 }
 
+attribute_hidden
 void formatLogicalS(SEXP x, R_xlen_t n, int *fieldwidth) {
     *fieldwidth = 1;
     int tmpfieldwidth = 1;
@@ -151,6 +153,7 @@ void formatLogicalS(SEXP x, R_xlen_t n, int *fieldwidth) {
 	}							\
     } while(0)
 
+attribute_hidden
 void formatInteger(const int *x, R_xlen_t n, int *fieldwidth)
 {
     int xmin = INT_MAX, xmax = INT_MIN, naflag = 0;
@@ -167,6 +170,7 @@ void formatInteger(const int *x, R_xlen_t n, int *fieldwidth)
     FORMATINT_RETLOGIC;
 }
 
+attribute_hidden
 void formatIntegerS(SEXP x, R_xlen_t n, int *fieldwidth)
 {
 
@@ -183,7 +187,7 @@ void formatIntegerS(SEXP x, R_xlen_t n, int *fieldwidth)
        true for non-ALTREPs or "exploded" ALTREPs
     */
     sorted = INTEGER_IS_SORTED(x);
-    /* if we're not formatting/printing the whole thing 
+    /* if we're not formatting/printing the whole thing
        ALTINTEGER_MIN/MAX will give us the wrong thing
        anyway */
     if(n == XLENGTH(x) && KNOWN_SORTED(sorted)) {
@@ -306,13 +310,13 @@ static const double tbl[] =
 #endif
 
 static void
-scientific(const double *x, int *neg, int *kpower, int *nsig, Rboolean *roundingwidens)
+scientific(const double *x, int *neg, int *kpower, int *nsig, bool *roundingwidens)
 {
     /* for a number x , determine
      *	neg    = 1_{x < 0}  {0/1}
      *	kpower = Exponent of 10;
      *	nsig   = min(R_print.digits, #{significant digits of alpha})
-     *  roundingwidens = TRUE iff rounding causes x to increase in width
+     *  roundingwidens = true iff rounding causes x to increase in width
      *
      * where  |x| = alpha * 10^kpower	and	 1 <= alpha < 10
      */
@@ -325,7 +329,7 @@ scientific(const double *x, int *neg, int *kpower, int *nsig, Rboolean *rounding
 	*kpower = 0;
 	*nsig = 1;
 	*neg = 0;
-	*roundingwidens = FALSE;
+	*roundingwidens = false;
     } else {
 	if(*x < 0.0) {
 	    *neg = 1; r = -*x;
@@ -334,7 +338,7 @@ scientific(const double *x, int *neg, int *kpower, int *nsig, Rboolean *rounding
 	}
         if (R_print.digits >= DBL_DIG + 1) {
             format_via_sprintf(r, R_print.digits, kpower, nsig);
-	    *roundingwidens = FALSE;
+	    *roundingwidens = false;
             return;
         }
         kp = (int) floor(log10(r)) - R_print.digits + 1;/* r = |x|; 10^(kp + digits - 1) <= r */
@@ -426,11 +430,12 @@ scientific(const double *x, int *neg, int *kpower, int *nsig, Rboolean *rounding
    it is 0 except when called from do_format.
 */
 
+/* not hidden: used in graphics/src/plot.c */
 void formatReal(const double *x, R_xlen_t n, int *w, int *d, int *e, int nsmall)
 {
-    Rboolean
-	naflag = FALSE, nanflag = FALSE,
-	posinf = FALSE, neginf = FALSE;
+    bool
+	naflag = false, nanflag = false,
+	posinf = false, neginf = false;
     int neg = 0;
     int mnl = INT_MAX,
 	mxl, rgt, mxsl, mxns;
@@ -438,13 +443,13 @@ void formatReal(const double *x, R_xlen_t n, int *w, int *d, int *e, int nsmall)
 
     for (R_xlen_t i = 0; i < n; i++) {
 	if (!R_FINITE(x[i])) {
-	    if(ISNA(x[i])) naflag = TRUE;
-	    else if(ISNAN(x[i])) nanflag = TRUE;
-	    else if(x[i] > 0) posinf = TRUE;
-	    else neginf = TRUE;
+	    if(ISNA(x[i])) naflag = true;
+	    else if(ISNAN(x[i])) nanflag = true;
+	    else if(x[i] > 0) posinf = true;
+	    else neginf = true;
 	} else {
 	    int neg_i, kpower, nsig;
-	    Rboolean roundingwidens;
+	    bool roundingwidens;
 	    scientific(&x[i], &neg_i, &kpower, &nsig, &roundingwidens);
 
 	    int left = kpower + 1;
@@ -507,6 +512,7 @@ void formatReal(const double *x, R_xlen_t n, int *w, int *d, int *e, int nsmall)
     if (neginf && *w < 4) *w = 4;
 }
 
+attribute_hidden
 void formatRealS(SEXP x, R_xlen_t n, int *w, int *d, int *e, int nsmall)
 {
     /*
@@ -528,23 +534,26 @@ void formatRealS(SEXP x, R_xlen_t n, int *w, int *d, int *e, int nsmall)
 		      });
 }
 
+#ifdef formatComplex_tricky
 #ifdef formatComplex_USING_signif
 /*   From complex.c. */
 void z_prec_r(Rcomplex *r, const Rcomplex *x, double digits);
 #endif
+#endif
 
-/* As from 2.2.0 the number of digits applies to real and imaginary parts
-   together, not separately */
+/* From R 2.2.0 to 4.3.z, the number of digits applied to real and imaginary parts
+   together, not separately.  Since R 4.4.0, Re(.) and Im(.) are treated seperately. */
 void formatComplex(const Rcomplex *x, R_xlen_t n,
 		   int *wr, int *dr, int *er, // (w,d,e) for Re(.)
 		   int *wi, int *di, int *ei, // (w,d,e) for Im(.)
 		   int nsmall)
 {
 /* format.info() for  x[1..n] for both Re & Im */
-    Rboolean all_re_zero = TRUE, all_im_zero = TRUE,
-	naflag = FALSE,
-	rnan = FALSE, rposinf = FALSE, rneginf = FALSE,
-	inan = FALSE, iposinf = FALSE;
+#ifdef formatComplex_tricky // R 4.3.z and earlier
+    bool all_re_zero = true, all_im_zero = true,
+	naflag = false,
+	rnan = false, rposinf = false, rneginf = false,
+	inan = false, iposinf = false;
     int neg = 0;
     int rt, mnl, mxl, mxsl, mxns, wF, i_wF;
     int i_rt, i_mnl, i_mxl, i_mxsl, i_mxns;
@@ -558,24 +567,24 @@ void formatComplex(const Rcomplex *x, R_xlen_t n,
 	/* Now round */
 	z_prec_r(&tmp, &(x[i]), R_print.digits);
 #else
-	tmp.r = x[i].r;
-	tmp.i = x[i].i;
+ 	tmp.r = x[i].r;
+ 	tmp.i = x[i].i;
 #endif
 	if(ISNA(tmp.r) || ISNA(tmp.i)) {
-	    naflag = TRUE;
+	    naflag = true;
 	} else {
-	    Rboolean roundingwidens;
+	    bool roundingwidens;
 	    int left, right, sleft,
 		neg_i, kpower, nsig;
 
 	    /* real part */
 
 	    if(!R_FINITE(tmp.r)) {
-		if (ISNAN(tmp.r)) rnan = TRUE;
-		else if (tmp.r > 0) rposinf = TRUE;
-		else rneginf = TRUE;
+		if (ISNAN(tmp.r)) rnan = true;
+		else if (tmp.r > 0) rposinf = true;
+		else rneginf = true;
 	    } else {
-		if(x[i].r != 0) all_re_zero = FALSE;
+		if(x[i].r != 0) all_re_zero = false;
 		scientific(&(tmp.r), &neg_i, &kpower, &nsig, &roundingwidens);
 
 		left = kpower + 1;
@@ -597,10 +606,10 @@ void formatComplex(const Rcomplex *x, R_xlen_t n,
 	    /* we explicitly put the sign in when we print */
 
 	    if(!R_FINITE(tmp.i)) {
-		if (ISNAN(tmp.i)) inan = TRUE;
-		else iposinf = TRUE;
+		if (ISNAN(tmp.i)) inan = true;
+		else iposinf = true;
 	    } else {
-		if(x[i].i != 0) all_im_zero = FALSE;
+		if(x[i].i != 0) all_im_zero = false;
 		scientific(&(tmp.i), &neg_i, &kpower, &nsig, &roundingwidens);
 
 		left = kpower + 1;
@@ -699,12 +708,44 @@ void formatComplex(const Rcomplex *x, R_xlen_t n,
     if (inan    && *wi < 3) *wi = 3;
     if (iposinf && *wi < 3) *wi = 3;
 
-    /* finally, ensure that there is space for NA */
+#else // R >= 4.4.0 : no longer "tricky"
+    double
+	*Re = (double *) R_alloc(n, sizeof(double)),
+	*Im = (double *) R_alloc(n, sizeof(double));
 
+# ifdef formatComplex_NA_give_NA // as previously in all S and R versions:
+    bool naflag = false;
+    R_xlen_t i1 = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+	if(ISNA(x[i].r) || ISNA(x[i].i)) {
+	    naflag |= true;
+	} else {
+	    Re[i1] =      x[i].r;
+	    Im[i1] = fabs(x[i].i); // in "Re +/- Im", the '-' does not take more space
+	    i1++;
+	} // 0 <= i1 <= i < n; i1 == length(Re) == length(Im)
+    }
+    formatReal(Re, i1, wr, dr, er, nsmall);
+    formatReal(Im, i1, wi, di, ei, nsmall);
+
+    /* finally, ensure that there is space for NA */
     if (naflag && *wr+*wi+2 < R_print.na_width)
 	*wr += (R_print.na_width -(*wr + *wi + 2));
+
+# else // even simpler: can lead to extra " " e.g. for c(NA, 1+2i)
+    for (R_xlen_t i = 0; i < n; i++) {
+	Re[i] =      x[i].r;
+	Im[i] = fabs(x[i].i); // in "Re +/- Im", the '-' does not take more space
+    }
+    formatReal(Re, n, wr, dr, er, nsmall);
+    formatReal(Im, n, wi, di, ei, nsmall);
+# endif
+#endif
 }
 
+
+
+attribute_hidden
 void formatComplexS(SEXP x, R_xlen_t n, int *wr, int *dr, int *er,
 		   int *wi, int *di, int *ei, int nsmall)
 {

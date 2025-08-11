@@ -1,6 +1,6 @@
 % File src/library/methods/man/S4groupGeneric.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{S4groupGeneric}
@@ -8,6 +8,7 @@
 \alias{GroupGenericFunctions}
 \alias{Math}
 \alias{Ops}
+\alias{matrixOps}
 \alias{Summary}
 \alias{Arith}
 \alias{Logic}
@@ -35,6 +36,7 @@
 Arith(e1, e2)
 Compare(e1, e2)
 Ops(e1, e2)
+matrixOps(x, y)
 Logic(e1, e2)
 Math(x)
 Math2(x, digits)
@@ -42,7 +44,7 @@ Summary(x, \dots, na.rm = FALSE)
 Complex(z)
 }
 \arguments{
-  \item{x, z, e1, e2}{objects.}
+  \item{x, y, z, e1, e2}{objects.}
   \item{digits}{number of digits to be used in \code{round} or \code{signif}.}
   \item{\dots}{further arguments passed to or from methods.}
   \item{na.rm}{logical: should missing values be removed?}
@@ -62,8 +64,8 @@ Complex(z)
   method selection, see \code{\link{Methods_Details}}.
 
 There are also
-  S3 groups \code{Math}, \code{Ops}, \code{Summary} and
-  \code{Complex}, see \code{?\link{S3groupGeneric}},
+  S3 groups \code{Math}, \code{Ops}, \code{Summary}, \code{Complex}
+  and \code{matrixOps}, see \code{?\link{S3groupGeneric}},
   with no corresponding \R objects, but these are irrelevant for S4
   group generic functions.
 
@@ -97,6 +99,7 @@ There are also
       \code{"prod"}, \code{"sum"}, \code{"any"}, \code{"all"}}
     \item{\code{Complex}}{\code{"Arg"}, \code{"Conj"}, \code{"Im"},
       \code{"Mod"}, \code{"Re"}}
+    \item{\code{matrixOps}}{\code{"\%*\%"}}
   }
   Note that \code{Ops} merely consists of three sub groups.
 
@@ -120,14 +123,11 @@ There are also
 \references{
  Chambers, John M. (2016)
  \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
-
+ Chapman & Hall. (Chapters 9 and 10.)
 
  Chambers, John M. (2008)
  \emph{Software for Data Analysis: Programming with R}
   Springer. (Section 10.5)
-
 }
 \seealso{ The function \code{\link{callGeneric}} is nearly always
   relevant when writing a method for a group generic.  See the
@@ -138,6 +138,7 @@ There are also
 \examples{
 setClass("testComplex", slots = c(zz = "complex"))
 ## method for whole group "Complex"
+getGroupMembers("Complex") # "Arg"  "Conj" "Im"   "Mod"  "Re"  
 setMethod("Complex", "testComplex",
           function(z) c("groupMethod", callGeneric(z@zz)))
 ## exception for Arg() :
@@ -147,6 +148,7 @@ z1 <- 1+2i
 z2 <- new("testComplex", zz = z1)
 stopifnot(identical(Mod(z2), c("groupMethod", Mod(z1))))
 stopifnot(identical(Arg(z2), c("ArgMethod", Arg(z1))))
+selectMethod("Re", signature = "testComplex") # shows Generic: .. "Re" & .."Complex"
 \dontshow{
 removeMethods("Complex")
 removeMethods("Arg")

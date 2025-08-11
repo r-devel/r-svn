@@ -54,7 +54,7 @@ int gridRegisterIndex;
  * allocated in createGridSystemState() below.
 */
 
-SEXP createGridSystemState()
+SEXP createGridSystemState(void)
 {
     return allocVector(VECSXP, 18);
 }
@@ -77,7 +77,7 @@ void initDL(pGEDevDesc dd)
 
 /*
  * This is used to init some bits of the system state
- * Called when a grahpics engine redraw is about to occur
+ * Called when a graphics engine redraw is about to occur
  * NOTE that it does not init all of the state, in particular,
  * the display list is not initialised here (see initDL), 
  * nor is the ROOT viewport (see initVP),
@@ -100,7 +100,6 @@ void initOtherState(pGEDevDesc dd)
     /* Clear all device patterns */
     dd->dev->releasePattern(R_NilValue, dd->dev);
     /* Clear all clip paths */
-    setGridStateElement(dd, GSS_RESOLVINGPATH, ScalarLogical(FALSE));
     dd->dev->releaseClipPath(R_NilValue, dd->dev);
     /* Clear all masks */
     dd->dev->releaseMask(R_NilValue, dd->dev);
@@ -178,7 +177,7 @@ static void deglobaliseState(SEXP state)
 		   index, R_NilValue);
 }
 
-static int findStateSlot()
+static int findStateSlot(void)
 {
     int i;
     int result = -1;
@@ -299,6 +298,10 @@ SEXP gridCallback(GEevent task, pGEDevDesc dd, SEXP data) {
                     }
                 }
 		initGPar(dd);
+                /* This needs to happen before initVP() because that
+                 * pushes ROOT viewport with clipping ON */
+                setGridStateElement(dd, GSS_RESOLVINGPATH, 
+                                    ScalarLogical(FALSE));
 		initVP(dd);
 		initOtherState(dd);
 	    } else {

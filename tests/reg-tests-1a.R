@@ -974,6 +974,13 @@ try(eigen(m))
 ## segfaults on 1.2.2
 
 
+## PR 979 expand.model.frame() failed for models fitted with a subset
+df <- data.frame(y = 1:10, z = 1:10, m = 1:10)
+fit <- lm(y ~ 1, data = df, subset = m < 8)
+mf <- expand.model.frame(fit, ~ z)  # failed in 1.2.3
+stopifnot(identical(names(mf), c("y", "z")), identical(mf$z, 1:7))
+
+
 ## 1.3.0 had poor compression on gzfile() with lots of small pieces.
 zz <- gzfile("t1.gz", "w")
 write(1:1000, zz)
@@ -1133,8 +1140,12 @@ stopifnot(diff(tmp$mday) == c(0, 1, 0, 0))
 ## Methods, 2nd ed., Wiley, 1999, pp. 180-181).
 x <- c(-0.15, 8.6, 5, 3.71, 4.29, 7.74, 2.48, 3.25, -1.15, 8.38)
 y <- c(2.55, 12.07, 0.46, 0.35, 2.69, -0.94, 1.73, 0.73, -0.35, -0.37)
-stopifnot(round(ks.test(x, y)$p.value, 4) == 0.0524)
-
+KSxy <- ks.test(x, y)
+stopifnot(exprs = {
+    round(KSxy$p.value, 4) == 0.0524
+    all.equal(c(D = 0.6), KSxy$statistic, tol = 1e-15) # see 1.85 e-16
+    all.equal( 15/286,    KSxy$p.value,   tol = 1e-15) #  "  2.646e-16
+})
 
 ## PR 1150.  Wilcoxon rank sum and signed rank tests did not return the
 ## Hodges-Lehmann estimators of the associated confidence interval
@@ -3055,10 +3066,24 @@ stopifnot(identical(cumprod(x), r))
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
 # complex
-x <- c(1+1i, NA, 3)
-r <- c(1+1i, NA, NA)
-stopifnot(identical(cumsum(x), r))
-stopifnot(identical(cumprod(x), r))
+cx <- function(r,i) complex(real=r, imaginary=i)
+NA.1 <- cx(NA, 1)
+NA.2 <- cx(NA, 2)
+NA_C <- NA_complex_ # = complex(r=NA, i=NA)
+y <- x <- c(1+1i, NA, 3)
+stopifnot(identical(x[2], cx(NA,0))) # newly true
+y[2] <- NA.1
+stopifnot(exprs = {
+    identical(Im(cumsum(x)), cumsum(Im(x)))
+    identical(Re(cumsum(x)), cumsum(Re(x)))
+    identical(Im(cumsum(y)), cumsum(Im(y)))
+    identical(Re(cumsum(y)), cumsum(Re(y)))
+    identical( sum(x), tail( cumsum(x), 1L))
+    identical(prod(x), tail(cumprod(x), 1L))
+    identical(cumsum (x), c(1+1i, NA.1, NA.1)) # new
+    identical(cumsum (y), c(1+1i, NA.2, NA.2)) #  "
+    identical(cumprod(x), c(1+1i, NA_C, NA_C))
+})
 # integer
 x <- c(1L, NA, 3L)
 r <- c(1L, NA, NA)
@@ -3300,7 +3325,7 @@ stopifnot(labels(lm.D9) == "group")
 a <- matrix (ncol=100, nrow=100, data=c(1,2,3,4,5))
 a.serial <- rawToChar(serialize(a, NULL, ascii=TRUE))
 try(sprintf('foo: %s\n', a.serial))
-## seqfaulted in 2.0.1
+## segfaulted in 2.0.1
 
 
 ## all/any did not coerce as the Blue Book described.
@@ -3342,7 +3367,7 @@ a1 <- m1; dim(a1) <- length(a1); dimnames(a1) <- dimnames(m1)[2]; a1 # named dn
 a2 <- a1; names(dimnames(a2)) <- NULL ; a2 # unnamed dn
 a3 <- a1; dimnames(a3) <- NULL ; a3 # no dn
 stopifnot(identical(dimnames(t(a1))[2], dimnames(a1)))
-## in version <= 2.0.1,  t(.) was loosing names of dimnames()
+## in version <= 2.0.1,  t(.) was losing names of dimnames()
 tst1(a1)# failed in 2.0.1 ("twice")
 tst1(a2)# failed in 2.0.1
 tst1(a3)# ok
@@ -3396,7 +3421,7 @@ f <- factor(1:3)
 contrasts(f, 1) <- c
 x <- model.matrix(~f)
 stopifnot(x == c(1,1,1,0,1,2))
-## gave machine-dependendent silly numbers in 2.0.1
+## gave machine-dependent silly numbers in 2.0.1
 
 
 ## extreme (de-normalized) axis range
@@ -4002,7 +4027,7 @@ stopifnot(nchar(ff) == 12)
 ## small marks test
 f2 <- format(x, big.mark = "'", small.mark="_", small.interval = 2)
 nc <- nchar(f2)
-stopifnot(substring(f2, nc,nc) != "_", # no traling small mark
+stopifnot(substring(f2, nc,nc) != "_", # no trailing small mark
           nc == nc[1])# all the same
 fc <- formatC(1.234 + 10^(0:8), format="fg", width=11, big.mark = "'")
 stopifnot(nchar(fc) == 11)
@@ -4658,7 +4683,7 @@ mosaicplot(x, sort = seq_len(dim(x)))
 ## failed in 2.4.1, fixed in 2.5.0
 
 
-## jitter failed in wierd case (PR#9580)
+## jitter failed in weird case (PR#9580)
 stopifnot(is.finite( jitter(c(-1, 3)) ))
 ## was repeated NaN in 2.4.1
 
@@ -4742,7 +4767,7 @@ stopifnot(inherits(try(seq.int(1.2, 1, by=1)), "try-error"))
 ## subassignment on pairlists: Uwe Ligges on R-help, 2007-05-29
 Call <- call("round", 10.5)
 try({Call[] <- NULL; Call})
-## seqgfaulted in 2.5.0
+## segfaulted in 2.5.0
 
 
 ## Bessel bugs for nu < 0:

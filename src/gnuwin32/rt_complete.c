@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  file rt_complete.c
- *  Copyright (C) 2007-2022 The R Core Team.
+ *  Copyright (C) 2007-2024 The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 # define min(a, b) (a < b ? a : b)
 #endif
 
+#include <Defn.h>
 #include <Rinternals.h>
 #include <R_ext/Parse.h>
 
@@ -71,7 +72,7 @@ static int rt_completion(char *buf, int offset, int *loc)
 	    return gl_tab(buf, offset, loc);
 	}
 	/* First check if namespace is loaded */
-	if(findVarInFrame(R_NamespaceRegistry, install("utils"))
+	if(R_findVarInFrame(R_NamespaceRegistry, install("utils"))
 	   != R_UnboundValue) completion_available = 1;
 	else { /* Then try to load it */
 	    char *p = "try(loadNamespace('utils'), silent=TRUE)";
@@ -82,7 +83,7 @@ static int rt_completion(char *buf, int offset, int *loc)
 		    eval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv);
 	    }
 	    UNPROTECT(2);
-	    if(findVarInFrame(R_NamespaceRegistry, install("utils"))
+	    if(R_findVarInFrame(R_NamespaceRegistry, install("utils"))
 	       != R_UnboundValue) completion_available = 1;
 	    else {
 		completion_available = 0;
@@ -101,11 +102,12 @@ static int rt_completion(char *buf, int offset, int *loc)
 	*pchar++ = achar;
     }
     *pchar = 0;
-    size_t len = strlen(pline) + 100; 
+    size_t plen = strlen(pline);
+    size_t len = plen + 100; 
     char cmd[len];
     snprintf(cmd, len,
-	     "utils:::.win32consoleCompletion(\"%s\", %d)",
-	     pline, cursor_position);
+	     "utils:::.win32consoleCompletion(\"%.*s\", %d)",
+	     (int)plen, pline, cursor_position);
     PROTECT(cmdSexp = mkString(cmd));
     cmdexpr = PROTECT(R_ParseVector(cmdSexp, -1, &status, R_NilValue));
     if (status != PARSE_OK) {

@@ -1,7 +1,7 @@
 #  File src/library/stats/R/dendrogram.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -767,7 +767,7 @@ rev.dendrogram <- function(x) {
 
 labels.dendrogram <- function(object, ...) {
     if(is.list(object))
-        rapply(object, function(n) attr(n,"label"))
+        rapply(object, attr, which = "label")
     else # can "end" in a leaf here
         attr(object, "label")
 }
@@ -796,7 +796,7 @@ merge.dendrogram <- function(x, y, ..., height,
             ## do not simplify: xgettext needs this form
             msg <- ngettext(length(nms),
                             "extra argument %s is not of class \"%s\"",
-                            "extra arguments %s are not of class \"%s\"s")
+                            "extra arguments %s are not of class \"%s\"")
 	    stop(sprintf(msg, paste(nms, collapse=", "), "dendrogram"),
                  domain = NA)
 	}

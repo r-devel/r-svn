@@ -18,33 +18,33 @@ make.rgb(red, green, blue, name = NULL, white = "D65",
 colorConverter(toXYZ, fromXYZ, name, white = NULL, vectorized = FALSE)
 }
 \arguments{
-  \item{red,green,blue}{Chromaticity (xy or xyY) of RGB primaries}
+  \item{red,green,blue}{\I{Chromaticity} (\I{xy} or \I{xyY}) of RGB primaries}
   \item{name}{Name for the colour space}
   \item{white}{Character string specifying the reference white (see
     \sQuote{Details}.)}
   \item{gamma}{Display gamma (nonlinearity). A positive number or the
     string \code{"sRGB"} }
-  \item{fromXYZ}{Function to convert from XYZ tristimulus coordinates
+  \item{fromXYZ}{Function to convert from \abbr{XYZ} tristimulus coordinates
     to this space}
-  \item{toXYZ}{Function to convert from this space to XYZ tristimulus
+  \item{toXYZ}{Function to convert from this space to \abbr{XYZ} tristimulus
     coordinates.}
   \item{vectorized}{Whether \code{fromXYZ} and \code{toXYZ} are
     vectorized internally to handle input color matrices.}
 }
 \details{
   An RGB colour space is defined by the chromaticities of the  red, green and
-  blue primaries.  These are given as vectors of length 2 or 3 in xyY
+  blue primaries.  These are given as vectors of length 2 or 3 in \I{xyY}
   coordinates (the Y component is not used and may be omitted).
   The chromaticities are defined relative to a reference white, which
-  must be one of the CIE standard illuminants: "A", "B", "C",
+  must be one of the \I{CIE} standard illuminants: "A", "B", "C",
   "D50", "D55", "D60", "E" (usually "D65").
 
   The display gamma is most commonly 2.2, though 1.8 is used for Apple RGB.
-  The sRGB standard specifies a more complicated function that is close
+  The \abbr{sRGB} standard specifies a more complicated function that is close
   to a gamma of 2.2; \code{gamma = "sRGB"} uses this function.
 
   Colour spaces other than RGB can be specified directly by giving
-  conversions to and from XYZ tristimulus coordinates.
+  conversions to and from \abbr{XYZ} tristimulus coordinates.
   The functions  should take two arguments. The first is a vector giving the
   coordinates for one colour. The second argument is the reference
   white. If a specific reference white is included in the definition of

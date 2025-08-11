@@ -1,7 +1,7 @@
 #  File src/library/base/R/version.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -42,14 +42,22 @@ function(x, strict = TRUE, regexp, classes = NULL)
     ## Internal creator for numeric version objects.
 
     nms <- names(x)
-    x <- as.character(x)
-    y <- rep.int(list(integer()), length(x))
-    valid_numeric_version_regexp <- sprintf("^%s$", regexp)
-    if(length(x)) {
+
+    if(!length(x)) {
+        y <- list()
+    } else {
+        if(!is.character(x)) {
+            msg <- gettextf("invalid non-character version specification 'x' (type: %s)",
+                            typeof(x))
+            stop(msg, domain = NA)
+        }
+        x <- as.character(x)
+        y <- rep.int(list(integer()), length(x))
+        valid_numeric_version_regexp <- sprintf("^%s$", regexp)
         ok <- grepl(valid_numeric_version_regexp, x)
-        if(!all(ok) && strict)
+        if(strict && !all(i <- (ok | is.na(x))))
             stop(gettextf("invalid version specification %s",
-                          paste(sQuote(unique(x[!ok])), collapse = ", ")),
+                          paste(sQuote(unique(x[!i])), collapse = ", ")),
                  call. = FALSE, domain = NA)
         y[ok] <- lapply(strsplit(x[ok], "[.-]"), as.integer)
     }
@@ -61,9 +69,13 @@ function(x, strict = TRUE, regexp, classes = NULL)
 ## Basic numeric versions.
 
 numeric_version <-
-function(x, strict = TRUE)
+function(x, strict = TRUE) {
+    ## Be nice.        
+    if(is.numeric_version(x))
+        return(x)
     .make_numeric_version(x, strict,
                           .standard_regexps()$valid_numeric_version)
+}
 
 is.numeric_version <-
 function(x)
@@ -97,6 +109,9 @@ function(x)
 package_version <-
 function(x, strict = TRUE)
 {
+    ## Be nice.
+    if(is.package_version(x))
+        return(x)
     ## Special-case R version lists.
     ## Currently, do this here for backward compatibility.
     ## Should this be changed eventually?
@@ -145,7 +160,7 @@ function(x)
     classes <- class(x)
     nms <- names(x)
     x <- unclass(x)
-    lens <- vapply(x, length, 0L)
+    lens <- lengths(x)
     y <- lapply(x, function(e) sprintf("%o", e))
     ## Maximal number of octal digits needed.
     width <- max(nchar(unlist(y)), 0L)
@@ -162,8 +177,6 @@ function(x)
 
 ## <NOTE>
 ## Currently unused.
-## </NOTE>
-
 .decode_numeric_version <-
 function(x)
 {
@@ -179,6 +192,7 @@ function(x)
     class(y) <-  unique(c(attr(x, ".classes"), "numeric_version"))
     y
 }
+## </NOTE>
 
 ## Methods.
 
@@ -192,7 +206,7 @@ function(x, i, j)
     ## Change sequences which are NULL or contains NAs to integer().
     bad <- vapply(y, function(t) is.null(t) || anyNA(t), NA)
     if(any(bad))
-        y[bad] <- rep.int(list(integer()), length(bad))
+        y[bad] <- rep.int(list(integer()), sum(bad))
     class(y) <- class(x)
     y
 }
@@ -239,15 +253,19 @@ function(x, ..., value)
        if(length(..1) < 2L) {
            if(is.character(value) && length(value) == 1L)
                value <- unclass(as.numeric_version(value))[[1L]]
-           else if(!is.integer(value)) stop("invalid 'value'")
+           else if(!is.integer(value) || anyNA(value) ||
+                   (any(value) < 0L))
+               stop("invalid 'value'")
        } else {
            value <- as.integer(value)
-           if(length(value) != 1L) stop("invalid 'value'")
+           if(length(value) != 1L || is.na(value) || (value < 0L))
+               stop("invalid 'value'")
        }
        z[[..1]] <- value
    } else {
        value <- as.integer(value)
-       if(length(value) != 1L) stop("invalid 'value'")
+       if(length(value) != 1L || is.na(value) || (value < 0L))
+           stop("invalid 'value'")
        z[[..1]][..2] <- value
    }
    structure(z, class = oldClass(x))
@@ -266,14 +284,8 @@ function(e1, e2)
                       .Generic), domain = NA)
     if(!is.numeric_version(e1)) e1 <- as.numeric_version(e1)
     if(!is.numeric_version(e2)) e2 <- as.numeric_version(e2)
-    n1 <- length(e1)
-    n2 <- length(e2)
-    if(!n1 || !n2) return(logical())
-    e <- split(.encode_numeric_version(c(e1, e2)),
-               rep.int(c(1L, 2L), c(n1, n2)))
-    e1 <- e[[1L]]
-    e2 <- e[[2L]]
-    NextMethod(.Generic)
+    op <- get(.Generic, mode = "function")
+    op(.Internal(compareNumericVersion(e1, e2)), 0L)
 }
 
 Summary.numeric_version <-
@@ -284,7 +296,7 @@ function(..., na.rm)
         stop(gettextf("%s not defined for \"numeric_version\" objects",
                       .Generic), domain = NA)
     x <- do.call(c, lapply(list(...), as.numeric_version))
-    v <- xtfrm(x)
+    v <- .encode_numeric_version(x)
     if(!na.rm && length(pos <- which(is.na(v)))) {
         y <- x[pos[1L]]
         if(as.character(.Generic) == "range")
@@ -294,9 +306,10 @@ function(..., na.rm)
     }
     else
         switch(.Generic,
-               max = x[which.max(v)],
-               min = x[which.min(v)],
-               range = x[c(which.min(v), which.max(v))])
+               max = x[which(v == max(v))[1L]],
+               min = x[which(v == min(v))[1L]],
+               range = x[c(which(v == min(v))[1L],
+                           which(v == max(v))[1L])])
 }
 
 as.character.numeric_version <-
@@ -332,7 +345,13 @@ function(..., recursive = FALSE)
 duplicated.numeric_version <-
 function(x, incomparables = FALSE, ...)
 {
-    x <- .encode_numeric_version(x)
+    n <- length(x)
+    if (n < 2L) return(logical(n))
+    x <- unclass(x)
+    lens <- lengths(x, use.names = FALSE)
+    need <- max(lens) - lens
+    for(i in which((lens > 0) & (need > 0)))
+        x[[i]] <- c(x[[i]], rep.int(0L, need[i]))
     NextMethod("duplicated")
 }
 
@@ -349,23 +368,20 @@ function(x, ...)
 
 is.na.numeric_version <-
 function(x)
-    is.na(.encode_numeric_version(x))
+    (lengths(unclass(x)) == 0L)
 
 `is.na<-.numeric_version` <-
 function(x, value)
 {
-    x[value] <- rep.int(list(integer()), length(value))
+    x[value] <- list(integer())
     x
 }
 
 anyNA.numeric_version <-
 function(x, recursive = FALSE)
 {
-    ## <NOTE>
-    ## Assuming *valid* numeric_version objects, we could simply do:
-    ##   any(vapply(unclass(x), length, 0L) == 0L)
-    ## </NOTE>
-    anyNA(.encode_numeric_version(x))
+    ## Assuming *valid* numeric_version objects, we can simply do:
+    any(lengths(unclass(x)) == 0L)
 }
 
 print.numeric_version <-

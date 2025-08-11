@@ -2,7 +2,7 @@
  *  R : A Computer Language for Statistical Data Analysis
  *  file preferences.c
  *  Copyright (C) 2000      Guido Masarotto and Brian Ripley
- *                2004-2018 R Core Team
+ *                2004-2024 R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ static const char *FontsList[] = {"Courier", "Courier New", "FixedSys", "FixedFo
 static const char *GuiElementNames[numGuiColors+1] = {"background", "normaltext", "usertext",
 						"pagerbg", "pagertext", "highlight",
 						"dataeditbg", "dataedittext", "dataedituser",
-						"editorbg", "editortext", NULL};
+						"editorbg", "editortext", "dataeditnbg", NULL};
 static const char *BlinkList[] = {"None", "Partial", "Full"};
 static window wconfig;
 static button bApply, bSave, bLoad, bOK, bCancel;
@@ -145,6 +145,7 @@ void getDefaults(Gui gui)
     gui->guiColors[dataedituser] = gaRed;    
     gui->guiColors[editorbg] = White;
     gui->guiColors[editorfg] = Black;    
+    gui->guiColors[dataeditnbg] = White;    
     gui->prows = 25;
     gui->pcols = 80;
     gui->pagerMultiple = 0;
@@ -311,6 +312,7 @@ void applyGUI(Gui newGUI)
 	askok(G_("The language for menus cannot be changed on a\n running console.\n\nSave the preferences and restart Rgui to apply to menus.\n"));
 	snprintf(buf, 50, "LANGUAGE=%s", newGUI->language);
 	putenv(buf);
+	/* no free here: storage remains in use */
     }
 
 
@@ -330,10 +332,13 @@ void applyGUI(Gui newGUI)
 	fontsty = sty;
 
 	/* Don't delete font: open pagers may be using it */
+	/* keep in step with setconsoleoptions() in console.c */
 	if (strcmp(fontname, "FixedFont"))
-	    consolefn = gnewfont(NULL, fontname, fontsty, pointsize, 0.0, 1);
+	    consolefn = gnewfont(NULL, fontname, fontsty | FixedWidth,
+	                         pointsize, 0.0, 1);
 	else consolefn = FixedFont;
 	if (!consolefn) {
+	    /* This is unlikely to happen: it will find some match */
 	    snprintf(msg, LF_FACESIZE + 128,
 		     G_("Font %s-%d-%d  not found.\nUsing system fixed font"),
 		     fontname, fontsty | FixedWidth, pointsize);
@@ -735,11 +740,11 @@ static void cSDI(button b)
 static rgb whichbg[numGuiColors] = { consolebg, consolebg, consolebg,
                                      pagerbg, pagerbg, pagerbg,
                                      dataeditbg, dataeditbg, dataeditbg,
-                                     editorbg, editorbg };
+                                     editorbg, editorbg, dataeditnbg };
 static rgb whichfg[numGuiColors] = { consolefg, consolefg, consoleuser,
 				     pagerfg, pagerfg, pagerhighlight,
 				     dataeditfg, dataeditfg, dataedituser,
-				     editorfg, editorfg };
+				     editorfg, editorfg, dataeditfg };
 static void clickColor(control c, int argument)
 {
     int element = cmatch(gettext(guielement), GuiElementNames);
@@ -920,7 +925,7 @@ static void showDialog(Gui gui)
     show(wconfig);
 }
 
-void Rgui_configure()
+void Rgui_configure(void)
 {
     struct structGUI curGUI;
 

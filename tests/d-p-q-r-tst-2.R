@@ -5,16 +5,22 @@
 ####
 ####	Functions for  ``d/p/q/r'' === "regression" tests  (no *.Rout.save)
 
-options(warn = 2)
+options(warn = 2, warnPartialMatchArgs = FALSE)
 ##      ======== No warnings, unless explicitly asserted via
 assertWarning <- tools::assertWarning
 
 as.nan <- function(x) { x[is.na(x) & !is.nan(x)] <- NaN ; x }
 ###-- these are identical in ./arith-true.R ["fixme": use source(..)]
-opt.conformance <- 0
+## opt.conformance <- 0
+(sysinf <- Sys.info())
+Lnx   <- sysinf[["sysname"]] == "Linux"
+isMac <- sysinf[["sysname"]] == "Darwin"
+arch  <- sysinf[["machine"]]
 onWindows <- .Platform$OS.type == "windows"
 b64 <- .Machine$sizeof.pointer >= 8 # 64 (or more) bits
 str(.Machine[grep("^sizeof", names(.Machine))]) ## also differentiate long-double..
+(usingMKL <- grepl("/(lib)?mkl", La_library(), ignore.case=TRUE))
+x86 <- arch == "x86_64"
 options(rErr.eps = 1e-30)
 rErr <- function(approx, true, eps = getOption("rErr.eps", 1e-30))
 {
@@ -193,7 +199,7 @@ stopifnot(mean(abs(diff(lq1) - log(2)      )) < 1e-8,
 ## Case, where log.p=TRUE was fine, but log.p=FALSE (default) gave NaN:
 lp <- 40:406
 stopifnot(all.equal(lp, -pt(qt(exp(-lp), 1.2), 1.2, log=TRUE), tolerance = 4e-16))
-## Other log.p cases, giving NaN (all but 1.1) in R <= 4.2.1 (still inaccurate)
+## Other log.p cases, gave NaN (all but 1.1) in R <= 4.2.1, PR#18360 [NB: *still* inaccurate: tol=0.2]
 q <- exp(seq(200, 500, by=1/2))
 for(df in c(1.001, 1 + (1:10)/100)) {
     pq  <- pt(q,  df = df, log = TRUE)
@@ -229,17 +235,18 @@ stopifnot(All.eq(pt(2^-30, df=10),
 
 ## rbinom(*, size) gave NaN for large size up to R <= 2.6.1
 M <- .Machine$integer.max
-set.seed(7) # as M is large, now "basically" rbinom(n, *) := qbinom(runif(n), *) :
+set.seed(7) # as M is large, now <==>  rbinom(n, *) := qbinom(runif(n), *) :
 (tt <- table(rbinom(100,    M, pr = 1e-9 )) ) # had values in {0,2} only
 (t2 <- table(rbinom(100, 10*M, pr = 1e-10)) )
 stopifnot(0:6 %in% names(tt), sum(tt) == 100, sum(t2) == 100) ## no NaN there
 ## related qbinom() tests:
+(binomOk <- b64 && !(Lnx && usingMKL)) # not for MKL on RHEL {R-dev.: 2023-06-22}
 k <- 0:32
 for(n in c((M+1)/2, M, 2*M, 10*M)) {
     for(pr in c(1e-8, 1e-9, 1e-10)) {
         nDup <- !duplicated( pb <- pbinom(k, n, pr) )
         qb <- qbinom(pb[nDup], n, pr)
-        pn1 <- pb[nDup] < if(b64) 1 else 1 - 3*.Machine$double.eps
+        pn1 <- pb[nDup] < if(binomOk) 1 else 1 - 3*.Machine$double.eps
         stopifnot(k[nDup][pn1] == qb[pn1]) ##^^^^^ fudge needed (Linux 32-b)
     }
 }
@@ -554,7 +561,6 @@ stopifnot(all.equal(pp, -th/2, tol=1e-15))
 ## underflowed at about th ~= 60  in R <= 3.2.2
 
 ## pnbinom (-> C's bratio())
-op <- options(warn = 1)# -- NaN's giving warnings
 L <- 1e308; p <- suppressWarnings(pnbinom(L, L, mu = 5)) # NaN or 1 (for 64 / 32 bit)
 stopifnot(is.nan(p) || p == 1)
 ## gave infinite loop on some 64b platforms in R <= 3.2.3
@@ -564,19 +570,22 @@ stopifnot(is.nan(p) || p == 1)
 L <- 1e308; mu <- 5
 x <- c(0:3, 1e10, 1e100, L, Inf)
 MxM <- .Machine$double.xmax
-xL <- c(2^(1000+ c(1:23, 23.5, 23.9, 24-1e-13)), MxM, Inf)
+xL <- c(2^(1000+ c(1:23, 23.5, 23.9, 24-1e-13)), L, MxM, Inf)
 (dP <- dpois(xL, mu)) # all 0
 (pP <- ppois(xL, mu)) # all 1
 stopifnot(dP == 0, pP == 1, identical(pP, pgamma(mu, xL + 1, 1., lower.tail=FALSE)))
 ## cbind(xL, dP, pP)
-
+## dbinom(*, size=Inf, ..):
+stopifnot(dbinom(2^c(0:1023, 1023.999), size=Inf, prob = .1) == 0) # were all  NaN
 (dLmI <- dnbinom(xL, mu = 1, size = Inf))  # all ==  0
-## FIXME ?!:  MxM/2 seems +- ok ??
-(dLmM <- dnbinom(xL, mu = 1, size = MxM))  # all NaN but the last
-(dLpI <- dnbinom(xL, prob=1/2, size = Inf))#  ditto
-(dLpM <- dnbinom(xL, prob=1/2, size = MxM))#  ditto
+stopifnot(exprs = { ## boundary case, had  all NaN  (but the last one)
+    dLmI == 0
+    dnbinom(xL, mu =  1,  size = MxM) == 0
+    dnbinom(xL, prob=1/2, size = Inf) == 0
+    dnbinom(xL, prob=1/2, size = MxM) == 0
+})
 
-d <- dnbinom(x,  mu = mu, size = Inf) # gave NaN (for 0 and L), now all 0
+d <- dnbinom(x,  mu = mu, size = Inf) # gave NaN (for 0 and L), now 0 for large x
 p <- pnbinom(x,  mu = mu, size = Inf) # gave all NaN, now uses ppois(x, mu)
 pp <- (0:16)/16
 q <- qnbinom(pp, mu = mu, size = Inf) # gave all NaN
@@ -591,8 +600,85 @@ stopifnot(exprs = {
     q == qpois(pp, mu)
     identical(NI, N2)
 })
-options(op)
+(sz <- outer(outer(c(1,2,5), 10^(0:3)), c(1e172, 1e176, 1e180)))
+stopifnot( exprs = {# the  x < 1e-10*size case; "easily" fixed now
+    dnbinom(x=1e295, size = 1e306*(1:100), mu = 5)    == 0 # had many Inf + some NaN
+    dnbinom(x=1e295, size = 1e306*(1:100), prob= .99) == 0 #  "   "    "     "
+    dnbinom(x=1e160, size = sz, mu = 5)     == 0 # gave all Inf
+    dnbinom(x=1e160, size = sz, prob = .99) == 0 #  (ditto)
+    ## size = Inf (and not so large x
+    dnbinom(x=10^(0:298), size=Inf, prob=.999) == 0 # had NaN from 10^155 on
+})
+
+## Now, more  size=<Large> (normal case, mostly x >= 1e-10*size)
+prob <- 0.999
+mu <- 5
+str(x <- MxM*2^seq(-4, 0, by = 1/8))# MxM/16 .... MxM
+cat(format(head(log2(x), 4)), " .. ", format(tail(log2(x), 3)),"\n")
+head(x. <- outer(x, 2^-c(8, 4, 0))); tail(x., 3)
+stopifnot( exprs = {# the  x < 1e-10*size case; "easily" fixed now
+    dnbinom(x, prob=prob, size =  Inf  ) == 0 # was all NaN
+    dnbinom(x, prob=prob, size =  MxM  ) == 0 #  "  "
+    dnbinom(x, prob=prob, size =  MxM/4) == 0 # was 0 ... 0 NaN NaN NaN NaN
+    dnbinom(x, prob=prob, size =  MxM/8) == 0 # was 0 ... 0  0  0   NaN NaN
+    ## the "same" with   mu
+    dnbinom(x., mu=mu, size =  Inf  ) == 0  # (already)
+    dnbinom(x., mu=mu, size =  MxM  ) == 0  # was  NaN
+    dnbinom(x., mu=mu, size =  MxM/2) == 0  # most 0, some NaN
+    dnbinom(x., mu=mu, size =  MxM/4) == 0  # 0 0 ... 0 NaN NaN NaN NaN
+    dnbinom(x., mu=mu, size =  MxM/8) == 0  # 0 0 ... 0  0  0   NaN NaN
+})
 ## size = Inf -- mostly gave NaN  in R <= 3.2.3
+
+## even more:
+xx <- 7e307 ; sz <- 1e308 ; prb <- c(seq(4, 58, by=6), 63)/64
+(dnb  <- dnbinom(xx, sz, prob=prb, log = TRUE))
+## require(Rmpfr)
+## dnbM <- dnbinom(mpfr(xx, 256), sz, prob=prb, log = TRUE)
+## asNumeric(1- dnbM/dnb)
+## dput(signif(-asNumeric(dnbM)/2^1015, 13))
+stopifnot(all.equal(tolerance = 1e-12,
+    -2^1015 * c(474.4997272272, 234.5368339268, 124.1573623994, 60.0804312579,
+                22.12769721389, 3.17906088758, 1.379508422751, 18.92818770446,
+                64.84609451174, 171.9355127741, 505.6011554949),
+    dnb))
+## similar, manifesting in dbinom() already:
+x. <- 1.20e308; N <-  1.72e308
+prb <- print(seq(13, 127, by = 6))/128
+(db  <- dbinom( x., N, prob = prb, log = TRUE))
+## dbM <- dbinom(mpfr(x., 256), N, prob=prb, log = TRUE)
+## asNumeric(1- dbM/db)
+## dput(signif(-asNumeric(dbM)/2^1012, 12))
+stopifnot(all.equal(tolerance = 1e-11,
+    -2^1012 * c(3978.52477729, 3004.42235841, 2321.14764068, 1804.10617471, 1395.99909831,
+                1065.91552786, 795.509574314, 573.263664821, 391.782927199, 246.423578896,
+                134.598198071, 55.4909088367, 10.1000515546, 1.6625043907, 36.710476479,
+                127.476528317, 297.82558994, 600.93919587, 1195.32578926, 3368.52998705), db))
+
+## db0() tweak (against overflow of ej = 2*x*v):
+dbArg <- cbind(
+    x = c(1.465e+308, 1.4715e+308, 1.4762e+308, 1.4822e+308, 1.4869e+308, 1.4949e+308, 1.5034e+308,
+          1.5137e+308, 1.523e+308, 1.5305e+308, 1.5416e+308, 1.5486e+308, 1.5653e+308, 1.5853e+308, 1.639e+308),
+    size=c(1.6574e+308, 1.6514e+308, 1.7035e+308, 1.679e+308, 1.6531e+308, 1.6285e+308, 1.6993e+308,
+           1.6661e+308, 1.6801e+308, 1.6873e+308, 1.7506e+308, 1.7052e+308, 1.6752e+308, 1.6885e+308, 1.731e+308),
+    prob=c(27, 27, 26, 27, 28, 29, 28, 29, 29, 30, 29, 30, 32, 33, 35)/128)
+(db <- apply(dbArg, 1, \(v3) do.call(dbinom, c(v3, list(log=TRUE))))) ## was all  -Inf !
+## dput(signif(db, 6))
+stopifnot(
+    all.equal(db, tolerance = 1e-5,
+	      c(-1.73031e+308, -1.76399e+308, -1.73534e+308, -1.74653e+308, -1.7615e+308,
+		-1.79181e+308, -1.7259e+308,  -1.77688e+308, -1.77981e+308, -1.74055e+308,
+		-1.70236e+308, -1.76548e+308, -1.79598e+308, -1.79126e+308, -1.79514e+308)))
+## all == -Inf   in R <= 4.5.0
+
+x <- c(12:20, 100*c(1,3,10,20,50)) # dbinom for very small prob (did overflow in bd0())
+(db <- dbinom(x, size=x+1, prob = 2^-1024.1, log = TRUE))
+stopifnot(
+    all.equal(c(-8515.66, -9225.44, -9935.22, -10645, -11354.8, -12064.6, -12774.4,
+                -13484.2, -14194, -70980.6, -212950, -709845, -1419700, -3549250),
+              db, tolerance = 1e-5))
+## all but the first two where -Inf in R <= 4.5.0
+
 
 ## qpois(p, *) for invalid 'p' should give NaN -- PR#16972
 stopifnot(is.nan(suppressWarnings(c(qpois(c(-2,3, NaN), 3), qpois(1, 3, log.p=TRUE),
@@ -680,8 +766,7 @@ p201 <- proportions( rep( c(1, epsilon), c(201, 999-201)))
 x <- sample(length(p201), 100000, prob = p201, replace = TRUE)
 stopifnot(sum(x <= 201) == 100000)
 
-arch <- Sys.info()[["machine"]]
-if(!(onWindows && arch == "x86")) {
+## had if(!(onWindows && arch == "x86"))
 ## PR#17577 - dgamma(x, shape)  for shape < 1 (=> +Inf at x=0) and very small x
 stopifnot(exprs = {
     all.equal(dgamma(2^-1027, shape = .99 , log=TRUE), 7.1127667376, tol=1e-10)
@@ -691,15 +776,16 @@ stopifnot(exprs = {
               709.96858768, tol=1e-10)
 })
 ## all gave Inf in R <= 3.6.1
-} else cat("PR#17577 bug fix not checked, as it may not work on this platform\n")
-                                        # on Windows 32-bit (8087 proc).
+## } else cat("PR#17577 bug fix not checked, as it may not work on this platform\n")
 
-if(!(onWindows && arch == "x86")) {
- ## This gave a practically infinite loop (on 64-bit Lnx, Windows; not in 32-bit)
-    tools::assertWarning(p <- pchisq(1.00000012e200, df=1e200, ncp=100),
-                         "simpleWarning", verbose=TRUE)
-    stopifnot(p == 1)
-}
+
+## if(!(onWindows && arch == "x86")) {
+  ## This gave a practically infinite loop (on 64-bit Lnx, Windows; not in 32-bit)
+  suppressWarnings(# typically warns, but not on Apple clang 14.0.3
+    p <- pchisq(1.00000012e200, df=1e200, ncp=100)
+  )
+  stopifnot(p == 1)
+## }
 
 
 ## Extreme tails  for  qnorm(*, log.p=TRUE)   :
@@ -714,10 +800,13 @@ qp. <- qnorm(lp, log.p=TRUE)
 all.equal( qs, qpU, tol=0)
 all.equal(-qs, qp., tol=0)
 all.equal(-qp.,qpU, tol=0) # typically TRUE (<==> exact equality)
+## however,
+range(qpU/qs - 1) # -5.68e-6  5.41e-6  in R <= 4.2.1
 stopifnot(exprs = {
     all.equal( qs,  qpU, tol=1e-15)
     all.equal(-qs,  qp., tol=1e-15)
     all.equal(-qp., qpU, tol=1e-15)# diff of 4.71e-16 in 4.1.0 w/icc (Eric Weese)
+    max(abs(qpU/qs - 1)) < 1e-15 # see  4.44e-16  {was 5.68e-6 in R <= 4.2.1; much larger in R <= 4.0.x)
 })
 ## both failed very badly in  R <= 4.0.x
 
@@ -730,6 +819,13 @@ stopifnot(exprs = {
     abs(1 - diff(diff(px)) / -2.5e303) < 3e-11 * (1 + (.Machine$sizeof.longdouble < 12))
 })
 ## all these where -Inf  in R <= 4.0.x
+
+## pnorm(x) returns non-zero for a bit larger |x|, now returning denormalized
+(pL <- pnorm(-38.4))
+stopifnot(pL > 0, all.equal(6.6015999e-323, pL),
+          pL == pnorm(38.4, lower.tail=FALSE),
+          pnorm(-38.46739999) == 2^-1074)
+## in R <= 4.4.x, the non-zero boundary was at -37.5193
 
 
 ## qnbinom(*, size=<large>, mu=<small>) -- PR#18095:
@@ -819,6 +915,76 @@ stopifnot(exprs = {
     all.equal(ldpxx, log(dpxx), tol = 1e-15)
 })
 ## dpois(x,x) underflowed to zero in R <= 4.1.1 for such large x.
+
+
+## PR#18642 -- dgeom() accuracy --> improved via  dbinom_raw(x, n, prob) for x=0 and x=n
+x <- c(159, 171, 183, 201)
+tru1 <- c(4.64906012307645596e-240, 4.03241686836417614e-258,
+          3.4975641032381073e-276,  2.82530978257810403e-303)
+(xs <- 44400 + sort(c(outer(c(10,26), 29*(0:2), `+`))))
+tru2 <- c(2.850864888117265e-306,  2.2158779845990397e-306, 1.8056489670203573e-306,
+          1.4034680530148749e-306, 1.1436417789181365e-306, 8.8891292278883415e-307)
+stopifnot(exprs = {
+    print(abs(1 - dgeom(x, 31/32) / tru1) * 2^52) <= 4 # see 0 0 0 0     (Linux F 38, gcc)
+    print(abs(1 - dgeom(xs, 1/64) / tru2) * 2^52) <= if(onWindows) 800 else 4
+    ## on Windows: 406.5 408.0 407.0 407.0 408.0 407.5; see 0 0 0 0 0 0 (  "		)
+    ## Reprex for Windows:
+    print(2^52 * abs(1 - dgeom(44410, 1/64) / 2.850864888117265e-306)) < 606 # -> 406.5; R 4.3.2 Lnx: 252
+}) # in R <= 4.3.z, relErr * 2^52  were (238 246 254 10) and (252 242.5 252 242 252 242)
+
+
+## PR#18672 -- x = 0|1 when one or both shape = 0
+stopifnot(exprs = {
+    pbeta(0,  0, 3) == 1 # gave 0
+    pbeta(1, .1, 0) == 1 # gave 0
+    pbeta(1.1, 3,0) == 1 # gave 0
+    pbeta(0,  0, 0) == 0.5 # gave 0, should give 0.5
+    pbeta(1,  0, 0) == 1   # gave 0.5
+})
+
+
+## PR#18640 -- stirlerr(x) concerns (for *non* half-integer x) -- visible in dgamma()
+sh <- 465/32 # = 14.53125
+x0 <- 1/4 + 8:20
+dg1 <- dgamma(x0, sh)
+## 'TRUE' values { = dput(asNumeric(Rmpfr::dgamma(mpfr(x0, 512), sh)), control="digits17") } :
+dgM <- c(0.026214161736344995, 0.045350212095058476, 0.066917055544970391,
+         0.086754619023375584, 0.10102573200716865, 0.10746812620489894,
+         0.10581786016571779, 0.097460173977057932, 0.084678318901885929,
+         0.069890902339799707, 0.055117163281675971, 0.041733282935808788, 0.030464801624510086)
+relE <- dg1/dgM - 1
+relE * 2^53 # 2  2 -2  0  0  2 -1  0  0  2  0  0  2 //  was in {-95 : -91}  in R <= 4.3.*
+stopifnot(abs(relE) < 9e-16) # max{x86_64}: 2.22e-16
+
+
+## PR#18711 -- qbinom() - inversion of pbinom()
+##             but probably also fixing qpois(), qnbinom() cases
+sz <- 6040:6045
+prb <- 0.995
+(qb6 <- qbinom(p = 0.05, size = sz, prob = prb))
+(pqb6   <- pbinom(qb6,   size = sz, prob = prb))
+(pqb6_1 <- pbinom(qb6-1, size = sz, prob = prb))
+stopifnot(exprs = {
+    qb6 == c(6001:6004,6004:6005) # not so in R 4.4.0, nor 4.1.1
+    1 > pqb6 & pqb6 >= 0.05       #  "
+    0.05 > pqb6_1 & pqb6_1 >= 0.035# "
+})
+## was wrong for R versions in [4.1.1, 4.4.0]
+
+
+## pnbinom() -> pbeta() for very large (a,b)
+xlx <- c(-1/16, -1e-4, c(- 10^-(11:16), 0, 0.5, .999999))
+str(L <- 2^(1023+xlx))
+stopifnot(exprs = {
+    print(pnbinom(L,L, mu = 0.7 )) == 1
+    print(pnbinom(L,L, prob= 1/4)) == 0
+    print(  pbeta(1/4, L, L)) == 0
+    ## and also on log scale (where continued fraction iterations are used
+    print(pnbinom(L,L, mu = 0.7,  log.p = TRUE)) == 0
+    print(pnbinom(L,L, prob= 1/4, log.p = TRUE)) == -Inf
+    print(  pbeta(1/4, L, L, log.p = TRUE)) == -Inf
+})
+## the last 6 values each were  NaN  in  R <= 4.5.0
 
 
 

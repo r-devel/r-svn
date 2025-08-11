@@ -11,6 +11,7 @@ endif
 	@$(MAKE) --no-print-directory -f Makefile.win install
 
 CSOURCES = Lapack.c
+# flexiblas not supported on Windows
 OBJS=$(CSOURCES:.c=.o) dllversion.o
 LIBSOURCES = dlamch.f dlapack.f cmplx.f
 LIBSOURCES90 = dlartg.f90 dlassq.f90 la_constants.f90 la_xisnan.f90 \
@@ -18,7 +19,9 @@ LIBSOURCES90 = dlartg.f90 dlassq.f90 la_constants.f90 la_xisnan.f90 \
 LIBOBJECTS = $(LIBSOURCES:.f=.o) $(LIBSOURCES90:.f90=.o) init_win.o Rlapackrc.o
 
 CPPFLAGS = -I../../include -DHAVE_CONFIG_H
-dlamch-FFLAGS = -ffloat-store
+ifndef USE_LLVM
+  dlamch-FFLAGS = -ffloat-store
+endif
 
 la_constants.mod: la_constants.o
 la_xisnan.mod: la_xisnan.o
@@ -43,12 +46,12 @@ Rlapack.def: $(LIBOBJECTS)
 
 $(MODULE).dll: $(OBJS)
 
-../../../$(BINDIR)/Rlapack.dll: $(LIBOBJECTS)
+../../../$(BINDIR)/Rlapack.dll: $(LIBOBJECTS) Rlapack.def
 	$(DLL) -shared -s -o $@ $^ -L../../../$(IMPDIR) -lR -lRblas $(FLIBS)
 
 clean:
 	@$(RM) Makedeps *.d *.o $(MODULE).def $(MODULE).dll Rlapack.def \
-	  Rlapack.dll *.a
+	  Rlapack.dll *.a *.mod
 
 
 # Dependencies

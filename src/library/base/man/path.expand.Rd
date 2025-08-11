@@ -21,8 +21,7 @@ path.expand(path)
   \describe{
     \item{On Unix - alikes:}{
    On most builds of \R a leading \code{~user} will expand to the home
-  directory of \code{user} (since \R 4.1.0 also without \code{readline}
-  in use).
+  directory of \code{user}.
 
   There are possibly different concepts of \sQuote{home directory}: that
   usually used is the setting of the environment variable \env{HOME}.
@@ -32,8 +31,9 @@ path.expand(path)
   }
    \item{On Windows:}{
   The definition of the \sQuote{home} directory is in the \file{rw-FAQ}
-  Q2.14: it is taken from the \env{R_USER} environment variable when
-  \code{path.expand} is first called in a session.
+  2.13: it is taken from the \env{R_USER} environment variable (or
+  possibly \env{HOME} if \env{R_USER} is not set)
+  when \code{path.expand} is first called in a session.
 
   The \sQuote{path names} need not exist nor be valid path names.
   }

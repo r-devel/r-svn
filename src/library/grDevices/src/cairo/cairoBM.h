@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  R Core Team
+ *  Copyright (C) 1997--2025  R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,25 +95,25 @@ typedef struct {
     double pointsize;			/* Size in points */
     char basefontfamily[500];           /* Initial font family */
     char symbolfamily[500];             /* Symbol font family */
-    Rboolean usePUA;
+    bool usePUA;
 
     int windowWidth;			/* Window width (pixels) */
     int windowHeight;			/* Window height (pixels) */
     X_GTYPE type;			/* Window or pixmap? */
     int npages;				/* counter for a pixmap */
     FILE *fp;				/* file for a bitmap device */
-    char filename[PATH_MAX];		/* filename for a bitmap device */
+    char filename[R_PATH_MAX];		/* filename for a bitmap device */
 #ifdef R_CAIRO_UTF8_FILENAMES 
-    char filenameUTF8[PATH_MAX];
+    char filenameUTF8[R_PATH_MAX];
 #endif
     int quality;			/* JPEG quality/TIFF compression */
 
     int res_dpi;			/* used for png/jpeg */
     double fallback_dpi;		/* used for ps/pdf */
     char title[101];
-    Rboolean onefile;
+    bool onefile;
 
-    Rboolean useCairo, buffered;
+    bool useCairo, buffered;
     cairo_t *cc, *xcc;
     cairo_surface_t *cs, *xcs;
     cairo_antialias_t antialias;
@@ -128,6 +128,7 @@ typedef struct {
     int numGroups;
     cairo_pattern_t **groups;
     cairo_pattern_t *nullGroup;
+    int currentGroup;
 
     double fontscale;
 } X11Desc;

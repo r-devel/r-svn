@@ -1,6 +1,6 @@
 % File src/library/utils/man/write.table.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{write.table}
@@ -110,7 +110,7 @@ write.csv2(\dots)
   e.g.\sspace{}\code{file = file("filename", "wb")}.
 }
 \section{CSV files}{
-  By default there is no column name for a column of row names.  If
+  By default, \code{write.table} does not output a column name for a column of row names.  If
   \code{col.names = NA} and \code{row.names = TRUE} a blank column name
   is added, which is the convention used for CSV files to be read by
   spreadsheets.  Note that such CSV files can be read in \R by
@@ -144,7 +144,7 @@ write.csv2(\dots)
   (perhaps Latin-1) and \sQuote{PC-8} files.  OpenOffice 3.x asks for
   the character set when opening the file.
 
-  There is an IETF RFC4180 (\url{https://tools.ietf.org/html/rfc4180})
+  There is an \abbr{IETF} RFC4180 (\url{https://www.rfc-editor.org/rfc/rfc4180})
   for CSV files, which mandates comma as the separator and CRLF line
   endings.  \code{write.csv} writes compliant files on Windows: use
   \code{eol = "\r\n"} on other platforms.
@@ -165,22 +165,25 @@ write.csv2(\dots)
 }
 
 \examples{
-\dontrun{
+x <- data.frame(a = "a \" quote", b = pi)
+tf <- tempfile(fileext = ".csv")
+
 ## To write a CSV file for input to Excel one might use
-x <- data.frame(a = I("a \" quote"), b = pi)
-write.table(x, file = "foo.csv", sep = ",", col.names = NA,
+write.table(x, file = tf, sep = ",", col.names = NA,
             qmethod = "double")
+file.show(tf)
 ## and to read this file back into R one needs
-read.table("foo.csv", header = TRUE, sep = ",", row.names = 1)
+read.table(tf, header = TRUE, sep = ",", row.names = 1)
 ## NB: you do need to specify a separator if qmethod = "double".
 
 ### Alternatively
-write.csv(x, file = "foo.csv")
-read.csv("foo.csv", row.names = 1)
+write.csv(x, file = tf)
+read.csv(tf, row.names = 1)
 ## or without row names
-write.csv(x, file = "foo.csv", row.names = FALSE)
-read.csv("foo.csv")
+write.csv(x, file = tf, row.names = FALSE)
+read.csv(tf)
 
+\dontrun{
 ## To write a file in Mac Roman for simple use in Mac Excel 2004/8
 write.csv(x, file = "foo.csv", fileEncoding = "macroman")
 ## or for Windows Excel 2007/10

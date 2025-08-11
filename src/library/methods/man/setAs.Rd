@@ -1,6 +1,6 @@
 % File src/library/methods/man/setAs.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{setAs}
@@ -21,6 +21,7 @@
 \alias{coerce,ANY,matrix-method}
 \alias{coerce,ANY,name-method}
 \alias{coerce,ANY,numeric-method}
+\alias{coerce,ANY,raw-method}
 \alias{coerce,ANY,single-method}
 \alias{coerce,ANY,ts-method}
 \alias{coerce,ANY,vector-method}
@@ -101,7 +102,7 @@ You could also supply methods via \code{setAs} for non-inherited relationships, 
 For further on the distinction between simple and explicit inheritance, see \code{\link{setIs}}.
 
 }
-\section{How Functions 'as' and 'setAs' Work}{
+\section{How Functions \code{as} and \code{setAs} Work}{
   The function \code{as}  turns \code{object} into an object
   of class \code{Class}.  In doing so, it applies a \dQuote{coerce
     method}, using S4
@@ -253,8 +254,9 @@ setAs("cb", "ca", function(from, to )new(to, a=from@b, id = from@id))
 as(CB, "numeric")
 
 \dontshow{
-## should generate an error (should have been a function of one argument)
-try(setAs("track", "numeric", function(x, y,z)x@y))
+## error (should have been a function of one argument)
+tools::assertError(setAs("track", "numeric", function(x, y,z)x@y), verbose=TRUE)
+stopifnot(identical(raw(1L), as(0L, "raw"))) # method not defined until R 4.5
 }
 }
 \keyword{programming}

@@ -43,6 +43,8 @@
 ## To override this choice, specify the name or path of the command
 ## which runs the compiler, for example 'c99'.
 ## It is also necessary to set the architecture here, e.g. 'gcc -m32'.
+## If this is a wrapper it should pass on --version to the real compiler.
+## This will be replaced by CC23 (see below) if a C23 compiler is found.
 ## CC=
 
 ## Debugging and optimization options for the C compiler.
@@ -54,9 +56,49 @@
 ## -Werror (which is likely to cause configure to fail).
 ## CFLAGS=
 
+## Ditto for a compiler that supports C17 features and not C23 ones.
+## For example, 'CC17=gcc -std=gnu17', omit -Wstrict-prototypes from C17FLAGS.
+## With LLVM clang may even want -Wno-strict-prototypes.
+## It is assumed that this uses the same runtime library as CC, so the
+## latter can be used to link the code it generates.
+## Default to CC and CFLAGS with any -std options removed, then
+## -std=gmu117 appended to CC.
+## If your compiler is so old as to not support C17, select C11 or even C99
+## by e.g. 'CC17=gcc -std=gnu11'
+## CC17=
+## C17FLAGS=
+
+## Ditto for a compiler that supports C23 features.
+## For example 'CC23=clang-15 -std=gnu2x'
+## This is the default for GCC >= 15.
+## Otherwise -std=gnu23 is added where supported
+## (it is by GCC 14, LLVM clang >= 18 and Apple Clang >= 17).
+## -std=gnu2x is supported by at least GCC 12-13, LLVM clang >= 15 and Apple clang >= 16 
+## Default to CC and CFLAGS with any -std options removed, then with
+## -std=gmu23 then -std=gmu2x appended to CC
+## CC23=
+## C23FLAGS=
+
+## Ditto for a compiler that follows the C90 or C99 standard.
+## For example 'CC99=gcc -std=gnu99'
+### Default to CC and CFLAGS with any -std options removed, then
+## -std=gmu90 or gnu99 appended to CC.
+## CC90=
+## C90FLAGS=
+## CC99=
+## C99FLAGS=
+
 ## Defines for C compilation.
 ## Use this to specify defines to be used in the compilation of R,
+## (but not packages).  Can be used to overrise e.g.
+## DEFS="-DC99_INLINE_SEMANTICS=0"
 ## DEFS=
+
+## no-return flag
+## Header R-exts/Error.h contains alternaive definitions for the NORET
+## macro, depending on the C standard found.  If the compiler does not
+## comply, use this to pick one of the others, or even define to be empty.
+## NORET=
 
 ## The following additional CFLAGS to be used only in the main
 ## compilation and only in building shared objects respectively.
@@ -73,6 +115,7 @@
 
 ## The command which runs the Fortran compiler.
 ## Used for both fixed-form and free-form Fortran
+## If this is a wrapper it should pass on --version to the real compiler.
 ## FC=
 
 ## Options for the Fortran compiler.
@@ -134,8 +177,8 @@
 
 ## The following variable can be used to provide any PIE flags for the
 ## Fortran compiler.  Currently only needed when using gfortran on
-## Linux in conjuunction with a default build of clang 15 where it is
-## set to -fPIE.
+## Linux in conjuunction with a default build of clang 15 where it needs
+## to be set to -fPIE: configure tries that value if unset.
 ## FPIEFLAGS=
 
 ## The command to be used to create shared objects which contain object
@@ -148,6 +191,10 @@
 ## shared objects containing object files from a C or Fortran
 ## compiler only.  This is usually automatically detected by configure,
 ## and anything set here will be in addition unless SHLIB_LD is given.
+## On platforms using the GNU lnker, -shared.
+## On macOS, the default is
+## -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup
+## For other platforms, see configure.ac
 ## SHLIB_LDFLAGS=
 
 ## ditto for a dynamic library: DYLIB_LDFLAGS defaults to SHLIB_LDFLAGS
@@ -175,6 +222,7 @@
 ## uses the values of the environment variables 'CXX' or 'CCC' if set,
 ## and then looks under the names 'c++', 'g++', 'CC' and more OS-specific
 ## names (from autoconf).
+## If this is a wrapper it should pass on --version to the real compiler.
 ## CXX=
 
 ## Options for the C++ compiler.
@@ -186,7 +234,7 @@
 ## CXXPICFLAGS=
 
 ## Option to specify the default C++ standard, 
-## e.g. -std=c++11 or -std=gnu++11
+## e.g. -std=c++14 or -std=gnu++14
 ## CXXSTD=
 
 ## The command to be used to load shared objects which contain object
@@ -204,6 +252,14 @@
 ## Not used by R but configure can fail to find it, so set to
 ## "$CXX -E" if it does.
 ## CXXCPP=
+
+## Objective-C(++), mainly for macOS
+## On macOS, Apple clang with additional gcc flag -fobjc-exceptions
+## OBJC=
+## OBJCFLAGS=
+## OBJC_LIBS-
+## Objective-C compiler, usually the same as $CXX $CXXSTD
+## OBJCXX=
 
 ## Tcl/Tk settings.
 ## Use TCLTK_LIBS for all '-L' and '-l' options needed for linking
@@ -323,11 +379,47 @@
 ## SHLIB_CXX20LD=
 ## SHLIB_CXX20LDFLAGS=
 
+## C++23 compiler, optional for use in packages.
+## Introduced in R 4.3.0
+## The command which runs the C++23 compiler: defaults to $(CXX20), but
+## empty if that (plus standard) cannot compile the tested C++23 code.
+## CXX23=
+
+## The 'standard' for the C++23 compiler, which is invoked as
+## $(CXX23) $(CXX23STD) for both compiling and linking DSOs/DLLs.  
+## '-std=gnu++23' and '-std=gnu++2a" are tried by configure, also
+## '-std=c++23' and '-std=c++2a"
+## CXX23STD=
+
+## Analogues for the C++23 compiler: default to the settings for C++17
+## CXX23FLAGS=
+## CXX23PICFLAGS=
+## SHLIB_CXX23LD=
+## SHLIB_CXX23LDFLAGS=
+
+## C++26 compiler, optional for use in packages.
+## Introduced in R 4.5.0
+## The command which runs the C++26 compiler: defaults to $(CXX20), but
+## empty if that (plus standard) cannot compile the tested C++26 code.
+## CXX26=
+
+## The 'standard' for the C++26 compiler, which is invoked as
+## $(CXX26) $(CXX26STD) for both compiling and linking DSOs/DLLs.  
+## '-std=gnu++26' and '-std=gnu++2a" are tried by configure, also
+## '-std=c++26' and '-std=c++2a"
+## CXX26STD=
+
+## Analogues for the C++26 compiler: default to the settings for C++17
+## CXX26FLAGS=
+## CXX26PICFLAGS=
+## SHLIB_CXX26LD=
+## SHLIB_CXX26LDFLAGS=
+
 ## Additional libraries to link the internet module against.
 ## Some claim Solaris needs -lsocket -lnsl
 ## INTERNET_LIBS=
 
-## Script from texinfo 5.1 or later.
+## Script from Texinfo 6.1 or later.
 ## Usually the full path to texi2any.
 ## TEXI2ANY=
 
@@ -354,7 +446,7 @@
 ## The configure code is conservative about enabling OpenMP 
 ## so use can be forced here (or non-use if set but empty).
 ## For packages (note that SHLIB_OPENMP_CXXFLAGS is for CXX, not
-## necessarily for CXX11/14/17/20).
+## necessarily for CXX11/14/17/20/23/26).
 ## SHLIB_OPENMP_CFLAGS=
 ## SHLIB_OPENMP_CXXFLAGS=
 ## SHLIB_OPENMP_FFLAGS=
@@ -404,6 +496,14 @@
 ## parallelize ThinLTO or to change linker such as -fuse-ld=gold or
 ## -fuse-ld=lld (with gcc or clang).
 ## LTO_LD=
+
+## To allow reduced optimization for src/unix/sys-unix.c with Intel icx
+##   -O0 and -O1 seem to work with 2023.2.0
+## INTEL_ICX_FIX=-O0
+
+## Additional INSTALL_opts for recommended packages.
+##  Can be used for --dsym on macOS.
+## REC_INSTALL_OPT=
 
 ## Programs which configure will look for on the path
 ## AR

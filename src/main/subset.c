@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2021  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -93,7 +93,7 @@ static R_INLINE SEXP VECTOR_ELT_FIX_NAMED(SEXP y, R_xlen_t i) {
 	}					  \
     } while (0)
 
-static void NORET errorcallNotSubsettable(SEXP x, SEXP call)
+NORET static void errorcallNotSubsettable(SEXP x, SEXP call)
 {
     SEXP cond = R_makeNotSubsettableError(x, call);
     PROTECT(cond);
@@ -101,7 +101,7 @@ static void NORET errorcallNotSubsettable(SEXP x, SEXP call)
     UNPROTECT(1); /* cond; not reached */
 }
 
-static void NORET errorcallMissingSubs(SEXP x, SEXP call)
+NORET static void errorcallMissingSubs(SEXP x, SEXP call)
 {
     if (call == R_NilValue)
 	call = R_CurrentExpression;
@@ -112,7 +112,7 @@ static void NORET errorcallMissingSubs(SEXP x, SEXP call)
 }
 
 
-SEXP attribute_hidden ExtractSubset(SEXP x, SEXP indx, SEXP call)
+attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 {
     if (x == R_NilValue)
 	return x;
@@ -147,7 +147,7 @@ SEXP attribute_hidden ExtractSubset(SEXP x, SEXP indx, SEXP call)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    EXTRACT_SUBSET_LOOP(COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
 				COMPLEX0(result)[i] = NA_CPLX);
 	}
@@ -252,7 +252,7 @@ static SEXP VectorSubset(SEXP x, SEXP s, SEXP call)
     return result;
 }
 
-static void NORET errorcallOutOfBounds(SEXP x, int subscript,
+NORET static void errorcallOutOfBounds(SEXP x, int subscript,
 				       R_xlen_t index, SEXP call)
 {
     SEXP sindex = ScalarReal((double) index);
@@ -263,7 +263,7 @@ static void NORET errorcallOutOfBounds(SEXP x, int subscript,
     UNPROTECT(2); /* sindex, cond; not reached */
 }
 
-static void NORET errorcallOutOfBoundsSEXP(SEXP x, int subscript,
+NORET static void errorcallOutOfBoundsSEXP(SEXP x, int subscript,
 					   SEXP sindex, SEXP call)
 {
     SEXP cond = R_makeOutOfBoundsError(x, subscript, sindex, call, NULL);
@@ -346,7 +346,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    MATRIX_SUBSET_LOOP(COMPLEX0(result)[ij] = COMPLEX_ELT(x, iijj),
 			       COMPLEX0(result)[ij] = NA_CPLX);
 	}
@@ -517,7 +517,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	break;
     case CPLXSXP:
 	{
-	    Rcomplex NA_CPLX = { NA_REAL, NA_REAL };
+	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
 	    ARRAY_SUBSET_LOOP(COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
 			      COMPLEX0(result)[i] = NA_CPLX);
 	}
@@ -677,12 +677,12 @@ int R_DispatchOrEvalSP(SEXP call, SEXP op, const char *generic, SEXP args,
 /* The "[" subset operator.
  * This provides the most general form of subsetting. */
 
-SEXP attribute_hidden do_subset(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_subset(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans;
 
     /* If the first argument is an object and there is an */
-    /* approriate method, we dispatch to that method, */
+    /* appropriate method, we dispatch to that method, */
     /* otherwise we evaluate the arguments and fall through */
     /* to the generic code below.  Note that evaluation */
     /* retains any missing argument indicators. */
@@ -722,7 +722,7 @@ static R_INLINE R_xlen_t scalarIndex(SEXP s)
 }
 
 // called from (R `[` => ) do_subset, but also from R .subset() :
-SEXP attribute_hidden do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     /* By default we drop extents of length 1 */
 
@@ -734,7 +734,6 @@ SEXP attribute_hidden do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (cdrArgs != R_NilValue && cddrArgs == R_NilValue &&
 	TAG(cdrArgs) == R_NilValue) {
 	/* one index, not named */
-	SEXP x = CAR(args);
 	if (ATTRIB(x) == R_NilValue) {
 	    SEXP s = CAR(cdrArgs);
 	    R_xlen_t i = scalarIndex(s);
@@ -767,7 +766,6 @@ SEXP attribute_hidden do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     else if (cddrArgs != R_NilValue && CDR(cddrArgs) == R_NilValue &&
 	     TAG(cdrArgs) == R_NilValue && TAG(cddrArgs) == R_NilValue) {
 	/* two indices, not named */
-	SEXP x = CAR(args);
 	SEXP attr = ATTRIB(x);
 	if (TAG(attr) == R_DimSymbol && CDR(attr) == R_NilValue) {
 	    /* only attribute of x is 'dim' */
@@ -902,9 +900,8 @@ SEXP attribute_hidden do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     if (type == LANGSXP) {
 	ax = ans;
-	PROTECT(ans = allocList(LENGTH(ax)));
+	PROTECT(ans = allocLang(LENGTH(ax)));
 	if ( LENGTH(ax) > 0 ) {
-	    SET_TYPEOF(ans, LANGSXP);
 	    SEXP px; int i;
 	    for(px = ans, i = 0 ; px != R_NilValue ; px = CDR(px))
 		SETCAR(px, VECTOR_ELT(ax, i++));
@@ -932,12 +929,12 @@ SEXP attribute_hidden do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* The [[ subset operator.  It needs to be fast. */
 /* The arguments to this call are evaluated on entry. */
 
-SEXP attribute_hidden do_subset2(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_subset2(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans;
 
     /* If the first argument is an object and there is */
-    /* an approriate method, we dispatch to that method, */
+    /* an appropriate method, we dispatch to that method, */
     /* otherwise we evaluate the arguments and fall */
     /* through to the generic code below.  Note that */
     /* evaluation retains any missing argument indicators. */
@@ -955,7 +952,7 @@ SEXP attribute_hidden do_subset2(SEXP call, SEXP op, SEXP args, SEXP rho)
     return do_subset2_dflt(call, op, ans, rho);
 }
 
-SEXP attribute_hidden do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, dims, dimnames, indx, subs, x;
     int i, ndims, nsubs;
@@ -967,11 +964,8 @@ SEXP attribute_hidden do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Is partial matching ok?  When the exact arg is NA, a warning is
        issued if partial matching occurs.
      */
-    int exact = ExtractExactArg(args), pok;
-    if (exact == -1)
-	pok = exact;
-    else
-	pok = !exact;
+    int exact = ExtractExactArg(args);
+    int pok = (exact == -1) ? exact : ! exact;
 
     x = CAR(args);
 
@@ -998,10 +992,12 @@ SEXP attribute_hidden do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, _("incorrect number of subscripts"));
 
     /* code to allow classes to extend environment */
-    if(TYPEOF(x) == S4SXP) {
+    if(TYPEOF(x) == OBJSXP) {
+	SEXP xs = x;
 	x = R_getS4DataSlot(x, ANYSXP);
 	if(x == R_NilValue)
-	  errorcall(call, _("this S4 class is not subsettable"));
+	    errorcall(call, _("this %s class is not subsettable"),
+		      IS_S4_OBJECT(xs) ? "S4" : "object");
     }
     PROTECT(x);
 
@@ -1009,7 +1005,7 @@ SEXP attribute_hidden do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     if( TYPEOF(x) == ENVSXP ) {
 	if( nsubs != 1 || !isString(CAR(subs)) || length(CAR(subs)) != 1 )
 	    errorcall(call, _("wrong arguments for subsetting an environment"));
-	ans = findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
+	ans = R_findVarInFrame(x, installTrChar(STRING_ELT(CAR(subs), 0)));
 	if( TYPEOF(ans) == PROMSXP ) {
 	    PROTECT(ans);
 	    ans = eval(ans, R_GlobalEnv);
@@ -1152,7 +1148,7 @@ SEXP attribute_hidden do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
-SEXP attribute_hidden dispatch_subset2(SEXP x, R_xlen_t i, SEXP call, SEXP rho)
+attribute_hidden SEXP dispatch_subset2(SEXP x, R_xlen_t i, SEXP call, SEXP rho)
 {
     static SEXP bracket_op = NULL;
     SEXP args, x_elt;
@@ -1208,7 +1204,7 @@ pstrmatch(SEXP target, SEXP input, size_t slen)
     }
 }
 
-SEXP attribute_hidden
+attribute_hidden SEXP
 fixSubset3Args(SEXP call, SEXP args, SEXP env, SEXP* syminp)
 {
     SEXP input, nlist;
@@ -1224,11 +1220,14 @@ fixSubset3Args(SEXP call, SEXP args, SEXP env, SEXP* syminp)
 	if (syminp != NULL)
 	    *syminp = nlist;
 	SET_STRING_ELT(input, 0, PRINTNAME(nlist));
-    } else if(isString(nlist) )
+    } else if(isString(nlist) ) {
+	if (LENGTH(nlist) != 1)
+	    error(_("invalid subscript length"));
 	SET_STRING_ELT(input, 0, STRING_ELT(nlist, 0));
+    }
     else {
 	errorcall(call,_("invalid subscript type '%s'"),
-		  type2char(TYPEOF(nlist)));
+		  R_typeToChar(nlist));
 	return R_NilValue; /*-Wall*/
     }
 
@@ -1248,7 +1247,7 @@ fixSubset3Args(SEXP call, SEXP args, SEXP env, SEXP* syminp)
    We need to be sure to only evaluate the first argument.
    The second will be a symbol that needs to be matched, not evaluated.
 */
-SEXP attribute_hidden do_subset3(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_subset3(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans;
 
@@ -1256,7 +1255,7 @@ SEXP attribute_hidden do_subset3(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(args = fixSubset3Args(call, args, env, NULL));
 
     /* If the first argument is an object and there is */
-    /* an approriate method, we dispatch to that method, */
+    /* an appropriate method, we dispatch to that method, */
     /* otherwise we evaluate the arguments and fall */
     /* through to the generic code below.  Note that */
     /* evaluation retains any missing argument indicators. */
@@ -1275,7 +1274,7 @@ SEXP attribute_hidden do_subset3(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* also used in eval.c */
-SEXP attribute_hidden R_subset3_dflt(SEXP x, SEXP input, SEXP call)
+attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 {
     SEXP y;
     PROTECT(input);
@@ -1284,7 +1283,7 @@ SEXP attribute_hidden R_subset3_dflt(SEXP x, SEXP input, SEXP call)
     /* Optimisation to prevent repeated recalculation */
     size_t slen = strlen(translateChar(input));
     /* The mechanism to allow a class extending "environment" */
-    if( IS_S4_OBJECT(x) && TYPEOF(x) == S4SXP ){
+    if( IS_S4_OBJECT(x) && TYPEOF(x) == OBJSXP ){
 	x = R_getS4DataSlot(x, ANYSXP);
 	if(x == R_NilValue)
 	    errorcall(call, "$ operator not defined for this S4 class");
@@ -1399,7 +1398,7 @@ SEXP attribute_hidden R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	return R_NilValue;
     }
     else if( isEnvironment(x) ){
-	y = findVarInFrame(x, installTrChar(input));
+	y = R_findVarInFrame(x, installTrChar(input));
 	if( TYPEOF(y) == PROMSXP ) {
 	    PROTECT(y);
 	    y = eval(y, R_GlobalEnv);

@@ -50,12 +50,7 @@ quartz <- function(title, width, height, pointsize, family, antialias,
                    type, file = NULL, bg, canvas, dpi)
 {
     if (missing(type) || type %in% c("", "native", "Cocoa")) {
-        check <- Sys.getenv("_R_CHECK_SCREEN_DEVICE_", "")
-        msg <- "screen devices should not be used in examples etc"
-        if (identical(check, "stop"))
-            stop(msg, domain = NA)
-        else if (identical(check, "warn"))
-            warning(msg, immediate. = TRUE, noBreaks. = TRUE, domain = NA)
+        utils:::check_screen_device()
     }
 
     new <- list()
@@ -127,7 +122,7 @@ quartzFonts <- function(...) {
         fontNames <- names(fonts)
         nnames <- length(fontNames)
         if (nnames == 0L) {
-            if (!all(sapply(fonts, is.character)))
+            if (!all(vapply(fonts, is.character, NA)))
                 stop("invalid arguments in 'quartzFonts' (must be font names)")
             else
                 get(".Quartz.Fonts", envir=.Quartzenv)[unlist(fonts)]

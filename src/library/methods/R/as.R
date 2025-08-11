@@ -1,7 +1,7 @@
 #  File src/library/methods/R/as.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,12 @@ as <-
     if(.identC(thisClass, Class) || .identC(Class, "ANY"))
         return(object)
     where <- .classEnv(thisClass, mustFind = FALSE)
+    ## <FIXME>
+    ## This should really look for a coerce generic from where to its
+    ## topenv, and fall back to ourselves.
     coerceFun <- getGeneric("coerce", where = where)
+    if(is.null(coerceFun)) coerceFun <- coerce
+    ## </FIXME>
     ## get the methods table, use inherited table
     coerceMethods <- .getMethodsTable(coerceFun,environment(coerceFun),inherited= TRUE)
     asMethod <- .quickCoerceSelect(thisClass, Class, coerceFun, coerceMethods, where)
@@ -86,6 +91,8 @@ as <-
 	    }
         }
     }
+    environment(asMethod) <- asMethodEnv <- new.env(parent = environment(asMethod))
+    loadMethod(asMethod, envir = asMethodEnv)
     if(strict)
         asMethod(object)
     else
@@ -149,7 +156,12 @@ as <-
     if(!.identC(.class1(value), Class))
         value <- as(value, Class, strict = FALSE)
     where <- .classEnv(class(object))
+    ## <FIXME>
+    ## This should really look for a coerce<- generic from where to its
+    ## topenv, and fall back to ourselves.
     coerceFun <- getGeneric("coerce<-", where = where)
+    if(is.null(coerceFun)) coerceFun <- `coerce<-`
+    ## </FIXME>
     coerceMethods <- getMethodsForDispatch(coerceFun)
     asMethod <- .quickCoerceSelect(thisClass, Class, coerceFun, coerceMethods, where)
     if(is.null(asMethod)) {
@@ -288,7 +300,7 @@ setAs <-
  "POSIXct",  "POSIXlt", "Date",  "array",  "call",  "character",  "complex",  "data.frame",
  "double",
  "environment",  "expression",  "factor",  "formula",  "function",  "integer",
- "list",  "logical",  "matrix",  "name",  "numeric",  "ordered",
+ "list",  "logical",  "matrix",  "name",  "numeric",  "ordered", "raw",
   "single",  "table",   "vector")
   basics <- basics[!is.na(match(basics,.BasicClasses))]
   for(what in basics) {
@@ -310,11 +322,11 @@ setAs <-
 	     }, list(AS = as.name(paste0("as.", what)))),
 	     ##
 	     ts = body(method, envir = environment(method)) <- quote({
-		 value <- as.ts(from)
+		 value <- stats::as.ts(from)
 		 if(strict) {
 		     attributes(value) <- NULL
 		     class(value) <- class(new("ts"))
-		     tsp(value) <- tsp(from)
+		     stats::tsp(value) <- stats::tsp(from)
 		 }
 		 value
 	     }),

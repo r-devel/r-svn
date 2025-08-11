@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2019    The R Core Team
+ *  Copyright (C) 1998-2025    The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -24,7 +24,8 @@
  * Generally useful  UTILITIES  *NOT* relying on R internals (from Defn.h)
  */
 
-/* Included by R.h: API */
+/* Included by R.h: some are API (documented in R-exts), 
+   others are noted below. */
 
 #ifndef R_EXT_UTILS_H_
 #define R_EXT_UTILS_H_
@@ -45,8 +46,8 @@
 #define rPsort        Rf_rPsort
 #define cPsort        Rf_cPsort
 #define IndexWidth    Rf_IndexWidth
-#define setIVector    Rf_setIVector
-#define setRVector    Rf_setRVector
+//#define setIVector    Rf_setIVector
+//#define setRVector    Rf_setRVector
 #define StringFalse   Rf_StringFalse
 #define StringTrue    Rf_StringTrue
 #define isBlankString Rf_isBlankString
@@ -59,7 +60,7 @@ extern "C" {
 void	R_isort(int*, int);
 void	R_rsort(double*, int);
 void	R_csort(Rcomplex*, int);
-void    rsort_with_index(double *, int *, int);
+void    rsort_with_index(double *, int *, int); // not remapped.
 void	revsort(double*, int*, int);/* reverse; sort i[] alongside */
 void	iPsort(int*,    int, int);
 void	rPsort(double*, int, int);
@@ -79,16 +80,20 @@ void F77_NAME(qsort3)(double *v,            int *ii, int *jj);
 /* ../../main/util.c  and others : */
 const char *R_ExpandFileName(const char *);
 #ifdef Win32
+// not API
 const char *R_ExpandFileNameUTF8(const char *);
 #endif
+/*  attribute_hidden and no longer used.
 void	setIVector(int*, int, int);
 void	setRVector(double*, int, double);
-Rboolean StringFalse(const char *);
-Rboolean StringTrue(const char *);
-Rboolean isBlankString(const char *);
+*/
+/* Not API */
+Rboolean StringFalse(const char *); // used by iotools
+Rboolean StringTrue(const char *); // used by iotools
+Rboolean isBlankString(const char *); // used by iotools and openxlsx2
 
 /* These two are guaranteed to use '.' as the decimal point,
-   and to accept "NA".
+   and to accept "NA". Documented since 4.4.0 patched.
  */
 double R_atof(const char *str);
 double R_strtod(const char *c, char **end);
@@ -102,22 +107,30 @@ void R_CheckStack(void);
 void R_CheckStack2(R_SIZE_T);
 
 
-/* ../../appl/interv.c: also in Applic.h */
+/* ../../appl/interv.c: first and also in Applic.h 
+   Both are API
+*/
 int findInterval(double *xt, int n, double x,
 		 Rboolean rightmost_closed,  Rboolean all_inside, int ilo,
 		 int *mflag);
 int findInterval2(double *xt, int n, double x,
 		  Rboolean rightmost_closed,  Rboolean all_inside, Rboolean left_open,
 		  int ilo, int *mflag);
+/* Removed in 4.5.0
 #ifdef R_RS_H
+// Was Rboolean*, but that is not possible in Fortran.
 int F77_SUB(interv)(double *xt, int *n, double *x,
-		    Rboolean *rightmost_closed, Rboolean *all_inside,
+		    int *rightmost_closed, int *all_inside,
 		    int *ilo, int *mflag);
 #endif
+*/
+ 
+/* not API, no longer in R
 void find_interv_vec(double *xt, int *n,	double *x,   int *nx,
 		     int *rightmost_closed, int *all_inside, int *indx);
+*/
 
-/* ../../appl/maxcol.c: also in Applic.h */
+/* ../../appl/maxcol.c */
 void R_max_col(double *matrix, int *nr, int *nc, int *maxes, int *ties_meth);
 
 #ifdef  __cplusplus

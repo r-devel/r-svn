@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,17 +35,11 @@
 #include "getline/getline.h"
 #include "getline/wc_history.h"
 #define WIN32_LEAN_AND_MEAN 1
-/* Mingw-w64 defines this to be 0x0502 */
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500     /* for MEMORYSTATUSEX */
-#endif
 #include <windows.h>		/* for CreateEvent,.. */
-#include <shlobj.h>		/* for SHGetFolderPath */
+#include <shlobj.h>		/* for SHGetKnownFolderPath */
+#include <knownfolders.h>
 #include <process.h>		/* for _beginthread,... */
-#include <io.h>			/* for isatty, chdir */
-#ifdef _MSC_VER  /* for chdir */
-# include <direct.h>
-#endif
+#include <io.h>			/* for isatty */
 #include "run.h"
 #include "Startup.h"
 #include <stdlib.h>		/* for exit */
@@ -84,21 +78,19 @@ int Rwin_graphicsx = -25, Rwin_graphicsy = 0;
 extern SA_TYPE SaveAction; /* from ../main/startup.c */
 Rboolean DebugMenuitem = FALSE;  /* exported for rui.c */
 static FILE *ifp = NULL;
-static char ifile[MAX_PATH] = "\0";
+static char *ifile = NULL;
 
-__declspec(dllexport) UImode  CharacterMode = RGui; /* some compilers want initialized for export */
-__declspec(dllexport) Rboolean EmitEmbeddedUTF8 = FALSE;
+UImode  CharacterMode = RGui; /* some compilers want initialized for export */
+int EmitEmbeddedUTF8 = FALSE;
 int ConsoleAcceptCmd;
-void set_workspace_name(const char *fn); /* ../main/startup.c */
+Rboolean set_workspace_name(const char *fn); /* ../main/startup.c */
 
 /* used to avoid some flashing during cleaning up */
 Rboolean AllDevicesKilled = FALSE;
 
-static DWORD mainThreadId;
-
 static char oldtitle[512];
 
-__declspec(dllexport) Rboolean UserBreak = FALSE;
+Rboolean UserBreak = FALSE;
 
 /* callbacks */
 static void R_DoNothing(void) {}
@@ -107,7 +99,7 @@ static void R_DoNothing(void) {}
  *   Called at I/O, during eval etc to process GUI events.
  */
 
-typedef void (*DO_FUNC)();
+typedef void (*DO_FUNC)(void);
 static void (* R_Tcl_do)(void) = NULL; /* Initialized to be sure */
 
 void set_R_Tcldo(DO_FUNC ptr)
@@ -225,11 +217,37 @@ static void Rstd_Suicide(const char *s)
 /* Global variables */
 static int (*InThreadReadConsole) (const char *, unsigned char *, int, int);
 
+/* EhiWakeUp is a synchronization Event between the main thread and the reader
+   thread. It is set by the main thread to inform the reader thread it should
+   start reading a line.
 
-HANDLE EhiWakeUp;
+   ReadMsgWindow is a message-only window used for synchronization between the
+   main thread and the reader thread. The reader thread sends a message to the
+   window when it needs the main thread to perform completion or when the line
+   is available. The window procedure will set "lineavailable" or run the R
+   code for performing completion. */
+
+static HANDLE EhiWakeUp;
+static HWND ReadMsgWindow;
+#define WM_RREADMSG_EVENT ( WM_USER + 2 )
+
+static LRESULT CALLBACK
+ReadMsgWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 static const char *tprompt;
 static unsigned char *tbuf;
-static  int tlen, thist, lineavailable;
+static int tlen, thist;
+static int lineavailable;
+
+static int ReaderThreadTabHook(char *, int, int *);
+static int (*InThreadTabHook)(char *, int, int *);
+static struct {
+    char *buf;
+    int offset;
+    int *loc;
+    int result;
+    HANDLE done;
+} completionrequest;
 
  /* Fill a text buffer with user typed console input. */
 int
@@ -274,8 +292,9 @@ GuiReadConsole(const char *prompt, unsigned char *buf, int len,
                int addtohistory)
 {
     int res;
+    const void *vmax = vmaxget();
     const char *NormalPrompt =
-	CHAR(STRING_ELT(GetOption1(install("prompt")), 0));
+	translateChar(STRING_ELT(GetOption1(install("prompt")), 0));
 
     if(!R_is_running) {
 	R_is_running = 1;
@@ -284,12 +303,55 @@ GuiReadConsole(const char *prompt, unsigned char *buf, int len,
     ConsoleAcceptCmd = !strcmp(prompt, NormalPrompt);
     res = consolereads(RConsole, prompt, (char *)buf, len, addtohistory);
     ConsoleAcceptCmd = 0;
+    vmaxset(vmax);
+
     return !res;
 }
 
 
 /* 2 and 3: reading in a thread */
 
+/* runs in the main R thread */
+static void RunCompletion(void *dummy)
+{
+    completionrequest.result = InThreadTabHook(
+			completionrequest.buf,
+			completionrequest.offset,
+			completionrequest.loc);
+}
+
+
+/* runs in the main R thread */
+static LRESULT CALLBACK
+ReadMsgWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (hwnd == ReadMsgWindow && uMsg == WM_RREADMSG_EVENT) {
+	int what = (int) lParam;
+	switch(what) {
+	case 1:
+	    lineavailable = 1;
+	    return 0;
+	case 2:
+	    if (!R_ToplevelExec(RunCompletion, NULL))
+		completionrequest.result = -1;
+	    SetEvent(completionrequest.done);
+	    return 0;
+	}
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+/* runs in the 'Reader thread', needs to execute the completion request
+   on the main R thread */
+static int ReaderThreadTabHook(char *buf, int offset, int *loc)
+{
+    completionrequest.buf = buf;
+    completionrequest.offset = offset;
+    completionrequest.loc = loc;
+    PostMessage(ReadMsgWindow, WM_RREADMSG_EVENT, 0,
+	       (LPARAM) 2 /* completion needed */);
+    WaitForSingleObject(completionrequest.done, INFINITE);
+    return completionrequest.result;
+}
 
 /* 'Reader thread' main function */
 static void __cdecl ReaderThread(void *unused)
@@ -297,11 +359,12 @@ static void __cdecl ReaderThread(void *unused)
     while(1) {
 	WaitForSingleObject(EhiWakeUp,INFINITE);
 	tlen = InThreadReadConsole(tprompt,tbuf,tlen,thist);
-	lineavailable = 1;
-	PostThreadMessage(mainThreadId, 0, 0, 0);
+	PostMessage(ReadMsgWindow, WM_RREADMSG_EVENT, 0,
+	           (LPARAM) 1 /* line available */);
     }
 }
 
+/* runs in the main R thread */
 static int
 ThreadedReadConsole(const char *prompt, unsigned char *buf, int len,
                     int addtohistory)
@@ -314,7 +377,6 @@ ThreadedReadConsole(const char *prompt, unsigned char *buf, int len,
      */
     oldint = signal(SIGINT, SIG_IGN);
     oldbreak = signal(SIGBREAK, SIG_IGN);
-    mainThreadId = GetCurrentThreadId();
     lineavailable = 0;
     tprompt = prompt;
     tbuf = buf;
@@ -323,8 +385,8 @@ ThreadedReadConsole(const char *prompt, unsigned char *buf, int len,
     SetEvent(EhiWakeUp);
     while (1) {
 	R_WaitEvent();
-	if (lineavailable) break;
 	doevent();
+	if (lineavailable) break;
 	if(R_Tcl_do) R_Tcl_do();
     }
     lineavailable = 0;
@@ -340,9 +402,35 @@ static int
 CharReadConsole(const char *prompt, unsigned char *buf, int len,
                 int addtohistory)
 {
-    int res = getline(prompt, (char *)buf, len);
-    if (addtohistory) gl_histadd((char *)buf);
-    return !res;
+    /* Long lines are returned in multiple consecutive calls to
+       CharReadConsole() */
+    static char *line = NULL;
+    static size_t offset = 0;
+    static size_t remaining = 0;
+    static int res = 0;
+
+    if (!line) {
+	res = getline2(prompt, &line);
+	if (addtohistory) gl_histadd(line);
+	offset = 0;
+	remaining = strlen(line); /* may be zero */
+    }
+
+    int tocopy = remaining;
+    if (tocopy > len - 1) tocopy = len - 1;
+
+    if (tocopy)
+	memcpy(buf, line + offset, tocopy);
+    buf[tocopy] = '\0';
+    remaining -= tocopy;
+    offset += tocopy;
+
+    if (!remaining) {
+	gl_free(line);
+	line = NULL;
+	return !res; /* return 0 on EOF */
+    } else
+	return 1;
 }
 
 /*3: (as InThreadReadConsole) and 4: non-interactive */
@@ -371,8 +459,16 @@ FileReadConsole(const char *prompt, unsigned char *buf, int len, int addhistory)
 	*ob = '\0';
 	err = (res == (size_t)(-1));
 	/* errors lead to part of the input line being ignored */
-	if(err) printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
+	if(err) {
+	    /* Should re-set with a stateful encoding, but some iconv
+	       implementations forget byte-order learned from BOM. 
+
+	    Riconv(cd, NULL, NULL, &ob, &onb);
+	    *ob = '\0';
+	    */
+	    printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
 		       R_StdinEnc);
+	}
 	strncpy((char *)buf, obuf, len);
     }
 
@@ -552,9 +648,10 @@ static void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
 	fclose(ifp);    /* input file from -f or --file= */
 	ifp = NULL; 
     }
-    if(ifile[0]) {
+    if(ifile) {
 	unlink(ifile); /* input file from -e */
-	ifile[0] = '\0';
+	free(ifile);
+	ifile = NULL;
     }
     exit(status);
 }
@@ -614,7 +711,7 @@ int R_ShowFiles(int nfile, const char **file, const char **headers,
 			snprintf(buf, 1024,
 				 _("cannot open file '%s': %s"),
 				 file[i], strerror(errno));
-			warning(buf);
+			warning("%s", buf);
 		    }
 		} else {
 		    /* Quote path if not quoted */
@@ -623,13 +720,13 @@ int R_ShowFiles(int nfile, const char **file, const char **headers,
 		    else
 			snprintf(buf, 1024, "%s \"%s\"", pager, file[i]);
 		    ll = runcmd(buf, CE_NATIVE, 0, 1, NULL, NULL, NULL);
-		    if (ll == NOLAUNCH) warning(runerror());
+		    if (ll == NOLAUNCH) warning("%s", runerror());
 		}
 	    } else {
 		snprintf(buf, 1024,
 			 _("file.show(): file '%s' does not exist\n"),
 			 file[i]);
-		warning(buf);
+		warning("%s", buf);
 	    }
 	}
 	return 0;
@@ -670,7 +767,7 @@ int R_EditFiles(int nfile, const char **file, const char **title,
 		else
 		    snprintf(buf, 1024, "%s \"%s\"", editor, file[i]);
 		ll = runcmd(buf, CE_UTF8, 0, 1, NULL, NULL, NULL);
-		if (ll == NOLAUNCH) warning(runerror());
+		if (ll == NOLAUNCH) warning("%s", runerror());
 	    }
 
 	}
@@ -736,9 +833,9 @@ static int char_YesNoCancel(const char *s)
 
 	/*--- Initialization Code ---*/
 
-static char RHome[MAX_PATH + 7];
-static char UserRHome[MAX_PATH + 7];
 extern char *getRHOME(int), *getRUser(void); /* in rhome.c */
+extern void freeRHOME(char *), freeRUser(char *);
+extern void R_putenv_path_cpy(char *, char *, int);
 void R_setStartTime(void);
 
 void R_DefCallbacks(Rstart Rp, int RstartVersion)
@@ -762,7 +859,7 @@ void R_DefCallbacks(Rstart Rp, int RstartVersion)
 
 void R_SetWin32(Rstart Rp)
 {
-    int dummy;
+    int dummy = 0; /* -Wmaybe-uninitialized */
 
     {
 	/* Idea here is to ask about the memory block an automatic
@@ -796,27 +893,34 @@ void R_SetWin32(Rstart Rp)
     }
 
     R_CStackDir = 1;
-    R_Home = Rp->rhome;
-    if(strlen(R_Home) >= MAX_PATH) R_Suicide("Invalid R_HOME");
-    snprintf(RHome, MAX_PATH+7, "R_HOME=%s", R_Home);
-    for (char *p = RHome; *p; p++) if (*p == '\\') *p = '/';
-    putenv(RHome);
-    strcpy(UserRHome, "R_USER=");
-    strcat(UserRHome, Rp->home);
-    putenv(UserRHome);
+    if(!Rp->rhome)
+	R_Suicide("Invalid R_HOME");
+    R_Home = (char *)malloc(strlen(Rp->rhome) + 1);
+    if (!R_Home)
+	R_Suicide("Allocation error");
+    strcpy(R_Home, Rp->rhome);
+    R_putenv_path_cpy("R_HOME", Rp->rhome, 1);
+    R_putenv_path_cpy("R_USER", Rp->home, 0);
     
     if( !getenv("HOME") ) {
-	strcpy(UserRHome, "HOME=");
-	strcat(UserRHome, getRUser());
-	putenv(UserRHome);
+	char *RUser = getRUser();
+	R_putenv_path_cpy("HOME", RUser, 0);
+	freeRUser(RUser);
     }
     putenv("MSYS2_ENV_CONV_EXCL=R_ARCH");
 
     
     /* This is here temporarily while the GCC version is chosen */
-    char gccversion[30];
+    char *gccversion = (char *)malloc(30);
+    if (!gccversion)
+	R_Suicide("Allocation error");
+#ifdef __clang__
+    snprintf(gccversion, 30, "R_COMPILED_BY=clang %d.%d.%d", __clang_major__, __clang_minor__, __clang_patchlevel__);
+#else
     snprintf(gccversion, 30, "R_COMPILED_BY=gcc %d.%d.%d", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif
     putenv(gccversion);
+    /* no free here: storage remains in use */
 
     /* Rterm and Rgui set CharacterMode during startup, then set Rp->CharacterMode
        from it in cmdlineoptions().  Rproxy never calls cmdlineoptions, so we need the
@@ -921,8 +1025,10 @@ char *PrintUsage(void)
 	"  --vanilla             Combine --no-save, --no-restore, --no-site-file,\n                          --no-init-file and --no-environ\n",
 	msg2b[] =
 	"  --max-ppsize=N        Set max size of protect stack to N\n",
+	msg2c[] =
+	"  --max-connections=N   Set max number of connections to N\n",
 	msg3[] =
-	"  -q, --quiet           Don't print startup message\n  --silent              Same as --quiet\n  --no-echo             Make R run as quietly as possible\n  --verbose             Print more information about progress\n  --args                Skip the rest of the command line\n",
+	"  -q, --quiet           Don't print startup message\n  --silent              Same as --quiet\n  -s, --no-echo         Make R run as quietly as possible\n  --verbose             Print more information about progress\n  --args                Skip the rest of the command line\n",
 	msg4[] =
 	"  --ess                 Don't use getline for command-line editing\n                          and assert interactive use\n  -f file               Take input from 'file'\n  --file=file           ditto\n  -e expression         Use 'expression' as input\n\nOne or more -e options can be used, but not together with -f or --file\n",
 	msg5[] = "\nAn argument ending in .RData (in any case) is taken as the path\nto the workspace to be restored (and implies --restore)";
@@ -933,6 +1039,7 @@ char *PrintUsage(void)
     strcat(msg, msg1);
     strcat(msg, msg2);
     strcat(msg, msg2b);
+    strcat(msg, msg2c);
     strcat(msg, msg3);
     if(CharacterMode == RTerm) strcat(msg, msg4);
     strcat(msg, msg5);
@@ -962,22 +1069,20 @@ extern int R_isWriteableDir(char *path);
 static Rboolean use_workspace(Rstart Rp, char *name, Rboolean usedRdata)
 {
     char s[1024];
-    char path[MAX_PATH];
-    char *p;
+    char *path, *p;
 
     if(!usedRdata) {
-	if (strlen(name) >= MAX_PATH) {
-	     /* if generated by Windows it must fit */
-	    snprintf(s, 1024, _("Workspace name '%s' is too long\n"), name);
+	if (!set_workspace_name(name)) {
+	    snprintf(s, 1024, _("Not enough memory"));
 	    R_ShowMessage(s);
 	} else {
-	    set_workspace_name(name);
+	    path = (char *)malloc(strlen(name) + 1);	
 	    strcpy(path, name);
 	    for (p = path; *p; p++) if (*p == '\\') *p = '/';
 	    p = Rf_strrchr(path, '/');
 	    if(p) {
 		*p = '\0';
-		chdir(path);
+		SetCurrentDirectory(path);
 	    }
 	    usedRdata = TRUE;
 	    Rp->RestoreAction = SA_RESTORE;
@@ -993,18 +1098,25 @@ static Rboolean use_workspace(Rstart Rp, char *name, Rboolean usedRdata)
 int cmdlineoptions(int ac, char **av)
 {
     int   i;
-    char  s[1024], cmdlines[10000];
+    char  s[1024], cmdlines[10000], *RUser, *RHome;
     structRstart rstart;
     Rstart Rp = &rstart;
     Rboolean usedRdata = FALSE, processing = TRUE;
 
     /* ensure R_Home gets set early: we are in rgui or rterm here */
-    R_Home = getRHOME(3);
+    int dirstrip = 2;
+#ifdef R_ARCH
+    if (strlen(R_ARCH) > 0)
+	dirstrip++;
+#endif 
+    RHome = getRHOME(dirstrip);
+    if(!RHome)
+	R_Suicide("Invalid R_HOME");
+    R_Home = RHome;
     /* need this for moduleCdynload for iconv.dll */
     InitFunctionHashing();
-    snprintf(RHome, MAX_PATH+7, "R_HOME=%s", R_Home);
-    putenv(RHome);
-    BindDomain(R_Home);
+    R_putenv_path_cpy("R_HOME", RHome, 1);
+    BindDomain(RHome);
 
     R_setStartTime();
 
@@ -1028,10 +1140,11 @@ int cmdlineoptions(int ac, char **av)
 	       it resolved to documents folder in systemprofile. This has do be done
 	       before process_user_Renviron(), because user .Renviron may be read from
 	       the current directory, which is expected to be userdocs. */
-	    wchar_t mydocs[MAX_PATH + 1];
-	    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PERSONAL|CSIDL_FLAG_CREATE,
-		                           NULL, 0, mydocs))) 
+	    wchar_t *mydocs;
+	    if (SHGetKnownFolderPath(&FOLDERID_Documents, KF_FLAG_CREATE, NULL,
+	                             &mydocs) == S_OK)
 		SetCurrentDirectoryW(mydocs);
+	    CoTaskMemFree(mydocs);
 	}
 
     Rp->CallBack = R_DoNothing;
@@ -1115,6 +1228,7 @@ int cmdlineoptions(int ac, char **av)
 	if (processing && **++av == '-') {
 	    if (!strcmp(*av, "--help") || !strcmp(*av, "-h")) {
 		R_ShowMessage(PrintUsage());
+		freeRHOME(RHome);
 		exit(0);
 	    } else if (!strcmp(*av, "--cd-to-userdocs")) {
 		/* handled above before processing Renviron */
@@ -1197,6 +1311,7 @@ int cmdlineoptions(int ac, char **av)
 		usedRdata = use_workspace(Rp, *av, usedRdata);
 	}
     }
+    RUser = getRUser();
     if(strlen(cmdlines)) {
 	if(ifp) R_Suicide(_("cannot use -e with -f or --file"));
 	Rp->R_Interactive = FALSE;
@@ -1208,27 +1323,39 @@ int cmdlineoptions(int ac, char **av)
 		tm = getenv("TMP");
 		if (!R_isWriteableDir(tm)) {
 		    tm = getenv("TEMP");
-		    if (!R_isWriteableDir(tm))
-			tm = getRUser(); /* this one will succeed */
+		    if (!R_isWriteableDir(tm)) 
+			tm = RUser;
 		}
 	    }
 	    /* in case getpid() is not unique -- has been seen under Windows */
-	    snprintf(ifile, 1024, "%s/Rscript%x%x", tm, getpid(), 
-		     (unsigned int) GetTickCount());
-	    ifp = fopen(ifile, "w+b");
+	    size_t needed;
+	    needed = snprintf(NULL, 0, "%s/Rscript%x%x", tm, getpid(), 
+		              (unsigned int) GetTickCount()) + 1;
+	    ifile = (char *)malloc(needed);
+	    if (ifile) {
+		snprintf(ifile, needed, "%s/Rscript%x%x", tm, getpid(), 
+			 (unsigned int) GetTickCount());
+		ifp = fopen(ifile, "w+b");
+	    }
 	    if(!ifp) R_Suicide(_("creation of tmpfile failed -- set TMPDIR suitably?"));
 	    /* Unix does unlink(ifile) here, but Windows cannot delete open files */
 	}
-	fwrite(cmdlines, strlen(cmdlines)+1, 1, ifp);
+	if (fwrite(cmdlines, 1, strlen(cmdlines), ifp) != strlen(cmdlines))
+	    R_Suicide("fwrite error in cmdlineoptions");
 	fflush(ifp);
 	rewind(ifp);
     }
     if (ifp && Rp->SaveAction != SA_SAVE) Rp->SaveAction = SA_NOSAVE;
 
-    Rp->rhome = R_Home;
-
-    Rp->home = getRUser();
-    R_SetParams(Rp);
+    Rp->rhome = RHome;
+    Rp->home = RUser;
+    R_SetParams(Rp); /* will re-set R_Home to a copy */
+    freeRUser(RUser);
+    /* Do not free RHome in case some code running before R_SetParams()
+       captured it via global variable R_Home
+    
+       freeRHOME(RHome);
+    */
 
 /*
  *  Since users' expectations for save/no-save will differ, we decided
@@ -1238,11 +1365,38 @@ int cmdlineoptions(int ac, char **av)
 	Rp->SaveAction != SA_NOSAVE)
 	R_Suicide(_("you must specify '--save', '--no-save' or '--vanilla'"));
 
-    if (InThreadReadConsole &&
-	(!(EhiWakeUp = CreateEvent(NULL, FALSE, FALSE, NULL)) ||
-	 (_beginthread(ReaderThread, 0, NULL) == -1)))
-	R_Suicide(_("impossible to create 'reader thread'; you must free some system resources"));
+    if (InThreadReadConsole) {
+	Rboolean ok = TRUE;
+	if (InThreadReadConsole == CharReadConsole) {
+	    /* Need to arrange for the getline completion tab hook to execute
+	       on the main R thread. Executing it in another thread can cause
+	       crashes due to at least stack overflow checking (part of the
+	       completion is implemented in R). */
 
+	    InThreadTabHook = gl_tab_hook;
+	    gl_tab_hook = ReaderThreadTabHook;
+	    completionrequest.done = CreateEvent(NULL, FALSE, FALSE, NULL);
+	    if (!completionrequest.done)
+		ok = FALSE;
+	}
+	if (ok) {
+	    HINSTANCE instance = GetModuleHandle(NULL);
+	    WNDCLASS wndclass = { 0, ReadMsgWindowProc, 0, 0, instance, NULL,
+	                          0, 0, NULL, "RReadMsg" };
+	    ReadMsgWindow = NULL;
+	    if (RegisterClass(&wndclass)) {
+		ReadMsgWindow = CreateWindow("RReadMsg", "RReadMsg", 0, 1, 1,
+		                             1, 1, HWND_MESSAGE, NULL, instance,
+		                             NULL);
+	    }
+	    if (!ReadMsgWindow)
+		ok = FALSE;
+	}
+	if (!ok || !(EhiWakeUp = CreateEvent(NULL, FALSE, FALSE, NULL)) ||
+	    (_beginthread(ReaderThread, 0, NULL) == -1))
+
+	    R_Suicide(_("impossible to create 'reader thread'; you must free some system resources"));
+    }
     R_setupHistory();
     return 0;
 }
@@ -1264,7 +1418,7 @@ void saveConsoleTitle(void)
  * This function returns 16,777,216 based on
  * https://blogs.technet.microsoft.com/markrussinovich/2009/09/29/pushing-the-limits-of-windows-handles
  */
-int R_GetFDLimit()
+int R_GetFDLimit(void)
 {
     long limit = 16L*1024L*1024L;
     return (limit > INT_MAX) ? INT_MAX : limit;

@@ -21,7 +21,7 @@ detectCores(all.tests = FALSE, logical = TRUE)
 \details{
   This attempts to detect the number of available CPU cores.
 
-  It has methods to do so for Linux, macOS, FreeBSD, OpenBSD, Solaris
+  It has methods to do so for Linux, macOS, FreeBSD, \I{OpenBSD}, Solaris
   and Windows.  \code{detectCores(TRUE)} could be tried on other
   Unix-alike systems.
 }
@@ -36,26 +36,18 @@ detectCores(all.tests = FALSE, logical = TRUE)
     the current power management mode} and \sQuote{could be available
     this boot}, and this function returns the first.
 
-  On Windows:
-  Only versions of Windows since XP SP3 are supported.  Microsoft
-  documents that with \code{logical = FALSE} it will report the number of
-  cores on Vista or later, but the number of physical CPU packages on XP
-  or Server 2003: however it reported correctly on the XP systems we
-  tested.
-  % https://msdn.microsoft.com/en-us/library/ms683194%28v=VS.85%29.aspx
-
-  On Sparc Solaris \code{logical = FALSE} returns the number of physical
+  On \I{Sparc} Solaris \code{logical = FALSE} returns the number of physical
   cores and \code{logical = TRUE} returns the number of available
-  hardware threads. (Some Sparc CPUs have multiple cores per CPU, others
+  hardware threads. (Some \I{Sparc} CPUs have multiple cores per CPU, others
   have multiple threads per core and some have both.)  For example, the
-  UltraSparc T2 CPU in the former CRAN check server was a single
+  \I{UltraSparc} T2 CPU in the former CRAN check server was a single
   physical CPU with 8 cores, and each core supports 8 hardware threads.
   So \code{detectCores(logical = FALSE)} returns 8, and
   \code{detectCores(logical = TRUE)} returns 64.
 
   Where virtual machines are in use, one would hope that the result
   for \code{logical = TRUE} represents the number of CPUs available (or
-  potentially available) to that particular VM.
+  potentially available) to that particular \abbr{VM}.
 }
 \author{
   Simon Urbanek and Brian Ripley
@@ -65,7 +57,7 @@ detectCores(all.tests = FALSE, logical = TRUE)
   of \code{mclapply} nor specifying the number of cores in
   \code{makeCluster}.  First because it may return \code{NA}, second
   because it does not give the number of \emph{allowed} cores, and third
-  because on Sparc Solaris and some Windows boxes it is not reasonable
+  because on \I{Sparc} Solaris and some Windows boxes it is not reasonable
   to try to use all the logical CPUs at once.
 }
 \examples{

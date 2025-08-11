@@ -62,15 +62,26 @@ local({
 })
 
 local({
-    setRtools42Path <- 0
-    # INSTALLER-BUILD: setRtools42Path <- 1
+    # keep in step with Rcmd_environ
+    setRtools45Path <- 0
+    # INSTALLER-BUILD: setRtools45Path <- 1
 
-    if (setRtools42Path) {
-        rthome <- Sys.getenv("RTOOLS42_HOME", "c:/rtools42")
-        rtpath <- paste0(rthome, "/x86_64-w64-mingw32.static.posix/bin;",
-                         rthome, "/usr/bin")
+    if (setRtools45Path) {
+        aarch64 <- FALSE
+        # INSTALLER-BUILD-aarch64: aarch64 <- TRUE
+
+        if (aarch64) {
+            rthome <- Sys.getenv("RTOOLS45_AARCH64_HOME",
+                                 "c:/rtools45-aarch64")
+            rtpath <- paste0(rthome, "/aarch64-w64-mingw32.static.posix/bin;",
+                             rthome, "/usr/bin")
+        } else {
+            rthome <- Sys.getenv("RTOOLS45_HOME", "c:/rtools45")
+            rtpath <- paste0(rthome, "/x86_64-w64-mingw32.static.posix/bin;",
+                             rthome, "/usr/bin")
+        }
         path <- Sys.getenv("R_CUSTOM_TOOLS_PATH", rtpath)
-        Sys.setenv(R_RTOOLS42_PATH = rtpath)
+        Sys.setenv(R_RTOOLS45_PATH = rtpath)
         Sys.setenv(PATH = paste0(path, ";", Sys.getenv("PATH")))
     }
 })

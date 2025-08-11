@@ -1,6 +1,6 @@
 % File src/library/base/man/Arithmetic.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Arithmetic}
@@ -52,11 +52,14 @@ x \%/\% y
   \code{-} for subtraction, \code{*} for multiplication, \code{/} for
   division and \code{^} for exponentiation.
 
-  \code{\%\%} indicates \code{x mod y} (\dQuote{x modulo y}) and
-  \code{\%/\%} indicates integer division.  It is guaranteed that
-  \describe{
-    \item{\code{ x == (x \%\% y) + y * (x \%/\% y) }}{\sspace (up to rounding error)}
-  }
+  \code{\%\%} indicates \code{x mod y} (\dQuote{x modulo y}), i.e.,
+  computes the \sQuote{remainder} \code{r <- x \%\% y}, and
+  \code{\%/\%} indicates integer division, where \R uses \dQuote{floored}
+  integer division, i.e., \code{q <- x \%/\% y := floor(x/y)}, as promoted
+  by Donald Knuth, see the Wikipedia page on \sQuote{Modulo operation},
+  and hence \code{sign(r) == sign(y)}.  It is guaranteed that
+  (up to rounding error)
+  \preformatted{    x == (x \%\% y) + y * (x \%/\% y)    }
   unless \code{y == 0} where the result of \code{\%\%} is
   \code{\link{NA_integer_}} or \code{\link{NaN}} (depending on the
   \code{\link{typeof}} of the arguments) or for some non-\link{finite}
@@ -111,14 +114,14 @@ x \%/\% y
 
   \code{\%\%} and \code{x \%/\% y} can be used for non-integer \code{y},
   e.g.\sspace{}\code{1 \%/\% 0.2}, but the results are subject to representation
-  error and so may be platform-dependent.  Because the IEC 60559
+  error and so may be platform-dependent.  Mathematically, the answer to
+  \code{1 \%/\% 0.2} should be \code{5}, but because the \abbr{IEC} 60559
   representation of \code{0.2} is a binary fraction slightly larger than
-  \code{0.2}, the answer to \code{1 \%/\% 0.2} should be \code{4} but
-  most platforms give \code{5}.
+  \code{0.2} most platforms give \code{4}.
 
   Users are sometimes surprised by the value returned, for example why
   \code{(-8)^(1/3)} is \code{NaN}.  For \link{double} inputs, \R makes
-  use of IEC 60559 arithmetic on all platforms, together with the C
+  use of \abbr{IEC} 60559 arithmetic on all platforms, together with the C
   system function \samp{pow} for the \code{^} operator.  The relevant
   standards define the result in many corner cases.  In particular, the
   result in the example above is mandated by the C99 standard.  On many
@@ -127,7 +130,7 @@ x \%/\% y
 
   Arithmetic on type \link{double} in \R is supposed to be done in
   \sQuote{round to nearest, ties to even} mode, but this does depend on
-  the compiler and FPU being set up correctly.
+  the compiler and \abbr{FPU} being set up correctly.
 }
 \section{S4 methods}{
   These operators are members of the S4 \code{\link{Arith}} group generic,
@@ -136,15 +139,15 @@ x \%/\% y
   \code{c(e1, e2)} (with \code{e2} missing for a unary operator).
 }
 \section{Implementation limits}{
-  \R is dependent on OS services (and they on FPUs) for floating-point
-  arithmetic.  On all current \R platforms IEC 60559 (also known as IEEE
+  \R is dependent on OS services (and they on \abbr{FPU}s) for floating-point
+  arithmetic.  On all current \R platforms \abbr{IEC} 60559 (also known as IEEE
   754) arithmetic is used, but some things in those standards are
   optional.  In particular, the support for \emph{denormal} aka
   \emph{subnormal} numbers
   (those outside the range given by \code{\link{.Machine}}) may differ
   between platforms and even between calculations on a single platform.
 
-  Another potential issue is signed zeroes: on IEC 60559 platforms there
+  Another potential issue is signed zeroes: on \abbr{IEC} 60559 platforms there
   are two zeroes with internal representations differing by sign.  Where
   possible \R treats them as the same, but for example direct output
   from C code often does not do so and may output \samp{-0.0} (and on
@@ -164,7 +167,7 @@ x \%/\% y
 
   \code{**} is translated in the parser to \code{^}, but this was
   undocumented for many years.  It appears as an index entry in Becker
-  \emph{et al} (1988), pointing to the help for \code{Deprecated} but
+  \abbr{et al.}\sspace(1988), pointing to the help for \code{Deprecated} but
   is not actually mentioned on that page.  Even though it had been
   deprecated in S for 20 years, it was still accepted in \R in 2008.
 }
@@ -189,9 +192,14 @@ x \%/\% y
   Also available at
   \url{https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html}.
 
-  For the IEC 60559 (aka IEEE 754) standard:
+  For the \abbr{IEC} 60559 (aka IEEE 754) standard:
   \url{https://www.iso.org/standard/57469.html} and
   \url{https://en.wikipedia.org/wiki/IEEE_754}.
+
+  On the integer division and remainder (modulo) computations, \code{\%\%}
+  and \code{\%/\%}:  \url{https://en.wikipedia.org/wiki/Modulo_operation}, and
+  Donald Knuth (1972)
+  \emph{The Art of Computer Programming}, Vol.1.
 }
 \seealso{
   \code{\link{sqrt}} for miscellaneous and \code{\link{Special}} for special
@@ -205,8 +213,13 @@ x \%/\% y
 x <- -1:12
 x + 1
 2 * x + 3
-x \%\% 2 #-- is periodic
+x \%\%  3 # is periodic  2 0  1  2 0  1 ...
+x \%\% -3 #  (ditto)    -1 0 -2 -1 0 -2 ...
 x \%/\% 5
 x \%\% Inf # now is defined by limit (gave NaN in earlier versions of R)
+\dontdiff{
+## Illustrating PR#18677, see above
+1 \%/\% print(0.2, digits=19)
+}
 }
 \keyword{arith}

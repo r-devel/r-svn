@@ -44,7 +44,7 @@ R:
 	fi
 	@for pkg in $(R_PKGS_BASE1); do \
 	  $(MAKE) -C $${pkg} -f Makefile.win \
-             R_ARCH=$(R_ARCH) EXT_LIBS="$(EXT_LIBS)" \
+             R_ARCH=$(R_ARCH) EXT_LIBS="$(EXT_LIBS)" USE_PKG_CONFIG=$(USE_PKG_CONFIG) \
 	     all install-tests || exit 1; \
 	done
 	@$(MAKE) -C translations -f Makefile.win
@@ -55,6 +55,9 @@ R:
 	@rm -f $(top_builddir)/library/tools/Meta/nsInfo.rds
 	@$(ECHO) "tools:::.vinstall_package_namespaces_as_RDS(\"$(top_builddir)/library\", \"$(R_PKGS_BASE)\")" | \
 	  R_DEFAULT_PACKAGES=tools LC_ALL=C $(R_EXE) > /dev/null
+	@$(ECHO) "installing R bibliographies"
+	@$(ECHO) "tools:::.install_R_bibliographies_as_RDS(\"$(top_builddir)/share/bibliographies\")" | \
+	  R_DEFAULT_PACKAGES=tools,utils LC_ALL=C $(R_EXE) > /dev/null
 
 ## do Rdobjects before metadata before help indices
 docs:
@@ -72,7 +75,7 @@ RD-TS = base.Rdts stats.Rdts utils.Rdts methods.Rdts graphics.Rdts grDevices.Rdt
 Rd-ts: $(RD-TS)
 
 %.Rdts:
-	@$(ECHO) "options(warn=1);tools:::.install_package_Rd_objects(\"$(srcdir)/$*\", \"$(top_builddir)/library/$*\")" | R_DEFAULT_PACKAGES=NULL $(R_EXE) || exit 1
+	@$(ECHO) "options(warn=2);tools:::.install_package_Rd_objects(\"$(srcdir)/$*\", \"$(top_builddir)/library/$*\")" | R_DEFAULT_PACKAGES=NULL $(R_EXE) || exit 1
 	@$(ECHO) -n " $*$(ECHO_C)"
 
 Rdobjects:
@@ -96,12 +99,12 @@ Rdfiles:
 	done
 
 vignettes:
-	@for pkg in grid parallel utils; do \
+	@for pkg in grid parallel utils stats; do \
 	    $(ECHO) "building/updating vignettes for package '$${pkg}' ..."; \
 	    ($(ECHO) "tools:::.install_package_vignettes(\"$(srcdir)/$${pkg}\", \"$(top_builddir)/library/$${pkg}\")") | \
 	        R_DEFAULT_PACKAGES="utils,tools" LC_ALL=C \
 		  R_LIBS_USER=NULL R_LIBS_SITE=NULL \
-	          $(R_EXE) > /dev/null; \
+	          $(R_EXE) > /dev/null || exit 1; \
 	done
 	@rm -Rf .vignettes
 
@@ -113,7 +116,7 @@ metadata:
 clean:
 	@for pkg in $(R_PKGS_BASE); do \
 	  $(MAKE) --no-print-directory -C $${pkg} \
-	    -f Makefile.win R_ARCH=$(R_ARCH) clean-win; \
+	    -f Makefile.win R_ARCH=$(R_ARCH) USE_PKG_CONFIG=$(USE_PKG_CONFIG) clean-win; \
 	done
 	-@rm -f stamp-*
 
@@ -150,6 +153,8 @@ R_PKGS_SRC = graphics grid methods parallel splines stats tools utils tcltk grDe
 cross:
 	@for pkg in $(R_PKGS_SRC); do \
 	  echo "$(MAKE) -C $${pkg}/src -f Makefile.win"; \
-	  $(MAKE) -C $${pkg}/src -f Makefile.win R_ARCH=$(R_ARCH) || exit 1; \
+	  $(MAKE) -C $${pkg}/src -f Makefile.win \
+              R_ARCH=$(R_ARCH) \
+              USE_PKG_CONFIG=$(USE_PKG_CONFIG) || exit 1; \
 	done
 

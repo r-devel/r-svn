@@ -95,7 +95,7 @@ Installed class methods are \code{"classMethodDefinition"} objects,
 with slots that identify the name of the function as a class method
 and the other class methods called from this method.
 The latter information is determined heuristically when the class is
-defined by using the \code{codetools} recommended package.  This
+defined by using the \pkg{codetools} recommended package.  This
 package must be installed when reference classes are defined, but is
 not needed in order to use existing reference classes.
 }

@@ -15,7 +15,7 @@
 #  https://www.R-project.org/Licenses/
 
 # Statlib code by John Chambers, Bell Labs, 1994
-# Changes Copyright (C) 1998-2022 The R Core Team
+# Changes Copyright (C) 1998-2025 The R Core Team
 
 
 ## As from R 2.4.0, row.names can be either character or integer.
@@ -107,7 +107,7 @@ row.names.default <- function(x) if(!is.null(dim(x))) rownames(x)# else NULL
         if(isFALSE(make.names))
             stop("missing values in 'row.names' are not allowed")
         if(is.na(make.names)) # automatic row.names
-            value <- .set_row_names(n)
+            value <- .set_row_names(if(n > 0) n else length(value))
         else if(!isTRUE(make.names)) stop("invalid 'make.names'")
         else # make.names = TRUE: amend 'value' to correct ones:
             value <- make.names(value, unique=TRUE)
@@ -181,10 +181,14 @@ as.data.frame <- function(x, row.names = NULL, optional = FALSE, ...)
     UseMethod("as.data.frame")
 }
 
-as.data.frame.default <- function(x, ...)
+as.data.frame.default <- function(x, ...) {
+    if(is.atomic(x))
+        as.data.frame.vector(x, ...)
+    else
     stop(gettextf("cannot coerce class %s to a data.frame",
                   sQuote(deparse(class(x))[1L])),
          domain = NA)
+}
 
 ###  Here are methods ensuring that the arguments to "data.frame"
 ###  are in a form suitable for combining into a data frame.
@@ -212,13 +216,12 @@ as.data.frame.data.frame <- function(x, row.names = NULL, ...)
 as.data.frame.list <-
     function(x, row.names = NULL, optional = FALSE, ...,
 	     cut.names = FALSE, col.names = names(x), fix.empty.names = TRUE,
+             new.names = !missing(col.names),
              check.names = !optional,
              stringsAsFactors = FALSE)
 {
     ## need to protect names in x.
-    ## truncate any of more than 256 (or cut.names) bytes:
-    new.nms <- !missing(col.names)
-    if(cut.names) {
+    if(cut.names) { ## truncate any of more than 256 (or cut.names) bytes:
 	maxL <- if(is.logical(cut.names)) 256L else as.integer(cut.names)
 	if(any(long <- nchar(col.names, "bytes", keepNA = FALSE) > maxL))
 	    col.names[long] <- paste(substr(col.names[long], 1L, maxL - 6L), "...")
@@ -228,12 +231,15 @@ as.data.frame.list <-
 	       ## c("row.names", "check.rows", ...., "stringsAsFactors"),
 	       col.names, 0L)
     if(any.m <- any(m)) col.names[m] <- paste0("..adfl.", col.names[m])
-    if(new.nms || any.m || cut.names) names(x) <- col.names
+    if(new.names || any.m || cut.names) names(x) <- col.names
     ## data.frame() is picky with its 'row.names':
     alis <- c(list(check.names = check.names, fix.empty.names = fix.empty.names,
 		   stringsAsFactors = stringsAsFactors),
 	      if(!missing(row.names)) list(row.names = row.names))
     x <- do.call(data.frame, c(x, alis))
+    if(new.names && !check.names && length(names(x)) == length(col.names) &&
+       any(naNm <- is.na(col.names)))
+       names(x)[naNm] <- col.names[naNm]
     if(any.m) names(x) <- sub("^\\.\\.adfl\\.", "", names(x))
     x
 }
@@ -243,23 +249,15 @@ as.data.frame.vector <- function(x, row.names = NULL, optional = FALSE, ...,
 {
     force(nm)
     nrows <- length(x)
-    ## ## row.names -- for now warn about and "forget" illegal row.names
-    ## ##           -- can simplify much (move this *after* the is.null(.) case) once we stop() !
-### FIXME: allow  integer [of full length]
-    if(!(is.null(row.names) || (is.character(row.names) && length(row.names) == nrows))) {
-	warning(gettextf(
-	    "'row.names' is not a character vector of length %d -- omitting it. Will be an error!",
-	    nrows), domain = NA)
-	row.names <- NULL
-    }
     if(is.null(row.names)) {
 	if (nrows == 0L)
 	    row.names <- character()
 	else if(length(row.names <- names(x)) != nrows || anyDuplicated(row.names))
 	    row.names <- .set_row_names(nrows)
     }
-    ## else if(length(row.names) != nrows) # same behavior as the 'matrix' method
-    ##     row.names <- .set_row_names(nrows)
+    else if(!(is.character(row.names) || is.integer(row.names)) || length(row.names) != nrows)
+	stop(gettextf("'row.names' is not a character or integer vector of length %d", nrows),
+             domain = NA)
     if(!is.null(names(x))) names(x) <- NULL # remove names as from 2.0.0
     value <- list(x)
     if(!optional) names(value) <- nm
@@ -302,8 +300,6 @@ as.data.frame.matrix <- function(x, row.names = NULL, optional = FALSE, make.nam
     ncols <- d[[2L]]
     ic <- seq_len(ncols)
     dn <- dimnames(x)
-    ## surely it cannot be right to override the supplied row.names?
-    ## changed in 1.8.0
     if(is.null(row.names)) row.names <- dn[[1L]]
     collabs <- dn[[2L]]
     ## These might be NA
@@ -320,7 +316,7 @@ as.data.frame.matrix <- function(x, row.names = NULL, optional = FALSE, make.nam
     ## Explicitly check for NULL in case nrows==0
     autoRN <- (is.null(row.names) || length(row.names) != nrows)
     if(length(collabs) == ncols)
-	names(value) <- collabs
+	names(value) <- collabs %||% character()
     else if(!optional)
 	names(value) <- paste0("V", ic)
     class(value) <- "data.frame"
@@ -444,7 +440,7 @@ data.frame <-
 		    domain = NA)
 	    }
 	else function(current, new, i) {
-	    if(is.null(current)) {
+	    current %||%
 		if(anyDuplicated(new)) {
 		    warning(gettextf(
                         "some row.names duplicated: %s --> row.names NOT used",
@@ -452,7 +448,6 @@ data.frame <-
                         domain = NA)
 		    current
 		} else new
-	    } else current
 	}
     object <- as.list(substitute(list(...)))[-1L]
     mirn <- missing(row.names) # record before possibly changing
@@ -730,7 +725,9 @@ data.frame <-
         ## row names might have NAs.
         if(is.null(rows)) rows <- attr(xx, "row.names")
         rows <- rows[i]
-	if((ina <- anyNA(rows)) | (dup <- anyDuplicated(rows))) {
+        ina <- anyNA(rows)
+        dup <- anyDuplicated(rows)
+	if(ina || dup) {
 	    ## both will coerce integer 'rows' to character:
 	    if (!dup && is.character(rows)) dup <- "NA" %in% rows
 	    if(ina)
@@ -1054,12 +1051,7 @@ data.frame <-
             }
 	}
     else if(p > 0L)
-      for(jjj in p:1L) { # we might delete columns with NULL
-        ## ... and for that reason, we'd better ensure that jseq is increasing!
-        o <- order(jseq)
-        jseq <- jseq[o]
-        jvseq <- jvseq[o]
-
+      for(jjj in order(jseq)[p:1L]) { # we might delete columns with NULL
         jj <- jseq[jjj]
         v <- value[[ jvseq[[jjj]] ]]
         ## This is consistent with the have.i case rather than with
@@ -1483,7 +1475,7 @@ rbind.data.frame <- function(..., deparse.level = 1, make.row.names = TRUE,
 		      stringsAsFactors = stringsAsFactors)
     } else {
 	structure(value, class = cl,
-		  row.names = if(is.null(rlabs)) .set_row_names(nrow) else rlabs)
+		  row.names = rlabs %||% .set_row_names(nrow))
     }
 }
 
@@ -1704,13 +1696,7 @@ Summary.data.frame <- function(..., na.rm)
 }
 
 xtfrm.data.frame <- function(x) {
-    if(tolower(Sys.getenv("_R_STOP_ON_XTFRM_DATA_FRAME_")) %in%
-       c("1", "yes", "true"))
-        stop("cannot xtfrm data frames")
-    else {
-        warning("cannot xtfrm data frames")
-        NextMethod("xtfrm")
-    }
+    stop("cannot xtfrm data frames")
 }
 
 list2DF <-

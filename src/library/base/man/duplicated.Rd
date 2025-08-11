@@ -1,6 +1,6 @@
 % File src/library/base/man/duplicated.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{duplicated}
@@ -22,7 +22,7 @@
   indicating which elements (rows) are duplicates.
 
   \code{anyDuplicated(.)} is a \dQuote{generalized} more efficient
-  version \code{any(duplicated(.))}, returning positive integer indices
+  version of \code{any(duplicated(.))}, returning positive integer indices
   instead of just \code{TRUE}.
 }
 \usage{
@@ -41,7 +41,8 @@ anyDuplicated(x, incomparables = FALSE, \dots)
            MARGIN = 1, fromLast = FALSE, \dots)
 }
 \arguments{
-  \item{x}{a vector or a data frame or an array or \code{NULL}.}
+  \item{x}{a (generalized, see \code{\link{is.vector}}) vector, a data
+    frame,  an array or \code{NULL}.}
   \item{incomparables}{a vector of values that cannot be compared.
     \code{FALSE} is a special value, meaning that all values can be
     compared, and may be the only value accepted for methods other than
@@ -57,7 +58,7 @@ anyDuplicated(x, incomparables = FALSE, \dots)
 }
 \details{
   These are generic functions with methods for vectors (including
-  lists), data frames and arrays (including matrices).
+  lists and expressions), data frames and arrays (including matrices).
 
   For the default methods, and whenever there are equivalent method
   definitions for \code{duplicated} and \code{anyDuplicated},
@@ -132,13 +133,14 @@ x <- c(9:20, 1:5, 3:7, 0:8)
 stopifnot(identical(xu,  unique(x)),
           identical(xu2, unique(x, fromLast = TRUE)))
 
-duplicated(iris)[140:143]
+which(duplicated(warpbreaks))
 
-duplicated(iris3, MARGIN = c(1, 3))
-anyDuplicated(iris) ## 143
+## for 3d array, MARGIN = -1  <==>  MARGIN = 2:3
+duplicated(gait, MARGIN = -1) # boy26 duplicates boy19, see help(gait).
+anyDuplicated(warpbreaks) 
 \dontshow{% array & data.frame methods:
-stopifnot(identical(anyDuplicated(iris), 143L),
-          identical(anyDuplicated(iris3, MARGIN = c(1, 3)), 143L))
+stopifnot(identical(anyDuplicated(warpbreaks), 8L),
+          identical(anyDuplicated(gait, MARGIN = -1), 26L))
 }
 anyDuplicated(x)
 anyDuplicated(x, fromLast = TRUE)

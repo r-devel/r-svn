@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/hist.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ hist.default <-
     nB <- as.integer(nB)
     if(is.na(nB)) stop("invalid length(breaks)")
 
-    ## Do this *before* adding fuzz or logic breaks down...
+    ## Do this *before* adding fuzz or logic breaks down ..
 
     h <- as.double(diff(breaks))
     equidist <- !use.br || diff(range(h)) < 1e-7 * mean(h)
@@ -145,18 +145,25 @@ hist.default <-
     }
     else { ## plot is FALSE
     	if (warn.unused) {
-	    ## make an effort to warn about "non sensical" arguments:
+	    ## make an effort to warn about "nonsensical" arguments, notably those only in plot(.) above
 	    nf <- names(formals()) ## all formals but those:
 	    nf <- nf[is.na(match(nf, c("x", "breaks", "nclass", "plot",
 				       "include.lowest", "right", "fuzz")))]
 	    missE <- lapply(nf, function(n)
 			    substitute(missing(.), list(. = as.name(n))))
 	    not.miss <- ! vapply(missE, eval, NA, envir = environment())
+	    nf <- nf[not.miss]
+	    nnmiss <- sum(not.miss)
+	    if(any(iM <- nf == "...")) { # replace "..." with arg names in `...`
+		dnms <- ...names()
+		nf     <- c(nf[!iM], dnms)
+		nnmiss <- nnmiss -1L + length(dnms)
+	    }
 	    if(any(not.miss))
-		warning(sprintf(ngettext(sum(not.miss),
+		warning(sprintf(ngettext(nnmiss,
 					 "argument %s is not made use of",
 					 "arguments %s are not made use of"),
-				paste(sQuote(nf[not.miss]), collapse=", ")),
+				paste(sQuote(nf), collapse=", ")),
 			domain = NA)
 	}
         r
@@ -169,7 +176,7 @@ plot.histogram <-
 	      main = paste("Histogram of", paste(x$xname, collapse="\n")),
               sub = NULL,
 	      xlab = x$xname, ylab,
-	      xlim = range(x$breaks), ylim = NULL,
+	      xlim = range(x$breaks), ylim = NULL, log = "",
 	      axes = TRUE, labels = FALSE, add = FALSE, ann = TRUE, ...)
 {
     equidist <-
@@ -189,7 +196,7 @@ plot.histogram <-
 	if (missing(ylab))
 	    ylab <- if (!freq) "Density" else "Frequency"
 	plot.new()
-	plot.window(xlim, ylim, "", ...)	#-> ylim's default from 'y'
+	plot.window(xlim, ylim, log, ...)	#-> ylim's default from 'y'
 	if(ann) title(main = main, sub = sub, xlab = xlab, ylab = ylab, ...)
 	if(axes) {
 	    axis(1, ...)

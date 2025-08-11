@@ -30,7 +30,7 @@ graphics.off()
 \arguments{
   \item{which}{An integer specifying a device number.}
   \item{\dots}{arguments to be passed to the device selected.}
-  \item{noRStudioGD}{Do not use the RStudio graphics device even if
+  \item{noRStudioGD}{Do not use the \I{RStudio} graphics device even if
     specified as the default device: it does not accept arguments such
     as \code{width} and \code{height}.}
 }
@@ -81,7 +81,7 @@ graphics.off()
 
   \code{dev.list} returns the numbers of all open devices, except device
   1, the null device.  This is a numeric vector with a
-  \code{\link{names}} attribute giving the device names, or \code{NULL} is
+  \code{\link{names}} attribute giving the device names, or \code{NULL} if
   there is no open device.
 
   \code{dev.next} and \code{dev.prev} return the number and name of the

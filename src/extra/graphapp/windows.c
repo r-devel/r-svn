@@ -498,11 +498,7 @@ window newwindow(const char *name, rect r, long flags)
     return (window) obj;
 }
 
-/*
- *  Find the next valid window, start looking from the given one.
- */
-PROTECTED
-object find_valid_sibling(object obj)
+static object find_valid_sibling(object obj, int next)
 {
     object first = obj;
 
@@ -515,10 +511,28 @@ object find_valid_sibling(object obj)
 	    if (obj->kind != LabelObject)
 		return obj;
 	}
-	obj = obj->next;
+	obj = next ? obj->next : obj->prev;
     } while (obj != first);
 
     return first;
+}
+
+/*
+ *  Find the next valid window, start looking from the given one.
+ */
+PROTECTED
+object find_next_valid_sibling(object obj)
+{
+    return find_valid_sibling(obj, 1);
+}
+
+/*
+ *  Find the previus valid window, start looking from the given one.
+ */
+PROTECTED
+object find_prev_valid_sibling(object obj)
+{
+    return find_valid_sibling(obj, 0);
 }
 
 /*
@@ -526,7 +540,7 @@ object find_valid_sibling(object obj)
  */
 static void select_sibling(object obj)
 {
-    obj = find_valid_sibling(obj);
+    obj = find_next_valid_sibling(obj);
     if (obj) {
 	if (obj->flags & Document)
 	    sendmessage(hwndClient, WM_MDIACTIVATE,
@@ -646,7 +660,7 @@ void show_window(object obj)
     if (obj->menubar) {
 	if (hwndClient) {
 	    menu mdi = (obj->menubar)->menubar;
-	    SendMessage(hwndClient, WM_MDISETMENU,
+	    sendmessage(hwndClient, WM_MDISETMENU,
 			(WPARAM)obj->menubar->handle,
 			(LPARAM)(mdi?(mdi->handle):0));
 	    DrawMenuBar(hwndFrame);
@@ -658,7 +672,7 @@ void show_window(object obj)
     if (obj->toolbar) {
 	if (MDIToolbar) hide(MDIToolbar);
 	MDIToolbar = obj->toolbar;
-	SendMessage(hwndFrame,WM_PAINT,(WPARAM) 0,(LPARAM) 0);
+	sendmessage(hwndFrame,WM_PAINT,(WPARAM) 0,(LPARAM) 0);
     }
 #endif
     SetFocus(hwnd);
@@ -693,7 +707,7 @@ void hide_window(object obj)
     }
 }
 
-int ismdi()
+int ismdi(void)
 {
     return (hwndClient!=NULL);
 }

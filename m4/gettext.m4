@@ -5,6 +5,9 @@
 ## size_max.m4 stdint_h.m4 uintmax_t.m4 ulonglong.m4 visibility.m4 
 ## wchar_t.m4 wint_t.m4 xsize.m4 > .../m4/gettext.m4
 
+## 2022-09-28 modify to have prototypes, for clang 15.
+## 2025-03-09 test with macOS libs for external libiconv too.
+
 ## Then disable testing for libiconv prefix
 
 # gettext.m4 serial 59 (gettext-0.16.1)
@@ -197,8 +200,11 @@ extern
 const char *_nl_expand_alias (const char *);]], [[bindtextdomain ("", "");
 return * gettext ("")$gt_expression_test_code + _nl_msg_cat_cntr + *_nl_expand_alias ("")]])],[eval "$gt_func_gnugettext_libintl=yes"],[eval "$gt_func_gnugettext_libintl=no"])
             dnl Now see whether libintl exists and depends on libiconv.
-            if { eval "gt_val=\$$gt_func_gnugettext_libintl"; test "$gt_val" != yes; } && test -n "$LIBICONV"; then
-              LIBS="$LIBS $LIBICONV"
+            dnl OS dependent libraries, specifically on macOS.
+            gt_LIBINTL_EXTRA="$INTL_MACOSX_LIBS"
+            if { eval "gt_val=\$$gt_func_gnugettext_libintl"; test "$gt_val" != yes; } \
+               && { test -n "$LIBICONV" || test -n "$gt_LIBINTL_EXTRA"; }; then
+              LIBS="$LIBS $LIBICONV $gt_LIBINTL_EXTRA"
               AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <libintl.h>
 $gt_revision_test_code
 extern int _nl_msg_cat_cntr;
@@ -596,7 +602,8 @@ static void
 #ifdef __cplusplus
 sigfpe_handler (int sig)
 #else
-sigfpe_handler (sig) int sig;
+// changed to use a prototype
+sigfpe_handler (int sig);
 #endif
 {
   /* Exit with code 0 if SIGFPE, with code 1 if any other signal.  */
@@ -606,7 +613,8 @@ sigfpe_handler (sig) int sig;
 int x = 1;
 int y = 0;
 int z;
-int nan;
+// clang 15 objects here
+int my_nan;
 
 int main ()
 {
@@ -621,7 +629,7 @@ int main ()
 #endif
 
   z = x / y;
-  nan = y / y;
+  my_nan = y / y;
   exit (1);
 }
 ]])],[gt_cv_int_divbyzero_sigfpe=yes],[gt_cv_int_divbyzero_sigfpe=no],[

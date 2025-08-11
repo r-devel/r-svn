@@ -506,6 +506,10 @@ sink(type="message")
 sink()
 try(log("a"))
 
+op <- options(warn = -1)
+# *ignore* warnings (for now) to keep the output deterministic wrt to
+# warning about closing an unused connections by the gc
+
 ## capture all the output to a file.
 zz <- file("all.Rout", open="wt")
 sink(zz)
@@ -516,6 +520,7 @@ try(log("a"))
 closeAllConnections()
 (foo <- showConnections())
 stopifnot(nrow(foo) == 0)
+options(op) # re-enable warnings
 try(log("a"))
 unlink("all.Rout")
 ## many of these were untested before 1.4.0.
@@ -678,10 +683,10 @@ glm(y ~ x, family = poisson(identity), start = c(1,0))
 set.seed(123)
 y <- rpois(100, pmax(3*x, 0))
 glm(y ~ x, family = poisson(identity), start = c(1,0))
-warnings()
+summary(warnings())
 
 
-## extending char arrrays
+## extending char arrays
 x <- y <- LETTERS[1:2]
 x[5] <- "C"
 length(y) <- 5
@@ -897,6 +902,7 @@ women[,"height", drop = FALSE] # no warning
 women[,"height", drop = TRUE]  # a vector
 ## second and third were interpreted as women["height", , drop] in 1.7.x
 
+op <- options(warn = 2) # *no* warnings (for now)
 
 ## make.names
 make.names("")
@@ -948,7 +954,12 @@ model.matrix(fit)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
+tools::assertWarning(
+ predict(fit, data.frame(x=x), se=TRUE) -> p0
+)
+p0
+if(FALSE)## not yet:
+stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
 predict(fit, type="terms", se=TRUE)
 variable.names(fit) #should be empty
 model.matrix(fit)
@@ -964,7 +975,12 @@ predict(fit, type="terms", se=TRUE)
 summary(fit)
 anova(fit)
 predict(fit)
-predict(fit, data.frame(x=x), se=TRUE)
+tools::assertWarning(
+ predict(fit, data.frame(x=x), se=TRUE) -> p0
+)
+p0
+if(FALSE)## not yet:
+stopifnot(identical(p0$fit, predict(fit, data.frame(x=x), rankdeficient = "NA")))
 predict(fit, type="terms", se=TRUE)
 ## Lots of problems in 1.7.x
 
@@ -1150,6 +1166,7 @@ aov(y ~ a + b - 1 + Error(c), data=test.df)
 
 binom.test(c(800,10))# p-value < epsilon
 
+options(op) # revert: warnings allowed
 
 ## aov with a singular error model
 rd <- c(16.53, 12.12, 10.04, 15.32, 12.33, 10.1, 17.09, 11.69, 11.81, 14.75,
@@ -1163,7 +1180,7 @@ sample.df <- data.frame(dep.variable=rd,
                         f1=factor(rep(rep(c("f1","f2","f3"),each=6),3)),
                         f2=factor(rep(c("g1","g2","g3"),each=18))
 )
-sample.aov <- aov(dep.variable ~ f1 * f2 + Error(subject/(f1+f2)), data=sample.df)
+sample.aov <- aov(dep.variable ~ f1 * f2 + Error(subject/(f1+f2)), data=sample.df) # warning: singular
 sample.aov
 summary(sample.aov)
 sample.aov <- aov(dep.variable ~ f1 * f2 + Error(subject/(f2+f1)), data=sample.df)
@@ -1179,6 +1196,14 @@ stem(c(rep(1, 10), 1+1.e-8))
 stem(c(rep(1, 10), 1+1.e-9))
 stem(c(rep(1, 10), 1+1.e-10), atom=0) # integer-overflow is avoided.
 ##  had integer overflows in 1.8.1, and silly shifts of decimal point
+
+## PR#8934 stem() with correct width
+stem(c(8.48, 9.58, 9.96))
+## wrongly indented  '10 |'  since even before R 1.0.0
+
+## stem(<length 1>) now produces output
+stem(123)
+## length(x) == 1  was explicitly skipped in R <= 4.4.z
 
 
 ## PR#6633 warnings with vector op matrix, and more
@@ -1745,23 +1770,36 @@ c(10485849600,10477641600,10561104000,10562745600)+ISOdate(1582,10,14)
 
 
 ## Limiting lines on deparse (wishlist PR#8638)
+Sys.unsetenv("_R_CHECK_BROWSER_NONINTERACTIVE_")
 op <- options(deparse.max.lines = 3)
 f <- function(...) browser()
 do.call(f, mtcars)
 c
 
-op <- c(op, options(error = expression(NULL)))
+op2 <- c(op, options(catch.script.errors = TRUE))
 f <- function(...) stop()
 do.call(f, mtcars)
-traceback()
+traceback() # *no* traceback
+options(catch.script.errors = FALSE) # back to default
+op <- c(op, options(error = expression(NULL))) # *is* slightly different:
+do.call(f, mtcars)
+traceback() ## does give traceback
+## unlimited < 2.3.0
+options(op)
 
 ## Debugger can handle a function that has a single function call as its body
 g <- function(fun) fun(1)
 debug(g)
 g(function(x) x+1)
+c
 
-options(op)
-## unlimited < 2.3.0
+## Trap debugger in non-interactive sessions
+if (!interactive()) {
+    Sys.setenv("_R_CHECK_BROWSER_NONINTERACTIVE_" = "true")
+    tools::assertError(browser())
+    browser(expr = FALSE) # but this passes (with no output)
+    Sys.unsetenv("_R_CHECK_BROWSER_NONINTERACTIVE_")
+}
 
 
 ## row names in as.table (PR#8652)
@@ -2009,7 +2047,7 @@ x[2, invisible(3)]
 
 
 ## tests of deparsing
-x <-list(a = NA, b = as.integer(NA), c=0+NA, d=0i+NA,
+x <-list(a = NA, b = NA_integer_, c = NA_real_, d = NA_complex_,
          e = 1, f = 1:1, g = 1:3, h = c(NA, 1:3),
          i = as.character(NA), j = c("foo", NA, "bar")
          )
@@ -2022,8 +2060,8 @@ dput(x, control=c("all", "S_compatible"))
 tmp <- tempfile(tmpdir = getwd())
 dput(x, tmp, control="all")
 stopifnot(identical(dget(tmp), x))
-dput(x, tmp, control=c("all", "S_compatible"))
-stopifnot(identical(dget(tmp), x))
+dput(x, tmp, control=c("all", "S_compatible"))# -> d => (r = NA, im = 0)
+stopifnot(identical(dget(tmp), local({ x$d <- as.complex(NA); x })))
 unlink(tmp)
 ## changes in 2.5.0
 
@@ -2188,7 +2226,7 @@ stopifnot(identical(pmax(x, y, na.rm=TRUE), pmax(y, x, na.rm=TRUE)))
 
 x <- as.POSIXlt(x, tz="GMT"); y <- as.POSIXlt(y, tz="GMT")
 format(pmin(x, y), tz="GMT")
-class(pmin(x, y))
+class (pmin(y, x))  ## (updating "filled")
 stopifnot(identical(pmin(x, y), pmin(y, x)))
 format(pmin(x, y, na.rm=TRUE), tz="GMT")
 stopifnot(identical(pmin(x, y, na.rm=TRUE), pmin(y, x, na.rm=TRUE)))
@@ -2196,7 +2234,7 @@ format(pmax(x, y), tz="GMT")
 stopifnot(identical(pmax(x, y), pmax(y, x)))
 format(pmax(x, y, na.rm=TRUE), tz="GMT")
 stopifnot(identical(pmax(x, y, na.rm=TRUE), pmax(y, x, na.rm=TRUE)))
-## regresion tests
+## regression tests
 
 
 ## regression tests on names of 1D arrays
@@ -2412,7 +2450,7 @@ bar
 m22 <- matrix(list(NA_complex_, 3, "A string", NA_complex_), 2,2)
 print(m22)
 print(m22, na.print="<missing value>")
-## used uninitialized variable in C, noticably Windows, for R <= 2.9.0
+## used uninitialized variable in C, noticeably Windows, for R <= 2.9.0
 
 
 ## non-standard variable names in update etc
@@ -2454,7 +2492,7 @@ switch("a", a=, b=, c=, )
 .Last.value
 switch("a", a=, b=, c=, invisible(4))
 .Last.value
-## visiblilty changed in 2.11.0
+## visibility changed in 2.11.0
 
 
 ## rounding error in aggregate.ts
@@ -2731,7 +2769,7 @@ str(d)
   saveopt <- options(warnPartialMatchDollar=TRUE)
   pl <- pairlist(abc=1, def=2)
   pl$ab
-  if (!is.null(saveopt[["warnPartialMatchDollar"]])) options(saveopt)
+  options(saveopt)
 ## 'abc' was just ''
 
 
@@ -2882,7 +2920,8 @@ options(op)
 ## Related to PR#15190
 difftime(
     as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 12:00:00"), tz="EST5EDT"),
-    as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 00:00:00"), tz="UTC"))
+    as.POSIXct(c("1970-01-01 00:00:00", "1970-01-01 00:00:00"), tz="UTC")) |>
+    attributes()
 ## kept tzone from first arg.
 
 
@@ -3202,7 +3241,7 @@ cm <- cbind(Estimate = 0, SE = 0, t = NaN, "Pr(>|t|)" = NaN)
 printCoefmat(cm)  # NaN's were replaced by NA in R < 4.1.0
 
 
-## deparse() wraps cflow bodies when deeply burried through a LHS (PR#18232)
+## deparse() wraps cflow bodies when deeply buried through a LHS (PR#18232)
 ##
 ## These didn't print the same before fix, the bquote() expression
 ## missed parentheses
@@ -3232,7 +3271,7 @@ quote(1^-2 + 3)
 quote(A + ~B + C ~ D) # no parens
 ## 'simple' binary op
 quote(a$"b")
-## When cflow body is burried deeply through the right, don't rewrap
+## When cflow body is buried deeply through the right, don't rewrap
 ## unnecessarily. There should be only one set of parentheses.
 ## Cases where R-devel 81211 still gave unneeded parens:
 quote(`^`(1 + if(L) 2, 3))
@@ -3284,3 +3323,84 @@ quote(`&`(a < !b, d))
 ## deparse--parse roundtrip is stable (basically)
 stopifnot(eval(x) == 4, eval(parse(text = deparse(x))) == 4)
 ## eval()ed to 1 since R 3.5.0 {also because of the weak precedence of `!`}
+
+
+## packageDate(<pkg>) w/o valid package
+dput(packageDate("foo"))
+## gave *five* warnings* in R <= 4.2.x
+
+
+## object not found error mentions lexical call
+if (exists("foo")) rm(foo)
+## Should not mention call because called at top level
+try(identity(foo))
+try(do.call("identity", alist(foo)))
+##
+## Should mention `f()` call
+f <- function() identity(foo)
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+f <- function() do.call("identity", alist(foo))
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+##
+## Should not mention call because there is no matching execution env
+try(do.call("identity", alist(foo), envir = new.env()))
+f <- function() do.call("identity", alist(foo), envir = new.env())
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+
+
+## Missing argument error mentions lexical call
+## Local evaluation: Mentions `identity()`
+try(identity())
+f <- function() identity()
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+##
+## Promise evaluation: Mentions `f()` or `g()`
+f <- function(arg) is.factor(arg)
+g <- function(x) f(x)
+try(f())
+try(g())
+f <- compiler::cmpfun(f)
+g <- compiler::cmpfun(g)
+try(f())
+try(g())
+##
+## Direct evaluation, `eval()` wrapper: Mentions `eval()`
+f <- function() eval(quote(expr = ))
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+##
+## Direct evaluation, no `eval()` wrapper: Mentions `f()`
+f <- function() {
+    eval(bquote(delayedAssign("go", .(quote(expr = )))))
+    go
+}
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+
+
+## withAutoprint({ ... }}  -- losing srcrefs - PR#18572
+show.srcref <- function() str(sys.call())
+{
+#line 1 "file1.R"
+    withAutoprint({ show.srcref() })
+}
+## no   attr(*, "src..")   in R <= 4.3.1
+##
+withAutoprint({
+    1 + 2
+})
+## temporarily wrongly showed " withAutoprint({ "
+
+
+# ----- Last line -------------
+cat('Time elapsed: ', proc.time(),'\n')

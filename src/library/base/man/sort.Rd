@@ -1,6 +1,6 @@
 % File src/library/base/man/sort.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{sort}
@@ -78,24 +78,26 @@ sort.int(x, partial = NULL, na.last = NA, decreasing = FALSE,
   are more than 10.)  Names are discarded for partial sorting.
 
   Method \code{"shell"} uses Shellsort (an \eqn{O(n^{4/3})} variant from
-  Sedgewick (1986)).  If \code{x} has names a stable modification is
+  \bibcitet{R:Sedgewick:1986}.  If \code{x} has names a stable modification is
   used, so ties are not reordered.  (This only matters if names are
   present.)
 
-  Method \code{"quick"} uses Singleton (1969)'s implementation of
-  Hoare's Quicksort method and is only available when \code{x} is
+  Method \code{"quick"} uses
+  the implementation of \I{Hoare}'s Quicksort method from
+  \bibcitet{R:Singleton:1969}
+  and is only available when \code{x} is
   numeric (double or integer) and \code{partial} is \code{NULL}.  (For
   other types of \code{x} Shellsort is used, silently.)  It is normally
   somewhat faster than Shellsort (perhaps 50\% faster on vectors of
   length a million and twice as fast at a billion) but has poor
-  performance in the rare worst case.  (Peto's modification using a
+  performance in the rare worst case.  (\I{Peto}'s modification using a
   pseudo-random midpoint is used to make the worst case rarer.)  This is
   not a stable sort, and ties may be reordered.
   
   Method \code{"radix"} relies on simple hashing to scale time linearly
   with the input size, i.e., its asymptotic time complexity is O(n). The
   specific variant and its implementation originated from the data.table
-  package and are due to Matt Dowle and Arun Srinivasan.  For small
+  package and are due to \I{Matt Dowle} and \I{Arun Srinivasan}.  For small
   inputs (< 200), the implementation uses an insertion sort (O(n^2))
   that operates in-place to avoid the allocation overhead of the radix
   sort. For integer vectors of range less than 100,000, it switches to a
@@ -113,17 +115,15 @@ sort.int(x, partial = NULL, na.last = NA, decreasing = FALSE,
 
   However, there are some caveats for the radix sort:
   \itemize{
-    \item{
+    \item
       If \code{x} is a \code{character} vector, all elements must share
       the same encoding.  Only UTF-8 (including ASCII) and Latin-1
       encodings are supported.  Collation follows that with
       \env{LC_COLLATE=C}, that is lexicographically byte-by-byte using
       numerical ordering of bytes.
-    }
-    \item{
+    \item
       \link{Long vectors} (with \eqn{2^{31}}{2^31} or more elements)
       and \code{complex} vectors are not supported.
-    }
   }
 }
 
@@ -148,8 +148,9 @@ sort.int(x, partial = NULL, na.last = NA, decreasing = FALSE,
   refers to element numbers \emph{after removal of \code{NA}s}: see
   \code{\link{order}} if you want the original element numbers.
 
-  All attributes are removed from the return value (see Becker \emph{et
-    al}, 1988, p.146) except names, which are sorted.  (If
+  All attributes are removed from the return value
+  \bibcitep{|R:Becker+Chambers+Wilks:1988|p.\\\\\\sspace{}146}
+  except names, which are sorted.  (If
   \code{partial} is specified even the names are removed.)  Note that
   this means that the returned value has no class, except for factors
   and ordered factors (which are treated specially and whose result is
@@ -157,24 +158,7 @@ sort.int(x, partial = NULL, na.last = NA, decreasing = FALSE,
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Knuth, D. E. (1998).
-  \emph{The Art of Computer Programming, Volume 3: Sorting and
-    Searching}, 2nd ed.
-  Addison-Wesley.
-  
-  Sedgewick, R. (1986).
-  A new upper bound for Shellsort.
-  \emph{Journal of Algorithms}, \bold{7}, 159--173.
-  \doi{10.1016/0196-6774(86)90001-5}.
-
-  Singleton, R. C. (1969).
-  Algorithm 347: an efficient algorithm for sorting with minimal storage.
-  \emph{Communications of the ACM}, \bold{12}, 185--186.
-  \doi{10.1145/362875.362901}.
+  \bibshow{*, R:Knuth:1998}
 }
 \seealso{
   \sQuote{\link{Comparison}} for how character strings are collated.

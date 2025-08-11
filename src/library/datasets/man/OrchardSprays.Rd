@@ -1,6 +1,6 @@
 % File src/library/datasets/man/OrchardSprays.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{OrchardSprays}
@@ -16,10 +16,10 @@
 \format{
   A data frame with 64 observations on 4 variables.
   \tabular{rlll}{
-    [,1]  \tab rowpos    \tab numeric \tab Row of the design\cr
-    [,2]  \tab colpos    \tab numeric \tab Column of the design\cr
-    [,3]  \tab treatment \tab factor  \tab Treatment level\cr
-    [,4]  \tab decrease  \tab numeric \tab Response
+    [,1]  \tab \code{rowpos}    \tab numeric \tab Row of the design\cr
+    [,2]  \tab \code{colpos}    \tab numeric \tab Column of the design\cr
+    [,3]  \tab \code{treatment} \tab factor  \tab Treatment level\cr
+    [,4]  \tab \code{decrease}  \tab numeric \tab Response
   }
 }
 \details{
@@ -51,9 +51,7 @@
   Cambridge.
 }
 \references{
-  McNeil, D. R. (1977)
-  \emph{Interactive Data Analysis}.
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(graphics)

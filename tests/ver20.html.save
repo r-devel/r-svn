@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.css">
 <script type="text/javascript">
-const macros = { "\\R": "\\textsf{R}", "\\code": "\\texttt"};
+const macros = { "\\R": "\\textsf{R}", "\\mbox": "\\text", "\\code": "\\texttt"};
 function processMathHTML() {
     var l = document.getElementsByClassName('reqn');
     for (let e of l) { katex.render(e.textContent, e, { throwOnError: false, macros }); }
@@ -12,7 +12,7 @@ function processMathHTML() {
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.js"
     onload="processMathHTML();"></script>
 <link rel="stylesheet" type="text/css" href="R.css" />
-</head><body><div class="container">
+</head><body><div class="container"><main>
 
 <table style="width: 100%;"><tr><td>ver20</td><td style="text-align: right;">R Documentation</td></tr></table>
 
@@ -26,16 +26,16 @@ function processMathHTML() {
 
 <h3>Arguments</h3>
 
-<table>
-<tr style="vertical-align: top;"><td><code>foo</code></td>
+<table role = "presentation">
+<tr><td><code id="foo">foo</code></td>
 <td>
 <p>item 1</p>
 </td></tr>
-<tr style="vertical-align: top;"><td><code>bar</code></td>
+<tr><td><code id="bar">bar</code></td>
 <td>
 <p>space, the item 2</p>
 </td></tr>
-<tr style="vertical-align: top;"><td><code>bah</code></td>
+<tr><td><code id="bah">bah</code></td>
 <td>
 <p>newline, then item 3</p>
 </td></tr>
@@ -44,7 +44,7 @@ function processMathHTML() {
 
 <h3>Details</h3>
 
-<p><span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> \R <code class="reqn">\alpha\beta\Gamma</code>
+<p><span class="rlang"><b>R</b></span> <span class="rlang"><b>R</b></span> \R <code class="reqn">\alpha\beta\Gamma</code>
 </p>
 <p>In code, all that needs to be escaped is percent, backslash and unpaired
 braces: <code>% \ {</code>. Unescaped: <code>$ # _ ^ ~ &lt; &gt; |</code>, and as a
@@ -92,6 +92,7 @@ And if we do escape: \$ \# \_ , and with three backslashes, \\#.
 <pre><code class='language-R'>"\\r\\n"
 </code></pre>
 
+</main>
 
 </div>
 </body></html>

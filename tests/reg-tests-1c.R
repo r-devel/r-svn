@@ -14,7 +14,7 @@ stopifnot(z == c(101, 204, 309, 104, 210, 318))
 ## reported as a bug (which it was not) by H. Pages in
 ## https://stat.ethz.ch/pipermail/r-devel/2012-November/065229.html
 
-## recyling in split()
+## recycling in split()
 ## https://stat.ethz.ch/pipermail/r-devel/2013-January/065700.html
 x <- 1:6
 y <- split(x, 1:2)
@@ -54,9 +54,10 @@ stopifnot(!is.unsorted(NA))
 ## str(.) for large factors should be fast:
 u <- as.character(runif(1e5))
 dummy <- str(u); dummy <- str(u); # force compilation of str
-t1 <- max(0.001, system.time(str(u))[[1]]) # get a baseline > 0
+R <- 50
+t1 <- max(0.001, system.time(replicate(R, str(u)))[[1]]) # get a baseline > 0
 uf <- factor(u)
-(t2 <- system.time(str(uf))[[1]]) / t1 # typically around 1--2
+(t2 <- system.time(replicate(R, str(uf)))[[1]]) / t1 # typically around 5--10
 stopifnot(t2  / t1 < 30)
 ## was around 600--850 for R <= 3.0.1
 
@@ -133,7 +134,7 @@ stopifnot(is.integer(+x))
 ## +x was logical in R <= 3.0.1
 
 
-## Attritbutes of value of unary operators
+## Attributes of value of unary operators
 # +x, -x were ts, !x was not in 3.0.2
 x <- ts(c(a=TRUE, b=FALSE, c=NA, d=TRUE), frequency = 4, start = 2000)
 x; +x; -x; !x
@@ -839,6 +840,8 @@ unlink(profile)
 ## failed when a matrix was downgraded to a vector
 
 
+assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+
 ## option(OutDec = *)  -- now gives a warning when  not 1 character
 op <- options(OutDec = ".", digits = 7, # <- default
               warn = 2)# <- (unexpected) warnings become errors
@@ -846,10 +849,10 @@ stopifnot(identical("3.141593", fpi <- format(pi)))
 options(OutDec = ",")
 stopifnot(identical("3,141593", cpi <- format(pi)))
 ## warnings, but it "works" (for now):
-tools::assertWarning(options(OutDec = ".1."))
-stopifnot(identical("3.1.141593", format(pi)))
-tools::assertWarning(options(OutDec = ""))
-tools::assertWarning(stopifnot(identical("3141593", format(pi))))
+assertWarnV(options(OutDec = ".1."))
+assertWarnV(stopifnot(identical("3.1.141593", format(pi)))) # newly warns (2024-12)
+assertWarnV(options(OutDec = ""))
+assertWarnV(stopifnot(identical("3141593", format(pi)))) # newly warns
 options(op)# back to sanity
 ## No warnings in R versions <= 3.2.1
 
@@ -1233,11 +1236,11 @@ x$y <- 10 ## failed prior to R 3.3.0
 stopifnot(identical(attr(x, "modified"), "yes"))
 
 
-## illegal 'row.names' for as.data.frame():  -- for now just a warning --
-tools::assertWarning(
+## illegal 'row.names' for as.data.frame(): was just warning; error since R 4.3.0:
+tools::assertError(
     d3 <- as.data.frame(1:3, row.names = letters[1:2])
 )
-stopifnot(dim(d3) == c(3,1)) ## was (2, 1) in R <= 3.2.3
+## stopifnot(dim(d3) == c(3,1)) ## was (2, 1) in R <= 3.2.3
 ## 'row.names' were not checked and produced a "corrupted" data frame in R <= 3.2.3
 
 
@@ -1411,7 +1414,7 @@ stopifnot(
 proc.time() - .pt; .pt <- proc.time()
 
 
-## prettyDate() for subsecond ranges
+## prettyDate() for subsecond ranges (and more)
 ##' checking pretty():
 chkPretty <- function(x, n = 5, min.n = NULL, ..., max.D = 1) {
     if(is.null(min.n)) {
@@ -1449,7 +1452,7 @@ set.seed(7)
 for(n in c(1:7, 12)) replicate(32, chkPretty(sTime + .001*rlnorm(1) * 0:9, n = n))
 ## failed in R <= 3.2.3
 seqD  <- function(d1,d2) seq.Date(as.Date(d1), as.Date(d2), by = "1 day")
-seqDp <- function(d1,d2) { s <- seqD(d1,d2); structure(s, labels=format(s,"%b %d")) }
+seqDp <- function(d1,d2) { s <- seqD(d1,d2); structure(s, labels=format(s,"%b %d"), format="%b %d") }
 time2d <- function(i) sprintf("%02d", i %% 60)
 MTbd <- as.Date("1960-02-10")
 (p1   <- chkPretty(MTbd))
@@ -1464,8 +1467,9 @@ stopifnot(
 ## and length 1 or 2 instead of about 6 in R 3.2.4
 (p2 <- chkPretty(as.POSIXct("2002-02-02 02:02", tz = "GMT-1"), n = 5, min.n = 5))
 stopifnot(length(p2) >= 5+1,
-	  identical(p2, structure(1012611717 + (0:5), class = c("POSIXct", "POSIXt"),
-				  tzone = "GMT-1", labels = time2d(57 + (0:5)))))
+	  identical(p2, structure(1012611717L + (0:5), class = c("POSIXct", "POSIXt"),
+				  tzone = "GMT-1", labels = time2d(57 + (0:5)), format = "%S"))
+          )
 ## failed in R 3.2.4
 (T3 <- structure(1460019857.25, class = c("POSIXct", "POSIXt")))# typical Sys.date()
 chkPretty(T3, 1) # error in svn 70438
@@ -1481,9 +1485,9 @@ x5 <- as.POSIXct("2002-02-02 02:02", tz = "EST5EDT")
 atU <- chkPretty(seq(xU, by = "30 mins", length = 2), n = 5)
 at5 <- chkPretty(seq(x5, by = "30 mins", length = 2), n = 5)
 stopifnot(length(at) >= 4,
-	  identical(sort(names(aat <- attributes(at))), c("class", "labels", "tzone")),
+	  identical(sort(names(aat <- attributes(at))), c("class", "format", "labels", "tzone")),
 	  identical(aat$labels, time2d(59+ 0:3)),
-          identical(x5 - xU, structure(5, units = "hours", class = "difftime")),
+          ##identical(x5 - xU, structure(5, units = "hours", class = "difftime")), # pretty much everywhere, but 4 under musl-libc
           identical(attr(at5, "labels"), attr(atU, "labels") -> lat),
           identical(lat, paste("02", time2d(10* 0:4), sep=":"))
 )
@@ -1491,6 +1495,7 @@ nns <- c(1:9, 15:17); names(nns) <- paste0("n=",nns)
 prSeq <- function(x, n, st, ...) pretty(seq(x, by = st, length = 2), n = n, ...)
 pps <- lapply(nns, function(n)
 	      lapply(steps, function(st) prSeq(x=t02, n=n, st=st)))
+## (FIXME) relies on LC_TIME="C" (or "English",..):
 Ls.ok <- list(
     `10 secs`  = c("00", "02", "04", "06", "08", "10"),
     `1 min`    = sprintf("%02d", 10*((0:6) %% 6)),
@@ -1587,7 +1592,7 @@ doit()
 if(nzchar(Sys.getenv("tar"))) doit(tar = "internal")
 if(nzchar(Sys.which("tar"))) doit(tar = "tar")
 ## internal tar silently ignored unused 'files' in R <= 4.0.2
-tools::assertWarning(verbose=TRUE,
+assertWarnV(
     tar(tempfile(fileext=".tar"), files = tempfile(), tar = "internal")
 )
 
@@ -1595,17 +1600,30 @@ tools::assertWarning(verbose=TRUE,
 ## format.POSIXlt() of Jan.1 if  1941 or '42 is involved:
 tJan1 <- function(n1, n2)
     strptime(paste0(n1:n2,"/01/01"), "%Y/%m/%d", tz="CET")
-wDSTJan1 <- function(n1, n2)
-    which("CEST" == sub(".* ", '', format(tJan1(n1,n2), usetz=TRUE)))
-(w8 <- wDSTJan1(1801, 2300))
-(w9 <- wDSTJan1(1901, 2300))
-stopifnot(identical(w8, 141:142),# exactly 1941:1942 had CEST on Jan.1
-          identical(w9,  41: 42))
+f8 <- format(tJan1(1801, 2300), usetz=TRUE)
+f9 <- format(tJan1(1901, 2300), usetz=TRUE)
+rle8 <- rle(s8 <- sub(".* ",'', f8))
+rle9 <- rle(s9 <- sub(".* ",'', f9))
+w8 <- which(s8 == "CEST")
+w9 <- which(s9 == "CEST")
+## IGNORE_RDIFF_BEGIN
+rle8
+## very platform dependently; originally got
+##   lengths: int [1:3] 140 2 358
+##   values : chr [1:3] "CET" "CEST" "CET"
+w8 # 141 142
+w9 #  41  42
+## IGNORE_RDIFF_END
+## Debian's tzdata 2024b no longer contains "legacy" (but tzdata-legacy does)
+## --> everything "CET" [ <==> !length(w..) ]
+stopifnot(!length(w8) || identical(w8, 141:142),# exactly 1941:1942 had CEST on Jan.1
+          !length(w9) || identical(w9,  41: 42))
 ## for R-devel Jan.2016 to Mar.14 -- *AND* for R 3.2.4 -- the above gave
 ## integer(0)  and  c(41:42, 99:100, ..., 389:390)  respectively
-
+##
 ## the above gives 1:142 and 1:42 respectively on Solaris 10 when not using
 ## --with-internal-tzcode; R-Admin recommends --with-internal-tzcode.
+
 
 ## tsp<- did not remove mts class
 z <- ts(cbind(1:5,1:5))

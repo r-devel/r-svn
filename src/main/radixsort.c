@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2016   The R Core Team
+ *  Copyright (C) 2016-2025 The R Core Team
  *
  *  Based on code donated from the data.table package
  *  (C) 2006-2015 Matt Dowle and Arun Srinivasan.
@@ -45,9 +45,9 @@ static int gsmax[2] = { 0 };
 //max size of stack, set by do_radixsort to nrows
 static int gsmaxalloc = 0;
 //switched off for last arg unless retGrp==TRUE
-static Rboolean stackgrps = TRUE;
+static bool stackgrps = true;
 // TRUE for setkey, FALSE for by=
-static Rboolean sortStr = TRUE;
+static bool sortStr = true;
 // used by do_radixsort and [i|d|c]sort to reorder order.
 // not needed if narg==1
 static int *newo = NULL;
@@ -70,7 +70,7 @@ static void savetl_init(void)
 {
     if (nsaved || nalloc || saveds || savedtl)
 	error("Internal error: savetl_init checks failed (%d %d %p %p).",
-	      nsaved, nalloc, saveds, savedtl);
+	      nsaved, nalloc, (void *)saveds, (void *)savedtl);
     nsaved = 0;
     nalloc = 100;
     saveds = (SEXP *) malloc(nalloc * sizeof(SEXP));
@@ -321,7 +321,8 @@ static void icount(int *x, int *o, int n)
 		counts[x[i] - xmin] = 0;
 	}
     } else
-	memset(counts, 0, (range + 1) * sizeof(int));
+	if (range + 1)
+	    memset(counts, 0, (range + 1) * sizeof(int));
     return;
 }
 
@@ -406,7 +407,7 @@ static void alloc_otmp(int n)
     otmp = (int *) realloc(otmp, n * sizeof(int));
     if (otmp == NULL)
 	Error("Failed to allocate working memory for otmp. Requested %d * %d bytes",
-	      n, sizeof(int));
+	      n, (int)sizeof(int));
     otmp_alloc = n;
 }
 
@@ -422,7 +423,7 @@ static void alloc_xtmp(int n)
     xtmp = (double *) realloc(xtmp, n * sizeof(double));
     if (xtmp == NULL)
 	Error("Failed to allocate working memory for xtmp. Requested %d * %d bytes",
-	      n, sizeof(double));
+	      n, (int)sizeof(double));
     xtmp_alloc = n;
 }
 
@@ -648,14 +649,14 @@ unsigned long long dtwiddle(void *p, int i, int order)
     return ((u.ull ^ mask) & dmask2);
 }
 
-static Rboolean dnan(void *p, int i)
+static bool dnan(void *p, int i)
 {
     u.d = ((double *) p)[i];
     return (ISNAN(u.d));
 }
 
 static unsigned long long (*twiddle) (void *, int, int);
-static Rboolean(*is_nan) (void *, int);
+static bool(*is_nan) (void *, int);
 // the size of the arg type (4 or 8). Just 8 currently until iradix is
 // merged in.
 static size_t colSize = 8;
@@ -1089,7 +1090,7 @@ static void cgroup(SEXP * x, int *o, int n)
 	    ustr = realloc(ustr, ustr_alloc * sizeof(SEXP));
 	    if (ustr == NULL)
 		Error("Unable to realloc %d * %d bytes in cgroup", ustr_alloc,
-		      sizeof(SEXP));
+		      (int)sizeof(SEXP));
 	}
 	SET_TRLEN(s, -1);
 	ustr[ustr_n++] = s;
@@ -1126,7 +1127,7 @@ static void alloc_csort_otmp(int n)
     if (csort_otmp == NULL)
 	Error
 	    ("Failed to allocate working memory for csort_otmp. Requested %d * %d bytes",
-	     n, sizeof(int));
+	     n, (int)sizeof(int));
     csort_otmp_alloc = n;
 }
 
@@ -1180,7 +1181,7 @@ static void csort(SEXP * x, int *o, int n)
     }
     // all i* push onto stack. Using their counts may be faster here
     // than thrashing SEXP fetches over several passes as cgroup does
-    // (but cgroup needs that to keep orginal order, and cgroup saves
+    // (but cgroup needs that to keep original order, and cgroup saves
     // the sort in csort_pre).
 }
 
@@ -1217,7 +1218,7 @@ static void csort_pre(SEXP * x, int n)
 	    ustr = realloc(ustr, ustr_alloc * sizeof(SEXP));
 	    if (ustr == NULL)
 		Error("Failed to realloc ustr. Requested %d * %d bytes",
-		      ustr_alloc, sizeof(SEXP));
+		      ustr_alloc, (int)sizeof(SEXP));
 	}
 	SET_TRLEN(s, -1);  // this -1 will become its ordering later below
 	ustr[ustr_n++] = s;
@@ -1490,7 +1491,7 @@ static void isort(int *x, int *o, int n)
                 x[i] = icheck(x[i]);
         iinsert(x, o, n);
     } else {
-        /* Tighter range (e.g. copes better with a few abormally large
+        /* Tighter range (e.g. copes better with a few abnormally large
            values in some groups), but also, when setRange was once at
            arg level that caused an extra scan of (long) x
            first. 10,000 calls to setRange takes just 0.04s
@@ -1542,11 +1543,11 @@ static void dsort(double *x, int *o, int n)
     }
 }
 
-SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int n = -1, narg = 0, ngrp, tmp, *osub, thisgrpn;
     R_xlen_t nl = n;
-    Rboolean isSorted = TRUE, retGrp;
+    bool isSorted = true, retGrp;
     void *xd;
     int *o = NULL;
 
@@ -1565,14 +1566,14 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
     args = CDR(args);
 
     /* If TRUE, return starts of runs of identical values + max group size. */
-    retGrp = asLogical(CAR(args));
+    retGrp = asBool2(CAR(args), call);
     args = CDR(args);
 
     /* If FALSE, get order of strings in appearance order. Essentially
        abuses the CHARSXP table to group strings without hashing
        them. Only makes sense when retGrp=TRUE.
     */
-    sortStr = asLogical(CAR(args));
+    sortStr = asBool2(CAR(args), call );
     args = CDR(args);
 
     /* When grouping, we round off doubles to account for imprecision */
@@ -1648,30 +1649,30 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     default :
         Error("First arg is type '%s', not yet supported",
-              type2char(TYPEOF(x)));
+              R_typeToChar(x));
     }
     if (tmp) {
 	// -1 or 1. NEW: or -2 in case of nalast == 0 and all NAs
 	if (tmp == 1) {
 	    // same as expected in 'order' (1 = increasing, -1 = decreasing)
-	    isSorted = TRUE;
+	    isSorted = true;
 	    for (int i = 0; i < n; i++)
 		o[i] = i + 1;
 	} else if (tmp == -1) {
 	    // -1 (or -n for result of strcmp), strictly opposite to
 	    // -expected 'order'
-	    isSorted = FALSE;
+	    isSorted = false;
 	    for (int i = 0; i < n; i++)
 		o[i] = n - i;
 	} else if (nalast == 0 && tmp == -2) {
 	    // happens only when nalast=NA/0. Means all NAs, replace
 	    // with 0's therefore!
-	    isSorted = FALSE;
+	    isSorted = false;
 	    for (int i = 0; i < n; i++)
 		o[i] = 0;
 	}
     } else {
-	isSorted = FALSE;
+	isSorted = false;
 	switch (TYPEOF(x)) {
 	case INTSXP:
 	case LGLSXP:
@@ -1696,20 +1697,22 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
     
     int maxgrpn = gsmax[flip];   // biggest group in the first arg
     void *xsub = NULL;           // local
-    int (*f) ();  // called with pointer, int
-    void (*g) (); // called with pointer, int *, int
+// This was not valid C23, and clang 15 warns it was not valid C99 either.
+//    int (*f) ();  // called with fn pointer, int
+//    void (*g) (); // called with fn pointer, int *, int
+    int fgtype;
     
     if (narg > 1 && gsngrp[flip] < n) {
         // double is the largest type, 8
         xsub = (void *) malloc(maxgrpn * sizeof(double));
         if (xsub == NULL)
             Error("Couldn't allocate xsub in do_radixsort, requested %d * %d bytes.",
-                  maxgrpn, sizeof(double));
+                  maxgrpn, (int)sizeof(double));
         // global variable, used by isort, dsort, sort and cgroup
         newo = (int *) malloc(maxgrpn * sizeof(int));
         if (newo == NULL)
             Error("Couldn't allocate newo in do_radixsort, requested %d * %d bytes.",
-                  maxgrpn, sizeof(int));
+                  maxgrpn, (int)sizeof(int));
     }
 
     for (int col = 2; col <= narg; col++) {
@@ -1725,30 +1728,35 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	switch (TYPEOF(x)) {
 	case INTSXP:
 	case LGLSXP:
-	    f = &isorted;
-	    g = &isort;
+//	    f = &isorted;
+//	    g = &isort;
+	    fgtype = 1;
 	    break;
 	case REALSXP:
 	    twiddle = &dtwiddle;
 	    is_nan = &dnan;
-	    f = &dsorted;
-	    g = &dsort;
+	    fgtype = 2;
+//	    f = &dsorted;
+//	    g = &dsort;
 	    break;
 	case STRSXP:
-	    f = &csorted;
+	    fgtype = 3;
+//	    f = &csorted;
 	    if (sortStr) {
 		csort_pre(xd, n);
 		alloc_csort_otmp(gsmax[1 - flip]);
-		g = &csort;
+//		g = &csort;
 	    }
 	    // no increasing/decreasing order required if sortStr = FALSE,
 	    // just a dummy argument
-	    else
-		g = &cgroup;
+	    else {
+		fgtype = 4;
+//		g = &cgroup;
+	    }
 	    break;
 	default:
 	    Error("Arg %d is type '%s', not yet supported",
-		  col, type2char(TYPEOF(x)));
+		  col, R_typeToChar(x));
 	}
 	int i = 0;
 	for (int grp = 0; grp < ngrp; grp++) {
@@ -1761,25 +1769,25 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    switch (TYPEOF(x)) {
 		    case INTSXP:
 			if (INTEGER(x)[o[i] - 1] == NA_INTEGER) {
-			    isSorted = FALSE;
+			    isSorted = false;
 			    o[i] = 0;
 			}
 			break;
 		    case LGLSXP:
 			if (LOGICAL(x)[o[i] - 1] == NA_LOGICAL) {
-			    isSorted = FALSE;
+			    isSorted = false;
 			    o[i] = 0;
 			}
 			break;
 		    case REALSXP:
 			if (ISNAN(REAL(x)[o[i] - 1])) {
-			    isSorted = FALSE;
+			    isSorted = false;
 			    o[i] = 0;
 			}
 			break;
 		    case STRSXP:
 			if (STRING_ELT(x, o[i] - 1) == NA_STRING) {
-			    isSorted = FALSE;
+			    isSorted = false;
 			    o[i] = 0;
                         } break;
                     default :
@@ -1809,11 +1817,22 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
             // continue; // BASELINE short circuit timing
             // point. Up to here is the cost of creating xsub.
             // [i|d|c]sorted(); very low cost, sequential
-            tmp = (*f)(xsub, thisgrpn);
+//            tmp = (*f)(xsub, thisgrpn);
+	    switch(fgtype) {
+	    case 1:
+		tmp = isorted(xsub, thisgrpn);
+		break;
+	    case 2:
+		tmp = dsorted(xsub, thisgrpn);
+		break;
+	    case 3:
+	    case 4:
+		tmp = csorted(xsub, thisgrpn);
+	    }
             if (tmp) {
                 // *sorted will have already push()'d the groups
                 if (tmp == -1) {
-		    isSorted = FALSE;
+		    isSorted = false;
 		    for (int k = 0; k < thisgrpn / 2; k++) {
 			// reverse the order in-place using no
 			// function call or working memory
@@ -1826,18 +1845,23 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    }
 		} else if (nalast == 0 && tmp == -2) {
 		    // all NAs, replace osub[.] with 0s.
-		    isSorted = FALSE;
+		    isSorted = false;
 		    for (int k = 0; k < thisgrpn; k++) osub[k] = 0;
 		}
 		continue;
 	    }
-	    isSorted = FALSE;
+	    isSorted = false;
 	    // nalast=NA will result in newo[0] = 0. So had to change to -1.
 	    newo[0] = -1;
 	    // may update osub directly, or if not will put the
 	    // result in global newo
-	    (*g)(xsub, osub, thisgrpn);
-
+//	    (*g)(xsub, osub, thisgrpn);
+	    switch(fgtype) {
+	    case 1: isort(xsub, osub, thisgrpn); break;
+	    case 2: dsort(xsub, osub, thisgrpn); break;
+	    case 3: csort(xsub, osub, thisgrpn); break;
+	    case 4: cgroup(xsub, osub, thisgrpn); break;
+	    }
 	    if (newo[0] != -1) {
 		if (nalast != 0)
 		    for (int j = 0; j < thisgrpn; j++)
@@ -1886,7 +1910,7 @@ SEXP attribute_hidden do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
         UNPROTECT(1);
     }
 
-    Rboolean dropZeros = !retGrp && !isSorted && nalast == 0;
+    bool dropZeros = !retGrp && !isSorted && nalast == 0;
     if (dropZeros) {
         int zeros = 0;
         for (int i = 0; i < n; i++) {

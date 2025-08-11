@@ -1,6 +1,6 @@
 % File src/library/base/man/cbind.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{cbind}
@@ -8,8 +8,6 @@
 \alias{rbind}
 \alias{cbind.data.frame}
 \alias{rbind.data.frame}
-\alias{.__H__.cbind}
-\alias{.__H__.rbind}
 \concept{insert}
 \title{Combine R Objects by Rows or Columns}
 \description{
@@ -95,20 +93,18 @@ rbind(\dots, deparse.level = 1)
 \section{Data frame methods}{
   The \code{cbind} data frame method is just a wrapper for
   \code{\link{data.frame}(..., check.names = FALSE)}.  This means that
-  it will split matrix columns in data frame arguments, and convert
-  character columns to factors unless \code{stringsAsFactors = FALSE} is
-  specified.
+  it will split matrix columns in data frame arguments.
 
   The \code{rbind} data frame method first drops all zero-column and
   zero-row arguments.  (If that leaves none, it returns the first
   argument with columns otherwise a zero-column zero-row data frame.)
-  It then takes the classes of the columns from the
-  first data frame, and matches columns by name (rather than by
-  position).  Factors have their levels expanded as necessary (in the
-  order of the levels of the level sets of the factors encountered) and
-  the result is an ordered factor if and only if all the components were
-  ordered factors.  (The last point differs from S-PLUS.)  Old-style
-  categories (integer vectors with levels) are promoted to factors.
+  It then takes the classes of the columns from the first data frame,
+  and matches columns by name (rather than by position).  Factors have
+  their levels expanded as necessary (in the order of the levels of the
+  level sets of the factors encountered) and the result is an ordered
+  factor if and only if all the components were ordered factors.
+  Old-style categories (integer vectors with levels) are promoted to
+  factors.
 
   Note that for result column \code{j}, \code{\link{factor}(., exclude = X(j))}
   is applied, where \preformatted{  X(j) := if(isTRUE(factor.exclude)) {
@@ -161,9 +157,6 @@ rbind(\dots, deparse.level = 1)
     object among the arguments, we try S4 dispatch; otherwise, we use
     the default code.
   }
-
-  (Before \R 4.0.0, an applicable method found was used only if
-  identical to any method determined for prior arguments.)
 
   If you want to combine other objects with data frames, it may be
   necessary to coerce them to data frames first.  (Note that this

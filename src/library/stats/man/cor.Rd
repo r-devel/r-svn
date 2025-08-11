@@ -1,6 +1,6 @@
 % File src/library/stats/man/cor.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{cor}
@@ -90,9 +90,8 @@ cov2cor(V)
   and gives an error in the other cases.
 
   The denominator \eqn{n - 1} is used which gives an unbiased estimator
-  of the (co)variance for i.i.d. observations.
-  These functions return \code{\link{NA}} when there is only one
-  observation (whereas S-PLUS has been returning \code{NaN}).
+  of the (co)variance for i.i.d. observations.  These functions return
+  \code{\link{NA}} when there is only one observation.
 
   For \code{cor()}, if \code{method} is \code{"kendall"} or
   \code{"spearman"}, Kendall's \eqn{\tau}{tau} or Spearman's
@@ -121,7 +120,7 @@ cov2cor(V)
   Some people have noted that the code for Kendall's tau is slow for
   very large datasets (many more than 1000 cases).  It rarely makes
   sense to do such a computation, but see function
-  \code{\link[pcaPP:cor.fk]{cor.fk}} in package \CRANpkg{pcaPP}.
+  \code{\link[pcaPP]{cor.fk}} in package \CRANpkg{pcaPP}.
 }
 \references{
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).

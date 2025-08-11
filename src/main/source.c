@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001--2021  The R Core Team
+ *  Copyright (C) 2001--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 #include <Fileio.h>
 #include <Rconnections.h>
 
-SEXP attribute_hidden getParseContext(void)
+attribute_hidden SEXP getParseContext(void)
 {
     int i, last = PARSE_CONTEXT_SIZE;
     char context[PARSE_CONTEXT_SIZE+1];
@@ -86,7 +86,8 @@ static void getParseFilename(char* buffer, size_t buflen)
     if (R_ParseErrorFile) {
 	if (isEnvironment(R_ParseErrorFile)) {
 	    SEXP filename;
-	    PROTECT(filename = findVar(install("filename"), R_ParseErrorFile));
+	    PROTECT(filename = R_findVar(install("filename"),
+					 R_ParseErrorFile));
 	    if (isString(filename) && length(filename)) {
 		strncpy(buffer, CHAR(STRING_ELT(filename, 0)), buflen - 1);
 		buffer[buflen - 1] = '\0';
@@ -122,7 +123,7 @@ static SEXP tabExpand(SEXP strings)
     return result;
 }
 
-void NORET parseError(SEXP call, int linenum)
+NORET void parseError(SEXP call, int linenum)
 {
     SEXP context;
     int len, width;
@@ -175,8 +176,8 @@ void NORET parseError(SEXP call, int linenum)
 
 typedef struct parse_info {
     Rconnection con;
-    Rboolean old_latin1;
-    Rboolean old_utf8;
+    bool old_latin1;
+    bool old_utf8;
 }  parse_cleanup_info;
 
 static void parse_cleanup(void *data)
@@ -196,7 +197,7 @@ static void parse_cleanup(void *data)
  .Internal( parse(file, n, text, prompt, srcfile, encoding) )
  If there is text then that is read and the other arguments are ignored.
 */
-SEXP attribute_hidden do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     if(!inherits(CAR(args), "connection"))
@@ -206,7 +207,7 @@ SEXP attribute_hidden do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
 
     int ifile = asInteger(CAR(args));                   args = CDR(args);
     Rconnection con = getConnection(ifile);
-    Rboolean wasopen = con->isopen;
+    bool wasopen = con->isopen;
     int num = asInteger(CAR(args));			args = CDR(args);
     if (num == 0)
 	return(allocVector(EXPRSXP, 0));
@@ -233,19 +234,19 @@ SEXP attribute_hidden do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
     cntxt.cend = &parse_cleanup;
     cntxt.cenddata = &pci;
 
-    known_to_be_latin1 = known_to_be_utf8 = FALSE;
-    Rboolean allKnown = TRUE;
+    known_to_be_latin1 = known_to_be_utf8 = false;
+    bool allKnown = true;
     /* allow 'encoding' to override declaration on 'text'. */
     if(streql(encoding, "latin1")) {
 	if (!mbcslocale) {
-	    known_to_be_latin1 = TRUE;
-	    allKnown = FALSE;
+	    known_to_be_latin1 = true;
+	    allKnown = false;
 	} else
 	    warning(_("argument encoding=\"latin1\" is ignored in MBCS locales"));
     } else if(streql(encoding, "UTF-8"))  {
 	if (!mbcslocale || utf8locale) {
-	    known_to_be_utf8 = TRUE;
-	    allKnown = FALSE;
+	    known_to_be_utf8 = true;
+	    allKnown = false;
 	} else
 	    /* the input may be invalid or not parseable when interpreted as
 	       in different multi-byte encoding; related to PR#16819 */
@@ -274,7 +275,7 @@ SEXP attribute_hidden do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
 	  for(int i = 0; i < length(text); i++)
 	    if(!ENC_KNOWN(STRING_ELT(text, i)) &&
 	       ! IS_ASCII(STRING_ELT(text, i))) {
-		allKnown = FALSE;
+		allKnown = false;
 		break;
 	    }
 	if(allKnown) {

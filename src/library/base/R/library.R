@@ -1,7 +1,7 @@
 #  File src/library/base/R/library.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -281,7 +281,7 @@ function(package, help, pos = 2, lib.loc = NULL, character.only = FALSE,
 	if(!character.only)
 	    package <- as.character(substitute(package))
         if(length(package) != 1L)
-            stop("'package' must be of length 1")
+            stop(gettextf("'%s' must be of length 1", "package"), domain=NA)
         if(is.na(package) || (package == ""))
             stop("invalid package name")
 
@@ -376,7 +376,6 @@ function(package, help, pos = 2, lib.loc = NULL, character.only = FALSE,
                     }
                 }
 		tt <- tryCatch({
-                    attr(package, "LibPath") <- which.lib.loc
                     ns <- loadNamespace(package, lib.loc)
                     env <- attachNamespace(ns, pos = pos, deps,
                                            exclude, include.only)
@@ -392,7 +391,6 @@ function(package, help, pos = 2, lib.loc = NULL, character.only = FALSE,
 		if(logical.return && is.null(tt))
 		    return(FALSE)
 
-                attr(package, "LibPath") <- NULL
                 {
                     on.exit(detach(pos = pos))
                     ## If there are S4 generics then the package should
@@ -401,7 +399,7 @@ function(package, help, pos = 2, lib.loc = NULL, character.only = FALSE,
                         !.isMethodsDispatchOn() || checkNoGenerics(env, package)
                     if (isFALSE(conf.ctrl$generics.ok) ||
                         (stopOnConflict && ! isTRUE(conf.ctrl$generics.ok)))
-                        nogenerics <- TRUE ## no silent masking for genrics
+                        nogenerics <- TRUE ## no silent masking for generics
                     if(stopOnConflict ||
                        (warn.conflicts && # never will with a namespace
                         !exists(".conflicts.OK", envir = env,
@@ -707,6 +705,12 @@ function(package, lib.loc = NULL, quietly = FALSE, warn.conflicts,
     invisible(value)
 }
 
+use <-
+function(package, include.only)
+    invisible(library(package, lib.loc = NULL, character.only = TRUE,
+                      logical.return = TRUE, include.only = include.only,
+                      attach.required = FALSE))
+
 .packages <-
 function(all.available = FALSE, lib.loc = NULL)
 {
@@ -978,6 +982,7 @@ function(pkgInfo, quietly = FALSE, lib.loc = NULL, useImports = FALSE)
     }
 }
 
+## called e.g. w/ R_LIBS_USER  in  ../../profile/Common.R
 .expand_R_libs_env_var <-
 function(x)
 {
@@ -986,12 +991,15 @@ function(x)
     s <- Sys.info()
 
     R_LIBS_USER_default <- function() {
-        home <- normalizePath("~")
+        home <- normalizePath("~", mustWork = FALSE)  # possibly /nonexistent
         ## FIXME: could re-use v from "above".
-        x.y <- paste0(R.version$major, ".",
-                      sub("[.].*", "", R.version$minor))
-        if(.Platform$OS.type == "windows")
+        x.y <- paste(R.version$major, sep=".",
+                     strsplit(R.version$minor, ".", fixed=TRUE)[[1L]][1L])
+        if(.Platform$OS.type == "windows" && s["machine"] == "x86-64")
             file.path(Sys.getenv("LOCALAPPDATA"), "R", "win-library", x.y)
+        else if (.Platform$OS.type == "windows") # including aarch64
+            file.path(Sys.getenv("LOCALAPPDATA"), "R",
+                      paste0(s["machine"],"-library"), x.y)
         else if(s["sysname"] == "Darwin")
             file.path(home, "Library", "R", s["machine"], x.y, "library")
         else
@@ -1022,3 +1030,4 @@ function(x)
 
     gsub("%%", "%", x, fixed = TRUE)
 }
+

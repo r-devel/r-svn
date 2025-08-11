@@ -1,8 +1,9 @@
+%define parse.error verbose
 %{
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,9 +27,6 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Parse.h>
-#ifndef STRICT_R_HEADERS
-# define STRICT_R_HEADERS
-#endif
 #include <R_ext/RS.h>           /* for R_chk_* allocation */
 #include <ctype.h>
 #include <Rmath.h> /* for imax2(.),..*/
@@ -54,13 +52,13 @@
 #define DEBUGVALS 0		/* 1 causes detailed internal state output to R console */	
 #define DEBUGMODE 0		/* 1 causes Bison output of parse state, to stdout or stderr */
 
-static Rboolean wCalls = TRUE;
-static Rboolean warnDups = FALSE;
+static bool wCalls = true;
+static bool warnDups = false;
 
 #define YYERROR_VERBOSE 1
 
 static void yyerror(const char *);
-static int yylex();
+static int yylex(void);
 static int yyparse(void);
 
 #define yyconst const
@@ -109,10 +107,10 @@ typedef struct yyltype
 static void	GrowList(SEXP, SEXP);
 static int	KeywordLookup(const char *);
 static SEXP	UserMacroLookup(const char *);
-static SEXP	InstallKeywords();
+static SEXP	InstallKeywords(void);
 static SEXP	NewList(void);
 static SEXP     makeSrcref(YYLTYPE *, SEXP);
-static int	xxgetc();
+static int	xxgetc(void);
 static int	xxungetc(int);
 
 /* Flags used to mark need for postprocessing in the dynamicFlag attribute */
@@ -142,7 +140,7 @@ struct ParseState {
     ParseState *prevState;
 };
 
-static Rboolean busy = FALSE;
+static bool busy = false;
 static ParseState parseState;
 
 #define PRESERVE_SV(x) R_PreserveInMSet((x), parseState.mset)
@@ -178,7 +176,7 @@ static SEXP	xxmarkup3(SEXP, SEXP, SEXP, SEXP, int, YYLTYPE *);
 static SEXP	xxOptionmarkup(SEXP, SEXP, SEXP, int, YYLTYPE *);
 static SEXP	xxtag(SEXP, int, YYLTYPE *);
 static void	xxsavevalue(SEXP, YYLTYPE *);
-static void	xxWarnNewline();
+static void	xxWarnNewline(void);
 static SEXP	xxnewcommand(SEXP, SEXP, SEXP, YYLTYPE *);
 static SEXP	xxusermacro(SEXP, SEXP, YYLTYPE *);
 static int	mkMarkup(int);
@@ -605,7 +603,7 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
 #define START_MACRO -2
 #define END_MACRO -3
 
-static Rboolean isComment(SEXP elt)
+static bool isComment(SEXP elt)
 {
     SEXP a = getAttrib(elt, R_RdTagSymbol);
     return isString(a) && LENGTH(a) == 1 &&
@@ -669,12 +667,13 @@ static SEXP xxusermacro(SEXP macro, SEXP args, YYLTYPE *lloc)
 	    SEXP stri = CAR(si);
 	    if (!isComment(stri)) {
 		int nc = LENGTH(STRING_ELT(stri, 0));
-		memcpy(str + offset, CHAR(STRING_ELT(stri, 0)), nc);
+		if (nc)
+		    memcpy(str + offset, CHAR(STRING_ELT(stri, 0)), nc);
 		offset += nc;
 	    }
 	}
 	str[offset] = '\0';
-	SET_STRING_ELT(ans, i+1, mkChar(str));
+	SET_STRING_ELT(ans, i+1, mkCharCE(str, CE_UTF8));
         vmaxset(vmax);
     }
     RELEASE_SV(args);
@@ -825,7 +824,7 @@ static SEXP xxtag(SEXP item, int type, YYLTYPE *lloc)
     return item;
 }
 
-static void xxWarnNewline()
+static void xxWarnNewline(void)
 {
     if (parseState.xxNewlineInString) {
 	if(wCalls)
@@ -1015,9 +1014,9 @@ static void InitSymbols(void)
 	R_MacroSymbol = install("macro");
 }
  
-static SEXP ParseRd(ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+static SEXP ParseRd(ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
-    Rboolean keepmacros = !isLogical(macros) || asLogical(macros);
+    bool keepmacros = !isLogical(macros) || asLogical(macros);
 
     InitSymbols();
     R_ParseContextLast = 0;
@@ -1047,7 +1046,7 @@ static SEXP ParseRd(ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP m
 	macros = InstallKeywords();
 	
     PROTECT(macros);
-    PROTECT(parseState.xxMacroList = R_NewHashedEnv(macros, ScalarInteger(0)));
+    PROTECT(parseState.xxMacroList = R_NewHashedEnv(macros, 0));
     PROTECT(parseState.mset = R_NewPreciousMSet(50));
     
     parseState.Value = R_NilValue;
@@ -1084,7 +1083,7 @@ static int con_getc(void)
 }
 
 static
-SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
     con_parse = con;
     ptr_getc = con_getc;
@@ -1158,6 +1157,7 @@ static keywords[] = {
     
     /* These macros take one LaTeX-like argument. */
     
+    { "\\abbr",    LATEXMACRO },
     { "\\acronym", LATEXMACRO },
     { "\\bold",    LATEXMACRO },
     { "\\cite",    LATEXMACRO },
@@ -1168,7 +1168,6 @@ static keywords[] = {
     
     { "\\emph",    LATEXMACRO },    
     { "\\file",    LATEXMACRO },
-    { "\\linkS4class", LATEXMACRO },
     { "\\pkg",	   LATEXMACRO },
     { "\\sQuote",  LATEXMACRO },
     
@@ -1209,12 +1208,14 @@ static keywords[] = {
        one LaTeX-like argument */
        
     { "\\link",    OPTMACRO },
+    { "\\linkS4class", OPTMACRO },
        
     /* These markup macros require an R-like text argument */
     
     { "\\code",    RCODEMACRO },
     { "\\dontshow",RCODEMACRO },
     { "\\donttest",RCODEMACRO },
+    { "\\dontdiff",RCODEMACRO },
     { "\\testonly",RCODEMACRO },
     
     /* This macro takes one optional bracketed option and one R-like argument */
@@ -1262,12 +1263,12 @@ static keywords[] = {
 /* Record the longest # directive here */
 #define DIRECTIVE_LEN 7   
 
-static SEXP InstallKeywords()
+static SEXP InstallKeywords(void)
 {
     int i, num;
     SEXP result, name, val;
     num = sizeof(keywords)/sizeof(keywords[0]);
-    PROTECT(result = R_NewHashedEnv(R_EmptyEnv, ScalarInteger(num)));
+    PROTECT(result = R_NewHashedEnv(R_EmptyEnv, num));
     for (i = 0; keywords[i].name; i++) {
         name = install(keywords[i].name);
         PROTECT(val = ScalarInteger(keywords[i].token));
@@ -1420,15 +1421,16 @@ static void yyerror(const char *s)
     }
 }
 
-#define TEXT_PUSH(c) do {                  \
-	size_t nc = bp - stext;       \
+#define TEXT_PUSH(c) do {		    \
+	size_t nc = bp - stext;		    \
 	if (nc >= nstext - 1) {             \
 	    char *old = stext;              \
-            nstext *= 2;                    \
+	    nstext *= 2;		    \
 	    stext = malloc(nstext);         \
 	    if(!stext) error(_("unable to allocate buffer for long string at line %d"), parseState.xxlineno);\
 	    memmove(stext, old, nc);        \
-	    if(old != st0) free(old);	    \
+	    if(st1) free(st1);		    \
+	    st1 = stext;		    \
 	    bp = stext+nc; }		    \
 	*bp++ = ((char) c);		    \
 } while(0)
@@ -1526,6 +1528,7 @@ static int token(void)
 static int mkText(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0, lookahead;
     
@@ -1556,13 +1559,14 @@ static int mkText(int c)
 stop:
     if (c != '\n') xxungetc(c); /* newline causes a break, but we keep it */
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return TEXT;
 }
 
 static int mkComment(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     
@@ -1572,7 +1576,7 @@ static int mkComment(int c)
     xxungetc(c);
     
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if(stext != st0) free(stext);    
+    if(st1) free(st1);
     return COMMENT;
 }
 
@@ -1604,6 +1608,7 @@ static int closingRawStringDelim(int c)
 static int mkCode(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     
@@ -1730,13 +1735,14 @@ static int mkCode(int c)
     }
     if (c != '\n') xxungetc(c);
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return RCODE; 
 }
 
 static int mkMarkup(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     int retval = 0, attempt = 0;
@@ -1769,7 +1775,7 @@ static int mkMarkup(int c)
         }
     }
     PRESERVE_SV(yylval = mkString2(stext, bp - stext - 1));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     xxungetc(c);
     return retval;
 }
@@ -1777,6 +1783,7 @@ static int mkMarkup(int c)
 static int mkIfdef(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     int retval;
@@ -1813,13 +1820,14 @@ static int mkIfdef(int c)
 	}
 	break;
     }
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return retval;
 }
 
 static int mkVerb(int c)
 {
     char st0[INITBUFSIZE];
+    char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
     
@@ -1852,7 +1860,7 @@ static int mkVerb(int c)
     };
     if (c != '\n') xxungetc(c);
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
-    if(stext != st0) free(stext);
+    if(st1) free(st1);
     return VERB;  
 }
 
@@ -1917,7 +1925,7 @@ static void UseState(ParseState *state) {
     parseState.prevState = state->prevState;
 }
 
-static void PushState() {
+static void PushState(void) {
     if (busy) {
     	ParseState *prev = malloc(sizeof(ParseState));
 	if (prev == NULL) error("unable to allocate in PushState");
@@ -1925,16 +1933,16 @@ static void PushState() {
     	parseState.prevState = prev;
     } else 
         parseState.prevState = NULL;  
-    busy = TRUE;
+    busy = true;
 }
 
-static void PopState() {
+static void PopState(void) {
     if (parseState.prevState) {
     	ParseState *prev = parseState.prevState;
     	UseState(prev);
     	free(prev);
     } else
-    	busy = FALSE;
+    	busy = false;
 }
 
 /* "do_parseRd" 
@@ -1949,7 +1957,7 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 
     SEXP s = R_NilValue, source;
     Rconnection con;
-    Rboolean wasopen, fragment;
+    bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
     RCNTXT cntxt;
@@ -1975,13 +1983,13 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     	error(_("invalid '%s' value"), "verbose");
     parseState.xxDebugTokens = asInteger(CAR(args));		args = CDR(args);
     parseState.xxBasename = CHAR(STRING_ELT(CAR(args), 0));	args = CDR(args);
-    fragment = asLogical(CAR(args));				args = CDR(args);
+    fragment = asBool(CAR(args));				args = CDR(args);
     wcall = asLogical(CAR(args));				args = CDR(args);
     if (wcall == NA_LOGICAL)
     	error(_("invalid '%s' value"), "warningCalls");
-    wCalls = wcall;
+    wCalls = (bool) wcall;
     macros = CAR(args);						args = CDR(args);
-    warnDups = asLogical(CAR(args));
+    warnDups = asBool(CAR(args));
 
     if (ifile >= 3) {/* file != "" */
 	if(!wasopen) {
@@ -2013,10 +2021,11 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 SEXP deparseRd(SEXP e, SEXP state)
 {
     SEXP result;
-    int  outlen, *statevals, quoteBraces, inRComment;
+    int  outlen, *statevals, quoteBraces;
+    bool inRComment;
     const char *c;
     char *outbuf, *out, lookahead;
-    Rboolean escape;
+    bool escape;
 
     if(!isString(e) || LENGTH(e) != 1) 
     	error(_("'deparseRd' only supports deparsing character elements"));
@@ -2044,29 +2053,29 @@ SEXP deparseRd(SEXP e, SEXP state)
     	if (*c == '{' || *c == '}' || *c == '%' || *c == '\\') outlen++;
     }
     out = outbuf = R_chk_calloc(outlen+1, sizeof(char));
-    inRComment = FALSE;
+    inRComment = false;
     for (c = CHAR(e); *c; c++) {
-    	escape = FALSE;
+    	escape = false;
     	if (parseState.xxmode != UNKNOWNMODE) {
 	    switch (*c) {
 	    case '\\':
 		if (parseState.xxmode == RLIKE && parseState.xxinRString) {
 		    lookahead = *(c+1);
 		    if (lookahead == '\\' || lookahead == parseState.xxinRString || lookahead == 'l') 
-		    	escape = TRUE;
+		    	escape = true;
 		    break;
 		}          /* fall through to % case for non-strings... */    
 	    case '%':
 		if (parseState.xxmode != COMMENTMODE && !parseState.xxinEqn)
-		    escape = TRUE;
+		    escape = true;
 		break;
 	    case LBRACE:
 	    case RBRACE:
 		if (quoteBraces || parseState.xxmode == LATEXLIKE)
-		    escape = TRUE;
+		    escape = true;
 		else if (!parseState.xxinRString && !parseState.xxinEqn && (parseState.xxmode == RLIKE || parseState.xxmode == VERBATIM)) {
 		    if (*c == LBRACE) parseState.xxbraceDepth++;
-		    else if (parseState.xxbraceDepth <= 0) escape = TRUE;
+		    else if (parseState.xxbraceDepth <= 0) escape = true;
 		    else parseState.xxbraceDepth--;
 		}
 		break;
@@ -2081,10 +2090,10 @@ SEXP deparseRd(SEXP e, SEXP state)
 		break;
 	    case '#':
 	    	if (parseState.xxmode == RLIKE && !parseState.xxinRString) 
-	    	    inRComment = TRUE;
+	    	    inRComment = true;
 	    	break;
 	    case '\n':
-	    	inRComment = FALSE;
+	    	inRComment = false;
 	    	break;
 	    }
 	}

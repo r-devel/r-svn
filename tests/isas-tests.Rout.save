@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2022-03-19 r81942) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R Under development (unstable) (2024-02-16 r85931) -- "Unsuffered Consequences"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -21,7 +21,7 @@ Type 'q()' to quit R.
 + typeof(x) == typeof(y) && is.logical(r <- all.equal(x,y, tolerance=0)) && r 
 > 
 > report <- function(x) {print(x); stopifnot(x)}
-> options(error = expression(NULL)) # don't stop on error in batch
+> options(catch.script.errors = TRUE) # don't stop on error in batch
 > ##~~~~~~~~~~~~~~
 > 
 > ###--------
@@ -1020,7 +1020,6 @@ In as.dist.default(x) : non-square matrix
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
@@ -1136,7 +1135,6 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.ordered(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1186,10 +1184,13 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.Date( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.Date( f )))
+[1] TRUE
 > f <- try(as.POSIXct( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXct( f )))
+[1] TRUE
 > f <- try(as.POSIXlt( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXlt( f )))
+[1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
@@ -1246,7 +1247,6 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
-[1] TRUE
 > f <- try(as.octmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.octmode( f )))
 [1] TRUE
@@ -1342,20 +1342,12 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.numeric(res))
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 > if(!inherits(res, 'try-error')) report(is.package_version(res))
-[1] TRUE
 > res <- try(as.pairlist( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.pairlist(res))
 [1] TRUE
@@ -1463,26 +1455,18 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 IS: [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.ordered(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 > if(!inherits(res, 'try-error'))
 +    report({if(is.package_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.pairlist( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.pairlist(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1523,10 +1507,13 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.Date( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.Date( f )))
+[1] TRUE
 > f <- try(as.POSIXct( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXct( f )))
+[1] TRUE
 > f <- try(as.POSIXlt( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXlt( f )))
+[1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
@@ -1581,22 +1568,14 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric( f )))
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
-[1] TRUE
 > f <- try(as.octmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.octmode( f )))
 > f <- try(as.ordered( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
 [1] TRUE
 > f <- try(as.package_version( x ), silent = TRUE)
-Warning message:
-In lapply(strsplit(x[ok], "[.-]"), as.integer) :
-  NAs introduced by coercion to integer range
 >   if(!inherits(f, 'try-error')) report(identical(f, as.package_version( f )))
-[1] TRUE
 > f <- try(as.pairlist( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.pairlist( f )))
 [1] TRUE
@@ -2005,7 +1984,6 @@ IS: [1] TRUE
 [1] TRUE
 > res <- try(as.numeric_version( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
 [1] TRUE
@@ -2120,7 +2098,6 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error'))
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.ordered( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.ordered(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -2228,7 +2205,6 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.numeric_version( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.numeric_version( f )))
-[1] TRUE
 > f <- try(as.octmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.octmode( f )))
 > f <- try(as.ordered( x ), silent = TRUE)
@@ -2295,10 +2271,7 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.expression(res))
 [1] TRUE
 > res <- try(as.factor( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 > if(!inherits(res, 'try-error')) report(is.factor(res))
-[1] TRUE
 > res <- try(as.function( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.function(res))
 [1] TRUE
@@ -2325,10 +2298,7 @@ In xtfrm.data.frame(x) : cannot xtfrm data frames
 > res <- try(as.numeric_version( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.numeric_version(res))
 > res <- try(as.ordered( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 > if(!inherits(res, 'try-error')) report(is.ordered(res))
-[1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.package_version(res))
 > res <- try(as.pairlist( x ), silent = TRUE)
@@ -2394,12 +2364,9 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.factor( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 > if(!inherits(res, 'try-error'))
 +    report({if(is.factor(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.function( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.function(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -2447,12 +2414,9 @@ Calls: report -> stopifnot
 +    report({if(is.numeric_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 > res <- try(as.ordered( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 > if(!inherits(res, 'try-error'))
 +    report({if(is.ordered(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.package_version( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.package_version(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -2527,10 +2491,7 @@ In doTryCatch(return(expr), name, parentenv, handler) :
 >   if(!inherits(f, 'try-error')) report(identical(f, as.expression( f )))
 [1] TRUE
 > f <- try(as.factor( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 >   if(!inherits(f, 'try-error')) report(identical(f, as.factor( f )))
-[1] TRUE
 > f <- try(as.function( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 [1] TRUE
@@ -2561,10 +2522,7 @@ In xtfrm.data.frame(x) : cannot xtfrm data frames
 > f <- try(as.octmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.octmode( f )))
 > f <- try(as.ordered( x ), silent = TRUE)
-Warning message:
-In xtfrm.data.frame(x) : cannot xtfrm data frames
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ordered( f )))
-[1] TRUE
 > f <- try(as.package_version( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.package_version( f )))
 > f <- try(as.pairlist( x ), silent = TRUE)
@@ -2605,6 +2563,6 @@ In as.dist.default(x) : non-square matrix
 > f <- try(as.ts( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ts( f )))
 > cat('Time elapsed: ', proc.time() - .proctime00,'\n')
-Time elapsed:  0.346 0.054 0.402 0 0 
+Time elapsed:  0.093 0.02 0.114 0 0 
 > 
 > 

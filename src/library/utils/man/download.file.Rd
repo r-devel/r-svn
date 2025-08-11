@@ -1,13 +1,13 @@
 % File src/library/utils/man/download.file.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{download.file}
 \alias{download.file}
 \concept{proxy}
-\concept{ftp}
-\concept{http}
+\concept{\I{ftp}}
+\concept{\I{http}}
 \title{Download File from the Internet}
 \description{
   This function can be used to download a file from the Internet.
@@ -50,10 +50,10 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \item{extra}{character vector of additional command-line arguments for
     the \code{"wget"} and \code{"curl"} methods.}
 
-  \item{headers}{named character vector of HTTP headers to use in HTTP
-    requests.  It is ignored for non-HTTP URLs.  The \code{User-Agent}
-    header taken from the \code{HTTPUserAgent} option (see
-    \code{\link{options}}) is automatically used as the first header.}
+  \item{headers}{named character vector of additional HTTP headers to
+    use in HTTP[S] requests.  It is ignored for non-HTTP[S] URLs.  The
+    \code{User-Agent} header taken from the \code{HTTPUserAgent} option
+    (see \code{\link{options}}) is automatically used as the first header.}
 
   \item{\dots}{allow additional arguments to be passed, unused.}
 }
@@ -133,6 +133,21 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   }
   (It is unrealistic to require download times of less than 1s/MB.)
 
+  A HTTP[S] URL may require authentication.  One may specify a username and
+  password as part of the URL, i.e. 
+  \code{"https://username:password@machine/..."}.  This is not recommended
+  with HTTP as the credentials will be sent in plaintext.  With \abbr{HTTPS}, they
+  will be encrypted, but still may appear in plaintext e.g.  in server logs. 
+  Alternatively, the credentials may be specified via \code{Authorization}
+  in argument \code{headers}, but that is more involved for the user and
+  wouldn't allow simultaneous download from different URLs requiring
+  authentication.  With \code{"libcurl"}, it is possible to have the
+  credentials in a \I{netrc} file which can be specified by the option
+  \code{netrc} and the default may be set by the environment variable
+  \env{R_DEFAULT_NETRC}.  The file should not be readable by other users. 
+  See \url{https://everything.curl.dev/usingcurl/netrc.html} for further
+  details.
+
   The level of detail provided during transfer can be set by the
   \code{quiet} argument and the \code{internet.info} option: the details
   depend on the platform and scheme.  For the \code{"libcurl"} method
@@ -142,7 +157,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \describe{
     \item{On Windows}{If the file length is known, the
       full width of the bar is the known length.  Otherwise the initial
-      width represents 100 Kbytes and is doubled whenever the current width
+      width represents 100 \abbr{Kbyte}s and is doubled whenever the current width
       is exceeded.  (In non-interactive use this uses a text version.  If the
       file length is known, an equals sign represents 2\% of the transfer
       completed: otherwise a dot represents 10Kb.)}
@@ -154,14 +169,14 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   The choice of binary transfer (\code{mode = "wb"} or \code{"ab"}) is
   important on Windows, since unlike Unix-alikes it does distinguish
-  between text and binary files and for text transfers changes \code{\\n}
-  line endings to \code{\\r\\n} (aka \file{CRLF}).
+  between text and binary files and for text transfers changes \samp{\\n}
+  line endings to \samp{\\r\\n} (aka \file{CRLF}).
 
   On Windows, if \code{mode} is not supplied (\code{\link{missing}()})
-  and \code{url} ends in one of \code{.gz}, \code{.bz2}, \code{.xz},
-  \code{.tgz}, \code{.zip}, \code{.jar}, \code{.rda}, \code{.rds} or
-  \code{.RData}, \code{mode = "wb"} is set so that a binary transfer
-  is done to help unwary users.
+  and \code{url} ends in one of \samp{.gz}, \samp{.bz2}, \samp{.xz},
+  \samp{.tgz}, \samp{.zip}, \samp{.jar}, \samp{.rda}, \samp{.rds},
+  \samp{.RData} or \samp{.pdf}, \code{mode = "wb"} is set so that a binary
+  transfer is done to help unwary users.
 
   Code written to download binary files must use \code{mode = "wb"} (or
   \code{"ab"}), but the problems incurred by a text transfer will only
@@ -181,7 +196,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   \command{wget} (\url{https://www.gnu.org/software/wget/}) is commonly
   installed on Unix-alikes (but not macOS).  Windows binaries are
-  available from MSYS2 and elsewhere.
+  available from \abbr{MSYS2} and elsewhere.
 
   \command{curl} (\url{https://curl.se/}) is installed on macOS and
   increasingly commonly on Unix-alikes.  Windows binaries are available
@@ -208,7 +223,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
 
   On Windows with \code{method = "libcurl"}, the CA root certificates
   are provided by the OS when \R was linked with \code{libcurl} with
-  \code{Schannel} enabled, which is the current default in Rtools.  This
+  \code{Schannel} enabled, which is the current default in \I{Rtools}.  This
   can be verified by checking that \code{libcurlVersion()} returns a
   version string containing \samp{"Schannel"}.  If it does not, for
   verification to be on the environment variable \env{CURL_CA_BUNDLE}
@@ -226,7 +241,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   On Windows with \code{method = "libcurl"}, when \R was linked with
   \code{libcurl} with \code{Schannel} enabled, the connection fails if it
   cannot be established that the certificate has not been revoked.  Some
-  MITM proxies present particularly in corporate environments do not work
+  \abbr{MITM} proxies present particularly in corporate environments do not work
   with this behavior. It can be changed by setting environment variable
   \env{R_LIBCURL_SSL_REVOKE_BEST_EFFORT} to \code{TRUE}, with the
   consequence of reducing security.
@@ -235,14 +250,6 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   as used in a browser, and indeed different browsers may use different
   certificate bundles (there is typically a build option to choose
   either their own or the system ones).
-}
-\section{FTP sites}{
-  \samp{ftp:} URLs are accessed using the FTP protocol which has a
-  number of variants.  One distinction is between \sQuote{active} and
-  \sQuote{(extended) passive} modes: which is used is chosen by the
-  client.  The  \code{"libcurl"} methods uses passive
-  mode: that was almost universally used by browsers before they
-  dropped support altogether.
 }
 \section{Good practice}{
   Setting the \code{method} should be left to the end user.  Neither of
@@ -259,11 +266,35 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   use \code{\link{capabilities}("libcurl")} in a program to see if it is
   available.
 }
+
+\section{\samp{ftp://} URLs}{
+  Most modern browsers do not support such URLs, and \samp{https://}
+  ones are much preferred for use in \R. \samp{ftps://} URLs have always
+  been rare, and are nowadays even less supported.
+
+  It is intended that \R will continue to allow such URLs for as long as
+  \code{libcurl} does, but as they become rarer this is increasingly
+  untested.   What \sQuote{protocols} the version of \code{libcurl}
+  being used supports can be seen by calling \code{\link{libcurlVersion}()}.
+
+  These URLs are accessed using the FTP protocol which has a
+  number of variants.  One distinction is between \sQuote{active} and
+  \sQuote{(extended) passive} modes: which is used is chosen by the
+  client.  The \code{"libcurl"} method uses passive mode which was
+  almost universally used by browsers before they dropped support
+  altogether.
+}
+
 \value{
   An (invisible) integer code, \code{0} for success and non-zero for
   failure.  For the \code{"wget"} and \code{"curl"} methods this is the
   status code returned by the external program.  The \code{"internal"}
-  method can return \code{1}, but will in most cases throw an error.
+  method can return \code{1}, but will in most cases throw an error.  When
+  simultaneously downloading two or more files (see the \code{url} argument)
+  and download of at least one file succeeds, \code{0} is returned with
+  attribute \code{retvals}, which provides an integer vector of the same
+  length as \code{url} with a result code for each file (\code{0} for
+  success and non-zero for failure).
 
   What happens to the destination file(s) in the case of error depends
   on the method and \R{} version. Currently the \code{"internal"},

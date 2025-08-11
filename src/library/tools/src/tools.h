@@ -32,6 +32,7 @@
 SEXP delim_match(SEXP x, SEXP delims);
 SEXP dirchmod(SEXP dr, SEXP gwsxp);
 SEXP Rmd5(SEXP files);
+SEXP Rsha256(SEXP files);
 SEXP check_nonASCII(SEXP text, SEXP ignore_quotes);
 SEXP check_nonASCII2(SEXP text);
 SEXP doTabExpand(SEXP strings, SEXP starts);
@@ -44,6 +45,7 @@ SEXP startHTTPD(SEXP sIP, SEXP sPort);
 SEXP stopHTTPD(void);
 SEXP splitString(SEXP string, SEXP delims);
 SEXP package_dependencies_scan(SEXP x);
+SEXP nonASCII(SEXP x);
 
 SEXP parseLatex(SEXP call, SEXP op, SEXP args, SEXP env);
 SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env);

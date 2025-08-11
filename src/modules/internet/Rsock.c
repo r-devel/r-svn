@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
 
- *  Copyright (C) 1998-2021   The R Core Team
+ *  Copyright (C) 1998-2023   The R Core Team
  *  Copyright (C) 1996, 1997  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -196,6 +196,7 @@ setSelectMask(InputHandler *handlers, fd_set *readMask)
 
     while(tmp) {
 	if(tmp->fileDescriptor > 0) {
+	    /* FD_SETSIZE limit checked by addInputHandler */
 	    FD_SET(tmp->fileDescriptor, readMask);
 	    maxfd = maxfd < tmp->fileDescriptor ? tmp->fileDescriptor : maxfd;
 	}
@@ -237,6 +238,8 @@ static int R_SocketWait(int sockfd, int write, int timeout)
 	set_timeval(&tv, timeout);
 
 #ifdef Unix
+	if (sockfd >= FD_SETSIZE)
+	    return -EINVAL;
 	maxfd = setSelectMask(R_InputHandlers, &rfd);
 #else
 	FD_ZERO(&rfd);
@@ -300,7 +303,7 @@ int R_SocketWaitMultiple(int nsock, int *insockfd, int *ready, int *write,
 	} else if (mytimeout >= 0) {
 	    tv.tv_sec = (int)(mytimeout - used);
 	    tv.tv_usec = (int)ceil(1e6 * (mytimeout - used - tv.tv_sec));
-	} else {  /* always poll occationally--not really necessary */
+	} else {  /* always poll occasionally--not really necessary */
 	    tv.tv_sec = 60;
 	    tv.tv_usec = 0;
 	}
@@ -324,7 +327,15 @@ int R_SocketWaitMultiple(int nsock, int *insockfd, int *ready, int *write,
 	FD_ZERO(&rfd);
 #endif
 	FD_ZERO(&wfd);
+#ifdef Win32
+	if (nsock > FD_SETSIZE)
+	    return -WSAEINVAL;
+#endif
 	for (i = 0; i < nsock; i++) {
+#ifdef Unix
+	    if (insockfd[i] >= FD_SETSIZE)
+		return -EINVAL;
+#endif
 	    if(write[i]) FD_SET(insockfd[i], &wfd);
 	    else FD_SET(insockfd[i], &rfd);
 	    if(maxfd < insockfd[i]) maxfd = insockfd[i];
@@ -432,6 +443,10 @@ int R_SockConnect(int port, char *host, int timeout)
 	set_timeval(&tv, timeout);
 
 #ifdef Unix
+	if (s >= FD_SETSIZE) {
+	    errno = EINVAL;
+	    CLOSE_N_RETURN(-1);
+	}
 	maxfd = setSelectMask(R_InputHandlers, &rfd);
 #else
 	FD_ZERO(&rfd);
@@ -567,6 +582,10 @@ int R_SockListen(int sockp, char *buf, int len, int timeout)
 	set_timeval(&tv, timeout);
 
 #ifdef Unix
+	if (sockp >= FD_SETSIZE) {
+	    errno = EINVAL;
+	    return -1;
+	}
 	maxfd = setSelectMask(R_InputHandlers, &rfd);
 #else
 	FD_ZERO(&rfd);

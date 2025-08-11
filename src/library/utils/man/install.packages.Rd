@@ -1,6 +1,6 @@
 % File src/library/utils/man/install.packages.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{install.packages}
@@ -30,7 +30,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     \describe{
       \item{on Windows,}{
     file paths of \file{.zip} files containing binary builds of
-    packages.  (\code{http://} and \code{file://} URLs are also accepted
+    packages.  (\samp{http://} and \samp{file://} URLs are also accepted
     and the files will be downloaded and installed from local copies.)
     Source directories or file paths or URLs of archives may be
     specified with \code{type = "source"}, but some packages need
@@ -38,7 +38,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
       }
       \item{On Unix-alikes,}{these file paths can be source directories or archives
     or binary package archive files (as created by \command{R CMD build
-      --binary}).  (\code{http://} and \code{file://} URLs are also
+      --binary}).  (\samp{http://} and \samp{file://} URLs are also
     accepted and the files will be downloaded and installed from local
     copies.)  On a CRAN build of \R for macOS these can be \file{.tgz}
     files containing binary package archives.
@@ -72,8 +72,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     Incompatible with \code{type = "both"}.
   }
   \item{method}{
-    download method, see \code{\link{download.file}}.  Unused if
-    a non-\code{NULL} \code{available} is supplied.
+    download method, see \code{\link{download.file}}.
   }
   \item{available}{
     a matrix as returned by \code{\link{available.packages}}
@@ -147,7 +146,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     install of more than one source package.  Values greater than one
     are supported if the \command{make} command specified by
     \code{Sys.getenv("MAKE", "make")} accepts argument
-    \code{-k -j \var{Ncpus}}.
+    \option{-k -j <Ncpus>}.
   }
   \item{verbose}{
     a logical indicating if some \dQuote{progress report} should be given.
@@ -162,7 +161,8 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   \item{INSTALL_opts}{
     an optional character vector of additional option(s) to be passed to
     \command{R CMD INSTALL} for a source package install.  E.g.,
-    \code{c("--html", "--no-multiarch", "--no-test-load")}.
+    \code{c("--html", "--no-multiarch", "--no-test-load")} or, for
+    macOS, \code{"--dsym"}.
 
     Can also be a named list of character vectors to be used as
     additional options, with names the respective package names.
@@ -175,12 +175,13 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   \item{keep_outputs}{
     a logical: if true, keep the outputs from installing source packages
     in the current working directory, with the names of the output files
-    the package names with \file{.out} appended.  Alternatively, a
+    the package names with \file{.out} appended (overwriting existing
+    files, possibly from previous installation attempts).  Alternatively, a
     character string giving the directory in which to save the outputs.
     Ignored when installing from local files.
   }
   \item{\dots}{
-    Arguments to be passed to \code{\link{download.file}},
+    further arguments to be passed to \code{\link{download.file}},
     \code{\link{available.packages}}, or to the functions for binary
     installs on macOS and Windows (which accept an argument \code{"lock"}:
     see the section on \sQuote{Locking}).
@@ -221,10 +222,19 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   CRAN builds for macOS.  This function can install either type, either by
   downloading a file from a repository or from a local file.
 
-  Possible values of \code{type} are (currently) \code{"source"},
-  \code{"mac.binary"}, and
-  \code{"win.binary"}: the appropriate binary type where supported can
-  also be selected as \code{"binary"}.
+  Possible values of \code{type} for binary packages are either simply
+  \code{"binary"} to denote the binaries matching the current R, or
+  a string consisting of two or three parts separated by periods: the
+  operating system (\code{"win"} or \code{"mac"}), the string
+  \code{"binary"} and optional build name (e.g., \code{"big-sur-arm64"}).
+  The last part is optional and currently only used on macOS to
+  disambiguate builds targeting different macOS versions or
+  architectures. Example values:
+  \code{"win.binary"} for Windows binaries and
+  \code{"mac.binary.big-sur-arm64"} for macOS 11 (\I{Big Sur}) arm64 binaries.
+  The corresponding binary type for the running R can be obtained via
+  \code{.Platform$pkgType}, however, it may be \code{"source"} if
+  the build does not support package binaries.
 
   For a binary install from a repository, the function checks for the
   availability of a source package on the same repository, and reports
@@ -246,10 +256,10 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   package contains no C/C++/Fortran code that needs compilation.
   Otherwise,
   \describe{
-    \item{on Windows,}{you will need to have installed the Rtools
+    \item{on Windows,}{you will need to have installed the \I{Rtools}
   collection as described in the \sQuote{R for Windows FAQ} \emph{and}
   you must have the \env{PATH} environment variable set up as required
-  by Rtools.
+  by \I{Rtools}.
 
   For a 32/64-bit installation of \R on Windows, a small minority of
   packages with compiled code need either \code{INSTALL_opts =
@@ -267,7 +277,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     \item{On Unix-alikes,}{when the package contains C/C++/Fortran code
       that needs compilation, suitable compilers and related tools need
       to be installed.  On macOS you need to have installed the
-      \sQuote{Command-line tools for Xcode} (see the
+      \sQuote{Command-line tools for \I{Xcode}} (see the
       \sQuote{R Installation and Administration} manual) and if needed
       by the package a Fortran compiler, and have them in your path.
     }
@@ -305,7 +315,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
 
   Note that it is possible for the package installation to fail so badly
   that the lock directory is not removed: this inhibits any further
-  installs to the library directory (or for \code{--pkglock}, of the
+  installs to the library directory (or for \option{--pkglock}, of the
   package) until the lock directory is removed manually.
 }
 
@@ -313,7 +323,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   Parallel installs are attempted if \code{pkgs} has length greater than
   one and \code{Ncpus > 1}.  It makes use of a parallel \command{make},
   so the \code{make} specified (default \command{make}) when \R was
-  built must be capable of supporting \code{make -j \var{n}}: GNU make,
+  built must be capable of supporting \command{make -j \var{N}}: GNU make,
   \command{dmake} and \command{pmake} do, but Solaris \command{make} and
   older FreeBSD \command{make} do not: if necessary environment variable
   \env{MAKE} can be set for the current session to select a suitable
@@ -322,9 +332,9 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   \code{install.packages} needs to be able to compute all the
   dependencies of \code{pkgs} from \code{available}, including if one
   element of \code{pkgs} depends indirectly on another.  This means that
-  if for example you are installing \acronym{CRAN} packages which depend
-  on Bioconductor packages which in turn depend on \acronym{CRAN}
-  packages, \code{available} needs to cover both \acronym{CRAN} and
+  if for example you are installing \abbr{CRAN} packages which depend
+  on Bioconductor packages which in turn depend on \abbr{CRAN}
+  packages, \code{available} needs to cover both \abbr{CRAN} and
   Bioconductor packages.
 }
 
@@ -338,7 +348,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   For non-parallel installs this is implemented \emph{via} the
   \code{timeout} argument of \code{\link{system2}}: for parallel
   installs \emph{via} the OS's \command{timeout} command.  (The one
-  tested is from GNU \pkg{coreutils}, commonly available on Linux but
+  tested is from GNU \I{coreutils}, commonly available on Linux but
   not other Unix-alikes.  If no such command is available the timeout
   request is ignored, with a warning. On Windows, one needs to specify
   a suitable \command{timeout} command via environment variable
@@ -358,7 +368,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
 }
   One possibility is that the package is not available in any of the
   selected repositories; another is that is available but only for
-  current or recent versions of \R{}.  For \acronym{CRAN} packages take
+  current or recent versions of \R{}.  For \abbr{CRAN} packages take
   a look at the package's CRAN page (e.g.,
   \url{https://cran.r-project.org/package=RODBC}). If that indicates in
   the \samp{Depends} field a dependence on a later version of \R you

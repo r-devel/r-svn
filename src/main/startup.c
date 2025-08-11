@@ -1,7 +1,7 @@
 /*
   R : A Computer Language for Statistical Data Analysis
   Copyright (C) 1995-1996   Robert Gentleman and Ross Ihaka
-  Copyright (C) 1997-2022   The R Core Team
+  Copyright (C) 1997-2025   The R Core Team
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
+#include <Defn.h>
 #include "Fileio.h" /* for R_fopen */
 #include "Startup.h"
 
@@ -34,18 +34,24 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+#endif
+
 /* These are used in ../gnuwin32/system.c, ../unix/sys-std.c */
 SA_TYPE SaveAction = SA_SAVEASK;
 SA_TYPE	RestoreAction = SA_RESTORE;
-static Rboolean LoadSiteFile = TRUE;
-attribute_hidden Rboolean LoadInitFile = TRUE;  /* Used in R_OpenInitFile */
-static Rboolean DebugInitFile = FALSE;
+attribute_hidden bool LoadInitFile = true;  /* Used in R_OpenInitFile */
+
+static bool LoadSiteFile = true;
+// static bool DebugInitFile = false; // unused
 
 /*
  *  INITIALIZATION AND TERMINATION ACTIONS
  */
 
-void attribute_hidden R_InitialData(void)
+attribute_hidden void R_InitialData(void)
 {
     R_RestoreGlobalEnv();
 }
@@ -54,11 +60,14 @@ void attribute_hidden R_InitialData(void)
 attribute_hidden
 FILE *R_OpenLibraryFile(const char *file)
 {
-    char buf[PATH_MAX];
-    FILE *fp;
+    char *buf = NULL;
+    FILE *fp = NULL;
 
-    snprintf(buf, PATH_MAX, "%s/library/base/R/%s", R_Home, file);
-    fp = R_fopen(buf, "r");
+    Rasprintf_malloc(&buf, "%s/library/base/R/%s", R_Home, file);
+    if (buf) {
+	fp = R_fopen(buf, "r");
+	free(buf);
+    }
     return fp;
 }
 
@@ -73,19 +82,22 @@ char *R_LibraryFileName(const char *file, char *buf, size_t bsize)
 attribute_hidden
 FILE *R_OpenSysInitFile(void)
 {
-    char buf[PATH_MAX];
-    FILE *fp;
+    char *buf = NULL;
+    FILE *fp = NULL;
 
-    snprintf(buf, PATH_MAX, "%s/library/base/R/Rprofile", R_Home);
-    fp = R_fopen(buf, "r");
+    Rasprintf_malloc(&buf, "%s/library/base/R/Rprofile", R_Home);
+    if (buf) {
+	fp = R_fopen(buf, "r");
+	free(buf);
+    }
     return fp;
 }
 
 attribute_hidden
 FILE *R_OpenSiteFile(void)
 {
-    char buf[PATH_MAX];
-    FILE *fp;
+    char *buf = NULL;
+    FILE *fp = NULL;
 
     fp = NULL;
     if (LoadSiteFile) {
@@ -95,11 +107,19 @@ FILE *R_OpenSiteFile(void)
 	    else return NULL;
 	}
 #ifdef R_ARCH
-	snprintf(buf, PATH_MAX, "%s/etc/%s/Rprofile.site", R_Home, R_ARCH);
-	if ((fp = R_fopen(buf, "r"))) return fp;
+	Rasprintf_malloc(&buf, "%s/etc/%s/Rprofile.site", R_Home, R_ARCH);
+	if (buf) {
+	    fp = R_fopen(buf, "r");
+	    free(buf);
+	    if (fp) return fp;
+	    buf = NULL;
+	}
 #endif
-	snprintf(buf, PATH_MAX, "%s/etc/Rprofile.site", R_Home);
-	if ((fp = R_fopen(buf, "r"))) return fp;
+	Rasprintf_malloc(&buf, "%s/etc/Rprofile.site", R_Home);
+	if (buf) {
+	    fp = R_fopen(buf, "r");
+	    free(buf);
+	}
     }
     return fp;
 }
@@ -114,13 +134,23 @@ static char workspace_name[1000] = ".RData";
   drag-and-drop on Windows.
  */
 #else
-static char workspace_name[PATH_MAX] = ".RData";
+static char *workspace_name = ".RData";
 
 attribute_hidden
-void set_workspace_name(const char *fn)
+Rboolean set_workspace_name(const char *fn)
 {
-    strncpy(workspace_name, fn, PATH_MAX);
-    workspace_name[PATH_MAX - 1] = '\0';
+    static bool previously_allocated = FALSE;
+    size_t needed = strlen(fn) + 1;
+    char *new_wsn = (char *)malloc(needed);
+
+    if (!new_wsn)
+	return FALSE;
+    if (previously_allocated)
+	free(workspace_name);
+    previously_allocated = true;
+    strncpy(new_wsn, fn, needed);
+    workspace_name = new_wsn;
+    return TRUE;
 }
 #endif
 
@@ -170,6 +200,7 @@ int R_DefParamsEx(Rstart Rp, int RstartVersion)
     Rp->max_vsize = R_SIZE_T_MAX;
     Rp->max_nsize = R_SIZE_T_MAX;
     Rp->ppsize = R_PPSSIZE;
+    Rp->nconnections = 128;
     Rp->NoRenviron = FALSE;
     R_SizeFromEnv(Rp);
 
@@ -213,7 +244,8 @@ void R_SizeFromEnv(Rstart Rp)
 	else
 	    Rp->max_vsize = value;
     }
-#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE)
+#if defined(__APPLE__) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE) \
+    && (SIZEOF_SIZE_T > 4)
     /* For now only on macOS place a default limit on the vector heap
        size to avoid having R killed due to memory overcommit.
        Setting the limit at the maximum of 16Gb and available physical
@@ -224,6 +256,17 @@ void R_SizeFromEnv(Rstart Rp)
 	R_size_t sysmem = pages * page_size;
 	R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
 	Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+    }
+#elif defined(__APPLE__) && (SIZEOF_SIZE_T > 4)
+    else {
+	R_size_t sysmem = 0;
+	R_size_t len = sizeof(sysmem);
+	if (!sysctlbyname("hw.memsize", &sysmem, &len, NULL, 0)
+	    && len == sizeof(sysmem)) {
+
+	    R_size_t MinMaxVSize = 17179869184; /* 16 Gb */
+	    Rp->max_vsize = sysmem > MinMaxVSize ? sysmem : MinMaxVSize;
+	}
     }
 #endif
     if((p = getenv("R_VSIZE"))) {
@@ -257,7 +300,7 @@ void R_SizeFromEnv(Rstart Rp)
 static void SetSize(R_size_t vsize, R_size_t nsize)
 {
     char msg[1024];
-    Rboolean sml;
+    bool sml;
     /* vsize > 0 to catch long->int overflow */
     if (vsize < 1000 && vsize > 0) {
 	R_ShowMessage("WARNING: vsize ridiculously low, Megabytes assumed\n");
@@ -284,22 +327,52 @@ static void SetSize(R_size_t vsize, R_size_t nsize)
 	R_NSize = nsize;
 }
 
+static void SetMaxSize(R_size_t vsize, R_size_t nsize)
+{
+    char msg[1024];
+
+    if (!R_SetMaxVSize(vsize)) {
+	/* vsfac is still 1 */
+	snprintf(msg, 1024,
+		 "WARNING: too small maximum for v(ector heap)size '%lu' ignored,"
+		 " the current usage %gM is already larger\n",
+		 (unsigned long) vsize, R_VSize / Mega);
+	R_ShowMessage(msg);
+    }
+
+    if (!R_SetMaxNSize(nsize)) {
+	snprintf(msg, 1024,
+		 "WARNING: too small maximum for language heap (n)size '%lu' ignored,"
+		 " the current usage '%lu' is already larger\n",
+		 (unsigned long) nsize, (unsigned long) R_NSize);
+	R_ShowMessage(msg);
+    }
+}
+
+static bool checkBool(int in, const char *name)
+{
+    if(in != 0 && in != 1) {
+	warning("At startup: value %d of Rp->%s taken as true", in, name);
+	in = 1;
+    }
+    return (bool)(in != 0);
+}
 
 void R_SetParams(Rstart Rp)
 {
-    R_Quiet = Rp->R_Quiet;
-    R_NoEcho = Rp->R_NoEcho;
-    R_Interactive = Rp->R_Interactive;
-    R_Verbose = Rp->R_Verbose;
+    R_Quiet = checkBool(Rp->R_Quiet, "R_Quiet");
+    R_NoEcho = (Rboolean) checkBool(Rp->R_NoEcho, "R_NoEcho");
+    R_Interactive = (Rboolean)  checkBool(Rp->R_Interactive, "R_Interactive");
+    R_Verbose = checkBool(Rp->R_Verbose, "R_Verbose");
+    LoadSiteFile = checkBool(Rp->LoadSiteFile, "R_LoadSitefile");
+    LoadInitFile = checkBool(Rp->LoadInitFile, "R_LoadInitFile");
+//    DebugInitFile = checkBool(Rp->DebugInitFile, "R_DebugInitFile"); // unused
     RestoreAction = Rp->RestoreAction;
     SaveAction = Rp->SaveAction;
-    LoadSiteFile = Rp->LoadSiteFile;
-    LoadInitFile = Rp->LoadInitFile;
-    DebugInitFile = Rp->DebugInitFile;
     SetSize(Rp->vsize, Rp->nsize);
-    R_SetMaxNSize(Rp->max_nsize);
-    R_SetMaxVSize(Rp->max_vsize);
+    SetMaxSize(Rp->max_vsize, Rp->max_nsize);
     R_SetPPSize(Rp->ppsize);
+    R_SetNconn(Rp->nconnections);
 #ifdef Win32
     R_SetWin32(Rp);
 #endif

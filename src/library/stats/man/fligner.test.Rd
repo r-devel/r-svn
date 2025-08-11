@@ -1,15 +1,15 @@
 % File src/library/stats/man/fligner.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{fligner.test}
 \alias{fligner.test}
 \alias{fligner.test.default}
 \alias{fligner.test.formula}
-\title{Fligner-Killeen Test of Homogeneity of Variances}
+\title{\I{Fligner}-\I{Killeen} Test of Homogeneity of Variances}
 \description{
-  Performs a Fligner-Killeen (median) test of the null that the
+  Performs a \I{Fligner}-\I{Killeen} (median) test of the null that the
   variances in each of the groups (samples) are the same.
 }
 \usage{
@@ -49,10 +49,11 @@ fligner.test(x, \dots)
   be a vector or factor object of the same length as \code{x} giving the
   group for the corresponding elements of \code{x}.
 
-  The Fligner-Killeen (median) test has been determined in a simulation
+  The \I{Fligner}-\I{Killeen} (median) test has been determined in a simulation
   study as one of the many tests for homogeneity of variances which is
-  most robust against departures from normality, see Conover, Johnson &
-  Johnson (1981).  It is a \eqn{k}-sample simple linear rank which uses
+  most robust against departures from normality, see
+  \bibcitet{R:Conover+Johnson+Johnson:1981}.
+  It is a \eqn{k}-sample simple linear rank which uses
   the ranks of the absolute values of the centered samples and weights
   \eqn{a(i) = \mathrm{qnorm}((1 + i/(n+1))/2)}{a(i) = qnorm((1 +
     i/(n+1))/2)}.  The version implemented here uses median centering in
@@ -60,7 +61,7 @@ fligner.test(x, \dots)
 }
 \value{
   A list of class \code{"htest"} containing the following components:
-  \item{statistic}{the Fligner-Killeen:med \eqn{X^2} test statistic.}
+  \item{statistic}{the \I{Fligner}-\I{Killeen}:med \eqn{X^2} test statistic.}
   \item{parameter}{the degrees of freedom of the approximate chi-squared
     distribution of the test statistic.}
   \item{p.value}{the p-value of the test.}
@@ -69,11 +70,7 @@ fligner.test(x, \dots)
   \item{data.name}{a character string giving the names of the data.}
 }
 \references{
-  William J. Conover, Mark E. Johnson and Myrle M. Johnson (1981).
-  A comparative study of tests for homogeneity of variances, with
-  applications to the outer continental shelf bidding data.
-  \emph{Technometrics}, \bold{23}, 351--361.
-  \doi{10.2307/1268225}.
+  \bibshow{*}
 }
 \seealso{
   \code{\link{ansari.test}} and \code{\link{mood.test}} for rank-based

@@ -1,7 +1,7 @@
 #  File src/library/grid/R/primitives.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -67,10 +67,10 @@ rep.arrow <- function(x, ...) {
 }
 
 str.arrow <- function(object, ...) {
-  o <- oldClass(object)
-  oldClass(object) <- setdiff(o, "arrow")
-  str(object)
+    cat('"arrow" (pkg {grid}) object:\n')
+    NextMethod() # passes '...' and all
 }
+
 
 ######################################
 # move-to and line-to primitives
@@ -797,8 +797,8 @@ validDetails.xspline <- function(x) {
       x$shape <- rep(x$shape, length.out=nx)
       # Watch out for id or id.length!
       index <- xsplineIndex(x)
-      first <- sapply(index, min)
-      last <- sapply(index, max)
+      first <- vapply(index, min, 0)
+      last <- vapply(index, max, 0)
       x$shape[c(first, last)] <- 0
   }
   x

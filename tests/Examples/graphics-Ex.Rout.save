@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2022-03-19 r81942) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R Under development (unstable) (2025-07-21 r88434) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -149,9 +147,8 @@ Hair    Brown Blue Hazel Green
 > 
 > x <- 9.9*10^(-3:10)
 > plot(x, 1:14, log = "x")
-> axTicks(1) # now length 7, in R <= 2.13.x gave 'nintLog = Inf' res; then
+> axTicks(1) # now length 7
 [1] 1e-02 1e+00 1e+02 1e+04 1e+06 1e+08 1e+10
-> ## 1e-01 1e+01 1e+03 1e+05 1e+07 1e+09 1e+11 ; since R 4.2.0: 1e-2 1e0 1e2 .. 1e10
 > axTicks(1, nintLog = Inf) # rather too many
  [1] 1e-02 1e-01 1e+00 1e+01 1e+02 1e+03 1e+04 1e+05 1e+06 1e+07 1e+08 1e+09
 [13] 1e+10 1e+11
@@ -197,13 +194,19 @@ Hair    Brown Blue Hazel Green
 > ### ** Examples
 > 
 > with(beaver1, {
-+ time <- strptime(paste(1990, day, time %/% 100, time %% 100),
-+                  "%Y %j %H %M")
-+ plot(time, temp, type = "l") # axis at 4-hour intervals.
-+ # now label every hour on the time axis
-+ plot(time, temp, type = "l", xaxt = "n")
-+ r <- as.POSIXct(round(range(time), "hours"))
-+ axis.POSIXct(1, at = seq(r[1], r[2], by = "hour"), format = "%H")
++     opar <- par(mfrow = c(3,1))
++     time <- strptime(paste(1990, day, time %/% 100, time %% 100),
++                      "%Y %j %H %M")
++     plot(time, temp, type = "l") # axis at 6-hour intervals
++     # request more ticks
++     olab <- par(lab = c(10, 10, 7))
++     plot(time, temp, type = "l")
++     par(olab)
++     # now label every hour on the time axis
++     plot(time, temp, type = "l", xaxt = "n")
++     r <- as.POSIXct(round(range(time), "hours"))
++     axis.POSIXct(1, at = seq(r[1], r[2], by = "hour"), format = "%H")
++     par(opar) # reset changed par settings
 + })
 > 
 > plot(.leap.seconds, seq_along(.leap.seconds), type = "n", yaxt = "n",
@@ -225,8 +228,57 @@ Hair    Brown Blue Hazel Green
 > axis.Date(1, at = seq(as.Date("2001/1/1"), max(random.dates)+6, "days"),
 +      labels = FALSE, tcl = -0.2)
 > 
+> ## axis.Date() with various data types:
+> x <- seq(as.Date("2022-01-20"), as.Date("2023-03-21"), by = "days")
+> plot(data.frame(x, y = 1), xaxt = "n")
+> legend("topleft", title = "input",
++        legend = c("character", "Date", "POSIXct", "POSIXlt", "numeric"),
++        fill = c("violet", "red", "orange", "coral1", "darkgreen"))
+> axis.Date(1)
+> axis.Date(3, at = "2022-04-01", col.axis = "violet")
+> axis.Date(3, at = as.Date("2022-07-01"), col.axis = "red")
+> axis.Date(3, at = as.POSIXct(as.Date("2022-10-01")), col.axis = "orange")
+> axis.Date(3, at = as.POSIXlt(as.Date("2023-01-01")), col.axis = "coral1")
+> axis.Date(3, at = as.integer(as.Date("2023-04-01")), col.axis = "darkgreen")
+> ## automatically extends the format:
+> axis.Date(1, at = "2022-02-15", col.axis = "violet",
++          col = "violet", tck = -0.05, mgp = c(3,2,0))
+> 
+> ## axis.POSIXct() with various data types (2 minutes):
+> x <- as.POSIXct("2022-10-01") + c(0, 60, 120)
+> attributes(x)   # no timezone
+$class
+[1] "POSIXct" "POSIXt" 
+
+> plot(data.frame(x, y = 1), xaxt = "n")
+> legend("topleft", title = "input",
++        legend = c("character", "Date", "POSIXct", "POSIXlt", "numeric"),
++        fill = c("violet", "red", "orange", "coral1", "darkgreen"))
+> axis.POSIXct(1)
+> axis.POSIXct(3, at = "2022-10-01 00:01", col.axis = "violet")
+> axis.POSIXct(3, at = as.Date("2022-10-01"), col.axis = "red")
+> axis.POSIXct(3, at = as.POSIXct("2022-10-01 00:01:30"), col.axis = "orange")
+> axis.POSIXct(3, at = as.POSIXlt("2022-10-01 00:02"), col.axis = "coral1")
+> axis.POSIXct(3, at = as.numeric(as.POSIXct("2022-10-01 00:00:30")),
++                 col.axis = "darkgreen")
+> ## automatically extends format (here: subseconds):
+> axis.POSIXct(3, at = as.numeric(as.POSIXct("2022-10-01 00:00:30")) + 0.25,
++                 col.axis = "forestgreen", col = "darkgreen", mgp = c(3,2,0))
+> 
+> ## axis.POSIXct: 2 time zones
+> HST <- as.POSIXct("2022-10-01", tz = "HST") + c(0, 60, 60*60)
+> CET <- HST
+> attr(CET, "tzone") <- "CET"
+> plot(data.frame(HST, y = 1), xaxt = "n", xlab = "Hawaii Standard Time (HST)")
+> axis.POSIXct(1, HST)
+> axis.POSIXct(1, HST, at = "2022-10-01 00:10", col.axis = "violet")
+> axis.POSIXct(3, CET)
+> mtext(3, text = "Central European Time (CET)", line = 3)
+> axis.POSIXct(3, CET, at="2022-10-01 12:10", col.axis = "violet")
 > 
 > 
+> 
+> graphics::par(get("par.postscript", pos = 'CheckExEnv'))
 > cleanEx()
 > nameEx("axis")
 > ### * axis
@@ -331,12 +383,14 @@ Survived 1st 2nd 3rd Crew
 > # Default method
 > require(grDevices) # for colours
 > tN <- table(Ni <- stats::rpois(100, lambda = 5))
+> ## barplot() returns x-locations:
 > r <- barplot(tN, col = rainbow(20))
-> #- type = "h" plotting *is* 'bar'plot
-> lines(r, tN, type = "h", col = "red", lwd = 2)
+> lines(r, tN, type = "h", col = 2, lwd = 7) # type "h" plot *is* 'bar'plot
 > 
+> ## draw axis separately  using x-locations from barplot():
 > barplot(tN, space = 1.5, axisnames = FALSE,
-+         sub = "barplot(..., space= 1.5, axisnames = FALSE)")
++         sub = "barplot(..., space= 1.5, axisnames = FALSE)"
++        ) |> axis(1, at = _, labels = paste("# :", tN), cex.axis = 3/4)
 > 
 > barplot(VADeaths, plot = FALSE)
 [1] 0.7 1.9 3.1 4.3
@@ -926,8 +980,9 @@ temperature no yes
 > ## Persian Rug Art:
 > x <- y <- seq(-4*pi, 4*pi, length.out = 27)
 > r <- sqrt(outer(x^2, y^2, `+`))
-> filled.contour(cos(r^2)*exp(-r/(2*pi)), axes = FALSE)
-> ## rather, the key *should* be labeled:
+> ## "minimal"
+> filled.contour(cos(r^2)*exp(-r/(2*pi)), axes = FALSE, key.border=NA)
+> ## rather, the key *should* be labeled (but axes still not):
 > filled.contour(cos(r^2)*exp(-r/(2*pi)), frame.plot = FALSE,
 +                plot.axes = {})
 > 
@@ -1007,6 +1062,37 @@ Female Yes                89  17 202 131  94  24
 +     )
 > par(op)
 > 
+> plot(1:64)
+> gr <- grid() # now *invisibly* returns the grid "at" locations
+> str(gr)
+List of 2
+ $ atx: num [1:7] 0 10 20 30 40 50 60
+ $ aty: num [1:7] 0 10 20 30 40 50 60
+> stopifnot(length(gr) == 2, identical(gr[[1]], gr[[2]]),
++           gr[["atx"]] == 10*(0:6))
+> 
+> ## In log-scale plots :
+> plot(8:270, log="xy") ; grid() # at (1, 10, 100); if preferring "all" grid lines:
+> plot(8:270, log="xy") ; grid(equilogs = FALSE) -> grll
+> stopifnot(identical(grll, list(atx = c(1, 2, 5, 10, 20, 50, 100, 200),
++                                aty = c(         10, 20, 50, 100, 200))))
+> 
+> x <- 2^(-9:70)
+> plot(log(x) ~ x, log="xy")
+Warning in xy.coords(x, y, xlabel, ylabel, log) :
+  10 y values <= 0 omitted from logarithmic plot
+> grll <- grid(equilogs = FALSE, col = adjustcolor("green", 1/3))
+> gr20 <- grid(nintLog = 20)
+> gr25 <- grid(nintLog = 25, col="thistle")
+> str(gr25)
+List of 2
+ $ atx: num [1:26] 1e-03 1e-02 1e-01 1e+00 1e+01 1e+02 1e+03 1e+04 1e+05 1e+06 ...
+ $ aty: num [1:2] 1 10
+> stopifnot(exprs = {
++     grll$aty == c(1, 2, 5, 10, 20, 50)
++     length(gr20$atx) >= 20 # 24 effectively
++     all.equal(10^(-3:22), gr25$atx, tol = 1e-15)  # even tol = 0
++ })
 > 
 > 
 > 
@@ -1196,9 +1282,26 @@ Warning in plot.histogram(r, freq = freq1, col = col, border = border, angle = a
 +       xlab = expression(cos(r^2) * e^{-r/6}))
 > contour(z, add = TRUE, drawlabels = FALSE)
 > 
-> # Volcano data visualized as matrix. Need to transpose and flip
-> # matrix horizontally.
-> image(t(volcano)[ncol(volcano):1,])
+> # Visualize as matrix.  Need to transpose matrix and then flip it horizontally:
+> tf <- function(m) t(m)[, nrow(m):1]
+> imageM <- function(m, grid = max(dim(m)) <= 25, asp = (nrow(m)-1)/(ncol(m)-1), ...) {
++     image(tf(m), asp=asp, axes = FALSE, ...)
++     mAxis <- function(side, at, ...) # using 'j'
++         axis(side, at=at, labels=as.character(j+1L), col="gray", col.axis=1, ...)
++     n <- ncol(m); n1 <- n-1L; j <- 0L:n1; mAxis(1, at= j/n1)
++     if(grid) abline(v = (0:n - .5)/n1, col="gray77", lty="dotted")
++     n <- nrow(m); n1 <- n-1L; j <- 0L:n1; mAxis(2, at=1-j/n1, las=1)
++     if(grid) abline(h = (0:n - .5)/n1, col="gray77", lty="dotted")
++ }
+> (m <- outer(1:5, 1:14))
+     [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13] [,14]
+[1,]    1    2    3    4    5    6    7    8    9    10    11    12    13    14
+[2,]    2    4    6    8   10   12   14   16   18    20    22    24    26    28
+[3,]    3    6    9   12   15   18   21   24   27    30    33    36    39    42
+[4,]    4    8   12   16   20   24   28   32   36    40    44    48    52    56
+[5,]    5   10   15   20   25   30   35   40   45    50    55    60    65    70
+> imageM(m, main = "image(<5 x 14 matrix>)   with rows and columns")
+> imageM(volcano)
 > 
 > # A prettier display of the volcano
 > x <- 10*(1:nrow(volcano))
@@ -1532,15 +1635,9 @@ List of 2
 +                "Versicolor Petals", "Versicolor Sepals"),
 +        pch = "sSvV", col = rep(c(2,4), 2))
 > 
-> nam.var <- colnames(iris)[-5]
-> nam.spec <- as.character(iris[1+50*0:2, "Species"])
-> iris.S <- array(NA, dim = c(50,4,3),
-+                 dimnames = list(NULL, nam.var, nam.spec))
-> for(i in 1:3) iris.S[,,i] <- data.matrix(iris[1:50+50*(i-1), -5])
-> 
-> matplot(iris.S[, "Petal.Length",], iris.S[, "Petal.Width",], pch = "SCV",
+> matplot(iris3[, "Petal L.",], iris3[, "Petal W.",], pch = "SCV",
 +         col = rainbow(3, start = 0.8, end = 0.1),
-+         sub = paste(c("S", "C", "V"), dimnames(iris.S)[[3]],
++         sub = paste(c("S", "C", "V"), dimnames(iris3)[[3]],
 +                     sep = "=", collapse= ",  "),
 +         main = "Fisher's Iris Data")
 > par(op)
@@ -1556,6 +1653,14 @@ List of 2
 > ## or the same with even more axis flexibility:
 > matplot(ct, mSC, type = "b", main = "matplot(<POSIXct>, y)", xaxt="n")
 > Axis(ct, side=1, at = ct[1+4*(0:24)])
+> 
+> iS <- 1:3 # indices of subset
+> matplot(gait[, iS, 1], gait[, iS, 2], pch = "123", type = "b",
++         col = rainbow(3, start = 0.8, end = 0.1),
++         sub = paste(iS, dimnames(gait)[[2]][iS],
++                     sep = "=", collapse= ",  "),
++         xlab = "Hip angle", ylab = "Knee angle",
++         main = "Hip and knee angle while walking")
 > 
 > ## Also works for data frame columns:
 > matplot(iris[1:50,1:4])
@@ -1633,6 +1738,11 @@ List of 2
 > ##--- log axis :
 > plot(1:10, exp(1:10), log = "y", main = "log =\"y\"", xlab = "xlab")
 > for(s in 1:4) mtext(paste("mtext(...,side=", s ,")"), side = s)
+> 
+> ##--- illustrating padj behavior :
+> plot(0, axes=FALSE, ann=FALSE, frame.plot=TRUE)
+> for(si in 1:4) mtext(c("padj=0", "-----------", "padj=1"),
++                      side = si, padj = c(0, 0.5, 1))
 > 
 > 
 > 
@@ -1830,12 +1940,11 @@ armed.forces
 > y <- x
 > f <- function(x, y) { r <- sqrt(x^2+y^2); 10 * sin(r)/r }
 > z <- outer(x, y, f)
-> z[is.na(z)] <- 1
 > op <- par(bg = "white")
 > persp(x, y, z, theta = 30, phi = 30, expand = 0.5, col = "lightblue")
 > persp(x, y, z, theta = 30, phi = 30, expand = 0.5, col = "lightblue",
 +       ltheta = 120, shade = 0.75, ticktype = "detailed",
-+       xlab = "X", ylab = "Y", zlab = "Sinc( r )"
++       xlab = "X", ylab = "Y", zlab = "Sinc( r )", cex.axis = 0.8
 + ) -> res
 > round(res, 3)
       [,1]   [,2]   [,3]   [,4]
@@ -1847,8 +1956,8 @@ armed.forces
 > # (2) Add to existing persp plot - using trans3d() :
 > 
 > xE <- c(-10,10); xy <- expand.grid(xE, xE)
-> points(trans3d(xy[,1], xy[,2], 6, pmat = res), col = 2, pch = 16)
-> lines (trans3d(x, y = 10, z = 6 + sin(x), pmat = res), col = 3)
+> points(trans3d(xy[,1], xy[,2], z = 6,          pmat = res), col = 2, pch = 16)
+> lines (trans3d(x,      y = 10, z = 6 + sin(x), pmat = res), col = 3)
 > 
 > phi <- seq(0, 2*pi, length.out = 201)
 > r1 <- 7.725 # radius of 2nd maximum
@@ -2067,7 +2176,12 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > ### ** Examples
 > 
 > require(grDevices)
-> plot(weight ~ group, data = PlantGrowth)           # numeric vector ~ factor
+> 
+> plot(state.region)
+> 
+> ## called from the formula method
+> plot(~ group, data = PlantGrowth)
+> plot(weight ~ group, data = PlantGrowth)           # numeric ~ factor
 > plot(cut(weight, 2) ~ group, data = PlantGrowth)   # factor ~ factor
 > ## passing "..." to spineplot() eventually:
 > plot(cut(weight, 3) ~ group, data = PlantGrowth,
@@ -2208,7 +2322,7 @@ N
 > points.default # to see how it calls "plot.xy(xy.coords(x, y), ...)"
 function (x, y = NULL, type = "p", ...) 
 plot.xy(xy.coords(x, y), type = type, ...)
-<bytecode: 0x2931ea0>
+<bytecode: 0x148a28c60>
 <environment: namespace:graphics>
 > 
 > 
@@ -2283,14 +2397,13 @@ attr(,"class")
 +  main = 'plot(..., type="o", pch=21, bg=par("bg"))')
 > par(op)
 > 
-> ## Not run: 
-> ##D ## The figure was produced by calls like
-> ##D png("pch.png", height = 0.7, width = 7, res = 100, units = "in")
-> ##D par(mar = rep(0,4))
-> ##D plot(c(-1, 26), 0:1, type = "n", axes = FALSE)
-> ##D text(0:25, 0.6, 0:25, cex = 0.5)
-> ##D points(0:25, rep(0.3, 26), pch = 0:25, bg = "grey")
-> ## End(Not run)
+> ## Illustration of pch = 0:25 (as in the figure shown above in PDF/HTML help)
+> ## Not run: png("pch.png", height = 0.7, width = 7, res = 100, units = "in")
+> par(mar = rep(0,4))
+> plot(c(-1, 26), 0:1, type = "n", axes = FALSE)
+> text(0:25, 0.6, 0:25, cex = 0.5)
+> points(0:25, rep(0.3, 26), pch = 0:25, bg = "grey")
+> 
 > 
 > ##-------- Showing all the extra & some char graphics symbols ---------
 > pchShow <-
@@ -3078,7 +3191,7 @@ function (xy = 1, warn.log = TRUE)
     u <- par("usr")
     xy * c(u[2L] - u[1L], u[4L] - u[3L])/par("pin")
 }
-<bytecode: 0x44b1200>
+<bytecode: 0x1484fa978>
 <environment: namespace:graphics>
 > 
 > ## plot labels offset 0.12 inches to the right
@@ -3159,7 +3272,7 @@ function (xy = 1, warn.log = TRUE)
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  7.891 0.169 8.114 0 0 
+Time elapsed:  1.594 0.099 1.697 0 0 
 > grDevices::dev.off()
 null device 
           1 

@@ -123,7 +123,9 @@ extern int errno;
 #endif
 
 /* Alignment of types.  */
-#if defined __GNUC__ && __GNUC__ >= 2
+// R change: alignof is a keyword in C23
+#if defined __STDC_VERSION__ && __STDC_VERSION__ > 201710L
+#elif defined __GNUC__ && __GNUC__ >= 2
 # define alignof(TYPE) __alignof__ (TYPE)
 #else
 /* R change: was (int) */
@@ -192,6 +194,9 @@ static void *mempcpy (void *dest, const void *src, size_t n);
 /* Non-POSIX BSD systems might have gcc's limits.h, which doesn't define
    PATH_MAX but might cause redefinition warnings when sys/param.h is
    later included (as on MORE/BSD 4.3).  */
+
+/* NOTE: PATH_MAX below is only used as initial buffer size for getcwd(),
+   it doesn't have to be precise, any positive number should do */
 #if defined _POSIX_VERSION || (defined HAVE_LIMITS_H && !defined __GNUC__)
 # include <limits.h>
 #endif
@@ -325,11 +330,11 @@ transcmp (const void *p1, const void *p2)
 
 /* Name of the default domain used for gettext(3) prior any call to
    textdomain(3).  The default value for this is "messages".  */
-const char _nl_default_default_domain[] attribute_hidden = "messages";
+attribute_hidden const char _nl_default_default_domain[] = "messages";
 
 #ifndef IN_LIBGLOCALE
 /* Value used as the default domain for gettext(3).  */
-const char *_nl_current_default_domain attribute_hidden
+attribute_hidden const char *_nl_current_default_domain
      = _nl_default_default_domain;
 #endif
 
@@ -1249,7 +1254,8 @@ _nl_find_msg (struct loaded_l10nfile *domain_file,
 	      __libc_lock_lock (lock);
 
 	      inbuf = (const unsigned char *) result;
-	      outbuf = freemem + sizeof (size_t);
+	      // avoid UBSAN warning on macOS
+	      outbuf = freemem ? freemem + sizeof (size_t): freemem;
 
 	      malloc_count = 0;
 	      while (1)

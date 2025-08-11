@@ -34,8 +34,9 @@ atanh(x)
    \code{\link[=S3groupGeneric]{Math}} group generic.
 
    Branch cuts are consistent with the inverse trigonometric functions
-   \code{asin} \emph{et seq}, and agree with those defined in Abramowitz
-   and Stegun, figure 4.7, page 86.   The behaviour actually on the cuts
+   \code{asin} \emph{et seq}, and agree with those defined in
+   \bibcitet{|R:Abramowitz+Stegun:1972|figure 4.7\\\\\\, page 86}.
+   The behaviour actually on the cuts
    follows the C99 standard which requires continuity coming round the
    endpoint in a counter-clockwise direction.
 }
@@ -53,9 +54,9 @@ atanh(x)
   version of \code{tanh()} for numeric \code{x}.
 }
 \references{
-  Abramowitz, M. and Stegun, I. A. (1972)
-  \emph{Handbook of Mathematical Functions.} New York: Dover.\cr
-  Chapter 4. Elementary Transcendental Functions: Logarithmic,
-  Exponential, Circular and Hyperbolic Functions
+  \bibinfo{R:Abramowitz+Stegun:1972}{footer}{Chapter 4. Elementary
+    Transcendental Functions: Logarithmic, Exponential, Circular and
+    Hyperbolic Functions}
+  \bibshow{*}
 }
 \keyword{math}

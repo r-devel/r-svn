@@ -1,7 +1,7 @@
 #  File src/library/utils/R/citation.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ function(given = NULL, family = NULL, middle = NULL,
                          paste(names(args)[!args_length_ok],
                                collapse = ", ")),
                 domain = NA)
-    args <- lapply(args, function(x) rep_len(x, max(args_length)))
+    args <- lapply(args, rep_len, max(args_length))
 
     ## <COMMENT Z>
     ## We could do this more elegantly, but let's just go through the
@@ -81,20 +81,31 @@ function(given = NULL, family = NULL, middle = NULL,
             family <- last
         }
 
-        ## Set all empty arguments to NULL.
-        if(.is_not_nonempty_text(given)) given <- NULL
-        if(.is_not_nonempty_text(family)) family <- NULL
-        if(.is_not_nonempty_text(email)) email <- NULL
-        if(.is_not_nonempty_text(role)) {
-            if(!is.null(role))
-                warning(sprintf(ngettext(length(role),
-                                         "Invalid role specification: %s.",
-                                         "Invalid role specifications: %s."),
-                                paste(sQuote(role), collapse = ", ")),
-                        domain = NA)
-            role <- NULL
+        ## Canonicalize: set all empty arguments to NULL, and remove
+        ## leading/trailing whitespace otherwise (which in turn coerces
+        ## to character).
+        ## In principle, all non-NULL arguments whould be character:
+        ## maybe this should be checked for?
+        .canonicalize <- function(s) {
+            if(.is_not_nonempty_text(s)) NULL
+            else {
+                if(!is.character(s))
+                    warning(gettextf("Arguments of person() should be character or NULL"),
+                            domain = NA)
+                trimws(s)
+            }
         }
-        if(.is_not_nonempty_text(comment)) comment <- NULL
+        given <- .canonicalize(given)
+        family <- .canonicalize(family)
+        email <- .canonicalize(email)
+        if(.is_not_nonempty_text(role) && !is.null(role))
+            warning(sprintf(ngettext(length(role),
+                                     "Invalid role specification: %s.",
+                                     "Invalid role specifications: %s."),
+                            paste(sQuote(role), collapse = ", ")),
+                    domain = NA)
+        role <- .canonicalize(role)
+        comment <- .canonicalize(comment)
 
         ## <FIXME>
         ## Use something along the lines of
@@ -116,6 +127,30 @@ function(given = NULL, family = NULL, middle = NULL,
                     names(comment) <- ifelse(ind, "ORCID", "")
                 else
                     names(comment)[ind] <- "ORCID"
+            }
+            if(any(ind <- (names(comment) == "ORCID"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ORCID_iD_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ORCID iD: %s.",
+                                             "Invalid ORCID iDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
+            }
+            if(any(ind <- (names(comment) == "ROR"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ROR_ID_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ROR ID: %s.",
+                                             "Invalid ROR IDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
             }
         }
 
@@ -179,82 +214,133 @@ function(role)
     role
 }
 
-`[[.person` <-
-`[.person` <-
-function(x, i)
+person_field_names <-
+    c("given", "family", "role", "email", "comment")
+
+`[.person` <- 
+function(x, i, j)
 {
-    rval <- unclass(x)[i]
-    class(rval) <- class(x)
-    return(rval)
+    y <- unclass(x)[i]
+    if(!all(ok <- lengths(y) > 0L)) {
+        warning(gettext("subscript out of bounds"),
+                domain = NA)
+        y <- y[ok]
+    }
+    if(missing(j)) {
+        class(y) <- class(x)
+    } else {
+        j <- match.arg(j, person_field_names)
+        y <- lapply(y, `[[`, j)
+    }
+    y
 }
 
+`[[.person` <-
+function(x, i, j)
+{
+    s <- seq_along(x)
+    if(is.character(i))
+        names(s) <- names(x)
+    i <- s[[i]]
+    y <- unclass(x)[[i]]
+    if(missing(j)) {
+        y <- list(y)
+        class(y) <- class(x)
+    } else {
+        j <- match.arg(j, person_field_names)
+        y <- y[[j]]
+    }
+    y
+}
+
+`[<-.person` <-
+function(x, i, j, value)
+{
+    y <- unclass(x)
+    if(missing(j))
+        y[i] <- if(is.null(value)) NULL else as.person(value)
+    else {
+        j <- match.arg(j, person_field_names)
+        s <- seq_along(x)
+        if(!missing(i) && is.character(i))
+            names(s) <- names(x)
+        p <- s[i]
+        value <- rep_len(value, length(p))
+        if(j == "role")
+            value <- lapply(value, .canonicalize_person_role)
+        for(i in p)
+            y[[i]] <- .person_elt_fld_gets(y[[i]], j, value[[i]])            
+    }
+    class(y) <- class(x)
+    y
+}
+        
+`[[<-.person` <-
+function(x, i, j, value)
+{
+    s <- seq_along(x)
+    if(is.character(i))
+        names(s) <- names(x)
+    i <- s[[i]]
+    y <- unclass(x)
+    if(missing(j))
+        y[i] <- if(is.null(value)) NULL else as.person(value)
+    else {
+        j <- match.arg(j, person_field_names)
+        if(j == "role")
+            value <- .canonicalize_person_role(value)
+        y[[i]] <- .person_elt_fld_gets(y[[i]], j, value)
+    }
+    class(y) <- class(x)
+    y
+}
+
+.person_elt_fld_gets <-
+function(x, j, v)
+{
+    x[j] <- list(if(.is_not_nonempty_text(v))
+                     NULL
+                 else as.character(v))
+    if(all(vapply(x, is.null, NA)))
+        stop(gettext("must have some non-empty fields"),
+             domain = NA)
+    x
+}
+        
 print.person <-
 function(x, ...)
 {
-    if(length(x)) print(format(x, ...))
+    if(length(x)) print(format(x, ...)) else cat("person()\n")
     invisible(x)
 }
 
 `$.person` <-
 function(x, name)
 {
+    if(!length(x)) return(NULL)
     ## <COMMENT Z>
-    ## extract internal list elements, return list if length > 1, vector
-    ## otherwise (to mirror the behaviur of the input format for
-    ## person())
+    ## Return list if length > 1, vector otherwise (to mirror the
+    ## behavior of the input format for person()).
     ## </COMMENT>
-    name <- match.arg(name,
-                      c("given", "family", "role", "email", "comment",
-                        "first", "last", "middle")) # for now ...
-    ## <COMMENT Z>
-    ## Let's be nice and support first/middle/last for now.
-    ## </COMMENT>
-    if(name %in% c("first", "last", "middle")) {
-        message(gettextf("It is recommended to use %s/%s instead of %s/%s/%s.",
-                         sQuote("given"), sQuote("family"),
-                         sQuote("first"), sQuote("middle"), sQuote("last")),
-                domain = NA)
-        oname <- name
-	name <- switch(name,
-	    "first" = "given",
-	    "middle" = "given",
-	    "last" = "family"
-	)
-    } else {
-        oname <- name
-    }
-
-    rval <- lapply(unclass(x), function(p) p[[name]])
-
-    if(oname == "first") rval <- lapply(rval, head, 1L)
-    if(oname == "middle") {
-        rval <- lapply(rval, tail, -1L)
-        if(any(ind <- (lengths(rval) == 0L)))
-            rval[ind] <- vector("list", length = sum(ind))
-    }
-
-    if(length(rval) == 1L) rval <- rval[[1L]]
-    rval
+    name <- match.arg(name, person_field_names)
+    y <- lapply(unclass(x), `[[`, name)
+    if(length(y) == 1L) y <- y[[1L]]
+    y
 }
 
 `$<-.person` <-
 function(x, name, value)
 {
-    name <- match.arg(name, c("given", "family", "role", "email", "comment"))
-    x <- .listify(unclass(x))
-    value <- rep_len(value, length(x))
-
+    name <- match.arg(name, person_field_names)
+    y <- unclass(x)
+    value <- rep_len(.listify(value), length(y))
     if(name == "role")
         value <- lapply(value, .canonicalize_person_role)
-
-    for(i in seq_along(x)) {
-        x[[i]][[name]] <- if(.is_not_nonempty_text(value[[i]]))
-            NULL
-        else as.character(value[[i]])
+    for(i in seq_along(y)) {
+        y[[i]] <- .person_elt_fld_gets(y[[i]], name, value[[i]])
     }
-
-    class(x) <- "person"
-    x
+    class(y) <- class(x)
+    y
 }
 
 c.person <-
@@ -335,8 +421,27 @@ function(x)
     ## Step C.
     as_person1 <- function(x) {
         comment <- if(grepl("\\(.*\\)", x))
-            sub(".*\\(([^)]*)\\).*", "\\1", x)
-        else NULL
+                       sub(".*\\(([^)]*)\\).*", "\\1", x)
+                   else NULL
+        if(!is.null(comment)) {
+            chunks <- strsplit(comment, ", ", fixed = TRUE)[[1L]]
+            if(any(i <- grepl(tools:::.ORCID_iD_variants_regexp,
+                              chunks))) {
+                chunks[i] <- tools:::.ORCID_iD_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
+                names(chunks)[i] <- "ORCID"
+                comment <- chunks
+            }
+            if(any(i <- grepl(tools:::.ROR_ID_variants_regexp,
+                              chunks))) {
+                chunks[i] <- tools:::.ROR_ID_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
+                names(chunks)[i] <- "ROR"
+                comment <- chunks
+            }
+        }
         x <- sub("[[:space:]]*\\([^)]*\\)", "", x)
         email <- if(grepl("<.*>", x))
             unlist(strsplit(gsub("[[:space:]]*", "",
@@ -417,17 +522,18 @@ function(x,
          list(given = " ", family = " ", email = ", ",
               role = ", ", comment = ", "),
          ...,
-         style = c("text", "R")
+         style = c("text", "R", "md")
          )
 {
-    if(!length(x)) return(character())
-
     style <- match.arg(style)
+
+    if(!length(x))
+        return(if(style == "R") "person()" else character())
 
     if(style == "R") return(.format_person_as_R_code(x))
 
     args <- c("given", "family", "email", "role", "comment")
-    include <- sapply(include, match.arg, args)
+    include <- vapply(include, match.arg, "", args)
 
     ## process defaults
     braces <- braces[args]
@@ -454,8 +560,14 @@ function(x,
     if(any(include == "comment"))
         x <- lapply(x,
                     function(e) {
-                        e$comment <-
-                            .expand_ORCID_identifier(e$comment)
+                        u <- .expand_person_comment_identifiers(e$comment,
+                                                                style)
+                        if(!is.null(v <- names(u))) {
+                            i <- which(nzchar(v))
+                            if(length(i))
+                                u[i] <- paste0(v[i], ": ", u[i])
+                        }
+                        e$comment <- u
                         e
                     })
 
@@ -482,7 +594,7 @@ function(x,
 	paste(do.call(c, rval), collapse = " ")
     }
 
-    sapply(x, format_person1)
+    vapply(x, format_person1, "")
 }
 
 as.character.person <-
@@ -490,33 +602,70 @@ function(x, ...)
     format(x, ...)
 
 toBibtex.person <-
-function(object, ...)
+function(object, escape = FALSE, ...)
 {
-    object <- sapply(object, function(p) {
-         br <- if(is.null(p$family)) c("{", "}") else c("", "")
-         format(p, include = c("family", "given"),
-                braces = list(given = br, family = c("", ",")))
-    })
-    paste(object[nzchar(object)], collapse = " and ")
+    y <- vapply(object,
+                function(p) {
+                    br <- if(is.null(p$family))
+                              c("{", "}")
+                          else c("", "")
+                    s <- format(p, include = c("family", "given"),
+                                braces = list(given = br,
+                                              family = c("", ",")))
+                    if(isTRUE(escape) &&
+                       (Encoding(s <- enc2utf8(s)) == "UTF-8"))
+                        tools::encoded_text_to_latex(s, "UTF-8")
+                    else s
+                },
+                "")
+    y <- y[nzchar(y)]
+    if(length(y))
+        y <- paste(y, collapse = " and ")
+    class(y) <- "Bibtex"
+    y
 }
 
-.canonicalize_ORCID_identifier <-
-function(x)
-{
-    paste0("https://orcid.org/",
-           sub(tools:::.ORCID_iD_variants_regexp, "\\3", x))
-}
-
-.expand_ORCID_identifier <-
-function(x)
+.expand_person_comment_identifiers <-
+function(x, style = "text")
 {
     if(any(ind <- ((names(x) == "ORCID") &
-                   grepl(tools:::.ORCID_iD_variants_regexp, x))))
-        x[ind] <- paste0("<",
-                         .canonicalize_ORCID_identifier(x[ind]),
-                         ">")
+                   grepl(tools:::.ORCID_iD_variants_regexp, x)))) {
+        oid <- tools:::.ORCID_iD_canonicalize(x[ind])
+        x[ind] <- if(style == "md")
+                      sprintf("[ORCID %s](https://orcid.org/%s)",
+                              oid, oid)
+                  else
+                      sprintf("<https://orcid.org/%s>", oid)
+    }
+    if(any(ind <- ((names(x) == "ROR") &
+                   grepl(tools:::.ROR_ID_variants_regexp, x)))) {
+        rid <- tools:::.ROR_ID_canonicalize(x[ind])
+        x[ind] <- if(style == "md")
+                      sprintf("[ROR %s](https://ror.org/%s)",
+                              rid, rid)
+                  else
+                      sprintf("<https://ror.org/%s>", rid)
+    }
     x
 }
+
+rep.person <-
+function(x, ...)
+{
+    y <- NextMethod("rep")
+    class(y) <- class(x)
+    y
+}
+
+unique.person <-
+function(x, ...)
+{
+    y <- NextMethod("unique")
+    class(y) <- class(x)
+    y
+}
+
+as.data.frame.person <- as.data.frame.vector
 
 ######################################################################
 
@@ -529,7 +678,7 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
 
     args <- c(list(...), other)
     if(!length(args))
-        return(.bibentry())
+        return(.bibentry(list(), mheader, mfooter))
     if(any(vapply(names(args), .is_not_nonempty_text, NA)))
         stop("all fields have to be named")
 
@@ -546,7 +695,7 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
                          paste(names(args)[!args_length_ok],
                                collapse = ", ")),
                 domain = NA)
-    args <- lapply(args, function(x) rep_len(x, max_length))
+    args <- lapply(args, rep_len, max_length)
 
     other_length <- lengths(other)
     if(!all(other_length_ok <- other_length %in% c(1L, max_length)))
@@ -554,7 +703,7 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
                          paste(names(other)[!other_length_ok],
                                collapse = ", ")),
                 domain = NA)
-    other <- lapply(other, function(x) rep_len(x, max_length))
+    other <- lapply(other, rep_len, max_length)
 
     bibentry1 <-
     function(bibtype, textVersion, header = NULL, footer = NULL, key = NULL, ..., other = list())
@@ -583,10 +732,23 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
         ## canonicalize
         pos <- fields %in% c("author", "editor")
 	if(any(pos)) {
-            for(i in which(pos)) rval[[i]] <- as.person(rval[[i]])
+            for(i in which(pos))
+                rval[[i]] <- as.person(rval[[i]])
 	}
 	if(any(!pos)) {
-            for(i in which(!pos)) rval[[i]] <- as.character(rval[[i]])
+            for(i in which(!pos)) {
+                s <- trimws(as.character(rval[[i]]))
+                ## <NOTE>
+                ## Further above we did
+                ##   rval <- rval[!vapply(rval, .is_not_nonempty_text, NA)]
+                ## which filters out args with *any* NA.
+                ## We could perhaps change this to test with not all NA
+                ## instead, in which case the NA test below would come
+                ## into action.
+                rval[[i]] <- paste(s[!is.na(s) & nzchar(s)],
+                                   collapse = " ")
+                ## </NOTE>
+            }
 	}
 
         ## set attributes
@@ -608,19 +770,18 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
                            c(lapply(args, `[[`, i),
                              list(other = lapply(other, `[[`, i)))))
 
-    ## add main header/footer for overall bibentry vector
-    if(!.is_not_nonempty_text(mheader))
-        attr(rval, "mheader") <- paste(mheader, collapse = "\n")
-    if(!.is_not_nonempty_text(mfooter))
-        attr(rval, "mfooter") <- paste(mfooter, collapse = "\n")
-
-    .bibentry(rval)
+    .bibentry(rval, mheader, mfooter)
 }
 
 .bibentry <-
-function(x = list())
+function(x = list(), mheader = NULL, mfooter = NULL)
 {
     class(x) <- "bibentry"
+    ## add main header/footer for overall bibentry vector
+    if(!.is_not_nonempty_text(mheader))
+        attr(x, "mheader") <- paste(mheader, collapse = "\n")
+    if(!.is_not_nonempty_text(mfooter))
+        attr(x, "mfooter") <- paste(mfooter, collapse = "\n")
     x
 }
 
@@ -655,39 +816,152 @@ function(x)
 {
     if(!length(x)) return(character())
     keys <- lapply(unclass(x), attr, "key")
-    keys[!vapply(keys, length, 0L)] <- ""
-    unlist(keys)
+    keys[!lengths(keys)] <- ""
+    unlist(keys, use.names = FALSE)
 }
 
-`[[.bibentry` <-
-`[.bibentry` <-
-function(x, i, drop = TRUE)
+.bibentry_names_or_keys <-
+function(x)
 {
-    if(!length(x)) return(x)
-
-    cl <- class(x)
-    class(x) <- NULL
-    ## For character subscripting, use keys if there are no names.
-    ## Note that creating bibentries does not add the keys as names:
-    ## assuming that both can independently be set, we would need to
-    ## track whether names were auto-generated or not.
-    ## (We could consider providing a names() getter which returns given
-    ## names or keys as used for character subscripting, though).
-    if(is.character(i) && is.null(names(x)))
-        names(x) <- .bibentry_get_key(x)
-    y <- x[i]
-    if(!all(ok <- lengths(y) > 0L)) {
-        warning("subscript out of bounds")
-        y <- y[ok]
-    }
-    if(!drop)
-        attributes(y) <- attributes(x)[bibentry_list_attribute_names]
-    class(y) <- cl
+    if(is.null(y <- names(x)))
+        y <- .bibentry_get_key(x)
     y
 }
 
+`[.bibentry` <-
+function(x, i, j, drop = TRUE)    
+{
+    s <- .bibentry_seq_along(x, i)
+    i <- s[i]
+    y <- unclass(x)[i]
+    if(!all(ok <- lengths(y) > 0L)) {
+        warning(gettext("subscript out of bounds"),
+                domain = NA)
+        y <- y[ok]
+    }
+    if(missing(j)) {
+        if(!drop)
+            attributes(y) <-
+                attributes(x)[bibentry_list_attribute_names]
+        class(y) <- class(x)
+    } else {
+        stopifnot(is.character(j),
+                  length(j) == 1L)
+        y <- if(j %in% bibentry_attribute_names)
+                 lapply(y, attr, j)
+             else
+                 lapply(y, `[[`, tolower(j))
+    }
+    y
+}
+
+`[[.bibentry` <-
+function(x, i, j)    
+{
+    s <- .bibentry_seq_along(x, i)
+    i <- s[[i]]
+    y <- unclass(x)[[i]]
+    if(missing(j)) {
+        y <- list(y)
+        class(y) <- class(x)
+    } else {
+        stopifnot(is.character(j),
+                  length(j) == 1L)
+        y <- if(j %in% bibentry_attribute_names)
+                 attr(y, j)
+             else
+                 y[[tolower(j)]]
+    }
+    y
+}
+
+`[<-.bibentry` <-
+function(x, i, j, value)
+{
+    y <- unclass(x)
+    if(missing(j)) {
+        y[i] <- if(is.null(value)) NULL else as.bibentry(value)
+    } else {
+        stopifnot(is.character(j),
+                  length(j) == 1L)
+        s <- .bibentry_seq_along(x, i)
+        p <- s[i]
+        ## See $<-.bibentry ...
+        value <- rep_len(.listify(value), length(x))
+        if(j == "bibtype")
+            value <- .bibentry_canonicalize_bibtype_value(value)
+        a <- (j %in% bibentry_attribute_names)
+        for(i in p) {
+            y[[i]] <- .bibentry_elt_fld_gets(y[[i]], j, value[[i]], a)
+        }
+    }
+    class(y) <- class(x)
+    y
+}
+    
+`[[<-.bibentry` <-
+function(x, i, j, value)
+{
+    s <- .bibentry_seq_along(x, i)
+    i <- s[[i]]
+    y <- unclass(x)    
+    if(missing(j)) {
+        y[i] <- if(is.null(value)) NULL else as.bibentry(value)
+    } else {
+        stopifnot(is.character(j),
+                  length(j) == 1L)
+        if(j == "bibtype")
+            value <-
+                .bibentry_canonicalize_bibtype_value(list(value))[[1L]]
+        a <- (j %in% bibentry_attribute_names)
+        y[[i]] <- .bibentry_elt_fld_gets(y[[i]], j, value, a)
+    }
+    class(y) <- class(x)
+    y
+}       
+
+.bibentry_seq_along <-
+function(x, i = NULL)
+{
+    ## When subscripting bibentries with character subscript i, we use
+    ## keys if there are no names. 
+    ## Note that creating bibentries does not add the keys as names: 
+    ## assuming that both can independently be set, we would need to
+    ## track whether names were auto-generated or not.
+    ## We could consider providing a names() getter which returns
+    ## given names or keys as used for character subscripting, though:
+    ## as of 2024-08 we have .bibentry_names_or_keys() for this.
+    s <- seq_along(x)
+    if(!missing(i) && is.character(i)) {
+        names(s) <- .bibentry_names_or_keys(x)
+    }
+    s
+}
+
+.bibentry_elt_fld_gets <- function(x, j, v, a) {
+    if(a) {
+        attr(x, j) <-
+            if(is.null(v))
+                NULL
+            else
+                paste(v)
+    } else {
+        j <- tolower(j)
+        x[[j]] <-
+            if(is.null(v))
+                NULL
+            else if(j %in% c("author", "editor"))
+                as.person(v)
+            else
+                paste(v)
+    }
+    .bibentry_check_bibentry1(x)
+    x
+}
+
 bibentry_format_styles <-
-    c("text", "Bibtex", "citation", "html", "latex", "textVersion", "R")
+    c("text", "Bibtex", "citation", "html", "latex", "textVersion", "R",
+      "md")
 
 .bibentry_match_format_style <-
 function(style)
@@ -705,22 +979,19 @@ function(style)
 
 format.bibentry <-
 function(x, style = "text", .bibstyle = NULL,
-         citation.bibtex.max = getOption("citation.bibtex.max", 1),
-         bibtex = length(x) <= citation.bibtex.max,
+         bibtex = length(x) <= 1, # *NOT* using option("citation.bibtex.max") here
+         citMsg = missing(bibtex),
          sort = FALSE,
          macros = NULL,
          ...)
 {
-    if(!length(x)) return(character())
-
     style <- .bibentry_match_format_style(style)
+
+    if(!length(x))
+        return(if(style == "R") "bibentry()" else character())
 
     if(sort) x <- sort(x, .bibstyle = .bibstyle)
     x$.index <- as.list(seq_along(x))
-    if(!missing(citation.bibtex.max))
-	warning(gettextf("Argument '%s' is deprecated; rather set '%s' instead.",
-			 "citation.bibtex.max", "bibtex=*"),
-                domain = NA)
 
     format_via_Rd <- function(f) {
         out <- file()
@@ -729,13 +1000,22 @@ function(x, style = "text", .bibstyle = NULL,
         permissive <-
             Sys.getenv("_R_UTILS_FORMAT_BIBENTRY_VIA_RD_PERMISSIVE_",
                        "TRUE")
-        permissive <- tools:::config_val_to_logical(permissive)
-        macros <- if(is.null(macros))
-		      tools:::initialRdMacros()
-                  else if(is.character(macros))
-		      tools::loadRdMacros(macros,
+        permissive <- str2logical(permissive)
+        if(is.null(macros))
+            macros <- tools:::initialRdMacros()
+        else if(is.character(macros))
+            macros <- tools::loadRdMacros(macros,
                                           tools:::initialRdMacros())
-        sapply(.bibentry_expand_crossrefs(x),
+        if(style == "md") {
+            tmp <- tempfile()
+            on.exit(unlink(tmp), add = TRUE)
+            txt <- c("\\renewcommand{\\bold}{\\out{**#1**}}",
+                     "\\renewcommand{\\href}{\\out{[#2](#1)}}",
+                     "\\renewcommand{\\doi}{\\out{[doi:#1](https://doi.org/#1)}}")
+            writeLines(txt, tmp)
+            macros <- tools::loadRdMacros(tmp, macros)
+        }
+        vapply(.bibentry_expand_crossrefs(x),
                function(y) {
                    txt <- tools::toRd(y, style = .bibstyle)
                    ## <FIXME>
@@ -752,12 +1032,15 @@ function(x, style = "text", .bibstyle = NULL,
                    rd <- tools:::processRdSexprs(rd,
                                                  "install",
                                                  macros = attr(rd, "macros"))
-                   f(rd, fragment = TRUE, out = out, ...)
-                   paste(readLines(out), collapse = "\n")
-               })
+                   f(rd, fragment = TRUE, out = out,
+                     outputEncoding = "UTF-8", ...)
+                   paste(readLines(out, encoding = "UTF-8"),
+                         collapse = "\n")
+               },
+               "")
     }
 
-    format_as_citation <- function(x, msg) {
+    format_as_citation <- function(x, msg) { # also (.., bibtex)
         m <- attr(x, "mheader")
         if(is.null(m) &&
            is.null(unlist(x$header)) &&
@@ -765,9 +1048,7 @@ function(x, style = "text", .bibstyle = NULL,
             m <- gettextf("To cite package %s in publications use:",
                           sQuote(p))
         i <- !is.null(m)
-        c(character(),
-          if(i)
-              paste(strwrap(m), collapse = "\n"),
+        c(paste(strwrap(m), collapse = "\n"),
           unlist(lapply(x, function(y) {
               h <- y$header
               j <- !is.null(h)
@@ -788,17 +1069,23 @@ function(x, style = "text", .bibstyle = NULL,
           })),
 	  paste(strwrap(c(attr(x, "mfooter"),
 			  if(!bibtex && msg)
-  "To see these entries in BibTeX format, use 'print(<citation>, bibtex=TRUE)',
-  'toBibtex(.)', or set 'options(citation.bibtex.max=999)'."
-		)), collapse = "\n")
-          )
+                          {
+			      prt <- sys.nframe() > 4L && sys.call(-4L)[[1L]] == quote(print.bibentry)
+			      c(if(!is.null(attr(x, "mfooter"))) "",
+                                paste0(
+		"To see these entries in BibTeX format, use '", if(prt) "print" else "format",
+		"(<citation>, bibtex=TRUE)', ",
+		if(prt)"'toBibtex(.)', or set 'options(citation.bibtex.max=999)'." else "or 'toBibtex(.)'."))
+                          }
+                )), collapse = "\n")
+         )
     }
 
     out <-
         switch(style,
                "text" = format_via_Rd(tools::Rd2txt),
                "html" = format_via_Rd(tools::Rd2HTML),
-               "latex" = format_via_Rd(tools::Rd2latex),
+               "latex"= format_via_Rd(tools::Rd2latex),
                "Bibtex" = {
                    unlist(lapply(x,
                                  function(y)
@@ -809,10 +1096,9 @@ function(x, style = "text", .bibstyle = NULL,
                    out[!lengths(out)] <- ""
                    unlist(out)
                },
-               "citation" = format_as_citation(.bibentry(x),
-                                               msg = missing(bibtex) &&
-                                                   missing(citation.bibtex.max)),
-               "R" = .format_bibentry_as_R_code(x, ...)
+               "citation" = format_as_citation(.bibentry(x), msg = citMsg),
+               "R" = .format_bibentry_as_R_code(x, ...),
+               "md" = format_via_Rd(tools::Rd2txt)
                )
     as.character(out)
 }
@@ -829,7 +1115,7 @@ function(x, more = list())
     y <- unclass(y)
 
     crossrefs <- lapply(x, `[[`, "crossref")
-    pc <- which(vapply(crossrefs, length, 0L) > 0L)
+    pc <- which(lengths(crossrefs) > 0L)
 
     if(length(pc)) {
         pk <- match(unlist(crossrefs[pc]), .bibentry_get_key(y))
@@ -871,31 +1157,42 @@ function(x, more = list())
 }
 
 print.bibentry <-
-function(x, style = "text", .bibstyle = NULL, ...)
+function(x, style = "text", .bibstyle = NULL,
+         bibtex = length(x) <= getOption("citation.bibtex.max", 1L), # using option() here
+         ...)
 {
     style <- .bibentry_match_format_style(style)
 
-    if(style == "R") {
-	writeLines(format(x, "R", collapse = TRUE, ...))
-    } else if(length(x)) {
-	y <- format(x, style, .bibstyle, ...)
+    n <- length(x)
+    if(!n) {
+        cat(switch((cl <- class(x)[[1L]]),
+                   "bibentry" = "bibentry()",
+                   sprintf("<0-length %s>", cl)), sep="", "\n")
+    } else if(style == "R") {
+	writeLines(format(x, "R", bibtex=bibtex, collapse = TRUE, ...))
+    } else {
+	y <- format(x, style, .bibstyle, bibtex=bibtex, citMsg = missing(bibtex), ...)
         if(style == "citation") {
             ## Printing in citation style does extra headers/footers
             ## (which however may be empty), so it is handled
             ## differently.
-            n <- length(y)
-            if(nzchar(header <- y[1L]))
-                header <- c("", header, "")
-            if(nzchar(footer <- y[n]))
-                footer <- c("", footer, "")
-            writeLines(c(header,
-                         paste(y[-c(1L, n)], collapse = "\n\n"),
-                         footer))
+            ## Old-style with extra empty lines before/after outer
+            ## footer/header:
+            ##   n <- length(y)
+            ##   if(nzchar(header <- y[1L]))
+            ##       header <- c("", header, "")
+            ##   if(nzchar(footer <- y[n]))
+            ##       footer <- c("", footer, "")
+            ##   writeLines(c(header,
+            ##                paste(y[-c(1L, n)], collapse = "\n\n"),
+            ##                footer))
+            ## New-style without:
+            writeLines(paste(y[nzchar(y)], collapse = "\n\n"))
+            ## Which could be used for all print styles ...?
         } else {
             writeLines(paste(y, collapse = "\n\n"))
         }
     }
-
     invisible(x)
 }
 
@@ -958,20 +1255,16 @@ function(x, collapse = FALSE)
                     ind <- !is.na(match(names(e),
                                        c(anames, manames, "other")))
                     if(any(ind)) {
-                        other <- paste(names(e[ind]),
-                                       sapply(e[ind], f),
-                                       sep = " = ")
-
                         other <- Map(g,
                                      names(e[ind]),
-                                     sapply(e[ind], f))
+                                     lapply(e[ind], f))
                         other <- .format_call_RR("list", other)
                         e <- e[!ind]
                     } else {
                         other <- NULL
                     }
-                    c(Map(g, names(a), sapply(a, deparse)),
-                      Map(g, names(e), sapply(e, f)),
+                    c(Map(g, names(a), lapply(a, deparse)),
+                      Map(g, names(e), lapply(e, f)),
                       if(length(other)) list(g("other", other)))
 
                 })
@@ -997,8 +1290,9 @@ function(x)
     s <- lapply(unclass(x),
                 function(e) {
                     e <- e[!vapply(e, is.null, NA)]
-                    cargs <-
-                        sprintf("%s = %s", names(e), sapply(e, deparse))
+                    cargs <- sprintf("%s = %s",
+                                     names(e),
+                                     vapply(e, deparse1, ""))
                     .format_call_RR("person", cargs)
                 })
     if(length(s) > 1L)
@@ -1011,65 +1305,52 @@ function(x)
 function(x, name)
 {
     if(!length(x)) return(NULL)
-
     ## <COMMENT Z>
-    ## Extract internal list elements, return list if length > 1, vector
-    ## otherwise (to mirror the behaviour of the input format for
-    ## bibentry())
+    ## Return list if length > 1, vector otherwise (to mirror the
+    ## behavior of the input format for bibentry()).
     ## </COMMENT>
-    is_attribute <- name %in% bibentry_attribute_names
-    rval <- if(is_attribute) lapply(unclass(x), attr, name)
-        else lapply(unclass(x), `[[`, tolower(name))
-    if(length(rval) == 1L) rval <- rval[[1L]]
-    rval
+    y <- if(name %in% bibentry_attribute_names)
+             lapply(unclass(x), attr, name)
+         else
+             lapply(unclass(x), `[[`, tolower(name))
+    if(length(y) == 1L) y <- y[[1L]]
+    y
 }
 
 `$<-.bibentry` <-
 function(x, name, value)
 {
-    is_attribute <- name %in% bibentry_attribute_names
-
-    x <- unclass(x)
-    if(!is_attribute) name <- tolower(name)
-
+    y <- unclass(x)
     ## recycle value
     value <- rep_len(.listify(value), length(x))
-
     ## check bibtype
-    if(name == "bibtype") {
-        stopifnot(all(lengths(value) == 1L))
-        BibTeX_names <- names(tools:::BibTeX_entry_field_db)
-        value <- unlist(value)
-        pos <- match(tolower(value), tolower(BibTeX_names))
-        if(anyNA(pos))
-            stop(gettextf("%s has to be one of %s",
-                          sQuote("bibtype"),
-                          paste(BibTeX_names, collapse = ", ")),
-                 domain = NA)
-        value <- as.list(BibTeX_names[pos])
+    if(name == "bibtype")
+        value <- .bibentry_canonicalize_bibtype_value(value)
+    ## replace all values and check whether all elements still have
+    ## their required fields:
+    a <- (name %in% bibentry_attribute_names)
+    for(i in seq_along(y)) {
+        y[[i]] <- .bibentry_elt_fld_gets(y[[i]], name, value[[i]], a)
     }
-
-    ## replace all values
-    for(i in seq_along(x)) {
-        if(is_attribute) {
-	    attr(x[[i]], name) <-
-                if(is.null(value[[i]])) NULL else paste(value[[i]])
-	} else {
-	    x[[i]][[name]] <-
-                if(is.null(value[[i]])) NULL else {
-                    if(name %in% c("author", "editor"))
-                        as.person(value[[i]])
-                    else paste(value[[i]])
-                }
-        }
-    }
-
-    ## check whether all elements still have their required fields
-    for(i in seq_along(x)) .bibentry_check_bibentry1(x[[i]])
-
-    .bibentry(x)
+    class(y) <- class(x)
+    y
 }
 
+.bibentry_canonicalize_bibtype_value <-
+function(value)    
+{
+    stopifnot(all(lengths(value) == 1L))
+    BibTeX_names <- names(tools:::BibTeX_entry_field_db)
+    value <- unlist(value)
+    pos <- match(tolower(value), tolower(BibTeX_names))
+    if(anyNA(pos))
+        stop(gettextf("%s has to be one of %s",
+                      sQuote("bibtype"),
+                      paste(BibTeX_names, collapse = ", ")),
+             domain = NA)
+    as.list(BibTeX_names[pos])
+}
+    
 `$<-.citation` <-
 function(x, name, value)
     .citation(NextMethod("$<-"), attr(x, "package"))
@@ -1077,20 +1358,35 @@ function(x, name, value)
 c.bibentry <-
 function(..., recursive = FALSE)
 {
+    ## only bibentry objects can be combined
     args <- list(...)
     if(!all(vapply(args, inherits, NA, "bibentry")))
         warning(gettextf("method is only applicable to %s objects",
                          sQuote("bibentry")),
                 domain = NA)
+
+    ## combine raw lists
     args <- lapply(args, unclass)
     rval <- do.call(c, args)
+
+    ## preserve mheader/mfooter if any
+    mheader <- unlist(lapply(args, attr, "mheader"))
+    if(length(mheader) >= 1L) {
+        attr(rval, "mheader") <- paste(mheader, collapse = "\n")
+    }
+    mfooter <- unlist(lapply(args, attr, "mfooter"))
+    if(length(mfooter) >= 1L) {
+        attr(rval, "mfooter") <- paste(mfooter, collapse = "\n")
+    }
+
+    ## return as bibentry object
     .bibentry(rval)
 }
 
 toBibtex.bibentry <-
-function(object, ...)
+function(object, escape = FALSE, ...)
 {
-    format_author <- function(author) paste(sapply(author, function(p) {
+    format_author <- function(author) paste(vapply(author, function(p) {
 	fnms <- p$family
 	only_given_or_family <-
             (is.null(fnms) || is.null(p$given)) &&
@@ -1101,7 +1397,7 @@ function(object, ...)
 	gbrc <- if(only_given_or_family) c("{", "}") else ""
         format(p, include = c("given", "family"),
                braces = list(given = gbrc, family = fbrc))
-    }), collapse = " and ")
+    }, ""), collapse = " and ")
 
     format_bibentry1 <- function(object) {
 	object <- unclass(object)[[1L]]
@@ -1112,19 +1408,27 @@ function(object, ...)
             object$editor <- format_author(object$editor)
 
         rval <- c(rval,
-                  sapply(names(object), function (n)
-                         paste0("  ", n, " = {", object[[n]], "},")),
+                  vapply(names(object),
+                         function (n)
+                             paste0("  ", n, " = {", object[[n]], "},"),
+                         ""),
                   "}", "")
+        if(isTRUE(escape)) {
+            rval <- enc2utf8(rval)
+            ind <- (Encoding(rval) == "UTF-8")
+            rval[ind] <-
+                tools::encoded_text_to_latex(rval[ind], "UTF-8")
+        }
         return(rval)
     }
 
     if(length(object)) {
         object$.index <- NULL
-        rval <- head(unlist(lapply(object, format_bibentry1)), -1L)
+        y <- head(unlist(lapply(object, format_bibentry1)), -1L)
     } else
-        rval <- character()
-    class(rval) <- "Bibtex"
-    rval
+        y <- character()
+    class(y) <- "Bibtex"
+    y
 }
 
 sort.bibentry <-
@@ -1151,6 +1455,31 @@ function(x, ...)
     y
 }
 
+as.data.frame.bibentry <- as.data.frame.vector
+
+transform.bibentry <-
+function(`_data`, ...)
+{
+    tags <- unique(unlist(lapply(unclass(`_data`), names)))
+    vals <- lapply(tags, function(e) eval(call("$", `_data`, e)))
+    ## Or use eval(substitute(`$`(`_data`, e), list(e = e))) ...
+    names(vals) <- tags
+
+    e <- eval(substitute(list(...)), vals, parent.frame())
+
+    for(i in setdiff(names(e), c("mheader", "mfooter"))) {
+        `_data` <- eval(call("$<-", `_data`, i, e[[i]]))
+    }
+    ## Or use eval(substitute(`$<-`(`_data`, i, e[[i]]), list(i = i))) ...
+
+    if("mheader" %in% names(e))
+        attr(`_data`, "mheader") <- e[["mheader"]]
+    if("mfooter" %in% names(e))
+        attr(`_data`, "mfooter") <- e[["mfooter"]]
+
+    return(`_data`)
+}
+
 ######################################################################
 
 citEntry <-
@@ -1161,17 +1490,13 @@ function(entry, textVersion = NULL, header = NULL, footer = NULL, ...)
 citHeader <-
 function(...)
 {
-    rval <- paste(...)
-    class(rval) <- "citationHeader"
-    rval
+    .bibentry(mheader = paste(...))
 }
 
 citFooter <-
 function(...)
 {
-    rval <- paste(...)
-    class(rval) <- "citationFooter"
-    rval
+    .bibentry(mfooter = paste(...))
 }
 
 readCitationFile <-
@@ -1191,10 +1516,6 @@ function(file, meta = NULL)
         x <- eval(expr, envir = envir)
         if(inherits(x, "bibentry"))
             rval <- c(rval, list(x))
-        else if(identical(class(x), "citationHeader"))
-            mheader <- c(mheader, x)
-        else if(identical(class(x), "citationFooter"))
-            mfooter <- c(mfooter, x)
     }
 
     rlen <- length(rval)
@@ -1202,10 +1523,6 @@ function(file, meta = NULL)
         rval <- rval[[1L]]
     else if(rlen > 1L)
         rval <- do.call(c, rval)
-    if(!.is_not_nonempty_text(mheader))
-        attr(rval, "mheader") <- paste(mheader, collapse = "\n")
-    if(!.is_not_nonempty_text(mfooter))
-        attr(rval, "mfooter") <- paste(mfooter, collapse = "\n")
 
     .citation(rval, meta$Package)
 }
@@ -1241,7 +1558,13 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             citfile <- file.path(dir, "inst", "CITATION")
             test <- file_test("-f", citfile)
         }
-        if(is.null(auto)) auto <- !test
+        if(is.null(auto) || is.na(auto))
+            auto <- !test
+        else if(!auto && !test)
+            stop(gettextf("package %s has no %s file: only auto-generation is possible",
+                          sQuote(package),
+                          sQuote("CITATION")),
+                 domain = NA)
         ## if CITATION is available
         if(!auto) {
             return(readCitationFile(citfile, meta))
@@ -1259,17 +1582,11 @@ function(package = "base", lib.loc = NULL, auto = NULL)
         return(.citation(cit, package))
     }
 
-    year <- sub("-.*", "", meta$`Date/Publication`)
-    if(!length(year)) {
-        if(is.null(meta$Date)) {
-            warning(gettextf("no date field in DESCRIPTION file of package %s",
-                             sQuote(package)),
-                    domain = NA)
-        } else {
-            date <- trimws(as.vector(meta$Date))[1L]
-            date <- strptime(date, "%Y-%m-%d", tz = "GMT")
-            if(!is.na(date)) year <- format(date, "%Y")
-        }
+    year <- sub("-.*", "", meta[["Date/Publication"]])
+    if(!length(year) && !is.null(date <- meta[["Date"]])) {
+        date <- trimws(as.vector(date))[1L]
+        date <- strptime(date, "%Y-%m-%d", tz = "GMT")
+        if(!is.na(date)) year <- format(date, "%Y")
     }
     ## If neither Date/Publication nor Date work, try Packaged (build
     ## time stamp): if this fails too, use NA (PR #16550).
@@ -1313,7 +1630,7 @@ function(package = "base", lib.loc = NULL, auto = NULL)
         has_authors_at_R_field <- TRUE
     } else {
         has_authors_at_R_field <- FALSE
-        author <- as.personList(meta$Author)
+        author <- as.person(meta$Author)
     }
     ## </NOTE>
 
@@ -1323,9 +1640,12 @@ function(package = "base", lib.loc = NULL, auto = NULL)
               note = paste("R package version", meta$Version)
               )
 
-    if(identical(meta$Repository, "CRAN"))
+    ## CRAN-style repositories: CRAN, R-Forge, Bioconductor
+    if(identical(meta$Repository, "CRAN")) {
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
+        z$doi <- sprintf("10.32614/CRAN.package.%s", package)
+    }
 
     if(identical(meta$Repository, "R-Forge")) {
         z$url <- if(!is.null(rfp <- meta$"Repository/R-Forge/Project"))
@@ -1336,13 +1656,61 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             z$note <- paste(z$note, rfr, sep = "/r")
     }
 
+    if((is.null(meta$Repository) || # older BioC releases
+        startsWith(meta$Repository, "Bioconductor")) && # "Bioconductor 3.19"
+       !is.null(meta$git_url) &&
+       startsWith(meta$git_url,
+                  "https://git.bioconductor.org/packages")) {
+        z$url <-
+            sprintf("https://bioconductor.org/packages/%s", package)
+        z$doi <-
+            sprintf("10.18129/B9.bioc.%s", package)
+    }
+    
+    ## Git repositories: GitHub, GitLab, ...
+    if(identical(meta$RemoteType, "github") && identical(meta$RemoteHost, "api.github.com")) {
+        if(!is.null(meta$RemoteUsername) && !is.null(meta$RemoteRepo)) {
+            z$url <- sprintf("https://github.com/%s/%s", meta$RemoteUsername, meta$RemoteRepo)
+        }
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
+    }
+
+    if(identical(meta$RemoteType, "gitlab")) {
+        if(!is.null(meta$RemoteHost) && !is.null(meta$RemoteUsername) && !is.null(meta$RemoteRepo)) {
+            z$url <- sprintf("https://%s/%s/%s", meta$RemoteHost, meta$RemoteUsername, meta$RemoteRepo)
+        }
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
+    }
+
+    if(identical(meta$RemoteType, "git") || identical(meta$RemoteType, "xgit")) {
+        z$url <- meta$RemoteUrl
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
+    }
+
     if(!length(z$url) && !is.null(url <- meta$URL)) {
+        ## WRE: "a list of URLs separated by commas or whitespace".
         ## Cannot have several URLs in BibTeX and bibentry object URL
         ## fields (PR #16240).
-        if(grepl("[, ]", url))
-            z$note <- url
-        else
-            z$url <- url
+        ## In c84505 we followed the suggestion of PR#18547: in case
+        ## of using a URL field with multiple URLs, show the first URL
+        ## as the BibTeX url, and add the others to the note.  However,
+        ## * typically the noted (secondary) URLs get shown ahead of the
+        ##   primary (first) URL;
+        ## * showing several URLs generally is "too much" for the
+        ##   bibliographic information;
+        ## * one can typically use the primary URL to point to the
+        ##   secondary ones,
+        ## Hence, we no longer add to the note, and only put the primary
+        ## URL in the url.
+        urls <- tools:::.get_urls_from_DESCRIPTION_URL_field(meta$URL)
+        if(length(urls))
+            z$url <- urls[1L]
     }
 
     header <- if(!auto_was_meta) {
@@ -1412,9 +1780,17 @@ function(x)
 }
 
 format.citation <-
-function(x, style = "citation", ...) format.bibentry(x, style = style, ...)
+function(x, style = "citation", ...)
+    format.bibentry(x, style = style, ...)
 print.citation <-
-function(x, style = "citation", ...) print.bibentry(x, style = style, ...)
+function(x, style = "citation", ...)
+    print.bibentry(x, style = style, ...)
+
+as.data.frame.citation <-
+function(x, row.names = NULL, optional = FALSE, ...) {
+    x <- as.bibentry(x)
+    NextMethod()
+}
 
 as.bibentry <-
 function(x)
@@ -1450,7 +1826,7 @@ function(x)
         x <- .read_authors_at_R_field(x)
     header <- attr(x, "header")
     footer <- attr(x, "footer")
-    x <- sapply(x, .format_person_for_plain_author_spec)
+    x <- vapply(x, .format_person_for_plain_author_spec, "")
     ## Drop persons with irrelevant roles.
     x <- x[nzchar(x)]
     ## And format.
@@ -1496,12 +1872,46 @@ function(x)
     address <- format(x, include = c("email"),
                       collapse = list(email = FALSE))
     ## Need to quote display names at least when they contain commas
-    ## (RFC 5322 <https://tools.ietf.org/html/rfc5322>).
+    ## (RFC 5322 <https://www.rfc-editor.org/rfc/rfc5322>).
     if(any(ind <- grepl(",", display))) {
         display[ind] <- sprintf("\"%s\"",
                                 gsub("\"", "\\\"", display[ind], fixed=TRUE))
     }
     paste(display, address)
+}
+
+.authors_at_R_field_from_author_and_maintainer <-
+function(a, m)
+{
+    p <- as.person(a)
+    r <- p[, "role"]
+    e <- p[, "email"]
+    ## If there are no aut roles yet, give everyone an aut role.
+    i <- (lengths(lapply(r, intersect, "aut")) > 0L)
+    if(!any(i))
+        p[, "role"] <- r <- lapply(r, union, "aut")
+    ## Do we already have a cre role with email?
+    i <- (lengths(lapply(r, intersect, "cre")) > 0L)
+    j <- (lengths(e) > 0L)
+    if(any(i & j))
+        return(structure(p, case = 1))
+    ## No such luck.
+    ## Can we match the maintainer name?
+    s <- format(p, include = c("given", "family"))
+    k <- which(nzchar(s) & startsWith(tolower(m), tolower(s)))
+    ## If so, add cre role and email as necessary.
+    if(length(k)) {
+        k <- k[1L]
+        if(!i[k])
+            p[[k, "role"]] <- c(r[[k]], "cre")
+        if(!j[k])
+            p[[k, "email"]] <- tolower(sub(".*<(.*)>.*", "\\1", m))
+        return(structure(p, case = 2))
+    }
+    ## Otherwise need to add the maintainer.
+    m <- as.person(m)
+    m$role <- "cre"
+    structure(c(p, m), case = 3)
 }
 
 ## Cite using the default style (which is usually citeNatbib)
@@ -1537,7 +1947,7 @@ local({
 	}
 
 	authorList <- function(paper)
-	    sapply(paper$author, shortName)
+	    vapply(paper$author, shortName, "")
 
 	if (!missing(previous))
 	    cited <<- previous
@@ -1599,26 +2009,52 @@ local({
                 year <- year[-suppressauth]
             }
         }
-        if (!is.null(before))
-            before <- paste0(before, " ")
-        if (!is.null(after))
-            after <- paste0(" ", after)
+
+        n <- length(year)
+        before <- if(!any(ind <- nzchar(before)))
+                      rep_len("", n)
+                  else {
+                      before[ind] <- paste0(before[ind], " ")
+                      if(length(before) == 1L)
+                          c(before, rep_len("", n - 1L))
+                      else
+                          rep_len(before, n)
+                  }
+        after <- if(!any(ind <- nzchar(after)))
+                     rep_len("", n)
+                 else {
+                     after[ind] <- paste0(", ", after[ind])
+                     if(length(after) == 1L)
+                         c(rep_len("", n - 1L), after)
+                     else
+                         rep_len(after, n)
+                 }
+        citesep <- paste0(bibpunct[3L], " ")
         if (textual) {
-            result <- paste0(bibpunct[1L], before, year, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             before, year, after,
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0(auth, "^{", result, "}")
             else
             	result <- paste0(auth, " ", result)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
+            result <- paste(result, collapse = citesep)
         } else if (numeric) {
-            result <- paste(year, collapse=paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0("^{", result, "}")
         } else {
-            result <- paste0(auth, bibpunct[5L], " ", year)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    auth, bibpunct[5L], " ", year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
         }
         result
     }

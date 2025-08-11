@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997-2013   The R Core Team
+ *  Copyright (C) 1997-2025   The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,20 +18,11 @@
  *  https://www.R-project.org/Licenses/
  */
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include <Rinternals.h>
+#include "statsErr.h"
 
-#include <Defn.h>
 #define R_MSG_type	_("invalid 'type' (%s) of argument")
 
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
 
 /* Formerly in src/main/summary.c */
 
@@ -62,7 +53,7 @@ SEXP compcases(SEXP args)
 			goto bad;
 		}
 		else
-		    error(R_MSG_type, type2char(TYPEOF(CAR(t))));
+		    error(R_MSG_type, R_typeToChar(CAR(t)));
 	}
 	/* FIXME : Need to be careful with the use of isVector() */
 	/* since this includes lists and expressions. */
@@ -113,7 +104,7 @@ SEXP compcases(SEXP args)
 		goto bad;
 	}
 	else
-	    error(R_MSG_type, type2char(TYPEOF(CAR(s))));
+	    error(R_MSG_type, R_typeToChar(CAR(s)));
     }
 
     if (len < 0)
@@ -151,7 +142,7 @@ SEXP compcases(SEXP args)
 			break;
 		    default:
 			UNPROTECT(1);
-			error(R_MSG_type, type2char(TYPEOF(u)));
+			error(R_MSG_type, R_typeToChar(u));
 		    }
 		}
 	    }
@@ -183,7 +174,7 @@ SEXP compcases(SEXP args)
 			break;
 		    default:
 			UNPROTECT(1);
-			error(R_MSG_type, type2char(TYPEOF(u)));
+			error(R_MSG_type, R_typeToChar(u));
 		    }
 		}
 	    }
@@ -211,7 +202,7 @@ SEXP compcases(SEXP args)
 		    break;
 		default:
 		    UNPROTECT(1);
-		    error(R_MSG_type, type2char(TYPEOF(u)));
+		    error(R_MSG_type, R_typeToChar(u));
 		}
 	    }
 	}

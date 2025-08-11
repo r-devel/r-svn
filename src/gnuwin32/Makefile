@@ -47,7 +47,8 @@ rpackages-cross:
 cairodevices:
 ifneq "$(USE_CAIRO)" ""
 	@$(MK) -C ../library/grDevices/src/cairo -f Makefile.win all \
-	  WIN=$(WIN) CAIRO_LIBS=$(CAIRO_LIBS) CAIRO_CPPFLAGS=$(CAIRO_CPPFLAGS)
+	  CAIRO_LIBS=$(CAIRO_LIBS) CAIRO_CPPFLAGS=$(CAIRO_CPPFLAGS) \
+	  R_ARCH=$(R_ARCH)
 endif
 
 ifeq ($(wildcard MkRules?local),MkRules.local)
@@ -58,19 +59,21 @@ MkRules: MkRules.rules
 	@cat MkRules.rules > MkRules
 endif
 
-CFLAGS = -O3 -Wall -pedantic $(EOPTS) $(LTO)
+CFLAGS = -O3 -Wall -pedantic $(CSTD) $(EOPTS) $(SANOPTS) $(LTO)
 FFLAGS = -O3 $(EOPTS) $(LTO)
 
 ifdef DEBUG
  CFLAGS += $(G_FLAG)
- FFLAGS += $(G_FLAG)
+ ifndef USE_LLVM
+  FFLAGS += $(G_FLAG)
+ endif
 else
  DLLFLAGS += -s
 endif
 
 
 R-DLLFLAGS = -mwindows
-LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma
+LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma -lzstd
 ifdef USE_ICU
 LIBEXTRAS += -L"$(ICU_PATH)"/lib$(R_ARCH) $(ICU_LIBS)
 endif
@@ -81,16 +84,13 @@ CSOURCES = \
   opt.c pager.c preferences.c psignal.c rhome.c rt_complete.c \
   rui.c run.c shext.c sys-win32.c system.c dos_wglob.c
 OBJS = $(CSOURCES:.c=.o) dllversion.o
-ifeq "$(WIN)" "32"
- OBJS += e_pow.o
-endif
 MAINLIBS = ../main/libmain.a ../appl/libappl.a ../nmath/libnmath.a
 EXTRALIBS = getline/gl.a ../extra/xdr/libxdr.a \
    ../extra/intl/libintl.a ../extra/trio/libtrio.a ../extra/tzone/libtz.a \
    ../extra/tre/libtre.a
 
 R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
-  -lRiconv -lcomctl32 -lwinmm -lversion $(LIBEXTRAS)
+  -lRiconv -lcomctl32 -lole32 -luuid -lwinmm -lversion -ldeflate $(LIBEXTRAS)
 
 
 .PHONY:  clean veryclean rlibs fixfiles front-ends rmodules
@@ -98,12 +98,13 @@ R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
 
 CPPFLAGS = -I../include -I. -I../extra -DHAVE_CONFIG_H -DR_DLL_BUILD
 extra-CPPFLAGS = -I../library/grDevices/src
+system-CPPFLAGS = $(arch_DEFS)
 
 Rpwd.exe: front-ends/Rpwd.exe
 	$(CP) $< $@
 
 front-ends/Rpwd.exe:
-	$(MK) -C front-ends Rpwd
+	$(MK) -C front-ends CSTD='$(CSTD)' Rpwd
 
 ## watch out: R.dll and Rblas.dll depend on each other.
 rbuild:
@@ -158,7 +159,6 @@ fixed/fixdesc:
 dllversion.o: ../include/Rversion.h
 
 ## Rdll.hide has decoration which 64-bit builds lack
-ifeq "$(WIN)" "64"
 R.dll: $(OBJS) $(MAINLIBS) $(EXTRALIBS)
 	@$(ECHO) EXPORTS > R.def
 	@$(NM) $^ | $(SED) -n  $(SYMPAT) | LC_COLLATE=C $(SORT) | \
@@ -167,15 +167,6 @@ R.dll: $(OBJS) $(MAINLIBS) $(EXTRALIBS)
 	@LC_COLLATE=C comm -23 R0.def R1.def >> R.def
 	$(DLL) -shared $(DLLFLAGS) $($*-DLLFLAGS) -o $@ R.def $^ $($*-DLLLIBS) $(DLLLIBS)
 	@$(RM) R.def R0.def R1.def
-else
-R.dll: $(OBJS) $(MAINLIBS) $(EXTRALIBS)
-	@$(ECHO) EXPORTS > R.def
-	@$(NM) $^ | $(SED) -n  $(SYMPAT) | LC_COLLATE=C $(SORT) | uniq > R0.def
-	@LC_COLLATE=C $(SORT) Rdll.hide > R1.def
-	@LC_COLLATE=C comm -23 R0.def R1.def >> R.def
-	$(DLL) -shared $(DLLFLAGS) $($*-DLLFLAGS) -o $@ R.def $^ $($*-DLLLIBS) $(DLLLIBS)
-	@$(RM) R.def R0.def R1.def
-endif
 
 R.exp: $(OBJS) $(MAINLIBS) $(EXTRALIBS)
 	@$(ECHO) LIBRARY R.dll > R.exp
@@ -213,7 +204,7 @@ libRiconv.dll.a: unicode/iconv.def
 
 
 front-ends:
-	$(MK) -C front-ends
+	$(MK) -C front-ends CSTD='$(CSTD)'
 
 ../extra/tre/libtre.a:
 	$(MK) -C ../extra/tre -f Makefile.win
@@ -305,7 +296,8 @@ distclean: cleaninstaller distcleaninstaller clean0
 	$(RM) ../../etc/Makeconf ../../etc/Rconsole ../../etc/Rdevga \
 	../../etc/Rprofile.site ../../etc/rgb.txt ../../etc/Rcmd_environ \
 	../../tests/*.Rout ../../tests/*.Rout.fail
-	$(RM) -R ../../etc/i386 ../../etc/x64 # do both sub-archs
+	# do both sub-archs
+	$(RM) -R ../../etc$(R_ARCH)/Makeconf ../../etc/i386 ../../etc/x64
 	$(RM) -R ../../share/zoneinfo
 	$(MAKE) -C fixed distclean
 	$(MAKE) -C ../include -f Makefile.win distclean
@@ -329,7 +321,8 @@ cleanwin0: MkRules fixfiles
 	$(MAKE) -C fixed clean
 	$(MAKE) -C getline clean
 	$(MAKE) -C front-ends clean
-	$(MAKE) -C ../library/grDevices/src/cairo -f Makefile.win clean WIN=$(WIN)
+	$(MAKE) -C ../library/grDevices/src/cairo -f Makefile.win clean \
+	        R_ARCH=$(R_ARCH)
 
 cleanwin: cleaninstaller cleanwin0
 
@@ -345,9 +338,7 @@ pdfdocs manuals:
 	@$(MK) -C ../../doc/manual -f Makefile.win clean
 	@$(MK) -C ../../doc/manual -f Makefile.win
 
-R_EXE = ../../$(BINDIR)/Rterm.exe --vanilla --no-echo
-
-## must come after recommended
+## currently only run for 'distribution', not 'all' (unlike on Unix-alikes)
 vignettes:
 	@$(MK) -C ../library -f Makefile.win vignettes
 
@@ -385,14 +376,6 @@ bytecode-recommended:
 	@R_COMPILE_PKGS=1 R_COMPILER_SUPPRESS_ALL=1 \
 	  $(MK) -C ../library/Recommended -f Makefile.win
 
-RVER-MAJOR-MINOR = $(shell echo `cut -d'.' -f1,2 ../../VERSION`)
-CRANEXT = cran.r-project.org::CRAN/bin/windows/extsoft/$(RVER-MAJOR-MINOR)/
-
-rsync-extsoft:
-	($(MKDIR) -p ../../extsoft; \
-	cd ../../extsoft; \
-	rsync --timeout=60 -rcvp --delete $(CRANEXT) . ) 
-
 
 docfiles:
 	@$(MK) -C ../../doc/manual -f Makefile.win FAQ
@@ -411,12 +394,6 @@ distribution:
 	@$(MK) manuals
 	@$(MK) rinstaller
 	@$(RM) -f ../../SVN-REVISION.bak
-
-## Builds what is needed in a 32-bit build to copy to 64/32-bit installer
-32-bit:
-	@$(MK) all
-	@$(MK) cairodevices
-	@$(MK) recommended
 
 
 ## ============= End of maintainer targets ========================

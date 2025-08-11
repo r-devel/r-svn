@@ -99,7 +99,6 @@ getBibstyle(all = FALSE)
   \code{\link{bibentry}}
 }
 \examples{
-\dontshow{options(useFancyQuotes = FALSE)}
 refs <-
 c(bibentry(bibtype = "manual",
     title = "R: A Language and Environment for Statistical Computing",
@@ -122,5 +121,5 @@ bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
        .init = TRUE)
 print(refs, .bibstyle = "unsorted")
 }
-\keyword{ utilties }
+\keyword{ utilities }
 \keyword{ documentation }

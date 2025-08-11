@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997-2021  The R Core Team
+ *  Copyright (C) 1997-2025  The R Core Team
  *  Copyright (C) 2003	     The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -137,7 +137,7 @@ static void rgb2hsv(double r, double g, double b,
     /* all (r,g,b, h,s,v) values in [0,1] */
 {
     double min, max, delta;
-    Rboolean r_max = TRUE, b_max = FALSE;
+    bool r_max = true, b_max = false;
     /* Compute  min(r,g,b) and max(r,g,b) and remember where max is: */
     min = max = r;
     if(min > g) { /* g < r */
@@ -145,14 +145,14 @@ static void rgb2hsv(double r, double g, double b,
 	    min = b;/* &  max = r */
 	else { /* g <= b, g < r */
 	    min = g;
-	    if(b > r) { max = b; b_max = TRUE; r_max = FALSE; }
+	    if(b > r) { max = b; b_max = true; r_max = false; }
 	    /* else : g <= b <=r */
 	}
     } else { /* r <= g */
 	if(b > g) {
-	    max = b; b_max = TRUE; r_max = FALSE; /* &  min = r */
+	    max = b; b_max = true; r_max = false; /* &  min = r */
 	} else { /* b,r <= g */
-	    max = g; r_max = FALSE; /* &  min = r */
+	    max = g; r_max = false; /* &  min = r */
 	    if(b < r) min = b; /* else : r <= b <= g */
 	}
     }
@@ -391,7 +391,7 @@ SEXP hcl(SEXP h, SEXP c, SEXP l, SEXP a, SEXP sfixup)
 SEXP rgb(SEXP r, SEXP g, SEXP b, SEXP a, SEXP MCV, SEXP nam)
 {
     R_xlen_t i, l_max, nr, ng, nb, na = 1;
-    Rboolean max_1 = FALSE;
+    bool max_1 = false;
     double mV = asReal(MCV);
 
     if(!R_FINITE(mV) || mV == 0.)
@@ -1345,7 +1345,7 @@ static unsigned int hexdigit(int digit)
 }
 
 
-/* #RRGGBB[AA] String to Internal Color Code */
+/* #RRGGBB[AA] or #RGB[A] String to Internal Color Code */
 static rcolor rgb2col(const char *rgb)
 {
     unsigned int r = 0, g = 0, b = 0, a = 0; /* -Wall */
@@ -1359,13 +1359,25 @@ static rcolor rgb2col(const char *rgb)
 	g = 16 * hexdigit(rgb[3]) + hexdigit(rgb[4]);
 	b = 16 * hexdigit(rgb[5]) + hexdigit(rgb[6]);
 	break;
+    case 5: 
+	// Equivalent to 16 * hexdigit(rgb[4]) + hexdigit(rgb[4]);
+	a = (16 + 1) * hexdigit(rgb[4]);
+    case 4:
+	r = (16 + 1) * hexdigit(rgb[1]);
+	g = (16 + 1) * hexdigit(rgb[2]);
+	b = (16 + 1) * hexdigit(rgb[3]);
+	break;
     default:
 	error(_("invalid RGB specification"));
     }
-    if (strlen(rgb) == 7)
-	return R_RGB(r, g, b);
-    else
-	return R_RGBA(r, g, b, a);
+
+    switch(strlen(rgb)) {
+    case 7: 
+    case 4:
+        return R_RGB(r, g, b);
+    default:
+        return R_RGBA(r, g, b, a);
+    }
 }
 
 /* External Color Name to Internal Color Code */

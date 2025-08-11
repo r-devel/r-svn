@@ -1,5 +1,7 @@
 #### lm, glm, aov, etc --- typically *strict* tests (no *.Rout.save)
 
+options(warn = 2, width = 101) # all warnings must be asserted below
+
 data(mtcars)
 mtcar2 <- within(mtcars, {
     mpg_c <- mpg * (1+am) + 5
@@ -17,3 +19,227 @@ stopifnot(names(which(!jj)) == "am1:mpg"
 			      mpg = -33.74701, mpg_c = 10.97014),
 		    tol = 7e-7)# 1.01e-7 [F26 Lnx 64b]
 )
+
+
+### predict.lm(<rank-deficient>,  newdata = *) -- PR#15072, PR#16158 --------------
+
+## constructed "exactly" rank-deficient
+x1 <- -4:4
+x2 <- c(-2,1,-1,2, 0,
+        2,-1,1,-2)
+x3 <- 3*x1 - 2*x2
+x4 <- x2 - x1 + 4
+y <- 1 + x1 + x2 + x3 + x4 + c(-.5,.5,.5,-.5, 0,
+                               .5,-.5,-.5,.5)
+cbind(x1,x2,x3,x4,y)
+## Fit a model
+mod1234 <- lm(y ~ x1 + x2 + x3 + x4)
+if(requireNamespace("MASS")) {
+    (al <- alias(mod1234)) # x3: 3*x1 - 2*x2  \\  x4 :  4 -x1 +x2
+    stopifnot(all.equal(rbind(x3 = c(0,  3,-2),
+                              x4 = c(4, -1, 1)),
+                        unclass(al$Complete), check.attributes=FALSE))
+}
+## new.x
+new.x <- data.frame(
+    row.names = LETTERS[1:6],
+    x1 = c(3, 6, 6, 0, 0, 1),
+    x2 = c(1, 2, 2, 0, 0, 2),
+    x3 = c(7,14,14, 0, 0, 3),
+    x4 = c(2, 4, 0, 4, 0, 4))
+## where do we have the same aliasing subspace?
+new.ok <- with(new.x, (x4 == 4 - x1 + x2) &
+                      (x3 == 3*x1 - 2*x2))
+which(new.ok) # 1 3 4
+## old (hard-wired) R <= 4.2.x behavior:
+tools::assertWarning(ps <- predict(mod1234, newdata=new.x, rankdeficient = "simple"), verbose=TRUE)
+ps1 <-   predict(mod1234, newdata=data.frame(x1,x2,x3,x4), rankdeficient = "warnif") # *not* warning anymore
+## new
+                    (pN <- predict(mod1234, new.x, rankdeficient = "NA"))
+tools::assertWarning(pN.<- predict(mod1234, new.x, rankdeficient = "NAwarn"))
+## "compromise": old predictions with extra info (no warning):
+(pne <- predict(mod1234, new.x, rankdeficient = "non-estim"))
+stopifnot(exprs = {
+    identical(pN, pN.)
+    all.equal(fitted(mod1234), ps1, tol = 2e-15) # seen 3.11e-16
+    identical(i.ne <- attr(pne, "non-estim"),
+              c(B = 2L, E = 5L, F = 6L))
+    which(!new.ok) == i.ne
+    is.na(pN[i.ne])
+    identical(ps[-i.ne], pN[-i.ne])
+    identical(unname(ps), `attributes<-`(pne, NULL))
+})
+
+
+d8 <- data.frame(
+    y = c(747625803, -74936705, -750056726, -299805697,
+          76131520, -225971209, 301836031, 2249594776, 300581863, -2999324198,
+          450274906, -600962167, 1800954652, 900083298, -1498452810),
+    X1 = c(149999999, -225000002, -149999999, 149999998, 225000002,
+           -675000006, -149999998, 449999997, 900000008, -599999996,
+           1350000012, 299999996, -899999988, -449999994, -299999998),
+    X2 = c(300000000.5, -149999999, -300000000.5, 1, 149999999,
+           -449999997, -1, 900000001.5, 599999996, -1200000002,
+           899999994, 2, -6, -3, -600000001),
+    X3 = c(-1, 149999998, 1, -150000002, -149999998,
+           449999994, 150000002, -3, -599999992, 4,
+           -899999988, -300000004, 900000012, 450000006, 2))
+coef(fm8.  <- lm(y ~ . -1, data = d8)) # the one for X3 is NA
+cf8. <- c(X1 = -1.999854802642, X2 = 3.499496934397, X3 = NA)
+          all.equal(cf8., coef(fm8.), tol=0)# -> "Mean rel..diff.: ~ 3e-15
+stopifnot(all.equal(cf8., coef(fm8.)))
+coef(fm8.9 <- lm(y ~ . -1, data = d8, tol = 1e-9)) # no NA , but "instable" -- not too precise
+cf8.9 <- c(X1 = 45822.830422, X2 = -22908.915871, X3 = 45824.830295)
+all.equal(cf8.9, coef(fm8.9), tol=0)# -> "Mean rel..diff.: 5.3e-9 | 5.15e-12
+## was < 2e-8 in R 4.2.2
+## x86_64 Linux/gcc12 gives ca 5e-12
+## vanilla M1mac gives 6.16e-11, Accelerate on M1 macOS gives 3.99e-10;
+## Debian with "generic" (i.e. not R's) BLAS/Lapack *still* gave 5.2985e-09 (?!)
+stopifnot(all.equal(cf8.9, coef(fm8.9), tol = 7e-9))
+
+## predict :
+nd <- d8[,-1] + rep(outer(c(-2:2),10^(1:3)), 3) # 5 * 9 = 45 = 15 * 3 (nrow * ncol)
+row.names(nd) <- LETTERS[1:nrow(nd)]
+tools::assertWarning(verbose=TRUE, # "... rank-deficient .. consider predict(., rankdeficient="NA")
+ ps <- predict(fm8. , newdata=nd, rankdeficient = "simple") )
+tools::assertWarning(verbose=TRUE, # "... rank-deficient ..  attr(*, "non-estim") has doubtful cases
+ ps.<- predict(fm8. , newdata=nd) ) # default
+pN  <- predict(fm8. , newdata=nd, rankdeficient = "NA")
+pne <- predict(fm8. , newdata=nd, rankdeficient = "non-estim")
+p.9 <- predict(fm8.9, newdata=nd)
+print(digits=9, cbind(ps, pne, pN, p.9))
+all.equal(p.9, ps, tol=0)# 0.035..
+dropAtt <- function(x) `attributes<-`(x, NULL)
+stopifnot(exprs = {
+    ps == ps. # numbers;
+    identical(unname(ps), dropAtt(ps.))
+    identical(ps., pne) # both have "non-estim"
+    identical(i.ne <- attr(pne, "non-estim"),
+              c(K = 11L, L = 12L, N = 14L, O = 15L))
+    is.na(pN[i.ne])
+    identical(ps[-i.ne], pN[-i.ne])
+})
+
+## play with tol
+str(tls <- sort(outer(c(1,2,4), 10^-(9:5))))
+nT <- length(tls <- setNames(tls, formatC(tls)))
+pls <- t(sapply(tls, function(TL) predict(fm8. , newdata=nd, tol = TL, rankdeficient = "NA")))
+stopifnot(is.finite(plsLst <- pls[nT,])) # (no NA)
+plsLst
+sweep(pls, 2L, plsLst, `-`)
+## This *is* monotone in tol -- still somewhat amazing how much changes
+## within two factors of 4 (of tol), i.e., between 2e-7 ... 4e-6
+##        A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+## 1e-09 NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## 2e-09 NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## 4e-09 NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## 1e-08 NA NA  0 NA NA NA NA  0 NA NA NA NA NA NA NA
+## 2e-08 NA NA  0 NA NA NA NA  0 NA NA NA NA  0 NA NA
+## 4e-08 NA NA  0  0 NA NA NA  0 NA NA NA NA  0 NA NA
+## 1e-07  0  0  0  0  0 NA NA  0  0 NA NA NA  0 NA NA
+## 2e-07  0  0  0  0  0 NA NA  0  0  0 NA NA  0 NA NA
+## 4e-07  0  0  0  0  0  0 NA  0  0  0 NA NA  0 NA NA
+## 1e-06  0  0  0  0  0  0  0  0  0  0 NA NA  0 NA NA
+## 2e-06  0  0  0  0  0  0  0  0  0  0  0 NA  0  0 NA
+## 4e-06  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+## 1e-05  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+## 2e-05  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+## 4e-05  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+
+(iFi <- apply(pls, 2, function(.) which.max(is.finite(.))))
+## A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+## 7  7  4  6  7  9 10  4  7  8 11 12  5 11 12
+stopifnot(exprs = {
+    ## checking monotonicity: each column is  (NA NA ... NA | p_i p_i ... p_i)
+    vapply(seq_along(tls),
+           function(i) length(unique(pls[iFi[i]:nT, i])) == 1L,
+           NA)
+    ## allow 1 off :
+  3 <= iFi
+  iFi <= 13
+})
+
+
+## __FIXME__
+## predict(*, ... type="terms" .. ) does *not* obey   rankdeficient=".."
+
+
+##-------- dummy.coef() -- with "character"-factor ---------------------------------------
+## [Bug 18635] New: dummy.coef could not deal with character variable  // 9 Dec 2023
+##  ---------  https://bugs.r-project.org/show_bug.cgi?id=18635
+
+## for data generating model
+ch2num <- function(ch) vapply(ch, function(.) as.integer(charToRaw(.)),
+                              1L, USE.NAMES=FALSE)
+## test:
+str(print(ch2num(LETTERS)) - ch2num(letters))
+
+set.seed(7)
+mydatC <- data.frame(x = sort(rnorm(49)), ch = c(LETTERS[1:3], letters[1:4]))
+mydatC$y <- with(mydatC, 20*x + 10 - (ch2num(ch) - 68) + rnorm(x))
+str(mydatC)
+if(dev.interactive(TRUE)) ## visualize:
+    plot(y ~ x, data=mydatC, col = factor(ch))
+
+Sys.setlocale("LC_COLLATE", "C")
+mydatF <- mydatC; mydatF$ch <- factor(mydatC$ch)
+str(mydatF)
+## $ ch: Factor w/ 7 levels "A","B","C","a",..: 1 2 3 4 5 6 7 1 2 3 ...
+
+(sfmCc <- summary(fmCc <- lm(y ~ ., data=mydatC)))
+ sfmCf <- summary(fmCf <- lm(y ~ ., data=mydatF))
+(ae.cf <- all.equal(sfmCc, sfmCf)) # only the call differs:
+## [1] "Component “call”: target, current do not match when deparsed"
+stopifnot(length(ae.cf) == 1L, grepl("^Component .call.:", ae.cf))
+
+coef(fmCc)
+## (Intercept)           x         chB         chC         cha         chb         chc         chd
+##  12.7781626  19.8494272  -0.8240301  -1.3309157 -31.7032317 -32.8819084 -33.3519985 -34.6249161
+(coef(fmCf) -> cf.f) # the same
+stopifnot(exprs = {
+    identical(coef(fmCc), cf.f)
+})
+
+(dummy.coef(fmCc) -> dc.Cc)  ##-- was all wrong in R <= 4.3.2
+## (Intercept):       12.77816
+## x:                 19.84943
+## ch:                       A           B           C           a           b           c           d
+##                   0.0000000  -0.8240301  -1.3309157 -31.7032317 -32.8819084 -33.3519985 -34.6249161
+dummy.coef(fmCf)   -> dc.Cf # the same
+all.equal15 <- function(x,y, ...) all.equal(x,y, tolerance = 1e-15, ...)
+stopifnot(exprs = {
+    all.equal15(dc.Cc, dc.Cf) # *not* in R <= 4.3.2
+    ## coef() <--> dummy.coef()  {was always true}
+    length(dcCf <- unlist(dc.Cf)) == 1 + length(cf.f)
+    is.character(names(dcCf) <- sub("[.]", "", names(dcCf)))
+    all.equal15(dcCf[i2 <- 1:2], cf.f[i2], check.attributes = FALSE)
+    all.equal15(dcCf[-i2], c(chA = 0, cf.f[-i2]))
+})
+
+##============= + 2 way interactions ============================================
+fm2c <- lm(y ~ .^2, data=mydatC)
+       cf2c <- coef(fm2c)
+(dc2c <- dummy.coef(fm2c)) # *wrong*  in R <= 4.3.2
+stopifnot(exprs = {
+    length(dc2c <- unlist(dc2c)) == 2 + length(cf2c) # was false
+    all.equal15(dc2c[1:2], cf2c[1:2], check.attributes = FALSE)
+    is.character(names(dc2c) <- sub("[.]", "", names(dc2c)))
+    all.equal15(dc2c[-(1:2)][1:7],
+                c(chA = 0, cf2c[-(1:2)][1:6]))
+    all.equal15(tail(dc2c, 7),
+                c(`x:chA` = 0, tail(cf2c, 6)))
+})
+
+fm2f <- lm(y ~ .^2, data=mydatF) # was always correct
+(dc2f <- dummy.coef(fm2f))
+ cf2f <-       coef(fm2f)
+stopifnot(exprs = {
+    ## were all TRUE before
+    length(dc2f <- unlist(dc2f)) == 2 + length(cf2f)
+    all.equal(dc2f[1:2], cf2f[1:2], check.attributes = FALSE)
+    is.character(names(dc2f) <- sub("[.]", "", names(dc2f)))
+    all.equal15(dc2f[-(1:2)][1:7],
+                c(chA = 0, cf2f[-(1:2)][1:6]))
+    all.equal15(tail(dc2f, 7),
+                c(`x:chA` = 0, tail(cf2f, 6)))
+})

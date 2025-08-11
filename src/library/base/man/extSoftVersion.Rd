@@ -1,6 +1,6 @@
 % File src/library/base/man/extSoftVersion.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2014-2022 R Core Team
+% Copyright 2014-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{extSoftVersion}
@@ -27,12 +27,16 @@ extSoftVersion()
   \item{zlib}{The version of \code{zlib} in use.}
   \item{bzlib}{The version of \code{bzlib} (from \command{bzip2}) in use.}
   \item{xz}{The version of \code{liblzma} (from \command{xz}) in use.}
+  \item{libdeflate}{The version of \code{libdeflate} (if any, otherwise
+    \code{""}) used when \R was built.}
+  \item{zstd}{The version of \code{libzstd} (from \command{zstd}) in use
+    (if any, otherwise \code{""}).}
   \item{PCRE}{The version of \code{PCRE} in use. PCRE1 has versions < 10.00,
-  PCRE2 has versions >= 10.00.}
+    PCRE2 has versions >= 10.00.}
   \item{ICU}{The version of \code{ICU} in use (if any, otherwise \code{""}).}
   \item{TRE}{The version of \code{libtre} in use.}
   \item{iconv}{The implementation and version of the \code{iconv}
-  library in use (if known).}
+    library in use (if known).}
   \item{readline}{The version of \code{readline} in use (if any,
     otherwise \code{""}).  If using the emulation by \code{libedit} aka
     \code{editline} this will be \code{"EditLine wrapper"} preceded by
@@ -40,14 +44,14 @@ extSoftVersion()
     seen on macOS.
   }
   \item{BLAS}{Name of the binary/executable file with the implementation of
-  \code{BLAS} in use (if known, otherwise \code{""}).}
+    \code{BLAS} in use (if known, otherwise \code{""}).}
 
   Note that the values for \code{bzlib} and \code{pcre} normally contain
   a date as well as the version number, and that for \code{tre} includes
   several items separated by spaces, the version number being the
   second.
 
-  For \code{iconv} this will give the implementation as well as the
+  For \code{\link{iconv}} this will give the implementation as well as the
   version, for example \code{"GNU libiconv 1.14"}, \code{"glibc
   2.18"} or \code{"win_iconv"} (which has no version number).
 
@@ -59,12 +63,14 @@ extSoftVersion()
   an external BLAS implementation that had been copied, hard-linked or
   renamed by the system administrator.  For an external BLAS, a shared
   object file will be given and its path/name may indicate the
-  vendor/version. The detection does not work on Windows nor for the
-  Accelerate framework on macOS.
+  vendor/version. The detection does not work on Windows nor for some
+  uses of the Accelerate framework on macOS.
+  %% it works for --with-blas="-framework Accelerate'
+  %% but not for --with-newAccelerate
 }
 \seealso{
   \code{\link{libcurlVersion}} for the version of \code{libCurl}.
-  
+
   \code{\link{La_version}} for the version of LAPACK in use.
 
   \code{\link{La_library}} for binary/executable file with LAPACK in use.
@@ -72,8 +78,12 @@ extSoftVersion()
   \code{\link{grSoftVersion}} for third-party graphics software.
 
   \code{\link{tclVersion}} in package \pkg{tcltk} for the version of Tcl/Tk.
-  
+
   \code{\link{pcre_config}} for PCRE configuration options.
+
+  \code{\link{connection}} for how to use the file and connection
+  compression methods \code{"zlib"}, \code{"bzlib"}, \code{"xz"},
+  \code{"libdeflate"}, and \code{"zstd"}.
 }
 \examples{
 extSoftVersion()

@@ -117,8 +117,8 @@ summaryRprof(filename = "Rprof.out", chunksize = 5000,
 
 \seealso{
   The chapter on \sQuote{Tidying and profiling R code} in
-  \sQuote{Writing R Extensions} (see the \file{doc/manual} subdirectory
-  of the \R source tree).
+  \sQuote{Writing R Extensions}:
+  \code{\link{RShowDoc}("R-exts#Tidying-and-profiling-R-code")}.
 
   \code{\link{Rprof}}
 

@@ -23,7 +23,7 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
+#include <Defn.h>
 
 
 /*  mkPRIMSXP - return a builtin function      */
@@ -34,7 +34,7 @@
     reconstructed after a package has clobbered the value assigned to
     a symbol in the base package. */
 
-SEXP attribute_hidden mkPRIMSXP(int offset, int eval)
+attribute_hidden SEXP mkPRIMSXP(int offset, int eval)
 {
     SEXP result;
     SEXPTYPE type = eval ? BUILTINSXP : SPECIALSXP;
@@ -42,7 +42,7 @@ SEXP attribute_hidden mkPRIMSXP(int offset, int eval)
     static int FunTabSize = 0;
     
     if (PrimCache == NULL) {
-	/* compute the number of entires in R_FunTab */
+	/* compute the number of entries in R_FunTab */
 	while (R_FunTab[FunTabSize].name)
 	    FunTabSize++;
 
@@ -75,7 +75,7 @@ SEXP attribute_hidden mkPRIMSXP(int offset, int eval)
 /*  mkCLOSXP - return a closure with formals f,  */
 /*             body b, and environment rho       */
 
-SEXP attribute_hidden mkCLOSXP(SEXP formals, SEXP body, SEXP rho)
+attribute_hidden SEXP mkCLOSXP(SEXP formals, SEXP body, SEXP rho)
 {
     SEXP c;
     PROTECT(formals);
@@ -112,6 +112,15 @@ SEXP attribute_hidden mkCLOSXP(SEXP formals, SEXP body, SEXP rho)
     return c;
 }
 
+/* version for the API with more checking */
+SEXP R_mkClosure(SEXP formals, SEXP body, SEXP rho)
+{
+    CheckFormals(formals, "R_mkClosure");
+    if (! isEnvironment(rho))
+	error(_("invalid environment"));
+    return mkCLOSXP(formals, body, rho);
+}
+
 /* mkChar - make a character (CHARSXP) variable -- see Rinlinedfuns.h */
 
 /*  mkSYMSXP - return a symsxp with the string  */
@@ -134,7 +143,7 @@ static int isDDName(SEXP name)
     return 0;
 }
 
-SEXP attribute_hidden mkSYMSXP(SEXP name, SEXP value)
+attribute_hidden SEXP mkSYMSXP(SEXP name, SEXP value)
 
 {
     SEXP c;

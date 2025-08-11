@@ -75,6 +75,12 @@ typedef	void (*sighandler_t)(int nSig);
 #ifndef _SIGSET_T_
 #define	_SIGSET_T_
 typedef int sigset_t;
+#else
+  /* recently when _POSIX is not defined (which it is not during normal
+     R build on Windows), mingw-w64 defines _sigset_t, but not sigset_t */
+# ifndef _POSIX
+typedef int sigset_t;
+# endif
 #endif	/* Not _SIGSET_T_ */
 
 
@@ -157,14 +163,14 @@ int sigsuspend(sigset_t* sigset_Info);
 
 we only currently use the case sm=0, so avoid compiler warnings by */
 
-#define sigsetjmp(jb, sm) (jb->mask_was_saved=0, setjmp(jb->jmpbuf))
+#define sigsetjmp(jb, sm) ((jb)->mask_was_saved=0, setjmp((jb)->jmpbuf))
 
 
 /* We can transform this in a function but ... */
 
-#define siglongjmp(jb, val) (((jb->mask_was_saved)?\
-               sigprocmask(SIG_SETMASK, &jb->saved_mask, 0):0),\
-               longjmp(jb->jmpbuf, val))
+#define siglongjmp(jb, val) ((((jb)->mask_was_saved)?\
+               sigprocmask(SIG_SETMASK, &(jb)->saved_mask, 0):0),\
+               longjmp((jb)->jmpbuf, val))
 
 
 

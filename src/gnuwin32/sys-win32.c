@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2023  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@
 
 FILE *R_OpenInitFile(void)
 {
-    char  buf[PATH_MAX], *p = getenv("R_PROFILE_USER");
+    char  *buf, *p = getenv("R_PROFILE_USER");
     FILE *fp;
 
     fp = NULL;
@@ -50,9 +50,16 @@ FILE *R_OpenInitFile(void)
 	}
 	if ((fp = R_fopen(".Rprofile", "r")))
 	    return fp;
-	snprintf(buf, PATH_MAX, "%s/.Rprofile", getenv("R_USER"));
-	if ((fp = R_fopen(buf, "r")))
-	    return fp;
+	p = getenv("R_USER");
+	if (p) {
+	    size_t needed = snprintf(NULL, 0, "%s/.Rprofile", p) + 1;
+	    buf = (char *)malloc(needed);
+	    if (!buf)
+		return NULL;
+	    snprintf(buf, needed, "%s/.Rprofile", p);
+	    fp = R_fopen(buf, "r");
+	    free(buf);
+	}
     }
     return fp;
 }
@@ -62,47 +69,52 @@ FILE *R_OpenInitFile(void)
 
 
 static int HaveHOME=-1;
-static char UserHOME[PATH_MAX];
-static char newFileName[PATH_MAX];
+static char *UserHOME = NULL;
+#define NEWFILENAME_MAX 65536
+static char newFileName[NEWFILENAME_MAX];
 
 const char *R_ExpandFileName(const char *s)
 {
-    char *p;
+    char *p, *q;
 
     if(s[0] != '~' || (s[0] && isalpha(s[1]))) return s;
     if(HaveHOME < 0) {
 	HaveHOME = 0;
 	p = getenv("R_USER"); /* should be set so the rest is a safety measure */
-	if(p && strlen(p) && strlen(p) < PATH_MAX) {
-	    strcpy(UserHOME, p);
-	    HaveHOME = 1;
-	} else {
-	    p = getenv("HOME");
-	    if(p && strlen(p) && strlen(p) < PATH_MAX) {
+	if(p && strlen(p)) {
+	    if ((UserHOME = (char *)malloc(strlen(p) + 1))) {
 		strcpy(UserHOME, p);
 		HaveHOME = 1;
+	    }
+	} else {
+	    p = getenv("HOME");
+	    if(p && strlen(p)) {
+		if ((UserHOME = (char *)malloc(strlen(p) + 1))) {
+		    strcpy(UserHOME, p);
+		    HaveHOME = 1;
+		}
 	    } else {
 		p = getenv("HOMEDRIVE");
-		if(p && strlen(p) < PATH_MAX) {
+		q = getenv("HOMEPATH");
+		if(p && q &&
+		   (UserHOME = (char *)malloc(strlen(p) + strlen(q) + 1))) {
+
 		    strcpy(UserHOME, p);
-		    p = getenv("HOMEPATH");
-		    if(p && strlen(UserHOME) + strlen(p) < PATH_MAX) {
-			strcat(UserHOME, p);
-			HaveHOME = 1;
-		    }
+		    strcat(UserHOME, q);
+		    HaveHOME = 1;
 		}
 	    }
 	}
     }
     if(HaveHOME > 0) {
 	size_t len = strlen(UserHOME) + strlen(s+1);
-	if(len < PATH_MAX) {
+	if(len < NEWFILENAME_MAX) {
 	    strcpy(newFileName, UserHOME);
 	    strcat(newFileName, s+1);
 	    return newFileName;
 	} else {
-	    warning(_("expanded path length %d would be too long for\n%s\n"),
-		    len, s);
+	    warning(_("expanded path length %llu would be too long for\n%s\n"),
+		    (unsigned long long)len, s);
 	    return s;
 	}
     } else return s;
@@ -118,13 +130,26 @@ const char *R_ExpandFileNameUTF8(const char *s)
 {
     if (s[0] !='~' || (s[0] && isalpha(s[1]))) return s;
     else {
-    	char home[PATH_MAX];
-    	reEnc2(R_ExpandFileName("~"), home, PATH_MAX, CE_NATIVE, CE_UTF8, 3);
-    	if (strlen(home) + strlen(s+1) < PATH_MAX) {
-    	    strcpy(newFileName, home);
+	const char *native_home = R_ExpandFileName("~");
+	/* a defensive guess, reEnc2 would throw error if not enough */
+	size_t len = strlen(native_home) * 4;
+    	char *utf8_home = (char *)malloc(len);
+	if (!utf8_home) {
+	    warning(_("expanded path length %llu would be too long for\n%s\n"),
+	            (unsigned long long)len, s);
+	    return s;
+	}
+    	reEnc2(native_home, utf8_home, len, CE_NATIVE, CE_UTF8, 3);
+	len = strlen(utf8_home) + strlen(s+1) + 1;
+    	if (len <= NEWFILENAME_MAX) {
+    	    strcpy(newFileName, utf8_home);
     	    strcat(newFileName, s+1);
     	    return newFileName;
-    	} else return s;
+    	} else {
+	    warning(_("expanded path length %llu would be too long for\n%s\n"),
+	            (unsigned long long)len, s);
+	    return s;
+	}
     }
 }
 
@@ -229,7 +254,8 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     int   vis = 0, flag = 2, i = 0, j, ll = 0;
     SEXP  cmd, fin, Stdout, Stderr, tlist = R_NilValue, tchar, rval;
     PROTECT_INDEX ti;
-    int timeout = 0, timedout = 0;
+    int timeout = 0, timedout = 0, consignals = 0;
+    const void *vmax = vmaxget();
 
     checkArity(op, args);
     cmd = CAR(args);
@@ -256,6 +282,10 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, _("invalid '%s' argument"), "timeout");
     if (timeout && !flag)
 	errorcall(call, "Timeout with background running processes is not supported.");
+    args = CDR(args);
+    consignals = asLogical(CAR(args));
+    if (consignals == NA_INTEGER)
+	errorcall(call, _("invalid '%s' argument"), "receive.console.signals");
 
     if (CharacterMode == RGui) {
 	/* This is a rather conservative approach: if
@@ -265,23 +295,29 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SetStdHandle(STD_INPUT_HANDLE, INVALID_HANDLE_VALUE);
 	SetStdHandle(STD_OUTPUT_HANDLE, INVALID_HANDLE_VALUE);
 	SetStdHandle(STD_ERROR_HANDLE, INVALID_HANDLE_VALUE);
-	if (TYPEOF(Stdout) == STRSXP) fout = CHAR(STRING_ELT(Stdout, 0));
-	if (TYPEOF(Stderr) == STRSXP) ferr = CHAR(STRING_ELT(Stderr, 0));
+	if (TYPEOF(Stdout) == STRSXP)
+	    fout = translateCharFP(STRING_ELT(Stdout, 0));
+	if (TYPEOF(Stderr) == STRSXP)
+	    ferr = translateCharFP(STRING_ELT(Stderr, 0));
     } else {
 	if (flag == 2) flag = 1; /* ignore std.output.on.console */
-	if (TYPEOF(Stdout) == STRSXP) fout = CHAR(STRING_ELT(Stdout, 0));
-	else if (asLogical(Stdout) == 0) fout = NULL;
-	if (TYPEOF(Stderr) == STRSXP) ferr = CHAR(STRING_ELT(Stderr, 0));
-	else if (asLogical(Stderr) == 0) ferr = NULL;
+	if (TYPEOF(Stdout) == STRSXP)
+	    fout = translateCharFP(STRING_ELT(Stdout, 0));
+	else if (asLogical(Stdout) == 0)
+	    fout = NULL;
+	if (TYPEOF(Stderr) == STRSXP)
+	    ferr = translateCharFP(STRING_ELT(Stderr, 0));
+	else if (asLogical(Stderr) == 0)
+	    ferr = NULL;
     }
 
     if (flag < 2) { /* Neither intern = TRUE nor
 		       show.output.on.console for Rgui */
-	ll = runcmd_timeout(CHAR(STRING_ELT(cmd, 0)),
-		    getCharCE(STRING_ELT(cmd, 0)),
-		    flag, vis, CHAR(STRING_ELT(fin, 0)), fout, ferr,
-		    timeout, &timedout);
-	if (ll == NOLAUNCH) warning(runerror());
+	ll = runcmd_timeout(translateCharFP(STRING_ELT(cmd, 0)),
+		    CE_NATIVE,
+		    flag, vis, translateCharFP(STRING_ELT(fin, 0)), fout, ferr,
+		    timeout, &timedout, consignals);
+	if (ll == NOLAUNCH) warning("%s", runerror());
     } else {
 	/* read stdout +/- stderr from pipe */
 	int m = -1;
@@ -297,11 +333,12 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    /* does not happen with system()/system2() */
 	    error(_("invalid %s argument"), "flag");
 
-	fp = rpipeOpen(CHAR(STRING_ELT(cmd, 0)), getCharCE(STRING_ELT(cmd, 0)),
-		       vis, CHAR(STRING_ELT(fin, 0)), m, fout, ferr, timeout);
+	fp = rpipeOpen(translateCharFP(STRING_ELT(cmd, 0)), CE_NATIVE,
+		       vis, translateCharFP(STRING_ELT(fin, 0)), m, fout, ferr,
+	               timeout, 0);
 	if (!fp) {
 	    /* If intern = TRUE generate an error */
-	    if (flag == 3) error(runerror());
+	    if (flag == 3) error("%s", runerror());
 	    ll = NOLAUNCH;
 	} else {
 	    if (flag == 3) { /* intern */
@@ -322,10 +359,10 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (timedout) {
 	ll = 124;
 	warning(_("command '%s' timed out after %ds"),
-	        CHAR(STRING_ELT(cmd, 0)), timeout);
+	        translateChar(STRING_ELT(cmd, 0)), timeout);
     } else if (flag == 3 && ll) {
 	warning(_("running command '%s' had status %d"), 
-	        CHAR(STRING_ELT(cmd, 0)), ll);
+	        translateChar(STRING_ELT(cmd, 0)), ll);
     }
     if (flag == 3) { /* intern = TRUE: convert pairlist to list */
 	PROTECT(rval = allocVector(STRSXP, i));
@@ -337,9 +374,11 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SEXP lsym = install("status");
 	    setAttrib(rval, lsym, ScalarInteger(ll));
 	}
+	vmaxset(vmax);
 	UNPROTECT(2); /* tlist, rval */
 	return rval;
     } else {
+	vmaxset(vmax);
 	rval = ScalarInteger(ll);
 	R_Visible = 0;
 	return rval;

@@ -1,6 +1,6 @@
 % File src/library/utils/man/read.table.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{read.table}
@@ -17,7 +17,7 @@
 \usage{
 read.table(file, header = FALSE, sep = "", quote = "\"'",
            dec = ".", numerals = c("allow.loss", "warn.loss", "no.loss"),
-           row.names, col.names, as.is = !stringsAsFactors,
+           row.names, col.names, as.is = !stringsAsFactors, tryLogical = TRUE,
            na.strings = "NA", colClasses = NA, nrows = -1,
            skip = 0, check.names = TRUE, fill = !blank.lines.skip,
            strip.white = FALSE, blank.lines.skip = TRUE,
@@ -51,7 +51,7 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     necessary, and if so \code{\link{close}}d (and hence destroyed) at
     the end of the function call).  (If \code{\link{stdin}()} is used,
     the prompts for lines may be somewhat confusing.  Terminate input
-    with a blank line or an EOF signal, \code{Ctrl-D} on Unix and
+    with a blank line or an \abbr{EOF} signal, \code{Ctrl-D} on Unix and
     \code{Ctrl-Z} on Windows.  Any pushback on \code{stdin()} will be
     cleared before return.)
 
@@ -116,11 +116,16 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     columns to be skipped.
   }
 
+  \item{tryLogical}{a \code{\link{logical}} determining if columns
+    consisting entirely of \code{"F"}, \code{"T"}, \code{"FALSE"}, and
+    \code{"TRUE"} should be converted to \code{\link{logical}}; passed to
+    \code{\link{type.convert}}, true by default.}
+
   \item{na.strings}{a character vector of strings which are to be
     interpreted as \code{\link{NA}} values.  Blank fields are also
     considered to be missing values in logical, integer, numeric and
-    complex fields.  Note that the test happens \emph{after} 
-    white space is stripped from the input, so \code{na.strings} 
+    complex fields.  Note that the test happens \emph{after}
+    white space is stripped from the input (if enabled), so \code{na.strings}
     values may need their own white space stripped in advance.}
 
   \item{colClasses}{character.  A vector of classes to be assumed for
@@ -172,7 +177,7 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     \samp{\\n} be processed or read verbatim (the default)?   Note that if
     not within quotes these could be interpreted as a delimiter (but not
     as a comment character).  For more details see \code{\link{scan}}.}
-
+ 
   \item{flush}{logical: if \code{TRUE}, \code{scan} will flush to the
     end of the line after reading the last of the fields requested.
     This allows putting comments after the last field.}
@@ -182,7 +187,8 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     \code{colClasses}, both of which allow finer control.}
 
   \item{fileEncoding}{character string: if non-empty declares the
-    encoding used on a file (not a connection) so the character data can
+    encoding used on a file when given as a character string (not on an
+    existing connection) so the character data can
     be re-encoded.  See the \sQuote{Encoding} section of the help for
     \code{\link{file}}, the \sQuote{R Data Import/Export} manual and
     \sQuote{Note}.
@@ -202,7 +208,7 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     within R code.
   }
 
-  \item{skipNul}{logical: should nuls be skipped?}
+  \item{skipNul}{logical: should \abbr{NUL}s be skipped?}
 
   \item{\dots}{Further arguments to be passed to \code{read.table}.}
 }
@@ -251,7 +257,7 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
   column.
 
   Quoted fields with embedded newlines are supported except after a
-  comment character.  Embedded nuls are unsupported: skipping them (with
+  comment character.  Embedded \abbr{NUL}s are unsupported: skipping them (with
   \code{skipNul = TRUE}) may work.
 }
 
@@ -326,15 +332,12 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
   reading files which result in reports of incorrect record lengths (see
   the \sQuote{Examples} below).
 
-  \url{https://tools.ietf.org/html/rfc4180} for the IANA definition of
+  \url{https://www.rfc-editor.org/rfc/rfc4180} for the \abbr{IANA} definition of
   CSV files (which requires comma as separator and CRLF line endings).
 }
 
 \references{
-  Chambers, J. M. (1992)
-  \emph{Data for models.}
-  Chapter 3 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992a}
 }
 
 \examples{

@@ -1,7 +1,7 @@
 #  File src/library/base/R/files.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -50,10 +50,13 @@ file.show <-
         for(i in seq_along(files)) {
             f <- files[i]
             tf <- tempfile()
-            tmp <- readLines(f, warn = FALSE)
+            tmp <- list(readBin(f, "raw", file.size(f)))
             tmp2 <- try(iconv(tmp, encoding, "", "byte"))
             if(inherits(tmp2, "try-error")) file.copy(f, tf)
-            else writeLines(tmp2, tf)
+            else {
+                tmp2 <- strsplit(tmp2, "\r\n?|\n", perl = TRUE)[[1L]]
+                writeLines(tmp2, tf)
+            }
             files[i] <- tf
             if(delete.file) unlink(f)
         }
@@ -128,8 +131,11 @@ file.copy <- function(from, to,
             warning("cannot overwrite a non-directory with a directory")
             okay[okay] <- !dirtofile
         }
-        # note: could also warn whenever "from" is a directory as it will
-        # be copied into an empty file, or support creating of directories
+    }
+    fromdir <- dir.exists(from[okay])
+    if (any(fromdir)) {
+        warning("directories are omitted unless 'recursive = TRUE'")
+        okay[okay] <- !fromdir
     }
     if (any(from[okay] %in% to[okay]))
         stop("file can not be copied both 'from' and 'to'")
@@ -194,8 +200,7 @@ system.file <- function(..., package = "base", lib.loc = NULL, mustWork = FALSE)
 {
     if(nargs() == 0L)
         return(file.path(.Library, "base"))
-    if(length(package) != 1L)
-        stop("'package' must be of length 1")
+    if (length(package) != 1L) stop(gettextf("'%s' must be of length 1", "package"), domain=NA)
     packagePath <- find.package(package, lib.loc, quiet = TRUE)
     ans <- if(length(packagePath)) {
         FILES <- file.path(packagePath, ...)

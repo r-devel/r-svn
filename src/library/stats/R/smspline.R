@@ -1,7 +1,7 @@
 #  File src/library/stats/R/smspline.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,10 +30,10 @@
         else  200 + (n-3200)^0.2
     })
 }
-n.knots <- function(n) {
-    message(".nknots.smspl() is now exported; use it instead of n.knots()")
-    .nknots.smspl(n)
-}
+## n.knots <- function(n) {
+##     message(".nknots.smspl() is now exported; use it instead of n.knots()")
+##     .nknots.smspl(n)
+## }
 
 smooth.spline <-
     function(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
@@ -166,6 +166,10 @@ smooth.spline <-
     ## icrit {../src/sslvrg.f}:
     ##		(0 = no crit,  1 = GCV ,  2 = ord.CV , 3 = df-matching)
     icrit <- if(is.na(cv)) 0L else if(cv) 2L else 1L
+    if(!is.numeric(df.offset) || df.offset < 0)
+        stop("df.offset must be numeric and >= 0")
+    if(!is.numeric(penalty) || penalty <= 0)
+        stop("penalty must be numeric and > 0")
     dofoff <- df.offset
     if(!missing(df)) { # not when cv was NA
 	if(df > 1 && df <= nx) {
@@ -239,7 +243,7 @@ smooth.spline <-
 	## parms :  c(low = , high = , tol = , eps = )
 	list(x = ux, y = fit$ty, w = wbar, yin = ybar, tol = tol,
 	     data = if(keep.data) list(x = x, y = y, w = w), no.weights = no.wgts,
-	     n = n, # to reliablly know (when keep.data is false) if (nx < n)
+	     n = n, # to reliably know (when keep.data is false) if (nx < n)
 	     lev = lev,
 	     cv = cv,
 	     cv.crit = cv.crit, pen.crit = sum(wbar * (ybar - fit$ty)^2),

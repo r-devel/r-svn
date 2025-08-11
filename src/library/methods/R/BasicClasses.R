@@ -196,7 +196,7 @@
     ## not defined at the time these are done).
     setMethod("coerce", c("ANY", "ts"), function (from, to, strict = TRUE)
               {
-                  value <- as.ts(from)
+                  value <- stats::as.ts(from)
                   if(strict) {
                       attrs <- attributes(value)
                       if(length(attrs) > 2)
@@ -518,7 +518,7 @@
 }
 
 ## .OldClassesList is a purely heuristic list of known old-style classes, with emphasis
-## on old-style class inheritiance.  Used in .InitBasicClasses to call setOldClass for
+## on old-style class inheritance.  Used in .InitBasicClasses to call setOldClass for
 ## each known class pattern.
 ## .OldClassesPrototypes is a list of S3 classes for which prototype
 ## objects are known & reasonable.

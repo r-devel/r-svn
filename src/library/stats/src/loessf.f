@@ -1553,7 +1553,7 @@ c lowesd() : Initialize iv(*) and v(1:4)
 c ------     called only by loess_workspace()  in ./loessc.c
       subroutine lowesd(iv, liv,lv, v, d,n,f,ideg,nf,nvmax, setlf)
       integer               liv,lv,    d,n,  ideg,nf,nvmax, setlf
-c           setlf {Rboolean}: if(true) need  L [nf x nvmax] matrices
+c           setlf if(true) need  L [nf x nvmax] matrices
       integer iv(liv)
       double precision f, v(lv)
 
@@ -1998,7 +1998,7 @@ c     initialize  d1mach(2) === DBL_MAX:
 
 c {called only from ehg127}  purpose...?...
       subroutine ehg137(z,leaf,nleaf,d,ncmax,a,xi,lo,hi)
-      integer d,nleaf
+      integer d,nleaf,ncmax
       integer leaf(256),a(ncmax),hi(ncmax),lo(ncmax),pstack(20)
       DOUBLE PRECISION z(d),xi(ncmax)
 

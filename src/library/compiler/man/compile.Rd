@@ -31,8 +31,9 @@ setCompilerOptions(...)
   \item{options}{list of named compiler options: see \sQuote{Details}.}
   \item{env}{the top level environment for the compiling.}
   \item{srcref}{initial source reference for the expression.}
-  \item{file,infile,outfile}{pathnames; outfile defaults to infile with
-    a \file{.Rc} extension in place of any existing extension.}
+  \item{file,infile,outfile}{pathnames; \code{outfile} defaults to
+    \code{infile} with a \file{.Rc} extension in place of any existing
+    extension.} 
   \item{ascii}{logical; should the compiled file be saved in ascii format?}
   \item{verbose}{logical; should the compiler show what is being compiled?}
   \item{version}{the workspace format version to use.  \code{NULL}
@@ -43,7 +44,7 @@ setCompilerOptions(...)
   \item{chdir}{logical; change directory before evaluation?}
   \item{code}{byte code expression or compiled closure}
   \item{e}{expression to compile.}
-  \item{level}{integer; the JIT level to use (\code{0} to \code{3}, or
+  \item{level}{integer; the \abbr{JIT} level to use (\code{0} to \code{3}, or
     negative to \emph{return} it).}
   \item{enable}{logical; enable compiling packages if \code{TRUE}.}
   \item{name}{character string; name of option to return.}
@@ -72,17 +73,17 @@ setCompilerOptions(...)
   \code{disassemble} produces a printed representation of the code
   that may be useful to give a hint of what is going on.
 
-  \code{enableJIT} enables or disables just-in-time (JIT)
-  compilation. JIT is disabled if the argument is 0.  If \code{level} is
+  \code{enableJIT} enables or disables just-in-time (\abbr{JIT})
+  compilation. \abbr{JIT} is disabled if the argument is 0.  If \code{level} is
   1 then larger closures are compiled before their first use.  If
   \code{level} is 2, then some small closures are also compiled before
   their second use.  If \code{level} is 3 then in addition
-  all top level loops are compiled before they are executed.  JIT level
-  3 requires the compiler option \code{optimize} to be 2 or 3.  The JIT
+  all top level loops are compiled before they are executed.  \abbr{JIT} level
+  3 requires the compiler option \code{optimize} to be 2 or 3.  The \abbr{JIT}
   level can also be selected by starting \R with the environment
   variable \code{R_ENABLE_JIT} set to one of these values. Calling
-  \code{enableJIT} with a negative argument returns the current JIT
-  level. The default JIT level is \code{3}.
+  \code{enableJIT} with a negative argument returns the current \abbr{JIT}
+  level. The default \abbr{JIT} level is \code{3}.
 
   \code{compilePKGS} enables or disables compiling packages when they
   are installed.  This requires that the package uses lazy loading as

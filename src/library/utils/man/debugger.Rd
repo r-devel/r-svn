@@ -1,12 +1,13 @@
 % File src/library/utils/man/debugger.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{debugger}
+\title{\I{Post-Mortem} Debugging}
 \alias{debugger}
 \alias{dump.frames}
-\title{Post-Mortem Debugging}
+\alias{limitedLabels}
 \description{
   Functions to dump the evaluation environments (frames) and to examine
   dumped frames.
@@ -15,6 +16,8 @@
 dump.frames(dumpto = "last.dump", to.file = FALSE,
             include.GlobalEnv = FALSE)
 debugger(dump = last.dump)
+
+limitedLabels(value, maxwidth = getOption("width") - 5L)
 }
 \arguments{
   \item{dumpto}{a character string. The name of the object or file to
@@ -26,13 +29,18 @@ debugger(dump = last.dump)
     to the \code{\link{sys.frames}()}.  Will be particularly useful when
     used in a batch job.}
   \item{dump}{an \R dump object created by \code{dump.frames}.}
+  %% limitedLabels():
+  \item{value}{a \code{\link{list}} of \code{\link{call}}s to be formatted,
+    e.g., for user menus.}
+  \item{maxwidth}{optional length to which to trim the result of \code{limitedLabels()};
+    values smaller than 40 or larger than 1000 are winsorized.}
 }
 \details{
   To use post-mortem debugging, set the option \code{error} to be a call
   to \code{dump.frames}.  By default this dumps to an \R object
   \code{last.dump} in the workspace, but it can be set to dump to a
   file (a dump of the object produced by a call to \code{\link{save}}).
-  The dumped object contain the call stack, the active environments and
+  The dumped object contains the call stack, the active environments and
   the last error message as returned by \code{\link{geterrmessage}}.
 
   When dumping to file, \code{dumpto} gives the name of the dumped
@@ -49,6 +57,11 @@ debugger(dump = last.dump)
   If \code{dump.frames} is installed as the error handler, execution
   will continue even in non-interactive sessions.  See the examples for
   how to dump and then quit.
+
+  \code{limitedLabels(v)} takes a \code{\link{list}} of calls whose
+  elements may have a \code{srcref} attribute and returns a vector that
+  pastes a formatted version of those attributes onto the formatted version
+  of the elements, all finally \code{\link{strtrim}()}med to \code{maxwidth}.
 }
 \value{
   Invisible \code{NULL}.
@@ -66,9 +79,7 @@ debugger(dump = last.dump)
   produce and save the dump, for example if it has run out of workspace.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{browser}} for the actions available at the \code{Browse}
@@ -79,19 +90,21 @@ debugger(dump = last.dump)
   \code{debugger} but directly after the error occurs.
 }
 \examples{
-\dontrun{
-options(error = quote(dump.frames("testdump", TRUE)))
+op <- options(error = dump.frames)
 
 f <- function() {
     g <- function() stop("test dump.frames")
     g()
 }
-f()   # will generate a dump on file "testdump.rda"
-options(error = NULL)
+f()   # will generate a dump in object "last.dump"
+str(last.dump)
 
-## possibly in another R session
-load("testdump.rda")
-debugger(testdump)
+options(op)  # reset (error = NULL)
+
+\dontrun{
+### Example of debugger() interaction with 'last.dump'
+
+> debugger()
 Available environments had calls:
 1: f()
 2: g()
@@ -100,7 +113,7 @@ Available environments had calls:
 Enter an environment number, or 0 to exit
 Selection: 1
 Browsing in the environment with call:
-f()
+   f()
 Called from: debugger.look(ind)
 Browse[1]> ls()
 [1] "g"
@@ -115,9 +128,15 @@ Available environments had calls:
 
 Enter an environment number, or 0 to exit
 Selection: 0
+}
 
+\dontrun{
 ## A possible setting for non-interactive sessions
 options(error = quote({dump.frames(to.file = TRUE); q(status = 1)}))
+f()   # will generate a dump on file "last.dump.rda" and exit
+## then, in another R session
+load("last.dump.rda")
+debugger()
 }}
 \keyword{utilities}
 \keyword{error}

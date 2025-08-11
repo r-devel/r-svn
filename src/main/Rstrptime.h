@@ -516,7 +516,10 @@ w_strptime_internal (wchar_t *rp, const wchar_t *fmt, stm *tm,
 		    val = (val / 100) * 100 + ((val % 100) * 50) / 30;
 		}
 		/* https://en.wikipedia.org/wiki/List_of_UTC_time_offsets */
-		if (val > 1400) return NULL;
+		if (val > 1400) {
+		    warning("values for %%z outside +/-1400 are an error");
+		    return NULL;
+		}
 		off = ((val * 3600) / 100);
 		if (neg) off = -off;
 		*poffset = off;
@@ -998,7 +1001,10 @@ strptime_internal (const char *rp, const char *fmt, stm *tm,
 		    if (val % 100 >= 60) return NULL;
 		    val = (val / 100) * 100 + ((val % 100) * 50) / 30;
 		}
-		if (val > 1200) return NULL;
+		if (val > 1400) {
+		    warning("values for %%z outside +/-1400 are an error");
+		    return NULL;
+		}
 		off = (val * 3600) / 100;
 		if (neg) off = -off;
 		*poffset = off;
@@ -1193,13 +1199,13 @@ strptime_internal (const char *rp, const char *fmt, stm *tm,
 */
 
 attribute_hidden
-void dt_invalidate_locale() // used in platform.c
+void dt_invalidate_locale(void) // used in platform.c
 {
     locale_strings_set = 0;
     locale_w_strings_set = 0;
 }
 
-/* use system stuct tm and strftime/wcstime here */
+/* use system stuct tm and strftime/wcsftime here */
 static void get_locale_strings(void)
 {
     int i;

@@ -19,18 +19,23 @@ $(SHLIB): $(OBJECTS)
 	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ $(BASE)-win.def $(OBJECTS) $(ALL_LIBS); \
 	  else \
 	    echo EXPORTS > tmp.def; \
-	    $(NM) $^ | $(SED) -n $(SYMPAT) $(NM_FILTER) | $(SED) $(ADDQU)  >> tmp.def; \
+	    $(NM) $(OBJECTS) | $(SED) -n $(SYMPAT) $(NM_FILTER) | $(SED) $(ADDQU)  >> tmp.def; \
 	    echo $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
 	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
 	    $(RM) tmp.def; \
 	  fi \
 	fi
 
-.PHONY: all shlib-clean
+.PHONY: all shlib-clean compilers
 shlib-clean:
 	@rm -f $(OBJECTS) symbols.rds
 
 ## FIXME: why not Rscript?
 symbols.rds: $(OBJECTS)
 	@$(ECHO) "tools:::.shlib_objects_symbol_tables()" | \
-	  $(R_HOME)/bin$(R_ARCH)/Rterm.exe --vanilla --no-echo --args $(OBJECTS)
+	  $(R_HOME)/bin$(R_ARCH)/Rterm.exe --vanilla --no-echo --args $(OBJECTS) --pkglibs $(PKG_LIBS)
+
+compilers:
+	@$(ECHO) "CC = $(CC)"
+	@$(ECHO) "CXX = $(CXX)"
+	@$(ECHO) "FC = $(FC)"

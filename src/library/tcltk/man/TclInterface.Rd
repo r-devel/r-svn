@@ -1,6 +1,6 @@
 % File src/library/tcltk/man/TclInterface.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{TclInterface}
@@ -49,6 +49,7 @@
 \alias{is.tkwin}
 \alias{tkdestroy}
 \alias{.TkRoot}
+\alias{.TkUp}
 \alias{addTclPath}
 \alias{tclRequire}
 \alias{tclVersion}
@@ -69,6 +70,7 @@
 .Tk.newwin(ID)
 .Tk.subwin(parent)
 .TkRoot
+.TkUp
 
 tkdestroy(win)
 is.tkwin(x)
@@ -111,7 +113,7 @@ is.tclObj(x)
 
 addTclPath(path = ".")
 tclRequire(package, warn = TRUE)
-tclVersion()
+tclVersion(with_patchlevel = FALSE)
 }
 \arguments{
   \item{objv}{a named vector of Tcl objects}
@@ -129,6 +131,7 @@ tclVersion()
   \item{warn}{logical. Warn if not found?}
   \item{...}{Additional arguments. See below.}
   \item{init}{initialization value}
+  \item{with_patchlevel}{logical: should the \sQuote{patch level} be included?}
 }
 \details{
   Many of these functions are not intended for general use but are used
@@ -148,7 +151,7 @@ tclVersion()
   character mode and inserted in the command string, but window objects
   are passed using their ID string, and callbacks are passed via the
   result of \code{.Tcl.callback}. Tags are converted to option flags
-  simply by prepending a \code{-}
+  simply by prepending a \samp{-}.
 
   \code{.Tcl.args.objv} serves a similar purpose as \code{.Tcl.args} but
   produces a list of \code{tclObj} objects suitable for passing to
@@ -190,6 +193,9 @@ tclVersion()
   \code{.Tk.subwin} creates a new window which is a sub-window of a given
   parent window.
 
+  \code{.TkUp} is a logical flag to indicate whether the Tk widget
+system is active; if \code{FALSE}, only the Tcl interpreter is available.
+
   \code{tkdestroy} destroys a window and also removes the reference to a
   window from its parent.
 
@@ -221,7 +227,7 @@ tclVersion()
   meaningfully be set so assignment forms exist only to print an error
   message.
 
-  It is possible to access Tcl's \sQuote{dual-ported} objects directly,
+  It is possible to access Tcl{}'s \sQuote{dual-ported} objects directly,
   thus avoiding parsing and deparsing of their string representation.
   This works by using objects of class \code{tclObj}.  The string
   representation of such objects can be extracted (but not set) using
@@ -244,7 +250,7 @@ tclVersion()
   \code{tclObj(x)} which also allows an assignment form, in which the
   right hand side of the assignment is automatically converted using
   \code{as.tclObj}.  There is a print method for \code{tclObj} objects;
-  it prints \code{<Tcl>} followed by the string representation of the
+  it prints \samp{<Tcl>} followed by the string representation of the
   object.  Notice that \code{as.character} on a \code{tclVar} object is
   the \emph{name} of the corresponding Tcl variable and not the value.
 
@@ -252,11 +258,20 @@ tclVersion()
   to add the directory where they are found to the Tcl search path with
   \code{addTclPath}.  The return value is a class \code{"tclObj"} object
   if it succeeds, or \code{FALSE} if it fails (when a warning is
-  issued).  To see the current search path as an \R character vector, use
-\preformatted{strsplit(tclvalue('auto_path'), " ")[[1]]}.
+  issued unless \code{warn} is false).  To see the current search path
+  as an \R character vector, 
+  use: \preformatted{
+    strsplit(tclvalue('auto_path'), " ")[[1]]
+}
+  Note that a report of \sQuote{not found} will be given if the package is
+  found but is not compatible with the Tcl/Tk version in use.
 
-  The Tcl version (including patchlevel) is returned as a character
-  string (such as \code{"8.6.3"}).
+  \code{tclVersion} optionally returns the full Tcl version as a
+  character string such as \code{"8.6.16"} or \code{"9.0.1"}. NB: the
+  \sQuote{patch level} is not necessarily numeric, e.g.\sspace{}for
+  version \code{9.0b1}.
+  (\R{} versions before 4.6.0 reported the full version including the
+  \sQuote{patch level}.)
 }
 \note{
   Strings containing unbalanced braces are currently not handled
@@ -272,13 +287,14 @@ tclVersion()
 }
 \examples{
 tclVersion()
+tclVersion(TRUE)
 
 .Tcl("format \"\%s\\n\" \"Hello, World!\"")
+\dontdiff{
 f <- function() cat("HI!\n")
-## IGNORE_RDIFF_BEGIN
 .Tcl.callback(f)
 .Tcl.args(text = "Push!", command = f) # NB: Different address
-## IGNORE_RDIFF_END
+}
 
 xyzzy <- tclVar(7913)
 tclvalue(xyzzy)
@@ -289,13 +305,11 @@ tcl("set", as.character(xyzzy))
 \dontrun{
 ## These cannot be run by example() but should be OK when pasted
 ## into an interactive R session with the tcltk package loaded
-top <- tktoplevel() # a Tk widget, see Tk-widgets
+top <- tktoplevel() # a Tk widget, see ?Tkwidgets
 ls(envir = top$env, all.names = TRUE)
 }
-
-## IGNORE_RDIFF_BEGIN
+\dontdiff{
 ls(envir = .TkRoot$env, all.names = TRUE) # .Tcl.args put a callback ref in here
-## IGNORE_RDIFF_END
+}
 }
 \keyword{ misc }
-

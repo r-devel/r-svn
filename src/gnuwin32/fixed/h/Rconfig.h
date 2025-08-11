@@ -21,12 +21,16 @@
 #define FC_LEN_T size_t
 #endif
 
+#define PR18534fixed 1
+
 /* NB: the rest are for the C compiler used to build R:
    they do not necessarily apply to a C++ compiler */
 #define SIZEOF_SIZE_T 8
 /* #undef HAVE_ALLOCA_H */
 /* optional C99 type */
 #define HAVE_UINTPTR_T 1
+/* C23 (or clang) extension */
+#define HAVE_ENUM_BASE_TYPE 1
 
 #endif /* not R_CONFIG_H */
 

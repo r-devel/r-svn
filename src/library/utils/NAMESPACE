@@ -1,7 +1,7 @@
 # Refer to all C routines by their name prefixed by C_
 useDynLib(utils, .registration = TRUE, .fixes = "C_")
 
-export("?", .DollarNames, .S3methods, .romans, Rprof, Rprofmem,
+export("?", .AtNames, .DollarNames, .S3methods, .romans, Rprof, Rprofmem,
        RShowDoc, RSiteSearch, URLdecode, URLencode, View, adist,
        alarm, apropos, aregexec, argsAnywhere, asDateBuilt, askYesNo,
        assignInMyNamespace, assignInNamespace, as.roman, as.person,
@@ -11,13 +11,14 @@ export("?", .DollarNames, .S3methods, .romans, Rprof, Rprofmem,
        aspell_write_personal_dictionary_file, available.packages,
        browseEnv, browseURL, browseVignettes, bug.report,
        capture.output, changedFiles, charClass, checkCRAN,
+       .checkHT,
        chooseBioCmirror, chooseCRANmirror, citation, cite, citeNatbib,
        citEntry, citHeader, citFooter, close.socket, combn,
        compareVersion, contrib.url, count.fields, create.post, data,
        data.entry, dataentry, de, de.ncols, de.restore, de.setup,
        debugger, debugcall, demo, download.file, download.packages,
        dump.frames, edit, emacs, example, file_test, file.edit,
-       fileSnapshot, find, findCRANmirror, fix, fixInNamespace, findLineNum,
+       fileSnapshot, find, findCRANmirror, findMatches, fix, fixInNamespace, findLineNum,
        flush.console, formatOL, formatUL, getAnywhere, getCRANmirrors,
        getFromNamespace, getParseData, getParseText, getS3method,
        getSrcDirectory, getSrcFilename, getSrcLocation, getSrcref,
@@ -65,6 +66,7 @@ S3method(edit, matrix)
 S3method(edit, vignette)
 S3method(format, MethodsFunction)
 S3method(format, "aspell")
+S3method(format, "aspell_inspect_context")
 S3method(format, "news_db")
 S3method(format, "object_size")
 S3method(format, "roman")
@@ -144,8 +146,15 @@ S3method("$<-", "citation")
 S3method("$<-", "person")
 S3method("[", "bibentry")
 S3method("[", "person")
+S3method("[<-", "bibentry")
+S3method("[<-", "person")
 S3method("[[", "bibentry")
 S3method("[[", "person")
+S3method("[[<-", "bibentry")
+S3method("[[<-", "person")
+S3method("as.data.frame", "bibentry")
+S3method("as.data.frame", "citation")
+S3method("as.data.frame", "person")
 S3method("c", "bibentry")
 S3method("c", "person")
 S3method("format", "bibentry")
@@ -155,13 +164,17 @@ S3method("print", "bibentry")
 S3method("print", "citation")
 S3method("print", "person")
 S3method("rep", "bibentry")
+S3method("rep", "person")
 S3method("sort", "bibentry")
 S3method("toBibtex", "bibentry")
+S3method("transform", "bibentry")
 S3method("unique", "bibentry")
+S3method("unique", "person")
 
 S3method(.DollarNames, default)
 S3method(.DollarNames, list)
 S3method(.DollarNames, environment)
+S3method(.AtNames, default)
 
 export(Rtangle, RtangleSetup, RweaveLatex, RweaveLatexSetup, Stangle,
        Sweave, SweaveSyntConv, SweaveSyntaxLatex, SweaveSyntaxNoweb,

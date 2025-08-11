@@ -1,6 +1,6 @@
 % File src/library/graphics/man/hist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{hist}
@@ -61,8 +61,7 @@ hist(x, \dots)
     drawing of shading lines.}
   \item{angle}{the slope of shading lines, given as an angle in
     degrees (counter-clockwise).}
-  \item{col}{a colour to be used to fill the bars.
-    The default used to be \code{NULL} (unfilled bars) in \R versions before 4.0.0.}
+  \item{col}{a colour to be used to fill the bars.}
   \item{border}{the color of the border around the bars.  The default
     is to use the standard foreground color.}
   \item{main, xlab, ylab}{main title and axis labels: these arguments to
@@ -71,8 +70,7 @@ hist(x, \dots)
   \item{xlim, ylim}{the range of x and y values with sensible defaults.
     Note that \code{xlim} is \emph{not} used to define the histogram (breaks),
     but only for plotting (when \code{plot = TRUE}).}
-  \item{axes}{logical.  If \code{TRUE} (default), axes are draw if the
-    plot is drawn.}
+  \item{axes}{logical.  If \code{TRUE} (default), axes are drawn when the plot is.}
   \item{plot}{logical.  If \code{TRUE} (default), a histogram is
     plotted, otherwise a list of breaks and counts is returned.  In the
     latter case, a warning is used if (typically graphical) arguments
@@ -97,13 +95,13 @@ hist(x, \dots)
 }
 \details{
   The definition of \emph{histogram} differs by source (with
-  country-specific biases).  \R's default with equi-spaced breaks (also
+  country-specific biases).  \R's default with equispaced breaks (also
   the default) is to plot the counts in the cells defined by
   \code{breaks}.  Thus the height of a rectangle is proportional to
   the number of points falling into the cell, as is the area
   \emph{provided} the breaks are equally-spaced.
 
-  The default with non-equi-spaced breaks is to give
+  The default with non-equispaced breaks is to give
   a plot of area one, in which the \emph{area} of the rectangles is the
   fraction of the data points falling in the cells.
 

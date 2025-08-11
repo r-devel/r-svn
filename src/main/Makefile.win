@@ -8,6 +8,7 @@ all: makeMakedeps libmain.a
 ## there are headers and include files in this directory
 CPPFLAGS = -I. -I../include -DHAVE_CONFIG_H -DR_DLL_BUILD $(arch_DEFS)
 
+# (flexiblas not supported on Windows)
 CSOURCES = \
 	CommandLineArgs.c \
 	Rdynload.c Renviron.c RNG.c \
@@ -18,11 +19,11 @@ CSOURCES = \
 	dcf.c datetime.c debug.c deparse.c devices.c \
 	dotcode.c dounzip.c dstruct.c duplicate.c \
 	edit.c engine.c envir.c errors.c eval.c \
-	format.c \
+	flexiblas.c format.c \
 	gevents.c gram.c gram-ex.c graphics.c grep.c \
 	identical.c inlined.c inspect.c internet.c iosupport.c \
 	lapack.c list.c localecharset.c logic.c \
-	main.c mapply.c mask.c match.c memory.c mkdtemp.c \
+	machine.c main.c mapply.c mask.c match.c memory.c mkdtemp.c \
 	names.c \
 	objects.c options.c \
 	paste.c patterns.c platform.c plot.c plot3d.c plotmath.c \
@@ -46,7 +47,11 @@ gram.c: gram.y
 	$(RM) gram.tab.c
 endif
 
-platform-CPPFLAGS = -I../gnuwin32 -I../extra -DPLATFORM_PKGTYPE='"win.binary"'
+platform-CPPFLAGS = -I../gnuwin32 -I../extra
+
+ifneq "$(R_ARCH)" ""
+  platform-CPPFLAGS += -DPLATFORM_PKGTYPE='"win.binary"'
+endif
 
 RNG-CPPFLAGS = -I../nmath
 agrep-CPPFLAGS = -I../extra
@@ -63,11 +68,20 @@ saveload-CPPFLAGS = -I../extra/xdr
 serialize-CPPFLAGS = -I../extra/xdr
 sysutils-CPPFLAGS = -I../gnuwin32
 
-connections-CPPFLAGS = -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
 dounzip-CPPFLAGS = -I$(EXT_LIBS)/include
-grep-CPPFLAGS = -DPCRE2_STATIC -I../extra -I../gnuwin32 -I"$(EXT_LIBS)"/include
-platform-CPPFLAGS += -DPCRE2_STATIC -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
-util-CPPFLAGS = -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
+grep-CPPFLAGS = -I../extra -I../gnuwin32 
+
+ifndef USE_PKG_CONFIG
+  connections-CPPFLAGS = -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
+  grep-CPPFLAGS += -DPCRE2_STATIC -I"$(EXT_LIBS)"/include
+  platform-CPPFLAGS += -DPCRE2_STATIC -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
+  util-CPPFLAGS = -DLZMA_API_STATIC -I"$(EXT_LIBS)"/include
+else
+  connections-CPPFLAGS = $(shell $(PKG_CONFIG) --cflags liblzma)
+  grep-CPPFLAGS += $(shell $(PKG_CONFIG) --cflags libpcre2-8)
+  platform-CPPFLAGS += $(shell $(PKG_CONFIG) --cflags liblzma libpcre2-8)
+  util-CPPFLAGS = $(shell $(PKG_CONFIG) --cflags liblzma)
+endif
 
 ifdef USE_ICU
 platform-CPPFLAGS += -DUSE_ICU -I"$(ICU_PATH)"/include

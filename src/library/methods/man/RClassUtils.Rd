@@ -123,6 +123,14 @@ validSlotNames(names)
 
 getDataPart(object, NULL.for.none = FALSE)
 setDataPart(object, value, check = TRUE)
+
+assignClassDef(Class, def, where = .GlobalEnv, force = FALSE,
+               doSubclasses = is(def, "ClassUnionRepresentation"))
+
+completeSubclasses(classDef, class2, extensionDef, where,
+                   classDef2 = getClassDef(class2, where))
+
+newClassRepresentation(\dots)
 }
 
 \section{Summary of Functions}{
@@ -236,7 +244,7 @@ setDataPart(object, value, check = TRUE)
     }
 
     \item{\code{makeExtends}:}{
-      Construct an SClassExtension object representing the relationship
+      Construct an \code{"SClassExtension"} object representing the relationship
       from \code{Class} to the class defined by \code{classDef2}. 
     }
 

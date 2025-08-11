@@ -1,12 +1,12 @@
 % File src/library/datasets/man/attenu.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{attenu}
 \docType{data}
 \alias{attenu}
-\title{The Joyner--Boore Attenuation Data}
+\title{The \I{Joyner}--\I{Boore} Attenuation Data}
 \description{
   This data gives peak accelerations measured at various observation
   stations for 23 earthquakes in California.  The data have been used
@@ -17,45 +17,24 @@
 \format{
   A data frame with 182 observations on 5 variables.
   \tabular{rlll}{
-    [,1] \tab event   \tab numeric \tab Event Number\cr
-    [,2] \tab mag     \tab numeric \tab Moment Magnitude\cr
-    [,3] \tab station \tab factor  \tab Station Number\cr
-    [,4] \tab dist    \tab numeric \tab Station-hypocenter distance (km)\cr
-    [,5] \tab accel   \tab numeric \tab Peak acceleration (g)}
+    [,1] \tab \code{event}   \tab numeric \tab Event Number\cr
+    [,2] \tab \code{mag}     \tab numeric \tab Moment Magnitude\cr
+    [,3] \tab \code{station} \tab factor  \tab Station Number\cr
+    [,4] \tab \code{dist}    \tab numeric \tab Station-hypocenter distance (km)\cr
+    [,5] \tab \code{accel}   \tab numeric \tab Peak acceleration (g)}
 }
 \source{
   Joyner, W.B., D.M. Boore and R.D. Porcella (1981).  Peak horizontal
   acceleration and velocity from strong-motion records including
-  records from the 1979 Imperial Valley, California earthquake.  USGS
+  records from the 1979 Imperial Valley, California earthquake.  \abbr{USGS}
   Open File report 81-365. Menlo Park, Ca.
 }
 \references{
-  Boore, D. M. and Joyner, W. B.(1982).
-  The empirical prediction of ground motion,
-  \emph{Bulletin of the Seismological Society of America}, \bold{72},
-  S269--S268.
-
-  Bolt, B. A. and Abrahamson, N. A. (1982).
-  New attenuation relations for peak and expected accelerations of
-  strong ground motion.
-  \emph{Bulletin of the Seismological Society of America}, \bold{72},
-  2307--2321.
-
-  Bolt B. A. and Abrahamson, N. A. (1983).
-  Reply to W. B. Joyner & D. M. Boore's \dQuote{Comments on: New
-    attenuation relations for peak and expected accelerations for peak
-    and expected accelerations of strong ground motion},
-  \emph{Bulletin of the Seismological Society of America}, \bold{73},
-  1481--1483.
-
-  Brillinger, D. R. and Preisler, H. K. (1984).
-  An exploratory analysis of the Joyner-Boore attenuation data,
-  \emph{Bulletin of the Seismological Society of America}, \bold{74},
-  1441--1449.
-
-  Brillinger, D. R. and Preisler, H. K. (1984).
-  \emph{Further analysis of the Joyner-Boore attenuation data}.
-  Manuscript.
+  \bibshow{R:Boore+Joyner:1982,
+    R:Bolt+Abrahamson:1982,
+    R:Bolt+Abrahamson:1983,
+    R:Brillinger+Preisler:1984,
+    R:Brillinger+Preisler:1985}
 }
 \examples{
 require(graphics)

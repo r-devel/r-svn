@@ -14,16 +14,16 @@ find(what, mode = "any", numeric = FALSE, simple.words = TRUE)
 \alias{apropos}
 \alias{find}
 \arguments{
-  \item{what}{character string.  For \code{simple.words = FALSE}
-    the name of an object; otherwise
+  \item{what}{a character string.  For \code{find} with
+    \code{simple.words = TRUE}, the name of an object; otherwise
     a \link{regular expression} to match object names against.}
-  \item{where, numeric}{a logical indicating whether positions in the
-    search list should also be returned}
+  \item{where, numeric}{logical indicating whether positions in the
+    search list should also be returned.}
   \item{ignore.case}{logical indicating if the search should be
     case-insensitive, \code{TRUE} by default.}
   \item{dot_internals}{logical indicating if the search result should show
     \pkg{base} internal objects, \code{FALSE} by default.}
-  \item{mode}{character; if not \code{"any"}, only objects whose
+  \item{mode}{a character string; if not \code{"any"}, only objects whose
     \code{\link{mode}} equals \code{mode} are searched.}
   \item{simple.words}{logical; if \code{TRUE}, the \code{what} argument is
     only searched as a whole word.}
@@ -80,9 +80,9 @@ find("cor", numeric = TRUE)                     # numbers with these names
 find("cor", numeric = TRUE, mode = "function")  # only the second one
 rm(cor)
 
-\dontrun{apropos(".", mode="list")  # a long list}
+\dontrun{apropos(".", mode = "list")  # includes many datasets}
 
-# need a DOUBLE backslash '\\\\' (in case you don't see it anymore)
+# extraction/replacement methods (need a DOUBLE backslash '\\\\')
 apropos("\\\\[")
 
 \donttest{# everything % not diff-able
@@ -97,9 +97,7 @@ apropos("^.$")
 apropos("^..?$")
 # the 2-to-4 letter things
 apropos("^.{2,4}$")
-
-# the 8-and-more letter things
-apropos("^.{8,}$")
+# frequencies of 8-and-more letter things
 table(nchar(apropos("^.{8,}$")))
 }}
 \keyword{data}

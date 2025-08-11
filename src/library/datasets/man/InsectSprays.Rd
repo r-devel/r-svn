@@ -1,6 +1,6 @@
 % File src/library/datasets/man/InsectSprays.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{InsectSprays}
@@ -15,8 +15,8 @@
 \format{
   A data frame with 72 observations on 2 variables.
   \tabular{rlll}{
-    [,1]  \tab count  \tab numeric  \tab Insect count\cr
-    [,2]  \tab spray  \tab factor   \tab The type of spray
+    [,1]  \tab \code{count}  \tab numeric  \tab Insect count\cr
+    [,2]  \tab \code{spray}  \tab factor   \tab The type of spray
   }
 }
 \source{
@@ -25,8 +25,7 @@
   \emph{Biometrika}, \bold{29}, 243--262.
 }
 \references{
-  McNeil, D. (1977) \emph{Interactive Data Analysis}.
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2022-05-29 r82419) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin21.5.0 (64-bit)
+R Under development (unstable) (2025-05-23 r88232) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -34,6 +32,8 @@ Type 'q()' to quit R.
 > ### Title: CRAN Package Repository Tools
 > ### Aliases: CRAN_package_db CRAN_check_results CRAN_check_details
 > ###   CRAN_check_issues summarize_CRAN_check_status R_CRAN_WEB R_CRAN_SRC
+> ###   CRAN_current_db CRAN_aliases_db CRAN_rdxrefs_db CRAN_archive_db
+> ###   CRAN_authors_db
 > 
 > ### ** Examples
 > 
@@ -70,6 +70,74 @@ Type 'q()' to quit R.
 > 
 > 
 > cleanEx()
+> nameEx("R")
+> ### * R
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: R
+> ### Title: Call Function in Inferior R Process
+> ### Aliases: R
+> 
+> ### ** Examples
+> 
+> ## Compute cos(0) in an inferior R process.
+> ## By default, only return the value of the function call.
+> R(cos, list(0))
+[1] 1
+> ## If 'drop = FALSE', we also get status, stdout and stderr.
+> ## IGNORE_RDIFF_BEGIN
+> R(cos, list(0), drop = FALSE)
+$value
+[1] 1
+
+$status
+[1] 0
+
+$stdout
+ [1] ""                                                                                 
+ [2] "R Under development (unstable) (2025-05-23 r88232) -- \"Unsuffered Consequences\""
+ [3] "Copyright (C) 2025 The R Foundation for Statistical Computing"                    
+ [4] "Platform: x86_64-pc-linux-gnu"                                                    
+ [5] ""                                                                                 
+ [6] "R is free software and comes with ABSOLUTELY NO WARRANTY."                        
+ [7] "You are welcome to redistribute it under certain conditions."                     
+ [8] "Type 'license()' or 'licence()' for distribution details."                        
+ [9] ""                                                                                 
+[10] "R is a collaborative project with many contributors."                             
+[11] "Type 'contributors()' for more information and"                                   
+[12] "'citation()' on how to cite R or R packages in publications."                     
+[13] ""                                                                                 
+[14] "Type 'demo()' for some demos, 'help()' for on-line help, or"                      
+[15] "'help.start()' for an HTML browser interface to help."                            
+[16] "Type 'q()' to quit R."                                                            
+[17] ""                                                                                 
+[18] "> x <- readRDS(\"/tmp/Rtmp0ux66Z/runri5637d2aafeee6\")"                           
+[19] "> options(repos = x$repos)"                                                       
+[20] "> y <- tryCatch(list(do.call(x$fun, x$args, quote = TRUE)), error = identity)"    
+[21] "> saveRDS(y, \"/tmp/Rtmp0ux66Z/runro5637d2df4941c\")"                             
+[22] "> "                                                                               
+
+$stderr
+character(0)
+
+> ## IGNORE_RDIFF_END
+>     
+> 
+> ## A call giving an error:
+> (e <- tryCatch(R(stop, list("FOOBAR")), error = identity))
+<inferiorCallError: error in inferior call:
+  FOOBAR>
+> ## The inferior R process ran successfully:
+> e$status
+[1] 0
+> ## The function call gave an error:
+> e$value
+<simpleError in do.call(x$fun, x$args, quote = TRUE): FOOBAR>
+> 
+> 
+> 
+> cleanEx()
 > nameEx("Rd2HTML")
 > ### * Rd2HTML
 > 
@@ -81,6 +149,8 @@ Type 'q()' to quit R.
 > ### Keywords: documentation
 > 
 > ### ** Examples
+> 
+> 
 > cleanEx()
 > nameEx("Rd2txt_options")
 > ### * Rd2txt_options
@@ -94,6 +164,12 @@ Type 'q()' to quit R.
 > 
 > ### ** Examples
 > 
+> saveOpts <- Rd2txt_options()
+> Rd2txt_options(minIndent = 4)
+> Rd2txt_options()[["minIndent"]]
+[1] 4
+> Rd2txt_options(saveOpts)
+> stopifnot(identical(Rd2txt_options(), saveOpts))
 > 
 > 
 > 
@@ -177,13 +253,10 @@ Error in assertWarning(ff()) :
 > ### Name: bibstyle
 > ### Title: Select or Define a Bibliography Style
 > ### Aliases: bibstyle getBibstyle
-> ### Keywords: utilties documentation
+> ### Keywords: utilities documentation
 > 
 > ### ** Examples
 > 
-> ## Don't show: 
-> options(useFancyQuotes = FALSE)
-> ## End(Don't show)
 > refs <-
 + c(bibentry(bibtype = "manual",
 +     title = "R: A Language and Environment for Statistical Computing",
@@ -204,13 +277,13 @@ Error in assertWarning(ff()) :
 > bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
 +     fmtPrefix = function(paper) paste0("[", paper$.index, "]"),
 +        .init = TRUE)
-<environment: 0x12a8be408>
+<environment: 0x55e2213e0fe0>
 > print(refs, .bibstyle = "unsorted")
 [1] R Core Team (2013). _R: A Language and Environment for Statistical
 Computing_. R Foundation for Statistical Computing, Vienna, Austria.
 <https://www.R-project.org>.
 
-[2] Box GEP, Cox DR (1964). "An Analysis of Transformations." _Journal
+[2] Box GEP, Cox DR (1964). “An Analysis of Transformations.” _Journal
 of the Royal Statistical Society, Series B_, *26*(2), 211-243.
 doi:10.1111/j.2517-6161.1964.tb00553.x
 <https://doi.org/10.1111/j.2517-6161.1964.tb00553.x>.
@@ -423,6 +496,32 @@ doi:10.1111/j.2517-6161.1964.tb00553.x
 > 
 > 
 > cleanEx()
+> nameEx("checkRd")
+> ### * checkRd
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: checkRd
+> ### Title: Check an Rd Object
+> ### Aliases: checkRd
+> ### Keywords: utilities documentation
+> 
+> ### ** Examples
+> 
+> ## parsed Rd from the installed version of _this_ help file
+> rd <- Rd_db("tools")[["checkRd.Rd"]]
+> stopifnot(length(checkRd(rd)) == 0)  # there should be no issues
+> 
+> ## make up \tabular issues
+> bad <- r"(\name{bad}\title{bad}\description{\tabular{p}{1 \tab 2}})"
+> (res <- checkRd(parse_Rd(textConnection(bad))))
+checkRd: (7) <connection>:1: Unrecognized \tabular format: p
+checkRd: (7) <connection>:1: Only 1 column allowed in this table
+> stopifnot(length(res) > 0)
+> 
+> 
+> 
+> cleanEx()
 > nameEx("checkRdaFiles")
 > ### * checkRdaFiles
 > 
@@ -533,9 +632,9 @@ attr(,"match.length")
 > 
 > ### ** Examples
 > 
-> x <- "fa\xE7ile"
+> x <- "fran\xE7ais"
 > encoded_text_to_latex(x, "latin1")
-[1] "fa{\\c c}ile"
+[1] "fran{\\c c}ais"
 > ## Not run: 
 > ##D ## create a tex file to show the upper half of 8-bit charsets
 > ##D x <- rawToChar(as.raw(160:255), multiple = TRUE)
@@ -550,11 +649,11 @@ attr(,"match.length")
 > ##D "\\usepackage{Rd}",
 > ##D "\\begin{document}",
 > ##D "\\HeaderA{test}{}{test}",
-> ##D "\\begin{Details}\relax",
+> ##D "\\begin{Details}\\relax",
 > ##D "\\Tabular{cccccccccccccccc}{")
 > ##D trailer <- c("}", "\\end{Details}", "\\end{document}")
 > ##D writeLines(header, con)
-> ##D writeLines(paste0(xx, "\\"), con)
+> ##D writeLines(paste0(xx, "\\\\"), con)
 > ##D writeLines(trailer, con)
 > ##D close(con)
 > ##D ## and some UTF_8 chars
@@ -569,7 +668,7 @@ attr(,"match.length")
 > ##D xx <- apply(xx, 1, paste, collapse = "&")
 > ##D con <- file("test-utf8.tex", "w")
 > ##D writeLines(header, con)
-> ##D writeLines(paste(xx, "\\", sep = ""), con)
+> ##D writeLines(paste(xx, "\\\\", sep = ""), con)
 > ##D writeLines(trailer, con)
 > ##D close(con)
 > ## End(Not run)
@@ -621,6 +720,246 @@ attr(,"match.length")
 > 
 > ### ** Examples
 > 
+> 
+> 
+> 
+> cleanEx()
+> nameEx("licensetools")
+> ### * licensetools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: licensetools
+> ### Title: License Tools
+> ### Aliases: analyze_license
+> 
+> ### ** Examples
+> 
+> ## Examples from section 'Licenses' of 'Writing R Extensions':
+> analyze_license("GPL-2")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL-2"
+
+$components
+[1] "GPL-2"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2"
+
+
+$extensions
+NULL
+
+$pointers
+NULL
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only"
+
+> analyze_license("LGPL (>= 2.0, < 3) | Mozilla Public License")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "LGPL (>= 2.0, < 3) | Mozilla Public License"
+
+$components
+[1] "LGPL (>= 2.0, < 3)"     "Mozilla Public License"
+
+$expansions
+$expansions[[1]]
+[1] "LGPL-2"   "LGPL-2.1"
+
+$expansions[[2]]
+[1] "MPL version 1.0" "MPL version 1.1" "MPL version 2.0"
+
+
+$extensions
+NULL
+
+$pointers
+NULL
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "LGPL-2.0-only OR LGPL-2.1-only OR MPL-1.0 OR MPL-1.1 OR MPL-2.0"
+
+> analyze_license("GPL-2 | file LICENCE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL-2 | file LICENCE"
+
+$components
+[1] "GPL-2"        "file LICENCE"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2"
+
+$expansions[[2]]
+[1] "file LICENCE"
+
+
+$extensions
+NULL
+
+$pointers
+[1] "LICENCE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only"
+
+> analyze_license("GPL (>= 2) | BSD_3_clause + file LICENSE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL (>= 2) | BSD_3_clause + file LICENSE"
+
+$components
+[1] "GPL (>= 2)"                  "BSD_3_clause + file LICENSE"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2" "GPL-3"
+
+$expansions[[2]]
+[1] "BSD_3_clause + file LICENSE"
+
+
+$extensions
+                   components extensible
+1 BSD_3_clause + file LICENSE       TRUE
+
+$pointers
+[1] "LICENSE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause"
+
+> analyze_license("Artistic-2.0 | AGPL-3 + file LICENSE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "Artistic-2.0 | AGPL-3 + file LICENSE"
+
+$components
+[1] "Artistic-2.0"          "AGPL-3 + file LICENSE"
+
+$expansions
+$expansions[[1]]
+[1] "Artistic-2.0"
+
+$expansions[[2]]
+[1] "AGPL-3 + file LICENSE"
+
+
+$extensions
+             components extensible
+1 AGPL-3 + file LICENSE       TRUE
+
+$pointers
+[1] "LICENSE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "Artistic-2.0 OR AGPL-3.0-only"
+
 > 
 > 
 > 
@@ -694,6 +1033,10 @@ character(0)
 > 
 > as.vector(md5sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
 [1] "eb723b61539feef013de476e68b5c50a"
+> md5sum(bytes=raw())
+[1] "d41d8cd98f00b204e9800998ecf8427e"
+> md5sum(bytes=charToRaw("abc"))
+[1] "900150983cd24fb0d6963f7d28e17f72"
 > 
 > 
 > 
@@ -769,6 +1112,39 @@ character(0)
 > 
 > ### ** Examples
 > 
+> latex <- parseLatex("fran\\c{c}ais", verbose = TRUE)
+1:1: TEXT: fran
+1:5: MACRO: \c
+1:7: '{'
+1:8: TEXT: c
+1:9: '}'
+1:10: TEXT: ais
+1:13: END_OF_INPUT
+> ## IGNORE_RDIFF_BEGIN
+> deparseLatex(latexToUtf8(latex))
+[1] "français"
+> ## IGNORE_RDIFF_END
+> 
+> deparseLatex(parseLatex("$t$"), math = c("\\eqn{", "}"))
+[1] "\\eqn{t}"
+> 
+> 
+> 
+> cleanEx()
+> nameEx("pkg2HTML")
+> ### * pkg2HTML
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: pkg2HTML
+> ### Title: Rd Converters
+> ### Aliases: pkg2HTML
+> ### Keywords: documentation
+> 
+> ### ** Examples
+> 
+> 
+> 
 > 
 > cleanEx()
 > nameEx("print.via.format")
@@ -817,6 +1193,28 @@ function (x, ...)
 > 
 > 
 > cleanEx()
+> nameEx("sha256sum")
+> ### * sha256sum
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: sha256sum
+> ### Title: Compute SHA-256 Checksums
+> ### Aliases: sha256sum
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> as.vector(sha256sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
+[1] "e6d6a009505e345fe949e1310334fcb0747f28dae2856759de102ab66b722cb4"
+> sha256sum(bytes=raw())
+[1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+> sha256sum(bytes=charToRaw("abc"))
+[1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+> 
+> 
+> 
+> cleanEx()
 > nameEx("showNonASCII")
 > ### * showNonASCII
 > 
@@ -830,7 +1228,7 @@ function (x, ...)
 > ### ** Examples
 > 
 > out <- c(
-+ "fa\xE7ile test of showNonASCII():",
++ "fran\xE7ais: test of showNonASCII():",
 + "\\details{",
 + "   This is a good line",
 + "   This has an \xfcmlaut in it.",
@@ -839,10 +1237,33 @@ function (x, ...)
 > f <- tempfile()
 > cat(out, file = f, sep = "\n")
 > 
+> ## IGNORE_RDIFF_BEGIN
 > showNonASCIIfile(f)
-1: fa<e7>ile test of showNonASCII():
+1: fran<e7>ais: test of showNonASCII():
 4:    This has an <fc>mlaut in it.
+> ## IGNORE_RDIFF_END
 > unlink(f)
+> 
+> 
+> 
+> cleanEx()
+> nameEx("testInstalledPackage")
+> ### * testInstalledPackage
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: testInstalledPackage
+> ### Title: Test Installed Packages
+> ### Aliases: testInstalledPackage testInstalledPackages testInstalledBasic
+> ###   TEST_MC_CORES standard_package_names
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> str(stPkgs <- standard_package_names())
+List of 2
+ $ base       : chr [1:14] "base" "tools" "utils" "grDevices" ...
+ $ recommended: chr [1:15] "MASS" "lattice" "Matrix" "nlme" ...
 > 
 > 
 > 
@@ -920,6 +1341,38 @@ An illustration of lexical scoping.
 > 
 > 
 > cleanEx()
+> nameEx("toTitleCase")
+> ### * toTitleCase
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: toTitleCase
+> ### Title: Convert Titles to Title Case
+> ### Aliases: toTitleCase
+> 
+> ### ** Examples
+> 
+> toTitleCase("bayesian network modeling and analysis")
+[1] "Bayesian Network Modeling and Analysis"
+> toTitleCase("ensemble tool for predictions from species distribution models")
+[1] "Ensemble Tool for Predictions from Species Distribution Models"
+> ## Treatment after "-":
+> toTitleCase("small- and large-scale analysis") # lowercase "and"
+[1] "Small- and Large-Scale Analysis"
+> 
+> toTitleCase("a small fox is jumping")    # "a Small Fox is .."     (the 'a' may change)% i.e. BUG
+[1] "a Small Fox is Jumping"
+> toTitleCase("is a small fox jumping?")   # "Is a Small Fox .."     (fine)
+[1] "Is a Small Fox Jumping?"
+> ## After ":", start a new sentence
+> toTitleCase("a pangram: the quick brown fox jumps over the lazy dog")
+[1] "a Pangram: The Quick Brown Fox Jumps over the Lazy Dog"
+> toTitleCase("asking -- 'is a small fox jumping?'") # ".. -- Is a Small ..."     (fine)
+[1] "Asking -- 'Is a Small Fox Jumping?'"
+> 
+> 
+> 
+> cleanEx()
 > nameEx("undoc")
 > ### * undoc
 > 
@@ -960,6 +1413,32 @@ An illustration of lexical scoping.
 > 
 > 
 > cleanEx()
+> nameEx("urltools")
+> ### * urltools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: urltools
+> ### Title: Check Package URLs
+> ### Aliases: check_package_urls parse_URI_reference
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> ## Examples from RFC 3986.
+> parse_URI_reference(c("foo://example.com:8042/over/there?name=ferret#nose",
++                       "urn:example:animal:ferret:nose",
++                       "mailto:John.Doe@example.com",
++                       "tel:+1-816-555-1212"))
+  scheme        authority                       path       query fragment
+1    foo example.com:8042                /over/there name=ferret     nose
+2    urn                  example:animal:ferret:nose                     
+3 mailto                        John.Doe@example.com                     
+4    tel                             +1-816-555-1212                     
+> 
+> 
+> 
+> cleanEx()
 > nameEx("userdir")
 > ### * userdir
 > 
@@ -970,12 +1449,22 @@ An illustration of lexical scoping.
 > ### Aliases: R_user_dir
 > 
 > ### ** Examples
-> 
 > ## IGNORE_RDIFF_BEGIN
 > R_user_dir("FOO", "cache")
-[1] "/Users/ripley/Library/Caches/org.R-project.R/R/FOO"
-> ## IGNORE_RDIFF_END
+[1] "/home/Hornik/.cache/R/FOO"
 > 
+> ## Create one, platform agnostically, must work if <normal> :
+> (Rdb <- R_user_dir("base"))
+[1] "/home/Hornik/.local/share/R/base"
+> if(newD <- !dir.exists(Rdb)) # should work user specifically:
++     newD <- dir.create(Rdb, recursive=TRUE)
+> dir(Rdb) # typically empty
+character(0)
+> if(newD) unlink(Rdb) # cleaning up
+> 
+> list.files(R_user_dir("grid"), full.names = TRUE)
+character(0)
+> ## IGNORE_RDIFF_END
 > 
 > 
 > cleanEx()
@@ -1086,23 +1575,28 @@ List of 5
 +   "  # calls with domain=NA are skipped",
 +   "  if (x == 0) cat(gettext('x is 0!\n', domain=NA))",
 +   "  # gettext strings may be ignored due to 'outer' domain=NA",
-+   "  if (x > 10) stop('x is ', gettextf('%.2f', x), domain=NA)",
++   "  if (x > 10) warning('x is ', gettextf('%.2f', x), domain=NA)",
++   "  # using a custom condition class",
++   "  if (x == 42)",
++   "    stop(errorCondition(gettext('needs Deep Thought'), class='myError'))",
 +   "  x",
 +   "}")
 > 
 > writeLines(fnChar, con = file.path(tmpRDir, "foo.R"))
 > 
 > ## [[1]] : suppressing (tmpfile) name to make example Rdiff-able
-> xgettext(tmpPkg, asCall=TRUE )[[1]] # default; shows  ' sqrt(as.complex(x)) '
+> xgettext(tmpPkg, asCall=TRUE )[[1]] # default; shows calls
 too small
 sqrt(x) is
 sqrt(as.complex(x))
 , which may be too small
+errorCondition(gettext("needs Deep Thought"), class = "myError")
 > xgettext(tmpPkg, asCall=FALSE)[[1]] # doesn't ; but then ' %.2f '
 too small
 sqrt(x) is
 , which may be too small
 %.2f
+needs Deep Thought
 > 
 > unlink(tmpRDir, recursive=TRUE)
 > 
@@ -1113,7 +1607,7 @@ sqrt(x) is
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.135 0.011 0.147 0 0 
+Time elapsed:  0.455 0.02 0.941 0.409 0.052 
 > grDevices::dev.off()
 null device 
           1 

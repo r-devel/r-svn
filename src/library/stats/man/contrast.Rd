@@ -25,7 +25,7 @@ contr.SAS(n, contrasts = TRUE, sparse = FALSE)
   \item{contrasts}{a logical indicating whether contrasts should be
     computed.}
   \item{sparse}{logical indicating if the result should be sparse
-    (of class \code{\link[Matrix:dgCMatrix-class]{dgCMatrix}}), using
+    (of class \code{\linkS4class[Matrix]{dgCMatrix}}), using
     package \CRANpkg{Matrix}.}
   \item{scores}{the set of values over which orthogonal polynomials are
     to be computed.}
@@ -42,7 +42,7 @@ contr.SAS(n, contrasts = TRUE, sparse = FALSE)
   for \code{contr.poly} (which includes the 0-degree, i.e.\sspace{}constant,
   polynomial when \code{contrasts = FALSE}).
 
-  \code{contr.helmert} returns Helmert contrasts, which contrast the
+  \code{contr.helmert} returns \I{Helmert} contrasts, which contrast the
   second level with the first, the third with the average of the first
   two, and so on.  \code{contr.poly} returns contrasts based on
   orthogonal polynomials. \code{contr.sum} uses \sQuote{sum to zero

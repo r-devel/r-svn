@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  file util.c
- *  Copyright (C) 2005--2019  The R Core Team
+ *  Copyright (C) 2005--2024  The R Core Team
  *  Copyright (C) 1998--2003  Guido Masarotto and Brian Ripley
  *  Copyright (C) 2004	      The R Foundation
  *
@@ -59,22 +59,28 @@ SEXP winver(void)
 	snprintf(ver, 256, "%d.%d",
 		 (int) osvi.dwMajorVersion, (int) osvi.dwMinorVersion);
 	if(osvi.dwMajorVersion == 10) {
-	    if(osvi.wProductType == VER_NT_WORKSTATION) desc = "10";
-	    else desc = "Server";
+	    /* need to differentiate by build number */
+	    if(osvi.wProductType == VER_NT_WORKSTATION) {
+		if(osvi.dwBuildNumber >= 22000) desc = "11";
+		else desc = "10";
+	    } else {
+		if(osvi.dwBuildNumber >= 20348) desc = "Server 2022";
+		else if(osvi.dwBuildNumber >= 17763) desc = "Server 2019";
+		else desc = "Server 2016";
+	    }
 	} else if(osvi.dwMajorVersion == 6) {
-	    // see See https://msdn.microsoft.com/en-us/library/windows/desktop/ms724451%28v=vs.85%29.aspx for the >= here.
 	    if(osvi.wProductType == VER_NT_WORKSTATION) {
 		if(osvi.dwMinorVersion == 0) desc = "Vista";
 		else if(osvi.dwMinorVersion == 1) desc = "7";
-		else if(osvi.dwMinorVersion == 2) desc = ">= 8";
+		else if(osvi.dwMinorVersion == 2) desc = "8";
 		else if(osvi.dwMinorVersion == 3) desc = "8.1";
 		else desc = "> 8.1";
 	    } else {
 		if(osvi.dwMinorVersion == 0) desc = "Server 2008";
 		else if(osvi.dwMinorVersion == 1) desc = "Server 2008 R2";
-		else if(osvi.dwMinorVersion == 2) desc = "Server >= 2012";
+		else if(osvi.dwMinorVersion == 2) desc = "Server 2012";
 		else if(osvi.dwMinorVersion == 3) desc = "Server 2012 R2";
-		else desc = "Server > 2012";
+		else desc = "Server > 2012 R2";
 	    }
 	} else if(osvi.dwMajorVersion == 5 && osvi.dwMinorVersion == 0)
 	    desc = "2000";
@@ -174,7 +180,7 @@ SEXP getClipboardFormats(void)
     return ans;
 }
 
-#define STRICT_R_HEADERS
+//#define STRICT_R_HEADERS
 #include <R_ext/RS.h>
 
 /* split on \r\n or just one */
@@ -286,15 +292,17 @@ SEXP writeClipboard(SEXP text, SEXP sformat)
 
     n = length(text);
     if(n > 0) {
-	int len = 1;
+	int len = 0;
 	if(raw) len = n;
-	else if (format == CF_UNICODETEXT)
+	else if (format == CF_UNICODETEXT) {
+	    len = 2; /* terminator */
 	    for(i = 0; i < n; i++)
 		len += 2 * (wcslen(wtransChar(STRING_ELT(text, i))) + 2);
-	else if (format == CF_TEXT || format == CF_OEMTEXT || format == CF_DIF)
+	} else if (format == CF_TEXT || format == CF_OEMTEXT || format == CF_DIF) {
+	    len = 1; /* terminator */
 	    for(i = 0; i < n; i++)
 		len += strlen(translateChar(STRING_ELT(text, i))) + 2;
-	else
+	} else
 	    error("'raw = FALSE' and format is a not a known text format");
 
 	if ( (hglb = GlobalAlloc(GHND, len)) &&

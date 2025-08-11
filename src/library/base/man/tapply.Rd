@@ -8,8 +8,8 @@
 \title{Apply a Function Over a Ragged Array}
 \description{
   Apply a function to each cell of a ragged array, that is to each
-  (non-empty) group of values given by a unique combination of the
-  levels of certain factors.
+  (non-empty) group of values or data rows given by a unique
+  combination of the levels of certain factors.
 }
 \usage{
 tapply(X, INDEX, FUN = NULL, \dots, default = NA, simplify = TRUE)
@@ -17,14 +17,16 @@ tapply(X, INDEX, FUN = NULL, \dots, default = NA, simplify = TRUE)
 \arguments{
   \item{X}{an \R object for which a \code{\link{split}} method
     exists.  Typically vector-like, allowing subsetting with
-    \code{\link{[}}.}
+    \code{\link{[}}, or a data frame. }
   \item{INDEX}{a \code{\link{list}} of one or more \code{\link{factor}}s,
     each of same length as \code{X}.  The elements are coerced to
-    factors by \code{\link{as.factor}}.}
+    factors by \code{\link{as.factor}}. Can also be a formula, which is
+    useful if \code{X} is a data frame; see the \code{f} argument in
+    \code{\link{split}} for interpretation. }
   \item{FUN}{a function (or name of a function) to be applied, or \code{NULL}.
     In the case of functions like \code{+}, \code{\%*\%}, etc.,
     the function name must be backquoted or quoted.  If \code{FUN} is
-    \code{NULL}, tapply returns a vector which can be used to subscript
+    \code{NULL}, \code{tapply} returns a vector which can be used to subscript
     the multi-way array \code{tapply} normally produces.}
   \item{\dots}{optional arguments to \code{FUN}: the Note section.}
   \item{default}{(only in the case of simplification to an array) the
@@ -74,6 +76,10 @@ tapply(X, INDEX, FUN = NULL, \dots, default = NA, simplify = TRUE)
 
   For a list result, the elements corresponding to empty cells are
   \code{NULL}.
+
+  The \code{\link{array2DF}} function can be used to convert the array
+  returned by \code{tapply} into a data frame, which may be more
+  convenient for further analysis.
 }
 \note{
   Optional arguments to \code{FUN} supplied by the \code{...} argument
@@ -92,6 +98,8 @@ tapply(X, INDEX, FUN = NULL, \dots, default = NA, simplify = TRUE)
   \code{\link{apply}},
   \code{\link{lapply}} with its versions
   \code{\link{sapply}} and \code{\link{mapply}}.
+
+  \code{\link{array2DF}} to convert the result into a data frame.
 }
 \examples{
 require(stats)
@@ -123,7 +131,7 @@ table(ind)
 tapply(1:3, ind) #-> the split vector
 tapply(1:3, ind, sum)
 
-## Some assertions (not held by all patch propsals):
+## Some assertions (not held by all patch proposals):
 nq <- names(quantile(1:5))
 stopifnot(
   identical(tapply(1:3, ind), c(1L, 2L, 4L)),

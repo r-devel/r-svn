@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.13.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2022-01-14 11:27\n"
+"POT-Creation-Date: 2025-03-31 11:50\n"
 "PO-Revision-Date: 2011-04-01 04:29+0200\n"
 "Last-Translator: Murat Alkan <muratalk@gmail.com>\n"
 "Language-Team: Turkish <muratalk@gmail.com>\n"
@@ -32,9 +32,6 @@ msgstr ""
 msgid "See help(\"Defunct\")"
 msgstr ""
 
-msgid "defunctError"
-msgstr ""
-
 msgid "'%s' is deprecated."
 msgstr ""
 
@@ -42,9 +39,6 @@ msgid "See help(\"Deprecated\") and help(\"%s-deprecated\")."
 msgstr ""
 
 msgid "See help(\"Deprecated\")"
-msgstr ""
-
-msgid "deprecatedWarning"
 msgstr ""
 
 msgid "argument to 'La.svd' must be numeric or complex"
@@ -68,19 +62,16 @@ msgstr ""
 msgid "'iconvlist' is not available on this system"
 msgstr ""
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr ""
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr ""
 
-msgid "'normal.kind' must be a character string of length 1"
+msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "'%s' is not a valid choice"
-msgstr ""
-
-msgid "'sample.kind' must be a character string of length 1"
 msgstr ""
 
 msgid "malformed version string"
@@ -120,7 +111,7 @@ msgid "'x' must have named dimnames"
 msgstr ""
 
 msgid "incorrect value for 'MARGIN'"
-msgstr " 'MARGIN' için geçersiz değer"
+msgstr "'MARGIN' için geçersiz değer"
 
 msgid "dim(x) must have a positive length"
 msgstr ""
@@ -212,9 +203,6 @@ msgstr ""
 msgid "'headers' must have names and must not be NA"
 msgstr ""
 
-msgid "'name' must be a single character string"
-msgstr ""
-
 msgid "'origin' must be one of 'start', 'current' or 'end'"
 msgstr ""
 
@@ -243,7 +231,7 @@ msgstr ""
 msgid "'breaks' are not unique"
 msgstr ""
 
-msgid "lengths of 'breaks' and 'labels' differ"
+msgid "number of intervals and length of 'labels' differ"
 msgstr ""
 
 msgid "invalid 'row.names' length"
@@ -265,12 +253,7 @@ msgstr ""
 msgid "cannot coerce class %s to a data.frame"
 msgstr ""
 
-msgid ""
-"'row.names' is not a character vector of length %d -- omitting it. Will be "
-"an error!"
-msgstr ""
-
-msgid "options(\"stringsAsFactors\") not set to TRUE or FALSE"
+msgid "'row.names' is not a character or integer vector of length %d"
 msgstr ""
 
 msgid "mismatch of row names in arguments of 'data.frame', item %d"
@@ -324,8 +307,7 @@ msgstr ""
 msgid "need 0, 1, or 2 subscripts"
 msgstr ""
 
-msgid ""
-"missing values are not allowed in subscripted assignments of data frames"
+msgid "missing values are not allowed in subscripted assignments of data frames"
 msgstr ""
 
 msgid "non-existent rows not allowed"
@@ -358,6 +340,9 @@ msgstr ""
 msgid "invalid list argument: all variables should have the same length"
 msgstr ""
 
+msgid "number of columns of result, %d, is not a multiple of vector length %d of arg %d"
+msgstr ""
+
 msgid "<0 rows> (or 0-length row.names)"
 msgstr ""
 
@@ -388,9 +373,6 @@ msgstr ""
 msgid "character string is not in a standard unambiguous format"
 msgstr ""
 
-msgid "'origin' must be supplied"
-msgstr ""
-
 msgid "do not know how to convert '%s' to class %s"
 msgstr ""
 
@@ -412,29 +394,16 @@ msgstr ""
 msgid "%s not defined for \"Date\" objects"
 msgstr ""
 
-msgid "'from' must be specified"
+msgid "'%s' must be of length 1"
 msgstr ""
 
-msgid "'from' must be a \"Date\" object"
+msgid "without 'by', at least one of 'to' and 'from' must be specified"
 msgstr ""
 
-msgid "'from' must be of length 1"
+msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
 msgstr ""
 
-msgid "'to' must be a \"Date\" object"
-msgstr ""
-
-msgid "'to' must be of length 1"
-msgstr ""
-
-msgid "'length.out' must be of length 1"
-msgstr ""
-
-msgid ""
-"exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified"
-msgstr ""
-
-msgid "'by' must be of length 1"
+msgid "given 'by', exactly two of 'to', 'from' and 'length.out' / 'along.with' must be specified"
 msgstr ""
 
 msgid "invalid 'by' string"
@@ -453,9 +422,6 @@ msgid "'x' must be a date-time object"
 msgstr ""
 
 msgid "invalid specification of 'breaks'"
-msgstr ""
-
-msgid "'origin' must be of length one"
 msgstr ""
 
 msgid "'lag' and 'differences' must be integers >= 1"
@@ -488,6 +454,12 @@ msgstr ""
 msgid "'tzone' attributes are inconsistent"
 msgstr ""
 
+msgid "as.character(td, ..) no longer obeys a 'format' argument; use format(td, ..) ?"
+msgstr ""
+
+msgid "'digits' must be numeric, integer valued"
+msgstr ""
+
 msgid "'tim' is not character or numeric"
 msgstr ""
 
@@ -509,16 +481,19 @@ msgstr ""
 msgid "second argument of / cannot be a \"difftime\" object"
 msgstr ""
 
-msgid "'from' must be a \"POSIXt\" object"
+msgid "exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified"
 msgstr ""
 
-msgid "'to' must be a \"POSIXt\" object"
+msgid "'%s' must be a \"%s\" object"
 msgstr ""
 
 msgid "component subscript must be a character string"
 msgstr ""
 
 msgid "no Olson database found"
+msgstr ""
+
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
 msgstr ""
 
 msgid "'file' must be a character string or connection"
@@ -583,14 +558,13 @@ msgstr ""
 msgid "function is not in a namespace, so cannot locate associated DLL"
 msgstr ""
 
-msgid ""
-"looking for DLL for native routine call, but no DLLs in namespace of call"
-msgstr ""
-
-msgid "0 x 0 matrix"
+msgid "looking for DLL for native routine call, but no DLLs in namespace of call"
 msgstr ""
 
 msgid "non-square matrix in 'eigen'"
+msgstr ""
+
+msgid "0 x 0 matrix"
 msgstr ""
 
 msgid "invalid nrow(x)"
@@ -617,9 +591,7 @@ msgstr ""
 msgid "'%s' not defined for ordered factors"
 msgstr ""
 
-msgid ""
-"'%s' is only meaningful for ordered factors if all arguments have the same "
-"level sets"
+msgid "'%s' is only meaningful for ordered factors if all arguments have the same level sets"
 msgstr ""
 
 msgid "no files to copy to"
@@ -637,6 +609,9 @@ msgstr ""
 msgid "cannot overwrite a non-directory with a directory"
 msgstr ""
 
+msgid "directories are omitted unless 'recursive = TRUE'"
+msgstr ""
+
 msgid "file can not be copied both 'from' and 'to'"
 msgstr ""
 
@@ -647,9 +622,6 @@ msgid "no files/directory to link to"
 msgstr ""
 
 msgid "no files to link to"
-msgstr ""
-
-msgid "'package' must be of length 1"
 msgstr ""
 
 msgid "no file found"
@@ -678,9 +650,6 @@ msgstr ""
 msgid "class of 'x' was discarded"
 msgstr ""
 
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr ""
-
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr ""
 
@@ -705,9 +674,7 @@ msgstr ""
 msgid "'zero.print' must be character, logical or NULL"
 msgstr ""
 
-msgid ""
-"'zero.print' is truncated to fit into formatted zeros; consider "
-"'replace=TRUE'"
+msgid "'zero.print' is truncated to fit into formatted zeros; consider 'replace=TRUE'"
 msgstr ""
 
 msgid "'big.mark' and 'decimal.mark' are both '%s', which could be confusing"
@@ -765,10 +732,22 @@ msgstr ""
 msgid "No factors specified"
 msgstr ""
 
-msgid "norm '%s' currently always uses exact = FALSE"
+msgid "invalid '%s': type \"%s\""
+msgstr ""
+
+msgid "'uplo' must be \"U\" or \"L\""
+msgstr ""
+
+msgid "invalid nrow(z)"
 msgstr ""
 
 msgid "triangular matrix should be square"
+msgstr ""
+
+msgid "using 1-norm approximation for approximate 2-norm"
+msgstr ""
+
+msgid "norm=\"%s\" not available here; using norm=\"1\""
 msgstr ""
 
 msgid "unknown conflict policy: %s"
@@ -801,9 +780,6 @@ msgid ""
 "%s"
 msgstr "Zorunlu paket yükleniyor: %s"
 
-msgid "packageConflictError"
-msgstr ""
-
 #, fuzzy
 msgid "Attaching package: %s"
 msgstr "Zorunlu paket yükleniyor: %s"
@@ -835,9 +811,6 @@ msgstr ""
 msgid ""
 "package or namespace load failed for %s%s:\n"
 " %s"
-msgstr ""
-
-msgid "package %s does not have a namespace and should be re-installed"
 msgstr ""
 
 msgid "package %s already present in search()"
@@ -903,8 +876,7 @@ msgid ""
 "  %s"
 msgstr ""
 
-msgid ""
-"Further information is available in the following vignettes in directory %s:"
+msgid "Further information is available in the following vignettes in directory %s:"
 msgstr ""
 
 msgid "Description:"
@@ -945,7 +917,7 @@ msgstr ""
 msgid "nothing specified to be save()d"
 msgstr ""
 
-msgid "'file' must be non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr ""
 
 msgid "'compress' must be logical or character"
@@ -987,13 +959,7 @@ msgstr ""
 msgid "'arg' must be NULL or a character vector"
 msgstr ""
 
-msgid "'arg' must be of length 1"
-msgstr ""
-
 msgid "'arg' must be of length >= 1"
-msgstr ""
-
-msgid "'arg' should be one of %s"
 msgstr ""
 
 msgid "there is more than one match in 'match.arg'"
@@ -1053,9 +1019,7 @@ msgstr ""
 msgid "additional arguments ignored in message()"
 msgstr ""
 
-msgid ""
-"tracing functions requires the 'methods' package, but unable to load the "
-"'methods' namespace"
+msgid "tracing functions requires the 'methods' package, but unable to load the 'methods' namespace"
 msgstr ""
 
 msgid "invalid to change the storage mode of a factor"
@@ -1088,19 +1052,13 @@ msgstr ""
 msgid "namespace %s is already sealed in 'loadNamespace'"
 msgstr ""
 
-msgid ""
-"failed to assign RegisteredNativeSymbol for %s to %s since %s is already "
-"defined in the %s namespace"
+msgid "failed to assign RegisteredNativeSymbol for %s to %s since %s is already defined in the %s namespace"
 msgstr ""
 
-msgid ""
-"failed to assign NativeSymbolInfo for %s to %s since %s is already defined "
-"in the %s namespace"
+msgid "failed to assign NativeSymbolInfo for %s to %s since %s is already defined in the %s namespace"
 msgstr ""
 
-msgid ""
-"failed to assign NativeSymbolInfo for %s since %s is already defined in the "
-"%s namespace"
+msgid "failed to assign NativeSymbolInfo for %s since %s is already defined in the %s namespace"
 msgstr ""
 
 msgid "package %s does not have a namespace"
@@ -1115,8 +1073,7 @@ msgstr ""
 msgid "package %s has no 'package.rds' in Meta/"
 msgstr ""
 
-msgid ""
-"package %s has a license that you need to accept in an interactive session"
+msgid "package %s has a license that you need to accept in an interactive session"
 msgstr ""
 
 msgid "package %s has a license that you need to accept after viewing"
@@ -1134,9 +1091,7 @@ msgstr ""
 msgid "license for package %s not accepted"
 msgstr ""
 
-msgid ""
-"package %s was installed by an R version with different internals; it needs "
-"to be reinstalled for use with this R version"
+msgid "package %s was installed by an R version with different internals; it needs to be reinstalled for use with this R version"
 msgstr ""
 
 msgid "-- processing imports for"
@@ -1184,9 +1139,7 @@ msgstr ""
 msgid "--- processing classes"
 msgstr ""
 
-msgid ""
-"'exportClassPattern' specified in 'NAMESPACE' but no matching classes in "
-"package %s"
+msgid "'exportClassPattern' specified in 'NAMESPACE' but no matching classes in package %s"
 msgstr ""
 
 msgid "in package %s classes %s were specified for export but not defined"
@@ -1260,9 +1213,7 @@ msgstr ""
 msgid "replacing previous import %s by %s when loading %s"
 msgstr ""
 
-msgid ""
-"No generic function %s found corresponding to requested imported methods "
-"from package %s when loading %s (malformed exports?)"
+msgid "No generic function %s found corresponding to requested imported methods from package %s when loading %s (malformed exports?)"
 msgstr ""
 
 msgid "cannot add to exports of a sealed namespace"
@@ -1298,8 +1249,7 @@ msgstr ""
 msgid "object '%s' not found whilst loading namespace '%s'"
 msgstr ""
 
-msgid ""
-"While loading namespace \"%s\": \"%s\" differ in ncol(.), env=%d, newNS=%d."
+msgid "While loading namespace \"%s\": \"%s\" differ in ncol(.), env=%d, newNS=%d."
 msgstr ""
 
 msgid "Maybe package installed with version of R newer than %s ?"
@@ -1383,6 +1333,10 @@ msgstr ""
 msgid "... must contain names or character strings"
 msgstr ""
 
+#, fuzzy
+msgid "invalid 'x'"
+msgstr "geçersiz paket ismi"
+
 msgid "incorrect length for 'group'"
 msgstr ""
 
@@ -1402,9 +1356,6 @@ msgid "either specify 'nmax' or 'n', but not both."
 msgstr ""
 
 msgid "'from' must be a finite number"
-msgstr ""
-
-msgid "argument 'length.out' must be of length 1"
 msgstr ""
 
 msgid "first element used of 'length.out' argument"
@@ -1485,6 +1436,9 @@ msgstr ""
 msgid "non-finite 'partial'"
 msgstr ""
 
+msgid "'decreasing' of length > 1 is only for method = \"radix\""
+msgstr ""
+
 msgid "argument lengths differ"
 msgstr ""
 
@@ -1508,6 +1462,9 @@ msgstr ""
 msgid "'verbose' is TRUE, 'echo' not; ... coercing 'echo <- TRUE'"
 msgstr ""
 
+msgid "empty file/url name"
+msgstr ""
+
 msgid "unable to find a plausible encoding"
 msgstr ""
 
@@ -1527,6 +1484,15 @@ msgid "specify either 'file' or 'exprs' but not both"
 msgstr ""
 
 msgid "'%s' is not an existing file"
+msgstr ""
+
+msgid "'formula' must be a formula"
+msgstr ""
+
+msgid "Unexpected LHS in 'formula' has been ignored."
+msgstr ""
+
+msgid "Unexpected LHS in 'formula' has been combined with RHS."
 msgstr ""
 
 msgid "Timestamp of %s has changed"
@@ -1549,12 +1515,19 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr ""
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
-msgid ""
-"Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
-"  Consider 'structure(list(), *)' instead."
+msgid "attempt to set an attribute on NULL"
 msgstr ""
 
 msgid "incorrect value for 'x'"
@@ -1606,6 +1579,9 @@ msgstr ""
 msgid "invalid value of %s"
 msgstr "geçersiz paket ismi"
 
+msgid "'X' must be a data frame when 'INDEX' is a formula"
+msgstr ""
+
 msgid "'INDEX' is of length zero"
 msgstr ""
 
@@ -1616,9 +1592,6 @@ msgid "total number of levels >= 2^31"
 msgstr ""
 
 msgid "handler must be a function"
-msgstr ""
-
-msgid "'which' must be of length 1"
 msgstr ""
 
 msgid "no such element '%s'"
@@ -1655,6 +1628,15 @@ msgstr ""
 msgid "No traceback available"
 msgstr ""
 
+msgid "'recursive' must be a length-1 vector"
+msgstr ""
+
+msgid "'recursive' is NA"
+msgstr ""
+
+msgid "invalid non-character version specification 'x' (type: %s)"
+msgstr ""
+
 msgid "invalid version specification %s"
 msgstr ""
 
@@ -1683,9 +1665,10 @@ msgstr ""
 msgid "invalid 'digits'"
 msgstr ""
 
-msgid ""
-"arguments 'show.output.on.console', 'minimized' and 'invisible' are for "
-"Windows only"
+msgid "Direct call of '%s()' is deprecated.  Use '%s()' or '%s()' instead"
+msgstr ""
+
+msgid "arguments 'show.output.on.console', 'minimized' and 'invisible' are for Windows only"
 msgstr ""
 
 msgid "'intern' must be TRUE or FALSE"
@@ -1698,6 +1681,9 @@ msgid "'ignore.stderr' must be TRUE or FALSE"
 msgstr ""
 
 msgid "'wait' must be TRUE or FALSE"
+msgstr ""
+
+msgid "'receive.console.signals' must be TRUE or FALSE"
 msgstr ""
 
 msgid "'input' must be a character vector or 'NULL'"
@@ -1790,8 +1776,7 @@ msgid_plural "replacement has %d items, need %d"
 msgstr[0] ""
 
 msgid "replacement element %d is a matrix/data frame of %d row, need %d"
-msgid_plural ""
-"replacement element %d is a matrix/data frame of %d rows, need %d"
+msgid_plural "replacement element %d is a matrix/data frame of %d rows, need %d"
 msgstr[0] ""
 
 msgid "replacement element %d has %d row, need %d"
@@ -1838,26 +1823,24 @@ msgid_plural "objects %s not found"
 msgstr[0] ""
 msgstr[1] ""
 
+msgid "'arg' should be %s"
+msgid_plural "'arg' should be one of %s"
+msgstr[0] ""
+
 msgid "'by' must specify a uniquely valid column"
 msgid_plural "'by' must specify uniquely valid columns"
 msgstr[0] ""
 
-msgid ""
-"Function found when exporting methods from the namespace %s which is not S4 "
-"generic: %s"
-msgid_plural ""
-"Functions found when exporting methods from the namespace %s which are not "
-"S4 generic: %s"
+msgid "Function found when exporting methods from the namespace %s which is not S4 generic: %s"
+msgid_plural "Functions found when exporting methods from the namespace %s which are not S4 generic: %s"
 msgstr[0] ""
 
 msgid "No methods found in package %s for request: %s when loading %s"
 msgid_plural "No methods found in package %s for requests: %s when loading %s"
 msgstr[0] ""
 
-msgid ""
-"requested method not found in environment/package %s: %s when loading %s"
-msgid_plural ""
-"requested methods not found in environment/package %s: %s when loading %s"
+msgid "requested method not found in environment/package %s: %s when loading %s"
+msgid_plural "requested methods not found in environment/package %s: %s when loading %s"
 msgstr[0] ""
 
 msgid "class %s is not exported by 'namespace:%s'"

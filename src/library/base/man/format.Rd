@@ -1,19 +1,20 @@
 % File src/library/base/man/format.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Copyright 2003-2016 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{format}
+\title{Encode in a Common Format}
 \alias{format}
 \alias{format.AsIs}
 \alias{format.data.frame}
 \alias{format.default}
 \alias{format.factor}
 \description{
-  Format an \R object for pretty printing.
+  Format an \R object for pretty printing, notably encoding vector or
+  column elements into a common format.
 }
-\title{Encode in a Common Format}
 \usage{
 format(x, \dots)
 
@@ -25,7 +26,7 @@ format(x, \dots)
        decimal.mark = getOption("OutDec"),
        zero.print = NULL, drop0trailing = FALSE, \dots)
 
-\method{format}{data.frame}(x, \dots, justify = "none")
+\method{format}{data.frame}(x, \dots, justify = "none", cut.names = TRUE)
 
 \method{format}{factor}(x, \dots)
 
@@ -54,6 +55,9 @@ format(x, \dots)
   \item{justify}{should a \emph{character} vector be left-justified (the
     default), right-justified, centred or left alone.  Can be abbreviated.}
 
+  \item{cut.names}{\code{\link{logical}} passed to the \code{list} method
+    of \code{\link{as.data.frame}()}.}
+
   \item{width}{\code{default} method: the \emph{minimum} field width or
     \code{NULL} or \code{0} for no restriction.
 
@@ -66,7 +70,7 @@ format(x, \dots)
     complex nor logical \code{NA}s, which are always encoded as \code{"NA"}.}
   % see PR#12318
 
-  \item{scientific}{Either a logical specifying whether
+  \item{scientific}{either a logical specifying whether
     elements of a real or complex vector should be encoded in scientific
     format, or an integer penalty (see \code{\link{options}("scipen")}).
     Missing values correspond to the current default penalty.}
@@ -127,10 +131,10 @@ format(x, \dots)
   \code{format.default(x)} now provides a \dQuote{minimal} string when
   \code{\link{isS4}(x)} is true.
 
-  The internal code respects the option
-  \code{\link{getOption}("OutDec")} for the \sQuote{decimal mark}, so if
-  this is set to something other than \code{"."} then it takes precedence
-  over argument \code{decimal.mark}.
+  While the internal code respects the option
+  \code{\link{getOption}("OutDec")} for the \sQuote{decimal mark} in general,
+  \code{decimal.mark} takes precedence over that option.  Similarly,
+  \code{scientific} takes precedence over \code{\link{getOption}("scipen")}.
 }
 \value{
   An object of similar structure to \code{x} containing character
@@ -142,10 +146,11 @@ format(x, \dots)
   attributes are copied.
 
   If \code{x} is a list, the result is a character vector obtained by
-  applying \code{format.default(x, \dots)} to each element of the list
-  (after \code{\link{unlist}}ing elements which are themselves lists),
+  applying \code{format(x, \dots)} (instead of \code{format.default(x,
+  \dots)} in \R <= 4.5.z) to each element of the list
+  (after \I{\code{\link{unlist}}ing} elements which are themselves lists),
   and then collapsing the result for each element with
-  \code{paste(collapse = ", ")}.  The defaults in this case are
+  \code{paste0(collapse = ", ")}.  The defaults in this case are
   \code{trim = TRUE, justify = "none"} since one does not usually want
   alignment in the collapsed strings.
 }
@@ -180,6 +185,11 @@ format(c(6.0, 13.1), digits = 2, nsmall = 1)
 ## use of scientific
 format(2^31-1)
 format(2^31-1, scientific = TRUE)
+## scientific = numeric scipen (= {sci}entific notation {pen}alty) :
+x <- c(1e5, 1000, 10, 0.1, .001, .123)
+t(sapply(setNames(,-4:1),
+         \(sci) sapply(x, format, scientific=sci)))
+
 
 ## a list
 z <- list(a = letters[1:3], b = (-pi+0i)^((-2:2)/2), c = c(1,10,100,1000),

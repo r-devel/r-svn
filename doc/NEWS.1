@@ -4389,7 +4389,7 @@ C-LEVEL FACILITIES
 	ISO C header and cannot be guaranteed to exist.
 
     o	Fortran subroutines are more correctly declared as `extern void'
-	in R_exts/Applic.h and R_exts/Linpack.h.
+	in R_ext/Applic.h and R_ext/Linpack.h.
 
 
 BUG FIXES
@@ -4660,7 +4660,7 @@ BUG FIXES
 
     o	plot.acf() has a new `xpd = par("xpd")' argument which by default
 	*does* clipping (of the horizontal lines) as desired (xpd = NA was
-	used before, erronously in most cases).
+	used before, erroneously in most cases).
 
     o	predict(smooth.spline(.), deriv = 1) now works.
 
@@ -5957,7 +5957,7 @@ BUG FIXES
 
     o	pointer protection in deriv() (PR#953)
 
-    o	expand.data.frame() didn't interpret its subset= argument in
+    o	expand.model.frame() didn't interpret its subset= argument in
 	the data frame. (PR#979 et al., fix from Greg Warnes)
 
     o	format() on character arrays was losing the dimensions.
@@ -7973,9 +7973,6 @@ BUG FIXES
 	multiple matches are found on lib.loc.
 
     o	round(2.345e-99, 100) now works (not giving 0).
-	C functions fprec() and fround() [= R's signif() and round()],
-	now use R_pow_di(10.0, n) which is clean and more efficient.
-	This changes some results in the least significant bits.
 
     o	rpois sometimes had problems with mu=0, now special-cased
 

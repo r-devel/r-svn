@@ -55,7 +55,10 @@
                 ## Note: sprintf() return 0-length output with 0-length input
                 c(sprintf("<h2>%s</h2>", Title),
                   sprintf("<p>Aliases: %s</p>",
-                          paste(sprintf("<a href='../help/%s'>%s</a>", Aliases, Aliases),
+                          paste(sprintf("<a href='../help/%s'>%s</a>",
+                                        vapply(Aliases, urlify, "",
+                                               reserved = TRUE),
+                                        vapply(Aliases, shtmlify, "")),
                                 collapse = " ")),
                   sprintf("<p>Keywords: %s</p>",
                           paste(sprintf("<a href='/doc/html/Search?category=%s'>%s</a>",
@@ -81,7 +84,12 @@
           footer.lines,
           "</div></body></html>")
     figdir <- tempfile(pattern = package, fileext = topic)
-    on.exit(unlink(figdir, recursive = TRUE))
+    on.exit(unlink(figdir, recursive = TRUE), add = TRUE)
+    ## Record old knitr / chunk options and restore on exit
+    old_opts_knit <- knitr::opts_knit$get()
+    old_opts_chunk <- knitr::opts_chunk$get()
+    on.exit(knitr::opts_knit$restore(old_opts_knit), add = TRUE)
+    on.exit(knitr::opts_chunk$restore(old_opts_chunk), add = TRUE)
     knitr::opts_knit$set(upload.fun = function(x) paste0("data:", mime_type(x), ";base64,", xfun::base64_encode(x)),
                          unnamed.chunk.label = sprintf("%s-%s-%s", type, package, topic))
     knitr::opts_chunk$set(comment = "", warning = TRUE, message = TRUE, error = TRUE,
@@ -89,7 +97,7 @@
                           fig.width = 9, fig.height = 7,
                           dpi = 96)
     out <- knitr::knit(text = rhtml, quiet = TRUE,
-                       envir = if (is.null(env)) new.env(parent = .GlobalEnv) else env)
+                       envir = env %||% new.env(parent = .GlobalEnv))
     ## the paste() doesn't seem necessary, but just to be safe
     list(payload = paste(out, collapse = "\n"))
 }

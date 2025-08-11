@@ -1,6 +1,6 @@
 % File src/library/base/man/class.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{class}
@@ -13,6 +13,8 @@
 \alias{unclass}
 \alias{inherits}
 \alias{isa}
+\alias{nameOfClass}
+\alias{nameOfClass.default}
 \description{
   \R possesses a simple generic function mechanism which can be used for
   an object-oriented style of programming.  Method dispatch takes place
@@ -23,6 +25,7 @@ class(x)
 class(x) <- value
 unclass(x)
 inherits(x, what, which = FALSE)
+nameOfClass(x)
 isa(x, what)
 
 oldClass(x)
@@ -30,9 +33,10 @@ oldClass(x) <- value
 .class2(x)
 }
 \arguments{
-  \item{x}{a \R object}
-  \item{what, value}{a character vector naming classes.  \code{value}
-    can also be \code{NULL}.}
+  \item{x}{an \R object.}
+  \item{what, value}{a character vector naming classes. \code{value}
+    can also be \code{NULL}. \code{what} can also be a
+    non-character R object with a \code{nameOfClass()} method.}
   \item{which}{logical affecting return value: see \sQuote{Details}.}
 }
 
@@ -55,8 +59,7 @@ oldClass(x) <- value
   but for type \code{"language"} and \code{\link{mode}} \code{"call"},
   where the following extra classes exist for the corresponding function
   \code{\link{call}}s:
-  \code{if}, \code{while}, \code{for}, \code{=}, \code{<-}, \code{(},
-  \code{\{}, \code{call}.
+  \code{if}, \code{for}, \code{while}, \code{(}, \code{\{}, \code{<-}, \code{=}.
 
   Note that for objects \code{x} of an implicit (or an S4) class, when a
   (S3) generic function \code{foo(x)} is called, method dispatch may use
@@ -104,6 +107,11 @@ oldClass(x) <- value
   returned by \code{inherits} if any of the names in \code{what} match
   with any \code{class}.
 
+  \code{nameOfClass} is an S3 generic. It is called by \code{inherits} to 
+  get the class name for \code{what}, allowing for \code{what} to be 
+  values other than a character vector. \code{nameOfClass} methods are 
+  expected to return a character vector of length 1.
+
   \code{isa} tests whether \code{x} is an object of class(es) as given
   in \code{what} by using \code{\link[methods]{is}} if \code{x} is an S4
   object, and otherwise giving \code{TRUE} iff \emph{all} elements of
@@ -113,8 +121,6 @@ oldClass(x) <- value
 }
 
 \note{
-  Functions \code{oldClass} and \code{oldClass<-} behave in the same way
-  as functions of those names in S-PLUS 5/6, \emph{but} in \R
   \code{\link{UseMethod}} dispatches on the class as returned by
   \code{class} (with some interpolated classes: see the link) rather
   than \code{oldClass}.  \emph{However}, \link{group generic}s dispatch

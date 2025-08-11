@@ -120,12 +120,20 @@ findFuzzyMatches <- function(pattern, values) {
 }
 
 
-findMatches <- function(pattern, values)
+findMatches <- function(pattern, values, fuzzy, backtick)
 {
-    if (.CompletionEnv$settings[["fuzzy"]])
-        findFuzzyMatches(pattern, values)
-    else
-        findExactMatches(pattern, values)
+    if (missing(fuzzy))    fuzzy    <- isTRUE(.CompletionEnv$settings[["fuzzy"]])
+    if (missing(backtick)) backtick <- isTRUE(.CompletionEnv$settings[["backtick"]])
+    comps <- 
+        if (fuzzy)
+            findFuzzyMatches(pattern, values)
+        else
+            findExactMatches(pattern, values)
+    if (backtick && length(comps) && all(nzchar(comps)))
+        comps <- vapply(comps,
+                        FUN = function(comp) deparse1(as.name(comp), backtick = TRUE),
+                        FUN.VALUE = "")
+    comps
 }
 
 fuzzyApropos <- function(what)
@@ -160,6 +168,18 @@ fuzzyApropos <- function(what)
         findMatches(pattern, ls(x, all.names = TRUE))
 }
 
+## generic and default method to generate completion after @
+
+.AtNames <- function(x, pattern)
+    UseMethod(".AtNames")
+
+.AtNames.default <- function(x, pattern = "") {
+    if (isS4(x))
+        findMatches(pattern, methods::slotNames(x))
+    else
+        character()
+}
+
 ## if (is.environment(object))
 ## {
 ##     ls(object,
@@ -177,7 +197,7 @@ fuzzyApropos <- function(what)
 
 ## modifies settings:
 
-rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, fuzzy, quotes, files)
+rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, fuzzy, quotes, files, backtick)
 {
     if (length(match.call()) == 1) return(unlist(.CompletionEnv[["settings"]]))
     checkAndChange <- function(what, value)
@@ -200,6 +220,7 @@ rc.settings <- function(ops, ns, args, dots, func, ipck, S3, data, help, argdb, 
     if (!missing(files)) checkAndChange("files", files)
     if (!missing(quotes))checkAndChange("quotes", quotes)
     if (!missing(fuzzy)) checkAndChange("fuzzy", fuzzy)
+    if (!missing(backtick)) checkAndChange("backtick", backtick)
     invisible()
 }
 
@@ -360,7 +381,6 @@ specialOpCompletionsHelper <- function(op, suffix, prefix)
                        suffix
                    else
                    {
-                       ## ## suffix must match names(object) (or ls(object) for environments)
                        .DollarNames(object, pattern = sprintf("^%s", makeRegexpSafe(suffix)))
                    }
                } else suffix
@@ -373,8 +393,7 @@ specialOpCompletionsHelper <- function(op, suffix, prefix)
                        suffix
                    else
                    {
-                       findMatches(sprintf("^%s", makeRegexpSafe(suffix)),
-                                   methods::slotNames(object))
+                       .AtNames(object, pattern = sprintf("^%s", makeRegexpSafe(suffix)))
                    }
                } else suffix
            },
@@ -623,7 +642,7 @@ normalCompletions <-
                         dot_internals = TRUE)
         if (.CompletionEnv$settings[["func"]] && check.mode && !is.null(add.fun))
         {
-            which.function <- sapply(comps, function(s) exists(s, mode = "function"))
+            which.function <- vapply(comps, exists, NA, mode = "function")
             if (any(which.function))
                 comps[which.function] <-
                     sprintf("%s%s", comps[which.function], add.fun)
@@ -795,7 +814,6 @@ specialFunctionArgs <- function(fun, text)
 }
 
 
-
 functionArgs <-
     function(fun, text,
              S3methods = .CompletionEnv$settings[["S3"]],
@@ -814,10 +832,16 @@ functionArgs <-
     if (S4methods) warning("cannot handle S4 methods yet")
     allArgs <- unique(unlist(lapply(fun, argNames)))
     ans <- findMatches(sprintf("^%s", makeRegexpSafe(text)), allArgs)
-    if (length(ans) && !keep.dots)
-        ans <- ans[ans != "..."]
+    ## Handle dots specially. If present, drop if keep.dots=FALSE
+    ## obviously, but even otherwise move it to the end and don't add
+    ## a suffix.
+    whereDots <- ans == "..."
+    if (any(whereDots))
+        ans <- ans[!whereDots]
     if (length(ans) && !is.null(add.args))
         ans <- sprintf("%s%s", ans, add.args)
+    if (keep.dots && any(whereDots))
+        ans <- c(ans, "...")
     c(specialFunArgs, ans)
 }
 
@@ -833,6 +857,7 @@ functionArgs <-
 ## completions are found.  We could return "" as the only completion,
 ## but that produces an irritating blank line on
 ## list-possible-completions (or whatever the correct name is).
+
 ## Instead (since we don't want to reinvent the wheel), we use the
 ## following scheme: If the character just preceding our token is " or
 ## ', we immediately go to file name completion.  If not, we do our
@@ -964,11 +989,11 @@ fileCompletions <- function(token)
 ## completion when called from C code.
 
 
-.completeToken <- function()
+.completeToken <- function(custom = TRUE)
 {
     ## Allow override by user-specified function
     custom.completer <- rc.getOption("custom.completer")
-    if (is.function(custom.completer))
+    if (custom && is.function(custom.completer))
         return (custom.completer(.CompletionEnv))
     text <- .CompletionEnv[["token"]]
     if (isInsideQuotes())
@@ -1019,7 +1044,7 @@ fileCompletions <- function(token)
             ## re-use that here.  The problem is that for other
             ## backends a token may already have been determined, and
             ## that's what we will need to use.  We can still fake it
-            ## by using the correct token but substracting the extra
+            ## by using the correct token but subtracting the extra
             ## part when providing completions, but that will need
             ## some work.
 
@@ -1057,6 +1082,9 @@ fileCompletions <- function(token)
                                            fullToken$start-2L,
                                            fullToken$start-1L)) %in% c("::")))
             ## in anticipation that we will handle this eventually:
+
+## TODO: Detect cases where backtick has already been inserted by the user, and handle appropriately
+
 ##             probablyBacktick <- (fullToken$start >= 1L &&
 ##                                  ((substr(.CompletionEnv[["linebuffer"]],
 ##                                           fullToken$start,
@@ -1339,12 +1367,29 @@ fileCompletions <- function(token)
           "xaxp", "xaxs", "xaxt", "xpd", "yaxp", "yaxs", "yaxt",
           "page", "ylbias")
 
-    options <-
-        c(names(options()), ## + some that are NULL by default
-          "mc.cores", "dvipscmd", "warn.FPU", "aspell_program",
-          "deparse.max.lines", "digits.secs", "error", "help.ports",
-          "help_type", "save.defaults", "save.image.defaults",
-          "SweaveHooks", "SweaveSyntax", "topLevelEnvironment")
+    options <- unique(c(
+        names(.Options),
+        ## + options not yet initialized when preparing utils
+        "bitmapType", "citation.bibtex.max", "contrasts", "demo.ask",
+        "device", "device.ask.default", "editor", "example.ask",
+        "help.search.types", "help.try.all.packages", "HTTPUserAgent",
+        "internet.info", "locatorBell", "mailer", "menu.graphics",
+        "na.action", "pkgType", "repos", "show.coef.Pvalues",
+        "show.signif.stars", "str", "str.dendrogram.last",
+        "ts.eps", "ts.S.compat", "unzip", "windowsTimeouts",
+        ## + options unset by default (or OS-specific)
+        "mc.cores", "dvipscmd", "warn.FPU",
+        "askYesNo", "BioC_mirror", "ccaddress", "checkPackageLicense",
+        "conflicts.policy", "de.cellwidth", "deparse.max.lines", "digits.secs",
+        "download.file.extra", "download.file.method", "error",
+        "help.htmlmath", "help.htmltoc", "help.ports", "help_type", "install.lock",
+        "install.packages.check.source",
+        "install.packages.compile.from.source",
+        "interrupt", "Ncpus", "netrc", "save.defaults", "save.image.defaults",
+        "setWidthOnResize", "show.error.locations", "show.nls.convergence",
+        "SweaveHooks", "SweaveSyntax", "topLevelEnvironment",
+        "traceback.max.lines", "url.method", "warning.expression"
+    ))
 
     .addFunctionInfo(par = par, options = options)
 
@@ -1379,7 +1424,7 @@ assign("settings",
        list(ops = TRUE, ns = TRUE,
             args = TRUE, dots = TRUE, func = FALSE,
             ipck = FALSE, S3 = TRUE, data = TRUE,
-            help = TRUE, argdb = TRUE, fuzzy = FALSE,
+            help = TRUE, argdb = TRUE, fuzzy = FALSE, backtick = FALSE,
             files = TRUE, # FIXME: deprecate in favour of quotes
             quotes = TRUE),
        envir = .CompletionEnv)

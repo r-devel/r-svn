@@ -47,9 +47,10 @@ str2expression(text)
     to re-encode the input.  To do the latter, specify the encoding as
     part of the connection \code{con} or \emph{via}
     \code{\link{options}(encoding=)}: see the example under
-    \code{\link{file}}. Arguments \code{encoding = "latin1"} and 
-    \code{encoding = "UTF-8"} are ignored with a warning when running
-    in a MBCS locale.}
+    \code{\link{file}}.
+    Arguments \code{encoding = "UTF-8"} and \code{encoding = "latin1"} 
+    are ignored with a warning when running, respectively, in a
+    non-UTF-8 \abbr{MBCS} locale or in an \abbr{MBCS} locale.}
   \item{s}{a \code{\link{character}} vector of length \code{1}, i.e., a
     \dQuote{string}.}
 }
@@ -82,13 +83,13 @@ str2expression(text)
   preference to \code{file}.
 
   All versions of \R accept input from a connection with end of line
-  marked by LF (as used on Unix), CRLF (as used on DOS/Windows)
-  or CR (as used on classic Mac OS).  The final line can be incomplete,
-  that is missing the final EOL marker.
+  marked by \abbr{LF} (as used on Unix), \abbr{CRLF} (as used on DOS/Windows)
+  or \abbr{CR} (as used on classic Mac OS).  The final line can be incomplete,
+  that is missing the final \abbr{EOL} marker.
 
   When input is taken from the console, \code{n = NULL} is equivalent to
-  \code{n = 1}, and \code{n < 0} will read until an EOF character is
-  read.  (The EOF character is Ctrl-Z for the Windows front-ends.)  The
+  \code{n = 1}, and \code{n < 0} will read until an \abbr{EOF} character is
+  read.  (The \abbr{EOF} character is \abbr{Ctrl}-Z for the Windows front-ends.)  The
   line-length limit is 4095 bytes when reading from the console (which
   may impose a lower limit: see \sQuote{An Introduction to R}).
 
@@ -108,12 +109,12 @@ str2expression(text)
   }
     \item{\code{str2expression(s)}: }{for a \code{\link{character}} vector
       \code{s}, \code{str2expression(s)} corresponds to
-      \code{\link{parse}(text = s, keep.source=FALSE)}, which is always of
+      \code{parse(text = s, keep.source=FALSE)}, which is always of
       type (\code{\link{typeof}}) and \code{\link{class}} \code{expression}.
     }
     \item{\code{str2lang(s)}: }{for a \code{\link{character}} string
       \code{s}, \code{str2lang(s)} corresponds to
-      \code{\link{parse}(text = s, keep.source=FALSE)[[1]]} (plus a check
+      \code{parse(text = s, keep.source=FALSE)[[1]]} (plus a check
       that both \code{s} and the \code{parse(*)} result are of length one)
       which is typically a \code{call} but may also be a \code{symbol} aka
       \code{\link{name}}, \code{\link{NULL}} or an atomic constant such as

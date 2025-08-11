@@ -1,6 +1,6 @@
 % File src/library/utils/man/methods.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{methods}
@@ -13,9 +13,10 @@
   List all available methods for a S3 and S4 generic function, or all
   methods for an S3 or S4 class.
 }
-\usage{
-methods(generic.function, class)
-.S3methods(generic.function, class, envir=parent.frame())
+\usage{% --> ../R/objects.R :
+   methods(generic.function, class, all.names = FALSE, dropPath = FALSE)
+.S3methods(generic.function, class, envir = parent.frame(),
+                                    all.names = FALSE, dropPath = FALSE, useEnv = FALSE)
 
 \S3method{format}{MethodsFunction}(x, byclass = attr(x, "byclass"), \dots)
 \S3method{print}{MethodsFunction}(x, byclass = attr(x, "byclass"), \dots)
@@ -28,6 +29,19 @@ methods(generic.function, class)
   \item{envir}{the environment in which to look for the definition of
     the generic function, when the generic function is passed as a
     character string.}
+  \item{all.names}{a \code{\link{logical}} indicating if all
+    object names are returned.  When \code{FALSE} as by default, names
+    beginning with a \samp{.} are omitted.}
+  \item{dropPath}{a \code{\link{logical}} indicating if the
+    \code{\link{search}()} path, apart from \code{\link{.GlobalEnv}} and
+    \code{package:base} (i.e., \code{\link{baseenv}()}), should be skipped
+    when searching for method definitions.  The default \code{FALSE} is
+    back compatible and typically desired for \I{\code{print()}ing}, with or
+    without asterisk; \code{dropPath=TRUE} has been hard coded in \R 4.3.0
+    and is faster for non-small \code{\link{search}()} paths.}
+  \item{useEnv}{a \code{\link{logical}} indicating if \code{envir} should
+    be searched in addition to the (much reduced in case of \code{dropPath=TRUE})
+    \code{\link{search}()} path.}
   \item{x}{typically the result of \code{methods(..)}, an \R object of S3
     class \code{"MethodsFunction"}, see \sQuote{Value} below.}
   \item{byclass}{an optional \code{\link{logical}} allowing to override
@@ -39,9 +53,11 @@ methods(generic.function, class)
 
 \details{
   \code{methods()} finds S3 and S4 methods associated with either the
-  \code{generic.function} or \code{class} argument.  Methods are found in
+  \code{generic.function} or \code{class} argument.
+  Methods found are those provided by all loaded namespaces via
+  registration, see \code{\link{UseMethod}}; normally, this includes
   all packages on the current \code{search()} path.  \code{.S3methods()}
-  finds only S3 methods, \code{.S4methods()} finds only only S4 methods.
+  finds only S3 methods, \code{\link{.S4methods}()} finds only S4 methods.
 
   When invoked with the \code{generic.function} argument, the
   \code{"byclass"} attribute (see Details) is \code{FALSE}, and the
@@ -83,8 +99,10 @@ methods(generic.function, class)
   defined.  The \code{"info"} attribute is a data frame with columns:
   \describe{
     \item{generic}{\code{\link{character}} vector of the names of the generic.}
-    \item{visible}{logical(), is the method exported from the namespace
-      of the package in which it is defined?}
+    \item{visible}{logical(), is the method \dQuote{visible} to the user?
+      When true, it typically is exported from the namespace of the package
+      in which it is defined, and the package is \code{\link{attach}()}ed
+      to the \code{\link{search}()} path.}
     \item{isS4}{logical(), true when the method is an S4 method.}
     \item{from}{a \code{\link{factor}}, the location or package name
       where the method was found.}
@@ -92,7 +110,7 @@ methods(generic.function, class)
 }
 
 \note{
-  The original \code{methods} function was written by Martin Maechler.
+  The original \code{methods} function was written by \I{Martin Maechler}.
 }
 
 \seealso{
@@ -103,10 +121,7 @@ methods(generic.function, class)
 }
 
 \references{
-  Chambers, J. M. (1992)
-  \emph{Classes and methods: object-oriented programming in S.}
-  Appendix A of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992b}
 }
 \examples{
 methods(class = "MethodsFunction") # format and print

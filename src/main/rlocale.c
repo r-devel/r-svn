@@ -39,11 +39,14 @@
 #include <config.h>
 #endif
 
+#include <R_ext/Visibility.h>
+/*
 #ifdef HAVE_VISIBILITY_ATTRIBUTE
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
 #else
 # define attribute_hidden
 #endif
+*/
 
 #include <string.h>
 #include <stdlib.h>
@@ -198,7 +201,7 @@ static cjk_locale_name_t cjk_locale_name[] = {
 };
 
 
-static int get_locale_id()
+static int get_locale_id(void)
 {
     char lc_str[128];
     unsigned int i, j;

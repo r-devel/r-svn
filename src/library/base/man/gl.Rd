@@ -26,7 +26,7 @@ gl(n, k, length = n*k, labels = seq_len(n), ordered = FALSE)
   replicated in groups of length \code{k} out to a total length of
   \code{length}.
 
-  \code{gl} is modelled on the \emph{GLIM} function of the same name.
+  \code{gl} is modelled on the \emph{\I{GLIM}} function of the same name.
 }
 \seealso{
   The underlying \code{\link{factor}()}.

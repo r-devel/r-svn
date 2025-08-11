@@ -1,6 +1,6 @@
 % File src/library/stats/man/Fdist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{FDist}
@@ -28,14 +28,15 @@ rf(n, df1, df2, ncp)
     is taken to be the number required.}
   \item{df1, df2}{degrees of freedom.  \code{Inf} is allowed.}
   \item{ncp}{non-centrality parameter. If omitted the central F is assumed.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
     \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
 \value{
   \code{df} gives the density,
-  \code{pf} gives the distribution function
-  \code{qf} gives the quantile function, and
+  \code{pf} is the cumulative distribution function, and
+  \code{qf} is the quantile function of the F distribution.
   \code{rf} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
@@ -60,8 +61,9 @@ rf(n, df1, df2, ncp)
     (1 + (n1/n2) x)^-(n1 + n2)/2}
   for \eqn{x > 0}.
 
-  The F distribution's cumulative distribution function (cdf),
-  \eqn{F_{\nu_1,\nu_2}}{F_{n1,n2}} fulfills (Abramowitz & Stegun 26.6.2, p.946)
+  The F distribution's cumulative distribution function (\abbr{cdf}),
+  \eqn{F_{\nu_1,\nu_2}}{F_{n1,n2}} fulfills
+  \bibcitep{|R:Abramowitz+Stegun:1972|section 26.6.2\\\\\\, page 946}
   \eqn{F_{\nu_1,\nu_2}(qF) = 1 - I_x(\nu_2/2, \nu_1/2) = I_{1-x}(\nu_1/2, \nu_2/2),}{%
        F_{n1,n2}(qF)   = 1 - I_x(n2/2, n1/2)   = I_{1-x}(n1/2, n2/2),}  where
   \eqn{x := \frac{\nu_2}{\nu_2 + \nu_1*qF}}{x := n2/(n2 + n1*qF)},  and
@@ -94,9 +96,7 @@ rf(n, df1, df2, ncp)
   else \emph{via} \code{\link{qbeta}}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{*, R:Becker+Chambers+Wilks:1988}
 
   Johnson, N. L., Kotz, S. and Balakrishnan, N. (1995)
   \emph{Continuous Univariate Distributions}, volume 2, chapters 27 and 30.
@@ -115,7 +115,7 @@ rf(n, df1, df2, ncp)
 \seealso{
   \link{Distributions} for other standard distributions, including
   \code{\link{dchisq}} for chi-squared and \code{\link{dt}} for Student's
-  t distributions.
+  \eqn{t} distributions.
 }
 \examples{
 ## Equivalence of pt(.,nu) with pf(.^2, 1,nu):

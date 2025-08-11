@@ -1,6 +1,6 @@
 % File src/library/stats/man/plot.lm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{plot.lm}
@@ -9,7 +9,7 @@
 \title{Plot Diagnostics for an \code{lm} Object}
 \usage{
 \method{plot}{lm}(x, which = c(1,2,3,5), %% was which = 1:4
-     caption = list("Residuals vs Fitted", "Normal Q-Q",
+     caption = list("Residuals vs Fitted", "Q-Q Residuals",
        "Scale-Location", "Cook's distance",
        "Residuals vs Leverage",
        expression("Cook's dist vs Leverage* " * h[ii] / (1 - h[ii]))),
@@ -33,8 +33,8 @@
     \code{\link{glm}}.}
   \item{which}{a subset of the numbers \code{1:6}, by default \code{1:3, 5},
     referring to \enumerate{
-      \item "Residuals vs Fitted", aka \sQuote{Tukey-Anscombe} plot % 1
-      \item "Normal Q-Q" plot, an enhanced \code{\link{qqnorm}(resid(.))} % 2
+      \item "Residuals vs Fitted", aka \sQuote{\I{Tukey}-\I{Anscombe}} plot % 1
+      \item "Residual Q-Q" plot  % 2
       \item "Scale-Location"     % 3
       \item "Cook's distance"    % 4
       \item "Residuals   vs  Leverage"      % 5
@@ -97,7 +97,7 @@
   Six plots (selectable by \code{which}) are currently available: a plot
   of residuals against fitted values, a Scale-Location plot of
   \eqn{\sqrt{| residuals |}}{sqrt(| residuals |)}
-  against fitted values, a Normal Q-Q plot, a
+  against fitted values, a Q-Q plot of residuals, a
   plot of Cook's distances versus row labels, a plot of residuals
   against leverages, and a plot of Cook's distances against
   leverage/(1-leverage).  By default, the first three and \code{5} are
@@ -138,30 +138,26 @@
   the magnitudes.  The x-axis is labeled with the (non equidistant)
   leverages \eqn{h_{ii}}{h.ii}.
 
-  Notice that some plots may not make much sense for the \code{glm}
-  case; e.g., the normal Q-Q plot only makes sense if the distribution
-  is approximately normal.
+  For the \code{glm} case, the Q-Q plot is based on the absolute value
+  of the standardized deviance residuals. When the saddlepoint
+  approximation applies, these have an approximate half-normal
+  distribution.  The saddlepoint approximation is exact for the normal
+  and inverse Gaussian family, and holds approximately for the Gamma
+  family with small dispersion (large shape) and for the Poisson and
+  binomial families with large counts \bibcitep{R:Dunn+Smyth:2018}.
 }
 
 \references{
-  Belsley, D. A., Kuh, E. and Welsch, R. E. (1980).
-  \emph{Regression Diagnostics}.
-  New York: Wiley.
-
-  Cook, R. D. and Weisberg, S. (1982).
-  \emph{Residuals and Influence in Regression}.
-  London: Chapman and Hall.
+  \bibshow{*,
+    R:Belsley+Kuh+Welsch:1980,
+    R:Cook+Weisberg:1982,
+    R:Hinkley:1975}
 
   Firth, D. (1991) Generalized Linear Models.
   In Hinkley, D. V. and Reid, N. and Snell, E. J., eds:
   Pp.\sspace{}55-82 in Statistical Theory and Modelling.
   In Honour of Sir David Cox, FRS.
   London: Chapman and Hall.
-
-  Hinkley, D. V. (1975).
-  On power transformations to symmetry.
-  \emph{Biometrika}, \bold{62}, 101--111.
-  \doi{10.2307/2334491}.
 
   McCullagh, P. and Nelder, J. A. (1989).
   \emph{Generalized Linear Models}.

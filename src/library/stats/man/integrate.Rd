@@ -39,13 +39,13 @@ integrate(f, lower, upper, \dots, subdivisions = 100L,
 
   For a finite interval, globally adaptive interval subdivision is used
   in connection with extrapolation by Wynn's Epsilon algorithm, with the
-  basic step being Gauss--Kronrod quadrature.
+  basic step being \I{Gauss}--\I{Kronrod} quadrature.
 
   \code{rel.tol} cannot be less than \code{max(50*.Machine$double.eps,
     0.5e-28)} if \code{abs.tol <= 0}.
 
   Note that the comments in the C source code in
-  \file{<R>/src/appl/integrate.c} give more details, particularly about
+  \file{\var{R}/src/appl/integrate.c} give more details, particularly about
   reasons for failure (internal error code \code{ier >= 1}).
 
   In \R versions \eqn{\le}{<=} 3.2.x, the first entries of
@@ -116,7 +116,7 @@ integrate(dnorm, 0, 2)
 integrate(dnorm, 0, 20)
 integrate(dnorm, 0, 200)
 integrate(dnorm, 0, 2000)
-integrate(dnorm, 0, 20000) ## fails on many systems
+integrate(dnorm, 0, 20000) ## "fails" on many systems -- "wrongly" giving '0' 
 integrate(dnorm, 0, Inf)   ## works
 \dontshow{tools::assertError(}
 integrate(dnorm, 0:1, 20) #-> error!

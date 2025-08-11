@@ -31,7 +31,7 @@ rowsum(x, group, reorder = TRUE, \dots)
     that groups were encountered.}
   \item{na.rm}{logical (\code{TRUE} or \code{FALSE}).  Should \code{NA}
     (including \code{NaN}) values be discarded?}
-  \item{\dots}{other arguments to be passed to or from methods}
+  \item{\dots}{other arguments to be passed to or from methods.}
 }
 \value{
   A matrix or data frame containing the sums.  There will be one row per
@@ -44,7 +44,7 @@ rowsum(x, group, reorder = TRUE, \dots)
   except when there are very many distinct values of \code{group} and
   \code{x} has few columns.
 
-  The original function was written by Terry Therneau, but this is a
+  The original function was written by \I{Terry Therneau}, but this is a
   new implementation using hashing that is much faster for large matrices.
 
   To sum over all the rows of a matrix (i.e., a single \code{group}) use

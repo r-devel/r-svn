@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2022  R Core Team
+ *  Copyright (C) 1998--2023  R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,19 +25,18 @@
 #include <io.h> /* for isatty */
 #include <Rversion.h>
 #include <Startup.h>
-#include <psignal.h>
 #include "../getline/getline.h"
 
 extern void cmdlineoptions(int, char **);
 extern void readconsolecfg(void);
 extern int GA_initapp(int, char **);
 extern void Rf_mainloop(void);
-__declspec(dllimport) extern UImode CharacterMode;
-__declspec(dllimport) extern int UserBreak;
-__declspec(dllimport) extern int R_Interactive;
-__declspec(dllimport) extern int R_HistorySize;
-__declspec(dllimport) extern int R_RestoreHistory;
-__declspec(dllimport) extern char *R_HistoryFile;
+extern UImode CharacterMode;
+extern int UserBreak;
+extern int R_Interactive;
+extern int R_HistorySize;
+extern int R_RestoreHistory;
+extern char *R_HistoryFile;
 
 extern char *getDLLVersion(void);
 extern void saveConsoleTitle(void);
@@ -49,14 +48,6 @@ char *getRVersion(void)
 {
     snprintf(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
     return(Rversion);
-}
-
-static DWORD mainThreadId;
-
-static void my_onintr(int nSig)
-{
-  UserBreak = 1;
-  PostThreadMessage(mainThreadId,0,0,0);
 }
 
 static UINT oldConsoleCP = 0;
@@ -77,7 +68,6 @@ int AppMain(int argc, char **argv)
 	   or msys). Re-run RTerm with winpty, if available, to allow
 	   line editing using Windows Console API. */
 	int i, interactive;
-	char winpty[MAX_PATH+1];
 
 	interactive = 1;
 	/* needs to be in sync with cmdlineoptions() */
@@ -93,14 +83,14 @@ int AppMain(int argc, char **argv)
 		interactive = 0;
 		i++;
 	    }
-	if (interactive && strcpy(winpty, "winpty.exe") &&
-	    PathFindOnPath(winpty, NULL)) {
+	if (interactive &&
+	    !system("winpty.exe --version >NUL 2>NUL")) {
 
 	    size_t len, pos;
 	    int res;
 	    char *cmd;
 
-	    len = strlen(winpty) + 5; /* 4*quote, terminator */
+	    len = strlen("winpty.exe") + 5; /* 4*quote, terminator */
 	    for(i = 0; i < argc; i++)
 		len += strlen(argv[i]) + 3; /* space, 2*quote */
 	    cmd = (char *)malloc(len * sizeof(char));
@@ -108,13 +98,11 @@ int AppMain(int argc, char **argv)
 		fprintf(stderr, "Error: cannot allocate memory");
 		exit(1);
 	    }
-	    pos = snprintf(cmd, len, "\"\"%s\"", winpty);
+	    pos = snprintf(cmd, len, "\"\"%s\"", "winpty.exe");
 	    for(i = 0; i < argc; i++)
 		pos += snprintf(cmd + pos, len - pos, " \"%s\"",
 		                argv[i]);
 	    strcat(cmd + pos, "\"");
-	    /* Ignore Ctrl-C and let the child process handle it */
-	    SetConsoleCtrlHandler(NULL, TRUE);
 	    res = system(cmd);
 	    free(cmd);
 	    return res;
@@ -140,20 +128,17 @@ int AppMain(int argc, char **argv)
     }
     if (isatty(0)) 
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+    if(R_Interactive) 
+	R_gl_tab_set();
     cmdlineoptions(argc, argv);
-    mainThreadId = GetCurrentThreadId() ;
-    /* The following restores Ctrl-C handling if we were started from R.exe */
-    SetConsoleCtrlHandler(NULL, FALSE);
-    signal(SIGBREAK, my_onintr);
     GA_initapp(0, NULL);
     readconsolecfg();
     if(R_Interactive) {
-	R_gl_tab_set();
 	gl_hist_init(R_HistorySize, 1);
 	if (R_RestoreHistory) gl_loadhistory(R_HistoryFile);
 	saveConsoleTitle();
 #ifdef _WIN64
-	SetConsoleTitle("Rterm (64-bit)");
+	SetConsoleTitle("Rterm");
 #else
 	SetConsoleTitle("Rterm (32-bit)");
 #endif

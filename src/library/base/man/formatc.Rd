@@ -88,8 +88,9 @@ prettyNum(x, big.mark = "",   big.interval = 3L,
     \code{"#"}.}
 
   \item{flag}{for \code{formatC}, a character string giving a
-    format modifier as in Kernighan and Ritchie (1988, page 243) or the
-    C+99 standard.\describe{
+    format modifier as in
+    \bibcitet{|R:Kernighan+Ritchie:1988|page 243}
+    or the C+99 standard.\describe{
       \item{\code{"0"}}{pads leading zeros;}
       \item{\code{"-"}}{does left adjustment,}
       \item{\code{"+"}}{ensures a sign in all cases, i.e., \code{"+"} for
@@ -228,8 +229,7 @@ prettyNum(x, big.mark = "",   big.interval = 3L,
   %% Martin Maechler
 }
 \references{
-  Kernighan, B. W. and Ritchie, D. M. (1988)
-  \emph{The C Programming Language.}  Second edition.  Prentice Hall.
+  \bibshow{*}
 }
 \seealso{
   \code{\link{format}}.
@@ -306,7 +306,8 @@ options(op)
 doLC <- FALSE # <= R warns, so change to TRUE manually if you want see the effect
 if(doLC) {
   oldLC <- Sys.getlocale("LC_NUMERIC")
-           Sys.setlocale("LC_NUMERIC", "de_CH.UTF-8") }
+           Sys.setlocale("LC_NUMERIC", "de_CH.UTF-8")
+}
 formatC(1.234 + 10^(0:4), format = "fg", width = 11, flag = "'")
 ## -->  .....  "      1'001" "     10'001"   on supported platforms
 if(doLC) ## revert, typically to  "C"  :

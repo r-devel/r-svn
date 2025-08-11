@@ -15,7 +15,7 @@ ceiling(x)
 floor(x)
 trunc(x, \dots)
 
-round(x, digits = 0)
+round(x, digits = 0, \dots)
 signif(x, digits = 6)
 }
 \description{
@@ -38,8 +38,6 @@ signif(x, digits = 6)
   \code{signif} rounds the values in its first argument to the specified
   number of \emph{significant} digits.   Hence, for \code{numeric} \code{x},
   \code{signif(x, dig)} is the same as \code{round(x, dig - ceiling(log10(abs(x))))}.
-  For \code{\link{complex}} \code{x}, this is not the case, % currently (?)
-  see the \sQuote{Details}.
 }
 \arguments{
   \item{x}{a numeric vector.  Or, for \code{round} and \code{signif}, a
@@ -56,7 +54,7 @@ signif(x, digits = 6)
   individually or via the \code{\link[=S3groupGeneric]{Math}} group
   generic.
 
-  Note that for rounding off a 5, the IEC 60559 standard (see also
+  Note that for rounding off a 5, the \abbr{IEC} 60559 standard (see also
   \sQuote{IEEE 754}) is expected to be used, \sQuote{\emph{go to the even digit}}.
   Therefore \code{round(0.5)} is \code{0} and \code{round(-1.5)} is
   \code{-2}.  However, this is dependent on OS services and on
@@ -71,9 +69,8 @@ signif(x, digits = 6)
 
   For \code{signif} the recognized values of \code{digits} are
   \code{1...22}, and non-missing values are rounded to the nearest
-  integer in that range.  Complex numbers are rounded to retain the
-  specified number of digits in the larger of the components.  Each
-  element of the vector is rounded individually, unlike printing.
+  integer in that range. Each element of the vector is rounded individually, 
+  unlike printing.
 
   These are all primitive functions.
 }
@@ -106,7 +103,7 @@ signif(x, digits = 6)
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
   \emph{The New S Language}.  Wadsworth & Brooks/Cole.
 
-  The ISO/IEC/IEEE 60559:2011 standard is available for money from
+  The ISO/\abbr{IEC}/IEEE 60559:2011 standard is available for money from
   \url{https://www.iso.org}.
 
   The IEEE 754:2008 standard is more openly documented, e.g, at

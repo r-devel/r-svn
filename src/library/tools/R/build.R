@@ -1,7 +1,7 @@
 #  File src/library/tools/R/build.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ function(filename, desc = file.path(dirname(filename), "DESCRIPTION"))
                  "# Remove the previous line if you edit this file",
     		 "",
     		 "# Export all names",
-		 "exportPattern(\".\")",
+                 "exportPattern(\"^[^.]\")",
 		 if (length(pkgs))
 		     c("",
 		       "# Import all packages listed as Imports or Depends",
@@ -54,7 +54,7 @@ get_exclude_patterns <- function()
     c("^\\.Rbuildignore$",
       "(^|/)\\.DS_Store$",
       "^\\.(RData|Rhistory)$",
-      "~$", "\\.bak$", "\\.swp$",
+      "~$", "\\.bak$", "\\.sw.$",
       "(^|/)\\.#[^/]*$", "(^|/)#[^/]*#$",
       ## Outdated ...
       "^TITLE$", "^data/00Index$",
@@ -68,6 +68,8 @@ get_exclude_patterns <- function()
       "^src/so_locations$",
       ## Sweave detrius
       "^inst/doc/Rplots\\.(ps|pdf)$"
+      ## GNU Global
+    , "^(GPATH|GRTAGS|GTAGS)$"
       )
 
 
@@ -153,43 +155,32 @@ inRbuildignore <- function(files, pkgdir) {
             '                        "no" (default), "qpdf", "gs", "gs+qpdf", "both"',
             "  --compact-vignettes   same as --compact-vignettes=qpdf",
             "  --compression=        type of compression to be used on tarball:",
-            '                        "gzip" (default), "none", "bzip2", "xz"',
+            '                        "gzip" (default), "none", "bzip2", "xz", "zstd"',
             "  --md5                 add MD5 sums",
             "  --log                 log to file 'pkg-00build.log' when processing ",
             "                        the pkgdir with basename 'pkg'",
+            "  --user=               explicitly set the tarball creator name (for 'Packaged:')",
+            "                        instead of 'Sys.info()[\"user\"]' or the \"LOGNAME\" env variable",
             "",
             "Report bugs at <https://bugs.R-project.org>.", sep = "\n")
     }
 
-    add_build_stamp_to_description_file <- function(ldpath, pkgdir)
+    add_build_stamp_to_description_file <- function(ldpath, pkgdir, user)
     {
         db <- .read_description(ldpath)
         if(dir.exists(file.path(pkgdir, "src")))
             db["NeedsCompilation"] <- "yes"
         else if(is.na(db["NeedsCompilation"]))
             db["NeedsCompilation"] <- "no"
-        ## this is an optional function, so could fail
-        user <- Sys.info()["user"]
-        if(user == "unknown") user <- Sys.getenv("LOGNAME")
         db["Packaged"] <-
             sprintf("%s; %s",
                     format(Sys.time(), "%Y-%m-%d %H:%M:%S",
                            tz = 'UTC', usetz = TRUE),
                     user)
-        .write_description(db, ldpath)
-    }
-
-    ## <FIXME>
-    ## This should really be combined with
-    ## add_build_stamp_to_description_file().
-    ## Also, the build code reads DESCRIPTION files too often ...
-    add_expanded_R_fields_to_description_file <- function(ldpath) {
-        db <- .read_description(ldpath)
+        ## also add_expanded_R_fields -- when not empty:
         fields <- .expand_package_description_db_R_fields(db)
-        if(length(fields))
-            .write_description(c(db, fields), ldpath)
+        .write_description(if(length(fields)) c(db, fields) else db, ldpath)
     }
-    ## </FIXME>
 
     temp_install_pkg <- function(pkgdir, libdir) {
 	dir.create(libdir, mode = "0755", showWarnings = FALSE)
@@ -206,7 +197,7 @@ inRbuildignore <- function(files, pkgdir) {
             depends <- package_dependencies(package, available,
                                             which = install_dependencies)
             depends <- setdiff(unlist(depends),
-                               utils::installed.packages())
+                               rownames(utils::installed.packages()))
             if(length(depends)) {
                 message(paste(strwrap(sprintf("installing dependencies %s",
                                               paste(sQuote(sort(depends)),
@@ -602,7 +593,7 @@ inRbuildignore <- function(files, pkgdir) {
             }
             ## </FIXME>
         }
-                    
+
 	messageLog(Log, "installing the package to process help pages")
 
         dir.create(libdir, mode = "0755", showWarnings = FALSE)
@@ -642,9 +633,9 @@ inRbuildignore <- function(files, pkgdir) {
                 unlink(build_stage23_Rd_db_path)
             saveRDS(stage23, build_stage23_Rd_db_path, version = 2L)
         }
-        
+
 	needRefman <- manual &&
-            parse_description_field(desc, "BuildManual", TRUE) &&
+            parse_description_field(desc, "BuildManual", FALSE) &&
             any(btinfo[, "later"])
 	if (needRefman) {
 	    messageLog(Log, "building the PDF package manual")
@@ -731,14 +722,6 @@ inRbuildignore <- function(files, pkgdir) {
             if(dep$op != '>=') next
             if(dep$version >= package_version(ver)) return()
         }
-
-        ## <FIXME>
-        ## This should no longer be necessary?
-        ## <COMMENT>
-        ## on.exit(Sys.setlocale("LC_CTYPE", Sys.getlocale("LC_CTYPE")))
-        ## Sys.setlocale("LC_CTYPE", "C")
-        ## </COMMENT>
-        ## </FIXME>
 
         flatten <- function(x) {
             if(length(x) == 3L)
@@ -900,6 +883,7 @@ inRbuildignore <- function(files, pkgdir) {
         args <- strsplit(args,'nextArg', fixed = TRUE)[[1L]][-1L]
     }
 
+    user <- NULL
     compression <- "gzip"
     while(length(args)) {
         a <- args[1L]
@@ -948,7 +932,9 @@ inRbuildignore <- function(files, pkgdir) {
             install_dependencies <- "most"
         } else if (substr(a, 1, 14) == "--compression=") {
             compression <- match.arg(substr(a, 15, 1000),
-                                     c("none", "gzip", "bzip2", "xz"))
+                                     c("none", "gzip", "bzip2", "xz", "zstd"))
+        } else if (substr(a, 1, 7) == "--user=") {
+            user <- substr(a, 8, 64)
         } else if (startsWith(a, "-")) {
             message("Warning: unknown option ", sQuote(a))
         } else pkgs <- c(pkgs, a)
@@ -960,6 +946,10 @@ inRbuildignore <- function(files, pkgdir) {
                          "\"qpdf\""),
                 domain = NA)
         compact_vignettes <-"qpdf"
+    }
+    if(is.null(user)) { # not set by --user=*
+        user <- Sys.info()[["user"]]
+        if(user == "unknown") user <- Sys.getenv("LOGNAME")
     }
 
     Sys.unsetenv("R_DEFAULT_PACKAGES")
@@ -1109,12 +1099,9 @@ inRbuildignore <- function(files, pkgdir) {
         ## Fix permissions for all files to be at least 644, and dirs 755
         ## Not restricted by umask.
 	if (!WINDOWS) .Call(C_dirchmod, pkgname, group.writable=FALSE)
-        ## Add build stamp to the DESCRIPTION file.
+        ## Add build stamp *and* expanded R fields to the DESCRIPTION file:
         add_build_stamp_to_description_file(file.path(pkgname, "DESCRIPTION"),
-                                            pkgdir)
-        ## Add expanded R fields to the DESCRIPTION file.
-        add_expanded_R_fields_to_description_file(file.path(pkgname,
-                                                            "DESCRIPTION"))
+                                            pkgdir, user)
         messageLog(Log,
                    "checking for LF line-endings in source and make files and shell scripts")
         fix_nonLF_in_source_files(pkgname, Log)
@@ -1180,11 +1167,17 @@ inRbuildignore <- function(files, pkgdir) {
         desc <- .read_description(file.path(pkgname, "DESCRIPTION"))
         Rdeps <- .split_description(desc)$Rdepends2
         hasDep350 <- FALSE
+        hasDep410 <- FALSE
+        hasDep420 <- FALSE
+        hasDep430 <- FALSE
         for(dep in Rdeps) {
             if(dep$op != '>=') next
             if(dep$version >= "3.5.0") hasDep350 <- TRUE
+            if(dep$version >= "4.1.0") hasDep410 <- TRUE
+            if(dep$version >= "4.2.0") hasDep420 <- TRUE
+            if(dep$version >= "4.3.0") hasDep430 <- TRUE
         }
-        if (!hasDep350) {
+        if(!hasDep350) {
             ## re-read files after exclusions have been applied
             allfiles <- dir(".", all.files = TRUE, recursive = TRUE,
                             full.names = TRUE)
@@ -1195,11 +1188,41 @@ inRbuildignore <- function(files, pkgdir) {
                 fixup_R_dep(pkgname, "3.5.0")
                 msg <- paste("WARNING: Added dependency on R >= 3.5.0 because",
                              "serialized objects in serialize/load version 3",
-                             "cannot be read in older versions of R. File(s)",
-                             "containing such objects:")
+                             "cannot be read in older versions of R.")
                 printLog(Log,
                          paste(c(strwrap(msg, indent = 2L, exdent = 2L),
+                                 "  File(s) containing such objects:",
                                  paste0("  ", .pretty_format(sort(toonew)))),
+                               collapse = "\n"),
+                         "\n")
+            }
+        }
+        if(!hasDep430 &&
+           !is.null(tab <- .package_code_using_R_4.x_syntax(pkgname))) {
+            msg <- files <- NULL
+            if(length(i <- which(tab$needs == "4.3.0"))) {
+                fixup_R_dep(pkgname, "4.3.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.3.0 because",
+                             "package code uses the pipe placeholder at the head of a chain of extractions syntax added in R 4.3.0.")
+                files <- unique(tab$file[i])
+            } else if(!hasDep420 &&
+                      length(i <- which(tab$needs == "4.2.0"))) {
+                fixup_R_dep(pkgname, "4.2.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.2.0 because",
+                             "package code uses the pipe placeholder syntax added in R 4.2.0")
+                files <- unique(tab$file[i])
+            } else if(!hasDep410 &&
+                      length(i <- which(tab$needs == "4.1.0"))) {
+                fixup_R_dep(pkgname, "4.1.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.1.0 because",
+                             "package code uses the pipe |> or function shorthand \\(...) syntax added in R 4.1.0.")
+                files <- unique(tab$file[i])
+            }
+            if(length(msg)) {
+                printLog(Log,
+                         paste(c(strwrap(msg, indent = 2L, exdent = 2L),
+                                 "  File(s) using such syntax:",
+                                 paste0("  ", .pretty_format(sort(files)))),
                                collapse = "\n"),
                          "\n")
             }
@@ -1221,7 +1244,8 @@ inRbuildignore <- function(files, pkgdir) {
 
         ## Finalize
         ext <- switch(compression,
-                      "none"="", "gzip"= ".gz", "bzip2" = ".bz2", "xz" = ".xz")
+                      "none"="", "gzip"= ".gz", "bzip2" = ".bz2",
+                      "xz" = ".xz", "zstd" = ".zst")
         filename <- paste0(pkgname, "_", desc["Version"], ".tar", ext)
         filepath <- file.path(startdir, filename)
         ## NB: ../../../../tests/reg-packages.R relies on this exact format!

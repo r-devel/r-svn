@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2020  The R Core Team
+ *  Copyright (C) 1999-2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,8 +24,9 @@
 
 #include <R_ext/RStartup.h>	/* The meat here */
 #ifdef _WIN32
+# include <R_ext/Boolean.h>     /* Rboolean */
 extern UImode  CharacterMode;
-extern Rboolean EmitEmbeddedUTF8;
+extern int EmitEmbeddedUTF8; // was Rboolean, but int in structRstart
 #endif
 
 
@@ -33,7 +34,7 @@ extern Rboolean EmitEmbeddedUTF8;
 
 #include <R_ext/Error.h>  // includes NORET macro
 
-void NORET R_CleanUp(SA_TYPE, int, int);
+NORET void R_CleanUp(SA_TYPE, int, int);
 void R_StartUp(void);
 
 FILE *R_OpenInitFile(void);

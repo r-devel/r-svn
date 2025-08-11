@@ -33,7 +33,7 @@
 ##    * The name of abbreviation of a versioned license, optionally
 ##      followed by a version spec
 ##    * The name of a versioned license followed by the version
-##    * The abbrevation of a versioned license combined with '-',
+##    * The abbreviation of a versioned license combined with '-',
 ##   optionally followed by an extension spec as in B (in principle,
 ##   only if the base license is extensible).
 ##
@@ -89,7 +89,7 @@ function(paths = NULL)
     ldb[is.na(ldb)] <- ""
     ## (Could also keep NAs and filter on is.finite() in subsequent
     ## computations.)
-    ## FOSS == "yes" implues Restricts_use = "no":
+    ## FOSS == "yes" implies Restricts_use = "no":
     ldb[ldb[, "FOSS"] == "yes", "Restricts_use"] <- "no"
     ldb <- data.frame(ldb, stringsAsFactors = FALSE)
     ldb$Labels <- R_license_db_labels(ldb)
@@ -466,7 +466,8 @@ function(x)
                               extensions = NULL,
                               pointers = NULL,
                               is_FOSS = NA,
-                              restricts_use = NA)
+                              restricts_use = NA,
+                              spdx = "")
         list(is_empty = is_empty,
              is_canonical = is_canonical,
              bad_components = bad_components,
@@ -478,7 +479,8 @@ function(x)
              extensions = extensions,
              pointers = pointers,
              is_FOSS = is_FOSS,
-             restricts_use = restricts_use)
+             restricts_use = restricts_use,
+             spdx = spdx)
 
 
     x <- trimws(x)
@@ -495,6 +497,7 @@ function(x)
     is_verified <- FALSE
     is_FOSS <- NA
     restricts_use <- NA
+    spdx <- ""
 
     ## Try splitting into the individual components.
     components <-
@@ -611,6 +614,11 @@ function(x)
                                stringsAsFactors = FALSE)
         }
 
+        spdx <- paste(unique(unlist(lapply(expansions,
+                                           function(e)
+                                               sort(e[["SPDX"]])),
+                                    use.names = FALSE)),
+                      collapse = " OR ")
         ## Replace expansions by their labels from the license db.
         ## (As these are unique, we can always easily get the full
         ## expansions back.)
@@ -625,6 +633,19 @@ function(x)
         ind <- (m > -1L)
         expansions[ind] <-
             Map(paste, expansions[ind], regmatches(components, m))
+        ## Components without expansions should now be invalid, e.g.
+        ##   License: GPL (> 3)
+        if(any(ind <- (lengths(expansions) == 0L))) {
+            bad_components <- components[ind]
+            is_canonical <- is_standardizable <- is_verified <- FALSE
+            standardization <- spdx <- NA_character_
+            is_FOSS <- restricts_use <- NA
+        }
+        ## Finally, only give empty SPDX license identifiers for icenses
+        ## where one component is 'Unlimited'.
+        if(!nzchar(spdx) &&
+           !any(unlist(expansions, use.names = FALSE) == "Unlimited"))
+            spdx <- NA_character_
     }
 
     if(any(startsWith(components, "Part of R"))) { # base package
@@ -642,7 +663,8 @@ function(x)
                   extensions = extensions,
                   pointers = pointers,
                   is_FOSS = is_FOSS,
-                  restricts_use = restricts_use)
+                  restricts_use = restricts_use,
+                  spdx = spdx)
 }
 
 .standardize_license_components <-

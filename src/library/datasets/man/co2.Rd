@@ -1,15 +1,15 @@
 % File src/library/datasets/man/co2.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{co2}
 \docType{data}
 \alias{co2}
-\title{Mauna Loa Atmospheric CO2 Concentration}
+\title{\I{Mauna Loa} Atmospheric CO2 Concentration}
 \description{
   Atmospheric concentrations of CO\eqn{_2}{2} are expressed in parts per
-  million (ppm) and reported in the preliminary 1997 SIO manometric mole
+  million (ppm) and reported in the preliminary 1997 \abbr{SIO} manometric mole
   fraction scale.
 }
 \usage{co2}
@@ -23,7 +23,7 @@
 }
 \source{
   Keeling, C. D. and  Whorf, T. P.,
-  Scripps Institution of Oceanography (SIO),
+  Scripps Institution of Oceanography (\abbr{SIO}),
   University of California,
   La Jolla, California USA 92093-0220.
 
@@ -34,9 +34,7 @@
   exactly with the data provided by \R.
 }
 \references{
-  Cleveland, W. S. (1993)
-  \emph{Visualizing Data}.
-  New Jersey: Summit Press.
+  \bibshow{R:Cleveland:1993}
 }
 \examples{
 require(graphics)

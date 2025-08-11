@@ -1,6 +1,6 @@
 /* -*- C -*-
  *  Mathlib : A C Library of Special Functions
- *  Copyright (C) 1998-2022  The R Core Team
+ *  Copyright (C) 1998-2025  The R Core Team
  *  Copyright (C) 2004       The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -69,7 +69,9 @@
 
 #if !defined(HAVE_WORKING_LOG1P)
 /* remap to avoid problems with getting the right entry point */
+extern "C" {
 double  Rlog1p(double);
+}
 #define log1p Rlog1p
 #endif
 
@@ -187,18 +189,27 @@ double  Rlog1p(double);
 
 #ifdef MATHLIB_STANDALONE
 # ifndef R_EXT_BOOLEAN_H_
-/* "copy-paste" R_ext/Boolean.h if not already included: */
+/* "copy-paste" R_ext/Boolean.h if not already included: 
+   This is standalone, so we do not worry about the size
+*/
  #define R_EXT_BOOLEAN_H_
  #undef FALSE
  #undef TRUE
  typedef enum { FALSE = 0, TRUE } Rboolean;
+ // stdbool.h is obsolescent but we could pro tem just use it.
+ // But to future-proof copy from Boolean.h
+ #if defined __STDC_VERSION__ && __STDC_VERSION__ > 202000L
+ #elif defined __cplusplus
+ #else
+  # include <stdbool.h>
+ #endif
+
 # endif
 #else
 # include <R_ext/Boolean.h>
 #endif
 
-
-#if !defined(MATHLIB_STANDALONE) && !defined(R_NO_REMAP_RMATH)
+#if !defined(MATHLIB_STANDALONE)
 #define bessel_i	Rf_bessel_i
 #define bessel_j	Rf_bessel_j
 #define bessel_k	Rf_bessel_k
@@ -252,6 +263,7 @@ double  Rlog1p(double);
 #define lgammafn	Rf_lgammafn
 #define lgammafn_sign	Rf_lgammafn_sign
 #define lgamma1p	Rf_lgamma1p
+#define pow1p		Rf_pow1p
 #define log1mexp       	Rf_log1mexp
 #define log1pexp       	Rf_log1pexp
 #define log1pmx		Rf_log1pmx
@@ -342,7 +354,7 @@ double  Rlog1p(double);
 #define sign		Rf_sign
 #define tetragamma	Rf_tetragamma
 #define trigamma	Rf_trigamma
-#endif
+#endif /* if not STANDALONE */
 
 #define dnorm dnorm4
 #define pnorm pnorm5
@@ -358,10 +370,10 @@ double R_pow_di(double, int);
 
 	/* Random Number Generators */
 
-double	norm_rand(void);
-double	unif_rand(void);
+double	norm_rand(void); //not remapped
+double	unif_rand(void); //not remapped
 double  R_unif_index(double);
-double	exp_rand(void);
+double	exp_rand(void); //not remapped
 #ifdef MATHLIB_STANDALONE
 void	set_seed(unsigned int, unsigned int);
 void	get_seed(unsigned int *, unsigned int *);
@@ -394,8 +406,17 @@ double  log1pexp(double); // <-- ../nmath/plogis.c
 double  log1mexp(double);
 double  lgamma1p(double);/* accurate log(gamma(x+1)), small x (0 < x < 0.5) */
 
-double  logspace_add(double, double);
-double  logspace_sub(double, double);
+double  pow1p(double, double); /* pow1p(x, y) := (1+x)^y  accurately also for |x| << 1 */
+
+/* Compute the log of a sum or difference from logs of terms, i.e.,
+ *
+ *     log (exp (logx) + exp (logy))
+ * or  log (exp (logx) - exp (logy))
+ *
+ * without causing overflows or throwing away too much accuracy:
+ */
+double  logspace_add(double logx, double logy);
+double  logspace_sub(double logx, double logy);
 double  logspace_sum(const double *, int);
 
 	/* Beta Distribution */
@@ -426,14 +447,14 @@ double	pnchisq(double, double, double, int, int);
 double	qnchisq(double, double, double, int, int);
 double	rnchisq(double, double);
 
-	/* F Distibution */
+	/* F Distribution */
 
 double	df(double, double, double, int);
 double	pf(double, double, double, int, int);
 double	qf(double, double, double, int, int);
 double	rf(double, double);
 
-	/* Student t Distibution */
+	/* Student t Distribution */
 
 double	dt(double, double, int);
 double	pt(double, double, int, int);
@@ -473,7 +494,7 @@ double	pgeom(double, double, int, int);
 double	qgeom(double, double, int, int);
 double	rgeom(double);
 
-	/* Hypergeometric Distibution */
+	/* Hypergeometric Distribution */
 
 double	dhyper(double, double, double, double, int);
 double	phyper(double, double, double, double, int, int);
@@ -544,14 +565,14 @@ double dwilcox(double, double, double, int);
 double pwilcox(double, double, double, int, int);
 double qwilcox(double, double, double, int, int);
 double rwilcox(double, double);
-void wilcox_free(void);
+void wilcox_free(void); // not remapped
 	/* Wilcoxon Signed Rank Distribution */
 
 double dsignrank(double, double, int);
 double psignrank(double, double, int, int);
 double qsignrank(double, double, int, int);
 double rsignrank(double);
-void signrank_free(void);
+void signrank_free(void); // not remapped
 
 	/* Gamma and Related Functions */
 double	gammafn(double);
@@ -608,16 +629,156 @@ double tanpi(double);
 #endif
 double Rtanpi(double); /* our own in any case */
 
-/* Compute the log of a sum or difference from logs of terms, i.e.,
- *
- *     log (exp (logx) + exp (logy))
- * or  log (exp (logx) - exp (logy))
- *
- * without causing overflows or throwing away too much accuracy:
- */
-double  logspace_add(double logx, double logy);
-double  logspace_sub(double logx, double logy);
+#if !defined(MATHLIB_STANDALONE) && defined(R_NO_REMAP_RMATH)
+#undef bessel_i
+#undef bessel_j
+#undef bessel_k
+#undef bessel_y
+#undef bessel_i_ex
+#undef bessel_j_ex
+#undef bessel_k_ex
+#undef bessel_y_ex
+#undef beta
+#undef choose
+#undef dbeta
+#undef dbinom
+#undef dbinom_raw
+#undef dcauchy
+#undef dchisq
+#undef dexp
+#undef df
+#undef dgamma
+#undef dgeom
+#undef dhyper
+#undef digamma
+#undef dlnorm
+#undef dlogis
+#undef dnbeta
+#undef dnbinom
+#undef dnbinom_mu
+#undef dnchisq
+#undef dnf
+#undef dnorm4
+#undef dnt
+#undef dpois_raw
+#undef dpois
+#undef dpsifn
+#undef dsignrank
+#undef dt
+#undef dtukey
+#undef dunif
+#undef dweibull
+#undef dwilcox
+#undef fmax2
+#undef fmin2
+#undef fprec
+#undef fround
+#undef ftrunc
+#undef fsign
+#undef gammafn
+#undef imax2
+#undef imin2
+#undef lbeta
+#undef lchoose
+#undef lgammafn
+#undef lgammafn_sign
+#undef lgamma1p
+#undef pow1p
+#undef log1mexp
+#undef log1pexp
+#undef log1pmx
+#undef logspace_add
+#undef logspace_sub
+#undef logspace_sum
+#undef pbeta
+#undef pbeta_raw
+#undef pbinom
+#undef pcauchy
+#undef pchisq
+#undef pentagamma
+#undef pexp
+#undef pf
+#undef pgamma
+#undef pgeom
+#undef phyper
+#undef plnorm
+#undef plogis
+#undef pnbeta
+#undef pnbinom
+#undef pnbinom_mu
+#undef pnchisq
+#undef pnf
+#undef pnorm5
+#undef pnorm_both
+#undef pnt
+#undef ppois
+#undef psignrank
+#undef psigamma
+#undef pt
+#undef ptukey
+#undef punif
+#undef pweibull
+#undef pwilcox
+#undef qbeta
+#undef qbinom
+#undef qcauchy
+#undef qchisq
+#undef qchisq_appr
+#undef qexp
+#undef qf
+#undef qgamma
+#undef qgeom
+#undef qhyper
+#undef qlnorm
+#undef qlogis
+#undef qnbeta
+#undef qnbinom
+#undef qnbinom_mu
+#undef qnchisq
+#undef qnf
+#undef qnorm5
+#undef qnt
+#undef qpois
+#undef qsignrank
+#undef qt
+#undef qtukey
+#undef qunif
+#undef qweibull
+#undef qwilcox
+#undef rbeta
+#undef rbinom
+#undef rcauchy
+#undef rchisq
+#undef rexp
+#undef rf
+#undef rgamma
+#undef rgeom
+#undef rhyper
+#undef rlnorm
+#undef rlogis
+#undef rmultinom
+#undef rnbeta
+#undef rnbinom
+#undef rnbinom_mu
+#undef rnchisq
+#undef rnf
+#undef rnorm
+#undef rnt
+#undef rpois
+#undef rsignrank
+#undef rt
+#undef rtukey
+#undef runif
+#undef rweibull
+#undef rwilcox
+#undef sign
+#undef tetragamma
+#undef trigamma
 
+#undef dnorm
+#undef pnorm
+#undef qnorm
+#endif /* not STANDALONE *and* R_NO_REMAP_RMATH */
 
 /* ----------------- Private part of the header file ------------------- */
 
@@ -651,7 +812,7 @@ R_EXTERN int N01_kind;
 extern int N01_kind;
 # endif
 
-#endif /* MATHLIB_STANDALONE */
+#endif /* MATHLIB_STANDALONE and not PRIVATE_H */
 
 #ifdef  __cplusplus
 }

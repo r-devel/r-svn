@@ -1,6 +1,6 @@
 % File src/library/stats/man/influence.measures.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{influence.measures}
@@ -10,9 +10,9 @@
 \concept{standardized residuals}
 \concept{Cook's distances}
 \concept{Covariance ratios}
-\concept{DFBETAs}
-\concept{DFFITs}
-\concept{PRESS}
+\concept{\I{DFBETAs}}
+\concept{\I{DFFITs}}
+\concept{\I{PRESS}}
 
 \alias{influence.measures}
 %\alias{print.infl}
@@ -99,13 +99,13 @@ hat(x, intercept = TRUE)
 \description{
   This suite of functions can be used to compute some of the regression
   (leave-one-out deletion) diagnostics for linear and generalized linear
-  models discussed in Belsley, Kuh and Welsch (1980), Cook and Weisberg (1982),
-  etc.
+  models discussed in \bibcitet{R:Belsley+Kuh+Welsch:1980},
+  \bibcitet{R:Cook+Weisberg:1982}, etc.
 }
 \details{
   The primary high-level function is \code{influence.measures} which produces a
-  class \code{"infl"} object tabular display showing the DFBETAS for
-  each model variable, DFFITS, covariance ratios, Cook's distances and
+  class \code{"infl"} object tabular display showing the \I{DFBETA}s for
+  each model variable, \I{DFFIT}s, covariance ratios, Cook's distances and
   the diagonal elements of the hat matrix.  Cases which are influential
   with respect to any of these measures are marked with an asterisk.
 
@@ -122,7 +122,7 @@ hat(x, intercept = TRUE)
   or matrices instead of vectors.
 
   Values for generalized linear models are approximations, as described
-  in Williams (1987) (except that Cook's distances are scaled as
+  in \bibcitet{R:Williams:1987} (except that Cook's distances are scaled as
   \eqn{F} rather than as chi-square values).  The approximations can be
   poor when some cases have large influence.
 
@@ -139,7 +139,7 @@ hat(x, intercept = TRUE)
 
   For linear models, \code{rstandard(*, type = "predictive")} provides
   leave-one-out cross validation residuals, and the \dQuote{PRESS}
-  statistic (\bold{PRE}dictive \bold{S}um of \bold{S}quares, the same as
+  statistic (\I{\bold{PRE}dictive \bold{S}um of \bold{S}quares}, the same as
   the CV score) of model \code{model} is \preformatted{   PRESS <- sum(rstandard(model, type="pred")^2)}
 
   The function \code{hat()} exists mainly for S (version 2)
@@ -154,19 +154,7 @@ hat(x, intercept = TRUE)
   package.
 }
 \references{
-  Belsley, D. A., Kuh, E. and Welsch, R. E. (1980).
-  \emph{Regression Diagnostics}.
-  New York: Wiley.
-
-  Cook, R. D. and Weisberg, S. (1982).
-  \emph{Residuals and Influence in Regression}.
-  London: Chapman and Hall.
-
-  Williams, D. A. (1987).
-  Generalized linear model diagnostics using the deviance and single
-  case deletions.
-  \emph{Applied Statistics}, \bold{36}, 181--191.
-  \doi{10.2307/2347550}.
+  \bibshow{*}
 
   Fox, J. (1997).
   \emph{Applied Regression, Linear Models, and Related Methods}.
@@ -176,10 +164,10 @@ hat(x, intercept = TRUE)
   \emph{An R and S-Plus Companion to Applied Regression}.
   Sage Publ.
 
-  Fox, J. and Weisberg, S. (2011).
-  \emph{An R Companion to Applied Regression}, second edition.
-  Sage Publ;
-  \url{https://socialsciences.mcmaster.ca/jfox/Books/Companion/}.
+  Fox, J. and Weisberg, S. (2019).
+  \emph{An R Companion to Applied Regression}, third edition.
+  Sage Publications.
+  \url{https://www.john-fox.ca/Companion/}.
 }
 \seealso{
   \code{\link{influence}} (containing \code{\link{lm.influence}}).

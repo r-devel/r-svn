@@ -17,8 +17,8 @@ regmatches(x, m, invert = FALSE)
 regmatches(x, m, invert = FALSE) <- value
 }
 \arguments{
-  \item{x}{a character vector}
-  \item{m}{an object with match data}
+  \item{x}{a character vector.}
+  \item{m}{an object with match data.}
   \item{invert}{a logical: if \code{TRUE}, extract or replace the
     non-matched substrings.}
   \item{value}{an object with suitable replacement values for the
@@ -123,7 +123,7 @@ z
 
 ## With `perl = TRUE` and `invert = FALSE` capture group names
 ## are preserved.  Collect functions and arguments in calls:
-NEWS <- head(readLines(file.path(R.home(), 'doc', 'NEWS.2')), 100)
+NEWS <- head(readLines(file.path(R.home("doc"), "NEWS.2")), 100)
 m <- gregexec("(?<fun>\\\\w+)\\\\((?<args>[^)]*)\\\\)", NEWS, perl = TRUE)
 y <- regmatches(NEWS, m)
 y[[16]]

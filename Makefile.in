@@ -46,7 +46,7 @@ CONFIGURE_DEPENDENCIES = $(srcdir)/VERSION
 config.status: $(srcdir)/configure
 	@$(SHELL) ./config.status --recheck
 $(srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(srcdir)/configure.ac $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
-	@BD=`pwd`; cd $(srcdir) && $(AUTOCONF) -B $${BD}
+	@BD=`pwd`; cd $(srcdir) && $(AUTOCONF) -f -B $${BD}
 $(ACLOCAL_M4): $(srcdir)/configure.ac acinclude.m4
 	@BD=`pwd`; cd $(srcdir) && $(ACLOCAL) --output=$${BD}/$@ -I $${BD}
 acinclude.m4: $(srcdir)/configure.ac $(ACINCLUDE_DEPENDENCIES)
@@ -69,8 +69,8 @@ R: Makefile svnonly
 	  $(ECHO) "you should 'make docs' now ..."
 
 docs: R FORCE
-	-@(cd doc && $(MAKE) $@)
-	-@(cd src/library && $(MAKE) $@)
+	@(cd doc && $(MAKE) $@)
+	@(cd src/library && $(MAKE) $@)
 FORCE:
 
 stamp-recommended: R docs
@@ -105,7 +105,6 @@ install install-strip: installdirs svnonly
 
 svnonly:
 	@if test ! -f "$(srcdir)/doc/FAQ" || test -f non-tarball ; then \
-	  (cd doc/manual && $(MAKE) front-matter html-non-svn) ; \
 	  touch non-tarball ; \
 	  (cd $(srcdir); LC_ALL=C TZ=GMT $(GIT) svn info || cat SVNINFO || $(ECHO) "Revision: -99") 2> /dev/null \
 	    | sed -n -e '/^Revision/p' -e '/^Last Changed Date/'p \
@@ -116,6 +115,7 @@ svnonly:
 	  fi; \
 	  $(SHELL) $(top_srcdir)/tools/move-if-change SVN-REVISION-tmp SVN-REVISION ; \
 	  rm -f SVN-REVISION-tmp ; \
+	  (cd doc/manual && $(MAKE) front-matter html-non-svn) ; \
 	else \
 	  if test "$(BUILDDIR_IS_SRCDIR)" = no ; then \
 	    for f in $(NON_SVN_INSTFILES); do \
@@ -170,6 +170,8 @@ distclean: clean
 	-@rm -f Makeconf Makefile Makefile.bak Makefrag.* \
 	  config.cache config.log config.status libtool stamp-java \
 	  $(ACLOCAL_M4) acinclude.m4 $(distdir).tar.gz
+## left behind by the Intel compilers from configuring.
+	-@rm -f *.f90 *.mod
 maintainer-clean: distclean
 	@$(ECHO) "This command is intended for maintainers to use; it"
 	@$(ECHO) "deletes files that may need special rules to rebuild"
@@ -177,6 +179,7 @@ maintainer-clean: distclean
 	  for d in $${rsd}; do (cd $${d} && $(MAKE) $@); done)
 	-@(cd $(srcdir) && rm -Rf autom4te.cache)
 
+## make dist should be preceded by make all
 dist: dist-unix
 ## GNU gzip 1.8 warns that env var GZIP is obsolescent for gzip, so use as arg
 dist-unix: distdir
@@ -187,10 +190,11 @@ dist-unix: distdir
           if test $(distdir) != $${dirname} ; then \
             mv $(distdir) $${dirname}; \
           fi ; \
+	  rm -f $${distname}.tar.gz; \
 	  $(TAR) cf $${distname}.tar $${dirname} && $(R_GZIPCMD) $(GZIP) $${distname}.tar; \
 	  rm -Rf $${dirname}
 dist-win:
-distdir: $(DISTFILES) vignettes
+distdir: $(DISTFILES) docs vignettes
 	@rm -Rf $(distdir)
 	@mkdir $(distdir)
 	@-chmod 755 $(distdir)
@@ -215,7 +219,8 @@ distdir: $(DISTFILES) vignettes
 	      | (cd $(distdir); $(TAR) -x -f -)) \
 	    || exit 1; \
 	done
-	@for d in grid parallel utils; do \
+## ship vignette PDFs to speed up building from tarball (little gain nowadays)
+	@for d in grid parallel utils stats; do \
 	  mkdir -p $(distdir)/src/library/$${d}/inst/doc; \
 	  cp library/$${d}/doc/*.pdf $(distdir)/src/library/$${d}/inst/doc; \
 	done
@@ -283,7 +288,7 @@ checkdistcomplete:
 	rm -Rf $${dirname}; \
 	echo "Checking $${distname}.tar.gz"; \
 	$(R_GZIPCMD) -d -c $${distname}.tar.gz | $(TAR) -x -f -; \
-	diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
+	LANGUAGE=C diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
 	rm -Rf $${dirname}
 
 info pdf:

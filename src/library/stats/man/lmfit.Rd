@@ -1,6 +1,6 @@
 % File src/library/stats/man/lmfit.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lm.fit}
@@ -19,11 +19,16 @@ lm.wfit(x, y, w, offset = NULL, method = "qr", tol = 1e-7,
 \alias{.lm.fit}
 \description{
   These are the basic computing engines called by \code{\link{lm}} used
-  to fit linear models.  These should usually \emph{not} be used
-  directly unless by experienced users.  \code{.lm.fit()} is a bare-bones
-  wrapper to the innermost QR-based C code, on which
-  \code{\link{glm.fit}} and \code{\link{lsfit}} are also based, for
-  even more experienced users.
+  to fit linear models.  As they work directly with numeric matrices, they
+  may be more efficient, notably in the case of performing many similar
+  regressions or when inference is not of interest.
+
+  \code{\link{lm}} calls \code{lm.fit()} as a helper function.
+
+  \code{.lm.fit()} is a thin wrapper to the "innermost" C code performing
+  the QR decomposition without much checking and should hence be used with
+  care.  The same C code is called by \code{lm.fit()} and also by
+  \code{\link{glm.fit}()} and \code{\link{lsfit}()}.
 }
 \arguments{
   \item{x}{design matrix of dimension \code{n * p}.}
@@ -56,7 +61,7 @@ lm.wfit(x, y, w, offset = NULL, method = "qr", tol = 1e-7,
   \item{coefficients}{\code{p} vector}
   \item{residuals}{\code{n} vector or matrix}
   \item{fitted.values}{\code{n} vector or matrix}
-  \item{effects}{\code{n} vector of orthogonal single-df
+  \item{effects}{\code{n} vector of orthogonal single-\abbr{df}
     effects.  The first \code{rank} of them correspond to non-aliased
     coefficients, and are named accordingly.}
   \item{weights}{\code{n} vector --- \emph{only} for the \code{*wfit*}
@@ -95,12 +100,17 @@ str(lm. <- lm.fit (x = X, y = y))
   lm.. <- .lm.fit(X,y)
   lm.w <- .lm.fit(X*sqrt(w), y*sqrt(w))
   id <- function(x, y) all.equal(x, y, tolerance = 1e-15, scale = 1)
-  stopifnot(id(unname(lm.$coef), lm..$coef),
-	    id(unname(lmw$coef), lm.w$coef))
+  stopifnot(id(unname(lm.$coefficients), lm..$coefficients),
+	    id(unname(lmw$coefficients), lm.w$coefficients))
 }
+## fits w/o intercept:
+all.equal(unname(coef(lm(y ~ X-1))),
+          unname(coef( lm.fit(X,y))))
+all.equal(unname(coef( lm.fit(X,y))),
+                 coef(.lm.fit(X,y)))
 \donttest{
 if(require("microbenchmark")) {
-  mb <- microbenchmark(lm(y~X), lm.fit(X,y), .lm.fit(X,y))
+  mb <- microbenchmark(lm(y~X-1), lm.fit(X,y), .lm.fit(X,y))
   print(mb)
   boxplot(mb, notch=TRUE)
 }

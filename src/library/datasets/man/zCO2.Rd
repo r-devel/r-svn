@@ -1,6 +1,6 @@
 % File src/library/datasets/man/zCO2.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-20011 R Core Team
+% Copyright 1995-2011 R Core Team
 % Distributed under GPL 2 or later
 
 \name{CO2}
@@ -10,7 +10,7 @@
 \description{
   The \code{CO2} data frame has 84 rows and 5 columns of data from an
   experiment on the cold tolerance of the grass species
-  \emph{Echinochloa crus-galli}.
+  \emph{\I{Echinochloa crus-galli}}.
 }
 \usage{CO2}
 \format{
@@ -18,26 +18,26 @@
   \code{c("nfnGroupedData", "nfGroupedData", "groupedData", "data.frame")}
   containing the following columns:
   \describe{
-    \item{Plant}{
+    \item{\code{Plant}}{
       an ordered factor with levels
       \code{Qn1} < \code{Qn2} < \code{Qn3} < \dots < \code{Mc1}
       giving a unique identifier for each plant.
     }
-    \item{Type}{
+    \item{\code{Type}}{
       a factor with levels
       \code{Quebec}
       \code{Mississippi}
       giving the origin of the plant
     }
-    \item{Treatment}{
+    \item{\code{Treatment}}{
       a factor with levels
       \code{nonchilled}
       \code{chilled}
     }
-    \item{conc}{
-      a numeric vector of ambient carbon dioxide concentrations (mL/L).
+    \item{\code{conc}}{
+      a numeric vector of ambient carbon dioxide concentrations (\abbr{mL}/L).
     }
-    \item{uptake}{
+    \item{\code{uptake}}{
       a numeric vector of carbon dioxide uptake rates
       (\eqn{\mu\mbox{mol}/m^2}{umol/m^2} sec).
     }
@@ -49,7 +49,7 @@
   \eqn{CO_2}{CO2} concentration.  Half the plants of each type were
   chilled overnight before the experiment was conducted.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

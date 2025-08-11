@@ -1,6 +1,6 @@
 % File src/library/base/man/environment.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2012 R Core Team
+% Copyright 1995-2012, 2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{environment}
@@ -48,12 +48,12 @@ env.profile(env)
 \arguments{
   \item{fun}{a \code{\link{function}}, a \code{\link{formula}}, or
     \code{NULL}, which is the default.}
-  \item{value}{an environment to associate with the function}
+  \item{value}{an environment to associate with the function.}
   \item{x}{an arbitrary \R object.}
   \item{hash}{a logical, if \code{TRUE} the environment will use a hash table.}
   \item{parent}{an environment to be used as the enclosure of the
     environment created.}
-  \item{env}{an environment}
+  \item{env}{an environment.}
   \item{size}{an integer specifying the initial size for a hashed
     environment.  An internal default value will be used if
     \code{size} is \code{NA} or zero.  This argument is ignored if
@@ -67,6 +67,8 @@ env.profile(env)
 
   The replacement form sets the environment of the function or formula
   \code{fun} to the \code{value} given.
+  Note that \code{\link{primitive}} functions \code{fun} have no environment and
+  trying to set it to a non-\code{NULL} value is deprecated.
 
   \code{is.environment(obj)} returns \code{TRUE} if and only if
   \code{obj} is an \code{environment}.

@@ -1,6 +1,6 @@
 % File src/library/base/man/regex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{regex}
@@ -180,7 +180,7 @@
   By default repetition is greedy, so the maximal possible number of
   repeats is used.  This can be changed to \sQuote{minimal} by appending
   \code{?} to the quantifier.  (There are further quantifiers that allow
-  approximate matching: see the TRE documentation.)
+  approximate matching: see the \I{TRE} documentation.)
 
   Regular expressions may be concatenated; the resulting regular
   expression matches any string formed by concatenating the substrings
@@ -219,7 +219,10 @@
   (essentially 2012), the man pages at
   \url{https://www.pcre.org/original/doc/html/} should be a good match.
   PCRE2 (PCRE version >= 10.00) has man pages at
-  \url{https://www.pcre.org/current/doc/html/}).
+  \url{https://www.pcre.org/current/doc/html/}), but note that individual
+  PCRE versions may still differ in behavior (e.g. PCRE 10.43 introduced
+  quantifiers with an unspecified lower limit, but earlier versions documented
+  that they were treated as literals). 
 
   Perl regular expressions can be computed byte-by-byte or
   (UTF-8) character-by-character: the latter is used in all multibyte
@@ -309,7 +312,11 @@
   \samp{\p{xx}} and \samp{\P{xx}} which match characters with and
   without property \samp{xx} respectively.  For a list of supported
   properties see the PCRE documentation, but for example \samp{Lu} is
-  \sQuote{upper case letter} and \samp{Sc} is \sQuote{currency symbol}.
+  \sQuote{upper case letter} and \samp{Sc} is \sQuote{currency symbol}. Note
+  that properties such as \samp{\w}, \samp{\W}, \samp{\d}, \samp{\D}, \samp{\s},
+  \samp{\S}, \samp{\b} and \samp{\B} by default do not refer to full
+  Unicode, but one can override this by starting a pattern with \samp{(*UCP)}
+  (which comes with a performance penalty).
   (This support depends on the PCRE library being compiled with
   \sQuote{Unicode property support} which can be checked \emph{via}
   \code{\link{pcre_config}}. PCRE2 when compiled with Unicode support always
@@ -352,7 +359,7 @@
   \code{\link{glob2rx}}, \code{\link{help.search}}, \code{\link{list.files}},
   \code{\link{ls}}, \code{\link{strsplit}} and \code{\link{agrep}}.
 
-  The \href{https://htmlpreview.github.io/?https://raw.githubusercontent.com/laurikari/tre/master/doc/tre-syntax.html}{TRE regexp syntax}.
+  The \href{https://html-preview.github.io/?url=https://raw.githubusercontent.com/laurikari/tre/master/doc/tre-syntax.html}{\I{TRE} regexp syntax}.
 
   The POSIX 1003.2 standard at
   \url{https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html}.

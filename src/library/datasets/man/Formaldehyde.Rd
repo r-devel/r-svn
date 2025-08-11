@@ -1,6 +1,6 @@
 % File src/library/datasets/man/Formaldehyde.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2009 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Formaldehyde}
@@ -9,7 +9,7 @@
 \title{Determination of Formaldehyde}
 \description{
   These data are from a chemical experiment to prepare a standard curve
-  for the determination of formaldehyde by the addition of chromatropic
+  for the determination of formaldehyde by the addition of chromotropic
   acid and concentrated sulphuric acid and the reading of the resulting
   purple color on a spectrophotometer.
 }
@@ -17,8 +17,8 @@
 \format{
   A data frame with 6 observations on 2 variables.
   \tabular{rlll}{
-    [,1] \tab carb\tab numeric \tab Carbohydrate (ml) \cr
-    [,2] \tab optden \tab numeric \tab Optical Density
+    [,1] \tab \code{carb}   \tab numeric \tab Carbohydrate (ml) \cr
+    [,2] \tab \code{optden} \tab numeric \tab Optical Density
   }
 }
 \source{
@@ -27,8 +27,7 @@
   New York: Wiley.
 }
 \references{
-  McNeil, D. R. (1977) \emph{Interactive Data Analysis.}
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

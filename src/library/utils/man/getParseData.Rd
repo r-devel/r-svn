@@ -1,6 +1,6 @@
 % File src/library/utils/man/getParseData.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2012-2021 R Core Team
+% Copyright 2012-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{getParseData}
@@ -33,7 +33,7 @@ getParseText(parseData, id)
 }
 \details{
   In version 3.0.0, the \R{} parser was modified to include code written
-  by Romain Francois in his \pkg{parser} package.  This constructs a
+  by \I{Romain Francois} in his \pkg{parser} package.  This constructs a
   detailed table of information about every token and higher level
   construct in parsed code.  This table is stored in the
   \code{\link{srcfile}} record associated with source references in the
@@ -73,8 +73,7 @@ getParseText(parseData, id)
   retrieved from the original file.
 }
 \references{
-  Romain Francois (2012). parser: Detailed R source code parser. R
-  package version 0.0-16. \url{https://github.com/halpo/parser}.
+  \bibshow{R:Francois:2012}
 }
 \author{
 Duncan Murdoch
@@ -90,7 +89,7 @@ Duncan Murdoch
     \item The \code{id} values are not attached to the elements of the parse
     tree, they are only retained in the table returned by \code{getParseData}.
     \item \verb{#line} directives are identified, but other comment
-    markup (e.g., \CRANpkg{roxygen} comments) are not.
+    markup (e.g., \CRANpkg{roxygen2} comments) are not.
   }
 
   Parse data by design explore details of the parser implementation, which

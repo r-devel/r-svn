@@ -30,7 +30,7 @@ isClosed(x, \dots)
 }
 \details{
   The difference between \code{grobCoords} and \code{grobPoints}
-  is that \code{grobCoords} performs all pre- and post-drawing operations
+  is that \code{grobCoords} performs all \I{pre-} and post-drawing operations
   on the grob that would normally occur if the grob was being drawn,
   then calls \code{grobPoints}.  So the former takes into account
   any \code{vp} and \code{gp} settings on the grob.  This means

@@ -1,6 +1,6 @@
 % File src/library/base/man/difftime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{difftime}
@@ -26,9 +26,8 @@
 \alias{rep.difftime}
 \alias{units.difftime}
 \alias{units<-.difftime}
-\alias{units}
-\alias{units<-}
 \alias{time interval} % used by mean.Rd
+\alias{summary.difftime}
 \description{
   Time intervals creation, printing, and some arithmetic.  The
   \code{\link{print}()} method calls these \dQuote{time differences}.
@@ -42,7 +41,7 @@ difftime(time1, time2, tz,
 
 as.difftime(tim, format = "\%X", units = "auto", tz = "UTC")
 
-\method{format}{difftime}(x, ...)
+\method{format}{difftime}(x, ..., with.units = TRUE)
 \method{units}{difftime}(x)
 \method{units}{difftime}(x) <- value
 \method{as.double}{difftime}(x, units = "auto", ...)
@@ -64,10 +63,14 @@ as.difftime(tim, format = "\%X", units = "auto", tz = "UTC")
     \code{\link{strptime}}.  The default is a locale-specific time format.}
   \item{x}{an object inheriting from class \code{"difftime"}.}
   \item{\dots}{arguments to be passed to or from other methods.}
+  \item{with.units}{(for the  \code{format()} method:) logical indicating
+    the units should be part, e.g., "3.5 hours"; if false, the units are
+    suppressed.}
 }
 \details{
   Function \code{difftime} calculates a difference of two date/time
-  objects and returns an object of class \code{"difftime"} with an
+  objects, \code{time1} (end) and \code{time2} (beginning), and
+  returns an object of class \code{"difftime"} with an
   attribute indicating the units.  The
   \code{\link[=S3groupGeneric]{Math}} group method provides
   \code{\link{round}}, \code{\link{signif}}, \code{\link{floor}},
@@ -113,6 +116,19 @@ as.difftime(tim, format = "\%X", units = "auto", tz = "UTC")
 
   The \code{format} method simply formats the numeric value and appends
   the units as a text string.
+}
+\section{Warning}{
+  Because \R follows POSIX (and almost all computer clocks) in ignoring
+  leap seconds, so do time differences.  So in a UTC time zone
+\preformatted{
+    z <- as.POSIXct(c("2016-12-31 23:59:59", "2017-01-01 00:00:01"))
+    z[2] - z[1]
+}
+  reports \samp{Time difference of 2 secs} but 3 seconds elapsed while
+  the computer clock advanced by 2 seconds.
+
+  If you want the elapsed time interval, you need to add in any
+  leap seconds for yourself.
 }
 \note{
   Units such as \code{"months"} are not possible as they are not of

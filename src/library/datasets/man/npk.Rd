@@ -1,9 +1,10 @@
 % File src/library/datasets/man/npk.Rd
 % Part of the R package, https://www.R-project.org
-% copyright (C) 1999 W. N. Venables and B. D. Ripley
+% Copyright (C) 1999 W. N. Venables and B. D. Ripley
 % Distributed under GPL 2 or later
 
 \name{npk}
+\docType{data}
 \alias{npk}
 \title{
   Classical N, P, K Factorial Experiment
@@ -11,7 +12,7 @@
 \description{
   A classical N, P, K (nitrogen, phosphate, potassium) factorial
   experiment on the growth of peas conducted on 6 blocks. Each half of a
-  fractional factorial design confounding the NPK interaction was used
+  fractional factorial design confounding the \abbr{NPK} interaction was used
   on 3 of the plots.
 }
 \usage{
@@ -41,8 +42,7 @@ npk
   Imperial College, London, M.Sc. exercise sheet.
 }
 \references{
-  Venables, W. N. and Ripley, B. D. (2002)
-  \emph{Modern Applied Statistics with S.} Fourth edition.  Springer.
+  \bibshow{R:Venables+Ripley:2002}
 }
 % This gets different roundings
 \examples{\donttest{

@@ -23,7 +23,7 @@ colorRampPalette(colors, \dots)
     \code{\link{col2rgb}()}.}
   \item{bias}{a positive number.  Higher values give more widely spaced
     colors at the high end.}
-  \item{space}{a character string; interpolation in RGB or CIE Lab
+  \item{space}{a character string; interpolation in RGB or \abbr{CIE} Lab
     color spaces.}
   \item{interpolate}{use spline or linear interpolation.}
   \item{alpha}{logical: should alpha channel (opacity) values be
@@ -32,7 +32,7 @@ colorRampPalette(colors, \dots)
   \item{\dots}{arguments to pass to \code{colorRamp}.}
 }
 \details{
-  The CIE Lab color space is approximately perceptually uniform, and so
+  The \abbr{CIE} Lab color space is approximately perceptually uniform, and so
   gives smoother and more uniform color ramps. On the other hand,
   palettes that vary from one hue to another via white may have a more
   symmetrical appearance in RGB space.
@@ -55,7 +55,7 @@ colorRampPalette(colors, \dots)
 
 \seealso{
   Good starting points for interpolation are the \dQuote{sequential}
-  and \dQuote{diverging} ColorBrewer palettes in the
+  and \dQuote{diverging} \I{ColorBrewer} palettes in the
   \CRANpkg{RColorBrewer} package.
 
   \code{\link{splinefun}} or \code{\link{approxfun}} are used for

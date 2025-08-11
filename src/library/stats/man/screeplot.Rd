@@ -6,8 +6,9 @@
 \name{screeplot}
 \alias{screeplot}
 \alias{screeplot.default}
-\title{Screeplots}
+\title{Scree Plots}
 \usage{
+screeplot(x, \dots)
 \method{screeplot}{default}(x, npcs = min(10, length(x$sdev)),
           type = c("barplot", "lines"),
           main = deparse1(substitute(x)), \dots)

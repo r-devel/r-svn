@@ -1,8 +1,8 @@
 /*********************************************************************
  * RPC for the Windows NT Operating System
  * 1993 by Martin F. Gergeleit
- * Users may use, copy or modify Sun RPC for the Windows NT Operating 
- * System according to the Sun copyright below.
+ * Users may use, copy or modify RPC for the Windows NT Operating 
+ * System according to the Oracle copyright below.
  *
  * RPC for the Windows NT Operating System COMES WITH ABSOLUTELY NO 
  * WARRANTY, NOR WILL I BE LIABLE FOR ANY DAMAGES INCURRED FROM THE 
@@ -11,40 +11,38 @@
 
 /* @(#)xdr.h	2.2 88/07/29 4.0 RPCSRC */
 /*
- * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
- * unrestricted use provided that this legend is included on all tape
- * media and as a part of the software program in whole or part.  Users
- * may copy or modify Sun RPC without charge, but are not authorized
- * to license or distribute it to anyone else except as part of a product or
- * program developed by the user.
- * 
- * SUN RPC IS PROVIDED AS IS WITH NO WARRANTIES OF ANY KIND INCLUDING THE
- * WARRANTIES OF DESIGN, MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE, OR ARISING FROM A COURSE OF DEALING, USAGE OR TRADE PRACTICE.
- * 
- * Sun RPC is provided with no support and without any obligation on the
- * part of Sun Microsystems, Inc. to assist in its use, correction,
- * modification or enhancement.
- * 
- * SUN MICROSYSTEMS, INC. SHALL HAVE NO LIABILITY WITH RESPECT TO THE
- * INFRINGEMENT OF COPYRIGHTS, TRADE SECRETS OR ANY PATENTS BY SUN RPC
- * OR ANY PART THEREOF.
- * 
- * In no event will Sun Microsystems, Inc. be liable for any lost revenue
- * or profits or other special, indirect and consequential damages, even if
- * Sun has been advised of the possibility of such damages.
- * 
- * Sun Microsystems, Inc.
- * 2550 Garcia Avenue
- * Mountain View, California  94043
- */
-/*      @(#)xdr.h 1.19 87/04/22 SMI      */
-
-/*
  * xdr.h, External Data Representation Serialization Routines.
  *
- * Copyright (C) 1984, Sun Microsystems, Inc.
+ * Copyright (c) 2010, Oracle America, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials
+ *       provided with the distribution.
+ *     * Neither the name of the "Oracle America, Inc." nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *   COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ *   INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *   GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *   WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ *   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*      @(#)xdr.h 1.19 87/04/22 SMI      */
 
 #ifndef __XDR_HEADER__
 #define __XDR_HEADER__
@@ -106,7 +104,9 @@ enum xdr_op {
  * allocate dynamic storage of the appropriate size and return it.
  * bool_t	(*xdrproc_t)(XDR *, caddr_t *);
  */
+#ifdef UNUSED
 typedef	bool_t (*xdrproc_t)();
+#endif
 
 /*
  * The XDR handle.
@@ -114,23 +114,24 @@ typedef	bool_t (*xdrproc_t)();
  * an operations vector for the paticular implementation (e.g. see xdr_mem.c),
  * and two private fields for the use of the particular impelementation.
  */
-typedef struct {
+typedef struct XDR XDR;
+struct XDR {
 	enum xdr_op	x_op;		/* operation; fast additional param */
 	struct xdr_ops {
-		bool_t	(*x_getlong)();	/* get a long from underlying stream */
-		bool_t	(*x_putlong)();	/* put a long to " */
-		bool_t	(*x_getbytes)();/* get some bytes from " */
-		bool_t	(*x_putbytes)();/* put some bytes to " */
-		u_int	(*x_getpostn)();/* returns bytes off from beginning */
-		bool_t  (*x_setpostn)();/* lets you reposition the stream */
-		long *	(*x_inline)();	/* buf quick ptr to buffered data */
-		void	(*x_destroy)();	/* free privates of this xdr_stream */
+		bool_t	(*x_getlong)(XDR *, int32_t *);	/* get a long from underlying stream */
+		bool_t	(*x_putlong)(XDR *, int32_t *);	/* put a long to " */
+		bool_t	(*x_getbytes)(XDR *, caddr_t, u_int);/* get some bytes from " */
+		bool_t	(*x_putbytes)(XDR *, caddr_t, u_int);/* put some bytes to " */
+		u_int	(*x_getpostn)(XDR *);/* returns bytes off from beginning */
+		bool_t  (*x_setpostn)(XDR *, u_int);/* lets you reposition the stream */
+		long *	(*x_inline)(XDR *, u_int);	/* buf quick ptr to buffered data */
+		void	(*x_destroy)(XDR *);	/* free privates of this xdr_stream */
 	} *x_ops;
 	caddr_t 	x_public;	/* users' data */
 	caddr_t		x_private;	/* pointer to private data */
 	caddr_t 	x_base;		/* private used for position info */
 	int		x_handy;	/* extra private word */
-} XDR;
+};
 
 /*
  * Operations defined on a XDR handle
@@ -193,11 +194,13 @@ typedef struct {
  * no match, then a default routine may be called.
  * If there is no match and no default routine it is an error.
  */
+#ifdef UNUSED
 #define NULL_xdrproc_t ((xdrproc_t)0)
 struct xdr_discrim {
 	int	value;
 	xdrproc_t proc;
 };
+#endif
 
 /*
  * In-line routines for fast encode/decode of primitve data types.
@@ -235,33 +238,56 @@ struct xdr_discrim {
 /*
  * These are the "generic" xdr routines.
  */
+
+#ifdef UNUSED
 extern bool_t	xdr_void();
-extern bool_t	xdr_int();
-extern bool_t	xdr_u_int();
-extern bool_t	xdr_long();
-extern bool_t	xdr_u_long();
-extern bool_t	xdr_short();
-extern bool_t	xdr_u_short();
-extern bool_t	xdr_bool();
-extern bool_t	xdr_enum();
+#endif
+
+extern bool_t	xdr_int(XDR *, int *);
+extern bool_t	xdr_u_int(XDR *, u_int *);
+extern bool_t	xdr_long(XDR *, int32_t *);
+extern bool_t	xdr_u_long(XDR *, uint32_t *);
+extern bool_t	xdr_short(XDR *, short *);
+extern bool_t	xdr_u_short(XDR *, u_short *);
+extern bool_t	xdr_bool(XDR *, bool_t *);
+extern bool_t	xdr_enum(XDR *, enum_t *);
+
+#ifdef UNUSED
 extern bool_t	xdr_array();
-extern bool_t	xdr_bytes();
-extern bool_t	xdr_opaque();
-extern bool_t	xdr_string();
+#endif
+
+extern bool_t	xdr_bytes(XDR *, char **, u_int *, u_int);
+extern bool_t	xdr_opaque(XDR *, caddr_t, u_int);
+extern bool_t	xdr_string(XDR *, char **, u_int);
+
+#ifdef UNUSED
 extern bool_t	xdr_union();
-extern bool_t	xdr_char();
-extern bool_t	xdr_u_char();
+#endif
+
+extern bool_t	xdr_char(XDR *, char *);
+extern bool_t	xdr_u_char(XDR *, char *);
+
+#ifdef UNUSED
 extern bool_t	xdr_vector();
 extern bool_t	xdr_float();
-extern bool_t	xdr_double();
+#endif
+
+extern bool_t	xdr_double(XDR *, double *);
+
+#ifdef UNUSED
 extern bool_t	xdr_reference();
 extern bool_t	xdr_pointer();
+#endif
+
+#ifdef UNUSED
 extern bool_t	xdr_wrapstring();
+#endif
 
 /*
  * Common opaque bytes objects used by many rpc protocols;
  * declared here due to commonality.
  */
+#ifdef UNUSED
 #define MAX_NETOBJ_SZ 1024 
 struct netobj {
 	u_int	n_len;
@@ -269,16 +295,21 @@ struct netobj {
 };
 typedef struct netobj netobj;
 extern bool_t   xdr_netobj();
+#endif
 
 /*
  * These are the public routines for the various implementations of
  * xdr streams.
  */
-extern void   xdrmem_create();		/* XDR using memory buffers */
-extern void   xdrstdio_create();	/* XDR using stdio library */
+extern void   xdrmem_create(XDR *, caddr_t, u_int, enum xdr_op);		/* XDR using memory buffers */
+#include <stdio.h>
+extern void   xdrstdio_create(XDR *, FILE *, enum xdr_op);	/* XDR using stdio library */
+
+#ifdef UNUSED
 extern void   xdrrec_create();		/* XDR pseudo records for tcp */
 extern bool_t xdrrec_endofrecord();	/* make end of xdr record */
 extern bool_t xdrrec_skiprecord();	/* move to beginning of next record */
 extern bool_t xdrrec_eof();		/* true if no more input */
+#endif
 
 #endif /* __XDR_HEADER__ */

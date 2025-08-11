@@ -39,6 +39,7 @@
 
 int baseRegisterIndex = -1;
 
+attribute_hidden
 GPar* dpptr(pGEDevDesc dd) {
     if (baseRegisterIndex == -1)
 	error(_("the base graphics system is not registered"));
@@ -50,7 +51,7 @@ static SEXP R_INLINE getSymbolValue(SEXP symbol)
 {
     if (TYPEOF(symbol) != SYMSXP)
 	error("argument to 'getSymbolValue' is not a symbol");
-    return findVar(symbol, R_BaseEnv);
+    return R_findVar(symbol, R_BaseEnv);
 }
 
 /*
@@ -113,7 +114,7 @@ static GEDevDesc nullDevice;
 
 /* In many cases this is used to mean that the current device is
    the null device, and in others to mean that there is no open device.
-   The two condiions are currently the same, as no way is provided to
+   The two conditions are currently the same, as no way is provided to
    select the null device (selectDevice(0) immediately opens a device).
 
    But watch out if you intend to change the logic of any of this.
@@ -143,7 +144,7 @@ pGEDevDesc GEcurrentDevice(void)
 		grDevices need not be in the search path.
 		So we look for it first on the global search path.
 	    */
-	    defdev = findVar(devName, R_GlobalEnv);
+	    defdev = R_findVar(devName, R_GlobalEnv);
 	    if(defdev != R_UnboundValue) {
 		PROTECT(defdev = lang1(devName));
 		eval(defdev, R_GlobalEnv);
@@ -154,11 +155,11 @@ pGEDevDesc GEcurrentDevice(void)
 		   The option is unlikely to be set if it is not loaded,
 		   as the default setting is in grDevices:::.onLoad.
 		*/
-		SEXP ns = findVarInFrame(R_NamespaceRegistry,
-					 install("grDevices"));
+		SEXP ns = R_findVarInFrame(R_NamespaceRegistry,
+					   install("grDevices"));
 		PROTECT(ns);
 		if(ns != R_UnboundValue &&
-		   findVar(devName, ns) != R_UnboundValue) {
+		   R_findVar(devName, ns) != R_UnboundValue) {
 		    PROTECT(defdev = lang1(devName));
 		    eval(defdev, ns);
 		    UNPROTECT(1);
@@ -350,7 +351,7 @@ void KillAllDevices(void)
     */
     int i;
     for(i = R_MaxDevices-1; i > 0; i--) removeDevice(i, FALSE);
-    R_CurrentDevice = 0;  /* the null device, for tidyness */
+    R_CurrentDevice = 0;  /* the null device, for tidiness */
 
     /* <FIXME> Disable this for now */
     /*
@@ -515,7 +516,7 @@ pGEDevDesc GEcreateDevDesc(pDevDesc dev)
 }
 
 
-void attribute_hidden InitGraphics(void)
+attribute_hidden void InitGraphics(void)
 {
     R_Devices[0] = &nullDevice;
     active[0] = TRUE;

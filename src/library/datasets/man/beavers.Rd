@@ -15,7 +15,7 @@ beaver2
 }
 \description{
   Reynolds (1994) describes a small part of a study of the long-term
-  temperature dynamics of beaver \emph{Castor canadensis} in
+  temperature dynamics of beaver \emph{\I{Castor canadensis}} in
   north-central Wisconsin.  Body temperature was measured by telemetry
   every 10 minutes for four females, but data from a one period of
   less than a day for each of two animals is used there.
@@ -29,13 +29,13 @@ beaver2
 
   The variables are as follows:
   \describe{
-    \item{day}{Day of observation (in days since the beginning of
+    \item{\code{day}}{Day of observation (in days since the beginning of
       1990), December 12--13 (\code{beaver1}) and November 3--4
       (\code{beaver2}).}
-    \item{time}{Time of observation, in the form \code{0330} for
+    \item{\code{time}}{Time of observation, in the form \code{0330} for
       3:30am}
-    \item{temp}{Measured body temperature in degrees Celsius.}
-    \item{activ}{Indicator of activity outside the retreat.}
+    \item{\code{temp}}{Measured body temperature in degrees Celsius.}
+    \item{\code{activ}}{Indicator of activity outside the retreat.}
   }
 }
 \note{

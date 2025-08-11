@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2022 R Core Team
+### Copyright (C) 1998-2025 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -19,7 +19,8 @@
 ### https://www.r-project.org/Licenses/
 
 ### Please use dnl for first-col comments within definitions, as
-### PD's autoconf leaves ## in but others (e.g. Fedora's) strip them
+### PD's autoconf leaves ## in but most others strip them.
+### Or indent them by spaces, which seems to be left in by all.
 
 ### * General support macros
 
@@ -195,40 +196,56 @@ if test -n "${TEXI2ANY}"; then
                 false)
   AC_SUBST(INSTALL_INFO)
 fi
-if test "${r_cv_prog_texi2any_v5}" != yes; then
+if test "${r_cv_prog_texi2any_v6}" != yes; then
   warn_info="you cannot build info or HTML versions of the R manuals"
   AC_MSG_WARN([${warn_info}])
   TEXI2ANY=""
 else
   TEXI2ANY="${TEXI2ANY}"
 fi
+AC_SUBST([TEXI2ANY_VERSION_MAJ], [${r_cv_prog_texi2any_version_maj}])
+AC_SUBST([TEXI2ANY_VERSION_MIN], [${r_cv_prog_texi2any_version_min}])
 ])# R_PROG_TEXI2ANY
 
 ## _R_PROG_TEXI2ANY_VERSION
 ## ------------------------
-## Building the R Texinfo manuals requires texinfo v5.1 or later.
-## Set shell variable r_cv_prog_texi2any_v5 to 'yes' if a recent
+## Building the R manuals requires Texinfo v6.1 or later.
+## Set shell variable r_cv_prog_texi2any_v6 to 'yes' if a recent
 ## enough texi2any aka  makeinfo is found, and to 'no' otherwise.
 ## If you change the minimum version here, also change it in
 ## doc/manual/Makefile.in and doc/manual/R-admin.texi.
 AC_DEFUN([_R_PROG_TEXI2ANY_VERSION],
-[AC_CACHE_CHECK([whether texi2any version is at least 5.1],
-                [r_cv_prog_texi2any_v5],
-[texi2any_version=`${TEXI2ANY} --version | \
-  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`
-texi2any_version_maj=`echo ${texi2any_version} | cut -f1 -d.`
-texi2any_version_min=`echo ${texi2any_version} | \
-  cut -f2 -d. | tr -dc '0123456789.' `
-if test -z "${texi2any_version_maj}" \
-     || test -z "${texi2any_version_min}"; then
-  r_cv_prog_texi2any_v5=no
-elif test ${texi2any_version_maj} -gt 5; then
-  r_cv_prog_texi2any_v5=yes
-elif test ${texi2any_version_maj} -lt 5 \
-     || test ${texi2any_version_min} -lt 1; then
-  r_cv_prog_texi2any_v5=no
+[AC_CACHE_VAL([r_cv_prog_texi2any_version],
+[r_cv_prog_texi2any_version=`${TEXI2ANY} --version | \
+  grep -E '^(makeinfo|texi2any)' | sed 's/[[^)]]*) \(.*\)/\1/'`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_maj],
+[r_cv_prog_texi2any_version_maj=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f1 -d.`])
+AC_CACHE_VAL([r_cv_prog_texi2any_version_min],
+[r_cv_prog_texi2any_version_min=`echo ${r_cv_prog_texi2any_version} | \
+  cut -f2 -d. | tr -dc '0123456789.'`])
+AC_CACHE_CHECK([whether texi2any version is at least 6.1],
+                [r_cv_prog_texi2any_v6],
+[if test -z "${r_cv_prog_texi2any_version_maj}" \
+     || test -z "${r_cv_prog_texi2any_version_min}"; then
+  r_cv_prog_texi2any_v6=no
+elif test ${r_cv_prog_texi2any_version_maj} -gt 6; then
+  r_cv_prog_texi2any_v6=yes
+elif test ${r_cv_prog_texi2any_version_maj} -lt 6 \
+     || test ${r_cv_prog_texi2any_version_min} -lt 1; then
+  r_cv_prog_texi2any_v6=no
 else
-  r_cv_prog_texi2any_v5=yes
+  r_cv_prog_texi2any_v6=yes
+fi])
+  ## Also record whether texi2any is at least 7 to appropriately handle
+  ## HTML and EPUB output changes, see
+  ## <https://lists.gnu.org/archive/html/bug-texinfo/2022-11/msg00036.html>.
+AC_CACHE_VAL([r_cv_prog_texi2any_v7],
+[if test ${r_cv_prog_texi2any_v6} = yes \
+     && test ${r_cv_prog_texi2any_version_maj} -ge 7; then
+  r_cv_prog_texi2any_v7=yes
+else
+  r_cv_prog_texi2any_v7=no
 fi])
 ])# _R_PROG_TEXI2ANY_VERSION
 
@@ -463,8 +480,8 @@ AC_CACHE_CHECK([for inline], r_cv_c_inline,
 for ac_kw in inline __inline__ __inline; do
   AC_COMPILE_IFELSE([AC_LANG_SOURCE(
 [#ifndef __cplusplus
-static $ac_kw int static_foo () {return 0; }
-$ac_kw int foo () {return 0; }
+static $ac_kw int static_foo (void) {return 0; }
+$ac_kw int foo (void) {return 0; }
 #endif
 ])],
                     [r_cv_c_inline=$ac_kw; break])
@@ -640,7 +657,7 @@ dnl SHLIB_LD=ld for native C compilers (problem with non-PIC 'crt0.o',
 dnl see 'Individual platform overrides' in section 'DLL stuff' in file
 dnl 'configure.ac'.
 dnl
-dnl Using the Intel Fortran compiler (ifc) one typically gets incorrect
+dnl Using the pre-2023 Intel Fortran compiler (ifc) one typically gets incorrect
 dnl flags, as the output from _AC_PROG_F77_V_OUTPUT() contains double
 dnl quoted options, e.g. "-mGLOB_options_string=......", see also e.g.
 dnl http://www.octave.org/octave-lists/archive/octave-maintainers.2002/msg00038.html.
@@ -831,7 +848,7 @@ dnl Yes we need to double quote this ...
 #else
 # define F77_SYMBOL(x)   x
 #endif
-int main () {
+int main (void) {
   exit(0);
 }
 EOF]
@@ -904,7 +921,7 @@ dnl Yes we need to double quote this ...
 
 extern void F77_SYMBOL(cftest)(int *a, int *b, double *x, double *y);
 
-int main () {
+int main (void) {
   int a[3] = {17, 237, 2000000000}, b[2], res = 0;
   double x[3] = {3.14159265, 123.456789, 2.3e34}, z[3];
   double eps = 1e-6;
@@ -989,14 +1006,17 @@ dnl Yes we need to double quote this ...
 # define F77_SYMBOL(x)   x
 #endif
 
-typedef struct {
-        double r;
-        double i;
+typedef union {
+    struct {
+	double r;
+	double i;
+    };
+    double _Complex private_data_c;
 } Rcomplex;
 
 extern void F77_SYMBOL(cftest)(Rcomplex *x);
 
-int main () {
+int main (void) {
     Rcomplex z[3];
 
     z[0].r = 3.14159265;
@@ -1062,11 +1082,11 @@ AC_DEFUN([R_PROG_FC_CHAR_LEN_T],
       call xerbla('abcde', -10)
       end
 EOF
-${FC} ${FFLAGS} ${FPIEFLAGS} -c conftestf.f 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD
 [cat > conftest.c <<EOF
 /* A C function calling a Fortran subroutine which calls xerbla
    written in C, emulating how R calls BLAS/LAPACK routines */
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include "confdefs.h"
@@ -1076,7 +1096,7 @@ ${FC} ${FFLAGS} ${FPIEFLAGS} -c conftestf.f 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_L
 # define F77_SYMBOL(x)   x
 #endif
 
-extern void F77_SYMBOL(testit)();
+extern void F77_SYMBOL(testit)(void);
 
 void F77_SYMBOL(xerbla)(const char *srname, int *info, 
 			const size_t srname_len)
@@ -1087,12 +1107,16 @@ void F77_SYMBOL(xerbla)(const char *srname, int *info,
     if (*info != -10) exit(-3);
 }
 
-int main()
+int main(void)
 {
     F77_SYMBOL(testit)();
     return 0;
 }
 EOF]
+r_cv_prog_fc_char_len_t=unknown
+for fpieflags in "${FPIEFLAGS}" "-fPIE"; do
+echo "Trying FPIEFLAGS = ${fpieflags}" 1>&AS_MESSAGE_LOG_FD
+${FC} ${FFLAGS} ${fpieflags} -c conftestf.f 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD
 if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD; then
   if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} -o conftest${ac_exeext} \
        conftest.${ac_objext} conftestf.${ac_objext} ${FLIBS} \
@@ -1102,9 +1126,13 @@ if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_
     output=`./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD`
     if test ${?} = 0; then
       r_cv_prog_fc_char_len_t=size_t
+      FPIEFLAGS="${fpieflags}"
+    else
+      break
     fi
   fi
 fi
+done
 ])
 rm -Rf conftest conftest.* conftestf.* core
 ])# R_PROG_FC_CHAR_LEN_T
@@ -1326,6 +1354,7 @@ AC_DEFUN([R_PROG_OBJCXX_WORKS],
 dnl we don't use AC_LANG_xx because ObjC++ is not defined as a language (yet)
 dnl (the test program is from the gcc test suite)
 dnl but it needed an #undef (PR#15107)
+dnl 2021-11-12 changed to use Foundation as Xcode 13 breaks Object.h.
 cat << \EOF > conftest.mm
 #include <Foundation/Foundation.h>
 #include <iostream>
@@ -1339,7 +1368,7 @@ cat << \EOF > conftest.mm
 @end
 
 int
-main ()
+main (void)
 {
   std::cout << "Hello from C++\n";
   Greeter *obj = @<:@Greeter new@:>@;
@@ -1402,7 +1431,7 @@ AC_DEFUN([R_FUNC_CALLOC],
 [AC_CACHE_CHECK([for working calloc], [r_cv_func_calloc_works],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
-int main () {
+int main (void) {
   int *p = calloc(0, sizeof(int));
   exit(p == 0);
 }
@@ -1425,7 +1454,7 @@ AC_DEFUN([R_FUNC_ISFINITE],
 #include <math.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_DECL_ISFINITE
   exit(isfinite(1./0.) | isfinite(0./0.) | isfinite(-1./0.));
 #else
@@ -1454,7 +1483,7 @@ AC_DEFUN([R_FUNC_LOG1P],
 #include <math.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_LOG1P
   int k;
   double d;
@@ -1506,7 +1535,7 @@ AC_DEFUN([R_FUNC_FTELL],
 # include <unistd.h> // for unlink
 #endif
 
-int main() {
+int main(void) {
     FILE *fp;
     long pos;
 
@@ -1603,7 +1632,7 @@ AC_CACHE_VAL([r_cv_type_socklen],
 done])
 dnl size_t works on Windows but is unsigned and int is correct
 case "${host_os}" in
-  cygwin*|mingw*|windows*|winnt)
+  cygwin*|mingw*|windows*|winnt|msys)
     r_cv_type_socklen=int
     ;;
 esac
@@ -1896,7 +1925,13 @@ fi
 AC_DEFUN([R_BSD_NETWORKING],
 [AC_CACHE_CHECK([for BSD networking],
                 [r_cv_bsd_networking],
-[if test "${ac_cv_header_netdb_h}" = yes \
+[case "${host_os}" in
+  cygwin*|mingw*|windows*|winnt|msys)
+    r_cv_bsd_networking=yes
+    ;;
+esac
+if test "${ac_cv_bsd_networking}" != yes \
+     && test "${ac_cv_header_netdb_h}" = yes \
 dnl needed for Rhttpd.c but missed before R 3.2.4
      && test "${ac_cv_header_arpa_inet_h}" = yes \
      && test "${ac_cv_header_netinet_in_h}" = yes \
@@ -1904,7 +1939,8 @@ dnl needed for Rhttpd.c but missed before R 3.2.4
      && test "${ac_cv_search_connect}" != no \
      && test "${ac_cv_search_gethostbyname}" !=  no; then
   r_cv_bsd_networking=yes
-else
+fi
+if test "${ac_cv_bsd_networking}" = no; then
   AC_MSG_ERROR([BSD networking functions are required])
 fi])
 ])# R_BSD_NETWORKING
@@ -1982,7 +2018,19 @@ if test "${use_libtiff}" = yes; then
       AC_CHECK_LIB(tiff, TIFFOpen, [have_tiff=yes], [have_tiff=no], [-lwebp -llzma ${BITMAP_LIBS}])
       if test "x${have_tiff}" = xyes; then
         AC_DEFINE(HAVE_TIFF, 1, [Define this if libtiff is available.])
-        BITMAP_LIBS="-ltiff -lwebp  -llzma ${BITMAP_LIBS}"
+        BITMAP_LIBS="-ltiff -lwebp -llzma ${BITMAP_LIBS}"
+      else
+        have_tiff=no
+      fi
+    fi
+    if test "x${have_tiff}" != xyes; then
+      # also try with webp and zstd (needed with libtiff 4.4 from MXE/Rtools)
+      unset ac_cv_lib_tiff_TIFFOpen
+      AC_MSG_NOTICE([checking for libtiff with -lwebp -lzstd])
+      AC_CHECK_LIB(tiff, TIFFOpen, [have_tiff=yes], [have_tiff=no], [-lwebp -lzstd -llzma ${BITMAP_LIBS}])
+      if test "x${have_tiff}" = xyes; then
+        AC_DEFINE(HAVE_TIFF, 1, [Define this if libtiff is available.])
+        BITMAP_LIBS="-ltiff -lwebp -lzstd -llzma ${BITMAP_LIBS}"
       else
         have_tiff=no
       fi
@@ -2751,7 +2799,7 @@ dnl Yes we need to double quote this ...
 #endif
 extern void F77_SYMBOL(test1)(int *iflag);
 
-int main () {
+int main (void) {
   int iflag;
   F77_SYMBOL(test1)(&iflag);
   exit(iflag);
@@ -2969,7 +3017,7 @@ void blas_set () {
   F77_SYMBOL(ztrsv)();
 #endif
 }
-int main ()
+int main (void)
 {
   exit(0);
 }
@@ -3063,13 +3111,12 @@ fi
 acx_lapack_save_LIBS="${LIBS}"
 LIBS="${BLAS_LIBS} ${FLIBS} ${LIBS}"
 
-dnl LAPACK linked to by default?  (Could be in the BLAS libs.)
+dnl Check LAPACK_LIBS environment variable
 if test "${acx_lapack_ok}" = no; then
-  AC_CHECK_FUNC(${lapack}, [acx_lapack_ok=yes])
-fi
-
-dnl Next, check LAPACK_LIBS environment variable
-if test "${acx_lapack_ok}" = no; then
+  if test "x${LAPACK_LIBS}" = "x${BLAS_LIBS}"; then
+    ## make it clear that we are using LAPACK from BLAS libs
+    LAPACK_LIBS=""
+  fi
   if test "x${LAPACK_LIBS}" != x; then
     r_save_LIBS="${LIBS}"; LIBS="${LAPACK_LIBS} ${LIBS}"
     AC_MSG_CHECKING([for ${lapack} in ${LAPACK_LIBS}])
@@ -3078,6 +3125,12 @@ if test "${acx_lapack_ok}" = no; then
     LIBS="${r_save_LIBS}"
   fi
 fi
+
+dnl LAPACK linked to by default?  (Could be in the BLAS libs.)
+if test "${acx_lapack_ok}" = no; then
+  AC_CHECK_FUNC(${lapack}, [acx_lapack_ok=yes])
+fi
+
 
 dnl LAPACK in Sun Performance library?
 dnl No longer test here as will be picked up by the default test.
@@ -3095,10 +3148,12 @@ AC_SUBST(LAPACK_LIBS)
 
 ## R_LAPACK_SYSTEM_LIB
 ## -------------------
-## New for R 4.2.0
-## Look for system -llapack of version at least 3.10.0.
+## New for R 4.2.0: reduced to >=3.9.0 for 4.4.0.
+## Look for system -llapack of version at least 3.9.0.
 ## We have to test with a system BLAS.
 ## We don't want an external lapack which contains a BLAS.
+## We document that at least ATLAS, OpenBLAS and Accelerate lapack
+## is excluded (R-admin).
 AC_DEFUN([R_LAPACK_SYSTEM_LIB],
 [AC_REQUIRE([R_PROG_FC_FLIBS])
 AC_REQUIRE([R_PROG_FC_APPEND_UNDERSCORE])
@@ -3125,24 +3180,124 @@ if test "${acx_lapack_ok}" = no; then
 fi
 
 if test "${acx_lapack_ok}" = yes; then
+  LIBS="-llapack -lblas ${FLIBS} ${acx_lapack_save_LIBS}"
+  dnl Detect ATLAS liblapack.
+  dnl Note on Debian/Ubuntu, liblapack.so is generic but has a SONAME
+  dnl that may point to an optimized version, e.g. from ATLAS.
+  dnl Hence AC_CHECK_LIB doesn't work, it would never find the
+  dnl symbol.
+
+AC_CACHE_CHECK([for ATLAS routines in liblapack], [r_cv_atlas_liblapack],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <dlfcn.h>
+#include <stdlib.h>
+
+extern void ${ilaver}(int *major, int *minor, int *patch);
+int major, minor, patch;
+volatile int dummy;
+
+int main (void) {
+  ${ilaver}(&major, &minor, &patch); /* force linking LAPACK */
+  dummy = major + minor + patch;
+  
+  /* return 1 when we find an ATLAS optimized LAPACK routine dpotrf
+  
+     see do_eSoftVersion in platform.c for more on PLT and
+     RTLD_DEFAULT, RTLD_NEXT */
+  
+  if (dlsym(RTLD_DEFAULT, "ATL_dpotrf") || dlsym(RTLD_NEXT, "ATL_dpotrf"))
+    exit(1);
+  else
+    exit(0);
+}
+]])],
+[r_cv_atlas_liblapack=no],
+[r_cv_atlas_liblapack=yes],
+[r_cv_atlas_liblapack=no])])
+
+LIBS="${acx_lapack_save_LIBS}"
+
+if test "${r_cv_atlas_liblapack}" = yes; then
+ acx_lapack_ok=no
+fi
+fi
+
+if test "${acx_lapack_ok}" = yes; then
 LIBS="-lblas ${FLIBS} ${acx_lapack_save_LIBS}"
-AC_CHECK_LIB(lapack, ${lapack}, [acx_lapack_ok=yes])
+AC_CHECK_LIB(lapack, ${lapack}, [acx_lapack_ok=yes], [acx_lapack_ok=no])
+fi
+
+if test "${acx_lapack_ok}" = yes; then
+  LIBS="-llapack -lblas ${FLIBS} ${acx_lapack_save_LIBS}"
+  dnl This heuristic can detect liblapack which is e.g. part of OpenBLAS
+AC_CACHE_CHECK([for liblapack dependency with both BLAS and LAPACK routines], [r_cv_dep_lapackblas],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void *libforsym(const char *name, int current) {
+  void *addr = dlsym(current ? RTLD_DEFAULT : RTLD_NEXT, name);
+  if (!addr) return NULL;
+    
+  Dl_info nfo;
+  if (!dladdr(addr, &nfo)) return NULL;
+  return dlopen(nfo.dli_fname, RTLD_LAZY);
+}
+
+/* does a library having symbol a also have symbol b? */
+int libwithhas(const char *syma, const char *symb, int current) {
+  void *lib = libforsym(syma, current);
+  int ans = lib && dlsym(lib, symb);
+  dlclose(lib);
+  return ans;
+}
+
+extern void ${ilaver}(int *major, int *minor, int *patch);
+int major, minor, patch;
+volatile int dummy;
+
+int main (void) {
+  ${ilaver}(&major, &minor, &patch); /* force linking LAPACK */
+  dummy = major + minor + patch;
+  
+  /* return 1 when we know a dependent library which includes BLAS
+     routines also includes LAPACK routines
+      
+     see do_eSoftVersion in platform.c for more on PLT and
+     RTLD_DEFAULT, RTLD_NEXT */  
+  if (libwithhas("${dgemm}", "${lapack}", 0) ||
+     libwithhas("${dgemm}", "${lapack}", 1)) {
+     exit(1);
+  }
+  exit(0);
+}
+]])],
+[r_cv_dep_lapackblas=no],
+[r_cv_dep_lapackblas=yes],
+[r_cv_dep_lapackblas=no])])
+
+LIBS="${acx_lapack_save_LIBS}"
+
+if test "${r_cv_dep_lapackblas}" = yes; then
+ acx_lapack_ok=no
+fi
 fi
 
 if test "${acx_lapack_ok}" = yes; then
   LIBS="-lblas -llapack ${FLIBS} ${acx_lapack_save_LIBS}"
 
-AC_CACHE_CHECK([if LAPACK version >= 3.10.0], [r_cv_lapack_ver],
+AC_CACHE_CHECK([if LAPACK version >= 3.9.0], [r_cv_lapack_ver],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 extern void ${ilaver}(int *major, int *minor, int *patch);
 
 #include <stdlib.h>
 #include <stdio.h>
-int main() {
+int main(void) {
   int major, minor, patch;
   ${ilaver}(&major, &minor, &patch);
   printf("%d.%d.%d, so ", major, minor, patch);
-  if (major < 3 || (major == 3 && minor < 10)) exit(1);
+  if (major < 3 || (major == 3 && minor < 9)) exit(1);
   exit(0);
 }
 ]])],
@@ -3164,6 +3319,153 @@ fi
 AC_SUBST(LAPACK_LIBS)
 ])# R_LAPACK_SYSTEM_LIB
 
+## R_INTERNAL_XDR_USABLE
+## ---------------------
+## Check whether the internal xdr implementation can be used. It cannot be
+## with GCC sanitizers (2024), which intercept also xdr calls. Linking turns
+## the symbols to dynamically linked and succeeds, then the program crashes
+## when invoking an xdr call.
+##
+## R_INTERNAL_XDR_USABLE()
+## -----------------------
+AC_DEFUN([R_INTERNAL_XDR_USABLE],
+[AC_REQUIRE([LT_INIT])dnl
+AC_REQUIRE([R_PROG_AR])dnl
+AC_CACHE_CHECK([whether internal XDR can be used],
+               [r_cv_internal_xdr_usable],
+[if test "${cross_compiling}" = yes; then
+  r_cv_internal_xdr_usable=yes
+else
+  cat >conftestx.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op) {
+  (void)xdrs; (void)addr; (void)size; (void)op;
+  exit(0); /* SUCCESS, internal implementation can be called */
+}
+EOF
+  cat >conftest.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+extern void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op);
+
+int main(void) {
+  XDR xdrs;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  exit(1); /* FAILURE, internal implementation is not called */
+}
+EOF
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} -I${srcdir}/src/extra/xdr"
+  r_cv_internal_xdr_usable=no
+  if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftestx.c \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${AR} ${ARFLAGS} conftestx.${libext} conftestx.${ac_objext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${RANLIB} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD ; then
+     
+     ./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD
+     if test ${?} = 0; then
+       r_cv_internal_xdr_usable=yes
+     fi
+  fi
+  rm -f conftestxi.c conftestx.c
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi # not cross-compiling
+])
+if test "${r_cv_internal_xdr_usable}" = no ; then
+  case "${host_os}" in
+    linux*)
+      AC_MSG_ERROR([Internal XDR cannot be used. Maybe install a development version of TI-RPC?])
+      ;;
+    *)
+      ## unlikely
+      AC_MSG_ERROR([Internal XDR cannot be used.])
+      ;;
+  esac
+elif test "${cross_compiling}" = yes; then
+  AC_MSG_WARN([Assuming internal XDR works (cross-compiling).])
+fi
+])# R_INTERNAL_XDR_USABLE
+
+## R_SEARCH_XDR_LIBS
+## -----------------
+## Linking a test program is not enough with address sanitizer, which on
+## Linux implements wrappers for XDR and other functions as weak symbols. 
+## So, linking succeeds even if the real functions are not available.  A
+## runtime test reveals this, calling the real function segfaults.
+##
+## This macro is a modified version of AC_SEARCH_LIBS, which runs a test
+## program using XDR instead of a link test.
+##
+## R_SEARCH_XDR_LIBS(SEARCH-LIBS,
+##                [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND],
+##                [OTHER-LIBRARIES])
+## --------------------------------------------------------
+AC_DEFUN([R_SEARCH_XDR_LIBS],
+[AS_VAR_PUSHDEF([r_Search], [r_cv_search_xdr])dnl
+AC_CACHE_CHECK([for XDR library], [r_Search],
+[r_func_search_save_LIBS=$LIBS
+cat > conftest.c <<EOF
+#include <rpc/xdr.h>
+#include <stdlib.h>
+#include "confdefs.h"
+
+int main(void) {
+  XDR xdrs;
+  int srci = 1234;
+  int dsti = 0;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  xdr_int(&xdrs, &srci);
+  xdr_destroy(&xdrs);
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_DECODE);
+  xdr_int(&xdrs, &dsti);
+  xdr_destroy(&xdrs);
+
+  if (srci == dsti) exit(0); /* SUCCESS, real XDR found */
+  exit(1);
+}
+EOF
+for r_lib in '' $1
+do
+  if test -z "$r_lib"; then
+    r_res="none required"
+  else
+    r_res=-l$r_lib
+    LIBS="-l$r_lib $4 $r_func_search_save_LIBS"
+  fi
+  AC_RUN_IFELSE([], [AS_VAR_SET([r_Search], [$r_res])])
+  AS_VAR_SET_IF([r_Search], [break])
+done
+AS_VAR_SET_IF([r_Search], , [AS_VAR_SET([r_Search], [no])])
+rm conftest.$ac_ext
+LIBS=$r_func_search_save_LIBS])
+AS_VAR_COPY([r_res], [r_Search])
+AS_IF([test "$r_res" != no],
+  [test "$r_res" = "none required" || LIBS="$r_res $LIBS"
+  $2],
+      [$3])
+AS_VAR_POPDEF([r_Search])dnl
+])
 
 ## R_XDR
 ## -----
@@ -3175,8 +3477,7 @@ if test "${ac_cv_header_rpc_types_h}" = yes ; then
   AC_CHECK_HEADER(rpc/xdr.h, , , [#include <rpc/types.h>])
 fi
 if test "${ac_cv_header_rpc_types_h}" = yes && \
-   test "${ac_cv_header_rpc_xdr_h}" = yes && \
-   test "${ac_cv_search_xdr_string}" != no ; then
+   test "${ac_cv_header_rpc_xdr_h}" = yes ; then
   r_xdr=yes
 else
   r_xdr=no
@@ -3199,10 +3500,24 @@ if test "${r_xdr}" = no ; then
   fi
   CPPFLAGS="${save_CPPFLAGS}"
 fi
+if test "${r_xdr}" = yes ; then
+  ## -lnsl is needed on Solaris
+  ## 2018: Sun RPC is being unbundled from glibc, at least in Fedora 28
+  ## (https://fedoraproject.org/wiki/Changes/SunRPCRemoval)
+  ## Use libtirpc instead, which has been a possible source since ca 2007
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} ${TIRPC_CPPFLAGS}"
+  R_SEARCH_XDR_LIBS([nsl tirpc],[],[r_xdr=no])
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi
 AC_MSG_CHECKING([for XDR support])
 AC_MSG_RESULT([${r_xdr}])
 AM_CONDITIONAL(BUILD_XDR, [test "x${r_xdr}" = xno])
 AC_SUBST(TIRPC_CPPFLAGS)
+if test "${r_xdr}" = no ; then
+  ## check internal xdr can be used
+  R_INTERNAL_XDR_USABLE()
+fi
 ])# R_XDR
 
 ## R_ZLIB
@@ -3238,7 +3553,7 @@ AC_DEFUN([_R_HEADER_ZLIB],
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
-int main() {
+int main(void) {
 #ifdef ZLIB_VERNUM
   if (ZLIB_VERNUM < 0x1250) {
     exit(1);
@@ -3283,7 +3598,7 @@ AC_CACHE_CHECK([if PCRE1 version >= 8.32 and has UTF-8 support], [r_cv_have_pcre
 #endif
 #endif
 #include <stdlib.h>
-int main() {
+int main(void) {
 #ifdef PCRE_MAJOR
 #if PCRE_MAJOR > 8
   exit(1);
@@ -3357,7 +3672,7 @@ if test "x${have_pcre2}" = "xyes"; then
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #include <stdlib.h>
-int main() {
+int main(void) {
     int ans;
     int res = pcre2_config(PCRE2_CONFIG_UNICODE, &ans);
     if (res || ans != 1) exit(1); else exit(0);
@@ -3397,7 +3712,7 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <string.h> // for strcmp
 #include <bzlib.h>
 #endif
-int main() {
+int main(void) {
     const char *ver = BZ2_bzlibVersion();
     exit(strcmp(ver, "1.0.6") < 0);
 }
@@ -3416,6 +3731,27 @@ else
   AC_MSG_ERROR([bzip2 library and headers are required])
 fi
 ])# R_BZLIB
+
+## R_LIBDEFLATE
+## ------------
+## Try finding libdeflate library and headers.
+## We check that both are installed,
+AC_DEFUN([R_LIBDEFLATE],
+[
+  AC_CHECK_HEADERS(libdeflate.h, [have_libdeflate=yes], [have_libdeflate=no])
+if test "${have_libdeflate}" = yes; then
+  AC_CHECK_LIB(deflate, libdeflate_alloc_compressor, [have_libdeflate=yes], [have_libdeflate=no])
+fi
+if test "x${r_cv_have_libdeflate}" = xno; then
+  have_libdeflate=no
+fi
+if test "x${have_libdeflate}" = xyes; then
+  AC_MSG_RESULT([yes])
+  LIBS="-ldeflate ${LIBS}"
+  AC_DEFINE(HAVE_LIBDEFLATE, 1,
+            [Define to 1 if you have libdeflate headers and library.])
+fi
+])# R_LIBDEFLATE
 
 ## R_TRE
 ## -------
@@ -3456,10 +3792,11 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <lzma.h>
 #endif
 #include <stdlib.h>
-int main() {
+int main(void) {
     unsigned int ver = lzma_version_number();
     // This is 10000000*major + 10000*minor + 10*revision + [012]
-    // I.e. xyyyzzzs and 5.1.2 would be 50010020
+    // Where 2 is 'stable'.
+    // I.e. xyyyzzzs and 5.1.2 is 50010022, so this allows 5.0.3 alpha/beta
     exit(ver < 50000030);
 }
 ]])], [r_cv_have_lzma=yes], [r_cv_have_lzma=no], [r_cv_have_lzma=no])
@@ -3478,6 +3815,50 @@ fi
 ])# R_LZMA
 
 
+## R_ZSTD
+## -------
+## Try finding libzstd library and headers.
+## We check that both are installed,
+AC_DEFUN([R_ZSTD],
+[AC_CHECK_LIB(zstd, ZSTD_versionNumber, [have_zstd=yes], [have_zstd=no])
+if test "${have_zstd}" = yes; then
+  AC_CHECK_HEADERS(zstd.h, [have_zstd=yes], [have_zstd=no])
+fi
+if test "x${have_zstd}" = xyes; then
+AC_CACHE_CHECK([if zstd version >= 1.3.3], [r_cv_have_zstd],
+[AC_LANG_PUSH(C)
+r_save_LIBS="${LIBS}"
+LIBS="-lzstd ${LIBS}"
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef HAVE_ZSTD_H
+#include <zstd.h>
+#endif
+#include <stdlib.h>
+int main(void) {
+    exit(ZSTD_versionNumber() < 10303);
+}
+]])], [r_cv_have_zstd=yes], [r_cv_have_zstd=no], [r_cv_have_zstd=no])
+LIBS="${r_save_LIBS}"
+AC_LANG_POP(C)])
+fi
+if test "x${r_cv_have_zstd}" = xno; then
+  have_zstd=no
+fi
+if test "x${have_zstd}" = xyes; then
+  AC_DEFINE(HAVE_ZSTD, 1, [Define if your system has zstd >= 1.3.3.])
+  LIBS="-lzstd ${LIBS}"
+  # check if we can use single-shot decompression on stream-compressed files (was added as static in 1.4.0)
+  AC_CHECK_FUNC(ZSTD_decompressBound, [have_zstd_decompressbound=yes], [have_zstd_decompressbound=no])
+  if test "x${have_zstd_decompressbound}" = xyes; then
+    AC_DEFINE(HAVE_ZSTD_DECOMPRESSBOUND, 1, [Define if zstd has ZSTD_decompressBound])
+  fi
+# so far we don't require it, but we might
+#else
+#  AC_MSG_ERROR("libzstd library and headers are required")
+fi
+])# R_ZSTD
+
+
 ## R_SYS_POSIX_LEAPSECONDS
 ## -----------------------
 ## See if your system time functions do not count leap seconds, as
@@ -3491,7 +3872,7 @@ AC_DEFUN([R_SYS_POSIX_LEAPSECONDS],
 #include <stdio.h>
 #include "confdefs.h"
 
-int main () {
+int main (void) {
   struct tm *tm;
   time_t ct = 0; /* required on 64bit AIX */
 
@@ -3558,7 +3939,7 @@ AC_DEFUN([R_SIZE_MAX],
 #endif
 
 int
-main() {
+main(void) {
 #ifndef SIZE_MAX
   char *p = (char *) SIZE_MAX;
 #endif
@@ -3581,7 +3962,7 @@ fi
 ## -------
 ## Look for iconv, possibly in libiconv.
 ## Need to include <iconv.h> as this may define iconv as a macro.
-## libiconv, e.g. on macOS, has iconv as a macro and needs -liconv.
+## GNU libiconv, e.g. on older macOS, has iconv as a macro and needs -liconv.
 AC_DEFUN([R_ICONV],
 [AC_CHECK_HEADERS(iconv.h)
 dnl need to ignore cache for this as it may set LIBS
@@ -3596,6 +3977,7 @@ AC_CACHE_CHECK(for iconv, ac_cv_func_iconv, [
        iconv_close(cd);]])],[ac_cv_func_iconv=yes],[])
   if test "$ac_cv_func_iconv" != yes; then
     r_save_LIBS="$LIBS"
+dnl libiconv is system and hence dynamic on macOS
     LIBS="$LIBS -liconv"
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #ifdef HAVE_ICONV_H
@@ -3620,7 +4002,7 @@ if test "$ac_cv_func_iconv" != no; then
 #include <iconv.h>
 #endif
 
-int main () {
+int main (void) {
   iconv_t cd;
   cd = iconv_open("latin1","UTF-8");
   if(cd == (iconv_t)(-1)) exit(1);
@@ -3674,7 +4056,7 @@ int main () {
 
   ## on Windows we supply iconv ourselves
   case "${host_os}" in
-    mingw*)
+    mingw*|msys)
       r_cv_iconv_latin1=yes
       ;;
   esac
@@ -3691,7 +4073,7 @@ int main () {
 #include <iconv.h>
 #endif
 
-int main () {
+int main (void) {
   iconv_t cd;
   cd = iconv_open("CP1252","UTF-8");
   if(cd == (iconv_t)(-1)) exit(1);
@@ -3718,7 +4100,7 @@ int main () {
 
   ## on Windows we supply iconv ourselves
   case "${host_os}" in
-    mingw*)
+    mingw*|msys)
       r_cv_iconv_cp1252=yes
       ;;
   esac
@@ -3861,19 +4243,28 @@ done
 AC_DEFUN([R_GCC4_VISIBILITY],
 [AC_CACHE_CHECK([whether __attribute__((visibility())) is supported],
                 [r_cv_visibility_attribute],
-[cat > conftest.c <<EOF
+[r_cv_visibility_attribute=no
+case "${host_os}" in
+    darwin*)
+      dnl Assume works on macOS
+      r_cv_visibility_attribute=yes
+      ;;
+
+  *)
+cat > conftest.c <<EOF
 int foo __attribute__ ((visibility ("hidden"))) = 1;
 int bar __attribute__ ((visibility ("default"))) = 1;
 #ifndef __GNUC__
 # error unsupported compiler
 #endif
 EOF
-r_cv_visibility_attribute=no
-if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
- if grep '\.hidden.*foo' conftest.s >/dev/null; then
-    r_cv_visibility_attribute=yes
- fi
-fi
+      if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
+        if grep '\.hidden.*foo' conftest.s >/dev/null; then
+           r_cv_visibility_attribute=yes
+        fi
+      fi
+      ;; 
+esac
 rm -f conftest.[cs]
 ])
 if test $r_cv_visibility_attribute = yes; then
@@ -3894,11 +4285,12 @@ if test "${r_cv_prog_cc_vis}" = yes; then
     C_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icx.
 case  "${CC}" in
-  ## Intel compiler: note that -c99 may have been appended
+  ## Obsolete Intel compiler: note that -c99 may have been appended
   *icc*)
     C_VISIBILITY=
     ;;
@@ -3919,11 +4311,12 @@ if test "${r_cv_prog_cxx_vis}" = yes; then
     CXX_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl Need to exclude Intel compilers, where this does not work correctly.
+dnl Need to exclude pre-2023 Intel compilers, where this does not work correctly.
 dnl The flag is documented and is effective, but also hides
 dnl unsatisfied references. We cannot test for GCC, as icc passes that test.
+dnl Seems to work for the revamped icpx.
 case  "${CXX}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *icc*|*icpc*)
     CXX_VISIBILITY=
     ;;
@@ -3944,9 +4337,10 @@ if test "${r_cv_prog_fc_vis}" = yes; then
     F_VISIBILITY="-fvisibility=hidden"
   fi
 fi
-dnl need to exclude Intel compilers.
+dnl flang accepts this but ignores it.
+dnl Need to exclude pre-2023 Intel compilers, but ifx seems to work.
 case  "${FC}" in
-  ## Intel compiler
+  ## Obsolete Intel compilers
   *ifc|*ifort)
     F_VISIBILITY=
     ;;
@@ -3971,10 +4365,11 @@ AC_DEFUN([R_KERN_USRSTACK],
 #include "confdefs.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-int main () {
+int main (void) {
   int nm[2] = {CTL_KERN, KERN_USRSTACK};
   void * base;
   size_t len = sizeof(void *);
@@ -4003,7 +4398,7 @@ AC_DEFUN([R_PUTENV_AS_UNSETENV],
 #include "confdefs.h"
 #include <stdlib.h>
 #include <string.h>
-int main()
+int main(void)
 {
     char *p;
 #ifdef HAVE_PUTENV
@@ -4031,7 +4426,7 @@ int main()
 #include "confdefs.h"
 #include <stdlib.h>
 #include <string.h>
-int main()
+int main(void)
 {
     char *p;
 #ifdef HAVE_PUTENV
@@ -4066,7 +4461,7 @@ AC_DEFUN([R_FUNC_SIGACTION],
 #include "confdefs.h"
 #include <stdlib.h>
 #include <signal.h>
-int main ()
+int main (void)
 {
     struct sigaction sa;
     siginfo_t si, *ip;
@@ -4095,28 +4490,60 @@ int main ()
 AC_DEFUN([R_MKTIME_ERRNO],
 [AC_CACHE_CHECK([whether mktime sets errno], [r_cv_mktime_errno],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <limits.h>
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
 
-int main()
+int main(void)
 {
     struct tm tm;
+    time_t res;
     /* It's hard to know what is an error, since mktime is allowed to
-       fix up times and there are 64-bit time_t about.
-       But this works for now (yes on Solaris, no on glibc). */
+       fix up times.
+
+       POSIX requires that mktime() sets errno, but it was optional
+       in earlier versions. Test whether once (time_t)-1 is returned
+       as an indication error, errno is set (see also PR#18532).
+       At time of writing, Linux & Windows set errno, macOS does not.
+       
+       The tests below are POSIX only, because ISO C does not specify the
+       meaning of time_t values, and hence we cannot know for sure that the
+       result is an indication of error and not a valid representation of
+       the date.  On POSIX, it is the number of seconds since Epoch. */
+
+    /* test year 4900, which will fail with 32-bit time_t */
     tm.tm_year = 3000; tm.tm_mon = 0; tm.tm_mday = 0;
     tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
     errno = 0;
-    mktime(&tm);
-    exit(errno == 0);
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);
+
+    /* try harder to produce invalid date */
+    tm.tm_year = INT_MAX; tm.tm_mon = INT_MAX; tm.tm_mday = INT_MAX;
+    tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
+    errno = 0;
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);
+      
+    /* try year 1848 */
+    tm.tm_year = -52; tm.tm_mon = 0; tm.tm_mday = 0;
+    tm.tm_hour = 0; tm.tm_min = 0; tm.tm_sec = 0; tm.tm_isdst = -1;
+    errno = 0;
+    res = mktime(&tm);
+    if (res == (time_t)-1)
+      exit(errno == 0);    
+      
+    exit(1); /* fall back to errno not set */
 }
 ]])],
               [r_cv_mktime_errno=yes],
               [r_cv_mktime_errno=no],
               [r_cv_mktime_errno=no])])
 if test "${r_cv_mktime_errno}" = yes; then
-  AC_DEFINE(MKTIME_SETS_ERRNO,, [Define if mktime sets errno.])
+  AC_DEFINE(MKTIME_SETS_ERRNO, 1, [Define if mktime sets errno.])
 fi
 ])# R_MKTIME_ERRNO
 
@@ -4134,7 +4561,7 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 
 #include <stdlib.h>
 
-int main () {
+int main (void) {
     UErrorCode  status = U_ZERO_ERROR;
     UCollator *collator;
     UCharIterator aIter;
@@ -4154,6 +4581,7 @@ LIBS="${r_save_LIBS}"
 if test "x${r_cv_icu}" = xyes; then
   AC_DEFINE(USE_ICU, 1, [Define to use ICU for collation.])
   LIBS="${LIBS} -licuuc -licui18n"
+dnl why does this append when everything else prepends?  Including on macOS
 else
   use_ICU=no
 fi
@@ -4163,6 +4591,8 @@ fi
 ## ------------
 ## This gets recorded in etc/Renviron and used in tools/R/sotools.R
 ## It is a comma-separated string of 5 items, OS,C,CXX,F77,F95 .
+## These days f77 and f90 are the same compiler.
+## Hard-coded in sotools.R for Windows.
 AC_DEFUN([R_ABI],
 [## System type.
 case "${host_os}" in
@@ -4186,6 +4616,8 @@ dnl Compiler types
 dnl C: AC_PROG_CC does
 dnl   If using the GNU C compiler, set shell variable `GCC' to `yes'.
 dnl   Alternatively, could use ac_cv_c_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here as
+dnl we list alternatives in sotools.R
 if test "${GCC}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gcc"
 else
@@ -4201,6 +4633,8 @@ fi
 dnl C++: AC_PROG_CXX does
 dnl   If using the GNU C++ compiler, set shell variable `GXX' to `yes'.
 dnl   Alternatively, could use ac_cv_cxx_compiler_gnu (undocumented).
+dnl clang and Intel compilers identify as GNU, which is OK here as
+dnl we list alternatives in sotools.R
 if test "${GXX}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gxx"
 else
@@ -4212,13 +4646,22 @@ case "${host_os}" in
   R_SYSTEM_ABI="${R_SYSTEM_ABI},?"
 esac
 fi
-dnl Fortran (fixed- then free-form):
+dnl Fortran (fixed- then free-form).  These days always the same compiler.
 if test "${ac_cv_fc_compiler_gnu}" = yes; then
   R_SYSTEM_ABI="${R_SYSTEM_ABI},gfortran,gfortran"
 else
 case "${FC}" in
+  *flang-new|*flang-new-*)
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},flang-new,flang-new"
+    ;;
+  ## This means Classic flang
   *flang)
-    R_SYSTEM_ABI="${R_SYSTEM_ABI},flang,flang"
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},ClassicFlang,ClassicFlang"
+    ;;
+  ## We need not consider ifort as it will be discontinued in 2023,
+  ## but it seems to have the same runtime as ifx.
+  *ifx|*ifort)
+    R_SYSTEM_ABI="${R_SYSTEM_ABI},intel,intel"
     ;;
   *)
     case "${host_os}" in
@@ -4234,34 +4677,155 @@ fi
 AC_SUBST(R_SYSTEM_ABI)
 ]) # R_ABI
 
-## R_FUNC_MKTIME
+## Sanity check, failed by platforms without tzdata
+## (possible on Alpine Linux).
+## R_WORKING_MKTIME
 ## ------------
-AC_DEFUN([R_FUNC_MKTIME],
-[AC_CACHE_CHECK([whether mktime works correctly outside 1902-2037],
+AC_DEFUN([R_WORKING_MKTIME],
+[AC_CACHE_CHECK([whether mktime, gmtime, localtime work correctly in 2020],
                 [r_cv_working_mktime],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
 
-int main() {
-    if(sizeof(time_t) < 8) exit(1);
+//#define PRINT
 
-    struct tm tm;
+int main(void) {
+    struct tm tm, *stm;
     time_t res;
+    putenv("TZ=UTC");
+    tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 120; tm.tm_isdst = 0;
+    // test 2020-01-01
+    res = mktime(&tm);
+#ifdef PRINT
+    printf("day %ld\n", res);
+#else
+    if(res != 1577880000L) exit(1);
+#endif
+    // and can we go back to POSIXlt?
+#ifdef HAVE_GMTIME_R
+    stm = gmtime_r(&res, &tm);
+#else
+    stm = gmtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec); 
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 0 || stm->tm_mday != 1
+      || stm->tm_hour != 12 || stm-> tm_isdst != 0) exit(10);
+#endif
+    tm.tm_mon = 6; tm.tm_isdst = 0;
+    // test 2020-07-01
+    res = mktime(&tm);
+#ifdef PRINT
+    printf("res %ld\n", res);
+#else
+    if(res != 1593604800L) exit(2);
+#endif
+#ifdef HAVE_GMTIME_R
+    stm = gmtime_r(&res, &tm);
+#else
+    stm = gmtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec);
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 6 || stm->tm_mday != 1
+      || stm->tm_hour != 12 || stm-> tm_isdst != 0) exit(20);
+#endif
+    
     putenv("TZ=Europe/London");
     tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
-    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 80; tm.tm_isdst = 0;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 120; tm.tm_isdst = -1;
+    // test 2020-01-01, which is assumed to be in GMT
     res = mktime(&tm);
-    if(res == (time_t)-1) exit(2);
-    tm.tm_mday = 1; tm.tm_year = 01; tm.tm_isdst = 0;
+#ifdef PRINT
+    printf("res %ld\n", res);
+#else
+    if(res != 1577880000L) exit(3);
+#endif
+#ifdef HAVE_LOCALTIME_R
+    stm = localtime_r(&res, &tm);
+#else
+    stm = localtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec);
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 0 || stm->tm_mday != 1
+       || stm->tm_hour != 12 || stm-> tm_isdst != 0) exit(30);
+#endif
+    tm.tm_mon = 6; tm.tm_isdst = -1;
+    // test 2020-07-01 which is assumed to be in BST
     res = mktime(&tm);
-    if(res == (time_t)-1) exit(3);
-    tm.tm_year = 140;
+#ifdef PRINT
+    printf("res %ld\n", res);
+#else
+    if(res != 1593601200L) exit(4);
+#endif
+#ifdef HAVE_LOCALTIME_R
+    stm = localtime_r(&res, &tm);
+#else
+    stm = localtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec);
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 6 || stm->tm_mday != 1
+      || stm->tm_hour != 12 || stm-> tm_isdst != 1) exit(40);
+#endif  
+    putenv("TZ=Pacific/Auckland");
+    tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 120; tm.tm_isdst = -1;
     res = mktime(&tm);
-    if(res != 2209032000L) exit(4);
-    tm.tm_mon = 6; tm.tm_isdst = 1;
+#ifdef PRINT
+    printf("res %ld\n", res);
+#else
+    if(res != 1577833200L) exit(5);
+#endif
+#ifdef HAVE_LOCALTIME_R
+    stm = localtime_r(&res, &tm);
+#else
+    stm = localtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec);
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 0 || stm->tm_mday != 1
+      || stm->tm_hour != 12 || stm-> tm_isdst != 1) exit(50);
+#endif
+    tm.tm_mon = 6; tm.tm_isdst = -1;
     res = mktime(&tm);
-    if(res != 2224753200L) exit(5);
+#ifdef PRINT
+    printf("res %ld\n", res);
+#else
+    if(res != 1593561600L) exit(6);
+#endif
+#ifdef HAVE_LOCALTIME_R
+    stm = localtime_r(&res, &tm);
+#else
+    stm = localtime(&res);
+#endif
+#ifdef PRINT
+    printf("%d-%02d-%02d %02d:%02d:%02d\n",
+	   1900+stm->tm_year, 1+stm->tm_mon, stm->tm_mday,
+	   stm->tm_hour, stm->tm_min, stm->tm_sec);
+#else
+    if(stm->tm_year != 120 || stm->tm_mon != 6 || stm->tm_mday != 1
+       || stm->tm_hour != 12 || stm-> tm_isdst != 0) exit(60);
+#endif
 
     exit(0);
 }
@@ -4269,15 +4833,124 @@ int main() {
               [r_cv_working_mktime=yes],
               [r_cv_working_mktime=no],
               [r_cv_working_mktime=no])])
-if test "x${r_cv_working_mktime}" = xyes; then
-  AC_DEFINE(HAVE_WORKING_64BIT_MKTIME, 1,
-            [Define if your mktime works correctly outside 1902-2037.])
+])# R_WORKING_MKTIME
+
+## 32-bit time_t will not
+## R_FUNC_MKTIME
+## ------------
+AC_DEFUN([R_FUNC_MKTIME],
+[AC_CACHE_CHECK([whether mktime works correctly after 2037],
+                [r_cv_working_mktime1],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <stdlib.h>
+#include <time.h>
+
+int main(void) {
+    if(sizeof(time_t) < 8) exit(1);
+
+    struct tm tm;
+    time_t res;
+    putenv("TZ=Europe/London");
+    tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 140; tm.tm_isdst = 0;
+    // test 2040-01-01, whoch is assumed to be in GMT
+    res = mktime(&tm);
+    if(res != 2209032000L) exit(4);
+    tm.tm_mon = 6; tm.tm_isdst = 1;
+    // test 2040-07-01 which is assumed to be in BST
+    res = mktime(&tm);
+    if(res != 2224753200L) exit(5);
+
+    exit(0);
+}
+]])],
+              [r_cv_working_mktime1=yes],
+              [r_cv_working_mktime1=no],
+              [r_cv_working_mktime1=no])])
+if test "x${r_cv_working_mktime1}" = xyes; then
+  AC_DEFINE(HAVE_WORKING_MKTIME_AFTER_2037, 1,
+            [Define if your mktime works correctly after 2037.])
 fi
 ])# R_FUNC_MKTIME
 
+## 32-bit time_t will fail in 1901
+## macOS (at leat 13) failed for < 1900
+## R_FUNC_MKTIME2
+## ------------
+AC_DEFUN([R_FUNC_MKTIME2],
+[AC_CACHE_CHECK([whether mktime works correctly before 1902],
+                [r_cv_working_mktime2],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <stdlib.h>
+#include <time.h>
+
+int main(void) {
+    if(sizeof(time_t) < 8) exit(1);
+
+    struct tm tm;
+    time_t res;
+    putenv("TZ=Europe/London");
+    // test 1901-01-01 12:00:00
+    tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_isdst = 0;
+    tm.tm_year = 01;
+    // test 1901-01-01, where 32-bit time_t may fail.
+    res = mktime(&tm);
+    if(res == (time_t)-1) exit(3);
+    tm.tm_year = -52; // macOS 13 fails for 1848.
+    res = mktime(&tm);
+    if(res == (time_t)-1) exit(4);
+    tm.tm_year = -1; // and for 1899
+    res = mktime(&tm);
+    if(res == (time_t)-1) exit(5);
+
+    exit(0);
+}
+]])],
+              [r_cv_working_mktime2=yes],
+              [r_cv_working_mktime2=no],
+              [r_cv_working_mktime2=no])])
+if test "x${r_cv_working_mktime2}" = xyes; then
+  AC_DEFINE(HAVE_WORKING_MKTIME_BEFORE_1902, 1,
+            [Define if your mktime works correctly before 1902.])
+fi
+])# R_FUNC_MKTIME2
+
+## R_FUNC_MKTIME3
+## ------------
+AC_DEFUN([R_FUNC_MKTIME3],
+[AC_CACHE_CHECK([whether mktime works correctly in 1969],
+                [r_cv_working_mktime3],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <stdlib.h>
+#include <time.h>
+
+int main(void) {
+    struct tm tm;
+    time_t res;
+    putenv("TZ=Europe/London");
+    // test 1969-01-01 12:00:00
+    tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+    tm.tm_mday = 1; tm.tm_mon = 0; tm.tm_year = 69; tm.tm_isdst = 0;
+    tm.tm_year = 69; // TK says Windows UCRT fails prior to 1970
+    res = mktime(&tm);
+    if(res == (time_t)-1) exit(4);
+
+    exit(0);
+}
+]])],
+              [r_cv_working_mktime3=yes],
+              [r_cv_working_mktime3=no],
+              [r_cv_working_mktime3=no])])
+if test "x${r_cv_working_mktime3}" = xyes; then
+  AC_DEFINE(HAVE_WORKING_MKTIME_BEFORE_1970, 1,
+            [Define if your mktime works correctly in 1969.])
+fi
+])# R_FUNC_MKTIME3
+
 ## R_STDCXX
 ## --------
-## Support for C++ standards (C++11, C++14, C++17, C++20, C++23), for use in packages.
+## Support for C++ standards (C++11, C++14, C++17, C++20, C++23, C++26), for use in packages.
 ## R_STDCXX(VERSION, PREFIX, DEFAULT)
 AC_DEFUN([R_STDCXX],
 [r_save_CXX="${CXX}"
@@ -4365,15 +5038,15 @@ LIBS="${CURL_LIBS} ${LIBS}"
 AC_CHECK_HEADERS(curl/curl.h, [have_libcurl=yes], [have_libcurl=no])
 
 if test "x${have_libcurl}" = "xyes"; then
-AC_CACHE_CHECK([if libcurl is version 7 and >= 7.28.0], [r_cv_have_curl728],
+AC_CACHE_CHECK([if libcurl is >= 7.28.0], [r_cv_have_curl728],
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #include <curl/curl.h>
-int main() 
+int main(void) 
 {
 #ifdef LIBCURL_VERSION_MAJOR
 #if LIBCURL_VERSION_MAJOR > 7
-  exit(1);
+  exit(0);
 #elif LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 28
   exit(0);
 #else
@@ -4395,7 +5068,7 @@ AC_CACHE_CHECK([if libcurl supports https], [r_cv_have_curl_https],
 #include <stdlib.h> // for exit
 #include <string.h>
 #include <curl/curl.h>
-int main()
+int main(void)
 {
     curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
     const char * const *p  = data->protocols;
@@ -4448,8 +5121,8 @@ double ssum(double *x, int n) {
 #endif
 }
 
-int main() {
-    /* use volatiles to reduce the risk of the
+int main(void) {
+    /* use 'volatile's to reduce the risk of the
        computation being inlined and constant-folded */
     volatile double xv[8] = {1, 2, 3, 4, 5, 6, 7, 8};
     volatile int n = 8;
@@ -4483,7 +5156,7 @@ AC_DEFUN([R_FUNC_CTANH],
 #include <complex.h>
 #include <stdlib.h>
 #include "confdefs.h"
-int main () {
+int main (void) {
 #ifdef HAVE_CTANH
   volatile double complex z1 = 0;
   volatile double complex z2 = 365;
@@ -4549,7 +5222,7 @@ AC_DEFUN([R_SEARCH_OPTS],
 ## POSIX threads.
 AC_DEFUN([R_PTHREAD],
 [case "${host_os}" in
-  mingw*|windows*|winnt)
+  mingw*|windows*|winnt|msys)
     ;;
   *)
     r_save_CFLAGS=${CFLAGS}
@@ -4591,7 +5264,22 @@ AC_DEFUN([R_CSTACK_DIRECTION],
 AC_CACHE_VAL([r_cv_cstack_direction],
 [cat > conftest.c <<EOF
 /* based on gnulib, alloca.c */
-int find_stack_direction(int *addr, int depth) {
+
+#define attribute_no_sanitizer_instrumentation
+#ifdef __has_attribute
+# if __has_attribute(disable_sanitizer_instrumentation)
+#  undef attribute_no_sanitizer_instrumentation
+#  define attribute_no_sanitizer_instrumentation \
+     __attribute__((disable_sanitizer_instrumentation))
+# elif __has_attribute(no_sanitize)
+#  undef attribute_no_sanitizer_instrumentation
+#  define attribute_no_sanitizer_instrumentation \
+     __attribute__ ((no_sanitize ("address", "thread", "leak", "undefined")))
+# endif
+#endif
+
+int attribute_no_sanitizer_instrumentation
+find_stack_direction(int *addr, int depth) {
   int dir, dummy = 0;
   if (! addr)
     addr = &dummy;
@@ -4632,6 +5320,145 @@ else
   r_cv_cstack_direction=down
 fi
 ])# R_CSTACK_DIRECTION
+
+AC_DEFUN([R_C17],
+[AC_CACHE_CHECK([whether ${CC} is a C17 compiler], [r_cv_C17],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ > 201710L
+# error "Compiler claims to be later than C17"
+# elif __STDC_VERSION__ < 199901L
+# error "Compiler does not claim C99 compliance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+// C89 example from autoconf 2.71.
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+
+// From rmumps
+typedef enum { true=1, false=0 } bool;
+
+// simplified from survival
+static void addup();
+void agsurv3(int *sn)
+{
+    addup(4, 0.0, 0.0);
+}
+static void addup(int itime, double haz, double var){}
+
+int main(void) {
+     return 0;
+}
+
+]])],
+               [r_cv_C17=yes],
+               [r_cv_C17=no],
+               [r_cv_C17=no])])
+])# R_C17
+
+AC_DEFUN([R_C23],
+[AC_CACHE_CHECK([whether ${CC} is a C23 compiler], [r_cv_C23],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ < 202000L
+#  error "Compiler does not claim C23 conformance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+// Most new features have feature tests. but bool type is fundamental.
+
+int main(void) {
+     bool x = true;
+
+     return 0;
+}
+
+]])],
+               [r_cv_C23=yes],
+               [r_cv_C23=no],
+               [r_cv_C23=no])])
+])# R_C23
+
+AC_DEFUN([R_C90],
+[AC_CACHE_CHECK([whether ${CC} is a C90 compiler], [r_cv_C90],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#if defined  __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
+# error "Compiler claims to be later than C90"
+#endif
+
+/* C90 example from autoconf 2.71 */
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+int main(void) {
+     return 0;
+}
+
+]])],
+               [r_cv_C90=yes],
+               [r_cv_C90=no],
+               [r_cv_C90=no])])
+])# R_C90
+
+AC_DEFUN([R_C99],
+[AC_CACHE_CHECK([whether ${CC} is a C99 compiler], [r_cv_C99],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef __STDC_VERSION__
+# if __STDC_VERSION__ != 199901L
+#  error "Compiler does not claim C99 compliance"
+# endif
+#else
+# error "Compiler does not advertise ISO C conformance"
+#endif
+
+/* C90 example from autoconf 2.71. */
+static char *e (p, i)
+     char **p;
+     int i;
+{
+  return p[i];
+}
+
+int main(void) {
+     return 0;
+}
+
+]])],
+               [r_cv_C99=yes],
+               [r_cv_C99=no],
+               [r_cv_C99=no])])
+])# R_C90
+
+AC_DEFUN([R_ENUM_BASE_TYPE],
+[AC_CACHE_CHECK([whether the base type of an enum can be specified], [r_cv_enum_type],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+
+typedef enum :int { FALSE = 0, TRUE } Rboolean;
+
+int main(void) {
+     return 0;
+}
+
+]])],
+               [r_cv_enum_type=yes],
+               [r_cv_enum_type=no],
+               [r_cv_enum_type=no])])
+if test "x${r_cv_enum_type}" = xyes; then
+  AC_DEFINE(HAVE_ENUM_BASE_TYPE, 1, [Define if enum can set its base type.])
+fi
+])# R_ENUM_BASE_TYPE
 
 ### Local variables: ***
 ### mode: outline-minor ***

@@ -41,7 +41,8 @@
 
    Copyright (C) 2022  The R Core Team
 
-   use RichEdit20W to work in UTF-8 
+   use RichEdit20W to work in UTF-8
+   allow to leave a dropfield (combo box) with TAB key
  */
 
 #include "internal.h"
@@ -1144,6 +1145,29 @@ listbox newdropfield(const char *list[], rect r, scrollfn fn)
 		      r, NULL);
     if (! obj)
 	return obj;
+
+    /* subclass the edit control to handle TAB */
+    HANDLE hwndCombo = obj->handle;
+    COMBOBOXINFO cbInfo;
+    cbInfo.cbSize = sizeof(COMBOBOXINFO);
+    BOOL ret = GetComboBoxInfo(hwndCombo, &cbInfo);
+    if (ret) {
+	HANDLE hwndEdit = cbInfo.hwndItem; /* the edit control */
+	if (GetParent(hwndEdit) == hwndCombo) {
+#ifdef _WIN64
+	    obj->edit_winproc = (WNDPROC) GetWindowLongPtr(hwndEdit,
+	                                                   GWLP_WNDPROC);
+	    SetWindowLongPtr(hwndEdit, GWLP_WNDPROC,
+	                     (LONG_PTR) edit_control_proc);
+#else
+	    obj->edit_winproc = (WNDPROC) GetWindowLong(hwndEdit,
+	                                                GWL_WNDPROC);
+	    SetWindowLongPtr(hwndEdit, GWL_WNDPROC,
+	                     (LONG) edit_control_proc);
+#endif
+	}
+    }
+
     obj->kind = DropfieldObject;
     obj->hit = fn;
 
@@ -1376,8 +1400,8 @@ progressbar newprogressbar(rect r, int pbmin, int pbmax, int incr, int smooth)
     set_new_winproc(obj); /* set custom winproc */
     settextfont(obj, SystemFont);
     obj->kind = ListboxObject;
-    SendMessage(hwnd, PBM_SETRANGE32, (WPARAM) pbmin, (LPARAM) pbmax);
-    SendMessage(hwnd, PBM_SETSTEP, (WPARAM) incr, 0);
+    sendmessage(hwnd, PBM_SETRANGE32, (WPARAM) pbmin, (LPARAM) pbmax);
+    sendmessage(hwnd, PBM_SETSTEP, (WPARAM) incr, 0);
 
     return obj;
 }
@@ -1385,18 +1409,18 @@ progressbar newprogressbar(rect r, int pbmin, int pbmax, int incr, int smooth)
 void setprogressbar(progressbar obj, int n)
 {
     if (! obj) return;
-    SendMessage(obj->handle, PBM_SETPOS, (WPARAM) n, 0);
+    sendmessage(obj->handle, PBM_SETPOS, (WPARAM) n, 0);
 }
 
 void stepprogressbar(progressbar obj, int n)
 {
     if (! obj) return;
-    SendMessage(obj->handle, PBM_STEPIT, 0, 0);
+    sendmessage(obj->handle, PBM_STEPIT, 0, 0);
 }
 
 void setprogressbarrange(progressbar obj, int pbmin, int pbmax)
 {
     if (! obj) return;
-    SendMessage(obj->handle, PBM_SETRANGE32, (WPARAM) pbmin,
+    sendmessage(obj->handle, PBM_SETRANGE32, (WPARAM) pbmin,
 		(LPARAM) pbmax);
 }

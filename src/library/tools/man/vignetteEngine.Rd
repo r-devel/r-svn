@@ -72,7 +72,7 @@ is used.
   \item{tangle}{The tangle function}
 }
 \author{
-Duncan Murdoch and Henrik Bengtsson.
+Duncan Murdoch and \I{Henrik Bengtsson}.
 }
 \seealso{
 \code{\link{Sweave}} and the \sQuote{Writing R Extensions} manual.

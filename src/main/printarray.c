@@ -1,8 +1,8 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
- *  Copyright (C) 2000--2020	The R Core Team
+ *  Copyright (C) 2000--2025	The R Core Team
  *  Copyright (C) 2001--2012	The R Foundation
+ *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,8 +32,8 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
-#include "Print.h"
+#include <Defn.h>
+#include <Print.h>
 
 #include <stdlib.h> /* for div() */
 
@@ -41,7 +41,7 @@
    Used only for row/column names found by GetMatrixDimnames,
    so in native encoding.  (NULL ones from do_prmatrix are skipped.)
 */
-int Rstrwid(const char *str, int slen, int enc, int quote);  /* from printutils.c */
+int Rstrwid(const char *str, int slen, cetype_t ienc, int quote); /* from printutils.c */
 #define strwidth(x) Rstrwid(x, (int) strlen(x), CE_NATIVE, 0)
 
 /* ceil_DIV(a,b) :=  ceil(a / b)  in _int_ arithmetic : */
@@ -63,7 +63,7 @@ static void MatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_left));
     }
     else {
-	Rprintf("%*s[,%ld]", w-IndexWidth(j+1)-3, "", j+1);
+	Rprintf("%*s[,%ld]", w-IndexWidth(j+1)-3, "", (long)j+1);
     }
 }
 
@@ -79,7 +79,7 @@ static void RightMatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_right));
     }
     else {
-	Rprintf("%*s[,%ld]%*s", R_print.gap, "", j+1, w-IndexWidth(j+1)-3, "");
+	Rprintf("%*s[,%ld]%*s", R_print.gap, "", (long)j+1, w-IndexWidth(j+1)-3, "");
     }
 }
 
@@ -92,7 +92,7 @@ static void LeftMatrixColumnLabel(SEXP cl, int j, int w)
 		EncodeString(tmp, l, 0, Rprt_adj_left), w-l, "");
     }
     else {
-	Rprintf("%*s[,%ld]%*s", R_print.gap, "", j+1, w-IndexWidth(j+1)-3, "");
+	Rprintf("%*s[,%ld]%*s", R_print.gap, "", (long)j+1, w-IndexWidth(j+1)-3, "");
     }
 }
 
@@ -106,7 +106,7 @@ static void MatrixRowLabel(SEXP rl, int i, int rlabw, int lbloff)
 		rlabw-l-lbloff, "");
     }
     else {
-	Rprintf("\n%*s[%ld,]", rlabw-3-IndexWidth(i + 1), "", i+1);
+	Rprintf("\n%*s[%ld,]", rlabw-3-IndexWidth(i + 1), "", (long)i+1);
     }
 }
 
@@ -118,7 +118,7 @@ static void MatrixRowLabel(SEXP rl, int i, int rlabw, int lbloff)
 */
 static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
-			       Rboolean print_ij)
+			       bool print_ij)
 {
 /* initialization; particularly of row labels, rl= dimnames(.)[[1]] and
  * rn = names(dimnames(.))[1] : */
@@ -217,12 +217,11 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeLogical(x[i + j * (R_xlen_t) r], w[j])));
-
 }
 
 static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
-			       Rboolean print_ij)
+			       bool print_ij)
 {
     _PRINT_INIT_rl_rn;
     const int *x = INTEGER_RO(sx) + offset;
@@ -235,7 +234,7 @@ static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			    SEXP rl, SEXP cl, const char *rn, const char *cn,
-			    Rboolean print_ij)
+			    bool print_ij)
 {
     _PRINT_INIT_rl_rn;
     const double *x = REAL_RO(sx) + offset;
@@ -243,16 +242,16 @@ static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 	*e = (int *) R_alloc(c, sizeof(int));
 
     _COMPUTE_W_( formatReal(&x[j * (R_xlen_t) r], (R_xlen_t) r, &w[j],
-                            &d[j], &e[j], 0) );
+			    &d[j], &e[j], 0) );
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeReal0(x[i + j * (R_xlen_t) r],
-                                             w[j], d[j], e[j], OutDec)) );
+					     w[j], d[j], e[j], OutDec)) );
 }
 
 static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
-			       Rboolean print_ij)
+			       bool print_ij)
 {
     _PRINT_INIT_rl_rn;
     const Rcomplex *x = COMPLEX_RO(sx) + offset;
@@ -285,7 +284,7 @@ static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			      int quote, int right, SEXP rl, SEXP cl,
-			      const char *rn, const char *cn, Rboolean print_ij)
+			      const char *rn, const char *cn, bool print_ij)
 {
     _PRINT_INIT_rl_rn;
     const SEXP *x = STRING_PTR_RO(sx)+offset;
@@ -311,7 +310,7 @@ static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			   SEXP rl, SEXP cl, const char *rn, const char *cn,
-			   Rboolean print_ij)
+			   bool print_ij)
 {
     _PRINT_INIT_rl_rn;
     const Rbyte *x = RAW_RO(sx) + offset;
@@ -334,7 +333,7 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     const void *vmax = vmaxget();
     const int *pdim = INTEGER_RO(dim);
     int r = pdim[0];
-    int c = pdim[1], r_pr;
+    int c = pdim[1];
     /* PR#850 */
     if ((rl != R_NilValue) && (r > length(rl)))
 	error(_("too few row labels"));
@@ -344,44 +343,51 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	Rprintf("<0 x 0 matrix>\n");
 	return;
     }
-    r_pr = r;
+
+    int r_pr = r,
+	/* Make sure we don't display more columns than max elements, see PR#15027 */
+	c_pr = c > R_print.max ? R_print.max : c;
+
     if(c > 0 && R_print.max / c < r) /* avoid integer overflow */
 	/* using floor(), not ceil(), since 'c' could be huge: */
 	r_pr = R_print.max / c;
+    /* Display at least one row in case of truncation */
+    if (c > c_pr && r_pr < 1 && r > 0)
+	r_pr = 1;
     switch (TYPEOF(x)) {
     case LGLSXP:
-	printLogicalMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case INTSXP:
-	printIntegerMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case REALSXP:
-	printRealMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRealMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case CPLXSXP:
-	printComplexMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printComplexMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case STRSXP:
 	if (quote) quote = '"';
-	printStringMatrix (x, offset, r_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
+	printStringMatrix (x, offset, r_pr, r, c_pr, quote, right, rl, cl, rn, cn, true);
 	break;
     case RAWSXP:
-	printRawMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
-#ifdef ENABLE_NLS
-    if(r_pr < r) // number of formats must be consistent here
-	Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-			 " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-			 r - r_pr),
-		r - r_pr);
-#else
-    if(r_pr < r)
-	Rprintf(" [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-		r - r_pr);
-#endif
+    if (r_pr < r || c_pr < c) {
+	Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted");
+	if (r_pr < r) {
+    	    Rprintf(ngettext(" %d row", " %d rows", r - r_pr), r - r_pr);
+	}
+	if (c_pr < c) {
+	    if (r_pr < r) Rprintf(_(" and"));
+	    Rprintf(ngettext(" %d column", " %d columns", c - c_pr), c - c_pr);
+	}
+	Rprintf(" ]\n");
+    }
     vmaxset(vmax);
 }
 
@@ -403,10 +409,10 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
     else { /* ndim >= 3 */
 	SEXP dn, dnn, dn0, dn1;
 	const int *dims = INTEGER_RO(dim);
-	int i, j, nb, nb_pr, nr_last,
+	int i, j, nb, nb_pr, ne_last, nc_last, nr_last,
 	    nr = dims[0], nc = dims[1],
 	    b = nr * nc;
-	Rboolean max_reached, has_dimnames = (dimnames != R_NilValue),
+	bool max_reached, has_dimnames = (dimnames != R_NilValue),
 	    has_dnn = has_dimnames;
 
 	if (!has_dimnames) {
@@ -437,16 +443,21 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    nb_pr = ceil_DIV(R_print.max, b);
 	    /* for the last, (nb_pr)th matrix slice, use only nr_last rows;
 	     *  using floor(), not ceil(), since 'nc' could be huge: */
-	    nr_last = (R_print.max - b * (nb_pr - 1)) / nc;
-	    if(nr_last == 0) { nb_pr--; nr_last = nr; }
+	    ne_last = R_print.max - b * (nb_pr - 1);
+	    nc_last = (ne_last < nc) ? ne_last : nc;
+	    nr_last = (ne_last < nc) ? 1 : ne_last / nc;
+	    if(nr_last == 0) { nb_pr--; nc_last = nc; nr_last = nr;} 
 	} else {
 	    nb_pr = (nb > 0) ? nb : 1; // do print *something* when dim = c(a,b,0)
+	    ne_last = b;
+	    nc_last = nc;
 	    nr_last = nr;
 	}
 	for (i = 0; i < nb_pr; i++) {
-	    Rboolean do_ij = nb > 0,
+	    bool do_ij = nb > 0,
 		i_last = (i == nb_pr - 1); /* for the last slice */
-	    int use_nr = i_last ? nr_last : nr;
+	    int	use_nc = i_last ? nc_last : nc,
+		use_nr = i_last ? nr_last : nr;
 	    if(do_ij) {
 		int k = 1;
 		Rprintf(", ");
@@ -472,36 +483,40 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    }
 	    switch (TYPEOF(x)) {
 	    case LGLSXP:
-		printLogicalMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printLogicalMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case INTSXP:
-		printIntegerMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printIntegerMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case REALSXP:
-		printRealMatrix   (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printRealMatrix   (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case CPLXSXP:
-		printComplexMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printComplexMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case STRSXP:
 		if (quote) quote = '"';
-		printStringMatrix (x, i * b, use_nr, nr, nc,
+		printStringMatrix (x, i * b, use_nr, nr, use_nc,
 				   quote, right, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case RAWSXP:
-		printRawMatrix    (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printRawMatrix    (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    }
 	    Rprintf("\n");
 	}
 
-	if(max_reached && nb_pr < nb) {
-	    Rprintf(" [ reached getOption(\"max.print\") -- omitted");
-	    if(nr_last < nr) Rprintf(" %d row(s) and", nr - nr_last);
-	    Rprintf(" %d matrix slice(s) ]\n", nb - nb_pr);
+	if (max_reached) {
+	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted");
+	    if (nb_pr < nb)
+		Rprintf(ngettext(" %d slice", " %d slices", nb - nb_pr), nb - nb_pr);
+	    else if (nb_pr == nb) {
+		if((nr -= nr_last) > 0) Rprintf(ngettext(" %d row",    " %d rows",    nr), nr);
+		if((nc -= nc_last) > 0) Rprintf(ngettext(" %d column", " %d columns", nc), nc);
+	    }
+	    Rprintf(" ] \n");
 	}
     }
     UNPROTECT(nprotect);
     vmaxset(vmax);
 }
-

@@ -1,6 +1,6 @@
 % File src/library/utils/man/hashtab.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2009-2021 R Core Team
+% Copyright 2009-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{hashtab}
@@ -118,20 +118,20 @@ is.hashtab(x)
   exceptions:
 
   \itemize{
-    \item{Closure environments are not ignored when comparing closures.
+    \item Closure environments are not ignored when comparing closures.
       This corresponds to calling \code{\link{identical}()} with
       \code{ignore.environment = FALSE}, which is the default for
-      \code{\link{identical}()}.}
+      \code{\link{identical}()}.
 
-    \item{External pointer objects are compared as reference objects,
+    \item External pointer objects are compared as reference objects,
       corresponding to calling \code{\link{identical}()} with
       \code{extptr.as.ref = TRUE}. This ensures that hash tables with
       keys containing external pointers behave reasonably when
-      serialized and unserialized.}
+      serialized and unserialized.
   }
 
   As an experimental feature, the element operator \code{[[} can also be
-  used get or set hash table entries, and \code{length} can be used to
+  used to get or set hash table entries, and \code{length} can be used to
   obtain the number of entries. It is not yet clear whether this is a
   good idea.
 }
@@ -186,10 +186,8 @@ hashkeys <- function(h) {
   val
 }
 
-## IGNORE_RDIFF_BEGIN
 kList <- hashkeys(h1)
-str(kList) # the *order* is "arbitrary" & cannot be "known"
-## IGNORE_RDIFF_END
+\dontdiff{str(kList) # the *order* is "arbitrary" & cannot be "known"}
 }
 
 \keyword{data}

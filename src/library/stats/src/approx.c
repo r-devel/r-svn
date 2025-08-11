@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2019   The R Core Team
+ *  Copyright (C) 1997--2020   The R Core Team
  *  Copyright (C) 1995, 1996   Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,18 +23,11 @@
 #endif
 
 #include <R_ext/Arith.h>
-#include <R_ext/Error.h>
 #include <R_ext/Applic.h>
 #include <Rinternals.h> // for R_xlen_t
+#include "statsErr.h"
 #ifdef DEBUG_approx
 # include <R_ext/Print.h>
-#endif
-
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
 #endif
 
 /* Linear and Step Function Interpolation */
@@ -135,7 +128,7 @@ static void
 R_approxfun(double *x, double *y, R_xlen_t nxy, double *xout, double *yout,
 	    R_xlen_t nout, int method, double yleft, double yright, double f, int na_rm)
 {
-    appr_meth M = {0.0, 0.0, 0.0, 0.0, 0}; /* -Wall */
+    appr_meth M = {0.0, 0.0, 0.0, 0.0, 0, 0}; /* -Wall */
 
     M.f2 = f;
     M.f1 = 1 - f;
@@ -145,7 +138,7 @@ R_approxfun(double *x, double *y, R_xlen_t nxy, double *xout, double *yout,
     M.na_rm = na_rm;
 #ifdef DEBUG_approx
     REprintf("R_approxfun(x,y, nxy = %.0f, .., nout = %.0f, method = %d, ...)",
-	     (double)nxy, (double)nout, Meth->kind);
+	     (double)nxy, (double)nout, method);
 #endif
     for(R_xlen_t i = 0; i < nout; i++)
 	yout[i] = ISNAN(xout[i]) ? xout[i] : approx1(xout[i], x, y, nxy, &M);

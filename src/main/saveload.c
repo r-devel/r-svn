@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1857,7 +1857,7 @@ static int R_ReadMagic(FILE *fp)
     return d1 + 10 * d2 + 100 * d3 + 1000 * d4;
 }
 
-static int defaultSaveVersion()
+static int defaultSaveVersion(void)
 {
     static int dflt = -1;
 
@@ -1876,7 +1876,7 @@ static int defaultSaveVersion()
 
 /* ----- E x t e r n a l -- I n t e r f a c e s ----- */
 
-void attribute_hidden R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
+attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 {
     SaveLoadData data = {{NULL, 0, MAXELTSIZE}};
 
@@ -1912,7 +1912,7 @@ void attribute_hidden R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
     }
 }
 
-void attribute_hidden R_SaveToFile(SEXP obj, FILE *fp, int ascii)
+attribute_hidden void R_SaveToFile(SEXP obj, FILE *fp, int ascii)
 {
     R_SaveToFileV(obj, fp, ascii, defaultSaveVersion());
 }
@@ -1920,7 +1920,7 @@ void attribute_hidden R_SaveToFile(SEXP obj, FILE *fp, int ascii)
     /* different handling of errors */
 
 #define return_and_free(X) {r = X; R_FreeStringBuffer(&data.buffer); return r;}
-SEXP attribute_hidden R_LoadFromFile(FILE *fp, int startup)
+attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 {
     struct R_inpstream_st in;
     int magic;
@@ -1971,7 +1971,7 @@ SEXP attribute_hidden R_LoadFromFile(FILE *fp, int startup)
     }
 }
 
-SEXP attribute_hidden do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP file, s;
     FILE *fp;
@@ -1993,7 +1993,7 @@ SEXP attribute_hidden do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
     return s;
 }
 
-SEXP attribute_hidden do_savefile(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_savefile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     FILE *fp;
     int version;
@@ -2028,7 +2028,7 @@ static void saveload_cleanup(void *data)
 }
 
 /* Only used for version 1 saves */
-SEXP attribute_hidden do_save(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     /* save(list, file, ascii, version, environment) */
 
@@ -2077,7 +2077,7 @@ SEXP attribute_hidden do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     t = s;
     for (j = 0; j < len; j++, t = CDR(t)) {
 	SET_TAG(t, installTrChar(STRING_ELT(CAR(args), j)));
-	tmp = findVar(TAG(t), source);
+	tmp = R_findVar(TAG(t), source);
 	if (tmp == R_UnboundValue)
 	    error(_("object '%s' not found"), EncodeChar(PRINTNAME(TAG(t))));
 	if(ep && TYPEOF(tmp) == PROMSXP) {
@@ -2155,7 +2155,7 @@ static SEXP R_LoadSavedData(FILE *fp, SEXP aenv)
 }
 
 /* This is only used for version 1 or earlier formats */
-SEXP attribute_hidden do_load(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_load(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP fname, aenv, val;
     FILE *fp;
@@ -2200,7 +2200,7 @@ SEXP attribute_hidden do_load(SEXP call, SEXP op, SEXP args, SEXP env)
 #define R_XDR_INTEGER_SIZE 4
 */
 
-void attribute_hidden R_XDREncodeDouble(double d, void *buf)
+attribute_hidden void R_XDREncodeDouble(double d, void *buf)
 {
     XDR xdrs;
     int success;
@@ -2212,7 +2212,7 @@ void attribute_hidden R_XDREncodeDouble(double d, void *buf)
 	error(_("XDR write failed"));
 }
 
-double attribute_hidden R_XDRDecodeDouble(void *buf)
+attribute_hidden double R_XDRDecodeDouble(void *buf)
 {
     XDR xdrs;
     double d;
@@ -2226,7 +2226,7 @@ double attribute_hidden R_XDRDecodeDouble(void *buf)
     return d;
 }
 
-void attribute_hidden R_XDREncodeInteger(int i, void *buf)
+attribute_hidden void R_XDREncodeInteger(int i, void *buf)
 {
     XDR xdrs;
     int success;
@@ -2238,7 +2238,7 @@ void attribute_hidden R_XDREncodeInteger(int i, void *buf)
 	error(_("XDR write failed"));
 }
 
-int attribute_hidden R_XDRDecodeInteger(void *buf)
+attribute_hidden int R_XDRDecodeInteger(void *buf)
 {
     XDR xdrs;
     int i, success;
@@ -2255,7 +2255,7 @@ int attribute_hidden R_XDRDecodeInteger(void *buf)
 void R_SaveGlobalEnvToFile(const char *name)
 {
     SEXP sym = install("sys.save.image");
-    if (findVar(sym, R_GlobalEnv) == R_UnboundValue) { /* not a perfect test */
+    if (R_findVar(sym, R_GlobalEnv) == R_UnboundValue) {/* not a perfect test */
 	FILE *fp = R_fopen(name, "wb"); /* binary file */
 	if (!fp) {
 	    error(_("cannot save data -- unable to open '%s': %s"),
@@ -2276,7 +2276,7 @@ void R_SaveGlobalEnvToFile(const char *name)
 void R_RestoreGlobalEnvFromFile(const char *name, Rboolean quiet)
 {
     SEXP sym = install("sys.load.image");
-    if (findVar(sym, R_GlobalEnv) == R_UnboundValue) { /* not a perfect test */
+    if (R_findVar(sym, R_GlobalEnv) == R_UnboundValue) {/* not a perfect test */
 	FILE *fp = R_fopen(name, "rb"); /* binary file */
 	if(fp != NULL) {
 	    R_LoadSavedData(fp, R_GlobalEnv);
@@ -2323,12 +2323,12 @@ static void con_cleanup(void *data)
    with either a pairlist or list.
 */
 
-SEXP attribute_hidden do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     /* saveToConn(list, conn, ascii, version, environment) */
 
     SEXP s, t, source, list, tmp;
-    Rboolean ascii, wasopen;
+    bool ascii, wasopen;
     int len, j, version, ep;
     Rconnection con;
     struct R_outpstream_st out;
@@ -2344,9 +2344,9 @@ SEXP attribute_hidden do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     con = getConnection(asInteger(CADR(args)));
 
-    if (TYPEOF(CADDR(args)) != LGLSXP)
-	error(_("'ascii' must be logical"));
-    ascii = INTEGER(CADDR(args))[0];
+/*    if (TYPEOF(CADDR(args)) != LGLSXP)
+      error(_("'ascii' must be logical")); */
+    ascii = asBool2(CADDR(args), call);
 
     if (CADDDR(args) == R_NilValue)
 	version = defaultSaveVersion();
@@ -2411,8 +2411,8 @@ SEXP attribute_hidden do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     t = s;
     for (j = 0; j < len; j++, t = CDR(t)) {
 	SET_TAG(t, installTrChar(STRING_ELT(list, j)));
-	SETCAR(t, findVar(TAG(t), source));
-	tmp = findVar(TAG(t), source);
+	SETCAR(t, R_findVar(TAG(t), source));
+	tmp = R_findVar(TAG(t), source);
 	if (tmp == R_UnboundValue)
 	    error(_("object '%s' not found"), EncodeChar(PRINTNAME(TAG(t))));
 	if(ep && TYPEOF(tmp) == PROMSXP) {
@@ -2431,7 +2431,7 @@ SEXP attribute_hidden do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* Read and checks the magic number, open the connection if needed */
 
-SEXP attribute_hidden do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     /* 0 .. loadFromConn2(conn, environment, verbose) */
     /* 1 .. loadInfoFromConn2(conn) */
@@ -2441,7 +2441,7 @@ SEXP attribute_hidden do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP aenv = R_NilValue, res = R_NilValue;
     unsigned char buf[6];
     size_t count;
-    Rboolean wasopen;
+    bool wasopen;
     RCNTXT cntxt;
 
     checkArity(op, args);

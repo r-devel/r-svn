@@ -1,6 +1,6 @@
 % File src/library/stats/man/aov.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{aov}
@@ -10,7 +10,8 @@
 \alias{Error}
 \title{Fit an Analysis of Variance Model}
 \description{
-  Fit an analysis of variance model by a call to \code{lm} for each stratum.
+  Fit an analysis of variance model by a call to \code{lm} (for each
+  stratum if an \code{Error(.)} is used).
 }
 \usage{
 aov(formula, data = NULL, projections = FALSE, qr = TRUE,
@@ -31,7 +32,7 @@ aov(formula, data = NULL, projections = FALSE, qr = TRUE,
     or \code{na.action}.  See \sQuote{Details} about \code{weights}.}
 }
 \details{
-  This provides a wrapper to \code{lm} for fitting linear models to
+  This provides a wrapper to \code{\link{lm}} for fitting linear models to
   balanced or unbalanced experimental designs.
 
   The main difference from \code{lm} is in the way \code{print},
@@ -77,7 +78,7 @@ aov(formula, data = NULL, projections = FALSE, qr = TRUE,
 }
 \author{
   The design was inspired by the S function of the same name described
-  in Chambers \emph{et al} (1992).
+  in Chambers \abbr{et al.}\sspace(1992).
 }
 \seealso{
   \code{\link{lm}}, \code{\link{summary.aov}},
@@ -101,9 +102,7 @@ aov(terms(yield ~ block + N * P + K, keep.order = TRUE), npk)
 ## as a test, not particularly sensible statistically
 npk.aovE <- aov(yield ~  N*P*K + Error(block), npk)
 npk.aovE
-## IGNORE_RDIFF_BEGIN
-summary(npk.aovE)
-## IGNORE_RDIFF_END
+\dontdiff{summary(npk.aovE)}
 options(op)  # reset to previous
 }
 \keyword{models}

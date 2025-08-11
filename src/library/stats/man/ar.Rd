@@ -1,6 +1,6 @@
 % File src/library/stats/man/ar.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ar}
@@ -107,11 +107,13 @@ ar.mle(x, aic = TRUE, order.max = NULL, na.action = na.fail,
 
   \code{ar.burg} allows two methods to estimate the innovations
   variance and hence AIC. Method 1 is to use the update given by
-  the Levinson-Durbin recursion (Brockwell and Davis, 1991, (8.2.6)
-  on page 242), and follows S-PLUS. Method 2 is the mean of the sum
+  the \I{Levinson}-\I{Durbin} recursion
+  \bibcitep{|R:Brockwell+Davis:1991|(8.2.6) on page 242},
+  and follows S-PLUS.  Method 2 is the mean of the sum
   of squares of the forward and backward prediction errors
-  (as in Brockwell and Davis, 1996, page 145). Percival and Walden
-  (1998) discuss both. In the multivariate case the estimated
+  (as in \bibcitet{|R:Brockwell+Davis:1996|page 145}).
+  \bibcitet{R:Percival+Walden:1998} discuss both.
+  In the multivariate case the estimated
   coefficients will depend (slightly) on the variance estimation method.
 
   Remember that \code{ar} includes by default a constant in the model, by
@@ -176,25 +178,9 @@ ar.mle(x, aic = TRUE, order.max = NULL, na.action = na.fail,
 }
 
 \references{
-  Brockwell, P. J. and Davis, R. A. (1991).
-  \emph{Time Series and Forecasting Methods}, second edition.
-  Springer, New York.
-  Section 11.4.
-
-  Brockwell, P. J. and Davis, R. A. (1996).
-  \emph{Introduction to Time Series and Forecasting}.
-  Springer, New York.
-  Sections 5.1 and 7.6.
-
-  Percival, D. P. and Walden, A. T. (1998).
-  \emph{Spectral Analysis for Physical Applications}.
-  Cambridge University Press.
-
-  Whittle, P. (1963).
-  On the fitting of multivariate autoregressions and the approximate
-  canonical factorization of a spectral density matrix.
-  \emph{Biometrika}, \bold{40}, 129--134.
-  \doi{10.2307/2333753}.
+  \bibinfo{R:Brockwell+Davis:1991}{footer}{Section 11.4.}
+  \bibinfo{R:Brockwell+Davis:1996}{footer}{Sections 5.1 and 7.6.}    
+  \bibshow{*, R:Whittle:1963}
 }
 
 \examples{

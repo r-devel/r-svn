@@ -404,7 +404,7 @@ on (for example in expressions of the form [[x[]]]). To support this,
 values.
 <<[[cmpSym]] function>>=
 cmpSym <- function(sym, cb, cntxt, missingOK = FALSE) {
-    if (sym == "...") {
+    if (identical(sym, quote(`...`))) {
         notifyWrongDotsUse("...", cntxt, loc = cb$savecurloc())
         cb$putcode(DOTSERR.OP)
     }
@@ -612,7 +612,7 @@ and [[checkCall]] is defined as
 checkCall <- function(def, call, signal = warning) {
     if (typeof(def) %in% c("builtin", "special"))
         def <- args(def)
-    if (typeof(def) != "closure" || any.dots(call))
+    if (typeof(def) != "closure" || anyDots(call))
         NA
     else {
         msg <- tryCatch({match.call(def, call); NULL},
@@ -687,7 +687,7 @@ work.
 
 An ellipsis argument [[...]] is handled by the [[DODOTS]] instruction:
 <<compile [[...]] argument>>=
-else if (is.symbol(a) && a == "...") {
+else if (identical(a, quote(`...`))) {
     if (! findLocVar("...", cntxt))
         notifyWrongDotsUse("...", cntxt, loc = cb$savecurloc())
     cb$putcode(DODOTS.OP)
@@ -1267,7 +1267,7 @@ getCompilerOption <- function(name, options = NULL) {
 @ %def getCompilerOption
 
 The [[suppressAll]] function determines whether a context has its
-[[supressAll]] property set to [[TRUE]].
+[[suppressAll]] property set to [[TRUE]].
 <<[[suppressAll]] function>>=
 suppressAll <- function(cntxt)
     identical(cntxt$suppressAll, TRUE)
@@ -1504,7 +1504,7 @@ carry at least some runtime penalty. The approach taken here is
 therefore to permit the compiler to inline some functions when they
 are not visibly shadowed in the compiled code.  What the compiler is
 permitted to do is determined by the setting of an optimization level.
-The details are desctibed in Section \ref{sec:inlining}.
+The details are described in Section \ref{sec:inlining}.
 
 For the compiler to be able to decide whether is can inline a function
 it needs to be able to determine whether there are any local variable
@@ -1814,7 +1814,7 @@ surrounding function.  To allow for this we can add an optional
 variable [[shadowed]] for providing a character vector of names of
 variables with shadowing local definitions.
 
-The more sophisticated implementaiton is also slightly optimized to avoid
+The more sophisticated implementation is also slightly optimized to avoid
 recursive calls. [[findLocals1]] now, instead of searching through the full
 transitive closure of language objects, only searches from the first, but
 returns what remains to be searched. The variables found are stored into an
@@ -2415,7 +2415,7 @@ instruction is emitted to set the visible flag to [[TRUE]], and a
 position, then code for the argument is generated in the current context.
 <<inlining handler for [[(]]>>=
 setInlineHandler("(", function(e, cb, cntxt) {
-    if (any.dots(e))
+    if (anyDots(e))
         cmpBuiltin(e, cb, cntxt) ## punt
     else if (length(e) != 2) {
         notifyWrongArgCount("(", cntxt, loc = cb$savecurloc())
@@ -2580,9 +2580,10 @@ if (length(e) == 4) {
 else have.else.expr <- FALSE
 @ %def
 
-To deal with use of [[if (FALSE) ...]] for commenting out code and of
+To deal with use of [[if (FALSE) ...]] for commenting out code and formerly of
 [[if (is.R()) ... else ...]] for handling both R and Splus code it is
-useful to attempt to constant-fold the test.  If this succeeds and
+useful to attempt to constant-fold the test (however, in R 4.4, is.R()
+became more complicated so that this was no longer possible). If this succeeds and
 produces either [[TRUE]] or [[FALSE]] then only the appropriate branch
 is compiled and the handler returns [[TRUE]].
 <<[[if]] inline handler body>>=
@@ -2771,7 +2772,7 @@ not.  [[ENDLOOPCNTXT]] terminates the context established by
 data is stored on the byte code interpreter stack; in the case of a
 [[for]] loop some loop state information is duplicated on the stack by
 [[STARTLOOPCNTXT]] and removed again by [[ENDLOOPCNTXT]]. The byte
-code intepreter stores the [[pc]] in a slot in the [[RCNTXT]]
+code interpreter stores the [[pc]] in a slot in the [[RCNTXT]]
 structure so it is available after a [[longjmp]] triggered by a
 [[break]] for retrieving the label on the [[ENDLOOPCNTXT]]
 instruction.  An alternative would be to add separate
@@ -3239,7 +3240,7 @@ cmpPrim2 <- function(e, cb, op, cntxt) {
 @ %def cmpPrim2
 
 The [[INCLNK]] and [[DECLNK]] instructions are used to protect
-evaluated arguents on the stack from modifications during evaluation
+evaluated arguments on the stack from modifications during evaluation
 of subsequent arguments. These instructions can be omitted if the
 subsequent argument evaluations cannot modify values on the stack.
 With changes to stack protection this is mechanism is no longer
@@ -3304,7 +3305,7 @@ setInlineHandler("log", function(e, cb, cntxt) {
 
 A number of one argument math functions are handled by the interpreter
 using the function [[math1]] in [[arithmetic.c]]. The [[MATH1.OP]]
-instruction handles these for compuled code. The instruction takes two
+instruction handles these for compiled code. The instruction takes two
 operands, an index for the call expression in the constant table, and
 an index for the function to be called in a table of function
 pointers. The table of names in the byte code compiler has to match
@@ -3451,7 +3452,7 @@ code. The default case code consists of code to compute and push the
 arguments followed by the [[dflt.op]] instruction.
 <<[[cmpDispatch]] function>>=
 cmpDispatch <- function(start.op, dflt.op, e, cb, cntxt, missingOK = TRUE) {
-    if ((missingOK && any.dots(e)) ||
+    if ((missingOK && anyDots(e)) ||
         (! missingOK && dots.or.missing(e)) ||
         length(e) == 1)
         cmpSpecial(e, cb, cntxt) ## punt
@@ -3504,7 +3505,7 @@ argument specifying the selection symbol.
 %% also decline if any missing args?
 <<inlining handler for [[$]]>>=
 setInlineHandler("$", function(e, cb, cntxt) {
-    if (any.dots(e) || length(e) != 3)
+    if (anyDots(e) || length(e) != 3)
         cmpSpecial(e, cb, cntxt)
     else {
         sym <- if (is.character(e[[3]]) && length(e[[3]]) == 1
@@ -3556,7 +3557,9 @@ inlineSimpleInternalCall <- function(e, def) {
     if (! dots.or.missing(e) && is.simpleInternal(def)) {
         forms <- formals(def)
         b <- body(def)
-        if (typeof(b) == "language" && length(b) == 2 && b[[1]] == "{")
+        if (typeof(b) == "language" &&
+	    length(b) == 2 &&
+	    identical(b[[1]], quote(`{`)))
             b <- b[[2]]
         icall <- b[[2]]
         defaults <- forms ## **** could strip missings but OK not to?
@@ -3574,7 +3577,7 @@ Code for an inlined simple internal function can then be generated by
 [[cmpSimpleInternal]]:
 <<[[cmpSimpleInternal]] function>>=
 cmpSimpleInternal <- function(e, cb, cntxt) {
-    if (any.dots(e))
+    if (anyDots(e))
         FALSE
     else {
         name <- as.character(e[[1]])
@@ -3644,11 +3647,12 @@ simpleInternals <- function(pos = "package:base") {
 is.simpleInternal <- function(def) {
     if (typeof(def) == "closure" && simpleFormals(def)) {
         b <- body(def)
-        if (typeof(b) == "language" && length(b) == 2 && b[[1]] == "{")
+        if (typeof(b) == "language" &&
+	    length(b) == 2 &&
+	    identical(b[[1]], quote(`{`)))
             b <- b[[2]]
         if (typeof(b) == "language" &&
-            typeof(b[[1]]) == "symbol" &&
-            b[[1]] == ".Internal") {
+            identical(b[[1]], quote(.Internal))) {
             icall <- b[[2]]
             ifun <- icall[[1]]
             typeof(ifun) == "symbol" &&
@@ -3701,7 +3705,7 @@ defined for them and are compiled in a common way.  [[cmpIs]] abstract
 out the common compilation process.
 <<[[cmpIs]] function>>=
 cmpIs <- function(op, e, cb, cntxt) {
-    if (any.dots(e) || length(e) != 2)
+    if (anyDots(e) || length(e) != 2)
         cmpBuiltin(e, cb, cntxt)
     else {
         ## **** check that the function is a builtin somewhere??
@@ -3879,7 +3883,7 @@ alternative will end with a [[GOTO]] than jumps to a label placed
 after the code for the final alternative.
 <<inline handler for [[switch]]>>=
 setInlineHandler("switch", function(e, cb, cntxt) {
-    if (length(e) < 2 || any.dots(e))
+    if (length(e) < 2 || anyDots(e))
         cmpSpecial(e, cb, cntxt)
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
@@ -4129,7 +4133,7 @@ cmpAssign <- function(e, cb, cntxt) {
     <<temporary hack to deal with assignments in arguments issue>>
     if (! checkAssign(e, cntxt, loc = cb$savecurloc()))
         return(cmpSpecial(e, cb, cntxt))
-    superAssign <- as.character(e[[1]]) == "<<-"
+    superAssign <- identical(e[[1]], quote(`<<-`))
     lhs <- e[[2]]
     value <- e[[3]]
     symbol <- as.name(getAssignedVar(e, cntxt))
@@ -4322,7 +4326,7 @@ f(g(x, print(y)), y) <- 3
 \end{itemize}
 
 Because of these issues the compiler implements slightly different
-semantics for complex assignment than the current intepreter.
+semantics for complex assignment than the current interpreter.
 \emph{Evaluation} semantics should be identical; the difference arises
 in how intermediate values are managed and has some effect on results
 produced by [[substitute]].  In particular, no intermediate [[*tmp*]]
@@ -4625,7 +4629,7 @@ mechanism.
 %% **** might be useful to signal a warning at compile time
 <<setter inline handler for [[$<-]]>>=
 setSetterInlineHandler("$<-", function(afun, place, origplace, call, cb, cntxt) {
-    if (any.dots(place) || length(place) != 3)
+    if (anyDots(place) || length(place) != 3)
         FALSE
     else {
         sym <- place[[3]]
@@ -4649,7 +4653,7 @@ accessor functions as described in Section \ref{subsec:subset}.  The
 common pattern is implemented by [[cmpSetterDispatch]].
 <<[[cmpSetterDispatch]] function>>=
 cmpSetterDispatch <- function(start.op, dflt.op, afun, place, call, cb, cntxt) {
-    if (any.dots(place))
+    if (anyDots(place))
         FALSE ## punt
     else {
         ci <- cb$putconst(call)
@@ -4802,7 +4806,7 @@ the original right hand side value, thus restoring the stack
 invariant.
 <<getter inline handler for [[$]]>>=
 setGetterInlineHandler("$", function(call, cb, cntxt) {
-    if (any.dots(call) || length(call) != 3)
+    if (anyDots(call) || length(call) != 3)
         FALSE
     else {
         sym <- call[[3]]
@@ -4829,7 +4833,7 @@ code for ordinary calls to [[[]] and [[[[]] is used to make the call,
 and this is followed by a [[SWAP]] instruction to rearrange the stack.
 <<[[cmpGetterDispatch]] function>>=
 cmpGetterDispatch <- function(start.op, dflt.op, call, cb, cntxt) {
-    if (any.dots(call))
+    if (anyDots(call))
         FALSE ## punt
     else {
         ci <- cb$putconst(call)
@@ -4987,8 +4991,7 @@ foldFuns <- c("+", "-", "*", "/", "^", "(",
               "seq_along", "seq.int", "seq_len", "sign", "signif",
               "sin", "sinh", "sqrt", "sum", "tan", "tanh", "trunc",
               "baseenv", "emptyenv", "globalenv",
-              "Arg", "Conj", "Im", "Mod", "Re",
-              "is.R")
+              "Arg", "Conj", "Im", "Mod", "Re")
 @ %def foldFuns
 [[getFoldFun]] checks the called function against this list and
 whether the binding for the variable can be assumed to be from the
@@ -5026,7 +5029,8 @@ cmpfun <- function(f, options = NULL) {
         ncntxt <- make.functionContext(cntxt, formals(f), body(f))
         if (mayCallBrowser(body(f), ncntxt))
             return(f)
-        if (typeof(body(f)) != "language" || body(f)[1] != "{")
+        if (typeof(body(f)) != "language" ||
+            ! identical(body(f)[[1]], quote(`{`)))
             loc <- list(expr = body(f), srcref = getExprSrcref(f))
         else
             loc <- NULL
@@ -5132,8 +5136,10 @@ cmpfile <- function(infile, outfile, ascii = FALSE, env = .GlobalEnv,
             e <- forms[[i]]
             sref <- srefs[[i]]
             if (verbose) {
-                if (typeof(e) == "language" && e[[1]] == "<-" &&
-                    typeof(e[[3]]) == "language" && e[[3]][[1]] == "function")
+                if (typeof(e) == "language" &&
+		    identical(e[[1]], quote(`<-`)) &&
+                    typeof(e[[3]]) == "language" &&
+		    identical(e[[3]][[1]], quote(`function`)))
                     cat(paste0("compiling function \"", e[[2]], "\"\n"))
                 else
                     cat(paste("compiling expression", deparse(e, 20)[1],
@@ -5343,7 +5349,7 @@ optimization level to be specified using environment variables.
 
 When [[enableJIT]] is set to 3, loops should be compiled before executing. 
 However, if the [[optimize]] option is set to 0 or 1, a compiled loop will
-call to the same primitive function as is used by the AST interpretter (e.g. 
+call to the same primitive function as is used by the AST interpreter (e.g. 
 [[do_for]]), and the compilation would run into infinite recursion. 
 [[checkCompilerOptions]] will detect invalid combinations of [[enableJIT]]
 and [[optimize]] and report a warning.
@@ -5718,7 +5724,7 @@ representations and more efficient calling conventions.
 This appendix provides a few general utility functions.
 
 The utility function [[pasteExpr]] is used in the error messages.
-%% **** use elipsis instead of collapse??
+%% **** use ellipsis instead of collapse??
 %% **** use error context or catch errors?
 %% **** maybe don't need expression if we catch errors?
 <<[[pasteExpr]] function>>=
@@ -5736,23 +5742,23 @@ dots.or.missing <- function(args) {
     for (i in 1:length(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
-        if (typeof(a) == "symbol" && a == "...") return(TRUE)
+        if (identical(a, quote(`...`))) return(TRUE)
     }
     return(FALSE)
 }
 @ %def dots.or.missing
 
-The function [[any.dots]] is defined as
-<<[[any.dots]] function>>=
-any.dots <- function(args) {
+The function [[anyDots]] is defined as
+<<[[anyDots]] function>>=
+anyDots <- function(args) {
     for (i in 1:length(args)) {
         a <-args[[i]]
-        if (! missing(a) && typeof(a) == "symbol" && a == "...")
+        if (! missing(a) && identical(a, quote(`...`)))
             return(TRUE)
     }
     return(FALSE)
 }
-@ %def any.dots
+@ %def anyDots
 
 The utility function [[is.ddsym]] is used to recognize symbols of the
 form [[..1]], [[..2]], and so on.
@@ -5975,7 +5981,7 @@ nsName <- function(ns) {
 
 \section{Experimental utilities}
 
-This section presents two experimental utililities that, for now, are
+This section presents two experimental utilities that, for now, are
 not exported. The first is a simple byte code profiler. This requires
 that the file [[eval.c]] be compiled with [[BC_PROFILING]] enabled,
 which on [[gcc]]-compatible compilers will disable threaded code. The
@@ -5987,8 +5993,8 @@ summary of the counts.
 <<[[bcprof]] function>>=
 bcprof <- function(expr) {
     .Internal(bcprofstart())
-    expr
-    .Internal(bcprofstop())
+    tryCatch(expr,
+             finally = .Internal(bcprofstop()))
     val <- structure(.Internal(bcprofcounts()),
                      names = Opcodes.names)
     hits <- sort(val[val > 0], decreasing = TRUE)
@@ -6337,7 +6343,7 @@ Opcodes.names <- names(Opcodes.argc)
 
 <<[[dots.or.missing]] function>>
 
-<<[[any.dots]] function>>
+<<[[anyDots]] function>>
 
 <<[[is.ddsym]] function>>
 

@@ -26,7 +26,7 @@ axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
   \item{labels}{this can either be a logical value specifying whether
     (numerical) annotations are to be made at the tickmarks, or a
     character or expression vector of labels to be placed at the
-    tickpoints.  (Other objects are coerced by \code{\link{as.graphicsAnnot}}.)
+    tick points.  (Other objects are coerced by \code{\link{as.graphicsAnnot}}.)
     If this is not logical, \code{at} should also be supplied and of the
     same length.  If \code{labels} is of length zero after coercion,
     it has the same effect as supplying \code{TRUE}.}
@@ -39,7 +39,7 @@ axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
   \item{outer}{a logical value indicating whether the axis should be
     drawn in the outer plot margin, rather than the standard plot
     margin.}
-  \item{font}{font for text.  Defaults to \code{par("font")}.}
+  \item{font}{font for text.  Defaults to \code{par("font.axis")}.}
   \item{lty}{line type for both the axis line and the tick marks.}
   \item{lwd, lwd.ticks}{line widths for the axis line and the tick
     marks.  Zero or negative values will suppress the line or ticks.}
@@ -54,8 +54,8 @@ axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
     axis otherwise).}
   \item{padj}{adjustment for each tick label \emph{perpendicular} to the
     reading direction.  For labels parallel to the axes, \code{padj = 0}
-    means right or top alignment, and \code{padj = 1} means left or bottom
-    alignment.  This can be a vector given a value for each string, and
+    means left or bottom alignment, and \code{padj = 1} means right or top
+    alignment (relative to the line).  This can be a vector given a value for each string, and
     will be recycled as necessary.
 
     If \code{padj} is not a finite value (the default), the value of

@@ -20,13 +20,7 @@
 #include <math.h>
 #include <R.h>			/* for NA_REAL, includes math.h */
 #include <Rinternals.h>
-
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include "statsErr.h"
 
 static double dokern(double x, int kern)
 {
@@ -64,7 +58,7 @@ static void BDRksmooth(double *x, double *y, R_xlen_t n,
 
 
 // called only from  spline()  in ./ppr.f
-void NORET F77_SUB(bdrsplerr)(void)
+NORET void F77_SUB(bdrsplerr)(void)
 {
     error(_("only 2500 rows are allowed for sm.method=\"spline\""));
 }

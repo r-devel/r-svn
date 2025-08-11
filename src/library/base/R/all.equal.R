@@ -1,7 +1,7 @@
 #  File src/library/base/R/all.equal.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ all.equal <- function(target, current, ...) UseMethod("all.equal")
 ## not really: do this inside all.equal.default() :
 ## all.equal.... <- function(target, current, ...) . . . .
 
-all.equal.default <- function(target, current, ...)
+all.equal.default <- function(target, current, ..., check.class = TRUE)
 {
     ## Really a dispatcher given mode() of args :
     ## use data.class as unlike class it does not give "integer"
@@ -70,7 +70,7 @@ all.equal.default <- function(target, current, ...)
                    raw       = all.equal.raw      (target, current, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),
-                   if(data.class(target) != data.class(current)) {
+                   if(check.class && data.class(target) != data.class(current)) {
                        gettextf("target is %s, current is %s",
                                 data.class(target), data.class(current))
                    } else NULL)
@@ -100,7 +100,7 @@ all.equal.numeric <-
     function(target, current, tolerance = sqrt(.Machine$double.eps),
              scale = NULL, countEQ = FALSE,
              formatFUN = function(err, what) format(err),
-             ..., check.attributes = TRUE)
+             ..., check.attributes = TRUE, check.class = TRUE, giveErr = FALSE)
 {
     if (!is.numeric(tolerance))
         stop("'tolerance' should be numeric")
@@ -112,7 +112,7 @@ all.equal.numeric <-
     msg <- if(check.attributes)
 	attr.all.equal(target, current, tolerance = tolerance, scale = scale,
                        ...)
-    if(data.class(target) != data.class(current)) {
+    if(check.class && data.class(target) != data.class(current)) {
 	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
                              data.class(current)))
 	return(msg)
@@ -170,7 +170,8 @@ all.equal.numeric <-
     if(is.na(xy) || xy > tolerance)
         msg <- c(msg, paste("Mean", what, "difference:", formatFUN(xy, what)))
 
-    if(is.null(msg)) TRUE else msg
+    r <- if(is.null(msg)) TRUE else msg
+    if(giveErr) structure(r, err = xy, what = what) else r
 }
 
 all.equal.character <-
@@ -465,7 +466,9 @@ attr.all.equal <- function(target, current, ...,
     if(check.names) {
         nx <- names(target)
         ny <- names(current)
-        if((lx <- length(nx)) | (ly <- length(ny))) {
+        lx <- length(nx)
+        ly <- length(ny)
+        if(lx || ly) {
             ## names() treated now; hence NOT with attributes()
             ax$names <- ay$names <- NULL
             if(lx && ly) {
@@ -501,15 +504,15 @@ all.equal.POSIXt <- function(target, current, ..., tolerance = 1e-3, scale,
         return("'target' is not a POSIXt")
     if(!inherits(current, "POSIXt"))
         return("'current' is not a POSIXt")
-    target <- as.POSIXct(target)
+    target  <- as.POSIXct(target)
     current <- as.POSIXct(current)
     msg <- NULL
     if(check.tzone) {
-        ## See check_tzones():
+        ## See .check_tzones():
         tz <- function(dt) {
             if(is.null(tz <- attr(dt, "tzone"))) "" else tz[1L]
         }
-        ## FIXME: check_tzones() ignores differences with "" as time zone,
+        ## FIXME: .check_tzones() ignores differences with "" as time zone,
         ## regardless of whether that other time zone is the current one.
         ## However, this code does not handle "" at all, so that it is
         ## treated as "inconsistent" even with the current time zone,

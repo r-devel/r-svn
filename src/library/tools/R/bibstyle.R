@@ -1,7 +1,7 @@
 #  File src/library/tools/R/bibstyle.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ cleanupLatex <- function(x) {
     if (inherits(latex, "error")) {
     	x
     } else {
-    	deparseLatex(latexToUtf8(latex), dropBraces=TRUE)
+    	deparseLatex(latexToUtf8(latex), dropBraces=TRUE, math=c("\\eqn{", "}"))
     }
 }
 
@@ -128,17 +128,18 @@ makeJSS <- function() {
             result <- cleanupLatex(person$family)
             if (length(person$given))
                 paste(result,
-                      paste(substr(sapply(person$given, cleanupLatex),
-                                   1, 1), collapse=""))
+                      paste(substr(vapply(person$given, cleanupLatex, ""),
+                                   1L, 1L),
+                            collapse = ""))
             else result
         }
         else
-            paste(cleanupLatex(person$given), collapse=" ")
+            paste(cleanupLatex(person$given), collapse = " ")
     }
 
     # Format all authors for one paper
     authorList <- function(paper) {
-        names <- sapply(paper$author, shortName)
+        names <- vapply(paper$author, shortName, "")
         if (length(names) > 1L)
             result <- paste(names, collapse = ", ")
         else
@@ -148,7 +149,7 @@ makeJSS <- function() {
 
     # Format all editors for one paper
     editorList <- function(paper) {
-        names <- sapply(paper$editor, shortName)
+        names <- vapply(paper$editor, shortName, "")
         if (length(names) > 1L)
             result <- paste(paste(names, collapse = ", "), "(eds.)")
         else if (length(names))

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2020   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 #include <Defn.h>
 #include <Internal.h>
 
-SEXP attribute_hidden do_debug(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_debug(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans = R_NilValue;
 
@@ -64,7 +64,7 @@ SEXP attribute_hidden do_debug(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 /* primitives .primTrace() and .primUntrace() */
-SEXP attribute_hidden do_trace(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_trace(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
 
@@ -95,7 +95,7 @@ static Rboolean tracing_state = TRUE, debugging_state = TRUE;
 #define SET_TRACE_STATE(value) tracing_state = value
 #define SET_DEBUG_STATE(value) debugging_state = value
 
-SEXP attribute_hidden do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP onOff = CAR(args);
@@ -103,10 +103,10 @@ SEXP attribute_hidden do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 	prev = trace ? GET_TRACE_STATE : GET_DEBUG_STATE;
 
     if(length(onOff) > 0) {
-	Rboolean _new = asLogical(onOff);
+	int _new = asLogical(onOff);
 	if(_new == TRUE || _new == FALSE)
-	    if(trace) SET_TRACE_STATE(_new);
-	    else      SET_DEBUG_STATE(_new);
+	    if(trace) SET_TRACE_STATE((Rboolean) _new);
+	    else      SET_DEBUG_STATE((Rboolean) _new);
 	else
 	    error(_("Value for '%s' must be TRUE or FALSE"),
 		  trace ? "tracingState" : "debuggingState");
@@ -115,8 +115,10 @@ SEXP attribute_hidden do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 // GUIs, packages, etc can query:
-Rboolean R_current_debug_state() { return GET_DEBUG_STATE; }
-Rboolean R_current_trace_state() { return GET_TRACE_STATE; }
+attribute_hidden /* would need to be in an installed header if not hidden */
+Rboolean R_current_debug_state(void) { return GET_DEBUG_STATE; }
+attribute_hidden /* would need to be in an installed header if not hidden */
+Rboolean R_current_trace_state(void) { return GET_TRACE_STATE; }
 
 
 /* memory tracing */
@@ -124,7 +126,7 @@ Rboolean R_current_trace_state() { return GET_TRACE_STATE; }
 
 #ifdef R_MEMORY_PROFILING
 
-SEXP attribute_hidden do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP object;
     char buffer[21];
@@ -153,7 +155,7 @@ SEXP attribute_hidden do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
     return mkString(buffer);
 }
 
-SEXP attribute_hidden do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP object;
 
@@ -173,14 +175,14 @@ SEXP attribute_hidden do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #else
 
-SEXP attribute_hidden NORET do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     check1arg(args, call, "x");
     errorcall(call, _("R was not compiled with support for memory profiling"));
 }
 
-SEXP attribute_hidden NORET do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     check1arg(args, call, "x");
@@ -190,7 +192,7 @@ SEXP attribute_hidden NORET do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rh
 #endif /* R_MEMORY_PROFILING */
 
 #ifndef R_MEMORY_PROFILING
-void memtrace_report(void* old, void *_new) {
+attribute_hidden void memtrace_report(void* old, void *_new) {
     return;
 }
 #else
@@ -203,7 +205,7 @@ static void memtrace_stack_dump(void)
 	    && TYPEOF(cptr->call) == LANGSXP) {
 	    SEXP fun = CAR(cptr->call);
 	    Rprintf("%s ",
-		    TYPEOF(fun) == SYMSXP ? translateChar(PRINTNAME(fun)) :
+		    TYPEOF(fun) == SYMSXP ? EncodeChar(PRINTNAME(fun)) :
 		    "<Anonymous>");
 	}
     }
@@ -219,7 +221,7 @@ void memtrace_report(void * old, void * _new)
 
 #endif /* R_MEMORY_PROFILING */
 
-SEXP attribute_hidden do_retracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_retracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
 #ifdef R_MEMORY_PROFILING
     SEXP object, previous, ans, argList;

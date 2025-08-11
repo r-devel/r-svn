@@ -1,6 +1,6 @@
 % File src/library/stats/man/kmeans.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{kmeans}
@@ -16,7 +16,7 @@ K-Means Clustering
 \usage{
 kmeans(x, centers, iter.max = 10, nstart = 1,
        algorithm = c("Hartigan-Wong", "Lloyd", "Forgy",
-                     "MacQueen"), trace=FALSE)
+                     "MacQueen"), trace = FALSE)
 \method{fitted}{kmeans}(object, method = c("centers", "classes"), ...)
 }
 \arguments{
@@ -48,14 +48,15 @@ kmeans(x, centers, iter.max = 10, nstart = 1,
   The data given by \code{x} are clustered by the \eqn{k}-means method,
   which aims to partition the points into \eqn{k} groups such that the
   sum of squares from points to the assigned cluster centres is minimized.
-  At the minimum, all cluster centres are at the mean of their Voronoi
+  At the minimum, all cluster centres are at the mean of their \I{Voronoi}
   sets (the set of data points which are nearest to the cluster centre).
 
-  The algorithm of Hartigan and Wong (1979) is used by default.  Note
-  that some authors use \eqn{k}-means to refer to a specific algorithm
-  rather than the general method: most commonly the algorithm given by
-  MacQueen (1967) but sometimes that given by Lloyd (1957) and Forgy
-  (1965).  The Hartigan--Wong algorithm generally does a better job than
+  The algorithm of \bibcitet{R:Hartigan+Wong:1979} is used by
+  default.  Note that some authors use \eqn{k}-means to refer to a
+  specific algorithm rather than the general method: most commonly the
+  algorithm given by \bibcitet{R:MacQueen:1967} but sometimes that given
+  by \bibcitet{R:Lloyd:1957, R:Lloyd:1982} and \bibcitet{R:Forgy:1965}.
+  The \I{Hartigan}--\I{Wong} algorithm generally does a better job than
   either of those, but trying several random starts (\code{nstart}\eqn{>
   1}) is often recommended.  In rare cases, when some of the points
   (rows of \code{x}) are extremely close, the algorithm may not converge
@@ -63,14 +64,19 @@ kmeans(x, centers, iter.max = 10, nstart = 1,
   returning \code{ifault = 4}).  Slight
   rounding of the data may be advisable in that case.
 
-  For ease of programmatic exploration, \eqn{k=1} is allowed, notably
+  For ease of programmatic exploration, \eqn{k = 1} is allowed, notably
   returning the center and \code{withinss}.
 
-  Except for the Lloyd--Forgy method, \eqn{k} clusters will always be
+  Except for the \I{Lloyd}--\I{Forgy} method, \eqn{k} clusters will always be
   returned if a number is specified.
   If an initial matrix of centres is supplied, it is possible that
   no point will be closest to one or more centres, which is currently
-  an error for the Hartigan--Wong method.
+  an error for the \I{Hartigan}--\I{Wong} method.
+}
+\note{
+  The clusters are numbered in the returned object, but they are a
+  \emph{set} and no ordering is implied.  (Their apparent ordering may
+  differ by platform.)
 }
 \value{
   \code{kmeans} returns an object of class \code{"kmeans"} which has a
@@ -94,30 +100,7 @@ kmeans(x, centers, iter.max = 10, nstart = 1,
     -- for experts.}
 }
 \references{
-  Forgy, E. W. (1965).
-  Cluster analysis of multivariate data: efficiency vs interpretability
-  of classifications. 
-  \emph{Biometrics}, \bold{21}, 768--769.
-
-  Hartigan, J. A. and Wong, M. A. (1979).
-  Algorithm AS 136: A K-means clustering algorithm.
-  \emph{Applied Statistics}, \bold{28}, 100--108.
-  \doi{10.2307/2346830}.
-
-  Lloyd, S. P. (1957, 1982).
-  Least squares quantization in PCM.
-  Technical Note, Bell Laboratories.
-  Published in 1982 in \emph{IEEE Transactions on Information Theory},
-  \bold{28}, 128--137. 
-
-  MacQueen, J. (1967).
-  Some methods for classification and analysis of multivariate
-  observations.
-  In \emph{Proceedings of the Fifth Berkeley Symposium on  Mathematical
-    Statistics and Probability}, 
-  eds L. M. Le Cam & J. Neyman,
-  \bold{1}, pp.\sspace{}281--297.
-  Berkeley, CA: University of California Press.
+  \bibshow{*}
 }
 \examples{
 require(graphics)
@@ -153,7 +136,10 @@ kmeans(x,1)$withinss # trivial one-cluster, (its W.SS == ss(x))
 
 ## random starts do help here with too many clusters
 ## (and are often recommended anyway!):
+## The ordering of the clusters may be platform-dependent.
+\dontdiff{
 (cl <- kmeans(x, 5, nstart = 25))
+}
 plot(x, col = cl$cluster)
 points(cl$centers, col = 1:5, pch = 8)
 }

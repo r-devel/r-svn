@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-2014  The R Core Team
+ *  Copyright (C) 2001-2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -267,7 +267,7 @@ void rdqagie(integr_fn f, void *ex, double *bound, int *inf, double *
     double a1, a2, b1, b2, defab1, defab2, oflow;
     int ktmin, nrmax;
     double uflow;
-    Rboolean noext;
+    bool noext;
     int iroff1, iroff2, iroff3;
     double res3la[3], error1, error2;
     int id;
@@ -278,7 +278,7 @@ void rdqagie(integr_fn f, void *ex, double *bound, int *inf, double *
     double erlast, errmax;
     int maxerr;
     double reseps;
-    Rboolean extrap;
+    bool extrap;
     double ertest = 0.0, errsum;
 
 /**begin prologue  dqagie
@@ -550,8 +550,8 @@ standard fortran subroutine
     nres = 0;
     ktmin = 0;
     numrl2 = 2;
-    extrap = FALSE;
-    noext = FALSE;
+    extrap = false;
+    noext = false;
     ierro = 0;
     iroff1 = 0;
     iroff2 = 0;
@@ -669,7 +669,7 @@ standard fortran subroutine
 	    if (fabs(blist[maxerr] - alist[maxerr]) > small) {
 		continue;
 	    }
-	    extrap = TRUE;
+	    extrap = true;
 	    nrmax = 2;
 	}
 
@@ -718,7 +718,7 @@ standard fortran subroutine
 
 L70:
 	if (numrl2 == 1) {
-	    noext = TRUE;
+	    noext = true;
 	}
 	if (*ier == 5) {
 	    break;
@@ -726,7 +726,7 @@ L70:
 	maxerr = iord[1];
 	errmax = elist[maxerr];
 	nrmax = 1;
-	extrap = FALSE;
+	extrap = false;
 	small *= .5;
 	erlarg = errsum;
  L90:
@@ -919,7 +919,7 @@ void Rdqags(integr_fn f, void *ex, double *a, double *b,
 
            last  - int
                    on return, last equals the number of subintervals
-                   produced in the subdivision process, detemines the
+                   produced in the subdivision process, determines the
                    number of significant elements actually in the work
                    arrays.
 
@@ -978,7 +978,7 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
 	     iord, int *last)
 {
     /* Local variables */
-    Rboolean noext, extrap;
+    bool noext, extrap;
     int k,ksgn, nres;
     int ierro;
     int ktmin, nrmax;
@@ -1259,8 +1259,8 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
     nres = 0;
     numrl2 = 2;
     ktmin = 0;
-    extrap = FALSE;
-    noext = FALSE;
+    extrap = false;
+    noext = false;
     iroff1 = 0;
     iroff2 = 0;
     iroff3 = 0;
@@ -1373,7 +1373,7 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
 	    if (fabs(blist[maxerr] - alist[maxerr]) > small) {
 		continue;
 	    }
-	    extrap = TRUE;
+	    extrap = true;
 	    nrmax = 2;
 	}
 
@@ -1421,7 +1421,7 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
 /*           prepare bisection of the smallest interval.  L70: */
 
 	if (numrl2 == 1) {
-	    noext = TRUE;
+	    noext = true;
 	}
 	if (*ier == 5) {
 	    break;
@@ -1429,7 +1429,7 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
 	maxerr = iord[1];
 	errmax = elist[maxerr];
 	nrmax = 1;
-	extrap = FALSE;
+	extrap = false;
 	small *= .5;
 	erlarg = errsum;
  L90:
@@ -1441,25 +1441,24 @@ void rdqagse(integr_fn f, void *ex, double *a, double *b, double *
 /*		------------------------------------ */
 
     if (*abserr == oflow) 	goto L115;
-    if (*ier + ierro == 0) 	goto L110;
-    if (ierro == 3)
-	*abserr += correc;
-    if (*ier == 0)
-	*ier = 3;
-    if (*result == 0. || area == 0.) {
-	if (*abserr > errsum) 	goto L115;
-	if (area == 0.) 	goto L130;
-    }
-    else { /* L105:*/
-	if (*abserr / fabs(*result) > errsum / fabs(area))
-	    goto L115;
+    if (*ier + ierro != 0) {
+	if (ierro == 3)
+	    *abserr += correc;
+	if (*ier == 0)
+	    *ier = 3;
+	if (*result == 0. || area == 0.) {
+	    if (*abserr > errsum) 	goto L115;
+	    if (area == 0.) 		goto L130;
+	}
+	else { /* L105:*/
+	    if (*abserr / fabs(*result) > errsum / fabs(area))
+		goto L115;
+	}
     }
 
-L110:/*		test on divergence. */
-    if (ksgn == -1 && fmax2(fabs(*result), fabs(area)) <= defabs * .01) {
-	goto L130;
-    }
-    if (.01 > *result / area || *result / area > 100. || errsum > fabs(area)) {
+    /* L110: test on divergence. */
+    if (!(ksgn == -1 && fmax2(fabs(*result), fabs(area)) <= defabs * .01) &&
+	(.01 > *result / area || *result / area > 100. || errsum > fabs(area))) {
 	*ier = 5;
     }
     goto L130;
@@ -1470,7 +1469,6 @@ L115:/*		compute global integral sum. */
 	*result += rlist[k];
     *abserr = errsum;
 L130:
-    if (*ier > 2)
 L140:
     *neval = *last * 42 - 21;
     return;

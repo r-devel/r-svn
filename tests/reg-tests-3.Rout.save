@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2022-09-13 r82850) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin21.6.0 (64-bit)
+R Under development (unstable) (2025-06-22 r88334) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin24.5.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -689,7 +689,7 @@ Loading required package: survival
 > ## failed in R < 2.10.0
 > 
 > 
-> if(suppressMessages(require("Matrix"))) {
+> if(suppressMessages(require("Matrix", .Library))) {
 +   print(cS. <- contr.SAS(5, sparse = TRUE))
 +   stopifnot(all(contr.SAS(5) == cS.),
 + 	    all(contr.helmert(5, sparse = TRUE) == contr.helmert(5)))
@@ -756,14 +756,12 @@ x1     a b <NA>
 > 
 > ## median should work by default for a suitable S4 class.
 > ## adapted from adaptsmoFMRI
-> if(suppressMessages(require("Matrix"))) {
+> if(suppressMessages(require("Matrix", .Library))) {
 +     x <- matrix(c(1,2,3,4))
-+     print(median(x))
-+     print(median(as(x, "dgeMatrix")))
++     print(m <- median(x))
++     stopifnot(all.equal(m, median(as(x, "denseMatrix"))))
 +     detach("package:Matrix")
 + }
-[1] 2.5
-as(<matrix>, "dgeMatrix") is deprecated since Matrix 1.5-0; do as(as(as(., "dMatrix"), "generalMatrix"), "unpackedMatrix") instead
 [1] 2.5
 > 
 > ## Various arguments were not duplicated:  PR#15352 to 15354
@@ -816,7 +814,7 @@ X2 0           1  0
 
 > ## the error was in lm.(w)fit
 > 
-> if(require("Matrix")) {
+> if(require("Matrix", .Library)) {
 +  m1 <- m2 <- m <- matrix(1:12, 3,4)
 +  dimnames(m2) <- list(LETTERS[1:3],
 +                       letters[1:4])
@@ -889,16 +887,11 @@ Error in nchar(x, "w") : invalid multibyte string, element 10
 > 
 > 
 > ## str() on large strings
-> if (l10n_info()$"UTF-8" || l10n_info()$"Latin-1") {
-+   cc <- "J\xf6reskog" # valid in "latin-1"; invalid multibyte string in UTF-8
-+   .tmp <- capture.output(
-+   str(cc) # failed in some R-devel versions
-+   )
-+   stopifnot(grepl("chr \"J.*reskog\"", .tmp))
-+ 
-+   print(nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b")) # 5.1 M
-+   print(str(L))
-+ }
+> nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b") # 5.1 M
+[1] 5100000
+> str(L)
+ chr "A.B.C.D.E.F.G.H.I.J.K.L.M.N.O.P.Q.R.S.T.U.V.W.X.Y.ZA.B.C.D.E.F.G.H.I.J.K.L.M.N.O.P.Q.R.S.T.U.V.W.X.Y.ZA.B.C.D.E"| __truncated__
+> 
 > 
 > if(require("Matrix", .Library)) {
 +     M <- Matrix(diag(1:10), sparse=TRUE) # a "ddiMatrix"
@@ -925,13 +918,174 @@ Error in nchar(x, "w") : invalid multibyte string, element 10
 +     detach("package:Matrix", unload=TRUE)
 + }##{Matrix}
 Loading required package: Matrix
-<sparse>[ <logic> ]: .M.sub.i.logical() maybe inefficient
 standardGeneric for "chol2inv" defined from package "base"
 
 function (x, ...) 
 standardGeneric("chol2inv")
-<bytecode: 0x1500f1468>
-<environment: 0x1500e88d0>
+<bytecode: 0x11477d7f8>
+<environment: 0x114775050>
 Methods may be defined for arguments: x
 Use  showMethods(chol2inv)  for currently available ones.
+> 
+> ## citation() / bibentry
+> options(width=88) # format.bibentry() using strwrap()
+> c1 <- citation()
+> c1$year <- "9999" # avoid tedious updates of reference output
+> print(c1)
+To cite R in publications use:
+
+  R Core Team (9999). _R: A Language and Environment for Statistical
+  Computing_. R Foundation for Statistical Computing, Vienna, Austria.
+  doi:10.32614/R.manuals <https://doi.org/10.32614/R.manuals>,
+  <https://www.R-project.org/>.
+
+A BibTeX entry for LaTeX users is
+
+  @Manual{,
+    title = {R: A Language and Environment for Statistical Computing},
+    author = {{R Core Team}},
+    organization = {R Foundation for Statistical Computing},
+    address = {Vienna, Austria},
+    year = {9999},
+    doi = {10.32614/R.manuals},
+    url = {https://www.R-project.org/},
+  }
+
+We have invested a lot of time and effort in creating R, please cite it when
+using it for data analysis. See also 'citation("pkgname")' for citing R
+packages.
+> fc1B <- format(c1)
+> fc1N <- format(c1, bibtex=FALSE)
+> stopifnot(exprs = {
++     identical(fc1B[-2], fc1N[-2])
++     (b2 <- fc1B[2]) != (n2 <- fc1N[2]) # bibtex left away (at end of line 2)
++     startsWith(b2, n2)
++ })
+> 
+> pkg <- "nlme"
+> (hasME <- requireNamespace(pkg, quietly=TRUE, lib.loc = .Library))
+[1] TRUE
+> if(hasME) withAutoprint({
++     c2 <- citation(pkg, .Library)
++     ## avoid spurious diffs:
++     c2$author[[1]]$given[[1]] <- "J."
++     c2$year[[1]] <- "9999"
++     c2$note[[1]] <- sub("3.1-[0-9]*$", "3.1-999", c2$note[[1]])
++     print(c2)
++     print(c2, bibtex=FALSE) # no final message
++     print(c2, bibtex=TRUE)  # w/ two bibTeX
++     stopifnot(length(c2) >= 2)
++     f2N <- format(c2) # -> format.bibentry(*, style="citation")
++     f2B <- format(c2, bibtex=TRUE)
++     stopifnot(exprs = {
++         print(n <- length(f2N)) == length(f2B)
++         identical(f2N[1], f2B[1])
++         grepl("see these entries in BibTeX",       f2N[n], fixed=TRUE)
++         grepl("'format(<citation>, bibtex=TRUE)'", f2N[n], fixed=TRUE) # "format(..)" was "print(..)"
++         f2B[n] == ""
++         (ie <- -c(1,n)) < 0
++         grepl("A BibTeX entry ", f2B[ie], fixed=TRUE)
++         grepl(" @[A-Z]", f2B[ie]) # @Book etc
++        !grepl(" @[A-Z]", f2N[ie]) # *not* there
++         nchar(f2N[ie]) < nchar(f2B[ie])
++         startsWith(f2B[ie], f2N[ie])
++       })
++ 
++     desc <- packageDescription(pkg, .Library)
++     desc$URL <- paste(URL1 <- "https://example.org",
++                       "https://example.com", sep = "\n") # via continuation line
++     desc$Repository <- NULL
++     c3 <- citation(auto = desc)
++     stopifnot(identical(print(c3$url), URL1)) # R <= 4.4.0 gave both URLs
++ 
++     unloadNamespace(pkg)
++ })
+> c2 <- citation(pkg, .Library)
+> c2$author[[1]]$given[[1]] <- "J."
+> c2$year[[1]] <- "9999"
+> c2$note[[1]] <- sub("3.1-[0-9]*$", "3.1-999", c2$note[[1]])
+> print(c2)
+To cite package 'nlme' in publications use:
+
+  Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
+  Effects Models_. doi:10.32614/CRAN.package.nlme
+  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://CRAN.R-project.org/package=nlme>.
+
+  Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
+  Springer, New York. doi:10.1007/b98882 <https://doi.org/10.1007/b98882>.
+
+To see these entries in BibTeX format, use 'print(<citation>, bibtex=TRUE)',
+'toBibtex(.)', or set 'options(citation.bibtex.max=999)'.
+> print(c2, bibtex = FALSE)
+To cite package 'nlme' in publications use:
+
+  Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
+  Effects Models_. doi:10.32614/CRAN.package.nlme
+  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://CRAN.R-project.org/package=nlme>.
+
+  Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
+  Springer, New York. doi:10.1007/b98882 <https://doi.org/10.1007/b98882>.
+> print(c2, bibtex = TRUE)
+To cite package 'nlme' in publications use:
+
+  Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
+  Effects Models_. doi:10.32614/CRAN.package.nlme
+  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://CRAN.R-project.org/package=nlme>.
+
+A BibTeX entry for LaTeX users is
+
+  @Manual{,
+    title = {nlme: Linear and Nonlinear Mixed Effects Models},
+    author = {J. Pinheiro and Douglas Bates and {R Core Team}},
+    year = {9999},
+    note = {R package version 3.1-999},
+    url = {https://CRAN.R-project.org/package=nlme},
+    doi = {10.32614/CRAN.package.nlme},
+  }
+
+  Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
+  Springer, New York. doi:10.1007/b98882 <https://doi.org/10.1007/b98882>.
+
+A BibTeX entry for LaTeX users is
+
+  @Book{,
+    title = {Mixed-Effects Models in S and S-PLUS},
+    author = {Jos<U+00E9> C. Pinheiro and Douglas M. Bates},
+    year = {2000},
+    publisher = {Springer},
+    address = {New York},
+    doi = {10.1007/b98882},
+  }
+> stopifnot(length(c2) >= 2)
+> f2N <- format(c2)
+> f2B <- format(c2, bibtex = TRUE)
+> stopifnot(exprs = {
++     print(n <- length(f2N)) == length(f2B)
++     identical(f2N[1], f2B[1])
++     grepl("see these entries in BibTeX", f2N[n], fixed = TRUE)
++     grepl("'format(<citation>, bibtex=TRUE)'", f2N[n], fixed = TRUE)
++     f2B[n] == ""
++     (ie <- -c(1, n)) < 0
++     grepl("A BibTeX entry ", f2B[ie], fixed = TRUE)
++     grepl(" @[A-Z]", f2B[ie])
++     !grepl(" @[A-Z]", f2N[ie])
++     nchar(f2N[ie]) < nchar(f2B[ie])
++     startsWith(f2B[ie], f2N[ie])
++ })
+[1] 4
+> desc <- packageDescription(pkg, .Library)
+> desc$URL <- paste(URL1 <- "https://example.org", "https://example.com", sep = "\n")
+> desc$Repository <- NULL
+> c3 <- citation(auto = desc)
+> stopifnot(identical(print(c3$url), URL1))
+[1] "https://example.org"
+> unloadNamespace(pkg)
+> 
+> 
+> 
+> cat('Time elapsed: ', proc.time(),'\n')
+Time elapsed:  1.249 0.071 1.329 0.003 0.003 
 > 

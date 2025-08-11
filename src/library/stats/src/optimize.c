@@ -1,8 +1,8 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1998--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *  Copyright (C) 2003-2004  The R Foundation
- *  Copyright (C) 1998--2014  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,21 +24,14 @@
 #endif
 
 #define NO_NLS
-#include <Defn.h>
+#include <Defn.h>               // for PrintDefaults
 #include <float.h>		/* for DBL_MAX */
 #include <R_ext/Applic.h>	/* for optif9, fdhess */
 #include <R_ext/RS.h>	       	/* for Memcpy */
 
 #include "statsR.h"
 #include "stats.h" // R_zeroin2
-
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include "statsErr.h"
 
 
 /* Formerly in src/appl/fmim.c */
@@ -206,8 +199,9 @@ struct callinfo {
 /*static SEXP R_fcall1;
   static SEXP R_env1; */
 
-static double fcn1(double x, struct callinfo *info)
+static double fcn1(double x, void *arg_info)
 {
+    struct callinfo *info = arg_info;
     SEXP s, sx;
     PROTECT(sx = ScalarReal(x));
     SETCADR(info->R_fcall, sx);
@@ -225,8 +219,13 @@ static double fcn1(double x, struct callinfo *info)
     case REALSXP:
 	if (length(s) != 1) goto badvalue;
 	if (!R_FINITE(REAL(s)[0])) {
-	    warning(_("NA/Inf replaced by maximum positive value"));
-	    return DBL_MAX;
+	    if(REAL(s)[0] == R_NegInf) { // keep sign for root finding !
+		warning(_("-Inf replaced by maximally negative value"));
+		return -DBL_MAX;
+	    } else {
+		warning(_("%s replaced by maximum positive value"), ISNAN(REAL(s)[0]) ? "NA/NaN" : "Inf");
+		return DBL_MAX;
+	    }
 	}
 	else return REAL(s)[0];
 	break;
@@ -238,33 +237,31 @@ static double fcn1(double x, struct callinfo *info)
     return 0;/* for -Wall */
 }
 
-/* fmin(f, xmin, xmax tol) */
+/* Called from optimize() as
+ * .External2(C_do_fmin,  function(arg) +/- f(arg, ...), lower, upper, tol)
+ * fmin(f, xmin, xmax tol) */
 SEXP do_fmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    double xmin, xmax, tol;
-    SEXP v, res;
-    struct callinfo info;
-
     args = CDR(args);
     PrintDefaults();
 
     /* the function to be minimized */
 
-    v = CAR(args);
+    SEXP v = CAR(args);
     if (!isFunction(v))
 	error(_("attempt to minimize non-function"));
     args = CDR(args);
 
     /* xmin */
 
-    xmin = asReal(CAR(args));
+    double xmin = asReal(CAR(args));
     if (!R_FINITE(xmin))
 	error(_("invalid '%s' value"), "xmin");
     args = CDR(args);
 
     /* xmax */
 
-    xmax = asReal(CAR(args));
+    double xmax = asReal(CAR(args));
     if (!R_FINITE(xmax))
 	error(_("invalid '%s' value"), "xmax");
     if (xmin >= xmax)
@@ -273,15 +270,15 @@ SEXP do_fmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* tol */
 
-    tol = asReal(CAR(args));
+    double tol = asReal(CAR(args));
     if (!R_FINITE(tol) || tol <= 0.0)
 	error(_("invalid '%s' value"), "tol");
 
+    struct callinfo info;
     info.R_env = rho;
     PROTECT(info.R_fcall = lang2(v, R_NilValue));
-    PROTECT(res = allocVector(REALSXP, 1));
-    REAL(res)[0] = Brent_fmin(xmin, xmax,
-			      (double (*)(double, void*)) fcn1, &info, tol);
+    SEXP res = PROTECT(allocVector(REALSXP, 1));
+    REAL(res)[0] = Brent_fmin(xmin, xmax, fcn1, &info, tol);
     UNPROTECT(2);
     return res;
 }
@@ -292,8 +289,9 @@ SEXP do_fmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 // Brent's "zeroin"
 // ---------------
 
-static double fcn2(double x, struct callinfo *info)
+static double fcn2(double x, void *arg_info)
 {
+    struct callinfo *info = arg_info;
     SEXP s, sx;
     PROTECT(sx = ScalarReal(x));
     SETCADR(info->R_fcall, sx);
@@ -315,7 +313,7 @@ static double fcn2(double x, struct callinfo *info)
 		warning(_("-Inf replaced by maximally negative value"));
 		return -DBL_MAX;
 	    } else {
-		warning(_("NA/Inf replaced by maximum positive value"));
+		warning(_("%s replaced by maximum positive value"), ISNAN(REAL(s)[0]) ? "NA/NaN" : "Inf");
 		return DBL_MAX;
 	    }
 	}
@@ -381,7 +379,7 @@ SEXP zeroin2(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(info.R_fcall = lang2(v, R_NilValue)); /* the info used in fcn2() */
     PROTECT(res = allocVector(REALSXP, 3));
     REAL(res)[0] =
-	R_zeroin2(xmin, xmax, f_ax, f_bx, (double (*)(double, void*)) fcn2,
+	R_zeroin2(xmin, xmax, f_ax, f_bx, fcn2,
 		 (void *) &info, &tol, &iter);
     REAL(res)[1] = (double)iter;
     REAL(res)[2] = tol;
@@ -499,9 +497,9 @@ static int FT_lookup(int n, const double *x, function_info *state)
 
 /* This how the optimizer sees them */
 
-static void fcn(int n, const double x[], double *f, function_info
-		*state)
+static void fcn(int n, double *x, double *f, void *arg_state)
 {
+    function_info *state = arg_state;
     SEXP s, R_fcall;
     ftable *Ftable;
     double *g = (double *) 0, *h = (double *) 0;
@@ -533,8 +531,13 @@ static void fcn(int n, const double x[], double *f, function_info
     case REALSXP:
 	if (length(s) != 1) goto badvalue;
 	if (!R_FINITE(REAL(s)[0])) {
-	    warning(_("NA/Inf replaced by maximum positive value"));
-	    *f = DBL_MAX;
+	    if(REAL(s)[0] == R_NegInf) { // keep sign for root finding !
+		warning(_("-Inf replaced by maximally negative value"));
+		*f = -DBL_MAX;
+	    } else {
+		warning(_("%s replaced by maximum positive value"), ISNAN(REAL(s)[0]) ? "NA/NaN" : "Inf");
+		*f = DBL_MAX;
+	    }
 	}
 	else *f = REAL(s)[0];
 	break;
@@ -556,8 +559,9 @@ static void fcn(int n, const double x[], double *f, function_info
 }
 
 
-static void Cd1fcn(int n, const double x[], double *g, function_info *state)
+static void Cd1fcn(int n, double *x, double *g, void *arg_state)
 {
+    function_info *state = arg_state;
     int ind;
 
     if ((ind = FT_lookup(n, x, state)) < 0) {	/* shouldn't happen */
@@ -570,9 +574,9 @@ static void Cd1fcn(int n, const double x[], double *g, function_info *state)
 }
 
 
-static void Cd2fcn(int nr, int n, const double x[], double *h,
-		   function_info *state)
+static void Cd2fcn(int nr, int n, double *x, double *h, void *arg_state)
 {
+    function_info *state = arg_state;
     int j, ind;
 
     if ((ind = FT_lookup(n, x, state)) < 0) {	/* shouldn't happen */
@@ -630,7 +634,7 @@ static double *fixparam(SEXP p, int *n)
 
 	/* Fatal errors - we don't deliver an answer */
 
-static void NORET opterror(int nerr)
+NORET static void opterror(int nerr)
 {
     switch(nerr) {
     case -1:
@@ -722,7 +726,7 @@ SEXP nlm(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(state->R_fcall = lang2(v, R_NilValue));
     args = CDR(args);
 
-    /* `p' : inital parameter value */
+    /* `p' : initial parameter value */
 
     n = 0;
     x = fixparam(CAR(args), &n);

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2013 The R Core Team
+ *                2003-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,9 +55,9 @@ double layoutVJust(SEXP l) {
     return REAL(VECTOR_ELT(l, LAYOUT_VJUST))[1];
 }
 
-Rboolean relativeUnit(SEXP unit, int index,
+bool relativeUnit(SEXP unit, int index,
 		   pGEDevDesc dd) {
-    return pureNullUnit(unit, index, dd);
+    return (bool) pureNullUnit(unit, index, dd);
 }
 
 void findRelWidths(SEXP layout, int *relativeWidths,
@@ -478,7 +478,7 @@ static void subRegion(SEXP layout,
     */
 }
 
-Rboolean allocationRemaining(double initial, double remaining)
+bool allocationRemaining(double initial, double remaining)
 {
     if (initial == 0) {
         return TRUE;
@@ -590,7 +590,7 @@ void calcViewportLayout(SEXP viewport,
     UNPROTECT(2);
 }
 
-Rboolean checkPosRowPosCol(SEXP vp, SEXP parent) 
+bool checkPosRowPosCol(SEXP vp, SEXP parent) 
 {
     int ncol = layoutNCol(viewportLayout(parent));
     int nrow = layoutNRow(viewportLayout(parent));

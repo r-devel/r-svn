@@ -190,8 +190,8 @@ interpSpline.default <-
 ##	job = 1L)
     des <- splineDesign(knots, x, ord, derivs, sparse=sparse)
     y <- c(0, frm$y, 0)
-    coeff <- if(sparse) Matrix::solve(des, Matrix::..2dge(y), sparse=TRUE)
-             else solve(des, y)
+    ## if(sparse) des is <sparseMatrix>, but in any case coeff[] is numeric vector:
+    coeff <- if(sparse) as.vector(Matrix::solve(des, y)) else solve(des, y)
     value <- structure(
         list(knots = knots, coefficients = coeff, order = ord),
              formula = do.call("~", list(substitute(obj2), substitute(obj1))),
@@ -270,7 +270,7 @@ periodicSpline.formula <- function(obj1, obj2, knots, period = 2 * pi, ord = 4L)
     if (length(form) != 3)
 	stop("'formula' must be of the form \"y ~ x\"")
     local <- if (missing(obj2)) sys.parent(1) else as.data.frame(obj2)
-    ## 'missing(knots)' is transfered :
+    ## 'missing(knots)' is transferred :
     structure(periodicSpline.default(as.numeric(eval(form[[3L]], local)),
 				     as.numeric(eval(form[[2L]], local)),
 				     knots = knots, period = period, ord = ord),

@@ -1,6 +1,6 @@
 % File src/library/graphics/man/matplot.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{matplot}
@@ -29,9 +29,9 @@ matlines (x, y, type = "l", lty = 1:5, lwd = 1, pch = NULL,
   \item{x,y}{vectors or matrices of data for plotting.  The number of
     rows should match.  If one of them are missing, the other is taken
     as \code{y} and an \code{x} vector of \code{1:n} is used.
-    Missing values (\code{NA}s) are allowed.  Since \R 4.0.0,
+    Missing values (\code{NA}s) are allowed. Typically,
     \code{\link{class}(.)}es of \code{x} and \code{y} such as
-    \code{"\link{Date}"} are typically preserved.}
+    \code{"\link{Date}"} are preserved.}
   \item{type}{character string (length 1 vector) or vector of 1-character
     strings indicating the type of plot for each
     column of \code{y}, see \code{\link{plot}} for all possible
@@ -81,7 +81,7 @@ matlines (x, y, type = "l", lty = 1:5, lwd = 1, pch = NULL,
     \item calling (the generic) \code{\link{lines}(x[,j], y[,j], ..)} for
     subsequent columns.
   }
-  Since \R 4.0.0, care is taken to keep the \code{\link{class}(.)} of
+  Care is taken to keep the \code{\link{class}(.)} of
   \code{x} and \code{y}, such that the corresponding \code{plot()} and
   \code{lines()} \emph{methods} will be called.
 
@@ -142,15 +142,9 @@ legend(1, 4, c("    Setosa Petals", "    Setosa Sepals",
                "Versicolor Petals", "Versicolor Sepals"),
        pch = "sSvV", col = rep(c(2,4), 2))
 
-nam.var <- colnames(iris)[-5]
-nam.spec <- as.character(iris[1+50*0:2, "Species"])
-iris.S <- array(NA, dim = c(50,4,3),
-                dimnames = list(NULL, nam.var, nam.spec))
-for(i in 1:3) iris.S[,,i] <- data.matrix(iris[1:50+50*(i-1), -5])
-
-matplot(iris.S[, "Petal.Length",], iris.S[, "Petal.Width",], pch = "SCV",
+matplot(iris3[, "Petal L.",], iris3[, "Petal W.",], pch = "SCV",
         col = rainbow(3, start = 0.8, end = 0.1),
-        sub = paste(c("S", "C", "V"), dimnames(iris.S)[[3]],
+        sub = paste(c("S", "C", "V"), dimnames(iris3)[[3]],
                     sep = "=", collapse= ",  "),
         main = "Fisher's Iris Data")
 par(op)
@@ -166,6 +160,14 @@ matplot(ct, mSC, type = "b", main = "matplot(<POSIXct>, y)")
 ## or the same with even more axis flexibility:
 matplot(ct, mSC, type = "b", main = "matplot(<POSIXct>, y)", xaxt="n")
 Axis(ct, side=1, at = ct[1+4*(0:24)])
+
+iS <- 1:3 # indices of subset
+matplot(gait[, iS, 1], gait[, iS, 2], pch = "123", type = "b",
+        col = rainbow(3, start = 0.8, end = 0.1),
+        sub = paste(iS, dimnames(gait)[[2]][iS],
+                    sep = "=", collapse= ",  "),
+        xlab = "Hip angle", ylab = "Knee angle",
+        main = "Hip and knee angle while walking")
 
 ## Also works for data frame columns:
 matplot(iris[1:50,1:4])

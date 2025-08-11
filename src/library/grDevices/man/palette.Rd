@@ -11,7 +11,8 @@
 \usage{
 palette(value)
 palette.pals()
-palette.colors(n = NULL, palette = "Okabe-Ito", alpha, recycle = FALSE)
+palette.colors(n = NULL, palette = "Okabe-Ito", alpha, recycle = FALSE,
+               names = FALSE)
 }
 \arguments{
   \item{value}{an optional character vector specifying a new palette
@@ -26,6 +27,9 @@ palette.colors(n = NULL, palette = "Okabe-Ito", alpha, recycle = FALSE)
   \item{recycle}{logical indicating what happens in case \code{n >
       length(palette(.))}.  By default (\code{recycle = FALSE}), the
     result is as for \code{n = NULL}, but with a warning.}
+  \item{names}{logical indicating whether a named vector of colors
+    should be returned or not (provided that the palette has any
+    names for its colors).}
 }
 \description{
   View or manipulate the color palette which is used when \code{col=}
@@ -59,7 +63,7 @@ palette.colors(n = NULL, palette = "Okabe-Ito", alpha, recycle = FALSE)
   The current palette also applies to re-plotting (for example if an
   on-screen device is resized or \code{\link{dev.copy}} or
   \code{\link{replayPlot}} is used).  The palette is recorded on the
-  displaylist at the start of each page and when it is changed.
+  display list at the start of each page and when it is changed.
 }
 
 \value{
@@ -70,7 +74,11 @@ palette.colors(n = NULL, palette = "Okabe-Ito", alpha, recycle = FALSE)
   \code{palette.pals()} returns a character vector giving the names
   of predefined palettes.
 
-  \code{palette.colors()} returns a vector of R colors.
+  \code{palette.colors()} returns a vector of R colors. By default (if
+  \code{names = FALSE} the vector has no names. If \code{names = TRUE},
+  the function attempts to return a named vector if possible, i.e.,
+  for those palettes that provide names for their colors (e.g.,
+  \code{"Okabe-Ito"}, \code{"Tableau 10"}, or \code{"Alphabet"}).
 }
 \seealso{
   \code{\link{colors}} for the vector of built-in named colors;
@@ -112,19 +120,21 @@ palette("default")
 palette.pals()
 
 ## Demonstrate the colors 1:8 in different palettes using a custom matplot()
-sinplot <- function(main=NULL) {
+sinplot <- function(main=NULL, n = 8) {
     x <- outer(
 	seq(-pi, pi, length.out = 50),
-	seq(0, pi, length.out = 8),
+	seq(  0, pi, length.out = n),
 	function(x, y) sin(x - y)
     )
-    matplot(x, type = "l", lwd = 4, lty = 1, col = 1:8, ylab = "", main=main)
+    matplot(x, type = "l", lwd = 4, lty = 1, col = 1:n, ylab = "", main=main)
 }
 sinplot("default palette")
 
 palette("R3");        sinplot("R3")
 palette("Okabe-Ito"); sinplot("Okabe-Ito")
-palette("Tableau")  ; sinplot("Tableau")
+palette("Tableau")  ; sinplot("Tableau", n = 10)
+palROB <- colorRampPalette(c("red", "darkorange2", "blue"), space = "Lab")
+palette(palROB(16)); sinplot("palROB(16)", n = 16)
 palette("default") # reset
 
 ## color swatches for palette.colors()

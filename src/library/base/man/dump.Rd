@@ -1,6 +1,6 @@
 % File src/library/base/man/dump.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{dump}
@@ -17,7 +17,7 @@ dump(list, file = "dumpdata.R", append = FALSE,
   \R session.
 }
 \arguments{
-  \item{list}{character vector.  The names of one or more \R objects to be dumped.}
+  \item{list}{character vector (or \code{\link{NULL}}).  The names of \R objects to be dumped.}
 
   \item{file}{either a character string naming a file or a
     \link{connection}.  \code{""} indicates output to the console.}
@@ -38,7 +38,7 @@ dump(list, file = "dumpdata.R", append = FALSE,
   omitted, with a warning.  If \code{file} is a file and no objects
   exist then no file is created.
 
-  \code{\link{source}}ing may not produce an identical copy of
+  \I{\code{\link{source}}ing} may not produce an identical copy of
   \code{dump}ed objects.  A warning is issued if it is likely that
   problems will arise, for example when dumping exotic or complex
   objects (see the Note).

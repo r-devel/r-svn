@@ -49,7 +49,7 @@ dev.capabilities(what = NULL)
     support \code{\link{locator}} and \code{\link{identify}}?}
   \item{events}{character:  Which events can be generated on this device?
     Currently this will be a subset of \code{c("MouseDown",
-      "MouseMove", "MouseUp", "Keybd")}, but other events may be
+      "MouseMove", "MouseUp", "Keybd", "Idle")}, but other events may be
     supported in the future.  }
   \item{patterns}{character:  Does the device support pattern fills?
     One or more of
@@ -72,6 +72,7 @@ dev.capabilities(what = NULL)
     transformations ?}
   \item{paths}{logical:  Does the device support stroking and filling
     paths?}
+  \item{glyphs}{logical:  Does the device support rendering glyphs? }
 }
 \seealso{
   See \code{\link{getGraphicsEvent}} for details on interactive events.

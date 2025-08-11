@@ -1,6 +1,6 @@
 % File src/library/datasets/man/faithful.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{faithful}
@@ -15,21 +15,14 @@
 \usage{faithful}
 \format{A data frame with 272 observations on 2 variables.
   \tabular{rlll}{
-    [,1]  \tab eruptions  \tab numeric  \tab Eruption time in mins \cr
-    [,2]  \tab waiting    \tab numeric  \tab Waiting time to next
-    eruption (in mins)\cr
+    [,1]  \tab \code{eruptions}  \tab numeric  \tab Eruption time in \abbr{min}s \cr
+    [,2]  \tab \code{waiting}    \tab numeric  \tab Waiting time to next
+    eruption (in \abbr{min}s)\cr
   }
 }
 \source{W. Härdle.}
 \references{
-  \enc{Härdle}{Haerdle}, W. (1991).
-  \emph{Smoothing Techniques with Implementation in S}.
-  New York: Springer.
-
-  Azzalini, A. and Bowman, A. W. (1990).
-  A look at some data on the Old Faithful geyser.
-  \emph{Applied Statistics}, \bold{39}, 357--365.
-  \doi{10.2307/2347385}.
+  \bibshow{*, R:Härdle:1991}
 }
 \details{
   A closer look at \code{faithful$eruptions} reveals that these are
@@ -37,11 +30,11 @@
   more frequent than expected under non-human measurement.  For a
   better version of the eruption times, see the example below.
 
-  There are many versions of this dataset around: Azzalini and Bowman
-  (1990) use a more complete version.
+  There are many versions of this dataset around:
+  \bibcitet{R:Azzalini+Bowman:1990} use a more complete version.
 }
 \seealso{
-  \code{geyser} in package \CRANpkg{MASS} for the Azzalini--Bowman version.
+  \code{geyser} in package \CRANpkg{MASS} for the \I{Azzalini}--\I{Bowman} version.
 }
 \examples{
 require(stats); require(graphics)

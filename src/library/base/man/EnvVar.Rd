@@ -1,6 +1,6 @@
 % File src/library/base/man/EnvVar.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2007-2022 R Core Team
+% Copyright 2007-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{EnvVar}
@@ -29,6 +29,7 @@
 \alias{R_ZIPCMD}
 \alias{TMPDIR}
 
+% R_REPOSITORIES is in ?setRepositories
 % R_PROFILE, R_ENVIRON are in ?Startup
 % R_LIBS* are in ?.libPaths
 % TZ, TZDIR are in ?Sys.timezone
@@ -114,11 +115,11 @@
       \code{\link{options}("papersize")}, e.g.\sspace{}used by
       \code{\link{pdf}} and \code{\link{postscript}}.}
     \item{\env{R_PCRE_JIT_STACK_MAXSIZE}:}{Optional.  Consulted when
-      PCRE's JIT pattern compiler is first used.  See \code{\link{grep}}.}
+      \I{PCRE}'s \abbr{JIT} pattern compiler is first used.  See \code{\link{grep}}.}
     \item{\env{R_PDFVIEWER}:}{The path to the default PDF viewer.  Used
       by \command{R CMD Rd2pdf}.}
     \item{\env{R_PLATFORM}:}{The platform -- a string of the form
-      \code{\var{cpu}-\var{vendor}-\var{os}}, see \code{\link{R.Version}}.}
+      \code{"\var{cpu}-\var{vendor}-\var{os}"}, see \code{\link{R.Version}}.}
     \item{\env{R_PROFILE}:}{Optional.  The path to the site profile
       file: see \link{Startup}.  Consulted at startup.}
     \item{\env{R_RD4PDF}:}{Options for \command{pdflatex} processing of
@@ -145,7 +146,7 @@
     \item{\env{TMPDIR}, \env{TMP}, \env{TEMP}:}{Consulted (in that
       order) when setting the temporary directory for the session: see
       \code{\link{tempdir}}.  \env{TMPDIR} is also used by some of the
-      utilities see the help for \code{\link{build}}.}
+      utilities: see the help for \code{\link{build}}.}
     \item{\env{TZ}:}{Optional.  The current time zone.  See
       \code{\link{Sys.timezone}} for the system-specific
       formats.  Consulted as needed.}

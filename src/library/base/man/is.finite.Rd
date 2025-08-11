@@ -1,6 +1,6 @@
 % File src/library/base/man/is.finite.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{is.finite}
@@ -20,7 +20,8 @@
   \code{Inf} and \code{-Inf} are positive and negative infinity
   whereas \code{NaN} means \sQuote{Not a Number}.  (These apply to numeric
   values and real and imaginary parts of complex values but not to
-  values of integer vectors.)  \code{Inf} and \code{NaN} are
+  values of integer vectors.)  \code{Inf} and \code{NaN} (as well as
+  \code{\link{NA}}) are
   \link{reserved} words in the \R language.
 }
 \usage{
@@ -37,13 +38,13 @@ NaN
 }
 \details{
   \code{is.finite} returns a vector of the same length as \code{x} the
-  jth element of which is \code{TRUE} if \code{x[j]} is finite (i.e., it
+  j-th element of which is \code{TRUE} if \code{x[j]} is finite (i.e., it
   is not one of the values \code{NA}, \code{NaN}, \code{Inf} or
   \code{-Inf}) and \code{FALSE} otherwise.  Complex
   numbers are finite if both the real and imaginary parts are.
 
   \code{is.infinite} returns a vector of the same length as \code{x} the
-  jth element of which is \code{TRUE} if \code{x[j]} is infinite (i.e.,
+  j-th element of which is \code{TRUE} if \code{x[j]} is infinite (i.e.,
   equal to one of \code{Inf} or \code{-Inf}) and \code{FALSE}
   otherwise.  This will be false unless \code{x} is numeric or complex.
   Complex numbers are infinite if either the real or the imaginary part is.

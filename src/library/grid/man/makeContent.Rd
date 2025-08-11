@@ -1,6 +1,6 @@
 % File src/library/grid/man/makeContent.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{makeContent}
@@ -11,7 +11,7 @@
   These generic hook functions are called whenever a grid grob is drawn.
   They provide an opportunity for customising the drawing context
   and drawing content of a
-  new class derived from grob (or gTree).
+  new class derived from grob (or \I{gTree}).
 }
 \usage{
 makeContext(x)
@@ -22,28 +22,28 @@ makeContent(x)
 }
 \details{
   These functions are called by the \code{grid.draw} methods for grobs
-  and gTrees.
+  and \I{gTree}s.
 
   \code{makeContext} is called first during the drawing of a grob.
   This function should be used to \emph{modify} the \code{vp} slot
   of \code{x} (and/or the \code{childrenvp} slot if \code{x}
-  is a gTree).  The function \emph{must} return the modified \code{x}.
+  is a \I{gTree}).  The function \emph{must} return the modified \code{x}.
   Note that
   the default behaviour for grobs is to push any viewports in the
-  \code{vp} slot, and for gTrees is to also push and up any viewports in the
+  \code{vp} slot, and for \I{gTree}s is to also push and up any viewports in the
   \code{childrenvp} slot, so this function is used to customise the
-  drawing context for a grob or gTree.
+  drawing context for a grob or \I{gTree}.
 
   \code{makeContent} is called next and is where any additional
   calculations should occur and graphical content should
   be generated (see, for example,
   \code{grid:::makeContent.xaxis}).
   This function should be used to \emph{modify} the \code{children}
-  of a gTree.
+  of a \I{gTree}.
   The function \emph{must} return the modified \code{x}.
   Note that the default behaviour
-  for gTrees is to draw all grobs in the \code{children} slot,
-  so this function is used to customise the drawing content for a gTree.
+  for \I{gTree}s is to draw all grobs in the \code{children} slot,
+  so this function is used to customise the drawing content for a \I{gTree}.
   It is also possible to customise the drawing content for a simple
   grob, but more care needs to be taken;  for example, the function
   should return a standard grid primitive with a \code{drawDetails()}
@@ -58,11 +58,12 @@ makeContent(x)
   \code{"grobheight"} units.
 }
 \value{
-  Both functions are expected to return a grob or gTree
+  Both functions are expected to return a grob or \I{gTree}
   (a modified version of \code{x}).
 }
 \author{ Paul Murrell }
-\references{ "Changes to grid for R 3.0.0",
-Paul Murrell, \emph{The R Journal} (2013) 5:2, pages 148-160. }
+\references{
+  \bibshow{R:Murrell:2013}
+}
 \seealso{ \code{\link{grid.draw}} }
 \keyword{ dplot }

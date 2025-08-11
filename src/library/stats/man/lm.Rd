@@ -80,7 +80,7 @@ lm(formula, data, subset, weights, na.action,
   %% print.lm():
   \item{digits}{the number of \emph{significant} digits to be
     passed to \code{\link{format}(\link{coef}(x), .)} when
-    \code{\link{print}()}ing.}
+    \I{\code{\link{print}()}ing}.}
 }
 \details{
   Models for \code{lm} are specified symbolically.  A typical model has
@@ -228,12 +228,6 @@ lm(formula, data, subset, weights, na.action,
   The design was inspired by the S function of the same name described
   in Chambers (1992).  The implementation of model formula by Ross Ihaka
   was based on Wilkinson & Rogers (1973).
-}
-
-\note{
-  Offsets specified by \code{offset} will not be included in predictions
-  by \code{\link{predict.lm}}, whereas those specified by an offset term
-  in the formula will be.
 }
 \examples{
 require(graphics)

@@ -35,14 +35,13 @@ spline.des  (knots, x, ord = 4, derivs, outer.ok = FALSE,
   \item{outer.ok}{logical indicating if \code{x} should be allowed
     outside the \emph{inner} knots, see the \code{x} argument.}
   \item{sparse}{logical indicating if the result should inherit from class
-    \code{"\link[Matrix:sparseMatrix-class]{sparseMatrix}"} (from package \CRANpkg{Matrix}).}
-%    \code{\linkS4class{sparseMatrix}} (from package \CRANpkg{Matrix}).}
+    \code{"\linkS4class[Matrix]{sparseMatrix}"} (from package \CRANpkg{Matrix}).}
 }
 \value{
   A matrix with \code{length(x)} rows and \code{length(knots) - ord}
-  columns.  The i'th row of the matrix contains the coefficients of the
+  columns.  The i-th row of the matrix contains the coefficients of the
   B-splines (or the indicated derivative of the B-splines) defined by
-  the \code{knot} vector and evaluated at the i'th value of \code{x}.
+  the \code{knot} vector and evaluated at the i-th value of \code{x}.
   Each B-spline is defined by a set of \code{ord} successive knots so
   the total number of B-splines is \code{length(knots) - ord}.
 }

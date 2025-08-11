@@ -1,7 +1,7 @@
 #  File src/library/base/R/factor.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,13 +21,17 @@ factor <- function(x = character(), levels, labels = levels,
 {
     if(is.null(x)) x <- character()
     nx <- names(x)
+    matchAsChar <- is.object(x) ||
+        !(is.character(x) || is.integer(x) || is.logical(x))
     if (missing(levels)) {
 	y <- unique(x, nmax = nmax)
 	ind <- order(y)
-	levels <- unique(as.character(y)[ind])
+	if (matchAsChar)
+	    y <- as.character(y)
+	levels <- unique(y[ind])
     }
     force(ordered) # check if original x is an ordered factor
-    if(!is.character(x))
+    if (matchAsChar)
 	x <- as.character(x)
     ## levels could be a long vector, but match will not handle that.
     levels <- levels[is.na(match(levels, exclude))]
@@ -154,7 +158,7 @@ print.factor <- function (x, quote = FALSE, max.levels = NULL,
 {
     ord <- is.ordered(x)
     if (length(x) == 0L)
-        cat(if(ord)"ordered" else "factor", "(0)\n", sep = "")
+        cat(if(ord)"ordered" else "factor", "()\n", sep = "")
     else {
         xx <- character(length(x))
         xx[] <- as.character(x)
@@ -162,7 +166,7 @@ print.factor <- function (x, quote = FALSE, max.levels = NULL,
         attributes(xx)[keepAttrs] <- attributes(x)[keepAttrs]
         print(xx, quote = quote, ...)
     }
-    maxl <- if(is.null(max.levels)) TRUE else max.levels
+    maxl <- max.levels %||% TRUE
     if (maxl) {
         n <- length(lev <- encodeString(levels(x), quote=ifelse(quote, '"', '')))
         colsep <- if(ord) " < " else " "

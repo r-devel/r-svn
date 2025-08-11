@@ -333,7 +333,7 @@ checkSlotAssignment <- function(obj, name, value)
        as(value, slotClass, strict=FALSE, ext = ok)
 }
 
-## slightly simpler verison to be called from do_attrgets()
+## slightly simpler version to be called from do_attrgets()
 checkAtAssignment <- function(cl, name, valueClass)
 {
     ClassDef <- getClass(cl) # fails if cl not a defined class (!)
@@ -808,7 +808,7 @@ isSealedClass <- function(Class, where = topenv(parent.frame())) {
 
 sealClass <- function(Class, where = topenv(parent.frame())) {
     if(missing(where))
-        where <- findClass(Class, unique = "sealing the class", where = where)
+        where <- findClass(Class, unique = "sealing the class", where = where)[[1L]]
     classDef <- getClassDef(Class, where)
     if(!classDef@sealed) {
         classDef@sealed <- TRUE
@@ -912,7 +912,7 @@ className <- function(class, package) {
             else {
                 classDef <- findClass(className, topenv(parent.frame()))
                 if(length(classDef) == 1)
-                    classDef <- classDef[[1]]
+                    classDef <- classDef[[1L]]
             }
             ## at this point, classDef is the definition if
             ## unique, otherwise a list of 0 or >1 definitions

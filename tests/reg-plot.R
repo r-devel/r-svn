@@ -60,8 +60,8 @@ with(trees, symbols(Height, Volume, circles=Girth/24, inches=FALSE,
                     lty="blank", bg="blue"))
 ## in 1.5.0 ignored the lty.
 
-## axis() and par(mgp < 0) {keep this example S+ compatible!}:
-lt <- if(is.R()) "31" else 2
+## axis() and par(mgp < 0)
+lt <-"31" # in R
 x <- seq(-2,3, len=1001)
 op <- par(tck= +0.02, mgp = -c(3,2,0))
 plot(x, x^2 - 1.2, xaxt = "n", xlab="", type ='l', col = 2,
@@ -125,7 +125,7 @@ plot(cos, -7,7, n=11, axes=FALSE)
 ## gave wrong ylab in R 2.6.0
 plot(cos, -7,7, ylab = "Cosine  cos(x)", n=11, axes=FALSE)
 ## partial matching of 'ylab'; mapping  [0,1] (not [-7.7]):
-## margins chosen to avoid rouding error showing to 2dp.
+## margins chosen to avoid rounding error showing to 2dp.
 op <- par(mar=c(5,4.123,4,2)+0.1)
 plot(gamma, yla = expression(Gamma(x)), n=11, yaxt="n")
 par(op)
@@ -160,6 +160,41 @@ plot(dates, 1:2, xlim = rev(dates),
      ann=FALSE, yaxt="n", frame.plot=FALSE)
 ## failed to label the dates in R <= 3.3.1
 
+## axis.Date() with various data types:
+x <- seq(as.Date("2022-01-20"), as.Date("2023-03-21"), by = "days")
+plot(data.frame(x, y = 1), xaxt = "n")
+axis.Date(1)
+axis.Date(3, at = "2022-04-01")
+axis.Date(3, at = as.Date("2022-07-01"))
+axis.Date(3, at = as.POSIXct(as.Date("2022-10-01")))
+axis.Date(3, at = as.POSIXlt(as.Date("2023-01-01")))
+axis.Date(3, at = as.integer(as.Date("2023-04-01")))
+## automatically extends the format:
+axis.Date(1, at = "2022-02-15", tck = -0.05, mgp = c(3,2,0))
+
+## axis.POSIXct() with various data types (2 minutes)
+x <- as.POSIXct("2022-10-01") + c(0, 60, 120)
+plot(data.frame(x, y = 1), xaxt="n")
+axis.POSIXct(1)
+axis.POSIXct(3, at = "2022-10-01 00:01")
+axis.POSIXct(3, at = as.Date("2022-10-01"))
+axis.POSIXct(3, at = as.POSIXct("2022-10-01 00:01:30"))
+axis.POSIXct(3, at = as.POSIXlt("2022-10-01 00:02"))
+axis.POSIXct(3, at = as.numeric(as.POSIXct("2022-10-01 00:00:30")))
+## automatically extends format (here: subseconds):
+axis.POSIXct(3, at = "2022-10-01 00:00:30.25", mgp = c(3,2,0))
+
+## axis.POSIXct: a few days, extending the format
+days <- seq(as.Date("2022-10-01"), as.Date("2022-12-21"), by="days")
+x <- as.POSIXct(as.character(days))
+plot(data.frame(x, y = 1), xaxt="n")
+axis.POSIXct(1, x)
+axis.POSIXct(1, x, at = as.Date("2022-10-12"), mgp = c(3,2,0), tck = -0.04)
+axis.POSIXct(3, x, at = as.POSIXct("2022-10-15"))
+axis.POSIXct(3, x, at = as.POSIXlt("2022-10-15"), mgp = c(3,2,0))
+axis.POSIXct(1, x, at = "2022-11-01 23:00", mgp = c(3,2,0), tck = -0.04)
+axis.POSIXct(3, x, at = "2022-11-01 06:00")
+axis.POSIXct(3, x, at = as.numeric(as.POSIXct("2022-12-01")))
 
 ## axis() -- labels only written when there's room
 plot2 <- function(at, wait=FALSE) {

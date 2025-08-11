@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2021  The R Core Team
+ *  Copyright (C) 1999--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -69,7 +69,7 @@
 /* At times we want to convert marked UTF-8 strings to wchar_t*. We
  * can use our facilities to do so in a UTF-8 locale or system
  * facilities if the platform tells us that wchar_t is UCS-4 or we
- * know that about the platform. 
+ * know that about the platform.
  * Add __OpenBSD__ and  __NetBSD__ ?
  */
 #if !defined(__STDC_ISO_10646__) && (defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun))
@@ -95,7 +95,7 @@ R_size_t R_Decode2Long(char *p, int *ierr)
     if(p[0] == '\0') return v;
     /* else look for letter-code ending : */
     if(R_Verbose)
-	REprintf("R_Decode2Long(): v=%ld\n", v);
+	REprintf("R_Decode2Long(): v=%ld\n", (long)v);
     // NOTE: currently, positive *ierr are not differentiated in the callers:
     if(p[0] == 'G') {
 	if((Giga * (double)v) > (double) R_SIZE_T_MAX) { *ierr = 4; return(v); }
@@ -124,6 +124,14 @@ R_size_t R_Decode2Long(char *p, int *ierr)
 #define NB 1000
 const char *EncodeLogical(int x, int w)
 {
+    /* fast path when 'w' fits exactly */
+    if(x == NA_LOGICAL) {
+	if(w == R_print.na_width) return CHAR(R_print.na_string);
+    } else if(x) {
+	if(w == 4) return "TRUE";
+    } else
+	if(w == 5) return "FALSE";
+    /* general case */
     static char buff[NB];
     if(x == NA_LOGICAL) snprintf(buff, NB, "%*s", min(w, (NB-1)), CHAR(R_print.na_string));
     else if(x) snprintf(buff, NB, "%*s", min(w, (NB-1)), "TRUE");
@@ -145,7 +153,7 @@ attribute_hidden
 const char *EncodeRaw(Rbyte x, const char * prefix)
 {
     static char buff[10];
-    sprintf(buff, "%s%02x", prefix, x);
+    snprintf(buff, 10, "%s%02x", prefix, x);
     return buff;
 }
 
@@ -155,11 +163,11 @@ const char *EncodeEnvironment(SEXP x)
     const void *vmax = vmaxget();
     static char ch[1000];
     if (x == R_GlobalEnv)
-	sprintf(ch, "<environment: R_GlobalEnv>");
+	snprintf(ch, 1000,  "<environment: R_GlobalEnv>");
     else if (x == R_BaseEnv)
-	sprintf(ch, "<environment: base>");
+	snprintf(ch, 1000, "<environment: base>");
     else if (x == R_EmptyEnv)
-	sprintf(ch, "<environment: R_EmptyEnv>");
+	snprintf(ch, 1000, "<environment: R_EmptyEnv>");
     else if (R_IsPackageEnv(x))
 	snprintf(ch, 1000, "<environment: %s>",
 		translateChar(STRING_ELT(R_PackageEnvName(x), 0)));
@@ -176,10 +184,14 @@ attribute_hidden
 const char *EncodeExtptr(SEXP x)
 {
     static char buf[1000];
-    sprintf(buf, "<pointer: %p>", R_ExternalPtrAddr(x));
+    snprintf(buf, 1000, "<pointer: %p>", R_ExternalPtrAddr(x));
     return buf;
 }
 
+int Rstrwid(const char *str, int slen, cetype_t ienc, int quote); /* below */
+#define strwidth(x) Rstrwid(x, (int) strlen(x), CE_NATIVE, 0)
+
+attribute_hidden
 const char *EncodeReal(double x, int w, int d, int e, char cdec)
 {
     char dec[2];
@@ -201,22 +213,26 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
 	else snprintf(buff, NB, "%*s", min(w, (NB-1)), "-Inf");
     }
     else if (e) {
-	if(d) {
-	    sprintf(fmt,"%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
+	if(d) { // '#' flag
+	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
 	}
 	else {
-	    sprintf(fmt,"%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
+	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
-	sprintf(fmt,"%%%d.%df", min(w, (NB-1)), d);
+	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
 	snprintf(buff, NB, fmt, x);
     }
     buff[NB-1] = '\0';
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -229,6 +245,7 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
     return out;
 }
 
+// A copy of EncodeReal0() -- additionally dropping trailing zeros:
 static const char
 *EncodeRealDrop0(double x, int w, int d, int e, const char *dec)
 {
@@ -238,23 +255,22 @@ static const char
     /* IEEE allows signed zeros (yuck!) */
     if (x == 0.0) x = 0.0;
     if (!R_FINITE(x)) {
-	if(ISNA(x)) snprintf(buff, NB, "%*s", min(w, (NB-1)), CHAR(R_print.na_string));
+	if(ISNA(x))       snprintf(buff, NB, "%*s", min(w, (NB-1)), CHAR(R_print.na_string));
 	else if(ISNAN(x)) snprintf(buff, NB, "%*s", min(w, (NB-1)), "NaN");
-	else if(x > 0) snprintf(buff, NB, "%*s", min(w, (NB-1)), "Inf");
-	else snprintf(buff, NB, "%*s", min(w, (NB-1)), "-Inf");
+	else if(x > 0)    snprintf(buff, NB, "%*s", min(w, (NB-1)), "Inf");
+	else              snprintf(buff, NB, "%*s", min(w, (NB-1)), "-Inf");
     }
     else if (e) {
 	if(d) {
-	    sprintf(fmt,"%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
+	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
 	}
 	else {
-	    sprintf(fmt,"%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
+	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
-	sprintf(fmt,"%%%d.%df", min(w, (NB-1)), d);
+	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
 	snprintf(buff, NB, fmt, x);
     }
     buff[NB-1] = '\0';
@@ -273,7 +289,12 @@ static const char
 	}
     }
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -286,7 +307,7 @@ static const char
     return out;
 }
 
-SEXP attribute_hidden StringFromReal(double x, int *warn)
+attribute_hidden SEXP StringFromReal(double x, int *warn)
 {
     int w, d, e;
     formatReal(&x, 1, &w, &d, &e, 0);
@@ -311,25 +332,21 @@ const char *EncodeReal2(double x, int w, int d, int e)
     }
     else if (e) {
 	if(d) {
-	    sprintf(fmt,"%%#%d.%de", min(w, (NB-1)), d);
+	    snprintf(fmt, 20 ,"%%#%d.%de", min(w, (NB-1)), d);
 	    snprintf(buff, NB, fmt, x);
 	}
 	else {
-	    sprintf(fmt,"%%%d.%de", min(w, (NB-1)), d);
+	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
 	    snprintf(buff, NB, fmt, x);
 	}
     }
     else { /* e = 0 */
-	sprintf(fmt,"%%#%d.%df", min(w, (NB-1)), d);
+	snprintf(fmt, 20, "%%#%d.%df", min(w, (NB-1)), d);
 	snprintf(buff, NB, fmt, x);
     }
     buff[NB-1] = '\0';
     return buff;
 }
-
-#ifdef formatComplex_USING_signif
-void z_prec_r(Rcomplex *r, Rcomplex *x, double digits);
-#endif
 
 #define NB3 NB+3
 const char
@@ -350,20 +367,14 @@ const char
 	char Re[NB];
 	const char *Im, *tmp;
 	int flagNegIm = 0;
-	Rcomplex y;
-#ifdef formatComplex_USING_signif
-	/* formatComplex rounded, but this does not, and we need to
-	   keep it that way so we don't get strange trailing zeros.
-	   But we do want to avoid printing small exponentials that
-	   are probably garbage.
-	 */
-	z_prec_r(&y, &x, R_print.digits);
-#endif
 	/* EncodeReal has static buffer, so copy */
-	tmp = EncodeReal0(y.r == 0. ? y.r : x.r, wr, dr, er, dec);
+	tmp = EncodeReal0(x.r, wr, dr, er, dec);
 	strcpy(Re, tmp);
+	/* If x.i is very slightly negative, we printed -Oi, and that
+	   will often be platform dependent */
 	if ( (flagNegIm = (x.i < 0)) ) x.i = -x.i;
-	Im = EncodeReal0(y.i == 0. ? y.i : x.i, wi, di, ei, dec);
+	Im = EncodeReal0(x.i, wi, di, ei, dec);
+	if (streql(Im, "0")) flagNegIm = FALSE;
 	snprintf(buff, NB3, "%s%s%si", Re, flagNegIm ? "-" : "+", Im);
     }
     buff[NB3-1] = '\0';
@@ -413,7 +424,7 @@ int Rstrwid(const char *str, int slen, cetype_t ienc, int quote)
     if(ienc > 2) // CE_NATIVE, CE_UTF8, CE_BYTES are supported
 	warning("unsupported encoding (%d) in Rstrwid", ienc);
     if(mbcslocale || ienc == CE_UTF8) {
-	Rboolean useUTF8 = (ienc == CE_UTF8);
+	bool useUTF8 = (ienc == CE_UTF8);
 	mbstate_t mb_st;
 
 	if(!useUTF8)  mbs_init(&mb_st);
@@ -555,7 +566,7 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
     int i, cnt;
     const char *p; char *q, buf[13];
     cetype_t ienc = getCharCE(s);
-    Rboolean useUTF8 = w < 0;
+    bool useUTF8 = w < 0;
     const void *vmax = vmaxget();
 
     if (w < 0) w = w + 1000000;
@@ -647,7 +658,8 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
        +2 allows for quotes, +6 for UTF_8 escapes.
      */
     if(5.*cnt + 8 > (double) SIZE_MAX)
-	error(_("too large string (nchar=%d) => 5*nchar + 8 > SIZE_MAX"));
+	error(_("too large string (nchar=%d) => 5*nchar + 8 > SIZE_MAX"),
+	      cnt);
     size_t q_len = 5*(size_t)cnt + 8;
     if(q_len < w) q_len = (size_t) w;
     q = R_AllocStringBuffer(q_len, buffer);
@@ -661,11 +673,11 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
     }
     if(quote) *q++ = (char) quote;
     if(mbcslocale || ienc == CE_UTF8) {
-	Rboolean useUTF8 = (ienc == CE_UTF8);
-	Rboolean wchar_is_ucs_or_utf16 = TRUE;
+	bool useUTF8 = (ienc == CE_UTF8);
+	bool wchar_is_ucs_or_utf16 = TRUE;
 	mbstate_t mb_st;
 #ifndef __STDC_ISO_10646__
-	Rboolean Unicode_warning = FALSE;
+	bool Unicode_warning = FALSE;
 #endif
 # if !defined (__STDC_ISO_10646__) && !defined (Win32)
 	wchar_is_ucs_or_utf16 = FALSE;
@@ -681,7 +693,7 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 	    /* res = 0 is a terminator
 	     * some mbrtowc implementations return wc past end of UCS */
 	    if(res >= 0 &&
-	       ((0 <= wc && wc <= 0x10FFFF) || !wchar_is_ucs_or_utf16)) {
+	       ((0 <= wc && (unsigned long)wc <= 0x10FFFF) || !wchar_is_ucs_or_utf16)) {
 		unsigned int k; /* not wint_t as it might be signed */
 		if (useUTF8 && IS_HIGH_SURROGATE(wc))
 		    k = utf8toucs32(wc, p);
@@ -919,7 +931,7 @@ int vasprintf(char **strp, const char *fmt, va_list ap)
 # define R_BUFSIZE BUFSIZE
 // similar to dummy_vfprintf in connections.c
 attribute_hidden
-void Rcons_vprintf(const char *format, va_list arg)
+int Rcons_vprintf(const char *format, va_list arg)
 {
     char buf[R_BUFSIZE], *p = buf;
     int res;
@@ -944,7 +956,7 @@ void Rcons_vprintf(const char *format, va_list arg)
 	/* dummy_vfprintf protects against `res` being counted short; we do not
 	   do that here */
 	p = R_alloc(res+1, sizeof(char));
-	vsprintf(p, format, arg);
+	vnsprintf(p, res + 1, format, arg);
     } else if(res < 0) {
 	/* Some non-C99 conforming vsnprintf implementations return -1 on
 	   truncation instead of only on error. */
@@ -955,9 +967,11 @@ void Rcons_vprintf(const char *format, va_list arg)
 	    warning(_("printing of extremely long output is truncated"));
     }
 #endif /* HAVE_VASPRINTF */
-    R_WriteConsole(p, (int) strlen(p));
+    res = (int) strlen(p);
+    R_WriteConsole(p, res);
     if(usedRalloc) vmaxset(vmax);
     if(usedVasprintf) free(p);
+    return res;
 }
 
 void Rvprintf(const char *format, va_list arg)
@@ -994,9 +1008,11 @@ void Rvprintf(const char *format, va_list arg)
    It is also used in R_Suicide on Unix.
 */
 
-void REvprintf(const char *format, va_list arg)
+attribute_hidden
+int REvprintf_internal(const char *format, va_list arg)
 {
     static char *malloc_buf = NULL;
+    int res;
 
     if (malloc_buf) {
 	char *tmp = malloc_buf;
@@ -1010,27 +1026,28 @@ void REvprintf(const char *format, va_list arg)
 	    R_ErrorCon = 2;
 	} else {
 	    /* Parentheses added for FC4 with gcc4 and -D_FORTIFY_SOURCE=2 */
-	    (con->vfprintf)(con, format, arg);
+	    res = (con->vfprintf)(con, format, arg);
 	    con->fflush(con);
-	    return;
+	    return res;
 	}
     }
     if(R_Consolefile) {
 	/* try to interleave stdout and stderr carefully */
 	if(R_Outputfile && (R_Outputfile != R_Consolefile)) {
 	    fflush(R_Outputfile);
-	    vfprintf(R_Consolefile, format, arg);
+	    res = vfprintf(R_Consolefile, format, arg);
 	    /* normally R_Consolefile is stderr and so unbuffered, but
 	       it can be something else (e.g. stdout on Win9x) */
 	    fflush(R_Consolefile);
-	} else vfprintf(R_Consolefile, format, arg);
+	} else
+	    res = vfprintf(R_Consolefile, format, arg);
     } else {
 	char buf[BUFSIZE];
-	Rboolean printed = FALSE;
+	bool printed = false;
 	va_list aq;
 
 	va_copy(aq, arg);
-	int res = Rvsnprintf_mbcs(buf, BUFSIZE, format, aq);
+	res = Rvsnprintf_mbcs(buf, BUFSIZE, format, aq);
 	va_end(aq);
 	if (res >= BUFSIZE) {
 	    /* A very long string has been truncated. Try to allocate a large
@@ -1044,25 +1061,33 @@ void REvprintf(const char *format, va_list arg)
 		res = vsnprintf(malloc_buf, size, format, arg);
 		if (res == size - 1) {
 		    R_WriteConsoleEx(malloc_buf, res, 1);
-		    printed = TRUE;
+		    printed = true;
 		}
 		char *tmp = malloc_buf;
 		malloc_buf = NULL;
 		free(tmp);
 	    }
 	}
-	if (!printed)
-	    R_WriteConsoleEx(buf, (int) strlen(buf), 1);
+	if (!printed) {
+	    res = (int) strlen(buf);
+	    R_WriteConsoleEx(buf, res, 1);
+	}
     }
+    return res;
 }
 
-int attribute_hidden IndexWidth(R_xlen_t n)
+void REvprintf(const char *format, va_list arg)
 {
-    return (int) (log10(n + 0.5) + 1);
+    REvprintf_internal(format, arg);
 }
 
-void attribute_hidden VectorIndex(R_xlen_t i, int w)
+attribute_hidden int IndexWidth(R_xlen_t n)
+{
+    return (int) (log10((double)n + 0.5) + 1);
+}
+
+attribute_hidden void VectorIndex(R_xlen_t i, int w)
 {
 /* print index label "[`i']" , using total width `w' (left filling blanks) */
-    Rprintf("%*s[%ld]", w-IndexWidth(i)-2, "", i);
+    Rprintf("%*s[%ld]", w-IndexWidth(i)-2, "", (long)i);
 }

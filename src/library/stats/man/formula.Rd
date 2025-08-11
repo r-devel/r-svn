@@ -94,11 +94,17 @@ as.formula(object, env = parent.frame())
   formulae, although there is no guarantee that all code using formulae
   will accept such non-syntactic names.
 
-  Most model-fitting functions accept formulae with right-hand-side
-  including the function \code{\link{offset}} to indicate terms with a
-  fixed coefficient of one.  Some functions accept other
-  \sQuote{specials} such as \code{strata} or \code{cluster} (see the
-  \code{specials} argument of \code{\link{terms.formula})}.
+  Most model-fitting functions accept formulae with right-hand side
+  containing calls to function \code{\link{offset}}.  These calls
+  indicate terms with coefficient fixed to one.  Some model-fitting
+  functions recognize other \dQuote{specials} like \code{strata} and
+  \code{cluster} (typically by setting the \code{specials} argument of
+  \code{\link{terms.formula}}).  Because specials are nothing more than
+  syntax, disambiguation using \code{\link{::}} or similar is nonsense
+  (even if packages happen to define so-named functions) and the result
+  is often a model that the user does not intend.  For example, the
+  formula \code{y ~ stats::offset(w) + x} does \emph{not} specify a
+  model in which the coefficient of \code{w} is fixed to one.
 
   There are two special interpretations of \code{.} in a formula.  The
   usual one is in the context of a \code{data} argument of model
@@ -165,7 +171,8 @@ as.formula(object, env = parent.frame())
 \seealso{
   \code{\link{~}}, \code{\link{I}}, \code{\link{offset}}.
 
-  For formula manipulation: \code{\link{terms}}, and \code{\link{all.vars}}.
+  For formula manipulation: \code{\link{update.formula}},
+  \code{\link{terms.formula}}, and \code{\link{all.vars}}.
   For typical use: \code{\link{lm}}, \code{\link{glm}}, and
   \code{\link{coplot}}.
   For formula construction: \code{\link{reformulate}}.

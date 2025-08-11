@@ -30,7 +30,7 @@
 
 # include <rlocale.h>
 
-int R_GE_getVersion()
+int R_GE_getVersion(void)
 {
     return R_GE_version;
 }
@@ -66,7 +66,11 @@ static GESystemDesc* registeredSystems[MAX_GRAPHICS_SYSTEMS];
 
 static void unregisterOne(pGEDevDesc dd, int systemNumber) {
     if (dd->gesd[systemNumber] != NULL) {
-	(dd->gesd[systemNumber]->callback)(GE_FinaliseState, dd, R_NilValue);
+        /* Defensive */
+        if (dd->gesd[systemNumber]->callback != NULL) {
+            (dd->gesd[systemNumber]->callback)(GE_FinaliseState, dd, 
+                                               R_NilValue);
+        }
 	free(dd->gesd[systemNumber]);
 	dd->gesd[systemNumber] = NULL;
     }
@@ -112,13 +116,12 @@ static void registerOne(pGEDevDesc dd, int systemNumber, GEcallback cb) {
 	(GESystemDesc*) calloc(1, sizeof(GESystemDesc));
     if (dd->gesd[systemNumber] == NULL)
 	error(_("unable to allocate memory (in GEregister)"));
+    dd->gesd[systemNumber]->callback = cb;
     result = cb(GE_InitState, dd, R_NilValue);
     if (isNull(result)) {
         /* tidy up */
         free(dd->gesd[systemNumber]);
 	error(_("unable to allocate memory (in GEregister)"));
-    } else {
-        dd->gesd[systemNumber]->callback = cb;
     }
 }
 
@@ -2888,7 +2891,7 @@ void GEdirtyDevice(pGEDevDesc dd)
     dd->dirty = TRUE;
 }
 
-void GEcleanDevice(pGEDevDesc dd)
+attribute_hidden void GEcleanDevice(pGEDevDesc dd)
 {
 #ifdef R_GE_DEBUG
     if (getenv("R_GE_DEBUG_dirty")) {
@@ -3195,7 +3198,7 @@ SEXP do_playSnapshot(SEXP call, SEXP op, SEXP args, SEXP env)
  ****************************************************************
  */
 
-SEXP attribute_hidden do_recordGraphics(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_recordGraphics(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP x, evalenv, retval;
     pGEDevDesc dd = GEcurrentDevice();
@@ -3281,7 +3284,7 @@ SEXP attribute_hidden do_recordGraphics(SEXP call, SEXP op, SEXP args, SEXP env)
  ****************************************************************
  */
 
-void GEonExit()
+void GEonExit(void)
 {
   /*
    * Run through all devices and turn graphics recording back on
@@ -3820,3 +3823,148 @@ void GEFillStroke(SEXP path, int rule, const pGEcontext gc, pGEDevDesc dd) {
     }
 }
 
+/*
+ * C API for graphics devices to interrogate glyphInfo and glyphFont SEXPs
+ *
+ * MUST match R structures in ../library/grDevices/R/glyph.R
+ */
+
+#define glyph_info_glyphs   0
+#define glyph_info_fonts    1
+
+SEXP R_GE_glyphInfoGlyphs(SEXP glyphInfo) {
+    return VECTOR_ELT(glyphInfo, glyph_info_glyphs);
+}
+SEXP R_GE_glyphInfoFonts(SEXP glyphInfo) {
+    return VECTOR_ELT(glyphInfo, glyph_info_fonts);
+}
+
+#define glyph_id            0
+#define glyph_x             1
+#define glyph_y             2
+#define glyph_font          3
+#define glyph_size          4
+#define glyph_colour        5
+#define glyph_rotation      6
+
+SEXP R_GE_glyphID(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_id);
+}
+SEXP R_GE_glyphX(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_x);
+}
+SEXP R_GE_glyphY(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_y);
+}
+SEXP R_GE_glyphFont(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_font);
+}
+SEXP R_GE_glyphSize(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_size);
+}
+SEXP R_GE_glyphColour(SEXP glyphs) {
+    return VECTOR_ELT(glyphs, glyph_colour);
+}
+SEXP R_GE_glyphRotation(SEXP glyphs) {
+  return VECTOR_ELT(glyphs, glyph_rotation);
+}
+Rboolean R_GE_hasGlyphRotation(SEXP glyphs) {
+  return LENGTH(glyphs) > glyph_rotation;
+}
+
+#define glyph_font_file     0
+#define glyph_font_index    1
+#define glyph_font_family   2
+#define glyph_font_weight   3
+#define glyph_font_style    4
+#define glyph_font_PSname   5
+#define glyph_font_var      6
+
+const char* R_GE_glyphFontFile(SEXP glyphFont) {
+    return CHAR(STRING_ELT(VECTOR_ELT(glyphFont, glyph_font_file), 0));
+}
+int R_GE_glyphFontIndex(SEXP glyphFont) {
+    return INTEGER(VECTOR_ELT(glyphFont, glyph_font_index))[0];
+}
+const char* R_GE_glyphFontFamily(SEXP glyphFont) {
+    return CHAR(STRING_ELT(VECTOR_ELT(glyphFont, glyph_font_family), 0));
+}
+double R_GE_glyphFontWeight(SEXP glyphFont) {
+    return REAL(VECTOR_ELT(glyphFont, glyph_font_weight))[0];
+}
+int R_GE_glyphFontStyle(SEXP glyphFont) {
+    return INTEGER(VECTOR_ELT(glyphFont, glyph_font_style))[0];
+}
+const char* R_GE_glyphFontPSname(SEXP glyphFont) {
+    return CHAR(STRING_ELT(VECTOR_ELT(glyphFont, glyph_font_PSname), 0));
+}
+
+int R_GE_glyphFontNumVar(SEXP glyphFont) {
+    return LENGTH(VECTOR_ELT(glyphFont, glyph_font_var));
+}
+
+/* Existence of names(glyphFont$fontVar) and 
+ * length(names) == length(glyphFont$fontVar) 
+ * should be guaranteed by R code
+ */
+const char* R_GE_glyphFontVarAxis(SEXP glyphFont, int index) {
+    int n;
+    SEXP fontVar, names;
+    const char* result;
+    PROTECT(fontVar = VECTOR_ELT(glyphFont, glyph_font_var));
+    /* Device should be calling R_GE_glyphFontNumVar() and therefore
+     * not asking for dumb stuff, but just in case.
+     */
+    n = LENGTH(fontVar);
+    if (index < 0 || index >= n) {
+        error(_("Index out of bounds"));
+    }
+    PROTECT(names = getAttrib(fontVar, R_NamesSymbol));
+    result = CHAR(STRING_ELT(names, index));
+    UNPROTECT(2);
+    return result;
+}
+
+double R_GE_glyphFontVarValue(SEXP glyphFont, int index) {
+    int n;
+    SEXP fontVar;
+    double result;
+    PROTECT(fontVar = VECTOR_ELT(glyphFont, glyph_font_var));
+    /* Device should be calling R_GE_glyphFontNumVar() and therefore
+     * not asking for dumb stuff, but just in case.
+     */
+    n = LENGTH(fontVar);
+    if (index < 0 || index >= n) {
+        error(_("Index out of bounds"));
+    }
+    result = REAL(fontVar)[index];
+    UNPROTECT(1);
+    return result;
+}
+
+const char* R_GE_glyphFontVarFormatted(SEXP glyphFont, int index) {
+    int n;
+    SEXP fontVar, varFormatted;
+    const char* result;
+    PROTECT(fontVar = VECTOR_ELT(glyphFont, glyph_font_var));
+    /* Device should be calling R_GE_glyphFontNumVar() and therefore
+     * not asking for dumb stuff, but just in case.
+     */
+    n = LENGTH(fontVar);
+    if (index < 0 || index >= n) {
+        error(_("Index out of bounds"));
+    }
+    PROTECT(varFormatted = getAttrib(fontVar, install("formatted")));
+    result = CHAR(STRING_ELT(varFormatted, index));
+    UNPROTECT(2);
+    return result;
+}
+
+void GEGlyph(int n, int *glyphs, double *x, double *y,
+             SEXP font, double size,
+             int colour, double rot, pGEDevDesc dd) {
+    if (dd->dev->deviceVersion >= R_GE_glyphs) {
+        dd->dev->glyph(n, glyphs, x, y, font, size,
+                       colour, rot, dd->dev);
+    }
+}

@@ -77,7 +77,7 @@ kruskal.test(x, \dots)
   one-way location analysis under normality assumptions; with Student's
   t test (\code{\link{t.test}}) as the special case for two samples.
 
-  \code{\link[coin:LocationTests]{wilcox_test}} in package
+  \code{\link[coin]{wilcox_test}} in package
   \CRANpkg{coin} for exact, asymptotic and Monte Carlo
   \emph{conditional} p-values, including in the presence of ties.
 }

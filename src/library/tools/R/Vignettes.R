@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Vignettes.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -273,15 +273,20 @@ function(package, dir, lib.loc = NULL,
             ## </NOTE>
             for (i in seq_along(result$weave)) {
                 file <- names(result$weave)[i]
-                output <- result$weave[i]
+                output <- result$weave[[i]]
                 if (inherits(output, "error"))
                     next
                 if (!vignette_is_tex(output))
                     next
+                ## Ensure that the vignette dir is in TEX/BIBINPUTS.
+                ## This will often fail, however, when checking from an
+                ## installed 'package', as bib files are usually not installed
                 .eval_with_capture({
                     result$latex[[file]] <- tryCatch({
-                       texi2pdf(file = output, clean = FALSE, quiet = TRUE)
-                       find_vignette_product(name, by = "texi2pdf", engine = engine)
+                       texi2pdf(file = output, clean = FALSE, quiet = TRUE,
+                                texinputs = vigns$dir)
+                       find_vignette_product(file_path_sans_ext(output),
+                                             by = "texi2pdf", engine = engine)
                     }, error = identity)
                 })
             }
@@ -380,8 +385,8 @@ function(package, dir, subdirs = NULL, lib.loc = NULL, output = FALSE,
     if(!dir.exists(docdir)) return(NULL)
 
     # Locate all vignette files
-    buildPkgs <- loadVignetteBuilder(dir, mustwork = FALSE)
-    engineList <- vignetteEngine(package = buildPkgs)
+    buildPkgs <- loadVignetteBuilder(dir, mustwork = FALSE, lib.loc = lib.loc)
+    engineList <- vignetteEngine(package = buildPkgs) # could be character()
 
     docs <- names <- engines <- patterns <- character()
     allFiles <- list.files(docdir, all.files = FALSE, full.names = TRUE)
@@ -487,12 +492,14 @@ function(package, dir, subdirs = NULL, lib.loc = NULL, output = FALSE,
 
 ### * buildVignettes
 ###
-### Run a weave and pdflatex on all vignettes of a package and try to
-### remove all temporary files that were created.
+### Run a weave and pdflatex on all vignettes of a package
+### (except for those named in 'skip', where TRUE means to skip vignettes
+### with unavailable \VignetteDepends, as used by R CMD check)
+### and try to remove all temporary files that were created.
 ### Exported version, used in R CMD build/check
 buildVignettes <-
     function(package, dir, lib.loc = NULL, quiet = TRUE, clean = TRUE,
-             tangle = FALSE, ser_elibs = NULL)
+             tangle = FALSE, skip = NULL, ser_elibs = NULL)
 {
     separate <- !is.null(ser_elibs)
     if (separate) elibs <- readRDS(ser_elibs)
@@ -516,23 +523,11 @@ buildVignettes <-
              domain = NA)
     }
 
-    ## Check for duplicated titles (which look silly on CRAN pages)
-    titles <- character()
-    for (d in vigns$docs) {
-        this <- c(.get_vignette_metadata(readLines(d, warn = FALSE),
-                                         "IndexEntry"), "")[1L]
-        titles <- c(titles, this)
+    if (isTRUE(skip)) { # look for unavailable \VignetteDepends
+        installed <- rownames(utils::installed.packages())
+    } else if (!is.null(skip)) {
+        if (isFALSE(skip)) skip <- NULL else stopifnot(is.character(skip))
     }
-    have_dup_titles <-
-        if (any(dup <- duplicated(titles))) {
-            dups <- unique(titles[dup])
-            message(ngettext(length(dups),
-                             "duplicated vignette title:",
-                             "duplicated vignette titles:"))
-            message(paste(.pretty_format(dups), collapse = "\n"))
-            message()
-            TRUE
-        } else FALSE
 
     ## unset SWEAVE_STYLEPATH_DEFAULT here to avoid problems
     Sys.unsetenv("SWEAVE_STYLEPATH_DEFAULT")
@@ -561,10 +556,27 @@ buildVignettes <-
     outputs <- character()
     sourceList <- list()
     startdir <- getwd()
+    skipped <- character()
     fails <- character()
     for(i in seq_along(vigns$docs)) {
         thisOK <- TRUE
         file <- basename(vigns$docs[i])
+        name <- vigns$names[i]
+        thisSKIP <- if (isTRUE(skip)) {
+                        vinfo <- vignetteInfo(file)
+                        length(missdeps <- vinfo$depends %w/o% installed) > 0
+                    } else name %in% skip
+        if (thisSKIP) {
+            msg <- if (isTRUE(skip)) .pretty_format2(
+                    sprintf("Note: skipping %s due to unavailable dependencies:",
+                            sQuote(file)),  # grepped in check
+                    missdeps)
+                else gettextf("Note: skipping %s", sQuote(file))
+            message(paste0(c(msg, ""), collapse = "\n"),
+                    domain = NA)
+            skipped <- c(skipped, file)
+            next
+        }
         enc <- vigns$encodings[i]
         if (enc == "non-ASCII") {
             message(gettextf("Error: Vignette '%s' is non-ASCII but has no declared encoding",
@@ -572,7 +584,6 @@ buildVignettes <-
             fails <- c(fails, file)
             next
         }
-        name <- vigns$names[i]
         engine <- vignetteEngine(vigns$engines[i])
 
         if (separate) {  # --- run in separate process
@@ -690,21 +701,11 @@ buildVignettes <-
         message()
     }
 
-
-    msg2 <- paste("Duplicate vignette titles.",
-                  "  Ensure that the %\\VignetteIndexEntry lines in the vignette sources",
-                  "  correspond to the vignette titles.",
-                  sep = "\n")
-
     ## Assert
-    if (length(fails) || (length(outputs) != length(vigns$docs))) {
+    if (length(fails) || (length(outputs) != (length(vigns$docs) - length(skipped)))) {
         msg <- "Vignette re-building failed."
-        if (have_dup_titles) msg <- paste0(msg, "\nError: ", msg2)
         stop(msg, domain = NA, call. = FALSE)
     }
-
-    if (have_dup_titles)
-        stop(msg2, domain = NA, call. = FALSE)
 
     vigns$outputs <- outputs
     vigns$sources <- sourceList
@@ -1057,19 +1058,22 @@ function(x, ...)
 
 ### * .writeVignetteHtmlIndex
 
-## NB SamplerCompare has a .Rnw file which produces no R code.
 .writeVignetteHtmlIndex <-
 function(pkg, con, vignetteIndex = NULL)
 {
-    ## FIXME: in principle we could need to set an encoding here
-    html <- c(HTMLheader("Vignettes and other documentation"),
+    html <- c(HTMLheader("Vignettes and other documentation",
+                         up = "../html/00Index.html",
+                         css = "../html/R.css", # installed since R 2.13.0
+                         ## relative paths to 'top' and 'logo' will only work
+                         ## for the (site-)library in RHOME (or dynamic help)
+                         Rhome = "../../.."),
               paste0("<h2>Vignettes from package '", pkg,"'</h2>"),
               if(NROW(vignetteIndex) == 0L) ## NROW(NULL) = 0
                   "The package contains no vignette meta-information."
               else {
                   vignetteIndex <- cbind(Package = pkg,
                                          as.matrix(vignetteIndex[, c("File", "Title", "PDF", "R")]))
-                  makeVignetteTable(vignetteIndex, depth = 3L)
+                  makeVignetteTable(vignetteIndex, depth = NULL)
               })
     otherfiles <- list.files(system.file("doc", package = pkg))
     if(NROW(vignetteIndex))
@@ -1186,6 +1190,7 @@ vignetteEngine <- local({
         key
     }
 
+    ## FIXME: return a character vector, not stop here.
     getEngine <- function(name, package) {
         if (missing(name)) {
             result <- as.list(registry)
@@ -1194,9 +1199,13 @@ vignetteEngine <- local({
                pkgs <- sapply(result, function(engine) engine$package)
                keep <- is.element(pkgs, package)
                if (!any(keep)) {
-                   stop(gettextf("None of packages %s have registered vignette engines",
-                                 paste(sQuote(package), collapse = ", ")),
-                        domain = NA)
+                   ## was stop() in R 4.4.0
+                   msg <-ngettext(length(package),
+                                  "Package %s does not have a registered vignette engine",
+                                  "None of packages %s have registered vignette engines")
+                   warning(sprintf(msg, paste(sQuote(package), collapse = ", ")),
+                           domain = NA, call. = FALSE)
+                   ## return character() below
                }
                result <- result[keep]
                pkgs <- pkgs[keep]
@@ -1312,7 +1321,7 @@ vignetteEngine <- local({
 })
 
 loadVignetteBuilder <-
-function(pkgdir, mustwork = TRUE)
+function(pkgdir, mustwork = TRUE, lib.loc = NULL)
 {
     pkgs <- .get_package_metadata(pkgdir)["VignetteBuilder"]
     if (is.na(pkgs))
@@ -1324,7 +1333,8 @@ function(pkgdir, mustwork = TRUE)
     pkgs <- unique(c(pkgs, "utils"))
 
     for (pkg in pkgs) {
-	res <- tryCatch(suppressPackageStartupMessages(loadNamespace(pkg)),
+	res <- tryCatch(suppressPackageStartupMessages(loadNamespace(pkg,
+                                                                     lib.loc = lib.loc)),
                         error = identity)
 	if (mustwork && inherits(res, "error"))
             stop(gettextf("vignette builder '%s' not found", pkg), domain = NA)
@@ -1363,7 +1373,7 @@ getVignetteInfo <- function(package = NULL, lib.loc = NULL, all = TRUE)
             entries <- readRDS(INDEX)
         if (NROW(entries) > 0) {
             # FIXME:  this test is unnecessary?
-            R <- if (is.null(entries$R)) rep.int("", NROW(entries)) else entries$R
+            R <- entries$R %||% rep.int("", NROW(entries))
             file <- basename(entries$File)
             pdf <- entries$PDF
             topic <- file_path_sans_ext(ifelse(R == "", ifelse(pdf == "", file, pdf), R))

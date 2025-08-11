@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2012-2019  The R Core Team
+ *  Copyright (C) 2012-2025  The R Core Team
  *  Copyright (C) 2003       The R Foundation
  *  Copyright (C) 1995-2002  Martin Maechler <maechler@stat.math.ethz.ch>
  *
@@ -213,9 +213,10 @@ R_xlen_t R_firstNA_dbl(const double x[], R_xlen_t n) {
 // .Call()ed from ../R/runmed.R
 SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 {
-    if (TYPEOF(sx) != REALSXP) error("numeric 'x' required");
-    double *x = REAL(sx), *xx;
     R_xlen_t n = XLENGTH(sx);
+    int nprot = 1;
+    if (!isReal(sx)) {sx = PROTECT(coerceVector(sx, REALSXP)); nprot++;}
+    double *x = REAL(sx), *xx;
     int type        = asInteger(stype),
 	k           = asInteger(sk),
 	end_rule    = asInteger(end),
@@ -225,13 +226,13 @@ SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 	firstNA = R_firstNA_dbl(x, n),
 	nn = n;
     if(print_level)
-	Rprintf("firstNA = %d%s.\n", firstNA,
+	Rprintf("firstNA = %lld%s.\n", (long long)firstNA,
 		(firstNA == 0) ? " <=> *no* NA/NaN" : "");
     if(firstNA) { // anyNA(x)
-	Rboolean NA_pos = TRUE;
+	bool NA_pos = true;
 	switch(na_action) {
         case NA_BIG_alternate_M:
-	    NA_pos = FALSE; // <<-- "M"inus: *not* positive
+	    NA_pos = false; // <<-- "M"inus: *not* positive
 	    // no break; --> continue
         case NA_BIG_alternate_P: {
 	    xx = (double *) R_alloc(n, sizeof(double));
@@ -259,8 +260,8 @@ SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 	    break;
 	}
 	case NA_FAIL:
-	    error(_("runmed(x, .., na.action=\"na.fail\"): have NAs starting at x[%ld]"),
-		  firstNA);
+	    error(_("runmed(x, .., na.action=\"na.fail\"): have NAs starting at x[%lld]"),
+		  (long long)firstNA);
 	default:
 	    error(_("runmed(): invalid 'na.action'"));
 	}
@@ -291,11 +292,11 @@ SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 	case NA_OMIT: { /* fill the shortened median[] series into the result,
 			   putting x[i] into places i where  ISNAN(x[i]) */
 	    if(print_level) {
-		Rprintf("na.omit: reduced n = nn = %d.\n", nn);
+		Rprintf("na.omit: reduced n = nn = %lld.\n", (long long)nn);
 		if(print_level >= 2) {
 		    Rprintf("median[] = ");
 		    for(R_xlen_t i=0; i < nn; i++) {
-			if(i % 20 == 0) Rprintf("\n[%d] ", i);
+			if(i % 20 == 0) Rprintf("\n[%lld] ", (long long)i);
 			Rprintf("%5g", median[i]);
 		    }
 		    Rprintf("\n");
@@ -315,6 +316,6 @@ SEXP runmed(SEXP sx, SEXP stype, SEXP sk, SEXP end, SEXP naAct, SEXP printLev)
 	default: error(_("na_action logic error (%d), please report!"), na_action);
 	}
     }
-    UNPROTECT(1);
+    UNPROTECT(nprot);
     return ans;
 }

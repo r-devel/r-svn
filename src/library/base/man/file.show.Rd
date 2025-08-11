@@ -6,8 +6,9 @@
 \name{file.show}
 \alias{file.show}
 \title{Display One or More Text Files}
-\description{Display one or more (plain) text files, in a platform
-  specific way, typically via a \sQuote{pager}.
+\description{
+  Display one or more (plain) text files, in a platform-specific way,
+  typically via a \sQuote{pager}.
 }
 \usage{
 file.show(\dots, header = rep("", nfiles),
@@ -17,7 +18,7 @@ file.show(\dots, header = rep("", nfiles),
 }
 \arguments{
   \item{\dots}{one or more character vectors containing the names of the
-    files to be displayed.  Paths with have \link{tilde expansion}.}
+    files to be displayed.  Paths will undergo \link{tilde expansion}.}
   \item{header}{character vector (of the same length as the number of files
     specified in \code{\dots}) giving a header for each file being
     displayed.  Defaults to empty strings.}
@@ -27,7 +28,7 @@ file.show(\dots, header = rep("", nfiles),
     and the file-specific header.}
   \item{delete.file}{should the files be deleted after display?  Used
     for temporary files.}
-  \item{pager}{the pager to be used: not used on all platforms}
+  \item{pager}{the pager to be used, see \sQuote{Details}.}
   \item{encoding}{character string giving the encoding to be assumed for
     the file(s).}
 }
@@ -66,10 +67,12 @@ file.show(\dots, header = rep("", nfiles),
 }
 \author{Ross Ihaka, Brian Ripley.}
 \seealso{
-  \code{\link{files}}, \code{\link{list.files}},
-  \code{\link{help}};
-  \code{\link{RShowDoc}} call \code{file.show()} for \code{type =
-  "text"}.  Consider \code{\link{getOption}("pdfviewer")} and
+  \code{\link{file.exists}}, \code{\link{list.files}}.
+
+  Text-type \code{\link{help}} and
+  \code{\link{RShowDoc}} call \code{file.show}.
+
+  Consider \code{\link{getOption}("pdfviewer")} and,
   e.g., \code{\link{system}} for displaying pdf files.
 
   \code{\link{file.edit}}.

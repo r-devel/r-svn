@@ -41,7 +41,7 @@ static void R_qsort_int_R(int *v, double *I, size_t i, size_t j);
 #endif
 
 /* R function  qsort(x, index.return) */
-SEXP attribute_hidden do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP x, sx;
     int indx_ret;
@@ -74,8 +74,11 @@ SEXP attribute_hidden do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    PROTECT(indx = allocVector(REALSXP, n));
 	    double *ix = REAL(indx);
 	    for(R_xlen_t i = 0; i < n; i++) ix[i] = (double) (i+1);
-	    if(x_int) R_qsort_int_R(ivx, ix, 1, n);
-	    else R_qsort_R(vx, ix, 1, n);
+	    // do not need to sort 0-length array
+	    if (n > 0) {
+		if(x_int) R_qsort_int_R(ivx, ix, 1, n);
+		else R_qsort_R(vx, ix, 1, n);
+	    }
 	} else
 #endif
 	{
@@ -83,8 +86,11 @@ SEXP attribute_hidden do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    int *ix = INTEGER(indx);
 	    int nn = (int) n;
 	    for(int i = 0; i < nn; i++) ix[i] = i+1;
-	    if(x_int) R_qsort_int_I(ivx, ix, 1, nn);
-	    else R_qsort_I(vx, ix, 1, nn);
+	    // do not need to sort 0-length array
+	    if (nn > 0) {
+		if(x_int) R_qsort_int_I(ivx, ix, 1, nn);
+		else R_qsort_I(vx, ix, 1, nn);
+	    }
 	}
 
 	SET_VECTOR_ELT(ans, 0, sx);
@@ -94,11 +100,14 @@ SEXP attribute_hidden do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	setAttrib(ans, R_NamesSymbol, ansnames);
 	UNPROTECT(4);
 	return ans;
-    } else {
-	if(x_int)
-	    R_qsort_int(ivx, 1, n);
-	else
-	    R_qsort(vx, 1, n);
+    } else { // not indx_ret
+	// do not need to sort 0-length array
+	if( n > 0) {
+	    if(x_int)
+		R_qsort_int(ivx, 1, n);
+	    else
+		R_qsort(vx, 1, n);
+	}
 
 	UNPROTECT(1);
 	return sx;
@@ -106,7 +115,7 @@ SEXP attribute_hidden do_qsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* These are exposed in Utils.h and are misguidely in the API */
+/* These are exposed in Utils.h and are misguidedly in the API */
 void F77_SUB(qsort4)(double *v, int *indx, int *ii, int *jj)
 {
     R_qsort_I(v, indx, *ii, *jj);

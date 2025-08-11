@@ -1,7 +1,7 @@
 #  File src/library/stats/R/nafns.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -63,9 +63,14 @@ na.omit.data.frame <- function(object, ...)
     n <- length(object)
     omit <- logical(nrow(object))
     vars <- seq_len(n)
+    update <- FALSE
     for(j in vars) {
 	x <- object[[j]]
-	if(!is.atomic(x)) next
+	update <- update || !is.null(attributes(x))
+	if(!is.atomic(x)) {
+	    update <- TRUE
+	    next
+	}
 	## variables are assumed to be either some sort of matrix, numeric,...
 	x <- is.na(x)
 	d <- dim(x)
@@ -75,14 +80,16 @@ na.omit.data.frame <- function(object, ...)
 	    for(ii in 1L:d[2L])
 		omit <- omit | x[, ii]
     }
-    xx <- object[!omit, , drop = FALSE]
     if (any(omit > 0L)) {
+	xx <- object[!omit, , drop = FALSE]
 	temp <- setNames(seq(omit)[omit],
 			 attr(object, "row.names")[omit])
 	attr(temp, "class") <- "omit"
 	attr(xx, "na.action") <- temp
-    }
-    xx
+	object <- xx
+    } else if (update) ## for now preserve previous behavior
+	object <- object[!omit, , drop = FALSE]
+    object
 }
 
 na.exclude <- function(object, ...) UseMethod("na.exclude")
@@ -117,9 +124,14 @@ na.exclude.data.frame <- function(object, ...)
     n <- length(object)
     omit <- logical(nrow(object))
     vars <- seq_len(n)
+    update <- FALSE
     for(j in vars) {
 	x <- object[[j]]
-	if(!is.atomic(x)) next
+	update <- update || !is.null(attributes(x))
+	if(!is.atomic(x)) {
+	    update <- TRUE
+	    next
+	}
 	## variables are assumed to be either some sort of matrix, numeric,...
 	x <- is.na(x)
 	d <- dim(x)
@@ -129,14 +141,16 @@ na.exclude.data.frame <- function(object, ...)
 	    for(ii in 1L:d[2L])
 		omit <- omit | x[, ii]
     }
-    xx <- object[!omit, , drop = FALSE]
     if (any(omit > 0L)) {
+	xx <- object[!omit, , drop = FALSE]
 	temp <- setNames(seq(omit)[omit],
 			 attr(object, "row.names")[omit])
 	attr(temp, "class") <- "exclude"
 	attr(xx, "na.action") <- temp
-    }
-    xx
+	object <- xx
+    } else if (update) ## for now preserve previous behavior
+	object <- object[!omit, , drop = FALSE]
+    object
 }
 
 naresid <- function(omit, x, ...) UseMethod("naresid")

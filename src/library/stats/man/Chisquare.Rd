@@ -1,6 +1,6 @@
 % File src/library/stats/man/Chisquare.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Chisquare}
@@ -29,14 +29,20 @@ rchisq(n, df, ncp = 0)
     is taken to be the number required.}
   \item{df}{degrees of freedom (non-negative, but can be non-integer).}
   \item{ncp}{non-centrality parameter (non-negative).}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
-    \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
+    \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}, unless for \code{df=0} and
+    when \code{ncp} is missing, where the central chi-squared
+    distribution function is based
+    on \code{\link{pgamma}()}; in this case, probabilities are
+    \eqn{P[X < x]} when \code{lower.tail} is true, and \eqn{P[X \ge x]}, otherwise.}
 }
 \value{
-  \code{dchisq} gives the density, \code{pchisq} gives the distribution
-  function, \code{qchisq} gives the quantile function, and \code{rchisq}
-  generates random deviates.
+  \code{dchisq} gives the density,
+  \code{pchisq} is the cumulative distribution function, and
+  \code{qchisq} is the quantile function of the chi-squared distribution.
+  \code{rchisq} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
 
@@ -74,8 +80,8 @@ rchisq(n, df, ncp = 0)
   Note that the degrees of freedom \code{df}\eqn{= n}, can be
   non-integer, and also \eqn{n = 0} which is relevant for
   non-centrality \eqn{\lambda > 0},
-  see Johnson \emph{et al} (1995, chapter 29).
-  In that (noncentral, zero df) case, the distribution is a mixture of a
+  see Johnson \abbr{et al.}\sspace(1995, chapter 29).
+  In that (noncentral, zero \abbr{df}) case, the distribution is a mixture of a
   point mass at \eqn{x = 0} (of size \code{pchisq(0, df=0, ncp=ncp)}) and
   a continuous part, and \code{dchisq()} is \emph{not} a density with
   respect to that mixture measure but rather the limit of the density
@@ -88,7 +94,7 @@ rchisq(n, df, ncp = 0)
   The central cases are computed via the gamma distribution.
 
   The non-central \code{dchisq} and \code{rchisq} are computed as a
-  Poisson mixture of central chi-squares (Johnson \emph{et al}, 1995, p.436).
+  Poisson mixture of central chi-squares (Johnson \abbr{et al.}, 1995, p.436).
 
   The non-central \code{pchisq} is for \code{ncp < 80} computed from
   the Poisson mixture of central chi-squares and for larger \code{ncp}
@@ -96,7 +102,7 @@ rchisq(n, df, ncp = 0)
 
   Ding, C. G. (1992)
   Algorithm AS275: Computing the non-central chi-squared
-  distribution function. \emph{Appl.Statist.}, \bold{41} 478--482.
+  distribution function. \emph{Applied Statistics}, \bold{41} 478--482.
 
   which computes the lower tail only (so the upper tail suffers from
   cancellation and a warning will be given when this is likely to be

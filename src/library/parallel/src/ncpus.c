@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2011-2018   The R Core Team.
+ *  Copyright (C) 2011-2023   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,9 +33,6 @@
 #endif
 
 typedef BOOL 
-(WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
-
-typedef BOOL 
 (WINAPI *LPFN_GLPI_EX)(LOGICAL_PROCESSOR_RELATIONSHIP,
                        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, PDWORD);
 
@@ -55,7 +52,7 @@ static DWORD CountSetBits(ULONG_PTR bitMask)
 }
 
 // Detect CPUs using GetLogicaProcessInformationEx, if available.
-static Rboolean ncpus_ex(int *ians)
+static bool ncpus_ex(int *ians)
 {
     LPFN_GLPI_EX glpi;
     BOOL done = FALSE;
@@ -72,7 +69,7 @@ static Rboolean ncpus_ex(int *ians)
 	GetProcAddress(GetModuleHandle(TEXT("kernel32")),
 		       "GetLogicalProcessorInformationEx");
     if (NULL == glpi)
-	return FALSE;
+	return false;
 
     /* count the number of logical processors using RelationGroup, counting
        bits in affinity masks would not work on 32-bit systems */
@@ -90,8 +87,8 @@ static Rboolean ncpus_ex(int *ians)
                 if (!buffer) error(_("memory allocation error"));
 
             } else
-		error("in reading processor information, probable cause: %d",
-		      GetLastError());
+		error("in reading processor information, probable cause: %lu",
+		      (unsigned long)GetLastError());
         } else
 	    done = TRUE;
     }
@@ -125,8 +122,8 @@ static Rboolean ncpus_ex(int *ians)
 		         malloc(returnLength);
                 if (!buffer) error(_("memory allocation error"));
             } else
-		error("in reading processor information, probable cause: %d",
-		      GetLastError());
+		error("in reading processor information, probable cause: %lu",
+		      (unsigned long)GetLastError());
         } else done = TRUE;
     }
 
@@ -159,28 +156,18 @@ SEXP ncpus(SEXP virtual)
 	UNPROTECT(1);
 	return ans;
     }
-	
-    LPFN_GLPI glpi;
+
     BOOL done = FALSE;
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = NULL;
     DWORD returnLength = 0;
     DWORD logicalProcessorCount = 0;
-    DWORD numaNodeCount = 0;
     DWORD processorCoreCount = 0;
     DWORD byteOffset = 0;
-    /* XP SP3 and later, but reports physical CPUs before Vista */
     /* Reports only processors within the group in which R is running */
-    glpi = (LPFN_GLPI) 
-	GetProcAddress(GetModuleHandle(TEXT("kernel32")),
-		       "GetLogicalProcessorInformation");
-    if (NULL == glpi) {
-	warning("GetLogicalProcessorInformation is not supported on this OS.");
-        return ans;
-    }
 
     while (!done) {
-        DWORD rc = glpi(buffer, &returnLength);
+        DWORD rc = GetLogicalProcessorInformation(buffer, &returnLength);
         if (rc == FALSE) {
             if (buffer) {
 		free(buffer);
@@ -189,7 +176,9 @@ SEXP ncpus(SEXP virtual)
             if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
                 buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION) malloc(returnLength);
                 if (!buffer) error(_("memory allocation error"));
-            } else error("in reading processor information, probable cause: %d", GetLastError());
+            } else
+		error("in reading processor information, probable cause: %lu",
+		      (unsigned long)GetLastError());
         } else done = TRUE;
     }
 
@@ -200,7 +189,6 @@ SEXP ncpus(SEXP virtual)
         switch (ptr->Relationship) {
         case RelationNumaNode:
             // Non-NUMA systems report a single record of this type.
-            numaNodeCount++;
             break;
 
         case RelationProcessorCore:

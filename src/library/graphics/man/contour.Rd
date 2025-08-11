@@ -53,7 +53,7 @@ contour(x, \dots)
     for the contour labels.  If a character vector of length 2 then
     Hershey vector fonts are used for the contour labels. The first
     element of the vector selects a typeface and the second element
-    selects a fontindex (see \code{\link{text}} for more information).
+    selects a font index (see \code{\link{text}} for more information).
     The default is \code{NULL} on graphics devices with high-quality
     rotation of text and \code{c("sans serif", "plain")} otherwise.}
   \item{xlim, ylim, zlim}{x-, y- and z-limits for the plot.}
@@ -91,7 +91,7 @@ contour(x, \dots)
   Vector (of length \eqn{> 1}) \code{col}, \code{lty}, and \code{lwd} are
   applied along \code{levels} and recycled, see the Examples.
 
-  Alternatively, use \code{\link[lattice:levelplot]{contourplot}} from the
+  Alternatively, use \code{\link[lattice]{contourplot}} from the
   \CRANpkg{lattice} package where the \code{\link{formula}} notation allows
   to use vectors \code{x}, \code{y}, and \code{z} of the same length.
 
@@ -111,7 +111,7 @@ contour(x, \dots)
 
   \code{\link{contourLines}}, \code{\link{filled.contour}}
   for color-filled contours,
-  \code{\link[lattice:levelplot]{contourplot}} (and
+  \code{\link[lattice]{contourplot}} (and
   \code{\link[lattice]{levelplot}}) from package \CRANpkg{lattice}.
   Further, \code{\link{image}} and the graphics demo which can be
   invoked as \code{demo(graphics)}.

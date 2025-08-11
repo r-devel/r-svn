@@ -1,7 +1,7 @@
 #  File src/library/utils/R/indices.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -42,8 +42,7 @@ packageDescription <-
     if(is.null(pkgpath)) pkgpath <- ""
 
     if(pkgpath == "") {
-        libs <- if(is.null(lib.loc)) .libPaths() else lib.loc
-        for(lib in libs)
+        for(lib in lib.loc %||% .libPaths())
             if(file.access(file.path(lib, pkg), 5) == 0L) {
                 pkgpath <- file.path(lib, pkg)
                 break
@@ -74,6 +73,12 @@ packageDescription <-
     } else file <- ""
 
     if(nzchar(file)) {
+        ## Could have found a pkgpath matching pkg ignoring case
+        ## (PR#18751):
+        if(is.null(pkgname <- desc[["Package"]]) || (pkgname != pkg)) {
+            warning(gettextf("no package '%s' was found", pkg), domain = NA)
+            return(NA)
+        }
         ## read the Encoding field if any
         enc <- desc[["Encoding"]]
         if(!is.null(enc) && !is.na(encoding)) {
@@ -83,9 +88,9 @@ packageDescription <-
 	    if(encoding != enc) { # try to translate from 'enc' to 'encoding' --------
 		## might have an invalid encoding ...
 		newdesc <- try(lapply(desc, iconv, from = enc, to = encoding))
-		dOk <- function(nd) !inherits(nd, "error") && !anyNA(nd)
+		dOk <- function(nd) !inherits(nd, "try-error") && !anyNA(nd)
 		ok <- dOk(newdesc)
-		if(!ok) # try again
+		if(!ok && !endsWith(encoding, "//TRANSLIT")) # try again
 		    ok <- dOk(newdesc <- try(lapply(desc, iconv, from = enc,
 						    to = paste0(encoding,"//TRANSLIT"))))
 		if(!ok) # try again
@@ -176,6 +181,8 @@ packageDate <- function(pkg, lib.loc = NULL,
 	desc = packageDescription(pkg, lib.loc=lib.loc, fields=date.fields))
 {
     useDesc <- is.list(desc) && length(names(desc)) >= 1
+    if(!useDesc && is.na(desc)) # also got warning
+        return(.Date(NA))
     for (fld in date.fields) {
 	res <- if(useDesc) {
 		   r <- desc[[fld]]
@@ -189,7 +196,7 @@ packageDate <- function(pkg, lib.loc = NULL,
 				NA_character_
 			    })
 	       else as.Date(res, tryFormats=tryFormats,
-			    optional = TRUE)# NA instead of errror
+			    optional = TRUE)# NA instead of error
 	if (!is.na(res))
 	    break
     }

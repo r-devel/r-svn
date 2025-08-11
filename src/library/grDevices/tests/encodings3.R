@@ -1,0 +1,64 @@
+### Tests of transliteration in PDF
+
+## macOS >= 14 transliterates many chars, and R 4.4.0 does many of
+## these for other platforms.  Some were tested in encodings.R, the
+## rest here.
+
+## Silence substitution warnings to make this more diff-able.
+Sys.setenv("_R_SILENT_PDF_SUBSTITUTION_" = "true")
+
+options(warn = 1L)
+
+### only do this in a UTF-8 locale
+if (!l10n_info()[["UTF-8"]]) {
+    warning("encodings3.R requires a UTF-8 locale")
+    q("no")
+}
+
+
+## Two-char fixups
+two <- c(0x2260, 0x226A, 0x226B, 0x2025, 0x203C, 0x2122)
+two <- intToUtf8(two, TRUE)
+cat(two, sep ="  "); cat("\n")
+
+## Three-char fixups
+three <- c(0x2194, 0x21D4, 0x22D8, 0x22D9, 0x2026, 0x22EF)
+three <- intToUtf8(three, TRUE)
+cat(three, sep ="  "); cat("\n")
+## 0x22EF is transliterated to 3x 'middle dot' in a suitable encoding
+
+## Four-char fixups
+four <- c(0x33C2, 0x33D8)
+four <- intToUtf8(four, TRUE)
+cat(four, sep ="  "); cat("\n")
+
+## musl will substitute * for all of these characters in pdf().
+## hard-code encoding ISOLatin1.enc to match reference output
+## (e.g.  Windows default WinAnsi.enc, so CP-1252, has a special character
+##  for U+2122, while ISOLatin1.enc does not)
+pdf("Encoding3.pdf", width = 7, height = 7, compress = FALSE,
+    encoding="ISOLatin1.enc")
+plot(1:10, 1:10, type = "n")
+text(0.5+seq_along(two), 2, two, adj = c(0,0))
+text(0.5+seq_along(three), 3, three, adj = c(0,0))
+text(0.5+seq_along(four), 4, four, adj = c(0,0))
+
+## Now try centring
+plot(1:10, 1:10, type = "n")
+text(0.5+seq_along(two), 2, two)
+text(0.5+seq_along(three), 3, three)
+text(0.5+seq_along(four), 4, four)
+dev.off()
+
+if(!capabilities("cairo")) q("no")
+cairo_pdf("cairo_pdf-encodings3.pdf", width = 7, height = 7, onefile = TRUE)
+plot(1:10, 1:10, type = "n")
+text(0.5+seq_along(two), 2, two, adj = c(0,0))
+text(0.5+seq_along(three), 3, three, adj = c(0,0))
+text(0.5+seq_along(four), 4, four, adj = c(0,0))
+plot(1:10, 1:10, type = "n")
+text(0.5+seq_along(two), 2, two)
+text(0.5+seq_along(three), 3, three)
+text(0.5+seq_along(four), 4, four)
+dev.off()
+

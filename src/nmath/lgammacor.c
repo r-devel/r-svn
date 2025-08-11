@@ -25,11 +25,12 @@
  *  DESCRIPTION
  *
  *    Compute the log gamma correction factor for x >= 10 so that
+ *                                               ---------
  *
  *    log(gamma(x)) = .5*log(2*pi) + (x-.5)*log(x) -x + lgammacor(x)
  *
- *    [ lgammacor(x) is called	Del(x)	in other contexts (e.g. dcdflib)]
- *
+ *    [ lgammacor(x) is called	Del(x)	in other contexts (e.g. dcdflib)], or  stirlerr(x)
+ *				~~~~~~					       ~~~~~~~~~~~
  *  NOTES
  *
  *    This routine is a translation into C of a Fortran subroutine
@@ -43,7 +44,7 @@
 
 #include "nmath.h"
 
-double attribute_hidden lgammacor(double x)
+attribute_hidden double lgammacor(double x)
 {
     const static double algmcs[15] = {  // below, nalgm = 5 ==> only the first 5 are used!
 	+.1666389480451863247205729650822e+0,
@@ -63,24 +64,30 @@ double attribute_hidden lgammacor(double x)
 	+.1276642195630062933333333333333e-30
     };
 
-    double tmp;
-
 /* For IEEE double precision DBL_EPSILON = 2^-52 = 2.220446049250313e-16 :
  *   xbig = 2 ^ 26.5
  *   xmax = DBL_MAX / 48 =  2^1020 / 3 */
 #define nalgm 5
-#define xbig  94906265.62425156
-#define xmax  3.745194030963158e306
+/*        NB: -- we'd need nalgm = 6 terms for full precision, but the result is
+	  ==     always used in +/- terms of considerably larger size ~ x*log(x)
+   (we could even *decrease* nalgm for larger y)
+*/
 
-    if (x < 10)
+#define xbig  94906265.62425156
+
+    if (x < 10) // possibly consider stirlerr()
 	ML_WARN_return_NAN
+#ifndef IEEE_754
+#   define xmax  3.745194030963158e306
     else if (x >= xmax) {
 	ML_WARNING(ME_UNDERFLOW, "lgammacor");
 	/* allow to underflow below */
     }
+#endif
     else if (x < xbig) {
-	tmp = 10 / x;
+	double tmp = 10 / x;
 	return chebyshev_eval(tmp * tmp * 2 - 1, algmcs, nalgm) / x;
     }
+    // x >= xbig
     return 1 / (x * 12);
 }

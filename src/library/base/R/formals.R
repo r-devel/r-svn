@@ -1,7 +1,7 @@
 #  File src/library/base/R/formals.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,9 @@ alist <- function (...) as.list(sys.call())[-1L]
             warning("using the first element of 'value' of type \"expression\"")
         value <- value[[1L]]
     }
-    as.function(c(as.list(formals(fun)), list(value)), envir)
+    as.function(c(formals(fun), 
+                  if(is.null(value) || is.atomic(value) || is.list(value)) list(value) else value),
+                envir)
 }
 
 `formals<-` <- function (fun, envir = environment(fun), value)
@@ -45,6 +47,7 @@ alist <- function (...) as.list(sys.call())[-1L]
     if(!is.function(fun)) warning("'fun' is not a function") # TODO[2017]: stop()
     bd <- body(fun)
     as.function(c(value,
-                  if(is.null(bd) || is.list(bd)) list(bd) else bd),
+                  ## is.null(.)  || is.atomic(.) checking for _constant_ :
+                  if(is.null(bd) || is.atomic(bd) || is.list(bd)) list(bd) else bd),
                 envir)
 }

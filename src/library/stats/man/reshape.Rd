@@ -1,6 +1,6 @@
 % File src/library/stats/man/reshape.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2012 R Core Team
+% Copyright 1995-2021 R Core Team
 % Distributed under GPL 2 or later
 
 \name{reshape}
@@ -202,6 +202,8 @@ reshape(data, varying = NULL, v.names = NULL, timevar = "time",
   \code{\link{unlist}}. \code{\link{xtabs}} and
   \code{\link{as.data.frame.table}} for creating contingency tables and
   converting them back to data frames.
+
+  \code{vignette("reshape")} for detailed examples.
 }
 \examples{
 summary(Indometh) # data in long format
@@ -221,7 +223,7 @@ reshape(wide, idvar = "Subject", varying = list(2:12),
 
 ## times need not be numeric
 df <- data.frame(id = rep(1:4, rep(2,4)),
-                 visit = I(rep(c("Before","After"), 4)),
+                 visit = rep(c("Before","After"), 4),
                  x = rnorm(4), y = runif(4))
 df
 reshape(df, timevar = "visit", idvar = "id", direction = "wide")

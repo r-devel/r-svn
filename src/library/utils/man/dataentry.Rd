@@ -13,9 +13,6 @@ de(\dots, Modes = list(), Names = NULL)
 \alias{data.entry}
 \alias{dataentry}
 \alias{de}
-\alias{de.ncols}
-\alias{de.restore}
-\alias{de.setup}
 \description{
   A spreadsheet-like editor for entering or editing data.
 }
@@ -35,18 +32,19 @@ de(\dots, Modes = list(), Names = NULL)
   Notes section.
 
   \code{data.entry} has side effects, any changes made in the
-  spreadsheet are reflected in the variables.  The functions \code{de},
-  \code{de.ncols}, \code{de.setup} and \code{de.restore} are designed to
-  help achieve these side effects. If the user passes in a matrix,
+  spreadsheet are reflected in the variables.  Function \code{de} and
+  the internal functions \code{\link{de.ncols}}, \code{\link{de.setup}}
+  and \code{\link{de.restore}} are designed to 
+  help achieve these side effects.  If the user passes in a matrix,
   \code{X} say, then the matrix is broken into columns before
   \code{dataentry} is called. Then on return the columns are collected
   and glued back together and the result assigned to the variable
-  \code{X}.  If you don't want this behaviour use dataentry directly.
+  \code{X}.  If you don't want this behaviour use \code{dataentry} directly.
 
   The primitive function is \code{dataentry}. It takes a list of
   vectors of possibly different lengths and modes (the second argument)
   and opens a spreadsheet with these variables being the columns.
-  The columns of the dataentry window are returned as vectors in a
+  The columns of the data entry window are returned as vectors in a
   list when the spreadsheet is closed.
 
   \code{de.ncols} counts the number of columns which are supplied as arguments
@@ -68,7 +66,7 @@ de(\dots, Modes = list(), Names = NULL)
   the X11-based implementation under Unix.
 #endif
 #ifdef windows
-  the GraphApp-based implementation under Windows.
+  the \I{GraphApp}-based implementation under Windows.
 #endif
 
   You can navigate around the grid using the cursor keys or by clicking
@@ -78,16 +76,16 @@ de(\dots, Modes = list(), Names = NULL)
   to the rows or columns currently in use.
 
   There are alternative ways to navigate using the keys.  Return and
-  (keypad) Enter and LineFeed all move down. Tab moves right and
+  (keypad) Enter and \I{LineFeed} all move down. Tab moves right and
   Shift-Tab move left.  Home moves to the top left.
 
-  PageDown or Control-F moves down a page, and PageUp or
+  \I{PageDown} or Control-F moves down a page, and \I{PageUp} or
   Control-B up by a page.  End will show the last used column and the
   last few rows used (in any column).
 
   Using any other key starts an editing process on the currently
   selected cell: moving away from that cell enters the edited value
-  whereas Esc cancels the edit and restores the previous value.  When
+  whereas \I{Esc} cancels the edit and restores the previous value.  When
   the editing process starts the cell is cleared.
 #ifdef windows
   The cursor changes to an I-beam to indicate that the cell is in enter mode.
@@ -96,7 +94,7 @@ de(\dots, Modes = list(), Names = NULL)
   (the default) only letters making up a valid number (including
   \code{-.eE}) are accepted, and entering an invalid edited value (such
   as blank) enters \code{NA} in that cell.  The last entered value can
-  be deleted using the  BackSpace or Del(ete) key.  Only a limited
+  be deleted using the \I{BackSpace} or \I{Del(ete)} key.  Only a limited
   number of characters (currently 29) can be entered in a cell, and if
   necessary only the start or end of the string will be displayed, with the
   omissions indicated by \code{>} or \code{<}.  (The start is shown
@@ -148,7 +146,7 @@ de(\dots, Modes = list(), Names = NULL)
 
   Columns can be resized by selecting and dragging a line (the cursor
   will change) within limits: columns must be between 4 and 50 chars wide.
-  The Autosize item on the popup menu will resize the currently selected
+  The \I{Autosize} item on the popup menu will resize the currently selected
   column.
 #endif
 #ifdef unix

@@ -3,7 +3,6 @@
 % Copyright 2011 R Core Team
 % Distributed under GPL 2 or later
 
-
 \name{psnice}
 \alias{psnice}
 \title{Get or Set the Priority (Niceness) of a Process}
@@ -39,9 +38,9 @@ psnice(pid = Sys.getpid(), value = NA_integer_)
   Windows has a slightly different concept of \sQuote{priority
     classes}.  We have mapped the idle priority to niceness \code{19},
   \sQuote{below normal} to \code{15}, normal to \code{0}, \sQuote{above
-    normal} to \code{-5} and \sQuote{realtime} to \code{-10}.  Unlike
+    normal} to \code{-5} and \sQuote{\I{realtime}} to \code{-10}.  Unlike
   Unix-alikes, a non-privileged user can increase the priority class on
-  Windows (but using \sQuote{realtime} is inadvisable).
+  Windows (but using \sQuote{\I{realtime}} is inadvisable).
 }
 \value{
   An integer vector of \emph{previous} niceness values,
@@ -55,4 +54,4 @@ psnice(pid = Sys.getpid(), value = NA_integer_)
   \code{\link{pskill}}.
 }
 
-\keyword{ utility }
+\keyword{ utilities }

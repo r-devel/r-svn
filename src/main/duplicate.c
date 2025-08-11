@@ -23,7 +23,7 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
+#include <Defn.h>
 
 #include <R_ext/RS.h> /* S4 bit */
 
@@ -60,11 +60,11 @@
   else { \
       R_xlen_t __this; \
       type *__to = fun(to), *__from = fun(from); \
-      do { \
+      while(__n__ > 0) { \
 	 __this = (__n__ < 1000000) ? __n__ : 1000000; \
 	 memcpy(__to, __from, __this * sizeof(type));  \
 	 __n__ -= __this;  __to += __this; __from += __this; \
-      } while(__n__ > 0); \
+      } \
   } \
   DUPLICATE_ATTRIB(to, from, deep);		 \
   COPY_TRUELENGTH(to, from); \
@@ -76,7 +76,7 @@
   PROTECT(from); \
   PROTECT(to = allocVector(TYPEOF(from), __n__)); \
   if (__n__ == 1) fun(to)[0] = fun(from)[0]; \
-  else memcpy(fun(to), fun(from), __n__ * sizeof(type)); \
+  else if (__n__) memcpy(fun(to), fun(from), __n__ * sizeof(type)); \
   DUPLICATE_ATTRIB(to, from, deep); \
   COPY_TRUELENGTH(to, from); \
   UNPROTECT(2); \
@@ -117,19 +117,20 @@ static SEXP duplicate1(SEXP, Rboolean deep);
 #ifdef R_PROFILING
 static unsigned long duplicate_counter = (unsigned long)-1;
 
-unsigned long  attribute_hidden
+attribute_hidden unsigned long
 get_duplicate_counter(void)
 {
     return duplicate_counter;
 }
 
-void attribute_hidden reset_duplicate_counter(void)
+attribute_hidden void reset_duplicate_counter(void)
 {
     duplicate_counter = 0;
     return;
 }
 #endif
 
+// In Rinternals.h
 SEXP duplicate(SEXP s){
     SEXP t;
 
@@ -192,7 +193,7 @@ SEXP lazy_duplicate(SEXP s) {
     case CPLXSXP:
     case RAWSXP:
     case STRSXP:
-    case S4SXP:
+    case OBJSXP:
 	ENSURE_NAMEDMAX(s);
 	break;
     default:
@@ -216,7 +217,7 @@ static SEXP duplicate_child(SEXP s, Rboolean deep) {
    FALSE. Could be made more efficient, at least with partial
    inlining, but probably not worth while until it starts showing up
    significantly in profiling. Based on code from Michael Lawrence. */
-Rboolean R_cycle_detected(SEXP s, SEXP child) {
+attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
     if (s == child) {
 	switch (TYPEOF(child)) {
 	case NILSXP:
@@ -354,9 +355,9 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case PROMSXP:
 	return s;
 	break;
-    case S4SXP:
+    case OBJSXP:
 	PROTECT(s);
-	PROTECT(t = allocS4Object());
+	PROTECT(t = R_allocObject());
 	DUPLICATE_ATTRIB(t, s, deep);
 	UNPROTECT(2);
 	break;
@@ -405,6 +406,7 @@ void copyVector(SEXP s, SEXP t)
     }
 }
 
+// In Rinternals.h
 void copyListMatrix(SEXP s, SEXP t, Rboolean byrow)
 {
     int nr = nrows(s), nc = ncols(s);
@@ -440,6 +442,7 @@ static R_INLINE SEXP VECTOR_ELT_LD(SEXP x, R_xlen_t i)
     return lazy_duplicate(VECTOR_ELT(x, i));
 }
 
+// In Rinternals.h
 void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 {
     int nr = nrows(s), nc = ncols(s);
@@ -485,7 +488,7 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 }
 
 #define COPY_WITH_RECYCLE(VALTYPE, TNAME) \
-void attribute_hidden \
+attribute_hidden void \
 xcopy##TNAME##WithRecycle(VALTYPE *dst, VALTYPE *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc) { \
 							\
     if (nsrc >= n) { /* no recycle needed */		\
@@ -515,7 +518,7 @@ COPY_WITH_RECYCLE(Rbyte, Raw)		/* xcopyRawWithRecycle */
 COPY_WITH_RECYCLE(double, Real)		/* xcopyRealWithRecycle */
 
 #define COPY_ELT_WITH_RECYCLE(TNAME, GETELT, SETELT) \
-void attribute_hidden \
+attribute_hidden void \
 xcopy##TNAME##WithRecycle(SEXP dst, SEXP src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc) { \
 							\
     if (nsrc >= n) { /* no recycle needed */		\
@@ -542,7 +545,7 @@ COPY_ELT_WITH_RECYCLE(String, STRING_ELT, SET_STRING_ELT) /* xcopyStringWithRecy
 COPY_ELT_WITH_RECYCLE(Vector, VECTOR_ELT_LD, SET_VECTOR_ELT) /* xcopyVectorWithRecycle */
 
 #define FILL_WITH_RECYCLE(VALTYPE, TNAME) \
-void attribute_hidden xfill##TNAME##MatrixWithRecycle(VALTYPE *dst, VALTYPE *src,	\
+attribute_hidden void xfill##TNAME##MatrixWithRecycle(VALTYPE *dst, VALTYPE *src,	\
     R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows,		\
     R_xlen_t cols, R_xlen_t nsrc) {				\
 								\
@@ -557,7 +560,7 @@ FILL_WITH_RECYCLE(Rbyte, Raw)		/* xfillRawMatrixWithRecycle */
 FILL_WITH_RECYCLE(double, Real)		/* xfillRealMatrixWithRecycle */
 
 #define FILL_ELT_WITH_RECYCLE(TNAME, GETELT, SETELT) \
-void attribute_hidden xfill##TNAME##MatrixWithRecycle(SEXP dst, SEXP src,	\
+attribute_hidden void xfill##TNAME##MatrixWithRecycle(SEXP dst, SEXP src,	\
     R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows,		\
     R_xlen_t cols, R_xlen_t nsrc) {				\
 								\
@@ -571,7 +574,7 @@ FILL_ELT_WITH_RECYCLE(Vector, VECTOR_ELT, SET_VECTOR_ELT) /* xfillVectorMatrixWi
 /* For duplicating before modifying attributes duplicate_attr tries to
    wrap a larger vector object with an ALTREP wrapper, and falls back
    to duplicate or shallow_duplicate if the object can't be
-   wrapped. The size threshold used seems to be reaonable but could be
+   wrapped. The size threshold used seems to be reasonable but could be
    tested more extensively. */
 #define WRAP_THRESHOLD 64
 static SEXP duplicate_attr(SEXP x, Rboolean deep)

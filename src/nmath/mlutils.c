@@ -1,6 +1,6 @@
 /*
  *  Mathlib : A C Library of Special Functions
- *  Copyright (C) 1998-2006 The R Core Team
+ *  Copyright (C) 1998-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,8 @@ double R_pow(double x, double y) /* = x ^ y */
 	return(1.);
     if(x == 0.) {
 	if(y > 0.) return(0.);
-	/* y < 0 */return(ML_POSINF);
+	else if(y < 0) return(ML_POSINF);
+	else return(y); /* y is NA or NaN, we assert */
     }
     if (R_FINITE(x) && R_FINITE(y))
 	return(pow(x,y));
@@ -73,7 +74,7 @@ double R_pow(double x, double y) /* = x ^ y */
 	    return((y < 0.)? 0. : ML_POSINF);
 	else {			/* (-Inf) ^ y */
 	    if(R_FINITE(y) && y == floor(y)) /* (-Inf) ^ n */
-		return((y < 0.) ? 0. : (myfmod(y,2.) ? x  : -x));
+		return (y < 0.) ? 0. : (myfmod(y,2.) != 0 ? x  : -x);
 	}
     }
     if(!R_FINITE(y)) {
@@ -104,12 +105,25 @@ double R_pow_di(double x, int n)
     return pow;
 }
 
+/* It is not clear why these are being defined in standalone nmath:
+ * but that they are is stated in the R-admin manual.
+ *
+ * In R NA_REAL is a specific NaN computed during initialization.
+ */
+#if defined(__clang__) && defined(NAN)
+// C99 (optionally) has NAN, which is a float but will coerce to double.
+double NA_REAL = NAN;
+#else
+// ML_NAN is defined as (0.0/0.0) in nmath.h
+// Fails to compile in Intel ics 2025.0, Apple clang 17, LLVM clang 20
 double NA_REAL = ML_NAN;
+#endif
+
 double R_PosInf = ML_POSINF, R_NegInf = ML_NEGINF;
 
 #include <stdio.h>
 #include <stdarg.h>
-void attribute_hidden REprintf(const char *format, ...)
+attribute_hidden void REprintf(const char *format, ...)
 {
     va_list(ap);
     va_start(ap, format);

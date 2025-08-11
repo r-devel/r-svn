@@ -27,15 +27,14 @@
              }, where = where)
     ## some classes in methods package are unions--now they can be officially
     setClassUnion("OptionalFunction", c("function", "NULL"), where)
-    setClassUnion("PossibleMethod", c("function", "MethodDefinition"), where)
-    clList <- c("ClassUnionRepresentation", "OptionalFunction",
-                "PossibleMethod")
+    ## rather in ./MethodsListClass.R  .InitMethod...(): setClassUnion("PossibleMethod", .....)
+    clList <- c("ClassUnionRepresentation", "OptionalFunction")
     assign(".SealedClasses", c(get(".SealedClasses", where), clList), where)
 }
 
 setClassUnion <- function(name, members = character(), where = topenv(parent.frame())) {
     if(length(members)>0) {
-        membersDefined <- sapply(members, isClass, where = as.environment(where))
+        membersDefined <- vapply(members, isClass, NA, where = as.environment(where))
         if(!all(membersDefined))
             stop(gettextf("the member classes must be defined: not true of %s",
                           paste(.dQ(as(members[!membersDefined], "character")), collapse=", ")), domain = NA)
@@ -47,7 +46,7 @@ setClassUnion <- function(name, members = character(), where = topenv(parent.fra
     failed <- character()
     ## the prototype of the union will be from the first non-virtual
     ## subclass, except that we prefer NULL if "NULL" is a subclass
-    hasNull <- match("NULL", members, 0)
+    hasNull <- match("NULL", members, 0L)
     if(hasNull)
         members <- c("NULL", members[-hasNull])
     for(what in members) {

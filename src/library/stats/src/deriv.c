@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *  Copyright (C) 2004-2017   The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -26,14 +26,8 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include <Defn.h>  // for deparse1
+#include "statsErr.h"
 
 static SEXP ParenSymbol;
 static SEXP PlusSymbol;
@@ -77,7 +71,7 @@ static SEXP Log1MExpSymbol;
 static SEXP Log1PMxSymbol;
 */
 
-static Rboolean Initialized = FALSE;
+static bool Initialized = false;
 
 
 static void InitDerivSymbols(void)
@@ -126,7 +120,7 @@ static void InitDerivSymbols(void)
     Log1PMxSymbol = install("log1pmx");      # log1p(x)-x
 */
 
-    Initialized = TRUE;
+    Initialized = true;
 }
 
 static SEXP Constant(double x)
@@ -487,8 +481,7 @@ static SEXP D(SEXP expr, SEXP var)
 	    UNPROTECT(4);
 	}
 	else if (CAR(expr) == SqrtSymbol) {
-	    PROTECT(expr1 = allocList(3));
-	    SET_TYPEOF(expr1, LANGSXP);
+	    PROTECT(expr1 = allocLang(3));
 	    SETCAR(expr1, PowerSymbol);
 	    SETCADR(expr1, CADR(expr));
 	    SETCADDR(expr1, Constant(0.5));
@@ -781,13 +774,13 @@ static SEXP AddParens(SEXP expr)
 
 SEXP doD(SEXP args)
 {
-    SEXP expr, var;
     args = CDR(args);
+    SEXP expr;
     if (isExpression(CAR(args))) expr = VECTOR_ELT(CAR(args), 0);
     else expr = CAR(args);
     if (!(isLanguage(expr) || isSymbol(expr) || isNumeric(expr) || isComplex(expr)))
-        error(_("expression must not be type '%s'"), type2char(TYPEOF(expr)));
-    var = CADR(args);
+        error(_("expression must not be type '%s'"), R_typeToChar(expr));
+    SEXP var = CADR(args);
     if (!isString(var) || length(var) < 1)
 	error(_("variable must be a character string"));
     if (length(var) > 1)
@@ -802,7 +795,7 @@ SEXP doD(SEXP args)
 
 /* ------ FindSubexprs ------ and ------ Accumulate ------ */
 
-static void NORET InvalidExpression(char *where)
+NORET static void InvalidExpression(char *where)
 {
     error(_("invalid expression in '%s'"), where);
 }

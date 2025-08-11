@@ -1,6 +1,6 @@
 % File src/library/stats/man/quantile.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{quantile}
@@ -17,7 +17,9 @@
 quantile(x, \dots)
 
 \method{quantile}{default}(x, probs = seq(0, 1, 0.25), na.rm = FALSE,
-         names = TRUE, type = 7, digits = 7, \dots)
+         names = TRUE, type = 7, digits = 7,
+         fuzz = if(type == 7L) 0 else 4 * .Machine$double.eps,
+         \dots)
 }
 \arguments{
   \item{x}{numeric vector whose sample quantiles are wanted, or an
@@ -36,6 +38,9 @@ quantile(x, \dots)
   \item{digits}{used only when \code{names} is true: the precision to use
     when formatting the percentages.  In \R versions up to 4.0.x, this had
     been set to \code{max(2, getOption("digits"))}, internally.}
+  \item{fuzz}{small non-negative number to protect against rounding errors
+    when \code{j <- \link{floor}(np + m)}, (\eqn{np} \dQuote{a version of}
+    \code{n * probs}, see the formula below), is computed.}
   \item{\dots}{further arguments passed to or from other methods.}
 }
 \details{
@@ -57,12 +62,17 @@ quantile(x, \dots)
   There is a method for the date-time classes (see
   \code{"\link{POSIXt}"}).  Types 1 and 3 can be used for class
   \code{"\link{Date}"} and for ordered factors.
+
+  \code{fuzz := 4 * .Machine$double.eps} has been hard coded and used for
+  \code{type = 4,5,6, 8,9} since \code{type}s were introduced, % r30628, 2004-08-12
+  and is used, since \R 4.5.0, also for the other types (but with default
+  \code{0} for the default \code{type = 7} for back compatibility reasons).
 }
 \section{Types}{
   \code{quantile} returns estimates of underlying distribution quantiles
   based on one or two order statistics from the supplied elements in
   \code{x} at probabilities in \code{probs}.  One of the nine quantile
-  algorithms discussed in Hyndman and Fan (1996), selected by
+  algorithms discussed in \bibcitet{R:Hyndman+Fan:1996}, selected by
   \code{type}, is employed.
 
   All sample quantiles are defined as weighted averages of
@@ -71,12 +81,12 @@ quantile(x, \dots)
   \deqn{Q_{i}(p) = (1 - \gamma)x_{j} + \gamma x_{j+1}}{Q[i](p) = (1 - \gamma) x[j] + \gamma x[j+1],}
   where \eqn{1 \le i \le 9},
   \eqn{\frac{j - m}{n} \le p < \frac{j - m + 1}{n}}{(j-m)/n \le p < (j-m+1)/n},
-  \eqn{x_{j}}{x[j]} is the \eqn{j}th order statistic, \eqn{n} is the
+  \eqn{x_{j}}{x[j]} is the \eqn{j}-th order statistic, \eqn{n} is the
   sample size, the value of \eqn{\gamma} is a function of
   \eqn{j = \lfloor np + m\rfloor}{j = floor(np + m)} and \eqn{g = np + m - j},
   and \eqn{m} is a constant determined by the sample quantile type.
 
-  \strong{Discontinuous sample quantile types 1, 2, and 3}
+\subsection{Discontinuous sample quantile types 1, 2, and 3}{
 
   For types 1, 2 and 3, \eqn{Q_i(p)}{Q[i](p)} is a discontinuous
   function of \eqn{p}, with \eqn{m = 0} when \eqn{i = 1} and \eqn{i =
@@ -87,36 +97,37 @@ quantile(x, \dots)
       \eqn{\gamma = 0} if \eqn{g = 0}, and 1 otherwise.}
     \item{Type 2}{Similar to type 1 but with averaging at discontinuities.
       \eqn{\gamma = 0.5} if \eqn{g = 0}, and 1 otherwise (SAS default, see
-      Wicklin(2017)).}
+      \bibcitet{R:Wicklin:2017}).}
     \item{Type 3}{Nearest even order statistic (SAS default till ca. 2010).
       \eqn{\gamma = 0} if \eqn{g = 0} and \eqn{j} is even,
       and 1 otherwise.}
   }
 
-  \strong{Continuous sample quantile types 4 through 9}
+}
+\subsection{Continuous sample quantile types 4 through 9}{
 
   For types 4 through 9, \eqn{Q_i(p)}{Q[i](p)} is a continuous function
   of \eqn{p}, with \eqn{\gamma = g}{gamma = g} and \eqn{m} given below. The
   sample quantiles can be obtained equivalently by linear interpolation
   between the points \eqn{(p_k,x_k)}{(p[k],x[k])} where \eqn{x_k}{x[k]}
-  is the \eqn{k}th order statistic.  Specific expressions for
+  is the \eqn{k}-th order statistic.  Specific expressions for
   \eqn{p_k}{p[k]} are given below.
 
   \describe{
     \item{Type 4}{\eqn{m = 0}. \eqn{p_k = \frac{k}{n}}{p[k] = k / n}.
-      That is, linear interpolation of the empirical cdf.
+      That is, linear interpolation of the empirical \abbr{cdf}.
     }
 
     \item{Type 5}{\eqn{m = 1/2}.
       \eqn{p_k = \frac{k - 0.5}{n}}{p[k] = (k - 0.5) / n}.
       That is a piecewise linear function where the knots are the values
-      midway through the steps of the empirical cdf.  This is popular
+      midway through the steps of the empirical \abbr{cdf}.  This is popular
       amongst hydrologists.
     }
 
     \item{Type 6}{\eqn{m = p}. \eqn{p_k = \frac{k}{n + 1}}{p[k] = k / (n + 1)}.
       Thus \eqn{p_k = \mbox{E}[F(x_{k})]}{p[k] = E[F(x[k])]}.
-      This is used by Minitab and by SPSS.
+      This is used by \I{Minitab} and by SPSS.
     }
 
     \item{Type 7}{\eqn{m = 1-p}.
@@ -138,31 +149,25 @@ quantile(x, \dots)
       the expected order statistics if \code{x} is normally distributed.
     }
   }
-  Further details are provided in Hyndman and Fan (1996) who recommended type 8.
+}
+
+  Further details are provided in \bibcitet{R:Hyndman+Fan:1996} who
+  recommended type 8.
   The default method is type 7, as used by S and by \R < 2.0.0.
-  Makkonen argues for type 6, also as already proposed by Weibull in 1939.
+  \bibcitet{R:Makkonen+Pajari:2014} argue for type 6, also as already
+  proposed by Weibull in 1939.
   The Wikipedia page contains further information about availability of
   these 9 types in software.
 }
 \author{
-  of the version used in \R >= 2.0.0, Ivan Frohne and Rob J Hyndman.
+  of the version used in \R >= 2.0.0, Ivan Frohne and Rob J Hyndman;
+  tweaks, notably use of \code{fuzz}, by the R Core Team.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988,
+    R:Langford:2006}
 
-  Hyndman, R. J. and Fan, Y. (1996) Sample quantiles in statistical
-  packages, \emph{American Statistician} \bold{50}, 361--365.
-  \doi{10.2307/2684934}.
-
-  Wicklin, R. (2017) Sample quantiles: A comparison of 9 definitions; SAS Blog.
-  \url{https://blogs.sas.com/content/iml/2017/05/24/definitions-sample-quantiles.html}
-
-  %% Makkonen, L. and Pajari, M. (2014)  Defining Sample Quantiles by the True
-  %% Rank Probability. \emph{Journal of Probability and Statistics; Hindawi Publ.Corp.}
-  %% \doi{10.1155/2014/326579}
-  %%
   Wikipedia: \url{https://en.wikipedia.org/wiki/Quantile#Estimating_quantiles_from_a_sample}
 }
 \seealso{

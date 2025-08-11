@@ -32,7 +32,7 @@ mckill(process, signal = 2L)
     \code{select} should be a list of processes and only those from the
     list that are active will be returned.}
   \item{child}{child process (object of the class \code{"childProcess"}) or a
-    process ID (pid).  See also \sQuote{Details}.}
+    process ID (\abbr{pid}).  See also \sQuote{Details}.}
   \item{timeout}{timeout (in seconds, fractions supported) to wait
     for a response before giving up.}
   \item{children}{list of child processes or a single child process
@@ -53,9 +53,9 @@ mckill(process, signal = 2L)
     are serialized before sending just as any other objects
     (suitable for passing evaluation results).}
   \item{process}{process (object of the class \code{process}) or a
-    process ID (pid)}
-  \item{signal}{integer: signal to send.  Values of 2 (SIGINT), 9
-    (SIGKILL) and 15 (SIGTERM) are pretty much portable, but for maximal
+    process ID (\abbr{pid})}
+  \item{signal}{integer: signal to send.  Values of 2 (\I{SIGINT}), 9
+    (\I{SIGKILL}) and 15 (\I{SIGTERM}) are pretty much portable, but for maximal
     portability use \code{tools::\link{SIGTERM}} and so on.}
 }
 \details{
@@ -90,7 +90,7 @@ mckill(process, signal = 2L)
   if the child no longer exists (no children at all for
   \code{readChildren}).
 
-  \code{selectChildren} returns \code{TRUE} is the timeout was reached,
+  \code{selectChildren} returns \code{TRUE} if the timeout was reached,
   \code{FALSE} if an error occurred (e.g., if the master process was
   interrupted) or an integer vector of process IDs with children that
   have data available, or \code{NULL} if there are no children.
@@ -105,7 +105,7 @@ mckill(process, signal = 2L)
 \author{
   Simon Urbanek and R Core.
 
-  Derived from the \pkg{multicore} package formerly on \acronym{CRAN}.
+  Derived from the \pkg{multicore} package formerly on \abbr{CRAN}.
 }
 \section{Warning}{
   This is a very low-level interface for expert use only: it not
@@ -116,7 +116,7 @@ mckill(process, signal = 2L)
   \eqn{2^{31} - 1}{2^31 - 1} bytes (and still are on 32-bit platforms).
 }
 \seealso{
-  \code{\link{mcfork}}, \code{\link{sendMaster}}, \code{\link{mcparallel}}
+  \code{\link{mcfork}}, \code{\link{mcparallel}}
 }
 \examples{\dontrun{
 p  <- mcparallel(scan(n = 1, quiet = TRUE))

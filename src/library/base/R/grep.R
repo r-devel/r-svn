@@ -57,6 +57,11 @@ function(pattern, x, ignore.case = FALSE, perl = FALSE,
     }
 }
 
+grepv <-
+function(pattern, x, ignore.case = FALSE, perl = FALSE,
+         value = TRUE, fixed = FALSE, useBytes = FALSE, invert = FALSE)
+    grep(pattern, x, ignore.case, perl, value, fixed, useBytes, invert)
+
 grepl <-
 function(pattern, x, ignore.case = FALSE, perl = FALSE,
          fixed = FALSE, useBytes = FALSE)
@@ -303,7 +308,7 @@ function(x = 0.1)
     ## for the TRE regaparams struct.
 
     ## Note that TRE allows for possibly different (integer) costs for
-    ## insertions, deletions and substitions, and allows for specifying
+    ## insertions, deletions and substitutions, and allows for specifying
     ## separate bounds for these numbers as well as the total number of
     ## "errors" (transformations) and the total cost.
     ##
@@ -559,7 +564,9 @@ function(x, m, invert = FALSE, value)
             value <- rep_len(value, np)
         }
         y <- y[pos]
-        x[pos] <- paste0(sapply(y, `[`, 1L), value, sapply(y, `[`, 2L))
+        x[pos] <- paste0(vapply(y, `[`, "", 1L),
+                         value,
+                         vapply(y, `[`, "", 2L))
         return(x)
     }
 

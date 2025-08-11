@@ -1,7 +1,9 @@
-toHTML <- function(x, ...) UseMethod("toHTML")
-
+#  File src/library/tools/R/toHTML.R
+#  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
+
+toHTML <- function(x, ...) UseMethod("toHTML")
 
 HTMLheader <-
 function(title="R", logo=TRUE,
@@ -120,9 +122,9 @@ function(x, ...)
 
     vchunks <- split(x, x$Version)
     vchunks <-
-        vchunks[order(as.numeric_version(sub(" *patched", ".1",
-                                             names(vchunks))),
-                      decreasing = TRUE)]
+        vchunks[order(numeric_version(sub(" *patched", ".1", names(vchunks)),
+                                      strict = FALSE), # "R-devel" -> NA
+                      na.last = FALSE, decreasing = TRUE)]
     dates <- vapply(vchunks, function(v) v$Date[1L], "")
     vheaders <- sprintf("<h2>Changes in version %s%s</h2>",
                         names(vchunks),
@@ -185,6 +187,7 @@ function(x, ...)
 # Argument "depth" below says how far down in the hierarchy
 # we are starting from, e.g. /library/stats/html/mean.html
 # is depth 3
+# .writeVignetteHtmlIndex() uses depth=NULL to omit the directory prefix.
 
 makeVignetteTable <- function(vignettes, depth=2) {
     out <- c('<table style="width: 100%;">',
@@ -201,7 +204,8 @@ makeVignetteTable <- function(vignettes, depth=2) {
 	File  <- vignettes[i, "File"]
 	R     <- vignettes[i, "R"]
 	pkg   <- vignettes[i, "Package"]
-        root <- c(rep.int("../", depth), "library/", pkg, "/doc/")
+        root <- if (!is.null(depth))
+                    c(rep.int("../", depth), "library/", pkg, "/doc/")
 	link  <- c('<a href="', root,
 		  if (nchar(Outfile)) Outfile else File, '">',
 		  pkg, "::", topic, '</a>')
@@ -326,9 +330,9 @@ function(x, header = TRUE, ...)
         ## (octal \000 to \037 and \177 to \237).
         ## Replace these by hex bytes.
         s <- .replace_chars_by_hex_subs(s, invalid_HTML_chars_re)
-        s <- gsub("&", "&amp;", s, fixed = TRUE)
-        s <- gsub("<", "&lt;",  s, fixed = TRUE)
-        s <- gsub(">", "&gt;",  s, fixed = TRUE)
+        s <- fsub("&", "&amp;", s)
+        s <- fsub("<", "&lt;",  s)
+        s <- fsub(">", "&gt;",  s)
         if(a) {
             ## Some people have <http://something> as recommended for
             ## in-text URLs.
@@ -340,7 +344,7 @@ function(x, header = TRUE, ...)
             ## Need to ignore results of the above translation ...
             ## Regexp based on Perl HTML::TextToHTML, note that the dash
             ## must be last ...
-            s <- .gsub_with_transformed_matches("([^>\"])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
+            s <- .gsub_with_transformed_matches("([[:space:]])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
                                                 "\\1<a href=\"%s\">\\2</a>",
                                                 s,
                                                 urlify,
@@ -403,4 +407,144 @@ function(x, header = TRUE, ...)
         "</p>",
         do.call(c, lapply(x, format_entry_as_BibTeX))),
       footer)
+}
+
+
+## Similar to HTMLheader, but for internal use (for now at
+## least). Refactors creation of HTML header and footer as previously
+## done by Rd2HTML(), to allow re-use.
+
+HTMLcomponents <- function(title = "R", logo = FALSE,
+                           up = NULL,
+                           top = NULL, # file.path(Rhome, "doc/html/index.html"),
+                           Rhome = "",
+                           css = file.path(Rhome, "doc/html/R.css"),
+                           headerTitle = title,
+                           outputEncoding = "UTF-8",
+
+                           dynamic = FALSE, prism = TRUE,
+                           doTexMath = TRUE, texmath = "katex",
+
+                           ## URLs to be used for static HTML (only)
+                           ## Ignored if dynamic = TRUE
+
+                           KATEX_JS_STATIC = "https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.js",
+                           KATEX_CSS_STATIC = "https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.css",
+                           MATHJAX_JS_STATIC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js",
+                           MATHJAX_CONFIG_STATIC = file.path(Rhome, "doc/html/mathjax-config.js"),
+                           PRISM_JS_STATIC = c("https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js",
+                                               "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-r.min.js"),
+                           PRISM_CSS_STATIC = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css",
+                           language = NA_character_
+                           )
+{
+    header <- character(0)
+    footer <- character(0)
+    addh <- function(...) { header <<- c(header, ...) }
+    addf <- function(...) { footer <<- c(footer, ...) }
+
+    ## KaTeX / Mathjax resources (if they are used)
+    if (doTexMath && texmath == "katex") {
+        KATEX_JS <-
+            if (dynamic) "/doc/html/katex/katex.js"
+            else KATEX_JS_STATIC
+        KATEX_CSS <- if (dynamic) "/doc/html/katex/katex.css"
+                     else KATEX_CSS_STATIC
+        KATEX_CONFIG <-
+            if (dynamic) "/doc/html/katex-config.js"
+            else c(r"(const macros = { "\\R": "\\textsf{R}", "\\mbox": "\\text", "\\code": "\\texttt"};)",
+                   "function processMathHTML() {",
+                   "    var l = document.getElementsByClassName('reqn');", 
+                   "    for (let e of l) { katex.render(e.textContent, e, { throwOnError: false, macros }); }", 
+                   "    return;",
+                   "}")
+    }
+    if (doTexMath && texmath == "mathjax") {
+        MATHJAX_JS <-
+            if (dynamic && requireNamespace("mathjaxr", quietly = TRUE))
+                "/library/mathjaxr/doc/mathjax/es5/tex-chtml-full.js"
+            else
+                MATHJAX_JS_STATIC
+        MATHJAX_CONFIG <-
+            if (dynamic) "/doc/html/mathjax-config.js"
+            else MATHJAX_CONFIG_STATIC
+    }
+    if (prism) {
+        PRISM_JS <- 
+            if (dynamic) "/doc/html/prism.js"
+            else PRISM_JS_STATIC
+        PRISM_CSS <- 
+            if (dynamic) "/doc/html/prism.css"
+            else PRISM_CSS_STATIC
+    }
+
+    addh('<!DOCTYPE html>',
+         if(!is.na(language))
+             sprintf('<html lang="%s">', language)
+         else
+             "<html>",
+         '<head><title>')
+
+    ## headtitle <- strwrap(.Rd_format_title(.Rd_get_title(Rd)),
+    ##                      width=65, initial="R: ")
+    ## if (length(headtitle) > 1) headtitle <- paste0(headtitle[1], "...")
+
+    addh(htmlify(headerTitle))
+    addh('</title>\n',
+         '<meta http-equiv="Content-Type" content="text/html; charset=',
+         mime_canonical_encoding(outputEncoding),
+         '" />\n')
+    addh('<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />\n')
+    ## include CSS from prismjs.com for code highlighting
+    if (prism && length(PRISM_CSS) == 1L)
+        addh('<link href="', urlify(PRISM_CSS), '" rel="stylesheet" />\n')
+    if (doTexMath) {
+        if (texmath == "katex") {
+            addh('<link rel="stylesheet" href="', urlify(KATEX_CSS), '">\n',
+                if (dynamic) paste0('<script type="text/javascript" src="', urlify(KATEX_CONFIG), '"></script>\n')
+                else paste0('<script type="text/javascript">\n', paste(KATEX_CONFIG, collapse = "\n"), '</script>\n'),
+                '<script defer src="', urlify(KATEX_JS), '"\n    onload="processMathHTML();"></script>\n')
+        }
+        else if (texmath == "mathjax") {
+            addh('<script type="text/javascript" src="', urlify(MATHJAX_CONFIG), '"></script>\n',
+                '<script type="text/javascript" async src="', urlify(MATHJAX_JS), '"></script>\n')
+        }
+    }
+    addh(paste0('<link rel="stylesheet" type="text/css" href="', css, '" />\n'),
+         '</head><body>',
+         '<div class="container">')
+
+
+    ## Footer:
+    addf('\n</div>\n') # closes div.container
+    ## include JS from prismjs.com for code highlighting
+    if (prism && length(PRISM_JS) > 0L)
+        for (u in PRISM_JS)
+            addf('<script src="', urlify(u), '"></script>\n')
+    addf('</body></html>\n')
+
+    ## Optional part of header (title + logo, up, top)
+
+    if (!nzchar(title)) {
+        addh('<h1>', title)
+        if (logo)
+            addh(paste0('<img class="toplogo" src="',
+                        file.path(Rhome, 'doc/html/Rlogo.svg'),
+                        '" alt="[R logo]" />'))
+        addh('</h1>', '<hr/>')
+    }
+    if (!is.null(up) || !is.null(top)) {
+    	addh('<div style="text-align: center;">')
+    	if (!is.null(up))
+    	    addh(paste0('<a href="', up, '"><img class="arrow" src="',
+                        file.path(Rhome, 'doc/html/left.jpg'),
+                        '" alt="[Up]" /></a>'))
+    	if (!is.null(top))
+    	    addh(paste0('<a href="', top, '"><img class="arrow" src="',
+                        file.path(Rhome, 'doc/html/up.jpg'),
+                        '" alt="[Top]" /></a>'))
+    	addh('</div>')
+    }
+
+    return(list(header = header, footer = footer))
 }

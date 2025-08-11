@@ -1,6 +1,6 @@
 % File src/library/stats/man/wilcox.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{wilcox.test}
@@ -22,7 +22,7 @@ wilcox.test(x, \dots)
             conf.int = FALSE, conf.level = 0.95,
             tol.root = 1e-4, digits.rank = Inf, \dots)
 
-\method{wilcox.test}{formula}(formula, data, subset, na.action, \dots)
+\method{wilcox.test}{formula}(formula, data, subset, na.action = na.pass, \dots)
 }
 \arguments{
   \item{x}{numeric vector of data values.  Non-finite (e.g., infinite or
@@ -52,7 +52,8 @@ wilcox.test(x, \dots)
     is a numeric variable giving the data values and \code{rhs} either
     \code{1} for a one-sample or paired test or a factor
     with two levels giving the corresponding groups. If \code{lhs} is of
-    class \code{"Pair"} and \code{rhs} is \code{1}, a paired test is done}
+    class \code{"\link{Pair}"} and \code{rhs} is \code{1}, a paired test
+    is done, see Examples.}
   \item{data}{an optional matrix or data frame (or similar: see
     \code{\link{model.frame}}) containing the variables in the
     formula \code{formula}.  By default the variables are taken from
@@ -60,9 +61,10 @@ wilcox.test(x, \dots)
   \item{subset}{an optional vector specifying a subset of observations
     to be used.}
   \item{na.action}{a function which indicates what should happen when
-    the data contain \code{NA}s.  Defaults to
-    \code{getOption("na.action")}.}
-  \item{\dots}{further arguments to be passed to or from methods.}
+    the data contain \code{\link{NA}}s.}
+  \item{\dots}{further arguments to be passed to or from methods.
+    For the \code{formula} method, this includes arguments of the
+    default method, but not \code{paired}.}
 }
 \details{
   The formula interface is only applicable for the 2-sample tests.
@@ -105,7 +107,7 @@ wilcox.test(x, \dots)
 
   If exact p-values are available, an exact confidence interval is
   obtained by the algorithm described in Bauer (1972), and the
-  Hodges-Lehmann estimator is employed.  Otherwise, the returned
+  \I{Hodges}-\I{Lehmann} estimator is employed.  Otherwise, the returned
   confidence interval and point estimate are based on normal
   approximations.  These are continuity-corrected for the interval but
   \emph{not} the estimate (as the correction depends on the
@@ -142,11 +144,10 @@ wilcox.test(x, \dots)
   The literature is not unanimous about the definitions of the Wilcoxon
   rank sum and Mann-Whitney tests.  The two most common definitions
   correspond to the sum of the ranks of the first sample with the
-  minimum value subtracted or not: \R subtracts and S-PLUS does not,
-  giving a value which is larger by \eqn{m(m+1)/2} for a first sample
-  of size \eqn{m}.  (It seems Wilcoxon's original paper used the
-  unadjusted sum of the ranks but subsequent tables subtracted the
-  minimum.)
+  minimum value (\eqn{m(m+1)/2} for a first sample of size \eqn{m})
+  subtracted or not: \R subtracts.  It seems \I{Wilcoxon}'s original paper
+  used the unadjusted sum of the ranks but subsequent tables subtracted
+  the minimum.
 
   \R's value can also be computed as the number of all pairs
   \code{(x[i], y[j])} for which \code{y[j]} is not greater than
@@ -173,7 +174,7 @@ wilcox.test(x, \dots)
 \seealso{
   \code{\link{psignrank}}, \code{\link{pwilcox}}.
 
-  \code{\link[coin:LocationTests]{wilcox_test}} in package
+  \code{\link[coin]{wilcox_test}} in package
   \CRANpkg{coin} for exact, asymptotic and Monte Carlo
   \emph{conditional} p-values, including in the presence of ties.
 

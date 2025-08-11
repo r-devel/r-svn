@@ -1,7 +1,7 @@
 #  File src/library/methods/R/MethodsListClass.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,18 +16,12 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
+## 'FIXME' the function name is a *misnomer* since  MethodsList s are defunct
 .InitMethodsListClass <- function(envir)
 {
-    if(exists(classMetaName("EmptyMethodsList"), envir))
+    if(exists(classMetaName("PossibleMethod"), envir))
         return(FALSE)
     clList <- character()
-    ## Even though it is defunct from R 3.2.0, other functions using it are
-    ## only deprecated: So we define it and give .MlistDeprecated() messages there:
-    setClass("MethodsList",
-             representation(methods = "list", argument = "name", allMethods = "list"),
-             where = envir); clList <- c(clList, "MethodsList")
-    setClass("EmptyMethodsList", representation(argument = "name", sublist = "list"),
-             where = envir); clList <- c(clList, "EmptyMethodsList")
 
     ## the classes for method definitions
     setClass("PossibleMethod", where = envir); clList <- c(clList, "PossibleMethod")
@@ -89,12 +83,16 @@
     TRUE
 }
 
+
+## Skeleton for the generic below
+loadMethod <- function(method, fname, envir) method
+
 ## some initializations that need to be done late
 .InitMethodDefinitions <- function(envir) {
     assign("asMethodDefinition",
            function(def, signature = list(.anyClassName), sealed = FALSE, fdef = def) {
         ## primitives can't take slots, but they are only legal as default methods
-        ## and the code will just have to accomodate them in that role, w/o the
+        ## and the code will just have to accommodate them in that role, w/o the
         ## MethodDefinition information.
         ## NULL is a valid def, used to remove methods.
         switch(typeof(def),
@@ -125,9 +123,10 @@
     setGeneric("loadMethod", where = envir)
     setMethod("loadMethod", "MethodDefinition",
               function(method, fname, envir) {
-                  assign(".target", method@target, envir = envir)
+                  assign(".target",  method@target,  envir = envir)
                   assign(".defined", method@defined, envir = envir)
-                  assign(".Method", method, envir = envir)
+                  assign(".Generic", if(missing(fname)) method@generic else fname, envir = envir)
+                  assign(".Method",  method, envir = envir)
                   method
               }, where = envir)
     setMethod("loadMethod", "MethodWithNext",
@@ -200,10 +199,6 @@
                       value[[what]] <- args[[what]]
                   value
               }, where = envir)
-    ## from 2.11.0, the MethodsList class is deprecated
-    ## from 3.2.0, it is defunct
-    setMethod("initialize", "MethodsList", function(.Object, ...) .MlistDefunct(),
-              where = envir)
 
     ## make sure body(m) <- .... leaves a method as a method
     setGeneric("body<-", where = envir)

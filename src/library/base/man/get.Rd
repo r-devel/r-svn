@@ -1,6 +1,6 @@
 % File src/library/base/man/get.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{get}
@@ -67,6 +67,7 @@ dynGet(x, ifnotfound = , minframe = 1L, inherits = FALSE)
   all refer to any numeric type, \code{"symbol"} and \code{"name"} are
   equivalent \emph{but} \code{"language"} must be used (and not
   \code{"call"} or \code{"("}).
+  Currently, \code{mode = "S4"} and \code{mode = "object"} are equivalent.
 
   For \code{mget}, the values of \code{mode} and \code{ifnotfound} can
   be either the same length as \code{x} or of length 1.  The argument
@@ -81,6 +82,9 @@ dynGet(x, ifnotfound = , minframe = 1L, inherits = FALSE)
 }
 \value{
   For \code{get}, the object found.  If no object is found an error results.
+  If the object is the internal missing argument (aka \code{R_MissingArg}
+  in C), a \emph{classed} error, class \code{"getMissingError"} is
+  signalled.
 
   For \code{mget}, a named list of objects (found or specified \emph{via}
   \code{ifnotfound}).
@@ -115,5 +119,20 @@ get("\%o\%")
 ## test mget
 e1 <- new.env()
 mget(letters, e1, ifnotfound = as.list(LETTERS))
+
+## very low-level: get()ing the "missing argument", e.g., inside browser()
+ls.str(E <- environment((\(m) \(){})()))  # m : <missing>
+str(E$m) # (empty) symbol
+ee <- tryCatch(get("m",E), error = function(e) e)
+str(ee)
+ee
+stopifnot(exprs = {
+    inherits(ee, "missingArgError") # and
+    inherits(ee, "getMissingError")
+    ##
+    inherits(tryCatch(get0("m", E), error=identity), "getMissingError")
+    is.symbol(E$m) # => valid argument to get(), and *also* gets 'missing arg':
+    inherits(tryCatch(get ( E$m ) , error=identity), "getMissingError")
+})
 }
 \keyword{data}

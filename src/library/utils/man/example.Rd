@@ -1,6 +1,6 @@
 % File src/library/utils/man/example.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{example}
@@ -8,16 +8,17 @@
 \title{Run an Examples Section from the Online Help}
 \description{
   Run all the \R code from the \bold{Examples} part of \R's online help
-  topic \code{topic} with possible exceptions \code{dontrun},
-  \code{dontshow}, and \code{donttest}, see \sQuote{Details} below.
+  topic \code{topic}, with possible exceptions due to \verb{\dontrun},
+  \verb{\dontshow}, and \verb{\donttest} tags, see \sQuote{Details} below.
 }
 \usage{
 example(topic, package = NULL, lib.loc = NULL,
         character.only = FALSE, give.lines = FALSE, local = FALSE,
-        type = c("console", "html"), echo = TRUE, 
+        type = c("console", "html"), echo = TRUE,
         verbose = getOption("verbose"),
         setRNG = FALSE, ask = getOption("example.ask"),
         prompt.prefix = abbreviate(topic, 6),
+        catch.aborts = FALSE,
         run.dontrun = FALSE, run.donttest = interactive())
 }
 \arguments{
@@ -55,15 +56,17 @@ example(topic, package = NULL, lib.loc = NULL,
     \code{\link{devAskNewPage}(ask = TRUE)} should be called
     before graphical output happens from the example code.  The value
     \code{"default"} (the factory-fresh default) means to ask if
-    \code{echo == TRUE} and the graphics device appears to be
+    \code{echo} is true and the graphics device appears to be
     interactive.  This parameter applies both to any currently opened
     device and to any devices opened by the example code.}
   \item{prompt.prefix}{character; prefixes the prompt to be used if
-    \code{echo = TRUE}.}
+    \code{echo} is true (as it is by default).}
+  \item{catch.aborts}{logical, passed on to \code{\link{source}()},
+    indicating that \I{\dQuote{abort}ing} errors should be caught.}
   \item{run.dontrun}{logical indicating that \verb{\dontrun}
-    should be ignored.}
+    should be ignored, i.e., do run the enclosed code.}
   \item{run.donttest}{logical indicating that \verb{\donttest}
-    should be ignored.}
+    should be ignored, i.e., do run the enclosed code.}
 }
 \value{
   The value of the last evaluated expression, unless \code{give.lines}
@@ -85,20 +88,25 @@ example(topic, package = NULL, lib.loc = NULL,
   other hand they cannot overwrite objects of the same name in the
   workspace.
 
-  As detailed in the manual \emph{Writing \R Extensions}, the author of
-  the help page can markup parts of the examples for exception rules
+  As detailed in the \sQuote{Writing R Extensions} manual, the author of
+  the help page can tag parts of the examples with the following
+  exception rules:
   \describe{
-    \item{\code{dontrun}}{encloses code that should not be run.}
-    \item{\code{dontshow}}{encloses code that is invisible on help
+    \item{\verb{\dontrun}}{encloses code that should not be run.}
+    \item{\verb{\dontshow}}{encloses code that is invisible on help
       pages, but will be run both by the package checking tools,
       and the \code{example()} function.  This was previously
-      \code{testonly}, and that form is still accepted.}
-    \item{\code{donttest}}{encloses code that typically should be run,
+      \verb{\testonly}, and that form is still accepted.}
+    \item{\verb{\donttest}}{encloses code that typically should be run,
       but not during package checking.  The default
       \code{run.donttest = \link{interactive}()}
       leads \code{example()} use in other help
       page examples to skip \verb{\donttest} sections appropriately.}
   }
+  The additional \verb{\dontdiff} tag (in \R \eqn{\ge} 4.4.0) produces
+  special comments in the code run by \code{example} (for
+  \code{\link{Rdiff}}-based testing of example output), but does not
+  affect which code is run or displayed on the help page.
 }
 \author{Martin Maechler and others}
 \seealso{\code{\link{demo}}}
@@ -124,7 +132,7 @@ x1; x2
 ## How large are the examples of "lm...()" functions?
 lmex <- sapply(apropos("^lm", mode = "function"),
                example, character.only = TRUE, give.lines = TRUE)
-sapply(lmex, length)
+lengths(lmex)
 }
 \keyword{documentation}
 \keyword{utilities}

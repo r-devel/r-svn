@@ -76,8 +76,9 @@ attach <- function(what, pos = 2L, name = deparse1(substitute(what), backtick=FA
 		same <- same[same.isFn(i) == same.isFn(lib.pos)]
                 if(length(same)) {
 		    pkg <- if (sum(sp == sp[i]) > 1L) # 'pos = *' needs no translation
-			sprintf("%s (pos = %d)", sp[i], i) else sp[i]
-		    message(.maskedMsg(sort(same), pkg, by = i < lib.pos),
+                               sprintf("%s (pos = %d)", sp[i], i) else sp[i]
+                    ## package aroma.affymetrix calls attach() during startup
+		    packageStartupMessage(.maskedMsg(sort(same), pkg, by = i < lib.pos),
                             domain = NA)
 		}
             }
@@ -144,7 +145,7 @@ detach <- function(name, pos = 2L, unload = FALSE, character.only = FALSE,
     libpath <- attr(env, "path")
     hook <- getHook(packageEvent(pkgname, "detach")) # might be a list
     for(fun in rev(hook)) try(fun(pkgname, libpath))
-    ## some people, e.g. package g.data, have faked pakages without namespaces
+    ## some people, e.g. package g.data, have faked packages without namespaces
     ns <- .getNamespace(pkgname)
     if(!is.null(ns) &&
        exists(".onDetach", mode = "function", where = ns, inherits = FALSE)) {

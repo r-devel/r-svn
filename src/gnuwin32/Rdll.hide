@@ -1,6 +1,41 @@
+ ALTCOMPLEX_ELT
+ ALTCOMPLEX_SET_ELT
+ ALTINTEGER_ELT
+ ALTINTEGER_MAX
+ ALTINTEGER_MIN
+ ALTINTEGER_SET_ELT
+ ALTINTEGER_SUM
+ ALTLIST_ELT
+ ALTLIST_SET_ELT
+ ALTLOGICAL_ELT
+ ALTLOGICAL_SET_ELT
+ ALTLOGICAL_SUM
+ ALTRAW_ELT
+ ALTRAW_SET_ELT
+ ALTREAL_ELT
+ ALTREAL_MAX
+ ALTREAL_MIN
+ ALTREAL_SET_ELT
+ ALTREAL_SUM
+ ALTREP_COERCE
+ ALTREP_DUPLICATE_EX
+ ALTREP_INSPECT
+ ALTREP_SERIALIZED_CLASS
+ ALTREP_SERIALIZED_STATE
+ ALTREP_SET_TYPEOF
+ ALTREP_TRUELENGTH
+ ALTREP_UNSERIALIZE_EX
+ ALTSTRING_SET_ELT
+ ALTVEC_DATAPTR_OR_NULL
+ ALTVEC_EXTRACT_SUBSET
+ ASSIGNMENT_PENDING
  BASE_SYM_CACHED
  BINDING_IS_LOCKED
  BM_norm_keep
+ BNDCELL_DVAL
+ BNDCELL_IVAL
+ BNDCELL_LVAL
+ BNDCELL_TAG
  BZ2_blockSort
  BZ2_bsInitWrite
  BZ2_bzBuffToBuffCompress@28
@@ -36,34 +71,68 @@
  BZ2_hbMakeCodeLengths
  BZ2_indexIntoF
  BZ2_rNums
+ CAR0
+ CONS_NR
  CPFun
  ConsoleAcceptCmd
+ DECREMENT_REFCNT
+ DISABLE_REFCNT
  DebugMenuitem
  DefaultPalette
+ ENABLE_REFCNT
+ ENSURE_NAMED
  EhiWakeUp
+ EncodeEnvironment
+ EncodeExtptr
  EncodeReal2
  HASHASH
+ IF_PROMSXP_SET_PRVALUE
+ INCREMENT_REFCNT
+ INIT_BNDCELL
+ IF_PROMSXP_SET_PRVALUE
  IS_ACTIVE_BINDING
+ IS_ASSIGNMENT_CALL
  IS_BYTES
  IS_LATIN1
  IS_SPECIAL_SYMBOL
  InitDynload
  InitParser
+ Init_R_Machine
  Init_R_Variables
  LOCK_BINDING
+ LOGICAL_IS_SORTED
  LoadInitFile
+ MARK
+ MARK_ASSIGNMENT_CALL
+ MAYBEJIT
  MDIset
  MDIsize
+ MISSING
  MainThread
+ NOJIT
  NO_SPECIAL_SYMBOLS
+ PROMISE_IS_EVALUATED
+ PROMISE_TAG
  PrintUsage
  ProfileEvent
+ RAISE_NAMED
+ REvprintf_internal
  RExitContext
+ RSTEP
+ RTRACE
+ R_BCIntActive
  R_BCNodeStackBase
+ R_BCProtReset
+ R_BCProtTop
+ R_BCRelPC
+ R_BCVersionOK
+ R_BCbody
+ R_BCpc
  R_BrowseLevel
  R_BrowseLines
  R_BrowserLastCommand
  R_CBoundsCheck
+ R_CheckTimeLimits
  R_ChooseFile
  R_CollectWarnings
  R_Collected
@@ -77,13 +146,16 @@
  R_DevicesSymbol
  R_DisableNLinBrowser
  R_DotEnvSymbol
+ R_EnsureFDLimit
  R_ErrorCon
  R_EvalDepth
  R_ExactSymbol
+ R_ExitContext
  R_Expressions
  R_Expressions_keep
  R_FileMtime
  R_FinalizeSrcRefState
+ R_FixupExitingHandlerResult
  R_FreeSEXP
  R_FreeStringBufferL
  R_GCEnabled
@@ -93,16 +165,17 @@
  R_GetMaxNSize
  R_GetMaxVSize
  R_GetTraceback
+ R_GetTracebackOnly
  R_GetTracebackParsed
  R_GetVarLocSymbol
  R_GetVarLocValue
  R_HandlerStack
  R_HiddenFile
+ R_InitConditions
  R_InitReadItemDepth
  R_InitSrcRefState
  R_InitialData
  R_InsertRestartHandlers
- R_Interactive
  R_IoBufferFree
  R_IoBufferGetc
  R_IoBufferInit
@@ -111,6 +184,7 @@
  R_IoBufferReadOffset
  R_IoBufferReadReset
  R_IoBufferWriteReset
+ R_IsDirPath
  R_Is_Running
  R_JumpToContext
  R_KeepSource
@@ -119,18 +193,20 @@
  R_LoadRconsole
  R_Log10
  R_LookupMethod
+ R_Matprod
  R_NHeap
  R_NShowCalls
  R_NSize
+ R_NaN_is_R_NA
  R_Newhashpjw
  R_OpenInitFile
  R_OpenLibraryFile
  R_OpenSiteFile
  R_OpenSysInitFile
  R_OutputCon
+ R_PCRE_limit_recursion
  R_PCRE_study
  R_PCRE_use_JIT
- R_PPStackSize
  R_Parse1Buffer
  R_Parse1File
  R_ParseBuffer
@@ -139,18 +215,23 @@
  R_ParseErrorFile
  R_ParseFile
  R_PendingPromises
+ R_PlaceholderToken
  R_Primitive
  R_Quiet
  R_ReadItemDepth
  R_RecursiveSymbol
+ R_ReleaseMSet
  R_RestartStack
  R_RestartToken
  R_ReturnedValue
  R_SaveToFile
  R_SaveToFileV
+ R_SerializeInfo
  R_SessionContext
  R_SetMaxNSize
  R_SetMaxVSize
+ R_SetNconn
+ R_SetOption
  R_SetOptionWarn
  R_SetOptionWidth
  R_SetPPSize
@@ -170,6 +251,7 @@
  R_Toplevel
  R_ToplevelContext
  R_UTF8fixslash
+ R_UnwindHandlerStack
  R_UseNamesSymbol
  R_VSize
  R_Verbose
@@ -180,9 +262,15 @@
  R_XDRDecodeInteger
  R_XDREncodeDouble
  R_XDREncodeInteger
+ R_allocObject
+ R_args_enable_refcnt
  R_binary
+ R_checkConstants
+ R_check_constants
  R_check_locale
  R_cmpfun
+ R_cmpfun1
+ R_compact_intrange
  R_compile_pkgs
  R_compress1
  R_compress2
@@ -192,44 +280,76 @@
  R_decompress1
  R_decompress2
  R_decompress3
+ R_deferred_coerceToString
+ R_disable_bytecode
  R_dlsym
  R_doDotCall
  R_do_data_class
  R_do_set_class
  R_dotCallFn
  R_dot_Class
- R_dot_Generic
  R_dot_GenericCallEnv
  R_dot_GenericDefEnv
  R_dot_Group
  R_dot_Methods
+ R_expand_binding_value
+ R_expand_promise_value
  R_fgetc
+ R_findBCInterpreterSrcref
+ R_findExecContext
+ R_findParentContext
  R_fixslash
+ R_flexiblas_info
+ R_gc_running
+ R_getBCInterpreterExpression
  R_getClockIncrement
+ R_getCurrentSrcref
  R_getDllTable
+ R_getExpressionStackOverflowError
+ R_getFullPathName
+ R_getFullPathNameW
+ R_getNSValue
+ R_getNodeStackOverflowError
  R_getProcTime
+ R_getProtectStackOverflowError
  R_getRegisteredRoutines
  R_getS4DataSlot
  R_getSymbolInfo
  R_gmtime
  R_gmtime_r
  R_has_methods
+ R_in_gc
  R_initAsignSymbols
+ R_initEvalSymbols
+ R_init_altrep
  R_init_base
  R_init_jit_enabled
  R_initialize_bcode
  R_inspect
  R_inspect3
  R_isMissing
+ R_isWriteableDir
  R_is_running
+ R_isatty
  R_jit_enabled
+ R_jumpctxt
  R_lazyLoadDBinsertValue
  R_localtime
  R_localtime_r
+ R_makeCStackOverflowError
+ R_makeErrorCondition
+ R_makeMissingSubscriptError
+ R_makeMissingSubscriptError1
+ R_makeNotSubsettableError
+ R_makeOutOfBoundsError
  R_max_num_math_threads
+ R_missing
+ R_mkEVPROMISE_NR
  R_mktime
  R_moduleCdynload
+ R_nativeEncoding
  R_newCurlUrl
+ R_newservsock
  R_newsock
  R_newunz
  R_newurl
@@ -238,9 +358,14 @@
  R_osDynSymbol
  R_possible_dispatch
  R_pretty
+ R_registerBC
+ R_reinit_altrep_classes
  R_restore_globals
  R_run_onexits
  R_seemsOldStyleS4Object
+ R_setConditionField
+ R_signalErrorCondition
+ R_signalErrorConditionEx
  R_strftime
  R_subset3_dflt
  R_syscall
@@ -248,15 +373,23 @@
  R_sysfunction
  R_sysparent
  R_timegm
+ R_tryUnwrap
+ R_try_clear_args_refcnt
  R_tzname
  R_tzset
  R_tzsetwall
  R_unary
- R_unserialize
+ R_vmakeErrorCondition
  R_warn_partial_match_args
  R_warn_partial_match_attr
  R_warn_partial_match_dollar
+ R_wclosedir
+ R_wfixbackslash
+ R_wfixslash
  R_wfopen
+ R_wopendir
+ R_wreaddir
+ Rasprintf_malloc
  Rconn_getline
  Rcons_vprintf
  Rconsolesetwidth
@@ -278,6 +411,7 @@
  Rf_EncodeString
  Rf_EnsureString
  Rf_ErrorMessage
+ Rf_ExtractSubset
  Rf_GInit
  Rf_GetOptionCutoff
  Rf_GetOptionDeviceAsk
@@ -330,6 +464,7 @@
  Rf_WarningMessage
  Rf_addMissingVarsToNewEnv
  Rf_allocCharsxp
+ Rf_applyClosure
  Rf_asVecSize
  Rf_bd0
  Rf_chebyshev_eval
@@ -340,14 +475,21 @@
  Rf_createS3Vars
  Rf_d1mach
  Rf_ddfindVar
+ Rf_deleteCachedSymbols
  Rf_deparse1s
  Rf_deparse1w
+ Rf_errorcall_cpy
  Rf_evalList
  Rf_evalListKeepMissing
+ Rf_findFun3
+ Rf_findFunctionForBody
  Rf_findVar1
  Rf_findcontext
+ Rf_fixSubset3Args
  Rf_formatRaw
+ Rf_formatRawS
  Rf_formatString
+ Rf_formatStringS
  Rf_framedepth
  Rf_gamma_cody
  Rf_gammalims
@@ -355,7 +497,9 @@
  Rf_i1mach
  Rf_initStack
  Rf_installDDVAL
+ Rf_installNoTrChar
  Rf_installS3Signature
+ Rf_isUnmodifiedSpecSym
  Rf_isValidName
  Rf_lfastchoose
  Rf_lgammacor
@@ -370,6 +514,7 @@
  Rf_matchPar
  Rf_mbtoucs
  Rf_mkCLOSXP
+ Rf_mkCharWUTF8
  Rf_mkPROMISE
  Rf_mkSYMSXP
  Rf_mkTrue
@@ -386,13 +531,16 @@
  Rf_printNamedVector
  Rf_printRealVector
  Rf_printVector
+ Rf_printwhere
  Rf_promiseArgs
  Rf_qchisq_appr
+ Rf_reEnc3
  Rf_readS3VarsFromFrame
  Rf_regcomp
  Rf_regerror
  Rf_regexec
  Rf_regfree
+ Rf_registerRoutines
  Rf_setIVector
  Rf_setRVector
  Rf_sexptype2char
@@ -401,16 +549,17 @@
  Rf_stringSuffix
  Rf_strmat2intmat
  Rf_substituteList
- Rf_translateCharFP2
  Rf_trCharUTF8
  Rf_trCharUTF82
+ Rf_translateCharFP2
  Rf_tspgets
  Rf_ucstomb
  Rf_unbindVar
  Rf_usemethod
- Rf_utf8toucs
- Rf_wtransChar2
+ Rf_utf8toucs32
  Rf_vectorIndex
+ Rf_wcs4toutf8
+ Rf_wtransChar2
  Rf_yychar
  Rf_yylval
  Rf_yynerrs
@@ -419,27 +568,49 @@
  RguiPackageMenu
  Rgui_Edit
  Rgui_configure
+ Ri18n_wcswidth
+ Rsnprintf_mbcs
  Rsockselect
  Rstrlen
  Rstrwid
+ Rvsnprintf_mbcs
  Rwin_rename
  Rwin_wrename
+ SETTER_CLEAR_NAMED
  SET_ACTIVE_BINDING_BIT
  SET_ASCII
+ SET_ASSIGNMENT_PENDING
  SET_BASE_SYM_CACHED
+ SET_BNDCELL
+ SET_BNDCELL_DVAL
+ SET_BNDCELL_IVAL
+ SET_BNDCELL_LVAL
+ SET_BNDCELL_TAG
  SET_BYTES
  SET_CACHED
  SET_CXTAIL
+ SET_DDVAL
  SET_HASHASH
+ SET_INTERNAL
  SET_LATIN1
+ SET_MAYBEJIT
+ SET_MISSING
+ SET_NOJIT
  SET_NO_SPECIAL_SYMBOLS
  SET_PRIMOFFSET
+ SET_PRINTNAME
+ SET_PROMISE_TAG
+ SET_RSTEP
+ SET_RTRACE
  SET_SPECIAL_SYMBOL
+ SET_SYMVALUE
  SET_UTF8
  Sys_TempDir
+ TRACKREFS
  UNIMPLEMENTED_TYPEt
  UNLOCK_BINDING
  UNSET_BASE_SYM_CACHED
+ UNSET_MAYBEJIT
  UNSET_NO_SPECIAL_SYMBOLS
  UNSET_SPECIAL_SYMBOL
  UTF8in
@@ -552,6 +723,9 @@
  csroot_
  dblep0_
  deleditordata
+ dispatch_length
+ dispatch_subset2
+ dispatch_xlength
  do_AT
  do_Cstack_info
  do_D2POSIXlt
@@ -566,7 +740,9 @@
  do_S4on
  do_abbrev
  do_abs
+ do_activeBndFun
  do_addCondHands
+ do_addGlobHands
  do_addRestart
  do_addTryHandlers
  do_addhistory
@@ -574,6 +750,7 @@
  do_adist
  do_agrep
  do_allnames
+ do_altrep_class
  do_anyNA
  do_aperm
  do_aregexec
@@ -581,6 +758,8 @@
  do_arith
  do_arrangeWindows
  do_array
+ do_asCharacterFactor
+ do_asplit
  do_asPOSIXct
  do_asPOSIXlt
  do_as_environment
@@ -595,9 +774,13 @@
  do_attributes
  do_attributesgets
  do_backsolve
+ do_balancePOSIXlt
  do_baseenv
  do_basename
  do_bcclose
+ do_bcprofcounts
+ do_bcprofstart
+ do_bcprofstop
  do_bcversion
  do_begin
  do_bincode
@@ -629,11 +812,15 @@
  do_closewinprogressbar
  do_cmathfuns
  do_colon
+ do_colon2
+ do_colon3
  do_colsum
  do_commandArgs
  do_comment
  do_commentgets
+ do_compareNumericVersion
  do_compilepkgs
+ do_compilerVersion
  do_complex
  do_copyDFattr
  do_crc64
@@ -643,6 +830,7 @@
  do_curlVersion
  do_date
  do_debug
+ do_declare
  do_delayed
  do_deparse
  do_detach
@@ -665,13 +853,15 @@
  do_dotCode
  do_dotcall
  do_dotcallgr
+ do_dotsElt
+ do_dotsLength
+ do_dotsNames
  do_dput
  do_drop
  do_dump
  do_duplicated
  do_dynload
  do_dynunload
- do_eSoftVersion
  do_eSoftVersion
  do_eapply
  do_emptyenv
@@ -763,6 +953,7 @@
  do_intToUtf8
  do_interactive
  do_internal
+ do_internalsID
  do_interruptsSuspended
  do_invisible
  do_invokeRestart
@@ -824,6 +1015,8 @@
  do_math4
  do_matprod
  do_matrix
+ do_maxNSize
+ do_maxVSize
  do_maxcol
  do_memCompress
  do_memDecompress
@@ -836,9 +1029,12 @@
  do_mkUnbound
  do_mkcode
  do_mkjunction
+ do_mmap_file
  do_modelframe
  do_modelmatrix
+ do_munmap_file
  do_mvfft
+ do_named
  do_names
  do_namesgets
  do_nargs
@@ -848,6 +1044,8 @@
  do_nextn
  do_ngettext
  do_normalizepath
+ do_numToBits
+ do_numToInts
  do_nzchar
  do_onexit
  do_open
@@ -937,8 +1135,10 @@
  do_seq
  do_seq_along
  do_seq_len
+ do_sequence
  do_serialize
  do_serializeToConn
+ do_serversocket
  do_set
  do_setFileTime
  do_setInternet2
@@ -967,17 +1167,21 @@
  do_sock
  do_sockconn
  do_sockselect
+ do_socktimeout
  do_sort
+ do_sorted_fpass
  do_split
  do_sprintf
  do_standardGeneric
  do_startHTTPD
+ do_startsWith
  do_stderr
  do_stdin
  do_stdout
  do_stop
  do_stopHTTPD
  do_storage_mode
+ do_str2lang
  do_strptime
  do_strrep
  do_strsplit
@@ -1011,6 +1215,7 @@
  do_sysumask
  do_syswhich
  do_tabulate
+ do_tailcall
  do_tempdir
  do_tempfile
  do_textconnection
@@ -1025,6 +1230,8 @@
  do_transpose
  do_trunc
  do_truncate
+ do_tryCatchHelper
+ do_tryWrap
  do_typeof
  do_tzone_name
  do_unclass
@@ -1044,6 +1251,7 @@
  do_validUTF8
  do_vapply
  do_version
+ do_vhash
  do_warning
  do_which
  do_while
@@ -1056,6 +1264,7 @@
  do_winprogressbar
  do_winver
  do_withVisible
+ do_wrap_meta
  do_writeClipboard
  do_writebin
  do_writechar
@@ -1084,6 +1293,8 @@
  getDefaults
  getGraphMenu
  getIdentification
+ getLexicalCall
+ getLexicalContext
  getParseContext
  getTZinfo
  getWindowTitle
@@ -1103,6 +1314,7 @@
  hqr_
  htribk_
  htridi_
+ inherits2
  int_arraySubscript
  internal_shellexec
  intpr0_
@@ -1310,11 +1522,12 @@
  lzma_vli_encode
  lzma_vli_size
  mb_char_len
- mbcsValid
+ mbcsTruncateToValid
  menuclear
  menuconfig
  menueditornew
  menueditoropen
+ mkCharWUTF8
  mkPRIMSXP
  mkdtemp
  nCPFun
@@ -1364,6 +1577,10 @@
  pnbeta_raw
  pnchisq_raw
  pointsize
+ printComplexVectorS
+ printIntegerVectorS
+ printRawVector
+ printRealVectorS
  process_site_Renviron
  process_system_Renviron
  process_user_Renviron
@@ -1502,7 +1719,6 @@
  tzname
  tzset
  unregisterBase
- utf8clen
  wgl_hist_init
  wgl_hist_next
  wgl_hist_prev

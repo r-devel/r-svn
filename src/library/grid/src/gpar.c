@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2014 The R Core Team
+ *                2003-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -300,16 +300,27 @@ static SEXP unresolveFill(SEXP pattern)
     return result;
 }
 
-SEXP resolveGPar(SEXP gp) 
+SEXP resolveGPar(SEXP gp, bool byName) 
 {
     SEXP result = R_NilValue;
-    if (Rf_inherits(gpFillSXP(gp), "GridPattern") ||
-        Rf_inherits(gpFillSXP(gp), "GridPatternList")) {
-        SEXP resolvedFill = PROTECT(resolveFill(gpFillSXP(gp), 0));
-        SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
+    SEXP fill;
+    if (byName) {
+        PROTECT(fill = getListElement(gp, "fill"));
+    } else {
+        PROTECT(fill = gpFillSXP(gp));
+    }
+    if (Rf_inherits(fill, "GridPattern") ||
+        Rf_inherits(fill, "GridPatternList")) {
+        SEXP resolvedFill = PROTECT(resolveFill(fill, 0));
+        if (byName) {
+            setListElement(gp, "fill", resolvedFill);
+        } else {
+            SET_VECTOR_ELT(gp, GP_FILL, resolvedFill);
+        }
         result = resolvedFill;
         UNPROTECT(1);
     }
+    UNPROTECT(1);
     return result;
 }
 
@@ -412,7 +423,7 @@ SEXP L_getGPar(void)
     return gridStateElement(dd, GSS_GPAR);
 }
 
-SEXP L_getGPsaved() 
+SEXP L_getGPsaved(void) 
 {
     /* Get the current device 
      */

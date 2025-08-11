@@ -1,6 +1,6 @@
 % File src/library/utils/man/Sweave.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Sweave}
@@ -69,7 +69,7 @@ Stangle(file, driver = Rtangle(),
   (where \samp{foo} is typically \samp{latin1}, \samp{latin2}, \samp{utf8} or
   \samp{cp1252} or \samp{cp1250}) or a comment line
   \preformatted{  \%\SweaveUTF8}
-  to declare UTF-8 input (the default encoding assumed by pdfTeX since 2018),
+  to declare UTF-8 input (the default encoding assumed by \I{pdfTeX} since 2018),
   or they will give an error.
   Re-encoding can be turned off completely with argument
   \code{encoding = "bytes"}.
@@ -77,7 +77,7 @@ Stangle(file, driver = Rtangle(),
 
 \section{Syntax Definition}{
   Sweave allows a flexible syntax framework for marking
-  documentation and text chunks. The default is a noweb-style syntax, as
+  documentation and text chunks. The default is a \I{noweb}-style syntax, as
   alternative a \LaTeX-style syntax can be used.  (See the user manual for
   further details.)
 
@@ -95,11 +95,7 @@ Stangle(file, driver = Rtangle(),
 }
 
 \references{
-  Friedrich Leisch (2002)
-  Dynamic generation of statistical reports using literate data analysis.
-  In W. \enc{Härdle}{Haerdle} and B. \enc{Rönz}{Roenz}, editors,
-  \emph{Compstat 2002 - Proceedings in Computational Statistics},
-  pages 575--580. Physika Verlag, Heidelberg, Germany, ISBN 3-7908-1517-9.
+  \bibshow{R:Leisch:2002}
 }
 
 \seealso{

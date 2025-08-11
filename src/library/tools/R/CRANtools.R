@@ -1,7 +1,7 @@
 #  File src/library/tools/R/CRANtools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2014-2022 The R Core Team
+#  Copyright (C) 2014-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## exported
 summarize_CRAN_check_status <-
 function(packages, results = NULL, details = NULL, issues = NULL)
 {
@@ -197,7 +196,7 @@ function()
     Sys.getenv("R_CRAN_SRC", .get_CRAN_repository_URL())
 
 ## This allows for partial local mirrors, or to look at a
-## more-freqently-updated mirror.  Exposed as utils::findCRANmirror
+## more-frequently-updated mirror.  Exposed as utils::findCRANmirror
 CRAN_baseurl_for_web_area <-
 function()
     Sys.getenv("R_CRAN_WEB", .get_CRAN_repository_URL())
@@ -211,7 +210,6 @@ function(cran, path)
     readRDS(con)
 }
 
-## exported
 CRAN_check_results <-
 function(flavors = NULL)
 {
@@ -222,7 +220,6 @@ function(flavors = NULL)
     db
 }
 
-## exported
 CRAN_check_details <-
 function(flavors = NULL)
 {
@@ -230,10 +227,6 @@ function(flavors = NULL)
                            "web/checks/check_details.rds")
     if(!is.null(flavors))
         db <- db[!is.na(match(db$Flavor, flavors)), ]
-    ## <FIXME>
-    ## Remove eventually ...
-    class(db) <- c("CRAN_check_details", "check_details", "data.frame")
-    ## </FIXME>
     db
 }
 
@@ -246,7 +239,6 @@ function(flavors = NULL)
 ##                      "web/checks/memtest_notes.rds")
 ## }
 
-## exported
 CRAN_check_issues <-
 function()
     read_CRAN_object(CRAN_baseurl_for_web_area(),
@@ -267,6 +259,11 @@ CRAN_archive_db <-
 function()
     read_CRAN_object(CRAN_baseurl_for_src_area(),
                      "src/contrib/Meta/archive.rds")
+
+CRAN_authors_db <-
+function()
+    read_CRAN_object(CRAN_baseurl_for_src_area(),
+                     "src/contrib/Meta/authors.rds")
 
 CRAN_current_db <-
 function()
@@ -384,12 +381,12 @@ function(mirrors, db = NULL, collapse = TRUE)
     addresses <- gsub("[[:space:]]*#[[:space:]]*", "@", addresses)
     to <- unique(unlist(strsplit(addresses,
                                  "[[:space:]]*,[[:space:]]*")))
-    head <- list("To" = to,
-                 "CC" = "CRAN@R-project.org",
+    head <- list("To" = "CRAN@R-project.org",
+                 "Bcc" = to,
                  "Subject" = "CRAN mirrors maintained by you",
                  "Reply-To" = "CRAN@R-project.org")
     if(collapse) {
-        head$To <- paste(head$To, collapse = ",\n    ")
+        head$Bcc <- paste(head$Bcc, collapse = ",\n    ")
         head <- sprintf("%s: %s", names(head), unlist(head))
     }
     len <- length(addresses)
@@ -503,7 +500,7 @@ function()
                 T_ID = .Rd_object_id(db[, "T_Package"], db[, "T_File"]))
 
     ## Do we have Rd xrefs to current CRAN packages which no longer work?
-    current <- rownames(CRAN_current_db())
+    current <- sub("_.*", "", rownames(CRAN_current_db()))
     db1 <- db[!is.na(match(db[, "T_Package"], current)), , drop = FALSE]
     y$broken_xrefs_to_current_CRAN_packages <-
         db1[is.na(match(db1[, "T_ID"],
@@ -566,12 +563,12 @@ function(packages, db = NULL, collapse = TRUE)
     ind <- match(packages, db[, "Package"])
     addresses <- db[ind, "Address"]
     to <- sort(unique(addresses))
-    head <- list("To" = to,
-                 "CC" = "CRAN@R-project.org",
+    head <- list("To" = "CRAN@R-project.org",
+                 "Bcc" = to,
                  "Subject" = "CRAN packages maintained by you",
                  "Reply-To" = "CRAN@R-project.org")
     if(collapse) {
-        head$To <- paste(head$To, collapse = ",\n    ")
+        head$Bcc <- paste(head$Bcc, collapse = ",\n    ")
         head <- sprintf("%s: %s", names(head), unlist(head))
     }
     lst <- split(db[ind, "Package"], db[ind, "Maintainer"])
@@ -760,7 +757,7 @@ CRAN_package_check_URL <- function(p)
             p)
 
 BioC_package_db <-
-function()
+function(remap = TRUE)
 {
     urls <- .get_standard_repository_URLs()
     urls <- urls[startsWith(names(urls), "BioC")]
@@ -770,8 +767,38 @@ function()
                        on.exit(close(con))
                        read.dcf(con)
                    })
-    Reduce(function(u, v) merge(u, v, all = TRUE),
-           lapply(info,
-                  as.data.frame,
-                  stringsAsFactors = FALSE))
+    db <- Reduce(function(u, v) merge(u, v, all = TRUE),
+                 lapply(info,
+                        as.data.frame,
+                        stringsAsFactors = FALSE))
+    if(remap) {
+        ## Map BioC reverse dependency names to CRAN ones.
+        biocrevnames <- c(dependsOnMe = "Reverse depends",
+                          importsMe = "Reverse imports",
+                          linksToMe = "Reverse linking to",
+                          suggestsMe = "Reverse suggests")
+        pos <- match(colnames(db), names(biocrevnames), nomatch = 0L)
+        colnames(db)[pos > 0] <- biocrevnames[pos]
+    }
+    db
 }
+
+.get_BioC_repository_URL <-
+function(which = "BioCsoft")
+{
+    which <- match.arg(which)
+    repos <- getOption("repos")
+    if(!is.null(repos) && !is.na(u <- repos[which]))
+        return(u)
+    utils:::.get_repositories()[which, "URL"]
+}
+
+BioC_aliases_db <-
+function()
+    read_CRAN_object(.get_BioC_repository_URL(),
+                     "src/contrib/Meta/aliases.rds")
+
+BioC_rdxrefs_db <- 
+function()
+    read_CRAN_object(.get_BioC_repository_URL(),
+                     "src/contrib/Meta/rdxrefs.rds")

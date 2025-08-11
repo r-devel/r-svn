@@ -1,7 +1,7 @@
 #  File src/library/stats/R/loess.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1998-2020 The R Core Team
+#  Copyright (C) 1998-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ function(formula, data, weights, subset, na.action, model = FALSE,
     w <- model.weights(mf) %||% rep_len(1, length(y))
     nmx <- as.character(attr(mt, "variables"))[-(1L:2)]
     x <- mf[, nmx, drop=FALSE]
-    if(any(sapply(x, is.factor))) stop("predictors must all be numeric")
+    if(any(vapply(x, is.factor, NA))) stop("predictors must all be numeric")
     x <- as.matrix(x)
     D <- ncol(x)
     nmx <- setNames(nm = colnames(x))
@@ -316,6 +316,10 @@ predLoess <-
     order.drop.sqr <- (2L - drop.square)[order.parametric]
     storage.mode(x) <- "double"
     storage.mode(y) <- "double"
+    ## package intamap somehow gets NULL
+    N <- nrow(x)
+    if (length(weights) < N) weights <- rep(1, N)
+    if (length(robust) < N) robust <- rep(1, N)
     if(surface == "direct") {
         nas <- rowSums(is.na(newx)) > 0
         fit <- rep_len(NA_real_, length(nas))
@@ -443,20 +447,21 @@ print.summary.loess <-
     function(x, digits = max(3L, getOption("digits") - 3L), ...)
 {
     print.loess(x, digits=digits, ...)
+    prs <- x$pars
     cat("Trace of smoother matrix: ", format(round(x$trace.hat, 2L)),
-        "  (",x$pars$trace.hat, ")\n", sep="")
+        "  (",prs$trace.hat, ")\n", sep="")
     cat("\nControl settings:\n")
-    cat("  span     : ", format(x$pars$span), "\n")
-    cat("  degree   : ", x$pars$degree, "\n")
-    cat("  family   : ", x$pars$family)
-    if(x$pars$family != "gaussian")
-	cat("	    iterations =", x$pars$iterations)
-    cat("\n  surface  : ", x$pars$surface)
-    if(x$pars$surface == "interpolate")
-	cat("	  cell =", format(x$pars$cell))
-    cat("\n  normalize: ", x$pars$normalize)
-    cat("\n parametric: ", x$pars$parametric)
-    cat("\ndrop.square: ", x$pars$drop.square, "\n")
+    cat("  span     : ", format(prs$span), "\n")
+    cat("  degree   : ", prs$degree, "\n")
+    cat("  family   : ", prs$family)
+    if(prs$family != "gaussian")
+	cat("	    iterations =", prs$iterations)
+    cat("\n  surface  : ", prs$surface)
+    if(prs$surface == "interpolate")
+	cat("	  cell =", format(prs$cell))
+    cat("\n  normalize: ", prs$normalize)
+    cat("\n parametric: ", prs$parametric)
+    cat("\ndrop.square: ", prs$drop.square, "\n")
     invisible(x)
 }
 
@@ -472,10 +477,8 @@ scatter.smooth <-
     xy <- xy.coords(x, y, xlabel, ylabel)
     x <- xy$x
     y <- xy$y
-    xlab <- if (is.null(xlab)) xy$xlab else xlab
-    ylab <- if (is.null(ylab)) xy$ylab else ylab
     pred <- loess.smooth(x, y, span, degree, family, evaluation)
-    plot(x, y, ylim = ylim, xlab = xlab, ylab = ylab, ...)
+    plot(x, y, ylim = ylim, xlab = xlab %||% xy$xlab, ylab = ylab %||% xy$ylab, ...)
     do.call(lines, c(list(pred), lpars))
     invisible()
 }

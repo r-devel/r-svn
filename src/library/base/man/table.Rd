@@ -58,7 +58,7 @@ is.table(x)
     non-table \code{x} for \dQuote{reshaping} \code{\link{array}}s.}
   \item{row.names}{a character vector giving the row names for the data
     frame.}
-  \item{responseName}{The name to be used for the column of table
+  \item{responseName}{the name to be used for the column of table
     entries, usually counts.}
   \item{stringsAsFactors}{logical: should the classifying factors be
     returned as factors (the default) or character vectors?}
@@ -66,7 +66,7 @@ is.table(x)
 }
 \details{
   If the argument \code{dnn} is not supplied, the internal function
-  \code{list.names} is called to compute the \sQuote{dimname names} as
+  \code{list.names} is called to compute the \sQuote{\I{dimname} names} as
   follows:
   If \code{\dots} is one \code{list} with its own \code{\link{names}()},
   these \code{names} are used.  Otherwise, if the
@@ -150,6 +150,7 @@ with(airquality, table(cut(Temp, quantile(Temp)), Month))
 
 a <- letters[1:3]
 table(a, sample(a))                    # dnn is c("a", "")
+table(a, sample(a), dnn = NULL)        # dimnames() have no names
 table(a, sample(a), deparse.level = 0) # dnn is c("", "")
 table(a, sample(a), deparse.level = 2) # dnn is c("a", "sample(a)")
 

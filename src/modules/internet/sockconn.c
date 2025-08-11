@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C)  2001-2021   The R Core Team.
+ *  Copyright (C)  2001-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,6 +55,14 @@ static Rboolean sock_open(Rconnection con)
 		warning("port %d cannot be opened", this->port);
 		return FALSE;
 	    }
+#ifdef Unix
+	    if (sock1 >= FD_SETSIZE) {
+		/* R_SockListen below would fail */
+		R_SockClose(sock1);
+		warning(_("file descriptor is too large for select()"));
+		return FALSE;
+	    }
+#endif
 	    {
 		RCNTXT cntxt;
 
@@ -81,16 +89,25 @@ static Rboolean sock_open(Rconnection con)
 		return FALSE;
 	    }
 	}
+#ifdef Unix
+	if (sock >= FD_SETSIZE && (con->canwrite || con->blocking)) {
+	    /* Reading/writing via such socket would fail */
+	    R_SockClose(sock);
+	    warning(_("file descriptor is too large for select()"));
+	    return FALSE;
+	}
+#endif
 	free(con->description);
-	con->description = (char *) malloc(strlen(buf) + 10);
-	sprintf(con->description, "<-%s:%d", buf, this->port);
+	size_t sz = strlen(buf) + 10;
+	con->description = (char *) malloc(sz); // FIXME check allocation 
+	snprintf(con->description, sz, "<-%s:%d", buf, this->port);
     } else {
 	sock = R_SockConnect(this->port, con->description, timeout);
 	if(sock < 0) {
 	    warning("%s:%d cannot be opened", con->description, this->port);
 	    return FALSE;
 	}
-	sprintf(buf, "->%s:%d", con->description, this->port);
+	snprintf(buf, 256, "->%s:%d", con->description, this->port);
 	strcpy(con->description, buf);
     }
     this->fd = sock;
@@ -156,7 +173,8 @@ static ssize_t sock_read_helper(Rconnection con, void *ptr, size_t size)
 	    n = size;
 	else
 	    n = this->pend - this->pstart;
-	memcpy(ptr, this->pstart, n);
+	if (n)
+	    memcpy(ptr, this->pstart, n);
 	ptr = ((char *) ptr) + n;
 	this->pstart += n;
 	size -= n;
@@ -271,6 +289,15 @@ Rconnection in_R_newservsock(int port)
 	      port);
 	/* for Solaris 12.5 */ new = NULL;
     }
+#ifdef Unix
+    if (sock >= FD_SETSIZE) {
+	/* R_SockListen (accept) called from sock_open would fail */
+	free(new->private); free(new->description); free(new->class); free(new);
+	R_SockClose(sock);
+	error(_("file descriptor is too large for select()"));
+	/* for Solaris 12.5 */ new = NULL;
+    }
+#endif
     ((Rservsockconn)new->private)-> fd = sock;
     new->isopen = TRUE;
 

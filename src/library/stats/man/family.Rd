@@ -1,6 +1,6 @@
 % File src/library/stats/man/family.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{family}
@@ -95,8 +95,9 @@ quasipoisson(link = "log")
   The \code{quasibinomial} and \code{quasipoisson} families differ from
   the \code{binomial} and \code{poisson} families only in that the
   dispersion parameter is not fixed at one, so they can model
-  over-dispersion.  For the binomial case see McCullagh and Nelder
-  (1989, pp.\sspace{}124--8).  Although they show that there is (under some
+  over-dispersion.  For the binomial case see
+  \bibcitet{|R:McCullagh+Nelder:1989|pages 124--8}.
+  Although they show that there is (under some
   restrictions) a model with
   variance proportional to mean as in the quasi-binomial model, note
   that \code{glm} does not compute maximum-likelihood estimates in that
@@ -158,12 +159,13 @@ quasipoisson(link = "log")
     called by the \code{"lm"} method of \code{\link{simulate}}.  It will
     normally return a matrix with \code{nsim} columns and one row for
     each fitted value, but it can also return a list of length
-    \code{nsim}. Clearly this will be missing for \sQuote{quasi-} families.}
+    \code{nsim}. Clearly this will be missing for \sQuote{quasi-}
+    families.}
+  \item{dispersion}{(optional since \R version 4.3.0) numeric: value of the
+    dispersion parameter, if fixed, or \code{NA_real_} if free.}
 }
 \references{
-  McCullagh P. and Nelder, J. A. (1989)
-  \emph{Generalized Linear Models.}
-  London: Chapman and Hall.
+  \bibshow{*}
 
   Dobson, A. J. (1983)
   \emph{An Introduction to Statistical Modelling.}

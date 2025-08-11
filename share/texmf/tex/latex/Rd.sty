@@ -1,6 +1,6 @@
 %%% Rd.sty ... Style for printing the R manual
 %%% Part of the R package, https://www.R-project.org
-%%% Copyright (C) 2003-2022 The R Foundation
+%%% Copyright (C) 2003-2024 The R Foundation
 %%% Distributed under GPL 2 or later
 %%%
 %%% Modified 1998/01/05 by Friedrich Leisch
@@ -29,6 +29,21 @@
 \DeclareOption{beramono}{\setboolean{Rd@use@beramono}{true}}
 \DeclareOption{inconsolata}{\setboolean{Rd@use@inconsolata}{true}}
 \ProcessOptions
+
+% The above fonts will not work with modern LaTeX engines.
+\IfFileExists{iftex.sty}{\RequirePackage{iftex}}{}
+\@ifpackageloaded{iftex}{\ifPDFTeX\else%
+  \setboolean{Rd@use@times}{false}%
+  \setboolean{Rd@use@lm}{false}%
+  \setboolean{Rd@use@beramono}{false}%
+  \setboolean{Rd@use@inconsolata}{false}%\
+  \fi}
+
+\newboolean{Rd@graphicspath@needs@quotes}
+\@ifl@t@r\fmtversion{2019/10/01}%
+  {\setboolean{Rd@graphicspath@needs@quotes}{false}}%
+  {\setboolean{Rd@graphicspath@needs@quotes}{true}}
+
 \RequirePackage{longtable}
 \setcounter{LTchunksize}{250}
 \ifthenelse{\boolean{Rd@use@hyper}}
@@ -44,7 +59,10 @@
 
 \RequirePackage{amsmath}         % for \lVert, \text etc, and KaTeX consistency
 \RequirePackage{amsfonts,amssymb}
-\IfFileExists{mathrsfs.sty}% assume that the rsfs font is installed
+\newboolean{Rd@has@rsfs}
+\IfFileExists{mathrsfs.sty}{\IfFileExists{rsfs/scrload.tex}%
+  {\setboolean{Rd@has@rsfs}{true}}{}}{}
+\ifthenelse{\boolean{Rd@has@rsfs}}%
   {\RequirePackage{mathrsfs}}%
   {\usepackage[mathscr]{eucal}}% part of amsfonts
 
@@ -118,11 +136,15 @@
 \newlength{\ldescriptionwidth}
 \newcommand{\ldescriptionlabel}[1]{%
   \settowidth{\ldescriptionwidth}{{#1}}%
-  \ifdim\ldescriptionwidth>\labelwidth
-    {\parbox[b]{\labelwidth}%
-      {\makebox[0pt][l]{#1}\\[1pt]\makebox{}}}%
+  \ifdim\ldescriptionwidth>0.8\textwidth
+    \makebox[\labelwidth][l]{\parbox[b]{0.8\textwidth}{#1\\[1pt]\makebox{}}}%
   \else
-    \makebox[\labelwidth][l]{{#1}}%
+    \ifdim\ldescriptionwidth>\labelwidth
+      {\parbox[b]{\labelwidth}%
+        {\makebox[0pt][l]{#1}\\[1pt]\makebox{}}}%
+    \else
+      \makebox[\labelwidth][l]{{#1}}%
+    \fi
   \fi
   \hfil\relax}
 \newenvironment{ldescription}[1][1in]%
@@ -265,11 +287,15 @@
 % Rd2latex() should never let \Sexpr through to here.
 \newcommand\Sexpr[2][]{{\normalfont\texttt{\bsl Sexpr[#1]\{#2\}}}}
 
+% Texinfo 7.1 says that it is planned to change @var "in the next
+% release to use a variable-width, slanted roman font in all contexts"
+% as we apparently have done forever.
 \newcommand{\var}[1]{{\normalfont\textsl{#1}}}
 
 \newcommand{\dfn}[1]{\textsl{#1}}
 \let\Cite=\dfn
 
+\newcommand{\abbr}[1]{#1}
 \newcommand{\acronym}[1]{\textsc{\lowercase{#1}}}
 \newcommand{\kbd}[1]{{\normalfont\texttt{\textsl{#1}}}}
 
@@ -321,15 +347,11 @@
   \DeclareTextCommand{\Rpercent}{PD1}{\045} % percent
   %% <NOTE>
   %% Formerly in R's hyperref.cfg, possibly to be shared with Sweave.sty
-  %% as well (but without setting pagebackref as this can give trouble
-  %% for .bib entries containing URLs with '#' characters).
   \AtBeginDocument{%
     \definecolor{Blue}{rgb}{0,0,0.8}
     \definecolor{Red}{rgb}{0.7,0,0}}
   \hypersetup{%
-    hyperindex,%
     colorlinks,%
-    pagebackref,%
     linktocpage,%
     plainpages=false,%
     linkcolor=Blue,%
@@ -394,7 +416,10 @@
 \ifthenelse{\boolean{Rd@use@hyper}}
 {\newcommand{\LinkA}[2]{\hyperlink{Rfn.#2}{#1}\index{#1@\texttt{#1}|textit}}}
 {\newcommand{\LinkA}[2]{#1\index{#1@\texttt{#1}|textit}}}
-%
+% \LinkB has no indexing. (added in R 4.5.0)
+\ifthenelse{\boolean{Rd@use@hyper}}
+{\newcommand{\LinkB}[2]{\hyperlink{Rfn.#2}{#1}}}
+{\newcommand{\LinkB}[2]{#1}}
 % \alias{<alias>}{<header>}
 \ifthenelse{\boolean{Rd@use@hyper}}
 {\newcommand{\aliasA}[3]{\hypertarget{Rfn.#3}{\index{#1@\texttt{#1} \textit{(\texttt{#2})}}}}}

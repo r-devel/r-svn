@@ -113,9 +113,9 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(tukeyline, 4),
     CALLDEF(runmed, 6),
     CALLDEF(influence, 3),
-    CALLDEF(pSmirnov2x, 3),
-    CALLDEF(pKolmogorov2x, 2),
-    CALLDEF(pKS2, 2),
+    CALLDEF(pkolmogorov_two_exact, 2),
+    CALLDEF(pkolmogorov_two_limit, 3),
+    CALLDEF(psmirnov_exact, 6),
     CALLDEF(ksmooth, 5),
     CALLDEF(SplineCoef, 3),
     CALLDEF(SplineEval, 2),
@@ -252,6 +252,7 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0}
 };
 
+/* One could argue that these are calls and so should be F77_CALL */
 #define FDEF(name)  {#name, (DL_FUNC) &F77_NAME(name), sizeof(name ## _types)/sizeof(name ## _types[0]), name ##_types}
 
 

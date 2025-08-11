@@ -28,6 +28,8 @@ stderr()
 nullfile()
 
 isatty(con)
+
+getAllConnections()
 }
 \arguments{
   \item{all}{logical: if true all connections, including closed ones
@@ -49,7 +51,7 @@ isatty(con)
   re-directed by \code{\link{sink}} (and in some circumstances the
   output from \code{stdout()} can be split: see the help page).
 
-  The encoding for \code{\link{stdin}()} when redirected can
+  The encoding for \code{stdin()} when redirected can
   be set by the command-line flag \option{--encoding}.
 
   \code{nullfile()} returns filename of the null device (\code{"/dev/null"}
@@ -71,6 +73,11 @@ isatty(con)
   \code{"terminal"} connections and it is apparently connected to a
   terminal, otherwise false.  This may not be reliable in embedded
   applications, including GUI consoles.
+
+  \code{getAllConnections} returns a sequence of integer connection
+  descriptors for use with \code{getConnection}, corresponding to the
+  row names of the table returned by \code{showConnections(all =
+  TRUE)}. 
 }
 \note{
   \code{stdin()} refers to the \sQuote{console} and not to the C-level

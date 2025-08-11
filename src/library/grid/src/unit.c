@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2020 The R Core Team
+ *                2003-2024 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -344,7 +344,7 @@ double evaluateGrobUnit(double value, SEXP grob,
     SEXP savedgpar, savedgrob, updatedgrob;
     SEXP unitx = R_NilValue, unity = R_NilValue;
     double result = 0.0;
-    Rboolean protectedGrob = FALSE;
+    bool protectedGrob = false;
     /*
      * We are just doing calculations, not drawing, so
      * we don't want anything recorded on the graphics engine DL
@@ -1255,6 +1255,17 @@ double transformFromINCHES(double value, int unit,
     case L_LINES:
 	result = (result*72)/(gc->ps*gc->cex*gc->lineheight);
 	break;
+    case L_SNPC:        
+	if (thisCM < 1e-6 || otherCM < 1e-6) {
+            if (result != 0)
+                error(_("Viewport has zero dimension(s)"));
+        } else {
+            if (thisCM <= otherCM)
+                result = result/(thisCM/2.54);
+            else
+                result = result/(otherCM/2.54);
+        }
+        break;
     case L_MM:
 	result = result*2.54*10;
 	break;
@@ -1282,7 +1293,6 @@ double transformFromINCHES(double value, int unit,
 	 * I'm not sure the remaining ones makes any sense.
 	 * For simplicity, these are just forbidden for now.
 	 */
-    case L_SNPC:        
     case L_MYCHAR:
     case L_MYLINES:
     case L_STRINGWIDTH:
@@ -1949,14 +1959,15 @@ SEXP summaryUnits(SEXP units, SEXP op_type) {
 	SET_STRING_ELT(cl, 0, mkChar("unit"));
 	SET_STRING_ELT(cl, 1, mkChar("unit_v2"));
 
-	int is_type[m];
+	int is_type[m > 0 ? m : 1L]; // mmight be zero which would not be legal C.
 	int all_type = 1;
 	
 	for (int i = 0; i < n; i++) {
 		int k = 0;
-		int first_type, current_type;
+		int first_type = -1;
+                int current_type;
 		SEXP unit = SET_VECTOR_ELT(out, i, allocVector(VECSXP, 3));
-		SEXP first_data;
+		SEXP first_data = R_NilValue;
 		for (int j = 0; j < m; j++) {
 			SEXP unit_temp = PROTECT(unitScalar(VECTOR_ELT(units, j), i));
 			current_type = uUnit(unit_temp);

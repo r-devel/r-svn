@@ -22,7 +22,7 @@ runmed(x, k, endrule = c("median", "keep", "constant"),
 \arguments{
   \item{x}{numeric vector, the \sQuote{dependent} variable to be
     smoothed.}
-  \item{k}{integer width of median window; must be odd.  Turlach had a
+  \item{k}{integer width of median window; must be odd.  \I{Turlach} had a
     default of \code{k <- 1 + 2 * min((n-1)\%/\% 2, ceiling(0.1*n))}.
     Use \code{k = 3} for \sQuote{minimal} robust smoothing eliminating
     isolated outliers.}
@@ -69,7 +69,7 @@ runmed(x, k, endrule = c("median", "keep", "constant"),
     should rarely be changed by average users.}
 }
 \value{vector of smoothed values of the same length as \code{x} with an
-  \code{\link{attr}}ibute \code{k} containing (the \sQuote{oddified})
+  \I{\code{\link{attr}}ibute} \code{k} containing (the \sQuote{oddified})
   \code{k}.
 }
 \details{
@@ -79,12 +79,12 @@ runmed(x, k, endrule = c("median", "keep", "constant"),
 
   The two algorithms are internally entirely different:
   \describe{
-    \item{\code{"Turlach"}}{is the \enc{Härdle}{Haerdle}--Steiger
-      algorithm (see Ref.) as implemented by Berwin Turlach.
+    \item{\code{"Turlach"}}{is the \I{\enc{Härdle}{Haerdle}}--\I{Steiger}
+      algorithm (see Ref.) as implemented by \I{Berwin Turlach}.
       A tree algorithm is used, ensuring performance \eqn{O(n \log
         k)}{O(n * log(k))} where \code{n = length(x)} which is
       asymptotically optimal.}
-    \item{\code{"Stuetzle"}}{is the (older) Stuetzle--Friedman implementation
+    \item{\code{"Stuetzle"}}{is the (older) \I{Stuetzle}--\I{Friedman} implementation
       which makes use of median \emph{updating} when one observation
       enters and one leaves the smoothing window.  While this performs as
       \eqn{O(n \times k)}{O(n * k)} which is slower asymptotically, it is

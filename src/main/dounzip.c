@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  file dounzip.c
- *  first part Copyright (C) 2002-2020  The R Core Team
+ *  first part Copyright (C) 2002-2025  The R Core Team
  *  second part Copyright (C) 1998-2010 Gilles Vollant
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,6 +32,8 @@
 # include <sys/stat.h>
 #endif
 #include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef Win32
 #include <io.h> /* for mkdir */
@@ -41,11 +43,17 @@
 static int R_mkdir(char *path)
 {
 #ifdef Win32
-    char local[PATH_MAX];
+    char *local = (char *)malloc(strlen(path) + 1);
+    if (!local) {
+	errno = ENOMEM;
+	return -1;
+    }
     strcpy(local, path);
     /* needed DOS paths on Win 9x */
     R_fixbackslash(local);
-    return mkdir(local);
+    int res = mkdir(local);
+    free(local);
+    return res;
 #endif
 #ifdef Unix
     return mkdir(path, 0777);
@@ -110,24 +118,33 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 {
     int err = UNZ_OK;
     FILE *fout;
-    char  outname[PATH_MAX], dirs[PATH_MAX], buf[BUF_SIZE], *p, *pp;
-    char *fn, fn0[PATH_MAX];
+    char  outname[R_PATH_MAX], dirs[R_PATH_MAX], buf[BUF_SIZE], *p, *pp;
+    char *fn, fn0[R_PATH_MAX];
 
     err = unzOpenCurrentFile(uf);
     if (err != UNZ_OK) return err;
-    if (strlen(dest) > PATH_MAX - 1) return 1;
+    if (strlen(dest) > R_PATH_MAX - 2) {
+	unzCloseCurrentFile(uf);
+	return 1;
+    }
     strcpy(outname, dest);
     strcat(outname, FILESEP);
     unz_file_info64 file_info;
-    char filename_inzip[PATH_MAX];
+    char filename_inzip[R_PATH_MAX];
     err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
 				  sizeof(filename_inzip), NULL, 0, NULL, 0);
     fn = filename_inzip; /* might be UTF-8 ... */
     if (filename) {
-	if (strlen(dest) + strlen(filename) > PATH_MAX - 2) return 1;
-	strncpy(fn0, filename, PATH_MAX);
-	fn0[PATH_MAX - 1] = '\0';
+	if (strlen(filename) > R_PATH_MAX - 1) {
+	    unzCloseCurrentFile(uf);
+	    return 1;
+	}
+	strcpy(fn0, filename);
 	fn = fn0;
+    } else if (err != UNZ_OK
+               || file_info.size_filename >= sizeof(filename_inzip)) {
+	unzCloseCurrentFile(uf);
+	return 1;
     }
 #ifdef Win32
     R_fixslash(fn);
@@ -136,12 +153,17 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 	p = Rf_strrchr(fn, '/');
 	if (p) fn = p+1;
     }
+    if (strlen(outname) + strlen(fn) > R_PATH_MAX - 1) {
+	unzCloseCurrentFile(uf);
+	return 1;
+    }
     strcat(outname, fn);
 
 #ifdef Win32
     R_fixslash(outname); /* ensure path separator is / */
 #endif
     p = outname + strlen(outname) - 1;
+    bool warned = FALSE;
     if (*p == '/') { /* Directories are stored with trailing slash */
 	if (!junk) {
 	    *p = '\0';
@@ -149,10 +171,20 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 		/* make parents as required: have already checked dest exists */
 		pp = outname + strlen(dest) + 1;
 		while((p = Rf_strchr(pp, '/'))) {
-		    strcpy(dirs, outname);
-		    dirs[p - outname] = '\0';
-		    if (!R_FileExists(dirs)) R_mkdir(dirs);
-		    pp = p + 1;
+		    if (p - pp == 2 && !strncmp(pp, "..", 2)) {
+			if (!warned) {
+			    warning(
+			      _("skipped \"../\" path component(s) in '%s'"),
+			      fn);
+			    warned = true;
+			}
+			memmove(pp, p + 1, strlen(p + 1) + 1);
+		    } else {
+			strcpy(dirs, outname);
+			dirs[p - outname] = '\0';
+			if (!R_FileExists(dirs)) R_mkdir(dirs);
+			pp = p + 1;
+		    }
 		}
 		err = R_mkdir(outname);
 	    }
@@ -161,11 +193,21 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 	/* make parents as required: have already checked dest exists */
 	pp = outname + strlen(dest) + 1;
 	while((p = Rf_strchr(pp, '/'))) {
-	    strcpy(dirs, outname);
-	    dirs[p - outname] = '\0';
-	    /* Rprintf("dirs is %s\n", dirs); */
-	    if (!R_FileExists(dirs)) R_mkdir(dirs);
-	    pp = p + 1;
+	    if (p - pp == 2 && !strncmp(pp, "..", 2)) {
+		if (!warned) {
+		    warning(
+		      _("skipped \"../\" path component(s) in '%s'"),
+		      fn);
+		    warned = true;
+		}
+		memmove(pp, p + 1, strlen(p + 1) + 1);
+	    } else {
+		strcpy(dirs, outname);
+		dirs[p - outname] = '\0';
+		/* Rprintf("dirs is %s\n", dirs); */
+		if (!R_FileExists(dirs)) R_mkdir(dirs);
+		pp = p + 1;
+	    }
 	}
 	/* Rprintf("extracting %s\n", outname); */
 	if (!overwrite && R_FileExists(outname)) {
@@ -275,12 +317,14 @@ static SEXP ziplist(const char *zipname)
     SET_VECTOR_ELT(ans, 2, dates = allocVector(STRSXP, nfiles));
 
     for (i = 0; i < nfiles; i++) {
-	char filename_inzip[PATH_MAX], date[50];
+	char filename_inzip[R_PATH_MAX], date[50];
 	unz_file_info64 file_info;
 
 	err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
 				      sizeof(filename_inzip), NULL, 0, NULL, 0);
-	if (err != UNZ_OK) {
+	if (err != UNZ_OK ||
+	    file_info.size_filename >= sizeof(filename_inzip)) {
+
 	    unzClose(uf);
 	    error("error %d with zipfile in unzGetCurrentFileInfo\n", err);
 	}
@@ -315,7 +359,7 @@ static SEXP ziplist(const char *zipname)
 SEXP Runzip(SEXP args)
 {
     SEXP  fn, ans, names = R_NilValue;
-    char  zipname[PATH_MAX], dest[PATH_MAX];
+    char  zipname[R_PATH_MAX], dest[R_PATH_MAX];
     const char *p, **topics = NULL;
     int   i, ntopics, list, overwrite, junk, setTime, rc, nnames = 0;
     const void *vmax = vmaxget();
@@ -323,7 +367,7 @@ SEXP Runzip(SEXP args)
     if (!isString(CAR(args)) || LENGTH(CAR(args)) != 1)
 	error(_("invalid zip name argument"));
     p = R_ExpandFileName(translateCharFP(STRING_ELT(CAR(args), 0)));
-    if (strlen(p) > PATH_MAX - 1)
+    if (strlen(p) > R_PATH_MAX - 1)
 	error(_("zip path is too long"));
     strcpy(zipname, p);
     args = CDR(args);
@@ -340,7 +384,7 @@ SEXP Runzip(SEXP args)
     if (!isString(CAR(args)) || LENGTH(CAR(args)) != 1)
 	error(_("invalid '%s' argument"), "exdir");
     p = R_ExpandFileName(translateCharFP(STRING_ELT(CAR(args), 0)));
-    if (strlen(p) > PATH_MAX - 1)
+    if (strlen(p) > R_PATH_MAX - 1)
 	error(_("'exdir' is too long"));
     strcpy(dest, p);
     if (!R_FileExists(dest))
@@ -406,7 +450,7 @@ typedef struct unzconn {
 static Rboolean unz_open(Rconnection con)
 {
     unzFile uf;
-    char path[2*PATH_MAX], *p;
+    char path[2*R_PATH_MAX], *p;
     const char *tmp;
     int mlen;
 
@@ -415,7 +459,7 @@ static Rboolean unz_open(Rconnection con)
 	return FALSE;
     }
     tmp = R_ExpandFileName(con->description);
-    if (strlen(tmp) > PATH_MAX - 1) {
+    if (strlen(tmp) > R_PATH_MAX - 1) {
 	warning(_("zip path is too long"));
 	return FALSE;
     }
@@ -475,18 +519,18 @@ static size_t unz_read(void *ptr, size_t size, size_t nitems,
     return unzReadCurrentFile(uf, ptr, (unsigned int)(size*nitems))/size;
 }
 
-static int NORET null_vfprintf(Rconnection con, const char *format, va_list ap)
+NORET static int null_vfprintf(Rconnection con, const char *format, va_list ap)
 {
     error(_("printing not enabled for this connection"));
 }
 
-static size_t NORET null_write(const void *ptr, size_t size, size_t nitems,
+NORET static size_t null_write(const void *ptr, size_t size, size_t nitems,
 			 Rconnection con)
 {
     error(_("write not enabled for this connection"));
 }
 
-static double NORET null_seek(Rconnection con, double where, int origin, int rw)
+NORET static double null_seek(Rconnection con, double where, int origin, int rw)
 {
     error(_("seek not enabled for this connection"));
 }
@@ -496,7 +540,7 @@ static int null_fflush(Rconnection con)
     return 0;
 }
 
-Rconnection attribute_hidden
+attribute_hidden Rconnection
 R_newunz(const char *description, const char *const mode)
 {
     Rconnection new;
@@ -623,7 +667,7 @@ typedef struct
     uLong crc32_wait;           /* crc32 we must obtain after decompress all */
     ZPOS64_T rest_read_compressed; /* number of byte to be decompressed */
     ZPOS64_T rest_read_uncompressed;/*number of byte to be obtained after decomp*/
-    voidpf filestream;        /* io structore of the zipfile */
+    voidpf filestream;        /* io structure of the zipfile */
     uLong compression_method;   /* compression method (0 == store) */
     ZPOS64_T byte_before_the_zipfile;/* byte before the zipfile, (>0 for sfx)*/
     int   raw;
@@ -635,7 +679,7 @@ typedef struct
 typedef struct
 {
     int is64bitOpenFunction;
-    voidpf filestream;        /* io structore of the zipfile */
+    voidpf filestream;        /* io structure of the zipfile */
     unz_global_info64 gi;       /* public global information */
     ZPOS64_T byte_before_the_zipfile;/* byte before the zipfile, (>0 for sfx)*/
     ZPOS64_T num_file;             /* number of the current file in the zipfile*/
@@ -660,7 +704,7 @@ typedef struct
 /* ===========================================================================
      Read a byte from a gz_stream; update next_in and avail_in. Return EOF
    for end of file.
-   IN assertion: the stream s has been sucessfully opened for reading.
+   IN assertion: the stream s has been successfully opened for reading.
 */
 
 local int unz64local_getByte(voidpf filestream, int *pi)
@@ -813,8 +857,8 @@ strcmpcasenosensitive_internal (const char* fileName1, const char* fileName2)
 
 /*
    Compare two filename (fileName1,fileName2).
-   If iCaseSenisivity = 1, comparision is case sensitivity (like strcmp)
-   If iCaseSenisivity = 2, comparision is not case sensitivity (like strcmpi
+   If iCaseSenisivity = 1, comparison is case sensitivity (like strcmp)
+   If iCaseSenisivity = 2, comparison is not case sensitivity (like strcmpi
 								or strcasecmp)
    If iCaseSenisivity = 0, case sensitivity is defaut of your operating system
 	(like 1 on Unix, 2 on Windows)
@@ -1603,6 +1647,7 @@ extern int ZEXPORT unzLocateFile (unzFile file, const char *szFileName, int iCas
     while (err == UNZ_OK)
     {
 	char szCurrentFileName[UNZ_MAXFILENAMEINZIP+1];
+	szCurrentFileName[UNZ_MAXFILENAMEINZIP] = '\0';
 	err = unzGetCurrentFileInfo64(file, NULL,
 				      szCurrentFileName,
 				      sizeof(szCurrentFileName)-1,

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001--2022 The R Core Team
+ *  Copyright (C) 2001--2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Pulic License as published by
@@ -27,7 +27,7 @@
 #define isRaw(x) (TYPEOF(x) == RAWSXP)
 
 /* charToRaw works at byte level, ignores encoding */
-SEXP attribute_hidden do_charToRaw(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_charToRaw(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, x = CAR(args);
     int nc;
@@ -44,7 +44,7 @@ SEXP attribute_hidden do_charToRaw(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* <UTF8>  rawToChar should work at byte level */
-SEXP attribute_hidden do_rawToChar(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_rawToChar(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, x = CAR(args);
 
@@ -79,7 +79,7 @@ SEXP attribute_hidden do_rawToChar(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 
-SEXP attribute_hidden do_rawShift(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_rawShift(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
@@ -101,7 +101,7 @@ SEXP attribute_hidden do_rawShift(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-SEXP attribute_hidden do_rawToBits(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_rawToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
@@ -121,7 +121,7 @@ SEXP attribute_hidden do_rawToBits(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-SEXP attribute_hidden do_intToBits(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_intToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), INTSXP));
@@ -147,12 +147,10 @@ SEXP attribute_hidden do_intToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif /* WORDS_BIGENDIAN */
 
 // split "real" (double = 64-bit) into two 32-bit parts (which the user can split to bits):
-SEXP attribute_hidden do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(INTSXP, 2*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -169,13 +167,11 @@ SEXP attribute_hidden do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(2);
     return ans;
 }
-// split "real", i.e. = double = 64-bitd, to bits (<==> do_intToBits( do_numToInts(..) .. ))
-SEXP attribute_hidden do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
+// split "real", i.e. = double = 64-bit, to bits (<==> do_intToBits( do_numToInts(..) .. ))
+attribute_hidden SEXP do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(RAWSXP, 64*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -195,7 +191,7 @@ SEXP attribute_hidden do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 
-SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP ans, x = CAR(args), stype = CADR(args);
@@ -205,9 +201,9 @@ SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("argument 'x' must be raw, integer or logical"));
     if (!isString(stype)  || LENGTH(stype) != 1)
 	error(_("argument '%s' must be a character string"), "type");
-    Rboolean
-	notI = strcmp(CHAR(STRING_ELT(stype, 0)), "integer"),
-	notR = strcmp(CHAR(STRING_ELT(stype, 0)), "raw"),
+    bool
+	notI = strcmp(CHAR(STRING_ELT(stype, 0)), "integer") != 0,
+	notR = strcmp(CHAR(STRING_ELT(stype, 0)), "raw") != 0,
 	useRaw =  notI && !notR,
 	useInt = !notI &&  notR;
     int fac = useRaw ? 8 : (useInt ? 32 : 64);
@@ -275,6 +271,7 @@ SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 /* Simplified version for RFC3629 definition of UTF-8 */
+attribute_hidden /* would need to be in an installed header if not hidden */
 int mbrtoint(int *w, const char *s)
 {
     unsigned int byte;
@@ -319,7 +316,7 @@ int mbrtoint(int *w, const char *s)
     /* return -2; not reached */
 }
 
-SEXP attribute_hidden do_utf8ToInt(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_utf8ToInt(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, x = CAR(args);
     int tmp, used = 0; /* -Wall */
@@ -372,7 +369,7 @@ static size_t inttomb(char *s, const int wc)
 
 #include <R_ext/RS.h>  /* for R_Calloc/R_Free */
 
-SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, x;
     int multiple, s_pair;
@@ -409,21 +406,21 @@ SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* do we want to copy e.g. names here? */
     } else {
 	int i, nc = LENGTH(x);
-	Rboolean haveNA = FALSE;
+	bool haveNA = false;
 	/* Note that this gives zero length for input '0', so it is omitted */
 	for (i = 0, len = 0; i < nc; i++) {
 	    int this = INTEGER(x)[i];
 	    if (this == NA_INTEGER
 		|| (this >= 0xDC00 && this <= 0xDFFF)
 		|| this > 0x10FFFF) {
-		haveNA = TRUE;
+		haveNA = true;
 		break;
 	    }
 	    else if (this >=  0xD800 && this <= 0xDBFF) {
-		if(!s_pair || i >= nc-1) {haveNA = TRUE; break;}
+		if(!s_pair || i >= nc-1) {haveNA = true; break;}
 		int next = INTEGER(x)[i+1];
 		if(next >= 0xDC00 && next <= 0xDFFF) i++;
-		else {haveNA = TRUE; break;}
+		else {haveNA = true; break;}
 		len += 4; // all points not in the basic plane have length 4
 	    }
 	    else
@@ -450,7 +447,7 @@ SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 		this = 0x10000 + (hi << 10) + lo;
 	    }
 	    used = inttomb(buf, this);
-	    memcpy(tmp + len, buf, used);
+	    if (used) memcpy(tmp + len, buf, used);
 	    len += used;
 	}
 	PROTECT(ans = allocVector(STRSXP, 1));

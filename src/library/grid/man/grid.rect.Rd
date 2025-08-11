@@ -51,13 +51,13 @@ rectGrob(x = unit(0.5, "npc"), y = unit(0.5, "npc"),
   \item{vp}{A Grid viewport object (or NULL).}
 }
 \details{
-  Both functions create a rect grob (a graphical object describing
+  Both functions create a \I{rect grob} (a graphical object describing
   rectangles), but only \code{grid.rect}
   draws the rectangles (and then only if \code{draw} is \code{TRUE}).
 
 }
 \value{
-  A rect grob.  \code{grid.rect} returns the value invisibly.
+  A \I{rect grob}.  \code{grid.rect} returns the value invisibly.
 }
 \author{Paul Murrell}
 \seealso{

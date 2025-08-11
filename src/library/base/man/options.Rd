@@ -1,6 +1,6 @@
 % File src/library/base/man/options.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{options}
@@ -70,7 +70,7 @@ getOption(x, default = NULL)
   a list with the previous values of the options changed (returned
   invisibly).
 }
-\section{Options used in base \R}{
+\section{Options used in base \R}{% --- sorted *alphabetically* --
   \describe{
     \item{\code{add.smooth}:}{typically logical, defaulting to
       \code{TRUE}.  Could also be set to an integer for specifying how
@@ -84,6 +84,14 @@ getOption(x, default = NULL)
 
     \item{\code{browserNLdisabled}:}{logical: whether newline is
       disabled as a synonym for \code{"n"} in the browser.}
+
+    \item{\code{catch.script.errors}:}{logical, false by default.  If
+      true \emph{and} \code{\link{interactive}()} is false, e.g., when an
+      \R script is run by \code{R CMD \link{BATCH} <script>.R}, then
+      errors do \emph{not} stop execution of the script.  Rather evaluation
+      continues after printing the error (and jumping to top level).
+      Also, \code{\link{traceback}()} would provide info about the error.
+      Do use with care!}
 
     \item{\code{checkPackageLicense}:}{logical, not set by default.  If
       true, \code{\link{loadNamespace}} asks a user to accept any
@@ -111,13 +119,14 @@ getOption(x, default = NULL)
 
     %%  default is set in ../../profile/Common.R :
     \item{\code{defaultPackages}:}{the packages that are attached by
-      default when \R starts up.  Initially set from value of the
+      default when \R starts up.  Initially set from the value of the
       environment variable \env{R_DEFAULT_PACKAGES}, or if that is unset
       to \code{c("datasets", "utils", "grDevices", "graphics", "stats",
         "methods")}.  (Set \env{R_DEFAULT_PACKAGES} to \code{NULL} or
-      a comma-separated list of package names.)  It will not work to set
-      this in a \file{.Rprofile} file, as its value is consulted before
-      that file is read.}
+      a comma-separated list of package names.)
+      This option can be changed in a \file{.Rprofile} file, but it will
+      not work to exclude the \pkg{methods} package at this stage, as
+      the value is screened for \pkg{methods} before that file is read.}
 
     \item{\code{deparse.cutoff}:}{integer value controlling the
       printing of language constructs which are \code{\link{deparse}}d.
@@ -141,7 +150,8 @@ getOption(x, default = NULL)
 
     \item{\code{digits.secs}:}{controls the maximum number of digits to
       print when formatting time values in seconds.  Valid values
-      are 0\dots6 with default 0.  See \code{\link{strftime}}.}
+      are 0\dots6 with default 0 (equivalent to \code{NULL} which is used
+      when it is undefined as on vanilla startup).  See \code{\link{strftime}}.}
 
     \item{\code{download.file.extra}:}{Extra command-line argument(s) for
       non-default methods: see \code{\link{download.file}}.}
@@ -242,7 +252,7 @@ getOption(x, default = NULL)
 	\item{\code{"default.simd"}}{is experimental and will likely be
 	  removed in future versions of \R.  It provides the same behavior
 	  as \code{"default"}, but the check whether the input contains
-	  \code{NaN}/\code{Inf} values is faster on some SIMD hardware.
+	  \code{NaN}/\code{Inf} values is faster on some \abbr{SIMD} hardware.
           On older systems it will run correctly, but may be much slower than
 	  \code{"default"}.}
       }
@@ -254,12 +264,19 @@ getOption(x, default = NULL)
       to something in the order of (and typically slightly less than)
       \code{max.print} \emph{entries}.}
 
+    \item{\code{netrc}:}{character string. Path to \I{netrc} file with
+      user credentials for URLs requiring authentication.  The file, if it
+      exists, will be used by \samp{libcurl} in \code{\link{download.file}},
+      \code{\link{url}} and \code{\link{curlGetHeaders}}.  By default unset,
+      but can be set from environment variable \env{R_DEFAULT_NETRC}.}
+
     \item{\code{OutDec}:}{character string containing a single
       character.  The preferred character to be used as the decimal
       point in output conversions, that is in printing, plotting,
-      \code{\link{format}} and \code{\link{as.character}} but not when
-      deparsing nor by \code{\link{sprintf}} nor \code{\link{formatC}}
-      (which are sometimes used prior to printing.)
+      \code{\link{format}}, \code{\link{formatC}} and
+      \code{\link{as.character}} but not when
+      deparsing nor by \code{\link{sprintf}}
+      (which is sometimes used prior to printing).
     }
 
     \item{\code{pager}:}{the command used for displaying text files by
@@ -292,10 +309,10 @@ getOption(x, default = NULL)
 
     \item{\code{PCRE_limit_recursion}:}{Logical: should
       \code{\link{grep}(perl = TRUE)} and similar limit the maximal
-      recursion allowed when matching?  Only relevant for PCRE1 and
-      PCRE2 <= 10.23.
+      recursion allowed when matching?  Only relevant for \I{PCRE1} and
+      \I{PCRE2} <= 10.23.
 
-      PCRE can be built not to use a recursion stack (see
+      \I{PCRE} can be built not to use a recursion stack (see
       \code{\link{pcre_config}}), but it uses recursion by default with
       a recursion limit of 10000000 which potentially needs a very large
       C stack: see the discussion at
@@ -303,7 +320,7 @@ getOption(x, default = NULL)
       true, the limit is reduced using \R's estimate of the C stack size
       available (if known), otherwise 10000.  If \code{NA}, the limit is
       imposed only if any input string has 1000 or more bytes.  The
-      limit has no effect when PCRE's Just-in-Time compiler is used.}
+      limit has no effect when PCRE{}'s Just-in-Time compiler is used.}
 
      \item{\code{PCRE_study}:}{Logical or integer: should
       \code{\link{grep}(perl = TRUE)} and similar \sQuote{study} the
@@ -316,7 +333,7 @@ getOption(x, default = NULL)
 
     \item{\code{PCRE_use_JIT}:}{Logical: should \code{\link{grep}(perl =
 	TRUE)}, \code{\link{strsplit}(perl = TRUE)} and similar make use
-      of PCRE's Just-In-Time compiler if available? (This applies only to
+      of PCRE{}'s Just-In-Time compiler if available? (This applies only to
       studied patterns with PCRE1.)  Default: true.  Missing values are
       treated as false.}
 
@@ -338,8 +355,13 @@ getOption(x, default = NULL)
     \item{\code{prompt}:}{a non-empty string to be used for \R's prompt;
       should usually end in a blank (\code{" "}).}
 
+    \item{\code{quiet}:}{logical.  Should \R be (more) \dQuote{quiet},
+      notably on startup report?  Set to \code{TRUE} by the command-line
+      option \option{--quiet}.  Note that \code{quiet} and \code{verbose}
+      \emph{can} both be true.}
+
       % verbatim, for checking " \t\n\"\\'`><=%;,|&{()}"
-    \item{\code{rl_word_breaks}:}{(Unix only:) Used for the readline-based terminal
+    \item{\code{rl_word_breaks}:}{(Unix only:) Used for the \I{readline}-based terminal
       interface.  Default value \code{" \\t\\n\\"\\\\'`><=\%;,|&{()}"}.%"
 
       This is the set of characters use to break the input line into
@@ -355,41 +377,45 @@ getOption(x, default = NULL)
       when deciding to print numeric values in fixed or exponential
       notation.  Positive values bias towards fixed and negative towards
       scientific notation: fixed notation will be preferred unless it is
-      more than \code{scipen} digits wider.}
+      more than \code{scipen} digits wider.  The default is \code{0}.
+      Valid values are between -9 and 9999 where \dQuote{relevant} values
+      (for double precision accuracy) are in \code{-6:319}.
+      Some invalid values currently signal a \code{\link{warning}} and are set
+      to legal boundaries if finite.  These may signal an error in a future
+      version of \R.
+    }
 
     \item{\code{setWidthOnResize}:}{a logical. If set and \code{TRUE}, \R
       run in a terminal using a recent \code{readline} library will set
       the \code{width} option when the terminal is resized.}
 
     \item{\code{showWarnCalls}, \code{showErrorCalls}:}{a logical.
-      Should warning and error messages show a summary of the call
-      stack?  By default error calls are shown in non-interactive
-      sessions.}
+      Should warning and error messages produced by the default handlers
+      show a summary of the call stack?  By default error call stacks
+      are shown in non-interactive sessions. When \code{\link{warning}}
+      or \code{\link{stop}} are called on a condition object the call
+      stacks are only shown if the value returned by
+      \code{\link{conditionCall}} for the condition object is not
+      \code{NULL}.}
 
     \item{\code{showNCalls}:}{integer.  Controls how long the sequence
       of calls must be (in bytes) before ellipses are used.  Defaults to
-      40 and should be at least 30 and no more than 500.}
+      50 and should be at least 30 and no more than 500.}
 
     \item{\code{show.error.locations}:}{Should source locations of
       errors be printed?  If set to \code{TRUE} or \code{"top"}, the
       source location that is highest on the stack (the most recent
-      call) will be printed.  \code{"bottom"} will print the location
-      of the earliest call found on the stack.
-
-      Integer values can select other entries.  The value \code{0}
-      corresponds to \code{"top"} and positive values count down the
-      stack from there.  The value \code{-1} corresponds to
-      \code{"bottom"} and negative values count up from there.
+      code with source information) will be printed.
       }
 
     \item{\code{show.error.messages}:}{a logical.  Should error messages
       be printed?  Intended for use with \code{\link{try}} or a
       user-installed error handler.}
 
-    \item{\code{stringsAsFactors}:}{The default setting for
-      \code{\link{default.stringsAsFactors}}, which in \R < 4.1.0 was
-      used to provide the default values of the \code{stringsAsFactors}
-      argument of \code{\link{data.frame}} and \code{\link{read.table}}.}
+    %% \item{\code{stringsAsFactors}:}{The default setting for
+    %%   \code{\link{default.stringsAsFactors}}, which in \R < 4.1.0 was
+    %%   used to provide the default values of the \code{stringsAsFactors}
+    %%   argument of \code{\link{data.frame}} and \code{\link{read.table}}.}
 
     \item{\code{texi2dvi}:}{used by functions
       \code{\link{texi2dvi}} and \code{\link{texi2pdf}} in package \pkg{tools}.
@@ -429,7 +455,8 @@ getOption(x, default = NULL)
       on progress?  Set to \code{TRUE} by the command-line option
       \option{--verbose}.}
 
-    \item{\code{warn}:}{integer value to set the handling of warning messages.  If
+    \item{\code{warn}:}{integer value to set the handling of warning
+      messages by the default warning handler.  If
       \code{warn} is negative all warnings are ignored.  If \code{warn}
       is zero (the default) warnings are stored until the top--level
       function returns.  If 10 or fewer warnings were signalled they
@@ -438,7 +465,9 @@ getOption(x, default = NULL)
       created and can be printed through the function
       \code{\link{warnings}}.  If \code{warn} is one, warnings are
       printed as they occur.  If \code{warn} is two (or larger, coercible
-      to integer), all warnings are turned into errors.}
+      to integer), all warnings are turned into errors. While sometimes
+      useful for debugging, turning warnings into errors may trigger
+      bugs and resource leaks that would not have been triggered otherwise.}
 
     \item{\code{warnPartialMatchArgs}:}{logical.  If true, warns if
       partial matching is used in argument matching.}
@@ -484,7 +513,7 @@ getOption(x, default = NULL)
     }
  }
 
-  The \sQuote{factory-fresh} default settings of some of these options are
+  The \sQuote{factory-fresh} default settings of some of these options are (alphabetically)
   \tabular{ll}{
     \code{add.smooth} \tab \code{TRUE}\cr
     \code{check.bounds} \tab \code{FALSE}\cr
@@ -499,6 +528,7 @@ getOption(x, default = NULL)
     \code{max.print} \tab \code{99999}\cr
     \code{OutDec} \tab \code{"."}\cr
     \code{prompt} \tab \code{"> "}\cr
+    \code{quiet}   \tab \code{FALSE}\cr
     \code{scipen} \tab \code{0} \cr
     \code{show.error.messages} \tab \code{TRUE}\cr
     \code{timeout} \tab \code{60}\cr
@@ -509,7 +539,8 @@ getOption(x, default = NULL)
   }
   Others are set from environment variables or are platform-dependent.
 }
-\section{Options set in package grDevices}{
+
+\section{Options set in package \pkg{grDevices}}{
   These will be set when package \pkg{grDevices} (or its namespace)
   is loaded if not already set.
   \describe{
@@ -549,7 +580,7 @@ getOption(x, default = NULL)
       and \code{identify} be confirmed by a bell?  Default \code{TRUE}.
       Honoured at least on \code{X11} and \code{windows} devices.}
 
-    \item{\code{windowsTimeout}:}{(Windows-only) integer vector of length 2
+    \item{\code{windowsTimeouts}:}{(Windows-only) integer vector of length 2
       representing two times in milliseconds.  These control the
       double-buffering of \code{\link{windows}} devices when that is
       enabled: the first is the delay after plotting finishes
@@ -558,7 +589,7 @@ getOption(x, default = NULL)
       device is opened are used.}
   }
 }
-\section{Other options used by package graphics}{
+\section{Other options used by package \pkg{graphics}}{
   \describe{
     \item{\code{max.contour.segments}:}{positive integer, defaulting to
       \code{25000} if not set.  A limit on the number of
@@ -566,8 +597,8 @@ getOption(x, default = NULL)
       \code{\link{contourLines}}.}
   }
 }
-\section{Options set in package stats}{
-  These will be set when package \pkg{stats} (or its namespace)
+\section{Options set (or used) in package \pkg{stats}}{
+  Most of these will be set when package \pkg{stats} (or its namespace)
   is loaded if not already set.
   \describe{
     \item{\code{contrasts}:}{the default \code{\link{contrasts}} used in
@@ -586,10 +617,13 @@ getOption(x, default = NULL)
       \code{\link{printCoefmat}}.}
 
     \item{\code{show.nls.convergence}:}{logical, should \code{\link{nls}}
-      convergence messages be printed for successful fits?}
+      convergence messages be printed for successful fits?
+      Initially unset, which means \code{TRUE}.}
 
     \item{\code{show.signif.stars}:}{logical, should stars be printed on
       summary tables of coefficients?  See \code{\link{printCoefmat}}.}
+
+    \item{\code{str.dendrogram.last}:}{see \code{\link{str.dendrogram}}.}
 
     \item{\code{ts.eps}:}{the relative tolerance for certain time series
       (\code{\link{ts}}) computations.  Default \code{1e-05}.}
@@ -599,9 +633,11 @@ getOption(x, default = NULL)
       \code{log} in \code{\link{plot.spec}}.}
   }
 }
-\section{Options set (or used) in package utils}{
-  These will be set (apart from \code{Ncpus}) when package \pkg{utils}
-  (or its namespace) is loaded if not already set.
+\section{Options set (or used) in package \pkg{utils}}{
+  Many of these will be set when package \pkg{utils} (or its namespace)
+  is loaded if not already set.
+  % apart from, e.g., "ccaddress", "help.ports", "help_type",
+  % "help.htmlmath", "help.htmltoc", "install.lock", "Ncpus"
   \describe{
     \item{\code{BioC_mirror}:}{The URL of a Bioconductor mirror
       for use by \code{\link{setRepositories}},
@@ -617,12 +653,12 @@ getOption(x, default = NULL)
       \code{\link{browseURL}} for further details.}
 
     \item{\code{ccaddress}:}{default Cc: address used by
-      \code{\link{create.post}} (and hence\code{\link{bug.report}} and
+      \code{\link{create.post}} (and hence \code{\link{bug.report}} and
       \code{\link{help.request}}).  Can be \code{FALSE} or \code{""}.}
 
     \item{\code{citation.bibtex.max}:}{default 1; the maximal number of
-      bibentries (\code{\link{bibentry}}) in a \code{\link{citation}} for
-      which the bibtex version is printed in addition to the text one.}
+      \I{bibentries} (\code{\link{bibentry}}) in a \code{\link{citation}} for
+      which the BibTeX version is printed in addition to the text one.}
 
     \item{\code{de.cellwidth}:}{integer: the cell widths (number of
       characters) to be used in the data editor \code{\link{dataentry}}.
@@ -661,13 +697,17 @@ getOption(x, default = NULL)
       and \code{"mathjax"}; for all other values basic substitutions are
       used. }
 
+    \item{\code{help.htmltoc}:}{default for the \code{toc} argument
+      of \code{\link{Rd2HTML}}, controlling whether a table of contents
+      should be included. }
+
     \item{\code{HTTPUserAgent}:}{string used as the \sQuote{user agent} in
       HTTP(S) requests by \code{\link{download.file}}, \code{\link{url}}
       and \code{\link{curlGetHeaders}}, or \code{NULL} when requests will
       be made without a user agent header.  The default is
-      \code{R (<version> <platform> <arch> <os>)}
+      \code{"R (\var{version} \var{platform} \var{arch} \var{os})"}
       except when \samp{libcurl} is used when it is
-      \code{libcurl/7.<xx>.<y>} for the \samp{libcurl} version in use.}
+      \code{"libcurl/\var{version}"} for the \samp{libcurl} version in use.}
 
     \item{\code{install.lock}:}{logical: should per-directory package
       locking be used by \code{\link{install.packages}}?  Most useful
@@ -707,13 +747,13 @@ getOption(x, default = NULL)
       \code{\link{help.request}}.}
 
     \item{\code{menu.graphics}:}{Logical: should graphical menus be used
-      if available?.  Defaults to \code{TRUE}.  Currently applies to
+      if available?  Defaults to \code{TRUE}.  Currently applies to
       \code{\link{select.list}}, \code{\link{chooseCRANmirror}},
       \code{\link{setRepositories}} and to select from multiple (text)
       help files in \code{\link{help}}.}
 
     \item{\code{Ncpus}:}{an integer \eqn{n \ge 1}{n >= 1}, used in
-      \code{\link{install.packages}} as default for the number of cpus
+      \code{\link{install.packages}} as default for the number of CPUs
       to use in a potentially parallel installation, as
       \code{Ncpus = getOption("Ncpus", 1L)}, i.e., when unset is
       equivalent to a setting of 1.}
@@ -726,11 +766,10 @@ getOption(x, default = NULL)
 	  \code{"win.binary"}, \code{"source"} and
 	  \code{"both"} (the default).}
 	\item{on Unix-alikes}{\code{"source"} (the default except under a
-	  CRAN macOS build), \code{"mac.binary"} and
+	  CRAN macOS build), build-specific variants of
+	  \code{"mac.binary"} (e.g., \code{"mac.binary.big-sur-arm64"}) or
 	  \code{"both"} (the default for CRAN macOS builds).
-	  (\code{"mac.binary.el-capitan"},
-	  \code{"mac.binary.mavericks"}, \code{"mac.binary.leopard"}
-	  and \code{"mac.binary.universal"} are no longer in use.)} 
+	}
       }
       Value \code{"binary"} is a synonym for the native binary type (if
       there is one); \code{"both"} is used by
@@ -738,18 +777,33 @@ getOption(x, default = NULL)
       installs.
     }
 
-    \item{\code{repos}:}{URLs of the repositories for use by
-      \code{\link{update.packages}}.  Defaults to
+    \item{\code{repos}:}{character vector of repository URLs for use by
+      \code{\link{available.packages}} and related functions.  Initially
+      set from entries marked as default in the
+      \file{\link[=R_REPOSITORIES]{repositories}} file,
+      whose path is configurable via environment variable \env{R_REPOSITORIES}
+      (set this to \code{NULL} to skip initialization at startup).
+      The \sQuote{factory-fresh} setting from the file in \code{R.home("etc")} is
       \code{c(CRAN="@CRAN@")}, a value that causes some utilities to
       prompt for a CRAN mirror.  To avoid this do set the CRAN mirror,
-      by something like
-      \code{local({r <- getOption("repos"); r["CRAN"] <- "http://my.local.cran";
-                   options(repos = r)})}.
+      by something like \preformatted{
+local({
+    r <- getOption("repos")
+    r["CRAN"] <- "https://my.local.cran"
+    options(repos = r)
+})
+}
+      in your \file{\link{.Rprofile}},
+      or use a personal \file{repositories} file.
 
       Note that you can add more repositories (Bioconductor,
-      R-Forge, Rforge.net \dots)
+      \I{R-Forge}, \I{RForge.net}, \dots) for the current session
       using \code{\link{setRepositories}}.
     }
+
+    \item{\code{str}:}{a list of options controlling the default
+      \code{\link{str}} display. Defaults to \code{\link{strOptions}()}.}
+
     \item{\code{SweaveHooks}, \code{SweaveSyntax}:}{
       see \code{\link{Sweave}}.
     }
@@ -768,11 +822,12 @@ getOption(x, default = NULL)
 
   }
 }
-\section{Options set in package parallel}{
+
+\section{Options set in package \pkg{parallel}}{
   These will be set when package \pkg{parallel} (or its namespace)
   is loaded if not already set.
   \describe{
-    \item{\code{mc.cores}:}{a integer giving the maximum allowed number
+    \item{\code{mc.cores}:}{an integer giving the maximum allowed number
       of \emph{additional} \R processes allowed to be run in parallel to
       the current \R process.  Defaults to the setting of the
       environment variable \env{MC_CORES} if set.  Most applications
@@ -840,8 +895,8 @@ options(error = quote({dump.frames(to.file = TRUE); q()}))
 }
 
   # Compare the two ways to get an option and use it
-  # acconting for the possibility it might not be set.
-if(as.logical(getOption("performCleanp", TRUE)))
+  # accounting for the possibility it might not be set.
+if(as.logical(getOption("performCleanup", TRUE)))
    cat("do cleanup\n")
 
 \dontrun{

@@ -1,6 +1,6 @@
 % File src/library/base/man/grepRaw.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{grepRaw}
@@ -24,7 +24,7 @@ grepRaw(pattern, x, offset = 1L, ignore.case = FALSE,
     are not supported.}
   \item{ignore.case}{if \code{FALSE}, the pattern matching is \emph{case
       sensitive} and if \code{TRUE}, case is ignored during matching.}
-  \item{offset}{An integer specifying the offset from
+  \item{offset}{an integer specifying the offset from
     which the search should start.  Must be positive.  The beginning of
     line is defined to be at that offset so \code{"^"} will match there.}
   \item{value}{logical.  Determines the return value: see \sQuote{Value}.}
@@ -72,6 +72,14 @@ grepRaw(pattern, x, offset = 1L, ignore.case = FALSE,
   The TRE library of Ville Laurikari (\url{https://github.com/laurikari/tre/})
   is used except for \code{fixed = TRUE}.
 }
+
+\section{Warning}{
+  An all too common mis-usage is to pass unnamed arguments which are then
+  matched to one or more of \code{ignore.case}, \code{value},
+  \code{fixed}, \code{all} or \code{invert}.  So it is good practice to
+  name all the arguments.
+}
+
 
 % the `aka' below is for ESS
 \seealso{

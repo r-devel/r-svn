@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,13 +35,18 @@
 #define R_imax2(x, y) ((x < y) ? y : x)
 #include <Print.h>
 
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h> // for size_t
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
+#include <stdarg.h>
+
 #ifdef Win32
 void R_UTF8fixslash(char *s);
-static void R_wfixslash(wchar_t *s);
+void R_wfixslash(wchar_t *s);
 #endif
 
 #ifdef __cplusplus
@@ -50,13 +55,19 @@ static void R_wfixslash(wchar_t *s);
 extern "C" {
 #endif
 
+
+#include <R_ext/RS.h>
 #if defined FC_LEN_T
-# include <stddef.h>
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
-void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
+# include <stddef.h> // for FC_LEN_T, usually size_t
+attribute_hidden
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+NORET attribute_hidden
+void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
-void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar);
+attribute_hidden
+void F77_SUB(rwarnc)(char *msg, int *nchar);
+NORET attribute_hidden
+void F77_SUB(rexitc)(char *msg, int *nchar);
 #endif
 
 #ifdef __cplusplus
@@ -75,7 +86,7 @@ int nrows(SEXP s) // ~== NROW(.)  in R
 	if (t == R_NilValue) return LENGTH(s);
 	return INTEGER(t)[0];
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return nrows(CAR(s));
     }
     else error(_("object is not a matrix"));
@@ -93,7 +104,7 @@ int ncols(SEXP s) // ~== NCOL(.)  in R
 	/* This is a 1D (or possibly 0D array) */
 	return 1;
     }
-    else if (isFrame(s)) {
+    else if (isDataFrame(s)) {
 	return length(s);
     }
     else error(_("object is not a matrix"));
@@ -141,9 +152,9 @@ SEXP asChar(SEXP x)
 		if (LOGICAL(x)[0] == NA_LOGICAL)
 		    return NA_STRING;
 		if (LOGICAL(x)[0])
-		    sprintf(buf, "TRUE");
+		    snprintf(buf, MAXELTSIZE, "TRUE");
 		else
-		    sprintf(buf, "FALSE");
+		    snprintf(buf, MAXELTSIZE, "FALSE");
 		return mkChar(buf);
 	    case INTSXP:
 		if (INTEGER(x)[0] == NA_INTEGER)
@@ -170,6 +181,7 @@ SEXP asChar(SEXP x)
     return NA_STRING;
 }
 
+// In Rinternals.h
 Rboolean isUnordered(SEXP s)
 {
     return (TYPEOF(s) == INTSXP
@@ -177,11 +189,22 @@ Rboolean isUnordered(SEXP s)
 	    && !inherits(s, "ordered"));
 }
 
+// In Rinternals.h
 Rboolean isOrdered(SEXP s)
 {
     return (TYPEOF(s) == INTSXP
 	    && inherits(s, "factor")
 	    && inherits(s, "ordered"));
+}
+
+// In Rinternals.h
+Rboolean R_isTRUE(SEXP x)
+{
+    if (TYPEOF(x) == LGLSXP && XLENGTH(x) == 1) {
+	int val = LOGICAL(x)[0];
+	return val != NA_LOGICAL && val;
+    }
+    return FALSE;
 }
 
 
@@ -214,6 +237,7 @@ TypeTable[] = {
     { "weakref",	WEAKREFSXP },
     { "raw",		RAWSXP },
     { "S4",		S4SXP },
+    { "object",		OBJSXP }, /* == S4SXP */
     /* aliases : */
     { "numeric",	REALSXP	   },
     { "name",		SYMSXP	   },
@@ -229,6 +253,7 @@ SEXPTYPE str2type(const char *s)
 	if (!strcmp(s, TypeTable[i].str))
 	    return (SEXPTYPE) TypeTable[i].type;
     }
+
     /* SEXPTYPE is an unsigned int, so the compiler warns us w/o the cast. */
     return (SEXPTYPE) -1;
 }
@@ -323,8 +348,24 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
     return buf;
 }
 
+#ifdef USE_TYPE2CHAR_2
+const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
+    return (t != OBJSXP)
+	? type2char(t)
+	: (IS_S4_OBJECT(x) ? "S4" : "object");
+}
+#endif
+
+const char *R_typeToChar(SEXP x) {
+    // = type2char() but distinguishing {S4, object}
+    if(TYPEOF(x) == OBJSXP)
+	return IS_S4_OBJECT(x) ? "S4" : "object";
+    else
+	return type2char(TYPEOF(x));
+}
+
 #ifdef UNUSED
-SEXP NORET type2symbol(SEXPTYPE t)
+NORET SEXP type2symbol(SEXPTYPE t)
 {
     // if (t >= 0 && t < MAX_NUM_SEXPTYPE) { /* branch not really needed */
 	SEXP res = Type2Table[t].rsymName;
@@ -334,8 +375,8 @@ SEXP NORET type2symbol(SEXPTYPE t)
 }
 #endif
 
-attribute_hidden
-void NORET UNIMPLEMENTED_TYPEt(const char *s, SEXPTYPE t)
+NORET attribute_hidden
+void UNIMPLEMENTED_TYPEt(const char *s, SEXPTYPE t)
 {
     int i;
 
@@ -346,7 +387,7 @@ void NORET UNIMPLEMENTED_TYPEt(const char *s, SEXPTYPE t)
     error(_("unimplemented type (%d) in '%s'\n"), t, s);
 }
 
-void NORET UNIMPLEMENTED_TYPE(const char *s, SEXP x)
+NORET void UNIMPLEMENTED_TYPE(const char *s, SEXP x)
 {
     UNIMPLEMENTED_TYPEt(s, TYPEOF(x));
 }
@@ -410,7 +451,7 @@ size_t mbcsToUcs2(const char *in, R_ucs2_t *out, int nout, int enc)
 
 #include <wctype.h>
 
-/* This one is not in Rinternals.h, but is used in internet module */
+// non-API but used in the internet module and in packages
 Rboolean isBlankString(const char *s)
 {
     if(mbcslocale) {
@@ -427,6 +468,7 @@ Rboolean isBlankString(const char *s)
     return TRUE;
 }
 
+// in Rinternals.h
 Rboolean StringBlank(SEXP x)
 {
     if (x == R_NilValue) return TRUE;
@@ -435,6 +477,7 @@ Rboolean StringBlank(SEXP x)
 
 /* Function to test whether a string is a true value */
 
+// non-API but used in packages
 Rboolean StringTrue(const char *name)
 {
     int i;
@@ -444,6 +487,7 @@ Rboolean StringTrue(const char *name)
     return FALSE;
 }
 
+// non-API but used in packages
 Rboolean StringFalse(const char *name)
 {
     int i;
@@ -454,7 +498,7 @@ Rboolean StringFalse(const char *name)
 }
 
 /* used in bind.c and options.c */
-SEXP attribute_hidden EnsureString(SEXP s)
+attribute_hidden SEXP EnsureString(SEXP s)
 {
     switch(TYPEOF(s)) {
     case SYMSXP:
@@ -493,7 +537,7 @@ void Rf_checkArityCall(SEXP op, SEXP args, SEXP call)
     }
 }
 
-void attribute_hidden Rf_check1arg(SEXP arg, SEXP call, const char *formal)
+attribute_hidden void Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 {
     SEXP tag = TAG(arg);
     if (tag == R_NilValue) return;
@@ -507,7 +551,7 @@ void attribute_hidden Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 
 SEXP nthcdr(SEXP s, int n)
 {
-    if (isList(s) || isLanguage(s) || isFrame(s) || TYPEOF(s) == DOTSXP ) {
+    if (isList(s) || isLanguage(s) || isDataFrame(s) || TYPEOF(s) == DOTSXP ) {
 	while( n-- > 0 ) {
 	    if (s == R_NilValue)
 		error(_("'nthcdr' list shorter than %d"), n);
@@ -520,7 +564,8 @@ SEXP nthcdr(SEXP s, int n)
 }
 
 /* Destructively removes R_NilValue ('NULL') elements from a pairlist. */
-SEXP R_listCompact(SEXP s, Rboolean keep_initial) {
+attribute_hidden /* would need to be in an installed header if not hidden */
+SEXP R_listCompact(SEXP s, bool keep_initial) {
     if(!keep_initial)
     // skip initial NULL values
 	while (s != R_NilValue && CAR(s) == R_NilValue)
@@ -540,7 +585,7 @@ SEXP R_listCompact(SEXP s, Rboolean keep_initial) {
 
 
 /* This is a primitive (with no arguments) */
-SEXP attribute_hidden do_nargs(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_nargs(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     RCNTXT *cptr;
     int nargs = NA_INTEGER;
@@ -556,33 +601,44 @@ SEXP attribute_hidden do_nargs(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* formerly used in subscript.c, in Utils.h */
-void attribute_hidden setIVector(int * vec, int len, int val)
+/* formerly used in subscript.c, in Utils.h
+      Does not know about long vectors ....
+      Commented out 2024-02
+attribute_hidden void setIVector(int * vec, int len, int val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
 /* unused in R, in Utils.h, may have been used in Rcpp at some point,
-      but not any more (as per Nov. 2018)  */
-void attribute_hidden setRVector(double * vec, int len, double val)
+      but not any more (as per Nov. 2018).
+      Does not know about long vectors ....
+      RcppClassic has its own version.
+      Commented out 2024-02
+attribute_hidden void setRVector(double * vec, int len, double val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
-/* unused in R, in Rinternals.h */
+/* unused in R, in Defn.h, formerly remapped in Rinternals.h
+      Unused in R.
+      Does not know about long vectors ....
+      Commented out 2024-02
 void setSVector(SEXP * vec, int len, SEXP val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
 }
+*/
 
 
-Rboolean isFree(SEXP val)
+attribute_hidden bool isFree(SEXP val)
 {
     SEXP t;
     for (t = R_FreeSEXP; t != R_NilValue; t = CAR(t))
 	if (val == t)
-	    return TRUE;
+	    return true;
     return FALSE;
 }
 
@@ -592,19 +648,19 @@ Rboolean isFree(SEXP val)
 /* a debugger such as gdb, so you don't have to remember */
 /* the names of the data structure components. */
 
-int dtype(SEXP q)
+attribute_hidden int dtype(SEXP q)
 {
     return((int)TYPEOF(q));
 }
 
 
-SEXP dcar(SEXP l)
+attribute_hidden SEXP dcar(SEXP l)
 {
     return(CAR(l));
 }
 
 
-SEXP dcdr(SEXP l)
+attribute_hidden SEXP dcdr(SEXP l)
 {
     return(CDR(l));
 }
@@ -628,7 +684,7 @@ static void isort_with_index(int *x, int *indx, int n)
 
 // body(x) without attributes "srcref", "srcfile", "wholeSrcref" :
 // NOTE: Callers typically need  PROTECT(R_body_no_src(.))
-SEXP R_body_no_src(SEXP x) {
+attribute_hidden SEXP R_body_no_src(SEXP x) {
     SEXP b = PROTECT(duplicate(BODY_EXPR(x)));
     /* R's removeSource() works *recursively* on the body()
        in  ../library/utils/R/sourceutils.R  but that seems unneeded (?) */
@@ -648,7 +704,7 @@ SEXP R_body_no_src(SEXP x) {
    The return value is a list with 4 elements (xi, yi, x.alone, y.alone),
    which are index vectors for rows of x or y.
 */
-SEXP attribute_hidden do_merge(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_merge(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP xi, yi, ansx, ansy, ans;
     int nx = 0, ny = 0, i, j, k, nx_lone = 0, ny_lone = 0;
@@ -743,17 +799,22 @@ SEXP attribute_hidden do_merge(SEXP call, SEXP op, SEXP args, SEXP rho)
 # include <windows.h>
 #endif
 
+/* uses R_alloc */
 SEXP static intern_getwd(void)
 {
     SEXP rval = R_NilValue;
-    char buf[4*PATH_MAX+1];
 
 #ifdef Win32
     {
-	wchar_t wbuf[PATH_MAX+1];
-	int res = GetCurrentDirectoryW(PATH_MAX, wbuf);
-	if(res > 0) {
-	    wcstoutf8(buf, wbuf, sizeof(buf));
+	DWORD res = GetCurrentDirectoryW(0, NULL);
+	if (res > 0) {
+	    wchar_t *wbuf = (wchar_t*)R_alloc(res, sizeof(wchar_t));
+	    DWORD res1 = GetCurrentDirectoryW(res, wbuf);
+	    if (res1 <= 0 || res1 >= res)
+		return R_NilValue;
+	    size_t needed = wcstoutf8(NULL, wbuf, (size_t)INT_MAX + 2);
+	    char *buf = R_alloc(needed + 1, 1);
+	    wcstoutf8(buf, wbuf, needed + 1);
 	    R_UTF8fixslash(buf);
 	    PROTECT(rval = allocVector(STRSXP, 1));
 	    SET_STRING_ELT(rval, 0, mkCharCE(buf, CE_UTF8));
@@ -761,13 +822,14 @@ SEXP static intern_getwd(void)
 	}
     }
 #else
-    char *res = getcwd(buf, PATH_MAX); /* can return NULL */
+    char buf[4*R_PATH_MAX+1];
+    char *res = getcwd(buf, R_PATH_MAX); /* can return NULL */
     if(res) rval = mkString(buf);
 #endif
     return(rval);
 }
 
-SEXP attribute_hidden do_getwd(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_getwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
 
@@ -779,7 +841,7 @@ SEXP attribute_hidden do_getwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 # include <direct.h> /* for chdir, via io.h */
 #endif
 
-SEXP attribute_hidden do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP s = R_NilValue, wd = R_NilValue;	/* -Wall */
 
@@ -813,12 +875,10 @@ SEXP attribute_hidden do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* remove portion of path before file separator if one exists */
 
 #ifdef Win32
-SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char sp[4*PATH_MAX+1];
-    wchar_t  buf[PATH_MAX], *p;
-    const wchar_t *pp;
+    const char *pp;
     int i, n;
 
     checkArity(op, args);
@@ -829,28 +889,24 @@ SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (STRING_ELT(s, i) == NA_STRING)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
-	    pp = filenameToWchar(STRING_ELT(s, i), TRUE);
-	    if (wcslen(pp) > PATH_MAX - 1) error(_("path too long"));
-	    wcscpy(buf, pp);
-	    R_wfixslash(buf);
-	    /* remove trailing file separator(s) */
-	    if (*buf) {
-		p = buf + wcslen(buf) - 1;
-		while (p >= buf && *p == L'/') *(p--) = L'\0';
-	    }
-	    if ((p = wcsrchr(buf, L'/'))) p++; else p = buf;
-	    wcstoutf8(sp, p, sizeof(sp));
-	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
+	    pp = R_ExpandFileNameUTF8(trCharUTF8(STRING_ELT(s, i)));
+            size_t ll = strlen(pp);
+            /* remove trailing file separator(s) */
+            while(ll && (pp[ll-1] == '\\' || pp[ll-1] == '/')) ll--;
+            size_t ff = ll;
+            /* find start of file part */
+            while(ff && (pp[ff-1] != '\\' && pp[ff-1] != '/')) ff--;
+            SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, ll-ff, CE_UTF8));
 	}
     }
     UNPROTECT(1);
     return(ans);
 }
 #else
-SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char  buf[PATH_MAX], *p, fsp = FILESEP[0];
+    const char fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -863,18 +919,15 @@ SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > PATH_MAX - 1)
+	    size_t ll = strlen(pp);
+	    if (ll > R_PATH_MAX - 1)
 		error(_("path too long"));
-	    strcpy (buf, pp);
-	    if (*buf) {
-		p = buf + strlen(buf) - 1;
-		while (p >= buf && *p == fsp) *(p--) = '\0';
-	    }
-	    if ((p = Rf_strrchr(buf, fsp)))
-		p++;
-	    else
-		p = buf;
-	    SET_STRING_ELT(ans, i, mkChar(p));
+	    /* remove trailing file separator(s) */
+	    while(ll && pp[ll-1] == fsp) ll--;
+	    size_t ff = ll;
+	    /* find start of file part */
+	    while(ff && pp[ff-1] != fsp) ff--;
+	    SET_STRING_ELT(ans, i, mkCharLenCE(pp+ff, (int)(ll-ff), CE_NATIVE));
 	}
     }
     UNPROTECT(1);
@@ -887,12 +940,21 @@ SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
    */
 
 #ifdef Win32
-SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
+static SEXP root_dir_on_drive(char d)
+{
+    char buf[3];
+
+    buf[0] = d;
+    buf[1] = ':';
+    buf[2] = '/';
+    return mkCharLenCE(buf, 3, CE_UTF8);
+}
+
+attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    wchar_t buf[PATH_MAX], *p;
-    const wchar_t *pp;
-    char sp[4*PATH_MAX+1];
+    char *buf;
+    const char *pp;
     int i, n;
 
     checkArity(op, args);
@@ -903,38 +965,56 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (STRING_ELT(s, i) == NA_STRING)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
-	    memset(sp, 0, 4*PATH_MAX);
-	    pp = filenameToWchar(STRING_ELT(s, i), TRUE);
-	    if (wcslen(pp) > PATH_MAX - 1)
-		error(_("path too long"));
-	    if (wcslen(pp)) {
-		wcscpy (buf, pp);
-		R_wfixslash(buf);
+	    pp = R_ExpandFileNameUTF8(trCharUTF8(STRING_ELT(s, i)));
+	    size_t ll = strlen(pp);
+	    if (ll) {
+		buf = (char *)R_alloc(ll + 1, sizeof(char));
+		memcpy(buf, pp, ll + 1);
+		R_UTF8fixslash(buf);
 		/* remove trailing file separator(s) */
-		p = buf + wcslen(buf) - 1;
-		while (p > buf && *p == L'/'
-		       && (p > buf+2 || *(p-1) != L':')) *p-- = L'\0';
-		p = wcsrchr(buf, L'/');
-		if(p == NULL) wcscpy(buf, L".");
-		else {
-		    while(p > buf && *p == L'/'
-			  /* this covers both drives and network shares */
-			  && (p > buf+2 || *(p-1) != L':')) --p;
-		    p[1] = L'\0';
+		while (ll && buf[ll-1] == '/') ll--;
+		if (ll == 2 && buf[1] == ':' && buf[2]) {
+		    SET_STRING_ELT(ans, i, root_dir_on_drive(buf[0]));
+		    continue;
 		}
-		wcstoutf8(sp, buf, sizeof(sp));
-	    }
-	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
+		if (!ll) { /* only separators, not share */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		    continue;
+		}
+		/* remove file part */
+		while(ll && buf[ll-1] != '\\' && buf[ll-1] != '/') ll--;
+		if (!ll) { /* only file part, not share */
+		    /* FIXME: dirname of D: is ., is this good behavior? */
+		    SET_STRING_ELT(ans, i, mkChar("."));
+		    continue;
+		}
+		/* remove separator(s) after directory part */
+		while(ll && buf[ll-1] == '/') ll--;
+		if (ll == 2 && buf[1] == ':' && buf[2]) {
+		    SET_STRING_ELT(ans, i, root_dir_on_drive(buf[0]));
+		    continue;
+		}
+		if (!ll) /* only single part, not share */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		else if (ll == 2 && buf[0] == '\\' && buf[1] == '\\'
+		                 && buf[2] == '/') {
+		    /* network share with extra slashes */
+		    SET_STRING_ELT(ans, i, mkCharLenCE("/", 1, CE_UTF8));
+		} else
+		    SET_STRING_ELT(ans, i, mkCharLenCE(buf, ll, CE_UTF8));
+	    } else
+		/* empty pathname is invalid, but returned */
+		SET_STRING_ELT(ans, i, mkChar(""));
 	}
     }
     UNPROTECT(1);
     return(ans);
 }
 #else
-SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char buf[PATH_MAX], *p, fsp = FILESEP[0];
+    const char fsp = FILESEP[0];
     const char *pp;
     int i, n;
 
@@ -947,22 +1027,32 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SET_STRING_ELT(ans, i, NA_STRING);
 	else {
 	    pp = R_ExpandFileName(translateCharFP(STRING_ELT(s, i)));
-	    if (strlen(pp) > PATH_MAX - 1)
-		error(_("path too long"));
 	    size_t ll = strlen(pp);
+	    if (ll > R_PATH_MAX - 1)
+		error(_("path too long"));
 	    if (ll) { // svMisc calls this with ""
-		strcpy (buf, pp);
 		/* remove trailing file separator(s) */
-		while ( *(p = buf + ll - 1) == fsp  && p > buf) *p = '\0';
-		p = Rf_strrchr(buf, fsp);
-		if(p == NULL)
-		    strcpy(buf, ".");
-		else {
-		    while(p > buf && *p == fsp) --p;
-		    p[1] = '\0';
+		while(ll && pp[ll-1] == fsp) ll--;
+		if (!ll) { /* only separators */
+		    SET_STRING_ELT(ans, i, mkCharLenCE(&fsp, 1, CE_NATIVE));
+		    continue;
 		}
-	    } else buf[0] = '\0';
-	    SET_STRING_ELT(ans, i, mkChar(buf));
+		/* remove file part */
+		while(ll && pp[ll-1] != fsp) ll--;
+		if (!ll) { /* only file part */
+		    SET_STRING_ELT(ans, i, mkChar("."));
+		    continue;
+		}
+		/* remove separator(s) after directory part */
+		while(ll && pp[ll-1] == fsp) ll--;
+		if (!ll) { /* only single part */
+		    SET_STRING_ELT(ans, i, mkCharLenCE(&fsp, 1, CE_NATIVE));
+		    continue;
+		}
+		SET_STRING_ELT(ans, i, mkCharLenCE(pp, (int)ll, CE_NATIVE));
+	    } else
+		/* empty pathname is invalid, but returned */
+		SET_STRING_ELT(ans, i, mkChar(""));
 	}
     }
     UNPROTECT(1);
@@ -976,12 +1066,12 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 extern char *realpath(const char *path, char *resolved_path);
 #endif
 
-SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, paths = CAR(args), elp;
     int i, n = LENGTH(paths);
     const char *path;
-    char abspath[PATH_MAX+1];
+    char abspath[R_PATH_MAX+1];
 
     checkArity(op, args);
     if (!isString(paths))
@@ -1020,7 +1110,7 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else SET_STRING_ELT(ans, i, elp);
     }
 #else
-    Rboolean OK;
+    bool OK;
     warning("this platform does not have realpath so the results may not be canonical");
     PROTECT(ans = allocVector(STRSXP, n));
     for (i = 0; i < n; i++) {
@@ -1034,12 +1124,12 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    continue;
 	}
 	path = translateCharFP(elp);
-	OK = strlen(path) <= PATH_MAX;
+	OK = strlen(path) <= R_PATH_MAX;
 	if (OK) {
-	    if (path[0] == '/') strncpy(abspath, path, PATH_MAX);
+	    if (path[0] == '/') strncpy(abspath, path, R_PATH_MAX);
 	    else {
-		OK = getcwd(abspath, PATH_MAX) != NULL;
-		OK = OK && (strlen(path) + strlen(abspath) + 1 <= PATH_MAX);
+		OK = getcwd(abspath, R_PATH_MAX) != NULL;
+		OK = OK && (strlen(path) + strlen(abspath) + 1 <= R_PATH_MAX);
 		if (OK) {strcat(abspath, "/"); strcat(abspath, path);}
 	    }
 	}
@@ -1063,7 +1153,8 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef USE_INTERNAL_MKTIME
 const char *getTZinfo(void)
 {
-    static char def_tz[PATH_MAX+1] = "";
+    /* FIXME: use filesystem-agnostic limit?*/
+    static char def_tz[R_PATH_MAX+1] = "";
     if (def_tz[0]) return def_tz;
 
     // call Sys.timezone()
@@ -1073,6 +1164,8 @@ const char *getTZinfo(void)
     if(TYPEOF(ans) == STRSXP && LENGTH(ans) == 1) {
 	SEXP el = STRING_ELT(ans, 0);
 	if (el != NA_STRING) {
+	    if (strlen(CHAR(el)) + 1 > sizeof(def_tz))
+		error("time zone specification is too long");
 	    strcpy(def_tz, CHAR(el));
 	    // printf("tz is %s\n", CHAR(el));
 	    UNPROTECT(3);
@@ -1097,13 +1190,12 @@ static void encode_cleanup(void *data)
 #endif
 
 /* encodeString(x, w, quote, justify) */
-SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, x, s;
     R_xlen_t i, len;
     int w, quote = 0, justify, na;
     const char *cs;
-    Rboolean findWidth;
 
     checkArity(op, args);
     if (TYPEOF(x = CAR(args)) != STRSXP)
@@ -1114,7 +1206,6 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(w != NA_INTEGER && w < 0)
 	    error(_("invalid '%s' value"), "width");
     }
-    findWidth = (w == NA_INTEGER);
     s = CADDR(args);
     if(LENGTH(s) != 1 || TYPEOF(s) != STRSXP)
 	error(_("invalid '%s' value"), "quote");
@@ -1130,6 +1221,7 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
     if(na == NA_LOGICAL) error(_("invalid '%s' value"), "na.encode");
 
     len = XLENGTH(x);
+    bool findWidth = (w == NA_INTEGER);
     if(findWidth && justify < 3) {
 	w  = 0;
 	for(i = 0; i < len; i++) {
@@ -1142,7 +1234,7 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(ans = duplicate(x));
 #ifdef Win32
     RCNTXT cntxt;
-    Rboolean havecontext = FALSE;
+    bool havecontext = FALSE;
     /* do_encodeString is not printing, but returning a string, it therefore
        must not produce Rgui escapes (do_encodeString may get called as part
        of print dispatch with WinUTF8out being already set to TRUE). */
@@ -1150,7 +1242,7 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 		     R_NilValue, R_NilValue);
 	cntxt.cend = &encode_cleanup;
-	havecontext = TRUE;
+	havecontext = true;
 	WinUTF8out = FALSE;
     }
 #endif
@@ -1178,7 +1270,7 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
-SEXP attribute_hidden do_encoding(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_encoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, x;
     R_xlen_t i, n;
@@ -1203,7 +1295,7 @@ SEXP attribute_hidden do_encoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 #define IS_NATIVE(tmp) \
     (! IS_LATIN1(tmp) && ! IS_UTF8(tmp) && ! IS_BYTES(tmp))
 
-SEXP attribute_hidden do_setencoding(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_setencoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP x, enc, tmp;
     int m;
@@ -1241,7 +1333,7 @@ SEXP attribute_hidden do_setencoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 /* `*s` should point to a string derived from `ref` after `ref` has been
    translated to native encoding.  See `?Encoding` */
-SEXP attribute_hidden markKnown(const char *s, SEXP ref)
+attribute_hidden SEXP markKnown(const char *s, SEXP ref)
 {
     int ienc = 0;
     if(ENC_KNOWN(ref)) {
@@ -1266,7 +1358,7 @@ static const unsigned char utf8_table4[] = {
   2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
   3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5 };
 
-int attribute_hidden utf8clen(char c)
+int utf8clen(char c)
 {
     /* This allows through 8-bit chars 10xxxxxx, which are invalid */
     if ((c & 0xc0) != 0xc0) return 1;
@@ -1287,7 +1379,7 @@ utf8toutf16low(const char *s)
     return (unsigned int) LOW_SURROGATE_START | ((s[2] & 0x0F) << 6) | (s[3] & 0x3F);
 }
 
-R_wchar_t attribute_hidden
+attribute_hidden R_wchar_t
 utf8toucs32(wchar_t high, const char *s)
 {
     return utf16toucs(high, utf8toutf16low(s));
@@ -1295,7 +1387,7 @@ utf8toucs32(wchar_t high, const char *s)
 
 /* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
    only the high surrogate is returned; call utf8toutf16low next. */
-size_t attribute_hidden
+size_t
 utf8toucs(wchar_t *wc, const char *s)
 {
     unsigned int byte;
@@ -1401,8 +1493,8 @@ utf8towcs(wchar_t *wc, const char *s, size_t n)
     return (size_t) res;
 }
 
-size_t
-utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
+attribute_hidden /* would need to be in an installed header if not hidden */
+size_t utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 {
     ssize_t m, res = 0;
     const char *t;
@@ -1486,7 +1578,7 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 	    p++;
 	} else {
 	    if (IS_HIGH_SURROGATE(*p) || IS_LOW_SURROGATE(*p))
-		warning("unpaired surrogate Unicode point %x", *p);
+		warning("unpaired surrogate Unicode point %x", (unsigned int)*p);
 	    m = Rwcrtomb32(t, (R_wchar_t)(*p), n - res);
 	}
 	if (!m) break;
@@ -1515,7 +1607,9 @@ size_t wcs4toutf8(char *s, const R_wchar_t *wc, size_t n)
     return res + 1;
 }
 
-/* A version that reports failure as an error */
+/* A version that reports failure as an error 
+ * Exported as Rf_mbrtowc
+ */
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
 {
     size_t used;
@@ -1527,7 +1621,8 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
 	if (!R_Is_Running) return (size_t)-1;
 	/* let's try to print out a readable version */
 	R_CheckStack2(4*strlen(s) + 10);
-	char err[4*strlen(s) + 1], *q;
+	size_t sz = 4*strlen(s) + 1;
+	char err[sz], *q;
 	const char *p;
 	for(p = s, q = err; *p; ) {
 	    /* don't do the first to keep ps state straight */
@@ -1536,11 +1631,11 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
 	    else if((int) used > 0) {
 		memcpy(q, p, used);
 		p += used;
-		q += used;
+		q += used; sz -= used;
 		n -= used;
 	    } else {
-		sprintf(q, "<%02x>", (unsigned char) *p++);
-		q += 4;
+		snprintf(q, sz, "<%02x>", (unsigned char) *p++);
+		q += 4; sz -= 4;
 		n--;
 	    }
 	}
@@ -1593,7 +1688,6 @@ char* mbcsTruncateToValid(char *s)
     return s;
 }
 
-attribute_hidden
 Rboolean mbcsValid(const char *str)
 {
     return  ((int)mbstowcs(NULL, str, 0) >= 0);
@@ -1607,7 +1701,7 @@ Rboolean utf8Valid(const char *str)
     return valid_utf8(str, strlen(str)) == 0;
 }
 
-SEXP attribute_hidden do_validUTF8(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_validUTF8(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP x = CAR(args);
@@ -1621,7 +1715,7 @@ SEXP attribute_hidden do_validUTF8(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
-SEXP attribute_hidden do_validEnc(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_validEnc(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP x = CAR(args);
@@ -1657,7 +1751,7 @@ char *Rf_strchr(const char *s, int c)
     return (char *)NULL;
 }
 
-char *Rf_strrchr(const char *s, int c)
+attribute_hidden char *Rf_strrchr(const char *s, int c)
 {
     char *p = (char *)s, *plast = NULL;
     mbstate_t mb_st;
@@ -1694,12 +1788,12 @@ void R_UTF8fixslash(char *s)
 {
     char *p = s;
 
-	for (; *p; p++) if (*p == '\\') *p = '/';
-	/* preserve network shares */
-	if(s[0] == '/' && s[1] == '/') s[0] = s[1] = '\\';
+    for (; *p; p++) if (*p == '\\') *p = '/';
+    /* preserve network shares */
+    if(s[0] == '/' && s[1] == '/') s[0] = s[1] = '\\';
 }
 
-static void R_wfixslash(wchar_t *s)
+void R_wfixslash(wchar_t *s)
 {
     wchar_t *p = s;
 
@@ -1707,7 +1801,6 @@ static void R_wfixslash(wchar_t *s)
     /* preserve network shares */
     if(s[0] == L'/' && s[1] == L'/') s[0] = s[1] = L'\\';
 }
-
 
 void R_fixbackslash(char *s)
 {
@@ -1723,12 +1816,20 @@ void R_fixbackslash(char *s)
     } else
 	for (; *p; p++) if (*p == '/') *p = '\\';
 }
+
+void R_wfixbackslash(wchar_t *s)
+{
+    wchar_t *p = s;
+
+    for (; *p; p++) if (*p == L'/') *p = L'\\';
+}
+
 #endif
 
 #if defined FC_LEN_T
-void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar)
+NORET void F77_SUB(rexitc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1744,9 +1845,9 @@ void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar)
 }
 
 #if defined FC_LEN_T
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
+void F77_SUB(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
 #else
-void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
+void F77_SUB(rwarnc)(char *msg, int *nchar)
 #endif
 {
     int nc = *nchar;
@@ -1761,7 +1862,7 @@ void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
     warning("%s", buf);
 }
 
-void F77_SYMBOL(rchkusr)(void)
+void F77_SUB(rchkusr)(void)
 {
     R_CheckUserInterrupt();
 }
@@ -1981,11 +2082,32 @@ const char* Rf_utf8ToLatin1AdobeSymbol2utf8(const char *in, Rboolean usePUA)
   return utf8str;
 }
 
-int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
+attribute_hidden int Rf_AdobeSymbol2ucs2(int n)
 {
     if(n >= 32 && n < 256) return s2u[n-32];
     else return 0;
 }
+
+/* Introduced on 2008-03-21 with comment
+
+       use our own strtod/atof to mitigate effects of setting LC_NUMERIC
+
+   Also allows complete control of which non-numeric strings are
+   accepted; e.g. glibc allows NANxxxx, macOS NAN(s), this accepts "NA".
+
+   Exported and in Utils.h (but only in R-exts as of 4.4.1).
+
+   Variants:
+   R_strtod4 is used by scan(), allows the decimal point (byte) to be
+   specified and whether "NA" is accepted.
+
+   R_strtod5 is used by type_convert(numerals=) (utils/src/io.c)
+
+   The parser uses R_atof (and handles non-numeric strings itself).
+   That is the same as R_strtod but ignores endptr.  Also used by
+   gnuwin32/windlgs/src/ttest.c, exported and in Utils.h (and
+   documeented in R-exts only since R 4.4.1 )
+*/
 
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact)
@@ -2027,6 +2149,12 @@ double R_strtod5(const char *str, char **endptr, char dec,
 
     int n, expn = 0;
     if(strlen(p) > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) { // Hexadecimal "0x....."
+	/* Prior to 4.5.0 this did not allow forms such as 0x1.234
+	   without an exponent.: C99 allow this and implicitly
+	   appends "p0"".
+
+	   Changed following PR#18805
+	 */
 	int exph = -1;
 
 	/* This will overflow to Inf if appropriate */
@@ -2051,40 +2179,49 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    }								\
 	}
 	strtod_EXACT_CLAUSE;
+	/* Binary exponent, if any */
 	if (*p == 'p' || *p == 'P') {
 	    int expsign = 1;
-	    double p2 = 2.0;
 	    switch(*++p) {
 	    case '-': expsign = -1;
 	    case '+': p++;
 	    default: ;
 	    }
-	    /* The test for n is in response to PR#16358; it's not right if the exponent is
-	       very large, but the overflow or underflow below will handle it. */
 #define MAX_EXPONENT_PREFIX 9999
-	    for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
-	    if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
-		LDOUBLE fac = 1.0;
-		expn += expsign * n;
-		if(exph > 0) {
-		    if (expn - exph < -122) {	/* PR#17199:  fac may overflow below if expn - exph is too small.
-						   2^-122 is a bit bigger than 1E-37, so should be fine on all systems */
-			for (n = exph, fac = 1.0; n; n >>= 1, p2 *= p2)
-			    if (n & 1) fac *= p2;
-			ans /= fac;
-			p2 = 2.0;
-		    } else
-			expn -= exph;
-		}
-		if (expn < 0) {
-		    for (n = -expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+	    /* exponents beyond ca +1024/-1076 over/underflow 
+	       Limit exponent from PR#16358.
+	     */
+	    int ndig = 0;
+	    for (n = 0; *p >= '0' && *p <= '9'; p++, ndig++)
+		n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	    if (ndig == 0) {
+		ans = NA_REAL;
+		p = str; /* back out */
+		goto done;
+	    }
+	    expn += expsign * n;
+	}
+	if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
+	    LDOUBLE fac = 1.0;
+	    double p2 = 2.0;
+	    if(exph > 0) {
+		if (expn - exph < -122) {	/* PR#17199:  fac may overflow below if expn - exph is too small.
+					       2^-122 is a bit bigger than 1E-37, so should be fine on all systems */
+		    for (n = exph, fac = 1.0; n; n >>= 1, p2 *= p2)
 			if (n & 1) fac *= p2;
 		    ans /= fac;
-		} else {
-		    for (n = expn, fac = 1.0; n; n >>= 1, p2 *= p2)
-			if (n & 1) fac *= p2;
-		    ans *= fac;
-		}
+		    p2 = 2.0;
+		} else
+		    expn -= exph;
+	    }
+	    if (expn < 0) {
+		for (n = -expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+		    if (n & 1) fac *= p2;
+		ans /= fac;
+	    } else {
+		for (n = expn, fac = 1.0; n; n >>= 1, p2 *= p2)
+		    if (n & 1) fac *= p2;
+		ans *= fac;
 	    }
 	}
 	goto done;
@@ -2103,13 +2240,29 @@ double R_strtod5(const char *str, char **endptr, char dec,
     strtod_EXACT_CLAUSE;
 
     if (*p == 'e' || *p == 'E') {
+	int ndigits = 0;
 	int expsign = 1;
 	switch(*++p) {
 	case '-': expsign = -1;
 	case '+': p++;
 	default: ;
 	}
-	for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	/* The test for n is in response to PR#16358; which was
+	   parsing 1e999999999999.
+	   It's not right if the exponent is very large, but the
+	   overflow or underflow below will handle it.
+	   1e308 is already Inf, but negative exponents can go down to -323
+	   before undeflowing to zero.  And people could do perverse things
+	   like 0.00000001e312.
+	*/
+	// C17 §6.4.4.2 requires a non-empty 'digit sequence'
+	for (n = 0; *p >= '0' && *p <= '9'; p++, ndigits++)
+	    n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
+	if (ndigits == 0) {
+	    ans = NA_REAL;
+	    p = str; /* back out */
+	    goto done;
+	}
 	expn += expsign * n;
     }
 
@@ -2145,6 +2298,7 @@ done:
 }
 
 
+attribute_hidden
 double R_strtod4(const char *str, char **endptr, char dec, Rboolean NA)
 {
     return R_strtod5(str, endptr, dec, NA, FALSE);
@@ -2162,11 +2316,11 @@ double R_atof(const char *str)
 
 /* enc2native and enc2utf8, but they are the same in a UTF-8 locale */
 /* primitive */
-SEXP attribute_hidden do_enc2(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_enc2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, el;
     R_xlen_t i;
-    Rboolean duped = FALSE;
+    bool duped = false;
 
     checkArity(op, args);
     check1arg(args, call, "x");
@@ -2179,13 +2333,13 @@ SEXP attribute_hidden do_enc2(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (el == NA_STRING) continue;
 	if (PRIMVAL(op) || known_to_be_utf8) { /* enc2utf8 */
 	    if (IS_UTF8(el) || IS_ASCII(el) || IS_BYTES(el)) continue;
-	    if (!duped) { ans = PROTECT(duplicate(ans)); duped = TRUE; }
+	    if (!duped) { ans = PROTECT(duplicate(ans)); duped = true; }
 	    SET_STRING_ELT(ans, i,
 			   mkCharCE(translateCharUTF8(el), CE_UTF8));
 	} else if (ENC_KNOWN(el)) { /* enc2native */
 	    if (IS_ASCII(el) || IS_BYTES(el)) continue;
 	    if (known_to_be_latin1 && IS_LATIN1(el)) continue;
-	    if (!duped) { PROTECT(ans = duplicate(ans)); duped = TRUE; }
+	    if (!duped) { PROTECT(ans = duplicate(ans)); duped = true; }
 	    if (known_to_be_latin1)
 		SET_STRING_ELT(ans, i, mkCharCE(translateChar(el), CE_LATIN1));
 	    else
@@ -2294,7 +2448,7 @@ static UCollator *collator = NULL;
 static int collationLocaleSet = 0;
 
 /* called from platform.c */
-void attribute_hidden resetICUcollator(Rboolean disable)
+attribute_hidden void resetICUcollator(bool disable)
 {
     if (collator) ucol_close(collator);
     collator = NULL;
@@ -2312,8 +2466,8 @@ static const struct {
     { "strength", 999 },
     { "primary ", UCOL_PRIMARY },
     { "secondary ", UCOL_SECONDARY },
-    { "teritary ", UCOL_TERTIARY },
-    { "guaternary ", UCOL_QUATERNARY },
+    { "tertiary ", UCOL_TERTIARY },
+    { "quaternary ", UCOL_QUATERNARY },
     { "identical ", UCOL_IDENTICAL },
     { "french_collation", UCOL_FRENCH_COLLATION },
     { "on", UCOL_ON },
@@ -2342,19 +2496,13 @@ static const char *getLocale(void)
     //        use ICU by default on Windows yet for collation, even though
     //        already having UTF-8 as the native encoding.
 
-    // This call is >= Vista/Server 2008
     // ICU should accept almost all of these, e.g. en-US and uz-Latn-UZ
-    PGSDLN pGSDLN = (PGSDLN)
-	GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-		       "GetSystemDefaultLocaleName");
-    if(pGSDLN) {
-	WCHAR wcBuffer[BUFFER_SIZE];
-	pGSDLN(wcBuffer, BUFFER_SIZE);
-	static char locale[BUFFER_SIZE];
-	WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
-			    locale, BUFFER_SIZE, NULL, NULL);
-	return locale;
-    } else return "root";
+    WCHAR wcBuffer[BUFFER_SIZE];
+    GetSystemDefaultLocaleName(wcBuffer, BUFFER_SIZE);
+    static char locale[BUFFER_SIZE];
+    WideCharToMultiByte(CP_ACP, 0, wcBuffer, -1,
+			locale, BUFFER_SIZE, NULL, NULL);
+    return locale;
 }
 #else
 static const char *getLocale(void)
@@ -2364,7 +2512,7 @@ static const char *getLocale(void)
 }
 #endif
 
-SEXP attribute_hidden do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP x;
     UErrorCode  status = U_ZERO_ERROR;
@@ -2386,7 +2534,16 @@ SEXP attribute_hidden do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(streql(s, "ASCII")) {
 		collationLocaleSet = 2;
 	    } else {
-		if(strcmp(s, "none")) {
+		int usable_icu = 1;
+#ifdef Win32
+		/* ICU 72 requires this function (and other from Windows 7) */
+		if (!GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+		                    "ResolveLocaleName")) {
+		    usable_icu = 0;
+		    warning("cannot use ICU on this system");
+		}
+#endif
+		if(usable_icu && strcmp(s, "none")) {
 		    if(streql(s, "default"))
 			uloc_setDefault(getLocale(), &status);
 		    else uloc_setDefault(s, &status);
@@ -2425,7 +2582,7 @@ SEXP attribute_hidden do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
     return R_NilValue;
 }
 
-SEXP attribute_hidden do_ICUget(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_ICUget(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     const char *ans = "unknown", *res;
     checkArity(op, args);
@@ -2474,7 +2631,16 @@ int Scollate(SEXP a, SEXP b)
 	/* FIXME: as ICU does not support C as locale, could we use the Unix
 	   behavior on all systems? */
 	const char *p = getenv("R_ICU_LOCALE");
-	if(p && p[0] && (!useC || !strcmp(p, "C"))) {
+	int use_icu = p && p[0] && (!useC || !strcmp(p, "C"));
+
+	/* ICU 72 requires this function (and other from Windows 7) */
+	if (use_icu &&
+	    !GetProcAddress(GetModuleHandle(TEXT("kernel32")),
+			    "ResolveLocaleName")) {
+	    use_icu = 0;
+	    warning("cannot use ICU on this system");
+	}
+	if(use_icu) {
 #endif
 	    UErrorCode status = U_ZERO_ERROR;
 	    uloc_setDefault(getLocale(), &status);
@@ -2507,19 +2673,19 @@ int Scollate(SEXP a, SEXP b)
 
 #else /* not USE_ICU */
 
-SEXP attribute_hidden do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_ICUset(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     warning(_("ICU is not supported on this build"));
     return R_NilValue;
 }
 
-SEXP attribute_hidden do_ICUget(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_ICUget(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     return mkString("ICU not in use");
 }
 
-void attribute_hidden resetICUcollator(Rboolean disable) {}
+attribute_hidden void resetICUcollator(bool disable) {}
 
 # ifdef Win32
 
@@ -2552,7 +2718,7 @@ int Scollate(SEXP a, SEXP b)
 
 #include <lzma.h>
 
-SEXP attribute_hidden do_crc64(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_crc64(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP in = CAR(args);
@@ -2600,7 +2766,7 @@ bincode(double *x, R_xlen_t n, double *breaks, int nb,
 }
 
 /* 'breaks' cannot be a long vector as the return codes are integer. */
-SEXP attribute_hidden do_bincode(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_bincode(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP x, breaks, right, lowest;
@@ -2626,7 +2792,7 @@ SEXP attribute_hidden do_bincode(SEXP call, SEXP op, SEXP args, SEXP rho)
     return codes;
 }
 
-SEXP attribute_hidden do_tabulate(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_tabulate(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP in = CAR(args), nbin = CADR(args);
@@ -2661,15 +2827,16 @@ SEXP attribute_hidden do_tabulate(SEXP call, SEXP op, SEXP args, SEXP rho)
  *                         xt  x    right             inside       leftOp
  * x can be a long vector but xt cannot since the result is integer
 */
-SEXP attribute_hidden do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP xt, x, right, inside, leftOp;
+    SEXP xt, x, right, inside, leftOp, chkNA;
     xt = CAR(args); args = CDR(args);
     x = CAR(args); args = CDR(args);
     right = CAR(args); args = CDR(args);
     inside = CAR(args);args = CDR(args);
-    leftOp = CAR(args);
+    leftOp = CAR(args);args = CDR(args);
+    chkNA  = CAR(args);
     if(TYPEOF(xt) != REALSXP || TYPEOF(x) != REALSXP) error("invalid input");
 #ifdef LONG_VECTOR_SUPPORT
     if (IS_LONG_VEC(xt))
@@ -2678,22 +2845,30 @@ SEXP attribute_hidden do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
     int n = LENGTH(xt);
     if (n == NA_INTEGER) error(_("invalid '%s' argument"), "vec");
     R_xlen_t nx = XLENGTH(x);
-    int sr = asLogical(right), si = asLogical(inside), lO = asLogical(leftOp);
-    if (sr == NA_INTEGER)
+    bool sr = asBool2(right, call),
+	si = asBool2(inside, call),
+	lO = asBool2(leftOp, call);
+    /*   if (sr == NA_INTEGER)
 	error(_("invalid '%s' argument"), "rightmost.closed");
     if (si == NA_INTEGER)
-	error(_("invalid '%s' argument"), "all.inside");
+    error(_("invalid '%s' argument"), "all.inside"); */
     SEXP ans = allocVector(INTSXP, nx);
     double *rxt = REAL(xt), *rx = REAL(x);
-    int ii = 1;
-    for(int i = 0; i < nx; i++) {
+    int ii = 1, mfl;
+    if (chkNA)
+      for(int i = 0; i < nx; i++) {
 	if (ISNAN(rx[i]))
 	    ii = NA_INTEGER;
-	else {
-	    int mfl;
-	    ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl); // -> ../appl/interv.c
-	}
+	else
+#define FIND_INT ii = findInterval2(rxt, n, rx[i], sr, si, lO, ii, &mfl) /* -> ../appl/interv.c */
+	    FIND_INT;
 	INTEGER(ans)[i] = ii;
+      }
+    else { // do *not* check ISNAN(rx[i])
+	for(int i = 0; i < nx; i++) {
+	    FIND_INT;
+	    INTEGER(ans)[i] = ii;
+	}
     }
     return ans;
 }
@@ -2706,7 +2881,7 @@ SEXP attribute_hidden do_findinterval(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* .Internal(pretty(min(x), max(x), n, min.n, shrink.sml,
  *                  c(high.u.bias, u5.bias), eps.correct))
  */
-SEXP attribute_hidden do_pretty(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_pretty(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     double l = asReal(CAR(args)); args = CDR(args);
@@ -2770,7 +2945,7 @@ static void
 str_signif_sexp(SEXP x, const char *type, int width, int digits,
 	   const char *format, const char *flag, char **result);
 
-SEXP attribute_hidden do_formatC(SEXP call, SEXP op, SEXP args, SEXP rho)
+attribute_hidden SEXP do_formatC(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP x = CAR(args); args = CDR(args);
@@ -2867,8 +3042,7 @@ void str_signif(void *x, R_xlen_t n, const char *type, int width, int digits,
 		const char *format, const char *flag, char **result)
 {
     int dig = abs(digits);
-    Rboolean rm_trailing_0 = digits >= 0;
-    Rboolean do_fg = !strcmp("fg", format); /* TRUE  iff  format == "fg" */
+    bool do_fg = !strcmp("fg", format); /* TRUE  iff  format == "fg" */
     double xx;
     int iex;
     size_t j, len_flag = strlen(flag);
@@ -2949,6 +3123,7 @@ void str_signif(void *x, R_xlen_t n, const char *type, int width, int digits,
 			    fprintf(stderr, "\tres. = '%s'; ", result[i]);
 #endif
 			    /* Remove trailing  "0"s __ IFF flag has no '#': */
+			    bool rm_trailing_0 = (digits >= 0);
 			    if(rm_trailing_0) {
 				j = strlen(result[i])-1;
 #ifdef DEBUG
@@ -3024,3 +3199,108 @@ char *Rstrdup(const char *s)
     memcpy (cpy, s, nb);
     return (char *) cpy;
 }
+
+static int compareNumericVersion(SEXP x, SEXP y)
+{
+    int i, nx, ny, nc, *ix, *iy;
+    if(!isInteger(x))
+	error(_("invalid '%s' argument"), "x");
+    if(!isInteger(y))
+	error(_("invalid '%s' argument"), "y");
+    nx = LENGTH(x);
+    ny = LENGTH(y);
+    nc =  nx > ny ? ny : nx;
+    if(nc == 0)
+	return NA_INTEGER;
+    ix = INTEGER(x);
+    iy = INTEGER(y);
+    for(i = 0; i < nc; i++) {
+	if(ix[i] > iy[i])
+	    return 1;
+	if(ix[i] < iy[i])
+	    return -1;
+    }
+    if(nc < nx) {
+	for(i = nc; i < nx; i++) {
+	    if(ix[i] > 0)
+		return 1;
+	}
+    } else if(nc < ny) {
+	for(i = nc; i < ny; i++) {
+	    if(iy[i] > 0)
+		return -1;
+	}
+    }
+    return 0;
+}
+
+attribute_hidden
+SEXP do_compareNumericVersion(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    SEXP ans, x, y;
+    int i, nx, ny, na;
+
+    checkArity(op, args);
+
+    x = CAR(args); args = CDR(args);
+    y = CAR(args);
+
+    if(!isVector(x))
+	error(_("invalid '%s' argument"), "x");
+    if(!isVector(y))
+	error(_("invalid '%s' argument"), "y");
+    nx = LENGTH(x);
+    ny = LENGTH(y);
+    if(nx > 0 && ny > 0)
+	na = nx > ny ? nx : ny;
+    else
+	na = 0;
+    PROTECT(ans = allocVector(INTSXP, na));
+    for(i = 0; i < na; i++) {
+	INTEGER(ans)[i] =
+	    compareNumericVersion(VECTOR_ELT(x, i % nx),
+				  VECTOR_ELT(y, i % ny));
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    char dummy[1];
+
+    *str = NULL;
+
+    va_start(ap, fmt);
+    /* could optimize by using non-zero initial size, large
+       enough so that most prints with fill */
+    /* trio does not accept NULL as str */
+    ret = vsnprintf(dummy, 0, fmt, ap);
+    va_end(ap);
+
+    if (ret <= 0)
+	/* error or empty print */
+	return ret;
+
+    size_t needed = ret + 1;
+    char *buf = (char *) malloc(needed);
+    if (!buf) {
+	errno = ENOMEM;
+	return -1;
+    }
+
+    va_start(ap, fmt);
+    ret = vsnprintf(buf, needed, fmt, ap);
+    va_end(ap);
+
+    if (ret < 0 || (size_t)ret >= needed)
+	/* error */
+	free(buf);
+    else
+	*str = buf;
+    return ret;
+}
+
+

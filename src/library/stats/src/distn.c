@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2021  The R Core Team
+ *  Copyright (C) 1998--2025  The R Core Team
  *  Copyright (C) 1995--1997  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -19,24 +19,16 @@
 
  * distn ==  [DIST]ributio[N]s, i.e. probability distributions
  * -----                             notably R's   [dpq]<kind>()  functions
+ *
+ * Much is COPY'n'PASTE from ../../../main/arithmetic.c  << KEEP IN SYNC!
+ *                           ~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#include <Defn.h>
+#include <Rinternals.h>
 #include <Rmath.h>
 #include "statsR.h"
+#include "statsErr.h"
 
-#undef _
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
 /* interval at which to check interrupts */
 //#define NINTERRUPT 1000000
 
@@ -53,6 +45,9 @@
 	++i)
 
 #define SETUP_Math2					\
+    if (!isNumeric(sa) || !isNumeric(sb))		\
+	error(R_MSG_NONNUM_MATH);			\
+							\
     na = XLENGTH(sa);					\
     nb = XLENGTH(sb);					\
     if ((na == 0) || (nb == 0))	{			\
@@ -68,11 +63,11 @@
     a = REAL(sa);					\
     b = REAL(sb);					\
     y = REAL(sy);					\
-    naflag = 0
+    int naflag = 0
 
 #define FINISH_Math2					\
     if(naflag) warning(R_MSG_NA);			\
-    if (n == na)  SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
+    if      (n == na) SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
     else if (n == nb) SHALLOW_DUPLICATE_ATTRIB(sy, sb);	\
     UNPROTECT(3)
 
@@ -86,14 +81,9 @@ static SEXP math2_1(SEXP sa, SEXP sb, SEXP sI, double (*f)(double, double, int))
     SEXP sy;
     R_xlen_t i, ia, ib, n, na, nb;
     double ai, bi, *a, *b, *y;
-    int m_opt;
-    int naflag;
-
-    if (!isNumeric(sa) || !isNumeric(sb))
-	error(R_MSG_NONNUM_MATH);
 
     SETUP_Math2;
-    m_opt = asInteger(sI);
+    int m_opt = asInteger(sI);
 
     mod_iterate(na, nb, ia, ib) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -115,14 +105,10 @@ static SEXP math2_2(SEXP sa, SEXP sb, SEXP sI1, SEXP sI2,
     SEXP sy;
     R_xlen_t i, ia, ib, n, na, nb;
     double ai, bi, *a, *b, *y;
-    int i_1, i_2;
-    int naflag;
-    if (!isNumeric(sa) || !isNumeric(sb))
-	error(R_MSG_NONNUM_MATH);
 
     SETUP_Math2;
-    i_1 = asInteger(sI1);
-    i_2 = asInteger(sI2);
+    int i_1 = asInteger(sI1),
+	i_2 = asInteger(sI2);
 
     mod_iterate(na, nb, ia, ib) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -182,13 +168,18 @@ DEFMATH2_2(qsignrank)
 
 #define SETUP_Math3						\
     if (!isNumeric(sa) || !isNumeric(sb) || !isNumeric(sc))	\
-	error(R_MSG_NONNUM_MATH);			\
+	error(R_MSG_NONNUM_MATH);				\
 								\
     na = XLENGTH(sa);						\
     nb = XLENGTH(sb);						\
     nc = XLENGTH(sc);						\
-    if ((na == 0) || (nb == 0) || (nc == 0))			\
-	return(allocVector(REALSXP, 0));			\
+    if ((na == 0) || (nb == 0) || (nc == 0)) {			\
+	/* for 0-length a we want the attributes of a: */	\
+	PROTECT(sy = allocVector(REALSXP, 0));			\
+	if (na == 0) SHALLOW_DUPLICATE_ATTRIB(sy, sa);		\
+	UNPROTECT(1);						\
+	return(sy);						\
+    }								\
     n = na;							\
     if (n < nb) n = nb;						\
     if (n < nc) n = nc;						\
@@ -196,16 +187,16 @@ DEFMATH2_2(qsignrank)
     PROTECT(sb = coerceVector(sb, REALSXP));			\
     PROTECT(sc = coerceVector(sc, REALSXP));			\
     PROTECT(sy = allocVector(REALSXP, n));			\
-    a = REAL(sa);						\
-    b = REAL(sb);						\
-    c = REAL(sc);						\
+    const double *a = REAL_RO(sa),				\
+	*b = REAL_RO(sb),					\
+	*c = REAL_RO(sc);					\
     y = REAL(sy);						\
-    naflag = 0
+    int naflag = 0
 
 #define FINISH_Math3					\
     if(naflag)  warning(R_MSG_NA);			\
     							\
-    if (n == na) SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
+    if      (n == na) SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
     else if (n == nb) SHALLOW_DUPLICATE_ATTRIB(sy, sb);	\
     else if (n == nc) SHALLOW_DUPLICATE_ATTRIB(sy, sc);	\
     UNPROTECT(4)
@@ -215,12 +206,10 @@ static SEXP math3_1(SEXP sa, SEXP sb, SEXP sc, SEXP sI,
 {
     SEXP sy;
     R_xlen_t i, ia, ib, ic, n, na, nb, nc;
-    double ai, bi, ci, *a, *b, *c, *y;
-    int i_1;
-    int naflag;
+    double ai, bi, ci, *y;
 
     SETUP_Math3;
-    i_1 = asInteger(sI);
+    int i_1 = asInteger(sI);
 
     mod_iterate3 (na, nb, nc, ia, ib, ic) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -243,13 +232,11 @@ static SEXP math3_2(SEXP sa, SEXP sb, SEXP sc, SEXP sI, SEXP sJ,
 {
     SEXP sy;
     R_xlen_t i, ia, ib, ic, n, na, nb, nc;
-    double ai, bi, ci, *a, *b, *c, *y;
-    int i_1,i_2;
-    int naflag;
+    double ai, bi, ci, *y;
 
     SETUP_Math3;
-    i_1 = asInteger(sI);
-    i_2 = asInteger(sJ);
+    int i_1 = asInteger(sI),
+	i_2 = asInteger(sJ);
 
     mod_iterate3 (na, nb, nc, ia, ib, ic) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -339,14 +326,19 @@ DEFMATH3_2(qwilcox)
 
 #define SETUP_Math4							\
     if(!isNumeric(sa)|| !isNumeric(sb)|| !isNumeric(sc)|| !isNumeric(sd))\
-	error(R_MSG_NONNUM_MATH);				\
+	error(R_MSG_NONNUM_MATH);					\
 									\
     na = XLENGTH(sa);							\
     nb = XLENGTH(sb);							\
     nc = XLENGTH(sc);							\
     nd = XLENGTH(sd);							\
-    if ((na == 0) || (nb == 0) || (nc == 0) || (nd == 0))		\
-	return(allocVector(REALSXP, 0));				\
+    if ((na == 0) || (nb == 0) || (nc == 0) || (nd == 0)) {		\
+	/* for 0-length a we want the attributes of a: */		\
+	PROTECT(sy = allocVector(REALSXP, 0));				\
+	if (na == 0) SHALLOW_DUPLICATE_ATTRIB(sy, sa);			\
+	UNPROTECT(1);							\
+	return(sy);							\
+    }									\
     n = na;								\
     if (n < nb) n = nb;							\
     if (n < nc) n = nc;							\
@@ -356,17 +348,17 @@ DEFMATH3_2(qwilcox)
     PROTECT(sc = coerceVector(sc, REALSXP));				\
     PROTECT(sd = coerceVector(sd, REALSXP));				\
     PROTECT(sy = allocVector(REALSXP, n));				\
-    a = REAL(sa);							\
-    b = REAL(sb);							\
-    c = REAL(sc);							\
-    d = REAL(sd);							\
+    const double *a = REAL_RO(sa),					\
+	*b = REAL_RO(sb),						\
+	*c = REAL_RO(sc),						\
+	*d = REAL_RO(sd);						\
     y = REAL(sy);							\
-    naflag = 0
+    int naflag = 0
 
 #define FINISH_Math4					\
     if(naflag) warning(R_MSG_NA);			\
     							\
-    if (n == na) SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
+    if      (n == na) SHALLOW_DUPLICATE_ATTRIB(sy, sa);	\
     else if (n == nb) SHALLOW_DUPLICATE_ATTRIB(sy, sb);	\
     else if (n == nc) SHALLOW_DUPLICATE_ATTRIB(sy, sc);	\
     else if (n == nd) SHALLOW_DUPLICATE_ATTRIB(sy, sd);	\
@@ -376,12 +368,10 @@ static SEXP math4_1(SEXP sa, SEXP sb, SEXP sc, SEXP sd, SEXP sI, double (*f)(dou
 {
     SEXP sy;
     R_xlen_t i, ia, ib, ic, id, n, na, nb, nc, nd;
-    double ai, bi, ci, di, *a, *b, *c, *d, *y;
-    int i_1;
-    int naflag;
+    double ai, bi, ci, di, *y;
 
     SETUP_Math4;
-    i_1 = asInteger(sI);
+    int i_1 = asInteger(sI);
 
     mod_iterate4 (na, nb, nc, nd, ia, ib, ic, id) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -404,13 +394,11 @@ static SEXP math4_2(SEXP sa, SEXP sb, SEXP sc, SEXP sd, SEXP sI, SEXP sJ,
 {
     SEXP sy;
     R_xlen_t i, ia, ib, ic, id, n, na, nb, nc, nd;
-    double ai, bi, ci, di, *a, *b, *c, *d, *y;
-    int i_1, i_2;
-    int naflag;
+    double ai, bi, ci, di, *y;
 
     SETUP_Math4;
-    i_1 = asInteger(sI);
-    i_2 = asInteger(sJ);
+    int i_1 = asInteger(sI),
+	i_2 = asInteger(sJ);
 
     mod_iterate4 (na, nb, nc, nd, ia, ib, ic, id) {
 //	if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
@@ -460,13 +448,13 @@ extern void signrank_free(void);
 extern void wilcox_free(void);
 */
 
-SEXP stats_signrank_free(void)
+SEXP stats_signrank_free(SEXP args)
 {
     signrank_free();
     return R_NilValue;
 }
 
-SEXP stats_wilcox_free(void)
+SEXP stats_wilcox_free(SEXP args)
 {
     wilcox_free();
     return R_NilValue;

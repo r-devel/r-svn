@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2016--2017   The R Core Team
+ *  Copyright (C) 2016--2023   The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -94,7 +94,7 @@ static SEXP LookupClass(SEXP csym, SEXP psym)
 }
 
 static void reinit_altrep_class(SEXP sclass);
-void attribute_hidden R_reinit_altrep_classes(DllInfo *dll)
+attribute_hidden void R_reinit_altrep_classes(DllInfo *dll)
 {
     for (SEXP chain = CDR(Registry); chain != R_NilValue; chain = CDR(chain)) {
 	SEXP entry = CAR(chain);
@@ -134,6 +134,7 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
 #define ALTRAW_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altraw)
 #define ALTCOMPLEX_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altcomplex)
 #define ALTSTRING_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altstring)
+#define ALTLIST_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altlist)
 
 #define ALTREP_METHODS						\
     R_altrep_UnserializeEX_method_t UnserializeEX;		\
@@ -196,6 +197,11 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altstring_Is_sorted_method_t Is_sorted;	\
     R_altstring_No_NA_method_t No_NA
 
+#define ALTLIST_METHODS                         \
+    ALTVEC_METHODS;                             \
+    R_altlist_Elt_method_t Elt;                 \
+    R_altlist_Set_elt_method_t Set_elt
+
 typedef struct { ALTREP_METHODS; } altrep_methods_t;
 typedef struct { ALTVEC_METHODS; } altvec_methods_t;
 typedef struct { ALTINTEGER_METHODS; } altinteger_methods_t;
@@ -204,6 +210,7 @@ typedef struct { ALTLOGICAL_METHODS; } altlogical_methods_t;
 typedef struct { ALTRAW_METHODS; } altraw_methods_t;
 typedef struct { ALTCOMPLEX_METHODS; } altcomplex_methods_t;
 typedef struct { ALTSTRING_METHODS; } altstring_methods_t;
+typedef struct { ALTLIST_METHODS; } altlist_methods_t;
 
 /* Macro to extract first element from ... macro argument.
    From Richard Hansen's answer in
@@ -223,13 +230,14 @@ typedef struct { ALTSTRING_METHODS; } altstring_methods_t;
 #define ALTRAW_DISPATCH(fun, ...) DO_DISPATCH(ALTRAW, fun, __VA_ARGS__)
 #define ALTCOMPLEX_DISPATCH(fun, ...) DO_DISPATCH(ALTCOMPLEX, fun, __VA_ARGS__)
 #define ALTSTRING_DISPATCH(fun, ...) DO_DISPATCH(ALTSTRING, fun, __VA_ARGS__)
+#define ALTLIST_DISPATCH(fun, ...) DO_DISPATCH(ALTLIST, fun, __VA_ARGS__)
 
 
 /*
  * Generic ALTREP support
  */
 
-SEXP attribute_hidden ALTREP_COERCE(SEXP x, int type)
+attribute_hidden SEXP ALTREP_COERCE(SEXP x, int type)
 {
     return ALTREP_DISPATCH(Coerce, x, type);
 }
@@ -239,12 +247,12 @@ static SEXP ALTREP_DUPLICATE(SEXP x, Rboolean deep)
     return ALTREP_DISPATCH(Duplicate, x, deep);
 }
 
-SEXP attribute_hidden ALTREP_DUPLICATE_EX(SEXP x, Rboolean deep)
+attribute_hidden SEXP ALTREP_DUPLICATE_EX(SEXP x, Rboolean deep)
 {
     return ALTREP_DISPATCH(DuplicateEX, x, deep);
 }
 
-Rboolean attribute_hidden
+attribute_hidden Rboolean
 ALTREP_INSPECT(SEXP x, int pre, int deep, int pvec,
 	       void (*inspect_subtree)(SEXP, int, int, int))
 {
@@ -252,13 +260,13 @@ ALTREP_INSPECT(SEXP x, int pre, int deep, int pvec,
 }
 
 
-SEXP attribute_hidden
+attribute_hidden SEXP
 ALTREP_SERIALIZED_STATE(SEXP x)
 {
     return ALTREP_DISPATCH(Serialized_state, x);
 }
 
-SEXP attribute_hidden
+attribute_hidden SEXP
 ALTREP_SERIALIZED_CLASS(SEXP x)
 {
     SEXP val = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
@@ -287,7 +295,7 @@ static SEXP ALTREP_UNSERIALIZE_CLASS(SEXP info)
     return NULL;
 }
 
-SEXP attribute_hidden
+attribute_hidden SEXP
 ALTREP_UNSERIALIZE_EX(SEXP info, SEXP state, SEXP attr, int objf, int levs)
 {
     SEXP csym = ALTREP_SERIALIZED_CLASS_CLSSYM(info);
@@ -329,20 +337,27 @@ ALTREP_UNSERIALIZE_EX(SEXP info, SEXP state, SEXP attr, int objf, int levs)
     return val;
 }
 
-R_xlen_t /*attribute_hidden*/ ALTREP_LENGTH(SEXP x)
+/*attribute_hidden*/ R_xlen_t ALTREP_LENGTH(SEXP x)
 {
     return ALTREP_DISPATCH(Length, x);
 }
 
-R_xlen_t /*attribute_hidden*/ ALTREP_TRUELENGTH(SEXP x) { return 0; }
+attribute_hidden R_xlen_t ALTREP_TRUELENGTH(SEXP x) { return 0; }
 
 
 /*
  * Generic ALTVEC support
  */
 
-static R_INLINE void *ALTVEC_DATAPTR_EX(SEXP x, Rboolean writeable)
+static R_INLINE void *ALTVEC_DATAPTR_EX(SEXP x, Rboolean writable)
 {
+    /* Disallow taking the writable `DATAPTR()` of an ALTLIST. This
+       check could be moved to `DATAPTR()` to catch more faulty
+       usages. */
+    if (TYPEOF(x) == VECSXP && writable)
+        ALTREP_ERROR_IN_CLASS("cannot take a writable DATAPTR of an ALTLIST",
+			      x);
+
     /**** move GC disabling into methods? */
     if (R_in_gc)
 	error("cannot get ALTVEC DATAPTR during GC");
@@ -350,28 +365,28 @@ static R_INLINE void *ALTVEC_DATAPTR_EX(SEXP x, Rboolean writeable)
     int enabled = R_GCEnabled;
     R_GCEnabled = FALSE;
 
-    void *val = ALTVEC_DISPATCH(Dataptr, x, writeable);
+    void *val = ALTVEC_DISPATCH(Dataptr, x, writable);
 
     R_GCEnabled = enabled;
     return val;
 }
 
-void /*attribute_hidden*/ *ALTVEC_DATAPTR(SEXP x)
+/*attribute_hidden*/ void *ALTVEC_DATAPTR(SEXP x)
 {
     return ALTVEC_DATAPTR_EX(x, TRUE);
 }
 
-const void /*attribute_hidden*/ *ALTVEC_DATAPTR_RO(SEXP x)
+/*attribute_hidden*/ const void *ALTVEC_DATAPTR_RO(SEXP x)
 {
     return ALTVEC_DATAPTR_EX(x, FALSE);
 }
 
-const void /*attribute_hidden*/ *ALTVEC_DATAPTR_OR_NULL(SEXP x)
+attribute_hidden const void *ALTVEC_DATAPTR_OR_NULL(SEXP x)
 {
     return ALTVEC_DISPATCH(Dataptr_or_null, x);
 }
 
-SEXP attribute_hidden ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
+attribute_hidden SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
 {
     return ALTVEC_DISPATCH(Extract_subset, x, indx, call);
 }
@@ -381,7 +396,7 @@ SEXP attribute_hidden ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
  * Typed ALTVEC support
  */
 
-int attribute_hidden ALTINTEGER_ELT(SEXP x, R_xlen_t i)
+attribute_hidden int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
 {
     return ALTINTEGER_DISPATCH(Elt, x, i);
 }
@@ -411,7 +426,7 @@ int INTEGER_NO_NA(SEXP x)
     return ALTREP(x) ? ALTINTEGER_DISPATCH(No_NA, x) : 0;
 }
 
-double attribute_hidden ALTREAL_ELT(SEXP x, R_xlen_t i)
+attribute_hidden double ALTREAL_ELT(SEXP x, R_xlen_t i)
 {
     return ALTREAL_DISPATCH(Elt, x, i);
 }
@@ -456,7 +471,7 @@ R_xlen_t LOGICAL_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 	return ALTLOGICAL_DISPATCH(Get_region, sx, i, n, buf);
 }
 
-int LOGICAL_IS_SORTED(SEXP x)
+attribute_hidden int LOGICAL_IS_SORTED(SEXP x)
 {
     return ALTREP(x) ? ALTLOGICAL_DISPATCH(Is_sorted, x) : UNKNOWN_SORTEDNESS;
 }
@@ -517,7 +532,7 @@ SEXP /*attribute_hidden*/ ALTSTRING_ELT(SEXP x, R_xlen_t i)
     return val;
 }
 
-void attribute_hidden ALTSTRING_SET_ELT(SEXP x, R_xlen_t i, SEXP v)
+attribute_hidden void ALTSTRING_SET_ELT(SEXP x, R_xlen_t i, SEXP v)
 {
     /**** move GC disabling into method? */
     if (R_in_gc)
@@ -541,54 +556,85 @@ int STRING_NO_NA(SEXP x)
     return ALTREP(x) ? ALTSTRING_DISPATCH(No_NA, x) : 0;
 }
 
-SEXP ALTINTEGER_SUM(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTLIST_ELT(SEXP x, R_xlen_t i)
+{
+    SEXP val = NULL;
+
+    /**** move GC disabling into method? */
+    if (R_in_gc)
+	error("cannot get ALTLIST_ELT during GC");
+    R_CHECK_THREAD;
+    int enabled = R_GCEnabled;
+    R_GCEnabled = FALSE;
+
+    val = ALTLIST_DISPATCH(Elt, x, i);
+
+    R_GCEnabled = enabled;
+    return val;
+}
+
+attribute_hidden void ALTLIST_SET_ELT(SEXP x, R_xlen_t i, SEXP v)
+{
+    /**** move GC disabling into method? */
+    if (R_in_gc)
+	error("cannot set ALTLIST_ELT during GC");
+    R_CHECK_THREAD;
+    int enabled = R_GCEnabled;
+    R_GCEnabled = FALSE;
+
+    ALTLIST_DISPATCH(Set_elt, x, i, v);
+
+    R_GCEnabled = enabled;
+}
+
+attribute_hidden SEXP ALTINTEGER_SUM(SEXP x, Rboolean narm)
 {
     return ALTINTEGER_DISPATCH(Sum, x, narm);
 }
 
-SEXP ALTINTEGER_MIN(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTINTEGER_MIN(SEXP x, Rboolean narm)
 {
     return ALTINTEGER_DISPATCH(Min, x, narm);
 }
 
-SEXP ALTINTEGER_MAX(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTINTEGER_MAX(SEXP x, Rboolean narm)
 {
     return ALTINTEGER_DISPATCH(Max, x, narm);
 
 }
 
-SEXP ALTREAL_SUM(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTREAL_SUM(SEXP x, Rboolean narm)
 {
     return ALTREAL_DISPATCH(Sum, x, narm);
 }
 
-SEXP ALTREAL_MIN(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTREAL_MIN(SEXP x, Rboolean narm)
 {
     return ALTREAL_DISPATCH(Min, x, narm);
 }
 
-SEXP ALTREAL_MAX(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTREAL_MAX(SEXP x, Rboolean narm)
 {
     return ALTREAL_DISPATCH(Max, x, narm);
 
 }
 
-SEXP ALTLOGICAL_SUM(SEXP x, Rboolean narm)
+attribute_hidden SEXP ALTLOGICAL_SUM(SEXP x, Rboolean narm)
 {
     return ALTLOGICAL_DISPATCH(Sum, x, narm);
 }
 
-int attribute_hidden ALTLOGICAL_ELT(SEXP x, R_xlen_t i)
+attribute_hidden int ALTLOGICAL_ELT(SEXP x, R_xlen_t i)
 {
     return ALTLOGICAL_DISPATCH(Elt, x, i);
 }
 
-Rcomplex attribute_hidden ALTCOMPLEX_ELT(SEXP x, R_xlen_t i)
+attribute_hidden Rcomplex ALTCOMPLEX_ELT(SEXP x, R_xlen_t i)
 {
     return ALTCOMPLEX_DISPATCH(Elt, x, i);
 }
 
-Rbyte attribute_hidden ALTRAW_ELT(SEXP x, R_xlen_t i)
+attribute_hidden Rbyte ALTRAW_ELT(SEXP x, R_xlen_t i)
 {
     return ALTRAW_DISPATCH(Elt, x, i);
 }
@@ -598,27 +644,27 @@ Rbyte attribute_hidden ALTRAW_ELT(SEXP x, R_xlen_t i)
  * Not yet implemented
  */
 
-void ALTINTEGER_SET_ELT(SEXP x, R_xlen_t i, int v)
+attribute_hidden void ALTINTEGER_SET_ELT(SEXP x, R_xlen_t i, int v)
 {
     INTEGER(x)[i] = v; /* dispatch here */
 }
 
-void ALTLOGICAL_SET_ELT(SEXP x, R_xlen_t i, int v)
+attribute_hidden void ALTLOGICAL_SET_ELT(SEXP x, R_xlen_t i, int v)
 {
     LOGICAL(x)[i] = v; /* dispatch here */
 }
 
-void ALTREAL_SET_ELT(SEXP x, R_xlen_t i, double v)
+attribute_hidden void ALTREAL_SET_ELT(SEXP x, R_xlen_t i, double v)
 {
     REAL(x)[i] = v; /* dispatch here */
 }
 
-void ALTCOMPLEX_SET_ELT(SEXP x, R_xlen_t i, Rcomplex v)
+attribute_hidden void ALTCOMPLEX_SET_ELT(SEXP x, R_xlen_t i, Rcomplex v)
 {
     COMPLEX(x)[i] = v; /* dispatch here */
 }
 
-void ALTRAW_SET_ELT(SEXP x, R_xlen_t i, Rbyte v)
+attribute_hidden void ALTRAW_SET_ELT(SEXP x, R_xlen_t i, Rbyte v)
 {
     RAW(x)[i] = v; /* dispatch here */
 }
@@ -689,7 +735,7 @@ static R_xlen_t altrep_Length_default(SEXP x)
     ALTREP_ERROR_IN_CLASS("no ALTREP Length method defined", x);
 }
 
-static void *altvec_Dataptr_default(SEXP x, Rboolean writeable)
+static void *altvec_Dataptr_default(SEXP x, Rboolean writable)
 {
     ALTREP_ERROR_IN_CLASS("cannot access data pointer for this ALTVEC object", x);
 }
@@ -801,6 +847,25 @@ static void altstring_Set_elt_default(SEXP x, R_xlen_t i, SEXP v)
 static int altstring_Is_sorted_default(SEXP x) { return UNKNOWN_SORTEDNESS; }
 static int altstring_No_NA_default(SEXP x) { return 0; }
 
+static SEXP altlist_Elt_default(SEXP x, R_xlen_t i)
+{
+    ALTREP_ERROR_IN_CLASS("ALTLIST classes must provide an Elt method", x);
+}
+
+static void altlist_Set_elt_default(SEXP x, R_xlen_t i, SEXP v)
+{
+    ALTREP_ERROR_IN_CLASS("ALTLIST classes must provide a Set_elt method", x);
+}
+
+static void *altlist_Dataptr_default(SEXP x, Rboolean writable)
+{
+    ALTREP_ERROR_IN_CLASS("No Dataptr method found for ALTLIST class", x);
+}
+
+static const void *altlist_Dataptr_or_null_default(SEXP x)
+{
+    return NULL;
+}
 
 /**
  ** ALTREP Initial Method Tables
@@ -925,6 +990,24 @@ static altstring_methods_t altstring_default_methods = {
 };
 
 
+
+static altlist_methods_t altlist_default_methods = {
+    .UnserializeEX = altrep_UnserializeEX_default,
+    .Unserialize = altrep_Unserialize_default,
+    .Serialized_state = altrep_Serialized_state_default,
+    .DuplicateEX = altrep_DuplicateEX_default,
+    .Duplicate = altrep_Duplicate_default,
+    .Coerce = altrep_Coerce_default,
+    .Inspect = altrep_Inspect_default,
+    .Length = altrep_Length_default,
+    .Dataptr = altlist_Dataptr_default,
+    .Dataptr_or_null = altlist_Dataptr_or_null_default,
+    .Extract_subset = altvec_Extract_subset_default,
+    .Elt = altlist_Elt_default,
+    .Set_elt = altlist_Set_elt_default
+};
+
+
 /**
  ** Class Constructors
  **/
@@ -958,6 +1041,7 @@ make_altrep_class(int type, const char *cname, const char *pname, DllInfo *dll)
     case RAWSXP:  MAKE_CLASS(class, altraw);     break;
     case CPLXSXP: MAKE_CLASS(class, altcomplex); break;
     case STRSXP:  MAKE_CLASS(class, altstring);  break;
+    case VECSXP:  MAKE_CLASS(class, altlist);    break;
     default: error("unsupported ALTREP class");
     }
     RegisterClass(class, type, cname, pname, dll);
@@ -976,6 +1060,7 @@ make_altrep_class(int type, const char *cname, const char *pname, DllInfo *dll)
     }
 
 DEFINE_CLASS_CONSTRUCTOR(altstring, STRSXP)
+DEFINE_CLASS_CONSTRUCTOR(altlist, VECSXP)
 DEFINE_CLASS_CONSTRUCTOR(altinteger, INTSXP)
 DEFINE_CLASS_CONSTRUCTOR(altreal, REALSXP)
 DEFINE_CLASS_CONSTRUCTOR(altlogical, LGLSXP)
@@ -991,6 +1076,7 @@ static void reinit_altrep_class(SEXP class)
     case LGLSXP: INIT_CLASS(class, altlogical); break;
     case RAWSXP: INIT_CLASS(class, altraw); break;
     case CPLXSXP: INIT_CLASS(class, altcomplex); break;
+    case VECSXP: INIT_CLASS(class, altlist); break;
     default: error("unsupported ALTREP class");
     }
 }
@@ -1054,6 +1140,8 @@ DEFINE_METHOD_SETTER(altstring, Set_elt)
 DEFINE_METHOD_SETTER(altstring, Is_sorted)
 DEFINE_METHOD_SETTER(altstring, No_NA)
 
+DEFINE_METHOD_SETTER(altlist, Elt)
+DEFINE_METHOD_SETTER(altlist, Set_elt)
 
 /**
  ** ALTREP Object Constructor and Utility Functions
@@ -1061,10 +1149,11 @@ DEFINE_METHOD_SETTER(altstring, No_NA)
 
 SEXP R_new_altrep(R_altrep_class_t aclass, SEXP data1, SEXP data2)
 {
+    void ALTREP_SET_TYPEOF(SEXP, int); /* in memory.c */
     SEXP sclass = R_SEXP(aclass);
     int type = ALTREP_CLASS_BASE_TYPE(sclass);
     SEXP ans = CONS(data1, data2);
-    SET_TYPEOF(ans, type);
+    ALTREP_SET_TYPEOF(ans, type);
     SET_ALTREP_CLASS(ans, sclass);
     return ans;
 }
@@ -1074,7 +1163,7 @@ Rboolean R_altrep_inherits(SEXP x, R_altrep_class_t class)
     return ALTREP(x) && ALTREP_CLASS(x) == R_SEXP(class);
 }
 
-SEXP attribute_hidden do_altrep_class(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP do_altrep_class(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = CAR(args);

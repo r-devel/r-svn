@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2020   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,10 +42,11 @@
 #include <config.h>
 #endif
 
-#include "Defn.h"
+#include <Defn.h>
 
 
 /* used in subscript.c and subassign.c */
+// In Rinternals.h
 Rboolean NonNullStringMatch(SEXP s, SEXP t)
 {
     /* "" or NA string matches nothing */
@@ -141,7 +142,7 @@ static SEXP matchPar_int(const char *tag, SEXP *list, Rboolean exact)
 }
 
 /* unused outside this file */
-SEXP attribute_hidden matchPar(const char *tag, SEXP * list)
+attribute_hidden SEXP matchPar(const char *tag, SEXP * list)
 {
     return matchPar_int(tag, list, FALSE);
 }
@@ -152,7 +153,7 @@ SEXP attribute_hidden matchPar(const char *tag, SEXP * list)
 /* Returns the first partially matching tag found. */
 /* Pattern is a symbol. */
 
-SEXP attribute_hidden matchArg(SEXP tag, SEXP * list)
+attribute_hidden SEXP matchArg(SEXP tag, SEXP * list)
 {
     return matchPar(CHAR(PRINTNAME(tag)), list);
 }
@@ -162,7 +163,7 @@ SEXP attribute_hidden matchArg(SEXP tag, SEXP * list)
 /* Returns the first exactly matching tag found. */
 /* Pattern is a symbol. */
 
-SEXP attribute_hidden matchArgExact(SEXP tag, SEXP * list)
+attribute_hidden SEXP matchArgExact(SEXP tag, SEXP * list)
 {
       return matchPar_int(CHAR(PRINTNAME(tag)), list, TRUE);
 }
@@ -181,9 +182,9 @@ SEXP attribute_hidden matchArgExact(SEXP tag, SEXP * list)
 /* Renamed to matchArgs_NR to reflect that it returns a
    non-reference-tracking list */
 
-SEXP attribute_hidden matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
+attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 {
-    Rboolean seendots;
+    bool seendots;
     int i, arg_i = 0;
     SEXP f, a, b, dots, actuals;
 
@@ -274,10 +275,13 @@ SEXP attribute_hidden matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 				_("formal argument \"%s\" matched by multiple actual arguments"),
 				CHAR(PRINTNAME(TAG(f))));
 			if (R_warn_partial_match_args) {
-			    warningcall(call,
-					_("partial argument match of '%s' to '%s'"),
-					CHAR(PRINTNAME(TAG(b))),
-					CHAR(PRINTNAME(TAG(f))) );
+			    SEXP cond =
+				R_makePartialMatchWarningCondition(call,
+								   TAG(b),
+								   TAG(f));
+			    PROTECT(cond);
+			    R_signalWarningCondition(cond);
+			    UNPROTECT(1);
 			}
 			SETCAR(a, CAR(b));
 			if (CAR(b) != R_MissingArg) SET_MISSING(a, 0);
@@ -383,7 +387,7 @@ SEXP attribute_hidden matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 }
 
 /* Use matchArgs_RC if the result might escape into R. */
-SEXP attribute_hidden matchArgs_RC(SEXP formals, SEXP supplied, SEXP call)
+attribute_hidden SEXP matchArgs_RC(SEXP formals, SEXP supplied, SEXP call)
 {
     SEXP args = matchArgs_NR(formals, supplied, call);
     /* it would be better not to build this arglist with CONS_NR in
@@ -421,7 +425,7 @@ static R_INLINE
 void patchArgument(SEXP suppliedSlot, SEXP name, fstype_t *farg, SEXP cloenv) {
     SEXP value = CAR(suppliedSlot);
     if (value == R_MissingArg) {
-        value = findVarInFrame3(cloenv, name, TRUE);
+        value = R_findVarInFrame(cloenv, name);
         if (value == R_MissingArg) {
             if (farg) *farg = FS_MATCHED_MISSING;
             return;
@@ -433,10 +437,10 @@ void patchArgument(SEXP suppliedSlot, SEXP name, fstype_t *farg, SEXP cloenv) {
     SETCAR(suppliedSlot, mkPROMISE(name, cloenv));
 }
 
-SEXP attribute_hidden
+attribute_hidden SEXP
 patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
 {
-    int i, seendots, farg_i;
+    int i, farg_i;
     SEXP f, a, b, prsupplied;
 
     int nfarg = length(formals);
@@ -476,13 +480,13 @@ patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
     /* An exact match is required after first ... */
     /* The location of the first ... is saved in "dots" */
 
-    seendots = 0;
+    Rboolean seendots = FALSE;
     f = formals;
     farg_i = 0;
     while (f != R_NilValue) {
 	if (farg[farg_i] == FS_UNMATCHED) {
 	    if (TAG(f) == R_DotsSymbol && !seendots) {
-		seendots = 1;
+		seendots = TRUE;
 	    } else {
 		for (b = prsupplied; b != R_NilValue; b = CDR(b)) {
 		    if (!ARGUSED(b) && TAG(b) != R_NilValue &&

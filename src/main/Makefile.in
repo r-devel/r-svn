@@ -22,11 +22,11 @@ SOURCES_C = \
 	dcf.c datetime.c debug.c deparse.c devices.c \
 	dotcode.c dounzip.c dstruct.c duplicate.c \
 	edit.c engine.c envir.c errors.c eval.c \
-	format.c \
+	flexiblas.c format.c \
 	gevents.c gram.c gram-ex.c graphics.c grep.c \
 	identical.c inlined.c inspect.c internet.c iosupport.c \
 	lapack.c list.c localecharset.c logic.c \
-	main.c mapply.c mask.c match.c memory.c \
+	machine.c main.c mapply.c mask.c match.c memory.c \
 	names.c \
 	objects.c options.c \
 	paste.c patterns.c platform.c plot.c plot3d.c plotmath.c \
@@ -98,7 +98,7 @@ MAIN_OBJS = `ls ../unix/*.o ../appl/*.o ../nmath/*.o`
 EXTRA_STATIC_LIBS = $(R_TRE) $(R_XDR) $(R_LIBINTL) $(R_TZONE)
 STATIC_LIBS = $(MAIN_LIBS) $(EXTRA_STATIC_LIBS)
 
-EXTRA_LIBS = $(BLAS_LIBS) $(FLIBS) @R_XTRA_LIBS@ @LIBINTL@ $(READLINE_LIBS) $(LIBS)
+EXTRA_LIBS = $(BLAS_LIBS) $(FLIBS) @R_XTRA_LIBS@ @LIBINTL@ $(READLINE_LIBS) $(LIBS) @BUILD_NEW_ACCELERATE_TRUE@ -framework Accelerate
 
 R_binary = R.bin
 R_bin_OBJECTS = Rmain.o @WANT_R_SHLIB_FALSE@$(OBJECTS)
@@ -158,10 +158,10 @@ libR.a: $(OBJECTS) $(STATIC_LIBS)
 	@rm -Rf libs
 
 install-bin-local: $(R_binary)
-	@$(MAKE) rhome="$(abs_top_builddir)" install-bin
+	@$(MAKE) DESTDIR="" rhome="$(abs_top_builddir)" install-bin
 
 install-static-local: libR.a
-	@$(MAKE) rhome="$(abs_top_builddir)" install-static
+	@$(MAKE) DESTDIR="" rhome="$(abs_top_builddir)" install-static
 
 $(top_builddir)/etc/R.exp: $(OBJECTS) $(MAIN_LIBS)
 	@$(SHELL) $(top_srcdir)/tools/ldAIX4 -o $@ $(OBJECTS) $(MAIN_LIBS)
@@ -170,9 +170,7 @@ $(top_builddir)/etc/R.exp: $(OBJECTS) $(MAIN_LIBS)
 $(MAIN_LIBS):
 	(cd $(@D); $(MAKE) $(@F))
 
-../extra/bzip2/libbz2.a ../extra/pcre/libpcre.a ../extra/pcre/libtre.a\
-  ../extra/xdr/libxdr.a ../extra/zlib/libz.a ../extra/xz/liblzma.a \
-  ../extra/intl/libintl.a:
+../extra/intl/libintl.a:
 	(cd $(@D); $(MAKE))
 
 
@@ -182,7 +180,7 @@ $(libR_la): $(libR_la_OBJECTS) $(libR_la_DEPENDENCIES)
 	$(DYLIB_LINK) $(LIBR_LDFLAGS) -o $@ $(libR_la_OBJECTS) $(libR_la_LIBADD)
 
 install-lib-local: $(libR_la)
-	@$(MAKE) rhome="$(abs_top_builddir)" install-lib
+	@$(MAKE) DESTDIR="" rhome="$(abs_top_builddir)" install-lib
 
 
 # suppress #line directives

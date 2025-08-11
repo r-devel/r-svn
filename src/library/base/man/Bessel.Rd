@@ -26,7 +26,7 @@ besselY(x, nu)
 \arguments{
   \item{x}{numeric, \eqn{\ge 0}.}
 
-  \item{nu}{numeric; The \emph{order} (maybe fractional and negative) of
+  \item{nu}{numeric; the \emph{order} (maybe fractional and negative) of
     the corresponding Bessel function.}
 
   \item{expon.scaled}{logical; if \code{TRUE}, the results are
@@ -45,8 +45,9 @@ besselY(x, nu)
   If \code{expon.scaled = TRUE}, \eqn{e^{-x} I_{\nu}(x)}{exp(-x) I(x;nu)},
   or \eqn{e^{x} K_{\nu}(x)}{exp(x) K(x;nu)} are returned.
 
-  For \eqn{\nu < 0}{nu < 0}, formulae 9.1.2 and 9.6.2 from Abramowitz &
-  Stegun  are applied (which is probably suboptimal), except for
+  For \eqn{\nu < 0}{nu < 0}, formulae 9.1.2 and 9.6.2 from
+  \bibcitet{R:Abramowitz+Stegun:1972}
+  are applied (which is probably suboptimal), except for
   \code{besselK} which is symmetric in \code{nu}.
 
   The current algorithms will give warnings about accuracy loss for
@@ -61,20 +62,18 @@ besselY(x, nu)
   \dQuote{Acknowledgement} and \dQuote{References}, a short summary of
   which is
   \describe{
-    \item{besselI}{based on (code) by David J. Sookne, see Sookne (1973)\dots
+    \item{\code{besselI}}{based on (code by) David J. Sookne, see Sookne (1973)\dots
       Modifications\dots An earlier version was published in Cody (1983).}
-    \item{besselJ}{as \code{besselI}}
-    \item{besselK}{based on (code) by J. B. Campbell (1980)\dots Modifications\dots}
-    \item{besselY}{draws heavily on Temme's Algol program for
+    \item{\code{besselJ}}{as \code{besselI}}
+    \item{\code{besselK}}{based on (code by) J. B. Campbell (1980)\dots Modifications\dots}
+    \item{\code{besselY}}{draws heavily on Temme's Algol program for
       \eqn{Y}\dots and on Campbell's programs for \eqn{Y_\nu(x)}
       \dots. \dots heavily modified.}
   }
 }
 \references{
-  Abramowitz, M. and Stegun, I. A. (1972).
-  \emph{Handbook of Mathematical Functions}.
-  Dover, New York;
-  Chapter 9: Bessel Functions of Integer Order.
+  \bibinfo{R:Abramowitz+Stegun:1972}{footer}{Chapter 9: Bessel Functions of Integer Order.}
+  \bibshow{*}
 
   In order of \dQuote{Source} citation above:
 
@@ -107,8 +106,8 @@ besselY(x, nu)
 }
 \seealso{
   Other special mathematical functions, such as
-  \code{\link{gamma}}, \eqn{\Gamma(x)}, and \code{\link{beta}},
-  \eqn{B(x)}.
+  \ifelse{text}{\code{gamma}}{\link[=gamma]{\eqn{\Gamma(x)}}} and
+  \ifelse{text}{\code{beta}}{\link[=beta]{\eqn{B(a,b)}}}.
 }
 \author{
   Original Fortran code:

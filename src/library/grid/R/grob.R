@@ -187,10 +187,10 @@ as.gList <- function(x) {
 gList <- function(...) {
     gl <- list(...)
     if (length(gl) == 0L ||
-        all(sapply(gl, okGListelt, simplify=TRUE))) {
+        all(vapply(gl, okGListelt, NA))) {
         # Ensure gList is "flat"
         # Don't want gList containing gList ...
-        if (!all(sapply(gl, is.grob)))
+        if (!all(vapply(gl, is.grob, NA)))
             gl <- do.call("c", lapply(gl, as.gList))
         class(gl) <- c("gList")
         return(gl)
@@ -259,12 +259,12 @@ setChildren <- function(x, children) {
   # Thin out NULL children
   if (!is.null(children)) {
     cl <- class(children)
-    children <- children[!sapply(children, is.null)]
+    children <- children[!vapply(children, is.null, NA)]
     class(children) <- cl
   }
   if (length(children)) {
     x$children <- children
-    childNames <- sapply(children, childName)
+    childNames <- vapply(children, childName, "")
     names(x$children) <- childNames
     x$childrenOrder <- childNames
   } else {
@@ -331,7 +331,7 @@ getName <- function(elt) {
 
 getNames <- function() {
   dl <- grid.Call(C_getDisplayList)[1L:grid.Call(C_getDLindex)]
-  names <- sapply(dl, getName)
+  names <- vapply(dl, getName, "")
   names[nzchar(names)]
 }
 
@@ -856,11 +856,11 @@ getGrobFromGPath.gTree <- function(grob, pathsofar, gPath, strict,
         NULL
       else
         getGTree(grob,
-                 if (is.null(pathsofar)) grob$name else pathsofar,
+                 pathsofar %||% grob$name,
                  gPath, strict, grep, global)
   } else {
     getGTree(grob,
-             if (is.null(pathsofar)) grob$name else pathsofar,
+             pathsofar %||% grob$name,
              gPath, strict, grep, global)
   }
 }
@@ -1001,12 +1001,12 @@ setGrobFromGPath.gTree <- function(grob, pathsofar, gPath, newGrob,
         NULL
       else
         setGTree(grob,
-                 if (is.null(pathsofar)) grob$name else pathsofar,
+                 pathsofar %||% grob$name,
                  gPath, newGrob, strict, grep)
   } else {
     setGTree(grob,
              # Initialise pathsofar if first time through
-             if (is.null(pathsofar)) grob$name else pathsofar,
+             pathsofar %||% grob$name,
              gPath, newGrob, strict, grep)
   }
 }
@@ -1164,11 +1164,11 @@ editGrobFromGPath.gTree <- function(grob, specs,
         NULL
       else
         editGTree(grob, specs,
-                  if (is.null(pathsofar)) grob$name else pathsofar,
+                  pathsofar %||% grob$name,
                   gPath, strict, grep, global)
   } else {
     editGTree(grob, specs,
-              if (is.null(pathsofar)) grob$name else pathsofar,
+              pathsofar %||% grob$name,
               gPath, strict, grep, global)
   }
 }
@@ -1328,11 +1328,11 @@ addGrobFromGPath.gTree <- function(grob, child,
         NULL
       else
         addGTree(grob, child,
-                 if (is.null(pathsofar)) grob$name else pathsofar,
+                 pathsofar %||% grob$name,
                  gPath, strict, grep, global)
   } else {
     addGTree(grob, child,
-             if (is.null(pathsofar)) grob$name else pathsofar,
+             pathsofar %||% grob$name,
              gPath, strict, grep, global)
   }
 }
@@ -1503,11 +1503,11 @@ removeGrobFromGPath.gTree <- function(grob, name,
         NULL
       else
         removeGTree(grob, name,
-                    if (is.null(pathsofar)) grob$name else pathsofar,
+                    pathsofar %||% grob$name,
                     gPath, strict, grep, grepname, global, warn)
   } else {
     removeGTree(grob, name,
-                if (is.null(pathsofar)) grob$name else pathsofar,
+                pathsofar %||% grob$name,
                 gPath, strict, grep, grepname, global, warn)
   }
 }

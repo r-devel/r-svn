@@ -1,7 +1,7 @@
 #  File src/library/methods/R/trace.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016, 2022 The R Core Team
+#  Copyright (C) 1995-2016, 2022-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 .traceTraceState <- FALSE
 
 ## the internal functions in the evaluator.  These are all prohibited,
-## although some of them could just barely be accomodated, with some
+## although some of them could just barely be accommodated, with some
 ## specially designed new definitions (not using ..., for example).
 ## The gain does not seem worth the inconsistencies; and "if" can
 ## never be traced, since it has to be used to determine if tracing is
@@ -124,11 +124,31 @@
     else {
         what <- as(what, "character")
         if(length(what) != 1) {
+            if (nargs() != 1) {
+                if(!is.null(exit)) {
+                    if(is.function(exit)) {
+                        tname <- substitute(exit)
+                        if(is.name(tname))
+                            exit <- tname
+                        exit <- substitute(TRACE(), list(TRACE=exit))
+                    }
+                }
+                if(!is.null(tracer)) {
+                    if(is.function(tracer)) {
+                        tname <- substitute(tracer)
+                        if(is.name(tname))
+                            tracer <- tname
+                        tracer <- substitute(TRACE(), list(TRACE=tracer))
+                    }
+                }
+            }
             for(f in what) {
                 if(nargs() == 1)
                     trace(f)
-                else
-                    Recall(f, tracer, exit, at, print, signature, where, edit, from, untrace)
+                else {
+                    Recall(f, tracer, exit, at, print, signature, where, edit, from,
+                           untrace, classMethod)
+                }
             }
             return(what)
         }
@@ -648,44 +668,43 @@ setCacheOnAssign <- function(env, onOff = cacheOnAssign(env))
 }
 
 
-utils::globalVariables("fdef")
-.dummySetMethod <- function(f, signature = character(), definition,
-	     where = topenv(parent.frame()), valueClass = NULL,
-	     sealed = FALSE)
-{
-    if(is.function(f) && is(f, "genericFunction"))
-        f <- fdef@generic
-    else if(is.function(f)) {
-        if(is.primitive(f))
-            f <- .primname(f)
-        else
-            stop("a function for argument 'f' must be a generic function")
-    } else
-        f <- switch(f, "as.double" = "as.numeric", f)
-    assign(.dummyMethodName(f, signature), definition, envir = where)
-}
+## utils::globalVariables("fdef")
+## .dummySetMethod <- function(f, signature = character(), definition,
+## 	     where = topenv(parent.frame()), valueClass = NULL,
+## 	     sealed = FALSE)
+## {
+##     if(is.function(f) && is(f, "genericFunction"))
+##         f <- fdef@generic
+##     else if(is.function(f)) {
+##         if(is.primitive(f))
+##             f <- .primname(f)
+##         else
+##             stop("a function for argument 'f' must be a generic function")
+##     } else
+##         f <- switch(f, "as.double" = "as.numeric", f)
+##     assign(.dummyMethodName(f, signature), definition, envir = where)
+## }
 
-.functionsOverriden <- c("setClass", "setClassUnion", "setGeneric", "setIs", "setMethod", "setValidity")
+## .functionsOverriden <- c("setClass", "setClassUnion", "setGeneric", "setIs", "setMethod", "setValidity")
 
-.setEnvForSource <- function(env) {
-    doNothing <- function(x, ...)x
-    ## establish some dummy definitions & a special setMethod()
-    for(f in .functionsOverriden)
-        assign(f, switch(f, setMethod = .dummySetMethod, doNothing),
-               envir = env)
-    env
-}
+## .setEnvForSource <- function(env) {
+##     doNothing <- function(x, ...)x
+##     ## establish some dummy definitions & a special setMethod()
+##     for(f in .functionsOverriden)
+##         assign(f, switch(f, setMethod = .dummySetMethod, doNothing),
+##                envir = env)
+##     env
+## }
 
 .dummyMethodName <- function(f, signature)
     paste(c(f,signature), collapse="#")
 
 .guessPackageName <- function(env) {
     allObjects <- names(env)
-    allObjects <- allObjects[is.na(match(allObjects, .functionsOverriden))]
-    ## counts of packaages containing objects; objects not found don't count
+    ##allObjects <- allObjects[is.na(match(allObjects, .functionsOverriden))]
+    ## counts of packages containing objects; objects not found don't count
     possible <- sort(table(unlist(lapply(allObjects, utils::find))),
                      decreasing = TRUE)
-##    message <- ""
     if(length(possible) == 0)
         stop("none of the objects in the source code could be found:  need to attach or specify the package")
     else if(length(possible) > 1L) {
@@ -749,7 +768,7 @@ insertSource <- function(source, package = "",
     MPattern <- .TableMetaPattern()
     CPattern <- .ClassMetaPattern()
     allPlainObjects <- function()
-        allObjects[!(grepl(MPattern, allObjects) | grepl(CPattern, allObjects) | ".cacheOnAssign" == allObjects)]
+        allObjects[!(grepl(MPattern, allObjects) | grepl(CPattern, allObjects))]
     allMethodTables <- function()
         allObjects[grepl(MPattern, allObjects)]
 ##    allClassDefs <- function()
@@ -803,6 +822,7 @@ insertSource <- function(source, package = "",
     ## at this point, envp is the target environment (package or other)
     ## and envns is the corresponding namespace if any, or NULL
     allObjects <- names(env)
+    allObjects <- allObjects[!(allObjects %in% c(".cacheOnAssign", ".packageName"))]
     ## Figure out what to trace.
     if(!missing(functions)) {
         notThere <- is.na(match(functions, allObjects))
@@ -890,7 +910,7 @@ insertSource <- function(source, package = "",
     ##     .copyClass(class, env, envwhere)
     ## }
     ## return the environment, after cleaning up the dummy functions and
-    ## adding a time stamp, if the source was parssed on this call
+    ## adding a time stamp, if the source was parsed on this call
     if(!is.environment(source)) {
         lockEnvironment(env, bindings = TRUE) # no further changes allowed
         invisible(env)

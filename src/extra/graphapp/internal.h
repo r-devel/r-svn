@@ -19,6 +19,12 @@
  *     controls, cursors, etc as ordinary objects. There is
  *     no need for typecasting, so code size is reduced.
  */
+ 
+ /* The above has been modified in R 4.4.0, so that the object pointer is a
+    pointer to structure objinfo, in both internal and public interface, but
+    the structure is incomplete in the public interface.  See also
+    graphapp.h.
+  */
 
 #ifndef _GRAPH_INT_H
 #define _GRAPH_INT_H
@@ -66,11 +72,7 @@ rect getcliprect(void);
 void setcliprect(rect r);
 PROTECTED void updatestatus(const char *text);
 PROTECTED font new_font_object(HFONT hf);
-UINT default_font_charset();
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+UINT default_font_charset(void);
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,6 +82,10 @@ extern "C" {
 
 
 #include <commdlg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef __MWERKS__
     /* Metrowerks Codewarrior Cross-Platform C/C++ Compiler */
@@ -236,6 +242,11 @@ struct objinfo
                         negative for not focussed */
     int caretheight;
     int caretshowing;
+    int caretexists; /* A WinAPI caret has been created with CreateCaret */
+    int caretx;      /* Coordinates are stored so that the WinAPI caret can */
+    int carety;      /*   be re-created after the window re-gains focus */
+
+    WNDPROC edit_winproc; /* edit control event handler for dropfield (combo box) */
 };
 
 struct callinfo
@@ -274,7 +285,10 @@ struct callinfo
 #define MinChildID 0x6000
 #define MinDocID   0xE000
 
-#define sendmessage(a,b,c,d) SendMessage((HWND)(a),(UINT)(b),(WPARAM)c,(LPARAM)d)
+PROTECTED LRESULT
+sendmessage_unwind(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+#define sendmessage(a,b,c,d) sendmessage_unwind((HWND)(a),(UINT)(b),(WPARAM)c,(LPARAM)d)
 
 /*
  *  Function prototypes.
@@ -344,7 +358,8 @@ struct callinfo
 /* Control event management. */
 
   PROTECTED void   handle_control(HWND hwnd, UINT message);
-  PROTECTED object find_valid_sibling(object obj);
+  PROTECTED object find_next_valid_sibling(object obj);
+  PROTECTED object find_prev_valid_sibling(object obj);
 
 /* Dialog event management */
 
@@ -433,9 +448,11 @@ extern HWND hwndClient;
   LRESULT WINAPI app_win_proc (HWND, UINT, WPARAM, LPARAM);
   LRESULT WINAPI app_doc_proc (HWND, UINT, WPARAM, LPARAM);
   LRESULT WINAPI app_work_proc (HWND, UINT, WPARAM, LPARAM);
-  long WINAPI app_control_procedure (HWND, UINT, WPARAM, LPARAM);
+  LRESULT WINAPI app_control_procedure (HWND, UINT, WPARAM, LPARAM);
   UINT WINAPI app_timer_procedure(HWND, UINT, UINT, DWORD);
   extern WNDPROC app_control_proc;
+  LRESULT WINAPI edit_control_procedure (HWND, UINT, WPARAM, LPARAM);
+  extern WNDPROC edit_control_proc;
 
   extern int	menus_active;
   extern int	active_windows;

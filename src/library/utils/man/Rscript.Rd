@@ -36,7 +36,7 @@
   directly on the \samp{#!} line, because spaces and tabs are interpreted as
   delimiters and there is no way to protect them from this interpretation on
   the \samp{#!} line. (The standard Windows command line has no concept
-  of \samp{#!} scripts, but Cygwin shells do.)
+  of \samp{#!} scripts, but \I{Cygwin} shells do.)
 
   \emph{Either} one or more \option{-e} options or \code{file} should
   be supplied.  When using \option{-e} options be aware of the quoting

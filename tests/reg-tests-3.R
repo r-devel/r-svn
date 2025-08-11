@@ -104,7 +104,7 @@ cbind(npk, foo)
 ## failed in R < 2.10.0
 
 
-if(suppressMessages(require("Matrix"))) {
+if(suppressMessages(require("Matrix", .Library))) {
   print(cS. <- contr.SAS(5, sparse = TRUE))
   stopifnot(all(contr.SAS(5) == cS.),
 	    all(contr.helmert(5, sparse = TRUE) == contr.helmert(5)))
@@ -131,10 +131,10 @@ print(xtabs(~ x1 + x2, exclude = 'c', na.action = na.pass))
 
 ## median should work by default for a suitable S4 class.
 ## adapted from adaptsmoFMRI
-if(suppressMessages(require("Matrix"))) {
+if(suppressMessages(require("Matrix", .Library))) {
     x <- matrix(c(1,2,3,4))
-    print(median(x))
-    print(median(as(x, "dgeMatrix")))
+    print(m <- median(x))
+    stopifnot(all.equal(m, median(as(x, "denseMatrix"))))
     detach("package:Matrix")
 }
 
@@ -169,7 +169,7 @@ if(require("MASS")) {
 }
 ## the error was in lm.(w)fit
 
-if(require("Matrix")) {
+if(require("Matrix", .Library)) {
  m1 <- m2 <- m <- matrix(1:12, 3,4)
  dimnames(m2) <- list(LETTERS[1:3],
                       letters[1:4])
@@ -201,16 +201,9 @@ nchar(x, "w", allowNA = TRUE)
 
 
 ## str() on large strings
-if (l10n_info()$"UTF-8" || l10n_info()$"Latin-1") {
-  cc <- "J\xf6reskog" # valid in "latin-1"; invalid multibyte string in UTF-8
-  .tmp <- capture.output(
-  str(cc) # failed in some R-devel versions
-  )
-  stopifnot(grepl("chr \"J.*reskog\"", .tmp))
+nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b") # 5.1 M
+str(L)
 
-  print(nchar(L <- strrep(paste(LETTERS, collapse="."), 100000), type="b")) # 5.1 M
-  print(str(L))
-}
 
 if(require("Matrix", .Library)) {
     M <- Matrix(diag(1:10), sparse=TRUE) # a "ddiMatrix"
@@ -236,3 +229,58 @@ if(require("Matrix", .Library)) {
 
     detach("package:Matrix", unload=TRUE)
 }##{Matrix}
+
+## citation() / bibentry
+options(width=88) # format.bibentry() using strwrap()
+c1 <- citation()
+c1$year <- "9999" # avoid tedious updates of reference output
+print(c1)
+fc1B <- format(c1)
+fc1N <- format(c1, bibtex=FALSE)
+stopifnot(exprs = {
+    identical(fc1B[-2], fc1N[-2])
+    (b2 <- fc1B[2]) != (n2 <- fc1N[2]) # bibtex left away (at end of line 2)
+    startsWith(b2, n2)
+})
+
+pkg <- "nlme"
+(hasME <- requireNamespace(pkg, quietly=TRUE, lib.loc = .Library))
+if(hasME) withAutoprint({
+    c2 <- citation(pkg, .Library)
+    ## avoid spurious diffs:
+    c2$author[[1]]$given[[1]] <- "J."
+    c2$year[[1]] <- "9999"
+    c2$note[[1]] <- sub("3.1-[0-9]*$", "3.1-999", c2$note[[1]])
+    print(c2)
+    print(c2, bibtex=FALSE) # no final message
+    print(c2, bibtex=TRUE)  # w/ two bibTeX
+    stopifnot(length(c2) >= 2)
+    f2N <- format(c2) # -> format.bibentry(*, style="citation")
+    f2B <- format(c2, bibtex=TRUE)
+    stopifnot(exprs = {
+        print(n <- length(f2N)) == length(f2B)
+        identical(f2N[1], f2B[1])
+        grepl("see these entries in BibTeX",       f2N[n], fixed=TRUE)
+        grepl("'format(<citation>, bibtex=TRUE)'", f2N[n], fixed=TRUE) # "format(..)" was "print(..)"
+        f2B[n] == ""
+        (ie <- -c(1,n)) < 0
+        grepl("A BibTeX entry ", f2B[ie], fixed=TRUE)
+        grepl(" @[A-Z]", f2B[ie]) # @Book etc
+       !grepl(" @[A-Z]", f2N[ie]) # *not* there
+        nchar(f2N[ie]) < nchar(f2B[ie])
+        startsWith(f2B[ie], f2N[ie])
+      })
+
+    desc <- packageDescription(pkg, .Library)
+    desc$URL <- paste(URL1 <- "https://example.org",
+                      "https://example.com", sep = "\n") # via continuation line
+    desc$Repository <- NULL
+    c3 <- citation(auto = desc)
+    stopifnot(identical(print(c3$url), URL1)) # R <= 4.4.0 gave both URLs
+
+    unloadNamespace(pkg)
+})
+
+
+
+cat('Time elapsed: ', proc.time(),'\n')

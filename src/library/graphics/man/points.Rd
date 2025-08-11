@@ -42,11 +42,11 @@ points(x, \dots)
       Value \code{pch = "."} (equivalently \code{pch = 46}) is handled
       specially.  It is a rectangle of side 0.01 inch (scaled by
       \code{cex}).  In addition, if \code{cex = 1} (the default), each
-      side is at least one pixel (1/72 inch on the \code{\link{pdf}},
-      \code{\link{postscript}} and \code{\link{xfig}} devices).
+      side is at least one pixel (1/72 inch on the \code{\link{pdf}} and
+      \code{\link{postscript}} devices).
 
       For other text symbols, \code{cex = 1} corresponds to the default
-      fontsize of the device, often specified by an argument
+      font size of the device, often specified by an argument
       \code{pointsize}.  For \code{pch} in \code{0:25} the default size
       is about 75\% of the character height (see \code{par("cin")}).
     }
@@ -69,7 +69,7 @@ points(x, \dots)
   Points whose \code{x}, \code{y}, \code{pch}, \code{col} or \code{cex}
   value is \code{NA} are omitted from the plot.
 }
-\section{'pch' values}{
+\section{\code{pch} values}{
   Values of \code{pch} are stored internally as integers.  The
   interpretation is
   \itemize{
@@ -180,14 +180,13 @@ plot(x, sin(x), type = "o", pch = 21, bg = par("bg"), col = "blue", cex = .6,
  main = 'plot(..., type="o", pch=21, bg=par("bg"))')
 par(op)
 
-\dontrun{
-## The figure was produced by calls like
-png("pch.png", height = 0.7, width = 7, res = 100, units = "in")
+## Illustration of pch = 0:25 (as in the figure shown above in PDF/HTML help)
+\dontrun{png("pch.png", height = 0.7, width = 7, res = 100, units = "in")}
 par(mar = rep(0,4))
 plot(c(-1, 26), 0:1, type = "n", axes = FALSE)
 text(0:25, 0.6, 0:25, cex = 0.5)
 points(0:25, rep(0.3, 26), pch = 0:25, bg = "grey")
-}
+
 
 ##-------- Showing all the extra & some char graphics symbols ---------
 pchShow <-

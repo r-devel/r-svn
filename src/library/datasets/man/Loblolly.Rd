@@ -6,10 +6,10 @@
 \name{Loblolly}
 \docType{data}
 \alias{Loblolly}
-\title{Growth of Loblolly pine trees}
+\title{Growth of \I{Loblolly} Pine Trees}
 \description{
   The \code{Loblolly} data frame has 84 rows and 3 columns of records of
-  the growth of Loblolly pine trees.
+  the growth of \I{Loblolly} pine trees.
 }
 \usage{Loblolly}
 \format{
@@ -17,20 +17,20 @@
   \code{c("nfnGroupedData", "nfGroupedData", "groupedData", "data.frame")}
   containing the following columns:
   \describe{
-    \item{height}{
+    \item{\code{height}}{
       a numeric vector of tree heights (ft).
     }
-    \item{age}{
+    \item{\code{age}}{
       a numeric vector of tree ages (yr).
     }
-    \item{Seed}{
+    \item{\code{Seed}}{
       an ordered factor indicating the seed source for the tree.
       The ordering is according to increasing maximum height.
     }
   }
 }
 \details{
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

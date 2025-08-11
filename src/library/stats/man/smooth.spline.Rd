@@ -1,6 +1,6 @@
 % File src/library/stats/man/smooth.spline.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{smooth.spline}
@@ -17,6 +17,8 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
               all.knots = FALSE, nknots = .nknots.smspl,
               keep.data = TRUE, df.offset = 0, penalty = 1,
               control.spar = list(), tol = 1e-6 * IQR(x), keep.stuff = FALSE)
+
+.nknots.smspl(n)
 }
 \arguments{
  \item{x}{a vector giving the values of the predictor variable, or  a
@@ -57,7 +59,8 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
    knots.}
  \item{nknots}{integer or \code{\link{function}} giving the number of
    knots to use when \code{all.knots = FALSE}.  If a function (as by
-   default), the number of knots is \code{nknots(nx)}.  By default for
+   default), the number of knots is \code{nknots(nx)}.  By default using
+   \code{.nknots.smspl()}, for
    \eqn{n_x > 49}{nx > 49} this is less than \eqn{n_x}{nx}, the number
    of unique \code{x} values, see the Note.}
  \item{keep.data}{logical specifying if the input data should be kept
@@ -91,13 +94,16 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
    \eqn{[low, high]}.
  }
 
- \item{tol}{a tolerance for same-ness or uniqueness of the \code{x}
+ \item{tol}{a tolerance for sameness or uniqueness of the \code{x}
    values.  The values are binned into bins of size \code{tol} and
    values which fall into the same bin are regarded as the same.  Must
    be strictly positive (and finite).}
  \item{keep.stuff}{an experimental \code{\link{logical}} indicating if
    the result should keep extras from the internal computations.  Should
    allow to reconstruct the \eqn{X} matrix and more.}
+
+ \item{n}{for \code{.nknots.smspl}; typically the number of unique
+   \code{x} values (aka \eqn{n_x}{nx}).}
 }
 \details{
   Neither \code{x} nor \code{y} are allowed to containing missing or
@@ -142,11 +148,12 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
 %%   = 1/3 - log(r)/{24 log(2)} +  log(lam) / {24 log(2)}
 %%   =               s0         + 0.0601 * log(lam)
   Note that from the above relation,
-  \code{spar} is \eqn{s = s0 + 0.0601 \cdot \log\lambda}{spar = s0 + 0.0601 * log(\lambda)},
-  which is intentionally \emph{different} from the S-PLUS implementation
-  of \code{smooth.spline} (where \code{spar} is proportional to
-  \eqn{\lambda}).  In \R's (\eqn{\log \lambda}{log \lambda}) scale, it makes more
-  sense to vary \code{spar} linearly.
+  \code{spar} is \eqn{s = s0 + 0.0601 \cdot \log\lambda}{spar = s0 + 0.0601 * log(\lambda)}.
+  %% which is intentionally \emph{different} from the S-PLUS implementation
+  %% of \code{smooth.spline} (where \code{spar} is proportional to
+  %% \eqn{\lambda}).
+  %% In \R's (\eqn{\log \lambda}{log \lambda}) scale, it makes more
+  %% sense to vary \code{spar} linearly.
 
   Note however that currently the results may become very unreliable
   for \code{spar} values smaller than about -1 or -2.  The same may
@@ -178,7 +185,8 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
   \eqn{n_k}{nk} is the number of knots.
 
   In this case where not all unique \code{x} values are
-  used as knots, the result is not a smoothing spline in the strict
+  used as knots, the result is a \emph{regression spline} rather than a
+  smoothing spline in the strict
   sense, but very close unless a small smoothing parameter (or large
   \code{df}) is used.
 }
@@ -202,8 +210,9 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
   \item{cv}{the \code{cv} argument used; i.e., \code{FALSE}, \code{TRUE}, or \code{NA}.}
   \item{cv.crit}{cross-validation score, \sQuote{generalized} or true, depending
     on \code{cv}.  The CV score is often called \dQuote{PRESS} (and
-    labeled on \code{\link{print}()}), for \sQuote{\bold{PRE}diction
-      \bold{S}um of \bold{S}quares}.  Note that this is \emph{not} the same
+    labeled on \code{\link{print}()}), for
+    \I{\sQuote{\bold{PRE}diction \bold{S}um of \bold{S}quares}}.
+    Note that this is \emph{not} the same
     as the (CV or GCV) score which is minimized during fitting (and
     returned in \code{crit}), e.g., in the case of \code{nx < n} (where
     \code{nx}\eqn{=n_x}{=nx} is the number of unique x values).}
@@ -263,7 +272,7 @@ smooth.spline(x, y = NULL, w = NULL, df, spar = NULL, lambda = NULL, cv = FALSE,
 \source{
   This function is based on code in the \code{GAMFIT} Fortran program by
   T. Hastie and R. Tibshirani (originally taken from
-  \url{http://lib.stat.cmu.edu/general/gamfit})
+  \url{https://lib.stat.cmu.edu/general/gamfit})
    which makes use of spline code by Finbarr O'Sullivan.  Its design
   parallels the \code{smooth.spline} function of Chambers & Hastie (1992).
 }

@@ -129,7 +129,7 @@ addmargins <-
 	newdim[margin] <- newdim[margin] + n.mar
 	dnA <- dimnames(A) %||% vector("list", n.dim)
 	dnA[[margin]] <-
-	    c(if(is.null(dnA[[margin]])) rep("", d[[margin]]) else dnA[[margin]],
+	    c(dnA[[margin]] %||% rep("", d[[margin]]),
 	      fnames)
 
 	## Number of elements in the expanded array
@@ -148,7 +148,7 @@ addmargins <-
 	## First fill in the body of the table
 	values[apos] <- as.vector(A)
 
-	## Then sucessively compute and fill in the required margins
+	## Then successively compute and fill in the required margins
 	for(i in 1L:n.mar) {
 	    mtab <- if(n.dim > 1)
 			apply(A, (1L:n.dim)[-margin], FUN[[i]])

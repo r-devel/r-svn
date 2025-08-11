@@ -1,6 +1,6 @@
 % File src/library/stats/man/qqnorm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{qqnorm}
@@ -58,15 +58,15 @@ qqplot(x, y, plot.it = TRUE,
 
   \code{qqplot} produces a QQ plot of two datasets. If \code{conf.level} is
   given, a confidence band for a function transforming the distribution of
-  \code{x} into the distribution of \code{y} is plotted based on Switzer
-  (1976). The QQ plot can be understood as an estimate of such a 
+  \code{x} into the distribution of \code{y} is plotted based on
+  \bibcitet{R:Switzer:1976}. The QQ plot can be understood as an estimate of such a 
   treatment function. If \code{exact = NULL} (the default), an
   exact confidence band is computed if the product of
   the sample sizes is less than 10000, with or
   without ties. Otherwise, asymptotic distributions are used whose approximations may
   be inaccurate in small samples. Monte-Carlo approximations based on
   \code{B} random permutations are computed when \code{simulate = TRUE}.
-  Confidence bands are in agreement with Smirnov's test, that is, the
+  Confidence bands are in agreement with \I{Smirnov}'s test, that is, the
   bisecting line is covered by the band iff the null of both samples coming 
   from the same distribution cannot be rejected at the same level.
 
@@ -82,15 +82,7 @@ qqplot(x, y, plot.it = TRUE,
   \code{lwr} and \code{upr} defining the confidence band.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Switzer, P. (1976).
-  Confidence procedures for two-sample problems.
-  \emph{Biometrika}, \bold{63}(1), 13--25.
-  \doi{10.1093/biomet/63.1.13}.
-
+  \bibshow{*, R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{ppoints}}, used by \code{qqnorm} to generate

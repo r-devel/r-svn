@@ -1,6 +1,6 @@
 % File src/library/base/man/locales.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{locales}
@@ -57,10 +57,11 @@ Sys.setlocale (category = "LC_ALL", locale = "")
 
   The first seven categories described here are those specified by
   POSIX.  \code{"LC_MESSAGES"} will be \code{"C"} on systems that do not
-  support message translation, and is not supported on Windows, where you
-  \emph{must} use the \env{LANGUAGE} environment variable for message
-  translation, see below.  Trying
-  to use an unsupported category is an error for \code{Sys.setlocale}.
+  support message translation, and is not supported on Windows, where
+  you \emph{must} use the \env{LANGUAGE} environment variable for
+  message translation, see below and the \code{\link{Sys.setLanguage}()}
+  utility.  Trying to use an unsupported category is an error for
+  \code{Sys.setlocale}.
 
   Note that setting category \code{"LC_ALL"} sets only categories
   \code{"LC_COLLATE"}, \code{"LC_CTYPE"}, \code{"LC_MONETARY"} and
@@ -92,7 +93,7 @@ Sys.setlocale (category = "LC_ALL", locale = "")
 
   For \code{category = "LC_ALL"} the details of the string are
   system-specific: it might be a single locale name or a set of locale
-  names separated by \code{"/"} (Solaris, macOS) or \code{";"}
+  names separated by \code{"/"} (macOS) or \code{";"}
   (Windows, Linux).  For portability, it is best to query categories
   individually: it is not necessarily the case that the result of
   \code{foo <- Sys.getlocale()} can be used in
@@ -104,19 +105,19 @@ Sys.setlocale (category = "LC_ALL", locale = "")
   list the \sQuote{available public} locales.  What that means is
   platform-dependent.  On recent Linuxen this may mean \sQuote{available
   to be installed} as on some RPM-based systems the locale data is in
-  separate RPMs.  On Debian/Ubuntu the set of available locales is
+  separate \abbr{RPM}s.  On Debian/Ubuntu the set of available locales is
   managed by OS-specific facilities such as \command{locale-gen} and
   \command{locale -a} lists those currently enabled.
 
-  For Windows, Microsoft moves its documentation frequently so a Web search
-  is the best way to find current information.  From \R 4.2, UCRT locale
-  names should be used.  The character set should match the system/ANSI
-  codepage (\code{l10n_info()$codepage} be the same as
+  For Windows, Microsoft moves its documentation frequently so a Web
+  search is the best way to find current information.  From \R 4.2, \abbr{UCRT}
+  locale names should be used.  The character set should match the
+  system/ANSI codepage (\code{l10n_info()$codepage} be the same as
   \code{l10n_info()$system.codepage}).  Setting it to any other value
-  results in a warning and may cause encoding problems.  In \R 4.2 on recent
-  Windows the system codepage is 65001 and one should always use locale
-  names ending with \code{".UTF-8"} (except for \code{"C"} and \code{""}),
-  otherwise Windows may add a different character set.
+  results in a warning and may cause encoding problems.  As from \R 4.2
+  on recent Windows the system codepage is 65001 and one should always
+  use locale names ending with \code{".UTF-8"} (except for \code{"C"}
+  and \code{""}), otherwise Windows may add a different character set.
 }
 
 % assume this just affects strtod/atof, scanf/printf and friends,
@@ -160,33 +161,53 @@ Sys.setlocale (category = "LC_ALL", locale = "")
 
   The \sQuote{R Installation and Administration} manual for background
   on locales and how to find out locale names on your system.
+
+  \code{\link{Sys.setLanguage}}
 }
 \examples{
 Sys.getlocale()
-Sys.getlocale("LC_TIME")
+
+## Date-time  related :
+Sys.getlocale("LC_TIME") -> olcT
+then <- as.POSIXlt("2001-01-01 01:01:01", tz = "UTC")
 \dontrun{
+c(m = months(then), wd = weekdays(then)) # locale specific
 Sys.setlocale("LC_TIME", "de")     # Solaris: details are OS-dependent
 Sys.setlocale("LC_TIME", "de_DE")  # Many Unix-alikes
 Sys.setlocale("LC_TIME", "de_DE.UTF-8")  # Linux, macOS, other Unix-alikes
 Sys.setlocale("LC_TIME", "de_DE.utf8")   # some Linux versions
 Sys.setlocale("LC_TIME", "German.UTF-8") # Windows
+Sys.getlocale("LC_TIME") # the last one successfully set above
+c(m = months(then), wd = weekdays(then)) # in C_TIME locale 'cT' ; typically German
 }
+Sys.setlocale("LC_TIME", "C")
+c(m = months(then), wd = weekdays(then)) # "standard" (still platform specific ?)
+Sys.setlocale("LC_TIME", olcT)           # reset to previous
+
+## Other locales
 Sys.getlocale("LC_PAPER")          # may or may not be set
 .LC.categories # of length 9 on all platforms
 
-\dontrun{
-Sys.setlocale("LC_COLLATE", "C")   # turn off locale-specific sorting,
+\dontrun{Sys.setlocale("LC_COLLATE", "C")   # turn off locale-specific sorting,
                                    # usually (but not on all platforms)
 Sys.setenv("LANGUAGE" = "es") # set the language for error/warning messages
 }
-\donttest{## some nice formatting; should work on most platforms:
- sys <- Sys.info()[["sysname"]]
- sep <- switch(sys,
+\donttest{## some nice formatting; should work on most platforms,
+          ## macOS does not name the entries.
+ sep <- switch(Sys.info()[["sysname"]],
                "Darwin"=, "SunOS" = "/",
                "Linux" =, "Windows" = ";")
- sg <- matrix(unlist(strsplit(strsplit(Sys.getlocale(), sep)[[1]], "=")), nrow=2)
- str(sloc <- setNames(sg[2,], sg[1,]))
- print.Dlist(sloc) # nicely readable
+ ##' named vector from a "full" Sys.getlocale() :
+ asNvec <- function(loc) {
+     sl <- strsplit(strsplit(loc, sep)[[1L]], "=")
+     if(all(lengths(sl) == 2L))
+        setNames(sapply(sl, `[[`, 2L), sapply(sl, `[[`, 1L))
+     else
+       setNames(as.character(sl), .LC.categories[1+seq_along(sl)])
+ }
+ print.Dlist(lloc <- asNvec(Sys.getlocale()))
+ ## R-supported ones (but LC_ALL):
+ lloc[.LC.categories[-1]]
 }
 }
 \keyword{utilities}

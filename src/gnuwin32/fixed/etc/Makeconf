@@ -1,14 +1,19 @@
 #-*- Makefile -*-
 # $(R_HOME}/etc$(R_ARCH)/Makeconf
 
+# Substituted by fixed/Makefile 
+USE_LLVM =
+
 # Hand-edited version for gnuwin32.
 
 ifdef DEBUG
   DLLFLAGS=
-  DEBUGFLAG=-gdwarf-2
+  DEBUGFLAG=$(if $(USE_LLVM),-g3,-gdwarf-2)
+  FDEBUGFLAG=$(if $(USE_LLVM),,-gdwarf-2)
 else
   DLLFLAGS=-s
   DEBUGFLAG=
+  FDEBUGFLAG=
 endif
 
 DLLFLAGS += -static-libgcc
@@ -16,11 +21,10 @@ LINKFLAGS += -static-libgcc
 
 
 ## Things which are substituted by fixed/Makefile (and also -O3 -> -O2)
-WIN = 32
+WIN = 64
 MINGW_PREFIX = /mingw$(WIN)
 BINPREF =
 COMPILED_BY =
-# SYMPAT = 's/^.* [BCDRT] _/ /p' for 32-bit
 # SYMPAT = 's/^.* [BCDRT] / /p' for 64-bit
 SYMPAT = @SYMPAT@
 IMPDIR = bin
@@ -28,6 +32,7 @@ IMPDIR = bin
 M_ARCH =
 DT_ARCH =
 RC_ARCH =
+FLIBS =
 # Used by packages tcltk and tkrplot
 TCL_HOME = $(R_HOME)/Tcl
 
@@ -40,9 +45,13 @@ ifeq ($(R_INSTALLER_BUILD), yes)
   ifneq ($(strip $(R_CUSTOM_TOOLS_SOFT)),)
     LOCAL_SOFT = $(R_CUSTOM_TOOLS_SOFT)
   else
-    ## The rtools42 installer sets RTOOLS42_HOME
-    RTOOLS42_HOME ?= c:/rtools42
-    LOCAL_SOFT = $(subst \,/,$(RTOOLS42_HOME))/x86_64-w64-mingw32.static.posix
+    ## The rtools45 installer sets RTOOLS45_HOME (or RTOOLS45_AARCH64_HOME)
+
+    # INSTALLER-BUILD-x86_64: RTOOLS45_HOME ?= c:/rtools45
+    # INSTALLER-BUILD-x86_64: LOCAL_SOFT = $(subst \,/,$(RTOOLS45_HOME))/x86_64-w64-mingw32.static.posix
+
+    # INSTALLER-BUILD-aarch64: RTOOLS45_HOME ?= c:/rtools45-aarch64
+    # INSTALLER-BUILD-aarch64: LOCAL_SOFT = $(subst \,/,$(RTOOLS45_AARCH64_HOME))/aarch64-w64-mingw32.static.posix
   endif
 endif
 R_TOOLS_SOFT ?= $(LOCAL_SOFT)
@@ -54,14 +63,24 @@ LOCAL_CPPFLAGS = -I"$(LOCAL_SOFT)/include"
 LOCAL_LIBS = -L"$(LOCAL_SOFT)/lib$(R_ARCH)" -L"$(LOCAL_SOFT)/lib"
 endif
 
-DLLTOOL = $(BINPREF)dlltool --as $(BINPREF)as $(DT_ARCH)
+LLVMPREF=
+ifdef USE_LLVM
+  # only set when BINPREF is empty or ends by /
+  #   to support e.g. BINPREF=aarch64-w64-mingw32.static.posix-
+  ifeq ($(patsubst %/,,$(lastword $(BINPREF))),)
+    LLVMPREF="llvm-"
+  endif
+endif
+CCBASE = $(if $(USE_LLVM),clang,gcc)
+PKG_CONFIG = $(BINPREF)pkg-config
+DLLTOOL = $(BINPREF)$(LLVMPREF)dlltool --as $(BINPREF)$(LLVMPREF)as $(DT_ARCH)
 DLLTOOLFLAGS = -k
-NM = $(BINPREF)nm
-RESCOMP = $(BINPREF)windres $(RC_ARCH)
+NM = $(BINPREF)$(LLVMPREF)nm
+RESCOMP = $(BINPREF)$(LLVMPREF)windres $(RC_ARCH)
 ## MAIN_LD needs to be set by the package
 LINKER = $(MAIN_LD)
 ## as a default
-DLL = $(CC)
+DLL = $(CC) @SANOPTS@
 
 ## Things defined in Renviron on Unix
 SED = sed
@@ -81,19 +100,27 @@ TCL_VERSION = 86
 # was a reference to Rzlib.dll in R < 3.2.0
 ZLIB_LIBS = -lz
 
-AR = $(BINPREF)ar
+AR = $(BINPREF)$(LLVMPREF)ar
 BLAS_LIBS = -L"$(R_HOME)/$(IMPDIR)" -lRblas
 C_VISIBILITY = 
-CC = $(BINPREF)gcc $(M_ARCH)
-CFLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@ $(LTO)
+CC = $(BINPREF)$(CCBASE) $(M_ARCH)
+CFLAGS = -O3 -Wall @CSTD@ $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CPICFLAGS = 
 CPPFLAGS =
-CXX = $(BINPREF)g++ -std=gnu++11 $(M_ARCH)
+CC17 = $(BINPREF)$(CCBASE) $(M_ARCH)
+C17FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu17 @EOPTS@ @SANOPTS@ $(LTO)
+CC23 = $(BINPREF)$(CCBASE) $(M_ARCH)
+C23FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu2x @EOPTS@ @SANOPTS@ $(LTO)
+CC90 = $(BINPREF)$(CCBASE) $(M_ARCH)
+C90FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu90 @EOPTS@ @SANOPTS@ $(LTO)
+CC99 = $(BINPREF)$(CCBASE) $(M_ARCH)
+C99FLAGS = -O3 -Wall $(DEBUGFLAG) -std=gnu99 @EOPTS@ @SANOPTS@ $(LTO)
+CXX = $(BINPREF)$(if $(USE_LLVM),clang++,g++) -std=gnu++17 $(M_ARCH)
 CXXCPP = $(CXX) -E
-CXXFLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ $(LTO)
+CXXFLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CXXPICFLAGS =
-CXX11 = $(BINPREF)g++ $(M_ARCH)
-CXX11FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ $(LTO)
+CXX11 = $(BINPREF)$(if $(USE_LLVM),clang++,g++) $(M_ARCH)
+CXX11FLAGS = -O2 -Wall $(DEBUGFLAG) @EOPTS@ @SANOPTS@ $(LTO)
 CXX11PICFLAGS =
 CXX11STD = -std=gnu++11
 ## these settings are for GCC >= 10
@@ -126,14 +153,17 @@ ECHO_T =
 ## unsupported on Windows
 F_VISIBILITY = 
 ## FC is the compiler used for all Fortran as from R 3.6.0
-FC = $(BINPREF)gfortran $(M_ARCH)
-FCFLAGS = -O3 $(DEBUGFLAG) @EOPTS@ $(LTO)
+ifdef USE_LLVM
+  FC = $(BINPREF)flang $(M_ARCH)
+else
+  FC = $(BINPREF)gfortran $(M_ARCH)
+endif
+FCFLAGS = -O3 $(FDEBUGFLAG) @EOPTS@ $(LTO)
 ## additional libs needed when linking with $(FC), e.g. on some Oracle compilers
 FCLIBS_XTRA =
 #F77 = $(BINPREF)gfortran $(M_ARCH)
 #F77_VISIBILITY = 
-FFLAGS = -O3 $(DEBUGFLAG) @EOPTS@ $(LTO)
-FLIBS = -lgfortran -lm -lquadmath
+FFLAGS = -O3 $(FDEBUGFLAG) @EOPTS@ $(LTO)
 #FCPICFLAGS =
 FPICFLAGS = 
 FOUNDATION_CPPFLAGS =
@@ -177,33 +207,33 @@ OBJCXX =
 OBJDUMP = $(BINPREF)objdump
 R_ARCH =
 RANLIB = $(BINPREF)ranlib
-SAFE_FFLAGS = -O2 -msse2 -mfpmath=sse
+SAFE_FFLAGS = -O2 $(if $(USE_LLVM),,-msse2 -mfpmath=sse)
 SED = sed
 ## it seems some makes (but not ours) get upset if SHELL is set.
 # SHELL = /bin/sh
 SHLIB_CFLAGS = 
 SHLIB_CXXFLAGS = 
-SHLIB_CXXLD = $(CXX)
+SHLIB_CXXLD = $(CXX) @SANOPTS@
 ## ideally -shared -static-libstdc++, but not for gcc 4.2.1
 SHLIB_CXXLDFLAGS = -shared
 #SHLIB_CXX98LD = $(CXX98)
 #SHLIB_CXX98LDFLAGS = -shared
-SHLIB_CXX11LD = $(CXX11)
+SHLIB_CXX11LD = $(CXX11) @SANOPTS@
 SHLIB_CXX11LDFLAGS = -shared
-SHLIB_CXX14LD = $(CXX14)
+SHLIB_CXX14LD = $(CXX14) @SANOPTS@
 SHLIB_CXX14LDFLAGS = -shared
-SHLIB_CXX17LD = $(CXX17)
+SHLIB_CXX17LD = $(CXX17) @SANOPTS@
 SHLIB_CXX17LDFLAGS = -shared
-SHLIB_CXX20LD = $(CXX20)
+SHLIB_CXX20LD = $(CXX20) @SANOPTS@
 SHLIB_CXX20LDFLAGS = -shared
-SHLIB_CXX23LD = $(CXX23)
+SHLIB_CXX23LD = $(CXX23) @SANOPTS@
 SHLIB_CXX23LDFLAGS = -shared
 SHLIB_EXT = .dll
 SHLIB_FCLD = $(FC)
 ## ideally -shared -static-libgfortran, but not for gcc 4.2.1
 SHLIB_FCLDFLAGS = -shared
 SHLIB_FFLAGS = 
-SHLIB_LD = $(CC)
+SHLIB_LD = $(CC) @SANOPTS@
 SHLIB_LDFLAGS = -shared
 SHLIB_LIBADD =
 SHLIB_LINK = $(SHLIB_LD) -Wl,--export-all-symbols $(SHLIB_LDFLAGS) $(LDFLAGS)
@@ -227,9 +257,11 @@ R_XTRA_FFLAGS =
 
 ifneq "$(LTO_OPT)" ""
 LTO = $(LTO_OPT)
-AR = $(BINPREF)gcc-ar
-NM = $(BINPREF)gcc-nm
-RANLIB = $(BINPREF)gcc-ranlib
+ifndef USE_LLVM
+  AR = $(BINPREF)gcc-ar
+  NM = $(BINPREF)gcc-nm
+  RANLIB = $(BINPREF)gcc-ranlib
+endif
 SHLIB_LDFLAGS += $(CFLAGS)
 SHLIB_FCLDFLAGS += $(FFLAGS)
 SHLIB_CXXLDFLAGS += $(CXXFLAGS)
@@ -240,8 +272,8 @@ SHLIB_CXX20LDFLAGS += $(CXX20FLAGS)
 endif
 
 ALL_CFLAGS = $(R_XTRA_CFLAGS) $(PKG_CFLAGS) $(CPICFLAGS) $(SHLIB_CFLAGS) $(CFLAGS)
-ALL_CPPFLAGS = $(R_XTRA_CPPFLAGS) $(PKG_CPPFLAGS) $(CLINK_CPPFLAGS) $(CPPFLAGS) $($*-CPPFLAGS) $(LOCAL_CPPFLAGS)
-ALL_CXXFLAGS = $(R_XTRA_CXXFLAGS) $(PKG_CXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(CXXFLAGS)
+ALL_CPPFLAGS = $(R_XTRA_CPPFLAGS) $(PKG_CPPFLAGS) $(CLINK_CPPFLAGS) $(CPPFLAGS) $($*-CPPFLAGS) $(LOCAL_CPPFLAGS) $(XDEFS)
+ALL_CXXFLAGS = $(R_XTRA_CXXFLAGS) $(PKG_CXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(CXXFLAGS) $(CXX_DEFS)
 ALL_OBJCFLAGS = $(PKG_OBJCFLAGS) $(CPICFLAGS) $(SHLIB_CFLAGS) $(OBJCFLAGS)
 ALL_OBJCXXFLAGS = $(PKG_OBJCXXFLAGS) $(CXXPICFLAGS) $(SHLIB_CXXFLAGS) $(OBJCXXFLAGS)
 ALL_FFLAGS = $(R_XTRA_FFLAGS) $(PKG_FFLAGS) $(FPICFLAGS) $(SHLIB_FFLAGS) $(FFLAGS)

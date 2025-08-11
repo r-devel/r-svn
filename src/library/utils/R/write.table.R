@@ -1,7 +1,7 @@
 #  File src/library/utils/R/write.table.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2023 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
         if(is.null(d[[2L]]) && makeColnames && p > 0L)
             d[[2L]] <- paste0("V", 1L:p)
         if(qset)
-            quote <- if(is.character(x)) seq_len(p) else numeric()
+            quote <- if(is.character(x)) seq_len(p) else integer()
     } else { ## data.frame
         if(qset)
             quote <- if(length(x))
@@ -71,7 +71,7 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
     nocols <- p == 0L
 
     if(is.logical(quote)) # must be false
-	quote <- NULL
+	quote <- NULL # not a legitimate value, fixed up later
     else if(is.numeric(quote)) {
 	if(any(quote < 1L | quote > p))
 	    stop("invalid numbers in 'quote'")
@@ -135,11 +135,11 @@ function (x, file = "", append = FALSE, quote = TRUE, sep = " ",
     if(is.matrix(x) && !is.atomic(x)) mode(x) <- "character"
     if(is.data.frame(x)) {
         ## convert columns we can't handle in C code
-        x[] <- lapply(x, function(z) {
-            if(is.object(z) && !is.factor(z)) as.character(z) else z
-        })
+        needconv <- vapply(x, function(z) is.object(z) && !is.factor(z), TRUE)
+        x[needconv] <- lapply(x[needconv], as.character)
     }
 
+    if (is.null(quote)) quote <- integer(0) # avoid passing undocumented value
     invisible(.External2(C_writetable, x, file, nrow(x), p, rnames, sep, eol,
                          na, dec, as.integer(quote), qmethod != "double"))
 }

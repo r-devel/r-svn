@@ -1,6 +1,6 @@
 % File src/library/base/man/library.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
 \name{library}
@@ -65,7 +65,7 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   \item{pkg}{character string naming a package.}
   \item{mask.ok}{character vector of names of objects that can mask
     objects on the search path without signaling an error when strict
-    conflict checking is enabled}
+    conflict checking is enabled.}
   \item{exclude,include.only}{character vector of names of objects to
     exclude or include in the attached frame. Only one of these arguments
     may be used in a call to \code{library} or \code{require}.}
@@ -99,8 +99,8 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   obtain just the names of all available packages, and
   \code{\link{installed.packages}()} for even more information.
 
-  \code{library(help = somename)} computes basic information about the
-  package \pkg{somename}, and returns this in an object of class
+  \code{library(help = \var{pkgname})} computes basic information about the
+  package \pkg{\var{pkgname}}, and returns this in an object of class
   \code{"packageInfo"}.  (The structure of this class may change in
   future versions.)  When used with the default value (\code{NULL}) for
   \code{lib.loc}, the attached packages are searched before the libraries.
@@ -155,15 +155,13 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   Some packages have restrictive licenses, and there is a mechanism to
   allow users to be aware of such licenses.  If
   \code{\link{getOption}("checkPackageLicense") == TRUE}, then at first
-  use of a package with a not-known-to-be-FOSS (see below) license the
-  user is asked to view and accept the license: a list of accepted
-  licenses is stored in file \file{~/.R/licensed}.  In a non-interactive
-  session it is an error to use such a package whose license has not
-  already been recorded as accepted.
+  use of a namespace of a package with a not-known-to-be-\abbr{FOSS} (see
+  below) license the user is asked to view and accept the license: a
+  list of accepted licenses is stored in file \file{~/.R/licensed}.  In
+  a non-interactive session it is an error to use such a package whose
+  license has not already been recorded as accepted.
 
-  As from \R 3.4.0 the license check is done when the namespace is loaded.
-
-  Free or Open Source Software (FOSS,
+  Free or Open Source Software (\abbr{FOSS},
   e.g.\sspace{}\url{https://en.wikipedia.org/wiki/FOSS}) packages are
   determined by the same filters used by
   \code{\link{available.packages}} but applied to just the current

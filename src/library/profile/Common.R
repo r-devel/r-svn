@@ -2,7 +2,7 @@
 ### Additional commands can be placed in site or user Rprofile files
 ### (see ?Rprofile).
 
-### Copyright (C) 1995-2020 The R Core Team
+### Copyright (C) 1995-2025 The R Core Team
 
 ### Notice that it is a bad idea to use this file as a template for
 ### personal startup files, since things will be executed twice and in
@@ -33,6 +33,10 @@ local({to <- as.integer(Sys.getenv("R_DEFAULT_INTERNET_TIMEOUT", 60))
     if (is.na(to) || to <= 0) to <- 60L
     options(timeout = to)
 })
+local({
+    if(nzchar(nr <- Sys.getenv("R_DEFAULT_NETRC")))
+        options(netrc = nr)
+})
 options(encoding = "native.enc")
 options(show.error.messages = TRUE)
 ## keep in sync with PrintDefaults() in  ../../main/print.c :
@@ -40,15 +44,9 @@ options(scipen = 0)
 options(max.print = 99999)# max. #{entries} in internal printMatrix()
 options(add.smooth = TRUE)# currently only used in 'plot.lm'
 
-if(isFALSE(as.logical(Sys.getenv("_R_OPTIONS_STRINGS_AS_FACTORS_",
-                                 "FALSE")))) {
-    options(stringsAsFactors = FALSE)
-} else {
-    options(stringsAsFactors = TRUE)
-}
-
-if(!interactive() && is.null(getOption("showErrorCalls")))
+if(!interactive())
     options(showErrorCalls = TRUE)
+options(catch.script.errors = FALSE)
 
 local({dp <- Sys.getenv("R_DEFAULT_PACKAGES")
        if(identical(dp, "")) ## it fact methods is done first
@@ -75,8 +73,9 @@ local({
 
 .First.sys <- function()
 {
+    verbose <- getOption("verbose", FALSE)
     for(pkg in getOption("defaultPackages")) {
-        res <- require(pkg, quietly = TRUE, warn.conflicts = FALSE,
+        res <- require(pkg, quietly = !verbose, warn.conflicts = FALSE,
                        character.only = TRUE)
         if(!res)
             warning(gettextf('package %s in options("defaultPackages") was not found', sQuote(pkg)),
@@ -89,7 +88,7 @@ local({
 {
     pkg <- "methods" # done this way to avoid R CMD check warning
     if(pkg %in% getOption("defaultPackages"))
-        if(!require(pkg, quietly = TRUE, warn.conflicts = FALSE,
+        if(!require(pkg, quietly = !getOption("verbose", FALSE), warn.conflicts = FALSE,
                     character.only = TRUE))
             warning('package "methods" in options("defaultPackages") was not found',
                     call. = FALSE)

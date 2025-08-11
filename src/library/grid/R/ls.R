@@ -82,7 +82,8 @@ gridListDL <- function(x, grobs=TRUE, viewports=FALSE,
     result
 }
 
-gridList <- function(x, ...) {
+gridList <- function(x, grobs=TRUE, viewports=FALSE,
+                     fullNames=FALSE, recursive=TRUE) {
     UseMethod("gridList")
 }
 
@@ -692,7 +693,7 @@ nestedListing <- function(x, gindent="  ", vpindent=gindent) {
     makePrefix <- function(indent, depth) {
         indents <- rep(indent, length(depth))
         indents <- mapply(rep, indents, depth)
-        sapply(indents, paste, collapse="")
+        vapply(indents, paste, "", collapse = "")
     }
 
     if (!inherits(x, "flatGridListing"))
@@ -755,7 +756,7 @@ grobPathListing <- function(x, ...) {
 
 # Tidy up the vpPath from grid.ls() to remove ROOT if it is there
 clean <- function(paths) {
-    sapply(lapply(paths,
+    vapply(lapply(paths,
                   function(x) {
                       pieces <- explode(x)
                       if (length(pieces) && pieces[1] == "ROOT")
@@ -766,7 +767,8 @@ clean <- function(paths) {
                if (length(x))
                    as.character(vpPath(x))
                else ""
-           })
+           },
+           "")
 }
 
 # Given a gPath, return complete grob paths that match from the display list

@@ -51,7 +51,7 @@ convertUnit(x, unitTo,
   The conversions occur within the current viewport.
 
   It is not currently possible to convert to all valid coordinate systems
-  (e.g., "strwidth" or "grobwidth").  I'm not sure if all of these
+  (e.g., \code{"strwidth"} or \code{"grobwidth"}).  I'm not sure if all of these
   are impossible, they just seem implausible at this stage.
 
   In normal usage of grid, these functions should not be necessary.
@@ -77,7 +77,7 @@ convertUnit(x, unitTo,
   become invalid.  For example, suppose that I create a unit
   object as follows: \code{oneinch <- convertUnit(unit(1, "inches"),
     "native")}.  Now if I resize the device, the unit object in
-  oneinch no longer corresponds to a physical length of 1 inch.
+  \code{oneinch} no longer corresponds to a physical length of 1 inch.
   }
 \seealso{ \code{\link{unit}} }
 \examples{

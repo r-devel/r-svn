@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2007-2016  The R Core Team
+ *  Copyright (C) 2007-2024  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,13 +95,15 @@
 #include <config.h>
 #endif
 
+#if HAVE_AQUA
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif   
  
-#if HAVE_AQUA
-#include <ApplicationServices/ApplicationServices.h>
-#else
+#ifndef HAVE_AQUA
     typedef void* CGContextRef;
 #endif
 
@@ -202,7 +204,7 @@ typedef struct QuartzFunctons_s {
     void*  (*GetParameter)(QuartzDesc_t desc, const char *key);
 } QuartzFunctions_t;
 
-#define QuartzParam_EmbeddingFlags "embeddeding flags" /* value: int[1] */
+#define QuartzParam_EmbeddingFlags "embedding flags" /* value: int[1] */
 #define QP_Flags_CFLoop 0x0001  /* drives application event loop */
 #define QP_Flags_Cocoa  0x0002  /* Cocoa is fully initialized */
 #define QP_Flags_Front  0x0004  /* is front application */

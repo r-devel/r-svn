@@ -24,7 +24,7 @@
 */
 
 /* Copyright (C) 2004, 2009	The R Foundation
-   Copyright (C) 2013-2022	The R Core Team
+   Copyright (C) 2013-2023	The R Core Team
 
    Changes for R, Chris Jackson, 2004
    Handle find-and-replace modeless dialogs
@@ -33,6 +33,11 @@
    Handle mouse wheel scrolling
    Remove assumption that current->dest is non-NULL
    Add waitevent() function
+   Caret handling improvements (see comments in controls.c)
+   Allow to leave a dropfield (combo box) with TAB key
+   Allow navigating to previous controls with Shift+TAB key
+   Path length limitations
+   Propagation of R errors from window procedures
  */
 
 #include "internal.h"
@@ -60,6 +65,7 @@ static	long	mouse_msec = 0;
 
 TIMERPROC app_timer_proc;
 WNDPROC   app_control_proc;
+WNDPROC   edit_control_proc;
 
 static object frontwindow = NULL; /* the window receiving events */
 
@@ -235,12 +241,12 @@ static int showMDIToolbar = 1;
 void toolbar_show(void)
 {
     showMDIToolbar = 1;
-    SendMessage(hwndFrame,WM_PAINT, (WPARAM) 0, (LPARAM) 0);
+    sendmessage(hwndFrame,WM_PAINT, (WPARAM) 0, (LPARAM) 0);
 }
 void toolbar_hide(void)
 {
     showMDIToolbar = 0;
-    SendMessage(hwndFrame,WM_PAINT, (WPARAM) 0, (LPARAM) 0);
+    sendmessage(hwndFrame,WM_PAINT, (WPARAM) 0, (LPARAM) 0);
 }
 
 static void handle_mdiframesize(void)
@@ -269,7 +275,7 @@ static void handle_mdiframesize(void)
     if (status) {
 	MoveWindow(status,1,fh-sh,fw-2,sh,TRUE);
     }
-    SetFocus((HWND)SendMessage(hwndClient,
+    SetFocus((HWND)sendmessage(hwndClient,
 			       WM_MDIGETACTIVE,(WPARAM)0,(LPARAM) 0));
 }
 
@@ -330,16 +336,26 @@ static void handle_focus(object obj, int gained_focus)
 {
     if (gained_focus) {
 	obj->state |= GA_Focus;
-	if (obj->caretwidth < 0) {
-	    setcaret(obj, 0,0, -obj->caretwidth, obj->caretheight);
+	if ((!obj->caretexists) && obj->caretwidth == 0 && (obj->flags & SetUpCaret)) {
+	    /* set up a dummy caret to help NVDA initialization, see comment in
+	       console.c, newconsole */
+	    setcaret(obj, 0, 0, 2, 10);
 	    showcaret(obj, 1);
+	}	
+	if (obj->caretwidth < 0) {
+	    /* creates the caret object and restores obj->caretshowing */
+	    setcaret(obj, obj->caretx, obj->carety, -obj->caretwidth, obj->caretheight);
+	    if (obj->caretshowing)
+		/* redraw the caret in case it has been destroyed by a recursive redraw
+		   of the screen, e.g. via disable() when using the menu; such a redraw
+		   can happen while waiting for keyboard input */
+	        ShowCaret(obj->handle);
 	}
     } else {
 	obj->state &= ~GA_Focus;
-	if (obj->caretwidth > 0) {
-	    setcaret(obj, 0,0, -obj->caretwidth, obj->caretheight);
-	    showcaret(obj, 0);
-	}
+	if (obj->caretwidth > 0)
+	    /* destroys the caret object and preserves obj->caretshowing */	
+	    setcaret(obj, obj->caretx, obj->carety, -obj->caretwidth, obj->caretheight);
     }
     if ((! USE_NATIVE_BUTTONS) && (obj->kind == ButtonObject))
 	InvalidateRect(obj->handle, NULL, 0);
@@ -444,18 +460,19 @@ static void handle_colour(HDC dc, object obj)
    #endif
 #endif
 
-static char dfilename[MAX_PATH + 1];
 static void handle_drop(object obj, HANDLE dropstruct)
 {
     if (obj->call && obj->call->drop) {
 	int len = DragQueryFile(dropstruct, 0, NULL, 0);
-	if (len > MAX_PATH) {
+	char *dfilename = (char*)malloc(len + 1);
+	if (!dfilename) {
 	    DragFinish(dropstruct);
 	    return;
 	}
-	DragQueryFile(dropstruct, 0, dfilename, MAX_PATH);
+	DragQueryFile(dropstruct, 0, dfilename, len + 1);
 	DragFinish(dropstruct);
 	obj->call->drop(obj, dfilename);
+	free(dfilename);
     }
 }
 
@@ -514,8 +531,10 @@ static long handle_message(HWND hwnd, UINT message,
     {
     case WM_MOUSEWHEEL:  /* convert MOUSEWHEEL messages to VSCROLL. Scroll by pairs of lines   */
 	upDown = (short)HIWORD(wParam) > 0 ? SB_LINEUP : SB_LINEDOWN;
-	PostMessage(hwnd, WM_VSCROLL, upDown, 0);
-	PostMessage(hwnd, WM_VSCROLL, upDown, 0);
+	if (GetWindowLong(hwnd, GWL_STYLE) & WS_VSCROLL) {
+	    PostMessage(hwnd, WM_VSCROLL, upDown, 0);
+	    PostMessage(hwnd, WM_VSCROLL, upDown, 0);
+	}
 	break;
 
     case WM_SYSKEYDOWN:
@@ -825,20 +844,121 @@ static long handle_message(HWND hwnd, UINT message,
  *  for a window from just knowing the hwnd (which may or may not
  *  belong to us).
  */
+
+/* R modification: propagation of R errors from window procedures.
+   R errors are implemented using long jumps, but Windows API and
+   specifically window procedures don't work with them (e.g. causing
+   a crash). This uses R_UnwindProtect to catch errors still inside
+   a window procedure and propagate it via global variables to the
+   call sites of Windows API calls that may end up calling a window
+   procedure. */
+
+#include <setjmp.h>
+
+typedef void *SEXP;
+typedef bool Rboolean;
+
+SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
+                     void (*clean)(void *data, Rboolean jump), void *cdata,
+                     SEXP cont);
+SEXP R_MakeUnwindCont(void);
+SEXP Rf_protect(SEXP);
+void Rf_unprotect(int);
+void R_ContinueUnwind(SEXP cont);
+extern LibImport SEXP R_NilValue;
+
+static SEXP wndproc_cont_token;
+
+static void wndproc_rethrow_error(void)
+{
+    if (wndproc_cont_token) {
+	SEXP token = wndproc_cont_token;
+	wndproc_cont_token = NULL;
+	R_ContinueUnwind(token);
+    }
+}
+
+typedef struct {
+    WNDPROC proc_real;
+    HWND hwnd;
+    UINT message;
+    WPARAM wParam;
+    LPARAM lParam;
+    LRESULT res;
+} wndproc_call;
+
+SEXP wndproc_unwind_fun(void *data)
+{
+    wndproc_call *w = data;
+    w->res = w->proc_real(w->hwnd, w->message, w->wParam, w->lParam);
+    return NULL;
+}
+
+void wndproc_unwind_clean(void *data, Rboolean jump)
+{
+    if (jump) 
+	longjmp(*(jmp_buf *)data, 1);
+}
+
+LRESULT WINAPI wndproc_unwind (WNDPROC proc_real, HWND hwnd, UINT message,
+                               WPARAM wParam, LPARAM lParam)
+{
+    jmp_buf jmpbuf;
+    wndproc_call w;
+    volatile SEXP token;
+
+    if (R_NilValue == NULL) {
+	/* when R heap hasn't been initialized yet */
+	wndproc_cont_token = NULL;
+	return proc_real(hwnd, message, wParam, lParam);
+    }
+    if (setjmp(jmpbuf) == 1) {
+	/* long jump */
+	wndproc_cont_token = token;
+	return 0;
+    }
+    w.hwnd = hwnd;
+    w.message = message;
+    w.wParam = wParam;
+    w.lParam = lParam;
+    w.proc_real = proc_real;
+    SEXP saved_token = wndproc_cont_token;
+    token = Rf_protect(R_MakeUnwindCont());
+    R_UnwindProtect(wndproc_unwind_fun, &w, wndproc_unwind_clean, jmpbuf, token);
+    Rf_unprotect(1);
+    wndproc_cont_token = saved_token;
+    return w.res;
+}
+
+/* end of R modification */
+
 LRESULT WINAPI
-app_win_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+app_win_proc_real (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     long result;
     int pass = 0;
 
     result = handle_message(hwnd, message, wParam, lParam, &pass);
-    if (pass)
+    if (pass) {
 	result = DefWindowProc(hwnd, message, wParam, lParam);
+	wndproc_rethrow_error();
+    }
     return result;
 }
 
+/* R modification: propagation of R errors from window procedures. */
+
 LRESULT WINAPI
-app_doc_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+app_win_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return wndproc_unwind(app_win_proc_real, hwnd, message, wParam, lParam);
+}
+
+/* end of R modification */
+
+
+LRESULT WINAPI
+app_doc_proc_real (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     long result;
     int pass = 0;
@@ -850,7 +970,7 @@ app_doc_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	handle_mdiframesize();
 	if (obj && obj->menubar) {
 	    menu mdi = (obj->menubar)->menubar;
-	    SendMessage(hwndClient, WM_MDISETMENU,
+	    sendmessage(hwndClient, WM_MDISETMENU,
 			(WPARAM)obj->menubar->handle,
 			(LPARAM)(mdi?(mdi->handle):0));
 	    DrawMenuBar(hwndFrame);
@@ -862,13 +982,25 @@ app_doc_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 1;
     }
     result = handle_message(hwnd, message, wParam, lParam, &pass);
-    if (pass)
+    if (pass) {
 	result = DefMDIChildProc(hwnd, message, wParam, lParam);
+	wndproc_rethrow_error();
+    }
     return result;
 }
 
+/* R modification: propagation of R errors from window procedures. */
+
 LRESULT WINAPI
-app_work_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+app_doc_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return wndproc_unwind(app_doc_proc_real, hwnd, message, wParam, lParam);
+}
+
+/* end of R modification */
+
+LRESULT WINAPI
+app_work_proc_real (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     long result;
     int pass = 0;
@@ -877,6 +1009,17 @@ app_work_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	result = DefFrameProc(hwnd, hwndClient, message, wParam, lParam);
     return result;
 }
+
+/* R modification: propagation of R errors from window procedures. */
+
+LRESULT WINAPI
+app_work_proc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return wndproc_unwind(app_work_proc_real, hwnd, message, wParam, lParam);
+}
+
+/* end of R modification */
+
 
 /*
  *  To handle controls correctly, we replace each control's event
@@ -905,13 +1048,13 @@ static void send_char(object obj, int ch)
     keystate = 0;
 }
 
-long WINAPI
-app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT WINAPI
+app_control_procedure_real (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int prevent_activation = 0;
     int key;
     long result;
-    object obj, next;
+    object obj, next, prev;
 
     /* Find the library object associated with the hwnd. */
     obj = find_by_handle(hwnd);
@@ -922,7 +1065,8 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (! obj->winproc)
 	return 0; /* Nowhere to send events! */
 
-    next = find_valid_sibling(obj->next);
+    next = find_next_valid_sibling(obj->next);
+    prev = find_prev_valid_sibling(obj->prev);
 
     if (message == WM_KEYDOWN)
 	handle_keydown(key);
@@ -934,14 +1078,22 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
 	if (obj->kind == TextboxObject) {
 	    handle_virtual_keydown(obj, key); /* call user's virtual key handler */
-	    if ((key == VK_TAB) && (keystate & CtrlKey)) {
-		SetFocus(next->handle);
-		return 0;
+	    if (key == VK_TAB) {
+		if (keystate & ShiftKey) {
+		    SetFocus(prev->handle);
+		    return 0;
+		} else if (keystate & CtrlKey) {
+		    SetFocus(next->handle);
+		    return 0;
+		}
 	    }
 	    break;
 	}
 	if (key == VK_TAB) {
-	    SetFocus(next->handle);
+	    if (keystate & ShiftKey)
+		SetFocus(prev->handle);
+	    else
+		SetFocus(next->handle);
 	    return 0;
 	}
 	else if ((key == VK_RETURN) || (key == VK_ESCAPE)) {
@@ -1007,12 +1159,87 @@ app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     result = CallWindowProc((obj->winproc), hwnd, message, wParam, lParam);
+    wndproc_rethrow_error();
 
     /* Re-activate the control if necessary. */
     if (prevent_activation)
 	obj->state |= GA_Enabled;
     return result;
 }
+
+/* R modification: propagation of R errors from window procedures. */
+
+LRESULT WINAPI
+app_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return wndproc_unwind(app_control_procedure_real, hwnd, message, wParam, lParam);
+}
+
+/* end of R modification */
+
+LRESULT WINAPI
+edit_control_procedure_real (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    int key;
+    object obj, next, prev;
+    HANDLE hwndCombo;
+    long result;
+
+    /* Find the library (dropfield/combo box) object associated
+       with the hwnd. */
+    hwndCombo = GetParent(hwnd);
+    if (! hwndCombo)
+	return 0;
+    obj = find_by_handle(hwndCombo);
+    key = LOWORD(wParam);
+
+    if (! obj) /* Not a library object ... */
+	return 0; /* ... so do nothing. */
+    if (! obj->edit_winproc)
+	return 0; /* Nowhere to send events! */
+
+    next = find_next_valid_sibling(obj->next);
+    prev = find_prev_valid_sibling(obj->prev);
+
+    if (message == WM_KEYDOWN)
+	handle_keydown(key);
+    else if (message == WM_KEYUP)
+	handle_keyup(key);
+
+    switch (message)
+    {
+    case WM_KEYDOWN:
+	if (key == VK_TAB) {
+	    if (keystate & ShiftKey)
+		SetFocus(prev->handle);
+	    else
+		SetFocus(next->handle);
+	    return 0;
+	}
+	break;
+
+    case WM_KEYUP:
+    case WM_CHAR:
+	if (key == VK_TAB) 
+	    return 0;
+	break;
+    }
+
+    result = CallWindowProc((obj->edit_winproc), hwnd, message, wParam, lParam);
+    wndproc_rethrow_error();
+    return result;
+}
+
+/* R modification: propagation of R errors from window procedures. */
+
+LRESULT WINAPI
+edit_control_procedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return wndproc_unwind(edit_control_procedure_real, hwnd, message, wParam, lParam);
+}
+
+/* end of R modification */
+
 
 /*
  *  Timer functions use a timer procedure not associated with a window.
@@ -1200,6 +1427,7 @@ int doevent(void)
 	    return result;
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);
+	wndproc_rethrow_error();
     }
     deletion_traversal();
     if ((active_windows <= 0) || (msg.message == WM_QUIT))
@@ -1240,6 +1468,8 @@ void init_events(void)
 
     app_control_proc = (WNDPROC) MakeProcInstance((FARPROC) app_control_procedure,
 						  this_instance);
+    edit_control_proc = (WNDPROC) MakeProcInstance((FARPROC) edit_control_procedure,
+						  this_instance);
 }
 
 /*
@@ -1252,3 +1482,15 @@ void finish_events(void)
     settimer(0);
     setmousetimer(0);
 }
+
+/* R modification: propagation of R errors from window procedures. */
+
+PROTECTED LRESULT
+sendmessage_unwind(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+    LRESULT result = SendMessage(hWnd, Msg, wParam, lParam);
+    wndproc_rethrow_error();
+    return result;
+}
+
+/* end of R modification */

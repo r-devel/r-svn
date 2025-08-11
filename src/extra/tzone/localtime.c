@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Modifications copyright (C) 2007-2020  The R Core Team
+ *  Modifications copyright (C) 2007-2023  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,12 +19,20 @@
 
 
 /*
-The orginal version of this file stated
+Added 2007-12-30, priginally for use on Windows.  Derived from 
+http://www.iana.org/time-zones at that time.
+protoize-d in 2008
+Some updates in 2013
+Some changes mergged from tzcode2015f to avoid clang warnings.
+Lots of casts (even 2022f needs casts).
+
+The original version of this file stated
 
 ** This file is in the public domain, so clarified as of
 ** 1996-06-05 by Arthur David Olson.
 
 The modified version is copyrighted.  Modifications include:
+how the system timezone is found
 setting EOVERFLOW
 where to find the zi database
 Mingw-w64 changes
@@ -32,6 +40,18 @@ removing ATTRIBUTE_PURE, conditional parts for e.g. ALL_STATE
 use of 'unknown' isdst
 use of 64-bit time_t irrespective of platform.
 use of tm_zone and tm_gmtoff on all platforms.
+using R_ prefix for exported entry points.
+
+Despite its name, this file provides
+R_gmtime
+R_gmtime_r
+R_localtime
+R_localtime_r
+R_mktime
+R_timegm
+R_tzname
+R_tzset
+R_tzsetwall
 */
 
 #include <config.h>
@@ -57,6 +77,10 @@ use of tm_zone and tm_gmtoff on all platforms.
 #include <errno.h>
 #ifndef EOVERFLOW
 # define EOVERFLOW 79
+#endif
+
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h> // for fstat
 #endif
 
 #include <stdlib.h>
@@ -176,16 +200,16 @@ static const char	gmt[] = "GMT";
 #endif /* !defined TZDEFDST */
 
 struct ttinfo {				/* time type information */
-	int_fast32_t	tt_gmtoff;	/* UT offset in seconds */
-	int		tt_isdst;	/* used to set tm_isdst */
-	int		tt_abbrind;	/* abbreviation list index */
-	int		tt_ttisstd;	/* TRUE if transition is std time */
-	int		tt_ttisgmt;	/* TRUE if transition is UT */
+    int_fast32_t tt_gmtoff;	/* UT offset in seconds */
+    int		tt_isdst;	/* used to set tm_isdst */
+    int		tt_abbrind;	/* abbreviation list index */
+    int		tt_ttisstd;	/* TRUE if transition is std time */
+    int		tt_ttisgmt;	/* TRUE if transition is UT */
 };
 
 struct lsinfo {				/* leap second information */
-	time_t		ls_trans;	/* transition time */
-	int_fast64_t	ls_corr;	/* correction to apply */
+    time_t		ls_trans;	/* transition time */
+    int_fast64_t	ls_corr;	/* correction to apply */
 };
 
 #define BIGGEST(a, b)	(((a) > (b)) ? (a) : (b))
@@ -308,18 +332,46 @@ static stm  tm;
 static int_fast32_t
 detzcode(const char *const codep)
 {
-    int_fast32_t result = (codep[0] & 0x80) ? -1 : 0;
-    for (int i = 0; i < 4; ++i)
+    register int_fast32_t	result;
+    register int		i;
+    int_fast32_t one = 1;
+    int_fast32_t halfmaxval = one << (32 - 2);
+    int_fast32_t maxval = halfmaxval - 1 + halfmaxval;
+    int_fast32_t minval = -1 - maxval;
+
+    result = codep[0] & 0x7f;
+    for (i = 1; i < 4; ++i)
 	result = (result << 8) | (codep[i] & 0xff);
+
+    if (codep[0] & 0x80) {
+	/* Do two's-complement negation even on non-two's-complement machines.
+	   If the result would be minval - 1, return minval.  */
+	result -= !TWOS_COMPLEMENT(int_fast32_t) && result != 0;
+	result += minval;
+    }
     return result;
 }
 
 static int_fast64_t
 detzcode64(const char *const codep)
 {
-    int_fast64_t result = (codep[0] & 0x80) ? -1 : 0;
-    for (int i = 0; i < 8; ++i)
+    register int_fast64_t result;
+    register int	i;
+    int_fast64_t one = 1;
+    int_fast64_t halfmaxval = one << (64 - 2);
+    int_fast64_t maxval = halfmaxval - 1 + halfmaxval;
+    int_fast64_t minval = -TWOS_COMPLEMENT(int_fast64_t) - maxval;
+
+    result = codep[0] & 0x7f;
+    for (i = 1; i < 8; ++i)
 	result = (result << 8) | (codep[i] & 0xff);
+
+    if (codep[0] & 0x80) {
+	/* Do two's-complement negation even on non-two's-complement machines.
+	   If the result would be minval - 1, return minval.  */
+	result -= !TWOS_COMPLEMENT(int_fast64_t) && result != 0;
+	result += minval;
+    }
     return result;
 }
 
@@ -369,6 +421,7 @@ differ_by_repeat(const time_t t1, const time_t t0)
     return (int_fast64_t)t1 - (int_fast64_t)t0 == SECSPERREPEAT;
 }
 
+// from main/util.c (Unix) or registryTZ.c (Windows)
 extern const char *getTZinfo(void);
 extern void Rf_warning(const char *, ...);
 
@@ -447,7 +500,15 @@ tzload(const char * name, struct state * const sp, const int doextend)
 	    Rf_warning("unknown timezone '%s'", sname);
 	    return -1;
 	}
-		
+#ifdef HAVE_SYS_STAT_H
+	struct stat sb;
+	if (!fstat(fid, &sb) && S_ISDIR(sb.st_mode)) {
+	    close(fid);
+	    Rf_warning("unknown timezone '%s'", sname);
+	    return -1;
+	}
+#endif
+
     }
     nread = read(fid, up->buf, sizeof up->buf);
     if (close(fid) < 0 || nread <= 0)
@@ -1242,10 +1303,15 @@ tzset(void)
 	lclptr->leapcnt = 0;		/* so, we're off a little */
 	lclptr->timecnt = 0;
 	lclptr->typecnt = 0;
+	lclptr->charcnt = 0;
+	lclptr->goback = lclptr->goahead = FALSE;
 	lclptr->ttis[0].tt_isdst = 0;
 	lclptr->ttis[0].tt_gmtoff = 0;
 	lclptr->ttis[0].tt_abbrind = 0;
+	lclptr->ttis[0].tt_ttisstd = FALSE;
+	lclptr->ttis[0].tt_ttisgmt = FALSE;
 	(void) strcpy(lclptr->chars, gmt);
+	lclptr->defaulttype = 0;
     } else if (tzload(name, lclptr, TRUE) != 0)
 	if (name[0] == ':' || tzparse(name, lclptr, FALSE) != 0)
 	    (void) gmtload(lclptr);

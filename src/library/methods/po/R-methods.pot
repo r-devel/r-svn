@@ -1,15 +1,16 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.2.0\n"
+"Project-Id-Version: R 4.6.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2021-05-03 09:56\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
-
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
 msgid "OOPS: something wrong with '.OldClassesPrototypes[[%d]]'"
 msgstr ""
@@ -101,7 +102,7 @@ msgstr ""
 msgid "no generic version of %s on package %s is allowed;\n   a new generic will be assigned for %s"
 msgstr ""
 
-msgid "function %s appears to be a generic function, but with generic name %s"
+msgid "fdef appears to be a generic function, but with generic name %s instead of %s"
 msgstr ""
 
 msgid "generic function %s not found for removal"
@@ -284,15 +285,6 @@ msgstr ""
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr ""
 
-msgid "invalid method sublist"
-msgstr ""
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr ""
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr ""
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr ""
 
@@ -315,9 +307,6 @@ msgid "more elements in the method signature (%d) than in the generic signature 
 msgstr ""
 
 msgid "no generic function found corresponding to %s"
-msgstr ""
-
-msgid "skipping methods list element %s of unexpected class %s"
 msgstr ""
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
@@ -473,7 +462,7 @@ msgstr ""
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr ""
 
-msgid "unable to find required package %s"
+msgid "unable to load required package %s"
 msgstr ""
 
 msgid "unable to find an environment containing class %s"
@@ -525,9 +514,6 @@ msgid "no suitable arguments to dispatch methods in this function"
 msgstr ""
 
 msgid "making a generic for special function %s"
-msgstr ""
-
-msgid "invalid call in method dispatch to '%s' (no default method)"
 msgstr ""
 
 msgid "in method for %s with signature %s:"
@@ -749,6 +735,9 @@ msgstr ""
 msgid "argument %s must be a list or a character vector; got an object of class %s"
 msgstr ""
 
+msgid "expected a non-empty character string for argument 'name'"
+msgstr ""
+
 msgid "no function %s found"
 msgstr ""
 
@@ -789,9 +778,6 @@ msgid "undefined 'coerce' method"
 msgstr ""
 
 msgid "methods currently exist for coercing from %s to %s; they will be replaced."
-msgstr ""
-
-msgid "Function must be an S4 generic"
 msgstr ""
 
 msgid "method is not being debugged"
@@ -848,7 +834,7 @@ msgstr ""
 msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr ""
 
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr ""
 
 msgid "bad method object stored in method table, class %s"

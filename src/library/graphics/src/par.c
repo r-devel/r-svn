@@ -154,7 +154,7 @@ static int ParCode(const char *what)
 }
 
 
-static void NORET par_error(const char *what)
+NORET static void par_error(const char *what)
 {
     error(_("invalid value specified for graphical parameter \"%s\""),  what);
 }
@@ -1128,7 +1128,7 @@ SEXP C_par(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 /*
  *  Layout was written by Paul Murrell during 1997-1998 as a partial
- *  implementation of ideas in his PhD thesis.	The orginal
+ *  implementation of ideas in his PhD thesis.	The original
  *  written in common lisp provides rather more general capabilities.
  *
  *  layout(

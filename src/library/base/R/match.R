@@ -1,7 +1,7 @@
 #  File src/library/base/R/match.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ match.arg <- function (arg, choices, several.ok = FALSE)
     if (!several.ok) { # most important (default) case:
         ## the arg can be the whole of choices as a default argument.
         if(identical(arg, choices)) return(arg[1L])
-        if(length(arg) > 1L) stop("'arg' must be of length 1")
+    if(length(arg) != 1L) stop(gettextf("'%s' must be of length 1", "arg"), domain=NA)
     } else if(length(arg) == 0L) stop("'arg' must be of length >= 1")
 
     ## handle each element of arg separately
@@ -86,7 +86,11 @@ mtfrm <- function(x)
     UseMethod("mtfrm")
 
 mtfrm.default <- function(x) {
-    if(length(y <- as.vector(x)) != length(x))
+    if(length(y <- as.character(x)) != length(x))
         stop("cannot mtfrm")
     y
 }
+
+mtfrm.Date <- # <- for speed
+mtfrm.POSIXct <-
+mtfrm.POSIXlt <- function(x) as.vector(x, "any")

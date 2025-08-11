@@ -1,6 +1,6 @@
 % File src/library/utils/man/aspell.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{aspell}
@@ -45,14 +45,16 @@ aspell(files, filter, control = list(), encoding = "unknown",
   obtaining the Aspell, Hunspell and (International) Ispell programs and
   dictionaries.
 
-  On Windows, Aspell is available via MSYS2.  One should use a non-Cygwin
+  On Windows, Aspell is available via \abbr{MSYS2}.  One should use a non-\I{Cygwin}
   version, e.g.  package \code{mingw-w64-x86_64-aspell}.  The version built
-  against the Cygwin runtime (package \code{aspell}) requires Unix line
+  against the \I{Cygwin} runtime (package \code{aspell}) requires Unix line
   endings in files and Unix-style paths, which is incompatible with
   \code{aspell()}.
 
   The currently available built-in filters are \code{"Rd"}
-  (corresponding to \code{\link{RdTextFilter}}), \code{"Sweave"}
+  (corresponding to \code{\link{RdTextFilter}}, with additional argument
+  \code{ignore} allowing to give regular expressions for parts of the
+  text to be ignored for spell checking), \code{"Sweave"}
   (corresponding to \code{\link{SweaveTeXFilter}}), \code{"R"},
   \code{"pot"}, \code{"dcf"} and \code{"md"}.
 
@@ -100,11 +102,7 @@ aspell(files, filter, control = list(), encoding = "unknown",
   method) with the information about possibly misspelled words.
 }
 \references{
-  Kurt Hornik and Duncan Murdoch (2011).
-  \dQuote{Watch your spelling!}
-  \emph{The R Journal}, \bold{3}(2), 22--28.
-  \doi{10.32614/RJ-2011-014}.
-  %% \url{https://journal.r-project.org/archive/2011-2/RJournal_2011-2_Hornik+Murdoch.pdf}.
+  \bibshow{R:Hornik+Murdoch:2011}
 }
 \seealso{
   \link{aspell-utils} for utilities for spell checking packages.

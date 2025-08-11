@@ -105,12 +105,13 @@ package.skeleton <-
     description <- file(file.path(dir, "DESCRIPTION"), "wt")
     cat("Package: ", name, "\n",
 	"Type: Package\n",
-	"Title: What the package does (short line)\n",
+	"Title: What the Package Does (Short Line)\n",
 	"Version: 1.0\n",
 	"Date: ", format(Sys.time(), format="%Y-%m-%d"), "\n",
-	"Author: Who wrote it\n",
-	"Maintainer: Who to complain to <yourfault@somewhere.net>\n",
-	"Description: More about what it does (maybe more than one line)\n",
+        "Authors@R: c(person(\"Givenname\", \"Familyname\", role = c(\"aut\", \"cre\"),\n",
+        "                    email = \"yourfault@somewhere.net\"),\n",
+        "             person(\"Anotherone\", \"Ifany\", role = \"ctb\"))\n",
+	"Description: More about what it does (maybe more than one line).\n",
 	"License: What license is it under?\n",
 	if(usingS4) "Imports: methods\n",
 	if(nzchar(encoding) && encoding != "unknown")
@@ -150,6 +151,7 @@ package.skeleton <-
     out <- file(file.path(dir, "Read-and-delete-me"), "wt")
     msg <-
         c("* Edit the help file skeletons in 'man', possibly combining help files for multiple functions.",
+          "* Edit the package 'DESCRIPTION'.",
           "* Edit the exports in 'NAMESPACE', and add necessary imports.",
           "* Put any C/C++/Fortran code in 'src'.",
           "* If you have compiled code, add a useDynLib() directive to 'NAMESPACE'.",
@@ -216,30 +218,27 @@ package.skeleton <-
 		      file.path(docs_dir,
 				sprintf("%s-package.Rd", name)),
 		      lib.loc = path)
-	sapply(list,
-	       function(item) {
-		   prompt(get(item, envir = environment),
-			  name = item,
-			  filename =
-			  file.path(docs_dir,
-				    sprintf("%s.Rd", list0[item])))
-	       })
-	sapply(classesList,
-	       function(item) {
-		   methods::promptClass(item,
-					filename =
-					file.path(docs_dir,
-						  sprintf("%s-class.Rd", classes0[item])),
-					where = environment)
-	       })
-	sapply(methodsList,
-	       function(item) {
-		   methods::promptMethods(item,
-					  filename =
-					  file.path(docs_dir,
-						    sprintf("%s-methods.Rd", methods0[item])),
-					  methods::findMethods(item, where = environment))
-	       })
+        for(item in list) {
+            prompt(get(item, envir = environment),
+                   name = item,
+                   filename =
+                       file.path(docs_dir,
+                                 sprintf("%s.Rd", list0[item])))
+        }
+        for(item in classesList) {
+            methods::promptClass(item,
+                                 filename =
+                                     file.path(docs_dir,
+                                               sprintf("%s-class.Rd", classes0[item])),
+                                 where = environment)
+        }
+        for(item in methodsList) {
+            methods::promptMethods(item,
+                                   filename =
+                                       file.path(docs_dir,
+                                                 sprintf("%s-methods.Rd", methods0[item])),
+                                   methods::findMethods(item, where = environment))
+        }
     }))
     ## don't document generic functions from other packages
     for(item in methodsList) {

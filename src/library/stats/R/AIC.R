@@ -16,9 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## A pearl from ggplot2 et al.  NB: often needs '(..)' around RHS :   <lhs> %||% ( <rhs> )
-`%||%` <- function(L,R) if(is.null(L)) R else L
-
 
 #### Return the value of Akaike's Information Criterion
 ### originally from package nlne.
@@ -35,10 +32,13 @@ AIC.default <- function(object, ..., k = 2)
     ll <- if(isNamespaceLoaded("stats4")) stats4::logLik else logLik
     if(!missing(...)) {# several objects: produce data.frame
 	lls <- lapply(list(object, ...), ll)
-        vals <- sapply(lls, function(el) {
-            c(as.numeric(el), attr(el, "df"),
-              attr(el, "nobs") %||% NA_integer_)
-        })
+        vals <- vapply(lls,
+                       function(el) {
+                           c(as.numeric(el),
+                             attr(el, "df"),
+                             attr(el, "nobs") %||% NA_integer_)
+                       },
+                       numeric(3L))
         val <- data.frame(df = vals[2L,], ll = vals[1L,])
         nos <- na.omit(vals[3L,])
         if (length(nos) && any(nos != nos[1L]))
@@ -66,10 +66,13 @@ BIC.default <- function(object, ...)
     Nobs <- if(isNamespaceLoaded("stats4")) stats4::nobs   else nobs
     if(!missing(...)) {# several objects: produce data.frame
         lls <- lapply(list(object, ...), ll)
-        vals <- sapply(lls, function(el) {
-            c(as.numeric(el), attr(el, "df"),
-              attr(el, "nobs") %||% NA_integer_)
-        })
+        vals <- vapply(lls,
+                       function(el) {
+                           c(as.numeric(el),
+                             attr(el, "df"),
+                             attr(el, "nobs") %||% NA_integer_)
+                       },
+                       numeric(3L))
         val <- data.frame(df = vals[2L,], ll = vals[1L,], nobs = vals[3L,])
         nos <- na.omit(val$nobs)
         if (length(nos) && any(nos != nos[1L]))
@@ -78,8 +81,10 @@ BIC.default <- function(object, ...)
         unknown <- is.na(val$nobs)
         if(any(unknown))
             val$nobs[unknown] <-
-		sapply(list(object, ...)[unknown],
-		       function(x) tryCatch(Nobs(x), error = function(e) NA_real_))
+		vapply(list(object, ...)[unknown],
+		       function(x)
+                           tryCatch(Nobs(x), error = function(e) NA_real_),
+                       0)
         val <- data.frame(df = val$df, BIC = -2*val$ll + log(val$nobs)*val$df)
         row.names(val) <- as.character(match.call()[-1L])
         val

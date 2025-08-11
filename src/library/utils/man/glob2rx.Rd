@@ -1,7 +1,7 @@
 % File src/library/utils/man/glob2rx.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2008 R Core Team
-% Copyright 2002-2008 The R Foundation
+% Copyright 1995-2024 R Core Team
+% Copyright 2002-2024 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{glob2rx}
@@ -10,6 +10,9 @@
 \description{
   Change \emph{wildcard} aka \emph{globbing} patterns into the
   corresponding regular expressions (\code{\link{regexp}}).
+
+  This is also a practical didactical example for the use of
+  \code{\link{sub}()} and regular expressions.
 }
 \usage{
 glob2rx(pattern, trim.head = FALSE, trim.tail = TRUE)
@@ -23,15 +26,16 @@ glob2rx(pattern, trim.head = FALSE, trim.tail = TRUE)
 }
 \details{
   This takes a wildcard as used by most shells and returns an equivalent
-  regular expression.  \code{?} is mapped to \code{.} (match a single
-  character), \code{*} to \code{.*} (match any string, including an
+  regular expression.  \samp{?} is mapped to \samp{.} (match a single
+  character), \samp{*} to \samp{.*} (match any string, including an
   empty one), and the pattern is anchored (it must start at the
   beginning and end at the end).  Optionally, the resulting regexp is
   simplified.
 
-  Note that now even \code{(}, \code{[} and \code{\{} can be used
+  Note that now even \samp{(}, \samp{[} and \samp{\{} can be used
   in \code{pattern}, but \code{glob2rx()} may not work correctly with
-  arbitrary characters in \code{pattern}.
+  arbitrary characters in \code{pattern}, for example escaped special
+  characters.
 }
 \value{
   A character vector of the same length as the input \code{pattern}
@@ -42,6 +46,8 @@ glob2rx(pattern, trim.head = FALSE, trim.tail = TRUE)
 \seealso{
   \code{\link{regexp}} about regular expression,
   \code{\link{sub}}, etc about substitutions using regexps.
+  \code{\link{Sys.glob}} does wildcard expansion, i.e., \dQuote{globbing} on
+  file paths more subtly, e.g., allowing to escape special characters.
 }
 \examples{
 stopifnot(glob2rx("abc.*") == "^abc\\\\.",% '\\' doubled in Rd file!

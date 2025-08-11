@@ -50,15 +50,15 @@ dots.or.missing <- function(args) {
     for (i in 1:length(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
-        if (typeof(a) == "symbol" && a == "...") return(TRUE)
+        if (identical(a, quote(`...`))) return(TRUE)
     }
     return(FALSE)
 }
 
-any.dots <- function(args) {
+anyDots <- function(args) {
     for (i in 1:length(args)) {
         a <-args[[i]]
-        if (! missing(a) && typeof(a) == "symbol" && a == "...")
+        if (! missing(a) && identical(a, quote(`...`)))
             return(TRUE)
     }
     return(FALSE)
@@ -510,8 +510,7 @@ foldFuns <- c("+", "-", "*", "/", "^", "(",
               "seq_along", "seq.int", "seq_len", "sign", "signif",
               "sin", "sinh", "sqrt", "sum", "tan", "tanh", "trunc",
               "baseenv", "emptyenv", "globalenv",
-              "Arg", "Conj", "Im", "Mod", "Re",
-              "is.R")
+              "Arg", "Conj", "Im", "Mod", "Re")
 
 languageFuns <- c("^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
                   "|", "||", "-", ":", "!", "!=", "/", "(", "[", "[<-", "[[",
@@ -1108,7 +1107,7 @@ cmpConst <- function(val, cb, cntxt) {
 }
 
 cmpSym <- function(sym, cb, cntxt, missingOK = FALSE) {
-    if (sym == "...") {
+    if (identical(sym, quote(`...`))) {
         notifyWrongDotsUse("...", cntxt, loc = cb$savecurloc())
         cb$putcode(DOTSERR.OP)
     }
@@ -1198,7 +1197,7 @@ cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
             cb$putcode(DOMISSING.OP)
             cmpTag(n, cb)
         }
-        else if (is.symbol(a) && a == "...") {
+        else if (identical(a, quote(`...`))) {
             if (! findLocVar("...", cntxt))
                 notifyWrongDotsUse("...", cntxt, loc = cb$savecurloc())
             cb$putcode(DODOTS.OP)
@@ -1245,7 +1244,7 @@ cmpConstArg <- function(a, cb, cntxt) {
 checkCall <- function(def, call, signal = warning) {
     if (typeof(def) %in% c("builtin", "special"))
         def <- args(def)
-    if (typeof(def) != "closure" || any.dots(call))
+    if (typeof(def) != "closure" || anyDots(call))
         NA
     else {
         msg <- tryCatch({match.call(def, call); NULL},
@@ -1616,7 +1615,7 @@ cmpAssign <- function(e, cb, cntxt) {
     ##    return(cmpSpecial(e, cb, cntxt))
     if (! checkAssign(e, cntxt, loc = cb$savecurloc()))
         return(cmpSpecial(e, cb, cntxt))
-    superAssign <- as.character(e[[1]]) == "<<-"
+    superAssign <- identical(e[[1]], quote(`<<-`))
     lhs <- e[[2]]
     value <- e[[3]]
     symbol <- as.name(getAssignedVar(e, cntxt))
@@ -1806,7 +1805,7 @@ getAssignFun <- function(fun) {
 }
 
 cmpSetterDispatch <- function(start.op, dflt.op, afun, place, call, cb, cntxt) {
-    if (any.dots(place))
+    if (anyDots(place))
         FALSE ## punt
     else {
         ci <- cb$putconst(call)
@@ -1827,7 +1826,7 @@ setInlineHandler("=", cmpAssign)
 setInlineHandler("<<-", cmpAssign)
 
 setSetterInlineHandler("$<-", function(afun, place, origplace, call, cb, cntxt) {
-    if (any.dots(place) || length(place) != 3)
+    if (anyDots(place) || length(place) != 3)
         FALSE
     else {
         sym <- place[[3]]
@@ -1853,7 +1852,7 @@ setSetterInlineHandler("$<-", function(afun, place, origplace, call, cb, cntxt) 
 #                       afun, place, call, cb, cntxt))
 
 cmpGetterDispatch <- function(start.op, dflt.op, call, cb, cntxt) {
-    if (any.dots(call))
+    if (anyDots(call))
         FALSE ## punt
     else {
         ci <- cb$putconst(call)
@@ -1872,7 +1871,7 @@ cmpGetterDispatch <- function(start.op, dflt.op, call, cb, cntxt) {
 }
 
 setGetterInlineHandler("$", function(call, cb, cntxt) {
-    if (any.dots(call) || length(call) != 3)
+    if (anyDots(call) || length(call) != 3)
         FALSE
     else {
         sym <- call[[3]]
@@ -2250,7 +2249,7 @@ setInlineHandler("!", function(e, cb, cntxt)
 ##
 
 setInlineHandler("(", function(e, cb, cntxt) {
-    if (any.dots(e))
+    if (anyDots(e))
         cmpBuiltin(e, cb, cntxt) ## punt
     else if (length(e) != 2) {
         notifyWrongArgCount("(", cntxt, loc = cb$savecurloc())
@@ -2364,7 +2363,7 @@ setInlineHandler(".Internal", cmpDotInternalCall)
 ##
 
 cmpDispatch <- function(start.op, dflt.op, e, cb, cntxt, missingOK = TRUE) {
-    if ((missingOK && any.dots(e)) ||
+    if ((missingOK && anyDots(e)) ||
         (! missingOK && dots.or.missing(e)) ||
         length(e) == 1)
         cmpSpecial(e, cb, cntxt) ## punt
@@ -2403,7 +2402,7 @@ cmpDispatch <- function(start.op, dflt.op, e, cb, cntxt, missingOK = TRUE) {
 #     cmpDispatch(STARTSUBSET2.OP, DFLTSUBSET2.OP, e, cb, cntxt))
 
 setInlineHandler("$", function(e, cb, cntxt) {
-    if (any.dots(e) || length(e) != 3)
+    if (anyDots(e) || length(e) != 3)
         cmpSpecial(e, cb, cntxt)
     else {
         sym <- if (is.character(e[[3]]) && length(e[[3]]) == 1
@@ -2461,7 +2460,7 @@ setInlineHandler("return", function(e, cb, cntxt) {
 ##
 
 cmpIs <- function(op, e, cb, cntxt) {
-    if (any.dots(e) || length(e) != 2)
+    if (anyDots(e) || length(e) != 2)
         cmpBuiltin(e, cb, cntxt)
     else {
         ## **** check that the function is a builtin somewhere??
@@ -2544,11 +2543,12 @@ simpleArgs <- function(icall, fnames) {
 is.simpleInternal <- function(def) {
     if (typeof(def) == "closure" && simpleFormals(def)) {
         b <- body(def)
-        if (typeof(b) == "language" && length(b) == 2 && b[[1]] == "{")
+        if (typeof(b) == "language" &&
+            length(b) == 2 &&
+            identical(b[[1]], quote(`{`)))
             b <- b[[2]]
         if (typeof(b) == "language" &&
-            typeof(b[[1]]) == "symbol" &&
-            b[[1]] == ".Internal") {
+            identical(b[[1]], quote(.Internal))) {
             icall <- b[[2]]
             ifun <- icall[[1]]
             typeof(ifun) == "symbol" &&
@@ -2564,7 +2564,9 @@ inlineSimpleInternalCall <- function(e, def) {
     if (! dots.or.missing(e) && is.simpleInternal(def)) {
         forms <- formals(def)
         b <- body(def)
-        if (typeof(b) == "language" && length(b) == 2 && b[[1]] == "{")
+        if (typeof(b) == "language" &&
+            length(b) == 2 &&
+            identical(b[[1]], quote(`{`)))
             b <- b[[2]]
         icall <- b[[2]]
         defaults <- forms ## **** could strip missings but OK not to?
@@ -2578,7 +2580,7 @@ inlineSimpleInternalCall <- function(e, def) {
 }
 
 cmpSimpleInternal <- function(e, cb, cntxt) {
-    if (any.dots(e))
+    if (anyDots(e))
         FALSE
     else {
         name <- as.character(e[[1]])
@@ -2625,7 +2627,7 @@ findActionIndex <- function(name, nm, miss) {
 }
 
 setInlineHandler("switch", function(e, cb, cntxt) {
-    if (length(e) < 2 || any.dots(e))
+    if (length(e) < 2 || anyDots(e))
         cmpSpecial(e, cb, cntxt)
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
@@ -2976,7 +2978,8 @@ cmpfun <- function(f, options = NULL) {
         ncntxt <- make.functionContext(cntxt, formals(f), body(f))
         if (mayCallBrowser(body(f), ncntxt))
             return(f)
-        if (typeof(body(f)) != "language" || body(f)[1] != "{")
+        if (typeof(body(f)) != "language" ||
+            ! identical(body(f)[[1]], quote(`{`)))
             loc <- list(expr = body(f), srcref = getExprSrcref(f))
         else
             loc <- NULL
@@ -3073,8 +3076,10 @@ cmpfile <- function(infile, outfile, ascii = FALSE, env = .GlobalEnv,
             e <- forms[[i]]
             sref <- srefs[[i]]
             if (verbose) {
-                if (typeof(e) == "language" && e[[1]] == "<-" &&
-                    typeof(e[[3]]) == "language" && e[[3]][[1]] == "function")
+                if (typeof(e) == "language" &&
+                    identical(e[[1]], quote(`<-`)) &&
+                    typeof(e[[3]]) == "language" &&
+                    identical(e[[3]][[1]], quote(`function`)))
                     cat(paste0("compiling function \"", e[[2]], "\"\n"))
                 else
                     cat(paste("compiling expression", deparse(e, 20)[1],
@@ -3256,8 +3261,8 @@ disassemble <- function(code) {
 
 bcprof <- function(expr) {
     .Internal(bcprofstart())
-    expr
-    .Internal(bcprofstop())
+    tryCatch(expr,
+             finally = .Internal(bcprofstop()))
     val <- structure(.Internal(bcprofcounts()),
                      names = Opcodes.names)
     hits <- sort(val[val > 0], decreasing = TRUE)

@@ -16,7 +16,7 @@ savePlot(filename = "Rplot",
 \arguments{
   \item{filename}{The filename under which to save the plot.
     Tilde-expansion (see \code{\link{path.expand}}) is supported.}
-  \item{type}{The type of plot, Windows metafile, PNG, JPEG, BMP
+  \item{type}{The type of plot, Windows metafile, PNG, JPEG, \abbr{BMP}
     (Windows bitmap format), TIFF, PostScript or PDF.}
   \item{device}{A device number of a \code{windows} device, by default
     the current device.}
@@ -31,7 +31,7 @@ savePlot(filename = "Rplot",
   This is equivalent to selecting the \sQuote{Save as} menu item on the
   \sQuote{File} menu of a \code{\link{windows}} device.
 
-  If \code{filename} does not include a dot (\sQuote{.}), savePlot
+  If \code{filename} does not include a dot (\sQuote{.}), \code{savePlot}
   will add the file type as an extension; that is, the filename will
   be set to \code{paste(filename, type, sep = ".")}. If a dot is present in
   \code{filename}, the filename is assumed to include an extension and
@@ -53,7 +53,7 @@ savePlot(filename = "Rplot",
 
 \note{
   There is a similar function of the same name but fewer types for
-  cairo-based \code{X11} devices on Unix-alikes, and without the
+  \I{cairo}-based \code{X11} devices on Unix-alikes, and without the
   \code{restoreConsole} argument.
 }
 

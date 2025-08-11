@@ -1,6 +1,6 @@
 % File src/library/base/man/is.recursive.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{is.recursive}
@@ -13,7 +13,8 @@ is.recursive(x)
 }
 \description{
   \code{is.atomic} returns \code{TRUE} if \code{x} is of an atomic type
-  (or \code{NULL}) and \code{FALSE} otherwise.
+  and \code{FALSE} otherwise.
+  \code{is.atomic(NULL)} returns \code{FALSE} since \R version 4.4.0.
 
   \code{is.recursive} returns \code{TRUE} if \code{x} has a recursive
   (list-like) structure and \code{FALSE} otherwise.
@@ -24,7 +25,7 @@ is.recursive(x)
 \details{
   \code{is.atomic} is true for the \link{atomic} types
   (\code{"logical"}, \code{"integer"}, \code{"numeric"},
-  \code{"complex"}, \code{"character"} and \code{"raw"}) and \code{NULL}.
+  \code{"complex"}, \code{"character"} and \code{"raw"}).
 
   Most types of objects are regarded as recursive.  Exceptions are the atomic
   types, \code{NULL}, symbols (as given by \code{\link{as.name}}),
@@ -59,6 +60,11 @@ is.a.r(lm)              # FALSE TRUE
 is.a.r(y ~ x)           # FALSE TRUE
 is.a.r(expression(x+1)) # FALSE TRUE
 is.a.r(quote(exp))      # FALSE FALSE
+is.a.r(NULL)            # FALSE FALSE
+
+# Reproduce pre-4.4 behavior of is.atomic()
+is.atomicN <- function(x) is.atomic(x) || is.null(x)
+is.atomicN(NULL) # TRUE
 }
 \keyword{programming}
 \keyword{classes}

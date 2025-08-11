@@ -1,10 +1,11 @@
 ## tests of R functions based on the lapack module
 
 ## NB: the signs of singular and eigenvectors are arbitrary,
-## so there may be differences from the reference ouptut,
+## so there may be differences from the reference output,
 ## especially when alternative BLAS are used.
 
 options(digits = 4L)
+tryCmsg <- function(expr) tryCatch(expr, error = conditionMessage) # typically == *$message
 
 ##    -------  examples from ?svd ---------
 
@@ -160,4 +161,36 @@ solve(As)
 Ac <- A; Ac[] <- as.logical(diag(5))
 chol(Ac)
 
+##  -------  tests of non-finite values  -----------------
 
+a <- matrix(NaN, 3, 3,, list(one=1:3, two=letters[1:3]))
+b <- cbind(1:3, NA)
+dimnames(b) <- list(One=4:6, Two=11:12)
+bb <- 1:3; names(bb) <- 11:12
+## gave error with LAPACK 3.11.0
+## names(dimnames(.)), ("two", "Two") are lost {FIXME?}:
+## IGNORE_RDIFF_BEGIN
+stopifnot(is.na(print(solve(a, b )))) # is.na(): NA *or* NaN
+## IGNORE_RDIFF_END
+stopifnot(is.na(print(solve(a, bb)))) # all NaN
+
+A <- a + 0i
+A_b <- solve(A, b) # platform dependent result (e.g. OPENBLAS ..)
+stopifnot(is.na(A_b))
+## IGNORE_RDIFF_BEGIN
+A_b
+rbind(re = Re(A_b[,2]), im = Im(A_b[,2])) # often was "all NA", now typically "re=NA, im=NaN"
+## IGNORE_RDIFF_END
+
+
+## PR#18541 by Mikael Jagan -- chol()  error & warning message:
+x <- diag(-1, 5L)
+(chF <- tryCmsg(chol(x, pivot = FALSE))) # dpotrf
+(chT <- withCallingHandlers(warning = function(w) ..W <<- conditionMessage(w),
+                chol(x, pivot = TRUE ))) # dpstrf
+stopifnot(exprs = {
+    grepl(" minor .* not positive$", chF) # was "not positive *definite*
+    grepl("rank-deficient or not positive definite$", ..W) # was "indefinite*
+    ## platform dependent, Mac has several NaN's  chT == -diag(5)
+    attr(chT, "rank") %in% 0:1
+})

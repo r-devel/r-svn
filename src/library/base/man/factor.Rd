@@ -46,6 +46,8 @@ as.factor(x)
 as.ordered(x)
 
 addNA(x, ifany = FALSE)
+
+.valid.factor(object)
 }
 \arguments{
   \item{x}{a vector of data, usually taking a small number of distinct
@@ -70,6 +72,7 @@ addNA(x, ifany = FALSE)
     \code{ordered} itself.}
   \item{ifany}{only add an \code{NA} level if it is used, i.e.
     if \code{any(is.na(x))}.}
+  \item{object}{an \R object.}
 }
 \value{
   \code{factor} returns an object of class \code{"factor"} which has a
@@ -78,7 +81,7 @@ addNA(x, ifany = FALSE)
   (\code{!\link{anyDuplicated}(.)}) entries.  If argument \code{ordered}
   is true (or \code{ordered()} is used) the result has class
   \code{c("ordered", "factor")}.
-  Undocumentedly for a long time, \code{factor(x)} loses all
+  \I{Undocumentedly} for a long time, \code{factor(x)} loses all
   \code{\link{attributes}(x)} but \code{"names"}, and resets
   \code{"levels"} and \code{"class"}.
 
@@ -111,7 +114,8 @@ addNA(x, ifany = FALSE)
   \code{\link{order}}).
 
   Ordered factors differ from factors only in their class, but methods
-  and the model-fitting functions treat the two classes quite differently.
+  and model-fitting functions may treat the two classes quite differently,
+  see \code{\link{options}("contrasts")}.
 
   The encoding of the vector happens as follows.  First all the values
   in \code{exclude} are removed from \code{levels}. If \code{x[i]}
@@ -139,14 +143,14 @@ addNA(x, ifany = FALSE)
 
   The codes of a factor may contain \code{\link{NA}}.  For a numeric
   \code{x}, set \code{exclude = NULL} to make \code{\link{NA}} an extra
-  level (prints as \code{<NA>}); by default, this is the last level.
+  level (prints as \samp{<NA>}); by default, this is the last level.
 
   If \code{NA} is a level, the way to set a code to be missing (as
   opposed to the code of the missing level) is to
   use \code{\link{is.na}} on the left-hand-side of an assignment (as in
   \code{is.na(f)[i] <- TRUE}; indexing inside \code{is.na} does not work).
   Under those circumstances missing values are currently printed as
-  \code{<NA>}, i.e., identical to entries of level \code{NA}.
+  \samp{<NA>}, i.e., identical to entries of level \code{NA}.
 
   \code{is.factor} is generic: you can write methods to handle
   specific classes of objects, see \link{InternalMethods}.
@@ -156,7 +160,7 @@ addNA(x, ifany = FALSE)
   vectors \code{x} it is helpful to supply \code{nmax} as an upper bound
   on the number of unique values.
 
-  Since \R 4.1.0, when using \code{\link{c}} to combine a (possibly
+  When using \code{\link{c}} to combine a (possibly
   ordered) factor with other objects, if all objects are (possibly
   ordered) factors, the result will be a factor with levels the union of
   the level sets of the elements, in the order the levels occur in the

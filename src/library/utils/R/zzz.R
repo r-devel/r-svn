@@ -1,7 +1,7 @@
 #  File src/library/utils/R/zzz.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2022 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,6 +20,25 @@
 
 .onLoad <- function(libname, pkgname)
 {
+    ## In R < 4.3.0, options(repos = c(CRAN = "@CRAN@")) was hard-wired.
+    ## We now respect custom repositories files, which by default gives
+    ## the old behavior, or initialize no repositories as a special case.
+    if(identical(Sys.getenv("R_REPOSITORIES"), "NULL"))
+        repos <- character()
+    else {
+        reposdf <- tryCatch(.get_repositories(), error = identity)
+        if(inherits(reposdf, "error"))
+            repos <- character()
+        else {
+            reposdf <- reposdf[reposdf$default,]
+            repos <- reposdf$URL
+            names(repos) <- row.names(reposdf)
+        }
+        ## Be extra careful (but see the comments in tools/R/utils.R).
+        if(is.na(match("CRAN", names(repos))))
+            repos <- c(CRAN = "@CRAN@", repos)
+    }
+
     ## Set default options() related to functionality in 'utils' pkg
     op.utils <-
 	list(help.try.all.packages = FALSE,
@@ -29,7 +48,8 @@
 	     str = strOptions(), # -> ./str.R
 	     demo.ask = "default", example.ask = "default",
 	     HTTPUserAgent = defaultUserAgent(),
-	     menu.graphics = TRUE, mailer = "mailto")
+	     menu.graphics = TRUE, mailer = "mailto",
+            repos = repos)
     if (.Platform$pkgType != "source")
         op.utils[["install.packages.compile.from.source"]] <-
             Sys.getenv("R_COMPILE_AND_INSTALL_PACKAGES", "interactive")
@@ -38,13 +58,11 @@
         if(.Platform$OS.type == "windows") {
             list(unzip = "internal",
                  editor = if(length(grep("Rgui", commandArgs(), TRUE))) "internal" else "notepad",
-                 repos = c(CRAN = "@CRAN@"),
                  askYesNo = if (.Platform$GUI == "Rgui") askYesNoWinDialog
                  )
         } else
             list(unzip = Sys.getenv("R_UNZIPCMD"),
-                 editor = Sys.getenv("EDITOR"),
-                 repos = c(CRAN = "@CRAN@"))
+                 editor = Sys.getenv("EDITOR"))
     op.utils <- c(op.utils, extra)
     toset <- !(names(op.utils) %in% names(.Options))
     if(any(toset)) options(op.utils[toset])

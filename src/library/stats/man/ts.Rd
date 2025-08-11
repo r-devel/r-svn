@@ -1,6 +1,6 @@
 % File src/library/stats/man/ts.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ts}
@@ -14,6 +14,8 @@
 \alias{is.mts}
 \alias{[.ts}
 \alias{t.ts}
+\alias{head.ts}
+\alias{tail.ts}
 \description{
   The function \code{ts} is used to create time-series objects.
 
@@ -22,9 +24,13 @@
 }
 \usage{
 ts(data = NA, start = 1, end = numeric(), frequency = 1,
-   deltat = 1, ts.eps = getOption("ts.eps"), class = , names = )
+   deltat = 1, ts.eps = getOption("ts.eps"),
+   class = if(nseries > 1) c("mts", "ts", "matrix", "array") else "ts",
+   names = )
 as.ts(x, \dots)
 is.ts(x)
+
+is.mts(x)
 }
 \arguments{
   \item{data}{a vector or matrix of the observed time-series
@@ -43,20 +49,21 @@ is.ts(x)
     \code{frequency} or \code{deltat} should be provided.}
   \item{ts.eps}{time series comparison tolerance.  Frequencies are
     considered equal if their absolute difference is less than
-    \code{ts.eps}.}
+    \code{ts.eps}.  It is also used to check consistency of \code{end - start},
+    \code{frequency}, and the length of the time-series.}
   \item{class}{class to be given to the result, or none if \code{NULL}
-    or \code{"none"}.  The default is \code{"ts"} for a single series,
-    \code{c("mts", "ts", "matrix")} for multiple series.}
+    or \code{"none"}.  The default is \code{"ts"} for a single series, or
+    \code{c("mts", "ts", "matrix", "array")} for multiple series.}
   \item{names}{a character vector of names for the series in a multiple
-    series: defaults to the colnames of \code{data}, or \code{Series 1},
-    \code{Series 2}, \dots.}
+    series: defaults to the colnames of \code{data}, or \code{"Series 1"},
+    \code{"Series 2"}, \dots.}
   \item{x}{an arbitrary \R object.}
   \item{\dots}{arguments passed to methods (unused for the default method).}
 }
 \details{
   The function \code{ts} is used to create time-series objects.  These
-  are vectors or matrices with class of \code{"ts"} (and additional
-  attributes) which represent data which has been sampled at equispaced
+  are vectors or matrices which inherit from class \code{"ts"} (and have
+  additional attributes) which represent data sampled at equispaced
   points in time.  In the matrix case, each column of the matrix
   \code{data} is assumed to contain a single (univariate) time series.
   Time series must have at least one observation, and although they need
@@ -66,7 +73,7 @@ is.ts(x)
   will attempt to align time axes, and subsetting to extract subsets of
   series can be used (e.g., \code{EuStockMarkets[, "DAX"]}).  However,
   subsetting the first (or only) dimension will return a matrix or
-  vector, as will matrix subsetting.  Subassignment can be used to
+  vector, as will matrix subsetting.  \I{Subassignment} can be used to
   replace values but not to extend a series (see \code{\link{window}}).
   There is a method for \code{\link{t}} that transposes the series as a
   matrix (a one-column matrix if a vector) and hence returns a result
@@ -80,17 +87,20 @@ is.ts(x)
   \code{12} when the data are sampled monthly and the natural time
   period is a year.  Values of \code{4} and \code{12} are assumed in
   (e.g.) \code{print} methods to imply a quarterly and monthly series
-  respectively.  As from \R 4.0.0, \code{frequency} need not be a whole
-  number.  For example, \code{frequency = 0.2} would imply sampling
+  respectively.  \code{frequency} need not be a whole
+  number:  for example, \code{frequency = 0.2} would imply sampling
   once every five time units.
 
   \code{as.ts} is generic.  Its default method will use the
   \code{\link{tsp}} attribute of the object if it has one to set the
   start and end times and frequency.
 
-  \code{is.ts} tests if an object is a time series.  It is generic: you
-  can write methods to handle specific classes of objects,
-  see \link{InternalMethods}.
+  \code{is.ts()} tests if an object is a time series, i.e., inherits from
+  \code{"ts"} and is of positive length.
+
+  \code{is.mts(x)} tests if an object \code{x} is a multivariate time series,
+  i.e., fulfills \code{is.ts(x)}, \code{is.matrix(x)} and inherits from
+  class \code{"mts"}.
 }
 \references{
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
@@ -122,10 +132,20 @@ gnp <- ts(cumsum(1 + round(rnorm(100), 2)),
           start = c(1954, 7), frequency = 12)
 plot(gnp) # using 'plot.ts' for time-series plot
 
+\donttest{utils:: methods(class = "ts") # all functions with methods available for "ts"}
+
+## "ts" methods for head() and tail()
+utils:: head(lynx, 4)
+utils:: tail(lynx, -7)
+\dontshow{ stopifnot(is.ts(head(lynx, -6)),
+                     is.ts(tail(lynx, 3)))
+}
+
 ## Multivariate
 z <- ts(matrix(rnorm(300), 100, 3), start = c(1961, 1), frequency = 12)
 class(z)
-head(z) # as "matrix"
+is.mts(z)
+head(z) # "ts" method ==> incl. times:
 plot(z)
 plot(z, plot.type = "single", lty = 1:3)
 

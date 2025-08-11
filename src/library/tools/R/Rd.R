@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,10 +21,6 @@
 Rd_info <-
 function(file, encoding = "unknown")
 {
-    ## <FIXME>
-    ## This used to work only for a given Rd file.
-    ## now only for a parsed Rd object.
-
     if(inherits(file, "Rd")) {
         Rd <- file
         description <- attr(attr(Rd, "srcref"), "srcfile")$filename
@@ -190,20 +186,17 @@ function(contents, type = NULL)
     idx <- (vapply(keywords,
                    function(x) match("internal", x, 0L),
                    0L) == 0L)
-    index <- contents[idx, c("Name", "Title"), drop = FALSE]
+    topic <- as.character(unlist(Map(.Rd_topic_for_display,
+                                     contents[idx, "Name"],
+                                     contents[idx, "Aliases"])))
+    index <- data.frame(Topic = topic,
+                        Title = contents[idx, "Title"])
     if(nrow(index)) {
-        ## If a \name is not a valid \alias, replace it by the first
-        ## alias.
-        aliases <- contents[idx, "Aliases"]
-        bad <- which(!mapply(`%in%`, index[, 1L], aliases))
-        if(any(bad)) {
-            ## was [[, but that applies to lists not char vectors
-            tmp <- sapply(aliases[bad], `[`, 1L)
-            tmp[is.na(tmp)] <- ""
-            index[bad, 1L] <- tmp
-        }
-        ## and sort it by name
-        index <- index[sort.list(index[, 1L]), ]
+        ## Handle entries with missing topic: should these perhaps be 
+        ## dropped?
+        index$Topic[is.na(index$Topic)] <- ""
+        ## Sort by topic.
+        index <- index[order(index$Topic), ]
     }
     index
 }
@@ -263,9 +256,7 @@ function(package, dir, lib.loc = NULL, stages = "build")
         if(length(package) != 1L)
             stop("argument 'package' must be of length 1")
         dir <- find.package(package, lib.loc)
-        ##
-        ## For an installed package, we might have
-        ##
+        ## For an installed package, we have (even when there are no help pages)
         ## help/package.rd[bx]
         ##    with a DB of the parsed (and platform processed, see above) Rd objects.
         db_file <- file.path(dir, "help", package)
@@ -278,43 +269,9 @@ function(package, dir, lib.loc = NULL, stages = "build")
                     paths <- substring(paths, first)
                 names(db) <- paths
             }
-            return(db)
-        }
-        ## or else  pre-2.10.0-style    man/package.Rd.gz   
-        ## file with suitable concatenated Rd sources,
-        ##
-        docs_dir <- file.path(dir, "man")
-        db_file <- file.path(docs_dir, sprintf("%s.Rd.gz", package))
-        if(file_test("-f", db_file)) {
-            lines <- .read_Rd_lines_quietly(db_file)
-            eof_pos <-
-                grep("^\\\\eof$", lines, perl = TRUE, useBytes = TRUE)
-            db <- split(lines[-eof_pos],
-                        rep.int(seq_along(eof_pos),
-                                diff(c(0, eof_pos)))[-eof_pos])
-        } else return(structure(list(), names = character()))
-
-        ## NB: we only get here for pre-2.10.0 installs
-
-        ## If this was installed using a recent enough version of R CMD
-        ## INSTALL, information on source file names is available, and
-        ## we use it for the names of the Rd db.  Otherwise, remove the
-        ## artificial names attribute.
-        paths <- as.character(sapply(db, `[`, 1L))
-        names(db) <-
-            if(length(paths)
-               && all(grepl("^% --- Source file: (.+) ---$", paths)))
-                sub("^% --- Source file: (.+) ---$", "\\1", paths)
-            else
-                NULL
-        ## Determine package encoding.
-        encoding <- .get_package_metadata(dir, TRUE)["Encoding"]
-        if(is.na(encoding)) encoding <- "unknown"
-        db <- suppressWarnings(lapply(db,
-                                      prepare_Rd_from_Rd_lines,
-                                      encoding = encoding,
-                                      defines = .Platform$OS.type,
-                                      stages = "install"))
+        } else # should not happen for packages installed with R >= 2.10.0
+            stop(sprintf("installed help of package %s is corrupt",
+                         sQuote(package)), domain = NA)
     }
     else {
         if(missing(dir))
@@ -326,9 +283,11 @@ function(package, dir, lib.loc = NULL, stages = "build")
         else
             dir <- file_path_as_absolute(dir)
         built_file <- file.path(dir, "build", "partial.rdb")
+        later_file <- file.path(dir, "build", "stage23.rdb")
         db <- .build_Rd_db(dir,
                            stages = stages,
-                           built_file = built_file)
+                           built_file = built_file,
+                           later_file = later_file)
         if(length(db)) {
             first <- nchar(file.path(dir, "man")) + 2L
             names(db) <- substring(names(db), first)
@@ -336,22 +295,13 @@ function(package, dir, lib.loc = NULL, stages = "build")
     }
 
     db
-
-}
-
-prepare_Rd_from_Rd_lines <-
-function(x, ...)
-{
-    con <- textConnection(x, "rt")
-    on.exit(close(con))
-    prepare_Rd(con, ...)
 }
 
 .build_Rd_db <-
 function(dir = NULL, files = NULL,
          encoding = "unknown", db_file = NULL,
          stages = c("build", "install"), os = .OStype(), step = 3L,
-         built_file = NULL, macros = character())
+         built_file = NULL, later_file = NULL, macros = character())
 {
     if(!is.null(dir)) {
         dir <- file_path_as_absolute(dir)
@@ -376,7 +326,7 @@ function(dir = NULL, files = NULL,
         macros <- macros0
     }
 
-    .fetch_Rd_object <- function(f) {
+    .fetch_Rd_object <- function(f, stages) {
         ## This calls parse_Rd if f is a filename
         Rd <- prepare_Rd(f, encoding = encoding,
                          defines = os,
@@ -404,15 +354,19 @@ function(dir = NULL, files = NULL,
     } else
     	db <- list()
 
-    # The built_file is a file of partially processed Rd objects, where build time
-    # \Sexprs have been evaluated.  We'll put the object in place of its
-    # filename to continue processing.
+    ## The built_file is a file of partially processed Rd objects, where
+    ## build time \Sexprs have been evaluated.  We'll put the object in
+    ## place of its filename to continue processing.
+    ## Similarly for later_file.
 
+    basenames <- basename(files)    
     names(files) <- files
+    files <- as.list(files)
+    
     if(!is.null(built_file) && file_test("-f", built_file)) {
-        basenames <- basename(files)
  	built <- readRDS(built_file)
  	names_built <- names(built)
+        ## Hmm ... why are we doing this?
  	if ("install" %in% stages) {
  	    this_os <- grepl(paste0("^", os, "/"), names_built)
  	    name_only <- basename(names_built[this_os])
@@ -424,16 +378,29 @@ function(dir = NULL, files = NULL,
  	built[names_built %notin% basenames] <- NULL
  	if (length(built)) {
  	    which <- match(names(built), basenames)
- 	    if (all(file_test("-nt", built_file, files[which]))) {
- 	    	files <- as.list(files)
+ 	    if (all(file_test("-nt", built_file, names(files)[which]))) {
 	    	files[which] <- built
 	    }
 	}
     }
+    if("later" %in% stages) {
+        if(!is.null(later_file) && file_test("-f", later_file)) {
+            later <- readRDS(later_file)
+            names_later <- names(later)
+            later[names_later %notin% basenames] <- NULL
+            if (length(later)) {
+                which <- match(names(later), basenames)
+                if (all(file_test("-nt", later_file, names(files)[which]))) {
+                    files[which] <- later
+                }
+            }
+        }
+        stages <- stages[stages != "later"]
+    }
 
     if(length(files)) {
         ## message("building database of parsed Rd files")
-        db1 <- lapply(files, .fetch_Rd_object)
+        db1 <- lapply(files, .fetch_Rd_object, stages)
         names(db1) <- names(files)
         db <- c(db, db1)
     }
@@ -508,14 +475,31 @@ function(x, kind)
     x <- x[RdTags(x) == sprintf("\\%s", kind)]
     if(!length(x))
         character()
-    else
+    else {
+        ## <NOTE>
+        ## WRE says that
+        ##   Each @code{\concept} entry should give a @emph{single}
+        ##   index term (word or phrase), and not use any Rd markup.
+        ## but at least for now we use \I{...} for spell checking.
+        if(kind == "concept")
+            x <- lapply(x, function(e) {
+                if((length(e) > 1L) &&
+                   identical(attr(e[[1L]], "Rd_tag"), "USERMACRO") &&
+                   identical(attr(e[[1L]], "macro"), "\\I"))
+                    e[-1L]
+                else
+                    e
+            })
+        ## </NOTE>
         unique(trimws(vapply(x, paste, "", collapse = "\n")))
+    }
 }
 
 ### * .Rd_keywords_auto
 
 .Rd_keywords_auto <-
-    c("~kwd1", "~kwd2", "~~ other possible keyword(s) ~~")
+    c("~kwd1", "~kwd2",                  # prompt.default() in R < 4.0.0
+      "~~ other possible keyword(s) ~~") # promptMethods()
 
 ### * .Rd_get_section
 
@@ -529,7 +513,11 @@ function(x, which, predefined = TRUE)
         ## the elements the title and the body, respectively.
         x <- x[RdTags(x) == "\\section"]
         if(length(x)) {
-            ind <- sapply(x, function(e) .Rd_get_text(e[[1L]])) == which
+            ind <- vapply(x,
+                          function(e)
+                              paste(.Rd_get_text(e[[1L]]),
+                                    collapse = " ") == which,
+                          NA)
             x <- lapply(x[ind], `[[`, 2L)
         }
     }
@@ -622,12 +610,43 @@ function(x, predicate)
     nodes
 }
 
+### * .Rd_apply
+
+## A first shot at recursively transforming nodes in Rd objects: nodes
+## transformed to NULL will get dropped.
+## E.g., to drop comments and specials, one could also do
+##   .Rd_apply(x,
+##             function(e) {
+##                 switch(attr(e, "Rd_tag"),
+##                        "\\special" =,
+##                        "COMMENT" = NULL,
+##                        e)
+##             })
+
+.Rd_apply <- function(x, f) {
+    recurse <- function(e) {
+        if(is.list(e)) {
+            a <- attributes(e)
+            ## Apply f to all nodes:
+            e <- lapply(e, f)
+            ## Drop the NULLs and recurse:
+            e <- lapply(e[!vapply(e, is.null, NA)], recurse)
+            attributes(e) <- a
+        }
+        ## <FIXME>
+        ## Should we do f(e) if not is.list(e)?
+        e
+        ## </FIXME>
+    }
+    recurse(x)
+}
+
 ### * .Rd_get_Sexpr_build_time_info
 
 ## Determine whether Rd has \Sexprs which R CMD build needs to handle at
 ## build stage (expand into the partial Rd db), "later" (build
 ## refman.pdf) or "never" (\Sexprs from \PR or \doi can always safely
-## be expanded).
+## be expanded). Needs unprocessed install \Sexprs.
 
 .Rd_get_Sexpr_build_time_info <-
 function(x)
@@ -650,7 +669,7 @@ function(x)
                    function(e) {
                        flags <- getDynamicFlags(e)
                        if(flags["build"])
-                           "build"
+                           return("build")
                        else if(flags["install"]) {
                            s <- trimws(paste(as.character(e),
                                              collapse = ""))
@@ -692,7 +711,8 @@ function(x)
     ## Extract two-arg \item tags at top level ... non-recursive.
     x <- x[RdTags(x) == "\\item"]
     if(!length(x)) return(matrix(character(), 0L, 2L))
-    x <- lapply(x[lengths(x) == 2L], sapply, .Rd_deparse)
+    x <- lapply(x[lengths(x) == 2L], vapply, FUN.VALUE = "",
+                function(block) .Rd_deparse(block[RdTags(block) != "COMMENT"]))
     matrix(unlist(x), ncol = 2L, byrow = TRUE)
 }
 
@@ -717,8 +737,9 @@ function(x)
     if(!length(x)) return(character())
 
     ## Need to remove everything inside \dontrun (and drop comments),
-    ## and "undefine" \dontshow and \testonly (which is achieved by
-    ## changing the Rd tag to "Rd").
+    ## and "undefine"
+    ##   \dontdiff \dontshow \donttest \testonly
+    ## (which is achieved by changing the Rd tag to "Rd").
 
     ## <FIXME>
     ## Remove eventually.
@@ -727,8 +748,13 @@ function(x)
 
     recurse <- function(e) {
         if(!is.null(tag <- attr(e, "Rd_tag"))
-           && tag %in% c("\\dontshow", "\\testonly"))
+           && tag %in% c("\\dontdiff", "\\dontshow", "\\donttest",
+                         "\\testonly")) {
+            e <- c(list(tagged("\n", "RCODE")),
+                   e,
+                   list(tagged("\n", "RCODE")))
             attr(e, "Rd_tag") <- "Rd"
+        }
         if(is.list(e)) {
             structure(lapply(e[is.na(match(RdTags(e), "\\dontrun"))],
                              recurse),
@@ -737,7 +763,12 @@ function(x)
         else e
     }
 
-    .Rd_deparse(recurse(x), tag = FALSE)
+    y <- recurse(x)
+    attr(y, "Rd_tag") <- "Rd"
+    y <- as.character.Rd(y)
+    y[y %in% c("\\dots", "\\ldots")] <- "..."
+    y <- psub("(?<!\\\\)\\\\([%{])", "\\1", y)
+    paste(y, collapse = "")
 }
 
 ### * .Rd_get_methods_description_table
@@ -752,7 +783,7 @@ function(x)
     if(!length(x)) return(y)
     x <- x[RdTags(x) == "\\item"]
     if(!length(x)) return(y)
-    x <- lapply(x[lengths(x) == 2L], sapply, .Rd_deparse)
+    x <- lapply(x[lengths(x) == 2L], vapply, .Rd_deparse, "")
     matrix(unlist(x), ncol = 2L, byrow = TRUE)
 }
 
@@ -834,14 +865,19 @@ function(x)
         tag <- attr(e, "Rd_tag")
         if(identical(tag, "\\link")) {
             val <- if(length(e)) { # mvbutils has empty links
-                arg <- as.character(e[[1L]])
+                arg <- paste(trimws(unlist(e)), collapse = " ")
                 opt <- attr(e, "Rd_option")
                 c(arg, if(is.null(opt)) "" else as.character(opt))
             } else c("", "")
             out <<- rbind(out, val)
         } else if(identical(tag, "\\linkS4class")) {
-            arg <- as.character(e[[1L]])
-            val <- c(arg, sprintf("=%s-class", arg))
+            arg <- if (length(e)) as.character(e[[1L]]) else ""
+            opt <- attr(e, "Rd_option")
+            val <- if(is.null(opt))
+                       c(arg, sprintf("=%s-class", arg))
+                   else
+                       c(sprintf("%s-class", arg),
+                         as.character(opt))
             out <<- rbind(out, val)
         }
         if(is.list(e)) lapply(e, recurse)
@@ -943,6 +979,12 @@ function(x)
     trimws(x)
 }
 
+### * .Rd_topic_for_display
+
+.Rd_topic_for_display <-
+function(name, aliases)
+    if(name %in% aliases) name else aliases[1L]
+
 ### * fetchRdDB
 
 fetchRdDB <-
@@ -977,11 +1019,16 @@ function(filebase, key = NULL)
         invisible(res)
 }
 
-# The macros argument can be TRUE, in which case a new environment is created with an empty parent,
-# or the result of a previous call to this function, in which case it becomes the parent,
-# or a filename, in which case that file is loaded first, then the new file into a child environment.
+### * loadRdMacros
 
-# It is not safe to save this environment, as changes to the parser may invalidate its contents.
+## The macros argument can be TRUE, in which case a new environment is
+## created with an empty parent, or the result of a previous call to this
+## function, in which case it becomes the parent, or a filename, in
+## which case that file is loaded first, then the new file into a child
+## environment. 
+
+## It is not safe to save this environment, as changes to the parser may
+## invalidate its contents.
 
 loadRdMacros <- function(file, macros = TRUE) {
     # New macros are loaded into a clean environment
@@ -1010,6 +1057,8 @@ loadRdMacros <- function(file, macros = TRUE) {
     attr(Rd, "macros")
 }
 
+### * initialRdMacros
+
 initialRdMacros <- function(pkglist = NULL,
                             macros = file.path(R.home("share"), "Rd", "macros", "system.Rd")
                             ) {
@@ -1032,6 +1081,8 @@ initialRdMacros <- function(pkglist = NULL,
     macros
 }
 
+### * loadPkgRdMacros
+
 loadPkgRdMacros <- function(pkgdir, macros = NULL) {
     pkglist <- .get_package_metadata(pkgdir)["RdMacros"]
     if (is.na(pkglist))
@@ -1049,6 +1100,163 @@ loadPkgRdMacros <- function(pkgdir, macros = NULL) {
     	macros <- loadRdMacros(f, macros)
 
     macros
+}
+
+### * check_math_rendering_in_Rd_db
+
+check_math_rendering_in_Rd_db <-
+function(db, eq = NULL, katex = .make_KaTeX_checker()) {
+    if(is.null(eq))
+        eq <- .Rd_get_equations_from_Rd_db(db)
+    ## Now eq is a 6-column matrix with
+    ##   file tag latex ascii beg end
+    ## where tag is \eqn or \deqn.
+    out <- matrix(character(), 0L, 3L)
+    results <- lapply(eq[, 3L], katex)
+    msg <- vapply(results, `[[`, "", "error")
+    ind <- nzchar(msg)
+    if(any(ind)) {
+        msg <- msg[ind]
+        msg <- sub("^KaTeX parse error: (.*) at position.*:",
+                   "\\1 in",
+                   msg)
+        msg <- sub("^KaTeX parse error: ", "", msg)
+        ## KaTeX uses
+        ##   COMBINING LOW LINE  (U+0332)
+        ##   HORIZONTAL ELLIPSIS (U+2026)
+        ## for formatting parse errors.  These will not work in
+        ## non-UTF-8 locales and not well in UTF-8 ones, so change as
+        ## necessary ... 
+        msg <- gsub("\u2026", "...", msg)
+        msg <- gsub("\u0332", "", msg)
+        l1 <- eq[ind, 5L]
+        l2 <- eq[ind, 6L]
+        tst <- (l1 == l2)
+        pos <- is.na(tst)
+        l1[pos] <- ""
+        pos <- which(!pos)
+        l1[pos] <- paste0(":", l1[pos])
+        pos <- which(!tst[pos])
+        l1[pos] <- paste0(l1[pos], "-", l2[pos])
+        out <- cbind(eq[ind, 1L], l1, msg)
+    }
+    colnames(out) <- c("path", "pos", "msg")
+    out
+}
+
+### * base_Rd_metadata_db
+
+base_Rd_metadata_db <-
+function(kind, verbose = TRUE, Ncpus = getOption("Ncpus", 1L)) 
+{
+    .package_apply(.get_standard_package_names()$base,
+                   function(p) {
+                       lapply(Rd_db(p, lib.loc = .Library),
+                              .Rd_get_metadata, kind)
+                   },
+                   verbose = verbose, Ncpus = Ncpus)
+}
+
+### * base_aliases_db
+
+base_aliases_db <-
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
+    base_Rd_metadata_db("alias", verbose = verbose, Ncpus = Ncpus)
+    
+### * base_keyword_db
+
+base_keyword_db <-
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
+    base_Rd_metadata_db("keyword", verbose = verbose, Ncpus = Ncpus)
+
+### * base_rdxrefs_db
+
+base_rdxrefs_db <- 
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
+{
+    .package_apply(.get_standard_package_names()$base,
+                   function(p) {
+                       db <- Rd_db(p, lib.loc = .Library)
+                       rdxrefs <- lapply(db, .Rd_get_xrefs)
+                       cbind(do.call(rbind, rdxrefs),
+                             Source = rep.int(names(rdxrefs),
+                                              vapply(rdxrefs, NROW,
+                                                     0L)))
+                   },
+                   verbose = verbose, Ncpus = Ncpus)
+}
+
+### * .Rd_xrefs_with_missing_package_anchors
+
+.Rd_xrefs_with_missing_package_anchors <-
+function(dir, level = 1)
+{
+    ## Find the Rd xrefs with non-anchored targets not in the package
+    ## itself or the installed packages with the given new-style levels
+    ## (base: 1, recommended: 2, others: 3)
+    ## Note that we use 'dir' as the path to package sources (and not
+    ## the installed package), and hence use the package Rd db for both
+    ## aliases and rdxrefs.
+
+    db <- Rd_db(dir = dir)
+    if(!length(db)) return()
+    aliases <- lapply(db, .Rd_get_metadata, "alias")
+    rdxrefs <- lapply(db, .Rd_get_xrefs)
+    rdxrefs <- cbind(do.call(rbind, rdxrefs),
+                     Source = rep.int(names(rdxrefs),
+                                      vapply(rdxrefs,
+                                             NROW,
+                                             0L)))
+    anchors <- rdxrefs[, "Anchor"]
+    if(any(ind <- startsWith(anchors, "=")))
+        rdxrefs[ind, 1L : 2L] <- cbind(sub("^=", "", anchors[ind]), "")
+    rdxrefs <- rdxrefs[!nzchar(rdxrefs[, "Anchor"]), , drop = FALSE]
+    aliases <- c(unlist(aliases, use.names = FALSE),
+                 names(findHTMLlinks(level = level)))
+    if(any(ind <- is.na(match(rdxrefs[, "Target"], aliases))))
+        unique(rdxrefs[ind, , drop = FALSE])
+    else NULL
+}
+
+### * .Rd_metadata_db_to_data_frame
+
+.Rd_metadata_db_to_data_frame <- 
+function(x, kind)
+{
+    wrk <- function(a, p) {
+        cbind(unlist(a, use.names = FALSE),
+              rep.int(sprintf("%s::%s", p, names(a)), lengths(a)))
+    }
+    y <- as.data.frame(do.call(rbind,
+                               Map(wrk, x, names(x), USE.NAMES = FALSE)))
+    colnames(y) <- c(kind, "Source")
+    y
+}    
+        
+### * .Rd_aliases_db_to_data_frame
+
+.Rd_aliases_db_to_data_frame <-
+function(x)
+    .Rd_metadata_db_to_data_frame(x, "Alias")
+
+### * .Rd_keyword_db_to_data_frame
+
+.Rd_keyword_db_to_data_frame <-
+function(x)
+    .Rd_metadata_db_to_data_frame(x, "Keyword")
+
+### * .Rd_rdxrefs_db_to_data_frame
+
+.Rd_rdxrefs_db_to_data_frame <-
+function(x)
+{
+    wrk <- function(u, p) {
+        u$Source <- sprintf("%s::%s", p, u$Source)
+        u
+    }
+    do.call(rbind,
+            Map(wrk, lapply(x, as.data.frame), names(x),
+                USE.NAMES = FALSE))
 }
 
 ### Local variables: ***

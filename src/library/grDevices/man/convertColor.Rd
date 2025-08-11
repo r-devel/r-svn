@@ -1,6 +1,6 @@
 % File src/library/grDevices/man/convertColor.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{convertColor}
@@ -42,8 +42,8 @@ convertColor(color, from, to, from.ref.white, to.ref.white,
   The \code{"sRGB"} color space is that used by standard PC monitors.
   \code{"Apple RGB"} is used by Apple monitors. \code{"Lab"} and
   \code{"Luv"} are approximately perceptually uniform
-  spaces standardized by the Commission Internationale
-  d'Eclairage. \code{XYZ} is a 1931 CIE standard capable of representing
+  spaces standardized by the \I{Commission Internationale d'Eclairage}.
+  \code{XYZ} is a 1931 \abbr{CIE} standard capable of representing
   all visible colors (and then some), but not in a perceptually uniform
   way.
 
@@ -52,11 +52,11 @@ convertColor(color, from, to, from.ref.white, to.ref.white,
   color.  Illuminant \code{D65} is a standard indirect daylight,
   Illuminant \code{D50} is close to direct sunlight, and Illuminant
   \code{A} is the light from a standard incandescent bulb. Other
-  standard CIE illuminants supported are \code{B}, \code{C}, \code{E} and
+  standard \abbr{CIE} illuminants supported are \code{B}, \code{C}, \code{E} and
   \code{D55}.  RGB colour spaces are defined relative to a particular
   reference white, and can be only approximately translated to other
-  reference whites.  The von Kries chromatic adaptation algorithm is used
-  for this.  Prior to R 3.6, color conversions involving color spaces
+  reference whites.  The \I{von Kries} chromatic adaptation algorithm is used
+  for this.  Prior to \R 3.6, color conversions involving color spaces
   created with \code{\link{make.rgb}} were carried out assuming a \code{D65}
   illuminant, irrespective of the actual illuminant used in the creation of the
   color space.  This affected the built-in \code{"CIE RGB"} color space.

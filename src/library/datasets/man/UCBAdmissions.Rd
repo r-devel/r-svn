@@ -6,7 +6,7 @@
 \name{UCBAdmissions}
 \docType{data}
 \alias{UCBAdmissions}
-\title{Student Admissions at UC Berkeley}
+\title{Student Admissions at \abbr{UC} Berkeley}
 \description{
   Aggregate data on applicants to graduate school at Berkeley for the
   six largest departments in 1973 classified by admission and sex.
@@ -19,14 +19,14 @@
 
   \tabular{rll}{
     No \tab Name \tab Levels\cr
-    1 \tab Admit \tab Admitted, Rejected\cr
-    2 \tab Gender \tab Male, Female\cr
-    3 \tab Dept \tab A, B, C, D, E, F
+    1 \tab \code{Admit} \tab Admitted, Rejected\cr
+    2 \tab \code{Gender} \tab Male, Female\cr
+    3 \tab \code{Dept} \tab A, B, C, D, E, F
   }
 }
 \details{
   This data set is frequently used for illustrating Simpson's paradox,
-  see Bickel \emph{et al} (1975).  At issue is whether the data show evidence
+  see \I{Bickel} \abbr{et al.}\sspace(1975).  At issue is whether the data show evidence
   of sex bias in admission practices.  There were 2691 male applicants,
   of whom 1198 (44.5\%) were admitted, compared with 1835 female
   applicants of whom 557 (30.4\%) were admitted.  This gives a sample

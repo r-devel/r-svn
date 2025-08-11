@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -88,16 +88,6 @@ function(dir, outDir, builtStamp=character())
     db <- c(db,
             .expand_package_description_db_R_fields(db),
             Built = Built)
-
-    ## <FIXME>
-    ## This should no longer be necessary?
-    ## <COMMENT>
-    ## ## This cannot be done in a MBCS: write.dcf fails
-    ## ctype <- Sys.getlocale("LC_CTYPE")
-    ## Sys.setlocale("LC_CTYPE", "C")
-    ## on.exit(Sys.setlocale("LC_CTYPE", ctype))
-    ## </COMMENT>
-    ## </FIXME>
 
     .write_description(db, file.path(outDir, "DESCRIPTION"))
 
@@ -308,12 +298,30 @@ function(dir, outDir)
                outFile)
     enc <- as.vector(db["Encoding"])
     need_enc <- !is.na(enc) # Encoding was specified
+    testParse <- function(...) { # parse only to detect errors
+        op <- options(showErrorCalls=FALSE)
+        on.exit(options(op))
+        parse(...)
+        invisible()
+    }
     ## assume that if locale is 'C' we can used 8-bit encodings unchanged.
     if(need_enc && (Sys.getlocale("LC_CTYPE") %notin% c("C", "POSIX"))) {
         con <- file(outFile, "a")
         on.exit(close(con))  # Windows does not like files left open
+        badfiles <- c()
         for(f in codeFiles) {
+            ## We needed more care here: iconv() in macOS 14.1 throws
+            ## Aborts on some incorrectly encoded inputs.
             lines <- readLines(f, warn = FALSE)
+            if (enc == "UTF-8") {
+                valid <- validUTF8(lines)
+                if (any(!valid)) {
+                    warning(sprintf("file %s is invalid UTF-8",
+                                    sQuote(basename(f))),
+                            domain = NA, call. = FALSE)
+                    badfiles <- c(badfiles, basename(f))
+                }
+            }
             tmp <- iconv(lines, from = enc, to = "")
             bad <- which(is.na(tmp))
             if(length(bad))
@@ -331,8 +339,18 @@ function(dir, outDir)
                                 paste(bad2, collapse = ", ")),
                         domain = NA, call. = FALSE)
             }
-            writeLines(paste0("#line 1 \"", f, "\""), con)
+            line1 <- paste0("#line 1 \"", f, "\"")
+            testParse(text = c(line1, tmp))
+            writeLines(line1, con)
             writeLines(tmp, con)
+        }
+        if(length(badfiles)) {
+            validate <- config_val_to_logical(Sys.getenv("_R_CHECK_VALIDATE_UTF8_",
+                                                         "FALSE"))
+            if (validate)
+                stop("invalidly encoded .R file(s)", domain = NA, call. = FALSE)
+            else warning("invalidly encoded .R file(s)",
+                         domain = NA, call. = FALSE)
         }
 	close(con); on.exit()
     } else {
@@ -341,16 +359,11 @@ function(dir, outDir)
         ##   writeLines(sapply(codeFiles, readLines), outFile)
         ## instead, but this would be much slower ...
         ## use fast version of file.append that ensures LF between files
+        lapply(codeFiles, testParse)
         if(!all(.file_append_ensuring_LFs(outFile, codeFiles)))
             stop("unable to write code files")
         ## </NOTE>
     }
-    ## A syntax check here, so that we do not install a broken package.
-    ## FIXME:  this is only needed if we don't lazy load, as the lazy loader
-    ## would detect the error.
-    op <- options(showErrorCalls=FALSE)
-    on.exit(options(op))
-    parse(outFile)
     invisible()
 }
 
@@ -687,10 +700,7 @@ function(dir, outDir, keep.source = TRUE)
              domain = NA)
 
     ## We have to be careful to avoid repeated rebuilding.
-    vignettePDFs <-
-        file.path(outVignetteDir,
-                  sub("$", ".pdf",
-                      basename(file_path_sans_ext(vigns$docs))))
+    vignettePDFs <- file.path(outVignetteDir, paste0(vigns$names, ".pdf"))
     upToDate <- file_test("-nt", vignettePDFs, vigns$docs)
 
     ## The primary use of this function is to build and install PDF
@@ -733,21 +743,18 @@ function(dir, outDir, keep.source = TRUE)
         })
         ## In case of an error, do not clean up: should we point to
         ## buildDir for possible inspection of results/problems?
-        ## We need to ensure that vignetteDir is in TEXINPUTS and BIBINPUTS.
+        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS
+        ## and this R's texmf is found (system TEXINPUTS could list another R).
         if (vignette_is_tex(output)) {
-	    ## <FIXME>
-	    ## What if this fails?
-            ## Now gives a more informative error texi2pdf fails
-            ## or if it does not produce a <name>.pdf.
             tryCatch({
-                texi2pdf(file = output, quiet = TRUE, texinputs = vigns$dir)
+                texi2pdf(file = output, quiet = TRUE,
+                         texinputs = c(vigns$dir, paste0(R.home("share"), "/texmf//")))
                 output <- find_vignette_product(name, by = "texi2pdf", engine = engine)
             }, error = function(e) {
                 stop(gettextf("compiling TeX file %s failed with message:\n%s",
                  sQuote(output), conditionMessage(e)),
                  domain = NA, call. = FALSE)
             })
-	    ## </FIXME>
 	}
 
         if(!file.copy(output, outVignetteDir, overwrite = TRUE))
@@ -757,6 +764,7 @@ function(dir, outDir, keep.source = TRUE)
                  domain = NA)
     }
 
+    if (any(!upToDate))
     compactPDF(outVignetteDir, gs_quality = "ebook")
 
     ## Need to change out of this dir before we delete it,
@@ -805,33 +813,46 @@ function(dir, packages)
     invisible()
 }
 
+### * .install_R_bibliographies_as_RDS
+
+.install_R_bibliographies_as_RDS <- 
+function(dir) {
+    bibfiles <- Sys.glob(file.path(dir, "*.R"))
+    bibentries <- do.call(c, lapply(bibfiles,
+                                    utils::readCitationFile, 
+                                    list(Encoding = "UTF-8")))
+    saveRDS(bibentries, file.path(dir, "R.rds"))
+}
+
 ### * .install_package_Rd_objects
 
-## called from src/library/Makefile
+## called from src/library/Makefile and .install_packages
 .install_package_Rd_objects <-
 function(dir, outDir, encoding = "unknown")
 {
+    packageName <- basename(outDir)
     dir <- file_path_as_absolute(dir)
     mandir <- file.path(dir, "man")
     manfiles <- if(!dir.exists(mandir)) character()
-    else list_files_with_type(mandir, "docs")
+                else list_files_with_type(mandir, "docs")
     manOutDir <- file.path(outDir, "help")
     dir.create(manOutDir, FALSE)
-    db_file <- file.path(manOutDir,
-                         paste0(basename(outDir), ".rdx"))
+    db_file <- file.path(manOutDir, paste0(packageName, ".rdx"))
     built_file <- file.path(dir, "build", "partial.rdb")
-    macro_files <- list.files(file.path(dir, "man", "macros"), pattern = "\\.Rd$", full.names = TRUE)
+    macro_files <- list.files(file.path(dir, "man", "macros"),
+                              pattern = "\\.Rd$", full.names = TRUE)
     if (length(macro_files)) {
     	macroDir <- file.path(manOutDir, "macros")
     	dir.create(macroDir, FALSE)
     	file.copy(macro_files, macroDir, overwrite = TRUE)
     }
     ## Avoid (costly) rebuilding if not needed.
-    ## Actually, it seems no more costly than these tests, which it also does
+    ## Remaking Rdobjects of base packages takes 4s, but only 0.5s if skipped.
     pathsFile <- file.path(manOutDir, "paths.rds")
-    if(!file_test("-f", db_file) || !file.exists(pathsFile) ||
-       !identical(sort(manfiles), sort(readRDS(pathsFile))) ||
-       !all(file_test("-nt", db_file, manfiles))) {
+    upToDate <- file_test("-f", db_file) && file.exists(pathsFile) &&
+        identical(sort(manfiles), sort(readRDS(pathsFile))) &&
+        all(file_test("-nt", db_file, manfiles))
+    if(!upToDate) {
         db <- .build_Rd_db(dir, manfiles, db_file = db_file,
                            encoding = encoding, built_file = built_file)
         nm <- as.character(names(db)) # Might be NULL
@@ -839,7 +860,7 @@ function(dir, outDir, encoding = "unknown")
                           first = nchar(file.path(mandir)) + 2L),
                 pathsFile)
         names(db) <- sub("\\.[Rr]d$", "", basename(nm))
-        makeLazyLoadDB(db, file.path(manOutDir, basename(outDir)))
+        makeLazyLoadDB(db, file.path(manOutDir, packageName))
     }
     invisible()
 }
@@ -1043,7 +1064,7 @@ compactPDF <-
     function(paths, qpdf = Sys.which(Sys.getenv("R_QPDF", "qpdf")),
              gs_cmd = Sys.getenv("R_GSCMD", ""),
              gs_quality = Sys.getenv("GS_QUALITY", "none"),
-             gs_extras = character())
+             gs_extras = character(), verbose = FALSE)
 {
     use_qpdf <- nzchar(qpdf)
     qpdf_flags <- "--object-streams=generate"
@@ -1063,15 +1084,20 @@ compactPDF <-
     }
     gs_quality <- match.arg(gs_quality, c("none", "printer", "ebook", "screen"))
     use_gs <- if(gs_quality != "none") nzchar(gs_cmd <- find_gs_cmd(gs_cmd)) else FALSE
+    if(verbose) cat(sprintf("qs_quality=\"%s\" : use_gs=%s, use_qpdf=%s\n",
+                            gs_quality, use_gs, use_qpdf))
     if (!use_gs && !use_qpdf) return()
     if(length(paths) == 1L && dir.exists(paths))
         paths <- Sys.glob(file.path(paths, "*.pdf"))
+    if(verbose) cat(sprintf("#{pdf}s = length(paths) = %d\n", length(paths)))
     dummy <- rep.int(NA_real_, length(paths))
     ans <- data.frame(old = dummy, new = dummy, row.names = paths)
     ## These should not have spaces, but quote below to be safe.
     tf <- tempfile("pdf"); tf2 <- tempfile("pdf")
+    verb2 <- verbose >= 2
     for (p in paths) {
         res <- 0
+        if(verbose) cat(sprintf("- %s:%s", p, if(verb2)"\n" else " "))
         if (use_gs) {
             res <- system2(gs_cmd,
                            c("-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite",
@@ -1080,25 +1106,43 @@ compactPDF <-
                              "-dAutoRotatePages=/None",
                              "-dPrinted=false",
                              sprintf("-sOutputFile=%s", shQuote(tf)),
-                             gs_extras, shQuote(p)), FALSE, FALSE)
+                             gs_extras, shQuote(p)), verb2, verb2)
+            if(verbose) {
+                res0 <- (verb2 && !length(res))
+                cat(sprintf("   gs: res=%s; ", if(res0) "<>" else res))
+                if(verb2) res <- if(res0) 0 else attr(res, "status")
+            }
             if(!res && use_qpdf) {
                 unlink(tf2) # precaution
                 file.rename(tf, tf2)
                 res <- system2(qpdf, c(qpdf_flags, shQuote(tf2), shQuote(tf)),
-                               FALSE, FALSE)
+                               verb2, verb2)
+                if(verbose) {
+                    res0 <- (verb2 && !length(res))
+                    cat(sprintf(" + qpdf: res=%s; ", if(res0) "<>" else res))
+                    if(verb2) res <- if(res0) 0 else attr(res, "status")
+                }
                 unlink(tf2)
             }
         } else if(use_qpdf) {
             res <- system2(qpdf, c(qpdf_flags, shQuote(p), shQuote(tf)),
-                           FALSE, FALSE)
+                           verb2, verb2)
+            if(verbose) {
+                res0 <- (verb2 && !length(res))
+                cat(sprintf(" only qpdf: res=%s; ", if(res0) "<>" else res))
+                if(verb2) res <- if(res0) 0 else attr(res, "status")
+            }
         }
         if(!res && file.exists(tf)) {
             old <- file.size(p); new <-  file.size(tf)
+            if(verbose)
+                cat(sprintf("\n    ==> (new=%g)/(old=%g) = %g", new,old, new/old))
             if(new/old < 0.9 && new < old - 1e4) {
+                if(verbose) cat(" =====> using it !!\n")
                 file.copy(tf, p, overwrite = TRUE)
                 ans[p, ] <- c(old, new)
-            }
-        }
+            } else if(verbose) cat(" .. not worth using\n")
+        } else if(verbose) cat("\n")
         unlink(tf)
     }
     structure(stats::na.omit(ans), class = c("compactPDF", "data.frame"))
