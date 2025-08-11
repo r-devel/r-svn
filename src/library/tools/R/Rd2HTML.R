@@ -1,6 +1,6 @@
 #  File src/library/tools/R/Rd2HTML.R
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -18,38 +18,45 @@
 
 ## also used by Rd2latex, but only 'topic' and 'dest'
 get_link <- function(arg, tag, Rdfile) {
-    ## 'topic' is the name to display, 'dest' is the topic to link to
-    ## optionaly in package 'pkg'.  If 'target' is set it is the file
-    ## to link to in HTML help
+    ## 'topic' is the text to display (used by Rd2latex, also as \index entry),
+    ## 'dest' is the topic to link to (unless for option [pkg:bar]).
+    ## Package-anchored links have non-NULL 'pkg' and 'targetfile',
+    ## where the latter is the topic/file to link to in HTML help.
 
-    ## \link[=bar]{foo} means shows foo but treat this as a link to bar.
-    ## \link[pkg]{bar} means show bar and link to *file* bar in package pkg
-    ## \link{pkg:bar]{foo} means show foo and link to file bar in package pkg.
+    ## \link{foo}: show and link to topic foo.
+    ## \link[=bar]{foo} means shows foo but treat this as a link to *topic* bar.
+    ## \link[pkg]{bar} means show bar and link to topic/file bar in package pkg.
+    ## \link[pkg:bar]{foo} means show foo and link to topic/file bar in package pkg.
     ## As from 2.10.0, look for topic 'bar' if file not found.
     ## As from 4.1.0, prefer topic 'bar' over file 'bar' (in which case 'targetfile' is a misnomer)
+    ## As from 4.5.0, allow markup in link text for variants 2 and 4.
 
-    if (!all(RdTags(arg) == "TEXT"))
-    	stopRd(arg, Rdfile, "Bad \\link text")
-
+    isTEXT <- all(RdTags(arg) == "TEXT")
     option <- attr(arg, "Rd_option")
 
     topic <- dest <- paste(unlist(arg), collapse = "")
+    if (tag == "\\linkS4class") dest <- paste0(dest, "-class")
+
     targetfile <- NULL
     pkg <- NULL
     if (!is.null(option)) {
         if (!identical(attr(option, "Rd_tag"), "TEXT"))
     	    stopRd(option, Rdfile, "Bad \\link option -- must be text")
-    	if (grepl("^=", option, perl = TRUE, useBytes = TRUE))
+        option <- as.character(option)
+        if (startsWith(option, "="))
     	    dest <- psub1("^=", "", option)
-    	else if (grepl(":", option, perl = TRUE, useBytes = TRUE)) {
+        else if (grepl(":", option, fixed = TRUE)) {
     	    targetfile <- psub1("^[^:]*:", "", option)
     	    pkg <- psub1(":.*", "", option)
     	} else {
+            if (!isTEXT)
+                stopRd(arg, Rdfile, "Bad \\link[pkg]{topic} -- argument must be text")
             targetfile <- dest
-    	    pkg <- as.character(option)
+            pkg <- option
     	}
-    }
-    if (tag == "\\linkS4class") dest <- paste0(dest, "-class")
+    } else if (!isTEXT)
+        stopRd(arg, Rdfile, "Bad \\link topic -- must be text")
+
     list(topic = topic, dest = dest, pkg = pkg, targetfile = targetfile)
 }
 
@@ -445,9 +452,11 @@ Rd2HTML <-
     }
 
     skipNewline <- FALSE
+    linestart <- TRUE
     of0 <- function(...)
         of1(paste0(...))
     of1 <- function(text) {
+        force(text) # use skipNewline
         if (skipNewline) {
             skipNewline <<- FALSE
             if (text == "\n") return()
@@ -455,6 +464,7 @@ Rd2HTML <-
     	if (concordance)
     	    conc$addToConcordance(text)
         writeLinesUTF8(text, con, outputEncoding, sep = "")
+        linestart <<- endsWith(text, "\n")
     }
 
     pendingClose <- pendingOpen <- character()  # Used for infix methods
@@ -506,13 +516,14 @@ Rd2HTML <-
                    "\\verb"="&#8288;</code>")
 
     addParaBreaks <- function(x) {
-	if (isBlankLineRd(x) && isTRUE(inPara)) {
+	if (isTRUE(inPara) && #isBlankLineRd(x)
+	    linestart && grepl("^[[:blank:]]*\n", x)) {
 	    inPara <<- FALSE
 	    return("</p>\n")
 	}
-	## TODO: can we get 'start col' if no srcref ?
+	## remove indentation (for cleaner/smaller output)
 	if (utils:::getSrcByte(x) == 1L) x <- psub("^\\s+", "", x)
-	if (isFALSE(inPara) && !all(grepl("^[[:blank:]\n]*$", x, perl = TRUE))) {
+	if (isFALSE(inPara) && !isBlankRd(x)) {
 	    x <- paste0("<p>", x)
 	    inPara <<- TRUE
 	}
@@ -746,7 +757,8 @@ Rd2HTML <-
                VERB = if (Rhtml && blocktag == "\\dontrun") of1(block)
                       else of1(vhtmlify(block, inEqn)),
                RCODE = if (Rhtml) of1(block) else of1(vhtmlify(block)),
-               TEXT = of1(if(doParas && !inAsIs) addParaBreaks(htmlify(block)) else vhtmlify(block)),
+               TEXT = of1(if (doParas && !inAsIs && !skipNewline) addParaBreaks(htmlify(block))
+                          else vhtmlify(block)),
                USERMACRO =,
                "\\newcommand" =,
                "\\renewcommand" = {},
@@ -782,6 +794,9 @@ Rd2HTML <-
                ## watch out for empty URLs (TeachingDemos had one)
                "\\url" = if(length(block)) {
                    url <- lines2str(as.character(block))
+                   if(startsWith(url, "doi:"))
+                       url <- paste0("https://doi.org/",
+                                     substring(url, 5L))
                    enterPara(doParas)
                    of0('<a href="', urlify(url), '">', htmlify(url), '</a>')
                },
@@ -789,6 +804,9 @@ Rd2HTML <-
                    closing <-
                        if(length(block[[1L]])) {
                            url <- lines2str(as.character(block[[1L]]))
+                           if(startsWith(url, "doi:"))
+                               url <- paste0("https://doi.org/",
+                                             substring(url, 5L))
                            enterPara(doParas)
                            of0('<a href="', urlify(url), '">')
                            "</a>"
@@ -800,7 +818,7 @@ Rd2HTML <-
                	   of0(closing)
                	   inPara <<- savePara
                },
-               "\\Sexpr"= of0(as.character.Rd(block, deparse=TRUE)),
+               "\\Sexpr"= of1(paste(as.character.Rd(block, deparse=TRUE), collapse="")),
                "\\cr" =,
                "\\dots" =,
                "\\ldots" =,
@@ -1005,8 +1023,8 @@ Rd2HTML <-
     	    	leavePara(FALSE)
     	    	if (!inlist) {
     	    	    switch(blocktag,
-                           "\\value" =  of1('<table>\n'),
-                           "\\arguments" = of1('<table>\n'),
+                           "\\value" =  of1('<table role = "presentation">\n'),
+                           "\\arguments" = of1('<table role = "presentation">\n'),
                            "\\itemize" = of1("<ul>\n"),
                            "\\enumerate" = of1("<ol>\n"),
                            "\\describe" = of1("<dl>\n"))
@@ -1224,40 +1242,6 @@ Rd2HTML <-
     doTexMath <- enhancedHTML && !uses_mathjaxr(Rd) &&
         texmath %in% c("katex", "mathjax")
 
-    ## KaTeX / Mathjax resources (if they are used)
-    if (doTexMath && texmath == "katex") {
-        KATEX_JS <-
-            if (dynamic) "/doc/html/katex/katex.js"
-            else "https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.js"
-        KATEX_CSS <- if (dynamic) "/doc/html/katex/katex.css"
-                     else "https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.css"
-        KATEX_CONFIG <-
-            if (dynamic) "/doc/html/katex-config.js"
-            else c("const macros = { \"\\\\R\": \"\\\\textsf{R}\", \"\\\\code\": \"\\\\texttt\"};", 
-                   "function processMathHTML() {",
-                   "    var l = document.getElementsByClassName('reqn');", 
-                   "    for (let e of l) { katex.render(e.textContent, e, { throwOnError: false, macros }); }", 
-                   "    return;",
-                   "}")
-    }
-    if (doTexMath && texmath == "mathjax") {
-        MATHJAX_JS <-
-            if (dynamic && requireNamespace("mathjaxr", quietly = TRUE))
-                "/library/mathjaxr/doc/mathjax/es5/tex-chtml-full.js"
-            else
-                "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"
-        MATHJAX_CONFIG <-
-            if (dynamic) "/doc/html/mathjax-config.js"
-            else "../../../doc/html/mathjax-config.js"
-    }
-    if (enhancedHTML) {
-        PRISM_JS <- 
-            if (dynamic) "/doc/html/prism.js"
-            else NULL # "../../../doc/html/prism.js"
-        PRISM_CSS <- 
-            if (dynamic) "/doc/html/prism.css"
-            else NULL # "../../../doc/html/prism.css"
-    }
     Rdfile <- attr(Rd, "Rdfile")
     sections <- RdTags(Rd)
     if (fragment) {
@@ -1320,7 +1304,7 @@ Rd2HTML <-
 	inPara <- FALSE
         if (!standalone) {
             ## create empty spans with aliases as id, so that we can link
-            for (a in trimws(unlist(Rd[ which(sections == "\\alias") ]))) {
+            for (a in unique(trimws(unlist(Rd[ which(sections == "\\alias") ])))) {
                 if (endsWith(a, "-package")) info$pkgsummary <- TRUE
                 of0("<span id='", topic2id(a), "'></span>")
             }
@@ -1619,27 +1603,37 @@ function(dir)
     ## achieve this by adding the canonicalized ORCID id (URL) to the
     ## 'family' element and simultaneously dropping the ORCID id from
     ## the 'comment' element, and then re-format.
-    .format_authors_at_R_field_with_expanded_ORCID_identifier <- function(a) {
+    ## See <https://ror.readme.io/docs/display> for ROR display
+    ## guidelines.
+    .format_authors_at_R_field_with_expanded_identifiers <- function(a) {
         x <- utils:::.read_authors_at_R_field(a)
         format_person1 <- function(e) {
-            comment <- e$comment
-            pos <- which((names(comment) == "ORCID") &
-                         grepl(.ORCID_iD_variants_regexp, comment))
-            if((len <- length(pos)) > 0L) {
+            cmt <- e$comment
+            pos <- which((names(cmt) == "ORCID") &
+                         grepl(.ORCID_iD_variants_regexp, cmt))
+            if(length(pos) == 1L) {
                 e$family <-
                     c(e$family,
-                      paste0("<",
-                             paste0("https://replace.me.by.orcid.org/",
-                                    .ORCID_iD_canonicalize(comment[pos])),
-                             ">"))
-                e$comment <- if(len < length(comment))
-                                 comment[-pos]
-                             else
-                                 NULL
+                      sprintf("<https://replace.me.by.orcid.org/%s>",
+                              .ORCID_iD_canonicalize(cmt[pos])))
+                cmt <- cmt[-pos]
             }
+            ## Of course, a person should not have both ORCID and ROR
+            ## identifiers: could check for that.
+            pos <- which((names(cmt) == "ROR") &
+                         grepl(.ROR_ID_variants_regexp, cmt))
+            if(length(pos) == 1L) {
+                e$family <-
+                    c(e$family,
+                      sprintf("<https://replace.me.by.ror.org/%s>",
+                              .ROR_ID_canonicalize(cmt[pos])))
+                cmt <- cmt[-pos]
+            }
+            e$comment <- if(length(cmt)) cmt else NULL
             e
         }
-        x[] <- lapply(unclass(x), format_person1)
+        x <- lapply(unclass(x), format_person1)
+        class(x) <- "person"
         utils:::.format_authors_at_R_field_for_author(x)
     }
     
@@ -1668,7 +1662,7 @@ function(dir)
 
     if(!is.na(aatr))
         desc["Author"] <-
-            .format_authors_at_R_field_with_expanded_ORCID_identifier(aatr)
+            .format_authors_at_R_field_with_expanded_identifiers(aatr)
 
     ## Take only Title and Description as *text* fields.
     desc["Title"] <- htmlify_text(desc["Title"])
@@ -1708,12 +1702,24 @@ function(dir)
             gsub(sprintf("&lt;https://replace.me.by.orcid.org/(%s)&gt;",
                          .ORCID_iD_regexp),
                  paste0("<a href=\"https://orcid.org/\\1\">",
-                        "<img alt=\"ORCID iD\"",
+                        "<img alt=\"ORCID iD\" ",
                         if(dynamic)
-                            "src=\"/doc/html/orcid.svg\" "
+                            " src=\"/doc/html/orcid.svg\" "
                         else
-                            "src=\"https://cloud.R-project.org/web/orcid.svg\" ",
+                            " src=\"https://cloud.R-project.org/web/resources/orcid.svg\" ",
                         "style=\"width:16px; height:16px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
+                        " /></a>"),
+                 desc["Author"])
+        desc["Author"] <-
+            gsub(sprintf("&lt;https://replace.me.by.ror.org/(%s)&gt;",
+                         .ROR_ID_regexp),
+                 paste0("<a href=\"https://ror.org/\\1\">",
+                        "<img alt=\"ROR ID\" ",
+                        if(dynamic)
+                            " src=\"/doc/html/ror.svg\" "
+                        else
+                            " src=\"https://cloud.R-project.org/web/resources/ror.svg\" ",
+                        "style=\"width:20px; height:20px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
                         " /></a>"),
                  desc["Author"])
     }
@@ -1729,7 +1735,7 @@ function(dir)
     ##   AUTHORS COPYRIGHTS
     ## </TODO>
 
-    c("<table>",
+    c("<table role='presentation'>",
       sprintf("<tr>\n<td>%s:</td>\n<td>%s</td>\n</tr>",
               names(desc), desc),
       "</table>")

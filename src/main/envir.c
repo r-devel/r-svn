@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2024  The R Core Team.
+ *  Copyright (C) 1999--2025  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -224,7 +224,7 @@ attribute_hidden Rboolean R_envHasNoSpecialSymbols (SEXP env)
    and hash tables get saved as part of environments so changing it
    is a major decision.
  */
-int attribute_hidden R_Newhashpjw(const char *s)
+attribute_hidden int R_Newhashpjw(const char *s)
 {
     char *p;
     unsigned h = 0, g;
@@ -991,6 +991,7 @@ void R_SetVarLocValue(R_varloc_t vl, SEXP value)
   symbol in this frame (FALSE).  This is used for get() and exists().
 */
 
+// In Rinternals.h
 SEXP findVarInFrame3(SEXP rho, SEXP symbol, Rboolean doGet)
 {
     int hashcode;
@@ -1287,9 +1288,9 @@ static SEXP findVarLoc(SEXP symbol, SEXP rho)
 #endif
 }
 
-R_varloc_t R_findVarLoc(SEXP rho, SEXP symbol)
+R_varloc_t R_findVarLoc(SEXP symbol, SEXP rho)
 {
-    SEXP binding = findVarLoc(rho, symbol);
+    SEXP binding = findVarLoc(symbol, rho);
     R_varloc_t val;
     val.cell = binding == R_NilValue ? NULL : binding;
     return val;
@@ -1677,7 +1678,7 @@ void defineVar(SEXP symbol, SEXP value, SEXP rho)
 	    }
 	    hashcode = HASHVALUE(c) % HASHSIZE(HASHTAB(rho));
 	    R_HashSet(hashcode, symbol, HASHTAB(rho), value,
-		      FRAME_IS_LOCKED(rho));
+		      (Rboolean) FRAME_IS_LOCKED(rho));
 	    if (R_HashSizeCheck(HASHTAB(rho)))
 		SET_HASHTAB(rho, R_HashResize(HASHTAB(rho)));
 	}
@@ -2136,7 +2137,8 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "inherits");
 
     /* Search for the object */
-    rval = findVar1mode(t1, genv, gmode, wants_S4, ginherits, PRIMVAL(op));
+    rval = findVar1mode(t1, genv, gmode, wants_S4, ginherits,
+			(Rboolean) PRIMVAL(op));
     if (rval == R_MissingArg) { // signal a *classed* error:
 	R_MissingArgError(t1, call, "getMissingError");
     }
@@ -2279,6 +2281,7 @@ attribute_hidden SEXP do_mget(SEXP call, SEXP op, SEXP args, SEXP rho)
     return(ans);
 }
 
+// In Rinternals.h
 SEXP R_getVarEx(SEXP sym, SEXP rho, Rboolean inherits, SEXP ifnotfound)
 {
     if (TYPEOF(sym) != SYMSXP)
@@ -2299,6 +2302,7 @@ SEXP R_getVarEx(SEXP sym, SEXP rho, Rboolean inherits, SEXP ifnotfound)
     return val;
 }
 
+// In Rinternals.h
 SEXP R_getVar(SEXP sym, SEXP rho, Rboolean inherits)
 {
     SEXP val = R_getVarEx(sym, rho, inherits, R_UnboundValue);
@@ -2391,7 +2395,7 @@ Rboolean R_isMissing(SEXP symbol, SEXP rho)
 		int oldseen = PRSEEN(CAR(vl));
 		SET_PRSEEN(CAR(vl), 1);
 		PROTECT(vl);
-		int val = R_isMissing(PREXPR(CAR(vl)), PRENV(CAR(vl)));
+		Rboolean val = R_isMissing(PREXPR(CAR(vl)), PRENV(CAR(vl)));
 		UNPROTECT(1); /* vl */
 		/* The oldseen value will usually be 0, but might be 2
 		   from an interrupted evaluation. LT */
@@ -2934,11 +2938,12 @@ attribute_hidden SEXP do_ls(SEXP call, SEXP op, SEXP args, SEXP rho)
     int sort_nms = asLogical(CADDR(args)); /* sorted = TRUE/FALSE */
     if (sort_nms == NA_LOGICAL) sort_nms = 0;
 
-    return R_lsInternal3(env, all, sort_nms);
+    return R_lsInternal3(env, (Rboolean) all, (Rboolean) sort_nms);
 }
 
 /* takes an environment, a boolean indicating whether to get all
    names and a boolean if sorted is desired */
+// In Rinternals.h
 SEXP R_lsInternal3(SEXP env, Rboolean all, Rboolean sorted)
 {
     if(IS_USER_DATABASE(env)) {
@@ -2979,6 +2984,7 @@ SEXP R_lsInternal3(SEXP env, Rboolean all, Rboolean sorted)
 }
 
 /* non-API version used in several packages */
+// in Rinternals.h
 SEXP R_lsInternal(SEXP env, Rboolean all)
 {
     return R_lsInternal3(env, all, TRUE);
@@ -3047,7 +3053,7 @@ attribute_hidden SEXP do_env2list(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SEXP sind = PROTECT(allocVector(INTSXP, k));
 	int *indx = INTEGER(sind);
 	for (int i = 0; i < k; i++) indx[i] = i;
-	orderVector1(indx, k, names, /* nalast */ TRUE, /* decreasing */ FALSE,
+	orderVector1(indx, k, names, /* nalast */ true, /* decreasing */ false,
 		     R_NilValue);
 	SEXP ans2   = PROTECT(allocVector(VECSXP, k));
 	SEXP names2 = PROTECT(allocVector(STRSXP, k));
@@ -3302,7 +3308,7 @@ do_as_environment(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP arg = CAR(args), ans;
     checkArity(op, args);
-    check1arg(args, call, "object");
+    check1arg(args, call, "x");
     if(isEnvironment(arg))
 	return arg;
     /* DispatchOrEval internal generic: as.environment */
@@ -3398,7 +3404,7 @@ attribute_hidden SEXP do_lockEnv(SEXP call, SEXP op, SEXP args, SEXP rho)
     Rboolean bindings;
     checkArity(op, args);
     frame = CAR(args);
-    bindings = asLogical(CADR(args));
+    bindings = asRbool(CADR(args), call);
     R_LockEnvironment(frame, bindings);
     return R_NilValue;
 }
@@ -3866,6 +3872,7 @@ attribute_hidden SEXP do_getRegNS(SEXP call, SEXP op, SEXP args, SEXP rho)
     return R_NilValue; // -Wall
 }
 
+// .Internal(getNamespaceRegistry())
 attribute_hidden SEXP do_getNSRegistry(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
@@ -4552,7 +4559,7 @@ attribute_hidden SEXP do_topenv(SEXP call, SEXP op, SEXP args, SEXP rho) {
     return topenv(target, envir);
 }
 
-Rboolean attribute_hidden isUnmodifiedSpecSym(SEXP sym, SEXP env) {
+attribute_hidden Rboolean isUnmodifiedSpecSym(SEXP sym, SEXP env) {
     if (!IS_SPECIAL_SYMBOL(sym))
 	return FALSE;
     for(;env != R_EmptyEnv; env = ENCLOS(env))

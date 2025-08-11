@@ -6,7 +6,7 @@
  *  Merge in to R and further tweaks :
  *  notably using log1p() and pow1p(), thanks to Morten Welinder, PR#18642
  *
- *	Copyright (C) 2000-2024 The R Core Team
+ *	Copyright (C) 2000-2025 The R Core Team
  *	Copyright (C) 2008 The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,8 @@
  *   This checks for argument validity, and calls dbinom_raw().
  *
  *   dbinom_raw() does the actual computation; note this is called by
- *   other functions in addition to dbinom().
+ *   many other functions in addition to dbinom():
+ *   dnbinom(), dbeta(), df(), dgeom(), dhyper()
  *     (1) dbinom_raw() has both p and q arguments, when one may be represented
  *         more accurately than the other (in particular, in df()).
  *     (2) dbinom_raw() does NOT check that inputs x and n are integers. This
@@ -60,11 +61,13 @@ double pow1p(double x, double y)
     /* naive algorithm in two cases: (1) when 1+x is exact (compiler should not over-optimize !),
      * and (2) when |x| > 1/2 and we have no better algorithm.
      */
-    if ((x + 1) - 1 == x || fabs(x) > 0.5 || isnan(x))
-	return pow(1 + x, y);
-    else /* not perfect, e.g., for small |x|, non-huge y, use
+    volatile double xp1 = x + 1., x_ = xp1 - 1.; // compiler should *not* optimize these
+    if (x_ == x || fabs(x) > 0.5 || isnan(x)) {
+	return pow(xp1, y);
+    } else { /* not perfect, e.g., for small |x|, non-huge y, use
 	    binom expansion 1 + y*x + y(y-1)/2 x^2 + .. */
 	return exp(y * log1p(x));
+    }
 }
 
 double dbinom_raw(double x, double n, double p, double q, int give_log)
@@ -87,6 +90,11 @@ double dbinom_raw(double x, double n, double p, double q, int give_log)
 	    return give_log ? n * log (p)   : pow (p, n);
     }
     if (x < 0 || x > n) return( R_D__0 );
+
+    if(!R_FINITE(n)) {
+	if(R_FINITE(x)) return( R_D__0 ); /* finite x << n = Inf */
+	else n = DBL_MAX; // helps ? extreme dnbinom() cases
+    }
 
 // TODO?  Improve accuracy in these cases:
 #ifdef _NO_LOG_DBINOM_

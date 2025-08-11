@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997-2024   The R Core Team
+ *  Copyright (C) 1997-2025   The R Core Team
  *  Copyright (C) 1995-1996   Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,20 +55,20 @@
 # include <sys/stat.h>
 #endif
 
-int attribute_hidden R_isWriteableDir(char *path);
+attribute_hidden int R_isWriteableDir(char *path);
 
 #ifdef HAVE_AQUA
 int (*ptr_CocoaSystem)(const char*);
 #endif
 
 #ifdef Win32
-Rboolean R_FileExists(const char *path)
+bool R_FileExists(const char *path)
 {
     struct _stati64 sb;
     return _stati64(R_ExpandFileName(path), &sb) == 0;
 }
 
-double attribute_hidden R_FileMtime(const char *path)
+attribute_hidden double R_FileMtime(const char *path)
 {
     struct _stati64 sb;
     if (_stati64(R_ExpandFileName(path), &sb) != 0)
@@ -76,13 +76,14 @@ double attribute_hidden R_FileMtime(const char *path)
     return sb.st_mtime;
 }
 #else
-Rboolean R_FileExists(const char *path)
+// used in tools
+bool R_FileExists(const char *path)
 {
     struct stat sb;
     return stat(R_ExpandFileName(path), &sb) == 0;
 }
 
-double attribute_hidden R_FileMtime(const char *path)
+attribute_hidden double R_FileMtime(const char *path)
 {
     struct stat sb;
     if (stat(R_ExpandFileName(path), &sb) != 0)
@@ -95,7 +96,7 @@ double attribute_hidden R_FileMtime(const char *path)
      *  Unix file names which begin with "." are invisible.
      */
 
-Rboolean attribute_hidden R_HiddenFile(const char *name)
+attribute_hidden bool R_HiddenFile(const char *name)
 {
     if (name && name[0] != '.') return 0;
     else return 1;
@@ -242,7 +243,7 @@ attribute_hidden SEXP do_interactive(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_tempdir(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    Rboolean check = asLogical(CAR(args));
+    bool check = asBool2(CAR(args), call);
     if(check && !R_isWriteableDir(R_TempDir)) {
 	R_TempDir = NULL;
 	R_reInitTempDir(/* die_on_fail = */ FALSE);
@@ -602,8 +603,9 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
     char *outbuf;
     const char *sub; // null for no substitution.
     size_t inb, outb, res;
+    size_t inp_unit_size = 0; /* uninitialized */
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
-    Rboolean isRawlist = FALSE;
+    bool isRawlist = false;
 
     checkArity(op, args);
     if(isNull(x)) {  /* list locales */
@@ -619,7 +621,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
     } else {
 	int mark, toRaw;
 	const char *from, *to;
-	Rboolean isLatin1 = FALSE, isUTF8 = FALSE;
+	bool isLatin1 = false, isUTF8 = false;
 
 	args = CDR(args);
 	if(!isString(CAR(args)) || length(CAR(args)) != 1)
@@ -655,6 +657,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	    from = "iso88592";
 	if(R_strieql(to, "latin-2") || R_strieql(to, "latin2") )
 	    to = "iso88592";
+	/* the following is redundant (musl does know about the latin9 alias) */
 	if(R_strieql(from, "latin-9") || R_strieql(from, "latin9") )
 	    from = "iso885915";
 	if(R_strieql(to, "latin-9") || R_strieql(to, "latin9") )
@@ -694,7 +697,7 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 	    }
 	    void * obj = (iconv_t)-1;
-	    Rboolean fromUTF8 = FALSE;
+	    bool fromUTF8 = false;
 
 	    /* With 'from = ""', encoding flags are used in preference
 	       of native encoding.
@@ -791,11 +794,18 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	    } else if(res == -1 && sub &&
 		      (errno == EILSEQ || errno == EINVAL)) {
 		/* it seems this gets thrown for non-convertible input too */
+		/* EINVAL returned for invalid input on macOS with system
+		   libiconv */
+		/*
+		  Should re-set with a stateful encoding, but some iconv
+		  implementations forget byte-order learned from BOM.
+
 		res = Riconv(obj, NULL, NULL, &outbuf, &outb);	
 		if (res == -1 && errno == E2BIG) {
 		    R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
 		    goto top_of_loop;
-		}	
+		}
+		*/
 		if(fromUTF8 && streql(sub, "Unicode")) {
 		    if(outb < 13) {
 			R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
@@ -854,24 +864,42 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			}
 		    }
 		    goto next_char;
-		} else if(strcmp(sub, "byte") == 0) {
-		    if(outb < 5) {
-			R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
-			goto top_of_loop;
-		    }
-		    snprintf(outbuf, 5, "<%02x>", (unsigned char)*inbuf);
-		    outbuf += 4; outb -= 4;
 		} else {
-		    size_t sub_len = strlen(sub);
-		    if(outb < sub_len) {
-			R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
-			goto top_of_loop;
+		    if (!inp_unit_size) {
+			if (!strncasecmp(from, "UTF-16", 6) ||
+			    !strncasecmp(from, "UCS-2", 5))
+			    inp_unit_size = 2;
+			else if (!strncasecmp(from, "UTF-32", 6) ||
+			           !strncasecmp(from, "UCS-4", 5))
+			    inp_unit_size = 4;
+			else
+			    /* encodings supported directly by CHARSXP,
+			       including the native encoding, all use
+			       unit size 1 */
+			    inp_unit_size = 1;
+		    } 
+		    for(int i = 0; i < inp_unit_size && inb > 0; i++) {
+			if(strcmp(sub, "byte") == 0) {
+			    if(outb < 5) {
+				R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
+				goto top_of_loop;
+			    }
+			    snprintf(outbuf, 5, "<%02x>",
+			             (unsigned char)*inbuf);
+			    outbuf += 4; outb -= 4;
+			} else {
+			    size_t sub_len = strlen(sub);
+			    if(outb < sub_len) {
+				R_AllocStringBuffer(2*cbuff.bufsize, &cbuff);
+				goto top_of_loop;
+			    }
+			    if (sub_len)
+				memcpy(outbuf, sub, sub_len);
+			    outbuf += sub_len; outb -= sub_len;
+			}
+			inbuf++; inb--;
 		    }
-		    if (sub_len)
-			memcpy(outbuf, sub, sub_len);
-		    outbuf += sub_len; outb -= sub_len;
 		}
-		inbuf++; inb--;
 		goto next_char;
 	    }
 
@@ -923,12 +951,14 @@ cetype_t getCharCE(SEXP x)
     else return CE_NATIVE;
 }
 
+// In Rinternals.h
 Rboolean charIsASCII(SEXP x)
 {
     CHECK_CHARSXP(x);
     return IS_ASCII(x) ? TRUE : FALSE;
 }
 
+// In Rinternals.h
 Rboolean charIsUTF8(SEXP x)
 {
     CHECK_CHARSXP(x);
@@ -938,6 +968,7 @@ Rboolean charIsUTF8(SEXP x)
     return TRUE;
 }
 
+// In Rinternals.h
 Rboolean charIsLatin1(SEXP x)
 {
     CHECK_CHARSXP(x);
@@ -948,19 +979,25 @@ Rboolean charIsLatin1(SEXP x)
 }
 
 #ifdef __APPLE__
-/* Work-around for libiconv in macOS 14.1. When an invalid input byte is
-   encountered while converting, one has to re-set the converter state.
-   Otherwise, subsequent valid bytes may be reported as invalid and libiconv
-   may crash R due to an assertion failure. The problem does not seem to
-   happen when the converter is re-set after error.
+/* Work-around for system libiconv in macOS 14.1. When an invalid input byte
+   is encountered while converting, subsequent valid bytes may be reported as
+   invalid and libiconv may crash R due to an assertion failure e.g. once
+   then converting an empty input. The problem does not seem to
+   happen when the converter is re-set after error. The problem has been
+   observed in libiconv-86 (which came with macOS 14.1) but no longer
+   in libiconv-92 (macOS 14.2).
 
    While often one should reset the converter in such situation in order to
    support stateful encodings properly, the problem has been seen even when
-   converting from UTF-8 to UTF-8.
+   converting from UTF-8 to UTF-8 (UTF-8 is stateless).
 
    This work-around automatically re-sets the converter in Riconv in case
-   of error for stateless encodings. */
-# define R_MACOS_LIBICONV_WORKAROUND
+   of error for stateless encodings. It is enabled only based on a runtime
+   check for the issue (also to avoid to running into problems with BOM
+   handling, see R_MACOS_LIBICONV_HANDLE_BOM). 
+
+   Can be disabled via env. variable _R_ICONV_RESET_AFTER_ERROR_. */
+# define R_MACOS_LIBICONV_RESET_AFTER_ERROR
 
 /* A hack to detect and undo transliteration (experimental, likely to change
    or be removed).  While POSIX says that iconv should transliterate or
@@ -972,31 +1009,62 @@ Rboolean charIsLatin1(SEXP x)
    macOS 14.1 has a libiconv implementation which transliterates many
    characters.
 
-   This feature, currently only available for stateless conversions together
-   with R_MACOS_LIBICONV_WORKAROUND, detects transliteration by converting
-   the result back to the original encoding, compares with the original and
-   then re-rums the conversion only to the to-be-transliterated character. 
-   This wouldn't work in cases when the conversion isn't unique, but such
-   cases are unlikely (note implementations of iconv, including libiconv in
-   macOS 14.1, do not support decomposed forms).
+   This feature, currently only available for stateless conversions, detects
+   transliteration by converting the result back to the original encoding,
+   compares with the original and then re-runs the conversion only to the
+   to-be-transliterated character. This wouldn't work in cases when the
+   conversion isn't unique, but such cases are unlikely (note implementations
+   of iconv, including libiconv in macOS 14.1, do not support decomposed
+   forms).
    
-   Enabled at runtime via _R_ICONV_UNDO_TRANSLITERATION_.
-*/
-
+   Enabled at runtime via env. variable _R_ICONV_UNDO_TRANSLITERATION_. */
 # define R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+
+/* Work-around for libiconv in macOS 14.1.  This version of
+   libiconv accepts BOM for UTF-16, but on error (including EINVAL when it
+   is not given enough input, which is a normal situation in processing a
+   stream) it forgets the byte-order it has learned from the BOM. This
+   problem was observed in libiconv-86 (which came with macOS 14.1) and
+   still exists in libiconv-107 (in macOS 15.0).
+
+   Also, in some cases iconv forgets the BOM on reset, i.e.
+   iconv(cd, NULL, NULL, NULL, NULL) and then starts producing unexpected
+   results. The default is usually big-endian ordering even on little-endian
+   machines, so this particularly causes trouble when reading inputs
+   produced on Windows.  The work-around falls back to UTF-16LE/BE or 
+   UTF32-LE/BE based on the BOM, if present. This problem has been seen
+   already in libiconv-64 (macOS 13.5) and is present also in some other
+   iconv implementations, where the byte-order learned from the BOM is
+   incorrectly treated as being part of the encoding state (but UTF-16
+   and UTF-32 is stateless and the byte-order learned from the BOM 
+   should be write-once property of the conversion descriptor). */
+# define R_MACOS_LIBICONV_HANDLE_BOM
+#endif
+
+#ifndef R_MACOS_LIBICONV_WORKAROUND
+# if defined(R_MACOS_LIBICONV_RESET_AFTER_ERROR) \
+     || defined(R_MACOS_LIBICONV_UNDO_TRANSLITERATION) \
+     || defined(R_MACOS_LIBICONV_HANDLE_BOM)
+#  define R_MACOS_LIBICONV_WORKAROUND
+# endif
 #endif
 
 #ifdef R_MACOS_LIBICONV_WORKAROUND
 typedef struct {
     iconv_t cd;
-    Rboolean reset_after_error;
+    bool reset_after_error;
     iconv_t cd_back;
-    Rboolean undo_transliteration;
+    bool undo_transliteration;
     size_t buflen;
     char *buf;
+    bool handle_bom;
+    size_t bomlen;
+    char *tocode;
+    char start[4];
+    size_t startlen;
 } Riconv_cd;
 
-static Rboolean is_stateful(const char *code)
+static bool is_stateful(const char *code)
 {
     /* list from libiconv 1.17, but names are system-specific */
     static char *stateful[] = {
@@ -1018,18 +1086,18 @@ static Rboolean is_stateful(const char *code)
 
     if (!strcasecmp(code, "UTF-8") || !strcasecmp(code, "ISO-8859-1") ||
         !strcasecmp(code, "latin1"))
-	return FALSE;
+	return false;
 
     /* if performance of this becomes a problem, there could be a cache of
        recently used encodings or/and a perfect hashing function */
     for(int i = 0; stateful[i] ; i++)
 	if (!strcasecmp(code, stateful[i]))
-	    return TRUE;
-    return FALSE;
+	    return true;
+    return false;
 }
 
 # ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
-static Rboolean is_unicode(const char *code)
+static bool is_unicode(const char *code)
 {
     /* list from libiconv 1.17, but names are system-specific */
     static char *unicode[] = {
@@ -1043,10 +1111,239 @@ static Rboolean is_unicode(const char *code)
 
     for(int i = 0; unicode[i] ; i++)
 	if (!strcasecmp(code, unicode[i]))
-	    return TRUE;
-    return FALSE;
+	    return true;
+    return false;
 }
 # endif 
+
+/* only for debugging, may be removed */
+static int macos_libiconv_verbose(void) {
+    static int verbose = -1;
+
+    if (verbose == -1) {
+	char *p = getenv("_R_ICONV_VERBOSE_");
+	verbose = p && StringTrue(p);
+    }
+    return verbose;
+}
+
+static int iconv_close_internal(Riconv_cd *rcd)
+{
+    int res = 0;
+
+    if (rcd->cd != (iconv_t)-1)
+	res = iconv_close(rcd->cd);
+
+# ifdef R_MACOS_LIBICONV_HANDLE_BOM
+    if (rcd->handle_bom && rcd->tocode)
+	free(rcd->tocode);
+# endif
+
+# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
+    if (rcd->undo_transliteration) {
+	if (rcd->buf)
+	    free(rcd->buf);
+	if (rcd->cd_back != (iconv_t)-1) {
+	    if (iconv_close(rcd->cd_back))
+		res = -1;
+	}
+    }
+# endif
+
+    free(rcd);
+    return res;
+}
+#endif
+
+#ifdef R_MACOS_LIBICONV_HANDLE_BOM
+
+/* Try converting input in UTF-16 iteratively (first 5 bytes, then the
+   remaining byte) to UTF-8. The result should be "23".
+   See fails_iteratively_with_bom().
+ 
+   1 when iconv "successfully" returns wrong result
+   -1 on (other) error
+   0 on no error and correct result
+*/
+static int fails_iteratively_when_incomplete(char *input)
+{
+    iconv_t cd = iconv_open("UTF-8", "UTF-16");
+    if (cd == (iconv_t)-1)
+	return -1;
+
+    char output[6]; // UTF-8-BOM (possibly) + "23" + NUL
+    char *inbuf = input;
+    size_t inbytesleft = 5;
+    char *outbuf = output;
+    size_t outbytesleft = 6;
+
+    size_t res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    if (res != (size_t)-1 || errno != EINVAL) {
+	iconv_close(cd);
+	return -1;
+    }
+
+    inbytesleft = 6 - (5 - inbytesleft);
+    res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    iconv_close(cd);
+    if (res == (size_t)-1)
+	return -1;
+    *outbuf = 0;
+
+    /* remove UTF-8 BOM if present (unlikely) */
+    int offset = 0;
+    if ((outbuf - output >= 3) && !memcmp(output, "\xef\xbb\xbf", 3))
+	offset = 3;
+
+    if (!memcmp(output + offset, "23", 3))
+	return 0; /* success, conversion works iteratively */
+    else
+	return 1; /* wrong result */ 
+}
+
+/* Try converting input in UTF-16 iteratively (first 4 bytes, then 
+   re-set, then remaining two bytes) to UTF-8. The result should be "23".
+   See fails_iteratively_with_bom().
+ 
+   1 when iconv "successfully" returns wrong result
+   -1 on (other) error
+   0 on no error and correct result
+*/
+static int fails_iteratively_with_reset(char *input)
+{
+    iconv_t cd = iconv_open("UTF-8", "UTF-16");
+    if (cd == (iconv_t)-1)
+	return -1;
+
+    char output[6]; // UTF-8-BOM (possibly) + "23" + NUL
+    char *inbuf = input;
+    size_t inbytesleft = 4;
+    char *outbuf = output;
+    size_t outbytesleft = 6;
+
+    size_t res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    if (res == (size_t)-1) {
+	iconv_close(cd);
+	return -1;
+    }
+    iconv(cd, NULL, NULL, NULL, NULL);
+
+    inbytesleft = 6 - (4 - inbytesleft);
+    res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    iconv_close(cd);
+    if (res == (size_t)-1)
+	return -1;
+    *outbuf = 0;
+
+    /* remove UTF-8 BOM if present (unlikely) */
+    int offset = 0;
+    if ((outbuf - output >= 3) && !memcmp(output, "\xef\xbb\xbf", 3)) {
+	if (macos_libiconv_verbose()) 
+	    fprintf(stderr, "ICONV: UTF-8 with BOM produced.\n");
+	offset = 3;
+    }
+
+    if (!memcmp(output + offset, "23", 3))
+	return 0; /* success, conversion works iteratively */
+    else
+	return 1; /* wrong result */ 
+}
+
+/* Test whether iterative conversion from UTF-16 with a BOM to UTF-8 fails
+   by producing an incorrect result. This has been observed in Apple libiconv
+   on macOS. A runtime test is used as that version cannot be reliably
+   detected.
+
+   1 when iconv "successfully" returns wrong result
+   -1 on (other) error
+   0 on no error and correct result
+*/
+static int fails_iteratively_with_bom(void)
+{
+    unsigned words[] = { 0xfeff /* BOM */, 0x32 /* 2 */, 0x33 /* 3 */};
+    char big[6];
+    char little[6];
+
+    for(int i = 0; i < 6; i += 2) {
+	unsigned w = words[i/2];
+	big[i] = little[i+1] = (char) (w >> 8);
+	big[i+1] = little[i] = w & 0xff;
+    }
+
+    int ile = fails_iteratively_when_incomplete(little);
+    int ibe = fails_iteratively_when_incomplete(big);
+
+    int rle = fails_iteratively_with_reset(little);
+    int rbe = fails_iteratively_with_reset(big);
+
+    if (macos_libiconv_verbose()) {
+	fprintf(stderr, "ICONV: Fails iteratively when incomplete (LE): %d.\n",
+	        ile);
+	fprintf(stderr, "ICONV: Fails iteratively when incomplete (BE): %d.\n",
+	        ibe);
+	fprintf(stderr, "ICONV: Fails iteratively with reset (LE): %d.\n",
+	        rle);
+	fprintf(stderr, "ICONV: Fails iteratively with reset (BE): %d.\n",
+	        rbe);
+    }
+
+    if (ile == 1 || ibe == 1 || rle == 1 || rbe == 1)
+	return 1;
+    if (ile == -1 || ibe == -1 || rle == -1 || rbe == -1)
+	return -1;
+    return 0;
+}
+#endif
+
+#ifdef R_MACOS_LIBICONV_RESET_AFTER_ERROR
+
+/* Test whether iconv, after encountering an invalid byte in input, keeps
+   incorrectly reporting as invalid also additional valid bytes. This has
+   been observed in Apple libiconv on macOS. A runtime test is used as that
+   version cannot be reliably detected.
+
+   1 when iconv "successfully" returns wrong result
+   -1 on (other) error
+   0 on no error and correct result */
+static int breaks_after_invalid_byte(void)
+{
+    char *input = "1" "\xFC" "3456789";
+
+    iconv_t cd = iconv_open("UTF-8", "UTF-8");
+    if (cd == (iconv_t)-1)
+        return -1;
+
+    char output[10];
+    char *inbuf = input;
+    size_t inbytesleft = 10;
+    char *outbuf = output;
+    size_t outbytesleft = 10;
+
+    size_t res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    if (res != (size_t)-1 || (errno != EILSEQ && errno != EINVAL)
+        || outbytesleft != 9 || inbytesleft != 9) {
+
+	iconv_close(cd);
+	return -1;
+    }
+
+    /* advance over invalid byte */
+    inbuf++;
+    inbytesleft--;
+
+    res = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    iconv_close(cd);
+    if (res == (size_t)-1 && (errno == EINVAL || errno == EILSEQ))
+        return 1; /* input incorrectly reported as invalid */
+    *outbuf = '\0';
+    if (memcmp(output, "13456789", 9)) {
+	if (macos_libiconv_verbose())
+	    fprintf(stderr, "ICONV: Incorrect conversion with invalid byte.\n");
+	return -1; /* wrong result for other reason */
+    }
+
+    return 0; /* success, handling invalid bytes works */
+}
 #endif
 
 static void *iconv_open_internal(const char *tocode, const char *fromcode)
@@ -1064,29 +1361,96 @@ static void *iconv_open_internal(const char *tocode, const char *fromcode)
 	return (void *)(iconv_t)-1;
     }
     rcd->cd = cd;
-    rcd->reset_after_error = !(is_stateful(tocode) || is_stateful(fromcode));
 
-    rcd->undo_transliteration = FALSE;
+    rcd->reset_after_error = FALSE;
+    rcd->handle_bom = FALSE;
+    rcd->undo_transliteration = FALSE; /* for cleanup */
+
+# ifdef R_MACOS_LIBICONV_RESET_AFTER_ERROR
+    static int iconv_use_reset_after_error = -1; /* -1: not known yet */
+
+    if (iconv_use_reset_after_error)
+	rcd->reset_after_error = !is_stateful(tocode)
+	                         && !is_stateful(fromcode);
+
+    if (rcd->reset_after_error && iconv_use_reset_after_error == -1) {
+	/* a run-time check whether iconv needs reset after error */
+	int bib = breaks_after_invalid_byte();
+	if (macos_libiconv_verbose())
+	    fprintf(stderr, "ICONV: Breaks after invalid bytes: %d.\n", bib);
+
+	char *p = getenv("_R_ICONV_RESET_AFTER_ERROR_");
+	if (bib == 1 && (!p || !StringFalse(p))) {
+	    if (macos_libiconv_verbose())
+		fprintf(stderr, "ICONV: Reset after error enabled.\n");
+	    iconv_use_reset_after_error = 1;
+	} else {
+	    iconv_use_reset_after_error = 0;
+	    rcd->reset_after_error = FALSE;
+	}
+   } 
+# endif
+
+# ifdef R_MACOS_LIBICONV_HANDLE_BOM
+    static int iconv_needs_bom_handling = -1; /* -1: not known yet */
+
+    if (iconv_needs_bom_handling) {
+	if (!strcasecmp(fromcode, "UTF-16")
+	    || !strcasecmp(fromcode,"UNICODE")) {
+
+	    rcd->handle_bom = TRUE;
+	    rcd->bomlen = 2;
+	} else if (!strcasecmp(fromcode, "UTF-32")) {
+	    rcd->handle_bom = TRUE;
+	    rcd->bomlen = 4;
+	}
+    }
+
+    if (rcd->handle_bom && iconv_needs_bom_handling == -1) {
+	/* a run-time check whether iconv needs bom handling */
+	if (fails_iteratively_with_bom() == 1) {
+	    if (macos_libiconv_verbose()) 
+		fprintf(stderr, "ICONV: BOM handling enabled.\n");
+	    iconv_needs_bom_handling = 1;
+	} else {
+	    iconv_needs_bom_handling = 0;
+	    rcd->handle_bom = FALSE;
+	}
+    }
+
+    if (rcd->handle_bom) {
+	rcd->startlen = 0;
+	size_t len = strlen(tocode)+1;
+	rcd->tocode = malloc(len);
+	if (!rcd->tocode) {
+	    iconv_close_internal(rcd);
+	    errno = ENOMEM;
+	    return (void *)(iconv_t)-1;
+	}
+	memcpy(rcd->tocode, tocode, len);
+    }
+# endif
+
 # ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
-    rcd->undo_transliteration =
-        !is_unicode(tocode) && rcd->reset_after_error;
-	/* (!(is_stateful(tocode) || is_stateful(fromcode))  */
+    rcd->undo_transliteration = !is_unicode(tocode)
+                                && !is_stateful(tocode)
+                                && !is_stateful(fromcode);
 
     char *p = getenv("_R_ICONV_UNDO_TRANSLITERATION_");
     if (!p || !StringTrue(p))
 	rcd->undo_transliteration = FALSE;
 
     if (rcd->undo_transliteration) {
+	rcd->buf = NULL; /* for cleanup */
 	rcd->cd_back = iconv_open(fromcode, tocode);
 	if (rcd->cd_back == (iconv_t)-1) {
-	    iconv_close((iconv_t)rcd->cd);
+	    iconv_close_internal(rcd);
 	    return (iconv_t)-1;
 	}
 	rcd->buflen = 8192;
 	rcd->buf = malloc(rcd->buflen);
 	if (!rcd->buf) {
-	    iconv_close((iconv_t)rcd->cd);
-	    iconv_close((iconv_t)rcd->cd_back);
+	    iconv_close_internal(rcd);
 	    return (iconv_t)-1;
 	}
     }
@@ -1133,6 +1497,12 @@ size_t Riconv (void *cd, const char **inbuf, size_t *inbytesleft,
 #ifdef R_MACOS_LIBICONV_WORKAROUND
     Riconv_cd *rcd = (Riconv_cd *)cd;
 
+# ifdef R_MACOS_LIBICONV_HANDLE_BOM
+    const char *prev_inbuf = NULL;
+    if (rcd->handle_bom && inbuf)
+	prev_inbuf = *inbuf;
+# endif
+
 # ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
     const char *old_inbuf = NULL;
     size_t old_inbytesleft = 0;
@@ -1159,13 +1529,51 @@ size_t Riconv (void *cd, const char **inbuf, size_t *inbytesleft,
                        outbuf, outbytesleft);
 
 #ifdef R_MACOS_LIBICONV_WORKAROUND
+# ifdef R_MACOS_LIBICONV_RESET_AFTER_ERROR
     if (rcd->reset_after_error &&
 	(res == (size_t)-1 && (errno == EILSEQ || errno == EINVAL))) {
 
 	int saveerrno = errno;
 	iconv(rcd->cd, NULL, NULL, NULL, NULL);
 	errno = saveerrno;
+    }
+# endif
+
+# ifdef R_MACOS_LIBICONV_HANDLE_BOM
+    if (rcd->handle_bom && prev_inbuf && inbuf) {
+	size_t tocopy = rcd->bomlen - rcd->startlen;
+	ptrdiff_t avail = *inbuf - prev_inbuf;
+
+	if (avail < tocopy)
+	    tocopy = (size_t) avail;
+	memcpy(rcd->start + rcd->startlen, prev_inbuf, tocopy);
+	rcd->startlen += tocopy;
+	
+	if (rcd->startlen == rcd->bomlen) {
+	    const char *new_fromcode = NULL;
+
+	    if (rcd->bomlen == 2) {
+		if (!memcmp(rcd->start, "\xff\xfe", 2))
+		    new_fromcode = "UTF-16LE";
+		else if (!memcmp(rcd->start, "\xfe\xff", 2))
+		    new_fromcode = "UTF-16BE";
+	    } else if (rcd->bomlen == 4) {
+		if (!memcmp(rcd->start, "\xff\xfe\x00\x00", 4))
+		    new_fromcode = "UTF-32LE";
+		else if (!memcmp(rcd->start, "\x00\x00\xfe\xff", 4))
+		    new_fromcode = "UTF-32BE";
+	    }
+	    if (new_fromcode) {
+		iconv_close((iconv_t) rcd->cd);
+		rcd->cd = iconv_open(rcd->tocode, new_fromcode);
+	    }
+
+	    free(rcd->tocode);
+	    rcd->tocode = NULL; /* for cleanup */
+	    rcd->handle_bom = FALSE;
 	}
+    }
+# endif
 
 # ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
     if (rcd->undo_transliteration &&
@@ -1244,15 +1652,7 @@ int Riconv_close (void *cd)
     return iconv_close((iconv_t) cd);
 
 #else
-    Riconv_cd *rcd = (Riconv_cd *)cd;
-    int res = iconv_close(rcd->cd);
-# ifdef R_MACOS_LIBICONV_UNDO_TRANSLITERATION
-    if (rcd->undo_transliteration) {
-	free(rcd->buf);
-	if (iconv_close(rcd->cd_back)) res = -1;
-    }
-# endif
-    return res;
+    return iconv_close_internal((Riconv_cd *)cd);
 #endif
 }
 
@@ -1296,7 +1696,7 @@ static int translateToNative(const char *ans, R_StringBuffer *cbuff,
     const char *inbuf, *from;
     char *outbuf;
     size_t inb, outb, res;
-    Rboolean failed = FALSE;
+    bool failed = false;
 
     if(ttype == NT_FROM_LATIN1) {
 	if(!latin1_obj) {
@@ -1353,7 +1753,7 @@ next_char:
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
-	failed = TRUE;
+	failed = true;
 	if (ttype == NT_FROM_UTF8) {
 	    /* if starting in UTF-8, use \uxxxx */
 	    /* This must be the first byte */
@@ -1526,7 +1926,7 @@ static int translateToUTF8(const char *ans, R_StringBuffer *cbuff,
     const char *inbuf, *from = "";
     char *outbuf;
     size_t inb, outb, res;
-    Rboolean failed = FALSE;
+    bool failed = false;
 
     if (ttype == NT_FROM_LATIN1)
 #ifdef HAVE_ICONV_CP1252
@@ -1562,7 +1962,7 @@ next_char:
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
-	failed = TRUE;
+	failed = true;
 	snprintf(outbuf, 5, "<%02x>", (unsigned char)*inbuf);
 	outbuf += 4; outb -= 4;
 	inbuf++; inb--;
@@ -1700,7 +2100,7 @@ static int translateToWchar(const char *ans, R_StringBuffer *cbuff,
     const char *inbuf, *from;
     char *outbuf;
     size_t inb, outb, res;
-    Rboolean failed = FALSE;
+    bool failed = false;
 
     if(ttype == NT_FROM_LATIN1) {
 	if(!latin1_wobj) {
@@ -1755,7 +2155,7 @@ next_char:
 	    R_AllocStringBuffer(2*cbuff->bufsize, cbuff);
 	    goto top_of_loop;
 	}
-	failed = TRUE;
+	failed = true;
 	swprintf((wchar_t*)outbuf, 5, L"<%02x>", (unsigned char)*inbuf);
 	outbuf += 4 * sizeof(wchar_t); outb -= 4 * sizeof(wchar_t);
 	inbuf++; inb--;
@@ -1830,7 +2230,7 @@ static int reEncodeIconv(const char *x, R_StringBuffer *cbuff,
     const char *inbuf;
     char *outbuf;
     size_t inb, outb, res;
-    Rboolean fromWchar = !strcmp(fromcode, TO_WCHAR);
+    bool fromWchar = !strcmp(fromcode, TO_WCHAR);
 
     obj = Riconv_open(tocode, fromcode);
     if(obj == (void *)(-1)) return 1;
@@ -2089,7 +2489,7 @@ size_t ucstomb(char *s, const unsigned int wc)
 }
 
 /* used in engine.c for non-UTF-8 MBCS */
-size_t attribute_hidden
+attribute_hidden size_t
 mbtoucs(unsigned int *wc, const char *s, size_t n)
 {
     unsigned int  wcs[2];
@@ -2187,7 +2587,7 @@ size_t ucstoutf8(char *s, const unsigned int wc)
 # define S_IFDIR __S_IFDIR
 #endif
 
-int attribute_hidden R_isWriteableDir(char *path)
+attribute_hidden int R_isWriteableDir(char *path)
 {
 #ifdef Win32
     struct _stati64 sb;
@@ -2211,7 +2611,7 @@ int attribute_hidden R_isWriteableDir(char *path)
     return isdir;
 }
 #else
-int attribute_hidden R_isWriteableDir(char *path)
+attribute_hidden int R_isWriteableDir(char *path)
 {
     return 1;
 }
@@ -2554,7 +2954,8 @@ attribute_hidden SEXP do_glob(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP x, ans;
     R_xlen_t i, n;
-    int res, dirmark, initialized=FALSE;
+    int res, dirmark;
+    bool initialized = false;
     glob_t globbuf;
 #ifdef Win32
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
@@ -2598,7 +2999,7 @@ attribute_hidden SEXP do_glob(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("internal out-of-memory condition"));
 # endif
 #endif
-	initialized = TRUE;
+	initialized = true;
     }
     n = initialized ? globbuf.gl_pathc : 0;
     PROTECT(ans = allocVector(STRSXP, n));
@@ -2630,7 +3031,7 @@ attribute_hidden SEXP do_glob(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #ifdef Win32
 
-int attribute_hidden R_is_redirection_tty(int fd)
+attribute_hidden int R_is_redirection_tty(int fd)
 {
     /* for now detects only msys/cygwin redirection tty */
     HANDLE h = (HANDLE) _get_osfhandle(fd);
@@ -2670,7 +3071,7 @@ int attribute_hidden R_is_redirection_tty(int fd)
 }
 #endif
 
-int attribute_hidden R_isatty(int fd)
+attribute_hidden int R_isatty(int fd)
 {
 #ifdef Win32
     if (R_is_redirection_tty(fd))

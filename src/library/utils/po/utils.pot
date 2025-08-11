@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.5.0\n"
+"Project-Id-Version: R 4.6.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2025-03-31 11:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -93,21 +93,21 @@ msgstr ""
 msgid "cannot write to this connection"
 msgstr ""
 
-#: io.c:1110
+#: io.c:1111
 msgid "'dec' must be a single character"
 msgstr ""
 
-#: io.c:1137
+#: io.c:1138
 #, c-format
 msgid "corrupt data frame -- length of column %d does not match nrows"
 msgstr ""
 
-#: io.c:1171
+#: io.c:1172
 #, c-format
 msgid "column %d claims to be a factor but does not have numeric codes"
 msgstr ""
 
-#: io.c:1189
+#: io.c:1190
 msgid "corrupt matrix -- dims do not match length"
 msgstr ""
 
@@ -222,33 +222,33 @@ msgstr ""
 msgid "argument must be a character vector or a raw vector"
 msgstr ""
 
-#: windows/util.c:330
+#: windows/util.c:332
 msgid "unable to open the clipboard"
 msgstr ""
 
-#: windows/util.c:335
+#: windows/util.c:337
 msgid "unable to write to the clipboard"
 msgstr ""
 
-#: windows/util.c:414
+#: windows/util.c:416
 msgid "'title' must be a character string"
 msgstr ""
 
-#: windows/util.c:423
+#: windows/util.c:425
 msgid "'text' must be a character string"
 msgstr ""
 
-#: windows/util.c:462
+#: windows/util.c:464
 #, c-format
 msgid "'%s' must be length 1"
 msgstr ""
 
-#: windows/util.c:575
+#: windows/util.c:577
 #, c-format
 msgid "'%s' must be a list"
 msgstr ""
 
-#: windows/util.c:579
+#: windows/util.c:581
 #, c-format
 msgid "'%s' element %d is not a window handle"
 msgstr ""

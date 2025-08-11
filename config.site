@@ -44,6 +44,7 @@
 ## which runs the compiler, for example 'c99'.
 ## It is also necessary to set the architecture here, e.g. 'gcc -m32'.
 ## If this is a wrapper it should pass on --version to the real compiler.
+## This will be replaced by CC23 (see below) if a C23 compiler is found.
 ## CC=
 
 ## Debugging and optimization options for the C compiler.
@@ -69,9 +70,12 @@
 
 ## Ditto for a compiler that supports C23 features.
 ## For example 'CC23=clang-15 -std=gnu2x'
-## Eventually -std=gnu23 will be supported and preferred.
-## Default to CC and CFLAGS with any -std options removed, then
-## -std=gmu2x appended to CC.
+## This is the default for GCC >= 15.
+## Otherwise -std=gnu23 is added where supported
+## (it is by GCC 14, LLVM clang >= 18 and Apple Clang >= 17).
+## -std=gnu2x is supported by at least GCC 12-13, LLVM clang >= 15 and Apple clang >= 16 
+## Default to CC and CFLAGS with any -std options removed, then with
+## -std=gmu23 then -std=gmu2x appended to CC
 ## CC23=
 ## C23FLAGS=
 
@@ -86,7 +90,15 @@
 
 ## Defines for C compilation.
 ## Use this to specify defines to be used in the compilation of R,
+## (but not packages).  Can be used to overrise e.g.
+## DEFS="-DC99_INLINE_SEMANTICS=0"
 ## DEFS=
+
+## no-return flag
+## Header R-exts/Error.h contains alternaive definitions for the NORET
+## macro, depending on the C standard found.  If the compiler does not
+## comply, use this to pick one of the others, or even define to be empty.
+## NORET=
 
 ## The following additional CFLAGS to be used only in the main
 ## compilation and only in building shared objects respectively.
@@ -369,7 +381,7 @@
 
 ## C++23 compiler, optional for use in packages.
 ## Introduced in R 4.3.0
-## The command which runs the C++23 compiler: defaults to $(CXX17), but
+## The command which runs the C++23 compiler: defaults to $(CXX20), but
 ## empty if that (plus standard) cannot compile the tested C++23 code.
 ## CXX23=
 
@@ -384,6 +396,24 @@
 ## CXX23PICFLAGS=
 ## SHLIB_CXX23LD=
 ## SHLIB_CXX23LDFLAGS=
+
+## C++26 compiler, optional for use in packages.
+## Introduced in R 4.5.0
+## The command which runs the C++26 compiler: defaults to $(CXX20), but
+## empty if that (plus standard) cannot compile the tested C++26 code.
+## CXX26=
+
+## The 'standard' for the C++26 compiler, which is invoked as
+## $(CXX26) $(CXX26STD) for both compiling and linking DSOs/DLLs.  
+## '-std=gnu++26' and '-std=gnu++2a" are tried by configure, also
+## '-std=c++26' and '-std=c++2a"
+## CXX26STD=
+
+## Analogues for the C++26 compiler: default to the settings for C++17
+## CXX26FLAGS=
+## CXX26PICFLAGS=
+## SHLIB_CXX26LD=
+## SHLIB_CXX26LDFLAGS=
 
 ## Additional libraries to link the internet module against.
 ## Some claim Solaris needs -lsocket -lnsl
@@ -416,7 +446,7 @@
 ## The configure code is conservative about enabling OpenMP 
 ## so use can be forced here (or non-use if set but empty).
 ## For packages (note that SHLIB_OPENMP_CXXFLAGS is for CXX, not
-## necessarily for CXX11/14/17/20/23).
+## necessarily for CXX11/14/17/20/23/26).
 ## SHLIB_OPENMP_CFLAGS=
 ## SHLIB_OPENMP_CXXFLAGS=
 ## SHLIB_OPENMP_FFLAGS=
@@ -470,6 +500,10 @@
 ## To allow reduced optimization for src/unix/sys-unix.c with Intel icx
 ##   -O0 and -O1 seem to work with 2023.2.0
 ## INTEL_ICX_FIX=-O0
+
+## Additional INSTALL_opts for recommended packages.
+##  Can be used for --dsym on macOS.
+## REC_INSTALL_OPT=
 
 ## Programs which configure will look for on the path
 ## AR

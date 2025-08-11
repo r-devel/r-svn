@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2024 The R Core Team.
+ *  Copyright (C) 1999-2025 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -51,15 +51,6 @@ extern void R_chk_free(void *);
 extern void *R_chk_memcpy(void *, const void *, R_SIZE_T);
 extern void *R_chk_memset(void *, int, R_SIZE_T);
 
-#ifndef STRICT_R_HEADERS
-/* S-PLUS 3.x but not 5.x NULLed the pointer in Free.
-   Not API.
-*/
-#define Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
-#define Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
-#define Free(p)        (R_chk_free( (void *)(p) ), (p) = NULL)
-#endif
-
 /* API */
 #define R_Calloc(n, t)   (t *) R_chk_calloc( (R_SIZE_T) (n), sizeof(t) )
 #define R_Realloc(p,n,t) (t *) R_chk_realloc( (void *)(p), (R_SIZE_T)((n) * sizeof(t)) )
@@ -79,7 +70,7 @@ extern void *R_chk_memset(void *, int, R_SIZE_T);
    blocks, and some compilers may need to specify Fortran linkage.
 
    HP-UX did not add a trailing underscore.  (It still existed in
-   2024, but R poiorts had not been seen for many years.)
+   2024, but R ports had not been seen for many years.)
 
    Note that this is an F77 interface, intended only for valid F77
    names of <= 6 ASCII characters (and no underscores) and there is an

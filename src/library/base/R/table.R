@@ -1,7 +1,7 @@
 #  File src/library/base/R/table.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@ table <- function (..., exclude = if (useNA=="no") c(NA, NaN),
             ## excluded levels to missing, which is different
             ## from the <NA> factor level, but these
             ## excluded levels must NOT EVER be tabulated.
-            op <- options(warn = 2) ## prevent non-sensical factor() creation: turn warnings into errors
+            op <- options(warn = 2) ## prevent nonsensical factor() creation: turn warnings into errors
             on.exit(options(op))
             a <- # NB: this excludes first, unlike the is.factor() case
                 factor(a, exclude = exclude)
@@ -319,12 +319,13 @@ margin.table <- marginSums
 ##     z
 ## }
 
+
 `[.table` <-
 function(x, i, j, ..., drop = TRUE)
 {
     ret <- NextMethod()
     ldr <- length(dim(ret))
-    if((ldr > 1L) || (ldr == length(dim(x))))
-        class(ret) <- "table"
+    if((ldr > 1L || ldr == length(dim(x))) && !inherits(ret, "table"))
+        class(ret) <- if(any((cl <- oldClass(x)) == "table")) cl else c("table", cl)
     ret
 }

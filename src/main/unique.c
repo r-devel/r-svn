@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -505,6 +505,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	d->nmax = d->M = 256;
 	d->K = 8; /* unused */
 	break;
+    case EXPRSXP:
     case VECSXP:
 	d->hash = vhash;
 	d->equal = vequal;
@@ -598,7 +599,7 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
     } else if (TYPEOF(x) == CLOSXP) {
 	if (duplicatedInit(BODY_EXPR(x), d))
 	    stop = TRUE;
-    }	
+    }
     return stop;
 }
 
@@ -800,7 +801,7 @@ static SEXP sorted_Duplicated(SEXP x, Rboolean from_last, int nmax)
 		SORTED_DUP_NANS(PARTIAL, 0, i < nb, i++);
 	    } // from_last
 	} // numnas > 0
-	
+
 	if(numnas < n) {
 	    startpos = nas1st ? numnas : 0;
 	    SORTED_DUP_NONNANS(startpos, n - numnas - 1, rtmp, double, REAL);
@@ -817,7 +818,7 @@ static SEXP sorted_Duplicated(SEXP x, Rboolean from_last, int nmax)
 #undef SORTED_DUP_NANS
 #undef DUP_DO_ONE
 
-/* to add sorted fastpass support for new SEXP types modify sorted_Duplicated 
+/* to add sorted fastpass support for new SEXP types modify sorted_Duplicated
    and sorted_any_Duplicated then add them here */
 #define DUP_KNOWN_SORTED(x)						\
     ((TYPEOF(x) == INTSXP && KNOWN_SORTED(INTEGER_IS_SORTED(x))) ||	\
@@ -834,7 +835,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
 	return allocVector(LGLSXP, 0);
     else if (n == 1)
 	return ScalarLogical(FALSE);
-    
+
     if(DUP_KNOWN_SORTED(x)) {
     	return sorted_Duplicated(x, from_last, nmax);
     }
@@ -860,11 +861,12 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     return ans;
 }
 
+//In Rinternals.h
 attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
     int itmp, sorted;
     double rtmp;
     Rboolean seen_na = FALSE, seen_nan = FALSE, na1st = FALSE;
-    
+
 #define SORTED_ANYDUP_NONNANS_FROM_LAST(start, count, tmpvar, eetype, vvtype) do { \
 	if (count > 1) {							\
 	    tmpvar = vvtype##_ELT(x, start + count - 1);			\
@@ -942,7 +944,7 @@ attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
 	R_xlen_t numnas = sorted_real_count_NANs(x), napivot;
 	napivot = XLENGTH(x) - numnas;
 	na1st = KNOWN_NA_1ST(sorted);
-	
+
 	if(from_last) {
 	    if(na1st) {
 		SORTED_ANYDUP_NONNANS_FROM_LAST(numnas, napivot, rtmp, double,
@@ -976,6 +978,7 @@ attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
 #undef SORTED_ANYDUP_NANS
 
 /* simpler version of the above : return 1-based index of first, or 0 : */
+// In Rinternals.h
 R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 {
     R_xlen_t result = 0;
@@ -1097,11 +1100,8 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 */
 attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP x, dup, ans;
-    R_xlen_t i, k, n;
-
     checkArity(op, args);
-    x = CAR(args);
+    SEXP x = CAR(args);
     SEXP incomp = CADR(args);
     if (length(CADDR(args)) < 1)
 	error(_("'fromLast' must be length 1"));
@@ -1111,7 +1111,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean fL = (Rboolean) fromLast;
 
     /* handle zero length vectors, and NULL */
-    if ((n = xlength(x)) == 0)
+    R_xlen_t n = xlength(x);
+    if (n == 0)
 	return(PRIMVAL(op) <= 1
 	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
 	       : ScalarInteger(0));
@@ -1128,6 +1129,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("'nmax' must be positive"));
     }
 
+    SEXP dup;
     if(length(incomp) && /* S has FALSE to mean empty */
        !(isLogical(incomp) && length(incomp) == 1 &&
 	 LOGICAL_ELT(incomp, 0) == 0)) {
@@ -1153,14 +1155,14 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	use the results of "duplicated" to get "unique" */
 
     /* count unique entries */
-    k = 0;
+    R_xlen_t i, k = 0;
     PROTECT(dup);
     ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
 	    for(R_xlen_t j=0; j < nb; j++)
 		if(duptr[j] == 0) k++;
 	});
-    
-    PROTECT(ans = allocVector(TYPEOF(x), k));
+
+    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1195,6 +1197,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (LOGICAL_ELT(dup, i) == 0)
 		SET_STRING_ELT(ans, k++, STRING_ELT(x, i));
 	break;
+    case EXPRSXP:
     case VECSXP:
 	for (i = 0; i < n; i++)
 	    if (LOGICAL_ELT(dup, i) == 0)
@@ -1288,7 +1291,7 @@ static SEXP match_transform(SEXP s, SEXP env)
 	if(inherits(s, "factor")) return asCharacterFactor(s);
 	/*
 	else if(inherits(s, "POSIXlt")) { // and maybe more classes in the future:
-					  // Call R's (generic) as.character(s): 
+					  // Call R's (generic) as.character(s):
 	    SEXP call, r;
 	    PROTECT(call = lang2(R_AsCharacterSymbol, s));
 	    r = eval(call, env);
@@ -1331,7 +1334,7 @@ static SEXP asUTF8(SEXP x)
     } else
 	return x;
 }
-    
+
 // workhorse of R's match() and hence also  " ix %in% itable "
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
@@ -1348,10 +1351,37 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	return ans;
     }
 
-    int nprot = 0;
-    SEXP x     = PROTECT(match_transform(ix,     env)); nprot++;
-    SEXP table = PROTECT(match_transform(itable, env)); nprot++;
-    /* or should we use PROTECT_WITH_INDEX and REPROTECT below ? */
+    SEXP x, table;
+    int nprot = 2; /* x, table */
+    PROTECT_INDEX xpi, tbpi;
+
+    bool D1; /* special case  <Date> o <character> */
+    if ((D1 = isObject(ix)     && inherits(ix,     "Date") && isValidString(itable)) ||
+	(     isObject(itable) && inherits(itable, "Date") && isValidString(ix))) {
+	/* Do *not* translate the <Date> to integer below (which later would be coerced
+	 * to character: e.g, as.character(as.vector(as.Date("2025-06-26"))) |--> "20265"
+	 * but rather *do*  as.Date(<character>) for the other, and then compare (the numbers of)
+	 * as.vector(<Date>).
+	*/
+	SEXP call, form_Ymd = PROTECT(mkString("%Y-%m-%d"));
+	nprot += 2; /* form_Ymd, call */
+	if(D1) { // table := as.Date.character(itable, "%Y-%m-%d")
+	    PROTECT(call = lang3(install("as.Date.character"), itable, form_Ymd));
+	    PROTECT_WITH_INDEX(table = eval(call, env), &tbpi);
+
+	    REPROTECT(         table = match_transform(table, env), tbpi);
+	    PROTECT_WITH_INDEX(x     = match_transform(ix,    env), &xpi);
+	} else { // x := as.Date.character(ix, "%Y-%m-%d")
+	    PROTECT(call = lang3(install("as.Date.character"), ix, form_Ymd));
+	    PROTECT_WITH_INDEX(x = eval(call, env), &xpi);
+
+	    REPROTECT(         x     = match_transform(x,      env),   xpi);
+	    PROTECT_WITH_INDEX(table = match_transform(itable, env), &tbpi);
+	}
+    } else { /* regular cases */
+	PROTECT_WITH_INDEX(x     = match_transform(ix,     env),  &xpi);
+        PROTECT_WITH_INDEX(table = match_transform(itable, env), &tbpi);
+    }
 
     SEXPTYPE type;
     /* Coerce to a common type; type == NILSXP is ok here.
@@ -1360,8 +1390,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * (given that we have "Vector" or NULL) */
     if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
-    PROTECT(x	  = coerceVector(x,	type)); nprot++;
-    PROTECT(table = coerceVector(table, type)); nprot++;
+    REPROTECT(x	    = coerceVector(x,	  type),  xpi);
+    REPROTECT(table = coerceVector(table, type), tbpi);
 
     // special case scalar x -- for speed only :
     if(XLENGTH(x) == 1 && !incomp) {
@@ -2306,7 +2336,7 @@ attribute_hidden SEXP do_sample2(SEXP call, SEXP op, SEXP args, SEXP env)
  * Low Level Functions
  */
 
-static int hash_identical(SEXP x, int K, int useCloEnv)
+static int hash_identical(SEXP x, int K, Rboolean useCloEnv)
 {
     /* using 31 seems to work reasonably */
     if (K == 0 || K > 31) K = 31;
@@ -2403,7 +2433,7 @@ static void rehash(R_hashtab_type h, int resize)
 
     HT_COUNT(h) = 0;
     HT_VALIDATE(h);
-    
+
     SET_HT_TABLE(h, allocVector(VECSXP, new_size));
     if (resize) HT_TABLE_K(h)++;
 
@@ -2433,7 +2463,7 @@ static SEXP getcell(R_hashtab_type h, SEXP key, int *pidx)
 	chain = CDR(chain);
     }
     return R_NilValue;
-}    
+}
 
 
 /*
@@ -2554,7 +2584,7 @@ SEXP R_maphash(R_hashtab_type h, SEXP FUN)
     SEXP env = PROTECT(R_NewEnv(R_GlobalEnv, FALSE, 0));
     SEXP call = PROTECT(lang3(FUN_sym, key_sym, val_sym));
     defvar(FUN_sym, FUN, env);
-    
+
     SEXP table = PROTECT(HT_TABLE(h)); // PROTECT in case FUN causes a rehash
     int size = LENGTH(table);
     for (int i = 0; i < size; i++) {
@@ -2648,7 +2678,8 @@ attribute_hidden SEXP do_vhash(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP sUseCloEnv = CADDR(args);
 
     int K = sK == R_NilValue ? 31 : asInteger(sK);
-    int useCloEnv = sUseCloEnv == R_NilValue ? TRUE : asLogical(sUseCloEnv);
+    bool useCloEnv =
+	(sUseCloEnv == R_NilValue) ? true : asBool2(sUseCloEnv,call);
 
     int val = hash_identical(x, K, useCloEnv);
     return ScalarInteger(val);

@@ -98,7 +98,7 @@ docs: html
 	  $(ECHO) "creating doc/manual/$@"; \
 	  $(TEXI2HTML) -I$(srcdir) \
 	    -c TOP_NODE_UP_URL=../html/index.html \
-	    `test $(TEXI2ANY_VERSION_MAJ) -ge 7 && $(ECHO) -c HTMLXREF_MODE=none` \
+	    `test $(TEXI2ANY_VERSION_MAJ) -ge 7 && $(ECHO) -c HTMLXREF_MODE=none -c CHECK_HTMLXREF=0` \
 	    $< -o $@.tmp || exit 1; \
 	  SED="$(SED)" $(SHELL) $(srcdir)/texi2html.sh \
 	    $(TEXI2ANY_VERSION_MAJ) $(TEXI2ANY_VERSION_MIN) $@; \
@@ -211,7 +211,9 @@ version.texi: Makefile $(top_srcdir)/VERSION $(SVN_REV)
 	  v="$${vv} (`sed -e 1d -e 's/^Last Changed Date: //' $(SVN_REV)`)"; \
 	  $(ECHO) "@set VERSION $${v}" >> $@; \
 	  rwv=`$(R_EXE) -f $(top_srcdir)/src/gnuwin32/fixed/rwver.R`; \
-	  $(ECHO) "@set RWVERSION $${rwv}" >> $@ )
+	  $(ECHO) "@set RWVERSION $${rwv}" >> $@; \
+	  rwtv=`$(ECHO) $${rwv} | sed -e 's/\.[^.]*$$//'`; \
+	  $(ECHO) "@set RWTVERSION $${rwtv}" >> $@ )
 	@if test "$(R_PAPERSIZE)" = "a4"; then \
 	  $(ECHO) "@afourpaper" >> $@ ; \
 	fi
@@ -411,7 +413,7 @@ clean:
 	-@rm -f *.aux *.cp *.cps *.dvi *.fn *.fns *.html *.info* \
 	  *.ky *.kys *.log *.out *.pdf *.pg *.pgs *.ps *.ps-2 *.tmp \
 	  *.toc *.tp *.vr *.vrs \
-	  R-admin.en* R-exts.ae* R-exts.ap* R-exts.em* \
+	  R-admin.en* R-exts.ae* R-exts.ap* R-exts.em* R-exts.for* \
 	  *-pkg.tex refman.i?? refman.tex fullrefman.i?? fullrefman.tex \
 	  version.tex version.texi htmlxref.cnf
 	-@rm -f stamp-*
@@ -436,10 +438,12 @@ distdir: $(DISTFILES)
 	  exit 1; \
 	fi
 #	$(distdir)/doc/html has already been created
+#	NB: the pre-built R-admin.html is referenced from INSTALL and configure
 	@$(TEXI2HTML) --no-headers --number-sections \
 	  $(srcdir)/R-admin.texi -I$(srcdir) \
 	  -o $(distdir)/../html/R-admin.html
 
+## referenced from the top-level README
 front-matter: ${top_builddir}/doc/RESOURCES ${top_builddir}/doc/FAQ
 
 ${top_builddir}/doc/RESOURCES: $(srcdir)/resources.texi

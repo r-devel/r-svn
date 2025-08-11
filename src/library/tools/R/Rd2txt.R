@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2txt.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,8 @@ Rd2txt_options <- local({
     	         sectionExtra = 2L,
     	         itemBullet = "* ",
     	         enumFormat = function(n) sprintf("%d. ", n),
-    	         showURLs = FALSE,
+                 ## descStyle = "none",
+                 showURLs = FALSE,
                  code_quote = TRUE,
                  underline_titles = TRUE)
     function(...) {
@@ -341,9 +342,10 @@ Rd2txt <-
     }
 
     ## for efficiency
+    li <- l10n_info()
     WriteLines <-
         if(outputEncoding == "UTF-8" ||
-           (outputEncoding == "" && l10n_info()[["UTF-8"]])) {
+           (outputEncoding == "" && li[["UTF-8"]])) {
         function(x, con, outputEncoding, ...)
             writeLines(x, con, useBytes = TRUE, ...)
     } else {
@@ -458,9 +460,6 @@ Rd2txt <-
     	linestart <<- TRUE
     }
 
-    encoding <- "unknown"
-
-    li <- l10n_info()
     ## See the comment in ?Rd2txt as to why we do not attempt fancy quotes
     ## in Windows CJK locales -- and in any case they would need more work
     ## This covers the common single-byte locales and Thai (874)
@@ -516,6 +515,7 @@ Rd2txt <-
         strip
     }
     ## Strip pending blank lines, then add n new ones.
+    ## (Currently not used with n > 1, which only works if not 'wrapping'.)
     blankLine <- function(n = 1L) {
     	while (stripBlankLine()) NULL
 	flushBuffer()
@@ -553,18 +553,10 @@ Rd2txt <-
 
     writeQ <- function(block, tag, quote=tag)
     {
-        if (use_fancy_quotes) {
-            if (quote == "\\sQuote") {
-                put(LSQM); writeContent(block, tag); put(RSQM)
-            } else {
-                put(LDQM); writeContent(block, tag); put(RDQM)
-            }
+        if (quote == "\\sQuote") {
+            put(LSQM); writeContent(block, tag); put(RSQM)
         } else {
-            if (quote == "\\sQuote") {
-                put("'"); writeContent(block, tag); put("'")
-            } else {
-                put("\""); writeContent(block,tag); put("\"")
-            }
+            put(LDQM); writeContent(block, tag); put(RDQM)
         }
     }
 
@@ -694,6 +686,7 @@ Rd2txt <-
                    ## FIXME: treat 2 of 2 differently?
                    inEqn0 <- inEqn
                    inEqn <<- TRUE
+                   dropBlank <<- TRUE
                    writeContent(block, tag)
                    inEqn <<- inEqn0
                },
@@ -891,9 +884,12 @@ Rd2txt <-
                                   indent <<- max(opts$minIndent,
                                                  indent + opts$extraIndent)
                                   keepFirstIndent <<- TRUE
-                                  putw(strrep(" ", indent0),
-                                       DLlab,
-                                       " ")
+                                  linebreak <- identical(opts$descStyle, "linebreak")
+                                  suffix <- if (identical(opts$descStyle, "colon")
+                                                && !endsWith(DLlab[length(DLlab)], ":")) ": "
+                                            else if (!linebreak) " "
+                                  putw(strrep(" ", indent0), DLlab, suffix)
+                                  if (linebreak) blankLine(0L)
                                   writeContent(block[[2L]], tag)
 			  	  blankLine(0L)
                                   indent <<- indent0
@@ -1039,8 +1035,6 @@ Rd2txt <-
 	    left <- name
 	    mid <- if(nzchar(package)) paste0("package:", package) else ""
 	    right <- "R Documentation"
-	    if(encoding != "unknown")
-		right <- paste0(right, "(", encoding, ")")
 	    pad <- max(HDR_WIDTH - nchar(left, "w") - nchar(mid, "w") - nchar(right, "w"), 0)
 	    pad0 <- pad %/% 2L
 	    pad1 <- strrep(" ", pad0)

@@ -13,13 +13,13 @@
  *
  *  Auxiliary routines required:
  *	lgamma - log-gamma function
- *      pbeta  - incomplete-beta function {nowadays: pbeta_raw() -> bratio()}
+ *      pbeta  - incomplete-beta function {nowadays: directly bratio()}
  */
 
 #include "nmath.h"
 #include "dpq.h"
 
-LDOUBLE attribute_hidden
+attribute_hidden LDOUBLE
 pnbeta_raw(double x, double o_x, double a, double b, double ncp)
 {
     /* o_x  == 1 - x  but maybe more accurate */
@@ -49,6 +49,7 @@ pnbeta_raw(double x, double o_x, double a, double b, double ncp)
     lBeta = lbeta(a0, b); // = lgammafn(a0) + lgammafn(b) - lgammafn(a0 + b);
     /* temp = pbeta_raw(x, a0, b, TRUE, FALSE), but using (x, o_x): */
     bratio(a0, b, x, o_x, &temp, &tmp_c, &ierr, FALSE);
+    // TODO(?): report error code as in  ./pbeta.c
 
     gx = exp(a0 * log(x) + b * (x < .5 ? log1p(-x) : log(o_x))
 	     - lBeta - log(a0));
@@ -82,7 +83,7 @@ pnbeta_raw(double x, double o_x, double a, double b, double ncp)
     return ans;
 }
 
-double attribute_hidden
+attribute_hidden double
 pnbeta2(double x, double o_x, double a, double b, double ncp,
 	/* o_x  == 1 - x  but maybe more accurate */
 	int lower_tail, int log_p)

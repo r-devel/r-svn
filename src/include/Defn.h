@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2024  The R Core Team.
+ *  Copyright (C) 1998--2025  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Internal header, not installed */
+/* Internal header, not installed, usied in some standard packages */
 
 #ifndef DEFN_H_
 #define DEFN_H_
@@ -51,6 +51,7 @@
 # define USE_RINTERNALS
 #endif
 
+// should really include R_ext/Visibility.h
 #ifdef HAVE_VISIBILITY_ATTRIBUTE
 # define attribute_visible __attribute__ ((visibility ("default")))
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
@@ -102,6 +103,10 @@ Rcomplex Rf_ComplexFromReal(double, int*);
 #include <Rinternals.h>		/*-> Arith.h, Boolean.h, Complex.h, Error.h,
 				  Memory.h, PrtUtil.h, Utils.h */
 #undef CALLED_FROM_DEFN_H
+
+Rboolean Rf_asRbool(SEXP x,SEXP call);
+bool Rf_asBool2(SEXP x,SEXP call);
+
 
 /* UUID identifying the internals version -- packages using compiled
    code should be re-installed when this changes */
@@ -1517,10 +1522,12 @@ extern0 struct RPRSTACK *R_PendingPromises INI_as(NULL); /* Pending promise stac
 #endif
 
 /* File Input/Output */
+extern0 bool R_Quiet	INI_as(false);	/* Be as quiet as possible */
+extern0 bool R_Verbose	INI_as(false);	/* Be verbose */
+// Next two are duplicated in Rinterface.h
+// R_Interactive is accessed in parallel's fork.c and on Windows in util's stubs.c
 LibExtern Rboolean R_Interactive INI_as(TRUE);	/* TRUE during interactive use*/
-extern0 Rboolean R_Quiet	INI_as(FALSE);	/* Be as quiet as possible */
 extern Rboolean  R_NoEcho	INI_as(FALSE);	/* do not echo R code */
-extern0 Rboolean R_Verbose	INI_as(FALSE);	/* Be verbose */
 /* extern int	R_Console; */	    /* Console active flag */
 /* IoBuffer R_ConsoleIob; : --> ./IOStuff.h */
 /* R_Consolefile is used in the internet module */
@@ -1708,7 +1715,7 @@ int Rf_FixupDigits(SEXP, warn_type);
 int Rf_FixupWidth (SEXP, warn_type);
 SEXP Rf_installDDVAL(int i);
 SEXP Rf_installS3Signature(const char *, const char *);
-Rboolean Rf_isFree(SEXP);
+bool Rf_isFree(SEXP);
 Rboolean Rf_isUnmodifiedSpecSym(SEXP sym, SEXP env);
 SEXP Rf_matchE(SEXP, SEXP, int, SEXP);
 // void Rf_setSVector(SEXP*, int, SEXP);
@@ -1727,6 +1734,8 @@ int R_NaN_is_R_NA(double);
 void R_RestoreHashCount(SEXP rho);
 
 # define allocCharsxp		Rf_allocCharsxp
+# define asBool2	       	Rf_asBool2
+# define asRbool		Rf_asRbool
 # define asVecSize		Rf_asVecSize
 # define asXLength		Rf_asXLength
 # define begincontext		Rf_begincontext
@@ -1906,8 +1915,8 @@ int	R_ShowFiles(int, const char **, const char **, const char *,
 int     R_EditFiles(int, const char **, const char **, const char *);
 int	R_ChooseFile(int, char *, int);
 char	*R_HomeDir(void);
-Rboolean R_FileExists(const char *);
-Rboolean R_HiddenFile(const char *);
+bool    R_FileExists(const char *);
+bool    R_HiddenFile(const char *);
 double	R_FileMtime(const char *);
 int	R_GetFDLimit(void);
 int	R_EnsureFDLimit(int);
@@ -1948,7 +1957,7 @@ int Rf_LogicalFromString(SEXP, int*);
 int Rf_IntegerFromString(SEXP, int*);
 double Rf_RealFromString(SEXP, int*);
 Rcomplex Rf_ComplexFromString(SEXP, int*);
-SEXP Rf_StringFromLogical(int, int*);
+SEXP Rf_StringFromLogical(int);
 SEXP Rf_StringFromInteger(int, int*);
 SEXP Rf_StringFromReal(double, int*);
 SEXP Rf_StringFromComplex(Rcomplex, int*);
@@ -2015,11 +2024,11 @@ void CustomPrintValue(SEXP, SEXP);
 double currentTime(void);
 void DataFrameClass(SEXP);
 SEXP ddfindVar(SEXP, SEXP);
-SEXP deparse1(SEXP,Rboolean,int);
-SEXP deparse1m(SEXP call, Rboolean abbrev, int opts);
-SEXP deparse1w(SEXP,Rboolean,int);
-SEXP deparse1line (SEXP, Rboolean);
-SEXP deparse1line_ex(SEXP, Rboolean, int);
+SEXP deparse1(SEXP,bool,int);
+SEXP deparse1m(SEXP call, bool abbrev, int opts);
+SEXP deparse1w(SEXP,bool,int);
+SEXP deparse1line (SEXP, bool);
+SEXP deparse1line_ex(SEXP, bool, int);
 SEXP deparse1s(SEXP call);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
@@ -2138,7 +2147,7 @@ void R_getProcTime(double *data);
 Rboolean R_isMissing(SEXP symbol, SEXP rho);
 Rboolean R_missing(SEXP symbol, SEXP rho);
 const char *sexptype2char(SEXPTYPE type);
-void sortVector(SEXP, Rboolean);
+void sortVector(SEXP, bool);
 void SrcrefPrompt(const char *, SEXP);
 void ssort(SEXP*,int);
 int StrToInternal(const char *);
@@ -2257,8 +2266,8 @@ const char *EncodeChar(SEXP);
 int mbrtoint(int *w, const char *s);
 
 /* main/sort.c */
-void orderVector1(int *indx, int n, SEXP key, Rboolean nalast,
-		  Rboolean decreasing, SEXP rho);
+void orderVector1(int *indx, int n, SEXP key, bool nalast,
+		  bool decreasing, SEXP rho);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);
@@ -2276,7 +2285,7 @@ int utf8clen(char c);
 int Rf_AdobeSymbol2ucs2(int n);
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact);
-SEXP R_listCompact(SEXP s, Rboolean keep_initial);
+SEXP R_listCompact(SEXP s, bool keep_initial);
 
 typedef unsigned short R_ucs2_t;
 size_t mbcsToUcs2(const char *in, R_ucs2_t *out, int nout, int enc);
@@ -2313,7 +2322,7 @@ int Rasprintf_malloc(char **str, const char *fmt, ...)
 
 SEXP fixup_NaRm(SEXP args); /* summary.c */
 void invalidate_cached_recodings(void);  /* from sysutils.c */
-void resetICUcollator(Rboolean disable); /* from util.c */
+void resetICUcollator(bool disable); /* from util.c */
 void dt_invalidate_locale(void); /* from Rstrptime.h */
 extern int R_OutputCon; /* from connections.c */
 
@@ -2324,7 +2333,7 @@ void get_current_mem(size_t *,size_t *,size_t *); /* from memory.c */
 unsigned long get_duplicate_counter(void);  /* from duplicate.c */
 void reset_duplicate_counter(void);  /* from duplicate.c */
 void BindDomain(char *); /* from main.c */
-extern Rboolean LoadInitFile;  /* from startup.c */
+extern bool LoadInitFile;  /* from startup.c, uses in sys-*.c */
 
 // Unix and Windows versions
 double R_getClockIncrement(void);
@@ -2362,8 +2371,10 @@ extern const char *locale2charset(const char *);
 
 #ifndef NO_NLS
 # ifdef ENABLE_NLS
+// libintl.h might remap these to libintl_XXXX and normally does in GNU gettext
 #  include <libintl.h>
 #  ifdef Win32
+// assumes Windows is using GNU gettext with remapping.
 #   define _(String) libintl_gettext (String)
 #   undef gettext /* needed for graphapp */
 #  else
@@ -2420,6 +2431,7 @@ extern void *alloca(size_t);
 
 /* int_fast64_t is required by C99/C11
    Alternative would be to use intmax_t.
+   Used in summary.c
  */
 #ifdef HAVE_INT64_T
 # define LONG_INT int64_t

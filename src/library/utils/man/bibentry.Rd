@@ -1,6 +1,6 @@
 % File src/library/utils/man/bibentry.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{bibentry}
@@ -32,7 +32,7 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
 
 \method{sort}{bibentry}(x, decreasing = FALSE, .bibstyle = NULL, drop = FALSE, \dots)
 
-\method{print}{citation} (x, style = "citation", \dots)
+\method{print}{citation}(x, style = "citation", \dots)
 \method{format}{citation}(x, style = "citation", \dots)
 
 \method{toBibtex}{bibentry}(object, escape = FALSE, ...)
@@ -216,6 +216,9 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
     \item{number:}{The number of a journal, magazine, technical report,
       or of a work in a series.}
 
+    \item{organization:}{The publishing institution of a manual or
+      proceedings.}
+
     \item{pages:}{One or more page numbers or range of numbers.}
 
     \item{publisher:}{The publisher's name.}
@@ -243,10 +246,11 @@ bibentry(bibtype, textVersion = NULL, header = NULL, footer = NULL,
 rref <- bibentry(
    bibtype = "Manual",
    title = "R: A Language and Environment for Statistical Computing",
-   author = person("R Core Team"),
+   author = person("R Core Team", comment = c(ROR = "02zz1nj61")),
    organization = "R Foundation for Statistical Computing",
    address = "Vienna, Austria",
-   year = 2014,
+   year = 2025,
+   doi = "10.32614/R.manuals",
    url = "https://www.R-project.org/")
 
 ## Different printing styles
@@ -261,29 +265,33 @@ print(rref, style = "R")
 bref <- c(
    bibentry(
      bibtype = "Manual",
-     title = "boot: Bootstrap R (S-PLUS) Functions",
+     title = "boot: Bootstrap Functions",
      author = c(
        person("Angelo", "Canty", role = "aut",
+         email = "cantya@mcmaster.ca",
          comment = "S original"),
-       person(c("Brian", "D."), "Ripley", role = c("aut", "trl", "cre"),
-         comment = "R port, author of parallel support",
-         email = "ripley@stats.ox.ac.uk")
+       person(c("Brian", "D."), "Ripley", role = c("aut", "trl"),
+         comment = "R port, author of parallel support, maintainer 1999--2022",
+         email = "Brian.Ripley@R-project.org")
      ),
-     year = "2012",
-     note = "R package version 1.3-4",
+     year = "2024",
+     note = "R package version 1.3-31",
      url = "https://CRAN.R-project.org/package=boot",
+     doi = "10.32614/CRAN.package.boot",
      key = "boot-package"
    ),
 
    bibentry(
      bibtype = "Book",
      title = "Bootstrap Methods and Their Applications",
-     author = as.person("Anthony C. Davison [aut], David V. Hinkley [aut]"),
+     author = c(person("Anthony Christopher", "Davison",
+                        comment = c(ORCID = "0000-0002-8537-6191")),
+                person("David Victor", "Hinkley")),
      year = "1997",
      publisher = "Cambridge University Press",
      address = "Cambridge",
      isbn = "0-521-57391-2",
-     url = "http://statwww.epfl.ch/davison/BMA/",
+     doi = "10.1017/CBO9780511802843",
      key = "boot-book"
    )
 )

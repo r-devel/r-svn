@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2024   The R Core Team
+ *  Copyright (C) 1998-2025   The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -26,70 +26,55 @@
 #ifndef R_ERROR_H_
 #define R_ERROR_H_
 
-#if defined(__cplusplus) && !defined(DO_NOT_USE_CXX_HEADERS)
-# include <cstddef>
-#else
-# include <stddef.h> /* for size_t */
-#endif
-
-#include <R_ext/Print.h>
-#include <Rconfig.h>            /* for HAVE_F77_UNDERSCORE */
+#include <R_ext/Print.h> // for R_PRINTF_FORMAT
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-/* C23 has a [[noreturn]] attribute supported in GCC 13 and LLVM clang
- * 15 with -std=c2x but not Apple clang 14.  All have version 202000L.
- * In C11 there is _Noreturn * (or noreturn in header <stdnoreturn.h>).
+/*
+ * As this is sometimes an attribute, it should precede 'static' in a
+ * function declaration.
+ * gcc 15 requires it to precede 'attribute_hidden'.
+ * OTOH, '_Noreturn' is an obsolescent (in C23) function specifier.
  */
 #if defined NORET
 #elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202301L)
+// gcc 15 LLVM clang 19- and Apple clang 17
 # define NORET [[noreturn]]
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201102L
 # define NORET _Noreturn
 #elif defined(__GNUC__) && __GNUC__ >= 3
-// LLVM and Apple clang identify themselves as 4.
-// But Mandriva (or OpenMandriva) is said to patch clang to 11.
-// Boost also uses this for __SUNPRO_CC >= 0x590
+// All platforms these days should be using C >= 11 but perhaps used for C++
 # define NORET __attribute__((noreturn))
 #else
+// C++ and legacy
 # define NORET
 #endif
 
+#ifdef  __cplusplus
+// Only supported in C++ >= 11, but that is all current R supports
+// Defining NORET caused conflict in many C++-using packages
+[[noreturn]] void Rf_error(const char *, ...) R_PRINTF_FORMAT(1, 2);
+
+[[noreturn]] void UNIMPLEMENTED(const char *);
+[[noreturn]] void WrongArgCount(const char *);
+#else
 NORET void Rf_error(const char *, ...) R_PRINTF_FORMAT(1, 2);
 
 NORET void UNIMPLEMENTED(const char *);
 NORET void WrongArgCount(const char *);
+#endif
 
 void Rf_warning(const char *, ...) R_PRINTF_FORMAT(1,2);
 
 void R_ShowMessage(const char *s);
 
-#if 0
-/* xerbla is a a C function intended to be called from Fortran.
+/* xerbla is a C function intended to be called from Fortran.
+ * which forerly had a C declaration here.
+ *
  * It wraps Rf_error, so use that directtly from C/C++
 */
-#ifdef HAVE_F77_UNDERSCORE
-/* F77_NAME is in RS.h, but better not include it here (e.g. due to
- * name conflicts involving symbols defined with !STRICT_R_HEADERS) .
- * However, using a trailing underline is not universal, and print.c
- * uses F77_SUB.
- */
-# ifdef FC_LEN_T
-NORET void xerbla_(const char *srname, int *info, const FC_LEN_T srname_len);
-# else
-NORET void xerbla_(const char *srname, int *info);
-# endif
-#else
-# ifdef FC_LEN_T
-NORET void xerbla(const char *srname, int *info, const FC_LEN_T srname_len);
-# else
-NORET void xerbla(const char *srname, int *info);
-# endif
-#endif
-
-#endif
 
 #ifdef  __cplusplus
 }

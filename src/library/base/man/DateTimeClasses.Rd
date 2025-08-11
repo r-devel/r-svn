@@ -1,6 +1,6 @@
 % File src/library/base/man/DateTimeClasses.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{DateTimeClasses}
@@ -60,7 +60,8 @@
   representing calendar dates and times.
 }
 \usage{
-\method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL, \dots)
+\method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL,
+      digits = getOption("digits.secs"), \dots)
 
 \method{summary}{POSIXct}(object, digits = 15, \dots)
 
@@ -76,7 +77,9 @@
   \item{max}{numeric or \code{NULL}, specifying the maximal number of
     entries to be printed.  By default, when \code{NULL},
     \code{\link{getOption}("max.print")} used.}
-  \item{digits}{number of significant digits for the computations:
+  \item{digits}{number of digits to format fractional seconds in the case
+    of \code{print()};
+    number of \emph{significant} digits for the computations:
     should be high enough to represent the least important time unit
     exactly.}
   \item{\dots}{further arguments to be passed from or to other methods.}
@@ -198,7 +201,7 @@
   }
   The components must be in this order: that was only minimally checked
   prior to \R 4.3.0.  All objects created in \R 4.3.0 have the optional
-  components.  From earlier versions of \R, he last two components will
+  components.  From earlier versions of \R, the last two components will
   not be present for times in UTC and are platform-dependent.  Currently
   \code{gmtoff} is set on almost all current platforms: those based on
   BSD or \code{glibc} (including Linux and macOS) and those using the
@@ -206,7 +209,7 @@
   default macOS).
 
   Note that the internal list structure is somewhat hidden, as many
-  methods (including \code{\link{length}(x)}, \code{\link{print}()} and
+  methods (including \code{\link{length}()}, \code{\link{print}()} and
   \code{\link{str}()}) apply to the abstract date-time vector, as for
   \code{"POSIXct"}.  One can extract and replace \emph{single}
   components via \code{[} indexing with \emph{two} indices (see the
@@ -336,17 +339,20 @@
   The \emph{order} of the list components of \code{"POSIXlt"} objects
   must not be changed, as several C-based conversion methods rely on the
   order for efficiency.
+
+  Do not use \code{\link{identical}()} on objects of class \code{"POSIXct"},
+  rather \code{\link{==}} or \code{\link{all.equal}}.
+  Their \code{\link{storage.mode}} may be \code{"double"} or
+  \code{"integer"} and you should not rely on which is chosen.
 }
-\examples{
-\dontdiff{
+\examples{\dontdiff{
 (z <- Sys.time())             # the current date, as class "POSIXct"
 
 Sys.time() - 3600             # an hour ago
 
 as.POSIXlt(Sys.time(), "GMT") # the current time in GMT
-format(.leap.seconds)         # the leap seconds in your time zone
+format(.leap.seconds)         # the leap seconds in your time zone}
 print(.leap.seconds, tz = "America/Los_Angeles")  # and in Seattle's
-}
 
 ## look at *internal* representation of "POSIXlt" :
 leapS <- as.POSIXlt(.leap.seconds)

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2024  The R Core Team
+ *  Copyright (C) 1999--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -124,6 +124,14 @@ R_size_t R_Decode2Long(char *p, int *ierr)
 #define NB 1000
 const char *EncodeLogical(int x, int w)
 {
+    /* fast path when 'w' fits exactly */
+    if(x == NA_LOGICAL) {
+	if(w == R_print.na_width) return CHAR(R_print.na_string);
+    } else if(x) {
+	if(w == 4) return "TRUE";
+    } else
+	if(w == 5) return "FALSE";
+    /* general case */
     static char buff[NB];
     if(x == NA_LOGICAL) snprintf(buff, NB, "%*s", min(w, (NB-1)), CHAR(R_print.na_string));
     else if(x) snprintf(buff, NB, "%*s", min(w, (NB-1)), "TRUE");
@@ -180,6 +188,9 @@ const char *EncodeExtptr(SEXP x)
     return buf;
 }
 
+int Rstrwid(const char *str, int slen, cetype_t ienc, int quote); /* below */
+#define strwidth(x) Rstrwid(x, (int) strlen(x), CE_NATIVE, 0)
+
 attribute_hidden
 const char *EncodeReal(double x, int w, int d, int e, char cdec)
 {
@@ -202,14 +213,13 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
 	else snprintf(buff, NB, "%*s", min(w, (NB-1)), "-Inf");
     }
     else if (e) {
-	if(d) {
+	if(d) { // '#' flag
 	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
 	else {
 	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
 	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
@@ -217,7 +227,12 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
     }
     buff[NB-1] = '\0';
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -230,6 +245,7 @@ const char *EncodeReal0(double x, int w, int d, int e, const char *dec)
     return out;
 }
 
+// A copy of EncodeReal0() -- additionally dropping trailing zeros:
 static const char
 *EncodeRealDrop0(double x, int w, int d, int e, const char *dec)
 {
@@ -247,12 +263,11 @@ static const char
     else if (e) {
 	if(d) {
 	    snprintf(fmt, 20, "%%#%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
 	else {
 	    snprintf(fmt, 20, "%%%d.%de", min(w, (NB-1)), d);
-	    snprintf(buff, NB, fmt, x);
 	}
+	snprintf(buff, NB, fmt, x);
     }
     else { /* e = 0 */
 	snprintf(fmt, 20, "%%%d.%df", min(w, (NB-1)), d);
@@ -274,7 +289,12 @@ static const char
 	}
     }
 
-    if(strcmp(dec, ".")) {
+    if(strcmp(dec, ".")) { /* replace "." by dec */
+	int len = strwidth(dec); /* 3·14 must work */
+	if(len != 1) warning(
+	    _("the decimal mark is %s than one character wide; this will become an error"),
+	    (len > 1) ? "more" : "less");
+
 	char *p, *q;
 	for(p = buff, q = buff2; *p; p++) {
 	    if(*p == '.') for(const char *r = dec; *r; r++) *q++ = *r;
@@ -404,7 +424,7 @@ int Rstrwid(const char *str, int slen, cetype_t ienc, int quote)
     if(ienc > 2) // CE_NATIVE, CE_UTF8, CE_BYTES are supported
 	warning("unsupported encoding (%d) in Rstrwid", ienc);
     if(mbcslocale || ienc == CE_UTF8) {
-	Rboolean useUTF8 = (ienc == CE_UTF8);
+	bool useUTF8 = (ienc == CE_UTF8);
 	mbstate_t mb_st;
 
 	if(!useUTF8)  mbs_init(&mb_st);
@@ -546,7 +566,7 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
     int i, cnt;
     const char *p; char *q, buf[13];
     cetype_t ienc = getCharCE(s);
-    Rboolean useUTF8 = w < 0;
+    bool useUTF8 = w < 0;
     const void *vmax = vmaxget();
 
     if (w < 0) w = w + 1000000;
@@ -653,11 +673,11 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
     }
     if(quote) *q++ = (char) quote;
     if(mbcslocale || ienc == CE_UTF8) {
-	Rboolean useUTF8 = (ienc == CE_UTF8);
-	Rboolean wchar_is_ucs_or_utf16 = TRUE;
+	bool useUTF8 = (ienc == CE_UTF8);
+	bool wchar_is_ucs_or_utf16 = TRUE;
 	mbstate_t mb_st;
 #ifndef __STDC_ISO_10646__
-	Rboolean Unicode_warning = FALSE;
+	bool Unicode_warning = FALSE;
 #endif
 # if !defined (__STDC_ISO_10646__) && !defined (Win32)
 	wchar_is_ucs_or_utf16 = FALSE;
@@ -1023,7 +1043,7 @@ int REvprintf_internal(const char *format, va_list arg)
 	    res = vfprintf(R_Consolefile, format, arg);
     } else {
 	char buf[BUFSIZE];
-	Rboolean printed = FALSE;
+	bool printed = false;
 	va_list aq;
 
 	va_copy(aq, arg);
@@ -1041,7 +1061,7 @@ int REvprintf_internal(const char *format, va_list arg)
 		res = vsnprintf(malloc_buf, size, format, arg);
 		if (res == size - 1) {
 		    R_WriteConsoleEx(malloc_buf, res, 1);
-		    printed = TRUE;
+		    printed = true;
 		}
 		char *tmp = malloc_buf;
 		malloc_buf = NULL;
@@ -1061,9 +1081,9 @@ void REvprintf(const char *format, va_list arg)
     REvprintf_internal(format, arg);
 }
 
-int attribute_hidden IndexWidth(R_xlen_t n)
+attribute_hidden int IndexWidth(R_xlen_t n)
 {
-    return (int) (log10(n + 0.5) + 1);
+    return (int) (log10((double)n + 0.5) + 1);
 }
 
 attribute_hidden void VectorIndex(R_xlen_t i, int w)

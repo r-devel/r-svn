@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -743,10 +743,12 @@ function(dir, outDir, keep.source = TRUE)
         })
         ## In case of an error, do not clean up: should we point to
         ## buildDir for possible inspection of results/problems?
-        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS.
+        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS
+        ## and this R's texmf is found (system TEXINPUTS could list another R).
         if (vignette_is_tex(output)) {
             tryCatch({
-                texi2pdf(file = output, quiet = TRUE, texinputs = vigns$dir)
+                texi2pdf(file = output, quiet = TRUE,
+                         texinputs = c(vigns$dir, paste0(R.home("share"), "/texmf//")))
                 output <- find_vignette_product(name, by = "texi2pdf", engine = engine)
             }, error = function(e) {
                 stop(gettextf("compiling TeX file %s failed with message:\n%s",
@@ -811,33 +813,46 @@ function(dir, packages)
     invisible()
 }
 
+### * .install_R_bibliographies_as_RDS
+
+.install_R_bibliographies_as_RDS <- 
+function(dir) {
+    bibfiles <- Sys.glob(file.path(dir, "*.R"))
+    bibentries <- do.call(c, lapply(bibfiles,
+                                    utils::readCitationFile, 
+                                    list(Encoding = "UTF-8")))
+    saveRDS(bibentries, file.path(dir, "R.rds"))
+}
+
 ### * .install_package_Rd_objects
 
-## called from src/library/Makefile
+## called from src/library/Makefile and .install_packages
 .install_package_Rd_objects <-
 function(dir, outDir, encoding = "unknown")
 {
+    packageName <- basename(outDir)
     dir <- file_path_as_absolute(dir)
     mandir <- file.path(dir, "man")
     manfiles <- if(!dir.exists(mandir)) character()
-    else list_files_with_type(mandir, "docs")
+                else list_files_with_type(mandir, "docs")
     manOutDir <- file.path(outDir, "help")
     dir.create(manOutDir, FALSE)
-    db_file <- file.path(manOutDir,
-                         paste0(basename(outDir), ".rdx"))
+    db_file <- file.path(manOutDir, paste0(packageName, ".rdx"))
     built_file <- file.path(dir, "build", "partial.rdb")
-    macro_files <- list.files(file.path(dir, "man", "macros"), pattern = "\\.Rd$", full.names = TRUE)
+    macro_files <- list.files(file.path(dir, "man", "macros"),
+                              pattern = "\\.Rd$", full.names = TRUE)
     if (length(macro_files)) {
     	macroDir <- file.path(manOutDir, "macros")
     	dir.create(macroDir, FALSE)
     	file.copy(macro_files, macroDir, overwrite = TRUE)
     }
     ## Avoid (costly) rebuilding if not needed.
-    ## Actually, it seems no more costly than these tests, which it also does
+    ## Remaking Rdobjects of base packages takes 4s, but only 0.5s if skipped.
     pathsFile <- file.path(manOutDir, "paths.rds")
-    if(!file_test("-f", db_file) || !file.exists(pathsFile) ||
-       !identical(sort(manfiles), sort(readRDS(pathsFile))) ||
-       !all(file_test("-nt", db_file, manfiles))) {
+    upToDate <- file_test("-f", db_file) && file.exists(pathsFile) &&
+        identical(sort(manfiles), sort(readRDS(pathsFile))) &&
+        all(file_test("-nt", db_file, manfiles))
+    if(!upToDate) {
         db <- .build_Rd_db(dir, manfiles, db_file = db_file,
                            encoding = encoding, built_file = built_file)
         nm <- as.character(names(db)) # Might be NULL
@@ -845,7 +860,7 @@ function(dir, outDir, encoding = "unknown")
                           first = nchar(file.path(mandir)) + 2L),
                 pathsFile)
         names(db) <- sub("\\.[Rr]d$", "", basename(nm))
-        makeLazyLoadDB(db, file.path(manOutDir, basename(outDir)))
+        makeLazyLoadDB(db, file.path(manOutDir, packageName))
     }
     invisible()
 }

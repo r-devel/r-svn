@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2024 R Core Team
+### Copyright (C) 1998-2025 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -1086,6 +1086,7 @@ EOF
 /* A C function calling a Fortran subroutine which calls xerbla
    written in C, emulating how R calls BLAS/LAPACK routines */
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include "confdefs.h"
@@ -3318,6 +3319,91 @@ fi
 AC_SUBST(LAPACK_LIBS)
 ])# R_LAPACK_SYSTEM_LIB
 
+## R_INTERNAL_XDR_USABLE
+## ---------------------
+## Check whether the internal xdr implementation can be used. It cannot be
+## with GCC sanitizers (2024), which intercept also xdr calls. Linking turns
+## the symbols to dynamically linked and succeeds, then the program crashes
+## when invoking an xdr call.
+##
+## R_INTERNAL_XDR_USABLE()
+## -----------------------
+AC_DEFUN([R_INTERNAL_XDR_USABLE],
+[AC_REQUIRE([LT_INIT])dnl
+AC_REQUIRE([R_PROG_AR])dnl
+AC_CACHE_CHECK([whether internal XDR can be used],
+               [r_cv_internal_xdr_usable],
+[if test "${cross_compiling}" = yes; then
+  r_cv_internal_xdr_usable=yes
+else
+  cat >conftestx.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op) {
+  (void)xdrs; (void)addr; (void)size; (void)op;
+  exit(0); /* SUCCESS, internal implementation can be called */
+}
+EOF
+  cat >conftest.c <<EOF
+#include <stdint.h>
+#include <stdlib.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+
+extern void xdrmem_create(register XDR *xdrs, caddr_t addr, u_int size,
+                   enum xdr_op op);
+
+int main(void) {
+  XDR xdrs;
+  char buf[[4]];
+
+  xdrmem_create(&xdrs, buf, sizeof(buf), XDR_ENCODE);
+  exit(1); /* FAILURE, internal implementation is not called */
+}
+EOF
+  r_save_CPPFLAGS="${CPPFLAGS}"
+  CPPFLAGS="${CPPFLAGS} -I${srcdir}/src/extra/xdr"
+  r_cv_internal_xdr_usable=no
+  if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftestx.c \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${AR} ${ARFLAGS} conftestx.${libext} conftestx.${ac_objext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${RANLIB} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD && \
+     ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} conftestx.${libext} \
+       1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD ; then
+     
+     ./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD
+     if test ${?} = 0; then
+       r_cv_internal_xdr_usable=yes
+     fi
+  fi
+  rm -f conftestxi.c conftestx.c
+  CPPFLAGS="${r_save_CPPFLAGS}"
+fi # not cross-compiling
+])
+if test "${r_cv_internal_xdr_usable}" = no ; then
+  case "${host_os}" in
+    linux*)
+      AC_MSG_ERROR([Internal XDR cannot be used. Maybe install a development version of TI-RPC?])
+      ;;
+    *)
+      ## unlikely
+      AC_MSG_ERROR([Internal XDR cannot be used.])
+      ;;
+  esac
+elif test "${cross_compiling}" = yes; then
+  AC_MSG_WARN([Assuming internal XDR works (cross-compiling).])
+fi
+])# R_INTERNAL_XDR_USABLE
+
 ## R_SEARCH_XDR_LIBS
 ## -----------------
 ## Linking a test program is not enough with address sanitizer, which on
@@ -3428,6 +3514,10 @@ AC_MSG_CHECKING([for XDR support])
 AC_MSG_RESULT([${r_xdr}])
 AM_CONDITIONAL(BUILD_XDR, [test "x${r_xdr}" = xno])
 AC_SUBST(TIRPC_CPPFLAGS)
+if test "${r_xdr}" = no ; then
+  ## check internal xdr can be used
+  R_INTERNAL_XDR_USABLE()
+fi
 ])# R_XDR
 
 ## R_ZLIB
@@ -3725,6 +3815,50 @@ fi
 ])# R_LZMA
 
 
+## R_ZSTD
+## -------
+## Try finding libzstd library and headers.
+## We check that both are installed,
+AC_DEFUN([R_ZSTD],
+[AC_CHECK_LIB(zstd, ZSTD_versionNumber, [have_zstd=yes], [have_zstd=no])
+if test "${have_zstd}" = yes; then
+  AC_CHECK_HEADERS(zstd.h, [have_zstd=yes], [have_zstd=no])
+fi
+if test "x${have_zstd}" = xyes; then
+AC_CACHE_CHECK([if zstd version >= 1.3.3], [r_cv_have_zstd],
+[AC_LANG_PUSH(C)
+r_save_LIBS="${LIBS}"
+LIBS="-lzstd ${LIBS}"
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#ifdef HAVE_ZSTD_H
+#include <zstd.h>
+#endif
+#include <stdlib.h>
+int main(void) {
+    exit(ZSTD_versionNumber() < 10303);
+}
+]])], [r_cv_have_zstd=yes], [r_cv_have_zstd=no], [r_cv_have_zstd=no])
+LIBS="${r_save_LIBS}"
+AC_LANG_POP(C)])
+fi
+if test "x${r_cv_have_zstd}" = xno; then
+  have_zstd=no
+fi
+if test "x${have_zstd}" = xyes; then
+  AC_DEFINE(HAVE_ZSTD, 1, [Define if your system has zstd >= 1.3.3.])
+  LIBS="-lzstd ${LIBS}"
+  # check if we can use single-shot decompression on stream-compressed files (was added as static in 1.4.0)
+  AC_CHECK_FUNC(ZSTD_decompressBound, [have_zstd_decompressbound=yes], [have_zstd_decompressbound=no])
+  if test "x${have_zstd_decompressbound}" = xyes; then
+    AC_DEFINE(HAVE_ZSTD_DECOMPRESSBOUND, 1, [Define if zstd has ZSTD_decompressBound])
+  fi
+# so far we don't require it, but we might
+#else
+#  AC_MSG_ERROR("libzstd library and headers are required")
+fi
+])# R_ZSTD
+
+
 ## R_SYS_POSIX_LEAPSECONDS
 ## -----------------------
 ## See if your system time functions do not count leap seconds, as
@@ -3828,7 +3962,7 @@ fi
 ## -------
 ## Look for iconv, possibly in libiconv.
 ## Need to include <iconv.h> as this may define iconv as a macro.
-## libiconv, e.g. on macOS, has iconv as a macro and needs -liconv.
+## GNU libiconv, e.g. on older macOS, has iconv as a macro and needs -liconv.
 AC_DEFUN([R_ICONV],
 [AC_CHECK_HEADERS(iconv.h)
 dnl need to ignore cache for this as it may set LIBS
@@ -3843,6 +3977,7 @@ AC_CACHE_CHECK(for iconv, ac_cv_func_iconv, [
        iconv_close(cd);]])],[ac_cv_func_iconv=yes],[])
   if test "$ac_cv_func_iconv" != yes; then
     r_save_LIBS="$LIBS"
+dnl libiconv is system and hence dynamic on macOS
     LIBS="$LIBS -liconv"
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
 #ifdef HAVE_ICONV_H
@@ -4230,6 +4365,7 @@ AC_DEFUN([R_KERN_USRSTACK],
 #include "confdefs.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
@@ -4445,6 +4581,7 @@ LIBS="${r_save_LIBS}"
 if test "x${r_cv_icu}" = xyes; then
   AC_DEFINE(USE_ICU, 1, [Define to use ICU for collation.])
   LIBS="${LIBS} -licuuc -licui18n"
+dnl why does this append when everything else prepends?  Including on macOS
 else
   use_ICU=no
 fi
@@ -4813,7 +4950,7 @@ fi
 
 ## R_STDCXX
 ## --------
-## Support for C++ standards (C++11, C++14, C++17, C++20, C++23), for use in packages.
+## Support for C++ standards (C++11, C++14, C++17, C++20, C++23, C++26), for use in packages.
 ## R_STDCXX(VERSION, PREFIX, DEFAULT)
 AC_DEFUN([R_STDCXX],
 [r_save_CXX="${CXX}"
@@ -5237,7 +5374,11 @@ AC_DEFUN([R_C23],
 # error "Compiler does not advertise ISO C conformance"
 #endif
 
+// Most new features have feature tests. but bool type is fundamental.
+
 int main(void) {
+     bool x = true;
+
      return 0;
 }
 
@@ -5299,6 +5440,25 @@ int main(void) {
                [r_cv_C99=no],
                [r_cv_C99=no])])
 ])# R_C90
+
+AC_DEFUN([R_ENUM_BASE_TYPE],
+[AC_CACHE_CHECK([whether the base type of an enum can be specified], [r_cv_enum_type],
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+
+typedef enum :int { FALSE = 0, TRUE } Rboolean;
+
+int main(void) {
+     return 0;
+}
+
+]])],
+               [r_cv_enum_type=yes],
+               [r_cv_enum_type=no],
+               [r_cv_enum_type=no])])
+if test "x${r_cv_enum_type}" = xyes; then
+  AC_DEFINE(HAVE_ENUM_BASE_TYPE, 1, [Define if enum can set its base type.])
+fi
+])# R_ENUM_BASE_TYPE
 
 ### Local variables: ***
 ### mode: outline-minor ***

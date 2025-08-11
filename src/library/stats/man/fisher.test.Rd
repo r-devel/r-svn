@@ -1,6 +1,6 @@
 % File src/library/stats/man/fisher.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{fisher.test}
@@ -24,9 +24,9 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   \item{workspace}{an integer specifying the size of the workspace
     used in the network algorithm.  In units of 4 bytes.  Only used for
     non-simulated p-values larger than \eqn{2 \times 2}{2 by 2} tables.
-    Since \R version 3.5.0, this also increases the internal stack size
-    which allows larger problems to be solved, however sometimes needing
-    hours.  In such cases, \code{simulate.p.values=TRUE} may be more
+    This also increases the internal stack size
+    which allows larger problems to be solved, sometimes needing
+    hours.  In such cases, \code{simulate.p.values = TRUE} may be more
     reasonable.}
     \item{hybrid}{a logical. Only used for larger than \eqn{2 \times 2}{2 by 2}
     tables, in which cases it indicates whether the exact probabilities
@@ -34,7 +34,7 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   \item{hybridPars}{a numeric vector of length 3, by default describing
     \dQuote{Cochran's conditions} for the validity of the chi-squared
     approximation, see \sQuote{Details}.}
-  \item{control}{a list with named components for low level algorithm
+  \item{control}{a list with named components for low-level algorithm
     control.  At present the only one used is \code{"mult"}, a positive
     integer \eqn{\ge 2} with default 30 used only for larger than
     \eqn{2 \times 2}{2 by 2} tables.  This says how many times as much
@@ -56,7 +56,7 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
     p-values by Monte Carlo simulation, in larger than \eqn{2 \times
       2}{2 by 2} tables.}
   \item{B}{an integer specifying the number of replicates used in the
-    Monte Carlo test.}
+    Monte Carlo test when \code{simulate.p.value} is true.}
 }
 \value{
   A list with class \code{"htest"} containing the following components:
@@ -83,12 +83,12 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   length.  Incomplete cases are removed, vectors are coerced into
   factor objects, and the contingency table is computed from these.
 
-  For \eqn{2 \times 2}{2 by 2} cases, p-values are obtained directly
+  For \eqn{2 \times 2}{2 by 2} tables, p-values are obtained directly
   using the (central or non-central) hypergeometric
   distribution. Otherwise, computations are based on a C version of the
   FORTRAN subroutine \code{FEXACT} which implements the network developed by
-  \bibcite{Mehta and Patel (1983, 1986)} and improved by
-  \bibcite{Clarkson, Fan and Joe (1993)}.
+  \bibcitet{R:Mehta+Patel:1983, R:Mehta+Patel:1986} and improved by
+  \bibcitet{R:Clarkson+Fan+Joe:1993}.
   The FORTRAN code can be obtained from
   \url{https://netlib.org/toms/643}.  Note this fails (with an error
   message) when the entries of the table are too large.  (It transposes
@@ -101,8 +101,8 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   equals one.  \sQuote{Exact} inference can be based on observing that in
   general, given all marginal totals fixed, the first element of the
   contingency table has a non-central hypergeometric distribution with
-  non-centrality parameter given by the odds ratio (Fisher, 1935).  The
-  alternative for a one-sided test is based on the odds ratio, so
+  non-centrality parameter given by the odds ratio \bibcitep{R:Fisher:1935}.
+  The alternative for a one-sided test is based on the odds ratio, so
   \code{alternative = "greater"} is a test of the odds ratio being bigger
   than \code{or}.
 
@@ -120,16 +120,9 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   cells have expected counts at least 5 (\code{= expect}), otherwise
   the exact calculation is used.  A corresponding \code{if()} decision
   is made for all sub-tables considered.
-  %
-  Accidentally, \R has used \code{180} instead of \code{80} as
-  \code{percent}, i.e., \code{hybridPars[2]} in \R versions between
-  3.0.0 and 3.4.1 (inclusive), i.e., the 2nd of the \code{hybridPars}
-  (all of which used to be hard-coded previous to \R 3.5.0).
-  Consequently, in these versions of \R, \code{hybrid=TRUE} never made a
-  difference.
 
   In the \eqn{r \times c}{r x c} case with \eqn{r > 2} or \eqn{c > 2},
-  internal tables can get too large for the exact test in which case an
+  internal tables can be too large for the exact test in which case an
   error is signalled.  Apart from increasing \code{workspace}
   sufficiently, which then may lead to very long running times, using
   \code{simulate.p.value = TRUE} may then often be sufficient and hence
@@ -137,62 +130,18 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
 
   Simulation is done conditional on the row and column marginals, and
   works only if the marginals are strictly positive.  (A C translation
-  of the algorithm of \bibcite{Patefield (1981)} is used.)
+  of the algorithm of \bibcitet{R:Patefield:1981} is used.)
   Note that the default number of replicates (\code{B = 2000}) implies a
   minimum p-value of about 0.0005 (\eqn{1/(B+1)}).
 }
 \references{
-  Agresti, A. (1990).
-  \emph{Categorical data analysis}.
-  New York: Wiley.
-  Pages 59--66.
-
-  Agresti, A. (2002).
-  \emph{Categorical data analysis}. Second edition.
-  New York: Wiley.
-  Pages 91--101.
-
-  Fisher, R. A. (1935).
-  The logic of inductive inference.
-  \emph{Journal of the Royal Statistical Society Series A}, \bold{98},
-  39--54.
-  \doi{10.2307/2342435}.
-
-  Fisher, R. A. (1962).
-  Confidence limits for a cross-product ratio.
-  \emph{Australian Journal of Statistics}, \bold{4}, 41.
-  \doi{10.1111/j.1467-842X.1962.tb00285.x}.
-
-  Fisher, R. A. (1970).
-  \emph{Statistical Methods for Research Workers}.
-  Oliver & Boyd.
-
-  Mehta, Cyrus R. and Patel, Nitin R. (1983).
-  A network algorithm for performing Fisher's exact test in \eqn{r
-  \times c}{r x c} contingency tables.
-  \emph{Journal of the American Statistical Association}, \bold{78},
-  427--434.
-  \doi{10.1080/01621459.1983.10477989}.
-
-  Mehta, C. R. and Patel, N. R. (1986).
-  Algorithm 643: FEXACT, a FORTRAN subroutine for Fisher's exact test
-  on unordered \eqn{r \times c}{r x c} contingency tables.
-  \emph{ACM Transactions on Mathematical Software}, \bold{12},
-  154--161.
-  \doi{10.1145/6497.214326}.
-
-  Clarkson, D. B., Fan, Y. and Joe, H. (1993)
-  A Remark on Algorithm 643: FEXACT: An Algorithm for Performing
-  Fisher's Exact Test in \eqn{r \times c}{r x c} Contingency Tables.
-  \emph{ACM Transactions on Mathematical Software}, \bold{19},
-  484--488.
-  \doi{10.1145/168173.168412}.
-
-  Patefield, W. M. (1981).
-  Algorithm AS 159: An efficient method of generating r x c tables
-  with given row and column totals.
-  \emph{Applied Statistics}, \bold{30}, 91--97.
-  \doi{10.2307/2346669}.
+  \bibinfo{R:Agresti:1990}{note}{pages 59--66}
+  \bibinfo{R:Agresti:2002}{note}{pages 91--101}
+  \bibshow{*,
+    R:Agresti:1990,
+    R:Agresti:2002,
+    R:Fisher:1962,
+    R:Fisher:1970}
 }
 \seealso{
   \code{\link{chisq.test}}
@@ -243,7 +192,7 @@ MP6 <- rbind(
         c(1,1,2,0,0,0,1),
         c(0,1,1,1,1,0,0))
 fisher.test(MP6)
-# Exactly the same p-value, as Cochran's conditions are never met:
-fisher.test(MP6, hybrid=TRUE)
+# Exactly the same p-value, as Cochran's conditions are not met:
+fisher.test(MP6, hybrid = TRUE)
 }
 \keyword{htest}

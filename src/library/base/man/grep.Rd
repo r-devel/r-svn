@@ -1,6 +1,6 @@
 % File src/library/base/man/grep.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{grep}
@@ -21,7 +21,7 @@
   the format of and amount of detail in the results.
 
   \code{sub} and \code{gsub} perform replacement of the first and all
-  matches respectively.
+  matches respectively within each element of a character vector.
 }
 \usage{
 grep(pattern, x, ignore.case = FALSE, perl = FALSE, value = FALSE,
@@ -62,21 +62,21 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \item{x, text}{a character vector where matches are sought, or an
     object which can be coerced by \code{as.character} to a character
     vector.  \link{Long vectors} are supported.}
-  \item{ignore.case}{if \code{FALSE}, the pattern matching is \emph{case
+  \item{ignore.case}{logical. if \code{FALSE}, the pattern matching is \emph{case
       sensitive} and if \code{TRUE}, case is ignored during matching.}
   \item{perl}{logical.  Should Perl-compatible regexps be used?}
-  \item{value}{if \code{FALSE}, a vector containing the (\code{integer})
+  \item{value}{logical. If \code{FALSE}, a vector containing the (\code{integer})
     indices of the matches determined by \code{grep} is returned, and if
     \code{TRUE}, a vector containing the matching elements themselves is
     returned.}
-  \item{fixed}{logical.  If \code{TRUE}, \code{pattern} is a string to be
+  \item{fixed}{logical. If \code{TRUE}, \code{pattern} is a string to be
     matched as is.  Overrides all conflicting arguments.}
   \item{useBytes}{logical.  If \code{TRUE} the matching is done
     byte-by-byte rather than character-by-character.  See
     \sQuote{Details}.}
-  \item{invert}{logical.  If \code{TRUE} return indices or values for
+  \item{invert}{logical. If \code{TRUE} return indices or values for
     elements that do \emph{not} match.}
-  \item{replacement}{a replacement for matched pattern in \code{sub} and
+  \item{replacement}{a replacement for the matched pattern in \code{sub} and
     \code{gsub}.  Coerced to character if possible.  For
     \code{fixed = FALSE} this can include backreferences \code{"\\1"} to
     \code{"\\9"} to parenthesized subexpressions of \code{pattern}.  For
@@ -285,6 +285,13 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   a circled capital letter alphabetic or a symbol?).  However, results
   in 8-bit encodings can differ considerably between platforms, modes
   and from the UTF-8 versions.
+}
+\section{Warning}{
+  An all too common mis-usage is to pass unnamed arguments which are then
+  matched to one or more of \code{ignore.case}, \code{perl}, \code{value},
+  \code{fixed}, \code{useBytes}  and \code{invert}.  So it is good
+  practice to name all  the arguments (especially as
+  \code{x}/\code{text} is not the first argument).
 }
 
 \references{

@@ -144,3 +144,258 @@ function(x)
                     u, x)
             )
 }
+
+R_bibliographies_dir <- 
+function()
+    file.path(R.home("share"), "bibliographies")
+
+R_bibentries <-
+function()
+{
+    bib <- readRDS(file.path(R_bibliographies_dir(), "R.rds"))
+    bib[lengths(bib$key) > 0L]
+}
+
+update_R_bibentries <-
+function(dir = NULL)
+{
+    if(is.null(dir))
+        dir <- file.path(.R_top_srcdir_from_Rd(), 
+                         "share", "bibliographies")
+    bibfiles <- Sys.glob(file.path(dir, "*.R"))
+    bibentries <-
+        do.call(c, lapply(bibfiles,
+                          utils::readCitationFile,
+                          list(Encoding = "UTF-8")))
+    saveRDS(bibentries, file.path(dir, "R.rds"))
+}
+
+Rd_expr_bibshow <-
+function(x)
+{
+    x <- trimws(x)
+    if(!nzchar(x)) {
+        ## Provide a way to clear the keys cited cache.
+        Rd_expr_bibcite_keys_cited(NULL)
+        return(x)
+    }
+    cited <- Rd_expr_bibcite_keys_cited()    
+    ## Would be nice to have a common reader for possibly multi-line
+    ## comma separated values ...
+    given <- strsplit(x, ",[[:space:]]*")[[1L]]
+    if(any(given == "*"))
+        given <- c(given[given != "*"], cited)
+    Rd_expr_bibcite_keys_cited(setdiff(cited, given))
+    y <- sort(unique(.bibentries_from_keys(given)))
+    ## Merge bibinfo data.
+    keys <- .bibentry_get_key(y)
+    store <- Rd_expr_bibinfo_data_store()
+    for(k in intersect(keys, names(store))) {
+        entry <- store[[k]]
+        for(f in names(entry))
+            y[k, f] <- entry[[f]]
+    }
+    Rd_expr_bibinfo_data_store(store[setdiff(names(store), keys)])
+    ## Typically the bibinfo data would give headers or footers, but
+    ## these only get shown when printing bibenties in citation style,
+    ## so we have to add them ourselves.
+    headers <- y[, "header"]
+    headers <- unlist(ifelse(vapply(headers, is.null, NA), "", headers),
+                      use.names = FALSE)
+    if(any(ind <- nzchar(headers)))
+        headers[ind] <- paste(headers[ind], "\\cr")
+    footers <- y[, "footer"]
+    footers <- unlist(ifelse(vapply(footers, is.null, NA), "", footers),
+                      use.names = FALSE)
+    if(any(ind <- nzchar(footers)))
+        footers[ind] <- paste("\\cr", footers[ind])
+    rdfile <- processRdChunk_data_store()$Rdfile
+    rdpath <- if(length(rdfile)) basename(rdfile) else ""
+    paste(sprintf("%s\\if{html}{\u2060\\out{<span id=\"reference+%s+%s\">}}%s\\if{html}{\\out{</span>}}%s",
+                  headers,
+                  rdpath,
+                  string2id(.bibentry_get_key(y)),
+                  toRd(y),
+                  footers),
+          collapse = "\n\n")
+}
+
+Rd_expr_bibcite_keys_cited <- local({
+    .keys <- NULL
+    function(new, add = FALSE) {
+        if(!missing(new)) 
+            .keys <<- unique(c(if(add) .keys, new))
+        else
+            .keys
+    }
+})
+
+Rd_expr_bibcite <-
+function(x, textual = FALSE)
+{
+    x <- trimws(x)
+    given <- strsplit(x, "(?<!\\\\),[[:space:]]*", perl = TRUE)[[1L]]
+    parts <- strsplit(given, "|", fixed = TRUE)
+    parts <- parts[lengths(parts) %in% c(1L, 3L)]
+    ## Could complain about the others ...?
+    keys <- after <- before <- rep_len("", length(parts))
+    if(any(ind <- (lengths(parts) == 1L))) {
+        keys[ind] <- unlist(parts[ind], use.names = FALSE)
+    }
+    if(any(ind <- (lengths(parts) == 3L))) {
+        keys[ind] <- vapply(parts, `[`, "", 2L)
+        after[ind] <- gsub("\\,", ",",
+                           vapply(parts, `[`, "", 3L),
+                           fixed = TRUE)
+        before[ind] <- gsub("\\,", ",",
+                            vapply(parts, `[`, "", 1L),
+                            fixed = TRUE)
+    }
+    bib <- .bibentries_from_keys(keys)
+    ind <- keys %in% .bibentry_get_key(bib)
+    if(!all(ind)) {
+        keys <- keys[ind]
+        after <- after[ind]
+        before <- before[ind]
+    }
+    n <- length(keys)
+    if(n == 0L)
+        return("")
+    y <- character(n)
+    prev <- Rd_expr_bibcite_keys_cited()
+    rdfile <- processRdChunk_data_store()$Rdfile
+    rdpath <- if(length(rdfile)) basename(rdfile) else ""
+    if(textual) {
+        for(i in seq_len(n)) {
+            key <- keys[i]
+            y[i] <- utils::citeNatbib(key, bib[key], after = after[i],
+                                      previous = prev, textual = TRUE)
+            prev <- c(prev, key)
+        }
+        if(any(ind <- nzchar(before)))
+            before[ind] <- paste0(before[ind], " ")
+        y <- paste0(before,
+                    sprintf("\\if{html}{\u2060\\out{<a href=\"#reference+%s+%s\">}}",
+                            rdpath,
+                            string2id(keys)),
+                    y,
+                    rep_len("\\if{html}{\\out{</a>}}", n),
+                    collapse = "; ")
+    } else {
+        bibp <- c("", "", ";", "a", "",  ",")
+        for(i in seq_len(n)) {
+            key <- keys[i]
+            y[i] <- utils::citeNatbib(key, bib[key],
+                                      previous = prev, textual = FALSE,
+                                      bibpunct = bibp)
+            prev <- c(prev, key)
+        }
+        if(any(ind <- nzchar(before)))
+            before[ind] <- paste0(before[ind], " ")
+        if(any(ind <- nzchar(after)))
+            after[ind] <- paste0(", ", after[ind])
+        y <- paste0("(",
+                    paste0(before,
+                           sprintf("\\if{html}{\\out{<a href=\"#reference+%s+%s\">}}",
+                                   rdpath,
+                                   string2id(keys)),
+                           y,
+                           rep_len("\\if{html}{\\out{</a>}}", n),
+                           after,
+                           collapse = ";"),
+                    ")")
+    }
+    Rd_expr_bibcite_keys_cited(keys, TRUE)
+    y
+}
+
+Rd_expr_bibinfo_data_store <- local({
+    .store <- NULL
+    function(new, add = FALSE) {
+        if(!missing(new)) {
+            if(add) {
+                key <- new[[1L]]
+                val <- `names<-`(list(new[[3L]]), new[[2L]])
+                .store[[key]] <<- c(.store[[key]], val)
+            } else
+                .store <<- new
+        }
+        else
+            .store
+    }
+})
+
+Rd_expr_bibinfo <-
+function(key, field, value)
+{
+    Rd_expr_bibinfo_data_store(list(trimws(key),
+                                    trimws(field),
+                                    trimws(value)),
+                               add = TRUE)
+}
+
+## utils:::.bibentry_get_key
+.bibentry_get_key <-
+function (x) 
+{
+    if(!length(x)) 
+        return(character())
+    keys <- lapply(unclass(x), attr, "key")
+    keys[!lengths(keys)] <- ""
+    unlist(keys, use.names = FALSE)
+}
+
+.bibentries_from_keys <-
+function(keys)
+{
+    keys <- keys[nzchar(keys)]
+    bad <- character()
+    if(!any(ind <- grepl("::", keys, fixed = TRUE))) {
+        ## Special-case for efficiency.
+        bib <- R_bibentries()
+        pos <- match(keys, .bibentry_get_key(bib),
+                     nomatch = 0L)
+        bad <- keys[pos == 0L]
+        y <- bib[pos]
+    } else {
+        n <- length(keys)
+        pkgs <- character(n)
+        pkgs[ind] <- sub("::.*", "", keys[ind])
+        i <- split(seq_len(n), pkgs)
+        y <- vector("list", length(i))
+        for(j in seq_along(i)) {
+            pj <- names(i)[j]
+            bib <- if(!nzchar(pj))
+                       R_bibentries()
+                   else if(nzchar(path <- system.file("REFERENCES.rds",
+                                                      package = pj)))
+                       readRDS(path)
+                   else if(nzchar(path <- system.file("REFERENCES.R",
+                                                      package = pj)))
+                       utils::readCitationFile(path,
+                                               list(Encoding = "UTF-8"))
+                   else if(nzchar(path <- system.file("REFERENCES.bib",
+                                                      package = pj)))
+                       `names<-`(bibtex::read.bib(path), NULL)
+                   else
+                       utils::bibentry()
+            kj <- keys[i[[j]]]
+            pos <- match(sub(".*::", "", kj),
+                         .bibentry_get_key(bib),
+                         nomatch = 0L)
+            bib <- bib[pos]
+            bib$key <- as.list(kj[pos > 0L])
+            y[[j]] <- bib
+        }
+        y <- do.call(c, y)
+        pos <- match(keys, .bibentry_get_key(y), nomatch = 0L)
+        bad <- keys[pos == 0L]
+        y <- y[pos]
+    }
+    if(length(bad)) {
+        msg <- sprintf("Could not find bibentries for the following keys:\n%s", 
+                       .strwrap22(sQuote(bad)))
+        warning(msg, call. = FALSE)
+    }
+    y
+}

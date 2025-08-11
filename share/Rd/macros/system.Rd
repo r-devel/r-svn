@@ -56,6 +56,7 @@
 % To get things ignored by RdTextFilter() ...
 \newcommand{\I}{#1}
 
-% Experimental:
-\newcommand{\bibcite}{#1}
-\newcommand{\bibshow}{#1}
+\newcommand{\bibcitep}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibcite("#1", FALSE)}}
+\newcommand{\bibcitet}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibcite("#1", TRUE)}}
+\newcommand{\bibshow}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibshow("#1")}}
+\newcommand{\bibinfo}{\Sexpr[stage=build]{tools:::Rd_expr_bibinfo("#1", "#2", "#3")}}

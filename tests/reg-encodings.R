@@ -134,7 +134,7 @@ if (UTF8) {
     ## not work with call set, and multibyte characters could be mangled by
     ## the `...`.
     ##
-    ## We assume getttext strings are not translated (or are translated
+    ## We assume gettext strings are not translated (or are translated
     ## to the same byte-length as the ones in source).
 
     ## We cannot use `tryCatch` as we're testing the C-level error construction
@@ -193,7 +193,7 @@ if (UTF8) {
         long_error(utf8.test, overflow=0)
 
         overflow <- c(
-             -6,   # Buffer unambiguosly unfilled for MB_CUR_MAX=6
+             -6,   # Buffer unambiguously unfilled for MB_CUR_MAX=6
              -5,   # Buffer maybe filled for MB_CUR_MAX=6
              -4,   # Buffer full with '...\n\0'
              -3,   # Lose 4 byte UTF-8 char
@@ -336,3 +336,50 @@ source(tf, encoding = c("UTF-8", "latin1"))
 ## in R 4.2.{0,1} gave Warning (that would now be an error):
 ##   'length(x) = 2 > 1' in coercion to 'logical(1)'
 if (UTF8) stopifnot(identical(Encoding(x), "UTF-8"))
+
+## Check that UTF-16 with BOM can be read from a connection.  This tests a
+## work-around in R for a bug in libiconv-86 on macOS (at least since
+## libiconv-107).
+words <- c(0xfeff, 0x30+c(1:9,0,1:9,0), 0x0a) # bom + 12345678901234567890 + newline
+hi <- as.raw(words %/% 0x100)
+low <- as.raw(words %% 0x100)
+be <- c(rbind(hi, low))
+befile <- tempfile("be_", fileext=".txt")
+writeBin(be, befile)
+becon <- file(befile, encoding = "UTF-16", open="r")
+stopifnot(identical(readLines(becon), "12345678901234567890"))
+close(becon)
+le <- c(rbind(low, hi))
+lefile <- tempfile("le_", fileext=".txt")
+writeBin(le, lefile)
+lecon <- file(lefile, encoding = "UTF-16", open="r")
+stopifnot(identical(readLines(lecon), "12345678901234567890"))
+close(lecon)
+
+## Test that this doesn't crash to test a work-around in R for a bug in
+## libiconv-86 on macOS.
+r <- charToRaw("Hello world")
+r[3] <- as.raw(0xfc)  # invalid
+iconv(list(r), "", "", sub = "byte")
+
+## Test substitution of invalid bytes in iconv() with UTF-16 input.  As of R
+## 4.5, the input should advance by code unit size (two bytes, not one)
+## when an invalid byte is encountered. Also, running into invalid bytes
+## should not let libiconv forget about the byte-order specified via BOM.
+r8 <- charToRaw("Hello world")
+r16 <- c(as.raw(0xff), as.raw(0xfe), rbind(r8, as.raw(0)))  # little-endian
+r16[7] <- as.raw(0x00)  # invalid (unpaired surrogate)
+r16[8] <- as.raw(0xd8)
+stopifnot(identical(iconv(list(r16), "UTF-16", "UTF-8", sub="byte"),
+          "He<00><d8>lo world"))
+
+
+## Using a __unicode__ decimal mark is fine :
+op <- options(OutDec = "·", scipen = 1)
+x <- pi* 10^(-6:5)
+fx <- sapply(x, format)
+print(fx, width=88, quote=FALSE) # 3·141593e-06 0·00003141593 0·0003141593 ....
+options(OutDec = ".") # back to normal
+stopifnot(grepl("·", fx, fixed=TRUE),
+          identical(sub("·", ".", fx), sapply(x, format)))
+options(op)

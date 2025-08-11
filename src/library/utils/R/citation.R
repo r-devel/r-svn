@@ -140,6 +140,18 @@ function(given = NULL, family = NULL, middle = NULL,
                             domain = NA)
                 }
             }
+            if(any(ind <- (names(comment) == "ROR"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ROR_ID_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ROR ID: %s.",
+                                             "Invalid ROR IDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
+            }
         }
 
         rval <- list(given = given, family = family, role = role,
@@ -416,7 +428,17 @@ function(x)
             if(any(i <- grepl(tools:::.ORCID_iD_variants_regexp,
                               chunks))) {
                 chunks[i] <- tools:::.ORCID_iD_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
                 names(chunks)[i] <- "ORCID"
+                comment <- chunks
+            }
+            if(any(i <- grepl(tools:::.ROR_ID_variants_regexp,
+                              chunks))) {
+                chunks[i] <- tools:::.ROR_ID_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
+                names(chunks)[i] <- "ROR"
                 comment <- chunks
             }
         }
@@ -538,7 +560,8 @@ function(x,
     if(any(include == "comment"))
         x <- lapply(x,
                     function(e) {
-                        u <- .expand_ORCID_identifier(e$comment, style)
+                        u <- .expand_person_comment_identifiers(e$comment,
+                                                                style)
                         if(!is.null(v <- names(u))) {
                             i <- which(nzchar(v))
                             if(length(i))
@@ -602,7 +625,7 @@ function(object, escape = FALSE, ...)
     y
 }
 
-.expand_ORCID_identifier <-
+.expand_person_comment_identifiers <-
 function(x, style = "text")
 {
     if(any(ind <- ((names(x) == "ORCID") &
@@ -613,6 +636,15 @@ function(x, style = "text")
                               oid, oid)
                   else
                       sprintf("<https://orcid.org/%s>", oid)
+    }
+    if(any(ind <- ((names(x) == "ROR") &
+                   grepl(tools:::.ROR_ID_variants_regexp, x)))) {
+        rid <- tools:::.ROR_ID_canonicalize(x[ind])
+        x[ind] <- if(style == "md")
+                      sprintf("[ROR %s](https://ror.org/%s)",
+                              rid, rid)
+                  else
+                      sprintf("<https://ror.org/%s>", rid)
     }
     x
 }
@@ -785,7 +817,7 @@ function(x)
     if(!length(x)) return(character())
     keys <- lapply(unclass(x), attr, "key")
     keys[!lengths(keys)] <- ""
-    unlist(keys)
+    unlist(keys, use.names = FALSE)
 }
 
 .bibentry_names_or_keys <-
@@ -1223,20 +1255,16 @@ function(x, collapse = FALSE)
                     ind <- !is.na(match(names(e),
                                        c(anames, manames, "other")))
                     if(any(ind)) {
-                        other <- paste(names(e[ind]),
-                                       sapply(e[ind], f),
-                                       sep = " = ")
-
                         other <- Map(g,
                                      names(e[ind]),
-                                     sapply(e[ind], f))
+                                     lapply(e[ind], f))
                         other <- .format_call_RR("list", other)
                         e <- e[!ind]
                     } else {
                         other <- NULL
                     }
-                    c(Map(g, names(a), sapply(a, deparse)),
-                      Map(g, names(e), sapply(e, f)),
+                    c(Map(g, names(a), lapply(a, deparse)),
+                      Map(g, names(e), lapply(e, f)),
                       if(length(other)) list(g("other", other)))
 
                 })
@@ -1262,8 +1290,9 @@ function(x)
     s <- lapply(unclass(x),
                 function(e) {
                     e <- e[!vapply(e, is.null, NA)]
-                    cargs <-
-                        sprintf("%s = %s", names(e), sapply(e, deparse1))
+                    cargs <- sprintf("%s = %s",
+                                     names(e),
+                                     vapply(e, deparse1, ""))
                     .format_call_RR("person", cargs)
                 })
     if(length(s) > 1L)
@@ -1980,26 +2009,52 @@ local({
                 year <- year[-suppressauth]
             }
         }
-        if (!is.null(before))
-            before <- paste0(before, " ")
-        if (!is.null(after))
-            after <- paste0(" ", after)
+
+        n <- length(year)
+        before <- if(!any(ind <- nzchar(before)))
+                      rep_len("", n)
+                  else {
+                      before[ind] <- paste0(before[ind], " ")
+                      if(length(before) == 1L)
+                          c(before, rep_len("", n - 1L))
+                      else
+                          rep_len(before, n)
+                  }
+        after <- if(!any(ind <- nzchar(after)))
+                     rep_len("", n)
+                 else {
+                     after[ind] <- paste0(", ", after[ind])
+                     if(length(after) == 1L)
+                         c(rep_len("", n - 1L), after)
+                     else
+                         rep_len(after, n)
+                 }
+        citesep <- paste0(bibpunct[3L], " ")
         if (textual) {
-            result <- paste0(bibpunct[1L], before, year, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             before, year, after,
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0(auth, "^{", result, "}")
             else
             	result <- paste0(auth, " ", result)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
+            result <- paste(result, collapse = citesep)
         } else if (numeric) {
-            result <- paste(year, collapse=paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0("^{", result, "}")
         } else {
-            result <- paste0(auth, bibpunct[5L], " ", year)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    auth, bibpunct[5L], " ", year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
         }
         result
     }

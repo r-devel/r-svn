@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2212,7 +2212,7 @@ attribute_hidden void R_XDREncodeDouble(double d, void *buf)
 	error(_("XDR write failed"));
 }
 
-double attribute_hidden R_XDRDecodeDouble(void *buf)
+attribute_hidden double R_XDRDecodeDouble(void *buf)
 {
     XDR xdrs;
     double d;
@@ -2238,7 +2238,7 @@ attribute_hidden void R_XDREncodeInteger(int i, void *buf)
 	error(_("XDR write failed"));
 }
 
-int attribute_hidden R_XDRDecodeInteger(void *buf)
+attribute_hidden int R_XDRDecodeInteger(void *buf)
 {
     XDR xdrs;
     int i, success;
@@ -2328,7 +2328,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     /* saveToConn(list, conn, ascii, version, environment) */
 
     SEXP s, t, source, list, tmp;
-    Rboolean ascii, wasopen;
+    bool ascii, wasopen;
     int len, j, version, ep;
     Rconnection con;
     struct R_outpstream_st out;
@@ -2344,9 +2344,9 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     con = getConnection(asInteger(CADR(args)));
 
-    if (TYPEOF(CADDR(args)) != LGLSXP)
-	error(_("'ascii' must be logical"));
-    ascii = INTEGER(CADDR(args))[0];
+/*    if (TYPEOF(CADDR(args)) != LGLSXP)
+      error(_("'ascii' must be logical")); */
+    ascii = asBool2(CADDR(args), call);
 
     if (CADDDR(args) == R_NilValue)
 	version = defaultSaveVersion();
@@ -2441,7 +2441,7 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP aenv = R_NilValue, res = R_NilValue;
     unsigned char buf[6];
     size_t count;
-    Rboolean wasopen;
+    bool wasopen;
     RCNTXT cntxt;
 
     checkArity(op, args);

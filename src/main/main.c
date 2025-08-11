@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2023   The R Core Team
+ *  Copyright (C) 1998-2025   The R Core Team
  *  Copyright (C) 2002-2005  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -198,10 +198,6 @@ typedef struct {
 attribute_hidden int
 Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 {
-    int c, browsevalue;
-    SEXP value, thisExpr;
-    Rboolean wasDisplayed = FALSE;
-
     /* clear warnings that might have accumulated during a jump to top level */
     if (R_CollectWarnings)
 	PrintWarnings();
@@ -221,6 +217,7 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	    return(0);
     }
 #endif /* SHELL_ESCAPE */
+    int c;
     while((c = *state->bufp)) {
 	    state->bufp++;
 	    R_IoBufferPutc(c, &R_ConsoleIob);
@@ -243,9 +240,10 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	return 1;
 
     case PARSE_OK:
-
+    {
 	R_IoBufferReadReset(&R_ConsoleIob);
 	R_CurrentExpr = R_Parse1Buffer(&R_ConsoleIob, 1, &state->status);
+	int browsevalue = 0; /* -Wmaybe-uninit.. */
 	if (browselevel) {
 	    browsevalue = ParseBrowser(R_CurrentExpr, rho);
 	    if(browsevalue == 1) return -1;
@@ -254,19 +252,20 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 		return 0;
 	    }
 	    /* PR#15770 We don't want to step into expressions entered at the debug prompt.
-	       The 'S' will be changed back to 's' after the next eval. */
-	    if (R_BrowserLastCommand == 's') R_BrowserLastCommand = 'S';
+	     + PR#18885  Disable debugging of this environment for the duration of the call. */
+	    browsevalue = -RDEBUG(rho);
+	    SET_RDEBUG(rho, 0);
 	}
 	R_Visible = FALSE;
 	R_EvalDepth = 0;
 	resetTimeLimits();
-	PROTECT(thisExpr = R_CurrentExpr);
+	SEXP thisExpr = PROTECT(R_CurrentExpr);
 	R_Busy(1);
-	PROTECT(value = eval(thisExpr, rho));
+	SEXP value = PROTECT(eval(thisExpr, rho));
 	SET_SYMVALUE(R_LastvalueSymbol, value);
 	if (NO_REFERENCES(value))
 	    INCREMENT_REFCNT(value);
-	wasDisplayed = R_Visible;
+	bool wasDisplayed = R_Visible;
 	if (R_Visible)
 	    PrintValueEnv(value, rho);
 	if (R_CollectWarnings)
@@ -274,11 +273,13 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	Rf_callToplevelHandlers(thisExpr, value, TRUE, wasDisplayed);
 	R_CurrentExpr = value; /* Necessary? Doubt it. */
 	UNPROTECT(2); /* thisExpr, value */
-	if (R_BrowserLastCommand == 'S') R_BrowserLastCommand = 's';
+	if (browselevel && browsevalue < 0)
+	    /* Done evaluating REPL expression, continue stepping. */
+	    SET_RDEBUG(rho, 1);
 	R_IoBufferWriteReset(&R_ConsoleIob);
 	state->prompt_type = 1;
 	return(1);
-
+    }
     case PARSE_ERROR:
 
 	state->prompt_type = 1;
@@ -286,16 +287,15 @@ Rf_ReplIteration(SEXP rho, int savestack, int browselevel, R_ReplState *state)
 	R_IoBufferWriteReset(&R_ConsoleIob);
 	return(1);
 
+    case PARSE_EOF:
+	/* the parser thinks it is EOF but it may not have seen all of the
+	   input, so postpone the decision to exit until there is really
+	   no more input (the parser may be seeing a sequence of spaces)
+	   PR#15941 */ 
     case PARSE_INCOMPLETE:
-
 	R_IoBufferReadReset(&R_ConsoleIob);
 	state->prompt_type = 2;
 	return(2);
-
-    case PARSE_EOF:
-
-	return(-1);
-	break;
     }
 
     return(0);
@@ -333,7 +333,7 @@ static void check_session_exit(void)
 	   error is signaled from one of the functions called. The
 	   'exiting' variable identifies this and results in
 	   R_Suicide. */
-	static Rboolean exiting = FALSE;
+	static bool exiting = FALSE;
 	if (exiting)
 	    R_Suicide(_("error during cleanup\n"));
 	else {
@@ -368,7 +368,6 @@ int R_ReplDLLdo1(void)
     int c;
     ParseStatus status;
     SEXP rho = R_GlobalEnv, lastExpr;
-    Rboolean wasDisplayed = FALSE;
 
     if(!*DLLbufp) {
 	R_Busy(0);
@@ -390,6 +389,7 @@ int R_ReplDLLdo1(void)
 	prompt_type = 1;
 	break;
     case PARSE_OK:
+    {
 	R_IoBufferReadReset(&R_ConsoleIob);
 	R_CurrentExpr = R_Parse1Buffer(&R_ConsoleIob, 1, &status);
 	R_Visible = FALSE;
@@ -400,7 +400,7 @@ int R_ReplDLLdo1(void)
 	lastExpr = R_CurrentExpr;
 	R_CurrentExpr = eval(R_CurrentExpr, rho);
 	SET_SYMVALUE(R_LastvalueSymbol, R_CurrentExpr);
-	wasDisplayed = R_Visible;
+	bool wasDisplayed = R_Visible;
 	if (R_Visible)
 	    PrintValueEnv(R_CurrentExpr, rho);
 	if (R_CollectWarnings)
@@ -411,6 +411,7 @@ int R_ReplDLLdo1(void)
 	R_Busy(0);
 	prompt_type = 1;
 	break;
+    }
     case PARSE_ERROR:
 	parseError(R_NilValue, 0);
 	R_IoBufferWriteReset(&R_ConsoleIob);
@@ -812,7 +813,7 @@ static void invalid_parameter_handler_watson(
     unsigned int line,
     uintptr_t reserved)
 {
-    _invoke_watson(expression, function, file, line, reserved);    
+    _invoke_watson(expression, function, file, line, reserved);
 }
 #endif
 
@@ -927,36 +928,51 @@ void setup_Rmainloop(void)
 	putenv(Rarch);
     }
 #else /* not Win32 */
-    if(!setlocale(LC_CTYPE, ""))
+
+{  /* Avoid annoying warnings if LANG and LC_ALL are unset or empty.
+      This happens e.g. on Mac when primary language clash with region,
+      like English in Denmark or Germany.
+
+      If LANG or LC_ALL has been set to a non-existing locale, we assume
+      that the user wants to ne informed. */
+
+    const char *s;	
+    int quiet;
+
+    quiet = !( ((s = getenv("LANG")) && *s) || ((s = getenv("LC_ALL")) && *s) );
+
+    if(!setlocale(LC_CTYPE, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
+
 		 "Setting LC_CTYPE failed, using \"C\"\n");
-    if(!setlocale(LC_COLLATE, ""))
+    if(!setlocale(LC_COLLATE, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_COLLATE failed, using \"C\"\n");
-    if(!setlocale(LC_TIME, ""))
+    if(!setlocale(LC_TIME, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_TIME failed, using \"C\"\n");
 # if defined(ENABLE_NLS) && defined(LC_MESSAGES)
-    if(!setlocale(LC_MESSAGES, ""))
+    if(!setlocale(LC_MESSAGES, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_MESSAGES failed, using \"C\"\n");
 # endif
     /* NB: we do not set LC_NUMERIC */
 # ifdef LC_MONETARY
-    if(!setlocale(LC_MONETARY, ""))
+    if(!setlocale(LC_MONETARY, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_MONETARY failed, using \"C\"\n");
 # endif
 # ifdef LC_PAPER
-    if(!setlocale(LC_PAPER, ""))
+    if(!setlocale(LC_PAPER, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_PAPER failed, using \"C\"\n");
 # endif
 # ifdef LC_MEASUREMENT
-    if(!setlocale(LC_MEASUREMENT, ""))
+    if(!setlocale(LC_MEASUREMENT, "") && !quiet)
 	snprintf(deferred_warnings[ndeferred_warnings++], 250,
 		 "Setting LC_MEASUREMENT failed, using \"C\"\n");
 # endif
+}
 #endif /* not Win32 */
 #endif
 
@@ -1355,7 +1371,7 @@ static SEXP callBrowserHook(void *data)
     return val;
 }
 
-static void restoreBrowserHookOption(void *data, Rboolean jump)
+static void restoreBrowserHookOption(void *data, bool jump)
 {
     struct callBrowserHookData *bhdata = data;
     SEXP hook = bhdata-> hook;
@@ -1435,7 +1451,7 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (TYPEOF(expr) == ENVSXP)
 	rho = expr;
 
-    Rboolean ignoreHook = asLogical(CAR(CDR(CDDDR(argList))));
+    bool ignoreHook = asBool2(CAR(CDR(CDDDR(argList))), call);
     if (ignoreHook) {
         R_browserRepl(rho);
         UNPROTECT(1); /* argList */
@@ -1909,7 +1925,7 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
     SEXP f = (SEXP) userData;
     SEXP e, val, cur, rho;
     int errorOccurred;
-    Rboolean again, useData = LOGICAL(VECTOR_ELT(f, 2))[0];
+    Rboolean again, useData = (Rboolean)LOGICAL(VECTOR_ELT(f, 2))[0];
 
     /* create an environment with bindings for the function and arguments */
     PROTECT(rho = NewEnvironment(R_NilValue, R_NilValue, R_GlobalEnv));
@@ -1948,7 +1964,7 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
 	    /* It would be nice to identify the function. */
 	    warning(_("top-level task callback did not return a logical value"));
 	}
-	again = asLogical(val);
+	again = (Rboolean) asLogical(val);
     } else {
 	/* warning("error occurred in top-level task callback\n"); */
 	again = FALSE;
@@ -1957,6 +1973,11 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
     UNPROTECT(3); /* rho, e, val */
 
     return(again);
+}
+
+static void releaseObjectFinalizer(void *data)
+{
+    R_ReleaseObject((SEXP)data);
 }
 
 attribute_hidden SEXP
@@ -1978,7 +1999,7 @@ R_addTaskCallback(SEXP f, SEXP data, SEXP useData, SEXP name)
 
     PROTECT(index = allocVector(INTSXP, 1));
     el = Rf_addTaskCallback(R_taskCallbackRoutine,  internalData,
-			    (void (*)(void*)) R_ReleaseObject, tmpName,
+			    releaseObjectFinalizer, tmpName,
 			    INTEGER(index));
 
     if(length(name) == 0) {

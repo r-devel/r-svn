@@ -59,8 +59,8 @@ confint(object, parm, level = 0.95, \dots)
   \emph{Modern Applied Statistics with S.} Fourth edition.  Springer.
 }
 \seealso{
-  Original versions: \code{\link[MASS:confint]{confint.glm}} and
-  \code{\link[MASS:confint]{confint.nls}} in package \CRANpkg{MASS}.
+  Original versions: \code{\link[MASS]{confint.glm}} and
+  \code{\link[MASS]{confint.nls}} in package \CRANpkg{MASS}.
 }
 % the glm() example used to be wrapped in \donttest, presumably to avoid
 % loading MASS (?)

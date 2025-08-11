@@ -278,6 +278,9 @@
 /* Define to 1 if you have the <elf.h> header file. */
 /* #undef HAVE_ELF_H */
 
+/* Define if enum can set its base type. */
+#define HAVE_ENUM_BASE_TYPE 1
+
 /* Define to 1 if you have the <errno.h> header file. */
 #define HAVE_ERRNO_H 1
 
@@ -1036,6 +1039,12 @@
 
 /* Define if you have the X11/Xmu headers and libraries. */
 /* #undef HAVE_X11_Xmu */
+
+/* Define if your system has zstd >= 1.3.3. */
+#define HAVE_ZSTD 1
+
+/* Define if zstd has ZSTD_decompressBound */
+#define HAVE_ZSTD_DECOMPRESSBOUND 1
 
 /* Define to 1 if you have the `__cospi' function. */
 /* #undef HAVE___COSPI */

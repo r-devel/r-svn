@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2024-08-21 r87038) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
+R Under development (unstable) (2025-05-18 r88215) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -631,7 +629,7 @@ $se
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: Lognormal
-> ### Title: The Log Normal Distribution
+> ### Title: The Log-Normal Distribution
 > ### Aliases: Lognormal dlnorm plnorm qlnorm rlnorm
 > ### Keywords: distribution
 > 
@@ -5126,7 +5124,7 @@ function (V)
         r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0x55b297bbece0>
+<bytecode: 0x6192cd5d48d0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
@@ -5199,7 +5197,7 @@ attr(,"legend")
 0.00000 0.00000 0.04481 0.09573 0.15214 0.53941 
 > summary(abs(c(1 - Rc/R.)))
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-0.00000 0.02021 0.08482 0.50675 0.16192 7.08509 
+0.00000 0.02020 0.08482 0.50675 0.16192 7.08509 
 > 
 > ## but "complete" is closer in Eigen space:
 > EV <- function(m) eigen(m, only.values=TRUE)$values
@@ -7664,8 +7662,8 @@ data:  MP6
 p-value = 0.03929
 alternative hypothesis: two.sided
 
-> # Exactly the same p-value, as Cochran's conditions are never met:
-> fisher.test(MP6, hybrid=TRUE)
+> # Exactly the same p-value, as Cochran's conditions are not met:
+> fisher.test(MP6, hybrid = TRUE)
 
 	Fisher's Exact Test for Count Data hybrid using asym.chisq. iff (exp=5,
 	perc=80, Emin=1)
@@ -7774,7 +7772,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x55b2975fdb10>
+<environment: 0x6192cccb1d48>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -8600,7 +8598,7 @@ Finland               -113   111   117  -44   -17
 France                -166   147   219  -29    24
 Germany                 -8     8     8   -7     0
 Greece                -148   164    29  157   -60
-Guatamala               16   -55     6    6    97
+Guatemala               16   -55     6    6    97
 Honduras                -2    10   -10    8    -2
 Iceland                248  -274  -233 -126   185
 India                   21   -16   -14  -14   -19
@@ -8722,7 +8720,7 @@ Error in integrate(f, 0, 1) :
 0.5 with absolute error < 1.6e-07
 > integrate(dnorm, 0, 2000)
 0.5 with absolute error < 4.4e-06
-> integrate(dnorm, 0, 20000) ## fails on many systems
+> integrate(dnorm, 0, 20000) ## "fails" on many systems -- "wrongly" giving '0' 
 0 with absolute error < 0
 > integrate(dnorm, 0, Inf)   ## works
 0.5 with absolute error < 4.7e-05
@@ -12716,14 +12714,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x55b297781bb8>
-<environment: 0x55b29752c6a0>
+<bytecode: 0x6192ce2df040>
+<environment: 0x6192cfc8fda8>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x55b297781a30>
-<environment: 0x55b29752c6a0>
+<bytecode: 0x6192ce2deda0>
+<environment: 0x6192cfc8fda8>
 
 > 
 > 
@@ -14196,7 +14194,7 @@ NOTE: n is number in *each* group
 12     1  2  3  4  5  6
 13  7  8  9 10         
 > 
-> print(sunsp.1 <- window(sunspot.month, end=c(1756, 12)))
+> print(sunsp.1 <- window(sunspot.m2014, end=c(1756, 12)))
        Jan   Feb   Mar   Apr   May   Jun   Jul   Aug   Sep   Oct   Nov   Dec
 1749  58.0  62.6  70.0  55.7  85.0  83.5  94.8  66.3  75.9  75.5 158.6  85.2
 1750  73.3  75.9  89.2  88.3  90.0 100.0  85.4 103.0  91.2  65.7  63.3  75.4
@@ -17082,8 +17080,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x55b2973e08c0>
-<environment: 0x55b293689d40>
+<bytecode: 0x6192cdaa8ef0>
+<environment: 0x6192ce371420>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -17128,13 +17126,13 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
  stl(x = log(co2), s.window = 21)
 
  Time.series components:
-    seasonal                trend            remainder            
- Min.   :-0.009939103   Min.   :5.753541   Min.   :-0.0022554051  
- 1st Qu.:-0.004536535   1st Qu.:5.778556   1st Qu.:-0.0004586796  
- Median : 0.000877761   Median :5.815125   Median :-0.0000088674  
- Mean   :-0.000001304   Mean   :5.819267   Mean   :-0.0000019655  
- 3rd Qu.: 0.004997747   3rd Qu.:5.859806   3rd Qu.: 0.0004023465  
- Max.   : 0.009114691   Max.   :5.898750   Max.   : 0.0019396260  
+    seasonal              trend         remainder         
+ Min.   :-9.939e-03   Min.   :5.754   Min.   :-2.255e-03  
+ 1st Qu.:-4.537e-03   1st Qu.:5.779   1st Qu.:-4.587e-04  
+ Median : 8.778e-04   Median :5.815   Median :-8.867e-06  
+ Mean   :-1.304e-06   Mean   :5.819   Mean   :-1.966e-06  
+ 3rd Qu.: 4.998e-03   3rd Qu.:5.860   3rd Qu.: 4.023e-04  
+ Max.   : 9.115e-03   Max.   :5.899   Max.   : 1.940e-03  
  IQR:
      STL.seasonal STL.trend STL.remainder data    
      0.009534     0.081250  0.000861      0.079370
@@ -17158,13 +17156,13 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
  stl(x = mdeaths, s.window = "per", robust = TRUE)
 
  Time.series components:
-    seasonal             trend            remainder        
- Min.   :-446.8302   Min.   :1318.650   Min.   :-314.5835  
- 1st Qu.:-301.5726   1st Qu.:1432.208   1st Qu.: -32.5392  
- Median : -79.0561   Median :1448.891   Median :   5.7943  
- Mean   :   0.0000   Mean   :1472.880   Mean   :  23.0646  
- 3rd Qu.: 304.5673   3rd Qu.:1548.974   3rd Qu.:  47.5134  
- Max.   : 544.7904   Max.   :1615.535   Max.   : 872.1992  
+    seasonal           trend        remainder       
+ Min.   :-446.83   Min.   :1319   Min.   :-314.584  
+ 1st Qu.:-301.57   1st Qu.:1432   1st Qu.: -32.539  
+ Median : -79.06   Median :1449   Median :   5.794  
+ Mean   :   0.00   Mean   :1473   Mean   :  23.065  
+ 3rd Qu.: 304.57   3rd Qu.:1549   3rd Qu.:  47.513  
+ Max.   : 544.79   Max.   :1616   Max.   : 872.199  
  IQR:
      STL.seasonal STL.trend STL.remainder data  
      606.14       116.77     80.05        707.75
@@ -17988,6 +17986,35 @@ attr(,"response")
 [1] 1
 attr(,".Environment")
 <environment: R_GlobalEnv>
+> 
+> ## use of '::' in terms to be marked as special is *wrong*
+> ff <- list(y ~        offset(w) + x1 +       s(x2),
++            y ~ stats::offset(w) + x1 + mgcv::s(x2))
+> tt <- lapply(ff, terms, specials = c("s", "mgcv::s"))
+> lapply(tt, attr, "offset")
+[[1]]
+[1] 2
+
+[[2]]
+NULL
+
+> lapply(tt, attr, "specials")
+[[1]]
+[[1]]$s
+[1] 4
+
+[[1]]$`mgcv::s`
+NULL
+
+
+[[2]]
+[[2]]$s
+NULL
+
+[[2]]$`mgcv::s`
+NULL
+
+
 > 
 > 
 > 
@@ -19649,7 +19676,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  9.527 0.16 9.691 0 0 
+Time elapsed:  5.444 0.237 5.681 0 0 
 > grDevices::dev.off()
 null device 
           1 

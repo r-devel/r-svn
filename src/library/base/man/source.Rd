@@ -16,7 +16,7 @@
 
   \code{withAutoprint(exprs)} is a wrapper for \code{source(exprs =
   exprs, ..)} with different defaults.  Its main purpose is to evaluate
-  and auto-print expressions as if in a toplevel context, e.g, as in the
+  and auto-print expressions as if in a top-level context, e.g, as in the
   \R console.
 }
 \usage{

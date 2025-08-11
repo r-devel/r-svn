@@ -1,7 +1,7 @@
 #  File src/library/utils/R/tar.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,10 +22,11 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
                   support_old_tars = Sys.getenv("R_SUPPORT_OLD_TARS", FALSE),
                   tar = Sys.getenv("TAR"))
 {
+    allow_all <- isTRUE(grepl("-P", extras))
     if (inherits(tarfile, "connection") || identical(tar, "internal")) {
         if (!missing(compressed))
             warning("argument 'compressed' is ignored for the internal method")
-        return(untar2(tarfile, files, list, exdir, restore_times))
+        return(untar2(tarfile, files, list, exdir, restore_times, allow_all))
     }
 
     if (!(is.character(tarfile) && length(tarfile) == 1L))
@@ -37,21 +38,23 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
     if (!nzchar(TAR) && .Platform$OS.type == "windows" &&
         nzchar(Sys.which("tar.exe"))) TAR <- "tar.exe"
     if (!nzchar(TAR) || TAR == "internal")
-        return(untar2(tarfile, files, list, exdir))
+        return(untar2(tarfile, files, list, exdir, restore_times, allow_all))
 
     ## The ability of external tar commands to handle compressed tarfiles
     ## automagically varies and is poorly documented.
-    ## E.g. macOS says its tar handles bzip2 but does not mention xz nor lzma.
-    ## (And it supports -J and --lzma flags not mentioned by man tar.)
+    ## E.g. macOS used to say its tar handles bzip2 but did not mention xz nor lzma.
     ##
     ## But as all commonly-used tars do (some commercial Unix do not,
     ## but GNU tar is commonly used there).
+    ##
+    ## OTOH some (e.g. macOS) need external commands which may not be present.
     cflag <- ""
     if (!missing(compressed))
         warning("untar(compressed=) is deprecated", call. = FALSE, domain = NA)
     if (is.character(compressed)) {
-        cflag <- switch(match.arg(compressed, c("gzip", "bzip2", "xz")),
-                        "gzip" = "z", "bzip2" = "j", "xz" = "J")
+        cflag <- switch(match.arg(compressed, c("gzip", "bzip2", "xz", "zstd")),
+                        "gzip" = "z", "bzip2" = "j", "xz" = "J",
+                        "zstd" = "-zstd")
     } else if (is.logical(compressed)) {
         if (is.na(compressed) && support_old_tars) {
             magic <- readBin(tarfile, "raw", n = 6L)
@@ -60,6 +63,7 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             else if(rawToChar(magic[1:3]) == "BZh") cflag <- "j"
             ## (https://tukaani.org/xz/xz-file-format.txt)
             else if(all(magic[1:6] == c(0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00))) cflag <- "J"
+            else if(all(magic[1:4] == c(0x28, 0xb5, 0x2f, 0xfd))) cflag <- "-zstd"
         } else if (isTRUE(compressed)) cflag <- "z"
     } else stop("'compressed' must be logical or character")
 
@@ -82,6 +86,12 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
                 tarfile <- "-"
                 cflag <- ""
             } else stop(sprintf("No %s command found", sQuote("xz")))
+        if (cflag == "-zstd")
+            if (nzchar(Sys.which("zstd"))) {
+                TAR <- paste("zstd -dc", shQuote(tarfile), "|", TAR)
+                tarfile <- "-"
+                cflag <- ""
+            } else stop(sprintf("No %s command found", sQuote("zstd")))
     }
 
     if (list) {
@@ -116,11 +126,12 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
     }
 }
 
+##' R's "internal" untar() -- called from untar(), *not* exported
 untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
-                   restore_times = TRUE)
+                   restore_times = TRUE, allow_all_paths = FALSE)
 {
     ## might be used with len = 12, so result of more than max int
-    getOctD <- function(x, offset, len)
+    getOctD <- function(block, offset, len)
     {
         x <- 0.0
         for(i in offset + seq_len(len)) {
@@ -139,16 +150,25 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
         as.integer(getOctD(x, offset, len))
     checkPath <- function(path) {
         if (.Platform$OS.type == "windows") {
-            if (grepl("^[a-zA-Z]:", path)) {
-                drv <- sub("^([a-zA-Z]:).*", "\\1", path)
-                warning(sprintf("removing drive '%s'", drv))
-                path <- sub("^([a-zA-Z]:).*", "", path)
-            }
             path <- gsub("\\\\", "/", path)
-        }
-        if (grepl("^/", path)) {
-            warning("removing leading '/'")
-            path <- sub("^/+", "", path)
+            while(grepl("^/", path) || grepl("^[a-zA-Z]:", path)) {
+                if (grepl("^/", path)) {
+                    warning(gettextf("removing leading '/' from '%s'", path),
+                            call. = FALSE, domain = NA)
+                    path <- sub("^/+", "", path)
+                }
+                if (grepl("^[a-zA-Z]:", path)) {
+                    drv <- sub("^([a-zA-Z]:).*", "\\1", path)
+                    warning(sprintf("removing drive '%s'", drv))
+                    path <- sub("^[a-zA-Z]:", "", path)
+                }
+            }
+        } else {
+            if (grepl("^/", path)) {
+                warning(gettextf("removing leading '/' from '%s'", path),
+                        call. = FALSE, domain = NA)
+                path <- sub("^/+", "", path)
+            }
         }
         if (grepl("^~", path))
             stop("path starts with '~'")
@@ -156,8 +176,14 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
         if (".." %in% parts)
             stop("path contains '..'")
         if (length(parts) == 0)
-            stop("path is empty")
-        do.call(file.path, as.list(parts))
+            return(".")
+        p <- ""
+        for(el in parts) {
+            p <- if (nzchar(p)) file.path(p, el) else el
+            if(isTRUE(nzchar(Sys.readlink(p), keepNA = TRUE)))
+                stop("cannot extract through symlink")
+        }
+        p
     }
     mydir.create <- function(path, ..., .checkPath = TRUE) {
         ## for Windows' sake
@@ -165,10 +191,11 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
         ## address path traversal vulnerability  (PR17853):
         if (.checkPath)
             path <- checkPath(path)
-        if(dir.exists(path)) return()
-        if(!dir.create(path, showWarnings = TRUE, recursive = TRUE, ...))
-           stop(gettextf("failed to create directory %s", sQuote(path)),
-                domain = NA)
+        if(!dir.exists(path) &&
+           !dir.create(path, showWarnings = TRUE, recursive = TRUE, ...))
+            stop(gettextf("failed to create directory %s", sQuote(path)),
+                 domain = NA)
+        path
     }
 
     warn1 <- character()
@@ -242,8 +269,10 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             dothis <- !list
             if(dothis && length(files)) dothis <- name %in% files
             if(dothis) {
-                mydir.create(dirname(name))
-                out <- file(name, "wb")
+                dname <- mydir.create(dirname(name))
+                fname <- file.path(dname, basename(name))
+                unlink(fname)
+                out <- file(fname, "wb")
             }
             for(i in seq_len(ceiling(size/512L))) {
                 block <- readBin(con, "raw", n = 512L)
@@ -256,8 +285,8 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             }
             if(dothis) {
                 close(out)
-                Sys.chmod(name, mode, FALSE) # override umask
-                if(restore_times) Sys.setFileTime(name, ft)
+                Sys.chmod(fname, mode, FALSE) # override umask
+                if(restore_times) Sys.setFileTime(fname, ft)
             }
         } else if(ctype %in% c("1", "2")) {
             ## hard and symbolic links
@@ -268,27 +297,43 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             if(!is.null(llink)) {name2 <- llink; llink <- NULL}
             if(!list) {
                 if(ctype == "1") {
-                    mydir.create(dirname(name))
-                    unlink(name)
+                    dname <- mydir.create(dirname(name))
+                    fname <- file.path(dname, basename(name))
+                    unlink(fname)
                     if (!file.link(name2, name)) { # will give a warning
                         ## link failed, so try a file copy
-                        if(file.copy(name2, name))
-                             warn1 <- c(warn1, "restoring hard link as a file copy")
+                        if(file.copy(name2, fname))
+                            warn1 <- c(warn1, "restoring hard link as a file copy")
                         else
-                            warning(gettextf("failed to copy %s to %s", sQuote(name2), sQuote(name)), domain = NA)
+                            warning(gettextf("failed to copy %s to %s", sQuote(name2), sQuote(fname)), domain = NA)
                     }
                 } else {
                     if(.Platform$OS.type == "windows") {
-                        ## this will not work for links to dirs
-                        mydir.create(dirname(name))
-                        from <- file.path(dirname(name), name2)
-                        if (!file.copy(from, name))
-                            warning(gettextf("failed to copy %s to %s", sQuote(from), sQuote(name)), domain = NA)
-                        else
-                            warn1 <- c(warn1, "restoring symbolic link as a file copy")
+                        dname <- mydir.create(dirname(name))
+                        fname <- file.path(dname, basename(name))
+                        unlink(fname)
+                        from <- file.path(dname, name2)
+                        if (dir.exists(from)) {
+                            tmpd <- tempfile(pattern = "untar_", tmpdir = dname)
+                            dir.create(tmpd)
+                            if (!file.copy(from, tmpd, recursive = TRUE) ||
+                                !file.rename(file.path(tmpd, basename(name2)), fname) ||
+                                !unlink(tmpd, recursive = TRUE))
+                                warning(gettextf("failed to copy %s to %s", sQuote(from), sQuote(fname)), domain = NA)
+                            else
+                                warn1 <- c(warn1, "restoring symbolic link as a file copy")
+                        } else if (!file.exists(from)) {
+                            warning(gettextf("cannot restore symbolic link from %s to %s as a file copy, because the source doesn't exist; try extracting again?",
+                                             sQuote(from), sQuote(fname)), domain = NA)
+                        } else {
+                            if (!file.copy(from, fname))
+                                warning(gettextf("failed to copy %s to %s", sQuote(from), sQuote(fname)), domain = NA)
+                            else
+                                warn1 <- c(warn1, "restoring symbolic link as a file copy")
+                       }
                    } else {
-                       mydir.create(dirname(name))
-                       od0 <- setwd(dirname(name))
+                       dname <- mydir.create(dirname(name))
+                       od0 <- setwd(dname)
                        nm <- basename(name)
                        unlink(nm)
                        if(!file.symlink(name2, nm)) { # will give a warning
@@ -309,9 +354,12 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
             ## directory
             contents <- c(contents, name)
             if(!list) {
-                mydir.create(name)
-                Sys.chmod(name, mode, TRUE) # FIXME: check result
-                ## no point is setting time, as dir will be populated later.
+                dname <- mydir.create(dirname(name))
+                fname <- file.path(dname, basename(name))
+                unlink(fname)
+                if(!dir.exists(fname) && !dir.create(fname, mode = mode))
+                    stop(gettextf("failed to create directory %s", sQuote(fname)))
+                ## no point in setting time, as dir will be populated later.
             }
         } else if(ctype == "6") {
             ## 6 is a fifo
@@ -368,7 +416,7 @@ untar2 <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
 }
 
 tar <- function(tarfile, files = NULL,
-                compression = c("none", "gzip", "bzip2", "xz"),
+                compression = c("none", "gzip", "bzip2", "xz", "zstd"),
                 compression_level = 6, tar = Sys.getenv("tar"),
                 extra_flags = "")
 {
@@ -386,12 +434,13 @@ tar <- function(tarfile, files = NULL,
             ## Could pipe through gzip etc: might be safer for xz
             ## as -J was lzma in GNU tar 1.20:21
             ## NetBSD < 8 used --xz not -J
-            ## OpenBSD and Heirloom Toolchest have no support for xz
+            ## OpenBSD and Heirloom Toolchest had no support for xz
             flags <- switch(match.arg(compression),
                             "none" = "-cf",
                             "gzip" = "-zcf",
                             "bzip2" = "-jcf",
-                            "xz" = "-Jcf")
+                            "xz" = "-Jcf",
+                            "zstd" = "--zstd -cf")
 
             if (grepl("darwin", R.version$os)) {
                 ## Precaution for macOS to omit resource forks
@@ -401,7 +450,7 @@ tar <- function(tarfile, files = NULL,
             if (is.null(extra_flags)) extra_flags <- ""
             ## precaution added in R 3.5.0 for over-long command lines
             nc <- nchar(ff <- paste(shQuote(files), collapse=" "))
-            ## -T is not supported by Solaris nor Heirloom Toolchest's tar
+            ## -T was not supported by Solaris nor Heirloom Toolchest's tar
             if(nc > 1000 &&
                any(grepl("(GNU tar|libarchive)",
                          tryCatch(system(paste(tar, "--version"), intern = TRUE),
@@ -430,7 +479,8 @@ tar <- function(tarfile, files = NULL,
                       "none" =  file(tarfile, "wb"),
                       "gzip" =  gzfile(tarfile, "wb", compression = compression_level),
                       "bzip2" = bzfile(tarfile, "wb", compression = compression_level),
-                      "xz" =    xzfile(tarfile, "wb", compression = compression_level))
+                      "xz" = xzfile(tarfile, "wb", compression = compression_level),
+                      "zstd" = zstdfile(tarfile, "wb", compression = compression_level))
         on.exit(close(con))
     } else if(inherits(tarfile, "connection")) con <- tarfile
     else stop("'tarfile' must be a character string or a connection")

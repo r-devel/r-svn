@@ -1,6 +1,6 @@
 % File src/library/base/man/srcfile.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{srcfile}
@@ -155,8 +155,8 @@ srcref(srcfile, lloc)
 }
 \seealso{
   \code{\link{getSrcFilename}} for extracting information from a source
-  reference, or \code{\link{removeSource}} to remove it from a
-  (non-primitive) function (aka \sQuote{closure}).
+  reference, or \code{\link{removeSource}} to remove it from a language
+  object or a (non-primitive) function (aka \sQuote{closure}).
 }
 \author{Duncan Murdoch}
 \examples{

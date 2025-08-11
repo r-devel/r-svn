@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ static void cbm_Size(double *left, double *right,
 # include "bitmap.h"
 #endif
 
-static Rboolean
+static bool
 BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
 {
     char buf[R_PATH_MAX];
@@ -127,7 +127,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         if (res != CAIRO_STATUS_SUCCESS) {
             xd->cs = NULL;
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
         if(xd->onefile)
             cairo_svg_surface_restrict_to_version(xd->cs, CAIRO_SVG_VERSION_1_2);
@@ -135,7 +135,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         res = cairo_status(xd->cc);
         if (res != CAIRO_STATUS_SUCCESS) {
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
         cairo_set_antialias(xd->cc, xd->antialias);
     }
@@ -149,7 +149,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         res = cairo_surface_status(xd->cs);
         if (res != CAIRO_STATUS_SUCCESS) {
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
         cairo_surface_set_fallback_resolution(xd->cs, xd->fallback_dpi,
                                               xd->fallback_dpi);
@@ -157,7 +157,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         res = cairo_status(xd->cc);
         if (res != CAIRO_STATUS_SUCCESS) {
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
         cairo_set_antialias(xd->cc, xd->antialias);
     }
@@ -171,7 +171,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         res = cairo_surface_status(xd->cs);
         if (res != CAIRO_STATUS_SUCCESS) {
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
 // We already require >= 1.2
 #if CAIRO_VERSION_MAJOR > 2 || CAIRO_VERSION_MINOR >= 6
@@ -184,7 +184,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
         res = cairo_status(xd->cc);
         if (res != CAIRO_STATUS_SUCCESS) {
             warning("cairo error '%s'", cairo_status_to_string(res));
-            return FALSE;
+            return false;
         }
         cairo_set_antialias(xd->cc, xd->antialias);
     }
@@ -198,7 +198,7 @@ BM_Open(pDevDesc dd, pX11Desc xd, int width, int height)
     CairoInitGroups(xd);
     xd->appending = 0;
 
-    return TRUE;
+    return true;
 }
 
 
@@ -397,18 +397,18 @@ static void BM_Close(pDevDesc dd)
 
 
 
-static Rboolean
+static bool
 BMDeviceDriver(pDevDesc dd, int kind, SEXP filename,
 	       int quality, int width, int height, int ps,
 	       int bg, int res, int antialias, const char *family,
-	       double dpi, const char *symbolfamily, Rboolean usePUA)
+	       double dpi, const char *symbolfamily, bool usePUA)
 {
     pX11Desc xd;
     int res0 = (res > 0) ? res : 72;
     double dps = ps;
 
     /* allocate new device description */
-    if (!(xd = (pX11Desc) calloc(1, sizeof(X11Desc)))) return FALSE;
+    if (!(xd = (pX11Desc) calloc(1, sizeof(X11Desc)))) return false;
     strncpy(xd->filename, R_ExpandFileName(translateCharFP(filename)),
             R_PATH_MAX - 1);
     xd->filename[R_PATH_MAX - 1] = '\0';
@@ -463,7 +463,7 @@ BMDeviceDriver(pDevDesc dd, int kind, SEXP filename,
 
     if (!BM_Open(dd, xd, width, height)) {
 	free(xd);
-	return FALSE;
+	return false;
     }
     if (xd->type == SVG || xd->type == PDF || xd->type == PS)
 	xd->onefile = quality != 0;
@@ -553,11 +553,11 @@ BMDeviceDriver(pDevDesc dd, int kind, SEXP filename,
     dd->startfont = 1;
     dd->startgamma = 1;
     dd->displayListOn = FALSE;
-    dd->deviceVersion = R_GE_glyphs;
+    dd->deviceVersion = R_GE_fontVar;
 
     dd->deviceSpecific = (void *) xd;
 
-    return TRUE;
+    return true;
 }
 
 const static struct {
@@ -585,7 +585,7 @@ SEXP in_Cairo(SEXP args)
     pGEDevDesc gdd;
     SEXP sc;
     const char *family, *symbolfamily;
-    Rboolean usePUA;
+    bool usePUA;
     int type, quality, width, height, pointsize, bgcolor, res, antialias;
     double dpi;
     SEXP filename;
@@ -646,7 +646,7 @@ SEXP in_Cairo(SEXP args)
 	error(_("invalid '%s' argument"), "symbolfamily");
     symbolfamily = translateChar(STRING_ELT(CAR(args), 0));
     /* scsymbol forced to have "usePUA" attribute in R code */
-    usePUA = LOGICAL(getAttrib(CAR(args), install("usePUA")))[0];
+    usePUA = asBool(getAttrib(CAR(args), install("usePUA")));
 
     R_GE_checkVersionOrDie(R_GE_version);
     R_CheckDeviceAvailable();

@@ -3,8 +3,8 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2022  The R Core Team
- *  Copyright (C) 2010 Duncan Murdoch
+ *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 2010--2025  Duncan Murdoch
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,9 +28,6 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Parse.h>
-#ifndef STRICT_R_HEADERS
-# define STRICT_R_HEADERS
-#endif
 #include <R_ext/RS.h>           /* for R_chk_* allocation */
 #include <ctype.h>
 #include <R_ext/Print.h>
@@ -126,16 +123,26 @@ struct ParseState {
     SEXP	xxInVerbEnv;    /* Are we currently in a verbatim environment? If
 				   so, this is the string to end it. If not, 
 				   this is NULL */
-    SEXP	xxVerbatimList;/* A STRSXP containing all the verbatim environment names */
-    SEXP	xxVerbList;    /* A STRSXP containing all the verbatim command names */
+    SEXP	xxVerbatimList;	/* A STRSXP containing all the verbatim environment names */
+    SEXP  xxKwdList;		/* A STRSXP containing all the
+				   verbatim and definition command names */
+    SEXP  xxKwdType;		/* An INTSXP with 1=VERB, 2=DEFCMD, 3=DEFENV */
+    int   xxGetArgs;		/* Collecting args to macro */
+    int   xxIgnoreKeywords;	/* Ignore keywords while getting args */
+    int   xxBraceDepth;		/* Brace depth important while
+				   collecting args */
+    int   xxBracketDepth;	/* So is bracket depth */
+    int   xxMathMode;           /* In single $ mode */ 
+    int   xxOptionalEquals; /* Looking for = in \let or \def */
 
-    SEXP     SrcFile;  /* parseLatex will *always* supply a srcfile */
-    SEXP mset; /* precious mset for protecting parser semantic values */
+    SEXP     SrcFile;		/* parseLatex will *always* supply a srcfile */
+    SEXP mset;			/* precious mset for protecting parser semantic values */
     ParseState *prevState;
 };
 
-static Rboolean busy = FALSE;
+static bool busy = false;
 static ParseState parseState;
+static char ParseErrorMsg[PARSE_ERROR_SIZE + 64];
 
 #define PRESERVE_SV(x) R_PreserveInMSet((x), parseState.mset)
 #define RELEASE_SV(x)  R_ReleaseFromMSet((x), parseState.mset)
@@ -147,9 +154,16 @@ static SEXP	xxlist(SEXP, SEXP);
 static void	xxsavevalue(SEXP, YYLTYPE *);
 static SEXP	xxtag(SEXP, int, YYLTYPE *);
 static SEXP 	xxenv(SEXP, SEXP, SEXP, YYLTYPE *);
-static SEXP	xxmath(SEXP, YYLTYPE *, Rboolean);
+static SEXP     xxnewdef(SEXP, SEXP, YYLTYPE *);
+static SEXP	xxmath(SEXP, YYLTYPE *, bool);
+static SEXP	xxenterMathMode(void);
 static SEXP	xxblock(SEXP, YYLTYPE *);
 static void	xxSetInVerbEnv(SEXP);
+static SEXP	xxpushMode(int, int, int, int);
+static void	xxpopMode(SEXP);
+static void	xxArg(SEXP);
+
+#define END_OF_ARGS_CHAR 0xFFFE /* not a legal character */
 
 static int	mkMarkup(int);
 static int	mkText(int);
@@ -159,7 +173,7 @@ static int	mkVerb2(const char *, int);
 static int      mkVerbEnv(void);
 static int	mkDollar(int);
 
-static SEXP R_LatexTagSymbol = NULL;
+static SEXP LatexTagSymbol = NULL;
 
 #define YYSTYPE		SEXP
 
@@ -170,8 +184,9 @@ static SEXP R_LatexTagSymbol = NULL;
 %token		END_OF_INPUT ERROR
 %token		MACRO
 %token		TEXT COMMENT
-%token	        BEGIN END VERB VERB2
-%token          TWO_DOLLARS
+%token          BEGIN END VERB VERB2 NEWENV NEWCMD END_OF_ARGS
+%token          TWO_DOLLARS LBRACKET RBRACKET
+%token		LET_OR_DEF
 
 /* Recent bison has <> to represent all of the destructors below, but we don't assume it */
 
@@ -198,25 +213,53 @@ Items:		Item				{ $$ = xxnewlist($1); }
 nonMath:	Item				{ $$ = xxnewlist($1); }
 	|	nonMath Item			{ $$ = xxlist($1, $2); }
 	
-Item:		TEXT				{ $$ = xxtag($1, TEXT, &@$); }
+Item:		TEXT				{ xxArg($1); $$ = xxtag($1, TEXT, &@$); }
+	|	'['				{ $$ = xxtag(mkString("["), TEXT, &@$); }
+	|	']'				{ $$ = xxtag(mkString("]"), TEXT, &@$); }
 	|	COMMENT				{ $$ = xxtag($1, COMMENT, &@$); }
-	|	MACRO				{ $$ = xxtag($1, MACRO, &@$); }
+	|	MACRO				{ xxArg(NULL);
+						  $$ = xxtag($1, MACRO, &@$); }
 	|	VERB				{ $$ = xxtag($1, VERB, &@$); }
 	|	VERB2				{ $$ = xxtag($1, VERB, &@$); }
 	|	environment			{ $$ = $1; }
-	|	block				{ $$ = $1; }
+	|	block				{ xxArg(NULL); $$ = $1; }
+	|	ERROR				{ YYABORT; }
+	|	newdefine			{ $$ = $1; }
 	
-environment:	BEGIN '{' TEXT '}' { xxSetInVerbEnv($3); } 
-                Items END '{' TEXT '}' 	{ $$ = xxenv($3, $6, $9, &@$);
-                                                  RELEASE_SV($1); RELEASE_SV($7); }
+begin:  	BEGIN '{' TEXT '}'              { xxSetInVerbEnv($3); 
+						  $$ = $3;
+						  RELEASE_SV($1); } 
 
-math:		'$' nonMath '$'			{ $$ = xxmath($2, &@$, FALSE); }
+environment:	begin Items END '{' TEXT '}' 	{ $$ = xxenv($1, $2, $5, &@$);
+						  if (!$$) YYABORT;
+						  RELEASE_SV($3);
+						}
+	|	begin END '{' TEXT '}'		{ $$ = xxenv($1, NULL, $4, &@$);
+						  if (!$$) YYABORT;
+						  RELEASE_SV($2);}
+
+math:   	'$'             		{ $$ = xxenterMathMode(); }
+		nonMath '$'			{ xxpopMode($2);
+						  $$ = xxmath($3, &@$, FALSE); }
 
 displaymath:    TWO_DOLLARS nonMath TWO_DOLLARS { $$ = xxmath($2, &@$, TRUE); }
 
 block:		'{' Items  '}'			{ $$ = xxblock($2, &@$); }
 	|	'{' '}'				{ $$ = xxblock(NULL, &@$); }
 
+newdefine:	NEWCMD  			{ $$ = xxpushMode(2, 1, 0, 0); }
+	        Items END_OF_ARGS		{ xxpopMode($2);
+						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
+								$3, &@$); }
+	|	NEWENV  			{ $$ = xxpushMode(3, 1, 0, 0); }
+                Items END_OF_ARGS		{ xxpopMode($2);
+						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
+								$3, &@$); }
+	|	LET_OR_DEF			{ $$ = xxpushMode(2, 1, 0, 1); }
+		Items END_OF_ARGS
+						{  xxpopMode($2);
+						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
+							$3, &@$); }
 %%
 
 static SEXP xxnewlist(SEXP item)
@@ -255,25 +298,142 @@ static SEXP xxenv(SEXP begin, SEXP body, SEXP end, YYLTYPE *lloc)
 #if DEBUGVALS
     Rprintf("xxenv(begin=%p, body=%p, end=%p)", begin, body, end);    
 #endif
+    if (strcmp(CHAR(STRING_ELT(begin, 0)),
+               CHAR(STRING_ELT(end, 0))) != 0) {
+        char buffer[PARSE_ERROR_SIZE];
+        snprintf(buffer, sizeof(buffer), "\\begin{%s} at %d:%d ended by \\end{%s}",
+          CHAR(STRING_ELT(begin, 0)), lloc->first_line, lloc->first_column,
+          CHAR(STRING_ELT(end, 0)));
+        yyerror(buffer);
+        return NULL;
+    }
+    
+    if (strcmp("document", CHAR(STRING_ELT(end, 0))) == 0) {
+      xxungetc(R_EOF);  /* Stop reading after \end{document} */
+    }
+               
     PRESERVE_SV(ans = allocVector(VECSXP, 2));
     SET_VECTOR_ELT(ans, 0, begin);
     RELEASE_SV(begin);
-    if (!isNull(body)) {
+    if (body && !isNull(body)) {
 	SET_VECTOR_ELT(ans, 1, PairToVectorList(CDR(body)));
 	RELEASE_SV(body);
     }
-    /* FIXME:  check that begin and end match */
     setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
-    setAttrib(ans, R_LatexTagSymbol, mkString("ENVIRONMENT"));
+    setAttrib(ans, LatexTagSymbol, mkString("ENVIRONMENT"));
     if (!isNull(end)) 
 	RELEASE_SV(end);
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
 #endif
+
     return ans;
 }
 
-static SEXP xxmath(SEXP body, YYLTYPE *lloc, Rboolean display)
+static SEXP xxnewdef(SEXP cmd, SEXP items,
+                     YYLTYPE *lloc)
+{
+    SEXP ans, temp;
+    int n;
+
+    PRESERVE_SV(temp = PairToVectorList(CDR(items)));
+    RELEASE_SV(items);
+    n = length(temp);
+    PRESERVE_SV(ans = allocVector(VECSXP, n + 1));
+    for (int i=0; i < n; i++)
+	SET_VECTOR_ELT(ans, i + 1, VECTOR_ELT(temp, i));
+    RELEASE_SV(temp);
+    SET_VECTOR_ELT(ans, 0, cmd);
+    RELEASE_SV(cmd);
+
+    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
+    setAttrib(ans, LatexTagSymbol, mkString("DEFINITION"));
+
+    return ans;
+}
+
+static SEXP xxenterMathMode(void) {
+    SEXP ans;
+    PRESERVE_SV(ans = allocVector(INTSXP, 6));
+    INTEGER(ans)[0] = parseState.xxGetArgs;
+    INTEGER(ans)[1] = parseState.xxIgnoreKeywords;
+    INTEGER(ans)[2] = parseState.xxBraceDepth;
+    INTEGER(ans)[3] = parseState.xxBracketDepth;
+    INTEGER(ans)[4] = parseState.xxMathMode;
+    INTEGER(ans)[5] = parseState.xxOptionalEquals;
+    parseState.xxBraceDepth = 0;
+    parseState.xxBracketDepth = 0;
+    parseState.xxMathMode = 1;
+    return ans;
+
+}
+
+static SEXP xxpushMode(int getArgs,
+                       int ignoreKeywords,
+                       int mathMode,
+                       int optionalEquals) {
+    SEXP ans;
+
+    PRESERVE_SV(ans = allocVector(INTSXP, 6));
+    INTEGER(ans)[0] = parseState.xxGetArgs;
+    INTEGER(ans)[1] = parseState.xxIgnoreKeywords;
+    INTEGER(ans)[2] = parseState.xxBraceDepth;
+    INTEGER(ans)[3] = parseState.xxBracketDepth;
+    INTEGER(ans)[4] = parseState.xxMathMode;
+    INTEGER(ans)[5] = parseState.xxOptionalEquals;
+    parseState.xxGetArgs = getArgs;
+    parseState.xxIgnoreKeywords = ignoreKeywords;
+    parseState.xxBraceDepth = 0;
+    parseState.xxBracketDepth = 0;
+    parseState.xxMathMode = mathMode;
+    parseState.xxOptionalEquals = optionalEquals;
+    return ans;
+}
+
+static void xxpopMode(SEXP oldmode) {
+    parseState.xxGetArgs = INTEGER(oldmode)[0];
+    parseState.xxIgnoreKeywords = INTEGER(oldmode)[1];
+    parseState.xxBraceDepth = INTEGER(oldmode)[2];
+    parseState.xxBracketDepth = INTEGER(oldmode)[3];
+    parseState.xxMathMode = INTEGER(oldmode)[4];
+    parseState.xxOptionalEquals = INTEGER(oldmode)[5];
+    RELEASE_SV(oldmode);
+}
+
+static void xxArg(SEXP arg) {
+    if (parseState.xxGetArgs == 0 ||
+	parseState.xxBraceDepth > 0 ||
+	parseState.xxBracketDepth > 0) return;
+    /* arg is only non-NULL for TEXT, looking for = */
+    if (arg) {    
+        /* ignore whitespace and
+           also = in \let or \def syntax */
+    	const char *str = CHAR(STRING_ELT(arg, 0));
+    	for (int i = 0; str[i] != '\0'; i++) {
+            if (str[i] == ' ' || 
+                str[i] == '\t'||
+                str[i] == '\n') {
+	        /* ignore it */
+	    } else if (parseState.xxOptionalEquals && 
+	        	parseState.xxGetArgs == 1 &&
+	        	str[i] == '=')
+		parseState.xxOptionalEquals = 0;
+	    else {
+	        /* it's an arg */
+		parseState.xxGetArgs--;
+		break;
+	    }
+	}
+    } else
+	parseState.xxGetArgs--;
+
+    if (parseState.xxGetArgs == 0) {
+	/* We've just completed the final arg we were waiting for */
+	xxungetc(END_OF_ARGS_CHAR);  /* push a non-character to signal the end */
+    }
+}
+
+static SEXP xxmath(SEXP body, YYLTYPE *lloc, bool display)
 {
     SEXP ans;
 #if DEBUGVALS
@@ -282,7 +442,7 @@ static SEXP xxmath(SEXP body, YYLTYPE *lloc, Rboolean display)
     PRESERVE_SV(ans = PairToVectorList(CDR(body)));
     RELEASE_SV(body);
     setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
-    setAttrib(ans, R_LatexTagSymbol, 
+    setAttrib(ans, LatexTagSymbol, 
         mkString(display ? "DISPLAYMATH" : "MATH"));
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -303,7 +463,7 @@ static SEXP xxblock(SEXP body, YYLTYPE *lloc)
 	RELEASE_SV(body);
     }
     setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
-    setAttrib(ans, R_LatexTagSymbol, mkString("BLOCK"));
+    setAttrib(ans, LatexTagSymbol, mkString("BLOCK"));
 
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -338,7 +498,7 @@ static void xxsavevalue(SEXP items, YYLTYPE *lloc)
     } else {
 	PRESERVE_SV(parseState.Value = allocVector(VECSXP, 1));
     	SET_VECTOR_ELT(parseState.Value, 0, ScalarString(mkChar("")));
-	setAttrib(VECTOR_ELT(parseState.Value, 0), R_LatexTagSymbol, mkString("TEXT"));
+	setAttrib(VECTOR_ELT(parseState.Value, 0), LatexTagSymbol, mkString("TEXT"));
     }	
     if (!isNull(parseState.Value)) {
     	setAttrib(parseState.Value, R_ClassSymbol, mkString("LaTeX"));
@@ -348,7 +508,7 @@ static void xxsavevalue(SEXP items, YYLTYPE *lloc)
 
 static SEXP xxtag(SEXP item, int type, YYLTYPE *lloc)
 {
-    setAttrib(item, R_LatexTagSymbol, mkString(yytname[YYTRANSLATE(type)]));
+    setAttrib(item, LatexTagSymbol, mkString(yytname[YYTRANSLATE(type)]));
     setAttrib(item, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
     return item;
 }
@@ -389,10 +549,7 @@ static int xxgetc(void)
     	prevcols[prevpos] = parseState.xxcolno;
     
     if (c == EOF) return R_EOF;
-    
-    R_ParseContextLast = (R_ParseContextLast + 1) % PARSE_CONTEXT_SIZE;
-    R_ParseContext[R_ParseContextLast] = (char) c;
-    
+
     if (c == '\n') {
     	parseState.xxlineno += 1;
     	parseState.xxcolno = 1;
@@ -403,8 +560,6 @@ static int xxgetc(void)
     }
 
     if (c == '\t') parseState.xxcolno = ((parseState.xxcolno + 6) & ~7) + 1;
-    
-    R_ParseContextLine = parseState.xxlineno;
     
     return c;
 }
@@ -417,12 +572,6 @@ static int xxungetc(int c)
     parseState.xxcolno  = prevcols[prevpos];
     prevpos = (prevpos + PUSHBACK_BUFSIZE - 1) % PUSHBACK_BUFSIZE;
     
-    R_ParseContextLine = parseState.xxlineno;
-    
-    R_ParseContext[R_ParseContextLast] = '\0';
-    /* macOS requires us to keep this non-negative */
-    R_ParseContextLast = (R_ParseContextLast + PARSE_CONTEXT_SIZE - 1) 
-	% PARSE_CONTEXT_SIZE;
     if(npush >= PUSHBACK_BUFSIZE - 2) return R_EOF;
     pushback[npush++] = c;
     return c;
@@ -494,7 +643,14 @@ static void PutState(ParseState *state) {
     state->xxinitvalue = parseState.xxinitvalue;
     state->xxInVerbEnv = parseState.xxInVerbEnv;
     state->xxVerbatimList = parseState.xxVerbatimList;
-    state->xxVerbList = parseState.xxVerbList;
+    state->xxKwdList = parseState.xxKwdList;
+    state->xxKwdType = parseState.xxKwdType;
+    state->xxGetArgs = parseState.xxGetArgs;
+    state->xxIgnoreKeywords = parseState.xxIgnoreKeywords;
+    state->xxOptionalEquals = parseState.xxOptionalEquals;
+    state->xxBraceDepth = parseState.xxBraceDepth;
+    state->xxBracketDepth = parseState.xxBracketDepth;
+    state->xxMathMode = parseState.xxMathMode;
     state->SrcFile = parseState.SrcFile; 
     state->prevState = parseState.prevState;
 }
@@ -508,26 +664,25 @@ static void UseState(ParseState *state) {
     parseState.xxinitvalue = state->xxinitvalue;
     parseState.xxInVerbEnv = state->xxInVerbEnv;
     parseState.xxVerbatimList = state->xxVerbatimList;
-    parseState.xxVerbList = state->xxVerbList;
+    parseState.xxKwdList = state->xxKwdList;
+    parseState.xxKwdType = state->xxKwdType;
     parseState.SrcFile = state->SrcFile; 
     parseState.prevState = state->prevState;
 }
 
-static void InitSymbols(void)
-{
-    if (!R_LatexTagSymbol)
-	R_LatexTagSymbol = install("latex_tag");
-}
-
 static SEXP ParseLatex(ParseStatus *status, SEXP srcfile)
 {
-    InitSymbols();
-
-    R_ParseContextLast = 0;
-    R_ParseContext[0] = '\0';
+    LatexTagSymbol = install("latex_tag");
     	
     parseState.xxInVerbEnv = NULL;
     
+    parseState.xxGetArgs = 0;
+    parseState.xxIgnoreKeywords = 0;
+    parseState.xxBraceDepth = 0;
+    parseState.xxBracketDepth = 0;
+    parseState.xxMathMode = 0;
+    parseState.xxOptionalEquals = 0;
+
     parseState.xxlineno = 1;
     parseState.xxcolno = 1; 
     parseState.xxbyteno = 1;
@@ -540,6 +695,8 @@ static SEXP ParseLatex(ParseStatus *status, SEXP srcfile)
     
     parseState.Value = R_NilValue;
     
+    PRESERVE_SV(yylval = mkString(""));
+    
     if (yyparse()) *status = PARSE_ERROR;
     else *status = PARSE_OK;
 
@@ -549,6 +706,9 @@ static SEXP ParseLatex(ParseStatus *status, SEXP srcfile)
 
     RELEASE_SV(parseState.Value);
     UNPROTECT(1); /* parseState.mset */
+    
+    if (*status == PARSE_ERROR)
+	error("%s", ParseErrorMsg);
 
     return parseState.Value;
 }
@@ -566,14 +726,6 @@ static int char_getc(void)
     	nextchar_parse--;
     }
     return (c);
-}
-
-static
-SEXP R_ParseLatex(SEXP text, ParseStatus *status, SEXP srcfile)
-{
-    nextchar_parse = translateCharUTF8(STRING_ELT(text, 0));
-    ptr_getc = char_getc;
-    return ParseLatex(status, srcfile);
 }
 
 /*----------------------------------------------------------------------------
@@ -602,7 +754,9 @@ static keywords[] = {
     { "\\begin",  BEGIN },
     { "\\end",    END },
     { "\\verb",   VERB },
-    { 0,	   0	      }
+    { "\\let",    LET_OR_DEF },
+    { "\\def",    LET_OR_DEF },
+    { 0,     0        }
     /* All other markup macros are rejected. */
 };
 
@@ -612,14 +766,22 @@ static keywords[] = {
 static int KeywordLookup(const char *s)
 {
     int i;
+
+    if (parseState.xxIgnoreKeywords)
+	return MACRO;
+    
     for (i = 0; keywords[i].name; i++) {
 	if (strcmp(keywords[i].name, s) == 0) 
 	    return keywords[i].token;
     }
     
-    for (i = 0; i < length(parseState.xxVerbList); i++) {
-    	if (strcmp(CHAR(STRING_ELT(parseState.xxVerbList, i)), s) == 0)
-    	    return VERB2;
+    for (i = 0; i < length(parseState.xxKwdList); i++) {
+	if (strcmp(CHAR(STRING_ELT(parseState.xxKwdList, i)), s) == 0)
+	    switch(INTEGER(parseState.xxKwdType)[i]) {
+	    case 1: return VERB2;
+	    case 2: return NEWCMD;
+	    case 3: return NEWENV;
+	}
     }
     
     return MACRO;
@@ -646,10 +808,7 @@ static void yyerror(const char *s)
     static char const yyshortunexpected[] = "unexpected %s";
     static char const yylongunexpected[] = "unexpected %s '%s'";
     char *expecting;
-    char ParseErrorMsg[PARSE_ERROR_SIZE];
-    SEXP filename;
-    char ParseErrorFilename[PARSE_ERROR_SIZE];
-   
+    char ErrorTranslation[PARSE_ERROR_SIZE];
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i, translated = FALSE;
     	/* Edit the error message */    
@@ -657,13 +816,13 @@ static void yyerror(const char *s)
     	if (expecting) *expecting = '\0';
     	for (i = 0; yytname_translations[i]; i += 2) {
     	    if (!strcmp(s + sizeof yyunexpected - 1, yytname_translations[i])) {
-    	    	if (yychar < 256)
-    	    	    snprintf(ParseErrorMsg, PARSE_ERROR_SIZE,
+    	    	if (yychar < 256 || yychar == END_OF_INPUT)
+    	    	    snprintf(ErrorTranslation, sizeof(ErrorTranslation),
 			     _(yyshortunexpected), 
 			     i/2 < YYENGLISH ? _(yytname_translations[i+1])
 			     : yytname_translations[i+1]);
     	    	else
-    	    	    snprintf(ParseErrorMsg, PARSE_ERROR_SIZE,
+    	    	    snprintf(ErrorTranslation, sizeof(ErrorTranslation),
 			     _(yylongunexpected), 
 			     i/2 < YYENGLISH ? _(yytname_translations[i+1])
 			     : yytname_translations[i+1], 
@@ -673,12 +832,12 @@ static void yyerror(const char *s)
     	    }
     	}
     	if (!translated) {
-    	    if (yychar < 256) 
-    		snprintf(ParseErrorMsg, PARSE_ERROR_SIZE, 
+    	    if (yychar < 256 || yychar == END_OF_INPUT) 
+    		snprintf(ErrorTranslation, sizeof(ErrorTranslation), 
 			 _(yyshortunexpected),
 			 s + sizeof yyunexpected - 1);
     	    else
-    	    	snprintf(ParseErrorMsg, PARSE_ERROR_SIZE,
+    	    	snprintf(ErrorTranslation, sizeof(ErrorTranslation),
 			 _(yylongunexpected),
 			 s + sizeof yyunexpected - 1, CHAR(STRING_ELT(yylval, 0)));
     	}
@@ -686,35 +845,32 @@ static void yyerror(const char *s)
  	    translated = FALSE;
     	    for (i = 0; yytname_translations[i]; i += 2) {
     	    	if (!strcmp(expecting + sizeof yyexpecting - 1, yytname_translations[i])) {
-    	    	    strcat(ParseErrorMsg, _(yyexpecting));
-    	    	    strcat(ParseErrorMsg, i/2 < YYENGLISH ? _(yytname_translations[i+1])
-    	    	                    : yytname_translations[i+1]);
+    	    	    strncat(ErrorTranslation, _(yyexpecting), 
+    	    	            sizeof(ErrorTranslation) - strlen(ErrorTranslation) - 1);
+    	    	    strncat(ErrorTranslation, i/2 < YYENGLISH 
+                              ? _(yytname_translations[i+1]) 
+                              : yytname_translations[i+1],
+    	    	            sizeof(ErrorTranslation) - strlen(ErrorTranslation) - 1);
     	    	    translated = TRUE;
 		    break;
 		}
 	    }
 	    if (!translated) {
-	    	strcat(ParseErrorMsg, _(yyexpecting));
-	    	strcat(ParseErrorMsg, expecting + sizeof yyexpecting - 1);
+	    	strncat(ErrorTranslation, _(yyexpecting), 
+	    	        sizeof(ErrorTranslation) - strlen(ErrorTranslation) - 1);
+	    	strncat(ErrorTranslation, expecting + sizeof yyexpecting - 1, 
+	    	        sizeof(ErrorTranslation) - strlen(ErrorTranslation) - 1);
 	    }
 	}
     } else if (!strncmp(s, yyunknown, sizeof yyunknown-1)) {
-    	snprintf(ParseErrorMsg, PARSE_ERROR_SIZE, 
+    	snprintf(ErrorTranslation, sizeof(ErrorTranslation), 
 		 "%s '%s'", s, CHAR(STRING_ELT(yylval, 0)));
     } else {
-    	snprintf(ParseErrorMsg, PARSE_ERROR_SIZE,"%s", s);
+    	snprintf(ErrorTranslation, sizeof(ErrorTranslation), "%s", s);
     }
-    filename = findVar(install("filename"), parseState.SrcFile);
-    if (isString(filename) && LENGTH(filename))
-    	strncpy(ParseErrorFilename, CHAR(STRING_ELT(filename, 0)), PARSE_ERROR_SIZE - 1);
-    else
-        ParseErrorFilename[0] = '\0';
-    if (yylloc.first_line != yylloc.last_line)
-	warning("%s:%d-%d: %s", 
-		ParseErrorFilename, yylloc.first_line, yylloc.last_line, ParseErrorMsg);
-    else
-	warning("%s:%d: %s", 
-		ParseErrorFilename, yylloc.first_line, ParseErrorMsg);
+    snprintf(ParseErrorMsg, sizeof(ParseErrorMsg),
+             "Parse error at %d:%d: %s", yylloc.first_line, yylloc.first_column,
+             ErrorTranslation);
 }
 
 #define TEXT_PUSH(c) do {		    \
@@ -771,13 +927,22 @@ static int token(void)
     	return mkVerbEnv();    
     	
     c = xxgetc();
+
+    if (c == END_OF_ARGS_CHAR)
+	return END_OF_ARGS;    
     
     switch (c) {
     	case '%': return mkComment(c);
 	case '\\':return mkMarkup(c);
         case R_EOF:return END_OF_INPUT; 
-    	case LBRACE:return c;
-    	case RBRACE:return c;
+    	case LBRACE:
+    	    parseState.xxBraceDepth++; return c;
+    	case RBRACE:
+    	    parseState.xxBraceDepth--; return c;
+    	case '[':
+    	    parseState.xxBracketDepth++; return c;
+    	case ']': 
+    	    parseState.xxBracketDepth--; return c;
     	case '$': return mkDollar(c);
     } 	    
     return mkText(c);
@@ -798,6 +963,8 @@ static int mkText(int c)
     	case '%':
     	case LBRACE:
     	case RBRACE:
+    	case '[':
+    	case ']':
     	case '$':
     	case R_EOF:
     	    goto stop;
@@ -833,11 +1000,18 @@ static int mkComment(int c)
 static int mkDollar(int c)
 {
     int retval = c;
-    
-    if ((c = xxgetc()) == '$')
-        retval = TWO_DOLLARS;
-    else
-        xxungetc(c);
+    if (parseState.xxGetArgs > 0) {
+	char stext = (char)c;
+	PRESERVE_SV(yylval = mkString2(&stext, 1));
+	return TEXT;
+    }
+    if (parseState.xxMathMode != 1) {
+        c = xxgetc();
+	if (c == '$')
+            retval = TWO_DOLLARS;
+	else
+            xxungetc(c);
+    }
 
     return retval;
 }
@@ -898,13 +1072,30 @@ static int mkVerb2(const char *s, int c)
     char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
-    int delim = '}';
+    int depth = 1;
+    const char *macro = s;
     
     while (*s) TEXT_PUSH(*s++);
     
-    TEXT_PUSH(c);
-    while (((c = xxgetc()) != delim) && c != R_EOF) TEXT_PUSH(c);
-    if (c != R_EOF) TEXT_PUSH(c);
+    while (c == ' ' || c == '\t' || c == '\n') {
+      TEXT_PUSH(c);
+      c = xxgetc();
+    }
+      
+    do {
+	TEXT_PUSH(c);
+	c = xxgetc();
+	if (c == '{') depth++;
+	else if (c == '}') depth--;
+    } while (depth > 0 && c != R_EOF);
+
+    if (c == R_EOF) {
+	char buffer[256];
+	snprintf(buffer, sizeof(buffer), "unexpected END_OF_INPUT\n'%s' is still open", macro);
+	yyerror(buffer);
+	return ERROR;
+    } else
+	TEXT_PUSH(c);
     
     PRESERVE_SV(yylval = mkString2(stext, bp - stext));
     if(st1) free(st1);
@@ -962,7 +1153,7 @@ static void PushState(void) {
     	parseState.prevState = prev;
     } else 
         parseState.prevState = NULL;  
-    busy = TRUE;
+    busy = true;
 }
 
 static void PopState(void) {
@@ -971,10 +1162,10 @@ static void PopState(void) {
     	UseState(prev);
     	free(prev);
     } else
-    	busy = FALSE;
+    	busy = false;
 }
 
-/* "do_parseLatex" 
+/* "parseLatex" 
 
  .External2("parseLatex", text, srcfile, verbose, verbatim, verb)
  If there is text then that is read and the other arguments are ignored.
@@ -991,8 +1182,7 @@ SEXP parseLatex(SEXP call, SEXP op, SEXP args, SEXP env)
     yydebug = 1;
 #endif 
 
-    R_ParseError = 0;
-    R_ParseErrorMsg[0] = '\0';
+    ParseErrorMsg[0] = '\0';
     
     PushState();
 
@@ -1003,12 +1193,16 @@ SEXP parseLatex(SEXP call, SEXP op, SEXP args, SEXP env)
     	error(_("invalid '%s' value"), "verbose");
     parseState.xxDebugTokens = asInteger(CAR(args));	args = CDR(args);
     parseState.xxVerbatimList = CAR(args); 		args = CDR(args);
-    parseState.xxVerbList = CAR(args);
+    parseState.xxKwdList = CAR(args); args = CDR(args);
+    parseState.xxKwdType = CAR(args);
 
-    s = R_ParseLatex(text, &status, source);
+    nextchar_parse = translateCharUTF8(STRING_ELT(text, 0));
+    ptr_getc = char_getc;
+    s = ParseLatex(&status, source);
     
     PopState();
     	
-    if (status != PARSE_OK) parseError(call, R_ParseError);
+    if (status != PARSE_OK) error("%s", ParseErrorMsg);
+    
     return s;
 }

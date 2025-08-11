@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2025-03-31 11:50\n"
 "PO-Revision-Date: 2018-04-09 12:05-0600\n"
 "Last-Translator: Chel Hee Lee <gnustats@gmail.com>\n"
 "Language-Team: \n"
@@ -61,21 +61,19 @@ msgstr "두번째 인자는 반드시 리스트(list)이어야 합니다."
 msgid "'iconvlist' is not available on this system"
 msgstr "이 시스템에서는 'iconvlist'을 사용할 수 없습니다."
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind'는 반드시 길이가 1인 문자열(character string)이어야 합니다. 이는 RNG(난수생성기)에 사용됩니다."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s'는 올바른 RNG(난수생성기)의 약자가 아닙니다."
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합니다."
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s'는 유효한 선택이 아닙니다"
-
-#, fuzzy
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
 
 msgid "malformed version string"
 msgstr "잘못된 버전"
@@ -214,10 +212,6 @@ msgstr "오로지 문자형 객체들을 기록할 수만 있습니다"
 #, fuzzy
 msgid "'headers' must have names and must not be NA"
 msgstr "'X'는 반드시 named dimnames를 가져야 합니다"
-
-#, fuzzy
-msgid "'name' must be a single character string"
-msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합니다."
 
 msgid "'origin' must be one of 'start', 'current' or 'end'"
 msgstr "'origin'은 반드시 'start', 'current' 또는 'end' 중 하나이어야 합니다"
@@ -415,29 +409,20 @@ msgstr "\"Date\" 객체에 정의되어 있지 않은 단항연산자 %s입니�
 msgid "%s not defined for \"Date\" objects"
 msgstr "\"Date\" 객체에 정의되지 않은 %s입니다"
 
-msgid "'from' must be specified"
-msgstr "'from'은 반드시 지정되어야 합니다"
-
-msgid "'from' must be a \"Date\" object"
-msgstr "'from'은 반드시 \"Date\" 객체이어야 합니다"
-
-msgid "'from' must be of length 1"
-msgstr "'from'은 반드시 길이가 1이어야 합니다"
-
-msgid "'to' must be a \"Date\" object"
-msgstr "'to'는 반드시 \"Date\" 객체이어야 합니다"
-
-msgid "'to' must be of length 1"
+#, fuzzy
+msgid "'%s' must be of length 1"
 msgstr "'to'는 반드시 길이가 1 이어야 합니다"
 
-msgid "'length.out' must be of length 1"
-msgstr "'length.out'은 반드시 길이가 1 이어야 합니다"
+msgid "without 'by', at least one of 'to' and 'from' must be specified"
+msgstr ""
 
-msgid "exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified"
+#, fuzzy
+msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
 msgstr "정확하게 두개의 'to', 'by' 그리고 'length.out' / 'along.with'가 반드시 지정되어야 합니다"
 
-msgid "'by' must be of length 1"
-msgstr "'by'는 반드시 길이가 1이어야 합니다"
+#, fuzzy
+msgid "given 'by', exactly two of 'to', 'from' and 'length.out' / 'along.with' must be specified"
+msgstr "정확하게 두개의 'to', 'by' 그리고 'length.out' / 'along.with'가 반드시 지정되어야 합니다"
 
 msgid "invalid 'by' string"
 msgstr "'by' 문자열이 잘못되었습니다"
@@ -456,9 +441,6 @@ msgstr "'x'는 반드시 날짜-시간 객체이어야 합니다"
 
 msgid "invalid specification of 'breaks'"
 msgstr "'breaks' 지정이 잘못되었습니다"
-
-msgid "'origin' must be of length one"
-msgstr "'origin'의 길이는 반드시 1이어야 합니다"
 
 msgid "'lag' and 'differences' must be integers >= 1"
 msgstr "'lag'과 'differences'는 반드시 1 이상의 정수여야 합니다"
@@ -518,11 +500,13 @@ msgstr "두개의 인자 모두가 \"difftime\" 객체 일 수는 없습니다."
 msgid "second argument of / cannot be a \"difftime\" object"
 msgstr "/ 의 두번째 인자가 \"difftime\" 객체이서는 안됩니다."
 
-msgid "'from' must be a \"POSIXt\" object"
-msgstr "'from'은 반드시 \"POSIXt\" 객체이어야 합니다"
+#, fuzzy
+msgid "exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified"
+msgstr "정확하게 두개의 'to', 'by' 그리고 'length.out' / 'along.with'가 반드시 지정되어야 합니다"
 
-msgid "'to' must be a \"POSIXt\" object"
-msgstr "'to'는 반드시 \"POSIXt\" 객체이어야 합니다"
+#, fuzzy
+msgid "'%s' must be a \"%s\" object"
+msgstr "'to'는 반드시 \"Date\" 객체이어야 합니다"
 
 #, fuzzy
 msgid "component subscript must be a character string"
@@ -530,6 +514,9 @@ msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합�
 
 msgid "no Olson database found"
 msgstr "Olson 데이터베이스를 찾을 수 없습니다"
+
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
 
 msgid "'file' must be a character string or connection"
 msgstr "'file'은 반드시 문자열 또는 커넥션이어야 합니다"
@@ -660,9 +647,6 @@ msgstr "다음에 링크할 파일/디렉토리가 없습니다"
 msgid "no files to link to"
 msgstr "다음에 링크할 파일들이 없습니다"
 
-msgid "'package' must be of length 1"
-msgstr "'package'는 반드시 길이가 1이어야 합니다"
-
 msgid "no file found"
 msgstr "파일을 찾을 수 없습니다"
 
@@ -686,9 +670,6 @@ msgstr ""
 
 msgid "class of 'x' was discarded"
 msgstr "클래스 'x'는 사용되지 않습니다."
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr ""
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag'는 오로지 [0+- #'I] 내에 주어진 문자만을 포함해야 합니다."
@@ -957,7 +938,7 @@ msgid "nothing specified to be save()d"
 msgstr "save()에 이용될 아무런 것도 지정되지 않았습니다"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file'은 반드시 비어있지 않은 문자열이어야 합니다"
 
 msgid "'compress' must be logical or character"
@@ -998,9 +979,6 @@ msgstr "아마도 이름이 주어진 인자를 가지고 있지 않은 것 같�
 
 msgid "'arg' must be NULL or a character vector"
 msgstr "'arg'는 반드시 NULL 또는 문자형 벡터이어야 합니다"
-
-msgid "'arg' must be of length 1"
-msgstr "'arg'는 반드시 길이가 1이어야 합니다"
 
 msgid "'arg' must be of length >= 1"
 msgstr "'arg'는 반드시 길이가 1 보다 크거나 같아야 합니다"
@@ -1406,9 +1384,6 @@ msgstr "'nmax' 또는 'n' 중 하나는 지정되어야 하지만 모두는 아�
 msgid "'from' must be a finite number"
 msgstr ""
 
-msgid "argument 'length.out' must be of length 1"
-msgstr "인자 'length.out'은 반드시 길이가 1이어야 합니다"
-
 msgid "first element used of 'length.out' argument"
 msgstr "'length.out' 인자에 사용된 첫번째 요소입니다"
 
@@ -1568,12 +1543,19 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "warning()에서 무시된 추가적 인자들입니다"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
-msgid ""
-"Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
-"  Consider 'structure(list(), *)' instead."
+msgid "attempt to set an attribute on NULL"
 msgstr ""
 
 msgid "incorrect value for 'x'"
@@ -1639,10 +1621,6 @@ msgstr "수준의 총 개수가 2^31 이상입니다."
 msgid "handler must be a function"
 msgstr "핸들러는 반드시 함수이어야 합니다"
 
-#, fuzzy
-msgid "'which' must be of length 1"
-msgstr "'to'는 반드시 길이가 1 이어야 합니다"
-
 msgid "no such element '%s'"
 msgstr "그런 구성요소 '%s'는 없습니다"
 
@@ -1679,11 +1657,15 @@ msgid "No traceback available"
 msgstr ""
 
 #, fuzzy
+msgid "'recursive' must be a length-1 vector"
+msgstr "'origin'의 길이는 반드시 1이어야 합니다"
+
+msgid "'recursive' is NA"
+msgstr ""
+
+#, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "유효하지 않은 버전지정 %s입니다"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "유효하지 않은 버전지정 %s입니다"
@@ -1918,6 +1900,51 @@ msgid_plural ""
 "In %s :\n"
 " extra arguments %s will be disregarded"
 msgstr[0] ""
+
+#, fuzzy
+#~ msgid "'name' must be a single character string"
+#~ msgstr "'object'인자는 반드시 하나의 문자열로 만들어져야 합니다."
+
+#~ msgid "'from' must be specified"
+#~ msgstr "'from'은 반드시 지정되어야 합니다"
+
+#~ msgid "'from' must be a \"Date\" object"
+#~ msgstr "'from'은 반드시 \"Date\" 객체이어야 합니다"
+
+#~ msgid "'from' must be of length 1"
+#~ msgstr "'from'은 반드시 길이가 1이어야 합니다"
+
+#~ msgid "'length.out' must be of length 1"
+#~ msgstr "'length.out'은 반드시 길이가 1 이어야 합니다"
+
+#~ msgid "'by' must be of length 1"
+#~ msgstr "'by'는 반드시 길이가 1이어야 합니다"
+
+#~ msgid "'from' must be a \"POSIXt\" object"
+#~ msgstr "'from'은 반드시 \"POSIXt\" 객체이어야 합니다"
+
+#~ msgid "'to' must be a \"POSIXt\" object"
+#~ msgstr "'to'는 반드시 \"POSIXt\" 객체이어야 합니다"
+
+#~ msgid "'package' must be of length 1"
+#~ msgstr "'package'는 반드시 길이가 1이어야 합니다"
+
+#~ msgid "'arg' must be of length 1"
+#~ msgstr "'arg'는 반드시 길이가 1이어야 합니다"
+
+#~ msgid "argument 'length.out' must be of length 1"
+#~ msgstr "인자 'length.out'은 반드시 길이가 1이어야 합니다"
+
+#, fuzzy
+#~ msgid "'which' must be of length 1"
+#~ msgstr "'to'는 반드시 길이가 1 이어야 합니다"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
+
+#, fuzzy
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind'는 반드시 길이가 1인 문자열이어야 합니다."
 
 #, fuzzy
 #~ msgid ", will be ignored"

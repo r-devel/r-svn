@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: 2024-03-20 03:05+0000\n"
 "Last-Translator: Joan Maspons <joanmaspons@gmail.com>\n"
 "Language-Team: none\n"
@@ -279,6 +279,9 @@ msgstr "Hi ha d'haver àncores anomenades \"esquerra\" i \"inferior\""
 msgid "Invalid glyph info"
 msgstr "Informació del glif no vàlida"
 
+msgid "'%s' was removed in R 4.5.0."
+msgstr ""
+
 #, fuzzy
 msgid "Invalid compositing operator"
 msgstr "Operador de composició no vàlid"
@@ -419,10 +422,6 @@ msgid "status %d in running command '%s'"
 msgstr "estat %d a l'ordre en execució «%s»"
 
 #, fuzzy
-msgid "'file' must be a non-empty character string"
-msgstr "«file» ha de ser una cadena de caràcters no buida"
-
-#, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "«glyphInfo» no vàlid"
 
@@ -540,6 +539,10 @@ msgstr "les longituds «x», «y» i «z» difereixen"
 #, fuzzy
 msgid "'file' is missing with no default"
 msgstr "manca el «fitxer» sense el valor predeterminat"
+
+#, fuzzy
+msgid "'file' must be a non-empty character string"
+msgstr "«file» ha de ser una cadena de caràcters no buida"
 
 #, fuzzy
 msgid "unrecognized format of gs -help"

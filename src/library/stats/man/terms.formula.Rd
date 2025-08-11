@@ -5,11 +5,11 @@
 
 \name{terms.formula}
 \alias{terms.formula}
-\title{Construct a terms Object from a Formula}
+\title{Construct a \code{terms} Object from a Formula}
 \description{
   This function takes a formula and some optional arguments and
-  constructs a terms object. The terms object can then be used to
-  construct a \code{\link{model.matrix}}.
+  constructs a \code{\link[=terms.object]{terms}} object, which
+  can then be used to construct a \code{\link{model.matrix}}.
 }
 \usage{
 \method{terms}{formula}(x, specials = NULL, abb = NULL, data = NULL, neg.out = TRUE,
@@ -18,8 +18,9 @@
 }
 \arguments{
   \item{x}{a \code{\link{formula}}.}
-  \item{specials}{which functions in the formula should be marked as
-    special in the \code{terms} object?  A character vector or \code{NULL}.}
+  \item{specials}{an optional character vector listing names of
+    functions.  Calls to these functions in the formula are marked as
+    special in the \code{terms} object.}
   \item{abb}{Not implemented in \R; deprecated.}
   \item{data}{a data frame from which the meaning of the special symbol
     \code{.} can be inferred.  It is used only if there is a \code{.} in
@@ -38,9 +39,16 @@
     \code{.} can be treated as a name for non-standard uses of formulae.}
 }
 \details{
-  Not all of the options work in the same way that they do in S and not
-  all are implemented.
+  Non-syntactic \code{specials} are supported since \R{} 4.6.0.
+  \code{specials="\var{pkg}::\var{name}"} marks as special calls
+  \code{`\var{pkg}::\var{name}`(\dots)} (note backticks) and \emph{not}
+  calls \code{\var{pkg}::\var{name}(\dots)}.  The reverse was true prior
+  to \R{} 4.6.0, but that was undocumented and accidental.
 }
+%% \note{
+%%   Not all of the options work in the same way that they did in S and not
+%%   all are implemented.
+%% }
 \value{
   A \code{terms} object is returned.  It is the re-ordered formula (unless
   \code{keep.order = TRUE}) with several \code{\link{attributes}}, see

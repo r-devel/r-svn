@@ -1,6 +1,6 @@
 % File src/library/stats/man/GammaDist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{GammaDist}
@@ -32,15 +32,16 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   \item{rate}{an alternative way to specify the scale.}
   \item{shape, scale}{shape and scale parameters.  Must be positive,
     \code{scale} strictly.}
-  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities \eqn{p}
-    are returned as \eqn{log(p)}.}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
-    \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
+    \eqn{P[X < x]}, otherwise, \eqn{P[X \ge x]} (exceptionally not
+    \emph{cadlag} here, to ensure, e.g., \code{pgamma(0, shape=0)} remains zero).}
 }
 \value{
   \code{dgamma} gives the density,
-  \code{pgamma} gives the distribution function,
-  \code{qgamma} gives the quantile function, and
+  \code{pgamma} is the cumulative distribution function, and
+  \code{qgamma} is the quantile function of the Gamma distribution.
   \code{rgamma} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
@@ -72,11 +73,12 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
 
   The cumulative hazard \eqn{H(t) = - \log(1 - F(t))}{H(t) = - log(1 - F(t))}
   is
-\preformatted{-pgamma(t, ..., lower = FALSE, log = TRUE)
+\preformatted{
+    -pgamma(t, ..., lower = FALSE, log = TRUE)
 }
 
   Note that for smallish values of \code{shape} (and moderate
-  \code{scale}) a large parts of the mass of the Gamma distribution is
+  \code{scale}) a large part of the mass of the Gamma distribution is
   on values of \eqn{x} so near zero that they will be represented as
   zero in computer arithmetic.  So \code{rgamma} may well return values
   which will be represented as zero.  (This will also happen for very
@@ -92,9 +94,9 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   and \code{rate}: S had no \code{scale} parameter. It is an error
   to supply both \code{scale} and \code{rate}.
 
-  \code{pgamma} is closely related to the incomplete gamma function.  As
-  defined by \bibcite{Abramowitz and Stegun 6.5.1} (and by \sQuote{Numerical
-    Recipes}) this is
+  \code{pgamma} is closely related to the incomplete gamma function.
+  As defined by \bibcitet{|R:Abramowitz+Stegun:1972|section 6.5.1}
+  (and by \sQuote{Numerical Recipes}) this is
   \deqn{P(a,x) = \frac{1}{\Gamma(a)} \int_0^x t^{a-1} e^{-t} dt}{P(a,x) = 1/Gamma(a) integral_0^x t^(a-1) exp(-t) dt}
   \eqn{P(a, x)} is \code{pgamma(x, a)}.  Other authors (for example
   Karl Pearson in his 1922 tables) omit the normalizing factor,
@@ -123,12 +125,8 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   algorithm \sQuote{mainly by Morten Welinder}.
 
   \code{qgamma} is based on a C translation of
-
-  Best, D. J. and D. E. Roberts (1975).
-  Algorithm AS91. Percentage points of the chi-squared distribution.
-  \emph{Applied Statistics},  \bold{24}, 385--388.
-
-  plus a final Newton step to improve the approximation.
+  \bibcitet{R:Best+Roberts:1975} plus a final Newton step to improve the
+  approximation.
 
   \code{rgamma} for \code{shape >= 1} uses
 
@@ -143,18 +141,10 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   distributions. \emph{Computing}, \bold{12}, 223--246.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Shea, B. L. (1988).
-  Algorithm AS 239: Chi-squared and incomplete Gamma integral,
-  \emph{Applied Statistics (JRSS C)}, \bold{37}, 466--473.
-  \doi{10.2307/2347328}.
-
-  Abramowitz, M. and Stegun, I. A. (1972)
-  \emph{Handbook of Mathematical Functions.} New York: Dover.
-  Chapter 6: Gamma and Related Functions.
+  \bibinfo{R:Abramowitz+Stegun:1972}{footer}{Chapter 6: Gamma and Related Functions.}
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988,
+    R:Shea:1988}
 
   NIST Digital Library of Mathematical Functions.
   \url{https://dlmf.nist.gov/}, section 8.2.

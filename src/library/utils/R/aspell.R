@@ -110,6 +110,16 @@ function(files, filter, control = list(), encoding = "unknown",
             aspell_write_personal_dictionary_file(words, personal,
                                                   program = program)
             ## </FIXME>
+
+            ## For aspell (only!) on Windows, we need the special Unix path form 
+            ## such as /c/path/to/dictionary
+            ## known from, e.g., msys2 to specify the personal dictionary:
+            if(grepl("aspell", program)){
+                personal <- normalizePath(personal, winslash="/")
+                if(grepl("^.:", personal)) 
+                    personal <- gsub("^(.):(.*)$", "/\\1\\2", personal)
+            }
+
             control <- c(control, "-p", shQuote(personal))
         }
     }
@@ -209,8 +219,8 @@ function(files, filter, control = list(), encoding = "unknown",
 
 	if(any(ind <- startsWith(lines, "&"))) {
 	    info <- strsplit(lines[ind], ": ", fixed = TRUE)
-	    one <- strsplit(sapply(info, `[`, 1L), " ",  fixed = TRUE)
-	    two <- strsplit(sapply(info, `[`, 2L), ", ", fixed = TRUE)
+	    one <- strsplit(vapply(info, `[`, "", 1L), " ",  fixed = TRUE)
+	    two <- strsplit(vapply(info, `[`, "", 2L), ", ", fixed = TRUE)
 	    db1 <- list2DF(list(Original = vapply(one, `[`, "", 2L),
                                 File = rep_len(fname, length(one)),
                                 Line = pos[ind],
@@ -478,6 +488,7 @@ aspell_control_R_manuals <-
            "--add-texinfo-ignore=embfun",
            "--add-texinfo-ignore=embhdr",
            "--add-texinfo-ignore=embvar",
+           "--add-texinfo-ignore=forfun",
            character()
            ),
          hunspell =
@@ -1251,8 +1262,7 @@ function(ifile, encoding = "unknown", ...)
     aspell_filter_LaTeX_worker(readLines(ifile, encoding = encoding),
                                ...)
 aspell_filter_LaTeX_worker <-
-function(x, vrbs = c("verbatim", "verbatim*", "Sinput", "Soutput"),
-         cmds = NULL, envs = NULL)
+function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
 {
     ranges <- list()
     chrran <- function(e) getSrcref(e)[c(1L, 5L, 3L, 6L)]
@@ -1274,7 +1284,7 @@ function(x, vrbs = c("verbatim", "verbatim*", "Sinput", "Soutput"),
                        
     recurse <- function(e) {
         tag <- ltxtag(e)
-        if((tag == "VERB") ||
+        if((tag == "VERB") || (tag == "DEFINITION") ||
            ((tag == "ENVIRONMENT") && e[[1L]] %in% envs))
             ranges <<- c(ranges, list(chrran(e)))
         else if(is.list(e)) {
@@ -1305,7 +1315,7 @@ function(x, vrbs = c("verbatim", "verbatim*", "Sinput", "Soutput"),
         }
     }
 
-    recurse(tools::parseLatex(x, verbatim = vrbs))
+    recurse(parser(x, ...))
     blank_out_character_ranges(x, ranges)
 }
 
@@ -1411,7 +1421,11 @@ function(x, out, language = "en", program = NULL)
         header <- NULL
     }
 
-    writeLines(c(header, x), out, useBytes = TRUE)
+    ## we need Unix line endings even on Windows 
+    ## (at least for aspell, and works for hunspell, too):
+    outfile <- file(out, open = "wb")
+    on.exit(close(outfile))
+    writeLines(c(header, x), outfile, useBytes = TRUE)
 }
 
 ## For reading package defaults:

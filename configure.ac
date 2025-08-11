@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2024 R Core Team
+### Copyright (C) 1998-2025 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -136,7 +136,7 @@ R_CONFIG_ARGS="${ac_configure_args}"
 AC_SUBST(R_CONFIG_ARGS)
 
 ## Shortcut for musl which refuses to identify itself at C level
-if test "${host_os}" == "linux-musl"; then
+if test "${host_os}" = "linux-musl"; then
   AC_DEFINE(OS_MUSL, 1, [Define if running on Linux-musl])
 fi
 
@@ -308,6 +308,11 @@ if test "x${want_R_static}" = xyes; then
 fi
 AM_CONDITIONAL(WANT_R_STATIC, [test "x${want_R_static}" = xyes])
 
+AC_ARG_WITH([C23],
+[AS_HELP_STRING([--with-C23],[use C23 if available @<:@yes@:>@])],
+[R_ARG_USE(C23)],
+[use_C23=yes])
+
 ## Build separate shared/dynamic library containing R's BLAS if desired 
 AC_ARG_ENABLE([BLAS-shlib],
 [AS_HELP_STRING([--enable-BLAS-shlib],[build BLAS into a shared/dynamic library @<:@perhaps@:>@])],
@@ -420,6 +425,11 @@ AC_ARG_WITH([lapack],
 [AS_HELP_STRING([--with-lapack],[use system LAPACK library (if available), or specify it @<:@unset@:>@])],
 [R_ARG_USE(lapack)],
 [use_lapack=unset])
+
+AC_ARG_WITH([2025blas],
+[AS_HELP_STRING([--with-2025blas],[compile 2025 BLAS additions into Rlapack @<:@no@:>@])],
+[R_ARG_USE(2025blas)],
+[use_2025blas=no])
 
 ## Readline.
 AC_ARG_WITH([readline],
@@ -695,7 +705,7 @@ AC_SUBST(MAKE)
 ## Pager
 R_PROG_PAGER
 ## Tar -- we prefer a GNU version
-AC_PATH_PROGS(TAR, [${TAR} gtar gnutar tar], "")
+AC_PATH_PROGS(TAR, [${TAR} gtar gnutar tar bsdtar], "")
 ## TeXMF stuff
 R_PROG_TEXMF
 ## Unzip & zip & gzip & bip2
@@ -745,6 +755,59 @@ AC_ARG_VAR([PKG_CONFIG_LIBDIR], [path overriding pkg-config's default search pat
 AC_PROG_CC
 dnl AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS ## see note above
+
+dnl echo "---- initial CC = ${CC}"
+CC_save=${CC}
+CFLAGS_save=${CFLAGS}
+CC_SUB=`echo "${CC}" | sed 's/-std=[[^ ]]*//'`
+CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[[^ ]]*//'`
+## try first without any additional -std
+: ${CC23="${CC_SUB}"}
+: ${C23FLAGS="${CFLAGS_SUB}"}
+CC=${CC23}
+CFLAGS=${C23FLAGS}
+unset r_cv_C23
+R_C23
+
+if test x${r_cv_C23} = xno; then
+CC23="${CC_SUB} -std=gnu23"
+C23FLAGS="${CFLAGS_SUB}"
+CC=${CC23}
+CFLAGS=${C23FLAGS}
+unset r_cv_C23
+R_C23
+fi
+
+dnl this is a hack until -std=gnu23 is widely accepted.
+if test x${r_cv_C23} = xno; then
+unset r_cv_C23
+CC23="${CC_SUB} -std=gnu2x"
+CC=${CC23}
+R_C23
+fi
+
+if test x${r_cv_C23} = xno; then
+CC23=
+C23FLAGS=
+fi
+AC_SUBST(CC23)
+AC_SUBST(C23FLAGS)
+
+if test x$use_C23 = xyes; then
+  if test x${r_cv_C23} = xyes; then
+    CC=${CC23}
+    CFLAGS=${C23FLAGS}
+  else
+    CC=${CC_save}
+    CFLAGS=${CFLAGS_save}
+    AC_MSG_WARN([C23 support is unavailable])
+  fi
+else
+CC=${CC_save}
+CFLAGS=${CFLAGS_save}
+fi
+dnl echo "---- final CC = ${CC}"
+
 
 AC_PROG_CPP
 R_PROG_CPP_CPPFLAGS
@@ -796,12 +859,7 @@ dnl R_PROG_OBJCXX
 R_DEFS=${DEFS}
 AC_SUBST(R_DEFS)
 
-CC_SUB=`echo "${CC}" | sed 's/-std=[[^ ]]*//'`
-CFLAGS_SUB=`echo "${CFLAGS}" | sed -e 's/-std=[[^ ]]*//'`
-dnl echo "CC_SUB = ${CC_SUB}"
-dnl echo "CFLAGS_SUB = ${CFLAGS_SUB}"
-
-## Other C standards
+## Other C standards -- C23 done higher up
 CC_save=${CC}
 CFLAGS_save=${CFLAGS}
 : ${CC17="${CC_SUB} -std=gnu17"}
@@ -821,26 +879,6 @@ C17FLAGS=
 fi
 AC_SUBST(CC17)
 AC_SUBST(C17FLAGS)
-
-dnl this is a hack until -std=gnu23 is widely accepted.
-: ${CC23="${CC_SUB} -std=gnu23"}
-: ${C23FLAGS="${CFLAGS_SUB}"}
-CC=${CC23}
-CFLAGS=${C23FLAGS}
-unset r_cv_C23
-R_C23
-if test x${r_cv_C23} = xno; then
-unset r_cv_C23
-CC23="${CC_SUB} -std=gnu2x"
-CC=${CC23}
-R_C23
-fi
-if test x${r_cv_C23} = xno; then
-CC23=
-C23FLAGS=
-fi
-AC_SUBST(CC23)
-AC_SUBST(C23FLAGS)
 
 : ${CC90="${CC_SUB} -std=gnu90"}
 : ${C90FLAGS="${CFLAGS_SUB}"}
@@ -1110,7 +1148,7 @@ if test "x${use_long_double}" = xyes; then
   AC_DEFINE(HAVE_LONG_DOUBLE, 1, [Define if you wish to use the 'long double' type.])
   AC_CHECK_SIZEOF(long double)
 else
-  AC_MSG_WARN([Not using the 'long double' type])
+  AC_MSG_NOTICE([Not using the 'long double' type])
 fi
 
 R_PROG_CC_MAKEFRAG
@@ -1484,6 +1522,10 @@ case "${host_os}" in
     darwin_pic="-fPIC"
     dylib_undefined_allowed=no
     darwin_dylib_ldflags="-dynamiclib"
+    ## Xcode 16.3 (Apple clang-17000) injects a section right behind
+    ## the header (unnecessarily), and thus requires this in order to
+    ## allow absolute paths to R libraries (e.g., for the framework)
+    main_ldflags="-Wl,-headerpad_max_install_names"
     ##  -single_module is default and -multiply_defined is obsolete
     ## at least since macOS 11 (darwin 20)
     case "${host_os}" in
@@ -1908,6 +1950,7 @@ R_STDCXX([14], [CXX14], [CXX11])
 R_STDCXX([17], [CXX17], [CXX14])
 R_STDCXX([20], [CXX20], [CXX17])
 R_STDCXX([23], [CXX23], [CXX20])
+R_STDCXX([26], [CXX26], [CXX23])
 CXX=${save_CXX}
 
 ## Set default C++ compiler to C++17 if available, otherwise unset
@@ -2251,6 +2294,11 @@ R_FUNC_LOG1P
 R_FUNC_FTELL
 R_FUNC_SIGACTION
 
+dnl setting the size of an 'enum' is a C23 addition,
+dnl also supported in some versions of clang.
+dnl GCC only supports it in a C23 mode.
+R_ENUM_BASE_TYPE
+
 if test x${use_internal_tzcode} = xdefault; then
 case "${host_os}" in
    darwin*)
@@ -2375,6 +2423,13 @@ if test "${acx_blas_ok}" != "yes"; then
       ;;
   esac
 fi
+
+if test "${use_2025blas}" = yes; then
+   if test "${acx_lapack_ok}" = "yes"; then
+     AC_MSG_ERROR([--with-2025blas cannot be used with --with-lapack])
+  fi
+fi
+AM_CONDITIONAL(BUILD_2025BLAS, [test "${use_2025blas}" = yes])
 
 AM_CONDITIONAL(BLAS_SHLIB, [test "x${use_blas_shlib}" = xyes])
 
@@ -2580,6 +2635,9 @@ R_BZLIB
 
 ## LZMA headers and libraries from xz-utils
 R_LZMA
+
+## Zstd headers and libraries.
+R_ZSTD
 
 ## libdeflate headers and libraries.
 R_LIBDEFLATE
@@ -2884,14 +2942,21 @@ if test "${USE_NLS}" = "yes"; then
   AM_GNU_GETTEXT_VERSION(0.16.1)
   AM_GNU_GETTEXT([no-libtool], [need-ngettext], [../extra/intl])
   if test -n "$INTL_MACOSX_LIBS"; then
-    XTRA_INTL_CPPFLAGS=-I/System/Library/Frameworks/CoreFoundation.framework/Headers
+dnl This is no longer valid (if it ever was)
+dnl    XTRA_INTL_CPPFLAGS=-I/System/Library/Frameworks/CoreFoundation.framework/Headers
+dnl On a macOS build which uses static libraries, libintl_dgettext
+dnl etc are provided by libR.dylib.
+     LIBINTL_PKGS=
+   else
+     LIBINTL_PKGS=${LIBINTL}
   fi
   echo "Finished configuring src/extra/intl directory"
   echo
 else
   USE_INCLUDED_LIBINTL=no
 fi
-AC_SUBST(XTRA_INTL_CPPFLAGS)
+dnl AC_SUBST(XTRA_INTL_CPPFLAGS)
+AC_SUBST(LIBINTL_PKGS)
 
 AM_CONDITIONAL(USE_NLS, [test "x${USE_NLS}" = xyes])
 AM_CONDITIONAL(BUILD_LIBINTL, [test "x${USE_INCLUDED_LIBINTL}" = xyes])
@@ -2995,9 +3060,9 @@ sdk_OK=no)
 dnl No longer used as we only build (or not) BLAS and LAPACK shims
 dnl  AC_DEFINE(USE_NEW_ACCELERATE, 1, [Define to use Apple's (new) Accelerate])
 fi
-AM_CONDITIONAL(BUILD_NEW_ACCELERATE, [test "x${use_accelerate}" == xyes])
+AM_CONDITIONAL(BUILD_NEW_ACCELERATE, [test "x${use_accelerate}" = xyes])
 AM_CONDITIONAL(BUILD_NEW_ACCELERATE_LAPACK,
-              [test "x${use_accelerate_lapack}" == xyes])
+              [test "x${use_accelerate_lapack}" = xyes])
 
 dnl record compiler versions
 CC_VER=`${CC} --version | ${SED} -n 1p`
@@ -3005,7 +3070,11 @@ FC_VER=`${FC} --version | ${SED} -n 1p`
 AC_DEFINE_UNQUOTED(CC_VER, "${CC_VER}", [Version of C Compiler])
 AC_SUBST(CC_VER)
 AC_DEFINE_UNQUOTED(FC_VER, "${FC_VER}", [Version of Fortran Compiler])
+AC_SUBST(REC_INSTALL_OPT)
+
+dnl Allow addiitonal options for installing recommended packages
 AC_SUBST(FC_VER)
+
 
 ### * Output.
 
@@ -3108,6 +3177,18 @@ CPPFLAGS=${CPPFLAGS_KEEP}
 CFLAGS=${CFLAGS_KEEP}
 FFLAGS=${FFLAGS_KEEP}
 CXXFLAGS=${CXXFLAGS_KEEP}
+
+## allow different LIBS in etc/Makeconf
+   LIBS_PKGS=${LIBS}
+case "${host_os}" in
+   darwin*)
+   ## This will usually include -lpcre2-8 -ldeflate -lzstd -llzma all
+   ## of which are static and not part of a binary distribution, so we
+   ## strip them.  This is macOS, so could use sed -E (which is POSIX)
+   LIBS_PKGS=`echo ${LIBS} | sed s/\ -lpcre2-8// | sed s/\ -ldeflate// | sed s/\ -lzstd// | sed s/\ -llzma//`
+   ;;
+esac
+AC_SUBST(LIBS_PKGS)
 
 AC_OUTPUT
 
@@ -3269,11 +3350,12 @@ R is now configured for ${host}
   Fortran fixed-form compiler: ${r_f77_compiler}
 
   Default C++ compiler:        ${r_cxx_compiler}
-  C++11 compiler:              ${r_cxx11_compiler}
-  C++14 compiler:              ${r_cxx14_compiler}
-  C++17 compiler:              ${r_cxx17_compiler}
-  C++20 compiler:              ${r_cxx20_compiler}
-  C++23 compiler:              ${r_cxx23_compiler}
+dnl  C++11 compiler:              ${r_cxx11_compiler}
+dnl  C++14 compiler:              ${r_cxx14_compiler}
+dnl  C++17 compiler:              ${r_cxx17_compiler}
+dnl  C++20 compiler:              ${r_cxx20_compiler}
+dnl  C++23 compiler:              ${r_cxx23_compiler}
+dnl We never reported the C++26 compiler (nor C17, C99 ...)
   Fortran free-form compiler:  ${r_f95_compiler}
   Obj-C compiler:	       ${r_objc_compiler}
 
@@ -3335,6 +3417,10 @@ fi
 if test "${ac_cv_sizeof_size_t}" = 4; then
   AC_MSG_WARN([32-bit build -- this is little tested])
 fi
+if test "${USE_INCLUDED_LIBINTL}" = "yes"; then
+  AC_MSG_WARN([Using the bundled libintl is deprecated.])
+fi
+
 
 ### Local variables: ***
 ### mode: outline-minor ***

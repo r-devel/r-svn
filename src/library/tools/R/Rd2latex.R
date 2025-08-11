@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2latex.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -61,7 +61,7 @@ latex_canonical_encoding  <- function(encoding)
 Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                      stages = "render",
 		     outputEncoding = "UTF-8", fragment = FALSE, ...,
-                     writeEncoding = TRUE,
+                     writeEncoding = outputEncoding != "UTF-8",
 		     concordance = FALSE)
 {
     encode_warn <- FALSE
@@ -123,15 +123,10 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
     sectionLevel <- 0
     hasFigures <- FALSE
 
-    startByte <- function(x) {
-    	srcref <- attr(x, "srcref")
-    	if (is.null(srcref)) -1L
-    	else srcref[2L]
-    }
-
-    addParaBreaks <- function(x, tag) {
-        if (isBlankLineRd(x)) "\n"
-        else if (startByte(x) == 1L) psub("^\\s+", "", x)
+    startByte <- utils:::getSrcByte
+    addParaBreaks <- function(x) {
+        ## this only removes indentation (for cleaner/smaller output)
+        if (startByte(x) == 1L) psub1("^[[:blank:]]+", "", x)
         else x
     }
 
@@ -233,11 +228,18 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 
     ## Currently ignores [option] except for [=dest] form
     ## (as documented)
+    ## FIXME: so should not output cross-package links (unless for refman ...)
     writeLink <- function(tag, block) {
-        parts <- get_link(block, tag)
+        parts <- get_link(block, tag, Rdfile)
         if (concordance)
             conc$saveSrcref(block)
-        of0("\\LinkA{", latex_escape_link(parts$topic), "}{",
+        if (all(RdTags(block) == "TEXT")) {
+            of0("\\LinkA{", latex_escape_name(parts$topic))
+        } else { # don't \index link text containing markup etc
+            of1("\\LinkB{")
+            writeContent(block, tag)
+        }
+        of0("}{",
             latex_link_trans0(parts$dest), "}")
     }
 
@@ -290,13 +292,6 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
         x
     }
 
-    latex_escape_link <- function(x)
-    {
-        ## _ is already escaped
-        x <- fsub("\\_", "_", x)
-        latex_escape_name(x)
-    }
-
     latex_link_trans0 <- function(x)
     {
         x <- fsub("\\Rdash", ".Rdash.", x)
@@ -341,6 +336,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
             stop("alias:\n",
                  sQuote(paste(alias, collapse = "\n")),
                  "\nis not one line")
+        alias <- trim(alias)
         aa <- "\\aliasA{"
         ## Some versions of hyperref (from 6.79d) have trouble indexing these
         ## |, || in base, |.bit, %||% in ggplot2 ...
@@ -366,7 +362,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                UNKNOWN =,
                VERB = of1(texify(block, TRUE)),
                RCODE = of1(texify(block, TRUE)),
-               TEXT = of1(addParaBreaks(texify(block), blocktag)),
+               TEXT = of1(addParaBreaks(texify(block))),
                USERMACRO =,
                "\\newcommand" =,
                "\\renewcommand" = {},

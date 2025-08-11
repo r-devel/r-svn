@@ -71,7 +71,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,9 +95,6 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Parse.h>
-#ifndef STRICT_R_HEADERS
-# define STRICT_R_HEADERS
-#endif
 #include <R_ext/RS.h>           /* for R_chk_* allocation */
 #include <ctype.h>
 #include <Rmath.h> /* for imax2(.),..*/
@@ -123,8 +120,8 @@
 #define DEBUGVALS 0		/* 1 causes detailed internal state output to R console */	
 #define DEBUGMODE 0		/* 1 causes Bison output of parse state, to stdout or stderr */
 
-static Rboolean wCalls = TRUE;
-static Rboolean warnDups = FALSE;
+static bool wCalls = true;
+static bool warnDups = false;
 
 #define YYERROR_VERBOSE 1
 
@@ -211,7 +208,7 @@ struct ParseState {
     ParseState *prevState;
 };
 
-static Rboolean busy = FALSE;
+static bool busy = false;
 static ParseState parseState;
 
 #define PRESERVE_SV(x) R_PreserveInMSet((x), parseState.mset)
@@ -901,15 +898,15 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   235,   235,   236,   237,   240,   243,   246,   247,   249,
-     250,   251,   252,   253,   254,   255,   256,   257,   258,   259,
-     260,   261,   262,   264,   265,   267,   268,   269,   270,   271,
-     272,   273,   274,   275,   277,   278,   279,   280,   281,   282,
-     283,   284,   285,   286,   287,   288,   289,   290,   291,   292,
-     293,   295,   296,   297,   298,   300,   302,   304,   306,   308,
-     311,   314,   319,   321,   322,   331,   333,   335,   339,   340,
-     342,   344,   348,   349,   351,   354,   356,   358,   360,   362,
-     364,   366,   368,   370,   372,   373,   374,   375,   376,   378
+       0,   232,   232,   233,   234,   237,   240,   243,   244,   246,
+     247,   248,   249,   250,   251,   252,   253,   254,   255,   256,
+     257,   258,   259,   261,   262,   264,   265,   266,   267,   268,
+     269,   270,   271,   272,   274,   275,   276,   277,   278,   279,
+     280,   281,   282,   283,   284,   285,   286,   287,   288,   289,
+     290,   292,   293,   294,   295,   297,   299,   301,   303,   305,
+     308,   311,   316,   318,   319,   328,   330,   332,   336,   337,
+     339,   341,   345,   346,   348,   351,   353,   355,   357,   359,
+     361,   363,   365,   367,   369,   370,   371,   372,   373,   375
 };
 #endif
 
@@ -3144,7 +3141,7 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
 #define START_MACRO -2
 #define END_MACRO -3
 
-static Rboolean isComment(SEXP elt)
+static bool isComment(SEXP elt)
 {
     SEXP a = getAttrib(elt, R_RdTagSymbol);
     return isString(a) && LENGTH(a) == 1 &&
@@ -3555,9 +3552,9 @@ static void InitSymbols(void)
 	R_MacroSymbol = install("macro");
 }
  
-static SEXP ParseRd(ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+static SEXP ParseRd(ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
-    Rboolean keepmacros = !isLogical(macros) || asLogical(macros);
+    bool keepmacros = !isLogical(macros) || asLogical(macros);
 
     InitSymbols();
     R_ParseContextLast = 0;
@@ -3624,7 +3621,7 @@ static int con_getc(void)
 }
 
 static
-SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
     con_parse = con;
     ptr_getc = con_getc;
@@ -3709,7 +3706,6 @@ static keywords[] = {
     
     { "\\emph",    LATEXMACRO },    
     { "\\file",    LATEXMACRO },
-    { "\\linkS4class", LATEXMACRO },
     { "\\pkg",	   LATEXMACRO },
     { "\\sQuote",  LATEXMACRO },
     
@@ -3750,6 +3746,7 @@ static keywords[] = {
        one LaTeX-like argument */
        
     { "\\link",    OPTMACRO },
+    { "\\linkS4class", OPTMACRO },
        
     /* These markup macros require an R-like text argument */
     
@@ -4474,7 +4471,7 @@ static void PushState(void) {
     	parseState.prevState = prev;
     } else 
         parseState.prevState = NULL;  
-    busy = TRUE;
+    busy = true;
 }
 
 static void PopState(void) {
@@ -4483,7 +4480,7 @@ static void PopState(void) {
     	UseState(prev);
     	free(prev);
     } else
-    	busy = FALSE;
+    	busy = false;
 }
 
 /* "do_parseRd" 
@@ -4498,7 +4495,7 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 
     SEXP s = R_NilValue, source;
     Rconnection con;
-    Rboolean wasopen, fragment;
+    bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
     RCNTXT cntxt;
@@ -4524,13 +4521,13 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     	error(_("invalid '%s' value"), "verbose");
     parseState.xxDebugTokens = asInteger(CAR(args));		args = CDR(args);
     parseState.xxBasename = CHAR(STRING_ELT(CAR(args), 0));	args = CDR(args);
-    fragment = asLogical(CAR(args));				args = CDR(args);
+    fragment = asBool(CAR(args));				args = CDR(args);
     wcall = asLogical(CAR(args));				args = CDR(args);
     if (wcall == NA_LOGICAL)
     	error(_("invalid '%s' value"), "warningCalls");
-    wCalls = wcall;
+    wCalls = (bool) wcall;
     macros = CAR(args);						args = CDR(args);
-    warnDups = asLogical(CAR(args));
+    warnDups = asBool(CAR(args));
 
     if (ifile >= 3) {/* file != "" */
 	if(!wasopen) {
@@ -4562,10 +4559,11 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 SEXP deparseRd(SEXP e, SEXP state)
 {
     SEXP result;
-    int  outlen, *statevals, quoteBraces, inRComment;
+    int  outlen, *statevals, quoteBraces;
+    bool inRComment;
     const char *c;
     char *outbuf, *out, lookahead;
-    Rboolean escape;
+    bool escape;
 
     if(!isString(e) || LENGTH(e) != 1) 
     	error(_("'deparseRd' only supports deparsing character elements"));
@@ -4593,29 +4591,29 @@ SEXP deparseRd(SEXP e, SEXP state)
     	if (*c == '{' || *c == '}' || *c == '%' || *c == '\\') outlen++;
     }
     out = outbuf = R_chk_calloc(outlen+1, sizeof(char));
-    inRComment = FALSE;
+    inRComment = false;
     for (c = CHAR(e); *c; c++) {
-    	escape = FALSE;
+    	escape = false;
     	if (parseState.xxmode != UNKNOWNMODE) {
 	    switch (*c) {
 	    case '\\':
 		if (parseState.xxmode == RLIKE && parseState.xxinRString) {
 		    lookahead = *(c+1);
 		    if (lookahead == '\\' || lookahead == parseState.xxinRString || lookahead == 'l') 
-		    	escape = TRUE;
+		    	escape = true;
 		    break;
 		}          /* fall through to % case for non-strings... */    
 	    case '%':
 		if (parseState.xxmode != COMMENTMODE && !parseState.xxinEqn)
-		    escape = TRUE;
+		    escape = true;
 		break;
 	    case LBRACE:
 	    case RBRACE:
 		if (quoteBraces || parseState.xxmode == LATEXLIKE)
-		    escape = TRUE;
+		    escape = true;
 		else if (!parseState.xxinRString && !parseState.xxinEqn && (parseState.xxmode == RLIKE || parseState.xxmode == VERBATIM)) {
 		    if (*c == LBRACE) parseState.xxbraceDepth++;
-		    else if (parseState.xxbraceDepth <= 0) escape = TRUE;
+		    else if (parseState.xxbraceDepth <= 0) escape = true;
 		    else parseState.xxbraceDepth--;
 		}
 		break;
@@ -4630,10 +4628,10 @@ SEXP deparseRd(SEXP e, SEXP state)
 		break;
 	    case '#':
 	    	if (parseState.xxmode == RLIKE && !parseState.xxinRString) 
-	    	    inRComment = TRUE;
+	    	    inRComment = true;
 	    	break;
 	    case '\n':
-	    	inRComment = FALSE;
+	    	inRComment = false;
 	    	break;
 	    }
 	}

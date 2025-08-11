@@ -17,14 +17,14 @@
   \code{c("nfnGroupedData", "nfGroupedData", "groupedData", "data.frame")}
   containing the following columns:
   \describe{
-    \item{weight}{
+    \item{\code{weight}}{
       a numeric vector giving the body weight of the chick (gm).
     }
-    \item{Time}{
+    \item{\code{Time}}{
       a numeric vector giving the number of days since birth when
       the measurement was made.
     }
-    \item{Chick}{
+    \item{\code{Chick}}{
       an ordered factor with levels
       \code{18} < \dots < \code{48}
       giving a unique identifier for the chick.  The ordering of
@@ -32,7 +32,7 @@
       orders them according to their final weight (lightest to
       heaviest) within diet.
     }
-    \item{Diet}{
+    \item{\code{Diet}}{
       a factor with levels 1, \dots, 4 indicating which
       experimental diet the chick received.
     }
@@ -43,7 +43,7 @@
   second day thereafter until day 20.  They were also measured on day
   21.  There were four groups on chicks on different protein diets.
 
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }

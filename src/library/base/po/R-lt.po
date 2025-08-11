@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2025-03-31 11:50\n"
 "PO-Revision-Date: 2021-01-27 10:37+0100\n"
 "Last-Translator: <r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com>\n"
 "Language-Team: Lithuanian\n"
@@ -59,20 +59,19 @@ msgstr "antras argumentas turi būti sąrašas"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' negalimas šioje sistemoje"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "kind' turi būti simbolių eilutė, kurios ilgis 1 (RNG turi būti naudojamas)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' nėra tinkama RNG santrumpa"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "normal.kind' turi būti simbolių eilutė, kurios ilgis 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "argumentas 'object' turi būti išnagrinėtas iki atskiros simbolių eilutės"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' nėra tinkamas pasirinkimas"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' turi būti simbolių eilutė, kurios ilgis 1"
 
 msgid "malformed version string"
 msgstr "netaisyklinga versijos eilutė"
@@ -205,10 +204,6 @@ msgstr "galima tik įrašyti ženklų objektus"
 
 msgid "'headers' must have names and must not be NA"
 msgstr "'headers' turi turėti pavadinimus ir negali būti NA"
-
-#, fuzzy
-msgid "'name' must be a single character string"
-msgstr "argumentas 'object' turi būti išnagrinėtas iki atskiros simbolių eilutės"
 
 msgid "'origin' must be one of 'start', 'current' or 'end'"
 msgstr "'origin' turi būti vienas iš 'start', 'current' arba 'end'"
@@ -406,29 +401,20 @@ msgstr "vienvietė %s neapibrėžta \"Date\" objektams"
 msgid "%s not defined for \"Date\" objects"
 msgstr "%s neapibrėžtas \"Date\" objektams"
 
-msgid "'from' must be specified"
-msgstr "'from' turi būti apibrėžtas"
-
-msgid "'from' must be a \"Date\" object"
-msgstr "'from' turi būti \"Date\" objektas"
-
-msgid "'from' must be of length 1"
-msgstr "'from' ilgis turi būti 1"
-
-msgid "'to' must be a \"Date\" object"
-msgstr "'to' turi būti \"Date\" objektas"
-
-msgid "'to' must be of length 1"
+#, fuzzy
+msgid "'%s' must be of length 1"
 msgstr "'to' ilgis turi būti 1"
 
-msgid "'length.out' must be of length 1"
-msgstr "'length.out' ilgis turi būti 1"
+msgid "without 'by', at least one of 'to' and 'from' must be specified"
+msgstr ""
 
-msgid "exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified"
+#, fuzzy
+msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
 msgstr "tiksliai du iš 'to', 'by' ir 'length.out' / 'along.with' turi būti nurodyti"
 
-msgid "'by' must be of length 1"
-msgstr "'by' ilgis turi būti 1"
+#, fuzzy
+msgid "given 'by', exactly two of 'to', 'from' and 'length.out' / 'along.with' must be specified"
+msgstr "tiksliai du iš 'to', 'by' ir 'length.out' / 'along.with' turi būti nurodyti"
 
 msgid "invalid 'by' string"
 msgstr "netaisyklinga 'by' eilutė"
@@ -447,9 +433,6 @@ msgstr "'x' turi būti datos-laiko objektas"
 
 msgid "invalid specification of 'breaks'"
 msgstr "netinkama 'breaks' specifikacija"
-
-msgid "'origin' must be of length one"
-msgstr "'origin' ilgis turi būti 1"
 
 msgid "'lag' and 'differences' must be integers >= 1"
 msgstr "'lag' ir 'differences' turi būti sveikieji skaičiai >= 1"
@@ -509,17 +492,22 @@ msgstr "abu * argumentai negali būti \"difftime\" objektai"
 msgid "second argument of / cannot be a \"difftime\" object"
 msgstr "antras argumentas / negali būti \"difftime\" objektas"
 
-msgid "'from' must be a \"POSIXt\" object"
-msgstr "'from' turi būti \"POSIXt\" objektas"
+#, fuzzy
+msgid "exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified"
+msgstr "tiksliai du iš 'to', 'by' ir 'length.out' / 'along.with' turi būti nurodyti"
 
-msgid "'to' must be a \"POSIXt\" object"
-msgstr "'to' turi būti \"POSIXt\" objektas"
+#, fuzzy
+msgid "'%s' must be a \"%s\" object"
+msgstr "'to' turi būti \"Date\" objektas"
 
 msgid "component subscript must be a character string"
 msgstr "komponento apatinis indeksas turi būti simbolių eilutė"
 
 msgid "no Olson database found"
 msgstr "nerasta OLSON duomenų bazė"
+
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
 
 msgid "'file' must be a character string or connection"
 msgstr "'file' turi būti simbolių eilutė ar ryšys"
@@ -657,9 +645,6 @@ msgstr "nėra failų/katalogų susieti su"
 msgid "no files to link to"
 msgstr "nėra failų susieti su"
 
-msgid "'package' must be of length 1"
-msgstr "'package' ilgis turi būti 1"
-
 msgid "no file found"
 msgstr "nerastas joks failas"
 
@@ -683,9 +668,6 @@ msgstr "Nerastas klasės \"%s\" format() metodas"
 
 msgid "class of 'x' was discarded"
 msgstr "'x' klasė buvo atmesta"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'arg' ilgis turi būti eilutė, pvz., 1 ilgio"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' gali būti tik simbolis iš [0+- #'I]"
@@ -959,7 +941,7 @@ msgid "nothing specified to be save()d"
 msgstr "niekas nenurodyta, kad būtų save()d"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' turi būti netuščia eilutė"
 
 msgid "'compress' must be logical or character"
@@ -1000,9 +982,6 @@ msgstr "gali būti, kad nėra argumento (-ų), pavadintų"
 
 msgid "'arg' must be NULL or a character vector"
 msgstr "'arg' turi būti NULL arba tekstinis vektorius"
-
-msgid "'arg' must be of length 1"
-msgstr "'arg' ilgis turi būti 1"
 
 msgid "'arg' must be of length >= 1"
 msgstr "'arg' ilgis turi būti >= 1"
@@ -1407,9 +1386,6 @@ msgstr "nurodykite 'nmax' ar 'n', bet ne abu."
 msgid "'from' must be a finite number"
 msgstr "'from' turi būti baigtinis skaičius"
 
-msgid "argument 'length.out' must be of length 1"
-msgstr "argumento 'lenght.out' ilgis turi būti 1"
-
 msgid "first element used of 'length.out' argument"
 msgstr "'length.out' argumentas naudoja pirmą elementą"
 
@@ -1573,15 +1549,20 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "papildomi argumentai ignoruojami warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
-msgid ""
-"Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
-"  Consider 'structure(list(), *)' instead."
+msgid "attempt to set an attribute on NULL"
 msgstr ""
-"Iškvietimas 'structure(NULL, *)' yra nebenaudojamas, nes NULL negali turėti atributų.\n"
-"  Vietoj to apsvarstykite 'structure(list(), *)'."
 
 msgid "incorrect value for 'x'"
 msgstr "neteisinga 'x' reikšmė"
@@ -1646,9 +1627,6 @@ msgstr "bendras lygių skaičius > = 2^31"
 msgid "handler must be a function"
 msgstr "manipuliavimo programa turi būti funkcija"
 
-msgid "'which' must be of length 1"
-msgstr "'which' ilgis turi būti 1"
-
 msgid "no such element '%s'"
 msgstr "nėra tokio elemento '%s'"
 
@@ -1683,11 +1661,15 @@ msgid "No traceback available"
 msgstr "Pėdsakas negalimas"
 
 #, fuzzy
+msgid "'recursive' must be a length-1 vector"
+msgstr "'origin' ilgis turi būti 1"
+
+msgid "'recursive' is NA"
+msgstr ""
+
+#, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "netaisyklinga versijos specifikacija %s"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "netaisyklinga versijos specifikacija %s"
@@ -1988,6 +1970,59 @@ msgstr[1] ""
 msgstr[2] ""
 "%s :\n"
 "%s papildomų argumentų bus ignoruojama"
+
+#, fuzzy
+#~ msgid "'name' must be a single character string"
+#~ msgstr "argumentas 'object' turi būti išnagrinėtas iki atskiros simbolių eilutės"
+
+#~ msgid "'from' must be specified"
+#~ msgstr "'from' turi būti apibrėžtas"
+
+#~ msgid "'from' must be a \"Date\" object"
+#~ msgstr "'from' turi būti \"Date\" objektas"
+
+#~ msgid "'from' must be of length 1"
+#~ msgstr "'from' ilgis turi būti 1"
+
+#~ msgid "'length.out' must be of length 1"
+#~ msgstr "'length.out' ilgis turi būti 1"
+
+#~ msgid "'by' must be of length 1"
+#~ msgstr "'by' ilgis turi būti 1"
+
+#~ msgid "'from' must be a \"POSIXt\" object"
+#~ msgstr "'from' turi būti \"POSIXt\" objektas"
+
+#~ msgid "'to' must be a \"POSIXt\" object"
+#~ msgstr "'to' turi būti \"POSIXt\" objektas"
+
+#~ msgid "'package' must be of length 1"
+#~ msgstr "'package' ilgis turi būti 1"
+
+#~ msgid "'arg' must be of length 1"
+#~ msgstr "'arg' ilgis turi būti 1"
+
+#~ msgid "argument 'length.out' must be of length 1"
+#~ msgstr "argumento 'lenght.out' ilgis turi būti 1"
+
+#~ msgid ""
+#~ "Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
+#~ "  Consider 'structure(list(), *)' instead."
+#~ msgstr ""
+#~ "Iškvietimas 'structure(NULL, *)' yra nebenaudojamas, nes NULL negali turėti atributų.\n"
+#~ "  Vietoj to apsvarstykite 'structure(list(), *)'."
+
+#~ msgid "'which' must be of length 1"
+#~ msgstr "'which' ilgis turi būti 1"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "normal.kind' turi būti simbolių eilutė, kurios ilgis 1"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'sample.kind' turi būti simbolių eilutė, kurios ilgis 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'arg' ilgis turi būti eilutė, pvz., 1 ilgio"
 
 #, fuzzy
 #~ msgid ", will be ignored"

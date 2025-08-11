@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -254,6 +254,15 @@ msgstr ""
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
 msgstr ""
 
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr ""
+
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr ""
+
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
+msgstr ""
+
 msgid "Encoding '%s' is not portable"
 msgstr ""
 
@@ -305,10 +314,10 @@ msgstr ""
 msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr ""
 
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr ""
 
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr ""
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -650,9 +659,6 @@ msgstr ""
 msgid "Unsupported engine name"
 msgstr ""
 
-msgid "None of packages %s have registered vignette engines"
-msgstr ""
-
 msgid "Vignette engine %s is not registered"
 msgstr ""
 
@@ -733,6 +739,12 @@ msgid "ERROR: this R is version %s, required is R %s %s"
 msgstr ""
 
 msgid "loading failed"
+msgstr ""
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
 msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
@@ -1080,6 +1092,12 @@ msgstr ""
 msgid "package seems to be using lazy loading already"
 msgstr ""
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+msgid "'bytes' must be a raw vector"
+msgstr ""
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1152,6 +1170,12 @@ msgstr ""
 msgid "unimplemented encoding"
 msgstr ""
 
+msgid "x must be a single string"
+msgstr ""
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr ""
 
@@ -1176,6 +1200,9 @@ msgstr ""
 msgid "Testing examples for package %s"
 msgstr ""
 
+msgid "Error: running examples in %s failed"
+msgstr ""
+
 msgid "comparing %s to %s ..."
 msgstr ""
 
@@ -1198,6 +1225,9 @@ msgid "Running specific tests for package %s"
 msgstr ""
 
 msgid "Running %s"
+msgstr ""
+
+msgid "Error: running the tests in %s failed"
 msgstr ""
 
 msgid "Running vignettes for package %s"
@@ -1289,7 +1319,7 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
+msgid "'%s' must be a character string"
 msgstr ""
 
 msgid "test '%s' is not available"
@@ -1341,6 +1371,9 @@ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr ""
 
 msgid "cannot source package code:"
+msgstr ""
+
+msgid "inferiorCallError"
 msgstr ""
 
 msgid "inferior call failed"
@@ -1407,7 +1440,7 @@ msgid_plural "Found .Internal calls in the following functions:"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] ""
 msgstr[1] ""
@@ -1463,6 +1496,11 @@ msgstr[1] ""
 
 msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
 msgstr[0] ""
 msgstr[1] ""
 

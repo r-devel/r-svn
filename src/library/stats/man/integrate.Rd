@@ -116,7 +116,7 @@ integrate(dnorm, 0, 2)
 integrate(dnorm, 0, 20)
 integrate(dnorm, 0, 200)
 integrate(dnorm, 0, 2000)
-integrate(dnorm, 0, 20000) ## fails on many systems
+integrate(dnorm, 0, 20000) ## "fails" on many systems -- "wrongly" giving '0' 
 integrate(dnorm, 0, Inf)   ## works
 \dontshow{tools::assertError(}
 integrate(dnorm, 0:1, 20) #-> error!

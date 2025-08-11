@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2024   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@
 
 
 /* used in subscript.c and subassign.c */
+// In Rinternals.h
 Rboolean NonNullStringMatch(SEXP s, SEXP t)
 {
     /* "" or NA string matches nothing */
@@ -183,7 +184,7 @@ attribute_hidden SEXP matchArgExact(SEXP tag, SEXP * list)
 
 attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 {
-    Rboolean seendots;
+    bool seendots;
     int i, arg_i = 0;
     SEXP f, a, b, dots, actuals;
 
@@ -439,7 +440,7 @@ void patchArgument(SEXP suppliedSlot, SEXP name, fstype_t *farg, SEXP cloenv) {
 attribute_hidden SEXP
 patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
 {
-    int i, seendots, farg_i;
+    int i, farg_i;
     SEXP f, a, b, prsupplied;
 
     int nfarg = length(formals);
@@ -479,13 +480,13 @@ patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
     /* An exact match is required after first ... */
     /* The location of the first ... is saved in "dots" */
 
-    seendots = 0;
+    Rboolean seendots = FALSE;
     f = formals;
     farg_i = 0;
     while (f != R_NilValue) {
 	if (farg[farg_i] == FS_UNMATCHED) {
 	    if (TAG(f) == R_DotsSymbol && !seendots) {
-		seendots = 1;
+		seendots = TRUE;
 	    } else {
 		for (b = prsupplied; b != R_NilValue; b = CDR(b)) {
 		    if (!ARGUSED(b) && TAG(b) != R_NilValue &&

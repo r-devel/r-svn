@@ -1,7 +1,7 @@
 #  File src/library/tools/R/toHTML.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 
 toHTML <- function(x, ...) UseMethod("toHTML")
 
@@ -187,6 +187,7 @@ function(x, ...)
 # Argument "depth" below says how far down in the hierarchy
 # we are starting from, e.g. /library/stats/html/mean.html
 # is depth 3
+# .writeVignetteHtmlIndex() uses depth=NULL to omit the directory prefix.
 
 makeVignetteTable <- function(vignettes, depth=2) {
     out <- c('<table style="width: 100%;">',
@@ -203,7 +204,8 @@ makeVignetteTable <- function(vignettes, depth=2) {
 	File  <- vignettes[i, "File"]
 	R     <- vignettes[i, "R"]
 	pkg   <- vignettes[i, "Package"]
-        root <- c(rep.int("../", depth), "library/", pkg, "/doc/")
+        root <- if (!is.null(depth))
+                    c(rep.int("../", depth), "library/", pkg, "/doc/")
 	link  <- c('<a href="', root,
 		  if (nchar(Outfile)) Outfile else File, '">',
 		  pkg, "::", topic, '</a>')
@@ -432,7 +434,9 @@ HTMLcomponents <- function(title = "R", logo = FALSE,
                            MATHJAX_CONFIG_STATIC = file.path(Rhome, "doc/html/mathjax-config.js"),
                            PRISM_JS_STATIC = c("https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js",
                                                "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-r.min.js"),
-                           PRISM_CSS_STATIC = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css")
+                           PRISM_CSS_STATIC = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css",
+                           language = NA_character_
+                           )
 {
     header <- character(0)
     footer <- character(0)
@@ -448,7 +452,7 @@ HTMLcomponents <- function(title = "R", logo = FALSE,
                      else KATEX_CSS_STATIC
         KATEX_CONFIG <-
             if (dynamic) "/doc/html/katex-config.js"
-            else c("const macros = { \"\\\\R\": \"\\\\textsf{R}\", \"\\\\code\": \"\\\\texttt\"};", 
+            else c(r"(const macros = { "\\R": "\\textsf{R}", "\\mbox": "\\text", "\\code": "\\texttt"};)",
                    "function processMathHTML() {",
                    "    var l = document.getElementsByClassName('reqn');", 
                    "    for (let e of l) { katex.render(e.textContent, e, { throwOnError: false, macros }); }", 
@@ -475,7 +479,10 @@ HTMLcomponents <- function(title = "R", logo = FALSE,
     }
 
     addh('<!DOCTYPE html>',
-         "<html>",
+         if(!is.na(language))
+             sprintf('<html lang="%s">', language)
+         else
+             "<html>",
          '<head><title>')
 
     ## headtitle <- strwrap(.Rd_format_title(.Rd_get_title(Rd)),

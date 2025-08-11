@@ -1,6 +1,6 @@
 % File src/library/datasets/man/state.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{state}
@@ -32,38 +32,38 @@ state.x77
   that all data are arranged according to alphabetical order of the
   state names.
   \describe{
-    \item{\code{state.abb}:}{character vector of 2-letter abbreviations
+    \item{\code{state.abb}}{character vector of 2-letter abbreviations
       for the state names.}
-    \item{\code{state.area}:}{numeric vector of state areas (in square
+    \item{\code{state.area}}{numeric vector of state areas (in square
       miles).}
-    \item{\code{state.center}:}{ list with components named \code{x} and
+    \item{\code{state.center}}{list with components named \code{x} and
       \code{y} giving the approximate geographic center of each state in
       negative longitude and latitude.  Alaska and Hawaii are placed
       just off the West Coast.  See \sQuote{Examples} on how to \dQuote{correct}.}
-    \item{\code{state.division}:}{\code{\link{factor}} giving state divisions (New
+    \item{\code{state.division}}{\code{\link{factor}} giving state divisions (New
       England, Middle Atlantic, South Atlantic, East South Central, West
       South Central, East North Central, West North Central, Mountain,
       and Pacific).}
-    \item{\code{state.name}:}{character vector giving the full state
+    \item{\code{state.name}}{character vector giving the full state
       names.}
-    \item{\code{state.region}:}{\code{\link{factor}} giving the region (Northeast,
+    \item{\code{state.region}}{\code{\link{factor}} giving the region (Northeast,
       South, North Central, West) that each state belongs to.}
-    \item{\code{state.x77}:}{matrix with 50 rows and 8 columns giving
+    \item{\code{state.x77}}{matrix with 50 rows and 8 columns giving
       the following statistics in the respective columns.
       \describe{
-        \item{\code{Population}:}{population estimate as of July 1,
+        \item{\code{Population}}{population estimate as of July 1,
           1975}
-        \item{\code{Income}:}{per capita income (1974)}
-        \item{\code{Illiteracy}:}{illiteracy (1970, percent of
+        \item{\code{Income}}{per capita income (1974)}
+        \item{\code{Illiteracy}}{illiteracy (1970, percent of
           population)}
-        \item{\code{Life Exp}:}{life expectancy in years (1969--71)}
-        \item{\code{Murder}:}{murder and non-negligent manslaughter rate
+        \item{\code{Life Exp}}{life expectancy in years (1969--71)}
+        \item{\code{Murder}}{murder and non-negligent manslaughter rate
           per 100,000 population (1976)}
-        \item{\code{HS Grad}:}{percent high-school graduates (1970)}
-        \item{\code{Frost}:}{mean number of days with minimum
+        \item{\code{HS Grad}}{percent high-school graduates (1970)}
+        \item{\code{Frost}}{mean number of days with minimum
           temperature below freezing (1931--1960) in capital or large
           city}
-       \item{\code{Area}:}{land area in square miles}
+       \item{\code{Area}}{land area in square miles}
     }}
   }
   Note that a square mile is by definition exactly
@@ -78,9 +78,7 @@ state.x77
   \emph{County and City Data Book}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 (dst <- dxy <- data.frame(state.center, row.names=state.abb))

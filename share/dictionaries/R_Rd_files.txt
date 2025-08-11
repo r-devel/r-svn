@@ -84,6 +84,7 @@ dialogs
 didactical
 differencing
 dimensioned
+dimorphism
 dispatchable
 dispersions
 dotplots
@@ -134,6 +135,7 @@ ingoing
 init
 initializations
 initializers
+inlining
 integrable
 integrand
 intercountry
@@ -225,6 +227,7 @@ quaternary
 quicksort
 radix
 rasters
+rebalance
 recalibration
 recombinant
 recurse
@@ -261,6 +264,7 @@ sortable
 spectrophotometer
 sphericity
 spooler
+standardizable
 stateful
 stderr
 stdout

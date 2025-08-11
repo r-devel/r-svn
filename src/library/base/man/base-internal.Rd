@@ -1,6 +1,6 @@
 % File src/library/base/man/base-internal.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{base-internal}
@@ -38,7 +38,7 @@
 \alias{.C_R_addTaskCallback}
 \alias{.C_R_getTaskCallbackNames}
 \alias{.C_R_removeTaskCallback}
-\alias{.F_dchdc}
+%\alias{.F_dchdc} long defunct, removed in R 4.6.0
 \alias{.F_dqrcf}
 \alias{.F_dqrdc2}
 \alias{.F_dqrqty}
@@ -68,6 +68,7 @@
 \alias{.kronecker}
 \alias{.packageStartupMessage}
 \alias{.rmpkg}
+\alias{.set_ops_need_as_vector}
 
 \title{Internal Objects in Package \pkg{base}}
 \description{% 'most': see e.g., .detach
@@ -136,6 +137,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
 .packageStartupMessage(message, call = NULL) 
 .rmpkg(pkg) 
 .formula2varlist(formula, data, warnLHS = TRUE, ignoreLHS = warnLHS)
+.set_ops_need_as_vector(x, y)
 }
 \arguments{
   \item{x}{an object
@@ -296,5 +298,10 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{formula}, evaluated in \code{data}, following standard
   non-standard evaluation rules. Used in \code{\link{split}} and
   \code{\link{tapply}} to interpret a formula as a list of categorical
-  variables to split on. }
+  variables to split on.
+
+  \code{.set_ops_need_as_vector} is a helper function for the set
+  operations like \code{\link{union}}: it returns \code{TRUE} if the set
+  ops need to transform their arguments via \code{\link{as.vector}}.
+}
 \keyword{internal}

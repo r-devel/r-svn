@@ -1,7 +1,7 @@
 #  File src/library/tools/R/CRANtools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2014-2022 The R Core Team
+#  Copyright (C) 2014-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -196,7 +196,7 @@ function()
     Sys.getenv("R_CRAN_SRC", .get_CRAN_repository_URL())
 
 ## This allows for partial local mirrors, or to look at a
-## more-freqently-updated mirror.  Exposed as utils::findCRANmirror
+## more-frequently-updated mirror.  Exposed as utils::findCRANmirror
 CRAN_baseurl_for_web_area <-
 function()
     Sys.getenv("R_CRAN_WEB", .get_CRAN_repository_URL())
@@ -757,7 +757,7 @@ CRAN_package_check_URL <- function(p)
             p)
 
 BioC_package_db <-
-function()
+function(remap = TRUE)
 {
     urls <- .get_standard_repository_URLs()
     urls <- urls[startsWith(names(urls), "BioC")]
@@ -767,8 +767,38 @@ function()
                        on.exit(close(con))
                        read.dcf(con)
                    })
-    Reduce(function(u, v) merge(u, v, all = TRUE),
-           lapply(info,
-                  as.data.frame,
-                  stringsAsFactors = FALSE))
+    db <- Reduce(function(u, v) merge(u, v, all = TRUE),
+                 lapply(info,
+                        as.data.frame,
+                        stringsAsFactors = FALSE))
+    if(remap) {
+        ## Map BioC reverse dependency names to CRAN ones.
+        biocrevnames <- c(dependsOnMe = "Reverse depends",
+                          importsMe = "Reverse imports",
+                          linksToMe = "Reverse linking to",
+                          suggestsMe = "Reverse suggests")
+        pos <- match(colnames(db), names(biocrevnames), nomatch = 0L)
+        colnames(db)[pos > 0] <- biocrevnames[pos]
+    }
+    db
 }
+
+.get_BioC_repository_URL <-
+function(which = "BioCsoft")
+{
+    which <- match.arg(which)
+    repos <- getOption("repos")
+    if(!is.null(repos) && !is.na(u <- repos[which]))
+        return(u)
+    utils:::.get_repositories()[which, "URL"]
+}
+
+BioC_aliases_db <-
+function()
+    read_CRAN_object(.get_BioC_repository_URL(),
+                     "src/contrib/Meta/aliases.rds")
+
+BioC_rdxrefs_db <- 
+function()
+    read_CRAN_object(.get_BioC_repository_URL(),
+                     "src/contrib/Meta/rdxrefs.rds")

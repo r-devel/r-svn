@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33-0700\n"
+"POT-Creation-Date: 2024-10-25 14:49-0700\n"
 "PO-Revision-Date: 2018-03-31 19:47+0200\n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -357,8 +357,8 @@ msgstr "argumenty 'a' oraz 'b' muszą być skończone"
 
 #: plot.c:3009 plot.c:4147 plot.c:4151 plot.c:4154 plot.c:4174 plot.c:4178
 #: plot.c:4181 plot3d.c:1085 plot3d.c:1089 plot3d.c:1094 plot3d.c:1098
-#: plot3d.c:1102 plot3d.c:1106 stem.c:153 stem.c:154 stem.c:156 stem.c:157
-#: stem.c:203 stem.c:204
+#: plot3d.c:1102 plot3d.c:1106 stem.c:164 stem.c:165 stem.c:167 stem.c:168
+#: stem.c:215 stem.c:216
 #, c-format
 msgid "invalid '%s' argument"
 msgstr "niepoprawny argument '%s'"
@@ -571,7 +571,7 @@ msgstr "wszystkie wartości 'z' są równe"
 msgid "all z values are NA"
 msgstr "wszystkie wartości 'z' to NA"
 
-#: stem.c:150
+#: stem.c:161
 #, c-format
 msgid "long vector '%s' is not supported"
 msgstr "długi wektor '%s' nie jest wspierany"

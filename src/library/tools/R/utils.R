@@ -1,7 +1,7 @@
 #  File src/library/tools/R/utils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ function(x)
     ## Turn a possibly relative file path absolute, performing tilde
     ## expansion if necessary.
     if(length(x) != 1L)
-        stop("'x' must be a single character string")
+        stop(gettextf("'%s' must be a character string", "x"), domain=NA)
     if(!file.exists(epath <- path.expand(x)))
         stop(gettextf("file '%s' does not exist", x),
              domain = NA)
@@ -232,7 +232,7 @@ function(x)
     if(any(ind)) {
         message(paste0(which(ind), ": ",
                        ## iconv will usually substitute,
-                       ## but inplementations including macOS 14
+                       ## but implementations including macOS 14
                        ## may translate to ASCII.
                        iconv(x[ind], "", "ASCII", sub = "byte"),
                        collapse = "\n"), domain = NA)
@@ -314,41 +314,34 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         } # else the provided one should work
     }
 
-    envSep <- .Platform$path.sep
-    texinputs0 <- texinputs
-    Rtexmf <- file.path(R.home("share"), "texmf")
-    Rtexinputs <- file.path(Rtexmf, "tex", "latex")
-    ## "" forces use of default paths.
-    texinputs <- paste(c(texinputs0, Rtexinputs, ""),
-                       collapse = envSep)
+    paths2env <- function(x) paste(x, collapse = .Platform$path.sep)
     ## not clear if this is needed, but works
     if(.Platform$OS.type == "windows")
         texinputs <- gsub("\\", "/", texinputs, fixed = TRUE)
-    Rbibinputs <- file.path(Rtexmf, "bibtex", "bib")
-    bibinputs <- paste(c(texinputs0, Rbibinputs, ""),
-                       collapse = envSep)
-    Rbstinputs <- file.path(Rtexmf, "bibtex", "bst")
-    bstinputs <- paste(c(texinputs0, Rbstinputs, ""),
-                       collapse = envSep)
+    Rtexmf <- file.path(R.home("share"), "texmf", fsep = "/")
+    Rtexinputs <- file.path(Rtexmf, "tex", "latex", fsep = "/")
+    Rbibinputs <- file.path(Rtexmf, "bibtex", "bib", fsep = "/")
+    Rbstinputs <- file.path(Rtexmf, "bibtex", "bst", fsep = "/")
 
     otexinputs <- Sys.getenv("TEXINPUTS", unset = NA_character_)
     if(is.na(otexinputs)) {
         on.exit(Sys.unsetenv("TEXINPUTS"))
         otexinputs <- "."
     } else on.exit(Sys.setenv(TEXINPUTS = otexinputs))
-    Sys.setenv(TEXINPUTS = paste(otexinputs, texinputs, sep = envSep))
+    ## "" below represents system paths
+    Sys.setenv(TEXINPUTS = paths2env(c(texinputs, otexinputs, Rtexinputs, "")))
     obibinputs <- Sys.getenv("BIBINPUTS", unset = NA_character_)
     if(is.na(obibinputs)) {
         on.exit(Sys.unsetenv("BIBINPUTS"), add = TRUE)
         obibinputs <- "."
     } else on.exit(Sys.setenv(BIBINPUTS = obibinputs, add = TRUE))
-    Sys.setenv(BIBINPUTS = paste(obibinputs, bibinputs, sep = envSep))
+    Sys.setenv(BIBINPUTS = paths2env(c(texinputs, obibinputs, Rbibinputs, "")))
     obstinputs <- Sys.getenv("BSTINPUTS", unset = NA_character_)
     if(is.na(obstinputs)) {
         on.exit(Sys.unsetenv("BSTINPUTS"), add = TRUE)
         obstinputs <- "."
     } else on.exit(Sys.setenv(BSTINPUTS = obstinputs), add = TRUE)
-    Sys.setenv(BSTINPUTS = paste(obstinputs, bstinputs, sep = envSep))
+    Sys.setenv(BSTINPUTS = paths2env(c(texinputs, obstinputs, Rbstinputs, "")))
 
     if(index && nzchar(texi2dvi) && .Platform$OS.type != "windows") {
         ## switch off the use of texindy in texi2dvi >= 1.157
@@ -451,17 +444,15 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         extra <- ""
 
         ## look for MiKTeX (which this almost certainly is)
-        ## and set the path to R's style files.
-        ## -I works in MiKTeX >= 2.4, at least
         ## http://docs.miktex.org/manual/texify.html
         ver <- system(paste(shQuote(texi2dvi), "--version"), intern = TRUE)
         if(length(grep("MiKTeX", ver[1L]))) {
-            ## AFAICS need separate -I for each element of texinputs.
-            texinputs <- c(texinputs0, Rtexinputs, Rbstinputs)
-            texinputs <- gsub("\\", "/", texinputs, fixed = TRUE)
-            paths <- paste ("-I", shQuote(texinputs))
             extra <- "--max-iterations=20"
-            extra <- paste(extra, paste(paths, collapse = " "))
+            ## setting TEXINPUTS via -I is long obsolete, EnvVars are respected
+            ## (<https://docs.miktex.org/manual/localadditions.html>)
+            ##   texinputs <- c(texinputs, Rtexinputs, Rbstinputs)
+            ##   paths <- paste ("-I", shQuote(texinputs))
+            ##   extra <- paste(extra, paste(paths, collapse = " "))
         }
         ## 'file' could be a file path
         base <- basename(file_path_sans_ext(file))
@@ -860,7 +851,7 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
 
     which <- match.arg(which,
                        c("code", "vignettes", "tests",
-                         "NAMESPACE", "CITATION"),
+                         "NAMESPACE", "CITATION", "docs"),
                        several.ok = TRUE)
     code_files <-
         c(character(),
@@ -890,20 +881,42 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
     names(calls) <-
         .file_path_relative_to_dir(code_files, dirname(dir))
 
+    if("docs" %in% which) {
+        db <- Rd_db(dir = dir)
+        names(db) <- file.path(basename(dir), "man", names(db))
+        calls <-
+            c(calls,
+              Filter(length,
+                     lapply(db,
+                            function(e) {
+                                f <- tempfile()
+                                on.exit(unlink(f))
+                                Rd2ex(e, f)
+                                if(file.exists(f))
+                                    .worker(f, "UTF-8")
+                            })))
+    }
+    
     calls
 }
 
+### ** .predicate_for_calls_with_names
+
 .predicate_for_calls_with_names <-
-function(nms)
+function(funnames, pkgnames = character(), colons = c("::", ":::"))
 {
+    ## Use pkgnames = NA_character_ to match *any* PKG::FUN call with
+    ## FUN in funnames.  Strange but why not?  Or better to use "*"?
     function(e) {
-        (is.call(e) &&
+        (is.call(e) &&        
          ((is.name(x <- e[[1L]]) &&
-           as.character(x) %in% nms)) ||
+           as.character(x) %in% funnames)) ||
          ((is.call(x <- e[[1L]]) &&
            is.name(x[[1L]]) &&
-           (as.character(x[[1L]]) %in% c("::", ":::")) &&
-           as.character(x[[3L]]) %in% nms)))
+           (as.character(x[[1L]]) %in% colons) &&
+           (((length(pkgnames) == 1L) && is.na(pkgnames)) ||
+            as.character(x[[2L]]) %in% pkgnames) &&
+           as.character(x[[3L]]) %in% funnames)))
     }
 }
 
@@ -1007,7 +1020,7 @@ function(con, n = 4L)
     ## Try matching both the regular error indicator ('!') as well as
     ## the file line error indicator ('file:line:').
     pos <- grep("(^! |^!pdfTeX error:|:[0123456789]+:.*[Ee]rror)", lines)
-    ## unforunately that was too general and caught false positives
+    ## unfortunately that was too general and caught false positives
     ## Errors are typically of the form
     ## ! LaTeX Error:
     ## !pdfTeX error:
@@ -1504,6 +1517,22 @@ function(texi = NULL)
     sort(unique(sub(re, "", lines[grepl(re, lines)])))
 }
 
+### ** .get_top_call_in_fun
+
+.get_top_call_in_fun <-
+function(f)
+{
+    b <- body(f)
+    repeat {
+        if(!is.call(b)) return(NULL)
+        if((length(b) > 1L) && (b[[1L]] == as.name("{")))
+            b <- b[[2L]]
+        else
+            break
+    }
+    b
+}
+
 ### ** .gregexec_at_pos
 
 .gregexec_at_pos <-
@@ -1842,6 +1871,53 @@ function(parent = parent.frame())
     }
 })
 
+### ** .make_RFC4646_langtag_regexp
+
+.make_RFC4646_langtag_regexp <-
+function()
+{
+    ## See <https://www.ietf.org/rfc/rfc4646.html>.
+    ## Language tags can be of the form (in ABNF, see
+    ## <https://tools.ietf.org/rfc/rfc4234.txt>): 
+    ##   langtag / privateuse / grandfathered
+    ## where
+    ##   privateuse    = ("x"/"X") 1*("-" (1*8alphanum))
+    ##   grandfathered = 1*3ALPHA 1*2("-" (2*8alphanum))
+    ## We only allow langtag, for which in turn we have
+    ##   (language
+    ##    ["-" script]
+    ##    ["-" region]
+    ##    *(["-" variant])
+    ##    *(["-" extension])
+    ##    ["-" privateuse]
+    ## where
+    ##   language    = (2*3ALPHA [-extlang])  ; shortest ISO 639 code
+    ##                  / 4ALPHA              ; reserved for future use
+    ##                  / 5*8ALPHA            ; registered language subtag
+    ##   extlang     = *3("-" 3*ALPHA)        ; reserved for future use
+    ##   script      = 4ALPHA                 ; ISO 15924 code
+    ##   region      = 2ALPHA                 ; ISO 3166 code
+    ##                 / 3DIGIT               ; UN M.49 code
+    ##   variant     = 5*8alphanum            ; registered variants
+    ##                 / (DIGIT 3alphanum)
+    ##   extension   = singleton 1*("-" (2*8alphanum))
+    ##   singleton   = %x41-57 / %x59-5A / %x61-77 / %x79-7A / DIGIT
+    ##               ; "a"-"w" / "y"-"z" / "A"-"W" / "Y"-"Z" / "0"-"9"
+    ##   alphanum    = (ALPHA / DIGIT)        ; letters and numbers
+
+    re_extlang <- "[[:alpha:]]{3}"
+    re_language <-
+        sprintf("[[:alpha:]]{2,3}(-%s){0,3}|[[:alpha:]]{4,8}", re_extlang)
+    re_script <- "[[:alpha:]]{4}"
+    re_region <- "[[:alpha:]]{2}|[[:digit:]]{3}"
+    re_variant <- "[[:alnum:]]{5,8}|[[:digit:]][[:alnum:]]{3}"
+    re_singleton <- "[abcdefghijklmnopqrstuvwyzABCDEFGHIJKLMNOPQRSTUVWYZ0123456789]"
+    re_extension <- sprintf("(%s)(-[[:alnum:]]{2,8}){1,}", re_singleton)
+
+    sprintf("(%s)((-%s)?)((-%s)?)((-%s)*)((-%s)*)",
+            re_language, re_script, re_region, re_variant, re_extension)
+}
+    
 ### ** nonS3methods [was .make_S3_methods_stop_list ]
 
 nonS3methods <- function(package)
@@ -2000,7 +2076,7 @@ function()
 ### ** .package_apply
 
 .package_apply <-
-function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
+function(packages = NULL, FUN, ..., pattern = NULL, verbose = TRUE,
          Ncpus = getOption("Ncpus", 1L))
 {
     ## Apply FUN and extra '...' args to all given packages.
@@ -2010,10 +2086,8 @@ function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
         packages <-
             unique(utils::installed.packages(priority = "high")[ , 1L])
 
-    ## For consistency with .unpacked_source_repository_apply(), take
-    ## 'pattern' as a wildcard pattern.
-    if(pattern != "*")
-        packages <- packages[grepl(utils::glob2rx(pattern), packages)]
+    if(!is.null(pattern))
+        packages <- grepv(pattern, packages)
 
     ## Keep in sync with .unpacked_source_repository_apply().
     ## <FIXME>
@@ -2043,6 +2117,99 @@ function(packages = NULL, FUN, ..., pattern = "*", verbose = TRUE,
     out
 }
 
+### ** .package_code_using_R_4.x_syntax
+
+.package_code_using_R_4.x_syntax <-
+function(dir)
+{
+    dir <- file_path_as_absolute(dir)
+    wrk <- function(p, f) {
+        x <- utils::getParseData(parse(p, keep.source = TRUE))
+        i1 <- which(x$token %in% c("PIPE", "'\\\\'"))
+        i2 <- which(x$token == "PLACEHOLDER")
+        if(length(i1) || length(i2)) {
+            xi <- x$id
+            xp <- x$parent
+            n1 <- rep_len("4.1.0", length(i1))
+            ## Detect experimental placeholder feature as the head of a
+            ## chain of extractions by looking at the first child of the
+            ## grandparent of the placeholder: if it is the placeholder
+            ## expression then we have the 4.3.0 syntax.
+            n2 <- ifelse(vapply(i2,
+                                function(j) {
+                                    u <- xp[j]
+                                    v <- xp[xi %in% u]
+                                    min(xi[xp %in% v]) == u
+                                },
+                                NA),
+                         "4.3.0",
+                         "4.2.0")
+            i <- c(i1, i2)
+            data.frame(token = x$token[i],
+                       needs = c(n1, n2),
+                       text = utils::getParseText(x, xp[i]),
+                       file = rep_len(f, length(i)))
+        } else
+            NULL
+    }
+
+    files <- list_files_with_type(file.path(dir, "R"), "code",
+                                  full.names = FALSE,
+                                  OS_subdirs = c("unix", "windows"))
+    ## As of 2025-03, packages
+    ##   gmailr httr2 purrr
+    ## use configure code to drop the pipe using examples for R < 4.1.
+    db <- if(basename(dir) %in% c("gmailr", "httr2", "purrr"))
+              list()
+          else
+              Rd_db(dir = dir)
+
+    do.call(rbind,
+            c(Map(function(u, v) {
+                      tryCatch({
+                          wrk(u, v)
+                      }, error = function(e) NULL)
+                  },
+                  file.path(dir, "R", files),
+                  files,
+                  USE.NAMES = FALSE),
+              Map(function(u, v) {
+                      tryCatch({
+                          p <- tempfile()
+                          on.exit(unlink(p))
+                          ## Need to extract the code in the examples.
+                          ## Rd2ex() does that and more, but provides no
+                          ## output if there are no examples ...
+                          Rd2ex(u, p)
+                          if(file.exists(p))
+                              wrk(p, v)
+                      }, error = function(e) NULL)
+                  },
+                  db,
+                  names(db),
+                  USE.NAMES = FALSE)))
+}
+
+## ** .package_depends_on_R_at_least
+
+.package_depends_on_R_at_least <-
+function(dir, v)
+{
+    .package_metadata_has_depends_on_R_at_least(.get_package_metadata(dir),
+                                                v)
+}
+
+### ** .package_metadata_has_depends_on_R_at_least
+
+.package_metadata_has_depends_on_R_at_least <-
+function(meta, v)
+{
+    for(dep in .split_description(meta)$Rdepends2) {
+        if((dep$op == '>=') && (dep$version >= v)) return(TRUE)
+    }
+    FALSE
+}
+    
 ### ** .package_vignettes_via_call_to_R
 
 .package_vignettes_via_call_to_R <-
@@ -2077,7 +2244,7 @@ function(ifile, ofile)
 .parse_code_file <-
 function(file, encoding = NA, keep.source = getOption("keep.source"))
 {
-    if(!file.size(file)) return()
+    if(!file.exists(file) || !file.size(file)) return()
     suppressWarnings({
         if(!is.na(encoding) &&
            (encoding != "unknown") &&
@@ -2495,12 +2662,22 @@ function(expr)
 ### ** .unpacked_source_repository_apply
 
 .unpacked_source_repository_apply <-
-function(dir, FUN, ..., pattern = "*", verbose = FALSE,
+function(dir, FUN, ..., pattern = NULL, verbose = FALSE,
          Ncpus = getOption("Ncpus", 1L))
 {
     dir <- file_path_as_absolute(dir)
 
-    dfiles <- Sys.glob(file.path(dir, pattern, "DESCRIPTION"))
+    dfiles <- Sys.glob(file.path(dir, "*", "DESCRIPTION"))
+    ## Hack to allow using also for base package sources.
+    if(!length(dfiles)) {
+        dfiles <- Sys.glob(file.path(dir, "*", "DESCRIPTION.in"))
+        ## Need to exclude 'translations', so simply match against the
+        ## known base package names.
+        dfiles <- dfiles[basename(dirname(dfiles)) %in%
+                         .get_standard_package_names()$base]
+    }
+    if(!is.null(pattern))
+        dfiles <- dfiles[grepl(pattern, basename(dirname(dfiles)))]
     paths <- dirname(dfiles)
 
     ## Keep in sync with .package_apply().
@@ -2558,6 +2735,8 @@ R <-
 function(fun, args = list(), opts = "--no-save --no-restore",
          env = character(), arch = "", drop = TRUE, timeout = 0)
 {
+    stopifnot(is.list(args))
+    
     .safe_repositories <- function() {
         x <- getOption("repos")
         y <- .get_standard_repository_URLs()
@@ -2598,7 +2777,8 @@ function(fun, args = list(), opts = "--no-save --no-restore",
         val <- readRDS(tfo)
         if (inherits(val, "condition")) {
             ## maybe wrap in a classed error and include some of res
-            msg <- paste0("error in inferior call:\n  ", conditionMessage(val))
+            msg <- gettextf("error in inferior call:\n  %s",
+                            conditionMessage(val))
             stop(do.call(errorCondition,
                          c(list(message = msg, 
                                 class = "inferiorCallError",
@@ -2617,7 +2797,7 @@ function(fun, args = list(), opts = "--no-save --no-restore",
         ## again maybe wrap in a classed error  and include some of res
         ## might want to distinguish two errors by sub-classes
         stop(do.call(errorCondition,
-                     c(list(message = "inferior call failed",
+                     c(list(message = gettext("inferior call failed"),
                             class = "inferiorCallError"),
                        res = res)))
 }
@@ -2753,6 +2933,49 @@ function(ch, default = TRUE, logical = TRUE, otherwise = default, n = 2L)
         ch
 }
 
+### **
+
+namespace_loads_from_file_load <-
+function(f, verbose = FALSE)
+{
+    if(verbose) message(sprintf("processing %s", f))
+
+    fun <- local({
+        make_namespace_load_tracer <- function() {
+            local({
+                .packages <- character()
+                .nframes <- integer()
+                function(p, n) {
+                    .packages <<- c(.packages, p)
+                    .nframes <<- c(.nframes, n)
+                }
+            })
+        }
+        trace_namespace_loads <- function(expr, tracer) {
+            ..namespace_load_tracer <- tracer
+            suppressMessages({
+                trace(base::loadNamespace,
+                      function() {
+                          pkg <- as.character(parent.frame()$package)
+                          dynGet("..namespace_load_tracer")(pkg[[1L]],
+                              sys.nframe())
+                      },
+                      print = FALSE)
+            })
+            on.exit(suppressMessages(untrace(base::loadNamespace)))
+            expr
+        }
+        function(file) {
+            tracer <- make_namespace_load_tracer()
+            tmpenv <- new.env()
+            trace_namespace_loads(load(file, tmpenv), tracer)
+            with(environment(tracer),
+                 .packages[.nframes == min(.nframes)])
+        }
+    })
+
+    R(fun, list(f))
+}
 
 ### Local variables: ***
 ### mode: outline-minor ***

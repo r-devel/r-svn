@@ -184,12 +184,12 @@ findMatches(pattern, values, fuzzy, backtick)
       \code{"foopkg"} is a loaded namespace.
 
       The completion of package namespaces applies only to already
-      loaded namespaces, i.e.\sspace{}if \code{MASS} is not loaded,
+      loaded namespaces, i.e.\sspace{}if \pkg{MASS} is not loaded,
       \code{MAS} will not complete to \code{MASS::}.  However, attempted
       completion \emph{inside} an apparent namespace will attempt to
       load the namespace if it is not already loaded,
       e.g.\sspace{}trying to complete on \code{MASS::fr} will load
-      \code{MASS} if it is not already loaded.
+      \pkg{MASS} if it is not already loaded.
     }
 
     \item{\bold{Completion for help items}:}{

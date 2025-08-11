@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2024-10-25 14:49-0700\n"
 "PO-Revision-Date: 2018-09-16 23:38+0800\n"
 "Last-Translator: Wei-Lun Chao <bluebat@member.fsf.org>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -18,18 +18,28 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: Rmd5.c:47
+#: Rmd5.c:57 Rsha256.c:70
 msgid "argument 'files' must be character"
 msgstr "引數 'files' 必須是字元"
 
-#: Rmd5.c:63
+#: Rmd5.c:73
 #, fuzzy, c-format
 msgid "md5 failed on file '%ls'"
 msgstr "用於 '%s' 檔案的 md5 執行失敗"
 
-#: Rmd5.c:65
+#: Rmd5.c:75
 #, c-format
 msgid "md5 failed on file '%s'"
+msgstr "用於 '%s' 檔案的 md5 執行失敗"
+
+#: Rsha256.c:86
+#, fuzzy, c-format
+msgid "sha256 failed on file '%ls'"
+msgstr "用於 '%s' 檔案的 md5 執行失敗"
+
+#: Rsha256.c:88
+#, fuzzy, c-format
+msgid "sha256 failed on file '%s'"
 msgstr "用於 '%s' 檔案的 md5 執行失敗"
 
 #: getfmts.c:61
@@ -59,12 +69,12 @@ msgstr "不明的格式設定 '%s'"
 msgid "at most one asterisk '*' is supported in each conversion specification"
 msgstr "每一個轉換設定最多只支援一個星 '*'"
 
-#: gramLatex.c:2592 gramRd.c:3970
+#: gramLatex.c:2592 gramRd.c:3971
 #, c-format
 msgid "unable to allocate buffer for long string at line %d"
 msgstr "無法為 %d 列的長字串指派緩衝區"
 
-#: gramLatex.c:2869 gramRd.c:4523 gramRd.c:4529
+#: gramLatex.c:2869 gramRd.c:4524 gramRd.c:4530
 #, c-format
 msgid "invalid '%s' value"
 msgstr "'%s' 值無效"
@@ -89,56 +99,56 @@ msgstr "使用者定義的巨集最多只允許四個引數"
 msgid "No macro definition for '%s'."
 msgstr "'%s' 巨集的定義沒有。"
 
-#: gramRd.c:3231
+#: gramRd.c:3232
 #, fuzzy, c-format
 msgid "Not enough arguments passed to user macro '%s'"
 msgstr "使用者定義的巨集最多只允許四個引數"
 
-#: gramRd.c:3371 gramRd.c:3375
+#: gramRd.c:3372 gramRd.c:3376
 #, c-format
 msgid "newline within quoted string at %s:%d"
 msgstr "出現了換列內引號的字串在 %s:%d"
 
-#: gramRd.c:3394
+#: gramRd.c:3395
 #, c-format
 msgid "unable to allocate buffer for long macro at line %d"
 msgstr "無法為在第 %d 列的長巨集指派緩衝區"
 
-#: gramRd.c:3424
+#: gramRd.c:3425
 msgid "macros nested too deeply: infinite recursion?"
 msgstr "巨集巢狀過深：無限遞迴？"
 
-#: gramRd.c:3832
+#: gramRd.c:3833
 #, c-format
 msgid "Unable to find macro %s"
 msgstr "找不到巨集 %s"
 
-#: gramRd.c:4031
+#: gramRd.c:4032
 #, c-format
 msgid "Unexpected end of input (in %c quoted string opened at %s:%d:%d)"
 msgstr "意外結束輸入(在 %c 引號的字串於 %s:%d:%d)"
 
-#: gramRd.c:4536
+#: gramRd.c:4537
 msgid "cannot open the connection"
 msgstr "打不開鏈結"
 
-#: gramRd.c:4543
+#: gramRd.c:4544
 msgid "cannot read from this connection"
 msgstr "無法從這個鏈結讀取"
 
-#: gramRd.c:4551
+#: gramRd.c:4552
 msgid "invalid Rd file"
 msgstr "Rd 檔案無效"
 
-#: gramRd.c:4570
+#: gramRd.c:4571
 msgid "'deparseRd' only supports deparsing character elements"
 msgstr "'deparseRd' 只支援反解析字元元素"
 
-#: gramRd.c:4573
+#: gramRd.c:4574
 msgid "bad state"
 msgstr "狀態不好"
 
-#: gramRd.c:4586
+#: gramRd.c:4587
 #, c-format
 msgid "bad text mode %d in 'deparseRd'"
 msgstr "'deparseRd' 裡的文字模式 %d 無效"

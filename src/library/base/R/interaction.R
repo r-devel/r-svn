@@ -1,7 +1,7 @@
 #  File src/library/base/R/interaction.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2013 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #  https://www.R-project.org/Licenses/
 
 ### This is almost like the Primitive ":" for factors
-### but with drop=TRUE, used in reshape
+### but with drop=TRUE, used in reshape and ave
 interaction <- function(..., drop = FALSE, sep = ".", lex.order = FALSE)
 {
     args <- list(...)
@@ -29,37 +29,50 @@ interaction <- function(..., drop = FALSE, sep = ".", lex.order = FALSE)
 	narg <- length(args)
     }
     for(i in narg:1L) {
-        f <- as.factor(args[[i]])[, drop = drop]
-        l <- levels(f)
-        if1 <- as.integer(f) - 1L
+        x <- as.factor(args[[i]])[, drop = drop]
+        ax <- as.integer(x) - 1L
+        lx <- levels(x)
         if(i == narg) {
-            ans <- if1
-            lvs <- l
+            ay <- ax
+            ly <- lx
         } else {
+            nx <- length(lx)
+            ny <- length(ly)
             if(lex.order) {
-                ll <- length(lvs)
-                ans <- ans + ll * if1
-                lvs <- paste(rep(l, each = ll), rep(lvs, length(l)), sep=sep)
-            } else {
-                ans <- ans * length(l) + if1
-                lvs <- paste(rep(l, length(lvs)),
-                             rep(lvs, each = length(l)), sep=sep)
-            }
-            if(anyDuplicated(lvs)) { ## fix them up
-                ulvs <- unique(lvs)
-                while((i <- anyDuplicated(flv <- match(lvs, ulvs)))) {
-                    lvs <- lvs[-i]
-                    ans[ans+1L == i] <- match(flv[i], flv[1:(i-1)]) - 1L
-                    ans[ans+1L > i] <- ans[ans+1L > i] - 1L
+                ay <- ay + ny * ax
+                if(drop) {
+                    az <- sort(unique(ay))
+                    ly <- paste(lx[az %/% ny + 1L], ly[az %% ny + 1L],
+                                sep = sep)
+                    ay <- match(ay, az) - 1L
+                } else {
+                    ly <- paste(rep(lx, each = ny), rep(ly, nx),
+                                sep = sep)
                 }
-                lvs <- ulvs
+            } else {
+                ay <- ay * nx + ax
+                if(drop) {
+                    az <- sort(unique(ay))
+                    ly <- paste(lx[az %% nx + 1L], ly[az %/% nx + 1L],
+                                sep = sep)
+                    ay <- match(ay, az) - 1L
+                } else {
+                    ly <- paste(rep(lx, ny), rep(ly, each = nx),
+                                sep = sep)
+                }
             }
-            if(drop) {
-                olvs <- lvs
-                lvs <- lvs[sort(unique(ans+1L))]
-                ans <- match(olvs[ans+1L], lvs) - 1L
+            while(j <- anyDuplicated(ly)) {
+                ## If levels at positions i and j > i are the same, we
+                ## need to drop the one at j, change the code for that
+                ## level to the code for level i, and decrease all codes
+                ## beyond the code for level j by one.
+                i <- match(ly[j], ly)
+                ly <- ly[-j]
+                j <- j - 1L
+                ay[ay == j] <- i - 1L
+                ay[ay > j] <- ay[ay > j] - 1L
             }
         }
     }
-    structure(as.integer(ans+1L), levels=lvs, class = "factor")
+    structure(as.integer(ay + 1L), levels = ly, class = "factor")
 }

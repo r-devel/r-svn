@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2023  The R Core Team
+ *  Copyright (C) 1999-2025  The R Core Team
  *  Copyright (C) 1995-1998  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -290,6 +290,7 @@ attribute_hidden SEXP do_bodyCode(SEXP call, SEXP op, SEXP args, SEXP rho)
 #define simple_as_environment(arg) (IS_S4_OBJECT(arg) && (TYPEOF(arg) == OBJSXP) ? R_getS4DataSlot(arg, ENVSXP) : arg)
 
 
+// environment(fun)
 attribute_hidden SEXP do_envir(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
@@ -300,16 +301,15 @@ attribute_hidden SEXP do_envir(SEXP call, SEXP op, SEXP args, SEXP rho)
     else return getAttrib(CAR(args), R_DotEnvSymbol);
 }
 
+// environment(fun) <-  <env>
 attribute_hidden SEXP do_envirgets(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP env, s = CAR(args);
-
     checkArity(op, args);
-    check1arg(args, call, "x");
+    /* check1arg(args, call, "x"); as it had no effect: should be "fun" */
+    SEXP s  = CAR(args),
+	env = CADR(args);
 
-    env = CADR(args);
-
-    if (TYPEOF(CAR(args)) == CLOSXP
+    if (TYPEOF(s) == CLOSXP
 	&& (isEnvironment(env) ||
 	    isEnvironment(env = simple_as_environment(env)) ||
 	    isNull(env))) {
@@ -321,12 +321,17 @@ attribute_hidden SEXP do_envirgets(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    s = duplicate(s);
 	if (TYPEOF(BODY(s)) == BCODESXP)
 	    /* switch to interpreted version if compiled */
-	    SET_BODY(s, R_ClosureExpr(CAR(args)));
+	    SET_BODY(s, R_ClosureExpr(s));
 	SET_CLOENV(s, env);
     }
     else if (isNull(env) || isEnvironment(env) ||
 	isEnvironment(env = simple_as_environment(env)))
-	setAttrib(s, R_DotEnvSymbol, env);
+    {
+	if(!isNull(env) && isPrimitive(s)) // temporary, to become error()
+	    warning(_("setting environment(<primitive function>) is not possible and trying it is deprecated"));
+	else
+	    setAttrib(s, R_DotEnvSymbol, env);
+    }
     else
 	error(_("replacement object is not an environment"));
     return s;
@@ -376,22 +381,22 @@ attribute_hidden SEXP do_parentenv(SEXP call, SEXP op, SEXP args, SEXP rho)
     return( ENCLOS(arg) );
 }
 
-static Rboolean R_IsImportsEnv(SEXP env)
+static bool R_IsImportsEnv(SEXP env)
 {
     if (isNull(env) || !isEnvironment(env))
-	return FALSE;
+	return false;
     if (ENCLOS(env) != R_BaseNamespace)
-	return FALSE;
+	return false;
     SEXP name = getAttrib(env, R_NameSymbol);
     if (!isString(name) || LENGTH(name) != 1)
-	return FALSE;
+	return false;
 
     const char *imports_prefix = "imports:";
     const char *name_string = CHAR(STRING_ELT(name, 0));
     if (!strncmp(name_string, imports_prefix, strlen(imports_prefix)))
 	return TRUE;
     else
-	return FALSE;
+	return false;
 }
 
 attribute_hidden SEXP do_parentenvgets(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -518,7 +523,7 @@ static void cat_printsep(SEXP sep, int ntot)
 }
 
 typedef struct cat_info {
-    Rboolean wasopen;
+    bool wasopen;
     int changedcon;
     Rconnection con;
 #ifdef Win32
@@ -530,7 +535,7 @@ static void cat_cleanup(void *data)
 {
     cat_info *pci = (cat_info *) data;
     Rconnection con = pci->con;
-    Rboolean wasopen = pci->wasopen;
+    bool wasopen = pci->wasopen;
     int changedcon = pci->changedcon;
 
     con->fflush(con);
@@ -899,6 +904,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	}
 	break;
     case VECSXP:
+    case EXPRSXP:
 	for (i = 0; i < len; i++)
 	    if (i < lenx) {
 		SET_VECTOR_ELT(rval, i, VECTOR_ELT(x, i));
@@ -935,12 +941,10 @@ SEXP lengthgets(SEXP x, R_len_t len)
 
 attribute_hidden SEXP do_lengthgets(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP x, ans;
-
     checkArity(op, args);
     check1arg(args, call, "x");
 
-    x = CAR(args);
+    SEXP ans, x = CAR(args);
 
     /* DispatchOrEval internal generic: length<- */
     if(isObject(x) && DispatchOrEval(call, op, "length<-", args,
@@ -998,8 +1002,8 @@ static SEXP setDflt(SEXP arg, SEXP dflt)
 {
     if (dflt) {
 	SEXP dflt1, dflt2;
-	PROTECT(dflt1 = deparse1line(dflt, TRUE));
-	PROTECT(dflt2 = deparse1line(CAR(arg), TRUE));
+	PROTECT(dflt1 = deparse1line(dflt, true));
+	PROTECT(dflt2 = deparse1line(CAR(arg), true));
 	error(_("duplicate 'switch' defaults: '%s' and '%s'"),
 	      CHAR(STRING_ELT(dflt1, 0)), CHAR(STRING_ELT(dflt2, 0)));
 	UNPROTECT(2); /* won't get here, but just for good form */

@@ -1,7 +1,7 @@
 #  File src/library/parallel/R/snow.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2021 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -161,6 +161,7 @@ makeCluster <-
            FORK = makeForkCluster(nnodes = spec, ...),
            SOCK = snow::makeSOCKcluster(names = spec, ...),
            MPI = snow::makeMPIcluster(count = spec, ...),
+           MIRAI = mirai::make_cluster(n = spec, ...),
            ## NWS = snow::makeNWScluster(names = spec, ...),
            if (exists(type, clusterStarters))
                get(type, clusterStarters)(spec, ...)

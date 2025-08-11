@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2024-10-25 14:49-0700\n"
 "PO-Revision-Date: 2023-12-20 13:03+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -18,18 +18,28 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Weblate 4.16.4\n"
 
-#: Rmd5.c:47
+#: Rmd5.c:57 Rsha256.c:70
 msgid "argument 'files' must be character"
 msgstr "参数'files'必需是字符"
 
-#: Rmd5.c:63
+#: Rmd5.c:73
 #, c-format
 msgid "md5 failed on file '%ls'"
 msgstr "文件“%ls”的 md5 失败"
 
-#: Rmd5.c:65
+#: Rmd5.c:75
 #, c-format
 msgid "md5 failed on file '%s'"
+msgstr "用于'%s'文件的md5运行失败"
+
+#: Rsha256.c:86
+#, fuzzy, c-format
+msgid "sha256 failed on file '%ls'"
+msgstr "文件“%ls”的 md5 失败"
+
+#: Rsha256.c:88
+#, fuzzy, c-format
+msgid "sha256 failed on file '%s'"
 msgstr "用于'%s'文件的md5运行失败"
 
 #: getfmts.c:61
@@ -59,12 +69,12 @@ msgstr "没有这样的格式设定'%s'"
 msgid "at most one asterisk '*' is supported in each conversion specification"
 msgstr "每一个转换设置最多只支持一个星'*'"
 
-#: gramLatex.c:2592 gramRd.c:3970
+#: gramLatex.c:2592 gramRd.c:3971
 #, c-format
 msgid "unable to allocate buffer for long string at line %d"
 msgstr "无法为%d行的长字串分配缓冲区"
 
-#: gramLatex.c:2869 gramRd.c:4523 gramRd.c:4529
+#: gramLatex.c:2869 gramRd.c:4524 gramRd.c:4530
 #, c-format
 msgid "invalid '%s' value"
 msgstr "'%s'值无效"
@@ -89,56 +99,56 @@ msgstr "用户定义的宏最多允许 4 个参数。"
 msgid "No macro definition for '%s'."
 msgstr "'%s'宏的定义没有。"
 
-#: gramRd.c:3231
+#: gramRd.c:3232
 #, c-format
 msgid "Not enough arguments passed to user macro '%s'"
 msgstr "没有足够的参数传递给用户宏“%s”"
 
-#: gramRd.c:3371 gramRd.c:3375
+#: gramRd.c:3372 gramRd.c:3376
 #, c-format
 msgid "newline within quoted string at %s:%d"
 msgstr "出现了换行内引号的字符串在%s:%d"
 
-#: gramRd.c:3394
+#: gramRd.c:3395
 #, c-format
 msgid "unable to allocate buffer for long macro at line %d"
 msgstr "无法为在第%d行的长宏分配缓冲区"
 
-#: gramRd.c:3424
+#: gramRd.c:3425
 msgid "macros nested too deeply: infinite recursion?"
 msgstr "宏嵌套过深：无限递归？"
 
-#: gramRd.c:3832
+#: gramRd.c:3833
 #, c-format
 msgid "Unable to find macro %s"
 msgstr "找不到宏%s"
 
-#: gramRd.c:4031
+#: gramRd.c:4032
 #, c-format
 msgid "Unexpected end of input (in %c quoted string opened at %s:%d:%d)"
 msgstr "意外结束输入（在%c 引号的字符串于%s:%d:%d）"
 
-#: gramRd.c:4536
+#: gramRd.c:4537
 msgid "cannot open the connection"
 msgstr "打不开链接"
 
-#: gramRd.c:4543
+#: gramRd.c:4544
 msgid "cannot read from this connection"
 msgstr "无法从这个链接读取"
 
-#: gramRd.c:4551
+#: gramRd.c:4552
 msgid "invalid Rd file"
 msgstr "Rd文件无效"
 
-#: gramRd.c:4570
+#: gramRd.c:4571
 msgid "'deparseRd' only supports deparsing character elements"
 msgstr "'deparseRd'只支持反解析字符元素"
 
-#: gramRd.c:4573
+#: gramRd.c:4574
 msgid "bad state"
 msgstr "状态不好"
 
-#: gramRd.c:4586
+#: gramRd.c:4587
 #, c-format
 msgid "bad text mode %d in 'deparseRd'"
 msgstr "'deparseRd'里的文本模式%d不正确"

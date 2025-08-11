@@ -2,15 +2,12 @@
                          once = FALSE)
 {
     stopifnot(is.null(condition), identical(text, ""))
-    if (is.primitive(fun))
-        fun <- getGeneric(fun)
-    if(!is(fun, "genericFunction"))
-        stop("Function must be an S4 generic")
-    
+    fun <- getGeneric(fun, mustFind = TRUE)
+
     if(isdebugged(fun, signature = signature))
         return(invisible(NULL))
-    
-    m <- selectMethod(fun, signature)
+
+    m <- .untracedFunction(selectMethod(fun, signature))
     bd <- body(m)
 
     isrematch <- isRematched(m)
@@ -18,7 +15,7 @@
         bd <- body(bd[[2L]][[3L]])
 
     at <- if(is(bd, "{")) 2L else numeric()
-    
+
     tracer <- if(once) {
         ## If the method is rematched we're in .local so we need to reach up one
         ## frame to get the generic and target in that case

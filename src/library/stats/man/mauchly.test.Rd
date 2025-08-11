@@ -1,6 +1,6 @@
 % File src/library/stats/man/mauchly.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2023 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mauchly.test}
@@ -16,8 +16,8 @@
 mauchly.test(object, ...)
 \method{mauchly.test}{mlm}(object, ...)
 \method{mauchly.test}{SSD}(object, Sigma = diag(nrow = p),
-   T = Thin.row(Proj(M) - Proj(X)), M = diag(nrow = p), X = ~0,
-   idata = data.frame(index = seq_len(p)), ...)
+             T = Thin.row(Proj(M) - Proj(X)), M = diag(nrow = p), X = ~0,
+             idata = data.frame(index = seq_len(p)), ...)
 }
 \arguments{
   \item{object}{object of class \code{SSD} or \code{mlm}.}

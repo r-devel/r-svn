@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-08-31 20:16+0000\n"
 "Last-Translator: Ayush Bipin Patel <ayush.ap58@gmail.com>\n"
 "Language-Team: none\n"
@@ -224,9 +224,6 @@ msgid "'breaks' are not strictly increasing"
 msgstr ""
 
 msgid "'probability' is an alias for '!freq', however they differ."
-msgstr ""
-
-msgid "fuzz must be non-negative"
 msgstr ""
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"

@@ -7,6 +7,7 @@ LOCAL_SOFT ?= $(shell which `echo $(CC) | sed -e 's/ .*//g'` | sed -e 's!/bin/[^
 EXT_LIBS ?= $(LOCAL_SOFT)
 G_FLAG ?= $(if $(USE_LLVM),-g3,-gdwarf-2)
 USE_ATLAS ?= NO
+USE_OPENBLAS ?= NO
 ATLAS_PATH ?= 
 TOOL_PATH ?=
 BINPREF64 ?= 
@@ -55,11 +56,13 @@ ifndef USE_PKG_CONFIG
   LIBBROTLI = $(or $(and $(wildcard $(EXT_LIBS)/lib/libbrotlidec.a),-lbrotlidec -lbrotlicommon),)
   ## support curl built with libpsl and without
   LIBPSL = $(or $(and $(wildcard $(EXT_LIBS)/lib/libpsl.a),-lpsl),)
+  ## support curl built with libnghttp2 and without
+  LIBH2 = $(or $(and $(wildcard $(EXT_LIBS)/lib/libnghttp2.a),-lnghttp2),)
   CAIRO_LIBS ?= "-lcairo -lfontconfig -lfreetype -lpng -lpixman-1 -lexpat -lharfbuzz \
                 -lbz2 -lintl -lz -liconv -luuid -lstdc++ -lgdi32 -lmsimg32 -lole32 \
                 $(LIBBROTLI)"
 
-  CURL_LIBS ?= -lcurl $(LIBPSL) -lbcrypt -lzstd -lrtmp -lssl -lssh2 -lbcrypt -lgcrypt \
+  CURL_LIBS ?= -lcurl $(LIBH2) $(LIBPSL) -lbcrypt -lzstd -lrtmp -lssl -lssh2 -lbcrypt -lgcrypt \
                -lcrypto -lgdi32 -lz \
                -lws2_32 -lgdi32 -lcrypt32 -lidn2 -lunistring -liconv -lgpg-error -lwldap32 \
                -lwinmm $(LIBBROTLI)
@@ -96,6 +99,8 @@ TEXI2ANY ?= texi2any
 TEXI2DVI = env COMSPEC= texi2dvi
 MAKEINFO = texi2any
 EOPTS ?= $(if $(USE_LLVM),,-mfpmath=sse -msse2 -mstackrealign)
+SANOPTS ?=
+CSTD ?= -std=gnu2x
 OPENMP ?= -fopenmp
 PTHREAD ?= -pthread
 ISDIR ?= C:/Program Files (x86)/Inno Setup 6
@@ -144,7 +149,7 @@ CC=$(BINPREF)$(CCBASE) $(M_ARCH)
 CP=cp
 # as set by make
 CPP=$(CC) -E
-DLL=$(CC)
+DLL=$(CC) $(SANOPTS)
 DLLTOOL=$(BINPREF)$(LLVMPREF)dlltool
 ## some versions have trouble with paths, so we always need this
 ## even for native builds
@@ -155,7 +160,9 @@ ifndef USE_LLVM
   FLIBS=-lgfortran -lquadmath
 else
   FC=$(BINPREF)flang $(M_ARCH)
-  FLIBS=-lFortranRuntime -lFortranDecimal -lFortran_main -lc++
+  ## Fortran_main is needed/available only in some builds of llvm/flang-new
+  LIBFM = $(or $(and $(wildcard $(EXT_LIBS)/lib/libFortran_main.a),-lFortran_main),)
+  FLIBS=-lFortranRuntime -lFortranDecimal $(LIBFM) -lc++ -lm
 endif
 LINKER=$(MAIN_LD)
 MAIN_LD=$(CC)
@@ -219,7 +226,7 @@ SORT=sort
 
 ## $($*-LINKFLAGS) is used for Rgui Rterm and Rscript
 %.exe:
-	$(LINKER) $(LINKFLAGS) $($*-LINKFLAGS) -o $@ $^ $($*-LIBS) $(LIBS)
+	$(LINKER) $(LINKFLAGS) $($*-LINKFLAGS) $(SANOPTS) -o $@ $^ $($*-LIBS) $(LIBS)
 
 ## It does little sense to have $($*-DLLFLAGS) here (and not in etc/Makeconf)
 ## $($*-DLLLIBS) is used for R and lapack

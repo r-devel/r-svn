@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: grDevices 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: 2020-11-29 17:27+0200\n"
 "Last-Translator: <r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com>\n"
 "Language-Team: Lithuanian\n"
@@ -220,6 +220,9 @@ msgstr ""
 msgid "Invalid glyph info"
 msgstr ""
 
+msgid "'%s' was removed in R 4.5.0."
+msgstr ""
+
 #, fuzzy
 msgid "Invalid compositing operator"
 msgstr "netinkamas išvesties formatas"
@@ -329,9 +332,6 @@ msgstr "netinkamas išvesties formatas"
 msgid "status %d in running command '%s'"
 msgstr "%d būsena vykdant komandą '%s'"
 
-msgid "'file' must be a non-empty character string"
-msgstr "'file' turi būti netuščia simbolių eilutė"
-
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
 msgstr "neteisingas 'file'"
@@ -422,6 +422,9 @@ msgstr "skirtingi 'x', 'y', 'z' ilgiai"
 
 msgid "'file' is missing with no default"
 msgstr "'file' yra trūkstamas be numatytojo"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file' turi būti netuščia simbolių eilutė"
 
 msgid "unrecognized format of gs -help"
 msgstr "neatpažįstamas gs -help formatas"

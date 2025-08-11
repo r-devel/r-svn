@@ -1,6 +1,6 @@
 % File src/library/datasets/man/swiss.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{swiss}
@@ -58,13 +58,13 @@
   assembled under NICHD contract number No \I{1-HD-O-2077}.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \note{
-  Files for all 182 districts in 1888 and other years have been available at
-  \url{https://oprdata.princeton.edu/archive/pefp/switz.aspx}.
+  Files for all 182 districts in 1888 and other years are available via
+  \url{https://opr.princeton.edu/princeton-european-fertility-project},
+  currently at
+  \url{https://opr.princeton.edu/switzerland-socio-economic-variables-1870-1930}.
 
   They state that variables \code{Examination} and \code{Education}
   are averages for 1887, 1888 and 1889.

@@ -1,6 +1,6 @@
 % File src/library/utils/man/cite.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2012-2015 R Core Team
+% Copyright 2012-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{cite}
@@ -12,7 +12,7 @@ Cite a \code{bibentry} object in text.  The \code{cite()} function
 uses the \code{cite()} function from the default
 \code{\link{bibstyle}} if present, or \code{citeNatbib()} if not.
 \code{citeNatbib()} uses a style similar to that used by the LaTeX
-package \pkg{natbib}.
+package \samp{natbib}.
 }
 \usage{
 cite(keys, bib, ...)
@@ -54,7 +54,7 @@ Whether to abbreviate long author lists.
 If \code{abbreviate == TRUE}, whether to leave the first citation long.
 }
   \item{bibpunct}{
-A vector of punctuation to use in the citation, as used in \pkg{natbib}.  See
+A vector of punctuation to use in the citation, as used in \samp{natbib}.  See
 the Details section.
 }
   \item{previous}{
@@ -63,7 +63,7 @@ A list of keys that have been previously cited, to be used when
 }
 }
 \details{
-Argument names are chosen based on the documentation for the LaTeX \pkg{natbib}
+Argument names are chosen based on the documentation for the LaTeX \samp{natbib}
 package.  See that documentation for the interpretation of the
 \code{bibpunct} entries.
 
@@ -96,10 +96,11 @@ Duncan Murdoch
 rref <- bibentry(
    bibtype = "Manual",
    title = "R: A Language and Environment for Statistical Computing",
-   author = person("R Core Team"),
+   author = person("R Core Team", comment = c(ROR = "02zz1nj61")),
    organization = "R Foundation for Statistical Computing",
    address = "Vienna, Austria",
-   year = 2013,
+   year = 2025,
+   doi = "10.32614/R.manuals",
    url = "https://www.R-project.org/",
    key = "R")
 
@@ -107,29 +108,33 @@ rref <- bibentry(
 bref <- c(
    bibentry(
      bibtype = "Manual",
-     title = "boot: Bootstrap R (S-PLUS) Functions",
+     title = "boot: Bootstrap Functions",
      author = c(
        person("Angelo", "Canty", role = "aut",
+         email = "cantya@mcmaster.ca",
          comment = "S original"),
-       person(c("Brian", "D."), "Ripley", role = c("aut", "trl", "cre"),
-         comment = "R port, author of parallel support",
-         email = "ripley@stats.ox.ac.uk")
+       person(c("Brian", "D."), "Ripley", role = c("aut", "trl"),
+         comment = "R port, author of parallel support, maintainer 1999--2022",
+         email = "Brian.Ripley@R-project.org")
      ),
-     year = "2012",
-     note = "R package version 1.3-4",
+     year = "2024",
+     note = "R package version 1.3-31",
      url = "https://CRAN.R-project.org/package=boot",
+     doi = "10.32614/CRAN.package.boot",
      key = "boot-package"
    ),
 
    bibentry(
      bibtype = "Book",
      title = "Bootstrap Methods and Their Applications",
-     author = as.person("Anthony C. Davison [aut], David V. Hinkley [aut]"),
+     author = c(person("Anthony Christopher", "Davison",
+                        comment = c(ORCID = "0000-0002-8537-6191")),
+                person("David Victor", "Hinkley")),
      year = "1997",
      publisher = "Cambridge University Press",
      address = "Cambridge",
      isbn = "0-521-57391-2",
-     url = "http://statwww.epfl.ch/davison/BMA/",
+     doi = "10.1017/CBO9780511802843",
      key = "boot-book"
    )
 )

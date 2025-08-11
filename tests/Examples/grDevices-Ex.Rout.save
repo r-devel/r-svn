@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2024-08-29 r87078) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
+R Under development (unstable) (2025-06-09 r88292) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -388,18 +386,26 @@ $allowed
 > axisTicks(pu[3:4], log = FALSE, nint = 10)
  [1]   0  10  20  30  40  50  60  70  80  90 100
 > 
-> plot(10*(0:10), log = "y"); (pu <- par("usr"))
+> 
+> ## --------------------  Log Scale  --------------------------------
+> x <- c(10, 1000)
+> #         _____
+> axisTicks(log10(x), log = TRUE) #  10 20 50 .... 1000
+[1]   10   20   50  100  200  500 1000
+> 
+> plot(10*(0:10), log = "y"); (pu <- par("usr")) # ... ...  0.96 2.04
 Warning in xy.coords(x, y, xlabel, ylabel, log) :
   1 y value <= 0 omitted from logarithmic plot
 [1]  0.60 11.40  0.96  2.04
-> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
+> aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # 10 20 50 100 (y axis)
 [1]  10  20  50 100
 > 
 > plot(2^(0:9), log = "y"); (pu <- par("usr"))
 [1]  0.6400000 10.3600000 -0.1083708  2.8176408
 > aX(2, print(ya <- axisTicks(pu[3:4], log = TRUE)))  # y axis
 [1]   1   2   5  10  20  50 100 200 500
-> 
+> ## 'usr' corresponds to log10(<range>) :
+> stopifnot(ya == axisTicks(log10(c(1, 512)), log=TRUE))
 > 
 > 
 > 
@@ -2075,6 +2081,9 @@ $paths
 $glyphs
 [1] TRUE
 
+$variableFonts
+[1] FALSE
+
 > 
 > 
 > 
@@ -3653,74 +3662,19 @@ attr(,"class")
 > 
 > ## IGNORE_RDIFF_BEGIN
 > pretty(Sys.Date())
-[1] "2024-08-28" "2024-08-29" "2024-08-30" "2024-08-31" "2024-09-01"
-[6] "2024-09-02"
+[1] "2025-06-08" "2025-06-09" "2025-06-10" "2025-06-11" "2025-06-12"
+[6] "2025-06-13"
 > pretty(Sys.time(), n = 10)
- [1] "2024-08-30 15:57:05 NZST" "2024-08-30 15:57:06 NZST"
- [3] "2024-08-30 15:57:07 NZST" "2024-08-30 15:57:08 NZST"
- [5] "2024-08-30 15:57:09 NZST" "2024-08-30 15:57:10 NZST"
- [7] "2024-08-30 15:57:11 NZST" "2024-08-30 15:57:12 NZST"
- [9] "2024-08-30 15:57:13 NZST" "2024-08-30 15:57:14 NZST"
-[11] "2024-08-30 15:57:15 NZST"
+ [1] "2025-06-10 09:12:42 NZST" "2025-06-10 09:12:43 NZST"
+ [3] "2025-06-10 09:12:44 NZST" "2025-06-10 09:12:45 NZST"
+ [5] "2025-06-10 09:12:46 NZST" "2025-06-10 09:12:47 NZST"
+ [7] "2025-06-10 09:12:48 NZST" "2025-06-10 09:12:49 NZST"
+ [9] "2025-06-10 09:12:50 NZST" "2025-06-10 09:12:51 NZST"
+[11] "2025-06-10 09:12:52 NZST"
 > ## IGNORE_RDIFF_END
 > pretty(as.Date("2000-03-01")) # R 1.0.0 came in a leap year
 [1] "2000-02-28" "2000-02-29" "2000-03-01" "2000-03-02" "2000-03-03"
 [6] "2000-03-04"
-> 
-> ## time ranges in diverse scales:% also in ../../../../tests/reg-tests-1c.R
-> steps <- stats::setNames(,
-+     c("10 secs", "1 min", "5 mins", "30 mins", "6 hours", "12 hours",
-+       "1 DSTday", "2 weeks", "1 month", "6 months", "1 year",
-+       "10 years", "50 years", "1000 years"))
-> x <- as.POSIXct("2002-02-02 02:02")
-> lapply(steps,
-+        function(s) {
-+            at <- pretty(seq(x, by = s, length.out = 2), n = 5)
-+            attr(at, "labels")
-+        })
-$`10 secs`
-[1] "00" "02" "04" "06" "08" "10"
-
-$`1 min`
-[1] "00" "10" "20" "30" "40" "50" "00"
-
-$`5 mins`
-[1] "02:02" "02:03" "02:04" "02:05" "02:06" "02:07"
-
-$`30 mins`
-[1] "02:00" "02:10" "02:20" "02:30" "02:40"
-
-$`6 hours`
-[1] "02:00" "03:00" "04:00" "05:00" "06:00" "07:00" "08:00" "09:00"
-
-$`12 hours`
-[1] "00:00" "03:00" "06:00" "09:00" "12:00" "15:00"
-
-$`1 DSTday`
-[1] "Feb 02 00:00" "Feb 02 06:00" "Feb 02 12:00" "Feb 02 18:00" "Feb 03 00:00"
-[6] "Feb 03 06:00"
-
-$`2 weeks`
-[1] "Jan 28" "Feb 04" "Feb 11" "Feb 18"
-
-$`1 month`
-[1] "Jan 28" "Feb 04" "Feb 11" "Feb 18" "Feb 25" "Mar 04"
-
-$`6 months`
-[1] "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep"
-
-$`1 year`
-[1] "Jan" "Apr" "Jul" "Oct" "Jan" "Apr"
-
-$`10 years`
-[1] "2002" "2004" "2006" "2008" "2010" "2012" "2014"
-
-$`50 years`
-[1] "2000" "2010" "2020" "2030" "2040" "2050" "2060"
-
-$`1000 years`
-[1] "2000" "2200" "2400" "2600" "2800" "3000" "3200"
-
 > 
 > 
 > 
@@ -4466,7 +4420,7 @@ NULL
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  29.539 0.389 31.994 0 0 
+Time elapsed:  35.674 0.408 36.103 0 0 
 > grDevices::dev.off()
 null device 
           1 

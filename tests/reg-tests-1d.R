@@ -644,14 +644,16 @@ stopifnot(exprs = {
 ## had failed in R-devel for a few days
 D1 <- as.Date("2017-01-06")
 D2 <- as.Date("2017-01-12")
-seqD1 <- seq.Date(D1, D2, by = "1 day")
+seqD1 <- seq(D1, D2, by = "1 day")
 stopifnot(exprs = {
+    identical(seqD1, seq(D1, D2)) # by = "days" implicit default since R >= 4.5
     identical(seqD1, seq(D1, D2, by = "1 days"))
-    ## These two work "accidentally" via seq -> seq.default + "Date"-arithmetic
-    identical(seqD1, seq(by = 1, from = D1, length.out = 7))
-    identical(seqD1, seq(by = 1,   to = D2, length.out = 7))
-    ## swap order of (by, to) ==> *FAILS* because directly calls seq.Date() - FIXME?
-    TRUE ||
+    ## These  work "accidentally" via seq -> seq.default + "Date"-arithmetic (but *not* seq.Date):
+    ## are equal, but 2nd is "double"
+    seqD1 == seq(by = 1, from = D1, length.out = 7)
+    seqD1 == seq(by = 1,   to = D2, length.out = 7)
+    seqD1 == seq(by = 1L,  to = D2, length.out = 7)
+    identical(seqD1, seq.Date(by = 1L, from = D1, length.out = 7)) # S3: need seq.Date()
     identical(seqD1, seq(to = D2,  by = 1, length.out = 7))
     ## above had failed in R-devel for a couple of days
     identical(seq(9L, by = -1L, length.out = 4L), 9:6)
@@ -1067,11 +1069,12 @@ stopifnot(exprs = {
 
 ## invalid user device function  options(device = *) -- PR#15883
 graphics.off() # just in case
-op <- options(device=function(...){}) # non-sense device
+op <- options(device = function(...){}, warn = 1) # non-sense device
 assertErrV(plot.new())
 if(no.grid <- !("grid" %in% loadedNamespaces())) requireNamespace("grid")
 assertErrV(grid::grid.newpage())
-if(no.grid) unloadNamespace("grid") ; options(op)
+if(no.grid) unloadNamespace("grid") # Warning: shutting down all devices ...
+options(op)
 if(!dev.interactive(orNone = TRUE))
    pdf("reg-tests-1d.pdf", encoding = "ISOLatin1.enc")# revert to reasonable device
 ## both errors gave segfaults in R <= 3.4.1
@@ -1422,7 +1425,7 @@ testfN <- removeSource(testf)
 stopifnot(identical(body(testf )[[2]], bod)
         , identical(body(testfN)[[2]], bod)
 )
-## erronously changed  '(x, NULL)'  to  '(x)'  in R version <= 3.4.3
+## erroneously changed  '(x, NULL)'  to  '(x)'  in R version <= 3.4.3
 ##
 ## 2) source *should* be kept:
 f <- function(x=1) { # 'x' not really needed
@@ -1751,7 +1754,7 @@ stopifnot(all.equal(
 ## gave integer overflow and error in R <= 3.4.x
 
 
-## check for incorect inlining of named logicals
+## check for incorrect inlining of named logicals
 foo <- compiler::cmpfun(function() c("bar" = TRUE),
                         options = list(optimize = 3))
 stopifnot(identical(names(foo()), "bar"))
@@ -1866,7 +1869,7 @@ stopifnot(grepl(" [*]{3}$", cc[2]),
 ## gave Error: 'formal argument "right" matched by multiple actual arguments'
 
 
-## print.noquote() w/ unusual argument -- inspite of user error, be forgiving:
+## print.noquote() w/ unusual argument -- in spite of user error, be forgiving:
 print(structure("foo bar", class="noquote"), quote=FALSE)
 ## gave Error: 'formal argument "quote" matched by multiple actual arguments'
 
@@ -2290,7 +2293,7 @@ stopifnot(exprs = {
 ## returned integer sequences in all R versions <= 3.5.1
 
 
-## Check for modififation of arguments
+## Check for modification of arguments
 ## Issue originally reported by Lukas Stadler
 x <- 1+0
 stopifnot(x + (x[] <- 2) == 3)
@@ -4439,7 +4442,7 @@ stopifnot(identical(RN,    rownames      (dfcars1)) ,
 ## dfcarsN == dfcars1  in  R <= 4.0.3
 
 
-## str(x) when x has "unusal" length() semantics such that lapply() / vapply() fails:
+## str(x) when x has "unusual" length() semantics such that lapply() / vapply() fails:
 length.Strange4 <- function(x) 4
 `[[.Strange4` <- function(x, i) {
     stopifnot(length(i) == 1)
@@ -5308,7 +5311,7 @@ options(op)# revert to sanity.  Then:
 h2 <- globalCallingHandlers()
 globalCallingHandlers(NULL)# unregister all
 stopifnot(identical(h1, h2))
-## h2 was empty list() erronously in R versions <= 4.1.x
+## h2 was empty list() erroneously in R versions <= 4.1.x
 
 
 ## PR#18246: par() should warn about invalid/unused arguments
@@ -5483,7 +5486,7 @@ plot(lm(y~    c, dd), which = 5)  # gave empty plot, noting missing factors
 stopifnot("plot(<lm>, which=5) gave message and no plot" = is.null(r))
 ## failed for character predictors in R <= 4.1.x
 
-### contined in reg-tests-1e.R for R >- 4.3.0
+### continued in reg-tests-1e.R for R >- 4.3.0
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

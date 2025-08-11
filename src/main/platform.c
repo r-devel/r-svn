@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2024 The R Core Team
+ *  Copyright (C) 1998--2025 The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -155,7 +155,7 @@ int static R_strieql(const char *a, const char *b)
 #endif
 
 static char native_enc[R_CODESET_MAX + 1];
-const char attribute_hidden *R_nativeEncoding(void)
+attribute_hidden const char *R_nativeEncoding(void)
 {
     return native_enc;
 }
@@ -311,14 +311,14 @@ attribute_hidden SEXP do_fileshow(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP fn, tl, hd, pg;
     const char **f, **h, *t, *pager = NULL /* -Wall */;
-    Rboolean dl;
+    bool dl;
     int i, n;
 
     checkArity(op, args);
     fn = CAR(args); args = CDR(args);
     hd = CAR(args); args = CDR(args);
     tl = CAR(args); args = CDR(args);
-    dl = (Rboolean) asLogical(CAR(args)); args = CDR(args);
+    dl = asBool2(CAR(args), call); args = CDR(args);
     pg = CAR(args);
     n = 0;			/* -Wall */
     if (!isString(fn) || (n = LENGTH(fn)) < 1)
@@ -378,7 +378,7 @@ attribute_hidden SEXP do_fileshow(SEXP call, SEXP op, SEXP args, SEXP rho)
    On Linux, a directory can be opened for reading, but not on Windows
    (PR#17337). */
 static FILE
-*RC_fopen_notdir(const SEXP fn, const char *mode, const Rboolean expand)
+*RC_fopen_notdir(const SEXP fn, const char *mode, const bool expand)
 {
     FILE *f = RC_fopen(fn, mode, expand);
 #ifdef HAVE_SYS_STAT_H
@@ -1439,8 +1439,8 @@ size_t path_buffer_append(R_StringBuffer *pb, const char *name, size_t len)
 
 /* added_separator is a hack to once be removed, see comment in list_dirs */
 static
-Rboolean search_setup(R_StringBuffer *pb, SEXP path, R_DIR **dir,
-                      size_t *pathlen, Rboolean *added_separator)
+bool search_setup(R_StringBuffer *pb, SEXP path, R_DIR **dir,
+                      size_t *pathlen, bool *added_separator)
 {
     if (added_separator)
 	*added_separator = FALSE;
@@ -1478,9 +1478,9 @@ Rboolean search_setup(R_StringBuffer *pb, SEXP path, R_DIR **dir,
 #endif
     pb->data[len] = FILESEP[0];
     if (added_separator)
-	*added_separator = TRUE;
+	*added_separator = true;
     *pathlen = len + 1;
-    return TRUE;
+    return true;
 }
 
 static void search_cleanup(void *data)
@@ -1513,9 +1513,9 @@ static void add_to_ans(SEXP *pans, const char *pathstr, int *count,
 */
 static void
 list_files(R_StringBuffer *pb, size_t offset, size_t len, int *count, SEXP *pans,
-	   Rboolean allfiles, Rboolean recursive,
+	   bool allfiles, bool recursive,
 	   const regex_t *reg, int *countmax, PROTECT_INDEX idx,
-	   Rboolean idirs, Rboolean allowdots, R_DIR *dir)
+	   bool idirs, bool allowdots, R_DIR *dir)
 {
     struct R_dirent *de;
     R_CheckUserInterrupt(); // includes stack check
@@ -1523,7 +1523,7 @@ list_files(R_StringBuffer *pb, size_t offset, size_t len, int *count, SEXP *pans
 	if (allfiles || !R_HiddenFile(de->d_name)) {
 	    /* append current name and null terminate */
 	    size_t newlen = path_buffer_append(pb, de->d_name, len);
-	    Rboolean not_dot = strcmp(de->d_name, ".") && strcmp(de->d_name, "..");
+	    bool not_dot = strcmp(de->d_name, ".") && strcmp(de->d_name, "..");
 	    if (recursive) {
 		if (R_IsDirPath(pb->data)) {
 		    if (not_dot) {
@@ -1567,26 +1567,26 @@ attribute_hidden SEXP do_listfiles(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP d = CAR(args);  args = CDR(args); // d := directory = path
     if (!isString(d)) error(_("invalid '%s' argument"), "path");
     SEXP p = CAR(args); args = CDR(args);
-    Rboolean pattern = FALSE;
+    bool pattern = FALSE;
     if (isString(p) && LENGTH(p) >= 1 && STRING_ELT(p, 0) != NA_STRING)
-	pattern = TRUE;
+	pattern = true;
     else if (!isNull(p) && !(isString(p) && LENGTH(p) < 1))
 	error(_("invalid '%s' argument"), "pattern");
-    int allfiles = asLogical(CAR(args)); args = CDR(args);
-    if (allfiles == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "all.files");
+    bool allfiles = asBool2(CAR(args), call); args = CDR(args);
+//    if (allfiles == NA_LOGICAL)
+//	error(_("invalid '%s' argument"), "all.files");
     int fullnames = asLogical(CAR(args)); args = CDR(args);
     if (fullnames == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "full.names");
-    int recursive = asLogical(CAR(args)); args = CDR(args);
-    if (recursive == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "recursive");
+    bool recursive = asBool2(CAR(args), call); args = CDR(args);
+//    if (recursive == NA_LOGICAL)
+//	error(_("invalid '%s' argument"), "recursive");
     int igcase = asLogical(CAR(args)); args = CDR(args);
     if (igcase == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "ignore.case");
-    int idirs = asLogical(CAR(args)); args = CDR(args);
-    if (idirs == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "include.dirs");
+    bool idirs = asBool2(CAR(args), call); args = CDR(args);
+//    if (idirs == NA_LOGICAL)
+//	error(_("invalid '%s' argument"), "include.dirs");
     int nodots = asLogical(CAR(args));
     if (nodots == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "no..");
@@ -1630,7 +1630,7 @@ attribute_hidden SEXP do_listfiles(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* see comments in list_files for how the path buffer works */
 static void list_dirs(R_StringBuffer *pb, size_t offset, size_t len,
                       int *count, SEXP *pans, int *countmax,
-                      PROTECT_INDEX idx, Rboolean recursive, R_DIR *dir)
+                      PROTECT_INDEX idx, bool recursive, R_DIR *dir)
 {
     struct R_dirent *de;
     R_CheckUserInterrupt(); // includes stack check
@@ -1665,9 +1665,9 @@ attribute_hidden SEXP do_listdirs(SEXP call, SEXP op, SEXP args, SEXP rho)
     int fullnames = asLogical(CAR(args)); args = CDR(args);
     if (fullnames == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "full.names");
-    int recursive = asLogical(CAR(args)); args = CDR(args);
-    if (recursive == NA_LOGICAL)
-	error(_("invalid '%s' argument"), "recursive");
+    bool recursive = asBool2(CAR(args), call); args = CDR(args);
+//    if (recursive == NA_LOGICAL)
+//	error(_("invalid '%s' argument"), "recursive");
 
     PROTECT_INDEX idx;
     SEXP ans;
@@ -1682,7 +1682,7 @@ attribute_hidden SEXP do_listdirs(SEXP call, SEXP op, SEXP args, SEXP rho)
     begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
                  R_NilValue, R_NilValue);
     for (int i = 0; i < LENGTH(d) ; i++) {
-	Rboolean added_separator = FALSE;
+	bool added_separator = FALSE;
 	R_DIR *dir;
 	size_t len;
 	if (!search_setup(&pb, STRING_ELT(d, i), &dir, &len,
@@ -1733,7 +1733,7 @@ attribute_hidden SEXP do_Rhome(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 #ifdef Win32
-static Rboolean attribute_hidden R_WFileExists(const wchar_t *path)
+static /*attribute_hidden*/ bool R_WFileExists(const wchar_t *path)
 {
     struct _stati64 sb;
     return _wstati64(path, &sb) == 0;
@@ -1884,11 +1884,11 @@ static int delReparsePoint(const wchar_t *name)
 }
 
 /* returns FALSE on error */
-static Rboolean R_WIsDirPath(const wchar_t *path)
+static bool R_WIsDirPath(const wchar_t *path)
 {
     struct _stati64 sb;
     if (!_wstati64(path, &sb) && (sb.st_mode & S_IFDIR))
-	return TRUE;
+	return true;
     else
 	return FALSE;
 }
@@ -2115,7 +2115,7 @@ attribute_hidden SEXP do_unlink(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP  fn;
     int i, nfiles, failures = 0, recursive, force, expand;
-    Rboolean useglob = FALSE;
+    bool useglob = FALSE;
     const char *names;
 #if defined(HAVE_GLOB)
     int j, res;
@@ -2139,7 +2139,7 @@ attribute_hidden SEXP do_unlink(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("invalid '%s' argument"), "expand");
 #if defined(HAVE_GLOB)
 	if (expand)
-	    useglob = TRUE;
+	    useglob = true;
 #endif
 	for (i = 0; i < nfiles; i++) {
 	    if (STRING_ELT(fn, i) != NA_STRING) {
@@ -2212,7 +2212,7 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP locale = CADR(args), ans;
     int cat;
     const char *p;
-    Rboolean warned = FALSE;
+    bool warned = FALSE;
 
     checkArity(op, args);
     cat = asInteger(CAR(args));
@@ -2281,7 +2281,7 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    (cat == 8) ? "LC_PAPER"    :
 	                 "LC_MEASUREMENT");
 	p = NULL;
-	warned = TRUE;
+	warned = true;
 	break;
 #else /* not Win32 */
 # ifdef LC_MESSAGES
@@ -2434,11 +2434,11 @@ attribute_hidden SEXP do_pathexpand(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 #ifdef Unix
-static int var_R_can_use_X11 = -1;
+static Rboolean var_R_can_use_X11 = -1;
 
 extern Rboolean R_access_X11(void); /* from src/unix/X11.c */
 
-static Rboolean R_can_use_X11(void)
+static bool R_can_use_X11(void)
 {
     if (var_R_can_use_X11 < 0) {
 #ifdef HAVE_X11
@@ -2572,7 +2572,7 @@ attribute_hidden SEXP do_capabilities(SEXP call, SEXP op, SEXP args, SEXP rho)
 	LOGICAL(ans)[i] = TRUE;  /* also AQUA ? */
     } else {
 #if defined(HAVE_LIBREADLINE)
-	extern Rboolean UsingReadline;
+	extern Rboolean UsingReadline; // from ../unix/system.c
 	if (R_Interactive && UsingReadline) LOGICAL(ans)[i] = TRUE;
 #endif
     }
@@ -2680,6 +2680,7 @@ attribute_hidden SEXP do_dircreate(SEXP call, SEXP op, SEXP args, SEXP env)
     mode = asInteger(CADDDR(args));
     if (mode == NA_LOGICAL) mode = 0777;
     strcpy(dir, R_ExpandFileName(translateCharFP(STRING_ELT(path, 0))));
+    if (strlen(dir) == 0) error(_("zero-length 'path' argument"));
     /* remove trailing slashes */
     p = dir + strlen(dir) - 1;
     while (*p == '/' && strlen(dir) > 1) *p-- = '\0';
@@ -2737,6 +2738,7 @@ attribute_hidden SEXP do_dircreate(SEXP call, SEXP op, SEXP args, SEXP env)
     recursive = asLogical(CADDR(args));
     if (recursive == NA_LOGICAL) recursive = 0;
     p = filenameToWchar(STRING_ELT(path, 0), TRUE);
+    if (wcslen(p) == 0) error(_("zero-length 'path' argument"));
     dir = (wchar_t*) R_alloc(wcslen(p) + 1, sizeof(wchar_t));
     wcscpy(dir, p);
     R_wfixbackslash(dir);
@@ -3361,7 +3363,7 @@ attribute_hidden SEXP do_sysumask(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP ans;
     int mode;
     mode_t res = 0;
-    Rboolean visible;
+    bool visible;
 
     checkArity(op, args);
     mode = asInteger(CAR(args));
@@ -3369,7 +3371,7 @@ attribute_hidden SEXP do_sysumask(SEXP call, SEXP op, SEXP args, SEXP env)
     if (mode == NA_INTEGER) {
 	res = umask(0);
 	umask(res);
-	visible = TRUE;
+	visible = true;
     } else {
 	res = umask((mode_t) mode);
 	visible = FALSE;
@@ -3642,12 +3644,13 @@ extern void *dlsym(void *handle, const char *symbol);
    without loading any modules; libraries available via modules are
    treated individually (libcurlVersion(), La_version(), etc)
 */
+#define nr_softVersion 11
 attribute_hidden SEXP
 do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    SEXP ans = PROTECT(allocVector(STRSXP, 10));
-    SEXP nms = PROTECT(allocVector(STRSXP, 10));
+    SEXP ans = PROTECT(allocVector(STRSXP, nr_softVersion));
+    SEXP nms = PROTECT(allocVector(STRSXP, nr_softVersion));
     setAttrib(ans, R_NamesSymbol, nms);
     unsigned int i = 0;
     char p[256];
@@ -3667,6 +3670,15 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, i, mkChar(""));
 #endif
     SET_STRING_ELT(nms, i++, mkChar("libdeflate"));
+
+#ifdef HAVE_ZSTD
+#include <zstd.h>
+    SET_STRING_ELT(ans, i, mkChar(ZSTD_versionString()));
+#else
+    SET_STRING_ELT(ans, i, mkChar(""));
+#endif
+    SET_STRING_ELT(nms, i++, mkChar("zstd"));
+
 #ifdef HAVE_PCRE2
     pcre2_config(PCRE2_CONFIG_VERSION, p);
 #else
@@ -3717,7 +3729,46 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
 #else
     snprintf(p, 256, "%s", "unknown");
 #endif
+#if defined(HAVE_DLADDR) && defined(HAVE_REALPATH) && defined(HAVE_DLSYM) \
+    && defined(HAVE_DECL_RTLD_DEFAULT) && HAVE_DECL_RTLD_DEFAULT \
+    && defined(HAVE_DECL_RTLD_NEXT) && HAVE_DECL_RTLD_NEXT && defined(__APPLE__)
+
+    /* Look for function iconv_open and try to figure out in which
+       binary/shared library it is defined. See BLAS detection below
+       for detailed comments for how this is done, and keep the code
+       in sync. This is used on macOS to help identifying when a system
+       version of libiconv is used, which can be mapped to a specific
+       patch via https://opensource.apple.com/releases/ that cannot be
+       differentiated using _libiconv_version (i.e. 1.11 maps to
+       different patches with different problems).
+    */
+    {
+	void *addr = dlsym(RTLD_DEFAULT, "iconv_open");
+	Dl_info dl_info;
+	char buf[R_PATH_MAX+1];
+	const char *path = NULL;
+	if (addr && dladdr(addr, &dl_info)) {
+	    path = realpath(dl_info.dli_fname, buf);
+	    if (!path && errno == ENOENT)
+		path = dl_info.dli_fname;
+	}
+	bool ok = FALSE;
+	if (path) {
+	    size_t len = strlen(p) + strlen(path) + 1 + 1;
+	    char *iver = malloc(len);
+	    if (iver) {
+		snprintf(iver, len, "%s %s", p, path);
+		SET_STRING_ELT(ans, i, mkChar(iver));
+		free(iver);
+		ok = true;
+	    }
+	}
+	if (!ok)
+	    SET_STRING_ELT(ans, i, mkChar(p));
+    }
+#else
     SET_STRING_ELT(ans, i, mkChar(p));
+#endif
     SET_STRING_ELT(nms, i++, mkChar("iconv"));
 #ifdef HAVE_LIBREADLINE
     /* libedit reports "EditLine wrapper": so we look at
@@ -3753,7 +3804,7 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     char *dgemm_name = "dgemm";
 #endif
 
-    Rboolean ok = TRUE;
+    bool ok = true;
 
     void *dgemm_addr = dlsym(RTLD_DEFAULT, dgemm_name);
 

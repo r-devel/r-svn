@@ -122,6 +122,10 @@ xzfile <- function(description, open = "", encoding = getOption("encoding"),
                    compression = 6)
     .Internal(xzfile(description, open, encoding, compression))
 
+zstdfile <- function(description, open = "", encoding = getOption("encoding"),
+                   compression = 9)
+    .Internal(zstdfile(description, open, encoding, compression))
+
 socketConnection <- function(host = "localhost", port, server = FALSE,
                              blocking = FALSE, open = "a+",
                              encoding = getOption("encoding"),
@@ -155,7 +159,7 @@ textConnection <- function(object, open = "r", local = FALSE,
     env <- if (local) parent.frame() else .GlobalEnv
     type <- match(match.arg(encoding), c("", "bytes", "UTF-8"))
     if(!(is.character(name) && length(name) == 1))
-        stop("'name' must be a single character string")
+        stop(gettextf("'%s' must be a character string", "name"), domain = NA)
     .Internal(textConnection(name, object, open, env, type))
 }
 
@@ -323,22 +327,22 @@ socketSelect <- function(socklist, write = FALSE, timeout = NULL) {
 }
 
 memCompress <-
-    function(from, type = c("gzip", "bzip2", "xz", "none"))
+    function(from, type = c("gzip", "bzip2", "xz", "zstd", "none"))
 {
     if(is.character(from))
         from <- charToRaw(paste(from, collapse = "\n"))
     else if(!is.raw(from)) stop("'from' must be raw or character")
-    type <- match(match.arg(type), c("none", "gzip", "bzip2", "xz"))
+    type <- match(match.arg(type), c("none", "gzip", "bzip2", "xz", "zstd"))
     .Internal(memCompress(from, type))
 }
 
 memDecompress <-
     function(from,
-             type = c("unknown", "gzip", "bzip2", "xz", "none"),
+             type = c("unknown", "gzip", "bzip2", "xz", "zstd", "none"),
              asChar = FALSE)
 {
     type <- match(match.arg(type),
-                  c("none", "gzip", "bzip2", "xz", "unknown"))
+                  c("none", "gzip", "bzip2", "xz", "unknown", "zstd"))
     ans <- .Internal(memDecompress(from, type))
     if(asChar) rawToChar(ans) else ans
 }

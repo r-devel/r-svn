@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2008--2021  R Core Team
+ *  Copyright (C) 2008--2025  R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -862,15 +862,15 @@ static SEXP CairoDefineGroup(SEXP src, int op, SEXP dst, pX11Desc xd)
     return ref;
 }
 
-static Rboolean cairoBegin(pX11Desc xd);
-static void cairoEnd(Rboolean grouping, pX11Desc xd); 
+static bool cairoBegin(pX11Desc xd);
+static void cairoEnd(bool grouping, pX11Desc xd); 
 
 static void CairoUseGroup(SEXP ref, SEXP trans, pX11Desc xd)
 {
     cairo_t *cc = xd->cc;
     int index;
     cairo_matrix_t transform;
-    Rboolean grouping = FALSE;
+    bool grouping = false;
 
     index = INTEGER(ref)[0];
     if (index < 0) {
@@ -976,16 +976,16 @@ static void Cairo_Clip(double x0, double x1, double y0, double y1,
     cairo_clip(xd->cc);
 }
 
-static Rboolean implicitGroup(pX11Desc xd) {
+static bool implicitGroup(pX11Desc xd) {
     return xd->currentGroup >= 0 && 
         (cairo_get_operator(xd->cc) == CAIRO_OPERATOR_CLEAR ||
          cairo_get_operator(xd->cc) == CAIRO_OPERATOR_SOURCE);
 }
 
 /* Set up for drawing a shape */
-static Rboolean cairoBegin(pX11Desc xd) 
+static bool cairoBegin(pX11Desc xd) 
 {
-    Rboolean grouping = implicitGroup(xd);
+    bool grouping = implicitGroup(xd);
     if (xd->currentMask >= 0) {
         /* If masking, draw temporary pattern */
         cairo_push_group(xd->cc);
@@ -996,7 +996,7 @@ static Rboolean cairoBegin(pX11Desc xd)
     return grouping;
 }
 
-static void cairoEnd(Rboolean grouping, pX11Desc xd) 
+static void cairoEnd(bool grouping, pX11Desc xd) 
 {
     if (grouping) {
         cairo_pattern_t *source = cairo_pop_group(xd->cc);
@@ -1048,7 +1048,7 @@ static void cairoRect(double x0, double y0, double x1, double y1,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoRectPath(x0, y0, x1, y1, xd);
     if (op) { /* fill */
@@ -1066,9 +1066,9 @@ static void Cairo_Rect(double x0, double y0, double x1, double y1,
     if (xd->appending) {
         cairoRectPath(x0, y0, x1, y1, xd);
     } else {
-        Rboolean fill = (gc->patternFill != R_NilValue) || 
+        bool fill = (gc->patternFill != R_NilValue) || 
             (R_ALPHA(gc->fill) > 0);
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (fill && stroke) {
             cairoRect(x0, y0, x1, y1, gc, dd, 1); /* fill */
             cairoRect(x0, y0, x1, y1, gc, dd, 0); /* stroke */
@@ -1094,7 +1094,7 @@ static void cairoCircle(double x, double y, double r,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoCirclePath(x, y, r, xd);
     if (op) { /* fill */
@@ -1112,9 +1112,9 @@ static void Cairo_Circle(double x, double y, double r,
     if (xd->appending) {
         cairoCirclePath(x, y, r, xd);
     } else {
-        Rboolean fill = (gc->patternFill != R_NilValue) || 
+        bool fill = (gc->patternFill != R_NilValue) || 
             (R_ALPHA(gc->fill) > 0);
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (fill && stroke) {
             cairoCircle(x, y, r, gc, dd, 1); /* fill */
             cairoCircle(x, y, r, gc, dd, 0); /* stroke */
@@ -1138,7 +1138,7 @@ static void cairoLine(double x1, double y1, double x2, double y2,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoLinePath(x1, y1, x2, y2, xd);
     cairoStroke(gc, xd);
@@ -1152,7 +1152,7 @@ static void Cairo_Line(double x1, double y1, double x2, double y2,
     if (xd->appending) {
         cairoLinePath(x1, y1, x2, y2, xd);
     } else {
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (stroke) {
             cairoLine(x1, y1, x2, y2, gc, dd);
         }        
@@ -1172,7 +1172,7 @@ static void cairoPolyline(int n, double *x, double *y,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoPolylinePath(n, x, y, xd);
     cairoStroke(gc, xd);
@@ -1186,7 +1186,7 @@ static void Cairo_Polyline(int n, double *x, double *y,
     if (xd->appending) {
         cairoPolylinePath(n, x, y, xd);
     } else {
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (stroke) {
             cairoPolyline(n, x, y, gc, dd);
         }        
@@ -1207,7 +1207,7 @@ static void cairoPolygon(int n, double *x, double *y,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoPolygonPath(n, x, y, xd);
     if (op) { /* fill */
@@ -1225,9 +1225,9 @@ static void Cairo_Polygon(int n, double *x, double *y,
     if (xd->appending) {
         cairoPolygonPath(n, x, y, xd);
     } else {
-        Rboolean fill = (gc->patternFill != R_NilValue) || 
+        bool fill = (gc->patternFill != R_NilValue) || 
             (R_ALPHA(gc->fill) > 0);
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (fill && stroke) {
             cairoPolygon(n, x, y, gc, dd, 1); /* fill */
             cairoPolygon(n, x, y, gc, dd, 0); /* stroke */
@@ -1262,7 +1262,7 @@ static void cairoPath(double *x, double *y, int npoly, int *nper,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     cairo_new_path(xd->cc);
     cairoPathPath(x, y, npoly, nper, winding, xd);
     if (op) { /* fill */
@@ -1286,9 +1286,9 @@ static void Cairo_Path(double *x, double *y,
     if (xd->appending) {
         cairoPathPath(x, y, npoly, nper, winding, xd);
     } else {
-        Rboolean fill = (gc->patternFill != R_NilValue) || 
+        bool fill = (gc->patternFill != R_NilValue) || 
             (R_ALPHA(gc->fill) > 0);
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (fill && stroke) {
             cairoPath(x, y, npoly, nper, winding, gc, dd, 1); /* fill */
             cairoPath(x, y, npoly, nper, winding, gc, dd, 0); /* stroke */
@@ -1350,7 +1350,7 @@ static void Cairo_Raster(unsigned int *raster, int w, int h,
     
     cairo_save(xd->cc);
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
 
     /* If we are going to use the graphics engine for interpolation
      * the image used for the Cairo surface is going to be a
@@ -1446,7 +1446,7 @@ static SEXP Cairo_Cap(pDevDesc dd)
 
     /* Copy each byte of screen to an R matrix. 
      * The Cairo RGB24 needs to be converted to an R ABGR32.
-     * Cairo uses native endiannes (A=msb,R,G,B=lsb) so use int* instead of char* */
+     * Cairo uses native endianness (A=msb,R,G,B=lsb) so use int* instead of char* */
     rint = (unsigned int *) INTEGER(raster);
     for (i = 0; i < size; i++)
         rint[i] = R_RGB((screenData[i] >> 16) & 255, (screenData[i] >> 8) & 255, screenData[i] & 255);
@@ -1634,7 +1634,7 @@ PangoCairo_Text(double x, double y,
 	    PG_getFont(gc, xd->fontscale, xd->basefontfamily, xd->symbolfamily);
 	cairo_save(xd->cc);
 
-        Rboolean grouping = cairoBegin(xd);
+        bool grouping = cairoBegin(xd);
 
 	layout = PG_layout(desc, xd->cc, textstr);
 	PG_text_extents(xd->cc, layout, &lbearing, NULL, &width,
@@ -1895,7 +1895,7 @@ static void FT_getFont(pGEcontext gc, pDevDesc dd, double fs)
     if (face == 3 || face == 4) slant = CAIRO_FONT_SLANT_ITALIC;
     if (face != 5) {
 	/* This is a 'toy', remember?
-	   The manual recommnends the CSS2 names "serif", "sans-serif",
+	   The manual recommends the CSS2 names "serif", "sans-serif",
 	   "monospace" */
 	char *fm = gc->fontfamily;
 	if (!fm[0]) fm = xd->basefontfamily;
@@ -1995,7 +1995,7 @@ static void Cairo_Text(double x, double y,
     if (R_ALPHA(gc->col) > 0) {
 	cairo_save(xd->cc);
 
-        Rboolean grouping = FALSE;
+        bool grouping = false;
         if (!xd->appending) {
             grouping = cairoBegin(xd);
         }
@@ -2125,7 +2125,7 @@ static void CairoStrokePath(SEXP path,
 {
     cairo_t *cc = xd->cc;
     SEXP R_fcall;
-    Rboolean grouping = FALSE;
+    bool grouping = false;
 
     if (!xd->appending) {
         grouping = cairoBegin(xd);
@@ -2164,7 +2164,7 @@ static void CairoFillPath(SEXP path,
 {
     cairo_t *cc = xd->cc;
     SEXP R_fcall;
-    Rboolean grouping = FALSE;
+    bool grouping = false;
 
     if (!xd->appending) {
         grouping = cairoBegin(xd);
@@ -2228,7 +2228,7 @@ static void CairoFillStroke(SEXP path, int rule,
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
-    Rboolean grouping = cairoBegin(xd);
+    bool grouping = cairoBegin(xd);
     CairoFillStrokePath(path, rule, gc, xd);
     if (op) { /* fill */
         cairoFill(gc, xd);
@@ -2245,9 +2245,9 @@ static void Cairo_FillStroke(SEXP path, int rule,
     if (xd->appending) {
         CairoFillStrokePath(path, rule, gc, xd);
     } else {
-        Rboolean fill = (gc->patternFill != R_NilValue) || 
+        bool fill = (gc->patternFill != R_NilValue) || 
             (R_ALPHA(gc->fill) > 0);
-        Rboolean stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
+        bool stroke = (R_ALPHA(gc->col) > 0 && gc->lty != -1);
         if (fill) {
             switch (rule) {
             case R_GE_nonZeroWindingRule: 
@@ -2274,7 +2274,8 @@ static void Cairo_FillStroke(SEXP path, int rule,
  */
 
 static SEXP Cairo_Capabilities(SEXP capabilities) {
-    SEXP patterns, clippingPaths, masks, compositing, transforms, paths, glyphs;
+    SEXP patterns, clippingPaths, masks, compositing, transforms, paths, 
+        glyphs, variableFonts;
 
     PROTECT(patterns = allocVector(INTSXP, 3));
     INTEGER(patterns)[0] = R_GE_linearGradientPattern;
@@ -2337,6 +2338,11 @@ static SEXP Cairo_Capabilities(SEXP capabilities) {
     SET_VECTOR_ELT(capabilities, R_GE_capability_glyphs, glyphs);
     UNPROTECT(1);
 
+    PROTECT(variableFonts = allocVector(INTSXP, 1));
+    INTEGER(variableFonts)[0] = 1;
+    SET_VECTOR_ELT(capabilities, R_GE_capability_variableFonts, variableFonts);
+    UNPROTECT(1);
+
     return capabilities;
 }
 
@@ -2350,13 +2356,94 @@ static SEXP Cairo_Capabilities(SEXP capabilities) {
 #include <cairo-ft.h>
 #endif
 
+static void applyFontVar(cairo_font_face_t *cairo_face, 
+                         SEXP font, int numVar,
+                         pX11Desc xd)
+{
+    int i;
+    int success = 0;
+    cairo_scaled_font_t *scaled_font;
+    cairo_matrix_t font_matrix; 
+    cairo_matrix_t ctm;
+    cairo_font_options_t *options;
+    cairo_get_font_matrix(xd->cc, &font_matrix);
+    cairo_get_matrix(xd->cc, &ctm);
+    options = cairo_font_options_create();
+    if (cairo_font_options_status(options) == CAIRO_STATUS_SUCCESS) {
+        char variations[1024];
+        int written, offset = 0;
+        if (FALSE) {                            
+            /* Use var axis and var value */
+            const char* format1 = "%s=%f";
+            const char* format2 = ",%s=%f";
+            const char* format;
+            for (i = 0; i < numVar; i++) {
+                if (i == 0) {
+                    format = format1;
+                } else {
+                    format = format2;
+                }
+                /* Axis names guaranteed to be ASCII letters in R code */
+                written = snprintf(variations + offset, 
+                                   1024 - offset, 
+                                   format,
+                                   R_GE_glyphFontVarAxis(font, i),
+                                   R_GE_glyphFontVarValue(font, i));
+                if (written < 0 || written > 1024 - offset) {
+                    warning(_("Font variations too long"));
+                    i = numVar;
+                } else {
+                    offset = offset + written - 1;
+                }
+            }
+        } else {
+            /* use formatted var */
+            const char* format1 = "%s";
+            const char* format2 = ",%s";
+            const char* format;
+            for (i = 0; i < numVar; i++) {
+                if (i == 0) {
+                    format = format1;
+                } else {
+                    format = format2;
+                }
+                /* Axis names guaranteed to be ASCII letters in R code */
+                written = snprintf(variations + offset, 
+                                   1024 - offset, 
+                                   format,
+                                   R_GE_glyphFontVarFormatted(font, i));
+                if (written < 0 || written > 1024 - offset) {
+                    warning(_("Font variations too long"));
+                    i = numVar;
+                } else {
+                    offset = offset + written;
+                }
+            }
+        }
+        cairo_font_options_set_variations(options, variations);
+        scaled_font = cairo_scaled_font_create(cairo_face,
+                                               &font_matrix,
+                                               &ctm,
+                                               options);
+        if (scaled_font &&
+            cairo_scaled_font_status(scaled_font) == CAIRO_STATUS_SUCCESS) {
+            cairo_set_scaled_font(xd->cc, scaled_font);
+            cairo_scaled_font_destroy(scaled_font);
+            success = 1;
+        } 
+    }
+    if (!success) {
+        warning(_("Failed to apply font variations"));
+    }
+}
+
 static void Cairo_Glyph(int n, int *glyphs, double *x, double *y, 
                         SEXP font, double size, 
                         int colour, double rot, pDevDesc dd) 
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
     int i;
-    Rboolean grouping = FALSE;
+    bool grouping = false;
 
     if (!xd->appending) {
         grouping = cairoBegin(xd);
@@ -2399,6 +2486,12 @@ static void Cairo_Glyph(int n, int *glyphs, double *x, double *y,
      * location (in "bigpts").  The latter depends on device dpi.
      */
     cairo_set_font_size(xd->cc, size / (72*dd->ipr[0]));
+
+    /* Apply font variations, if any */
+    int numVar = R_GE_glyphFontNumVar(font);
+    if (numVar > 0) {
+        applyFontVar(cairo_face, font, numVar, xd);
+    }
 
     for (i=0; i<n; i++) {
         

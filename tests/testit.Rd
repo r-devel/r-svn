@@ -28,13 +28,15 @@ foo(\var{x}, \var{y}, ...)
 #ifdef nonexistent
   This is not included.
 #endif
+  End(\verb{#ifdef}).
 
   Escaped backslash \code{\\x}.
 
   \code{\%\{\}}
   
   \link{a link} and some to known destinations:
-  \link[stats]{weighted.mean}, \code{\link[=Paren]{\{}}
+  \code{\link[stats]{weighted.mean}}, \link[stats:weighted.mean]{dito},
+  \code{\link[=Paren]{\{}}, \link[=R_HOME]{\env{R_HOME}}.
   
   var in \var{text}.
   
@@ -62,6 +64,14 @@ foo(\var{x}, \var{y}, ...)
   --
 
   \Sexpr[echo=TRUE,results=verbatim,keep.source=TRUE]{x<-007}
+
+  Georgi Boshnakov's example of generated paragraphs:
+  \Sexpr[results=rd]{paste(letters[1:3], collapse="\n\n")}
+
+  \Sexpr[results=verbatim]{"a
+    b\n    c"}
+
+  \Sexpr[results=rd]{tools::toRd(bibentry("Misc", author="R", year=2025, title="$t$"))}
 }
 \value{
   [NULL]\cr\cr\dots
@@ -76,6 +86,11 @@ foo(\var{x}, \var{y}, ...)
     --3-- \tab third
     row\tab % nothing here
   }
+}
+\section{\verb{\eqn}}{
+  This should not start a new paragraph:
+  \eqn{\frac{1}{n-1}}{
+             1/(n-1)}.
 }
 \section{\verb{\deqn}}{
   1-arg form, centered also in text conversion:

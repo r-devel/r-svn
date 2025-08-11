@@ -1,19 +1,20 @@
 % File src/library/base/man/format.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Copyright 2003-2016 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{format}
+\title{Encode in a Common Format}
 \alias{format}
 \alias{format.AsIs}
 \alias{format.data.frame}
 \alias{format.default}
 \alias{format.factor}
 \description{
-  Format an \R object for pretty printing.
+  Format an \R object for pretty printing, notably encoding vector or
+  column elements into a common format.
 }
-\title{Encode in a Common Format}
 \usage{
 format(x, \dots)
 
@@ -145,10 +146,11 @@ format(x, \dots)
   attributes are copied.
 
   If \code{x} is a list, the result is a character vector obtained by
-  applying \code{format.default(x, \dots)} to each element of the list
+  applying \code{format(x, \dots)} (instead of \code{format.default(x,
+  \dots)} in \R <= 4.5.z) to each element of the list
   (after \I{\code{\link{unlist}}ing} elements which are themselves lists),
   and then collapsing the result for each element with
-  \code{paste(collapse = ", ")}.  The defaults in this case are
+  \code{paste0(collapse = ", ")}.  The defaults in this case are
   \code{trim = TRUE, justify = "none"} since one does not usually want
   alignment in the collapsed strings.
 }

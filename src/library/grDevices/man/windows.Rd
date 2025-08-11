@@ -203,7 +203,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
 
 \section{Fonts}{
   The fonts used for text drawn in a Windows device may be controlled in
-  two ways.  The file \code{R_HOME\\etc\\\link{Rdevga}} can be used to
+  two ways.  The file \file{\var{\link{R_HOME}}\\etc\\\link{Rdevga}} can be used to
   specify mappings for \code{par(font =)} (or the \pkg{grid} equivalent).
   Alternatively, a font family can be specified by a non-empty
   \code{family} argument (or by e.g.\sspace{}\code{par(family =)} in the graphics

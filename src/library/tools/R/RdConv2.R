@@ -1,7 +1,7 @@
 #  File src/library/tools/R/RdConv2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ RdTags <- function(Rd) {
 isBlankRd <- function(x)
     length(grep("^[[:blank:]]*\n?$", x, perl = TRUE)) == length(x) # newline optional
 
+## not suitable for \Sexpr-generated Rd where the srcref refers to the \Sexpr
 isBlankLineRd <- function(x) {
     utils:::getSrcByte(x) == 1L &&
     length(grep("^[[:blank:]]*\n", x, perl = TRUE)) == length(x)   # newline required
@@ -205,6 +206,14 @@ processRdChunk <- function(code, stage, options, env, macros)
     if (is.null(opts <- attr(code, "Rd_option"))) opts <- ""
     codesrcref <- attr(code, "srcref")
     Rdfile <- attr(codesrcref, "srcfile")$filename
+    ## Provide Rdfile for easy access to Sexpr code (instead of having
+    ## to look in the call stack for the call to processRdChunk() and
+    ## get Rdfile from the correspnding frame.
+    ## We may want to provide Rdfile and other information for the whole
+    ## prepare_Rd() processing, but that recalls itself so dropping the
+    ## information on exit is not straightforward.
+    processRdChunk_data_store(list(Rdfile = Rdfile))
+    on.exit(processRdChunk_data_store(NULL))
     options <- utils:::SweaveParseOptions(opts, options, RweaveRdOptions)
     if (stage == options$stage) {
         #  The code below is very similar to RWeaveLatexRuncode, but simplified
@@ -213,14 +222,15 @@ processRdChunk <- function(code, stage, options, env, macros)
         res <- character(0)
 
         tags <- RdTags(code)
-        if (length(bad <- setdiff(tags, c("RCODE", "COMMENT"))))
+        if (length(bad <- setdiff(tags, c("RCODE", "TEXT", "COMMENT"))))
             ## also USERMACROs are currently not supported inside \Sexpr{}
             warnRd(code, Rdfile, "\\Sexpr expects R code; found ",
                    paste0(sQuote(bad), collapse = ", "))
 	code <- structure(code[tags != "COMMENT"],
 	                  srcref = codesrcref) # retain for error locations
 	chunkexps <- tryCatch(
-	    parse(text = as.character(code), keep.source = options$keep.source),
+	    parse(text = sub("\n$", "", as.character(code)),
+	          keep.source = options$keep.source),
 	    error = function (e) stopRd(code, Rdfile, conditionMessage(e))
 	)
 
@@ -360,6 +370,16 @@ processRdChunk <- function(code, stage, options, env, macros)
     replaceRdSrcrefs(res, codesrcref)
 }
 
+processRdChunk_data_store <- local({
+    .store <- NULL
+    function(new) {
+        if(!missing(new))
+            .store <<- new
+        else
+            .store
+    }
+})
+
 processRdIfdefs <- function(blocks, defines)
 {
     recurse <- function(block) {
@@ -379,6 +399,7 @@ processRdIfdefs <- function(blocks, defines)
                         tagged(list(
                             tagged(paste(tag, target, "not active"),
                                    "COMMENT", attr(block, "srcref")),
+                            ## converters expect (and drop) newline from COMMENT
                             tagged("\n",
                                    "TEXT", attr(block, "srcref"))
                         ), "#expanded")
@@ -467,6 +488,10 @@ prepare_Rd <-
     srcref <- attr(Rd, "srcref")
     if (is.null(Rdfile) && !is.null(srcref))
     	Rdfile <- attr(srcref, "srcfile")$filename
+    ## prepare_Rd_data_store(list(Rdfile = Rdfile))
+    ## prepare_Rd_data_store(Rdfile)
+    ## saveRDS(prepare_Rd_data_store(), file = "~/tmp/yyy2.rds")
+    ## on.exit(prepare_Rd_data_store(NULL))
     if (fragment) meta <- NULL
     else {
 	pratt <- attr(Rd, "prepared")
@@ -537,7 +562,8 @@ prepare2_Rd <- function(Rd, Rdfile, stages)
     if (length(enc)) {
     	encoding <- Rd[[enc[1L]]]
     	if (!identical(RdTags(encoding), "TEXT"))
-    	    stopRd(encoding, Rdfile, "'encoding' must be plain text")
+            stopRd(encoding, Rdfile,
+                   "\\encoding must be plain text on a line by itself")
     }
 
     dt <- which(sections == "\\docType")
@@ -651,7 +677,8 @@ sectionTitles <-
       "\\arguments"="Arguments", "\\format"="Format", "\\details"="Details",
       "\\note"="Note", "\\section"="section", "\\author"="Author(s)",
       "\\references"="References", "\\source"="Source",
-      "\\seealso"="See Also", "\\examples"="Examples", "\\value"="Value")
+      "\\seealso"="See Also", "\\examples"="Examples", "\\value"="Value",
+      "\\title"="Title", "\\name"="Name")
 
 psub <- function(pattern, replacement, x)
     gsub(pattern, replacement, x, perl = TRUE)
@@ -1123,8 +1150,8 @@ checkRd <- function(Rd, defines = .Platform$OS.type, stages = "render",
     if (any(sections == "\\encoding")) def_enc <- TRUE
     inEnc2 <- FALSE
     for (i in seq_along(sections)) {
-        sectiontag <- sections[i]
-        checkSection(Rd[[i]], sections[i])
+        sectiontag <- sections[i] # also used in checkLIST()
+        checkSection(Rd[[i]], sectiontag)
     }
 
     structure(.messages, class = "checkRd")

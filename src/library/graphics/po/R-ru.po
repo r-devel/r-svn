@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-25 14:40+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -233,10 +233,6 @@ msgstr "'breaks' не возрастают строго"
 
 msgid "'probability' is an alias for '!freq', however they differ."
 msgstr "'probability' является псевдонимом для '!freq', однако они отличаются."
-
-#, fuzzy
-msgid "fuzz must be non-negative"
-msgstr "целочисленные цвета должны быть неотрицательными"
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
 msgstr "некоторые 'x' не подсчитаны; возможно, 'breaks' не занимают всего размаха 'x'"
@@ -502,6 +498,10 @@ msgid_plural "arguments %s are not made use of"
 msgstr[0] "аргумент %s не для использования"
 msgstr[1] "аргументы %s не для использования"
 msgstr[2] "аргументы %s не для использования"
+
+#, fuzzy
+#~ msgid "fuzz must be non-negative"
+#~ msgstr "целочисленные цвета должны быть неотрицательными"
 
 #~ msgid "negative 'counts'. Internal Error in C-code for \"bincount\""
 #~ msgstr "негативные 'counts'. Внутренняя ошибка C-кода для \"bincount\""

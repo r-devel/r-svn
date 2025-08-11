@@ -9,7 +9,7 @@ concurrency:
 jobs:
   linux:
     name: Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04${{matrix.ARCH == 'arm' && '-arm' || ''}}
     container:
       image: ${{matrix.OS}}
     env:
@@ -21,6 +21,7 @@ jobs:
       matrix:
         CC: [ gcc, clang ]
         OS: [ 'debian:stable', 'debian:testing' ]
+        ARCH: [ 'intel', 'arm']
     steps:
     - name: System dependencies
       run: |
@@ -72,13 +73,14 @@ jobs:
     - name: Download CRAN system libraries
       run: |
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
-        curl --retry 3 -fsSL https://github.com/r-universe-org/cranlibs/releases/download/2023-12-18/cranlibs-everything.tar.xz -o libs.tar.xz
+        curl --retry 3 -fsSL https://github.com/r-universe-org/cranlibs/releases/download/2025-01-05/cranlibs-everything.tar.xz -o libs.tar.xz
         sudo tar -xf libs.tar.xz -C / opt
         rm -f libs.tar.xz
 
     - name: Remove homebrew
       run: |
         echo "/opt/R/${ARCH}/bin" >> $GITHUB_PATH
+        echo "LDFLAGS=-L/opt/R/${ARCH}/lib" >> $GITHUB_ENV
         echo "CPPFLAGS=-I/opt/R/${ARCH}/include" >> $GITHUB_ENV
         echo "PKG_CONFIG_PATH=/opt/R/${ARCH}/lib/pkgconfig:/opt/R/${ARCH}/share/pkgconfig" >> $GITHUB_ENV
         echo "/Library/TeX/texbin" >> $GITHUB_PATH
@@ -124,7 +126,7 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: R-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}
+        name: MacOS-R-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}
         path: /opt/R/r-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}.tar.xz
 
     - name: Check
@@ -138,7 +140,7 @@ jobs:
 
   windows:
     name: Windows
-    runs-on: windows-latest
+    runs-on: ${{matrix.arch == 'arm' && 'windows-11-arm' || 'windows-latest'}}
     timeout-minutes: 120
     env:
       R_CRAN_WEB: "https://cran.rstudio.com"
@@ -150,8 +152,8 @@ jobs:
       fail-fast: false
       matrix:
         script: [ 'check', 'installer' ]
+        arch: [ 'intel', 'arm']
     steps:
-
     - name: Prepare git
       run: git config --global core.autocrlf false
       shell: bash
@@ -166,12 +168,11 @@ jobs:
         msystem: MSYS
         install: git make perl curl texinfo texinfo-tex rsync zip unzip diffutils
 
-    - name: "Download rtools44 toolchain"
+    - name: "Download rtools45 toolchain"
       run: |
-        url="https://github.com/r-windows/rtools-chocolatey/releases/download/6104/rtools44-toolchain-libs-base-6104.tar.zst"
-        curl -sSL $url | tar x --zstd -C /c/ || true
-        #echo "RTOOLS44_HOME=c:" >> $GITHUB_ENV
-        #echo "R_CUSTOM_TOOLS_SOFT=c:/x86_64-w64-mingw32.static.posix" >> $GITHUB_ENV
+        archfix=${{ matrix.arch == 'arm' && '-aarch64' || '' }}
+        url="https://github.com/r-windows/rtools-chocolatey/releases/download/6536/rtools45-toolchain-libs-base${archfix}-6536.tar.zst"
+        curl -sSL $url | tar x --zstd -C /c/
 
     - name: Set timezone
       shell: powershell
@@ -202,8 +203,8 @@ jobs:
       if: matrix.script == 'installer'
       shell: powershell
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
-        name: installer
+        name: Windows-R-devel-${{matrix.arch}}
         path: src/gnuwin32/installer/R-devel-win.exe
       if: matrix.script == 'installer'

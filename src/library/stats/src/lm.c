@@ -1,6 +1,6 @@
 /*  R : A Computer Language for Statistical Data Analysis
  *
- *  Copyright (C) 2012-2023  The R Core Team
+ *  Copyright (C) 2012-2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,13 +22,7 @@
 #include <R_ext/Applic.h>
 
 #include "statsR.h"
-
-#ifdef ENABLE_NLS
-#include <libintl.h>
-#define _(String) dgettext ("stats", String)
-#else
-#define _(String) (String)
-#endif
+#include "statsErr.h"
 
 /* A wrapper to replace
 
@@ -51,7 +45,7 @@ SEXP Cdqrls(SEXP x, SEXP y, SEXP tol, SEXP chk)
     SEXP qr, coefficients, residuals, effects, pivot, qraux;
     int n, ny = 0, p, rank, nprotect = 4, pivoted = 0;
     double rtol = asReal(tol), *work;
-    Rboolean check = asLogical(chk);
+    bool check = asBool(chk);
 
     ans = getAttrib(x, R_DimSymbol);
     if(check && length(ans) != 2) error(_("'x' is not a matrix"));

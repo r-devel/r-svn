@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2024	The R Core Team.
+ *  Copyright (C) 1998--2025	The R Core Team.
  *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1425,7 +1425,7 @@ static void loadCompilerNamespace(void)
 
 static void checkCompilerOptions(int jitEnabled)
 {
-    int old_visible = R_Visible;
+    Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, call, fcall, arg;
 
     packsym = install("compiler");
@@ -1825,7 +1825,7 @@ static R_INLINE Rboolean jit_srcref_match(SEXP cmpsrcref, SEXP srcref)
 
 attribute_hidden SEXP R_cmpfun1(SEXP fun)
 {
-    int old_visible = R_Visible;
+    Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, call, fcall, val;
 
     packsym = install("compiler");
@@ -1911,7 +1911,7 @@ static void R_cmpfun(SEXP fun)
 
 static SEXP R_compileExpr(SEXP expr, SEXP rho)
 {
-    int old_visible = R_Visible;
+    Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, quotesym;
     SEXP qexpr, call, fcall, val;
 
@@ -2637,19 +2637,15 @@ static SEXP replaceCall(SEXP fun, SEXP val, SEXP args, SEXP rhs)
 }
 
 
-/* rho is only needed for _R_CHECK_LENGTH_1_CONDITION_=package:name and for
-     detecting the current package in related diagnostic messages; it should
-     be removed when length >1 condition is turned into an error
-*/
-static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
+static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call)
 {
-    Rboolean cond = NA_LOGICAL;
+    int cond = NA_LOGICAL; // cannot be Rboolean
 
     /* handle most common special case directly */
     if (IS_SCALAR(s, LGLSXP)) {
 	cond = SCALAR_LVAL(s);
 	if (cond != NA_LOGICAL)
-	    return cond;
+	    return (Rboolean) cond;
     }
     else if (IS_SCALAR(s, INTSXP)) {
 	int val = SCALAR_IVAL(s);
@@ -2681,7 +2677,7 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
 	    _("argument is of length zero");
 	errorcall(call, "%s", msg);
     }
-    return cond;
+    return (Rboolean) cond;
 }
 
 
@@ -2706,7 +2702,7 @@ attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
     int vis=0;
 
     PROTECT(Cond = eval(CAR(args), rho));
-    if (asLogicalNoNA(Cond, call, rho))
+    if (asLogicalNoNA(Cond, call))
 	Stmt = CADR(args);
     else {
 	if (length(args) > 2)
@@ -2955,7 +2951,7 @@ attribute_hidden SEXP do_while(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (SETJMP(cntxt.cjmpbuf) != CTXT_BREAK) {
 	for(;;) {
 	    SEXP cond = PROTECT(eval(CAR(args), rho));
-	    int condl = asLogicalNoNA(cond, call, rho);
+	    int condl = asLogicalNoNA(cond, call);
 	    UNPROTECT(1);
 	    if (!condl) break;
 	    if (RDEBUG(rho) && !bgn && !R_GlobalContext->browserfinish) {
@@ -3008,7 +3004,7 @@ attribute_hidden SEXP do_repeat(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-attribute_hidden NORET SEXP do_break(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_break(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     findcontext(PRIMVAL(op), rho, R_NilValue);
@@ -3046,7 +3042,7 @@ attribute_hidden SEXP do_begin(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-attribute_hidden NORET SEXP do_return(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_return(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP v;
 
@@ -3152,7 +3148,7 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    fun = eval(fun, env);
 
 	/* allocating a vector result could be avoided by passing expr,
-	   env, and fun in some in globals or on the byte code stack */
+	   env, and fun in some globals or on the byte code stack */
 	PROTECT(fun);
 	SEXP val = allocVector(VECSXP, 4);
 	UNPROTECT(1); /* fun */
@@ -4374,7 +4370,7 @@ static Rboolean R_chooseOpsMethod(SEXP x, SEXP y, SEXP mx, SEXP my,
 #endif
     UNPROTECT(1); /* newrho */
 
-    return ans == R_NilValue ? FALSE : asLogical(ans);
+    return ans == R_NilValue ? FALSE : asRbool(ans, call);
 }
 
 attribute_hidden
@@ -5867,12 +5863,15 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	    return PRVALUE(value);
 	else {
 	    /**** R_isMissing is inefficient */
-	    if (keepmiss && R_isMissing(symbol, rho))
-		return R_MissingArg;
-	    else {
-		forcePromise(value);
-		return PRVALUE(value);
+	    if (keepmiss) {
+		PROTECT(value);
+		Rboolean miss = R_isMissing(symbol, rho);
+		UNPROTECT(1);
+		if (miss)
+		    return R_MissingArg;
 	    }
+	    forcePromise(value);
+	    return PRVALUE(value);
 	}
     }
     else {
@@ -6943,23 +6942,23 @@ static R_INLINE Rboolean GETSTACK_LOGICAL_NO_NA_PTR(R_bcstack_t *s, int callidx,
 						    SEXP rho)
 {
     if (s->tag == LGLSXP && s->u.ival != NA_LOGICAL)
-	return s->u.ival;
+	return (Rboolean) s->u.ival;
 
     SEXP value = GETSTACK_PTR(s);
     if (IS_SCALAR(value, LGLSXP)) {
-	Rboolean lval = SCALAR_LVAL(value);
+	int lval = SCALAR_LVAL(value);
 	if (lval != NA_LOGICAL)
-	    return lval;
+	    return (Rboolean) lval;
     }
     SEXP call = GETCONST(constants, callidx);
     PROTECT(value);
-    Rboolean ans = asLogicalNoNA(value, call, rho);
+    Rboolean ans = asLogicalNoNA(value, call);
     UNPROTECT(1);
     return ans;
 }
 
 #define GETSTACK_LOGICAL(n) GETSTACK_LOGICAL_PTR(R_BCNodeStackTop + (n))
-static R_INLINE Rboolean GETSTACK_LOGICAL_PTR(R_bcstack_t *s)
+static R_INLINE int GETSTACK_LOGICAL_PTR(R_bcstack_t *s)
 {
     if (s->tag == LGLSXP) return s->u.ival;
     SEXP value = GETSTACK_PTR(s);
@@ -7018,7 +7017,7 @@ static SEXP R_findBCInterpreterLocation(RCNTXT *cptr, const char *iname)
 	/* location table not available */
 	return R_NilValue;
 
-    /* use relpc stored in the contect if available */
+    /* use relpc stored in the context if available */
     if (cptr && cptr->relpc > 0)
 	return getLocTableElt(cptr->relpc, ltable, constants);
 
@@ -7188,7 +7187,7 @@ static SEXP markSpecialArgs(SEXP args)
     return args;
 }
 
-Rboolean attribute_hidden R_BCVersionOK(SEXP s)
+attribute_hidden Rboolean R_BCVersionOK(SEXP s)
 {
     if (TYPEOF(s) != BCODESXP)
 	return FALSE;
@@ -7501,11 +7500,11 @@ static R_INLINE void finish_force_promise(void)
     POP_PENDING_PROMISE(BCFRAME_PRSTACK());
     SEXP prom = BCFRAME_PROMISE();
     R_bcstack_t ubval = POP_BCFRAME(FALSE);
+    BCNPUSH_STACKVAL(ubval); /* push early to protect */
     SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval);
     SET_PRSEEN(prom, 0);
     SET_PRENV(prom, R_NilValue);
     UNPROTECT(1); /* prom */
-    BCNPUSH_STACKVAL(ubval);
 }
 
 #define DO_GETVAR_FORCE_PROMISE_RETURN() do {			\
@@ -7602,7 +7601,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(PRINTVALUE, 0): PrintValue(BCNPOP()); NEXT();
     OP(STARTLOOPCNTXT, 2):
 	{
-	    Rboolean is_for_loop = GETOP();
+	    int is_for_loop = GETOP();
 	    R_bcstack_t *oldtop = R_BCNodeStackTop;
 	    RCNTXT *cntxt = BCNALLOC_CNTXT();
 	    int break_offset = GETOP();
@@ -7649,7 +7648,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	}
     OP(ENDLOOPCNTXT, 1):
 	{
-	    Rboolean is_for_loop = GETOP();
+	    int is_for_loop = GETOP();
 	    if (is_for_loop) {
 		int offset = GET_FOR_LOOP_BCPROT_OFFSET();
 		DECLNK_stack(R_BCNodeStackBase + offset);
@@ -8403,7 +8402,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	int callidx = GETOP();
 	int label = GETOP();
 	FIXUP_SCALAR_LOGICAL(rho, callidx, "'x'", "&&", warn_lev);
-	Rboolean val = GETSTACK_LOGICAL(-1);
+	int val = GETSTACK_LOGICAL(-1);
 	if (val == FALSE)
 	    pc = codebase + label;
 	R_Visible = TRUE;
@@ -8412,7 +8411,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(AND2ND, 1): {
 	int callidx = GETOP();
 	FIXUP_SCALAR_LOGICAL(rho, callidx, "'y'", "&&", warn_lev);
-	Rboolean val = GETSTACK_LOGICAL(-1);
+	int val = GETSTACK_LOGICAL(-1);
 	/* The first argument is TRUE or NA. If the second argument is
 	   not TRUE then its value is the result. If the second
 	   argument is TRUE, then the first argument's value is the
@@ -8427,7 +8426,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	int callidx = GETOP();
 	int label = GETOP();
 	FIXUP_SCALAR_LOGICAL(rho, callidx, "'x'", "||", warn_lev);
-	Rboolean val = GETSTACK_LOGICAL(-1);
+	int val = GETSTACK_LOGICAL(-1);
 	if (val != NA_LOGICAL &&
 	    val != FALSE) /* is true */
 	    pc = codebase + label;
@@ -8437,7 +8436,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(OR2ND, 1):  {
 	int callidx = GETOP();
 	FIXUP_SCALAR_LOGICAL(rho, callidx, "'y'", "||", warn_lev);
-	Rboolean val = GETSTACK_LOGICAL(-1);
+	int val = GETSTACK_LOGICAL(-1);
 	/* The first argument is FALSE or NA. If the second argument is
 	   not FALSE then its value is the result. If the second
 	   argument is FALSE, then the first argument's value is the
@@ -9027,7 +9026,7 @@ static void const_cleanup(void *data)
 
 /* Checks if constants of any registered BCODESXP have been modified.
    Returns TRUE if the constants are ok, otherwise returns false or aborts.*/
-Rboolean attribute_hidden R_checkConstants(Rboolean abortOnError)
+attribute_hidden Rboolean R_checkConstants(Rboolean abortOnError)
 {
     if (R_check_constants <= 0 || R_ConstantsRegistry == NULL)
 	return TRUE;
@@ -9378,18 +9377,18 @@ SEXP do_bcprofstop(SEXP call, SEXP op, SEXP args, SEXP env)
     return R_NilValue;
 }
 #else
-attribute_hidden
-NORET SEXP do_bcprofcounts(SEXP call, SEXP op, SEXP args, SEXP env) {
+NORET attribute_hidden
+SEXP do_bcprofcounts(SEXP call, SEXP op, SEXP args, SEXP env) {
     checkArity(op, args);
     error(_("byte code profiling is not supported in this build"));
 }
-attribute_hidden
-NORET SEXP do_bcprofstart(SEXP call, SEXP op, SEXP args, SEXP env) {
+NORET attribute_hidden
+SEXP do_bcprofstart(SEXP call, SEXP op, SEXP args, SEXP env) {
     checkArity(op, args);
     error(_("byte code profiling is not supported in this build"));
 }
-attribute_hidden
-NORET SEXP do_bcprofstop(SEXP call, SEXP op, SEXP args, SEXP env) {
+NORET attribute_hidden
+SEXP do_bcprofstop(SEXP call, SEXP op, SEXP args, SEXP env) {
     checkArity(op, args);
     error(_("byte code profiling is not supported in this build"));
 }

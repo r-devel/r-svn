@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2020   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -177,7 +177,7 @@ static void R_restore_globals(RCNTXT *cptr)
     R_BCFrame = cptr->bcframe;
     R_EvalDepth = cptr->evaldepth;
     vmaxset(cptr->vmax);
-    R_interrupts_suspended = cptr->intsusp;
+    R_interrupts_suspended = (Rboolean) cptr->intsusp;
     R_HandlerStack = cptr->handlerstack;
     R_RestartStack = cptr->restartstack;
     while (R_PendingPromises != cptr->prstack) {
@@ -212,7 +212,7 @@ static RCNTXT *first_jump_target(RCNTXT *cptr, int mask)
 
 /* R_jumpctxt - jump to the named context */
 
-attribute_hidden void NORET R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
+NORET attribute_hidden void R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 {
     Rboolean savevis = R_Visible;
     RCNTXT *cptr;
@@ -334,7 +334,7 @@ void endcontext(RCNTXT * cptr)
 
 /* findcontext - find the correct context */
 
-attribute_hidden void NORET findcontext(int mask, SEXP env, SEXP val)
+NORET attribute_hidden void findcontext(int mask, SEXP env, SEXP val)
 {
     RCNTXT *cptr;
     cptr = R_GlobalContext;
@@ -356,7 +356,7 @@ attribute_hidden void NORET findcontext(int mask, SEXP env, SEXP val)
     }
 }
 
-attribute_hidden void NORET R_JumpToContext(RCNTXT *target, int mask, SEXP val)
+NORET attribute_hidden void R_JumpToContext(RCNTXT *target, int mask, SEXP val)
 {
     RCNTXT *cptr;
     for (cptr = R_GlobalContext;
@@ -416,7 +416,7 @@ attribute_hidden SEXP R_sysframe(int n, RCNTXT *cptr)
 /* It would be much simpler if sysparent just returned cptr->sysparent */
 /* but then we wouldn't be compatible with S. */
 
-int attribute_hidden R_sysparent(int n, RCNTXT *cptr)
+attribute_hidden int R_sysparent(int n, RCNTXT *cptr)
 {
     int j;
     SEXP s;
@@ -449,7 +449,7 @@ int attribute_hidden R_sysparent(int n, RCNTXT *cptr)
     return n;
 }
 
-int attribute_hidden framedepth(RCNTXT *cptr)
+attribute_hidden int framedepth(RCNTXT *cptr)
 {
     int nframe = 0;
     while (cptr->nextcontext != NULL) {
@@ -891,7 +891,7 @@ R_tryEval(SEXP e, SEXP env, int *ErrorOccurred)
 SEXP R_tryEvalSilent(SEXP e, SEXP env, int *ErrorOccurred)
 {
     SEXP val;
-    Rboolean oldshow = R_ShowErrorMessages;
+    int oldshow = R_ShowErrorMessages;
     R_ShowErrorMessages = FALSE;
     val = R_tryEval(e, env, ErrorOccurred);
     R_ShowErrorMessages = oldshow;

@@ -1,6 +1,6 @@
 % File src/library/base/man/connections.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{connections}
@@ -15,6 +15,7 @@
 \alias{unz}
 \alias{bzfile}
 \alias{xzfile}
+\alias{zstdfile}
 \alias{url}
 \alias{socketConnection}
 \alias{socketAccept}
@@ -37,6 +38,7 @@
 \concept{\I{gzip}}
 \concept{\I{bzip2}}
 \concept{\I{lzma}}
+\concept{\I{zstd}}
 \description{
   Functions to create, open and close connections, i.e.,
   \dQuote{generalized files}, such as possibly compressed files, URLs,
@@ -60,6 +62,9 @@ bzfile(description, open = "", encoding = getOption("encoding"),
 
 xzfile(description, open = "", encoding = getOption("encoding"),
        compression = 6)
+
+zstdfile(description, open = "", encoding = getOption("encoding"),
+       compression = 9)
 
 unz(description, filename, open = "", encoding = getOption("encoding"))
 
@@ -116,10 +121,10 @@ socketTimeout(socket, timeout = -1)
     requests.  It is ignored for non-HTTP URLs.  The \code{User-Agent}
     header, coming from the \code{HTTPUserAgent} option (see
     \code{\link{options}}) is used as the first header, automatically.}
-  \item{compression}{integer in 0--9.  The amount of compression to be
-    applied when writing, from none to maximal available.  For
-    \code{xzfile} can also be negative: see the \sQuote{Compression}
-    section.}
+  \item{compression}{integer in 0--9 (1--19 for \code{zstdfile}).  The
+    amount of compression to be applied when writing, from minimal to
+    maximal available.  For \code{xzfile} and \code{zstdfile} can also
+    be negative: see the \sQuote{Compression} section.}
   \item{timeout}{numeric: the timeout (in seconds) to be used for this
     connection.  Beware that some OSes may treat very large values as
     zero: however the POSIX standard requires values up to 31 days to be
@@ -167,12 +172,13 @@ socketTimeout(socket, timeout = -1)
   \code{"libcurl"} for all others.  Which methods support which schemes
   has varied by \R version -- currently \code{"internal"} supports only
   \samp{file://}; \code{"wininet"} supports \samp{file://},
-  \samp{http://} and \samp{https://}.  Proxies can be specified: see
-  \code{\link{download.file}}.
+  \samp{http://} and \samp{https://}.  Proxies and user credentials can
+  be specified: see \code{\link{download.file}}.
 
   For \code{gzfile} the description is the path to a file compressed by
   \command{gzip}: it can also open for reading uncompressed files and
-  those compressed by \command{bzip2}, \command{xz} or \command{lzma}.
+  those compressed by \command{bzip2}, \command{xz}, \command{lzma} or
+  (if \R{} was built to support it) \command{zstd}.
 
   For \code{bzfile} the description is the path to a file compressed by
   \command{bzip2}.
@@ -180,6 +186,10 @@ socketTimeout(socket, timeout = -1)
   For \code{xzfile} the description is the path to a file compressed by
   \command{xz} (\url{https://en.wikipedia.org/wiki/Xz}) or (for reading
   only) \command{lzma} (\url{https://en.wikipedia.org/wiki/LZMA}).
+
+  For \code{zstdfile} the description is the path to a file compressed by
+  \command{zstd} (\url{https://en.wikipedia.org/wiki/Zstd}): support is
+  optional when \R is built.
 
   \code{unz} reads (only) single files within zip files, in binary mode.
   The description is the full path to the zip file, with \file{.zip}
@@ -285,8 +295,8 @@ socketTimeout(socket, timeout = -1)
 
 \value{
   \code{file}, \code{pipe}, \code{fifo}, \code{url}, \code{gzfile},
-  \code{bzfile}, \code{xzfile}, \code{unz}, \code{socketConnection},
-  \code{socketAccept} and \code{serverSocket}
+  \code{bzfile}, \code{xzfile}, \code{zstdfile}, \code{unz},
+  \code{socketConnection}, \code{socketAccept} and \code{serverSocket}
   return a connection object which inherits from class
   \code{"connection"} and has a first more specific class.
 
@@ -352,7 +362,7 @@ socketTimeout(socket, timeout = -1)
   deferred if \code{open = ""} is given (the default for all but socket
   connections).  An explicit call to \code{open} can specify the mode,
   but otherwise the mode will be \code{"r"}.  (\code{gzfile},
-  \code{bzfile} and \code{xzfile} connections are exceptions, as the
+  \code{bzfile}, \code{xzfile} and \code{zstdfile} connections are exceptions, as the
   compressed file always has to be opened in binary mode and no
   conversion of line-endings is done even on Windows, so the default
   mode is interpreted as \code{"rb"}.)  Most operations that need write
@@ -363,14 +373,14 @@ socketTimeout(socket, timeout = -1)
   connections.  They do \strong{not} produce a single compressed stream
   on the file, but rather append a new compressed stream to the file.
   Readers may or may not read beyond end of the first stream: currently
-  \R does so for \code{gzfile}, \code{bzfile} and \code{xzfile}
-  connections.
+  \R does so for \code{gzfile}, \code{bzfile}, \code{xzfile} and
+  \code{zstdfile} connections.
 }
 
 \section{Compression}{
-  \R supports \command{gzip}, \command{bzip2} and \command{xz}
-  compression (also read-only support for its precursor, \code{lzma}
-  compression).
+  \R supports \command{gzip}, \command{bzip2}, \command{zstd} and
+  \command{xz} compression (also read-only support for its precursor,
+  \code{lzma} compression).
 
   For reading, the type of compression (if any) can be determined from
   the first few bytes of the file.  Thus for \code{file(raw = FALSE)}
@@ -398,6 +408,10 @@ socketTimeout(socket, timeout = -1)
   good compression and modest (100Mb memory) usage: but if you are using
   \code{xz} compression you are probably looking for high compression.
 
+  For \code{zstd} negative numbers correspond to the \option{--fast=}
+  compression levels which are faster but yield slightly worse
+  compression.
+
   Choosing the type of compression involves tradeoffs: \command{gzip},
   \command{bzip2} and \command{xz} are successively less widely supported,
   need more resources for both compression and decompression, and
@@ -410,6 +424,12 @@ socketTimeout(socket, timeout = -1)
   current computers decompression times even with \code{compress = 9}
   are typically modest and reading compressed files is usually faster
   than uncompressed ones because of the reduction in disc activity.
+
+  The \command{zstd} compression support is currently optional and
+  will be only included if the underlying library is present at build
+  time. All related functions will return an error if the support is
+  not present. It typically offers slightly worse compression than
+  \code{xz}, but is orders of magnitude faster to compress.
 }
 
 \section{Encoding}{
@@ -611,8 +631,8 @@ socketTimeout(socket, timeout = -1)
 
   Windows has a default limit of 512 open C file streams: these are used
   by at least \code{file}, \code{gzfile}, \code{bzfile}, \code{xzfile},
-  \code{pipe}, \code{url} and \code{unz} connections applied to files
-  (rather than URLs).
+  \code{zstdfile}, \code{pipe}, \code{url} and \code{unz} connections
+  applied to files (rather than URLs).
   %% fifos on Windows use the Windows API for named pipes.
 
   Package \pkg{parallel}'s \code{\link{makeCluster}} uses socket
@@ -629,9 +649,9 @@ socketTimeout(socket, timeout = -1)
 
   On (historic) platforms where \code{vsnprintf} does not return the needed
   length of output there is a 100,000 byte output limit on the length of
-  a line for text output on \code{fifo}, \code{gzfile}, \code{bzfile} and
-  \code{xzfile} connections: longer lines will be truncated with a
-  warning.
+  a line for text output on \code{fifo}, \code{gzfile}, \code{bzfile},
+  \code{xzfile} and \code{zstdfile} connections: longer lines will be
+  truncated with a warning.
 }
 \references{
   Chambers, J. M. (1998)
@@ -661,8 +681,9 @@ socketTimeout(socket, timeout = -1)
   \code{\link{gzcon}} to wrap \command{gzip} (de)compression around a
   connection.
 
-  \code{\link{options}} \code{HTTPUserAgent}, \code{internet.info} and
-  \code{timeout} are used by some of the methods for URL connections.
+  \code{\link{options}} \code{HTTPUserAgent}, \code{internet.info},
+  \code{netrc} and \code{timeout} are used by some of the methods for URL
+  connections.
 
   \code{\link{memCompress}} for more ways to (de)compress and references
   on data compression.

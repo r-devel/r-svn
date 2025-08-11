@@ -59,7 +59,7 @@ MkRules: MkRules.rules
 	@cat MkRules.rules > MkRules
 endif
 
-CFLAGS = -O3 -Wall -pedantic $(EOPTS) $(LTO)
+CFLAGS = -O3 -Wall -pedantic $(CSTD) $(EOPTS) $(SANOPTS) $(LTO)
 FFLAGS = -O3 $(EOPTS) $(LTO)
 
 ifdef DEBUG
@@ -73,7 +73,7 @@ endif
 
 
 R-DLLFLAGS = -mwindows
-LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma
+LIBEXTRAS = -L"$(EXT_LIBS)"/lib$(R_ARCH) -lpcre2-8 -lz -lbz2 -llzma -lzstd
 ifdef USE_ICU
 LIBEXTRAS += -L"$(ICU_PATH)"/lib$(R_ARCH) $(ICU_LIBS)
 endif
@@ -104,7 +104,7 @@ Rpwd.exe: front-ends/Rpwd.exe
 	$(CP) $< $@
 
 front-ends/Rpwd.exe:
-	$(MK) -C front-ends Rpwd
+	$(MK) -C front-ends CSTD='$(CSTD)' Rpwd
 
 ## watch out: R.dll and Rblas.dll depend on each other.
 rbuild:
@@ -204,7 +204,7 @@ libRiconv.dll.a: unicode/iconv.def
 
 
 front-ends:
-	$(MK) -C front-ends
+	$(MK) -C front-ends CSTD='$(CSTD)'
 
 ../extra/tre/libtre.a:
 	$(MK) -C ../extra/tre -f Makefile.win
@@ -338,9 +338,7 @@ pdfdocs manuals:
 	@$(MK) -C ../../doc/manual -f Makefile.win clean
 	@$(MK) -C ../../doc/manual -f Makefile.win
 
-R_EXE = ../../$(BINDIR)/Rterm.exe --vanilla --no-echo
-
-## must come after recommended
+## currently only run for 'distribution', not 'all' (unlike on Unix-alikes)
 vignettes:
 	@$(MK) -C ../library -f Makefile.win vignettes
 

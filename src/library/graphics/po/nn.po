@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: nn\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33-0700\n"
+"POT-Creation-Date: 2024-10-25 14:49-0700\n"
 "PO-Revision-Date: 2011-02-18 09:09+0100\n"
 "Last-Translator: Karl Ove Hufthammer <karl@huftis.org>\n"
 "Language-Team: Norwegian Nynorsk <i18n-nn@lister.ping.uio.no>\n"
@@ -369,8 +369,8 @@ msgstr "«a» og «b» må vera endelege"
 
 #: plot.c:3009 plot.c:4147 plot.c:4151 plot.c:4154 plot.c:4174 plot.c:4178
 #: plot.c:4181 plot3d.c:1085 plot3d.c:1089 plot3d.c:1094 plot3d.c:1098
-#: plot3d.c:1102 plot3d.c:1106 stem.c:153 stem.c:154 stem.c:156 stem.c:157
-#: stem.c:203 stem.c:204
+#: plot3d.c:1102 plot3d.c:1106 stem.c:164 stem.c:165 stem.c:167 stem.c:168
+#: stem.c:215 stem.c:216
 #, c-format
 msgid "invalid '%s' argument"
 msgstr "ugyldig «%s»-argument"
@@ -587,7 +587,7 @@ msgstr "alle z-verdiane er like"
 msgid "all z values are NA"
 msgstr "alle z-verdiane er NA-verdiar"
 
-#: stem.c:150
+#: stem.c:161
 #, c-format
 msgid "long vector '%s' is not supported"
 msgstr ""

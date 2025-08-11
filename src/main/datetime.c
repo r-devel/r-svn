@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2024  The R Core Team.
+ *  Copyright (C) 2000-2025  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@
   name is known or is "UTC', of length 3 including the abbreviations
   for all other timezones. (If the timezone does not use DST, the
   second abbreviation may be empty or may repeat the first, depending
-  on the platform., but it woll always be present.)  However, if the
+  on the platform., but it will always be present.)  However, if the
   call to strptime() does not specify 'tz', this attribute is omitted.
 
   Names for the date-times are optional (and rarely supplied):
@@ -113,8 +113,8 @@ There are two implementation paths here.
    Use the system time_t, struct tm and time-zone tables.
 
    This can be use on glibc, macOS and Solaris (and probably FreeBSD),
-   but all except 64-bit glibc have isues we can try to work around.
-   It could in principlw be used om Windows but the issues there are
+   but all except 64-bit glibc have issues we can try to work around.
+   It could in principle be used om Windows but the issues there are
    too severe (no support for before 1970) to work around.
 
    The system facilities are used for 1902-2037 and outside those
@@ -126,7 +126,7 @@ There are two implementation paths here.
    Other known issues are with strftime (macOS only supports offsets
    in multiple of half-hours), not having tzdata tables (possible on
    Alpine and now fatal when configuring) and odd issues reading the
-   time-zone tables, expecially fror 1939-1945.
+   time-zone tables, especially for 1939-1945.
 
 2) USE_INTERNAL_MKTIME : Use substitutes from src/extra/tzone for
    mktime, gmtime_r, localtime_r, strftime with a R_ prefix.  The
@@ -178,7 +178,7 @@ extern char *tzname[2];
 
 #ifndef USE_INTERNAL_MKTIME
 /* PATH 1 */
-static Rboolean warn1902 = FALSE;
+static bool warn1902 = false;
 #endif
 
 /* Substitute based on glibc code. */
@@ -198,7 +198,7 @@ static const int month_days[12] =
   Return 0 if valid, -1 if invalid and uncorrectable, or a positive
   integer approximating the number of corrections done.
 
-  Used in both paths in mktime0, in localtimee0 in PATH 1) and in
+  Used in both paths in mktime0, in localtime0 in PATH 1) and in
   do_formatPOSIXlt, do_strptime, do_POSIXlt2D, do_balancePOSIXlt.
 */
 static int validate_tm (stm *tm)
@@ -304,7 +304,7 @@ static int likely_strftime_overflow (stm *tm)
    We could avoid loops altogether by computing how many leap years
    there are between 1900 + tm->tm_year and 1900.
 
-   This will fix up tm_yday and tm_wday.
+   This will fix up tm->tm_yday and tm->tm_wday.
 
    Used in timegm00 (possibly) and guess_offset in PATH 1),
    POSIXlt2D and do_balancePOSIXlt
@@ -511,7 +511,7 @@ static double guess_offset (stm *tm)
 static double mktime0 (stm *tm, const int local)
 {
     double res;
-    Rboolean OK;
+    bool OK;
 
     if(validate_tm(tm) < 0) {
 #ifdef EOVERFLOW
@@ -533,7 +533,7 @@ static double mktime0 (stm *tm, const int local)
    glibc from 2.2.5 until late 2004 also gave -1 for such dates.
 */
     if(sizeof(time_t) == 8) {
-	OK = TRUE;
+	OK = true;
 #ifndef HAVE_WORKING_MKTIME_AFTER_2037
 	OK = OK && tm->tm_year < 138;
 #endif
@@ -542,7 +542,7 @@ static double mktime0 (stm *tm, const int local)
 	if (tm->tm_year < 02) {
 	    if(!warn1902)
 		warning(_("datetimes before 1902 may not be accurate: warns once per session"));
-	    warn1902 = TRUE;
+	    warn1902 = true;
 	}
 #endif
 #ifndef HAVE_WORKING_MKTIME_BEFORE_1970
@@ -553,7 +553,7 @@ static double mktime0 (stm *tm, const int local)
 	if (tm->tm_year < 02) {
 	    if(!warn1902)
 		warning(_("datetimes before 1902 may not be accurate: warns once per session"));
-	    warn1902 = TRUE;
+	    warn1902 = true;
 	}
 #ifndef HAVE_WORKING_MKTIME_BEFORE_1970
 	OK = OK && tm->tm_year >= 70;
@@ -586,10 +586,10 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 {
     double d = *tp;
 
-    Rboolean OK = TRUE;;
+    bool OK = true;;
 /* as mktime is broken, do not trust localtime */
     if (sizeof(time_t) == 8) {
-	OK = TRUE;
+	OK = true;
 #ifndef HAVE_WORKING_MKTIME_AFTER_2037
 	OK = OK && d < 2147483647.0;
 #endif
@@ -597,8 +597,8 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 	if (d <= -2147483647.0) {
 	    if(!warn1902)
 		warning(_("datetimes before 1902 may not be accurate: warns once per session"));
-	    warn1902 = TRUE;
-	    OK = FALSE;
+	    warn1902 = true;
+	    OK = false;
 	}
 	OK = OK && d > -2147483647.0;
 #endif
@@ -609,8 +609,8 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 	if (d <= -2147483647.0) {
 	    if(!warn1902)
 		warning(_("datetimes before 1902 may not be accurate: warns once per session"));
-	    warn1902 = TRUE;
-	    OK = FALSE;
+	    warn1902 = true;
+	    OK = false;
 	}
 	OK = OK && d < 2147483647.0;
 #ifndef HAVE_WORKING_MKTIME_BEFORE_1970
@@ -634,7 +634,7 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 
     double dday = floor(d/86400.0);
 //    static stm ltm0, *res = &ltm0;
-    stm *res = ltm; // be like localtine_r
+    stm *res = ltm; // be like localtime_r
     // This cannot exceed (2^31-1) years in either direction from 1970
     if (fabs(dday) > 784368402400) { //bail out
 	res->tm_year = NA_INTEGER;
@@ -758,10 +758,10 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
 
 typedef struct tzset_info {
     char oldtz[1001];	/* previous value of TZ variable */
-    Rboolean hadtz;	/* TZ variable existed previously */
-    Rboolean settz;	/* TZ variable was set by us */
+    bool hadtz;	/* TZ variable existed previously */
+    bool settz;	/* TZ variable was set by us */
     RCNTXT cntxt;
-    Rboolean end_context_on_reset;
+    bool end_context_on_reset;
 			/* should endcontext() be called from reset_tz()? */
 } tzset_info;
 
@@ -770,46 +770,46 @@ static void reset_tz(tzset_info *si);
 static void cend_reset_tz(void *data)
 {
     tzset_info *si = (tzset_info *)data;
-    si->end_context_on_reset = FALSE;
+    si->end_context_on_reset = false;
     reset_tz(si);
 }
 
 static void prepare_reset_tz(tzset_info *si)
 {
-    si->settz = FALSE;
+    si->settz = false;
     /* set up a context which will reset tz if there is an error */
     begincontext(&si->cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
                  R_NilValue, R_NilValue);
     si->cntxt.cend = &cend_reset_tz;
     si->cntxt.cenddata = si;
-    si->end_context_on_reset = TRUE;
+    si->end_context_on_reset = true;
 }
 
 static void prepare_dummy_reset_tz(tzset_info *si)
 {
-    si->settz = FALSE;
-    si->end_context_on_reset = FALSE;
+    si->settz = false;
+    si->end_context_on_reset = false;
 }
-    
-static Rboolean set_tz(const char *tz, tzset_info *si)
+
+static bool set_tz(const char *tz, tzset_info *si)
 {
-    si->settz = FALSE;
+    si->settz = false;
 
     char *p = getenv("TZ");
     if(p) {
 	if (strlen(p) > 1000)
 	    error("time zone specification is too long");
 	strcpy(si->oldtz, p);
-	si->hadtz = TRUE;
+	si->hadtz = true;
     } else
-	si->hadtz = FALSE;
+	si->hadtz = false;
 #ifdef HAVE_SETENV
     if(setenv("TZ", tz, 1)) warning(_("problem with setting timezone"));
-    else si->settz = TRUE;
+    else si->settz = true;
 #elif defined(HAVE_PUTENV)
     {
 	/* This could be dynamic, but setenv is strongly preferred
-	   (but not availanble on Windows)
+	   (but not available on Windows)
 	   "A program should not alter or free the string"
 	*/
 	static char buff[1010];
@@ -817,7 +817,7 @@ static Rboolean set_tz(const char *tz, tzset_info *si)
 	    error("time zone specification is too long");
 	strcpy(buff, "TZ="); strcat(buff, tz);
 	if(putenv(buff)) warning(_("problem with setting timezone"));
-	else si->settz = TRUE;
+	else si->settz = true;
     }
 #else
     warning(_("cannot set timezones on this system"));
@@ -830,12 +830,12 @@ static void reset_tz(tzset_info *si)
 {
     if (si->end_context_on_reset) {
 	endcontext(&si->cntxt);
-	si->end_context_on_reset = FALSE; /* guard against double reset */
+	si->end_context_on_reset = false; /* guard against double reset */
     }
     if (!si->settz)
 	return;
 
-    si->settz = FALSE; /* better avoid recursive attempts */
+    si->settz = false; /* better avoid recursive attempts */
     if(si->hadtz) {
 #ifdef HAVE_SETENV
 	if(setenv("TZ", si->oldtz, 1))
@@ -861,7 +861,7 @@ static void reset_tz(tzset_info *si)
 }
 
 // called from do_strptime
-static void glibc_fix(stm *tm, Rboolean *invalid)
+static void glibc_fix(stm *tm, bool *invalid)
 {
     /* set mon and mday which glibc does not always set.
        Use current year/... if none has been specified.
@@ -896,7 +896,7 @@ static void glibc_fix(stm *tm, Rboolean *invalid)
     } else {
 	if(tm->tm_mday == NA_INTEGER) {
 	    if(tm->tm_mon != NA_INTEGER) {
-		*invalid = TRUE;
+		*invalid = true;
 		return;
 	    } else tm->tm_mday = tm0->tm_mday;
 	}
@@ -906,7 +906,7 @@ static void glibc_fix(stm *tm, Rboolean *invalid)
 
 // Used in do_asPOSIXlt do_strptime do_D2POSIXlt do_balancePOSIXlt
 static void
-makelt(stm *tm, SEXP ans, R_xlen_t i, Rboolean valid, double frac_secs)
+makelt(stm *tm, SEXP ans, R_xlen_t i, bool valid, double frac_secs)
 {
     if(valid) {
 	REAL(   VECTOR_ELT(ans, 0))[i] = tm->tm_sec + frac_secs;
@@ -978,7 +978,7 @@ static const char ltnames[][11] =
 // validate components 1 ... nm
 #define isNum(s) ((TYPEOF(s) == INTSXP) || (TYPEOF(s) == REALSXP))
 // NB: this can change its argument.
-static Rboolean valid_POSIXlt(SEXP x, int nm)
+static bool valid_POSIXlt(SEXP x, int nm)
 {
     int n_comp = LENGTH(x); // >= 9, 11 for fresh objects
     int n_check = imin2(n_comp, nm);
@@ -1030,7 +1030,7 @@ static Rboolean valid_POSIXlt(SEXP x, int nm)
 	    error(_("attr(x, \"tzone\") should have length 1 or 3"));
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -1076,7 +1076,7 @@ attribute_hidden SEXP do_asPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
        It controls setting TZ, the use of gmtime vs localtime, forcing
        isdst = 0 and how the "tzone" attribute is set.
     */
-    Rboolean isUTC = (strcmp(tz, "GMT") == 0  || strcmp(tz, "UTC") == 0);
+    bool isUTC = (strcmp(tz, "GMT") == 0  || strcmp(tz, "UTC") == 0);
 
     tzset_info tzsi;
     prepare_reset_tz(&tzsi);
@@ -1106,7 +1106,7 @@ attribute_hidden SEXP do_asPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     for(R_xlen_t i = 0; i < n; i++) {
 	stm dummy, *ptm = &dummy;
 	double d = REAL(x)[i];
-	Rboolean valid;
+	bool valid;
 	if(R_FINITE(d)) {
 	    ptm = localtime0(&d, !isUTC, &dummy);
 	    /*
@@ -1117,7 +1117,7 @@ attribute_hidden SEXP do_asPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	    */
 	    valid = (ptm != NULL);
 	} else {
-	    valid = FALSE;
+	    valid = false;
 	}
 	makelt(ptm, ans, i, valid, valid ? d - floor(d) : d);
 	if (isUTC) {
@@ -1264,6 +1264,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     int UseTZ = asLogical(CADDR(args));
     if(UseTZ == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "usetz");
+    int digits = asInteger(CADDDR(args)); // checked for NA below
     SEXP tz = getAttrib(x, install("tzone"));
     if(!isNull(tz) && !isString(tz))
 	error(_("invalid '%s'"), "attr(x, \"tzone\")");
@@ -1306,9 +1307,9 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP ans = PROTECT(allocVector(STRSXP, N));
     char tm_zone[20];
 #ifdef HAVE_TM_GMTOFF
-    Rboolean have_zone = LENGTH(x) >= 11;// and components w/ length >= 1
+    bool have_zone = LENGTH(x) >= 11;// and components w/ length >= 1
 #else
-    Rboolean have_zone = LENGTH(x) >= 10;
+    bool have_zone = LENGTH(x) >= 10;
 #endif
     // in case it is needed
     int ns0 = -1;
@@ -1375,7 +1376,7 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 		ns = *(p + 3) - '0';
 		if(ns < 0 || ns > 9) { /* not a digit */
 		    if (ns0 == -1) {
-			ns0 = asInteger(GetOption1(install("digits.secs")));
+ 			ns0 = digits;
 			if(ns0 == NA_INTEGER) ns0 = 0;
 		    }
 		    ns = ns0;
@@ -1493,7 +1494,7 @@ attribute_hidden SEXP do_strptime(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(stz); /* it might be new */
 
     // Usage of isUTC here follows do_asPOSIXlt
-    Rboolean isUTC = (strcmp(tz, "GMT") == 0  || strcmp(tz, "UTC") == 0);
+    bool isUTC = (strcmp(tz, "GMT") == 0  || strcmp(tz, "UTC") == 0);
 
     tzset_info tzsi;
     prepare_reset_tz(&tzsi);
@@ -1540,7 +1541,7 @@ attribute_hidden SEXP do_strptime(SEXP call, SEXP op, SEXP args, SEXP env)
 	tm.tm_isdst = -1;
 #endif
 	int offset = NA_INTEGER;
-	Rboolean invalid =
+	bool invalid =
 	    STRING_ELT(x, i%n) == NA_STRING ||
 	    !R_strptime(translateChar(STRING_ELT(x, i%n)),
 			translateChar(STRING_ELT(sformat, i%m)),
@@ -1565,7 +1566,7 @@ attribute_hidden SEXP do_strptime(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (t0 != -1) {
 		    t0 -= offset; /* offset = -0800 is Seattle */
 		    ptm = localtime0(&t0, !isUTC, &tm2);
-		} else invalid = TRUE;
+		} else invalid = true;
 	    } else {
 		/* we do want to set wday, yday, isdst, but not to
 		   adjust structure at DST boundaries */
@@ -1651,7 +1652,7 @@ attribute_hidden SEXP do_D2POSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
     for(R_xlen_t i = 0; i < n; i++) {
 	stm tm;
 	double x_i = REAL(x)[i];
-	Rboolean valid = R_FINITE(x_i);
+	bool valid = R_FINITE(x_i) != 0;
 	if(valid) {
 	    /* every 400 years is exactly 146097 days long and the
 	       pattern is repeated */
@@ -1670,7 +1671,7 @@ attribute_hidden SEXP do_D2POSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	    // Avoid overflows
 	    double year0 =  y - 1900 + rounds * 400;
 	    if (year0 > INT_MAX || year0 < INT_MIN)
-		valid = FALSE;
+		valid = false;
 	    else {
 		y = tm.tm_year = (int)year0;
 		tm.tm_yday = day;
@@ -1752,7 +1753,7 @@ attribute_hidden SEXP do_POSIXlt2D(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
-static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
+static SEXP balancePOSIXlt(SEXP x, bool fill_only, bool do_class)
 {
     MAYBE_INIT_balanced
     const SEXP _filled_ = ScalarLogical(NA_LOGICAL);
@@ -1769,13 +1770,13 @@ static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
     valid_POSIXlt(x, 11);
     int n_comp = LENGTH(x);
 
-    Rboolean need_fill = FALSE;
+    bool need_fill = false;
     R_xlen_t n = 0, nlen[n_comp];
     for(int i = 0; i < n_comp; i++) {
 	if((nlen[i] = XLENGTH(VECTOR_ELT(x, i))) > n)
 	    n = nlen[i];
 	else if(!need_fill && nlen[i] < n)
-	    need_fill = TRUE;
+	    need_fill = true;
     }
     if(fill_only && !need_fill) { // already filled; be fast
 	x = PROTECT(duplicate(x)); // (could mutate in the do_class case)
@@ -1798,7 +1799,7 @@ static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
 
     // get names(.) [possibly empty]
     SEXP nm = getAttrib(VECTOR_ELT(x, 5), R_NamesSymbol);
-    Rboolean set_nm = (nlen[5] < n || !fill_only) && nm != R_NilValue;
+    bool set_nm = (nlen[5] < n || !fill_only) && nm != R_NilValue;
     if(set_nm && !fill_only)
 	PROTECT(nm);
 
@@ -1853,7 +1854,7 @@ static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
 
     // fill *and* validate from now on:
 
-    Rboolean have_10 = n_comp >= 10, have_11 = n_comp >= 11;
+    bool have_10 = n_comp >= 10, have_11 = n_comp >= 11;
     SEXP ans = PROTECT(allocVector(VECSXP, n_comp));
     for(int i = 0; i < 9; i++)
 	SET_VECTOR_ELT(ans, i, allocVector(i > 0 ? INTSXP : REALSXP, n));
@@ -1904,7 +1905,7 @@ static SEXP balancePOSIXlt(SEXP x, Rboolean fill_only, Rboolean do_class)
 	 * ----------- careful:
 	 * validate_tm() must *not* be called if any other components are NA.
 	 */
-	Rboolean valid =
+	bool valid =
 	    (R_FINITE(secs) &&
 	     tm.tm_min  != NA_INTEGER &&
 	     tm.tm_hour != NA_INTEGER &&
@@ -1988,8 +1989,8 @@ attribute_hidden SEXP do_balancePOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 
     int fill_only, do_class;
     if(PRIMVAL(op) == 1) { // unCfillPOSIXlt(x)
-	fill_only = TRUE;
-	do_class = FALSE;
+	fill_only = true;
+	do_class = false;
     } else { // op == 0 :  .Internal(balancePOSIXlt(x, fill.only, classed))
 	fill_only = asLogical(CADR(args));
 	if(fill_only == NA_LOGICAL)
@@ -1998,6 +1999,6 @@ attribute_hidden SEXP do_balancePOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(do_class == NA_LOGICAL)
 	    error(_("invalid '%s' argument"), "classed");
     }
-    return balancePOSIXlt(x, (Rboolean)fill_only, (Rboolean)do_class);
+    return balancePOSIXlt(x, (bool) fill_only, (bool) do_class);
 }
 

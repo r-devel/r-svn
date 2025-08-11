@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2024-10-25 14:50\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -181,8 +181,15 @@ msgstr "建議您用 %s 而不用 %s。"
 msgid "Use either %s or %s but not both."
 msgstr "要麼用 %s, 要麼用 %s，但不能兩者都用"
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "建議您用 %s/%s 而不用 %s/%s/%s。"
+#, fuzzy
+msgid "Arguments of person() should be character or NULL"
+msgstr "'priority' 的值要麼是字元要麼為 NULL"
+
+msgid "subscript out of bounds"
+msgstr "標出界"
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 msgid "method is only applicable to %s objects"
 msgstr "這個方法只適用於 %s 目標物件"
@@ -195,9 +202,6 @@ msgstr "所有的項都必須具名字"
 
 msgid "%s has to be one of %s"
 msgstr "%s 必須是 %s 這些中的一個"
-
-msgid "subscript out of bounds"
-msgstr "標出界"
 
 msgid "%s should be one of %s"
 msgstr "%s 必須是 %s 這些中的一個"
@@ -214,6 +218,9 @@ msgid ""
 msgstr ""
 "刪除無效的條目 %d:\n"
 "%s"
+
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "無法從程式套件的 DESCRIPTION 檔案中為 %s 確定年分"
@@ -461,8 +468,8 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr "無法連接到 CRAN 以檢查 R 版本。"
 
 #, fuzzy
-msgid "argument %s must be a character string"
-msgstr "引數 %s 必須是單字串"
+msgid "'%s' must be a character string"
+msgstr "'unzip' 必須是單字串"
 
 msgid "incorrect field specification"
 msgstr "欄位設定得無效"
@@ -558,6 +565,9 @@ msgstr "單元 \"%s\" 並非標準 \"%s\" 的一部分"
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' 是正式同屬函式 ; 很有可能找不到 S3 方法"
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr "看不到 '%s' 這樣一個函式"
 
@@ -614,10 +624,6 @@ msgstr "已經有了 '%s' 這樣一個目錄"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "泛型函式和其他 S4 物件(例如 '%s')不能被傾印出來；用 'code_files' 這個引數"
-
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "'unzip' 必須是單字串"
 
 msgid "unable to access index for repository %s"
 msgstr "無法在貯藏處 %s 中讀寫索引"
@@ -717,10 +723,6 @@ msgid ""
 msgstr ""
 "不知道 'lib' 元素裡如何安裝依賴程式\n"
 "因此忽略不裝"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip' 必須是單字串"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "此平臺不支援 'binary' 類型"
@@ -1307,6 +1309,10 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "角色設定得不對: %s"
 
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
 msgstr[0] "bibtype%s 的條目必須設定這些項：%s"
@@ -1416,6 +1422,17 @@ msgstr[0] "最後一個記錄不完全，%d 列忽略不用"
 msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "羅馬數字不對：%s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "建議您用 %s/%s 而不用 %s/%s/%s。"
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "引數 %s 必須是單字串"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "'unzip' 必須是單字串"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "目錄 %s 裡沒有 'filelist' 此一檔案"

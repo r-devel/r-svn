@@ -39,7 +39,7 @@ is.numeric(x)
   function: you can write methods to handle specific classes of objects,
   see \link{InternalMethods}.  It is \strong{not} the same as
   \code{\link{is.double}}.  Factors are handled by the default method,
-  and there are methods for classes \code{"\link{Date}"},
+  and there are methods for classes \code{"\link{complex}"}, \code{"\link{Date}"},
   \code{"\link{POSIXt}"} and \code{"\link{difftime}"} (all of which
   return false).  Methods for \code{is.numeric} should only return true
   if the base type of the class is \code{double} or \code{integer}
@@ -74,7 +74,7 @@ is.numeric(x)
 %% keep next the same in double.Rd & numeric.Rd
 \section{Note on names}{
   It is a historical anomaly that \R has two names for its
-  floating-point vectors, \code{\link{double}} and \code{\link{numeric}}
+  floating-point vectors, \code{double} and \code{numeric}
   (and formerly had \code{real}).
 
   \code{double} is the name of the \link{type}.

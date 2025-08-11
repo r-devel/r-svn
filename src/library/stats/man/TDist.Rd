@@ -10,10 +10,10 @@
 \alias{pt}
 \alias{qt}
 \alias{rt}
-\title{The Student t Distribution}
+\title{The Student \eqn{t} Distribution}
 \description{
   Density, distribution function, quantile function and random
-  generation for the t distribution with \code{df} degrees of freedom
+  generation for the \eqn{t} distribution with \code{df} degrees of freedom
   (and optional non-centrality parameter \code{ncp}).
 }
 \usage{
@@ -31,15 +31,16 @@ rt(n, df, ncp)
       = Inf} is allowed.}
   \item{ncp}{non-centrality parameter \eqn{\delta}{delta};
     currently except for \code{rt()}, accurate only for \code{abs(ncp) <= 37.62}.
-    If omitted, use the central t distribution.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
+    If omitted, use the central \eqn{t} distribution.}
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
     \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
 \value{
   \code{dt} gives the density,
-  \code{pt} gives the distribution function,
-  \code{qt} gives the quantile function, and
+  \code{pt} is the cumulative distribution function, and
+  \code{qt} is the quantile function of the \eqn{t} distribution.
   \code{rt} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
@@ -115,7 +116,7 @@ rt(n, df, ncp)
 
   Lenth, R. V. (1989). \emph{Algorithm AS 243} ---
   Cumulative distribution function of the non-central \eqn{t} distribution,
-  \emph{Applied Statistics} \bold{38}, 185--189.
+  \emph{Applied Statistics} \bold{38}, 185--189; \doi{10.2307/2347693} .
 
   This computes the lower tail only, so the upper tail currently suffers from
   cancellation and a warning will be given when this is likely to be
@@ -123,13 +124,14 @@ rt(n, df, ncp)
 
   For central \code{qt}, a C translation of
 
-  Hill, G. W. (1970) Algorithm 396: Student's t-quantiles.
-  \emph{Communications of the ACM}, \bold{13(10)}, 619--620. % \doi{10.1145/355598.355599}
+  Hill, G. W. (1970) Algorithm 396: Student's \eqn{t}-quantiles.
+  \emph{Communications of the ACM}, \bold{13}(10), 619--620;
+  \doi{10.1145/355598.362776}.
 
   altered to take account of
 
   Hill, G. W. (1981) Remark on Algorithm 396, \emph{ACM Transactions on
-    Mathematical Software}, \bold{7}, 250--1. % \doi{10.1145/355945.355956}
+    Mathematical Software}, \bold{7}, 250--1; \doi{10.1145/355945.355956} .
 
   The non-central case is done by inversion.
 }

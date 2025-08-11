@@ -1,7 +1,7 @@
 #  File src/library/tools/R/sotools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2011-2024 The R Core Team
+#  Copyright (C) 2011-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,12 @@ if(.Platform$OS.type == "windows") {
         l2 <- grep("^The Export Tables", s0)
         if (!length(l1) || !length(l2)) return()
         s1 <- s0[(l1[1L] + 2L):(l2 - 4L)]
-        s2 <- grep("\t[0-9a-f]+\t +[0-9]+", s1, value = TRUE)
+
+        # The format of the dump of import tables changed in Rtools45
+        # (binutils 2.43.1).  Previously, there was a joint column
+        # "Hint/Ord".  Newly these are split ("Ordinal" and "Hint").  The
+        # regex below has been relaxed to match both.
+        s2 <- grep("\t[0-9a-f]+[\t ]+", s1, value = TRUE)
         sub(".* ([_A-Za-z0-9]+)$", "\\1", s2)
     }
 }
@@ -612,7 +617,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Ri18n_wctype", "Ri18n_wcwidth", "Rsockclose",
             "Rsockconnect", "Rsocklisten", "Rsockopen", "Rsockread",
             "Rsockwrite", "Runzip", "UNIMPLEMENTED_TYPE",
-            "baseRegisterIndex", "csduplicated", "currentTime",
+            "baseRegisterIndex", "Rf_csduplicated", "Rf_currentTime",
             "dcar", "dcdr", "do_Rprof", "do_Rprofmem", "do_X11",
             "do_contourLines", "do_edit", "do_getGraphicsEventEnv",
             "do_getSnapshot", "do_playSnapshot", "do_saveplot",
@@ -621,7 +626,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "extR_HTTPDCreate", "extR_HTTPDStop", "fdhess",
             "getConnection", "getPRIMNAME", "known_to_be_latin1",
             "locale2charset", "match5", "matherr",
-            "max_contour_segments", "mbcsToUcs2", "memtrace_report",
+            "max_contour_segments", "Rf_mbcsToUcs2", "Rf_memtrace_report",
             "parseError", "pythag_", "rs_", "rwarnc_",
             "tql2_", "tqlrat_", "tred1_", "tred2_", "utf8locale", "yylloc",
             "R_opendir", "R_readdir", "R_closedir",
@@ -689,9 +694,20 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "XTRUELENGTH", "Rf_gsetVar",
             "Rf_isValidString", "Rf_isValidStringF",
             "R_shallow_duplicate_attr",
-## in the non-API header R_ext/Connections.h
-            "R_new_custom_connection", "R_ReadConnection",
-            "R_WriteConnection", "R_GetConnection",
+            ## Documented in WRE in section "Some API replacements for
+            ## non-API entry points":
+            "EXTPTR_PROT", "EXTPTR_TAG", "EXTPTR_PTR",
+            "OBJECT", "IS_S4_OBJECT",
+            "Rf_GetOption", "R_lsInternal",
+            "REAL0", "COMPLEX0",
+            "STRING_PTR", "DATAPTR", "STDVEC_DATAPTR",
+            "Rf_allocSExp",
+            "Rf_isFrame",
+            "BODY", "FORMALS", "CLOENV", "ENCLOS",
+            "IS_ASCII", "IS_UTF8",
+## in the experimental API header R_ext/Connections.h
+##            "R_new_custom_connection", "R_ReadConnection",
+##            "R_WriteConnection", "R_GetConnection",
 
 ## in ../../../include/R_ext/Applic.h -- these are API now:
 ## 	"dqrcf_", "dqrqty_", "dqrqy_", "dqrrsd_", "dqrxb_",
@@ -954,6 +970,16 @@ if(.Platform$OS.type == "windows") {
         if(!length(so_files)) return(invisible(NULL)) # typically a fake install
 
         bad <- Filter(length, lapply(so_files, check_so_symbols))
+        ## Allow experimenting with finding bad symbols not in
+        ## symbols.rds, likely from following the "best approach" from
+        ## section "Compiling in sub-directories" of WRE and compiling
+        ## code in subdirs into static libraries instead of adding to
+        ## OBJECTS.
+        ## See PR#18789 <https://bugs.r-project.org/show_bug.cgi?id=18789>,
+        ## "R CMD check does not check symbol tables of linked static
+        ## libraries".
+        if(config_val_to_logical(Sys.getenv("_R_CHECK_COMPILED_CODE_USE_OBJECTS_SYMBOL_TABLES_",
+                                    "TRUE"))) {
         objects_symbol_tables_file <- if(nzchar(r_arch))
             file.path(dir, "libs", r_arch, "symbols.rds")
         else file.path(dir, "libs", "symbols.rds")
@@ -962,6 +988,7 @@ if(.Platform$OS.type == "windows") {
             bad <- Filter(length, lapply(bad, compare))
         } else if(useST)
             cat("Note: information on .o files is not available\n")
+        }
         nAPIs <- lapply(lapply(so_files, check_so_symbols),
                         function(x) if(length(z <- attr(x, "nonAPI")))
                         structure(z,
@@ -1026,7 +1053,29 @@ function(x, ...)
 .shlib_objects_symbol_tables <-
 function(file = "symbols.rds")
 {
-    objects <- commandArgs(trailingOnly = TRUE)
+    args <- commandArgs(trailingOnly = TRUE)
+    pos <- which(args == "--pkglibs")[1L]
+    objects <- args[seq_len(pos - 1L)]
+    pkglibs <- args[-seq_len(pos)]
+    ## Also determine the local static libraries linked against by
+    ## following the approach suggested in section "Compiling in
+    ## sub-directories" of WRE.
+    if(length(pkglibs)) {
+        files <- list.files("..", recursive = TRUE, pattern = "[.]a$",
+                            all.files = TRUE, full.names = TRUE)
+        if(any(ind <- startsWith(files, "../src/")))
+            files[ind] <- substring(files[ind], 8L)
+        ## Case A: local static libs given via their path.
+        libpaths <- pkglibs[file.exists(pkglibs)]
+        ## Case B: local static libs given as '-lfoo'.
+        libnames <- pkglibs[startsWith(pkglibs, "-l")]
+        libnames <- sprintf("lib%s.a", substring(libnames, 3L))
+        objects <- c(objects,
+                     files[normalizePath(files) %in%
+                           normalizePath(libpaths)],
+                     files[basename(files) %in% libnames])
+        objects <- unique(objects)
+    }
     tables <- lapply(objects, read_symbols_from_object_file)
     names(tables) <- objects
     saveRDS(tables, file = file, version = 2)
@@ -1255,20 +1304,26 @@ function(nrdb, align = TRUE, include_declarations = FALSE)
             "   Check these declarations against the C/Fortran source code.",
             "*/",
             if(NROW(y <- nrdb$.C)) {
-                 args <- sapply(y$n, function(n) if(n >= 0) prepare(n)
-                                else "/* FIXME */")
+                args <- vapply(y$n,
+                               function(n) if(n >= 0) prepare(n)
+                                           else "/* FIXME */",
+                                "")
                 c("", "/* .C calls */",
                   paste0("extern void ", y$s, "(", args, ");"))
            },
             if(NROW(y <- nrdb$.Call)) {
-                args <- sapply(y$n, function(n) if(n >= 0) prepare(n, "SEXP")
-                               else "/* FIXME */")
+                args <- vapply(y$n,
+                               function(n) if(n >= 0) prepare(n, "SEXP")
+                                           else "/* FIXME */",
+                               "")
                c("", "/* .Call calls */",
                   paste0("extern SEXP ", y$s, "(", args, ");"))
             },
             if(NROW(y <- nrdb$.Fortran)) {
-                 args <- sapply(y$n, function(n) if(n >= 0) prepare(n)
-                                else "/* FIXME */")
+                args <- vapply(y$n,
+                               function(n) if(n >= 0) prepare(n)
+                                           else "/* FIXME */",
+                               "")
                 c("", "/* .Fortran calls */",
                   paste0("extern void F77_NAME(", y$s, ")(", args, ");"))
             },

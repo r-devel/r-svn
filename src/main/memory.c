@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2024  The R Core Team.
+ *  Copyright (C) 1998--2025  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -415,7 +415,7 @@ static R_size_t R_MaxVSize = R_SIZE_T_MAX;
 static R_size_t R_MaxNSize = R_SIZE_T_MAX;
 static int vsfac = 1; /* current units for vsize: changes at initialization */
 
-R_size_t attribute_hidden R_GetMaxVSize(void)
+attribute_hidden R_size_t R_GetMaxVSize(void)
 {
     if (R_MaxVSize == R_SIZE_T_MAX) return R_SIZE_T_MAX;
     return R_MaxVSize * vsfac;
@@ -440,7 +440,7 @@ attribute_hidden Rboolean R_SetMaxVSize(R_size_t size)
     return FALSE;
 }
 
-R_size_t attribute_hidden R_GetMaxNSize(void)
+attribute_hidden R_size_t R_GetMaxNSize(void)
 {
     return R_MaxNSize;
 }
@@ -1514,7 +1514,7 @@ void R_RunWeakRefFinalizer(SEXP w)
 	SET_READY_TO_FINALIZE(w); /* insures removal from list on next gc */
     PROTECT(key);
     PROTECT(fun);
-    int oldintrsusp = R_interrupts_suspended;
+    Rboolean oldintrsusp = R_interrupts_suspended;
     R_interrupts_suspended = TRUE;
     if (isCFinalizer(fun)) {
 	/* Must be a C finalizer. */
@@ -1662,7 +1662,7 @@ attribute_hidden SEXP do_regFinaliz(SEXP call, SEXP op, SEXP args, SEXP rho)
     if(onexit == NA_LOGICAL)
 	error(_("third argument must be 'TRUE' or 'FALSE'"));
 
-    R_RegisterFinalizerEx(CAR(args), CADR(args), onexit);
+    R_RegisterFinalizerEx(CAR(args), CADR(args), (Rboolean) onexit);
     return R_NilValue;
 }
 
@@ -2040,7 +2040,7 @@ attribute_hidden SEXP do_gctorture(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
 
     if (isLogical(CAR(args))) {
-	Rboolean on = asLogical(CAR(args));
+	Rboolean on = asRbool(CAR(args), call);
 	if (on == NA_LOGICAL) gap = NA_INTEGER;
 	else if (on) gap = 1;
 	else gap = 0;
@@ -2061,7 +2061,7 @@ attribute_hidden SEXP do_gctorture2(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
     gap = asInteger(CAR(args));
     wait = asInteger(CADR(args));
-    inhibit = asLogical(CADDR(args));
+    inhibit = asRbool(CADDR(args), call);
     R_gc_torture(gap, wait, inhibit);
 
     return ScalarInteger(old);
@@ -2357,6 +2357,10 @@ long double *R_allocLD(size_t nelem)
     size_t ld_align = alignof(long double);
 #elif __GNUC__
     // This is C99, but do not rely on it.
+    // Apple clang warns this is gnu extension.
+    #ifdef __clang__
+    # pragma clang diagnostic ignored "-Wgnu-offsetof-extensions"
+    #endif
     size_t ld_align = offsetof(struct { char __a; long double __b; }, __b);
 #else
     size_t ld_align = 0x0F; // value of x86_64, known others are 4 or 8
@@ -3116,7 +3120,7 @@ attribute_hidden SEXP do_gctime(SEXP call, SEXP op, SEXP args, SEXP env)
 	gctime_enabled = TRUE;
     else {
 	check1arg(args, call, "on");
-	gctime_enabled = asLogical(CAR(args));
+	gctime_enabled = asRbool(CAR(args), call);
     }
     ans = allocVector(REALSXP, 5);
     REAL(ans)[0] = gctimes[0];
@@ -3570,11 +3574,15 @@ void R_chk_free(void *ptr)
 
 void *R_chk_memcpy(void *dest, const void *src, size_t n)
 {
+    if (n >= PTRDIFF_MAX)
+	error(_("object is too large (%llu bytes)"), (unsigned long long)n);
     return n ? memcpy(dest, src, n) : dest;
 }
 
 void *R_chk_memset(void *s, int c, size_t n)
 {
+    if (n >= PTRDIFF_MAX)
+	error(_("object is too large (%llu bytes)"), (unsigned long long)n);
     return n ? memset(s, c, n) : s;
 }
 
@@ -4133,10 +4141,9 @@ SEXP (VECTOR_ELT)(SEXP x, R_xlen_t i) {
    that even zero-length vectors have non-NULL data pointers, so
    return (void *) 1 instead. Zero-length CHARSXP objects still have a
    trailing zero byte so they are not handled. */
-# define CHKZLN(x) do {					   \
-	CHK(x);						   \
-	if (STDVEC_LENGTH(x) == 0 && TYPEOF(x) != CHARSXP) \
-	    return (void *) 1;				   \
+# define CHKZLN(x) do {						\
+	if (STDVEC_LENGTH(CHK(x)) == 0 && TYPEOF(x) != CHARSXP) \
+	    return (void *) 1;					\
     } while (0)
 #else
 # define CHKZLN(x) do { } while (0)
@@ -4752,10 +4759,10 @@ Rboolean Rf_isString(SEXP s) { return isString(CHK(s)); }
 Rboolean Rf_isObject(SEXP s) { return isObject(CHK(s)); }
 
 /* Bindings accessors */
-Rboolean attribute_hidden
-(IS_ACTIVE_BINDING)(SEXP b) {return IS_ACTIVE_BINDING(CHK(b));}
-Rboolean attribute_hidden
-(BINDING_IS_LOCKED)(SEXP b) {return BINDING_IS_LOCKED(CHK(b));}
+attribute_hidden Rboolean
+(IS_ACTIVE_BINDING)(SEXP b) {return (Rboolean) IS_ACTIVE_BINDING(CHK(b));}
+attribute_hidden Rboolean
+(BINDING_IS_LOCKED)(SEXP b) {return (Rboolean) BINDING_IS_LOCKED(CHK(b));}
 attribute_hidden void
 (SET_ACTIVE_BINDING_BIT)(SEXP b) {SET_ACTIVE_BINDING_BIT(CHK(b));}
 attribute_hidden void (LOCK_BINDING)(SEXP b) {LOCK_BINDING(CHK(b));}
@@ -4766,20 +4773,20 @@ void (SET_BASE_SYM_CACHED)(SEXP b) { SET_BASE_SYM_CACHED(CHK(b)); }
 attribute_hidden
 void (UNSET_BASE_SYM_CACHED)(SEXP b) { UNSET_BASE_SYM_CACHED(CHK(b)); }
 attribute_hidden
-Rboolean (BASE_SYM_CACHED)(SEXP b) { return BASE_SYM_CACHED(CHK(b)); }
+Rboolean (BASE_SYM_CACHED)(SEXP b) { return (Rboolean) BASE_SYM_CACHED(CHK(b)); }
 
 attribute_hidden
 void (SET_SPECIAL_SYMBOL)(SEXP b) { SET_SPECIAL_SYMBOL(CHK(b)); }
 attribute_hidden
 void (UNSET_SPECIAL_SYMBOL)(SEXP b) { UNSET_SPECIAL_SYMBOL(CHK(b)); }
-attribute_hidden
-Rboolean (IS_SPECIAL_SYMBOL)(SEXP b) { return IS_SPECIAL_SYMBOL(CHK(b)); }
+attribute_hidden // this is a bit returned in an int, so really is Rboolean
+Rboolean (IS_SPECIAL_SYMBOL)(SEXP b) { return (Rboolean) IS_SPECIAL_SYMBOL(CHK(b)); }
 attribute_hidden
 void (SET_NO_SPECIAL_SYMBOLS)(SEXP b) { SET_NO_SPECIAL_SYMBOLS(CHK(b)); }
 attribute_hidden
 void (UNSET_NO_SPECIAL_SYMBOLS)(SEXP b) { UNSET_NO_SPECIAL_SYMBOLS(CHK(b)); }
-attribute_hidden
-Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b) { return NO_SPECIAL_SYMBOLS(CHK(b)); }
+attribute_hidden // // this is a bit returned in an int,
+Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b) { return (Rboolean) NO_SPECIAL_SYMBOLS(CHK(b)); }
 
 /* R_FunTab accessors, only needed when write barrier is on */
 /* Might want to not hide for experimentation without rebuilding R - LT */
@@ -4788,8 +4795,8 @@ attribute_hidden CCODE (PRIMFUN)(SEXP x) { return PRIMFUN(CHK(x)); }
 attribute_hidden void (SET_PRIMFUN)(SEXP x, CCODE f) { PRIMFUN(CHK(x)) = f; }
 
 /* for use when testing the write barrier */
-int  attribute_hidden (IS_BYTES)(SEXP x) { return IS_BYTES(CHK(x)); }
-int  attribute_hidden (IS_LATIN1)(SEXP x) { return IS_LATIN1(CHK(x)); }
+attribute_hidden int (IS_BYTES)(SEXP x) { return IS_BYTES(CHK(x)); }
+attribute_hidden int (IS_LATIN1)(SEXP x) { return IS_LATIN1(CHK(x)); }
 /* Next two are used in package utils */
 int  (IS_ASCII)(SEXP x) { return IS_ASCII(CHK(x)); }
 int  (IS_UTF8)(SEXP x) { return IS_UTF8(CHK(x)); }

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.0.4\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: 2021-02-10 17:55+0100\n"
 "Last-Translator: Philippe Grosjean <phgrosjean@sciviews.org>\n"
 "Language-Team: French <R-core@r-project.org>\n"
@@ -275,6 +275,18 @@ msgstr "Le champ Authors@R ne renvoie personne avec un rôle de mainteneur, une 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
 msgstr "Le champ Authors@R renvoie des personnes avec des identifiants ORCID incorrects :"
 
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr "Le champ Authors@R renvoie des personnes avec des identifiants ORCID incorrects :"
+
+#, fuzzy
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr "Le champ Authors@R renvoie des personnes avec des identifiants ORCID incorrects :"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
+msgstr "Le champ Authors@R renvoie des personnes avec des identifiants ORCID incorrects :"
+
 msgid "Encoding '%s' is not portable"
 msgstr "L’encodage '%s' n'est pas portable"
 
@@ -328,11 +340,11 @@ msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr "un 'OS.type' incorrect \"%s\" est trouvé. Cela ne devrait pas se produire"
 
 #, fuzzy
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr "Lien(s) manquant(s) dans la documentation de l'objet '%s' :"
 
 #, fuzzy
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr "Lien(s) non liés à un ou des fichiers dans la documentation de l'objet '%s' :"
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -690,9 +702,6 @@ msgstr "Package du moteur de vignettes non spécifié"
 msgid "Unsupported engine name"
 msgstr "Module de traitement non supporté"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Aucun des packages %s n'a enregistré de module de traitement de vignettes"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Moteur de vignette %s non enregistré"
 
@@ -778,6 +787,12 @@ msgstr "ERREUR : cette version de R est %s, requis R %s %s"
 
 msgid "loading failed"
 msgstr "le chargement a échoué"
+
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "%s a été obtenu lors de l'évaluation de %s ; il fallait %s"
@@ -1131,6 +1146,13 @@ msgstr "le package ne contient pas de code R"
 msgid "package seems to be using lazy loading already"
 msgstr "le package semble déjà utiliser le chargement partiel"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' doit être un vecteur de chaînes de caractères"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1224,6 +1246,13 @@ msgstr "l'argument '%s' doit être une chaîne de caractères ou une connexion"
 msgid "unimplemented encoding"
 msgstr "encodage non implémenté"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' doit être une chaîne de caractères unique"
+
+msgid "invalid hex string"
+msgstr ""
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "ceci nécessite que 'objdump.exe' soit accessible depuis le PATH"
 
@@ -1248,6 +1277,10 @@ msgstr "le test '%s' a échoué"
 msgid "Testing examples for package %s"
 msgstr "Vérification des exemples du package %s"
 
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "Exécution des examples du package"
+
 msgid "comparing %s to %s ..."
 msgstr "comparaison de %s à %s ..."
 
@@ -1271,6 +1304,10 @@ msgstr "Exécution des tests spécifiques au package %s"
 
 msgid "Running %s"
 msgstr "Exécution de %s"
+
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "l'exécution de 'make' a échoué"
 
 msgid "Running vignettes for package %s"
 msgstr "Exécution des vignettes pour le package %s"
@@ -1365,7 +1402,8 @@ msgstr "Écriture du fichier PACKAGES final mis à jour."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES terminé."
 
-msgid "'x' must be a single character string"
+#, fuzzy
+msgid "'%s' must be a character string"
 msgstr "'x' doit être une chaîne de caractères unique"
 
 msgid "test '%s' is not available"
@@ -1418,6 +1456,10 @@ msgstr "Encodage inconnu avec des données non-ASCII : conversion vers ASCII"
 
 msgid "cannot source package code:"
 msgstr "impossible de sourcer le code du package :"
+
+#, fuzzy
+msgid "inferiorCallError"
+msgstr "erreur interne"
 
 msgid "inferior call failed"
 msgstr ""
@@ -1483,7 +1525,8 @@ msgid_plural "Found .Internal calls in the following functions:"
 msgstr[0] "Appel .Internal trouvé dans la fonction suivante :"
 msgstr[1] "Appels .Internal trouvés dans les fonctions suivantes :"
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+#, fuzzy
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] "Appel .Internal trouvé dans la fonction générique S4 suivante :"
 msgstr[1] "Appels .Internal trouvés dans les fonctions génériques S4 suivantes :"
@@ -1545,6 +1588,12 @@ msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "RESUME : le traitement du fichier suivant a échoué :"
 msgstr[1] "RESUME : le traitement des fichiers suivants a échoué :"
+
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Aucun des packages %s n'a enregistré de module de traitement de vignettes"
+msgstr[1] "Aucun des packages %s n'a enregistré de module de traitement de vignettes"
 
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
@@ -1976,9 +2025,6 @@ msgstr[1] "Entrées BibTeX correspondantes :"
 #~ msgid "Internal error:  NULL tag"
 #~ msgstr "Erreur interne : étiquette NULL"
 
-#~ msgid "internal error"
-#~ msgstr "erreur interne"
-
 #~ msgid "Inconsistent arg count for"
 #~ msgstr "Nombre d'arguments incohérent pour"
 
@@ -2081,10 +2127,6 @@ msgstr[1] "Entrées BibTeX correspondantes :"
 
 #, fuzzy
 #~ msgid "running msgconv failed"
-#~ msgstr "l'exécution de 'make' a échoué"
-
-#, fuzzy
-#~ msgid "running xgettext failed"
 #~ msgstr "l'exécution de 'make' a échoué"
 
 #~ msgid "ERROR: --merge-multiarch can only be used on i386/x64 installations"
@@ -2200,9 +2242,6 @@ msgstr[1] "Entrées BibTeX correspondantes :"
 
 #~ msgid "cannot create HTML package index"
 #~ msgstr "impossible de créer l'index HTML du package"
-
-#~ msgid "Running examples in package"
-#~ msgstr "Exécution des examples du package"
 
 #~ msgid "... done"
 #~ msgstr "... fini"

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,7 +78,7 @@ attribute_hidden SEXP do_relop(SEXP call, SEXP op, SEXP args, SEXP env)
     (isSymbol(x) && IS_SCALAR_STRING(y) && Seql(PRINTNAME(x), STRING_ELT(y, 0)))
 
 
-static R_INLINE Rboolean compute_lang_equal(SEXP x, SEXP y)
+static R_INLINE bool compute_lang_equal(SEXP x, SEXP y)
 {
     if (isSymbol(x))
 	return y == x ||
@@ -94,7 +94,7 @@ static R_INLINE Rboolean compute_lang_equal(SEXP x, SEXP y)
 	y = LCONS(CAR(y), CDR(y));
     PROTECT(y);
 
-    Rboolean val = R_compute_identical(x, y, 16);
+    bool val = R_compute_identical(x, y, 16);
     UNPROTECT(2);
     return val;
 }
@@ -182,7 +182,7 @@ static SEXP compute_language_relop(SEXP call, SEXP op, SEXP x, SEXP y)
 	case NEOP:
 	    return R_compute_identical(x, y, 16) ? R_FalseValue : R_TrueValue;
 	default: errorcall(call,
-			   _("comparison (%s) is not possible language types"),
+			   _("comparison (%s) is not possible for language types"),
 			   PRIMNAME(op));
 	}
     case ERROR_CALLS:
@@ -265,14 +265,14 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	}
     }
 
-    Rboolean iS;
+    bool iS;
     /* That symbols and calls were allowed was undocumented prior to
        R 2.5.0.  We deparse them as deparse() would, minus attributes */
     if ((iS = isSymbol(x)) || TYPEOF(x) == LANGSXP) {
 	SEXP tmp = allocVector(STRSXP, 1);
 	PROTECT(tmp);
 	SET_STRING_ELT(tmp, 0, (iS) ? PRINTNAME(x) :
-		       STRING_ELT(deparse1line_ex(x, 0,
+		       STRING_ELT(deparse1line_ex(x, false,
 						  DEFAULTDEPARSE | DIGITS17),
 				  0));
 	REPROTECT(x = tmp, xpi);
@@ -283,7 +283,7 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	SEXP tmp = allocVector(STRSXP, 1);
 	PROTECT(tmp);
 	SET_STRING_ELT(tmp, 0, (iS) ? PRINTNAME(y) :
-		       STRING_ELT(deparse1line_ex(y, 0,
+		       STRING_ELT(deparse1line_ex(y, false,
 						  DEFAULTDEPARSE | DIGITS17),
 				  0));
 	REPROTECT(y = tmp, ypi);
@@ -305,7 +305,7 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 
     /* ELSE :  x and y are both atomic or list */
 
-    Rboolean
+    bool
 	xarray = isArray(x),
 	yarray = isArray(y),
 	xts = isTs(x),

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-12-20 03:05+0000\n"
 "Last-Translator: Heather Turner <ht@heatherturner.net>\n"
 "Language-Team: none\n"
@@ -225,10 +225,6 @@ msgstr "'breaks' are not strictly increasing"
 
 msgid "'probability' is an alias for '!freq', however they differ."
 msgstr "'probability' is an alias for '!freq', however they differ."
-
-#, fuzzy
-msgid "fuzz must be non-negative"
-msgstr "integer colours must be non-negative"
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
 msgstr "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
@@ -491,3 +487,7 @@ msgid "argument %s is not made use of"
 msgid_plural "arguments %s are not made use of"
 msgstr[0] "argument %s is not made use of"
 msgstr[1] "arguments %s are not made use of"
+
+#, fuzzy
+#~ msgid "fuzz must be non-negative"
+#~ msgstr "integer colours must be non-negative"

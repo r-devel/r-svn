@@ -1,6 +1,6 @@
 % File src/library/base/man/strptime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strptime}
@@ -39,9 +39,13 @@ strptime(x, format, tz = "")
     methods is
     \code{"\%Y-\%m-\%d \%H:\%M:\%S"} if any element has a time
     component which is not midnight, and \code{"\%Y-\%m-\%d"}
-    otherwise.  If \code{\link{options}("digits.secs")} is set, up to
-    the specified number of digits will be printed for seconds.}
-  \item{\dots}{further arguments to be passed from or to other methods.}
+    otherwise.  In the first case and if \code{digits} is not \code{NULL},
+    i.e., by default when \code{\link{options}("digits.secs")} is set, up to
+    the specified number of digits will be printed for seconds, using
+    \code{"\%OS<n>"} instead of \code{"\%S"} in the format, see also
+    \sQuote{Details}.}
+  \item{\dots}{further arguments to be passed from or to other methods; for
+    \code{strftime()}, notably \code{digits}, passed to \code{format(<POSIXlt>)}.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended
     to the output?  This is used in printing times, and more reliable
     than using \code{"\%Z"}.}
@@ -101,14 +105,18 @@ strptime(x, format, tz = "")
   \describe{
     \item{\code{\%a}}{Abbreviated weekday name in the current
       locale on this platform.  (Also matches full name on input:
-      in some locales there are no abbreviations of names.)}
+      in some locales there are no abbreviations of names.)
+      Case-insensitive on input.}
     \item{\code{\%A}}{Full weekday name in the current locale.  (Also
-      matches abbreviated name on input.)}
+      matches abbreviated name on input.)
+      Case-insensitive on input.}
     \item{\code{\%b}}{Abbreviated month name in the current locale on
       this platform.  (Also matches full name on input: in
-      some locales there are no abbreviations of names.)}
+      some locales there are no abbreviations of names.)
+    Case-insensitive on input.}
     \item{\code{\%B}}{Full month name in the current locale.  (Also
-      matches abbreviated name on input.)}
+      matches abbreviated name on input.)
+      Case-insensitive on input.}
     \item{\code{\%c}}{Date and time.   Locale-specific on output,
       \code{"\%a \%b \%e \%H:\%M:\%S \%Y"} on input.}
     \item{\code{\%C}}{Century (00--99): the integer part of the year
@@ -140,6 +148,10 @@ strptime(x, format, tz = "")
       empty string in some locales (for example on some OSes,
       non-English European locales including Russia). The behaviour is
       undefined if used for input in such a locale.
+
+      For input the match is case-insensitive.  Note that
+      English locales do not necessarily use \code{AM/PM}: for example,
+      \code{a.m./p.m.} has been encountered.
 
       Some platforms accept \code{\%P} for output, which uses a lower-case
       version (\code{\%p} may also use lower case): others will output
@@ -191,7 +203,7 @@ strptime(x, format, tz = "")
       \code{-0800} is 8 hours behind UTC.  (Standard only for output.  For
       input \R currently supports it on all platforms -- values from
       \code{-1400} to \code{+1400} are accepted.)}
-    %% Nowehere currently uses less than -1200 nor more than 1400.
+    %% Nowhere currently uses less than -1200 nor more than 1400.
     \item{\code{\%Z}}{(Output only.)  Time zone abbreviation as a
       character string (empty if not available).  This may not be reliable
       when a time zone has changed abbreviations over the years.}
@@ -234,12 +246,20 @@ strptime(x, format, tz = "")
   the standard interpretation.
 
   Specific to \R is \code{\%OSn}, which for output gives the seconds
-  truncated to \code{0 <= n <= 6} decimal places (and if \code{\%OS} is
-  not followed by a digit, it uses the setting of
-  \code{\link{getOption}("digits.secs")}, or if that is unset, \code{n =
-  0}).  Further, for \code{strptime} \code{\%OS} will input seconds
-  including fractional seconds.  Note that \code{\%S} does not read
-  fractional parts on output.
+  truncated to exactly \code{0 <= n <= 6} decimal places.  If \code{\%OS} is
+  not followed by a digit, it uses up to \code{digits} decimals (only as
+  many as necessary, i.e., not producing extra trailing zeros.
+  The default \code{digits = NULL} corresponds to \code{digits = 0}.
+
+  Note that the precedence is \code{format=".. \%OSn .."} \eqn{\ll}{>>}
+  \code{digits = n}, the latter initialized by default from
+  \code{getOption("digits.secs")}.
+  Currently, for output (\code{strftime()} and \code{format(<POSIX.t>)}),
+  only \emph{one} "\%OS" occurrence is handled (per format string).
+  \cr
+  Further, for \code{strptime} \code{\%OS} will input seconds including
+  fractional seconds (to full precision).  Note that \code{\%S} does not
+  read or write fractional parts.
 
   The behaviour of other conversion specifications (and even if other
   character sequences commencing with \code{\%} \emph{are} conversion
@@ -307,7 +327,7 @@ strptime(x, format, tz = "")
   year.  (On some platforms this works better after conversion to
   \code{"POSIXct"}.  Some platforms only recognize hour or half-hour
   offsets for output.)%% strftime in macOS 13.
-  
+
   Using \code{\%z} for input makes most sense with \code{tz = "UTC"}.
 }
 
@@ -401,8 +421,9 @@ format(Sys.time(), "\%a \%b \%d \%X \%Y \%Z")
 format(Sys.time(), "\%H:\%M:\%OS3")
 }% \dont.. %
 ## read in date info in format 'ddmmmyyyy'
-## This will give NA(s) in some non-English locales; setting the C locale
-## as in the commented lines will overcome this on most systems.
+## This will give NA(s) in some locales (especially non-English ones);
+## setting the C locale as in the commented lines will overcome this on
+## most systems.
 ## lct <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "C")
 x <- c("1jan1960", "2jan1960", "31mar1960", "30jul1960")
 z <- strptime(x, "\%d\%b\%Y")
@@ -424,13 +445,17 @@ z2 <- strptime(x, "\%m/\%d/\%y \%H:\%M:\%S")
 ## *here* (but not in general), the same as format():
 stopifnot(identical(format(z2), as.character(z2)))
 
-## time with fractional seconds
-z3 <- strptime("20/2/06 11:16:16.683", "\%d/\%m/\%y \%H:\%M:\%OS") \donttest{
-z3 # prints without fractional seconds by default, digits.sec = NULL ("= 0")}
-op <- options(digits.secs = 3)
-\donttest{z3 # shows the 3 extra digits}
-as.character(z3) # ditto
+## time with fractional seconds (setting `tz = ..` for reproducible output)
+z3 <- strptime("20/2/06 11:16:16.683", "\%d/\%m/\%y \%H:\%M:\%OS", tz = "UTC")
+z3 # prints without fractional seconds by default, digits.sec = NULL ("= 0")
+format(z3, digits = 3) # shows extra digits
+format(z3, digits = 6) # still 3 digits: *not* showing trailing zeros
+format(z3, format = "\%Y-\%m-\%d \%H:\%M:\%OS6") #  *does* keep trailing zeros
+op <- options(digits.secs = 3) # global option, the default for `digits`
+z3 # shows the 3 extra digits
 options(op)
+as.character(z3) # ditto
+
 
 ## time zone names are not portable, but 'EST5EDT' comes pretty close.
 ## (but its interpretation may not be universal: see ?timezones)

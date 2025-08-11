@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4-3-BRANCH\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:34-0700\n"
+"POT-Creation-Date: 2024-10-25 14:50-0700\n"
 "PO-Revision-Date: 2023-01-19 18:36+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian https://github.com/dmedri/R-italian-lang\n"
@@ -223,33 +223,33 @@ msgstr "versione non supportata di Windows"
 msgid "argument must be a character vector or a raw vector"
 msgstr "l'argomento dev'essere un vettore di caratteri o un vettore raw"
 
-#: windows/util.c:330
+#: windows/util.c:332
 msgid "unable to open the clipboard"
 msgstr "non è possibile aprire gli appunti"
 
-#: windows/util.c:335
+#: windows/util.c:337
 msgid "unable to write to the clipboard"
 msgstr "non è possibile scrivere negli appunti"
 
-#: windows/util.c:414
+#: windows/util.c:416
 msgid "'title' must be a character string"
 msgstr "'title' dev'essere una stringa di caratteri"
 
-#: windows/util.c:423
+#: windows/util.c:425
 msgid "'text' must be a character string"
 msgstr "'text' dev'essere una stringa di caratteri"
 
-#: windows/util.c:462
+#: windows/util.c:464
 #, c-format
 msgid "'%s' must be length 1"
 msgstr "'%s' dev'essere di lunghezza 1"
 
-#: windows/util.c:575
+#: windows/util.c:577
 #, c-format
 msgid "'%s' must be a list"
 msgstr "'%s' dev'essere una lista"
 
-#: windows/util.c:579
+#: windows/util.c:581
 #, c-format
 msgid "'%s' element %d is not a window handle"
 msgstr "'%s' elemento %d non è un gestore di finestra"

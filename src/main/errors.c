@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2024  The R Core Team.
+ *  Copyright (C) 1995--2025  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@
    in  more places. LT */
 static SEXP evalKeepVis(SEXP e, SEXP rho)
 {
-    int oldvis = R_Visible;
+    Rboolean oldvis = R_Visible;
     SEXP val = eval(e, rho);
     R_Visible = oldvis;
     return val;
@@ -189,7 +189,7 @@ static void onintrEx(Rboolean resumeOK)
     else signalInterrupt();
 
     /* Interrupts do not inherit from error, so we should not run the
-       user erro handler. But we have been, so as a transition,
+       user error handler. But we have been, so as a transition,
        continue to use options('error') if options('interrupt') is not
        set */
     Rboolean tryUserError = GetOption1(install("interrupt")) == R_NilValue;
@@ -493,7 +493,7 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
     else if(w == 1) {	/* print as they happen */
 	char *tr;
 	if( call != R_NilValue ) {
-	    dcall = CHAR(STRING_ELT(deparse1s(call), 0));
+	    dcall = CHAR(STRING_ELT(deparse1s(call), false));
 	} else dcall = "";
 	psize = min(BUFSIZE, R_WarnLength+1);
 	pval = Rvsnprintf_mbcs(buf, psize, format, ap);
@@ -795,22 +795,18 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	char *head = _("Error in "), *tail = "\n  ";
 	SEXP srcloc = R_NilValue; // -Wall
 	size_t len = 0;	// indicates if srcloc has been set
-	int protected = 0, skip = NA_INTEGER;
+	int protected = 0, show = 0;
 	SEXP opt = GetOption1(install("show.error.locations"));
-	if (!isNull(opt)) {
-	    if (TYPEOF(opt) == STRSXP && length(opt) == 1) {
-		if (pmatch(ScalarString(mkChar("top")), opt, 0)) skip = 0;
-		else if (pmatch(ScalarString(mkChar("bottom")), opt, 0)) skip = -1;
-	    } else if (TYPEOF(opt) == LGLSXP)
-		skip = asLogical(opt) == 1 ? 0 : NA_INTEGER;
-	    else
-		skip = asInteger(opt);
-	}
+	if (length(opt) == 1 &&
+	    (asLogical(opt) == 1 ||
+	     (TYPEOF(opt) == STRSXP &&
+	      pmatch(ScalarString(mkChar("top")), opt, 0))))
+	    	show = 1;
 
 	const char *dcall = CHAR(STRING_ELT(deparse1s(call), 0));
 	Rsnprintf_mbcs(tmp2, BUFSIZE,  "%s", head);
-	if (skip != NA_INTEGER) {
-	    PROTECT(srcloc = GetSrcLoc(R_GetCurrentSrcref(skip)));
+	if (show) {
+	    PROTECT(srcloc = GetSrcLoc(R_GetCurrentSrcref(NA_INTEGER)));
 	    protected++;
 	    len = strlen(CHAR(STRING_ELT(srcloc, 0)));
 	    if (len)
@@ -927,8 +923,8 @@ NORET void errorcall(SEXP call, const char *format,...)
 
 /* Like errorcall, but copies all data for the error message into a buffer
    before doing anything else. */
-attribute_hidden
-NORET void errorcall_cpy(SEXP call, const char *format, ...)
+NORET attribute_hidden
+void errorcall_cpy(SEXP call, const char *format, ...)
 {
     char buf[BUFSIZE];
 
@@ -1213,7 +1209,7 @@ attribute_hidden SEXP do_gettext(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    trim = TRUE;
 	else
 #endif
-	    trim = asLogical(CADDR(args));
+	    trim = asRbool(CADDR(args), call);
 	for(int i = 0; i < n; i++) {
 	    int ihead = 0, itail = 0;
 	    const char * This = translateChar(STRING_ELT(string, i));
@@ -1346,7 +1342,7 @@ static SEXP findCall(void)
     return R_NilValue;
 }
 
-attribute_hidden NORET SEXP do_stop(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_stop(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
 /* error(.) : really doesn't return anything; but all do_foo() must be SEXP */
     SEXP c_call;
@@ -1407,8 +1403,8 @@ attribute_hidden SEXP do_warning(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 /* Error recovery for incorrect argument count error. */
-attribute_hidden
-NORET void WrongArgCount(const char *s)
+NORET attribute_hidden
+void WrongArgCount(const char *s)
 {
     error(_("incorrect number of arguments to \"%s\""), s);
 }
@@ -1448,8 +1444,8 @@ WarningDB[] = {
 };
 
 
-attribute_hidden
-NORET void ErrorMessage(SEXP call, int which_error, ...)
+NORET attribute_hidden
+void ErrorMessage(SEXP call, int which_error, ...)
 {
     int i;
     char buf[BUFSIZE];
@@ -1504,6 +1500,15 @@ static void R_PrintDeferredWarnings(void)
 	PrintWarnings();
     }
 }
+
+/* if srcref indicates it is in bytecode, it needs a fixup */
+static SEXP fixBCSrcref(SEXP srcref, RCNTXT *c)
+{
+    if (srcref == R_InBCInterpreter)
+	srcref = R_findBCInterpreterSrcref(c);
+    return srcref;
+}
+
 /*
  * Return the traceback without deparsing the calls
  */
@@ -2030,7 +2035,7 @@ attribute_hidden SEXP do_dfltWarn(SEXP call, SEXP op, SEXP args, SEXP rho)
     return R_NilValue;
 }
 
-attribute_hidden NORET SEXP do_dfltStop(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_dfltStop(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
 
@@ -2112,7 +2117,7 @@ NORET static void invokeRestart(SEXP r, SEXP arglist)
     }
 }
 
-attribute_hidden NORET
+NORET attribute_hidden 
 SEXP do_invokeRestart(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
@@ -2154,9 +2159,9 @@ do_printDeferredWarnings(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden SEXP
 do_interruptsSuspended(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    int orig_value = R_interrupts_suspended;
+    Rboolean orig_value = R_interrupts_suspended;
     if (args != R_NilValue)
-	R_interrupts_suspended = asLogical(CAR(args));
+	R_interrupts_suspended = asRbool(CAR(args), call);
     return ScalarLogical(orig_value);
 }
 
@@ -2342,25 +2347,44 @@ SEXP
 R_GetCurrentSrcref(int skip)
 {
     RCNTXT *c = R_GlobalContext;
-    SEXP srcref = R_Srcref;
+    SEXP srcref = NULL;
+    int keep_looking = skip == NA_INTEGER;
+    if (keep_looking) skip = 0;
     if (skip < 0) { /* to count up from the bottom, we need to count them all first */
 	while (c) {
-	    if (srcref && srcref != R_NilValue)
+	    if (c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN))
 		skip++;
-	    srcref = c->srcref;
 	    c = c->nextcontext;
 	};
 	if (skip < 0) return R_NilValue; /* not enough there */
 	c = R_GlobalContext;
-	srcref = R_Srcref;
     }
-    while (c && (skip || !srcref || srcref == R_NilValue)) {
-	if (srcref && srcref != R_NilValue)
+    	
+    /* If skip = NA, try current active srcref first. */
+    if (keep_looking) {
+    	srcref = R_getCurrentSrcref();
+        if (srcref && !isNull(srcref))
+    	  return srcref;
+    }
+    
+    /* Go to the first call */
+    while (c && !(c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN)))
+    	c = c->nextcontext;
+    
+    /* Now skip enough calls, regardless of srcref presence */
+    while (c && skip) {
+    	if (c->callflag & (CTXT_FUNCTION | CTXT_BUILTIN))
 	    skip--;
-	srcref = c->srcref;
 	c = c->nextcontext;
     }
-    if (skip || !srcref)
+    /* Now get the next srcref.  If skip was not NA, don't
+       keep looking. */
+    do {
+	if (!c) break;
+        srcref = fixBCSrcref(c->srcref, c);
+        c = c->nextcontext;
+    } while (keep_looking && !(srcref && !isNull(srcref)));
+    if (!srcref)
 	srcref = R_NilValue;
     return srcref;
 }
@@ -2417,7 +2441,7 @@ typedef struct {
     void *hdata;
     void (*finally)(void *);
     void *fdata;
-    int suspended;
+    Rboolean suspended;
 } tryCatchData_t;
 
 static SEXP default_tryCatch_handler(SEXP cond, void *data)
@@ -2653,8 +2677,8 @@ static void R_signalCondition(SEXP cond, SEXP call,
     }
 }
 
-attribute_hidden /* for now */
-NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
+NORET attribute_hidden /* for now */
+void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
 {
     /* caller must make sure that 'cond' and 'call' are protected. */
     R_signalCondition(cond, call, TRUE, exitOnly);
@@ -2670,8 +2694,8 @@ NORET void R_signalErrorConditionEx(SEXP cond, SEXP call, int exitOnly)
     errorcall_dflt(call, "%s", translateChar(STRING_ELT(elt, 0)));
 }
 
-attribute_hidden /* for now */
-NORET void R_signalErrorCondition(SEXP cond, SEXP call)
+NORET attribute_hidden /* for now */
+void R_signalErrorCondition(SEXP cond, SEXP call)
 {
     R_signalErrorConditionEx(cond, call, FALSE);
 }

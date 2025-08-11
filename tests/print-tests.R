@@ -68,7 +68,7 @@ for(i in digs1) { DIG(i); cat(i,":", formatC(v3, digits=i, width=8),"\n") }
 
 
 ## R-0.50: switches to NON-exp at 14, but should only at 15...
-## R-0.61++: doesn' switch at all (or at 20 only)
+## R-0.61++: doesn't switch at all (or at 20 only)
 ## S-plus: does not switch at all..
 for(i in digs1) { cat(i,":");  print(v1, digits=i) }
 
@@ -346,13 +346,15 @@ print(matrix(nrow = 100, ncol = 100), max = 40) # omitting rows and columns
 print(matrix(nrow =  10, ncol = 4), max = 3)    #   (ditto)
 print(matrix(nrow =   0, ncol = 4), max = 3)    # omitting 1 column
 print(matrix(nrow =  10, ncol = 2), max = 5)    # omitting rows
-print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting cols, at least one row prints
+print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting 1 col, at least one row prints
 ## ----- "higher" arrays ("rank >= 3"): --------
-## FIXME: in R 4.4.0 there should be a warning for omitted rows
-print(array(dim = c(2, 2, 1)), max = 2)
-## FIXME: this does not print anything but it should show
-##        at least one element according to the logic of max.print
-print(array(dim = c(2, 2, 1)), max = 1)
+print(array(dim = c(2, 2, 2)), max = 4) # omit 1 slice
+print(array(dim = c(2, 2, 2)), max = 5) # omit 1 row + 1 column
+print(array(dim = c(2, 2, 2)), max = 6) # omit 1 row
+print(array(dim = c(2, 2, 2)), max = 7) # omit 1 row
+#
+print(array(dim = c(2, 2, 1)), max = 2) # omit 1 row
+print(array(dim = c(2, 2, 1)), max = 1) # omit 1 row + 1 column
 
 
 

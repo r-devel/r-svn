@@ -117,7 +117,7 @@ static SEXP duplicate1(SEXP, Rboolean deep);
 #ifdef R_PROFILING
 static unsigned long duplicate_counter = (unsigned long)-1;
 
-unsigned long  attribute_hidden
+attribute_hidden unsigned long
 get_duplicate_counter(void)
 {
     return duplicate_counter;
@@ -130,6 +130,7 @@ attribute_hidden void reset_duplicate_counter(void)
 }
 #endif
 
+// In Rinternals.h
 SEXP duplicate(SEXP s){
     SEXP t;
 
@@ -405,6 +406,7 @@ void copyVector(SEXP s, SEXP t)
     }
 }
 
+// In Rinternals.h
 void copyListMatrix(SEXP s, SEXP t, Rboolean byrow)
 {
     int nr = nrows(s), nc = ncols(s);
@@ -440,6 +442,7 @@ static R_INLINE SEXP VECTOR_ELT_LD(SEXP x, R_xlen_t i)
     return lazy_duplicate(VECTOR_ELT(x, i));
 }
 
+// In Rinternals.h
 void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 {
     int nr = nrows(s), nc = ncols(s);

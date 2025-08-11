@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4-3-BRANCH\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2025-03-31 11:50\n"
 "PO-Revision-Date: 2023-01-19 12:03+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian https://github.com/dmedri/R-italian-lang\n"
@@ -60,20 +60,19 @@ msgstr "il secondo argomento dev'essere una lista"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' non è disponibile su questo sistema"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' dev'essere una stringa di caratteri di lunghezza 1 (si utilizza RNG)"
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' non è una abbreviazione valida di un RNG"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' dev'essere una stringa di caratteri di lunghezza 1"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'name' dev'essere una stringa con un singolo carattere"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' non è una scelta valida"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr "'sample.kind' dev'essere una stringa di caratteri di lunghezza 1"
 
 msgid "malformed version string"
 msgstr "versione stringa mal composta"
@@ -206,9 +205,6 @@ msgstr "si possono scrivere solo oggetti di tipo character"
 
 msgid "'headers' must have names and must not be NA"
 msgstr "'headers' deve contenere nomi e nessun NA"
-
-msgid "'name' must be a single character string"
-msgstr "'name' dev'essere una stringa con un singolo carattere"
 
 msgid "'origin' must be one of 'start', 'current' or 'end'"
 msgstr "'origin' dev'essere uno tra 'start', 'current' o 'end'"
@@ -399,29 +395,20 @@ msgstr "l'operatore unario %s non è definito per oggetti \"Date\""
 msgid "%s not defined for \"Date\" objects"
 msgstr "%s non definito per oggetti \"Date\""
 
-msgid "'from' must be specified"
-msgstr "'from' dev'essere specificato"
-
-msgid "'from' must be a \"Date\" object"
-msgstr "'from' dev'essere un oggetto \"Date\""
-
-msgid "'from' must be of length 1"
-msgstr "'from' dev'essere di lunghezza 1"
-
-msgid "'to' must be a \"Date\" object"
-msgstr "'to' dev'essere un oggetto \"Date\""
-
-msgid "'to' must be of length 1"
+#, fuzzy
+msgid "'%s' must be of length 1"
 msgstr "'to' dev'essere di lunghezza 1"
 
-msgid "'length.out' must be of length 1"
-msgstr "'lenght.out' dev'essere di lunghezza 1"
+msgid "without 'by', at least one of 'to' and 'from' must be specified"
+msgstr ""
 
-msgid "exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified"
+#, fuzzy
+msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
 msgstr "devono essere specificati esattamente due 'to', 'by' e 'length.out' / 'along.with'"
 
-msgid "'by' must be of length 1"
-msgstr "'by' dev'essere di lunghezza 1"
+#, fuzzy
+msgid "given 'by', exactly two of 'to', 'from' and 'length.out' / 'along.with' must be specified"
+msgstr "devono essere specificati esattamente due 'to', 'by' e 'length.out' / 'along.with'"
 
 msgid "invalid 'by' string"
 msgstr "stringa 'by' non valida"
@@ -440,9 +427,6 @@ msgstr "'x' dev'essere un oggetto date-time"
 
 msgid "invalid specification of 'breaks'"
 msgstr "specificazione non valida dei 'breaks'"
-
-msgid "'origin' must be of length one"
-msgstr "'origin' dev'essere di lunghezza 1"
 
 msgid "'lag' and 'differences' must be integers >= 1"
 msgstr "'lag' e 'differences' devono essere interi >= 1"
@@ -501,17 +485,22 @@ msgstr "entrambi gli argomenti di * non possono essere oggetti \"difftime\""
 msgid "second argument of / cannot be a \"difftime\" object"
 msgstr "il secondo argomento di / non può essere un oggetto \"difftime\""
 
-msgid "'from' must be a \"POSIXt\" object"
-msgstr "'from' dev'essere un oggetto \"POSIXt\""
+#, fuzzy
+msgid "exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified"
+msgstr "devono essere specificati esattamente due 'to', 'by' e 'length.out' / 'along.with'"
 
-msgid "'to' must be a \"POSIXt\" object"
-msgstr "'to' dev'essere un oggetto \"POSIXt\""
+#, fuzzy
+msgid "'%s' must be a \"%s\" object"
+msgstr "'to' dev'essere un oggetto \"Date\""
 
 msgid "component subscript must be a character string"
 msgstr "il componente subscript dev'essere una stringa di caratteri"
 
 msgid "no Olson database found"
 msgstr "nessun database Olson trovato"
+
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
+msgstr ""
 
 msgid "'file' must be a character string or connection"
 msgstr "'file' dev'essere una stringa di caratteri o una connessione"
@@ -649,9 +638,6 @@ msgstr "nessun file/directory da collegare"
 msgid "no files to link to"
 msgstr "nessun file da collegare"
 
-msgid "'package' must be of length 1"
-msgstr "'package' dev'essere di lunghezza 1"
-
 msgid "no file found"
 msgstr "nessun file trovato"
 
@@ -675,9 +661,6 @@ msgstr "Metodo format() non trovato per la classe \"%s\""
 
 msgid "class of 'x' was discarded"
 msgstr "la classe di 'x' è stata scartata"
-
-msgid "'flag' must be a string, i.e., of length 1"
-msgstr "'flag' dev'essere una stringa, es. di lunghezza 1"
 
 msgid "'flag' should contain only characters from [0+- #'I]"
 msgstr "'flag' dovrebbe contenere solo caratti da [0+- #'I]"
@@ -950,7 +933,7 @@ msgid "nothing specified to be save()d"
 msgstr "non è stato indicato nulla da salvare"
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'file' dev'essere una stringa non vuota"
 
 msgid "'compress' must be logical or character"
@@ -991,9 +974,6 @@ msgstr "potrebbe non avere argomenti nominati"
 
 msgid "'arg' must be NULL or a character vector"
 msgstr "'arg' dev'essere NULL o vettore di caratteri"
-
-msgid "'arg' must be of length 1"
-msgstr "'arg' dev'essere di lunghezza 1"
 
 msgid "'arg' must be of length >= 1"
 msgstr "'arg' dev'essere lunghezza 1"
@@ -1396,9 +1376,6 @@ msgstr "si specifichi 'nmax' o 'n', ma non entrambi."
 msgid "'from' must be a finite number"
 msgstr "'from' dev'essere un numero finito"
 
-msgid "argument 'length.out' must be of length 1"
-msgstr "l'argomento 'length.out' dev'essere di lunghezza 1"
-
 msgid "first element used of 'length.out' argument"
 msgstr "primo elemento usato dell'argomento 'length.out'"
 
@@ -1562,15 +1539,20 @@ msgstr ""
 msgid "additional arguments ignored in warning()"
 msgstr "ignorati gli argomenti aggiuntivi in warning()"
 
+msgid "no natural language support or missing translations"
+msgstr ""
+
+msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
+msgstr ""
+
+msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
+msgstr ""
+
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr "Sys.setenv(LANGUAGE=\"%s\") potrebbe non essere riuscito"
 
-msgid ""
-"Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
-"  Consider 'structure(list(), *)' instead."
+msgid "attempt to set an attribute on NULL"
 msgstr ""
-"Chiamata a 'structure(NULL, *)' deprecata, perché NULL non può avere attributi.\n"
-"  Considera piuttosto 'structure(list(), *)'."
 
 msgid "incorrect value for 'x'"
 msgstr "valore non corretto per 'x'"
@@ -1635,9 +1617,6 @@ msgstr "numero totale dei livelli >= 2^31"
 msgid "handler must be a function"
 msgstr "il gestore dev'essere una funzione"
 
-msgid "'which' must be of length 1"
-msgstr "'which' dev'essere di lunghezza 1"
-
 msgid "no such element '%s'"
 msgstr "nessun elemento '%s'"
 
@@ -1672,11 +1651,15 @@ msgid "No traceback available"
 msgstr "Nessun traceback disponibile"
 
 #, fuzzy
+msgid "'recursive' must be a length-1 vector"
+msgstr "'origin' dev'essere di lunghezza 1"
+
+msgid "'recursive' is NA"
+msgstr ""
+
+#, fuzzy
 msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr "versione specificata %s non valida"
-
-msgid "Calls"
-msgstr ""
 
 msgid "invalid version specification %s"
 msgstr "versione specificata %s non valida"
@@ -1944,6 +1927,58 @@ msgstr[0] ""
 msgstr[1] ""
 "In %s :\n"
 " gli argomenti extra %s saranno ignorati"
+
+#~ msgid "'name' must be a single character string"
+#~ msgstr "'name' dev'essere una stringa con un singolo carattere"
+
+#~ msgid "'from' must be specified"
+#~ msgstr "'from' dev'essere specificato"
+
+#~ msgid "'from' must be a \"Date\" object"
+#~ msgstr "'from' dev'essere un oggetto \"Date\""
+
+#~ msgid "'from' must be of length 1"
+#~ msgstr "'from' dev'essere di lunghezza 1"
+
+#~ msgid "'length.out' must be of length 1"
+#~ msgstr "'lenght.out' dev'essere di lunghezza 1"
+
+#~ msgid "'by' must be of length 1"
+#~ msgstr "'by' dev'essere di lunghezza 1"
+
+#~ msgid "'from' must be a \"POSIXt\" object"
+#~ msgstr "'from' dev'essere un oggetto \"POSIXt\""
+
+#~ msgid "'to' must be a \"POSIXt\" object"
+#~ msgstr "'to' dev'essere un oggetto \"POSIXt\""
+
+#~ msgid "'package' must be of length 1"
+#~ msgstr "'package' dev'essere di lunghezza 1"
+
+#~ msgid "'arg' must be of length 1"
+#~ msgstr "'arg' dev'essere di lunghezza 1"
+
+#~ msgid "argument 'length.out' must be of length 1"
+#~ msgstr "l'argomento 'length.out' dev'essere di lunghezza 1"
+
+#~ msgid ""
+#~ "Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
+#~ "  Consider 'structure(list(), *)' instead."
+#~ msgstr ""
+#~ "Chiamata a 'structure(NULL, *)' deprecata, perché NULL non può avere attributi.\n"
+#~ "  Considera piuttosto 'structure(list(), *)'."
+
+#~ msgid "'which' must be of length 1"
+#~ msgstr "'which' dev'essere di lunghezza 1"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' dev'essere una stringa di caratteri di lunghezza 1"
+
+#~ msgid "'sample.kind' must be a character string of length 1"
+#~ msgstr "'sample.kind' dev'essere una stringa di caratteri di lunghezza 1"
+
+#~ msgid "'flag' must be a string, i.e., of length 1"
+#~ msgstr "'flag' dev'essere una stringa, es. di lunghezza 1"
 
 #, fuzzy
 #~ msgid ", will be ignored"

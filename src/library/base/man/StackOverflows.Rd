@@ -44,7 +44,7 @@
   }
 
   Stack overflow errors can be caught and handled by exiting handlers
-  established with \code{\link{tryCatch}()} Calling handlers established
+  established with \code{\link{tryCatch}()}. Calling handlers established
   by \code{\link{withCallingHandlers}()} may fail since there may not be
   enough stack space to run the handler. In this case the next available
   exiting handler will be run, or error handling will fall back to the

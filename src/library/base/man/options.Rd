@@ -1,6 +1,6 @@
 % File src/library/base/man/options.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{options}
@@ -70,7 +70,7 @@ getOption(x, default = NULL)
   a list with the previous values of the options changed (returned
   invisibly).
 }
-\section{Options used in base \R}{
+\section{Options used in base \R}{% --- sorted *alphabetically* --
   \describe{
     \item{\code{add.smooth}:}{typically logical, defaulting to
       \code{TRUE}.  Could also be set to an integer for specifying how
@@ -264,6 +264,12 @@ getOption(x, default = NULL)
       to something in the order of (and typically slightly less than)
       \code{max.print} \emph{entries}.}
 
+    \item{\code{netrc}:}{character string. Path to \I{netrc} file with
+      user credentials for URLs requiring authentication.  The file, if it
+      exists, will be used by \samp{libcurl} in \code{\link{download.file}},
+      \code{\link{url}} and \code{\link{curlGetHeaders}}.  By default unset,
+      but can be set from environment variable \env{R_DEFAULT_NETRC}.}
+
     \item{\code{OutDec}:}{character string containing a single
       character.  The preferred character to be used as the decimal
       point in output conversions, that is in printing, plotting,
@@ -349,6 +355,11 @@ getOption(x, default = NULL)
     \item{\code{prompt}:}{a non-empty string to be used for \R's prompt;
       should usually end in a blank (\code{" "}).}
 
+    \item{\code{quiet}:}{logical.  Should \R be (more) \dQuote{quiet},
+      notably on startup report?  Set to \code{TRUE} by the command-line
+      option \option{--quiet}.  Note that \code{quiet} and \code{verbose}
+      \emph{can} both be true.}
+
       % verbatim, for checking " \t\n\"\\'`><=%;,|&{()}"
     \item{\code{rl_word_breaks}:}{(Unix only:) Used for the \I{readline}-based terminal
       interface.  Default value \code{" \\t\\n\\"\\\\'`><=\%;,|&{()}"}.%"
@@ -366,7 +377,13 @@ getOption(x, default = NULL)
       when deciding to print numeric values in fixed or exponential
       notation.  Positive values bias towards fixed and negative towards
       scientific notation: fixed notation will be preferred unless it is
-      more than \code{scipen} digits wider.}
+      more than \code{scipen} digits wider.  The default is \code{0}.
+      Valid values are between -9 and 9999 where \dQuote{relevant} values
+      (for double precision accuracy) are in \code{-6:319}.
+      Some invalid values currently signal a \code{\link{warning}} and are set
+      to legal boundaries if finite.  These may signal an error in a future
+      version of \R.
+    }
 
     \item{\code{setWidthOnResize}:}{a logical. If set and \code{TRUE}, \R
       run in a terminal using a recent \code{readline} library will set
@@ -388,13 +405,7 @@ getOption(x, default = NULL)
     \item{\code{show.error.locations}:}{Should source locations of
       errors be printed?  If set to \code{TRUE} or \code{"top"}, the
       source location that is highest on the stack (the most recent
-      call) will be printed.  \code{"bottom"} will print the location
-      of the earliest call found on the stack.
-
-      Integer values can select other entries.  The value \code{0}
-      corresponds to \code{"top"} and positive values count down the
-      stack from there.  The value \code{-1} corresponds to
-      \code{"bottom"} and negative values count up from there.
+      code with source information) will be printed.
       }
 
     \item{\code{show.error.messages}:}{a logical.  Should error messages
@@ -502,7 +513,7 @@ getOption(x, default = NULL)
     }
  }
 
-  The \sQuote{factory-fresh} default settings of some of these options are
+  The \sQuote{factory-fresh} default settings of some of these options are (alphabetically)
   \tabular{ll}{
     \code{add.smooth} \tab \code{TRUE}\cr
     \code{check.bounds} \tab \code{FALSE}\cr
@@ -517,6 +528,7 @@ getOption(x, default = NULL)
     \code{max.print} \tab \code{99999}\cr
     \code{OutDec} \tab \code{"."}\cr
     \code{prompt} \tab \code{"> "}\cr
+    \code{quiet}   \tab \code{FALSE}\cr
     \code{scipen} \tab \code{0} \cr
     \code{show.error.messages} \tab \code{TRUE}\cr
     \code{timeout} \tab \code{60}\cr
@@ -527,6 +539,7 @@ getOption(x, default = NULL)
   }
   Others are set from environment variables or are platform-dependent.
 }
+
 \section{Options set in package \pkg{grDevices}}{
   These will be set when package \pkg{grDevices} (or its namespace)
   is loaded if not already set.
@@ -567,7 +580,7 @@ getOption(x, default = NULL)
       and \code{identify} be confirmed by a bell?  Default \code{TRUE}.
       Honoured at least on \code{X11} and \code{windows} devices.}
 
-    \item{\code{windowsTimeout}:}{(Windows-only) integer vector of length 2
+    \item{\code{windowsTimeouts}:}{(Windows-only) integer vector of length 2
       representing two times in milliseconds.  These control the
       double-buffering of \code{\link{windows}} devices when that is
       enabled: the first is the delay after plotting finishes
@@ -576,7 +589,7 @@ getOption(x, default = NULL)
       device is opened are used.}
   }
 }
-\section{Other options used by package graphics}{
+\section{Other options used by package \pkg{graphics}}{
   \describe{
     \item{\code{max.contour.segments}:}{positive integer, defaulting to
       \code{25000} if not set.  A limit on the number of
@@ -584,8 +597,8 @@ getOption(x, default = NULL)
       \code{\link{contourLines}}.}
   }
 }
-\section{Options set in package stats}{
-  These will be set when package \pkg{stats} (or its namespace)
+\section{Options set (or used) in package \pkg{stats}}{
+  Most of these will be set when package \pkg{stats} (or its namespace)
   is loaded if not already set.
   \describe{
     \item{\code{contrasts}:}{the default \code{\link{contrasts}} used in
@@ -604,10 +617,13 @@ getOption(x, default = NULL)
       \code{\link{printCoefmat}}.}
 
     \item{\code{show.nls.convergence}:}{logical, should \code{\link{nls}}
-      convergence messages be printed for successful fits?}
+      convergence messages be printed for successful fits?
+      Initially unset, which means \code{TRUE}.}
 
     \item{\code{show.signif.stars}:}{logical, should stars be printed on
       summary tables of coefficients?  See \code{\link{printCoefmat}}.}
+
+    \item{\code{str.dendrogram.last}:}{see \code{\link{str.dendrogram}}.}
 
     \item{\code{ts.eps}:}{the relative tolerance for certain time series
       (\code{\link{ts}}) computations.  Default \code{1e-05}.}
@@ -617,9 +633,11 @@ getOption(x, default = NULL)
       \code{log} in \code{\link{plot.spec}}.}
   }
 }
-\section{Options set (or used) in package utils}{
-  These will be set (apart from \code{Ncpus}) when package \pkg{utils}
-  (or its namespace) is loaded if not already set.
+\section{Options set (or used) in package \pkg{utils}}{
+  Many of these will be set when package \pkg{utils} (or its namespace)
+  is loaded if not already set.
+  % apart from, e.g., "ccaddress", "help.ports", "help_type",
+  % "help.htmlmath", "help.htmltoc", "install.lock", "Ncpus"
   \describe{
     \item{\code{BioC_mirror}:}{The URL of a Bioconductor mirror
       for use by \code{\link{setRepositories}},
@@ -748,11 +766,10 @@ getOption(x, default = NULL)
 	  \code{"win.binary"}, \code{"source"} and
 	  \code{"both"} (the default).}
 	\item{on Unix-alikes}{\code{"source"} (the default except under a
-	  CRAN macOS build), \code{"mac.binary"} and
+	  CRAN macOS build), build-specific variants of
+	  \code{"mac.binary"} (e.g., \code{"mac.binary.big-sur-arm64"}) or
 	  \code{"both"} (the default for CRAN macOS builds).
-	  (\code{"mac.binary.el-capitan"},
-	  \code{"mac.binary.mavericks"}, \code{"mac.binary.leopard"}
-	  and \code{"mac.binary.universal"} are no longer in use.)}
+	}
       }
       Value \code{"binary"} is a synonym for the native binary type (if
       there is one); \code{"both"} is used by
@@ -787,8 +804,6 @@ local({
     \item{\code{str}:}{a list of options controlling the default
       \code{\link{str}} display. Defaults to \code{\link{strOptions}()}.}
 
-    \item{\code{str.dendrogram.last}:}{see \code{\link{str.dendrogram}}.}
-
     \item{\code{SweaveHooks}, \code{SweaveSyntax}:}{
       see \code{\link{Sweave}}.
     }
@@ -807,7 +822,8 @@ local({
 
   }
 }
-\section{Options set in package parallel}{
+
+\section{Options set in package \pkg{parallel}}{
   These will be set when package \pkg{parallel} (or its namespace)
   is loaded if not already set.
   \describe{

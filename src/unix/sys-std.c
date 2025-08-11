@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -128,7 +128,7 @@ int R_SelectEx(int  n,  fd_set  *readfds,  fd_set  *writefds,
     else {
 	volatile sel_intr_handler_t myintr = intr != NULL ?
 	    intr : onintr;
-	volatile int old_interrupts_suspended = R_interrupts_suspended;
+	volatile Rboolean old_interrupts_suspended = R_interrupts_suspended;
 	volatile double base_time = currentTime();
 	struct timeval tm;
 	if (timeout != NULL)
@@ -1025,8 +1025,12 @@ Rstd_ReadConsole(const char *prompt, unsigned char *buf, int len,
 	    err = res == (size_t)(-1);
 	    /* errors lead to part of the input line being ignored */
 	    if(err) {
+		/* Should re-set with a stateful encoding, but some iconv
+                   implementations forget byte-order learned from BOM.
+
 		Riconv(cd, NULL, NULL, &ob, &onb);
 		*ob = '\0';
+		*/
 		printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
 		       R_StdinEnc);
 		strncpy((char *)buf, obuf, len);
@@ -1224,7 +1228,7 @@ attribute_hidden void Rstd_Busy(int which)
    If ask = SA_SUICIDE, no save, no .Last, possibly other things.
  */
 
-attribute_hidden NORET
+NORET attribute_hidden
 void Rstd_CleanUp(SA_TYPE saveact, int status, int runLast)
 {
     if(saveact == SA_DEFAULT) /* The normal case apart from R_Suicide */

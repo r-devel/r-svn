@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -229,10 +229,6 @@ msgstr "'breaks' が狭義増加ではありません"
 
 msgid "'probability' is an alias for '!freq', however they differ."
 msgstr "'probability' は '!freq' の別名ですが、それらは異なっています"
-
-#, fuzzy
-msgid "fuzz must be non-negative"
-msgstr "整数によりパレットから色を指定する場合、正の整数を指定してください"
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
 msgstr "'x' の一部分が数えられていません。多分 'breaks' が 'x' の範囲全体をカバーしていません"
@@ -495,6 +491,10 @@ msgstr[0] "外れ値 (%s) は描かれません 箱型図 %d 中では"
 msgid "argument %s is not made use of"
 msgid_plural "arguments %s are not made use of"
 msgstr[0] "引数 %s は使用されていません"
+
+#, fuzzy
+#~ msgid "fuzz must be non-negative"
+#~ msgstr "整数によりパレットから色を指定する場合、正の整数を指定してください"
 
 #~ msgid "negative 'counts'. Internal Error in C-code for \"bincount\""
 #~ msgstr " 負の 'counts' です。\"bincount\" のための C コードの内部エラーです "

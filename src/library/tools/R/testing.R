@@ -145,7 +145,7 @@ massageExamples <-
 ## compares 2 files
 ## 2022-07: it is reasonable to assume that almost all users will
 ## have diff (it is part of Rtools), and currently only GNU diff
-## (from 2022 on macOS) and FreeBSD versions semm to be in use.
+## (from 2022 on macOS) and FreeBSD versions seem to be in use.
 ## So the support without diff is minimal.
 Rdiff <- function(from, to, useDiff = FALSE, forEx = FALSE,
                   nullPointers = TRUE, Log = FALSE)
@@ -396,8 +396,11 @@ testInstalledPackage <-
             cmd <- paste(shQuote(file.path(R.home("bin"), "R")),
                          "CMD BATCH --vanilla --no-timing", Ropts,
                          shQuote(Rfile), shQuote(failfile))
-            if (.Platform$OS.type == "windows") Sys.setenv(R_LIBS="")
-            else cmd <- paste("R_LIBS=", cmd)
+            if (.Platform$OS.type == "windows") {
+                Sys.setenv(R_LIBS="")
+                cmd <- paste(cmd, "LANGUAGE=C")
+            } else
+                cmd <- paste("R_LIBS= LANGUAGE=C", cmd)
             res <- system(cmd)
             if (res) {
                 message(gettextf("Error: running examples in %s failed", sQuote(Rfile)),
@@ -851,7 +854,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
         runone("isas-tests")
         message("running tests of random deviate generation (should no longer ever fail)")
         runone("p-r-random-tests", TRUE)
-        message("running miscellanous strict devel checks", domain = NA)
+        message("running miscellaneous strict devel checks", domain = NA)
         if (runone("misc-devel")) return(invisible(1L))
         message("running tests demos from base and stats", domain = NA)
         if (runone("demos")) return(invisible(1L))

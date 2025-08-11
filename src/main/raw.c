@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001--2022 The R Core Team
+ *  Copyright (C) 2001--2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Pulic License as published by
@@ -151,8 +151,6 @@ attribute_hidden SEXP do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(INTSXP, 2*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -169,13 +167,11 @@ attribute_hidden SEXP do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(2);
     return ans;
 }
-// split "real", i.e. = double = 64-bitd, to bits (<==> do_intToBits( do_numToInts(..) .. ))
+// split "real", i.e. = double = 64-bit, to bits (<==> do_intToBits( do_numToInts(..) .. ))
 attribute_hidden SEXP do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
-    if (!isReal(x))
-	error(_("argument 'x' must be a numeric vector"));
     SEXP ans = PROTECT(allocVector(RAWSXP, 64*XLENGTH(x)));
     R_xlen_t i, j = 0;
     double *x_ = REAL(x);
@@ -205,9 +201,9 @@ attribute_hidden SEXP do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("argument 'x' must be raw, integer or logical"));
     if (!isString(stype)  || LENGTH(stype) != 1)
 	error(_("argument '%s' must be a character string"), "type");
-    Rboolean
-	notI = strcmp(CHAR(STRING_ELT(stype, 0)), "integer"),
-	notR = strcmp(CHAR(STRING_ELT(stype, 0)), "raw"),
+    bool
+	notI = strcmp(CHAR(STRING_ELT(stype, 0)), "integer") != 0,
+	notR = strcmp(CHAR(STRING_ELT(stype, 0)), "raw") != 0,
 	useRaw =  notI && !notR,
 	useInt = !notI &&  notR;
     int fac = useRaw ? 8 : (useInt ? 32 : 64);
@@ -410,21 +406,21 @@ attribute_hidden SEXP do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* do we want to copy e.g. names here? */
     } else {
 	int i, nc = LENGTH(x);
-	Rboolean haveNA = FALSE;
+	bool haveNA = false;
 	/* Note that this gives zero length for input '0', so it is omitted */
 	for (i = 0, len = 0; i < nc; i++) {
 	    int this = INTEGER(x)[i];
 	    if (this == NA_INTEGER
 		|| (this >= 0xDC00 && this <= 0xDFFF)
 		|| this > 0x10FFFF) {
-		haveNA = TRUE;
+		haveNA = true;
 		break;
 	    }
 	    else if (this >=  0xD800 && this <= 0xDBFF) {
-		if(!s_pair || i >= nc-1) {haveNA = TRUE; break;}
+		if(!s_pair || i >= nc-1) {haveNA = true; break;}
 		int next = INTEGER(x)[i+1];
 		if(next >= 0xDC00 && next <= 0xDFFF) i++;
-		else {haveNA = TRUE; break;}
+		else {haveNA = true; break;}
 		len += 4; // all points not in the basic plane have length 4
 	    }
 	    else

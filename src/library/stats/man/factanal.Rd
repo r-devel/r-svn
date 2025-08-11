@@ -1,6 +1,6 @@
 % File src/library/stats/man/factanal.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{factanal}
@@ -18,44 +18,46 @@ factanal(x, factors, data = NULL, covmat = NULL, n.obs = NA,
          rotation = "varimax", control = NULL, \dots)
 }
 \arguments{
-  \item{x}{A formula or a numeric matrix or an object that can be
+  \item{x}{\code{\link{formula}} or a numeric matrix or an object that can be
     coerced to a numeric matrix.}
-  \item{factors}{The number of factors to be fitted.}
-  \item{data}{An optional data frame (or similar: see
+  \item{factors}{integer number of factors to be fitted.}
+  \item{data}{an optional data frame (or similar: see
     \code{\link{model.frame}}), used only if \code{x} is a formula.  By
     default the variables are taken from \code{environment(formula)}.}
-  \item{covmat}{A covariance matrix, or a covariance list as returned by
+  \item{covmat}{covariance matrix or a covariance list as returned by
     \code{\link{cov.wt}}.  Of course, correlation matrices are covariance
     matrices.}
-  \item{n.obs}{The number of observations, used if \code{covmat} is a
+  \item{n.obs}{the number of observations, used if \code{covmat} is a
     covariance matrix.}
-  \item{subset}{A specification of the cases to be used, if \code{x} is
+  \item{subset}{a specification of the cases to be used, if \code{x} is
     used as a matrix or formula.}
-  \item{na.action}{The \code{na.action} to be used if \code{x} is
-    used as a formula.}
+  \item{na.action}{the \code{\link{na.action}} to be used if \code{x} is
+    used as a formula, in which case \code{\link{model.frame}()} is
+    called.}
   \item{start}{\code{NULL} or a matrix of starting values, each column
     giving an initial set of uniquenesses.}
   \item{scores}{Type of scores to produce, if any.  The default is none,
     \code{"regression"} gives Thompson's scores, \code{"Bartlett"} given
     Bartlett's weighted least-squares scores. Partial matching allows
     these names to be abbreviated.}
-  \item{rotation}{character. \code{"none"} or the name of a function
+  \item{rotation}{a \code{\link{function}} or \code{\link{character}}
+    string.  In the latter case, \code{"none"} or the name of a function
     to be used to rotate the factors: it will be called with first
     argument the loadings matrix, and should return a list with component
     \code{loadings} giving the rotated loadings, or just the rotated loadings.}
-  \item{control}{A list of control values,
+  \item{control}{a \code{\link{list}} of control values with components
     \describe{
-      \item{nstart}{The number of starting values to be tried if
+      \item{\code{nstart}}{The number of starting values to be tried if
         \code{start = NULL}. Default 1.}
-      \item{trace}{logical. Output tracing information? Default \code{FALSE}.}
-      \item{lower}{The lower bound for uniquenesses during
+      \item{\code{trace}}{logical. Output tracing information? Default \code{FALSE}.}
+      \item{\code{lower}}{The lower bound for uniquenesses during
         optimization. Should be > 0. Default 0.005.}
-      \item{opt}{A list of control values to be passed to
-        \code{\link{optim}}'s \code{control} argument.}
-      \item{rotate}{a list of additional arguments for the rotation function.}
+      \item{\code{opt}}{a list of control values to be passed to
+	\code{\link{optim}}'s \code{control} argument.}
+      \item{\code{rotate}}{a list of additional arguments for the rotation function.}
     }
   }
-  \item{\dots}{Components of \code{control} can also be supplied as
+  \item{\dots}{components of \code{control} can also be supplied directly as
     named arguments to \code{factanal}.}
 }
 \details{
@@ -91,22 +93,24 @@ factanal(x, factors, data = NULL, covmat = NULL, n.obs = NA,
   The fit is done by optimizing the log likelihood assuming multivariate
   normality over the uniquenesses.  (The maximizing loadings for given
   uniquenesses can be found analytically:
-  \bibcite{Lawley & Maxwell (1971, p.\sspace{}27)}.)
+  \bibcitet{|R:Lawley+Maxwell:1971|page 27}.)
   All the starting values supplied in \code{start} are tried
   in turn and the best fit obtained is used.  If \code{start = NULL}
   then the first fit is started at the value suggested by
-  \bibcite{\enc{Jöreskog}{Joreskog} (1963)} and given by
-  \bibcite{Lawley & Maxwell (1971, p.\sspace{}31)}, and then \code{control$nstart - 1} other values are
+  \bibcitet{R:Jöreskog:1963} and given by
+  \bibcitet{|R:Lawley+Maxwell:1971|page 31)},
+  and then \code{control$nstart - 1} other values are
   tried, randomly selected as equal values of the uniquenesses.
 
   The uniquenesses are technically constrained to lie in \eqn{[0, 1]},
   but near-zero values are problematical, and the optimization is
   done with a lower bound of \code{control$lower}, default 0.005
-  (\bibcite{Lawley & Maxwell, 1971, p.\sspace{}32}).
+  \bibcitep{|R:Lawley+Maxwell:1971|page 32}.
 
   Scores can only be produced if a data matrix is supplied and used.
   The first method is the regression method of Thomson (1951), the
-  second the weighted least squares method of Bartlett (1937, 8).
+  second the weighted least squares method of \bibcitet{R:Bartlett:1937a,
+  R:Thomson:1938}.
   Both are estimates of the unobserved scores \eqn{f}.  Thomson's method
   regresses (in the population) the unknown \eqn{f} on \eqn{x} to yield
   \deqn{\hat f = \Lambda^\prime \Sigma^{-1} x}{hat f = \Lambda' \Sigma^-1 x}
@@ -128,7 +132,8 @@ factanal(x, factors, data = NULL, covmat = NULL, n.obs = NA,
   \item{loadings}{A matrix of loadings, one column for each factor.  The
     factors are ordered in decreasing order of sums of squares of
     loadings, and given the sign that will make the sum of the loadings
-    positive.  This is of class \code{"loadings"}: see
+    positive. For correlated factors, the correlation matrix is
+    stored as an attribute labeled "covariance". This is of class \code{"loadings"}: see
     \code{\link{loadings}} for its \code{print} method.}
   \item{uniquenesses}{The uniquenesses computed.}
   \item{correlation}{The correlation matrix used.}
@@ -158,24 +163,8 @@ factanal(x, factors, data = NULL, covmat = NULL, n.obs = NA,
 }
 
 \references{
-  Bartlett, M. S. (1937).
-  The statistical conception of mental factors.
-  \emph{British Journal of Psychology}, \bold{28}, 97--104.
-  \doi{10.1111/j.2044-8295.1937.tb00863.x}.
-
-  Bartlett, M. S. (1938).
-  Methods of estimating mental factors.
-  \emph{Nature}, \bold{141}, 609--610.
-  \doi{10.1038/141246a0}.
-
-  \enc{Jöreskog}{Joreskog}, K. G. (1963).
-  \emph{Statistical Estimation in Factor Analysis}.
-  Almqvist and Wicksell.
-
-  Lawley, D. N. and Maxwell, A. E. (1971).
-  \emph{Factor Analysis as a Statistical Method}. Second edition.
-  Butterworths.
-
+  \bibshow{*}
+  
   Thomson, G. H. (1951).
   \emph{The Factorial Analysis of Human Ability}.
   London University Press.

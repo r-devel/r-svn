@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2020   The R Core Team.
+ *  Copyright (C) 1998-2025   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,10 +103,10 @@ attribute_hidden SEXP do_traceOnOff(SEXP call, SEXP op, SEXP args, SEXP rho)
 	prev = trace ? GET_TRACE_STATE : GET_DEBUG_STATE;
 
     if(length(onOff) > 0) {
-	Rboolean _new = asLogical(onOff);
+	int _new = asLogical(onOff);
 	if(_new == TRUE || _new == FALSE)
-	    if(trace) SET_TRACE_STATE(_new);
-	    else      SET_DEBUG_STATE(_new);
+	    if(trace) SET_TRACE_STATE((Rboolean) _new);
+	    else      SET_DEBUG_STATE((Rboolean) _new);
 	else
 	    error(_("Value for '%s' must be TRUE or FALSE"),
 		  trace ? "tracingState" : "debuggingState");
@@ -175,14 +175,14 @@ attribute_hidden SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #else
 
-attribute_hidden NORET SEXP do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_tracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     check1arg(args, call, "x");
     errorcall(call, _("R was not compiled with support for memory profiling"));
 }
 
-attribute_hidden NORET SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
+NORET attribute_hidden SEXP do_untracemem(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     check1arg(args, call, "x");

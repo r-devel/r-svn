@@ -1,11 +1,11 @@
 #  File src/library/base/R/namespace.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 3 of the License, or
+#  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 #
 #  This program is distributed in the hope that it will be useful,
@@ -184,7 +184,6 @@ loadNamespace <- function (package, lib.loc = NULL,
                            partial = FALSE, versionCheck = NULL,
                            keep.parse.data = getOption("keep.parse.data.pkgs"))
 {
-    libpath <- attr(package, "LibPath")
     package <- as.character(package)[[1L]]
 
     loading <- dynGet("__NameSpacesLoading__", NULL)
@@ -197,7 +196,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
     ns <- .Internal(getRegisteredNamespace(package))
     if (! is.null(ns)) {
-        if(!is.null(zop <- versionCheck[["op"]]) &&
+        if(!is.null(zop      <- versionCheck[["op"]]) &&
            !is.null(zversion <- versionCheck[["version"]])) {
             current <- getNamespaceVersion(ns)
             if(!do.call(zop, list(as.numeric_version(current), zversion)))
@@ -283,7 +282,7 @@ loadNamespace <- function (package, lib.loc = NULL,
         bindTranslations <- function(pkgname, pkgpath)
         {
             ## standard packages are treated differently
-            std <- c("compiler", "grDevices", "graphics", "grid",
+            std <- c("compiler", "foreign", "grDevices", "graphics", "grid",
                      "methods", "parallel", "splines", "stats", "stats4",
                      "tcltk", "tools", "utils")
             popath <- if (pkgname %in% std) .popath else file.path(pkgpath, "po")
@@ -360,7 +359,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
         ## find package, allowing a calling handler to retry if not found.
         ## could move the retry functionality into find.package.
-        fp.lib.loc <- c(libpath, lib.loc)
+        fp.lib.loc <- lib.loc
         pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE)
         if (length(pkgpath) == 0L) {
             cond <- packageNotFoundError(package, fp.lib.loc, sys.call())
@@ -431,7 +430,7 @@ loadNamespace <- function (package, lib.loc = NULL,
         ## moved from library() in R 3.4.0
         checkLicense <- function(pkg, pkgInfo, pkgPath)
         {
-            L <- tools:::analyze_license(pkgInfo$DESCRIPTION["License"])
+            L <- tools::analyze_license(pkgInfo$DESCRIPTION["License"])
             if(!L$is_empty && !L$is_verified) {
                 site_file <-
                     path.expand(file.path(R.home("etc"), "licensed.site"))
@@ -827,11 +826,12 @@ requireNamespace <- function (package, ..., quietly = FALSE)
 {
     package <- as.character(package)[[1L]] # like loadNamespace
     ns <- .Internal(getRegisteredNamespace(package))
+    if (is.null(ns) && !quietly) {
+        packageStartupMessage(gettextf("Loading required namespace: %s",
+                                       package), domain = NA)
+    }
     res <- TRUE
-    if (is.null(ns)) {
-        if(!quietly)
-            packageStartupMessage(gettextf("Loading required namespace: %s",
-                                           package), domain = NA)
+    if (is.null(ns) || ...length()) {
         value <- tryCatch(loadNamespace(package, ...), error = function(e) e)
         if (inherits(value, "error")) {
             if (!quietly) {
@@ -1056,7 +1056,7 @@ namespaceImportFrom <- function(self, ns, vars, generics, packages,
                 ## and is in order of adding.
                 current <- getNamespaceInfo(self, "imports")
                 poss <- lapply(rev(current), `[`, n)
-                poss <- poss[!sapply(poss, is.na)]
+                poss <- poss[!vapply(poss, is.na, NA)]
                 if(length(poss) >= 1L) {
                     prev <- names(poss)[1L]
                     warning(sprintf(gettext("replacing previous import %s by %s when loading %s"),

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2023   The R Core Team.
+ *  Copyright (C) 2000-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -331,7 +331,7 @@ static SEXP in_do_download(SEXP args)
     if(length(sfile) > 1)
 	warning(_("only first element of 'destfile' argument used"));
     file = translateChar(STRING_ELT(sfile, 0));
-    IDquiet = quiet = asLogical(CAR(args)); args = CDR(args);
+    IDquiet = quiet = asRbool(CAR(args), R_NilValue); args = CDR(args);
     if(quiet == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "quiet");
     smode =  CAR(args); args = CDR(args);
@@ -692,9 +692,6 @@ static void *in_R_FTPOpen2(const char *url)
 #endif // Win32
 
 #include "sock.h"
-#ifndef STRICT_R_HEADERS
-# define STRICT_R_HEADERS
-#endif
 #include <R_ext/RS.h> /* for R_Calloc */
 #include <R_ext/Rdynload.h>
 

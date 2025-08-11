@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.css">
 <script type="text/javascript">
-const macros = { "\\R": "\\textsf{R}", "\\code": "\\texttt"};
+const macros = { "\\R": "\\textsf{R}", "\\mbox": "\\text", "\\code": "\\texttt"};
 function processMathHTML() {
     var l = document.getElementsByClassName('reqn');
     for (let e of l) { katex.render(e.textContent, e, { throwOnError: false, macros }); }
@@ -28,7 +28,7 @@ foo(<var>x</var>, <var>y</var>, ...)
 
 <h3>Arguments</h3>
 
-<table>
+<table role = "presentation">
 <tr><td><code id="x">x</code>, <code id="y">y</code></td>
 <td>
 
@@ -49,13 +49,15 @@ foo(<var>x</var>, <var>y</var>, ...)
 <p>Included
 
 conditional content.
+End(<code style="white-space: pre;">&#8288;#ifdef&#8288;</code>).
 </p>
 <p>Escaped backslash <code>\x</code>.
 </p>
 <p><code>%{}</code>
 </p>
 <p>a link and some to known destinations:
-weighted.mean, <code>{</code>
+<code>weighted.mean</code>, dito,
+<code>{</code>, <span class="env">R_HOME</span>.
 </p>
 <p>var in <var>text</var>.
 </p>
@@ -100,6 +102,20 @@ output
 &gt; x&lt;-007
 &#8288;</code>
 </p>
+<p>Georgi Boshnakov's example of generated paragraphs:
+a
+</p>
+<p>b
+</p>
+<p>c
+</p>
+<p><code style="white-space: pre;">&#8288;
+[1] "a\n    b\n    c"
+&#8288;</code>
+</p>
+<p>R (2025).
+&ldquo;<code class="reqn">t</code>.&rdquo;
+</p>
 
 
 <h3><code style="white-space: pre;">&#8288;\tabular&#8288;</code></h3>
@@ -126,6 +142,13 @@ output
 
 </table>
 
+
+
+<h3><code style="white-space: pre;">&#8288;\eqn&#8288;</code></h3>
+
+<p>This should not start a new paragraph:
+<code class="reqn">\frac{1}{n-1}</code>.
+</p>
 
 
 <h3><code style="white-space: pre;">&#8288;\deqn&#8288;</code></h3>

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022  The R Core Team
+ *  Copyright (C) 1998-2024  The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -41,8 +41,8 @@
 extern "C" {
 #endif
 
-void*	vmaxget(void);
-void	vmaxset(const void *);
+void*	vmaxget(void); // not remapped
+void	vmaxset(const void *); // not re-mapped
 
 void	R_gc(void);
 int	R_gc_running(void);

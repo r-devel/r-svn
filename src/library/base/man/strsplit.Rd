@@ -1,6 +1,6 @@
 % File src/library/base/man/strsplit.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024=5 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strsplit}
@@ -104,14 +104,22 @@ strsplit(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE)
   substituted invalid bytes.
 }
 
+\section{Warning}{
+  An all too common mis-usage is to pass unnamed arguments which are then
+  matched to one or more of \code{fixed},
+  \code{perl} and \code{useBytes}.  So it is good
+  practice to name all  the arguments.
+}
+
 \seealso{
   \code{\link{paste}} for the reverse,
   \code{\link{grep}} and \code{\link{sub}} for string search and
-  manipulation; also \code{\link{nchar}}, \code{\link{substr}}.
+  manipulation; also \code{\link{nchar}}, \code{\link{substr}},
+  \code{\link{startsWith}}, and \code{\link{endsWith}}.
 
   \sQuote{\link{regular expression}} for the details of the pattern
   specification.
-  
+
   Option \code{PCRE_use_JIT} controls the details when \code{perl = TRUE}.
 }
 \examples{

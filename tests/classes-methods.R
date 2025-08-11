@@ -193,5 +193,31 @@ if(hasME) {
 }
 
 
+## trace(), debug() etc for  coerce methods -- PR#18823
+trr <- quote(list(.Generic, .Method, .defined, .target))
+sig <- c("ANY", "logical")
+m0 <- selectMethod(coerce, signature = sig)
+a0 <- as(0, "logical") # just `FALSE`
+trace(coerce, tracer = trr, signature = sig)
+m1 <- selectMethod(coerce, signature = sig)
+a1 <- as(0, "logical") # error  "object '.Generic' not found"  in R <= 4.4.3
+untrace(coerce, signature = sig)
+m2 <- selectMethod(coerce, signature = sig)
+stopifnot( is(m0, "MethodDefinition"),
+          !is(m0, "MethodDefinitionWithTrace"),
+           is(m1, "MethodDefinitionWithTrace"),
+          identical(m0, m2), identical(a0, a1))
+
+## Checking that "simple" as() still works:
+setClass("A", slots = c(x = "NULL"))
+setClass("B", slots = c(x = "NULL"))
+setIs("A", "B",
+      test = function(.) { TRUE },
+      coerce = function(.) new("B"),
+      replace = function(., value) new("B"))
+B <- as(new("A"), "B") ## gave  Error in asMethod@generic :  ... `@` applied to ... "function"
+stopifnot(identical(B, new("B")))
+
+
 
 cat('Time elapsed: ', proc.time(),'\n')
