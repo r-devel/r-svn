@@ -16,6 +16,11 @@
 
   \subsection{NEW FEATURES}{
     \itemize{
+      \item The parser now accepts underscores in numeric literal as a
+      visual digit seperator. E.g, the literal \code{1_000_000} is now
+      parsed the same as \code{1000000}. Contributed by Ivan Krylov in
+      \PR{18407}.
+
       \item \code{str()} now shows more via \code{format()} for external
       pointers.
 
@@ -67,7 +72,7 @@
       path to the file can be specified in \code{options("netrc")}.
 
       \item \code{tools::deparseLatex()} gains a \code{math} argument,
-      now used by the default \code{bibstyle} to format \code{bibentry()} 
+      now used by the default \code{bibstyle} to format \code{bibentry()}
       fields with \samp{$...$} syntax via Rd \verb{\eqn} markup.
 
       \item \code{gzcon()} can now decompress a concatenation of compressed

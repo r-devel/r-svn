@@ -57,6 +57,10 @@
 
   Note that a leading plus or minus is not regarded by the parser as
   part of a numeric constant but as a unary operator applied to the constant.
+
+  In order to help make long numeric literals more readable, individual
+  underscores between digits in the significant part of a number are
+  ignored, making it possible to write \code{123_456_789}.
 }
 \note{
   When a string is parsed to input a numeric constant, the number may or
@@ -107,5 +111,8 @@ identical(1L, as.integer(1))
 
 ## You can combine the "0x" prefix with the "L" suffix :
 identical(0xFL, as.integer(15))
+
+## Use underscores to split long literals:
+0x123_456_789p1
 }
 \keyword{documentation}
