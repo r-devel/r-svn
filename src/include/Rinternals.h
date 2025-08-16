@@ -691,6 +691,23 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
                      void *cleandata, SEXP cont); // context.c
 
 /* Environment and Binding Features */
+typedef enum {
+    // Unbound in this environment
+    R_BindingTypeUnbound = 0,
+    // Direct value binding
+    R_BindingTypeValue = 1,
+    // Missing argument
+    R_BindingTypeMissing = 2,
+    // Delayed (promise)
+    R_BindingTypeDelayed = 3,
+    // Forced (promise)
+    R_BindingTypeForced = 4,
+    // Active binding
+    R_BindingTypeActive = 5,
+} R_BindingType;
+
+R_BindingType R_GetBindingType(SEXP sym, SEXP env);
+
 SEXP R_NewEnv(SEXP, int, int);
 Rboolean R_IsPackageEnv(SEXP rho); // envir.c
 SEXP R_PackageEnvName(SEXP rho);
@@ -703,9 +720,15 @@ Rboolean R_EnvironmentIsLocked(SEXP env); // envir.c
 void R_LockBinding(SEXP sym, SEXP env);
 void R_unLockBinding(SEXP sym, SEXP env);
 void R_MakeActiveBinding(SEXP sym, SEXP fun, SEXP env);
+void R_MakeDelayedBinding(SEXP sym, SEXP expr, SEXP evalEnv, SEXP env);
+void R_MakeForcedBinding(SEXP sym, SEXP expr, SEXP value, SEXP env);
+void R_MakeMissingBinding(SEXP sym, SEXP env);
 Rboolean R_BindingIsLocked(SEXP sym, SEXP env); // envir.c
 Rboolean R_BindingIsActive(SEXP sym, SEXP env); // envir.c
 SEXP R_ActiveBindingFunction(SEXP sym, SEXP env);
+SEXP R_DelayedBindingExpression(SEXP sym, SEXP env);
+SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env);
+SEXP R_ForcedBindingExpression(SEXP sym, SEXP env);
 Rboolean R_HasFancyBindings(SEXP rho); // envir.c
 
 
