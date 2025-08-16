@@ -744,8 +744,11 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 		errorcall(call, _("invalid '%s' argument"), "times");
 	    len = lx * it * each;
 	} else { // nt != 1
-	    if(nt != (double) lx * each)
-		errorcall(call, _("invalid '%s' argument"), "times");
+	    if(nt != (double) lx * each){
+			if(each == 0) errorcall(call, _("invalid '%s' argument, given the value of '%s' "), "each","times");
+			if(each == 1) errorcall(call,_("invalid '%s' argument"),"times");
+			errorcall(call, _("invalid '%s' argument, given the value of '%s'"), "times", "each");
+		}     
 	    if (TYPEOF(times) == REALSXP)
 		for(i = 0; i < nt; i++) {
 		    double rt = REAL(times)[i];
