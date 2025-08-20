@@ -303,7 +303,7 @@
               .updateInImportsEnv(what, newFun, importingPkg)
             }
         }
-        if(length(grep("[^.]+[.][^.]+", what)) > 0) { #possible S3 method
+        if(any(grepl("[^.]+[.][^.]+", what))) { #possible S3 method
             ## check for a registered version of the object
             S3MTableName <- ".__S3MethodsTable__."
             if(!is.null(tbl <- get0(S3MTableName, envir = whereF, inherits = FALSE))) {
@@ -835,8 +835,8 @@ insertSource <- function(source, package = "",
     }
     .mnames <- allMethodTables()
     if(length(methods) > 0) {
-	notThere <- vapply(methods, function(fname)
-	    length(grep(fname, .mnames, fixed = TRUE)) == 0, NA)
+	notThere <- !vapply(methods, function(fname)
+	    any(grepl(fname, .mnames, fixed = TRUE)), NA)
         if(any(notThere)) {
             warning(gettextf("cannot insert methods for these functions (methods table not found in source): %s",
                     paste0('"', methods[notThere], '"',

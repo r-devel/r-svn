@@ -335,10 +335,10 @@ checkIntFormat <- function(s)
 {
     ## OK if no unescaped %, so first remove those
     s <- gsub("%%", "", s, fixed=TRUE)
-    if(length(grep("%", s)) == 0L) return(TRUE)
+    if(!any(grepl("%", s, fixed=TRUE))) return(TRUE)
     ## now remove at most one valid(ish) integer format
     s <- sub("%[#0 ,+-]*[0-9.]*[diouxX]", "", s)
-    length(grep("%", s, fixed=TRUE)) == 0L
+    !any(grepl("%", s, fixed=TRUE))
 }
 
 devAskNewPage <- function(ask=NULL) .External2(C_devAskNewPage, ask)
