@@ -786,7 +786,19 @@ identicalPlt <- function(x, y, ...)
 stopifnot(identicalPlt(z1, z), identicalPlt(z2, z))
 ## failed previously, incl in rev 88441
 
+## strings in one argument of seq.Date always get coerced
+from_str <- "2025-01-01"; to_str <- "2025-01-07"
+full_seq <- seq(as.Date(from_str), as.Date(to_str))
+stopifnot(exprs = {
+  identical(seq(as.Date(from_str), to_str), full_seq)
+  identical(seq(as.Date(from_str), to_str, by=1L), full_seq)
+  identical(seq(as.Date(from_str), to_str, length.out=7L), full_seq)
+  identical(seq(to=as.Date(to_str), length.out=7L, by=1L), full_seq)
+  identical(seq(from=as.Date(from_str), length.out=7L, by=1L), full_seq)
 
+  identical(seq(as.Date(from_str), "2025-10-01", by="months"),
+            seq(as.Date(from_str), as.Date("2025-10-01"), by="months"))
+})
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
