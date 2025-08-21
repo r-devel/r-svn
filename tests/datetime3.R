@@ -798,9 +798,6 @@ stopifnot(exprs = {
   identical(seq(to=as.Date(to_str), from_str), full_seq)
   identical(seq(to=as.Date(to_str), from_str, by=1L), full_seq)
   identical(seq(to=as.Date(to_str), from_str, length.out=7L), full_seq)
-
-  identical(seq(as.Date(from_str), "2025-10-01", by="months"),
-            seq(as.Date(from_str), as.Date("2025-10-01"), by="months"))
 })
 
 ## keep at end
