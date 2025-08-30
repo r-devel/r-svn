@@ -15,7 +15,7 @@
   Extract or replace subsets of data frames.
 }
 \usage{
-\method{[}{data.frame}(x, i, j, drop = )
+\method{[}{data.frame}(x, i, j, drop =, pmatch.rows = TRUE)
 \method{[}{data.frame}(x, i, j) <- value
 \method{[[}{data.frame}(x, ..., exact = TRUE)
 \method{[[}{data.frame}(x, i, j) <- value
@@ -45,6 +45,9 @@
     column is selected.}
 
    \item{exact}{logical: see \code{\link{[}}, and applies to column names.}
+
+   \item{pmatch.rows}{logical: whether to perform partial matching on
+     row names in case \code{i} is a character vector.}
 }
 \details{
   Data frames can be indexed in several modes.  When \code{[} and
