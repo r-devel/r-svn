@@ -54,7 +54,7 @@
   For more, see the
   \ifelse{html}{\href{/doc/manual/R-intro.html#The-three-dots-argument}{Introduction to R}}{\sQuote{Introduction to R}}
   manual for usage of these syntactic elements,
-  and \link[methods]{dotsMethods} for their use in formal (S4) methods.
+  and \link[methods]{dotsMethods} for their use in formal (S4) methods and \code{\link{chkDots}} for S3 methods. 
 }
 \examples{
 tst <- function(n, ...) ...elt(n)
