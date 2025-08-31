@@ -328,6 +328,7 @@ x$name <- value
   \code{\link{Syntax}} for operator precedence, and the
   \sQuote{R Language Definition} manual about indexing details.
 
+  \code{\link{replace}} for replacing without modyfying the original object.
 
   \code{\link{NULL}} for details of indexing null objects.
 }
