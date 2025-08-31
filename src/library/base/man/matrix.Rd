@@ -101,10 +101,12 @@ is.matrix(x)
   \code{\link{data.matrix}}, which attempts to convert to a numeric
   matrix.
 
+
   A matrix is the special case of a two-dimensional \code{\link{array}}.
   \code{\link{inherits}(m, "array")} is true for a \code{matrix} \code{m}.
 
   \code{\link{mat.or.vec}} for creating numeric vectors or matrices.
+  \code{\link{\%*\%}}, \code{\link{det}} for operations with numeric matrices.
 }
 \examples{
 is.matrix(as.matrix(1:10))
