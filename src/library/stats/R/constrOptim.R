@@ -54,11 +54,14 @@ constrOptim <-
     } else function(theta, ...) dR(theta, theta.old, ...)
     totCounts <- 0
     s.mu <- sign(mu)
+    a <- NULL
+    optim_failure <- FALSE
 
     for(i in seq_len(outer.iterations)) {
         obj.old <- obj
         r.old <- r
         theta.old <- theta
+        a.old <- a
 
         a <- optim(theta.old, fun, gradient, control = control,
                    method = method, hessian = hessian, ...)
@@ -66,20 +69,32 @@ constrOptim <-
         if (is.finite(r) && is.finite(r.old) &&
  	    abs(r - r.old) < (1e-3 + abs(r)) * outer.eps) break
         theta <- a$par
- 	totCounts <- totCounts + a$counts
+
+        if (any(ui%*%theta-ci<0) || !is.finite(r) || any(!is.finite(theta))) {
+            i <- i - 1
+            a <- a.old
+            optim_failure <- TRUE
+            break
+        }
+ 	
+        totCounts <- totCounts + a$counts
         obj <- f(theta, ...)
         if (s.mu * obj > s.mu * obj.old) break
     }
+    if (optim_failure) {
+        a$convergence <- 21L # See https://github.com/nashjc/optimx/blob/main/man/optimx.Rd
+        a$message <- gettextf("Returning solution from outer iteration %d, either because the solution is not in the feasible region or optim() provided non-finite outputs. Consider either checking the gradient implementation or using a derivative-free opimizer or reducing outer.eps.", i)
+    }
     if (i == outer.iterations) {
-        a$convergence <- 7
+        a$convergence <- 7L
         a$message <- gettext("Barrier algorithm ran out of iterations and did not converge")
     }
     if (mu > 0 && obj > obj.old) {
-        a$convergence <- 11
+        a$convergence <- 11L
         a$message <- gettextf("Objective function increased at outer iteration %d", i)
     }
     if (mu < 0 && obj < obj.old) {
-        a$convergence <- 11
+        a$convergence <- 11L
         a$message <- gettextf("Objective function decreased at outer iteration %d", i)
     }
     a$outer.iterations <- i
