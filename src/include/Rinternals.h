@@ -721,7 +721,8 @@ int R_DotsLength(SEXP env);
 SEXP R_DotsNames(SEXP env);
 SEXP R_DotsElt(int i, SEXP env);
 
-SEXP R_DotDelayedExpression(int i, SEXP env); // envir.c
+R_DotType R_GetDotType(int i, SEXP env); // envir.c
+SEXP R_DotDelayedExpression(int i, SEXP env);
 SEXP R_DotDelayedEnvironment(int i, SEXP env);
 SEXP R_DotForcedExpression(int i, SEXP env); 
 
