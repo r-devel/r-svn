@@ -293,9 +293,9 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
     if(is.na(by)) stop("'by' is NA")
 
     res <- switch(missing_arg,
-        from       = seq.int(to   = unclass(to),   by = by,          length.out = length.out),
-        to         = seq.int(from = unclass(from), by = by,          length.out = length.out),
-        length.out = seq.int(from = unclass(from), to = unclass(to), by = by)
+        from       = seq.int(to   = unclass(as.Date(to)),   by = by,                   length.out = length.out),
+        to         = seq.int(from = unclass(as.Date(from)), by = by,                   length.out = length.out),
+        length.out = seq.int(from = unclass(as.Date(from)), to = unclass(as.Date(to)), by = by)
     )
     .Date(res)
 }
