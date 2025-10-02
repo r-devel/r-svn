@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        OS: [ 'macOS-13', 'macOS-14' ]
+        OS: [ 'macOS-15', 'macOS-15-intel' ]
     runs-on: ${{matrix.OS}}
     timeout-minutes: 90
     env:
