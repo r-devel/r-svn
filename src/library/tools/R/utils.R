@@ -349,21 +349,23 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         on.exit(Sys.unsetenv("TEXINDY"), add = TRUE)
         opt_pdf <- if(pdf) "--pdf" else ""
         opt_quiet <- if(quiet) "--quiet" else ""
-        opt_extra <- "--max-iterations=20"
-        out <- .system_with_capture(texi2dvi, "--help")
+        opt_extra <- ""
 
+        ## the current heuristics for finding error messages in log files
+        ## have better coverage with the default '!' error indicator, but
+        ## texi2dvi enables the file:line:error style, so:
+        out <- .system_with_capture(texi2dvi, "--help")
         if(length(grep("--no-line-error", out$stdout)))
             opt_extra <- "--no-line-error"
-        ## (Maybe change eventually: the current heuristics for finding
-        ## error messages in log files should work for both regular and
-        ## file line error indicators.)
 
         ## and work around a bug in texi2dvi
         ## https://stat.ethz.ch/pipermail/r-devel/2011-March/060262.html
         ## That has [A-Za-z], earlier versions [A-z], both of which may be
         ## invalid in some locales.
+        ## FIXME: This workaround should be obsolete with Texinfo 5.0.
         env0 <- "LC_COLLATE=C"
         ## texi2dvi, at least on macOS (4.8) does not accept TMPDIR with spaces.
+        ## FIXME: This workaround should be obsolete with Texinfo 6.3.
         if (grepl(" ", Sys.getenv("TMPDIR")))
             env0 <- paste(env0,  "TMPDIR=/tmp")
         out <- .system_with_capture(texi2dvi,
@@ -379,6 +381,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## Try to catch and correct cases seen on CRAN ...
         ## (Note that texi2dvi may have been run quietly, in which case
         ## diagnostics will only be in the log file.)
+        ## FIXME: This workaround should be obsolete with Texinfo 6.7.
         if(out$status &&
            file_test("-f", log) &&
            any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
@@ -445,15 +448,11 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 
         ## look for MiKTeX (which this almost certainly is)
         ## http://docs.miktex.org/manual/texify.html
-        ver <- system(paste(shQuote(texi2dvi), "--version"), intern = TRUE)
-        if(length(grep("MiKTeX", ver[1L]))) {
-            extra <- "--max-iterations=20"
-            ## setting TEXINPUTS via -I is long obsolete, EnvVars are respected
-            ## (<https://docs.miktex.org/manual/localadditions.html>)
-            ##   texinputs <- c(texinputs, Rtexinputs, Rbstinputs)
-            ##   paths <- paste ("-I", shQuote(texinputs))
-            ##   extra <- paste(extra, paste(paths, collapse = " "))
-        }
+        ## ver <- system(paste(shQuote(texi2dvi), "--version"), intern = TRUE)
+        ## if(length(grep("MiKTeX", ver[1L]))) {
+        ##     extra <- "--max-iterations=20"
+        ## }
+
         ## 'file' could be a file path
         base <- basename(file_path_sans_ext(file))
         ## this only gives a failure in some cases, e.g. not for bibtex errors.
@@ -1020,7 +1019,8 @@ function(con, n = 4L)
     ## Try matching both the regular error indicator ('!') as well as
     ## the file line error indicator ('file:line:').
     pos <- grep("(^! |^!pdfTeX error:|:[0123456789]+:.*[Ee]rror)", lines)
-    ## unfortunately that was too general and caught false positives
+    ## the latter will miss some error messages like "Missing $ inserted"
+    ## (a more general pattern caught false positives)
     ## Errors are typically of the form
     ## ! LaTeX Error:
     ## !pdfTeX error:
@@ -2468,18 +2468,35 @@ function(x)
 ### ** .replace_chars_by_hex_subs
 
 .replace_chars_by_hex_subs <-
-function(x, re) {
-    char_to_hex_sub <- function(s) {
-        paste0("<", charToRaw(s), ">", collapse = "")
-    }
+function(x, re, style = "html") {
+    char_to_hex_sub <-
+        switch(style,
+               "html" = function(s) paste0("<", charToRaw(s), ">", collapse = ""),
+               "texinfo" = function(s) sprintf("_%04x", utf8ToInt(s)))
     vapply(strsplit(x, ""),
            function(e) {
                pos <- grep(re, e, perl = TRUE)
                if(length(pos))
-                   e[pos] <- vapply(e[pos], char_to_hex_sub, "")
+                   e[pos] <- vapply(e[pos], char_to_hex_sub, "", USE.NAMES = FALSE)
                paste(e, collapse = "")
            },
            "")
+}
+
+### ** .texinfo_node_to_id
+
+.texinfo_node_to_id <-
+function(x)
+{
+    ## Convert an @-expanded Texinfo node name to its XHTML identifier as described at
+    ## <https://www.gnu.org/software/texinfo/manual/texinfo/html_node/HTML-Xref-Node-Name-Expansion.html>
+    res <- gsub("\\s+", " ", trimws(x))
+    ASCII_letters_and_digits <-
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    re <- paste0("[^ ", ASCII_letters_and_digits, "]")
+    res <- .replace_chars_by_hex_subs(res, re, style = "texinfo")
+    res <- chartr(" ", "-", res)
+    if (grepl("^[_0-9]", res)) paste0("g_t", res) else res
 }
 
 ### ** .source_assignments

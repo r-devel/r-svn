@@ -155,8 +155,8 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     a logical value: should the \option{--libs-only} option be used to
     install only additional sub-architectures for source installs?  (See also
     \code{INSTALL_opts}.)  This can also be used on Windows to install
-    just the DLL(s) from a binary package, e.g.\sspace{}to add 64-bit
-    DLLs to a 32-bit install.
+    just the DLL(s) from a binary package.
+    %, e.g.\sspace{}to add 64-bit DLLs to a 32-bit install.
   }
   \item{INSTALL_opts}{
     an optional character vector of additional option(s) to be passed to
@@ -257,16 +257,14 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   Otherwise,
   \describe{
     \item{on Windows,}{you will need to have installed the \I{Rtools}
-  collection as described in the \sQuote{R for Windows FAQ} \emph{and}
-  you must have the \env{PATH} environment variable set up as required
-  by \I{Rtools}.
+  collection from \url{https://CRAN.R-project.org/bin/windows/Rtools/}.
 
-  For a 32/64-bit installation of \R on Windows, a small minority of
-  packages with compiled code need either \code{INSTALL_opts =
-  "--force-biarch"} or \code{INSTALL_opts = "--merge-multiarch"} for a
-  source installation.  (It is safe to always set the latter when
-  installing from a repository or tarballs, although it will be a little
-  slower.)
+  %% For a 32/64-bit installation of \R on Windows, a small minority of
+  %% packages with compiled code need either \code{INSTALL_opts =
+  %% "--force-biarch"} or \code{INSTALL_opts = "--merge-multiarch"} for a
+  %% source installation.  (It is safe to always set the latter when
+  %% installing from a repository or tarballs, although it will be a little
+  %% slower.)
 
   When installing a package on Windows, \code{install.packages} will abort
   the install if it detects that the package is already installed and is
@@ -277,8 +275,8 @@ install.packages(pkgs, lib, repos = getOption("repos"),
     \item{On Unix-alikes,}{when the package contains C/C++/Fortran code
       that needs compilation, suitable compilers and related tools need
       to be installed.  On macOS you need to have installed the
-      \sQuote{Command-line tools for \I{Xcode}} (see the
-      \sQuote{R Installation and Administration} manual) and if needed
+      \sQuote{Command-line tools for \I{Xcode}} (see 
+      \manual{R-admin}{}) and if needed
       by the package a Fortran compiler, and have them in your path.
     }
   }
@@ -400,7 +398,8 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   find out by creating a test directory, but even this need not be the
   whole story: you may have permission to write in a library directory
   but lack permission to write binary files (such as \file{.dll} files)
-  there.  See the \sQuote{R for Windows FAQ} for workarounds.
+  there.  See \manual{rw-FAQ}{I don't have permission to write to the R
+  library directory} for workarounds.
     }
   }
 }
@@ -419,8 +418,7 @@ install.packages(pkgs, lib, repos = getOption("repos"),
   \code{\link{INSTALL}}, \code{\link{REMOVE}}, \code{\link{remove.packages}},
   \code{\link{library}}, \code{\link{.packages}}, \code{\link{read.dcf}}
 
-  The \sQuote{R Installation and Administration} manual for how to
-  set up a repository.
+  Section \manual{R-admin}{Setting up a package repository}.
 }
 
 \examples{\dontrun{

@@ -106,7 +106,8 @@ withAutoprint(exprs, evaluated = FALSE, local = parent.frame(),
   executed at the top level, auto-printing is not done.  So you will
   need to include explicit \code{print} calls for things you want to be
   printed (and remember that this includes plotting by \CRANpkg{lattice},
-  FAQ Q7.22).  Since the complete file is parsed before any of it is
+  see \manual{R-FAQ}{Why do lattice/trellis graphics not work?}).
+  Since the complete file is parsed before any of it is
   run, syntax errors result in none of the code being run.  If an error
   occurs in running a syntactically correct script, anything assigned
   into the workspace by code that has been run will be kept (just as
@@ -175,7 +176,7 @@ withAutoprint(exprs, evaluated = FALSE, local = parent.frame(),
   \code{\link{sys.source}} which is a streamlined version to source a
   file into an environment.
 
-  \sQuote{The R Language Definition} for a discussion of source
+  Section \manual{R-lang}{Directives} for a discussion of source
   directives.
 }
 \examples{

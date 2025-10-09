@@ -454,7 +454,13 @@ static void QuartzInitPatterns(QuartzDesc *xd)
     /* Gradients and tiling patterns are different types so need 
      * separate arrays */
     xd->gradients = malloc(sizeof(QGradientRef) * xd->numPatterns);
+    if (!xd->gradients)
+	error("allocation failure in QuartzInitPatterns");
     xd->patterns = malloc(sizeof(QPatternRef) * xd->numPatterns);
+    if (!xd->patterns) {
+	free(xd->gradients);
+	error("allocation failure in QuartzInitPatterns");
+    }
     for (i = 0; i < xd->numPatterns; i++) {
         xd->gradients[i] = NULL;
         xd->patterns[i] = NULL;
@@ -800,6 +806,8 @@ static void QuartzInitClipPaths(QuartzDesc *xd)
     /* Zero clip paths */
     xd->numClipPaths = maxClipPaths;
     xd->clipPaths = malloc(sizeof(QPathRef) * xd->numClipPaths);
+    if (!xd->clipPaths)
+	error("allocation failure in QuartzInitClipPaths");
     for (i = 0; i < xd->numClipPaths; i++) {
         xd->clipPaths[i] = NULL;
     }
@@ -878,7 +886,7 @@ static QPathRef QuartzCreateClipPath(SEXP clipPath, int index,
     CGContextBeginPath(ctx);
     /* Play the clipPath function to build the clipping path */
     R_fcall = PROTECT(lang1(clipPath));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
     /* Save the clipping path (for reuse) */
     quartz_clipPath->path = CGContextCopyPath(ctx);
@@ -948,6 +956,8 @@ static void QuartzInitMasks(QuartzDesc *xd)
     int i;
     xd->numMasks = 20;
     xd->masks = malloc(sizeof(QMaskRef) * xd->numMasks);
+    if (!xd->masks)
+	error("allocation failure in QuartzInitMasks");
     for (i = 0; i < xd->numMasks; i++) {
         xd->masks[i] = NULL;
     }
@@ -1058,7 +1068,7 @@ static int QuartzCreateMask(SEXP mask,
 
         /* Play the mask function to build the mask */
         R_fcall = PROTECT(lang1(mask));
-        eval(R_fcall, R_GlobalEnv);
+        Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
         UNPROTECT(1);
 
         /* When working with an alpha mask, convert into a grayscale bitmap */
@@ -1116,6 +1126,8 @@ static void QuartzInitGroups(QuartzDesc *xd)
     int i;
     xd->numGroups = maxGroups;
     xd->groups = malloc(sizeof(CGLayerRef) * xd->numGroups);
+    if (!xd->groups)
+	error("allocation failure in QuartzInitGroups");
     for (i = 0; i < xd->numGroups; i++) {
         xd->groups[i] = NULL;
     }
@@ -1251,7 +1263,7 @@ static SEXP QuartzCreateGroup(SEXP src, int op, SEXP dst,
     if (dst != R_NilValue) {
         /* Play the destination function to draw the destination */
         R_fcall = PROTECT(lang1(dst));
-        eval(R_fcall, R_GlobalEnv);
+        Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
         UNPROTECT(1);
     }
     /* Set the group operator */
@@ -1264,7 +1276,7 @@ static SEXP QuartzCreateGroup(SEXP src, int op, SEXP dst,
         CGContextSetBlendMode(layerContext, QuartzOperator(op));
         /* Play the source function to draw the source */
         R_fcall = PROTECT(lang1(src));
-        eval(R_fcall, R_GlobalEnv);
+        Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
         UNPROTECT(1);
     }
     
@@ -1649,8 +1661,13 @@ const char *RQuartz_LookUpFontName(int fontface, const char *fontfamily)
     PROTECT_INDEX index;
     PROTECT(ns = R_FindNamespace(ScalarString(mkChar("grDevices"))));
     PROTECT_WITH_INDEX(env = findVar(install(".Quartzenv"), ns), &index);
-    if(TYPEOF(env) == PROMSXP)
-        REPROTECT(env = eval(env,ns) ,index);
+    if(TYPEOF(env) == PROMSXP) {
+        if (NoDevices()) {
+            REPROTECT(env = eval(env, ns), index);
+        } else {
+            REPROTECT(env = Rf_eval_with_gd(env, ns, NULL), index);
+        }
+    }
     PROTECT(db    = findVar(install(".Quartz.Fonts"), env));
     PROTECT(names = getAttrib(db, R_NamesSymbol));
     if (*fontfamily) {
@@ -2039,7 +2056,9 @@ static void RQuartz_Text(double x, double y, const char *text, double rot, doubl
     if (!glyphs) error("allocation failure in RQuartz_Text");
     CGFontGetGlyphsForUnichars(font, buffer, glyphs, len);
     int      *advances = malloc(sizeof(int) * len);
+    if (!advances) error("allocation failure in RQuartz_Text");
     CGSize   *g_adv    = malloc(sizeof(CGSize) * len);
+    if (!g_adv) error("allocation failure in RQuartz_Text");
 
     CGFontGetGlyphAdvances(font, glyphs, len, advances);
     for(i =0 ; i < len; i++) {
@@ -2671,7 +2690,7 @@ static SEXP RQuartz_setPattern(SEXP pattern, pDevDesc dd) {
 
         /* Play the pattern function to draw the pattern on the pattern layer*/
         SEXP R_fcall = PROTECT(lang1(R_GE_tilingPatternFunction(pattern)));
-        eval(R_fcall, R_GlobalEnv);
+        Rf_eval_with_gd(R_fcall, R_GlobalEnv, desc2GEDesc(dd));
         UNPROTECT(1);
 
         xd->appendingPattern = savedPattern;
@@ -2844,7 +2863,7 @@ static void RQuartz_stroke(SEXP path, const pGEcontext gc, pDevDesc dd)
     CGContextBeginPath(ctx);
     /* Play the path function to build the path */
     R_fcall = PROTECT(lang1(path));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, desc2GEDesc(dd));
     UNPROTECT(1);
     /* Decrement the "appending" count */
     xd->appending--;
@@ -2880,7 +2899,7 @@ static void RQuartz_fill(SEXP path, int rule, const pGEcontext gc,
     CGContextBeginPath(ctx);
     /* Play the path function to build the path */
     R_fcall = PROTECT(lang1(path));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, desc2GEDesc(dd));
     UNPROTECT(1);
     /* Decrement the "appending" count */
     xd->appending--;
@@ -2906,7 +2925,7 @@ static void QuartzFillStrokePath(SEXP path, CGContextRef ctx, QuartzDesc *xd)
     CGContextBeginPath(ctx);
     /* Play the path function to build the path */
     R_fcall = PROTECT(lang1(path));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
     /* Decrement the "appending" count */
     xd->appending--;
@@ -3233,8 +3252,7 @@ Quartz_C(QuartzParameters_t *par, quartz_create_fn_t q_create, int *errorCode)
         R_CheckDeviceAvailable();
         {
 	    const char *devname = "quartz_off_screen";
-	    /* FIXME: check this allocation */
-            pDevDesc dev    = calloc(1, sizeof(DevDesc));
+            pDevDesc dev    = GEcreateDD();
 
             if (!dev) {
 		if (errorCode) errorCode[0] = -2;
@@ -3242,7 +3260,7 @@ Quartz_C(QuartzParameters_t *par, quartz_create_fn_t q_create, int *errorCode)
 	    }
             if (!(qd = q_create(dev, &qfn, par))) {
                 vmaxset(vmax);
-                free(dev);
+                GEfreeDD(dev);
 		if (errorCode) errorCode[0] = -3;
 		return NULL;
             }
@@ -3344,7 +3362,7 @@ SEXP Quartz(SEXP args)
     R_GE_checkVersionOrDie(R_GE_version);
     R_CheckDeviceAvailable();
     BEGIN_SUSPEND_INTERRUPTS {
-	pDevDesc dev = calloc(1, sizeof(DevDesc));
+	pDevDesc dev = GEcreateDD();
 
 	if (!dev)
 	    error(_("unable to create device description"));
@@ -3396,7 +3414,7 @@ SEXP Quartz(SEXP args)
 
 	if (qd == NULL) {
 	    vmaxset(vmax);
-	    free(dev);
+	    GEfreeDD(dev);
 	    error(_("unable to create quartz() device target, given type may not be supported"));
 	}
 	const char *devname = "quartz_off_screen";

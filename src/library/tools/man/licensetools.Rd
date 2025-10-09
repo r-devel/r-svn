@@ -18,7 +18,7 @@ analyze_license(x)
 \details{
   R packages use the \samp{License} field in their \file{DESCRIPTION}
   file to specify their license in a standardized form described in
-  section \sQuote{Licenses} of the \sQuote{Writing R Extensions} manual.
+  Section \manual{R-exts}{Licensing}.
   This uses alternatives of individual specifications
   (\sQuote{components}) which can use version restrictions or give
   pointers to \file{LICENSE} (or \file{LICENCE}) files either
@@ -54,7 +54,7 @@ analyze_license(x)
   \item{spdx}{an \abbr{SPDX} license identifier for the license spec.}
 }
 \examples{
-## Examples from section 'Licenses' of 'Writing R Extensions':
+## Examples from section 'Licensing' of 'Writing R Extensions':
 analyze_license("GPL-2")
 analyze_license("LGPL (>= 2.0, < 3) | Mozilla Public License")
 analyze_license("GPL-2 | file LICENCE")

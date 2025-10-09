@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-24 The R Core Team.
+ *  Copyright (C) 2001-25 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -295,6 +295,11 @@ struct _GEDevDesc {
 			      * so that nested calls are not
 			      * recorded on the display list
 			      */
+    Rboolean lock;           /* The device is locked and unlocked
+                              * within R_eval_with_gd().
+                              * When the device is locked, attempts
+                              * to "kill" the device are ignored.
+                              */
     /*
      * Stuff about the device that only graphics systems see.
      * The graphics engine has no idea what is in here.
@@ -322,6 +327,8 @@ void GEaddDevice(pGEDevDesc);
 void GEaddDevice2(pGEDevDesc, const char *);
 void GEaddDevice2f(pGEDevDesc, const char *, const char *);
 void GEkillDevice(pGEDevDesc);
+pDevDesc GEcreateDD(void);
+void GEfreeDD(pDevDesc dd);
 pGEDevDesc GEcreateDevDesc(pDevDesc dev);
 
 void GEdestroyDevDesc(pGEDevDesc dd);
@@ -561,6 +568,9 @@ SEXP CreateAtVector(double axp[], const double usr[], int nint, Rboolean logflag
 /* From ../../main/graphics.c, used by ../../library/grDevices/src/axis_scales.c : */
 #define GAxisPars 		Rf_GAxisPars
 void GAxisPars(double *min, double *max, int *n, Rboolean log, int axis);
+
+SEXP Rf_eval_with_gd(SEXP, SEXP, pGEDevDesc);
+#define eval_with_gd Rf_eval_with_gd
 
 /* Patterns - from ../../main/patterns.c */
 Rboolean R_GE_isPattern(SEXP x);

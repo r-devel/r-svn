@@ -3,7 +3,7 @@
 
 # Portions copied from MASS/R/confint.R
 #
-#  Copyright (C) 2003-2023 The R Core Team
+#  Copyright (C) 2003-2025 The R Core Team
 #  Copyright (C) 1994-2006 W. N. Venables and B. D. Ripley
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -156,17 +156,27 @@ confint.profile.nls <-
 
 confint.default <- function (object, parm, level = 0.95, ...)
 {
+    if(isS4(object)) {
+        coef <- stats4::coef
+        vcov <- stats4::vcov
+    }
     cf <- coef(object)
     pnames <- names(cf)
     if(missing(parm)) parm <- pnames
     else if(is.numeric(parm)) parm <- pnames[parm]
+    V <- vcov(object)
+    ### Fixup for cases where V is not named
+    ### Will break if dimensions don't match between cf and V,
+    ### but without names, you can't really tell how things line up
+    if (is.null(dimnames(V))) dimnames(V) <- list(pnames,pnames)
     a <- (1 - level)/2
     a <- c(a, 1 - a)
     pct <- .format_perc(a, 3)
     fac <- qnorm(a)
     ci <- array(NA, dim = c(length(parm), 2L),
 		dimnames = list(parm, pct))
-    ses <- sqrt(diag(vcov(object)))[parm]
+    ses <- sqrt(diag(V))[parm]
     ci[] <- cf[parm] + ses %o% fac
     ci
 }
+

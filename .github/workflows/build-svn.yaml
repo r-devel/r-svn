@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        OS: [ 'macOS-13', 'macOS-14' ]
+        OS: [ 'macOS-15', 'macOS-15-intel' ]
     runs-on: ${{matrix.OS}}
     timeout-minutes: 90
     env:
@@ -157,6 +157,11 @@ jobs:
     - name: Prepare git
       run: git config --global core.autocrlf false
       shell: bash
+
+    - name: Install InnoSetup
+      if: matrix.script == 'installer'
+      run: choco install -y --no-progress innosetup
+      shell: cmd
 
     - name: Checkout
       uses: actions/checkout@v4

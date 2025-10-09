@@ -40,6 +40,12 @@ file.show <-
               delete.file = FALSE, pager = getOption("pager"), encoding = "")
 {
     files <- path.expand(c(...))
+    ## skip directories
+    didx <- which(file.info(files)$isdir)
+    if (length(didx)) {
+        warning("directories are ignored")
+        files <- files[-didx]
+    }
     nfiles <- length(files)
     if(nfiles == 0L)
         return(invisible(NULL))
@@ -80,9 +86,11 @@ file.rename <- function(from, to)
 list.files <-
     function(path = ".", pattern = NULL, all.files = FALSE,
              full.names = FALSE, recursive = FALSE,
-             ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+             ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE,
+             fixed = FALSE)
     .Internal(list.files(path, pattern, all.files, full.names,
-			 recursive, ignore.case, include.dirs, no..))
+			 recursive, ignore.case, include.dirs, no..,
+			 fixed))
 
 dir <- list.files
 

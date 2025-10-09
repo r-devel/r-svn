@@ -82,9 +82,8 @@
   is useful in particular if libraries or header files needed for the
   package are in non-system directories.  In this case, one can use the
   configure variables \code{LIBS} and \code{CPPFLAGS} to specify these
-  locations (and set these via \option{--configure-vars}), see section
-  \sQuote{Configuration variables} in
-  \sQuote{R Installation and Administration} for more information.
+  locations (and set these via \option{--configure-vars}), see Section 
+  \manual{R-admin}{Configuration variables} for more information.
   (If these are used more than
   once on the command line they are concatenated.)  The configure
   mechanism can be bypassed using the option \option{--no-configure}.
@@ -167,12 +166,11 @@
   sub-architecture used by \command{R CMD INSTALL}, use
   \option{--no-multiarch}.  To install just the compiled code for
   another sub-architecture, use \option{--libs-only}.
-
-  There are two ways to install for all available sub-architectures.  If
-  the configure script is known to work for both Windows architectures,
-  use flag \option{--force-biarch} (and packages can specify this
-  \emph{via} a \samp{Biarch: yes} field in their \code{DESCRIPTION} files).
-  Second, a single tarball can be installed with
+  To install for all available sub-architectures,
+  %% If the configure script is known to work for both Windows architectures,
+  %% use flag \option{--force-biarch} (and packages can specify this
+  %% \emph{via} a \samp{Biarch: yes} field in their \code{DESCRIPTION} files).
+  a single tarball can be installed with
 \preformatted{R CMD INSTALL --merge-multiarch mypkg_version.tar.gz}
 }
 
@@ -200,10 +198,9 @@
   \code{\link{update.packages}} for automatic update of packages using
   the Internet or a local repository.
 
-  The chapter on \sQuote{Add-on packages} in
-  \sQuote{R Installation and Administration}
-  and the chapter on \sQuote{Creating R packages} in
-  \sQuote{Writing R Extensions}
+  The Chapter \manual{R-admin}{Add-on packages}
+  and the Chapter \manual{R-exts}{Creating R packages}.
+
 #ifdef windows
   (on the Help menu in \code{RGui}),
 #endif

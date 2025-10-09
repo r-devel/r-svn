@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -283,8 +283,8 @@ FUNTAB R_FunTab[] =
 {"round",	do_Math2,	10001,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"signif",	do_Math2,	10004,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"log",		do_log,		10003,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
-{"log10",	do_log1arg,	10,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"log2",	do_log1arg,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"log10",	do_log1arg,	10010,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"log2",	do_log1arg,	10002,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"abs",		do_abs,		6,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"floor",	do_math1,	1,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"ceiling",	do_math1,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -791,7 +791,7 @@ FUNTAB R_FunTab[] =
 {"file.symlink",do_filesymlink,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.link",	do_filelink,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.copy",	do_filecopy,	0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
-{"list.files",	do_listfiles,	0,	11,	8,	{PP_FUNCALL, PREC_FN,	0}},
+{"list.files",	do_listfiles,	0,	11,	9,	{PP_FUNCALL, PREC_FN,	0}},
 {"list.dirs",	do_listdirs,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.exists", do_fileexists,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.choose", do_filechoose,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},

@@ -16,6 +16,14 @@
 
   \subsection{NEW FEATURES}{
     \itemize{
+      \item The default \code{AIC} and \code{BIC} methods now check whether
+      the \pkg{methods} namespace is loaded rather than \pkg{stats4}. They
+      still use \code{stats4::logLik} (and \code{stats4::nobs}), but packages
+      no longer need to load \pkg{stats4} explicitly.
+
+      \item \code{confint.default()} now also works on S4 objects, as long as
+      suitable \code{coef()} and \code{vcov()} methods exist.
+
       \item \code{binomial(identity)} and \code{quasibinomial(identity)} now work
       without having to quote the argument.
 
@@ -88,6 +96,51 @@
 
       \item \code{chkDots()}' optional argument \code{allowed} has been
       implemented thanks to \I{Trevor Davis}' proposal in \PR{18936}.
+
+      \item \code{wilcox.test()} can now perform exact (conditional)
+      inference in case of ties.  Based on contributions by
+      \I{Torsten Hothorn}.
+
+      \item \code{wilcox.test()} can now optionally compute improved
+      asymptotic p-values by including up to 3 correction terms of the
+      \I{Edgeworth} series for the normal approximation.
+
+      \item \code{barplot(.., orderH = *)} for stacked bar plots allows to
+      sort the stacks each according to size.
+
+      \item \code{plot.default()} gets a new switch \code{lim2} to indicate
+      that the default \code{xlim} and \code{ylim} range computations only
+      use \emph{jointly} finite x- and y-values; indirectly suggested in
+      \PR{7986} by \I{Jincai Jiang}.
+
+      \item \file{Rman.css}, the stylesheet for the
+      \command{texi2any}-generated HTML versions of the \R manuals, was
+      improved following joint efforts at the \sQuote{\I{R Dev Days}}
+      of \I{useR! 2024} and \I{RSECon25}.
+
+      \item New system Rd macro \command{\\manual\{\var{name}\}\{\var{node}\}}
+      to refer to a specific section \emph{etc} (possibly empty, for
+      \samp{Top}) of one of the \R manuals (e.g., \samp{R-exts}).
+
+      \item \code{list.files()} now has optional argument \code{fixed}
+      to allow literal pattern matching.  Suggested and implemented
+      by \I{Duncan Murdoch} in \PR{18925}.
+
+      \item \code{substring(txt, i1, i2)}, \code{substr(..)} and their
+      replacement versions now accept \code{i2 = NULL} to mean \dQuote{to
+      the end_of_string}, thus fulfilling \I{Kevin Ushey} (and others')
+      suggestions in \PR{18851}.
+
+      \item The default method for \code{pretty()} gets a new switch \code{bounds} for
+      completeness, corresponding to \code{.pretty()}.  Also, it now
+      catches typos such as \code{eps.corrected = 2}, noted in \PR{18521}
+      by \I{Mikko Korpela}.
+
+      \item Plain-text help now renders Rd \verb{\describe} lists using
+      line breaks after item labels.  Set
+      \code{tools::Rd2txt_options(descStyle=NULL)} to get the old
+      behaviour with a simple space; a \code{"colon"} variant is also
+      available.
     }
   }
 
@@ -114,6 +167,9 @@
       \item Failures in building the documentation for the base packages,
       including from parsing their Rd files, are no longer ignored by
       \command{make docs}.
+
+      \item Building the \R manuals now requires \I{Texinfo} 6.8 or later.
+      % For the new Rman.css. Also features @example <lang> and @displaymath.
     }
   }
 
@@ -125,7 +181,21 @@
 
   \subsection{C-LEVEL FACILITIES}{
     \itemize{
-      \item .
+      \item New functions \code{GEcreateDD()} and \code{GEfreeDD()}
+      for allocating (and initialising) \code{DevDesc} structures.
+      Can be used by external graphics devices.
+      Satisfies \PR{18292}.
+
+      \item New function \code{R_eval_with_gd()} designed to \dQuote{lock} a
+      graphics device during call to \code{eval()} within device drawing
+      routines.
+      External \emph{on-screen} graphics devices should consider using
+      this function to avoid crashes from the device being closed by the
+      user (e.g., a mouse click) during drawing.
+
+      \item Declarations for non-API functions \code{LOGICAL0},
+      \code{INTEGER0}, \code{REAL0}, \code{COMPLEX0}, and \code{RAW0}
+      have been removed from installed header files.
     }
   }
 
@@ -217,12 +287,6 @@
       entries if the length is increased.  Thanks to \I{Mikael Jagan}'s
       \PR{18917}.
 
-      \item Fix for glyph rendering on the \code{quartz()} device when
-      there is other (\dQuote{normal}) text drawn on the device.  The
-      problem was that the text transformation matrix was not reset
-      so glyphs would be rendered incorrectly (often completely outside
-      the device, i.e., not visible).
-
       \item \code{<complex>[i] <- NA} now only sets the \emph{real} part to
       \code{NA}, consistently with the \code{as.complex(NA)} behaviour
       since \R 4.4.0; thanks to \I{Mikael Jagan}'s \PR{18918}.
@@ -258,12 +322,16 @@
       \PR{18926}, thanks to \I{Ella Kaye} and collaborators at \I{useR! 2025}'s
       \sQuote{\I{R Dev Day}}.
 
-      \item \I{Tanguy Barthelemy} and colleagues at the
-      \sQuote{\I{R Dev Day}} following \I{Rencontres R} in May 2025
-      extended the help page of \code{lm()}, fixing \PR{18058}.
-      As suggested by \I{Thomas Soeiro}, such notes were also added to the
-      \code{glm()}, \code{poly()} and \code{splines::bs()} and \code{ns()}
-      pages.
+      \item \code{jitter(x, amount, factor)} becomes more robust for
+      non-finite \code{x} or also negative \code{amount}, \code{factor}.
+      \code{help(jitter)} is easier to read, fixing \PR{17279}, thanks to
+      its contributors.
+
+      \item Plain-text help (\code{Rd2txt}) lacked markup for
+      \samp{\cite}d titles, which are now wrapped in single quotes.
+
+      \item Default column labels are now correctly aligned when printing a
+      matrix with right alignment (\PR{18943}, thanks to \I{Mikael Jagan}).
     }
   }
 }
@@ -313,6 +381,36 @@
 
       \item \code{<POSIXlt>[*]} (re-)setting \code{"balanced"}, fixing
       \PR{18681} comment #7, thanks to \I{Mikael Jagan}.
+
+      \item All four of \code{{col,row}{Sums,Means}(Z, na.rm=TRUE)} now correctly work
+      with complex \code{Z} where \code{is.na(Re(Z))} differs from \code{is.na(Im(Z))},
+      fixing \PR{18942}, unearthed by \I{Dirk Eddelbuettel}.
+
+      \item Fix for glyph rendering on the \code{quartz()} device when
+      there is other (\dQuote{normal}) text drawn on the device.  The
+      problem was that the text transformation matrix was not reset
+      so glyphs would be rendered incorrectly (often completely outside
+      the device, i.e., not visible).
+
+      \item Functions \code{install.packages()} and \code{download.packages()} again
+      consult option \code{download.file.method} when the download method is
+      unspecified.
+
+      \item \I{Tanguy Barthelemy} and colleagues at the
+      \sQuote{\I{R Dev Day}} following \I{Rencontres R} in May 2025
+      extended the help page of \code{lm()}, fixing \PR{18058}.
+      As suggested by \I{Thomas Soeiro}, such notes were also added to the
+      \code{glm()}, \code{poly()} and \code{splines::bs()} and \code{ns()}
+      pages.
+
+      \item \code{lbeta(1i, 1)} now signals an error, as \code{lbeta()} is not implemented
+      for \code{complex}, fixing \PR{18946} from \I{Ben Bolker} and  \I{Kasper Kristensen}.
+
+      \item The Cairo-based SVG device uses \code{pt} as the default
+      document unit also with Cairo >= 1.17.8 (\PR{18912}).
+
+      \item \code{pretty(*, eps.correct = 2)} has been fixed, e.g., to
+      avoid over 1 million length result for \code{pretty(c(0, 1e-322), eps.correct = 2)}.
     }
   }
 }
@@ -378,12 +476,6 @@
 }
 
 \section{\Rlogo CHANGES IN R 4.5.0}{
-  %% \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
-  %%   \itemize{
-  %%     \item .
-  %%   }
-  %% }
-
   \subsection{NEW FEATURES}{
     \itemize{
       \item \code{as.integer(rl)} and hence \code{as.raw(rl)} now work for
@@ -1040,7 +1132,7 @@
       (non integer) seconds.  Fixes \PR{17350}, thanks to new contributions
       by \I{LatinR}'s \sQuote{\I{R Dev Day}} participants, \I{Heather
       Turner} and \I{Dirk Eddelbuettel}; also fixes more cases, notably
-      when \code{format} contains "%OS<nodigit>".
+      when \code{format} contains \samp{\%OS<nodigit>}.
 
       \item \code{options(scipen = NULL)} and other invalid values now
       signal an error instead of invalidating ops relying on a finite

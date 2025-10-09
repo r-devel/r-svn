@@ -836,6 +836,17 @@ function(dir) {
     saveRDS(bibentries, file.path(dir, "R.rds"))
 }
 
+### * .install_R_dictionaries_as_RDS
+
+.install_R_dictionaries_as_RDS <-
+function(dir) {
+    txtfiles <- Sys.glob(file.path(dir, "*.txt"))
+    for (file in txtfiles) {
+        rdsfile <- paste0(file_path_sans_ext(file), ".rds")
+        saveRDS(readLines(file, encoding = "UTF-8"), rdsfile)
+    }
+}
+
 ### * .install_package_Rd_objects
 
 ## called from src/library/Makefile and .install_packages
@@ -858,12 +869,24 @@ function(dir, outDir, encoding = "unknown")
     	dir.create(macroDir, FALSE)
     	file.copy(macro_files, macroDir, overwrite = TRUE)
     }
-    ## Avoid (costly) rebuilding if not needed.
-    ## Remaking Rdobjects of base packages takes 4s, but only 0.5s if skipped.
     pathsFile <- file.path(manOutDir, "paths.rds")
-    upToDate <- file_test("-f", db_file) && file.exists(pathsFile) &&
-        identical(sort(manfiles), sort(readRDS(pathsFile))) &&
-        all(file_test("-nt", db_file, manfiles))
+    ## Avoid (costly) rebuilding if not needed.
+    ## 'make Rdobjects' now takes 13s compared to 0.5s if remaking skips the below.
+    ## This tests if the Rd DB from a previous 'make' can be fully kept or needs
+    ## updating, but ignores that a dynamic help page may need reprocessing even
+    ## without modifying the source Rd file. With the advent of \bibshow, many
+    ## help pages have become dynamic and always rebuilding these is tedious ...
+    ## So for now only do a full rebuild when the system macros were touched.
+    system_file <- file.path(R.home("share"), "Rd", "macros", "system.Rd")
+    if (!file.exists(db_file) || # first build, including from .install_packages
+        file_test("-nt", system_file, db_file)) {
+        db_file <- NULL # do not reuse the old Rd DB
+        upToDate <- FALSE
+    } else {
+        upToDate <- file.exists(pathsFile) &&
+            identical(sort(manfiles), sort(readRDS(pathsFile))) &&
+            all(file_test("-nt", db_file, manfiles))
+    }
     if(!upToDate) {
         db <- .build_Rd_db(dir, manfiles, db_file = db_file,
                            encoding = encoding, built_file = built_file)

@@ -1,9 +1,7 @@
 % File src/library/stats/man/confint.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
-
-% Portions copied from 
 
 \name{confint}
 \title{Confidence Intervals for Model Parameters}
@@ -15,10 +13,11 @@
 \description{
   Computes confidence intervals for one or more parameters in a fitted
   model.  There is a default and a method for objects inheriting from class
-  \code{"\link{lm}"}.
+  \code{"\link{lm}"} and several other classes.
 }
 \usage{
 confint(object, parm, level = 0.95, \dots)
+
 \S3method{confint}{default}(object, parm, level = 0.95, \dots)
 \S3method{confint}{lm}(object, parm, level = 0.95, \dots)
 \S3method{confint}{glm}(object, parm, level = 0.95, trace = FALSE, test=c("LRT", "Rao"), \dots)
@@ -40,10 +39,12 @@ confint(object, parm, level = 0.95, \dots)
   1 - (1-level)/2 in \% (by default 2.5\% and 97.5\%).
 }
 \details{
-  \code{confint} is a generic function.  The default method assumes
-  normality, and needs suitable \code{\link{coef}} and
+  \code{confint} is a generic function.  The default method is based on
+  inverting the Wald test, assuming approximate
+  normality of the estimator.  It needs suitable \code{\link{coef}} and
   \code{\link{vcov}} methods to be available.  The default method can be
-  called directly for comparison with other methods.
+  called directly for comparison with other methods.  It also works for 
+  fitted models in the S4 class system.
 
   For objects of class \code{"lm"} the direct formulae based on \eqn{t}
   values are used.
@@ -61,8 +62,6 @@ confint(object, parm, level = 0.95, \dots)
   Original versions: \code{\link[MASS]{confint.glm}} and
   \code{\link[MASS]{confint.nls}} in package \CRANpkg{MASS}.
 }
-% the glm() example used to be wrapped in \donttest, presumably to avoid
-% loading MASS (?)
 \examples{
 fit <- lm(100/mpg ~ disp + hp + wt + am, data = mtcars)
 confint(fit)

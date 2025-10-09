@@ -1,6 +1,6 @@
 % File src/library/base/man/lengths.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lengths}
@@ -41,7 +41,7 @@ lengths(x, use.names = TRUE)
   except when any element has a length of more than
   \eqn{2^{31}-1}{2^31 - 1} elements, when it returns a double vector.
   When \code{use.names} is true, the names are taken from the names on
-  \code{x}, if any.
+  \code{x}, if any. The result has the same dimensions as \code{x}.
 }
 \seealso{
   \code{\link{length}} for getting the length of any \R object.
@@ -57,6 +57,7 @@ airquality$avgOz <- rep(unlist(avgOz, use.names=FALSE), lengths(l))
 airquality$avgOz <- unsplit(avgOz, airquality$Month)
 
 ## should always be true, except when a length does not fit in 32 bits
+## or l has dimensions
 stopifnot(identical(lengths(l), vapply(l, length, integer(1L))))
 
 ## empty lists are not a problem

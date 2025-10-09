@@ -1,7 +1,7 @@
 #  File src/library/tools/R/RdHelpers.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2019-2023 The R Core Team
+#  Copyright (C) 2019-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -145,6 +145,33 @@ function(x)
             )
 }
 
+Rd_expr_manual <-
+function(name = "R-exts", node = "Top")
+{
+    if (name %notin% rownames(utils:::R_manuals))
+        stop(sprintf("\\manual must refer to one of %s",
+                     paste(sQuote(rownames(utils:::R_manuals)), collapse = ", ")))
+    baseurl <- switch(name,
+                      "rw-FAQ" = "https://cloud.R-project.org/bin/windows/base/",
+                      "https://cloud.R-project.org/doc/manuals/")
+    title <- utils:::R_manuals[name,2L]
+    if (length(node) == 1L && node %in% c("", "Top"))
+        sprintf("\\href{%s%s.html}{\\cite{%s}}", baseurl, name, title)
+    else
+        sprintf("\\href{%s%s.html#%s}{\\dQuote{%s}} in \\cite{%s}",
+                baseurl, name, .texinfo_node_to_id(node), trimws(node), title)
+}
+
+Rd_expr_bibshow_bibstyle <- local({
+    .bibstyle <- "R"
+    function(new) {
+        if(!missing(new))
+            .bibstyle <<- new
+        else
+            .bibstyle
+    }
+})
+
 Rd_expr_bibshow <-
 function(x)
 {
@@ -186,11 +213,11 @@ function(x)
         footers[ind] <- paste("\\cr", footers[ind])
     rdfile <- processRdChunk_data_store()$Rdfile
     rdpath <- if(length(rdfile)) basename(rdfile) else ""
-    paste(sprintf("%s\\if{html}{\u2060\\out{<span id=\"reference+%s+%s\">}}%s\\if{html}{\\out{</span>}}%s",
+    paste(sprintf("%s\\if{html}{\\out{<span id=\"reference+%s+%s\"></span>}}%s%s",
                   headers,
                   rdpath,
                   string2id(.bibentry_get_key(y)),
-                  toRd(y, style = "R"),
+                  toRd(y, style = Rd_expr_bibshow_bibstyle()),
                   footers),
           collapse = "\n\n")
 }
@@ -269,11 +296,12 @@ function(x, textual = FALSE)
         if(any(ind <- nzchar(before)))
             before[ind] <- paste0(before[ind], " ")
         y <- paste0(before,
-                    sprintf("\\if{html}{\u2060\\out{<a href=\"#reference+%s+%s\"><span class=\"citation\">}}",
+                    ## Empty \cite{} here is a kludge to 'enterPara' in Rd2HTML.
+                    sprintf("\\if{html}{\\cite{}\\out{<a href=\"#reference+%s+%s\" class=\"citation\">}}",
                             rdpath,
                             string2id(keys)),
                     y,
-                    rep_len("\\if{html}{\\out{</span></a>}}", n),
+                    rep_len("\\if{html}{\\out{</a>}}", n),
                     collapse = "; ")
     } else {
         bibp <- c("", "", ";", "a", "",  ",")
@@ -290,7 +318,7 @@ function(x, textual = FALSE)
             after[ind] <- paste0(", ", after[ind])
         y <- paste0("(",
                     paste0(before,
-                           sprintf("\\if{html}{\\out{<a href=\"#reference+%s+%s\">}}",
+                           sprintf("\\if{html}{\\out{<a href=\"#reference+%s+%s\" class=\"citation\">}}",
                                    rdpath,
                                    string2id(keys)),
                            y,

@@ -73,13 +73,6 @@ if(require("cluster", quietly = TRUE)) {# is a recommended package
   detach("package:cluster")
 }
 
-# confint.Rd
-counts <- c(18,17,15,20,10,20,25,13,12)
-outcome <- gl(3, 1, 9); treatment <- gl(3, 3)
-glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
-confint(glm.D93)
-confint.default(glm.D93)  # based on asymptotic normality}
-
 # contrasts.Rd
 utils::example(factor)
 fff <- ff[, drop = TRUE]  # reduce to 5 levels.
@@ -146,15 +139,6 @@ options(od)
 # princomp.Rd
 ## Robust:
 (pc.rob <- princomp(stackloss, covmat = MASS::cov.rob(stackloss)))
-
-# termplot.R
-library(MASS)
-hills.lm <- lm(log(time) ~ log(climb)+log(dist), data = hills)
-termplot(hills.lm, partial.resid = TRUE, smooth = panel.smooth,
-        terms = "log(dist)", main = "Original")
-termplot(hills.lm, transform.x = TRUE,
-         partial.resid = TRUE, smooth = panel.smooth,
-	 terms = "log(dist)", main = "Transformed")
 
 # xtabs.Rd
 if(require("Matrix", .Library)) {

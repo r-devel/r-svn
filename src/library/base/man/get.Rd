@@ -1,6 +1,6 @@
 % File src/library/base/man/get.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{get}
@@ -16,8 +16,8 @@
 get(x, pos = -1, envir = as.environment(pos), mode = "any",
     inherits = TRUE)
 
-mget(x, envir = as.environment(-1), mode = "any", ifnotfound,
-     inherits = FALSE)
+mget(x, envir = as.environment(pos), mode = "any", ifnotfound,
+     inherits = FALSE, pos = -1)
 
 dynGet(x, ifnotfound = , minframe = 1L, inherits = FALSE)
 }
@@ -57,7 +57,7 @@ dynGet(x, ifnotfound = , minframe = 1L, inherits = FALSE)
   \code{TRUE} and a value is not found for \code{x} in the specified
   environment, the enclosing frames of the environment are searched
   until the name \code{x} is encountered.  See \code{\link{environment}}
-  and the \sQuote{R Language Definition} manual for details about the
+  and \manual{R-lang}{} for details about the
   structure of environments and their enclosures.
 
   If \code{mode} is specified then only objects of that type are sought.

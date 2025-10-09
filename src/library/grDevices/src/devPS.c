@@ -1687,7 +1687,11 @@ static SEXP getFontDB(const char *fontdbname) {
     /* under lazy loading this will be a promise on first use */
     if(TYPEOF(PSenv) == PROMSXP) {
 	PROTECT(PSenv);
-	PSenv = eval(PSenv, graphicsNS);
+        if (NoDevices()) {
+            PSenv = eval(PSenv, graphicsNS);
+        } else {
+            PSenv = Rf_eval_with_gd(PSenv, graphicsNS, NULL);
+        }
 	UNPROTECT(2);
 	PROTECT(PSenv);
     }
@@ -2694,7 +2698,11 @@ static void PSFileHeader(FILE *fp,
 	/* under lazy loading this will be a promise on first use */
 	if(TYPEOF(prolog) == PROMSXP) {
 	    PROTECT(prolog);
-	    prolog = eval(prolog, graphicsNS);
+            if (NoDevices()) {
+                prolog = eval(prolog, graphicsNS);
+            } else {
+                prolog = Rf_eval_with_gd(prolog, graphicsNS, NULL);
+            }
 	    UNPROTECT(1);
 	}
 	UNPROTECT(1);
@@ -2712,7 +2720,11 @@ static void PSFileHeader(FILE *fp,
 	/* under lazy loading this will be a promise on first use */
 	if(TYPEOF(prolog) == PROMSXP) {
 	    PROTECT(prolog);
-	    prolog = eval(prolog, graphicsNS);
+            if (NoDevices()) {
+                prolog = eval(prolog, graphicsNS);
+            } else {
+                prolog = Rf_eval_with_gd(prolog, graphicsNS, NULL);
+            }
 	    UNPROTECT(1);
 	}
 	UNPROTECT(1);
@@ -3244,13 +3256,13 @@ PSDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     /* Check and extract the device parameters */
 
     if(strlen(file) > R_PATH_MAX - 1) {
-	free(dd);
+	GEfreeDD(dd);
 	error(_("filename too long in %s()"), "postscript");
     }
 
     /* allocate new postscript device description */
     if (!(pd = (PostScriptDesc *) malloc(sizeof(PostScriptDesc)))) {
-	free(dd);
+	GEfreeDD(dd);
 	error(_("memory allocation problem in %s()"), "postscript");
     }
 
@@ -3714,7 +3726,7 @@ static void PS_cleanup(int stage, pDevDesc dd, PostScriptDesc *pd)
     freeDeviceEncList(pd->encodings);
     case 1: /* Allocated PDFDesc */
     free(pd);
-    free(dd);
+    GEfreeDD(dd);
     }
 }
 
@@ -5683,7 +5695,7 @@ static int newTiling(SEXP pattern, PDFDesc *pd)
 
     /* Evaluate the pattern function to generate the pattern */
     R_fcall = PROTECT(lang1(R_GE_tilingPatternFunction(pattern)));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
 
     /* Invalidate current settings so normal drawing enforces its settings */
@@ -5860,7 +5872,7 @@ static int newPath(SEXP path, int type, PDFDesc *pd)
 
     /* Evaluate the path function to generate the clipping path */
     R_fcall = PROTECT(lang1(path));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
 
     if (type == PDFclipPath) {
@@ -5918,7 +5930,7 @@ static int newMask(SEXP mask, PDFDesc *pd)
 
     /* Evaluate the mask function to generate the mask */
     R_fcall = PROTECT(lang1(mask));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
 
     /* Invalidate current settings so normal drawing enforces its settings */
@@ -6109,7 +6121,7 @@ static int newGroup(SEXP source, int op, SEXP destination, PDFDesc *pd)
     if (destination != R_NilValue) {
         /* Evaluate the destination function to generate the destination */
         R_fcall = PROTECT(lang1(destination));
-        eval(R_fcall, R_GlobalEnv);
+        Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
         UNPROTECT(1);
     }
 
@@ -6119,7 +6131,7 @@ static int newGroup(SEXP source, int op, SEXP destination, PDFDesc *pd)
 
     /* Evaluate the source function to generate the source */
     R_fcall = PROTECT(lang1(source));
-    eval(R_fcall, R_GlobalEnv);
+    Rf_eval_with_gd(R_fcall, R_GlobalEnv, NULL);
     UNPROTECT(1);
 
     /* Some finalisation that endpage does
@@ -6854,7 +6866,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 		bool timestamp, bool producer, const char *author)
 {
     /* If we need to bail out with some sort of "error" */
-    /* then we must free(dd) */
+    /* then we must GEfreeDD(dd) */
 
     int i, gotFont;
     double xoff = 0.0, yoff = 0.0, pointsize;
@@ -6871,13 +6883,13 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     /* 'file' could be NULL */
     if(file && strlen(file) > R_PATH_MAX - 1) {
 	/* not yet created PDFcleanup(0, pd); */
-	free(dd);
+	GEfreeDD(dd);
 	error(_("filename too long in %s()"), "pdf");
     }
 
     /* allocate new PDF device description */
     if (!(pd = (PDFDesc *) malloc(sizeof(PDFDesc)))) {
-	free(dd);
+	GEfreeDD(dd);
 	error(_("memory allocation problem in %s()"), "pdf");
     }
     /* from here on, if need to bail out with "error", must also
@@ -6897,7 +6909,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pd->pos = (int *) calloc(pd->max_nobjs, sizeof(int));
     if(!pd->pos) {
 	PDFcleanup(1, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error("cannot allocate pd->pos");
     }
     /* This one is dynamic: initial allocation */
@@ -6905,7 +6917,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pd->pageobj = (int *) calloc(pd->pagemax, sizeof(int));
     if(!pd->pageobj) {
 	PDFcleanup(2, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error("cannot allocate pd->pageobj");
     }
 
@@ -6944,7 +6956,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 
     if(strlen(encoding) > R_PATH_MAX - 1) {
 	PDFcleanup(3, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("encoding path is too long in %s()"), "pdf");
     }
     /*
@@ -6960,7 +6972,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 	pd->encodings = enclist;
     } else {
 	PDFcleanup(3, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("failed to load default encoding"));
     }
 
@@ -7027,7 +7039,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     }
     if (!gotFont) {
 	PDFcleanup(4, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("failed to initialise default PDF font"));
     }
 
@@ -7082,7 +7094,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 	}
 	if (gotFonts < nfonts) {
 	    PDFcleanup(4, pd);
-	    free(dd);
+	    GEfreeDD(dd);
 	    error(_("failed to initialise additional PDF fonts"));
 	}
     }
@@ -7095,14 +7107,14 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pd->rasters = initRasterArray(pd->maxRasters);
     if (!pd->rasters) {
 	PDFcleanup(4, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("failed to allocate rasters"));
     }
     pd->numMasks = 0;
     pd->masks = initMaskArray(pd->maxRasters);
     if (!pd->masks) {
 	PDFcleanup(5, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("failed to allocate masks"));
     }
 
@@ -7112,7 +7124,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     initDefinitions(pd);
     if (!pd->definitions) {
         PDFcleanup(6, pd);
-        free(dd);
+        GEfreeDD(dd);
 	error(_("failed to allocate definitions"));
     }
     pd->appendingPath = -1;
@@ -7185,7 +7197,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 	char errbuf[strlen(pd->papername) + 1];
 	strcpy(errbuf, pd->papername);
 	PDFcleanup(7, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("invalid paper type '%s' (pdf)"), errbuf);
     }
     pd->pagecentre = pagecentre;
@@ -7209,7 +7221,7 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pointsize = floor(ps);
     if(R_TRANSPARENT(setbg) && R_TRANSPARENT(setfg)) {
 	PDFcleanup(7, pd);
-	free(dd);
+	GEfreeDD(dd);
 	error(_("invalid foreground/background color (pdf)"));
     }
 
@@ -8210,7 +8222,7 @@ static void PDF_Open(pDevDesc dd, PDFDesc *pd)
     pd->mainfp = R_fopen(R_ExpandFileName(buf), "wb");
     if (!pd->mainfp) {
 	PDFcleanup(7, pd);
-	free(dd);	
+	GEfreeDD(dd);	
 	error(_("cannot open file '%s'"), buf);
     }
     pd->pdffp = pd->mainfp;
@@ -9976,7 +9988,7 @@ SEXP PostScript(SEXP args)
     R_CheckDeviceAvailable();
     BEGIN_SUSPEND_INTERRUPTS {
 	pDevDesc dev;
-	if (!(dev = (pDevDesc) calloc(1, sizeof(DevDesc))))
+	if (!(dev = GEcreateDD()))
 	    return 0;
 	if(!PSDeviceDriver(dev, file, paper, family, afms, encoding, bg, fg,
 			   width, height, (bool)horizontal, ps, onefile,
@@ -10086,7 +10098,7 @@ SEXP PDF(SEXP args)
     R_CheckDeviceAvailable();
     BEGIN_SUSPEND_INTERRUPTS {
 	pDevDesc dev;
-	if (!(dev = (pDevDesc) calloc(1, sizeof(DevDesc))))
+	if (!(dev = GEcreateDD()))
 	    return 0;
 	if(!PDFDeviceDriver(dev, file, paper, family, afms, encoding, bg, fg,
 			    width, height, ps, onefile, pagecentre,

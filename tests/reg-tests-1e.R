@@ -2055,8 +2055,8 @@ hist(1:100, breaks = 2^(0:8), log = "x")
 
 
 ## subassigning from real to complex keeping zero imaginary part
-ll <- list(NA, 0L, NA_integer_, 0, NA_real_, NaN, -Inf, Inf,
-           0i, NA_complex_)
+ll <- as.list(c(NA, 0L, NA_integer_, 0, NA_real_, NaN, -Inf, Inf,
+                complex(real = 2:-1, imaginary = c(-Inf, 0:1, Inf)), NA_complex_))
 rr <- vapply(ll, Re, 0)
 ii <- vapply(ll, Im, 0) # all 0, but the very last
 chk <- function (x, y = as.vector(x)) stopifnot(identical(Re(y), rr),
@@ -2207,6 +2207,7 @@ tools::assertCondition(packageStartupMessage("a startup message"),
                        classes) |> suppressMessages()
 suppressPackageStartupMessages(packageStartupMessage("shouldn't see me"))
 
+
 ## "dumping" nothing to an existing connection was an error in R <= 4.5
 ## PR#18729
 tmpfile <- tempfile()
@@ -2214,6 +2215,85 @@ con <- file(tmpfile, "w")
 dump(character(), con)
 close(con)
 unlink(tmpfile)
+
+
+## colSums() .. rowMeans() with complex z, where Re() and Im() contain NAs in different places.
+## "Obviously correct" versions (w/o 'dims' arg):
+colSumsC  <- function(x, na.rm = FALSE) apply(x, 2L,  sum, na.rm=na.rm)
+rowSumsC  <- function(x, na.rm = FALSE) apply(x, 1L,  sum, na.rm=na.rm)
+colMeansC <- function(x, na.rm = FALSE) apply(x, 2L, mean, na.rm=na.rm)
+rowMeansC <- function(x, na.rm = FALSE) apply(x, 1L, mean, na.rm=na.rm)
+y <- 1:12; y[c(2,3,5,7,11)] <- NA
+(z <- matrix(complex(re = 12:1, im = y), 3))
+##       [,1] [,2] [,3]  [,4]
+## [1,] 12+1i 9+4i   NA 3+10i
+## [2,]    NA   NA 5+8i    NA
+## [3,]    NA 7+6i 4+9i 1+12i
+stopifnot(!any(is.na(Re(z)))) # no NA's in real part
+for(na in c(TRUE, FALSE))
+  stopifnot(exprs = {
+    identical(colSumsC (z, na.rm=na),
+              colSums  (z, na.rm=na))
+    identical(colMeansC(z, na.rm=na),
+              colMeans (z, na.rm=na))
+    identical(rowSumsC (z, na.rm=na),
+              rowSums  (z, na.rm=na))
+    identical(rowMeansC(z, na.rm=na),
+              rowMeans (z, na.rm=na))
+    identical(sum(colSums(z, na.rm=na)), sum(z, na.rm=na) -> sz)
+    identical(sum(rowSums(z, na.rm=na)), sz)
+  })
+## almost all differed in R <= 4.5.1
+
+
+## Ben Bolker + Kasper Kri...'s  PR#18946 -- lbeta(<complex>, *)
+(Lb <- list(
+    b1 = tryCid(  beta(1i, 1) )
+  , b2 = tryCid(  beta(1, 1i) )
+  , l1 = tryCid( lbeta(1i, 1) )
+  , l2 = tryCid( lbeta(1, 1i) )
+))
+stopifnot(vapply(Lb, inherits, what="error", NA))
+## l1 was not an error, but non-sense complex,  in R <= 4.5.1
+stopifnot(identical(log10(1i), log(1i, 10)), log2(c(1,2,4) + 0i) == 0:2)
+## (< 24h) lapsus "unimplemented complex fn."
+
+
+## jitter():  more "robust"
+ii5 <- rep(1000, 5)
+i12 <- rep(1:4, each=3)
+iI <- c(-Inf,  3,3,3)
+assertWarnV(iN <- sqrt(-1:1)) # NaNs produced
+set.seed(12)
+(j1 <- jitter(ii5, factor = -1/4)) # ok - no longer NaN
+(j2 <- jitter(i12, amount = -1/4)) #  (ditto)
+(jI <- jitter(iI))
+(jN <- jitter(iN))
+stopifnot(990 < j1, j1 < 1010, 0.9 < j2, j2 < 4.4,
+          jI[1] == -Inf, 2.9 < jI[-1], jI[-1] < 3.1,
+          is.na(jN[1]), -1/4 < jN[-1], jN[-1] < 1.1)
+## x in {Inf,NA,..} failed for 'd' computation;  negative amount / factor gave NaN
+
+
+## substr() / substring() -- allowing stop|last = NULL to mean "suffix" -- PR#18851
+(nL <- nchar(Lstr <- strrep(paste(letters,collapse=""), 4e4))) # nchar(.) > 1e6
+ss <- substring(Lstr, 1e6)
+stopifnot(exprs = {
+    nchar(ss) == nL - 1e6 + 1
+    startsWith(ss, "nopqrst")
+    endsWith  (ss, "xyz")
+    identical(substring(ss, nchar(ss)-7), "stuvwxyz")
+}) ## were all FALSE in R <= 4.5.1: `last = 1000000L' was not large enough
+
+
+## pretty(<very small>, eps.correct=2) would produce huge vectors
+assertWarnV(pp <- .pretty(c(0, 1e-322), eps.correct = 2))
+str(pp)
+E <- 2e-314
+stopifnot(all.equal(list(l = -E, u = E, n = 2L), pp, tolerance = 1e-12))
+## n = 1112538 (Lnx 64b) in R <= 4.5.1  ^^^^^^
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

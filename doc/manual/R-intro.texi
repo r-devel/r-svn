@@ -156,7 +156,7 @@ Graphics} by @I{Richard A.@: Becker}, @I{John M.@: Chambers} and
 @I{Allan R.@: Wilks}.  The new features of the 1991 release of @Sl{}
 @c (@Sl{} version 3) JMC says the 1988 version is S3.
 are covered in @emph{Statistical Models in @Sl{}} edited by @I{John M.@:
-Chambers} and @I{Trevor J.@: Hastie}.  The formal methods and classes of the 
+Chambers} and @I{Trevor J.@: Hastie}.  The formal methods and classes of the
 @pkg{methods} package are based on those described in @emph{Programming
 with Data} by @I{John M.@: Chambers}.  @xref{References}, for precise
 references.
@@ -164,7 +164,7 @@ references.
 There are now a number of books which describe how to use @R{} for data
 analysis and statistics, and documentation for @Sl{}/@SPLUS{} can
 typically be used with @R{}, keeping the differences between the @Sl{}
-implementations in mind.  
+implementations in mind.
 @xref{What documentation exists for R?, , , R-FAQ, R FAQ}
 for more information.
 
@@ -352,7 +352,7 @@ functions.  It can be a great way to get your bearings quickly and to
 understand the breadth of what @R{} has to offer.
 
 @findex help.search
-The @code{help.search} command (alternatively @code{??}) 
+The @code{help.search} command (alternatively @code{??})
 allows searching for help in various
 ways. For example,
 
@@ -448,7 +448,7 @@ You can find out how to do this by reading the manual entry for the
 
 Alternatively, the Emacs text editor provides more general support
 mechanisms (via @acronym{ESS}, @emph{Emacs Speaks Statistics}) for
-working interactively with @R{}.  
+working interactively with @R{}.
 @xref{R and Emacs, , , R-FAQ, R FAQ} for more information.
 
 
@@ -1775,7 +1775,7 @@ little more carefully.
 
 @c 1-item menu: kept to avoid spurious warning from makeinfo 6.8/7.0
 @menu
-* The recycling rule::          
+* The recycling rule::
 @end menu
 
 @node The recycling rule
@@ -2424,7 +2424,7 @@ additional components.  For example
 
 @c 1-item menu: kept to avoid spurious warning from makeinfo 6.8/7.0
 @menu
-* Concatenating lists::         
+* Concatenating lists::
 @end menu
 
 @node Concatenating lists
@@ -3009,6 +3009,10 @@ A stem-and-leaf plot is like a histogram, and @R{} has a function
 > rug(eruptions) # @r{show the actual data points}
 @end example
 
+@ifnotinfo
+@center @image{images/hist,9cm}
+@end ifnotinfo
+
 @findex density
 @cindex Density estimation
 More elegant density plots can be made by @code{density}, and we added a
@@ -3017,10 +3021,6 @@ line produced by @code{density} in this example.  The bandwidth
 smoothing (it usually does for ``interesting'' densities).  (Better
 automated methods of bandwidth choice are available, and in this example
 @code{bw = "SJ"} gives a good result.)
-
-@ifnotinfo
-@image{images/hist,9cm}
-@end ifnotinfo
 
 We can plot the empirical cumulative distribution function by using the
 function @code{ecdf}.
@@ -3043,7 +3043,7 @@ Let us fit a normal distribution and overlay the fitted CDF.
 @end example
 
 @ifnotinfo
-@image{images/ecdf,9cm}
+@center @image{images/ecdf,9cm}
 @end ifnotinfo
 
 Quantile-quantile (Q-Q) plots can help us examine this more carefully.
@@ -3056,14 +3056,14 @@ par(pty="s")       # arrange for a square figure region
 qqnorm(long); qqline(long)
 @end example
 
+@ifnotinfo
+@center @image{images/QQ,7cm}
+@end ifnotinfo
+
 @noindent
-which shows a reasonable fit but a shorter right tail than one would
+This shows a reasonable fit but a shorter right tail than one would
 expect from a normal distribution.  Let us compare this with some
 simulated data from a @math{t} distribution
-
-@ifnotinfo
-@image{images/QQ,7cm}
-@end ifnotinfo
 
 @example
 x <- rt(250, df = 5)
@@ -3151,14 +3151,13 @@ boxplot(A, B)
 @findex boxplot
 @cindex Box plots
 
-@noindent
-which indicates that the first group tends to give higher results than
-the second.
-
 @ifnotinfo
-@image{images/ice,7cm}
+@center @image{images/ice,7cm}
 @end ifnotinfo
 
+@noindent
+The plot indicates that the first group tends to give higher results than
+the second.
 To test for the equality of the means of the two examples, we can use
 an @emph{unpaired} @math{t}-test by
 @cindex Student's @math{t} test
@@ -3616,8 +3615,9 @@ involving other arguments to the same function; they are not restricted
 to be constants as in our simple example here.
 
 
-@node The three dots argument
-@section The @samp{@dots{}} argument
+@node The @samp{...} argument
+@anchor{The three dots argument}@c old node name
+@section The @samp{...} argument
 
 Another frequent requirement is to allow one function to pass on
 argument settings to another.  For example many graphics functions use
@@ -3638,7 +3638,7 @@ fun1 <- function(data, data.frame, graph=TRUE, limit=20, ...) @{
 @end example
 
 Less frequently, a function will need to refer to components of
-@samp{@dots{}}.  The expression @code{list(...)} evaluates all such
+@samp{...}.  The expression @code{list(...)} evaluates all such
 arguments and returns them in a named list, while @code{..1},
 @code{..2}, etc. evaluate them one at a time, with @samp{..n}
 returning the @I{n-th} unmatched argument.
@@ -4049,8 +4049,8 @@ To see what methods are available we can use @code{methods()}
 
 @example
 > methods(coef)
-[1] coef.aov*     coef.Arima*   coef.default* coef.listof*  coef.maov*   
-[6] coef.nls*    
+[1] coef.aov*     coef.Arima*   coef.default* coef.listof*  coef.maov*
+[6] coef.nls*
 see '?methods' for accessing help and source code
 @end example
 
@@ -4071,7 +4071,7 @@ with value
 function (object, complete = FALSE, ...)
 @{
     cf <- object$coefficients
-    if (complete) 
+    if (complete)
         cf
     else cf[!is.na(cf)]
 @}
@@ -4080,7 +4080,7 @@ function (object, complete = FALSE, ...)
 function (object, complete = FALSE, ...)
 @{
     cf <- object$coefficients
-    if (complete) 
+    if (complete)
         cf
     else cf[!is.na(cf)]
 @}
@@ -4090,7 +4090,7 @@ A function named @code{@var{gen}.@var{cl}} will be invoked by the
 generic @code{@var{gen}} for class @code{@var{cl}}, so do not name
 functions in this style unless they are intended to be methods.
 
-The reader is referred to the @ref{, , , R-lang, R Language Definition} for a more
+The reader is referred to @ref{, , , R-lang, The R Language Definition} for a more
 complete discussion of this mechanism.
 
 
@@ -4308,7 +4308,7 @@ specifying nonlinear models.
 
 @c 1-item menu: kept to avoid spurious warning from makeinfo 6.8/7.0
 @menu
-* Contrasts::                   
+* Contrasts::
 @end menu
 
 @node Contrasts
@@ -4529,7 +4529,7 @@ would typically be used to describe an experiment with mean model
 
 @c 1-item menu: kept to avoid spurious warning from makeinfo 6.8/7.0
 @menu
-* ANOVA tables::                
+* ANOVA tables::
 @end menu
 
 @node ANOVA tables
@@ -4688,7 +4688,7 @@ mu = m(eta),    eta = m^@{-1@}(mu) = ell(mu)
 $$ \mu = m(\eta),\qquad \eta = m^{-1}(\mu) = \ell(\mu) $$
 @end tex
 and this inverse function, @eqn{\ell(), ell()}, is called the @emph{link
-function}. 
+function}.
 @end itemize
 
 These assumptions are loose enough to encompass a wide class of models
@@ -4696,7 +4696,7 @@ useful in statistical practice, but tight enough to allow the
 development of a unified methodology of estimation and inference, at
 least approximately.  The reader is referred to any of the current
 reference works on the subject for full details, such as @I{McCullagh &
-Nelder} (1989) or @I{Dobson} (1990). 
+Nelder} (1989) or @I{Dobson} (1990).
 
 
 @node Families
@@ -6336,7 +6336,7 @@ The standard (or @emph{base}) packages are considered part of the @R{}
 source code.  They contain the basic functions that allow @R{} to work,
 and the datasets and standard statistical and graphical functions that
 are described in this manual.  They should be automatically available in
-any @R{} installation.  
+any @R{} installation.
 For a complete list, see
 @ref{Which add-on packages exist for R?, , , R-FAQ, R FAQ}.
 
@@ -7002,7 +7002,10 @@ value accepted is 100000.
 @item --quiet
 @itemx --silent
 @itemx -q
-Do not print out the initial copyright and welcome messages.
+Do not print out the initial copyright and welcome messages.  Additionally
+set @code{options("quiet")} or equivalently, @code{getOption("quiet")}, to
+@code{TRUE} which other @R{} functions may use to be more quiet than
+usually.
 
 @item --no-echo
 @itemx -s
@@ -7171,7 +7174,7 @@ this is not always defined on Windows.  If the environment variable
 environment variable @env{HOME} is defined, that gives the home
 directory.  After those two user-controllable settings, @R{} tries to
 find system defined home directories.  It first tries to use the
-Windows "personal" directory (typically @code{My Documents} in 
+Windows "personal" directory (typically @code{My Documents} in
 recent versions of Windows).  If that fails, and
 environment variables @env{HOMEDRIVE} and @env{HOMEPATH} are defined
 (and they normally are) these define the home directory.  Failing all
@@ -7199,9 +7202,9 @@ invoking @code{RGui.exe}.
 @item --mdi
 @itemx --sdi
 @itemx --no-mdi
-Control whether @code{Rgui} will operate as an MDI program 
+Control whether @code{Rgui} will operate as an MDI program
 (with multiple child windows within one main window) or an SDI application
-(with multiple top-level windows for the console, graphics and pager).  The 
+(with multiple top-level windows for the console, graphics and pager).  The
 command-line setting overrides the setting in the user's @file{Rconsole} file.
 
 @item --debug
@@ -7310,7 +7313,7 @@ to their path), use
 
 @noindent
 At least in @I{Bourne} and bash shells, the @code{#!} mechanism does
-@strong{not} allow extra arguments like 
+@strong{not} allow extra arguments like
 @code{#! /usr/bin/env Rscript --vanilla}.
 
 One thing to consider is what @code{stdin()} refers to.  It is
@@ -7534,8 +7537,8 @@ Cambridge University Press.
 Chapman and Hall, London.
 
 @noindent
-@I{Peter McCullagh} and @I{John A.@: Nelder} (1989), 
-@emph{Generalized Linear Models.} 
+@I{Peter McCullagh} and @I{John A.@: Nelder} (1989),
+@emph{Generalized Linear Models.}
 Second edition, Chapman and Hall, London.
 
 @noindent
@@ -7545,7 +7548,7 @@ Second edition.  @I{Duxbury Press}, Belmont, CA.
 
 @noindent
 @I{S.@: D.@: Silvey} (1970),
-@emph{Statistical Inference.} 
+@emph{Statistical Inference.}
 Penguin, London.
 
 

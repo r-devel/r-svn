@@ -3961,7 +3961,7 @@ add_dummies <- function(dir, Log)
         if(length(out) == 1L && startsWith(out, "Note:")) {
             ## This will be a note about symbols.rds not being available
             if(!is_base_pkg) {
-                noteLog(Log)
+                infoLog(Log)
                 printLog0(Log, c(out, "\n"))
             } else resultLog(Log, "OK")
         } else if(length(out)) {
@@ -6169,6 +6169,18 @@ add_dummies <- function(dir, Log)
                              ": warning: .* \\[-Wdeprecated-literal-operator\\]"
                              )
 
+                ## <FIXME>
+                ## Support for RcppArmadillo 15 transition.
+                ## Remove eventually ...
+                check_src_flag <-
+                    Sys.getenv("_R_CHECK_SRC_CATCH_ARMADILLO_FALLBACK_COMPILATION_MESSAGE_",
+                               "FALSE")
+                if(config_val_to_logical(check_src_flag))
+                    warn_re <-
+                        c(warn_re,
+                          ": (warning|note): .*Using fallback compilation with Armadillo 14[.]6[.]3")
+                ## </FIXME>
+                
                 warn_re <- paste0("(", paste(warn_re, collapse = "|"), ")")
 
                 lines <- grep(warn_re, lines, value = TRUE, useBytes = TRUE)

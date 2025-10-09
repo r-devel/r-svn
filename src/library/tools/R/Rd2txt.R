@@ -37,7 +37,7 @@ Rd2txt_options <- local({
     	         sectionExtra = 2L,
     	         itemBullet = "* ",
     	         enumFormat = function(n) sprintf("%d. ", n),
-                 ## descStyle = "none",
+                 descStyle = "linebreak",
                  showURLs = FALSE,
                  code_quote = TRUE,
                  underline_titles = TRUE)
@@ -539,6 +539,21 @@ Rd2txt <-
         x
     }
 
+    wrappers <- list(
+        "\\var"    = c("<", ">"),
+        "\\bold"   = c("*", "*"),
+        "\\strong" = c("*", "*"),
+        "\\emph"   = c("_", "_")
+    )
+    writeWrapped <- function(block, tag) {
+        if (isBlankRd(block))
+            return() # skip \emph{} etc, consistent with HTML
+    	LR <- wrappers[[tag]]
+    	put(LR[1L])
+    	writeContent(block, tag)
+    	put(LR[2L])
+    }
+
     writeDR <- function(block, tag) {
         if (length(block) > 1L) {
             putf('## Not run:\n')
@@ -623,25 +638,13 @@ Rd2txt <-
                "\\Sexpr"= put(as.character.Rd(block, deparse=TRUE)),
                "\\abbr" =,
                "\\acronym" =,
-               "\\cite"=,
                "\\dfn"= ,
                "\\special" = writeContent(block, tag),
-               "\\var" = {
-                   put("<")
-                   writeContent(block, tag)
-                   put(">")
-               },
+               "\\var"=,
                "\\bold"=,
-               "\\strong"= {
-                   put("*")
-                   writeContent(block, tag)
-                   put("*")
-               },
-               "\\emph"= {
-                   put("_")
-                   writeContent(block, tag)
-                   put("_")
-               },
+               "\\strong"=,
+               "\\emph" = writeWrapped(block, tag),
+               "\\cite" = writeQ(block, tag, quote = "\\sQuote"),
                "\\sQuote" =,
                "\\dQuote"= writeQ(block, tag) ,
                "\\preformatted"= {
