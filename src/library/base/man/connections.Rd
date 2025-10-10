@@ -121,7 +121,7 @@ socketTimeout(socket, timeout = -1)
     requests.  It is ignored for non-HTTP URLs.  The \code{User-Agent}
     header, coming from the \code{HTTPUserAgent} option (see
     \code{\link{options}}) is used as the first header, automatically.}
-  \item{compression}{integer in 0--9 (1--19 for \code{zstdfile}).  The
+  \item{compression}{integer in 0--9 (1--22 for \code{zstdfile}).  The
     amount of compression to be applied when writing, from minimal to
     maximal available.  For \code{xzfile} and \code{zstdfile} can also
     be negative: see the \sQuote{Compression} section.}
