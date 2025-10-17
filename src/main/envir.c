@@ -773,6 +773,48 @@ static SEXP R_GetGlobalCacheLoc(SEXP symbol)
 }
 #endif /* USE_GLOBAL_CACHE */
 
+
+/*----------------------------------------------------------------------
+  R_GetBindingType
+*/
+
+R_BindingType R_GetBindingType(SEXP sym, SEXP env) {
+    /* We are currently getting the location in the environment twice:
+     * - In `R_BindingIsActive()`
+     * - In `Rf_findVarInFrame3()`
+     * Ideally we'd do it once, which would require manually walking
+     * over the environment frame / hashtable and get the location to
+     * inspect. */
+
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+
+    /* This check must be before `Rf_findVarInFrame3()` because that
+     * forces active bindings */
+    if (R_BindingIsActive(sym, env))
+	return R_BindingTypeActive;
+
+    SEXP value = Rf_findVarInFrame3(env, sym, FALSE);
+
+    if (value == R_UnboundValue)
+	return R_BindingTypeUnbound;
+
+    if (value == R_MissingArg)
+	return R_BindingTypeMissing;
+
+    if (TYPEOF(value) == PROMSXP) {
+	if (PROMISE_IS_EVALUATED(value))
+	    return R_BindingTypeForced;
+	else
+	    return R_BindingTypeDelayed;
+    }
+
+    return R_BindingTypeValue;
+}
+
+
 /*----------------------------------------------------------------------
 
   unbindVar
@@ -3457,6 +3499,32 @@ void R_unLockBinding(SEXP sym, SEXP env)
     }
 }
 
+void R_MakeDelayedBinding(SEXP sym, SEXP expr, SEXP evalEnv, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+    if (TYPEOF(evalEnv) != ENVSXP)
+	error(_("not an environment"));
+    defineVar(sym, Rf_mkPROMISE(expr, evalEnv), env);
+}
+
+void R_MakeForcedBinding(SEXP sym, SEXP expr, SEXP value, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+    defineVar(sym, R_mkEVPROMISE(expr, value), env);
+}
+
+void R_MakeMissingBinding(SEXP sym, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+    defineVar(sym, R_MissingArg, env);
+}
+
 void R_MakeActiveBinding(SEXP sym, SEXP fun, SEXP env)
 {
     if (TYPEOF(sym) != SYMSXP)
@@ -3560,6 +3628,60 @@ attribute_hidden Rboolean R_HasFancyBindings(SEXP rho)
 		return TRUE;
 	return FALSE;
     }
+}
+
+/* Equivalent to `substitute()`, but only supports promises */
+SEXP R_DelayedBindingExpression(SEXP sym, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+
+    SEXP value = Rf_findVarInFrame3(env, sym, FALSE);
+
+    if (TYPEOF(value) != PROMSXP)
+	error(_("not a promise"));
+
+    if (PROMISE_IS_EVALUATED(value))
+	error(_("not a delayed promise"));
+
+    /* This has special handling for bytecode, unlike `PREXPR()` */
+    return R_PromiseExpr(value);
+}
+
+SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+
+    SEXP value = Rf_findVarInFrame3(env, sym, FALSE);
+
+    if (TYPEOF(value) != PROMSXP)
+	error(_("not a promise"));
+
+    if (PROMISE_IS_EVALUATED(value))
+	error(_("not a delayed promise"));
+
+    return PRENV(value);
+}
+
+SEXP R_ForcedBindingExpression(SEXP sym, SEXP env) {
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (TYPEOF(env) != ENVSXP)
+	error(_("not an environment"));
+
+    SEXP value = Rf_findVarInFrame3(env, sym, FALSE);
+
+    if (TYPEOF(value) != PROMSXP)
+	error(_("not a promise"));
+
+    if (!PROMISE_IS_EVALUATED(value))
+	error(_("not a forced promise"));
+
+    /* This has special handling for bytecode, unlike `PREXPR()` */
+    return R_PromiseExpr(value);
 }
 
 SEXP R_ActiveBindingFunction(SEXP sym, SEXP env)
@@ -4633,4 +4755,3 @@ attribute_hidden void findFunctionForBody(SEXP body) {
 	}
     }
 }
-
