@@ -2761,7 +2761,7 @@ attribute_hidden SEXP do_gzfile(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     if(type == 3) {
 	compress = asInteger(CADDDR(args));
-	if(compress == NA_LOGICAL || abs(compress) > 19)
+	if(compress == NA_LOGICAL || abs(compress) > 22)
 	    error(_("invalid '%s' argument"), "compress");
     }
     open = CHAR(STRING_ELT(sopen, 0)); /* ASCII */
