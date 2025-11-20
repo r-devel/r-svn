@@ -3,34 +3,52 @@
 % Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
+%% TO DO: WRITE sample.pps() and then DOCUMENT it!
+%% probability proportional to size
+%% Make an example showing that
+%% Document prob_methods() arg...
+
+
 \name{sample}
+\encoding{UTF-8}
 \alias{sample}
 \alias{sample.int}
+\alias{sample.pps}
 \title{Random Samples and Permutations}
 \description{
   \code{sample} takes a sample of the specified size from the elements
   of \code{x} using either with or without replacement.
 }
 \usage{
-sample(x, size, replace = FALSE, prob = NULL)
+sample(x, size, replace = FALSE, prob = NULL,
+       prob_method = c("sequential", "marginal", "poisson"))
 
 sample.int(n, size = n, replace = FALSE, prob = NULL,
+           prob_method = c("sequential", "marginal", "poisson"),
            useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2))
+
+sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
 }
 \arguments{
   \item{x}{either a vector of one or more elements from which to choose,
     or a positive integer.  See \sQuote{Details.}}
   \item{n}{a positive number, the number of items to choose from.  See
     \sQuote{Details.}}
-  \item{size}{a non-negative integer giving the number of items to choose.}
+  \item{size}{a non-negative integer giving the number of items to choose.  The
+    default is \code{n} except for unequal-probability sampling without
+    replacement, where it should be \code{sum(prob)}.}
   \item{replace}{should sampling be with replacement?}
   \item{prob}{a vector of probability weights for obtaining the elements
     of the vector being sampled.}
+  \item{prob_method}{when \code{replace = FALSE} and \code{prob} is not
+    \code{NULL}, the method to use for sampling, see \sQuote{Details.}}
   \item{useHash}{\code{\link{logical}} indicating if the hash-version of
     the algorithm should be used.  Can only be used for \code{replace =
       FALSE}, \code{prob = NULL}, and \code{size <= n/2}, and really
-    should be used for large \code{n}, as \code{useHash=FALSE} will use
+    should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
+  \item{tolerance}{tolerance used in checks on \code{prob} when 
+    \code{prob_method = "marginal"}.  Passed to \code{\link{all.equal}}.}
 }
 \details{
   If \code{x} has length 1, is numeric (in the sense of
@@ -62,11 +80,6 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
   used when there are more than 200 reasonably probable values: this
   gives results incompatible with those from \R < 2.2.0.
 
-  If \code{replace} is false, these probabilities are applied
-  sequentially, that is the probability of choosing the next item is
-  proportional to the weights amongst the remaining items.  The number
-  of nonzero weights must be at least \code{size} in this case.
-
   \code{sample.int} is a bare interface in which both \code{n} and
   \code{size} must be supplied as integers.
 
@@ -74,6 +87,30 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
   type \code{integer}, up to the largest representable integer in type
   \code{double}.  Only uniform sampling is supported.  Two
   random numbers are used to ensure uniform sampling of large integers.
+
+  If \code{replace} is false and \code{prob} is supplied there are three
+  options controlled by \code{prob_method}: \code{"sequential"},
+  \code{"marginal"}, and \code{"poisson"}.
+
+  All three of the methods have disadvantages. The default,
+  \code{"sequential"}, is compatible with \R < 4.4.0. For this method, the
+  probability of choosing the next item is proportional to the weights amongst
+  the remaining items. The number of nonzero weights must be at least
+  \code{size} in this case. Sequential sampling is fast, but \emph{the
+  probability of being sampled is not equal or proportional to \code{prob}}.
+
+  Using \code{"marginal"} draws a sample so that the inclusion probabilities
+  are equal or proportional to the values of \code{prob}. It uses the Brewer
+  procedures, Algorithm 6.10 from Tille (2006). The number of nonzero
+  weights must be at least \code{size} in this case and the weights should sum
+  to the desired sample size. If \code{sum(prob) != size}, the weights will be
+  rescaled. This is much slower for large \code{n} than the other methods.
+
+  Finally, \code{"poisson"} does Poisson sampling, where the inclusion
+  probabilities are equal or proportional to the values of \code{prob}, but
+  the \emph{sample size is random}, with mean \code{size} rather than being
+  fixed at \code{size}. It is most useful when \code{size} is large and the
+  variability is thus relatively small.
 }
 
 \value{
@@ -88,6 +125,8 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988,
     R:Ripley:1987}
+
+  \enc{Tillé}{Tille}, Y (2006) \emph{Sampling Algorithms} Springer.
 }
 \seealso{
   \code{\link{RNGkind}(sample.kind = ..)} about random number generation,

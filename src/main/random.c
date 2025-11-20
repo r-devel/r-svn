@@ -554,3 +554,195 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
     UNPROTECT(1);
     return y;
 }
+
+/* inclusion_probs - computing inclusion probabilities
+   .Internal(inclusion_probs(a, size))
+*/
+
+// #include <R.h>
+// #include <Rinternals.h>
+// SEXP do_inclusion_probs(SEXP a, SEXP size) {
+attribute_hidden SEXP do_inclusion_probs(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+	SEXP a, size;
+    checkArity(op, args);
+	a = CAR(args);
+    size = CADR(args);
+    int i, l, l1;
+    double sum_a = 0.0;
+    int len = length(a);
+    int size_val = INTEGER(size)[0];
+    double* a_ptr = REAL(a);
+    SEXP pi_k;
+    PROTECT(pi_k = allocVector(REALSXP, len));
+    double* pi_k_ptr = REAL(pi_k);
+    // Calculate sum of a and correct negative values
+    for (i = 0; i < len; i++) {
+        if (a_ptr[i] < 0) {
+            a_ptr[i] = 0;
+        }
+        sum_a += a_ptr[i];
+    }
+    // Initialize pi_k
+    for (i = 0; i < len; i++) {
+        pi_k_ptr[i] = (sum_a == 0) ? 0 : size_val * a_ptr[i] / sum_a;
+    }
+    // Count and adjust inclusion probabilities greater than or equal to 1
+    l = 0;
+    for (i = 0; i < len; i++) {
+        if (pi_k_ptr[i] >= 1) {
+            l++;
+        }
+    }
+    if (l > 0) {
+        l1 = 0;
+        while (l != l1) {
+            double temp_sum = 0;
+            for (i = 0; i < len; i++) {
+                if (pi_k_ptr[i] < 1) {
+                    temp_sum += pi_k_ptr[i];
+                }
+            }
+            for (i = 0; i < len; i++) {
+                pi_k_ptr[i] = (pi_k_ptr[i] < 1) 
+                    ? (size_val - l) * (pi_k_ptr[i] / temp_sum) 
+                    : 1;
+            }
+
+            l1 = l;
+            l = 0;
+            for (i = 0; i < len; i++) {
+                if (pi_k_ptr[i] >= 1) {
+                    l++;
+                }
+            }
+        }
+    }
+    UNPROTECT(1);
+    return pi_k;
+}
+
+/* up_brewer - sampling using Brewer's method to select a sample of units 
+   under unequal probability sampling without replacement
+   .Internal(up_brewer(pi_k, eps))
+*/
+
+// #include <R.h>
+// #include <Rinternals.h>
+// #include <Rmath.h>
+#include <string.h>
+#include <stdlib.h>
+
+// SEXP do_up_brewer(SEXP pi_k, SEXP eps) {
+    // Extract data from SEXP arguments
+attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+	SEXP pi_k, eps;
+    checkArity(op, args);
+	pi_k = CAR(args);
+    eps = CADR(args);
+    int i, l, l1;
+    double *pi_k_ptr = REAL(pi_k);
+    double epsilon = REAL(eps)[0];
+    int N_val = LENGTH(pi_k);
+
+    // Initialize variables
+    double size = 0.0;
+    double a;
+    double u;
+
+    int ans_idx = 0;
+    SEXP ans;
+    PROTECT(ans = allocVector(INTSXP, N_val));  // Allocating maximum possible size
+    int *ans_ptr = INTEGER(ans);
+
+    // Random seed
+    GetRNGstate();
+
+    // Count and allocate space for pi_k values between eps and 1 - eps
+    int count = 0;
+    for (int k = 0; k < N_val; k++) {
+        if (pi_k_ptr[k] > epsilon && pi_k_ptr[k] < 1 - epsilon) {
+            count++;
+        }
+    }
+
+    double *filtered_pi_k = malloc(count * sizeof(double));
+    int *original_idx = malloc(count * sizeof(int));
+    int *sb = calloc(count, sizeof(int));
+    double *p = malloc(count * sizeof(double));
+    int filtered_idx = 0;
+
+    if (filtered_pi_k == NULL || original_idx == NULL || sb == NULL || p == NULL) {
+        error("Memory allocation failed");
+    }
+
+    /* Pre-loop to handle pi_k >= 1 - eps and pi_k <= eps, and populate filtered_pi_k */
+    for (int k = 0; k < N_val; k++) {
+        if (pi_k_ptr[k] >= 1 - epsilon) {
+            ans_ptr[ans_idx++] = k + 1;
+        } else if (pi_k_ptr[k] > epsilon) {
+            filtered_pi_k[filtered_idx] = pi_k_ptr[k];
+            original_idx[filtered_idx] = k;
+            size += pi_k_ptr[k];
+            filtered_idx++;
+        }
+    }
+
+    int n = fround(size, 0);
+
+    /* Main loop  */
+    for (int i = 1; i <= n; i++) {
+        double p_sum = 0.0;
+        a = 0.0;
+	double n_minus_i_plus_1 = n - i + 1;
+
+        for (int k = 0; k < count; k++) {
+            a += filtered_pi_k[k] * sb[k];
+        }
+
+        /* Reduce repeated calculations */
+        double n_minus_a = n - a;
+
+        /* Calculate p */
+        for (int k = 0; k < count; k++) {
+            p[k] = ((1 - sb[k]) * filtered_pi_k[k] * (n_minus_a - filtered_pi_k[k])) / (n_minus_a - filtered_pi_k[k] * n_minus_i_plus_1);
+            p_sum += p[k];
+        }
+
+        /* Division costs more than multiplication */
+        double inv_p_sum = 1 / p_sum;
+
+        /* Generate uniform distribution */
+        u = unif_rand();
+
+        /* Find the first index j such that p[j] - u > 0 */
+        double cumprob = 0.0;
+        int j;
+        for (j = 0; j < count; j++) {
+            cumprob += p[j] * inv_p_sum;
+            if (u < cumprob) {
+                break;
+            }
+        }
+
+        /* Update sb and ans */
+        sb[j] = 1;
+        ans_ptr[ans_idx++] = original_idx[j] + 1;
+    }
+
+    /* Resize ans to actual size  */
+    SEXP ans_resized;
+    PROTECT(ans_resized = allocVector(INTSXP, ans_idx));
+    memcpy(INTEGER(ans_resized), ans_ptr, ans_idx * sizeof(int));
+
+    /* Free the dynamically allocated memory */
+    free(filtered_pi_k);
+    free(original_idx);
+    free(sb);
+    free(p);
+
+    PutRNGstate();
+    UNPROTECT(2);
+    return ans_resized;
+}

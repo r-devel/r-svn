@@ -16,24 +16,87 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-sample <- function(x, size, replace = FALSE, prob = NULL)
+sample <- function(x, size, replace = FALSE, prob = NULL,
+                   prob_method = c("sequential", "marginal", "poisson"))
 {
     if(length(x) == 1L && is.numeric(x) && is.finite(x) && x >= 1) {
 	if(missing(size)) size <- x
-	sample.int(x, size, replace, prob)
+	sample.int(x, size, replace, prob, prob_method)
     } else {
 	if(missing(size)) size <- length(x)
-	x[sample.int(length(x), size, replace, prob)]
+	x[sample.int(length(x), size, replace, prob, prob_method)]
     }
 }
 
-sample.int  <- function(n, size = n, replace = FALSE, prob = NULL,
-                        useHash = (n > 1e7 && !replace && is.null(prob) && size <= n/2))
+sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
+  prob_method = c("sequential", "marginal", "poisson"),
+  useHash = (n > 1e7 && !replace && is.null(prob) && size <= n/2))
 {
-    stopifnot(length(n) == 1L) # rest of the checks are at C level.
+  stopifnot(length(n) == 1L)
+  if (replace || is.null(prob)) {
+    size <- size %||% n
     if (useHash) {
-        ## will work with size > n/2 but may be slow.
-        stopifnot(is.null(prob), !replace)
-        .Internal(sample2(n, size))
-    } else .Internal(sample(n, size, replace, prob))
+      ## will work with size > n/2 but may be slow.
+      stopifnot(is.null(prob), !replace)
+      return(.Internal(sample2(n, size)))
+    } 
+    return(.Internal(sample(n, size, replace, prob)))
+  }
+  ## sampling without replacement and with specified probability weights
+  size <- size %||% sum(prob)
+  if (length(prob) != n) {
+    stop("incorrect number of probabilities")
+  }
+  prob_method <- match.arg(prob_method)
+  switch(
+    prob_method,
+    sequential = .Internal(sample(n, size, replace, prob)),
+    marginal = sample.pps(n, size, prob),
+    ## using `sample()` to permute selected items 
+    poisson = sample(which(runif(n) <= prob/sum(prob) * size))
+  )
+}
+
+inclusion_probs <- function(a, size) {
+  a <- as.double(a)
+  size <- as.integer(round(size))
+  b <- a < 0
+  if (any(b)) {
+    warning("there are ", sum(b), " negative value(s) shifted to zero")
+    a[b] <- 0
+  }
+  .Internal(inclusion_probs(a, size))
+}
+
+up_brewer <- function(pi_k, eps = sqrt(.Machine$double.eps)) {
+  if (anyNA(pi_k))
+    stop("there are missing values in the pi_k vector")
+  pi_k <- as.double(pi_k)
+  eps <- as.double(eps)
+  .Internal(up_brewer(pi_k, eps))
+}
+
+sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
+  sum_prob <- sum(prob)
+  sums_to_one <- isTRUE(all.equal(sum_prob, 1, tolerance = tolerance))
+  sums_to_int <- 
+    isTRUE(all.equal(sum_prob, round(sum_prob), tolerance = tolerance))
+  if (is.null(size)) {
+    if(!sums_to_int)
+      stop("sum(prob) must be an integer")
+    size <- round(sum_prob)
+  } else {
+    size_is_sum <- isTRUE(all.equal(size, sum(prob), tolerance = tolerance))
+    size_is_int <- isTRUE(all.equal(size, round(size), tolerance = tolerance))
+    if (!size_is_int)
+      stop("size must be NULL or an integer")
+    if (sums_to_one && !size_is_sum) {
+      warning("rescaling prob, which changes inclusion probabilities")
+      prob <- inclusion_probs(prob * size, size)
+    } else if (sums_to_int && !size_is_sum) {
+      warning("sum(prob) is not equal to size or 1, rescaling")
+      prob <- inclusion_probs(prob/sum_prob * size, size)
+    }
+  }
+  up_brewer(prob)
 }

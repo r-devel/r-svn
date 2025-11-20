@@ -556,7 +556,7 @@ stopifnot(is.character(R[["class"]]),
 
 ## implicit generics ..
 setMethod("sample", "C2",
-          function(x, size, replace=FALSE, prob=NULL) {"sample.C2"})
+          function(x, size, replace=FALSE, prob=NULL, prob_method=c("sequential", "marginal", "poisson")) {"sample.C2"})
 stopifnot(is(sample,"standardGeneric"),
 	  ## the signature must come from the implicit generic:
 	  identical(sample@signature, c("x", "size")),
