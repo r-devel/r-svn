@@ -718,7 +718,7 @@ attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Resize ans to actual size  */
     SEXP ans_resized;
     PROTECT(ans_resized = allocVector(INTSXP, ans_idx));
-    for (j = 0; j < ans_idx; j++) {
+    for (int j = 0; j < ans_idx; j++) {
       INTEGER(ans_resized)[j] = ans_ptr[j]; 
     }
 
