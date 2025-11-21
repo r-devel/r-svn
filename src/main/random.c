@@ -623,10 +623,6 @@ attribute_hidden SEXP do_inclusion_probs(SEXP call, SEXP op, SEXP args, SEXP rho
    .Internal(up_brewer(pi_k, eps))
 */
 
-/* TODO check if we need to include these */
-#include <string.h>
-#include <stdlib.h>
-
 attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP pi_k, eps;
