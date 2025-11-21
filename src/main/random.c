@@ -648,7 +648,7 @@ attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Count and allocate space for pi_k values between eps and 1 - eps */
     int count = 0;
     for (int k = 0; k < N_val; k++) {
-        if (pi_k_ptr[k] > epsilon && pi_k_ptr[k] < 1 - epsilon) {
+        if (pi_k_ptr[k] > epsilon && pi_k_ptr[k] < (1 - epsilon)) {
             count++;
         }
     }
@@ -680,7 +680,7 @@ attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     int n = fround(size, 0);
 
-    /* Main loop  */
+    /* Main loop with intentional 1-based index */
     for (int i = 1; i <= n; i++) {
         double p_sum = 0.0;
         double a = 0.0;

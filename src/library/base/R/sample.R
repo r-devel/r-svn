@@ -17,19 +17,19 @@
 #  https://www.R-project.org/Licenses/
 
 sample <- function(x, size, replace = FALSE, prob = NULL,
-                   prob_method = c("sequential", "marginal", "poisson"))
+                   method = c("sequential", "marginal", "poisson"))
 {
     if(length(x) == 1L && is.numeric(x) && is.finite(x) && x >= 1) {
 	if(missing(size)) size <- x
-	sample.int(x, size, replace, prob, prob_method)
+	sample.int(x, size, replace, prob, method)
     } else {
 	if(missing(size)) size <- length(x)
-	x[sample.int(length(x), size, replace, prob, prob_method)]
+	x[sample.int(length(x), size, replace, prob, method)]
     }
 }
 
 sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
-  prob_method = c("sequential", "marginal", "poisson"),
+  method = c("sequential", "marginal", "poisson"),
   useHash = (n > 1e7 && !replace && is.null(prob) && size <= n/2))
 {
   stopifnot(length(n) == 1L)
@@ -47,9 +47,9 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
   if (length(prob) != n) {
     stop("incorrect number of probabilities")
   }
-  prob_method <- match.arg(prob_method)
+  method <- match.arg(method)
   switch(
-    prob_method,
+    method,
     sequential = .Internal(sample(n, size, replace, prob)),
     marginal = sample.pps(n, size, prob),
     ## using `sample()` to permute selected items 

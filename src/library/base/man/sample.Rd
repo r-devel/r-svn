@@ -6,7 +6,7 @@
 %% TO DO: WRITE sample.pps() and then DOCUMENT it!
 %% probability proportional to size
 %% Make an example showing that
-%% Document prob_methods() arg...
+%% Document methods() arg...
 
 
 \name{sample}
@@ -21,10 +21,10 @@
 }
 \usage{
 sample(x, size, replace = FALSE, prob = NULL,
-       prob_method = c("sequential", "marginal", "poisson"))
+       method = c("sequential", "marginal", "poisson"))
 
 sample.int(n, size = n, replace = FALSE, prob = NULL,
-           prob_method = c("sequential", "marginal", "poisson"),
+           method = c("sequential", "marginal", "poisson"),
            useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2))
 
 sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
@@ -40,7 +40,7 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
   \item{replace}{should sampling be with replacement?}
   \item{prob}{a vector of probability weights for obtaining the elements
     of the vector being sampled.}
-  \item{prob_method}{when \code{replace = FALSE} and \code{prob} is not
+  \item{method}{when \code{replace = FALSE} and \code{prob} is not
     \code{NULL}, the method to use for sampling, see \sQuote{Details.}}
   \item{useHash}{\code{\link{logical}} indicating if the hash-version of
     the algorithm should be used.  Can only be used for \code{replace =
@@ -48,7 +48,7 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
     should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
   \item{tolerance}{tolerance used in checks on \code{prob} when 
-    \code{prob_method = "marginal"}.  Passed to \code{\link{all.equal}}.}
+    \code{method = "marginal"}.  Passed to \code{\link{all.equal}}.}
 }
 \details{
   If \code{x} has length 1, is numeric (in the sense of
@@ -89,7 +89,7 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
   random numbers are used to ensure uniform sampling of large integers.
 
   If \code{replace} is false and \code{prob} is supplied there are three
-  options controlled by \code{prob_method}: \code{"sequential"},
+  options controlled by \code{method}: \code{"sequential"},
   \code{"marginal"}, and \code{"poisson"}.
 
   All three of the methods have disadvantages. The default,
