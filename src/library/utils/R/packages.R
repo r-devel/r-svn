@@ -877,7 +877,10 @@ download.packages <- function(pkgs, destdir, available = NULL,
                             domain = NA, immediate. = TRUE)
             } else {
                 url <- paste(repos, fn, sep = "/")
-                destfile <- file.path(destdir, fn)
+
+                # For http:// repos we remove potential http parameter part to get the actual
+                # filename, in case of URLs like pkg_1.0.tar.gz?checksum=12345
+                destfile <- file.path(destdir, sub("\\?.*$", "", fn))
 
                 if (is.null(bulkdown)) {
                     # serial download
