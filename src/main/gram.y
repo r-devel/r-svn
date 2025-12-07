@@ -1368,11 +1368,9 @@ static SEXP xxpipeassign(SEXP lhs, SEXP rhs, YYLTYPE *lloc_lhs, YYLTYPE *lloc_rh
 		    raiseParseError("placeholderNotNamed", rhs,
 			NO_VALUE, NULL, lloc_rhs,
 			_("pipe placeholder can only be used as a named argument (%s:%d:%d)"));
-		if (placeholder_found != NULL)
-		    raiseParseError("tooManyPlaceholders", rhs,
-			NO_VALUE, NULL, lloc_rhs,
-			_("pipe placeholder may only appear once (%s:%d:%d)"));
+		checkTooManyPlaceholders(rhs, CDR(a), lloc_rhs);
 		placeholder_found = a;
+		break;
 	    }
 	}
 
