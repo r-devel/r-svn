@@ -385,6 +385,7 @@ static SEXP	xxfuncall(SEXP, SEXP);
 static SEXP	xxdefun(SEXP, SEXP, SEXP, YYLTYPE *);
 static SEXP	xxpipe(SEXP, SEXP, YYLTYPE *);
 static SEXP	xxpipebind(SEXP, SEXP, SEXP, YYLTYPE *);
+static SEXP	xxpipeassign(SEXP, SEXP, YYLTYPE *, YYLTYPE *);
 static SEXP	xxunary(SEXP, SEXP);
 static SEXP	xxbinary(SEXP, SEXP, SEXP);
 static SEXP	xxparen(SEXP, SEXP);
@@ -416,6 +417,7 @@ static int	xxvalue(SEXP, int, YYLTYPE *);
 %token		PIPE
 %token          PLACEHOLDER
 %token          PIPEBIND
+%token          PIPE_ASSIGN
 
 /* This is the precedence table, low to high */
 %left		'?'
@@ -424,6 +426,7 @@ static int	xxvalue(SEXP, int, YYLTYPE *);
 %left		ELSE
 %right		LEFT_ASSIGN
 %right		EQ_ASSIGN
+%nonassoc	PIPE_ASSIGN
 %left		RIGHT_ASSIGN
 %left		'~' TILDE
 %left		OR OR2
@@ -494,6 +497,7 @@ expr	: 	NUM_CONST			{ $$ = $1;	setId(@$); }
 	|	expr OR2 expr			{ $$ = xxbinary($2,$1,$3);	setId(@$); }
 	|	expr PIPE expr			{ $$ = xxpipe($1,$3,&@3);       setId(@$); }
 	|	expr PIPEBIND expr		{ $$ = xxpipebind($2,$1,$3,&@2);	setId(@$); }
+	|	expr PIPE_ASSIGN expr		{ $$ = xxpipeassign($1,$3,&@1,&@3); setId(@$); }
 	|	expr LEFT_ASSIGN expr 		{ $$ = xxbinary($2,$1,$3);	setId(@$); }
 	|	expr RIGHT_ASSIGN expr 		{ $$ = xxbinary($2,$3,$1);	setId(@$); }
 	|	FUNCTION '(' formlist ')' cr expr_or_assign_or_help %prec LOW
@@ -1331,9 +1335,67 @@ static SEXP xxpipebind(SEXP fn, SEXP lhs, SEXP rhs, YYLTYPE *lloc_bind)
     if (use_pipebind)
 	return xxbinary(fn, lhs, rhs);
     else
-	raiseParseError("pipebindDisabled", R_NilValue, 
+	raiseParseError("pipebindDisabled", R_NilValue,
 	                NO_VALUE, NULL, lloc_bind,
 		_("'=>' is disabled; set '_R_USE_PIPEBIND_' envvar to a true value to enable it (%s:%d:%d)"));
+}
+
+static SEXP xxpipeassign(SEXP lhs, SEXP rhs, YYLTYPE *lloc_lhs, YYLTYPE *lloc_rhs)
+{
+    SEXP ans;
+
+    if (GenerateCode) {
+	/* Validate RHS is a function call */
+	if (TYPEOF(rhs) != LANGSXP)
+	    raiseParseError("RHSnotFnCall", rhs, NO_VALUE, NULL, lloc_rhs,
+		_("The pipe assignment operator requires a function call as RHS (%s:%d:%d)"));
+
+	/* Duplicate the LHS for reading */
+	SEXP lhs_read = duplicate(lhs);
+	PRESERVE_SV(lhs_read);
+
+	/* Check for placeholder in RHS function name */
+	if (checkForPlaceholder(R_PlaceholderToken, CAR(rhs)))
+	    raiseParseError("placeholderInRHSFn", R_NilValue,
+		NO_VALUE, NULL, lloc_rhs,
+		_("pipe placeholder cannot be used in the RHS function (%s:%d:%d)"));
+
+	/* Handle top-level placeholder in arguments */
+	SEXP placeholder_found = NULL;
+	for (SEXP a = CDR(rhs); a != R_NilValue; a = CDR(a)) {
+	    if (CAR(a) == R_PlaceholderToken) {
+		if (TAG(a) == R_NilValue)
+		    raiseParseError("placeholderNotNamed", rhs,
+			NO_VALUE, NULL, lloc_rhs,
+			_("pipe placeholder can only be used as a named argument (%s:%d:%d)"));
+		if (placeholder_found != NULL)
+		    raiseParseError("tooManyPlaceholders", rhs,
+			NO_VALUE, NULL, lloc_rhs,
+			_("pipe placeholder may only appear once (%s:%d:%d)"));
+		placeholder_found = a;
+	    }
+	}
+
+	if (placeholder_found != NULL) {
+	    /* Replace placeholder with LHS */
+	    SETCAR(placeholder_found, lhs_read);
+	    PRESERVE_SV(ans = xxbinary(install("<-"), lhs, rhs));
+	} else {
+	    /* Default: prepend LHS to arguments */
+	    check_rhs(rhs, lloc_rhs);
+	    SEXP fun = CAR(rhs);
+	    SEXP args = CDR(rhs);
+	    SEXP new_call = lcons(fun, lcons(lhs_read, args));
+	    PRESERVE_SV(ans = xxbinary(install("<-"), lhs, new_call));
+	}
+	RELEASE_SV(lhs_read);
+    }
+    else {
+	PRESERVE_SV(ans = R_NilValue);
+    }
+    RELEASE_SV(lhs);
+    RELEASE_SV(rhs);
+    return ans;
 }
 
 static SEXP xxparen(SEXP n1, SEXP n2)
@@ -2351,6 +2413,7 @@ static void yyerror(const char *s)
 	"NS_GET_INT",	"':::'",
 	"PIPE",         "'|>'",
 	"PIPEBIND",     "'=>'",
+	"PIPE_ASSIGN",  "'<|>'",
 	"PLACEHOLDER",  "'_'",
 	0
     };
@@ -3595,6 +3658,14 @@ static int token(void)
 	    if (nextchar('-')) {
 		yylval = install_and_save("<<-");
 		return LEFT_ASSIGN;
+	    }
+	    else
+		return ERROR;
+	}
+	if (nextchar('|')) {
+	    if (nextchar('>')) {
+		yylval = install_and_save("<|>");
+		return PIPE_ASSIGN;
 	    }
 	    else
 		return ERROR;
