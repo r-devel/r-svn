@@ -90,9 +90,7 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
 
   If \code{replace} is false and \code{prob} is supplied there are three
   options controlled by \code{method}: \code{"sequential"},
-  \code{"marginal"}, and \code{"poisson"}.
-
-  All three of the methods have disadvantages. The default,
+  \code{"marginal"}, and \code{"poisson"}. All three of the methods have disadvantages. The default,
   \code{"sequential"}, is compatible with \R < 4.4.0. For this method, the
   probability of choosing the next item is proportional to the weights amongst
   the remaining items. The number of nonzero weights must be at least
@@ -101,16 +99,19 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
 
   Using \code{"marginal"} draws a sample so that the inclusion probabilities
   are equal or proportional to the values of \code{prob}. It uses the Brewer
-  procedures, Algorithm 6.10 from Tille (2006). The number of nonzero
+  procedure, Algorithm 6.10 from Tille (2006). The number of nonzero
   weights must be at least \code{size} in this case and the weights should sum
-  to the desired sample size. If \code{sum(prob) != size}, the weights will be
-  rescaled. This is much slower for large \code{n} than the other methods.
+  to the desired sample size.  If \code{sum(prob) != size}, the weights will be
+  rescaled. Where \code{prob*size>1} the element is sampled with
+  probability one, otherwise the sampling is proportional to the
+  specified probability.  The \code{"marginal"} method is much slower
+  for large \code{n} than the other methods and long vectors are not currently supported.
 
   Finally, \code{"poisson"} does Poisson sampling, where the inclusion
   probabilities are equal or proportional to the values of \code{prob}, but
   the \emph{sample size is random}, with mean \code{size} rather than being
   fixed at \code{size}. It is most useful when \code{size} is large and the
-  variability is thus relatively small.
+  variability in sample size is thus small in relative terms.
 }
 
 \value{
@@ -163,5 +164,11 @@ resample(x[x > 10]) # length 0
 ## R 3.0.0 and later
 sample.int(1e10, 12, replace = TRUE)
 sample.int(1e10, 12) # not that there is much chance of duplicates
+
+## unequal probability without replacement
+seq<-replicate(500, sample(LETTERS[1:6],3,prob=(1:6)/7, method="sequential"))
+marg<-replicate(500, sample(LETTERS[1:6],3,prob=(1:6)/7, method="marginal"))
+chisq.test(table(seq), p=(1:6)/21)  ## may fail
+chisq.test(table(marg), p=(1:6)/21) ## passes
 }
 \keyword{distribution}

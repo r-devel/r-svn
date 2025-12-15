@@ -68,15 +68,18 @@ inclusion_probs <- function(a, size) {
   .Internal(inclusion_probs(a, size))
 }
 
-up_brewer <- function(pi_k, eps = sqrt(.Machine$double.eps)) {
-  if (anyNA(pi_k))
-    stop("there are missing values in the pi_k vector")
-  pi_k <- as.double(pi_k)
-  eps <- as.double(eps)
-  .Internal(up_brewer(pi_k, eps))
-}
 
 sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
+
+
+    up_brewer <- function(pi_k, eps = sqrt(.Machine$double.eps)) {
+        if (anyNA(pi_k))
+            stop("there are missing values in the pi_k vector")
+        pi_k <- as.double(pi_k)
+        eps <- as.double(eps)
+        .Internal(up_brewer(pi_k, eps))
+    }
+    
   sum_prob <- sum(prob)
   sums_to_one <- isTRUE(all.equal(sum_prob, 1, tolerance = tolerance))
   sums_to_int <- 

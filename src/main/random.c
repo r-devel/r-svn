@@ -653,12 +653,12 @@ attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
         }
     }
 
-    double *filtered_pi_k = malloc(count * sizeof(double));
-    int *original_idx = malloc(count * sizeof(int));
+    double *filtered_pi_k = (double *) R_alloc(count, sizeof(double));
+    int *original_idx = (int *) R_alloc(count,  sizeof(int));
     /* from sampling pkg UPbrewer, tracks sampling */
-    int *sb = calloc(count, sizeof(int)); 
+    int *sb = (int *) S_alloc(count, sizeof(int));  /* zeroes memory */
     /* corrected sampling probability */
-    double *p = malloc(count * sizeof(double));
+    double *p = (double *) R_alloc(count,  sizeof(double));
     int filtered_idx = 0;
 
     if (filtered_pi_k == NULL || original_idx == NULL || 
@@ -722,11 +722,6 @@ attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
       INTEGER(ans_resized)[j] = ans_ptr[j]; 
     }
 
-    /* Free the dynamically allocated memory */
-    free(filtered_pi_k);
-    free(original_idx);
-    free(sb);
-    free(p);
 
     PutRNGstate();
     UNPROTECT(2); /* ans, ans_resized */
