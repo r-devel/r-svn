@@ -57,21 +57,20 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
   )
 }
 
-inclusion_probs <- function(a, size) {
-  a <- as.double(a)
-  size <- as.integer(round(size))
-  b <- a < 0
-  if (any(b)) {
-    warning("there are ", sum(b), " negative value(s) shifted to zero")
-    a[b] <- 0
-  }
-  .Internal(inclusion_probs(a, size))
-}
-
 
 sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
 
-
+    inclusion_probs <- function(a, size) {
+        a <- as.double(a)
+        size <- as.integer(round(size))
+        b <- a < 0
+        if (any(b)) {
+            warning("there are ", sum(b), " negative value(s) shifted to zero")
+            a[b] <- 0
+        }
+        .Internal(inclusion_probs(a, size))
+    }
+    
     up_brewer <- function(pi_k, eps = sqrt(.Machine$double.eps)) {
         if (anyNA(pi_k))
             stop("there are missing values in the pi_k vector")
