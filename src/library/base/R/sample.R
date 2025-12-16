@@ -53,7 +53,7 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
     sequential = .Internal(sample(n, size, replace, prob)),
     marginal = sample.pps(n, size, prob),
     ## using `sample()` to permute selected items 
-    poisson = sample(which(runif(n) <= prob/sum(prob) * size))
+    poisson = sample(which(stats::runif(n) <= prob/sum(prob) * size))
   )
 }
 
@@ -91,7 +91,9 @@ sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
     size_is_sum <- isTRUE(all.equal(size, sum(prob), tolerance = tolerance))
     size_is_int <- isTRUE(all.equal(size, round(size), tolerance = tolerance))
     if (!size_is_int)
-      stop("size must be NULL or an integer")
+        stop("size must be NULL or an integer")
+    if (size>n)
+        stop("cannot take a sample larger than the population when 'replace = FALSE'")
     if (sums_to_one && !size_is_sum) {
       warning("rescaling prob, which changes inclusion probabilities")
       prob <- inclusion_probs(prob * size, size)

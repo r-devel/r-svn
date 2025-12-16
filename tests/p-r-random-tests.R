@@ -176,6 +176,11 @@ dkwtest("t", df=20, ncp=3)
 ## regression test for non-central F bug
 dkwtest("f", df1=10, df2=2, ncp=3)
 
+## unequal-probability sampling without replacement
+rpps<-replicate(10000, sample(LETTERS[1:6], 3, prob=(1:6)*3/21, method="marginal"))
+testpps<-chisq.test(table(rpps), p=(1:6)/21)
+if (testpps$p.value<=1e-3) stop("FAILED: sample(method='marginal')")
+                         
 
 cat('Time elapsed: ', proc.time() - .proctime00,'\n')
 
