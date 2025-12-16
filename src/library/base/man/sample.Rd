@@ -3,12 +3,6 @@
 % Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
-%% TO DO: WRITE sample.pps() and then DOCUMENT it!
-%% probability proportional to size
-%% Make an example showing that
-%% Document methods() arg...
-
-
 \name{sample}
 \encoding{UTF-8}
 \alias{sample}
@@ -17,7 +11,7 @@
 \title{Random Samples and Permutations}
 \description{
   \code{sample} takes a sample of the specified size from the elements
-  of \code{x} using either with or without replacement.
+  of \code{x} either with or without replacement.
 }
 \usage{
 sample(x, size, replace = FALSE, prob = NULL,
@@ -47,8 +41,8 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
       FALSE}, \code{prob = NULL}, and \code{size <= n/2}, and really
     should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
-  \item{tolerance}{tolerance used in checks on \code{prob} when 
-    \code{method = "marginal"}.  Passed to \code{\link{all.equal}}.}
+  \item{tolerance}{tolerance for checking \code{prob==1} and \code{prob==0} when 
+   \code{prob=TRUE}, \code{method = "marginal"}.}
 }
 \details{
   If \code{x} has length 1, is numeric (in the sense of
@@ -90,12 +84,13 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
 
   If \code{replace} is false and \code{prob} is supplied there are three
   options controlled by \code{method}: \code{"sequential"},
-  \code{"marginal"}, and \code{"poisson"}. All three of the methods have disadvantages. The default,
-  \code{"sequential"}, is compatible with \R < 4.4.0. For this method, the
+  \code{"marginal"}, and \code{"poisson"}. All three of the methods have disadvantages.
+
+  The default, \code{"sequential"}, is compatible with \R < 4.6.0. For this method, the
   probability of choosing the next item is proportional to the weights amongst
   the remaining items. The number of nonzero weights must be at least
   \code{size} in this case. Sequential sampling is fast, but \emph{the
-  probability of being sampled is not equal or proportional to \code{prob}}.
+  overall probability of being sampled is not equal or proportional to \code{prob}}.
 
   Using \code{"marginal"} draws a sample so that the inclusion probabilities
   are equal or proportional to the values of \code{prob}. It uses the Brewer
