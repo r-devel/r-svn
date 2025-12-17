@@ -52,8 +52,10 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
     method,
     sequential = .Internal(sample(n, size, replace, prob)),
     marginal = sample.pps(n, size, prob),
-    ## using `sample()` to permute selected items 
-    poisson = sample(which(stats::runif(n) <= prob/sum(prob) * size))
+    poisson = { ## shuffle if length > 1
+      rval <- which(stats::runif(n) <= prob/sum(prob) * size)
+      if (length(rval) < 2) rval else sample(rval) 
+    }
   )
 }
 
