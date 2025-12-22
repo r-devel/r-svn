@@ -40,7 +40,7 @@ registerClusterType(type, starter, make.default = FALSE)
   \item{nnodes}{The number of nodes to be forked.}
   \item{type}{One of the supported types: see \sQuote{Details}. For
     \code{registerClusterType}, a name for the newly-registered type of
-    cluster.}
+    cluster, or missing.}
   \item{\dots}{Options to be passed to the function spawning the workers.
     See \sQuote{Details}.}
   \item{cl}{an object of class \code{"cluster"}.}
@@ -52,10 +52,14 @@ registerClusterType(type, starter, make.default = FALSE)
     type remains unchanged.}
 }
 \details{
-  \code{makeCluster} creates a cluster of one of the supported types.
-  The default type, \code{"PSOCK"}, calls \code{makePSOCKcluster}.  Type
-  \code{"FORK"} calls \code{makeForkCluster}.  Other types are passed to
-  package \CRANpkg{snow}.
+  \code{makeCluster} creates a cluster of one of the registered types in
+  \code{names(registerClusterType())}.  The default type, \code{"PSOCK"},
+  calls \code{makePSOCKcluster}.  Type \code{"FORK"} calls
+  \code{makeForkCluster}.  Other pre-registered types are \code{"SOCK"}
+  for \code{makeSOCKcluster} in package \CRANpkg{snow}, \code{"MPI"} for
+  \code{makeMPIcluster} in \CRANpkg{snow}, \code{"MIRAI"} for
+  \code{make_cluster} in package \CRANpkg{mirai}, and \code{"RPSOCK"}
+  for \code{makeClusterPSOCK} in package \CRANpkg{parallelly}.
 
   \code{makePSOCKcluster} is an enhanced version of
   \code{makeSOCKcluster} in package \CRANpkg{snow}.  It runs
@@ -146,9 +150,9 @@ registerClusterType(type, starter, make.default = FALSE)
   the registered cluster, as does stopping that cluster.
 
   Function \code{registerClusterType} registers a new type of parallel cluster
-  in the current session. When \code{makeCluster} is called with the
-  newly-registered \code{type}, a cluster of that type is created using the
-  \code{starter} function.
+  in the current session or lists registered types. When \code{makeCluster} is
+  called with the newly-registered \code{type}, a cluster of that type is
+  created using the \code{starter} function.
 }
 
 \value{
@@ -160,7 +164,8 @@ registerClusterType(type, starter, make.default = FALSE)
 
   \code{registerClusterType} is invoked for its side effect which is to define
   a mechanism for creating a parallel socket cluster of a given named
-  \code{type}.
+  \code{type}. If called without arguments, a named list of registered cluster
+  starter functions.
 }
 
 \note{

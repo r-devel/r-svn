@@ -26,7 +26,9 @@ if (.Platform$OS.type == "windows")
 
 .onLoad <- function(libname, pkgname)
 {
+    initRegisterClusterTypes()
     initDefaultClusterOptions(libname)
+    
     cores <- getOption("mc.cores", NULL)
     if(is.null(cores) && !is.na(nc <- as.integer(Sys.getenv("MC_CORES"))))
         options("mc.cores" = nc)
