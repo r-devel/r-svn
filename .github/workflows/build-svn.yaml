@@ -111,7 +111,7 @@ jobs:
       run: CC=clang ./configure --prefix=/opt/R/${ARCH}/r-devel --disable-java --with-cairo --without-tcltk --without-x --with-aqua $ACCELERATE --enable-R-shlib SED=/usr/bin/sed
       env:
         PDFLATEX: ${{github.workspace}}/.github/scripts/dummy
-        ACCELERATE: ${{ matrix.OS != 'macOS-13' && '--with-lapack --with-blas' || '' }}
+        ACCELERATE: ${{ matrix.OS != 'macOS-15-intel' && '--with-lapack --with-blas' || '' }}
 
     - name: Build
       run: make
@@ -126,8 +126,8 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: MacOS-R-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}
-        path: /opt/R/r-devel-${{ matrix.OS == 'macOS-13' && 'x86_64' || 'arm64' }}.tar.xz
+        name: MacOS-R-devel-${{ matrix.OS == 'macOS-15-intel' && 'x86_64' || 'arm64' }}
+        path: /opt/R/r-devel-${{ matrix.OS == 'macOS-15-intel' && 'x86_64' || 'arm64' }}.tar.xz
 
     - name: Check
       run: make check-all
