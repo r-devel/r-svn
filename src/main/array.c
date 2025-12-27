@@ -791,6 +791,13 @@ static void matprod(double *x, int nrx, int ncx,
 	return;
     }
 
+    /* Short-circuit for dot product. ddot handles NaN/Inf. */
+    if (nrx == 1 && ncy == 1) {
+    int ione = 1;
+    *z = F77_CALL(ddot)(&ncx, x, &ione, y, &ione);
+    return;
+    }
+
     switch(R_Matprod) {
 	case MATPROD_DEFAULT:
 	/* Don't trust the BLAS to handle NA/NaNs correctly: PR#4582
@@ -824,7 +831,7 @@ static void matprod(double *x, int nrx, int ncx,
     double one = 1.0, zero = 0.0;
     int ione = 1;
 
-    if (ncy == 1) /* matrix-vector or dot product */
+    if (ncy == 1) /* matrix-vector */
 	F77_CALL(dgemv)(transN, &nrx, &ncx, &one, x,
 			&nrx, y, &ione, &zero, z, &ione FCONE);
     else if (nrx == 1) /* vector-matrix */
@@ -1026,6 +1033,13 @@ static void crossprod(double *x, int nrx, int ncx,
 	return;
     }
 
+    /* Short-circuit for dot product. ddot handles NaN/Inf. */
+    if (ncx == 1 && ncy == 1) {
+    int ione = 1;
+    *z = F77_CALL(ddot)(&nrx, x, &ione, y, &ione);
+    return;
+    }
+
     switch(R_Matprod) {
 	case MATPROD_DEFAULT:
 	    /* see matprod for more details */
@@ -1052,7 +1066,7 @@ static void crossprod(double *x, int nrx, int ncx,
     double one = 1.0, zero = 0.0;
     int ione = 1;
 
-    if (ncy == 1) /* matrix-vector or dot product */
+    if (ncy == 1) /* matrix-vector  */
 	F77_CALL(dgemv)(transT, &nrx, &ncx, &one, x,
 			&nrx, y, &ione, &zero, z, &ione FCONE);
     else if (ncx == 1) /* vector-matrix */
@@ -1161,6 +1175,13 @@ static void tcrossprod(double *x, int nrx, int ncx,
 	return;
     }
 
+    /* Short-circuit for dot product. ddot handles NaN/Inf. */
+    if (nry == 1 && nrx == 1) {
+    int ione = 1;
+    *z = F77_CALL(ddot)(&ncx, x, &ione, y, &ione);
+    return;
+    }
+
     switch(R_Matprod) {
 	case MATPROD_DEFAULT:
 	    if (mayHaveNaNOrInf(x, NRX*ncx) || mayHaveNaNOrInf(y, NRY*ncy)) {
@@ -1186,7 +1207,7 @@ static void tcrossprod(double *x, int nrx, int ncx,
     double one = 1.0, zero = 0.0;
     int ione = 1;
 
-    if (nry == 1) /* matrix-vector or dot product */
+    if (nry == 1) /* matrix-vector */
 	F77_CALL(dgemv)(transN, &nrx, &ncx, &one, x,
 			&nrx, y, &ione, &zero, z, &ione FCONE);
     else if (nrx == 1) /* vector-matrix */
