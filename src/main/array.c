@@ -1052,9 +1052,16 @@ static void crossprod(double *x, int nrx, int ncx,
     double one = 1.0, zero = 0.0;
     int ione = 1;
 
-    if (ncy == 1) /* matrix-vector or dot product */
-	F77_CALL(dgemv)(transT, &nrx, &ncx, &one, x,
-			&nrx, y, &ione, &zero, z, &ione FCONE);
+    if (ncy == 1) {
+        if (ncx == 1) {
+            /* Vector(n x 1)^T * Vector(n x 1) = Scalar */
+            *z = F77_CALL(ddot)(&nrx, x, &ione, y, &ione);
+        } else {
+            /* Matrix(n x m)^T * Vector(n x 1) = Vector(m x 1) */
+            F77_CALL(dgemv)(transT, &nrx, &ncx, &one, x,
+                            &nrx, y, &ione, &zero, z, &ione FCONE);
+        }
+    }
     else if (ncx == 1) /* vector-matrix */
 	/* Instead of (x^T)Y, compute ((x^T)Y)^T == (Y^T)x
 	   The result is a vector, so transposing its content is no-op */
