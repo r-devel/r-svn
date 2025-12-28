@@ -628,36 +628,26 @@ attribute_hidden SEXP do_rowscols(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
+// Mask for the 11 exponent bits of an IEEE-754 double; all 1s indicate NaN or ±Inf
+static const uint64_t EXP_MASK = 0x7ff0000000000000ULL;
+
 /*
  Whenever vector x contains NaN or Inf (or -Inf), the function returns TRUE.
- It can be imprecise: it can return TRUE in other cases as well.
-
- A precise version of the function could be implemented as
+ This avoids a slow loop around R_FINITE()
 
        for (R_xlen_t i = 0; i < n; i++)
            if (!R_FINITE(x[i])) return TRUE;
        return false;
-
- The present version is imprecise, but faster.
 */
-static bool mayHaveNaNOrInf(double *x, R_xlen_t n)
-{
-    if ((n&1) != 0 && !R_FINITE(x[0]))
-	return true;
-    for (R_xlen_t i = n&1; i < n; i += 2)
-	/* A precise version could use this condition:
-	 *
-	 * !R_FINITE(x[i]+x[i+1]) && (!R_FINITE(x[i]) || !R_FINITE(x[i+1]))
-	 *
-	 * The present imprecise version has been found to be faster
-	 * with GCC and ICC in the common case when the sum of the two
-	 * values is always finite.
-	 *
-	 * The present version is imprecise because the sum of two very
-	 * large finite values (e.g. 1e308) may be infinite.
-	 */
-	if (!R_FINITE(x[i]+x[i+1]))
-	    return true;
+static bool mayHaveNaNOrInf(const double *restrict px, R_xlen_t n) {
+    for (R_xlen_t i = 0; i < n; i++) {
+        uint64_t u;
+        memcpy(&u, &px[i], sizeof(u));
+
+        if ((u & EXP_MASK) == EXP_MASK) {
+            return true;
+        }
+    }
     return false;
 }
 
