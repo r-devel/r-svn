@@ -638,10 +638,27 @@ attribute_hidden SEXP do_rowscols(SEXP call, SEXP op, SEXP args, SEXP rho)
 */
 static bool mayHaveNaNOrInf(const double *x, R_xlen_t n)
 {
-    for (R_xlen_t i = 0; i < n; i++)
-	if (!(fabs(x[i]) <= R_PosInf))
-	    return true;
+    R_xlen_t i = 0;
+    const uint64_t mask = 0x7ff0000000000000ULL;
 
+    /* Unroll */
+    for (; i <= n - 4; i += 4) {
+	uint64_t u0, u1, u2, u3;
+	memcpy(&u0, &x[i], 8);
+	memcpy(&u1, &x[i+1], 8);
+	memcpy(&u2, &x[i+2], 8);
+	memcpy(&u3, &x[i+3], 8);
+
+	if (((u0 & mask) == mask) || ((u1 & mask) == mask) || 
+	    ((u2 & mask) == mask) || ((u3 & mask) == mask))
+	    return true;
+    }
+
+    for (; i < n; i++) {
+	uint64_t u;
+	memcpy(&u, &x[i], 8);
+	if ((u & mask) == mask) return true;
+    }
     return false;
 }
 
