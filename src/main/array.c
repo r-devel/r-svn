@@ -628,9 +628,6 @@ attribute_hidden SEXP do_rowscols(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
-// Mask for the 11 exponent bits of an IEEE-754 double; all 1s indicate NaN or ±Inf
-static const uint64_t EXP_MASK = 0x7ff0000000000000ULL;
-
 /*
  Whenever vector x contains NaN or Inf (or -Inf), the function returns TRUE.
  This avoids a slow loop around R_FINITE()
@@ -639,15 +636,12 @@ static const uint64_t EXP_MASK = 0x7ff0000000000000ULL;
            if (!R_FINITE(x[i])) return TRUE;
        return false;
 */
-static bool mayHaveNaNOrInf(const double *restrict px, R_xlen_t n) {
-    for (R_xlen_t i = 0; i < n; i++) {
-        uint64_t u;
-        memcpy(&u, &px[i], sizeof(u));
+static bool mayHaveNaNOrInf(const double *x, R_xlen_t n)
+{
+    for (R_xlen_t i = 0; i < n; i++)
+	if (!(fabs(x[i]) <= R_PosInf))
+	    return true;
 
-        if ((u & EXP_MASK) == EXP_MASK) {
-            return true;
-        }
-    }
     return false;
 }
 
