@@ -33,7 +33,7 @@ saveRDS <-
 			  "xz"    = xzfile(file, mode),
 			  "gzip"  = gzfile(file, mode),
 			  "zstd"  = zstdfile(file, mode),
-			  stop("invalid 'compress' argument: ", compress))
+			  stop(gettextf("invalid '%s' argument: %s", "compress", compress), domain=NA)
         on.exit(close(con))
     }
     else if(inherits(file, "connection")) {

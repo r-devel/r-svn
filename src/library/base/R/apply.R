@@ -37,7 +37,7 @@ apply <- function(X, MARGIN, FUN, ..., simplify = TRUE)
 
     if (is.character(MARGIN)) {
         if(is.null(dnn <- names(dn))) # names(NULL) is NULL
-           stop("'X' must have named dimnames")
+           stop(gettextf("'%s' must have named dimnames", "X"), domain=NA)
 
         MARGIN <- match(MARGIN, dnn)
         if (anyNA(MARGIN))
