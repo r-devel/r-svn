@@ -98,7 +98,7 @@ substr("abcdef", 2, 4)
 substring("abcdef", 1:6, 1:6)
 ## strsplit() is more efficient ...
 
-## Demonstrating zero-length extraction behavior
+## Extraction behavior from zero-length strings and empty strings
 substr(character(0), 1, 2)        # returns character(0)
 substring(c("abc", ""), 2)        # returns "bc" and ""
 
