@@ -140,12 +140,5 @@ paste(    collapse = "|")
 paste(    collapse = "|", recycle0 = TRUE)
 paste({}, collapse = "|")
 paste({}, collapse = "|", recycle0 = TRUE)
-
-## Demonstrating recycle0 behavior with collapse argument
-vals_empty <- character(0)
-vals_nonempty <- c("a", "b")
-
-paste(vals_empty, vals_nonempty, collapse = ",")       # -> "a,b"  (empty vector ignored)
-paste(vals_empty, vals_nonempty, collapse = ",", recycle0 = TRUE) # -> "" (length 1, empty)
 }
 \keyword{character}
