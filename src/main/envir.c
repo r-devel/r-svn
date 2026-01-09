@@ -1427,6 +1427,11 @@ static int ddVal(SEXP symbol)
 
 #define length_DOTS(_v_) (TYPEOF(_v_) == DOTSXP ? length(_v_) : 0)
 
+Rboolean R_DotsExist(SEXP env)
+{
+    return R_findVar(R_DotsSymbol, env) != R_UnboundValue;
+}
+
 SEXP ddfind(int i, SEXP rho)
 {
     if(i <= 0)
@@ -1455,6 +1460,11 @@ SEXP ddfindVar(SEXP symbol, SEXP rho)
     return ddfind(i, rho);
 }
 
+SEXP R_DotsElt(int i, SEXP env)
+{
+    return eval(ddfind(i, env), env);
+}
+
 attribute_hidden SEXP do_dotsElt(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
@@ -1467,23 +1477,26 @@ attribute_hidden SEXP do_dotsElt(SEXP call, SEXP op, SEXP args, SEXP env)
     return eval(ddfind(i, env), env);
 }
 
+int R_DotsLength(SEXP env)
+{
+    SEXP vl = R_findVar(R_DotsSymbol, env);
+    if (vl == R_UnboundValue)
+        error(_("incorrect context: the current call has no '...' to look in"));
+    // else
+    return length_DOTS(vl);
+}
+
 attribute_hidden SEXP do_dotsLength(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    SEXP vl = R_findVar(R_DotsSymbol, env);
-    if (vl == R_UnboundValue)
-	error(_("incorrect context: the current call has no '...' to look in"));
-    // else
-    return ScalarInteger(length_DOTS(vl));
+    return ScalarInteger(R_DotsLength(env));
 }
 
-attribute_hidden SEXP do_dotsNames(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    checkArity(op, args);
+SEXP R_DotsNames(SEXP env) {
     SEXP vl = R_findVar(R_DotsSymbol, env);
     PROTECT(vl);
     if (vl == R_UnboundValue)
-	error(_("incorrect context: the current call has no '...' to look in"));
+	    error(_("incorrect context: the current call has no '...' to look in"));
     // else
     SEXP out;
     int n = length_DOTS(vl);
@@ -1504,6 +1517,63 @@ attribute_hidden SEXP do_dotsNames(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     UNPROTECT(1);
     return out;
+}
+
+attribute_hidden SEXP do_dotsNames(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    return R_DotsNames(env);
+}
+
+// Dot helpers
+// For all helpers:
+// - If dots don't exist, should error, as you should use `R_DotsExist()` first
+// - OOB indexing should error, as you should use `R_DotsLength()` first
+
+R_DotType R_GetDotType(int i, SEXP env)
+{
+    SEXP value = ddfind(i, env);
+
+    if (value == R_MissingArg)
+        return R_DotTypeMissing;
+
+    if (TYPEOF(value) == PROMSXP) {
+	    if (PROMISE_IS_EVALUATED(value))
+	        return R_DotTypeForced;
+	    else
+	        return R_DotTypeDelayed;
+    }
+
+    return R_DotTypeValue;
+}
+
+// For `R_DotTypeDelayed`
+SEXP R_DotDelayedExpression(int i, SEXP env)
+{
+    SEXP value = ddfind(i, env);
+    if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
+        error(_("not a delayed promise"));
+
+    return R_PromiseExpr(value);
+}
+
+SEXP R_DotDelayedEnvironment(int i, SEXP env)
+{
+    SEXP value = ddfind(i, env);
+    if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
+        error(_("not a delayed promise"));
+
+    return PRENV(value);
+}
+
+// For `R_DotTypeForced`
+SEXP R_DotForcedExpression(int i, SEXP env)
+{
+    SEXP value = ddfind(i, env);
+    if (TYPEOF(value) != PROMSXP || !PROMISE_IS_EVALUATED(value))
+        error(_("not a forced promise"));
+
+    return R_PromiseExpr(value);
 }
 
 #undef length_DOTS
