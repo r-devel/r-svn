@@ -103,7 +103,7 @@ function(handlers = list(), registered = FALSE, verbose = FALSE)
         } else if(is.numeric(which)) {
             which <- as.integer(which)
             if (which <= 0 || which > length(handlers))
-                stop("invalid 'which' argument")
+                stop(gettextf("invalid '%s' argument", "which"), domain=NA)
         } else
             stop("'which' must be character or numeric")
 

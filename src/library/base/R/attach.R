@@ -116,7 +116,7 @@ detach <- function(name, pos = 2L, unload = FALSE, character.only = FALSE,
                 if (!is.character(name)) name <- deparse1(name)
                 match(name, search())
             }
-	if(is.na(pos)) stop("invalid 'name' argument")
+	if(is.na(pos)) stop(gettextf("invalid '%s' argument", "name"), domain=NA)
     }
 
     packageName <- search()[[pos]]
