@@ -118,9 +118,11 @@ function(x, strict = TRUE)
     if(is.list(x) && all(c("major", "minor") %in% names(x)))
         return(R_system_version(paste(x[c("major", "minor")],
                                       collapse = ".")))
-    .make_numeric_version(x, strict,
+    version <- .make_numeric_version(x, strict,
                           .standard_regexps()$valid_package_version,
                           "package_version")
+    attr(version, "source") <- x
+    version
 }
 
 is.package_version <-
@@ -358,12 +360,7 @@ function(x, incomparables = FALSE, ...)
 format.numeric_version <-
 function(x, ...)
 {
-    x <- unclass(x)
-    y <- rep.int(NA_character_, length(x))
-    names(y) <- names(x)
-    ind <- lengths(x) > 0L
-    y[ind] <- unlist(lapply(x[ind], paste, collapse = "."))
-    y
+    attr(x, "source")
 }
 
 is.na.numeric_version <-
