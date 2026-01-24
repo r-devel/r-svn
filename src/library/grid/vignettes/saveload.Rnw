@@ -26,90 +26,90 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-This is a general discussion concerning how you might go about
-creating (and reusing) persistent representations of \grid{}
-graphics, and some of the pitfalls in the various options.
+
+This document provides a general discussion of approaches for creating
+(and reusing) persistent representations of \grid{} graphics, along
+with some of the potential pitfalls associated with each option.
 
 \subsection*{\R{} code}
 
-The way I usually work with graphics is to write \R{} code in a text file
-and copy-and-paste or \code{source()} it into R.  In this case,
-the persistent
-representation of the graphics is the raw \R{} code.
+The most common workflow for creating graphics is to write \R{} code
+in a text file and copy‑and‑paste or \code{source()} it into an \R{}
+session. In this case, the persistent representation of the graphics
+is the raw \R{} source code.
 
-The representation is fully editable.
-
-The representation is persistent across \R{} sessions, but may not be
-persistent across \R{} versions because the names, argument lists,
-and/or behaviour of the \grid{} functions may
-change.  The representation can be reloaded into R.
-Incompatibilities between versions should be handled gracefully by
-\R{}'s argument-matching, type-checking, and/or version-checking.
+This representation is fully editable. It persists across \R{}
+sessions but may not be entirely stable across major \R{} versions,
+because the names, argument lists, or behavior of \grid{} functions
+can change. The representation can be reloaded into \R{}; any
+incompatibilities between versions are usually handled gracefully by
+\R{}'s argument matching, type checking, and version‑checking
+mechanisms.
 
 \subsection*{\grid{} \code{grob}s}
 
-The next most flexible way of creating a persistent version of \grid{}
-graphics is to \code{save()} a \grid{} \code{grob} \ldots
+A more flexible approach for creating a persistent version of \grid{}
+graphics is to \code{save()} a \grid{} graphical object (a \code{grob}).
 
 <<>>=
 gt <- textGrob("hi")
 save(gt, file = "mygridplot")
 @
-The representation is reloadable so you can reproduce an image \ldots{}
+This representation can be reloaded to reproduce the image:
 
 <<results=hide>>=
 load("mygridplot")
 grid.draw(gt)
 @
-And the representation is editable;  there is an API for interacting
-with \grid{} \code{grobs}, including adding new elements, removing
-elements, editing features of a \code{grob} and so on.  See
-\code{getGrob()}, \code{addGrob()}, \code{removeGrob()},
-and \code{editGrob()}.
+Furthermore, the representation is editable; an API exists for
+interacting with \grid{} \code{grob}s, allowing the addition of new
+elements, removal of existing elements, and modification of graphical
+attributes. See the functions \code{getGrob()}, \code{addGrob()},
+\code{removeGrob()}, and \code{editGrob()}.
 
-The representation is persistent across \R{} sessions, but is
-vulnerable to changes in the internal representation of \grid{}
-\code{grob}s.  The advantage of this representation is that it is
-possible to share and edit graphics produced by someone else,
-without seeing the code they used to produce it.
+The representation persists across \R{} sessions but is vulnerable to
+changes in the internal structure of \grid{} \code{grob}s. A
+significant advantage of this representation is that it enables
+sharing and editing of graphics produced by others without requiring
+access to the original source code.
 
 \subsection*{Device output}
 
-A third way of creating a persistent version of \grid{} graphics is to
-``save'' it to a persistent device format (e.g., PostScript, PDF, \ldots).
+A third method for creating a persistent version of \grid{} graphics
+is to ``save'' it to a persistent device format (e.g., PostScript,
+PDF, \ldots).
 
-It is possible to edit these representations, but hardly convenient.
-In particular, none of the coordinate systems used in the
-construction of plots (e.g., axis scales) are available for editing.
+Editing such representations is possible but seldom convenient. In
+particular, none of the coordinate systems used during plot
+construction (e.g., axis scales) remain available for modification.
 
-The representation is persistent regardless of \R{} sessions or versions,
-but it cannot be reloaded into \R{}.
+The representation is independent of \R{} sessions and versions, but
+it cannot be reloaded into \R{} for further processing.
 
 \subsection*{Display lists}
 
-This final option is \emph{not} recommended, but it is possible to do
-so its downsides need to be explained.
+This final option is \emph{not} recommended, but because it is
+possible its drawbacks should be understood.
 
-What you can do is ``save'' an \R{} display list using, for example, \ldots
+One can ``save'' an \R{} display list using, for example:
 
 <<>>=
 grid.grill()
 temp <- recordPlot()
 save(temp, file = "mygridplot")
 @
-This representation is not editable\footnote{Well, there's nothing stopping
-you editing it, but you should take out life insurance first.}, but it can be
-reloaded
-and rerun to reproduce the output \ldots
+This representation is not editable\footnote{Technically nothing
+  prevents editing, but doing so is extremely risky and should be
+  avoided.}, though it can be reloaded and re‑executed to reproduce the
+output:
 
 <<>>=
 load("mygridplot")
 temp
 @
-The representation is persistent across \R{} sessions, but the saved
-information involves non-public interfaces and structures which may
-change between \R{} versions.  You also have to make sure that \grid{}
-has been reloaded.  Differences between \grid{} and/or \R{} versions
-may lead to segmentation faults.
+The representation persists across \R{} sessions, but the saved
+information relies on non‑public interfaces and internal structures
+that may change between \R{} versions. One must also ensure that the
+\grid{} package is reloaded. Discrepancies between \grid{} or \R{}
+versions can lead to segmentation faults or other serious errors.
 \end{document}
-

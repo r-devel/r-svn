@@ -29,31 +29,34 @@ options(width = 80, continue = "  ",
 
 \section{Introduction}
 
-The \code{reshape()} function reshapes datasets in the so-called
-\sQuote{wide} format (with repeated measurements in separate columns
-of the same row) to the \sQuote{long} format (with the repeated
-measurements in separate rows), and vice versa.
+The \code{reshape()} function provides facilities for converting data
+between the \sQuote{wide} and \sQuote{long} structural formats.  In
+the wide format, repeated measurements corresponding to the same
+underlying variable are stored in separate columns within a single
+row.  Conversely, in the long format, repeated measurements appear as
+separate rows, with an additional column or columns to distinguish
+between the different measurement occasions.
 
-\code{reshape()} is a somewhat complicated function, and this vignette
-gives a few examples of how it can be used.  Although \code{reshape()}
-can be used in a variety of contexts, the motivating application is
-data from longitudinal studies, and the arguments of this function are
-named and described in those terms. See the documentation
-(\code{help(reshape)}) for background and detailed usage.
+While \code{reshape()} can be employed in various data restructuring
+contexts, its design and terminology are particularly oriented towards
+handling longitudinal or repeated-measures data.  The function's
+arguments are named and documented with this application in mind; see
+the help documentation (\code{help(reshape)}) for comprehensive
+background and detailed usage information.
 
-For our examples, we will simulate data from a study where individuals
-are measured at two time points. Two of the measurements are
-time-varying: height and weight, and one of the measurements is
-time-constant: sex.
-
+For illustrative purposes throughout this vignette, we simulate data
+from a hypothetical longitudinal study in which individuals are
+assessed at two distinct time points.  Two measurements are considered
+time-varying: height and weight.  One measurement, sex, is treated as
+time-constant.
 
 \section{Conversion from wide to long format}
 
-We first simulate data in the wide format. Data from each individual
-is contained in one row, with one column for time-constant variables
-and multiple columns for time-varying variables. Here there are two
-time points (before and after), so there are two columns for each
-time-varying variable.
+We begin by generating a dataset in the wide format.  Each individual
+occupies one row, with separate columns for time-constant variables
+and for each instance of the time-varying variables.  Given two time
+points (before and after), each time-varying variable yields two
+columns.
 
 <<>>=
 set.seed(12345)
@@ -66,21 +69,24 @@ d1 <- data.frame(sex = sample(c("M", "F"), n, replace = TRUE),
 d1
 @
 
-Suppose we want to convert this dataset into the long format, with two
-rows for each individual, and one column for each variable (both
-time-constant and time-varying). Such a representation will need two
-additional variables to distinguish between multiple rows
-corresponding to the same individual (corresponding to one row in the
-wide format): a time-variable and an id-variable. These will be
-automatically created when converting from wide to long format.
+Suppose we intend to transform this dataset into a long format
+representation, wherein each individual contributes two rows, and each
+variable (whether time-constant or time-varying) occupies a single
+column.  Such a representation necessitates two additional variables
+to differentiate the multiple rows stemming from a single wide-format
+row: an identifier variable (id) and a time indicator variable.  These
+variables are generated automatically during the conversion from wide
+to long format.
 
-However, we do need to specify which columns in the wide format
-correspond to the same time-varying variable(s). This is easiest to do
-when we have only one time-varying variable. Although we have two such
-in our example, let us pretend that only height is time-varying. The
-corresponding columns can be specified as the \code{varying} argument.
-The two weight variables will then be assumed to be different
-time-constant variables, similar to sex.
+However, we must specify which columns in the wide format correspond
+to different measurements of the same underlying time-varying
+variable.  This specification is most straightforward when only one
+time-varying variable exists.  Although our example contains two such
+variables (height and weight), let us initially consider only height
+as time-varying.  The relevant columns are specified via the
+\code{varying} argument.  Under this specification, the two weight
+variables will be interpreted as distinct time-constant variables,
+analogous to sex.
 
 %% specify only ht variables as time-variables (wt variables assumed
 %% to be separate time constant variables)
@@ -90,16 +96,17 @@ reshape(d1, direction = "long",
         varying = c("ht.before", "ht.after"))
 @
 
-It is equivalent to specify the variables as column indices.
+Specifying the variables by column index yields an identical result.
 
 <<>>=
 reshape(d1, direction = "long",
         varying = c(2, 3))
 @
 
-Note that the names of the combined variable, as well as the values of
-the time variable, are automatically detected because the names happen
-to be \dQuote{nicely} formatted.  Suppose we instead had
+Note that the name of the combined variable in the long format, as
+well as the values assigned to the time variable, are automatically
+inferred because the column names adhere to a \dQuote{regular}
+format.  Consider an alternative naming scheme:
 
 <<>>=
 n <- 5
@@ -110,7 +117,7 @@ d2 <- data.frame(sex = sample(c("M", "F"), n, replace = TRUE),
                  wt_after = round(rnorm(n, 80, 6)))
 @
 
-Modifying the previous call gives:
+Attempting to adapt the previous call produces an error:
 
 %% Error: Fails to guess
 
@@ -121,17 +128,17 @@ reshape(d2, direction = "long",
 )
 @
 
-This is easy to \dQuote{fix} in this case because the names are still
-nicely formatted, just not using the separator that \code{reshape()}
-expects by default. 
+This situation is easily remedied because the names remain regularly
+structured, merely employing an underscore separator different from the
+default period expected by \code{reshape()}.
 
 <<>>=
 reshape(d2, direction = "long",
         varying = c("wt_before", "wt_after"), sep = "_")
 @
 
-A more general solution is to specify the name of the new combined
-column explicitly as the \code{v.names} argument.
+A more general solution involves explicitly specifying the name for
+the new combined column via the \code{v.names} argument.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -139,8 +146,8 @@ reshape(d2, direction = "long",
         v.names = "weight") 
 @
 
-We can additionally specify the names and values of the id / time
-variables as well.
+We may also explicitly control the names and values of the id and time
+variables.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -150,8 +157,9 @@ reshape(d2, direction = "long",
         idvar = "subject", ids = letters[1:n])
 @
 
-Note that the \code{times} argument is ignored when automatic guessing
-is performed, i.e., when \code{v.names} is not explicitly specified.
+It is important to note that the \code{times} argument is disregarded
+when automatic name guessing is active, i.e., when \code{v.names} is
+not explicitly supplied.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -160,20 +168,21 @@ reshape(d2, direction = "long",
         timevar = "when", times = c("pre", "post"))
 @
 
-So far, we have only specified one time-varying variable, but our data
-actually has two. How do we specify multiple time-varying variables?
-This depends on whether the variable names are in a guessable format.
+The examples thus far have involved only a single time-varying
+variable, whereas our dataset contains two.  Specifying multiple
+time-varying variables depends on whether the column names follow a
+guessable pattern.
 
+\subsection{Explicit specification of variable names}
 
-\subsection{Explicitly specifying variables names}
-
-The general approach is to explicitly specify both \code{varying} and
-\code{v.names} as before. \code{v.names} should be a vector of new
-variable names in the long format, and \code{varying} should either be
-a list, with each component giving the corresponding wide format
-variable names, or a matrix, with each row giving the corresponding
-wide format variable names.
-
+The general approach requires explicit specification of both
+\code{varying} and \code{v.names}.  The \code{v.names} argument should
+be a character vector providing the names for the time-varying
+variables in the resulting long format.  Correspondingly,
+\code{varying} should be a list, where each component is a vector of
+the wide-format column names for one time-varying variable, or a
+matrix, where each row contains the wide-format column names for one
+time-varying variable.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -188,13 +197,13 @@ reshape(d2, direction = "long",
         v.names = c("height", "weight"))
 @
 
-The \code{times} argument has been omitted in the second example
-above, and the default is to use sequential times. The \code{v.names}
-argument can be omitted as well, but the default is not generally
-sensible.
+In the second example above, the \code{times} argument was omitted,
+causing sequential integer times to be used as defaults.  The
+\code{v.names} argument may also be omitted, but the resulting default
+names are generally not meaningful.
 
-Of course, the time and id variables can also be controlled in the
-usual way as long as \code{v.names} is specified.
+As before, the names and values of the time and identifier variables
+can be controlled explicitly, provided \code{v.names} is specified.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -207,18 +216,15 @@ reshape(d2, direction = "long",
         ids = letters[1:n])
 @
 
+\subsection{Variable names in a guessable format}
 
-
-\subsection{Variables names in a guessable format}
-
-
-Even when variable names are in a guessable format, \code{reshape()}
-will not try to guess if multiple time-varying variables are provided
-as a list or matrix.  However, when the wide format variable names are
-suitably formatted in the same manner for all time-varying variables,
-it is still possible to take advantage of automatic guessing by
-specifying the \code{varying} argument as an atomic vector (of either
-names or indices) containing all time-varying columns.
+Even when variable names follow a guessable pattern,
+\code{reshape()} refrains from automatic guessing if multiple
+time-varying variables are supplied as a list or matrix.  However,
+when all time-varying columns share a consistently applied naming
+convention, automatic guessing can still be leveraged by providing the
+\code{varying} argument as an atomic vector (of names or indices)
+containing all columns belonging to time-varying variables.
 
 <<>>=
 reshape(d2, direction = "long",
@@ -226,11 +232,10 @@ reshape(d2, direction = "long",
                     "wt_before", "wt_after"), sep = "_")
 @
 
-
-The atomic vector form of \code{varying} can be combined with explicit
-(non-guessed) specification of \code{v.names} as well, but in that
-case, one needs to pay careful attention to the order of variable
-names in \code{varying}. The following gives wrong results:
+The atomic vector form of \code{varying} can be combined with an
+explicit (non-guessed) \code{v.names} specification, but this requires
+careful attention to the ordering of names within \code{varying}.  The
+following ordering yields incorrect results:
 
 <<>>=
 reshape(d2, direction = "long",
@@ -239,10 +244,11 @@ reshape(d2, direction = "long",
         v.names = c("height", "weight"))
 @
 
-The correct order requires all columns corresponding to the same time
-to be contiguous; this is the same intrinsic column-major ordering in
-the matrix form above. It is best to avoid the atomic vector form of
-\code{varying} unless \code{v.names} is being omitted.
+The correct ordering requires that all columns corresponding to the
+same time point be contiguous; this corresponds to the column-major
+ordering implicit in the matrix representation discussed earlier.
+Unless \code{v.names} is omitted, it is generally advisable to avoid
+the atomic vector form of \code{varying}.
 
 <<echo=FALSE,eval=FALSE>>=
 reshape(d2, direction = "long",
@@ -251,12 +257,11 @@ reshape(d2, direction = "long",
         v.names = c("height", "weight"))
 @
 
-
 \subsection{Repeated application of reshape}
 
-
-Just as an illustration, let us try to create an even longer dataset
-that combines height and weight together in a single column.
+As an illustrative exercise, we can attempt to create an even more
+elongated dataset that combines both height and weight measurements
+into a single column.
 
 <<>>=
 dlong <- 
@@ -272,9 +277,10 @@ reshape(dlong, direction = "long",
         timevar = "what", times = c("height", "weight"))
 @
 
-Can we get this directly from \code{d2} using a single
-\code{reshape()} call?  We can, except that we will get a composite
-time variable (which can be easily split if needed).
+Is it possible to achieve this result directly from the original wide
+dataset \code{d2} using a single \code{reshape()} call?  It is
+possible, though the resulting time variable will be composite (which
+could subsequently be separated if required).
 
 <<>>=
 reshape(d2, direction = "long",
@@ -285,11 +291,11 @@ reshape(d2, direction = "long",
         idvar = "subject", ids = letters[1:n])
 @
 
-
 \section{Conversion from long to wide format}
 
-Conversion from long to wide format is generally simpler. Let us
-simulate long format data from the same hypothetical setup.
+Conversion from the long format to the wide format is generally more
+straightforward.  We simulate long-format data consistent with our
+hypothetical study design.
 
 <<>>=
 d3 <- data.frame(sex = sample(c("M", "F"), 2 * n, replace = TRUE),
@@ -300,19 +306,20 @@ d3 <- data.frame(sex = sample(c("M", "F"), 2 * n, replace = TRUE),
 d3
 @
 
-To convert this to the wide format, the arguments \code{idvar} and
-\code{timevar} to \code{reshape()} are mandatory, and all other
-variables are assumed to be time-varying.  This is what we do in the
-next example, where even \code{sex} is erroneously treated as
-time-varying.
+To transform this dataset to wide format, the arguments \code{idvar}
+and \code{timevar} must be supplied to \code{reshape()}.  By default,
+all variables other than these two are treated as time-varying.  This
+leads to an erroneous treatment of \code{sex} as time-varying in the
+following example.
 
 <<>>=
 reshape(d3, direction = "wide",
         idvar = "subject", timevar = "when")
 @
 
-To specify some variables as time-constant, the time-varying variables
-must be explicitly specified through \code{v.names}.
+To designate certain variables as time-constant, the time-varying
+variables must be explicitly identified via the \code{v.names}
+argument.
 
 <<eval=FALSE>>=
 reshape(d3, direction = "wide",
@@ -320,8 +327,9 @@ reshape(d3, direction = "wide",
         v.names = c("ht", "wt"))
 @
 
-This gives a warning because \code{sex} is not really time-constant
-in the dataset we have created. Let us fix that:
+This invocation produces a warning because \code{sex} is not
+genuinely time-constant in our simulated dataset \code{d3}.  Let us
+correct this by creating a dataset where sex is constant per subject.
 
 <<>>=
 n <- 10
@@ -335,11 +343,11 @@ reshape(d4, direction = "wide",
         v.names = c("ht", "wt"), sep = "_")
 @
 
-To specify the resulting wide format variable names explicitly instead
-of using the automatically constructed defaults, we may use the
-\code{varying} argument as in wide-to-long conversion. As in that
-case, \code{varying} can be a vector of variable names, where the same
-caveats apply regarding order.
+To explicitly define the resulting wide-format variable names instead
+of relying on the automatically constructed defaults, we may employ
+the \code{varying} argument, analogous to its use in wide-to-long
+conversion.  As before, \code{varying} can be supplied as a vector of
+variable names, with the same caveats regarding order applying.
 
 <<>>=
 reshape(d4, direction = "wide",
@@ -350,8 +358,9 @@ reshape(d4, direction = "wide",
 
 %% Pre 4.1.0: Error in varying[, i] : incorrect number of dimensions
 
-For more than one time-varying variable, it is safer to avoid the
-vector form and instead specify \code{varying} as a list or matrix.
+When more than one time-varying variable is involved, it is safer to
+avoid the vector form and instead supply \code{varying} as a list or
+matrix.
 
 <<>>=
 reshape(d4, direction = "wide",
@@ -363,6 +372,3 @@ reshape(d4, direction = "wide",
 
 
 \end{document}
-
-
-

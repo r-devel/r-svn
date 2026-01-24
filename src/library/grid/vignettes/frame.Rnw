@@ -29,88 +29,94 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-Grid contains a lot of support for locating, sizing, and arranging
-graphical components on a device and with respect to each other.
-However, most of this support relies on \emph{either} the parent
-object dictating both location and size (layouts) \emph{or} the child
-dictating both location and size.
 
-Some sorts of arrangements are more conveniently handled by having the
-parent dictate the location, but letting the child dictate the size.
-This is the situation for GUI-builders (software which forms
-arrangements of GUI components or widgets).  The approach taken by
-(many ?) GUI-builders is to allow the user to create a parent
-\emph{frame} and then \emph{pack} widgets into this frame.  The frame
-locates and arranges the children with the help of hints such as
-``place this widget at the bottom of the frame'', and the children
-dictate what size they would like to be.
+The \grid{} graphics system provides extensive facilities for
+positioning, sizing, and arranging graphical components on a device and
+relative to one another. However, much of this functionality operates
+under one of two paradigms: either the parent graphical object dictates
+both the location and size of its children (as in layouts), or the
+child object specifies both its own location and size.
 
-This document describes a first attempt at such an interface for
-arranging Grid graphical objects.
+Certain arrangements are more naturally expressed by an intermediate
+model where the parent controls placement while the child determines
+its dimensions. This model is characteristic of many graphical user
+interface (GUI) builders, which allow the user to create a parent
+\emph{frame} and then \emph{pack} widgets into that frame. The frame
+handles positioning and arrangement based on directional hints (such as
+``place this widget at the bottom''), while each widget specifies its
+preferred size.
+
+This document describes an initial implementation of such an interface
+for arranging \grid{} graphical objects (grobs).
 
 \section*{The \code{"frame"} grob}
-You can create a \code{"frame"} graphical object using the function
-\code{frameGrob()}.  You must assign the result to a variable in order
-to pack grobs into it.
+A \code{"frame"} graphical object can be created using the
+\code{frameGrob()} function. The result must be assigned to a variable
+to allow subsequent packing of grobs into it.
 
 <<results=hide>>=
 gf <- frameGrob()
 @
-\section*{The \code{packGrob()} function}
-Having created a frame, you can then pack other graphical objects into
-it using the \code{packGrob()} function.  This function has a complex
-interface which allows for a variety of methods of packing graphical
-objects.  The required arguments are:
-\begin{description}
-\item[\code{frame}] is a \code{"frame"} object created by \code{grid.frame}.
-\item[\code{grob}] is the grob to pack into the frame.
-\end{description}
-The remaining arguments specify where the grob is located in the frame
-and possibly how much space the grob should occupy.  The frame is effectively
-just a layout;  you can add grobs to existing rows and columns
-or you can append the grob in a new row and/or column.  If the
-grob is added to an existing row then the height of
-that row  becomes the maximum of the new height and
-the previous height.  If the row  is new then it just
-gets the specified height.  Similar rules apply for column widths.
-\begin{description}
-\item[\code{col}] is the column to put the grob in.  This can be 1 greater than
-the existing number of columns (in which case a new column is added).
-\item[\code{row}]  is like \code{col} but for rows.
-\item[\code{col.after}] specifies that the grob should be put in a
-new column inserted between \code{col.after} and \code{col.after + 1}.
-\item[\code{col.before}] specifies that the grob should be put in a
-new column inserted between \code{col.before} and \code{col.before + 1}.
-\item[\code{row.after} and \code{row.before}] do what you would expect.
-\item[\code{side}]  specifies which side to append the new grob to.
-The valid values are \code{"left"}, \code{"right"}, \code{"bottom"},
-and \code{"top"}.
-\item[\code{width}]  is the width of the row that the grob is being packed
-into.  If this is not given then the grob supplies the width.
-\item[\code{height}] is like \code{width} but for rows.
-\end{description}
-It is possible to modify this default behaviour.  For example, it is possible
-to add a grob to a row and force that row to have the specified height
-by setting \code{force.height=TRUE} (and similarly for column widths).
-It is also possible to pack a graphical object into several rows or
-columns at once (although you cannot simultaneously affect the heights or
-widths of those rows and columns).
 
-The result of this function is the modified frame, so you must
-assign the result to a variable.
+\section*{The \code{packGrob()} function}
+Once a frame is created, other graphical objects can be packed into it
+using the \code{packGrob()} function. This function offers a
+comprehensive interface supporting various packing strategies. The
+required arguments are:
+\begin{description}
+\item[\code{frame}] a \code{"frame"} object created by
+  \code{frameGrob()}.
+\item[\code{grob}] the grob to be packed into the frame.
+\end{description}
+Additional arguments specify the location of the grob within the frame
+and optionally control the space it occupies. Conceptually, a frame
+behaves like a layout; grobs can be added to existing rows and columns,
+or appended in new rows and/or columns. When a grob is added to an
+existing row, the row height becomes the maximum of the new height and
+the previous height. If the row is new, it simply adopts the specified
+height. Analogous rules apply to column widths.
+\begin{description}
+\item[\code{col}] the column in which to place the grob. This may be
+  one greater than the current number of columns, in which case a new
+  column is appended.
+\item[\code{row}] analogous to \code{col}, but for rows.
+\item[\code{col.after}] indicates that the grob should be placed in a
+  new column inserted between columns \code{col.after} and
+  \code{col.after + 1}.
+\item[\code{col.before}] indicates that the grob should be placed in a
+  new column inserted between columns \code{col.before} and
+  \code{col.before + 1}.
+\item[\code{row.after} and \code{row.before}] operate similarly for rows.
+\item[\code{side}] specifies which side of the frame to append the new
+  grob. Valid values are \code{"left"}, \code{"right"},
+  \code{"bottom"}, and \code{"top"}.
+\item[\code{width}] the width of the column into which the grob is
+  being packed. If omitted, the grob supplies its own width.
+\item[\code{height}] analogous to \code{width}, but for rows.
+\end{description}
+The default behavior can be modified. For example, a grob can be added
+to a row while forcing that row to a specific height by setting
+\code{force.height=TRUE} (similarly for column widths via
+\code{force.width}). It is also possible to pack a grob across multiple
+rows or columns simultaneously (although in such cases the heights or
+widths of those rows/columns cannot be individually controlled).
+
+The function returns the modified frame, so the result must be assigned
+to a variable.
 
 <<results=hide>>=
 gf <- packGrob(gf, textGrob("Hello frame!"))
 @
+
 \section*{\code{"grobwidth"} and \code{"grobheight"} units}
 
-A \code{"frame"} object allows a grob to specify its size by making
-use of \code{"grobwidth"} and \code{"grobheight"} units.
-These units may, of course, be used outside of frames too so
-their use is described here.
+A \code{"frame"} object permits a grob to specify its size through the
+use of \code{"grobwidth"} and \code{"grobheight"} units. These units
+are not restricted to frames and may be employed in any \grid{}
+context; their general usage is described here.
 
-Consider a simple example where I want to draw a rectangle around
-a piece of text.  I can get the size of the piece of text from the
+Consider a simple example in which a rectangle is to be drawn around a
+text label. The dimensions of the text can be obtained from the
 \code{"text"} grob as follows:
 
 <<frame1, include=FALSE, width=4, height=2, fig=TRUE, results=hide>>=
@@ -121,23 +127,23 @@ grid.rect(width = unit(1, "grobwidth", st),
 \begin{center}
 \includegraphics[height=1in, width=2in]{frame-frame1}
 \end{center}
-@
-You could do the same thing with simple \code{"strwidth"}
-and \code{"strheight"} units, but \code{"grobwidth"} and \code{"grobheight"}
-give you a lot more power.  The biggest gain is that you
-can get the size of other objects besides pieces of text (more on that
-soon).  Another thing you can do is provide a ``reference'' to a grob
-rather than the grob itself; you do this by giving the name of a grob.
-What this does is make the unit ``dynamic'' so that changes in the
-grob affect the unit.  The following is a dynamic version of the
-previous example.
+
+An equivalent result could be achieved using the simpler
+\code{"strwidth"} and \code{"strheight"} units, but
+\code{"grobwidth"} and \code{"grobheight"} offer greater flexibility.
+A key advantage is that they can obtain the size of any graphical
+object, not just text. Furthermore, a grob can be referenced by name
+rather than by value, creating a \emph{dynamic} unit that updates when
+the referenced grob changes. The following demonstrates a dynamic
+version of the previous example.
 
 <<frame1, include=FALSE, width=4, height=2, fig=TRUE, results=hide>>=
 grid.text("some text", name = "st")
 grid.rect(width = unit(1, "grobwidth", "st"),
           height = unit(1, "grobheight", "st"))
 @
-Now watch what happens if I modify the text grob named \code{"st"}:
+
+Now observe the effect of modifying the text grob named \code{"st"}:
 
 <<results=hide, eval=FALSE>>=
 grid.edit("st", gp = gpar(fontsize = 20))
@@ -153,8 +159,8 @@ grid.draw(my.rect)
 \begin{center}
 \includegraphics[height=1in, width=2in]{frame-frame2}
 \end{center}
-@
-Similarly, I can change the text itself:
+
+Similarly, the text content itself can be altered:
 
 <<results=hide, eval=FALSE>>=
 grid.edit("st", label="some different text")
@@ -171,83 +177,77 @@ grid.draw(my.rect)
 \begin{center}
 \includegraphics[height=1in, width=2in]{frame-frame3}
 \end{center}
-@
+
 \section*{The \code{widthDetails} and \code{heightDetails} generic functions}
 
-The calculation of \code{"grobwidth"} and \code{"grobheight"} units
-is a bit complicated, but fortunately most of it is automated.
-The simple part is that a grob provides a normal \code{"unit"} object
-to express its width or height.  The complication comes because that
-\code{"unit"} object has to be evaluated in the correct context;  in
-particular, if the grob has a non-\code{NULL} \code{vp} argument then
-those viewports have to be pushed so that the size of the grob is
-the size it would be when it is drawn.  This is achieved by calling the
-\code{preDrawDetails()} function for the grob and in most cases what
-happens by default will be correct.  The thing to avoid is having
-any viewport operations in a \code{drawDetails()} method for your
-grob;  they should go in a  \code{preDrawDetails()} method.
+The computation of \code{"grobwidth"} and \code{"grobheight"} units
+involves some complexity, but most of the process is automated. The
+fundamental step is that a grob must provide a \code{"unit"} object
+representing its width or height. The complexity arises because this
+unit must be evaluated in the appropriate graphical context;
+specifically, if the grob has a non-\code{NULL} \code{vp} (viewport)
+argument, those viewports must be pushed so that the grob's size
+reflects what it would be when actually drawn. This is accomplished by
+invoking the \code{preDrawDetails()} method for the grob, and in most
+cases the default behavior suffices. A critical practice is to avoid
+placing viewport operations within a \code{drawDetails()} method;
+such operations should reside in a \code{preDrawDetails()} method.
 
-All that needs to be written (usually) are the functions that
-provide the \code{"unit"} objects.  These functions need to be
+The primary developer responsibility is usually to provide functions
+that return the appropriate \code{"unit"} objects. These functions are
 \code{widthDetails} and \code{heightDetails} methods.
 
-The default methods return \code{unit(1, "null")}
-so your grob will be of this size unless you write your own methods.
+The default methods return \code{unit(1, "null")}, so a custom grob
+will have that size unless explicit methods are provided.
 
-The classic example methods are those for \code{"text"} grobs;  these
-return \code{unit(1, "mystrwidth", <text grob label>)} and
-\code{unit(1, "mystrheight", <text grob label>)} respectively.
+Classic examples are the methods for \code{"text"} grobs; these return
+\code{unit(1, "mystrwidth", <text grob label>)} and
+\code{unit(1, "mystrheight", <text grob label>)}, respectively.
 
-The other very important examples of these methods are those for
-\code{"frame"} grobs.  These return the \code{sum} of the
-widths (heights) of the columns (rows) of the layout that has been
-built up by packing grobs into the frame.  This means that
-when a \code{"frame"} grob is packed within another \code{"frame"} grob
-the parent automatically leaves enough room for the child.
+Equally important are the methods for \code{"frame"} grobs. These
+return the sum of the widths (or heights) of the columns (or rows) of
+the layout constructed by packing grobs into the frame. Consequently,
+when a \code{"frame"} grob is packed inside another \code{"frame"}
+grob, the parent automatically allocates sufficient space for the
+child.
 
-Another useful pair of examples are those for \code{"rect"} grobs.
-These methods make use of the \code{absolute.size} function.
-When a grob is asked to specify its size, it makes sense to respond
-with the \I{grob}'s width and height if the grob has an ``absolute'' size
-(e.g., \code{"inches"}, \code{"cm"}, \code{"lines"}, etc;
- i.e., the grob knows exactly how big itself is).
-On the other hand, it does not make sense to respond with the \I{grob}'s
-width and height if the grob has a ``relative'' size (e.g., \code{"npc"} or
-\code{"native"};  i.e.,
-the grob needs to know about it's parent's size before it can figure
-out its own).  The \code{absolute.size} function leaves absolute
-units alone, but converts relative units to \code{"null"} units
-(i.e., the child says to the parent, ``you decide how big I should be''), so
-you can return something like \code{absolute.size(width(<grob>))} in order
-to always give a sensible answer.
+Another useful pair of examples are the methods for \code{"rect"}
+grobs. These methods utilize the \code{absolute.size} function. When a
+grob is queried for its size, it is sensible to respond with its width
+and height if those dimensions are expressed in ``absolute'' units
+(e.g., \code{"inches"}, \code{"cm"}, \code{"lines"}; i.e., the grob
+knows its exact size). Conversely, it is not meaningful to return the
+grob's width and height if those are expressed in ``relative'' units
+(e.g., \code{"npc"} or \code{"native"}; i.e., the grob's size depends
+on its parent's dimensions). The \code{absolute.size} function leaves
+absolute units unchanged but converts relative units to \code{"null"}
+units (indicating to the parent, ``you decide my size''). Thus, one
+can return something like \code{absolute.size(width(<grob>))} to always
+provide a reasonable answer.
 
-@
 \section*{Examples}
-The original motivating example for this GUI-builder approach was
-to be able to produce a quite general-purpose legend grob.
+The original motivation for this GUI-builder approach was to
+facilitate the creation of a general-purpose legend grob.
 
-A legend consists of data symbols and associated textual descriptions.
-In order to be quite general, it would be nice to allow, for example,
-multiple lines of text per data symbol.  Rather than having to look at
-the text supplied for the legend in order to determine the arrangement
-of the legend, it would be nice to be able to simply specify the
-composition of the legend and let it figure out the arrangement for
-us.  The code below defines just such a legend grob, using the new
-\code{"frame"} grob and \code{packGrob()} function.  Some points to
-note are:
+A legend typically comprises data symbols paired with textual
+descriptions. To achieve generality, it is desirable to permit, for
+instance, multiple lines of text per symbol. Rather than pre‑analyzing
+the supplied text to determine the legend layout, it is preferable to
+specify the legend's composition and allow it to self‑arrange. The
+code below defines such a legend grob using the new \code{"frame"}
+grob and \code{packGrob()} function. Notable aspects include:
 
 \begin{itemize}
-\item The use of \code{border}s to create space around the legend
-components.
-\item The size of the data symbol component is specified, but the
-size of the text components are taken from the \code{"text"} grobs.
-
-\item The heights of the rows in the legend will be the maximum of
-$\code{vgap} + \code{unit(1, "lines")}$ and $\code{vgap} +
-\code{unit(1, "grobheight", <text grob>)}$.
-
-\item We have two functions, one for generating a grob and one
-for producing output.
+\item The use of \code{border} arguments to create spacing around
+  legend components.
+\item The size of the data‑symbol component is explicitly specified,
+  whereas text component sizes are derived from the \code{"text"}
+  grobs.
+\item Row heights in the legend become the maximum of
+  $\code{vgap} + \code{unit(1, "lines")}$ and $\code{vgap} +
+  \code{unit(1, "grobheight", <text grob>)}$.
+\item Two functions are provided: one to generate the grob, another to
+  produce the output.
 \end{itemize}
 
 <<>>=
@@ -286,8 +286,9 @@ grid.legend <- function(pch, labels, frame = TRUE,
   gf
 }
 @
-The next piece of code shows the \code{grid.legend()} function being
-used procedurally;  the output is shown below the code.
+
+The following code demonstrates the procedural use of
+\code{grid.legend()}; the resulting output appears below the code.
 
 <<legend, include=FALSE, width=4, height=2, fig=TRUE, results=hide>>=
 grid.legend(1:3, c("one line", "two\nlines", "three\nlines\nof text"))
@@ -297,39 +298,34 @@ grid.legend(1:3, c("one line", "two\nlines", "three\nlines\nof text"))
 \includegraphics[height=2in, width=4in]{frame-legend}
 \end{center}
 
-@
-The legend example might not seem too difficult to do by hand rather
-than using frames and packing, but the next example shows how
-useful it can be.
+The legend example might appear manageable without frames and packing,
+but the next example illustrates the utility of this approach.
 
-Suppose you want to arrange a legend next to a plot.  This requires
-leaving enough space for the legend and then filling the remaining
-space with the plot.  This requires figuring out how much space the
-legend needs, and that is a task that is neither trivial nor
-easy to cater for in the general case.  Ideally, we want to know
-as little as possible about the legend.
+Suppose one wishes to arrange a legend adjacent to a plot. This
+requires allocating sufficient space for the legend and filling the
+remaining area with the plot. Determining the required space for the
+legend is neither trivial nor easily generalized. Ideally, we should
+need minimal prior knowledge about the legend.
 
-With the GUI-builder
-approach this becomes extremely simple.  The code below
-shows how the construction of such a scene might be performed; the
-output from the code is again shown below.
+The GUI‑builder approach makes this task remarkably straightforward.
+The code below illustrates the construction of such a scene; the
+resulting output is shown beneath.
 
-The following points are noteworthy:
+Noteworthy points include:
 
 \begin{itemize}
-\item We don't need to know anything about how the legend was
-constructed;  it could be any sort of grob.
-\item We specify the height of the legend to be \code{unit(1, "null")}
-so that it will occupy the full height of the plot.  If we
-did not do this then the plot would be forced to be the height of
-the legend (because of the way that \code{"null"} units interact
-with other units).
-\item The width of the legend is calculated from the contents of the
-legend because the legend is a \code{"frame"} grob.
+\item No knowledge of the legend's internal construction is required;
+  it could be any grob.
+\item The legend's height is set to \code{unit(1, "null")}, causing it
+  to occupy the full height of the plot. Without this specification,
+  the plot would be constrained to the legend's height (due to the
+  interaction of \code{"null"} units with other units).
+\item The legend's width is automatically computed from its contents
+  because the legend is a \code{"frame"} grob.
 \item The dimensions of the ``plot'' default to \code{unit(1, "null")}
-because \code{"collection"} grobs have no width or height methods, which
-means that the plot fills up whatever space remains once the
-legend has been accommodated.
+  because \code{"collection"} grobs lack width and height methods;
+  consequently, the plot expands to fill the space remaining after the
+  legend is accommodated.
 \end{itemize}
 
 <<plot, echo=FALSE, include=FALSE, fig=TRUE, results=hide>>=
@@ -357,34 +353,30 @@ grid.rect(gp = gpar(lty = "dashed"), width = .99, height = .99)
 \begin{center}
 \includegraphics{frame-plot}
 \end{center}
-@
+
 \section*{Notes}
 \begin{enumerate}
-\item There are \code{grid.frame()} and \code{grid.pack()} equivalents
-for these functions, but these are really only useful to see the
-changes in the frame as each packing operation takes place.
+\item Corresponding \code{grid.frame()} and \code{grid.pack()}
+  functions exist, but these are primarily useful for observing
+  incremental changes to the frame as each packing operation occurs.
 
-\item This frame-and-packing stuff is easier to use, \emph{but}
-(in almost all cases) it is less efficient than specifying the
-arrangement by hand.  There is consequently a penalty to pay in
-terms of memory (inconsequential I think) and in terms of speed
-(noticeably slower).
+\item The frame‑and‑packing interface is easier to use but (in nearly
+  all cases) less efficient than manually specifying the arrangement.
+  Consequently, there is a penalty in terms of memory usage (generally
+  negligible) and speed (noticeably slower). A sensible workflow might
+  involve interactive construction of an image using the simpler
+  arguments (which will be slower) followed by optimization for speed
+  by exploring more advanced arguments.
 
-Perhaps one sensible use of these functions is to
-build an image interactively using the simple arguments,
-which will be slow, then attempt to speed up the drawing
-by exploring some of the more advanced arguments.
+  One approach to improve performance is to define the layout when the
+  frame is initially created and then employ the \code{placeGrob()}
+  function to insert grobs into predefined rows and columns.
 
-One way to speed things up a bit is to specify the layout when
-the frame is initially created and then use the \code{placeGrob()} function
-to put grobs into existing rows and columns.
-
-The speed penalty in the cases I have seen are mostly due to the time
-taken to generate the (sometimes very) complicated unit objects that
-express the heights and widths of the rows and columns of the frame
-layout.  Future effort will be put into speeding up the creation of
-unit objects.
+  The observed speed penalty is largely attributable to the time
+  required to generate the (sometimes highly) complex unit objects that
+  express the heights and widths of the frame's rows and columns.
+  Future development efforts may focus on accelerating unit object
+  creation.
 \end{enumerate}
 \end{document}
-
 

@@ -35,33 +35,33 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-There is a distinction between \grob{}s which are just stored
-in user-level \R{} objects and \grob{}s which represent
-drawn output (i.e., \grob{}s on the \grid{} display list).
-There is a naming convention that \code{grid.*()}  functions are
-(mainly) used for their side-effect of producing output or
-modifying existing output (they create/affect \grob{}s on the display list).
-Functions of the form \code{*Grob()} are used for their return value;
-the \grob{} that they create/modify.
-For example, the following creates a \grob{} and then modifies it, but
-performs absolutely no drawing;  this is purely manipulating a
-description of a graphical object.
+
+A distinction exists between \grob{}s that are merely stored in
+user‑level \R{} objects and \grob{}s that represent drawn output
+(i.e., \grob{}s recorded on the \grid{} display list). A naming
+convention is followed: functions of the form \code{grid.*()} are
+primarily employed for their side effect of producing or modifying
+output (they create or affect \grob{}s on the display list). Functions
+of the form \code{*Grob()} are used for their return value; they
+create or modify a \grob{} description without necessarily drawing it.
+For example, the following code creates a \grob{} and then modifies it,
+but performs no drawing; this is purely manipulation of a graphical
+object description.
 
 <<>>=
 gl <- linesGrob()
 gl <- editGrob(gl, gp = gpar(col = "green"))
 @
 
-The next example produces output.  A \grob{} is returned,
-but that \grob{} is just a description of the output that was drawn
-and has no direct link to the output.  It is possible to access the
-grob representing the output by
-using the \grob{}'s \code{name}.  In order to access a \grob{}
-which represents drawn output (i.e., a \grob{} on the display list),
-you must specify a \gPath{}.  The \gPath{} should be created using the
-\code{gPath()} function for writing scripts, but in interactive use, it
-is possible to specify the \gPath{} directly as a string.  The code below
-shows both approaches.
+The next example produces actual output. A \grob{} is returned, but
+that \grob{} is only a description of the drawn output and has no
+direct link to it. The \grob{} representing the drawn output can be
+accessed using its \code{name}. To access a \grob{} that represents
+drawn output (i.e., a \grob{} on the display list), one must specify a
+\gPath{}. The \gPath{} should be created with the \code{gPath()}
+function for script writing, but in interactive use it is permissible
+to specify the \gPath{} directly as a string. The code below
+demonstrates both approaches.
 
 <<results=hide>>=
 grid.newpage()
@@ -70,18 +70,17 @@ grid.edit(gPath("lines"), gp = gpar(col = "pink"))
 grid.edit("lines", gp = gpar(col = "red"))
 @
 
-Complex graphical objects are provided by the \gTree{} class.  A
-\gTree{} is a \grob{} which may have other \grob{}s as children.  The
+Complex graphical objects are represented by the \gTree{} class. A
+\gTree{} is a \grob{} that may contain other \grob{}s as children. The
 \code{xaxis} and \code{yaxis} \grob{}s provided by \grid{} are
 examples of \gTree{}s; the children of an axis include a lines \grob{}
-for the tick-marks and a text \grob{} for the tick-mark labels.  The
-function \code{childNames()} can be used to list the names of the
-children of a \gTree{}.  When dealing with these hierarchical objects,
-more complex \gPath{}s can be used to access children of a \gTree{}.
-In the following example, an x-axis is drawn, then the \I{xaxis} itself is
-edited to modify the locations of the tick-marks, then the \I{xaxis}'s
-text child is edited to modify the location of the labels on the
-tick-marks.
+for the tick marks and a text \grob{} for the tick‑mark labels. The
+function \code{childNames()} lists the names of a \gTree{}'s children.
+When working with such hierarchical objects, more complex \gPath{}s
+can be used to access descendants of a \gTree{}. In the following
+example, an x‑axis is drawn, then the \I{xaxis} itself is edited to
+modify the tick‑mark positions, and finally the \I{xaxis}'s text child
+is edited to adjust the label placement.
 
 <<results=hide>>=
 grid.newpage()
@@ -90,17 +89,15 @@ grid.rect(gp = gpar(col = "grey"))
 grid.xaxis(name = "myxaxis")
 grid.edit("myxaxis", at = 1:4/5)
 grid.edit(gPath("myxaxis", "labels"), y = unit(-1, "lines"))
-
 @
 
-This next example extends the idea a step further to edit the child of
-a child of a \gTree{}.  It also shows the use of the \gTree{} function
-to construct a simple \gTree{} (this is just creating an instance of
-the \gTree{} class -- it is also possible to extend the \gTree{} class
-in order to provide specialised behaviour for drawing and other
-things; more on this later).  Finally, the example demonstrates how
-\gPath{}s of depth greater than 1 can be specified directly as a
-string.
+This next example extends the idea further by editing a child of a
+child of a \gTree{}. It also illustrates the use of the \gTree{}
+function to construct a simple \gTree{} instance (this merely creates
+an object of class \gTree{}; it is also possible to extend the
+\gTree{} class to provide specialized drawing and other behaviors, a
+topic addressed later). Finally, the example demonstrates how \gPath{}s
+of depth greater than one can be supplied directly as a string.
 
 <<results=hide>>=
 grid.newpage()
@@ -114,23 +111,24 @@ grid.edit("myplot::xaxis", at = 1:10/11)
 grid.edit("myplot::xaxis::labels", label = round(1:10/11, 2))
 grid.edit("myplot::xaxis::labels", y = unit(-1, "lines"))
 @
-\code{"grobwidth"} units require a \grob{} to give the width of.
-There are two ways to specify the \grob{}.  The following example
-shows the most obvious method of simply supplying a \grob{}.  Notice
-that if you modify \code{gt} it will have no effect on the width of
-the drawn rectangle.
+
+\code{"grobwidth"} units require a \grob{} to determine the width.
+There are two ways to specify this \grob{}. The following example
+shows the most direct method of supplying a \grob{} object. Note that
+subsequent modifications to \code{gt} will have no effect on the width
+of the drawn rectangle.
 
 <<results=hide>>=
 grid.newpage()
 gt <- grid.text("Hi there")
 grid.rect(width = unit(1, "grobwidth", gt))
 @
-In order to allow a \code{"grobwidth"} unit to track changes in the
-\grob{}, it is possible to specify a \gPath{} rather than a \grob{} as
-the data for a \code{"grobwidth"} unit.  The following example
-modifies the previous example to use a \gPath{}.  Now, the width of
-the rectangle changes when the width of the underlying \grob{}
-changes.
+
+To allow a \code{"grobwidth"} unit to track changes in the underlying
+\grob{}, one may specify a \gPath{} rather than a \grob{} object as
+the data for the unit. The next example modifies the previous one to
+use a \gPath{}. Now the rectangle's width updates when the width of
+the referenced \grob{} changes.
 
 <<results=hide>>=
 grid.newpage()
@@ -139,27 +137,24 @@ grid.rect(width = unit(1, "grobwidth", "sometext"))
 grid.edit("sometext", label = "Something different")
 @
 
-One issue in the evaluation of \code{"grobwidth"} units involves
-establishing the correct ``context'' for a \grob{} when determining its width
-(if a \grob{} has a viewport in its \code{vp} slot then that viewport gets
-pushed before the \grob{} is drawn;  that viewport should also be pushed
-when determining the width
-of the \grob{}).
-To achieve this there are
-\code{preDrawDetails()},  \code{drawDetails()}, and \code{postDrawDetails()}
-generic functions.
-(suggestions for better names welcome!).  The idea is that
-pushing and popping of viewports should occur in the \code{pre} and
-\code{post} generics, and any actual drawing happens in the main
-\code{drawDetails()} generic.  This allows the code that calculates a
-\grob{} width to call the \code{preDrawDetails()} in order to establish
-the context in which the \grob{} would be drawn before calculating its
-width.  The following example shows a test case;  a \grob{} is created
-(extending to a new class to allow specific methods to be written),
-and methods are provided which establish a particular context
-for drawing the \grob{}.  These methods are used both in the drawing
-of the \grob{} and in the calculation of the \grob{}'s width (when
-drawing a bounding rectangle).
+A subtle issue in evaluating \code{"grobwidth"} units involves
+establishing the correct graphical context for a \grob{} when
+determining its width (if a \grob{} has a viewport in its \code{vp}
+slot, that viewport is pushed before the \grob{} is drawn; the same
+viewport should be pushed when calculating the \grob{}'s width). To
+accomplish this, the generic functions \code{preDrawDetails()},
+\code{drawDetails()}, and \code{postDrawDetails()} are provided
+(suggestions for better names are welcome). The intent is that pushing
+and popping of viewports should occur within the \code{pre} and
+\code{post} generics, while the actual drawing takes place in the main
+\code{drawDetails()} generic. This design allows the code that
+computes a \grob{}'s width to call \code{preDrawDetails()} to
+establish the drawing context before performing the calculation. The
+following example presents a test case: a \grob{} is created (by
+extending a new class to permit specific method definitions), and
+methods are provided that set up a particular drawing context for the
+\grob{}. These methods are employed both when drawing the \grob{} and
+when calculating its width (when drawing a bounding rectangle).
 
 <<results=hide>>=
 grid.newpage()
@@ -180,18 +175,18 @@ grid.rect(width = unit(1, "grobwidth", mygrob))
 
 This next example shows a slightly different test case where the
 standard \code{preDrawDetails()} and \code{postDrawDetails()} methods
-are used, but the \grob{} does have a \code{vp} slot so these methods
-do something.  Another interesting feature of this example is the
-slightly more complex \gTree{} that is created.  The \gTree{} has a
-\code{childrenvp} specified.  When the \gTree{} is drawn, this
-viewport is pushed and then ``up''ed before the children of the
-\gTree{} are drawn.  This means that the children of the \gTree{} can
-specify a \code{vpPath} to the viewport they should be in.  This
-allows the parent \gTree{} to create a suite of viewports and then
-children of the \gTree{} select which one they want -- this can be
-more efficient than having each child push and pop the viewports it
-needs, especially if several children are drawn within the same
-viewport.  Another, more realistic example of this is given later.
+are used, but the \grob{} does possess a \code{vp} slot so these
+methods perform meaningful work. Another interesting aspect of this
+example is the somewhat more complex \gTree{} that is created. The
+\gTree{} includes a \code{childrenvp} specification. When the
+\gTree{} is drawn, this viewport is pushed and then ``up''ed before
+the children of the \gTree{} are drawn. Consequently, the children of
+the \gTree{} can specify a \code{vpPath} to the viewport they should
+occupy. This enables the parent \gTree{} to create a collection of
+viewports, after which its children select which one to use—a more
+efficient arrangement than having each child push and pop its required
+viewports, especially when several children are drawn within the same
+viewport. A more realistic example of this pattern is presented later.
 
 <<results=hide>>=
 grid.newpage()
@@ -209,9 +204,9 @@ grid.rect(width = unit(1, "grobwidth", mygtree))
 @
 
 Constructing a description of a \code{frame} \grob{} must be
-done via \code{packGrob()} and \code{placeGrob()}.  The following example
-shows the construction of a simple frame consisting of two
-equal-size columns.
+performed via \code{packGrob()} and \code{placeGrob()}. The following
+example illustrates the construction of a simple frame consisting of
+two equal‑sized columns.
 
 <<results = hide>>=
 grid.newpage()
@@ -221,7 +216,8 @@ fg <- placeGrob(fg, rectGrob(), col = 2)
 grid.draw(fg)
 @
 
-This next example constructs a slightly fancier frame using packing.
+This next example constructs a slightly more elaborate frame using
+packing.
 
 <<results=hide>>=
 grid.newpage()
@@ -242,14 +238,14 @@ fg <- packGrob(fg, rectGrob(), side = "right", width = unit(1, "null"))
 drawIt(2, 2)
 @
 
-In order to allow frames to update when the objects packed within them
-are modified, there is a \code{dynamic} argument to \code{packGrob()}
-(and \code{grid.pack()}).  The following extends the previous example
-to show how this might be used.  Another feature of this example is
-the demonstration of ``non-strict'' searching that occurs in the
-\code{grid.edit()} call; the \grob{} called \code{"midtext"} is not at
-the top-level, but is still found.  Something like
-\code{grid.get("midtext", strict = TRUE)} would fail.
+To allow frames to update when the objects packed within them are
+modified, the \code{packGrob()} function (and \code{grid.pack()})
+accepts a \code{dynamic} argument. The following extends the previous
+example to demonstrate this capability. Another feature illustrated is
+the ``non‑strict'' searching employed by the \code{grid.edit()} call;
+the \grob{} named \code{"midtext"} is not at the top level but is
+nevertheless located. A call such as \code{grid.get("midtext", strict
+  = TRUE)} would fail.
 
 <<results=hide>>=
 grid.newpage()
@@ -263,26 +259,24 @@ grid.draw(fg)
 grid.edit("midtext", label = "something much longer")
 @
 
-There have been a few examples already which have involved creating a
-\gTree{}.  This next example explicitly demonstrates this technique.
-A \gTree{} is created with two important components.  The
-\code{childrenvp} is a \code{vpTree} consisting of a
-\code{"plotRegion"} viewport to provide margins around a plot and a
-\code{"dataRegion"} viewport to provide x- and y-scales.  The
-\code{"dataRegion"} gets pushed within the \code{"plotRegion"} and
-both are pushed and then ``up''ed before the children are drawn.  The
-\code{children} of the \gTree{} are an \code{xaxis} and a \code{yaxis}
-both drawn within the \code{"dataRegion"}, and a \code{rect} drawn
-around the border of the \code{"plotRegion"}.  A further feature of
-this example is the use of the \code{addGrob()} and
-\code{removeGrob()} functions to modify the \gTree{}.  The first
-modification involves adding a new child to the \gTree{} which is a
-set of points drawn within the \code{"dataRegion"}.  The second
-modification involves adding another set of points with a different
-symbol (NOTE that this second set of points is given a name so that it
-is easy to identify this set amongst the children of the \gTree{}).
-The final modification is to remove the second set of points from the
-\gTree{}.
+Several previous examples have involved creating a \gTree{}. The next
+example explicitly demonstrates this technique. A \gTree{} is created
+with two important components. The \code{childrenvp} is a
+\code{vpTree} consisting of a \code{"plotRegion"} viewport to provide
+margins around a plot and a \code{"dataRegion"} viewport to define
+x‑ and y‑scales. The \code{"dataRegion"} is pushed within the
+\code{"plotRegion"}, and both are pushed and then ``up''ed before the
+children are drawn. The \code{children} of the \gTree{} are an
+\code{xaxis} and a \code{yaxis} both drawn within the
+\code{"dataRegion"}, and a \code{rect} drawn around the border of the
+\code{"plotRegion"}. A further aspect of this example is the use of
+\code{addGrob()} and \code{removeGrob()} to modify the \gTree{}. The
+first modification adds a new child to the \gTree{}: a set of points
+drawn within the \code{"dataRegion"}. The second modification adds
+another set of points with a different plotting symbol (note that this
+second set is given a name to facilitate later identification among
+the children of the \gTree{}). The final modification removes the
+second set of points from the \gTree{}.
 
 <<results=hide>>=
 grid.newpage()
@@ -311,9 +305,9 @@ gplot <- removeGrob(gplot, "data1")
 drawIt(2, 2)
 @
 
-This next example provides a simple demonstration of saving and
-loading \grid{} \grob{}s.  It is also a nice demonstration that
-\grob{}s copy like normal \R{} objects.
+The next example provides a simple demonstration of saving and loading
+\grid{} \grob{}s. It also serves as a reminder that \grob{}s are
+copied like ordinary \R{} objects.
 
 <<results=hide>>=
 gplot <- gTree(x = NULL, y = NULL,
@@ -339,13 +333,13 @@ grid.draw(gplot)
 popViewport()
 @
 
-This next example just demonstrates that it is possible to use a
-\gPath{} to access the children of a \gTree{} when editing.  This is
-the \code{editGrob()} equivalent of an earlier example that used
-\code{grid.edit()}.  One useful application of this API is the ability
-to modify the appearance of quite precise elements of a large, complex
-graphical object by editing the \code{gp} slot of a child (of a child
-\ldots{}) of a \gTree{}.
+This next example demonstrates that a \gPath{} can be used to access
+the children of a \gTree{} when editing. This is the \code{editGrob()}
+equivalent of an earlier example that used \code{grid.edit()}. One
+useful application of this API is the ability to modify the appearance
+of very specific elements within a large, complex graphical object by
+editing the \code{gp} slot of a child (or a descendant) of a
+\gTree{}.
 
 <<results = hide>>=
 myplot <- gTree(name = "myplot",
@@ -358,11 +352,10 @@ myplot <- editGrob(myplot, gPath = "xaxis::labels", y = unit(-1, "lines"))
 grid.newpage()
 pushViewport(viewport(w = .5, h = .5))
 grid.draw(myplot)
-
 @
-The following example demonstrates
-the use of the \code{getGrob()} and \code{grid.get()} (along with
-\gPath{}s) to access \grob{}s.
+
+The following example illustrates the use of \code{getGrob()} and
+\code{grid.get()} (along with \gPath{}s) to retrieve \grob{}s.
 
 <<results = hide>>=
 myplot <- gTree(name = "myplot",
@@ -380,10 +373,10 @@ grid.get("myplot::xaxis")
 grid.get("myplot::xaxis::labels")
 @
 
-There is also an API for (re)setting children of a \gTree{}
-or any drawn \grob{}.  This is not intended for general user use,
-but provides a simple way for developers to perform modifications
-to the structure of a \gTree{} by doing something like \ldots{}
+An additional API exists for (re)setting children of a \gTree{} or any
+drawn \grob{}. This is not intended for general user use, but provides
+a straightforward mechanism for developers to modify the structure of
+a \gTree{} by performing steps such as:
 
 \begin{verbatim}
 grob <- getGrob(<spec>)
@@ -391,12 +384,11 @@ grob <- getGrob(<spec>)
 setGrob(<spec>, grob)
 \end{verbatim}
 
-This approach is used in the implementation of packing and placing grobs.
-The following example shows some simple usage of the
-\code{setGrob()} and \code{grid.set()} functions to replace
-children of a \gTree{} with different \grob{}s.  NOTE that currently
-such replacement can only occur if the name of the new \grob{}
-is the same as the name of the old \grob{}.
+This approach is employed in the implementation of packing and placing
+grobs. The example below shows simple usage of the \code{setGrob()}
+and \code{grid.set()} functions to replace children of a \gTree{}
+with different \grob{}s. Note that currently such replacement is only
+permitted if the new \grob{} has the same name as the old \grob{}.
 
 <<results=hide>>=
 myplot <- gTree(name = "myplot",
@@ -417,20 +409,19 @@ pushViewport(viewport(w = .5, h = .5))
 grid.draw(myplot)
 @
 
-This next example just shows more complex use of the add/remove
-facilities for modifying \grob{}s.  Again, \code{addGrob()} and
+The next example illustrates more complex use of the add/remove
+facilities for modifying \grob{}s. Again, \code{addGrob()} and
 \code{removeGrob()} are for constructing descriptions of graphical
-objects and \code{grid.add()} and \code{grid.remove()} are for
-modifying drawn output.  Of particular note are the last two lines
-involving \code{grid.remove()}.  The first point is that there are
-multiple \grob{}s on the display list with the same name.  The example
-only affects the first one it finds; this could easily be extended to
-affect the display list ``globally'' (for children of \gTree{}s, there
-cannot be multiple children with the same name so the issue does not
-arise).  The last line is interesting because it actually erases the
-\grob{} named \code{"plot1"} from the display list altogether (well,
-the first instance on the display list of a \grob{} called
-\code{"plot1"} anyway).
+objects, while \code{grid.add()} and \code{grid.remove()} modify drawn
+output. Of particular note are the last two lines involving
+\code{grid.remove()}. First, there are multiple \grob{}s on the
+display list with the same name; the example affects only the first
+one encountered. This behavior could be extended to affect the display
+list ``globally'' (for children of \gTree{}s, duplicate names are not
+allowed, so the issue does not arise). The final line is interesting
+because it entirely removes the \grob{} named \code{"plot1"} from the
+display list (or, more precisely, the first instance of a \grob{}
+called \code{"plot1"} on the display list).
 
 <<results=hide>>=
 drawIt <- function(row, col) {
@@ -466,10 +457,10 @@ grid.remove("plot1::data1")
 grid.remove("plot1")
 @
 
-The next example is just a \code{grid.place()} and \code{grid.pack()}
-equivalent of an earlier example involving
-\code{placeGrob()} and \code{packGrob()}.  The interesting feature is
-that each action is reflected in the output as it occurs.
+The next example provides a \code{grid.place()} and
+\code{grid.pack()} equivalent of an earlier example that used
+\code{placeGrob()} and \code{packGrob()}. The notable feature is that
+each action is immediately reflected in the output as it occurs.
 
 <<results=hide>>=
 grid.newpage()
@@ -484,6 +475,3 @@ grid.pack("frame2", textGrob("Hello again"), side = "right")
 grid.pack("frame2", rectGrob(), side = "right", width = unit(1, "null"))
 @
 \end{document}
-
-
-

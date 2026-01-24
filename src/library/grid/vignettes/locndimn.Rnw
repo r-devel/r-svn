@@ -28,31 +28,32 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-\grid{} makes use of unit objects to express both the locations and
-dimensions of graphical components.  For example, the \code{grid.rect()}
-function treats its x- and y-arguments as locations within the current
-viewport, and its width- and height-arguments as dimensions within the
-current viewport.
 
-These different interpretations of units are usually implicit like this;
-if its an x- or y-value then its a location, if its a width- or height-value
-then its a dimension.
+\grid{} employs unit objects to express both the positions and the
+sizes of graphical components. For instance, the \code{grid.rect()}
+function interprets its \code{x} and \code{y} arguments as locations
+within the current viewport, while its \code{width} and \code{height}
+arguments are treated as dimensions within the same viewport.
 
-The distinction is made at all because, in some coordinate systems, notably
-\code{"native"} coordinates, the location $x$ can have a very different
-meaning
-from the dimension $x$ -- basically, whenever the minimum value of the
-coordinate system is not zero.
+This distinction between locations and dimensions is typically implicit:
+if a value is associated with an \code{x} or \code{y} parameter, it is
+regarded as a location; if it is associated with a \code{width} or
+\code{height} parameter, it is considered a dimension.
 
-In the specification of simple units, the difference between locations
-and dimensions is often not noticeable.  However, there are a couple
-of tricky areas:
+The distinction is necessary because, in certain coordinate systems—notably
+\code{"native"} coordinates—the location $x$ can have a substantially
+different meaning from the dimension $x$. This occurs whenever the
+minimum value of the coordinate system is not zero.
+
+In the specification of simple units, the difference between locations and
+dimensions is often inconspicuous. However, there are a few subtle areas
+where the distinction becomes important:
 
 \begin{enumerate}
-\item When adding (or performing any arithmetic operation on) units,
-it is important to keep in mind that locations are added like vectors
-and dimensions are added like lengths.  The following
-diagram demonstrates the difference:
+\item When adding (or performing other arithmetic operations on) units,
+it is crucial to remember that locations are added as vectors, whereas
+dimensions are added as lengths. The following diagram illustrates this
+difference:
 
 <<fig=TRUE, echo=FALSE, results=hide>>=
 diagram.locn <- function(i, n, locn) {
@@ -96,13 +97,12 @@ diagram.dimn(9, n, unit(1, "native") + unit(-0.4, "native"))
 diagram.dimn(10, n, unit(1, "native") - unit(0.4, "native"))
 @
 \item The functions \code{convertX},
-\code{convertY}, \code{convertWidth}, \code{convertHeight}
-  are used to convert from one coordinate system to another.
-Again, it is important whether the conversion is for a location or
-for a dimension.
-The following code
-demonstrates some results from these functions based on a similar
-situation to that in the preceding diagram:
+\code{convertY}, \code{convertWidth}, and \code{convertHeight}
+are used to translate units from one coordinate system to another.
+Again, it is important to distinguish whether the conversion pertains
+to a location or to a dimension.
+The following code demonstrates results from these functions under a
+setting similar to that in the preceding diagram:
 
 <<fig=FALSE>>=
 pushViewport(viewport(yscale = c(-0.6, 1.3)))

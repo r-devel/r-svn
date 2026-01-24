@@ -28,17 +28,17 @@ ps.options(pointsize = 12)
 options(width = 60)
 @
 
-Many graphics systems have the notion of a current drawing location.
-This has been added to Grid, with the additional benefit that the
-drawing location can be specified relative to an arbitrary viewport.
-This allows drawing across coordinate
-systems\footnote{There was a request on R-help for exactly this
-sort of thing - I will try to find the exact reference - and there has
-since been another (From: Ross Darnell; Subject: Problems with
-segments and multiple graphs). }.
+Many graphics systems maintain a concept of a current drawing location.
+This concept has been incorporated into Grid, with the additional
+advantage that the drawing location may be specified relative to an
+arbitrary viewport. This capability facilitates drawing across
+different coordinate systems\footnote{An early request on R-help
+  specifically asked for such functionality, and subsequent requests
+  have reiterated the need (e.g., from Ross Darnell concerning
+  problems with segments and multiple graphs).}.
 
-The following code demonstrates a simple example (the output is
-given after the code).
+The following code presents a straightforward example (the resulting
+output appears after the code).
 
 <<fig, results=hide, fig=TRUE, width=5, height=4, include=FALSE>>=
 pushViewport(
@@ -61,9 +61,4 @@ grid.line.to(0.5, unit(2,"native"))
 \includegraphics[width=5in, height=4in]{moveline-fig}
 }
 \end{center}
-
-@
 \end{document}
-
-
-

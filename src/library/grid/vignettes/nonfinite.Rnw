@@ -29,19 +29,18 @@ ps.options(pointsize = 12)
 options(width = 60)
 @
 
-It is possible to include non-finite values, \code{NA}, \code{NaN},
-\code{Inf}, and \code{-Inf}, in specifications of locations and sizes in
-\grid{} functions.  This document describes how \grid{} responds to
-non-finite values in different cases.
+It is possible to include non‑finite values—\code{NA}, \code{NaN},
+\code{Inf}, and \code{-Inf}—in the specifications of locations and
+sizes within \grid{} functions. This document describes the manner in
+which \grid{} responds to such non‑finite values in various contexts.
 
 \textbf{viewports} {~} \\
-Non-finite values are not permitted in the location, size, or
-scales of a viewport.  Viewport scales are checked
-when a viewport is created.  It is very hard to be certain that
-locations and sizes are not non-finite when the viewport is created
-so this is only checked
-when the viewport is pushed.
-Non-finite values result in error messages.
+Non‑finite values are not permitted in the location, size, or
+scales of a viewport. Viewport scales are validated when a viewport is
+created. It is difficult to guarantee that locations and sizes are free
+of non‑finite values at the time of viewport creation; consequently,
+these are only checked when the viewport is pushed onto the device.
+The presence of non‑finite values results in error messages.
 
 \textbf{lines},
 \textbf{segments},
@@ -49,11 +48,11 @@ Non-finite values result in error messages.
 \textbf{text},
 \textbf{points},
 \textbf{circles} {~} \\
-For all of these primitives, non-finite values for locations or
-sizes result in the corresponding primitive not being drawn.
-The following image provides a simple demonstration.  Each primitive
-is drawn at seven x-locations, with the fourth location made non-finite
- (as indicated by a grey \code{"NA"}).
+For all of these graphical primitives, non‑finite values for locations
+or sizes cause the corresponding primitive to be omitted from the
+output. The following image provides a simple demonstration. Each
+primitive is drawn at seven x‑locations, with the fourth location set
+to a non‑finite value (indicated by a grey \code{"NA"} label).
 
 <<prim1, echo=FALSE, fig=TRUE, results=hide, width=4, height=2, include=FALSE>>=
 pushViewport(viewport(layout = grid.layout(1, 2,
@@ -82,24 +81,24 @@ popViewport(2)
 \newpage
 
 \textbf{\I{lineTo}} {~} \\
-A line segment is only drawn if the previous location and the
-new location are both not non-finite.
+A line segment is drawn only if both the previous location and the
+new location are not non‑finite.
 
 \textbf{polygon} {~} \\
-A non-finite value breaks the polygon into two separate polygons.
-NOTE that this break happens within the current polygon as specified
-by the \code{id} argument.  All polygons with the same \code{id}
-receive the same \code{gp} settings.
+A non‑finite value splits the polygon into two separate polygons.
+Note that this division occurs within the current polygon as defined
+by the \code{id} argument. All polygons sharing the same \code{id}
+receive identical \code{gp} settings.
 
 \textbf{arrows} {~} \\
-An arrow head is only drawn if the first or last line segment is
-drawn.
+An arrowhead is drawn only if the first or last line segment of the
+arrow is drawn.
 
-The following image demonstrates the behaviour of these primitives
-where x- and y-locations are seven equally-spaced locations around
-the perimeter of a circle.  In the top-left figure, all locations
-are not non-finite.  In each of the other figures, two locations have
-been made non-finite (indicated in each case by grey text).
+The following image illustrates the behavior of these primitives
+when x‑ and y‑locations are specified as seven equally‑spaced points
+around the perimeter of a circle. In the top‑left figure, all locations
+are finite. In each of the other figures, two locations have been set
+to non‑finite values (indicated in each case by grey text).
 
 <<prim2, echo=FALSE, fig=TRUE, results=hide, include=FALSE>>=
 n <- 7
@@ -141,4 +140,3 @@ popViewport()
 \vspace{.5in}
 \includegraphics{nonfinite-prim2}
 \end{document}
-

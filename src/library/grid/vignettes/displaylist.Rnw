@@ -34,58 +34,62 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-A display list is a record of drawing operations.  It is used
-to redraw graphics output when a graphics window is resized,
-when graphics output is copied from one device to another, and
-when graphics output is edited (via \code{grid.edit}).
 
-There are two display lists that can be used when working with
-\grid{}.  \R{}'s graphics engine maintains a display list and
-\grid{} maintains its own display list.  The former is maintained at
-the C code level and records both base graphics output and
-\grid{} graphics output.  The latter is maintained at the
-R code level and only records \grid{} output.
+A display list is a data structure that records a sequence of drawing
+operations. It serves several purposes within the \R{} graphics system:
+redrawing graphical output when a graphics window is resized,
+transferring graphics output from one device to another, and supporting
+the editing of graphical output (for example, via \code{grid.edit}).
 
-In standard usage,
-the graphics engine's display list is used to redraw when a window
-is resized and when copying between devices.  \grid{}'s display list
-is used for redrawing when editing \grid{} output.
+When working with the \grid{} graphics system, two distinct display
+lists may be involved. \R{}'s core graphics engine maintains its own
+display list, while \grid{} maintains a separate display list at a
+higher level. The graphics engine's display list is implemented in C
+and records both base graphics and \grid{} graphics output. The
+\grid{} display list is maintained at the \R{} level and exclusively
+records \grid{} graphical objects (grobs) and their associated
+operations.
 
-There are two main problems with this standard usage:
+Under standard operating conditions, the graphics engine's display
+list handles redrawing when a window is resized and when copying
+between devices. The \grid{} display list is employed when redrawing
+is required during editing operations on \grid{} output.
+
+Two principal limitations arise from this standard arrangement:
+
 \begin{enumerate}
-\item The graphics engine display list only records graphics output;
-none of the calculations leading up to producing the output are
-recorded.  This particularly impacts on plots which perform calculations
-based on the physical dimensions of the device -- an example is
-the legend function which performs calculations in order to
-arrange the elements of the legend.  The effect can be seen from
-any example which uses the legend function.  Try running
-\code{example(legend)} then resize the device (make it quite
-tall and thin or quite wide and fat);  the legend will start
-to look pretty sick.
+\item The graphics engine display list records only the final graphical
+output; it does not preserve the computational steps that produced that
+output. This deficiency particularly affects plots that perform
+calculations based on the physical dimensions of the graphics device.
+A prominent example is the \code{legend()} function, which computes
+the layout of legend components. The consequence becomes apparent when
+any plot employing \code{legend()} is resized; the legend arrangement
+often becomes distorted.
 
-{\bf NOTE:} that this is a problem with the graphics engine display
-list -- it is not specific to \grid{}.  In fact, much of \grid{}'s
-behaviour is protected from this problem because things like \grid{}
-units are ``declarative'' and will be re-evaluated on each redraw.
-However, there are situations where \grid{} output can be afflicted,
-in particular, whenever the \code{convertUnit()} function (or one of
-its variants) is used (the help file for \code{convertUnit()} gives an
-example).
+\textbf{NOTE:} This issue is inherent to the graphics engine display
+list and is not specific to \grid{}. Indeed, much of \grid{}'s design
+mitigates this problem because constructs like \grid{} units are
+declarative and are re-evaluated on each redraw. However, situations
+exist where \grid{} output can be affected, particularly when the
+\code{convertUnit()} function (or its variants) is employed (the help
+file for \code{convertUnit()} provides an illustrative example).
 
-A situation where this problem becomes very relevant for
-\grid{} output is when the \gridBase{} package is used.
-This is a situation where lots of calculations are performed
-in order to align base and grid output, but these calculations
-are not recorded on the graphics engine display list, so
-if the device is resized the output will become very yukky.
+This problem becomes especially relevant for \grid{} output when the
+\gridBase{} package is used. That package performs numerous
+calculations to align base and \grid{} graphics, but these
+calculations are not captured by the graphics engine display list.
+Consequently, resizing the device typically results in misaligned
+output.
 
-\item \grid{}'s display list does not record base graphics
-output\footnote{This is not quite true;  it is possible
-to include base graphics output on the \grid{} display list
-as we will see later.} so if both base and \grid{} output appear
-on the same device then the result of editing will not redraw the
-base output.  The following code provides a simple example:
+\item The \grid{} display list does not, by default, record base
+graphics output\footnote{This statement is not entirely accurate; as
+  will be demonstrated later, it is possible to incorporate base
+  graphics output into the \grid{} display list.}. Therefore, if a
+device contains a mixture of base and \grid{} graphics, editing
+operations that trigger a redraw via the \grid{} display list will
+not redraw the base graphics components. The following code provides a
+simple demonstration:
 
 <<guts1, eval=FALSE>>=
 plot(1:10)
@@ -107,40 +111,40 @@ grid.edit("gr", gp = gpar(col = "red", lwd = 3))
 @
 \includegraphics[width=4in, height=3in]{displaylist-ex2}
 
-After the \code{grid.edit}, the rectangle has been redrawn, but the
-base plot has not.
+After executing \code{grid.edit}, the rectangle has been redrawn with
+the new graphical parameters, but the underlying base plot has not
+been redrawn.
 \end{enumerate}
 
-\section*{Saving calculations on the graphics engine display list\\
-and saving base graphics on the \grid{} display list}
+\section*{Preserving calculations in the graphics engine display list\\
+and incorporating base graphics into the \grid{} display list}
 
-Both of the problems described in the previous section can be
-avoided by using a \code{drawDetails()} method in \grid{}.
-When a \grid{} grob is drawn, the \code{drawDetails} method
-for that grob is called;  if calculations are put within
-a \code{drawDetails} method, then the calculations will be
-performed every time the grob is drawn.
+Both limitations described above can be addressed through the use of a
+\code{drawDetails()} method within the \grid{} system. When a \grid{}
+graphical object (grob) is drawn, its corresponding \code{drawDetails}
+method is invoked. If computational steps are placed within such a
+method, those calculations will be performed anew each time the grob
+is drawn.
 
-This means that it is possible, for example, to use \code{convertUnit()}
-and have the result consistent across device resizes or
-copies\footnote{In
-each of the examples that follow, you should execute the example
-code, resize the device to see any inconsistency, then close the
-device before trying the next example.}.
-This next piece of code is an example where the output becomes
-inconsistent when the device is resized.  We specify a width for
-the rectangle in inches, but convert it (gratuitously) to
-\abbr{NPC} coordinates -- when the device is resized, the \abbr{NPC} coordinates
-will no longer correspond to 1''.
+This approach makes it feasible, for example, to use
+\code{convertUnit()} and obtain consistent results across device
+resizes or copy operations\footnote{In the following examples, you
+  should execute the code, resize the device to observe potential
+  inconsistencies, then close the device before proceeding to the next
+  example.}. The following code snippet demonstrates a case where
+output becomes inconsistent upon device resizing. We specify a
+rectangle width in inches, then (somewhat gratuitously) convert it to
+normalized parent coordinates (\abbr{NPC}). Upon resizing, the \abbr{NPC}
+coordinates will no longer correspond to the original one-inch
+dimension.
 
 <<results=hide>>=
 grid.rect(width = convertWidth(unit(1, "inches"), "npc"))
 @
 
-The next piece of code demonstrates that, if we
-place the calculations within a \code{drawDetails} method, then
-the output remains consistent across device resizes and
-copies.
+The subsequent code illustrates that by encapsulating the calculations
+within a \code{drawDetails} method, the output remains consistent
+across device resizes and copy operations.
 
 <<results=hide>>=
 drawDetails.myrect <- function(x, recording) {
@@ -151,15 +155,16 @@ grid.draw(grob(cl = "myrect"))
 @
 
 The next example shows that a \code{drawDetails()} method can also be
-used to save base graphics output on the \grid{} display list.  This
-example uses \gridBase{} to combine base and \grid{} graphics output.
-Here I replicate the last example from the \gridBase{} vignette -- a
-set of base pie charts within \grid{} viewports within a base plot.
-In this case, I can produce all of the grobs required in the normal
-manner -- their locations and sizes are not based on special
-calculations\footnote{The example is wrapped inside a check for
-  whether the \CRANpkg{gridBase} package is installed so that the code
-  will still ``run'' on systems without \CRANpkg{gridBase}.}.
+utilized to embed base graphics output within the \grid{} display
+list. This example employs the \gridBase{} package to combine base and
+\grid{} graphics. We replicate the final example from the \gridBase{}
+vignette, which places a series of base pie charts within \grid{}
+viewports that are themselves positioned within a base plot. In this
+instance, the necessary grobs can be created in the usual manner,
+because their locations and sizes are not derived from specialized
+calculations\footnote{The example includes a check for the presence of
+  the \CRANpkg{gridBase} package to ensure the code remains executable
+  on systems where the package is not installed.}.
 
 <<results=hide>>=
 x <- c(0.88, 1.00, 0.67, 0.34)
@@ -179,10 +184,11 @@ gs <- segmentsGrob(x0 = unit(c(rep(0, 4), x),
                    gp = gpar(lty = "dashed", col = "grey"))
 gr <- rectGrob(gp = gpar(col = "grey", fill = "white", lty = "dashed"))
 @
-What is important is that I place the calls to the \gridBase{} functions
-within the  \code{drawDetails} method so that they are performed
-every time the grob is drawn {\em and} the calls to the base graphics
-functions are in here too so that they are called for every redraw.
+The crucial aspect is that calls to \gridBase{} functions, along with
+the calls to base graphics functions, are placed inside the
+\code{drawDetails} method. Consequently, these operations are executed
+every time the grob is drawn, ensuring that base graphics output is
+reproduced during each redraw.
 
 <<results=hide>>=
 drawDetails.pieplot <- function(x, recording) {
@@ -204,12 +210,13 @@ drawDetails.pieplot <- function(x, recording) {
     popViewport(3, recording = FALSE)
 }
 @
-The ``pie plot'' is created by assembling the component grobs
-into a collective grob of the appropriate class; the \code{drawDetails}
-method takes care of actually producing the output.
+The ``pie plot'' is constructed by assembling the component grobs into
+a composite grob of an appropriate custom class; the
+\code{drawDetails} method is responsible for generating the actual
+graphical output.
 
-% produce figure, but don't include
-% (to avoid par setting contamination between code segments)
+% Generate the figure, but do not include it in the document
+% (to prevent contamination of par settings between code segments)
 
 <<results=hide, fig=TRUE, width=6, height=6, include=FALSE>>=
 if (suppressWarnings(require("gridBase", quietly = TRUE))) {
@@ -219,18 +226,19 @@ grid.draw(grob(x = x, y = y, z = z,
 }
 @
 
-The output from this example can be resized safely; \grid{} handles
-all of the redrawing, and performs all of the actions within the
-\code{drawDetails} method for each redraw, including redrawing the
-base graphics output!
+The output from this example can be safely resized; \grid{} manages
+all redrawing, executing every action within the \code{drawDetails}
+method during each redraw, including the reproduction of the base
+graphics components.
 
-As a final example, we will harness the \grid{} display list purely to
-achieve consistency in base graphics output.  The following reproduces
-the last example from the \code{legend()} help page, but produces
-output which can be resized without the legend going crazy.
+As a final illustration, we harness the \grid{} display list solely to
+achieve consistent rendering of base graphics output. The following
+reproduces the last example from the \code{legend()} help page, but
+produces output that remains correctly proportioned when the device is
+resized.
 
-% produce figure, but don't include
-% (to avoid par setting contamination between code segments)
+% Generate the figure, but do not include it in the document
+% (to prevent contamination of par settings between code segments)
 
 <<results=hide, fig=TRUE, include=FALSE>>=
 drawDetails.mylegend <- function(x, recording) {
@@ -244,4 +252,3 @@ drawDetails.mylegend <- function(x, recording) {
 grid.draw(grob(cl = "mylegend"))
 @
 \end{document}
-
