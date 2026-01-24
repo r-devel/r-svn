@@ -15,6 +15,7 @@
 \setlength{\parskip}{.1in}
 \setlength{\textwidth}{140mm}
 \setlength{\oddsidemargin}{10mm}
+%\VignetteEncoding{UTF-8}
 
 \title{A GUI-Builder Approach to \grid{} Graphics}
 \author{Paul Murrell}
