@@ -360,7 +360,14 @@ function(x, incomparables = FALSE, ...)
 format.numeric_version <-
 function(x, ...)
 {
-    attr(x, "source")
+    attr <- attr(x, "source")
+    if (!is.null(attr)) {
+        return(attr)
+    }
+    names(y) <- names(x)
+    ind <- lengths(x) > 0L
+    y[ind] <- unlist(lapply(x[ind], paste, collapse = "."))
+    y
 }
 
 is.na.numeric_version <-
