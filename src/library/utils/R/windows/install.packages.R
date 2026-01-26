@@ -281,12 +281,11 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
                     unpackPkgZip(foundpkgs[okp, 2L], foundpkgs[okp, 1L],
                                  lib, libs_only, lock)
             }
+            if(!quiet && sum(oklib)){
+                cat("\n", gettextf("Successfully installed %d binary packages in\n\t%s", 
+                    sum(oklib), normalizePath(lib, mustWork = FALSE)), "\n", sep = "")
+            }
         }
-        if(!quiet && !is.null(tmpd) && is.null(destdir))
-            ## tends to be a long path on Windows
-            cat("\n", gettextf("The downloaded binary packages are in\n\t%s",
-                               normalizePath(tmpd, mustWork = FALSE)),
-                "\n", sep = "")
     } else if(!is.null(tmpd) && is.null(destdir)) unlink(tmpd, recursive = TRUE)
 
     invisible()
