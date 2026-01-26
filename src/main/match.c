@@ -547,6 +547,7 @@ patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
 	        patchArgument(b, TAG(f), NULL, cloenv);
 
 	    SET_ARGUSED(b, 1);
+            SET_TAG(b, TAG(f));
 	    b = CDR(b);
 	    f = CDR(f);
 	    farg_i++;
