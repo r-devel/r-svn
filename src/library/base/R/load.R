@@ -123,7 +123,7 @@ save <- function(..., list = character(),
 	}
 	else if (inherits(file, "connection"))
 	    con <- file
-	else stop("bad file argument")
+	else stop("bad 'file' argument")
 	if(isOpen(con) && !ascii && summary(con)$text != "binary")
 	    stop("can only save to a binary connection")
 	.Internal(saveToConn(list, con, ascii, version, envir, eval.promises))

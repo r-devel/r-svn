@@ -49,7 +49,7 @@ eigen <- function(x, symmetric, only.values = FALSE, EISPACK = FALSE)
     if (n != ncol(x)) stop("non-square matrix in 'eigen'")
     if (!n) stop("0 x 0 matrix")
     n <- as.integer(n)
-    if(is.na(n)) stop("invalid nrow(x)")
+    if(is.na(n)) stop(gettextf("invalid %s", "nrow(x)"), domain=NA)
 
     complex.x <- is.complex(x)
     if (!all(is.finite(x))) stop("infinite or missing values in 'x'")
