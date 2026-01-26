@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "post-checkout: Updating SVNINFO"
+./.github/scripts/svn-info.sh > SVNINFO
+
