@@ -1,13 +1,16 @@
+% !TeX encoding = UTF-8
+% !TeX spellcheck = en
 % File src/library/utils/vignettes/Sweave.Rnw
 % Part of the R package, https://www.R-project.org
-% Copyright 2002-2022 Friedrich Leisch and the R Core Team
+% Copyright 2002–2026 Friedrich Leisch and the R Core Team
 % Distributed under GPL 2 or later
 
 \documentclass[a4paper]{article}
 
-%\VignetteIndexEntry{Sweave User Manual}
-%\VignettePackage{utils}
-%\VignetteDepends{tools, datasets, stats, graphics}
+% Vignette metadata
+% \VignetteIndexEntry{Sweave User Manual}
+% \VignettePackage{utils}
+% \VignetteDepends{tools, datasets, stats, graphics}
 
 \title{Sweave User Manual}
 \author{Friedrich Leisch and R Core Team}
@@ -21,18 +24,17 @@
 \usepackage{color}
 \definecolor{Blue}{rgb}{0,0,0.8}
 \hypersetup{%
-colorlinks,%
-plainpages=true,%
-linkcolor=black,%
-citecolor=black,%
-urlcolor=Blue,%
-%pdfstartview=FitH,% or Fit
-pdfstartview={XYZ null null 1},%
-pdfview={XYZ null null null},%
-pdfpagemode=UseNone,% for no outline
-pdfauthor={Friedrich Leisch and R Core Team},%
-pdftitle={Sweave User Manual},%
-pdfsubject={R vignette documentation system}%
+  colorlinks,%
+  plainpages=true,%
+  linkcolor=black,%
+  citecolor=black,%
+  urlcolor=Blue,%
+  pdfstartview={XYZ null null 1},%
+  pdfview={XYZ null null null},%
+  pdfpagemode=UseNone,%
+  pdfauthor={Friedrich Leisch and R Core Team},%
+  pdftitle={Sweave User Manual},%
+  pdfsubject={R vignette documentation system}%
 }
 
 \newcommand{\I}[1]{#1}
@@ -46,102 +48,95 @@ pdfsubject={R vignette documentation system}%
 \section{Introduction}
 \label{sec:intro}
 
-Sweave provides a flexible framework for mixing text and \R{} code for
-automatic document generation. A single source file contains both
-documentation text and \R{} code, which are then \emph{woven} into a
-final document containing
+Sweave provides a framework for mixing text and \R{} code for automatic
+document generation. A single source file contains both documentation
+text and \R{} code, which are then \emph{woven} into a final document
+containing:
 \begin{itemize}
- \item the documentation text together with
- \item the \R{} code and/or
- \item the output of the code (text, graphs)
+ \item the documentation text,
+ \item the \R{} code, and
+ \item the output of the code (text, graphs).
 \end{itemize}
-This allows the re-generation of a report if the input data change and
-documents the code to reproduce the analysis in the same file that
-contains the report. The \R{} code of the complete analysis is embedded
-into a \LaTeX{} document\footnote{\url{https://www.ctan.org}} using the
-\code{noweb} syntax \citep{flm:Ramsey:1998} which is usually used
-for literate programming \citep{fla:Knuth:1984}.  Hence, the full power
-of \LaTeX{} (for high-quality typesetting) and \R{} (for data analysis)
-can be used simultaneously. See \cite{e1071-papers:Leisch:2002} and
-references therein for more general thoughts on dynamic report
-generation and pointers to other systems.
 
-Sweave uses a modular concept using different drivers for the actual
-translations. Obviously different drivers are needed for different
-text markup languages (\LaTeX{}, HTML, \ldots). Several packages on
-CRAN provide support for other word processing systems (see
-Appendix~\ref{sec:faq}).
+This allows reports to be regenerated if input data change, and ensures
+that the code to reproduce the analysis is documented in the same file
+as the report. The \R{} code of the complete analysis is embedded into a
+\LaTeX{} document\footnote{\url{https://www.ctan.org}} using the
+\code{noweb} syntax \citep{ramsey:noweb} commonly used for literate
+programming \citep{knuth:literate:1984}. Hence, the full power of
+\LaTeX{} (for high‑quality typesetting) and \R{} (for data analysis) can
+be used simultaneously. See \cite{leisch:sweave:2002} for more general
+thoughts on dynamic report generation and pointers to related systems.
 
+Sweave uses a modular concept with different drivers for translation.
+Different drivers are needed for different text markup languages
+(\LaTeX{}, HTML, etc.). Several CRAN packages provide support for other
+word‑processing systems (see Appendix~\ref{sec:faq}).
+
+\textbf{Note:} Sweave functionality described here (\Sexpr, chunk reuse,
+syntax definitions) remains valid. However, in practice most modern
+workflows use \pkg{knitr}, which extends Sweave’s ideas with more
+flexibility and integration into R Markdown.
 
 \section{\I{Noweb} files}
 \label{sec:noweb}
 
-\code{noweb} \citep{flm:Ramsey:1998} is a simple
-literate-programming tool which allows combining program source code
-and the corresponding documentation into a single file.  A
-\code{noweb} file is a simple text file which consists of a sequence
-of code and documentation segments, called \emph{chunks}:
+\code{noweb} \citep{ramsey:noweb} is a simple literate‑programming tool
+that allows combining program source code and documentation into a
+single file. A \code{noweb} file consists of a sequence of code and
+documentation segments, called \emph{chunks}:
 \begin{description}
-\item[Documentation chunks] start with a line that has an at sign
-  (\verb|@|) as first character, followed by a space or newline
-  character. The rest of this line is a comment and ignored.
-  Typically documentation chunks will contain text in a markup
-  language like \LaTeX{}.  The chunk continues until a new code or
-  documentation chunk is started: note that Sweave does not interpret
-  the contents of documentation chunks, and so will identify chunk
-  indicators even inside \LaTeX{} verbatim environments.
+\item[Documentation chunks] start with a line beginning with an at sign
+  (\verb|@|), followed by a space or newline. The rest of this line is a
+  comment and ignored. Documentation chunks typically contain text in a
+  markup language like \LaTeX{}. The chunk continues until a new code or
+  documentation chunk is started. Sweave does not interpret the contents
+  of documentation chunks, so chunk indicators are recognized even
+  inside \LaTeX{} verbatim environments.
 
-\item[Code chunks] start with \verb|<<|\code{\var{options}}\verb|>>=| at the beginning of
-  a line; again the rest of the line is a comment and ignored.
+\item[Code chunks] start with \verb|<<|\code{\var{options}}\verb|>>=| at
+  the beginning of a line; the rest of the line is a comment and ignored.
 \end{description}
-The default for the first chunk is documentation.
 
-In the simplest usage of \command{noweb}, the options (if present) of
-the code chunks give the names of source code files, and the tool
-\command{notangle} can be used to extract the code chunks from the
-\code{noweb} file. Multiple code chunks can have the same name, the
-corresponding code chunks are then concatenated when the source code is
-extracted. \command{noweb} has some additional mechanisms to
-cross-reference code chunks (the \verb|[[...]]| operator, etc.),
-Sweave does currently not use nor support these features, so they are
-not described here.
-
+The default for the first chunk is documentation. In the simplest usage
+of \command{noweb}, the options (if present) of code chunks give the
+names of source code files, and the tool \command{notangle} can be used
+to extract the code chunks. Multiple code chunks can share the same
+name, and are concatenated when extracted.
 
 \section{Sweave files}
 \label{sec:sweavefile}
 
 \subsection{A simple example}
+Sweave source files are \code{noweb} files with additional syntax for
+controlling the final output. Traditional \code{noweb} files use the
+extension \file{.nw}, which is also valid for Sweave. Sweave additionally
+recognizes \file{.rnw}, \file{.Rnw}, \file{.snw}, and \file{.Snw}. We
+will use \file{.Rnw} throughout this document.
 
-Sweave source files are \code{noweb} files with some additional
-syntax that allows some additional control over the final
-output. Traditional \code{noweb} files have the extension
-\file{.nw}, which is also fine for Sweave files (and fully supported
-by the software). Additionally, Sweave currently recognizes files with
-extensions \file{.rnw}, \file{.Rnw}, \file{.snw} and
-\file{.Snw} to directly indicate a \code{noweb} file with Sweave
-extensions. We will use \file{.Rnw} throughout this document.
+A minimal Sweave file is shown in Figure~\ref{fig:ex1.Rnw}, containing
+two code chunks embedded in a simple \LaTeX{} document. Running:
 
-A minimal Sweave file is shown in Figure~\ref{fig:ex1.Rnw}, which
-contains two code chunks embedded in a simple \LaTeX{}
-document. Running
 <<>>=
 rnwfile <- system.file("Sweave", "example-1.Rnw", package = "utils")
 Sweave(rnwfile)
 @
+
 translates this into the \LaTeX{} document shown in
-Figures~\ref{fig:ex1.tex} and~\ref{fig:ex1.pdf}. The latter can also
-be created directly from within \R{} using
+Figures~\ref{fig:ex1.tex} and~\ref{fig:ex1.pdf}. The latter can also be
+created directly from within \R{} using:
+
 <<>>=
 tools::texi2pdf("example-1.tex")
 @
 
 The first difference between \file{example-1.Rnw} and
-\file{example-1.tex} is that the \LaTeX{} style file
-\file{Sweave.sty} is automatically loaded, which provides
-environments for typesetting \R{} input and output (the \LaTeX{}
-environments \code{Sinput} and \code{Soutput}). Otherwise, the
-documentation chunks are copied without any modification from
+\file{example-1.tex} is that the \LaTeX{} style file \file{Sweave.sty}
+is automatically loaded, providing environments for typesetting \R{}
+input and output (\code{Sinput} and \code{Soutput}). Otherwise,
+documentation chunks are copied without modification from
 \file{example-1.Rnw} to \file{example-1.tex}.
+
 
 \begin{figure}[htbp]
   \centering
@@ -152,27 +147,62 @@ documentation chunks are copied without any modification from
   \label{fig:ex1.Rnw}
 \end{figure}
 
-The real work of Sweave is done on the code chunks: The first code
-chunk has no name, hence the default behavior of Sweave is used, which
-transfers both the \R{} commands and their respective output to the \LaTeX{}
-file, embedded in \code{Sinput} and \code{Soutput} environments,
-respectively.
 
-The second and third code chunks show one of the Sweave extensions to the
-\code{noweb} syntax: Code chunk names can be used to pass options to
-Sweave which control the final output.
+\section{Code chunks and options}
+
+The real work of Sweave is done on the code chunks. The first code
+chunk in \file{example-1.Rnw} has no name, so the default behavior of
+Sweave is used: both the \R{} commands and their respective output are
+transferred to the \LaTeX{} file, embedded in \code{Sinput} and
+\code{Soutput} environments.
+
+The second and third code chunks demonstrate Sweave extensions to the
+\code{noweb} syntax. Code chunk names can be used to pass options to
+Sweave which control the final output:
 \begin{itemize}
-\item The option \code{eval=FALSE} for the second chunk indicates that
-  the code should not be evaluated (yet). The code is reused in the third
-  chunk (details follow in Section~\ref{sec:chunkrefs}).
-\item The third chunk is marked as a figure chunk (\code{fig=TRUE}) such
-  that Sweave creates (by default) a PDF file of the plot created by
-  the commands in the chunk. Furthermore, a
-  \verb|\includegraphics{example-1-003}| statement is inserted into
-  the \LaTeX{} file (details on the choice of file names for figures
-  follow later in this manual).
-\item Option \code{echo=FALSE} indicates that the \R{} input should not
-  be included in the final document (no \code{Sinput} environment).
+\item \code{eval=FALSE} in the second chunk indicates that the code
+      should not be evaluated. The code is reused in the third chunk
+      (see Section~\ref{sec:chunkrefs}).
+\item The third chunk is marked as a figure chunk (\code{fig=TRUE}),
+      so Sweave creates (by default) a PDF file of the plot generated
+      by the commands. A corresponding
+      \verb|\includegraphics{example-1-003}| statement is inserted into
+      the \LaTeX{} file.
+\item \code{echo=FALSE} indicates that the \R{} input should not be
+      included in the final document (no \code{Sinput} environment).
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.9\textwidth}
+    \lstinputlisting{\Sexpr{rnwfile}}
+  \end{minipage}
+  \caption{A minimal Sweave file: \file{example-1.Rnw}.}
+  \label{fig:ex1.Rnw}
+\end{figure}
+
+\section{Code chunks and options}
+
+The real work of Sweave is done on the code chunks. The first code
+chunk in \file{example-1.Rnw} has no name, so the default behavior of
+Sweave is used: both the \R{} commands and their respective output are
+transferred to the \LaTeX{} file, embedded in \code{Sinput} and
+\code{Soutput} environments.
+
+The second and third code chunks demonstrate Sweave extensions to the
+\code{noweb} syntax. Code chunk names can be used to pass options to
+Sweave which control the final output:
+\begin{itemize}
+\item \code{eval=FALSE} in the second chunk indicates that the code
+      should not be evaluated. The code is reused in the third chunk
+      (see Section~\ref{sec:chunkrefs}).
+\item The third chunk is marked as a figure chunk (\code{fig=TRUE}),
+      so Sweave creates (by default) a PDF file of the plot generated
+      by the commands. A corresponding
+      \verb|\includegraphics{example-1-003}| statement is inserted into
+      the \LaTeX{} file.
+\item \code{echo=FALSE} indicates that the \R{} input should not be
+      included in the final document (no \code{Sinput} environment).
 \end{itemize}
 
 \begin{figure}[htbp]
@@ -200,58 +230,45 @@ Sweave which control the final output.
 
 Options control how code chunks and their output (text, figures) are
 transferred from the \file{.Rnw} file to the \file{.tex} file. All
-options have the form \code{\var{key}=\var{value}}, where \code{\var{value}} can be
-a number, string or logical value.  Several options can be specified at
-once (separated by commas), all options must take a value (which must
-not contain a comma or equal sign). Logical options can take the
-values \code{TRUE}, \code{FALSE}, \code{T}, \code{F} as well
-as lower-case and capitalized versions of the first two.
+options have the form \code{key=value}, where \code{value} can be a
+number, string, or logical value. Multiple options can be specified at
+once (comma‑separated). Logical options accept \code{TRUE}, \code{FALSE},
+\code{T}, \code{F}, and case‑insensitive variants.
 
-In the \file{.Rnw} file options can be specified either
+Options can be specified:
 \begin{enumerate}
- \item inside the angle brackets at the beginning of a code chunk,
-  modifying the behaviour \emph{only for this chunk}, or
- \item anywhere in a documentation chunk using the command %
-  \begin{quote}
-    \verb|\SweaveOpts{|\code{\var{opt1}=\var{value1}, \var{opt2}=\var{value2}, ..., \var{optN}=\var{valueN}}\verb|}|
-  \end{quote}
-  which modifies the defaults for the rest of the document, i.e.,
-  \emph{all code chunks after the statement}. Hence, an
-  \verb|\SweaveOpts| statement in the preamble of the document sets
-  defaults for all code chunks.
+ \item Inside the angle brackets at the beginning of a code chunk,
+       modifying behavior only for that chunk.
+ \item Anywhere in a documentation chunk using
+       \verb|\SweaveOpts{opt1=value1, opt2=value2, ...}|, which sets
+       defaults for all subsequent chunks. A \verb|\SweaveOpts|
+       statement in the preamble sets defaults for the entire document.
 \end{enumerate}
-Further, global options can be specified (as a comma-separated list of
-\code{\var{key}=\var{value}} items) in the environment variable
-\env{SWEAVE\_OPTIONS}, and via the \option{--options=} flag of
+
+Global options can also be specified in the environment variable
+\env{SWEAVE\_OPTIONS}, or via the \option{--options=} flag of
 \command{R CMD Sweave}.
 
-Which options are supported depends on the driver in use. All drivers
-should at least support the following options (all options appear
-together with their default value, if any):
+Supported options depend on the driver in use. All drivers should at
+least support:
 \begin{description}
-  \item[split=FALSE:] a logical value. If \code{TRUE}, then the output is
-   distributed over several files, if \code{FALSE} all output is
-   written to a single file.  Details depend on the driver.
-
- \item[label:] a text label for the code chunk, which is used for
-   file-name creation when \code{split=TRUE}.  It is also used in
-   the comments added above the chunk when the file is processed by
-   \command{Rtangle} (provided the \code{annotate} option is true, as
-   it is by default), and as part of the file names for files
-   generated by figure chunks.
-
-   Because labels can be part of file names, they should contain only
-   alphanumeric characters and \texttt{\#+-\_}.  (Including \texttt{.}
-   can cause confusion with file extensions.)
+  \item[split=FALSE:] Logical. If \code{TRUE}, output is distributed
+        over several files; if \code{FALSE}, all output is written to a
+        single file.
+  \item[label:] A text label for the code chunk, used for file‑name
+        creation when \code{split=TRUE}. Labels also appear in comments
+        added above chunks when processed by \command{Rtangle}, and as
+        part of file names for figure chunks. Labels should contain only
+        alphanumeric characters and \texttt{\#+-\_}. Avoid \texttt{.},
+        which can cause confusion with file extensions.
 \end{description}
 
 The first (and only the first) option in a code chunk name can be
-optionally without a name, then it is taken to be a label. I.e.,
-starting a code chunk with
+unnamed, in which case it is taken to be a label. For example:
 \begin{quote}
   \verb|<<hello, split=FALSE>>|
 \end{quote}
-is the same as
+is equivalent to
 \begin{quote}
   \verb|<<split=FALSE, label=hello>>|
 \end{quote}
@@ -259,70 +276,63 @@ but
 \begin{quote}
   \verb|<<split=FALSE, hello>>|
 \end{quote}
-gives a syntax error. Having an unnamed first argument for labels is
-needed for \code{noweb} compatibility. If only \code{\\SweaveOpts} is used for
-setting options, then Sweave files can be written to be fully
-compatible with \code{noweb} (as only file names appear in code chunk
-names).
-
-Note that \code{split=TRUE} should \textbf{not} be used in package
-vignettes.
+is a syntax error. This convention maintains compatibility with
+\code{noweb}. If only \verb|\SweaveOpts| is used for setting options,
+Sweave files can be written to be fully compatible with \code{noweb}.
 
 The help pages for \code{RweaveLatex} and \code{Rtangle} list the
-options supported by the default \code{Sweave} and \code{Stangle} drivers.
+options supported by the default \code{Sweave} and \code{Stangle}
+drivers.
 
-Now for the promised details on the file names corresponding to
-figures.  These are of the form \code{\var{prefix}-\var{label}.\var{ext}}.  Here
-\code{\var{prefix}} can be set by the option \code{prefix.string},
-otherwise is the basename of the output file (which unless specified
-otherwise is the basename of the input file).  \code{\var{label}} is the
-label of the code chunk if it has one, otherwise the number of the
-code chunk in the range \texttt{001} to \texttt{999}.  \code{\var{ext}} is
-the appropriate extension for the type of graphics, e.g.{}
-\code{pdf}, \code{eps}, \ldots{}.  So for the
-\file{example-1.Rnw} file, the PDF version of the boxplot is
-\file{example-1-003.pdf}, since it is the third code chunk in the
-document.  Note that if \code{prefix.string} is used it can specify
-a directory as part of the prefix, so that for example if
-\verb|\SweaveOpts{prefix.string=figures/fig}|, the auto-generated
-figures will be placed in sub-directory \verb|figures|: the Sweave
-document should arrange to create this before use.
+\subsection{Figure file names}
+
+Figure file names are of the form \code{prefix-label.ext}, where:
+\begin{itemize}
+ \item \code{prefix} is set by \code{prefix.string}, or defaults to the
+       basename of the output file.
+ \item \code{label} is the chunk label, or the chunk number (001–999).
+ \item \code{ext} is the graphics extension (\code{pdf}, \code{eps}, etc.).
+\end{itemize}
+
+For example, in \file{example-1.Rnw}, the PDF version of the boxplot is
+\file{example-1-003.pdf}, since it is the third code chunk. If
+\verb|\SweaveOpts{prefix.string=figures/fig}| is used, figures are placed
+in the \verb|figures| subdirectory. The Sweave document should ensure
+this directory exists before use.
 
 \subsection{Using multiple input files}
 
-\LaTeX{} files can include others via \verb|\input{}| commands.  These
-can also be used in Sweave files, but the included files will be
-included by \LaTeX{} and are not processed by Sweave.  The equivalent
-if you want the included files to be processed is the
-\verb|\SweaveInput{}| command.
+\LaTeX{} files can include others via \verb|\input{}| commands. These
+can also be used in Sweave files, but included files are processed only
+by \LaTeX{}, not Sweave. To include files for Sweave processing, use
+\verb|\SweaveInput{}|.
 
-Included files should use the same Sweave syntax (see below) and
-encoding as the main file.
+Included files should use the same Sweave syntax and encoding (UTF‑8)
+as the main file.
+
 
 
 \subsection{Using scalars in text}
 
-There is limited support for using the values of \R{} objects in text
-chunks. Any occurrence of \verb|\Sexpr|\verb|{|\code{\var{expr}}\verb|}|
-is replaced by the string resulting from coercing the value of the
-expression \code{expr} to a character vector; only the first element
-of this vector is used. E.g., \verb|\Sexpr{sqrt(9)}| will be replaced
-by the string \code{'3'} (without any quotes).
+Sweave supports limited use of \R{} object values directly in text
+chunks. Any occurrence of \verb|\Sexpr|\verb|{|\code{expr}\verb|}| is
+replaced by the string resulting from coercing the value of the
+expression \code{expr} to a character vector; only the first element is
+used. For example, \verb|\Sexpr{sqrt(9)}| is replaced by the string
+\code{3}.
 
-The expression is evaluated in the same environment as the code
-chunks, hence one can access all objects defined in the code chunks
-which have appeared before the expression and were evaluated. The
-expression may contain any valid \R{} code, only braces (\verb|{ }|) are
-not allowed. (This is not really a limitation because more complicated
-computations can be easily done in a hidden code chunk and the result
-then be used inside a \verb|\Sexpr|.)
+Expressions are evaluated in the same environment as code chunks, so
+objects defined in earlier evaluated chunks are available. Expressions
+may contain any valid \R{} code, except braces (\verb|{ }|), which are
+not allowed. This is not a real limitation, since more complex
+computations can be performed in a hidden code chunk and the result
+then used inside \verb|\Sexpr|.
 
 \subsection{Code chunk reuse}
 \label{sec:chunkrefs}
 
-Named code chunks can be reused in other code chunks following later
-in the document. Consider the simple example
-\begin{quote}% NB: this is indented to avoid interpretation by Sweave.
+Named code chunks can be reused in later chunks. For example:
+\begin{quote}
 \begin{verbatim}
  <<a>>=
  x <- 10
@@ -339,7 +349,8 @@ in the document. Consider the simple example
  @
 \end{verbatim}
 \end{quote}
-which is equivalent to defining the last code chunk as
+
+This is equivalent to:
 \begin{quote}
 \begin{verbatim}
  <<c>>=
@@ -350,46 +361,43 @@ which is equivalent to defining the last code chunk as
 \end{verbatim}
 \end{quote}
 
-The chunk reference operator \verb|<<>>| takes only the name of the
-chunk as its argument: no additional Sweave options are allowed.
-It has to occur at the beginning of a line.
-
-References to unknown chunk names are omitted, with a warning.
+The chunk reference operator \verb|<<>>| takes only the chunk name as
+its argument, with no additional Sweave options. It must occur at the
+beginning of a line. References to unknown chunk names are omitted,
+with a warning.
 
 \subsection{Syntax definition}
 
-So far we have only talked about Sweave files using \code{noweb} syntax
-(which is the default). However, Sweave allows the user to redefine
-the syntax marking documentation and code chunks, using scalars in
-text or reuse code chunks.
+So far we have only discussed Sweave files using \code{noweb} syntax,
+which is the default. Sweave also allows redefining the syntax for
+marking documentation and code chunks.
 
 \begin{figure}[htbp]
   \centering
   \begin{minipage}{0.9\textwidth}
     \lstinputlisting{example-1.Stex}
   \end{minipage}
-  \caption{An Sweave file using \LaTeX{} syntax: \file{example-1.Stex}.}
+  \caption{A Sweave file using \LaTeX{} syntax: \file{example-1.Stex}.}
   \label{fig:ex1.Stex}
 \end{figure}
 
 Figure~\ref{fig:ex1.Stex} shows the example from
-Figure~\ref{fig:ex1.Rnw} using the \code{SweaveSyntaxLatex}
-definition. It can be created using
+Figure~\ref{fig:ex1.Rnw} using the \code{SweaveSyntaxLatex} definition.
+It can be created using:
+
 <<>>=
 SweaveSyntConv(rnwfile, SweaveSyntaxLatex)
 @
 
-Code chunks are now enclosed in \code{Scode}
-environments, code chunk reuse is performed using
-\verb|\Scoderef{|\code{\var{chunkname}}\verb|}|. All other operators are the same as in
-the \code{noweb}-style syntax.
+Code chunks are then enclosed in \code{Scode} environments, and chunk
+reuse is performed using \verb|\Scoderef{chunkname}|. All other operators
+remain the same as in the \code{noweb}-style syntax.
 
-Which syntax is used for a document is determined by the extension of
-the input file, files with extension\footnote{or the lowercase
-  versions, for convenience on case-insensitive file systems.}
-\file{.Rtex} or \file{.Stex} are assumed to follow the
-\LaTeX-style syntax. Alternatively the syntax can be changed at any
-point within the document using the commands
+The syntax used for a document is determined by the file extension:
+files with extension \file{.Rtex} or \file{.Stex} are assumed to follow
+the \LaTeX{}‑style syntax. Alternatively, syntax can be changed at any
+point within the document using:
+
 \begin{quote}
   \verb|\SweaveSyntax{SweaveSyntaxLatex}|
 \end{quote}
@@ -397,262 +405,232 @@ or
 \begin{quote}
   \verb|\SweaveSyntax{SweaveSyntaxNoweb}|
 \end{quote}
-at the beginning of a line within a documentation chunk. Syntax
-definitions are simply lists of regular expression for several Sweave
-commands: see the two default definitions mentioned above for
-examples.
+
+at the beginning of a line in a documentation chunk. Syntax definitions
+are lists of regular expressions for Sweave commands; see the two
+default definitions above for examples.
 
 \subsection{Encoding}
 
-\LaTeX{} documents are traditionally written entirely in ASCII, using
-\LaTeX{} escapes such as \verb|\'e| for accented characters.  This
-can be inconvenient when writing a non-English document, and an
-alternative input encoding can be selected by using a statement such as
+Sweave documents should use UTF‑8 encoding for portability and ease of
+writing non‑English text. This can be enabled in the document preamble
+with:
 \begin{quote}
-  \verb|\usepackage[latin1]{inputenc}|
-\end{quote}
-in the document's preamble, to tell \LaTeX{} to translate the input to
-its own escapes.  There is a wide range of input encodings which are
-supported, at least partially, and the more recent \LaTeX{} package
-\pkg{inputenx} supports more.  Other encodings commonly encountered
-in Sweave documents are \code{latin9}, \code{utf8} and
-\code{ansinew} (the CP1252 codepage on Windows).  Greater
-coverage\footnote{including Eastern European, Greek and Hebrew
-  letters.}  of UTF-8 can be obtained by
-\begin{quote}
-  \verb|\usepackage[utf8]{inputenx}|
-  \verb|\input{ix-utf8enc.dfu}|
+  \verb|\usepackage[utf8]{inputenc}|
 \end{quote}
 
-As from \R{} 3.1.0, the UTF-8 encoding is handled preferentially to
-other encodings.  Whereas Sweave will convert R code to the local
-encoding in general, it leaves UTF-8 code in that encoding, and
-outputs in that encoding as well.  Besides the declaration scheme
-above, a UTF-8 encoding may be obtained by the \LaTeX{} comment
+UTF‑8 provides broad coverage of international characters and is the
+recommended encoding for modern Sweave documents.
+
+Since \R{} 3.1.0, UTF‑8 encoding is handled preferentially. Sweave
+converts R code to the local encoding in general, but leaves UTF‑8 code
+untouched and outputs in UTF‑8. Besides the declaration scheme above, a
+UTF‑8 encoding may also be declared with the \LaTeX{} comment:
 \begin{quote}
   \verb|%\SweaveUTF8|
 \end{quote}
 
-The previous paragraphs covered the documentation sections, but what of
-the code sections where \LaTeX{} escapes cannot be used?  The first
-piece of advice is to use only ASCII code sections as anything else
-will reduce the portability of your document.  But \R{} code can be
-included if in the input encoding declared in the preamble.
+For documentation sections, this is straightforward. For code sections,
+where \LaTeX{} escapes cannot be used, the best practice is to use only
+ASCII code to maximize portability. If non‑ASCII characters are needed,
+ensure they match the input encoding declared in the preamble.
 
-The next complication is inclusions: the final vignette may well
-include \R{} output, \LaTeX{} or other Sweave files \emph{via}
-\verb|\input{}| and \verb|\SweaveInput{}| lines, a bibliography and
-figures. It is the user's responsibility that the text inclusions are
-covered by the declared input encoding.  \LaTeX{} allows the input
-encoding to be changed by
-\begin{quote}
-  \verb|\inputencoding{|\code{\var{something}}\verb|}|
-\end{quote}
-statements: these may not work well in Sweave processing.  Since
-\verb|\usepackage[latin1]{inputenc}| is typically not legal \LaTeX{} code
-in an included file, it is easiest to declare the encoding to Sweave
-using the \verb|%\SweaveUTF8| comment.
+Inclusions add complexity: Sweave documents may include \R{} output,
+\LaTeX{} or other Sweave files via \verb|\input{}| and
+\verb|\SweaveInput{}|, bibliographies, and figures. It is the user’s
+responsibility to ensure inclusions match the declared encoding.
+Sweave documents should declare UTF‑8 encoding explicitly using
+\verb|%\SweaveUTF8| in the source file.
 
-It is all too easy for BibTeX to pick up UTF-8-encoded references for
-a Latin-1 document, or \emph{vice versa}.
+Encoding mismatches can occur, for example when bibliographies or other
+files use a different encoding than the main document. R output is also
+affected by locale. Declaring UTF‑8 encoding ensures consistent handling
+of text and symbols across platforms.
 
-R output is again to a large extent under the user's control.  If a
-Latin-1 Sweave document is processed by \R{} running a Latin-1 locale or
-a UTF-8 document is processed in a UTF-8 locale, the only problems
-which are likely to arise are from handling data in another encoding,
-but it may be necessary to declare the document's encoding to cover
-the \R{} output which is generated even if the document is itself ASCII.
-One common problem is the quotes produced by \code{sQuote()} and
-\code{dQuote()}: these will be in UTF-8 when \R{} is run in a UTF-8
-locale, and will be in CP1252 when Sweave is run from \command{Rgui.exe}
-on Windows.  Two possible solutions are to suppress fancy quotes by
-\code{options(useFancyQuotes=FALSE)} or to force UTF-8 by
-\code{options(useFancyQuotes="UTF-8")}.
+One common issue is quotes produced by \code{sQuote()} and
+\code{dQuote()}. Two solutions are:
+\begin{itemize}
+  \item Suppress fancy quotes: \code{options(useFancyQuotes=FALSE)}
+  \item Force UTF‑8 quotes: \code{options(useFancyQuotes="UTF-8")}
+\end{itemize}
 
-The encoding of figures is not usually an issue as they are either
-bitmaps or include encoding information: it may be necessary to use
-the \code{pdf.encoding} Sweave option to set the \code{pdf()}
-device up appropriately.
-
+Figures are rarely affected by encoding, since they are bitmaps or
+include encoding information. If needed, the \code{pdf.encoding} Sweave
+option can configure the \code{pdf()} device appropriately.
 
 \section{Tangling and weaving}
 
-The user front-ends of the Sweave system are the two \R{} functions
-\code{Stangle()} and \code{Sweave()}, both are contained in
-package~\pkg{utils}.  \code{Stangle} can be used to extract only
-the code chunks from an \file{.Rnw} file and write to one or several
-files.  \code{Sweave()} runs the code chunks through \R{} and replaces
-them with the respective input and/or output.  \code{Stangle} is
-actually just a wrapper function for \code{Sweave}, which uses a
-tangling instead of a weaving driver by default. See
+The user front‑ends of the Sweave system are the two \R{} functions
+\code{Stangle()} and \code{Sweave()}, both contained in
+package~\pkg{utils}. \code{Stangle()} extracts only the code chunks
+from an \file{.Rnw} file and writes them to one or several files.
+\code{Sweave()} runs the code chunks through \R{} and replaces them
+with the respective input and/or output. \code{Stangle()} is actually
+a wrapper for \code{Sweave()}, which uses a tangling driver instead of
+a weaving driver by default. See:
+
 <<eval=FALSE>>=
 help("Sweave")
 @
-for more details and arguments of the functions.
+
+for more details and arguments of these functions.
 
 \subsection{The \code{RweaveLatex} driver}
 
 This driver transforms \file{.Rnw} files with \LaTeX{} documentation
-chunks and \R{} code chunks to proper \LaTeX{} files (for typesetting both
-with standard \command{latex} or \command{pdflatex}), see
+chunks and \R{} code chunks into proper \LaTeX{} files (for typesetting
+with either \command{latex} or \command{pdflatex}). See:
+
 <<eval=FALSE>>=
 help("RweaveLatex")
 @
-for details, including the supported options.
+
+for details, including supported options.
 
 \subsubsection{Writing to separate files}
 
-If \code{split} is set to \code{TRUE}, then all text corresponding
-to code chunks (the \code{Sinput} and \code{Soutput} environments)
-is written to separate files. The file names are of form
-\file{prefix.string-label.tex}, if several code chunks have the same
+If \code{split} is set to \code{TRUE}, then all text corresponding to
+code chunks (the \code{Sinput} and \code{Soutput} environments) is
+written to separate files. File names follow the form
+\file{prefix.string-label.tex}. If several code chunks share the same
 label, their outputs are concatenated. If a code chunk has no label,
-then the number of the chunk is used instead. The same naming scheme
-applies to figures.  You do need to ensure that the file names
-generated are valid and not so long that there are not regarded as the
-same by your OS (some file systems only recognize 13 characters).
+the chunk number is used instead. The same naming scheme applies to
+figures.
 
 \subsubsection{\LaTeX{} style file}
 
 The driver automatically inserts a \verb|\usepackage{Sweave.sty}|
-command as last line before the \verb|\begin{document}| statement of
-  the final \LaTeX{} file if no \verb|\usepackage{Sweave}| is found in
-  the Sweave source file. This style file defines the environments
-  \code{Sinput} and \code{Soutput} for typesetting code chunks. If
-  you do not want to include the standard style file, e.g., because
-  you have your own definitions for \code{Sinput} and
-  \code{Soutput} environments in a different place, simply insert a
-  comment like
+command as the last line before the \verb|\begin{document}| statement
+of the final \LaTeX{} file if no \verb|\usepackage{Sweave}| is found in
+the source file. This style file defines the environments \code{Sinput}
+and \code{Soutput} for typesetting code chunks. If you prefer not to
+include the standard style file (for example, if you have your own
+definitions for \code{Sinput} and \code{Soutput}), simply insert a
+comment such as:
+
 \begin{verbatim}
 % \usepackage{Sweave}
 \end{verbatim}
-in the preamble of your latex file, this will prevent automatic
+
+
+in the preamble of your \LaTeX{} file. This prevents automatic
 insertion of the line.
+
 
 
 \subsubsection{Figure sizes}
 
-\file{Sweave.sty} sets the default \emph{\LaTeX{}} figure width (which
-is independent of the size of the generated EPS or PDF files).  The
-current default is
+\file{Sweave.sty} sets the default \LaTeX{} figure width (independent of
+the size of the generated EPS or PDF files). The current default is:
 \begin{verbatim}
 \setkeys{Gin}{width=0.8\textwidth}
 \end{verbatim}
-if you want to use another width for the figures that are
-automatically generated and included by Sweave, simply add a line
-similar to the one above \emph{after} \verb|\begin{document}|. If you
-want no default width for figures insert a
-\verb|\usepackage[nogin]{Sweave}| in the header of your file.  Note
-that a new graphics device is opened for each figure chunk (one with
-option \code{fig=TRUE}), hence all graphical parameters of the
-\code{par()} command must be set in each single figure chunk and
-are forgotten after the respective chunk (because the device is
-closed when leaving the chunk).
 
-Attention: One thing that gets easily confused are the width/height
-parameters of the \R{} graphics devices and the corresponding arguments
-to the \LaTeX{} \verb|\includegraphics| command. The Sweave options
-\code{width} and \code{height} are passed to the \R{} graphics
-devices, and hence affect the default size of the produced EPS and PDF
-files. They do not affect the size of figures in the document, by
-default they will always be 80\% of the current text width. Use
-\verb|\setkeys{Gin}| to modify figure sizes or use explicit
-\verb|\includegraphics| commands in combination with the Sweave option
-\code{include=FALSE}.
+To use another width for figures automatically generated and included
+by Sweave, add a line similar to the above \emph{after}
+\verb|\begin{document}|. To disable the default width entirely, insert:
+\begin{verbatim}
+\usepackage[nogin]{Sweave}
+\end{verbatim}
+in the header of your file.
+
+Note that a new graphics device is opened for each figure chunk (those
+with option \code{fig=TRUE}). All graphical parameters set with
+\code{par()} must therefore be specified in each figure chunk, as they
+are reset when the device is closed.
+
+Attention: The width/height parameters of \R{} graphics devices differ
+from the arguments to \LaTeX{}’s \verb|\includegraphics| command. Sweave
+options \code{width} and \code{height} affect the default size of the
+produced EPS/PDF files, but not their size in the document. By default,
+figures are scaled to 80\% of the text width. Use \verb|\setkeys{Gin}|
+to modify figure sizes, or use explicit \verb|\includegraphics| commands
+with the Sweave option \code{include=FALSE}.
 
 \subsubsection{Prompts and text width}
 
-By default the driver gets the prompts used for input lines
-and continuation lines from R's \code{options()} settings. To set new
-prompts use something like
+By default, the driver uses prompts for input and continuation lines
+from R’s \code{options()} settings. To set new prompts, use:
 \begin{verbatim}
 options(prompt = "MyR> ", continue = "...")
 \end{verbatim}
-see \code{help(options)} for details. Similarly the output text
-width is controlled by option \code{"width"}.
-
+See \code{help(options)} for details. Similarly, the output text width
+is controlled by option \code{"width"}.
 
 \subsubsection{Graphics devices}
 
-The default graphics device for \code{fig=TRUE} chunks is
-\code{pdf()}: the standard options \code{pdf}, \code{eps},
-\code{png} and \code{jpg} allow one or more of these to be
-selected for a particular chunk or (via \verb|\SweaveOpts|) for the
-whole document.  It can be convenient to select PNG for a particular
-figure chunk by something like
-\verb|<<figN, fig=TRUE, pdf=FALSE, png=TRUE>>|: \command{pdflatex}
-should automatically include the \abbr{PNG} file for that chunk.
+The default graphics device for \code{fig=TRUE} chunks is \code{pdf()}.
+Standard options \code{pdf}, \code{eps}, \code{png}, and \code{jpg}
+allow one or more formats to be selected for a chunk or globally (via
+\verb|\SweaveOpts|). For example:
+\begin{verbatim}
+<<figN, fig=TRUE, pdf=FALSE, png=TRUE>>
+\end{verbatim}
+will generate a PNG file, which \command{pdflatex} should automatically
+include.
 
-You can define your own graphics devices and select one of them by the
-option \code{grdevice=my.Swd} where the device function (here
-\code{my.Swd}) is defined in a hidden code chunk. For example, we
-could make use of the \code{cairo\_pdf} device by
+Custom graphics devices can also be defined. For example, to use
+\code{cairo_pdf}:
 \begin{verbatim}
 my.Swd <- function(name, width, height, ...)
   grDevices::cairo_pdf(filename = paste(name, "pdf", sep = "."),
                        width = width, height = height)
 \end{verbatim}
-Specialized custom graphics devices may need a customized way to shut
-them down in place of \verb|graphics.off()|: this can be supplied
-\emph{via} a companion function \verb|my.Swd.off|, which is called
-with no arguments.
 
-For a complete example see the file
+Specialized devices may require a custom shutdown function in place of
+\verb|graphics.off()|. This can be supplied via a companion function
+\verb|my.Swd.off|, called with no arguments.
+
+For a complete example, see
 \file{src/library/utils/tests/customgraphics.Rnw} in the \R{} sources.
 
 \subsection{The \code{Rtangle} driver}
 
-This driver can be used to extract \R{} code chunks from a \file{.Rnw}
-file. Code chunks can either be written to one large file or separate
-files (one for each code chunk). The options \code{split},
-\code{prefix}, and \code{prefix.string} have the same defaults and
-interpretation as for the \code{RweaveLatex} driver. Use the
-standard \code{noweb} command line tool \command{notangle} if chunks
-other than \R{} code should be extracted. See
+This driver extracts \R{} code chunks from a \file{.Rnw} file. Code
+chunks can be written to one large file or separate files (one per
+chunk). Options \code{split}, \code{prefix}, and \code{prefix.string}
+have the same defaults and interpretation as for the
+\code{RweaveLatex} driver. Use the standard \code{noweb} tool
+\command{notangle} if chunks other than \R{} code should be extracted.
+See:
+
 <<eval=FALSE>>=
 help("Rtangle")
 @
+
 for details.
 
-Note that \code{split=TRUE} rarely makes much sense, as the files
-produced are often interdependent and need to be run in a particular
-order, an order which is often not the alphabetical order of the
-files.
-
+Note that \code{split=TRUE} rarely makes sense, as the files produced
+are often interdependent and need to be run in a specific order, which
+is not necessarily alphabetical.
 
 \section{Adding Sweave Drivers}
 
-Adding drivers is relatively simple by modelling them on\footnote{but
-  if you copy, \textbf{do} be careful not to infringe R-core's
-  copyright: the copyright notices in the \R{} sources \textbf{must} also
-  be copied.} the existing \code{RweaveLatex} and \code{Rtangle}
-drivers.
+Adding drivers is relatively straightforward by modeling them on the
+existing \code{RweaveLatex} and \code{Rtangle} drivers.\footnote{If you
+copy, be careful not to infringe R‑core’s copyright: copyright notices
+in the \R{} sources must also be copied.}
 
-An Sweave driver is a function of no arguments which should return a
-list of five functions:
+A Sweave driver is a function of no arguments which returns a list of
+five functions:
 \begin{description}
-\item{\code{setup(file, syntax, \dots)}:} Set up the driver, e.g.{}
-    open the output file.  Its return value is an object which is
-    passed to the next three functions, and can be updated by the next
-    two.  The value should be a list, and contain a component
-    \code{options}, a named list of the default settings for the
-    options needed by \code{runcode}.
-\item{\code{runcode(object, chunk, options)}:} Process a code
-    chunk.  Returns a possibly updated \code{object}.  Argument
-    \code{chunk} is a character vector, and \code{options} is a
-    options list for this chunk.
-\item{\code{writedoc(object, chunk)}:} Write out a documentation
-    chunk.  Returns a possibly updated \code{object}.
+\item{\code{setup(file, syntax, \dots)}:} Set up the driver, e.g.,
+open the output file. Returns an object passed to subsequent functions.
+This should be a list containing a component \code{options}, a named
+list of default settings for \code{runcode}.
+\item{\code{runcode(object, chunk, options)}:} Process a code chunk.
+Returns a possibly updated \code{object}.
+\item{\code{writedoc(object, chunk)}:} Write out a documentation chunk.
+Returns a possibly updated \code{object}.
 \item{\code{finish(object, error)}:} Finish up, or clean up if
-    \code{error} is true.
-\item{\code{checkopts(options)}:} Converts/validates \code{options}
-    given as a named list of character strings.
+\code{error} is true.
+\item{\code{checkopts(options)}:} Convert/validate \code{options} given
+as a named list of character strings.
 \end{description}
 
-Note that the \code{setup} function should have a \code{\ldots}
-argument.  It will be passed additional arguments from a
-\code{Sweave()} call, but in future \code{Sweave} may itself set
-options and pass them on the setup function: one such may be the
+The \code{setup} function should include a \code{\ldots} argument. It
+will be passed additional arguments from a \code{Sweave()} call. In
+future, Sweave may itself set options and pass them on, such as the
 encoding used for the text to be processed.
 
 \bibliographystyle{jss}
@@ -661,171 +639,122 @@ encoding used for the text to be processed.
 \newpage
 \appendix
 
-
 \section{Frequently Asked Questions}
 \label{sec:faq}
 
-  \subsection{How can I get Emacs to automatically recognize files
-    in Sweave format?}
+\subsection{How can I get Emacs to automatically recognize files in Sweave format?}
 
-  Recent versions of \abbr{ESS} (Emacs speaks statistics,
-  \url{https://ESS.R-project.org/}) automatically recognize files with
-  extension \file{.Rnw} as Sweave files and turn on the correct
-  modes. Please follow the instructions on the \abbr{ESS} homepage on how to
-  install \abbr{ESS} on your computer.
+Recent versions of \abbr{ESS} (Emacs Speaks Statistics,
+\url{https://ESS.R-project.org/}) automatically recognize files with
+extension \file{.Rnw} as Sweave files and enable the correct modes.
+Please follow the instructions on the ESS homepage for installation.
 
-  \subsection{Can I run Sweave directly from a shell?}
+\subsection{Can I run Sweave directly from a shell?}
 
-  E.g., for writing makefiles it can be useful to run Sweave directly
-  from a shell rather than manually starting \R{} and then running
-  Sweave. This can easily be done using
+Yes. For example, when writing makefiles it can be useful to run Sweave
+directly from a shell rather than starting \R{} manually. This can be
+done with:
 \begin{verbatim}
 R CMD Sweave file.Rnw
 \end{verbatim}
 
-   % A more elaborate solution which also includes automatically running
-   % \texttt{latex} has been written by Gregor Gorjanc and is available
-   % at \url{http://www.bfro.uni-lj.si/MR/ggorjan/software/shell/Sweave.sh}.
+\subsection{Why does \LaTeX{} not find my EPS and PDF graphic files when the file name contains a dot?}
 
-  \subsection{Why does \LaTeX{} not find my EPS and PDF graphic files when
-     the file name contains a dot?}
+Sweave uses the standard \LaTeX{} package \pkg{graphicx} to handle
+graphic files, which automatically chooses the type of file provided
+the basename in \verb|\includegraphics{}| has no extension. Problems
+arise if the Sweave file name contains dots: \file{foo.Rnw} is fine,
+while \file{foo.bar.Rnw} is not.
 
-   Sweave uses the standard \LaTeX{} package \pkg{graphicx} to
-   handle graphic files, which automatically chooses the type of file,
-   provided the basename given in the \verb|\includegraphics{}|
-   statement has no extension.  Hence, you may run into trouble with
-   graphics handling if the basename of your Sweave file contains
-   dots: \file{foo.Rnw} is OK, while \file{foo.bar.Rnw} is not.
+\subsection{Empty figure chunks give \LaTeX{} errors.}
 
-   \subsection{Empty figure chunks give \LaTeX{} errors.}
+If a code chunk with \code{fig=TRUE} does not call any plotting
+functions, invalid PDF/EPS files may be created. Sweave cannot know if
+the code actually plotted something, so it will attempt to include the
+graphics, which fails.
 
-   When a code chunk with \code{fig=TRUE} does not call any plotting
-   functions, invalid PDF (or EPS) files may be created. Sweave cannot
-   know if the code in a figure chunk actually plotted something or
-   not, so it will try to include the graphics, which is bound to
-   fail.
+\subsection{Why do R lattice graphics not work?}
 
-   \subsection{Why do R lattice graphics not work?}
+In recent versions of Sweave they do, provided they would when run at
+the command line. Some calls (e.g., those inside loops) need to be
+explicitly wrapped in \code{print()}.
 
-   In recent versions of Sweave they do if they would when run at the
-   command line: some calls (e.g.{} those inside loops) need to be
-   explicitly \code{print()}-ed.
+\subsection{How can I get Black \& White lattice graphics?}
 
-   \subsection{How can I get Black \& White lattice graphics?}
-
-   What is the most elegant way to specify that strip panels are to have
-   transparent backgrounds and graphs are to be in black and white when
-   lattice is being used with Sweave?  I would prefer a global option that
-   stays in effect for multiple plots.
-
-   Answer by \I{Deepayan Sarkar}: I'd do something like this as part of
-   the initialization:
+To specify strip panels with transparent backgrounds and black‑and‑white
+graphs globally, use:
 \begin{verbatim}
- <<...>>=
- library(lattice)
- ltheme <- canonical.theme(color = FALSE)     ## in-built B&W theme
- ltheme$strip.background$col <- "transparent" ## change strip bg
- lattice.options(default.theme = ltheme)      ## set as default
- @
+<<...>>=
+library(lattice)
+ltheme <- canonical.theme(color = FALSE)     ## in-built B&W theme
+ltheme$strip.background$col <- "transparent" ## change strip bg
+lattice.options(default.theme = ltheme)      ## set as default
+@
 \end{verbatim}
 
-  \subsection{Creating several figures from one figure chunk does
-     not work}
+\subsection{Creating several figures from one figure chunk does not work.}
 
-   Consider that you want to create several graphs in a loop similar
-   to
+Sweave allows only one graph per figure chunk. It opens a graphics
+device before executing the code and closes it afterwards. To plot in a
+loop, use explicit device management:
 \begin{verbatim}
- <<fig=TRUE>>=
- for (i in 1:4) plot(rnorm(100)+i)
- @
-\end{verbatim}
-   This will currently \textbf{not} work, because Sweave allows
-   \textbf{only one graph} per figure chunk. The simple reason is that
-   Sweave opens a \code{pdf} device before executing the code and
-   closes it afterwards. If you need to plot in a loop, you have to
-   program it along the lines of
-\begin{verbatim}
- <<results=tex,echo=FALSE>>=
- for(i in 1:4){
-    fname <- paste("myfile", i, ".pdf", sep = "")
-    pdf(file = fname, width = 6, height = 6)
-    plot(rnorm(100)+i)
-    dev.off()
-    cat("\\includegraphics{", fname, "}\n\n", sep = "")
- }
- @
+<<results=tex,echo=FALSE>>=
+for(i in 1:4){
+   fname <- paste("myfile", i, ".pdf", sep = "")
+   pdf(file = fname, width = 6, height = 6)
+   plot(rnorm(100)+i)
+   dev.off()
+   cat("\\includegraphics{", fname, "}\n\n", sep = "")
+}
+@
 \end{verbatim}
 
+\subsection{How can I set default \code{par()} settings for figure chunks?}
 
- \subsection{How can I set default \code{par()} settings for figure
-    chunks?}
-
-  Because Sweave opens a new device for each graphics file in each
-  figure chunk, using \code{par()} has only an effect if it is used
-  inside a figure chunk. If you want to use the same settings for a
-  series of figures, it is easier to use a hook function than
-  repeating the same \code{par()} statement in each figure chunk.
-
-  The effect of
+Because Sweave opens a new device for each figure chunk, \code{par()}
+settings must be inside each chunk. To avoid repetition, use a hook
+function:
 \begin{verbatim}
-  options(SweaveHooks = list(fig = function() par(bg = "red", fg = "blue")))
+options(SweaveHooks = list(fig = function() par(bg = "red", fg = "blue")))
 \end{verbatim}
-  should be easy to spot.
 
-  \subsection{How can I change the formatting of R input and output
-     chunks?}
+\subsection{How can I change the formatting of R input and output chunks?}
 
-   Sweave uses the \pkg{fancyvrb} package for formatting all \R{} code
-   and text output. \pkg{fancyvrb} is a very powerful and flexible
-   package that allows fine control for layouting text in verbatim
-   environments. If you want to change the default layout, simply read
-   the \pkg{fancyvrb} documentation and modify the definitions of
-   the \code{Sinput} and \code{Soutput} environments in
-   \file{Sweave.sty}, respectively.
+Sweave uses the \pkg{fancyvrb} package for formatting all \R{} code and
+text output. \pkg{fancyvrb} allows fine control over verbatim layout.
+To change defaults, modify the definitions of \code{Sinput} and
+\code{Soutput} in \file{Sweave.sty}.
 
+\subsection{How can I change the line length of R input and output?}
 
-  \subsection{How can I change the line length of R input and
-     output?}
-
-   Sweave respects the usual way of specifying the desired line length
-   in R, namely \code{options(width)}. E.g., after
-   \code{options(width = 40)} lines will be formatted to have at most 40
-   characters (if possible).
-
-
-   \subsection{Can I use Sweave for Word files?}
-
-   Not directly, but package~\CRANpkg{officer} provides
-   functionality to manipulate Microsoft Word documents from R.
-
-   \subsection{Can I use Sweave for \I{OpenDocument} files?}
-
-   Not directly. Package \CRANpkg{odfWeave} (archived in 2018) provided functions for using Sweave in
-   combination with OpenOffice Writer rather than \LaTeX.
-   See the \href{https://CRAN.R-project.org/view=ReproducibleResearch}{CRAN
-     Task View: Reproducible Research} for an up-to-date list of related
-   developments.
-
-   \subsection{Can I use Sweave for HTML files?}
-
-   Yes, package \CRANpkg{R2HTML} provides a driver for using Sweave in
-   combination with HTML rather than \LaTeX.
-
-   \subsection{After loading package \pkg{R2HTML} Sweave doesn't
-     work properly!}
-
-   Package \CRANpkg{R2HTML} registers an Sweave driver for HTML files
-   using the same file extensions as the default \code{noweb}
-   syntax, and after that its syntax is on the search list before the
-   default syntax.  Using
+Sweave respects R’s usual line length setting:
 \begin{verbatim}
-  options(SweaveSyntax = "SweaveSyntaxNoweb")
+options(width = 40)
 \end{verbatim}
-or calling Sweave like
+Lines will then be formatted to at most 40 characters.
+
+\subsection{Can I use Sweave for Word files?}
+
+Not directly. Package~\CRANpkg{officer} provides functionality to
+manipulate Microsoft Word documents from R.
+
+\subsection{Can I use Sweave for HTML files?}
+
+Yes. Package \CRANpkg{R2HTML} provides a driver for using Sweave with
+HTML rather than \LaTeX.
+
+\subsection{After loading package \pkg{R2HTML} Sweave doesn't work properly!}
+
+Package \CRANpkg{R2HTML} registers a Sweave driver for HTML files using
+the same file extensions as the default \code{noweb} syntax. This can
+override the default syntax. To restore the default, use:
 \begin{verbatim}
-  Sweave(..., syntax = "SweaveSyntaxNoweb")
+options(SweaveSyntax = "SweaveSyntaxNoweb")
 \end{verbatim}
-ensures the default syntax even after loading package \CRANpkg{R2HTML}.
+or call Sweave with:
+\begin{verbatim}
+Sweave(..., syntax = "SweaveSyntaxNoweb")
+\end{verbatim}
 
 \end{document}
 
