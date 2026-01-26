@@ -155,9 +155,9 @@ attribute_hidden void PrintVersion_part_1(char *s, size_t len)
 	snprintf(nick, 128, " -- \"%s\"", R_NICK);
 	strcat(s, nick);
     }
-    SPRINTF_2("\nCopyright (C) %s The R Foundation for Statistical Computing\n",
+    SPRINTF_2("\nPlatform: %s", R_PLATFORM);
+    SPRINTF_2("\nCopyright (C) %s The R Foundation for Statistical Computing",
 	      R_YEAR);
-    SPRINTF_2("Platform: %s", R_PLATFORM);
 #ifdef R_ARCH
     if(strlen(R_ARCH)) { SPRINTF_2("/%s", R_ARCH); }
 #endif
