@@ -200,7 +200,7 @@ static int getFilenum(const char* filename) {
    even if the line isn't complete. But this isn't possible if we rely
    on writing all line profiling files first. In addition, while on Unix
    we could use write() (not fprintf) to flush, it is not guaranteed we
-   could do this on Windows with the main thread suspended. 
+   could do this on Windows with the main thread suspended.
 
    With this size hitting the limit is fairly unlikely, but if we do then
    the output file will miss some entries. Maybe writing an overflow marker
@@ -250,7 +250,7 @@ static void pb_uint(profbuf *pb, uint64_t num)
 	pb->ptr += j;
 	pb->left -= j;
     } else
-	pb->left = 0; 
+	pb->left = 0;
 }
 
 static void pb_int(profbuf *pb, int64_t num)
@@ -292,7 +292,7 @@ static void pb_int(profbuf *pb, int64_t num)
    Not suitable for re-use. */
 static void pb_dbl(profbuf *pb, double num)
 {
-    char digits[PB_MAX_DBL_DIGITS]; 
+    char digits[PB_MAX_DBL_DIGITS];
     int i, j, negative;
 
     if (!R_FINITE(num)) {
@@ -577,9 +577,9 @@ static void doprof(int sig)  /* sig is ignored in Windows */
 	pf_int(i); /* %d */
 	pf_str(": ");
 	pf_str(R_Srcfiles[i-1]);
-	pf_str("\n"); 
+	pf_str("\n");
     }
-    
+
     if(strlen(buf)) {
 	pf_str(buf);
 	pf_str("\n");
@@ -828,7 +828,7 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
 	   Solaris has CLOCK_PROF, in -lrt.
 	   FreeBSD only supports CLOCK_{REALTIME,MONOTONIC}
 	   Seems not to be supported at all on macOS.
-	*/ 
+	*/
 	struct itimerval itv;
 	itv.it_interval.tv_sec = interval / 1000000;
 	itv.it_interval.tv_usec =
@@ -2748,6 +2748,24 @@ static R_INLINE Rboolean SET_BINDING_VALUE(SEXP loc, SEXP value) {
 	return FALSE;
 }
 
+static R_INLINE SEXP asIterable(SEXP x, SEXP env)
+{
+    static SEXP call = NULL;
+    static SEXP xsym = NULL;
+    if (call == NULL) {
+	xsym = install("x");
+	call = R_ParseString("base::as.iterable(x)");
+	R_PreserveObject(call);
+    }
+
+    SEXP callenv = PROTECT(R_NewEnv(env, FALSE, 0));
+    defineVar(xsym, x, callenv);
+    INCREMENT_NAMED(x); /* is this necessary? can `x` be gc'd during iteration? */
+    SEXP out = eval(call, callenv);
+    UNPROTECT(1); /* callenv */
+    return out;
+}
+
 attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     /* Need to declare volatile variables whose values are relied on
@@ -2759,7 +2777,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
     volatile int bgn;
     volatile SEXP v, val, cell;
     int dbg, val_type;
-    SEXP sym, body;
+    SEXP sym, body, iterator_exhausted_sentinel;
     RCNTXT cntxt;
     PROTECT_INDEX vpi;
 
@@ -2784,18 +2802,28 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* deal with the case where we are iterating over a factor
        we need to coerce to character - then iterate */
 
-    if ( inherits(val, "factor") ) {
-	SEXP tmp = asCharacterFactor(val);
+    if(OBJECT(val)) {
+	SEXP tmp = asIterable(val, rho);
 	UNPROTECT(1); /* val from above */
 	PROTECT(val = tmp);
     }
 
+    val_type = TYPEOF(val);
+
+    if(val_type == CLOSXP) {
+	SEXP tmp = lang2(val, allocSExp(OBJSXP));
+	UNPROTECT(1); /* val from above */
+	PROTECT(val = tmp);
+	iterator_exhausted_sentinel = CADR(val);
+    }
+
     if (isList(val) || isNull(val))
 	n = length(val);
+    else if (val_type == CLOSXP)
+	n = 1;
     else
 	n = XLENGTH(val);
 
-    val_type = TYPEOF(val);
 
     defineVar(sym, R_NilValue, rho);
     PROTECT(cell = GET_BINDING_CELL(sym, rho));
@@ -2831,6 +2859,16 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    ENSURE_NAMEDMAX(CAR(val));
 	    defineVar(sym, CAR(val), rho);
 	    val = CDR(val);
+	    break;
+
+	case CLOSXP:
+	    /* call val() function */
+	    REPROTECT(v = eval(val, rho), vpi);
+	    if (v == iterator_exhausted_sentinel) {
+		goto for_break; /* iterator exhausted */
+	    }
+	    n++;
+	    defineVar(sym, v, rho);
 	    break;
 
 	default:
@@ -4331,7 +4369,7 @@ static Rboolean R_chooseOpsMethod(SEXP x, SEXP y, SEXP mx, SEXP my,
 	expr = R_ParseString("base::chooseOpsMethod(x, y, mx, my, cl, rev)");
 	R_PreserveObject(expr);
     }
-    
+
     SEXP newrho = PROTECT(R_NewEnv(rho, FALSE, 0));
     defineVar(xSym, x, newrho); INCREMENT_NAMED(x);
     defineVar(ySym, y, newrho); INCREMENT_NAMED(y);
@@ -7514,7 +7552,7 @@ static SEXP bcEval(SEXP body, SEXP rho)
   struct bcEval_locals locals = bcode_setup_locals(body, rho);
   SEXP value = bcEval_loop(&locals);
   restore_bcEval_globals(&globals);
-  return value;  
+  return value;
 }
 
 static SEXP bcEval_loop(struct bcEval_locals *ploc)
@@ -7648,9 +7686,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 
 	INSERT_FOR_LOOP_BCPROT_OFFSET();
 
-	/* if we are iterating over a factor, coerce to character first */
-	if (inherits(seq, "factor")) {
-	    seq = asCharacterFactor(seq);
+	/* dispatch if OBJECT bit is set */
+	if(OBJECT(seq)) {
+	    seq = asIterable(seq, rho);
 	    SETSTACK(-1, seq);
 	}
 
@@ -7672,6 +7710,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  loopinfo->len = XLENGTH(seq);
 	else if (isList(seq) || isNull(seq))
 	  loopinfo->len = length(seq);
+	else if (isFunction(seq))
+	  loopinfo->len = 1;
 	else errorcall(GETCONST(constants, callidx),
 		       _("invalid for() loop sequence"));
 #ifdef COMPACT_INTSEQ
@@ -7697,6 +7737,12 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    INCREMENT_NAMED(value);
 	    BCNPUSH_NLNK(value);
 	    break;
+	case CLOSXP:
+	    // prepare the iterator call. The iterator is called with the
+	    // sentinal the iterator is supposed to return when it is exhausted
+	    seq = lang2(seq, allocSExp(OBJSXP));
+	    SETSTACK(-3, seq);
+
 	default: BCNPUSH(R_NilValue);
 	}
 	/* the seq, binding cell, and value on the stack are now boxed */
@@ -7804,6 +7850,14 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    value = CAR(seq);
 	    SET_FOR_LOOP_SEQ(CDR(seq));
 	    ENSURE_NAMEDMAX(value);
+	    break;
+	  case CLOSXP:
+		value = eval(seq, rho);
+		if (value == CADR(seq)) // iterator exhausted
+		  NEXT();
+	        SETSTACK_NLNK(-1, value);
+		INCREMENT_NAMED(value);
+		loopinfo->idx--;
 	    break;
 	  default:
 	    error(_("invalid sequence argument in for loop"));
