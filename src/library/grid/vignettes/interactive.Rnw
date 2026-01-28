@@ -1,23 +1,20 @@
 %\VignetteEncoding{UTF-8}
 % File src/library/grid/vignettes/interactive.Rnw
 % Part of the R package, https://www.R-project.org
-% Copyright 2001–2026 Paul Murrell and the R Core Team
+% Copyright 2001-13 Paul Murrell and the R Core Team
 % Distributed under GPL 2 or later
 
 \documentclass[a4paper]{article}
 %\VignetteIndexEntry{Editing grid Graphics}
 %\VignettePackage{grid}
-
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\pkg}[1]{{\normalfont\fontseries{b}\selectfont #1}}
 \newcommand{\grid}{\pkg{grid}}
 \newcommand{\R}{{\sffamily R}}
-
 \setlength{\parindent}{0in}
 \setlength{\parskip}{.1in}
 \setlength{\textwidth}{140mm}
 \setlength{\oddsidemargin}{10mm}
-
 \title{An Example of Interactive Graphics Editing in \grid}
 \author{Paul Murrell}
 
@@ -30,22 +27,22 @@ library(grid)
 ps.options(pointsize = 12)
 options(width = 60)
 @
-
-\section*{Creating and Naming Grobs}
-We begin by creating an x‑axis and drawing it on the device. It is
-important to assign a \code{name} to the grob so that it can be
-referenced later for editing.
+First of all, we create an x-axis and draw it on the device.
+It is very important that we specify a \code{name} for the object
+so that we can refer to it later.
 
 <<fig1, results=hide, fig=TRUE, width=6, height=2, include=FALSE>>=
 grid.xaxis(at = 1:4/5, vp = viewport(w = .5, h = 0.01), name = "gxa")
 @
 \begin{center}
+{
 \includegraphics[width=3in, height=1in]{interactive-fig1}
+}
 \end{center}
+@
 
-\section*{Editing Grobs}
-Next, we edit the axis by changing its colour to red. The grob is
-referenced by its assigned \code{name}.
+Now we edit the axis, changing the colour of the entire axis to red.
+Notice that we refer to the x-axis by its name.
 
 <<edit1, eval=FALSE>>=
 grid.edit("gxa", gp = gpar(col = "red"))
@@ -55,12 +52,17 @@ gxa <- editGrob(gxa, gp = gpar(col = "red"))
 grid.draw(gxa)
 @
 \begin{center}
+{
 \includegraphics[width=3in, height=1in]{interactive-fig2}
+}
 \end{center}
 
-We can also edit specific components of a grob. For example, changing
-only the labels to green. The \code{gPath()} function is recommended
-for reusable code because it avoids hard‑coding grob names.
+@
+
+Now we change just the labels of the x-axis to green.  We use the
+\code{gPath()} function to concatenate the grob names (we could have used
+\code{"gxa::labels"} here, but \code{gPath()} is recommended for
+writing code that will be reused).
 
 <<edit2, eval=FALSE>>=
 grid.edit(gPath("gxa", "labels"), gp = gpar(col = "green"))
@@ -71,12 +73,18 @@ gxa <- editGrob(gxa, gPath = "labels", gp = gpar(col = "green"))
 grid.draw(gxa)
 @
 \begin{center}
+{
 \includegraphics[width=3in, height=1in]{interactive-fig3}
+}
 \end{center}
+@
 
-Editing can also change structural aspects, such as the number of tick
-marks. When new labels are created, they inherit the default colour of
-the axis, replacing previous label edits.
+It is also possible to change the number of tick marks.
+Notice that the labels all change back to red;  this happens
+because new labels are created by the axis and these ``inherit''
+the colour of the axis by default.  In other words, the
+colour specification of the old labels was specific to the old labels
+and was discarded when the old labels were discarded.
 
 <<edit3, eval=FALSE>>=
 grid.edit("gxa", at = c(0.0, 0.5, 1.0))
@@ -88,10 +96,13 @@ gxa <- editGrob(gxa, at = c(0.0, 0.5, 1.0))
 grid.draw(gxa)
 @
 \begin{center}
+{
 \includegraphics[width=3in, height=1in]{interactive-fig4}
+}
 \end{center}
+@
 
-Finally, we change the labels back to black and rotate them by $30^\circ$.
+Finally, we change the labels back to black and rotate them all $30\deg$.
 
 <<edit4, eval=FALSE>>=
 grid.edit("gxa::labels", gp = gpar(col = "black"), rot = 30)
@@ -104,14 +115,16 @@ gxa <- editGrob(gxa, gPath = "labels", gp = gpar(col = "black"), rot = 30)
 grid.draw(gxa)
 @
 \begin{center}
+{
 \includegraphics[width=3in, height=1in]{interactive-fig5}
+}
 \end{center}
+@
 
-\section*{Off‑Screen Editing}
-All of the above examples describe editing grobs and updating them on
-screen. Equivalent operations can be performed entirely off‑screen by
-working with grob objects directly. This approach is useful for
-reproducibility and scripted graphics pipelines.
+The above examples describe how to perform editing on a grid object
+and have the changes updated on screen.  The equivalent can be done
+entirely ``off-screen'', by just working with the grid object.
+The off-screen equivalent in this case would look like:
 
 <<results=hide>>=
 gxa <- xaxisGrob(at = 1:4/5, vp = viewport(w = .5, h = .01))
@@ -121,5 +134,4 @@ gxa <- editGrob(gxa, at = c(0.0, 0.5, 1.0))
 gxa <- editGrob(gxa, gPath = "labels", gp = gpar(col = "black"), rot = 30)
 grid.draw(gxa)
 @
-
 \end{document}

@@ -1,23 +1,20 @@
 %\VignetteEncoding{UTF-8}
 % File src/library/grid/vignettes/moveline.Rnw
 % Part of the R package, https://www.R-project.org
-% Copyright 2001–2026 Paul Murrell and the R Core Team
+% Copyright 2001-13 Paul Murrell and the R Core Team
 % Distributed under GPL 2 or later
 
 \documentclass[a4paper]{article}
 %\VignetteIndexEntry{Demonstrating move-to and line-to}
 %\VignettePackage{grid}
-
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\pkg}[1]{{\normalfont\fontseries{b}\selectfont #1}}
 \newcommand{\grid}{\pkg{grid}}
 \newcommand{\R}{{\sffamily R}}
-
 \setlength{\parindent}{0in}
 \setlength{\parskip}{.1in}
 \setlength{\textwidth}{140mm}
 \setlength{\oddsidemargin}{10mm}
-
 \title{Drawing Lines Between Viewports: \\
 \code{grid.move.to} and \code{grid.line.to}}
 \author{Paul Murrell}
@@ -32,17 +29,17 @@ ps.options(pointsize = 12)
 options(width = 60)
 @
 
-\section*{Introduction}
-Many graphics systems provide the concept of a current drawing
-location. This functionality has been added to \grid{}, with the
-additional benefit that the drawing location can be specified relative
-to an arbitrary viewport. This allows drawing operations to span
-multiple coordinate systems.
+Many graphics systems have the notion of a current drawing location.
+This has been added to Grid, with the additional benefit that the
+drawing location can be specified relative to an arbitrary viewport.
+This allows drawing across coordinate
+systems\footnote{There was a request on R-help for exactly this
+sort of thing - I will try to find the exact reference - and there has
+since been another (From: Ross Darnell; Subject: Problems with
+segments and multiple graphs). }.
 
-\section*{Example}
-The following code demonstrates a simple example of moving to a
-location in one viewport and drawing a line to a location in another
-viewport. The output is shown below.
+The following code demonstrates a simple example (the output is
+given after the code).
 
 <<fig, results=hide, fig=TRUE, width=5, height=4, include=FALSE>>=
 pushViewport(
@@ -61,9 +58,10 @@ grid.points(0.5, unit(2, "native"))
 grid.line.to(0.5, unit(2,"native"))
 @
 \begin{center}
+{
 \includegraphics[width=5in, height=4in]{moveline-fig}
+}
 \end{center}
 
+@
 \end{document}
-
-

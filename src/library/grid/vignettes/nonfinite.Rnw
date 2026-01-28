@@ -1,21 +1,21 @@
 %\VignetteEncoding{UTF-8}
 % File src/library/grid/vignettes/nonfinite.Rnw
 % Part of the R package, https://www.R-project.org
-% Copyright 2001–2026 Paul Murrell and the R Core Team
+% Copyright 2001-25 Paul Murrell and the R Core Team
 % Distributed under GPL 2 or later
 
 \documentclass[a4paper]{article}
 %\VignetteIndexEntry{Non-finite values}
 %\VignettePackage{grid}
-
 \newcommand{\pkg}[1]{{\normalfont\fontseries{b}\selectfont #1}}
 \newcommand{\grid}{\pkg{grid}}
 \let\code=\texttt
-
 \setlength{\parindent}{0in}
 \setlength{\parskip}{.1in}
 \setlength{\textwidth}{140mm}
 \setlength{\oddsidemargin}{10mm}
+
+\newcommand{\I}[1]{#1}
 
 \title{How \grid{} Responds to Non-Finite Values}
 \author{Paul Murrell}
@@ -30,27 +30,31 @@ ps.options(pointsize = 12)
 options(width = 60)
 @
 
-\section*{Introduction}
-It is possible to include non‑finite values (\code{NA}, \code{NaN},
-\code{Inf}, and \code{-Inf}) in specifications of locations and sizes
-within \grid{} functions. This vignette describes how \grid{} responds
-to non‑finite values in different contexts.
+It is possible to include non-finite values, \code{NA}, \code{NaN},
+\code{Inf}, and \code{-Inf}, in specifications of locations and sizes in
+\grid{} functions.  This document describes how \grid{} responds to
+non-finite values in different cases.
 
-\section*{Viewports}
-Non‑finite values are not permitted in the location, size, or scales of
-a viewport. Scales are checked when a viewport is created. Locations and
-sizes are checked when the viewport is pushed. Non‑finite values in
-these cases result in error messages.
+\textbf{viewports} {~} \\
+Non-finite values are not permitted in the location, size, or
+scales of a viewport.  Viewport scales are checked
+when a viewport is created.  It is very hard to be certain that
+locations and sizes are not non-finite when the viewport is created
+so this is only checked
+when the viewport is pushed.
+Non-finite values result in error messages.
 
-\section*{Primitives}
-For primitives such as \textbf{lines}, \textbf{segments},
-\textbf{rectangles}, \textbf{text}, \textbf{points}, and
-\textbf{circles}, non‑finite values for locations or sizes result in the
-corresponding primitive not being drawn.
-
-The following demonstration shows each primitive drawn at seven
-x‑locations, with the fourth location set to \code{NA} (indicated by
-grey text):
+\textbf{lines},
+\textbf{segments},
+\textbf{rectangles},
+\textbf{text},
+\textbf{points},
+\textbf{circles} {~} \\
+For all of these primitives, non-finite values for locations or
+sizes result in the corresponding primitive not being drawn.
+The following image provides a simple demonstration.  Each primitive
+is drawn at seven x-locations, with the fourth location made non-finite
+ (as indicated by a grey \code{"NA"}).
 
 <<prim1, echo=FALSE, fig=TRUE, results=hide, width=4, height=2, include=FALSE>>=
 pushViewport(viewport(layout = grid.layout(1, 2,
@@ -72,29 +76,31 @@ grid.circle(x, 0.3, 0.02)
 grid.text("NA", 0.5, 2:8/10, gp = gpar(col = "grey"))
 popViewport(2)
 @
-\begin{center}
+
+\vspace{.5in}
 \includegraphics{nonfinite-prim1}
-\end{center}
 
-\section*{Other Cases}
-\textbf{lineTo} \\
-A line segment is only drawn if both the previous location and the new
-location are finite.
+\newpage
 
-\textbf{polygon} \\
-A non‑finite value breaks a polygon into two separate polygons. This
-break occurs within the current polygon as specified by the \code{id}
-argument. All polygons with the same \code{id} share the same graphical
-parameters.
+\textbf{\I{lineTo}} {~} \\
+A line segment is only drawn if the previous location and the
+new location are both not non-finite.
 
-\textbf{arrows} \\
-An arrow head is only drawn if the first or last line segment is drawn.
+\textbf{polygon} {~} \\
+A non-finite value breaks the polygon into two separate polygons.
+NOTE that this break happens within the current polygon as specified
+by the \code{id} argument.  All polygons with the same \code{id}
+receive the same \code{gp} settings.
 
-\section*{Demonstration}
-The following example shows behaviour when x‑ and y‑locations are seven
-equally spaced points around a circle. In the top‑left figure, all
-locations are finite. In the other figures, two locations are set to
-non‑finite values (indicated by grey text):
+\textbf{arrows} {~} \\
+An arrow head is only drawn if the first or last line segment is
+drawn.
+
+The following image demonstrates the behaviour of these primitives
+where x- and y-locations are seven equally-spaced locations around
+the perimeter of a circle.  In the top-left figure, all locations
+are not non-finite.  In each of the other figures, two locations have
+been made non-finite (indicated in each case by grey text).
 
 <<prim2, echo=FALSE, fig=TRUE, results=hide, include=FALSE>>=
 n <- 7
@@ -132,8 +138,7 @@ celltest(2, 1, cellnas(2), NA)
 celltest(2, 2, cellnas(3), NA)
 popViewport()
 @
-\begin{center}
-\includegraphics{nonfinite-prim2}
-\end{center}
 
+\vspace{.5in}
+\includegraphics{nonfinite-prim2}
 \end{document}
