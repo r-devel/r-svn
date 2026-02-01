@@ -2537,6 +2537,35 @@ stopifnot(identical(20 * 0:5, pretty(c("1", "9", "100"))))
 ## wrongly gave  0 2 4 6 8 10
 
 
+## summary() of an empty character vector (after PR#16750)
+stopifnot(all.equal(summary(nchar(character()))[c("Min.", "Max.")] |> print(),
+                    summary(character())[c("Min.nchar", "Max.nchar")],
+                    check.names = FALSE))
+## gave +-Inf (with warnings) rather than NA, for a few days in the trunk
+
+
+## asymmetric  toeplitz(x, r), when length(r) < 2 and {x, r} differ by type -- PR#18996
+chkToep <- function(tx, lx, tr, lr) {
+    x <- vector(tx, lx)
+    r <- vector(tr, lr)
+    identical(toeplitz(x, r), matrix(c(FALSE, x[0L], r[0L]), lx, lr))
+}
+t3 <- c("integer", "double", "complex")
+i02 <- 0L:2L
+tail(L <- expand.grid(tx=t3, lx=i02, tr=t3, lr=i02,
+                      KEEP.OUT.ATTRS = FALSE, stringsAsFactors=FALSE))
+stopifnot(unlist(.mapply(chkToep, L, NULL)))
+## had 18 (out of 81) FALSE in R <= 4.5.z
+
+
+## format(<named raw>):
+rr <- as.raw(seq(0, 255, by = 7))
+names(rr) <- nn <- outer(c(LETTERS, letters), c("","_"), paste0)[seq_along(rr)]
+head(fr <- format(rr))
+stopifnot(identical(names(fr), nn))
+## lost names() in R <= 4.5.z
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

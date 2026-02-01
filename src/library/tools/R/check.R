@@ -2530,18 +2530,25 @@ add_dummies <- function(dir, Log)
                 bad <- tryCatch(R(.check_Rd_bibentries_cited_not_shown,
                                   list(dir = pkgdir)),
                                 error = identity)
-                if(!inherits(bad, "error") && length(bad)) {
+                ume <- isTRUE(attr(bad, "unexpected_macro_expansion"))
+                if(!inherits(bad, "error") && (ume || length(bad))) {
                     if(!any) {
                         noteLog(Log)
                         any <- TRUE
                     }
+                    msg <- if(ume)
+                               "Found bibentries with unexpected macro expansions.  Rebuild with R >= 4.6.0?"
+                           else
+                               character()
                     fmt <- function(u, v) {
                         c(sprintf("Bibentries cited but not shown in Rd file %s:",
                                   sQuote(u)),
                           .strwrap22(sQuote(v), ", "))
                     }
-                    msg <- unlist(Map(fmt, names(bad), bad),
-                                  use.names = FALSE)
+                    if(length(bad))
+                        msg <- c(msg,
+                                 unlist(Map(fmt, names(bad), bad),
+                                        use.names = FALSE))
                     printLog0(Log, paste(msg, collapse = "\n"), "\n")
                 }
             }
@@ -4615,14 +4622,14 @@ add_dummies <- function(dir, Log)
             exsave <- file.path(pkgdir, test_dir, "Examples",
                                 paste0(pkgname, "-Ex.Rout.save"))
             if (do_diff && file.exists(exsave)) {
-                checkingLog(Log, "differences from ",
-                            sQuote(basename(exout)),
-                            " to ", sQuote(basename(exsave)))
+                checkingLog(Log, "for differences from example reference output")
                 cmd <- paste0("invisible(tools::Rdiff('",
                               exout, "', '", exsave, "',TRUE,TRUE))")
                 out <- R_runR0(cmd, R_opts2)
                 if(length(out)) {
                     noteLog(Log)
+                    printLog0(Log, "Comparing ", sQuote(basename(exout)),
+                              " to ", sQuote(basename(exsave)), ":\n")
                     printLog0(Log, paste(out, collapse = "\n"), "\n")
                 }
                 else

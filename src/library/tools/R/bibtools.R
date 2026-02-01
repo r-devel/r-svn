@@ -150,36 +150,65 @@ function(bib)
 }
 
 .check_Rd_bibentries_cited_not_shown <-
-function(package, dir, lib.loc = NULL)
+function(dir)
 {
-    db <- if(!missing(package))
-              Rd_db(package, lib.loc)
-          else
-              Rd_db(dir = dir)
-    x <- lapply(db, .bibentries_cited_or_shown)
-    f <- function(e) {
-        cites <- unlist(lapply(e[e[, 1L] != "\\bibshow", 2L],
-                               .bibkeys_from_cite),
-                        use.names = FALSE)
-        shows <- unlist(lapply(e[e[, 1L] == "\\bibshow", 2L],
-                               .bibkeys_from_show),
-                        use.names = FALSE)
-        if("*" %in% shows)
-            NULL
+    ## We really need build/partial.rdb for this, which we only have for
+    ## the package sources.
+    x <- Filter(length,
+                lapply(Rd_db(dir = dir), .bibentries_cited_or_shown))
+    if(!length(x))
+        return(NULL)
+    u <- FALSE
+    ## Check whether we got everything from the build stage expansions.
+    f <- file.path(dir, "build", "partial.rdb")
+    if(!file.exists(f)) {
+        u <- TRUE
+    } else {
+        y <- lapply(readRDS(f)[names(x)], .bibentries_cited_or_shown)
+        ## Cannot simply use identical() as entries in the partial Rd db
+        ## are subject to section re-ordering.
+        g <- function(u, v) {
+            is.null(v) || # built with \bib stubs/unknowns in R < 4.6.0
+            length(setdiff(split(u, row(u)), split(v, row(v))) > 0L)
+        }
+        if(any(unlist(Map(g, x, y), use.names = FALSE)))
+            u <- TRUE
         else
-            setdiff(cites, shows)
+            x <- y
     }
-    Filter(length, lapply(x, f))
+    f <- function(x) {
+        if(!length(x))
+            return(NULL)
+        delta <- cited <- character()
+        for(e in split(x, row(x))) {
+            if(e[1L] != "\\bibshow") {
+                cited <- c(cited, .bibkeys_from_cite(e[2L]))
+            } else {
+                given <- .bibkeys_from_show(e[2L])
+                if(!length(given)) {
+                    delta <- c(delta, cited)
+                    cited <- character()
+                } else {
+                    if(any(given == "*"))
+                        given <- c(given[given != "*"], cited)
+                    cited <- setdiff(cited, given)
+                }
+            }
+        }
+        c(delta, cited)
+    }
+    y <- Filter(length, lapply(x, f))
+    if(u) attr(y, "unexpected_macro_expansion") <- TRUE
+    y
 }
 
-.bibentries_cited_or_shown <-
-function(x) {
+.bibentries_cited_or_shown <- function(x) {
     tab <- NULL
     recurse <- function(e) {
         if(identical(attr(e, "Rd_tag"), "USERMACRO") &&
            ((m <- attr(e, "macro")) %in%
             c("\\bibcitep", "\\bibcitet", "\\bibshow")))
-            tab <<- rbind(tab, c(m, e[[2L]]))
+            tab <<- rbind(tab, c(m, e[[2L]], e[[1L]]))
         else if(is.list(e))
             lapply(e, recurse)
     }
