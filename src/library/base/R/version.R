@@ -63,6 +63,7 @@ function(x, strict = TRUE, regexp, classes = NULL)
     }
     names(y) <- nms
     class(y) <- unique(c(classes, "numeric_version"))
+    attr(y, "source") <- x
     y
 }
 
@@ -118,11 +119,9 @@ function(x, strict = TRUE)
     if(is.list(x) && all(c("major", "minor") %in% names(x)))
         return(R_system_version(paste(x[c("major", "minor")],
                                       collapse = ".")))
-    version <- .make_numeric_version(x, strict,
+    .make_numeric_version(x, strict,
                           .standard_regexps()$valid_package_version,
                           "package_version")
-    attr(version, "source") <- x
-    version
 }
 
 is.package_version <-
