@@ -27,15 +27,15 @@ system <- function(command, intern = FALSE,
         message("arguments 'show.output.on.console', 'minimized' and 'invisible' are for Windows only")
 
     if(!is.logical(intern) || is.na(intern))
-        stop("'intern' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "intern"), domain=NA)
     if(!is.logical(ignore.stdout) || is.na(ignore.stdout))
-        stop("'ignore.stdout' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "ignore.stdout"), domain=NA)
     if(!is.logical(ignore.stderr) || is.na(ignore.stderr))
-        stop("'ignore.stderr' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "ignore.stderr"), domain=NA)
     if(!is.logical(wait) || is.na(wait))
-        stop("'wait' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "wait"), domain=NA)
     if(!is.logical(receive.console.signals) || is.na(receive.console.signals))
-        stop("'receive.console.signals' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "receive.console.signals"), domain=NA)
 
     if(ignore.stdout) command <- paste(command, ">/dev/null")
     if(ignore.stderr) command <- paste(command, "2>/dev/null")
@@ -63,9 +63,9 @@ system2 <- function(command, args = character(),
     if(!missing(minimized) || !missing(invisible))
         message("arguments 'minimized' and 'invisible' are for Windows only")
     if(!is.logical(wait) || is.na(wait))
-        stop("'wait' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "wait"), domain=NA)
     if(!is.logical(receive.console.signals) || is.na(receive.console.signals))
-        stop("'receive.console.signals' must be TRUE or FALSE")
+        stop(gettextf("'%s' must be TRUE or FALSE", "receive.console.signals"), domain=NA)
     intern <- FALSE
     command <- paste(c(env, shQuote(command), args), collapse = " ")
 
