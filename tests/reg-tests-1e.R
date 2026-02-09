@@ -2573,7 +2573,13 @@ stopifnot(is.null(names(rep.int(x, 2))),
           is.null(names(rep_len(x, 10))))
 ## had names in 4.0.0 <= R <= 4.5.z because of dispatch to rep() method
 
-
+## Context stack overflow checks (PR#18458)
+## These used to segfault (on some platforms with ASAN) due to off-by-one in context stack checks
+tools::assertError(parse(text = strrep("{", 50)))
+tools::assertError(parse(text = strrep("(", 50)))
+tools::assertError(parse(text = strrep("[", 50)))
+tools::assertError(parse(text = strrep("[[", 25)))
+tools::assertError(parse(text = paste0("{", strrep("if(1)", 50), "}")))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
