@@ -2577,8 +2577,8 @@ stopifnot(is.null(names(rep.int(x, 2))),
 ## These used to segfault (on some platforms with ASAN) due to off-by-one in context stack checks
 tools::assertError(parse(text = strrep("{", 50)))
 tools::assertError(parse(text = strrep("(", 50)))
-tools::assertError(parse(text = strrep("[", 50)))
-tools::assertError(parse(text = strrep("[[", 25)))
+tools::assertError(parse(text = strrep("x[", 50)))
+tools::assertError(parse(text = strrep("x[[", 25)))
 tools::assertError(parse(text = paste0("{", strrep("if(1)", 50), "}")))
 
 ## keep at end
