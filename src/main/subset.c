@@ -66,31 +66,42 @@ static R_INLINE SEXP VECTOR_ELT_FIX_NAMED(SEXP y, R_xlen_t i) {
    currently the subscript code forces allocation.
 */
 
-#define EXTRACT_SUBSET_LOOP(STDCODE, NACODE) do { \
-	if (TYPEOF(indx) == INTSXP) {		  \
-	    const int *pindx = INTEGER_RO(indx);  \
-	    for (i = 0; i < n; i++) {		  \
-		ii = pindx[i];			  \
-		if (0 < ii && ii <= nx) {	  \
-		    ii--;			  \
-		    STDCODE;			  \
-		}				  \
-		else /* out of bounds or NA */	  \
-		    NACODE;			  \
-	    }					  \
-	}					  \
-	else {					  \
-	    const double *pindx = REAL_RO(indx);  \
-	    for (i = 0; i < n; i++) {		  \
-		double di = pindx[i];		  \
-		ii = (R_xlen_t) (di - 1);	  \
-		if (R_FINITE(di) &&		  \
-		    0 <= ii && ii < nx)		  \
-		    STDCODE;			  \
-		else				  \
-		    NACODE;			  \
-	    }					  \
-	}					  \
+#define EXTRACT_SUBSET_LOOP_(STDCODE, NACODE) do { \
+	if (TYPEOF(indx) == INTSXP) {		   \
+	    const int *pindx = INTEGER_RO(indx);   \
+	    for (i = 0; i < n; i++) {		   \
+		ii = pindx[i];			   \
+		if (0 < ii && ii <= nx) {	   \
+		    ii--;			   \
+		    STDCODE;			   \
+		}				   \
+		else /* out of bounds or NA */	   \
+		    NACODE;			   \
+	    }					   \
+	}					   \
+	else {					   \
+	    const double *pindx = REAL_RO(indx);   \
+	    for (i = 0; i < n; i++) {		   \
+		double di = pindx[i];		   \
+		ii = (R_xlen_t) (di - 1);	   \
+		if (R_FINITE(di) &&		   \
+		    0 <= ii && ii < nx)		   \
+		    STDCODE;			   \
+		else				   \
+		    NACODE;			   \
+	    }					   \
+	}					   \
+    } while (0)
+
+#define EXTRACT_SUBSET_LOOP(PTR, STDCODEPTR, STDCODENOPTR, NACODE) do { \
+	PTR;                                                            \
+	if (px != NULL) {                                               \
+	    EXTRACT_SUBSET_LOOP_(STDCODEPTR, NACODE);                   \
+	} else {                                                        \
+	    /* Fallback `ELT()` based path used for ALTREP classes */   \
+	    /* that return `NULL` from `DATAPTR_OR_NULL()`. */          \
+	    EXTRACT_SUBSET_LOOP_(STDCODENOPTR, NACODE);                 \
+	}                                                               \
     } while (0)
 
 NORET static void errorcallNotSubsettable(SEXP x, SEXP call)
@@ -134,36 +145,52 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     PROTECT(result = allocVector(mode, n));
     switch(mode) {
     case LGLSXP:
-	EXTRACT_SUBSET_LOOP(LOGICAL0(result)[i] = LOGICAL_ELT(x, ii),
-			    LOGICAL0(result)[i] = NA_INTEGER);
+	EXTRACT_SUBSET_LOOP(const int* px = (const int*) DATAPTR_OR_NULL(x),
+			    LOGICAL0(result)[i] = px[ii],
+			    LOGICAL0(result)[i] = LOGICAL_ELT(x, ii),
+			    LOGICAL0(result)[i] = NA_LOGICAL);
 	break;
     case INTSXP:
-	EXTRACT_SUBSET_LOOP(INTEGER0(result)[i] = INTEGER_ELT(x, ii),
+	EXTRACT_SUBSET_LOOP(const int* px = (const int*) DATAPTR_OR_NULL(x),
+			    INTEGER0(result)[i] = px[ii],
+			    INTEGER0(result)[i] = INTEGER_ELT(x, ii),
 			    INTEGER0(result)[i] = NA_INTEGER);
 	break;
     case REALSXP:
-	EXTRACT_SUBSET_LOOP(REAL0(result)[i] = REAL_ELT(x, ii),
+	EXTRACT_SUBSET_LOOP(const double* px = (const double*) DATAPTR_OR_NULL(x),
+			    REAL0(result)[i] = px[ii],
+			    REAL0(result)[i] = REAL_ELT(x, ii),
 			    REAL0(result)[i] = NA_REAL);
 	break;
     case CPLXSXP:
 	{
 	    Rcomplex NA_CPLX = { .r = NA_REAL, .i = NA_REAL };
-	    EXTRACT_SUBSET_LOOP(COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
+	    EXTRACT_SUBSET_LOOP(const Rcomplex* px = (const Rcomplex*) DATAPTR_OR_NULL(x),
+				COMPLEX0(result)[i] = px[ii],
+				COMPLEX0(result)[i] = COMPLEX_ELT(x, ii),
 				COMPLEX0(result)[i] = NA_CPLX);
 	}
 	break;
     case STRSXP:
-	EXTRACT_SUBSET_LOOP(SET_STRING_ELT(result, i, STRING_ELT(x, ii)),
+	EXTRACT_SUBSET_LOOP(const SEXP* px = (const SEXP*) DATAPTR_OR_NULL(x),
+			    SET_STRING_ELT(result, i, px[ii]),
+			    SET_STRING_ELT(result, i, STRING_ELT(x, ii)),
 			    SET_STRING_ELT(result, i, NA_STRING));
 	break;
     case VECSXP:
     case EXPRSXP:
-	EXTRACT_SUBSET_LOOP(SET_VECTOR_ELT(result, i,
-					   VECTOR_ELT_FIX_NAMED(x, ii)),
+	/* Is `VECTOR_ELT_FIX_NAMED()` still needed? If not, split out VECSXP */
+	/* case and use `DATAPTR_OR_NULL()` there too. Currently it never */
+	/* takes the `px[ii]` path - DV. */
+	EXTRACT_SUBSET_LOOP(const SEXP *px = NULL,
+			    SET_VECTOR_ELT(result, i, px[ii]),
+			    SET_VECTOR_ELT(result, i, VECTOR_ELT_FIX_NAMED(x, ii)),
 			    SET_VECTOR_ELT(result, i, R_NilValue));
 	break;
     case RAWSXP:
-	EXTRACT_SUBSET_LOOP(RAW0(result)[i] = RAW_ELT(x, ii),
+	EXTRACT_SUBSET_LOOP(const Rbyte* px = (const Rbyte*) DATAPTR_OR_NULL(x),
+			    RAW0(result)[i] = px[ii],
+			    RAW0(result)[i] = RAW_ELT(x, ii),
 			    RAW0(result)[i] = (Rbyte) 0);
 	break;
     case LISTSXP:
