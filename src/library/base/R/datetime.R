@@ -484,7 +484,7 @@ summary.POSIXlt <- function(object, digits = 15, ...)
     if (nargs() == 1L) return(e1)
     # only valid if one of e1 and e2 is a scalar/difftime
     if(inherits(e1, "POSIXt") && inherits(e2, "POSIXt"))
-        stop("binary '+' is not defined for \"POSIXt\" objects")
+        stop(gettextf("binary '%s' is not defined for \"%s\" objects", "+", "POSIXt"), domain=NA)
     if(inherits(e1, "POSIXlt")) e1 <- as.POSIXct(e1)
     if(inherits(e2, "POSIXlt")) e2 <- as.POSIXct(e2)
     if (inherits(e1, "difftime")) e1 <- coerceTimeUnit(e1)
@@ -501,7 +501,7 @@ summary.POSIXlt <- function(object, digits = 15, ...)
                          days = 60*60*24*x, weeks = 60*60*24*7*x))
     if(!inherits(e1, "POSIXt"))
         stop("can only subtract from \"POSIXt\" objects")
-    if (nargs() == 1L) stop("unary '-' is not defined for \"POSIXt\" objects")
+    if (nargs() == 1L) stop(gettextf("unary '%s' is not defined for \"%s\" objects", "-", "POSIXt"), domain=NA)
     if(inherits(e2, "POSIXt")) return(difftime(e1, e2))
     if (inherits(e2, "difftime")) e2 <- coerceTimeUnit(e2)
     if(!is.null(attr(e2, "class")))
@@ -513,12 +513,12 @@ summary.POSIXlt <- function(object, digits = 15, ...)
 Ops.POSIXt <- function(e1, e2)
 {
     if (nargs() == 1L)
-        stop(gettextf("unary '%s' not defined for \"POSIXt\" objects",
-                      .Generic), domain = NA)
+        stop(gettextf("unary '%s' is not defined for \"%s\" objects",
+                      .Generic, "POSIXt"), domain = NA)
     boolean <- switch(.Generic, "<" = , ">" = , "==" = ,
                       "!=" = , "<=" = , ">=" = TRUE, FALSE)
     if (!boolean)
-        stop(gettextf("'%s' not defined for \"POSIXt\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "POSIXt"),
              domain = NA)
     if(inherits(e1, "POSIXlt") || is.character(e1)) e1 <- as.POSIXct(e1)
     if(inherits(e2, "POSIXlt") || is.character(e2)) e2 <- as.POSIXct(e2)
@@ -528,7 +528,7 @@ Ops.POSIXt <- function(e1, e2)
 
 Math.POSIXt <- function (x, ...)
 {
-    stop(gettextf("'%s' not defined for \"POSIXt\" objects", .Generic),
+    stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "POSIXt"),
          domain = NA)
 }
 
@@ -552,7 +552,7 @@ Summary.POSIXct <- function (..., na.rm, finite = FALSE)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if (!ok)
-        stop(gettextf("'%s' not defined for \"POSIXt\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "POSIXt"),
              domain = NA)
     args <- list(...)
     tz <- do.call(.check_tzones, args)
@@ -563,7 +563,7 @@ Summary.POSIXlt <- function (..., na.rm, finite = FALSE)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if (!ok)
-        stop(gettextf("'%s' not defined for \"POSIXt\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "POSIXt"),
              domain = NA)
     args <- list(...)
     tz <- do.call(.check_tzones, args)
@@ -814,8 +814,8 @@ Ops.difftime <- function(e1, e2)
     }
     if (nargs() == 1L) {
         switch(.Generic, "+" = {}, "-" = {e1[] <- -unclass(e1)},
-               stop(gettextf("unary '%s' not defined for \"difftime\" objects",
-                             .Generic), domain = NA, call. = FALSE)
+               stop(gettextf("unary '%s' is not defined for \"%s\" objects",
+                             .Generic, "difftime"), domain = NA, call. = FALSE)
                )
         return(e1)
     }
@@ -845,7 +845,7 @@ Ops.difftime <- function(e1, e2)
         }
     } else {
         ## '*' is covered by a specific method
-        stop(gettextf("'%s' not defined for \"difftime\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "difftime"),
              domain = NA)
     }
 }
@@ -877,7 +877,7 @@ Math.difftime <- function (x, ...)
                .difftime(NextMethod(), units)
            },
            ### otherwise :
-           stop(gettextf("'%s' not defined for \"difftime\" objects", .Generic),
+           stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "difftime"),
                 domain = NA))
 }
 
@@ -896,7 +896,7 @@ Summary.difftime <- function (..., na.rm)
     }
     ok <- switch(.Generic, max = , min = , sum=, range = TRUE, FALSE)
     if (!ok)
-        stop(gettextf("'%s' not defined for \"difftime\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "difftime"),
              domain = NA)
     x <- list(...)
     Nargs <- length(x)

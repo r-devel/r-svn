@@ -224,7 +224,7 @@ function(x, i, j, value)
         if(any(vapply(value,
                       function(e) anyNA(e) || any(e < 0L),
                       NA)))
-            stop("invalid 'value'")
+            stop(gettextf("invalid '%s'", "value"), domain=NA)
         ## Listify j as needed.
         if(!is.list(j)) j <- list(j)
         y[i] <- Map(`[<-`, y[i], j, value)
@@ -255,17 +255,17 @@ function(x, ..., value)
                value <- unclass(as.numeric_version(value))[[1L]]
            else if(!is.integer(value) || anyNA(value) ||
                    (any(value) < 0L))
-               stop("invalid 'value'")
+               stop(gettextf("invalid '%s'", "value"), domain=NA)
        } else {
            value <- as.integer(value)
            if(length(value) != 1L || is.na(value) || (value < 0L))
-               stop("invalid 'value'")
+               stop(gettextf("invalid '%s'", "value"), domain=NA)
        }
        z[[..1]] <- value
    } else {
        value <- as.integer(value)
        if(length(value) != 1L || is.na(value) || (value < 0L))
-           stop("invalid 'value'")
+           stop(gettextf("invalid '%s'", "value"), domain=NA)
        z[[..1]][..2] <- value
    }
    structure(z, class = oldClass(x))
@@ -275,13 +275,13 @@ Ops.numeric_version <-
 function(e1, e2)
 {
     if(nargs() == 1L)
-        stop(gettextf("unary '%s' not defined for \"numeric_version\" objects",
-                      .Generic), domain = NA)
+        stop(gettextf("unary '%s' is not defined for \"%s\" objects",
+                      .Generic, "numeric_version"), domain = NA)
     boolean <- switch(.Generic, "<" = , ">" = , "==" = , "!=" = ,
         "<=" = , ">=" = TRUE, FALSE)
     if(!boolean)
-        stop(gettextf("'%s' not defined for \"numeric_version\" objects",
-                      .Generic), domain = NA)
+        stop(gettextf("'%s' is not defined for \"%s\" objects",
+                      .Generic, "numeric_version"), domain = NA)
     if(!is.numeric_version(e1)) e1 <- as.numeric_version(e1)
     if(!is.numeric_version(e2)) e2 <- as.numeric_version(e2)
     op <- get(.Generic, mode = "function")
@@ -293,8 +293,8 @@ function(..., na.rm)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
     if(!ok)
-        stop(gettextf("%s not defined for \"numeric_version\" objects",
-                      .Generic), domain = NA)
+        stop(gettextf("'%s' is not defined for \"%s\" objects",
+                      .Generic, "numeric_version"), domain = NA)
     x <- do.call(c, lapply(list(...), as.numeric_version))
     v <- .encode_numeric_version(x)
     if(!na.rm && length(pos <- which(is.na(v)))) {

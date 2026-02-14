@@ -22,7 +22,7 @@ zapsmall <- function(x, digits = getOption("digits"),
     ## NB: keep in sync w/ implicit generic in ../../methods/R/makeBasicFunsList.R !
 {
     if (length(digits) == 0L)
-        stop("invalid 'digits'")
+        stop(gettextf("invalid '%s'", "digits"), domain=NA)
     if (all(ina <- is.na(x)))
         return(x)
     mx <- mFUN(x, ina)

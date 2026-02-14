@@ -123,7 +123,7 @@ kappa.qr <- function(z, ...)
     }
     else {
         p <- as.integer(nrow(z))
-        if(is.na(p)) stop("invalid nrow(z)")
+        if(is.na(p)) stop(gettextf("invalid %s", "nrow(z)"), domain=NA)
 	if(p != ncol(z)) stop("triangular matrix should be square")
 	if(is.null(norm)) norm <- "1"
 	else if(norm == "2") {
