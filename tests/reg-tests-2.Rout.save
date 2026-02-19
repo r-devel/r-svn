@@ -5853,8 +5853,7 @@ data frame with 0 columns and 4 rows
 structure(list(X1.4 = 1:4), class = "data.frame", row.names = c(NA, 
 -4L))
 > dput(d1)
-structure(list(X1.4 = 1:4), class = "data.frame", row.names = c(NA, 
-4L))
+structure(list(X1.4 = 1:4), class = "data.frame", row.names = 1:4)
 > identical(d0, d1)
 [1] TRUE
 > all.equal(d0, d1)
