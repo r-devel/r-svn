@@ -56,31 +56,31 @@ static SEXP row_names_gets(SEXP vec, SEXP val)
 	return ans;
     }
     if(isInteger(val)) {
-	bool OK_compact = TRUE;
-	int i, n = LENGTH(val);
-	if(n == 2 && INTEGER_ELT(val, 0) == NA_INTEGER) {
-	    n = INTEGER_ELT(val, 1);
-	} else if (n > 2) {
-	    // convert an ALTREP 1:n sequence to the traditional compact form
-	    // might make sense to just keep the ALTREP sequence
-	    if (! (R_is_compact_intseq(val) &&
-		   INTEGER_ELT(val, 0) == 1 &&
-		   INTEGER_ELT(val, n - 1) == n))
-		for(i = 0; i < n; i++)
-		    if(INTEGER_ELT(val, i) != i+1) {
+	if (!ALTREP(val)) {
+	    bool OK_compact = TRUE;
+	    int i, n = LENGTH(val);
+	    if(n == 2 && INTEGER_ELT(val, 0) == NA_INTEGER) {
+		n = INTEGER_ELT(val, 1);
+	    } else if (n > 2) {
+		for (i = 0; i < n; i++) {
+		    if (INTEGER_ELT(val, i) != i+1) {
 			OK_compact = false;
 			break;
 		    }
-	} else OK_compact = false;
-	if(OK_compact) {
-	    /* we hide the length in an impossible integer vector */
-	    PROTECT(vec);
-	    PROTECT(val = allocVector(INTSXP, 2));
-	    INTEGER(val)[0] = NA_INTEGER;
-	    INTEGER(val)[1] = n; // +n:  compacted *and* automatic row names
-	    ans =  installAttrib(vec, R_RowNamesSymbol, val);
-	    UNPROTECT(2); /* vec, val */
-	    return ans;
+		}
+	    } else {
+		OK_compact = false;
+	    }
+	    if(OK_compact) {
+		/* we hide the length in an impossible integer vector */
+		PROTECT(vec);
+		PROTECT(val = allocVector(INTSXP, 2));
+		INTEGER(val)[0] = NA_INTEGER;
+		INTEGER(val)[1] = n; // +n:  compacted *and* automatic row names
+		ans =  installAttrib(vec, R_RowNamesSymbol, val);
+		UNPROTECT(2); /* vec, val */
+		return ans;
+	    }
 	}
     } else if(!isString(val))
 	error(_("row names must be 'character' or 'integer', not '%s'"),
@@ -184,7 +184,7 @@ SEXP getAttrib(SEXP vec, SEXP name)
     /* special test for c(NA, n) rownames of data frames: */
     if (name == R_RowNamesSymbol) {
 	SEXP s = getAttrib0(vec, R_RowNamesSymbol);
-	if(isInteger(s) && LENGTH(s) == 2 && INTEGER(s)[0] == NA_INTEGER) {
+	if(!ALTREP(s) && isInteger(s) && LENGTH(s) == 2 && INTEGER(s)[0] == NA_INTEGER) {
 	    int n = abs(INTEGER(s)[1]);
 	    if (n > 0)
 		s = R_compact_intrange(1, n);
