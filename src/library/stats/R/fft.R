@@ -34,7 +34,7 @@ convolve <- function(x, y, conj=TRUE, type=c("circular","open","filter"))
             stop("length mismatch in convolution")
     }
     else { ## "open" or "filter": Pad with zeros
-        if (type == "filter" && ny>n) return(numeric())
+        if (type == "filter" && ny>nx) return(numeric())
         n1 <- ny - 1
         x <- c(rep.int(0, n1), x)
         n <- length(y <- c(y, rep.int(0, nx - 1)))# n = nx+ny-1
