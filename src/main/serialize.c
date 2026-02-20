@@ -336,21 +336,25 @@ static void OutString(R_outpstream_t stream, const char *s, int length)
 {
     if (stream->type == R_pstream_ascii_format ||
 	stream->type == R_pstream_asciihex_format) {
-	int i;
+	int i, bufpos = 0;
 	char buf[128];
 	for (i = 0; i < length; i++) {
+	    if (bufpos > 120) { /* flush, leaving room for an escape */
+		stream->OutBytes(stream, buf, bufpos);
+		bufpos = 0;
+	    }
 	    switch(s[i]) {
-	    case '\n': snprintf(buf, 128, "\\n");  break;
-	    case '\t': snprintf(buf, 128, "\\t");  break;
-	    case '\v': snprintf(buf, 128, "\\v");  break;
-	    case '\b': snprintf(buf, 128, "\\b");  break;
-	    case '\r': snprintf(buf, 128, "\\r");  break;
-	    case '\f': snprintf(buf, 128, "\\f");  break;
-	    case '\a': snprintf(buf, 128, "\\a");  break;
-	    case '\\': snprintf(buf, 128, "\\\\"); break;
-	    case '\?': snprintf(buf, 128, "\\?");  break;
-	    case '\'': snprintf(buf, 128, "\\'");  break;
-	    case '\"': snprintf(buf, 128, "\\\""); break;
+	    case '\n': buf[bufpos++] = '\\'; buf[bufpos++] = 'n';  break;
+	    case '\t': buf[bufpos++] = '\\'; buf[bufpos++] = 't';  break;
+	    case '\v': buf[bufpos++] = '\\'; buf[bufpos++] = 'v';  break;
+	    case '\b': buf[bufpos++] = '\\'; buf[bufpos++] = 'b';  break;
+	    case '\r': buf[bufpos++] = '\\'; buf[bufpos++] = 'r';  break;
+	    case '\f': buf[bufpos++] = '\\'; buf[bufpos++] = 'f';  break;
+	    case '\a': buf[bufpos++] = '\\'; buf[bufpos++] = 'a';  break;
+	    case '\\': buf[bufpos++] = '\\'; buf[bufpos++] = '\\'; break;
+	    case '\?': buf[bufpos++] = '\\'; buf[bufpos++] = '?';  break;
+	    case '\'': buf[bufpos++] = '\\'; buf[bufpos++] = '\''; break;
+	    case '\"': buf[bufpos++] = '\\'; buf[bufpos++] = '"';  break;
 	    default  :
 		/* cannot print char in octal mode -> cast to unsigned
 		   char first */
@@ -358,12 +362,14 @@ static void OutString(R_outpstream_t stream, const char *s, int length)
 		   is handled above, s[i] > 126 can't happen, but
 		   I'm superstitious...  -pd */
 		if (s[i] <= 32 || s[i] > 126)
-		    snprintf(buf, 128, "\\%03o", (unsigned char) s[i]);
+		    bufpos += snprintf(buf + bufpos, sizeof(buf) - bufpos,
+				       "\\%03o", (unsigned char) s[i]);
 		else
-		    snprintf(buf, 128, "%c", s[i]);
+		    buf[bufpos++] = s[i];
 	    }
-	    stream->OutBytes(stream, buf, (int)strlen(buf));
 	}
+	if (bufpos > 0)
+	    stream->OutBytes(stream, buf, bufpos);
 	stream->OutChar(stream, '\n');
     }
     else
@@ -396,24 +402,22 @@ static void InWord(R_inpstream_t stream, char * buf, int size)
 static int InInteger(R_inpstream_t stream)
 {
     char word[128];
-    char buf[128];
     int i;
 
     switch (stream->type) {
     case R_pstream_ascii_format:
 	InWord(stream, word, sizeof(word));
-	if(sscanf(word, "%127s", buf) != 1) error(_("read error"));
-	if (strcmp(buf, "NA") == 0)
+	if (strcmp(word, "NA") == 0)
 	    return NA_INTEGER;
 	else
-	    if(sscanf(buf, "%d", &i) != 1) error(_("read error"));
+	    if(sscanf(word, "%d", &i) != 1) error(_("read error"));
 	return i;
     case R_pstream_binary_format:
 	stream->InBytes(stream, &i, sizeof(int));
 	return i;
     case R_pstream_xdr_format:
-	stream->InBytes(stream, buf, R_XDR_INTEGER_SIZE);
-	return R_XDRDecodeInteger(buf);
+	stream->InBytes(stream, word, R_XDR_INTEGER_SIZE);
+	return R_XDRDecodeInteger(word);
     default:
 	return NA_INTEGER;
     }
@@ -427,27 +431,25 @@ extern int trio_sscanf(const char *buffer, const char *format, ...);
 static double InReal(R_inpstream_t stream)
 {
     char word[128];
-    char buf[128];
     double d;
 
     switch (stream->type) {
     case R_pstream_ascii_format:
 	InWord(stream, word, sizeof(word));
-	if(sscanf(word, "%127s", buf) != 1) error(_("read error"));
-	if (strcmp(buf, "NA") == 0)
+	if (strcmp(word, "NA") == 0)
 	    return NA_REAL;
-	else if (strcmp(buf, "NaN") == 0)
+	else if (strcmp(word, "NaN") == 0)
 	    return R_NaN;
-	else if (strcmp(buf, "Inf") == 0)
+	else if (strcmp(word, "Inf") == 0)
 	    return R_PosInf;
-	else if (strcmp(buf, "-Inf") == 0)
+	else if (strcmp(word, "-Inf") == 0)
 	    return R_NegInf;
 	else
 	    if(
 #ifdef Win32
-		trio_sscanf(buf, "%lg", &d)
+		trio_sscanf(word, "%lg", &d)
 #else
-		sscanf(buf, "%lg", &d)
+		sscanf(word, "%lg", &d)
 #endif
 		!= 1) error(_("read error"));
 	return d;
@@ -455,8 +457,8 @@ static double InReal(R_inpstream_t stream)
 	stream->InBytes(stream, &d, sizeof(double));
 	return d;
     case R_pstream_xdr_format:
-	stream->InBytes(stream, buf, R_XDR_DOUBLE_SIZE);
-	return R_XDRDecodeDouble(buf);
+	stream->InBytes(stream, word, R_XDR_DOUBLE_SIZE);
+	return R_XDRDecodeDouble(word);
     default:
 	return NA_REAL;
     }
@@ -626,7 +628,7 @@ static void InFormat(R_inpstream_t stream)
  * should allow resizing the table at some point.
  */
 
-#define HASHSIZE 1099
+#define HASHSIZE 6151
 
 #define PTRHASH(obj) (((R_size_t) (obj)) >> 2)
 
@@ -890,6 +892,19 @@ static void OutStringVec(R_outpstream_t stream, SEXP s, SEXP ref_table)
 
 #define min2(a, b) ((a) < (b)) ? (a) : (b)
 
+/* Inline 32-bit byte-swap for direct XDR encoding/decoding of bulk
+   vector data.  Bypasses the XDR library vtable dispatch per element,
+   enabling compiler autovectorization of the inner loops.  XDR is
+   big-endian, so on big-endian hosts this is the identity. */
+#ifdef WORDS_BIGENDIAN
+#define R_swap32(x) (x)
+#else
+static R_INLINE uint32_t R_swap32(uint32_t x)
+{
+    return (x << 24) | ((x & 0xff00) << 8) |
+	   ((x & 0xff0000) >> 8) | (x >> 24);
+}
+#endif
 
 static R_INLINE void
 OutIntegerVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
@@ -900,15 +915,13 @@ OutIntegerVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     {
 	static char buf[CHUNK_SIZE * sizeof(int)];
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(int)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_int(&xdrs, INTEGER(s) + done + cnt))
-		    error(_("XDR write failed"));
-	    xdr_destroy(&xdrs);
+	    const uint32_t *src = (const uint32_t *)(INTEGER(s) + done);
+	    uint32_t *dst = (uint32_t *)buf;
+	    for (int cnt = 0; cnt < this; cnt++)
+		dst[cnt] = R_swap32(src[cnt]);
 	    stream->OutBytes(stream, buf, (int)(sizeof(int) * this));
 	}
 	break;
@@ -942,15 +955,19 @@ OutRealVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     {
 	static char buf[CHUNK_SIZE * sizeof(double)];
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(double)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_double(&xdrs, REAL(s) + done + cnt))
-		    error(_("XDR write failed"));
-	    xdr_destroy(&xdrs);
+#ifdef WORDS_BIGENDIAN
+	    memcpy(buf, REAL(s) + done, sizeof(double) * this);
+#else
+	    const uint32_t *src = (const uint32_t *)(REAL(s) + done);
+	    uint32_t *dst = (uint32_t *)buf;
+	    for (int cnt = 0; cnt < this; cnt++) {
+		dst[2*cnt]     = R_swap32(src[2*cnt + 1]);
+		dst[2*cnt + 1] = R_swap32(src[2*cnt]);
+	    }
+#endif
 	    stream->OutBytes(stream, buf, (int)(sizeof(double) * this));
 	}
 	break;
@@ -983,19 +1000,21 @@ OutComplexVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     {
 	static char buf[CHUNK_SIZE * sizeof(Rcomplex)];
 	R_xlen_t done, this;
-	XDR xdrs;
-	Rcomplex *c = COMPLEX(s);
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(Rcomplex)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++) {
-		if(!xdr_double(&xdrs, &(c[done+cnt].r)) ||
-		   !xdr_double(&xdrs, &(c[done+cnt].i)))
-		    error(_("XDR write failed"));
+#ifdef WORDS_BIGENDIAN
+	    memcpy(buf, COMPLEX(s) + done, sizeof(Rcomplex) * this);
+#else
+	    /* Rcomplex = 2 doubles; swap as 2*this doubles */
+	    const uint32_t *src = (const uint32_t *)(COMPLEX(s) + done);
+	    uint32_t *dst = (uint32_t *)buf;
+	    for (int cnt = 0; cnt < 2 * (int)this; cnt++) {
+		dst[2*cnt]     = R_swap32(src[2*cnt + 1]);
+		dst[2*cnt + 1] = R_swap32(src[2*cnt]);
 	    }
+#endif
 	    stream->OutBytes(stream, buf, (int)(sizeof(Rcomplex) * this));
-	    xdr_destroy(&xdrs);
 	}
 	break;
     }
@@ -1173,8 +1192,11 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	case SPECIALSXP:
 	case BUILTINSXP:
 	    /* Builtin functions */
-	    OutInteger(stream, (int)strlen(PRIMNAME(s)));
-	    OutString(stream, PRIMNAME(s), (int)strlen(PRIMNAME(s)));
+	    {
+		int len = (int)strlen(PRIMNAME(s));
+		OutInteger(stream, len);
+		OutString(stream, PRIMNAME(s), len);
+	    }
 	    break;
 	case CHARSXP:
 	    if (s == NA_STRING)
@@ -1503,24 +1525,21 @@ static SEXP InStringVec(R_inpstream_t stream, SEXP ref_table)
     return s;
 }
 
-/* use static buffer to reuse storage */
 static R_INLINE void
 InIntegerVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
 {
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(int)];
+	/* Read directly into target, then byte-swap in place */
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(int) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(int)), XDR_DECODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_int(&xdrs, INTEGER(obj) + done + cnt))
-		    error(_("XDR read failed"));
-	    xdr_destroy(&xdrs);
+	    stream->InBytes(stream, INTEGER(obj) + done,
+			    (int)(sizeof(int) * this));
+	    uint32_t *p = (uint32_t *)(INTEGER(obj) + done);
+	    for (int cnt = 0; cnt < this; cnt++)
+		p[cnt] = R_swap32(p[cnt]);
 	}
 	break;
     }
@@ -1546,17 +1565,21 @@ InRealVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(double)];
+	/* Read directly into target, then byte-swap in place */
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(double) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(double)), XDR_DECODE);
-	    for(R_xlen_t cnt = 0; cnt < this; cnt++)
-		if(!xdr_double(&xdrs, REAL(obj) + done + cnt))
-		    error(_("XDR read failed"));
-	    xdr_destroy(&xdrs);
+	    stream->InBytes(stream, REAL(obj) + done,
+			    (int)(sizeof(double) * this));
+#ifndef WORDS_BIGENDIAN
+	    uint32_t *p = (uint32_t *)(REAL(obj) + done);
+	    for (int cnt = 0; cnt < this; cnt++) {
+		uint32_t hi = R_swap32(p[2*cnt]);
+		uint32_t lo = R_swap32(p[2*cnt + 1]);
+		p[2*cnt] = lo;
+		p[2*cnt + 1] = hi;
+	    }
+#endif
 	}
 	break;
     }
@@ -1582,20 +1605,22 @@ InComplexVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(Rcomplex)];
+	/* Read directly into target, then byte-swap in place */
 	R_xlen_t done, this;
-	XDR xdrs;
-	Rcomplex *output = COMPLEX(obj);
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(Rcomplex) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(Rcomplex)), XDR_DECODE);
-	    for(R_xlen_t cnt = 0; cnt < this; cnt++) {
-		if(!xdr_double(&xdrs, &(output[done+cnt].r)) ||
-		   !xdr_double(&xdrs, &(output[done+cnt].i)))
-		    error(_("XDR read failed"));
+	    stream->InBytes(stream, COMPLEX(obj) + done,
+			    (int)(sizeof(Rcomplex) * this));
+#ifndef WORDS_BIGENDIAN
+	    /* Rcomplex = 2 doubles; swap as 2*this doubles */
+	    uint32_t *p = (uint32_t *)(COMPLEX(obj) + done);
+	    for (int cnt = 0; cnt < 2 * (int)this; cnt++) {
+		uint32_t hi = R_swap32(p[2*cnt]);
+		uint32_t lo = R_swap32(p[2*cnt + 1]);
+		p[2*cnt] = lo;
+		p[2*cnt + 1] = hi;
 	    }
-	    xdr_destroy(&xdrs);
+#endif
 	}
 	break;
     }
