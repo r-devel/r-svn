@@ -14,24 +14,17 @@
 convolve(x, y, conj = TRUE, type = c("circular", "open", "filter"))
 }
 \arguments{
-  \item{x, y}{numeric sequences \emph{of the same length} to be
-    convolved.}
+  \item{x, y}{numeric sequences to be convolved.}
   \item{conj}{logical; if \code{TRUE}, take the complex \emph{conjugate}
     before back-transforming (default, and used for usual convolution).}
   \item{type}{character; partially matched to \code{"circular"}, \code{"open"},
-    \code{"filter"}.  For \code{"circular"}, the
-    two sequences are treated as \emph{circular}, i.e., periodic.
-
-    For \code{"open"} and \code{"filter"}, the sequences are padded with
-    \code{0}s (from left and right) first; \code{"filter"} returns the
-    middle sub-vector of \code{"open"}, namely, the result of running a
-    weighted mean of \code{x} with weights \code{y}.}
+    or \code{"filter"}. See Value for details.}
 }
 \details{
   The Fast Fourier Transform, \code{\link{fft}}, is used for efficiency.
 
-  The input sequences \code{x} and  \code{y} must have the same length if
-  \code{circular} is true.
+  The input sequences \code{x} and \code{y} must have the same length if
+  \code{type = "circular"}.
 
   Note that the usual definition of convolution of two sequences
   \code{x} and \code{y} is given by \code{convolve(x, rev(y), type = "o")}.
@@ -39,9 +32,14 @@ convolve(x, y, conj = TRUE, type = c("circular", "open", "filter"))
 \value{
   If \code{r <- convolve(x, y, type = "open")}
   and \code{n <- length(x)}, \code{m <- length(y)}, then
-  \deqn{r_k = \sum_{i} x_{k-m+i} y_{i}}{r[k] = sum(i; x[k-m+i] * y[i])}
-  where the sum is over all valid indices \eqn{i}, for
-  \eqn{k = 1, \dots, n+m-1}.
+  \deqn{r_k = \sum_{i=1}^{m} x_{k-m+i} y_{i}}{r[k] = sum(i; x[k-m+i] * y[i])}
+  where \eqn{x[t] = 0} whenever \eqn{t <= 0} or \eqn{t > n},
+  for \eqn{k = 1, \dots, n+m-1}, i.e., \code{x} is 0-padded to the left and right
+  as needed.
+
+  For \code{type = "filter"}, exclude from the \code{type = "open"} result any entry
+  that required 0-padding. In particular, for \code{n == m}, this produces the result
+  of running a weighted mean of \code{x} with weights \code{y}.
 
   If \code{type == "circular"}, \eqn{n = m} is required, and the above is
   true for \eqn{i , k = 1,\dots,n} when
