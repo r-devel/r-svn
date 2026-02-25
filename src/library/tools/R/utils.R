@@ -91,7 +91,7 @@ function(x, compression = FALSE)
     ## (Only purely alphanumeric extensions are recognized.)
     if(compression)
         x <- sub("[.](gz|bz2|xz)$", "", x)
-    sub("([^.]+)\\.[[:alnum:]]+$", "\\1", x)
+    sub("\\.[[:alnum:]]+$", "\\1", x)
 }
 
 ### ** file_test
