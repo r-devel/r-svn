@@ -776,6 +776,33 @@ static SEXP R_GetGlobalCacheLoc(SEXP symbol)
 #endif /* USE_GLOBAL_CACHE */
 
 
+/* Unwrap nested promise chains created by `...` forwarding.
+ * Sets `*forced` to TRUE if the innermost promise is forced
+ * (PRENV is R_NilValue). */
+static SEXP delayed_promise_unwrap(SEXP value, Rboolean *forced) {
+    if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
+	error("internal: expected a delayed promise");
+
+    while (TYPEOF(value) == PROMSXP) {
+	if (PRENV(value) == R_NilValue) {
+	    *forced = TRUE;
+	    return value;
+	}
+
+	SEXP expr = R_PromiseExpr(value);
+	if (TYPEOF(expr) != PROMSXP) {
+	    *forced = FALSE;
+	    return value;
+	}
+
+	value = expr;
+    }
+
+    *forced = FALSE;
+    return value;
+}
+
+
 /*----------------------------------------------------------------------
   R_GetBindingType
 */
@@ -809,8 +836,13 @@ R_BindingType R_GetBindingType(SEXP sym, SEXP env) {
     if (TYPEOF(value) == PROMSXP) {
 	if (PROMISE_IS_EVALUATED(value))
 	    return R_BindingTypeForced;
-	else
-	    return R_BindingTypeDelayed;
+
+	Rboolean forced;
+	delayed_promise_unwrap(value, &forced);
+	if (forced)
+	    return R_BindingTypeForced;
+
+	return R_BindingTypeDelayed;
     }
 
     return R_BindingTypeValue;
@@ -3647,8 +3679,13 @@ SEXP R_DelayedBindingExpression(SEXP sym, SEXP env) {
     if (PROMISE_IS_EVALUATED(value))
 	error(_("not a delayed promise"));
 
+    Rboolean forced;
+    SEXP inner = delayed_promise_unwrap(value, &forced);
+    if (forced)
+	error(_("not a delayed promise"));
+
     /* This has special handling for bytecode, unlike `PREXPR()` */
-    return R_PromiseExpr(value);
+    return R_PromiseExpr(inner);
 }
 
 SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env) {
@@ -3665,7 +3702,12 @@ SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env) {
     if (PROMISE_IS_EVALUATED(value))
 	error(_("not a delayed promise"));
 
-    return PRENV(value);
+    Rboolean forced;
+    SEXP inner = delayed_promise_unwrap(value, &forced);
+    if (forced)
+	error(_("not a delayed promise"));
+
+    return PRENV(inner);
 }
 
 SEXP R_ForcedBindingExpression(SEXP sym, SEXP env) {
@@ -3679,11 +3721,15 @@ SEXP R_ForcedBindingExpression(SEXP sym, SEXP env) {
     if (TYPEOF(value) != PROMSXP)
 	error(_("not a promise"));
 
-    if (!PROMISE_IS_EVALUATED(value))
-	error(_("not a forced promise"));
+    if (PROMISE_IS_EVALUATED(value))
+	return R_PromiseExpr(value);
 
-    /* This has special handling for bytecode, unlike `PREXPR()` */
-    return R_PromiseExpr(value);
+    Rboolean forced;
+    SEXP inner = delayed_promise_unwrap(value, &forced);
+    if (forced)
+	return R_PromiseExpr(inner);
+
+    error(_("not a forced promise"));
 }
 
 SEXP R_ActiveBindingFunction(SEXP sym, SEXP env)
