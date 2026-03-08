@@ -73,7 +73,7 @@ jobs:
     - name: Download CRAN system libraries
       run: |
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
-        curl --retry 3 -fsSL https://github.com/r-universe-org/cranlibs/releases/download/2025-01-05/cranlibs-everything.tar.xz -o libs.tar.xz
+        curl --retry 3 --fail-with-body -sSL https://github.com/r-universe-org/cranlibs/releases/download/2025-01-05/cranlibs-everything.tar.xz -o libs.tar.xz
         sudo tar -xf libs.tar.xz -C / opt
         rm -f libs.tar.xz
 
@@ -90,7 +90,7 @@ jobs:
 
     - name: Install CRAN fortran build
       run: |
-        curl --retry 3 -fsSLO https://github.com/R-macos/gcc-12-branch/releases/download/12.2-darwin-r0.1/gfortran-12.2-universal.pkg
+        curl --retry 3 --fail-with-body -sSLO https://github.com/R-macos/gcc-12-branch/releases/download/12.2-darwin-r0.1/gfortran-12.2-universal.pkg
         sudo installer -pkg "gfortran-12.2-universal.pkg" -target /
         rm -f gfortran-12.2-universal.pkg
         echo "/opt/gfortran/bin" >> $GITHUB_PATH
@@ -177,7 +177,7 @@ jobs:
       run: |
         archfix=${{ matrix.arch == 'arm' && '-aarch64' || '' }}
         url="https://github.com/r-windows/rtools-chocolatey/releases/download/6536/rtools45-toolchain-libs-base${archfix}-6536.tar.zst"
-        curl -sSL $url | tar x --zstd -C /c/
+        curl --retry 3 -sSL $url | tar x --zstd -C /c/
 
     - name: Set timezone
       shell: powershell
