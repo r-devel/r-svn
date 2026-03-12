@@ -22,7 +22,7 @@
 split(x, f, drop = FALSE, \dots)
 \method{split}{default}(x, f, drop = FALSE, sep = ".", lex.order = FALSE, \dots)
 
-split(x, f, drop = FALSE, \dots) <- value
+split(x, f, drop = FALSE, \dots) <- values
 unsplit(value, f, drop = FALSE)
 }
 \arguments{
@@ -84,6 +84,9 @@ unsplit(value, f, drop = FALSE)
   \code{\link{cut}} to categorize numeric values.
 
   \code{\link{strsplit}} to split strings.
+
+  \code{\link{asplit}} to split matrices and arrays.
+
 }
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988}
