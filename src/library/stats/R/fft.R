@@ -25,22 +25,22 @@ nextn <- function(n, factors=c(2,3,5)) .Call(C_nextn, n, factors)
 convolve <- function(x, y, conj=TRUE, type=c("circular","open","filter"))
 {
     type <- match.arg(type)
-    n <- length(x)
+    n <- nx <- length(x)
     ny <- length(y)
     Real <- is.numeric(x) && is.numeric(y)
     ## switch(type, circular = ..., )
     if(type == "circular") {
-        if(ny != n)
+        if(ny != nx)
             stop("length mismatch in convolution")
     }
     else { ## "open" or "filter": Pad with zeros
-        n1 <- ny - 1
-        x <- c(rep.int(0, n1), x)
-        n <- length(y <- c(y, rep.int(0, n - 1)))# n = nx+ny-1
+        if (type == "filter" && ny>nx) return(numeric())
+        x <- c(rep.int(0, ny - 1), x)
+        n <- length(y <- c(y, rep.int(0, nx - 1)))# n = nx+ny-1
     }
     x <- fft(fft(x)* (if(conj)Conj(fft(y)) else fft(y)), inverse=TRUE)
     if(type == "filter")
-        (if(Real) Re(x) else x)[-c(1L:n1, (n-n1+1L):n)]/n
+        (if(Real) Re(x) else x)[ny:nx]/n
     else
         (if(Real) Re(x) else x)/n
 }
