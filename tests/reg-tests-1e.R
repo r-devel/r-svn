@@ -2617,7 +2617,7 @@ stopifnot(identical(strX2 , strX2. ), noListof(strX2. ),
 ## simple test for R_GetBindingType
 local({
     getBindingType <- function(sym, env) {
-        if (is.character(sym)) 
+        if (is.character(sym))
             sym <- as.name(sym)
         .Internal(getBindingType(sym, env))
     }
@@ -2638,31 +2638,30 @@ local({
     stopifnot(f5() == "active")
 })
 
-## R_GetBindingType with promise chains from forwarding (PR#18928)
+## R_GetBindingType with promise chains from `...` expansion (PR#18928)
+## Expanding `...` into named parameters creates promise chains where
+## PRCODE of the wrapper is the original PROMSXP
 local({
     getBindingType <- function(sym, env) {
         if (is.character(sym))
             sym <- as.name(sym)
         .Internal(getBindingType(sym, env))
     }
-    # Promise chains (nested forwarding)
-    f6 <- function(x) getBindingType("x", environment())
-    f6_outer <- function(x) f6(x)
-    stopifnot(f6_outer(1) == "delayed")
-    # Named forwarding creates a fresh promise, even if forced upstream
-    f7 <- function(x) getBindingType("x", environment())
-    f7_outer <- function(x) { force(x); f7(x) }
-    stopifnot(f7_outer(1) == "delayed")
-    # Deeper promise chain
-    f8 <- function(x) getBindingType("x", environment())
-    f8_mid <- function(x) f8(x)
-    f8_outer <- function(x) f8_mid(x)
-    stopifnot(f8_outer(1) == "delayed")
-    # Deeper chain with force at the top, still delayed through named forwarding
-    f9 <- function(x) getBindingType("x", environment())
-    f9_mid <- function(x) f9(x)
-    f9_outer <- function(x) { force(x); f9_mid(x) }
-    stopifnot(f9_outer(1) == "delayed")
+    g <- function(x) getBindingType("x", environment())
+    # `...` expansion into a named parameter wraps the dot promise
+    x <- 1
+    f <- function(...) g(...)
+    stopifnot(f(x) == "delayed")
+    # Forcing the dot then expanding: unwrapping must detect the forced inner
+    f <- function(...) { force(..1); g(...) }
+    stopifnot(f(x) == "forced")
+    # Deeper chain: `...` -> `...` -> named parameter
+    mid <- function(...) g(...)
+    f <- function(...) mid(...)
+    stopifnot(f(x) == "delayed")
+    # Force at the top of a deeper chain
+    f <- function(...) { force(..1); mid(...) }
+    stopifnot(f(x) == "forced")
 })
 
 
