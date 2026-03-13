@@ -781,20 +781,31 @@ static SEXP R_GetGlobalCacheLoc(SEXP symbol)
 */
 
 /* Unwrap nested promises to the innermost one.
-   Sets `*forced` to TRUE if the innermost promise has been evaluated. */
+   Sets `*forced` to TRUE if the innermost promise has been evaluated.
+   Uses Floyd's cycle detection to guard against promise loops. */
 static SEXP promise_unwrap(SEXP x, Rboolean *forced)
 {
+    SEXP slow = x;
+    Rboolean advance_slow = FALSE;
     while (TRUE) {
 	if (PROMISE_IS_EVALUATED(x)) {
 	    *forced = TRUE;
 	    return x;
 	}
+
 	SEXP code = PRCODE(x);
 	if (TYPEOF(code) != PROMSXP) {
 	    *forced = FALSE;
 	    return x;
 	}
+
 	x = code;
+	if (x == slow)
+	    error(_("cycle detected in promise chain"));
+
+	if (advance_slow)
+	    slow = PRCODE(slow);
+	advance_slow = !advance_slow;
     }
 }
 
@@ -817,7 +828,7 @@ static R_BindingType_t BINDING_TYPE(SEXP cell)
 	    else
 		return R_BindingTypeDelayed;
 	}
-	else 
+	    else
 	    return R_BindingTypeValue;
     }
 }
