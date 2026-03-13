@@ -2638,6 +2638,33 @@ local({
     stopifnot(f5() == "active")
 })
 
+## R_GetBindingType with promise chains from forwarding (PR#18928)
+local({
+    getBindingType <- function(sym, env) {
+        if (is.character(sym))
+            sym <- as.name(sym)
+        .Internal(getBindingType(sym, env))
+    }
+    # Promise chains (nested forwarding)
+    f6 <- function(x) getBindingType("x", environment())
+    f6_outer <- function(x) f6(x)
+    stopifnot(f6_outer(1) == "delayed")
+    # Named forwarding creates a fresh promise, even if forced upstream
+    f7 <- function(x) getBindingType("x", environment())
+    f7_outer <- function(x) { force(x); f7(x) }
+    stopifnot(f7_outer(1) == "delayed")
+    # Deeper promise chain
+    f8 <- function(x) getBindingType("x", environment())
+    f8_mid <- function(x) f8(x)
+    f8_outer <- function(x) f8_mid(x)
+    stopifnot(f8_outer(1) == "delayed")
+    # Deeper chain with force at the top, still delayed through named forwarding
+    f9 <- function(x) getBindingType("x", environment())
+    f9_mid <- function(x) f9(x)
+    f9_outer <- function(x) { force(x); f9_mid(x) }
+    stopifnot(f9_outer(1) == "delayed")
+})
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

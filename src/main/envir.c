@@ -780,6 +780,24 @@ static SEXP R_GetGlobalCacheLoc(SEXP symbol)
   R_GetBindingType
 */
 
+/* Unwrap nested promises to the innermost one.
+   Sets `*forced` to TRUE if the innermost promise has been evaluated. */
+static SEXP promise_unwrap(SEXP x, Rboolean *forced)
+{
+    while (TRUE) {
+	if (PROMISE_IS_EVALUATED(x)) {
+	    *forced = TRUE;
+	    return x;
+	}
+	SEXP code = PRCODE(x);
+	if (TYPEOF(code) != PROMSXP) {
+	    *forced = FALSE;
+	    return x;
+	}
+	x = code;
+    }
+}
+
 static R_BindingType_t BINDING_TYPE(SEXP cell)
 {
     if (BNDCELL_TAG(cell))
@@ -792,7 +810,9 @@ static R_BindingType_t BINDING_TYPE(SEXP cell)
 	if (value == R_MissingArg)
 	    return R_BindingTypeMissing;
 	else if (TYPEOF(value) == PROMSXP) {
-	    if (PROMISE_IS_EVALUATED(value))
+	    Rboolean forced;
+	    promise_unwrap(value, &forced);
+	    if (forced)
 		return R_BindingTypeForced;
 	    else
 		return R_BindingTypeDelayed;
@@ -3677,8 +3697,11 @@ static SEXP R_GetVarLocExpression(R_varloc_t loc)
     if (TYPEOF(value) != PROMSXP)
 	error(_("not a delayed or forced binding"));
 
+    Rboolean forced;
+    SEXP inner = promise_unwrap(value, &forced);
+
     /* This has special handling for bytecode, unlike `PREXPR()` */
-    return R_PromiseExpr(value);
+    return R_PromiseExpr(inner);
 
 }
 
@@ -3706,10 +3729,15 @@ SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env) {
 	error(_("unbound variable"));
 
     SEXP value = BINDING_VALUE(cell);
-    if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
+    if (TYPEOF(value) != PROMSXP)
 	error(_("not a delayed binding"));
-    
-    return PRENV(value);
+
+    Rboolean forced;
+    SEXP inner = promise_unwrap(value, &forced);
+    if (forced)
+	error(_("not a delayed binding"));
+
+    return PRENV(inner);
 }
 
 SEXP R_ActiveBindingFunction(SEXP sym, SEXP env)
