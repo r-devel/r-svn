@@ -823,7 +823,7 @@ static R_BindingType_t BINDING_TYPE(SEXP cell)
 	    else
 		return R_BindingTypeDelayed;
 	}
-	    else
+	else
 	    return R_BindingTypeValue;
     }
 }
