@@ -788,14 +788,9 @@ static SEXP promise_unwrap(SEXP x, Rboolean *forced)
     SEXP slow = x;
     Rboolean advance_slow = FALSE;
     while (TRUE) {
-	if (PROMISE_IS_EVALUATED(x)) {
-	    *forced = TRUE;
-	    return x;
-	}
-
 	SEXP code = PRCODE(x);
 	if (TYPEOF(code) != PROMSXP) {
-	    *forced = FALSE;
+	    *forced = PROMISE_IS_EVALUATED(x);
 	    return x;
 	}
 
@@ -879,6 +874,30 @@ attribute_hidden SEXP do_bindingType(SEXP call, SEXP op, SEXP args, SEXP rho)
     case R_BindingTypeActive: return mkString("active");
     default: error("unknown binding type; should not happen");
     }
+}
+
+attribute_hidden SEXP do_delayedBindingExpr(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    SEXP sym = CAR(args);
+    SEXP env = CADR(args);
+    return R_DelayedBindingExpression(sym, env);
+}
+
+attribute_hidden SEXP do_delayedBindingEnv(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    SEXP sym = CAR(args);
+    SEXP env = CADR(args);
+    return R_DelayedBindingEnvironment(sym, env);
+}
+
+attribute_hidden SEXP do_forcedBindingExpr(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    SEXP sym = CAR(args);
+    SEXP env = CADR(args);
+    return R_ForcedBindingExpression(sym, env);
 }
 
 

@@ -2664,6 +2664,61 @@ local({
     stopifnot(f(x) == "forced")
 })
 
+## R_DelayedBindingExpression and R_DelayedBindingEnvironment
+local({
+    delayedExpr <- function(sym, env) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(delayedBindingExpression(sym, env))
+    }
+    delayedEnv <- function(sym, env) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(delayedBindingEnvironment(sym, env))
+    }
+    e <- environment()
+    x <- 1
+    g <- function(x) delayedExpr("x", environment())
+    stopifnot(identical(g(x), quote(x)))
+    g <- function(x) delayedEnv("x", environment())
+    stopifnot(identical(g(x), e))
+    # Through forwarded ...
+    get_expr <- function(x) delayedExpr("x", environment())
+    get_env <- function(x) delayedEnv("x", environment())
+    f <- function(...) get_expr(...)
+    stopifnot(identical(f(x), quote(x)))
+    f <- function(...) get_env(...)
+    stopifnot(identical(f(x), e))
+    # Deeper chain
+    mid_expr <- function(...) get_expr(...)
+    f <- function(...) mid_expr(...)
+    stopifnot(identical(f(x), quote(x)))
+    mid_env <- function(...) get_env(...)
+    f <- function(...) mid_env(...)
+    stopifnot(identical(f(x), e))
+})
+
+## R_ForcedBindingExpression
+local({
+    forcedExpr <- function(sym, env) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(forcedBindingExpression(sym, env))
+    }
+    x <- 1
+    g <- function(x) { force(x); forcedExpr("x", environment()) }
+    stopifnot(identical(g(x), quote(x)))
+    # Through forwarded ...
+    get_expr <- function(x) { force(x); forcedExpr("x", environment()) }
+    f <- function(...) get_expr(...)
+    stopifnot(identical(f(x), quote(x)))
+    # Forced at outer level, then forwarded into named param
+    inner <- function(x) forcedExpr("x", environment())
+    f <- function(...) { force(..1); inner(...) }
+    stopifnot(identical(f(x), quote(x)))
+    # Deeper chain
+    mid <- function(...) inner(...)
+    f <- function(...) { force(..1); mid(...) }
+    stopifnot(identical(f(x), quote(x)))
+})
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
