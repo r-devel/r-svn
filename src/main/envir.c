@@ -783,7 +783,7 @@ static SEXP R_GetGlobalCacheLoc(SEXP symbol)
 /* Unwrap nested promises to the innermost one.
    Sets `*forced` to TRUE if the innermost promise has been evaluated.
    Uses Floyd's cycle detection to guard against promise loops. */
-static SEXP promise_unwrap(SEXP x, Rboolean *forced)
+static SEXP promiseUnwrap(SEXP x, Rboolean *forced)
 {
     SEXP slow = x;
     Rboolean advance_slow = FALSE;
@@ -817,7 +817,7 @@ static R_BindingType_t BINDING_TYPE(SEXP cell)
 	    return R_BindingTypeMissing;
 	else if (TYPEOF(value) == PROMSXP) {
 	    Rboolean forced;
-	    promise_unwrap(value, &forced);
+	    promiseUnwrap(value, &forced);
 	    if (forced)
 		return R_BindingTypeForced;
 	    else
@@ -3728,7 +3728,7 @@ static SEXP R_GetVarLocExpression(R_varloc_t loc)
 	error(_("not a delayed or forced binding"));
 
     Rboolean forced;
-    SEXP inner = promise_unwrap(value, &forced);
+    SEXP inner = promiseUnwrap(value, &forced);
 
     /* This has special handling for bytecode, unlike `PREXPR()` */
     return R_PromiseExpr(inner);
@@ -3763,7 +3763,7 @@ SEXP R_DelayedBindingEnvironment(SEXP sym, SEXP env) {
 	error(_("not a delayed binding"));
 
     Rboolean forced;
-    SEXP inner = promise_unwrap(value, &forced);
+    SEXP inner = promiseUnwrap(value, &forced);
     if (forced)
 	error(_("not a delayed binding"));
 
