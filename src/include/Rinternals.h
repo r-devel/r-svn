@@ -701,6 +701,7 @@ typedef enum {
     R_DotTypeForced = 3
 } R_DotType_t;
 
+SEXP R_findDotsEnv(SEXP env);
 Rboolean R_DotsExist(SEXP env);
 int R_DotsLength(SEXP env);
 SEXP R_DotsNames(SEXP env);
