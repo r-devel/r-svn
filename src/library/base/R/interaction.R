@@ -32,8 +32,8 @@ interaction <- function(..., drop = FALSE, sep = ".", lex.order = FALSE)
         x <- as.factor(args[[i]])[, drop = drop]
         ax <- as.integer(x) - 1L
         lx <- levels(x)
-		if (any(grepl(sep, lx, fixed = TRUE))){
-             warning(paste0("One or more factor levels includes the separator: '",
+		if (any(endsWith(lx, sep))){
+             warning(paste0("One or more factor levels ends with the separator: '",
                             sep,
 				 "'. This can lead to unexpected results. Specify a different value for sep."))
         }
