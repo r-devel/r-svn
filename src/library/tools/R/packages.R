@@ -30,6 +30,7 @@
         ## at this point we only care about win, mac or other
         if (! type %in% c("win.binary", "mac.binary"))
             type <- "other.binary"
+		type
     } else "source"
 }
 
