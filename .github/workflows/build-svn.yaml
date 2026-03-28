@@ -27,7 +27,7 @@ jobs:
       run: |
         set -e
         apt-get update -y
-        apt-get install -y ${{matrix.CC}} wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
+        apt-get install -y ${{matrix.CC}} curl locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
         libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
@@ -40,7 +40,7 @@ jobs:
       run: |
         git config --global --add safe.directory $PWD || true
         sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' Makefile.in
-        ./.github/scripts/wget-recommended.sh
+        ./tools/fetch-recommended
         ./.github/scripts/svn-info.sh
     - name: Configure
       run: CC=${{matrix.CC}} ./configure --enable-R-shlib --with-blas --with-lapack --disable-java
@@ -104,7 +104,7 @@ jobs:
     - name: Prepare
       run: |
         sed -i.bak 's|$(GIT) svn info|./.github/scripts/svn-info.sh|' Makefile.in
-        ./.github/scripts/wget-recommended.sh
+        ./tools/fetch-recommended
         ./.github/scripts/svn-info.sh
 
     - name: Configure
@@ -196,7 +196,6 @@ jobs:
 
     - name: Build and Check
       run: |
-        sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
         ./.github/scripts/win-${{matrix.script}}.sh
 
     - name: Print failed tests
