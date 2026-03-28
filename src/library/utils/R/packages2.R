@@ -16,10 +16,6 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## FIXME: at some point we may want to allow custom binary installs on Windows as well
-if (.Platform$OS.type == "windows")
-    .install.macbinary <- function(...) NULL	# globalVariables isn't available, so use this to suppress the warning
-
 isBasePkg <- function(pkg) {
   priority <- tryCatch(packageDescription(pkg, fields = "Priority", encoding = NA),
                        error = function(e) e, warning = function(e) e)
@@ -633,8 +629,9 @@ install.packages <-
         }
     }
 
-    if(.Platform$OS.type == "windows") {
-        ## FIXME: we may want allow custom binaries on Windows as well...
+    # NB: type 'win.binary' is the old intel-only windows binary format
+    # The new binary format requires type 'windows.binary.{flavour}' below
+    if(.Platform$OS.type == "windows" && tools:::.pkg.type(type) != "other.binary") {
         if(!startsWith(type, "win.binary") && type != "source")
             stop("cannot install binary packages from other operating systems on Windows")
 
