@@ -32,7 +32,7 @@ jobs:
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 100
 
@@ -97,7 +97,7 @@ jobs:
         echo "FC=/opt/gfortran/bin/gfortran" >> $GITHUB_ENV
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 100
 
@@ -124,7 +124,7 @@ jobs:
         make install DESTDIR="/opt/R/${ARCH}/r-devel"
         (cd /opt/R/${ARCH}/r-devel; tar cfJ "/opt/R/r-devel-${ARCH}.tar.xz" .)
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: MacOS-R-devel-${{ matrix.OS == 'macOS-15-intel' && 'x86_64' || 'arm64' }}
         path: /opt/R/r-devel-${{ matrix.OS == 'macOS-15-intel' && 'x86_64' || 'arm64' }}.tar.xz
@@ -164,7 +164,7 @@ jobs:
       shell: cmd
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 100
 
@@ -208,7 +208,7 @@ jobs:
       if: matrix.script == 'installer'
       shell: powershell
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: Windows-R-devel-${{matrix.arch}}
         path: src/gnuwin32/installer/R-devel-win.exe
