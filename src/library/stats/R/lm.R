@@ -78,6 +78,10 @@ lm <- function (formula, data, subset, weights, na.action,
     z$contrasts <- attr(x, "contrasts")
     z$xlevels <- .getXlevels(mt, mf)
     z$call <- cl
+	if (is.null(z$data) & is.data.frame(eval(z$call$formula))){
+          z$call$data <- z$call$formula
+          z$call$formula <- z$terms
+     }
     z$terms <- mt
     if (model)
 	z$model <- mf
