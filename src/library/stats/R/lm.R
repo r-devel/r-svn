@@ -80,7 +80,7 @@ lm <- function (formula, data, subset, weights, na.action,
     z$call <- cl
 	if (is.null(z$data) & is.data.frame(eval(z$call$formula))){
           z$call$data <- z$call$formula
-          z$call$formula <- z$terms
+          z$call$formula <- formula(z$call$formula)
      }
     z$terms <- mt
     if (model)
