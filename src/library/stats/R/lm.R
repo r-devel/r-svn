@@ -79,6 +79,10 @@ lm <- function (formula, data, subset, weights, na.action,
     z$xlevels <- .getXlevels(mt, mf)
     z$call <- cl
     z$terms <- mt
+	if (is.null(z$data) & is.data.frame(eval(z$call$formula))){
+          z$call$data <- z$call$formula
+          z$call$formula <- formula(z$calls$formula)
+     }
     if (model)
 	z$model <- mf
     if (ret.x)
