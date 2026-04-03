@@ -5863,7 +5863,7 @@ add_dummies <- function(dir, Log)
         c(".Renviron", ".Rprofile", ".Rproj.user",
           ".Rhistory", ".Rapp.history",
           ".tex", ".log", ".aux", ".pdf", ".png",
-          ".backups", ".cvsignore", ".cproject", ".directory",
+          ".backups", ".clangd", ".cvsignore", ".cproject", ".directory",
           ".dropbox", ".exrc", ".gdb.history",
           ".gitattributes", ".gitignore", ".gitmodules",
           ".hgignore", ".hgtags",

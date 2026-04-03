@@ -53,6 +53,7 @@ function(filename, desc = file.path(dirname(filename), "DESCRIPTION"))
 get_exclude_patterns <- function()
     c("^\\.Rbuildignore$",
       "(^|/)\\.DS_Store$",
+      "(^|/)\\.clangd$",
       "^\\.(RData|Rhistory)$",
       "~$", "\\.bak$", "\\.sw.$",
       "(^|/)\\.#[^/]*$", "(^|/)#[^/]*#$",
