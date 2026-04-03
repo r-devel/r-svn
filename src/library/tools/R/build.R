@@ -72,7 +72,7 @@ get_exclude_patterns <- function()
       "^(TAGS|GPATH|GRTAGS|GTAGS)$",
       ## IDE and tooling
       "^.*\\.Rproj$", "^\\.Rproj\\.user$",
-      "^\\.vscode$", "^\\.cache$", "^\\.editorconfig$",
+      "^\\.vscode$", "^\\.editorconfig$",
       "^revdep$", "^CRAN-SUBMISSION$",
       ## Agents
       "^\\.claude$", "^\\.codex$", "^\\.gemini$",
@@ -82,7 +82,7 @@ get_exclude_patterns <- function()
       "^LICENSE\\.md$", "^CODE_OF_CONDUCT\\.md$",
       "^cran-comments\\.md$",
       ## C/C++ tooling
-      "(^|/)\\.clangd$",
+      "(^|/)\\.cache$", "(^|/)\\.clangd$",
       "(^|/)compile_commands\\.json$",
       ## R tooling
       "(^|/)[.]?air\\.toml$",
