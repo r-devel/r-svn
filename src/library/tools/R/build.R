@@ -53,7 +53,6 @@ function(filename, desc = file.path(dirname(filename), "DESCRIPTION"))
 get_exclude_patterns <- function()
     c("^\\.Rbuildignore$",
       "(^|/)\\.DS_Store$",
-      "(^|/)\\.clangd$",
       "^\\.(RData|Rhistory)$",
       "~$", "\\.bak$", "\\.sw.$",
       "(^|/)\\.#[^/]*$", "(^|/)#[^/]*#$",
@@ -68,10 +67,28 @@ get_exclude_patterns <- function()
       ## IRIX, of some vintage
       "^src/so_locations$",
       ## Sweave detrius
-      "^inst/doc/Rplots\\.(ps|pdf)$"
-      ## GNU Global
-    , "^(GPATH|GRTAGS|GTAGS)$"
-      )
+      "^inst/doc/Rplots\\.(ps|pdf)$",
+      ## GNU Global and other tags
+      "^(TAGS|GPATH|GRTAGS|GTAGS)$",
+      ## IDE and tooling
+      "^.*\\.Rproj$", "^\\.Rproj\\.user$",
+      "^\\.vscode$", "^\\.cache$", "^\\.editorconfig$",
+      "^revdep$", "^CRAN-SUBMISSION$",
+      ## Agents
+      "^\\.claude$", "^\\.codex$", "^\\.gemini$",
+      ## CI and documentation
+      "^codecov\\.yml$", "^_pkgdown\\.yml$",
+      "^\\.github$",
+      "^LICENSE\\.md$", "^CODE_OF_CONDUCT\\.md$",
+      "^cran-comments\\.md$",
+      ## C/C++ tooling
+      "(^|/)\\.clangd$",
+      "(^|/)compile_commands\\.json$",
+      ## R tooling
+      "(^|/)[.]?air\\.toml$",
+      "^\\.lintr$",
+      ## Auth files (security concern! should never be bundled and sent)
+      "(^|/)\\.httr-oauth$", "(^|/)\\.Renviron$", "(^|/)\\.Rprofile$")
 
 
 ## Check for files listed in .Rbuildignore or get_exclude_patterns()
