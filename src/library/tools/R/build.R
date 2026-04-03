@@ -66,8 +66,9 @@ get_exclude_patterns <- function()
       "^src/.*\\.d$", "^src/Makedeps$",
       ## IRIX, of some vintage
       "^src/so_locations$",
-      ## Sweave detrius
+      ## Sweave and BibTeX detrius
       "^inst/doc/Rplots\\.(ps|pdf)$",
+      "\\.bbl$", "\\.blg$",
       ## GNU Global and other tags
       "^(TAGS|GPATH|GRTAGS|GTAGS)$",
       ## IDE and tooling
