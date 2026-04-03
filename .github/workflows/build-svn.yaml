@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        OS: [ 'macOS-15', 'macOS-15-intel' ]
+        OS: [ 'macOS-26', 'macOS-15-intel' ]
     runs-on: ${{matrix.OS}}
     timeout-minutes: 90
     env:
@@ -73,7 +73,7 @@ jobs:
     - name: Download CRAN system libraries
       run: |
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
-        curl --retry 3 --fail-with-body -sSL https://github.com/r-universe-org/cranlibs/releases/download/2025-01-05/cranlibs-everything.tar.xz -o libs.tar.xz
+        curl --retry 3 --fail-with-body -sSL https://github.com/r-universe-org/macos-libs/releases/download/2025-12-13/cranlibs-everything.tar.xz -o libs.tar.xz
         sudo tar -xf libs.tar.xz -C / opt
         rm -f libs.tar.xz
 
@@ -90,9 +90,9 @@ jobs:
 
     - name: Install CRAN fortran build
       run: |
-        curl --retry 3 --fail-with-body -sSLO https://github.com/R-macos/gcc-12-branch/releases/download/12.2-darwin-r0.1/gfortran-12.2-universal.pkg
-        sudo installer -pkg "gfortran-12.2-universal.pkg" -target /
-        rm -f gfortran-12.2-universal.pkg
+        curl --retry 3 --fail-with-body -sSLO https://github.com/R-macos/gcc-14-branch/releases/download/gcc-14.2-darwin-r2.1/gfortran-14.2-universal.pkg
+        sudo installer -pkg "gfortran-14.2-universal.pkg" -target /
+        rm -f gfortran-14.2-universal.pkg
         echo "/opt/gfortran/bin" >> $GITHUB_PATH
         echo "FC=/opt/gfortran/bin/gfortran" >> $GITHUB_ENV
 
