@@ -5858,17 +5858,6 @@ add_dummies <- function(dir, Log)
         setwd(owd)
     }
 
-    ## CRAN-pack knows about
-    .hidden_file_exclusions <-
-        c(".Renviron", ".Rprofile", ".Rproj.user",
-          ".Rhistory", ".Rapp.history",
-          ".tex", ".log", ".aux", ".pdf", ".png",
-          ".backups", ".clangd", ".cvsignore", ".cproject", ".directory",
-          ".dropbox", ".exrc", ".gdb.history",
-          ".gitattributes", ".gitignore", ".gitmodules",
-          ".hgignore", ".hgtags",
-          ".project", ".seed", ".settings", ".tm_properties")
-
     check_dot_files <- function(cran = FALSE)
     {
         checkingLog(Log, "for hidden files and directories")
