@@ -31,10 +31,14 @@ jobs:
         libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libtiff-dev libcairo2-dev libpango1.0-dev libreadline-dev libxt-dev
         localedef -i en_US -f UTF-8 en_US.UTF-8
         echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
-    - name: Checkout
-      uses: actions/checkout@v6
-      with:
-        fetch-depth: 100
+
+    - name: Clone repo with git
+      run: |
+        git config --global --add safe.directory $PWD || true
+        git init
+        git remote add origin https://github.com/${{ github.repository }}
+        git fetch --depth=100 origin ${{ github.ref }}
+        git checkout FETCH_HEAD
 
     - name: Prepare
       run: |
