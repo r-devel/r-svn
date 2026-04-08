@@ -3411,6 +3411,220 @@ stopifnot(exprs = {
 if(is.character(ans)) detach("package:cluster", unload = TRUE)
 
 
+## ...(arg) transparent argument forwarding
+local({
+    ## Here we test the interpreted paths only
+    oldJIT <- compiler::enableJIT(0)
+    on.exit(compiler::enableJIT(oldJIT))
+    getBindingType <- function(sym, env = parent.frame()) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(getBindingType(sym, env))
+    }
+    delayedExpr <- function(sym, env = parent.frame()) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(delayedBindingExpression(sym, env))
+    }
+    delayedEnv <- function(sym, env = parent.frame()) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(delayedBindingEnvironment(sym, env))
+    }
+    forcedExpr <- function(sym, env = parent.frame()) {
+        if (is.character(sym)) sym <- as.name(sym)
+        .Internal(forcedBindingExpression(sym, env))
+    }
+    inner_sub <- function(x) substitute(x)
+    ## substitute() sees the original expression, not the intermediate name
+    wrapper <- function(x) inner_sub(...(x))
+    stopifnot(identical(wrapper(1 + 2), quote(1 + 2)))
+    ## without forwarding, substitute() sees `x`
+    wrapper_plain <- function(x) inner_sub(x)
+    stopifnot(identical(wrapper_plain(1 + 2), quote(x)))
+    ## forwarding an already-forced promise preserves the expression
+    wrapper_forced <- function(x) { force(x); inner_sub(...(x)) }
+    stopifnot(identical(wrapper_forced(1 + 2), quote(1 + 2)))
+    ## missing argument forwarding
+    inner_miss <- function(x) missing(x)
+    wrapper_miss <- function(x) inner_miss(...(x))
+    stopifnot(wrapper_miss())
+    stopifnot(!wrapper_miss(1))
+    ## callee default kicks in when missing is forwarded
+    inner_default <- function(x = 42) x
+    wrapper_default <- function(x) inner_default(...(x))
+    stopifnot(identical(wrapper_default(), 42))
+    ## multiple forwarded args
+    inner2 <- function(x, y) list(substitute(x), substitute(y))
+    wrapper2 <- function(x, y) inner2(...(x), ...(y))
+    stopifnot(identical(wrapper2(quote(a + b), quote(c * d)),
+                        list(quote(quote(a + b)), quote(quote(c * d)))))
+    ## named argument at call site
+    inner_named <- function(y) substitute(y)
+    wrapper_named <- function(x) inner_named(y = ...(x))
+    stopifnot(identical(wrapper_named(1 + 2), quote(1 + 2)))
+    ## mix forwarded and regular args
+    inner_mix <- function(x, y, z) list(substitute(x), substitute(y), substitute(z))
+    wrapper_mix <- function(a, b) inner_mix(...(a), y = 42, z = ...(b))
+    r <- wrapper_mix(quote(hello), quote(world))
+    stopifnot(identical(r[[1]], quote(quote(hello))),
+              identical(r[[2]], 42),
+              identical(r[[3]], quote(quote(world))))
+    ## shared forcing side effect
+    env <- environment()
+    env$counter <- 0L
+    inner_force <- function(x) x
+    wrapper_shared <- function(x) {
+        v <- inner_force(...(x))
+        list(callee = v, caller = x)
+    }
+    r <- wrapper_shared({ env$counter <- env$counter + 1L; 99 })
+    stopifnot(identical(r$callee, 99),
+              identical(r$caller, 99),
+              identical(env$counter, 1L))
+    ## sys.call() shows ...(x) literally
+    inner_sc <- function(x) sys.call()
+    wrapper_sc <- function(x) inner_sc(...(x))
+    stopifnot(identical(deparse(wrapper_sc(1 + 2)), "inner_sc(...(x))"))
+    ## match.call() resolves ...(x) to the original expression
+    inner_mc <- function(x) match.call()
+    wrapper_mc <- function(x) inner_mc(...(x))
+    stopifnot(identical(deparse(wrapper_mc(1 + 2)), "inner_mc(x = 1 + 2)"))
+    ## double forwarding (chain of wrappers)
+    mid <- function(x) inner_sub(...(x))
+    outer_fn <- function(x) mid(...(x))
+    stopifnot(identical(outer_fn(1 + 2), quote(1 + 2)))
+    ## ...(x) combined with ... forwarding
+    inner_dots <- function(x, ...) list(substitute(x), substitute(list(...)))
+    wrapper_dots <- function(x, ...) inner_dots(...(x), ...)
+    r <- wrapper_dots(1 + 2, 3 + 4, 5 + 6)
+    stopifnot(identical(r[[1]], quote(1 + 2)),
+              identical(r[[2]], quote(list(3 + 4, 5 + 6))))
+    ## ...(x) landing in callee's ...
+    inner_dots2 <- function(...) substitute(list(...))
+    wrapper_dots2 <- function(x, y) inner_dots2(...(x), ...(y))
+    stopifnot(identical(wrapper_dots2(1 + 2, 3 + 4),
+                        quote(list(1 + 2, 3 + 4))))
+    ## evalq(...(x))
+    wrapper_evalq <- function(x) evalq(inner_sub(...(x)))
+    stopifnot(identical(wrapper_evalq(1 + 2), quote(1 + 2)))
+    ## ...(non-symbol) is an error
+    eMsg <- "...(arg) requires a single symbol argument"
+    stopifnot(identical(tryCmsg(inner_sub(...(1 + 2))), eMsg))
+    stopifnot(identical(tryCmsg(inner_sub(...())), eMsg))
+    stopifnot(identical(tryCmsg(inner_sub(...(x, y))), eMsg))
+    ## ...(x) where x is unbound is an error
+    wrapper_unbound <- function() inner_sub(...(no_such_var))
+    stopifnot(identical(tryCmsg(wrapper_unbound()),
+                        "object 'no_such_var' not found"))
+    ## binding type: forwarded promise is "delayed", becomes "forced"
+    e <- environment()
+    x <- 1
+    get_type <- function(x) getBindingType("x")
+    fwd_type <- function(x) get_type(...(x))
+    stopifnot(fwd_type(x) == "delayed")
+    get_type_forced <- function(x) { force(x); getBindingType("x") }
+    fwd_type_forced <- function(x) get_type_forced(...(x))
+    stopifnot(fwd_type_forced(x) == "forced")
+    ## forcing in callee marks the forwarded promise as forced in the wrapper too
+    fwd_type_after <- function(x) {
+        inner <- function(x) { force(x); "done" }
+        inner(...(x))
+        getBindingType("x")
+    }
+    stopifnot(fwd_type_after(x) == "forced")
+    ## delayedBindingExpression sees the original expression
+    get_expr <- function(x) delayedExpr("x")
+    fwd_expr <- function(x) get_expr(...(x))
+    stopifnot(identical(fwd_expr(x), quote(x)))
+    stopifnot(identical(fwd_expr(1 + 2), quote(1 + 2)))
+    ## delayedBindingEnvironment sees the original caller's environment
+    get_env <- function(x) delayedEnv("x")
+    fwd_env <- function(x) get_env(...(x))
+    stopifnot(identical(fwd_env(x), e))
+    ## forcedBindingExpression works through ...(x) forwarding
+    get_fexpr <- function(x) { force(x); forcedExpr("x") }
+    fwd_fexpr <- function(x) get_fexpr(...(x))
+    stopifnot(identical(fwd_fexpr(x), quote(x)))
+    stopifnot(identical(fwd_fexpr(1 + 2), quote(1 + 2)))
+    ## double forwarding with binding accessors
+    mid_expr <- function(x) get_expr(...(x))
+    deep_expr <- function(x) mid_expr(...(x))
+    stopifnot(identical(deep_expr(x), quote(x)))
+    mid_env <- function(x) get_env(...(x))
+    deep_env <- function(x) mid_env(...(x))
+    stopifnot(identical(deep_env(x), e))
+})
+
+
+## ...(arg) forwarding with bytecode-compiled functions
+local({
+    inner_sub <- compiler::cmpfun(function(x) substitute(x))
+    wrapper <- compiler::cmpfun(function(x) inner_sub(...(x)))
+    stopifnot(identical(wrapper(1 + 2), quote(1 + 2)))
+    ## without forwarding, substitute() sees `x`
+    wrapper_plain <- compiler::cmpfun(function(x) inner_sub(x))
+    stopifnot(identical(wrapper_plain(1 + 2), quote(x)))
+    ## forwarding an already-forced promise preserves the expression
+    wrapper_forced <- compiler::cmpfun(function(x) { force(x); inner_sub(...(x)) })
+    stopifnot(identical(wrapper_forced(1 + 2), quote(1 + 2)))
+    ## missing argument forwarding
+    inner_miss <- compiler::cmpfun(function(x) missing(x))
+    wrapper_miss <- compiler::cmpfun(function(x) inner_miss(...(x)))
+    stopifnot(wrapper_miss())
+    stopifnot(!wrapper_miss(1))
+    ## callee default kicks in when missing is forwarded
+    inner_default <- compiler::cmpfun(function(x = 42) x)
+    wrapper_default <- compiler::cmpfun(function(x) inner_default(...(x)))
+    stopifnot(identical(wrapper_default(), 42))
+    ## named argument at call site
+    inner_named <- compiler::cmpfun(function(y) substitute(y))
+    wrapper_named <- compiler::cmpfun(function(x) inner_named(y = ...(x)))
+    stopifnot(identical(wrapper_named(1 + 2), quote(1 + 2)))
+    ## double forwarding
+    mid <- compiler::cmpfun(function(x) inner_sub(...(x)))
+    outer_fn <- compiler::cmpfun(function(x) mid(...(x)))
+    stopifnot(identical(outer_fn(1 + 2), quote(1 + 2)))
+    ## ...(x) combined with ... forwarding
+    inner_dots <- compiler::cmpfun(function(x, ...) list(substitute(x), substitute(list(...))))
+    wrapper_dots <- compiler::cmpfun(function(x, ...) inner_dots(...(x), ...))
+    r <- wrapper_dots(1 + 2, 3 + 4, 5 + 6)
+    stopifnot(identical(r[[1]], quote(1 + 2)),
+              identical(r[[2]], quote(list(3 + 4, 5 + 6))))
+    ## ...(x) landing in callee's ...
+    inner_dots2 <- compiler::cmpfun(function(...) substitute(list(...)))
+    wrapper_dots2 <- compiler::cmpfun(function(x, y) inner_dots2(...(x), ...(y)))
+    stopifnot(identical(wrapper_dots2(1 + 2, 3 + 4),
+                        quote(list(1 + 2, 3 + 4))))
+    ## shared forcing side effect
+    env <- environment()
+    env$counter <- 0L
+    inner_force <- compiler::cmpfun(function(x) x)
+    wrapper_shared <- compiler::cmpfun(function(x) {
+        v <- inner_force(...(x))
+        list(callee = v, caller = x)
+    })
+    r <- wrapper_shared({ env$counter <- env$counter + 1L; 99 })
+    stopifnot(identical(r$callee, 99),
+              identical(r$caller, 99),
+              identical(env$counter, 1L))
+    ## sys.call() shows ...(x) literally
+    inner_sc <- compiler::cmpfun(function(x) sys.call())
+    wrapper_sc <- compiler::cmpfun(function(x) inner_sc(...(x)))
+    stopifnot(identical(deparse(wrapper_sc(1 + 2)), "inner_sc(...(x))"))
+    ## match.call() resolves ...(x) to the original expression
+    inner_mc <- compiler::cmpfun(function(x) match.call())
+    wrapper_mc <- compiler::cmpfun(function(x) inner_mc(...(x)))
+    stopifnot(identical(deparse(wrapper_mc(1 + 2)), "inner_mc(x = 1 + 2)"))
+    ## ...(non-symbol) is an error in compiled code too
+    eMsg <- "...(arg) requires a single symbol argument"
+    stopifnot(identical(tryCmsg(inner_sub(...(1 + 2))), eMsg))
+    stopifnot(identical(tryCmsg(inner_sub(...())), eMsg))
+    stopifnot(identical(tryCmsg(inner_sub(...(x, y))), eMsg))
+    ## ...(x) where x is unbound is an error in compiled code
+    wrapper_unbound <- compiler::cmpfun(function() inner_sub(...(no_such_var)))
+    stopifnot(identical(tryCmsg(wrapper_unbound()),
+                        "object 'no_such_var' not found"))
+})
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

@@ -35,6 +35,13 @@
   \code{...elt(n)}, etc. propagates \link[=invisible]{visibility}. This
   is consistent with the evaluation of named arguments which also
   propagates visibility.
+
+  \code{\dots(\var{arg})} forwards \var{arg} to another function. This only
+  matters for non-standard evaluation, e.g. with \code{\link{substitute}()}.
+  Normally the inner function only sees the name of the variable the wrapper
+  handed it. With \code{\dots(\var{arg})} it sees the expression the user
+  originally wrote, exactly as if the wrapper were not there. \var{arg} must be
+  a single symbol that is in scope; anything else is an error.
 }
 \usage{
 ...length()
@@ -75,6 +82,19 @@ chk.n2 <- function(...) stopifnot(identical(print(...names()), names(list(...)))
 chk.n2(4, foo=5, 6, bar=7, sini = sin(1:10), "bar")
 chk.n2()
 chk.n2(1,2)
+
+## ...(arg): forward a single argument transparently.
+## The callee sees the original expression, not the wrapper's name.
+label <- function(x) deparse(substitute(x))
+with.forward <- function(value) label(...(value))
+without.forward <- function(value) label(value)
+with.forward(sin(1:10)) ## [1] "sin(1:10)"
+without.forward(sin(1:10)) ## [1] "value"
+
+## A real use: a wrapper around plot() keeps the axis labels that
+## plot() builds from the expressions passed to it.
+bare.plot <- function(x, y) plot(...(x), ...(y), axes = FALSE)
+bare.plot(sin(1:10), cos(1:10)) ## labels "sin(1:10)" and "cos(1:10)", not "x"/"y"
 }
 \keyword{programming}
 \keyword{documentation}
