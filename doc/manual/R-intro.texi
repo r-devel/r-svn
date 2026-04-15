@@ -6321,6 +6321,21 @@ To see a list of all available help topics in an installed package,
 use
 
 @example
+> help(package = "@var{name}")
+@end example
+
+A complete list of the user-level objects in a package can be displayed
+using the command
+
+@example
+> ls("package:@var{name}")
+@end example
+
+For example, @code{ls("package:base")} displays all the base package
+commands.  Alternatively, if you have a web-browser available, you can
+use
+
+@example
 > help.start()
 @end example
 
