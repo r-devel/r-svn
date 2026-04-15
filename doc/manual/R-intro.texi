@@ -5033,6 +5033,30 @@ adequate.  Now do the fit:
 
 After the fitting, @code{out$minimum} is the SSE, and
 @code{out$estimate} are the least squares estimates of the parameters.
+
+@example
+> out
+$minimum
+[1] 1195.449
+
+$estimate
+[1] 212.68384222   0.06412146
+
+$gradient
+[1] -0.0001535012  0.0934206673
+
+$hessian
+            [,1]        [,2]
+[1,]    11.94725   -7661.319
+[2,] -7661.31875 8039421.153
+
+$code
+[1] 3
+
+$iterations
+[1] 26
+@end example
+
 To obtain the approximate standard errors (SE) of the estimates we do:
 
 @example
