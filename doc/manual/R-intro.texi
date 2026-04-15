@@ -3915,6 +3915,10 @@ open.account <- function(total) @{
   )
 @}
 
+@end example
+The function can then be used as follows:
+
+@example
 ross <- open.account(100)
 robert <- open.account(200)
 
