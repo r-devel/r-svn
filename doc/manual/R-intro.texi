@@ -5071,7 +5071,7 @@ fit on a new plot:
 @example
 > plot(x, y)
 > xfit <- seq(.02, 1.1, .05)
-> yfit <- 212.68384222 * xfit/(0.06412146 + xfit)
+> yfit <- out$estimate[1] * xfit/(out$estimate[2] + xfit)
 > lines(spline(xfit, yfit))
 @end example
 
