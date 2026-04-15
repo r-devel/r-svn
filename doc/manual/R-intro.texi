@@ -2020,7 +2020,7 @@ solution of that linear equation system.  In @R{},
 @end example
 
 @noindent
-solves the system, returning @code{x} (up to some accuracy loss).
+solves the system @math{A x = b}, returning @code{x} (up to some accuracy loss).
 Note that in linear algebra, formally
 @eqn{@strong{x} = @strong{A}^{-1} @strong{b}, @code{x = A^@{-1@} %*% b}}
 where
