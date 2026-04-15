@@ -3801,6 +3801,16 @@ area <- function(f, a, b, eps = 1.0e-06, lim = 10) @{
 @}
 @end example
 
+@noindent
+The following test cases demonstrate the use of this function:
+
+@example
+> area(sqrt,0,1)
+0.6666557
+> testfn <- function(x) 1/(1+x^2)
+> area(testfn, 0, 100)
+1.560808
+@end example
 
 @node Scope
 @section Scope
