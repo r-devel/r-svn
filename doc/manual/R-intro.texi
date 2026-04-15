@@ -3287,7 +3287,7 @@ cannot compute correct p-values with ties in: ks.test(A, B)
 is a function or expression which returns a result.  Even an assignment
 is an expression whose result is the value assigned, and it may be used
 wherever any expression may be used; in particular multiple assignments
-are possible.
+such as @code{x <- y <- z <- 0} are possible.
 
 Commands may be grouped together in braces, @code{@{@var{expr_1};
 @var{@dots{}}; @var{expr_m}@}}, in which case the value of the group
