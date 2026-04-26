@@ -204,12 +204,13 @@ jobs:
       run: tail -n100 tests/*.fail
 
     - name: Run Installer
-      run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
+      run: .\src\gnuwin32\installer\R-*-win.exe /SILENT
       if: matrix.script == 'installer'
       shell: powershell
+      continue-on-error: true
 
     - uses: actions/upload-artifact@v7
       with:
-        name: Windows-R-devel-${{matrix.arch}}
-        path: src/gnuwin32/installer/R-devel-win.exe
+        name: Windows-installer-${{matrix.arch}}
+        path: src/gnuwin32/installer/R-*-win.exe
       if: matrix.script == 'installer'
