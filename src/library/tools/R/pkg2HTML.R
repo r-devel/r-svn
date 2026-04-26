@@ -212,8 +212,7 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
               '</nav>',
               '<main>')
 
-    if (include_description)
-        writeHTML(.DESCRIPTION_to_HTML(descfile, hooks = hooks))
+    if (include_description) writeHTML(.DESCRIPTION_to_HTML(descfile))
     lapply(names(hcontent), function(rdfile) {
         h <- hcontent[[rdfile]]
     	if (concordance) {

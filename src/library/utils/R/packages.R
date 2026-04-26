@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2026 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -543,12 +543,16 @@ update.packages <- function(lib.loc = NULL, repos = getOption("repos"),
     ## preferred - install.packages will sort that out.
     pkg.src <- row.names(av.src)
     pkg.bin <- row.names(av.bin)
+    if (length(setdiff(pkg.bin, pkg.src))) {
+        warning("Some listed binary packages have no source")
+        pkg.bin <- intersect(pkg.bin,pkg.src)
+    }
     bin.ver <- av.bin[pkg.bin, "Version"]
     src.ver <- av.src[pkg.bin, "Version"]
     use.bin <- pkg.bin[as.numeric_version(bin.ver) >= as.numeric_version(src.ver)]
     use.bin <- use.bin[!is.na(use.bin)]
     use.src <- pkg.src[pkg.src %notin% use.bin]
-    rbind(av.src[use.src,], av.bin[use.bin, ])
+    rbind(av.src[use.src, , drop = FALSE], av.bin[use.bin, , drop = FALSE])
 }
 
 old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
@@ -597,7 +601,7 @@ old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
     minorR[[c(1L, 3L)]] <- 0L # set patchlevel to 0
     for(k in 1L:nrow(instPkgs)) {
         if (instPkgs[k, "Priority"] %in% "base") next
-        z <- match(instPkgs[k, "Package"], rownames(available))
+        z <- match(instPkgs[k, "Package"], available[, "Package"])
         if(is.na(z)) next
         onRepos <- available[z, ]
         ## works OK if Built: is missing (which it should not be)
@@ -844,12 +848,11 @@ remove.packages <- function(pkgs, lib)
 download.packages <- function(pkgs, destdir, available = NULL,
                               repos = getOption("repos"),
                               contriburl = contrib.url(repos, type),
-                              method, type = getOption("pkgType"),
-                              local = FALSE, ...)
+                              method, type = getOption("pkgType"), ...)
 {
     if (!is.character(type))
         stop(gettextf("'%s' must be a character string", "type"), domain = NA)
-    nonlocalcran <- !all(startsWith(contriburl, "file:")) || local
+    nonlocalcran <- !all(startsWith(contriburl, "file:"))
     if(nonlocalcran && !dir.exists(destdir))
         stop("'destdir' is not a directory")
 
@@ -910,7 +913,7 @@ download.packages <- function(pkgs, destdir, available = NULL,
                     fn <- paste(substring(repos, 6L), fn, sep = "/")
                 }
                 if(file.exists(fn)) {
-                    if(local) file.copy(fn, destdir)
+                    ## file.copy(fn, destdir)
                     retval <- rbind(retval, c(p, fn))
                 }
                 else

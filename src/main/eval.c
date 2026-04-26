@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2026	The R Core Team.
+ *  Copyright (C) 1998--2025	The R Core Team.
  *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1174,7 +1174,9 @@ SEXP eval(SEXP e, SEXP rho)
 	else
 	    tmp = R_findVar(e, rho);
 	if (tmp == R_UnboundValue)
-	    R_ObjectNotFoundError(e, getLexicalCall(rho), NULL);
+	    errorcall_cpy(getLexicalCall(rho),
+			  _("object '%s' not found"),
+			  EncodeChar(PRINTNAME(e)));
 	else if (tmp == R_MissingArg) {
 	    /* the error signaled here for a missing ..d matches the one
 	       signaled in getvar() for byte compiled code, but ...elt()
@@ -2589,8 +2591,8 @@ static SEXP EnsureLocal(SEXP symbol, SEXP rho, R_varloc_t *ploc)
     }
 
     vl = eval(symbol, ENCLOS(rho));
-    if (vl == R_UnboundValue) // can this really happen?
-	R_ObjectNotFoundError(symbol, R_CurrentExpression, NULL);
+    if (vl == R_UnboundValue)
+	error(_("object '%s' not found"), EncodeChar(PRINTNAME(symbol)));
 
     PROTECT(vl = shallow_duplicate(vl));
     defineVar(symbol, vl, rho);
@@ -3776,7 +3778,7 @@ attribute_hidden SEXP evalListKeepMissing(SEXP el, SEXP rho)
 /* form below because it is does not cause growth of the pointer */
 /* protection stack, and because it is a little more efficient. */
 
-static SEXP promiseArgsEx(SEXP el, SEXP rho, Rboolean forward)
+attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
 {
     SEXP ans, h, tail;
 
@@ -3820,18 +3822,7 @@ static SEXP promiseArgsEx(SEXP el, SEXP rho, Rboolean forward)
 	    COPY_TAG(tail, el);
 	}
 	else {
-	    if (forward && TYPEOF(CAR(el)) == SYMSXP) {
-		SEXP val = findVar(CAR(el), rho);
-		if (TYPEOF(val) == PROMSXP)
-		    // repromise, or forward, argument to help with substitute()
-		    SETCDR(tail, CONS(mkPROMISE(val, rho), R_NilValue));
-		else if (val == R_MissingArg)
-		    SETCDR(tail, CONS(R_MissingArg, R_NilValue));
-		else
-		    SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
-	    }
-	    else
-		SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
+	    SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
 	    tail = CDR(tail);
 	    COPY_TAG(tail, el);
 	}
@@ -3841,11 +3832,6 @@ static SEXP promiseArgsEx(SEXP el, SEXP rho, Rboolean forward)
     ans = CDR(ans);
     DECREMENT_REFCNT(ans);
     return ans;
-}
-
-attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
-{
-    return promiseArgsEx(el, rho, FALSE);
 }
 
 
@@ -5794,7 +5780,9 @@ static R_INLINE SEXP GET_BINDING_CELL_CACHE(SEXP symbol, SEXP rho,
 
 NORET static void UNBOUND_VARIABLE_ERROR(SEXP symbol, SEXP rho)
 {
-    R_ObjectNotFoundError(symbol, getLexicalCall(rho), NULL);
+    errorcall_cpy(getLexicalCall(rho),
+		  _("object '%s' not found"),
+		  EncodeChar(PRINTNAME(symbol)));
 }
 
 static R_INLINE SEXP FIND_VAR_NO_CACHE(SEXP symbol, SEXP rho, SEXP cell)
@@ -9431,128 +9419,4 @@ SEXP R_ParseString(const char *str)
 attribute_hidden SEXP do_declare(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     return R_NilValue;
-}
-
-/**
-   Experimental support for S7 and the like
-**/
-
-#define CHECK_TYPE(var, type) do {				\
-    if (TYPEOF(var) != (type))					\
-	error(_("'%s' is not of type %s"), #var, #type);	\
-    } while (0)
-#define CHECK_TYPE_OR_NULL(var, type)			\
-    if ((var) != R_NilValue) CHECK_TYPE(var, type)
-
-// this probably should go in envir.c
-static SEXP DCONS(SEXP x, SEXP y, SEXP sym)
-{
-    SEXP val = CONS(x, y);
-    SET_TYPEOF(val, DOTSXP);
-    SET_TAG(val, sym);
-    return val;
-}
-
-static SEXP lastDot(SEXP dots)
-{
-    while (CDR(dots) != R_NilValue)
-	dots = CDR(dots);
-    return dots;
-}
-
-/* This corresponds to the R function
-
-unmatchArgs <- function(forms, env) {
-    args <- lapply(names(forms), as.name)
-    call <- as.call(c(function(...) get("..."), args))
-    assign("...", eval(call, env), env)
-    invisible(NULL)
-}
-
-except:
-
-- if reuses the ... list, if there is one;
-- it re-promises unevaluated arguments
-- it directly uses evaluated ones
-
-A shallow duplicate for an existing ... list could aldo be used, and
-would correspond to what the R-level implementation would do.
-
-This needs a review to make sure it is doing the right thing with
-respect to reference counts. */
-
-void R_UnmatchArgs(SEXP forms, SEXP env)
-{
-    CHECK_TYPE_OR_NULL(forms, LISTSXP);
-    CHECK_TYPE(env, ENVSXP);
-
-    SEXP dots = R_NilValue;
-    SEXP last = R_NilValue;
-
-    while (forms != R_NilValue) {
-	SEXP sym = TAG(forms);
-	SEXP val = findVarInFrame(env, sym);
-	if (sym == R_DotsSymbol) {
-	    if (val == R_UnboundValue)
-		error(_("'...' used in an incorrect context"));
-	    else if (TYPEOF(val) == DOTSXP) {
-		if (last == R_NilValue)
-		    dots = PROTECT(val);
-		else
-		    SETCDR(last, val);
-		last = lastDot(val);
-	    }
-	}
-	else {
-	    if (TYPEOF(val) == PROMSXP)
-		val = mkPROMISE(val, R_BaseEnv);
-	    else if (val != R_MissingArg && val != R_UnboundValue)
-		val = R_mkEVPROMISE(sym, val);
-	    if (last == R_NilValue) {
-		dots = PROTECT(DCONS(val, R_NilValue, sym));
-		last = dots;
-	    }
-	    else {
-		SETCDR(last, DCONS(val, R_NilValue, sym));
-		last = CDR(last);
-	    }
-	}
-	forms = CDR(forms);
-	R_removeVarFromFrame(sym, env);
-    }
-    if (dots != R_NilValue) {
-	defineVar(R_DotsSymbol, dots, env);
-	UNPROTECT(1); /* dots */
-    }
-}
-
-SEXP R_DispatchClosure(SEXP generic, SEXP mname, SEXP method,
-		       SEXP rho, SEXP callrho)
-{
-    CHECK_TYPE(generic, CLOSXP);
-    CHECK_TYPE(mname, SYMSXP);
-    CHECK_TYPE(method, CLOSXP);
-    CHECK_TYPE(rho, ENVSXP);
-    CHECK_TYPE_OR_NULL(callrho, ENVSXP); // ignored for now
-
-    SEXP call = PROTECT(LCONS(mname, R_NilValue));
-    for (SEXP f = FORMALS(generic), a = call; f != R_NilValue; f = CDR(f)) {
-	SEXP sym = TAG(f);
-	if (sym == R_DotsSymbol) {
-	    if (R_DotsExist(rho)) {
-		SETCDR(a, CONS(sym, R_NilValue));
-		a = CDR(a);
-	    }
-	}
-	else {
-	    SETCDR(a, CONS(sym, R_NilValue));
-	    SET_TAG(CDR(a), sym);
-	    a = CDR(a);
-	}
-    }
-
-    SEXP pargs = PROTECT(promiseArgsEx(CDR(call), rho, TRUE));
-    SEXP val = applyClosure(call, method, pargs, rho, R_NilValue, TRUE);
-    UNPROTECT(2); // call, pargs
-    return val;
 }

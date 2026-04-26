@@ -379,6 +379,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define UNSET_MAYBEJIT(x) (((x)->sxpinfo.gp) &= ~MAYBEJIT_MASK)
 
 /* Growable vector support */
+#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define GROWABLE_BIT_SET(x) ((x)->sxpinfo.gp & GROWABLE_MASK)
 #define SET_GROWABLE_BIT(x) (((x)->sxpinfo.gp) |= GROWABLE_MASK)
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
@@ -934,7 +935,6 @@ extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
 #define LATIN1_MASK (1<<2)
 #define UTF8_MASK (1<<3)
 /* (1<<4) is taken by S4_OBJECT_MASK */
-#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define CACHED_MASK (1<<5)
 #define ASCII_MASK (1<<6)
 #define HASHASH_MASK 1
@@ -2351,8 +2351,6 @@ SEXP R_makeWarningCondition(SEXP call,
 
 NORET void R_MissingArgError     (SEXP symbol,     SEXP call, const char* subclass);
 NORET void R_MissingArgError_c   (const char *arg, SEXP call, const char* subclass);
-NORET void R_ObjectNotFoundError(SEXP sym, SEXP call, const char *mode);
-NORET void R_FunctionNotFoundError(SEXP sym, SEXP call);
 
 SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 

@@ -987,28 +987,5 @@ stopifnot(exprs = {
 ## the last 6 values each were  NaN  in  R <= 4.5.0
 
 
-## pnbinom(.., size = Inf)  inside {0, 1} -- PR#16727, remnant
-prob <- 0.999
-M <- .Machine$double.xmax
-x <- M * 2^seq(-4, 0, by = 1/8)# M/16 .... M
-mu <- 5; x. <- c(outer(x, 2^-c(8, 4, 0)))
-Lrg <- c(Inf, M, M/2, M/4, M/8)
-for(sz in Lrg)
-    stopifnot(dnbinom(x, prob=prob, size = sz) == 0, # were NaN partly (before r88183)
-              dnbinom(x., mu=mu,    size = sz) == 0)
-
-
-## rmultinom() no longer using LDOUBLE being platform dependent - PR#18693
-. <- 0L
-pr <- c(5,1,1,1,1,1)/10
-set.seed(1)
-(N <- rmultinom(3,4, pr))
-stopifnot(identical(
-    cbind(c(1L,  ., 1L, 2L, .,  .),
-          c(1L, 2L, 1L,  ., .,  .),
-          c(2L,  .,  .,  ., ., 2L)), N))
-## was not at all true, without "long-double", e.g., on M<n> Macs
-
-
 
 cat("Time elapsed: ", proc.time() - .ptime,"\n")

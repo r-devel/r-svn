@@ -1544,9 +1544,7 @@ references to the namespaces of packages that were used to create them.
 Preferably there should be no such references in data files, and in any
 case they should only be to packages listed in the @code{Depends} and
 @code{Imports} fields, as otherwise it may be impossible to install the
-package.  To check for such references, use
-@code{tools:::namespace_loads_from_file_load()} on all image datasets,
-or load all the images into a
+package.  To check for such references, load all the images into a
 vanilla @R{} session, run @code{str()} on all the datasets, and look at
 the output of @code{loadedNamespaces()}.
 
@@ -5903,7 +5901,7 @@ so it is strongly recommended to check in a UTF-8 locale.
 @subsection Portable C and C++ code
 
 Writing portable C and C++ code is mainly a matter of observing the
-standards (C23, C++20 or where declared C++17/23/26) and testing that
+standards (C99, C++14 or where declared C++11/17/20) and testing that
 extensions (such as POSIX functions) are supported.  Do make maximal use
 of your compiler diagnostics --- this typically means using flags
 @option{-Wall} and @option{-pedantic} for both C and C++ and additionally
@@ -5915,12 +5913,12 @@ versions) these are part of @option{-Wall} or @option{-pedantic}).
 to C++11; from @R{} 4.1.0 in defaulted to C++14 and from @R{} 4.3.0 to
 C++17 (where available).  For maximal portability a package should
 either specify a standard (@pxref{Using C++ code}) or be tested under
-all of C++11, C++14, C++17 and C++20.
+all of C++11, C++14 and C++17.
 
-Later C++ standards, notably C++17, may remove features deprecated in
-earlier versions.  Unfortunately some compilers, notably @command{g++}
-have retained these features so if possible test under another compiler
-(such as that used on macOS).
+Later C++ standards, notably C++17 remove features deprecated in earlier
+versions.  Unfortunately some compilers, notably @command{g++} have
+retained these features so if possible test under another compiler (such
+as that used on macOS).
 
 Note that the `TR1' C++ extensions are not part of any of these
 standards and the @code{<tr1/@var{name}>} headers are not supplied by some of
@@ -5998,7 +5996,7 @@ differ by architecture even for nominally the same OS) affect the
 compilability of C/C++ code.  Compilers from the GCC, @I{LLVM}
 (@command{clang} and @command{flang}) Intel and Oracle Developer Studio
 suites have been used with @R{}, and both @I{LLVM} @command{clang} and
-Oracle have had more than one implementation of C++ headers and library.
+Oracle have more than one implementation of C++ headers and library.
 The range of possibilities makes comprehensive empirical checking
 impossible, and regrettably compilers are patchy at best on warning
 about non-standard code.
@@ -6092,7 +6090,7 @@ these in other headers. @command{g++}@tie{}13 requires the
 explicit inclusion of @code{<cstdint>} for types such as @code{uint32_t}
 which was previously included implicitly.  (For more such, see
 @uref{https://gcc.gnu.org/gcc-13/porting_to.html}.)  There are further
-instances of this in @command{g++}@tie{}15: see @uref{https://gcc.gnu.org/gcc-15/porting_to.html}.
+instances of this in @command{g++}@tie{}15: see @uref{https://gcc.gnu.org/gcc-13/porting_to.html}.
 
 Note that @code{malloc}, @code{calloc}, @code{realloc} and @code{free}
 are defined by C99 in the header @file{stdlib.h} and (in the
@@ -6285,7 +6283,7 @@ POSIX function.  An adequately portable preamble is
 @item
 Compiler writers feel free to implement features from later standards
 than the one specified, so for example they may implement or warn on
-C++20/23/26 features when C++17 is specified.  Portable code will not
+C++14/17/20 features when C++11 is specified.  Portable code will not
 use such features -- it can be hard to know what they are but the most
 common warnings are
 @example
@@ -14635,7 +14633,7 @@ and @code{R_EmptyEnv}.
 @apivar R_BaseNamespace
 @apivar R_EmptyEnv
 
-@eapifun R_ParseVector
+@apifun R_ParseVector
 @code{R_ParseVector} is essentially the code used to implement
 @code{parse(text=)} at @R{} level.  The first argument is a character
 vector (corresponding to @code{text}) and the second the maximal
@@ -15296,18 +15294,11 @@ Entry points which are documented in this manual and declared in an
 installed header file.  These can be used in distributed packages and
 ideally will only be changed after deprecation. @xref{API index}.
 
-@item experimental
-Entry points declared in an installed header file that are part of an
-experimental API, such as @file{R_ext/Altrep.h}. These are subject to
-change, so package authors wishing to use these should be prepared to
-adapt. @xref{Experimental API index}.
-@eapihdr R_ext/Altrep.h
-
-@item embedding
-Entry points intended primarily for embedding and creating new
-front-ends. It is not clear that this needs to be a separate category,
-but it may be useful to keep it separate for now. @xref{Embedding API
-index}.
+@item public
+Entry points declared in an installed header file that are exported on
+all @R{} platforms but are not documented and subject to change without
+notice. Do not use these in distributed code. Their declarations will
+eventually be moved out of installed header files.
 
 @item private
 Entry points that are used when building @R{} and exported on all @R{}
@@ -15317,11 +15308,20 @@ Do not use these in distributed code.
 @item hidden
 Entry points that are where possible (Windows and some modern Unix-alike
 compilers/loaders when using @R{} as a shared library) not exported.
-@end table
 
-As of @R{} 4.6.0 there should no longer be any entry points or variables
-declared in installed header files that are not part of one of the API
-groups.
+@item experimental
+Entry points declared in an installed header file that are part of an
+experimental API, such as @file{R_ext/Altrep.h}. These are subject to
+change, so package authors wishing to use these should be prepared to
+adapt. @xref{Experimental API index}.
+
+@item embedding
+Entry points intended primarily for embedding and creating new
+front-ends. It is not clear that this needs to be a separate category
+but it may be useful to keep it separate for now. @xref{Embedding API
+index}.
+@end table
+@eapihdr R_ext/Altrep.h
 
 @comment FIXME be more explicit as: ask on the R-devel mailing list or
 @comment post a WISHLIST PR
@@ -16308,7 +16308,7 @@ and @code{rN} must point to a length-@code{K} integer vector
 @eqn{n_j=, nj=}@code{rN[j]} is ``filled'' by a random binomial from
 @eqn{Bin(n; \pi_j), Bin(n; prob[j])},
 constrained to @eqn{\sum_{j=1}^K n_j = n, sum(rN[.]) == n}.
-@apifun Rf_rmultinom
+@apifun rmultinom
 
 After calls to @code{dwilcox}, @code{pwilcox} or @code{qwilcox} the
 function @code{wilcox_free()} should be called, and similarly
@@ -16356,49 +16356,49 @@ q = 1-p} which may be advantageous when one of them is close to @eqn{1,
 
 @cindex Gamma function
 @cindex @I{Polygamma} functions
-@apifun Rf_gammafn
-@apifun Rf_lgammafn
-@apifun Rf_digamma
-@apifun Rf_trigamma
-@apifun Rf_tetragamma
-@apifun Rf_pentagamma
-@apifun Rf_psigamma
-@apifun Rf_dpsifn
-@deftypefun double Rf_gammafn (double @var{x})
-@deftypefunx double Rf_lgammafn (double @var{x})
-@deftypefunx double Rf_digamma (double @var{x})
-@deftypefunx double Rf_trigamma (double @var{x})
-@deftypefunx double Rf_tetragamma (double @var{x})
-@deftypefunx double Rf_pentagamma (double @var{x})
-@deftypefunx double Rf_psigamma (double @var{x}, double @var{deriv})
-@deftypefunx void Rf_dpsifn (double @var{x}, int @var{n}, int @var{kode}, int @var{m}, double* @var{ans}, int* @var{nz}, int* @var{ierr})
+@apifun gammafn
+@apifun lgammafn
+@apifun digamma
+@apifun trigamma
+@apifun tetragamma
+@apifun pentagamma
+@apifun psigamma
+@apifun dpsifn
+@deftypefun double gammafn (double @var{x})
+@deftypefunx double lgammafn (double @var{x})
+@deftypefunx double digamma (double @var{x})
+@deftypefunx double trigamma (double @var{x})
+@deftypefunx double tetragamma (double @var{x})
+@deftypefunx double pentagamma (double @var{x})
+@deftypefunx double psigamma (double @var{x}, double @var{deriv})
+@deftypefunx void dpsifn (double @var{x}, int @var{n}, int @var{kode}, int @var{m}, double* @var{ans}, int* @var{nz}, int* @var{ierr})
 The Gamma function, the natural logarithm of its absolute value and
 first four derivatives and the @I{n-th} derivative of Psi, the @I{digamma}
-function, which is the derivative of @code{Rf_lgammafn}. In other words,
-@code{Rf_digamma(x)} is the same as @code{Rf_psigamma(x,0)},
-@code{Rf_trigamma(x) == Rf_psigamma(x,1)}, etc.
-The underlying workhorse, @code{Rf_dpsifn()}, is useful, e.g., when several derivatives of
-@eqn{\log\Gamma=, log Gamma=}@code{Rf_lgammafn} are desired.  It computes and
+function, which is the derivative of @code{lgammafn}. In other words,
+@code{digamma(x)} is the same as @code{psigamma(x,0)},
+@code{trigamma(x) == psigamma(x,1)}, etc.
+The underlying workhorse, @code{dpsifn()}, is useful, e.g., when several derivatives of
+@eqn{\log\Gamma=, log Gamma=}@code{lgammafn} are desired.  It computes and
 returns in @code{ans[]} the length-@var{m} sequence
-@eqn{(-1)^{k+1} / \Gamma(k+1) * \psi^{(k)}(x), (-1)^(k+1) / Gamma(k+1) * psi(k;x)} for
+@eqn{(-1)^{k+1} / \Gamma(k+1) * \psi^{(k)}(x), (-1)^(k+1) / gamma(k+1) * psi(k;x)} for
 @eqn{k = n \ldots n+m-1, k = n ... n+m-1}, where @eqn{\psi^{(k)}(x), psi(k;x)}
 is the @I{k-th} derivative of @eqn{\psi(x), Psi(x)}, i.e.,
-@code{Rf_psigamma(x,k)}.  For more details, see the comments in
+@code{psigamma(x,k)}.  For more details, see the comments in
 @file{src/nmath/polygamma.c}.
 @end deftypefun
 
 @cindex Beta function
-@apifun Rf_beta
-@apifun Rf_lbeta
-@deftypefun double Rf_beta (double @var{a}, double @var{b})
-@deftypefunx double Rf_lbeta (double @var{a}, double @var{b})
+@apifun beta
+@apifun lbeta
+@deftypefun double beta (double @var{a}, double @var{b})
+@deftypefunx double lbeta (double @var{a}, double @var{b})
 The (complete) Beta function and its natural logarithm.
 @end deftypefun
 
-@apifun Rf_choose
-@apifun Rf_lchoose
-@deftypefun double Rf_choose (double @var{n}, double @var{k})
-@deftypefunx double Rf_lchoose (double @var{n}, double @var{k})
+@apifun choose
+@apifun lchoose
+@deftypefun double choose (double @var{n}, double @var{k})
+@deftypefunx double lchoose (double @var{n}, double @var{k})
 The number of combinations of @var{k} items chosen from @var{n} and
 the natural logarithm of its absolute value, generalized to arbitrary real
 @var{n}.  @var{k} is rounded to the nearest integer (with a warning if
@@ -16406,16 +16406,16 @@ needed).
 @end deftypefun
 
 @cindex Bessel functions
-@apifun Rf_bessel_i
-@apifun Rf_bessel_j
-@apifun Rf_bessel_k
-@apifun Rf_bessel_y
-@deftypefun double Rf_bessel_i (double @var{x}, double @var{nu}, double @var{expo})
-@deftypefunx double Rf_bessel_j (double @var{x}, double @var{nu})
-@deftypefunx double Rf_bessel_k (double @var{x}, double @var{nu}, double @var{expo})
-@deftypefunx double Rf_bessel_y (double @var{x}, double @var{nu})
+@apifun bessel_i
+@apifun bessel_j
+@apifun bessel_k
+@apifun bessel_y
+@deftypefun double bessel_i (double @var{x}, double @var{nu}, double @var{expo})
+@deftypefunx double bessel_j (double @var{x}, double @var{nu})
+@deftypefunx double bessel_k (double @var{x}, double @var{nu}, double @var{expo})
+@deftypefunx double bessel_y (double @var{x}, double @var{nu})
 Bessel functions of types I, J, K and Y with index @var{nu}.  For
-@code{Rf_bessel_i} and @code{Rf_bessel_k} there is the option to return
+@code{bessel_i} and @code{bessel_k} there is the option to return
 @w{exp(-@var{x}) I(@var{x}; @var{nu})} or @w{exp(@var{x}) K(@var{x};
 @var{nu})} if @var{expo} is 2. (Use @code{@var{expo} == 1} for unscaled
 values.)
@@ -16428,18 +16428,18 @@ There are a few other numerical utility functions available as entry points.
 
 @apifun R_pow
 @apifun R_pow_di
-@apifun Rf_pow1p
+@apifun pow1p
 @deftypefun double R_pow (double @var{x}, double @var{y})
 @deftypefunx double R_pow_di (double @var{x}, int @var{i})
-@deftypefunx double Rf_pow1p (double @var{x}, double @var{y})
+@deftypefunx double pow1p (double @var{x}, double @var{y})
 @code{R_pow(@var{x}, @var{y})} and @code{R_pow_di(@var{x}, @var{i})}
 compute @code{@var{x}^@var{y}} and @code{@var{x}^@var{i}}, respectively
 using @code{R_FINITE} checks and returning the proper result (the same
 as @R{}) for the cases where @var{x}, @var{y} or @var{i} are 0 or
 missing or infinite or @code{NaN}.
 
-@code{Rf_pow1p(@var{x}, @var{y})} computes @code{(1 + @var{x})^@var{y}},
-accurately even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
+@code{pow1p(@var{x}, @var{y})} computes @code{(1 + @var{x})^@var{y}}, accurately
+even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
 @end deftypefun
 
 @apifun log1p
@@ -16453,20 +16453,20 @@ included in @file{Rmath.h}, but is (probably) in @file{math.h} which
 C++98).
 @end deftypefun
 
-@apifun Rf_log1pmx
-@deftypefun double Rf_log1pmx (double @var{x})
+@apifun log1pmx
+@deftypefun double log1pmx (double @var{x})
 Computes @code{log(1 + @var{x}) - @var{x}} (@emph{log 1 @I{@b{p}lus} x @I{@b{m}inus} @b{x}}),
 accurately even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
 @end deftypefun
 
-@apifun Rf_log1pexp
-@deftypefun double Rf_log1pexp (double @var{x})
+@apifun log1pexp
+@deftypefun double log1pexp (double @var{x})
 Computes @code{log(1 + exp(@var{x}))} (@emph{log 1 @I{@b{p}lus} @b{exp}}),
 accurately, notably for large @var{x}, e.g., @eqn{x > 720, x > 720}.
 @end deftypefun
 
-@apifun Rf_log1mexp
-@deftypefun double Rf_log1mexp (double @var{x})
+@apifun log1mexp
+@deftypefun double log1mexp (double @var{x})
 Computes @code{log(1 - exp(@var{-x}))} (@emph{log 1 @I{@b{m}inus} @b{exp}}),
 accurately, carefully for two regions of @var{x}, optimally cutting
 off at @eqn{\log 2, log 2} (= 0.693147..), using
@@ -16485,8 +16485,8 @@ included in @file{Rmath.h}, but is (probably) in @file{math.h} which
 C++98).
 @end deftypefun
 
-@apifun Rf_lgamma1p
-@deftypefun double Rf_lgamma1p (double @var{x})
+@apifun lgamma1p
+@deftypefun double lgamma1p (double @var{x})
 Computes @code{log(gamma(@var{x} + 1))} (@emph{log(gamma(1 @I{@b{p}lus} x))}),
 accurately even for small @var{x}, i.e., @eqn{0 < x < 0.5, 0 < x < 0.5}.
 @end deftypefun
@@ -16534,12 +16534,12 @@ in @file{Rmath.h}, but is in @file{math.h} which @file{Rmath.h} includes
 (but see the comments for @code{cospi}).
 @end deftypefun
 
-@apifun Rf_logspace_add
-@apifun Rf_logspace_sub
-@apifun Rf_logspace_sum
-@deftypefun double Rf_logspace_add (double @var{logx}, double @var{logy})
-@deftypefunx double Rf_logspace_sub (double @var{logx}, double @var{logy})
-@deftypefunx double Rf_logspace_sum (const double* @var{logx}, int @var{n})
+@apifun logspace_add
+@apifun logspace_sub
+@apifun logspace_sum
+@deftypefun double logspace_add (double @var{logx}, double @var{logy})
+@deftypefunx double logspace_sub (double @var{logx}, double @var{logy})
+@deftypefunx double logspace_sum (const double* @var{logx}, int @var{n})
 Compute the log of a sum or difference from logs of terms, i.e., ``x +
 y'' as @code{log (exp(@var{logx}) + exp(@var{logy}))} and ``x - y'' as
 @code{log (exp(@var{logx}) - exp(@var{logy}))},
@@ -16547,43 +16547,43 @@ and ``sum_i x[i]'' as @code{log (sum[i = 1:@var{n} exp(@var{logx}[i])] )}
 without causing unnecessary overflows or throwing away too much accuracy.
 @end deftypefun
 
-@apifun Rf_imax2
-@apifun Rf_imin2
-@apifun Rf_fmax2
-@apifun Rf_fmin2
-@deftypefun int Rf_imax2 (int @var{x}, int @var{y})
-@deftypefunx int Rf_imin2 (int @var{x}, int @var{y})
-@deftypefunx double Rf_fmax2 (double @var{x}, double @var{y})
-@deftypefunx double Rf_fmin2 (double @var{x}, double @var{y})
+@apifun imax2
+@apifun imin2
+@apifun fmax2
+@apifun fmin2
+@deftypefun int imax2 (int @var{x}, int @var{y})
+@deftypefunx int imin2 (int @var{x}, int @var{y})
+@deftypefunx double fmax2 (double @var{x}, double @var{y})
+@deftypefunx double fmin2 (double @var{x}, double @var{y})
 Return the larger (@code{max}) or smaller (@code{min}) of two integer or
 double numbers, respectively.  Note that @code{fmax2} and @code{fmin2}
 differ from C99/C++11's @code{fmax} and @code{fmin} when one of the
 arguments is a @code{NaN}: these versions return @code{NaN}.
 @end deftypefun
 
-@deftypefun double Rf_sign (double @var{x})
-@apifun Rf_sign
+@deftypefun double sign (double @var{x})
+@apifun sign
 Compute the @emph{signum} function, where sign(@var{x}) is 1, 0, or
 @math{-1}, when @var{x} is positive, 0, or negative, respectively, and
 @code{NaN} if @code{x} is a @code{NaN}.
 @end deftypefun
 
-@apifun Rf_fsign
-@deftypefun double Rf_fsign (double @var{x}, double @var{y})
+@apifun fsign
+@deftypefun double fsign (double @var{x}, double @var{y})
 Performs ``transfer of sign'' and is defined as @eqn{|x| *
 \hbox{sign}(y), |x| * sign(y)}.
 @end deftypefun
 
-@apifun Rf_fprec
-@deftypefun double Rf_fprec (double @var{x}, double @var{digits})
+@apifun fprec
+@deftypefun double fprec (double @var{x}, double @var{digits})
 Returns the value of @var{x} rounded to @var{digits} @emph{significant}
 decimal digits.
 
 This is the function used by @R{}'s @code{signif()}.
 @end deftypefun
 
-@apifun Rf_fround
-@deftypefun double Rf_fround (double @var{x}, double @var{digits})
+@apifun fround
+@deftypefun double fround (double @var{x}, double @var{digits})
 Returns the value of @var{x} rounded to @var{digits} decimal digits
 (after the decimal point).
 
@@ -16591,8 +16591,8 @@ This is the function used by @R{}'s @code{round()}.  (Note that C99/C++11
 provide a @code{round} function but C++98 need not.)
 @end deftypefun
 
-@apifun Rf_ftrunc
-@deftypefun double Rf_ftrunc (double @var{x})
+@apifun ftrunc
+@deftypefun double ftrunc (double @var{x})
 Returns the value of @var{x} truncated (to an integer value) towards
 zero.
 @end deftypefun
@@ -16993,7 +16993,7 @@ of @R{} function @code{findInterval} for details.
 There is also an @code{F77_CALL(interv)()} version of
 @code{findInterval()} with the same arguments, but all pointers.
 @end deftypefun
-@forfun interv
+@apifun interv
 
 A system-independent interface to produce the name of a temporary
 file is provided as
@@ -17038,8 +17038,8 @@ it will usually be taken from the environment variable @env{HOME} if
 this is defined.
 @end deftypefun
 
-@eapifun Rf_acopy_string
-@deftypefun {const char *} Rf_acopy_string (const char *@var{in})
+@eapifun acopy_string
+@deftypefun {const char *} acopy_string (const char *@var{in})
 Return a copy of a string using memory from @code{R_alloc}.
 @end deftypefun
 
@@ -17049,8 +17049,8 @@ e.g.@: @code{F77_CALL(d1mach)(4)}.  Note that these are emulations of
 the original functions by Fox, Hall and @I{Schryer} on @I{Netlib} at
 @uref{https://netlib.org/slatec/src/} for @acronym{IEC}@tie{}60559 arithmetic
 (required by @R{}).
-@forfun d1mach
-@forfun i1mach
+@apifun d1mach
+@apifun i1mach
 
 @node Linear algebra
 @section Linear algebra
@@ -17068,13 +17068,13 @@ emulate what @R{} does, and are declared as a C/C++ interface in header
 @file{R_ext/Applic.h}.  But they are also often called @emph{via}
 @code{.Fortran()} and from Fortran code.
 
-@forfun dqrqty
-@forfun dqrqy
-@forfun dqrcf
-@forfun dqrrsd
-@forfun dqrxb
-@forfun dqrls
-@forfun dqrdc2
+@apifun dqrqty
+@apifun dqrqy
+@apifun dqrcf
+@apifun dqrrsd
+@apifun dqrxb
+@apifun dqrls
+@apifun dqrdc2
 @example
 void F77_NAME(dqrqty)(double *x, int *n, int *k, double *qraux,
                       double *y, int *ny, double *qty);
@@ -18842,7 +18842,7 @@ void R_CleanUp (SA_TYPE saveact, int status, int RunLast)
     @}
 
     R_RunExitFinalizers();
-    /* clean up after the editor e.g. Rf_CleanEd() */
+    /* clean up after the editor e.g. CleanEd() */
 
     R_CleanTempDir();
 
@@ -18859,7 +18859,7 @@ void R_CleanUp (SA_TYPE saveact, int status, int RunLast)
 @embfun R_CleanTempDir
 @embfun R_SaveGlobalEnv
 @embfun Rf_KillAllDevices
-@embfun Rf_CleanEd
+@embfun CleanEd
 @embfun R_CleanUp
 @embfun fpu_setup
 @comment FIXME need to mention R_RunPendingFinalizers in text

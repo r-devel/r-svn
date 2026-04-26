@@ -5,65 +5,6 @@
 \title{R News}
 \encoding{UTF-8}
 
-\section{\Rlogo Changes in R-devel}{
-  \subsection{Significant User-Visible Changes}{
-    \itemize{
-      \item .
-    }
-  }
-
-  \subsection{New Features}{
-    \itemize{
-      \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
-      suppresses warnings about \dQuote{notches outside hinges}.
-
-      \item New function \code{cumvar()} to calculate cumulative variances.
-
-      \item The \code{print()} method for \code{rle()} now passes \code{...}
-      to \code{str()}.
-
-      \item \code{rmultinom()} now uses \I{Kahan}'s arithmetic instead of
-      \code{LDOUBLE} to avoid platform dependency, thanks to \I{Mauricio Vargas}'
-      proposal in \PR{18693}.
-
-      \item \emph{Object not found} errors now signal error conditions
-      of class \code{objectNotFoundError}. \emph{Function not found}
-      errors signal conditions of the subclass
-      \code{functionNotFoundError}.
-
-      \item Condition classes used internally for signaling some errors
-      are now documented in \code{?conditions}.
-    }
-  }
-
-  \subsection{Installation}{
-    \itemize{
-      \item .
-    }
-  }
-
-  \subsection{Package Installation}{
-    \itemize{
-      \item .
-    }
-  }
-
-  \subsection{C-Level Facilities}{
-    \itemize{
-      \item .
-    }
-  }
-
-  \subsection{Bug Fixes}{
-    \itemize{
-      \item For \code{x <-  <large-POSIXlt>}, \code{c(x)}, subsetting
-    (\code{[}, \code{[[}) and \I{subassignment} such as \code{x[i] <- val} now
-    work again mostly, thanks to suggestions by \I{Suharto Anggono} in
-    \PR{18989}.
-    }
-  }
-}
-
 \section{\Rlogo Changes in R 4.6.0}{
 
   \subsection{Significant User-Visible Changes}{

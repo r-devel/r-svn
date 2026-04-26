@@ -225,8 +225,8 @@ wilcox.test(x, y, alternative = "greater",
 
 wilcox.test(rnorm(10), rnorm(10, 2), conf.int = TRUE)
 
-## Formula interface -- NB: boxplot notches <~~> test for median equality:
-boxplot(Ozone ~ Month, data = airquality, notch = TRUE, warnN = FALSE)
+## Formula interface.
+boxplot(Ozone ~ Month, data = airquality)
 wilcox.test(Ozone ~ Month, data = airquality,
             subset = Month \%in\% c(5, 8))
 

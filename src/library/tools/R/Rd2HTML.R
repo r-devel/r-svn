@@ -1556,29 +1556,9 @@ function(dir)
                   .find_HTML_links_in_package))
 }
 
-.DESCRIPTION_to_HTML <- 
-function(descfile, dynamic = FALSE, hooks = list()) {
+.DESCRIPTION_to_HTML <- function(descfile, dynamic = FALSE) {
 
     ## Similar to .DESCRIPTION_to_latex().
-
-    if(dynamic) {
-        if(is.null(hooks$description_license_paths))
-            hooks$description_license_paths <- function(paths)
-                sprintf("/licenses/%s", basename(paths))
-        if(is.null(hooks$description_package_names))
-            hooks$description_package_names <- function(names) {
-                found <- logical(length(names))
-                for(lib.loc in .libPaths()) {
-                    ## Very basic test for installed package ...
-                    found <- found | file.exists(file.path(lib.loc, names,
-                                                           "DESCRIPTION"))
-                }
-                names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
-                                        names[found],
-                                        names[found])
-                names
-            }
-    }
 
     trfm <- .gsub_with_transformed_matches
 
@@ -1691,16 +1671,16 @@ function(descfile, dynamic = FALSE, hooks = list()) {
             ldb <- R_license_db()
             pos <- match(expansions, ldb$Labels)
             ind <- !is.na(pos)
-            fun <- hooks$description_license_paths
             if(any(ind)) {
                 pos <- pos[ind]
-                urls <- if(!is.null(fun)) {
+                urls <- if(dynamic) {
                             paths <- ldb[pos, "File"]
                             ifelse(nzchar(paths),
-                                   fun(paths),
+                                   sprintf("/licenses/%s",
+                                           basename(paths)),
                                    ldb[pos, "URL"])
                         } else
-                            ldb[pos, "URL"]
+                            urls <- ldb[pos, "URL"]
                 texts <- if(expanded) {
                              expansions[ind]
                          } else {
@@ -1740,8 +1720,15 @@ function(descfile, dynamic = FALSE, hooks = list()) {
         names <- ifelse(pos == -1L, entries,
                         substring(entries, 1L, pos - 1L))
         rests <- ifelse(pos == -1L, "", substring(entries, pos))
-        if(!is.null(fun <- hooks$description_package_names))
-            names <- fun(names)
+        found <- logical(length(names))
+        for(lib.loc in .libPaths()) {
+            ## Very basic test for installed package ...
+            found <- found | file.exists(file.path(lib.loc, names,
+                                                   "DESCRIPTION"))
+        }
+        names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
+                                names[found],
+                                names[found])
         vapply(split(paste(names, rests, sep = ""),
                      rep.int(seq_along(chunks), lengths(chunks))),
                paste, "", collapse = ", ")
@@ -1877,7 +1864,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
 
     desc["License"] <- htmlify_license_spec(desc["License"], pack)
 
-    if(!is.null(hooks$description_package_names))
+    if(dynamic)
         desc[theops] <- htmlify_depends_spec(desc[theops])
 
     ## <TODO>
