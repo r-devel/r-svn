@@ -36,6 +36,11 @@ unzip -q tcltk.zip
 
 # Add custom flags to MkRules.local
 #cp .github/scripts/MkRules.local src/gnuwin32/
+
+# Build without sub-arch, see comment in MkRules.rules
+if [ "$( uname -s | grep ARM)" ]; then
+echo "WIN=" >> src/gnuwin32/MkRules.local
+fi
 cd src/gnuwin32
 
 # Build just the installer
