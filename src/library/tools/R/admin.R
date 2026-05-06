@@ -56,7 +56,7 @@ function(dir, outDir, builtStamp=character())
                 call. = FALSE)
     }
 
-    OStype <- R.version$platform
+    OStype <- Sys.getenv("R_PLATFORM", R.version$platform)
     if (grepl("-apple-darwin", OStype) && nzchar(Sys.getenv("R_ARCH")))
         OStype <- sub(".*-apple-darwin", "universal-apple-darwin", OStype)
     ## Some build systems want to supply a package-build timestamp for
