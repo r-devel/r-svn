@@ -155,7 +155,7 @@ summary.Date <- function(object, digits = 12L, ...)
     if (nargs() == 1L) return(e1)
     # only valid if one of e1 and e2 is a scalar.
     if(inherits(e1, "Date") && inherits(e2, "Date"))
-        stop("binary + is not defined for \"Date\" objects")
+        stop(gettextf("binary '%s' is not defined for \"%s\" objects", "+", "Date"), domain=NA)
     if (inherits(e1, "difftime")) e1 <- coerceTimeUnit(e1)
     if (inherits(e2, "difftime")) e2 <- coerceTimeUnit(e2)
     .Date(unclass(e1) + unclass(e2))
@@ -169,7 +169,7 @@ summary.Date <- function(object, digits = 12L, ...)
                                days = x, weeks = 7*x)))
     if(!inherits(e1, "Date"))
         stop("can only subtract from \"Date\" objects")
-    if (nargs() == 1L) stop("unary - is not defined for \"Date\" objects")
+    if (nargs() == 1L) stop(gettextf("unary '%s' is not defined for \"%s\" objects", "-", "Date"), domain=NA)
     if(inherits(e2, "Date")) return(difftime(e1, e2, units="days"))
     if (inherits(e2, "difftime")) e2 <- coerceTimeUnit(e2)
     if(!is.null(attr(e2, "class")))
@@ -180,13 +180,13 @@ summary.Date <- function(object, digits = 12L, ...)
 Ops.Date <- function(e1, e2)
 {
     if (nargs() == 1L)
-        stop(gettextf("unary %s not defined for \"Date\" objects", .Generic),
+        stop(gettextf("unary '%s' is not defined for \"%s\" objects", .Generic, "Date"),
              domain = NA)
     boolean <- switch(.Generic, "<" =, ">" =, "==" =,
                       "!=" =, "<=" =, ">=" = TRUE,
                       FALSE)
     if (!boolean)
-        stop(gettextf("%s not defined for \"Date\" objects", .Generic),
+        stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "Date"),
              domain = NA)
     ## allow character args to be coerced to dates
     if (is.character(e1)) e1 <- as.Date(e1)
@@ -195,13 +195,13 @@ Ops.Date <- function(e1, e2)
 }
 
 Math.Date <- function (x, ...)
-    stop(gettextf("%s not defined for \"Date\" objects", .Generic),
+    stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "Date"),
          domain = NA)
 
 Summary.Date <- function (..., na.rm)
 {
     ok <- switch(.Generic, max = , min = , range = TRUE, FALSE)
-    if (!ok) stop(gettextf("%s not defined for \"Date\" objects", .Generic),
+    if (!ok) stop(gettextf("'%s' is not defined for \"%s\" objects", .Generic, "Date"),
                   domain = NA)
     .Date(NextMethod(.Generic), oldClass(..1))
 }

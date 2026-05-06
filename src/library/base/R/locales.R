@@ -24,14 +24,14 @@
 Sys.getlocale <- function(category = "LC_ALL")
 {
     category <- match(category, .LC.categories)
-    if(is.na(category)) stop("invalid 'category' argument")
+    if(is.na(category)) stop(gettextf("invalid '%s' argument", "category"), domain=NA)
     .Internal(Sys.getlocale(category))
 }
 
 Sys.setlocale <- function(category = "LC_ALL", locale = "")
 {
     category <- match(category, .LC.categories)
-    if(is.na(category)) stop("invalid 'category' argument")
+    if(is.na(category)) stop(gettextf("invalid '%s' argument", "category"), domain=NA)
     .Internal(Sys.setlocale(category, locale))
 }
 

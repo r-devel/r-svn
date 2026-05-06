@@ -21,7 +21,7 @@ rowsum <- function(x, group, reorder = TRUE, ...) UseMethod("rowsum")
 rowsum.default <- function(x, group, reorder = TRUE, na.rm = FALSE, ...)
 {
     if (!is.numeric(x)) stop("'x' must be numeric")
-    if (length(dim(x)) > 2L) stop("invalid 'x'")
+    if (length(dim(x)) > 2L) stop(gettextf("invalid '%s'", "x"), domain=NA)
     nr <- if (is.matrix(x)) NROW(x) else length(x)
     if (length(group) != nr) stop("incorrect length for 'group'")
     if (anyNA(group)) warning("missing values for 'group'")

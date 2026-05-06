@@ -26,7 +26,7 @@ sweep <- function(x, MARGIN, STATS, FUN = "-", check.margin = TRUE, ...)
     if (is.character(MARGIN)) {
         dn <- dimnames(x) # possibly NULL
         if(is.null(dnn <- names(dn))) # names(NULL) is NULL
-           stop("'x' must have named dimnames")
+           stop(gettextf("'%s' must have named dimnames", "x"), domain=NA)
         MARGIN <- match(MARGIN, dnn)
         if (anyNA(MARGIN))
             stop("not all elements of 'MARGIN' are names of dimensions")

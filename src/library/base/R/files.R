@@ -261,8 +261,8 @@ normalizePath <- function(path, winslash = "\\", mustWork = NA)
 Sys.setFileTime <- function(path, time)
 {
     if (!is.character(path))
-        stop("invalid 'path' argument")
+        stop(gettextf("invalid '%s' argument", "path"), domain=NA)
     time <- as.POSIXct(time)
-    if (anyNA(time))  stop("invalid 'time' argument")
+    if (anyNA(time))  stop(gettextf("invalid '%s' argument", "time"), domain=NA)
     .Internal(setFileTime(path, time))
 }

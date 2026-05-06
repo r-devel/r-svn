@@ -599,7 +599,7 @@ function(chname, package, lib.loc, verbose = getOption("verbose"),
                 message(gettextf("DLL %s already loaded", sQuote(chname1)),
                         domain = NA)
             else
-                message(gettextf("shared object '%s' already loaded",
+                message(gettextf("shared object %s already loaded",
                                  sQuote(chname1)), domain = NA)
         return(invisible(dll_list[[ seq_along(dll_list)[ind] ]]))
     }
@@ -659,7 +659,7 @@ function(chname, libpath, verbose = getOption("verbose"),
         if(.Platform$OS.type == "windows")
             stop(gettextf("DLL %s not found", sQuote(chname1)), domain = NA)
         else
-            stop(gettextf("shared object '%s' not found", sQuote(chname1)),
+            stop(gettextf("shared object %s not found", sQuote(chname1)),
                  domain = NA)
     if(verbose)
         message(gettextf("now dyn.unload(\"%s\") ...", file), domain = NA)
