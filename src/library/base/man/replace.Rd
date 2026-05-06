@@ -16,7 +16,7 @@ If necessary, the values in \code{values} are recycled.
 }
 \arguments{
   \item{x}{a vector.}
-  \item{list}{an index vector.}
+  \item{list}{an index \link{vector}.}
   \item{values}{replacement values.}
 }
 \value{
@@ -27,5 +27,17 @@ If necessary, the values in \code{values} are recycled.
 }
 \note{
   \code{x} is unchanged: remember to assign the result.
+}
+\seealso{
+  \link{Extract} to replace in objects. 
+}
+\value{
+  x <- 1:5
+  (y <- replace(x, c(2, 5), c(8, 9)))
+  x # Not modified
+
+   # Works with any vector
+  z <- list(A = "a", B = 2, C = diag(5))
+  replace(z, c(1, 2, 3), list(5, diag(3), "A"))
 }
 \keyword{manip}
