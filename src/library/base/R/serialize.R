@@ -23,17 +23,17 @@ saveRDS <-
     if(is.character(file)) {
         if(length(file) != 1 || file == "")
             stop(gettextf("'%s' must be a non-empty character string", "file"), domain = NA)
-	object <- object # do not create corrupt file if object does not exist
-	mode <- if(ascii %in% FALSE) "wb" else "w"
-	con <- if (is.logical(compress))
-		   if(compress) gzfile(file, mode) else file(file, mode)
-	       else
-		   switch(compress,
-			  "bzip2" = bzfile(file, mode),
-			  "xz"    = xzfile(file, mode),
-			  "gzip"  = gzfile(file, mode),
-			  "zstd"  = zstdfile(file, mode),
-			  stop("invalid 'compress' argument: ", compress))
+        object <- object # do not create corrupt file if object does not exist
+        mode <- if(ascii %in% FALSE) "wb" else "w"
+        con <- if (is.logical(compress))
+                   if(compress) gzfile(file, mode) else file(file, mode)
+               else
+                   switch(compress,
+                          "bzip2" = bzfile(file, mode),
+                          "xz"    = xzfile(file, mode),
+                          "gzip"  = gzfile(file, mode),
+                          "zstd"  = tools::zstdfile(file, mode),
+                          stop("invalid 'compress' argument: ", compress))
         on.exit(close(con))
     }
     else if(inherits(file, "connection")) {
@@ -48,13 +48,24 @@ saveRDS <-
 
 readRDS <- function(file, refhook = NULL)
 {
-    if(is.character(file)) {
+    if (is.character(file)) {
         con <- gzfile(file, "rb")
         on.exit(close(con))
-    } else if (inherits(file, "connection"))
-	con <- if(inherits(file, "url")) gzcon(file) else file
-    else stop("bad 'file' argument")
-    .Internal(unserializeFromConn(con, refhook))
+    } else if (inherits(file, "connection")) {
+        con <- if (inherits(file, "url")) tools::zstdfile(file) else file
+    } else stop("bad 'file' argument")
+
+    tryCatch(
+        .Internal(unserializeFromConn(con, refhook)),
+        error = function(e) {
+            if (is.character(file))
+                stop(sprintf("error reading RDS file '%s': %s",
+                             file, conditionMessage(e)),
+                     call. = FALSE)
+            else
+                stop(e)
+        }
+    )
 }
 
 infoRDS <- function(file)
@@ -80,7 +91,7 @@ serialize <-
     if (!ascii && inherits(connection, "sockconn"))
         .Internal(serializeb(object, connection, xdr, version, refhook))
     else {
-	type <- if(is.na(ascii)) 2L else if(ascii) 1L else if(!xdr) 3L else 0L
+        type <- if(is.na(ascii)) 2L else if(ascii) 1L else if(!xdr) 3L else 0L
         .Internal(serialize(object, connection, type, version, refhook))
     }
 }
