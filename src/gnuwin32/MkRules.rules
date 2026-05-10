@@ -161,7 +161,7 @@ else
   FC=$(BINPREF)flang $(M_ARCH)
   ## Fortran_main is needed/available only in some builds of llvm/flang-new
   LIBFM = $(or $(and $(wildcard $(EXT_LIBS)/lib/libFortran_main.a),-lFortran_main),)
-  FLIBS=-lFortranRuntime -lFortranDecimal $(LIBFM) -lc++ -lm
+  FLIBS=-lflang_rt.runtime -lFortranDecimal $(LIBFM) -lc++ -lm
 endif
 LINKER=$(MAIN_LD)
 MAIN_LD=$(CC)
