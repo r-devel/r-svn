@@ -365,16 +365,17 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         if(length(grep("--no-line-error", out$stdout)))
             opt_extra <- "--no-line-error"
 
+        env0 <- character()
         ## and work around a bug in texi2dvi
         ## https://stat.ethz.ch/pipermail/r-devel/2011-March/060262.html
         ## That has [A-Za-z], earlier versions [A-z], both of which may be
         ## invalid in some locales.
         ## FIXME: This workaround should be obsolete with Texinfo 5.0.
-        env0 <- "LC_COLLATE=C"
+##      env0 <- "LC_COLLATE=C"
         ## texi2dvi, at least on macOS (4.8) does not accept TMPDIR with spaces.
         ## FIXME: This workaround should be obsolete with Texinfo 6.3.
-        if (grepl(" ", Sys.getenv("TMPDIR")))
-            env0 <- paste(env0,  "TMPDIR=/tmp")
+##      if (grepl(" ", Sys.getenv("TMPDIR")))
+##          env0 <- paste(env0,  "TMPDIR=/tmp")
         out <- .system_with_capture(texi2dvi,
                                     c(opt_pdf, opt_quiet, opt_extra,
                                       shQuote(file)),
@@ -389,15 +390,17 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## (Note that texi2dvi may have been run quietly, in which case
         ## diagnostics will only be in the log file.)
         ## FIXME: This workaround should be obsolete with Texinfo 6.7.
-        if(out$status &&
-           file_test("-f", log) &&
-           any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
-                     readLines(log, warn = FALSE), useBytes = TRUE))) {
-            out <- .system_with_capture(texi2dvi,
-                                        c(opt_pdf, opt_quiet, opt_extra,
-                                          shQuote(file)),
-                                        env = env0)
-        }
+        ## NOTE: This could mask a failed bibtex (e.g., missing .bib) when
+        ##       that would not rerun (giving an empty 'thebibliography').
+##      if(out$status &&
+##         file_test("-f", log) &&
+##         any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
+##                   readLines(log, warn = FALSE), useBytes = TRUE))) {
+##          out <- .system_with_capture(texi2dvi,
+##                                      c(opt_pdf, opt_quiet, opt_extra,
+##                                        shQuote(file)),
+##                                      env = env0)
+##      }
 
         ## We cannot necessarily rely on out$status, hence let us
         ## analyze the log files in any case.
@@ -997,7 +1000,7 @@ function(con)
     ## (Note that warnings are ignored for now.)
     ## MiKTeX does not give usage, so '(There were n error messages)' is
     ## last.
-    pos <- grep("^(Warning|You|\\(There)", lines)
+    pos <- grep("^(Warning|You've|\\(There)", lines)
     if(!really_has_errors || !length(pos) ) return(character())
     ind <- seq.int(from = 3L, length.out = pos[1L] - 3L)
     lines[ind]
@@ -1311,7 +1314,7 @@ function(include_group_generics = TRUE)
           "cosh", "sinh", "tanh",
           "acosh", "asinh", "atanh",
           "lgamma", "gamma", "digamma", "trigamma",
-          "cumsum", "cumprod", "cummax", "cummin",
+          "cumsum", "cumprod", "cummax", "cummin", "cumvar",
           ## Group 'Ops':
           "+", "-", "*", "/",
           "^", "%%", "%/%",

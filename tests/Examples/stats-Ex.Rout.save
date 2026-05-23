@@ -1,5 +1,5 @@
 
-R Under development (unstable) (2026-04-09 r89834) -- "Unsuffered Consequences"
+R Under development (unstable) (2026-05-22 r90067) -- "Unsuffered Consequences"
 Copyright (C) 2026 The R Foundation for Statistical Computing
 Platform: aarch64-apple-darwin25.3.0
 
@@ -13142,7 +13142,7 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 > # Call:
 > # ppr.formula(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 > #     nterms = 2, max.terms = 5)
@@ -13158,17 +13158,17 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 
 Projection direction vectors ('alpha'):
-      term 1      term 2     
-area1  0.34357179  0.37071027
-peri1 -0.93781471 -0.61923542
-shape  0.04961846  0.69218595
+      term 1     term 2    
+area1  0.3435718  0.3707103
+peri1 -0.9378147 -0.6192354
+shape  0.0496185  0.6921859
 
 Coefficients of ridge terms ('beta'):
    term 1    term 2 
-1.6079271 0.5460971 
+1.6079272 0.5460972 
 > # .....  (same as above)
 > # .....
 > #
@@ -17208,12 +17208,10 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      0.009534     0.081250  0.000861      0.079370
    %  12.0        102.4       1.1         100.0   
 
- Weights: all == 1
-
  Other components: List of 5
- $ win  : Named num [1:3] 21 21 13
+ $ win  : Named int [1:3] 21 21 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 3 3 2
+ $ jump : Named int [1:3] 3 3 2
  $ inner: int 2
  $ outer: int 0
 > ## linear trend, strict period.
@@ -17238,14 +17236,14 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      606.14       116.77     80.05        707.75
    %  85.6         16.5      11.3         100.0 
 
- Weights:
+ Weights from 15 robustness iterations:
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
  0.0000  0.5594  0.9452  0.7312  0.9853  1.0000 
 
  Other components: List of 5
- $ win  : Named num [1:3] 721 19 13
+ $ win  : Named int [1:3] 721 19 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 73 2 2
+ $ jump : Named int [1:3] 73 2 2
  $ inner: int 1
  $ outer: int 15
 > op <- par(mar = c(0, 4, 0, 3), oma = c(5, 0, 4, 0), mfcol = c(4, 2))
@@ -19159,18 +19157,61 @@ alternative hypothesis: true location shift is greater than 0
 
 >                                             # approximation
 > 
-> wilcox.test(rnorm(10), rnorm(10, 2), conf.int = TRUE)
+> ## Confidence intervals ----------------
+> ## 2 sample:
+> set.seed(12); Z1 <- rnorm(10); Z2 <- rnorm(10, 2)
+> wilcox.test(Z1, Z2,  conf.int = TRUE)
 
 	Wilcoxon rank sum exact test
 
-data:  rnorm(10) and rnorm(10, 2)
-W = 7, p-value = 0.0004871
+data:  Z1 and Z2
+W = 4, p-value = 0.0001299
 alternative hypothesis: true location shift is not equal to 0
 95.7 percent confidence interval:
- -3.024352 -1.348555
+ -3.218076 -1.494576
 sample estimates:
 difference in location 
-             -2.262424 
+             -2.234911 
+
+> wilcox.test(Z1, Z2,  conf.int = TRUE, exact=FALSE)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  Z1 and Z2
+W = 4, p-value = 0.0005828
+alternative hypothesis: true location shift is not equal to 0
+95 percent confidence interval:
+ -3.218063 -1.494623
+sample estimates:
+difference in location 
+             -2.238656 
+
+> ## 1 sample:
+> wilcox.test(  -2:12,        conf.int = TRUE, exact=TRUE)
+
+	Wilcoxon signed rank exact test
+
+data:  -2:12
+V = 112, p-value = 0.0007324
+alternative hypothesis: true location is not equal to 0
+95.6 percent confidence interval:
+ 2.5 7.5
+sample estimates:
+(pseudo)median 
+             5 
+
+> wilcox.test(c(-2:11, 1000), conf.int = TRUE, exact=FALSE)# robust
+
+	Wilcoxon signed rank test with continuity correction
+
+data:  c(-2:11, 1000)
+V = 98, p-value = 0.004708
+alternative hypothesis: true location is not equal to 0
+95 percent confidence interval:
+ 2.000036 8.500017
+sample estimates:
+(pseudo)median 
+      5.000039 
 
 > 
 > ## Formula interface -- NB: boxplot notches <~~> test for median equality:
@@ -19186,7 +19227,7 @@ alternative hypothesis: true location shift is not equal to 0
 
 > 
 > ## accuracy in ties determination via 'digits.rank':
-> wilcox.test( 4:2,      3:1,     paired=TRUE) 
+> wilcox.test( 4:2,      3:1,     paired=TRUE)
 
 	Wilcoxon signed rank exact test
 
@@ -19194,7 +19235,7 @@ data:  4:2 and 3:1
 V = 6, p-value = 0.25
 alternative hypothesis: true location shift is not equal to 0
 
-> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE) 
+> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE)
 
 	Wilcoxon signed rank exact test
 

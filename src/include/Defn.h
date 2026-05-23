@@ -379,7 +379,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define UNSET_MAYBEJIT(x) (((x)->sxpinfo.gp) &= ~MAYBEJIT_MASK)
 
 /* Growable vector support */
-#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define GROWABLE_BIT_SET(x) ((x)->sxpinfo.gp & GROWABLE_MASK)
 #define SET_GROWABLE_BIT(x) (((x)->sxpinfo.gp) |= GROWABLE_MASK)
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
@@ -856,7 +855,7 @@ R_xlen_t  (XTRUELENGTH)(SEXP x);
 
 #ifdef USE_RINTERNALS
 
-/* Test macros with function versions above */
+/* Test macros with function versions in  Rinternals.h , included above  */
 #undef isNull
 #define isNull(s)	(TYPEOF(s) == NILSXP)
 #undef isSymbol
@@ -878,7 +877,7 @@ R_xlen_t  (XTRUELENGTH)(SEXP x);
 
 /* macro version of R_CheckStack */
 #define R_CheckStack() do {						\
-	NORET void R_SignalCStackOverflow(intptr_t);				\
+	NORET void R_SignalCStackOverflow(intptr_t);			\
 	int dummy;							\
 	intptr_t usage = R_CStackDir * (R_CStackStart - (uintptr_t)&dummy); \
 	if(R_CStackLimit != (uintptr_t)(-1) && usage > ((intptr_t) R_CStackLimit)) \
@@ -935,6 +934,7 @@ extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
 #define LATIN1_MASK (1<<2)
 #define UTF8_MASK (1<<3)
 /* (1<<4) is taken by S4_OBJECT_MASK */
+#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define CACHED_MASK (1<<5)
 #define ASCII_MASK (1<<6)
 #define HASHASH_MASK 1
@@ -998,7 +998,7 @@ extern void R_WaitEvent(void);
 # define FILESEP     "/"
 #endif /* Win32 */
 
-/* F77_SYMBOL was a minimal version of F77_SUB from RS.h, 
+/* F77_SYMBOL was a minimal version of F77_SUB from RS.h,
    used in main/util.c and main/registration.c
    F77_QSYMBOL is unused
 #ifdef HAVE_F77_UNDERSCORE
@@ -2019,7 +2019,7 @@ int R_XDRDecodeInteger(void *buf);
 # define yylval			Rf_yylval
 # define yynerrs		Rf_yynerrs
 # define yyparse		Rf_yyparse
-        
+
 /* Platform Dependent Gui Hooks */
 
 #define	R_CONSOLE	1
@@ -2351,6 +2351,8 @@ SEXP R_makeWarningCondition(SEXP call,
 
 NORET void R_MissingArgError     (SEXP symbol,     SEXP call, const char* subclass);
 NORET void R_MissingArgError_c   (const char *arg, SEXP call, const char* subclass);
+NORET void R_ObjectNotFoundError(SEXP sym, SEXP call, const char *mode);
+NORET void R_FunctionNotFoundError(SEXP sym, SEXP call);
 
 SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
@@ -2526,7 +2528,7 @@ extern const char *locale2charset(const char *);
 # else /* not NLS */
 #  define _(String) (String)
 #  define N_(String) String
-#  define ngettext(String, StringP, N) (N > 1 ? StringP: String)
+#  define ngettext(String, StringP, N) (N != 1 ? StringP: String)
 # endif
 #endif
 

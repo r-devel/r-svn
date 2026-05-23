@@ -61,8 +61,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     \item{\code{"Wichmann-Hill"}}{
     The seed, \code{.Random.seed[-1] == r[1:3]} is an integer vector of
     length 3, where each \code{r[i]} is in \code{1:(p[i] - 1)}, where
-    \code{p} is the length 3 vector of primes, \code{p = (30269, 30307,
-      30323)}.
+    \code{p} is the length 3 vector of primes,
+    \code{p = c(30269, 30307, 30323)}.
     The \I{Wichmann}--\I{Hill} generator has a cycle length of
     \eqn{6.9536 \times 10^{12}}{6.9536e12} (=
     \code{prod(p-1)/4}, see
@@ -261,7 +261,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     Source code at \url{https://www-cs-faculty.stanford.edu/~knuth/taocp.html}.}
   \bibinfo{R:L_Ecuyer+Simard:2007}{footer}{
     The \I{TestU01} C library is available from
-    \url{https://simul.iro.umontreal.ca/testu01/tu01.html} or also
+    %% Does not work as of 2026-04-30:
+    %% \url{https://simul.iro.umontreal.ca/testu01/tu01.html} or also
     \url{https://github.com/umontreal-simul/TestU01-2009}.
   }
   \bibinfo{R:Matsumoto+Nishimura:1998}{footer}{

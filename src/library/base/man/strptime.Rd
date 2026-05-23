@@ -1,6 +1,6 @@
 % File src/library/base/man/strptime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strptime}
@@ -45,7 +45,7 @@ strptime(x, format, tz = "")
     \code{"\%OS<n>"} instead of \code{"\%S"} in the format, see also
     \sQuote{Details}.}
   \item{\dots}{further arguments to be passed from or to other methods; for
-    \code{strftime()}, notably \code{digits}, passed to \code{format(<POSIXlt>)}.}
+    \code{strftime()}, notably \code{digits}, passed to \code{format(\var{POSIXlt})}.}
   \item{usetz}{logical.  Should the time zone abbreviation be appended
     to the output?  This is used in printing times, and more reliable
     than using \code{"\%Z"}.}
@@ -137,7 +137,8 @@ strptime(x, format, tz = "")
     \item{\code{\%H}}{Hours as decimal number (00--23).  As a special
       exception strings such as \samp{24:00:00} are accepted for input,
       since ISO 8601 allows these.}
-    \item{\code{\%I}}{Hours as decimal number (01--12).}
+    \item{\code{\%I}}{Hours as decimal number (01--12). Ambiguous unless
+      used in conjunction with \code{\%p}.}
     \item{\code{\%j}}{Day of year as decimal number (001--366):  For
       input, 366 is only valid in a leap year.}
     \item{\code{\%m}}{Month as decimal number (01--12).}
@@ -254,7 +255,7 @@ strptime(x, format, tz = "")
   Note that the precedence is \code{format=".. \%OSn .."} \eqn{\ll}{>>}
   \code{digits = n}, the latter initialized by default from
   \code{getOption("digits.secs")}.
-  Currently, for output (\code{strftime()} and \code{format(<POSIX.t>)}),
+  Currently, for output (\code{strftime()} and \code{format(\var{POSIXt})}),
   only \emph{one} "\%OS" occurrence is handled (per format string).
   \cr
   Further, for \code{strptime} \code{\%OS} will input seconds including

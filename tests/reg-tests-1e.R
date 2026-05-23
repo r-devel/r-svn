@@ -1238,7 +1238,8 @@ for(nr in 0:2) {
 gp  <- getVaW(pbinom(1234560:1234570, 9876543.2, 1/8))
 (gdp <- getVaW(dpois(9876543 + (2:8)/10, 1e7)))
 stopifnot(exprs = {
-    identical(gd, structure(rep(NaN, 11), warning = "NaNs produced"))
+    !englishMsgs ||
+        identical(gd, structure(rep(NaN, 11), warning = "NaNs produced"))
     identical(gd, gp)
     identical(gdp, structure(rep(0,7), # only *last* warning:
                              warning = "non-integer x = 9876543.800000"))
@@ -1252,7 +1253,9 @@ t0 <- getVaW(terms(y ~ a+b, abb = 1))
 t1 <- getVaW(terms(y ~ a+b, neg.out = 0))
 t2 <- getVaW(terms(y ~ a+b, abb=NA, neg.out=NA))
 stopifnot(exprs = {
+    !englishMsgs ||
     identical(t0, structure(tt, warning = "setting 'abb' in terms.formula() is deprecated"))
+    !englishMsgs ||
     identical(t1, structure(tt, warning = "setting 'neg.out' in terms.formula() is deprecated"))
     identical(t2, t1)
 })
@@ -3147,6 +3150,231 @@ E[[1]]
 (isErr <- vapply(E, isa, NA, what = c("contextstackOverflow", "parseError", "error")))
 stopifnot(isErr)
 ## Used to segfault with ASAN due to off-by-one in context stack checks
+
+
+## out of bounds errors for arrays should include the subscript number
+stopifnot(identical(tryCatch(matrix(1:6, nrow = 2)[3, 1],
+                             error = identity)$subscript,
+                    1L))
+
+
+## Check that headers, WRE, and non-API variables are in sync
+tools:::checkAPI()
+## New functionality, takes a few secs
+
+
+## cut(*, <empty breaks>) -- PR#19057
+assertErrV( cut(1:3, {}) )
+## gave an <NA> vector w/ bizarre levels in R <= 4.6.0
+
+
+## Tailcall in non-tail position: jump, like return()
+stopifnot((function() 1 + Tailcall(log, 1))() == 0)
+
+## Tailcall does not stop at context in .Internal(eval()), unlike return()
+local({
+    f <- function(x) {
+        e <- environment()
+        g <- function(x) evalq(Tailcall(identity, x), e)
+        g(x)
+        "B"
+    }
+    stopifnot(identical(f("A"), "A"))
+})
+
+## Tailcall handles substitute() missing args in caller like S3 dispatch
+local({
+    f <- function(x) Tailcall(function(y) substitute(y), x)
+    stopifnot(identical(f(1 + 2), quote(1 + 2)))
+    g <- function(x) Tailcall(function(y = 1) y, x)
+    stopifnot(g() == 1)
+})
+
+## Tailcall handles parent.frame() like caller
+f <- function() Tailcall(function() parent.frame())
+e <- f()
+stopifnot(identical(e, .GlobalEnv))
+
+
+## In a  --disable-nls configuration, "0 things" should remain plural; PR#19065
+mE <- tryCid( sin() )
+stopifnot(inherits(mE, "error"))
+if(englishMsgs)
+    stopifnot(grepl("0 arguments passed to 'sin'", conditionMessage(mE)))
+## gave "0 argument passed .." in R <= 4.6.0 (--disable-nls)
+
+
+## as.data.frame.vector() with NA rownames -- PR#19059
+e1 <- tryCid( as.data.frame(setNames(11:12, c("a", NA))) ) ## and the same, explicitly:
+e2 <- tryCid( as.data.frame(         11:12, c("a", NA))  )
+writeLines(as.character(e1))
+stopifnot(identical(e1$message, e2$message), identical(class(e1), class(e2)))
+## gave a data frame with `NA` in row names, in R <= 4.6.0
+dftN <- as.data.frame(tab <- table(ff <- penguins$sex, useNA = "ifany"))
+stopifnot(identical(3:2, dim(dftN)),
+          identical(structure(c(1:2, NA), levels = levels(ff), class = "factor"),
+                    dftN[,"Var1"]))
+## as.DF(<tab_w_NA>) failed after first fix ..
+
+
+## <symbol> -> <logical> etc via C level coerceSymbol() -- PR#19054
+assertErrV( all(quote(symbool)) )
+assertErrV( any(quote(symbool)) )
+## gave warnings but then TRUE or FALSE in R <= 4.6.0
+
+
+## Platform dependently, stl(.) could severely misbehave when compiled by flang 22, -O2
+sw <- 0:16
+r1 <- lapply(sw, function(sWin) stl(ts(rep(1:3, 3), frequency = 3), s.window = sWin))
+R1 <- lapply(sw, function(sWin) stl(ts(rep(1:3, 3), frequency = 3), s.window = sWin, robust=TRUE))
+chk1 <- function(stl) {
+    cat("<stl>$win: ", substring(deparse(stl$win), 2),
+           "; jump: ", substring(deparse(stl$jump), 2),"\n", sep="")
+    if(any(abs(stl$weights - 1) > 1e-7))
+        cat(" varying weights:  ", sprintf("%.3g", stl$weights), "\n")
+    stopifnot(is.list(stl), inherits(stl, "stl"),
+              identical(stl$deg, c(s=0L, t=1L, l=1L)),
+              is.matrix(mts <- stl$time.series), inherits(mts, "mts"),
+              identical(c(9L, 3L), dim(mts)),
+              identical(c("seasonal", "trend", "remainder"), colnames(mts)))
+}
+(swU <- pmax(3L, ifelse(sw %% 2 == 1, sw, sw+1L))) # effectively used s.window
+invisible(lapply(r1, chk1))
+cat("\n robust=TRUE :\n ===========\n")
+invisible(lapply(R1, chk1))
+Seasr <- vapply(r1, function(stl) stl$time.series[,"seasonal"], numeric(3*3))
+SeasR <- vapply(R1, function(stl) stl$time.series[,"seasonal"], numeric(3*3))
+Trndr <- vapply(r1, function(stl) stl$time.series[,"trend"],    numeric(3*3))
+TrndR <- vapply(R1, function(stl) stl$time.series[,"trend"],    numeric(3*3))
+aremr <- abs(vapply(r1, function(stl) stl$time.series[,"remainder"], numeric(3*3)))
+aremR <- abs(vapply(R1, function(stl) stl$time.series[,"remainder"], numeric(3*3)))
+stopifnot(exprs = {
+    ## s.window = 0 is now *equivalent* to s.window = 1:
+    identical(r1[[1]], r1[[2]])
+    identical(R1[[1]], R1[[2]])
+    ## Seasonal
+    print(max(abs(Seasr - rep(-1:1, 3)))) < 1e-13
+    print(max(abs(SeasR - rep(-1:1, 3)))) < 1e-13
+    print(max(Trndr - 2)) < 1e-13
+    print(max(TrndR - 2)) < 1e-13
+    print(max(aremr)) < 1e-13 # 2.22e-15 was 1.24e-14
+    print(max(aremR)) < 1e-13 # 2.88e-15
+})
+## partly "exploded" (dumped core), partly did not return constant trend =~= 2
+
+
+## PR#19072
+stopifnot(identical(attributes(.leap.seconds), list(class = c("POSIXct", "POSIXt"))))
+## .leap.seconds have no "tzone" attribute (as in R < 4.1.0)
+
+
+## zapsmall(x, digits = Inf)  should return x even when that contains +/-Inf
+zapEx <- function(x) rbind(x = x,
+          z    = zapsmall(x, 50),             zd_4 = zapsmall(x, 50, min.d = -444),
+          zdI  = zapsmall(x, 50, min.d = -Inf), zI = zapsmall(x, Inf),
+          zIdI = zapsmall(x, Inf,min.d = -Inf))
+x2 <- pi * 100^(-2:2)/10; xI <- c(x2, Inf); Ix <- c(-Inf, x2); xII <- c(Ix, Inf)
+stopifnot(exprs = {
+    zapEx(x2) == rep(x2, each = 6)
+    is.finite(t(print(zapEx(xI)))) == is.finite(xI)
+    is.finite(t(      zapEx(Ix ))) == is.finite(Ix)
+    is.finite(t(z <-  zapEx(xII))) == is.finite(xII)
+    !anyNA(z)
+    identical(z["zI" , ], xII)
+    identical(z["zIdI",], xII)
+    identical(z["zd_4",], z["zdI",])
+})
+## the last two rows of z[,] were all NaN in R <= 4.6.0
+
+
+### wilcox.test(x, exact=FALSE, correct = k), k >= 1  had been missing '* dnorm(z)'
+##
+## all possible 'correct = *' settings { correct = 0  <===>  correct = TRUE } :
+corrs <- list(FALSE, TRUE, 1L, 2L, 3L)
+names(corrs) <- vapply(corrs, as.character, "")
+##
+##' Compute exact and asymptotic (_incl_ Edgeworth corrections) Wilcoxon test p-values
+##' (also to be used in further changes, incl  2-sample test)
+wilcoxAsymp <- function(x, y = NULL, xO = 100* max(abs(x)), yO = Inf,
+                      debug = getOption("verbose"), ...) {
+    P <- if(debug) print else identity
+    xo <- c(x, xO)
+    if(is.null(y) || !length(y)) { ##---------- 1-sample  : *_one_pval_asymp() ----------------------
+        ## 'X' := eXact
+        pv1X  <- P(wilcox.test(x , exact=TRUE, ...))$p.value
+        pv1Xo <- P(wilcox.test(xo, exact=TRUE, ...))$p.value
+        L1. <- lapply(corrs, function(cr) wilcox.test(x , exact=FALSE, correct = cr, ...))
+        L1o <- lapply(corrs, function(cr) wilcox.test(xo, exact=FALSE, correct = cr, ...))
+        list(pval    = c(vapply(L1., `[[`, 0.1, "p.value"), Xact = pv1X),
+             pvalOut = c(vapply(L1o, `[[`, 0.1, "p.value"), Xact = pv1Xo))
+    }
+    else { ##-------------- 2-sample  (x, y) : *_two_pval_asymp() ------------------------
+        yo <- c(y, yO)
+        pv2X  <- P(wilcox.test(x , y , exact=TRUE, ...))$p.value
+        pv2Xo <- P(wilcox.test(xo, yo, exact=TRUE, ...))$p.value
+        L2. <- lapply(corrs, function(cr) wilcox.test(x , y , exact=FALSE, correct = cr, ...))
+        L2o <- lapply(corrs, function(cr) wilcox.test(xo, yo, exact=FALSE, correct = cr, ...))
+        list(pval    = c(vapply(L2., `[[`, 0.1, "p.value"), Xact = pv2X ),
+             pvalOut = c(vapply(L2o, `[[`, 0.1, "p.value"), Xact = pv2Xo))
+    }
+} ## {wilcoxAsymp}
+## Simulated, rounded and shifted from  t_3 and t_4 :
+x20 <- c(-231, -150, -143, -101, -82,    -76, -56, -40, -29, -20,
+           15,   41,   45,   61,  69,     86,  98, 144, 163, 219)
+y20 <- c(-216, -146, -137, -125, -116,  -108, -35, -32, -31,   6,
+           65,   92,   95,   98,  102,   128, 130, 134, 178, 190) + 0.5
+## chosen to have no ties (correct=* is not used with ties):
+stopifnot(anyDuplicated(rank(abs(  x20     ))) == 0,
+          anyDuplicated(rank(abs(c(x20,y20)))) == 0)
+roundM <- function(x, dig = 4)
+    round(x, digits = max(1, dig + round( - log10(min(abs(x))))))
+mkM <- function(c1, c2, m) `dimnames<-`(cbind(c1,c2, deparse.level=0L), dimnames(m))
+Ax1 <- wilcoxAsymp(x20)
+(mA1 <- sapply(Ax1, roundM))
+trA1 <- mkM(c(0.9405, 0.9553, 0.9563, 0.9565, 0.9563, 0.9563),
+            c(0.6639, 0.6766, 0.6826, 0.6834, 0.6827, 0.6827), mA1)
+(dA1 <- t(t(A <- simplify2array(Ax1))[, -6] - A["Xact",]) |> signif(digits=3))
+trd1 <- mkM(c(-0.0158, -0.000987, -9.29e-06, 0.000127, 1.79e-06),
+            c(-0.0188, -0.0061,   -9.17e-05, 0.000658, 1.08e-05), dA1)
+Ay1 <- wilcoxAsymp(y20)
+sapply(Ay1, roundM)
+(dAy1 <- t(t(A <- simplify2array(Ay1))[, -6] - A["Xact",]) |> signif(digits=3))
+trdy1 <- mkM(c(-0.0196, -0.00566, -7.8e-05, 0.000666, 1.16e-5),
+             c(-0.0187, -0.00784, -2.0e-04, 0.000638, 1.32e-5), dAy1)
+Ay1P <- wilcoxAsymp(y20 + 66)
+sapply(Ay1P, roundM)
+(dAy1P <- t(t(A <- simplify2array(Ay1P))[, -6] - A["Xact",]) |> signif(digits=3))
+trd1P <- mkM(c(.00149, .00245, 2.64e-4, 2.04e-5, 3.86e-5),
+             c(.00161, .00215, 2.14e-4, 9.52e-5, 3.11e-5), dAy1P)
+stopifnot(exprs = {
+    all.equal(trA1,  mA1, tolerance = 1e-14)
+    all.equal(trd1,  dA1, tolerance = 1e-14)
+    all.equal(trdy1,dAy1, tolerance = 1e-14)
+    all.equal(trd1P,dAy1P,tolerance = 1e-14)
+})
+## The 'correct = 1 | 2 | 3' did *not* improve the p values in R 4.6.0
+
+
+## wilcox.test(*, digits.rank) -- changed default *AND* new digits.zap = digits.rank
+x3 <- c(1.1, 2, 1.15)
+wtL <- list({}
+, wt.00      = wilcox.test(c(x3, 0))
+, wt.e100dII = wilcox.test(c(x3,  1e-100), digits.rank=Inf)
+, wte_100dII = wilcox.test(c(x3, -1e-100), digits.rank=Inf)
+, wt.e100dI  = wilcox.test(c(x3,  1e-100), digits.rank=Inf, digits.zap = 12)
+, wte_100dI  = wilcox.test(c(x3, -1e-100), digits.rank=Inf, digits.zap = 12)
+, wt.e100d7  = wilcox.test(c(x3,  1e-100), digits.rank= 7L)
+, wte_100d7  = wilcox.test(c(x3, -1e-100), digits.rank= 7L)
+)
+P <- if(interactive()) print else identity
+(pval <- vapply(P(wtL[!sapply(wtL, is.null)]), \(wt) wt$p.value, numeric(1)))
+noData <- \(x) x[names(x) != "data.name"]
+stopifnot(exprs = {
+    all.equal(unname(pval), c(.25, 0.125, rep(.25, 5)))
+    with(wtL, all.equal(noData(wt.00),
+                        noData(wt.e100dI)))
+})
+## the p-values were  rep((1:2)/8, 3)  in previous R, the first two indeed back compatible.
 
 
 

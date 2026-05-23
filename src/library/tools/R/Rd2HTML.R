@@ -109,10 +109,13 @@ vhtmlify <- function(x, inEqn = FALSE) { # code version
     x <- fsub('"\\{"', '"{"', x)
     ## http://htmlhelp.com/reference/html40/entities/symbols.html
     if(inEqn) {
-        x <- psub("\\\\(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|le|ge|sum|prod)", "&\\1;", x)
-        x <- psub("\\\\(dots|ldots)", "&hellip;", x)
-        x <- fsub("\\infty", "&infin;", x)
-        x <- fsub("\\sqrt", "&radic;", x)
+        rx <- paste0("\\\\(",
+                     paste(math_replacements[,"name"], collapse = "|"),
+                     ")(?![a-zA-Z])")
+        m <- gregexec(rx, x, perl = TRUE)
+        ii <- lapply(regmatches(x, m),
+                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
+        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, "html"])
     }
     x
 }
@@ -225,8 +228,10 @@ topic2url <- function(x)
     else
         vapply(x, urlify, "", reserved = TRUE) # to vectorize (used in toHTML.R)
 }
-topic2filename <- function(x)
-    gsub("%", "+", utils::URLencode(x, reserved = TRUE))
+topic2filename <- function(x) {
+    s <- utils::URLencode(x, reserved = TRUE)
+    gsub("%", "+", gsub(".", "%2e", s, fixed = TRUE))
+}
 ## The next few are for generating URL fragment ids
 string2id <- function(x)
     gsub("%", "+", utils::URLencode(x, reserved = TRUE))
@@ -244,7 +249,8 @@ topic2href <- function(x, destpkg = NULL, hooks = list())
         if(!length(s <- FUN(destpkg)) || (s == "#"))
             "#"
         else
-            sprintf("%s#%s", s, topic2id(x))
+            structure(sprintf("%s#%s", s, topic2id(x)),
+                      .class = attr(s, ".class"))
     }
 }
 
@@ -592,7 +598,7 @@ Rd2HTML <-
 
     addParaBreaks <- function(x) {
 	if (isTRUE(inPara) && #isBlankLineRd(x)
-	    linestart && grepl("^[[:blank:]]*\n", x)) {
+	    linestart && grepl("^[[:space:]]*\n", x, perl = TRUE)) {
 	    inPara <<- FALSE
 	    return("</p>\n")
 	}
@@ -602,7 +608,7 @@ Rd2HTML <-
 	    ## strip blank line
 	    skipNewline <<- linestart # not necessarily for \Sexpr-based Rd
 	}
-	if (isFALSE(inPara) && !isBlankRd(x)) {
+	if (isFALSE(inPara) && !grepl("^[[:space:]]*$", x, perl = TRUE)) {
 	    x <- paste0("<p>", x)
 	    inPara <<- TRUE
 	}
@@ -690,7 +696,8 @@ Rd2HTML <-
             enterPara(doParas)
             savePara <- inPara
             inPara <<- NA
-            if (!no_links) of0('<a href="', htmlfile, '">')
+            a_class <- sprintf('class="%s" ', attr(htmlfile, ".class"))
+            if (!no_links) of0('<a ', a_class, 'href="', htmlfile, '">')
             writeContent(block, tag)
             if (!no_links) of1('</a>')
             inPara <<- savePara
@@ -1556,9 +1563,29 @@ function(dir)
                   .find_HTML_links_in_package))
 }
 
-.DESCRIPTION_to_HTML <- function(descfile, dynamic = FALSE) {
+.DESCRIPTION_to_HTML <- 
+function(descfile, dynamic = FALSE, hooks = list()) {
 
     ## Similar to .DESCRIPTION_to_latex().
+
+    if(dynamic) {
+        if(is.null(hooks$description_license_paths))
+            hooks$description_license_paths <- function(paths)
+                sprintf("/licenses/%s", basename(paths))
+        if(is.null(hooks$description_package_names))
+            hooks$description_package_names <- function(names) {
+                found <- logical(length(names))
+                for(lib.loc in .libPaths()) {
+                    ## Very basic test for installed package ...
+                    found <- found | file.exists(file.path(lib.loc, names,
+                                                           "DESCRIPTION"))
+                }
+                names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
+                                        names[found],
+                                        names[found])
+                names
+            }
+    }
 
     trfm <- .gsub_with_transformed_matches
 
@@ -1671,16 +1698,16 @@ function(dir)
             ldb <- R_license_db()
             pos <- match(expansions, ldb$Labels)
             ind <- !is.na(pos)
+            fun <- hooks$description_license_paths
             if(any(ind)) {
                 pos <- pos[ind]
-                urls <- if(dynamic) {
+                urls <- if(!is.null(fun)) {
                             paths <- ldb[pos, "File"]
                             ifelse(nzchar(paths),
-                                   sprintf("/licenses/%s",
-                                           basename(paths)),
+                                   fun(paths),
                                    ldb[pos, "URL"])
                         } else
-                            urls <- ldb[pos, "URL"]
+                            ldb[pos, "URL"]
                 texts <- if(expanded) {
                              expansions[ind]
                          } else {
@@ -1720,15 +1747,8 @@ function(dir)
         names <- ifelse(pos == -1L, entries,
                         substring(entries, 1L, pos - 1L))
         rests <- ifelse(pos == -1L, "", substring(entries, pos))
-        found <- logical(length(names))
-        for(lib.loc in .libPaths()) {
-            ## Very basic test for installed package ...
-            found <- found | file.exists(file.path(lib.loc, names,
-                                                   "DESCRIPTION"))
-        }
-        names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
-                                names[found],
-                                names[found])
+        if(!is.null(fun <- hooks$description_package_names))
+            names <- fun(names)
         vapply(split(paste(names, rests, sep = ""),
                      rep.int(seq_along(chunks), lengths(chunks))),
                paste, "", collapse = ", ")
@@ -1864,7 +1884,7 @@ function(dir)
 
     desc["License"] <- htmlify_license_spec(desc["License"], pack)
 
-    if(dynamic)
+    if(!is.null(hooks$description_package_names))
         desc[theops] <- htmlify_depends_spec(desc[theops])
 
     ## <TODO>

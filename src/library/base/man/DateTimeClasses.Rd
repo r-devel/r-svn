@@ -1,6 +1,6 @@
 % File src/library/base/man/DateTimeClasses.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{DateTimeClasses}
@@ -123,6 +123,12 @@
   Be aware that \code{"POSIXlt"} objects will be interpreted as being in
   the current time zone for these operations unless a time zone has been
   specified.
+  \cr
+  Note that these arithmetic, comparison and logical operations
+  \emph{currently} work via coercion to \code{"POSIXct"} which may lose
+  accuracy of (typically fractional) seconds.  Hence, e.g., \code{t1 == t2}
+  may be true where the datetime objects differ slightly and (at least) one
+  of them is \code{POSIXlt}.
 
   Further implemented methods comprise \code{\link{mean}},
   \code{\link{summary}}, \code{\link{unique}}, \code{\link{is.finite}},
@@ -148,10 +154,12 @@
   platforms ignore them (as required by POSIX).  This is detected and
   corrected for at build time, so \code{"POSIXct"} times used by \R do
   not include leap seconds on any platform.
+  Note that \code{.leap.seconds} has \emph{no} \code{"tzone"} attribute on
+  purpose, see also the \sQuote{Examples}.
 
-  Using \code{\link{c}} on \code{"POSIXlt"} objects converts them to the
-  current time zone, and on \code{"POSIXct"} objects drops \code{"tzone"}
-  attributes if they are not all the same.
+  Unless they are all marked with the same time zone, using \code{\link{c}}
+  on \code{"POSIXlt"} objects converts them to the current time zone, and
+  on \code{"POSIXct"} objects drops the \code{"tzone"} attributes.
 
   A few times have specific issues.  First, the leap seconds are ignored,
   and real times such as \code{"2005-12-31 23:59:60"} are (probably)

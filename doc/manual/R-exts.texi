@@ -1544,7 +1544,9 @@ references to the namespaces of packages that were used to create them.
 Preferably there should be no such references in data files, and in any
 case they should only be to packages listed in the @code{Depends} and
 @code{Imports} fields, as otherwise it may be impossible to install the
-package.  To check for such references, load all the images into a
+package.  To check for such references, use
+@code{tools:::namespace_loads_from_file_load()} on all image datasets,
+or load all the images into a
 vanilla @R{} session, run @code{str()} on all the datasets, and look at
 the output of @code{loadedNamespaces()}.
 
@@ -2247,7 +2249,7 @@ always be included @emph{after} @code{LAPACK_LIBS} (and in that order).
 @item SAFE_FFLAGS
 @vindex SAFE_FFLAGS
 A macro containing flags which are needed to circumvent
-over-optimization of FORTRAN code: it is might be @samp{-g -O2
+over-optimization of FORTRAN code: it might be @samp{-g -O2
 -ffloat-store} or @samp{-g -O2 -msse2 -mfpmath=sse} on @cputype{ix86}
 platforms using @command{gfortran}.  Note that this is @strong{not} an
 additional flag to be used as part of @code{PKG_FFLAGS}, but a
@@ -2993,7 +2995,7 @@ of @code{__cplusplus}.
 @c @I{LLVM} clang 14, 15 default to C++14, 16-22 to C++17
 @c g++ 11-15 default to C++17, g++20 to C++20.
 
-The webpage @uref{https://en.cppreference.com/w/cpp/compiler_support.html}
+The webpage @uref{https://en.cppreference.com/cpp/compiler_support}
 gives some information on which compiler versions are known to support
 recent C++ features.
 
@@ -3036,7 +3038,7 @@ Code needing C++20 or later features can check for their presence @emph{via}
 `SD-6 feature tests'@footnote{See
 @uref{https://isocpp.org/std/standing-documents/sd-6-sg10-feature-test-recommendations}
 or
-@uref{https://en.cppreference.com/w/cpp/experimental/feature_test.html}.}
+@uref{https://en.cppreference.com/cpp/experimental/feature_test}.}
 
 @c Ubuntu LTS releases now have 10 years of support even if announced
 @c with 8 years.
@@ -3176,7 +3178,7 @@ the formerly deprecated meaning of function declarations with an empty
 parameter list to now mean no parameters.@footnote{The latter has been
 implemented in @command{gcc} but not currently in @I{LLVM} nor Apple
 @command{clang}.}(There are many other additions: see for example
-@uref{https://en.cppreference.com/w/c/23.html}.)
+@uref{https://en.cppreference.com/c/23}.)
 
 As from @R{} 4.5.0, @R{}'s @command{configure} script chooses a compiler
 option which selects C23 if one is available.  Some compilers (including
@@ -3440,7 +3442,7 @@ of @command{file} if available@footnote{A suitable @command{file.exe} is
 part of the Windows toolset: it checks for @command{gfile} if a suitable
 @command{file} is not found: the latter is available in the @I{OpenCSW}
 collection for Solaris at @uref{https://www.opencsw.org/}.  The source
-repository is @uref{http://ftp.astron.com/pub/file/}.}.  (There may be
+repository is @uref{https://astron.com/pub/file/}.}.  (There may be
 rare false positives.)
 
 @item
@@ -5519,14 +5521,13 @@ Usage of external commands should always be conditional on a test for
 presence (perhaps using @code{Sys.which}), as well as declared in the
 @samp{SystemRequirements} field.  A package should pass its checks
 without warnings nor errors without the external command being
-present. N.B.: @file{/usr/sbin} and @file{/sbin}@footnote{where
-different, which it is on macOS.} are intended for administrator commands
-and may not be on the end-user path: examples of commands which packages
-have (wrongly) assumed to be available are @command{sysctl} and
-@command{ping}.
-Commands with simple English names (such as @command{go} and
-@command{ping}) should be checked (maybe @emph{via} @option{--version})
-that they are the intended command.
+present. @strong{N.B.}: @file{/usr/sbin} and @file{/sbin}@footnote{where
+different, which it is on macOS.} are intended for administrator
+commands and may not be on the end-user path: examples of commands which
+packages have (wrongly) assumed to be available are @command{sysctl},
+@command{sha1sum} and @command{ping}.  Commands with simple English
+names (such as @command{go} and @command{ping}) should be checked (maybe
+@emph{via} @option{--version}) that they are the intended command.
 
 An external command can be a (possibly optional) requirement for an
 imported or suggested package but needed for examples, tests or
@@ -5770,8 +5771,8 @@ See @uref{https://ghostscript.readthedocs.io/en/latest/VectorDevices.html} for
 more such and consider all the options for image downsampling).  There
 have been examples in @acronym{CRAN} packages for which current versions
 of Ghostscript produced much bigger reductions than earlier ones (e.g.@:
-at the upgrades from @code{9.50} to @code{9.52}, from @code{9.55} to
-@code{9.56} and then to @code{10.00.0}).
+at the upgrades from @code{9.56} to @code{10.00.0} and from
+@code{10.06.0} to @code{10.07.0}).
 
 We come across occasionally large PDF files containing excessively
 complicated figures using PDF vector graphics: such figures are often
@@ -5979,7 +5980,7 @@ Alpine Linux, use other implementations such as @code{musl} --- see
 However, some common errors are worth pointing out here.  It can be
 helpful to look up functions at
 @uref{https://cplusplus.com/reference/} or
-@uref{https://en.cppreference.com/w/} and compare what is defined in the
+@uref{https://en.cppreference.com/} and compare what is defined in the
 various standards.
 
 More care is needed for functions such as @code{mallinfo} which are not
@@ -6613,7 +6614,7 @@ the default of GCC 15, and @R{} will default to it if available from
 @R{} 4.5.0.
 
 @c Some of the more significant changes are
-@c https://en.cppreference.com/w/c/23.html
+@c https://en.cppreference.com/c/23
 
 @itemize
 
@@ -8249,9 +8250,15 @@ for x = 0, 1, 2, ... .
 @end cartouche
 @end quotation
 
+This substituted @code{\ldots}, as it would @code{\dots}.
+Text conversion also handles the basic relational symbols
+@code{\ge}, @code{\le}, @code{\ne} (or @code{\geq}, @code{\leq}, @code{\neq}),
+so the 1-argument form suffices for, e.g., @code{\eqn@{0 < p \le 1@}}.
+
 In legacy @HTML{} help, Greek letters (both cases) will be rendered if preceded by a
-backslash, @code{\dots} and @code{\ldots} will be rendered as ellipses
-and @code{\sqrt}, @code{\ge} and @code{\le} as mathematical symbols.
+backslash, @code{\dots} and @code{\ldots} will be rendered as ellipses,
+and @code{\sqrt}, @code{\ge} (or @code{\geq}), @code{\le} (or @code{\leq}),
+@code{\ne} (or @code{\neq}) as mathematical symbols.
 
 Note that only basic @LaTeX{} can be used, there being no provision to
 specify @LaTeX{} style files, but @abbr{AMS} extensions are supported
@@ -12649,7 +12656,7 @@ Here is a small example of creating an @R{} numeric vector in C code:
 
     SEXP ab;
       ....
-    ab = PROTECT(RF_allocVector(REALSXP, 2));
+    ab = PROTECT(Rf_allocVector(REALSXP, 2));
     REAL(ab)[0] = 123.45;
     REAL(ab)[1] = 67.89;
     UNPROTECT(1);
@@ -14227,7 +14234,7 @@ the definition of @code{do_docall} in @file{src/main/coerce.c}.
 
 @example
     SEXP s, t;
-    t = s = PROTECT(RF_allocLang(3));
+    t = s = PROTECT(Rf_allocLang(3));
     SETCAR(t, Rf_install("print")); t = CDR(t);
     SETCAR(t,  CAR(a)); t = CDR(t);
     SETCAR(t, Rf_ScalarInteger(digits));
@@ -14633,7 +14640,7 @@ and @code{R_EmptyEnv}.
 @apivar R_BaseNamespace
 @apivar R_EmptyEnv
 
-@apifun R_ParseVector
+@eapifun R_ParseVector
 @code{R_ParseVector} is essentially the code used to implement
 @code{parse(text=)} at @R{} level.  The first argument is a character
 vector (corresponding to @code{text}) and the second the maximal
@@ -15294,11 +15301,18 @@ Entry points which are documented in this manual and declared in an
 installed header file.  These can be used in distributed packages and
 ideally will only be changed after deprecation. @xref{API index}.
 
-@item public
-Entry points declared in an installed header file that are exported on
-all @R{} platforms but are not documented and subject to change without
-notice. Do not use these in distributed code. Their declarations will
-eventually be moved out of installed header files.
+@item experimental
+Entry points declared in an installed header file that are part of an
+experimental API, such as @file{R_ext/Altrep.h}. These are subject to
+change, so package authors wishing to use these should be prepared to
+adapt. @xref{Experimental API index}.
+@eapihdr R_ext/Altrep.h
+
+@item embedding
+Entry points intended primarily for embedding and creating new
+front-ends. It is not clear that this needs to be a separate category,
+but it may be useful to keep it separate for now. @xref{Embedding API
+index}.
 
 @item private
 Entry points that are used when building @R{} and exported on all @R{}
@@ -15308,20 +15322,11 @@ Do not use these in distributed code.
 @item hidden
 Entry points that are where possible (Windows and some modern Unix-alike
 compilers/loaders when using @R{} as a shared library) not exported.
-
-@item experimental
-Entry points declared in an installed header file that are part of an
-experimental API, such as @file{R_ext/Altrep.h}. These are subject to
-change, so package authors wishing to use these should be prepared to
-adapt. @xref{Experimental API index}.
-
-@item embedding
-Entry points intended primarily for embedding and creating new
-front-ends. It is not clear that this needs to be a separate category
-but it may be useful to keep it separate for now. @xref{Embedding API
-index}.
 @end table
-@eapihdr R_ext/Altrep.h
+
+As of @R{} 4.6.0 there should no longer be any entry points or variables
+declared in installed header files that are not part of one of the API
+groups.
 
 @comment FIXME be more explicit as: ask on the R-devel mailing list or
 @comment post a WISHLIST PR
@@ -16308,7 +16313,7 @@ and @code{rN} must point to a length-@code{K} integer vector
 @eqn{n_j=, nj=}@code{rN[j]} is ``filled'' by a random binomial from
 @eqn{Bin(n; \pi_j), Bin(n; prob[j])},
 constrained to @eqn{\sum_{j=1}^K n_j = n, sum(rN[.]) == n}.
-@apifun rmultinom
+@apifun Rf_rmultinom
 
 After calls to @code{dwilcox}, @code{pwilcox} or @code{qwilcox} the
 function @code{wilcox_free()} should be called, and similarly
@@ -16356,49 +16361,49 @@ q = 1-p} which may be advantageous when one of them is close to @eqn{1,
 
 @cindex Gamma function
 @cindex @I{Polygamma} functions
-@apifun gammafn
-@apifun lgammafn
-@apifun digamma
-@apifun trigamma
-@apifun tetragamma
-@apifun pentagamma
-@apifun psigamma
-@apifun dpsifn
-@deftypefun double gammafn (double @var{x})
-@deftypefunx double lgammafn (double @var{x})
-@deftypefunx double digamma (double @var{x})
-@deftypefunx double trigamma (double @var{x})
-@deftypefunx double tetragamma (double @var{x})
-@deftypefunx double pentagamma (double @var{x})
-@deftypefunx double psigamma (double @var{x}, double @var{deriv})
-@deftypefunx void dpsifn (double @var{x}, int @var{n}, int @var{kode}, int @var{m}, double* @var{ans}, int* @var{nz}, int* @var{ierr})
+@apifun Rf_gammafn
+@apifun Rf_lgammafn
+@apifun Rf_digamma
+@apifun Rf_trigamma
+@apifun Rf_tetragamma
+@apifun Rf_pentagamma
+@apifun Rf_psigamma
+@apifun Rf_dpsifn
+@deftypefun double Rf_gammafn (double @var{x})
+@deftypefunx double Rf_lgammafn (double @var{x})
+@deftypefunx double Rf_digamma (double @var{x})
+@deftypefunx double Rf_trigamma (double @var{x})
+@deftypefunx double Rf_tetragamma (double @var{x})
+@deftypefunx double Rf_pentagamma (double @var{x})
+@deftypefunx double Rf_psigamma (double @var{x}, double @var{deriv})
+@deftypefunx void Rf_dpsifn (double @var{x}, int @var{n}, int @var{kode}, int @var{m}, double* @var{ans}, int* @var{nz}, int* @var{ierr})
 The Gamma function, the natural logarithm of its absolute value and
 first four derivatives and the @I{n-th} derivative of Psi, the @I{digamma}
-function, which is the derivative of @code{lgammafn}. In other words,
-@code{digamma(x)} is the same as @code{psigamma(x,0)},
-@code{trigamma(x) == psigamma(x,1)}, etc.
-The underlying workhorse, @code{dpsifn()}, is useful, e.g., when several derivatives of
-@eqn{\log\Gamma=, log Gamma=}@code{lgammafn} are desired.  It computes and
+function, which is the derivative of @code{Rf_lgammafn}. In other words,
+@code{Rf_digamma(x)} is the same as @code{Rf_psigamma(x,0)},
+@code{Rf_trigamma(x) == Rf_psigamma(x,1)}, etc.
+The underlying workhorse, @code{Rf_dpsifn()}, is useful, e.g., when several derivatives of
+@eqn{\log\Gamma=, log Gamma=}@code{Rf_lgammafn} are desired.  It computes and
 returns in @code{ans[]} the length-@var{m} sequence
-@eqn{(-1)^{k+1} / \Gamma(k+1) * \psi^{(k)}(x), (-1)^(k+1) / gamma(k+1) * psi(k;x)} for
+@eqn{(-1)^{k+1} / \Gamma(k+1) * \psi^{(k)}(x), (-1)^(k+1) / Gamma(k+1) * psi(k;x)} for
 @eqn{k = n \ldots n+m-1, k = n ... n+m-1}, where @eqn{\psi^{(k)}(x), psi(k;x)}
 is the @I{k-th} derivative of @eqn{\psi(x), Psi(x)}, i.e.,
-@code{psigamma(x,k)}.  For more details, see the comments in
+@code{Rf_psigamma(x,k)}.  For more details, see the comments in
 @file{src/nmath/polygamma.c}.
 @end deftypefun
 
 @cindex Beta function
-@apifun beta
-@apifun lbeta
-@deftypefun double beta (double @var{a}, double @var{b})
-@deftypefunx double lbeta (double @var{a}, double @var{b})
+@apifun Rf_beta
+@apifun Rf_lbeta
+@deftypefun double Rf_beta (double @var{a}, double @var{b})
+@deftypefunx double Rf_lbeta (double @var{a}, double @var{b})
 The (complete) Beta function and its natural logarithm.
 @end deftypefun
 
-@apifun choose
-@apifun lchoose
-@deftypefun double choose (double @var{n}, double @var{k})
-@deftypefunx double lchoose (double @var{n}, double @var{k})
+@apifun Rf_choose
+@apifun Rf_lchoose
+@deftypefun double Rf_choose (double @var{n}, double @var{k})
+@deftypefunx double Rf_lchoose (double @var{n}, double @var{k})
 The number of combinations of @var{k} items chosen from @var{n} and
 the natural logarithm of its absolute value, generalized to arbitrary real
 @var{n}.  @var{k} is rounded to the nearest integer (with a warning if
@@ -16406,16 +16411,16 @@ needed).
 @end deftypefun
 
 @cindex Bessel functions
-@apifun bessel_i
-@apifun bessel_j
-@apifun bessel_k
-@apifun bessel_y
-@deftypefun double bessel_i (double @var{x}, double @var{nu}, double @var{expo})
-@deftypefunx double bessel_j (double @var{x}, double @var{nu})
-@deftypefunx double bessel_k (double @var{x}, double @var{nu}, double @var{expo})
-@deftypefunx double bessel_y (double @var{x}, double @var{nu})
+@apifun Rf_bessel_i
+@apifun Rf_bessel_j
+@apifun Rf_bessel_k
+@apifun Rf_bessel_y
+@deftypefun double Rf_bessel_i (double @var{x}, double @var{nu}, double @var{expo})
+@deftypefunx double Rf_bessel_j (double @var{x}, double @var{nu})
+@deftypefunx double Rf_bessel_k (double @var{x}, double @var{nu}, double @var{expo})
+@deftypefunx double Rf_bessel_y (double @var{x}, double @var{nu})
 Bessel functions of types I, J, K and Y with index @var{nu}.  For
-@code{bessel_i} and @code{bessel_k} there is the option to return
+@code{Rf_bessel_i} and @code{Rf_bessel_k} there is the option to return
 @w{exp(-@var{x}) I(@var{x}; @var{nu})} or @w{exp(@var{x}) K(@var{x};
 @var{nu})} if @var{expo} is 2. (Use @code{@var{expo} == 1} for unscaled
 values.)
@@ -16428,18 +16433,18 @@ There are a few other numerical utility functions available as entry points.
 
 @apifun R_pow
 @apifun R_pow_di
-@apifun pow1p
+@apifun Rf_pow1p
 @deftypefun double R_pow (double @var{x}, double @var{y})
 @deftypefunx double R_pow_di (double @var{x}, int @var{i})
-@deftypefunx double pow1p (double @var{x}, double @var{y})
+@deftypefunx double Rf_pow1p (double @var{x}, double @var{y})
 @code{R_pow(@var{x}, @var{y})} and @code{R_pow_di(@var{x}, @var{i})}
 compute @code{@var{x}^@var{y}} and @code{@var{x}^@var{i}}, respectively
 using @code{R_FINITE} checks and returning the proper result (the same
 as @R{}) for the cases where @var{x}, @var{y} or @var{i} are 0 or
 missing or infinite or @code{NaN}.
 
-@code{pow1p(@var{x}, @var{y})} computes @code{(1 + @var{x})^@var{y}}, accurately
-even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
+@code{Rf_pow1p(@var{x}, @var{y})} computes @code{(1 + @var{x})^@var{y}},
+accurately even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
 @end deftypefun
 
 @apifun log1p
@@ -16453,20 +16458,20 @@ included in @file{Rmath.h}, but is (probably) in @file{math.h} which
 C++98).
 @end deftypefun
 
-@apifun log1pmx
-@deftypefun double log1pmx (double @var{x})
+@apifun Rf_log1pmx
+@deftypefun double Rf_log1pmx (double @var{x})
 Computes @code{log(1 + @var{x}) - @var{x}} (@emph{log 1 @I{@b{p}lus} x @I{@b{m}inus} @b{x}}),
 accurately even for small @var{x}, i.e., @eqn{|x| \ll 1, |x| << 1}.
 @end deftypefun
 
-@apifun log1pexp
-@deftypefun double log1pexp (double @var{x})
+@apifun Rf_log1pexp
+@deftypefun double Rf_log1pexp (double @var{x})
 Computes @code{log(1 + exp(@var{x}))} (@emph{log 1 @I{@b{p}lus} @b{exp}}),
 accurately, notably for large @var{x}, e.g., @eqn{x > 720, x > 720}.
 @end deftypefun
 
-@apifun log1mexp
-@deftypefun double log1mexp (double @var{x})
+@apifun Rf_log1mexp
+@deftypefun double Rf_log1mexp (double @var{x})
 Computes @code{log(1 - exp(@var{-x}))} (@emph{log 1 @I{@b{m}inus} @b{exp}}),
 accurately, carefully for two regions of @var{x}, optimally cutting
 off at @eqn{\log 2, log 2} (= 0.693147..), using
@@ -16485,8 +16490,8 @@ included in @file{Rmath.h}, but is (probably) in @file{math.h} which
 C++98).
 @end deftypefun
 
-@apifun lgamma1p
-@deftypefun double lgamma1p (double @var{x})
+@apifun Rf_lgamma1p
+@deftypefun double Rf_lgamma1p (double @var{x})
 Computes @code{log(gamma(@var{x} + 1))} (@emph{log(gamma(1 @I{@b{p}lus} x))}),
 accurately even for small @var{x}, i.e., @eqn{0 < x < 0.5, 0 < x < 0.5}.
 @end deftypefun
@@ -16534,12 +16539,12 @@ in @file{Rmath.h}, but is in @file{math.h} which @file{Rmath.h} includes
 (but see the comments for @code{cospi}).
 @end deftypefun
 
-@apifun logspace_add
-@apifun logspace_sub
-@apifun logspace_sum
-@deftypefun double logspace_add (double @var{logx}, double @var{logy})
-@deftypefunx double logspace_sub (double @var{logx}, double @var{logy})
-@deftypefunx double logspace_sum (const double* @var{logx}, int @var{n})
+@apifun Rf_logspace_add
+@apifun Rf_logspace_sub
+@apifun Rf_logspace_sum
+@deftypefun double Rf_logspace_add (double @var{logx}, double @var{logy})
+@deftypefunx double Rf_logspace_sub (double @var{logx}, double @var{logy})
+@deftypefunx double Rf_logspace_sum (const double* @var{logx}, int @var{n})
 Compute the log of a sum or difference from logs of terms, i.e., ``x +
 y'' as @code{log (exp(@var{logx}) + exp(@var{logy}))} and ``x - y'' as
 @code{log (exp(@var{logx}) - exp(@var{logy}))},
@@ -16547,43 +16552,43 @@ and ``sum_i x[i]'' as @code{log (sum[i = 1:@var{n} exp(@var{logx}[i])] )}
 without causing unnecessary overflows or throwing away too much accuracy.
 @end deftypefun
 
-@apifun imax2
-@apifun imin2
-@apifun fmax2
-@apifun fmin2
-@deftypefun int imax2 (int @var{x}, int @var{y})
-@deftypefunx int imin2 (int @var{x}, int @var{y})
-@deftypefunx double fmax2 (double @var{x}, double @var{y})
-@deftypefunx double fmin2 (double @var{x}, double @var{y})
+@apifun Rf_imax2
+@apifun Rf_imin2
+@apifun Rf_fmax2
+@apifun Rf_fmin2
+@deftypefun int Rf_imax2 (int @var{x}, int @var{y})
+@deftypefunx int Rf_imin2 (int @var{x}, int @var{y})
+@deftypefunx double Rf_fmax2 (double @var{x}, double @var{y})
+@deftypefunx double Rf_fmin2 (double @var{x}, double @var{y})
 Return the larger (@code{max}) or smaller (@code{min}) of two integer or
 double numbers, respectively.  Note that @code{fmax2} and @code{fmin2}
 differ from C99/C++11's @code{fmax} and @code{fmin} when one of the
 arguments is a @code{NaN}: these versions return @code{NaN}.
 @end deftypefun
 
-@deftypefun double sign (double @var{x})
-@apifun sign
+@deftypefun double Rf_sign (double @var{x})
+@apifun Rf_sign
 Compute the @emph{signum} function, where sign(@var{x}) is 1, 0, or
 @math{-1}, when @var{x} is positive, 0, or negative, respectively, and
 @code{NaN} if @code{x} is a @code{NaN}.
 @end deftypefun
 
-@apifun fsign
-@deftypefun double fsign (double @var{x}, double @var{y})
+@apifun Rf_fsign
+@deftypefun double Rf_fsign (double @var{x}, double @var{y})
 Performs ``transfer of sign'' and is defined as @eqn{|x| *
 \hbox{sign}(y), |x| * sign(y)}.
 @end deftypefun
 
-@apifun fprec
-@deftypefun double fprec (double @var{x}, double @var{digits})
+@apifun Rf_fprec
+@deftypefun double Rf_fprec (double @var{x}, double @var{digits})
 Returns the value of @var{x} rounded to @var{digits} @emph{significant}
 decimal digits.
 
 This is the function used by @R{}'s @code{signif()}.
 @end deftypefun
 
-@apifun fround
-@deftypefun double fround (double @var{x}, double @var{digits})
+@apifun Rf_fround
+@deftypefun double Rf_fround (double @var{x}, double @var{digits})
 Returns the value of @var{x} rounded to @var{digits} decimal digits
 (after the decimal point).
 
@@ -16591,8 +16596,8 @@ This is the function used by @R{}'s @code{round()}.  (Note that C99/C++11
 provide a @code{round} function but C++98 need not.)
 @end deftypefun
 
-@apifun ftrunc
-@deftypefun double ftrunc (double @var{x})
+@apifun Rf_ftrunc
+@deftypefun double Rf_ftrunc (double @var{x})
 Returns the value of @var{x} truncated (to an integer value) towards
 zero.
 @end deftypefun
@@ -16993,7 +16998,7 @@ of @R{} function @code{findInterval} for details.
 There is also an @code{F77_CALL(interv)()} version of
 @code{findInterval()} with the same arguments, but all pointers.
 @end deftypefun
-@apifun interv
+@forfun interv
 
 A system-independent interface to produce the name of a temporary
 file is provided as
@@ -17038,8 +17043,8 @@ it will usually be taken from the environment variable @env{HOME} if
 this is defined.
 @end deftypefun
 
-@eapifun acopy_string
-@deftypefun {const char *} acopy_string (const char *@var{in})
+@eapifun Rf_acopy_string
+@deftypefun {const char *} Rf_acopy_string (const char *@var{in})
 Return a copy of a string using memory from @code{R_alloc}.
 @end deftypefun
 
@@ -17049,8 +17054,8 @@ e.g.@: @code{F77_CALL(d1mach)(4)}.  Note that these are emulations of
 the original functions by Fox, Hall and @I{Schryer} on @I{Netlib} at
 @uref{https://netlib.org/slatec/src/} for @acronym{IEC}@tie{}60559 arithmetic
 (required by @R{}).
-@apifun d1mach
-@apifun i1mach
+@forfun d1mach
+@forfun i1mach
 
 @node Linear algebra
 @section Linear algebra
@@ -17068,13 +17073,13 @@ emulate what @R{} does, and are declared as a C/C++ interface in header
 @file{R_ext/Applic.h}.  But they are also often called @emph{via}
 @code{.Fortran()} and from Fortran code.
 
-@apifun dqrqty
-@apifun dqrqy
-@apifun dqrcf
-@apifun dqrrsd
-@apifun dqrxb
-@apifun dqrls
-@apifun dqrdc2
+@forfun dqrqty
+@forfun dqrqy
+@forfun dqrcf
+@forfun dqrrsd
+@forfun dqrxb
+@forfun dqrls
+@forfun dqrdc2
 @example
 void F77_NAME(dqrqty)(double *x, int *n, int *k, double *qraux,
                       double *y, int *ny, double *qty);
@@ -18842,7 +18847,7 @@ void R_CleanUp (SA_TYPE saveact, int status, int RunLast)
     @}
 
     R_RunExitFinalizers();
-    /* clean up after the editor e.g. CleanEd() */
+    /* clean up after the editor e.g. Rf_CleanEd() */
 
     R_CleanTempDir();
 
@@ -18859,7 +18864,7 @@ void R_CleanUp (SA_TYPE saveact, int status, int RunLast)
 @embfun R_CleanTempDir
 @embfun R_SaveGlobalEnv
 @embfun Rf_KillAllDevices
-@embfun CleanEd
+@embfun Rf_CleanEd
 @embfun R_CleanUp
 @embfun fpu_setup
 @comment FIXME need to mention R_RunPendingFinalizers in text

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2025	The R Core Team.
+ *  Copyright (C) 1998--2026	The R Core Team.
  *  Copyright (C) 1995, 1996	Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1174,9 +1174,7 @@ SEXP eval(SEXP e, SEXP rho)
 	else
 	    tmp = R_findVar(e, rho);
 	if (tmp == R_UnboundValue)
-	    errorcall_cpy(getLexicalCall(rho),
-			  _("object '%s' not found"),
-			  EncodeChar(PRINTNAME(e)));
+	    R_ObjectNotFoundError(e, getLexicalCall(rho), NULL);
 	else if (tmp == R_MissingArg) {
 	    /* the error signaled here for a missing ..d matches the one
 	       signaled in getvar() for byte compiled code, but ...elt()
@@ -2185,8 +2183,9 @@ static R_INLINE Rboolean is_exec_continuation(SEXP val)
 	    VECTOR_ELT(val, 0) == R_exec_token);
 }
 
-static SEXP applyClosure_core(SEXP, SEXP, SEXP, SEXP, SEXP, Rboolean);
+static SEXP applyClosure_core(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, Rboolean);
 
+static SEXP promiseArgsEx(SEXP, SEXP, Rboolean);
 static R_INLINE SEXP handle_exec_continuation(SEXP val)
 {
     while (is_exec_continuation(val)) {
@@ -2196,9 +2195,18 @@ static R_INLINE SEXP handle_exec_continuation(SEXP val)
 	SEXP op = PROTECT(VECTOR_ELT(val, 3));
 
 	if (TYPEOF(op) == CLOSXP) {
-	    SEXP arglist = PROTECT(promiseArgs(CDR(call), rho));
+	    SEXP callrho = R_GlobalEnv;
+	    for (RCNTXT *cptr = R_GlobalContext;
+		 cptr != NULL && cptr->callflag != CTXT_TOPLEVEL;
+		 cptr = cptr->nextcontext)
+		if (cptr->callflag & CTXT_FUNCTION) {
+		    callrho = cptr->cloenv;
+		    break;
+		}
+	    SEXP arglist = PROTECT(promiseArgsEx(CDR(call), rho, TRUE));
 	    SEXP suppliedvars = R_NilValue;
-	    val = applyClosure_core(call, op, arglist, rho, suppliedvars, TRUE);
+	    val = applyClosure_core(call, op, arglist, rho, suppliedvars,
+				    callrho, TRUE);
 # ifdef ADJUST_ENVIR_REFCNTS
 	    R_CleanupEnvir(rho, val);
 # endif
@@ -2290,7 +2298,8 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 
 /* Apply SEXP op of type CLOSXP to actuals */
 static SEXP applyClosure_core(SEXP call, SEXP op, SEXP arglist, SEXP rho,
-			      SEXP suppliedvars, Rboolean unpromise)
+			      SEXP suppliedvars, SEXP sysparent,
+			      Rboolean unpromise)
 {
     SEXP newrho = make_applyClosure_env(call, op, arglist, rho, suppliedvars);
     PROTECT(newrho);
@@ -2298,11 +2307,11 @@ static SEXP applyClosure_core(SEXP call, SEXP op, SEXP arglist, SEXP rho,
     /*  If we have a generic function we need to use the sysparent of
 	the generic as the sysparent of the method because the method
 	is a straight substitution of the generic.  */
+    if (sysparent == R_NilValue)
+	sysparent = (R_GlobalContext->callflag == CTXT_GENERIC) ?
+	    R_GlobalContext->sysparent : rho;
 
-    SEXP val = R_execClosure(call, newrho,
-			     (R_GlobalContext->callflag == CTXT_GENERIC) ?
-			     R_GlobalContext->sysparent : rho,
-			     rho, arglist, op);
+    SEXP val = R_execClosure(call, newrho, sysparent, rho, arglist, op);
 #ifdef ADJUST_ENVIR_REFCNTS
     Rboolean is_getter_call =
 	(CADR(call) == R_TmpvalSymbol && ! R_isReplaceSymbol(CAR(call)));
@@ -2322,7 +2331,7 @@ SEXP applyClosure(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 		  SEXP suppliedvars, Rboolean unpromise)
 {
     SEXP val = applyClosure_core(call, op, arglist, rho,
-				 suppliedvars, unpromise);
+				 suppliedvars, R_NilValue, unpromise);
 #ifdef SUPPORT_TAILCALL
     val = handle_exec_continuation(val);
 #endif
@@ -2591,8 +2600,8 @@ static SEXP EnsureLocal(SEXP symbol, SEXP rho, R_varloc_t *ploc)
     }
 
     vl = eval(symbol, ENCLOS(rho));
-    if (vl == R_UnboundValue)
-	error(_("object '%s' not found"), EncodeChar(PRINTNAME(symbol)));
+    if (vl == R_UnboundValue) // can this really happen?
+	R_ObjectNotFoundError(symbol, R_CurrentExpression, NULL);
 
     PROTECT(vl = shallow_duplicate(vl));
     defineVar(symbol, vl, rho);
@@ -3016,32 +3025,29 @@ NORET attribute_hidden SEXP do_return(SEXP call, SEXP op, SEXP args, SEXP rho)
     findcontext(CTXT_BROWSER | CTXT_FUNCTION, rho, v);
 }
 
-static Rboolean checkTailPosition(SEXP call, SEXP code, SEXP rho)
+#ifdef SUPPORT_TAILCALL
+static RCNTXT *getTailcallTarget(SEXP rho, int mask)
 {
-    /* Could allow for switch() as well.
-
-       Ideally this should check that functions are from base;
-       pretty safe bet for '{' and 'if'.
-
-       Constructed code containing the call in multiple places could
-       produce false positives.
-
-       All this would be best done at compile time. */
-    if (call == code)
-	return TRUE;
-    else if (TYPEOF(code) == LANGSXP) {
-	if (CAR(code) == R_BraceSymbol) {
-	    while (CDR(code) != R_NilValue)
-		code = CDR(code);
-	    return checkTailPosition(call, CAR(code), rho);
-	}
-	else if (CAR(code) == R_IfSymbol)
-	    return checkTailPosition(call, CADDR(code), rho) ||
-		checkTailPosition(call, CADDDR(code), rho);
-	else return FALSE;
+    for (RCNTXT *cptr = R_GlobalContext;
+         cptr != NULL && cptr->callflag != CTXT_TOPLEVEL;
+         cptr = cptr->nextcontext) {
+	if (cptr->conexit != R_NilValue || cptr->cend != NULL)
+	    break; // don't jump if there is clean-up code on the stack
+        else if ((cptr->callflag & mask) &&
+		 // Look for a closure call with cloenv rho. This
+		 // means skipping eval() calls, in contrast to
+		 // do_return. An alternative would be to not jumb if
+		 // an eval() call with ehvironment rhop is on the
+		 // stack. Jumping to an eval call would confuse
+		 // reference counting on rho.
+		 TYPEOF(cptr->callfun) == CLOSXP &&
+		 cptr->cloenv == rho) {
+            return cptr;
+        }
     }
-    else return FALSE;
+    return NULL;
 }
+#endif
 
 attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
@@ -3058,7 +3064,8 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
 	REPROTECT(args = evalListKeepMissing(args, rho), api);
 	expr = CAR(args);
         if (expr == R_MissingArg)
-	    R_MissingArgError(install("expr"), getLexicalCall(rho), "tailcallError");
+	    R_MissingArgError(install("expr"),
+			      getLexicalCall(rho), "tailcallError");
 	if (TYPEOF(expr) == EXPRSXP && XLENGTH(expr) == 1)
 	    expr = VECTOR_ELT(expr, 0);
 	if (TYPEOF(expr) != LANGSXP)
@@ -3071,7 +3078,8 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
     else { // tailcall
 	/* could do argument matching here */
 	if (args == R_NilValue || CAR(args) == R_MissingArg)
-	    R_MissingArgError(install("FUN"), getLexicalCall(rho), "tailcallRecError");
+	    R_MissingArgError(install("FUN"),
+			      getLexicalCall(rho), "tailcallRecError");
 	expr = LCONS(CAR(args), CDR(args));
 	env = rho;
     }
@@ -3079,21 +3087,16 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(expr);
     PROTECT(env);
 
-    /* A jump should only be used if there are no on.exit expressions
-       and the call is in tail position. Determining tail position
-       accurately in the AST interprester would be expensive, so this
-       is an approximation for now. The compiler could do a better
-       job, and eventually we may want to only jump from a compiled
-       call.  The JIT could be taught to always compile functions
-       containing Tailcall/Exec calls. */
-    Rboolean jump_OK =
-	(R_GlobalContext->conexit == R_NilValue &&
-	 R_GlobalContext->callflag & CTXT_FUNCTION &&
-	 R_GlobalContext->cloenv == rho &&
-	 TYPEOF(R_GlobalContext->callfun) == CLOSXP &&
-	 checkTailPosition(call, BODY_EXPR(R_GlobalContext->callfun), rho));
+    int mask = CTXT_BROWSER | CTXT_FUNCTION;
+    RCNTXT *target = getTailcallTarget(rho, mask);
 
-    if (jump_OK) {
+    /* Ordinarily Tailcall/Exec will only be used in tail position in
+       a closure. Used in non-tail position it can be viewed as
+       invoking the continuation for the closure call, similar to
+       calling return(). So this no longer tries to prevent use in
+       non-tail position. */
+
+    if (target != NULL) {
 	/* computing the function before the jump allows the idiom
 	   Tailcall(sys.function(), ...) to be used */
 	SEXP fun = CAR(expr);
@@ -3115,10 +3118,11 @@ attribute_hidden SEXP do_tailcall(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SET_VECTOR_ELT(val, 2, env);
 	SET_VECTOR_ELT(val, 3, fun);
 
-	R_jumpctxt(R_GlobalContext, CTXT_FUNCTION, val);
+	R_jumpctxt(target, mask, val);
     }
     else {
 	/**** maybe have an optional diagnostic about why no tail call? */
+	/**** or even signal an error as return() does? */
 	SEXP val = eval(expr, rho);
 	UNPROTECT(2); /* expr, rho */
 	return val;
@@ -3778,7 +3782,7 @@ attribute_hidden SEXP evalListKeepMissing(SEXP el, SEXP rho)
 /* form below because it is does not cause growth of the pointer */
 /* protection stack, and because it is a little more efficient. */
 
-attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
+static SEXP promiseArgsEx(SEXP el, SEXP rho, Rboolean forward)
 {
     SEXP ans, h, tail;
 
@@ -3822,7 +3826,18 @@ attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
 	    COPY_TAG(tail, el);
 	}
 	else {
-	    SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
+	    if (forward && TYPEOF(CAR(el)) == SYMSXP) {
+		SEXP val = findVar(CAR(el), rho);
+		if (TYPEOF(val) == PROMSXP)
+		    // repromise, or forward, argument to help with substitute()
+		    SETCDR(tail, CONS(mkPROMISE(val, rho), R_NilValue));
+		else if (val == R_MissingArg)
+		    SETCDR(tail, CONS(R_MissingArg, R_NilValue));
+		else
+		    SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
+	    }
+	    else
+		SETCDR(tail, CONS(mkPROMISE(CAR(el), rho), R_NilValue));
 	    tail = CDR(tail);
 	    COPY_TAG(tail, el);
 	}
@@ -3832,6 +3847,11 @@ attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
     ans = CDR(ans);
     DECREMENT_REFCNT(ans);
     return ans;
+}
+
+attribute_hidden SEXP promiseArgs(SEXP el, SEXP rho)
+{
+    return promiseArgsEx(el, rho, FALSE);
 }
 
 
@@ -5780,9 +5800,7 @@ static R_INLINE SEXP GET_BINDING_CELL_CACHE(SEXP symbol, SEXP rho,
 
 NORET static void UNBOUND_VARIABLE_ERROR(SEXP symbol, SEXP rho)
 {
-    errorcall_cpy(getLexicalCall(rho),
-		  _("object '%s' not found"),
-		  EncodeChar(PRINTNAME(symbol)));
+    R_ObjectNotFoundError(symbol, getLexicalCall(rho), NULL);
 }
 
 static R_INLINE SEXP FIND_VAR_NO_CACHE(SEXP symbol, SEXP rho, SEXP cell)
@@ -9512,4 +9530,63 @@ void R_UnmatchArgs(SEXP forms, SEXP env)
 	defineVar(R_DotsSymbol, dots, env);
 	UNPROTECT(1); /* dots */
     }
+}
+
+SEXP R_DispatchClosure(SEXP generic, SEXP mname, SEXP method,
+		       SEXP rho, SEXP callrho)
+{
+    CHECK_TYPE(generic, CLOSXP);
+    CHECK_TYPE(mname, SYMSXP);
+    CHECK_TYPE(method, CLOSXP);
+    CHECK_TYPE(rho, ENVSXP);
+    CHECK_TYPE_OR_NULL(callrho, ENVSXP); // ignored for now
+
+    SEXP call = PROTECT(LCONS(mname, R_NilValue));
+    for (SEXP f = FORMALS(generic), a = call; f != R_NilValue; f = CDR(f)) {
+	SEXP sym = TAG(f);
+	if (sym == R_DotsSymbol) {
+	    if (R_DotsExist(rho)) {
+		SETCDR(a, CONS(sym, R_NilValue));
+		a = CDR(a);
+	    }
+	}
+	else {
+	    SETCDR(a, CONS(sym, R_NilValue));
+	    SET_TAG(CDR(a), sym);
+	    a = CDR(a);
+	}
+    }
+
+    SEXP pargs = PROTECT(promiseArgsEx(CDR(call), rho, TRUE));
+    SEXP val = applyClosure(call, method, pargs, rho, R_NilValue, TRUE);
+    UNPROTECT(2); // call, pargs
+    return val;
+}
+
+SEXP R_TailCall(SEXP call, SEXP fun, SEXP rho, SEXP callrho)
+{
+    CHECK_TYPE(call, LANGSXP);
+    CHECK_TYPE(rho, ENVSXP);
+    CHECK_TYPE_OR_NULL(callrho, ENVSXP);
+
+#ifdef SUPPORT_TAILCALL
+    int mask = CTXT_BROWSER | CTXT_FUNCTION;
+    RCNTXT *target = getTailcallTarget(callrho, mask);
+    if (target != NULL) {
+        PROTECT(fun);
+        SEXP val = allocVector(VECSXP, 4);
+        UNPROTECT(1); /* fun */
+        SET_VECTOR_ELT(val, 0, R_exec_token);
+        SET_VECTOR_ELT(val, 1, call);
+        SET_VECTOR_ELT(val, 2, rho);
+        SET_VECTOR_ELT(val, 3, fun);
+        R_jumpctxt(target, mask, val);
+    }
+#endif
+
+    // still here, so no target found; just use eval()
+    SEXP newcall = PROTECT(LCONS(fun, CDR(call)));
+    SEXP val = eval(newcall, rho);
+    UNPROTECT(1); // newcall
+    return val;
 }

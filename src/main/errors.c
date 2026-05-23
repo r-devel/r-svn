@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2025  The R Core Team.
+ *  Copyright (C) 1995--2026  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -2782,13 +2782,18 @@ NORET void R_MissingArgError_c(const char* arg, SEXP call, const char* subclass)
 	call = getCurrentCall();
     PROTECT(call);
     SEXP cond;
-    if(*arg)
-	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+    Rboolean non_empty_arg = arg[0] != 0;
+    if(non_empty_arg)
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 1,
 				    _("argument \"%s\" is missing, with no default"), arg);
     else
-	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 1,
 				    _("argument is missing, with no default"));
     PROTECT(cond);
+    if (non_empty_arg)
+	R_setConditionField(cond, 2, "name", install(arg));
+    else
+	R_setConditionField(cond, 2, "name", R_NilValue);
     R_signalErrorCondition(cond, call);
     UNPROTECT(2); /* not reached */
 }
@@ -2798,6 +2803,55 @@ NORET void R_MissingArgError(SEXP symbol, SEXP call, const char* subclass)
     R_MissingArgError_c(CHAR(PRINTNAME(symbol)), call, subclass);
 }
 
+NORET attribute_hidden void R_ObjectNotFoundError(SEXP sym, SEXP call,
+						  const char *mode)
+{
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (call == R_CurrentExpression)
+	call = getCurrentCall();
+    PROTECT(call);
+    SEXP cond;
+    if (mode == NULL) {
+	cond = R_makeErrorCondition(call,
+				    "objectNotFoundError", NULL, 2,
+				    _("object '%s' not found"),
+				    EncodeChar(PRINTNAME(sym)));
+	mode = "any";
+    }
+    else {
+	cond = R_makeErrorCondition(call,
+				    "objectNotFoundError", NULL, 2,
+				    _("object '%s' of mode '%s' was not found"),
+				    EncodeChar(PRINTNAME(sym)),
+				    mode);
+    }
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "name", sym);
+    R_setConditionField(cond, 3, "mode", mkString(mode));
+    R_signalErrorCondition(cond, call);
+    UNPROTECT(2); // not reached
+}
+
+NORET attribute_hidden void R_FunctionNotFoundError(SEXP sym, SEXP call)
+{
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (call == R_CurrentExpression)
+	call = getCurrentCall();
+    PROTECT(call);
+    SEXP cond = R_makeErrorCondition(call,
+				     "objectNotFoundError",
+				     "functionNotFoundError",
+				     2,
+				     _("could not find function \"%s\""),
+				     EncodeChar(PRINTNAME(sym)));
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "name", sym);
+    R_setConditionField(cond, 3, "mode", mkString("function"));
+    R_signalErrorCondition(cond, call);
+    UNPROTECT(2); // not reached
+}
 
 attribute_hidden /* for now */
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val)

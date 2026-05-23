@@ -16,12 +16,40 @@
     \itemize{
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
       suppresses warnings about \dQuote{notches outside hinges}.
+
+      \item New function \code{cumvar()} to calculate cumulative variances.
+
+      \item The \code{print()} method for \code{rle()} now passes \code{...}
+      to \code{str()}.
+
+      \item \code{rmultinom()} now uses \I{Kahan}'s arithmetic instead of
+      \code{LDOUBLE} to avoid platform dependency, thanks to \I{Mauricio Vargas}'
+      proposal in \PR{18693}.
+
+      \item \emph{Object not found} errors now signal error conditions
+      of class \code{objectNotFoundError}. \emph{Function not found}
+      errors signal conditions of the subclass
+      \code{functionNotFoundError}.
+
+      \item Condition classes used internally for signaling some errors
+      are now documented in \code{?conditions}.
+
+      \item The \code{as.data.frame()} methods for atomic \code{vector}
+      classes get an optional switch \code{validRN}, with default true to
+      fix \PR{19059} and false for some back compatibility, still
+      allowing data frames in construction to contain \code{NA}s in row
+      names.
+
+      \item \code{tools::Rd2txt()} now replaces \samp{---} and \samp{--}
+      by Unicode dashes when the output encoding is UTF-8.
     }
   }
 
   \subsection{Installation}{
     \itemize{
-      \item .
+      \item Building R, e.g., on Ubuntu 26.04, using \command{--package-metadata}
+        needs to use a different \command{sed} separator than \code{:},
+	fixing \PR{19060}, thanks to \I{Jeroen Ooms} and \I{Dirk Eddelbuettel}.
     }
   }
 
@@ -34,6 +62,92 @@
   \subsection{C-Level Facilities}{
     \itemize{
       \item .
+    }
+  }
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item For \code{x <-  <large-POSIXlt>}, for some boundary cases
+      with \code{x$sec - floor(x$sec)} close to 1, \code{c(x)} could
+      become one second ahead of \code{x} in \R 4.6.0;  \I{subassignments}
+      such as \code{x[i] <- val} have improved, thanks to suggestions by
+      \I{Suharto Anggono} in \PR{18989}.
+
+      \item \code{abbreviate(<non-ASCII>)} now works better, using
+      \code{iswlower()} and \code{*upper()} to treat \dQuote{wide}
+      characters, thanks to \I{Kevin}'s \PR{19058}.
+
+      \item In an \R installation without \acronym{NLS}, e.g., from
+      \command{--disable-nls} configuration, the C \code{ngettext()}
+      replacement now also keeps plural for \dQuote{0 things}, thanks to
+      \I{Michael Chirico}'s \PR{19065}.
+
+      \item \code{as.data.frame.vector(<row.names_w/_NA>)} now signals
+      the same error as \code{data.frame()}, fixing \I{Hervé Pagès}'
+      \PR{19059}.  From \I{Suharto Anggono}'s comment #c4, it gives the same
+      error also when \code{row.names = RN} explicitly, where \code{RN} has
+      \code{NA}s.
+
+      \item \code{all(<symbol>)} signals an error now, as some similar
+      coercions; previously, the coercion of the symbol resulted
+      in \code{NULL} internally, raised a warning, and could access illegal
+      memory; thanks to \I{Kevin Ushey}'s \PR{19054}.
+
+      \item \code{.leap.seconds} again has no \code{"tzone"} attribute, as
+      in earlier \R versions, fixing \PR{19072} thanks to \I{Suharto Anggono}.
+
+      \item \code{as.POSIXct(x)} for \code{POSIXlt} object \code{x} with
+      \code{.Machine$integer.max - x$year < 1900} no longer suffers from C
+      level integer overflow, thanks to \I{Suharto Anggono}'s patch for
+      \PR{19038}.  Currently, this does not apply when the
+      \code{"internal"} code for date-time conversion and printing is in
+      use, as e.g., on Windows and macOS.
+
+      \item \code{wilcox.test()} gains new optional argument
+      \code{digits.zap}, \emph{and} the default for argument
+      \code{digits.rank} is changed from \code{Inf} to \code{7},
+      addressing bugs \PR{18035} and \PR{19071}, in order to deal with
+      both ties of almost equal numbers and almost zeros of differences.
+    }
+  }
+}
+
+
+\section{\Rlogo Changes in R 4.6.0 patched}{
+
+  \subsection{New Features}{
+    \itemize{
+      \item The \LaTeX class \samp{jss} bundled in
+      \file{share/texmf/tex/latex/jss.cls} has been updated
+      to work with \samp{hyperref} version 7.01q (2026/04/24).
+
+      \item Plain-text (and legacy HTML) conversion for a simple Rd
+      \verb{\eqn{}} now handles \verb{\geq}, \verb{\leq}, \verb{\neq}
+      and \verb{\ne} in addition to \verb{\ge} and \verb{\le} (\PR{19070}).
+    }
+  }
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item \code{cut(1:11, {})} now signals an error for the invalid
+      \code{breaks}, fixing \PR{19057}, thanks to \I{Kevin Ushey}.
+
+      \item \code{stl()} now checks its 3 x 3 tuning parameters on the R level;
+      \code{stl(*, s.window = 0)} now \dQuote{works} instead dumping core,
+      \code{stl(*, s.window = 1)} \dQuote{works} correctly, too.  Also, the
+      \code{summary()} method mentions the robustness \code{weights} only
+      if any robustness iterations happened.
+
+      Further, \code{stl()} is now based on C code, translated from previous
+      Fortran, triggered by a \I{flang 22} compiler optimization bug
+      (\command{-O2}).
+
+      \item Border case \code{zapsmall(x, digits=Inf)} where \code{x} has an
+      \code{Inf} entry, no longer returns all \code{NaN} but rather \code{x}.
+      Help page improved, also with more non-default examples.
+
+      \item \code{wilcox.test(x, exact=FALSE, correct = k)}'s p-value
+      computation got a missing \code{dnorm(z)} factor.
     }
   }
 }
@@ -350,7 +464,7 @@
       weaving purposes, the \code{Rtangle} driver rather uses their
       default values, with a warning.
       By \I{Vincent Goulet}.
-      
+
       \item The Sweave driver \code{RweaveLatex} gains an option to
       include unparsable R code or arbitrary text in code chunks. Chunks
       marked as \code{ignore.on.weave = TRUE} are completely ignored on
@@ -369,7 +483,7 @@
       available for both drivers, sets \code{ignore.on.weave} and
       \code{ignore.on.tangle} at once.
 
-      By \I{Vincent Goulet}.      
+      By \I{Vincent Goulet}.
 
       \item The Sweave driver \code{Rtangle} now provides an option
       \code{chunk.sep} to control the separator between code chunks in
@@ -844,7 +958,11 @@
       accuracy, fulfilling a part of \I{Suharto Anggono}'s wishlist
       \PR{18989}.
 
-      \item The \code{"tzcode"} attribute of \code{"POSIXlt"} objects
+      \item When \I{subassigning} \code{"POSIXlt"}, e.g., \code{<dat>[i] <- v},
+      \code{v} is now converted to the time zone of \code{dat}, before
+      being assigned, see \PR{18919}.
+
+      \item The \code{"tzone"} attribute of \code{"POSIXlt"} objects
       should no longer depend on earlier calls, fixing \PR{19005} thanks to
       \I{Ivan Krylov}, a patch by \I{Suharto Anggono} and reports of
       \dQuote{\I{Non-deterministic POSIXlt tzone in Europe/London ..}} on
@@ -877,6 +995,14 @@
       \item When \code{Ops} group methods for matrix-\code{"ts"} return a
       zero-extent matrix, its type is correct now.  E.g., \code{<int> + <dbl>}
       now returns type \code{"double"}, see also \PR{18972}.
+
+      \item \code{intToUtf8(<negative>)} now returns \code{NA} and no
+      longer accesses invalid memory, thanks to \I{Kevin Ushey}'s report
+      with patch in \PR{19052}.
+
+      \item When \code{file.choose()} is terminated with an \command{EOF},
+      it now signals an error rather than returning garbage, thanks to
+      \I{Kevin Ushey}'s report and patch in \PR{19053},
     }
   }
 }
@@ -999,8 +1125,8 @@
       to \I{Martin Smith}'s \PR{18921}.
 
       \item \I{Subassigning} \code{"POSIXlt"}, i.e., \code{<tdat>[i] <- val}
-      and \code{<tdat>[[i]] <- val} now rebalance as they should,
-      thanks to \I{Mikael Jagan}'s \PR{18919}.
+      and \code{<tdat>[[i]] <- val} now rebalance as they should;
+      thanks mostly to \I{Mikael Jagan}'s \PR{18919}.
 
       \item \code{<POSIXlt>[*]} (re-)setting \code{"balanced"}, fixing
       \PR{18681} comment #7, thanks to \I{Mikael Jagan}.
@@ -1528,7 +1654,7 @@
       %% There are claims that the Green Hills compiler can.
       %% In C++ rhis was confirmed as undefined behaviour in
       %% https://cplusplus.github.io/CWG/issues/1766.html
-      %% Some versiins of UBSAN caan check it with -fsanitize=enum
+      %% Some versions of UBSAN can check it with -fsanitize=enum
 
       If there were a platform which used an underlying type of a
       different size this would be an \abbr{ABI}-breaking change (but we are
@@ -4897,7 +5023,7 @@
 
       \item Improved determination of the correct translation domain in
       non-base packages, addressing the combination of \PR{18092} and
-      \PR{17998} (\code{#c6}) with reports and \emph{augmented} patch
+      \PR{17998} (\samp{#c6}) with reports and \emph{augmented} patch
       #2904 by \I{Suharto Anggono}.
 
       Note that \code{"R-base"} is no longer the default domain e.g.,

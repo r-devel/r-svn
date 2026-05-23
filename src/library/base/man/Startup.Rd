@@ -117,18 +117,18 @@
   to be set, and \emph{profile files} which contain \R code.
 
   Lines in a site or user environment file should be either comment
-  lines starting with \code{#}, or lines of the form
+  lines starting with \samp{#}, or lines of the form
   \code{\var{name}=\var{value}}. The latter sets the environmental
   variable \code{\var{name}} to \code{\var{value}}, overriding an
   existing value.  If \code{\var{value}} contains an expression of the
-  form \code{${foo-bar}}, the value is that of the environmental
-  variable \code{foo} if that is set, otherwise \code{bar}.  For
-  \code{${foo:-bar}}, the value is that of \code{foo} if that is set to
-  a non-empty value, otherwise \code{bar}.  (If it is of the form
-  \code{${foo}}, the default is \code{""}.)  This construction can be
+  form \samp{${foo-bar}}, the value is that of the environmental
+  variable \samp{foo} if that is set, otherwise \samp{bar}.  For
+  \samp{${foo:-bar}}, the value is that of \samp{foo} if that is set to
+  a non-empty value, otherwise \samp{bar}.  (If it is of the form
+  \samp{${foo}}, the default is \code{""}.)  This construction can be
   nested, so \code{bar} can be of the same form (as in
-  \code{${foo-${bar-blah}}}).  Note that the braces are essential: for
-  example \code{$HOME} will not be interpreted.
+  \samp{${foo-${bar-blah}}}).  Note that the braces are essential: for
+  example \samp{$HOME} will not be interpreted.
 
   Leading and trailing white space in \code{\var{value}} are stripped.
   \code{\var{value}} is then processed in a similar way to a Unix shell:
@@ -138,10 +138,10 @@
   For readability and future compatibility it is recommended to only use
   constructs that have the same behavior as in a Unix shell.  Hence,
   expansions of variables should be in double quotes (e.g. 
-  \code{"${HOME}"}, in case they may contain a backslash) and literals
+  \samp{"${HOME}"}, in case they may contain a backslash) and literals
   including a backslash should be in single quotes. If a variable value
   may end in a backslash, such as \code{PATH} on Windows, it may be
-  necessary to protect the following quote from it, e.g. \code{"${PATH}/"}.
+  necessary to protect the following quote from it, e.g. \samp{"${PATH}/"}.
   It is recommended to use forward slashes instead of backslashes.
   It is ok to mix text in single and double quotes, see examples below.
 
