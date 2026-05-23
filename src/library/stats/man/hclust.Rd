@@ -219,8 +219,8 @@ mds2 <- -cmdscale(UScitiesD)
 plot(mds2, type="n", axes=FALSE, ann=FALSE)
 text(mds2, labels=rownames(mds2), xpd = NA)
 
-hcity.D  <- hclust(UScitiesD, "ward.D") # "wrong"
-hcity.D2 <- hclust(UScitiesD, "ward.D2")
+hcity.D  <- hclust(1/2*(UScitiesD)^2, "ward.D") # Ward(1963) ESS
+hcity.D2 <- hclust(sqrt(1/2)*UScitiesD, "ward.D2") # sqrt(ESS)
 opar <- par(mfrow = c(1, 2))
 plot(hcity.D,  hang=-1)
 plot(hcity.D2, hang=-1)
