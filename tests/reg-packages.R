@@ -121,9 +121,17 @@ local({
 
   # Now run the unload test in a minimal session
   Rscript <- file.path(R.home("bin"), "Rscript")
-  cmd <- "loadNamespace('myTstS4', lib.loc='myLib'); unloadNamespace('myTstS4')"
+  cmd <- sprintf("loadNamespace('myTstS4', lib.loc='%s'); unloadNamespace('myTstS4')",
+                 normalizePath("myLib", winslash = "/"))
+
+  old_defaults <- Sys.getenv("R_DEFAULT_PACKAGES", unset = NA)
+  Sys.setenv(R_DEFAULT_PACKAGES = "NULL")
+  if (is.na(old_defaults))
+    on.exit(Sys.unsetenv("R_DEFAULT_PACKAGES"), add=TRUE))
+  else
+    on.exit(Sys.setenv(R_DEFAULT_PACKAGES = old_defaults), add=TRUE)
+
   res <- system2(Rscript, c("--vanilla", "-e", shQuote(cmd)),
-                 env = "R_DEFAULT_PACKAGES=NULL",
                  stdout=TRUE, stderr=TRUE)
   status <- attr(res, "status")
   if (!is.null(status) && status != 0) {
