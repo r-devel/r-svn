@@ -193,19 +193,21 @@ function(x, mu, n = length(x), digits.rank, digits.zap)
         x <- signif(x, digits.rank)
     if(is.finite(digits.zap))
         x <- .zapsmall.r(x, digits.zap)
-    r <- rank(abs(x))
     ZERO <- any(i0 <- x == 0)
     if(ZERO) {
         x <- x[!i0]
         n <- length(x)
     }
+    r <- rank(abs(x))
     TIES <- length(r) != length(unique(r))
     STATISTIC <- c("V" = sum(r[x > 0]))
     MEAN <-  n * (n + 1) / 4
-    NTIES <- table(r)
-    SIGMA <- sqrt(n * (n + 1) * (2 * n + 1) / 24
-                  - sum(NTIES^3 - NTIES) / 48)
-    list(statistic = STATISTIC, ex = MEAN, sd = SIGMA,
+    V <- MEAN * (2*n + 1) / 6 # = n * (n + 1) * (2 * n + 1) / 24
+    if(TIES) {
+        NTIES <- table(r)
+        V <- V - sum(NTIES^3 - NTIES) / 48
+    }
+    list(statistic = STATISTIC, ex = MEAN, sd = sqrt(V),
          ties = TIES, zero = ZERO)
 }
 
@@ -731,32 +733,43 @@ function(STAT, n.x, n.y, alternative, correct)
         y <- pnorm(z, lower.tail = lower.tail)
         if(correct < 1) return(y)
         ## Edgeworth expansion given in Fix and Hodges (1955),
-        ## <doi:10.1214/aoms/1177728547>
-        ## Use Eqn 11 in the form of Fellingham and Stoker (1964).
+        ## <doi:10.1214/aoms/1177728547>.
+        ## Write Eqn 11 as
+        ##   \Phi(z)
+        ##     + c_3 D^3 \phi(z) + c_5 D^5 \phi(z) + c_7 D^7 \phi(z)
+        ## Using
+        ##   D^k \phi(z) = (-1)^k He_k(z) \phi(z)
+        ## this becomes
+        ##   \Phi(z)
+        ##     - (c_3 He_3(z) + c_5 He_5(z) + c_7 He_7(z) ) \phi(z)
+        ## and we use
+        ##   \Phi(z) - e(z) \phi(z)
+        ## where e(z) contains max(correct, 3) terms.
         m <- n.x
         n <- n.y
-        n4 <- m^2 + n^2 + m * n + m + n
-        d4 <- 20 * m * n * (m + n + 1)
-        l4 <- - n4 / d4
-        n6 <- (2 * (m^4 + n^4)
-            + 4 * m * n * (m^2 + n^2)
-            + 6 * m^2 * n^2
-            + 4 * (m^3 + n^3)
-            + 7 * m * n * (m + n)
-            + (m^2 + n^2) + 2 * m * n - (m + n))
-        d6 <- 210 * m^2 * n^2 * (m + n + 1)^2
-        l6 <- n6 / d6
-        ## \frac{\lambda_4}{4!} H_3(z)
-        e <- l4 / 24 * z * (z^2 - 3)
+        n3 <- m^2 + n^2 + m * n + m + n
+        d3 <- 20 * m * n * (m + n + 1)
+        c3 <- - n3 / d3
+        ## c_3 He_3(z)
+        e <- c3 * z * (z^2 - 3)
         if(correct > 1) {
-            ## \frac{\lambda_6}{6!} H_5(z)
-            e <- e + l6 / 720 * z * (z^4 - 10 * z^2 + 15)
+            n5 <- (2 * (m^4 + n^4)
+                + 4 * m * n * (m^2 + n^2)
+                + 6 * m^2 * n^2
+                + 4 * (m^3 + n^3)
+                + 7 * m * n * (m + n)
+                + (m^2 + n^2) + 2 * m * n - (m + n))
+            d5 <- 210 * m^2 * n^2 * (m + n + 1)^2
+            c5 <- n5 / d5
+            ## c_5 He_5(z)
+            e <- e + c5 * z * (z^4 - 10 * z^2 + 15)
         }
         if(correct > 2) {
-            ## \frac{35 \lambda_4^2}{8!} H_7(z)
-            e <- e + 35 * l4^2 / 40320 * z *
+            ## c_7 He_7(z)            
+            e <- 0.5 * c3^2 * z *
                 (z^6 - 21 * z^4 + 105 * z^2 - 105)
         }
+        e <- e * dnorm(z)
         if(lower.tail) y - e else y + e
     }
     switch(alternative,
@@ -972,14 +985,15 @@ function(x, n, z = NULL)
     if(is.null(z))
         return(dsignrank(x, n))
 
-    if (!all(2 * z == floor(2 * z)) || any(z < 1)) 
+    if(!all(2 * z == floor(2 * z)) || any(z < 1)) 
         stop("'z' is not a rank vector")
     y <- rep.int(NA_real_, length(x))
     i <- which(!is.na(x))
-    if (!any(i)) 
+    if(!any(i)) 
         return(y)
-    f <- 2L - all(z == (iz <- as.integer(z)))
-    d <- .Call(C_dpermdist1, sort(f * iz))
+    ## scores can be x.5: in that case need to multiply by f=2.
+    f <- 2 - all(z == floor(z))
+    d <- .Call(C_dpermdist1, sort(as.integer(f * z)))
     w <- seq.int(0, length(d) - 1L)
     x <- f * x[i]
     w <- w[match(x, w)] + 1L
