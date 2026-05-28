@@ -903,8 +903,9 @@ cacheMetaData <-
             next ## silently ignores all generics not visible from searchWhere
         if(attach) {
             .cacheGeneric(f, fdef)
-        } else
+        } else if(identical(fdef@package, pkg)) {
             .uncacheGeneric(f, fdef)
+        }
         methods <- .updateMethodsInTable(fdef, where, attach)
         cacheGenericsMetaData(f, fdef, attach, where, fdef@package, methods)
         if(.tr) message("--- done getting generic ", sQuote(f))
