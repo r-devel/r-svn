@@ -100,7 +100,7 @@ unlink("myTst_*")
 ## Test unloading a package that imports methods and defines S4 methods
 ## in a minimal session (methods loaded but not attached).
 local({
-  tmp <- tempfile()
+  tmp <- tempfile(fileext = ".R")
   on.exit(unlink(tmp))
   writeLines(c(
       "setClass('foo', contains='numeric')",
