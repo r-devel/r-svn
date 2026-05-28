@@ -127,7 +127,7 @@ local({
   old_defaults <- Sys.getenv("R_DEFAULT_PACKAGES", unset = NA)
   Sys.setenv(R_DEFAULT_PACKAGES = "NULL")
   if (is.na(old_defaults))
-    on.exit(Sys.unsetenv("R_DEFAULT_PACKAGES"), add=TRUE))
+    on.exit(Sys.unsetenv("R_DEFAULT_PACKAGES"), add=TRUE)
   else
     on.exit(Sys.setenv(R_DEFAULT_PACKAGES = old_defaults), add=TRUE)
 
