@@ -815,6 +815,7 @@ cacheMetaData <-
     function(where, attach = TRUE, searchWhere = as.environment(where),
              doCheck = TRUE)
 {
+    env <- as.environment(where)
     ## a collection of actions performed on attach or detach
     ## to update class and method information.
     pkg <- getPackageName(where)
@@ -903,7 +904,7 @@ cacheMetaData <-
             next ## silently ignores all generics not visible from searchWhere
         if(attach) {
             .cacheGeneric(f, fdef)
-        } else if(identical(fdef@package, pkg)) {
+        } else if(exists(f, envir = env, inherits = FALSE)) {
             .uncacheGeneric(f, fdef)
         }
         methods <- .updateMethodsInTable(fdef, where, attach)
