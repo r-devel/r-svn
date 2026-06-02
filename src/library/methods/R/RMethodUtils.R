@@ -1345,13 +1345,6 @@ metaNameUndo <- function(strings, prefix, searchForm = FALSE)
         list(env)
 }
 
-.genericName <- function(f)
-{
-    if(is(f, "genericFunction"))
-        f@generic
-    else
-        as.character(f)
-}
 
 ## the environment in which to start searching for methods, etc. related
 ## to this generic function.  Will normally be the namespace of the generic's
