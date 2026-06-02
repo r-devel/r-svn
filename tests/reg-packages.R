@@ -208,6 +208,41 @@ f3lns <- f2lns <- readLines(f2nm)
 iBrace <- grep("closing brace", f2lns, fixed=TRUE)
 (f3lns[iBrace] <- sub("^", "#> ", f2lns[iBrace]))
 (writeLines(f3lns, f3nm))
+## pkgGetGenA and pkgGetGenB for testing getGenerics() package leak
+pkgGetGenA_dir <- file.path(pkgPath, "pkgGetGenA")
+dir.create(file.path(pkgGetGenA_dir, "R"), recursive = TRUE, showWarnings = FALSE)
+writeLines(c(
+  "Package: pkgGetGenA",
+  "Type: Package",
+  "Title: Package GetGenA S4 Generic Definition",
+  "Version: 0.1",
+  "Imports: methods"
+), file.path(pkgGetGenA_dir, "DESCRIPTION"))
+writeLines(c(
+  "import(methods)",
+  "export(myGeneric)"
+), file.path(pkgGetGenA_dir, "NAMESPACE"))
+writeLines(c(
+  "setGeneric('myGeneric', function(x) standardGeneric('myGeneric'))"
+), file.path(pkgGetGenA_dir, "R", "pkgGetGenA.R"))
+
+pkgGetGenB_dir <- file.path(pkgPath, "pkgGetGenB")
+dir.create(file.path(pkgGetGenB_dir, "R"), recursive = TRUE, showWarnings = FALSE)
+writeLines(c(
+  "Package: pkgGetGenB",
+  "Type: Package",
+  "Title: Package GetGenB S4 Generic Definition",
+  "Version: 0.1",
+  "Imports: methods"
+), file.path(pkgGetGenB_dir, "DESCRIPTION"))
+writeLines(c(
+  "import(methods)",
+  "export(myGeneric)"
+), file.path(pkgGetGenB_dir, "NAMESPACE"))
+writeLines(c(
+  "setGeneric('myGeneric', function(x) standardGeneric('myGeneric'))"
+), file.path(pkgGetGenB_dir, "R", "pkgGetGenB.R"))
+
 p.fails <- paste0("PR17859.", 1:3)
 io859 <- c("--no-help", "--no-test-load", "--no-byte-compile")
 InstOpts <- list("exSexpr" = "--html"
@@ -220,7 +255,8 @@ p.lis <- c(if("Matrix" %in% row.names(installed.packages(.Library)))
            "parseDataEx", # PR16756
            p.fails,
            "S3export",
-           "exNSS4", "exNSS4nil", "exSexpr")
+           "exNSS4", "exNSS4nil", "exSexpr",
+           "pkgGetGenA", "pkgGetGenB")
 p.lis; (pBlis <- grep("^pkgB", p.lis, value=TRUE))
 pkgApath <- file.path(pkgPath, "pkgA")
 if("pkgA" %in% p.lis && !dir.exists(d <- pkgApath)) {
@@ -315,6 +351,16 @@ stopifnot(exprs = {
     res[,"LibPath"] == "myLib"
 })
 ### Specific Tests on our "special" packages: ------------------------------
+
+## Test getGenerics() package leak bug
+stopifnot(exprs = {
+    require("pkgGetGenA", lib.loc = "myLib")
+    require("pkgGetGenB", lib.loc = "myLib")
+    "myGeneric" %in% getGenerics()
+    !any(c("pkgGetGenA", "pkgGetGenB") %in% getGenerics())
+})
+detach("package:pkgGetGenB", unload=TRUE)
+detach("package:pkgGetGenA", unload=TRUE)
 
 tf <- tempfile("chk_donttest")
 ## why does this not work (not catch stderr)?  textConnection("checkTxt", open="w")
