@@ -209,39 +209,13 @@ iBrace <- grep("closing brace", f2lns, fixed=TRUE)
 (f3lns[iBrace] <- sub("^", "#> ", f2lns[iBrace]))
 (writeLines(f3lns, f3nm))
 ## pkgGetGenA and pkgGetGenB for testing getGenerics() package leak
-pkgGetGenA_dir <- file.path(pkgPath, "pkgGetGenA")
-dir.create(file.path(pkgGetGenA_dir, "R"), recursive = TRUE, showWarnings = FALSE)
-writeLines(c(
-  "Package: pkgGetGenA",
-  "Type: Package",
-  "Title: Package GetGenA S4 Generic Definition",
-  "Version: 0.1",
-  "Imports: methods"
-), file.path(pkgGetGenA_dir, "DESCRIPTION"))
-writeLines(c(
-  "import(methods)",
-  "export(myGeneric)"
-), file.path(pkgGetGenA_dir, "NAMESPACE"))
-writeLines(c(
-  "setGeneric('myGeneric', function(x) standardGeneric('myGeneric'))"
-), file.path(pkgGetGenA_dir, "R", "pkgGetGenA.R"))
-
-pkgGetGenB_dir <- file.path(pkgPath, "pkgGetGenB")
-dir.create(file.path(pkgGetGenB_dir, "R"), recursive = TRUE, showWarnings = FALSE)
-writeLines(c(
-  "Package: pkgGetGenB",
-  "Type: Package",
-  "Title: Package GetGenB S4 Generic Definition",
-  "Version: 0.1",
-  "Imports: methods"
-), file.path(pkgGetGenB_dir, "DESCRIPTION"))
-writeLines(c(
-  "import(methods)",
-  "export(myGeneric)"
-), file.path(pkgGetGenB_dir, "NAMESPACE"))
-writeLines(c(
-  "setGeneric('myGeneric', function(x) standardGeneric('myGeneric'))"
-), file.path(pkgGetGenB_dir, "R", "pkgGetGenB.R"))
+tmpGetGen <- file.path(tempdir(), "myGeneric.R")
+writeLines("setGeneric('myGeneric', function(x) standardGeneric('myGeneric'))", tmpGetGen)
+package.skeleton("pkgGetGenA", code_files = tmpGetGen, path = pkgPath)
+## package.skeleton() runs the code and thereby registers the generic in this test session
+rm(myGeneric, envir = methods:::.genericTable)
+package.skeleton("pkgGetGenB", code_files = tmpGetGen, path = pkgPath)
+rm(myGeneric, envir = methods:::.genericTable)
 
 p.fails <- paste0("PR17859.", 1:3)
 io859 <- c("--no-help", "--no-test-load", "--no-byte-compile")
