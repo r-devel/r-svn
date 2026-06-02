@@ -759,14 +759,21 @@ assignMethodsMetaData <-
         "base"
 }
 
+.genericName <- function(object)
+{
+    if (is.list(object))
+        lapply(object, .genericName)
+    else
+        object@generic
+}
+
 getGenerics <- function(where, searchForm = FALSE)
 {
     if(missing(where)) {
         ## all the packages cached ==? all packages with methods
         ## globally visible.  Assertion based on cacheMetaData + setMethod
         fdefs <- as.list(.genericTable, all.names=TRUE, sorted=TRUE)
-        fnames <- mapply(function(nm, obj) if(is.list(obj)) names(obj) else nm,
-                         names(fdefs), fdefs, SIMPLIFY=FALSE)
+        fnames <- lapply(fdefs, .genericName)
 ### FIXME: at least *optionally*  we want to filter (aka "drop") *non*-exported S4 generics
         packages <- lapply(fdefs, .packageForGeneric)
         new("ObjectsWithPackage", unlist(fnames), package=unlist(packages))
