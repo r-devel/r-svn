@@ -48,13 +48,16 @@ extern R_print_par_t R_print;
 /* Computation of printing formats */
 void formatRaw(const Rbyte *, R_xlen_t, int *);
 void formatString(const SEXP *, R_xlen_t, int *, int);
+void formatInt64(const R_int64_t *, R_xlen_t, int *);
 void formatRawS(SEXP, R_xlen_t, int *);
+void formatInt64S(SEXP, R_xlen_t, int *);
 void formatStringS(SEXP, R_xlen_t, int*, int);
 
 /* Formating of values */
 const char *EncodeElement0(SEXP, R_xlen_t, int, const char *);
 const char *EncodeEnvironment(SEXP);
 const char *EncodeExtptr(SEXP);
+const char *EncodeInt64(R_int64_t, int);
 /* Legacy, for R.app */
 const char *EncodeElement(SEXP, int, int, char);
 

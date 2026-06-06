@@ -389,6 +389,9 @@ void copyVector(SEXP s, SEXP t)
     case INTSXP:
 	xcopyIntegerWithRecycle(INTEGER(s), INTEGER(t), 0, ns, nt);
 	break;
+    case INT64SXP:
+	xcopyInt64WithRecycle(INT64(s), INT64(t), 0, ns, nt);
+	break;
     case REALSXP:
 	xcopyRealWithRecycle(REAL(s), REAL(t), 0, ns, nt);
 	break;
@@ -460,6 +463,10 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	case INTSXP:
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		INTEGER(s)[didx] = INTEGER(t)[sidx];
+	    break;
+	case INT64SXP:
+	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
+		INT64(s)[didx] = INT64(t)[sidx];
 	    break;
 	case REALSXP:
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)

@@ -2384,6 +2384,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 #endif
 	case CHARSXP:
 	case LGLSXP:
+	case INT64SXP:
 	case INTSXP:
 	case REALSXP:
 	case CPLXSXP:
@@ -2592,6 +2593,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case LGLSXP:						\
 		case INTSXP:						\
 		    pa[i] = (INTEGER_ELT(s, 0) == NA_INTEGER);		\
+		    break;						\
+		case INT64SXP:						\
+		    pa[i] = (INT64_ELT(s, 0) == NA_INT64);		\
 		    break;						\
 		case REALSXP:						\
 		    pa[i] = ISNAN(REAL_ELT(s, 0));			\
@@ -2819,6 +2823,7 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;

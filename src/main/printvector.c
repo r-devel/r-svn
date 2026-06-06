@@ -157,7 +157,8 @@ void printIntegerVectorS(SEXP x, R_xlen_t n, int indx)
     Rprintf("\n");
 }
 
-static const char *EncodeInt64(R_int64_t x, int w)
+attribute_hidden
+const char *EncodeInt64(R_int64_t x, int w)
 {
     static char buff[128];
     int width = w < ((int) sizeof(buff) - 1) ? w : ((int) sizeof(buff) - 1);
@@ -170,10 +171,10 @@ static const char *EncodeInt64(R_int64_t x, int w)
     return buff;
 }
 
-static void formatInt64S(SEXP x, R_xlen_t n, int *fieldwidth)
+attribute_hidden
+void formatInt64(const R_int64_t *px, R_xlen_t n, int *fieldwidth)
 {
     int w = (int) strlen(CHAR(R_print.na_string));
-    const R_int64_t *px = INT64_RO(x);
     for (R_xlen_t i = 0; i < n; i++) {
 	if (px[i] != NA_INT64) {
 	    char buf[64];
@@ -182,6 +183,12 @@ static void formatInt64S(SEXP x, R_xlen_t n, int *fieldwidth)
 	}
     }
     *fieldwidth = w;
+}
+
+attribute_hidden
+void formatInt64S(SEXP x, R_xlen_t n, int *fieldwidth)
+{
+    formatInt64(INT64_RO(x), n, fieldwidth);
 }
 
 static void printInt64VectorS(SEXP x, R_xlen_t n, int indx)

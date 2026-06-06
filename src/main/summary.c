@@ -1077,6 +1077,25 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     break;
 
+    case INT64SXP:
+    {
+	R_int64_t s, *r = INT64(sx);
+	if(PRIMVAL(op) == 0) { /* which.min */
+	    s = R_INT64_MAX;
+	    for (i = 0; i < n; i++)
+		if (r[i] != NA_INT64 && (r[i] < s || indx == -1)) {
+		    s = r[i]; indx = i;
+		}
+	} else { /* which.max */
+	    s = R_INT64_MIN;
+	    for (i = 0; i < n; i++)
+		if (r[i] != NA_INT64 && (r[i] > s || indx == -1)) {
+		    s = r[i]; indx = i;
+		}
+	}
+    }
+    break;
+
     case REALSXP:
     {
 	double s, *r = REAL(sx);
@@ -1193,6 +1212,19 @@ attribute_hidden SEXP do_which(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* op = 0 is pmin, op = 1 is pmax
    NULL and logicals are handled as if they had been coerced to integer.
  */
+static R_INLINE int pmin_type_rank(SEXPTYPE type)
+{
+    switch(type) {
+    case NILSXP: return 0;
+    case LGLSXP: return 1;
+    case INTSXP: return 2;
+    case INT64SXP: return 3;
+    case REALSXP: return 4;
+    case STRSXP: return 5;
+    default: return -1;
+    }
+}
+
 attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int narm = asLogical(CAR(args));
@@ -1207,6 +1239,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case STRSXP:
 	break;
@@ -1225,13 +1258,14 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case NILSXP:
 	case LGLSXP:
 	case INTSXP:
+	case INT64SXP:
 	case REALSXP:
 	case STRSXP:
 	    break;
 	default:
 	    error(_("invalid input type"));
 	}
-	if(type > anstype) anstype = type;
+	if(pmin_type_rank(type) > pmin_type_rank(anstype)) anstype = type;
 	n = xlength(x);
 	if ((len > 0) ^ (n > 0)) {
 	    // till 2.15.0:  error(_("cannot mix 0-length vectors with others"));
@@ -1240,7 +1274,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	len = imax2(len, n);
     }
-    if(anstype < INTSXP) anstype = INTSXP;
+    if(pmin_type_rank(anstype) < pmin_type_rank(INTSXP)) anstype = INTSXP;
     if(len == 0) return allocVector(anstype, 0);
     /* Check for fractional recycling (added in 2.14.0) */
     for(a = args; a != R_NilValue; a = CDR(a)) {
@@ -1279,6 +1313,38 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 			(ra[i] != NA_INTEGER && tmp != NA_INTEGER
 			 && tmp < ra[i]) ||
 			(!narm && tmp == NA_INTEGER) )
+			ra[i] = tmp;
+		}
+	    });
+	    UNPROTECT(1);
+	}
+    }
+	break;
+    case INT64SXP:
+    {
+	R_int64_t *r, *ra = INT64(ans), tmp;
+	PROTECT(x = coerceVector(CAR(args), anstype));
+	r = INT64(x);
+	n = XLENGTH(x);
+	xcopyInt64WithRecycle(ra, r, 0, len, n);
+	UNPROTECT(1);
+	for(a = CDR(args); a != R_NilValue; a = CDR(a)) {
+	    PROTECT(x = coerceVector(CAR(a), anstype));
+	    n = XLENGTH(x);
+	    r = INT64(x);
+	    MOD_ITERATE1(len, n, i, i1, {
+		tmp = r[i1];
+		if(PRIMVAL(op) == 1) {
+		    if( (narm && ra[i] == NA_INT64) ||
+			(ra[i] != NA_INT64 && tmp != NA_INT64
+			 && tmp > ra[i]) ||
+			(!narm && tmp == NA_INT64) )
+			ra[i] = tmp;
+		} else {
+		    if( (narm && ra[i] == NA_INT64) ||
+			(ra[i] != NA_INT64 && tmp != NA_INT64
+			 && tmp < ra[i]) ||
+			(!narm && tmp == NA_INT64) )
 			ra[i] = tmp;
 		}
 	    });

@@ -89,6 +89,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
     vals = CAR(args); args = CDR(args);
     switch(TYPEOF(vals)) {
 	case LGLSXP:
+	case INT64SXP:
 	case INTSXP:
 	case REALSXP:
 	case CPLXSXP:
@@ -199,6 +200,10 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case INTSXP:
 	    for (i = 0; i < N; i++)
 		INTEGER(ans)[i] = NA_INTEGER;
+	    break;
+	case INT64SXP:
+	    for (i = 0; i < N; i++)
+		INT64(ans)[i] = NA_INT64;
 	    break;
 	case REALSXP:
 	    for (i = 0; i < N; i++)
@@ -556,6 +561,7 @@ attribute_hidden SEXP do_lengths(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CHARSXP:
 	case LGLSXP:
 	case INTSXP:
+	case INT64SXP:
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
@@ -2078,6 +2084,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     switch(TYPEOF(vals)) {
 	case LGLSXP:
 	case INTSXP:
+	case INT64SXP:
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
@@ -2117,6 +2124,12 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 				    lendat);
 	else
 	    for (i = 0; i < nans; i++) INTEGER(ans)[i] = NA_INTEGER;
+	break;
+    case INT64SXP:
+	if (nans && lendat)
+	    xcopyInt64WithRecycle(INT64(ans), INT64(vals), 0, nans, lendat);
+	else
+	    for (i = 0; i < nans; i++) INT64(ans)[i] = NA_INT64;
 	break;
     case REALSXP:
 	if (nans && lendat)

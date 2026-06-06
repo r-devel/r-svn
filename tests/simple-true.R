@@ -78,7 +78,19 @@ stopifnot(
     identical(is.finite(as.int64("1")), TRUE),
     identical(is.finite(as.int64(NA)), FALSE),
     identical(is.infinite(as.int64("1")), FALSE),
-    identical(is.infinite(as.int64(NA)), FALSE)
+    identical(is.infinite(as.int64(NA)), FALSE),
+    identical(is.na(list(as.int64(NA))), TRUE),
+    identical(is.nan(c(as.int64("1"), as.int64(NA))), c(FALSE, FALSE)),
+    identical(which.min(as.int64(c("2", "1"))), 2L),
+    identical(which.max(as.int64(c("2", "1"))), 1L),
+    identical(pmin(as.int64("2"), as.int64("1")), as.int64("1")),
+    identical(pmax(as.int64("2"), as.int64("1")), as.int64("2")),
+    identical(matrix(as.int64("1"), 1L), structure(as.int64("1"), dim = c(1L, 1L))),
+    identical(array(as.int64("1"), 3L), structure(rep(as.int64("1"), 3L), dim = 3L)),
+    identical(array(as.int64(NA), 3L), structure(rep(as.int64(NA), 3L), dim = 3L)),
+    { z <- as.int64("1"); length(z) <- 3L; identical(z, c(as.int64("1"), as.int64(NA), as.int64(NA))) },
+    is.character(capture.output(matrix(as.int64("1"), 1L))),
+    identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 )
 
 all((0:6) == pi + ((-pi):pi))

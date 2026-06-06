@@ -870,6 +870,16 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    else
 		INTEGER(rval)[i] = NA_INTEGER;
 	break;
+    case INT64SXP:
+	for (i = 0; i < len; i++)
+	    if (i < lenx) {
+		INT64(rval)[i] = INT64(x)[i];
+		if (xnames != R_NilValue)
+		    SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+	    }
+	    else
+		INT64(rval)[i] = NA_INT64;
+	break;
     case REALSXP:
 	for (i = 0; i < len; i++)
 	    if (i < lenx) {

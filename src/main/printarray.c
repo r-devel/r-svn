@@ -232,6 +232,19 @@ static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		   Rprintf("%s", EncodeInteger(x[i + j * (R_xlen_t) r], w[j])));
 }
 
+static void printInt64Matrix(SEXP sx, int offset, int r_pr, int r, int c,
+			     SEXP rl, SEXP cl, const char *rn, const char *cn,
+			     Rboolean print_ij)
+{
+    _PRINT_INIT_rl_rn;
+    const R_int64_t *x = INT64_RO(sx) + offset;
+
+    _COMPUTE_W_( formatInt64(&x[j * (R_xlen_t) r], (R_xlen_t) r, &w[j]) );
+
+    _PRINT_MATRIX_( , STD_ColumnLabels,
+		   Rprintf("%s", EncodeInt64(x[i + j * (R_xlen_t) r], w[j])));
+}
+
 static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			    SEXP rl, SEXP cl, const char *rn, const char *cn,
 			    Rboolean print_ij)
@@ -361,6 +374,9 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     case INTSXP:
 	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
+    case INT64SXP:
+	printInt64Matrix (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
+	break;
     case REALSXP:
 	printRealMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
@@ -483,6 +499,9 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    case INTSXP:
 		printIntegerMatrix(x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
+	    case INT64SXP:
+		printInt64Matrix (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		break;
 	    case REALSXP:
 		printRealMatrix   (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
 		break;
@@ -510,4 +529,3 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
     UNPROTECT(nprotect);
     vmaxset(vmax);
 }
-

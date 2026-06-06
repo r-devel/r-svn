@@ -579,6 +579,7 @@ INLINE_FUN R_len_t length(SEXP s)
     case NILSXP:
 	return 0;
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP:
     case CPLXSXP:
@@ -614,6 +615,7 @@ INLINE_FUN R_xlen_t xlength(SEXP s)
     case NILSXP:
 	return 0;
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP:
     case CPLXSXP:
