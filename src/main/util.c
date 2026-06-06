@@ -215,6 +215,7 @@ TypeTable[] = {
     { "builtin",	BUILTINSXP },
     { "char",		CHARSXP	   },
     { "logical",	LGLSXP	   },
+    { "int64",		INT64SXP   },
     { "integer",	INTSXP	   },
     { "double",		REALSXP	   }, /*-  "real", for R <= 0.61.x */
     { "complex",	CPLXSXP	   },

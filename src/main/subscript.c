@@ -144,6 +144,28 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
 	}
 	break;
     }
+    case INT64SXP:
+    {
+	R_int64_t i = INT64_ELT(s, pos);
+	if (i != NA_INT64) {
+	    if (i >= 1)
+		indx = (R_xlen_t) (i - 1);
+	    else if (i > -1 || nx < 2) {
+		ECALL3(call,
+		       (i <= -1) ? _("invalid negative subscript in %s")
+		       : _("attempt to select less than one element in %s"),
+		       "get1index <int64>");
+	    } else if (nx == 2 && i > -3)
+		indx = 2 + (R_xlen_t) i;
+	    else {
+		ECALL3(call,
+		       (i <= -1) ? _("invalid negative subscript in %s")
+		       : _("attempt to select more than one element in %s"),
+		       "get1index <int64>");
+	    }
+	}
+	break;
+    }
     case STRSXP:
 	vmax = vmaxget();
 	names = getAttrib(x, R_NamesSymbol);
@@ -264,6 +286,28 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 		       (dblind <= -1) ? _("invalid negative subscript in %s")
 		       : _("attempt to select more than one element in %s"),
 		       "get1index <real>");
+	    }
+	}
+	break;
+    }
+    case INT64SXP:
+    {
+	R_int64_t i = INT64_ELT(s, pos);
+	if (i != NA_INT64) {
+	    if (i >= 1)
+		indx = (R_xlen_t) (i - 1);
+	    else if (i > -1 || len < 2) {
+		ECALL3(call,
+		       (i <= -1) ? _("invalid negative subscript in %s")
+		       : _("attempt to select less than one element in %s"),
+		       "get1index <int64>");
+	    } else if (len == 2 && i > -3)
+		indx = 2 + (R_xlen_t) i;
+	    else {
+		ECALL3(call,
+		       (i <= -1) ? _("invalid negative subscript in %s")
+		       : _("attempt to select more than one element in %s"),
+		       "get1index <int64>");
 	    }
 	}
 	break;
@@ -873,6 +917,27 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
     return R_NilValue;
 }
 
+static SEXP
+int64Subscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
+	       SEXP call, SEXP x)
+{
+    SEXP real_s = PROTECT(allocVector(REALSXP, ns));
+    double *ps = REAL(real_s);
+    const R_int64_t *pi = INT64_RO(s);
+    for (R_xlen_t i = 0; i < ns; i++) {
+	R_int64_t val = pi[i];
+	if (val == NA_INT64)
+	    ps[i] = NA_REAL;
+	else if (val > R_XLEN_T_MAX || val < -R_XLEN_T_MAX) {
+	    ECALL(call, _("subscript too large"));
+	} else
+	    ps[i] = (double) val;
+    }
+    SEXP ans = realSubscript(real_s, ns, nx, stretch, call, x);
+    UNPROTECT(1);
+    return ans;
+}
+
 /* This uses a couple of horrible hacks in conjunction with
  * VectorAssign (in subassign.c).  If subscripting is used for
  * assignment, it is possible to extend a vector by supplying new
@@ -1062,6 +1127,15 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	    return s;
 	}
     }
+    else if (IS_SCALAR(s, INT64SXP)) {
+	R_int64_t i = SCALAR_I64VAL(s);
+	if (0 < i && i <= nx) {
+	    *stretch = 0;
+	    if (i <= INT_MAX)
+		return ScalarInteger((int) i);
+	    return ScalarReal((double) i);
+	}
+    }
     else if (IS_SCALAR(s, REALSXP)) {
 	double di = SCALAR_DVAL(s);
 	if (1 <= di && di <= nx) {
@@ -1086,6 +1160,9 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	break;
     case INTSXP:
 	ans = integerSubscript(s, ns, nx, stretch, call, x);
+	break;
+    case INT64SXP:
+	ans = int64Subscript(s, ns, nx, stretch, call, x);
 	break;
     case REALSXP:
 	ans = realSubscript(s, ns, nx, stretch, call, x);

@@ -414,6 +414,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #undef CHAR
 #define CHAR(x)		((const char *) STDVEC_DATAPTR(x))
 #define LOGICAL(x)	((int *) DATAPTR(x))
+#define INT64(x)	((R_int64_t *) DATAPTR(x))
 #define INTEGER(x)	((int *) DATAPTR(x))
 #define RAW(x)		((Rbyte *) DATAPTR(x))
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
@@ -421,6 +422,7 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define STRING_PTR(x)	((SEXP *) DATAPTR(x))
 #define VECTOR_PTR(x)	((SEXP *) DATAPTR(x))
 #define LOGICAL_RO(x)	((const int *) DATAPTR_RO(x))
+#define INT64_RO(x)	((const R_int64_t *) DATAPTR_RO(x))
 #define INTEGER_RO(x)	((const int *) DATAPTR_RO(x))
 #define RAW_RO(x)	((const Rbyte *) DATAPTR_RO(x))
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))

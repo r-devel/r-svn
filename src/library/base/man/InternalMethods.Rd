@@ -72,6 +72,8 @@
   \code{\link{as.complex}},
   % DispatchOrEval internal generic: as.double
   \code{\link{as.double}},
+  % DispatchOrEval internal generic: as.int64
+  \code{\link{as.int64}},
   % DispatchOrEval internal generic: as.integer
   \code{\link{as.integer}},
   % DispatchOrEval internal generic: as.logical

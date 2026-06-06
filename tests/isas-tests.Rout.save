@@ -276,6 +276,9 @@ IS: [1] TRUE
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
 [1] TRUE
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -591,6 +594,9 @@ Calls: report -> stopifnot
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -902,6 +908,9 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -1223,6 +1232,9 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+[1] TRUE
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
 [1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
@@ -1546,6 +1558,12 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+Warning message:
+In doTryCatch(return(expr), name, parentenv, handler) :
+  NAs introduced by coercion to int64 range
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -1864,6 +1882,12 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.function( f )))
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+Warning message:
+In doTryCatch(return(expr), name, parentenv, handler) :
+  NAs introduced by coercion
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -2183,6 +2207,9 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE
@@ -2497,6 +2524,9 @@ In doTryCatch(return(expr), name, parentenv, handler) :
 [1] TRUE
 > f <- try(as.hexmode( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.hexmode( f )))
+> f <- try(as.int64( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
+[1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.integer( f )))
 [1] TRUE

@@ -1106,6 +1106,7 @@ SEXP eval(SEXP e, SEXP rho)
     case LISTSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case STRSXP:
     case CPLXSXP:

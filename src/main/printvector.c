@@ -157,6 +157,48 @@ void printIntegerVectorS(SEXP x, R_xlen_t n, int indx)
     Rprintf("\n");
 }
 
+static const char *EncodeInt64(R_int64_t x, int w)
+{
+    static char buff[128];
+    int width = w < ((int) sizeof(buff) - 1) ? w : ((int) sizeof(buff) - 1);
+    if (x == NA_INT64)
+	snprintf(buff, sizeof(buff), "%*s", width,
+		 CHAR(R_print.na_string));
+    else
+	snprintf(buff, sizeof(buff), "%*" PRId64, width, (int64_t) x);
+    buff[sizeof(buff) - 1] = '\0';
+    return buff;
+}
+
+static void formatInt64S(SEXP x, R_xlen_t n, int *fieldwidth)
+{
+    int w = (int) strlen(CHAR(R_print.na_string));
+    const R_int64_t *px = INT64_RO(x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (px[i] != NA_INT64) {
+	    char buf[64];
+	    int len = snprintf(buf, sizeof(buf), "%" PRId64, (int64_t) px[i]);
+	    if (len > w) w = len;
+	}
+    }
+    *fieldwidth = w;
+}
+
+static void printInt64VectorS(SEXP x, R_xlen_t n, int indx)
+{
+    int w, labwidth=0, width;
+    R_xlen_t i;
+    const R_int64_t *px = INT64_RO(x);
+    DO_first_lab;
+    formatInt64S(x, n, &w);
+    w += R_print.gap;
+
+    for (i = 0; i < n; i++)
+	NUMVECTOR_TIGHTLOOP(EncodeInt64(px[i], w));
+
+    Rprintf("\n");
+}
+
 // used in uncmin.c
 // Not easily converted to printRealVectorS calls
 attribute_hidden
@@ -334,6 +376,9 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case INTSXP:
 	    printIntegerVectorS(x, n_pr, indx);
 	    break;
+	case INT64SXP:
+	    printInt64VectorS(x, n_pr, indx);
+	    break;
 	case REALSXP:
 	    printRealVectorS(x, n_pr, indx);
 	    break;
@@ -359,6 +404,7 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	switch (TYPEOF(x)) {					\
 	case LGLSXP:	Rprintf("logical(0)\n");	break;	\
 	case INTSXP:	Rprintf("integer(0)\n");	break;	\
+	case INT64SXP:	Rprintf("int64(0)\n");	break;	\
 	case REALSXP:	Rprintf("numeric(0)\n");	break;	\
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\
@@ -414,6 +460,11 @@ static void printNamedLogicalVectorS(SEXP x, R_xlen_t n, SEXP names)
 static void printNamedIntegerVectorS(SEXP x, R_xlen_t n, SEXP names)
     PRINT_N_VECTOR_SEXP(formatIntegerS(x, n, &w),
 			Rprintf("%s%*s", EncodeInteger(INTEGER_ELT(x, k), w),
+				R_print.gap,""))
+
+static void printNamedInt64VectorS(SEXP x, R_xlen_t n, SEXP names)
+    PRINT_N_VECTOR_SEXP(formatInt64S(x, n, &w),
+			Rprintf("%s%*s", EncodeInt64(INT64_ELT(x, k), w),
 				R_print.gap,""))
 
 #undef INI_F_REAL_S
@@ -485,6 +536,9 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	    break;
 	case INTSXP:
 	    printNamedIntegerVectorS(x, n_pr, names);
+	    break;
+	case INT64SXP:
+	    printNamedInt64VectorS(x, n_pr, names);
 	    break;
 	case REALSXP:
 	    printNamedRealVectorS(x, n_pr, names);

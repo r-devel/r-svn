@@ -13091,6 +13091,7 @@ a length-one character vector being @code{ScalarString} with argument a
 @code{CHARSXP} and @code{mkString} with argument @code{const char *}).
 
 @apifun ScalarReal
+@apifun ScalarInt64
 @apifun ScalarInteger
 @apifun ScalarLogical
 @apifun ScalarComplex
@@ -13100,6 +13101,7 @@ a length-one character vector being @code{ScalarString} with argument a
 @example
 @group
 SEXP ScalarReal(double);
+SEXP ScalarInt64(R_int64_t);
 SEXP ScalarInteger(int);
 SEXP ScalarLogical(int)
 SEXP ScalarRaw(Rbyte);
@@ -14511,11 +14513,13 @@ objects with a compact representation using these may avoid fully
 materializing the object. In contrast, obtaining a data pointer will
 have to fully materialize the object.
 @apifun COMPLEX_ELT
+@apifun INT64_ELT
 @apifun INTEGER_ELT
 @apifun LOGICAL_ELT
 @apifun RAW_ELT
 @apifun REAL_ELT
 @apifun SET_COMPLEX_ELT
+@apifun SET_INT64_ELT
 @apifun SET_INTEGER_ELT
 @apifun SET_LOGICAL_ELT
 @apifun SET_RAW_ELT
@@ -14653,6 +14657,7 @@ query whether a data pointer is available.
 
 @deftypefun {const int *} LOGICAL_OR_NULL (SEXP @var{x})
 @deftypefunx {const int *} INTEGER_OR_NULL (SEXP @var{x})
+@deftypefunx {const R_int64_t *} INT64_OR_NULL (SEXP @var{x})
 @deftypefunx {const double *} REAL_OR_NULL (SEXP @var{x})
 @deftypefunx {const Rcomplex *} COMPLEX_OR_NULL (SEXP @var{x})
 @deftypefunx {const Rbyte *} RAW_OR_NULL (SEXP @var{x})
@@ -14663,6 +14668,7 @@ vectors with a compact representation these functions will return
 @end deftypefun
 @eapifun LOGICAL_OR_NULL
 @eapifun INTEGER_OR_NULL
+@eapifun INT64_OR_NULL
 @eapifun REAL_OR_NULL
 @eapifun COMPLEX_OR_NULL
 @eapifun RAW_OR_NULL

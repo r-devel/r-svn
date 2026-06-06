@@ -39,6 +39,8 @@
 # include <limits.h> /* for INT_MAX */
 # include <stddef.h> /* for ptrdiff_t, which is required by C99 */
 #endif
+#include <stdint.h>
+#include <inttypes.h>
 
 #include <R_ext/Arith.h>
 #include <R_ext/Boolean.h>
@@ -62,6 +64,11 @@ extern "C" {
 #endif
 
 typedef unsigned char Rbyte;
+typedef int64_t R_int64_t;
+
+#define NA_INT64 ((R_int64_t) INT64_MIN)
+#define R_INT64_MIN ((R_int64_t) (INT64_MIN + (R_int64_t) 1))
+#define R_INT64_MAX ((R_int64_t) INT64_MAX)
 
 /* type for length of (standard, not long) vectors etc */
 typedef int R_len_t;
@@ -120,6 +127,7 @@ typedef unsigned int SEXPTYPE;
 #define CHARSXP	     9	  /* "scalar" string type (internal only)*/
 #define LGLSXP	    10	  /* logical vectors */
 /* 11 and 12 were factors and ordered factors in the 1990s */
+#define INT64SXP    11	  /* 64-bit integer vectors */
 #define INTSXP	    13	  /* integer vectors */
 #define REALSXP	    14	  /* real variables */
 #define CPLXSXP	    15	  /* complex variables */
@@ -158,6 +166,7 @@ typedef enum {
     BUILTINSXP	= 8,	/* builtin non-special forms */
     CHARSXP	= 9,	/* "scalar" string type (internal only)*/
     LGLSXP	= 10,	/* logical vectors */
+    INT64SXP	= 11,	/* 64-bit integer vectors */
     INTSXP	= 13,	/* integer vectors */
     REALSXP	= 14,	/* real variables */
     CPLXSXP	= 15,	/* complex variables */
@@ -1033,6 +1042,7 @@ void R_orderVector1(int *indx, int n, SEXP x,       Rboolean nalast, Rboolean de
 #define reEnc3			Rf_reEnc3
 #define S3Class                 Rf_S3Class
 #define ScalarComplex		Rf_ScalarComplex
+#define ScalarInt64		Rf_ScalarInt64
 #define ScalarInteger		Rf_ScalarInteger
 #define ScalarLogical		Rf_ScalarLogical
 #define ScalarReal		Rf_ScalarReal
@@ -1122,6 +1132,7 @@ SEXP	 Rf_mkString(const char *);
 int	 Rf_nlevels(SEXP);
 int	 Rf_stringPositionTr(SEXP, const char *);
 SEXP	 Rf_ScalarComplex(Rcomplex);
+SEXP	 Rf_ScalarInt64(R_int64_t);
 SEXP	 Rf_ScalarInteger(int);
 SEXP	 Rf_ScalarLogical(int);
 SEXP	 Rf_ScalarRaw(Rbyte);
@@ -1144,10 +1155,12 @@ const void *(DATAPTR_RO)(SEXP x);
 const void *(DATAPTR_OR_NULL)(SEXP x);
 const int *(LOGICAL_OR_NULL)(SEXP x);
 const int *(INTEGER_OR_NULL)(SEXP x);
+const R_int64_t *(INT64_OR_NULL)(SEXP x);
 const double *(REAL_OR_NULL)(SEXP x);
 const Rcomplex *(COMPLEX_OR_NULL)(SEXP x);
 const Rbyte *(RAW_OR_NULL)(SEXP x);
 int (INTEGER_ELT)(SEXP x, R_xlen_t i);
+R_int64_t (INT64_ELT)(SEXP x, R_xlen_t i);
 double (REAL_ELT)(SEXP x, R_xlen_t i);
 int (LOGICAL_ELT)(SEXP x, R_xlen_t i);
 Rcomplex (COMPLEX_ELT)(SEXP x, R_xlen_t i);
@@ -1155,6 +1168,7 @@ Rbyte (RAW_ELT)(SEXP x, R_xlen_t i);
 SEXP (STRING_ELT)(SEXP x, R_xlen_t i);
 void SET_LOGICAL_ELT(SEXP x, R_xlen_t i, int v);
 void SET_INTEGER_ELT(SEXP x, R_xlen_t i, int v);
+void SET_INT64_ELT(SEXP x, R_xlen_t i, R_int64_t v);
 void SET_REAL_ELT(SEXP x, R_xlen_t i, double v);
 void SET_COMPLEX_ELT(SEXP x, R_xlen_t i, Rcomplex v);
 void SET_RAW_ELT(SEXP x, R_xlen_t i, Rbyte v);

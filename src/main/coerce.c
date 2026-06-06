@@ -30,6 +30,7 @@
 #include <Parse.h>
 #include <Defn.h> /*-- Maybe modularize into own Coerce.h ..*/
 #include <Internal.h>
+#include <errno.h>
 #include <float.h> /* for DBL_DIG */
 #define R_MSG_mode	_("invalid 'mode' argument")
 #define R_MSG_list_vec	_("applies only to lists and vectors")
@@ -49,6 +50,9 @@
 #define WARN_INT_NA 2
 #define WARN_IMAG  4
 #define WARN_RAW  8
+#define WARN_INT64_NA 16
+
+static R_int64_t asInt64(SEXP x);
 
 /* The following two macros copy or clear the attributes.  They also
    ensure that the object bit is properly set.  They avoid calling the
@@ -86,12 +90,21 @@ void attribute_hidden CoercionWarning(int warn)
 	warning(_("imaginary parts discarded in coercion"));
     if (warn & WARN_RAW)
 	warning(_("out-of-range values treated as 0 in coercion to raw"));
+    if (warn & WARN_INT64_NA)
+	warning(_("NAs introduced by coercion to int64 range"));
 }
 
 int attribute_hidden
 LogicalFromInteger(int x, int *warn)
 {
     return (x == NA_INTEGER) ?
+	NA_LOGICAL : (x != 0);
+}
+
+int attribute_hidden
+LogicalFromInt64(R_int64_t x, int *warn)
+{
+    return (x == NA_INT64) ?
 	NA_LOGICAL : (x != 0);
 }
 
@@ -132,6 +145,18 @@ IntegerFromReal(double x, int *warn)
     if (ISNAN(x))
 	return NA_INTEGER;
     else if (x >= INT_MAX+1. || x <= INT_MIN ) {
+	*warn |= WARN_INT_NA;
+	return NA_INTEGER;
+    }
+    return (int) x;
+}
+
+int attribute_hidden
+IntegerFromInt64(R_int64_t x, int *warn)
+{
+    if (x == NA_INT64)
+	return NA_INTEGER;
+    else if (x > INT_MAX || x < -INT_MAX) {
 	*warn |= WARN_INT_NA;
 	return NA_INTEGER;
     }
@@ -184,6 +209,67 @@ IntegerFromString(SEXP x, int *warn)
     return NA_INTEGER;
 }
 
+R_int64_t attribute_hidden
+Int64FromLogical(int x, int *warn)
+{
+    return (x == NA_LOGICAL) ? NA_INT64 : (R_int64_t) x;
+}
+
+R_int64_t attribute_hidden
+Int64FromInteger(int x, int *warn)
+{
+    return (x == NA_INTEGER) ? NA_INT64 : (R_int64_t) x;
+}
+
+R_int64_t attribute_hidden
+Int64FromReal(double x, int *warn)
+{
+    if (ISNAN(x))
+	return NA_INT64;
+    if (x < (double) R_INT64_MIN || x >= (double) R_INT64_MAX) {
+	*warn |= WARN_INT64_NA;
+	return NA_INT64;
+    }
+    R_int64_t val = (R_int64_t) x;
+    if ((double) val != x) {
+	*warn |= WARN_INT64_NA;
+	return NA_INT64;
+    }
+    return val == NA_INT64 ? NA_INT64 : val;
+}
+
+R_int64_t attribute_hidden
+Int64FromComplex(Rcomplex x, int *warn)
+{
+    R_int64_t val;
+    if (ISNAN(x.r) || ISNAN(x.i))
+	return NA_INT64;
+    val = Int64FromReal(x.r, warn);
+    if (x.i != 0)
+	*warn |= WARN_IMAG;
+    return val;
+}
+
+R_int64_t attribute_hidden
+Int64FromString(SEXP x, int *warn)
+{
+    if (x != R_NaString && !isBlankString(CHAR(x))) {
+	const char *p = CHAR(x);
+	char *endp;
+	errno = 0;
+	intmax_t val = strtoimax(p, &endp, 10);
+	if (isBlankString(endp)) {
+	    if (errno == ERANGE || val < R_INT64_MIN || val > R_INT64_MAX) {
+		*warn |= WARN_INT64_NA;
+		return NA_INT64;
+	    }
+	    return (R_int64_t) val;
+	}
+	else *warn |= WARN_NA;
+    }
+    return NA_INT64;
+}
+
 double attribute_hidden
 RealFromLogical(int x, int *warn)
 {
@@ -195,6 +281,12 @@ double attribute_hidden
 RealFromInteger(int x, int *warn)
 {
     return (x == NA_INTEGER) ? NA_REAL : x;
+}
+
+double attribute_hidden
+RealFromInt64(R_int64_t x, int *warn)
+{
+    return (x == NA_INT64) ? NA_REAL : (double) x;
 }
 
 double attribute_hidden
@@ -257,6 +349,25 @@ ComplexFromInteger(int x, int *warn)
 #endif
     } else {
 	z.r = x;
+    }
+#ifndef NA_TO_COMPLEX_NA
+    z.i = 0;
+#endif
+    return z;
+}
+
+Rcomplex attribute_hidden
+ComplexFromInt64(R_int64_t x, int *warn)
+{
+    Rcomplex z;
+    if (x == NA_INT64) {
+#ifdef NA_TO_COMPLEX_NA
+	set_COMPLEX_NA(z);
+#else
+	z.r = NA_REAL;
+#endif
+    } else {
+	z.r = (double) x;
     }
 #ifndef NA_TO_COMPLEX_NA
     z.i = 0;
@@ -345,6 +456,14 @@ attribute_hidden SEXP StringFromInteger(int x, int *warn)
 	formatInteger(&x, 1, &w);
 	return mkChar(EncodeInteger(x, w));
     }
+}
+
+attribute_hidden SEXP StringFromInt64(R_int64_t x, int *warn)
+{
+    char buf[32];
+    if (x == NA_INT64) return NA_STRING;
+    snprintf(buf, sizeof(buf), "%" PRId64, (int64_t) x);
+    return mkChar(buf);
 }
 
 // dropTrailing0 and StringFromReal moved to printutils.c
@@ -438,6 +557,9 @@ static SEXP coerceToSymbol(SEXP v)
     case INTSXP:
 	ans = StringFromInteger(INTEGER_ELT(v, 0), &warn);
 	break;
+    case INT64SXP:
+	ans = StringFromInt64(INT64_ELT(v, 0), &warn);
+	break;
     case REALSXP:
 	ans = StringFromReal(REAL_ELT(v, 0), &warn);
 	break;
@@ -479,6 +601,11 @@ static SEXP coerceToLogical(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    pa[i] = LogicalFromInteger(INTEGER_ELT(v, i), &warn);
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    pa[i] = LogicalFromInt64(INT64_ELT(v, i), &warn);
 	}
 	break;
     case REALSXP:
@@ -534,6 +661,11 @@ static SEXP coerceToInteger(SEXP v)
 	    pa[i] = IntegerFromLogical(LOGICAL_ELT(v, i), &warn);
 	}
 	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    pa[i] = IntegerFromInt64(INT64_ELT(v, i), &warn);
+	}
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -566,6 +698,53 @@ static SEXP coerceToInteger(SEXP v)
     return ans;
 }
 
+static SEXP coerceToInt64(SEXP v)
+{
+    SEXP ans;
+    int warn = 0;
+    R_xlen_t i, n;
+    PROTECT(ans = allocVector(INT64SXP, n = XLENGTH(v)));
+    R_int64_t *pa = INT64(ans);
+#ifdef R_MEMORY_PROFILING
+    if (RTRACE(v)){
+       memtrace_report(v,ans);
+       SET_RTRACE(ans,1);
+    }
+#endif
+    SHALLOW_DUPLICATE_ATTRIB(ans, v);
+    switch (TYPEOF(v)) {
+    case LGLSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = Int64FromLogical(LOGICAL_ELT(v, i), &warn);
+	break;
+    case INTSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = Int64FromInteger(INTEGER_ELT(v, i), &warn);
+	break;
+    case REALSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = Int64FromReal(REAL_ELT(v, i), &warn);
+	break;
+    case CPLXSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = Int64FromComplex(COMPLEX_ELT(v, i), &warn);
+	break;
+    case STRSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = Int64FromString(STRING_ELT(v, i), &warn);
+	break;
+    case RAWSXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = (R_int64_t) RAW_ELT(v, i);
+	break;
+    default:
+	UNIMPLEMENTED_TYPE("coerceToInt64", v);
+    }
+    if (warn) CoercionWarning(warn);
+    UNPROTECT(1);
+    return ans;
+}
+
 static SEXP coerceToReal(SEXP v)
 {
     SEXP ans;
@@ -591,6 +770,11 @@ static SEXP coerceToReal(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    pa[i] = RealFromInteger(INTEGER_ELT(v, i), &warn);
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    pa[i] = RealFromInt64(INT64_ELT(v, i), &warn);
 	}
 	break;
     case CPLXSXP:
@@ -644,6 +828,11 @@ static SEXP coerceToComplex(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    pa[i] = ComplexFromInteger(INTEGER_ELT(v, i), &warn);
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    pa[i] = ComplexFromInt64(INT64_ELT(v, i), &warn);
 	}
 	break;
     case REALSXP:
@@ -707,6 +896,16 @@ static SEXP coerceToRaw(SEXP v)
 		tmp = 0;
 		warn |= WARN_RAW;
 	    }
+	    pa[i] = (Rbyte) tmp;
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    R_int64_t itmp = INT64_ELT(v, i);
+	    if(itmp == NA_INT64 || itmp < 0 || itmp > 255) {
+		tmp = 0;
+		warn |= WARN_RAW;
+	    } else tmp = (int) itmp;
 	    pa[i] = (Rbyte) tmp;
 	}
 	break;
@@ -778,6 +977,11 @@ static SEXP coerceToString(SEXP v)
 	    SET_STRING_ELT(ans, i, StringFromInteger(INTEGER_ELT(v, i), &warn));
 	}
 	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    SET_STRING_ELT(ans, i, StringFromInt64(INT64_ELT(v, i), &warn));
+	}
+	break;
     case REALSXP:
 	PrintDefaults();
 	savedigits = R_print.digits; R_print.digits = DBL_DIG;/* MAX precision */
@@ -832,6 +1036,10 @@ static SEXP coerceToExpression(SEXP v)
 	    for (i = 0; i < n; i++)
 		SET_VECTOR_ELT(ans, i, ScalarInteger(INTEGER_ELT(v, i)));
 	    break;
+	case INT64SXP:
+	    for (i = 0; i < n; i++)
+		SET_VECTOR_ELT(ans, i, ScalarInt64(INT64_ELT(v, i)));
+	    break;
 	case REALSXP:
 	    for (i = 0; i < n; i++)
 		SET_VECTOR_ELT(ans, i, ScalarReal(REAL_ELT(v, i)));
@@ -883,6 +1091,11 @@ static SEXP coerceToVectorList(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    SET_VECTOR_ELT(ans, i, ScalarInteger(INTEGER_ELT(v, i)));
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++) {
+	    SET_VECTOR_ELT(ans, i, ScalarInt64(INT64_ELT(v, i)));
 	}
 	break;
     case REALSXP:
@@ -942,6 +1155,10 @@ static SEXP coerceToPairList(SEXP v)
 	case INTSXP:
 	    SETCAR(ansp, allocVector(INTSXP, 1));
 	    INTEGER0(CAR(ansp))[0] = INTEGER_ELT(v, i);
+	    break;
+	case INT64SXP:
+	    SETCAR(ansp, allocVector(INT64SXP, 1));
+	    INT640(CAR(ansp))[0] = INT64_ELT(v, i);
 	    break;
 	case REALSXP:
 	    SETCAR(ansp, allocVector(REALSXP, 1));
@@ -1011,6 +1228,10 @@ static SEXP coercePairList(SEXP v, SEXPTYPE type)
 	case INTSXP:
 	    for (i = 0, vp = v; i < n; i++, vp = CDR(vp))
 		INTEGER0(rval)[i] = asInteger(CAR(vp));
+	    break;
+	case INT64SXP:
+	    for (i = 0, vp = v; i < n; i++, vp = CDR(vp))
+		INT640(rval)[i] = asInt64(CAR(vp));
 	    break;
 	case REALSXP:
 	    for (i = 0, vp = v; i < n; i++, vp = CDR(vp))
@@ -1122,6 +1343,11 @@ static SEXP coerceVectorList(SEXP v, SEXPTYPE type)
 	    for (i = 0; i < n; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 		INTEGER0(rval)[i] = asInteger(VECTOR_ELT(v, i));
+	    }
+	    break;
+	case INT64SXP:
+	    for (i = 0; i < n; i++) {
+		INT640(rval)[i] = asInt64(VECTOR_ELT(v, i));
 	    }
 	    break;
 	case REALSXP:
@@ -1277,6 +1503,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	error(_("environments cannot be coerced to other types"));
 	break;
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP:
     case CPLXSXP:
@@ -1293,6 +1520,8 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	    ans = coerceToSymbol(v);	    break;
 	case LGLSXP:
 	    ans = coerceToLogical(v);	    break;
+	case INT64SXP:
+	    ans = coerceToInt64(v);	    break;
 	case INTSXP:
 	    ans = coerceToInteger(v);	    break;
 	case REALSXP:
@@ -1477,6 +1706,8 @@ attribute_hidden SEXP do_asatomic(SEXP call, SEXP op, SEXP args, SEXP rho)
 	name = "as.logical"; type = LGLSXP; break;
     case 5:
 	name = "as.raw"; type = RAWSXP; break;
+    case 6:
+	name = "as.int64"; type = INT64SXP; break;
     }
     /* DispatchOrEval internal generic: as.character */
     /* DispatchOrEval internal generic: as.integer */
@@ -1484,6 +1715,7 @@ attribute_hidden SEXP do_asatomic(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* DispatchOrEval internal generic: as.complex */
     /* DispatchOrEval internal generic: as.logical */
     /* DispatchOrEval internal generic: as.raw */
+    /* DispatchOrEval internal generic: as.int64 */
     if (DispatchOrEval(call, op, name, args, rho, &ans, 0, 1))
 	return(ans);
 
@@ -1800,6 +2032,8 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	    return LOGICAL_ELT(x, 0);
+	case INT64SXP:
+	    return LogicalFromInt64(INT64_ELT(x, 0), &warn);
 	case INTSXP:
 	    return LogicalFromInteger(INTEGER_ELT(x, 0), &warn);
 	case REALSXP:
@@ -1835,6 +2069,10 @@ int asInteger(SEXP x)
             return (int) RAW_ELT(x, 0);
 	case LGLSXP:
 	    return IntegerFromLogical(LOGICAL_ELT(x, 0), &warn);
+	case INT64SXP:
+	    res = IntegerFromInt64(INT64_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return res;
 	case INTSXP:
 	    return INTEGER_ELT(x, 0);
 	case REALSXP:
@@ -1860,6 +2098,44 @@ int asInteger(SEXP x)
     return NA_INTEGER;
 }
 
+static R_int64_t asInt64(SEXP x)
+{
+    int warn = 0;
+    R_int64_t res;
+
+    if (isVectorAtomic(x) && XLENGTH(x) >= 1) {
+	switch (TYPEOF(x)) {
+	case RAWSXP:
+	    return (R_int64_t) RAW_ELT(x, 0);
+	case LGLSXP:
+	    return Int64FromLogical(LOGICAL_ELT(x, 0), &warn);
+	case INTSXP:
+	    return Int64FromInteger(INTEGER_ELT(x, 0), &warn);
+	case INT64SXP:
+	    return INT64_ELT(x, 0);
+	case REALSXP:
+	    res = Int64FromReal(REAL_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return res;
+	case CPLXSXP:
+	    res = Int64FromComplex(COMPLEX_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return res;
+	case STRSXP:
+	    res = Int64FromString(STRING_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return res;
+	default:
+	    UNIMPLEMENTED_TYPE("asInt64", x);
+	}
+    } else if(TYPEOF(x) == CHARSXP) {
+	res = Int64FromString(x, &warn);
+	CoercionWarning(warn);
+	return res;
+    }
+    return NA_INT64;
+}
+
 attribute_hidden /* would need to be in an installed header if not hidden */
 R_xlen_t asXLength(SEXP x)
 {
@@ -1871,6 +2147,14 @@ R_xlen_t asXLength(SEXP x)
 	{
 	    int res = INTEGER_ELT(x, 0);
 	    if (res == NA_INTEGER)
+		return na;
+	    else
+		return (R_xlen_t) res;
+	}
+	case INT64SXP:
+	{
+	    R_int64_t res = INT64_ELT(x, 0);
+	    if (res == NA_INT64 || res < 0 || res > R_XLEN_T_MAX)
 		return na;
 	    else
 		return (R_xlen_t) res;
@@ -1908,6 +2192,10 @@ double asReal(SEXP x)
 	    res = RealFromInteger(INTEGER_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case INT64SXP:
+	    res = RealFromInt64(INT64_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return res;
 	case REALSXP:
 	    return REAL_ELT(x, 0);
 	case CPLXSXP:
@@ -1942,6 +2230,10 @@ Rcomplex asComplex(SEXP x)
 	    return z;
 	case INTSXP:
 	    z = ComplexFromInteger(INTEGER_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return z;
+	case INT64SXP:
+	    z = ComplexFromInt64(INT64_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return z;
 	case REALSXP:
@@ -2270,6 +2562,10 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) == NA_INTEGER);
 	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = (INT64_ELT(x, i) == NA_INT64);
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = ISNAN(REAL_ELT(x, i));
@@ -2388,6 +2684,14 @@ static Rboolean anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 		    if (xI[k] == NA_INTEGER)
 			return TRUE;
 	    });
+	break;
+    }
+    case INT64SXP:
+    {
+	const R_int64_t *xI64 = INT64_RO(x);
+	for (i = 0; i < n; i++)
+	    if (xI64[i] == NA_INT64)
+		return TRUE;
 	break;
     }
     case LGLSXP:

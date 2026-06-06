@@ -237,6 +237,10 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
 	return memcmp((void *)INTEGER(x), (void *)INTEGER(y),
 		      xlength(x) * sizeof(int)) == 0 ? TRUE : FALSE;
+    case INT64SXP:
+	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
+	return memcmp((const void *)INT64_RO(x), (const void *)INT64_RO(y),
+		      xlength(x) * sizeof(R_int64_t)) == 0 ? TRUE : FALSE;
     case REALSXP:
     {
 	R_xlen_t n = XLENGTH(x);

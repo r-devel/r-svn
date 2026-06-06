@@ -189,6 +189,12 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 		INTEGER(a)[n++] = INTEGER(s)[i]; \
 	} \
 	break; \
+    case INT64SXP: \
+	for (i = 0; i < nc; i++) { \
+	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
+		INT64(a)[n++] = INT64(s)[i]; \
+	} \
+	break; \
     case REALSXP: \
 	for (i = 0; i < nc; i++) { \
 /*	    if ((i+1) % ni == 0) R_CheckUserInterrupt();*/ \
@@ -231,9 +237,13 @@ static SEXP rep2(SEXP s, SEXP ncopy)
     }
 
 #ifdef LONG_VECTOR_SUPPORT
-    if (TYPEOF(ncopy) != INTSXP)
+    if (TYPEOF(ncopy) == INT64SXP)
+	PROTECT(t = ncopy);
+    else if (TYPEOF(ncopy) != INTSXP)
 #else
-    if (TYPEOF(ncopy) == REALSXP)
+    if (TYPEOF(ncopy) == INT64SXP)
+	PROTECT(t = ncopy);
+    else if (TYPEOF(ncopy) == REALSXP)
 #endif
 	PROTECT(t = coerceVector(ncopy, REALSXP));
     else
@@ -248,6 +258,13 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	    REAL(t)[i] >= R_XLEN_T_MAX+1.0)
 	    error(_("invalid '%s' value"), "times");
 	sna += (R_xlen_t) REAL(t)[i];
+    }
+    else if (TYPEOF(t) == INT64SXP)
+    for (i = 0; i < nc; i++) {
+	R_int64_t it = INT64(t)[i];
+	if (it == NA_INT64 || it < 0 || it > R_XLEN_T_MAX)
+	    error(_("invalid '%s' value"), "times");
+	sna += (R_xlen_t) it;
     }
     else
     for (i = 0; i < nc; i++) {
@@ -269,6 +286,8 @@ static SEXP rep2(SEXP s, SEXP ncopy)
     n = 0;
     if (TYPEOF(t) == REALSXP)
 	R2_SWITCH_LOOP(REAL(t))
+    else if (TYPEOF(t) == INT64SXP)
+	R2_SWITCH_LOOP(INT64(t))
     else
 	R2_SWITCH_LOOP(INTEGER(t))
     UNPROTECT(2);
@@ -295,6 +314,11 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 	MOD_ITERATE1(na, ns, i, j, {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    INTEGER(a)[i] = INTEGER(s)[j];
+	});
+	break;
+    case INT64SXP:
+	MOD_ITERATE1(na, ns, i, j, {
+	    INT64(a)[i] = INT64(s)[j];
 	});
 	break;
     case REALSXP:
@@ -510,6 +534,15 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	    }								\
 	}								\
 	break;								\
+    case INT64SXP:							\
+	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
+	    for(j = 0, sum = 0; j < each; j++) sum += (R_xlen_t) itimes[k++]; \
+	    for(k3 = 0; k3 < sum; k3++) {				\
+		INT64(a)[k2++] = INT64(x)[i];				\
+		if(k2 == len) goto done;				\
+	    }								\
+	}								\
+	break;								\
     case REALSXP:							\
 	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 	    /*		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();*/ \
@@ -580,6 +613,11 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 		INTEGER(a)[i] = INTEGER(x)[(i/each) % lx];
 	    }
 	    break;
+	case INT64SXP:
+	    for(i = 0; i < len; i++) {
+		INT64(a)[i] = INT64(x)[(i/each) % lx];
+	    }
+	    break;
 	case REALSXP:
 	    for(i = 0; i < len; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -617,6 +655,8 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	}
     else if(TYPEOF(times) == REALSXP)
 	R4_SWITCH_LOOP(REAL(times))
+    else if(TYPEOF(times) == INT64SXP)
+	R4_SWITCH_LOOP(INT64(times))
 	else
 	    R4_SWITCH_LOOP(INTEGER(times))
 		done:
@@ -719,6 +759,8 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 	double sum = 0;
 	if(CADR(args) == R_MissingArg)
 	    PROTECT(times = ScalarInteger(1));
+	else if(TYPEOF(CADR(args)) == INT64SXP)
+	    PROTECT(times = CADR(args));
 #ifdef LONG_VECTOR_SUPPORT
 	else if(TYPEOF(CADR(args)) != INTSXP)
 #else
@@ -733,6 +775,11 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if (TYPEOF(times) == REALSXP) {
 		double rt = REAL(times)[0];
 		if (ISNAN(rt) || rt <= -1 || rt >= R_XLEN_T_MAX+1.0)
+		    errorcall(call, _("invalid '%s' argument"), "times");
+		it = (R_xlen_t) rt;
+	    } else if (TYPEOF(times) == INT64SXP) {
+		R_int64_t rt = INT64(times)[0];
+		if (rt == NA_INT64 || rt < 0 || rt > R_XLEN_T_MAX)
 		    errorcall(call, _("invalid '%s' argument"), "times");
 		it = (R_xlen_t) rt;
 	    } else {
@@ -750,6 +797,13 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 		for(i = 0; i < nt; i++) {
 		    double rt = REAL(times)[i];
 		    if (ISNAN(rt) || rt <= -1 || rt >= R_XLEN_T_MAX+1.0)
+			errorcall(call, _("invalid '%s' argument"), "times");
+		    sum += (R_xlen_t) rt;
+		}
+	    else if (TYPEOF(times) == INT64SXP)
+		for(i = 0; i < nt; i++) {
+		    R_int64_t rt = INT64(times)[i];
+		    if (rt == NA_INT64 || rt < 0 || rt > R_XLEN_T_MAX)
 			errorcall(call, _("invalid '%s' argument"), "times");
 		    sum += (R_xlen_t) rt;
 		}

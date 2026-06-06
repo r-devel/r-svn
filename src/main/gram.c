@@ -98,6 +98,7 @@
 #include "Fileio.h"
 #include "Parse.h"
 #include <R_ext/Print.h>
+#include <errno.h>
 
 #if !defined(__STDC_ISO_10646__) && (defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun))
 /* This may not be 100% true (see the comment in rlocale.h),
@@ -4577,8 +4578,37 @@ static SEXP mkFloat(const char *s)
 
 static SEXP mkInt(const char *s)
 {
-    double f = R_atof(s);  /* or R_strtol? */
-    return ScalarInteger((int) f);
+    size_t len = strlen(s);
+    char *buf = (char *) R_alloc(len + 1, 1);
+    memcpy(buf, s, len + 1);
+    if (len > 0 && buf[len - 1] == 'L')
+	buf[len - 1] = '\0';
+
+    if (strpbrk(buf, ".eEpPxX") == NULL) {
+	char *endp;
+	errno = 0;
+	intmax_t val = strtoimax(buf, &endp, 10);
+	if (*endp == '\0' && errno != ERANGE &&
+	    val >= R_INT64_MIN && val <= R_INT64_MAX) {
+	    if (val >= -INT_MAX && val <= INT_MAX)
+		return ScalarInteger((int) val);
+	    return ScalarInt64((R_int64_t) val);
+	}
+    } else {
+	double f = R_atof(s);
+	if (R_FINITE(f) && f >= (double) R_INT64_MIN &&
+	    f < (double) R_INT64_MAX) {
+	    R_int64_t val = (R_int64_t) f;
+	    if ((double) val == f && val != NA_INT64) {
+		if (val >= -INT_MAX && val <= INT_MAX)
+		    return ScalarInteger((int) val);
+		return ScalarInt64(val);
+	    }
+	}
+    }
+
+    warning(_("integer literal %s exceeds int64 range; returning NA_INT64"), s);
+    return ScalarInt64(NA_INT64);
 }
 
 static SEXP mkComplex(const char *s)
@@ -4969,12 +4999,11 @@ static int NumericValue(int c)
     /* Make certain that things are okay. */
     if(c == 'L') {
 	double a = R_atof(yytext);
-	int b = (int) a;
 	/* We are asked to create an integer via the L, so we check that the
-	   double and int values are the same. If not, this is a problem and we
-	   will not lose information and so use the numeric value.
+	   double value is integer-valued. Range is checked when the literal is
+	   allocated, so int32 overflow can promote to int64.
 	*/
-	if(a != (double) b) {
+	if(R_FINITE(a) && a != floor(a)) {
 	    if(GenerateCode) {
 		if(seendot == 1 && seenexp == 0)
 		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);

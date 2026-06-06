@@ -48,8 +48,10 @@
   imaginary \link{complex} number.
 
   A numeric constant immediately followed by \code{L} is regarded as an
-  \code{\link{integer}} number when possible (and with a warning if it
-  contains a \code{"."}).
+  \code{\link{integer}} number when possible, or as type \code{"int64"}
+  when it exceeds the 32-bit integer range but is representable as a
+  signed 64-bit integer (and with a warning if it contains a
+  \code{"."}).
 
   Only the ASCII digits 0--9 are recognized as digits, even in languages
   which have other representations of digits.  The \sQuote{decimal

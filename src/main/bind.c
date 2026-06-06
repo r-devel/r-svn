@@ -88,6 +88,10 @@ AnswerType(SEXP x, Rboolean recurse, Rboolean usenames, struct BindData *data, S
 	data->ans_flags |= 16;
 	data->ans_length += XLENGTH(x);
 	break;
+    case INT64SXP:
+	data->ans_flags |= 1024;
+	data->ans_length += XLENGTH(x);
+	break;
     case REALSXP:
 	data->ans_flags |= 32;
 	data->ans_length += XLENGTH(x);
@@ -189,6 +193,10 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
     case INTSXP:
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarInteger(INTEGER(x)[i]));
+	break;
+    case INT64SXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    LIST_ASSIGN(ScalarInt64(INT64(x)[i]));
 	break;
     case REALSXP:
 	for (i = 0; i < XLENGTH(x); i++)
@@ -334,10 +342,58 @@ IntegerAnswer(SEXP x, struct BindData *data, SEXP call)
 }
 
 static void
+Int64Answer(SEXP x, struct BindData *data, SEXP call)
+{
+    R_xlen_t i;
+    int xi;
+    switch(TYPEOF(x)) {
+    case NILSXP:
+	break;
+    case LISTSXP:
+	while (x != R_NilValue) {
+	    Int64Answer(CAR(x), data, call);
+	    x = CDR(x);
+	}
+	break;
+    case EXPRSXP:
+    case VECSXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    Int64Answer(VECTOR_ELT(x, i), data, call);
+	break;
+    case LGLSXP:
+	for (i = 0; i < XLENGTH(x); i++) {
+	    xi = LOGICAL(x)[i];
+	    INT64(data->ans_ptr)[data->ans_length++] =
+		(xi == NA_LOGICAL) ? NA_INT64 : (R_int64_t) xi;
+	}
+	break;
+    case INTSXP:
+	for (i = 0; i < XLENGTH(x); i++) {
+	    xi = INTEGER(x)[i];
+	    INT64(data->ans_ptr)[data->ans_length++] =
+		(xi == NA_INTEGER) ? NA_INT64 : (R_int64_t) xi;
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    INT64(data->ans_ptr)[data->ans_length++] = INT64(x)[i];
+	break;
+    case RAWSXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    INT64(data->ans_ptr)[data->ans_length++] = (R_int64_t) RAW(x)[i];
+	break;
+    default:
+	errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		  R_typeToChar(x), "Int64Answer");
+    }
+}
+
+static void
 RealAnswer(SEXP x, struct BindData *data, SEXP call)
 {
     R_xlen_t i;
     int xi;
+    R_int64_t xi64;
     switch(TYPEOF(x)) {
     case NILSXP:
 	break;
@@ -372,6 +428,14 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	    else REAL(data->ans_ptr)[data->ans_length++] = xi;
 	}
 	break;
+    case INT64SXP:
+	for (i = 0; i < XLENGTH(x); i++) {
+	    xi64 = INT64(x)[i];
+	    if (xi64 == NA_INT64)
+		REAL(data->ans_ptr)[data->ans_length++] = NA_REAL;
+	    else REAL(data->ans_ptr)[data->ans_length++] = (double) xi64;
+	}
+	break;
     case RAWSXP:
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = (int)RAW(x)[i];
@@ -387,6 +451,7 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 {
     R_xlen_t i;
     int xi;
+    R_int64_t xi64;
     switch(TYPEOF(x)) {
     case NILSXP:
 	break;
@@ -443,6 +508,24 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    }
 	    else {
 		COMPLEX(data->ans_ptr)[data->ans_length].r = xi;
+		COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+	    }
+	    data->ans_length++;
+	}
+	break;
+    case INT64SXP:
+	for (i = 0; i < XLENGTH(x); i++) {
+	    xi64 = INT64(x)[i];
+	    if (xi64 == NA_INT64) {
+		COMPLEX(data->ans_ptr)[data->ans_length].r = NA_REAL;
+#ifdef NA_TO_COMPLEX_NA
+		COMPLEX(data->ans_ptr)[data->ans_length].i = NA_REAL;
+#else
+		COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+#endif
+	    }
+	    else {
+		COMPLEX(data->ans_ptr)[data->ans_length].r = (double) xi64;
 		COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
 	    }
 	    data->ans_length++;
@@ -839,6 +922,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = INT64SXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
@@ -867,6 +951,8 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 	ComplexAnswer(args, &data, call);
     else if (mode == REALSXP)
 	RealAnswer(args, &data, call);
+    else if (mode == INT64SXP)
+	Int64Answer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
     else if (mode == LGLSXP)
@@ -963,6 +1049,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = INT64SXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
@@ -993,6 +1080,8 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 	ComplexAnswer(args, &data, call);
     else if (mode == REALSXP)
 	RealAnswer(args, &data, call);
+    else if (mode == INT64SXP)
+	Int64Answer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
     else if (mode == LGLSXP)
@@ -1154,6 +1243,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = INT64SXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;

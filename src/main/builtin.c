@@ -43,6 +43,13 @@ R_xlen_t asVecSize(SEXP x)
 	    if(res == NA_INTEGER) error(_("vector size cannot be NA"));
 	    return (R_xlen_t) res;
 	}
+	case INT64SXP:
+	{
+	    R_int64_t res = INT64(x)[0];
+	    if(res == NA_INT64) error(_("vector size cannot be NA"));
+	    if(res > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    return (R_xlen_t) res;
+	}
 	case REALSXP:
 	{
 	    double d = REAL(x)[0];
@@ -795,6 +802,7 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     switch (mode) {
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
@@ -811,7 +819,9 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("vector: cannot make a vector of mode '%s'."),
 	      translateChar(STRING_ELT(s, 0))); /* should be ASCII */
     }
-    if (mode == INTSXP || mode == LGLSXP)
+    if (mode == INT64SXP)
+	Memzero(INT64(s), len);
+    else if (mode == INTSXP || mode == LGLSXP)
 	Memzero(INTEGER(s), len);
     else if (mode == REALSXP)
 	Memzero(REAL(s), len);

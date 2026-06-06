@@ -141,6 +141,10 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 	EXTRACT_SUBSET_LOOP(INTEGER0(result)[i] = INTEGER_ELT(x, ii),
 			    INTEGER0(result)[i] = NA_INTEGER);
 	break;
+    case INT64SXP:
+	EXTRACT_SUBSET_LOOP(INT640(result)[i] = INT64_ELT(x, ii),
+			    INT640(result)[i] = NA_INT64);
+	break;
     case REALSXP:
 	EXTRACT_SUBSET_LOOP(REAL0(result)[i] = REAL_ELT(x, ii),
 			    REAL0(result)[i] = NA_REAL);

@@ -187,6 +187,7 @@ SEXP lazy_duplicate(SEXP s) {
     case EXPRSXP:
     case VECSXP:
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP:
     case CPLXSXP:
@@ -341,6 +342,7 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	UNPROTECT(2);
 	break;
     case LGLSXP: DUPLICATE_ATOMIC_VECTOR(int, LOGICAL, t, s, deep); break;
+    case INT64SXP: DUPLICATE_ATOMIC_VECTOR(R_int64_t, INT64, t, s, deep); break;
     case INTSXP: DUPLICATE_ATOMIC_VECTOR(int, INTEGER, t, s, deep); break;
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, t, s, deep); break;

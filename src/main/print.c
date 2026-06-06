@@ -911,6 +911,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	break;
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case STRSXP:
     case CPLXSXP:

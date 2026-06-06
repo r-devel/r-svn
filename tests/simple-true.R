@@ -20,6 +20,40 @@ typeof(1e-3L) == "double" # gives warning
 1.L # gives warning
 inherits(try(parse(text = "12iL"), silent=TRUE), "try-error") # gives syntax error
 
+## int64 promotion keeps explicit int32 APIs strict.
+int64_warning <- NULL
+warned_int64 <- withCallingHandlers(eval(parse(text = "9223372036854775808L")),
+                                    warning = function(w) {
+                                        int64_warning <<- conditionMessage(w)
+                                        invokeRestart("muffleWarning")
+                                    })
+as_integer_warning <- NULL
+strict_integer <- withCallingHandlers(as.integer("2147483648"),
+                                      warning = function(w) {
+                                          as_integer_warning <<- conditionMessage(w)
+                                          invokeRestart("muffleWarning")
+                                      })
+stopifnot(
+    typeof(2147483647L) == "integer",
+    typeof(2147483648L) == "int64",
+    typeof(9223372036854775807) == "double",
+    identical(2147483648L, as.int64("2147483648")),
+    identical(strict_integer, NA_integer_),
+    grepl("integer range", as_integer_warning, fixed = TRUE),
+    typeof(1L + 2L) == "integer",
+    typeof(2147483647L + 1L) == "int64",
+    identical(2147483647L + 1L, as.int64("2147483648")),
+    typeof(c(TRUE, as.int64("2"))) == "int64",
+    typeof(c(1L, as.int64("2"))) == "int64",
+    typeof(c(as.int64("2"), 2)) == "double",
+    identical((1:4)[as.int64("3")], 3L),
+    identical((1:4)[[as.int64("3")]], 3L),
+    identical(length(vector("list", as.int64("3"))), 3L),
+    identical(rep(1L, times = as.int64("3")), rep(1L, 3L)),
+    typeof(warned_int64) == "int64",
+    is.na(warned_int64),
+    grepl("int64 range", int64_warning, fixed = TRUE)
+)
 
 all((0:6) == pi + ((-pi):pi))
 all((0:7) == (pi+seq(-pi,pi, length=8))*7/(2*pi))
@@ -185,4 +219,3 @@ identical(  endsWith(t1, "an"), c(FALSE,FALSE, FALSE, FALSE,FALSE, FALSE, TRUE))
 identical(startsWith(t3, "M" ), c( TRUE, FALSE, TRUE))
 identical(startsWith(t3, "Ma"), c( TRUE, FALSE, FALSE))
 identical(startsWith(t3, "Mä"), c(FALSE, FALSE, TRUE))
-

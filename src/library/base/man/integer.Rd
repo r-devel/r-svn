@@ -6,14 +6,17 @@
 \name{integer}
 \alias{integer}
 \alias{as.integer}
+\alias{as.int64}
 \alias{is.integer}
 \title{Integer Vectors}
 \description{
-  Creates or tests for objects of type \code{"integer"}.
+  Creates or tests for objects of type \code{"integer"}, or coerces to
+  integer-valued types.
 }
 \usage{
 integer(length = 0)
 as.integer(x, \dots)
+as.int64(x, \dots)
 is.integer(x)
 }
 \arguments{
@@ -32,6 +35,12 @@ is.integer(x)
   integer vectors, so the range of representable integers is restricted
   to about \eqn{\pm 2 \times 10^9}{+/-2*10^9}: \code{\link{double}}s can
   hold much larger integers exactly.
+
+  \code{as.int64} coerces to the signed 64-bit integer type
+  \code{"int64"}.  It preserves exact integer values outside the
+  32-bit integer range when they are representable as signed 64-bit
+  integers, and produces missing values with a warning for values
+  outside that range.
 }
 \value{
   \code{integer} creates a integer vector of the specified length.
@@ -55,6 +64,9 @@ is.integer(x)
   \code{is.integer} returns \code{TRUE} or \code{FALSE} depending on
   whether its argument is of integer \link{type} or not, unless it is a
   factor when it returns \code{FALSE}.
+
+  \code{as.int64} attempts to coerce its argument to type
+  \code{"int64"}.
 }
 \note{
   \code{is.integer(x)} does \bold{not} test if \code{x} contains integer
@@ -78,6 +90,7 @@ x <- pi * c(-1:1, 10)
 as.integer(x)
 
 is.integer(1) # is FALSE !
+typeof(as.int64("2147483648"))
 
 is.wholenumber <-
     function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol

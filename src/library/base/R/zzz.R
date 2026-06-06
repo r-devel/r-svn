@@ -160,7 +160,7 @@ assign("Tailcall", function(FUN, ...) NULL, envir = .ArgsEnv)
     ## not group generics, *nor* assign/extract ops
     ##			"[", "[[", "$", "@", "[<-", "[[<-", "$<-", "@<-"
   c("anyNA", "as.character", "as.complex", "as.double",
-    "as.environment", "as.integer", "as.logical", "as.call",
+    "as.environment", "as.int64", "as.integer", "as.logical", "as.call",
     "as.numeric", "as.raw",
     "c", "dim", "dim<-", "dimnames", "dimnames<-",
     "is.array", "is.finite",
@@ -243,6 +243,8 @@ assign("as.complex", function(x, ...) UseMethod("as.complex"),
 assign("as.double", function(x, ...) UseMethod("as.double"),
        envir = .GenericArgsEnv)
 assign("as.integer", function(x, ...) UseMethod("as.integer"),
+       envir = .GenericArgsEnv)
+assign("as.int64", function(x, ...) UseMethod("as.int64"),
        envir = .GenericArgsEnv)
 assign("as.logical", function(x, ...) UseMethod("as.logical"),
        envir = .GenericArgsEnv)

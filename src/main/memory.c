@@ -204,6 +204,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case BUILTINSXP:	return "BUILTINSXP";
     case CHARSXP:	return "CHARSXP";
     case LGLSXP:	return "LGLSXP";
+    case INT64SXP:	return "INT64SXP";
     case INTSXP:	return "INTSXP";
     case REALSXP:	return "REALSXP";
     case CPLXSXP:	return "CPLXSXP";
@@ -718,6 +719,7 @@ static R_size_t R_NodesInUse = 0;
   case CHARSXP: \
   case LGLSXP: \
   case INTSXP: \
+  case INT64SXP: \
   case REALSXP: \
   case CPLXSXP: \
   case WEAKREFSXP: \
@@ -2697,6 +2699,7 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
     if (length == 1) {
 	switch(type) {
 	case REALSXP:
+	case INT64SXP:
 	case INTSXP:
 	case LGLSXP:
 	    node_class = 1;
@@ -2713,6 +2716,7 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 #if VALGRIND_LEVEL > 1
 	    switch(type) {
 	    case REALSXP: actual_size = sizeof(double); break;
+	    case INT64SXP: actual_size = sizeof(R_int64_t); break;
 	    case INTSXP: actual_size = sizeof(int); break;
 	    case LGLSXP: actual_size = sizeof(int); break;
 	    }
@@ -2767,6 +2771,19 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    size = INT2VEC(length);
 #if VALGRIND_LEVEL > 0
 	    actual_size = length*sizeof(int);
+#endif
+	}
+	break;
+    case INT64SXP:
+	if (length <= 0)
+	    size = 0;
+	else {
+	    if (length > R_SIZE_T_MAX / sizeof(R_int64_t))
+		error(_("cannot allocate vector of length %lld"),
+		      (long long)length);
+	    size = FLOAT2VEC(length);
+#if VALGRIND_LEVEL > 0
+	    actual_size = length * sizeof(R_int64_t);
 #endif
 	}
 	break;
@@ -2971,6 +2988,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 #if VALGRIND_LEVEL > 0
     else if (type == REALSXP)
 	VALGRIND_MAKE_MEM_UNDEFINED(REAL(s), actual_size);
+    else if (type == INT64SXP)
+	VALGRIND_MAKE_MEM_UNDEFINED(INT64(s), actual_size);
     else if (type == INTSXP)
 	VALGRIND_MAKE_MEM_UNDEFINED(INTEGER(s), actual_size);
     else if (type == LGLSXP)
