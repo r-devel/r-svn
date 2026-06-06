@@ -55,6 +55,32 @@ stopifnot(
     grepl("int64 range", int64_warning, fixed = TRUE)
 )
 
+i64_named <- as.int64("1")
+names(i64_named) <- "a"
+i64_cbind <- cbind(a = as.int64("1"))
+i64_rbind <- rbind(a = as.int64("1"))
+stopifnot(
+    identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
+    identical(as.int64("-1") < as.int64("1"), TRUE),
+    identical(as.int64("9223372036854775807") < as.int64("-1"), FALSE),
+    identical(as.int64("2") > 1L, TRUE),
+    is.na(as.int64(NA) == as.int64(NA)),
+    typeof(i64_cbind) == "int64",
+    identical(dim(i64_cbind), c(1L, 1L)),
+    identical(unname(i64_cbind[1, 1]), as.int64("1")),
+    identical(as.vector(i64_cbind, "int64"), as.int64("1")),
+    typeof(i64_rbind) == "int64",
+    identical(dim(i64_rbind), c(1L, 1L)),
+    identical(unname(i64_rbind[1, 1]), as.int64("1")),
+    identical(as.vector(i64_rbind, "int64"), as.int64("1")),
+    identical(as.vector(i64_named, "int64"), as.int64("1")),
+    identical(as.vector(i64_named, "any"), as.int64("1")),
+    identical(is.finite(as.int64("1")), TRUE),
+    identical(is.finite(as.int64(NA)), FALSE),
+    identical(is.infinite(as.int64("1")), FALSE),
+    identical(is.infinite(as.int64(NA)), FALSE)
+)
+
 all((0:6) == pi + ((-pi):pi))
 all((0:7) == (pi+seq(-pi,pi, length=8))*7/(2*pi))
 

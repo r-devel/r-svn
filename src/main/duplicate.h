@@ -43,6 +43,7 @@ Iterator macro to fill a matrix from a vector with re-use of vector
             didx += drows)
 
 void xcopyComplexWithRecycle(Rcomplex *dst, Rcomplex *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
+void xcopyInt64WithRecycle(R_int64_t *dst, R_int64_t *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
 void xcopyIntegerWithRecycle(int *dst, int *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
 void xcopyLogicalWithRecycle(int *dst, int *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
 void xcopyRawWithRecycle(Rbyte *dst, Rbyte *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
@@ -51,6 +52,7 @@ void xcopyStringWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart, R_xlen_t n, R_x
 void xcopyVectorWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc);
 
 void xfillComplexMatrixWithRecycle(Rcomplex *dst, Rcomplex *src, R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows, R_xlen_t cols, R_xlen_t nsrc);
+void xfillInt64MatrixWithRecycle(R_int64_t *dst, R_int64_t *src, R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows, R_xlen_t cols, R_xlen_t nsrc);
 void xfillIntegerMatrixWithRecycle(int *dst, int *src, R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows, R_xlen_t cols, R_xlen_t nsrc);
 void xfillLogicalMatrixWithRecycle(int *dst, int *src, R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows, R_xlen_t cols, R_xlen_t nsrc);
 void xfillRawMatrixWithRecycle(Rbyte *dst, Rbyte *src, R_xlen_t dstart, R_xlen_t drows, R_xlen_t srows, R_xlen_t cols, R_xlen_t nsrc);

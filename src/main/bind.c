@@ -1252,6 +1252,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
@@ -1438,6 +1439,18 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
+    else if (mode == INT64SXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, INT64SXP);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
+		xcopyInt64WithRecycle(INT64(result), INT64(u), n, idx, k);
+		n += idx;
+	    }
+	}
+    }
     else if (mode == RAWSXP) {
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t));
@@ -1498,7 +1511,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			/* not sure this can be reached, but to be safe: */
                         /* `mode` is created in do_bind(), it can only
                          be one of: NILSXP, LGLSXP, INTSXP, REALSXP,
-                         CPLXSXP, STRSXP, VECSXP, RAWSXP */
+                         INT64SXP, CPLXSXP, STRSXP, VECSXP, RAWSXP */
 			error(_("cannot create a matrix of type '%s'"),
 			      type2char(mode));
 		}
@@ -1699,6 +1712,19 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
 		xfillComplexMatrixWithRecycle(COMPLEX(result), COMPLEX(u), n,
 					      rows, idx, cols, k);
+		n += idx;
+	    }
+	}
+    }
+    else if (mode == INT64SXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, INT64SXP);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		xfillInt64MatrixWithRecycle(INT64(result), INT64(u), n,
+					    rows, idx, cols, k);
 		n += idx;
 	    }
 	}

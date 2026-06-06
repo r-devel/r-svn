@@ -344,6 +344,10 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	MATRIX_SUBSET_LOOP(INTEGER0(result)[ij] = INTEGER_ELT(x, iijj),
 			   INTEGER0(result)[ij] = NA_INTEGER);
 	break;
+    case INT64SXP:
+	MATRIX_SUBSET_LOOP(INT640(result)[ij] = INT64_ELT(x, iijj),
+			   INT640(result)[ij] = NA_INT64);
+	break;
     case REALSXP:
 	MATRIX_SUBSET_LOOP(REAL0(result)[ij] = REAL_ELT(x, iijj),
 			   REAL0(result)[ij] = NA_REAL);
@@ -514,6 +518,10 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
     case INTSXP:
 	ARRAY_SUBSET_LOOP(INTEGER0(result)[i] = INTEGER_ELT(x, ii),
 			  INTEGER0(result)[i] = NA_INTEGER);
+	break;
+    case INT64SXP:
+	ARRAY_SUBSET_LOOP(INT640(result)[i] = INT64_ELT(x, ii),
+			  INT640(result)[i] = NA_INT64);
 	break;
     case REALSXP:
 	ARRAY_SUBSET_LOOP(REAL0(result)[i] = REAL_ELT(x, ii),

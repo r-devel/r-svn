@@ -421,7 +421,8 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
     return x;
 }
 
-#define ISNA_INT(x) x == NA_INTEGER
+#define ISNA_INT(x) ((x) == NA_INTEGER)
+#define ISNA_INT64(x) ((x) == NA_INT64)
 
 #define NR_HELPER(OP, type1, ACCESSOR1, ISNA1, type2, ACCESSOR2, ISNA2) do { \
 	type1 x1, *px1 = ACCESSOR1(s1);					\
@@ -472,10 +473,29 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     PROTECT(s2);
     ans = allocVector(LGLSXP, n);
 
-    if (isInteger(s1) || isLogical(s1)) {
-        if (isInteger(s2) || isLogical(s2)) {
-            NUMERIC_RELOP(int, INTEGER, ISNA_INT, int, INTEGER, ISNA_INT);
-        } else {
+    if (TYPEOF(s1) == INT64SXP) {
+	if (TYPEOF(s2) == INT64SXP) {
+	    NUMERIC_RELOP(R_int64_t, INT64, ISNA_INT64,
+			  R_int64_t, INT64, ISNA_INT64);
+	} else if (isInteger(s2) || isLogical(s2)) {
+	    NUMERIC_RELOP(R_int64_t, INT64, ISNA_INT64,
+			  int, INTEGER, ISNA_INT);
+	} else {
+	    NUMERIC_RELOP(R_int64_t, INT64, ISNA_INT64,
+			  double, REAL, ISNAN);
+	}
+    } else if (TYPEOF(s2) == INT64SXP) {
+	if (isInteger(s1) || isLogical(s1)) {
+	    NUMERIC_RELOP(int, INTEGER, ISNA_INT,
+			  R_int64_t, INT64, ISNA_INT64);
+	} else {
+	    NUMERIC_RELOP(double, REAL, ISNAN,
+			  R_int64_t, INT64, ISNA_INT64);
+	}
+    } else if (isInteger(s1) || isLogical(s1)) {
+	if (isInteger(s2) || isLogical(s2)) {
+	    NUMERIC_RELOP(int, INTEGER, ISNA_INT, int, INTEGER, ISNA_INT);
+	} else {
             NUMERIC_RELOP(int, INTEGER, ISNA_INT, double, REAL, ISNAN);
         }
     } else if (isInteger(s2) || isLogical(s2)) {

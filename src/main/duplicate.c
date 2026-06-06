@@ -511,6 +511,7 @@ xcopy##TNAME##WithRecycle(VALTYPE *dst, VALTYPE *src, R_xlen_t dstart, R_xlen_t 
 }
 
 COPY_WITH_RECYCLE(Rcomplex, Complex)	/* xcopyComplexWithRecycle */
+COPY_WITH_RECYCLE(R_int64_t, Int64)	/* xcopyInt64WithRecycle */
 COPY_WITH_RECYCLE(int, Integer)		/* xcopyIntegerWithRecycle */
 COPY_WITH_RECYCLE(int, Logical)		/* xcopyLogicalWithRecycle */
 COPY_WITH_RECYCLE(Rbyte, Raw)		/* xcopyRawWithRecycle */
@@ -553,6 +554,7 @@ attribute_hidden void xfill##TNAME##MatrixWithRecycle(VALTYPE *dst, VALTYPE *src
 }
 
 FILL_WITH_RECYCLE(Rcomplex, Complex)	/* xfillComplexMatrixWithRecycle */
+FILL_WITH_RECYCLE(R_int64_t, Int64)	/* xfillInt64MatrixWithRecycle */
 FILL_WITH_RECYCLE(int, Integer)		/* xfillIntegerMatrixWithRecycle */
 FILL_WITH_RECYCLE(int, Logical)		/* xfillLogicalMatrixWithRecycle */
 FILL_WITH_RECYCLE(Rbyte, Raw)		/* xfillRawMatrixWithRecycle */

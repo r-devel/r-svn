@@ -1774,6 +1774,7 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if(type == ANYSXP || TYPEOF(x) == type) {
 	switch(TYPEOF(x)) {
 	case LGLSXP:
+	case INT64SXP:
 	case INTSXP:
 	case REALSXP:
 	case CPLXSXP:
@@ -1814,6 +1815,7 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
     switch(type) {/* only those are valid : */
     case SYMSXP: /* for as.symbol */
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP:
     case CPLXSXP:
@@ -2881,6 +2883,10 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = (INT64_ELT(x, i) != NA_INT64);
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = R_FINITE(REAL_ELT(x, i));
@@ -2944,6 +2950,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
