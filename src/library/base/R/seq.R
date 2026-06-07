@@ -25,7 +25,7 @@ seq.default <-
     is.logint <- function(.) (is.integer(.) || is.logical(.)) && !is.object(.)
     if((One <- nargs() == 1L) && !missing(from)) {
 	lf <- length(from)
-	return(if(mode(from) == "numeric" && lf == 1L) {
+	return(if((mode(from) == "numeric" || typeof(from) == "int64") && lf == 1L) {
 	    if(!is.finite(from)) stop("'from' must be a finite number")
             1L:from
         } else if(lf) 1L:lf else integer())

@@ -158,7 +158,7 @@ static Rboolean i64sum(SEXP sx, double *value, Rboolean narm)
     for (R_xlen_t k = 0; k < n; k++) {
 	if (x[k] != NA_INT64) {
 	    if(!updated) updated = TRUE;
-	    s += (double) x[k];
+	    s += (LDOUBLE) x[k];
 	} else if (!narm) {
 	    if(!updated) updated = TRUE;
 	    *value = NA_REAL;
