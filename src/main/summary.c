@@ -864,7 +864,8 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			if(!empty) zcum.r = Int2Real(icum);
 		    } else if(ans_type == INT64SXP) {
 			ans_type = REALSXP;
-			if(!empty) zcum.r = (double) i64cum;
+			if(!empty) zcum.r = (i64cum == NA_INT64) ?
+			    NA_REAL : (double) i64cum;
 		    }
 		    if (iop == 2) updated = rmin(a, &tmp, narm);
 		    else	  updated = rmax(a, &tmp, narm);

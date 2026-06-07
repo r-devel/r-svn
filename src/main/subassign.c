@@ -217,6 +217,12 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	for (R_xlen_t i = len; i < newtruelen; i++)
 	    INTEGER0(newx)[i] = NA_INTEGER;
 	break;
+    case INT64SXP:
+	for (R_xlen_t i = 0; i < len; i++)
+	    INT640(newx)[i] = INT64_ELT(x, i);
+	for (R_xlen_t i = len; i < newtruelen; i++)
+	    INT640(newx)[i] = NA_INT64;
+	break;
     case REALSXP:
 	for (R_xlen_t i = 0; i < len; i++)
 	    REAL0(newx)[i] = REAL_ELT(x, i);

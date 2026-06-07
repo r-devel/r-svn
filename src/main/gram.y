@@ -2275,11 +2275,12 @@ static SEXP mkInt(const char *s)
     if (len > 0 && buf[len - 1] == 'L')
 	buf[len - 1] = '\0';
 
-    if (strpbrk(buf, ".eEpP") == NULL) {
+    Rboolean is_hex = len > 2 && buf[0] == '0' &&
+	(buf[1] == 'x' || buf[1] == 'X');
+    if (strpbrk(buf, is_hex ? ".pP" : ".eEpP") == NULL) {
 	char *endp;
 	errno = 0;
-	int base = (len > 2 && buf[0] == '0' &&
-		    (buf[1] == 'x' || buf[1] == 'X')) ? 0 : 10;
+	int base = is_hex ? 0 : 10;
 	intmax_t val = strtoimax(buf, &endp, base);
 	if (*endp == '\0' && errno != ERANGE &&
 	    val >= R_INT64_MIN && val <= R_INT64_MAX) {

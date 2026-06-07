@@ -295,7 +295,7 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	R_int64_t i = INT64_ELT(s, pos);
 	if (i != NA_INT64) {
 	    if (i >= 1)
-		indx = (R_xlen_t) (i - 1);
+		indx = (i > (R_int64_t) len) ? len : (R_xlen_t) (i - 1);
 	    else if (i > -1 || len < 2) {
 		ECALL3(call,
 		       (i <= -1) ? _("invalid negative subscript in %s")
