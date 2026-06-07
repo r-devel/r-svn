@@ -141,6 +141,9 @@ static SEXP seq_colon(double n1, double n2, SEXP call)
 
 static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
 {
+    if (XLENGTH(s) < 1)
+	return FALSE;
+
     switch (TYPEOF(s)) {
     case INTSXP:
 	*out = INTEGER(s)[0] == NA_INTEGER ? NA_INT64 : (R_int64_t) INTEGER(s)[0];

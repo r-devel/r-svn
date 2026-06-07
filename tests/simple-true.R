@@ -167,8 +167,13 @@ stopifnot(
     identical(format.info(as.int64(c("1", "2147483648", NA))), 10L),
     identical(capture.output(cat(as.int64(c("1", NA)), sep = "\n")),
               c("1", "NA")),
+    identical(capture.output(write.table(data.frame(x = as.int64(NA)),
+                                         row.names = FALSE, na = "")),
+              c("\"x\"", "")),
     is.character(capture.output(data.frame(x = as.int64(c("1", "2"))))),
     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
+    is.raw(try(serialize(as.pairlist(rep.int(list(1L), 100000L)), NULL),
+               silent = TRUE)),
     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
     inherits(i64_object_size, "object_size"),
     as.numeric(i64_object_size) > 0,
@@ -216,6 +221,8 @@ stopifnot(
               as.int64(c("9223372036854775806", "9223372036854775807"))),
     identical(seq.int(as.int64("9007199254740993"), length.out = 2L),
               as.int64(c("9007199254740993", "9007199254740994"))),
+    inherits(try(as.int64(character(0)) : 1L, silent = TRUE), "try-error"),
+    inherits(try(as.int64("1") : integer(), silent = TRUE), "try-error"),
     local({
         grDevices::pdf(NULL)
         on.exit(grDevices::dev.off())

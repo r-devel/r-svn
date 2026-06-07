@@ -986,6 +986,9 @@ static Rboolean isna(SEXP x, R_xlen_t indx)
     case INTSXP:
 	return INTEGER(x)[indx] == NA_INTEGER;
 	break;
+    case INT64SXP:
+	return INT64(x)[indx] == NA_INT64;
+	break;
     case REALSXP:
 	return ISNAN(REAL(x)[indx]);
 	break;

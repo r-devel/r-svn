@@ -1384,6 +1384,7 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
 {
     int ic = 9999;
 
+ tailcall:
     R_CheckStack();
     IF_IC_R_CheckUserInterrupt();
 
@@ -1425,7 +1426,8 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
 	    SerializeContainsInt64(TAG(s), seen, version) ||
 	    SerializeContainsInt64(CAR(s), seen, version))
 	    return TRUE;
-	return SerializeContainsInt64(CDR(s), seen, version);
+	s = CDR(s);
+	goto tailcall;
     case CLOSXP:
 	HashAdd(s, seen);
 	return SerializeContainsInt64(ATTRIB(s), seen, version) ||
