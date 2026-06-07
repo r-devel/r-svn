@@ -917,6 +917,8 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 
     if (code == DIVOP || code == POWOP)
 	ans = allocVector(REALSXP, n);
+    else if (code == PLUSOP || code == MINUSOP || code == TIMESOP)
+	ans = allocVector(INTSXP, n);
     else
 	ans = R_allocOrReuseVector(s1, s2, INTSXP, n);
     if (n == 0) return(ans);
@@ -926,55 +928,93 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
     case PLUSOP:
     case MINUSOP:
     case TIMESOP:
-    case MODOP:
-    case IDIVOP:
 	{
+	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    R_int64_t *tmp = (R_int64_t *) R_alloc(n, sizeof(R_int64_t));
 	    bool needs64 = false;
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
 		    x1 = px1[i1];
 		    x2 = px2[i2];
 		    R_int64_t ix1 = R_int64_from_int(x1);
 		    R_int64_t ix2 = R_int64_from_int(x2);
+		    R_int64_t tmp;
 		    switch (code) {
 		    case PLUSOP:
-			tmp[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+			tmp = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
 			    NA_INT64 : ix1 + ix2;
 			break;
 		    case MINUSOP:
-			tmp[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+			tmp = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
 			    NA_INT64 : ix1 - ix2;
 			break;
 		    case TIMESOP:
-			tmp[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+			tmp = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
 			    NA_INT64 : ix1 * ix2;
 			break;
-		    case MODOP:
-			tmp[i] = R_int64_mod(ix1, ix2);
-			break;
-		    case IDIVOP:
-			tmp[i] = R_int64_idiv(ix1, ix2);
-			break;
 		    default:
-			tmp[i] = NA_INT64;
+			tmp = NA_INT64;
 		    }
-		    if (tmp[i] != NA_INT64 && !R_int64_fits_integer(tmp[i]))
+		    if (tmp != NA_INT64 && !R_int64_fits_integer(tmp))
 			needs64 = true;
+		    if (!needs64)
+			pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
 		});
-	    UNPROTECT(1);
 	    if (needs64) {
+		UNPROTECT(1);
 		PROTECT(ans = allocVector(INT64SXP, n));
-		R_int64_t *pa = INT64(ans);
-		for (i = 0; i < n; i++)
-		    pa[i] = tmp[i];
-	    } else {
-		PROTECT(ans = R_allocOrReuseVector(s1, s2, INTSXP, n));
-		int *pa = INTEGER(ans);
-		for (i = 0; i < n; i++)
-		    pa[i] = tmp[i] == NA_INT64 ? NA_INTEGER : (int) tmp[i];
+		R_int64_t *p64 = INT64(ans);
+		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+			x1 = px1[i1];
+			x2 = px2[i2];
+			R_int64_t ix1 = R_int64_from_int(x1);
+			R_int64_t ix2 = R_int64_from_int(x2);
+			switch (code) {
+			case PLUSOP:
+			    p64[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+				NA_INT64 : ix1 + ix2;
+			    break;
+			case MINUSOP:
+			    p64[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+				NA_INT64 : ix1 - ix2;
+			    break;
+			case TIMESOP:
+			    p64[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
+				NA_INT64 : ix1 * ix2;
+			    break;
+			default:
+			    p64[i] = NA_INT64;
+			}
+		    });
 	    }
+	}
+	break;
+    case MODOP:
+	{
+	    int *pa = INTEGER(ans);
+	    const int *px1 = INTEGER_RO(s1);
+	    const int *px2 = INTEGER_RO(s2);
+	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		    x1 = px1[i1];
+		    x2 = px2[i2];
+		    R_int64_t tmp = R_int64_mod(R_int64_from_int(x1),
+						R_int64_from_int(x2));
+		    pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
+		});
+	}
+	break;
+    case IDIVOP:
+	{
+	    int *pa = INTEGER(ans);
+	    const int *px1 = INTEGER_RO(s1);
+	    const int *px2 = INTEGER_RO(s2);
+	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		    x1 = px1[i1];
+		    x2 = px2[i2];
+		    R_int64_t tmp = R_int64_idiv(R_int64_from_int(x1),
+						 R_int64_from_int(x2));
+		    pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
+		});
 	}
 	break;
     case DIVOP:

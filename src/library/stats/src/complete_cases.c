@@ -137,6 +137,10 @@ SEXP compcases(SEXP args)
 			if (INTEGER(u)[i] == NA_INTEGER)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case INT64SXP:
+			if (INT64(u)[i] == NA_INT64)
+			    INTEGER(rval)[i % len] = 0;
+			break;
 		    case REALSXP:
 			if (ISNAN(REAL(u)[i]))
 			    INTEGER(rval)[i % len] = 0;
@@ -169,6 +173,10 @@ SEXP compcases(SEXP args)
 			if (INTEGER(u)[i] == NA_INTEGER)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case INT64SXP:
+			if (INT64(u)[i] == NA_INT64)
+			    INTEGER(rval)[i % len] = 0;
+			break;
 		    case REALSXP:
 			if (ISNAN(REAL(u)[i]))
 			    INTEGER(rval)[i % len] = 0;
@@ -195,6 +203,10 @@ SEXP compcases(SEXP args)
 		case INTSXP:
 		case LGLSXP:
 		    if (INTEGER(u)[i] == NA_INTEGER)
+			INTEGER(rval)[i % len] = 0;
+		    break;
+		case INT64SXP:
+		    if (INT64(u)[i] == NA_INT64)
 			INTEGER(rval)[i % len] = 0;
 		    break;
 		case REALSXP:
