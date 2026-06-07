@@ -1546,7 +1546,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     else { // regular case
 	HashData data = { 0 };
 	if (incomp) {
-	    PROTECT(incomp = coerceVector(incomp, mixed_i64_real ? TYPEOF(x) : type));
+	    SEXPTYPE incomp_type = type;
+	    if (mixed_i64_real) {
+		SEXPTYPE raw_incomp_type = TYPEOF(incomp);
+		if (raw_incomp_type == INT64SXP || raw_incomp_type == REALSXP)
+		    incomp_type = raw_incomp_type;
+		else
+		    incomp_type = TYPEOF(x);
+	    }
+	    PROTECT(incomp = coerceVector(incomp, incomp_type));
 	    nprot++;
 	}
 	data.nomatch = nmatch;

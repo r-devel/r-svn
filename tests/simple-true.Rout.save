@@ -230,6 +230,8 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(match(i64_big, i64_big_rounded, nomatch = 0L), 0L),
 +     identical(match(i64_big_rounded, i64_big, nomatch = 0L), 0L),
 +     identical(match(i64_big_rounded, as.int64("9007199254740992"), nomatch = 0L), 1L),
++     identical(match(i64_big_rounded, as.int64("9007199254740992"),
++                     incomparables = i64_big, nomatch = 0L), 1L),
 +     identical(match(as.int64("2"), i64_real_collision_table, nomatch = 0L), 2L),
 +     identical(duplicated(as.int64(c("1", "1", NA, NA))), c(FALSE, TRUE, FALSE, TRUE)),
 +     identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2"))),
