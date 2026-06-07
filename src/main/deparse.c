@@ -1739,10 +1739,12 @@ static void vector2buff(SEXP vector, LocalParseData *d)
     } else if(TYPEOF(vector) == INT64SXP) {
 	const R_int64_t *vec = INT64_RO(vector);
 	Rboolean use_as_int64 = need_c || do_names || int64_needs_constructor(vec[0]);
+	Rboolean structure_names = do_names && use_as_int64;
+	if(structure_names) print2buff("structure(", d);
 	if(use_as_int64) print2buff("as.int64(", d);
 	if(need_c || do_names) print2buff("c(", d);
 	for (i = 0; i < tlen; i++) {
-	    if(do_names)
+	    if(do_names && !structure_names)
 		deparse2buf_name(nv, i, d);
 	    deparse2buff_int64(vec[i], d, use_as_int64);
 	    if (i < (tlen - 1)) print2buff(", ", d);
@@ -1751,6 +1753,11 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	}
 	if(need_c || do_names) print2buff(")", d);
 	if(use_as_int64) print2buff(")", d);
+	if(structure_names) {
+	    print2buff(", names = ", d);
+	    vector2buff(nv, d);
+	    print2buff(")", d);
+	}
     } else { // tlen > 0;  _not_ INTSXP
 	allNA = d->opts & KEEPNA;
 	if((d->opts & KEEPNA) && TYPEOF(vector) == REALSXP) {

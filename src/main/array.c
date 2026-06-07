@@ -1635,6 +1635,12 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    INTEGER(r)[i] = INTEGER(a)[j];
 	}
 	break;
+    case INT64SXP:
+	for (i = 0, j = 0; i < len; i++, j += nrow) {
+	    if (j > l_1) j -= l_1;
+	    INT64(r)[i] = INT64(a)[j];
+	}
+	break;
     case REALSXP:
 	for (i = 0, j = 0; i < len; i++, j += nrow) {
 	    if (j > l_1) j -= l_1;
@@ -1797,6 +1803,13 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    lj += iip[i_] * stride[i_]
 
     switch (TYPEOF(a)) {
+    case INT64SXP:
+	for (lj = 0, li = 0; li < len; li++) {
+	    INT64(r)[li] = INT64(a)[lj];
+	    CLICKJ;
+	}
+	break;
+
     case INTSXP:
 	for (lj = 0, li = 0; li < len; li++) {
 	    INTEGER(r)[li] = INTEGER(a)[lj];
