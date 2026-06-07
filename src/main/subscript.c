@@ -148,7 +148,9 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
     {
 	R_int64_t i = INT64_ELT(s, pos);
 	if (i != NA_INT64) {
-	    if (i >= 1)
+	    if (i > (R_int64_t) R_XLEN_T_MAX) {
+		ECALL(call, _("subscript too large"));
+	    } else if (i >= 1)
 		indx = (R_xlen_t) (i - 1);
 	    else if (i > -1 || nx < 2) {
 		ECALL3(call,
@@ -294,7 +296,9 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
     {
 	R_int64_t i = INT64_ELT(s, pos);
 	if (i != NA_INT64) {
-	    if (i >= 1)
+	    if (i > (R_int64_t) R_XLEN_T_MAX) {
+		ECALL(call, _("subscript too large"));
+	    } else if (i >= 1)
 		indx = (i > (R_int64_t) len) ? len : (R_xlen_t) (i - 1);
 	    else if (i > -1 || len < 2) {
 		ECALL3(call,

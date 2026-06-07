@@ -388,6 +388,14 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	REPROTECT(y = coerceVector(y, LGLSXP), ypi);
 	x = numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     }
+    else if (TYPEOF(x) == INT64SXP && TYPEOF(y) == RAWSXP) {
+	REPROTECT(y = coerceVector(y, INTSXP), ypi);
+	x = numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y);
+    }
+    else if (TYPEOF(x) == RAWSXP && TYPEOF(y) == INT64SXP) {
+	REPROTECT(x = coerceVector(x, INTSXP), xpi);
+	x = numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y);
+    }
     else if (TYPEOF(x) == RAWSXP || TYPEOF(y) == RAWSXP) {
 	REPROTECT(x = coerceVector(x, RAWSXP), xpi);
 	REPROTECT(y = coerceVector(y, RAWSXP), ypi);

@@ -171,6 +171,8 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
 +     identical(as.int64("-1") < as.int64("1"), TRUE),
 +     identical(as.int64("9223372036854775807") < as.int64("-1"), FALSE),
++     identical(as.int64("256") == as.raw(0), FALSE),
++     identical(as.raw(255) < as.int64("256"), TRUE),
 +     identical(as.int64("2") > 1L, TRUE),
 +     identical(i64_big == i64_big_rounded, FALSE),
 +     identical(i64_big > i64_big_rounded, TRUE),
@@ -355,6 +357,10 @@ integer literal 1.L contains unnecessary decimal point
 +     is.character(capture.output(matrix(as.int64("1"), 1L))),
 +     inherits(try(vector("list", as.int64("-2147483649")), silent = TRUE), "try-error"),
 +     inherits(try(i64_dim_matrix[[as.int64("4294967297"), 1L]], silent = TRUE), "try-error"),
++     .Machine$sizeof.pointer != 4L || {
++         z <- list(1L)
++         inherits(try(z[[as.int64("4294967297")]] <- 2L, silent = TRUE), "try-error")
++     },
 +     identical(0x1eeeeeeeeeeeeeeeL, as.int64("2228981575573237486")),
 +     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 + )

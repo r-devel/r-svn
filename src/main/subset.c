@@ -1103,7 +1103,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    pindx[i] = (int)
 		get1index(thesub,
 			  (i < ndn) ? VECTOR_ELT(dimnames, i) : R_NilValue,
-			  pindx[i], pok, -1, call);
+			  pdims[i], pok, -1, call);
 	    subs = CDR(subs);
 	    if (pindx[i] < 0 || pindx[i] >= pdims[i])
 		errorcallOutOfBoundsSEXP(x, i, thesub, call);
