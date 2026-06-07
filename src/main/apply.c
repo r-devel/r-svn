@@ -182,8 +182,13 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		Rboolean okay = FALSE;
 		switch (commonType) {
 		case CPLXSXP: okay = (valType == REALSXP) || (valType == INTSXP)
+				    || (valType == INT64SXP)
 				    || (valType == LGLSXP); break;
-		case REALSXP: okay = (valType == INTSXP) || (valType == LGLSXP); break;
+		case REALSXP: okay = (valType == INT64SXP)
+				    || (valType == INTSXP)
+				    || (valType == LGLSXP); break;
+		case INT64SXP: okay = (valType == INTSXP)
+				    || (valType == LGLSXP); break;
 		case INTSXP:  okay = (valType == LGLSXP); break;
 		}
 		if (!okay)

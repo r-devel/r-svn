@@ -324,10 +324,16 @@ static R_INLINE int int64_real_equal(R_int64_t x, double y)
 static R_INLINE int i64requal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (i < 0 || j < 0) return 0;
-    if (TYPEOF(x) == INT64SXP)
+    SEXPTYPE xt = TYPEOF(x), yt = TYPEOF(y);
+    if (xt == INT64SXP && yt == INT64SXP)
+	return i64equal(x, i, y, j);
+    if (xt == REALSXP && yt == REALSXP)
+	return requal(x, i, y, j);
+    if (xt == INT64SXP && yt == REALSXP)
 	return int64_real_equal(INT64_ELT(x, i), REAL_ELT(y, j));
-    else
+    if (xt == REALSXP && yt == INT64SXP)
 	return int64_real_equal(INT64_ELT(y, j), REAL_ELT(x, i));
+    return 0;
 }
 
 /* This is differentiating {NA,1}, {NA,0}, {NA, NaN}, {NA, NA},

@@ -4667,6 +4667,67 @@ static Rboolean parse_decimal_int64_literal(const char *s, R_int64_t *out)
     return TRUE;
 }
 
+static Rboolean decimal_int_literal_has_fraction(const char *s)
+{
+    const char *p = s;
+    Rboolean seen_digit = FALSE, seen_dot = FALSE;
+    size_t len = strlen(s), ndigits = 0, frac_digits = 0;
+    char *digits = (char *) R_alloc(len + 1, 1);
+
+    if (*p == '+' || *p == '-')
+	p++;
+    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+	return FALSE;
+
+    while (*p) {
+	if (*p >= '0' && *p <= '9') {
+	    digits[ndigits++] = *p;
+	    if (seen_dot) frac_digits++;
+	    seen_digit = TRUE;
+	    p++;
+	} else if (*p == '.' && !seen_dot) {
+	    seen_dot = TRUE;
+	    p++;
+	} else {
+	    break;
+	}
+    }
+    if (!seen_digit) return FALSE;
+
+    Rboolean exp_neg = FALSE;
+    long exp = 0;
+    if (*p == 'e' || *p == 'E') {
+	p++;
+	if (*p == '+' || *p == '-') {
+	    exp_neg = *p == '-';
+	    p++;
+	}
+	if (*p < '0' || *p > '9') return FALSE;
+	while (*p >= '0' && *p <= '9') {
+	    if (exp < 1000000) {
+		exp = 10 * exp + (*p - '0');
+		if (exp > 1000000) exp = 1000000;
+	    }
+	    p++;
+	}
+    }
+    if (*p == 'L') p++;
+    if (*p != '\0') return FALSE;
+
+    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
+    if (scale >= 0) return FALSE;
+
+    long trim = -scale;
+    if ((size_t) trim >= ndigits) {
+	for (size_t i = 0; i < ndigits; i++)
+	    if (digits[i] != '0') return TRUE;
+	return FALSE;
+    }
+    for (long i = 0; i < trim; i++)
+	if (digits[ndigits - 1 - (size_t) i] != '0') return TRUE;
+    return FALSE;
+}
+
 static SEXP mkInt(const char *s)
 {
     size_t len = strlen(s);
@@ -5098,12 +5159,11 @@ static int NumericValue(int c)
     YYTEXT_PUSH('\0', yyp);    
     /* Make certain that things are okay. */
     if(c == 'L') {
-	double a = R_atof(yytext);
 	/* We are asked to create an integer via the L, so we check that the
 	   double value is integer-valued. Range is checked when the literal is
 	   allocated, so int32 overflow can promote to int64.
 	*/
-	if(R_FINITE(a) && a != floor(a)) {
+	if(decimal_int_literal_has_fraction(yytext)) {
 	    if(GenerateCode) {
 		if(seendot == 1 && seenexp == 0)
 		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);
@@ -5114,6 +5174,20 @@ static int NumericValue(int c)
 	    }
 	    asNumeric = 1;
 	    seenexp = 1;
+	} else {
+	    double a = R_atof(yytext);
+	    if(R_FINITE(a) && a != floor(a)) {
+		if(GenerateCode) {
+		    if(seendot == 1 && seenexp == 0)
+			warning(_("integer literal %s contains decimal; using numeric value"), yytext);
+		    else {
+			/* hide the L for the warning message */
+			warning(_("non-integer value %s qualified with L; using numeric value"), yytext);
+		    }
+		}
+		asNumeric = 1;
+		seenexp = 1;
+	    }
 	}
     }
 

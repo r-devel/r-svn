@@ -96,12 +96,19 @@ integer literal 1.L contains unnecessary decimal point
 > i64_dim_matrix <- matrix(1:4, 2L)
 > i64_big <- as.int64("9007199254740993")
 > i64_big_rounded <- 9007199254740992
+> i64_real_collision_table <- c(4611686018427387904, 2)
 > min_int64_warning <- NULL
 > min_int64_from_real <- withCallingHandlers(as.int64(-9223372036854775808),
 +                                            warning = function(w) {
 +                                                min_int64_warning <<- conditionMessage(w)
 +                                                invokeRestart("muffleWarning")
 +                                            })
+> fractional_int64_warning <- NULL
+> fractional_int64_fallback <- withCallingHandlers(eval(parse(text = "9007199254740993.1L")),
++                                                  warning = function(w) {
++                                                      fractional_int64_warning <<- conditionMessage(w)
++                                                      invokeRestart("muffleWarning")
++                                                  })
 > stopifnot(
 +     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
 +     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -129,6 +136,8 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(format(as.int64(c("1", "2147483648", NA)), trim = TRUE),
 +               c("1", "2147483648", "NA")),
 +     identical(format.info(as.int64(c("1", "2147483648", NA))), 10L),
++     identical(capture.output(cat(as.int64(c("1", NA)), sep = "\n")),
++               c("1", "NA")),
 +     is.character(capture.output(data.frame(x = as.int64(c("1", "2"))))),
 +     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
 +     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
@@ -136,6 +145,7 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(match(i64_big, i64_big_rounded, nomatch = 0L), 0L),
 +     identical(match(i64_big_rounded, i64_big, nomatch = 0L), 0L),
 +     identical(match(i64_big_rounded, as.int64("9007199254740992"), nomatch = 0L), 1L),
++     identical(match(as.int64("2"), i64_real_collision_table, nomatch = 0L), 2L),
 +     identical(duplicated(as.int64(c("1", "1", NA, NA))), c(FALSE, TRUE, FALSE, TRUE)),
 +     identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2"))),
 +     identical(seq.int(as.int64("3")), 1:3),
@@ -185,6 +195,8 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(eval(parse(text = deparse(2147483648L))), 2147483648L),
 +     identical(9007199254740993e0L, as.int64("9007199254740993")),
 +     identical(9223372036854775807e0L, as.int64("9223372036854775807")),
++     typeof(fractional_int64_fallback) == "double",
++     grepl("contains decimal; using numeric value", fractional_int64_warning, fixed = TRUE),
 +     identical(eval(parse(text = deparse(as.int64("1")))), as.int64("1")),
 +     identical(eval(parse(text = deparse(as.int64(c("1", "2147483648", NA))))), as.int64(c("1", "2147483648", NA))),
 +     identical(eval(parse(text = deparse(i64_named))), i64_named),
@@ -209,6 +221,10 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(vapply(1:2, function(i) as.int64(i), as.int64(0)), as.int64(c("1", "2"))),
 +     identical(vapply(1:2, function(i) as.int64(c(i, i + 2L)), as.int64(c(0, 0))),
 +               matrix(as.int64(c("1", "3", "2", "4")), 2L)),
++     identical(vapply(1:2, identity, as.int64(0)), as.int64(c("1", "2"))),
++     identical(vapply(c(TRUE, FALSE), identity, as.int64(0)), as.int64(c("1", "0"))),
++     identical(vapply(1:2, function(i) as.int64(i), 0), c(1, 2)),
++     identical(vapply(1:2, function(i) as.int64(i), 0i), c(1+0i, 2+0i)),
 +     is.character(capture.output(matrix(as.int64("1"), 1L))),
 +     inherits(try(vector("list", as.int64("-2147483649")), silent = TRUE), "try-error"),
 +     inherits(try(i64_dim_matrix[[as.int64("4294967297"), 1L]], silent = TRUE), "try-error"),

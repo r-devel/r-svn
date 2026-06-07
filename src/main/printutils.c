@@ -840,6 +840,12 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
 	formatInteger(&INTEGER_RO(x)[indx], 1, &w);
 	res = EncodeInteger(INTEGER_RO(x)[indx], w);
 	break;
+    case INT64SXP: {
+	const R_int64_t *xp = INT64_RO(x);
+	formatInt64(&xp[indx], 1, &w);
+	res = EncodeInt64(xp[indx], w);
+	break;
+    }
     case REALSXP:
 	formatReal(&REAL_RO(x)[indx], 1, &w, &d, &e, 0);
 	res = EncodeReal0(REAL_RO(x)[indx], w, d, e, dec);

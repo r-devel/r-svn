@@ -174,13 +174,20 @@ const char *EncodeInt64(R_int64_t x, int w)
 attribute_hidden
 void formatInt64(const R_int64_t *px, R_xlen_t n, int *fieldwidth)
 {
-    int w = (int) strlen(CHAR(R_print.na_string));
+    int w = 1;
+    Rboolean naflag = FALSE;
     for (R_xlen_t i = 0; i < n; i++) {
-	if (px[i] != NA_INT64) {
+	if (px[i] == NA_INT64) {
+	    naflag = TRUE;
+	} else {
 	    char buf[64];
 	    int len = snprintf(buf, sizeof(buf), "%" PRId64, (int64_t) px[i]);
 	    if (len > w) w = len;
 	}
+    }
+    if (naflag) {
+	int na_width = (int) strlen(CHAR(R_print.na_string));
+	if (na_width > w) w = na_width;
     }
     *fieldwidth = w;
 }
