@@ -123,6 +123,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     commonType = TYPEOF(value);
     // check once here
     if (commonType != CPLXSXP && commonType != REALSXP &&
+	commonType != INT64SXP &&
 	commonType != INTSXP  && commonType != LGLSXP &&
 	commonType != RAWSXP  && commonType != STRSXP &&
 	commonType != VECSXP)
@@ -200,6 +201,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		switch (commonType) {
 		case CPLXSXP: COMPLEX(ans)[i] = COMPLEX(val)[0]; break;
 		case REALSXP: REAL(ans)   [i] = REAL   (val)[0]; break;
+		case INT64SXP: INT64(ans)[i] = INT64(val)[0]; break;
 		case INTSXP:  INTEGER(ans)[i] = INTEGER(val)[0]; break;
 		case LGLSXP:  LOGICAL(ans)[i] = LOGICAL(val)[0]; break;
 		case RAWSXP:  RAW(ans)    [i] = RAW    (val)[0]; break;
@@ -214,6 +216,9 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case INTSXP:
 		    memcpy(INTEGER(ans) + common_len_offset,
 			   INTEGER(val), commonLen * sizeof(int)); break;
+		case INT64SXP:
+		    memcpy(INT64(ans) + common_len_offset,
+			   INT64(val), commonLen * sizeof(R_int64_t)); break;
 		case LGLSXP:
 		    memcpy(LOGICAL(ans) + common_len_offset,
 			   LOGICAL(val), commonLen * sizeof(int)); break;

@@ -2267,6 +2267,97 @@ static SEXP mkFloat(const char *s)
     return ScalarReal(R_atof(s));
 }
 
+static Rboolean parse_decimal_int64_literal(const char *s, R_int64_t *out)
+{
+    const char *p = s;
+    Rboolean neg = FALSE, seen_digit = FALSE, seen_dot = FALSE;
+    size_t len = strlen(s), ndigits = 0, frac_digits = 0;
+    char *digits = (char *) R_alloc(len + 1, 1);
+
+    if (*p == '+' || *p == '-') {
+	neg = *p == '-';
+	p++;
+    }
+    while (*p) {
+	if (*p >= '0' && *p <= '9') {
+	    digits[ndigits++] = *p;
+	    if (seen_dot) frac_digits++;
+	    seen_digit = TRUE;
+	    p++;
+	} else if (*p == '.' && !seen_dot) {
+	    seen_dot = TRUE;
+	    p++;
+	} else {
+	    break;
+	}
+    }
+    if (!seen_digit) return FALSE;
+
+    Rboolean exp_neg = FALSE;
+    long exp = 0;
+    if (*p == 'e' || *p == 'E') {
+	p++;
+	if (*p == '+' || *p == '-') {
+	    exp_neg = *p == '-';
+	    p++;
+	}
+	if (*p < '0' || *p > '9') return FALSE;
+	while (*p >= '0' && *p <= '9') {
+	    if (exp < 1000000) {
+		exp = 10 * exp + (*p - '0');
+		if (exp > 1000000) exp = 1000000;
+	    }
+	    p++;
+	}
+    }
+    if (*p != '\0') return FALSE;
+
+    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
+    if (scale < 0) {
+	long trim = -scale;
+	if ((size_t) trim >= ndigits) {
+	    for (size_t i = 0; i < ndigits; i++)
+		if (digits[i] != '0') return FALSE;
+	    *out = 0;
+	    return TRUE;
+	}
+	for (long i = 0; i < trim; i++)
+	    if (digits[ndigits - 1 - (size_t) i] != '0') return FALSE;
+	ndigits -= (size_t) trim;
+	scale = 0;
+    }
+
+    size_t start = 0;
+    while (start < ndigits && digits[start] == '0') start++;
+    if (start == ndigits) {
+	*out = 0;
+	return TRUE;
+    }
+
+    uintmax_t limit = neg ?
+	(uintmax_t) R_INT64_MAX + 1 : (uintmax_t) R_INT64_MAX;
+    uintmax_t mag = 0;
+    for (size_t i = start; i < ndigits; i++) {
+	uintmax_t digit = (uintmax_t) (digits[i] - '0');
+	if (mag > (limit - digit) / 10) return FALSE;
+	mag = 10 * mag + digit;
+    }
+    while (scale-- > 0) {
+	if (mag > limit / 10) return FALSE;
+	mag *= 10;
+    }
+
+    if (neg) {
+	if (mag == (uintmax_t) R_INT64_MAX + 1)
+	    *out = R_INT64_MIN;
+	else
+	    *out = -(R_int64_t) mag;
+    } else {
+	*out = (R_int64_t) mag;
+    }
+    return TRUE;
+}
+
 static SEXP mkInt(const char *s)
 {
     size_t len = strlen(s);
@@ -2289,6 +2380,12 @@ static SEXP mkInt(const char *s)
 	    return ScalarInt64((R_int64_t) val);
 	}
     } else {
+	R_int64_t exact;
+	if (!is_hex && parse_decimal_int64_literal(buf, &exact)) {
+	    if (exact >= -INT_MAX && exact <= INT_MAX)
+		return ScalarInteger((int) exact);
+	    return ScalarInt64(exact);
+	}
 	double f = R_atof(s);
 	if (R_FINITE(f) && f >= (double) R_INT64_MIN &&
 	    f < (double) R_INT64_MAX) {
