@@ -153,6 +153,25 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
     }
 }
 
+static Rboolean seq_int64_by(SEXP s, R_int64_t *out)
+{
+    if (seq_int64_endpoint(s, out))
+	return TRUE;
+
+    if (TYPEOF(s) != REALSXP)
+	return FALSE;
+
+    double val = REAL(s)[0];
+    if (ISNAN(val) || val <= (double) NA_INT64 ||
+	val >= (double) R_INT64_MAX)
+	return FALSE;
+    R_int64_t ival = (R_int64_t) val;
+    if ((double) ival != val || ival == NA_INT64)
+	return FALSE;
+    *out = ival;
+    return TRUE;
+}
+
 static R_INLINE Rboolean seq_int64_fits_integer(R_int64_t x)
 {
     return x != NA_INT64 && x >= -INT_MAX && x <= INT_MAX;
@@ -1058,7 +1077,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 		R_int64_t i64from, i64to, i64by;
 		Rboolean ok_from = miss_from ? TRUE : seq_int64_endpoint(from, &i64from);
 		Rboolean ok_to = miss_to ? TRUE : seq_int64_endpoint(to, &i64to);
-		Rboolean ok_by = seq_int64_endpoint(by, &i64by);
+		Rboolean ok_by = seq_int64_by(by, &i64by);
 		if (miss_from) i64from = 1;
 		if (miss_to) i64to = 1;
 		if (ok_from && ok_to && ok_by) {

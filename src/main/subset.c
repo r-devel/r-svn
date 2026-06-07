@@ -201,7 +201,7 @@ static SEXP VectorSubset(SEXP x, SEXP s, SEXP call)
 		UNPROTECT(2); /* dnames, s */
 		PROTECT(s);
 	    }
-	    if (isInteger(s) || isReal(s)) {
+	    if (isInteger(s) || isReal(s) || TYPEOF(s) == INT64SXP) {
 		s = mat2indsub(dim, s, call, x);
 		UNPROTECT(1);
 		PROTECT(s);

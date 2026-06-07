@@ -499,22 +499,44 @@ attribute_hidden SEXP mat2indsub(SEXP dims, SEXP s, SEXP call, SEXP x)
 		}
 	    }
 	} else {
-	    s = coerceVector(s, INTSXP);
-	    const int *ps = INTEGER_RO(s);
-	    for (int i = 0; i < nrs; i++) {
-		R_xlen_t tdim = 1;
-		for (int j = 0; j < ndim; j++) {
-		    int k = ps[i + j * NR];
-		    if(k == NA_INTEGER) {rv[i] = NA_REAL; break;}
-		    if(k < 0) {
-			ECALL(call, _("negative values are not allowed in a matrix subscript"));
+	    if (TYPEOF(s) == INT64SXP) {
+		const R_int64_t *ps = INT64_RO(s);
+		for (int i = 0; i < nrs; i++) {
+		    R_xlen_t tdim = 1;
+		    for (int j = 0; j < ndim; j++) {
+			R_int64_t k = ps[i + j * NR];
+			if(k == NA_INT64) {rv[i] = NA_REAL; break;}
+			if(k < 0) {
+			    ECALL(call, _("negative values are not allowed in a matrix subscript"));
+			}
+			if(k == 0) {rv[i] = 0.; break;}
+			if (k > pdims[j]) {
+			    R_xlen_t kk = k > R_XLEN_T_MAX ?
+				R_XLEN_T_MAX : (R_xlen_t) k;
+			    ECALL_OutOfBounds(x, j, kk, call);
+			}
+			rv[i] += ((double) k - 1.) * tdim;
+			tdim *= pdims[j];
 		    }
-		    if(k == 0) {rv[i] = 0.; break;}
-		    if (k > pdims[j]) {
-			ECALL_OutOfBounds(x, j, k, call);
+		}
+	    } else {
+		s = coerceVector(s, INTSXP);
+		const int *ps = INTEGER_RO(s);
+		for (int i = 0; i < nrs; i++) {
+		    R_xlen_t tdim = 1;
+		    for (int j = 0; j < ndim; j++) {
+			int k = ps[i + j * NR];
+			if(k == NA_INTEGER) {rv[i] = NA_REAL; break;}
+			if(k < 0) {
+			    ECALL(call, _("negative values are not allowed in a matrix subscript"));
+			}
+			if(k == 0) {rv[i] = 0.; break;}
+			if (k > pdims[j]) {
+			    ECALL_OutOfBounds(x, j, k, call);
+			}
+			rv[i] += (double) ((k - 1) * tdim);
+			tdim *= pdims[j];
 		    }
-		    rv[i] += (double) ((k - 1) * tdim);
-		    tdim *= pdims[j];
 		}
 	    }
 	}
@@ -524,22 +546,44 @@ attribute_hidden SEXP mat2indsub(SEXP dims, SEXP s, SEXP call, SEXP x)
 	PROTECT(rvec = allocVector(INTSXP, nrs));
 	int *iv = INTEGER(rvec);
 	for (int i = 0; i < nrs; i++) iv[i] = 1; // 1-based.
-	s = coerceVector(s, INTSXP);
-	int *ps = INTEGER(s);
-	for (int i = 0; i < nrs; i++) {
-	    int tdim = 1;
-	    for (int j = 0; j < ndim; j++) {
-		int k = ps[i + j * NR];
-		if(k == NA_INTEGER) {iv[i] = NA_INTEGER; break;}
-		if(k < 0) {
-		    ECALL(call, _("negative values are not allowed in a matrix subscript"));
+	if (TYPEOF(s) == INT64SXP) {
+	    const R_int64_t *ps = INT64_RO(s);
+	    for (int i = 0; i < nrs; i++) {
+		int tdim = 1;
+		for (int j = 0; j < ndim; j++) {
+		    R_int64_t k = ps[i + j * NR];
+		    if(k == NA_INT64) {iv[i] = NA_INTEGER; break;}
+		    if(k < 0) {
+			ECALL(call, _("negative values are not allowed in a matrix subscript"));
+		    }
+		    if(k == 0) {iv[i] = 0; break;}
+		    if (k > pdims[j]) {
+			R_xlen_t kk = k > R_XLEN_T_MAX ?
+			    R_XLEN_T_MAX : (R_xlen_t) k;
+			ECALL_OutOfBounds(x, j, kk, call);
+		    }
+		    iv[i] += ((int) k - 1) * tdim;
+		    tdim *= pdims[j];
 		}
-		if(k == 0) {iv[i] = 0; break;}
-		if (k > pdims[j]) {
-		    ECALL_OutOfBounds(x, j, k, call);
+	    }
+	} else {
+	    s = coerceVector(s, INTSXP);
+	    int *ps = INTEGER(s);
+	    for (int i = 0; i < nrs; i++) {
+		int tdim = 1;
+		for (int j = 0; j < ndim; j++) {
+		    int k = ps[i + j * NR];
+		    if(k == NA_INTEGER) {iv[i] = NA_INTEGER; break;}
+		    if(k < 0) {
+			ECALL(call, _("negative values are not allowed in a matrix subscript"));
+		    }
+		    if(k == 0) {iv[i] = 0; break;}
+		    if (k > pdims[j]) {
+			ECALL_OutOfBounds(x, j, k, call);
+		    }
+		    iv[i] += (k - 1) * tdim;
+		    tdim *= pdims[j];
 		}
-		iv[i] += (k - 1) * tdim;
-		tdim *= pdims[j];
 	    }
 	}
     }

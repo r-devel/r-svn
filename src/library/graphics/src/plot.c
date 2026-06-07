@@ -463,6 +463,28 @@ SEXP C_plot_new(SEXP call, SEXP op, SEXP args, SEXP rho)
  *	interpreted function.  It has to be internal so that the
  *	full computation is captured in the display list.
  */
+static double plot_window_limit(SEXP lim, int pos, const char *what)
+{
+    switch(TYPEOF(lim)) {
+    case LGLSXP:
+	if (LOGICAL(lim)[pos] == NA_LOGICAL)
+	    error(_("NAs not allowed in '%s'"), what);
+	return LOGICAL(lim)[pos];
+    case INTSXP:
+	if (INTEGER(lim)[pos] == NA_INTEGER)
+	    error(_("NAs not allowed in '%s'"), what);
+	return INTEGER(lim)[pos];
+    case INT64SXP:
+	if (INT64(lim)[pos] == NA_INT64)
+	    error(_("NAs not allowed in '%s'"), what);
+	return (double) INT64(lim)[pos];
+    default:
+	if (!R_FINITE(REAL(lim)[pos]))
+	    error(_("need finite '%s' values"), what);
+	return REAL(lim)[pos];
+    }
+}
+
 SEXP C_plot_window(SEXP args)
 {
     args = CDR(args);
@@ -508,30 +530,10 @@ SEXP C_plot_window(SEXP args)
     ProcessInlinePars(args, dd);
 
     double xmin, xmax, ymin, ymax;
-    if (isInteger(xlim)) {
-	if (INTEGER(xlim)[0] == NA_INTEGER || INTEGER(xlim)[1] == NA_INTEGER)
-	    error(_("NAs not allowed in 'xlim'"));
-	xmin = INTEGER(xlim)[0];
-	xmax = INTEGER(xlim)[1];
-    }
-    else {
-	if (!R_FINITE(REAL(xlim)[0]) || !R_FINITE(REAL(xlim)[1]))
-	    error(_("need finite 'xlim' values"));
-	xmin = REAL(xlim)[0];
-	xmax = REAL(xlim)[1];
-    }
-    if (isInteger(ylim)) {
-	if (INTEGER(ylim)[0] == NA_INTEGER || INTEGER(ylim)[1] == NA_INTEGER)
-	    error(_("NAs not allowed in 'ylim'"));
-	ymin = INTEGER(ylim)[0];
-	ymax = INTEGER(ylim)[1];
-    }
-    else {
-	if (!R_FINITE(REAL(ylim)[0]) || !R_FINITE(REAL(ylim)[1]))
-	    error(_("need finite 'ylim' values"));
-	ymin = REAL(ylim)[0];
-	ymax = REAL(ylim)[1];
-    }
+    xmin = plot_window_limit(xlim, 0, "xlim");
+    xmax = plot_window_limit(xlim, 1, "xlim");
+    ymin = plot_window_limit(ylim, 0, "ylim");
+    ymax = plot_window_limit(ylim, 1, "ylim");
     if ((dpptr(dd)->xlog && (xmin < 0 || xmax < 0)) ||
 	(dpptr(dd)->ylog && (ymin < 0 || ymax < 0)))
 	    error(_("Logarithmic axis must have positive limits"));

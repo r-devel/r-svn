@@ -63,6 +63,9 @@ i64_real_cbind <- cbind(as.int64("2147483648"), 1.5)
 i64_real_rbind <- rbind(as.int64("2147483648"), 1.5)
 i64_list_cbind <- cbind(list(1), as.int64(c("2", "3")))
 i64_dim_matrix <- matrix(1:4, 2L)
+i64_subscript_matrix <- matrix(as.int64(c("2", "2")), ncol = 2L)
+i64_subscript_assignment <- i64_dim_matrix
+i64_subscript_assignment[i64_subscript_matrix] <- 9L
 i64_big <- as.int64("9007199254740993")
 i64_big_rounded <- 9007199254740992
 i64_real_collision_table <- c(4611686018427387904, 2)
@@ -155,6 +158,18 @@ stopifnot(
               as.int64(c("9223372036854775806", "9223372036854775807"))),
     identical(seq.int(9223372036854775806L, 9223372036854775807L, by = 1L),
               as.int64(c("9223372036854775806", "9223372036854775807"))),
+    identical(seq.int(9223372036854775806L, 9223372036854775807L, by = 1),
+              as.int64(c("9223372036854775806", "9223372036854775807"))),
+    local({
+        grDevices::pdf(NULL)
+        on.exit(grDevices::dev.off())
+        graphics::plot.new()
+        graphics::plot.window(xlim = as.int64(c("1", "2")), ylim = 0:1,
+                              xaxs = "i", yaxs = "i")
+        identical(graphics::par("usr"), c(1, 2, 0, 1))
+    }),
+    identical(i64_dim_matrix[i64_subscript_matrix], 4L),
+    identical(i64_subscript_assignment, matrix(c(1L, 2L, 3L, 9L), 2L)),
     identical(complete.cases(data.frame(x = as.int64(c("1", NA)))), c(TRUE, FALSE)),
     typeof(c(1L, 2L) + 1L) == "integer",
     typeof(c(1L, 2L) - 1L) == "integer",
