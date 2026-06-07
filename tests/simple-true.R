@@ -53,7 +53,10 @@ stopifnot(
     identical(rep(1L, times = as.int64("3")), rep(1L, 3L)),
     typeof(warned_int64) == "int64",
     is.na(warned_int64),
-    grepl("int64 range", int64_warning, fixed = TRUE)
+    grepl("int64 range", int64_warning, fixed = TRUE),
+    identical(as.int64("1.0"), as.int64("1")),
+    identical(as.int64("1e3"), as.int64("1000")),
+    identical(as.int64("0x10"), as.int64("16"))
 )
 
 i64_named <- as.int64("1")
@@ -210,6 +213,11 @@ stopifnot(
     identical(duplicated(as.int64(c("1", "1", NA, NA))), c(FALSE, TRUE, FALSE, TRUE)),
     identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2"))),
     identical(seq(as.int64("3")), 1:3),
+    identical(seq(as.int64("9007199254740993"), length.out = 2L),
+              as.int64(c("9007199254740993", "9007199254740994"))),
+    identical(seq(as.int64("9007199254740993"), as.int64("9007199254740994"),
+                  by = as.int64("1")),
+              as.int64(c("9007199254740993", "9007199254740994"))),
     identical(seq.int(as.int64("3")), 1:3),
     identical(9223372036854775806L:9223372036854775807L,
               as.int64(c("9223372036854775806", "9223372036854775807"))),

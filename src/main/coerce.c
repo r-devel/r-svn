@@ -30,7 +30,7 @@
 #include <Parse.h>
 #include <Defn.h> /*-- Maybe modularize into own Coerce.h ..*/
 #include <Internal.h>
-#include <errno.h>
+#include <ctype.h>
 #include <float.h> /* for DBL_DIG */
 #define R_MSG_mode	_("invalid 'mode' argument")
 #define R_MSG_list_vec	_("applies only to lists and vectors")
@@ -252,21 +252,111 @@ Int64FromComplex(Rcomplex x, int *warn)
     return val;
 }
 
+static Rboolean Int64FromDecimalStringExact(const char *s, R_int64_t *out)
+{
+    const char *p = s;
+    while (isspace((unsigned char) *p)) p++;
+
+    Rboolean neg = FALSE, seen_digit = FALSE, seen_dot = FALSE;
+    if (*p == '+' || *p == '-') {
+	neg = *p == '-';
+	p++;
+    }
+
+    const char *mantissa = p;
+    size_t ndigits = 0, frac_digits = 0;
+    while (*p) {
+	if (*p >= '0' && *p <= '9') {
+	    ndigits++;
+	    if (seen_dot) frac_digits++;
+	    seen_digit = TRUE;
+	    p++;
+	} else if (*p == '.' && !seen_dot) {
+	    seen_dot = TRUE;
+	    p++;
+	} else {
+	    break;
+	}
+    }
+    const char *mantissa_end = p;
+    if (!seen_digit) return FALSE;
+
+    Rboolean exp_neg = FALSE;
+    long exp = 0;
+    if (*p == 'e' || *p == 'E') {
+	p++;
+	if (*p == '+' || *p == '-') {
+	    exp_neg = *p == '-';
+	    p++;
+	}
+	if (*p < '0' || *p > '9') return FALSE;
+	while (*p >= '0' && *p <= '9') {
+	    if (exp < 1000000) {
+		exp = 10 * exp + (*p - '0');
+		if (exp > 1000000) exp = 1000000;
+	    }
+	    p++;
+	}
+    }
+    if (!isBlankString(p)) return FALSE;
+
+    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
+    size_t digits_to_use = ndigits;
+    if (scale < 0) {
+	long trim = -scale;
+	if ((size_t) trim >= ndigits) {
+	    for (const char *q = mantissa; q < mantissa_end; q++)
+		if (*q >= '1' && *q <= '9') return FALSE;
+	    *out = 0;
+	    return TRUE;
+	}
+	digits_to_use -= (size_t) trim;
+	size_t i = 0;
+	for (const char *q = mantissa; q < mantissa_end; q++) {
+	    if (*q < '0' || *q > '9') continue;
+	    if (i++ >= digits_to_use && *q != '0') return FALSE;
+	}
+	scale = 0;
+    }
+
+    uintmax_t limit = (uintmax_t) R_INT64_MAX;
+    uintmax_t mag = 0;
+    Rboolean seen_nonzero = FALSE;
+    size_t i = 0;
+    for (const char *q = mantissa; q < mantissa_end; q++) {
+	if (*q < '0' || *q > '9') continue;
+	if (i++ >= digits_to_use) break;
+	uintmax_t digit = (uintmax_t) (*q - '0');
+	if (!seen_nonzero && digit == 0) continue;
+	seen_nonzero = TRUE;
+	if (mag > (limit - digit) / 10) return FALSE;
+	mag = 10 * mag + digit;
+    }
+    if (!seen_nonzero) {
+	*out = 0;
+	return TRUE;
+    }
+    while (scale-- > 0) {
+	if (mag > limit / 10) return FALSE;
+	mag *= 10;
+    }
+
+    *out = neg ? -(R_int64_t) mag : (R_int64_t) mag;
+    return TRUE;
+}
+
 R_int64_t attribute_hidden
 Int64FromString(SEXP x, int *warn)
 {
     if (x != R_NaString && !isBlankString(CHAR(x))) {
 	const char *p = CHAR(x);
+	R_int64_t val;
+	if (Int64FromDecimalStringExact(p, &val))
+	    return val;
 	char *endp;
-	errno = 0;
-	intmax_t val = strtoimax(p, &endp, 10);
-	if (isBlankString(endp)) {
-	    if (errno == ERANGE || val < R_INT64_MIN || val > R_INT64_MAX) {
-		*warn |= WARN_INT64_NA;
-		return NA_INT64;
-	    }
-	    return (R_int64_t) val;
-	}
+	double xdouble = R_strtod(p, &endp);
+	if (isBlankString(endp))
+	    return Int64FromReal(xdouble, warn);
 	else *warn |= WARN_NA;
     }
     return NA_INT64;

@@ -23,6 +23,7 @@ seq.default <-
              length.out = NULL, along.with = NULL, ...)
 {
     is.logint <- function(.) (is.integer(.) || is.logical(.)) && !is.object(.)
+    is.int64 <- function(.) typeof(.) == "int64" && !is.object(.)
     if((One <- nargs() == 1L) && !missing(from)) {
 	lf <- length(from)
 	return(if((mode(from) == "numeric" || typeof(from) == "int64") && lf == 1L) {
@@ -54,6 +55,17 @@ seq.default <-
     if (!missing(to) &&
         !is.finite(if(is.character(to)) to <- as.numeric(to) else to))
 	stop("'to' must be a finite number")
+    if((!missing(from) && is.int64(from)) ||
+       (!missing(to) && is.int64(to)) ||
+       (!missing(by) && is.int64(by))) {
+	seq_args <- list()
+	if(!missing(from)) seq_args$from <- from
+	if(!missing(to)) seq_args$to <- to
+	if(!missing(by)) seq_args$by <- by
+	if(!is.null(length.out)) seq_args$length.out <- length.out
+	if(!missing(along.with)) seq_args$along.with <- along.with
+	return(do.call(seq.int, seq_args))
+    }
     if(is.null(length.out))
 	if(missing(by))
 	    from:to
