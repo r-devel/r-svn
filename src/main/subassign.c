@@ -2068,6 +2068,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 1905:  /* vector     <- promise    */
 	case 1906:  /* vector     <- language   */
 	case 1910:  /* vector     <- logical    */
+	case 1911:  /* vector     <- int64      */
 	case 1913:  /* vector     <- integer    */
 	case 1914:  /* vector     <- real       */
 	case 1915:  /* vector     <- complex    */
@@ -2086,6 +2087,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 2002:	/* expression <- pairlist   */
 	case 2006:	/* expression <- language   */
 	case 2010:	/* expression <- logical    */
+	case 2011:	/* expression <- int64      */
 	case 2013:	/* expression <- integer    */
 	case 2014:	/* expression <- real	    */
 	case 2015:	/* expression <- complex    */

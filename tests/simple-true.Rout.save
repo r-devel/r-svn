@@ -193,6 +193,8 @@ integer literal 1.L contains unnecessary decimal point
 +               as.int64(c("9223372036854775806", "9223372036854775807"))),
 +     identical(seq.int(9223372036854775806L, 9223372036854775807L, by = 1),
 +               as.int64(c("9223372036854775806", "9223372036854775807"))),
++     identical(seq.int(as.int64("9007199254740993"), length.out = 2L),
++               as.int64(c("9007199254740993", "9007199254740994"))),
 +     local({
 +         grDevices::pdf(NULL)
 +         on.exit(grDevices::dev.off())
@@ -217,6 +219,8 @@ integer literal 1.L contains unnecessary decimal point
 +     is.character(min_int64_warning),
 +     grepl("int64 range", min_int64_warning, fixed = TRUE),
 +     { z <- as.int64("1"); z[1] <- as.int64("2"); identical(z, as.int64("2")) },
++     { z <- list(1L); z[[1]] <- as.int64("9007199254740993"); identical(z[[1]], as.int64("9007199254740993")) },
++     { z <- expression(1L); z[[1]] <- as.int64("9007199254740993"); identical(z[[1]], as.int64("9007199254740993")) },
 +     { z <- matrix(as.int64("1"), 1L); z[1, 1] <- as.int64("2"); identical(z, matrix(as.int64("2"), 1L)) },
 +     { z <- array(as.int64("1"), c(1L, 1L, 1L)); z[1, 1, 1] <- as.int64("2"); identical(z, array(as.int64("2"), c(1L, 1L, 1L))) },
 +     identical(sum(as.int64(c("1", "2"))), 3),

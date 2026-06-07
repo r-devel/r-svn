@@ -177,6 +177,128 @@ static R_INLINE Rboolean seq_int64_fits_integer(R_int64_t x)
     return x != NA_INT64 && x >= -INT_MAX && x <= INT_MAX;
 }
 
+static R_INLINE Rboolean seq_int64_add_ok(R_int64_t x, R_int64_t y,
+					  R_int64_t *out)
+{
+    if ((y > 0 && x > R_INT64_MAX - y) ||
+	(y < 0 && x < R_INT64_MIN - y))
+	return FALSE;
+    *out = x + y;
+    return TRUE;
+}
+
+static R_INLINE Rboolean seq_int64_sub_ok(R_int64_t x, R_int64_t y,
+					  R_int64_t *out)
+{
+    if ((y > 0 && x < R_INT64_MIN + y) ||
+	(y < 0 && x > R_INT64_MAX + y))
+	return FALSE;
+    *out = x - y;
+    return TRUE;
+}
+
+static R_INLINE Rboolean seq_int64_mul_xlen_ok(R_int64_t x, R_xlen_t y,
+					       R_int64_t *out)
+{
+#ifdef __SIZEOF_INT128__
+    __int128 z = (__int128) x * (__int128) y;
+    if (z < R_INT64_MIN || z > R_INT64_MAX)
+	return FALSE;
+    *out = (R_int64_t) z;
+    return TRUE;
+#else
+    if (y == 0) {
+	*out = 0;
+	return TRUE;
+    }
+    if ((x > 0 && y > R_INT64_MAX / x) ||
+	(x < 0 && y > R_INT64_MIN / x))
+	return FALSE;
+    *out = x * (R_int64_t) y;
+    return TRUE;
+#endif
+}
+
+static SEXP seq_int64_by_length(R_int64_t from, R_int64_t by, R_xlen_t n,
+				SEXP call)
+{
+    R_int64_t last = from;
+    if (n > 1) {
+	R_int64_t step;
+	if (!seq_int64_mul_xlen_ok(by, n - 1, &step) ||
+	    !seq_int64_add_ok(from, step, &last))
+	    errorcall(call, _("result would be too long a vector"));
+    }
+
+    Rboolean useInt = seq_int64_fits_integer(from) &&
+	seq_int64_fits_integer(last) &&
+	(n <= 1 || seq_int64_fits_integer(by));
+    SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, n);
+    R_int64_t value = from;
+    if (useInt) {
+	int *pa = INTEGER(ans);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    pa[i] = (int) value;
+	    if (i + 1 < n) value += by;
+	}
+    } else {
+	R_int64_t *pa = INT64(ans);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    pa[i] = value;
+	    if (i + 1 < n) value += by;
+	}
+    }
+    return ans;
+}
+
+static SEXP seq_int64_to_by_length(R_int64_t to, R_int64_t by, R_xlen_t n,
+				   SEXP call)
+{
+    R_int64_t step, from;
+    if (!seq_int64_mul_xlen_ok(by, n - 1, &step) ||
+	!seq_int64_sub_ok(to, step, &from))
+	errorcall(call, _("result would be too long a vector"));
+    return seq_int64_by_length(from, by, n, call);
+}
+
+static SEXP seq_int64_endpoints_length(R_int64_t from, R_int64_t to,
+				       R_xlen_t n, SEXP call)
+{
+    if (n == 1)
+	return seq_int64_fits_integer(from) ?
+	    ScalarInteger((int) from) : ScalarInt64(from);
+
+    if (n == 2) {
+	Rboolean useInt = seq_int64_fits_integer(from) &&
+	    seq_int64_fits_integer(to);
+	SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, 2);
+	if (useInt) {
+	    INTEGER(ans)[0] = (int) from;
+	    INTEGER(ans)[1] = (int) to;
+	} else {
+	    INT64(ans)[0] = from;
+	    INT64(ans)[1] = to;
+	}
+	return ans;
+    }
+
+#ifdef __SIZEOF_INT128__
+    __int128 diff = (__int128) to - (__int128) from;
+    __int128 denom = (__int128) n - 1;
+    if (diff % denom != 0)
+	return R_NilValue;
+    __int128 by = diff / denom;
+    if (by < R_INT64_MIN || by > R_INT64_MAX)
+	return R_NilValue;
+    return seq_int64_by_length(from, (R_int64_t) by, n, call);
+#else
+    R_int64_t diff;
+    if (!seq_int64_sub_ok(to, from, &diff) || diff % (n - 1) != 0)
+	return R_NilValue;
+    return seq_int64_by_length(from, diff / (n - 1), n, call);
+#endif
+}
+
 static SEXP seq_colon_int64(R_int64_t n1, R_int64_t n2, SEXP call)
 {
     uint64_t r = n1 <= n2 ?
@@ -1167,6 +1289,35 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
     } else if (One) {
 	ans = seq_colon(1.0, (double)lout, call);
     } else if (by == R_MissingArg) { // and  len := length.out  specified, >= 1
+	if ((!miss_from && TYPEOF(from) == INT64SXP) ||
+	    (!miss_to && TYPEOF(to) == INT64SXP)) {
+	    R_int64_t i64from, i64to;
+	    Rboolean ok_from = miss_from ? TRUE :
+		(length(from) == 1 && seq_int64_endpoint(from, &i64from));
+	    Rboolean ok_to = miss_to ? TRUE :
+		(length(to) == 1 && seq_int64_endpoint(to, &i64to));
+	    if (ok_from && ok_to) {
+		if (miss_to) {
+		    if (i64from == NA_INT64)
+			errorcall(call, _("'%s' must be a finite number"), "from");
+		    ans = seq_int64_by_length(i64from, 1, lout, call);
+		    goto done;
+		}
+		if (miss_from) {
+		    if (i64to == NA_INT64)
+			errorcall(call, _("'%s' must be a finite number"), "to");
+		    ans = seq_int64_to_by_length(i64to, 1, lout, call);
+		    goto done;
+		}
+		if (i64from == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "from");
+		if (i64to == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "to");
+		ans = seq_int64_endpoints_length(i64from, i64to, lout, call);
+		if (ans != R_NilValue)
+		    goto done;
+	    }
+	}
 	double rfrom = asReal(from), rto = asReal(to), rby = 0; // -Wall
 	if(miss_to)   rto   = rfrom + (double)lout - 1;
 	if(miss_from) rfrom = rto   - (double)lout + 1;
@@ -1214,6 +1365,22 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    }
 	}
     } else if (miss_to) {
+	if (((!miss_from && TYPEOF(from) == INT64SXP) ||
+	     TYPEOF(by) == INT64SXP) && length(by) == 1) {
+	    R_int64_t i64from, i64by;
+	    Rboolean ok_from = miss_from ? TRUE :
+		(length(from) == 1 && seq_int64_endpoint(from, &i64from));
+	    Rboolean ok_by = seq_int64_by(by, &i64by);
+	    if (miss_from) i64from = 1;
+	    if (ok_from && ok_by) {
+		if (i64from == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "from");
+		if (i64by == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "by");
+		ans = seq_int64_by_length(i64from, i64by, lout, call);
+		goto done;
+	    }
+	}
 	double rfrom = asReal(from), rby = asReal(by), rto;
 	if(miss_from) rfrom = 1.0;
 	if(!R_FINITE(rfrom)) errorcall(call, _("'%s' must be a finite number"), "from");
@@ -1236,6 +1403,20 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    }
 	}
     } else if (miss_from) {
+	if ((TYPEOF(to) == INT64SXP || TYPEOF(by) == INT64SXP) &&
+	    length(by) == 1) {
+	    R_int64_t i64to, i64by;
+	    Rboolean ok_to = length(to) == 1 && seq_int64_endpoint(to, &i64to);
+	    Rboolean ok_by = seq_int64_by(by, &i64by);
+	    if (ok_to && ok_by) {
+		if (i64to == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "to");
+		if (i64by == NA_INT64)
+		    errorcall(call, _("'%s' must be a finite number"), "by");
+		ans = seq_int64_to_by_length(i64to, i64by, lout, call);
+		goto done;
+	    }
+	}
 	double rto = asReal(to), rby = asReal(by),
 	    rfrom = rto - (double)(lout-1)*rby;
 	if(!R_FINITE(rto)) errorcall(call, _("'%s' must be a finite number"), "to");
