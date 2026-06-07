@@ -93,6 +93,10 @@ static R_size_t objectsize(SEXP s)
 	vcnt = INT2VEC(xlength(s));
 	isVec = TRUE;
 	break;
+    case INT64SXP:
+	vcnt = FLOAT2VEC(xlength(s));
+	isVec = TRUE;
+	break;
     case REALSXP:
 	vcnt = FLOAT2VEC(xlength(s));
 	isVec = TRUE;

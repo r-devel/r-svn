@@ -73,6 +73,24 @@ static SEXP icumsum(SEXP x, SEXP s)
     return s;
 }
 
+static SEXP i64cumsum(SEXP x, SEXP s)
+{
+    const R_int64_t *ix = INT64_RO(x);
+    R_int64_t *is = INT64(s);
+    R_int64_t sum = 0;
+    for (R_xlen_t i = 0 ; i < XLENGTH(x) ; i++) {
+	if (ix[i] == NA_INT64) break;
+	if ((ix[i] > 0 && sum > R_INT64_MAX - ix[i]) ||
+	    (ix[i] < 0 && sum < R_INT64_MIN - ix[i])) {
+	    warning(_("int64 overflow in 'cumsum'; use 'cumsum(as.numeric(.))'"));
+	    break;
+	}
+	sum += ix[i];
+	is[i] = sum;
+    }
+    return s;
+}
+
 /* For complex result: recompute once we know one of the result's {re, im} fulfills  ISNAN(.),
    (speed optimized for the case of *no* NA|NaN) : */
 static SEXP chandleNaN(SEXP x, SEXP s, Rboolean r_isN, Rboolean i_isN)
@@ -191,6 +209,33 @@ static SEXP icummin(SEXP x, SEXP s)
     return s;
 }
 
+static SEXP i64cummax(SEXP x, SEXP s)
+{
+    const R_int64_t *ix = INT64_RO(x);
+    if(ix[0] == NA_INT64)
+	return s; // all NA
+    R_int64_t *is = INT64(s), max = ix[0];
+    is[0] = max;
+    for (R_xlen_t i = 1 ; i < XLENGTH(x) ; i++) {
+	if(ix[i] == NA_INT64) break;
+	is[i] = max = (max > ix[i]) ? max : ix[i];
+    }
+    return s;
+}
+
+static SEXP i64cummin(SEXP x, SEXP s)
+{
+    const R_int64_t *ix = INT64_RO(x);
+    R_int64_t *is = INT64(s);
+    R_int64_t min = ix[0];
+    is[0] = min;
+    for (R_xlen_t i = 1 ; i < XLENGTH(x) ; i++ ) {
+	if(ix[i] == NA_INT64) break;
+	is[i] = min = (min < ix[i]) ? min : ix[i];
+    }
+    return s;
+}
+
 attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP s, t, ans;
@@ -242,6 +287,32 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	case 4: /* cummin */
 	    ans = icummin(t,s);
+	    break;
+	default:
+	    errorcall(call, _("unknown cumxxx function"));
+	    ans = R_NilValue;
+	}
+	UNPROTECT(2); /* t, s */
+	return ans;
+    } else if(TYPEOF(CAR(args)) == INT64SXP && PRIMVAL(op) != 2) {
+	PROTECT(t = coerceVector(CAR(args), INT64SXP));
+	n = XLENGTH(t);
+	PROTECT(s = allocVector(INT64SXP, n));
+	setAttrib(s, R_NamesSymbol, getAttrib(t, R_NamesSymbol));
+	if(n == 0) {
+	    UNPROTECT(2); /* t, s */
+	    return s;
+	}
+	for(i = 0 ; i < n ; i++) INT64(s)[i] = NA_INT64;
+	switch (PRIMVAL(op) ) {
+	case 1:	/* cumsum */
+	    ans = i64cumsum(t,s);
+	    break;
+	case 3: /* cummax */
+	    ans = i64cummax(t,s);
+	    break;
+	case 4: /* cummin */
+	    ans = i64cummin(t,s);
 	    break;
 	default:
 	    errorcall(call, _("unknown cumxxx function"));

@@ -62,6 +62,7 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
 	       else all.equal.list(target, current, ...))
     }
     msg <- switch (mode(target),
+                   int64     = all.equal.raw      (target, current, ...),
                    integer   = ,
                    complex   = ,
                    numeric   = all.equal.numeric  (target, current, ...),

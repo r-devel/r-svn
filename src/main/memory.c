@@ -1122,6 +1122,9 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
     case INTSXP:
 	size = XLENGTH(s) * sizeof(int);
 	break;
+    case INT64SXP:
+	size = XLENGTH(s) * sizeof(R_int64_t);
+	break;
     case REALSXP:
 	size = XLENGTH(s) * sizeof(double);
 	break;
