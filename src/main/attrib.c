@@ -428,7 +428,9 @@ attribute_hidden
 SEXP tspgets(SEXP vec, SEXP val)
 {
     double start, end, frequency;
+    SEXP dval = val;
     int n;
+    int nprotect = 0;
 
     if (vec == R_NilValue)
 	error(_("attempt to set an attribute on NULL"));
@@ -443,19 +445,13 @@ SEXP tspgets(SEXP vec, SEXP val)
     if (!isNumeric(val) || LENGTH(val) != 3)
 	error(_("'tsp' attribute must be numeric of length three"));
 
-    if (isReal(val)) {
-	start = REAL(val)[0];
-	end = REAL(val)[1];
-	frequency = REAL(val)[2];
+    if (!isReal(dval)) {
+	PROTECT(dval = coerceVector(dval, REALSXP));
+	nprotect++;
     }
-    else {
-	start = (INTEGER(val)[0] == NA_INTEGER) ?
-	    NA_REAL : INTEGER(val)[0];
-	end = (INTEGER(val)[1] == NA_INTEGER) ?
-	    NA_REAL : INTEGER(val)[1];
-	frequency = (INTEGER(val)[2] == NA_INTEGER) ?
-	    NA_REAL : INTEGER(val)[2];
-    }
+    start = REAL(dval)[0];
+    end = REAL(dval)[1];
+    frequency = REAL(dval)[2];
     if (frequency <= 0) badtsp();
     n = nrows(vec);
     if (n == 0) error(_("cannot assign 'tsp' to zero-length vector"));
@@ -465,13 +461,15 @@ SEXP tspgets(SEXP vec, SEXP val)
 	badtsp();
 
     PROTECT(vec);
+    nprotect++;
     val = allocVector(REALSXP, 3);
     PROTECT(val);
+    nprotect++;
     REAL(val)[0] = start;
     REAL(val)[1] = end;
     REAL(val)[2] = frequency;
     installAttrib(vec, R_TspSymbol, val);
-    UNPROTECT(2);
+    UNPROTECT(nprotect);
     return vec;
 }
 

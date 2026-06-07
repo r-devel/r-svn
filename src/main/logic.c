@@ -225,6 +225,17 @@ static SEXP lunary(SEXP call, SEXP op, SEXP arg)
 	    }
 	}
 	break;
+    case INT64SXP:
+	{
+	    int *px = LOGICAL(x);
+	    const R_int64_t *parg = INT64_RO(arg);
+	    for (i = 0; i < len; i++) {
+//	        if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+		R_int64_t v = parg[i];
+		px[i] = (v == NA_INT64) ? NA_LOGICAL : v == 0;
+	    }
+	}
+	break;
     case REALSXP:
 	{
 	    int *px = LOGICAL(x);

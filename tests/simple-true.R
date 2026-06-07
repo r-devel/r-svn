@@ -65,6 +65,7 @@ stopifnot(
     identical(as.int64("9223372036854775807") < as.int64("-1"), FALSE),
     identical(as.int64("2") > 1L, TRUE),
     is.na(as.int64(NA) == as.int64(NA)),
+    identical(!as.int64(c("0", "2", NA)), c(TRUE, FALSE, NA)),
     typeof(i64_cbind) == "int64",
     identical(dim(i64_cbind), c(1L, 1L)),
     identical(unname(i64_cbind[1, 1]), as.int64("1")),
@@ -101,6 +102,7 @@ stopifnot(
     identical(array(as.int64("1"), 3L), structure(rep(as.int64("1"), 3L), dim = 3L)),
     identical(array(as.int64(NA), 3L), structure(rep(as.int64(NA), 3L), dim = 3L)),
     { z <- as.int64("1"); length(z) <- 3L; identical(z, c(as.int64("1"), as.int64(NA), as.int64(NA))) },
+    { z <- 1:3; tsp(z) <- as.int64(c("1", "3", "1")); identical(tsp(z), c(1, 3, 1)) },
     is.character(capture.output(matrix(as.int64("1"), 1L))),
     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 )
