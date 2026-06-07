@@ -148,6 +148,30 @@ static Rboolean risum(SEXP sx, double *value, Rboolean narm)
     return updated;
 }
 
+static Rboolean i64sum(SEXP sx, double *value, Rboolean narm)
+{
+    LDOUBLE s = 0.0;
+    Rboolean updated = FALSE;
+    const R_int64_t *x = INT64_RO(sx);
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	if (x[k] != NA_INT64) {
+	    if(!updated) updated = TRUE;
+	    s += (double) x[k];
+	} else if (!narm) {
+	    if(!updated) updated = TRUE;
+	    *value = NA_REAL;
+	    return updated;
+	}
+    }
+    if(s > DBL_MAX) *value = R_PosInf;
+    else if (s < -DBL_MAX) *value = R_NegInf;
+    else *value = (double) s;
+
+    return updated;
+}
+
 
 static Rboolean rsum(SEXP sx, double *value, Rboolean narm)
 {
@@ -236,6 +260,29 @@ static Rboolean rmin(SEXP sx, double *value, Rboolean narm)
     return updated;
 }
 
+static Rboolean i64min(SEXP sx, double *value, Rboolean narm)
+{
+    R_int64_t s = 0;
+    Rboolean updated = FALSE;
+    const R_int64_t *x = INT64_RO(sx);
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	if (x[k] != NA_INT64) {
+	    if (!updated || s > x[k]) {
+		s = x[k];
+		if(!updated) updated = TRUE;
+	    }
+	}
+	else if (!narm) {
+	    *value = NA_REAL;
+	    return(TRUE);
+	}
+    }
+    *value = (double) s;
+    return updated;
+}
+
 static Rboolean smin(SEXP x, SEXP *value, Rboolean narm)
 {
     SEXP s = NA_STRING; /* -Wall */
@@ -306,6 +353,28 @@ static Rboolean rmax(SEXP sx, double *value, Rboolean narm)
     return updated;
 }
 
+static Rboolean i64max(SEXP sx, double *value, Rboolean narm)
+{
+    R_int64_t s = 0;
+    Rboolean updated = FALSE;
+    const R_int64_t *x = INT64_RO(sx);
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	if (x[k] != NA_INT64) {
+	    if (!updated || s < x[k]) {
+		s = x[k];
+		if(!updated) updated = TRUE;
+	    }
+	} else if (!narm) {
+	    *value = NA_REAL;
+	    return(TRUE);
+	}
+    }
+    *value = (double) s;
+    return updated;
+}
+
 static Rboolean smax(SEXP x, SEXP *value, Rboolean narm)
 {
     SEXP s = NA_STRING; /* -Wall */
@@ -357,6 +426,37 @@ static Rboolean iprod(SEXP sx, double *value, Rboolean narm)
 	});
 
     // This could over/underflow (does in package POT)
+    if(s > DBL_MAX) *value = R_PosInf;
+    else if (s < -DBL_MAX) *value = R_NegInf;
+    else *value = (double) s;
+
+    return updated;
+}
+
+static Rboolean i64prod(SEXP sx, double *value, Rboolean narm)
+{
+    LDOUBLE s = 1.0;
+    Rboolean updated = FALSE;
+    const R_int64_t *x = INT64_RO(sx);
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	if (x[k] != NA_INT64) {
+	    s *= (double) x[k];
+	    if(!updated) updated = TRUE;
+	}
+	else if (!narm) {
+	    if(!updated) updated = TRUE;
+	    *value = NA_REAL;
+	    return updated;
+	}
+
+	if(ISNAN(s)) {
+	    *value = NA_REAL;
+	    return updated;
+	}
+    }
+
     if(s > DBL_MAX) *value = R_PosInf;
     else if (s < -DBL_MAX) *value = R_NegInf;
     else *value = (double) s;
@@ -476,6 +576,19 @@ static R_INLINE SEXP integer_mean(SEXP x)
     return ScalarReal((double) (s/n));
 }
 
+static R_INLINE SEXP int64_mean(SEXP x)
+{
+    R_xlen_t n = XLENGTH(x);
+    LDOUBLE s = 0.0;
+    const R_int64_t *dx = INT64_RO(x);
+    for (R_xlen_t k = 0; k < n; k++) {
+	if(dx[k] == NA_INT64)
+	    return ScalarReal(R_NaReal);
+	s += (double) dx[k];
+    }
+    return ScalarReal((double) (s/n));
+}
+
 static R_INLINE SEXP real_mean(SEXP x)
 {
     R_xlen_t n = XLENGTH(x);
@@ -549,6 +662,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	switch(TYPEOF(x)) {
 	case LGLSXP:  return logical_mean(x);
 	case INTSXP:  return integer_mean(x);
+	case INT64SXP: return int64_mean(x);
 	case REALSXP: return real_mean(x);
 	case CPLXSXP: return complex_mean(x);
 	default:
@@ -642,6 +756,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    case LGLSXP:
 	    case NILSXP:
 		break;
+	    case INT64SXP:
+		real_a = TRUE;
+		break;
 	    case REALSXP:
 		real_a = TRUE;
 		break;
@@ -713,6 +830,15 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		    int_a = TRUE;
 		    if (iop == 2) updated = imin(a, &itmp, narm);
 		    else	  updated = imax(a, &itmp, narm);
+		    break;
+		case INT64SXP:
+		    real_a = TRUE;
+		    if(ans_type == INTSXP) {/* change to REAL */
+			ans_type = REALSXP;
+			if(!empty) zcum.r = Int2Real(icum);
+		    }
+		    if (iop == 2) updated = i64min(a, &tmp, narm);
+		    else	  updated = i64max(a, &tmp, narm);
 		    break;
 		case REALSXP:
 		    real_a = TRUE;
@@ -862,6 +988,16 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			zcum.r += tmp;
 		    }
 		    break;
+		case INT64SXP:
+		    if(ans_type == INTSXP) {
+			ans_type = REALSXP;
+			if(!empty) zcum.r = Int2Real(iLcum);
+		    }
+		    updated = i64sum(a, &tmp, narm);
+		    if(updated) {
+			zcum.r += tmp;
+		    }
+		    break;
 		case CPLXSXP:
 		    if(ans_type == INTSXP) {
 			ans_type = CPLXSXP;
@@ -885,9 +1021,12 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		switch(TYPEOF(a)) {
 		case LGLSXP:
 		case INTSXP:
+		case INT64SXP:
 		case REALSXP:
 		    if(TYPEOF(a) == REALSXP)
 			updated = rprod(a, &tmp, narm);
+		    else if(TYPEOF(a) == INT64SXP)
+			updated = i64prod(a, &tmp, narm);
 		    else
 			updated = iprod(a, &tmp, narm);
 		    if(updated) {
@@ -919,6 +1058,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	       e.g. list() or raw() */
 	    switch(TYPEOF(a)) {
 	    case LGLSXP:
+	    case INT64SXP:
 	    case INTSXP:
 	    case REALSXP:
 	    case NILSXP:  /* OK historically, e.g. PR#1283 */

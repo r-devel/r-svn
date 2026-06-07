@@ -887,8 +887,88 @@ static void OutStringVec(R_outpstream_t stream, SEXP s, SEXP ref_table)
 #include <rpc/xdr.h>
 
 #define CHUNK_SIZE 8096
+#define R_XDR_INT64_SIZE 8
 
 #define min2(a, b) ((a) < (b)) ? (a) : (b)
+
+static R_INLINE void
+R_XDREncodeInt64(R_int64_t i, void *buf)
+{
+    char *p = buf;
+    uint64_t u = (uint64_t) i;
+    R_XDREncodeInteger((int)(u >> 32), p);
+    R_XDREncodeInteger((int)(u & 0xffffffffu), p + R_XDR_INTEGER_SIZE);
+}
+
+static R_INLINE R_int64_t
+R_XDRDecodeInt64(void *buf)
+{
+    char *p = buf;
+    uint64_t hi = (uint32_t) R_XDRDecodeInteger(p);
+    uint64_t lo = (uint32_t) R_XDRDecodeInteger(p + R_XDR_INTEGER_SIZE);
+    uint64_t u = (hi << 32) | lo;
+    if (u <= INT64_MAX)
+	return (R_int64_t) u;
+    else
+	return -1 - (R_int64_t)(UINT64_MAX - u);
+}
+
+static void OutInt64(R_outpstream_t stream, R_int64_t i)
+{
+    char buf[128];
+    switch (stream->type) {
+    case R_pstream_ascii_format:
+    case R_pstream_asciihex_format:
+	if (i == NA_INT64)
+	    Rsnprintf(buf, sizeof(buf), "NA\n");
+	else
+	    Rsnprintf(buf, sizeof(buf), "%" PRId64 "\n", (int64_t) i);
+	stream->OutBytes(stream, buf, (int)strlen(buf));
+	break;
+    case R_pstream_binary_format:
+	stream->OutBytes(stream, &i, sizeof(R_int64_t));
+	break;
+    case R_pstream_xdr_format:
+	R_XDREncodeInt64(i, buf);
+	stream->OutBytes(stream, buf, R_XDR_INT64_SIZE);
+	break;
+    default:
+	error(_("unknown or inappropriate output format"));
+    }
+}
+
+static R_int64_t InInt64(R_inpstream_t stream)
+{
+    char word[128];
+    char buf[128];
+    R_int64_t i;
+
+    switch (stream->type) {
+    case R_pstream_ascii_format:
+    case R_pstream_asciihex_format:
+	InWord(stream, word, sizeof(word));
+	if(sscanf(word, "%127s", buf) != 1) error(_("read error"));
+	if (strcmp(buf, "NA") == 0)
+	    return NA_INT64;
+	else {
+	    char *endp;
+	    errno = 0;
+	    intmax_t val = strtoimax(buf, &endp, 10);
+	    if (errno == ERANGE || endp == buf || *endp != '\0' ||
+		val < INT64_MIN || val > INT64_MAX)
+		error(_("read error"));
+	    return (R_int64_t) val;
+	}
+    case R_pstream_binary_format:
+	stream->InBytes(stream, &i, sizeof(R_int64_t));
+	return i;
+    case R_pstream_xdr_format:
+	stream->InBytes(stream, buf, R_XDR_INT64_SIZE);
+	return R_XDRDecodeInt64(buf);
+    default:
+	return NA_INT64;
+    }
+}
 
 
 static R_INLINE void
@@ -929,6 +1009,46 @@ OutIntegerVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
 	for (R_xlen_t cnt = 0; cnt < length; cnt++) {
 	    OutInteger(stream, INTEGER(s)[cnt]);
 	    IF_IC_R_CheckUserInterrupt();
+	}
+    }
+}
+
+static R_INLINE void
+OutInt64Vec(R_outpstream_t stream, SEXP s, R_xlen_t length)
+{
+    int ic = 9999;
+    switch (stream->type) {
+    case R_pstream_xdr_format:
+    {
+	static char buf[CHUNK_SIZE * R_XDR_INT64_SIZE];
+	R_xlen_t done, this;
+	const R_int64_t *p = INT64_RO(s);
+	for (done = 0; done < length; done += this) {
+	    IF_IC_R_CheckUserInterrupt();
+	    this = min2(CHUNK_SIZE, length - done);
+	    for(R_xlen_t cnt = 0; cnt < this; cnt++)
+		R_XDREncodeInt64(p[done + cnt],
+				 buf + cnt * R_XDR_INT64_SIZE);
+	    stream->OutBytes(stream, buf, (int)(R_XDR_INT64_SIZE * this));
+	}
+	break;
+    }
+    case R_pstream_binary_format:
+    {
+	R_xlen_t done, this;
+	const R_int64_t *p = INT64_RO(s);
+	for (done = 0; done < length; done += this) {
+	    IF_IC_R_CheckUserInterrupt();
+	    this = min2(CHUNK_SIZE, length - done);
+	    stream->OutBytes(stream, (void *)(p + done),
+			     (int)(sizeof(R_int64_t) * this));
+	}
+	break;
+    }
+    default:
+	for (R_xlen_t cnt = 0; cnt < length; cnt++) {
+	    IF_IC_R_CheckUserInterrupt();
+	    OutInt64(stream, INT64_ELT(s, cnt));
 	}
     }
 }
@@ -1189,6 +1309,11 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    len = XLENGTH(s);
 	    WriteLENGTH(stream, s);
 	    OutIntegerVec(stream, s, len);
+	    break;
+	case INT64SXP:
+	    len = XLENGTH(s);
+	    WriteLENGTH(stream, s);
+	    OutInt64Vec(stream, s, len);
 	    break;
 	case REALSXP:
 	    len = XLENGTH(s);
@@ -1537,6 +1662,41 @@ InIntegerVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
     default:
 	for (R_xlen_t cnt = 0; cnt < length; cnt++)
 	    INTEGER(obj)[cnt] = InInteger(stream);
+    }
+}
+
+static R_INLINE void
+InInt64Vec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
+{
+    switch (stream->type) {
+    case R_pstream_xdr_format:
+    {
+	static char buf[CHUNK_SIZE * R_XDR_INT64_SIZE];
+	R_xlen_t done, this;
+	R_int64_t *p = INT64(obj);
+	for (done = 0; done < length; done += this) {
+	    this = min2(CHUNK_SIZE, length - done);
+	    stream->InBytes(stream, buf, (int)(R_XDR_INT64_SIZE * this));
+	    for(R_xlen_t cnt = 0; cnt < this; cnt++)
+		p[done + cnt] = R_XDRDecodeInt64(buf +
+						  cnt * R_XDR_INT64_SIZE);
+	}
+	break;
+    }
+    case R_pstream_binary_format:
+    {
+	R_xlen_t done, this;
+	R_int64_t *p = INT64(obj);
+	for (done = 0; done < length; done += this) {
+	    this = min2(CHUNK_SIZE, length - done);
+	    stream->InBytes(stream, p + done,
+			    (int)(sizeof(R_int64_t) * this));
+	}
+	break;
+    }
+    default:
+	for (R_xlen_t cnt = 0; cnt < length; cnt++)
+	    INT64(obj)[cnt] = InInt64(stream);
     }
 }
 
@@ -2020,6 +2180,11 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    len = ReadLENGTH(stream);
 	    PROTECT(s = allocVector(type, len));
 	    InIntegerVec(stream, s, len);
+	    break;
+	case INT64SXP:
+	    len = ReadLENGTH(stream);
+	    PROTECT(s = allocVector(type, len));
+	    InInt64Vec(stream, s, len);
 	    break;
 	case REALSXP:
 	    len = ReadLENGTH(stream);

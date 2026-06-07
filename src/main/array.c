@@ -1920,6 +1920,7 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     switch (type = TYPEOF(x)) {
     case LGLSXP:
+    case INT64SXP:
     case INTSXP:
     case REALSXP: break;
     default:
@@ -1962,6 +1963,14 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 		int *ix = INTEGER(x) + (R_xlen_t)n*j;
 		for (cnt = 0, sum = 0., i = 0; i < n; i++, ix++)
 		    if (*ix != NA_INTEGER) {cnt++; sum += *ix;}
+		    else if (keepNA) {sum = NA_REAL; break;}
+		break;
+	    }
+	    case INT64SXP:
+	    {
+		R_int64_t *ix = INT64(x) + (R_xlen_t)n*j;
+		for (cnt = 0, sum = 0., i = 0; i < n; i++, ix++)
+		    if (*ix != NA_INT64) {cnt++; sum += (double) *ix;}
 		    else if (keepNA) {sum = NA_REAL; break;}
 		break;
 	    }
@@ -2018,6 +2027,20 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    }
 		    else if (*ix != NA_INTEGER) {
 			*ra += *ix;
+			if (OP == 3) Cnt[i]++;
+		    }
+		break;
+	    }
+	    case INT64SXP:
+	    {
+		R_int64_t *ix = INT64(x) + (R_xlen_t)n * j;
+		for (R_xlen_t i = 0; i < n; i++, ra++, ix++)
+		    if (keepNA) {
+			if (*ix != NA_INT64) *ra += (double) *ix;
+			else *ra = NA_REAL;
+		    }
+		    else if (*ix != NA_INT64) {
+			*ra += (double) *ix;
 			if (OP == 3) Cnt[i]++;
 		    }
 		break;

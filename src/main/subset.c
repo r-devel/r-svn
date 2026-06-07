@@ -1139,6 +1139,9 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case INTSXP:
 	    INTEGER0(ans)[0] = INTEGER_ELT(x, offset);
 	    break;
+	case INT64SXP:
+	    INT640(ans)[0] = INT64_ELT(x, offset);
+	    break;
 	case REALSXP:
 	    REAL0(ans)[0] = REAL_ELT(x, offset);
 	    break;
