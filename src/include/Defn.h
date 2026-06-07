@@ -748,9 +748,12 @@ SEXP R_FixupRHS(SEXP x, SEXP y);
 double SCALAR_DVAL(SEXP x);
 int SCALAR_LVAL(SEXP x);
 int SCALAR_IVAL(SEXP x);
+R_int64_t *INT640(SEXP x);
+R_int64_t SCALAR_I64VAL(SEXP x);
 void SET_SCALAR_DVAL(SEXP x, double v);
 void SET_SCALAR_LVAL(SEXP x, int v);
 void SET_SCALAR_IVAL(SEXP x, int v);
+void SET_SCALAR_I64VAL(SEXP x, R_int64_t v);
 void SET_SCALAR_CVAL(SEXP x, Rcomplex v);
 void SET_SCALAR_BVAL(SEXP x, Rbyte v);
 #endif

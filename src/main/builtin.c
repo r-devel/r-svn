@@ -47,6 +47,7 @@ R_xlen_t asVecSize(SEXP x)
 	{
 	    R_int64_t res = INT64(x)[0];
 	    if(res == NA_INT64) error(_("vector size cannot be NA"));
+	    if(res < 0) error(_("invalid '%s' argument"), "length");
 	    if(res > R_XLEN_T_MAX) error(_("vector size specified is too large"));
 	    return (R_xlen_t) res;
 	}

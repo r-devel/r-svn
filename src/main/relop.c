@@ -423,6 +423,50 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 
 #define ISNA_INT(x) ((x) == NA_INTEGER)
 #define ISNA_INT64(x) ((x) == NA_INT64)
+#define INT64_DOUBLE_MIN_BOUND (-9223372036854775808.0)
+#define INT64_DOUBLE_MAX_BOUND 9223372036854775808.0
+
+static int int64_double_cmp(R_int64_t x, double y)
+{
+    if (!R_FINITE(y))
+	return y > 0 ? -1 : 1;
+    if (y <= INT64_DOUBLE_MIN_BOUND)
+	return 1;
+    if (y >= INT64_DOUBLE_MAX_BOUND)
+	return -1;
+
+    R_int64_t yi = (R_int64_t) y;
+    if (x < yi) return -1;
+    if (x > yi) return 1;
+
+    double dyi = (double) yi;
+    if (dyi < y) return -1;
+    if (dyi > y) return 1;
+    return 0;
+}
+
+static int relop_from_cmp(RELOP_TYPE code, int cmp)
+{
+    switch (code) {
+    case EQOP: return cmp == 0;
+    case NEOP: return cmp != 0;
+    case LTOP: return cmp < 0;
+    case GTOP: return cmp > 0;
+    case LEOP: return cmp <= 0;
+    case GEOP: return cmp >= 0;
+    }
+    return 0;
+}
+
+static int int64_double_relop(RELOP_TYPE code, R_int64_t x, double y)
+{
+    return relop_from_cmp(code, int64_double_cmp(x, y));
+}
+
+static int double_int64_relop(RELOP_TYPE code, double x, R_int64_t y)
+{
+    return relop_from_cmp(code, -int64_double_cmp(y, x));
+}
 
 #define NR_HELPER(OP, type1, ACCESSOR1, ISNA1, type2, ACCESSOR2, ISNA2) do { \
 	type1 x1, *px1 = ACCESSOR1(s1);					\
@@ -461,6 +505,30 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
     }                                                                   \
 } while(0)
 
+#define INT64_DOUBLE_RELOP() do {					\
+	R_int64_t x1, *px1 = INT64(s1);				\
+	double x2, *px2 = REAL(s2);					\
+	int *pa = LOGICAL(ans);						\
+	MOD_ITERATE2(n, n1, n2, i, i1, i2, {			\
+	    x1 = px1[i1];						\
+	    x2 = px2[i2];						\
+	    pa[i] = (ISNA_INT64(x1) || ISNAN(x2)) ? NA_LOGICAL :	\
+		int64_double_relop(code, x1, x2);			\
+	});								\
+    } while (0)
+
+#define DOUBLE_INT64_RELOP() do {					\
+	double x1, *px1 = REAL(s1);					\
+	R_int64_t x2, *px2 = INT64(s2);				\
+	int *pa = LOGICAL(ans);						\
+	MOD_ITERATE2(n, n1, n2, i, i1, i2, {			\
+	    x1 = px1[i1];						\
+	    x2 = px2[i2];						\
+	    pa[i] = (ISNAN(x1) || ISNA_INT64(x2)) ? NA_LOGICAL :	\
+		double_int64_relop(code, x1, x2);			\
+	});								\
+    } while (0)
+
 static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 {
     R_xlen_t i, i1, i2, n, n1, n2;
@@ -481,16 +549,14 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 	    NUMERIC_RELOP(R_int64_t, INT64, ISNA_INT64,
 			  int, INTEGER, ISNA_INT);
 	} else {
-	    NUMERIC_RELOP(R_int64_t, INT64, ISNA_INT64,
-			  double, REAL, ISNAN);
+	    INT64_DOUBLE_RELOP();
 	}
     } else if (TYPEOF(s2) == INT64SXP) {
 	if (isInteger(s1) || isLogical(s1)) {
 	    NUMERIC_RELOP(int, INTEGER, ISNA_INT,
 			  R_int64_t, INT64, ISNA_INT64);
 	} else {
-	    NUMERIC_RELOP(double, REAL, ISNAN,
-			  R_int64_t, INT64, ISNA_INT64);
+	    DOUBLE_INT64_RELOP();
 	}
     } else if (isInteger(s1) || isLogical(s1)) {
 	if (isInteger(s2) || isLogical(s2)) {

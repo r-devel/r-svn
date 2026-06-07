@@ -94,6 +94,8 @@ integer literal 1.L contains unnecessary decimal point
 > i64_real_rbind <- rbind(as.int64("2147483648"), 1.5)
 > i64_list_cbind <- cbind(list(1), as.int64(c("2", "3")))
 > i64_dim_matrix <- matrix(1:4, 2L)
+> i64_big <- as.int64("9007199254740993")
+> i64_big_rounded <- 9007199254740992
 > min_int64_warning <- NULL
 > min_int64_from_real <- withCallingHandlers(as.int64(-9223372036854775808),
 +                                            warning = function(w) {
@@ -105,6 +107,9 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(as.int64("-1") < as.int64("1"), TRUE),
 +     identical(as.int64("9223372036854775807") < as.int64("-1"), FALSE),
 +     identical(as.int64("2") > 1L, TRUE),
++     identical(i64_big == i64_big_rounded, FALSE),
++     identical(i64_big > i64_big_rounded, TRUE),
++     identical(i64_big_rounded < i64_big, TRUE),
 +     is.na(as.int64(NA) == as.int64(NA)),
 +     identical(!as.int64(c("0", "2", NA)), c(TRUE, FALSE, NA)),
 +     typeof(i64_cbind) == "int64",
@@ -128,6 +133,9 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
 +     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
 +     identical(match(as.int64("1"), as.int64("1")), 1L),
++     identical(match(i64_big, i64_big_rounded, nomatch = 0L), 0L),
++     identical(match(i64_big_rounded, i64_big, nomatch = 0L), 0L),
++     identical(match(i64_big_rounded, as.int64("9007199254740992"), nomatch = 0L), 1L),
 +     identical(duplicated(as.int64(c("1", "1", NA, NA))), c(FALSE, TRUE, FALSE, TRUE)),
 +     identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2"))),
 +     identical(seq.int(as.int64("3")), 1:3),
@@ -189,6 +197,7 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(rowsum(data.frame(x = as.int64(c("1", "2", NA))), c(1L, 1L, 2L)),
 +               data.frame(x = as.int64(c("3", NA)), row.names = c("1", "2"))),
 +     is.character(capture.output(matrix(as.int64("1"), 1L))),
++     inherits(try(vector("list", as.int64("-2147483649")), silent = TRUE), "try-error"),
 +     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 + )
 > stopifnot(
