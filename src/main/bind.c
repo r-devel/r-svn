@@ -1466,11 +1466,11 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     }
     else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
 	for (t = args; t != R_NilValue; t = CDR(t)) {
-	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, REAL, or NULL */
+	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, INT64, REAL, or NULL */
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = xlength(u); /* use xlength since u can be NULL */
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		if (TYPEOF(u) <= INTSXP) { /* INT or LGL */
+		if (TYPEOF(u) == LGLSXP || TYPEOF(u) == INTSXP) {
 		    if (mode <= INTSXP) {
 			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
 						n, idx, k);
@@ -1487,6 +1487,14 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		else if (TYPEOF(u) == REALSXP) {
 		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
 		    n += idx;
+		}
+		else if (TYPEOF(u) == INT64SXP) {
+		    R_xlen_t i, i1;
+		    MOD_ITERATE1(idx, k, i, i1, {
+			R_int64_t val = INT64(u)[i1];
+			REAL(result)[n++] =
+			    val == NA_INT64 ? NA_REAL : (double) val;
+		    });
 		}
 		else { /* RAWSXP */
 		    /* FIXME: I'm not sure what the author intended when the sequence was
@@ -1732,11 +1740,11 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     }
     else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
 	for (t = args; t != R_NilValue; t = CDR(t)) {
-	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, REAL */
+	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, INT64, REAL */
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
-		if (TYPEOF(u) <= INTSXP) {
+		if (TYPEOF(u) == LGLSXP || TYPEOF(u) == INTSXP) {
 		    if (mode <= INTSXP) {
 			xfillIntegerMatrixWithRecycle(INTEGER(result),
 						      INTEGER(u), n, rows,
@@ -1753,6 +1761,14 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		else if (TYPEOF(u) == REALSXP) {
 		    xfillRealMatrixWithRecycle(REAL(result), REAL(u), n,
 					       rows, idx, cols, k);
+		    n += idx;
+		}
+		else if (TYPEOF(u) == INT64SXP) {
+		    FILL_MATRIX_ITERATE(n, rows, idx, cols, k) {
+			R_int64_t val = INT64(u)[sidx];
+			REAL(result)[didx] =
+			    val == NA_INT64 ? NA_REAL : (double) val;
+		    }
 		    n += idx;
 		}
 		else { /* RAWSXP */

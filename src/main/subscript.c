@@ -1069,6 +1069,8 @@ int_arraySubscript(int dim, SEXP s, SEXP dims, SEXP x, SEXP call)
 	return logicalSubscript(s, ns, nd, &stretch, call);
     case INTSXP:
 	return integerSubscript(s, ns, nd, &stretch, call, x);
+    case INT64SXP:
+	return int64Subscript(s, ns, nd, &stretch, call, x);
     case REALSXP:
 	/* We don't yet allow subscripts > R_SHORT_LEN_MAX */
 	PROTECT(tmp = coerceVector(s, INTSXP));

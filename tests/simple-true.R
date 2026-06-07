@@ -59,7 +59,10 @@ i64_named <- as.int64("1")
 names(i64_named) <- "a"
 i64_cbind <- cbind(a = as.int64("1"))
 i64_rbind <- rbind(a = as.int64("1"))
+i64_real_cbind <- cbind(as.int64("2147483648"), 1.5)
+i64_real_rbind <- rbind(as.int64("2147483648"), 1.5)
 i64_list_cbind <- cbind(list(1), as.int64(c("2", "3")))
+i64_dim_matrix <- matrix(1:4, 2L)
 min_int64_warning <- NULL
 min_int64_from_real <- withCallingHandlers(as.int64(-9223372036854775808),
                                            warning = function(w) {
@@ -81,6 +84,10 @@ stopifnot(
     identical(dim(i64_rbind), c(1L, 1L)),
     identical(unname(i64_rbind[1, 1]), as.int64("1")),
     identical(as.vector(i64_rbind, "int64"), as.int64("1")),
+    typeof(i64_real_cbind) == "double",
+    identical(unname(i64_real_cbind[1, 1]), 2147483648),
+    typeof(i64_real_rbind) == "double",
+    identical(unname(i64_real_rbind[1, 1]), 2147483648),
     identical(as.vector(i64_named, "int64"), as.int64("1")),
     identical(as.vector(i64_named, "any"), as.int64("1")),
     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
@@ -134,6 +141,10 @@ stopifnot(
     { z <- 1:3; tsp(z) <- as.int64(c("1", "3", "1")); identical(tsp(z), c(1, 3, 1)) },
     is.character(capture.output(matrix(as.int64("1"), 1L))),
     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
+)
+stopifnot(
+    identical(i64_dim_matrix[as.int64("1"), ], c(1L, 3L)),
+    identical(i64_dim_matrix[, as.int64("2")], c(3L, 4L))
 )
 
 all((0:6) == pi + ((-pi):pi))
