@@ -47,6 +47,7 @@ stopifnot(
     typeof(c(1L, as.int64("2"))) == "int64",
     typeof(c(as.int64("2"), 2)) == "double",
     identical((1:4)[as.int64("3")], 3L),
+    identical((1:3)[as.int64("-9007199254740993")], 1:3),
     identical((1:4)[[as.int64("3")]], 3L),
     identical(length(vector("list", as.int64("3"))), 3L),
     identical(rep(1L, times = as.int64("3")), rep(1L, 3L)),

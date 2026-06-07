@@ -972,7 +972,7 @@ int64Subscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	R_int64_t val = pi[i];
 	if (val == NA_INT64)
 	    ps[i] = NA_REAL;
-	else if (val > R_XLEN_T_MAX || val < -R_XLEN_T_MAX) {
+	else if (val > R_XLEN_T_MAX) {
 	    ECALL(call, _("subscript too large"));
 	} else
 	    ps[i] = (double) val;
