@@ -59,6 +59,13 @@ i64_named <- as.int64("1")
 names(i64_named) <- "a"
 i64_cbind <- cbind(a = as.int64("1"))
 i64_rbind <- rbind(a = as.int64("1"))
+i64_list_cbind <- cbind(list(1), as.int64(c("2", "3")))
+min_int64_warning <- NULL
+min_int64_from_real <- withCallingHandlers(as.int64(-9223372036854775808),
+                                           warning = function(w) {
+                                               min_int64_warning <<- conditionMessage(w)
+                                               invokeRestart("muffleWarning")
+                                           })
 stopifnot(
     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -78,6 +85,17 @@ stopifnot(
     identical(as.vector(i64_named, "any"), as.int64("1")),
     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
+    identical(match(as.int64("1"), as.int64("1")), 1L),
+    identical(duplicated(as.int64(c("1", "1", NA, NA))), c(FALSE, TRUE, FALSE, TRUE)),
+    identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2"))),
+    identical(seq.int(as.int64("3")), 1:3),
+    typeof(i64_list_cbind) == "list",
+    identical(dim(i64_list_cbind), c(2L, 2L)),
+    identical(i64_list_cbind[[3]], as.int64("2")),
+    identical(i64_list_cbind[[4]], as.int64("3")),
+    is.na(min_int64_from_real),
+    is.character(min_int64_warning),
+    grepl("int64 range", min_int64_warning, fixed = TRUE),
     { z <- as.int64("1"); z[1] <- as.int64("2"); identical(z, as.int64("2")) },
     { z <- matrix(as.int64("1"), 1L); z[1, 1] <- as.int64("2"); identical(z, matrix(as.int64("2"), 1L)) },
     { z <- array(as.int64("1"), c(1L, 1L, 1L)); z[1, 1, 1] <- as.int64("2"); identical(z, array(as.int64("2"), c(1L, 1L, 1L))) },

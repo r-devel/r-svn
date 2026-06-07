@@ -1403,6 +1403,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		case RAWSXP:
 		case LGLSXP:
 		case INTSXP:
+		case INT64SXP:
 		case REALSXP:
 		case CPLXSXP:
 		case STRSXP:

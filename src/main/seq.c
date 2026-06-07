@@ -880,7 +880,8 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	miss_to   = (to   == R_MissingArg);
     if(One && !miss_from) {
 	int lf = length(from);
-	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP)) {
+	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == INT64SXP ||
+		       TYPEOF(from) == REALSXP)) {
 	    double rfrom = asReal(from);
 	    if (!R_FINITE(rfrom))
 		errorcall(call, _("'%s' must be a finite number"), "from");

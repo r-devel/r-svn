@@ -226,7 +226,7 @@ Int64FromReal(double x, int *warn)
 {
     if (ISNAN(x))
 	return NA_INT64;
-    if (x < (double) R_INT64_MIN || x >= (double) R_INT64_MAX) {
+    if (x <= (double) NA_INT64 || x >= (double) R_INT64_MAX) {
 	*warn |= WARN_INT64_NA;
 	return NA_INT64;
     }
@@ -235,6 +235,8 @@ Int64FromReal(double x, int *warn)
 	*warn |= WARN_INT64_NA;
 	return NA_INT64;
     }
+    if (val == NA_INT64)
+	*warn |= WARN_INT64_NA;
     return val == NA_INT64 ? NA_INT64 : val;
 }
 

@@ -122,6 +122,12 @@ static R_INLINE hlen ihash(SEXP x, R_xlen_t indx, HashData *d)
     return scatter((unsigned int) xi, d);
 }
 
+static R_INLINE hlen i64hash(SEXP x, R_xlen_t indx, HashData *d)
+{
+    uint64_t xi = (uint64_t) INT64_ELT(x, indx);
+    return scatter((unsigned int) (xi ^ (xi >> 32)), d);
+}
+
 /* We use unions here because Solaris gcc -O2 has trouble with
    casting + incrementing pointers.  We use tests here, but R currently
    assumes int is 4 bytes and double is 8 bytes.
@@ -249,6 +255,12 @@ static R_INLINE int iequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return (INTEGER_ELT(x, i) == INTEGER_ELT(y, j));
 }
 
+static R_INLINE int i64equal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+    return (INT64_ELT(x, i) == INT64_ELT(y, j));
+}
+
 /* BDR 2002-1-17  We don't want NA and other NaNs to be equal */
 static R_INLINE int requal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
@@ -343,6 +355,12 @@ static hlen vhash_one(SEXP _this, HashData *d)
     case INTSXP:
 	for(i = 0; i < LENGTH(_this); i++) {
 	    key ^= ihash(_this, i, d);
+	    key *= 97;
+	}
+	break;
+    case INT64SXP:
+	for(i = 0; i < LENGTH(_this); i++) {
+	    key ^= i64hash(_this, i, d);
 	    key *= 97;
 	}
 	break;
@@ -483,6 +501,11 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	MKsetup(LENGTH(x), d, nmax);
 #endif
     }
+	break;
+    case INT64SXP:
+	d->hash = i64hash;
+	d->equal = i64equal;
+	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case REALSXP:
 	d->hash = rhash;
@@ -1177,6 +1200,14 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 	    });
 	break;
+    case INT64SXP:
+	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
+		for(R_xlen_t j = 0; j < nb; j++) {
+		    if(duptr[j] == 0)
+			INT640(ans)[k++] = INT64_ELT(x, idx + j);
+		}
+	    });
+	break;
     case REALSXP:
 	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
 		for(R_xlen_t j = 0; j < nb; j++) {
@@ -1244,6 +1275,7 @@ static void UndoHashing(SEXP x, SEXP table, HashData *d)
 
 /* definitions to help the C compiler to inline of most important cases */
 DEFLOOKUP(iLookup, ihash, iequal)
+DEFLOOKUP(i64Lookup, i64hash, i64equal)
 DEFLOOKUP(rLookup, rhash, requal)
 DEFLOOKUP(sLookup, shash, sequal)
 
@@ -1264,6 +1296,10 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
     case INTSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = iLookup(table, x, i, d);
+	break;
+    case INT64SXP:
+	for (i = 0; i < n; i++)
+	    pa[i] = i64Lookup(table, x, i, d);
 	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
@@ -1359,6 +1395,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
     if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
+    else if(TYPEOF(x) == INT64SXP || TYPEOF(table) == INT64SXP) {
+	if(TYPEOF(x) == CPLXSXP || TYPEOF(table) == CPLXSXP)
+	    type = CPLXSXP;
+	else if(TYPEOF(x) == REALSXP || TYPEOF(table) == REALSXP)
+	    type = REALSXP;
+	else
+	    type = INT64SXP;
+    }
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     PROTECT(x	  = coerceVector(x,	type)); nprot++;
     PROTECT(table = coerceVector(table, type)); nprot++;
@@ -1378,6 +1422,13 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
       case INTSXP: {
 	  int x_val = INTEGER_ELT(x, 0),
 	      *table_p = INTEGER(table);
+	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
+		  val = i + 1; break;
+	      }
+	  break; }
+      case INT64SXP: {
+	  R_int64_t x_val = INT64_ELT(x, 0),
+	      *table_p = INT64(table);
 	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
 		  val = i + 1; break;
 	      }
