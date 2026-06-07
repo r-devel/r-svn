@@ -1983,7 +1983,7 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    {
 		R_int64_t *ix = INT64(x) + (R_xlen_t)n*j;
 		for (cnt = 0, sum = 0., i = 0; i < n; i++, ix++)
-		    if (*ix != NA_INT64) {cnt++; sum += (double) *ix;}
+		    if (*ix != NA_INT64) {cnt++; sum += (LDOUBLE) *ix;}
 		    else if (keepNA) {sum = NA_REAL; break;}
 		break;
 	    }
@@ -2049,11 +2049,11 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 		R_int64_t *ix = INT64(x) + (R_xlen_t)n * j;
 		for (R_xlen_t i = 0; i < n; i++, ra++, ix++)
 		    if (keepNA) {
-			if (*ix != NA_INT64) *ra += (double) *ix;
+			if (*ix != NA_INT64) *ra += (LDOUBLE) *ix;
 			else *ra = NA_REAL;
 		    }
 		    else if (*ix != NA_INT64) {
-			*ra += (double) *ix;
+			*ra += (LDOUBLE) *ix;
 			if (OP == 3) Cnt[i]++;
 		    }
 		break;
