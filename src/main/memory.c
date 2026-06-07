@@ -3355,11 +3355,11 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
     int i, tmp;
 
     checkArity(op, args);
-    PROTECT(ans = allocVector(INTSXP, 24));
-    PROTECT(nms = allocVector(STRSXP, 24));
-    for (i = 0; i < 24; i++) {
+    PROTECT(ans = allocVector(INTSXP, 25));
+    PROTECT(nms = allocVector(STRSXP, 25));
+    for (i = 0; i < 25; i++) {
 	INTEGER(ans)[i] = 0;
-	SET_STRING_ELT(nms, i, type2str(i > LGLSXP? i+2 : i));
+	SET_STRING_ELT(nms, i, type2str(i > INT64SXP ? i + 1 : i));
     }
     setAttrib(ans, R_NamesSymbol, nms);
 
@@ -3375,7 +3375,7 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 	       s != R_GenHeap[i].Old[gen];
 	       s = NEXT_NODE(s)) {
 	      tmp = TYPEOF(s);
-	      if(tmp > LGLSXP) tmp -= 2;
+	      if(tmp > INT64SXP) tmp--;
 	      INTEGER(ans)[tmp]++;
 	  }
 	}

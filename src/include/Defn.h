@@ -1853,6 +1853,7 @@ void R_RestoreHashCount(SEXP rho);
 # define ssort			Rf_ssort
 # define StringFromComplex	Rf_StringFromComplex
 # define StringFromInteger	Rf_StringFromInteger
+# define StringFromInt64	Rf_StringFromInt64
 # define StringFromLogical	Rf_StringFromLogical
 # define StringFromReal		Rf_StringFromReal
 # define strIsASCII		Rf_strIsASCII
@@ -1948,6 +1949,7 @@ double Rf_RealFromString(SEXP, int*);
 Rcomplex Rf_ComplexFromString(SEXP, int*);
 SEXP Rf_StringFromLogical(int, int*);
 SEXP Rf_StringFromInteger(int, int*);
+SEXP Rf_StringFromInt64(R_int64_t, int*);
 SEXP Rf_StringFromReal(double, int*);
 SEXP Rf_StringFromComplex(Rcomplex, int*);
 SEXP Rf_EnsureString(SEXP);
