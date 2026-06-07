@@ -26,8 +26,9 @@ infoRDS(file)
     representation is written; otherwise (default), a binary one is used.
     See the comments in the help for \code{\link{save}}.}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3). The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    specifies the current default version (3), or version 4 when the
+    object requires it.  Supported explicit values are 2, 3 and 4.
+    Version 2 was the default from \R 1.4.0 to \R 3.5.0.}
   \item{compress}{a logical specifying whether saving to a named file is
     to use \code{"gzip"} compression, or one of \code{"gzip"},
     \code{"bzip2"} or \code{"xz"} to indicate the type of compression to
@@ -80,7 +81,7 @@ infoRDS(file)
   For \code{saveRDS}, \code{NULL} invisibly.
 
   For \code{infoRDS}, an \R list with elements \code{version} (version
-  number, currently 2 or 3), \code{writer_version} (version of \R that
+  number, currently 2, 3 or 4), \code{writer_version} (version of \R that
   produced the serialization), \code{min_reader_version} (minimum version of
   \R that can read the serialization), \code{format} (data representation)
   and \code{native_encoding} (native encoding of the session that produced

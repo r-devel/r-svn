@@ -27,8 +27,9 @@ unserialize(connection, refhook = NULL)
   \item{xdr}{a logical: if a binary representation is used, should a
     big-endian one (\I{XDR}) be used?}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3). The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    specifies the current default version (3), or version 4 when the
+    object requires it.  Supported explicit values are 2, 3 and 4.
+    Version 2 was the default from \R 1.4.0 to \R 3.5.0.}
   \item{refhook}{a hook function for handling reference objects.}
 }
 \details{

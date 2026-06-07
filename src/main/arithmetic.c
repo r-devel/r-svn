@@ -417,12 +417,15 @@ static R_INLINE R_int64_t R_int64_times(R_int64_t x, R_int64_t y, bool *overflow
     }
     return (R_int64_t) z;
 #else
-    long double z = (long double) x * (long double) y;
-    if (z < (long double) R_INT64_MIN || z > (long double) R_INT64_MAX) {
+    if (x > 0 ? (y > 0 ? x > R_INT64_MAX / y :
+			  y < R_INT64_MIN / x) :
+	x < 0 ? (y > 0 ? x < R_INT64_MIN / y :
+			 y < R_INT64_MAX / x) :
+	false) {
 	*overflow = true;
 	return NA_INT64;
     }
-    return (R_int64_t) z;
+    return x * y;
 #endif
 }
 

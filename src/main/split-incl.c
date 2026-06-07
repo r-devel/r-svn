@@ -39,6 +39,9 @@
 	    case INTSXP:
 		INTEGER(VECTOR_ELT(vec, j - 1))[k] = INTEGER(x)[i];
 		break;
+	    case INT64SXP:
+		INT64(VECTOR_ELT(vec, j - 1))[k] = INT64(x)[i];
+		break;
 	    case REALSXP:
 		REAL(VECTOR_ELT(vec, j - 1))[k] = REAL(x)[i];
 		break;

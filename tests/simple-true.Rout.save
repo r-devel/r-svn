@@ -129,6 +129,38 @@ integer literal 1.L contains unnecessary decimal point
 + })
 > i64_for_bc_values <- i64_for_cmp(as.int64(c("1", "2")))
 > i64_object_size <- utils::object.size(as.int64("1"))
+> i64_group <- gl(2, 1)
+> i64_split <- split(as.int64(c("1", "2")), i64_group)
+> i64_tapply <- tapply(as.int64(c("1", "2")), i64_group, identity,
++                      simplify = FALSE)
+> i64_ave <- ave(as.int64(c("1", "2")), i64_group, FUN = identity)
+> i64_aggregate <- aggregate(as.int64(c("1", "2")), list(g = i64_group),
++                            identity)
+> i64_s3 <- local({
++     f <- function(x) UseMethod("f")
++     f.numeric <- function(x) "numeric"
++     f(as.int64("1"))
++ })
+> i64_rds <- tempfile()
+> saveRDS(as.int64("1"), i64_rds)
+> i64_rds_info <- infoRDS(i64_rds)
+> unlink(i64_rds)
+> i64_save <- tempfile()
+> i64_saved_value <- as.int64("1")
+> save(i64_saved_value, file = i64_save, compress = FALSE)
+> i64_save_con <- file(i64_save, "rb")
+> i64_save_magic <- readChar(i64_save_con, 5L, useBytes = TRUE)
+> close(i64_save_con)
+> i64_save_env <- new.env(parent = emptyenv())
+> load(i64_save, envir = i64_save_env)
+> unlink(i64_save)
+> i64_mul_warning <- NULL
+> i64_mul_overflow <- withCallingHandlers(as.int64("4611686018427387904") *
++                                             as.int64("2"),
++                                         warning = function(w) {
++                                             i64_mul_warning <<- conditionMessage(w)
++                                             invokeRestart("muffleWarning")
++                                         })
 > i64_gc_ok <- {
 +     x <- vector("int64", 1e6)
 +     rm(x)
@@ -169,6 +201,22 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
 +     inherits(i64_object_size, "object_size"),
 +     as.numeric(i64_object_size) > 0,
++     identical(i64_split, list("1" = as.int64("1"), "2" = as.int64("2"))),
++     identical(unname(c(i64_tapply)), unname(i64_split)),
++     identical(i64_ave, as.int64(c("1", "2"))),
++     identical(i64_aggregate,
++               data.frame(g = i64_group, x = as.int64(c("1", "2")))),
++     identical(i64_s3, "numeric"),
++     identical(i64_rds_info$version, 4L),
++     identical(i64_rds_info$min_reader_version,
++               i64_rds_info$writer_version),
++     identical(i64_save_magic, "RDX4\n"),
++     identical(i64_save_env$i64_saved_value, as.int64("1")),
++     inherits(try(serialize(as.int64("1"), NULL, version = 3),
++                  silent = TRUE), "try-error"),
++     typeof(i64_mul_overflow) == "int64",
++     is.na(i64_mul_overflow),
++     grepl("int64 overflow", i64_mul_warning, fixed = TRUE),
 +     identical(i64_gc_ok, TRUE),
 +     identical(i64_for_values, as.int64(c("1", "2"))),
 +     identical(i64_for_bc_values, as.int64(c("1", "2"))),

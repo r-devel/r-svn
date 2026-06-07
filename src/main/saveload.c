@@ -58,6 +58,9 @@
  *    oldest reader R version as -1.
  */
 
+#define R_MAGIC_ASCII_V4   4001
+#define R_MAGIC_BINARY_V4  4002
+#define R_MAGIC_XDR_V4     4003
 #define R_MAGIC_ASCII_V3   3001
 #define R_MAGIC_BINARY_V3  3002
 #define R_MAGIC_XDR_V3     3003
@@ -1785,6 +1788,15 @@ static void R_WriteMagic(FILE *fp, int number)
     case R_MAGIC_XDR_V2:     /* Version 2 - R Data, XDR Binary Format */
 	strcpy((char*)buf, "RDX2");
 	break;
+    case R_MAGIC_ASCII_V4:   /* Version >=4 - R Data, ASCII Format */
+	strcpy((char*)buf, "RDA4");
+	break;
+    case R_MAGIC_BINARY_V4:  /* Version >=4 - R Data, Binary Format */
+	strcpy((char*)buf, "RDB4");
+	break;
+    case R_MAGIC_XDR_V4:     /* Version >=4 - R Data, XDR Binary Format */
+	strcpy((char*)buf, "RDX4");
+	break;
     case R_MAGIC_ASCII_V3:   /* Version >=3 - R Data, ASCII Format */
 	strcpy((char*)buf, "RDA3");
 	break;
@@ -1846,6 +1858,15 @@ static int R_ReadMagic(FILE *fp)
     else if (strncmp((char*)buf, "RDX3\n", 5) == 0) {
 	return R_MAGIC_XDR_V3;
     }
+    if (strncmp((char*)buf, "RDA4\n", 5) == 0) {
+	return R_MAGIC_ASCII_V4;
+    }
+    else if (strncmp((char*)buf, "RDB4\n", 5) == 0) {
+	return R_MAGIC_BINARY_V4;
+    }
+    else if (strncmp((char*)buf, "RDX4\n", 5) == 0) {
+	return R_MAGIC_XDR_V4;
+    }
     else if (strncmp((char *)buf, "RD", 2) == 0)
 	return R_MAGIC_MAYBE_TOONEW;
 
@@ -1866,7 +1887,7 @@ static int defaultSaveVersion(void)
 	int val = -1;
 	if (valstr != NULL)
 	    val = atoi(valstr);
-	if (val == 2 || val == 3)
+	if (val == 2 || val == 3 || val == 4)
 	    dflt = val;
 	else
 	    dflt = 3; /* the default */
@@ -1896,25 +1917,26 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 
 	/* version == 0 means default version */
 	int v = (version == 0) ? defaultSaveVersion() : version;
+	v = R_SerializeVersion(obj, v, version != 0);
 	if (ascii) {
-	    magic = (v == 2) ? R_MAGIC_ASCII_V2 : R_MAGIC_ASCII_V3;
+	    magic = (v == 2) ? R_MAGIC_ASCII_V2 :
+		(v == 3) ? R_MAGIC_ASCII_V3 : R_MAGIC_ASCII_V4;
 	    type = R_pstream_ascii_format;
 	}
 	else {
-	    magic = (v == 2) ? R_MAGIC_XDR_V2 : R_MAGIC_XDR_V3;
+	    magic = (v == 2) ? R_MAGIC_XDR_V2 :
+		(v == 3) ? R_MAGIC_XDR_V3 : R_MAGIC_XDR_V4;
 	    type = R_pstream_xdr_format;
 	}
 	R_WriteMagic(fp, magic);
-	/* version == 0 means defaultSerializeVersion()
-	   unsupported version will result in error  */
-	R_InitFileOutPStream(&out, fp, type, version, NULL, NULL);
+	R_InitFileOutPStream(&out, fp, type, v, NULL, NULL);
 	R_Serialize(obj, &out);
     }
 }
 
 attribute_hidden void R_SaveToFile(SEXP obj, FILE *fp, int ascii)
 {
-    R_SaveToFileV(obj, fp, ascii, defaultSaveVersion());
+    R_SaveToFileV(obj, fp, ascii, 0);
 }
 
     /* different handling of errors */
@@ -1947,14 +1969,17 @@ attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 	return_and_free(NewXdrLoad(fp, &data));
     case R_MAGIC_ASCII_V2:
     case R_MAGIC_ASCII_V3:
+    case R_MAGIC_ASCII_V4:
 	R_InitFileInPStream(&in, fp, R_pstream_ascii_format, NULL, NULL);
 	return_and_free(R_Unserialize(&in));
     case R_MAGIC_BINARY_V2:
     case R_MAGIC_BINARY_V3:
+    case R_MAGIC_BINARY_V4:
 	R_InitFileInPStream(&in, fp, R_pstream_binary_format, NULL, NULL);
 	return_and_free(R_Unserialize(&in));
     case R_MAGIC_XDR_V2:
     case R_MAGIC_XDR_V3:
+    case R_MAGIC_XDR_V4:
 	R_InitFileInPStream(&in, fp, R_pstream_xdr_format, NULL, NULL);
 	return_and_free(R_Unserialize(&in));
     default:
@@ -2005,11 +2030,12 @@ attribute_hidden SEXP do_savefile(SEXP call, SEXP op, SEXP args, SEXP env)
     if (TYPEOF(CADDR(args)) != LGLSXP)
 	error(_("'ascii' must be logical"));
     if (CADDDR(args) == R_NilValue)
-	version = defaultSaveVersion();
-    else
+	version = 0;
+    else {
 	version = asInteger(CADDDR(args));
-    if (version == NA_INTEGER || version <= 0)
-	error(_("invalid '%s' argument"), "version");
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("invalid '%s' argument"), "version");
+    }
 
     fp = RC_fopen(STRING_ELT(CADR(args), 0), "wb", TRUE);
     if (!fp)
@@ -2047,11 +2073,12 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     if (TYPEOF(CADDR(args)) != LGLSXP)
 	error(_("'ascii' must be logical"));
     if (CADDDR(args) == R_NilValue)
-	version = defaultSaveVersion();
-    else
+	version = 0;
+    else {
 	version = asInteger(CADDDR(args));
-    if (version == NA_INTEGER || version <= 0)
-	error(_("invalid '%s' argument"), "version");
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("invalid '%s' argument"), "version");
+    }
     source = CAR(nthcdr(args,4));
     if (source != R_NilValue && TYPEOF(source) != ENVSXP)
 	error(_("invalid '%s' argument"), "environment");
@@ -2349,12 +2376,13 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     ascii = INTEGER(CADDR(args))[0];
 
     if (CADDDR(args) == R_NilValue)
-	version = defaultSaveVersion();
-    else
+	version = 0;
+    else {
 	version = asInteger(CADDDR(args));
-    if (version == NA_INTEGER || version <= 0)
-	error(_("invalid '%s' argument"), "version");
-    if (version < 2)
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("invalid '%s' argument"), "version");
+    }
+    if (version != 0 && version < 2)
 	error(_("cannot save to connections in version %d format"), version);
     source = CAR(nthcdr(args,4));
     if (source != R_NilValue && TYPEOF(source) != ENVSXP)
@@ -2392,18 +2420,6 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	magic[2] = 'X';
 	type = R_pstream_xdr_format;
     }
-    /* if version is too high, R_Serialize will fail with error */
-    magic[3] = (char)('0' + version);
-
-    if (con->text)
-	Rconn_printf(con, "%s", magic);
-    else {
-	size_t len = strlen(magic);
-	if (len != con->write(magic, 1, len, con))
-	    error(_("error writing to connection"));
-    }
-
-    R_InitConnOutPStream(&out, con, type, version, NULL, NULL);
 
     len = length(list);
     PROTECT(s = allocList(len));
@@ -2423,6 +2439,19 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	SETCAR(t, tmp);
     }
 
+    version = (version == 0) ? defaultSaveVersion() : version;
+    version = R_SerializeVersion(s, version, CADDDR(args) != R_NilValue);
+    magic[3] = (char)('0' + version);
+
+    if (con->text)
+	Rconn_printf(con, "%s", magic);
+    else {
+	size_t mlen = strlen(magic);
+	if (mlen != con->write(magic, 1, mlen, con))
+	    error(_("error writing to connection"));
+    }
+
+    R_InitConnOutPStream(&out, con, type, version, NULL, NULL);
     R_Serialize(s, &out);
     if (!wasopen) con->close(con);
     UNPROTECT(1);
@@ -2482,7 +2511,10 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 	strncmp((char*)buf, "RDX2\n", 5) == 0 ||
 	strncmp((char*)buf, "RDA3\n", 5) == 0 ||
 	strncmp((char*)buf, "RDB3\n", 5) == 0 ||
-	strncmp((char*)buf, "RDX3\n", 5) == 0) {
+	strncmp((char*)buf, "RDX3\n", 5) == 0 ||
+	strncmp((char*)buf, "RDA4\n", 5) == 0 ||
+	strncmp((char*)buf, "RDB4\n", 5) == 0 ||
+	strncmp((char*)buf, "RDX4\n", 5) == 0) {
 	R_InitConnInPStream(&in, con, R_pstream_any_format, NULL, NULL);
 	if (PRIMVAL(op) == 0) {
 	    int old_InitReadItemDepth = R_InitReadItemDepth,
@@ -2504,4 +2536,3 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("the input does not start with a magic number compatible with loading from a connection"));
     return res;
 }
-

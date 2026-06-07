@@ -61,13 +61,13 @@
  *    oldest reader R version as -1.
  */
 
- /* It is now customary that the version (1, 2, 3) of the format is
+ /* It is now customary that the version (1, 2, 3, 4) of the format is
   * reflected also in magic numbers (such as RDX2, RDX3, ...), together with
   * type (xdr/ascii/binary).  Adding a new serialization format thus now
   * also requires adding a new set of magic numbers, yet in principle this
   * could be changed in the future.  The code in this file does not need the
   * magic numbers, it relies on version and type information in the
-  * serialization header (version 2 and 3).
+  * serialization header (version 2 and later).
   */
 
 /* ----- V e r s i o n -- T w o -- S a v e / R e s t o r e ----- */
@@ -167,7 +167,10 @@
    could be added in the future without changing the format.
 
    Version 3 also adds support for custom ALTREP serialization. Under
-   version 2 ALTREP objects are serialied like non-ALTREP ones. */
+   version 2 ALTREP objects are serialied like non-ALTREP ones.
+
+   Version 4 uses the version 3 header layout, with a higher minimum reader
+   version for streams that contain int64 vectors. */
 
 /*
  * Forward Declarations
@@ -195,7 +198,7 @@ static int defaultSerializeVersion(void)
 	int val = -1;
 	if (valstr != NULL)
 	    val = atoi(valstr);
-	if (val == 2 || val == 3)
+	if (val == 2 || val == 3 || val == 4)
 	    dflt = val;
 	else
 	    dflt = 3; /* the default */
@@ -1377,6 +1380,123 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
     }
 }
 
+static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
+{
+    int ic = 9999;
+
+    R_CheckStack();
+    IF_IC_R_CheckUserInterrupt();
+
+    if (s == R_NilValue)
+	return FALSE;
+    if (TYPEOF(s) == INT64SXP)
+	return TRUE;
+
+    if (ALTREP(s) && version >= 3) {
+	SEXP info = ALTREP_SERIALIZED_CLASS(s);
+	SEXP state = ALTREP_SERIALIZED_STATE(s);
+	if (info != NULL && state != NULL)
+	    return SerializeContainsInt64(info, seen, version) ||
+		SerializeContainsInt64(state, seen, version) ||
+		SerializeContainsInt64(ATTRIB(s), seen, version);
+    }
+
+    if (SaveSpecialHook(s) != 0 || HashGet(s, seen) != 0)
+	return FALSE;
+
+    switch(TYPEOF(s)) {
+    case SYMSXP:
+	HashAdd(s, seen);
+	return FALSE;
+    case ENVSXP:
+	HashAdd(s, seen);
+	if (R_IsPackageEnv(s) || R_IsNamespaceEnv(s))
+	    return FALSE;
+	return SerializeContainsInt64(ENCLOS(s), seen, version) ||
+	    SerializeContainsInt64(FRAME(s), seen, version) ||
+	    SerializeContainsInt64(HASHTAB(s), seen, version) ||
+	    SerializeContainsInt64(ATTRIB(s), seen, version);
+    case LISTSXP:
+    case LANGSXP:
+    case PROMSXP:
+    case DOTSXP:
+	HashAdd(s, seen);
+	if (SerializeContainsInt64(ATTRIB(s), seen, version) ||
+	    SerializeContainsInt64(TAG(s), seen, version) ||
+	    SerializeContainsInt64(CAR(s), seen, version))
+	    return TRUE;
+	return SerializeContainsInt64(CDR(s), seen, version);
+    case CLOSXP:
+	HashAdd(s, seen);
+	return SerializeContainsInt64(ATTRIB(s), seen, version) ||
+	    SerializeContainsInt64(CLOENV(s), seen, version) ||
+	    SerializeContainsInt64(FORMALS(s), seen, version) ||
+	    SerializeContainsInt64(BODY(s), seen, version);
+    case EXTPTRSXP:
+	HashAdd(s, seen);
+	return SerializeContainsInt64(EXTPTR_PROT(s), seen, version) ||
+	    SerializeContainsInt64(EXTPTR_TAG(s), seen, version) ||
+	    SerializeContainsInt64(ATTRIB(s), seen, version);
+    case WEAKREFSXP:
+	HashAdd(s, seen);
+	return SerializeContainsInt64(ATTRIB(s), seen, version);
+    case STRSXP:
+	HashAdd(s, seen);
+	return SerializeContainsInt64(ATTRIB(s), seen, version);
+    case VECSXP:
+    case EXPRSXP:
+	HashAdd(s, seen);
+	for (R_xlen_t ix = 0; ix < XLENGTH(s); ix++)
+	    if (SerializeContainsInt64(VECTOR_ELT(s, ix), seen, version))
+		return TRUE;
+	return SerializeContainsInt64(ATTRIB(s), seen, version);
+    case BCODESXP:
+    {
+	HashAdd(s, seen);
+	SEXP code = PROTECT(R_bcDecode(BCODE_CODE(s)));
+	Rboolean has_int64 = SerializeContainsInt64(code, seen, version);
+	UNPROTECT(1);
+	if (has_int64)
+	    return TRUE;
+	SEXP consts = BCODE_CONSTS(s);
+	for (int i = 0; i < LENGTH(consts); i++)
+	    if (SerializeContainsInt64(VECTOR_ELT(consts, i), seen, version))
+		return TRUE;
+	return SerializeContainsInt64(ATTRIB(s), seen, version);
+    }
+    case CHARSXP:
+	return FALSE;
+    default:
+	HashAdd(s, seen);
+	return SerializeContainsInt64(ATTRIB(s), seen, version);
+    }
+}
+
+attribute_hidden int R_SerializeVersion(SEXP s, int version, Rboolean exact)
+{
+    if (version == 0)
+	version = defaultSerializeVersion();
+    switch(version) {
+    case 2:
+    case 3:
+    case 4:
+	break;
+    default:
+	error(_("version %d not supported"), version);
+    }
+
+    SEXP seen = PROTECT(MakeHashTable());
+    Rboolean has_int64 = SerializeContainsInt64(s, seen, version);
+    UNPROTECT(1);
+    if (has_int64 && version < 4) {
+	if (exact)
+	    error(_("cannot serialize int64 object in version %d format"),
+		  version);
+	version = 4;
+    }
+    return version;
+}
+
 static SEXP MakeCircleHashTable(void)
 {
     return CONS(R_NilValue, allocVector(VECSXP, HASHSIZE));
@@ -1535,7 +1655,9 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
 
 void R_Serialize(SEXP s, R_outpstream_t stream)
 {
-    int version = stream->version;
+    int version = R_SerializeVersion(s, stream->version,
+				     stream->version != 0);
+    stream->version = version;
 
     OutFormat(stream);
 
@@ -1546,10 +1668,11 @@ void R_Serialize(SEXP s, R_outpstream_t stream)
 	OutInteger(stream, R_Version(2,3,0));
 	break;
     case 3:
+    case 4:
     {
 	OutInteger(stream, version);
 	OutInteger(stream, R_VERSION);
-	OutInteger(stream, R_Version(3,5,0));
+	OutInteger(stream, version == 4 ? R_VERSION : R_Version(3,5,0));
 	const char *natenc = R_nativeEncoding();
 	int nelen = (int) strlen(natenc);
 	OutInteger(stream, nelen);
@@ -2414,6 +2537,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     switch (version) {
     case 2: break;
     case 3:
+    case 4:
     {
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)
@@ -2441,7 +2565,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     PROTECT(ref_table = MakeReadRefTable());
     obj =  ReadItem(ref_table, stream);
 
-    if (version == 3) {
+    if (version == 3 || version == 4) {
 	if (stream->nat2nat_obj && stream->nat2nat_obj != (void *)-1) {
 	    Riconv_close(stream->nat2nat_obj);
 	    stream->nat2nat_obj = NULL;
@@ -2468,7 +2592,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 
     /* Read the version numbers */
     version = InInteger(stream);
-    if (version == 3)
+    if (version == 3 || version == 4)
 	anslen++;
     writer_version = InInteger(stream);
     min_reader_version = InInteger(stream);
@@ -2504,7 +2628,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
     default:
 	error(_("unknown input format"));
     }
-    if (version == 3) {
+    if (version == 3 || version == 4) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)
@@ -2551,7 +2675,7 @@ R_InitOutPStream(R_outpstream_t stream, R_pstream_data_t data,
 {
     stream->data = data;
     stream->type = type;
-    stream->version = version != 0 ? version : defaultSerializeVersion();
+    stream->version = version;
     stream->OutChar = outchar;
     stream->OutBytes = outbytes;
     stream->OutPersistHookFunc = phook;
@@ -2781,12 +2905,13 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else type = R_pstream_xdr_format;
 
     if (CADDDR(args) == R_NilValue)
-	version = defaultSerializeVersion();
-    else
+	version = 0;
+    else {
 	version = asInteger(CADDDR(args));
-    if (version == NA_INTEGER || version <= 0)
-	error(_("bad version value"));
-    if (version < 2)
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("bad version value"));
+    }
+    if (version != 0 && version < 2)
 	error(_("cannot save to connections in version %d format"), version);
 
     fun = CAD4R(args);
@@ -2945,10 +3070,12 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
-    else version = asInteger(Sversion);
-    if (version == NA_INTEGER || version <= 0)
-	error(_("bad version value"));
+	version = 0;
+    else {
+	version = asInteger(Sversion);
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("bad version value"));
+    }
 
     hook = fun != R_NilValue ? CallHook : NULL;
 
@@ -3094,10 +3221,12 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
-    else version = asInteger(Sversion);
-    if (version == NA_INTEGER || version <= 0)
-	error(_("bad version value"));
+	version = 0;
+    else {
+	version = asInteger(Sversion);
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("bad version value"));
+    }
 
     hook = fun != R_NilValue ? CallHook : NULL;
 

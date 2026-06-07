@@ -797,6 +797,7 @@ void InitS3DefaultTypes(void)
 		nprotected++;
 		break;
 	    case INTSXP:
+	    case INT64SXP:
 	    case REALSXP:
 		part3 = PROTECT(type2str_nowarn(type));
 		part4 = PROTECT(mkChar("numeric"));

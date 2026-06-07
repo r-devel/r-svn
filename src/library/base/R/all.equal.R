@@ -445,6 +445,8 @@ all.equal.raw <-
     else msg
 }
 
+all.equal.int64 <- all.equal.raw
+
 
 ## attributes are a pairlist, so never 'long'
 attr.all.equal <- function(target, current, ...,

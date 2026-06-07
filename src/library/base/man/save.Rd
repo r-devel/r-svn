@@ -43,9 +43,10 @@ save.image(file = ".RData", version = NULL, ascii = FALSE,
     \code{version >= 2}, a different ASCII representation is used which
     writes double/complex numbers as binary fractions.}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default format (3).  Version 1 was the default
-    from \R 0.99.0 to \R 1.3.1 and version 2 from \R 1.4.0 to 3.5.0.
-    Version 3 is supported from \R 3.5.0.}
+    specifies the current default format (3), or version 4 when the
+    objects require it.  Version 1 was the default from \R 0.99.0 to
+    \R 1.3.1 and version 2 from \R 1.4.0 to 3.5.0.  Version 3 is
+    supported from \R 3.5.0.}
   \item{envir}{environment to search for objects to be saved.}
   \item{compress}{logical or character string specifying whether saving
     to a named file is to use compression.  \code{TRUE} corresponds to
@@ -181,6 +182,8 @@ save.image(file = ".RData", version = NULL, ascii = FALSE,
 
   One such \sQuote{later addition} was \link{long vectors}, introduced in \R
   3.0.0 and loadable only on 64-bit platforms.
+
+  \code{int64} vectors require version 4 saves.
 
   Loading files saved with \code{ASCII = NA} requires a C99-compliant C
   function \code{sscanf}: this is a problem on Windows, first worked
