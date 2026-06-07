@@ -1997,6 +1997,13 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 #    include <memory.h>
 #endif
 
+static R_INLINE R_int64_t rowsum_int64_plus(R_int64_t x, R_int64_t y)
+{
+    if ((y > 0 && x > R_INT64_MAX - y) ||
+	(y < 0 && x < R_INT64_MIN - y))
+	return NA_INT64;
+    return x + y;
+}
 
 static SEXP
 rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
@@ -2052,6 +2059,24 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 		    if (dtmp < INT_MIN || dtmp > INT_MAX) itmp = NA_INTEGER;
 		    else itmp += xjpo;
 		    pa[pmatches[j] - 1 + offsetg] = itmp;
+		}
+	    }
+	    offset += n;
+	    offsetg += ng;
+	}
+	break;
+    case INT64SXP:
+	Memzero(INT64(ans), ng*p);
+	for(int i = 0; i < p; i++) {
+	    R_int64_t *pa = INT64(ans);
+	    for(int j = 0; j < n; j++) {
+		R_int64_t xjpo = INT64_ELT(x, j + offset);
+		R_xlen_t idx = pmatches[j] - 1 + offsetg;
+		if (xjpo == NA_INT64) {
+		    if(!narm)
+			pa[idx] = NA_INT64;
+		} else if (pa[idx] != NA_INT64) {
+		    pa[idx] = rowsum_int64_plus(pa[idx], xjpo);
 		}
 	    }
 	    offset += n;
@@ -2126,6 +2151,22 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 		    if (dtmp < INT_MIN || dtmp > INT_MAX) itmp = NA_INTEGER;
 		    else itmp += xj;
 		    INTEGER0(col)[pmatches[j] - 1] = itmp;
+		}
+	    }
+	    SET_VECTOR_ELT(ans, i, col);
+	    UNPROTECT(1);
+	    break;
+	case INT64SXP:
+	    PROTECT(col = allocVector(INT64SXP, ng));
+	    Memzero(INT64(col), ng);
+	    for(R_xlen_t j = 0; j < n; j++) {
+		R_int64_t xj = INT64_ELT(xcol, j);
+		R_xlen_t idx = pmatches[j] - 1;
+		if (xj == NA_INT64) {
+		    if(!narm)
+			INT64(col)[idx] = NA_INT64;
+		} else if (INT64(col)[idx] != NA_INT64) {
+		    INT64(col)[idx] = rowsum_int64_plus(INT64(col)[idx], xj);
 		}
 	    }
 	    SET_VECTOR_ELT(ans, i, col);

@@ -121,6 +121,10 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(unname(i64_real_rbind[1, 1]), 2147483648),
 +     identical(as.vector(i64_named, "int64"), as.int64("1")),
 +     identical(as.vector(i64_named, "any"), as.int64("1")),
++     identical(format(as.int64(c("1", "2147483648", NA)), trim = TRUE),
++               c("1", "2147483648", "NA")),
++     identical(format.info(as.int64(c("1", "2147483648", NA))), 10L),
++     is.character(capture.output(data.frame(x = as.int64(c("1", "2"))))),
 +     identical(unserialize(serialize(as.int64(c("1", NA)), NULL)), as.int64(c("1", NA))),
 +     identical(as.int64(c("1", "2"))[[2]], as.int64("2")),
 +     identical(match(as.int64("1"), as.int64("1")), 1L),
@@ -178,6 +182,12 @@ integer literal 1.L contains unnecessary decimal point
 +     identical(array(as.int64(NA), 3L), structure(rep(as.int64(NA), 3L), dim = 3L)),
 +     { z <- as.int64("1"); length(z) <- 3L; identical(z, c(as.int64("1"), as.int64(NA), as.int64(NA))) },
 +     { z <- 1:3; tsp(z) <- as.int64(c("1", "3", "1")); identical(tsp(z), c(1, 3, 1)) },
++     identical(rowsum(as.int64(c("1", "2", NA)), c(1L, 1L, 2L)),
++               matrix(as.int64(c("3", NA)), dimnames = list(c("1", "2"), NULL))),
++     identical(rowsum(as.int64(c("1", "2", NA)), c(1L, 1L, 2L), na.rm = TRUE),
++               matrix(as.int64(c("3", "0")), dimnames = list(c("1", "2"), NULL))),
++     identical(rowsum(data.frame(x = as.int64(c("1", "2", NA))), c(1L, 1L, 2L)),
++               data.frame(x = as.int64(c("3", NA)), row.names = c("1", "2"))),
 +     is.character(capture.output(matrix(as.int64("1"), 1L))),
 +     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 + )

@@ -558,6 +558,20 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	    break;
 
+	case INT64SXP:
+	{
+	    const R_int64_t *ix = INT64_RO(x);
+	    PROTECT(y = allocVector(STRSXP, n));
+	    if (trim) w = 0;
+	    else formatInt64(ix, n, &w);
+	    w = imax2(w, wd);
+	    for (i = 0; i < n; i++) {
+		strp = EncodeInt64(ix[i], w);
+		SET_STRING_ELT(y, i, mkChar(strp));
+	    }
+	    break;
+	}
+
 	case REALSXP:
 	    formatReal(REAL(x), n, &w, &d, &e, nsmall);
 	    if (trim) w = 0;
@@ -718,6 +732,10 @@ attribute_hidden SEXP do_formatinfo(SEXP call, SEXP op, SEXP args, SEXP env)
 
     case INTSXP:
 	formatInteger(INTEGER(x), n, &w);
+	break;
+
+    case INT64SXP:
+	formatInt64(INT64_RO(x), n, &w);
 	break;
 
     case REALSXP:

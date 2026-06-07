@@ -62,7 +62,7 @@ format.default <-
 			      paste(" with", length(sls),
 				    if(length(sls) == 1L) "slot" else "slots"), ">")
 	       },
-	       numeric =, logical =, complex =,
+	       numeric =, int64 =, logical =, complex =,
                externalptr =,
 	       environment =
 		   prettyNum(.Internal(format(x, trim, digits, nsmall, width, 3L,
