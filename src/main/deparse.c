@@ -1486,6 +1486,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     case STRSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
     case RAWSXP:
@@ -1605,10 +1606,33 @@ static void deparse2buf_name(SEXP nv, int i, LocalParseData *d) {
     }
 }
 
+static void deparse2buff_int64(R_int64_t x, LocalParseData *d, Rboolean quote)
+{
+    if (x == NA_INT64) {
+	print2buff("NA", d);
+	return;
+    }
+
+    char buff[64];
+    snprintf(buff, sizeof(buff), "%" PRId64, (int64_t) x);
+    buff[sizeof(buff) - 1] = '\0';
+
+    if (quote) print2buff("\"", d);
+    print2buff(buff, d);
+    if (quote) print2buff("\"", d);
+    else print2buff("L", d);
+}
+
+static Rboolean int64_needs_constructor(R_int64_t x)
+{
+    return x == NA_INT64 ||
+	(x >= (R_int64_t) INT_MIN + 1 && x <= (R_int64_t) INT_MAX);
+}
+
 // deparse atomic vectors :
 static void vector2buff(SEXP vector, LocalParseData *d)
 {
-    // Known here:  TYPEOF(vector)  is one of the 6 atomic *SXPs
+    // Known here:  TYPEOF(vector)  is one of the atomic *SXPs
     const char *strp;
     char *buff = 0, hex[64]; // 64 is more than enough
     int i, d_opts_in = d->opts,
@@ -1661,6 +1685,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	switch(TYPEOF(vector)) {
 	case LGLSXP: print2buff("logical(0)", d); break;
 	case INTSXP: print2buff("integer(0)", d); break;
+	case INT64SXP: print2buff("as.int64(character(0))", d); break;
 	case REALSXP: print2buff("numeric(0)", d); break;
 	case CPLXSXP: print2buff("complex(0)", d); break;
 	case STRSXP: print2buff("character(0)", d); break;
@@ -1711,6 +1736,21 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	    if(need_c)   print2buff(")", d);
 	    if(surround) print2buff(")", d);
 	}
+    } else if(TYPEOF(vector) == INT64SXP) {
+	const R_int64_t *vec = INT64_RO(vector);
+	Rboolean use_as_int64 = need_c || do_names || int64_needs_constructor(vec[0]);
+	if(use_as_int64) print2buff("as.int64(", d);
+	if(need_c || do_names) print2buff("c(", d);
+	for (i = 0; i < tlen; i++) {
+	    if(do_names)
+		deparse2buf_name(nv, i, d);
+	    deparse2buff_int64(vec[i], d, use_as_int64);
+	    if (i < (tlen - 1)) print2buff(", ", d);
+	    if (tlen > 1 && d->len > d->cutoff) writeline(d);
+	    if (!d->active) break;
+	}
+	if(need_c || do_names) print2buff(")", d);
+	if(use_as_int64) print2buff(")", d);
     } else { // tlen > 0;  _not_ INTSXP
 	allNA = d->opts & KEEPNA;
 	if((d->opts & KEEPNA) && TYPEOF(vector) == REALSXP) {

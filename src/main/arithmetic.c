@@ -1531,6 +1531,15 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
 	    int xi = px[i];
 	    pa[i] = (xi == NA_INTEGER) ? xi : abs(xi);
 	}
+    } else if (TYPEOF(x) == INT64SXP) {
+	R_xlen_t i, n = XLENGTH(x);
+	PROTECT(s = NO_REFERENCES(x) ? x : allocVector(INT64SXP, n));
+	R_int64_t *pa = INT64(s);
+	const R_int64_t *px = INT64_RO(x);
+	for(i = 0 ; i < n ; i++) {
+	    R_int64_t xi = px[i];
+	    pa[i] = (xi == NA_INT64 || xi >= 0) ? xi : -xi;
+	}
     } else if (TYPEOF(x) == REALSXP) {
 	R_xlen_t i, n = XLENGTH(x);
 	PROTECT(s = NO_REFERENCES(x) ? x : allocVector(REALSXP, n));
