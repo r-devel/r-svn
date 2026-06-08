@@ -56,6 +56,11 @@
 ## .doWrap introduced in r74405 | 2018-03-14   replaced by .doSortWrap in r74504 | 2018-04-02
 .doWrap <- .doSortWrap
 
+.isNumericNotInt64 <- function(x) is.numeric(x) && typeof(x) != "int64"
+
+.isRadixSortable <- function(x)
+    .isNumericNotInt64(x) || is.factor(x) || is.logical(x)
+
 sort <- function(x, decreasing = FALSE, ...)
 {
     if(!is.logical(decreasing) || length(decreasing) != 1L)
@@ -95,8 +100,7 @@ sort.int <-
     }
     method <- match.arg(method)
     if (method == "auto" && is.null(partial) &&
-        ((is.numeric(x) && typeof(x) != "int64") || is.factor(x) || is.logical(x)) &&
-        is.integer(length(x)))
+        .isRadixSortable(x) && is.integer(length(x)))
         method <- "radix"
     if (method == "radix") {
         if (!is.null(partial)) {
@@ -214,8 +218,7 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
 
     if (method == "auto") {
         useRadix <- all(vapply(z, function(x) {
-            ((is.numeric(x) && typeof(x) != "int64") || is.factor(x) || is.logical(x)) &&
-                is.integer(length(x))
+            .isRadixSortable(x) && is.integer(length(x))
         }, logical(1L)))
         method <- if (useRadix) "radix" else "shell"
     }
@@ -256,14 +259,14 @@ sort.list <- function(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
 
     method <- match.arg(method)
     if (method == "auto" &&
-        ((is.numeric(x) && typeof(x) != "int64") || is.factor(x) || is.logical(x) ||
-         (is.object(x) && !is.atomic(x))) && is.integer(length(x)))
+        (.isRadixSortable(x) || (is.object(x) && !is.atomic(x))) &&
+        is.integer(length(x)))
         method <- "radix"
     if(!is.null(partial))
         .NotYetUsed("partial != NULL")
     if(method == "quick") {
         if(is.factor(x)) x <- as.integer(x) # sort the internal codes
-        if(is.numeric(x) && typeof(x) != "int64")
+        if(.isNumericNotInt64(x))
             return(sort(x, na.last = na.last, decreasing = decreasing,
                         method = "quick", index.return = TRUE)$ix)
         else if(typeof(x) == "int64")
