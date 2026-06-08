@@ -30,7 +30,8 @@
 #include "Fileio.h"
 #include "Parse.h"
 #include <R_ext/Print.h>
-#include <errno.h>
+
+#include "int64-utils.h"
 
 #if !defined(__STDC_ISO_10646__) && (defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun))
 /* This may not be 100% true (see the comment in rlocale.h),
@@ -2267,158 +2268,6 @@ static SEXP mkFloat(const char *s)
     return ScalarReal(R_atof(s));
 }
 
-static Rboolean parse_decimal_int64_literal(const char *s, R_int64_t *out)
-{
-    const char *p = s;
-    Rboolean neg = FALSE, seen_digit = FALSE, seen_dot = FALSE;
-    size_t len = strlen(s), ndigits = 0, frac_digits = 0;
-    char *digits = (char *) R_alloc(len + 1, 1);
-
-    if (*p == '+' || *p == '-') {
-	neg = *p == '-';
-	p++;
-    }
-    while (*p) {
-	if (*p >= '0' && *p <= '9') {
-	    digits[ndigits++] = *p;
-	    if (seen_dot) frac_digits++;
-	    seen_digit = TRUE;
-	    p++;
-	} else if (*p == '.' && !seen_dot) {
-	    seen_dot = TRUE;
-	    p++;
-	} else {
-	    break;
-	}
-    }
-    if (!seen_digit) return FALSE;
-
-    Rboolean exp_neg = FALSE;
-    long exp = 0;
-    if (*p == 'e' || *p == 'E') {
-	p++;
-	if (*p == '+' || *p == '-') {
-	    exp_neg = *p == '-';
-	    p++;
-	}
-	if (*p < '0' || *p > '9') return FALSE;
-	while (*p >= '0' && *p <= '9') {
-	    if (exp < 1000000) {
-		exp = 10 * exp + (*p - '0');
-		if (exp > 1000000) exp = 1000000;
-	    }
-	    p++;
-	}
-    }
-    if (*p != '\0') return FALSE;
-
-    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
-    if (scale < 0) {
-	long trim = -scale;
-	if ((size_t) trim >= ndigits) {
-	    for (size_t i = 0; i < ndigits; i++)
-		if (digits[i] != '0') return FALSE;
-	    *out = 0;
-	    return TRUE;
-	}
-	for (long i = 0; i < trim; i++)
-	    if (digits[ndigits - 1 - (size_t) i] != '0') return FALSE;
-	ndigits -= (size_t) trim;
-	scale = 0;
-    }
-
-    size_t start = 0;
-    while (start < ndigits && digits[start] == '0') start++;
-    if (start == ndigits) {
-	*out = 0;
-	return TRUE;
-    }
-
-    uintmax_t limit = neg ?
-	(uintmax_t) R_INT64_MAX + 1 : (uintmax_t) R_INT64_MAX;
-    uintmax_t mag = 0;
-    for (size_t i = start; i < ndigits; i++) {
-	uintmax_t digit = (uintmax_t) (digits[i] - '0');
-	if (mag > (limit - digit) / 10) return FALSE;
-	mag = 10 * mag + digit;
-    }
-    while (scale-- > 0) {
-	if (mag > limit / 10) return FALSE;
-	mag *= 10;
-    }
-
-    if (neg) {
-	if (mag == (uintmax_t) R_INT64_MAX + 1)
-	    *out = R_INT64_MIN;
-	else
-	    *out = -(R_int64_t) mag;
-    } else {
-	*out = (R_int64_t) mag;
-    }
-    return TRUE;
-}
-
-static Rboolean decimal_int_literal_has_fraction(const char *s)
-{
-    const char *p = s;
-    Rboolean seen_digit = FALSE, seen_dot = FALSE;
-    size_t len = strlen(s), ndigits = 0, frac_digits = 0;
-    char *digits = (char *) R_alloc(len + 1, 1);
-
-    if (*p == '+' || *p == '-')
-	p++;
-    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
-	return FALSE;
-
-    while (*p) {
-	if (*p >= '0' && *p <= '9') {
-	    digits[ndigits++] = *p;
-	    if (seen_dot) frac_digits++;
-	    seen_digit = TRUE;
-	    p++;
-	} else if (*p == '.' && !seen_dot) {
-	    seen_dot = TRUE;
-	    p++;
-	} else {
-	    break;
-	}
-    }
-    if (!seen_digit) return FALSE;
-
-    Rboolean exp_neg = FALSE;
-    long exp = 0;
-    if (*p == 'e' || *p == 'E') {
-	p++;
-	if (*p == '+' || *p == '-') {
-	    exp_neg = *p == '-';
-	    p++;
-	}
-	if (*p < '0' || *p > '9') return FALSE;
-	while (*p >= '0' && *p <= '9') {
-	    if (exp < 1000000) {
-		exp = 10 * exp + (*p - '0');
-		if (exp > 1000000) exp = 1000000;
-	    }
-	    p++;
-	}
-    }
-    if (*p == 'L') p++;
-    if (*p != '\0') return FALSE;
-
-    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
-    if (scale >= 0) return FALSE;
-
-    long trim = -scale;
-    if ((size_t) trim >= ndigits) {
-	for (size_t i = 0; i < ndigits; i++)
-	    if (digits[i] != '0') return TRUE;
-	return FALSE;
-    }
-    for (long i = 0; i < trim; i++)
-	if (digits[ndigits - 1 - (size_t) i] != '0') return TRUE;
-    return FALSE;
-}
-
 static SEXP mkInt(const char *s)
 {
     size_t len = strlen(s);
@@ -2430,19 +2279,17 @@ static SEXP mkInt(const char *s)
     Rboolean is_hex = len > 2 && buf[0] == '0' &&
 	(buf[1] == 'x' || buf[1] == 'X');
     if (strpbrk(buf, is_hex ? ".pP" : ".eEpP") == NULL) {
-	char *endp;
-	errno = 0;
-	int base = is_hex ? 0 : 10;
-	intmax_t val = strtoimax(buf, &endp, base);
-	if (*endp == '\0' && errno != ERANGE &&
-	    val >= R_INT64_MIN && val <= R_INT64_MAX) {
+	R_int64_t val;
+	if (int64_parse_integer_string(buf, FALSE, FALSE, &val)) {
 	    if (val >= -INT_MAX && val <= INT_MAX)
 		return ScalarInteger((int) val);
-	    return ScalarInt64((R_int64_t) val);
+	    return ScalarInt64(val);
 	}
     } else {
 	R_int64_t exact;
-	if (!is_hex && parse_decimal_int64_literal(buf, &exact)) {
+	if (!is_hex &&
+	    int64_parse_decimal_string(buf, FALSE, FALSE, FALSE, &exact)
+	    == INT64_PARSE_EXACT) {
 	    if (exact >= -INT_MAX && exact <= INT_MAX)
 		return ScalarInteger((int) exact);
 	    return ScalarInt64(exact);
@@ -2855,7 +2702,9 @@ static int NumericValue(int c)
 	   double value is integer-valued. Range is checked when the literal is
 	   allocated, so int32 overflow can promote to int64.
 	*/
-	if(decimal_int_literal_has_fraction(yytext)) {
+	R_int64_t exact;
+	if(int64_parse_decimal_string(yytext, FALSE, FALSE, TRUE, &exact)
+	   == INT64_PARSE_FRACTION) {
 	    if(GenerateCode) {
 		if(seendot == 1 && seenexp == 0)
 		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);

@@ -37,6 +37,8 @@
 #include <Rmath.h>
 #include <Print.h>
 
+#include "int64-utils.h"
+
 #ifdef Win32
 #include <trioremap.h> /* for %lld */
 #endif
@@ -244,147 +246,15 @@ Int64FromComplex(Rcomplex x, int *warn)
     return val;
 }
 
-static Rboolean Int64FromDecimalStringExact(const char *s, R_int64_t *out)
-{
-    const char *p = s;
-    while (isspace((unsigned char) *p)) p++;
-
-    Rboolean neg = FALSE, seen_digit = FALSE, seen_dot = FALSE;
-    if (*p == '+' || *p == '-') {
-	neg = *p == '-';
-	p++;
-    }
-
-    const char *mantissa = p;
-    size_t ndigits = 0, frac_digits = 0;
-    while (*p) {
-	if (*p >= '0' && *p <= '9') {
-	    ndigits++;
-	    if (seen_dot) frac_digits++;
-	    seen_digit = TRUE;
-	    p++;
-	} else if (*p == '.' && !seen_dot) {
-	    seen_dot = TRUE;
-	    p++;
-	} else {
-	    break;
-	}
-    }
-    const char *mantissa_end = p;
-    if (!seen_digit) return FALSE;
-
-    Rboolean exp_neg = FALSE;
-    long exp = 0;
-    if (*p == 'e' || *p == 'E') {
-	p++;
-	if (*p == '+' || *p == '-') {
-	    exp_neg = *p == '-';
-	    p++;
-	}
-	if (*p < '0' || *p > '9') return FALSE;
-	while (*p >= '0' && *p <= '9') {
-	    if (exp < 1000000) {
-		exp = 10 * exp + (*p - '0');
-		if (exp > 1000000) exp = 1000000;
-	    }
-	    p++;
-	}
-    }
-    if (!isBlankString(p)) return FALSE;
-
-    long scale = (exp_neg ? -exp : exp) - (long) frac_digits;
-    size_t digits_to_use = ndigits;
-    if (scale < 0) {
-	long trim = -scale;
-	if ((size_t) trim >= ndigits) {
-	    for (const char *q = mantissa; q < mantissa_end; q++)
-		if (*q >= '1' && *q <= '9') return FALSE;
-	    *out = 0;
-	    return TRUE;
-	}
-	digits_to_use -= (size_t) trim;
-	size_t i = 0;
-	for (const char *q = mantissa; q < mantissa_end; q++) {
-	    if (*q < '0' || *q > '9') continue;
-	    if (i++ >= digits_to_use && *q != '0') return FALSE;
-	}
-	scale = 0;
-    }
-
-    uintmax_t limit = (uintmax_t) R_INT64_MAX;
-    uintmax_t mag = 0;
-    Rboolean seen_nonzero = FALSE;
-    size_t i = 0;
-    for (const char *q = mantissa; q < mantissa_end; q++) {
-	if (*q < '0' || *q > '9') continue;
-	if (i++ >= digits_to_use) break;
-	uintmax_t digit = (uintmax_t) (*q - '0');
-	if (!seen_nonzero && digit == 0) continue;
-	seen_nonzero = TRUE;
-	if (mag > (limit - digit) / 10) return FALSE;
-	mag = 10 * mag + digit;
-    }
-    if (!seen_nonzero) {
-	*out = 0;
-	return TRUE;
-    }
-    while (scale-- > 0) {
-	if (mag > limit / 10) return FALSE;
-	mag *= 10;
-    }
-
-    *out = neg ? -(R_int64_t) mag : (R_int64_t) mag;
-    return TRUE;
-}
-
-static int hex_digit_value(unsigned char c)
-{
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
-}
-
-static Rboolean Int64FromHexStringExact(const char *s, R_int64_t *out)
-{
-    const char *p = s;
-    while (isspace((unsigned char) *p)) p++;
-
-    Rboolean neg = FALSE;
-    if (*p == '+' || *p == '-') {
-	neg = *p == '-';
-	p++;
-    }
-    if (p[0] != '0' || (p[1] != 'x' && p[1] != 'X'))
-	return FALSE;
-    p += 2;
-
-    int digit = hex_digit_value((unsigned char) *p);
-    if (digit < 0) return FALSE;
-
-    uintmax_t limit = (uintmax_t) R_INT64_MAX;
-    uintmax_t mag = 0;
-    do {
-	if (mag > (limit - (uintmax_t) digit) / 16) return FALSE;
-	mag = 16 * mag + (uintmax_t) digit;
-	p++;
-	digit = hex_digit_value((unsigned char) *p);
-    } while (digit >= 0);
-
-    if (!isBlankString(p)) return FALSE;
-
-    *out = neg ? -(R_int64_t) mag : (R_int64_t) mag;
-    return TRUE;
-}
-
 attribute_hidden R_int64_t
 Int64FromString(SEXP x, int *warn)
 {
     if (x != R_NaString && !isBlankString(CHAR(x))) {
 	const char *p = CHAR(x);
 	R_int64_t val;
-	if (Int64FromDecimalStringExact(p, &val) ||
-	    Int64FromHexStringExact(p, &val))
+	if (int64_parse_integer_string(p, TRUE, TRUE, &val) ||
+	    int64_parse_decimal_string(p, TRUE, TRUE, FALSE, &val)
+	    == INT64_PARSE_EXACT)
 	    return val;
 	const char *q = p;
 	while (isspace((unsigned char) *q)) q++;
