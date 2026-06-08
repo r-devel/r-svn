@@ -102,6 +102,8 @@ sort.int <-
         if (!is.null(partial)) {
             stop("'partial' sorting not supported by radix method")
         }
+        if (typeof(x) == "int64")
+            stop("method = \"radix\" is not supported for int64 'x'")
         if (index.return && is.na(na.last)) {
             x <- x[!is.na(x)]
             na.last <- TRUE
@@ -225,6 +227,8 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
     }
 
     if (method == "radix") {
+        if (any(vapply(z, typeof, character(1L)) == "int64"))
+            stop("method = \"radix\" is not supported for int64 arguments")
         decreasing <- rep_len(as.logical(decreasing), length(z))
         return(.Internal(radixsort(na.last, decreasing, FALSE, TRUE, ...)))
     }
@@ -271,6 +275,8 @@ sort.list <- function(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
         na.last <- TRUE
     }
     if(method == "radix") {
+        if (typeof(x) == "int64")
+            stop("method = \"radix\" is not supported for int64 'x'")
         return(order(x, na.last=na.last, decreasing=decreasing, method="radix"))
     }
     ## method == "shell"

@@ -225,6 +225,12 @@ i64_array_print_matches_int <- local({
     identical(i64, int)
 })
 i64_asplit <- asplit(array(as.int64(as.character(1:4)), c(2L, 2L)), 1L)
+i64_radix_unsupported <- function(expr) {
+    err <- try(expr, silent = TRUE)
+    inherits(err, "try-error") &&
+        grepl("method = \"radix\" is not supported for int64",
+              conditionMessage(attr(err, "condition")), fixed = TRUE)
+}
 stopifnot(
     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -448,6 +454,9 @@ stopifnot(
     identical(sort(as.int64(c("2", "1", NA)), na.last = TRUE), as.int64(c("1", "2", NA))),
     identical(order(as.int64(c("2", "1", NA)), na.last = TRUE), c(2L, 1L, 3L)),
     identical(sort.list(as.int64(c("2", "1", NA)), na.last = TRUE), c(2L, 1L, 3L)),
+    i64_radix_unsupported(sort(as.int64(c("2", "1")), method = "radix")),
+    i64_radix_unsupported(order(as.int64(c("2", "1")), method = "radix")),
+    i64_radix_unsupported(sort.list(as.int64(c("2", "1")), method = "radix")),
     identical(deparse(2147483648L), "2147483648L"),
     identical(eval(parse(text = deparse(2147483648L))), 2147483648L),
     identical(9007199254740993e0L, as.int64("9007199254740993")),
