@@ -335,6 +335,7 @@ static SEXP D(SEXP expr, SEXP var)
     switch(TYPEOF(expr)) {
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
 	ans = Constant(0);

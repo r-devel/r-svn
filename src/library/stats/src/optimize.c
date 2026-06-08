@@ -619,6 +619,14 @@ static double *fixparam(SEXP p, int *n)
 	    x[i] = INTEGER(p)[i];
 	}
 	break;
+    case INT64SXP:
+	for (i = 0; i < *n; i++) {
+	    R_int64_t val = INT64_ELT(p, i);
+	    if (val == NA_INT64)
+		error(_("missing value in parameter"));
+	    x[i] = (double) val;
+	}
+	break;
     case REALSXP:
 	for (i = 0; i < *n; i++) {
 	    if (!R_FINITE(REAL(p)[i]))

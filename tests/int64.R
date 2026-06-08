@@ -103,6 +103,9 @@ i64_tapply <- tapply(as.int64(c("1", "2")), i64_group, identity,
 i64_ave <- ave(as.int64(c("1", "2")), i64_group, FUN = identity)
 i64_aggregate <- aggregate(as.int64(c("1", "2")), list(g = i64_group),
                            identity)
+i64_nlm_p <- stats::nlm(function(x) sum(x * x), as.int64("1"))
+i64_nlm_typsize <- stats::nlm(function(x) sum(x * x), 1,
+                              typsize = as.int64("1"))
 i64_s3 <- local({
     f <- function(x) UseMethod("f")
     f.numeric <- function(x) "numeric"
@@ -358,6 +361,9 @@ stopifnot(
     identical(i64_dim_matrix[i64_subscript_matrix], 4L),
     identical(i64_subscript_assignment, matrix(c(1L, 2L, 3L, 9L), 2L)),
     identical(complete.cases(data.frame(x = as.int64(c("1", NA)))), c(TRUE, FALSE)),
+    identical(stats::D(2147483648L, "x"), 0),
+    abs(i64_nlm_p$estimate) < 1e-4,
+    abs(i64_nlm_typsize$estimate) < 1e-4,
     typeof(c(1L, 2L) + 1L) == "integer",
     typeof(c(1L, 2L) - 1L) == "integer",
     typeof(c(1L, 2L) * 2L) == "integer",
