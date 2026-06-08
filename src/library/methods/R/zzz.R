@@ -87,7 +87,6 @@
        .InitS3Classes, .InitSpecialTypesAndClasses, .InitTraceFunctions,
        .InitRefClasses, .initImplicitGenerics,
        envir = where)
-    rm(list = coerceVars, envir = .getNamespaceInfo(where, "exports"))
     ## unlock some bindings that must be modifiable
     unlockBinding(".BasicFunsList", where)
     assign(".saveImage", TRUE, envir = where)
@@ -106,6 +105,7 @@
     ## we need to exclude the registration vars
     vars <- grep("^C_", names(ns), invert = TRUE, value = TRUE)
     tools:::makeLazyLoadDB(ns, dbbase, variables = vars)
+    rm(list = coerceVars, envir = .getNamespaceInfo(where, "exports"))
 }
 
 ## avoid warnings from static analysis code by extra call

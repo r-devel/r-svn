@@ -107,6 +107,18 @@ i64_s3 <- local({
     f.numeric <- function(x) "numeric"
     f(as.int64("1"))
 })
+i64_s4 <- local({
+    library(methods)
+    f <- setGeneric("i64_s4_f", function(x) standardGeneric("i64_s4_f"))
+    on.exit(removeGeneric("i64_s4_f"), add = TRUE)
+    setMethod(f, "numeric", function(x) "numeric")
+    A <- setClass("i64_s4_A", slots = c(x = "int64"))
+    on.exit(removeClass("i64_s4_A"), add = TRUE)
+    x <- as.int64("1")
+    list(is_numeric = is(x, "numeric"),
+         dispatch = i64_s4_f(x),
+         valid_slot = validObject(A(x = x)))
+})
 i64_model_data <- data.frame(x = as.int64(1:3), y = 1:3)
 i64_model_frame <- stats::model.frame(y ~ x, data = i64_model_data)
 i64_lm <- stats::lm(y ~ x, data = i64_model_data)
@@ -253,6 +265,8 @@ stopifnot(
     identical(i64_aggregate,
               data.frame(g = i64_group, x = as.int64(c("1", "2")))),
     identical(i64_s3, "numeric"),
+    identical(i64_s4, list(is_numeric = TRUE, dispatch = "numeric",
+                           valid_slot = TRUE)),
     typeof(i64_class_numeric) == "int64",
     identical(i64_class_numeric, i64_big),
     identical(class(i64_class_numeric), "int64"),

@@ -607,6 +607,7 @@ newBasic <-
                "complex" =,
                "double" =,
                "integer" =,
+               "int64" =,
                "raw" =,
                "list" =  as.vector(c(...), Class),
                "expression" = eval(substitute(expression(...))),

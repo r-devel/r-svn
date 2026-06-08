@@ -42,7 +42,7 @@
     ## "numeric" is the class returned by class() for double vectors
     vClasses <- c("logical", "numeric", "character",
                   "double",
-                  "complex", "integer", "raw",
+                  "complex", "integer", "int64", "raw",
                   "expression", "list")
     for(.class in vClasses) {
         .setBaseClass(.class, prototype = newBasic(.class), where = envir)
@@ -102,6 +102,7 @@
           coerce  = .gblEnv(function(object) as.double(object)),
           replace = .gblEnv(function(from, value) { class(value) <- "integer" ; value }))
     setIs("integer", "numeric", where = envir)
+    setIs("int64", "numeric", where = envir)
     setIs("double",  "numeric", where = envir)
     setIs("structure", "vector", coerce = .gblEnv(function(object) as.vector(object)),
           replace = .gblEnv(function(from, to, value) {
