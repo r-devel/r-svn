@@ -154,8 +154,8 @@ formatC <- function (x, digits = NULL, width = NULL,
     if (is.null(mode)) {
 	mode <- storage.mode(x)
 	if (mode == "int64") {
-	    mode <- "double"
-	    storage.mode(x) <- mode
+	    x <- as.character(x)
+	    mode <- "character"
 	}
     }
     else if (any(mode == c("double", "real", "integer")))  {

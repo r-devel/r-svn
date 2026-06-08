@@ -799,25 +799,34 @@ static int InRefIndex(R_inpstream_t stream, int flags)
  * customized handling of reference objects.
  */
 
-static SEXP GetPersistentName(R_outpstream_t stream, SEXP s)
+static Rboolean PersistentHookApplies(R_outpstream_t stream, SEXP s)
 {
     if (stream->OutPersistHookFunc != NULL) {
 	switch (TYPEOF(s)) {
 	case WEAKREFSXP:
-	case EXTPTRSXP: break;
+	case EXTPTRSXP:
+	    return TRUE;
 	case ENVSXP:
 	    if (s == R_GlobalEnv ||
 		s == R_BaseEnv ||
 		s == R_EmptyEnv ||
 		R_IsNamespaceEnv(s) ||
 		R_IsPackageEnv(s))
-		return R_NilValue;
+		return FALSE;
 	    else
-		break;
-	default: return R_NilValue;
+		return TRUE;
+	default:
+	    return FALSE;
 	}
-	return stream->OutPersistHookFunc(s, stream->OutPersistHookData);
     }
+    else
+	return FALSE;
+}
+
+static SEXP GetPersistentName(R_outpstream_t stream, SEXP s)
+{
+    if (PersistentHookApplies(stream, s))
+	return stream->OutPersistHookFunc(s, stream->OutPersistHookData);
     else
 	return R_NilValue;
 }
@@ -1314,6 +1323,9 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    OutIntegerVec(stream, s, len);
 	    break;
 	case INT64SXP:
+	    if (stream->version < 4)
+		error(_("cannot serialize int64 object in version %d format"),
+		      stream->version);
 	    len = XLENGTH(s);
 	    WriteLENGTH(stream, s);
 	    OutInt64Vec(stream, s, len);
@@ -1403,7 +1415,7 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version,
 		SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     }
 
-    if (stream != NULL && GetPersistentName(stream, s) != R_NilValue)
+    if (stream != NULL && PersistentHookApplies(stream, s))
 	return FALSE;
 
     if (SaveSpecialHook(s) != 0 || HashGet(s, seen) != 0)

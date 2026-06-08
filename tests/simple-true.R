@@ -121,10 +121,18 @@ i64_model_data <- data.frame(x = as.int64(1:3), y = 1:3)
 i64_model_frame <- stats::model.frame(y ~ x, data = i64_model_data)
 i64_lm <- stats::lm(y ~ x, data = i64_model_data)
 i64_formatC <- formatC(as.int64("1"))
+i64_big_formatC <- formatC(as.int64("9007199254740993"))
 i64_rds <- tempfile()
 saveRDS(as.int64("1"), i64_rds)
 i64_rds_info <- infoRDS(i64_rds)
 unlink(i64_rds)
+i64_refhook_count <- 0L
+i64_refhook_count_raw <- serialize(methods::getClass("ANY")@versionKey, NULL,
+                                   refhook = function(x) {
+                                       i64_refhook_count <<-
+                                           i64_refhook_count + 1L
+                                       "id"
+                                   })
 i64_refhook_ptr <- methods::getClass("ANY")@versionKey
 attr(i64_refhook_ptr, "x") <- as.int64("1")
 i64_refhook_v3_raw <- try(serialize(i64_refhook_ptr, NULL, version = 3,
@@ -224,9 +232,12 @@ stopifnot(
     identical(typeof(i64_model_frame$x), "int64"),
     isTRUE(all.equal(unname(stats::coef(i64_lm)), c(0, 1))),
     identical(i64_formatC, "1"),
+    identical(i64_big_formatC, "9007199254740993"),
     identical(i64_rds_info$version, 4L),
     identical(i64_rds_info$min_reader_version,
               i64_rds_info$writer_version),
+    is.raw(i64_refhook_count_raw),
+    identical(i64_refhook_count, 1L),
     is.raw(i64_refhook_v3_raw),
     identical(i64_refhook_rds_info$version, 3L),
     identical(i64_scalar_binding_raw, TRUE),
