@@ -169,6 +169,11 @@ integer literal 1.L contains unnecessary decimal point
 > i64_refhook_v3_raw <- try(serialize(i64_refhook_ptr, NULL, version = 3,
 +                                     refhook = function(x) "id"),
 +                           silent = TRUE)
+> i64_refhook_decline_env <- new.env(parent = emptyenv())
+> i64_refhook_decline_env$x <- as.int64("1")
+> i64_refhook_decline_raw <- serialize(i64_refhook_decline_env, NULL,
++                                      refhook = function(x) NULL)
+> i64_refhook_decline_out <- unserialize(i64_refhook_decline_raw)
 > i64_refhook_rds <- tempfile()
 > saveRDS(i64_refhook_ptr, i64_refhook_rds, refhook = function(x) "id")
 > i64_refhook_rds_info <- infoRDS(i64_refhook_rds)
@@ -270,6 +275,8 @@ integer literal 1.L contains unnecessary decimal point
 +     is.raw(i64_refhook_count_raw),
 +     identical(i64_refhook_count, 1L),
 +     is.raw(i64_refhook_v3_raw),
++     is.raw(i64_refhook_decline_raw),
++     identical(i64_refhook_decline_out$x, as.int64("1")),
 +     identical(i64_refhook_rds_info$version, 3L),
 +     identical(i64_scalar_binding_raw, TRUE),
 +     identical(i64_binding_rds_info$version, 4L),

@@ -1409,14 +1409,30 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version,
     if (ALTREP(s) && version >= 3) {
 	SEXP info = ALTREP_SERIALIZED_CLASS(s);
 	SEXP state = ALTREP_SERIALIZED_STATE(s);
-	if (info != NULL && state != NULL)
-	    return SerializeContainsInt64(info, seen, version, stream) ||
+	if (info != NULL && state != NULL) {
+	    PROTECT(state);
+	    PROTECT(info);
+	    Rboolean has_int64 =
+		SerializeContainsInt64(info, seen, version, stream) ||
 		SerializeContainsInt64(state, seen, version, stream) ||
 		SerializeContainsInt64(ATTRIB(s), seen, version, stream);
+	    UNPROTECT(2); /* state, info */
+	    return has_int64;
+	}
     }
 
-    if (stream != NULL && PersistentHookApplies(stream, s))
-	return FALSE;
+    if (stream != NULL && PersistentHookApplies(stream, s)) {
+	SEXP hook_seen = PROTECT(MakeHashTable());
+	Rboolean has_int64 = SerializeContainsInt64(s, hook_seen, version,
+						    NULL);
+	UNPROTECT(1);
+	if (!has_int64)
+	    return FALSE;
+	SEXP t = PROTECT(GetPersistentName(stream, s));
+	Rboolean persisted = t != R_NilValue;
+	UNPROTECT(1);
+	return !persisted;
+    }
 
     if (SaveSpecialHook(s) != 0 || HashGet(s, seen) != 0)
 	return FALSE;
