@@ -2564,6 +2564,9 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
     case INTSXP:
 	ASPLIT_ITERATE( INTEGER(e)[j] = INTEGER(x)[k] );
 	break;
+    case INT64SXP:
+	ASPLIT_ITERATE( INT64(e)[j] = INT64(x)[k] );
+	break;
     case REALSXP:
 	ASPLIT_ITERATE( REAL(e)[j] = REAL(x)[k] );
 	break;

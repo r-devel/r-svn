@@ -200,6 +200,7 @@ i64_array_print_matches_int <- local({
     int <- capture.output(print(array(1:20, c(2L, 5L, 2L))))
     identical(i64, int)
 })
+i64_asplit <- asplit(array(as.int64(as.character(1:4)), c(2L, 2L)), 1L)
 stopifnot(
     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -421,6 +422,10 @@ stopifnot(
               matrix(as.int64(c("1", "3", "2", "4")), 2L)),
     identical(array(as.int64("1"), 3L), structure(rep(as.int64("1"), 3L), dim = 3L)),
     identical(array(as.int64(NA), 3L), structure(rep(as.int64(NA), 3L), dim = 3L)),
+    identical(i64_asplit,
+              structure(list(structure(as.int64(c("1", "3")), dim = 2L),
+                             structure(as.int64(c("2", "4")), dim = 2L)),
+                        dim = 2L)),
     identical(aperm(array(as.int64(as.character(1:8)), c(2L, 2L, 2L)), c(2L, 1L, 3L)),
               array(as.int64(c("1", "3", "2", "4", "5", "7", "6", "8")), c(2L, 2L, 2L))),
     { z <- as.int64("1"); length(z) <- 3L; identical(z, c(as.int64("1"), as.int64(NA), as.int64(NA))) },
