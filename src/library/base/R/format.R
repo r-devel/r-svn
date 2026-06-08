@@ -151,7 +151,13 @@ formatC <- function (x, digits = NULL, width = NULL,
     }
 
     if (!(n <- length(x))) return(character())
-    if (is.null(mode))	  mode <- storage.mode(x)
+    if (is.null(mode)) {
+	mode <- storage.mode(x)
+	if (mode == "int64") {
+	    mode <- "double"
+	    storage.mode(x) <- mode
+	}
+    }
     else if (any(mode == c("double", "real", "integer")))  {
       ## for .C call later on
 	if(mode == "real") mode <- "double"

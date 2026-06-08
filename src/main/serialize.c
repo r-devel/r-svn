@@ -1423,8 +1423,11 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
     case DOTSXP:
 	HashAdd(s, seen);
 	if (SerializeContainsInt64(ATTRIB(s), seen, version) ||
-	    SerializeContainsInt64(TAG(s), seen, version) ||
-	    SerializeContainsInt64(CAR(s), seen, version))
+	    SerializeContainsInt64(TAG(s), seen, version))
+	    return TRUE;
+	if (BNDCELL_TAG(s))
+	    R_expand_binding_value(s);
+	if (SerializeContainsInt64(CAR(s), seen, version))
 	    return TRUE;
 	s = CDR(s);
 	goto tailcall;
