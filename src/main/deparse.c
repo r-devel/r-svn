@@ -109,6 +109,7 @@
 #include <float.h> /* for DBL_DIG */
 #include <Print.h>
 #include <Fileio.h>
+#include "int64-utils.h"
 #ifdef Win32
 #include <trioremap.h>
 #endif
@@ -1615,20 +1616,15 @@ static void deparse2buff_int64(R_int64_t x, LocalParseData *d, Rboolean quote)
 	return;
     }
 
-    char buff[64];
-    snprintf(buff, sizeof(buff), "%" PRId64, (int64_t) x);
-    buff[sizeof(buff) - 1] = '\0';
-
     if (quote) print2buff("\"", d);
-    print2buff(buff, d);
+    print2buff(EncodeInt64(x, 0), d);
     if (quote) print2buff("\"", d);
     else print2buff("L", d);
 }
 
 static Rboolean int64_needs_constructor(R_int64_t x)
 {
-    return x == NA_INT64 ||
-	(x >= (R_int64_t) INT_MIN + 1 && x <= (R_int64_t) INT_MAX);
+    return x == NA_INT64 || int64_fits_integer(x);
 }
 
 // deparse atomic vectors :

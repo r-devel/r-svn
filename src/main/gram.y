@@ -2281,7 +2281,7 @@ static SEXP mkInt(const char *s)
     if (strpbrk(buf, is_hex ? ".pP" : ".eEpP") == NULL) {
 	R_int64_t val;
 	if (int64_parse_integer_string(buf, FALSE, FALSE, &val)) {
-	    if (val >= -INT_MAX && val <= INT_MAX)
+	    if (int64_fits_integer(val))
 		return ScalarInteger((int) val);
 	    return ScalarInt64(val);
 	}
@@ -2290,7 +2290,7 @@ static SEXP mkInt(const char *s)
 	if (!is_hex &&
 	    int64_parse_decimal_string(buf, FALSE, FALSE, FALSE, &exact)
 	    == INT64_PARSE_EXACT) {
-	    if (exact >= -INT_MAX && exact <= INT_MAX)
+	    if (int64_fits_integer(exact))
 		return ScalarInteger((int) exact);
 	    return ScalarInt64(exact);
 	}
@@ -2299,7 +2299,7 @@ static SEXP mkInt(const char *s)
 	    f < (double) R_INT64_MAX) {
 	    R_int64_t val = (R_int64_t) f;
 	    if ((double) val == f && val != NA_INT64) {
-		if (val >= -INT_MAX && val <= INT_MAX)
+		if (int64_fits_integer(val))
 		    return ScalarInteger((int) val);
 		return ScalarInt64(val);
 	    }

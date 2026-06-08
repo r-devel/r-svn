@@ -152,7 +152,7 @@ IntegerFromInt64(R_int64_t x, int *warn)
 {
     if (x == NA_INT64)
 	return NA_INTEGER;
-    else if (x > INT_MAX || x < -INT_MAX) {
+    else if (!int64_fits_integer(x)) {
 	*warn |= WARN_INT_NA;
 	return NA_INTEGER;
     }
@@ -453,10 +453,8 @@ attribute_hidden SEXP StringFromInteger(int x, int *warn)
 
 attribute_hidden SEXP StringFromInt64(R_int64_t x, int *warn)
 {
-    char buf[32];
     if (x == NA_INT64) return NA_STRING;
-    snprintf(buf, sizeof(buf), "%" PRId64, (int64_t) x);
-    return mkChar(buf);
+    return mkChar(EncodeInt64(x, 0));
 }
 
 // dropTrailing0 and StringFromReal moved to printutils.c
