@@ -292,7 +292,7 @@ stopifnot(abs(sm %*% V2 - V2 %*% diag(lam2))		< 60*Meps,
 ## Re-ordered as with symmetric:
 sV <- V2[,i]
 slam <- lam2[i]
-stopifnot(abs(sm %*% sV -  sV %*% diag(slam))		  < 60*Meps)
+stopifnot(abs(sm %*% sV -  sV %*% diag(slam))		< 60*Meps)
 stopifnot(abs(sm	-  sV %*% diag(slam) %*% t(sV)) < 60*Meps)
 ## sV  *is* now equal to V  -- up to sign (+-) and rounding errors
 stopifnot(abs(c(1 - abs(sV / V)))	<     1000*Meps)
@@ -515,7 +515,7 @@ stopifnot(identical(exp(-Inf), 0))
 stopifnot(identical(log(0), -Inf))
 stopifnot(identical((-1)/0, -Inf))
 pm <- c(-1,1) # 'pm' = plus/minus
-stopifnot(atan(Inf*pm) == pm*pi/2)
+stopifnot(abs(print(atan(Inf*pm) - pm*pi/2)) < 1e-15)# typically 0
 ## end of moved from is.finite.Rd
 
 
@@ -741,22 +741,28 @@ stopifnot(abs(D - t(s$u) %*% X %*% s$v) < Eps)#	 D = U' X V
 
 ## Trig
 ## many of these tested for machine accuracy, which seems a bit extreme
-set.seed(123)
 stopifnot(cos(0) == 1)
 stopifnot(sin(3*pi/2) == cos(pi))
+set.seed(123)
 x <- rnorm(99)
-stopifnot(all.equal( sin(-x), - sin(x)))
-stopifnot(all.equal( cos(-x), cos(x)))
+## IGNORE_RDIFF_BEGIN
+table(sinSym <- abs(sin(-x) + sin(x)) /Meps) # = 0 mathematically, 99 x for glibc
+table(cosSym <- abs(cos(-x) - cos(x)) /Meps) #   (ditto)
 x <- abs(x); y <- abs(rnorm(x))
-stopifnot(abs(atan2(y, x) - atan(y/x)) < 10 * Meps)
-stopifnot(abs(atan2(y, x) - atan(y/x)) < 10 * Meps)
+table(atan2D <- abs(atan2(y, x) - atan(y/x)) / Meps)
+## for glibc: 90 x 0, 1 x 1/64,  1 x 1/8,  5 x 1/4,  2 x 1/2   i.e. in [0, 1/2]
+## IGNORE_RDIFF_END
+stopifnot(sinSym <= 2, cosSym <= 2, atan2D <= 4)
 
 x <- 1:99/100
-stopifnot(Mod(1 - (cos(x) + 1i*sin(x)) / exp(1i*x)) < 10 * Meps)
-## error is about 650* at x=0.01:
-stopifnot(abs(1 - x / acos(cos(x))) < 1000 * Meps)
-stopifnot(abs(1 - x / asin(sin(x))) <= 10 * Meps)
-stopifnot(abs(1 - x / atan(tan(x))) <= 10 *Meps)
+summary(e.ixDef <- Mod(1 - (cos(x) + 1i*sin(x)) / exp(1i*x)) / Meps) # glibc: mostly 0; all <= 0.2229
+stopifnot(e.ixDef <= 2)
+## IGNORE_RDIFF_BEGIN
+summary(invCos <- abs(1 - x / acos(cos(x))) / Meps) # 0..649;  649 at x = 0.01
+  table(invSin <- abs(1 - x / asin(sin(x))) / Meps) # 88 x 0, 2 x 0.5, 9 x 1 for glibc
+  table(invTan <- abs(1 - x / atan(tan(x))) / Meps) # 97 x 0, 1 x 0.5, 1 x 1 for glibc
+## IGNORE_RDIFF_END
+stopifnot(invCos < 1000, invSin <= 4, invTan <= 4)
 ## end of moved from Trig.Rd
 
 ## Uniform
@@ -924,14 +930,14 @@ read.table(tf)
 unlink(tf)
 
 
-## PR 870 (as.numeric and NAs)	Harald Fekjær, 2001-03-08,
+## PR 870 (as.numeric and NAs)	Harald FekjÃ¦r, 2001-03-08,
 is.na(as.numeric(" "))
 is.na(as.integer(" "))
 is.na(as.complex(" "))
 ## all false in 1.2.2
 
 
-## PR 871 (deparsing of attribute names) Harald Fekjær, 2001-03-08,
+## PR 871 (deparsing of attribute names) Harald FekjÃ¦r, 2001-03-08,
 midl <- 4
 attr(midl,"Object created") <- date()
 deparse(midl)
@@ -1538,7 +1544,7 @@ poly(x, degree=2)
 ## failed in 1.5.1
 
 
-## PR#1694 cut with infinite values -> NA (Markus Jäntti)
+## PR#1694 cut with infinite values -> NA (Markus JÃ¤ntti)
 cut.off <- c(-Inf, 0, Inf)
 x <- c(-Inf, -10, 0, 10, Inf)
 (res <- cut(x, cut.off, include.lowest=TRUE))
@@ -2915,7 +2921,7 @@ try(approx(list(x=rep(NaN, 9), y=1:9), xout=NaN))
 
 
 ## aggregate.data.frame failed if result would have one row
-## Philippe Hupé, R-help, 2004-05-14
+## Philippe HupÃ©, R-help, 2004-05-14
 dat <- data.frame(a=rep(2,10),b=rep("a",10))
 aggregate(dat$a, by=list(a1=dat$a, b1=dat$b), NROW)
 ## failed due to missing drop = FALSE
@@ -3051,7 +3057,8 @@ names(x) <- nm <- letters[1:10]
 stopifnot(identical(names(cumsum(x)), nm),
           identical(names(cumprod(x)), nm),
           identical(names(cummax(x)), nm),
-          identical(names(cummin(x)), nm))
+          identical(names(cummin(x)), nm),
+		  identical(names(cumvar(x)), nm))
 x <- x+1i
 stopifnot(identical(names(cumsum(x)), nm),
           identical(names(cumprod(x)), nm))
@@ -3065,6 +3072,8 @@ stopifnot(identical(cumsum(x), r))
 stopifnot(identical(cumprod(x), r))
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
+stopifnot(identical(cumvar(c(0, 2, NA, 1)), c(NA, 2, NA, NA)))
+
 # complex
 cx <- function(r,i) complex(real=r, imaginary=i)
 NA.1 <- cx(NA, 1)
@@ -3091,7 +3100,7 @@ stopifnot(identical(cumsum(x), r))
 stopifnot(identical(cumprod(x), c(1, NA, NA))) # returns double
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
-
+stopifnot(identical(cumvar(c(0L, 2L, NA, 1L)), c(NA, 2, NA, NA))) # returns double
 ## complex superassignments
 e <- c(a=1, b=2)
 f <- c(a=1, b=2)
@@ -3325,7 +3334,7 @@ stopifnot(labels(lm.D9) == "group")
 a <- matrix (ncol=100, nrow=100, data=c(1,2,3,4,5))
 a.serial <- rawToChar(serialize(a, NULL, ascii=TRUE))
 try(sprintf('foo: %s\n', a.serial))
-## seqfaulted in 2.0.1
+## segfaulted in 2.0.1
 
 
 ## all/any did not coerce as the Blue Book described.
@@ -3367,7 +3376,7 @@ a1 <- m1; dim(a1) <- length(a1); dimnames(a1) <- dimnames(m1)[2]; a1 # named dn
 a2 <- a1; names(dimnames(a2)) <- NULL ; a2 # unnamed dn
 a3 <- a1; dimnames(a3) <- NULL ; a3 # no dn
 stopifnot(identical(dimnames(t(a1))[2], dimnames(a1)))
-## in version <= 2.0.1,  t(.) was loosing names of dimnames()
+## in version <= 2.0.1,  t(.) was losing names of dimnames()
 tst1(a1)# failed in 2.0.1 ("twice")
 tst1(a2)# failed in 2.0.1
 tst1(a3)# ok
@@ -3421,7 +3430,7 @@ f <- factor(1:3)
 contrasts(f, 1) <- c
 x <- model.matrix(~f)
 stopifnot(x == c(1,1,1,0,1,2))
-## gave machine-dependendent silly numbers in 2.0.1
+## gave machine-dependent silly numbers in 2.0.1
 
 
 ## extreme (de-normalized) axis range
@@ -4027,7 +4036,7 @@ stopifnot(nchar(ff) == 12)
 ## small marks test
 f2 <- format(x, big.mark = "'", small.mark="_", small.interval = 2)
 nc <- nchar(f2)
-stopifnot(substring(f2, nc,nc) != "_", # no traling small mark
+stopifnot(substring(f2, nc,nc) != "_", # no trailing small mark
           nc == nc[1])# all the same
 fc <- formatC(1.234 + 10^(0:8), format="fg", width=11, big.mark = "'")
 stopifnot(nchar(fc) == 11)
@@ -4683,7 +4692,7 @@ mosaicplot(x, sort = seq_len(dim(x)))
 ## failed in 2.4.1, fixed in 2.5.0
 
 
-## jitter failed in wierd case (PR#9580)
+## jitter failed in weird case (PR#9580)
 stopifnot(is.finite( jitter(c(-1, 3)) ))
 ## was repeated NaN in 2.4.1
 
@@ -4767,7 +4776,7 @@ stopifnot(inherits(try(seq.int(1.2, 1, by=1)), "try-error"))
 ## subassignment on pairlists: Uwe Ligges on R-help, 2007-05-29
 Call <- call("round", 10.5)
 try({Call[] <- NULL; Call})
-## seqgfaulted in 2.5.0
+## segfaulted in 2.5.0
 
 
 ## Bessel bugs for nu < 0:

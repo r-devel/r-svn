@@ -15,13 +15,13 @@ ADDQU = 's/[^ ][^ ]*/"&"/g'
 $(SHLIB): $(OBJECTS)
 	@if test "z$(OBJECTS)" != "z"; then \
 	  if test -e "$(BASE)-win.def"; then \
-	    echo $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ $(BASE)-win.def $(OBJECTS) $(ALL_LIBS); \
-	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ $(BASE)-win.def $(OBJECTS) $(ALL_LIBS); \
+	    echo $(SHLIB_LD) $(SHLIB_LDFLAGS) $(LDFLAGS) $(DLLFLAGS) -o $@ $(BASE)-win.def $(OBJECTS) $(ALL_LIBS); \
+	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(LDFLAGS) $(DLLFLAGS) -o $@ $(BASE)-win.def $(OBJECTS) $(ALL_LIBS); \
 	  else \
 	    echo EXPORTS > tmp.def; \
 	    $(NM) $(OBJECTS) | $(SED) -n $(SYMPAT) $(NM_FILTER) | $(SED) $(ADDQU)  >> tmp.def; \
-	    echo $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
-	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
+	    echo $(SHLIB_LD) $(SHLIB_LDFLAGS) $(LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
+	    $(SHLIB_LD) $(SHLIB_LDFLAGS) $(LDFLAGS) $(DLLFLAGS) -o $@ tmp.def $(OBJECTS) $(ALL_LIBS); \
 	    $(RM) tmp.def; \
 	  fi \
 	fi
@@ -33,7 +33,7 @@ shlib-clean:
 ## FIXME: why not Rscript?
 symbols.rds: $(OBJECTS)
 	@$(ECHO) "tools:::.shlib_objects_symbol_tables()" | \
-	  $(R_HOME)/bin$(R_ARCH)/Rterm.exe --vanilla --no-echo --args $(OBJECTS)
+	  $(R_HOME)/bin$(R_ARCH)/Rterm.exe --vanilla --no-echo --args $(OBJECTS) --pkglibs $(PKG_LIBS)
 
 compilers:
 	@$(ECHO) "CC = $(CC)"

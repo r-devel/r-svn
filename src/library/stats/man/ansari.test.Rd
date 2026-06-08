@@ -1,6 +1,6 @@
 % File src/library/stats/man/ansari.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ansari.test}
@@ -49,8 +49,9 @@ ansari.test(x, \dots)
 }
 \details{
   Suppose that \code{x} and \code{y} are independent samples from
-  distributions with densities \eqn{f((t-m)/s)/s} and \eqn{f(t-m)},
-  respectively, where \eqn{m} is an unknown nuisance parameter and
+  distributions with continuous distribution functions \eqn{F((t-m)/s)}
+  and \eqn{F(t-m)} respectively, where \eqn{F(0) = 1/2}, \eqn{m} is an
+  unknown nuisance parameter and
   \eqn{s}, the ratio of scales, is the parameter of interest.  The
   \I{Ansari}-\I{Bradley} test is used for testing the null that \eqn{s} equals
   1, the two-sided alternative being that \eqn{s \ne 1}{s != 1} (the
@@ -64,14 +65,14 @@ ansari.test(x, \dots)
 
   Optionally, a nonparametric confidence interval and an estimator for
   \eqn{s} are computed.  If exact p-values are available, an exact
-  confidence interval is obtained by the algorithm described in Bauer
-  (1972), and the \I{Hodges}-\I{Lehmann} estimator is employed.  Otherwise, the
-  returned confidence interval and point estimate are based on normal
-  approximations.
+  confidence interval is obtained by the algorithm described in
+  \bibcitet{R:Bauer:1972}, and the \I{Hodges}-\I{Lehmann} estimator is
+  employed.  Otherwise, the returned confidence interval and point
+  estimate are based on normal approximations.
 
   Note that mid-ranks are used in the case of ties rather than average
-  scores as employed in \bibcite{Hollander & Wolfe (1973)}.
-  See, e.g., \bibcite{Hajek, Sidak and Sen (1999), pages 131ff}, for
+  scores as employed in \bibcitet{R:Hollander+Wolfe:1973}.
+  See, e.g., \bibcitet{|R:Hajek+Sidak+Sen:1999|pages 131ff}, for
   more information.
 }
 \value{
@@ -98,20 +99,8 @@ ansari.test(x, \dots)
   for \eqn{s^2} in the F test.
 }
 \references{
-  David F. Bauer (1972).
-  Constructing confidence sets using rank statistics.
-  \emph{Journal of the American Statistical Association},
-  \bold{67}, 687--690.
-  \doi{10.1080/01621459.1972.10481279}.
-
-  Jaroslav Hajek, Zbynek Sidak and Pranab K. Sen (1999).
-  \emph{Theory of Rank Tests}.
-  San Diego, London: Academic Press.
-
-  Myles Hollander and Douglas A. Wolfe (1973).
-  \emph{Nonparametric Statistical Methods}.
-  New York: John Wiley & Sons.
-  Pages 83--92.
+  \bibinfo{R:Hollander+Wolfe:1973}{footer}{Pages 83--92.}
+  \bibshow{*, R:Bauer:1972}
 }
 \seealso{
   \code{\link{fligner.test}} for a rank-based (nonparametric)
@@ -121,7 +110,7 @@ ansari.test(x, \dots)
   \code{\link{var.test}} and \code{\link{bartlett.test}} for parametric
   tests for the homogeneity in variance.
 
-  \code{\link[coin:ScaleTests]{ansari_test}} in package \CRANpkg{coin}
+  \code{\link[coin]{ansari_test}} in package \CRANpkg{coin}
   for exact and approximate \emph{conditional} p-values for the
   \I{Ansari}-\I{Bradley} test, as well as different methods for handling ties.
 }

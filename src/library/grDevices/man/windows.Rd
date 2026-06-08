@@ -146,7 +146,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
   When a screen device is double-buffered (the default) the
   screen is updated 100ms after last plotting call or every 500ms during
   continuous plotting.  These times can be altered by setting
-  \code{options("windowsTimeout")} to a vector of two integers before
+  \code{options("windowsTimeouts")} to a vector of two integers before
   opening the device.
 
   Line widths as controlled by \code{par(lwd =)} are in multiples of
@@ -203,7 +203,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
 
 \section{Fonts}{
   The fonts used for text drawn in a Windows device may be controlled in
-  two ways.  The file \code{R_HOME\\etc\\\link{Rdevga}} can be used to
+  two ways.  The file \file{\var{\link{R_HOME}}\\etc\\\link{Rdevga}} can be used to
   specify mappings for \code{par(font =)} (or the \pkg{grid} equivalent).
   Alternatively, a font family can be specified by a non-empty
   \code{family} argument (or by e.g.\sspace{}\code{par(family =)} in the graphics
@@ -230,7 +230,7 @@ win.print(width = 7, height = 7, pointsize = 12, printer = "",
 
 \section{Conventions}{
   This section describes the implementation of the conventions for
-  graphics devices set out in the \sQuote{R Internals} manual.
+  graphics devices set out in \manual{R-ints}{}.
 
   \itemize{
     \item The default device size is 7 inches square, although this is

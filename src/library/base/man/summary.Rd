@@ -1,6 +1,6 @@
 % File src/library/base/man/summary.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016, 2018 R Core Team
+% Copyright 1995-2016, 2018, 2025-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{summary}
@@ -21,38 +21,58 @@
 \usage{
 summary(object, \dots)
 
-\method{summary}{default}(object, \dots, digits, quantile.type = 7)
+\method{summary}{default}(object, \dots, digits, quantile.type = 7,
+        character.method = c("default", "factor"),
+        polar = TRUE)
+
 \method{summary}{data.frame}(object, maxsum = 7,
-       digits = max(3, getOption("digits")-3), \dots)
+        digits = max(3, getOption("digits")-3), \dots)
 
 \method{summary}{factor}(object, maxsum = 100, \dots)
 
 \method{summary}{matrix}(object, \dots)
 
-\method{format}{summaryDefault}(x, digits = max(3L, getOption("digits") - 3L), \dots)
- \method{print}{summaryDefault}(x, digits = max(3L, getOption("digits") - 3L), \dots)
+\method{format}{summaryDefault}(x, digits = max(3L, getOption("digits") - 3L), zdigits = 4L, \dots)
+\method{print}{summaryDefault} (x, digits = max(3L, getOption("digits") - 3L), zdigits = 4L, \dots)
 }
 \arguments{
   \item{object}{an object for which a summary is desired.}
   \item{x}{a result of the \emph{default} method of \code{summary()}.}
   \item{maxsum}{integer, indicating how many levels should be shown for
     \code{\link{factor}}s.}
-  \item{digits}{integer, used for number formatting with
+  \item{digits}{integer (or \code{\link{NULL}}, see \sQuote{Details}),
+    used for number formatting with
     \code{\link{signif}()} (for \code{summary.default}) or
     \code{\link{format}()} (for \code{summary.data.frame}).  In
     \code{summary.default}, if not specified (i.e.,
     \code{\link{missing}(.)}), \code{signif()} will \emph{not} be called
     anymore (since \R >= 3.4.0, where the default has been changed to
     only round in the \code{print} and \code{format} methods).}% for "summaryDefault"
+  \item{zdigits}{integer, typically positive to be used in the internal
+    \code{\link{zapsmall}(*, digits = digits + zdigits)} call.}
   \item{quantile.type}{integer code used in \code{quantile(*, type=quantile.type)}
     for the default method.}
+  \item{character.method}{a character string, indicating how character
+    vectors are summarized: the \code{"default"} method counts unique
+    and blank (whitespace-only, i.e., empty after \code{\link{trimws}})
+    elements and computes the \code{\link{nchar}} range.  Choose
+    \code{"factor"} to summarize \code{\link{factor}(object)}, resorting
+    to the factor method.  Set to \code{NULL} to fall back to the
+    generic summary as in \R < 4.6.0.}
+  \item{polar}{logical, indicating if polar coordinates (modulus and
+    argument) of \code{\link{complex}} numbers should be summarized rather than
+    Cartesian ones (real and imaginary parts).}
   \item{\dots}{additional arguments affecting the summary produced.}
 }
 \details{
     For \code{\link{factor}}s, the frequency of the first \code{maxsum - 1}
     most frequent levels is shown, and the less frequent levels are
-    summarized in \code{"(Others)"} (resulting in at most \code{maxsum}
+    summarized in \code{"(Other)"} (resulting in at most \code{maxsum}
     frequencies).
+
+    The \code{digits} argument may be \code{\link{NULL}} for some methods
+    specifying to use the default value, e.g., for the
+    \code{"summaryDefault"} \code{format()} method.
 
     The functions \code{summary.lm} and \code{summary.glm} are examples
     of particular methods which summarize the results produced by
@@ -78,17 +98,46 @@ summary(object, \dots)
   \code{\link{summary.lm}}.
 }
 \references{
-  Chambers, J. M. and Hastie, T. J. (1992)
-  \emph{Statistical Models in S}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers+Hastie:1992}
 }
 \examples{
-summary(attenu, digits = 4) #-> summary.data.frame(...), default precision
-summary(attenu $ station, maxsum = 20) #-> summary.factor(...)
+## Summarize a data frame (column-wise) -> summary.data.frame
+summary(attenu, digits = 4)  # default precision
 
-lst <- unclass(attenu$station) > 20 # logical with NAs
-## summary.default() for logicals -- different from *.factor:
-summary(lst)
-summary(as.factor(lst))
+## Summarize a factor, limiting the output length -> summary.factor
+summary(attenu$station, maxsum = 20)
+
+## Summarize a numeric vector -> summary.default
+summary(penguins$body_mass)  # includes quantile(), mean, and NAs (if any)
+summary(penguins$body_mass, quantile.type = 8)
+
+## Summarize a logical vector -> summary.default
+lvec <- penguins$body_mass > 5000
+table(lvec)    # excludes NAs by default
+summary(lvec)  # shows NAs (if any) and the mode()
+summary(as.factor(lvec))  # -> summary.factor
+
+## Summarize a character vector -> summary.default
+summary(month.name)
+summary(month.name, character.method = "factor")  # =summary(factor(.))
+summary(month.name, character.method = NULL)      # as in R < 4.6.0
+
+
+## show the effect of zdigits for skewed data
+set.seed(17); x <- rlnorm(100, sdlog=2)
+dput(sx <- summary(x))
+sx # exponential format for this data
+print(sx, zdigits = 3) # fixed point: "more readable"
+
+## componentwise treatment of complex data (since R 4.6.0):
+z <- c(1, 1+1i, 1i, -1+1i, -1, -1-1i, -1i, 1-1i,
+       NA_real_, NA_complex_)
+(szp <- summary(z))         # using Mod(.) and Arg(.)
+(szc <- summary(z, polar = FALSE)) # Re(.) and  Im(.)
+\dontshow{
+stopifnot(all.equal(as.vector(szp), c( 1, (1+sqrt(2))/2, sqrt(2), pi*c(-3/4, 1/8, 1),  2)),
+          all.equal(as.vector(szc), c(-1,       0,         1,           -1,   0,  1,   2)))
+}
+summary(rx <- as.raw(1.5*x)) # default:  only {length(), class(), mode()}
 }
 \keyword{methods}

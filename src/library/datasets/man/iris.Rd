@@ -1,6 +1,6 @@
 % File src/library/datasets/man/iris.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{iris}
@@ -27,26 +27,18 @@ iris3
   \code{iris3} gives the same data arranged as a 3-dimensional array
   of size 50 by 4 by 3, as once provided by S-PLUS.  The first dimension
   gives the case number within the species subsample, the second the
-  measurements with names \code{Sepal L.}, \code{Sepal W.},
-  \code{Petal L.}, and \code{Petal W.}, and the third the species.
+  measurements with names \samp{Sepal L.}, \samp{Sepal W.},
+  \samp{Petal L.}, and \samp{Petal W.}, and the third the species.
 }
 \source{
-  Fisher, R. A. (1936)
-  The use of multiple measurements in taxonomic problems.
-  \emph{Annals of Eugenics},
-  \bold{7}, Part II, 179--188.
-  \doi{10.1111/j.1469-1809.1936.tb02137.x}.
+  \bibcitet{R:Fisher:1936}.
 
-  The data were collected by
-  Anderson, Edgar (1935).
-  The irises of the Gaspe Peninsula,
-  \emph{Bulletin of the American Iris Society},
-  \bold{59}, 2--5.
+  The data were collected by \bibcitet{R:Anderson:1935}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole. (has \code{iris3} as \code{iris}.)
+  \bibinfo{R:Becker+Chambers+Wilks:1988}{footer}{(Has \code{iris3} as \code{iris}.)}
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{matplot}} some examples of which use

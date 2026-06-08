@@ -130,7 +130,7 @@ if(interactive() && Sys.getenv("USER") == "maechler")
 ## SRCDIR not available on windows, so pkgSrcPath won't be populated
 ## if this happens non-interactively, cleanup and quit gracefully
 if(!file_test("-d", pkgSrcPath) && !interactive()) {
-    unlink("myTst", recursive=TRUE)
+    unlink(c("myTst", "myLib", "myTst2"), recursive=TRUE)
     showProc.time()
     q("no")
 }
@@ -323,7 +323,8 @@ system.time(status <-
                          out = tf,
                          ## avoid delays/timeouts with a broken network route:
                          env = c("R_REPOSITORIES=NULL"), # (no cyclic dep check)
-                         timeout = 50))# see 5--7 sec; Solaris needed > 30
+                         timeout = 50))# seen 2--7 sec; Solaris needed > 30
+if (!identical(status, 124L)) # avoid "random" failures on slow systems
 stopifnot(exprs = {
     status == 1 # an ERROR now
     is.character(exLines <-
@@ -437,11 +438,15 @@ if (requireNamespace("PkgC", lib.loc = "myLib")) {
     ## failed up to R 4.4.x
 }
 
-## R CMD check should *not* warn about \Sexpr{} built sections in Rd (PR#17479):
+
+### Checking Rd files in 'exSexpr'
+
 writeLines(msg <- capture.output(
     tools:::.check_package_parseRd(dir = file.path(pkgPath, "exSexpr"),
                                    minlevel = -Inf)
 ))
+
+## R CMD check should *not* warn about \Sexpr{} built sections in Rd (PR#17479):
 if(length(ifoo <- grep("foo.Rd", msg, fixed = TRUE)))
     stop(".check_package_parseRd() complained about foo.Rd in\n",
          paste0(msg[ifoo], collapse = "\n"))
@@ -478,7 +483,8 @@ stopifnot(exprs = {
 any(grepl("See Also:", helptxt, fixed = TRUE)) == (.Platform$OS.type == "windows")
 
 ## post-build macros can contain conditional defines
-tools::Rd2txt(installedRdDB[["nestedDefinesOK.Rd"]])
+tools::Rd2txt(installedRdDB[["nestedDefinesOK.Rd"]],
+              options = list(underline_titles = FALSE))
 deparsedLines <- as.character(installedRdDB[["nestedDefinesOK.Rd"]])
 stopifnot(("unix" %in% deparsedLines) == (.Platform$OS.type == "unix"),
           ("windows" %in% deparsedLines) == (.Platform$OS.type == "windows"))

@@ -49,23 +49,12 @@ mvfft(z, inverse = FALSE)
   large amount of memory.
 }
 \source{
-  Uses C translation of Fortran code in Singleton (1979).
+  Uses C translation of Fortran code in \bibcitet{R:Singleton:1979}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Singleton, R. C. (1979).
-  Mixed Radix Fast Fourier Transforms,
-  in \emph{Programs for Digital Signal Processing},
-  IEEE Digital Signal Processing Committee eds.
-  IEEE Press.
-
-  Cooley, James W., and Tukey, John W. (1965).
-  An algorithm for the machine calculation of complex Fourier series,
-  \emph{Mathematics of Computation}, \bold{19}(90), 297--301.
-  \doi{10.2307/2003354}.
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988,
+    R:Cooley+Tukey:1965}
 }
 \seealso{
   \code{\link{convolve}}, \code{\link{nextn}}.

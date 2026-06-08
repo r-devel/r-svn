@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2023  The R Core Team.
+ *  Copyright (C) 1998-2026  The R Core Team.
  *  Copyright (C) 1995-1998  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -109,13 +109,13 @@ static SEXP seq_colon(double n1, double n2, SEXP call)
 
     Rboolean useInt = (n1 <= INT_MAX) &&  (n1 == (int) n1);
     if(useInt) {
-	if(n1 <= INT_MIN || n1 > INT_MAX)
+	if(n1 <= INT_MIN) /* know  n1 <= INT_MAX */
 	    useInt = FALSE;
 	else {
 	    /* r := " the effective 'to' "  of  from:to */
 	    double dn = (double) n;
 	    r = n1 + ((n1 <= n2) ? dn-1 : -(dn-1));
-	    if(r <= INT_MIN || r > INT_MAX) useInt = FALSE;
+	    if(r <= INT_MIN || r > INT_MAX) useInt = false;
 	}
     }
     if (useInt) {
@@ -382,7 +382,7 @@ attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (n1 == 0 || n2 == 0)
 	    errorcall(call, _("argument of length 0"));
 	char *check = getenv("_R_CHECK_LENGTH_COLON_");
-	if (check ? StringTrue(check) : FALSE) // warn by default
+	if (check ? StringTrue(check) : false) // warn by default
 	    errorcall(call, _("numerical expression has length > 1"));
 	else
 	    warningcall(call, _("numerical expression has %d elements: only the first used"),
@@ -609,6 +609,7 @@ attribute_hidden SEXP do_rep_int(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (DispatchOrEval(call, op, "rep.int", args, rho, &a, 0, 0))
       return(a);
 
+    if (!inherits(s, "factor"))
     if (DispatchOrEval(call, op, "rep", args, rho, &a, 0, 0))
       return(a);
 
@@ -675,7 +676,7 @@ attribute_hidden SEXP do_rep_len(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     s = CAR(args);
 
-    if (isObject(s)) {
+    if (isObject(s) && !inherits(s, "factor")) {
 	SEXP rep_call;
 	PROTECT(rep_call = shallow_duplicate(call));
 	SETCAR(rep_call, install("rep"));
@@ -1026,11 +1027,13 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    errorcall(call, _("invalid '%s' argument"), "times");
 	    }
 	    if ((double) lx * it * each > R_XLEN_T_MAX)
-		errorcall(call, _("invalid '%s' argument"), "times");
+		errorcall(call, _("length(x) * '%s' * '%s' is too large"), "times", "each");
 	    len = lx * it * each;
 	} else { // nt != 1
-	    if(nt != (double) lx * each)
-		errorcall(call, _("invalid '%s' argument"), "times");
+	    if(nt != (double) lx * each) {
+		if (each == 1)	errorcall(call, _("invalid '%s' argument"),			     "times");
+		/* else */	errorcall(call, _("invalid '%s' argument, given the value of '%s'"), "times", "each");
+	    }
 	    if (TYPEOF(times) == REALSXP)
 		for(i = 0; i < nt; i++) {
 		    double rt = REAL(times)[i];
@@ -1079,11 +1082,12 @@ attribute_hidden SEXP do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 
 /*
-  This is a primitive SPECIALSXP with internal argument matching,
-  implementing seq.int().
+  This is a primitive SPECIALSXP with internal argument matching, implementing
 
-   'along' has to be used on an unevaluated argument, and evalList
-   tries to evaluate language objects.
+  seq.int(from, to, by, length.out, along.with, ...)
+
+  'along' has to be used on an unevaluated argument, and evalList
+  tries to evaluate language objects.
  */
 #define FEPS 1e-10
 /* to match seq.default */
@@ -1091,7 +1095,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans = R_NilValue /* -Wall */, from, to, by, len, along;
     R_xlen_t i, lout = NA_INTEGER;
-    Rboolean One = (length(args) == 1); // *before* messing with args ..
+    bool One = (length(args) == 1); // *before* messing with args ..
 
     /* DispatchOrEval internal generic: seq.int */
     if (DispatchOrEval(call, op, "seq", args, rho, &ans, 0, 1))
@@ -1113,7 +1117,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
     by   = CAR(args); args = CDR(args);
     len  = CAR(args); args = CDR(args);
     along= CAR(args);
-    Rboolean
+    bool
 	miss_from = (from == R_MissingArg),
 	miss_to   = (to   == R_MissingArg);
     if(One && !miss_from) {
@@ -1132,7 +1136,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 		ans = seq_colon(1.0, rfrom, call);
 	    }
 	}
-	else if (lf)
+	else if (lf) // typically  seq(<vec>) , length(<vec>) >= 2
 	    ans = seq_colon(1.0, (double)lf, call);
 	else
 	    ans = allocVector(INTSXP, 0);
@@ -1224,13 +1228,16 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 		ans = to; // is *not* missing in this case
 		goto done;
 	    }
-	    double n, rby = asReal(by);
-	    Rboolean finite_del = R_FINITE(del);
-	    if(finite_del) {
-		n = del/rby;
-	    } else { // overflow in  (to - from)  when both are finite
-		n = rto/rby - rfrom/rby;
+	    double rby = asReal(by);
+	    if((rby ==  1. && del > 0.) ||
+	       (rby == -1. && del < 0.)) { // --> treat as if missing (return integer)
+		ans = seq_colon(rfrom, rto, call);
+		goto done;
 	    }
+	    bool finite_del = R_FINITE(del) != 0;
+	    double n = (finite_del)
+		? del/rby
+		: rto/rby - rfrom/rby; /* overflow in  (to - from)  when both are finite */
 	    if(!R_FINITE(n)) {
 		if(del == 0.0 && rby == 0.0) {
 		    ans = miss_from ? ScalarReal(rfrom) : from;
@@ -1327,10 +1334,10 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(miss_from) rfrom = rto   - (double)lout + 1;
 	if(!R_FINITE(rfrom)) errorcall(call, _("'%s' must be a finite number"), "from");
 	if(!R_FINITE(rto))   errorcall(call, _("'%s' must be a finite number"), "to");
-	Rboolean finite_del = 0;
+	bool finite_del = 0;
 	if(lout > 2) { // only then, use 'by'
 	    double nint = (double)(lout - 1);
-	    if((finite_del = R_FINITE(rby = (rto - rfrom))))
+	    if((finite_del = (R_FINITE(rby = (rto - rfrom)) != 0)))
 		rby /= nint;
 	    else // overflow in (to - from), nint >= 2  => finite 'by'
 		rby = (rto/nint - rfrom/nint);
@@ -1446,7 +1453,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 done:
     UNPROTECT(1);
     return ans;
-}
+} // do_seq()
 
 attribute_hidden SEXP do_seq_along(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
@@ -1515,63 +1522,84 @@ attribute_hidden SEXP do_seq_len(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 attribute_hidden SEXP do_sequence(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    R_xlen_t lengths_len, from_len, by_len, ans_len, i, i2, i3;
-    int from_elt, by_elt, length, j, k, *ans_elt;
-    const int *lengths_elt;
-    SEXP ans, lengths, from, by;
-
     checkArity(op, args);
 
-    lengths = CAR(args);
+    SEXP lengths = CAR(args);
     if (!isInteger(lengths))
-	error(_("'lengths' is not of mode integer"));
-    from = CADR(args);
+	error(_("'nvec' is not of mode integer"));
+    SEXP from = CADR(args);
     if (!isInteger(from))
 	error(_("'from' is not of mode integer"));
-    by = CADDR(args);
+    SEXP by = CADDR(args);
     if (!isInteger(by))
 	error(_("'by' is not of mode integer"));
+    SEXP recycle_1st_ = CADDDR(args);
+    bool maybe_warn = (bool) isInteger(recycle_1st_); // when missing(recycle) in R
+    bool recycle_1st  = asBool2(recycle_1st_, call);
+    R_xlen_t
+	lengths_len = xlength(lengths);
+    if(lengths_len == 0)
+	return allocVector(INTSXP, 0);
+    R_xlen_t
+	from_len    = xlength(from),
+	by_len      = xlength(by);
 
-    lengths_len = length(lengths);
-    from_len = length(from);
-    by_len = length(by);
-    if (lengths_len != 0) {
+    if (!recycle_1st && lengths_len != 0) {
 	if (from_len == 0)
-	    error(_("'from' has length 0, but not 'lengths'"));
+	    error(_("'%s' has length 0, but not 'nvec'; 'recycle = TRUE' returns empty here"), "from");
 	if (by_len == 0)
-	    error(_("'by' has length 0, but not 'lengths'"));
+	    error(_("'%s' has length 0, but not 'nvec'; 'recycle = TRUE' returns empty here"), "by");
+    } else { // recycle_1st
+	if(from_len == 0 || by_len == 0)
+	return allocVector(INTSXP, 0);
     }
-    ans_len = 0;
-    lengths_elt = INTEGER(lengths);
-    for (i = 0; i < lengths_len; i++, lengths_elt++) {
-	length = *lengths_elt;
-	if (length == NA_INTEGER || length < 0)
-	    error(_("'lengths' must be a vector of non-negative integers"));
-	ans_len += length;
+    R_xlen_t ans_len,
+	max_len = ((lengths_len > from_len) ?
+		   (lengths_len > by_len ? lengths_len : by_len) :
+		   (from_len    > by_len ?    from_len : by_len)),
+	i, i1, i2, i3;
+    if(!recycle_1st && lengths_len < max_len) {
+	/* warn that this will change, if arg was missing, at most *once* per R session */
+	static bool warn_1st = true;
+	if(warn_1st && maybe_warn) {
+	    char msg[99];
+	    snprintf(msg, 99, "length(nvec) %ld < %ld = max(length(from), length(by))",
+		     lengths_len, max_len);
+	    warning(_("%s -- future R`s default 'recycle = TRUE' will recycle 'nvec'"), msg);
+	    warn_1st = false;
+	}
+	max_len = lengths_len;
     }
-    PROTECT(ans = allocVector(INTSXP, ans_len));
-    ans_elt = INTEGER(ans);
-    lengths_elt = INTEGER(lengths);
-    for (i = i2 = i3 = 0; i < lengths_len; i++, i2++, i3++, lengths_elt++) {
+    const int *lengths_elt = INTEGER(lengths);
+    for (i = i1 = ans_len = 0; i < max_len; i++, i1++) {
+	if (i1 >= lengths_len)
+	    i1 = 0; /* recycle */
+	int len = lengths_elt[i1];
+	if (len == NA_INTEGER || len < 0)
+	    error(_("'nvec' must be a vector of non-negative integers"));
+	ans_len += len;
+    }
+    SEXP ans = allocVector(INTSXP, ans_len);
+    int *ans_elt = INTEGER(ans),
+	*pfrom   = INTEGER(from),
+	*pby     = INTEGER(by);
+    for (i = i1 = i2 = i3 = 0; i < max_len; i++, i1++, i2++, i3++) {
+	if (recycle_1st && i1 >= lengths_len)
+	    i1 = 0; /* recycle */
 	if (i2 >= from_len)
 	    i2 = 0; /* recycle */
 	if (i3 >= by_len)
 	    i3 = 0; /* recycle */
-	length = *lengths_elt;
-	from_elt = INTEGER(from)[i2];
-	if (length != 0 && from_elt == NA_INTEGER) {
-	    UNPROTECT(1);
+	int length = lengths_elt[i1],
+	    from_elt = pfrom[i2];
+	if (length != 0 && from_elt == NA_INTEGER)
 	    error(_("'from' contains NAs"));
-	}
-	by_elt = INTEGER(by)[i3];
-	if (length >= 2 && by_elt == NA_INTEGER) {
-	    UNPROTECT(1);
+	int by_elt = pby[i3];
+	if (length >= 2 && by_elt == NA_INTEGER)
 	    error(_("'by' contains NAs"));
-	}
 	// int to = from_elt + (length - 1) * by_elt;
-	for (k = 0, j = from_elt; k < length; j += by_elt, k++)
+	for (int k = 0, j = from_elt; k < length; j += by_elt, k++)
 	    *(ans_elt++) = j;
     }
-    UNPROTECT(1);
     return ans;
 }

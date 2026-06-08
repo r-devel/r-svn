@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,8 +29,8 @@
    distinction between NA and NaN. */
 static SEXP handleNaN(SEXP x, SEXP s)
 {
-    Rboolean hasNA = FALSE;
-    Rboolean hasNaN = FALSE;
+    bool hasNA = false;
+    bool hasNaN = false;
     double *rx = REAL(x), *rs = REAL(s);
 
     for (R_xlen_t i = 0 ; i < XLENGTH(x) ; i++) {
@@ -93,10 +93,10 @@ static SEXP i64cumsum(SEXP x, SEXP s)
 
 /* For complex result: recompute once we know one of the result's {re, im} fulfills  ISNAN(.),
    (speed optimized for the case of *no* NA|NaN) : */
-static SEXP chandleNaN(SEXP x, SEXP s, Rboolean r_isN, Rboolean i_isN)
+static SEXP chandleNaN(SEXP x, SEXP s, bool r_isN, bool i_isN)
 {
-    Rboolean hasNA = FALSE;
-    Rboolean hasNaN = FALSE;
+    bool hasNA = false;
+    bool hasNaN = false;
 
     for (R_xlen_t i = 0 ; i < XLENGTH(x) ; i++) {
 	hasNaN = hasNaN || ISNAN(COMPLEX(x)[i].r) || ISNAN(COMPLEX(x)[i].i);
@@ -236,6 +236,22 @@ static SEXP i64cummin(SEXP x, SEXP s)
     return s;
 }
 
+/* cumulative variance by Youngs-Cramer algorithm */
+static SEXP cumvar(SEXP x, SEXP s)
+{
+    LDOUBLE var = 0.;
+    LDOUBLE sum;
+    double *rx = REAL(x), *rs = REAL(s);
+	rs[0] = NA_REAL; /* variance of one (first) element is always NA */
+	sum = rx[0];
+    for (R_xlen_t i = 1 ; i < XLENGTH(x) ; i++) {
+	sum += rx[i];
+	var += (LDOUBLE) (pow(((i + 1) * rx[i] - sum), 2.0) / (i * (i + 1))); /* NA and NaN propagated */
+	rs[i] = (double) (var / i);
+    }
+    return ISNAN(var) ? handleNaN(x, s) : s;
+}
+
 attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP s, t, ans;
@@ -264,11 +280,14 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	case 4: /* cummin */
 	    errorcall(call, _("'cummin' not defined for complex numbers"));
 	    break;
+	case 5: /* cumvar */
+	    errorcall(call, _("'cumvar' not defined for complex numbers"));
+	    break;
 	default:
 	    errorcall(call, "unknown cumxxx function");
 	}
     } else if( ( isInteger(CAR(args)) || isLogical(CAR(args)) ) &&
-	       PRIMVAL(op) != 2) {
+	       (PRIMVAL(op) != 2 && PRIMVAL(op) != 5)) {
 	PROTECT(t = coerceVector(CAR(args), INTSXP));
 	n = XLENGTH(t);
 	PROTECT(s = allocVector(INTSXP, n));
@@ -294,7 +313,8 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	UNPROTECT(2); /* t, s */
 	return ans;
-    } else if(TYPEOF(CAR(args)) == INT64SXP && PRIMVAL(op) != 2) {
+    } else if(TYPEOF(CAR(args)) == INT64SXP &&
+	      (PRIMVAL(op) != 2 && PRIMVAL(op) != 5)) {
 	PROTECT(t = coerceVector(CAR(args), INT64SXP));
 	n = XLENGTH(t);
 	PROTECT(s = allocVector(INT64SXP, n));
@@ -340,6 +360,9 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	case 4: /* cummin */
 	    return cummin(t,s);
+	    break;
+	case 5: /* cumvar */
+	    return cumvar(t,s);
 	    break;
 	default:
 	    errorcall(call, _("unknown cumxxx function"));

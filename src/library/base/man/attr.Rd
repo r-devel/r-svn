@@ -1,6 +1,6 @@
 % File src/library/base/man/attr.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{attr}
@@ -25,7 +25,9 @@ attr(x, which) <- value
 \details{
   These functions provide access to a single attribute of an object.
   The replacement form causes the named attribute to take the value
-  specified (or create a new attribute with the value given).
+  specified (or create a new attribute with the value given), unless
+  the object is \code{\link{NULL}}, a \code{\link{symbol}} (aka \sQuote{\code{name}})
+  or a \code{\link{primitive}} function.
 
   The extraction function first looks for an exact match to \code{which}
   amongst the attributes of \code{x}, then (unless \code{exact = TRUE})
@@ -56,9 +58,7 @@ attr(x, which) <- value
   if no exact match is found and no or more than one partial match is found.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{attributes}}
@@ -67,5 +67,8 @@ attr(x, which) <- value
 # create a 2 by 5 matrix
 x <- 1:10
 attr(x,"dim") <- c(2, 5)
+
+S <- sum
+try( attr(S, "foo") <- NA ) # no longer possible to mutate primitive functions
 }
 \keyword{attribute}

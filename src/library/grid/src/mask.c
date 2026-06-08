@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2019 The R Core Team
+ *                2003-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 #include "grid.h"
 
-Rboolean isMask(SEXP mask) {
+bool isMask(SEXP mask) {
     return Rf_inherits(mask, "GridMask");
 }
 
@@ -29,7 +29,7 @@ SEXP resolveMask(SEXP mask, pGEDevDesc dd)
     SEXP resolveFn, R_fcall, result;
     PROTECT(resolveFn = findFun(install("resolveMask"), R_gridEvalEnv));
     PROTECT(R_fcall = lang2(resolveFn, mask));
-    result = eval(R_fcall, R_gridEvalEnv);
+    result = Rf_eval_with_gd(R_fcall, R_gridEvalEnv, dd);
     UNPROTECT(2);
     return result;    
 }

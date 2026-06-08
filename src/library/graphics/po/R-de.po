@@ -1,13 +1,13 @@
 # Translation of src/library/graphics/po/R-graphics.pot to German.
-# Copyright (C) 2005-2022 The R Foundation
+# Copyright (C) 2005-2025 The R Foundation
 # This file is distributed under the same license as the R package.
-# Detlef Steuer <steuer@hsu-hh.de>, 2007-2022.
+# Detlef Steuer <steuer@hsu-hh.de>, 2007-2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.2.0\n"
+"Project-Id-Version: R 4.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
-"PO-Revision-Date: 2022-04-13 12:29+0200\n"
+"POT-Creation-Date: 2026-03-07 12:43\n"
+"PO-Revision-Date: 2025-03-18 11:23+0100\n"
 "Last-Translator: Detlef Steuer <steuer@hsu-hh.de>\n"
 "Language-Team: R-Core <R-core@r-project.org>\n"
 "Language: de\n"
@@ -97,11 +97,18 @@ msgstr "ungültiges erstes Argument"
 msgid "'at' must have same length as 'z$n', i.e. %d"
 msgstr "'at' muss dieselbe Länge wie 'z$n' haben, insb. %d"
 
+msgid "panel.first ignored, it is not a function"
+msgstr ""
+
 msgid "invalid boxplot widths"
 msgstr "unzulässige Boxplot-Breite"
 
 msgid "some notches went outside hinges ('box'): maybe set notch=FALSE"
 msgstr "einige notches liegen außerhalb der hinges ('box'): evtl. notch=FALSE setzen"
+
+#, fuzzy
+msgid "panel.last ignored, it is not a function"
+msgstr "'include.lowest' ignoriert, da 'breaks' kein Vektor ist"
 
 msgid "'formula' should specify exactly two variables"
 msgstr "'formula' sollte genau zwei Variablen spezifizieren"
@@ -229,10 +236,6 @@ msgstr "'breaks' sind nicht streng monoton steigend"
 msgid "'probability' is an alias for '!freq', however they differ."
 msgstr "'probability' ist ein Alias für '!freq', aber sie unterschieden sich"
 
-#, fuzzy
-msgid "fuzz must be non-negative"
-msgstr "ganzzahlige Farbangaben müssen nicht-negativ sein"
-
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
 msgstr "einige 'x' nicht gezählt: evtl. überdecken die 'breaks' nicht den gesamten Bereich von 'x'"
 
@@ -297,9 +300,8 @@ msgstr "unzulässige Koordinatenlängen"
 msgid "horizontal specification overrides: Number of columns := %d"
 msgstr "horizontale Spezifikation überschreibt Anzahl der Spalten := %d"
 
-#, fuzzy
 msgid "'text.width' must be numeric, >= 0, or a scalar NA"
-msgstr "'text.width' muss numerisch >= 0 sein"
+msgstr "'text.width' muss numerisch >= 0  oder ein Skalar sein"
 
 msgid "'merge = TRUE' has no effect when no line segments are drawn"
 msgstr "'merge = TRUE' hat keine Effekt, wenn keine Liniensegmente gezeichnent werden"
@@ -425,7 +427,7 @@ msgid "a 2-way table has to be specified"
 msgstr "eine 2-Wege-Tafel muss angegeben werden"
 
 msgid "weights are not supported for 2-way table specification"
-msgstr ""
+msgstr "Gewichte werden für die 2-Wege-Tafel Spezifikation nicht unterstützt"
 
 msgid "x axis is on a cumulative probability scale, 'xlim' must be in [0,1]"
 msgstr "x-Achse ist eine kumulative Wahrscheinlichkeitsskala, 'xlim' muss in [0, 1] liegen"
@@ -463,14 +465,14 @@ msgstr "ungültige Plot-Methode"
 msgid "'at' must have length equal to the number %d of groups"
 msgstr "'at' muss die selbe Länge haben wie die Anzahl %d der Gruppen"
 
-msgid "formula missing or incorrect"
-msgstr "'formula' fehlt oder fehlerhaft"
-
 msgid "'number' must have same length as 'x' and 'y'"
 msgstr "'number' muss die selbe Länge haben wie 'x' und 'y'"
 
 msgid "exactly one symbol type must be specified"
 msgstr "genau ein Symboltyp muss angegeben werden"
+
+msgid "'labels' truncated to length %d"
+msgstr ""
 
 msgid "x log scale:  xinch() is nonsense"
 msgstr "x ist logarithmische Skala: xinch() ergibt keinen Sinn"
@@ -495,6 +497,13 @@ msgid "argument %s is not made use of"
 msgid_plural "arguments %s are not made use of"
 msgstr[0] "Argument (%s) wird nicht benutzt"
 msgstr[1] "Argumente (%s) werden nicht benutzt"
+
+#~ msgid "formula missing or incorrect"
+#~ msgstr "'formula' fehlt oder fehlerhaft"
+
+#, fuzzy
+#~ msgid "fuzz must be non-negative"
+#~ msgstr "ganzzahlige Farbangaben müssen nicht-negativ sein"
 
 #~ msgid "negative 'counts'. Internal Error in C-code for \"bincount\""
 #~ msgstr "negative 'counts'. Interner Fehler im C-Kode für\"bincount\""

@@ -91,7 +91,7 @@ contour(x, \dots)
   Vector (of length \eqn{> 1}) \code{col}, \code{lty}, and \code{lwd} are
   applied along \code{levels} and recycled, see the Examples.
 
-  Alternatively, use \code{\link[lattice:levelplot]{contourplot}} from the
+  Alternatively, use \code{\link[lattice]{contourplot}} from the
   \CRANpkg{lattice} package where the \code{\link{formula}} notation allows
   to use vectors \code{x}, \code{y}, and \code{z} of the same length.
 
@@ -101,9 +101,7 @@ contour(x, \dots)
   add contours to a plot, or add axes and frame to a contour plot.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{options}("max.contour.segments")} for the maximal
@@ -111,7 +109,7 @@ contour(x, \dots)
 
   \code{\link{contourLines}}, \code{\link{filled.contour}}
   for color-filled contours,
-  \code{\link[lattice:levelplot]{contourplot}} (and
+  \code{\link[lattice]{contourplot}} (and
   \code{\link[lattice]{levelplot}}) from package \CRANpkg{lattice}.
   Further, \code{\link{image}} and the graphics demo which can be
   invoked as \code{demo(graphics)}.

@@ -20,7 +20,7 @@ attach(what, pos = 2L, name = deparse1(substitute(what), backtick=FALSE),
   \item{pos}{integer specifying position in \code{\link{search}()} where
     to attach.}
   \item{name}{name to use for the attached database. Names starting with
-    \code{package:} are reserved for \code{\link{library}}.}
+    \samp{package:} are reserved for \code{\link{library}}.}
   \item{warn.conflicts}{logical.  If \code{TRUE}, \code{\link{message}()}s are
     printed about \code{\link{conflicts}} from attaching the database,
     unless that database contains an object \code{.conflicts.OK}.  A
@@ -108,9 +108,7 @@ attach(what, pos = 2L, name = deparse1(substitute(what), backtick=FALSE),
   changes the search path.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{library}}, \code{\link{detach}}, \code{\link{search}},

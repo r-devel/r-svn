@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  file dounzip.c
- *  first part Copyright (C) 2002-2023  The R Core Team
+ *  first part Copyright (C) 2002-2025  The R Core Team
  *  second part Copyright (C) 1998-2010 Gilles Vollant
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,7 @@
 #endif
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef Win32
 #include <io.h> /* for mkdir */
@@ -122,7 +123,10 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 
     err = unzOpenCurrentFile(uf);
     if (err != UNZ_OK) return err;
-    if (strlen(dest) > R_PATH_MAX - 1) return 1;
+    if (strlen(dest) > R_PATH_MAX - 2) {
+	unzCloseCurrentFile(uf);
+	return 1;
+    }
     strcpy(outname, dest);
     strcat(outname, FILESEP);
     unz_file_info64 file_info;
@@ -131,10 +135,16 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 				  sizeof(filename_inzip), NULL, 0, NULL, 0);
     fn = filename_inzip; /* might be UTF-8 ... */
     if (filename) {
-	if (strlen(dest) + strlen(filename) > R_PATH_MAX - 2) return 1;
-	strncpy(fn0, filename, R_PATH_MAX);
-	fn0[R_PATH_MAX - 1] = '\0';
+	if (strlen(filename) > R_PATH_MAX - 1) {
+	    unzCloseCurrentFile(uf);
+	    return 1;
+	}
+	strcpy(fn0, filename);
 	fn = fn0;
+    } else if (err != UNZ_OK
+               || file_info.size_filename >= sizeof(filename_inzip)) {
+	unzCloseCurrentFile(uf);
+	return 1;
     }
 #ifdef Win32
     R_fixslash(fn);
@@ -143,12 +153,17 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 	p = Rf_strrchr(fn, '/');
 	if (p) fn = p+1;
     }
+    if (strlen(outname) + strlen(fn) > R_PATH_MAX - 1) {
+	unzCloseCurrentFile(uf);
+	return 1;
+    }
     strcat(outname, fn);
 
 #ifdef Win32
     R_fixslash(outname); /* ensure path separator is / */
 #endif
     p = outname + strlen(outname) - 1;
+    bool warned = FALSE;
     if (*p == '/') { /* Directories are stored with trailing slash */
 	if (!junk) {
 	    *p = '\0';
@@ -156,10 +171,20 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 		/* make parents as required: have already checked dest exists */
 		pp = outname + strlen(dest) + 1;
 		while((p = Rf_strchr(pp, '/'))) {
-		    strcpy(dirs, outname);
-		    dirs[p - outname] = '\0';
-		    if (!R_FileExists(dirs)) R_mkdir(dirs);
-		    pp = p + 1;
+		    if (p - pp == 2 && !strncmp(pp, "..", 2)) {
+			if (!warned) {
+			    warning(
+			      _("skipped \"../\" path component(s) in '%s'"),
+			      fn);
+			    warned = true;
+			}
+			memmove(pp, p + 1, strlen(p + 1) + 1);
+		    } else {
+			strcpy(dirs, outname);
+			dirs[p - outname] = '\0';
+			if (!R_FileExists(dirs)) R_mkdir(dirs);
+			pp = p + 1;
+		    }
 		}
 		err = R_mkdir(outname);
 	    }
@@ -168,11 +193,21 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 	/* make parents as required: have already checked dest exists */
 	pp = outname + strlen(dest) + 1;
 	while((p = Rf_strchr(pp, '/'))) {
-	    strcpy(dirs, outname);
-	    dirs[p - outname] = '\0';
-	    /* Rprintf("dirs is %s\n", dirs); */
-	    if (!R_FileExists(dirs)) R_mkdir(dirs);
-	    pp = p + 1;
+	    if (p - pp == 2 && !strncmp(pp, "..", 2)) {
+		if (!warned) {
+		    warning(
+		      _("skipped \"../\" path component(s) in '%s'"),
+		      fn);
+		    warned = true;
+		}
+		memmove(pp, p + 1, strlen(p + 1) + 1);
+	    } else {
+		strcpy(dirs, outname);
+		dirs[p - outname] = '\0';
+		/* Rprintf("dirs is %s\n", dirs); */
+		if (!R_FileExists(dirs)) R_mkdir(dirs);
+		pp = p + 1;
+	    }
 	}
 	/* Rprintf("extracting %s\n", outname); */
 	if (!overwrite && R_FileExists(outname)) {
@@ -287,7 +322,9 @@ static SEXP ziplist(const char *zipname)
 
 	err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
 				      sizeof(filename_inzip), NULL, 0, NULL, 0);
-	if (err != UNZ_OK) {
+	if (err != UNZ_OK ||
+	    file_info.size_filename >= sizeof(filename_inzip)) {
+
 	    unzClose(uf);
 	    error("error %d with zipfile in unzGetCurrentFileInfo\n", err);
 	}
@@ -503,7 +540,7 @@ static int null_fflush(Rconnection con)
     return 0;
 }
 
-Rconnection attribute_hidden
+attribute_hidden Rconnection
 R_newunz(const char *description, const char *const mode)
 {
     Rconnection new;
@@ -1610,6 +1647,7 @@ extern int ZEXPORT unzLocateFile (unzFile file, const char *szFileName, int iCas
     while (err == UNZ_OK)
     {
 	char szCurrentFileName[UNZ_MAXFILENAMEINZIP+1];
+	szCurrentFileName[UNZ_MAXFILENAMEINZIP] = '\0';
 	err = unzGetCurrentFileInfo64(file, NULL,
 				      szCurrentFileName,
 				      sizeof(szCurrentFileName)-1,

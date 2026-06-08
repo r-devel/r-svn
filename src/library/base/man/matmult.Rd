@@ -28,7 +28,7 @@ x \%*\% y
   dimensions.
 
   This operator is a generic function: methods can be written for it
-  individually or via the \code{\link[=S3groupGeneric]{matOps}} group
+  individually or via the \code{\link[=S3groupGeneric]{matrixOps}} group
   generic function; it dispatches to S3 and S4 methods.  Methods need to be
   written for a function that takes two arguments named \code{x} and \code{y}.
 }
@@ -41,9 +41,7 @@ x \%*\% y
   products can be controlled by \code{\link{options}("matprod")}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   For matrix \emph{cross} products, \code{\link{crossprod}()} and

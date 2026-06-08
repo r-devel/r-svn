@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -65,7 +65,16 @@ function(dir, outDir, builtStamp=character())
         ## Prefer date in ISO 8601 format, UTC, avoid sub-seconds.
         builtStamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S",
                              tz = "UTC", usetz = TRUE)
+    } else {
+        ## Debian may have passed a timestamp in RFC 2822/5322 format,
+        ## if it parses use it but as ISO 8601, UTC, no sub-seconds
+        prev <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "C")
+        if (!is.na(res <- strptime(builtStamp, "%a, %d %b %Y %T %z", tz="UTC")))
+            builtStamp <- format(res, "%Y-%m-%d %H:%M:%S",
+                                 tz = "UTC", usetz = TRUE)
+        Sys.setlocale("LC_TIME", prev)
     }
+
     Built <-
 	paste0("R ",
 	       paste(R.version[c("major", "minor")], collapse = "."),
@@ -743,10 +752,12 @@ function(dir, outDir, keep.source = TRUE)
         })
         ## In case of an error, do not clean up: should we point to
         ## buildDir for possible inspection of results/problems?
-        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS.
+        ## We need to ensure that the src vignettes dir is in (TEX|BIB)INPUTS
+        ## and this R's texmf is found (system TEXINPUTS could list another R).
         if (vignette_is_tex(output)) {
             tryCatch({
-                texi2pdf(file = output, quiet = TRUE, texinputs = vigns$dir)
+                texi2pdf(file = output, quiet = TRUE,
+                         texinputs = c(vigns$dir, paste0(R.home("share"), "/texmf//")))
                 output <- find_vignette_product(name, by = "texi2pdf", engine = engine)
             }, error = function(e) {
                 stop(gettextf("compiling TeX file %s failed with message:\n%s",
@@ -811,41 +822,90 @@ function(dir, packages)
     invisible()
 }
 
+### * .install_R_bibliographies_as_RDS
+
+.install_R_bibliographies_as_RDS <- 
+function(dir) {
+    bibfiles <- Sys.glob(file.path(dir, "*.R"))
+    bibentries <- do.call(c, lapply(bibfiles, .read_bibentries))
+    keys <- .bibentry_get_key(bibentries)
+    if(any(ind <- !nzchar(keys))) {
+        msg <- paste(c("Found the following bibentries with no key:",
+                       strwrap(format(bibentries[ind]),
+                               indent = 2L, exdent = 4L)),
+                     collapse = "\n")
+        stop(msg, call. = FALSE, domain = NA)
+    }
+    if(any(ind <- duplicated(keys))) {
+        msg <- paste(c("Found the following duplicated keys:", 
+                       .strwrap22(sQuote(keys[ind]))),
+                     collapse = "\n")
+        stop(msg, call. = FALSE, domain = NA)
+    }
+    saveRDS(bibentries, file.path(dir, "R.rds"))
+}
+
+### * .install_R_dictionaries_as_RDS
+
+.install_R_dictionaries_as_RDS <-
+function(dir) {
+    txtfiles <- Sys.glob(file.path(dir, "*.txt"))
+    for (file in txtfiles) {
+        rdsfile <- paste0(file_path_sans_ext(file), ".rds")
+        saveRDS(readLines(file, encoding = "UTF-8"), rdsfile)
+    }
+}
+
 ### * .install_package_Rd_objects
 
-## called from src/library/Makefile
+## called from src/library/Makefile and .install_packages
 .install_package_Rd_objects <-
 function(dir, outDir, encoding = "unknown")
 {
+    packageName <- basename(outDir)
     dir <- file_path_as_absolute(dir)
     mandir <- file.path(dir, "man")
     manfiles <- if(!dir.exists(mandir)) character()
-    else list_files_with_type(mandir, "docs")
+                else list_files_with_type(mandir, "docs")
     manOutDir <- file.path(outDir, "help")
     dir.create(manOutDir, FALSE)
-    db_file <- file.path(manOutDir,
-                         paste0(basename(outDir), ".rdx"))
+    db_file <- file.path(manOutDir, paste0(packageName, ".rdx"))
     built_file <- file.path(dir, "build", "partial.rdb")
-    macro_files <- list.files(file.path(dir, "man", "macros"), pattern = "\\.Rd$", full.names = TRUE)
+    macro_files <- list.files(file.path(dir, "man", "macros"),
+                              pattern = "\\.Rd$", full.names = TRUE)
     if (length(macro_files)) {
     	macroDir <- file.path(manOutDir, "macros")
     	dir.create(macroDir, FALSE)
     	file.copy(macro_files, macroDir, overwrite = TRUE)
     }
-    ## Avoid (costly) rebuilding if not needed.
-    ## Actually, it seems no more costly than these tests, which it also does
     pathsFile <- file.path(manOutDir, "paths.rds")
-    if(!file_test("-f", db_file) || !file.exists(pathsFile) ||
-       !identical(sort(manfiles), sort(readRDS(pathsFile))) ||
-       !all(file_test("-nt", db_file, manfiles))) {
+    ## Avoid (costly) rebuilding if not needed.
+    ## 'make Rdobjects' now takes 13s compared to 0.5s if remaking skips
+    ## the below.  This tests if the Rd DB from a previous 'make' can be
+    ## fully kept or needs updating, but ignores that a dynamic help
+    ## page may need reprocessing even without modifying the source Rd
+    ## file. With the advent of \bibshow, many help pages have become
+    ## dynamic and always rebuilding these is tedious ... 
+    ## So for now only do a full rebuild when the system macros were
+    ## touched. 
+    system_file <- file.path(R.home("share"), "Rd", "macros", "system.Rd")
+    if (!file.exists(db_file) || # first build, including from .install_packages
+        file_test("-nt", system_file, db_file)) {
+        db_file <- NULL # do not reuse the old Rd DB
+        upToDate <- FALSE
+    } else {
+        upToDate <- file.exists(pathsFile) &&
+            identical(sort(manfiles), sort(readRDS(pathsFile))) &&
+            all(file_test("-nt", db_file, manfiles))
+    }
+    if(!upToDate) {
         db <- .build_Rd_db(dir, manfiles, db_file = db_file,
                            encoding = encoding, built_file = built_file)
         nm <- as.character(names(db)) # Might be NULL
-        saveRDS(structure(nm,
-                          first = nchar(file.path(mandir)) + 2L),
-                pathsFile)
+        at <- list(first = nchar(file.path(mandir)) + 2L)
+        saveRDS(`attributes<-`(nm, at), pathsFile)
         names(db) <- sub("\\.[Rr]d$", "", basename(nm))
-        makeLazyLoadDB(db, file.path(manOutDir, basename(outDir)))
+        makeLazyLoadDB(db, file.path(manOutDir, packageName))
     }
     invisible()
 }
@@ -913,7 +973,7 @@ function(dir)
                     ver <- R.version
                     if (ver$status %in% c("", "Patched")) FALSE
                     else !do.call(depends$op,
-                                 list(ver[["svn rev"]],
+                                 list(as.numeric(ver[["svn rev"]]),
                                       as.numeric(sub("^r", "", depends$version))))
                 }
             }
@@ -1078,7 +1138,9 @@ compactPDF <-
     dummy <- rep.int(NA_real_, length(paths))
     ans <- data.frame(old = dummy, new = dummy, row.names = paths)
     ## These should not have spaces, but quote below to be safe.
-    tf <- tempfile("pdf"); tf2 <- tempfile("pdf")
+    ## Some (newer ?) 'qpdf' versions want the '.pdf' file extension
+    tf <- tempfile("pdf", fileext=".pdf")
+    tf2 <- tempfile("pdf", fileext=".pdf")
     verb2 <- verbose >= 2
     for (p in paths) {
         res <- 0

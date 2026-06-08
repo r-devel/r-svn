@@ -38,6 +38,8 @@
         if(is.na(match("CRAN", names(repos))))
             repos <- c(CRAN = "@CRAN@", repos)
     }
+    if(all(repos == "@CRAN@") && !interactive())
+        repos <- c(CRAN = "https://cloud.R-project.org")
 
     ## Set default options() related to functionality in 'utils' pkg
     op.utils <-

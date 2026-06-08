@@ -115,13 +115,8 @@ sort.list(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Knuth, D. E. (1998)
-  \emph{The Art of Computer Programming, Volume 3: Sorting and
-    Searching.} 2nd ed. Addison-Wesley.
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Knuth:1998:v3}
 }
 \seealso{
   \code{\link{sort}}, \code{\link{rank}}, \code{\link{xtfrm}}.

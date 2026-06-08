@@ -1,14 +1,13 @@
 # Translation of src/library/utils/po/R-utils.pot to German.
-# Copyright (C) 2008-2022 The R Foundation
+# Copyright (C) 2008-2025 The R Foundation
 # This file is distributed under the same license as the R package.
-# Detlef Steuer <steuer@hsu-hh.de>, 2008-2022.
-#
+# Detlef Steuer <steuer@hsu-hh.de>, 2008-2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.2.0\n"
+"Project-Id-Version: R 4.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
-"PO-Revision-Date: 2024-03-19 12:53+0000\n"
+"POT-Creation-Date: 2026-05-25 12:54\n"
+"PO-Revision-Date: 2025-03-18 11:57+0100\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: R Core <r-core@r-project.org>\n"
 "Language: de\n"
@@ -32,10 +31,11 @@ msgid "document not found"
 msgstr "Dokument nicht gefunden"
 
 msgid "some options in argument 'restrict' were not recognized and hence ignored"
-msgstr ""
+msgstr "einige Optionen im Argument 'restrict' wurden nicht erkannt und deshalb ignoriert"
 
-msgid "argument 'format' is deprecated and has no affect on search results"
-msgstr ""
+#, fuzzy
+msgid "argument 'format' is deprecated and has no effect on search results"
+msgstr "Argument 'format' ist veraltet und hat keinen Einfluss auf Suchergebnisse"
 
 msgid "A search query has been submitted to %s"
 msgstr "Eine Suchanfrage wurde gesendet an %s"
@@ -77,9 +77,6 @@ msgstr "Warnung: unbekannte Option '--clean='%s"
 msgid "Warning: unknown option %s"
 msgstr "Warnung: unbekannte Option %s"
 
-msgid "Output file:"
-msgstr "Ausgabedateien:"
-
 msgid "Compacting PDF document"
 msgstr "Komprimiere PDF Dokument"
 
@@ -100,6 +97,17 @@ msgstr "Wert der 'results' Option sollte in Kleinbuchstaben sein"
 
 msgid "value of 'strip.white' option should be lowercase"
 msgstr "Wert der 'strip.white' Option sollte in Kleinbuchstaben sein"
+
+msgid "using default value %s"
+msgstr ""
+
+#, fuzzy
+msgid "this function cannot be used from an interactive session"
+msgstr "winDialog() kann nicht nicht-interaktiv genutzt werden"
+
+#, fuzzy
+msgid "unrecognized Sweave call"
+msgstr "Unbekannter Wertindikator"
 
 msgid "elements of 'what' after the first will be ignored"
 msgstr "Elemente von 'what' nach dem ersten werden ignoriert"
@@ -146,7 +154,11 @@ msgid "No suitable spell check program found."
 msgstr "Keine passende Rechtschreibprüfung gefunden."
 
 msgid "Performing query %s"
-msgstr ""
+msgstr "Ausführen von Anfrage %s"
+
+#, fuzzy
+msgid "Unsupported object"
+msgstr "nicht unterstützter Eintragstyp"
 
 msgid ""
 "Use <code> %s </code> \n"
@@ -184,8 +196,14 @@ msgstr "Es ist empfohlen %s anstelle von %s zu nutzen."
 msgid "Use either %s or %s but not both."
 msgstr "Nutze entweder %s oder %s, aber nicht beide."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Es ist empfohlen %s/%s anstelle von %s/%s/%s zu nutzen."
+msgid "Arguments of person() should be character or NULL"
+msgstr "Die Argumente zu person() sollten eine Zeichenkette oder NULL sein"
+
+msgid "subscript out of bounds"
+msgstr "Index außerhalb der Grenzen"
+
+msgid "must have some non-empty fields"
+msgstr "muss nicht leere Felder haben"
 
 msgid "method is only applicable to %s objects"
 msgstr "Methode kann nicht auf %s Objekte angewendet werden"
@@ -198,9 +216,6 @@ msgstr "alle Felder müssen Namen haben"
 
 msgid "%s has to be one of %s"
 msgstr "%s muss einer aus %s sein"
-
-msgid "subscript out of bounds"
-msgstr "Index außerhalb der Grenzen"
 
 msgid "%s should be one of %s"
 msgstr "%s sollte einer von %s sein"
@@ -218,6 +233,9 @@ msgstr ""
 "Ignoriere ungültigen Eintrag %d:\n"
 "%s"
 
+msgid "package %s has no %s file: only auto-generation is possible"
+msgstr "Paket %s hat keine %s Datei: nur Autogenerierung möglich"
+
 msgid "could not determine year for %s from package DESCRIPTION file"
 msgstr "konnte das Jahr für %s aus der DESCRIPTION des Paketes nicht bestimmen"
 
@@ -232,9 +250,8 @@ msgstr "'FUN' muss eine Funktion oder NULL sein"
 msgid "cannot handle S4 methods yet"
 msgstr "kann noch nicht mit S4-Methoden umgehen"
 
-#, fuzzy
 msgid "'package' must be a character vector or NULL"
-msgstr "'package' muss eine Zeichenkette oder NULL sein"
+msgstr "'package' muss ein Zeichenkettenvektor oder NULL sein"
 
 msgid "data index for package %s is invalid and will be ignored"
 msgstr "Datenindex für Paket %s ist ungültig und wird ignoriert"
@@ -298,6 +315,10 @@ msgstr "Geben Sie Umgebungsnummer oder 0 für Abbruch an"
 
 msgid "recover called non-interactively; frames dumped, use debugger() to view"
 msgstr "recover nicht interaktiv aufgerufen; Frames gesichert, nutze debugger(), um sie anzusehen"
+
+#, fuzzy
+msgid "Enter a frame number, or 0 to exit"
+msgstr "Geben Sie Umgebungsnummer oder 0 für Abbruch an"
 
 msgid "No suitable frames for recover()"
 msgstr "Keine geeigneten Frames für recover()"
@@ -375,16 +396,14 @@ msgstr "'form' muss eine zweiseitige Formel sein"
 msgid "'form' must be a two-sided formula with one term on each side"
 msgstr "'form' muss eine zweiseitige Formel mit einem Term auf jeder Seite sein"
 
-#, fuzzy
 msgid "invalid object for 'as.environment'"
-msgstr "ungültiges 'socket' Argument"
+msgstr "ungültiges Objekt für 'as.environment'"
 
-#, fuzzy
 msgid "invalid 'n' - must contain at least one non-missing element, got none."
 msgstr "ungültiges 'n' - muss mindestens ein nicht-fehlendes Element enthalten, hat keines"
 
 msgid "invalid 'n' - must be numeric, possibly NA."
-msgstr ""
+msgstr "ungültiges 'n' - muss numerisch sein, möglicherweise NA"
 
 msgid "invalid 'n' - must have length one when dim(x) is NULL, got %d"
 msgstr "ungültiges 'n' - muss Länge 1 haben, wenn dim(x) NULL ist, hat %d"
@@ -452,7 +471,7 @@ msgid "R Help on %s"
 msgstr "R Hilfe zu %s"
 
 msgid "invalid %s argument"
-msgstr "unzulässiges %s Argument"
+msgstr "ungültiges %s argument"
 
 msgid "package %s exists but was not installed under R >= 2.10.0 so help cannot be accessed"
 msgstr "Paket %s existiert, wurde aber nicht unter R >= 2.10.0 installiert, weshalb die Hilfe nicht genutzt werden kann"
@@ -469,9 +488,8 @@ msgstr "Von Benutzer abgebrochen"
 msgid "Unable to connect to CRAN to check R version."
 msgstr "Kann nicht mit CRAN verbinden, um R Version zu checken."
 
-#, fuzzy
-msgid "argument %s must be a character string"
-msgstr "Argument %s muss einzelne Zeichkette sein"
+msgid "'%s' must be a character string"
+msgstr "'%s' muss eine einzelne Zeichenkette sein"
 
 msgid "incorrect field specification"
 msgstr "falsche Feldspezifikation"
@@ -514,9 +532,8 @@ msgstr "Wenn der Browser '%s' bereits ausgeführt wird, wird er nicht neu gestar
 msgid "Otherwise, be patient ..."
 msgstr "Ansonsten: Geduld ..."
 
-#, fuzzy
 msgid "'%s' must be a non-empty character string"
-msgstr "'url' muss eine nicht-leere Zeichenkette sein"
+msgstr "'%s' muss eine nicht-leere Zeichenkette sein"
 
 msgid "no package '%s' was found"
 msgstr "kein Paket '%s' gefunden"
@@ -542,9 +559,8 @@ msgstr "kann HTML-Paketindex nicht aktualisieren"
 msgid "done"
 msgstr "fertig"
 
-#, fuzzy
 msgid "Source must be a seekable connection"
-msgstr "'file' muss eine Zeichenkette oder eine Verbindung sein"
+msgstr "Die Quelle muss eine suchbare Verbindung sein"
 
 msgid "menu() cannot be used non-interactively"
 msgstr "menu() kann nicht nicht-interaktiv genutzt werden"
@@ -566,6 +582,9 @@ msgstr "Einheit \"%s\" ist nicht Teil des Standards \"%s\""
 
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr "'%s' ist eine formale generische Funktion: S3 Methoden werden vermutlich nicht gefunden"
+
+msgid "some methods may be unavailable outside of their namespace"
+msgstr "einige Methoden sind eventuell niccht außerhalb ihres Namensraums verfügbar"
 
 msgid "no function '%s' is visible"
 msgstr "keine Funktion '%s' sichtbar"
@@ -617,17 +636,14 @@ msgstr "'code_files' muss ein Zeichenkettenvektor sein"
 msgid "'list' must be a character vector naming R objects"
 msgstr "'list' muss ein Zeichenkettenvektor mit Namen von R-Objekten sein"
 
-msgid "no R objects specified or available"
-msgstr "keine R-Objekte spezifiziert oder verfügbar"
-
 msgid "directory '%s' already exists"
 msgstr "Verzeichnis '%s' existiert bereits"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "generische Funktionen und andere S4-Objekte (z.B. '%s') können nicht gedumped werden: nutze 'code_files' Argument"
 
-msgid "invalid 'type'; must be a character string"
-msgstr "ungültiger 'type'; muss eine Zeichenkette sein"
+msgid "'download.file()' error code '%d'"
+msgstr "'download.file()' Fehlercode '%d'"
 
 msgid "unable to access index for repository %s"
 msgstr "kann nicht auf den Index für das Repository %s zugreifen"
@@ -670,9 +686,6 @@ msgstr "'destdir' ist kein Verzeichnis"
 msgid "no package %s at the repositories"
 msgstr "kein Paket %s in den Repositories"
 
-msgid "invalid 'type'"
-msgstr "ungültiger 'type'"
-
 msgid "package %s does not exist on the local repository"
 msgstr "Paket %s existiert nicht in lokalem Repository"
 
@@ -685,8 +698,8 @@ msgstr "--- Bitte einen CRAN-Spiegelserver für diese Sitzung auswählen ---"
 msgid "trying to use CRAN without setting a mirror"
 msgstr "versuche CRAN ohne einen Spiegelserver zu nutzen"
 
-msgid "'download.file()' error code '%d'"
-msgstr "'download.file()' Fehlercode '%d'"
+msgid "invalid 'type'"
+msgstr "ungültiger 'type'"
 
 msgid "failed to download mirrors file (%s); using local file '%s'"
 msgstr "Herunterladen der Mirrorliste (%s) fehlgeschlagen; nutze lokale Datei '%s'"
@@ -704,7 +717,7 @@ msgid "invalid options(\"pkgType\"); must be a character string"
 msgstr "ungültige options(\"pkgType\"); muss eine Zeichenkette sein"
 
 msgid "No matching repositories found for"
-msgstr ""
+msgstr "Keine passenden Repositories gefunden für"
 
 msgid ","
 msgstr ","
@@ -725,10 +738,6 @@ msgid ""
 "Do not know which element of 'lib' to install dependencies into\n"
 "skipping dependencies"
 msgstr "Weiß nicht in welches Element von 'lib' die Abhängigkeiten installiert werden sollen; überspringe Abhängigkeiten"
-
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'unzip' muss eine einzelne Zeichenkette sein"
 
 msgid "type 'binary' is not supported on this platform"
 msgstr "Type 'binary' ist auf dieser Plattform nicht unterstützt"
@@ -763,8 +772,8 @@ msgstr "leite 'repos = NULL' aus 'pkgs' ab"
 msgid "unable to create temporary directory %s"
 msgstr "kann temporäres Verzeichnis %s nicht erzeugen"
 
-msgid "type == \"both\" can only be used on Windows or a CRAN build for macOS"
-msgstr "type == \"both\" kann nur unter Windows oder einem CRAN-build für macOS benutzt werden"
+msgid "type == \"both\" can only be used in R builds that have well-defined binary type (e.g., CRAN binary releases)"
+msgstr ""
 
 msgid "type == \"both\" cannot be used with 'repos = NULL'"
 msgstr "type == \"both\" kann nicht mit 'repos = NULL' benutzt werden"
@@ -772,11 +781,9 @@ msgstr "type == \"both\" kann nicht mit 'repos = NULL' benutzt werden"
 msgid "source repository is unavailable to check versions"
 msgstr "Quelltextrepository nicht verfügbar um Versionen zu überprüfen"
 
-msgid "cannot install macOS binary packages on Windows"
+#, fuzzy
+msgid "cannot install binary packages from other operating systems on Windows"
 msgstr "kann keine macOS Binaries auf Windows installieren"
-
-msgid "cannot install macOS binary packages on this platform"
-msgstr "kann keine macOS Binaries auf dieser Plattform installieren"
 
 msgid "cannot install Windows binary packages on this platform"
 msgstr "kann keine Windows-Binaries auf dieser Plattform installieren"
@@ -801,28 +808,23 @@ msgid "files: %s"
 msgstr "files: %s"
 
 msgid "Windows default 'timeout' command is not usable for parallel installs"
-msgstr ""
+msgstr "Das Windows standard 'timout' Kommando kann nicht in parallels Installationen genutzt werden"
 
 msgid "timeouts for parallel installs require the 'timeout' command"
 msgstr "Zeitgrenzen für parallele Installationen benötigen ein 'timeout' Kommando"
 
-#, fuzzy
 msgid "installation of package %s failed"
-msgstr "Download von Paket %s fehlgeschlagen"
+msgstr "Installation von Paket %s fehlgeschlagen"
 
-#, fuzzy
 msgid "installation of %d packages failed:  %s"
-msgstr ""
-"Installation eines oder mehrerer Pakete schlug fehl,\n"
-" vermutlich %s"
+msgstr "Installation von %d Paketen schlug fehl: %s"
 
-#, fuzzy
 msgid ""
 "installation of %d packages failed:\n"
 "  %s"
 msgstr ""
-"Installation eines oder mehrerer Pakete schlug fehl,\n"
-" vermutlich %s"
+"Installation von %d Paketen schlug fehl:\n"
+" %s"
 
 msgid ""
 "The downloaded source packages are in\n"
@@ -1034,9 +1036,8 @@ msgstr "Die Anzahl von Tokens != 'length(proto)'"
 msgid "The number of tokens is not consistent across 'x'"
 msgstr "Die Zahl der Token ist nicht konsistent in 'x'"
 
-#, fuzzy
 msgid "cannot coerce %s to TRUE or FALSE"
-msgstr "kann %s nicht in booleschen Wert unwandeln"
+msgstr "kann %s nicht in TRUE oder FALSE umwandeln"
 
 msgid "no lines found in %s"
 msgstr "keine Zeilen in '%s'"
@@ -1071,17 +1072,21 @@ msgstr "bzip2"
 msgid "xz"
 msgstr "xz"
 
+msgid "zstd"
+msgstr ""
+
 msgid "failed to create directory %s"
 msgstr "kann Verzeichnis '%s' nicht erzeugen"
 
 msgid "invalid octal digit"
 msgstr "unzulässige Oktalziffer"
 
+#, fuzzy
+msgid "removing leading '/' from '%s'"
+msgstr "entferne führenden '/'"
+
 msgid "removing drive '%s'"
 msgstr "entferene Laufwerk '%s'"
-
-msgid "removing leading '/'"
-msgstr "entferne führenden '/'"
 
 msgid "path starts with '~'"
 msgstr "Pfad beginnt mit '~'"
@@ -1089,8 +1094,8 @@ msgstr "Pfad beginnt mit '~'"
 msgid "path contains '..'"
 msgstr "Pfad enthält '..'"
 
-msgid "path is empty"
-msgstr "Pfad ist leer"
+msgid "cannot extract through symlink"
+msgstr ""
 
 msgid "'tarfile' must be a character string or a connection"
 msgstr "'tarfile' muss eine Zeichenkette oder eine Verbindung sein"
@@ -1109,6 +1114,9 @@ msgstr "Checksummenfehler für Eintrag '%s'"
 
 msgid "failed to copy %s to %s"
 msgstr "Kopieren von %s nach %s fehlgeschlagen"
+
+msgid "cannot restore symbolic link from %s to %s as a file copy, because the source doesn't exist; try extracting again?"
+msgstr ""
 
 msgid "unsupported entry type"
 msgstr "nicht unterstützter Eintragstyp"
@@ -1210,21 +1218,35 @@ msgstr "Aufruf von 'wget' hatte Exit-Status ungleich 0"
 msgid "'curl' call had nonzero exit status"
 msgstr "Aufruf von 'curl' hatte Exit-Status ungleich 0"
 
-#, fuzzy
 msgid "invalid method:"
-msgstr "unzulässiges Format"
+msgstr "unzulässige Methode:"
 
 msgid "download had nonzero exit status"
 msgstr "Download hatte Exit-Status ungleich 0"
 
+msgid "Built: value is not a string"
+msgstr ""
+
 msgid "'tar' returned non-zero exit code %d"
 msgstr "'tar' hatte Exit-Status %d"
 
-msgid "file %s is not a macOS binary package"
+#, fuzzy
+msgid "file %s is not a binary package"
 msgstr "Datei %s ist kein macOS Binärpaket"
 
-msgid "package %s successfully unpacked and MD5 sums checked"
+msgid "binary package %s is not compatible with this build of R"
+msgstr ""
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
 msgstr "Paket %s erfolgreich ausgepackt und MD5 Summen abgeglichen"
+
+#, fuzzy
+msgid "package %s signature verified (%s %s)"
+msgstr "Paket %s ist nicht verfügbar %s"
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid ""
 "ERROR: failed to lock directory %s for modifying\n"
@@ -1252,17 +1274,20 @@ msgstr ""
 "Die heruntergeladenen Binärpakete sind in \n"
 "\t%s"
 
-msgid "'memory.size()' is Windows-specific"
-msgstr "'memory.size()' ist spezifisch für Windows"
+msgid "'memory.size()' is no longer supported"
+msgstr "'memory.size()' ist nicht mehr unterstützt"
 
-msgid "'memory.limit()' is Windows-specific"
-msgstr "'memory.limit()' ist spezifisch für Windows"
+msgid "'memory.limit()' is no longer supported"
+msgstr "'memory.limit()' ist nicht mehr unterstützt"
 
 msgid "method 'mailx' is Unix-only"
 msgstr "Methode 'mailx' nur unter UNIX"
 
 msgid "zip file %s not found"
 msgstr "Zip-Datei %s nicht gefunden"
+
+msgid "cannot extract package from %s"
+msgstr ""
 
 msgid "failed to create %s"
 msgstr "Erzeugen von %s fehlgeschlagen"
@@ -1279,12 +1304,6 @@ msgstr "kann temporäre Installation %s nicht nach %s verschieben"
 msgid "Only '*.zip' and '*.tar.gz' files can be installed."
 msgstr "Nur '*.zip' und '*.tar.gz' Dateien können installiert werden."
 
-msgid "'memory.size()' is no longer supported"
-msgstr "'memory.size()' ist nicht mehr unterstützt"
-
-msgid "'memory.limit()' is no longer supported"
-msgstr "'memory.limit()' ist nicht mehr unterstützt"
-
 msgid "winDialog() cannot be used non-interactively"
 msgstr "winDialog() kann nicht nicht-interaktiv genutzt werden"
 
@@ -1295,6 +1314,12 @@ msgid "%d Sweave file for basename %s found"
 msgid_plural "%d Sweave files for basename %s found"
 msgstr[0] "%d Sweave-Datei für Basisnamen %s gefunden"
 msgstr[1] "%d Sweave-Dateien für Basisnamen %s gefunden"
+
+#, fuzzy
+msgid "Output file:  "
+msgid_plural "Output files:  "
+msgstr[0] "Ausgabedateien:"
+msgstr[1] "Ausgabedateien:"
 
 msgid "Output/used file:  "
 msgid_plural "Output/used files:  "
@@ -1310,6 +1335,17 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "unzulässige Spezifikation für role: %s."
 msgstr[1] "unzulässige Spezifikationen für role: %s."
+
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] "Ungültige ORCID ID: %s."
+msgstr[1] "Ungültige ORCID IDs: %s."
+
+#, fuzzy
+msgid "Invalid ROR ID: %s."
+msgid_plural "Invalid ROR IDs: %s."
+msgstr[0] "Ungültige ORCID ID: %s."
+msgstr[1] "Ungültige ORCID IDs: %s."
 
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
@@ -1336,11 +1372,10 @@ msgid_plural "objects '%s' not found"
 msgstr[0] "Objekt '%s' nicht gefunden"
 msgstr[1] "Objekte '%s' nicht gefunden"
 
-#, fuzzy
 msgid "package %s is a base package, and cannot be removed"
 msgid_plural "packages %s are base packages, and cannot be removed"
-msgstr[0] "Paket %s ist ein Basispaket und sollte nicht aktualisiert werden"
-msgstr[1] "Pakete %s sind Basispakete und sollten nicht aktualisiert werden"
+msgstr[0] "Paket %s ist ein Basispaket und kann nicht entfernt werden"
+msgstr[1] "Pakete %s sind Basispakete und können nicht entfernt werden"
 
 msgid ""
 "Removing package from %s\n"
@@ -1450,6 +1485,34 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "ungültige römische Zahl: %s"
 msgstr[1] "ungültige römische Zahlen: %s"
+
+#~ msgid "type == \"both\" can only be used on Windows or a CRAN build for macOS"
+#~ msgstr "type == \"both\" kann nur unter Windows oder einem CRAN-build für macOS benutzt werden"
+
+#~ msgid "no R objects specified or available"
+#~ msgstr "keine R-Objekte spezifiziert oder verfügbar"
+
+#~ msgid "cannot install macOS binary packages on this platform"
+#~ msgstr "kann keine macOS Binaries auf dieser Plattform installieren"
+
+#~ msgid "path is empty"
+#~ msgstr "Pfad ist leer"
+
+#~ msgid "'memory.size()' is Windows-specific"
+#~ msgstr "'memory.size()' ist spezifisch für Windows"
+
+#~ msgid "'memory.limit()' is Windows-specific"
+#~ msgstr "'memory.limit()' ist spezifisch für Windows"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Es ist empfohlen %s/%s anstelle von %s/%s/%s zu nutzen."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "Argument %s muss einzelne Zeichkette sein"
+
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "ungültiger 'type'; muss eine Zeichenkette sein"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "Datei 'filelist' fehlt für Verzeichnis %s"

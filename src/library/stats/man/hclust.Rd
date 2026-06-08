@@ -1,6 +1,6 @@
 % File src/library/stats/man/hclust.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{hclust}
@@ -118,14 +118,17 @@ hclust(d, method = "complete", members = NULL)
   \code{"centroid"} are \emph{not} leading to a \emph{monotone distance}
   measure, or equivalently the resulting dendrograms can have so called
   \emph{inversions} or \emph{reversals} which are hard to interpret,
-  but note the trichotomies in Legendre and Legendre (2012).
+  but note the trichotomies in \bibcitet{R:Legendre+Legendre:2012}.
 
-  Two different algorithms are found in the literature for Ward clustering.
-  The one used by option \code{"ward.D"} (equivalent to the only Ward
-  option \code{"ward"} in \R versions \eqn{\le}{<=} 3.0.3) \emph{does not} implement
-  Ward's (1963) clustering criterion, whereas option \code{"ward.D2"} implements
-  that criterion (\bibcite{Murtagh and Legendre 2014}).  With the latter, the
-  dissimilarities are \emph{squared} before cluster updating.
+  Two different algorithms are found in the literature for Ward
+  clustering.  The one used by option \code{"ward.D"} (equivalent to the
+  only Ward option \code{"ward"} in \R versions \eqn{\le}{<=} 3.0.3)
+  \emph{does not} implement the clustering criterion of
+  \bibcitet{R:Ward:1963}, whereas option \code{"ward.D2"} implements
+  that criterion \bibcitep{R:Murtagh+Legendre:2014}.  With the latter, the
+  dissimilarities are \emph{squared} before cluster updating, and the
+  clustering corresponds to \code{"ward.D"} with squared distances, see
+  also the example.
   Note that \code{\link[cluster]{agnes}(*, method="ward")} corresponds
   to \code{hclust(*, "ward.D2")}.
 
@@ -156,55 +159,25 @@ hclust(d, method = "complete", members = NULL)
   observation sequence number.
 }
 \note{
-  Method \code{"centroid"} is typically meant to be used with
-  \emph{squared} Euclidean distances.
+  Method \code{"centroid"} has been recommended to be used with
+  \emph{squared} Euclidean distances \code{dist(*)^2}, i.e., clustering
+  differently than the traditional \abbr{UPGMC}, where other authors
+  strongly prefer the original.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole. (S version.)
-
-  Everitt, B. (1974).
-  \emph{Cluster Analysis}.
-  London: Heinemann Educ. Books.
-
-  Hartigan, J.A. (1975).
-  \emph{Clustering  Algorithms}.
-  New York: Wiley.
-
-  Sneath, P. H. A. and R. R. Sokal (1973).
-  \emph{Numerical Taxonomy}.
-  San Francisco: Freeman.
-
-  Anderberg, M. R. (1973).
-  \emph{Cluster Analysis for Applications}.
-  Academic Press: New York.
-
-  Gordon, A. D. (1999).
-  \emph{Classification}. Second Edition.
-  London: Chapman and Hall / CRC
-
-  Murtagh, F. (1985).
-  \dQuote{Multidimensional Clustering Algorithms}, in
-  \emph{COMPSTAT Lectures 4}.
-  Wuerzburg: Physica-Verlag
-  (for algorithmic details of algorithms used).
-
-  McQuitty, L.L. (1966).
-  Similarity Analysis by Reciprocal Pairs for Discrete and Continuous
-  Data.
-  \emph{Educational and Psychological Measurement}, \bold{26}, 825--831.
-  \doi{10.1177/001316446602600402}.
-
-  Legendre, P. and L. Legendre (2012).
-  \emph{Numerical Ecology},
-  3rd English ed. Amsterdam: Elsevier Science BV.
-
-  Murtagh, Fionn and Legendre, Pierre (2014).
-  Ward's hierarchical agglomerative clustering method: which algorithms
-  implement Ward's criterion?
-  \emph{Journal of Classification}, \bold{31}, 274--295.
-  \doi{10.1007/s00357-014-9161-z}.
+  \bibinfo{R:Becker+Chambers+Wilks:1988}{note}{(S version)}
+  \bibinfo{R:Murtagh:1985}{note}{(For algorithmic details of algorithms used)}
+  \bibshow{*,
+    R:Anderberg:1973,
+    R:Becker+Chambers+Wilks:1988,
+    R:Everitt:1974,
+    R:Gordon:1999,
+    R:Hartigan:1975,
+    R:Legendre+Legendre:2012,
+    R:McQuitty:1966,
+    R:Murtagh:1985,
+    R:Sneath+Sokal:1973,
+    R:Ward:1963}
 }
 \author{
   The \code{hclust} function is based on Fortran code
@@ -231,10 +204,10 @@ plot(hc, hang = -1)
 ## tree from the cluster centers.
 hc <- hclust(dist(USArrests)^2, "cen")
 memb <- cutree(hc, k = 10)
-cent <- NULL
-for(k in 1:10){
-  cent <- rbind(cent, colMeans(USArrests[memb == k, , drop = FALSE]))
-}
+cent <- matrix(numeric(), 10, 4)
+for(k in 1:10)
+  cent[k,] <- colMeans(USArrests[memb == k, , drop = FALSE])
+
 hc1 <- hclust(dist(cent)^2, method = "cen", members = table(memb))
 opar <- par(mfrow = c(1, 2))
 plot(hc,  labels = FALSE, hang = -1, main = "Original Tree")
@@ -248,12 +221,27 @@ mds2 <- -cmdscale(UScitiesD)
 plot(mds2, type="n", axes=FALSE, ann=FALSE)
 text(mds2, labels=rownames(mds2), xpd = NA)
 
-hcity.D  <- hclust(UScitiesD, "ward.D") # "wrong"
-hcity.D2 <- hclust(UScitiesD, "ward.D2")
-opar <- par(mfrow = c(1, 2))
-plot(hcity.D,  hang=-1)
-plot(hcity.D2, hang=-1)
+hcity <- list(
+    D.o = hclust(UScitiesD, "ward.D"), # "wrong"
+    D2o = hclust(UScitiesD, "ward.D2"),# similar to next two
+    D   = hclust(1/2* (UScitiesD)^2,  "ward.D"),  # Ward(1963) ESS  based
+    D2  = hclust(sqrt(1/2)*UScitiesD, "ward.D2")) #       sqrt(ESS) based
+
+opar <- par(mfrow = c(2, 2), mgp = c(1.2, .3, 0), mar = .1 + c(3,4,2,1))
+ plot(hcity$D.o, hang=-1, col=2) # different clustering than the others
+ plot(hcity$D2o, hang=-1) # [1,2]
+ plot(hcity$D,   hang=-1) # [2,1]
+ plot(hcity$D2,  hang=-1) # [2,2] as above, [1,2], just y-axis numbers differ
 par(opar)
+mrg <- sapply(hcity, `[[`, "merge") # defining cluster tree (apart from height)
+ht  <- sapply(hcity, `[[`, "height")
+stopifnot(exprs = {
+   any(mrg[,2] != mrg[,1])
+       mrg[,2] == mrg[,3:4] # all eq., but the first
+   all.equal(ht[,"D2" ], sqrt(ht[,"D"]))
+   all.equal(ht[,"D2"], sqrt(1/2)*ht[,"D2o"])
+})
+
 }
 \keyword{multivariate}
 \keyword{cluster}

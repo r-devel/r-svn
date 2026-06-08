@@ -5,7 +5,6 @@
 
 \name{hcl}
 \alias{hcl}
-\encoding{UTF-8}
 \title{\abbr{HCL} Color Specification}
 \description{
   Create a vector of colors from vectors specifying hue,
@@ -51,7 +50,7 @@ The RGB values produced by this function correspond to the \abbr{sRGB}
 color space used on most PC computer displays.  There are other
 packages which provide more general color space facilities.
 
-  Semi-transparent colors (\code{0 < alpha < 1}) are supported only on
+  Semi-transparent colors (\eqn{0 < \code{alpha} < 1}) are supported only on
   some devices: see \code{\link{rgb}}.
 }
 \value{
@@ -63,11 +62,7 @@ packages which provide more general color space facilities.
   (opaque).  
 }
 \references{
-Ihaka, R. (2003).
-Colour for Presentation Graphics, Proceedings of the 3rd International
-Workshop on Distributed Statistical Computing (DSC 2003), March 20-22,
-2003, Technische Universität Wien, Vienna, Austria.
-\url{https://www.R-project.org/conferences/DSC-2003/}.
+  \bibshow{R:Ihaka:2003}
 }
 \author{Ross Ihaka}
 \note{

@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2024-07-15 r86901) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
+R Under development (unstable) (2026-01-29 r89349) -- "Unsuffered Consequences"
+Copyright (C) 2026 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -126,7 +126,7 @@ Type 'q()' to quit R.
 > 
 > 
 > ## R-0.50: switches to NON-exp at 14, but should only at 15...
-> ## R-0.61++: doesn' switch at all (or at 20 only)
+> ## R-0.61++: doesn't switch at all (or at 20 only)
 > ## S-plus: does not switch at all..
 > for(i in digs1) { cat(i,":");  print(v1, digits=i) }
 1 :[1] 2e-04 4e-03 2e-02 6e-02 8e+00 6e+01 5e+02
@@ -221,7 +221,7 @@ Type 'q()' to quit R.
 > do.p <- FALSE
 > for(di in 1:10) {
 +     options(digits=di)
-+     cat(if(do.p)"\n",formatC(di, width=2),":", format.info(Mm),"\n")
++     cat(if(do.p)"\n", formatC(di, width=2),":", format.info(Mm),"\n")
 +     if(do.p)print(Mm)
 + }
   1 : 6 0 1 
@@ -451,7 +451,7 @@ b 1.2+11i 2.4+23.141593i
  Mean   :14.74   Mean   :6.084   112    :  3   Mean   : 45.60   Mean   :0.15422  
  3rd Qu.:20.00   3rd Qu.:6.600   135    :  3   3rd Qu.: 47.55   3rd Qu.:0.21925  
  Max.   :23.00   Max.   :7.700   (Other):147   Max.   :370.00   Max.   :0.81000  
-                                 NA's   : 16                                     
+                                 NAs    : 16                                     
 > lst <- levels(attenu$station)
 > levels(attenu$station)[lst == "117"] <- paste(rep(letters,3),collapse="")
 > summary(attenu) # {2 + one long + 2 } variables
@@ -470,7 +470,7 @@ b 1.2+11i 2.4+23.141593i
  112                                                                           :  3  
  135                                                                           :  3  
  (Other)                                                                       :147  
- NA's                                                                          : 16  
+ NAs                                                                           : 16  
       dist            accel        
  Min.   :  0.50   Min.   :0.00300  
  1st Qu.: 11.32   1st Qu.:0.04425  
@@ -920,33 +920,37 @@ NULL
 
 
 
+> ## Cleanup
+> rm(print.foo, obj, a, b, c, d)
+> 
 > 
 > ## max.print fully obeyed by print and format
 > ## These failed briefly due to bug in r76734
 > o <- options(max.print = 5)
 > 1:10
 [1] 1 2 3 4 5
- [ reached getOption("max.print") -- omitted 5 entries ]
+ [ reached 'max' / getOption("max.print") -- omitted 5 entries ]
 > as.numeric(1:10)
 [1] 1 2 3 4 5
- [ reached getOption("max.print") -- omitted 5 entries ]
+ [ reached 'max' / getOption("max.print") -- omitted 5 entries ]
 > as.character(1:10)
 [1] "1" "2" "3" "4" "5"
- [ reached getOption("max.print") -- omitted 5 entries ]
+ [ reached 'max' / getOption("max.print") -- omitted 5 entries ]
 > as.complex(1:10)
 [1] 1+0i 2+0i 3+0i 4+0i 5+0i
- [ reached getOption("max.print") -- omitted 5 entries ]
+ [ reached 'max' / getOption("max.print") -- omitted 5 entries ]
 > as.raw(1:10)
 [1] 01 02 03 04 05
- [ reached getOption("max.print") -- omitted 5 entries ]
+ [ reached 'max' / getOption("max.print") -- omitted 5 entries ]
 > options(o)
+> 
 > 
 > ## print() max.print and max for matrices (w/ many columns)  --  PR#15027
 > ## whenever the columns are larger than max.print, no values inside the matrix are displayed
 > print(matrix(nrow = 100, ncol = 4), max = 5)
        [,1] [,2] [,3] [,4]
   [1,]   NA   NA   NA   NA
- [ reached getOption("max.print") -- omitted 99 rows ]
+ [ reached 'max' / getOption("max.print") -- omitted 99 rows ]
 > print(matrix(nrow = 100, ncol = 100), max = 40) # omitting rows and columns
        [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13]
   [1,]   NA   NA   NA   NA   NA   NA   NA   NA   NA    NA    NA    NA    NA
@@ -956,38 +960,106 @@ NULL
   [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
        [,38] [,39] [,40]
   [1,]    NA    NA    NA
- [ reached getOption("max.print") -- omitted 99 rows and 60 columns ]
+ [ reached 'max' / getOption("max.print") -- omitted 99 rows and 60 columns ]
 > print(matrix(nrow =  10, ncol = 4), max = 3)    #   (ditto)
       [,1] [,2] [,3]
  [1,]   NA   NA   NA
- [ reached getOption("max.print") -- omitted 9 rows and 1 column ]
+ [ reached 'max' / getOption("max.print") -- omitted 9 rows and 1 column ]
 > print(matrix(nrow =   0, ncol = 4), max = 3)    # omitting 1 column
      [,1] [,2] [,3]
- [ reached getOption("max.print") -- omitted 1 column ]
+ [ reached 'max' / getOption("max.print") -- omitted 1 column ]
 > print(matrix(nrow =  10, ncol = 2), max = 5)    # omitting rows
       [,1] [,2]
  [1,]   NA   NA
  [2,]   NA   NA
- [ reached getOption("max.print") -- omitted 8 rows ]
-> print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting cols, at least one row prints
+ [ reached 'max' / getOption("max.print") -- omitted 8 rows ]
+> print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting 1 col, at least one row prints
      [,1] [,2] [,3] [,4] [,5]
 [1,]   NA   NA   NA   NA   NA
- [ reached getOption("max.print") -- omitted 1 column ]
+ [ reached 'max' / getOption("max.print") -- omitted 1 column ]
 > ## ----- "higher" arrays ("rank >= 3"): --------
-> ## FIXME: in R 4.4.0 there should be a warning for omitted rows
-> print(array(dim = c(2, 2, 1)), max = 2)
+> print(array(dim = c(2, 2, 2)), max = 4) # omit 1 slice
+, , 1
+
+     [,1] [,2]
+[1,]   NA   NA
+[2,]   NA   NA
+
+ [ reached 'max' / getOption("max.print") -- omitted 1 slice ] 
+> print(array(dim = c(2, 2, 2)), max = 5) # omit 1 row + 1 column
+, , 1
+
+     [,1] [,2]
+[1,]   NA   NA
+[2,]   NA   NA
+
+, , 2
+
+     [,1]
+[1,]   NA
+
+ [ reached 'max' / getOption("max.print") -- omitted 1 row 1 column ] 
+> print(array(dim = c(2, 2, 2)), max = 6) # omit 1 row
+, , 1
+
+     [,1] [,2]
+[1,]   NA   NA
+[2,]   NA   NA
+
+, , 2
+
+     [,1] [,2]
+[1,]   NA   NA
+
+ [ reached 'max' / getOption("max.print") -- omitted 1 row ] 
+> print(array(dim = c(2, 2, 2)), max = 7) # omit 1 row
+, , 1
+
+     [,1] [,2]
+[1,]   NA   NA
+[2,]   NA   NA
+
+, , 2
+
+     [,1] [,2]
+[1,]   NA   NA
+
+ [ reached 'max' / getOption("max.print") -- omitted 1 row ] 
+> #
+> print(array(dim = c(2, 2, 1)), max = 2) # omit 1 row
 , , 1
 
      [,1] [,2]
 [1,]   NA   NA
 
-> ## FIXME: this does not print anything but it should show
-> ##        at least one element according to the logic of max.print
-> print(array(dim = c(2, 2, 1)), max = 1)
- [ reached getOption("max.print") -- omitted 1 matrix slice(s) ]
+ [ reached 'max' / getOption("max.print") -- omitted 1 row ] 
+> print(array(dim = c(2, 2, 1)), max = 1) # omit 1 row + 1 column
+, , 1
+
+     [,1]
+[1,]   NA
+
+ [ reached 'max' / getOption("max.print") -- omitted 1 row 1 column ] 
 > 
 > 
+> ## alignment of counts from print/format(<summaryDefault>)
+> summary(TRUE)
+   Mode    TRUE 
+logical       1 
+> data.frame(character = c(rep("true", 100), NA)) |>
++     transform(factor = as.factor(character), logical = as.logical(character)) |>
++     summary() # column-wise format()
+     character    factor    logical       
+ Length   :101   true:100   Mode:logical  
+ N.unique :  1   NAs :  1   TRUE:100      
+ N.blank  :  0              NAs :1        
+ Min.nchar:  4                            
+ Max.nchar:  4                            
+ NAs      :  1                            
 > 
-> ## Cleanup
-> rm(print.foo, obj, a, b, c, d, o)
+> summary(numeric())  # suffered from print.table's na.print="" in R < 4.6.0
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+     NA      NA      NA     NaN      NA      NA 
+> unname(summary(pi)) # printed with empty names for a few days in R-devel
+[1] 3.142 3.142 3.142 3.142 3.142 3.142
 > 

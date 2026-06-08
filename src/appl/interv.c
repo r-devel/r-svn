@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2002--2016 The R Core Team
+ *  Copyright (C) 2002--2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,15 +27,27 @@
 #include <R_ext/Boolean.h>
 #include <R_ext/Utils.h>
 
-/* This is called from stats/src/bvalue.f, 3 x stats/src/s*.f for smooth.spline()
-   and packages gam and mda */
+/* Was in API header R_ext/Utils.h
+
+   This is called from Fortran in stats/src/bvalue.f,
+   3x stats/src/s*.f for smooth.spline() 
+   and packages gam and mda.
+
+   Was Rboolean *. but that is not possible from Fortran.  Since it is
+   inteneded to be called from C it should not be in a C header.
+*/
 int F77_SUB(interv)(double *xt, int *n, double *x,
-		    Rboolean *rightmost_closed, Rboolean *all_inside,
+		    int *rightmost_closed, int *all_inside,
 		    int *ilo, int *mflag)
 {
-  return findInterval(xt, *n, *x, *rightmost_closed, *all_inside, *ilo, mflag);
+    // This has an int return value which is ignored here
+    return findInterval(xt, *n, *x,
+			(Rboolean) *rightmost_closed,
+			(Rboolean) *all_inside,
+			*ilo, mflag);
 }
 
+/* In API header R_ext/Utils.h */
 int findInterval2(double *xt, int n, double x,
 		  Rboolean rightmost_closed, Rboolean all_inside,
 		  Rboolean left_open, // <- new in findInterval2()

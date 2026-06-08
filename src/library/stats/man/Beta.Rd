@@ -1,6 +1,6 @@
 % File src/library/stats/man/Beta.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Beta}
@@ -29,8 +29,9 @@ rbeta(n, shape1, shape2, ncp = 0)
     is taken to be the number required.}
   \item{shape1, shape2}{non-negative parameters of the Beta distribution.}
   \item{ncp}{non-centrality parameter.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
     \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
 \details{
@@ -50,7 +51,7 @@ rbeta(n, shape1, shape2, ncp = 0)
   \code{[dpqr]beta()} functions are defined correspondingly.
 
   \code{pbeta} is closely related to the incomplete beta function.  As
-  defined by \bibcite{Abramowitz and Stegun 6.6.1}
+  defined by \bibcitet{|R:Abramowitz+Stegun:1972|section 6.6.1}
   \deqn{B_x(a,b) = \int_0^x t^{a-1} (1-t)^{b-1} dt,}{
     B_x(a,b) = integral_0^x t^(a-1) (1-t)^(b-1) dt,}
   and 6.6.2 \eqn{I_x(a,b) = B_x(a,b) / B(a,b)} where
@@ -59,7 +60,9 @@ rbeta(n, shape1, shape2, ncp = 0)
   \eqn{I_x(a,b)} is \code{pbeta(x, a, b)}.
 
   The noncentral Beta distribution (with \code{ncp} \eqn{ = \lambda})
-  is defined (Johnson \abbr{et al.}, 1995, pp.\sspace{}502) as the distribution of
+  is defined
+  \bibcitep{|R:Johnson+Kotz+Balakrishnan:1995|pp.\sspace{}502}
+  as the distribution of
   \eqn{X/(X+Y)} where \eqn{X \sim \chi^2_{2a}(\lambda)}{X ~ chi^2_2a(\lambda)}
   and \eqn{Y \sim \chi^2_{2b}}{Y ~ chi^2_2b}.
   There, \eqn{\chi^2_n(\lambda)}{chi^2_n(\lambda)} is the noncentral
@@ -67,9 +70,10 @@ rbeta(n, shape1, shape2, ncp = 0)
   non-centrality parameter \eqn{\lambda}, see \link{Chisquare}.
 }
 \value{
-  \code{dbeta} gives the density, \code{pbeta} the distribution
-  function, \code{qbeta} the quantile function, and \code{rbeta}
-  generates random deviates.
+  \code{dbeta} gives the density,
+  \code{pbeta} is the cumulative distribution function, and
+  \code{qbeta} is the quantile function of the Beta distribution.
+  \code{rbeta} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
 
@@ -93,23 +97,13 @@ rbeta(n, shape1, shape2, ncp = 0)
   contributed by Catherine Loader (see \code{\link{dbinom}}) if either
   shape parameter is larger than one, otherwise directly from the definition.
   The non-central case is based on the derivation as a Poisson
-  mixture of betas (Johnson \abbr{et al.}, 1995, pp.\sspace{}502--3).
+  mixture of betas
+  \bibcitep{|R:Johnson+Kotz+Balakrishnan:1995|pp.\sspace{}502--3}.
 
   \item The central \code{pbeta} for the default (\code{log_p = FALSE})
-  uses a C translation based on
-
-  Didonato, A. and Morris, A., Jr, (1992)
-  Algorithm 708: Significant digit computation of the incomplete beta
-  function ratios,
-  \emph{ACM Transactions on Mathematical Software}, \bold{18}, 360--373,
-  \doi{10.1145/131766.131776}.
-  (See also\cr
-  Brown, B. and Lawrence Levy, L. (1994)
-  Certification of algorithm 708: Significant digit computation of the
-  incomplete beta,
-  \emph{ACM Transactions on Mathematical Software}, \bold{20}, 393--397,
-  \doi{10.1145/192115.192155}.)
-  \cr %%
+  uses a C translation based on \bibcitep{R:Didonato+Morris:1992}.
+  (See also \bibcitet{R:Brown+Levy:1994}.)
+  
   We have slightly tweaked the original \dQuote{TOMS 708} algorithm, and
   enhanced for \code{log.p = TRUE}.  For that (log-scale) case,
   underflow to \code{-Inf} (i.e., \eqn{P = 0}) or \code{0}, (i.e.,
@@ -118,51 +112,32 @@ rbeta(n, shape1, shape2, ncp = 0)
   typically signals a \code{\link{warning}}.
 
   \item The non-central \code{pbeta} uses a C translation of
-
-  Lenth, R. V. (1987) Algorithm AS 226: Computing noncentral beta
-  probabilities. \emph{Applied Statistics}, \bold{36}, 241--244,
-  \doi{10.2307/2347558}, 
-  incorporating\cr
-  Frick, H. (1990)'s AS R84, \emph{Applied Statistics}, \bold{39},
-  311--2, \doi{10.2307/2347780}
-  and\cr
-  Lam, M.L. (1995)'s AS R95, \emph{Applied Statistics}, \bold{44},
-  551--2, \doi{10.2307/2986147}.
+  \bibcitet{R:Lenth:1987} incorporating \bibcitet{R:Frick:1990} and
+  \bibcitet{R:Lam:1995}.
 
   This computes the lower tail only, so the upper tail suffers from
   cancellation and a warning will be given when this is likely to be
   significant.
 
   \item The central case of \code{qbeta} is based on a C translation of
-
-  Cran, G. W., K. J. Martin and G. E. Thomas (1977).
-  Remark AS R19 and Algorithm AS 109,
-  \emph{Applied Statistics},  \bold{26}, 111--114,
-  \doi{10.2307/2346887},
-  and subsequent remarks (AS83 and correction).
+  \bibcitet{R:Cran+Martin+Thomas:1977} and subsequent remarks (AS83 and
+  correction).
 
   Enhancements, notably for starting values and switching to a log-scale
   Newton search, by R Core.
 
   \item  The central case of \code{rbeta} is based on a C translation of
-
-  R. C. H. Cheng (1978).
-  Generating beta variates with nonintegral shape parameters.
-  \emph{Communications of the ACM}, \bold{21}, 317--322.
+  \bibcitet{R:Cheng:1978}.
  }
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Abramowitz, M. and Stegun, I. A. (1972)
-  \emph{Handbook of Mathematical Functions.} New York: Dover.
-  Chapter 6: Gamma and Related Functions.
-
-  Johnson, N. L., Kotz, S. and Balakrishnan, N. (1995)
-  \emph{Continuous Univariate Distributions}, volume 2, especially
-  chapter 25. Wiley, New York.
+  \bibinfo{R:Abramowitz+Stegun:1972}{footer}{Chapter 6: Gamma and
+    Related Functions.}
+  \bibinfo{R:Johnson+Kotz+Balakrishnan:1995}{footer}{Especially
+    chapter 25.}
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988,
+    R:Johnson+Kotz+Balakrishnan:1995}
 }
 \seealso{
   \link{Distributions} for other standard distributions.

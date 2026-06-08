@@ -57,7 +57,7 @@ as.single(x, \dots)
   attributes, use \code{\link{storage.mode}}.)  Character strings
   containing optional whitespace followed by either a decimal
   representation or a hexadecimal representation (starting with
-  \code{0x} or \code{0X}) can be converted, as can special values such
+  \samp{0x} or \samp{0X}) can be converted, as can special values such
   as \code{"NA"}, \code{"NaN"}, \code{"Inf"} and \code{"infinity"},
   irrespective of case.
 
@@ -88,7 +88,7 @@ as.single(x, \dots)
 %% keep next the same in double.Rd & numeric.Rd
 \section{Note on names}{
   It is a historical anomaly that \R has two names for its
-  floating-point vectors, \code{\link{double}} and \code{\link{numeric}}
+  floating-point vectors, \code{double} and \code{numeric}
   (and formerly had \code{real}).
 
   \code{double} is the name of the \link{type}.
@@ -102,9 +102,7 @@ as.single(x, \dots)
   coerces to the class.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
   \url{https://en.wikipedia.org/wiki/IEEE_754-1985},
   \url{https://en.wikipedia.org/wiki/IEEE_754-2008},

@@ -39,7 +39,7 @@ function(formula, data, weights, subset, na.action, model = FALSE,
     w <- model.weights(mf) %||% rep_len(1, length(y))
     nmx <- as.character(attr(mt, "variables"))[-(1L:2)]
     x <- mf[, nmx, drop=FALSE]
-    if(any(sapply(x, is.factor))) stop("predictors must all be numeric")
+    if(any(vapply(x, is.factor, NA))) stop("predictors must all be numeric")
     x <- as.matrix(x)
     D <- ncol(x)
     nmx <- setNames(nm = colnames(x))
@@ -131,9 +131,9 @@ simpleLoess <- function(y, x, weights, span = 0.75, degree = 2L,
     if(D == 1L && sum.drop.sqr)
 	stop("specified the square of a predictor to be dropped with only one numeric predictor")
     if(sum.parametric == D) stop("specified parametric for all predictors")
-    if (length(span) != 1L) stop("invalid argument 'span'")
-    if (length(cell) != 1L) stop("invalid argument 'cell'")
-    if (length(degree) != 1L) stop("invalid argument 'degree'")
+    if (length(span) != 1L) stop(gettextf("invalid argument '%s'", "span"), domain = NA)
+    if (length(cell) != 1L) stop(gettextf("invalid argument '%s'", "cell"), domain = NA)
+    if (length(degree) != 1L) stop(gettextf("invalid argument '%s'", "degree"), domain = NA)
 
     if(surface == "interpolate" && statistics == "approximate") # default
         statistics <- if(trace.hat == "exact") "1.approx"
@@ -316,6 +316,10 @@ predLoess <-
     order.drop.sqr <- (2L - drop.square)[order.parametric]
     storage.mode(x) <- "double"
     storage.mode(y) <- "double"
+    ## package intamap somehow gets NULL
+    N <- nrow(x)
+    if (length(weights) < N) weights <- rep(1, N)
+    if (length(robust) < N) robust <- rep(1, N)
     if(surface == "direct") {
         nas <- rowSums(is.na(newx)) > 0
         fit <- rep_len(NA_real_, length(nas))

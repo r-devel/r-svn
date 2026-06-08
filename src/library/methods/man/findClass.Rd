@@ -116,14 +116,11 @@ sealClass(Class, where)
 }
 
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+  \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 
- Chambers, John M. (2008)
- \emph{Software for Data Analysis: Programming with R}
-  Springer. (Chapter 9 has some details not in the later reference.)
+  \bibshow{R:Chambers:2008}
+  (Chapter 9 has some details not in the later reference.)
 }
 
 \seealso{

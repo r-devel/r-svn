@@ -1,7 +1,7 @@
 #  File src/library/base/R/match.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -36,7 +36,8 @@ pmatch <- function(x, table, nomatch = NA_integer_, duplicates.ok = FALSE)
 
 # "utils::hasName(x, name)" is defined to be the same as "name %in% names(x)",
 # so change it if this changes.
-`%in%`  <- function(x, table) match(x, table, nomatch = 0L) > 0L
+`%in%`    <- function(x, table) match(x, table, nomatch = 0L) > 0L
+`%notin%` <- function(x, table) match(x, table, nomatch = 0L) == 0L
 
 match.arg <- function (arg, choices, several.ok = FALSE)
 {
@@ -48,24 +49,28 @@ match.arg <- function (arg, choices, several.ok = FALSE)
     if (is.null(arg)) return(choices[1L])
     else if(!is.character(arg))
 	stop("'arg' must be NULL or a character vector")
-    if (!several.ok) { # most important (default) case:
+    all.match <- FALSE
+    if(!is.logical(several.ok)) {
+        if(is.character(several.ok) && startsWith(several.ok, "all"))
+            several.ok <- all.match <- TRUE
+        else stop("'several.ok' must be logical or a string starting with \"all\"")
+    }
+    else if (!several.ok) { # most important (default) case:
         ## the arg can be the whole of choices as a default argument.
         if(identical(arg, choices)) return(arg[1L])
-        if(length(arg) > 1L) stop("'arg' must be of length 1")
+        if(length(arg) != 1L) stop(gettextf("'%s' must be of length 1", "arg"), domain=NA)
     } else if(length(arg) == 0L) stop("'arg' must be of length >= 1")
 
     ## handle each element of arg separately
     i <- pmatch(arg, choices, nomatch = 0L, duplicates.ok = TRUE)
-    if (all(i == 0L))
+    if(all(i0 <- i == 0L) || (all.match && any(i0)))
         stop(sprintf(ngettext(length(chs <- unique(choices[nzchar(choices)])),
                               "'arg' should be %s",
                               "'arg' should be one of %s"),
                      paste(dQuote(chs), collapse=", ")),
              domain = NA)
-    i <- i[i > 0L]
-    if (!several.ok && length(i) > 1) ## can this happen ??
-        stop("there is more than one match in 'match.arg'")
-    choices[i]
+
+    choices[i[i > 0L]]
 }
 
 charmatch <- function(x, table, nomatch = NA_integer_)
@@ -85,12 +90,12 @@ char.expand <- function(input, target, nomatch = stop("no match"))
 mtfrm <- function(x)
     UseMethod("mtfrm")
 
-# also for "Date"
 mtfrm.default <- function(x) {
     if(length(y <- as.character(x)) != length(x))
         stop("cannot mtfrm")
     y
 }
 
+mtfrm.Date <- # <- for speed
 mtfrm.POSIXct <-
 mtfrm.POSIXlt <- function(x) as.vector(x, "any")

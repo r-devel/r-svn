@@ -1,6 +1,6 @@
 % File src/library/base/man/gettext.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{gettext}
@@ -27,14 +27,13 @@ ngettext(n, msg1, msg2, domain = NULL)
 
 bindtextdomain(domain, dirname = NULL)
 
-Sys.setLanguage(lang, unset = "en", C.vs.en = c("msg", "warn", "silent"),
-                force = FALSE)
+Sys.setLanguage(lang, unset = "en") %, force = FALSE
 }
 \arguments{
   \item{\dots}{one or more character vectors.}
   \item{trim}{logical indicating if the white space trimming in
     \code{gettext()} should happen.  \code{trim = FALSE} may be needed for
-    compiled code (C / C++) messages which often end with \code{\\n}.}
+    compiled code (C / C++) messages which often end with \samp{\n}.}
   \item{domain}{the \sQuote{domain} for the translation, a \code{character}
     string, or \code{\link{NULL}}; see \sQuote{Details}.}
   \item{n}{a non-negative integer.}
@@ -47,16 +46,11 @@ Sys.setLanguage(lang, unset = "en", C.vs.en = c("msg", "warn", "silent"),
   \item{unset}{a string, specifying the default language assumed to be
     current in the case \code{\link{Sys.getenv}("LANGUAGE")} is unset or
     empty.}
-  \item{C.vs.en}{a string specifying how a current (sometimes \dQuote{hard})
-    setting of language \code{"C"} is treated for \code{lang = "en"}.
-    When \code{"silent"}, nothing happens, when \code{"msg"}, a
-    \code{\link{message}()} and if \code{"warn"} a \code{\link{warning}()}
-    is signalled.}
-  \item{force}{logical indicating if in case of a \dQuote{hard} set
-    \code{"C"} locale, \code{Sys.setLanguage()} should try modifying the
-    locale (to \code{"en"}) in order to subsequently set the desired language
-    \code{lang}, currently only when \code{\link{.Platform}[["OS.type"]]}
-    is \code{"unix"}.}
+% \item{force}{logical indicating if in case of a \dQuote{hard} set
+%   \code{"C"} locale, \code{Sys.setLanguage()} should try modifying the
+%   locale (to \code{"en"}) in order to subsequently set the desired language
+%   \code{lang}, currently only when \code{\link{.Platform}[["OS.type"]]}
+%   is \code{"unix"}.}
 }
 \details{
   If \code{domain} is \code{NULL} (the default) in \code{gettext}
@@ -89,16 +83,17 @@ Sys.setLanguage(lang, unset = "en", C.vs.en = c("msg", "warn", "silent"),
 
   For \code{gettext}, when \code{trim} is true as by default,
   leading and trailing whitespace is ignored (\dQuote{trimmed}) when
-  looking for the translation.
+  looking for the translation.  R-level message catalogues from
+  \code{\link{xgettext2pot}} contain only trimmed messages.
 
   \code{ngettext} is used where the message needs to vary by a single
   integer.  Translating such messages is subject to very specific rules
-  for different languages: see the GNU \I{Gettext} Manual.  The string
+  for different languages: see the GNU \verb{gettext} manual.  The string
   will often contain a single instance of \code{\%d} to be used in
   \code{\link{sprintf}}.  If English is used, \code{msg1} is returned if
   \code{n == 1} and \code{msg2} in all other cases.
 
-  \code{bindtextdomain} is typically wrapper for the C function of the same
+  \code{bindtextdomain} is typically a wrapper for the C function of the same
   name: your system may have a \command{man} page for it.  With a
   non-\code{NULL} \code{dirname} it specifies where to look for message
   catalogues: with \code{dirname = NULL} it returns the current location.
@@ -130,6 +125,16 @@ Sys.setLanguage(lang, unset = "en", C.vs.en = c("msg", "warn", "silent"),
   Note that currently, using a non-existing language \code{lang} is still
   set and no translation will happen, without any \code{\link{message}}.
 }
+\section{Warning}{
+  These functions were written assuming that environment variable
+  \env{LANGUAGE} is supported by the implementation of \code{libintl}.
+  This is almost universally true and (along with \command{gettext}
+  \abbr{et al.}) became part of the 2024 POSIX specification.
+  In 2025, however, it was still ignored by the
+  implementation in \code{musl} (one of the implementations available on
+  Alpine Linux).
+}
+
 \seealso{
   \code{\link{stop}} and \code{\link{warning}} make use of \code{gettext} to
   translate messages.

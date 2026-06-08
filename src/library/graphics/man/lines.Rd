@@ -1,6 +1,6 @@
 % File src/library/graphics/man/lines.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2013 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lines}
@@ -23,8 +23,8 @@ lines(x, \dots)
   \item{\dots}{Further graphical parameters (see \code{\link{par}}) may
     also be supplied as arguments, particularly, line type, \code{lty},
     line width, \code{lwd}, color, \code{col} and for \code{type = "b"},
-    \code{pch}.  Also the line characteristics \code{lend}, \code{ljoin}
-    and \code{lmitre}.}
+    \code{pch} (see \code{\link{points}} for details).  Also the line
+    characteristics \code{lend}, \code{ljoin} and \code{lmitre}.}
 }
 \details{
   The coordinates can be passed in a plotting structure
@@ -44,9 +44,7 @@ lines(x, \dots)
   the whole vector to symbols (recycled as necessary).
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{lines.formula}} for the formula method;

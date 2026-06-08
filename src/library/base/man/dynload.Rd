@@ -68,9 +68,8 @@ is.loaded(symbol, PACKAGE = "", type = "")
   short.  (The POSIX standards use \sQuote{executable object file},
   but no one else does.)
 
-  See \sQuote{See Also} and the \sQuote{Writing R Extensions} and
-  \sQuote{R Installation and Administration} manuals for how to create
-  and install a suitable DLL.
+  See \sQuote{See Also} and \manual{R-exts}{} and
+  \manual{R-admin}{} for how to create and install a suitable DLL.
 
   Unfortunately some rare platforms (e.g., Compaq \I{Tru64}) do not handle
   the \code{PACKAGE} argument correctly, and may incorrectly find
@@ -161,8 +160,8 @@ is.loaded(symbol, PACKAGE = "", type = "")
 \note{
   \code{is.loaded} requires the name you would give to \code{.C} etc.
   It must be a character string and so cannot be an \R object as used
-  for registered native symbols (see \dQuote{Writing R Extensions}
-  section 5.4.).  Some registered symbols are available by name but most are
+  for registered native symbols (see Section \manual{R-exts}{Registering
+  native routines}).  Some registered symbols are available by name but most are
   not, including those in the examples below.
 
   By default, the maximum number of DLLs that can be loaded is now 614
@@ -243,9 +242,7 @@ is.loaded(symbol, PACKAGE = "", type = "")
   This is needed for system housekeeping.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{library.dynam}} to be used inside a package's

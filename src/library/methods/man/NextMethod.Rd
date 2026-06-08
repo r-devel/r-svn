@@ -109,10 +109,8 @@ classes in multiple packages, they can't be ruled out.
   The value returned by the selected method.
 }
 \references{
-  Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+   \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 }
 \seealso{\code{\link{callGeneric}} to call the generic function with the
  current dispatch rules (typically for a group generic function);
@@ -169,7 +167,7 @@ setMethod("Compare", c(e2 = "rnum"),
 
 ## similarly to the Arith case, the method for two "rnum" objects
 ## can not unambiguously use callNextMethod().  Instead, we rely on
-## The rnum() method inhertited from Math2 to return plain vectors.
+## The rnum() method inherited from Math2 to return plain vectors.
 setMethod("Compare", c(e1 ="rnum", e2 = "rnum"),
           function(e1, e2) {
               d <- min(e1@d, e2@d)

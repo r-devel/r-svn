@@ -28,20 +28,11 @@
 }
 \usage{ability.cov}
 \source{
-  Bartholomew, D. J. (1987).
-  \emph{Latent Variable Analysis and Factor Analysis}.
-  Griffin.
-
-  Bartholomew, D. J. and Knott, M. (1990).
-  \emph{Latent Variable Analysis and Factor Analysis}.
-  Second Edition, Arnold.
+  \bibshow{R:Bartholomew:1987,
+    R:Bartholomew+Knott:1999}
 }
 \references{
-  Smith, G. A. and Stanley G. (1983).
-  Clocking \eqn{g}: relating intelligence and measures of timed
-  performance.
-  \emph{Intelligence}, \bold{7}, 353--368.
-  \doi{10.1016/0160-2896(83)90010-7}.
+  \bibshow{R:Smith+Stanley:1983}
 }
 \examples{\donttest{
 require(stats)

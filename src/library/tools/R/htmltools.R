@@ -1,7 +1,7 @@
 #  File src/library/tools/R/htmltools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2022-2024 The R Core Team
+#  Copyright (C) 2022-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ function(f, tidy = "tidy") {
     if (!is.null(concordance))
     	result <- cbind(result, matchConcordance(p, concordance = concordance))
     
-    result
+    as.data.frame(result)
 }
 
 tidy_validate_db <-
@@ -62,12 +62,12 @@ function(x, paths = NULL, ignore = character()) {
     i <- vapply(x, inherits, NA, "error")
     e <- x[i]
     x <- Filter(length, x[!i])
-    if(!length(x) && !length(e)) return(NULL)
-    y <- do.call(rbind, x)
-    if(is.null(y)) {
+    if(!length(x)) {
+        if(!length(e)) return(NULL)
         y <- list() # cannot set an attr on NULL
     } else {
-        y <- cbind(path = rep.int(names(x), vapply(x, nrow, 0)), y)
+        y <- cbind(path = rep.int(names(x), vapply(x, nrow, 0)),
+                   do.call(rbind, c(x, list(make.row.names = FALSE))))
         if(length(ignore)) {
             y <- y[y[, "msg"] %notin% ignore, , drop = FALSE]
         }
@@ -78,15 +78,11 @@ function(x, paths = NULL, ignore = character()) {
 }
 
 tidy_validate_files <-
-function(files, verbose = interactive()) {
-    tidy_validate_db(lapply(files,
-                            function(f) {
-                                if(verbose)
-                                    message(sprintf("Processing %s ...",
-                                                    f))
-                                tidy_validate(f)
-                            }),
-                     files)
+function(files, verbose = interactive(), Ncpus = .Ncpus_default()) {
+    
+    results <- .parLapply_on_strings(files, tidy_validate,
+                                     verbose = verbose, Ncpus = Ncpus)
+    tidy_validate_db(results, files)
 }
 
 tidy_validate_R_httpd_path <-
@@ -132,15 +128,12 @@ function(package, dir, lib.loc = NULL, auto = NA, verbose = interactive())
                        tryCatch(tidy_validate_R_httpd_path(path),
                                 error = identity)
                    })
-        ## names(results) <- sprintf("%s/%s", p, files)
-        ## results <- Filter(length, results)
-        ## if(!length(results)) return(NULL)
-        ## cbind(file = rep.int(names(results), vapply(results, nrow, 0)),
-        ##       do.call(rbind, results))
         tidy_validate_db(results, sprintf("%s/%s", p, files))
     }
 
-    do.call(rbind, lapply(package, one))
+    do.call(rbind,
+            c(lapply(package, one),
+              list(make.row.names = FALSE)))
 }
 
 tidy_validate_package_Rd_files_from_dir <- function(dir, auto = NA, verbose) {
@@ -153,7 +146,8 @@ tidy_validate_package_Rd_files_from_dir <- function(dir, auto = NA, verbose) {
     one <- function(d) {
         if(verbose)
             message(sprintf("* Package: %s", basename(d)))
-        db <- Rd_db(dir = d)
+        db <- Rd_db(dir = d,
+                    stages = c("build", "later", "install"))
         if(!is.na(auto)) {
             is <- vapply(db,
                          function(e) {
@@ -166,34 +160,66 @@ tidy_validate_package_Rd_files_from_dir <- function(dir, auto = NA, verbose) {
             db <- db[if(auto) is else !is]
         }
         results <-
-            lapply(db,
-                   function(x) {
-                       tryCatch({
-                           Rd2HTML(x, out, concordance = TRUE)
-                           tidy_validate(out)
-                       },
-                       error = identity)
-                   })
+            Map(function(x, f) {
+                    if(verbose) 
+                        message(sprintf("Processing %s ...", f))
+                    tryCatch({
+                        Rd2HTML(x, out, concordance = TRUE)
+                        tidy_validate(out)
+                    },
+                    error = identity)
+                },
+                db,
+                sub("[Rr]d$", "html", basename(names(db))))                
         tidy_validate_db(results,
                          sprintf("%s::%s", basename(d), names(db)))
     }
 
-    do.call(rbind, lapply(dir, one))
+    do.call(rbind,
+            c(lapply(dir, one),
+              list(make.row.names = FALSE)))
 }
 
 
 tidy_validate_urls <-
-function(urls, verbose = interactive()) {
-    destfile <- tempfile("tidy_validate")
-    on.exit(unlink(destfile))
-    tidy_validate_db(lapply(urls,
-                            function(u) {
-                                if(verbose)
-                                    message(sprintf("Processing %s ...",
-                                                    u))
-                                utils::download.file(u, destfile,
-                                                     quiet = TRUE)
-                                tidy_validate(destfile)
-                            }),
-                     urls)
+function(urls, verbose = interactive(), Ncpus = .Ncpus_default()) {
+    one <- function(u) {
+        d <- tempfile("tidy_validate_urls")
+        on.exit(unlink(d))
+        utils::download.file(u, d, quiet = TRUE)
+        tidy_validate(d)
+    }
+    results <- .parLapply_on_strings(urls, one,
+                                     verbose = verbose, Ncpus = Ncpus)
+    tidy_validate_db(results, urls)
+}
+
+.get_local_img_src_paths_in_HTML_file <-
+function(f)
+{
+    doc <- xml2::read_html(f)
+    if(!inherits(doc, "xml_node"))
+        return(character())
+    nodes <- xml2::xml_find_all(doc, "(//img | //embed)")
+    paths <- unique(xml2::xml_attr(nodes, "src"))
+    paths <- paths[!grepl("^https?://|^data:", paths)]
+    paths <- sub("[?]raw=true$", "", paths)
+    paths
+}
+
+.README_md_to_HTML <-
+function(rfile)
+{
+    if(!nzchar(Sys.which("pandoc")) ||
+       !requireNamespace("xml2", quietly = TRUE))
+        return(NULL)
+    tfile <- tempfile("README", fileext = ".html")
+    on.exit(unlink(tfile))
+    out <- .pandoc_md_for_CRAN(rfile, tfile)
+    if(out$status)
+        return(NULL)
+    paths <- dirname(.get_local_img_src_paths_in_HTML_file(tfile))
+    if(!all(paths %in% c("man/figures", "./man/figures")))
+        return(NULL)
+    readLines(tfile, encoding = "UTF-8")
 }

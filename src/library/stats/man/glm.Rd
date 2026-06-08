@@ -1,6 +1,6 @@
 % File src/library/stats/man/glm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{glm}
@@ -54,7 +54,9 @@ glm.fit(x, y, weights = rep.int(1, nobs),
     in the fitting process.  Should be \code{NULL} or a numeric vector.}
 
   \item{subset}{an optional vector specifying a subset of observations
-    to be used in the fitting process.}
+    to be used in the fitting process.  (See additional details about how
+    this argument interacts with data-dependent bases in the
+    \sQuote{Details} below.)}
 
   \item{na.action}{a function which indicates what should happen
     when the data contain \code{NA}s.  The default is set by
@@ -169,11 +171,15 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   and \code{mustart} are evaluated in the same way as variables in
   \code{formula}, that is first in \code{data} and then in the
   environment of \code{formula}.
+  Note that values calculated inside the formula, such as \code{mean(x)},
+  are evaluated before subsetting - which may lead to unexpected results
+  if used with \code{subset}.  For more information see the
+  \sQuote{Details} section of the \code{\link{model.frame}}.
 
   For the background to warning messages about
   \sQuote{\I{fitted probabilities numerically 0 or 1 occurred}}
   for binomial GLMs, see
-  \bibcite{Venables & Ripley (2002, pp.\sspace{}197--8)}.
+  \bibcitet{|R:Venables+Ripley:2002|pp.\sspace{}197--8}.
 }
 
 \section{Fitting functions}{
@@ -256,7 +262,7 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \item{call}{the matched call.}
   \item{formula}{the formula supplied.}
   \item{terms}{the \code{\link{terms}} object used.}
-  \item{data}{the \code{data argument}.}
+  \item{data}{the \code{data} argument.}
   \item{offset}{the offset vector used.}
   \item{control}{the value of the \code{control} argument used.}
   \item{method}{the name of the fitter function used (when provided as a
@@ -310,25 +316,12 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   since been extensively re-written by members of the R Core team.
 
   The design was inspired by the S function of the same name described
-  in Hastie & Pregibon (1992).
+  in \bibcitet{R:Hastie+Pregibon:1992}.
 }
 \references{
-  Dobson, A. J. (1990)
-  \emph{An Introduction to Generalized Linear Models.}
-  London: Chapman and Hall.
-
-  Hastie, T. J. and Pregibon, D. (1992)
-  \emph{Generalized linear models.}
-  Chapter 6 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
-
-  McCullagh P. and Nelder, J. A. (1989)
-  \emph{Generalized Linear Models.}
-  London: Chapman and Hall.
-
-  Venables, W. N. and Ripley, B. D. (2002)
-  \emph{Modern Applied Statistics with S.}
-  New York: Springer.
+  \bibshow{*,
+    R:Dobson:1990,
+    R:McCullagh+Nelder:1989}
 }
 
 \examples{

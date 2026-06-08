@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-24 The R Core Team.
+ *  Copyright (C) 2001-25 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -88,13 +88,16 @@ extern "C" {
  * Version 16: For R 4.3.0
  *             Added more advanced typesetting
  *             - glyphs
+ * Version 17: For R 4.6.0
+ *             - variable fonts
  */
 #define R_GE_definitions 13
 #define R_GE_deviceClip  14
 #define R_GE_group       15
 #define R_GE_glyphs      16
+#define R_GE_fontVar     17
 
-#define R_GE_version R_GE_glyphs
+#define R_GE_version R_GE_fontVar
 
 int R_GE_getVersion(void);
 
@@ -292,6 +295,11 @@ struct _GEDevDesc {
 			      * so that nested calls are not
 			      * recorded on the display list
 			      */
+    Rboolean lock;           /* The device is locked and unlocked
+                              * within R_eval_with_gd().
+                              * When the device is locked, attempts
+                              * to "kill" the device are ignored.
+                              */
     /*
      * Stuff about the device that only graphics systems see.
      * The graphics engine has no idea what is in here.
@@ -319,6 +327,8 @@ void GEaddDevice(pGEDevDesc);
 void GEaddDevice2(pGEDevDesc, const char *);
 void GEaddDevice2f(pGEDevDesc, const char *, const char *);
 void GEkillDevice(pGEDevDesc);
+pDevDesc GEcreateDD(void);
+void GEfreeDD(pDevDesc dd);
 pGEDevDesc GEcreateDevDesc(pDevDesc dev);
 
 void GEdestroyDevDesc(pGEDevDesc dd);
@@ -521,19 +531,6 @@ SEXP GEcontourLines(double *x, int nx, double *y, int ny,
  * (End from plot3d.c)
  */
 
-/*
- * From vfonts.c
- */
-double R_GE_VStrWidth(const char *s, cetype_t enc, const pGEcontext gc, pGEDevDesc dd);
-
-double R_GE_VStrHeight(const char *s, cetype_t enc, const pGEcontext gc, pGEDevDesc dd);
-void R_GE_VText(double x, double y, const char * const s, cetype_t enc,
-		double x_justify, double y_justify, double rotation,
-		const pGEcontext gc, pGEDevDesc dd);
-/*
- * (End from vfonts.c)
- */
-
 /* Also in Graphics.h */
 #define	DEG2RAD 0.01745329251994329576
 
@@ -549,7 +546,6 @@ void GEcopyDisplayList(int fromDevice);
 SEXP GEcreateSnapshot(pGEDevDesc dd);
 void GEplaySnapshot(SEXP snapshot, pGEDevDesc dd);
 void GEonExit(void);
-void GEnullDevice(void);
 
 
 /* From ../../main/plot.c, used by ../../library/grid/src/grid.c : */
@@ -558,6 +554,9 @@ SEXP CreateAtVector(double axp[], const double usr[], int nint, Rboolean logflag
 /* From ../../main/graphics.c, used by ../../library/grDevices/src/axis_scales.c : */
 #define GAxisPars 		Rf_GAxisPars
 void GAxisPars(double *min, double *max, int *n, Rboolean log, int axis);
+
+SEXP Rf_eval_with_gd(SEXP, SEXP, pGEDevDesc);
+#define eval_with_gd Rf_eval_with_gd
 
 /* Patterns - from ../../main/patterns.c */
 Rboolean R_GE_isPattern(SEXP x);
@@ -662,6 +661,7 @@ int R_GE_maskType(SEXP mask);
 #define R_GE_capability_transformations      10
 #define R_GE_capability_paths                11 
 #define R_GE_capability_glyphs               12 
+#define R_GE_capability_variableFonts        13 
 
 /* Must match order in ../library/grDevices/R/glyph.R */
 #define R_GE_text_style_normal  1
@@ -686,6 +686,10 @@ const char* R_GE_glyphFontFamily(SEXP glyphFont);
 double R_GE_glyphFontWeight(SEXP glyphFont);
 int R_GE_glyphFontStyle(SEXP glyphFont);
 const char* R_GE_glyphFontPSname(SEXP glyphFont);
+int R_GE_glyphFontNumVar(SEXP glyphFont);
+const char* R_GE_glyphFontVarAxis(SEXP glyphFont, int index);
+double R_GE_glyphFontVarValue(SEXP glyphFont, int index);
+const char* R_GE_glyphFontVarFormatted(SEXP glyphFont, int index);
 
 void GEGlyph(int n, int *glyphs, double *x, double *y, 
              SEXP font, double size, 

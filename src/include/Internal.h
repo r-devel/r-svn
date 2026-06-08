@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2022  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,7 @@ SEXP do_aregexec(SEXP, SEXP, SEXP, SEXP);
 SEXP do_args(SEXP, SEXP, SEXP, SEXP);
 SEXP do_arith(SEXP, SEXP, SEXP, SEXP);
 SEXP do_array(SEXP, SEXP, SEXP, SEXP);
+SEXP do_asplit(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asPOSIXct(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asPOSIXlt(SEXP, SEXP, SEXP, SEXP);
 SEXP do_ascall(SEXP, SEXP, SEXP, SEXP);
@@ -82,6 +83,7 @@ SEXP do_bcprofstop(SEXP, SEXP, SEXP, SEXP);
 SEXP do_begin(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bincode(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bind(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bindingType(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bindtextdomain(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bitwise(SEXP, SEXP, SEXP, SEXP);
 SEXP do_body(SEXP, SEXP, SEXP, SEXP);
@@ -124,6 +126,8 @@ SEXP do_date(SEXP, SEXP, SEXP, SEXP);
 SEXP do_debug(SEXP, SEXP, SEXP, SEXP);
 SEXP do_declare(SEXP, SEXP, SEXP, SEXP);
 SEXP do_delayed(SEXP, SEXP, SEXP, SEXP);
+SEXP do_delayedBindingEnv(SEXP, SEXP, SEXP, SEXP);
+SEXP do_delayedBindingExpr(SEXP, SEXP, SEXP, SEXP);
 SEXP do_deparse(SEXP, SEXP, SEXP, SEXP);
 SEXP do_detach(SEXP,SEXP,SEXP,SEXP);
 NORET SEXP do_dfltStop(SEXP, SEXP, SEXP, SEXP);
@@ -138,9 +142,17 @@ SEXP do_direxists(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dirname(SEXP, SEXP, SEXP, SEXP);
 SEXP do_docall(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotcall(SEXP, SEXP, SEXP, SEXP);
+SEXP do_dotDelayedEnv(SEXP, SEXP, SEXP, SEXP);
+SEXP do_dotDelayedExpr(SEXP, SEXP, SEXP, SEXP);
+SEXP do_dotForcedExpr(SEXP, SEXP, SEXP, SEXP);
+SEXP do_dotsExist(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotsElt(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotsLength(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotsNames(SEXP, SEXP, SEXP, SEXP);
+SEXP do_dotType(SEXP, SEXP, SEXP, SEXP);
+SEXP do_CDotsElt(SEXP, SEXP, SEXP, SEXP);
+SEXP do_CDotsLength(SEXP, SEXP, SEXP, SEXP);
+SEXP do_CDotsNames(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotcallgr(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dotCode(SEXP, SEXP, SEXP, SEXP);
 SEXP do_dput(SEXP, SEXP, SEXP, SEXP);
@@ -182,6 +194,7 @@ SEXP do_first_min(SEXP, SEXP, SEXP, SEXP);
 SEXP do_flush(SEXP, SEXP, SEXP, SEXP);
 SEXP do_for(SEXP, SEXP, SEXP, SEXP);
 SEXP do_forceAndCall(SEXP, SEXP, SEXP, SEXP);
+SEXP do_forcedBindingExpr(SEXP, SEXP, SEXP, SEXP);
 SEXP do_format(SEXP, SEXP, SEXP, SEXP);
 SEXP do_formatC(SEXP, SEXP, SEXP, SEXP);
 SEXP do_formatinfo(SEXP, SEXP, SEXP, SEXP);

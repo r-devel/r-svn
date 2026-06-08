@@ -11,6 +11,7 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "checkDocFiles", "checkDocStyle", "checkFF", "checkMD5sums",
        "checkRd", "checkPoFile", "checkPoFiles",
        "checkRdaFiles", "checkReplaceFuns", "checkS3methods",
+       "checkSHA256sums",
        checkRdContents,
        "checkTnF", "checkVignettes", "codoc", "codocClasses",
        "codocData", "compactPDF", "delimMatch", "deparseLatex",
@@ -22,7 +23,7 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "makevars_site", "makevars_user",
        "matchConcordance",
        nonS3methods,
-       "make_translations_pkg", "md5sum",
+       "make_translations_pkg", "md5sum", "sha256sum",
        package.dependencies,# R/package.dependencies.R man/package.dependencies.Rd
        getDepList, pkgDepends, installFoundDepends,# R/pkgDepends.R man/getDepList.Rd man/installFoundDepends.Rd
        vignetteDepends, # deprecated, too as it calls  getDepList()
@@ -36,7 +37,7 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "startDynamicHelp", "testInstalledBasic",
        "testInstalledPackage", "testInstalledPackages", "texi2dvi",
        "texi2pdf", "toHTML", "toRd", "toTitleCase", "undoc",
-       "update_pkg_po", "vignetteEngine",
+       "update_pkg_po", "verifySHA256signature", "vignetteEngine",
        vignetteInfo,
        "write_PACKAGES", "update_PACKAGES", "xgettext", "xgettext2pot", "xngettext")
 
@@ -70,6 +71,8 @@ export("check_package_urls",
        "parse_URI_reference")
 
 export("R")
+
+export("analyze_license")
 
 exportPattern("^SIG.+")
 

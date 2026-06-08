@@ -37,19 +37,11 @@ morley
   \CRANpkg{MASS}.
 }
 \source{
-  A. J. Weekes (1986)
-  \emph{A Genstat Primer}.
-  London: Edward Arnold.
-
-  S. M. Stigler (1977)
-  Do robust estimators work with real data?
-  \emph{Annals of Statistics} \bold{5}, 1055--1098. (See Table 6.)
-
-  A. A. Michelson (1882)
-  Experimental determination of the velocity of light made at the United
-  States Naval Academy, Annapolis.
-  \emph{Astronomic Papers} \bold{1} 135--8.
-  U.S. Nautical Almanac Office.  (See Table 24.)
+  \bibinfo{R:Stigler:1977}{footer}{(See Table 6.)}
+  \bibinfo{R:Michelson:1882}{footer}{(See Table 24.)}  
+  \bibshow{R:Michelson:1882,
+    R:Stigler:1977,
+    R:Weekes:1986}
 }
 \examples{
 require(stats); require(graphics)

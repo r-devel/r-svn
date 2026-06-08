@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/plot.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ plot.function <-
 
 plot.default <-
     function(x, y = NULL, type = "p", xlim = NULL, ylim = NULL,
-             log = "", main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
+             log = "", lim2 = FALSE, main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
              ann = par("ann"), axes = TRUE, frame.plot = axes,
              panel.first = NULL, panel.last = NULL, asp = NA,
              xgap.axis = NA, ygap.axis = NA, ...)
@@ -66,8 +66,16 @@ plot.default <-
     xy <- xy.coords(x, y, xlabel, ylabel, log)
     if (is.null(xlab)) xlab <- xy$xlab
     if (is.null(ylab)) ylab <- xy$ylab
-    if (is.null(xlim)) xlim <- range(xy$x[is.finite(xy$x)])
-    if (is.null(ylim)) ylim <- range(xy$y[is.finite(xy$y)])
+    if (is.null(xlim) || is.null(ylim)) { # choose defaults via range(..)
+        if (lim2) { 
+           ii <- is.finite(xy$x) & is.finite(xy$y)
+            if (is.null(xlim)) xlim <- range(xy$x[ii])
+            if (is.null(ylim)) ylim <- range(xy$y[ii])
+        } else {
+            if (is.null(xlim)) xlim <- range(xy$x[is.finite(xy$x)])
+            if (is.null(ylim)) ylim <- range(xy$y[is.finite(xy$y)])
+        }
+    }
     dev.hold(); on.exit(dev.flush())
     plot.new()
     localWindow(xlim, ylim, log, asp, ...)
@@ -383,14 +391,22 @@ plot.window <- function(xlim, ylim, log = "", asp = NA, ...)
     invisible()
 }
 
-plot.data.frame <- function (x, ...)
+plot.data.frame <- function (x, formula = NULL, ...)
 {
     plot2 <- function(x, xlab=names(x)[1L], ylab=names(x)[2L], ...)
         plot(x[[1L]], x[[2L]], xlab=xlab, ylab=ylab, ...)
 
     if(!is.data.frame(x))
 	stop("'plot.data.frame' applied to non data frame")
-    if(ncol(x) == 1) {
+    if (!is.null(formula)) {
+        ccall <- match.call()
+        ccall[2:3] <- ccall[3:2]
+        names(ccall)[2:3] <- c("", "data") # formula in plot.formula cannot be named
+        ccall[[2]] <- stats::as.formula(formula)
+        ccall[[1]] <- quote(graphics::plot)
+        eval.parent(ccall)
+    }
+    else if(ncol(x) == 1) {
         x1 <- x[[1L]]
         if(class(x1)[1L] %in% c("integer", "numeric"))# is.numeric(.) TRUE for 'ts'
             ## the special case: *not* using plot() method

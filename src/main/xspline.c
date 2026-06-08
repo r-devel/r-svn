@@ -47,7 +47,7 @@ static double *ypoints;
 /************* Code begins here *************/
 
 /* R_allocs or mallocs global arrays */
-static Rboolean
+static void // alawys returned true
 add_point(double x, double y, pGEDevDesc dd)
 {
     if (npoints >= max_points) {
@@ -79,14 +79,14 @@ add_point(double x, double y, pGEDevDesc dd)
     }
     /* ignore identical points */
     if (npoints > 0 && xpoints[npoints-1] == x && ypoints[npoints-1] == y)
-	return TRUE;
+	return;
     /*
      * Convert back from 1200ppi to DEVICE coordinates
      */
     xpoints[npoints] = toDeviceX(x / 1200, GE_INCHES, dd);
     ypoints[npoints] = toDeviceY(y / 1200, GE_INCHES, dd);
     npoints = npoints + 1;
-    return TRUE;
+    return;
 }
 
 /*
@@ -451,9 +451,10 @@ spline_last_segment_computing(double step, int k,
       step = step_computing(K, PX, PY, S1, S2, PREC, dd);    \
       spline_segment_computing(step, K, PX, PY, S1, S2, dd)
 
-static Rboolean
+
+static void // always returned true., return value ignored in engine.c
 compute_open_spline(int n, double *x, double *y, double *s,
-		    Rboolean repEnds,
+		    bool repEnds,
 		    double precision,
 		    pGEDevDesc dd)
 {
@@ -496,7 +497,11 @@ compute_open_spline(int n, double *x, double *y, double *s,
       }
 
       /* last control point is needed twice for the last segment */
-      COPY_CONTROL_POINT(0, n - 3, n);
+      if (n == 2) {
+	COPY_CONTROL_POINT(0, n - 2, n);
+      } else {
+	COPY_CONTROL_POINT(0, n - 3, n);
+      }
       COPY_CONTROL_POINT(1, n - 2, n);
       COPY_CONTROL_POINT(2, n - 1, n);
       COPY_CONTROL_POINT(3, n - 1, n);
@@ -511,10 +516,10 @@ compute_open_spline(int n, double *x, double *y, double *s,
       spline_last_segment_computing(step, n - 4, px, py, ps[1], ps[2], dd);
   }
 
-  return TRUE;
+  return;
 }
 
-static Rboolean
+static void // always returned true, return value ignored in engine.c
 compute_closed_spline(int n, double *x, double *y, double *s,
 		      double precision,
 		      pGEDevDesc dd)
@@ -540,5 +545,5 @@ compute_closed_spline(int n, double *x, double *y, double *s,
       NEXT_CONTROL_POINTS(k, n);
   }
 
-  return TRUE;
+  return;
 }

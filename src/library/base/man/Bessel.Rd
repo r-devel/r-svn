@@ -1,6 +1,6 @@
 % File src/library/base/man/Bessel.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Bessel}
@@ -46,7 +46,7 @@ besselY(x, nu)
   or \eqn{e^{x} K_{\nu}(x)}{exp(x) K(x;nu)} are returned.
 
   For \eqn{\nu < 0}{nu < 0}, formulae 9.1.2 and 9.6.2 from
-  \bibcite{Abramowitz & Stegun}
+  \bibcitet{R:Abramowitz+Stegun:1972}
   are applied (which is probably suboptimal), except for
   \code{besselK} which is symmetric in \code{nu}.
 
@@ -62,54 +62,26 @@ besselY(x, nu)
   \dQuote{Acknowledgement} and \dQuote{References}, a short summary of
   which is
   \describe{
-    \item{besselI}{based on (code) by David J. Sookne, see Sookne (1973)\dots
-      Modifications\dots An earlier version was published in Cody (1983).}
-    \item{besselJ}{as \code{besselI}}
-    \item{besselK}{based on (code) by J. B. Campbell (1980)\dots Modifications\dots}
-    \item{besselY}{draws heavily on Temme's Algol program for
+    \item{\code{besselI}}{based on (code by) David J. Sookne, see
+      \bibcitet{R:Sookne:1973} 
+      \dots Modifications \dots
+      An earlier version was published in \bibcitet{R:Cody:1983}.}
+    \item{\code{besselJ}}{as \code{besselI}}
+    \item{\code{besselK}}{based on (code by) \bibcitet{R:Campbell:1980}
+      \dots Modifications \dots}
+    \item{\code{besselY}}{draws heavily on Temme's Algol program for
       \eqn{Y}\dots and on Campbell's programs for \eqn{Y_\nu(x)}
       \dots. \dots heavily modified.}
   }
 }
 \references{
-  Abramowitz, M. and Stegun, I. A. (1972).
-  \emph{Handbook of Mathematical Functions}.
-  Dover, New York;
-  Chapter 9: Bessel Functions of Integer Order.
-
-  In order of \dQuote{Source} citation above:
-
-  Sookne, David J. (1973).
-  Bessel Functions of Real Argument and Integer Order.
-  \emph{Journal of Research of the National Bureau of Standards},
-  \bold{77B}, 125--132.
-  \doi{10.6028/jres.077B.012}.
-
-  Cody, William J. (1983).
-  Algorithm 597: Sequence of modified Bessel functions of the first kind.
-  \emph{ACM Transactions on Mathematical Software}, \bold{9}(2), 242--245.
-  \doi{10.1145/357456.357462}.
-
-  Campbell, J.B. (1980).
-  On Temme's algorithm for the modified Bessel function of the third kind.
-  \emph{ACM Transactions on Mathematical Software}, \bold{6}(4), 581--586.
-  \doi{10.1145/355921.355928}.
-
-  Campbell, J.B. (1979).
-  Bessel functions J_nu(x) and Y_nu(x) of float order and float argument.
-  \emph{Computer Physics Communications}, \bold{18}, 133--142.
-  \doi{10.1016/0010-4655(79)90030-4}.
-
-  Temme, Nico M. (1976).
-  On the numerical evaluation of the ordinary Bessel function of the
-  second kind.
-  \emph{Journal of Computational Physics}, \bold{21}, 343--350.
-  \doi{10.1016/0021-9991(76)90032-2}.
+  \bibinfo{R:Abramowitz+Stegun:1972}{footer}{Chapter 9: Bessel Functions of Integer Order.}
+  \bibshow{*, R:Campbell:1979, R:Temme:1976}
 }
 \seealso{
   Other special mathematical functions, such as
-  \code{\link{gamma}}, \eqn{\Gamma(x)}, and \code{\link{beta}},
-  \eqn{B(x)}.
+  \ifelse{text}{\code{gamma}}{\link[=gamma]{\eqn{\Gamma(x)}}} and
+  \ifelse{text}{\code{beta}}{\link[=beta]{\eqn{B(a,b)}}}.
 }
 \author{
   Original Fortran code:

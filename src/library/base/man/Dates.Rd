@@ -66,21 +66,25 @@
   For the many methods see \code{methods(class = "Date")}.  Several are
   documented separately, see below.
 }
+\section{Warning}{
+  Do not use \code{\link{identical}()} on objects of class \code{"Date"}.
+  Their \code{\link{storage.mode}} may be \code{"double"} or
+  \code{"integer"}, and which is chosen has depended on the version of
+  \R used to create the object.
+}
 \seealso{
   \code{\link{Sys.Date}} for the current date.
 
   \code{\link{weekdays}} for convenience extraction functions.
 
   Methods with extra arguments and documentation:
-  \describe{
-    \item{\code{\link{Ops.Date}}}{for operators on \code{"Date"} objects.}
-
-    \item{\code{\link{format.Date}}}{for conversion to and from character strings.}
-
-    \item{\code{\link{axis.Date}}}{and \code{\link{hist.Date}} for plotting.}
-
-    \item{\code{\link{seq.Date}}}{, \code{\link{cut.Date}}, and
-      \code{\link{round.Date}} for utility operations.}
+  \itemize{
+    \item \code{\link{Ops.Date}} for operators on \code{"Date"} objects.
+    \item \code{\link{format.Date}} for conversion to and from character
+    strings.
+    \item \code{\link{axis.Date}} and \code{\link{hist.Date}} for plotting.
+    \item \code{\link{seq.Date}}, \code{\link{cut.Date}} and
+    \code{\link{round.Date}} for utility operations.
   }
   \code{\link{DateTimeClasses}} for date-time classes.
 }
@@ -110,7 +114,7 @@ stopifnot(exprs = {
   ## length(.) <- * is compatible to subsetting/indexing:
   identical(ls, Dls[seq_along(ls)])
   identical(l2, Dls[seq_along(l2)])
-  ## has filled with NA's
+  ## has filled with NAs
   is.na(l2[(length(Dls)+1):length(l2)])
 })
 }

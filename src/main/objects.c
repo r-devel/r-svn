@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2023  The R Core Team.
+ *  Copyright (C) 1999-2025  The R Core Team.
  *  Copyright (C) 2002-2023  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -536,7 +536,7 @@ int usemethod(const char *generic, SEXP obj, SEXP call, SEXP args,
 */
 
 /* This is a primitive SPECIALSXP */
-attribute_hidden NORET
+NORET attribute_hidden 
 SEXP do_usemethod(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     static SEXP do_usemethod_formals = NULL;
@@ -980,7 +980,7 @@ attribute_hidden SEXP do_unclass(SEXP call, SEXP op, SEXP args, SEXP env)
     except there is no translation.
 */
 
-Rboolean attribute_hidden inherits2(SEXP x, const char *what) {
+attribute_hidden Rboolean inherits2(SEXP x, const char *what) {
     if (OBJECT(x)) {
 	SEXP klass;
 
@@ -1028,7 +1028,7 @@ static SEXP inherits3(SEXP x, SEXP what, SEXP which)
 
     if( !isLogical(which) || (LENGTH(which) != 1) )
 	error(_("'which' must be a length 1 logical vector"));
-    Rboolean isvec = asLogical(which);
+    bool isvec = asRbool(which, R_NilValue);
 
     if(isvec)
 	PROTECT(rval = allocVector(INTSXP, nwhat));
@@ -1117,6 +1117,7 @@ attribute_hidden SEXP do_inherits(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden
 int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 {
+  if(isObject(x)) {
     int ans;
     SEXP clattr = getAttrib(x, R_ClassSymbol);
     SEXP cl = PROTECT(asChar(clattr));
@@ -1126,7 +1127,7 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	    UNPROTECT(1); /* cl */
 	    return ans;
 	}
-    /* if not found directly, then look for a match among the nonvirtual 
+    /* if not found directly, then look for a match among the nonvirtual
        superclasses, possibly after finding the environment 'rho' in which
        class(x) is defined */
     if(IS_S4_OBJECT(x)) {
@@ -1155,8 +1156,8 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	}
 	SEXP classDef = PROTECT(R_getClassDef(class));
 	PROTECT(classExts = R_do_slot(classDef, s_contains));
-	/* .selectSuperClasses(getClassDef(class)@contains, 
-	 *                     dropVirtual = TRUE, namesOnly = TRUE, 
+	/* .selectSuperClasses(getClassDef(class)@contains,
+	 *                     dropVirtual = TRUE, namesOnly = TRUE,
 	 *                     directOnly = FALSE, simpleOnly = TRUE):
 	 */
 	PROTECT(_call = lang6(s_selectSuperCl, classExts,
@@ -1176,7 +1177,8 @@ int R_check_class_and_super(SEXP x, const char **valid, SEXP rho)
 	UNPROTECT(2); /* superCl, rho */
     }
     UNPROTECT(1); /* cl */
-    return -1;
+  } // only if isObject(x)
+  return -1;
 }
 
 /**
@@ -1229,7 +1231,7 @@ static SEXP R_isMethodsDispatchOn(SEXP onOff)
     R_stdGen_ptr_t old = R_get_standardGeneric_ptr();
     int ival =  !NOT_METHODS_DISPATCH_PTR(old);
     if(length(onOff) > 0) {
-	Rboolean onOffValue = asLogical(onOff);
+	bool onOffValue = asRbool(onOff, R_NilValue);
 	if(onOffValue == NA_INTEGER)
 	    error(_("'onOff' must be TRUE or FALSE"));
 	else if(onOffValue == FALSE)
@@ -1780,7 +1782,7 @@ SEXP R_do_new_object(SEXP class_def)
     }
     PROTECT(e = R_do_slot(class_def, s_className));
     PROTECT(value = duplicate(R_do_slot(class_def, s_prototype)));
-    Rboolean xDataType = TYPEOF(value) == ENVSXP || TYPEOF(value) == SYMSXP ||
+    bool xDataType = TYPEOF(value) == ENVSXP || TYPEOF(value) == SYMSXP ||
 	TYPEOF(value) == EXTPTRSXP;
     if((TYPEOF(value) == OBJSXP || getAttrib(e, R_PackageSymbol) != R_NilValue) &&
        !xDataType)
@@ -1793,7 +1795,7 @@ SEXP R_do_new_object(SEXP class_def)
     return value;
 }
 
-Rboolean attribute_hidden R_seemsOldStyleS4Object(SEXP object)
+attribute_hidden Rboolean R_seemsOldStyleS4Object(SEXP object)
 {
     SEXP klass;
     if(!isObject(object) || IS_S4_OBJECT(object)) return FALSE;
@@ -1808,7 +1810,8 @@ attribute_hidden SEXP do_setS4Object(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP object = CAR(args);
-    int flag = asLogical(CADR(args)), complete = asInteger(CADDR(args));
+    Rboolean flag = asRbool(CADR(args), call);
+    int complete = asInteger(CADDR(args));
     if(length(CADR(args)) != 1 || flag == NA_INTEGER)
 	error("invalid '%s' argument", "flag");
     if(complete == NA_INTEGER)
@@ -1832,12 +1835,13 @@ SEXP R_get_primname(SEXP object)
 }
 #endif
 
-
+// in Rinternals.h
 Rboolean isS4(SEXP s)
 {
     return IS_S4_OBJECT(s);
 }
 
+// in Rinternals.h
 SEXP asS4(SEXP s, Rboolean flag, int complete)
 {
     if(flag == IS_S4_OBJECT(s))

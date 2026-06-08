@@ -1,6 +1,6 @@
 % File src/library/utils/man/Sweave.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Sweave}
@@ -8,7 +8,6 @@
 \alias{Stangle}
 \alias{SweaveSyntaxLatex}
 \alias{SweaveSyntaxNoweb}
-\encoding{UTF-8}
 \title{Automatic Generation of Reports}
 \description{
   \code{Sweave} provides a flexible framework for mixing text and R/S code
@@ -51,7 +50,7 @@ Stangle(file, driver = Rtangle(),
   \code{Sweave} combines the documentation and code chunks (or
   their output) into a single document.  \code{Stangle} extracts only
   the code from the Sweave file creating an \R source file that can be
-  run using \code{\link{source}}.  (Code inside \code{\\Sexpr\{\}}
+  run using \code{\link{source}}.  (Code inside \verb{\Sexpr{}}
   statements is ignored by \code{Stangle}.)
   
   \code{Stangle} is just a wrapper to \code{Sweave} specifying a
@@ -87,7 +86,7 @@ Stangle(file, driver = Rtangle(),
   \code{SweaveSyntaxNoweb} (with \code{extension = "[.][rsRS]nw$"}) and
   \code{SweaveSyntaxLatex} (with \code{extension = "[.][rsRS]tex$"}) are
   supplied, but users or packages can supply others with names matching
-  the pattern \code{SweaveSyntax.*}.
+  the pattern \samp{SweaveSyntax.*}.
 }
 
 \author{
@@ -95,11 +94,7 @@ Stangle(file, driver = Rtangle(),
 }
 
 \references{
-  Friedrich Leisch (2002)
-  Dynamic generation of statistical reports using literate data analysis.
-  In W. \enc{Härdle}{Haerdle} and B. \enc{Rönz}{Roenz}, editors,
-  \emph{Compstat 2002 - Proceedings in Computational Statistics},
-  pages 575--580. Physika Verlag, Heidelberg, Germany, ISBN 3-7908-1517-9.
+  \bibshow{R:Leisch:2002}
 }
 
 \seealso{

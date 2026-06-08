@@ -39,19 +39,10 @@ cancor(x, y, xcenter = TRUE, ycenter = TRUE)
   \item{ycenter}{the values used to adjust the \code{x} variables.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Hotelling H. (1936).
-  Relations between two sets of variables.
-  \emph{Biometrika}, \bold{28}, 321--327.
-  \doi{10.1093/biomet/28.3-4.321}.
-
-  Seber, G. A. F. (1984).
-  \emph{Multivariate Observations}.
-  New York: Wiley.
-  Page\sspace{}506f.
+  \bibinfo{R:Seber:1984}{note}{Page 506f}
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Hotelling:1936,
+    R:Seber:1984}
 }
 \seealso{
   \code{\link{qr}}, \code{\link{svd}}.

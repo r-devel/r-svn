@@ -64,7 +64,7 @@ spec.pgram(x, spans = NULL, kernel, taper = 0.1,
     approximated by a (scaled) chi square distribution with \code{df} degrees
     of freedom.}
   \item{bandwidth}{The equivalent bandwidth of the kernel smoother as
-    defined by Bloomfield (1976, page 201).}
+    defined by \bibcitet{|R:Bloomfield:1976|page 201}.}
   \item{taper}{The value of the \code{taper} argument.}
   \item{pad}{The value of the \code{pad} argument.}
   \item{detrend}{The value of the \code{detrend} argument.}
@@ -74,15 +74,10 @@ spec.pgram(x, spans = NULL, kernel, taper = 0.1,
 }
 
 \references{
-  Bloomfield, P. (1976) \emph{Fourier Analysis of Time Series: An
-    Introduction.} Wiley.
-
-  Brockwell, P.J. and Davis, R.A. (1991) \emph{Time Series: Theory and
-    Methods.} Second edition. Springer.
-
-  Venables, W.N. and Ripley, B.D. (2002) \emph{Modern Applied
-    Statistics with S.} Fourth edition. Springer.
-  (Especially pp.\sspace{}392--7.)
+  \bibinfo{R:Venables+Ripley:2002}{footer}{(Especially pages 392--7.)}
+  \bibshow{R:Bloomfield:1976,
+    R:Brockwell+Davis:1991,
+    R:Venables+Ripley:2002}
 }
 \author{
   Originally Martyn Plummer; kernel smoothing by Adrian Trapletti,

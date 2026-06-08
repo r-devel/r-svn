@@ -44,6 +44,7 @@
 ## which runs the compiler, for example 'c99'.
 ## It is also necessary to set the architecture here, e.g. 'gcc -m32'.
 ## If this is a wrapper it should pass on --version to the real compiler.
+## This will be replaced by CC23 (see below) if a C23 compiler is found.
 ## CC=
 
 ## Debugging and optimization options for the C compiler.
@@ -69,9 +70,12 @@
 
 ## Ditto for a compiler that supports C23 features.
 ## For example 'CC23=clang-15 -std=gnu2x'
-## Eventually -std=gnu23 will be supported and preferred.
-## Default to CC and CFLAGS with any -std options removed, then
-## -std=gmu2x appended to CC.
+## This is the default for GCC >= 15.
+## Otherwise -std=gnu23 is added where supported
+## (it is by GCC 14, LLVM clang >= 18 and Apple Clang >= 17).
+## -std=gnu2x is supported by at least GCC 12-13, LLVM clang >= 15 and Apple clang >= 16 
+## Default to CC and CFLAGS with any -std options removed, then with
+## -std=gmu23 then -std=gmu2x appended to CC
 ## CC23=
 ## C23FLAGS=
 
@@ -86,7 +90,15 @@
 
 ## Defines for C compilation.
 ## Use this to specify defines to be used in the compilation of R,
+## (but not packages).  Can be used to overrise e.g.
+## DEFS="-DC99_INLINE_SEMANTICS=0"
 ## DEFS=
+
+## no-return flag
+## Header R-exts/Error.h contains alternaive definitions for the NORET
+## macro, depending on the C standard found.  If the compiler does not
+## comply, use this to pick one of the others, or even define to be empty.
+## NORET=
 
 ## The following additional CFLAGS to be used only in the main
 ## compilation and only in building shared objects respectively.
@@ -237,6 +249,30 @@
 ## addition unless SHLIB_CXXLD is given.
 ## SHLIB_CXXLDFLAGS=
 
+## It might be neccessry to use a different compiler (maybe somthing
+## like g++-15) for more recent C++ standards.  Default to the values
+## chosen for C++17.
+## CXX20=
+## CXX20STD=
+## CXX20FLAGS=
+## CXX20PICFLAGS=
+## SHLIB_CXX20LD=
+## SHLIB_CXX20LDFLAGS=
+## 
+## CXX23=
+## CXX23STD=
+## CXX23FLAGS=
+## CXX23PICFLAGS=
+## SHLIB_CXX23LD=
+## SHLIB_CXX23LDFLAGS=
+## 
+## CXX26=
+## CXX26STD=
+## CXX26FLAGS=
+## CXX26PICFLAGS=
+## SHLIB_CXX26LD=
+## SHLIB_CXX26LDFLAGS=
+
 ## Not used by R but configure can fail to find it, so set to
 ## "$CXX -E" if it does.
 ## CXXCPP=
@@ -295,42 +331,6 @@
 ## Allow user to override.
 ## R_LD_LIBRARY_PATH=
 
-## C++11 compiler, optional for use in packages.
-## Introduced in R 3.1.0
-## The command which runs the C++11 compiler: defaults to $(CXX), but
-## empty if that (plus standard) cannot compile the tested C++11 code.
-## CXX11=
-
-## The 'standard' for the C++11 compiler, which is invoked as
-## $(CXX11) $(CXX11STD) for both compiling and linking DSOs/DLLs.  
-## '-std=gnu++11' and '-std=gnu++0x' are tried in turn by configure.
-## followed by '-std=c++11' and '-std=c++0x'
-## CXX11STD=
-
-## Analogues for the C++11 compiler: default to the settings for C++
-## CXX11FLAGS=
-## CXX11PICFLAGS=
-## SHLIB_CXX11LD=
-## SHLIB_CXX11LDFLAGS=
-
-## C++14 compiler, optional for use in packages.
-## Introduced in R 3.4.0
-## The command which runs the C++14 compiler: defaults to $(CXX11), but
-## empty if that (plus standard) cannot compile the tested C++14 code.
-## CXX14=
-
-## The 'standard' for the C++14 compiler, which is invoked as
-## $(CXX14) $(CXX14STD) for both compiling and linking DSOs/DLLs.  
-## '-std=gnu++14' and '-std=gnu++1y" are tried by configure, also
-## '-std=c++14' and '-std=c++1y"
-## CXX14STD=
-
-## Analogues for the C++14 compiler: default to the settings for C++11
-## CXX14FLAGS=
-## CXX14PICFLAGS=
-## SHLIB_CXX14LD=
-## SHLIB_CXX14LDFLAGS=
-
 ## C++17 compiler, optional for use in packages.
 ## Introduced in R 3.4.0
 ## The command which runs the C++17 compiler: defaults to $(CXX14), but
@@ -343,7 +343,7 @@
 ## '-std=c++17' and '-std=c++1z"
 ## CXX17STD=
 
-## Analogues for the C++17 compiler: default to the settings for C++14
+## Analogues for the C++17 compiler.
 ## CXX17FLAGS=
 ## CXX17PICFLAGS=
 ## SHLIB_CXX17LD=
@@ -369,7 +369,7 @@
 
 ## C++23 compiler, optional for use in packages.
 ## Introduced in R 4.3.0
-## The command which runs the C++23 compiler: defaults to $(CXX17), but
+## The command which runs the C++23 compiler: defaults to $(CXX20), but
 ## empty if that (plus standard) cannot compile the tested C++23 code.
 ## CXX23=
 
@@ -385,11 +385,29 @@
 ## SHLIB_CXX23LD=
 ## SHLIB_CXX23LDFLAGS=
 
+## C++26 compiler, optional for use in packages.
+## Introduced in R 4.5.0
+## The command which runs the C++26 compiler: defaults to $(CXX20), but
+## empty if that (plus standard) cannot compile the tested C++26 code.
+## CXX26=
+
+## The 'standard' for the C++26 compiler, which is invoked as
+## $(CXX26) $(CXX26STD) for both compiling and linking DSOs/DLLs.  
+## '-std=gnu++26' and '-std=gnu++2a" are tried by configure, also
+## '-std=c++26' and '-std=c++2a"
+## CXX26STD=
+
+## Analogues for the C++26 compiler: default to the settings for C++17
+## CXX26FLAGS=
+## CXX26PICFLAGS=
+## SHLIB_CXX26LD=
+## SHLIB_CXX26LDFLAGS=
+
 ## Additional libraries to link the internet module against.
 ## Some claim Solaris needs -lsocket -lnsl
 ## INTERNET_LIBS=
 
-## Script from Texinfo 6.1 or later.
+## Script from Texinfo 6.8 or later.
 ## Usually the full path to texi2any.
 ## TEXI2ANY=
 
@@ -416,7 +434,7 @@
 ## The configure code is conservative about enabling OpenMP 
 ## so use can be forced here (or non-use if set but empty).
 ## For packages (note that SHLIB_OPENMP_CXXFLAGS is for CXX, not
-## necessarily for CXX11/14/17/20/23).
+## necessarily for CXX17/20/23/26).
 ## SHLIB_OPENMP_CFLAGS=
 ## SHLIB_OPENMP_CXXFLAGS=
 ## SHLIB_OPENMP_FFLAGS=
@@ -470,6 +488,10 @@
 ## To allow reduced optimization for src/unix/sys-unix.c with Intel icx
 ##   -O0 and -O1 seem to work with 2023.2.0
 ## INTEL_ICX_FIX=-O0
+
+## Additional INSTALL_opts for recommended packages.
+##  Can be used for --dsym on macOS.
+## REC_INSTALL_OPT=
 
 ## Programs which configure will look for on the path
 ## AR

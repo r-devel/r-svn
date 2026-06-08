@@ -1,6 +1,6 @@
 % File src/library/graphics/man/layout.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{layout}
@@ -8,7 +8,7 @@
 \alias{layout.show}
 \alias{lcm}
 \title{Specifying Complex Plot Arrangements}
-\author{Paul R. Murrell}
+\author{Paul Murrell}
 \description{
   \code{layout} divides the device up into as many rows and columns as
   there are in matrix \code{mat}, with the column-widths and the
@@ -61,17 +61,10 @@ lcm(x)
   \code{layout} returns the number of figures, \eqn{N}, see above.
 }
 \references{
-  Murrell, P. R. (1999).
-  Layouts: A mechanism for arranging plots on a page.
-  \emph{Journal of Computational and Graphical Statistics},
-  \bold{8}, 121--134.
-  \doi{10.2307/1390924}.
-
-  Chapter 5 of Paul Murrell's Ph.D. thesis.
-
-  Murrell, P. (2005).
-  \emph{R Graphics}.
-  Chapman & Hall/CRC Press.
+  \bibinfo{R:Murrell:1998}{note}{Chapter 5}
+  \bibshow{R:Murrell:1998,
+    R:Murrell:1999,
+    R:Murrell:2005}
 }
 \seealso{
   \code{\link{par}} with arguments \code{mfrow}, \code{mfcol}, or

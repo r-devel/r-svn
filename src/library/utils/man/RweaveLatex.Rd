@@ -1,11 +1,15 @@
 % File src/library/utils/man/RweaveLatex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{RweaveLatex}
 \alias{RweaveLatex}
 \alias{RweaveLatexSetup}
+\alias{makeRweaveLatexCodeRunner}
+\alias{RweaveLatexWritedoc}
+\alias{RweaveLatexFinish}
+\alias{RweaveLatexOptions}
 \title{R/LaTeX Driver for Sweave}
 \description{
   A driver for \code{\link{Sweave}} that translates \R code chunks in
@@ -17,28 +21,73 @@ RweaveLatex()
 
 RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
                  debug = FALSE, stylepath, \dots)
+
+makeRweaveLatexCodeRunner(evalFunc = RweaveEvalWithOpt)
+
+RweaveLatexWritedoc(object, chunk)
+
+RweaveLatexFinish(object, error = FALSE)
+
+RweaveLatexOptions(options)
 }
 \arguments{
-  \item{file}{Name of Sweave source file.  See the description of the
+  \item{file}{name of Sweave source file; see the description of the
     corresponding argument of \code{\link{Sweave}}.}
-  \item{syntax}{An object of class \code{SweaveSyntax}.}
-  \item{output}{Name of output file.  The default is to remove extension
-    \file{.nw}, \file{.Rnw} or \file{.Snw} and to add
-    extension \file{.tex}.  Any directory paths in
-    \code{file} are also removed such that the output is
-    created in the current working directory.}
-  \item{quiet}{If \code{TRUE} all progress messages are suppressed.}
-  \item{debug}{If \code{TRUE}, input and output of all code
-    chunks is copied to the console.}
-  \item{stylepath}{See \sQuote{Details}.}
+  \item{syntax}{an object of class \code{SweaveSyntax}.}
+  \item{output}{name of output file. The default is to replace the
+    extension of \code{file} by \file{.tex}. Any directory paths in
+    \code{file} are also removed such that the output is created in the
+    current working directory.}
+  \item{quiet}{if \code{TRUE} all progress messages are suppressed.}
+  \item{debug}{if \code{TRUE}, input and output of all code chunks is
+    copied to the console.}
+  \item{stylepath}{see \sQuote{Details}.}
   \item{\dots}{named values for the options listed in \sQuote{Supported
       Options}.}
+  \item{evalFunc}{function used for the actual evaluation of a code
+    chunk (except figures).}
+  \item{object}{an object created by the \code{setup} function of the
+    driver.}
+  \item{chunk}{text of a code chunk.}
+  \item{error}{if \code{TRUE}, finish assuming an error occurred in
+    \code{\link{Sweave}}.}
+  \item{options}{named list of character strings.}
 }
 \details{
+  An Sweave driver is a function of no arguments that returns a named
+  list of five functions:
+  \describe{
+    \item{\code{setup(file, syntax, \dots)}}{Set up the driver, e.g.
+      open the output file. Its return value is an object which is
+      passed to the next three functions, and can be updated by the next
+      two. The value should be a list, and contain a component
+      \code{options}, a named list of the default settings for the
+      options needed by \code{runcode}.}
+    \item{\code{runcode(object, chunk, options)}}{Process a code chunk.
+      Returns a possibly updated \code{object}. Argument \code{chunk} is
+      a character vector, and \code{options} is a options list for this
+      chunk.}
+    \item{\code{writedoc(object, chunk)}}{Write out a documentation
+      chunk. Returns a possibly updated \code{object}.}
+    \item{\code{finish(object, error)}}{Finish up, or clean up if
+      \code{error} is true.}
+    \item{\code{checkopts(options)}}{Convert or validate \code{options}
+      given as a named list of character strings.}
+  }
+
+  \code{RweaveLatex} is the Sweave driver.
+  \code{RweaveLatexSetup}, \code{RweaveLatexWritedoc},
+  \code{RweaveLatexFinish} and \code{RweaveLatexOptions}
+  are functions for the
+  \code{setup}, \code{writedoc}, \code{finish} and \code{checkopts}
+  elements of the driver, respectively.
+  \code{makeRweaveLatexCodeRunner} creates a function suitable as the
+  \code{runcode} element of the driver.
+  
   The \LaTeX file generated needs to contain the line
   \samp{\\usepackage\{Sweave\}}, and if this is not present in the
   Sweave source file (possibly in a comment), it is inserted by the
-  \code{RweaveLatex} driver as last line before the \samp{\\begin{document}}
+  driver as last line before the \samp{\\begin{document}}
   statement. If \code{stylepath = TRUE}, a hard-coded
   path to the file \file{Sweave.sty} in the \R installation is set in
   place of \code{Sweave}.  The hard-coded path makes the \LaTeX file less
@@ -48,9 +97,9 @@ RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
   (as it often will under Windows) or TeX special characters.
 
   The default for \code{stylepath} is now taken from the environment
-  variable \env{SWEAVE_STYLEPATH_DEFAULT}, or is \code{FALSE} it that is
+  variable \env{SWEAVE_STYLEPATH_DEFAULT}, or is \code{FALSE} if that is
   unset or empty.  If set, it should be exactly \code{TRUE} or
-  \code{FALSE}: any other values are taken as \code{FALSE}.
+  \code{FALSE}; any other values are taken as \code{FALSE}.
 
   The simplest way for frequent Sweave users to ensure that
   \file{Sweave.sty} is in the TeX input path is to add
@@ -114,9 +163,12 @@ RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
 
 \section{Supported Options}{
   \code{RweaveLatex} supports the following options for code chunks (the
-  values in parentheses show the default values).  Character string
+  values in parentheses show the default values). Character string
   values should be quoted when passed from \code{\link{Sweave}} through
   \code{\dots} but not when used in the header of a code chunk.
+
+  The \emph{logical} and \emph{numerical} chunk options below may take
+  their values from objects defined in earlier, evaluated code chunks.
   \describe{
     \item{engine:}{character string (\code{"R"}).  Only chunks with
       \code{engine} equal to \code{"R"} or \code{"S"} are processed.}
@@ -141,6 +193,17 @@ RweaveLatexSetup(file, syntax, output = NULL, quiet = FALSE,
 
     \item{print:}{logical (\code{FALSE}).  If \code{TRUE}, this forces
       auto-printing of all expressions.}
+
+    \item{ignore.on.weave:}{logical (\code{FALSE}). If \code{TRUE}, the
+      code chunk is ignored entirely, i.e., neither parsed nor
+      evaluated. Chunks ignored on weaving are written out on tangling
+      as normal code chunks (unless \code{ignore=TRUE})}
+    
+    \item{ignore:}{logical (\code{FALSE}). An alternative way to set
+      both \code{ignore.on.weave} and \code{ignore.on.tangle} of
+      \code{\link{Rtangle}}.}
+    
+    \item{weave:}{An alternative way to specify \code{!ignore.on.weave}.}
 
     \item{term:}{logical (\code{TRUE}).  If \code{TRUE}, visibility of
       values emulates an interactive \R session: values of assignments
@@ -285,13 +348,42 @@ my.Swd <- function(name, width, height, ...)
   \code{clean = TRUE} would start operating on an empty workspace.
 }
 
-\author{Friedrich Leisch and R-core}
+\author{
+  Friedrich Leisch and R-core, with contributions by Vincent Goulet.
+}
 
 \seealso{
   \sQuote{\href{../doc/Sweave.pdf}{Sweave User Manual}}, a vignette in
   the \pkg{utils} package.
 
   \code{\link{Sweave}}, \code{\link{Rtangle}}
+}
+\examples{
+nmRnw <- "example-1.Rnw"
+exfile <- system.file("Sweave", nmRnw, package = "utils")
+
+## Check the contents of the file
+if (interactive()) file.show(exfile)
+
+## Weave the file in the current working directory
+Sweave(exfile)
+
+## View the LaTeX file
+nmtex <- sub("Rnw$", "tex", nmRnw)
+if (interactive()) file.show(nmtex)
+
+## Options may take their values from objects defined in
+## earlier code chunks
+nmRnw <- "example-2.Rnw"
+exfile <- system.file("Sweave", nmRnw, package = "utils")
+if (interactive()) file.show(exfile)
+Sweave(exfile)
+nmtex <- sub("Rnw$", "tex", nmRnw)
+if (interactive()) file.show(nmtex)
+
+## View the plot in default PDF viewer
+nmpdf <- sub("\\\\.Rnw$", "-003.pdf", nmRnw)
+if (interactive()) system2(getOption("pdfviewer"), nmpdf)
 }
 
 \keyword{utilities}

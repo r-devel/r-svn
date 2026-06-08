@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2024-08-27 r87063) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
+R Under development (unstable) (2025-08-15 r88608) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -922,8 +922,8 @@ standardGeneric for "chol2inv" defined from package "base"
 
 function (x, ...) 
 standardGeneric("chol2inv")
-<bytecode: 0x560d245c7490>
-<environment: 0x560d245c0f88>
+<bytecode: 0x56548f17d1e8>
+<environment: 0x56548f176ce0>
 Methods may be defined for arguments: x
 Use  showMethods(chol2inv)  for currently available ones.
 > 
@@ -936,6 +936,7 @@ To cite R in publications use:
 
   R Core Team (9999). _R: A Language and Environment for Statistical
   Computing_. R Foundation for Statistical Computing, Vienna, Austria.
+  doi:10.32614/R.manuals <https://doi.org/10.32614/R.manuals>.
   <https://www.R-project.org/>.
 
 A BibTeX entry for LaTeX users is
@@ -946,6 +947,7 @@ A BibTeX entry for LaTeX users is
     organization = {R Foundation for Statistical Computing},
     address = {Vienna, Austria},
     year = {9999},
+    doi = {10.32614/R.manuals},
     url = {https://www.R-project.org/},
   }
 
@@ -1007,7 +1009,7 @@ To cite package 'nlme' in publications use:
 
   Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
   Effects Models_. doi:10.32614/CRAN.package.nlme
-  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://doi.org/10.32614/CRAN.package.nlme>. R package version 3.1-999,
   <https://CRAN.R-project.org/package=nlme>.
 
   Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
@@ -1020,7 +1022,7 @@ To cite package 'nlme' in publications use:
 
   Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
   Effects Models_. doi:10.32614/CRAN.package.nlme
-  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://doi.org/10.32614/CRAN.package.nlme>. R package version 3.1-999,
   <https://CRAN.R-project.org/package=nlme>.
 
   Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
@@ -1030,7 +1032,7 @@ To cite package 'nlme' in publications use:
 
   Pinheiro J, Bates D, R Core Team (9999). _nlme: Linear and Nonlinear Mixed
   Effects Models_. doi:10.32614/CRAN.package.nlme
-  <https://doi.org/10.32614/CRAN.package.nlme>, R package version 3.1-999,
+  <https://doi.org/10.32614/CRAN.package.nlme>. R package version 3.1-999,
   <https://CRAN.R-project.org/package=nlme>.
 
 A BibTeX entry for LaTeX users is
@@ -1085,5 +1087,5 @@ A BibTeX entry for LaTeX users is
 > 
 > 
 > cat('Time elapsed: ', proc.time(),'\n')
-Time elapsed:  2.176 0.139 2.315 0.002 0 
+Time elapsed:  2.122 0.175 2.302 0.005 0 
 > 

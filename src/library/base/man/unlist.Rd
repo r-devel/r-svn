@@ -1,6 +1,6 @@
 % File src/library/base/man/unlist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{unlist}
@@ -16,8 +16,8 @@ unlist(x, recursive = TRUE, use.names = TRUE)
 }
 \arguments{
   \item{x}{an \R object, typically a list or vector.}
-  \item{recursive}{logical.  Should unlisting be applied to list
-    components of \code{x}?}
+  \item{recursive}{logical (\code{TRUE} or \code{FALSE}).  Should
+    unlisting be applied to list components of \code{x}?}
   \item{use.names}{logical.  Should names be preserved?}
 }
 \details{
@@ -69,9 +69,7 @@ unlist(x, recursive = TRUE, use.names = TRUE)
   to lists.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{c}}, \code{\link{as.list}}, \code{\link{relist}}.

@@ -1,0 +1,138 @@
+#  File src/library/tools/R/sha256.R
+#  Part of the R package, https://www.R-project.org
+#
+#  Copyright (C) 1995-2026 The R Core Team
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  A copy of the GNU General Public License is available at
+#  https://www.R-project.org/Licenses/
+
+sha256sum <- function(files, bytes) {
+    if (!missing(files) && !missing(bytes))
+        stop("'files' and 'bytes' are mutually exclusive")
+    if (!missing(bytes)) {
+        if (!is.raw(bytes)) stop("'bytes' must be a raw vector")
+        .Call(C_Rsha256, bytes)
+    } else {
+        files <- path.expand(files)
+        structure(.Call(C_Rsha256, files), names=files)
+    }
+}
+
+## exclude legacy MD5 if present for backward compatibility.
+## If both are included then SHA256 has to be created first since MD5
+## checks in old versions of R don't skip it. This means SHA256 may not
+## include MD5 to avoid catch 22 (infinite hash updates).
+## We also exclude the signature as that will be created at the end.
+## So the order if all present must be:
+## .installSHA256sums() -> sign("SHA256") -> .installMD5sums()
+.hash.excluded.paths <- c("SHA256", "SHA256.sig", "MD5")
+
+## The SHA256 file has been augmented (compared to MD5) to include
+## the length to prevent length-extension attacks so the format is
+## ([0-9a-f]{64}) ([0-9]{1,}) (.*)
+## with hash=\1, size=\2 and path=\3
+## Although this makes it incompatible with the sha256sum tool,
+## it is more secure and easy to convert back, e.g. with
+## sed -E 's:([^ ]+) [^ ]+ (.*):\1 *\2:'
+.installSHA256sums <- function(pkgDir, outDir = pkgDir)
+{
+    dot <- getwd()
+    if (is.null(dot))
+        stop("current working directory cannot be ascertained")
+    setwd(pkgDir)
+    x <- sha256sum(dir(".", recursive=TRUE))
+    x <- x[names(x) %notin% .hash.excluded.paths]
+    fs <- file.size(names(x))
+    setwd(dot)
+    cat(paste(x, fs, names(x), sep=" "), sep="\n",
+        file=file.path(outDir, "SHA256"))
+}
+
+checkSHA256sums <- function(package, dir)
+{
+    if(missing(dir)) dir <- find.package(package, quiet = TRUE)
+    if(length(dir) != 1L) return(NA)
+    sha256file <- file.path(dir, "SHA256")
+    if(!file.exists(sha256file)) return(NA)
+    inlines <- readLines(sha256file)
+    ## now split into hash, size and name
+    xx <- sub("^([0-9a-fA-F]*)(.*)", "\\1", inlines)
+    sizes <- sub("^[0-9a-fA-F]* ([0-9]+) (.*)", "\\1", inlines)
+    nmxx <- names(xx) <- names(sizes) <- sub("^[0-9a-fA-F]* [0-9]+ (.*)", "\\1", inlines)
+    dot <- getwd()
+    if (is.null(dot))
+        stop("current working directory cannot be ascertained")
+    setwd(dir)
+    x <- sha256sum(dir(recursive = TRUE))
+    x <- x[names(x) %notin% .hash.excluded.paths]
+    fs <- file.size(names(x))
+    names(fs) <- names(x)
+    ## should not happen but to avoid NA in comparisons set to -1 which will lead to FALSE anyway
+    if (any(is.na(fs))) fs[is.na(fs)] <- -1
+    setwd(dot)
+    nmx <- names(x)
+    res <- TRUE
+    not.here <- (nmxx %notin% nmx)
+    if(any(not.here)) {
+        res <- FALSE
+        if (sum(not.here) > 1L)
+            cat("files", paste(sQuote(nmxx[not.here]), collapse = ", "),
+                "are missing\n", sep = " ")
+        else
+            cat("file", sQuote(nmxx[not.here]), "is missing\n", sep = " ")
+    }
+    extra.files <- (nmx %notin% nmxx)
+    if (any(extra.files)) {
+        res <- FALSE
+        if (sum(extra.files) > 1L)
+            cat("extraneous files", paste(sQuote(nmx[extra.files]), collapse = ", "),
+                "\n", sep = " ")
+        else
+            cat("extraneous file", sQuote(nmx[extra.files]), "\n", sep = " ")
+    }
+    nmxx <- nmxx[!not.here]
+    diff <- (xx[nmxx] != x[nmxx]) | (sizes[nmxx] != fs[nmxx])
+    if(any(diff)) {
+        res <- FALSE
+        files <- nmxx[diff]
+        if(length(files) > 1L)
+            cat("files", paste(sQuote(files), collapse = ", "),
+                "have the wrong SHA256 checksums\n", sep = " ")
+        else cat("file", sQuote(files), "has the wrong SHA256 checksum\n")
+    }
+    res
+}
+
+.hex.chars <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f")
+
+hex2raw <- function(x) {
+  if (length(x) != 1L) stop("x must be a single string")
+  if (!nzchar(x)) return(raw(1L))
+  ## pad with 0 to full bytes
+  m <- match(strsplit(tolower(x),"")[[1L]], .hex.chars)
+  if (any(is.na(m))) stop("invalid hex string")
+  if (length(m) %% 2 == 1) m <- c(1L, m) ## add leading 0 for full byte
+  as.raw(colSums(matrix(m - 1L, 2) * c(16L, 1L)))
+}
+
+.pad <- function(x, n) if (length(x) < n) c(x, raw(n - length(x))) else x
+
+hmac <- function(key, x, hash, block) {
+  key <- .pad(if (length(key) > block) hex2raw(hash(key)) else key, block)
+  # HMAC := HASH( c( key ^ 0x5c, HASH( c( key ^ 0x36, x ) ) ) )
+  hash(c(xor(key, as.raw(0x5c)),
+       hex2raw(hash(c(xor(key, as.raw(0x36)), x)))))
+}
+
+hmac.sha256 <- function(key, x) hmac(key, x, function(x) sha256sum(bytes=x), 64L)
+hmac.md5 <- function(key, x) hmac(key, x, function(x) md5sum(bytes=x), 64L)

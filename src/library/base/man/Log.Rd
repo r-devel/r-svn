@@ -90,14 +90,10 @@ expm1(x)
   respectively.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
   (for \code{log}, \code{log10} and \code{exp}.)
 
-  Chambers, J. M. (1998)
-  \emph{Programming with Data.  A Guide to the S Language}.
-  Springer. (for \code{logb}.)
+  \bibshow{R:Chambers:1998} (for \code{logb}.)
 }
 \seealso{
   \code{\link{Trig}},

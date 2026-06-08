@@ -7,6 +7,7 @@ EXPORTS
  ddot_
  dgbmv_
  dgemm_
+ dgemmtr_
  dgemv_
  dger_
  dnrm2_
@@ -47,6 +48,7 @@ EXPORTS
  zdscal_
  zgbmv_
  zgemm_
+ zgemmtr_
  zgemv_
  zgerc_
  zgeru_
@@ -62,7 +64,6 @@ EXPORTS
  zhpr_
  zrotg_
  zscal_
- zspmv_
  zswap_
  zsymm_
  zsyr2k_

@@ -106,7 +106,7 @@ addNA(x, ifany = FALSE)
   \code{.valid.factor(object)} checks the validity of a factor,
   currently only \code{levels(object)}, and returns \code{TRUE} if it is
   valid, otherwise a string describing the validity problem.  This
-  function is used for \code{\link{validObject}(<factor>)}.
+  function is used for \code{\link{validObject}(\var{factor})}.
 }
 \details{
   The type of the vector \code{x} is not restricted; it only must have
@@ -217,9 +217,7 @@ addNA(x, ifany = FALSE)
   pointer of 4 or 8 bytes.)
 }
 \references{
-  Chambers, J. M. and Hastie, T. J. (1992)
-  \emph{Statistical Models in S}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers+Hastie:1992}
 }
 \seealso{
   \code{\link{[.factor}} for subsetting of factors.

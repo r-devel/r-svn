@@ -119,7 +119,7 @@ help.search(pattern, fields = c("alias", "concept", "title"),
   documentation directory are taken as concepts.  For standard keyword
   entries different from \samp{internal}, the corresponding descriptions
   from file \file{KEYWORDS} are additionally taken as concepts.  All
-  \samp{\concept} entries used as concepts.
+  \samp{\concept} entries are used as concepts.
 
   Vignettes are searched as follows.  The \code{"name"} and
   \code{"alias"} are both the base of the vignette filename, and the

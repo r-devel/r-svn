@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -165,13 +165,13 @@ double unif_rand(void)
 	/* p1 % m1 would surely do */
 	k = (int) (p1 / m1);
 	p1 -= k * m1;
-	if (p1 < 0.0) p1 += m1;
+	if (p1 < 0) p1 += m1;
 	II(0) = II(1); II(1) = II(2); II(2) = (int) p1;
 
 	p2 = a21 * (unsigned int)II(5) - a23n * (unsigned int)II(3);
 	k = (int) (p2 / m2);
 	p2 -= k * m2;
-	if (p2 < 0.0) p2 += m2;
+	if (p2 < 0) p2 += m2;
 	II(3) = II(4); II(4) = II(5); II(5) = (int) p2;
 
 	return (double)((p1 > p2) ? (p1 - p2) : (p1 - p2 + m1)) * normc;
@@ -341,7 +341,7 @@ static void Randomize(RNGtype kind)
     RNG_Init(kind, TimeToSeed());
 }
 
-static Rboolean GetRNGkind(SEXP seeds)
+static bool GetRNGkind(SEXP seeds)
 {
     /* Load RNG_kind, N01_kind Sample_kind from .Random.seed if present */
     int tmp, *is;
@@ -352,7 +352,8 @@ static Rboolean GetRNGkind(SEXP seeds)
     if (seeds == R_UnboundValue) return TRUE;
     if (!isInteger(seeds)) {
 	if (seeds == R_MissingArg) /* How can this happen? */
-	    error(_("'.Random.seed' is a missing argument with no default"));
+	    R_MissingArgError(R_SeedsSymbol, R_CurrentExpression,
+			      "getRNGError");
 	warning(_("'.Random.seed' is not an integer vector but of type '%s', so ignored"),
 		R_typeToChar(seeds));
 	goto invalid;
@@ -391,13 +392,13 @@ static Rboolean GetRNGkind(SEXP seeds)
 	goto invalid;
     }
     RNG_kind = newRNG; N01_kind = newN01; Sample_kind = newSample;
-    return FALSE;
+    return false;
 invalid:
     RNG_kind = RNG_DEFAULT; N01_kind = N01_DEFAULT; Sample_kind = Sample_DEFAULT;
 
     Randomize(RNG_kind);
     PutRNGstate(); // write out to .Random.seed
-    return TRUE;
+    return true;
 }
 
 static void copy_seeds_in(Int32 *i_seed, SEXP seeds, int len_seed)
@@ -877,12 +878,12 @@ static double R_unif_index_0(double dn)
 //generate a random non-negative integer < 2 ^ bits in 16 bit chunks
 static double rbits(int bits)
 {
-    int_least64_t v = 0;
+    uint_least64_t v = 0;
     for (int n = 0; n <= bits; n += 16) {
 	int v1 = (int) floor(unif_rand() * 65536);
 	v = 65536 * v + v1;
     }
-    const int_least64_t one64 = 1L;
+    const uint_least64_t one64 = 1L;
     // mask out the bits in the result that are not needed
     return (double) (v & ((one64 << bits) - 1));
 }

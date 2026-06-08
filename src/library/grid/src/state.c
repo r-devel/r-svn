@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-5 The R Core Team
+ *                2003-6 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ void initDL(pGEDevDesc dd)
 
 /*
  * This is used to init some bits of the system state
- * Called when a grahpics engine redraw is about to occur
+ * Called when a graphics engine redraw is about to occur
  * NOTE that it does not init all of the state, in particular,
  * the display list is not initialised here (see initDL), 
  * nor is the ROOT viewport (see initVP),
@@ -173,7 +173,7 @@ SEXP L_setGridState(SEXP elementIndex, SEXP value)
 static void deglobaliseState(SEXP state)
 {
     int index = INTEGER(VECTOR_ELT(state, GSS_GLOBALINDEX))[0];
-    SET_VECTOR_ELT(findVar(install(".GRID.STATE"), R_gridEvalEnv), 
+    SET_VECTOR_ELT(R_getVar(install(".GRID.STATE"), R_gridEvalEnv, TRUE), 
 		   index, R_NilValue);
 }
 
@@ -181,7 +181,7 @@ static int findStateSlot(void)
 {
     int i;
     int result = -1;
-    SEXP globalstate = findVar(install(".GRID.STATE"), R_gridEvalEnv);
+    SEXP globalstate = R_getVar(install(".GRID.STATE"), R_gridEvalEnv, TRUE);
     for (i = 0; i < length(globalstate); i++)
 	if (VECTOR_ELT(globalstate, i) == R_NilValue) {
 	    result = i;
@@ -196,7 +196,7 @@ static void globaliseState(SEXP state)
 {
     int index = findStateSlot();
     SEXP globalstate, indexsxp;
-    PROTECT(globalstate = findVar(install(".GRID.STATE"), R_gridEvalEnv));
+    PROTECT(globalstate = R_getVar(install(".GRID.STATE"), R_gridEvalEnv, TRUE));
     /* Record the index for deglobalisation
      */
     PROTECT(indexsxp = allocVector(INTSXP, 1));
@@ -311,7 +311,7 @@ SEXP gridCallback(GEevent task, pGEDevDesc dd, SEXP data) {
 		 */
 		SEXP fcall;
 		PROTECT(fcall = lang1(install("draw.all")));
-		eval(fcall, R_gridEvalEnv); 
+		Rf_eval_with_gd(fcall, R_gridEvalEnv, dd); 
 		UNPROTECT(1);
 	    }
 	}

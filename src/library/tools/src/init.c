@@ -42,6 +42,7 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(dirchmod, 2),
     CALLDEF(getfmts, 1),
     CALLDEF(Rmd5, 1),
+    CALLDEF(Rsha256, 1),
     CALLDEF(check_nonASCII, 2),
     CALLDEF(check_nonASCII2, 1),
     CALLDEF(doTabExpand, 2),
@@ -54,13 +55,14 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(splitString, 2),
     CALLDEF(package_dependencies_scan, 1),
     CALLDEF(nonASCII, 1),
+    CALLDEF(remove_dot_segments_wrapper, 1),
 
     {NULL, NULL, 0}
 };
 
 #define EXTDEF(name, n)  {#name, (DL_FUNC) &name, n}
 static const R_ExternalMethodDef ExtEntries[] = {
-    EXTDEF(parseLatex, 5),
+    EXTDEF(parseLatex, 6),
     EXTDEF(parseRd, 9),
 
     {NULL, NULL, 0}

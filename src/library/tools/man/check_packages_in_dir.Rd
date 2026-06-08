@@ -131,7 +131,7 @@ check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE, ...)
 
   Installation and checking is performed in parallel if \code{Ncpus} is
   greater than one: this will use \code{\link[parallel]{mclapply}} on
-  Unix and \code{\link[parallel:clusterApply]{parLapply}} on Windows.
+  Unix and \code{\link[parallel]{parLapply}} on Windows.
 
   \code{check_packages_in_dir} returns an object inheriting from class
   \code{"check_packages_in_dir"} which has \code{\link{print}} and
@@ -154,8 +154,8 @@ check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE, ...)
   \code{Check}, \code{Status} and \code{Output}, respectively).
   
   Environment variable \env{_R_CHECK_ELAPSED_TIMEOUT_} can be used to
-  set a limit on the elapsed time of each \command{check} run.  See the
-  \sQuote{R Internals} manual for how the value is interpreted and for
+  set a limit on the elapsed time of each \command{check} run. See Chapter
+  \manual{R-ints}{Tools} for how the value is interpreted and for
   other environment variables which can be used for finer-grained
   control on timeouts within a \command{check} run.
 }

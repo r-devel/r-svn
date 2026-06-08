@@ -1,6 +1,6 @@
 % File src/library/utils/man/help.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{help}
@@ -114,15 +114,16 @@ help(topic, package = NULL, lib.loc = NULL,
   input as a LaTeX style file after \code{Rd.sty}.  Some
   \link{environment variables} are consulted, notably \env{R_PAPERSIZE}
   (\emph{via} \code{getOption("papersize")}) and \env{R_RD4PDF} (see
-  \sQuote{Making manuals} in the
-  \sQuote{R Installation and Administration} manual).
+  \manual{R-admin}{Making manuals}.
 
   If there is a function \code{offline_help_helper} in the workspace or
   further down the search path it is used to do the typesetting,
-  otherwise the function of that name in the \code{utils} namespace (to
-  which the first paragraph applies).  It should accept at least two
-  arguments, the name of the LaTeX file to be typeset and the type
-  (which is nowadays ignored).  It accepts a third argument,
+  otherwise the function of that name in the \pkg{utils} namespace (to
+  which the first paragraph applies).  It should accept at least three
+  arguments, the name of the LaTeX file to be typeset, the type
+  (which is nowadays ignored), and a logical \code{msg} indicating if a
+  \code{\link{message}()} about the pdf creation should be signalled.  It
+  accepts also an argument
   \code{texinputs}, which will give the graphics path when the help
   document contains figures, and will otherwise not be supplied.
 }
@@ -146,9 +147,7 @@ help(topic, package = NULL, lib.loc = NULL,
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link[=Question]{?}} for shortcuts to help topics.

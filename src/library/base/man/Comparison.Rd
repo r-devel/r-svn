@@ -97,7 +97,8 @@ x != y
 
   For numerical and complex values, remember \code{==} and \code{!=} do
   not allow for the finite representation of fractions, nor for rounding
-  error.  Using \code{\link{all.equal}} with \code{identical} or
+  error (\manual{R-FAQ}{Why doesn't R think these numbers are equal?}).
+  Using \code{\link{all.equal}} with \code{identical} or
   \code{\link{isTRUE}} is almost always preferable; see the examples.
   (This also applies to the other comparison operators.)
 
@@ -112,9 +113,7 @@ x != y
   \code{c(e1, e2)}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
   Collation of character strings is a complex topic.  For an
   introduction see

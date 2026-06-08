@@ -1,6 +1,6 @@
 % File src/library/base/man/conditions.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{conditions}
@@ -23,12 +23,20 @@
 \alias{simpleMessage}
 \alias{errorCondition}
 \alias{warningCondition}
+\alias{messageCondition}
 \alias{tryCatch}
 \alias{withCallingHandlers}
 \alias{withRestarts}
 \alias{suspendInterrupts}
 \alias{allowInterrupts}
 \alias{globalCallingHandlers}
+\alias{objectNotFoundError}
+\alias{functionNotFoundError}
+\alias{missingArgError}
+\alias{notSubsettableError}
+\alias{MissingSubscriptError}
+\alias{subscriptOutOfBoundsError}
+\alias{parseError}
 
 \alias{.signalSimpleWarning}
 \alias{.handleSimpleError}
@@ -61,6 +69,7 @@ simpleMessage  (message, call = NULL)
 
 errorCondition(message, ..., class = NULL, call = NULL)
 warningCondition(message, ..., class = NULL, call = NULL)
+messageCondition(message, ..., class = NULL, call = NULL)
 
 \method{as.character}{condition}(x, \dots)
 \method{as.character}{error}(x, \dots)
@@ -131,7 +140,8 @@ allowInterrupts(expr)
    The function \code{errorCondition} can be
    used to construct error conditions of a particular class with
    additional fields specified as the \code{\dots} argument.
-   \code{warningCondition} is analogous for warnings.
+   \code{messageCondition} and \code{warningCondition} are analogous
+   for messages and warnings, respectively.
    
    Conditions are signaled by \code{signalCondition}.  In addition,
    the \code{stop} and \code{warning} functions have been modified to
@@ -255,6 +265,20 @@ allowInterrupts(expr)
    \code{.signalSimpleWarning}, \code{.handleSimpleError}, and
    \code{.tryResumeInterrupt} are used internally and should not be
    called directly.
+
+   Some condition classes used to signal errors internally:
+   \itemize{
+     \item \code{objectNotFoundError}, with fields \code{name} and,
+     \code{mode}, and subclass \code{functionNotFoundError}.
+     \item \code{missingArgError}, with field \code{name}.
+     \item \code{notSubsettableError}, with field \code{object}.
+     \item \code{MissingSubscriptError}, with field \code{name}.
+     \item \code{subscriptOutOfBoundsError}, with fields \code{object},
+     \code{subscript}, and \code{index}.
+     \item \code{stackOverflowError}, with subclasses for different
+     stacks.
+     \item \code{parseError}, with a number of subclasses.
+  }
 }
 
 \references{The \code{tryCatch} mechanism is similar to Java

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.0.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2012-01-07 22:11+0200\n"
 "Last-Translator: Joe <joedalton2@yahoo.dk>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -272,6 +272,15 @@ msgstr ""
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
 msgstr ""
 
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr ""
+
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr ""
+
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
+msgstr ""
+
 msgid "Encoding '%s' is not portable"
 msgstr ""
 
@@ -308,9 +317,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr ""
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
-
 msgid "Non-portable flags in variable '%s':"
 msgstr ""
 
@@ -325,11 +331,11 @@ msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr ""
 
 #, fuzzy
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr "Tildelinger i \\usage i dokumentationsobjekt »%s«:"
 
 #, fuzzy
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr "Tildelinger i \\usage i dokumentationsobjekt »%s«:"
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -490,7 +496,7 @@ msgstr ""
 msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr ""
 
-msgid "Rd files without \\description:"
+msgid "Rd files without %s:"
 msgstr ""
 
 msgid "no Rd sections specified"
@@ -675,9 +681,6 @@ msgstr "Vignette afhængigheder ikke krævet:"
 msgid "Unsupported engine name"
 msgstr ""
 
-msgid "None of packages %s have registered vignette engines"
-msgstr ""
-
 #, fuzzy
 msgid "Vignette engine %s is not registered"
 msgstr "Vignette afhængigheder ikke krævet:"
@@ -761,6 +764,12 @@ msgstr ""
 msgid "loading failed"
 msgstr ""
 
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
+
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr ""
 
@@ -792,9 +801,6 @@ msgid "Run R CMD build with --no-build-vignettes to prevent rebuilding."
 msgstr ""
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
-msgstr ""
-
-msgid "Error: cannot rename directory to %s"
 msgstr ""
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
@@ -831,10 +837,15 @@ msgstr ""
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+msgid "downloading reverse dependencies %s"
 msgstr ""
 
-msgid "downloading %s ..."
+msgid "download of reverse dependency %s failed"
+msgstr ""
+
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
 msgstr ""
 
 msgid "checking %s ..."
@@ -948,16 +959,19 @@ msgstr ""
 msgid "restoration failed"
 msgstr ""
 
-msgid "invalid value"
-msgstr ""
-
-msgid "for R_CROSS_BUILD"
-msgstr ""
-
 msgid "error reading file '%s'"
 msgstr ""
 
 msgid "this seems to be a bundle -- and they are defunct"
+msgstr ""
+
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr ""
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
 msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
@@ -982,9 +996,6 @@ msgid "NOTE: fixed rpath"
 msgstr ""
 
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
-msgstr ""
-
-msgid "package %s successfully unpacked and MD5 sums checked"
 msgstr ""
 
 msgid "not using staged install with --libs-only"
@@ -1056,6 +1067,9 @@ msgstr ""
 msgid "building a fake installation is disallowed"
 msgstr ""
 
+msgid "specified C++"
+msgstr ""
+
 msgid "using C compiler:"
 msgstr ""
 
@@ -1075,6 +1089,9 @@ msgid "WARNING: failed to revert patch"
 msgstr ""
 
 msgid "Reverted installation-time patch"
+msgstr ""
+
+msgid "Input must be character"
 msgstr ""
 
 msgid ""
@@ -1105,6 +1122,12 @@ msgid "package contains no R code"
 msgstr ""
 
 msgid "package seems to be using lazy loading already"
+msgstr ""
+
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+msgid "'bytes' must be a raw vector"
 msgstr ""
 
 msgid ""
@@ -1156,6 +1179,12 @@ msgid ""
 "contains no \\item."
 msgstr ""
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+msgid "invalid 'type'"
+msgstr ""
+
 msgid "Processing packages:"
 msgstr ""
 
@@ -1178,6 +1207,33 @@ msgid "argument '%s' must be a character string or connection"
 msgstr ""
 
 msgid "unimplemented encoding"
+msgstr ""
+
+msgid "x must be a single string"
+msgstr ""
+
+msgid "invalid hex string"
+msgstr ""
+
+msgid "'gpg' is not available for signing"
+msgstr ""
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+msgid "'%s' must be a character string"
+msgstr ""
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+msgid "Signing failed:"
 msgstr ""
 
 msgid "this requires 'objdump.exe' to be on the PATH"
@@ -1204,6 +1260,9 @@ msgstr ""
 msgid "Testing examples for package %s"
 msgstr ""
 
+msgid "Error: running examples in %s failed"
+msgstr ""
+
 msgid "comparing %s to %s ..."
 msgstr ""
 
@@ -1228,10 +1287,10 @@ msgstr ""
 msgid "Running %s"
 msgstr ""
 
-msgid "Running vignettes for package %s"
+msgid "Error: running the tests in %s failed"
 msgstr ""
 
-msgid "Comparing %s to %s ..."
+msgid "Running vignettes for package %s"
 msgstr ""
 
 msgid "no parsed files found"
@@ -1318,9 +1377,6 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
-msgstr ""
-
 msgid "test '%s' is not available"
 msgstr ""
 
@@ -1370,6 +1426,14 @@ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr ""
 
 msgid "cannot source package code:"
+msgstr ""
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
+
+msgid "inferiorCallError"
 msgstr ""
 
 msgid "inferior call failed"
@@ -1438,7 +1502,7 @@ msgid_plural "Found .Internal calls in the following functions:"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] ""
 msgstr[1] ""
@@ -1494,6 +1558,11 @@ msgstr[1] ""
 
 msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
 msgstr[0] ""
 msgstr[1] ""
 

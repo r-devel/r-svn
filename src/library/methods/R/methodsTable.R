@@ -454,8 +454,8 @@
              where = environment(fdef))
 {
     ## to avoid infinite recursion, and somewhat for speed, turn off S4 methods for primitives
-    primMethods <- .allowPrimitiveMethods(FALSE)
-    on.exit(.allowPrimitiveMethods(primMethods))
+    if(.allowPrimitiveMethods(FALSE)) # if it was true, revert on exit
+        on.exit(.allowPrimitiveMethods(TRUE))
     ## classes is a list of the class(x) for each arg in generic
     ## signature, with "missing" for missing args
     if(!is.environment(table)) {
@@ -685,7 +685,7 @@
 }
 
 .newSignature <- function(classes, names) {
-  ## a simple version to deal with boostrapping stage, used in new() etc
+  ## a simple version to deal with bootstrapping stage, used in new() etc
     n <- min(length(classes), length(names))
   i <- seq_len(n)
     ## a corresponding set of package names
@@ -1103,7 +1103,7 @@
     cat("\n", file = printTo)
 }
 
-## temporary switch for tables
+## temporary switch for tables (not used anywhere; for debugging)
 useMTable <- function(onOff = NA)
   .Call(C_R_set_method_dispatch, as.logical(onOff))
 
@@ -1124,7 +1124,7 @@ useMTable <- function(onOff = NA)
                              f
                            }))
     }
-    ## now the next generations recusively
+    ## now the next generations recursively
     if(length(funs) > start) {
       nmore <- length(funs) - start
       more <- Recall(funs[(start+1):length(funs)])
@@ -1630,7 +1630,7 @@ testInheritedMethods <- function(f, signatures, test = TRUE,  virtual = FALSE,
     }
     signatures <- lapply(signatures, doSelect)
   }
-  signatures <- sapply(signatures, paste0, collapse = "#")
+  signatures <- vapply(signatures, paste0, "", collapse = "#")
   names(signatures) <- sigLabels
 
   new("MethodSelectionReport", generic = fname, allSelections = signatures,

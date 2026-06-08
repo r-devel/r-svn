@@ -124,7 +124,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     stripped.
   }
 
-  \item{quiet}{logical: if \code{FALSE} (default), scan() will print a
+  \item{quiet}{logical: if \code{FALSE} (default), print a
     line, saying how many items have been read.}
 
   \item{blank.lines.skip}{logical: if \code{TRUE} blank lines in the
@@ -155,8 +155,8 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   \item{fileEncoding}{character string: if non-empty declares the
     encoding used on a file (not a connection nor the keyboard) so the
     character data can be re-encoded.  See the \sQuote{Encoding} section
-    of the help for \code{\link{file}}, and the \sQuote{R Data
-      Import/Export Manual}.
+    of the help for \code{\link{file}}, and
+    \manual{R-data}{Variations on read.table}.
   }
 
   \item{encoding}{encoding to be assumed for input strings.  If the
@@ -232,8 +232,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   blank lines.
 
   There is a line-length limit of 4095 bytes when reading from the
-  console (which may impose a lower limit: see \sQuote{An Introduction
-  to R}).
+  console (which may impose a lower limit).% see \manual{R-intro}{}
 
   There is a check for a user interrupt every 1000 lines if \code{what}
   is a list, otherwise every 10000 items.
@@ -278,9 +277,7 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
   in text files -- see \code{\link{readBin}}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{read.table}} for more user-friendly reading of data

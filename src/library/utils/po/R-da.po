@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.0.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2026-05-25 12:54\n"
 "PO-Revision-Date: 2012-01-09 20:51+0200\n"
 "Last-Translator: Joe <joedalton2@yahoo.dk>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -30,7 +30,7 @@ msgstr "dokument blev ikke fundet"
 msgid "some options in argument 'restrict' were not recognized and hence ignored"
 msgstr ""
 
-msgid "argument 'format' is deprecated and has no affect on search results"
+msgid "argument 'format' is deprecated and has no effect on search results"
 msgstr ""
 
 #, fuzzy
@@ -77,9 +77,6 @@ msgstr "Advarsel: Ukendt indstilling"
 msgid "Warning: unknown option %s"
 msgstr "Advarsel: Ukendt indstilling"
 
-msgid "Output file:"
-msgstr ""
-
 #, fuzzy
 msgid "Compacting PDF document"
 msgstr "Oprettet PDF-dokument"
@@ -101,6 +98,15 @@ msgstr "værdien af tilvalget »results« skal være med små bogstaver"
 
 msgid "value of 'strip.white' option should be lowercase"
 msgstr "værdien af indstillingen »strip.white« skal være med små bogstaver"
+
+msgid "using default value %s"
+msgstr ""
+
+msgid "this function cannot be used from an interactive session"
+msgstr ""
+
+msgid "unrecognized Sweave call"
+msgstr ""
 
 msgid "elements of 'what' after the first will be ignored"
 msgstr "elementer for »what« efter den første vil blive ignoreret"
@@ -148,6 +154,9 @@ msgstr "Intet egnet stavekontrolprogram blev fundet."
 msgid "Performing query %s"
 msgstr ""
 
+msgid "Unsupported object"
+msgstr ""
+
 #, fuzzy
 msgid ""
 "Use <code> %s </code> \n"
@@ -185,8 +194,14 @@ msgstr "Det anbefales at bruge %s i stedet for %s."
 msgid "Use either %s or %s but not both."
 msgstr "Brug enten %s eller %s men ikke begge."
 
-msgid "It is recommended to use %s/%s instead of %s/%s/%s."
-msgstr "Det anbefales at bruge %s/%s i stedet for %s/%s/%s."
+msgid "Arguments of person() should be character or NULL"
+msgstr ""
+
+msgid "subscript out of bounds"
+msgstr ""
+
+msgid "must have some non-empty fields"
+msgstr ""
 
 #, fuzzy
 msgid "method is only applicable to %s objects"
@@ -202,9 +217,6 @@ msgstr "alle felter skal navngives"
 msgid "%s has to be one of %s"
 msgstr "%s skal være en af %s"
 
-msgid "subscript out of bounds"
-msgstr ""
-
 msgid "%s should be one of %s"
 msgstr "%s skal være en af %s"
 
@@ -217,6 +229,9 @@ msgstr ""
 msgid ""
 "Dropping invalid entry %d:\n"
 "%s"
+msgstr ""
+
+msgid "package %s has no %s file: only auto-generation is possible"
 msgstr ""
 
 msgid "could not determine year for %s from package DESCRIPTION file"
@@ -297,6 +312,9 @@ msgid "Enter an environment number, or 0 to exit"
 msgstr ""
 
 msgid "recover called non-interactively; frames dumped, use debugger() to view"
+msgstr ""
+
+msgid "Enter a frame number, or 0 to exit"
 msgstr ""
 
 msgid "No suitable frames for recover()"
@@ -463,7 +481,7 @@ msgid "Unable to connect to CRAN to check R version."
 msgstr ""
 
 #, fuzzy
-msgid "argument %s must be a character string"
+msgid "'%s' must be a character string"
 msgstr "»package« skal være en tegnstreng eller NULL"
 
 msgid "incorrect field specification"
@@ -559,6 +577,9 @@ msgstr ""
 msgid "'%s' is a formal generic function; S3 methods will not likely be found"
 msgstr ""
 
+msgid "some methods may be unavailable outside of their namespace"
+msgstr ""
+
 msgid "no function '%s' is visible"
 msgstr ""
 
@@ -607,18 +628,14 @@ msgstr ""
 msgid "'list' must be a character vector naming R objects"
 msgstr ""
 
-msgid "no R objects specified or available"
-msgstr ""
-
 msgid "directory '%s' already exists"
 msgstr ""
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr ""
 
-#, fuzzy
-msgid "invalid 'type'; must be a character string"
-msgstr "»package« skal være en tegnstreng eller NULL"
+msgid "'download.file()' error code '%d'"
+msgstr ""
 
 msgid "unable to access index for repository %s"
 msgstr ""
@@ -660,10 +677,6 @@ msgstr ""
 msgid "no package %s at the repositories"
 msgstr ""
 
-#, fuzzy
-msgid "invalid 'type'"
-msgstr "Ugyldigt argument for »filter«."
-
 msgid "package %s does not exist on the local repository"
 msgstr ""
 
@@ -676,8 +689,9 @@ msgstr ""
 msgid "trying to use CRAN without setting a mirror"
 msgstr ""
 
-msgid "'download.file()' error code '%d'"
-msgstr ""
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "Ugyldigt argument for »filter«."
 
 msgid "failed to download mirrors file (%s); using local file '%s'"
 msgstr ""
@@ -719,10 +733,6 @@ msgid ""
 "skipping dependencies"
 msgstr ""
 
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "»package« skal være en tegnstreng eller NULL"
-
 msgid "type 'binary' is not supported on this platform"
 msgstr ""
 
@@ -753,7 +763,7 @@ msgstr ""
 msgid "unable to create temporary directory %s"
 msgstr ""
 
-msgid "type == \"both\" can only be used on Windows or a CRAN build for macOS"
+msgid "type == \"both\" can only be used in R builds that have well-defined binary type (e.g., CRAN binary releases)"
 msgstr ""
 
 msgid "type == \"both\" cannot be used with 'repos = NULL'"
@@ -762,10 +772,7 @@ msgstr ""
 msgid "source repository is unavailable to check versions"
 msgstr ""
 
-msgid "cannot install macOS binary packages on Windows"
-msgstr ""
-
-msgid "cannot install macOS binary packages on this platform"
+msgid "cannot install binary packages from other operating systems on Windows"
 msgstr ""
 
 msgid "cannot install Windows binary packages on this platform"
@@ -1049,16 +1056,19 @@ msgstr ""
 msgid "xz"
 msgstr ""
 
+msgid "zstd"
+msgstr ""
+
 msgid "failed to create directory %s"
 msgstr ""
 
 msgid "invalid octal digit"
 msgstr ""
 
-msgid "removing drive '%s'"
+msgid "removing leading '/' from '%s'"
 msgstr ""
 
-msgid "removing leading '/'"
+msgid "removing drive '%s'"
 msgstr ""
 
 msgid "path starts with '~'"
@@ -1068,7 +1078,7 @@ msgstr ""
 msgid "path contains '..'"
 msgstr "sti til %s indeholder mellemrum."
 
-msgid "path is empty"
+msgid "cannot extract through symlink"
 msgstr ""
 
 msgid "'tarfile' must be a character string or a connection"
@@ -1087,6 +1097,9 @@ msgid "checksum error for entry '%s'"
 msgstr ""
 
 msgid "failed to copy %s to %s"
+msgstr ""
+
+msgid "cannot restore symbolic link from %s to %s as a file copy, because the source doesn't exist; try extracting again?"
 msgstr ""
 
 msgid "unsupported entry type"
@@ -1197,13 +1210,27 @@ msgstr "Ugyldigt argument for »filter«."
 msgid "download had nonzero exit status"
 msgstr ""
 
+msgid "Built: value is not a string"
+msgstr ""
+
 msgid "'tar' returned non-zero exit code %d"
 msgstr ""
 
-msgid "file %s is not a macOS binary package"
+#, fuzzy
+msgid "file %s is not a binary package"
+msgstr "Filter »%s« er ikke tilgængelig."
+
+msgid "binary package %s is not compatible with this build of R"
 msgstr ""
 
-msgid "package %s successfully unpacked and MD5 sums checked"
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr ""
+
+#, fuzzy
+msgid "package %s signature verified (%s %s)"
+msgstr "Filter »%s« er ikke tilgængelig."
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
 msgstr ""
 
 msgid ""
@@ -1228,10 +1255,10 @@ msgid ""
 "\t%s"
 msgstr ""
 
-msgid "'memory.size()' is Windows-specific"
+msgid "'memory.size()' is no longer supported"
 msgstr ""
 
-msgid "'memory.limit()' is Windows-specific"
+msgid "'memory.limit()' is no longer supported"
 msgstr ""
 
 msgid "method 'mailx' is Unix-only"
@@ -1240,6 +1267,9 @@ msgstr ""
 #, fuzzy
 msgid "zip file %s not found"
 msgstr "pakke %s blev ikke fundet"
+
+msgid "cannot extract package from %s"
+msgstr ""
 
 msgid "failed to create %s"
 msgstr ""
@@ -1256,12 +1286,6 @@ msgstr ""
 msgid "Only '*.zip' and '*.tar.gz' files can be installed."
 msgstr ""
 
-msgid "'memory.size()' is no longer supported"
-msgstr ""
-
-msgid "'memory.limit()' is no longer supported"
-msgstr ""
-
 msgid "winDialog() cannot be used non-interactively"
 msgstr ""
 
@@ -1273,6 +1297,11 @@ msgid "%d Sweave file for basename %s found"
 msgid_plural "%d Sweave files for basename %s found"
 msgstr[0] "%d Sweavefiler for basisnavn %s blev fundet:"
 msgstr[1] "%d Sweavefiler for basisnavn %s blev fundet:"
+
+msgid "Output file:  "
+msgid_plural "Output files:  "
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "Output/used file:  "
 msgid_plural "Output/used files:  "
@@ -1290,6 +1319,16 @@ msgid "Invalid role specification: %s."
 msgid_plural "Invalid role specifications: %s."
 msgstr[0] "Ugyldige rollespecifikationer: %s."
 msgstr[1] "Ugyldige rollespecifikationer: %s."
+
+msgid "Invalid ORCID iD: %s."
+msgid_plural "Invalid ORCID iDs: %s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Invalid ROR ID: %s."
+msgid_plural "Invalid ROR IDs: %s."
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "A bibentry of bibtype %s has to specify the field: %s"
 msgid_plural "A bibentry of bibtype %s has to specify the fields: %s"
@@ -1419,6 +1458,17 @@ msgid "invalid roman numeral: %s"
 msgid_plural "invalid roman numerals: %s"
 msgstr[0] "ugyldig værdi for %s: %s"
 msgstr[1] "ugyldig værdi for %s: %s"
+
+#~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
+#~ msgstr "Det anbefales at bruge %s/%s i stedet for %s/%s/%s."
+
+#, fuzzy
+#~ msgid "argument %s must be a character string"
+#~ msgstr "»package« skal være en tegnstreng eller NULL"
+
+#, fuzzy
+#~ msgid "invalid 'type'; must be a character string"
+#~ msgstr "»package« skal være en tegnstreng eller NULL"
 
 #~ msgid "file 'filelist' is missing for directory %s"
 #~ msgstr "fil »filelist« mangler for mappe %s"

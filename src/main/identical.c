@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-2023  The R Core Team
+ *  Copyright (C) 2001-2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ typedef enum {
 } ne_strictness_type;
 /* NOTE:  ne_strict = NUM_EQ + (SINGLE_NA * 2)  = NUM_EQ | (SINGLE_NA << 1)   */
 
-static Rboolean neWithNaN(double x, double y, ne_strictness_type str);
+static bool neWithNaN(double x, double y, ne_strictness_type str);
 
 
 static R_INLINE int asFlag(SEXP x, const char *name)
@@ -103,7 +103,7 @@ attribute_hidden SEXP do_identical(SEXP call, SEXP op, SEXP args, SEXP env)
 #define EXTPTR_AS_REF   (flags & IDENT_EXTPTR_AS_REF)
 
 /* do the two objects compute as identical?
-   Also used in unique.c */
+   Also used in unique.c, eval.c, relop.c, dotcode.c, and exported */
 Rboolean
 R_compute_identical(SEXP x, SEXP y, int flags)
 {
@@ -118,7 +118,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
        -- such attributes are used for the cache.  */
     if(TYPEOF(x) == CHARSXP) {
 	/* This matches NAs */
-	return Seql(x, y);
+	return Seql(x, y) == 1;
     }
     SEXP ax, ay;
     if (IGNORE_SRCREF && TYPEOF(x) == CLOSXP) {
@@ -230,12 +230,12 @@ R_compute_identical(SEXP x, SEXP y, int flags)
     case LGLSXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
-	return memcmp((void *)LOGICAL(x), (void *)LOGICAL(y),
+	return memcmp((const void *)LOGICAL_RO(x), (const void *)LOGICAL_RO(y),
 		      xlength(x) * sizeof(int)) == 0 ? TRUE : FALSE;
     case INTSXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
-	return memcmp((void *)INTEGER(x), (void *)INTEGER(y),
+	return memcmp((const void *)INTEGER_RO(x), (const void *)INTEGER_RO(y),
 		      xlength(x) * sizeof(int)) == 0 ? TRUE : FALSE;
     case INT64SXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
@@ -246,7 +246,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	R_xlen_t n = XLENGTH(x);
 	if(n != XLENGTH(y)) return FALSE;
 	else {
-	    double *xp = REAL(x), *yp = REAL(y);
+	    const double *xp = REAL_RO(x), *yp = REAL_RO(y);
 	    int ne_strict = NUM_EQ | (SINGLE_NA << 1);
 	    for(R_xlen_t i = 0; i < n; i++)
 		if(neWithNaN(xp[i], yp[i], ne_strict)) return FALSE;
@@ -258,7 +258,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	R_xlen_t n = XLENGTH(x);
 	if(n != XLENGTH(y)) return FALSE;
 	else {
-	    Rcomplex *xp = COMPLEX(x), *yp = COMPLEX(y);
+	    const Rcomplex *xp = COMPLEX_RO(x), *yp = COMPLEX_RO(y);
 	    int ne_strict = NUM_EQ | (SINGLE_NA << 1);
 	    for(R_xlen_t i = 0; i < n; i++)
 		if(neWithNaN(xp[i].r, yp[i].r, ne_strict) ||
@@ -273,7 +273,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	if(n != XLENGTH(y)) return FALSE;
 	for(i = 0; i < n; i++) {
 	    /* This special-casing for NAs is not needed */
-	    Rboolean na1 = (STRING_ELT(x, i) == NA_STRING),
+	    bool na1 = (STRING_ELT(x, i) == NA_STRING),
 		na2 = (STRING_ELT(y, i) == NA_STRING);
 	    if(na1 ^ na2) return FALSE;
 	    if(na1 && na2) continue;
@@ -284,7 +284,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
     case CHARSXP: /* Probably unreachable, but better safe than sorry... */
     {
 	/* This matches NAs */
-	return Seql(x, y);
+	return Seql(x, y) == 1;
     }
     case VECSXP:
     case EXPRSXP:
@@ -349,7 +349,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
     case RAWSXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
-	return memcmp((void *)RAW(x), (void *)RAW(y),
+	return memcmp((const void *)RAW_RO(x), (const void *)RAW_RO(y),
 		      XLENGTH(x) * sizeof(Rbyte)) == 0 ? TRUE : FALSE;
     case PROMSXP:
     {
@@ -391,7 +391,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
  *
  * @return FALSE or TRUE indicating if x or y differ
  */
-static Rboolean neWithNaN(double x, double y, ne_strictness_type str)
+static bool neWithNaN(double x, double y, ne_strictness_type str)
 {
     switch (str) {
     case single_NA__num_eq:

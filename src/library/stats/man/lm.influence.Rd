@@ -1,6 +1,6 @@
 % File src/library/stats/man/lm.influence.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lm.influence}
@@ -70,8 +70,7 @@ qr.influence(qr, res, tol = 10 * .Machine$double.eps)
     of the residual standard deviation obtained when the i-th
     case is dropped from the regression.  (The approximations needed for
     GLMs can result in this being \code{NaN}.)}
-  \item{wt.res}{a vector of \emph{weighted} (or for class \code{glm}
-    rather \emph{deviance}) residuals.}
+  \item{wt.res}{a vector of \emph{weighted} residuals.}
 
   \code{qr.influence()} returns list with the two components \code{hat} and
   \code{sigma}, as above but without \code{\link{names}}.
@@ -91,15 +90,15 @@ qr.influence(qr, res, tol = 10 * .Machine$double.eps)
   If a model has been fitted with \code{na.action = na.exclude} (see
   \code{\link{na.exclude}}), cases excluded in the fit \emph{are}
   considered here.
+
+  These functions call \code{\link{weighted.residuals}()} so it is
+  assumed that the methods for \code{residuals()} and \code{weights()}
+  accept \code{type="working"}.
 }
 \references{
   See the list in the documentation for \code{\link{influence.measures}}.
 
-  Chambers, J. M. (1992)
-  \emph{Linear models.}
-  Chapter 4 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
-}
+  \bibshow{R:Chambers:1992:c4}}
 \seealso{
 \code{\link{summary.lm}} for \code{\link{summary}} and related methods;\cr
 \code{\link{influence.measures}},\cr

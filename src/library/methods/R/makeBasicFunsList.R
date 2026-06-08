@@ -1,7 +1,7 @@
 #  File src/library/methods/R/makeBasicFunsList.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ utils::globalVariables(".addBasicGeneric")
     ## the Math group.
     members <- c("abs", "sign", "sqrt",
 		 "ceiling", "floor", "trunc",
-		 "cummax", "cummin", "cumprod", "cumsum",
+		 "cummax", "cummin", "cumprod", "cumsum", "cumvar",
 		 "exp", "expm1",
 		 "log", "log10", "log2", "log1p",
 		 "cos", "cosh", "sin", "sinh", "tan", "tanh",
@@ -214,7 +214,7 @@ utils::globalVariables(".addBasicGeneric")
 	       signature = c("x", "type"), where = where)
     ## this method *belong*s to the generic:
     setMethod("norm", signature(x = "ANY", type = "missing"),
-              function (x, type, ...) norm(x, type = "O", ...))
+              function (x, type, ...) .implicitTable$norm(x, type = "O", ...))
     setGenericImplicit("norm", where, FALSE)
 
     setGeneric("backsolve", function(r, x, k = ncol(r), upper.tri = TRUE, transpose = FALSE, ...)
@@ -226,24 +226,24 @@ utils::globalVariables(".addBasicGeneric")
 	       signature = c("r", "x"), where = where)
     setGenericImplicit("backsolve", where, FALSE)
 
-    setGeneric("colMeans", function(x, na.rm = FALSE, dims = 1, ...)
+    setGeneric("colMeans", function(x, na.rm = FALSE, dims = 1L, ...)
 			standardGeneric("colMeans"),
-	       useAsDefault = function(x, na.rm = FALSE, dims = 1, ...)
+	       useAsDefault = function(x, na.rm = FALSE, dims = 1L, ...)
 			base::colMeans(x, na.rm=na.rm, dims=dims, ...),
 	       signature = "x", where = where)
-    setGeneric("colSums", function(x, na.rm = FALSE, dims = 1, ...)
+    setGeneric("colSums", function(x, na.rm = FALSE, dims = 1L, ...)
 			standardGeneric("colSums"),
-	       useAsDefault = function(x, na.rm = FALSE, dims = 1, ...)
+	       useAsDefault = function(x, na.rm = FALSE, dims = 1L, ...)
 			base::colSums(x, na.rm=na.rm, dims=dims, ...),
 	       signature = "x", where = where)
-    setGeneric("rowMeans", function(x, na.rm = FALSE, dims = 1, ...)
+    setGeneric("rowMeans", function(x, na.rm = FALSE, dims = 1L, ...)
 			standardGeneric("rowMeans"),
-	       useAsDefault = function(x, na.rm = FALSE, dims = 1, ...)
+	       useAsDefault = function(x, na.rm = FALSE, dims = 1L, ...)
 			base::rowMeans(x, na.rm=na.rm, dims=dims, ...),
 	       signature = "x", where = where)
-    setGeneric("rowSums", function(x, na.rm = FALSE, dims = 1, ...)
+    setGeneric("rowSums", function(x, na.rm = FALSE, dims = 1L, ...)
 			standardGeneric("rowSums"),
-	       useAsDefault = function(x, na.rm = FALSE, dims = 1, ...)
+	       useAsDefault = function(x, na.rm = FALSE, dims = 1L, ...)
 			base::rowSums(x, na.rm=na.rm, dims=dims, ...),
 	       signature = "x", where = where)
     setGenericImplicit("colMeans", where, FALSE)
@@ -251,14 +251,8 @@ utils::globalVariables(".addBasicGeneric")
     setGenericImplicit("rowMeans", where, FALSE)
     setGenericImplicit("rowSums",  where, FALSE)
 
-    setGeneric("crossprod", function(x, y = NULL, ...) standardGeneric("crossprod"),
-	       useAsDefault = function(x, y = NULL, ...) base::crossprod(x, y),
-	       signature = c("x", "y"), where = where)
-    setGeneric("tcrossprod", function(x, y = NULL, ...) standardGeneric("tcrossprod"),
-	       useAsDefault = function(x, y = NULL, ...) base::tcrossprod(x, y),
-	       signature = c("x", "y"), where = where)
-    setGenericImplicit("crossprod",  where, FALSE)
-    setGenericImplicit("tcrossprod",  where, FALSE)
+    ## "crossprod"  and
+    ## "tcrossprod" have been made internal (S3 and) S4 generics see .BasicFunsList
 
     setGeneric("sample", function(x, size, replace = FALSE, prob = NULL, ...)
 			standardGeneric("sample"),
@@ -285,7 +279,7 @@ utils::globalVariables(".addBasicGeneric")
 
     ## our toeplitz() only has 'x'; want the generic "here" rather than "out there"
     setGeneric("toeplitz", function(x, ...) standardGeneric("toeplitz"),
-	       useAsDefault= function(x, ...) stats::toeplitz(x),
+	       useAsDefault = function(x, ...) stats::toeplitz(x, ...),
 	       signature = "x", where = where)
     setGenericImplicit("toeplitz", where, FALSE)
 
@@ -294,7 +288,6 @@ utils::globalVariables(".addBasicGeneric")
 	       useAsDefault= function(x, ...) base::svd(x, ...),
 	       signature = "x", where = where)
     setGenericImplicit("svd", where, FALSE)
-
 
     ## zapsmall(): signature  only  "x"
     setGeneric("zapsmall", function(x, digits = getOption("digits"),

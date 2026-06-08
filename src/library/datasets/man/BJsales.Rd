@@ -1,6 +1,6 @@
 % File src/library/datasets/man/BJsales.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{BJsales}
@@ -11,24 +11,19 @@
 \description{
   The sales time series \code{BJsales} and leading indicator
   \code{BJsales.lead} each contain 150 observations.
-  The objects are of class \code{"ts"}.
+  The objects are of class \code{"\link{ts}"}.
 }
 \usage{
 BJsales
 BJsales.lead
 }
 \source{
-  The data are given in Box & Jenkins (1976).
+  The data are given in \bibcitet{|R:Box+Jenkins:1976|p.\sspace{}537}.
   Obtained from the Time Series Data Library at
   \url{https://robjhyndman.com/TSDL/}
 }
 \references{
-  G. E. P. Box and G. M. Jenkins (1976):
-  \emph{Time Series Analysis, Forecasting and Control},
-  Holden-Day, San Francisco, p.\sspace{}537.
-
-  P. J. Brockwell and R. A. Davis (1991):
-  \emph{Time Series: Theory and Methods},
-  Second edition, Springer Verlag, NY, pp.\sspace{}414.
+  \bibinfo{R:Brockwell+Davis:1991}{note}{Example 11.2.2, page 414}
+  \bibshow{*, R:Brockwell+Davis:1991}
 }
 \keyword{datasets}

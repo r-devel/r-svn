@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2024-02-26 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -37,7 +37,11 @@ msgstr "クラスタ 'cl' が指定されておらず、登録されているも
 msgid "not a valid cluster"
 msgstr "有効なクラスターではありません"
 
-msgid "unknown cluster type"
+msgid "replacing registration for cluster type '%s'"
+msgstr ""
+
+#, fuzzy
+msgid "unknown cluster type: '%s'"
 msgstr "不明なクラスター型です"
 
 msgid "numeric 'names' must be >= 1"
@@ -83,8 +87,7 @@ msgid "%d function calls resulted in an error"
 msgstr "%d個の関数呼び出し中にエラーが発生しました"
 
 msgid "'mc.preschedule' must be false if 'affinity.list' is used"
-msgstr "'mc.preschedule' が使用されている場合、'affinity.list' は false"
-"でなければなりません"
+msgstr "'mc.preschedule' が使用されている場合、'affinity.list' は falseでなければなりません"
 
 msgid "all scheduled cores encountered errors in user code"
 msgstr "スケジュールされたすべてのコアでユーザー コードでエラーが発生しました"
@@ -99,8 +102,7 @@ msgid "'v' must be a vector"
 msgstr "'v' はベクトルでなければなりません"
 
 msgid "some results may be missing, folded or caused an error"
-msgstr "一部の結果が欠落している、折りたたまれている、またはエラーが発生している可能"
-"性があります"
+msgstr "一部の結果が欠落している、折りたたまれている、またはエラーが発生している可能性があります"
 
 msgid "fork clusters are not supported on Windows"
 msgstr "fork クラスターは Windows ではサポートされていません"
@@ -122,13 +124,11 @@ msgstr[0] "%d 個の並列関数呼び出しで結果が得られませんでし
 
 msgid "scheduled core %s did not deliver a result, all values of the job will be affected"
 msgid_plural "scheduled cores %s did not deliver results, all values of the jobs will be affected"
-msgstr[0] "スケジュールされたコア %s"
-"は結果を提供しませんでした。ジョブのすべての値が影響を受けます。"
+msgstr[0] "スケジュールされたコア %sは結果を提供しませんでした。ジョブのすべての値が影響を受けます。"
 
 msgid "scheduled core %s encountered error in user code, all values of the job will be affected"
 msgid_plural "scheduled cores %s encountered errors in user code, all values of the jobs will be affected"
-msgstr[0] "スケジュールされたコア %s でユーザー"
-"コードでエラーが発生しました。ジョブのすべての値が影響を受けます。"
+msgstr[0] "スケジュールされたコア %s でユーザーコードでエラーが発生しました。ジョブのすべての値が影響を受けます。"
 
 msgid "%d parallel job did not deliver a result"
 msgid_plural "%d parallel jobs did not deliver results"

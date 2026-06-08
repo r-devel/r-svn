@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,12 +22,18 @@ function(contriburl = contrib.url(repos, type), method,
          type = getOption("pkgType"), filters = NULL,
          repos = getOption("repos"),
          ignore_repo_cache = FALSE, max_repo_cache_age,
-         quiet = TRUE, ...)
+         cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
+         quiet = TRUE, verbose = FALSE, ...)
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
+    ## We need Built if any of the URLs are binaries. At this point we don't enforce that url/type
+    ## match, partially because we don't actually use that information, but in case we are
+    ## on a system with binaries the default pkgType will contain "binary" or "both" so we take it
+    ## as a hint that one of them may be binary and thus we need "Built"
     requiredFields <-
-        c(tools:::.get_standard_repository_db_fields(), "File")
+        c(tools:::.get_standard_repository_db_fields(), "File", "Published",
+          if(any(grepl("(binary|both)", type))) "Built")
     if (is.null(fields))
 	fields <- requiredFields
     else {
@@ -42,6 +48,29 @@ function(contriburl = contrib.url(repos, type), method,
 
     res <- matrix(NA_character_, 0L, length(fields) + 1L,
 		  dimnames = list(NULL, c(fields, "Repository")))
+
+    url_to_cache_name <- function(url)
+    {
+          # from rfc 3986
+          re <- "^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?"
+          p <- unlist(regmatches(url, regexec(re, url)))[c(2,4,6,7,9)]
+          names(p) <- c("scheme", "authority", "path", "query", "fragment")
+
+          if (grepl("@", p["authority"], fixed=TRUE)) {
+              rea <- "//([^@]*)@(.*)"
+              pa <- unlist(regmatches(p["authority"],
+                                      regexec(rea, p["authority"])))[c(2,3)]
+              names(pa) <- c("userinfo", "hostport")
+              if (nzchar(pa["userinfo"])) {
+                  # replace user info by a hash
+                  sha <- tools::sha256sum(bytes=charToRaw(pa["userinfo"]))
+                  url <- paste0(p["scheme"], "//",
+                                substr(sha, 49, 64), "@", pa["hostport"],
+                                p["path"], p["query"], p["fragment"])
+              }
+          }
+          URLencode(url, TRUE)
+    }
 
     for(repos in unique(contriburl)) {
         localcran <- startsWith(repos, "file:")
@@ -67,8 +96,10 @@ function(contriburl = contrib.url(repos, type), method,
             if(ignore_repo_cache) {
                 dest <- tempfile()
             } else {
-                dest <- file.path(tempdir(),
-                                  paste0("repos_", URLencode(repos, TRUE), ".rds"))
+                dest <- file.path(if(cache_user_dir) tools::R_user_dir("base", "cache")
+                                  else tempdir(),
+                                  paste0("repos_", url_to_cache_name(repos),
+                                         ".rds"))
                 if(file.exists(dest)) {
                     age <- difftime(timestamp, file.mtime(dest), units = "secs")
                     if(isTRUE(age < max_repo_cache_age)) {
@@ -89,9 +120,12 @@ function(contriburl = contrib.url(repos, type), method,
                 need_dest <- FALSE
                 op <- options(warn = -1L)
                 z <- tryCatch({
-                    download.file(url = paste0(repos, "/PACKAGES.rds"),
-                                  destfile = dest, method = method,
-                                  cacheOK = FALSE, quiet = quiet, mode = "wb", ...)
+                    z <- download.file(url = paste0(repos, "/PACKAGES.rds"),
+                                       destfile = dest, method = method,
+                                       cacheOK = FALSE, quiet = quiet,
+                                       mode = "wb", ...)
+                    if(z != 0L)
+                        stop(gettextf("'download.file()' error code '%d'", z))
                 }, error = identity)
                 options(op)
                 if(!inherits(z, "error")) {
@@ -109,17 +143,23 @@ function(contriburl = contrib.url(repos, type), method,
                     ## FIXME: this should check the return value == 0L
                     z <- tryCatch({
                         ## This is a binary file
-                        download.file(url = paste0(repos, "/PACKAGES.gz"),
-                                      destfile = tmpf, method = method,
-                                      cacheOK = FALSE, quiet = quiet, mode = "wb", ...)
+                        z <- download.file(url = paste0(repos, "/PACKAGES.gz"),
+                                           destfile = tmpf, method = method,
+                                           cacheOK = FALSE, quiet = quiet,
+                                           mode = "wb", ...)
+                        if(z != 0L)
+                            stop(gettextf("'download.file()' error code '%d'", z))
                     }, error = identity)
                     if(inherits(z, "error"))
                         z <- tryCatch({
                             ## read.dcf is going to interpret CRLF as
                             ## LF, so use binary mode to avoid CRLF.
-                            download.file(url = paste0(repos, "/PACKAGES"),
+                            z <- download.file(url = paste0(repos, "/PACKAGES"),
                                           destfile = tmpf, method = method,
-                                          cacheOK = FALSE, quiet = quiet, mode = "wb", ...)
+                                          cacheOK = FALSE, quiet = quiet,
+                                          mode = "wb", ...)
+                            if(z != 0L)
+                                stop(gettextf("'download.file()' error code '%d'", z))
                         }, error = identity)
                     options(op)
 
@@ -169,6 +209,8 @@ function(contriburl = contrib.url(repos, type), method,
             res0 <- cbind(res0[, fields, drop = FALSE], Repository = rp)
             res <- rbind(res, res0, deparse.level = 0L)
         }
+        if(verbose) cat("added", NROW(res0), "packages, from repos", sQuote(repos),
+                        "to a total of", NROW(res), "\n")
     } ## end  for(repos in *)
 
     if(!length(res)) return(res)
@@ -210,6 +252,20 @@ available_packages_filters_db$R_version <-
 function(db)
 {
     ## Ignore packages which don't fit our version of R.
+    
+    ## Compare current R version to given R version dependency which may
+    ## also be an SVN revision.
+    cmp <- function(o, v) {
+        y <- logical(length(v))
+        i <- startsWith(v, "r")
+        if(length(p <- which(i)))
+            y[p] <- do.call(o, list(as.numeric(R.version[["svn rev"]]),
+                                    as.numeric(substring(v[p], 2L))))
+        if(length(p <- which(!i)))
+            y[p] <- do.call(o, list(getRversion(), v[p]))
+        y
+    }
+    
     depends <- db[, "Depends"]
     depends[is.na(depends)] <- ""
     ## Collect the (versioned) R depends entries.
@@ -225,14 +281,12 @@ function(db)
     end <- 3L + (substring(x, 4L, 4L) == "=")
     ## Extract ops.
     ops <- substring(x, 3L, end)
-    ## Split target versions accordings to ops.
-    v_t <- split(substring(x, end + 1L, nchar(x) - 1L), ops)
-    ## Current R version.
-    v_c <- getRversion()
+    ## Split target versions according to ops.
+    ver <- split(substring(x, end + 1L, nchar(x) - 1L), ops)
     ## Compare current to target grouped by op.
     res <- logical(length(x))
-    for(op in names(v_t))
-        res[ops == op] <- do.call(op, list(v_c, v_t[[op]]))
+    for(op in names(ver))
+        res[ops == op] <- cmp(op, ver[[op]])
     ## And assemble test results according to the rows of db.
     pos <- pos[!vapply(split(res, rep.int(seq_along(lens), lens)), all,
                        NA)]
@@ -364,7 +418,7 @@ update.packages <- function(lib.loc = NULL, repos = getOption("repos"),
                             checkBuilt = FALSE, type = getOption("pkgType"))
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     force(ask)  # just a check that it is valid before we start work
     text.select <- function(old)
     {
@@ -373,7 +427,7 @@ update.packages <- function(lib.loc = NULL, repos = getOption("repos"),
             cat(old[k, "Package"], ":\n",
                 "Version", old[k, "Installed"],
                 "installed in", old[k, "LibPath"],
-                if(checkBuilt) paste("built under R", old[k, "Built"]),
+                if(checkBuilt) paste("built under R", .builtRver(old[k, "Built"])),
                 "\n",
                 "Version", old[k, "ReposVer"], "available at",
                 simplifyRepos(old[k, "Repository"], type))
@@ -397,8 +451,10 @@ update.packages <- function(lib.loc = NULL, repos = getOption("repos"),
         stop("specifying 'contriburl' or 'available' requires a single type, not type = \"both\"")
     }
     if(is.null(available)) {
-        available <- available.packages(contriburl = contriburl,
-                                        method = method, ...)
+        available <- if (type == "both" && .Platform$pkgType != "source")
+                         .available.both(repos, method, ...)
+                     else
+                         available.packages(contriburl = contriburl, method = method, ...)
         if (missing(repos)) repos <- getOption("repos") # May have changed
     }
     if(!is.matrix(oldPkgs) && is.character(oldPkgs)) {
@@ -466,6 +522,47 @@ update.packages <- function(lib.loc = NULL, repos = getOption("repos"),
     }
 }
 
+## (see also indices.R but it strips the time, sadly)
+.builtDate <- function(built) { ## see also tools::.split_description, but return NA if something went wrong
+    ## also allow structure from package.rds (just in case)
+    bc <- if (is.list(built) && is.character(built$Date))
+              built$Date
+          else
+              strsplit(built, "; ", fixed=TRUE)[[1]]
+    ## Note that the timestamp should be always in UTC
+    ## Some systems overwrite this field with invalid timestaps so ignore those
+    if (length(bc) >= 3L)
+        tryCatch(as.POSIXct(bc[3], "UTC"), error=function(e) NA)
+    else
+        NA
+}
+
+.builtRver <- function(built) ## convert full "Built" string to just R version (unless it is already)
+    gsub("^R ([0-9.]+).*", "\\1", built)
+
+## this is a wrapper of available.packages that handles the special case of type="both"
+## by calling available.packages twice: once with "source" and once with "binary",
+## combing the result. Given that the combination step is subject to specific choices,
+## the logic in this wrapper is tailored for internal use in update.packages and old.packages.
+.available.both <- function(repos, method, ...) {
+    ## "both" gets complicated as we have to use available.packages twice
+    fields <- c(tools:::.get_standard_repository_db_fields(), "File", "Built")
+    av.src <- available.packages(contriburl = contrib.url(repos, "source"), method = method, fields = fields, ...)
+    av.bin <- available.packages(contriburl = contrib.url(repos, "binary"), method = method, fields = fields, ...)
+    ## we keep things simple in that we use source unless there is the same binary version
+    ## so that we can get at the Built field. This is more simple than in install.packages
+    ## since we only care about determining whether a package is new, but not which type is
+    ## preferred - install.packages will sort that out.
+    pkg.src <- row.names(av.src)
+    pkg.bin <- row.names(av.bin)
+    bin.ver <- av.bin[pkg.bin, "Version"]
+    src.ver <- av.src[pkg.bin, "Version"]
+    use.bin <- pkg.bin[as.numeric_version(bin.ver) >= as.numeric_version(src.ver)]
+    use.bin <- use.bin[!is.na(use.bin)]
+    use.src <- pkg.src[pkg.src %notin% use.bin]
+    rbind(av.src[use.src,], av.bin[use.bin, ])
+}
+
 old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
                          contriburl = contrib.url(repos, type),
                          instPkgs = installed.packages(lib.loc = lib.loc, ...),
@@ -473,7 +570,7 @@ old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
                          ..., type = getOption("pkgType"))
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     if(is.null(lib.loc))
         lib.loc <- .libPaths()
     if(!missing(instPkgs)) {
@@ -483,23 +580,41 @@ old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
     }
     if(NROW(instPkgs) == 0L) return(NULL)
 
-    available <- if(is.null(available))
-        available.packages(contriburl = contriburl, method = method, ...)
-    else tools:::.remove_stale_dups(available)
+    ## NB: type is ignored if either available or contriburl is specified.
+    ## update.packages() raises an error in that case, but we can't really do that,
+    ## becuase we get called with available internally
+    available <- if(is.null(available)) {
+                     if (type == "both" && .Platform$pkgType != "source")
+                         .available.both(repos, method, ...)
+                     else
+                         available.packages(contriburl = contriburl, method = method, ...)
+                 } else tools:::.remove_stale_dups(available)
 
     update <- NULL
+
+    ## safely attempt to parse a (possibly incomplete) timestamp in UTC
+    .ts <- function(x) if (isTRUE(!is.na(x))) as.POSIXlt(x, optional=TRUE, tz="UTC") else NA
+
+    needs.install <- function(repo, inst)
+        ## if the repo version is higher, then it's obvious
+        ((package_version(repo["Version"]) > package_version(inst["Version"])) ||
+         ## otherwise it depends - on equal versions we still need to install if published/built is higher
+         (package_version(repo["Version"]) == package_version(inst["Version"]) &&
+          (isTRUE(.builtDate(repo["Built"]) > .builtDate(inst["Built"])) || ## new re-built binary
+           isTRUE(.ts(repo["Published"]) > .ts(inst["Published"]))          ## new "invalidated" due to dependency
+          )
+         ))
 
     currentR <- minorR <- getRversion()
     minorR[[c(1L, 3L)]] <- 0L # set patchlevel to 0
     for(k in 1L:nrow(instPkgs)) {
         if (instPkgs[k, "Priority"] %in% "base") next
-        z <- match(instPkgs[k, "Package"], available[, "Package"])
+        z <- match(instPkgs[k, "Package"], rownames(available))
         if(is.na(z)) next
         onRepos <- available[z, ]
         ## works OK if Built: is missing (which it should not be)
-	if((!checkBuilt || package_version(instPkgs[k, "Built"]) >= minorR) &&
-           package_version(onRepos["Version"]) <=
-           package_version(instPkgs[k, "Version"])) next
+	if((!checkBuilt || package_version(.builtRver(instPkgs[k, "Built"])) >= minorR) &&
+           !needs.install(onRepos, instPkgs[k,])) next
         deps <- onRepos["Depends"]
         if(!is.na(deps)) {
             Rdeps <- tools:::.split_dependencies(deps)[["R", exact=TRUE]]
@@ -525,7 +640,7 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
                          ..., type = getOption("pkgType"))
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     ask  # just a check that it is valid before we start work
     if(type == "both" && (!missing(contriburl) || !is.null(available))) {
         stop("specifying 'contriburl' or 'available' requires a single type, not type = \"both\"")
@@ -534,6 +649,8 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
     if(!is.matrix(instPkgs))
         stop(gettextf("no installed packages for (invalid?) 'lib.loc=%s'",
                       lib.loc), domain = NA)
+    ## NB: this implicitly uses type="source" even if type="both" - c.f. contrib.url()
+    ##     but that's ok here as there should not be binary packages without sources
     if(is.null(available))
         available <- available.packages(contriburl = contriburl,
                                         method = method, ...)
@@ -578,7 +695,7 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
 .instPkgFields <- function(fields) {
     ## to be used in installed.packages() and similar
     requiredFields <-
-        c(tools:::.get_standard_repository_db_fields(), "Built")
+        c(tools:::.get_standard_repository_db_fields(), "Built", "Published")
     if (is.null(fields))
 	fields <- requiredFields
     else {
@@ -611,15 +728,6 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
                         domain = NA)
                 next
             }
-            if("Built" %in% fields) {
-                ## This should not be missing.
-                if(is.null(md$Built$R) || !("Built" %in% names(desc))) {
-                    warning(gettextf("metadata of %s is corrupt",
-                                     sQuote(pkgpath)), domain = NA)
-                    next
-                }
-                desc["Built"] <- as.character(md$Built$R)
-            }
             ret[i, ] <- c(pkgs[i], lib, desc)
         }
     }
@@ -628,6 +736,7 @@ new.packages <- function(lib.loc = NULL, repos = getOption("repos"),
 
 installed.packages <-
     function(lib.loc = NULL, priority = NULL, noCache = FALSE,
+             cache_user_dir = str2logical(Sys.getenv("R_PACKAGES_CACHE_USER_DIR", FALSE)),
              fields = NULL, subarch = .Platform$r_arch, ...)
 {
     if(is.null(lib.loc))
@@ -652,7 +761,9 @@ installed.packages <-
             ## add length and 64-bit CRC in hex (in theory, seems
             ## it is actually 32-bit on some systems)
             enc <- sprintf("%d_%s", nchar(base), .Call(C_crc64, base))
-            dest <- file.path(tempdir(), paste0("libloc_", enc, ".rds"))
+            dest <- file.path(if(cache_user_dir) tools::R_user_dir("base", "cache")
+                              else tempdir(),
+                              paste0("libloc_", enc, ".rds"))
             test <- file.exists(dest) &&
                 file.mtime(dest) > file.mtime(lib) &&
                 (val <- readRDS(dest))$base == base
@@ -664,6 +775,8 @@ installed.packages <-
                 if(length(ret0)) {
                     retval <- rbind(retval, ret0, deparse.level = 0L)
                     ## save the cache file
+                    dir.create(dirname(dest), recursive = TRUE,
+                               showWarnings = FALSE)
                     saveRDS(list(base = base, value = ret0), dest)
                 } else unlink(dest)
             }
@@ -732,14 +845,23 @@ remove.packages <- function(pkgs, lib)
     invisible()
 }
 
+.download.file.method <- function(method)
+{
+    if (missing(method))
+	method <- getOption("download.file.method", default = "auto")
+    match.arg(method, c("auto", "internal", "wininet",
+                        "libcurl", "wget", "curl", "lynx"))
+}
+
 download.packages <- function(pkgs, destdir, available = NULL,
                               repos = getOption("repos"),
                               contriburl = contrib.url(repos, type),
-                              method, type = getOption("pkgType"), ...)
+                              method, type = getOption("pkgType"),
+                              local = FALSE, ...)
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
-    nonlocalcran <- !all(startsWith(contriburl, "file:"))
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
+    nonlocalcran <- !all(startsWith(contriburl, "file:")) || local
     if(nonlocalcran && !dir.exists(destdir))
         stop("'destdir' is not a directory")
 
@@ -749,11 +871,11 @@ download.packages <- function(pkgs, destdir, available = NULL,
         available <-
             available.packages(contriburl = contriburl, method = method, ...)
 
-    if (missing(method) || method == "auto" || method == "libcurl")
+    if (.download.file.method(method) %in% c("auto", "libcurl"))
         bulkdown <- matrix(character(), 0L, 3L)
     else
         bulkdown <- NULL
-   
+
     retval <- matrix(character(), 0L, 2L)
     for(p in unique(pkgs))
     {
@@ -769,15 +891,18 @@ download.packages <- function(pkgs, destdir, available = NULL,
                 keep[duplicated(keep)] <- FALSE
                 ok[ok][!keep] <- FALSE
             }
-            if (startsWith(type, "mac.binary")) type <- "mac.binary"
             ## in Oct 2009 we introduced file names in PACKAGES files
             File <- available[ok, "File"]
+            ## strip build name for ext detection
+            type <- gsub("^([[:lower:]]+[.]binary)[.].*", "\\1", type)
+            ## this is just a fall-back if there is no File: so hopefully
+            ## no longer used
             fn <- paste0(p, "_", available[ok, "Version"],
                          switch(type,
                                 "source" = ".tar.gz",
                                 "mac.binary" = ".tgz",
                                 "win.binary" = ".zip",
-                                stop("invalid 'type'")))
+                                ".tar.xz")) ## for any other binaries, but they should use File:
             have_fn <- !is.na(File)
             fn[have_fn] <- File[have_fn]
             repos <- available[ok, "Repository"]
@@ -796,8 +921,10 @@ download.packages <- function(pkgs, destdir, available = NULL,
                 } else {
                     fn <- paste(substring(repos, 6L), fn, sep = "/")
                 }
-                if(file.exists(fn))
+                if(file.exists(fn)) {
+                    if(local) file.copy(fn, destdir)
                     retval <- rbind(retval, c(p, fn))
+                }
                 else
                     warning(gettextf("package %s does not exist on the local repository", sQuote(p)),
                             domain = NA, immediate. = TRUE)
@@ -825,7 +952,7 @@ download.packages <- function(pkgs, destdir, available = NULL,
         urls <- bulkdown[,3]
         destfiles <- bulkdown[,2]
         ps <- bulkdown[,1]
-                                           
+
         res <- try(download.file(urls, destfiles, "libcurl", mode = "wb", ...))
         if(!inherits(res, "try-error") && res == 0L) {
             if (length(urls) > 1) {
@@ -842,7 +969,7 @@ download.packages <- function(pkgs, destdir, available = NULL,
         } else
             for(p in ps)
                 warning(gettextf("download of package %s failed", sQuote(p)),
-                        domain = NA, immediate. = TRUE)            
+                        domain = NA, immediate. = TRUE)
     }
 
     retval
@@ -850,6 +977,9 @@ download.packages <- function(pkgs, destdir, available = NULL,
 
 resolvePkgType <- function(type) {
     ## Not entirely clear this is optimal
+    ## This was built on the assumption that binaries are always a subset, so
+    ## using sources covers everything necssary. Not only is that not guaranteed,
+    ## but binaries now may have additional information such as build timestamps.
     if(type == "both") type <- "source"
     else if(type == "binary") type <- .Platform$pkgType
     type
@@ -858,7 +988,7 @@ resolvePkgType <- function(type) {
 contrib.url <- function(repos, type = getOption("pkgType"))
 {
     if (!is.character(type))
-        stop("invalid 'type'; must be a character string")
+        stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
     if(!length(repos)) return(character())
@@ -878,18 +1008,28 @@ contrib.url <- function(repos, type = getOption("pkgType"))
 
     ver <- paste(R.version$major,
                  strsplit(R.version$minor, ".", fixed=TRUE)[[1L]][1L], sep = ".")
-    mac.path <- "macosx"
-    if (substr(type, 1L, 11L) == "mac.binary.") {
-        mac.path <- paste(mac.path, substring(type, 12L), sep = "/")
-        type <- "mac.binary"
+    .contrib.path <- function(type, ver) {
+        ## <os>.binary[.<build>]  where build has to match [[:alnum:]_-]+
+        m <- regexec("^([[:lower:]]+)[.]binary(|[.]([[:alnum:]_-]+))$", type)
+
+        if (length(m) && length(m[[1]]) == 4) {  ## binary spec?
+            m <- m[[1]]
+            l <- attr(m, "match.length")
+            os <- substr(type, m[2], m[2] + l[2] - 1L)
+            ## for historical reasons mac/win have different directory names
+            os <- switch(os, mac = "macosx", win = "windows", os)
+
+            if (l[3] > 0) ## have build name ?
+                paste("bin", os, substr(type, m[4], m[4] + l[4] - 1L), "contrib", ver, sep = "/")
+            else
+                paste("bin", os, "contrib", ver, sep = "/")
+        } else if (isTRUE(type == "source"))
+            "src/contrib"
+        else
+            stop("invalid 'type'")
     }
-    res <- switch(type,
-		"source" = paste(gsub("/$", "", repos), "src", "contrib", sep = "/"),
-                "mac.binary" = paste(gsub("/$", "", repos), "bin", mac.path, "contrib", ver, sep = "/"),
-                "win.binary" = paste(gsub("/$", "", repos), "bin", "windows", "contrib", ver, sep = "/"),
-                stop("invalid 'type'")
-               )
-    res
+
+    paste(gsub("/$", "", repos), .contrib.path(type, ver), sep = "/")
 }
 
 .getMirrors <- function(url, local.file, all, local.only)
@@ -990,7 +1130,8 @@ setRepositories <-
         stop("invalid options(\"pkgType\"); must be a character string")
     if (pkgType == "both") pkgType <- "source" #.Platform$pkgType
     if (pkgType == "binary") pkgType <- .Platform$pkgType
-    if(startsWith(pkgType, "mac.binary")) pkgType <- "mac.binary"
+    ## strip build names (until we need them and start recording them)
+    pkgType <- gsub("^([[:lower:]]+[.]binary)[.].*", "\\1", pkgType)
     thisType <- a[[pkgType]]
     a <- a[thisType, 1L:3L]
     repos <- getOption("repos")
@@ -1043,8 +1184,11 @@ compareVersion <- function(a, b)
 {
     if(is.na(a)) return(-1L)
     if(is.na(b)) return(1L)
+    ## The nest two could be skipped if(inherits(x), "numeric_version")
+    ## but the saving would be small.
     a <- as.integer(strsplit(a, "[.-]")[[1L]])
     b <- as.integer(strsplit(b, "[.-]")[[1L]])
+    ## This does not handle malformed inputs which will give an error.
     for(k in seq_along(a))
         if(k <= length(b)) {
             if(a[k] > b[k]) return(1) else if(a[k] < b[k]) return(-1L)
@@ -1257,7 +1401,7 @@ function(repos, file = stdout(), ...)
 }
 
 ## default is included in setRepositories.Rd (via \Sexpr)
-.BioC_version_associated_with_R_version_default <- "3.19"
+.BioC_version_associated_with_R_version_default <- "3.23"
 .BioC_version_associated_with_R_version <- function ()
     numeric_version(Sys.getenv("R_BIOC_VERSION",
                                .BioC_version_associated_with_R_version_default))

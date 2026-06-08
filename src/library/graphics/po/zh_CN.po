@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 10:33-0700\n"
+"POT-Creation-Date: 2025-03-31 11:51+0200\n"
 "PO-Revision-Date: 2023-12-20 13:03+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -77,28 +77,28 @@ msgstr "plot.new尚未被调用"
 msgid "invalid graphics state"
 msgstr "图形狀態无效"
 
-#: graphics.c:2619
+#: graphics.c:2618
 msgid "graphics device closed during call to locator or identify"
 msgstr "图形设备在调用 locator 或 identify时关闭"
 
-#: graphics.c:2669
+#: graphics.c:2668
 msgid "No graphics device is active"
 msgstr "没有已积活的图形设备"
 
-#: graphics.c:3127
+#: graphics.c:3126
 msgid "zero-length arrow is of indeterminate angle and so skipped"
 msgstr "零长度箭头的角度不定，因此忽略不用"
 
-#: graphics.c:3208
+#: graphics.c:3207
 #, c-format
 msgid "invalid par(\"bty\") = '%c'; no box() drawn"
 msgstr "par(\"bty\")=‘%c'无效; 因此没有画box()"
 
-#: graphics.c:3225
+#: graphics.c:3224
 msgid "invalid argument to GBox"
 msgstr "GBox参数无效"
 
-#: graphics.c:3432
+#: graphics.c:3431
 msgid "metric information not available for this device"
 msgstr "公制信息不适用于这个设备"
 
@@ -360,8 +360,8 @@ msgstr "'a'和'b'的值必需是有限的"
 
 #: plot.c:3009 plot.c:4147 plot.c:4151 plot.c:4154 plot.c:4174 plot.c:4178
 #: plot.c:4181 plot3d.c:1085 plot3d.c:1089 plot3d.c:1094 plot3d.c:1098
-#: plot3d.c:1102 plot3d.c:1106 stem.c:153 stem.c:154 stem.c:156 stem.c:157
-#: stem.c:203 stem.c:204
+#: plot3d.c:1102 plot3d.c:1106 stem.c:164 stem.c:165 stem.c:167 stem.c:168
+#: stem.c:215 stem.c:216
 #, c-format
 msgid "invalid '%s' argument"
 msgstr "'%s'参数无效"
@@ -574,7 +574,7 @@ msgstr "所有的z值是一样的"
 msgid "all z values are NA"
 msgstr "所有的z值都是NA"
 
-#: stem.c:150
+#: stem.c:161
 #, c-format
 msgid "long vector '%s' is not supported"
 msgstr "不支持长向量'%s'"

@@ -1,6 +1,6 @@
 % File src/library/base/man/rep.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015, 2017 R Core Team
+% Copyright 1995-2015, 2017, 2019, 2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{rep}
@@ -12,7 +12,7 @@
 \alias{rep.Date}
 \alias{rep_len}
 
-\title{Replicate Elements of Vectors and Lists}
+\title{Replicate Elements of Vectors and Vector-Like Objects}
 \description{
   \code{rep} replicates the values in \code{x}.  It is a generic
   function, and the (internal) default method is described here.
@@ -20,6 +20,9 @@
   \code{rep.int} and \code{rep_len} are faster simplified versions for
   two common cases.  Internally, they are generic, so methods can be
   defined for them (see \link{InternalMethods}).
+  Except if \code{x} is a factor,
+  when internal dispatch for \code{rep.int} and \code{rep_len} fails,
+  there is an attempt to dispatch on the equivalent call to \code{rep}.
 }
 \usage{
 rep(x, \dots)
@@ -37,7 +40,7 @@ rep_len(x, length.out)
     \describe{
       \item{\code{times}}{an integer-valued vector giving the
 	(non-negative) number of times to repeat each element if of
-	length \code{length(x)}, or to repeat the whole vector if of
+	length \code{length(x) * each}, or to repeat the whole vector if of
 	length 1.  Negative or \code{NA} values are an error.  A
 	\code{double} vector is accepted, other inputs being coerced to
 	an integer or double vector.}
@@ -56,7 +59,7 @@ rep_len(x, length.out)
 \details{
   The default behaviour is as if the call was
 \preformatted{  rep(x, times = 1, length.out = NA, each = 1)
-}.  Normally just one of the additional
+} Normally just one of the additional
   arguments is specified, but if \code{each} is specified with either
   of the other two, its replication is performed first, and then that
   implied by \code{times} or \code{length.out}.
@@ -86,7 +89,7 @@ rep_len(x, length.out)
   An object of the same type as \code{x}.
 
   \code{rep.int} and \code{rep_len} return no attributes (except the
-  class if returning a factor).
+  class and levels if returning a factor).
 
   The default method of \code{rep} gives the result names (which will
   almost always contain duplicates) if \code{x} had names, but retains
@@ -111,9 +114,7 @@ rep_len(x, length.out)
   worked on \link{expression} vectors.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{seq}}, \code{\link{sequence}}, \code{\link{replicate}}.

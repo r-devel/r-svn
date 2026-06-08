@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2024-08-21 r87032) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
+R Under development (unstable) (2025-10-22 r88964) -- "Unsuffered Consequences"
+Copyright (C) 2025 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -55,16 +55,16 @@ Type 'q()' to quit R.
 <!DOCTYPE html>
 <html>
 <head><title>R: This is a sample header</title>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-<link rel="stylesheet" type="text/css" href="/doc/html/R.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<link rel="stylesheet" type="text/css" href="/doc/html/R.css">
 </head><body><div class="container">
 <h1> This is a sample header
-<img class="toplogo" src="/doc/html/Rlogo.svg" alt="[R logo]" />
+<img class="toplogo" src="/doc/html/Rlogo.svg" alt="[R logo]">
 </h1>
-<hr/>
+<hr>
 <div style="text-align: center;">
-<a href="/doc/html/index.html"><img class="arrow" src="/doc/html/up.jpg" alt="[Top]" /></a>
+<a href="/doc/html/index.html"><img class="arrow" src="/doc/html/up.jpg" alt="[Top]"></a>
 </div>
 > 
 > 
@@ -96,8 +96,8 @@ $status
 
 $stdout
  [1] ""                                                                                 
- [2] "R Under development (unstable) (2024-08-21 r87032) -- \"Unsuffered Consequences\""
- [3] "Copyright (C) 2024 The R Foundation for Statistical Computing"                    
+ [2] "R Under development (unstable) (2025-10-22 r88964) -- \"Unsuffered Consequences\""
+ [3] "Copyright (C) 2025 The R Foundation for Statistical Computing"                    
  [4] "Platform: x86_64-pc-linux-gnu"                                                    
  [5] ""                                                                                 
  [6] "R is free software and comes with ABSOLUTELY NO WARRANTY."                        
@@ -112,10 +112,10 @@ $stdout
 [15] "'help.start()' for an HTML browser interface to help."                            
 [16] "Type 'q()' to quit R."                                                            
 [17] ""                                                                                 
-[18] "> x <- readRDS(\"/tmp/RtmppU3jOk/runri1222936a0e6877\")"                          
+[18] "> x <- readRDS(\"/tmp/RtmpjrnqE8/runri2309077fd2bc56\")"                          
 [19] "> options(repos = x$repos)"                                                       
 [20] "> y <- tryCatch(list(do.call(x$fun, x$args, quote = TRUE)), error = identity)"    
-[21] "> saveRDS(y, \"/tmp/RtmppU3jOk/runro1222932d23e62e\")"                            
+[21] "> saveRDS(y, \"/tmp/RtmpjrnqE8/runro230907d287351\")"                             
 [22] "> "                                                                               
 
 $stderr
@@ -257,9 +257,6 @@ Error in assertWarning(ff()) :
 > 
 > ### ** Examples
 > 
-> ## Don't show: 
-> options(useFancyQuotes = FALSE)
-> ## End(Don't show)
 > refs <-
 + c(bibentry(bibtype = "manual",
 +     title = "R: A Language and Environment for Statistical Computing",
@@ -269,8 +266,8 @@ Error in assertWarning(ff()) :
 +     year = 2013,
 +     url = "https://www.R-project.org"),
 +   bibentry(bibtype = "article",
-+     author = c(person(c("George", "E.", "P."), "Box"),
-+                person(c("David",  "R."),      "Cox")),
++     author = c(person(c("George", "Edward", "Pelham"), "Box"),
++                person(c("David",  "Roxbee"), "Cox")),
 +     year = 1964,
 +     title = "An Analysis of Transformations",
 +     journal = "Journal of the Royal Statistical Society, Series B",
@@ -280,14 +277,14 @@ Error in assertWarning(ff()) :
 > bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
 +     fmtPrefix = function(paper) paste0("[", paper$.index, "]"),
 +        .init = TRUE)
-<environment: 0x55a55e43e3c0>
+<environment: 0x55a759bc34c8>
 > print(refs, .bibstyle = "unsorted")
 [1] R Core Team (2013). _R: A Language and Environment for Statistical
 Computing_. R Foundation for Statistical Computing, Vienna, Austria.
 <https://www.R-project.org>.
 
-[2] Box GEP, Cox DR (1964). "An Analysis of Transformations." _Journal
-of the Royal Statistical Society, Series B_, *26*(2), 211-243.
+[2] Box GEP, Cox DR (1964). “An Analysis of Transformations.” _Journal
+of the Royal Statistical Society, Series B_, *26*(2), 211–243.
 doi:10.1111/j.2517-6161.1964.tb00553.x
 <https://doi.org/10.1111/j.2517-6161.1964.tb00553.x>.
 > 
@@ -519,7 +516,7 @@ doi:10.1111/j.2517-6161.1964.tb00553.x
 > bad <- r"(\name{bad}\title{bad}\description{\tabular{p}{1 \tab 2}})"
 > (res <- checkRd(parse_Rd(textConnection(bad))))
 checkRd: (7) <connection>:1: Unrecognized \tabular format: p
-checkRd: (7) <connection>:1: Only 1 column allowed in this table
+checkRd: (7) <connection>:1: Only 1 column allowed in this table (row 1 has 2)
 > stopifnot(length(res) > 0)
 > 
 > 
@@ -727,6 +724,246 @@ attr(,"match.length")
 > 
 > 
 > cleanEx()
+> nameEx("licensetools")
+> ### * licensetools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: licensetools
+> ### Title: License Tools
+> ### Aliases: analyze_license
+> 
+> ### ** Examples
+> 
+> ## Examples from section 'Licensing' of 'Writing R Extensions':
+> analyze_license("GPL-2")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL-2"
+
+$components
+[1] "GPL-2"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2"
+
+
+$extensions
+NULL
+
+$pointers
+NULL
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only"
+
+> analyze_license("LGPL (>= 2.0, < 3) | Mozilla Public License")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "LGPL (>= 2.0, < 3) | Mozilla Public License"
+
+$components
+[1] "LGPL (>= 2.0, < 3)"     "Mozilla Public License"
+
+$expansions
+$expansions[[1]]
+[1] "LGPL-2"   "LGPL-2.1"
+
+$expansions[[2]]
+[1] "MPL version 1.0" "MPL version 1.1" "MPL version 2.0"
+
+
+$extensions
+NULL
+
+$pointers
+NULL
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "LGPL-2.0-only OR LGPL-2.1-only OR MPL-1.0 OR MPL-1.1 OR MPL-2.0"
+
+> analyze_license("GPL-2 | file LICENCE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL-2 | file LICENCE"
+
+$components
+[1] "GPL-2"        "file LICENCE"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2"
+
+$expansions[[2]]
+[1] "file LICENCE"
+
+
+$extensions
+NULL
+
+$pointers
+[1] "LICENCE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only"
+
+> analyze_license("GPL (>= 2) | BSD_3_clause + file LICENSE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "GPL (>= 2) | BSD_3_clause + file LICENSE"
+
+$components
+[1] "GPL (>= 2)"                  "BSD_3_clause + file LICENSE"
+
+$expansions
+$expansions[[1]]
+[1] "GPL-2" "GPL-3"
+
+$expansions[[2]]
+[1] "BSD_3_clause + file LICENSE"
+
+
+$extensions
+                   components extensible
+1 BSD_3_clause + file LICENSE       TRUE
+
+$pointers
+[1] "LICENSE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause"
+
+> analyze_license("Artistic-2.0 | AGPL-3 + file LICENSE")
+$is_empty
+[1] FALSE
+
+$is_canonical
+[1] TRUE
+
+$bad_components
+character(0)
+
+$is_standardizable
+[1] TRUE
+
+$is_verified
+[1] TRUE
+
+$standardization
+[1] "Artistic-2.0 | AGPL-3 + file LICENSE"
+
+$components
+[1] "Artistic-2.0"          "AGPL-3 + file LICENSE"
+
+$expansions
+$expansions[[1]]
+[1] "Artistic-2.0"
+
+$expansions[[2]]
+[1] "AGPL-3 + file LICENSE"
+
+
+$extensions
+             components extensible
+1 AGPL-3 + file LICENSE       TRUE
+
+$pointers
+[1] "LICENSE"
+
+$is_FOSS
+[1] TRUE
+
+$restricts_use
+[1] FALSE
+
+$spdx
+[1] "Artistic-2.0 OR AGPL-3.0-only"
+
+> 
+> 
+> 
+> cleanEx()
 > nameEx("loadRdMacros")
 > ### * loadRdMacros
 > 
@@ -796,6 +1033,10 @@ character(0)
 > 
 > as.vector(md5sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
 [1] "eb723b61539feef013de476e68b5c50a"
+> md5sum(bytes=raw())
+[1] "d41d8cd98f00b204e9800998ecf8427e"
+> md5sum(bytes=charToRaw("abc"))
+[1] "900150983cd24fb0d6963f7d28e17f72"
 > 
 > 
 > 
@@ -871,6 +1112,23 @@ character(0)
 > 
 > ### ** Examples
 > 
+> latex <- parseLatex("fran\\c{c}ais", verbose = TRUE)
+1:1: TEXT: fran
+1:5: MACRO: \c
+1:7: '{'
+1:8: TEXT: c
+1:9: '}'
+1:10: TEXT: ais
+1:13: END_OF_INPUT
+> ## IGNORE_RDIFF_BEGIN
+> deparseLatex(latexToUtf8(latex))
+[1] "français"
+> ## IGNORE_RDIFF_END
+> 
+> deparseLatex(parseLatex("$t$"), math = c("\\eqn{", "}"))
+[1] "\\eqn{t}"
+> 
+> 
 > 
 > cleanEx()
 > nameEx("pkg2HTML")
@@ -932,6 +1190,28 @@ function (x, ...)
 > ## Not run: 
 > ##D pskill(c(237, 245), SIGKILL)
 > ## End(Not run)
+> 
+> 
+> cleanEx()
+> nameEx("sha256sum")
+> ### * sha256sum
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: sha256sum
+> ### Title: Compute SHA-256 Checksums
+> ### Aliases: sha256sum
+> ### Keywords: utilities
+> 
+> ### ** Examples
+> 
+> as.vector(sha256sum(dir(R.home(), pattern = "^COPY", full.names = TRUE)))
+[1] "e6d6a009505e345fe949e1310334fcb0747f28dae2856759de102ab66b722cb4"
+> sha256sum(bytes=raw())
+[1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+> sha256sum(bytes=charToRaw("abc"))
+[1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+> 
 > 
 > 
 > cleanEx()
@@ -1004,16 +1284,16 @@ List of 2
 <!DOCTYPE html>
 <html>
 <head><title>R: R</title>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-<link rel="stylesheet" type="text/css" href="/doc/html/R.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<link rel="stylesheet" type="text/css" href="/doc/html/R.css">
 </head><body><div class="container">
 <h1> R
-<img class="toplogo" src="/doc/html/Rlogo.svg" alt="[R logo]" />
+<img class="toplogo" src="/doc/html/Rlogo.svg" alt="[R logo]">
 </h1>
-<hr/>
+<hr>
 <div style="text-align: center;">
-<a href="/doc/html/index.html"><img class="arrow" src="/doc/html/up.jpg" alt="[Top]" /></a>
+<a href="/doc/html/index.html"><img class="arrow" src="/doc/html/up.jpg" alt="[Top]"></a>
 </div>
 <h2>Demos in package &lsquo;base&rsquo;</h2>
 <table cols="2" style="width: 100%;">
@@ -1171,11 +1451,11 @@ An illustration of lexical scoping.
 > ### ** Examples
 > ## IGNORE_RDIFF_BEGIN
 > R_user_dir("FOO", "cache")
-[1] "/home/Hornik/.cache/R/FOO"
+[1] "/home/hornik/.cache/R/FOO"
 > 
 > ## Create one, platform agnostically, must work if <normal> :
 > (Rdb <- R_user_dir("base"))
-[1] "/home/Hornik/.local/share/R/base"
+[1] "/home/hornik/.local/share/R/base"
 > if(newD <- !dir.exists(Rdb)) # should work user specifically:
 +     newD <- dir.create(Rdb, recursive=TRUE)
 > dir(Rdb) # typically empty
@@ -1327,7 +1607,7 @@ needs Deep Thought
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.333 0.016 0.729 0.293 0.082 
+Time elapsed:  0.338 0.018 0.748 0.284 0.109 
 > grDevices::dev.off()
 null device 
           1 

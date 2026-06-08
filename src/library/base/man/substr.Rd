@@ -11,15 +11,15 @@
 \title{Substrings of a Character Vector}
 \usage{
 substr(x, start, stop)
-substring(text, first, last = 1000000L)
+substring(text, first, last = NULL)
 
 substr(x, start, stop) <- value
-substring(text, first, last = 1000000L) <- value
+substring(text, first, last = NULL) <- value
 }
 \arguments{
   \item{x, text}{a character vector.}
   \item{start, first}{integer.  The first character to be extracted or replaced.}
-  \item{stop, last}{integer.  The last character to be extracted or replaced.}
+  \item{stop, last}{integer or NULL.  The last character to be extracted or replaced.}
   \item{value}{a character vector, recycled if necessary.}
 }
 \description{
@@ -34,6 +34,9 @@ substring(text, first, last = 1000000L) <- value
   When extracting, if \code{start} is larger than the string length then
   \code{""} is returned. If \code{stop} is larger than the string length
   then the portion until the end of the string is returned.
+
+  If \code{stop} is \code{NULL}, \code{substr} will return substrings of
+  \code{x} from \code{start} to the end of each string in \code{x}.
 
   For the extraction functions, \code{x} or \code{text} will be
   converted to a character vector by \code{\link{as.character}} if it is not
@@ -84,11 +87,10 @@ substring(text, first, last = 1000000L) <- value
   \code{nchar(type = "chars")}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.  (\code{substring}.)
+  \bibshow{R:Becker+Chambers+Wilks:1988}  (\code{substring}.)
 }
 \seealso{
+ \code{\link{startsWith}} and \code{\link{endsWith}};
  \code{\link{strsplit}}, \code{\link{paste}}, \code{\link{nchar}}.
 }
 \examples{

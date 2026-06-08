@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2019  The R Core Team
+ *  Copyright (C) 1998--2025  The R Core Team
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,7 @@
  *	maxf and maxp which determine the amount of scratch storage
  *	required by the algorithm.
  *
- *	If maxf is zero on return, an error occured during factorization.
+ *	If maxf is zero on return, an error occurred during factorization.
  *	The nature of the error can be determined from the value of maxp.
  *	If maxp is zero, an invalid (zero) parameter was passed and
  *	if maxp is one,	 the internal nfac array was too small.	 This can only
@@ -845,7 +845,7 @@ void fft_factor(int n, int *pmaxf, int *pmaxp)
 }
 
 
-Rboolean fft_work(double *a, double *b, int nseg, int n, int nspn, int isn,
+bool fft_work(double *a, double *b, int nseg, int n, int nspn, int isn,
 		  double *work, int *iwork)
 {
 	/* check that factorization was successful */

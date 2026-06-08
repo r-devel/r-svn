@@ -123,7 +123,9 @@ extern int errno;
 #endif
 
 /* Alignment of types.  */
-#if defined __GNUC__ && __GNUC__ >= 2
+// R change: alignof is a keyword in C23
+#if defined __STDC_VERSION__ && __STDC_VERSION__ > 201710L
+#elif defined __GNUC__ && __GNUC__ >= 2
 # define alignof(TYPE) __alignof__ (TYPE)
 #else
 /* R change: was (int) */
@@ -1252,7 +1254,8 @@ _nl_find_msg (struct loaded_l10nfile *domain_file,
 	      __libc_lock_lock (lock);
 
 	      inbuf = (const unsigned char *) result;
-	      outbuf = freemem + sizeof (size_t);
+	      // avoid UBSAN warning on macOS
+	      outbuf = freemem ? freemem + sizeof (size_t): freemem;
 
 	      malloc_count = 0;
 	      while (1)

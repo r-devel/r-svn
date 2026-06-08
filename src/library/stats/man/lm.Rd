@@ -1,6 +1,6 @@
 % File src/library/stats/man/lm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{lm}
@@ -37,8 +37,7 @@ lm(formula, data, subset, weights, na.action,
   \item{subset}{an optional vector specifying a subset of observations
     to be used in the fitting process.  (See additional details about how
     this argument interacts with data-dependent bases in the
-    \sQuote{Details} section of the \code{\link{model.frame}}
-    documentation.)}
+    \sQuote{Details} below.)}
 
   \item{weights}{an optional vector of weights to be used in the fitting
     process.  Should be \code{NULL} or a numeric vector.
@@ -132,6 +131,10 @@ lm(formula, data, subset, weights, na.action,
   All of \code{weights}, \code{subset} and \code{offset} are evaluated
   in the same way as variables in \code{formula}, that is first in
   \code{data} and then in the environment of \code{formula}.
+  Note that values calculated inside the formula, such as \code{mean(x)},
+  are evaluated before subsetting - which may lead to unexpected results
+  if used with \code{subset}.  For more information see the
+  \sQuote{Details} section of the \code{\link{model.frame}}.
 }
 \value{
   \code{lm} returns an object of \code{\link{class}} \code{"lm"} or for
@@ -213,21 +216,15 @@ lm(formula, data, subset, weights, na.action,
   way to fit linear models to large datasets (especially those with many
   cases).
 }
-\references{
-  Chambers, J. M. (1992)
-  \emph{Linear models.}
-  Chapter 4 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
-
-  Wilkinson, G. N. and Rogers, C. E. (1973).
-  Symbolic descriptions of factorial models for analysis of variance.
-  \emph{Applied Statistics}, \bold{22}, 392--399.
-  \doi{10.2307/2346786}.
-}
 \author{
   The design was inspired by the S function of the same name described
-  in Chambers (1992).  The implementation of model formula by Ross Ihaka
-  was based on Wilkinson & Rogers (1973).
+  in \bibcitet{R:Chambers:1992:c4}.
+  The implementation of model formula by Ross Ihaka was based on
+  \bibcitet{R:Wilkinson+Rogers:1973}.
+}
+\references{
+  \bibshow{R:Chambers:1992:c4,
+    R:Wilkinson+Rogers:1973}
 }
 \examples{
 require(graphics)

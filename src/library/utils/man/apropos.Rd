@@ -14,16 +14,16 @@ find(what, mode = "any", numeric = FALSE, simple.words = TRUE)
 \alias{apropos}
 \alias{find}
 \arguments{
-  \item{what}{character string.  For \code{simple.words = FALSE}
-    the name of an object; otherwise
+  \item{what}{a character string.  For \code{find} with
+    \code{simple.words = TRUE}, the name of an object; otherwise
     a \link{regular expression} to match object names against.}
-  \item{where, numeric}{a logical indicating whether positions in the
-    search list should also be returned}
+  \item{where, numeric}{logical indicating whether positions in the
+    search list should also be returned.}
   \item{ignore.case}{logical indicating if the search should be
     case-insensitive, \code{TRUE} by default.}
   \item{dot_internals}{logical indicating if the search result should show
     \pkg{base} internal objects, \code{FALSE} by default.}
-  \item{mode}{character; if not \code{"any"}, only objects whose
+  \item{mode}{a character string; if not \code{"any"}, only objects whose
     \code{\link{mode}} equals \code{mode} are searched.}
   \item{simple.words}{logical; if \code{TRUE}, the \code{what} argument is
     only searched as a whole word.}

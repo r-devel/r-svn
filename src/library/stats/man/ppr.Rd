@@ -88,7 +88,7 @@ ppr(x, \dots)
   \item{span}{
     super smoother span control (see \code{\link{supsmu}}).  The default, \code{0},
     results in automatic span selection by local cross validation. \code{span}
-    can also take a value in \code{(0, 1]}.
+    can also take a value in \eqn{(0, 1]}.
   }
   \item{df}{
     if \code{sm.method} is \code{"spline"} specifies the smoothness of
@@ -137,8 +137,8 @@ method functions.
 \item{model}{(only if \code{model = TRUE}) the model frame.}
 }
 \details{
-  The basic method is given by Friedman (1984) and based on his
-  code. This code has been shown to be extremely sensitive to the
+  The basic method is given by \bibcitet{R:Friedman:1984a} and based on
+  his code.  This code has been shown to be extremely sensitive to the
   Fortran compiler used.
 
   The algorithm first adds up to \code{max.terms} ridge terms one at a
@@ -159,26 +159,15 @@ method functions.
   converge to a saddle point of the sum of squares criterion.
 }
 \source{
-  Friedman (1984): converted to double precision and added interface to
-  smoothing splines by B. D. Ripley, originally for the \CRANpkg{MASS}
-  package.
+  \bibcitet{R:Friedman:1984a}: converted to double precision and added
+  interface to smoothing splines by B. D. Ripley, originally for the
+  \CRANpkg{MASS} package.
 }
 
 \references{
-  Friedman, J. H. and Stuetzle, W. (1981).
-  Projection pursuit regression.
-  \emph{Journal of the American Statistical Association},
-  \bold{76}, 817--823.
-  \doi{10.2307/2287576}.
-
-  Friedman, J. H. (1984).
-  SMART User's Guide.
-  Laboratory for Computational Statistics, Stanford University Technical
-  Report No.\sspace{}1.
-
-  Venables, W. N. and Ripley, B. D. (2002).
-  \emph{Modern Applied Statistics with S}.
-  Springer.
+  \bibshow{R:Friedman+Stuetzle:1981,
+    R:Friedman:1984a,
+    R:Venables+Ripley:2002}
 }
 \seealso{
   \code{\link{plot.ppr}}, \code{\link{supsmu}}, \code{\link{smooth.spline}}

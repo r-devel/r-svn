@@ -88,9 +88,7 @@ integrate(f, lower, upper, \dots, subdivisions = 100L,
 }
 
 \references{
-  R. Piessens, E. deDoncker--Kapenga, C. Uberhuber, D. Kahaner (1983)
-  \emph{Quadpack: a Subroutine Package for Automatic Integration};
-  Springer Verlag.
+  \bibshow{R:Piessens+Doncker-Kapenga+Ueberhuber:1983}
 }
 \examples{
 integrate(dnorm, -1.96, 1.96)
@@ -116,7 +114,7 @@ integrate(dnorm, 0, 2)
 integrate(dnorm, 0, 20)
 integrate(dnorm, 0, 200)
 integrate(dnorm, 0, 2000)
-integrate(dnorm, 0, 20000) ## fails on many systems
+integrate(dnorm, 0, 20000) ## "fails" on many systems -- "wrongly" giving '0' 
 integrate(dnorm, 0, Inf)   ## works
 \dontshow{tools::assertError(}
 integrate(dnorm, 0:1, 20) #-> error!

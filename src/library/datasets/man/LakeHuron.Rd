@@ -15,13 +15,8 @@
   A time series of length 98.
 }
 \source{
-  Brockwell, P. J. and Davis, R. A. (1991).
-  \emph{Time Series and Forecasting Methods}.
-  Second edition. Springer, New York. Series A, page 555.
-
-  Brockwell, P. J. and Davis, R. A. (1996).
-  \emph{Introduction to Time Series and Forecasting}.
-  Springer, New York.
-  Sections 5.1 and 7.6.
+\bibinfo{R:Brockwell+Davis:1991}{note}{Page 555}
+\bibinfo{R:Brockwell+Davis:1996}{note}{Sections 5.1 and 7.6}
+\bibshow{R:Brockwell+Davis:1991,R:Brockwell+Davis:1996}
 }
 \keyword{datasets}

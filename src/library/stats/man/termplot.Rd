@@ -1,6 +1,6 @@
 % File src/library/stats/man/termplot.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{termplot}
@@ -8,7 +8,8 @@
 \title{Plot Regression Terms}
 \description{
   Plots regression terms against their predictors, optionally with
-  standard errors and partial residuals added.
+  approximate 95\% confidence intervals (\enc{±2}{+/- 2}
+  standard errors) and partial residuals added.
 }
 \usage{
 termplot(model, data = NULL, envir = environment(formula(model)),
@@ -33,7 +34,7 @@ termplot(model, data = NULL, envir = environment(formula(model)),
   \item{terms}{which terms to plot (default \code{NULL} means all
     terms); a vector passed to
     \code{\link{predict}(.., type = "terms", terms = *)}.}
-  \item{se}{plot pointwise standard errors?}
+  \item{se}{logical; plot pointwise \eqn{2\times}{2x} standard errors?}
   \item{xlabs}{vector of labels for the x axes}
   \item{ylabs}{vector of labels for the y axes}
   \item{main}{logical, or vector of main titles;  if \code{TRUE}, the
@@ -64,7 +65,7 @@ termplot(model, data = NULL, envir = environment(formula(model)),
      plotted against transformed values.
      The model response is then a straight line, allowing a
      ready comparison against the data or against the curve
-     obtained from \code{smooth-panel.smooth}.}
+     obtained from \code{smooth = panel.smooth}.}
    \item{\dots}{other graphical parameters.}
 }
 \details{

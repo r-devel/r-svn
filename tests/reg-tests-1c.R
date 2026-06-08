@@ -14,7 +14,7 @@ stopifnot(z == c(101, 204, 309, 104, 210, 318))
 ## reported as a bug (which it was not) by H. Pages in
 ## https://stat.ethz.ch/pipermail/r-devel/2012-November/065229.html
 
-## recyling in split()
+## recycling in split()
 ## https://stat.ethz.ch/pipermail/r-devel/2013-January/065700.html
 x <- 1:6
 y <- split(x, 1:2)
@@ -52,6 +52,7 @@ stopifnot(identical(scan(f, ""), as.character(t(as.matrix(y)))))
 stopifnot(!is.unsorted(NA))
 
 ## str(.) for large factors should be fast:
+if(Sys.getenv("_R_CHECK_DO_R_TIMING_", FALSE)) withAutoprint({
 u <- as.character(runif(1e5))
 dummy <- str(u); dummy <- str(u); # force compilation of str
 R <- 50
@@ -60,6 +61,7 @@ uf <- factor(u)
 (t2 <- system.time(replicate(R, str(uf)))[[1]]) / t1 # typically around 5--10
 stopifnot(t2  / t1 < 30)
 ## was around 600--850 for R <= 3.0.1
+})
 
 
 ## ftable(<array with unusual dimnames>)
@@ -134,7 +136,7 @@ stopifnot(is.integer(+x))
 ## +x was logical in R <= 3.0.1
 
 
-## Attritbutes of value of unary operators
+## Attributes of value of unary operators
 # +x, -x were ts, !x was not in 3.0.2
 x <- ts(c(a=TRUE, b=FALSE, c=NA, d=TRUE), frequency = 4, start = 2000)
 x; +x; -x; !x
@@ -718,8 +720,8 @@ stopifnot(identical(x, y))
 ## y ended up containing -4, not -2^2
 
 
-## besselJ()/besselY() with too large order
-besselJ(1, 2^64) ## NaN with a warning
+## besselJ()/besselY() with too large order -- now NaN with warning
+besselJ(1, 2^64)     # Warning ... too large for bessel_[jy]() algorithm
 besselY(1, c(2^(60:70), Inf))
 ## seg.faulted in R <= 3.1.2
 
@@ -727,7 +729,7 @@ besselY(1, c(2^(60:70), Inf))
 ## besselJ()/besselY() with  nu = k + 1/2; k in {-1,-2,..}
 besselJ(1, -1750.5) ## Inf, with only one warning...
 stopifnot(is.finite(besselY(1, .5 - (1500 + 0:10))))
-## last gave NaNs; both: more warnings in R <= 3.1.x
+## last gave NaNs; both: more warnings in R <= 3.1.x : "precision lost in result"
 
 
 ## BIC() for arima(), also with NA's
@@ -840,6 +842,8 @@ unlink(profile)
 ## failed when a matrix was downgraded to a vector
 
 
+assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+
 ## option(OutDec = *)  -- now gives a warning when  not 1 character
 op <- options(OutDec = ".", digits = 7, # <- default
               warn = 2)# <- (unexpected) warnings become errors
@@ -847,10 +851,10 @@ stopifnot(identical("3.141593", fpi <- format(pi)))
 options(OutDec = ",")
 stopifnot(identical("3,141593", cpi <- format(pi)))
 ## warnings, but it "works" (for now):
-tools::assertWarning(options(OutDec = ".1."), verbose=TRUE)
-stopifnot(identical("3.1.141593", format(pi)))
-tools::assertWarning(options(OutDec = ""), verbose=TRUE)
-tools::assertWarning(stopifnot(identical("3141593", format(pi))))
+assertWarnV(options(OutDec = ".1."))
+assertWarnV(stopifnot(identical("3.1.141593", format(pi)))) # newly warns (2024-12)
+assertWarnV(options(OutDec = ""))
+assertWarnV(stopifnot(identical("3141593", format(pi)))) # newly warns
 options(op)# back to sanity
 ## No warnings in R versions <= 3.2.1
 
@@ -1463,10 +1467,12 @@ stopifnot(
     identical(chkPretty(MTbd +  0:3), seqDp("1960-02-09", "1960-02-14")) )
 ## all pretty() above gave length >= 5 answer (with duplicated values!) in R <= 3.2.3!
 ## and length 1 or 2 instead of about 6 in R 3.2.4
-(p2 <- chkPretty(as.POSIXct("2002-02-02 02:02", tz = "GMT-1"), n = 5, min.n = 5))
+tz. <- "Etc/GMT-1" # had "GMT-1"; then 'tzcode source' "internal" warns 12 x  "unknown timezone 'GMT-1'"
+(p2 <- chkPretty(as.POSIXct("2002-02-02 02:02", tz = tz.), n = 5, min.n = 5))
 stopifnot(length(p2) >= 5+1,
-	  identical(p2, structure(1012611717 + (0:5), class = c("POSIXct", "POSIXt"),
-				  tzone = "GMT-1", labels = time2d(57 + (0:5)), format = "%S")))
+	  identical(p2, structure(1012611717L + (0:5), class = c("POSIXct", "POSIXt"),
+				  tzone = tz., labels = time2d(57 + (0:5)), format = "%S"))
+          )
 ## failed in R 3.2.4
 (T3 <- structure(1460019857.25, class = c("POSIXct", "POSIXt")))# typical Sys.date()
 chkPretty(T3, 1) # error in svn 70438
@@ -1589,7 +1595,7 @@ doit()
 if(nzchar(Sys.getenv("tar"))) doit(tar = "internal")
 if(nzchar(Sys.which("tar"))) doit(tar = "tar")
 ## internal tar silently ignored unused 'files' in R <= 4.0.2
-tools::assertWarning(verbose=TRUE,
+assertWarnV(
     tar(tempfile(fileext=".tar"), files = tempfile(), tar = "internal")
 )
 
@@ -1597,17 +1603,30 @@ tools::assertWarning(verbose=TRUE,
 ## format.POSIXlt() of Jan.1 if  1941 or '42 is involved:
 tJan1 <- function(n1, n2)
     strptime(paste0(n1:n2,"/01/01"), "%Y/%m/%d", tz="CET")
-wDSTJan1 <- function(n1, n2)
-    which("CEST" == sub(".* ", '', format(tJan1(n1,n2), usetz=TRUE)))
-(w8 <- wDSTJan1(1801, 2300))
-(w9 <- wDSTJan1(1901, 2300))
-stopifnot(identical(w8, 141:142),# exactly 1941:1942 had CEST on Jan.1
-          identical(w9,  41: 42))
+f8 <- format(tJan1(1801, 2300), usetz=TRUE)
+f9 <- format(tJan1(1901, 2300), usetz=TRUE)
+rle8 <- rle(s8 <- sub(".* ",'', f8))
+rle9 <- rle(s9 <- sub(".* ",'', f9))
+w8 <- which(s8 == "CEST")
+w9 <- which(s9 == "CEST")
+## IGNORE_RDIFF_BEGIN
+rle8
+## very platform dependently; originally got
+##   lengths: int [1:3] 140 2 358
+##   values : chr [1:3] "CET" "CEST" "CET"
+w8 # 141 142
+w9 #  41  42
+## IGNORE_RDIFF_END
+## Debian's tzdata 2024b no longer contains "legacy" (but tzdata-legacy does)
+## --> everything "CET" [ <==> !length(w..) ]
+stopifnot(!length(w8) || identical(w8, 141:142),# exactly 1941:1942 had CEST on Jan.1
+          !length(w9) || identical(w9,  41: 42))
 ## for R-devel Jan.2016 to Mar.14 -- *AND* for R 3.2.4 -- the above gave
 ## integer(0)  and  c(41:42, 99:100, ..., 389:390)  respectively
-
+##
 ## the above gives 1:142 and 1:42 respectively on Solaris 10 when not using
 ## --with-internal-tzcode; R-Admin recommends --with-internal-tzcode.
+
 
 ## tsp<- did not remove mts class
 z <- ts(cbind(1:5,1:5))

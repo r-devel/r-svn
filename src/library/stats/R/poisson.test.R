@@ -48,6 +48,10 @@ poisson.test <- function(x, T = 1, r = 1, alternative =
         stop ("'r' must be a single positive number")
     alternative <- match.arg(alternative)
 
+    if(!missing(conf.level) &&
+       (length(conf.level) != 1 || !is.finite(conf.level) ||
+        conf.level < 0 || conf.level > 1))
+        stop("'conf.level' must be a single number between 0 and 1")
 
     if (k == 2) {
 
@@ -116,7 +120,7 @@ poisson.test <- function(x, T = 1, r = 1, alternative =
             else
                 qgamma(alpha, x)
         }
-        ## Determine p s.t. Prob(B(n,p) <= x) = alpha.
+        ## Determine p s.t. Prob(Pois(m) <= x) = alpha.
         ## Use that for x < n,
         ##   Prob(Pois(m) <= x) = 1 - pgamma(m, x + 1).
 

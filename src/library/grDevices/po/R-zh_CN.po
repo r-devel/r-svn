@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-11-30 14:39\n"
+"POT-Creation-Date: 2026-03-07 12:17\n"
 "PO-Revision-Date: 2023-09-18 03:05+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -193,6 +193,27 @@ msgstr ""
 msgid "Invalid glyph anchor"
 msgstr ""
 
+msgid "Registered axis names must be lower case"
+msgstr ""
+
+msgid "Custom axis names must be upper case"
+msgstr ""
+
+#, fuzzy
+msgid "Axis value(s) out of range"
+msgstr "下标值超出边界了"
+
+#, fuzzy
+msgid "No axes specified"
+msgstr "必需设定'z'这个矩阵"
+
+msgid "Axis names must be 4 ASCII letters long"
+msgstr ""
+
+#, fuzzy
+msgid "Axis values must be numeric"
+msgstr "rgb矩阵必需是数字"
+
 msgid "Font file longer than 500 will be truncated"
 msgstr ""
 
@@ -226,6 +247,9 @@ msgstr ""
 msgid "Invalid glyph info"
 msgstr ""
 
+msgid "'%s' was removed in R 4.5.0."
+msgstr ""
+
 #, fuzzy
 msgid "Invalid compositing operator"
 msgstr "输出的格式无效"
@@ -249,7 +273,7 @@ msgid "Invalid 'extend' value"
 msgstr "'filename'无效"
 
 msgid "'%s' is deprecated."
-msgstr ""
+msgstr "'%s' 已弃用."
 
 msgid "invalid arguments in '%s' (need named args)"
 msgstr "'%s'里的参数无效(需要有带名参数)"
@@ -337,9 +361,6 @@ msgstr "输出的格式无效"
 
 msgid "status %d in running command '%s'"
 msgstr "调用命令'%2$s'的运行状况为%1$d"
-
-msgid "'file' must be a non-empty character string"
-msgstr "'file'必需是非空字符串"
 
 #, fuzzy
 msgid "Invalid 'glyphInfo'"
@@ -433,6 +454,9 @@ msgstr "'x', 'y'和'z'的长度不一样"
 
 msgid "'file' is missing with no default"
 msgstr "'file'不存在，也缺失默认值"
+
+msgid "'file' must be a non-empty character string"
+msgstr "'file'必需是非空字符串"
 
 msgid "unrecognized format of gs -help"
 msgstr "gs -help的格式不正确"

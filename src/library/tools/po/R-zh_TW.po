@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2021-11-06 22:40+0100\n"
 "Last-Translator: Wei-Lun Chao <bluebat@member.fsf.org>\n"
 "Language-Team: Chinese (traditional) <zh-l10n@linux.org.tw>\n"
@@ -276,6 +276,18 @@ msgstr "Authors@R 欄位沒有提供維護者角色、有效的電子郵件地�
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
 msgstr "Authors@R 欄位沒有提供作者姓名："
 
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr "Authors@R 欄位沒有提供作者姓名："
+
+#, fuzzy
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr "Authors@R 欄位沒有提供作者姓名："
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
+msgstr "Authors@R 欄位沒有提供作者姓名："
+
 msgid "Encoding '%s' is not portable"
 msgstr "編碼 '%s' 不可攜"
 
@@ -313,9 +325,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr "無法使用缺少或有空白名稱的 Rd 物件"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "變數 '%s' 裡有不可攜的標記："
 
@@ -330,11 +339,11 @@ msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr ""
 
 #, fuzzy
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr "使用手冊物件 '%s' 缺少聯結："
 
 #, fuzzy
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr "使用手冊物件 '%s' 缺少聯結："
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -498,7 +507,7 @@ msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "在 Rd 物件 '%s' 裡自動產生的內容需要修改："
 
 #, fuzzy
-msgid "Rd files without \\description:"
+msgid "Rd files without %s:"
 msgstr "Rd 檔案不能有重複的別名 '%s'："
 
 msgid "no Rd sections specified"
@@ -697,9 +706,6 @@ msgstr "尚未指定簡介引擎"
 msgid "Unsupported engine name"
 msgstr "不支援這樣的引擎名稱"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "沒有任何一個套件 %s 有已註冊的簡介引擎"
-
 msgid "Vignette engine %s is not registered"
 msgstr "簡介引擎 %s 尚未註冊"
 
@@ -786,6 +792,12 @@ msgstr "錯誤：R 的版本是 %s，需要的是版本為 %s %s 的 R"
 msgid "loading failed"
 msgstr "載入失敗"
 
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
+
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "求值 %2$s 時取得 %1$s；原本是要 %3$s"
 
@@ -818,9 +830,6 @@ msgstr "以 --no-build-vignettes 執行 R 命令組建以避免重新組建。"
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "--compact-vignettes 的值不對，假定用 %s"
-
-msgid "Error: cannot rename directory to %s"
-msgstr "錯誤：無法變更目錄名稱到時 %s"
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "%g %s 達到了子行程的經過時間限制"
@@ -855,11 +864,19 @@ msgstr "沒有可以查檢的東西"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "下載扭轉的依存性"
 
-msgid "downloading %s ..."
-msgstr "下載 %s。。。"
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "下載扭轉的依存性"
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "下載扭轉的依存性"
 
 msgid "checking %s ..."
 msgstr "%s…"
@@ -974,18 +991,21 @@ msgstr ".install_packages() 離開狀態"
 msgid "restoration failed"
 msgstr "載入失敗"
 
-#, fuzzy
-msgid "invalid value"
-msgstr "套件無效。"
-
-msgid "for R_CROSS_BUILD"
-msgstr ""
-
 msgid "error reading file '%s'"
 msgstr "讀取檔案 '%s' 時發生錯誤"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "這看起來好像是梱綁軟體 -- 已經不存在了"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "成功將 %s 程式套件解開並 MD5 和檢查"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "有 'cleanup' 但它不是可執行檔 -- 請參考 'R 安裝和管理手冊 '"
@@ -1010,9 +1030,6 @@ msgstr ""
 
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr ""
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "成功將 %s 程式套件解開並 MD5 和檢查"
 
 msgid "not using staged install with --libs-only"
 msgstr ""
@@ -1085,6 +1102,9 @@ msgstr "錯誤：沒有在這個目錄裡安裝的許可"
 msgid "building a fake installation is disallowed"
 msgstr "不充許偽造安裝"
 
+msgid "specified C++"
+msgstr ""
+
 msgid "using C compiler:"
 msgstr ""
 
@@ -1105,6 +1125,10 @@ msgstr ""
 
 msgid "Reverted installation-time patch"
 msgstr ""
+
+#, fuzzy
+msgid "Input must be character"
+msgstr "'text' 必須是字元向量"
 
 msgid ""
 "See\n"
@@ -1138,6 +1162,13 @@ msgstr "套件沒有包含任何 R 編碼"
 
 msgid "package seems to be using lazy loading already"
 msgstr "套件已經使用延遲載入了"
+
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' 必須是字元向量"
 
 msgid ""
 "Cannot process chunk/lines:\n"
@@ -1206,6 +1237,13 @@ msgstr ""
 "  %s\n"
 "沒有\\itemize."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "套件無效。"
+
 msgid "Processing packages:"
 msgstr "正在處理套件："
 
@@ -1233,6 +1271,37 @@ msgstr "引數 '%s' 必須是字串或聯結"
 msgid "unimplemented encoding"
 msgstr "還沒有實作的編碼"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' 必須是單字串"
+
+msgid "invalid hex string"
+msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "不存在 '%s' 這個測試"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'x' 必須是單字串"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "載入失敗"
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "這需要 'objdump.exe' 位於 PATH 中"
 
@@ -1256,6 +1325,10 @@ msgstr "試用 '%s' 失敗了"
 
 msgid "Testing examples for package %s"
 msgstr "試驗程式套件 %s 的範例"
+
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "給 '%s' 呼叫 'texi2dvi' 失敗了"
 
 msgid "comparing %s to %s ..."
 msgstr "比較 %s 和 %s"
@@ -1281,11 +1354,12 @@ msgstr "為程式套件 %s 執行特定的檢驗程式"
 msgid "Running %s"
 msgstr "執行 %s"
 
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "給 '%s' 呼叫 'texi2dvi' 失敗了"
+
 msgid "Running vignettes for package %s"
 msgstr "執行簡介給程式套件 %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "比較 %s 和 %s"
 
 msgid "no parsed files found"
 msgstr "找不到句法分析過的檔案"
@@ -1372,9 +1446,6 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
-msgstr "'x' 必須是單字串"
-
 msgid "test '%s' is not available"
 msgstr "不存在 '%s' 這個測試"
 
@@ -1425,6 +1496,14 @@ msgstr "不明帶非 ASCII 資料的編碼: 轉換為 ASCII"
 
 msgid "cannot source package code:"
 msgstr "無法讀取套件來源編碼"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
+
+msgid "inferiorCallError"
+msgstr ""
 
 msgid "inferior call failed"
 msgstr ""
@@ -1481,7 +1560,8 @@ msgid "Found a .Internal call in the following function:"
 msgid_plural "Found .Internal calls in the following functions:"
 msgstr[0] "下面的函式呼叫了.Internal:"
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+#, fuzzy
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] "下面的 S4 泛型函式的方法呼叫了.Internal:"
 
@@ -1531,6 +1611,11 @@ msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] ""
 
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "沒有任何一個套件 %s 有已註冊的簡介引擎"
+
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
 msgstr[0] "無法重新編碼 %s 行 %s"
@@ -1559,6 +1644,23 @@ msgstr[0] "%d 項套件測試失敗"
 msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "相關的 BibTeX 條目："
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "錯誤：無法變更目錄名稱到時 %s"
+
+#, fuzzy
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Rd 檔案不能有重複的別名 '%s'："
+
+#~ msgid "downloading %s ..."
+#~ msgstr "下載 %s。。。"
+
+#, fuzzy
+#~ msgid "invalid value"
+#~ msgstr "套件無效。"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "比較 %s 和 %s"
 
 #, fuzzy
 #~ msgid "one of 'package' and 'dir' must be specified."

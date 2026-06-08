@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -881,6 +881,7 @@ static R_XFont *R_XLoadQueryFont(Display *display, char *name)
 {
     R_XFont *tmp;
     tmp = (R_XFont *) malloc(sizeof(R_XFont));
+    if(!tmp) error("allocation failed in R_XLoadQueryFont");
     tmp->type = One_Font;
     tmp->font = XLoadQueryFont(display, name);
     if(tmp->font)
@@ -906,6 +907,7 @@ static R_XFont *R_XLoadQueryFontSet(Display *display,
 				    const char *fontset_name)
 {
     R_XFont *tmp = (R_XFont *) malloc(sizeof(R_XFont));
+    if(!tmp) error("allocation failed in R_XLoadQueryFontSet");
     XFontSet fontset;
     int  /*i,*/ missing_charset_count;
     char **missing_charset_list, *def_string;
@@ -1323,7 +1325,7 @@ X11_Open(pDevDesc dd, pX11Desc xd, const char *dsp,
 	 int maxcube, int bgcolor, int canvascolor, int res,
 	 int xpos, int ypos)
 {
-    /* if we have to bail out with "error", then must free(dd) and free(xd) */
+    /* if we have to bail out with "error", then must GEfreeDD(dd) and free(xd) */
     /* That means the *caller*: the X11DeviceDriver code frees xd, for example */
 
     XEvent event;
@@ -1802,8 +1804,14 @@ static char* translateFontFamily(char* family, pX11Desc xd)
 
     PROTECT(graphicsNS = R_FindNamespace(ScalarString(mkChar("grDevices"))));
     PROTECT_WITH_INDEX(x11env = findVar(install(".X11env"), graphicsNS), &xpi);
-    if(TYPEOF(x11env) == PROMSXP)
-	REPROTECT(x11env = eval(x11env, graphicsNS), xpi);
+    if (TYPEOF(x11env) == PROMSXP) {
+        if (NoDevices()) {
+            REPROTECT(x11env = eval(x11env, graphicsNS), xpi);
+        } else {
+            REPROTECT(x11env = Rf_eval_with_gd(x11env, graphicsNS, 
+                                               GEcurrentDevice()), xpi);
+        }
+    }
     PROTECT(fontdb = findVar(install(".X11.Fonts"), x11env));
     PROTECT(fontnames = getAttrib(fontdb, R_NamesSymbol));
     nfonts = LENGTH(fontdb);
@@ -3202,13 +3210,13 @@ Rf_addX11Device(const char *display, double width, double height, double ps,
     R_CheckDeviceAvailable();
     BEGIN_SUSPEND_INTERRUPTS {
 	/* Allocate and initialize the device driver data */
-	if (!(dev = (pDevDesc) calloc(1, sizeof(DevDesc)))) return;
+	if (!(dev = GEcreateDD())) return;
 	if (!X11DeviceDriver(dev, display, width, height,
 			     ps, gamma, colormodel, maxcubesize,
 			     bgcolor, canvascolor, sfonts, res,
 			     xpos, ypos, title, useCairo, antialias, family,
                              symbolfamily, usePUA)) {
-	    free(dev);
+	    GEfreeDD(dev);
 	    errorcall(call, _("unable to start device %s"), devname);
 	}
 	dd = GEcreateDevDesc(dev);
@@ -3314,7 +3322,7 @@ static SEXP in_do_X11(SEXP call, SEXP op, SEXP args, SEXP env)
     symbolfamily = CHAR(STRING_ELT(scsymbol, 0));
     /* scsymbol forced to have "usePUA" attribute in R code */
     scusePUA = getAttrib(scsymbol, install("usePUA"));
-    usePUA = LOGICAL(scusePUA)[0];
+    usePUA = asRbool(scusePUA, call);
 
     if (!strncmp(display, "png::", 5)) devname = "PNG";
     else if (!strncmp(display, "jpeg::", 6)) devname = "JPEG";

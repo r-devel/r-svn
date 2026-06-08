@@ -29,21 +29,21 @@ rlogis(n, location = 0, scale = 1)
   \item{n}{number of observations. If \code{length(n) > 1}, the length
     is taken to be the number required.}
   \item{location, scale}{location and scale parameters.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
     \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
-
 \value{
   \code{dlogis} gives the density,
-  \code{plogis} gives the distribution function,
-  \code{qlogis} gives the quantile function, and
+  \code{plogis} is the cumulative distribution function, and
+  \code{qlogis} is the quantile function of the logistic distribution.
   \code{rlogis} generates random deviates.
-  
+
   The length of the result is determined by \code{n} for
   \code{rlogis}, and is the maximum of the lengths of the
-  numerical arguments for the other functions.  
-  
+  numerical arguments for the other functions.
+
   The numerical arguments other than \code{n} are recycled to the
   length of the result.  Only the first elements of the logical
   arguments are used.
@@ -52,7 +52,7 @@ rlogis(n, location = 0, scale = 1)
   If \code{location} or \code{scale} are omitted, they assume the
   default values of \code{0} and \code{1} respectively.
 
-  The Logistic distribution with \code{location} \eqn{= \mu}{= m} and
+  The logistic distribution with \code{location} \eqn{= \mu}{= m} and
   \code{scale} \eqn{= \sigma}{= s} has distribution function
   \deqn{
     F(x) = \frac{1}{1 + e^{-(x-\mu)/\sigma}}%
@@ -79,13 +79,9 @@ rlogis(n, location = 0, scale = 1)
   \code{rlogis} uses inversion.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Johnson, N. L., Kotz, S. and Balakrishnan, N. (1995)
-  \emph{Continuous Univariate Distributions}, volume 2, chapter 23.
-  Wiley, New York.
+  \bibinfo{R:Johnson+Kotz+Balakrishnan:1995}{footer}{Chapter 23.}
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Johnson+Kotz+Balakrishnan:1995}
 }
 \seealso{
   \link{Distributions} for other standard distributions.

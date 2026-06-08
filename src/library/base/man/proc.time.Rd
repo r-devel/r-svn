@@ -1,6 +1,6 @@
 % File src/library/base/man/proc.time.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{proc.time}
@@ -44,16 +44,15 @@ proc.time()
 
   The resolution of the times will be system-specific and on Unix-alikes
   times are rounded down to milliseconds.  On modern systems they will
-  be that accurate, but on older systems they might be accurate to 1/100
-  or 1/60 sec.  They are typically available to 10ms on Windows.
+  be that accurate, but in the 20th century they might have
+  been accurate to 1/100 or 1/60 sec.  They are typically available to
+  10ms on Windows.
 
   This is a \link{primitive} function.
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{system.time}} for timing an \R expression,

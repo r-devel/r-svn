@@ -1,7 +1,7 @@
 #  File src/library/tools/R/license.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2015 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 ##    * The name of abbreviation of a versioned license, optionally
 ##      followed by a version spec
 ##    * The name of a versioned license followed by the version
-##    * The abbrevation of a versioned license combined with '-',
+##    * The abbreviation of a versioned license combined with '-',
 ##   optionally followed by an extension spec as in B (in principle,
 ##   only if the base license is extensible).
 ##
@@ -89,7 +89,7 @@ function(paths = NULL)
     ldb[is.na(ldb)] <- ""
     ## (Could also keep NAs and filter on is.finite() in subsequent
     ## computations.)
-    ## FOSS == "yes" implues Restricts_use = "no":
+    ## FOSS == "yes" implies Restricts_use = "no":
     ldb[ldb[, "FOSS"] == "yes", "Restricts_use"] <- "no"
     ldb <- data.frame(ldb, stringsAsFactors = FALSE)
     ldb$Labels <- R_license_db_labels(ldb)
@@ -466,7 +466,8 @@ function(x)
                               extensions = NULL,
                               pointers = NULL,
                               is_FOSS = NA,
-                              restricts_use = NA)
+                              restricts_use = NA,
+                              spdx = "")
         list(is_empty = is_empty,
              is_canonical = is_canonical,
              bad_components = bad_components,
@@ -478,7 +479,8 @@ function(x)
              extensions = extensions,
              pointers = pointers,
              is_FOSS = is_FOSS,
-             restricts_use = restricts_use)
+             restricts_use = restricts_use,
+             spdx = spdx)
 
 
     x <- trimws(x)
@@ -495,6 +497,7 @@ function(x)
     is_verified <- FALSE
     is_FOSS <- NA
     restricts_use <- NA
+    spdx <- ""
 
     ## Try splitting into the individual components.
     components <-
@@ -611,6 +614,11 @@ function(x)
                                stringsAsFactors = FALSE)
         }
 
+        spdx <- paste(unique(unlist(lapply(expansions,
+                                           function(e)
+                                               sort(e[["SPDX"]])),
+                                    use.names = FALSE)),
+                      collapse = " OR ")
         ## Replace expansions by their labels from the license db.
         ## (As these are unique, we can always easily get the full
         ## expansions back.)
@@ -625,6 +633,19 @@ function(x)
         ind <- (m > -1L)
         expansions[ind] <-
             Map(paste, expansions[ind], regmatches(components, m))
+        ## Components without expansions should now be invalid, e.g.
+        ##   License: GPL (> 3)
+        if(any(ind <- (lengths(expansions) == 0L))) {
+            bad_components <- components[ind]
+            is_canonical <- is_standardizable <- is_verified <- FALSE
+            standardization <- spdx <- NA_character_
+            is_FOSS <- restricts_use <- NA
+        }
+        ## Finally, only give empty SPDX license identifiers for icenses
+        ## where one component is 'Unlimited'.
+        if(!nzchar(spdx) &&
+           !any(unlist(expansions, use.names = FALSE) == "Unlimited"))
+            spdx <- NA_character_
     }
 
     if(any(startsWith(components, "Part of R"))) { # base package
@@ -642,7 +663,8 @@ function(x)
                   extensions = extensions,
                   pointers = pointers,
                   is_FOSS = is_FOSS,
-                  restricts_use = restricts_use)
+                  restricts_use = restricts_use,
+                  spdx = spdx)
 }
 
 .standardize_license_components <-
@@ -908,4 +930,67 @@ function(file, keep = TRUE)
              select(x, pos, fields_in_files_para, keep),
          licenses =
              select(x, - c(1L, pos), fields_in_license_para, keep))
+}
+
+spdx2r <-
+function(spdx)
+{
+    if(!is.character(spdx)) {
+        stop("Input must be character")
+    }
+
+    db <- read.dcf(file.path(R.home("share"), "licenses", "license.db"))
+
+    ## output = basename(File) if available, else SPDX identifier
+    r_format <- ifelse(!is.na(db[, "File"]),
+                       basename(db[, "File"]),
+                       db[, "SPDX"])
+    names(r_format) <- db[, "SPDX"]
+
+    convert_single <- function(single_id) {
+        single_id <- toupper(trimws(single_id))
+        if(is.na(single_id) || !nzchar(single_id))
+            return(NA_character_)
+
+        single_id <- sub("-only", "", single_id)
+
+        ## Return if perfect match to license.db
+        idx <- match(toupper(single_id), toupper(names(r_format)))
+        if (!is.na(idx))
+            return(r_format[idx])
+
+        ## -or-later + license.db does not always retain trailing zeros
+        if(grepl("-or-later$", single_id, ignore.case = TRUE)) {
+            base_id <- sub("-or-later", "",
+                           single_id, ignore.case = TRUE)
+            base_id_nozero <-
+                c(base_id, sub("-(\\d)\\.0", "-\\1", base_id))
+            full_id <- sub("-(\\d)\\.0-or-later", " (>= \\1)",
+                           single_id, ignore.case = TRUE)
+            full_id <- sub("-(\\d\\.\\d)-or-later", " (>= \\1)",
+                           full_id, ignore.case = TRUE)
+            if(any(toupper(base_id_nozero) %in% toupper(r_format)))
+                return(full_id)
+        }
+
+        return(NA_character_)
+    }
+
+    convert_compound <- function(compound_id) {
+        compound_id <- trimws(compound_id)
+        ## OR -> |
+        if(grepl(" OR ", compound_id, ignore.case = TRUE)) {
+            parts <- strsplit(compound_id, " [Oo][Rr] ", perl = TRUE)[[1L]]
+            converted_parts <-
+                vapply(parts, convert_single, "", USE.NAMES = FALSE)
+            if(any(is.na(converted_parts)))
+                return(NA_character_)
+            return(paste(converted_parts, collapse = " | "))
+        }
+        convert_single(compound_id)
+    }
+
+    result <- vapply(spdx, convert_compound, "", USE.NAMES = FALSE)
+    names(result) <- NULL
+    result
 }

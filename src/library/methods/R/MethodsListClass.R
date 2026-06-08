@@ -1,7 +1,7 @@
 #  File src/library/methods/R/MethodsListClass.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -92,7 +92,7 @@ loadMethod <- function(method, fname, envir) method
     assign("asMethodDefinition",
            function(def, signature = list(.anyClassName), sealed = FALSE, fdef = def) {
         ## primitives can't take slots, but they are only legal as default methods
-        ## and the code will just have to accomodate them in that role, w/o the
+        ## and the code will just have to accommodate them in that role, w/o the
         ## MethodDefinition information.
         ## NULL is a valid def, used to remove methods.
         switch(typeof(def),
@@ -123,9 +123,10 @@ loadMethod <- function(method, fname, envir) method
     setGeneric("loadMethod", where = envir)
     setMethod("loadMethod", "MethodDefinition",
               function(method, fname, envir) {
-                  assign(".target", method@target, envir = envir)
+                  assign(".target",  method@target,  envir = envir)
                   assign(".defined", method@defined, envir = envir)
-                  assign(".Method", method, envir = envir)
+                  assign(".Generic", if(missing(fname)) method@generic else fname, envir = envir)
+                  assign(".Method",  method, envir = envir)
                   method
               }, where = envir)
     setMethod("loadMethod", "MethodWithNext",

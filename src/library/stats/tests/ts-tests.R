@@ -39,6 +39,21 @@ ar(sunspot.year, method = "burg")
 ar(sunspot.year, method = "ols")
 ar(sunspot.year, method = "mle")
 
+x4d <- diff(log(EuStockMarkets))
+x1 <- x4d[,1]
+## aic=FALSE: just compute AR(<order.max>):
+m6 <- ar.ols(x1, order.max = 6, demean = FALSE, aic = FALSE)
+stopifnot(all.equal(array(c(4.167, -22.03, -7.737,
+                            4.181, -27.62, 6.851), dim = c(6L, 1L, 1L)),
+                    m6$ar*1000, tolerance = 1e-3))
+lm6 <- lapply(setNames(,c("yw","burg","mle")), \(meth)
+              ar(x1, aic=FALSE, order.max = 6, method = meth, demean=FALSE))
+(mar <- vapply(lm6, `[[`, numeric(6), "ar")) # 6 x 3  AR(6) coef
+relD <- abs(mar / c(m6$ar) - 1) # |rel. difference to "ols"|
+stopifnot(identical(dim(relD), c(6L, 3L)),
+          ## AR(6) coefficients are "relatively equal":
+          print(colMeans(relD)) < 0.1, max(relD) < 0.2)
+
 
 ### tests using presidents, contains missing values
 acf(presidents, na.action = na.pass)
@@ -174,6 +189,62 @@ stopifnot(exprs = {
     !is.mts(structure(numeric(), class = c("mts", "ts", "matrix")))
 })
 ## is.mts() was too simplistic in R <= 4.2.x
+
+assertErrV  <- function(...) tools::assertError  (..., verbose=TRUE)
+assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+identical3 <- function(a,b,c)   identical(a,b) && identical(b,c)
+identical4 <- function(a,b,c,d) identical(a,b) && identical3(b,c,d)
+##' get value of `expr` and keep warning as attribute (if there is one)
+getVaW <- function(expr, obj=FALSE) {
+    W <- NULL
+    withCallingHandlers(val <- expr,
+                        warning = function(w) {
+                            W <<- if(obj) w else conditionMessage(w)
+                            invokeRestart("muffleWarning") })
+    structure(val %||% quote(._NULL_()), warning = W) # NULL cannot have attr.
+}
+##
+onWindows <- .Platform$OS.type == "windows"
+englishMsgs <- {
+    ## 1. LANGUAGE takes precedence over locale settings:
+    if(nzchar(lang <- Sys.getenv("LANGUAGE")))
+        lang == "en"
+    else { ## 2. Query the  locale
+        if(!onWindows) {
+            ## sub() :
+            lc.msgs <- sub("\\..*", "", print(Sys.getlocale("LC_MESSAGES")))
+            lc.msgs == "C" || substr(lc.msgs, 1,2) == "en"
+        } else { ## Windows
+            lc.type <- sub("\\..*", "", sub("_.*", "", print(Sys.getlocale("LC_CTYPE"))))
+            lc.type == "English" || lc.type == "C"
+        }
+    }
+}
+cat(sprintf("English messages: %s\n", englishMsgs))
+options(warn = 2, # only caught or asserted warnings
+        width = 99) # instead of 80
+
+## More Ops.ts() cases
+m2 <- matrix(1:12, 6,2)
+str(tm <- ts(m2))
+typeof(tm.7 <- ts(m2,   start = 7)) # integer
+typeof(tmd7 <- ts(m2+0, start = 7)) # double
+typeof(td2 <- (tm+0) + tm) # d
+assertErrV(tm + ts(matrix(1:12, 6,3))) # non-conformable
+   (r  <- getVaW(tm  + tm.7)) # all three r* are 0 x 2 matrices
+str(rd.<- getVaW(tm.7+ (tm+0)))
+    rd <- getVaW(tm  + tmd7)
+stopifnot(exprs = {
+    identical4(c(0L, 2L), dim(r), dim(rd), dim(rd.))
+    is.character(w <- attr(r,  "warning"))
+    !englishMsgs || w == "non-intersecting series"
+    identical3(w, attr(rd, "warning"), attr(rd., "warning"))
+    is.integer(r) # as tm and tm.7
+    is.double(rd.)# *not* true in R <= 4.5.3
+    is.double(rd) # (neither)
+    is.double(td2)
+})
+##
 
 
 

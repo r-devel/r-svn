@@ -5,11 +5,10 @@
 
 \name{text}
 \title{Add Text to a Plot}
-\encoding{UTF-8}
 \usage{
 text(x, \dots)
 
-\method{text}{default} (x, y = NULL, labels = seq_along(x$x), adj = NULL,
+\method{text}{default}(x, y = NULL, labels = seq_along(x$x), adj = NULL,
      pos = NULL, offset = 0.5, vfont = NULL,
      cex = 1, col = NULL, font = NULL, \dots)
 }
@@ -24,7 +23,7 @@ text(x, \dots)
     language objects (names and calls) to expressions, and vectors and
     other classed objects to character vectors by \code{\link{as.character}}.
     If \code{labels} is longer than \code{x} and
-    \code{y}, the coordinates are recycled to the length of \code{labels}.}
+    \code{y}, \code{labels} is truncated to \code{max(length(x), length(y))}.}
   \item{adj}{one or two values in \eqn{[0, 1]} which specify the x
     (and optionally y) adjustment (\sQuote{justification}) of the
     labels, with 0 for left/bottom, 1 for right/top, and 0.5 for
@@ -143,11 +142,9 @@ text(x, \dots)
 #endif
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
-  Murrell, P. (2005) \emph{R Graphics}. Chapman & Hall/CRC Press.
+  \bibshow{R:Murrell:2005}
 }
 \seealso{
   \code{\link{text.formula}} for the formula method;

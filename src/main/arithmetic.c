@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2023 The R Core Team.
+ *  Copyright (C) 1998--2026 The R Core Team.
  *  Copyright (C) 2003--2023 The R Foundation
  *  Copyright (C) 1995--1997 Robert Gentleman and Ross Ihaka
  *
@@ -206,7 +206,7 @@ double R_pow(double x, double y) /* = x ^ y */
 {
     /* squaring is the most common of the specially handled cases so
        check for it first. */
-    if(y == 2.0)
+    if(y == 2.)
 	return x * x;
     if(x == 1. || y == 0.)
 	return(1.);
@@ -214,6 +214,12 @@ double R_pow(double x, double y) /* = x ^ y */
 	if(y > 0.) return(0.);
 	else if(y < 0) return(R_PosInf);
 	else return(y); /* NA or NaN, we assert */
+    }
+    if (x >= -11. && x <= 11.) {
+	if(y == 4.)
+	    return x * x * x * x;
+	if(y == 3.)
+	    return x * x * x;
     }
     if (R_FINITE(x) && R_FINITE(y)) {
 	/* There was a special case for y == 0.5 here, but
@@ -249,7 +255,7 @@ double R_pow(double x, double y) /* = x ^ y */
 
 double R_pow_di(double x, int n)
 {
-    double xn = 1.0;
+    double xn = 1.;
 
     if (ISNAN(x)) return x;
     if (n == NA_INTEGER) return NA_REAL;
@@ -257,7 +263,7 @@ double R_pow_di(double x, int n)
     if (n != 0) {
 	if (!R_FINITE(x)) return R_POW(x, (double)n);
 
-	Rboolean is_neg = (n < 0);
+	bool is_neg = (n < 0);
 	if(is_neg) n = -n;
 	for(;;) {
 	    if(n & 01) xn *= x;
@@ -318,7 +324,7 @@ static SEXP lcall;
 #define R_INT_MIN -INT_MAX
 // .. relying on fact that NA_INTEGER is outside of these
 
-static R_INLINE int R_integer_plus(int x, int y, Rboolean *pnaflag)
+static R_INLINE int R_integer_plus(int x, int y, bool *pnaflag)
 {
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
@@ -326,13 +332,13 @@ static R_INLINE int R_integer_plus(int x, int y, Rboolean *pnaflag)
     if (((y > 0) && (x > (R_INT_MAX - y))) ||
 	((y < 0) && (x < (R_INT_MIN - y)))) {
 	if (pnaflag != NULL)
-	    *pnaflag = TRUE;
+	    *pnaflag = true;
 	return NA_INTEGER;
     }
     return x + y;
 }
 
-static R_INLINE int R_integer_minus(int x, int y, Rboolean *pnaflag)
+static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
 {
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
@@ -340,14 +346,14 @@ static R_INLINE int R_integer_minus(int x, int y, Rboolean *pnaflag)
     if (((y < 0) && (x > (R_INT_MAX + y))) ||
 	((y > 0) && (x < (R_INT_MIN + y)))) {
 	if (pnaflag != NULL)
-	    *pnaflag = TRUE;
+	    *pnaflag = true;
 	return NA_INTEGER;
     }
     return x - y;
 }
 
 #define GOODIPROD(x, y, z) ((double) (x) * (double) (y) == (z))
-static R_INLINE int R_integer_times(int x, int y, Rboolean *pnaflag)
+static R_INLINE int R_integer_times(int x, int y, bool *pnaflag)
 {
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
@@ -357,7 +363,7 @@ static R_INLINE int R_integer_times(int x, int y, Rboolean *pnaflag)
 	    return z;
 	else {
 	    if (pnaflag != NULL)
-		*pnaflag = TRUE;
+		*pnaflag = true;
 	    return NA_INTEGER;
 	}
     }
@@ -598,7 +604,7 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 
 attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 {
-    Rboolean xattr, yattr, xarray, yarray, xts, yts, xS4, yS4;
+    bool xattr, yattr, xarray, yarray, xts, yts, xS4, yS4;
     PROTECT_INDEX xpi, ypi;
     ARITHOP_TYPE oper = (ARITHOP_TYPE) PRIMVAL(op);
     int nprotect = 2; /* x and y */
@@ -614,19 +620,19 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	nx = XLENGTH(x),
 	ny = XLENGTH(y);
     if (ATTRIB(x) != R_NilValue) {
-	xattr = TRUE;
+	xattr = true;
 	xarray = isArray(x);
 	xts = isTs(x);
 	xS4 = isS4(x);
     }
-    else xattr = xarray = xts = xS4 = FALSE;
+    else xattr = xarray = xts = xS4 = false;
     if (ATTRIB(y) != R_NilValue) {
-	yattr = TRUE;
+	yattr = true;
 	yarray = isArray(y);
 	yts = isTs(y);
 	yS4 = isS4(y);
     }
-    else yattr = yarray = yts = yS4 = FALSE;
+    else yattr = yarray = yts = yS4 = false;
 
 #define R_ARITHMETIC_ARRAY_1_SPECIAL
 
@@ -734,6 +740,10 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
     if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+/* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
+   1) can be *faster* for all ops
+   2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
+*/
 	COERCE_IF_NEEDED(x, CPLXSXP, xpi);
 	COERCE_IF_NEEDED(y, CPLXSXP, ypi);
 	val = complex_binary(oper, x, y);
@@ -778,7 +788,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     }
 
     if(xS4 || yS4) {   /* Only set the bit:  no method defined! */
-	val = asS4(val, TRUE, TRUE);
+	val = asS4(val, TRUE, TRUE); // from objects.c
     }
     UNPROTECT(nprotect);
     return val;
@@ -1429,6 +1439,48 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 
 /* Mathematical Functions of One Argument */
 
+/** compute f(sa)  in "ari"thmetic - with "extras", notably ensuring
+ *  <correct f>(arg) = res *and* correct treatment of NAs in sa */
+static SEXP math1_ari(SEXP sa, double(*f)(double), double arg, double res, SEXP lcall)
+{
+    SEXP sy;
+    R_xlen_t i, n;
+    int naflag;
+
+    if (!isNumeric(sa))
+	errorcall(lcall, R_MSG_NONNUM_MATH);
+
+    n = XLENGTH(sa);
+    /* coercion can lose the object bit */
+    PROTECT(sa = coerceVector(sa, REALSXP));
+    PROTECT(sy = NO_REFERENCES(sa) ? sa : allocVector(REALSXP, n));
+    const double *a = REAL_RO(sa);
+    double *y = REAL(sy);
+    naflag = 0;
+    for (i = 0; i < n; i++) {
+	double x = a[i]; /* in case y == a (when sy = sa) */
+	if (x == arg)
+	    y[i] = res;
+	else
+	/* This code assumes that ISNAN(x) implies ISNAN(f(x)), so we
+	   only need to check ISNAN(x) if ISNAN(f(x)) is true. */
+	    y[i] = f(x);
+	if (ISNAN(y[i])) {
+	    if (ISNAN(x))
+		y[i] = x; /* make sure the incoming NaN is preserved */
+	    else
+		naflag = 1;
+	}
+    }
+    /* These are primitives, so need to use the call */
+    if(naflag) warningcall(lcall, R_MSG_NA);
+
+    if (sa != sy && ATTRIB(sa) != R_NilValue)
+	SHALLOW_DUPLICATE_ATTRIB(sy, sa);
+    UNPROTECT(2);
+    return sy;
+}
+
 static SEXP math1(SEXP sa, double(*f)(double), SEXP lcall)
 {
     SEXP sy;
@@ -1466,6 +1518,89 @@ static SEXP math1(SEXP sa, double(*f)(double), SEXP lcall)
     return sy;
 }
 
+/* Make the result precise for squares of integers up to 11 */
+// needed?? I see exact sqrt() for all of {0:1e8} with glibc R (Linux Fedora 42):
+//     chkRt <- function(n) {zN <- 0:n; stopifnot(sqrt(zN^2) == zN) } ; chkRt(1e8)
+static double Rsqrt(double x)
+{
+    if (x == 0.) return x; // => sqrt(-0.) = -0.
+    for(int i=1; i < 12; i++) {
+	if (x == i*i) return i;
+    }
+    return sqrt(x);
+}
+
+static double Rexp(double x)
+{
+    /* exp(x) = 1 + x + x^2/2! + ...
+     * should return 1+x for very small x i.e.,  x^2/2 < D_EPS / 2
+     * <==> x^2 < D_EPS  <==> |x| < sqrt(D_EPS) : */
+    return (fabs(x) <= sqrt(DBL_EPSILON)) ? 1. + x : exp(x);
+}
+
+/* should return x for very small x (e.g. expm1(x))*/
+static double f_x_x(double x, double(*f)(double), double m)
+{
+    return (fabs(x) <= m) ? x : f(x);
+}
+
+static double Rexpm1(double x)
+{
+    /* expm1(x) = exp(x) - 1 =  x + x^2/2 + O(x^3)
+     *                       =. x  when  x^2/2 < |x| * D_EPS/2
+     *                             <==>  |x|   <  D_EPS */
+    return f_x_x(x, expm1, DBL_EPSILON);
+}
+
+static double Rlog1p(double x)
+{
+    /* log1p(x) = log(1 + x) =  x - x^2/2  + O(x^3)
+     *                       =. x  when  |x| < D_EPS, see Rexpm1() */
+    return f_x_x(x, log1p, DBL_EPSILON);
+}
+
+static double Rsin(double x)
+{
+    /* sin(x) = x - x^3/6 + O(x^5) = x*(1 - x^2/6) + O(.) =!= x  iff
+       (1 - x^2/6) .= 1  <==>  |x| < sqrt(6 eps); eps = DBL_Eps/2 */
+    return f_x_x(x, sin, sqrt(3. * DBL_EPSILON));
+}
+
+static double Rtan(double x)
+{
+    /* tan(x) =  x + x^3/3 + O(x^5)
+              =. x  when |x|^3/3 < |x| EPS/2  <==>
+	                  x^2    < EPS * 3/2  <==>
+		                   |x|   < sqrt(3/2 * EPS) */
+    return f_x_x(x, tan, sqrt(1.5 * DBL_EPSILON));
+}
+
+static double Rcos(double x)
+{
+    /* cos(x) =  1 - x^2/2! + x^4/4!
+              =. 1 - x^2/2!  iff  x^4/24 < (1 - x^2/2) * EPS/2  ~= EPS/2 <==>
+		                          x^4 < 12*EPS  */
+    if (fabs(x) < sqrt(sqrt(12. * DBL_EPSILON)))
+	return (1. - x*x*0.5);
+    else
+	return cos(x);
+}
+
+static double Rasin(double x)
+{
+    /* asin(x) =  x + x^3/6 + 3/40 * x^5...   ==>
+               =. x when |x| < sqrt(3 * EPS)  -- see Rsin() above */
+    return f_x_x(x, asin, sqrt(3. * DBL_EPSILON));
+}
+
+static double Ratan(double x)
+{
+    /* atan(x) =  x - x^3/3 + x^5/5 ... ==>
+               =. x  iff |x| < sqrt(3/2 * EPS) -- see Rtan() above*/
+    return f_x_x(x, atan, sqrt(1.5 * DBL_EPSILON));
+}
+
+
 
 attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -1480,36 +1615,48 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     if (isComplex(CAR(args)))
 	return complex_math1(call, op, args, env);
 
-#define MATH1(x) math1(CAR(args), x, call);
+#define MATH1(x)      math1(CAR(args), x, call);
+#define MATH1_SQRT(x) math1(CAR(args), Rsqrt, call);
+#define MATH1_EXP(x)  math1_ari(CAR(args), Rexp,  0., 1., call);
+#define MATH1_EXPM1(x)math1_ari(CAR(args), Rexpm1,0., 0., call);
+#define MATH1_LOG1P(x)math1_ari(CAR(args), Rlog1p,0., 0., call);
+#define MATH1_SIN(x)  math1_ari(CAR(args), Rsin,  0., 0., call);
+#define MATH1_ASIN(x) math1_ari(CAR(args), Rasin, 0., 0., call);
+#define MATH1_TAN(x)  math1_ari(CAR(args), Rtan,  0., 0., call);
+#define MATH1_ATAN(x) math1_ari(CAR(args), Ratan, 0., 0., call);
+#define MATH1_COS(x)  math1_ari(CAR(args), Rcos,  0., 1., call);
+#define MATH1_00(x)   math1_ari(CAR(args),  x,    0., 0., call);
+#define MATH1_01(x)   math1_ari(CAR(args),  x,    0., 1., call);
+#define MATH1_10(x)   math1_ari(CAR(args),  x,    1., 0., call);
     switch (PRIMVAL(op)) {
     case 1: return MATH1(floor);
     case 2: return MATH1(ceil);
-    case 3: return MATH1(sqrt);
+    case 3: return MATH1_SQRT(sqrt);
     case 4: return MATH1(sign);
 	/* case 5: return MATH1(trunc); separate from 2.6.0 */
 
-    case 10: return MATH1(exp);
-    case 11: return MATH1(expm1);
-    case 12: return MATH1(log1p);
+    case 10: return MATH1_EXP(exp);
+    case 11: return MATH1_EXPM1(expm1);
+    case 12: return MATH1_LOG1P(log1p);
 
-    case 20: return MATH1(cos);
-    case 21: return MATH1(sin);
-    case 22: return MATH1(tan);
-    case 23: return MATH1(acos);
-    case 24: return MATH1(asin);
-    case 25: return MATH1(atan);
+    case 20: return MATH1_COS(cos);
+    case 21: return MATH1_SIN(sin);
+    case 22: return MATH1_TAN(tan);
+    case 23: return MATH1_10(acos);
+    case 24: return MATH1_ASIN(asin);
+    case 25: return MATH1_ATAN(atan);
 
-    case 30: return MATH1(cosh);
-    case 31: return MATH1(sinh);
-    case 32: return MATH1(tanh);
-    case 33: return MATH1(acosh);
-    case 34: return MATH1(asinh);
-    case 35: return MATH1(atanh);
+    case 30: return MATH1_01(cosh);
+    case 31: return MATH1_00(sinh);
+    case 32: return MATH1_00(tanh);
+    case 33: return MATH1_10(acosh);
+    case 34: return MATH1_00(asinh);
+    case 35: return MATH1_00(atanh);
 
-    case 40: return MATH1(lgammafn);
+    case 40: return MATH1(lgammafn); // ../nmath/lgamma.c
     case 41: return MATH1(gammafn);
 
-    case 42: return MATH1(digamma);
+    case 42: return MATH1(digamma); // ../nmath/polygamma.c
     case 43: return MATH1(trigamma);
 	/* case 44: return MATH1(tetragamma);
 	   case 45: return MATH1(pentagamma);
@@ -1615,14 +1762,14 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
 static SEXP math2(SEXP sa, SEXP sb, double (*f)(double, double),
 		  SEXP lcall)
 {
-    SEXP sy;
-    R_xlen_t i, ia, ib, n, na, nb;
-    double ai, bi, *y;
-    const double *a, *b;
-
     /* for 0-length a we want the attributes of a,
        as no recycling will occur */
 #define SETUP_Math2					\
+    SEXP sy;						\
+    R_xlen_t i, ia, ib, n, na, nb;			\
+    double ai, bi, *y;					\
+    const double *a, *b;				\
+							\
     if (!isNumeric(sa) || !isNumeric(sb))		\
 	errorcall(lcall, R_MSG_NONNUM_MATH);		\
 							\
@@ -1670,11 +1817,6 @@ static SEXP math2(SEXP sa, SEXP sb, double (*f)(double, double),
 static SEXP math2_1(SEXP sa, SEXP sb, SEXP sI,
 		    double (*f)(double, double, int), SEXP lcall)
 {
-    SEXP sy;
-    R_xlen_t i, ia, ib, n, na, nb;
-    double ai, bi, *y;
-    const double *a, *b;
-
     SETUP_Math2;
     int m_opt = asInteger(sI);
 
@@ -1695,11 +1837,6 @@ static SEXP math2_1(SEXP sa, SEXP sb, SEXP sI,
 static SEXP math2_2(SEXP sa, SEXP sb, SEXP sI1, SEXP sI2,
 		    double (*f)(double, double, int, int), SEXP lcall)
 {
-    SEXP sy;
-    R_xlen_t i, ia, ib, n, na, nb;
-    double ai, bi, *y;
-    const double *a, *b;
-
     SETUP_Math2;
     int i_1 = asInteger(sI1),
 	i_2 = asInteger(sI2);
@@ -1723,20 +1860,13 @@ static SEXP math2_2(SEXP sa, SEXP sb, SEXP sI1, SEXP sI2,
 static SEXP math2B(SEXP sa, SEXP sb, double (*f)(double, double, double *),
 		   SEXP lcall)
 {
-    SEXP sy;
-    R_xlen_t i, ia, ib, n, na, nb;
-    double ai, bi, *y;
-    const double *a, *b;
-    double amax, *work;
-    size_t nw;
-
 #define besselJY_max_nu 1e7
 
     SETUP_Math2;
 
     /* allocate work array for BesselJ, BesselY large enough for all
        arguments */
-    amax = 0.0;
+    double amax = 0.0;
     for (i = 0; i < nb; i++) {
 	double av = b[i] < 0 ? -b[i] : b[i];
 	if (amax < av)
@@ -1745,8 +1875,8 @@ static SEXP math2B(SEXP sa, SEXP sb, double (*f)(double, double, double *),
     if (amax > besselJY_max_nu)
 	amax = besselJY_max_nu; // and warning will happen in ../nmath/bessel_[jy].c
     const void *vmax = vmaxget();
-    nw = 1 + (size_t)floor(amax);
-    work = (double *) R_alloc(nw, sizeof(double));
+    size_t nw = 1 + (size_t)floor(amax);
+    double *work = (double *) R_alloc(nw, sizeof(double));
 
     MOD_ITERATE2(n, na, nb, i, ia, ib, {
 //	if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -1894,7 +2024,7 @@ static R_INLINE SEXP match_Math2_dflt_args(SEXP args, SEXP call)
 attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP res, call2;
-    int is_signif = (PRIMVAL(op) == 10004) ? TRUE : FALSE;
+    int is_signif = (PRIMVAL(op) == 10004) ? true : false;
     double dflt_digits = is_signif ? 6.0 : 0.;
 
     PROTECT_INDEX api;
@@ -1927,7 +2057,7 @@ attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
         }
 
         if (CAR(args) == R_MissingArg)
-            error(_("argument \"%s\" is missing, with no default"), "x");
+	    R_MissingArgError_c("x", call, "MathMissingError");
 
         if (xlength(CADR(args)) == 0)
             errorcall(call, _("invalid second argument of length 0"));
@@ -1950,8 +2080,8 @@ attribute_hidden SEXP do_log1arg(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &res)) return res;
 
     SEXP sLog = install("log");
-    if(PRIMVAL(op) == 10) tmp = ScalarReal(10.0);
-    if(PRIMVAL(op) == 2)  tmp = ScalarReal(2.0);
+    if(PRIMVAL(op) == 10010) tmp = ScalarReal(10.0);
+    if(PRIMVAL(op) == 10002) tmp = ScalarReal(2.0);
 
     PROTECT(call2 = lang3(sLog, CAR(args), tmp));
     PROTECT(args2 = lang2(CAR(args), tmp));
@@ -2026,7 +2156,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
     if (n == 1) {
 	if (CAR(args) == R_MissingArg ||
 	    (TAG(args) != R_NilValue && TAG(args) != R_x_Symbol))
-	    error(_("argument \"%s\" is missing, with no default"), "x");
+	    R_MissingArgError_c("x", call, "log1Error");
 
 	if (! DispatchGroup("Math", call, op, args, env, &res)) {
 	    if (isComplex(CAR(args)))
@@ -2044,7 +2174,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	PROTECT(args = matchArgs_NR(do_log_formals, args, call));
 
 	if(CAR(args) == R_MissingArg)
-	    error(_("argument \"%s\" is missing, with no default"), "x");
+	    R_MissingArgError_c("x", call, "log2Error");
 	if (CADR(args) == R_MissingArg)
 	    SETCADR(args, ScalarReal(DFLT_LOG_BASE));
 

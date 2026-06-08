@@ -51,9 +51,9 @@ friedman.test(y, \dots)
   \code{groups}.
 
   If \code{y} is a matrix, \code{groups} and \code{blocks} are
-  obtained from the column and row indices, respectively.  \code{NA}'s
+  obtained from the column and row indices, respectively.  \code{NA}s
   are not allowed in \code{groups} or \code{blocks};  if \code{y}
-  contains \code{NA}'s, corresponding blocks are removed.
+  contains \code{NA}s, corresponding blocks are removed.
 }
 \value{
   A list with class \code{"htest"} containing the following components:
@@ -65,10 +65,8 @@ friedman.test(y, \dots)
   \item{data.name}{a character string giving the names of the data.}
 }
 \references{
-  Myles Hollander and Douglas A. Wolfe (1973),
-  \emph{Nonparametric Statistical Methods.}
-  New York: John Wiley & Sons.
-  Pages 139--146.
+  \bibinfo{R:Hollander+Wolfe:1973}{footer}{Pages 139--146.}
+  \bibshow{R:Hollander+Wolfe:1973}
 }
 \seealso{
   \code{\link{quade.test}}.

@@ -1,6 +1,6 @@
 % File src/library/graphics/man/plothistogram.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{plot.histogram}
@@ -16,9 +16,9 @@
                col = "lightgray", border = NULL, lty = NULL,
                main = paste("Histogram of", paste(x$xname, collapse = "\n")),
                sub = NULL, xlab = x$xname, ylab,
-               xlim = range(x$breaks), ylim = NULL,
+               xlim = range(x$breaks), ylim = NULL, log = "",
                axes = TRUE, labels = FALSE, add = FALSE,
-               ann = TRUE, \dots)
+               ann = TRUE, panel.first = NULL, \dots)
 
 \method{lines}{histogram}(x, \dots)
 }
@@ -40,6 +40,7 @@
   \item{main, sub, xlab, ylab}{these arguments to \code{title} have useful
     defaults here.}
   \item{xlim, ylim}{the range of x and y values with sensible defaults.}
+  \item{log}{a string, by default \code{""}, otherwise typically \code{"x"}.}
   \item{axes}{logical, indicating if axes should be drawn.}
   \item{labels}{logical or character.  Additionally draw labels on top of bars,
     if not \code{FALSE}; if \code{TRUE}, draw the counts or rounded
@@ -47,6 +48,12 @@
   \item{add}{logical.  If \code{TRUE}, only the bars are added to the
     current plot.  This is what \code{lines.histogram(*)} does.}
   \item{ann}{logical.  Should annotations (titles and axis titles) be plotted?}
+  \item{panel.first}{an \sQuote{expression} to be evaluated after the
+    plot axes are set up but before any plotting takes place.  This can
+    be useful for drawing background grids.  Note
+    that this works by lazy evaluation: passing this argument from other
+    functions may well not work since it may be evaluated too
+    early.}  
   \item{\dots}{further \link{graphical parameters} to
     \code{title} and \code{axis}.}
 }

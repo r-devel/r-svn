@@ -125,7 +125,7 @@ plot(cos, -7,7, n=11, axes=FALSE)
 ## gave wrong ylab in R 2.6.0
 plot(cos, -7,7, ylab = "Cosine  cos(x)", n=11, axes=FALSE)
 ## partial matching of 'ylab'; mapping  [0,1] (not [-7.7]):
-## margins chosen to avoid rouding error showing to 2dp.
+## margins chosen to avoid rounding error showing to 2dp.
 op <- par(mar=c(5,4.123,4,2)+0.1)
 plot(gamma, yla = expression(Gamma(x)), n=11, yaxt="n")
 par(op)
@@ -187,7 +187,7 @@ axis.POSIXct(3, at = "2022-10-01 00:00:30.25", mgp = c(3,2,0))
 ## axis.POSIXct: a few days, extending the format
 days <- seq(as.Date("2022-10-01"), as.Date("2022-12-21"), by="days")
 x <- as.POSIXct(as.character(days))
-plot(data.frame(x, y = 1), xaxt="n")
+plot(data.frame(x = range(x), y = 1), xaxt="n")
 axis.POSIXct(1, x)
 axis.POSIXct(1, x, at = as.Date("2022-10-12"), mgp = c(3,2,0), tck = -0.04)
 axis.POSIXct(3, x, at = as.POSIXct("2022-10-15"))

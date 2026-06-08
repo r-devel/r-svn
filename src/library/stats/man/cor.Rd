@@ -1,6 +1,6 @@
 % File src/library/stats/man/cor.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{cor}
@@ -107,7 +107,7 @@ cov2cor(V)
   reranking for each pair.
 
   When there are ties, Kendall's \eqn{\tau_b}{tau_b} is computed, as
-  proposed by Kendall (1945).
+  proposed by \bibcitet{R:Kendall:1945}.
 
   Scaling a covariance matrix into a correlation one can be achieved in
   many ways, mathematically most appealing by multiplication with a
@@ -120,22 +120,12 @@ cov2cor(V)
   Some people have noted that the code for Kendall's tau is slow for
   very large datasets (many more than 1000 cases).  It rarely makes
   sense to do such a computation, but see function
-  \code{\link[pcaPP:cor.fk]{cor.fk}} in package \CRANpkg{pcaPP}.
+  \code{\link[pcaPP]{cor.fk}} in package \CRANpkg{pcaPP}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Kendall, M. G. (1938).
-  A new measure of rank correlation,
-  \emph{Biometrika}, \bold{30}, 81--93.
-  \doi{10.1093/biomet/30.1-2.81}.
-
-  Kendall, M. G. (1945).
-  The treatment of ties in rank problems.
-  \emph{Biometrika}, \bold{33} 239--251.
-  \doi{10.1093/biomet/33.3.239}
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Kendall:1938,
+    R:Kendall:1945}
 }
 \seealso{
   \code{\link{cor.test}} for confidence intervals (and tests).
@@ -143,6 +133,8 @@ cov2cor(V)
   \code{\link{cov.wt}} for \emph{weighted} covariance computation.
 
   \code{\link{sd}} for standard deviation (vectors).
+  
+  \code{\link{cumvar}} for cumulative variances.
 }
 \examples{
 var(1:10)  # 9.166667
@@ -183,7 +175,7 @@ colnames(swM) <- abbreviate(colnames(swiss), minlength=6)
 swM[1,2] <- swM[7,3] <- swM[25,5] <- NA # create 3 "missing"
 
 ## Consider all 5 "use" cases :
-(C. <- cov(swM)) # use="everything"  quite a few NA's in cov.matrix
+(C. <- cov(swM)) # use="everything"  quite a few NAs in cov.matrix
 try(cov(swM, use = "all")) # Error: missing obs...
 C2 <- cov(swM, use = "complete")
 stopifnot(identical(C2, cov(swM, use = "na.or.complete")))

@@ -1,7 +1,7 @@
 #  File src/library/tools/R/md5.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2024 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,16 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-md5sum <- function(files) {
-    files <- path.expand(files)
-    structure(.Call(C_Rmd5, files), names=files)
+md5sum <- function(files, bytes) {
+    if (!missing(files) && !missing(bytes))
+        stop("'files' and 'bytes' are mutually exclusive")
+    if (!missing(bytes)) {
+        if (!is.raw(bytes)) stop("'bytes' must be a raw vector")
+        .Call(C_Rmd5, bytes)
+    } else {
+        files <- path.expand(files)
+        structure(.Call(C_Rmd5, files), names=files)
+    }
 }
 
 .installMD5sums <- function(pkgDir, outDir = pkgDir)
@@ -48,7 +55,7 @@ checkMD5sums <- function(package, dir)
     if (is.null(dot))
         stop("current working directory cannot be ascertained")
     setwd(dir)
-    x <- md5sum(dir(dir, recursive = TRUE))
+    x <- md5sum(dir(recursive = TRUE))
     setwd(dot)
     x <- x[names(x) != "MD5"]
     nmx <- names(x)

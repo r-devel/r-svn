@@ -4,7 +4,6 @@
 % Distributed under GPL 2 or later
 
 \name{logLik}
-\encoding{UTF-8}
 \alias{logLik}
 %\alias{print.logLik}
 %\alias{str.logLik}
@@ -71,7 +70,7 @@ logLik(object, \dots)
   the restrictions if \code{REML = TRUE}).
 }
 \seealso{
-  \code{\link[nlme:logLik.lme]{logLik.gls}}, \code{\link[nlme]{logLik.lme}}, in
+  \code{\link[nlme]{logLik.gls}}, \code{\link[nlme]{logLik.lme}}, in
   package \CRANpkg{nlme}, etc.
 
   \code{\link{AIC}}
@@ -79,10 +78,7 @@ logLik(object, \dots)
 \references{
   For \code{logLik.lm}:
 
-  Harville, D.A. (1974).
-  Bayesian inference for variance components using only error contrasts.
-  \emph{Biometrika}, \bold{61}, 383--385.
-  \doi{10.2307/2334370}.
+  \bibshow{R:Harville:1974}
 }
 \author{
   \enc{José}{Jose} Pinheiro and Douglas Bates

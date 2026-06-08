@@ -1,7 +1,8 @@
 ### Tests of often platform-dependent features of the POSIX[cl]t implementation.
 
-### Expect differences, especially with 32-bit time_t and platforms
+### Expect differences, historically with 32-bit time_t and platforms
 ### without tm_zone/tm_gmtoff.
+### Please use the R-internal version for .Rout.save.
 
 z <- ISOdate(1890:1912, 1, 10, tz="UTC")
 ## Rome changed to CET for 1894
@@ -59,7 +60,7 @@ as.POSIXlt(z)$year == 5879680L
 
 ## ------------- Tests of far-distant dates -----------
 Sys.setenv(TZ = "Europe/London")
-## the pre-1902 POSIXct values wil be 75s out on platdorm that do not
+## the pre-1902 POSIXct values will be 75s out on platforms that do not
 ## know about UK changes prior to 1902 (in fact in 1847-12-01: see below).
 as.POSIXct("4000-07-01")
 as.Date("4000-07-01")
@@ -137,14 +138,17 @@ format(x2, "%a, %d %b %Y %H:%M:%S %Z")
 ## offsets not in whole hours:
 x3 <- strptime("2022-01-01", "%Y-%m-%d", tz = "Australia/Adelaide")
 format(as.POSIXct(x3), "%a, %d %b %Y %H:%M:%S %z") # +10h30m
-# macOS' strftime prints the next two wrong.
-# Liberia does/did not have DST, so second abbreviation may be repeat or empty
+# macOS' strftime printed the next two wrong.
+# Liberia does/did not have DST
 x4 <- strptime("1971-01-01", "%Y-%m-%d", tz = "Africa/Monrovia")
 y4 <- as.POSIXct(x4)
-str(unclass(as.POSIXlt(y4))) # correct gmtoff, printed wrong on macOS
-format(y4, "%a, %d %b %Y %H:%M:%S %z") # -44m, should be -00:44:30
+str(unclass(as.POSIXlt(y4))) # correct gmtoff, printed wrong  as -44m
+# glibc prints an abbreviation for DST.
+format(y4, "%a, %d %b %Y %H:%M:%S %z")
 ## timezones in 1900 might not be supported
 x5 <- strptime("1900-03-01", "%Y-%m-%d", tz = "Europe/Paris")
 y5 <- as.POSIXct(x5)
 str(unclass(as.POSIXlt(y5))) # ditto
 format(y5, "%a, %d %b %Y %H:%M:%S %z")
+
+cat('Time elapsed: ', proc.time(),'\n')

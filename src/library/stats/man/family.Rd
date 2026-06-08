@@ -1,6 +1,6 @@
 % File src/library/stats/man/family.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{family}
@@ -40,7 +40,7 @@ quasipoisson(link = "log")
     \code{identity}, \code{log} and \code{inverse};
     the \code{binomial} family the links \code{logit},
     \code{probit}, \code{cauchit}, (corresponding to logistic,
-    normal and Cauchy CDFs respectively) \code{log} and
+    normal and Cauchy CDFs respectively) \code{log}, \code{identity} and
     \code{cloglog} (complementary log-log);
     the \code{Gamma} family the links \code{inverse}, \code{identity}
      and \code{log};
@@ -96,7 +96,7 @@ quasipoisson(link = "log")
   the \code{binomial} and \code{poisson} families only in that the
   dispersion parameter is not fixed at one, so they can model
   over-dispersion.  For the binomial case see
-  \bibcite{McCullagh and Nelder (1989, pp.\sspace{}124--8)}.
+  \bibcitet{|R:McCullagh+Nelder:1989|pages 124--8}.
   Although they show that there is (under some
   restrictions) a model with
   variance proportional to mean as in the quasi-binomial model, note
@@ -164,28 +164,15 @@ quasipoisson(link = "log")
   \item{dispersion}{(optional since \R version 4.3.0) numeric: value of the
     dispersion parameter, if fixed, or \code{NA_real_} if free.}
 }
-\references{
-  McCullagh P. and Nelder, J. A. (1989)
-  \emph{Generalized Linear Models.}
-  London: Chapman and Hall.
-
-  Dobson, A. J. (1983)
-  \emph{An Introduction to Statistical Modelling.}
-  London: Chapman and Hall.
-
-  Cox, D. R. and  Snell, E. J. (1981).
-  \emph{Applied Statistics; Principles and Examples.}
-  London: Chapman and Hall.
-
-  Hastie, T. J. and Pregibon, D. (1992)
-  \emph{Generalized linear models.}
-  Chapter 6 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
-}
 \author{
   The design was inspired by S functions of the same names described
-  in Hastie & Pregibon (1992) (except \code{quasibinomial} and
+  in \bibcitet{R:Hastie+Pregibon:1992} (except \code{quasibinomial} and
   \code{quasipoisson}).
+}
+\references{
+  \bibshow{*,
+    R:Cox+Snell:1981,
+    R:Dobson:1983}
 }
 \seealso{
   \code{\link{glm}}, \code{\link{power}}, \code{\link{make.link}}.

@@ -1,7 +1,7 @@
 #   File src/library/utils/R/Sweave.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -69,6 +69,7 @@ Sweave <- function(file, driver = RweaveLatex(),
     if (.Platform$OS.type == "windows") file <- chartr("\\", "/", file)
 
     text <- SweaveReadFile(file, syntax, encoding = encoding)
+    file <- attr(text, "files")[1L]
     attr(file, "encoding") <- encoding <- attr(text, "encoding")
     srcFilenames <- attr(text, "files")
     srcFilenum <- attr(text, "srcFilenum")
@@ -181,7 +182,7 @@ Sweave <- function(file, driver = RweaveLatex(),
     on.exit() # clear action to finish with error = TRUE
     drobj$srcFilenames <- srcFilenames
     driver$finish(drobj)
-}
+} ## end{ Sweave }
 
 SweaveReadFile <- function(file, syntax, encoding = "")
 {
@@ -285,8 +286,7 @@ SweaveReadFile <- function(file, syntax, encoding = "")
     attr(text, "srcLinenum") <- srcLinenum
     attr(text, "srcFilenum") <- srcFilenum
     text
-}
-
+} ## end{ SweaveReadFile }
 
 
 ###**********************************************************
@@ -416,14 +416,17 @@ SweaveHooks <- function(options, run = FALSE, envir = .GlobalEnv)
 }
 
 ### For R CMD xxxx ------------------------------------------
-.Sweave <- function(args = NULL, no.q = interactive())
+.Sweave <- function(args = NULL, no.q = interactive(),
+                    verbose = no.q || nzchar(Sys.getenv("R_DEBUG_dotSweave")))
 {
-    options(warn = 1)
+    op <- options(warn = 1)
+    if(no.q) on.exit(options(op))
     if (is.null(args)) {
         args <- commandArgs(TRUE)
         args <- paste(args, collapse=" ")
         args <- strsplit(args,'nextArg', fixed = TRUE)[[1L]][-1L]
     }
+    if(verbose) { cat(".Sweave args:\n"); str(args) }
 
     Usage <- function() {
         cat("Usage: R CMD Sweave [options] file",
@@ -515,6 +518,7 @@ SweaveHooks <- function(options, run = FALSE, envir = .GlobalEnv)
         Usage()
         do_exit(1L)
     }
+    ## arguments for buildVignette():
     args <- list(file=file, tangle=FALSE, latex=toPDF, engine=engine, clean=clean)
     if(nzchar(driver)) args <- c(args, driver = driver)
     args <- c(args, encoding = encoding)
@@ -522,13 +526,14 @@ SweaveHooks <- function(options, run = FALSE, envir = .GlobalEnv)
         opts <- eval(str2expression(paste0("list(", options, ")")))
         args <- c(args, opts)
     }
+    if(verbose) { cat("Calling tools::buildVignette()  with args\n"); str(args) }
     output <- do.call(tools::buildVignette, args)
-    message("Output file:  ", output)
+    message(ngettext(length(output), "Output file:  ", "Output files:  "),
+            paste(output, collapse = ", "), domain = NA)
     if (toPDF && compact != "no"
         && length(output) == 1 && grepl(".pdf$", output, ignore.case=TRUE)) {
 	## <NOTE>
-	## Same code as used for --compact-vignettes in
-	## .build_packages() ...
+	## Same code as used for --compact-vignettes in .build_packages()
 	message("Compacting PDF document")
 	if(compact %in% c("gs", "gs+qpdf", "both")) {
 	    gs_cmd <- tools::find_gs_cmd(Sys.getenv("R_GSCMD", ""))
@@ -548,11 +553,12 @@ SweaveHooks <- function(options, run = FALSE, envir = .GlobalEnv)
 	    message(paste(format(res), collapse = "\n"))
     }
     do_exit()
-}
+} # end {.Sweave}
 
 .Stangle <- function(args = NULL, no.q = interactive())
 {
-    options(warn = 1)
+    op <- options(warn = 1)
+    if(no.q) on.exit(options(op))
     if (is.null(args)) {
         args <- commandArgs(TRUE)
         args <- paste(args, collapse=" ")
@@ -565,8 +571,8 @@ SweaveHooks <- function(options, run = FALSE, envir = .GlobalEnv)
             "A front-end for Stangle and other vignette engines",
             "",
             "Options:",
-            "  -h, --help     print this help message and exit",
-            "  -v, --version  print version info and exit",
+            "  -h, --help      print this help message and exit",
+            "  -v, --version   print version info and exit",
 	    "  --engine=pkg::engine  use named vignette engine",
             "  --encoding=enc  assume encoding 'enc' for file",
             "  --options=      comma-separated list of Stangle options",

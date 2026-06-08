@@ -7,6 +7,8 @@ automagically
 backported
 backports
 basenames
+bibentries
+bibentry
 bitmapped
 bugfix
 builtins
@@ -138,6 +140,7 @@ reparsing
 representable
 reproducibility
 resaved
+resizable
 RHEL
 RNGs
 roundoff
@@ -153,6 +156,7 @@ standardizable
 stderr
 stdout
 structs
+stylesheet
 subclasses
 suboptions
 subscripted
@@ -177,6 +181,7 @@ unbundle
 uncomment
 uncompiled
 undefine
+undeprecated
 unescaped
 unevaluated
 unflagged
@@ -194,6 +199,7 @@ unscaled
 unserialization
 unserialized
 unserializes
+unserializing
 untar
 unterminated
 untrace

@@ -1,6 +1,6 @@
 % File src/library/base/man/locales.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{locales}
@@ -159,8 +159,10 @@ Sys.setlocale (category = "LC_ALL", locale = "")
   \code{\link{l10n_info}} gives some summary facts about the locale and
   its encoding (including if it is UTF-8).
 
-  The \sQuote{R Installation and Administration} manual for background
+  Section \manual{R-admin}{Locales} for background
   on locales and how to find out locale names on your system.
+
+  \code{\link{Sys.setLanguage}}
 }
 \examples{
 Sys.getlocale()

@@ -1,6 +1,6 @@
 % File src/library/stats/man/influence.measures.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{influence.measures}
@@ -20,6 +20,7 @@
 \alias{hat}
 \alias{hatvalues}
 \alias{hatvalues.lm}
+\alias{hatvalues.nls}
 \alias{rstandard}
 \alias{rstandard.lm}
 \alias{rstandard.glm}
@@ -30,7 +31,10 @@
 \alias{dfbeta.lm}
 \alias{dfbetas}
 \alias{dfbetas.lm}
+\alias{dfbetas.glm}
 \alias{dffits}
+\alias{dffits.lm}
+\alias{dffits.glm}
 \alias{covratio}
 \alias{cooks.distance}
 \alias{cooks.distance.lm}
@@ -40,23 +44,28 @@ influence.measures(model, infl = influence(model))
 
 rstandard(model, \dots)
 \method{rstandard}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
-          sd = sqrt(deviance(model)/df.residual(model)),
+          sd = sigma(model),
           type = c("sd.1", "predictive"), \dots)
 \method{rstandard}{glm}(model, infl = influence(model, do.coef = FALSE),
-          type = c("deviance", "pearson"), \dots)
+          type = c("pearson", "deviance"), \dots)
 
 rstudent(model, \dots)
 \method{rstudent}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
          res = infl$wt.res, \dots)
 \method{rstudent}{glm}(model, infl = influence(model, do.coef = FALSE), \dots)
 
-dffits(model, infl = , res = )
+dffits(model, \dots)
+\method{dffits}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
+		   res = weighted.residuals(model), \dots)
+\method{dffits}{glm}(model, infl = lm.influence(model, do.coef = FALSE),
+		   res = weighted.residuals(model), \dots)
 
 dfbeta(model, \dots)
 \method{dfbeta}{lm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
 
 dfbetas(model, \dots)
 \method{dfbetas}{lm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
+\method{dfbetas}{glm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
 
 covratio(model, infl = lm.influence(model, do.coef = FALSE),
          res = weighted.residuals(model))
@@ -73,6 +82,7 @@ cooks.distance(model, \dots)
 
 hatvalues(model, \dots)
 \method{hatvalues}{lm}(model, infl = lm.influence(model, do.coef = FALSE), \dots)
+\method{hatvalues}{nls}(model, \dots)% ../R/nls.R %
 
 hat(x, intercept = TRUE)
 }
@@ -99,8 +109,8 @@ hat(x, intercept = TRUE)
 \description{
   This suite of functions can be used to compute some of the regression
   (leave-one-out deletion) diagnostics for linear and generalized linear
-  models discussed in \bibcite{Belsley, Kuh and Welsch (1980)},
-  \bibcite{Cook and Weisberg (1982)}, etc.
+  models discussed in \bibcitet{R:Belsley+Kuh+Welsch:1980},
+  \bibcitet{R:Cook+Weisberg:1982}, etc.
 }
 \details{
   The primary high-level function is \code{influence.measures} which produces a
@@ -122,7 +132,7 @@ hat(x, intercept = TRUE)
   or matrices instead of vectors.
 
   Values for generalized linear models are approximations, as described
-  in Williams (1987) (except that Cook's distances are scaled as
+  in \bibcitet{R:Williams:1987} (except that Cook's distances are scaled as
   \eqn{F} rather than as chi-square values).  The approximations can be
   poor when some cases have large influence.
 
@@ -147,39 +157,23 @@ hat(x, intercept = TRUE)
 }
 \note{
   For \code{hatvalues}, \code{dfbeta}, and \code{dfbetas}, the method
-  for linear models also works for generalized linear models.
+  for linear models also works for generalized linear models. These were
+  updated for R 4.6 to use \emph{working} residuals and weights; it is
+  assumed that the model has methods suitable for
+  \code{\link{weighted.residuals}()}.
+
+  The \code{\link{nls}} method for \code{hatvalues()} is based on theory in
+  \bibcitet{R:StLaurent+Cook:1992}.
 }
 \author{
-  Several R core team members and John Fox, originally in his \file{car}
-  package.
+  Several R Core Team members and John Fox, originally in his \CRANpkg{car}
+  package; \code{hatvalues.nls} by R Dev Day participants, see \PR{18897}.
 }
 \references{
-  Belsley, D. A., Kuh, E. and Welsch, R. E. (1980).
-  \emph{Regression Diagnostics}.
-  New York: Wiley.
-
-  Cook, R. D. and Weisberg, S. (1982).
-  \emph{Residuals and Influence in Regression}.
-  London: Chapman and Hall.
-
-  Williams, D. A. (1987).
-  Generalized linear model diagnostics using the deviance and single
-  case deletions.
-  \emph{Applied Statistics}, \bold{36}, 181--191.
-  \doi{10.2307/2347550}.
-
-  Fox, J. (1997).
-  \emph{Applied Regression, Linear Models, and Related Methods}.
-  Sage.
-
-  Fox, J. (2002)
-  \emph{An R and S-Plus Companion to Applied Regression}.
-  Sage Publ.
-
-  Fox, J. and Weisberg, S. (2011).
-  \emph{An R Companion to Applied Regression}, second edition.
-  Sage Publ;
-  \url{https://socialsciences.mcmaster.ca/jfox/Books/Companion/}.
+  \bibshow{*,
+    R:Fox:2000,
+    R:Fox:2002,
+    R:Fox+Weisberg:2019}
 }
 \seealso{
   \code{\link{influence}} (containing \code{\link{lm.influence}}).

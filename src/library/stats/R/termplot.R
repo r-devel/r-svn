@@ -50,18 +50,6 @@ termplot <- function(model, data = NULL, envir = environment(formula(model)),
         warning("'model' appears to involve interactions: see the help page",
                 domain = NA, immediate. = TRUE)
     cn <- str2expression(nmt)
-    ## Defaults:
-    if (!is.null(smooth))
-      smooth <- match.fun(smooth)
-    if (is.null(ylabs))
-	ylabs <- paste("Partial for",nmt)
-    if (is.null(main))
-        main <- ""
-    else if(is.logical(main))
-        main <- if(main) deparse(model$call, 500) else ""
-    else if(!is.character(main))
-        stop("'main' must be TRUE, FALSE, NULL or character (vector).")
-    main <- rep_len(main, n.tms) # recycling
     pf <- envir
     carrier <- function(term, transform) { # used for non-factor ones
 	if (length(term) > 1L){
@@ -78,7 +66,9 @@ termplot <- function(model, data = NULL, envir = environment(formula(model)),
     }
 
     in.mf <- nmt %in% names(mf)
-    is.fac <- sapply(nmt, function(i) i %in% names(mf) && is.factor(mf[, i]))
+    is.fac <- vapply(nmt,
+                     function(i) i %in% names(mf) && is.factor(mf[, i]),
+                     NA)
 
     if (!plot) {
         outlist <- vector("list", sum(in.mf))
@@ -111,11 +101,12 @@ termplot <- function(model, data = NULL, envir = environment(formula(model)),
         names(outlist) <- sapply(cn, carrier.name)[in.mf]
         return(outlist)
     }
+
     ## Defaults:
     if (!is.null(smooth))
-      smooth <- match.fun(smooth)
+        smooth <- match.fun(smooth)
     if (is.null(ylabs))
-	ylabs <- paste("Partial for",nmt)
+	ylabs <- paste("Partial for", nmt)
     if (is.null(main))
         main <- ""
     else if(is.logical(main))

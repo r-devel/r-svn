@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2020  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 2003--2016  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -19,11 +19,7 @@
  *  https://www.R-project.org/Licenses/
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
-#include <Defn.h>
+#include <Rinternals.h>
 #include <R_ext/Random.h>
 #include <Rmath.h>		/* for lgammafn, rmultinom */
 #include <errno.h>
@@ -97,7 +93,7 @@ static R_INLINE SEXP random1(SEXP sn, SEXP sa, ran1 fn, SEXPTYPE type)
     if (na < 1) {
         fillWithNAs(x, n, type);
     } else {
-	Rboolean naflag = FALSE;
+	bool naflag = false;
 	SEXP a = PROTECT(coerceVector(sa, REALSXP));
 	R_xlen_t i0 = 0;
 	SEXPTYPE use_type = type;
@@ -110,7 +106,7 @@ static R_INLINE SEXP random1(SEXP sn, SEXP sa, ran1 fn, SEXPTYPE type)
 //		if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx = fn(ra[i % na]);
 		if (ISNAN(rx)) {
-		    naflag = TRUE;
+		    naflag = true;
 		    ix[i] = NA_INTEGER;
 		} else if (rx > INT_MAX || rx <= INT_MIN) { // (incl. rx = Inf)
 		    /* integer overflow --> use REAL result
@@ -131,7 +127,7 @@ static R_INLINE SEXP random1(SEXP sn, SEXP sa, ran1 fn, SEXPTYPE type)
 	    for (R_xlen_t i = i0; i < n; i++) {
 //		if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx[i] = fn(ra[i % na]);
-		if (ISNAN(rx[i])) naflag = TRUE;
+		if (ISNAN(rx[i])) naflag = true;
 	    }
 	}
 	if (naflag) warning(_("NAs produced"));
@@ -179,7 +175,7 @@ static R_INLINE SEXP random2(SEXP sn, SEXP sa, SEXP sb, ran2 fn, SEXPTYPE type)
     if (na < 1 || nb < 1) {
         fillWithNAs(x, n, type);
     } else {
-	Rboolean naflag = FALSE;
+	bool naflag = false;
 	SEXP
 	    a = PROTECT(coerceVector(sa, REALSXP)),
 	    b = PROTECT(coerceVector(sb, REALSXP));
@@ -194,7 +190,7 @@ static R_INLINE SEXP random2(SEXP sn, SEXP sa, SEXP sb, ran2 fn, SEXPTYPE type)
 //		if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx = fn(ra[i % na], rb[i % nb]);
 		if (ISNAN(rx)) {
-		    naflag = TRUE;
+		    naflag = true;
 		    ix[i] = NA_INTEGER;
 		} else if (rx > INT_MAX || rx <= INT_MIN) {
 		    i0 = i;
@@ -211,7 +207,7 @@ static R_INLINE SEXP random2(SEXP sn, SEXP sa, SEXP sb, ran2 fn, SEXPTYPE type)
 	    for (R_xlen_t i = i0; i < n; i++) {
 //		if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx[i] = fn(ra[i % na], rb[i % nb]);
-		if (ISNAN(rx[i])) naflag = TRUE;
+		if (ISNAN(rx[i])) naflag = true;
 	    }
 	}
 	if (naflag) warning(_("NAs produced"));
@@ -269,7 +265,7 @@ static R_INLINE SEXP random3(SEXP sn, SEXP sa, SEXP sb, SEXP sc, ran3 fn,
     if (na < 1 || nb < 1 || nc < 1) {
         fillWithNAs(x, n, type);
     } else {
-	Rboolean naflag = FALSE;
+	bool naflag = false;
 	SEXP
 	    a = PROTECT(coerceVector(sa, REALSXP)),
 	    b = PROTECT(coerceVector(sb, REALSXP)),
@@ -285,7 +281,7 @@ static R_INLINE SEXP random3(SEXP sn, SEXP sa, SEXP sb, SEXP sc, ran3 fn,
 //	        if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx = fn(ra[i % na], rb[i % nb], rc[i % nc]);
 		if (ISNAN(rx)) {
-		    naflag = TRUE;
+		    naflag = true;
 		    ix[i] = NA_INTEGER;
 		} else if (rx > INT_MAX || rx <= INT_MIN) {
 		    i0 = i;
@@ -301,7 +297,7 @@ static R_INLINE SEXP random3(SEXP sn, SEXP sa, SEXP sb, SEXP sc, ran3 fn,
 	    for (R_xlen_t i = i0; i < n; i++) {
 //	        if ((i+1) % NINTERRUPT) R_CheckUserInterrupt();
 		rx[i] = fn(ra[i % na], rb[i % nb], rc[i % nc]);
-		if (ISNAN(rx[i])) naflag = TRUE;
+		if (ISNAN(rx[i])) naflag = true;
 	    }
 	}
 	if (naflag) warning(_("NAs produced"));

@@ -1,6 +1,6 @@
 % File src/library/datasets/man/nhtemp.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{nhtemp}
@@ -14,13 +14,10 @@
 \usage{nhtemp}
 \format{A time series of 60 observations.}
 \source{
-  Vaux, J. E. and Brinker, N. B. (1972)
-  \emph{Cycles}, \bold{1972}, 117--121.
+  \bibshow{R:Vaux+Brinker:1972}
 }
 \references{
-  McNeil, D. R. (1977)
-  \emph{Interactive Data Analysis}.
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

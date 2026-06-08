@@ -510,7 +510,7 @@ enclosure.
 There are additional places that `variables' can be looked up, called
 `user databases' in comments in the code.  These seem undocumented in
 the @R{} sources, but apparently refer to the @pkg{RObjectTable} package
-formerly available at @uref{https://www.omegahat.net/RObjectTables/}.
+formerly available from Omegahat.
 
 @cindex base environment
 @cindex environment, base
@@ -1804,7 +1804,7 @@ as C entry points via this file: the former are lower-cased and have an
 underline as suffix, and the suffixed name should be included in the
 file.  Some entry points exist only on Windows or need to be visible
 only on Windows, and some notes on these are provided in file
-@file{src/gnuwin32/Maintainters.notes}.
+@file{src/gnuwin32/Maintainers.notes}.
 
 Because of the advantages of reducing the number of visible entry
 points, they should be declared @code{attribute_hidden} where possible.
@@ -2558,8 +2558,9 @@ file name of the installed @R{} code, if present).
 
 All installed packages, whether they had any @file{.Rd} files or not,
 have @file{help} and @file{html} directories. The latter normally only
-contains the single file @file{00Index.html}, the package index which
-has hyperlinks to the help topics (if any).
+contains the files @file{00Index.html}, the package index which
+has hyperlinks to the help topics (if any), and @file{R.css},
+a copy of the default stylesheet.
 
 Directory @file{help} contains files @file{AnIndex}, @file{paths.rds}
 and @file{@var{pkgname}.rd[bx]}.  The latter two files are a lazy-load
@@ -2863,6 +2864,10 @@ for reallocation (and its name will appear as @code{""} in
 @samp{.Devices}).  Exactly one of the devices is `active': this is the
 the null device if no other device has been opened and not killed.
 
+There is a @code{GEcreateDD()} to allocate and initialise the @code{DevDesc}
+structure and a @code{GEfreeDD()} to free it (if an error is encountered
+during the device driver set up).
+
 Each instance of a graphics device needs to set up a @code{GEDevDesc}
 structure by code very similar to
 
@@ -2874,7 +2879,7 @@ structure by code very similar to
     BEGIN_SUSPEND_INTERRUPTS @{
         pDevDesc dev;
         /* Allocate and initialize the device driver data */
-        if (!(dev = (pDevDesc) calloc(1, sizeof(DevDesc))))
+        if (!(dev = GEcreateDD()))
             return 0; /* or error() */
         /* set up device driver or free 'dev' and error() */
         gdd = GEcreateDevDesc(dev);
@@ -3041,6 +3046,13 @@ be set to 0.
 @item The @code{glyphs} component reports whether rendering glyphs
 (e.g., via @code{grid::grid.glyph()}) is supported.
 If the device supports rendering glyphs, 
+this component should be set to 1.
+If the device does not provide support, this component should
+be set to 0.
+
+@item The @code{variableFonts} component reports whether variable fonts
+(when rendering glyphs, e.g., via @code{grDevices::glyphFont()}) are supported.
+If the device supports variable fonts
 this component should be set to 1.
 If the device does not provide support, this component should
 be set to 0.
@@ -3700,9 +3712,8 @@ and hence on @R{} having been built and installed as a Mac macOS
 @file{/Library/Frameworks/R.framework/R}.  This is a symbolic link, as
 frameworks can contain multiple versions of @R{}.  It eventually
 resolves to
-@file{/Library/Frameworks/R.framework/Versions/Current/Resources/lib/libR.dylib},
-which is (in the @acronym{CRAN} distribution) a `fat' binary containing
-multiple sub-architectures.
+@file{/Library/Frameworks/R.framework/Versions/Current/Resources/lib/libR.dylib}.
+
 
 macOS applications are directory trees: each @command{R.app} contains
 a front-end written in Objective-C for one sub-architecture: in the
@@ -4168,13 +4179,13 @@ than 2 children are spawned.
 Default: unset (but @samp{TRUE} for CRAN submission checks).
 
 @item _R_CHECK_CODE_USAGE_VIA_NAMESPACES_
-If set, check code usage (via @CRANpkg{codetools}) directly on the
+If set, check code usage (via package @CRANpkg{codetools}) directly on the
 package namespace without loading and attaching the package and its
 suggests and enhances.
 Default: true (and true for CRAN submission checks).
 
 @item _R_CHECK_CODE_USAGE_WITH_ONLY_BASE_ATTACHED_
-If set, check code usage (via @CRANpkg{codetools}) with only the base
+If set, check code usage (via package @CRANpkg{codetools}) with only the base
 package attached.
 Default: true.
 
@@ -4261,6 +4272,12 @@ If set to a true value, also check the R code in common unit test
 subdirectories of @file{tests} for undeclared package dependencies.
 Default: false (but true for CRAN submission checks).
 
+@item _R_CHECK_PACKAGES_USED_IN_DEMO_
+Control whether R scripts in the @file{demo} directory should be checked
+for packages used but not declared in the @file{DESCRIPTION} file.
+Default: false unless command-line option @option{--run-demo} is
+specified (but true for CRAN submission checks).
+
 @item _R_CHECK_SHLIB_OPENMP_FLAGS_
 Check correct and portable use of @code{SHLIB_OPENMP_*FLAGS} in
 @file{src/Makevars} (and similar).
@@ -4310,7 +4327,7 @@ For packages with a @file{configure} file generated by GNU
 @file{configure,.in}, check that @command{autoreconf} can, if available,
 be run in a copy of the sources (this will detect missing source files
 and report @command{autoconf} warnings).  Environment variable
-@env{AUTORECONf} controls the command used: it can give the full path to
+@env{AUTORECONF} controls the command used: it can give the full path to
 @command{autoreconf} (without spaces) and can include flags such as
 @option{--warnings=obsolete} (which is added for @command{autoreconf}
 version 2.68 or 2.69 and is the default for later versions).
@@ -4328,14 +4345,14 @@ Default: false (but true for CRAN submission checks).
 @item _R_CHECK_THINGS_IN_TEMP_DIR_
 Check and report at the end of the check run if files would have been
 left in the temporary directory (usually @file{/tmp} on a Unix-alike).
-It does this by setting the environment variable @env{TEMPDIR} to a
+It does this by setting the environment variable @env{TMPDIR} to a
 subdirectory of the @R{} session directory for the @code{check} process:
 if any files or directories are left there they are removed.  Since some
 of these might be out of the user's control, environment variable
 @env{_R_CHECK_THINGS_IN_TEMP_DIR_EXCLUDE_} can specify an (extended
 regex) pattern of file paths not to be reported -- CRAN uses
 @samp{^ompi.} for directories left behind by @I{OpenMPI}.  There are rare
-instances where @env{TEMPDIR} is not respected and so files are left in
+instances where @env{TMPDIR} is not respected and so files are left in
 @file{/tmp} (and not reported, but see the next item): one example is
 @file{/tmp/boost_interprocess} on some OSes.
 @c macOS is one.
@@ -4346,7 +4363,7 @@ Check and report at the end of the check run if new files or directories
 are created in a selected set of directories during the check run.
 (This is confined to files owned by the user running the check process.)
 Currently the directories monitored are the home directory, @file{/tmp}
-(excluding @file{RtmpXXXXXX} directories), @file{/dav/shm}, @file{~/.cache}
+(excluding @file{RtmpXXXXXX} directories), @file{/dev/shm}, @file{~/.cache}
 (recursively) and @file{~/.local/share} (recursively) or their
 equivalents on Windows and macOS (the directories in which the default
 settings for @code{tools::R_user_dir()} use a @file{R} subdirectory).
@@ -4489,7 +4506,6 @@ of namespaces conventionally were considered as ``internal'').
 Default: false (but true for CRAN submission checks).
 
 @item _R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_
-Default: false (but true for CRAN submission checks).
 If set to a true value, checking S3 methods also notes ``possible
 issues'', including issues with apparent methods not registered and
 methods registered for non-generics.
@@ -4514,6 +4530,24 @@ Default: unset (but true for CRAN submission checks).
 If set to a true value, check whether Rd cross-references to targets not
 in the package itself or the base packages have package anchors.
 Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_URLS_RELATIVE_PATHS_
+If set to a true value, check whether URLs using relative paths (and no
+scheme) in Rd files or HTML vignette outputs work in dynamic help.
+Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_RD_BIBENTRIES_CITED_NOT_SHOWN_
+If set to a true value, check Rd files for bibliographic citations with
+no corresponding reference (@pxref{Bibliographic citations and
+references, , , R-exts, Writing R Extensions} for more information).
+Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_PACKAGE_DATASETS_SUPPRESS_NOTES_
+If false report the use of non-ASCII
+strings marked as UTF-8, Latin-1 or @code{"bytes"} as part of
+@samp{checking data for non-ASCII characters}. Non-ASCII strings of
+unknown encoding are always reported.
+Default: true, but false prior on @R{} 4.5.0.
 @end vtable
 
 The following variables control checks for undeclared/unconditional use
@@ -4626,6 +4660,9 @@ _R_CHECK_UNDOC_USE_ALL_NAMES_=true
 _R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_=true
 _R_CHECK_RD_NOTE_LOST_BRACES_=true
 _R_CHECK_XREFS_NOTE_MISSING_PACKAGE_ANCHORS_=true
+_R_CHECK_PACKAGES_USED_IN_DEMO_=true
+_R_CHECK_URLS_RELATIVE_PATHS_=true
+_R_CHECK_RD_BIBENTRIES_CITED_NOT_SHOWN_=true
 @end example
 
 @noindent
@@ -4783,7 +4820,7 @@ Perl version 5 is needed for the maintainer-only script
 @findex Perl
 
 @item
-@command{texi2any} version 6.1 or later is needed to build the HTML
+@command{texi2any} version 6.8 or later is needed to build the HTML
 and Info files for the @R{} manuals written in the @acronym{GNU} @I{Texinfo}
 system.  And that requires Perl.
 @findex texi2any
@@ -4852,7 +4889,68 @@ list'' in @file{tests/no-segfault.Rin}.
 [To be revised: use @command{make check-devel}, check the write barrier
 if you change internal structures.]
 
+@node Building the source distribution
+@chapter Building the source distribution
 
+The primary distribution of the @R{} sources is as a tarball of an SVN
+checkout of the source tree with some (text, HTML, PDF) documentation
+pre-built.
+
+This is prepared by running @command{make dist} at the top level of an
+@R{} build directory, after @command{make all} and appropriate checks
+have been run.  This creates a @command{gzip}-compressed tarball named
+something like
+@example
+R_2025-11-04_r88984.tar.gz
+@end example
+@noindent
+which can be re-named and re-compressed as desired.
+(@command{xz}-compressed tarballs are also offered for the release and
+snapshot distributions; they are around 25% smaller.)
+
+This can be done on macOS, but features of its file system can lead to
+unwanted files and headers being included.  So for safety use
+@example
+make dist TAR='/usr/bin/tar --no-xattrs --no-mac-metadata'
+@end example
+
+If adding files to the @R{} sources it is important to check that they
+are included in the tarball distribution.  To do so use something like
+@example
+make dist
+tar -xf R-devel_*
+diff -r R-devel SVN_SRCDIR
+rm -rf R-devel
+@end example
+@noindent
+Some differences are to be expected such as
+@example
+Only in SVN_SRCDIR: .svn
+Only in R-devel: SVN-REVISION
+Only in R-devel/doc: FAQ
+Only in R-devel/doc: NEWS
+Only in R-devel/doc: NEWS.pdf
+Only in R-devel/doc: RESOURCES
+Only in R-devel/doc/html: NEWS.html
+Only in R-devel/doc/html: R-admin.html
+Only in R-devel/doc/html: resources.html
+Only in R-devel/src/library/grid/inst/doc: displaylist.pdf
+Only in R-devel/src/library/grid/inst/doc: frame.pdf
+Only in R-devel/src/library/grid/inst/doc: grid.pdf
+Only in R-devel/src/library/grid/inst/doc: grobs.pdf
+Only in R-devel/src/library/grid/inst/doc: interactive.pdf
+Only in R-devel/src/library/grid/inst/doc: locndimn.pdf
+Only in R-devel/src/library/grid/inst/doc: moveline.pdf
+Only in R-devel/src/library/grid/inst/doc: nonfinite.pdf
+Only in R-devel/src/library/grid/inst/doc: plotexample.pdf
+Only in R-devel/src/library/grid/inst/doc: rotated.pdf
+Only in R-devel/src/library/grid/inst/doc: saveload.pdf
+Only in R-devel/src/library/grid/inst/doc: sharing.pdf
+Only in R-devel/src/library/grid/inst/doc: viewports.pdf
+Only in R-devel/src/library/parallel: inst
+Only in R-devel/src/library/stats: inst
+Only in R-devel/src/library/utils/inst: doc
+@end example
 
 @node Use of TeX dialects
 @chapter Use of TeX dialects
@@ -4895,7 +4993,7 @@ friends and if found records the absolute paths in the system
 @file{Renviron} file.  This used to record @samp{false} if no command
 was found, but it nowadays records the name for looking up on the path
 at run time.  The latter can be important for binary distributions: one
-does not want to be tied to, for example, TeX Live 2007.
+does not want to be tied to, for example, TeX Live 2024.
 
 
 

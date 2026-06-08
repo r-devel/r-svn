@@ -1,6 +1,6 @@
 % File src/library/datasets/man/VADeaths.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{VADeaths}
@@ -22,15 +22,11 @@
   This provides a rather nice 3-way analysis of variance example.
 }
 \source{
-  Molyneaux, L.,  Gilliam, S. K., and  Florant, L. C.(1947)
-  Differences in Virginia death rates by color, sex, age,
-  and rural or urban residence.
-  \emph{American Sociological Review}, \bold{12}, 525--535.
+  \bibshow{R:Molyneaux+Gilliam+Florant:1947}
+  Table 3.
 }
 \references{
-  McNeil, D. R. (1977)
-  \emph{Interactive Data Analysis}.
-  Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

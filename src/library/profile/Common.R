@@ -2,7 +2,7 @@
 ### Additional commands can be placed in site or user Rprofile files
 ### (see ?Rprofile).
 
-### Copyright (C) 1995-2023 The R Core Team
+### Copyright (C) 1995-2025 The R Core Team
 
 ### Notice that it is a bad idea to use this file as a template for
 ### personal startup files, since things will be executed twice and in
@@ -32,6 +32,10 @@ options(warn = 0)
 local({to <- as.integer(Sys.getenv("R_DEFAULT_INTERNET_TIMEOUT", 60))
     if (is.na(to) || to <= 0) to <- 60L
     options(timeout = to)
+})
+local({
+    if(nzchar(nr <- Sys.getenv("R_DEFAULT_NETRC")))
+        options(netrc = nr)
 })
 options(encoding = "native.enc")
 options(show.error.messages = TRUE)
@@ -69,8 +73,9 @@ local({
 
 .First.sys <- function()
 {
+    verbose <- getOption("verbose", FALSE)
     for(pkg in getOption("defaultPackages")) {
-        res <- require(pkg, quietly = TRUE, warn.conflicts = FALSE,
+        res <- require(pkg, quietly = !verbose, warn.conflicts = FALSE,
                        character.only = TRUE)
         if(!res)
             warning(gettextf('package %s in options("defaultPackages") was not found', sQuote(pkg)),
@@ -83,7 +88,7 @@ local({
 {
     pkg <- "methods" # done this way to avoid R CMD check warning
     if(pkg %in% getOption("defaultPackages"))
-        if(!require(pkg, quietly = TRUE, warn.conflicts = FALSE,
+        if(!require(pkg, quietly = !getOption("verbose", FALSE), warn.conflicts = FALSE,
                     character.only = TRUE))
             warning('package "methods" in options("defaultPackages") was not found',
                     call. = FALSE)

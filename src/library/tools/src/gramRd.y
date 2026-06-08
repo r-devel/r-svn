@@ -3,7 +3,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,9 +27,6 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Parse.h>
-#ifndef STRICT_R_HEADERS
-# define STRICT_R_HEADERS
-#endif
 #include <R_ext/RS.h>           /* for R_chk_* allocation */
 #include <ctype.h>
 #include <Rmath.h> /* for imax2(.),..*/
@@ -55,8 +52,8 @@
 #define DEBUGVALS 0		/* 1 causes detailed internal state output to R console */	
 #define DEBUGMODE 0		/* 1 causes Bison output of parse state, to stdout or stderr */
 
-static Rboolean wCalls = TRUE;
-static Rboolean warnDups = FALSE;
+static bool wCalls = true;
+static bool warnDups = false;
 
 #define YYERROR_VERBOSE 1
 
@@ -143,7 +140,7 @@ struct ParseState {
     ParseState *prevState;
 };
 
-static Rboolean busy = FALSE;
+static bool busy = false;
 static ParseState parseState;
 
 #define PRESERVE_SV(x) R_PreserveInMSet((x), parseState.mset)
@@ -301,17 +298,18 @@ UserMacro:	NEWCOMMAND  VerbatimArg1 VerbatimArg { $$ = xxnewcommand($1, $2, $3, 
 						{ $$ = xxusermacro($1, xxnewlist3($2, $3, $4), &@$); }
 	|	USERMACRO4  VerbatimArg VerbatimArg VerbatimArg VerbatimArg 
 						{ $$ = xxusermacro($1, xxnewlist4($2, $3, $4, $5), &@$); }
+/* We currently allow at most 4 arguments; the following are placeholders: */
 	|	USERMACRO5  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
 						{ $$ = xxusermacro($1, xxnewlist5($2, $3, $4, $5, $6), &@$); }
 	|	USERMACRO6  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg 
 			    VerbatimArg		{ $$ = xxusermacro($1, xxnewlist6($2, $3, $4, $5, $6, $7), &@$); }
-	|	USERMACRO7  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
+	|	USERMACRO7  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
 			    VerbatimArg VerbatimArg 
 			    			{ $$ = xxusermacro($1, xxnewlist7($2, $3, $4, $5, $6, $7, $8), &@$); }
-	|	USERMACRO8  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
+	|	USERMACRO8  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
 			    VerbatimArg VerbatimArg VerbatimArg
 			    			{ $$ = xxusermacro($1, xxnewlist8($2, $3, $4, $5, $6, $7, $8, $9), &@$); }
-	|	USERMACRO9  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
+	|	USERMACRO9  VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg
 			    VerbatimArg VerbatimArg VerbatimArg VerbatimArg
 			    			{ $$ = xxusermacro($1, xxnewlist9($2, $3, $4, $5, $6, $7, $8, $9, $10), &@$); }
 						
@@ -606,7 +604,7 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
 #define START_MACRO -2
 #define END_MACRO -3
 
-static Rboolean isComment(SEXP elt)
+static bool isComment(SEXP elt)
 {
     SEXP a = getAttrib(elt, R_RdTagSymbol);
     return isString(a) && LENGTH(a) == 1 &&
@@ -670,7 +668,8 @@ static SEXP xxusermacro(SEXP macro, SEXP args, YYLTYPE *lloc)
 	    SEXP stri = CAR(si);
 	    if (!isComment(stri)) {
 		int nc = LENGTH(STRING_ELT(stri, 0));
-		memcpy(str + offset, CHAR(STRING_ELT(stri, 0)), nc);
+		if (nc)
+		    memcpy(str + offset, CHAR(STRING_ELT(stri, 0)), nc);
 		offset += nc;
 	    }
 	}
@@ -770,7 +769,7 @@ static SEXP xxmarkup3(SEXP header, SEXP body1, SEXP body2, SEXP body3, int flag,
 {
     SEXP ans;
 #if DEBUGVALS
-    Rprintf("xxmarkup2(header=%p, body1=%p, body2=%p, body3=%p)", header, body1, body2, body3);        
+    Rprintf("xxmarkup3(header=%p, body1=%p, body2=%p, body3=%p)", header, body1, body2, body3);        
 #endif
     
     PRESERVE_SV(ans = allocVector(VECSXP, 3));
@@ -1016,9 +1015,9 @@ static void InitSymbols(void)
 	R_MacroSymbol = install("macro");
 }
  
-static SEXP ParseRd(ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+static SEXP ParseRd(ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
-    Rboolean keepmacros = !isLogical(macros) || asLogical(macros);
+    bool keepmacros = !isLogical(macros) || asLogical(macros);
 
     InitSymbols();
     R_ParseContextLast = 0;
@@ -1085,7 +1084,7 @@ static int con_getc(void)
 }
 
 static
-SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, Rboolean fragment, SEXP macros)
+SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
     con_parse = con;
     ptr_getc = con_getc;
@@ -1170,7 +1169,6 @@ static keywords[] = {
     
     { "\\emph",    LATEXMACRO },    
     { "\\file",    LATEXMACRO },
-    { "\\linkS4class", LATEXMACRO },
     { "\\pkg",	   LATEXMACRO },
     { "\\sQuote",  LATEXMACRO },
     
@@ -1211,6 +1209,8 @@ static keywords[] = {
        one LaTeX-like argument */
        
     { "\\link",    OPTMACRO },
+    { "\\linkS4class", OPTMACRO },
+    { "\\linkS4methods", OPTMACRO },
        
     /* These markup macros require an R-like text argument */
     
@@ -1871,6 +1871,7 @@ static int yylex(void)
     int tok = token();
     
     if (parseState.xxDebugTokens) {
+        /* FIXME: Print "+" if/per macrolevel instead of (nonexistent) source location. */
         Rprintf("%d:%d: %s", yylloc.first_line, yylloc.first_column, yytname[YYTRANSLATE(tok)]);
     	if (parseState.xxinRString) Rprintf("(in %c%c)", parseState.xxinRString, parseState.xxinRString);
     	if (tok > 255 && tok != END_OF_INPUT) 
@@ -1935,7 +1936,7 @@ static void PushState(void) {
     	parseState.prevState = prev;
     } else 
         parseState.prevState = NULL;  
-    busy = TRUE;
+    busy = true;
 }
 
 static void PopState(void) {
@@ -1944,7 +1945,7 @@ static void PopState(void) {
     	UseState(prev);
     	free(prev);
     } else
-    	busy = FALSE;
+    	busy = false;
 }
 
 /* "do_parseRd" 
@@ -1959,7 +1960,7 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 
     SEXP s = R_NilValue, source;
     Rconnection con;
-    Rboolean wasopen, fragment;
+    bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
     RCNTXT cntxt;
@@ -1985,13 +1986,13 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     	error(_("invalid '%s' value"), "verbose");
     parseState.xxDebugTokens = asInteger(CAR(args));		args = CDR(args);
     parseState.xxBasename = CHAR(STRING_ELT(CAR(args), 0));	args = CDR(args);
-    fragment = asLogical(CAR(args));				args = CDR(args);
+    fragment = asBool(CAR(args));				args = CDR(args);
     wcall = asLogical(CAR(args));				args = CDR(args);
     if (wcall == NA_LOGICAL)
     	error(_("invalid '%s' value"), "warningCalls");
-    wCalls = wcall;
+    wCalls = (bool) wcall;
     macros = CAR(args);						args = CDR(args);
-    warnDups = asLogical(CAR(args));
+    warnDups = asBool(CAR(args));
 
     if (ifile >= 3) {/* file != "" */
 	if(!wasopen) {
@@ -2023,10 +2024,11 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 SEXP deparseRd(SEXP e, SEXP state)
 {
     SEXP result;
-    int  outlen, *statevals, quoteBraces, inRComment;
+    int  outlen, *statevals, quoteBraces;
+    bool inRComment;
     const char *c;
     char *outbuf, *out, lookahead;
-    Rboolean escape;
+    bool escape;
 
     if(!isString(e) || LENGTH(e) != 1) 
     	error(_("'deparseRd' only supports deparsing character elements"));
@@ -2054,29 +2056,29 @@ SEXP deparseRd(SEXP e, SEXP state)
     	if (*c == '{' || *c == '}' || *c == '%' || *c == '\\') outlen++;
     }
     out = outbuf = R_chk_calloc(outlen+1, sizeof(char));
-    inRComment = FALSE;
+    inRComment = false;
     for (c = CHAR(e); *c; c++) {
-    	escape = FALSE;
+    	escape = false;
     	if (parseState.xxmode != UNKNOWNMODE) {
 	    switch (*c) {
 	    case '\\':
 		if (parseState.xxmode == RLIKE && parseState.xxinRString) {
 		    lookahead = *(c+1);
 		    if (lookahead == '\\' || lookahead == parseState.xxinRString || lookahead == 'l') 
-		    	escape = TRUE;
+		    	escape = true;
 		    break;
 		}          /* fall through to % case for non-strings... */    
 	    case '%':
 		if (parseState.xxmode != COMMENTMODE && !parseState.xxinEqn)
-		    escape = TRUE;
+		    escape = true;
 		break;
 	    case LBRACE:
 	    case RBRACE:
 		if (quoteBraces || parseState.xxmode == LATEXLIKE)
-		    escape = TRUE;
+		    escape = true;
 		else if (!parseState.xxinRString && !parseState.xxinEqn && (parseState.xxmode == RLIKE || parseState.xxmode == VERBATIM)) {
 		    if (*c == LBRACE) parseState.xxbraceDepth++;
-		    else if (parseState.xxbraceDepth <= 0) escape = TRUE;
+		    else if (parseState.xxbraceDepth <= 0) escape = true;
 		    else parseState.xxbraceDepth--;
 		}
 		break;
@@ -2091,10 +2093,10 @@ SEXP deparseRd(SEXP e, SEXP state)
 		break;
 	    case '#':
 	    	if (parseState.xxmode == RLIKE && !parseState.xxinRString) 
-	    	    inRComment = TRUE;
+	    	    inRComment = true;
 	    	break;
 	    case '\n':
-	    	inRComment = FALSE;
+	    	inRComment = false;
 	    	break;
 	    }
 	}

@@ -1,6 +1,6 @@
 % File src/library/graphics/man/hist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{hist}
@@ -16,7 +16,7 @@ hist(x, \dots)
      xlim = range(breaks), ylim = NULL,
      xlab = xname, ylab,
      axes = TRUE, plot = TRUE, labels = FALSE,
-     nclass = NULL, warn.unused = TRUE, \dots)
+     nclass = NULL, warn.unused = TRUE, panel.first = NULL, \dots)
 }
 \alias{hist}
 \alias{hist.default}
@@ -70,8 +70,7 @@ hist(x, \dots)
   \item{xlim, ylim}{the range of x and y values with sensible defaults.
     Note that \code{xlim} is \emph{not} used to define the histogram (breaks),
     but only for plotting (when \code{plot = TRUE}).}
-  \item{axes}{logical.  If \code{TRUE} (default), axes are draw if the
-    plot is drawn.}
+  \item{axes}{logical.  If \code{TRUE} (default), axes are drawn when the plot is.}
   \item{plot}{logical.  If \code{TRUE} (default), a histogram is
     plotted, otherwise a list of breaks and counts is returned.  In the
     latter case, a warning is used if (typically graphical) arguments
@@ -84,6 +83,11 @@ hist(x, \dots)
   \item{warn.unused}{logical.  If \code{plot = FALSE} and
     \code{warn.unused = TRUE}, a warning will be issued when graphical
     parameters are passed to \code{hist.default()}.}
+  \item{panel.first}{an \sQuote{expression} to be evaluated after the
+    plot axes are set up but before any plotting takes place.  This can
+    be useful for drawing background grids. Note that this works by 
+    lazy evaluation: passing this argument from other function may 
+    well not work since it may be evaluated too early.}    
   \item{\dots}{further arguments and \link{graphical parameters} passed to
     \code{\link{plot.histogram}} and thence to \code{\link{title}} and
     \code{\link{axis}} (if \code{plot = TRUE}).}
@@ -148,12 +152,8 @@ hist(x, \dots)
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Venables, W. N. and Ripley. B. D. (2002)
-  \emph{Modern Applied Statistics with S}.  Springer.
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Venables+Ripley:2002}
 }
 
 \seealso{

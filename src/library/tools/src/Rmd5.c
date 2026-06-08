@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2003-2022   The R Core Team.
+ *  Copyright (C) 2003-2024   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,16 @@ SEXP Rmd5(SEXP files)
     FILE *fp;
     unsigned char resblock[16];
 
+    /* RAW mode: hash of one buffer instead of files */
+    if (TYPEOF(files) == RAWSXP) {
+	/* there is really no failure possible, but just in case... */
+	if (!md5_buffer((const char *) RAW(files), XLENGTH(files), resblock))
+	    return ScalarString(NA_STRING);
+	for(j = 0; j < 16; j++)
+	    snprintf (out+2*j, 33-2*j, "%02x", resblock[j]);
+	return mkString(out);
+    }
+    /* otherwise list of files */
     if(!isString(files)) error(_("argument 'files' must be character"));
     PROTECT(ans = allocVector(STRSXP, nfiles));
     for(i = 0; i < nfiles; i++) {

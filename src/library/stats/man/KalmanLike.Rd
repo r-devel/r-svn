@@ -1,6 +1,6 @@
 % File src/library/stats/man/KalmanLike.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{KalmanLike}
@@ -81,12 +81,12 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
   \code{SSinit} is therefore recommended, notably also in
   \code{\link{arima}()}.
   The \code{"Rossignol2011"} method has been proposed and partly
-  documented by \I{Raphael Rossignol}, Univ. Grenoble, on 2011-09-20 (see
-  PR#14682, below), and later been ported to C by \I{Matwey V. Kornilov}.
+  documented by \I{Raphael Rossignol}, Univ. Grenoble, on 2011-09-20
+  (\PR{14682}), and later been ported to C by \I{Matwey V. Kornilov}.
   It computes the covariance matrix of
   \eqn{(X_{t-1},...,X_{t-p},Z_t,...,Z_{t-q})}
   by the method of difference equations
-  (page 93 of \bibcite{Brockwell and Davis (1991)}),
+  (page 93 of \bibcitet{R:Brockwell+Davis:1991}),
   apparently suggested by a referee of Gardner \abbr{et al.}\sspace(see p.314 of
   their paper).
 }
@@ -122,22 +122,11 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
 }
 
 \references{
-  Brockwell, P. J. and Davis, R. A. (1991).
-  \emph{Time Series: Theory and Methods}, second edition.
-  Springer.
-  
-  Durbin, J. and Koopman, S. J. (2001).
-  \emph{Time Series Analysis by State Space Methods}.
-  Oxford University Press.
+  \bibshow{*,
+    R:Durbin+Koopman:2001,
+    R:Gardner+Harvey+Phillips:1980}
 
-  Gardner, G, Harvey, A. C. and Phillips, G. D. A. (1980).
-  Algorithm AS 154: An algorithm for exact maximum likelihood estimation
-  of  autoregressive-moving average models by means of Kalman filtering.
-  \emph{Applied Statistics}, \bold{29}, 311--322.
-  \doi{10.2307/2346910}.
-
-  R bug report PR#14682 (2011-2013)
-  \url{https://bugs.r-project.org/show_bug.cgi?id=14682}.
+  R bug report \PR{14682} (2011--2013)
 }
 
 \seealso{

@@ -1,6 +1,6 @@
 % File src/library/base/man/library.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{library}
@@ -91,6 +91,9 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   messages from \R itself but not necessarily all those from package
   authors.
 
+  When both \code{verbose} and \code{quietly} are true, a
+  \code{\link{message}} is produced - once per caller running.
+
   If \code{library} is called with no \code{package} or \code{help}
   argument, it lists all available packages in the libraries specified
   by \code{lib.loc}, and returns the corresponding information in an
@@ -99,8 +102,8 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   obtain just the names of all available packages, and
   \code{\link{installed.packages}()} for even more information.
 
-  \code{library(help = somename)} computes basic information about the
-  package \pkg{somename}, and returns this in an object of class
+  \code{library(help = \var{pkgname})} computes basic information about the
+  package \pkg{\var{pkgname}}, and returns this in an object of class
   \code{"packageInfo"}.  (The structure of this class may change in
   future versions.)  When used with the default value (\code{NULL}) for
   \code{lib.loc}, the attached packages are searched before the libraries.
@@ -219,9 +222,7 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   \code{\link{options}(defaultPackages=)}: see also \code{\link{Startup}}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 library()                   # list all available packages

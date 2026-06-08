@@ -69,8 +69,8 @@ R: Makefile svnonly
 	  $(ECHO) "you should 'make docs' now ..."
 
 docs: R FORCE
-	-@(cd doc && $(MAKE) $@)
-	-@(cd src/library && $(MAKE) $@)
+	@(cd doc && $(MAKE) $@)
+	@(cd src/library && $(MAKE) $@)
 FORCE:
 
 stamp-recommended: R docs
@@ -191,10 +191,10 @@ dist-unix: distdir
             mv $(distdir) $${dirname}; \
           fi ; \
 	  rm -f $${distname}.tar.gz; \
-	  $(TAR) cf $${distname}.tar $${dirname} && $(R_GZIPCMD) $(GZIP) $${distname}.tar; \
+	  $(TAR) -cf $${distname}.tar $${dirname} && $(R_GZIPCMD) $(GZIP) $${distname}.tar; \
 	  rm -Rf $${dirname}
 dist-win:
-distdir: $(DISTFILES) vignettes
+distdir: $(DISTFILES) docs vignettes
 	@rm -Rf $(distdir)
 	@mkdir $(distdir)
 	@-chmod 755 $(distdir)
@@ -219,7 +219,8 @@ distdir: $(DISTFILES) vignettes
 	      | (cd $(distdir); $(TAR) -x -f -)) \
 	    || exit 1; \
 	done
-	@for d in grid parallel utils; do \
+## ship vignette PDFs to speed up building from tarball (little gain nowadays)
+	@for d in grid parallel utils stats; do \
 	  mkdir -p $(distdir)/src/library/$${d}/inst/doc; \
 	  cp library/$${d}/doc/*.pdf $(distdir)/src/library/$${d}/inst/doc; \
 	done
@@ -287,7 +288,7 @@ checkdistcomplete:
 	rm -Rf $${dirname}; \
 	echo "Checking $${distname}.tar.gz"; \
 	$(R_GZIPCMD) -d -c $${distname}.tar.gz | $(TAR) -x -f -; \
-	diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
+	LANGUAGE=C diff -r $${dirname} $(srcdir) | grep "^Only in $(srcdir)" | grep -v "^Only in.*[.]svn"; \
 	rm -Rf $${dirname}
 
 info pdf:

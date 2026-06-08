@@ -4,8 +4,8 @@
  *	Morten Welinder, see Bugzilla PR#15628, 2014                          [ebd0() ]
  *
  *  Merge in to R (and much more):
-
- *	Copyright (C) 2000-2022 The R Core Team
+ *
+ *	Copyright (C) 2000-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,34 +45,45 @@
  */
 #include "nmath.h"
 
-double attribute_hidden bd0(double x, double np)
+attribute_hidden double bd0(double x, double np)
 {
     if(!R_FINITE(x) || !R_FINITE(np) || np == 0.0) ML_WARN_return_NAN;
 
     if (fabs(x-np) < 0.1*(x+np)) {
-	double
-	    v = (x-np)/(x+np),  // might underflow to 0
-	    s = (x-np)*v;
-	if(fabs(s) < DBL_MIN) return s;
-	double ej = 2*x*v;
+    	double d = x - np,
+	    v = d/(x+np);
+	if((d != 0.0)  && (v == 0.0)) {  // v has underflown to 0 (as  x+np = inf)
+	    double
+		x_ = ldexp(x, -2),
+		n_ = ldexp(np,-2);
+	    v = (x_ - n_)/(x_ + n_);
+	}
+	double s = ldexp(d, -1) * v; // was d * v
+	if(fabs(ldexp(s, 1)) < DBL_MIN) return ldexp(s, 1);
+	double ej = x * v; // as 2*x*v could overflow:  v > 1/2  <==> ej = 2xv > x
 	v *= v; // "v = v^2"
 	for (int j = 1; j < 1000; j++) { /* Taylor series; 1000: no infinite loop
-					as |v| < .1,  v^2000 is "zero" */
-	    ej *= v;// = 2 x v^(2j+1)
+					    as |v| < .1,  v^2000 is "zero" */
+	    ej *= v;// = x v^(2j+1)
 	    double s_ = s;
 	    s += ej/((j<<1)+1);
 	    if (s == s_) { /* last term was effectively 0 */
 #ifdef DEBUG_bd0
-		REprintf("bd0(%g, %g): T.series w/ %d terms -> bd0=%g\n", x, np, j, s);
+		REprintf("bd0(%g, %g): T.series w/ %d terms -> bd0=%g\n", x, np, j, ldexp(s, 1));
 #endif
-		return s;
+		return ldexp(s, 1); // 2*s ; as we dropped '2 *' above
 	    }
 	}
+	/* ---- the following should _never_ happen ------------ */
 	MATHLIB_WARNING4("bd0(%g, %g): T.series failed to converge in 1000 it.; s=%g, ej/(2j+1)=%g\n",
 			 x, np, s, ej/((1000<<1)+1));
     }
     /* else:  | x - np |  is not too small */
-    return(x*log(x/np)+np-x);
+    /* NB: x/np |--> inf (overflow)  doesn't happen when called from rpois_raw() */
+#define lg_x_n (R_FINITE(x/np) ? log(x/np) : (log(x) - log(np)))
+    return (x > np) ? x*(lg_x_n -1.) + np
+	            : x* lg_x_n + np -x;
+#undef lg_x_n
 }
 
 
@@ -227,7 +238,7 @@ static const float bd0_scale[128 + 1][4] = {
  *
  * Deliver the result back in two parts, *yh and *yl.
  */
-void attribute_hidden ebd0(double x, double M, double *yh, double *yl)
+attribute_hidden void ebd0(double x, double M, double *yh, double *yl)
 {
 	const int Sb = 10;
 	const double S = 1u << Sb; // = 2^10 = 1024

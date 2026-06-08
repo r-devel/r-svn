@@ -160,18 +160,16 @@ legend(x, y = NULL, legend, fill = NULL, col = par("col"),
   }
   \item{text}{a list with components
     \describe{
-      \item{\code{x, y}}{numeric vectors of length \code{length(legend)},
+      \item{\code{x}, \code{y}}{numeric vectors of length \code{length(legend)},
         giving the x and y coordinates of the legend's text(s).}
     }
   }
   returned invisibly.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
-  Murrell, P. (2005) \emph{R Graphics}. Chapman & Hall/CRC Press.
+  \bibshow{R:Murrell:2005}
 }
 \seealso{
   \code{\link{plot}}, \code{\link{barplot}} which uses \code{legend()}, and

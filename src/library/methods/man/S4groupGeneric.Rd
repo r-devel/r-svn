@@ -1,6 +1,6 @@
 % File src/library/methods/man/S4groupGeneric.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{S4groupGeneric}
@@ -121,16 +121,11 @@ There are also
 
 }
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+  \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 
-
- Chambers, John M. (2008)
- \emph{Software for Data Analysis: Programming with R}
-  Springer. (Section 10.5)
-
+  \bibshow{R:Chambers:2008}
+  (Section 10.5)
 }
 \seealso{ The function \code{\link{callGeneric}} is nearly always
   relevant when writing a method for a group generic.  See the
@@ -141,6 +136,7 @@ There are also
 \examples{
 setClass("testComplex", slots = c(zz = "complex"))
 ## method for whole group "Complex"
+getGroupMembers("Complex") # "Arg"  "Conj" "Im"   "Mod"  "Re"  
 setMethod("Complex", "testComplex",
           function(z) c("groupMethod", callGeneric(z@zz)))
 ## exception for Arg() :
@@ -150,6 +146,7 @@ z1 <- 1+2i
 z2 <- new("testComplex", zz = z1)
 stopifnot(identical(Mod(z2), c("groupMethod", Mod(z1))))
 stopifnot(identical(Arg(z2), c("ArgMethod", Arg(z1))))
+selectMethod("Re", signature = "testComplex") # shows Generic: .. "Re" & .."Complex"
 \dontshow{
 removeMethods("Complex")
 removeMethods("Arg")

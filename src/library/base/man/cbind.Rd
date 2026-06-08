@@ -56,7 +56,9 @@ rbind(\dots, deparse.level = 1)
   S4 class, i.e., \code{\link{isS4}(.)} is true, S4 methods are sought
   also, and the hidden \code{cbind} / \code{rbind} functions
   from package \pkg{methods} maybe called, which in turn build on
-  \code{\link{cbind2}} or \code{\link{rbind2}}, respectively.  In that
+  %% \link->\linkS4methods, only to test that latter works w/, w/o [pkg]
+  \code{\linkS4methods{cbind2}} or
+  \code{\linkS4methods[methods]{rbind2}}, respectively.  In that
   case, \code{deparse.level} is obeyed, similarly to the default method.
 
   In the default method, all the vectors/matrices must be atomic (see
@@ -165,9 +167,7 @@ rbind(\dots, deparse.level = 1)
   the coercion of character vectors to factors.)
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{c}} to combine vectors (and lists) as vectors,

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2024-03-18 21:18+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -155,11 +155,12 @@ msgstr ""
 msgid "cannot check R code installed as image"
 msgstr "イメージとしてインストールされた R コードはチェックできません"
 
-#, fuzzy
 msgid ""
 "parse error in examples from file '%s':\n"
 "%s"
-msgstr "ファイル '%s' の例中に構文解析エラー :"
+msgstr ""
+"ファイル '%s' の例中に構文解析エラー\n"
+"%s"
 
 msgid "File '%s':"
 msgstr "ファイル '%s':"
@@ -253,13 +254,11 @@ msgstr "Authors@R フィールドから Author フィールドを抽出できま
 msgid "Authors@R field gives no person with name and roles."
 msgstr "Authors@R フィールドに役割が明示された人がいません"
 
-#, fuzzy
 msgid "Authors@R field gives persons with no name:"
-msgstr "Authors@Rフィールドに役割が明示されていない人がいます"
+msgstr "Authors@Rフィールドに役割が明示されていない人がいます:"
 
-#, fuzzy
 msgid "Authors@R field gives persons with no role:"
-msgstr "Authors@Rフィールドに役割が明示されていない人がいます"
+msgstr "Authors@Rフィールドに役割が明示されていない人がいます:"
 
 #, fuzzy
 msgid "Authors@R field gives no person with name and author role"
@@ -274,8 +273,19 @@ msgstr "Authors@R フィールドでMaintainerロールを持つ人が１人を�
 msgid "Authors@R field gives no person with maintainer role, valid email address and non-empty name."
 msgstr "Authors@R にMaintainerロールをもち，かつ正しいe-mail アドレスをもち，かつ空白でない名前を持っている人がひとりもいません."
 
-#, fuzzy
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
+msgstr "Authors@Rフィールドに役割が明示されていない人がいます:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr "Authors@Rフィールドに役割が明示されていない人がいます"
+
+#, fuzzy
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr "Authors@Rフィールドに役割が明示されていない人がいます"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
 msgstr "Authors@Rフィールドに役割が明示されていない人がいます"
 
 msgid "Encoding '%s' is not portable"
@@ -311,12 +321,8 @@ msgstr "テンプレートであり、'+ file LICENSE' が必要であるライ�
 msgid "License stub is invalid DCF."
 msgstr ""
 
-#, fuzzy
 msgid "License stub records with missing/empty fields:"
-msgstr "欠損もしくは空の名前を持つ Rd オブジェクトは扱えません"
-
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
+msgstr "フィールドが欠落している/空のライセンススタブレコード:"
 
 msgid "Non-portable flags in variable '%s':"
 msgstr "変数 '%s' 中に non-portable フラグ:"
@@ -326,17 +332,17 @@ msgid "Non-portable flags in file '%s':"
 msgstr "変数 '%s' 中に non-portable フラグ:"
 
 msgid "Variables overriding user/site settings:"
-msgstr "ユーザまたはサイトの設定を上書きしている変数です"
+msgstr "ユーザまたはサイトの設定を上書きしている変数:"
 
 msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr ""
 
 #, fuzzy
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr "ドキュメントオブジェクト '%s' 中に欠損したリンクが見つかりました:"
 
 #, fuzzy
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr "ドキュメントオブジェクト '%s' 中に疑わしいリンクが見つかりました:"
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -412,7 +418,7 @@ msgid "'loadNamespace' or 'requireNamespace' call not declared from: %s"
 msgstr "'loadNamespace' もしくは 'requireNamespace' 呼出しが以下から宣言されていません: %s"
 
 msgid "'library' or 'require' calls to packages already attached by Depends:"
-msgstr "'library' もしくは 'requires' により呼び出されたパッケージは、すでに Depends: によりアタッチされています"
+msgstr "'library' もしくは 'require' により呼び出されたパッケージは、すでに Depends: によりアタッチされています:"
 
 msgid "'library' or 'require' call to %s which was already attached by Depends."
 msgstr "'library' もしくは 'requires' により、すでにDepends によりアタッチされた %s が呼び出されました"
@@ -500,8 +506,8 @@ msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Rd オブジェクト '%s' に編集する必要のある自動生成された項目:"
 
 #, fuzzy
-msgid "Rd files without \\description:"
-msgstr "空のセクションを含む Rd ファイル："
+msgid "Rd files without %s:"
+msgstr "'%s' を持たない Rd ファイル:"
 
 msgid "no Rd sections specified"
 msgstr "Rd セクションが指定されていません"
@@ -701,9 +707,6 @@ msgstr "ビニエットエンジンパッケージが指定されていません
 msgid "Unsupported engine name"
 msgstr "未サポートのエンジン名"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "パッケージ %s のうち、どれもビニエットエンジンを登録していません"
-
 msgid "Vignette engine %s is not registered"
 msgstr "ビニエットエンジン %s は登録されていません"
 
@@ -790,6 +793,12 @@ msgstr "エラー: この R はバージョン %s です。 R %s %s を必要と
 msgid "loading failed"
 msgstr "ロードに失敗しました"
 
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
+
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "%2$s を評価しているときに、%1$s を得ました; しかし欲しかったのは %3$s です"
 
@@ -822,9 +831,6 @@ msgstr ""
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "'--compact-vignettes' に対する不正な値です、%s であるとします"
-
-msgid "Error: cannot rename directory to %s"
-msgstr "エラー: ディレクトリの名前を %s に変更できません"
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr ""
@@ -859,11 +865,19 @@ msgstr "チェックするパッケージがありません"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "逆向き依存するものをダウンロードしています..."
 
-msgid "downloading %s ..."
-msgstr "%s をダウンロードしています..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "逆向き依存するものをダウンロードしています..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "逆向き依存するものをダウンロードしています..."
 
 msgid "checking %s ..."
 msgstr "%s をチェックしています..."
@@ -979,18 +993,21 @@ msgstr "不正なパッケージです"
 msgid "restoration failed"
 msgstr "ロードに失敗しました"
 
-#, fuzzy
-msgid "invalid value"
-msgstr "不正なパッケージです"
-
-msgid "for R_CROSS_BUILD"
-msgstr ""
-
 msgid "error reading file '%s'"
 msgstr "ファイル '%s' の読み込みにエラーが発生"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "バンドルされているようですが、現在は用いられていません"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "パッケージ %s の解凍および MD5 サムの検証に成功しました"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' は存在しますが実行できません。'R Installation and Adminstration Manual' を参照してください"
@@ -1015,9 +1032,6 @@ msgstr ""
 
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr ""
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "パッケージ %s の解凍および MD5 サムの検証に成功しました"
 
 msgid "not using staged install with --libs-only"
 msgstr ""
@@ -1056,7 +1070,7 @@ msgid "R include directory is empty -- perhaps need to install R-devel.rpm or si
 msgstr "R の include ディレクトリが空です。恐らく R-devel.rpm か類似物をインストールする必要があります"
 
 msgid "package %s %s was found, but %s %s is required by %s"
-msgstr "パッケージ %s %s が見つかりましたが,  %s %s が %s により必要とされています"
+msgstr "パッケージ %s %s が見つかりましたが, %s %s が %s により必要とされています"
 
 msgid "no source files found"
 msgstr "ソースファイルが見つかりません"
@@ -1092,6 +1106,9 @@ msgstr "エラー: ディレクトリへのインストール許可がありま�
 msgid "building a fake installation is disallowed"
 msgstr "まがい物 (fake) インストールの構築は許されていません"
 
+msgid "specified C++"
+msgstr ""
+
 msgid "using C compiler:"
 msgstr ""
 
@@ -1112,6 +1129,10 @@ msgstr ""
 
 msgid "Reverted installation-time patch"
 msgstr ""
+
+#, fuzzy
+msgid "Input must be character"
+msgstr "'text' は文字型ベクトルでなければなりません"
 
 msgid ""
 "See\n"
@@ -1143,6 +1164,13 @@ msgstr "パッケージに R コードが含まれていません"
 msgid "package seems to be using lazy loading already"
 msgstr "パッケージは既に遅延読み込みを使用しているように見えます"
 
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "'text' は文字型ベクトルでなければなりません"
+
 msgid ""
 "Cannot process chunk/lines:\n"
 "%s"
@@ -1171,11 +1199,12 @@ msgstr ""
 "集まり %s:\n"
 "%s"
 
-#, fuzzy
 msgid ""
 "Cannot extract version info from the following section titles:\n"
 "%s"
-msgstr "以下のセクションタイトルからバージョン情報を取り出せません"
+msgstr ""
+"以下のセクションタイトルからバージョン情報を取り出せません:\n"
+"%s"
 
 msgid ""
 "Malformed NEWS.Rd file:\n"
@@ -1213,6 +1242,13 @@ msgstr ""
 "  %s\n"
 "で始まるチャンクに、\\itemize が含まれていません。"
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "不正なパッケージです"
+
 msgid "Processing packages:"
 msgstr "パッケージを処理中:"
 
@@ -1220,11 +1256,12 @@ msgstr "パッケージを処理中:"
 msgid "Invalid DESCRIPTION file for package %s"
 msgstr "不正な DESCRIPTION ファイルです"
 
-#, fuzzy
 msgid ""
 "reading DESCRIPTION for package %s failed with message:\n"
 "  %s"
-msgstr "%s の読み込みに失敗しました．メッセージは以下の通りです: %s"
+msgstr ""
+"パッケージ %s のDESCRIPTIONの読み取りに失敗し、次のメッセージが表示されました:\n"
+"  %s"
 
 #, fuzzy
 msgid "unable to create temporary directory %s"
@@ -1238,6 +1275,37 @@ msgstr "引数 '%s' は文字列かコネクションでなければなりませ
 
 msgid "unimplemented encoding"
 msgstr "実装されていないエンコード"
+
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' は 1 つの文字でなければなりません"
+
+msgid "invalid hex string"
+msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "テスト '%s' は利用出来ません"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'x' は 1 つの文字でなければなりません"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "ロードに失敗しました"
 
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr ""
@@ -1262,6 +1330,10 @@ msgstr "'%s' のテストに失敗しました"
 
 msgid "Testing examples for package %s"
 msgstr "%s パッケージに対する例をテストしています"
+
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr " パッケージ中の例を実行中 "
 
 msgid "comparing %s to %s ..."
 msgstr "%s と %s を比較しています..."
@@ -1288,11 +1360,12 @@ msgstr "指定されたテストをパッケージ %s に対して実行中"
 msgid "Running %s"
 msgstr "%s を実行中"
 
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr " make の実行に失敗しました "
+
 msgid "Running vignettes for package %s"
 msgstr "パッケージ %s に対してビニエットを実行中"
-
-msgid "Comparing %s to %s ..."
-msgstr "%s と %s を比較中 ..."
 
 msgid "no parsed files found"
 msgstr "パースファイルが見つかりません"
@@ -1381,9 +1454,6 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'x' must be a single character string"
-msgstr "'x' は 1 つの文字でなければなりません"
-
 msgid "test '%s' is not available"
 msgstr "テスト '%s' は利用出来ません"
 
@@ -1432,9 +1502,17 @@ msgstr "空白行があります"
 msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr "非 ASCII データをもつ未知のエンコーディングです: ASCII に変換します"
 
-#, fuzzy
 msgid "cannot source package code:"
-msgstr "パッケージコードを読み込めません"
+msgstr "パッケージコードを読み込めません:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
+
+#, fuzzy
+msgid "inferiorCallError"
+msgstr " 内部エラー "
 
 msgid "inferior call failed"
 msgstr ""
@@ -1489,7 +1567,8 @@ msgid "Found a .Internal call in the following function:"
 msgid_plural "Found .Internal calls in the following functions:"
 msgstr[0] "以下の関数中に .internal 呼び出しが見つかりました:"
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+#, fuzzy
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] "以下の S4 関数に対するメソッド中に .Internal 呼び出しが見つかりました:"
 
@@ -1539,6 +1618,11 @@ msgid "SUMMARY: processing the following file failed:"
 msgid_plural "SUMMARY: processing the following files failed:"
 msgstr[0] "以下の Rd 例示ファイル中に大局的かもしれない 'T' もしくは 'F' がありました:"
 
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "パッケージ %s のうち、どれもビニエットエンジンを登録していません"
+
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
 msgstr[0] "%s (%s行) を再エンコード出来ません"
@@ -1566,6 +1650,23 @@ msgstr[0] "パッケージテストのうち %d 個が失敗しました"
 msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] ""
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "エラー: ディレクトリの名前を %s に変更できません"
+
+#, fuzzy
+#~ msgid "Rd files without \\description:"
+#~ msgstr "空のセクションを含む Rd ファイル："
+
+#~ msgid "downloading %s ..."
+#~ msgstr "%s をダウンロードしています..."
+
+#, fuzzy
+#~ msgid "invalid value"
+#~ msgstr "不正なパッケージです"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "%s と %s を比較中 ..."
 
 #, fuzzy
 #~ msgid "one of 'package' and 'dir' must be specified."
@@ -1946,9 +2047,6 @@ msgstr[0] ""
 #~ msgid "Internal error:  NULL tag"
 #~ msgstr " 内部エラー： NULL タグ "
 
-#~ msgid "internal error"
-#~ msgstr " 内部エラー "
-
 #~ msgid "Inconsistent arg count for"
 #~ msgstr " 以下に対する不整合な引数の数 "
 
@@ -2051,10 +2149,6 @@ msgstr[0] ""
 
 #, fuzzy
 #~ msgid "running msgconv failed"
-#~ msgstr " make の実行に失敗しました "
-
-#, fuzzy
-#~ msgid "running xgettext failed"
 #~ msgstr " make の実行に失敗しました "
 
 #~ msgid "--merge-multiarch is Windows-only"
@@ -2167,9 +2261,6 @@ msgstr[0] ""
 
 #~ msgid "cannot create HTML package index"
 #~ msgstr " HTMLパッケージのインデックスを生成することが出来ません "
-
-#~ msgid "Running examples in package"
-#~ msgstr " パッケージ中の例を実行中 "
 
 #~ msgid "... done"
 #~ msgstr " ... 完了 "

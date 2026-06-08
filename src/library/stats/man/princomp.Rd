@@ -44,8 +44,8 @@ princomp(x, \dots)
   \item{scores}{a logical value indicating whether the score on each
     principal component should be calculated.}
   \item{covmat}{a covariance matrix, or a covariance list as returned by
-    \code{\link{cov.wt}} (and \code{\link[MASS:cov.rob]{cov.mve}} or
-    \code{\link[MASS:cov.rob]{cov.mcd}} from package \CRANpkg{MASS}).
+    \code{\link{cov.wt}} (and \code{\link[MASS]{cov.mve}} or
+    \code{\link[MASS]{cov.mcd}} from package \CRANpkg{MASS}).
     If supplied, this is used rather than the covariance matrix of
     \code{x}.}
   \item{fix_sign}{Should the signs of the loadings and scores be chosen
@@ -118,11 +118,8 @@ princomp(x, \dots)
   different builds of \R: \code{fix_sign = TRUE} alleviates that.
 }
 \references{
-  Mardia, K. V., J. T. Kent and J. M. Bibby (1979).
-  \emph{Multivariate Analysis}, London: Academic Press.
-
-  Venables, W. N. and B. D. Ripley (2002).
-  \emph{Modern Applied Statistics with S}, Springer-Verlag.
+  \bibshow{R:Mardia+Kent+Bibby:1979,
+    R:Venables+Ripley:2002}
 }
 \seealso{
   \code{\link{summary.princomp}}, \code{\link{screeplot}},

@@ -67,7 +67,7 @@ cor.test(x, \dots)
   A list with class \code{"htest"} containing the following components:
   \item{statistic}{the value of the test statistic.}
   \item{parameter}{the degrees of freedom of the test statistic in the
-    case that it follows a t distribution.}
+    case that it follows a \eqn{t} distribution.}
   \item{p.value}{the p-value of the test.}
   \item{estimate}{the estimated measure of association, with name
     \code{"cor"}, \code{"tau"}, or \code{"rho"} corresponding
@@ -93,7 +93,7 @@ cor.test(x, \dots)
 
   If \code{method} is \code{"pearson"}, the test statistic is based on
   Pearson's product moment correlation coefficient \code{cor(x, y)} and
-  follows a t distribution with \code{length(x)-2} degrees of freedom
+  follows a \eqn{t} distribution with \code{length(x)-2} degrees of freedom
   if the samples follow independent normal distributions.  If there are
   at least 4 complete pairs of observation, an asymptotic confidence
   interval is given based on Fisher's Z transform.
@@ -117,24 +117,19 @@ cor.test(x, \dots)
   sizes (the cutoff has been changed from the original paper).
 }
 \references{
-  D. J. Best & D. E. Roberts (1975).
-  Algorithm AS 89: The Upper Tail Probabilities of Spearman's \eqn{\rho}{rho}.
-  \emph{Applied Statistics}, \bold{24}, 377--379.
-  \doi{10.2307/2347111}.
-
-  Myles Hollander & Douglas A. Wolfe (1973),
-  \emph{Nonparametric Statistical Methods.}
-  New York: John Wiley & Sons.
-  Pages 185--194 (Kendall and Spearman tests).
+  \bibinfo{R:Hollander+Wolfe:1973}{footer}{Pages 185--194 (Kendall and
+    Spearman tests)} 
+  \bibshow{R:Hollander+Wolfe:1973,
+    R:Best+Roberts:1975}
 }
 
 \seealso{
-  \code{\link[Kendall:Kendall]{Kendall}} in package \CRANpkg{Kendall}.
+  \code{\link[Kendall]{Kendall}} in package \CRANpkg{Kendall}.
 
-  \code{\link[SuppDists:Kendall]{pKendall}} and
-  \code{\link[SuppDists:Spearman]{pSpearman}} in package
+  \code{\link[SuppDists]{pKendall}} and
+  \code{\link[SuppDists]{pSpearman}} in package
   \CRANpkg{SuppDists},
-  \code{\link[pspearman:spearman.test]{spearman.test}} in package
+  \code{\link[pspearman]{spearman.test}} in package
   \CRANpkg{pspearman},
   which supply different (and often more accurate) approximations.
 }

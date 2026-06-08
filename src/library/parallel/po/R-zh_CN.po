@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.15.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2020-03-24 10:13\n"
+"POT-Creation-Date: 2024-10-25 14:49\n"
 "PO-Revision-Date: 2023-12-20 13:03+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -42,7 +42,11 @@ msgstr "没有提供'cl'集群也没有注册"
 msgid "not a valid cluster"
 msgstr "群集不正确"
 
-msgid "unknown cluster type"
+msgid "replacing registration for cluster type '%s'"
+msgstr ""
+
+#, fuzzy
+msgid "unknown cluster type: '%s'"
 msgstr "未知的集群类型"
 
 #, fuzzy
@@ -128,21 +132,13 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, fuzzy
-msgid ""
-"scheduled core %s did not deliver a result, all values of the job will be "
-"affected"
-msgid_plural ""
-"scheduled cores %s did not deliver results, all values of the jobs will be "
-"affected"
+msgid "scheduled core %s did not deliver a result, all values of the job will be affected"
+msgid_plural "scheduled cores %s did not deliver results, all values of the jobs will be affected"
 msgstr[0] "预定内核%s的用户代码中出了错，所有作业值都将受到影响"
 msgstr[1] "预定内核%s的用户代码中出了错，所有作业值都将受到影响"
 
-msgid ""
-"scheduled core %s encountered error in user code, all values of the job will "
-"be affected"
-msgid_plural ""
-"scheduled cores %s encountered errors in user code, all values of the jobs "
-"will be affected"
+msgid "scheduled core %s encountered error in user code, all values of the job will be affected"
+msgid_plural "scheduled cores %s encountered errors in user code, all values of the jobs will be affected"
 msgstr[0] "预定内核%s的用户代码中出了错，所有作业值都将受到影响"
 msgstr[1] "预定内核%s的用户代码中出了错，所有作业值都将受到影响"
 

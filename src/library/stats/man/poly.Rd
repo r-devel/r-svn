@@ -1,6 +1,6 @@
 % File src/library/stats/man/poly.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{poly}
@@ -22,8 +22,9 @@ polym  (\dots, degree = 1, coefs = NULL, raw = FALSE)
   evaluate raw polynomials.
 }
 \arguments{
- \item{x, newdata}{a numeric vector or an object with \code{\link{mode}}
-   \code{"numeric"} (such as a \code{\link{Date}}) at which to evaluate the
+ \item{x, newdata}{a numeric vector or an object such as a
+   \code{\link{Date}} with \code{\link{mode}} \code{"numeric"}, including
+   \code{\link{ordered}} but not plain \code{\link{factor}}s at which to evaluate the
    polynomial. \code{x} can also be a matrix.  Missing values are not
    allowed in \code{x}.}
  \item{degree}{the degree of the polynomial.  Must be less than the
@@ -59,14 +60,19 @@ polym  (\dots, degree = 1, coefs = NULL, raw = FALSE)
   formulas.
 
   The orthogonal polynomial is summarized by the coefficients, which can
-  be used to evaluate it via the three-term recursion given in Kennedy
-  & Gentle (1980, pp.\sspace{}343--4), and used in the \code{predict} part of
-  the code.
+  be used to evaluate it via the three-term recursion given in
+  \bibcitet{|R:Kennedy+Gentle:1980|pp.\sspace{}343--4},
+  and used in the \code{predict} part of the code.
 
   \code{poly} using \code{\dots} is just a convenience wrapper for
   \code{polym}: \code{coef} is ignored.  Conversely, if \code{polym} is
   called with a single argument in \code{\dots} it is a wrapper for
   \code{poly}.
+
+  When used in a model \code{\link{formula}} containing a \code{subset = *}
+  part, the \code{x} in \code{poly(x)} is evaluated before subsetting which
+  may lead to unexpected results.  For more information see the
+  \sQuote{Details} section of the \code{\link{model.frame}}.
 }
 \note{
   This routine is intended for statistical purposes such as
@@ -78,12 +84,8 @@ polym  (\dots, degree = 1, coefs = NULL, raw = FALSE)
   improvements for correct prediction on subsets.
 }
 \references{
-  Chambers, J. M. and Hastie, T. J. (1992)
-  \emph{Statistical Models in S}.
-  Wadsworth & Brooks/Cole.
-
-  Kennedy, W. J. Jr and Gentle, J. E. (1980)
-  \emph{Statistical Computing} Marcel Dekker.
+  \bibshow{R:Chambers+Hastie:1992,
+    R:Kennedy+Gentle:1980}
 }
 
 \seealso{

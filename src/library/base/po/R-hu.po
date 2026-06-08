@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-04-01 09:28\n"
+"POT-Creation-Date: 2026-05-25 12:54\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -41,7 +41,7 @@ msgid "infinite or missing values in 'x'"
 msgstr "'x'-ben végtelen vagy hiányzó értékek vannak"
 
 msgid "a dimension is zero"
-msgstr ""
+msgstr "egy dimenzió nulla"
 
 msgid "\"all\" and \"exact\" are mutually exclusive"
 msgstr ""
@@ -55,20 +55,19 @@ msgstr "a második argumentum lista kell hogy legyen"
 msgid "'iconvlist' is not available on this system"
 msgstr "'iconvlist' nem elérhető ezen a rendszeren"
 
-msgid "'kind' must be a character string of length 1 (RNG to be used)."
+#, fuzzy
+msgid "'kind' must be a character string (RNG to be used)."
 msgstr "'kind' 1 hosszúságú karakterlánc kell legyen (RNG alkalmazása esetén)."
 
 msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr "'%s' az RNG-hez nem érvényes rövidítés"
 
-msgid "'normal.kind' must be a character string of length 1"
-msgstr "'normal.kind' 1 hosszúságú karakterlánc kell legyen"
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'file' karakterlánc vagy összeköttetés kell hogy legyen"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' nem érvényes választás"
-
-msgid "'sample.kind' must be a character string of length 1"
-msgstr ""
 
 msgid "malformed version string"
 msgstr "nem megfelelő formátumú karakterlánc"
@@ -200,9 +199,6 @@ msgstr "csak karakter objektumok írhatók"
 msgid "'headers' must have names and must not be NA"
 msgstr ""
 
-msgid "'name' must be a single character string"
-msgstr ""
-
 msgid "'origin' must be one of 'start', 'current' or 'end'"
 msgstr "az 'origin' argumentum ezek egyike kell, hogy legyen 'start', 'current' vagy 'end'"
 
@@ -252,6 +248,9 @@ msgstr "az adott data frame-hez érvénytelen 'dimnames'"
 msgid "cannot coerce class %s to a data.frame"
 msgstr ""
 
+msgid "row names contain missing values"
+msgstr "a sornevekben hiányzó értékek vannak"
+
 #, fuzzy
 msgid "'row.names' is not a character or integer vector of length %d"
 msgstr "'normal.kind' 1 hosszúságú karakterlánc kell legyen"
@@ -261,9 +260,6 @@ msgstr "az 'data.frame' argumentumában eltérés van a sornevekben, %d. elem"
 
 msgid "some row.names duplicated: %s --> row.names NOT used"
 msgstr ""
-
-msgid "row names contain missing values"
-msgstr "a sornevekben hiányzó értékek vannak"
 
 msgid "duplicate row.names: %s"
 msgstr ""
@@ -394,29 +390,20 @@ msgstr ""
 msgid "%s not defined for \"Date\" objects"
 msgstr ""
 
-msgid "'from' must be specified"
-msgstr "a 'from' argumentumot meg kell adni"
-
-msgid "'from' must be a \"Date\" object"
-msgstr ""
-
-msgid "'from' must be of length 1"
-msgstr "a 'from' hosszúsága 1 kell hogy legyen"
-
-msgid "'to' must be a \"Date\" object"
-msgstr ""
-
-msgid "'to' must be of length 1"
+#, fuzzy
+msgid "'%s' must be of length 1"
 msgstr "a 'to' hosszúsága 1 kell hogy legyen"
 
-msgid "'length.out' must be of length 1"
-msgstr "'length.out' hosszúsága 1 kell hogy legyen"
+msgid "without 'by', at least one of 'to' and 'from' must be specified"
+msgstr ""
 
-msgid "exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified"
+#, fuzzy
+msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
 msgstr "a 'to', 'by', és 'length.out' / 'along.with' argumentumok közül pontosan kettőt meg kell adni"
 
-msgid "'by' must be of length 1"
-msgstr "a 'by' hosszúsága 1 kell hogy legyen"
+#, fuzzy
+msgid "given 'by', exactly two of 'to', 'from' and 'length.out' / 'along.with' must be specified"
+msgstr "a 'to', 'by', és 'length.out' / 'along.with' argumentumok közül pontosan kettőt meg kell adni"
 
 msgid "invalid 'by' string"
 msgstr "érvénytelen 'by' karakterlánc"
@@ -435,9 +422,6 @@ msgstr "'x' date-time objektum kell hogy legyen"
 
 msgid "invalid specification of 'breaks'"
 msgstr "'breaks' érvénytelen specifikációja"
-
-msgid "'origin' must be of length one"
-msgstr "'origin' hossza 1 kell hogy legyen"
 
 msgid "'lag' and 'differences' must be integers >= 1"
 msgstr "a 'lag' és a 'differences' egész szám kell hogy legyen, >= 1"
@@ -497,16 +481,21 @@ msgstr "* mindkét argumentuma nem lehet \"difftime\" objektum"
 msgid "second argument of / cannot be a \"difftime\" object"
 msgstr "/ második objektuma nem lehet \"difftime\" objektum"
 
-msgid "'from' must be a \"POSIXt\" object"
-msgstr ""
+#, fuzzy
+msgid "exactly three of 'to', 'from', 'by' and 'length.out' / 'along.with' must be specified"
+msgstr "a 'to', 'by', és 'length.out' / 'along.with' argumentumok közül pontosan kettőt meg kell adni"
 
-msgid "'to' must be a \"POSIXt\" object"
-msgstr ""
+#, fuzzy
+msgid "'%s' must be a \"%s\" object"
+msgstr "'x' date-time objektum kell hogy legyen"
 
 msgid "component subscript must be a character string"
 msgstr ""
 
 msgid "no Olson database found"
+msgstr ""
+
+msgid "No element named \"%s\" found in x, did you mean x[, \"%1$s\"] instead?"
 msgstr ""
 
 msgid "'file' must be a character string or connection"
@@ -615,6 +604,9 @@ msgstr "'%s' nem definiált rendezett faktorokra"
 msgid "'%s' is only meaningful for ordered factors if all arguments have the same level sets"
 msgstr "'%s' csak akkor értelmezhető rendezett faktorokra, ha minden argumentum szint beállításai megegyeznek"
 
+msgid "directories are ignored"
+msgstr ""
+
 msgid "no files to copy to"
 msgstr "nincsen fájl, amit másolni lehetne ide"
 
@@ -645,9 +637,6 @@ msgstr "nincs célfájl/-könyvtár"
 msgid "no files to link to"
 msgstr "nincs célfájl"
 
-msgid "'package' must be of length 1"
-msgstr "'package' hossza 1 kell hogy legyen"
-
 msgid "no file found"
 msgstr "nem található fájl"
 
@@ -670,9 +659,6 @@ msgid "Found no format() method for class \"%s\""
 msgstr ""
 
 msgid "class of 'x' was discarded"
-msgstr ""
-
-msgid "'flag' must be a string, i.e., of length 1"
 msgstr ""
 
 msgid "'flag' should contain only characters from [0+- #'I]"
@@ -939,7 +925,7 @@ msgid "nothing specified to be save()d"
 msgstr ""
 
 #, fuzzy
-msgid "'%s' must be a non-empty string"
+msgid "'%s' must be a non-empty character string"
 msgstr "'x' kvadratikus mátrix kell hogy legyen"
 
 msgid "'compress' must be logical or character"
@@ -981,14 +967,11 @@ msgstr ""
 msgid "'arg' must be NULL or a character vector"
 msgstr "'arg' vagy NULL vagy karakter vektor kell legyen"
 
-msgid "'arg' must be of length 1"
-msgstr "'arg' hossza 1 kell hogy legyen"
+msgid "'several.ok' must be logical or a string starting with \"all\""
+msgstr ""
 
 msgid "'arg' must be of length >= 1"
 msgstr "'arg' hossza >= 1 kell legyen"
-
-msgid "there is more than one match in 'match.arg'"
-msgstr "több mint egy egyezés a 'match.arg' függvényben"
 
 msgid "no match"
 msgstr "nincs egyezés"
@@ -1067,8 +1050,15 @@ msgstr ""
 msgid "%s not found"
 msgstr "%s nem található"
 
+msgid "'versionCheck' must be NULL or a list with components 'op' and 'version'"
+msgstr ""
+
 msgid "namespace %s %s is already loaded, but %s %s is required"
 msgstr ""
+
+#, fuzzy
+msgid "namespace '%s' is already loaded so argument '%s' will be ignored."
+msgstr "a(z) %s névteret a(z) %s importálta, így a betöltöttsége nem megszüntethető"
 
 msgid "- loading"
 msgstr ""
@@ -1382,9 +1372,6 @@ msgstr "vagy 'nmax'-t vagy 'n'-t adjuk meg, de mindkettőt nem."
 msgid "'from' must be a finite number"
 msgstr ""
 
-msgid "argument 'length.out' must be of length 1"
-msgstr "a 'length.out' argumentum hossza 1 kell legyen"
-
 msgid "first element used of 'length.out' argument"
 msgstr "a 'length.out' argumentum első eleme lett használva"
 
@@ -1548,9 +1535,7 @@ msgstr "a warning()-ban további argumentumok figyelmen kívül hagyva"
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
 msgstr ""
 
-msgid ""
-"Calling 'structure(NULL, *)' is deprecated, as NULL cannot have attributes.\n"
-"  Consider 'structure(list(), *)' instead."
+msgid "attempt to set an attribute on NULL"
 msgstr ""
 
 msgid "incorrect value for 'x'"
@@ -1600,7 +1585,7 @@ msgid "'bin' must be numeric or a factor"
 msgstr "'bin' numerikus vagy faktor kell legyen"
 
 msgid "invalid value of %s"
-msgstr ""
+msgstr "A %s érvénytelen értéke"
 
 msgid "'X' must be a data frame when 'INDEX' is a formula"
 msgstr ""
@@ -1616,9 +1601,6 @@ msgstr ""
 
 msgid "handler must be a function"
 msgstr "a kezelő függvény kell legyen"
-
-msgid "'which' must be of length 1"
-msgstr ""
 
 msgid "no such element '%s'"
 msgstr "nincsen '%s' elem"
@@ -1653,10 +1635,14 @@ msgstr "'width' pozitív kell legyen"
 msgid "No traceback available"
 msgstr "Traceback nem elérhető"
 
-msgid "invalid non-character version specification 'x' (type: %s)"
+#, fuzzy
+msgid "'recursive' must be a length-1 vector"
+msgstr "'origin' hossza 1 kell hogy legyen"
+
+msgid "'recursive' is NA"
 msgstr ""
 
-msgid "Calls"
+msgid "invalid non-character version specification 'x' (type: %s)"
 msgstr ""
 
 msgid "invalid version specification %s"
@@ -1922,6 +1908,33 @@ msgid_plural ""
 " extra arguments %s will be disregarded"
 msgstr[0] ""
 msgstr[1] ""
+
+#~ msgid "there is more than one match in 'match.arg'"
+#~ msgstr "több mint egy egyezés a 'match.arg' függvényben"
+
+#~ msgid "'from' must be specified"
+#~ msgstr "a 'from' argumentumot meg kell adni"
+
+#~ msgid "'from' must be of length 1"
+#~ msgstr "a 'from' hosszúsága 1 kell hogy legyen"
+
+#~ msgid "'length.out' must be of length 1"
+#~ msgstr "'length.out' hosszúsága 1 kell hogy legyen"
+
+#~ msgid "'by' must be of length 1"
+#~ msgstr "a 'by' hosszúsága 1 kell hogy legyen"
+
+#~ msgid "'package' must be of length 1"
+#~ msgstr "'package' hossza 1 kell hogy legyen"
+
+#~ msgid "'arg' must be of length 1"
+#~ msgstr "'arg' hossza 1 kell hogy legyen"
+
+#~ msgid "argument 'length.out' must be of length 1"
+#~ msgstr "a 'length.out' argumentum hossza 1 kell legyen"
+
+#~ msgid "'normal.kind' must be a character string of length 1"
+#~ msgstr "'normal.kind' 1 hosszúságú karakterlánc kell legyen"
 
 #~ msgid "norm '%s' currently always uses exact = FALSE"
 #~ msgstr "norm '%s' jelenleg mindig exact = FALSE beállítást használ"

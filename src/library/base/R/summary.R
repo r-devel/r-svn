@@ -1,7 +1,7 @@
 #  File src/library/base/R/summary.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,9 @@
 
 summary <- function (object, ...) UseMethod("summary")
 
-summary.default <- function(object, ..., digits, quantile.type = 7)
+summary.default <- function(object, ..., digits, quantile.type = 7,
+                            character.method = c("default", "factor"),
+                            polar = TRUE)
 {
     if(is.factor(object))
 	return(summary.factor(object, ...))
@@ -29,14 +31,12 @@ summary.default <- function(object, ..., digits, quantile.type = 7)
 	    return(summary.matrix(object, digits = digits, quantile.type=quantile.type, ...))
     }
 
-    value <- if(is.logical(object)) # scalar or array!
-	c(Mode = "logical",
-          {tb <- table(object, exclude = NULL, useNA = "ifany") # incl. NA s
-           if(!is.null(n <- dimnames(tb)[[1L]]) && any(iN <- is.na(n)))
-               dimnames(tb)[[1L]][iN] <- "NA's"
-           tb
-           })
-    else if(is.numeric(object)) {
+    value <- if(is.logical(object)) { # scalar or array!
+        tb <- table(object, exclude = NULL, useNA = "ifany") # incl. NAs
+        if(!is.null(n <- dimnames(tb)[[1L]]) && any(iN <- is.na(n)))
+            dimnames(tb)[[1L]][iN] <- "NAs"
+        c(Mode = "logical", tb)
+    } else if(is.numeric(object)) {
 	nas <- is.na(object)
 	object <- object[!nas]
 	qq <- stats::quantile(object, names = FALSE, type = quantile.type)
@@ -44,7 +44,34 @@ summary.default <- function(object, ..., digits, quantile.type = 7)
 	if(!missing(digits)) qq <- signif(qq, digits)
 	names(qq) <- c("Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max.")
 	if(any(nas))
-	    c(qq, "NA's" = sum(nas))
+	    c(qq, "NAs" = sum(nas))
+	else qq
+    } else if(is.character(object) && !is.null(character.method)) {
+        character.method <- match.arg(character.method)
+        if(character.method == "factor")
+            return(summary.factor(factor(object), ...))
+        nas <- is.na(object)
+        object <- object[!nas]
+        ncs <- nchar(object, allowNA = TRUE) # NA if "bytes"-encoded
+        nna <- sum(nas)
+        c(Length    = length(nas),
+          N.unique  = length(unique(object)), # NA excluded
+          N.blank   = length(grep("^[ \t\r\n]*$", object, perl = TRUE)), # trimws()
+          Min.nchar = if(length(ncs)) min(ncs) else NA_integer_,
+          Max.nchar = if(length(ncs)) max(ncs) else NA_integer_,
+          NAs       = if(nna > 0) nna)
+    } else if(is.complex(object)) {
+	nas <- is.na(object)
+	object <- object[!nas]
+	qop <- function(op)
+	    stats::quantile(op(object), probs = c(0, 0.5, 1),
+	                    names = FALSE, type = quantile.type)
+	if(polar) { qq <- c(qop(Mod), qop(Arg)); nm <- c("Mod", "Arg") }
+	else      { qq <- c(qop(Re ), qop(Im )); nm <- c("Re" , "Im" ) }
+	if(!missing(digits)) qq <- signif(qq, digits)
+	names(qq) <- paste0(c("Min.", "Median.", "Max."), rep(nm, each = 3L))
+	if(any(nas))
+	    c(qq, "NAs" = sum(nas))
 	else qq
     } else if(is.recursive(object) && !is.language(object) &&
 	      (n <- length(object))) { # do not allow long dims
@@ -60,48 +87,48 @@ summary.default <- function(object, ..., digits, quantile.type = 7)
 	}
 	sumry[, 1L] <- format(as.integer(ll))
 	sumry
-    }
-    else c(Length = length(object), Class = class(object), Mode = mode(object))
+    } else # very basic/all-purpose summary
+        c(Length = length(object), Class = class(object), Mode = mode(object))
     class(value) <- c("summaryDefault", "table")
     value
 }
 
-format.summaryDefault <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
+format.summaryDefault <-
+function(x, digits = max(3L, getOption("digits") - 3L), zdigits = 4L, ...)
 {
-    xx <- x
-    if(is.numeric(x) || is.complex(x)) {
-      finite <- is.finite(x)
-      xx[finite] <- zapsmall(x[finite])
+    if(is.character(x) || is.integer(x)) { # logical/basic || character summary
+        NextMethod("format")
+    } else if((iP <- inherits(x, "POSIXct")) || inherits(x, c("Date", "difftime"))) {
+        c(NextMethod("format", digits = if(iP) 0L else digits),
+          "NAs" = if(length(a <- attr(x, "NAs"))) as.character(a))
+    } else { # currently always numeric -> zapsmall
+        m <- match("NAs", names(x), 0L)
+        nna <- x[m]
+        if(m) x <- x[-m]
+        finite <- is.finite(x)
+        digs <- digits %||% eval(formals()$digits) # use <default> if NULL
+        x[finite] <- zapsmall(x[finite], digits = digs + zdigits)
+        xx <- NextMethod("format", digits = digits)
+        if(m) c(xx, "NAs" = as.character(nna))
+        else xx
     }
-    class(xx) <- class(x)[-1]
-    m <- match("NA's", names(x), 0)
-    if(inherits(x, "Date") || inherits(x, "POSIXct")) {
-        if(length(a <- attr(x, "NAs")))
-            c(format(xx, digits=digits, ...), "NA's" = as.character(a))
-        else format(xx, digits=digits)
-    } else if(m && !is.character(x))
-        xx <- c(format(xx[-m], digits=digits, ...), "NA's" = as.character(xx[m]))
-    else format(xx, digits=digits, ...)
 }
 
-print.summaryDefault <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
+print.summaryDefault <-
+function(x, digits = max(3L, getOption("digits") - 3L), zdigits = 4L, ...)
 {
-    xx <- x
-    if(is.numeric(x) || is.complex(x)) {
-      finite <- is.finite(x)
-      xx[finite] <- zapsmall(x[finite])
-    }
-    class(xx) <- class(x)[-1] # for format
-    m <- match("NA's", names(xx), 0)
-    if(inherits(x, "Date") || inherits(x, "POSIXct")) {
-        xx <- if(length(a <- attr(x, "NAs")))
-            c(format(xx, digits=digits), "NA's" = as.character(a))
-        else format(xx, digits=digits)
-        print(xx, digits=digits, ...)
-        return(invisible(x))
-    } else if(m && !is.character(x))
-        xx <- c(format(xx[-m], digits=digits), "NA's" = as.character(xx[m]))
-    print.table(xx, digits=digits, ...)
+    if(is.character(x) || is.integer(x))
+        return(NextMethod("print"))
+
+    xx <- if(inherits(x, "difftime")) {
+        cat("Time differences in ", attr(x, "units"), "\n", sep = "")
+        format(x, digits = digits, with.units = FALSE)
+    } else
+        format(x, digits = digits, zdigits = zdigits)
+    if(inherits(x, c("Date", "POSIXct")))
+        print(xx, ...)
+    else
+        print.noquote(xx, ...)
     invisible(x)
 }
 
@@ -118,7 +145,7 @@ summary.factor <- function(object, maxsum = 100L, ...)
 	o <- sort.list(tt, decreasing = TRUE)
 	tt <- c(tt[o[ - drop]], "(Other)" = sum(tt[o[drop]]))
     }
-    if(ana) c(tt, "NA's" = sum(nas)) else tt
+    if(ana) c(tt, "NAs" = sum(nas)) else tt
 }
 
 summary.matrix <- function(object, ...) {
@@ -137,7 +164,7 @@ summary.data.frame <-
         }
         z
     }
-    # compute results to full precision.
+    # compute results to "full" precision (FIXME: option full.digits = 12L )
     z <- lapply(X = as.list(object), FUN = summary,
                 maxsum = maxsum, digits = 12L, ...)
     nv <- length(object)
@@ -158,7 +185,7 @@ summary.data.frame <-
                 tmp <- rbind(tmp, matrix("", nr - nrow(sms), ncol(sms)))
             sms <- apply(tmp, 1L, function(x) paste(x, collapse="  "))
             ## produce a suitable colname: undoing padding
-            wid <- sapply(tmp[1L, ], nchar, type="w") # might be NA
+            wid <- vapply(tmp[1L, ], nchar, 0, type = "w") # might be NA
             blanks <- paste(character(max(wid)), collapse = " ")
             wcn <- ncw(cn)
             pad0 <- floor((wid - wcn)/2)

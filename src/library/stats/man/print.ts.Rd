@@ -39,7 +39,7 @@
 \examples{
 print(ts(1:10, frequency = 7, start = c(12, 2)), calendar = TRUE)
 
-print(sunsp.1 <- window(sunspot.month, end=c(1756, 12)))
+print(sunsp.1 <- window(sunspot.m2014, end=c(1756, 12)))
 m <- .preformat.ts(sunsp.1) # a character matrix
 }
 \keyword{ts}

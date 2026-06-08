@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2023-07-31 14:59\n"
+"POT-Creation-Date: 2025-03-31 11:51\n"
 "PO-Revision-Date: 2024-03-19 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -118,9 +118,8 @@ msgstr ""
 "程序包%2$s不允许泛型版本的%1$s；\n"
 "一个新的泛型函数将会同程序包%3$s一起被分配"
 
-#, fuzzy
 msgid "fdef appears to be a generic function, but with generic name %s instead of %s"
-msgstr "函数%s好象是泛型函数，却有%s的泛型名称"
+msgstr "fdef 似乎是一个通用泛化函数，但通用名称为 %s 而不是 %s"
 
 msgid "generic function %s not found for removal"
 msgstr "没有%s这样的泛型函数，因此不能将之删除"
@@ -306,15 +305,6 @@ msgstr "无法插入相对应于空标记的方法"
 msgid "inserting method into non-methods-list object (class %s)"
 msgstr "无法将方法插入非方法列表对象(类别为%s)"
 
-msgid "invalid method sublist"
-msgstr "方法子列表有错误"
-
-msgid "%f is not a valid generic function: methods list was an object of class %s"
-msgstr "%f不是正确的泛型函数: 方法列表是类别为%s的对象"
-
-msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
-msgstr "%s的值必需为TRUE, FALSE, 或是个带名称的逻辑向量; 现在得到的却是类别为%s的对象"
-
 msgid "default method must be a method definition, a primitive or NULL: got an object of class %s"
 msgstr "缺省方法必需是方法定义，原始方法或NULL，得到的却是类别为%s的对象"
 
@@ -331,17 +321,13 @@ msgid "trying to match a method signature of class %s; expects a list or a chara
 msgstr "无法同类别为%s的方法标记相对应; 必需用列表或字符向量"
 
 msgid "object to use as a method signature for function %s does not look like a legitimate signature (a vector of single class names): there were %d class names, but %d elements in the signature object"
-msgstr "为函数%1$s作为方法标记而用的对象看来不象是合法的标记(单类别名称向量)"
-"：一共有%2$d类别名称，但标记对象里只有%3$d个元素"
+msgstr "为函数%1$s作为方法标记而用的对象看来不象是合法的标记(单类别名称向量)：一共有%2$d类别名称，但标记对象里只有%3$d个元素"
 
 msgid "more elements in the method signature (%d) than in the generic signature (%d) for function %s"
 msgstr "用在函数%3$s上的方法标记(%1$d)里元素比泛型标记(%2$d)里的要多"
 
 msgid "no generic function found corresponding to %s"
 msgstr "%s找不到泛型函数"
-
-msgid "skipping methods list element %s of unexpected class %s"
-msgstr "因为其类别%2$s没有定义，忽略%1$s这一方法列表單元"
 
 msgid "%s, along with other use of the \"MethodsList\" metadata objects, is deprecated."
 msgstr "%s和其他\"MethodsList\"元数据目标对象都已经不推荐使用了"
@@ -497,7 +483,8 @@ msgstr "类别不能同时具有普通的和暗藏的数据类型"
 msgid "a validity method must be a function of one argument, got an object of class %s"
 msgstr "正确的方法必需的带一个参数的函数，收到的却是类别为%s的对象"
 
-msgid "unable to find required package %s"
+#, fuzzy
+msgid "unable to load required package %s"
 msgstr "找不到所需要的程輯包%s"
 
 msgid "unable to find an environment containing class %s"
@@ -522,9 +509,7 @@ msgid "no definition of inheritance from %s to %s, though the relation was impli
 msgstr "不存在从%s到\"%s\"类别的繼承定义，虽然%s的setIs()暗示其存在"
 
 msgid "Debugging .checkSubclasses(): assignClassDef(what=\"%s\", *, where=%s, force=TRUE);"
-msgstr ""
-"调试 .checkSubclasses(): assignClassDef(what=\"%s\", *, where=%s, "
-"force=TRUE);"
+msgstr "调试 .checkSubclasses(): assignClassDef(what=\"%s\", *, where=%s, force=TRUE);"
 
 msgid "E := environment(): %s; parent.env(E): %s"
 msgstr ""
@@ -742,8 +727,7 @@ msgid "duplicated slot names: %s"
 msgstr "重复类型名: %s"
 
 msgid "class %s is defined, with package %s, but no corresponding metadata object was found (not exported?)"
-msgstr "%s类别已经在%s程序包里被定义过了，但没有与之相对应的元数据对象(有没有被导出过"
-"？)"
+msgstr "%s类别已经在%s程序包里被定义过了，但没有与之相对应的元数据对象(有没有被导出过？)"
 
 msgid "no definition of %s to use for %s"
 msgstr "%s没有定义，不能为%s起作用"
@@ -833,10 +817,6 @@ msgstr "没有'coerce'方法"
 msgid "methods currently exist for coercing from %s to %s; they will be replaced."
 msgstr "目前存在着強制转换%s成%s的方法；这些方法将会被替换掉。"
 
-#, fuzzy
-msgid "Function must be an S4 generic"
-msgstr ".getGeneric里不能有空的函数名称"
-
 msgid "method is not being debugged"
 msgstr ""
 
@@ -869,8 +849,7 @@ msgstr "类别%s被封闭了；除了'setClassUnion'之外无法设定新的父�
 
 #, fuzzy
 msgid "class %s is defined (with package slot %s) but no metadata object found to revise %s information---not imported?  Making a copy in package %s"
-msgstr "%s类别已经(在%s程序包类型里)被定义过了，但没有可用于修改%s信息的元数据对象--"
-"没有被导出？在%s程序包里复制"
+msgstr "%s类别已经(在%s程序包类型里)被定义过了，但没有可用于修改%s信息的元数据对象--没有被导出？在%s程序包里复制"
 
 msgid "class %s cannot extend class %s"
 msgstr "类别%s无法擴充类别%s"
@@ -894,7 +873,7 @@ msgid "invalid object in meta table of methods for %s, label %s, had class %s"
 msgstr "元方法表里方法%1$s，标签%2$s的对象无效，类别不应该是%3$s"
 
 #, fuzzy
-msgid "invalid mlist element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
+msgid "invalid method element for signature %s at level %d (should be MethodDefinition or .Primitive, had class %s)"
 msgstr "无效的mlist元素的标签%s的%d级（应该是方法列表或方法，类另是%s）"
 
 msgid "bad method object stored in method table, class %s"
@@ -1148,8 +1127,7 @@ msgid "An object of class %s"
 msgstr "为类别为%s的对象"
 
 msgid "invalid call to 'classLabel': expected a name or a class definition, got an object of class %s"
-msgstr "'classLabel'调用无效：需要的是个名称或类别定义，但得到的却是类别为%s的目标对"
-"象"
+msgstr "'classLabel'调用无效：需要的是个名称或类别定义，但得到的却是类别为%s的目标对象"
 
 msgid "argument 'signature' is not meaningful for tracing reference methods"
 msgstr "'signature'参数不能适用于跟踪引用方法"
@@ -1240,7 +1218,7 @@ msgid "no definition for object %s found in tracing environment"
 msgstr "在追溯环境里找不到%s对象的定义"
 
 msgid "multiple generics match pattern, using table %s"
-msgstr "有多个泛型同模式相匹配，用表%s"
+msgstr "多个泛型匹配正则，使用表 %s"
 
 msgid "does not seem to be a method table for generic %s in tracing environment"
 msgstr "在追溯环境里找不到%s泛型函数的方法表"
@@ -1328,6 +1306,22 @@ msgstr[0] "从%2$d个歧义可能选择中选%1$s方法"
 msgid "no definition of class %s in the specified position, %s, definition on : %s"
 msgid_plural "no definition of class %s in the specified position, %s, definitions on : %s"
 msgstr[0] "在指定的%2$s这个位置不存在类别%1$s的定义, 定义在: %3$s"
+
+#, fuzzy
+#~ msgid "Function must be an S4 generic"
+#~ msgstr ".getGeneric里不能有空的函数名称"
+
+#~ msgid "invalid method sublist"
+#~ msgstr "方法子列表有错误"
+
+#~ msgid "%f is not a valid generic function: methods list was an object of class %s"
+#~ msgstr "%f不是正确的泛型函数: 方法列表是类别为%s的对象"
+
+#~ msgid "%s must be TRUE, FALSE, or a named logical vector of those values; got an object of class %s"
+#~ msgstr "%s的值必需为TRUE, FALSE, 或是个带名称的逻辑向量; 现在得到的却是类别为%s的对象"
+
+#~ msgid "skipping methods list element %s of unexpected class %s"
+#~ msgstr "因为其类别%2$s没有定义，忽略%1$s这一方法列表單元"
 
 #~ msgid "invalid call in method dispatch to '%s' (no default method)"
 #~ msgstr "给'%s'进行方法分配时的调用出了错(没有默認方法)"

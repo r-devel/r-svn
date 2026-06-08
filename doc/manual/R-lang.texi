@@ -1,7 +1,7 @@
 \input texinfo
 @c %**start of header
 @setfilename R-lang.info
-@settitle R Language Definition
+@settitle The R Language Definition
 @c %**end of header
 
 @syncodeindex fn vr
@@ -31,7 +31,7 @@ This manual is for R, version @value{VERSION}.
 @end copying
 
 @titlepage
-@title R Language Definition
+@title The R Language Definition
 @subtitle Version @value{VERSION} @b{DRAFT}
 @author R Core Team
 @page
@@ -49,7 +49,7 @@ This manual is for R, version @value{VERSION}.
 
 @ifnottex
 @node Top
-@top R Language Definition
+@top The R Language Definition
 
 This is an introduction to the @R{} language, explaining evaluation,
 parsing, object oriented programming, computing on the language, and so
@@ -1797,14 +1797,14 @@ names(x)[3] <<- "Three"
 @end example
 is equivalent to 
 @example
-`*tmp*` <<- get(x, envir=parent.env(), inherits=TRUE)
+`*tmp*` <- get("x", envir=parent.env(), inherits=TRUE)
 names(`*tmp*`)[3] <- "Three"
 x <<- `*tmp*`
 rm(`*tmp*`)
 @end example
 and also to
 @example
-`*tmp*` <- get(x,envir=parent.env(), inherits=TRUE)
+`*tmp*` <- get("x", envir=parent.env(), inherits=TRUE)
 x <<- "names<-"(`*tmp*`, value="[<-"(names(`*tmp*`), 3, value="Three"))
 rm(`*tmp*`)
 @end example
@@ -1828,7 +1828,7 @@ value of @code{e} on the RHS of the @I{superassignment} statement.  It sets
 @end example
 That is, the @I{superassignment} is equivalent to the four lines
 @example
-`*tmp*` <- get(e, envir=parent.env(), inherits=TRUE)
+`*tmp*` <- get("e", envir=parent.env(), inherits=TRUE)
 `*tmp*`[i] <- e[i]+1
 e <<- `*tmp*`
 rm(`*tmp*`)
@@ -1840,14 +1840,14 @@ x[is.na(x)] <<- 0
 @end example
 is equivalent to 
 @example
-`*tmp*` <- get(x,envir=parent.env(), inherits=TRUE)
+`*tmp*` <- get("x", envir=parent.env(), inherits=TRUE)
 `*tmp*`[is.na(x)] <- 0
 x <<- `*tmp*`
 rm(`*tmp*`)
 @end example
 and not to
 @example
-`*tmp*` <- get(x,envir=parent.env(), inherits=TRUE)
+`*tmp*` <- get("x", envir=parent.env(), inherits=TRUE)
 `*tmp*`[is.na(`*tmp*`)] <- 0
 x <<- `*tmp*`
 rm(`*tmp*`)
@@ -2687,9 +2687,8 @@ The class attribute of an object can have several elements.  When a
 @cindex function, generic
 generic function is called the first inheritance is mainly handled
 through @code{NextMethod}.  @code{NextMethod} determines the method
-currently being evaluated, finds the next class from the
-
-FIXME: something is missing here
+currently being evaluated, finds the next class from the class
+attribute, and proceeds, see @code{?NextMethod}. 
 
 @node Method dispatching
 @section Method dispatching
@@ -3626,13 +3625,13 @@ environment can be accessed and manipulated with
 @multitable @columnfractions 0.3 0.7
 @item @code{Sys.getenv} @tab OS environment variables
 @findex Sys.getenv
-@item @code{Sys.putenv}                               
+@item @code{Sys.putenv} @tab
 @findex Sys.putenv
 @item @code{Sys.getlocale} @tab System locale         
 @findex Sys.getlocale
-@item @code{Sys.putlocale}                            
+@item @code{Sys.putlocale} @tab
 @findex Sys.putlocale
-@item @code{Sys.localeconv}                           
+@item @code{Sys.localeconv} @tab
 @findex Sys.localeconv
 @item @code{Sys.time} @tab Current time               
 @findex Sys.time
@@ -4597,23 +4596,26 @@ diagnostic messages refer to the original file.
 
 
 
-@node Function and Variable Index
-@unnumbered Function and Variable Index
-
-@printindex vr
-
-@node Concept Index
-@unnumbered Concept Index
-
-@printindex cp
-
 @node References
-@appendix References
+@unnumbered References
 
 @I{Richard A.@: Becker}, @I{John M.@: Chambers} and @I{Allan R.@: Wilks} (1988),
 @emph{The New S Language.}
 Chapman & Hall, New York.
 This book is often called the ``@emph{Blue Book}''.
+
+
+@node Function and variable index
+@unnumbered Function and variable index
+
+@printindex vr
+
+
+@node Concept index
+@unnumbered Concept index
+
+@printindex cp
+
 
 @bye
 

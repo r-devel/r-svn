@@ -47,7 +47,7 @@ dget(file, keep.source = FALSE)
   representation include \code{"useSource"} in \code{control}.  \R
   currently saves source only for function definitions.  If you do not
   care about source representation (e.g., for a data object), for speed
-  set \code{options(keep.source = FALSE}) when calling \code{source}.
+  set \code{options(keep.source = FALSE)} when calling \code{source}.
 }
 \value{
   For \code{dput}, the first argument invisibly.
@@ -66,9 +66,7 @@ dget(file, keep.source = FALSE)
   be written as an attribute.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{deparse}}, \code{\link{.deparseOpts}},

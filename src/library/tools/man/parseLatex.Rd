@@ -1,6 +1,6 @@
 % File src/library/tools/man/parseLatex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{parseLatex}
@@ -9,55 +9,70 @@
 \alias{latexToUtf8}
 \title{Experimental Functions to Work with LaTeX Code}
 \description{
-  The \code{parseLatex} function parses LaTeX source, producing a
+  The \code{parseLatex} function parses \LaTeX source, producing a
   structured object; \code{deparseLatex} reverses the process.  The
-  \code{latexToUtf8} function takes a LaTeX object, and processes a number
+  \code{latexToUtf8} function takes a \LaTeX object, and processes a number
   of different macros to convert them into the corresponding UTF-8
   characters.
 }
 \usage{
-parseLatex(text, filename = deparse1(substitute(text)),
+parseLatex(text, filename = "text",
            verbose = FALSE,
            verbatim = c("verbatim", "verbatim*",
                         "Sinput", "Soutput"),
-           verb = "\\\\Sexpr")
-deparseLatex(x, dropBraces = FALSE)
+           verb = "\\\\Sexpr",
+           defcmd = c("\\\\newcommand", "\\\\renewcommand",
+                      "\\\\providecommand", "\\\\def", "\\\\let"),
+           defenv = c("\\\\newenvironment",
+                      "\\\\renewenvironment"))
+
+deparseLatex(x, dropBraces = FALSE, math = c("$", "$"))
 latexToUtf8(x)
 }
 \arguments{
-  \item{text}{
-A character vector containing LaTeX source code.
+\item{text}{
+A character vector containing \LaTeX source code.
 }
-  \item{filename}{
-A filename to use in syntax error messages.
+\item{filename}{
+No longer used.
 }
-  \item{verbose}{
+\item{verbose}{
 If \code{TRUE}, print debug error messages.
 }
-  \item{verbatim}{
-A character vector containing the names of LaTeX environments holding verbatim text.
+\item{verbatim}{
+A character vector containing the names of \LaTeX environments holding
+verbatim text.
 }
-  \item{verb}{
-A character vector containing LaTeX macros that should be 
+\item{verb}{
+A character vector containing \LaTeX macros that should be 
 assumed to hold verbatim text.
-  }
-  \item{x}{
+}
+\item{defcmd, defenv}{
+Character vectors containing \LaTeX macros that should be assumed
+to define macros or environments respectively.
+}
+\item{x}{
 A \code{"LaTeX"} object.
 }
-  \item{dropBraces}{
+\item{dropBraces}{
 Drop unnecessary braces when displaying a \code{"LaTeX"} object.
+}
+\item{math}{
+A character vector of length 2 containing \LaTeX code that opens and
+closes a \verb{MATH} block. Note that \code{parseLatex} currently
+only tags \samp{$...$} as \code{"MATH"}, but not \samp{\\(...\\)}
+nor \LaTeX's \samp{math} environment.
 }
 }
 \details{
-
-The parser does not recognize all legal LaTeX code, only relatively
+The parser does not recognize all legal \LaTeX code, only relatively
 simple examples.  It does not associate arguments with macros, that
 needs to be done after parsing, with knowledge of the definitions of
 each macro.  The main intention for this function is to process simple
-LaTeX code used in bibliographic references, not fully general LaTeX
+\LaTeX code used in bibliographic references, not fully general \LaTeX
 documents.
 
-Verbose text is allowed in three forms:  the \verb{\\verb} macro (with
+Verbatim text is allowed in three forms:  the \verb{\\verb} macro (with
 single character delimiters), environments whose names are listed
 in the \code{verbatim} argument, and other macros (with 
 brace delimiters) whose names are listed in the \code{verb}
@@ -75,11 +90,13 @@ The \code{latexToUtf8()} function returns a modified version of the
 \code{"LaTeX"} object that was passed to it.
 }
 \author{
-Duncan Murdoch
+Duncan Murdoch and the R Core Team
 }
-\examples{\donttest{
-latex <- parseLatex("fran\\\\c{c}ais")
-deparseLatex(latexToUtf8(latex))
-}}
+\examples{
+latex <- parseLatex("fran\\\\c{c}ais", verbose = TRUE)
+\dontdiff{deparseLatex(latexToUtf8(latex))}% possibly "....<U+00E7>..."
+
+deparseLatex(parseLatex("$t$"), math = c("\\\\eqn{", "}"))
+}
 \keyword{ utilities }
 \keyword{ documentation }

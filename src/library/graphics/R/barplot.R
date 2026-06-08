@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/barplot.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,17 +20,20 @@ barplot <- function(height, ...) UseMethod("barplot")
 
 barplot.default <-
 function(height, width = 1, space = NULL, names.arg = NULL,
-	 legend.text = NULL, beside = FALSE, horiz = FALSE,
-	 density = NULL, angle = 45,
-	 col = NULL, border = par("fg"),
-	 main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
-	 xlim = NULL, ylim = NULL, xpd = TRUE, log = "",
-	 axes = TRUE, axisnames = TRUE,
-	 cex.axis = par("cex.axis"), cex.names = par("cex.axis"),
-         inside = TRUE, plot = TRUE, axis.lty = 0, offset = 0, add = FALSE,
-	 ann = !add && par("ann"),
-         args.legend = NULL, ...)
- {
+	legend.text = NULL, beside = FALSE, horiz = FALSE,
+	density = NULL, angle = 45,
+	col = NULL, border = par("fg"),
+	main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
+	xlim = NULL, ylim = NULL, xpd = TRUE, log = "",
+	axes = TRUE, axisnames = TRUE,
+	cex.axis = par("cex.axis"), cex.names = par("cex.axis"),
+	inside = TRUE, plot = TRUE, axis.lty = 0, offset = 0, add = FALSE,
+	ann = !add && par("ann"),
+	args.legend = NULL,
+	orderH = c("none", "incr", "decr"),
+	panel.first = NULL, panel.last = NULL,
+	...)
+{
     if (!missing(inside)) .NotYetUsed("inside", error = FALSE)# -> help(.)
 
     if (is.null(space))
@@ -45,7 +48,7 @@ function(height, width = 1, space = NULL, names.arg = NULL,
 	|| (is.array(height) && (length(dim(height)) == 1)))
 	## Treat vectors and 1-d arrays the same.
     if (vectorInput) {
-	height <- cbind(height)
+	height <- cbind(height) # 1-column matrix
 	beside <- TRUE
 	## The above may look strange, but in particular makes color
 	## specs work as most likely expected by the users.
@@ -109,8 +112,21 @@ function(height, width = 1, space = NULL, names.arg = NULL,
     } else rectbase <- 0
 
     ## if stacked bar, set up base/cumsum levels, adjusting for log scale
-    if (!beside)
-	height <- rbind(rectbase, apply(height, 2L, cumsum))
+    if (!beside) {
+        orderH <- match.arg(orderH)
+        if(orderH != "none") {
+            decr <- (orderH == "decr")
+            orderHgt <- apply(height, 2L, order, decreasing = decr)
+        }
+	iC <- 1L:NC
+        height <-
+            rbind(rectbase,
+                  apply(switch(orderH,
+                               "decr" =,
+                               "incr" = vapply(iC, function(j) height[orderHgt[,j], j], numeric(NR)),
+                               "none" = height),
+                        2L, cumsum))
+    }
 
     rAdj <- offset + (if (log.dat) 0.9 * height else -0.01 * height)
 
@@ -130,14 +146,16 @@ function(height, width = 1, space = NULL, names.arg = NULL,
     if(plot) { ##-------- Plotting :
         dev.hold()
 	opar <-
-	    if (horiz)	par(xaxs = "i", xpd = xpd)
-	    else	par(yaxs = "i", xpd = xpd)
+	    if (horiz)	par(xaxs = "i")
+	    else	par(yaxs = "i")
 	on.exit({dev.flush();par(opar)})
 
 	if (!add) {
 	    plot.new()
 	    plot.window(xlim, ylim, log = log, ...)
 	}
+	panel.first
+	opar <- c(opar, par(xpd = xpd))
 
 	xyrect <- function(x1,y1, x2,y2, horizontal = TRUE, ...) {
 	    if(horizontal)
@@ -153,16 +171,19 @@ function(height, width = 1, space = NULL, names.arg = NULL,
 	else {
 	    ## noInside <- NC > 1 && !inside # outside border, but not inside
 	    ## bordr <- if(noInside) 0 else border
-	    for (i in 1L:NC) {
-		xyrect(height[1L:NR, i] + offset[i], w.l[i],
+            hNR <- height[1L:NR, , drop=FALSE]
+	    for (i in iC) {
+		xyrect(hNR[, i] + offset[i], w.l[i],
 		       height[ -1,  i] + offset[i], w.r[i],
 		       horizontal = horiz, angle = angle, density = density,
-		       col = col, border = border)# = bordr
+		       col = if(orderH != "none") col[orderHgt[,i]] else col,
+		       border = border)# = bordr
 		## if(noInside)
 		##  xyrect(min(height[, i]), w.l[i], max(height[, i]), w.r[i],
 		##	   horizontal = horiz, border= border)
 	    }
 	}
+	panel.last
 	if (axisnames && !is.null(names.arg)) { # specified or from {col}names
 	    at.l <- if (length(names.arg) != length(w.m)) {
 		if (length(names.arg) == NC) # i.e. beside (!)
@@ -175,9 +196,9 @@ function(height, width = 1, space = NULL, names.arg = NULL,
 	}
 	if(!is.null(legend.text)) {
 	    legend.col <- rep_len(col, length(legend.text))
-	    if((horiz & beside) || (!horiz & !beside)){
+	    if((horiz && beside) || (!horiz && !beside)) {
 		legend.text <- rev(legend.text)
-		legend.col <- rev(legend.col)
+		legend.col  <- rev(legend.col)
 		density <- rev(density)
 		angle <- rev(angle)
 	    }

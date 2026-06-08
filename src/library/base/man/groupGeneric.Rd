@@ -1,6 +1,6 @@
 % File src/library/base/man/groupGeneric.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{groupGeneric}
@@ -84,7 +84,7 @@
       % do_log()   [arithmetic.c:1011]:if (DispatchGroup("Math", ..))
       % do_signif()[arithmetic.c:1034]:if (DispatchGroup("Math", ..))
 
-      \item \code{cumsum}, \code{cumprod}, \code{cummax}, \code{cummin}
+      \item \code{cumsum}, \code{cumprod}, \code{cummax}, \code{cummin}, \code{cumvar}
       % do_cum()   [cum.c:140]:    if (DispatchGroup("Math", ...))
     }
     Members of this group dispatch on \code{x}.  Most members accept
@@ -138,9 +138,8 @@
       \item \code{"\%*\%"}
       % do_matprod [array.c:1251]: if (DispatchGroup("matrixOps", ...))
     }
-    This group currently contains the matrix multiply \code{\%*\%} binary operator
-    only, where at least \code{\link{crossprod}()} and \code{tcrossprod()}
-    are meant to follow.
+    This group currently contains the matrix multiply \code{\%*\%}
+    binary operator, \code{\link{crossprod}()} and \code{tcrossprod()}.
     Members of the group have the same dispatch semantics (using \emph{both} arguments)
     as the \code{Ops} group.
 
@@ -201,10 +200,7 @@
   for that package.
 }
 \references{
-  Appendix A, \emph{Classes and Methods} of\cr
-  Chambers, J. M.  and Hastie, T. J. eds (1992)
-  \emph{Statistical Models in S.}
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992:aa}
 }
 \seealso{
   \code{\link{methods}} for methods of non-internal generic functions.

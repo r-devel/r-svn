@@ -2924,6 +2924,7 @@ F77_NAME(zgebak)(const char* job, const char* side, La_INT *n, La_INT *ilo,
 		 La_INT *ihi, double *scale, La_INT *m, La_complex *v,
 		 La_INT *ldv, La_INT *info FCLEN FCLEN);
 
+/* ZGEBAL balances a general complex matrix A */
 La_extern void
 F77_NAME(zgebal)(const char *job, const La_INT *n, La_complex *a,
 		 const La_INT *lda, La_INT *ilo, La_INT *ihi, double *scale,

@@ -42,9 +42,7 @@ warnings(\dots)
       messages are printed.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \details{
   See the description of \code{\link{options}("warn")} for the
@@ -73,7 +71,7 @@ warnings(\dots)
   In \R versions before 4.4.0, it returned \code{\link{NULL}} when there
   were no warnings, contrary to the above documentation.
 
-  \code{summary(<warnings>)} returns a \code{"summary.warnings"}
+  \code{summary(\var{warnings})} returns a \code{"summary.warnings"}
   object which is basically the \code{\link{list}} of unique warnings
   (\code{unique(object)}) with a \code{"counts"} attribute, somewhat
   experimentally.

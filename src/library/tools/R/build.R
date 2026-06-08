@@ -1,7 +1,7 @@
 #  File src/library/tools/R/build.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ get_exclude_patterns <- function()
     c("^\\.Rbuildignore$",
       "(^|/)\\.DS_Store$",
       "^\\.(RData|Rhistory)$",
-      "~$", "\\.bak$", "\\.swp$",
+      "~$", "\\.bak$", "\\.sw.$",
       "(^|/)\\.#[^/]*$", "(^|/)#[^/]*#$",
       ## Outdated ...
       "^TITLE$", "^data/00Index$",
@@ -68,6 +68,8 @@ get_exclude_patterns <- function()
       "^src/so_locations$",
       ## Sweave detrius
       "^inst/doc/Rplots\\.(ps|pdf)$"
+      ## GNU Global
+    , "^(GPATH|GRTAGS|GTAGS)$"
       )
 
 
@@ -97,6 +99,10 @@ inRbuildignore <- function(files, pkgdir) {
     WINDOWS <- .Platform$OS.type == "windows"
 
     Sys.umask("022") # Perl version did not have this.
+
+    Sys.setenv("_R_BIBTOOLS_CACHE_BIBENTRIES_" =
+                   Sys.getenv("_R_BIBTOOLS_CACHE_BIBENTRIES_",
+                              "TRUE"))
 
     writeLinesNL <- function(text, file)
     {
@@ -153,8 +159,10 @@ inRbuildignore <- function(files, pkgdir) {
             '                        "no" (default), "qpdf", "gs", "gs+qpdf", "both"',
             "  --compact-vignettes   same as --compact-vignettes=qpdf",
             "  --compression=        type of compression to be used on tarball:",
-            '                        "gzip" (default), "none", "bzip2", "xz"',
+            '                        "gzip" (default), "none", "bzip2", "xz", "zstd"',
             "  --md5                 add MD5 sums",
+            "  --sha256              add SHA256 sums",
+            "  --sign                sign the package (implies --sha256, requires GnuPG)",
             "  --log                 log to file 'pkg-00build.log' when processing ",
             "                        the pkgdir with basename 'pkg'",
             "  --user=               explicitly set the tarball creator name (for 'Packaged:')",
@@ -256,7 +264,7 @@ inRbuildignore <- function(files, pkgdir) {
         ensure_installed <- function()
 	    if (!pkgInstalled) {
 		messageLog(Log,
-			   "installing the package to build vignettes")
+			   "installing the package (it is needed to build vignettes)")
 		pkgInstalled <<- temp_install_pkg(pkgdir, libdir)
 	    }
 
@@ -276,16 +284,21 @@ inRbuildignore <- function(files, pkgdir) {
             if(file.exists(vignette_index_path))
                 unlink(vignette_index_path)
 
-## this is not a logical field
-##	    if (nchar(parse_description_field(desc, "VignetteBuilder", "")))
-##		ensure_installed()
+            ## PR#18191: ensure temporary installation so can be checked
+            ## for a vignette engine
+            if(desc["Package"] %in%
+               .get_requires_from_package_db(desc, "VignetteBuilder"))
+                ensure_installed()
 
             ## PR#15775: check VignetteBuilder packages are installed
-            ## This is a bit wasteful: we do not need them in this process
-            loadVignetteBuilder(pkgdir, TRUE)
+            ## PR#18191: ensure temporary installation is found
+            loadVignetteBuilder(pkgdir, TRUE,
+                                lib.loc = c(libdir, .libPaths()))
 
             ## Look for vignette sources
-            vigns <- pkgVignettes(dir = '.', check = TRUE)
+            ## PR#18191: ensure temporary installation is found
+            vigns <- pkgVignettes(dir = '.', check = TRUE,
+                                  lib.loc = c(libdir, .libPaths()))
             if (!is.null(vigns) && length(vigns$docs)) {
                 ensure_installed()
                 ## Good to do this in a separate process: it might die
@@ -316,7 +329,7 @@ inRbuildignore <- function(files, pkgdir) {
                     printLog0(Log, paste(c(res$stdout, ""),  collapse = "\n"))
                     do_exit(1L)
                 } else {
-                    # Rescan for weave and tangle output files
+                    ## Rescan for weave and tangle output files
                     vigns <- pkgVignettes(dir = '.', output = TRUE, source = TRUE)
                     stopifnot(!is.null(vigns))
 
@@ -592,7 +605,7 @@ inRbuildignore <- function(files, pkgdir) {
             ## </FIXME>
         }
 
-	messageLog(Log, "installing the package to process help pages")
+	messageLog(Log, "installing the package (it is needed to process help pages)")
 
         dir.create(libdir, mode = "0755", showWarnings = FALSE)
         savelib <- .libPaths()
@@ -840,6 +853,8 @@ inRbuildignore <- function(files, pkgdir) {
     vignettes <- TRUE
     manual <- TRUE  # Install the manual if Rds contain \Sexprs
     with_md5 <- FALSE
+    with_sha256 <- FALSE
+    sign <- FALSE
     with_log <- FALSE
 ##    INSTALL_opts <- character()
     pkgs <- character()
@@ -922,6 +937,10 @@ inRbuildignore <- function(files, pkgdir) {
             compact_vignettes <- "qpdf"
         } else if (a == "--md5") {
             with_md5 <- TRUE
+        } else if (a == "--sha256") {
+            with_sha256 <- TRUE
+        } else if (a == "--sign") {
+            sign <- with_sha256 <- TRUE
         } else if (a == "--log") {
             with_log <- TRUE
         } else if (substr(a, 1, 23) == "--install-dependencies=") {
@@ -930,7 +949,7 @@ inRbuildignore <- function(files, pkgdir) {
             install_dependencies <- "most"
         } else if (substr(a, 1, 14) == "--compression=") {
             compression <- match.arg(substr(a, 15, 1000),
-                                     c("none", "gzip", "bzip2", "xz"))
+                                     c("none", "gzip", "bzip2", "xz", "zstd"))
         } else if (substr(a, 1, 7) == "--user=") {
             user <- substr(a, 8, 64)
         } else if (startsWith(a, "-")) {
@@ -1008,53 +1027,15 @@ inRbuildignore <- function(files, pkgdir) {
 	    errorLog(Log, "invalid 'Package' field"); do_exit(1L)
 	}
         ## make a copy, cd to parent of copy
-        setwd(dirname(pkgdir))
+        setwd(pkgdir)
         filename <- paste0(intname, "_", desc["Version"], ".tar")
         filepath <- file.path(startdir, filename)
         Tdir <- tempfile("Rbuild")
         dir.create(Tdir, mode = "0755")
-        if (WINDOWS) {
-            ## This preserves read-only for files, and dates
-            if (!file.copy(pkgname, Tdir, recursive = TRUE, copy.date = TRUE)) {
-                errorLog(Log, "copying to build directory failed")
-                do_exit(1L)
-            }
-        } else {
-            ## This should preserve dates and permissions (subject to
-            ## umask, if that is consulted which it seems it usually is not).
-            ## Permissions are increased later.
-            ## -L is to follow (de-reference) symlinks
-            ## --preserve is GNU only: at least macOS, FreeBSD and Solaris
-            ##   have non-GNU cp's as it seems do some Linuxen.
-            ver <- suppressWarnings(system2("cp", "--version", stdout = TRUE,
-                                            stderr = FALSE))
-            GNU_cp <- any(grepl("GNU coreutils", ver))
-	    cp_sw <- if(GNU_cp) "-LR --preserve=timestamps" else "-pLR"
-            if (system2("cp", c(cp_sw, shQuote(pkgname), shQuote(Tdir)))) {
-                errorLog(Log, "copying to build directory failed")
-                do_exit(1L)
-            }
-        }
-        setwd(Tdir)
 
-        ## Now correct the package name (PR#9266)
-        if (pkgname != intname) {
-            if (!file.rename(pkgname, intname)) {
-                message(gettextf("Error: cannot rename directory to %s",
-                                 sQuote(intname)), domain = NA)
-                do_exit(1L)
-            }
-            pkgname <- intname
-        }
-
-        ## prepare the copy
-        messageLog(Log, "preparing ", sQuote(pkgname), ":")
-        prepare_pkg(normalizePath(pkgname, "/"), desc, Log);
-        owd <- setwd(pkgname)
-        ## remove exclude files
+        ## exclude ignored files
         allfiles <- dir(".", all.files = TRUE, recursive = TRUE,
-                        full.names = TRUE, include.dirs = TRUE)
-        allfiles <- substring(allfiles, 3L)  # drop './'
+                        include.dirs = TRUE)
         bases <- basename(allfiles)
 
         exclude <- inRbuildignore(allfiles, pkgdir)
@@ -1069,7 +1050,8 @@ inRbuildignore <- function(files, pkgdir) {
         ## Mac resource forks
         exclude <- exclude | startsWith(bases, "._")
         exclude <- exclude | (isdir & grepl("^src.*/[.]deps$", allfiles))
-	## Windows DLL resource file
+        pkgname <- intname
+        ## Windows DLL resource file
         exclude <- exclude | (allfiles == paste0("src/", pkgname, "_res.rc"))
         ## inst/doc/.Rinstignore is a mistake
         exclude <- exclude | endsWith(allfiles, "inst/doc/.Rinstignore") |
@@ -1083,9 +1065,43 @@ inRbuildignore <- function(files, pkgdir) {
         exts <- "\\.(tar\\.gz|tar|tar\\.bz2|tar\\.xz|tgz|zip)"
         exclude <- exclude | grepl(paste0("^", pkgname, "_[0-9.-]+", exts, "$"),
                                    allfiles)
-        unlink(allfiles[exclude], recursive = TRUE, force = TRUE,
-               expand = FALSE)
-        setwd(owd)
+        ## exclude contents of excluded directories
+        for (d in allfiles[isdir & exclude])
+            exclude <- exclude |
+                startsWith(allfiles, paste0(d, .Platform$file.sep))
+
+        ## create empty directory tree to copy files into
+        srcdirs <- allfiles[isdir & !exclude]
+        for (d in srcdirs) {
+            ddest <- file.path(Tdir, intname, d)
+            dir.create(ddest, FALSE, TRUE, "0755")
+            if (!dir.exists(ddest)) {
+                errorLog(Log, "failed to create build directory structure")
+                do_exit(1L)
+            }
+        }
+        ## populate it with files
+        srcfiles <- allfiles[!exclude & !isdir]
+        dstfiles <- file.path(Tdir, intname, srcfiles)
+        if (!all(file.copy(srcfiles, dstfiles, copy.date = TRUE))) {
+            errorLog(Log, "copying to build directory failed")
+            do_exit(1L)
+        }
+        ## restore metadata _after_ directories are populated
+        for (d in srcdirs) {
+            ddest <- file.path(Tdir, intname, d)
+            if (!Sys.setFileTime(ddest, file.mtime(d)) ||
+                !Sys.chmod(ddest, file.mode(d), FALSE)) {
+                errorLog(Log, "failed to preserve build directory metadata")
+                do_exit(1L)
+            }
+        }
+
+        setwd(Tdir)
+
+        ## prepare the copy
+        messageLog(Log, "preparing ", sQuote(pkgname), ":")
+        prepare_pkg(normalizePath(pkgname, "/"), desc, Log)
 
         ## Fix up man, R, demo inst/doc directories
         res <- .check_package_subdirs(pkgname, TRUE)
@@ -1096,8 +1112,8 @@ inRbuildignore <- function(files, pkgdir) {
         setwd(Tdir)
         ## Fix permissions for all files to be at least 644, and dirs 755
         ## Not restricted by umask.
-	if (!WINDOWS) .Call(C_dirchmod, pkgname, group.writable=FALSE)
-        ## Add build stamp *and* expaned R fields to the DESCRIPTION file:
+	if (!WINDOWS) .Call(C_dirchmod, pkgname, group.writable = FALSE)
+        ## Add build stamp *and* expanded R fields to the DESCRIPTION file:
         add_build_stamp_to_description_file(file.path(pkgname, "DESCRIPTION"),
                                             pkgdir, user)
         messageLog(Log,
@@ -1138,7 +1154,7 @@ inRbuildignore <- function(files, pkgdir) {
             }
             ## allow per-package override
             resave_data1 <- parse_description_field(desc, "BuildResaveData",
-                                                    resave_data, logical=FALSE)
+                                                    resave_data, logical = FALSE)
             resave_data_others(pkgname, resave_data1)
             resave_data_rda(pkgname, resave_data1)
         }
@@ -1165,11 +1181,17 @@ inRbuildignore <- function(files, pkgdir) {
         desc <- .read_description(file.path(pkgname, "DESCRIPTION"))
         Rdeps <- .split_description(desc)$Rdepends2
         hasDep350 <- FALSE
+        hasDep410 <- FALSE
+        hasDep420 <- FALSE
+        hasDep430 <- FALSE
         for(dep in Rdeps) {
             if(dep$op != '>=') next
             if(dep$version >= "3.5.0") hasDep350 <- TRUE
+            if(dep$version >= "4.1.0") hasDep410 <- TRUE
+            if(dep$version >= "4.2.0") hasDep420 <- TRUE
+            if(dep$version >= "4.3.0") hasDep430 <- TRUE
         }
-        if (!hasDep350) {
+        if(!hasDep350) {
             ## re-read files after exclusions have been applied
             allfiles <- dir(".", all.files = TRUE, recursive = TRUE,
                             full.names = TRUE)
@@ -1180,11 +1202,41 @@ inRbuildignore <- function(files, pkgdir) {
                 fixup_R_dep(pkgname, "3.5.0")
                 msg <- paste("WARNING: Added dependency on R >= 3.5.0 because",
                              "serialized objects in serialize/load version 3",
-                             "cannot be read in older versions of R. File(s)",
-                             "containing such objects:")
+                             "cannot be read in older versions of R.")
                 printLog(Log,
                          paste(c(strwrap(msg, indent = 2L, exdent = 2L),
+                                 "  File(s) containing such objects:",
                                  paste0("  ", .pretty_format(sort(toonew)))),
+                               collapse = "\n"),
+                         "\n")
+            }
+        }
+        if(!hasDep430 &&
+           !is.null(tab <- .package_code_using_R_4.x_syntax(pkgname))) {
+            msg <- files <- NULL
+            if(length(i <- which(tab$needs == "4.3.0"))) {
+                fixup_R_dep(pkgname, "4.3.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.3.0 because",
+                             "package code uses the pipe placeholder at the head of a chain of extractions syntax added in R 4.3.0.")
+                files <- unique(tab$file[i])
+            } else if(!hasDep420 &&
+                      length(i <- which(tab$needs == "4.2.0"))) {
+                fixup_R_dep(pkgname, "4.2.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.2.0 because",
+                             "package code uses the pipe placeholder syntax added in R 4.2.0")
+                files <- unique(tab$file[i])
+            } else if(!hasDep410 &&
+                      length(i <- which(tab$needs == "4.1.0"))) {
+                fixup_R_dep(pkgname, "4.1.0")
+                msg <- paste("WARNING: Added dependency on R >= 4.1.0 because",
+                             "package code uses the pipe |> or function shorthand \\(...) syntax added in R 4.1.0.")
+                files <- unique(tab$file[i])
+            }
+            if(length(msg)) {
+                printLog(Log,
+                         paste(c(strwrap(msg, indent = 2L, exdent = 2L),
+                                 "  File(s) using such syntax:",
+                                 paste0("  ", .pretty_format(sort(files)))),
                                collapse = "\n"),
                          "\n")
             }
@@ -1196,6 +1248,33 @@ inRbuildignore <- function(files, pkgdir) {
 	    writeDefaultNamespace(namespace)
 	}
 
+        ## NB: the order *is* important! MD5 must be last, because old
+        ## versions of R only check MD5 and so they don't exclude SHA256
+        ## from hash comparison, thus the order must be:
+        ## SHA256 -> sign SHA256 -> MD5
+        ## if all of them are enabled (SHA256 excludes MD5 from itself).
+        if(with_sha256) {
+	    messageLog(Log, "adding SHA256 file")
+            .installSHA256sums(pkgname)
+            if(sign) {
+                messageLog(Log, "signing package")
+                create.signature(file.path(pkgname, "SHA256"),
+                                 file.path(pkgname, "SHA256.sig"))
+                sig <- verify.signature(file.path(pkgname, "SHA256"),
+                                        file.path(pkgname, "SHA256.sig"))
+                if (isTRUE(sig)) {
+                    info <- attr(sig,"result")
+                    messageLog(Log, paste("signed with", info$fingerprint, info$userid))
+                }
+            }
+        } else {
+            ## remove any stale file
+            unlink(file.path(pkgname, "SHA256"))
+        }
+        if (!sign) {
+            ## remove any stale file
+            unlink(file.path(pkgname, "SHA256.sig"))
+        }
         if(with_md5) {
 	    messageLog(Log, "adding MD5 file")
             .installMD5sums(pkgname)
@@ -1206,7 +1285,8 @@ inRbuildignore <- function(files, pkgdir) {
 
         ## Finalize
         ext <- switch(compression,
-                      "none"="", "gzip"= ".gz", "bzip2" = ".bz2", "xz" = ".xz")
+                      "none" = "", "gzip" = ".gz", "bzip2" = ".bz2",
+                      "xz" = ".xz", "zstd" = ".zst")
         filename <- paste0(pkgname, "_", desc["Version"], ".tar", ext)
         filepath <- file.path(startdir, filename)
         ## NB: ../../../../tests/reg-packages.R relies on this exact format!

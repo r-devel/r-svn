@@ -1,10 +1,10 @@
 % File src/library/stats/man/tsp.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{tsp}
-\title{Tsp Attribute of Time-Series-like Objects}
+\title{\code{tsp} Attribute of Time-Series-Like Objects}
 \alias{tsp}
 \alias{tsp<-}
 \alias{hasTsp}
@@ -27,6 +27,7 @@ hasTsp(x)
   The \code{tsp} attribute gives the start time \emph{in time units},
   the end time and the frequency (the number of observations per unit of
   time, e.g.\sspace{}12 for a monthly series).
+  The frequency may be fractional, see \code{\link{ts}}.
 
   Assignments are checked for consistency.
 
@@ -41,9 +42,7 @@ hasTsp(x)
   frequency of 1 and end time \code{\link{NROW}(x)}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{ts}}, \code{\link{time}}, \code{\link{start}}.

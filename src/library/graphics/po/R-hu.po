@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:14\n"
+"POT-Creation-Date: 2026-03-07 12:43\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -94,10 +94,16 @@ msgstr ""
 msgid "'at' must have same length as 'z$n', i.e. %d"
 msgstr ""
 
+msgid "panel.first ignored, it is not a function"
+msgstr ""
+
 msgid "invalid boxplot widths"
 msgstr ""
 
 msgid "some notches went outside hinges ('box'): maybe set notch=FALSE"
+msgstr ""
+
+msgid "panel.last ignored, it is not a function"
 msgstr ""
 
 msgid "'formula' should specify exactly two variables"
@@ -224,9 +230,6 @@ msgid "'breaks' are not strictly increasing"
 msgstr ""
 
 msgid "'probability' is an alias for '!freq', however they differ."
-msgstr ""
-
-msgid "fuzz must be non-negative"
 msgstr ""
 
 msgid "some 'x' not counted; maybe 'breaks' do not span range of 'x'"
@@ -456,13 +459,13 @@ msgstr ""
 msgid "'at' must have length equal to the number %d of groups"
 msgstr ""
 
-msgid "formula missing or incorrect"
-msgstr ""
-
 msgid "'number' must have same length as 'x' and 'y'"
 msgstr ""
 
 msgid "exactly one symbol type must be specified"
+msgstr ""
+
+msgid "'labels' truncated to length %d"
 msgstr ""
 
 msgid "x log scale:  xinch() is nonsense"

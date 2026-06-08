@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,7 +81,7 @@ static FILE *ifp = NULL;
 static char *ifile = NULL;
 
 UImode  CharacterMode = RGui; /* some compilers want initialized for export */
-Rboolean EmitEmbeddedUTF8 = FALSE;
+int EmitEmbeddedUTF8 = FALSE;
 int ConsoleAcceptCmd;
 Rboolean set_workspace_name(const char *fn); /* ../main/startup.c */
 
@@ -255,7 +255,10 @@ R_ReadConsole(const char *prompt, unsigned char *buf, int len,
 	      int addtohistory)
 {
     R_ProcessEvents();
-    return ptr_ReadConsole(prompt, buf, len, addtohistory);
+    int res = ptr_ReadConsole(prompt, buf, len, addtohistory);
+    if (R_interrupts_pending)
+        onintrNoResume();
+    return res;
 }
 
 	/* Write a text buffer to the console. */
@@ -411,6 +414,12 @@ CharReadConsole(const char *prompt, unsigned char *buf, int len,
 
     if (!line) {
 	res = getline2(prompt, &line);
+	if (res < 0) { // ^C
+	    R_interrupts_pending = TRUE;
+	    gl_free(line);
+	    line = NULL;
+	    return 0;
+	}
 	if (addtohistory) gl_histadd(line);
 	offset = 0;
 	remaining = strlen(line); /* may be zero */
@@ -419,7 +428,8 @@ CharReadConsole(const char *prompt, unsigned char *buf, int len,
     int tocopy = remaining;
     if (tocopy > len - 1) tocopy = len - 1;
 
-    memcpy(buf, line + offset, tocopy);
+    if (tocopy)
+	memcpy(buf, line + offset, tocopy);
     buf[tocopy] = '\0';
     remaining -= tocopy;
     offset += tocopy;
@@ -459,8 +469,12 @@ FileReadConsole(const char *prompt, unsigned char *buf, int len, int addhistory)
 	err = (res == (size_t)(-1));
 	/* errors lead to part of the input line being ignored */
 	if(err) {
+	    /* Should re-set with a stateful encoding, but some iconv
+	       implementations forget byte-order learned from BOM. 
+
 	    Riconv(cd, NULL, NULL, &ob, &onb);
 	    *ob = '\0';
+	    */
 	    printf(_("<ERROR: re-encoding failure from encoding '%s'>\n"),
 		       R_StdinEnc);
 	}
@@ -1021,9 +1035,9 @@ char *PrintUsage(void)
 	msg2b[] =
 	"  --max-ppsize=N        Set max size of protect stack to N\n",
 	msg2c[] =
-	"-  -max-connections=N   Set max number of connections to N\n",
+	"  --max-connections=N   Set max number of connections to N\n",
 	msg3[] =
-	"  -q, --quiet           Don't print startup message\n  --silent              Same as --quiet\n  --no-echo             Make R run as quietly as possible\n  --verbose             Print more information about progress\n  --args                Skip the rest of the command line\n",
+	"  -q, --quiet           Don't print startup message\n  --silent              Same as --quiet\n  -s, --no-echo         Make R run as quietly as possible\n  --verbose             Print more information about progress\n  --args                Skip the rest of the command line\n",
 	msg4[] =
 	"  --ess                 Don't use getline for command-line editing\n                          and assert interactive use\n  -f file               Take input from 'file'\n  --file=file           ditto\n  -e expression         Use 'expression' as input\n\nOne or more -e options can be used, but not together with -f or --file\n",
 	msg5[] = "\nAn argument ending in .RData (in any case) is taken as the path\nto the workspace to be restored (and implies --restore)";

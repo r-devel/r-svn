@@ -233,7 +233,7 @@ depth.vpList <- function(x, ...) {
 depth.vpStack <- function(x, ...) {
   # Elements in the stack may be vpStacks or vpLists or vpTrees
   # so need to sum all the depths
-  sum(sapply(x, depth, ..., simplify=TRUE))
+  sum(vapply(x, depth, 0, ...))
 }
 
 depth.vpTree <- function(x, ...) {
@@ -308,7 +308,7 @@ viewportorpath <- function(x) {
 }
 
 vpListFromList <- function(vps) {
-  if (all(sapply(vps, viewportorpath, simplify=TRUE))) {
+  if (all(vapply(vps, viewportorpath, NA))) {
     class(vps) <- c("vpList", "viewport")
     vps
   } else {
@@ -325,7 +325,7 @@ vpList <- function(...) {
 # Viewports will be pushed in series
 vpStack <- function(...) {
   vps <- list(...)
-  if (all(sapply(vps, viewportorpath, simplify=TRUE))) {
+  if (all(vapply(vps, viewportorpath, NA))) {
     class(vps) <- c("vpStack", "viewport")
     vps
   } else {
@@ -454,12 +454,12 @@ dataViewport <- function(xData = NULL, yData = NULL,
     extension <- rep(extension, length.out = 2)
     if (is.null(xscale)) {
         if (is.null(xData))
-            stop("must specify at least one of 'x' or 'xscale'")
+            stop("must specify at least one of 'xData' or 'xscale'")
         xscale <- extendrange(xData, f = extension[1L])
     }
     if (is.null(yscale)) {
         if (is.null(yData))
-            stop("must specify at least one of 'y' or 'yscale'")
+            stop("must specify at least one of 'yData' or 'yscale'")
         yscale <- extendrange(yData, f = extension[2L])
     }
     viewport(xscale = xscale, yscale = yscale, ...)

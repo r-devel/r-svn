@@ -1,7 +1,7 @@
 #  File src/library/base/R/all.equal.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -65,12 +65,13 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
                    int64     = all.equal.raw      (target, current, ...),
                    integer   = ,
                    complex   = ,
-                   numeric   = all.equal.numeric  (target, current, ...),
-                   character = all.equal.character(target, current, ...),
+                   numeric   = all.equal.numeric  (target, current, check.class=check.class, ...),
+                   character = all.equal.character(target, current, check.class=check.class, ...),
                    logical   = ,
-                   raw       = all.equal.raw      (target, current, ...),
+                   raw       = all.equal.raw      (target, current, check.class=check.class, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),
+                   ## otherwise :
                    if(check.class && data.class(target) != data.class(current)) {
                        gettextf("target is %s, current is %s",
                                 data.class(target), data.class(current))
@@ -81,7 +82,11 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
 all.equal.function <- function(target, current, check.environment = TRUE, ...)
 {
     msg <- all.equal.language(target, current, ...)
-    if(check.environment) {
+    if (is.null(current))
+        ## need to handle separately since environment(NULL) is the
+        ## current evaluation environment
+        msg
+    else if(check.environment) {
         ## pre-check w/ identical(), for speed & against infinite recursion:
         ee <- identical(environment(target),
                         environment(current), ignore.environment=FALSE)
@@ -176,12 +181,12 @@ all.equal.numeric <-
 }
 
 all.equal.character <-
-    function(target, current, ..., check.attributes = TRUE)
+    function(target, current, ..., check.attributes = TRUE, check.class = TRUE)
 {
     if (!is.logical(check.attributes))
         stop(gettextf("'%s' must be logical", "check.attributes"), domain = NA)
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
-    if(data.class(target) != data.class(current)) {
+    if(check.class && data.class(target) != data.class(current)) {
 	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
                              data.class(current)))
 	return(msg)
@@ -410,12 +415,12 @@ all.equal.list <- function(target, current, ...,
 
 ## also used for logical
 all.equal.raw <-
-    function(target, current, ..., check.attributes = TRUE)
+    function(target, current, ..., check.attributes = TRUE, check.class = TRUE)
 {
     if (!is.logical(check.attributes))
         stop(gettextf("'%s' must be logical", "check.attributes"), domain = NA)
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
-    if(data.class(target) != data.class(current)) {
+    if(check.class && data.class(target) != data.class(current)) {
 	msg <- c(msg, paste0("target is ", data.class(target), ", current is ",
                              data.class(current)))
 	return(msg)
@@ -469,7 +474,9 @@ attr.all.equal <- function(target, current, ...,
     if(check.names) {
         nx <- names(target)
         ny <- names(current)
-        if((lx <- length(nx)) | (ly <- length(ny))) {
+        lx <- length(nx)
+        ly <- length(ny)
+        if(lx || ly) {
             ## names() treated now; hence NOT with attributes()
             ax$names <- ay$names <- NULL
             if(lx && ly) {

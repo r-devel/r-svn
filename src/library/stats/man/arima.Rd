@@ -1,6 +1,6 @@
 % File src/library/stats/man/arima.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{arima}
@@ -24,13 +24,13 @@ arima(x, order = c(0L, 0L, 0L),
 \arguments{
   \item{x}{a univariate time series}
 
-  \item{order}{A specification of the non-seasonal part of the ARIMA
+  \item{order}{a specification of the non-seasonal part of the ARIMA
     model: the three integer components \eqn{(p, d, q)} are the AR order, the
     degree of differencing, and the MA order.}
 
-  \item{seasonal}{A specification of the seasonal part of the ARIMA
+  \item{seasonal}{a specification of the seasonal part of the ARIMA
     model, plus the period (which defaults to \code{frequency(x)}).
-    This may be a list with components \code{order} and
+    This may be a \code{\link{list}} with components \code{order} and
     \code{period}, or just a numeric vector of length 3 which
     specifies the seasonal \code{order}.  In the latter case the
     default period is used.}
@@ -38,7 +38,8 @@ arima(x, order = c(0L, 0L, 0L),
   \item{xreg}{Optionally, a vector or matrix of external regressors,
     which must have the same number of rows as \code{x}.}
 
-  \item{include.mean}{Should the ARMA model include a mean/intercept term?  The
+  \item{include.mean}{logical indicating if the ARMA model should include a
+    mean/intercept term.  The
     default is \code{TRUE} for undifferenced series, and it is ignored
     for ARIMA models with differencing.}
 
@@ -128,7 +129,7 @@ arima(x, order = c(0L, 0L, 0L),
   The exact likelihood is computed via a state-space representation of
   the ARIMA process, and the innovations and their variance found by a
   \I{Kalman} filter.  The initialization of the differenced ARMA process uses
-  stationarity and is based on Gardner \abbr{et al.}\sspace(1980).  For a
+  stationarity and is based on \bibcitet{R:Gardner+Harvey+Phillips:1980}.  For a
   differenced process the non-stationary components are given a diffuse
   prior (controlled by \code{kappa}).  Observations which are still
   controlled by the diffuse prior (determined by having a \I{Kalman} gain of
@@ -141,7 +142,8 @@ arima(x, order = c(0L, 0L, 0L),
 
   If \code{transform.pars} is true, the optimization is done using an
   alternative parametrization which is a variation on that suggested by
-  Jones (1980) and ensures that the model is stationary.  For an AR(p)
+  \bibcitet{R:Jones:1980} and ensures that the model is stationary.
+  For an AR(p)
   model the parametrization is via the inverse tanh of the partial
   autocorrelations: the same procedure is applied (separately) to the
   AR and seasonal AR terms.  The MA terms are not constrained to be
@@ -201,36 +203,13 @@ arima(x, order = c(0L, 0L, 0L),
     fitting.  See \code{\link{KalmanLike}}.}
 }
 \references{
-  Brockwell, P. J. and Davis, R. A. (1996).
-  \emph{Introduction to Time Series and Forecasting}.
-  Springer, New York.
-  Sections 3.3 and 8.3.
-
-  Durbin, J. and Koopman, S. J. (2001).
-  \emph{Time Series Analysis by State Space Methods}.
-  Oxford University Press.
-
-  Gardner, G, Harvey, A. C. and Phillips, G. D. A. (1980).
-  Algorithm AS 154: An algorithm for exact maximum likelihood estimation
-  of autoregressive-moving average models by means of Kalman filtering.
-  \emph{Applied Statistics}, \bold{29}, 311--322.
-  \doi{10.2307/2346910}.
-
-  Harvey, A. C. (1993).
-  \emph{Time Series Models}. 2nd Edition.
-  Harvester Wheatsheaf.
-  Sections 3.3 and 4.4.
-
-  Jones, R. H. (1980).
-  Maximum likelihood fitting of ARMA models to time series with missing
-  observations.
-  \emph{Technometrics}, \bold{22}, 389--395.
-  \doi{10.2307/1268324}.
-
-  Ripley, B. D. (2002).
-  \dQuote{Time series in \R 1.5.0}.
-  \emph{R News}, \bold{2}(2), 2--7.
-  \url{https://www.r-project.org/doc/Rnews/Rnews_2002-2.pdf}
+  \bibinfo{R:Brockwell+Davis:1996}{note}{Sections 3.3 and 8.3}
+  \bibshow{R:Brockwell+Davis:1996,
+    R:Durbin+Koopman:2001,
+    R:Gardner+Harvey+Phillips:1980,
+    R:Harvey:1993,
+    R:Jones:1980,
+    R:Ripley:2002}
 }
 
 \note{

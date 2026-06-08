@@ -1,6 +1,6 @@
 % File src/library/graphics/man/plotdefault.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{plot.default}
@@ -13,7 +13,7 @@
 }
 \usage{
 \method{plot}{default}(x, y = NULL, type = "p",  xlim = NULL, ylim = NULL,
-     log = "", main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
+     log = "", lim2 = FALSE, main = NULL, sub = NULL, xlab = NULL, ylab = NULL,
      ann = par("ann"), axes = TRUE, frame.plot = axes,
      panel.first = NULL, panel.last = NULL, asp = NA,
      xgap.axis = NA, ygap.axis = NA,
@@ -25,8 +25,9 @@
     coordinates is acceptable.  See the function \code{\link{xy.coords}}
     for details.  If supplied separately, they must be of the same length.}
   \item{type}{1-character string giving the type of plot desired.  The
-    following values are possible, for details, see \code{\link{plot}}:
-    \code{"p"} for points, \code{"l"} for lines,
+    following values are possible, for details, see \code{\link[base]{plot}}:
+    \code{"p"} for points,
+    \code{"l"} for lines,
     \code{"b"} for both points and lines,
     \code{"c"} for empty points joined by lines,
     \code{"o"} for overplotted points and lines,
@@ -38,11 +39,15 @@
 
     The default value, \code{NULL}, indicates that the range of the
     \link{finite} values to be plotted should be used.}
-  \item{ylim}{the y limits of the plot.}
+  \item{ylim}{the y limits of the plot; see \code{xlim} for default and details.}
   \item{log}{a character string which contains \code{"x"} if the x axis
     is to be logarithmic, \code{"y"} if the y axis is to be logarithmic
     and \code{"xy"} or \code{"yx"} if both axes are to be logarithmic.}
-
+  \item{lim2}{logical, relevant only when at least one of \code{xlim} or
+    \code{ylim} are \code{NULL} and hence corresponding axis limits are
+    computed from \code{\link{range}(<x/y-coord>[<finite-coord>])}.
+    When true, \emph{both} x- and y-values need to be finite to be used in
+    the \code{range(.)} computation.}
   \item{main}{a main title for the plot, see also \code{\link{title}}.}
   \item{sub}{a subtitle for the plot.}
   \item{xlab}{a label for the x axis, defaults to a description of \code{x}.}
@@ -118,18 +123,12 @@
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Cleveland, W. S. (1985)
-  \emph{The Elements of Graphing Data.}
-  Monterey, CA: Wadsworth.
-
-  Murrell, P. (2005) \emph{R Graphics}. Chapman & Hall/CRC Press.
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Cleveland:1985,
+    R:Murrell:2005}
 }
 \seealso{
-  \code{\link{plot}}, \code{\link{plot.window}}, \code{\link{xy.coords}}.
+  \code{\link[base]{plot}}, \code{\link{plot.window}}, \code{\link{xy.coords}}.
   For thousands of points, consider using \code{\link{smoothScatter}}
   instead.
 }
@@ -154,6 +153,16 @@ for (tp in c("p","l","b",  "c","o","h",  "s","S","n")) {
    }
 }
 par(op)
+
+## Log Plots -- default xlim / ylim  from range(<finite>)
+set.seed(2); noise <- rnorm(100)/100; xe <- sort(rexp(100, 8))
+x <- sort(xe + noise); y <- exp(-x^2 + (x < 0)*10)*sin(pi*x)
+str(data.frame(x,y))
+plot(y ~ x) # (2 outliers, x < 0)
+plot(y ~ x, log="x") # --> Warning:  2 x values <= 0 omitted from log..plot
+                     # still same y-axis limits [~ -570, 0 ]
+plot(y ~ x, log="x", lim2 = TRUE) # still Warning, but
+                                        # nice - reasonable y-axis [0, 0.8]
 
 ##--- Log-Log Plot  with  custom axes
 lx <- seq(1, 5, length.out = 41)

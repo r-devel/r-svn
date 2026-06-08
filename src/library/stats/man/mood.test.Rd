@@ -1,6 +1,6 @@
 % File src/library/stats/man/mood.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mood.test}
@@ -40,14 +40,15 @@ mood.test(x, \dots)
 }
 \details{
   The underlying model is that the two samples are drawn from
-  \eqn{f(x-l)} and \eqn{f((x-l)/s)/s}, respectively, where \eqn{l} is a
-  common location parameter and \eqn{s} is a scale parameter.
+  distribution functions \eqn{F((t-m)/s)} and \eqn{F(t-m)},
+  respectively, where \eqn{m} is a common location parameter and \eqn{s}
+  is a scale parameter. 
 
   The null hypothesis is \eqn{s = 1}.
 
   There are more useful tests for this problem.
 
-  In the case of ties, the formulation of \bibcite{Mielke (1967)} is employed.
+  In the case of ties, the formulation of \bibcitet{R:Mielke:1967} is employed.
 }
 \value{
   A list with class \code{"htest"} containing the following components:
@@ -59,15 +60,8 @@ mood.test(x, \dots)
   \item{data.name}{a character string giving the names of the data.}
 }
 \references{
-  William J. Conover (1971),
-  \emph{Practical nonparametric statistics}.
-  New York: John Wiley & Sons.
-  Pages 234f.
-
-  Paul W. Mielke, Jr. (1967).
-  Note on some squared rank tests with existing ties.
-  \emph{Technometrics}, \bold{9}/2, 312--314.
-  \doi{10.2307/1266427}.
+  \bibinfo{R:Conover:1971}{footer}{Pages 234f.}
+  \bibshow{*, R:Conover:1971}
 }
 \seealso{
   \code{\link{fligner.test}} for a rank-based (nonparametric) k-sample

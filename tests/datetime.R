@@ -21,8 +21,11 @@ as.POSIXct("2040-01-01 12:00")
 as.POSIXct("2040-07-01 12:00")
 
 Sys.setenv(TZ = "EST5EDT")  # also pretty much portable.
+## However, tzdata 2024b changed this from EST to LMT (and by 238s)
+## IGNORE_RDIFF_BEGIN
 (z <- as.POSIXct("1848-01-01 12:00"))
 c(unclass(z))
+## IGNORE_RDIFF_END
 ## see comment above
 as.POSIXct("2040-01-01 12:00")
 as.POSIXct("2040-07-01 12:00")
@@ -41,3 +44,5 @@ stopifnot(!is.na(strptime("11-August-1903", "%d-%b-%Y")))
 z <- paste("2017", c(1,365,366), sep = "-")
 (zz <- strptime(z, "%Y-%j"))
 stopifnot(identical(is.na(zz), c(FALSE, FALSE, TRUE)))
+
+cat('Time elapsed: ', proc.time(),'\n')

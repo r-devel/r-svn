@@ -1,6 +1,6 @@
 % File src/library/base/man/Primitive.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Primitive}
@@ -21,10 +21,12 @@
   The advantage of \code{.Primitive} over \code{\link{.Internal}}
   functions is the potential efficiency of argument passing, and that
   positional matching can be used where desirable, e.g.\sspace{}in
-  \code{\link{switch}}. For more details, see the \sQuote{R Internals}
-  manual.
+  \code{\link{switch}}. For more details, see the Chapter
+  \manual{R-ints}{.Internal vs .Primitive}.
 
   All primitive functions are in the base namespace.
+
+  You cannot set \code{\link{attributes}} on primitive functions.
 
   This function is almost never used: \code{`name`} or, more carefully,
   \code{\link{get}(name, envir = baseenv())} work equally well and do
@@ -38,6 +40,7 @@
 }
 \examples{
 mysqrt <- .Primitive("sqrt")
+try(structure(mysqrt, comment = "primitive function")) # no more possible
 c
 .Internal # this one *must* be primitive!
 `if` # need backticks

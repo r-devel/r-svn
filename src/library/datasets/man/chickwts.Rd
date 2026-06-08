@@ -1,6 +1,6 @@
 % File src/library/datasets/man/chickwts.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{chickwts}
@@ -15,13 +15,12 @@
 \format{
   A data frame with 71 observations on the following 2 variables.
   \describe{
-    \item{\code{weight}}{a numeric variable giving the chick weight.}
+    \item{\code{weight}}{a numeric variable giving the chick weight in grams.}
     \item{\code{feed}}{a factor giving the feed type.}
   }
 }
 \source{
-  Anonymous (1948)
-  \emph{Biometrika}, \bold{35}, 214.
+  \bibshow{R:Snedecor:1948}
 }
 \details{
   Newly hatched chicks were randomly allocated into six groups, and each
@@ -29,9 +28,7 @@
   after six weeks are given along with feed types.
 }
 \references{
-  McNeil, D. R. (1977)
-  \emph{Interactive Data Analysis}.
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

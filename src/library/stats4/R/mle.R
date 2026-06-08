@@ -55,7 +55,7 @@ mle <- function(minuslogl, start, optim = stats::optim,
         )
 
     nf <- names(fullcoef)
-    signature <- list(lengths = sapply(fullcoef, length),
+    signature <- list(lengths = lengths(fullcoef),
                       names = lapply(fullcoef, names))
     sigindex <- factor(rep(nf, signature$lengths), levels=nf)
     npars <- sum(signature$lengths)
@@ -205,6 +205,9 @@ setMethod("profile", "mle",
             z <- sgn * sqrt(zz)
             pvi <<- rbind(pvi, ri)
             zi <<- c(zi, z)
+            call$start <<- pfit@fullcoef# for next iter.
+                                        # gets reset to full MLE when tracing in opposite direction
+                                        # can happen that bi is incompatible with full MLE for other parms
         }
         if (trace) cat(bi, z, "\n")
         z

@@ -9,9 +9,9 @@
 \title{Predict Method for GLM Fits}
 \usage{
 \method{predict}{glm}(object, newdata = NULL,
-            type = c("link", "response", "terms"),
-            se.fit = FALSE, dispersion = NULL, terms = NULL,
-            na.action = na.pass, \dots)
+        type = c("link", "response", "terms"),
+        se.fit = FALSE, dispersion = NULL, terms = NULL,
+        na.action = na.pass, ...)
 }
 \arguments{
   \item{object}{a fitted object of class inheriting from \code{"glm"}.}

@@ -1,6 +1,6 @@
 % File src/library/graphics/man/bxp.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{bxp}
@@ -13,11 +13,11 @@
 }
 \usage{
 bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
-    outline = TRUE, notch.frac = 0.5, log = "",
+    outline = TRUE, notch.frac = 0.5, warnN = TRUE, log = "",
     border = par("fg"), pars = NULL, frame.plot = axes,
     horizontal = FALSE, ann = TRUE,
     add = FALSE, at = NULL, show.names = NULL,
-    \dots)
+    panel.first = NULL, panel.last = NULL, \dots)
 }
 \arguments{
   \item{z}{a list containing data summaries to be used in constructing
@@ -35,6 +35,9 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     drawn.}
   \item{notch.frac}{numeric in (0,1). When \code{notch = TRUE}, the
     fraction of the box width that the notches should use.}
+  \item{warnN}{logical. When \code{notch = TRUE}, indicating if a
+    \code{\link{warning}} should be signalled when some notch gets
+    outside the hinges, i.e., the box.}
   \item{border}{character or numeric (vector), the color of the box
     borders.  Is recycled for multiple boxes.  Is used as default for
     the \code{boxcol}, \code{medcol}, \code{whiskcol}, \code{staplecol},
@@ -46,7 +49,7 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     (\code{\link{box}}) should be drawn; defaults to \code{TRUE}, unless
     \code{axes = FALSE} is specified.}
   \item{horizontal}{logical indicating if the  boxplots should be
-    horizontal; default \code{FALSE} means vertical boxes.}
+    horizontal; default \code{FALSE} means vertical boxes. See \sQuote{Note}.}
   \item{ann}{a logical value indicating whether the default annotation
     (title and x and y axis labels) should appear on the plot.}
   \item{add}{logical, if true \emph{add} boxplot to current plot.}
@@ -55,14 +58,18 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     \code{1:n} where \code{n} is the number of boxes.}
   \item{show.names}{Set to \code{TRUE} or \code{FALSE} to override the
     defaults on whether an x-axis label is printed for each group.}
+  \item{panel.first}{a \sQuote{function} (not an \sQuote{expression}!) 
+    that is called without arguments after the plot axes are set up 
+    but before any plotting takes place. This can
+    be useful for drawing background grids.}
+  \item{panel.last}{a \sQuote{function} (not an \sQuote{expression}!) 
+    that is called after plotting has taken place but before the 
+    axes and title are added.}
   \item{pars,\dots}{\link{graphical parameters} (etc) can be passed as
     arguments to this function, either as a list (\code{pars}) or
     normally(\code{\dots}), see the following.  (Those in \code{\dots}
     take precedence over those in \code{pars}.)
 
-    Currently, \code{yaxs} and \code{ylim} are used \sQuote{along the
-      boxplot}, i.e., vertically, when \code{horizontal} is
-    false, and \code{xlim} horizontally.
     \code{xaxt}, \code{yaxt}, \code{las}, \code{cex.axis},
     \code{gap.axis}, and
     \code{col.axis} are passed to \code{\link{axis}}, and \code{main},
@@ -110,6 +117,11 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     range(at, *) + c(-0.5, 0.5)}.  It will usually be a good idea to
   specify \code{xlim} if the "x" axis has a log scale or \code{width} is
   far from uniform.
+
+  If \code{horizontal = TRUE}, the "y" axis is the horizontal axis and the
+  "x" axis is the vertical axis.  Graphical parameters \code{xlim/ylim} and
+  \code{xaxs/yaxs} are reversed in this case.  Other axis related parameters
+  treat the vertical axis as "y" and the horizontal axis as "x".
 }
 \value{
   An invisible vector, actually identical to the \code{at} argument,
@@ -122,9 +134,7 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
   box*, med*, whisk*, staple*, and out* arguments.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 require(stats)

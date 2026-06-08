@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2014 The R Core Team
+ *                2003-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -285,7 +285,7 @@ static SEXP resolveFill(SEXP pattern, int i)
     INTEGER(index)[0] = i + 1;
     PROTECT(resolveFn = findFun(install("resolveFill"), R_gridEvalEnv));
     PROTECT(R_fcall = lang3(resolveFn, pattern, index));
-    result = eval(R_fcall, R_gridEvalEnv);
+    result = Rf_eval_with_gd(R_fcall, R_gridEvalEnv, NULL);
     UNPROTECT(3);
     return result;
 }
@@ -295,12 +295,12 @@ static SEXP unresolveFill(SEXP pattern)
     SEXP unresolveFn, R_fcall, result;
     PROTECT(unresolveFn = findFun(install("unresolveFill"), R_gridEvalEnv));
     PROTECT(R_fcall = lang2(unresolveFn, pattern));
-    result = eval(R_fcall, R_gridEvalEnv);
+    result = Rf_eval_with_gd(R_fcall, R_gridEvalEnv, NULL);
     UNPROTECT(2);
     return result;
 }
 
-SEXP resolveGPar(SEXP gp, Rboolean byName) 
+SEXP resolveGPar(SEXP gp, bool byName) 
 {
     SEXP result = R_NilValue;
     SEXP fill;

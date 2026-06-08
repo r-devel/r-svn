@@ -68,7 +68,7 @@ for(i in digs1) { DIG(i); cat(i,":", formatC(v3, digits=i, width=8),"\n") }
 
 
 ## R-0.50: switches to NON-exp at 14, but should only at 15...
-## R-0.61++: doesn' switch at all (or at 20 only)
+## R-0.61++: doesn't switch at all (or at 20 only)
 ## S-plus: does not switch at all..
 for(i in digs1) { cat(i,":");  print(v1, digits=i) }
 
@@ -328,6 +328,9 @@ print(d, digits = 4, other = TRUE)
 ## Deparsing should not reset parameters
 print(list(a, expression(foo), b, quote(foo), c, base::list, d),
       digits = 4, other = TRUE)
+## Cleanup
+rm(print.foo, obj, a, b, c, d)
+
 
 ## max.print fully obeyed by print and format
 ## These failed briefly due to bug in r76734
@@ -339,6 +342,7 @@ as.complex(1:10)
 as.raw(1:10)
 options(o)
 
+
 ## print() max.print and max for matrices (w/ many columns)  --  PR#15027
 ## whenever the columns are larger than max.print, no values inside the matrix are displayed
 print(matrix(nrow = 100, ncol = 4), max = 5)
@@ -346,15 +350,22 @@ print(matrix(nrow = 100, ncol = 100), max = 40) # omitting rows and columns
 print(matrix(nrow =  10, ncol = 4), max = 3)    #   (ditto)
 print(matrix(nrow =   0, ncol = 4), max = 3)    # omitting 1 column
 print(matrix(nrow =  10, ncol = 2), max = 5)    # omitting rows
-print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting cols, at least one row prints
+print(matrix(nrow =   1, ncol = 6), max = 5)    # omitting 1 col, at least one row prints
 ## ----- "higher" arrays ("rank >= 3"): --------
-## FIXME: in R 4.4.0 there should be a warning for omitted rows
-print(array(dim = c(2, 2, 1)), max = 2)
-## FIXME: this does not print anything but it should show
-##        at least one element according to the logic of max.print
-print(array(dim = c(2, 2, 1)), max = 1)
+print(array(dim = c(2, 2, 2)), max = 4) # omit 1 slice
+print(array(dim = c(2, 2, 2)), max = 5) # omit 1 row + 1 column
+print(array(dim = c(2, 2, 2)), max = 6) # omit 1 row
+print(array(dim = c(2, 2, 2)), max = 7) # omit 1 row
+#
+print(array(dim = c(2, 2, 1)), max = 2) # omit 1 row
+print(array(dim = c(2, 2, 1)), max = 1) # omit 1 row + 1 column
 
 
+## alignment of counts from print/format(<summaryDefault>)
+summary(TRUE)
+data.frame(character = c(rep("true", 100), NA)) |>
+    transform(factor = as.factor(character), logical = as.logical(character)) |>
+    summary() # column-wise format()
 
-## Cleanup
-rm(print.foo, obj, a, b, c, d, o)
+summary(numeric())  # suffered from print.table's na.print="" in R < 4.6.0
+unname(summary(pi)) # printed with empty names for a few days in R-devel

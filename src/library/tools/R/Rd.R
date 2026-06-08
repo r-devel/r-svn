@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -343,6 +343,11 @@ function(dir = NULL, files = NULL,
             readRDS(file.path(dirname(db_file), "paths.rds"))
         ## Files in the db in need of updating:
         indf <- (files %in% db_names) & file_test("-nt", files, db_file)
+        ## FIXME: should also re-process dynamic pages:
+        ## if (length(stages)) {
+        ##     dynamic <- vapply(db, function(rd) any(getDynamicFlags(rd)[stages]), NA)
+        ##     indf <- indf | (files %in% db_names[dynamic])
+        ## }
         ## Also files not in the db:
         indf <- indf | (files %notin% db_names)
 
@@ -475,8 +480,24 @@ function(x, kind)
     x <- x[RdTags(x) == sprintf("\\%s", kind)]
     if(!length(x))
         character()
-    else
+    else {
+        ## <NOTE>
+        ## WRE says that
+        ##   Each @code{\concept} entry should give a @emph{single}
+        ##   index term (word or phrase), and not use any Rd markup.
+        ## but at least for now we use \I{...} for spell checking.
+        if(kind == "concept")
+            x <- lapply(x, function(e) {
+                if((length(e) > 1L) &&
+                   identical(attr(e[[1L]], "Rd_tag"), "USERMACRO") &&
+                   identical(attr(e[[1L]], "macro"), "\\I"))
+                    e[-1L]
+                else
+                    e
+            })
+        ## </NOTE>
         unique(trimws(vapply(x, paste, "", collapse = "\n")))
+    }
 }
 
 ### * .Rd_keywords_auto
@@ -497,7 +518,11 @@ function(x, which, predefined = TRUE)
         ## the elements the title and the body, respectively.
         x <- x[RdTags(x) == "\\section"]
         if(length(x)) {
-            ind <- sapply(x, function(e) .Rd_get_text(e[[1L]])) == which
+            ind <- vapply(x,
+                          function(e)
+                              paste(.Rd_get_text(e[[1L]]),
+                                    collapse = " ") == which,
+                          NA)
             x <- lapply(x[ind], `[[`, 2L)
         }
     }
@@ -558,6 +583,34 @@ function(x, predicate)
     recurse(x)
 }
 
+### * .Rd_drop_nodes_from_macros
+
+.Rd_drop_nodes_from_macros <-
+function(x, macros)
+{
+    recurse <- function(e) {
+        if(is.list(e)) {
+            i <- vapply(e,
+                        function(z) {
+                            (!is.null(a <- attr(z, "Rd_tag")) &&
+                             (a == "USERMACRO") &&
+                             !is.null(a <- attr(z, "macro")) &&
+                             (a %in% macros))
+                        },
+                        NA)
+            if(any(i)) {
+                i <- which(i)
+                e <- e[-c(i, i + 1L)]
+            }
+            a <- attributes(e)
+            e <- lapply(e, recurse)
+            attributes(e) <- a
+        }
+        e
+    }
+    recurse(x)
+}
+    
 ### * .Rd_find_nodes_with_tags
 
 .Rd_find_nodes_with_tags <-
@@ -584,6 +637,32 @@ function(x, predicate)
         if(predicate(e)) 
             nodes <<- c(nodes, list(e))
         if(is.list(e)) 
+            lapply(e, recurse)
+    }
+    lapply(x, recurse)
+    nodes
+}
+
+### * .Rd_find_nodes_from_macros
+
+.Rd_find_nodes_from_macros <-
+function(x, macros)
+{
+    nodes <- list()
+    recurse <- function(e) {
+        i <- vapply(e,
+                    function(z) {
+                        (!is.null(a <- attr(z, "Rd_tag")) &&
+                         (a == "USERMACRO") &&
+                         !is.null(a <- attr(z, "macro")) &&
+                         (a %in% macros))
+                    },
+                    NA)
+        if(any(i)) {
+            i <- which(i)
+            nodes <<- c(nodes, e[i + 1L])
+        }
+        if(is.list(e))
             lapply(e, recurse)
     }
     lapply(x, recurse)
@@ -717,8 +796,9 @@ function(x)
     if(!length(x)) return(character())
 
     ## Need to remove everything inside \dontrun (and drop comments),
-    ## and "undefine" \dontshow and \testonly (which is achieved by
-    ## changing the Rd tag to "Rd").
+    ## and "undefine"
+    ##   \dontdiff \dontshow \donttest \testonly
+    ## (which is achieved by changing the Rd tag to "Rd").
 
     ## <FIXME>
     ## Remove eventually.
@@ -727,8 +807,13 @@ function(x)
 
     recurse <- function(e) {
         if(!is.null(tag <- attr(e, "Rd_tag"))
-           && tag %in% c("\\dontshow", "\\testonly"))
+           && tag %in% c("\\dontdiff", "\\dontshow", "\\donttest",
+                         "\\testonly")) {
+            e <- c(list(tagged("\n", "RCODE")),
+                   e,
+                   list(tagged("\n", "RCODE")))
             attr(e, "Rd_tag") <- "Rd"
+        }
         if(is.list(e)) {
             structure(lapply(e[is.na(match(RdTags(e), "\\dontrun"))],
                              recurse),
@@ -737,7 +822,12 @@ function(x)
         else e
     }
 
-    .Rd_deparse(recurse(x), tag = FALSE)
+    y <- recurse(x)
+    attr(y, "Rd_tag") <- "Rd"
+    y <- as.character.Rd(y)
+    y[y %in% c("\\dots", "\\ldots")] <- "..."
+    y <- psub("(?<!\\\\)\\\\([%{])", "\\1", y)
+    paste(y, collapse = "")
 }
 
 ### * .Rd_get_methods_description_table
@@ -752,7 +842,7 @@ function(x)
     if(!length(x)) return(y)
     x <- x[RdTags(x) == "\\item"]
     if(!length(x)) return(y)
-    x <- lapply(x[lengths(x) == 2L], sapply, .Rd_deparse)
+    x <- lapply(x[lengths(x) == 2L], vapply, .Rd_deparse, "")
     matrix(unlist(x), ncol = 2L, byrow = TRUE)
 }
 
@@ -811,12 +901,10 @@ function(x) {
     rval <- NULL
     file <- textConnection("rval", "w", local = TRUE)
 
-    save <- options(useFancyQuotes = FALSE)
-    Rdsave <- Rd2txt_options(underline_titles = FALSE)
+    Rdsave <- Rd2txt_options(underline_titles = FALSE, unicode_symbols = FALSE)
     sink(file)
     tryCatch(Rd2txt(x, fragment=TRUE),
              finally = {sink()
-                        options(save)
                         Rd2txt_options(Rdsave)
                         close(file)})
 
@@ -834,14 +922,21 @@ function(x)
         tag <- attr(e, "Rd_tag")
         if(identical(tag, "\\link")) {
             val <- if(length(e)) { # mvbutils has empty links
-                arg <- as.character(e[[1L]])
+                arg <- paste(trimws(unlist(e)), collapse = " ")
                 opt <- attr(e, "Rd_option")
                 c(arg, if(is.null(opt)) "" else as.character(opt))
             } else c("", "")
             out <<- rbind(out, val)
-        } else if(identical(tag, "\\linkS4class")) {
-            arg <- as.character(e[[1L]])
-            val <- c(arg, sprintf("=%s-class", arg))
+        } else if((lS4c <- identical(tag, "\\linkS4class")) ||
+                           identical(tag, "\\linkS4methods")) {
+            arg <- if (length(e)) as.character(e[[1L]]) else ""
+            typ <- if (lS4c) "class" else "methods"
+            opt <- attr(e, "Rd_option")
+            val <- if(is.null(opt))
+                       c(arg, sprintf("=%s-%s", arg, typ))
+                   else
+                       c(sprintf("%s-%s", arg, typ),
+                         as.character(opt))
             out <<- rbind(out, val)
         }
         if(is.list(e)) lapply(e, recurse)
@@ -921,24 +1016,17 @@ function(x)
 
 ### * .Rd_format_title
 
+## FIXME: obsolete: .Rd_get_title() already converts to text and
+## we don't handle LaTeX-style quotes in other sections either.
 .Rd_format_title <-
 function(x)
 {
-    ## Although R-exts says about the Rd title slot that
-    ## <QUOTE>
-    ##   This should be capitalized, not end in a period, and not use
-    ##   any markup (which would cause problems for hypertext search).
-    ## </QUOTE>
-    ## some Rd files have LaTeX-style markup, including
+    ## Although \title supports simple Rd markup since R 2.12.0,
+    ## some Rd files still use
     ## * LaTeX-style single and double quotation
-    ## * Medium and punctuation dashes
-    ## * Escaped ampersand.
     ## Hence we try getting rid of these ...
     x <- gsub("(``|'')", "\"", x)
     x <- gsub("`", "'", x, fixed=TRUE)
-    x <- gsub("([[:alnum:]])--([[:alnum:]])", "\\1-\\2", x)
-    x <- gsub("\\&", "&",  x, fixed=TRUE)
-    x <- gsub("---", "--", x, fixed=TRUE)
     ## Also remove leading and trailing whitespace.
     trimws(x)
 }
@@ -1108,43 +1196,46 @@ function(db, eq = NULL, katex = .make_KaTeX_checker()) {
     out
 }
 
+### * base_Rd_metadata_db
+
+base_Rd_metadata_db <-
+function(kind, verbose = TRUE, Ncpus = getOption("Ncpus", 1L)) 
+{
+    .package_apply(.get_standard_package_names()$base,
+                   function(p) {
+                       lapply(Rd_db(p, lib.loc = .Library),
+                              .Rd_get_metadata, kind)
+                   },
+                   verbose = verbose, Ncpus = Ncpus)
+}
+
 ### * base_aliases_db
 
-base_aliases_db <- 
-function()
-{
-    packages <- .get_standard_package_names()$base
-    aliases <-
-        lapply(packages,
-               function(p) {
-                   db <- Rd_db(p, lib.loc = .Library)
-                   aliases <- lapply(db, .Rd_get_metadata, "alias")
-                   aliases
-               })
-    names(aliases) <- packages
-    aliases
-}
+base_aliases_db <-
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
+    base_Rd_metadata_db("alias", verbose = verbose, Ncpus = Ncpus)
+    
+### * base_keyword_db
+
+base_keyword_db <-
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
+    base_Rd_metadata_db("keyword", verbose = verbose, Ncpus = Ncpus)
 
 ### * base_rdxrefs_db
 
 base_rdxrefs_db <- 
-function()
+function(verbose = FALSE, Ncpus = getOption("Ncpus", 1L))
 {
-    packages <- .get_standard_package_names()$base
-    rdxrefs <-
-        lapply(packages,
-               function(p) {
-                   db <- Rd_db(p, lib.loc = .Library)
-                   rdxrefs <- lapply(db, .Rd_get_xrefs)
-                   rdxrefs <- cbind(do.call(rbind, rdxrefs),
-                                    Source = rep.int(names(rdxrefs),
-                                                     vapply(rdxrefs,
-                                                            NROW,
-                                                            0L)))
-                   rdxrefs
-               })
-    names(rdxrefs) <- packages
-    rdxrefs
+    .package_apply(.get_standard_package_names()$base,
+                   function(p) {
+                       db <- Rd_db(p, lib.loc = .Library)
+                       rdxrefs <- lapply(db, .Rd_get_xrefs)
+                       cbind(do.call(rbind, rdxrefs),
+                             Source = rep.int(names(rdxrefs),
+                                              vapply(rdxrefs, NROW,
+                                                     0L)))
+                   },
+                   verbose = verbose, Ncpus = Ncpus)
 }
 
 ### * .Rd_xrefs_with_missing_package_anchors
@@ -1179,19 +1270,32 @@ function(dir, level = 1)
     else NULL
 }
 
+### * .Rd_metadata_db_to_data_frame
+
+.Rd_metadata_db_to_data_frame <- 
+function(x, kind)
+{
+    wrk <- function(a, p) {
+        cbind(unlist(a, use.names = FALSE),
+              rep.int(sprintf("%s::%s", p, names(a)), lengths(a)))
+    }
+    y <- as.data.frame(do.call(rbind,
+                               Map(wrk, x, names(x), USE.NAMES = FALSE)))
+    colnames(y) <- c(kind, "Source")
+    y
+}    
+        
 ### * .Rd_aliases_db_to_data_frame
 
 .Rd_aliases_db_to_data_frame <-
 function(x)
-{
-    wrk <- function(a, p) {
-        cbind(unlist(a, use.names = FALSE),
-              rep.int(paste0(p, "::", names(a)), lengths(a)))
-    }
-    y <- as.data.frame(do.call(rbind, Map(wrk, x, names(x))))
-    colnames(y) <- c("Alias", "Source")
-    y
-}
+    .Rd_metadata_db_to_data_frame(x, "Alias")
+
+### * .Rd_keyword_db_to_data_frame
+
+.Rd_keyword_db_to_data_frame <-
+function(x)
+    .Rd_metadata_db_to_data_frame(x, "Keyword")
 
 ### * .Rd_rdxrefs_db_to_data_frame
 
@@ -1202,7 +1306,9 @@ function(x)
         u$Source <- sprintf("%s::%s", p, u$Source)
         u
     }
-    do.call(rbind, Map(wrk, lapply(x, as.data.frame), names(x)))
+    do.call(rbind,
+            Map(wrk, lapply(x, as.data.frame), names(x),
+                USE.NAMES = FALSE))
 }
 
 ### Local variables: ***

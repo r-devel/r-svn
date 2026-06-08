@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2019 The R Core Team
+ *                2003-2025 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 #include "grid.h"
 
-Rboolean isClipPath(SEXP clip) {
+bool isClipPath(SEXP clip) {
     return Rf_inherits(clip, "GridClipPath");
 }
 
@@ -30,7 +30,7 @@ SEXP resolveClipPath(SEXP path, pGEDevDesc dd)
     setGridStateElement(dd, GSS_RESOLVINGPATH, ScalarLogical(TRUE));
     PROTECT(resolveFn = findFun(install("resolveClipPath"), R_gridEvalEnv));
     PROTECT(R_fcall = lang2(resolveFn, path));
-    result = eval(R_fcall, R_gridEvalEnv);
+    result = Rf_eval_with_gd(R_fcall, R_gridEvalEnv, dd);
     setGridStateElement(dd, GSS_RESOLVINGPATH, ScalarLogical(FALSE));
     UNPROTECT(2);
     return result;    

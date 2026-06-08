@@ -115,8 +115,10 @@ function(x, y, alternative = c("two.sided", "less", "greater"),
                 ## Compute statistics directly: computing the steps is
                 ## not faster.
                 absigma <-
-                    sapply(sigma + c(diff(sigma)/2,
-                                     sigma[length(sigma)]*1.01), ab)
+                    vapply(sigma + c(diff(sigma)/2,
+                                     sigma[length(sigma)]*1.01),
+                           ab,
+                           0)
                 switch(alternative, two.sided = cci(alpha),
                        greater = c(cci(alpha*2)[1L], Inf),
                        less    = c(0, cci(alpha*2)[2L]))
@@ -131,26 +133,25 @@ function(x, y, alternative = c("two.sided", "less", "greater"),
     else {
         EVEN <- ((N %% 2L) == 0L)
         normalize <- function(s, r, TIES, m=length(x), n=length(y)) {
-            z <- if(EVEN)
-                s - m * (N + 2)/4
-            else
-                s - m * (N + 1)^2/(4 * N)
-            if (!TIES) {
+            ## If the scores a are exchangeable, the AB statistic has
+            ## mean  mean(a) and variance m * n * var(a) / N.  If there
+            ## are no ties, we can give explicit expressions for these.
+            ## Otherwise, the expressions in Conover et al are for
+            ## average scores where we use mid-ranks (PR#19013, thanks
+            ## to Robert Schlicht for the correct expressions).
+            if(!TIES) {
+                z <- if(EVEN)
+                         s - m * (N + 2)/4
+                     else
+                         s - m * (N + 1)^2/(4 * N)
                 SIGMA <- if(EVEN)
                     sqrt((m * n * (N + 2) * (N - 2))/(48 * (N - 1)))
                 else
                     sqrt((m * n * (N + 1) * (3 + N^2))/(48 * N^2))
-            }
-            else {
-                r <- rle(sort(pmin(r, N - r + 1)))
-                SIGMA <- if(EVEN)
-                    sqrt(m * n
-                         * (16 * sum(r$lengths * r$values^2) - N * (N + 2)^2)
-                         / (16 * N * (N - 1)))
-                else
-                    sqrt(m * n
-                         * (16 * N * sum(r$lengths * r$values^2) - (N + 1)^4)
-                         / (16 * N^2 * (N - 1)))
+            } else {
+                a <- pmin(r, N - r + 1)
+                z <- s - m * mean(a)
+                SIGMA <- sqrt(m * n * var(a) / N)
             }
             z / SIGMA
         }
@@ -220,7 +221,7 @@ function(x, y, alternative = c("two.sided", "less", "greater"),
         if(exact && TIES) {
             warning("cannot compute exact p-value with ties")
             if(conf.int)
-                warning("cannot compute exact confidence intervals with ties")
+                warning("cannot compute exact confidence interval with ties")
         }
     }
 

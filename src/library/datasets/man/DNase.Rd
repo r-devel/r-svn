@@ -18,15 +18,15 @@
   \code{c("nfnGroupedData", "nfGroupedData", "groupedData", "data.frame")}
   containing the following columns:
   \describe{
-    \item{Run}{
+    \item{\code{Run}}{
       an ordered factor with levels \code{10} < \dots < \code{3}
       indicating the assay run.
     }
-    \item{conc}{
+    \item{\code{conc}}{
       a numeric vector giving the known concentration of the
       protein.
     }
-    \item{density}{
+    \item{\code{density}}{
       a numeric vector giving the measured optical density
       (dimensionless) in the assay.  Duplicate optical density
       measurements were obtained.
@@ -34,18 +34,14 @@
   }
 }
 \details{
-  This dataset was originally part of package \code{nlme}, and that has
+  This dataset was originally part of package \CRANpkg{nlme}, and that has
   methods (including for \code{[}, \code{as.data.frame}, \code{plot} and
   \code{print}) for its grouped-data classes.
 }
 \source{
-  Davidian, M. and Giltinan, D. M. (1995)
-  \emph{Nonlinear Models for Repeated Measurement Data},
-  Chapman & Hall
-  (section 5.2.4, p.\sspace{}134)
-
-  Pinheiro, J. C. and Bates, D. M. (2000) \emph{Mixed-effects Models in
-    S and S-PLUS}, Springer.
+  \bibinfo{R:Davidian+Giltinan:1995}{note}{Section 5.2.4, page 134}
+  \bibshow{R:Davidian+Giltinan:1995,
+    R:Pinheiro+Bates:2000}
 }
 \examples{
 require(stats); require(graphics)

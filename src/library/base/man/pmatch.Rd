@@ -56,13 +56,7 @@ pmatch(x, table, nomatch = NA_integer_, duplicates.ok = FALSE)
   elements in \code{table} which matched, or \code{nomatch}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Chambers, J. M. (1998)
-  \emph{Programming with Data. A Guide to the S Language}.
-  Springer.
+  \bibshow{R:Becker+Chambers+Wilks:1988, R:Chambers:1998}
 }
 \seealso{
   \code{\link{match}}, \code{\link{charmatch}} and

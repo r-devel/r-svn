@@ -14,10 +14,17 @@ getVaW <- function(expr) {
                             invokeRestart("muffleWarning") })
     structure(val, warning = W)
 }
+(sysinf <- Sys.info())
+Lnx   <- sysinf[["sysname"]] == "Linux"
+isMac <- sysinf[["sysname"]] == "Darwin"
+arch  <- sysinf[["machine"]]
+x86 <- arch == "x86_64"
 onWindows <- .Platform$OS.type == "windows"
-.M <- .Machine
-str(.M[grep("^sizeof", names(.M))]) ## also differentiate long-double..
-b64 <- .M$sizeof.pointer == 8
+str(.Machine[grep("^sizeof", names(.Machine))]) ## also differentiate long-double..
+(b64 <- .Machine$sizeof.pointer == 8L)
+(noLdbl  <- .Machine$sizeof.longdouble <= 8L) ## TRUE when --disable-long-double
+(longD16 <- .Machine$sizeof.longdouble >= 16L)
+
 options(nwarnings = 10000, # (rather than just 50)
         width = 99) # instead of 80
 
@@ -324,9 +331,9 @@ tryCmsg(contour(matrix(rnorm(100), 10, 10), levels = 0, labels = numeric()))
 invisible(warnings())
 .tmp <- lapply(list(0, 1, 0:1, 1:2, c(1,1), -1:1), function(x) wilcox.test(x))
 if(!interactive())
-stopifnot(length(print(uw <- unique(warnings()))) == 2)
+stopifnot(length(print(uw <- unique(warnings()))) == 1)
 ## unique() gave only one warning in  R <= 3.3.1
-
+## For R >= 4.6.0 warnings for exact with ties are gone.
 
 options(warn = 2)# no warnings allowed
 
@@ -644,14 +651,16 @@ stopifnot(exprs = {
 ## had failed in R-devel for a few days
 D1 <- as.Date("2017-01-06")
 D2 <- as.Date("2017-01-12")
-seqD1 <- seq.Date(D1, D2, by = "1 day")
+seqD1 <- seq(D1, D2, by = "1 day")
 stopifnot(exprs = {
+    identical(seqD1, seq(D1, D2)) # by = "days" implicit default since R >= 4.5
     identical(seqD1, seq(D1, D2, by = "1 days"))
-    ## These two work "accidentally" via seq -> seq.default + "Date"-arithmetic
-    identical(seqD1, seq(by = 1, from = D1, length.out = 7))
-    identical(seqD1, seq(by = 1,   to = D2, length.out = 7))
-    ## swap order of (by, to) ==> *FAILS* because directly calls seq.Date() - FIXME?
-    TRUE ||
+    ## These  work "accidentally" via seq -> seq.default + "Date"-arithmetic (but *not* seq.Date):
+    ## are equal, but 2nd is "double"
+    seqD1 == seq(by = 1, from = D1, length.out = 7)
+    seqD1 == seq(by = 1,   to = D2, length.out = 7)
+    seqD1 == seq(by = 1L,  to = D2, length.out = 7)
+    identical(seqD1, seq.Date(by = 1L, from = D1, length.out = 7)) # S3: need seq.Date()
     identical(seqD1, seq(to = D2,  by = 1, length.out = 7))
     ## above had failed in R-devel for a couple of days
     identical(seq(9L, by = -1L, length.out = 4L), 9:6)
@@ -853,7 +862,7 @@ stopifnot(identical(one, 1)) # i.e., 'one <<- 2' was *not* evaluated
 ## all the expressions were evaluated in R <= 3.4.x
 (et <- tryCid(stopifnot(0 < 1:10, is.numeric(..vaporware..), stop("FOO!"))))
 stopifnot(exprs = {
-    inherits(et, "simpleError")
+    inherits(et, "objectNotFoundError")
     ## condition call now *does* contain 'stopifnot':
     ## !grepl("^stopifnot", deparse(conditionCall(et), width.cutoff=500))
     grepl("'..vaporware..'", conditionMessage(et))
@@ -1067,11 +1076,12 @@ stopifnot(exprs = {
 
 ## invalid user device function  options(device = *) -- PR#15883
 graphics.off() # just in case
-op <- options(device=function(...){}) # non-sense device
+op <- options(device = function(...){}, warn = 1) # non-sense device
 assertErrV(plot.new())
 if(no.grid <- !("grid" %in% loadedNamespaces())) requireNamespace("grid")
 assertErrV(grid::grid.newpage())
-if(no.grid) unloadNamespace("grid") ; options(op)
+if(no.grid) unloadNamespace("grid") # Warning: shutting down all devices ...
+options(op)
 if(!dev.interactive(orNone = TRUE))
    pdf("reg-tests-1d.pdf", encoding = "ISOLatin1.enc")# revert to reasonable device
 ## both errors gave segfaults in R <= 3.4.1
@@ -1422,7 +1432,7 @@ testfN <- removeSource(testf)
 stopifnot(identical(body(testf )[[2]], bod)
         , identical(body(testfN)[[2]], bod)
 )
-## erronously changed  '(x, NULL)'  to  '(x)'  in R version <= 3.4.3
+## erroneously changed  '(x, NULL)'  to  '(x)'  in R version <= 3.4.3
 ##
 ## 2) source *should* be kept:
 f <- function(x=1) { # 'x' not really needed
@@ -1751,7 +1761,7 @@ stopifnot(all.equal(
 ## gave integer overflow and error in R <= 3.4.x
 
 
-## check for incorect inlining of named logicals
+## check for incorrect inlining of named logicals
 foo <- compiler::cmpfun(function() c("bar" = TRUE),
                         options = list(optimize = 3))
 stopifnot(identical(names(foo()), "bar"))
@@ -1866,7 +1876,7 @@ stopifnot(grepl(" [*]{3}$", cc[2]),
 ## gave Error: 'formal argument "right" matched by multiple actual arguments'
 
 
-## print.noquote() w/ unusual argument -- inspite of user error, be forgiving:
+## print.noquote() w/ unusual argument -- in spite of user error, be forgiving:
 print(structure("foo bar", class="noquote"), quote=FALSE)
 ## gave Error: 'formal argument "quote" matched by multiple actual arguments'
 
@@ -2290,7 +2300,7 @@ stopifnot(exprs = {
 ## returned integer sequences in all R versions <= 3.5.1
 
 
-## Check for modififation of arguments
+## Check for modification of arguments
 ## Issue originally reported by Lukas Stadler
 x <- 1+0
 stopifnot(x + (x[] <- 2) == 3)
@@ -2769,7 +2779,6 @@ spois     <- summary( poisfit)
 sqpois    <- summary(qpoisfit)
 sqpois.d1 <- summary(qpoisfit, dispersion=1)
 SE1 <- sqrt(diag(V <- vcov(poisfit)))
-(noLdbl <- (.Machine$sizeof.longdouble <= 8)) ## TRUE when --disable-long-double
 stopifnot(exprs = { ## Same variances and same as V
     all.equal(vcov(spois), V)
     all.equal(vcov(qpoisfit, dispersion=1), V) ## << was wrong
@@ -4439,7 +4448,7 @@ stopifnot(identical(RN,    rownames      (dfcars1)) ,
 ## dfcarsN == dfcars1  in  R <= 4.0.3
 
 
-## str(x) when x has "unusal" length() semantics such that lapply() / vapply() fails:
+## str(x) when x has "unusual" length() semantics such that lapply() / vapply() fails:
 length.Strange4 <- function(x) 4
 `[[.Strange4` <- function(x, i) {
     stopifnot(length(i) == 1)
@@ -4883,10 +4892,11 @@ for(i.n in seq_along(ns)) {
 stopifnot(abs(rr-1) < 3.3/ns)
 ## many of these pretty() calls errored (because internally gave Inf) in R <= 4.1.0
 ##
+
 ##---------------- very small ranges ------------------
 ## The really smallest positive number (unless subnormals do "not exist"):
 mm <- with(.Machine, double.xmin * double.eps)
-log2(mm) == -1074 # T
+log2(mm) == -1074 # TRUE (everywhere ??)
 ## "of course", this an extreme *sub normal* number, e.g.
 mm == c(0.50001, 1.49999) * mm # TRUE TRUE (!)
 (1.5*mm) / mm #  2  (!!)
@@ -4901,23 +4911,49 @@ fsS <- fs[fs <= 0.75]
 options(warn=0) # (collect warnings)
 psmm <- lapply(h.u, function(hu)
     lapply(fsS, function(f)
-        lapply(nns, pretty, x = c(0, mm/f), high.u=hu, eps.correction = 2)))
-summary(warnings())## many; mostly  "very small range 'cell'=0, corrected to 2.122e-314"
+        lapply(nns, pretty, x = c(0, mm/f), high.u.bias=hu)))
+summary(warnings())## many "very small range 'cell'=<nnn>e+32<n>, corrected to 2.122e-314"
 (T <- table(psA <- unlist(psmm))) # is this portable?
 (nT <- as.numeric(names(T)))
 range(rEd <- abs(2e-314/diff(nT) - 1))
-stopifnot(nT >= 0, length(nT) == 11,
-          rEd <= 2^-50) # only seen rEd == 0
-##
+stopifnot(exprs = {
+    nT >= 0
+    (nn <- length(nT)) <= 15 # always = 11 on  Lnx 64b
+    7 <= nn
+    rEd <= if(b64) 2^-50 else 0.9 # Lnx 64b: only seen rEd == 0;  32bit ppc : 0.8 (!)
+})
+## This used to be _very_ slow in R <= 4.5.1 because it produced _HUGE_ (non-pretty!) vectors;
+## On Linux, an OS daemon would typically kill the R process for using too much resources:
+psm2 <- lapply(h.u, function(hu) {
+    ## cat(sprintf("hu:%6g -- f =", hu)); on.exit(cat("\n"))
+    lapply(fsS, function(f) {
+       ## cat(sprintf(" %g", f))
+       lapply(nns, \(n) pretty(c(0, mm/f), n=n, high.u.bias=hu, eps.correct = 2))
+    })
+})
+apply(sapply(psmm, \(L) sapply(L,lengths)), 2L, quantile)
+apply(sapply(psm2, \(L) sapply(L,lengths)), 2L, quantile)
 psmm.o <- lapply(h.u, function(hu)
     lapply(fsS, function(f) # older R: f.min = 20 hardwired:
         lapply(nns, pretty, x = c(0, mm/f), high.u=hu, f.min = 20) ))
 summary(warnings())## many; mostly  "very small range 'cell'=0, corrected to 4.45015e-307"
 (To <- table(psAo <- signif(unlist(psmm.o), 13)))
 (nTo <- as.numeric(names(To)))
-range(rEdo <- abs(5e-307/diff(nTo) - 1))
-stopifnot(nTo >= 0, length(nTo) == 11,
-          rEdo <= 2^-44) # seen max of 2^-51 on Lnx_64; 2^-44.5 on Win64
+range(rEdo <- abs(5e-307/diff(nTo) - 1)) # 0 2.33e-15
+r1 <- apply(sapply(psmm,  \(L) sapply(L,lengths)), 2L, range)
+r2 <- apply(sapply(psm2,  \(L) sapply(L,lengths)), 2L, range)
+r3 <- apply(sapply(psmm.o,\(L) sapply(L,lengths)), 2L, range)
+stopifnot(exprs = {
+    nTo >= 0
+    (nn <- length(nTo)) <= 15 ## length(nTo) == 11
+    7 <= nn
+    rEdo <= if(b64) 2^-44 else 0.9 # Lnx 64b: seen max of 2^-48.608 (prev. 2^-51) Lnx_64; 2^-44.5 on Win64; ppc ??
+    if(b64 && x86) { ## platform ?
+        r1 == c(2, 11)
+        r2 == c(3, 11)
+        r3 == c(1, 11)
+    } else TRUE
+})
 
 
 ## graphics::axis(), but also *engine* GScale() / GPretty() etc
@@ -5308,7 +5344,7 @@ options(op)# revert to sanity.  Then:
 h2 <- globalCallingHandlers()
 globalCallingHandlers(NULL)# unregister all
 stopifnot(identical(h1, h2))
-## h2 was empty list() erronously in R versions <= 4.1.x
+## h2 was empty list() erroneously in R versions <= 4.1.x
 
 
 ## PR#18246: par() should warn about invalid/unused arguments
@@ -5435,7 +5471,7 @@ stopifnot(exprs = {
 stopifnot(!grepl(dQuote(""), m1), !grepl(dQuote(""), m2))
 if(englishMsgs)
     stopifnot(grepl("'arg' should be ", m1),
-              grepl("'arg' should be one ", m2))
+              grepl("'arg' should be one ", c(m1, m2)) |> identical( c(FALSE,TRUE) ))
 ## was  'arg' should be one of “”, “a” ( , “b” )
 
 
@@ -5483,7 +5519,7 @@ plot(lm(y~    c, dd), which = 5)  # gave empty plot, noting missing factors
 stopifnot("plot(<lm>, which=5) gave message and no plot" = is.null(r))
 ## failed for character predictors in R <= 4.1.x
 
-### contined in reg-tests-1e.R for R >- 4.3.0
+### continued in reg-tests-1e.R for R >- 4.3.0
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

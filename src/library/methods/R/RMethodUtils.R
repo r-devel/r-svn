@@ -1,7 +1,7 @@
 #  File src/library/methods/R/RMethodUtils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -104,8 +104,7 @@
         {} # pre 2.11.0: methods <- MethodsList(name)
     else {
         fdefault <- checkTrace(fdefault)
-        if(!identical(formalArgs(fdefault), formalArgs(fdef)) &&
-           !is.primitive(fdefault))
+        if(!identical(formalArgs(fdefault), formalArgs(fdef)) && !is.primitive(fdefault))
             stop(sprintf(ngettext(length(fdef),
 	"the formal argument of the generic function for %s (%s) differs from that of the non-generic to be used as the default (%s)",
 	"the formal arguments of the generic function for %s (%s) differ from those of the non-generic to be used as the default (%s)"),
@@ -577,7 +576,7 @@ getGeneric <-
         i <- match(newpkg, names(prev))
         if(!is.na(i))
             prev[[i]] <- NULL
-        else           # we might warn about unchaching more than once
+        else           # we might warn about uncaching more than once
             return()
         if(length(prev) == 0L)
             return(remove(list = name, envir = table))
@@ -611,45 +610,36 @@ getGeneric <-
                 }
             }
             pkgs <- names(value)
-            i <- match(pkg, pkgs, 0L)
-            if(i > 0L)
-                return(value[[i]])
-            i <- match("methods", pkgs, 0L)
-            if(i > 0L)
-                return(value[[i]])
-            i <- match("base", pkgs, 0L)
-            if(i > 0L)
-                return(value[[i]])
-            else
-                return(NULL)
+            if     ((i <- match(pkg,       pkgs, 0L)) > 0L) value[[i]]
+            else if((i <- match("methods", pkgs, 0L)) > 0L) value[[i]]
+            else if((i <- match("base",    pkgs, 0L)) > 0L) value[[i]]
+            ## else  NULL
         }
-        else if(nzchar(pkg) && !identical(pkg, value@package))
-            NULL
-        else
+        else if(!nzchar(pkg) || identical(pkg, value@package))
             value
-    }
-    else
-        NULL
+        ## else NULL
+    } # else NULL
 }
 
 .genericOrImplicit <- function(name, pkg, env)
 {
-    fdef <- .getGenericFromCache(name, env, pkg)
-    if(is.null(fdef)) {
+    .getGenericFromCache(name, env, pkg) %||%
+    {
 	penv <- tryCatch(getNamespace(pkg), error = function(e)e)
 	if(!isNamespace(penv))	{      # no namespace--should be rare!
 	    pname <- paste0("package:", pkg)
 	    penv <- if(pname %in% search()) as.environment(pname) else env
 	}
         fdef <- getFunction(name, TRUE, FALSE, penv)
-        if(!is(fdef, "genericFunction")) {
+        if(is(fdef, "genericFunction"))
+            fdef
+        else {
             if(is.primitive(fdef))
-                fdef <- genericForBasic(name, penv)
+                genericForBasic(name, penv)
             else
-                fdef <- implicitGeneric(name, penv)
-        }
+                implicitGeneric(name, penv)
+       }
     }
-    fdef
 }
 
 
@@ -660,11 +650,8 @@ getGeneric <-
 {
     value <- fdef
     ev <- environment(fdef)
-    objs <- lapply(as.list(ev, all.names=TRUE), function(obj) {
-        if(is.environment(obj))
-            obj <- .copyEnv(obj)
-        obj
-    })
+    objs <- lapply(as.list(ev, all.names=TRUE),
+                   function(obj) if(is.environment(obj)) .copyEnv(obj) else obj)
     environment(value) <- list2env(objs, hash=TRUE, parent=parent.env(ev))
     value
 }
@@ -759,14 +746,16 @@ assignMethodsMetaData <-
         "base"
 }
 
+getGenericName <- function(x) if(is.list(x)) lapply(x, getGenericName) else x@generic
+## see also (currently unused)  .genericName  below
+
 getGenerics <- function(where, searchForm = FALSE)
 {
     if(missing(where)) {
         ## all the packages cached ==? all packages with methods
         ## globally visible.  Assertion based on cacheMetaData + setMethod
         fdefs <- as.list(.genericTable, all.names=TRUE, sorted=TRUE)
-        fnames <- mapply(function(nm, obj) if(is.list(obj)) names(obj) else nm,
-                         names(fdefs), fdefs, SIMPLIFY=FALSE)
+        fnames <- lapply(fdefs, getGenericName)
 ### FIXME: at least *optionally*  we want to filter (aka "drop") *non*-exported S4 generics
         packages <- lapply(fdefs, .packageForGeneric)
         new("ObjectsWithPackage", unlist(fnames), package=unlist(packages))
@@ -882,7 +871,7 @@ cacheMetaData <-
                 if(exists(f, envir = env, inherits = FALSE)) {
                     def <- get(f, envir = env)
                     fdef <- .genericOrImplicit(f, fpkg, env)
-                    if(is.function(def)) {
+                    if(is.function(def) && !is.primitive(def)) {
                         ## exclude a non-function of the same name as a primitive with methods (!)
                         if(identical(environment(def), environment(fdef)))
                             next        # the methods are identical
@@ -1415,11 +1404,10 @@ metaNameUndo <- function(strings, prefix, searchForm = FALSE)
 .derivedDefaultMethod <- function(fdef, internal = NULL)
 {
     if(is.function(fdef) && !is.primitive(fdef)) {
-        if (!is.null(internal)) {
-            value <- new("internalDispatchMethod", internal = internal)
-        } else {
-            value <- new("derivedDefaultMethod")
-        }
+        value <- if(!is.null(internal))
+                     new("internalDispatchMethod", internal = internal)
+                 else
+                     new("derivedDefaultMethod")
         value@.Data <- fdef
         value@target <- value@defined <- .newSignature(list(.anyClassName), formalArgs(fdef))
         value
@@ -1430,7 +1418,7 @@ metaNameUndo <- function(strings, prefix, searchForm = FALSE)
 
 .identC <- function(c1 = NULL, c2 = NULL)
 {
-    ## are the two objects identical class or genric function string names?
+    ## are the two objects identical class or generic function string names?
     .Call(C_R_identC, c1, c2)
 }
 
@@ -1451,7 +1439,7 @@ matchDefaults <- function(method, generic)
         garg <- gargs[[arg]]
         if(missing(marg) && !missing(garg)) {
             changes <- TRUE
-            margs[arg] <- gargs[arg] # NOT  [[]], which woud fail for NULL element
+            margs[arg] <- gargs[arg] # NOT  [[]], which would fail for NULL element
         }
     }
     if(changes)
@@ -1712,7 +1700,7 @@ utils::globalVariables(c(".MTable", ".AllMTable", ".dotsCall"))
 
 if(FALSE) {
 ## Defined but not currently used:
-## utilitity to test well-defined classes in signature,
+## utility to test well-defined classes in signature,
 ## for setMethod(), setAs() [etc.?], the result to be
 ## assigned in package where=
 ## Returns a list of signature, messages and level of error
@@ -1908,7 +1896,9 @@ getLoadActions <- function(where = topenv(parent.frame())) {
         return(list())
     actions <- get(actionListName, envir = where)
     if(length(actions)) {
-        allExists <- sapply(actions, function(what) exists(.actionMetaName(what), envir = where, inherits = FALSE))
+        allExists <- vapply(actions,
+                            function(what) exists(.actionMetaName(what), envir = where, inherits = FALSE),
+                            NA)
         if(!all(allExists)) {
             warning(gettextf("some actions are missing: %s",
                              paste(actions[!allExists], collapse =", ")),

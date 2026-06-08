@@ -1,7 +1,7 @@
 #  File src/library/utils/R/RShowDoc.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,13 @@ RShowDoc <- function(what, type = c("pdf", "html", "txt"), package)
         else browseURL(paste0("file://", URLencode(path)))
     }
 
-    type <- match.arg(type)
+    type <- if(interactive()) {
+                if(missing(type))
+                    "html"
+                else
+                    match.arg(type, c("html", "pdf", "txt"))
+            } else
+                match.arg(type)
     if(missing(what) || length(what) != 1L || !is.character(what)) {
         message("   RShowDoc() should be used with a character string argument specifying\n   a documentation file")
         return(invisible())
@@ -115,10 +121,10 @@ RShowDoc <- function(what, type = c("pdf", "html", "txt"), package)
         path <- file.path(R.home("share"), "licenses", what)
         file.show(path)
         return(invisible(path))
-    } else if(what %in% c("R-admin", "R-data", "R-exts", "R-FAQ", "R-intro",
-                          "R-ints", "R-lang")) {
+    } else if((what0 <- sub("#.*", "", what)) %in%
+              setdiff(R_manuals[,1L], "rw-FAQ")) {
         if(type == "pdf") {
-            path <- file.path(R.home("doc"), "manual", paste.(what, "pdf"))
+            path <- file.path(R.home("doc"), "manual", paste.(what0, "pdf"))
             if(file.exists(path)) {
                 pdf_viewer(path)
                 return(invisible(path))
@@ -126,9 +132,9 @@ RShowDoc <- function(what, type = c("pdf", "html", "txt"), package)
             type <- "html"
         }
         if(type == "html") {
-            path <- file.path(R.home("doc"), "manual", paste.(what, "html"))
+            path <- file.path(R.home("doc"), "manual", paste.(what0, "html"))
             if(file.exists(path)) {
-                html_viewer(path)
+                html_viewer(paste0(path, "#", sub(".*#", "", what)))
                 return(invisible(path))
             }
         }
@@ -168,3 +174,16 @@ RShowDoc <- function(what, type = c("pdf", "html", "txt"), package)
     }
     stop("document not found")
 }
+
+## also used for the \manual Rd macro
+R_manuals <- matrix(c(
+    "R-FAQ",   "R FAQ",
+    "rw-FAQ",  "R for Windows FAQ",
+    "R-admin", "R Installation and Administration",
+    "R-intro", "An Introduction to R",
+    "R-data",  "R Data Import/Export",
+    "R-exts",  "Writing R Extensions",
+    "R-ints",  "R Internals",
+    "R-lang",  "The R Language Definition"
+), ncol = 2L, byrow = TRUE)
+dimnames(R_manuals) <- list(R_manuals[,1L], c("name", "title"))

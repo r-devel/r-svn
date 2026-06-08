@@ -15,7 +15,7 @@
 #  https://www.R-project.org/Licenses/
 
 # Statlib code by John Chambers, Bell Labs, 1994
-# Changes Copyright (C) 1998-2024 The R Core Team
+# Changes Copyright (C) 1998-2026 The R Core Team
 
 
 ## As from R 2.4.0, row.names can be either character or integer.
@@ -244,7 +244,7 @@ as.data.frame.list <-
     x
 }
 
-as.data.frame.vector <- function(x, row.names = NULL, optional = FALSE, ...,
+as.data.frame.vector <- function(x, row.names = NULL, optional = FALSE, validRN = TRUE, ...,
 				 nm = deparse1(substitute(x)))
 {
     force(nm)
@@ -254,7 +254,9 @@ as.data.frame.vector <- function(x, row.names = NULL, optional = FALSE, ...,
 	    row.names <- character()
 	else if(length(row.names <- names(x)) != nrows || anyDuplicated(row.names))
 	    row.names <- .set_row_names(nrows)
+        else if(validRN && anyNA(row.names)) stop("row names contain missing values")
     }
+    else if(validRN && anyNA(row.names)) stop("row names contain missing values")
     else if(!(is.character(row.names) || is.integer(row.names)) || length(row.names) != nrows)
 	stop(gettextf("'row.names' is not a character or integer vector of length %d", nrows),
              domain = NA)
@@ -452,20 +454,23 @@ data.frame <-
     object <- as.list(substitute(list(...)))[-1L]
     mirn <- missing(row.names) # record before possibly changing
     mrn  <- is.null(row.names) # missing or NULL
+    fixRN <- function(rownms) {
+        if(is.object(rownms) || !is.integer(rownms))
+            rownms <- as.character(rownms)
+        if(anyNA(rownms))
+            stop("row names contain missing values")
+        if(anyDuplicated(rownms))
+            stop(gettextf("duplicate row.names: %s",
+                          paste(unique(rownms[duplicated(rownms)]),
+                                collapse = ", ")),
+                 domain = NA)
+        ## else return
+        rownms
+    }
     x <- list(...)
     n <- length(x)
     if(n < 1L) {
-        if(!mrn) {
-            if(is.object(row.names) || !is.integer(row.names))
-                row.names <- as.character(row.names)
-            if(anyNA(row.names))
-                stop("row names contain missing values")
-            if(anyDuplicated(row.names))
-                stop(gettextf("duplicate row.names: %s",
-                              paste(unique(row.names[duplicated(row.names)]),
-                                    collapse = ", ")),
-                     domain = NA)
-        } else row.names <- integer()
+        row.names <- if(!mrn) fixRN(row.names) else integer()
 	return(structure(list(), names = character(),
                          row.names = row.names,
 			 class = "data.frame"))
@@ -479,9 +484,9 @@ data.frame <-
     for(i in seq_len(n)) {
         ## do it this way until all as.data.frame methods have been updated
 	xi <- if(is.character(x[[i]]) || is.list(x[[i]]))
-		  as.data.frame(x[[i]], optional = TRUE,
+		  as.data.frame(x[[i]], optional = TRUE, validRN = FALSE,
 				stringsAsFactors = stringsAsFactors)
-	      else as.data.frame(x[[i]], optional = TRUE)
+	      else as.data.frame(x[[i]], optional = TRUE, validRN = FALSE)
 
         nrows[i] <- .row_names_info(xi) # signed for now
 	ncols[i] <- length(xi)
@@ -574,16 +579,7 @@ data.frame <-
     if(is.null(row.names))
         attr(value, "row.names") <- .set_row_names(nr) #seq_len(nr)
     else {
-        if(is.object(row.names) || !is.integer(row.names))
-            row.names <- as.character(row.names)
-        if(anyNA(row.names))
-            stop("row names contain missing values")
-        if(anyDuplicated(row.names))
-            stop(gettextf("duplicate row.names: %s",
-                          paste(unique(row.names[duplicated(row.names)]),
-                                collapse = ", ")),
-                 domain = NA)
-        row.names(value) <- row.names
+        row.names(value) <- fixRN(row.names)
     }
     value
 }
@@ -725,7 +721,9 @@ data.frame <-
         ## row names might have NAs.
         if(is.null(rows)) rows <- attr(xx, "row.names")
         rows <- rows[i]
-	if((ina <- anyNA(rows)) | (dup <- anyDuplicated(rows))) {
+        ina <- anyNA(rows)
+        dup <- anyDuplicated(rows)
+	if(ina || dup) {
 	    ## both will coerce integer 'rows' to character:
 	    if (!dup && is.character(rows)) dup <- "NA" %in% rows
 	    if(ina)

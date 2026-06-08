@@ -1,6 +1,6 @@
 % File src/library/base/man/eigen.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{eigen}
@@ -37,7 +37,7 @@ eigen(x, symmetric, only.values = FALSE, EISPACK = FALSE)
   Computing the eigenvectors is the slow part for large matrices.
 
   Computing the eigendecomposition of a matrix is subject to errors on a
-  real-world computer: the definitive analysis is Wilkinson (1965).  All
+  real-world computer: the definitive analysis is \bibcitet{R:Wilkinson:1965}.  All
   you can hope for is a solution to a problem suitably close to
   \code{x}.  So even though a real asymmetric \code{x} may have an
   algebraic solution with repeated real eigenvalues, the computed
@@ -85,17 +85,9 @@ eigen(x, symmetric, only.values = FALSE, EISPACK = FALSE)
   in the references.
 }
 \references{
-  Anderson. E. and ten others (1999)
-  \emph{LAPACK Users' Guide}.  Third Edition.  SIAM.\cr
-  Available on-line at
-  \url{https://netlib.org/lapack/lug/lapack_lug.html}.
-
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Wilkinson, J. H. (1965) \emph{The Algebraic Eigenvalue Problem.}
-  Clarendon Press, Oxford.
+  \bibshow{R:Anderson+Bai+Bischof:1999,
+    R:Becker+Chambers+Wilks:1988,
+    R:Wilkinson:1965}
 }
 
 \seealso{

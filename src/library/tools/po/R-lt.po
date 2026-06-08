@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tools 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-03-27 16:15\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2021-11-08 10:33+0100\n"
 "Last-Translator: r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com\n"
 "Language-Team: Lithuanian\n"
@@ -270,6 +270,18 @@ msgstr "Authors@R lauke nenurodomi jokie asmenys su prižiūrėtojo vaidmenimi, 
 msgid "Authors@R field gives persons with invalid ORCID identifiers:"
 msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
 
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
+msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with invalid ROR identifiers:"
+msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
+
+#, fuzzy
+msgid "Authors@R field gives persons with duplicated ROR identifiers:"
+msgstr "Authors@R laukelyje pateikiami asmenys, turintys negaliojančius ORCID identifikatorius:"
+
 msgid "Encoding '%s' is not portable"
 msgstr "Kodavimas '%s' yra ne perkeliamas"
 
@@ -307,9 +319,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr "negali susidoroti su Rd objektais trūkstamais/tuščiais pavadinimais"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "Neperkeliamos žymos kintamajame '%s':"
 
@@ -323,11 +332,11 @@ msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr "netinkamas OS.type' \"%s\".  Neturėtų atsitikti"
 
 #, fuzzy
-msgid "Missing link or links in Rd file '%s':"
+msgid "Missing link(s) in Rd file '%s':"
 msgstr "Trūkstama nuoroda arba nuorodos, esančios dokumentacijos objekte '%s':"
 
 #, fuzzy
-msgid "Non-file package-anchored link(s) in Rd file '%s':"
+msgid "Non-topic package-anchored link(s) in Rd file '%s':"
 msgstr "Ne failo pakete įtvirtinta nuoroda(-os) dokumentacijos objekte '%s':"
 
 msgid "See section 'Cross-references' in the 'Writing R Extensions' manual."
@@ -491,7 +500,7 @@ msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Automatiškai sugeneruotas turinys, kurį reikia redaguoti Rd objekte '%s':"
 
 #, fuzzy
-msgid "Rd files without \\description:"
+msgid "Rd files without %s:"
 msgstr "Rd failas su dubliuotais pseudonimais '%s':"
 
 msgid "no Rd sections specified"
@@ -684,9 +693,6 @@ msgstr "Vinjetės variklio paketas nenurodytas"
 msgid "Unsupported engine name"
 msgstr "Nepalaikomas variklio pavadinimas"
 
-msgid "None of packages %s have registered vignette engines"
-msgstr "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
-
 msgid "Vignette engine %s is not registered"
 msgstr "Vinjetės variklis %s neužregistruotas"
 
@@ -773,6 +779,12 @@ msgstr "KLAIDA: ši R versija yra %s, reikalaujama R %s %s"
 msgid "loading failed"
 msgstr "įkėlimas nepavyko"
 
+msgid "'cc' is not on the path"
+msgstr ""
+
+msgid "'objdump' is not on the path"
+msgstr ""
+
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Gavo %s vertinant %s; reikėjo %s\\"
 
@@ -805,9 +817,6 @@ msgstr "Paleidžia R CMD versiją su --no-build-vignettes siekiant išvengti ats
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "neteisinga '--compact-vignettes' reikšmė, darant prielaidą %s"
-
-msgid "Error: cannot rename directory to %s"
-msgstr "Klaida: negalima pervardyti katalogo į %s"
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "praėjusios laiko limitas %g %s, pasiektas antrinio proceso metu"
@@ -842,11 +851,19 @@ msgstr "nėra paketų, kuriuos galima patikrinti"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
 
-msgid "downloading %s ..."
-msgstr "parsiunčiama %s ..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
 
 msgid "checking %s ..."
 msgstr "tikrinama %s ..."
@@ -960,17 +977,21 @@ msgstr ".install_packages() išėjimo būsena"
 msgid "restoration failed"
 msgstr "įkėlimas nepavyko"
 
-msgid "invalid value"
-msgstr "neleistina reikšmė"
-
-msgid "for R_CROSS_BUILD"
-msgstr "dėl R_CROSS_BUILD"
-
 msgid "error reading file '%s'"
 msgstr "klaida nuskaitant failą '%s'"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "tai atrodo kaip paketas -- ir yra nepilnas"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "paketas %s sėkmingai išpakuotas ir MD5 sumos patikrintos"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' egzistuoja, bet nėra vykdoma -- peržiūrėti 'R diegimo ir administravimo žinyną'"
@@ -995,9 +1016,6 @@ msgstr "PASTABA: fiksuotas rpath"
 
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "ĮSPĖJIMAS: bendrinami objektai/dinaminės bibliotekos su įkoduotais laikinais diegimo keliais"
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "paketas %s sėkmingai išpakuotas ir MD5 sumos patikrintos"
 
 msgid "not using staged install with --libs-only"
 msgstr "nenaudoja etapinio diegimo su --libs-only"
@@ -1070,6 +1088,9 @@ msgstr "KLAIDA: nėra leidimo įdiegti į katalogą"
 msgid "building a fake installation is disallowed"
 msgstr "kurti netikrą diegimą yra neleidžiama"
 
+msgid "specified C++"
+msgstr ""
+
 msgid "using C compiler:"
 msgstr ""
 
@@ -1090,6 +1111,10 @@ msgstr ""
 
 msgid "Reverted installation-time patch"
 msgstr ""
+
+#, fuzzy
+msgid "Input must be character"
+msgstr "text' turi būti simbolių vektorius"
 
 msgid ""
 "See\n"
@@ -1123,6 +1148,13 @@ msgstr "pakete nėra R kodo"
 
 msgid "package seems to be using lazy loading already"
 msgstr "paketas jau naudoja atidėtąjį įkėlimą"
+
+msgid "'files' and 'bytes' are mutually exclusive"
+msgstr ""
+
+#, fuzzy
+msgid "'bytes' must be a raw vector"
+msgstr "text' turi būti simbolių vektorius"
 
 msgid ""
 "Cannot process chunk/lines:\n"
@@ -1191,6 +1223,13 @@ msgstr ""
 "  %s\n"
 "nėra \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "netinkamas paketas"
+
 msgid "Processing packages:"
 msgstr "Apdorojami paketai:"
 
@@ -1217,6 +1256,37 @@ msgstr "argumentas '%s' turi būti simbolių eilutė arba ryšys"
 msgid "unimplemented encoding"
 msgstr "neįgyvendintas kodavimas"
 
+#, fuzzy
+msgid "x must be a single string"
+msgstr "'x' turi būti vieno simbolio eilutė"
+
+msgid "invalid hex string"
+msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "testas '%s' neprieinamas"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'x' turi būti vieno simbolio eilutė"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "įkėlimas nepavyko"
+
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "tam reikia, kad 'objdump.exe' būtų PATH"
 
@@ -1240,6 +1310,10 @@ msgstr "bandymas '%s' nepavyko"
 
 msgid "Testing examples for package %s"
 msgstr "Paketo %s tikrinimo pavyzdžiai"
+
+#, fuzzy
+msgid "Error: running examples in %s failed"
+msgstr "nepavyko 'texi2dvi' esančio '%s' vykdymas"
 
 msgid "comparing %s to %s ..."
 msgstr "lyginant %s su %s ..."
@@ -1265,11 +1339,12 @@ msgstr "Vykdomi specialūs paketo %s testai"
 msgid "Running %s"
 msgstr "Vykdoma %s"
 
+#, fuzzy
+msgid "Error: running the tests in %s failed"
+msgstr "nepavyko 'texi2dvi' esančio '%s' vykdymas"
+
 msgid "Running vignettes for package %s"
 msgstr "Vykdomos vinjetės paketui %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "Lyginami %s su %s..."
 
 msgid "no parsed files found"
 msgstr "nerasta išanalizuotų failų"
@@ -1358,9 +1433,6 @@ msgstr "Galutinių atnaujintų PACKAGES failų rašymas."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES baigtas."
 
-msgid "'x' must be a single character string"
-msgstr "'x' turi būti vieno simbolio eilutė"
-
 msgid "test '%s' is not available"
 msgstr "testas '%s' neprieinamas"
 
@@ -1411,6 +1483,14 @@ msgstr "Nežinomas kodavimas su ne ASCII duomenimis: konvertavimas į ASCII"
 
 msgid "cannot source package code:"
 msgstr "negalima gauti paketo kodo:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
+
+msgid "inferiorCallError"
+msgstr ""
 
 msgid "inferior call failed"
 msgstr ""
@@ -1488,7 +1568,8 @@ msgstr[0] "Surastas .Internal iškvietimas šioje funkcijoje:"
 msgstr[1] "Surasti .Internal iškvietimai šiose funkcijose:"
 msgstr[2] "Surasta .Internal iškvietimų šiose funkcijose:"
 
-msgid "Found a.Internal call in methods for the following S4 generic:"
+#, fuzzy
+msgid "Found a .Internal call in methods for the following S4 generic:"
 msgid_plural "Found .Internal calls in methods for the following S4 generics:"
 msgstr[0] "Surastas .Internal iškvietimas į metodus šiai S4 bendrinei:"
 msgstr[1] "Surasti .Internal iškvietimai į metodus šioms S4 bendrinėms:"
@@ -1564,6 +1645,13 @@ msgstr[0] "SANTRAUKA: nepavyko apdoroti šio failo:"
 msgstr[1] "SANTRAUKA: nepavyko apdoroti šių failų:"
 msgstr[2] "SANTRAUKA: nepavyko apdoroti šių failų:"
 
+#, fuzzy
+msgid "Package %s does not have a registered vignette engine"
+msgid_plural "None of packages %s have registered vignette engines"
+msgstr[0] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
+msgstr[1] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
+msgstr[2] "Nė viename iš paketų %s nėra registruotų vinjetės variklių"
+
 msgid "unable to re-encode %s line %s"
 msgid_plural "unable to re-encode %s lines %s"
 msgstr[0] "nepavyko perkoduoti %s eilutės %s"
@@ -1605,6 +1693,25 @@ msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Atitinkamas BibTeX įrašas:"
 msgstr[1] "Atitinkami BibTeX įrašai:"
 msgstr[2] "Atitinkamų BibTeX įrašų:"
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Klaida: negalima pervardyti katalogo į %s"
+
+#, fuzzy
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Rd failas su dubliuotais pseudonimais '%s':"
+
+#~ msgid "downloading %s ..."
+#~ msgstr "parsiunčiama %s ..."
+
+#~ msgid "invalid value"
+#~ msgstr "neleistina reikšmė"
+
+#~ msgid "for R_CROSS_BUILD"
+#~ msgstr "dėl R_CROSS_BUILD"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "Lyginami %s su %s..."
 
 #, fuzzy
 #~ msgid "one of 'package' and 'dir' must be specified."

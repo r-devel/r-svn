@@ -18,11 +18,12 @@ pkg2HTML(package, dir = NULL, lib.loc = NULL,
          texmath = getOption("help.htmlmath"),
          prism = TRUE,
          out = NULL,
-         toc_entry = c("title", "name"),
+         toc_entry = c("name", "title"),
          ...,
          Rhtml = FALSE,
          mathjax_config = file.path(R.home("doc"), "html", "mathjax-config.js"),
-         include_description = TRUE)
+         include_description = TRUE,
+         concordance = FALSE)
 }
 \arguments{
   \item{package}{ typically a character string giving the name of an
@@ -75,6 +76,8 @@ pkg2HTML(package, dir = NULL, lib.loc = NULL,
   \item{include_description}{ logical flag indicating whether the output
     should begin with the contents of the \code{DESCRIPTION} file.
   }
+  \item{concordance}{ logical flag indicating whether the output
+    should contain concordance information.}
 }
 
 \details{

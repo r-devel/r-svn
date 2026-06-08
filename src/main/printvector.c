@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2022  The R Core Team.
+ *  Copyright (C) 1998-2024  The R Core Team.
  *  Copyright (C) 1995-1998  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -284,8 +284,8 @@ void printComplexVectorS(SEXP x, R_xlen_t n, int indx)
 		      for(R_xlen_t j = 0; j < nb; j++) {
 			  i = idx + j; /* for macros */
 			  NUMVECTOR_TIGHTLOOP(CMPLX_ISNA(px[j]) ?
-					  EncodeReal0(NA_REAL, w, 0, 0, OutDec) :
-					  EncodeComplex(px[j], wr + R_print.gap , dr, er, wi, di, ei, OutDec));
+				EncodeReal0(NA_REAL, w, 0, 0, OutDec) :
+				EncodeComplex(px[j], wr + R_print.gap, dr, er, wi, di, ei, OutDec));
 		      });
     Rprintf("\n");
 }
@@ -410,7 +410,7 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	    break;
 	}
 	if(n_pr < n)
-	    Rprintf(" [ reached getOption(\"max.print\") -- omitted %lld entries ]\n",
+	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
 		    (long long)n - n_pr);
     }
     else
@@ -569,7 +569,7 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	    break;
 	}
 	if(n_pr < n)
-	    Rprintf(" [ reached getOption(\"max.print\") -- omitted %lld entries ]\n",
+	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
 		    (long long)n - n_pr);
     }
     else {

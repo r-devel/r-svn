@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2025  The R Core Team
  *  Copyright (C) 2002--2020  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -24,10 +24,9 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
-
 #include <Defn.h>
 #include <Internal.h>
-#include <R_ext/PrtUtil.h> // for IndexWidth
+#include <PrtUtil.h> // for IndexWidth
 #include <R_ext/Itermacros.h>
 #define imax2(x, y) ((x < y) ? y : x)
 
@@ -71,7 +70,7 @@ static int HasNames(SEXP x)
 
 // Determine result type of unlist() or c();  called from  do_c()  and  do_unlist()
 static void
-AnswerType(SEXP x, Rboolean recurse, Rboolean usenames, struct BindData *data, SEXP call)
+AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call)
 {
     switch (TYPEOF(x)) {
     case NILSXP: // NULL entries are dropped
@@ -808,7 +807,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
 /* way, rather than having an interpreted front-end do the job, */
 /* because we want to avoid duplication at the top level. */
 /* FIXME : is there another possibility? */
-static SEXP c_Extract_opt(SEXP ans, Rboolean *recurse, Rboolean *usenames,
+static SEXP c_Extract_opt(SEXP ans, bool *recurse, bool *usenames,
 			  SEXP call)
 {
     SEXP a, n, last = NULL, next = NULL;
@@ -821,7 +820,7 @@ static SEXP c_Extract_opt(SEXP ans, Rboolean *recurse, Rboolean *usenames,
 	    if (n_recurse++ == 1)
 		errorcall(call, _("repeated formal argument 'recursive'"));
 	    if ((v = asLogical(CAR(a))) != NA_INTEGER) {
-		*recurse = v;
+		*recurse = (bool) v;
 	    }
 	    if (last == NULL)
 		ans = next;
@@ -832,7 +831,7 @@ static SEXP c_Extract_opt(SEXP ans, Rboolean *recurse, Rboolean *usenames,
 	    if (n_usenames++ == 1)
 		errorcall(call, _("repeated formal argument 'use.names'"));
 	    if ((v = asLogical(CAR(a))) != NA_INTEGER) {
-		*usenames = v;
+		*usenames = (bool) v;
 	    }
 	    if (last == NULL)
 		ans = next;
@@ -886,9 +885,9 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* By default we do not recurse, but this can be over-ridden */
     /* by an optional "recursive" argument. */
 
-    Rboolean
-	usenames = TRUE,
-	recurse = FALSE;
+    bool
+	usenames = true,
+	recurse = false;
     /* this was only done for length(args) > 1 prior to 1.5.0,
        _but_ `recursive' might be the only argument */
     PROTECT(args = c_Extract_opt(args, &recurse, &usenames, call));
@@ -1002,9 +1001,9 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* by an optional "recursive" argument. */
 
     PROTECT(args = CAR(ans));
-    Rboolean recurse = asLogical(CADR(ans));
-    Rboolean usenames = asLogical(CADDR(ans));
-    Rboolean lenient = TRUE; // was (implicitly!) FALSE  up to R 3.0.1
+    bool recurse = asBool2(CADR(ans), call);
+    bool usenames = asBool2(CADDR(ans), call);
+    bool lenient = true; // was (implicitly!) FALSE  up to R 3.0.1
 
     /* Determine the type of the returned value. */
     /* The strategy here is appropriate because the */
@@ -1137,10 +1136,10 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     // missing(deparse.level) :
-    Rboolean missingDL = (isSymbol(CAR(args)) && R_missing(CAR(args), env));
+    bool missingDL = (isSymbol(CAR(args)) && R_missing(CAR(args), env));
     /* since R 2.2.0: first argument "deparse.level" */
     int deparse_level = asInteger(eval(CAR(args), env));
-    Rboolean tryS4 = deparse_level >= 0;
+    bool tryS4 = deparse_level >= 0;
     /* NB: negative deparse_level should otherwise be equivalent to deparse_level == 0,
      * --  as cbind(), rbind() below only check for '== 1' and '== 2'
      * {FIXME: methods should do same} */
@@ -1178,12 +1177,12 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 
     const char *generic = ((PRIMVAL(op) == 1) ? "cbind" : "rbind");
     SEXP method = R_NilValue, a;
-    Rboolean anyS4 = FALSE;
+    bool anyS4 = false;
     char buf[512];
 
     for (a = CDR(args); a != R_NilValue && method == R_NilValue; a = CDR(a)) {
 	SEXP obj = PROTECT(eval(CAR(a), env));
-	if (tryS4 && !anyS4 && isS4(obj)) anyS4 = TRUE;
+	if (tryS4 && !anyS4 && isS4(obj)) anyS4 = true;
 	if (isObject(obj)) {
 	    SEXP classlist = PROTECT(R_data_class2(obj));
 	    for (int i = 0; i < length(classlist); i++) {
@@ -1302,7 +1301,7 @@ static void SetColNames(SEXP dimnames, SEXP x)
 static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		  int deparse_level)
 {
-    Rboolean have_rnames = FALSE, have_cnames = FALSE, warned = FALSE;
+    bool have_rnames = false, have_cnames = false, warned = false;
     int nnames, mnames;
     int rows, cols, mrows, lenmin = 0;
     SEXP dn, t, u, result, dims, expr;
@@ -1353,14 +1352,14 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    dn = getAttrib(u, R_DimNamesSymbol);
 	    if (length(dn) == 2) {
 		if (VECTOR_ELT(dn, 1) != R_NilValue)
-		    have_cnames = TRUE;
+		    have_cnames = true;
 		if (VECTOR_ELT(dn, 0) != R_NilValue)
 		    mnames = mrows;
 	    }
 	} else {
 	    int k = length(u);
 	    if (!warned && k > 0 && (k > rows || rows % k)) {
-		warned = TRUE;
+		warned = true;
 		warning("number of rows of result is not a multiple of vector length (arg %d)", na + 1);
 	    }
 	    PROTECT(dn = getAttrib(u, R_NamesSymbol));
@@ -1368,13 +1367,13 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 				(deparse_level == 2) ||
 				((deparse_level == 1) &&
 				 isSymbol(substitute(CAR(t),R_NilValue)))))
-		have_cnames = TRUE;
+		have_cnames = true;
 	    nnames = imax2(nnames, length(dn));
 	    UNPROTECT(1); /* dn */
 	}
     }
     if (mnames || nnames == rows)
-	have_rnames = TRUE;
+	have_rnames = true;
 
     PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
@@ -1447,7 +1446,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		u = coerceVector(u, INT64SXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		xcopyInt64WithRecycle(INT64(result), INT64(u), n, idx, k);
+			xcopyInt64WithRecycle(INT64(result), INT64_RO(u), n, idx, k);
 		n += idx;
 	    }
 	}
@@ -1464,13 +1463,17 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
-    else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
+    else { /* everything else, currently NILSXP, REALSXP, INTSXP, LGLSXP */
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, INT64, REAL, or NULL */
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = xlength(u); /* use xlength since u can be NULL */
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		if (TYPEOF(u) == LGLSXP || TYPEOF(u) == INTSXP) {
+		if (idx > 0 && TYPEOF(u) <= INTSXP) {
+		    /* NILSXP or INT or LGL
+		     * taking INTERER(NILSXP) should segfault, and
+		     * sometimes does.  But if cbind-ing a NULL, there
+		     * are zero rows and u is not a matrix, so nothing to do. */
 		    if (mode <= INTSXP) {
 			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
 						n, idx, k);
@@ -1491,7 +1494,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		else if (TYPEOF(u) == INT64SXP) {
 		    R_xlen_t i, i1;
 		    MOD_ITERATE1(idx, k, i, i1, {
-			R_int64_t val = INT64(u)[i1];
+			R_int64_t val = INT64_RO(u)[i1];
 			REAL(result)[n++] =
 			    val == NA_INT64 ? NA_REAL : (double) val;
 		    });
@@ -1500,7 +1503,9 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    /* FIXME: I'm not sure what the author intended when the sequence was
 		       defined as raw < logical -- it is possible to represent logical as
 		       raw losslessly but not vice versa. So due to the way this was
-		       defined the raw -> logical conversion is bound to be lossy .. */
+			       defined the raw -> logical conversion is bound to be lossy ..
+		       But it is not: logicals include NAs, raws do not.
+*/
 		    if (mode == LGLSXP) {
 			R_xlen_t i, i1;
 			MOD_ITERATE1(idx, k, i, i1, {
@@ -1574,7 +1579,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    else if (deparse_level == 2) {
 			PROTECT(expr);
 			SET_STRING_ELT(nam, j++,
-				       STRING_ELT(deparse1line(expr, TRUE), 0));
+				       STRING_ELT(deparse1line(expr, true), 0));
 			UNPROTECT(1); /* expr */
 		    } else if (have_cnames)
 			SET_STRING_ELT(nam, j++, R_BlankString);
@@ -1591,7 +1596,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		  int deparse_level)
 {
-    Rboolean have_rnames = FALSE, have_cnames = FALSE, warned = FALSE;
+    bool have_rnames = false, have_cnames = false, warned = false;
     int nnames, mnames;
     int rows, cols, mcols, lenmin = 0;
     SEXP dn, t, u, result, dims, expr;
@@ -1643,7 +1648,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    dn = getAttrib(u, R_DimNamesSymbol);
 	    if (length(dn) == 2) {
 		if (VECTOR_ELT(dn, 0) != R_NilValue)
-		    have_rnames = TRUE;
+		    have_rnames = true;
 		if (VECTOR_ELT(dn, 1) != R_NilValue)
 		    mnames = mcols;
 	    }
@@ -1651,7 +1656,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	else {
 	    int k = length(u);
 	    if (!warned && k>0 && (k > cols || cols % k)) {
-		warned = TRUE;
+		warned = true;
 		warning("number of columns of result is not a multiple of vector length (arg %d)", na + 1);
 	    }
 	    PROTECT(dn = getAttrib(u, R_NamesSymbol));
@@ -1659,13 +1664,13 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 				(deparse_level == 2) ||
 				((deparse_level == 1) &&
 				 isSymbol(substitute(CAR(t),R_NilValue)))))
-		have_rnames = TRUE;
+		have_rnames = true;
 	    nnames = imax2(nnames, length(dn));
 	    UNPROTECT(1); /* dn */
 	}
     }
     if (mnames || nnames == cols)
-	have_cnames = TRUE;
+	have_cnames = true;
 
     PROTECT(result = allocMatrix(mode, rows, cols));
 
@@ -1738,51 +1743,47 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    }
 	}
     }
-    else { /* everything else, currently REALSXP, INTSXP, LGLSXP */
+    else if (mode == INTSXP) {
 	for (t = args; t != R_NilValue; t = CDR(t)) {
-	    u = PRVALUE(CAR(t)); /* type of u can be any of: RAW, LGL, INT, INT64, REAL */
+	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, INTSXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
-		if (TYPEOF(u) == LGLSXP || TYPEOF(u) == INTSXP) {
-		    if (mode <= INTSXP) {
-			xfillIntegerMatrixWithRecycle(INTEGER(result),
-						      INTEGER(u), n, rows,
-						      idx, cols, k);
-			n += idx;
-		    }
-		    else {
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    REAL(result)[didx]
-				= (INTEGER(u)[sidx]) == NA_INTEGER ? NA_REAL : INTEGER(u)[sidx];
-			n += idx;
-		    }
-		}
-		else if (TYPEOF(u) == REALSXP) {
-		    xfillRealMatrixWithRecycle(REAL(result), REAL(u), n,
-					       rows, idx, cols, k);
-		    n += idx;
-		}
-		else if (TYPEOF(u) == INT64SXP) {
-		    FILL_MATRIX_ITERATE(n, rows, idx, cols, k) {
-			R_int64_t val = INT64(u)[sidx];
-			REAL(result)[didx] =
-			    val == NA_INT64 ? NA_REAL : (double) val;
-		    }
-		    n += idx;
-		}
-		else { /* RAWSXP */
-		    if (mode == LGLSXP) {
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    LOGICAL(result)[didx] = RAW(u)[sidx] ? TRUE : FALSE;
-		    }
-		    else
-			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
-			    INTEGER(result)[didx] = (unsigned char) RAW(u)[sidx];
-		}
+		xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
+					  cols, k);
+		n += idx;
 	    }
 	}
     }
+     else if (mode == LGLSXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		u = coerceVector(u, LGLSXP);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		xfillLogicalMatrixWithRecycle(LOGICAL(result), LOGICAL(u), n, rows, idx,
+					  cols, k);
+		n += idx;
+	    }
+	}
+     }
+     else if (mode == REALSXP) {
+	 for (t = args; t != R_NilValue; t = CDR(t)) {
+	     u = PRVALUE(CAR(t));
+	     if (isMatrix(u) || length(u) >= lenmin) {
+		 u = coerceVector(u, REALSXP);
+		 R_xlen_t k = XLENGTH(u);
+		 R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		 xfillRealMatrixWithRecycle(REAL(result), REAL(u), n, rows, idx,
+					  cols, k);
+		 n += idx;
+	     }
+	 }
+     }
+     else { /* everything else, currently NILSXP so do nothing */
+     }
 
     /* Adjustment of dimnames attributes. */
     if (have_rnames || have_cnames) {
@@ -1833,7 +1834,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    else if (deparse_level == 2) {
 			PROTECT(expr);
 			SET_STRING_ELT(nam, j++,
-				       STRING_ELT(deparse1line(expr, TRUE), 0));
+				       STRING_ELT(deparse1line(expr, true), 0));
 			UNPROTECT(1); /* expr */
 		    } else if (have_rnames)
 			SET_STRING_ELT(nam, j++, R_BlankString);

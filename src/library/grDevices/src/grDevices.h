@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2004-2024  The R Core Team
+ *  Copyright (C) 2004-2025  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,6 @@ SEXP R_GAxisPars(SEXP usr, SEXP is_log, SEXP nintLog);
 SEXP PicTeX(SEXP);
 
 SEXP PostScript(SEXP);
-SEXP XFig(SEXP);
 SEXP PDF(SEXP);
 SEXP Type1FontInUse(SEXP, SEXP);
 SEXP CIDFontInUse(SEXP, SEXP);
@@ -50,19 +49,19 @@ SEXP savePlot(SEXP call, SEXP op, SEXP args, SEXP rho);
 
 SEXP devCairo(SEXP);
 
-Rboolean
+bool
 PSDeviceDriver(pDevDesc, const char*, const char*, const char*,
 	       const char **, const char*, const char*, const char*,
-	       double, double, Rboolean, double, Rboolean, Rboolean,
-	       Rboolean, const char*, const char*, SEXP, const char*, int,
-	       Rboolean);
+	       double, double, bool, double, bool, bool,
+	       bool, const char*, const char*, SEXP, const char*, int,
+	       bool);
 
-Rboolean
+bool
 PDFDeviceDriver(pDevDesc, const char *, const char *, const char *,
 		const char **, const char *, const char *, const char *,
-		double, double, double, int, int, const char*, SEXP,
-		int, int, const char *, int, int, Rboolean, Rboolean, 
-		Rboolean, Rboolean, const char *);
+		double, double, double, bool, bool, const char*, SEXP,
+		int, int, const char *, int, int, bool, bool, 
+		bool, bool, const char *);
 
 #ifdef _WIN32
 SEXP devga(SEXP);

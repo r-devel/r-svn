@@ -1,6 +1,6 @@
 % File src/library/stats/man/delete.response.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{delete.response}
@@ -11,31 +11,37 @@ delete.response(termobj)
 reformulate(termlabels, response = NULL, intercept = TRUE, env = parent.frame())
 
 drop.terms(termobj, dropx = NULL, keep.response = FALSE)
+
+\method{[}{terms}(termobj, i)
 }
 \alias{reformulate}
 \alias{drop.terms}
 \alias{delete.response}
 \alias{[.terms}
 \arguments{
-  \item{termobj}{A \code{terms} object}
+  \item{termobj}{a \code{\link[=terms.object]{terms}} object.}
   \item{termlabels}{character vector giving the right-hand side of a
-    model formula.  Cannot be zero-length.}
-  \item{response}{character string, symbol or call giving the left-hand
+    model formula.  May be zero-length.}
+  \item{response}{a character string, symbol or call giving the left-hand
     side of a model formula, or \code{NULL}.}
   \item{intercept}{logical: should the formula have an intercept?}
   \item{env}{the \code{\link{environment}} of the \code{\link{formula}}
     returned.}
-  \item{dropx}{vector of positions of variables to drop from the
-    right-hand side of the model.}
-  \item{keep.response}{Keep the response in the resulting object?}
+  \item{dropx, i}{a numeric vector indexing \code{labels(termobj)}
+    (that is, the \code{"term.labels"} attribute of \code{termobj}),
+    indicating terms to drop (\code{dropx}) or select (\code{i}) from
+    the right-hand side of the model. The default \code{dropx=NULL}
+    means to keep all terms.}
+  \item{keep.response}{logical: keep the response in the resulting object?}
 }
 \description{
   \code{delete.response} returns a \code{terms} object for the same
   model but with no response variable.
 
-  \code{drop.terms} removes variables from the right-hand side of the
-  model. There is also a \code{"[.terms"} method to perform the same
-  function (with \code{keep.response = TRUE}).
+  \code{drop.terms} removes terms from the right-hand side of the
+  model, optionally keeping the response.  There is also a
+  \code{[.terms} method performing a complementary operation: it
+  extracts terms, always keeping the response.
 
   \code{reformulate} creates a formula from a character vector.  If
   \code{length(termlabels) > 1}, its elements are concatenated with \code{+}.
@@ -45,10 +51,10 @@ drop.terms(termobj, dropx = NULL, keep.response = FALSE)
   back compatibly, with a deprecation warning.
 }
 \value{
-  \code{delete.response} and \code{drop.terms} return a \code{terms}
+  \code{delete.response} and \code{drop.terms} return a \code{\link{terms}}
   object.
 
-  \code{reformulate} returns a \code{formula}.
+  \code{reformulate} returns a \code{\link{formula}}.
 }
 \seealso{\code{\link{terms}}}
 

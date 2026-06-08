@@ -1,7 +1,7 @@
 #  File src/library/methods/R/BasicClasses.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -518,7 +518,7 @@
 }
 
 ## .OldClassesList is a purely heuristic list of known old-style classes, with emphasis
-## on old-style class inheritiance.  Used in .InitBasicClasses to call setOldClass for
+## on old-style class inheritance.  Used in .InitBasicClasses to call setOldClass for
 ## each known class pattern.
 ## .OldClassesPrototypes is a list of S3 classes for which prototype
 ## objects are known & reasonable.
@@ -550,6 +550,7 @@
          c("POSIXct", "POSIXt"),
          c("POSIXlt", "POSIXt"),
          "Date",
+         "difftime",
          "dump.frames",
          c("glm.null", "glm", "lm"),
          c("anova.glm.null", "anova.glm"),

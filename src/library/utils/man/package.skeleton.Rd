@@ -1,6 +1,6 @@
 % File src/library/utils/man/package.skeleton.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{package.skeleton}
@@ -27,17 +27,16 @@ package.skeleton(name = "anRpackage", list,
   \item{environment}{an environment where objects are looked for.  See
     \sQuote{Details}.}
   \item{path}{path to put the package directory in.}
-  \item{force}{If \code{FALSE} will not overwrite an existing directory.}
+  \item{force}{logical: if \code{FALSE} will not overwrite an existing directory.}
   \item{code_files}{a character vector with the paths to R code files to
     build the package around.  See \sQuote{Details}.}
-  \item{encoding}{optionally a \code{\link{character}} string with an
-    encoding for an optional \samp{Encoding:} line in
-    \file{DESCRIPTION} when non-ASCII characters will be used; typically
-    one of \code{"latin1"}, \code{"latin2"}, or \code{"UTF-8"}; see the
-    \abbr{WRE} manual.}
+  \item{encoding}{optionally a character string specifying an
+    \link{Encoding} for the package \file{DESCRIPTION} when
+    non-ASCII characters will be used; often \code{"UTF-8"}.}
 }
 \value{
   Used for its side-effects.
+  Invisibly returns the path of the created package directory.
 }
 \details{
   The arguments \code{list}, \code{environment}, and \code{code_files}
@@ -81,10 +80,10 @@ package.skeleton(name = "anRpackage", list,
 }
 
 \references{
-  Read the \sQuote{Writing R Extensions} manual for more details.
+  Read the \manual{R-exts}{} manual for more details.
 
   Once you have created a \emph{source} package you need to install it:
-  see the \sQuote{R Installation and Administration} manual,
+  see Section \manual{R-admin}{Installing packages},
   \code{\link{INSTALL}} and \code{\link{install.packages}}.
 }
 

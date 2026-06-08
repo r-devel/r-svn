@@ -1,6 +1,6 @@
 % File src/library/graphics/man/matplot.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{matplot}
@@ -102,9 +102,7 @@ matlines (x, y, type = "l", lty = 1:5, lwd = 1, pch = NULL,
   \code{lty = 1} when using plotting symbols.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{plot}}, \code{\link{points}}, \code{\link{lines}},
@@ -133,24 +131,19 @@ text(cbind(2.5, 2*c(1,3,5)-.4), lends, col= 1:3, cex = 1.5)
 table(iris$Species) # is data.frame with 'Species' factor
 iS <- iris$Species == "setosa"
 iV <- iris$Species == "versicolor"
+PS <- c("Petal", "Sepal") ; clr <- c(2,4)
+psL <- paste(PS, "Length",sep="."); Sps <- paste0("    Setosa ", PS, "s")
+psW <- paste(PS, "Width", sep="."); Vps <- paste0("Versicolor ", PS, "s")
 op <- par(bg = "bisque")
 matplot(c(1, 8), c(0, 4.5), type =  "n", xlab = "Length", ylab = "Width",
         main = "Petal and Sepal Dimensions in Iris Blossoms")
-matpoints(iris[iS,c(1,3)], iris[iS,c(2,4)], pch = "sS", col = c(2,4))
-matpoints(iris[iV,c(1,3)], iris[iV,c(2,4)], pch = "vV", col = c(2,4))
-legend(1, 4, c("    Setosa Petals", "    Setosa Sepals",
-               "Versicolor Petals", "Versicolor Sepals"),
-       pch = "sSvV", col = rep(c(2,4), 2))
+matpoints(iris[iS, psL], iris[iS, psW], pch = "sS", col = clr)
+matpoints(iris[iV, psL], iris[iV, psW], pch = "vV", col = clr)
+legend(1, 4,    c(Sps, Vps),          pch = "sSvV", col = clr)
 
-nam.var <- colnames(iris)[-5]
-nam.spec <- as.character(iris[1+50*0:2, "Species"])
-iris.S <- array(NA, dim = c(50,4,3),
-                dimnames = list(NULL, nam.var, nam.spec))
-for(i in 1:3) iris.S[,,i] <- data.matrix(iris[1:50+50*(i-1), -5])
-
-matplot(iris.S[, "Petal.Length",], iris.S[, "Petal.Width",], pch = "SCV",
+matplot(iris3[, "Petal L.",], iris3[, "Petal W.",], pch = "SCV",
         col = rainbow(3, start = 0.8, end = 0.1),
-        sub = paste(c("S", "C", "V"), dimnames(iris.S)[[3]],
+        sub = paste(c("S", "C", "V"), dimnames(iris3)[[3]],
                     sep = "=", collapse= ",  "),
         main = "Fisher's Iris Data")
 par(op)
@@ -166,6 +159,14 @@ matplot(ct, mSC, type = "b", main = "matplot(<POSIXct>, y)")
 ## or the same with even more axis flexibility:
 matplot(ct, mSC, type = "b", main = "matplot(<POSIXct>, y)", xaxt="n")
 Axis(ct, side=1, at = ct[1+4*(0:24)])
+
+iS <- 1:3 # indices of subset
+matplot(gait[, iS, 1], gait[, iS, 2], pch = "123", type = "b",
+        col = rainbow(3, start = 0.8, end = 0.1),
+        sub = paste(iS, dimnames(gait)[[2]][iS],
+                    sep = "=", collapse= ",  "),
+        xlab = "Hip angle", ylab = "Knee angle",
+        main = "Hip and knee angle while walking")
 
 ## Also works for data frame columns:
 matplot(iris[1:50,1:4])

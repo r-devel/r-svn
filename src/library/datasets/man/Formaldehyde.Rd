@@ -1,6 +1,6 @@
 % File src/library/datasets/man/Formaldehyde.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2009 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Formaldehyde}
@@ -22,13 +22,10 @@
   }
 }
 \source{
-  Bennett, N. A. and N. L. Franklin (1954)
-  \emph{Statistical Analysis in Chemistry and the Chemical Industry}.
-  New York: Wiley.
+  \bibshow{R:Bennett+Franklin:1954}
 }
 \references{
-  McNeil, D. R. (1977) \emph{Interactive Data Analysis.}
-  New York: Wiley.
+  \bibshow{R:McNeil:1977}
 }
 \examples{
 require(stats); require(graphics)

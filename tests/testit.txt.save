@@ -16,13 +16,14 @@ _A_r_g_u_m_e_n_t_s:
 
 _D_e_t_a_i_l_s:
 
-     Included conditional content.
+     Included conditional content.  End(#ifdef).
 
      Escaped backslash '\x'.
 
      '%{}'
 
-     a link and some to known destinations: weighted.mean, '{'
+     a link and some to known destinations: 'weighted.mean', dito, '{',
+     'R_HOME'.
 
      var in <text>.
 
@@ -50,7 +51,8 @@ _V_a_l_u_e:
 
      Yihui Xie's example:
 
-     def ghi
+     def
+          ghi
 
      -
 
@@ -61,6 +63,18 @@ _V_a_l_u_e:
 
      > x<-007
 
+     Georgi Boshnakov's example of generated paragraphs: a
+
+     b
+
+     c
+
+     _one_ two _one_ two
+
+     [1] "a\n    b\n    c"
+
+     R (2025). "t."
+
 \_t_a_b_u_l_a_r:
 
         1              linked text in \tabular  <https://example.org/a&b#c> 
@@ -69,6 +83,13 @@ _V_a_l_u_e:
        -3-                               third                              
                                            row                              
       
+\_e_q_n:
+
+     This should not start a new paragraph: 1/(n-1).
+
+     Simple 1-arg case with basic substitution in plain text (and
+     legacy HTML): 0 <= 'x' <= 1
+
 \_d_e_q_n:
 
      1-arg form, centered also in text conversion:

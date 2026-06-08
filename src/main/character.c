@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,9 +44,9 @@ Comparison is done directly unless you happen to be comparing the same
 string in different encodings.
 
 nzchar and nchar(, "bytes") are independent of the encoding
-nchar(, "char") nchar(, "width") handle UTF-8 and Latin-1 directly 
+nchar(, "char") nchar(, "width") handle UTF-8 and Latin-1 directly
 substr substr<-  handle UTF-8 and Latin-1 directly
-tolower toupper chartr  translate UTF-8 and Latin-1 to wchar (which needs 
+tolower toupper chartr  translate UTF-8 and Latin-1 to wchar (which needs
   Unicode wide characters), rest to current charset
 abbreviate translates non-ASCII inputs to UTF-8 then wchar_t*.
 strtrim translates to the native encoding
@@ -100,6 +100,8 @@ abbreviate chartr make.names strtrim tolower toupper give error.
 
 #include "RBufferUtils.h"
 static R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
+
+static int int_max = INT_MAX;
 
 /* Functions to perform analogues of the standard C string library. */
 /* Most are vectorized */
@@ -157,6 +159,8 @@ attribute_hidden SEXP do_nzchar(SEXP call, SEXP op, SEXP args, SEXP env)
        -2 ... the quantity is not computable (bytes encoding)
      semi-internal buffer cbuff is never freed, should be freed by caller
 */
+// in Defn.h
+attribute_hidden
 int R_nchar(SEXP string, nchar_type type_,
 	    Rboolean allowNA, Rboolean keepNA, const char* msg_name)
 {
@@ -339,17 +343,19 @@ attribute_hidden SEXP do_nchar(SEXP call, SEXP op, SEXP args, SEXP env)
     int *s_ = INTEGER(s);
     for (R_xlen_t i = 0; i < len; i++) {
 	SEXP sxi = STRING_ELT(x, i);
-	int res = R_nchar(sxi, type_, allowNA, keepNA, NULL);
+	// NA_LOGICAL has now been excluded
+	int res = R_nchar(sxi, type_,
+			  (Rboolean) allowNA, (Rboolean) keepNA, NULL);
 	switch(res) {
 	case -1:
-	    error(_("invalid multibyte string, element %ld"), (long)i+1);
-	case -2: 
+	    error(_("invalid multibyte string, element %lld"), (long long)i+1);
+	case -2:
 	    if (type_ == Chars)
-		error(_("number of characters is not computable in \"bytes\" encoding, element %ld"),
-		      (long)i+1);
+		error(_("number of characters is not computable in \"bytes\" encoding, element %lld"),
+		      (long long)i+1);
 	    else /* type_ == Width */
-		error(_("width is not computable in \"bytes\" encoding, element %ld"),
-		      (long)i+1);
+		error(_("width is not computable in \"bytes\" encoding, element %lld"),
+		      (long long)i+1);
 	default:
 	    s_[i] = res;
 	    break;
@@ -384,7 +390,7 @@ static void substr(const char *str, int len, int ienc, int sa, int so,
     if (ienc == CE_UTF8) {
 	if (!assumevalid && !utf8Valid(str)) {
 	    char msg[40];
-	    snprintf(msg, 40, "element %ld", (long)idx+1);
+	    snprintf(msg, 40, "element %lld", (long long)idx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 0; i < sa - 1 && str < end; i++)
@@ -422,26 +428,36 @@ static void substr(const char *str, int len, int ienc, int sa, int so,
 attribute_hidden SEXP
 do_substr(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP s, x;
     checkArity(op, args);
-    x = CAR(args);
+    SEXP x = CAR(args);
     if (!isString(x))
 	error(_("extracting substrings from a non-character object"));
     R_xlen_t len = XLENGTH(x);
-    PROTECT(s = allocVector(STRSXP, len));
-    SEXP lastel = NULL;
+    SEXP s = PROTECT(allocVector(STRSXP, len));
+
     if (len > 0) {
-	SEXP sa = CADR(args),
-	    so = CADDR(args);
+	SEXP sa = CADR(args), // start
+	    so = CADDR(args); // stop
 	int
 	    k = LENGTH(sa),
 	    l = LENGTH(so);
-	if (!isInteger(sa) || !isInteger(so) || k == 0 || l == 0)
+	if (!isInteger(sa) || k == 0 ||
+	    (so != R_NilValue && (!isInteger(so) || l == 0)))
 	    error(_("invalid substring arguments"));
 
+	int *starts = INTEGER(sa), *stops = NULL;
+	if (so == R_NilValue) {
+	    stops = &int_max;
+	    l = 1;
+	} else { // as.integer(.) in R
+	    stops = INTEGER(so);
+	}
+
+	SEXP lastel = NULL;
 	for (R_xlen_t i = 0; i < len; i++) {
-	    int start = INTEGER(sa)[i % k],
-		stop  = INTEGER(so)[i % l];
+
+	    int start = starts[i % k],
+		stop  = stops [i % l];
 	    SEXP el = STRING_ELT(x,i);
 	    if (el == NA_STRING || start == NA_INTEGER || stop == NA_INTEGER) {
 		SET_STRING_ELT(s, i, NA_STRING);
@@ -589,12 +605,12 @@ substrset(char *buf, const char *const str, cetype_t ienc, int sa, int so,
     if (ienc == CE_UTF8) {
 	if (!utf8Valid(buf)) {
 	    char msg[40];
-	    snprintf(msg, 40, "element %ld", (long)xidx+1);
+	    snprintf(msg, 40, "element %lld", (long long)xidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	if (!utf8Valid(str)) {
 	    char msg[40];
-	    snprintf(msg, 40, "value element %ld", (long)vidx+1);
+	    snprintf(msg, 40, "value element %lld", (long long)vidx+1);
 	    error(_("invalid multibyte string, %s"), msg);
 	}
 	for (i = 1; i < sa; i++) buf += utf8clen(*buf);
@@ -632,50 +648,55 @@ substrset(char *buf, const char *const str, cetype_t ienc, int sa, int so,
     }
 }
 
-attribute_hidden SEXP do_substrgets(SEXP call, SEXP op, SEXP args, SEXP env)
+attribute_hidden SEXP
+do_substrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP s, x, sa, so, value, el, v_el;
-    R_xlen_t i, len;
-    int start, stop, k, l, v;
-    size_t slen;
-    cetype_t ienc, venc;
-    const char *ss, *v_ss;
-    char *buf;
-    const void *vmax;
-
     checkArity(op, args);
-    x = CAR(args);
-    sa = CADR(args);
-    so = CADDR(args);
-    value = CADDDR(args);
-    k = LENGTH(sa);
-    l = LENGTH(so);
-
+    SEXP x = CAR(args);
     if (!isString(x))
 	error(_("replacing substrings in a non-character object"));
-    len = LENGTH(x);
-    PROTECT(s = allocVector(STRSXP, len));
+    R_xlen_t len = XLENGTH(x);
+    SEXP s = PROTECT(allocVector(STRSXP, len));
+
     if (len > 0) {
-	if (!isInteger(sa) || !isInteger(so) || k == 0 || l == 0)
+	SEXP sa = CADR(args), // start
+	    so = CADDR(args); // stop
+	int
+	    k = LENGTH(sa),
+	    l = LENGTH(so);
+	if (!isInteger(sa) || k == 0 ||
+	    (so != R_NilValue && (!isInteger(so) || l == 0)))
 	    error(_("invalid substring arguments"));
 
-	v = LENGTH(value);
-	if (!isString(value) || v == 0) error(_("invalid value"));
+	int *starts = INTEGER(sa), *stops = NULL;
+	if (so == R_NilValue) {
+	    stops = &int_max;
+	    l = 1;
+	} else {
+	    stops = INTEGER(so);
+	}
 
-	vmax = vmaxget();
-	for (i = 0; i < len; i++) {
-	    el = STRING_ELT(x, i);
-	    v_el = STRING_ELT(value, i % v);
-	    start = INTEGER(sa)[i % k];
-	    stop = INTEGER(so)[i % l];
+	SEXP value = CADDDR(args);
+	int v = LENGTH(value);
+	if (!isString(value) || v == 0)
+	    error(_("invalid value"));
+
+	void* vmax = vmaxget();
+	for (R_xlen_t i = 0; i < len; i++) {
+
+	    int start = starts[i % k],
+		stop  = stops [i % l];
+	    SEXP el = STRING_ELT(x, i);
+	    SEXP v_el = STRING_ELT(value, i % v);
 	    if (el == NA_STRING || v_el == NA_STRING ||
 		start == NA_INTEGER || stop == NA_INTEGER) {
 		SET_STRING_ELT(s, i, NA_STRING);
 		continue;
 	    }
-	    ienc = getCharCE(el);
-	    ss = CHAR(el);
-	    slen = strlen(ss);
+
+	    cetype_t ienc = getCharCE(el);
+	    const char* ss = CHAR(el);
+	    int slen = (int) strlen(ss);
 	    if (start < 1) start = 1;
 	    if (stop > (int) slen) stop = (int) slen; /* SBCS optimization */
 	    if (start > stop) {
@@ -683,25 +704,26 @@ attribute_hidden SEXP do_substrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 		SET_STRING_ELT(s, i, STRING_ELT(x, i));
 	    } else {
 		int ienc2 = ienc;
-		v_ss = CHAR(v_el);
+		const char* v_ss = CHAR(v_el);
 		/* is the value in the same encoding?
 		   FIXME: could re-encode to UTF-8 rather than to native.
-		 */
-		venc = getCharCE(v_el);
+		*/
+		cetype_t venc = getCharCE(v_el);
 		if (venc != ienc && !IS_ASCII(v_el)) {
 		    ss = translateChar(el);
-		    slen = strlen(ss);
+		    slen = (int) strlen(ss);
 		    v_ss = translateChar(v_el);
 		    ienc2 = CE_NATIVE;
 		}
 		/* might expand under MBCS */
-		buf = R_AllocStringBuffer(slen+strlen(v_ss), &cbuff);
+		char* buf = R_AllocStringBuffer(slen+strlen(v_ss), &cbuff);
 		strcpy(buf, ss);
 		substrset(buf, v_ss, ienc2, start, stop, i, i % v);
 		SET_STRING_ELT(s, i, mkCharCE(buf, ienc2));
 	    }
-	    vmaxset(vmax);
 	}
+	vmaxset(vmax);
+
 	R_FreeStringBufferL(&cbuff);
     }
     SHALLOW_DUPLICATE_ATTRIB(s, x);
@@ -822,10 +844,10 @@ donesc:
 // lower-case vowels in English plus accented versions
 static int vowels[] = {
     0x61, 0x65, 0x69, 0x6f, 0x75,
-    0xe0, 0xe1, 0x2e, 0xe3, 0xe4, 0xe5,
+    0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5,
     0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
-    0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc,
-    0x101, 0x103, 0x105, 0x113, 0x115, 0x117, 0x118, 0x11b,
+    0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd,
+    0x101, 0x103, 0x105, 0x113, 0x115, 0x117, 0x119, 0x11b,
     0x129, 0x12b, 0x12d, 0x12f, 0x131, 0x14d, 0x14f, 0x151,
     0x169, 0x16b, 0x16d, 0x16f, 0x171, 0x173
 };
@@ -877,14 +899,14 @@ static SEXP wstripchars(const wchar_t * const inchar, int minlen, int usecl)
 	}
 
 	for (i = WUP; i > 0; i--) {
-	    if (islower((int)wc[i]) && LASTCHARW(i))
+	    if (iswlower((wint_t)wc[i]) && LASTCHARW(i))
 		mywcscpy(wc + i, wc + i + 1);
 	    if (wcslen(wc) - nspace <= minlen)
 		goto donewsc;
 	}
 
 	for (i = WUP; i > 0; i--) {
-	    if (islower((int)wc[i]) && !FIRSTCHARW(i))
+	    if (iswlower((wint_t)wc[i]) && !FIRSTCHARW(i))
 		mywcscpy(wc + i, wc + i + 1);
 	    if (wcslen(wc) - nspace <= minlen)
 		goto donewsc;
@@ -1152,7 +1174,7 @@ attribute_hidden SEXP do_tolower(SEXP call, SEXP op, SEXP args, SEXP env)
 				wc[j] = Ri18n_towlower(wc[j]);
 #else
 			/* This cannot cope with surrogate pairs,
-			   if mbstowcs can make them. */ 
+			   if mbstowcs can make them. */
 			for (j = 0; j < nc; j++) wc[j] = towctrans(wc[j], tr);
 #endif
 			nb = (int) wcstombs(NULL, wc, 0);

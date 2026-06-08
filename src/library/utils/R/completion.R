@@ -1,7 +1,7 @@
 #  File src/library/utils/R/completion.R
 #  Part of the R package, https://www.R-project.org
 #
-# Copyright (C) 2006-2022  The R Core Team
+# Copyright (C) 2006-2026  The R Core Team
 # Copyright (C) 2006-2022  Deepayan Sarkar
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -122,9 +122,9 @@ findFuzzyMatches <- function(pattern, values) {
 
 findMatches <- function(pattern, values, fuzzy, backtick)
 {
-    if (missing(fuzzy)) fuzzy <- isTRUE(.CompletionEnv$settings[["fuzzy"]])
+    if (missing(fuzzy))    fuzzy    <- isTRUE(.CompletionEnv$settings[["fuzzy"]])
     if (missing(backtick)) backtick <- isTRUE(.CompletionEnv$settings[["backtick"]])
-    comps <- 
+    comps <-
         if (fuzzy)
             findFuzzyMatches(pattern, values)
         else
@@ -292,7 +292,6 @@ rc.status <- function()
 ## linebuffer and end to be already set, and itself sets token and
 ## start.  It returns the token.
 
-## FIXME: should this use getOption("rl_word_breaks")?
 
 .guessTokenFromLine <-
     function(linebuffer = .CompletionEnv[["linebuffer"]],
@@ -313,10 +312,13 @@ rc.status <- function()
             suppressWarnings(gregexpr("['\"]", linebuffer,
                                       perl = TRUE))[[1L]]
         else
+            ## basically the complement of  getOption("rl_word_breaks") - should adapt to user setting -- FIXME
+            ## FIXME_Alt: use argument   startPatt = "[^\\.\\w:?$@%[\\]]+" instead of hardwired
+            ##
             ##                    things that should not cause breaks
-            ##                           _____.^._____
-            ##                          /             \
-            suppressWarnings(gregexpr("[^\\.\\w:?$@[\\]]+",
+            ##                           _____.^.______
+            ##                          /              \
+            suppressWarnings(gregexpr("[^\\.\\w:?$@%[\\]]+",
                                       linebuffer,
                                       perl = TRUE))[[1L]]
     start <- ## 0-indexed
@@ -610,6 +612,8 @@ loadedPackageCompletions <- function(text, add = rc.getOption("package.suffix"))
     if (.CompletionEnv$settings[["ns"]])
     {
         s <- loadedNamespaces()
+        ## if rc.settings(ipck=TRUE), also do all installed packages
+        if (.CompletionEnv$settings[["ipck"]]) s <- unique(c(s, rownames(installed.packages())))
         comps <- findExactMatches(sprintf("^%s", makeRegexpSafe(text)), s)
         if (length(comps) && !is.null(add))
             sprintf("%s%s", comps, add)
@@ -642,7 +646,7 @@ normalCompletions <-
                         dot_internals = TRUE)
         if (.CompletionEnv$settings[["func"]] && check.mode && !is.null(add.fun))
         {
-            which.function <- sapply(comps, function(s) exists(s, mode = "function"))
+            which.function <- vapply(comps, exists, NA, mode = "function")
             if (any(which.function))
                 comps[which.function] <-
                     sprintf("%s%s", comps[which.function], add.fun)
@@ -1044,7 +1048,7 @@ fileCompletions <- function(token)
             ## re-use that here.  The problem is that for other
             ## backends a token may already have been determined, and
             ## that's what we will need to use.  We can still fake it
-            ## by using the correct token but substracting the extra
+            ## by using the correct token but subtracting the extra
             ## part when providing completions, but that will need
             ## some work.
 
@@ -1376,7 +1380,7 @@ fileCompletions <- function(token)
         "internet.info", "locatorBell", "mailer", "menu.graphics",
         "na.action", "pkgType", "repos", "show.coef.Pvalues",
         "show.signif.stars", "str", "str.dendrogram.last",
-        "ts.eps", "ts.S.compat", "unzip", "windowsTimeout",
+        "ts.eps", "ts.S.compat", "unzip", "windowsTimeouts",
         ## + options unset by default (or OS-specific)
         "mc.cores", "dvipscmd", "warn.FPU",
         "askYesNo", "BioC_mirror", "ccaddress", "checkPackageLicense",
@@ -1385,7 +1389,7 @@ fileCompletions <- function(token)
         "help.htmlmath", "help.htmltoc", "help.ports", "help_type", "install.lock",
         "install.packages.check.source",
         "install.packages.compile.from.source",
-        "interrupt", "Ncpus", "save.defaults", "save.image.defaults",
+        "interrupt", "Ncpus", "netrc", "save.defaults", "save.image.defaults",
         "setWidthOnResize", "show.error.locations", "show.nls.convergence",
         "SweaveHooks", "SweaveSyntax", "topLevelEnvironment",
         "traceback.max.lines", "url.method", "warning.expression"

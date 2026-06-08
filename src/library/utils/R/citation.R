@@ -128,6 +128,30 @@ function(given = NULL, family = NULL, middle = NULL,
                 else
                     names(comment)[ind] <- "ORCID"
             }
+            if(any(ind <- (names(comment) == "ORCID"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ORCID_iD_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ORCID iD: %s.",
+                                             "Invalid ORCID iDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
+            }
+            if(any(ind <- (names(comment) == "ROR"))) {
+                ids <- comment[ind]
+                bad <- which(!tools:::.ROR_ID_is_valid(ids))
+                if(length(bad)) {
+                    warning(sprintf(ngettext(length(bad),
+                                             "Invalid ROR ID: %s.",
+                                             "Invalid ROR IDs: %s."),
+                                    paste(sQuote(ids[bad]),
+                                          collapse = ", ")),
+                            domain = NA)
+                }
+            }
         }
 
         rval <- list(given = given, family = family, role = role,
@@ -244,8 +268,10 @@ function(x, i, j, value)
         value <- rep_len(value, length(p))
         if(j == "role")
             value <- lapply(value, .canonicalize_person_role)
-        for(i in p)
-            y[[i]] <- .person_elt_fld_gets(y[[i]], j, value[[i]])            
+        for(i in seq_along(p)) {
+            k <- p[i]
+            y[[k]] <- .person_elt_fld_gets(y[[k]], j, value[[i]])
+        }
     }
     class(y) <- class(x)
     y
@@ -404,7 +430,17 @@ function(x)
             if(any(i <- grepl(tools:::.ORCID_iD_variants_regexp,
                               chunks))) {
                 chunks[i] <- tools:::.ORCID_iD_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
                 names(chunks)[i] <- "ORCID"
+                comment <- chunks
+            }
+            if(any(i <- grepl(tools:::.ROR_ID_variants_regexp,
+                              chunks))) {
+                chunks[i] <- tools:::.ROR_ID_canonicalize(chunks[i])
+                if(is.null(names(chunks)))
+                    names(chunks) <- rep_len("", length(chunks))
+                names(chunks)[i] <- "ROR"
                 comment <- chunks
             }
         }
@@ -526,8 +562,14 @@ function(x,
     if(any(include == "comment"))
         x <- lapply(x,
                     function(e) {
-                        e$comment <-
-                            .expand_ORCID_identifier(e$comment, style)
+                        u <- .expand_person_comment_identifiers(e$comment,
+                                                                style)
+                        if(!is.null(v <- names(u))) {
+                            i <- which(nzchar(v))
+                            if(length(i))
+                                u[i] <- paste0(v[i], ": ", u[i])
+                        }
+                        e$comment <- u
                         e
                     })
 
@@ -585,7 +627,7 @@ function(object, escape = FALSE, ...)
     y
 }
 
-.expand_ORCID_identifier <-
+.expand_person_comment_identifiers <-
 function(x, style = "text")
 {
     if(any(ind <- ((names(x) == "ORCID") &
@@ -596,6 +638,15 @@ function(x, style = "text")
                               oid, oid)
                   else
                       sprintf("<https://orcid.org/%s>", oid)
+    }
+    if(any(ind <- ((names(x) == "ROR") &
+                   grepl(tools:::.ROR_ID_variants_regexp, x)))) {
+        rid <- tools:::.ROR_ID_canonicalize(x[ind])
+        x[ind] <- if(style == "md")
+                      sprintf("[ROR %s](https://ror.org/%s)",
+                              rid, rid)
+                  else
+                      sprintf("<https://ror.org/%s>", rid)
     }
     x
 }
@@ -688,6 +739,10 @@ function(bibtype, textVersion = NULL, header = NULL, footer = NULL, key = NULL,
 	}
 	if(any(!pos)) {
             for(i in which(!pos)) {
+                if((fields[i] %in%
+                    bibentry_field_names_organization_like) &&
+                   inherits(rval[[i]], "person"))
+                    next
                 s <- trimws(as.character(rval[[i]]))
                 ## <NOTE>
                 ## Further above we did
@@ -762,13 +817,16 @@ bibentry_attribute_names <-
 bibentry_list_attribute_names <-
     c("mheader", "mfooter")
 
+bibentry_field_names_organization_like <-
+    c("institution", "organization", "publisher", "school")
+
 .bibentry_get_key <-
 function(x)
 {
     if(!length(x)) return(character())
     keys <- lapply(unclass(x), attr, "key")
     keys[!lengths(keys)] <- ""
-    unlist(keys)
+    unlist(keys, use.names = FALSE)
 }
 
 .bibentry_names_or_keys <-
@@ -842,14 +900,15 @@ function(x, i, j, value)
         if(j == "bibtype")
             value <- .bibentry_canonicalize_bibtype_value(value)
         a <- (j %in% bibentry_attribute_names)
-        for(i in p) {
-            y[[i]] <- .bibentry_elt_fld_gets(y[[i]], j, value[[i]], a)
+        for(i in seq_along(p)) {
+            k <- p[i]
+            y[[k]] <- .bibentry_elt_fld_gets(y[[k]], j, value[[i]], a)
         }
     }
     class(y) <- class(x)
     y
 }
-    
+
 `[[<-.bibentry` <-
 function(x, i, j, value)
 {
@@ -903,6 +962,9 @@ function(x, i = NULL)
                 NULL
             else if(j %in% c("author", "editor"))
                 as.person(v)
+            else if((j %in% bibentry_field_names_organization_like) &&
+                    inherits(v, "person"))
+                v
             else
                 paste(v)
     }
@@ -1036,7 +1098,7 @@ function(x, style = "text", .bibstyle = NULL,
         switch(style,
                "text" = format_via_Rd(tools::Rd2txt),
                "html" = format_via_Rd(tools::Rd2HTML),
-               "latex" = format_via_Rd(tools::Rd2latex),
+               "latex"= format_via_Rd(tools::Rd2latex),
                "Bibtex" = {
                    unlist(lapply(x,
                                  function(y)
@@ -1206,20 +1268,16 @@ function(x, collapse = FALSE)
                     ind <- !is.na(match(names(e),
                                        c(anames, manames, "other")))
                     if(any(ind)) {
-                        other <- paste(names(e[ind]),
-                                       sapply(e[ind], f),
-                                       sep = " = ")
-
                         other <- Map(g,
                                      names(e[ind]),
-                                     sapply(e[ind], f))
+                                     lapply(e[ind], f))
                         other <- .format_call_RR("list", other)
                         e <- e[!ind]
                     } else {
                         other <- NULL
                     }
-                    c(Map(g, names(a), sapply(a, deparse)),
-                      Map(g, names(e), sapply(e, f)),
+                    c(Map(g, names(a), lapply(a, deparse)),
+                      Map(g, names(e), lapply(e, f)),
                       if(length(other)) list(g("other", other)))
 
                 })
@@ -1245,8 +1303,9 @@ function(x)
     s <- lapply(unclass(x),
                 function(e) {
                     e <- e[!vapply(e, is.null, NA)]
-                    cargs <-
-                        sprintf("%s = %s", names(e), sapply(e, deparse1))
+                    cargs <- sprintf("%s = %s",
+                                     names(e),
+                                     vapply(e, deparse1, ""))
                     .format_call_RR("person", cargs)
                 })
     if(length(s) > 1L)
@@ -1360,6 +1419,12 @@ function(object, escape = FALSE, ...)
             object$author <- format_author(object$author)
         if("editor" %in% names(object))
             object$editor <- format_author(object$editor)
+
+        for(n in intersect(names(object),
+                           bibentry_field_names_organization_like)) {
+            if(inherits(o <- object[[n]], "person"))
+                object[[n]] <- o$given
+        }
 
         rval <- c(rval,
                   vapply(names(object),
@@ -1598,9 +1663,7 @@ function(package = "base", lib.loc = NULL, auto = NULL)
     if(identical(meta$Repository, "CRAN")) {
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
-        if(!is.na(d <- meta[["Date/Publication"]]) &&
-           (as.Date(d) <= Sys.Date() - 1L))
-            z$doi <- sprintf("10.32614/CRAN.package.%s", package)
+        z$doi <- sprintf("10.32614/CRAN.package.%s", package)
     }
 
     if(identical(meta$Repository, "R-Forge")) {
@@ -1705,17 +1768,43 @@ function(x, package = NULL)
 }
 
 .read_authors_at_R_field <-
-function(x)
+function(x, strict = FALSE)
 {
-    out <- if((Encoding(x) == "UTF-8") && !l10n_info()$"UTF-8") {
+    exprs <- if((Encoding(x) == "UTF-8") && !l10n_info()$"UTF-8") {
         con <- file()
         on.exit(close(con))
         writeLines(x, con, useBytes = TRUE)
-        eval(parse(con, encoding = "UTF-8"))
+        parse(con, encoding = "UTF-8")
     } else {
-        eval(str2expression(x))
+        str2expression(x)
     }
 
+    oknms_from_base <-
+        c("c", "list", "paste", "paste0", "(")
+    oknms_from_utils <-
+        c("person", "as.person")
+    oknms <- c(oknms_from_utils, oknms_from_base)
+    env <- new.env(parent = emptyenv())
+    for(n in oknms_from_base)
+        assign(n, get(n, baseenv()), env)
+    for(n in oknms_from_utils)
+        assign(n, get(n, getNamespace("utils")), env)
+    fun <- function(e) {
+        msg <- c("Found the following non-standard call:",
+                 sprintf("  %s", deparse1(e$call)),
+                 strwrap(sprintf("Please only use calls to %s.", 
+                                 paste(sQuote(oknms[-length(oknms)]),
+                                       collapse = ", "))))
+        msg <- paste(msg, collapse = "\n")
+        if(strict)
+            stop(msg, call. = FALSE)
+        else {
+            message(msg)
+            return(person())
+        }
+    }
+    out <- tryCatch(eval(exprs, env),
+                    functionNotFoundError = fun)
     ## Let's by nice ...
     ## Alternatively, we could throw an error.
     if(!inherits(out, "person"))
@@ -1965,26 +2054,52 @@ local({
                 year <- year[-suppressauth]
             }
         }
-        if (!is.null(before))
-            before <- paste0(before, " ")
-        if (!is.null(after))
-            after <- paste0(" ", after)
+
+        n <- length(year)
+        before <- if(!any(ind <- nzchar(before)))
+                      rep_len("", n)
+                  else {
+                      before[ind] <- paste0(before[ind], " ")
+                      if(length(before) == 1L)
+                          c(before, rep_len("", n - 1L))
+                      else
+                          rep_len(before, n)
+                  }
+        after <- if(!any(ind <- nzchar(after)))
+                     rep_len("", n)
+                 else {
+                     after[ind] <- paste0(", ", after[ind])
+                     if(length(after) == 1L)
+                         c(rep_len("", n - 1L), after)
+                     else
+                         rep_len(after, n)
+                 }
+        citesep <- paste0(bibpunct[3L], " ")
         if (textual) {
-            result <- paste0(bibpunct[1L], before, year, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             before, year, after,
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0(auth, "^{", result, "}")
             else
             	result <- paste0(auth, " ", result)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
+            result <- paste(result, collapse = citesep)
         } else if (numeric) {
-            result <- paste(year, collapse=paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
             if (mode == "super")
             	result <- paste0("^{", result, "}")
         } else {
-            result <- paste0(auth, bibpunct[5L], " ", year)
-            result <- paste(result, collapse = paste0(bibpunct[3L], " "))
-            result <- paste0(bibpunct[1L], before, result, after, bibpunct[2L])
+            result <- paste0(bibpunct[1L],
+                             paste0(before,
+                                    auth, bibpunct[5L], " ", year,
+                                    after,
+                                    collapse = citesep),
+                             bibpunct[2L])
         }
         result
     }

@@ -18,7 +18,8 @@ isdebugged(fun, signature = NULL)
 debuggingState(on = NULL)
 }
 \arguments{
-  \item{fun}{any interpreted \R function.}
+  \item{fun}{any interpreted \R function or a character string naming
+    one.}
   \item{text}{a text string that can be retrieved when the browser is entered.}
   \item{condition}{a condition that can be retrieved when the browser is
     entered.}
@@ -70,7 +71,7 @@ debuggingState(on = NULL)
   specified in combination with a non-null \code{signature}. For methods
   which implement the \code{.local} rematching mechanism, the
   \code{.local} closure itself is the one that will be ultimately
-  debugged (see \code{\link[methods:RMethodUtils]{isRematched}}).
+  debugged (see \code{\link[methods]{isRematched}}).
   
   \code{isdebugged} returns \code{TRUE} if a) \code{signature} is \code{NULL}
   and the closure \code{fun} has been debugged, or b) \code{signature} is not

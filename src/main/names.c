@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2024  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -267,8 +267,9 @@ FUNTAB R_FunTab[] =
 {"match.call",	do_matchcall,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"crossprod",	do_matprod,	1,	1,	1,	{PP_FUNCALL, PREC_FN,   0}},
 {"tcrossprod",	do_matprod,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"asplit",	do_asplit,	0,	11,	8,	{PP_FUNCALL, PREC_FN,	0}},
 {"lengths",	do_lengths,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
-{"sequence",	do_sequence,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"sequence",	do_sequence,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 
 {"vhash",	do_vhash,	0,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 
@@ -282,8 +283,8 @@ FUNTAB R_FunTab[] =
 {"round",	do_Math2,	10001,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"signif",	do_Math2,	10004,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"log",		do_log,		10003,	0,	-1,	{PP_FUNCALL, PREC_FN,	0}},
-{"log10",	do_log1arg,	10,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"log2",	do_log1arg,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"log10",	do_log1arg,	10010,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"log2",	do_log1arg,	10002,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"abs",		do_abs,		6,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"floor",	do_math1,	1,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"ceiling",	do_math1,	2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -507,6 +508,7 @@ FUNTAB R_FunTab[] =
 {"cumprod",	do_cum,		2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"cummax",	do_cum,		3,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"cummin",	do_cum,		4,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"cumvar",	do_cum,		5,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Type coercion */
 
@@ -791,7 +793,7 @@ FUNTAB R_FunTab[] =
 {"file.symlink",do_filesymlink,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.link",	do_filelink,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.copy",	do_filecopy,	0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
-{"list.files",	do_listfiles,	0,	11,	8,	{PP_FUNCALL, PREC_FN,	0}},
+{"list.files",	do_listfiles,	0,	11,	9,	{PP_FUNCALL, PREC_FN,	0}},
 {"list.dirs",	do_listdirs,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.exists", do_fileexists,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.choose", do_filechoose,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -838,7 +840,7 @@ FUNTAB R_FunTab[] =
 {"Sys.time",	do_systime,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"as.POSIXct",	do_asPOSIXct,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"as.POSIXlt",	do_asPOSIXlt,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
-{"format.POSIXlt",do_formatPOSIXlt,0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"format.POSIXlt",do_formatPOSIXlt,0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"strptime",	do_strptime,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"Date2POSIXlt",do_D2POSIXlt,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"POSIXlt2Date",do_POSIXlt2D,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -887,6 +889,7 @@ FUNTAB R_FunTab[] =
 {"gzfile",	do_gzfile,	0,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
 {"bzfile",	do_gzfile,	1,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
 {"xzfile",	do_gzfile,	2,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
+{"zstdfile",	do_gzfile,	3,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
 {"unz",		do_unz,		0,      11,     3,      {PP_FUNCALL, PREC_FN,	0}},
 {"seek",	do_seek,	0,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
 {"truncate",	do_truncate,	0,      11,     1,      {PP_FUNCALL, PREC_FN,	0}},
@@ -921,6 +924,18 @@ FUNTAB R_FunTab[] =
 {"makeActiveBinding", do_mkActiveBnd,	0, 111,	3,      {PP_FUNCALL, PREC_FN,	0}},
 {"bindingIsActive", do_bndIsActive,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
 {"activeBindingFunction", do_activeBndFun,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"getBindingType", do_bindingType,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"delayedBindingExpression", do_delayedBindingExpr, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"delayedBindingEnvironment", do_delayedBindingEnv, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"forcedBindingExpression", do_forcedBindingExpr, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"dotsExist", do_dotsExist,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"getDotType", do_dotType,		0, 11,	3,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotDelayedExpression", do_dotDelayedExpr, 0, 11, 3,  {PP_FUNCALL, PREC_FN,	0}},
+{"dotDelayedEnvironment", do_dotDelayedEnv, 0, 11, 3,  {PP_FUNCALL, PREC_FN,	0}},
+{"dotForcedExpression", do_dotForcedExpr, 0, 11, 3,    {PP_FUNCALL, PREC_FN,	0}},
+{"dotsLength", do_CDotsLength,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotsNames", do_CDotsNames,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotsElt", do_CDotsElt,		0, 11,	3,      {PP_FUNCALL, PREC_FN,	0}},
 {"mkUnbound",	do_mkUnbound,		0, 111,	1,      {PP_FUNCALL, PREC_FN,	0}},
 {"isNamespaceEnv",do_isNSEnv,		0, 11,	1,      {PP_FUNCALL, PREC_FN,	0}},
 {"registerNamespace",do_regNS,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
@@ -1202,7 +1217,7 @@ static SEXP mkSymMarker(SEXP pname)
 }
 
 /* initialize the symbol table */
-void attribute_hidden InitNames(void)
+attribute_hidden void InitNames(void)
 {
     /* allocate the symbol table */
     if (!(R_SymbolTable = (SEXP *) calloc(HSIZE, sizeof(SEXP))))

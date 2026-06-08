@@ -1,7 +1,7 @@
 #  File src/library/tools/R/news.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -204,10 +204,10 @@ function(file)
             ire <- sprintf("^[[:space:]]*([%s])[[:space:]]+", sep)
             ind <- grepl(ire, lines)
             list(entries =
-                 sapply(split(lines, cumsum(ind)),
+                 vapply(split(lines, cumsum(ind)),
                         function(s)
-                        sub(ire, "", .collapse(sub("^\t?", "", s)))
-                        ),
+                            sub(ire, "", .collapse(sub("^\t?", "", s))),
+                        ""),
                  header = header,
                  chunk = chunk,
                  date = date)
@@ -376,7 +376,9 @@ function(f, pdf_file)
     on.exit(setwd(od))
     ## avoid broken texi2pdf scripts: this is simple LaTeX
     ## and emulation suffices
-    texi2pdf("NEWS.tex", quiet = TRUE, texi2dvi = "emulation")
+    texi2pdf("NEWS.tex", quiet = TRUE, texi2dvi = "emulation",
+             ## ensure _this_ R's Rd.sty is found first:
+             texinputs = file.path(R.home("share"), "texmf", "tex", "latex"))
     setwd(od); on.exit()
     invisible(file.copy(file.path(dirname(f3), "NEWS.pdf"),
                         pdf_file, overwrite = TRUE))
@@ -417,7 +419,7 @@ function(file, out = stdout(), codify = FALSE)
         }
     }
 
-    ## No longer support taking NEWS files without correponding
+    ## No longer support taking NEWS files without corresponding
     ## DESCRIPTION file as being from R itself (PR #16556).
 
     meta <- .read_description(dfile)
@@ -520,11 +522,14 @@ function(file = NULL, Rfile = "NEWS.rds")
     }
 
     db <- .extract_news_from_Rd(x)
-    skip <- c("CHANGES in previous versions", "LATER NEWS", "OLDER NEWS")
-    db <- db[!(db[,1L] %in% skip),,drop = FALSE]
+    skip <- c("CHANGES in previous versions",
+              "Changes in previous versions",
+              "LATER NEWS", "OLDER NEWS")
+    db <- db[!(db[, 1L] %in% skip), , drop = FALSE]
 
     ## Squeeze in an empty date column.
-    .make_news_db(cbind(sub("^CHANGES IN (R )?(VERSION )?", "", db[, 1L]),
+    .make_news_db(cbind(sub("^CHANGES IN (R )?(VERSION )?", "",
+                            db[, 1L], ignore.case = TRUE),
                         NA_character_,
                         db[, 2L],
                         Text = sub("\n*$", "", db[, 3L]),
@@ -575,7 +580,10 @@ function(file)
 function(x)
 {
     get_section_names <- function(x)
-        sapply(x, function(e) .Rd_get_text(e[[1L]]))
+        vapply(x,
+               function(e)
+                   paste(.Rd_get_text(e[[1L]]), collapse = " "),
+               "")
 
     get_item_texts <- function(x) {
         ## Currently, chunks should consist of a single \itemize list

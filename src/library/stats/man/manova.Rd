@@ -29,12 +29,8 @@ manova(\dots)
 %   the formula should not include an \code{Error} term.
 % }
 \references{
-  Krzanowski, W. J. (1988) \emph{Principles of Multivariate Analysis. A
-    User's Perspective.} Oxford.
-
-  Hand, D. J. and Taylor, C. C.  (1987)
-  \emph{Multivariate Analysis of Variance and Repeated Measures.}
-  Chapman and Hall.
+  \bibshow{R:Hand+Taylor:1987,
+    R:Krzanowski:1988}
 }
 \seealso{
   \code{\link{aov}}, \code{\link{summary.manova}}, the latter containing

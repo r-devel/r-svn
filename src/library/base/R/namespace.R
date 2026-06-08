@@ -1,11 +1,11 @@
 #  File src/library/base/R/namespace.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 3 of the License, or
+#  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 #
 #  This program is distributed in the hope that it will be useful,
@@ -184,7 +184,6 @@ loadNamespace <- function (package, lib.loc = NULL,
                            partial = FALSE, versionCheck = NULL,
                            keep.parse.data = getOption("keep.parse.data.pkgs"))
 {
-    libpath <- attr(package, "LibPath")
     package <- as.character(package)[[1L]]
 
     loading <- dynGet("__NameSpacesLoading__", NULL)
@@ -196,15 +195,28 @@ loadNamespace <- function (package, lib.loc = NULL,
     "__NameSpacesLoading__" <- c(package, loading)
 
     ns <- .Internal(getRegisteredNamespace(package))
-    if (! is.null(ns)) {
-        if(!is.null(zop <- versionCheck[["op"]]) &&
-           !is.null(zversion <- versionCheck[["version"]])) {
+    if(!is.null(versionCheck) && !is.list(versionCheck))
+        stop("'versionCheck' must be NULL or a list with components 'op' and 'version'")
+    checkVer <- !is.null(zop      <- versionCheck[["op"]]) &&
+                !is.null(zversion <- versionCheck[["version"]])
+    if (! is.null(ns)) { ## already loaded
+        if(checkVer) {
             current <- getNamespaceVersion(ns)
             if(!do.call(zop, list(as.numeric_version(current), zversion)))
                 stop(gettextf("namespace %s %s is already loaded, but %s %s is required",
                               sQuote(package), current, zop, zversion),
                      domain = NA)
         }
+        ## used to silently ignore all other arguments. Still ignore 'lib.loc'
+        if(!missing(keep.source))
+            message(gettextf("namespace '%s' is already loaded so argument '%s' will be ignored.",
+                             package, "keep.source"))
+        if(!missing(partial))
+            message(gettextf("namespace '%s' is already loaded so argument '%s' will be ignored.",
+                             package, "partial"))
+        if(!missing(keep.parse.data))
+            message(gettextf("namespace '%s' is already loaded so argument '%s' will be ignored.",
+                             package, "keep.parse.data"))
         ## return
         ns
     } else {
@@ -283,7 +295,7 @@ loadNamespace <- function (package, lib.loc = NULL,
         bindTranslations <- function(pkgname, pkgpath)
         {
             ## standard packages are treated differently
-            std <- c("compiler", "grDevices", "graphics", "grid",
+            std <- c("compiler", "foreign", "grDevices", "graphics", "grid",
                      "methods", "parallel", "splines", "stats", "stats4",
                      "tcltk", "tools", "utils")
             popath <- if (pkgname %in% std) .popath else file.path(pkgpath, "po")
@@ -360,7 +372,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
         ## find package, allowing a calling handler to retry if not found.
         ## could move the retry functionality into find.package.
-        fp.lib.loc <- c(libpath, lib.loc)
+        fp.lib.loc <- lib.loc
         pkgpath <- find.package(package, fp.lib.loc, quiet = TRUE)
         if (length(pkgpath) == 0L) {
             cond <- packageNotFoundError(package, fp.lib.loc, sys.call())
@@ -414,8 +426,7 @@ loadNamespace <- function (package, lib.loc = NULL,
             ## will require it, or the exports will be incomplete.
             dependsMethods <- "methods" %in% c(names(pkgInfo$Depends), names(vI))
             if(dependsMethods) loadNamespace("methods")
-            if(!is.null(zop <- versionCheck[["op"]]) &&
-               !is.null(zversion <- versionCheck[["version"]]) &&
+            if(checkVer &&
                !do.call(zop, list(as.numeric_version(version), zversion)))
                 stop(gettextf("namespace %s %s is being loaded, but %s %s is required",
                               sQuote(package), version, zop, zversion),
@@ -431,7 +442,7 @@ loadNamespace <- function (package, lib.loc = NULL,
         ## moved from library() in R 3.4.0
         checkLicense <- function(pkg, pkgInfo, pkgPath)
         {
-            L <- tools:::analyze_license(pkgInfo$DESCRIPTION["License"])
+            L <- tools::analyze_license(pkgInfo$DESCRIPTION["License"])
             if(!L$is_empty && !L$is_verified) {
                 site_file <-
                     path.expand(file.path(R.home("etc"), "licensed.site"))
@@ -773,9 +784,7 @@ loadNamespace <- function (package, lib.loc = NULL,
                 for(i in seq_along(expMethods)) {
                     mi <- expMethods[[i]]
                     if(lev > 3L) message("---- export method ", sQuote(mi))
-                    if(!(mi %in% exports) &&
-                       exists(mi, envir = ns, mode = "function",
-                              inherits = FALSE))
+                    if(!(mi %in% exports) && is.function(ns[[mi]]))
                         exports <- c(exports, mi)
                     pattern <- paste0(tPrefix, mi, ":")
                     ii <- grep(pattern, allMethodTables, fixed = TRUE)
@@ -827,14 +836,22 @@ requireNamespace <- function (package, ..., quietly = FALSE)
 {
     package <- as.character(package)[[1L]] # like loadNamespace
     ns <- .Internal(getRegisteredNamespace(package))
+    if (is.null(ns) && !quietly) {
+        packageStartupMessage(gettextf("Loading required namespace: %s",
+                                       package), domain = NA)
+    }
     res <- TRUE
-    if (is.null(ns)) {
-        if(!quietly)
-            packageStartupMessage(gettextf("Loading required namespace: %s",
-                                           package), domain = NA)
+    if (is.null(ns) || ...length()) {
+        ## not already loaded or ... is non-ecmpty
+        ## (LoadNamepace will only look at versionCheck, but this catches
+        ## misspelled arguments.)
         value <- tryCatch(loadNamespace(package, ...), error = function(e) e)
         if (inherits(value, "error")) {
-            if (!quietly) {
+            if(quietly) { # invalid 'versionCheck' error should signal
+                if(any("versionCheck" == ...names()) &&
+                   grepl("versionCheck", conditionMessage(value), fixed=TRUE))
+                    stop(value)
+            } else {
                 msg <- conditionMessage(value)
                 cat("Failed with error:  ",
                     sQuote(msg), "\n", file = stderr(), sep = "")
@@ -1056,7 +1073,7 @@ namespaceImportFrom <- function(self, ns, vars, generics, packages,
                 ## and is in order of adding.
                 current <- getNamespaceInfo(self, "imports")
                 poss <- lapply(rev(current), `[`, n)
-                poss <- poss[!sapply(poss, is.na)]
+                poss <- poss[!vapply(poss, is.na, NA)]
                 if(length(poss) >= 1L) {
                     prev <- names(poss)[1L]
                     warning(sprintf(gettext("replacing previous import %s by %s when loading %s"),

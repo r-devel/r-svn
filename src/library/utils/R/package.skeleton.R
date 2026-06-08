@@ -1,7 +1,7 @@
 #  File src/library/utils/R/package.skeleton.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ package.skeleton <-
     if(!grepl(sprintf("^%s$", .standard_regexps()$valid_package_name),
               name))
         stop("Malformed package name.")
-    
+
     safe.dir.create <- function(path)
     {
 	if(!dir.exists(path) && !dir.create(path))
@@ -86,8 +86,11 @@ package.skeleton <-
                         paste(sQuote(list[!have]), collapse=", ")),
                 domain = NA)
     list <- list[have]
-    if(!length(list))
-	stop("no R objects specified or available")
+    ## For a long time we had
+    ##   if(!length(list))
+    ##       stop("no R objects specified or available")
+    ## but clearly there is a need for creating skeletons for packages
+    ## with no R code.
 
     message("Creating directories ...", domain = NA)
     ## Make the directories
@@ -108,8 +111,9 @@ package.skeleton <-
 	"Title: What the Package Does (Short Line)\n",
 	"Version: 1.0\n",
 	"Date: ", format(Sys.time(), format="%Y-%m-%d"), "\n",
-	"Author: Who wrote it\n",
-	"Maintainer: Who to complain to <yourfault@somewhere.net>\n",
+        "Authors@R: c(person(\"Givenname\", \"Familyname\", role = c(\"aut\", \"cre\"),\n",
+        "                    email = \"yourfault@somewhere.net\"),\n",
+        "             person(\"Anotherone\", \"Ifany\", role = \"ctb\"))\n",
 	"Description: More about what it does (maybe more than one line).\n",
 	"License: What license is it under?\n",
 	if(usingS4) "Imports: methods\n",
@@ -217,30 +221,27 @@ package.skeleton <-
 		      file.path(docs_dir,
 				sprintf("%s-package.Rd", name)),
 		      lib.loc = path)
-	sapply(list,
-	       function(item) {
-		   prompt(get(item, envir = environment),
-			  name = item,
-			  filename =
-			  file.path(docs_dir,
-				    sprintf("%s.Rd", list0[item])))
-	       })
-	sapply(classesList,
-	       function(item) {
-		   methods::promptClass(item,
-					filename =
-					file.path(docs_dir,
-						  sprintf("%s-class.Rd", classes0[item])),
-					where = environment)
-	       })
-	sapply(methodsList,
-	       function(item) {
-		   methods::promptMethods(item,
-					  filename =
-					  file.path(docs_dir,
-						    sprintf("%s-methods.Rd", methods0[item])),
-					  methods::findMethods(item, where = environment))
-	       })
+        for(item in list) {
+            prompt(get(item, envir = environment),
+                   name = item,
+                   filename =
+                       file.path(docs_dir,
+                                 sprintf("%s.Rd", list0[item])))
+        }
+        for(item in classesList) {
+            methods::promptClass(item,
+                                 filename =
+                                     file.path(docs_dir,
+                                               sprintf("%s-class.Rd", classes0[item])),
+                                 where = environment)
+        }
+        for(item in methodsList) {
+            methods::promptMethods(item,
+                                   filename =
+                                       file.path(docs_dir,
+                                                 sprintf("%s-methods.Rd", methods0[item])),
+                                   methods::findMethods(item, where = environment))
+        }
     }))
     ## don't document generic functions from other packages
     for(item in methodsList) {
@@ -263,6 +264,8 @@ package.skeleton <-
     message(sprintf("Further steps are described in '%s'.",
                      file.path(dir, "Read-and-delete-me")),
             domain = NA)
+
+    invisible(dir)
 }
 
 .fixPackageFileNames <- function(list) {

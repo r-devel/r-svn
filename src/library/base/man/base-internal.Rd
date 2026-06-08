@@ -1,6 +1,6 @@
 % File src/library/base/man/base-internal.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{base-internal}
@@ -38,7 +38,7 @@
 \alias{.C_R_addTaskCallback}
 \alias{.C_R_getTaskCallbackNames}
 \alias{.C_R_removeTaskCallback}
-\alias{.F_dchdc}
+%\alias{.F_dchdc} long defunct, removed in R 4.6.0
 \alias{.F_dqrcf}
 \alias{.F_dqrdc2}
 \alias{.F_dqrqty}
@@ -66,8 +66,8 @@
 \alias{.make_numeric_version}
 \alias{.expand_R_libs_env_var}
 \alias{.kronecker}
-\alias{.packageStartupMessage}
 \alias{.rmpkg}
+\alias{.set_ops_need_as_vector}
 
 \title{Internal Objects in Package \pkg{base}}
 \description{% 'most': see e.g., .detach
@@ -133,9 +133,9 @@ lazyLoadDBfetch(key, file, compressed, hook)
 .make_numeric_version(x, strict = TRUE, regexp, classes = NULL) 
 .expand_R_libs_env_var(x) 
 .kronecker(X, Y, FUN = "*", make.dimnames = FALSE, ...) 
-.packageStartupMessage(message, call = NULL) 
 .rmpkg(pkg) 
 .formula2varlist(formula, data, warnLHS = TRUE, ignoreLHS = warnLHS)
+.set_ops_need_as_vector(x, y)
 }
 \arguments{
   \item{x}{an object
@@ -234,7 +234,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{\link{row.names}} can be stored internally in compact form.
   \code{.set_row_names(n)} generates that form for automatic row names
   of length \code{n}, to be assigned to
-  \code{attr(<a data frame>, "row.names")}.  \code{.row_names_info}
+  \code{attr(\var{a_data_frame}, "row.names")}.  \code{.row_names_info}
   gives information on the internal form of the row names for a data
   frame: for details of what information see the argument \code{type}.
 
@@ -243,7 +243,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   have had had they been closures.  All the primitives that are internal
   S3 generics have corresponding members of \code{.GenericArgsEnv} and
   the remaining non-language-element primitives correspond to
-  \code{.ArgsEnv}.  See the \sQuote{R Internals} manual for further
+  \code{.ArgsEnv}.  See the \manual{R-ints}{} manual for further
   details.  They are used by \code{\link{args}} and
   \code{\link{print.default}} and the QC functions \code{\link{codoc}}
   and \code{\link{checkS3methods}}.
@@ -296,5 +296,10 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{formula}, evaluated in \code{data}, following standard
   non-standard evaluation rules. Used in \code{\link{split}} and
   \code{\link{tapply}} to interpret a formula as a list of categorical
-  variables to split on. }
+  variables to split on.
+
+  \code{.set_ops_need_as_vector} is a helper function for the set
+  operations like \code{\link{union}}: it returns \code{TRUE} if the set
+  ops need to transform their arguments via \code{\link{as.vector}}.
+}
 \keyword{internal}

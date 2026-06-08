@@ -1,7 +1,7 @@
 #  File src/library/tools/R/install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 # NB: also copyright dates in Usages.
 #
@@ -20,8 +20,6 @@
 
 #### R based engine for  R CMD INSTALL SHLIB Rprof
 ####
-
-##' @param args
 
 ## R developers can use this to debug the function by running it
 ## directly as tools:::.install_packages(args), where the args should
@@ -49,7 +47,6 @@ if(FALSE) {
 
 
 
-##' @return ...
 .install_packages <- function(args = NULL, no.q = interactive(), warnOption = 1)
 {
     ## calls system() on Windows for
@@ -166,7 +163,9 @@ if(FALSE) {
     cross <- Sys.getenv("R_CROSS_BUILD")
     have_cross <- nzchar(cross)
     if(have_cross && !cross %in% c("x64","singlearch"))
-        stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
+        stop(gettextf("invalid value for '%s' : %s",
+                      "R_CROSS_BUILD", sQuote(cross)),
+             domain = NA)
     if (have_cross) {
         WINDOWS <- TRUE
 	Sys.setenv(R_OSTYPE = "windows")
@@ -237,6 +236,7 @@ if(FALSE) {
             "      --pkglock		use a per-package lock directory",
             "      			(default for a single package)",
             "      --build    	build binaries of the installed package(s)",
+            "      --sign		sign the installed package(s)",
             "      --install-tests	install package-specific tests (if any)",
             "      --no-R, --no-libs, --no-data, --no-help, --no-demo, --no-exec,",
             "      --no-inst",
@@ -322,8 +322,8 @@ if(FALSE) {
         do_exit_on_error()
     }
 
-    pkgerrmsg <- function(msg, pkg)
-	errmsg(msg, " for package ", sQuote(pkg))
+    pkgerrmsg <- function(msg, pkg, ...)
+	errmsg(msg, " for package ", sQuote(pkg), ...)
 
     ## 'pkg' is the absolute path to package sources.
     do_install <- function(pkg)
@@ -336,7 +336,8 @@ if(FALSE) {
             if (pkglock)
                 lock <- "pkglock"
             utils:::unpackPkgZip(pkg, pkg_name, lib, libs_only, lock,
-                                 reuse_lockdir = reuse_lockdir)
+                                 reuse_lockdir = reuse_lockdir,
+                                 name_from_dir = TRUE)
             return()
         }
 
@@ -393,14 +394,35 @@ if(FALSE) {
             sys_requires <- desc["SystemRequirements"]
             if (!is.na(sys_requires)) {
                 sys_requires <- unlist(strsplit(sys_requires, ","))
+                found <- NA
                 for (i in cxx_standards) {
-                    pattern <- paste0("^[[:space:]]*C[+][+]",i,"[[:space:]]*$")
-                    if(any(grepl(pattern, sys_requires, ignore.case=TRUE))) {
+##                    pattern <- paste0("^[[:space:]]*C[+][+]",i,"[[:space:]]*$")
+                    pattern <- paste0("(^| )C[+][+]",i,"([ ,;]|$)")
+                    if(any(grepl(pattern, sys_requires))) {
                         Sys.setenv("R_PKG_CXX_STD"=i)
                         on.exit(Sys.unsetenv("R_PKG_CXX_STD"))
+                        found <- i
                         break
                     }
                 }
+                if (is.na(found)) {
+                    pattern <- paste0("^[[:space:]]*C[+][+]")
+                    val <- grep(pattern, sys_requires, value = TRUE)
+                    if(length(val)) {
+                        val <- sub(pattern, "",  val)
+                        val <- sub("[,;].*$", "", val)
+                        val <- sub(" *$", "", val)
+                        val <- paste0("C++", val)
+                        msg <- sprintf("SystemRequirements: invalid C++ specification %s", sQuote(val))
+                        warning(msg, domain = NA, call. = FALSE)
+                    }
+                }
+                else if(found %in% c("11", "14")) {
+                    msg <-
+                        sprintf("SystemRequirements specified C++%s: support has been removed", found)
+                    warning(msg, domain = NA, call. = FALSE)
+                }
+
                 if(is.na(use_C)) {
                     if(any(grepl("USE_C17", sys_requires))) use_C <<- 17
                     if(any(grepl("USE_C23", sys_requires))) use_C <<- 23
@@ -422,10 +444,35 @@ if(FALSE) {
         .Call(C_dirchmod, instdir, group.writable)
         is_first_package <<- FALSE
 
+        if (sign && !zip_up) {
+            starsmsg(stars, "SHA256 sums")
+            .installSHA256sums(instdir)
+            starsmsg(stars, "signing")
+            create.signature(file.path(instdir, "SHA256"),
+                             file.path(instdir, "SHA256.sig"))
+            sig <- verify.signature(file.path(instdir, "SHA256"),
+                                    file.path(instdir, "SHA256.sig"))
+            if (isTRUE(sig)) {
+                info <- attr(sig,"result")
+                starsmsg(stars, paste("signed with", info$fingerprint, info$userid))
+            }
+        }
         if (tar_up) { # Unix only
+            if (!sign) { # sign has already done this above
+                starsmsg(stars, "SHA256 sums")
+                .installSHA256sums(instdir)
+            }
             starsmsg(stars, "creating tarball")
             version <- desc["Version"]
-            filename <- if (!grepl("darwin", R.version$os)) {
+            compression <- "gzip"
+            compression_level <- 9L
+            custom.bin <- .pkg.type(.Platform$pkgType) == "other.binary"
+            filename <- if (custom.bin) {
+                build <- gsub("^([[:lower:]]+)[.]binary(|[.]([[:alnum:]_-]+))$","\\1\\2", .Platform$pkgType)
+                compression <- "xz"
+                ## we could adjust compression_level for zstd here - perhaps an env var?
+                paste0(pkg_name, "_", version, "_R_", gsub(".", "-", build, fixed=TRUE), ".tar.", compression)
+            } else if (!grepl("darwin", R.version$os)) {
                 paste0(pkg_name, "_", version, "_R_",
                        Sys.getenv("R_PLATFORM"), ".tar.gz")
             } else {
@@ -433,8 +480,8 @@ if(FALSE) {
             }
             filepath <- file.path(startdir, filename)
             owd <- setwd(lib)
-            res <- utils::tar(filepath, curPkg, compression = "gzip",
-                              compression_level = 9L,
+            res <- utils::tar(filepath, curPkg, compression = compression,
+                              compression_level = compression_level,
                               tar = Sys.getenv("R_INSTALL_TAR"))
             if (res)
                 errmsg(sprintf("packaging into %s failed", sQuote(filename)))
@@ -490,6 +537,35 @@ if(FALSE) {
                             ))
         if (res) errmsg("installing binary package failed")
 
+        sig.ok <- FALSE
+        res <- checkSHA256sums(pkg, instdir)
+        if(!is.na(res) && res) {
+            starsmsg(stars,
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg), "SHA256"))
+            if (isTRUE(file.exists(sig <- file.path(instdir, "SHA256.sig")))) {
+                res <- verifySHA256signature(pkg, instdir)
+                if(!is.na(res) && res) {
+                    sig.ok <- TRUE
+                    info <- attr(res, "result")
+                    starsmsg(stars,
+                             gettextf("package %s signature verified (%s %s)",
+                                      sQuote(pkg), info$fingerprint, info$userid))
+                }
+            }
+        } else {
+            res <- checkMD5sums(pkg, instdir)
+            if(!is.na(res) && res) {
+                starsmsg(stars,
+		     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg), "MD5"))
+	    }
+	}
+        
+        if (isTRUE(config_val_to_logical(Sys.getenv("_R_INSTALL_REQUIRE_SIGNED", "FALSE"))) &&
+            !sig.ok) errmsg(gettextf("Valid signature is required, but package %s could not be successfully verified.",
+                                       sQuote(pkg)))
+        
         if (tar_up) {
             starsmsg(stars, sQuote(pkg),
                      " was already a binary package and will not be rebuilt")
@@ -534,12 +610,16 @@ if(FALSE) {
             setwd(owd)
         }
         if (WINDOWS) {
-            if (file.exists("cleanup.ucrt"))
-                system("sh ./cleanup.ucrt")
-            else if (file.exists("cleanup.win"))
-                system("sh ./cleanup.win")
-        } else if (file_test("-x", "cleanup")) system("./cleanup")
-        else if (file.exists("cleanup"))
+            if (file.exists("cleanup.ucrt")) {
+                if (system("sh ./cleanup.ucrt"))
+                    warning("running 'cleanup.ucrt' failed", call. = FALSE, domain = NA)
+            } else if (file.exists("cleanup.win"))
+                if (system("sh ./cleanup.win"))
+                    warning("running 'cleanup.win' failed", call. = FALSE, domain = NA)
+        } else if (file_test("-x", "cleanup")) {
+            if (system("./cleanup"))
+                warning("running 'cleanup' failed", call. = FALSE, domain = NA)
+        } else if (file.exists("cleanup"))
             warning("'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'", call. = FALSE)
         revert_install_time_patches()
     }
@@ -1006,10 +1086,15 @@ if(FALSE) {
             if (length(miss) > 1)
                  pkgerrmsg(sprintf("dependencies %s are not available",
                                    paste(sQuote(miss), collapse = ", ")),
-                           pkg_name)
+                           pkg_name,
+			   sprintf("\nPerhaps try a variation of:\ninstall.packages(c(%s))",
+				   paste(sQuote(miss, FALSE), collapse = ", ")))
             else if (length(miss))
                 pkgerrmsg(sprintf("dependency %s is not available",
-                                  sQuote(miss)), pkg_name)
+                                  sQuote(miss)),
+                          pkg_name,
+                          sprintf("\nPerhaps try a variation of:\ninstall.packages(%s)",
+                                  sQuote(miss, FALSE)))
          }
 
         starsmsg(stars, "installing *source* package ",
@@ -1017,11 +1102,32 @@ if(FALSE) {
 
         stars <- "**"
 
-        res <- checkMD5sums(pkg_name, getwd())
+        starsmsg(stars,
+                 sprintf("this is package %s version %s",
+                         sQuote(desc["Package"]),
+                         sQuote(desc["Version"])))
+
+        res <- checkSHA256sums(pkg_name, getwd())
         if(!is.na(res) && res) {
             starsmsg(stars,
-                     gettextf("package %s successfully unpacked and MD5 sums checked",
-                              sQuote(pkg_name)))
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg_name), "SHA256"))
+            if (isTRUE(file.exists("SHA256.sig"))) {
+                res <- verifySHA256signature(pkg_name, getwd())
+                if(!is.na(res) && res) {
+                    info <- attr(res, "result")
+                    starsmsg(stars,
+                             gettextf("package %s signature verified (%s %s)",
+                                      sQuote(pkg_name), info$fingerprint, info$userid))
+                }
+            }
+        } else {
+            res <- checkMD5sums(pkg_name, getwd())
+            if(!is.na(res) && res) {
+                starsmsg(stars,
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg_name), "MD5"))
+            }
         }
 
         if (file.exists(file.path(instdir, "DESCRIPTION"))) {
@@ -1215,9 +1321,12 @@ if(FALSE) {
                     if (!is.na(use_C))
                         ev1 <- c(sprintf(c("CC%s", "C%sFLAGS"), use_C),
                                  ev[-(1:2)])
-                    ev2 <- sapply(ev1, function(x)
-                        system2(file.path(R.home("bin"), "R"), c("CMD", "config", x),
-                                stdout = TRUE))
+                    ev2 <- vapply(ev1,
+                                  function(x)
+                                      system2(file.path(R.home("bin"), "R"),
+                                              c("CMD", "config", x),
+                                              stdout = TRUE),
+                                  "")
                     ev3 <- paste0(ev, "=", shQuote(ev2))
                     ## skip any which are empty, possible for CXX)
                     ev3 <- ev3[nzchar(ev2)]
@@ -1231,7 +1340,8 @@ if(FALSE) {
 
 
         if (more_than_libs) {
-            for (f in c("NAMESPACE", "LICENSE", "LICENCE", "NEWS", "NEWS.md"))
+            for (f in c("NAMESPACE", "LICENSE", "LICENCE",
+                        "NEWS", "NEWS.md", "README.md"))
                 if (file.exists(f)) {
                     file.copy(f, instdir, TRUE)
 		    Sys.chmod(file.path(instdir, f), fmode)
@@ -1468,11 +1578,11 @@ if(FALSE) {
                 setwd(wd2)
             }
         }
-        if (WINDOWS && "x64" %in% test_archs) {
-            ## we cannot actually test x64 unless this is 64-bit
-            ## Windows, even if it is installed.
-            if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
-        }
+        # if (WINDOWS && "x64" %in% test_archs) {
+        #     ## we cannot actually test x64 unless this is 64-bit
+        #    ## Windows, even if it is installed.
+        #     if (!grepl(" x64 ", utils::win.version())) test_archs <- "i386"
+        #}
 
         if (have_cross) Sys.unsetenv("R_ARCH")
 
@@ -1519,7 +1629,7 @@ if(FALSE) {
 		    ## Tweak fake installation to provide an 'empty'
 		    ## useDynLib() for the time being.  Completely
 		    ## removing the directive results in checkFF()
-		    ## being too aggresive in the case where the
+		    ## being too aggressive in the case where the
 		    ## presence of the directive enables unambiguous
 		    ## symbol resolution w/out 'PACKAGE' arguments.
 		    ## However, empty directives are not really meant
@@ -1599,7 +1709,7 @@ if(FALSE) {
 	    file.remove(Sys.glob(file.path(instdir, "demo", "*")))
 	    res <- try(.install_package_demos(".", instdir))
 	    if (inherits(res, "try-error"))
-		pkgerrmsg("ERROR: installing demos failed")
+		pkgerrmsg("installing demos failed", pkg_name)
 	    Sys.chmod(Sys.glob(file.path(instdir, "demo", "*")), fmode)
 	}
 
@@ -1978,6 +2088,7 @@ if(FALSE) {
     pkglock <- FALSE  # set for per-package locking
     libs_only <- FALSE
     tar_up <- zip_up <- FALSE
+    sign <- FALSE
     shargs <- character()
     multiarch <- TRUE
     force_biarch <- FALSE
@@ -2070,6 +2181,8 @@ if(FALSE) {
             get_user_libPaths <- TRUE
         } else if (a == "--build") {
             if (WINDOWS) zip_up <- TRUE else tar_up <- TRUE
+        } else if (a == "--sign") {
+            sign <- TRUE
         } else if (substr(a, 1, 16) == "--data-compress=") {
             dc <- substr(a, 17, 1000)
             dc <- match.arg(dc, c("none", "gzip", "bzip2", "xz"))
@@ -2463,7 +2576,9 @@ if(FALSE) {
     cross <- Sys.getenv("R_CROSS_BUILD")
     if(nzchar(cross)) {
         if(!cross %in% c("x64", "singlearch"))
-            stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
+            stop(gettextf("invalid value for '%s' : %s",
+                          "R_CROSS_BUILD", sQuote(cross)),
+                 domain = NA)
         WINDOWS <- TRUE
         Sys.setenv(R_ARCH = if (cross == "singlearch") "" else paste0("/", cross))
     }
@@ -2619,10 +2734,17 @@ if(FALSE) {
         if (length(ll <- grep("^CXX_STD *=", lines, perl = TRUE,
                               value = TRUE, useBytes = TRUE)) == 1) {
             val <- gsub("^CXX_STD *= *CXX", "", ll)
+            val <- gsub("#.*$", "", val)
             val <- gsub(" +$", "", val)
             if (val %in% cxx_standards) {
                 use_cxxstd <- val
                 with_cxx <- TRUE
+            } else {
+                val <- gsub("^CXX_STD *= *", "", ll)
+                val <- gsub("#.*$", "", val)
+                val <- gsub(" +$", "", val)
+                msg <- sprintf("src/%s: Unknown C++ standard %s was ignored", fn,  sQuote(val))
+                warning(msg, domain = NA, call. = FALSE)
             }
         }
         if (any(grepl("^USE_FC_TO_LINK", lines, perl=TRUE, useBytes = TRUE)))
@@ -2635,10 +2757,17 @@ if(FALSE) {
         if (length(ll <- grep("^CXX_STD *=", lines, perl = TRUE,
                               value = TRUE, useBytes = TRUE)) == 1) {
             val <- gsub("^CXX_STD *= *CXX", "", ll)
+            val <- gsub("#.*$", "", val)
             val <- gsub(" +$", "", val)
             if (val %in% cxx_standards) {
                 use_cxxstd <- val
                 with_cxx <- TRUE
+            } else {
+                val <- gsub("^CXX_STD *= *", "", ll)
+                val <- gsub("#.*$", "", val)
+                val <- gsub(" +$", "", val)
+                msg <- sprintf("src/Makevars: Unknown C++ standard %s was ignored", sQuote(val))
+                warning(msg, domain = NA, call. = FALSE)
             }
         }
         if (any(grepl("^USE_FC_TO_LINK", lines, perl=TRUE, useBytes = TRUE)))
@@ -2652,11 +2781,13 @@ if(FALSE) {
             }
         }
     }
+    val <- Sys.getenv("R_PKG_CXX_STD")
     if (is.null(use_cxxstd)) {
-        val <- Sys.getenv("R_PKG_CXX_STD")
         if (val %in% cxx_standards) {
             use_cxxstd <- val
         }
+    } else if (nzchar(val) && (val != use_cxxstd)) {
+        warning("SystemRequirements and Makevars* specified different C++ standards", domain = NA, call. = FALSE)
     }
 
     if (with_cxx) {
@@ -2678,11 +2809,16 @@ if(FALSE) {
                 stop("C++98 standard requested but unsupported",
                      call. = FALSE, domain = NA)
             }
-            if (!checkCXX(use_cxxstd)) {
+            if (use_cxxstd %in% c("11", "14")) {
+                message("specified C++", use_cxxstd)
+                use_cxxstd <- NULL
+            }
+            else if (!checkCXX(use_cxxstd)) {
                 stop(paste0("C++", use_cxxstd, " standard requested but CXX",
                             use_cxxstd, " is not defined"),
                      call. = FALSE, domain = NA)
-            }
+            } else
+                message("specified C++", use_cxxstd)
         }
     }
 
@@ -2760,10 +2896,10 @@ if(FALSE) {
                         paste0("LTO_FC=", shQuote("$(LTO_FC_OPT)")))
                   else if(isFALSE(use_lto)) c("LTO=", "LTO_FC=")
                   )
-    if(config_val_to_logical(Sys.getenv("_R_CXX_USE_NO_REMAP_", "FALSE")))
-         makeargs <- c(makeargs, "CXX_DEFS=-DR_NO_REMAP")
-    if(config_val_to_logical(Sys.getenv("_R_USE_STRICT_R_HEADERS_", "FALSE")))
-         makeargs <- c(makeargs, "XDEFS=-DSTRICT_R_HEADERS=1")
+    ## if(config_val_to_logical(Sys.getenv("_R_CXX_USE_NO_REMAP_", "TRUE")))
+    ##      makeargs <- c(makeargs, "CXX_DEFS=-DR_NO_REMAP")
+##    if(config_val_to_logical(Sys.getenv("_R_USE_STRICT_R_HEADERS_", "FALSE")))
+##         makeargs <- c(makeargs, "XDEFS=-DSTRICT_R_HEADERS=1")
 
     cmd <- paste(MAKE, p1(paste("-f", shQuote(makefiles))), p1(makeargs),
                  p1(makeobjs))
@@ -2772,8 +2908,12 @@ if(FALSE) {
         system(paste(cmd, "-n"))
         res <- 0
     } else {
+        ## first report versions of involved compilers
         lines <- system(paste(MAKE, p1(paste("-f", shQuote(makefiles))),
                               "compilers"), intern = TRUE)
+        ## (unless make fails anyway, such as from syntax errors in makefiles)
+        if (is.null(attr(lines, "status"))) {
+
         if (with_c) {
             cc <- lines[grep("^CC =", lines)]
             cc <- sub("CC = ", "", cc)
@@ -2804,16 +2944,19 @@ if(FALSE) {
                 if(!inherits(cxx_ver, "try-error")) {
                     message("using C++ compiler: ", sQuote(cxx_ver[1L]))
                     if(!is.null(use_cxxstd))
-                        message("using C++", use_cxxstd)
+                       message("using C++", use_cxxstd)
                 }
             }
         }
+
+        }
         if (Sys.info()["sysname"] == "Darwin" &&
             (with_c|| with_f77 || with_f9x || with_cxx)) {
-            ## report the SDK in use: we want to know what it is symlinked to
-            sdk <- try(system2("xcrun", "--show-sdk-path", TRUE, TRUE), silent = TRUE)
+            ## report the SDK in use: this changed at Xcode/CLT 26
+            sdk <- try(system2("xcrun", "--show-sdk-version", TRUE, TRUE), silent = TRUE)
             if(!inherits(sdk, "try-error")) {
-                sdk <- Sys.readlink(sdk)
+                sdk <- if (length(attr(sdk, "status"))) NA_character_
+                       else paste0("MacOSX", sdk, ".sdk")
                 message("using SDK: ", sQuote(sdk))
             }
         }
@@ -2843,25 +2986,39 @@ if(FALSE) {
         order(xx, toupper(x), x)
     }
 
-    html_header <- function(pkg, title, version, conn)
+    html_header <- function(pkg, title, version, encoding, conn)
     {
-        cat(paste(HTMLheader(title, Rhome="../../..",
-                             up="../../../doc/html/packages.html",
+        cat(paste(HTMLheader(title,
+                             logo = staticLogoPath(dir, relative = TRUE, Rhome = "../../..", dir = TRUE),
+                             Rhome = "../../..",
+                             up = "../../../doc/html/packages.html",
                              css = "R.css"),
                   collapse = "\n"),
            '<h2>Documentation for package &lsquo;', pkg, '&rsquo; version ',
             version, '</h2>\n\n', sep = "", file = conn)
 
-	cat('<ul><li><a href="../DESCRIPTION">DESCRIPTION file</a>.</li>\n', file=conn)
+	cat('<ul><li><a href="../DESCRIPTION" type="text/plain',
+            ## These days we should really always have UTF-8 ...
+            if(!is.na(encoding) && (encoding == "UTF-8"))
+                "; charset=utf-8",
+            '">DESCRIPTION file</a></li>\n',
+            sep = "", file = conn)
 	if (file.exists(file.path(outDir, "doc")))
-	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation.</a></li>\n', file=conn)
+	    cat('<li><a href="../doc/index.html">User guides, package vignettes and other documentation</a></li>\n',
+                file = conn)
 	if (file.exists(file.path(outDir, "demo")))
 	    cat('<li><a href="../demo">Code demos</a>.  Use <a href="../../utils/help/demo">demo()</a> to run them.</li>\n',
-		 sep = "", file=conn)
-	if (any(file.exists(file.path(outDir,
-                                      c("NEWS", "NEWS.Rd", "NEWS.md")))))
-	    cat('<li><a href="../NEWS">Package NEWS</a>.</li>\n',
-		 sep = "", file=conn)
+                sep = "", file = conn)
+        for(nfile in c("NEWS", "NEWS.Rd", "NEWS.md")) {
+            if(file.exists(file.path(outDir, nfile))) {
+                cat('<li><a href="../', nfile, '">Package NEWS</a></li>\n',
+                    sep = "", file = conn)
+                break
+            }
+        }
+        if(file.exists(file.path(outDir, "README.md")))
+            cat('<li><a href="../README.md">Package README</a></li>\n',
+                sep = "", file = conn)
 
         cat('</ul>\n\n<h2>Help Pages</h2>\n\n\n',
             sep ="", file = conn)
@@ -2930,8 +3087,10 @@ if(FALSE) {
         ## should be valid in UTF-8, might be invalid in declared encoding
         desc <- iconv(desc, enc, "UTF-8", sub = "byte")
     }
-    ## drop internal entries
-    M <- M[!M[, 4L], ]
+    ## drop internal entries (by default)
+    if(!config_val_to_logical(Sys.getenv("_R_INSTALL_HTML_INDEX_INTERNAL_TOO_",
+                                         "FALSE")))
+        M <- M[!M[, 4L], ]
     if (desc["Package"] %in% c("base", "graphics", "stats", "utils")) {
         for(pass in 1:2) {
             ## we skip method aliases
@@ -2979,7 +3138,7 @@ if(FALSE) {
     ## No need to handle encodings: everything is in UTF-8
 
     html_header(desc["Package"], htmlize(desc["Title"], TRUE),
-                desc["Version"], outcon)
+                desc["Version"], desc["Encoding"], outcon)
 
     use_alpha <- (nrow(M) > 100)
     if (use_alpha) {
@@ -3055,13 +3214,7 @@ if(FALSE) {
         if (!silent) message("    finding HTML links ...", appendLF = FALSE, domain = NA)
         Links <- findHTMLlinks(outDir, level = 0:1)
         if (!silent) message(" done")
-        .Links2 <- function() {
-            message("\n    finding level-2 HTML links ...", appendLF = FALSE, domain = NA)
-            Links2 <- findHTMLlinks(level = 2)
-            message(" done", domain = NA)
-            Links2
-        }
-        delayedAssign("Links2", .Links2())
+        Links2 <- character()
     }
 
     ## Rd objects may already have been installed.
@@ -3115,7 +3268,8 @@ if(FALSE) {
             if (!file_test("-f", ff) || file_test("-nt", f, ff)) {
                 showtype(type)
                 .convert(Rd2latex(Rd, ff, defines = NULL,
-                                  outputEncoding = outenc))
+                                  outputEncoding = outenc,
+                                  writeEncoding = (outenc != "UTF-8")))
             }
         }
         if ("example" %in% types) {
@@ -3267,7 +3421,7 @@ function()
     m
 }
 
-cxx_standards <- c("23", "20", "17", "14", "11", "98")
+cxx_standards <- c("26", "23", "20", "17", "14", "11", "98")
 
 ### Local variables: ***
 ### mode: outline-minor ***

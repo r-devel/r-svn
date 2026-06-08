@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001--2023  The R Core Team.
+ *  Copyright (C) 2001--2025  The R Core Team.
  *  Copyright (C) 2003--2010  The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #include <ctype.h>  /* for toupper */
 #include <limits.h> /* for PATH_MAX */
 #include <stdlib.h> /* for realpath */
-#include <string.h> /* for strcpy */
+#include <string.h> /* for strstr, strlen */
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h> /* for realpath on some systems */
@@ -173,7 +173,8 @@ static SEXP La_rs(SEXP x, SEXP only_values)
     double vl = 0.0, vu = 0.0, abstol = 0.0;
     /* valgrind seems to think vu should be set, but it is documented
        not to be used if range='a' */
-    int il, iu, *isuppz;
+    int il = 0, iu = 0, *isuppz;
+    /* il and iu are unused if range='a', but clang-21 warns */
 
     xdims = INTEGER(coerceVector(getAttrib(x, R_DimSymbol), INTSXP));
     n = xdims[0];
@@ -263,7 +264,7 @@ static SEXP unscramble(const double* imaginary, int n,
 /* Real, general case of eigen */
 static SEXP La_rg(SEXP x, SEXP only_values)
 {
-    Rboolean vectors, complexValues;
+    bool vectors, complexValues;
     int i, n, lwork, info, *xdims, ov;
     double *work, *wR, *wI, *left, *right, *xvals, tmp;
     char jobVL[2] = "N", jobVR[2] = "N";
@@ -306,11 +307,11 @@ static SEXP La_rg(SEXP x, SEXP only_values)
     if (info != 0)
 	error(_("error code %d from Lapack routine '%s'"), info, "dgeev");
 
-    complexValues = FALSE;
+    complexValues = false;
     for (i = 0; i < n; i++)
 	/* This test used to be !=0 for R < 2.3.0.  This is OK for 0+0i */
 	if (fabs(wI[i]) >  10 * R_AccuracyInfo.eps * fabs(wR[i])) {
-	    complexValues = TRUE;
+	    complexValues = true;
 	    break;
 	}
     SEXP ret = PROTECT(allocVector(VECSXP, 2));
@@ -1117,6 +1118,10 @@ static SEXP La_chol(SEXP A, SEXP pivot, SEXP stol)
 		error(_("argument %d of Lapack routine %s had invalid value"),
 		      -info, "dpstrf");
 	}
+ 	/* zero remaining upper triangle if rank < m */
+	for (int j = rank ; j < m ; j++)
+            for (int i = rank ; i <= j ; i++)
+                REAL(ans) [i + N * j] = 0. ;
 	setAttrib(ans, install("pivot"), piv);
 	SEXP s_rank = install("rank");
 	setAttrib(ans, s_rank, ScalarInteger(rank));

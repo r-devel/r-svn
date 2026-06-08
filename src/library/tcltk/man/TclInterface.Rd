@@ -1,6 +1,6 @@
 % File src/library/tcltk/man/TclInterface.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{TclInterface}
@@ -113,7 +113,7 @@ is.tclObj(x)
 
 addTclPath(path = ".")
 tclRequire(package, warn = TRUE)
-tclVersion()
+tclVersion(with_patchlevel = FALSE)
 }
 \arguments{
   \item{objv}{a named vector of Tcl objects}
@@ -131,6 +131,7 @@ tclVersion()
   \item{warn}{logical. Warn if not found?}
   \item{...}{Additional arguments. See below.}
   \item{init}{initialization value}
+  \item{with_patchlevel}{logical: should the \sQuote{patch level} be included?}
 }
 \details{
   Many of these functions are not intended for general use but are used
@@ -150,7 +151,7 @@ tclVersion()
   character mode and inserted in the command string, but window objects
   are passed using their ID string, and callbacks are passed via the
   result of \code{.Tcl.callback}. Tags are converted to option flags
-  simply by prepending a \code{-}
+  simply by prepending a \samp{-}.
 
   \code{.Tcl.args.objv} serves a similar purpose as \code{.Tcl.args} but
   produces a list of \code{tclObj} objects suitable for passing to
@@ -257,13 +258,20 @@ system is active; if \code{FALSE}, only the Tcl interpreter is available.
   to add the directory where they are found to the Tcl search path with
   \code{addTclPath}.  The return value is a class \code{"tclObj"} object
   if it succeeds, or \code{FALSE} if it fails (when a warning is
-  issued).  To see the current search path as an \R character vector,
+  issued unless \code{warn} is false).  To see the current search path
+  as an \R character vector, 
   use: \preformatted{
     strsplit(tclvalue('auto_path'), " ")[[1]]
 }
+  Note that a report of \sQuote{not found} will be given if the package is
+  found but is not compatible with the Tcl/Tk version in use.
 
-  The Tcl version (including patch level) is returned as a character
-  string (such as \code{"8.6.3"}).
+  \code{tclVersion} optionally returns the full Tcl version as a
+  character string such as \code{"8.6.16"} or \code{"9.0.1"}. NB: the
+  \sQuote{patch level} is not necessarily numeric, e.g.\sspace{}for
+  version \code{9.0b1}.
+  (\R{} versions before 4.6.0 reported the full version including the
+  \sQuote{patch level}.)
 }
 \note{
   Strings containing unbalanced braces are currently not handled
@@ -279,6 +287,7 @@ system is active; if \code{FALSE}, only the Tcl interpreter is available.
 }
 \examples{
 tclVersion()
+tclVersion(TRUE)
 
 .Tcl("format \"\%s\\n\" \"Hello, World!\"")
 \dontdiff{
@@ -296,7 +305,7 @@ tcl("set", as.character(xyzzy))
 \dontrun{
 ## These cannot be run by example() but should be OK when pasted
 ## into an interactive R session with the tcltk package loaded
-top <- tktoplevel() # a Tk widget, see Tk-widgets
+top <- tktoplevel() # a Tk widget, see ?Tkwidgets
 ls(envir = top$env, all.names = TRUE)
 }
 \dontdiff{

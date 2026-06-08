@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2023  The R Core Team.
+ *  Copyright (C) 1999-2025  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,17 +30,19 @@
 #ifndef R_INLINES_H_
 #define R_INLINES_H_
 
+#if defined(__GNUC_STDC_INLINE__) && !defined(C99_INLINE_SEMANTICS)
 /* Probably not able to use C99 semantics in gcc < 4.3.0 */
-#if __GNUC__ == 4 && __GNUC_MINOR__ >= 3 && defined(__GNUC_STDC_INLINE__) && !defined(C99_INLINE_SEMANTICS)
-#define C99_INLINE_SEMANTICS 1
+# if defined(__clang__) || __GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 3
+#  define C99_INLINE_SEMANTICS 1
+# endif
 #endif
 
 /* Apple's gcc build >5400 (since Xcode 3.0) doesn't support GNU inline in C99 mode 
-   FIXME: can this possibly still be needed?
-*/
+   Apple's 'gcc' is nowadays a clang wrapper.
 #if __APPLE_CC__ > 5400 && !defined(C99_INLINE_SEMANTICS) && __STDC_VERSION__ >= 199901L
 #define C99_INLINE_SEMANTICS 1
 #endif
+*/
 
 #ifdef COMPILING_R
 /* defined only in inlined.c: this emits standalone code there */
@@ -54,6 +56,8 @@
    Do this even for __GNUC_GNUC_INLINE__ to shut up warnings in 4.2.x.
    __GNUC_STDC_INLINE__ and __GNUC_GNU_INLINE__ were added in gcc 4.2.0.
 */
+/* object files will not contain definitions of functions declared
+   "extern inline" in gnu90 inline mode */
 # if defined(__GNUC_STDC_INLINE__) || defined(__GNUC_GNU_INLINE__)
 #  define INLINE_FUN extern __attribute__((gnu_inline)) inline
 # else
@@ -65,7 +69,7 @@
 #if C99_INLINE_SEMANTICS
 # undef INLINE_FUN
 # ifdef COMPILING_R
-/* force exported copy */
+/* force exported copy (in inlined.c) */
 #  define INLINE_FUN extern inline
 # else
 /* either inline or link to extern version at compiler's choice */
@@ -77,7 +81,7 @@
 #include <string.h> /* for strlen, strcmp */
 
 /* define inline-able functions */
-#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R)
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
 # define STRICT_TYPECHECK
 # define CATCH_ZERO_LENGTH_ACCESS
 #endif
@@ -96,7 +100,13 @@ SEXP CAR(SEXP e);
 #endif
 
 #ifdef STRICT_TYPECHECK
-HIDDEN INLINE_FUN void CHKVEC(SEXP x) {
+/* Functions called from other inline functions cannot be hidden, because
+   the compiler may choose to inline the caller, but not the callee, causing
+   a linking failure in the caller if the callee is hidden.  The callees
+   that were exposed due to this problem have comment "HIDDEN (inlining)",
+   below.
+ */
+/*HIDDEN (inlining)*/ INLINE_FUN void CHKVEC(SEXP x) {
     switch (TYPEOF(x)) {
     case CHARSXP:
     case LGLSXP:
@@ -216,7 +226,7 @@ INLINE_FUN R_xlen_t XLENGTH_EX(SEXP x)
     return ALTREP(x) ? ALTREP_LENGTH(x) : STDVEC_LENGTH(x);
 }
 
-INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
+HIDDEN INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 {
     return ALTREP(x) ? ALTREP_TRUELENGTH(x) : STDVEC_TRUELENGTH(x);
 }
@@ -259,11 +269,11 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
     } while (0)
 
 # define CHECK_SCALAR_LGL(x) do {				\
-	CHECK_STDVEC_LGL(x);					\
+	CHECK_VECTOR_LGL(x);					\
 	if (XLENGTH(x) != 1) error("bad LGLSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_INT(x) do {				\
-	CHECK_STDVEC_INT(x);					\
+	CHECK_VECTOR_INT(x);					\
 	if (XLENGTH(x) != 1) error("bad INTSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_INT64(x) do {				\
@@ -271,15 +281,15 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 	if (XLENGTH(x) != 1) error("bad INT64SXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_REAL(x) do {				\
-	CHECK_STDVEC_REAL(x);					\
+	CHECK_VECTOR_REAL(x);					\
 	if (XLENGTH(x) != 1) error("bad REALSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_CPLX(x) do {				\
-	CHECK_STDVEC_CPLX(x);					\
+	CHECK_VECTOR_CPLX(x);					\
 	if (XLENGTH(x) != 1) error("bad CPLXSXP scalar");	\
     } while (0)
 # define CHECK_SCALAR_RAW(x) do {				\
-	CHECK_STDVEC_RAW(x);					\
+	CHECK_VECTOR_RAW(x);					\
 	if (XLENGTH(x) != 1) error("bad RAWSXP scalar");	\
     } while (0)
 
@@ -347,20 +357,22 @@ INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 # define CHECK_VECTOR_RAW_ELT(x, i) do { } while(0)
 #endif
 
-HIDDEN INLINE_FUN int *LOGICAL0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN int *LOGICAL0(SEXP x) {
     CHECK_STDVEC_LGL(x);
     return (int *) STDVEC_DATAPTR(x);
 }
-HIDDEN INLINE_FUN Rboolean SCALAR_LVAL(SEXP x) {
+/* This should not be Rboolean as could be NA_LOGICAL */
+HIDDEN INLINE_FUN int SCALAR_LVAL(SEXP x) {
     CHECK_SCALAR_LGL(x);
-    return LOGICAL0(x)[0];
+    return LOGICAL(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, Rboolean v) {
+/* ditto */
+HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, int v) {
     CHECK_SCALAR_LGL(x);
-    LOGICAL0(x)[0] = v;
+    LOGICAL(x)[0] = v;
 }
 
-HIDDEN INLINE_FUN int *INTEGER0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
     return (int *) STDVEC_DATAPTR(x);
 }
@@ -370,7 +382,7 @@ HIDDEN INLINE_FUN int *INTEGER0(SEXP x) {
 }
 HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
-    return INTEGER0(x)[0];
+    return INTEGER(x)[0];
 }
 HIDDEN INLINE_FUN R_int64_t SCALAR_I64VAL(SEXP x) {
     CHECK_SCALAR_INT64(x);
@@ -378,7 +390,7 @@ HIDDEN INLINE_FUN R_int64_t SCALAR_I64VAL(SEXP x) {
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
-    INTEGER0(x)[0] = v;
+    INTEGER(x)[0] = v;
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_I64VAL(SEXP x, R_int64_t v) {
     CHECK_SCALAR_INT64(x);
@@ -391,11 +403,11 @@ HIDDEN INLINE_FUN R_int64_t SCALAR_I64VAL(SEXP x) {
 }
 HIDDEN INLINE_FUN double SCALAR_DVAL(SEXP x) {
     CHECK_SCALAR_REAL(x);
-    return REAL0(x)[0];
+    return REAL(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
     CHECK_SCALAR_REAL(x);
-    REAL0(x)[0] = v;
+    REAL(x)[0] = v;
 }
 
 /*HIDDEN*/ INLINE_FUN Rcomplex *COMPLEX0(SEXP x) {
@@ -404,24 +416,24 @@ HIDDEN INLINE_FUN void SET_SCALAR_DVAL(SEXP x, double v) {
 }
 HIDDEN INLINE_FUN Rcomplex SCALAR_CVAL(SEXP x) {
     CHECK_SCALAR_CPLX(x);
-    return COMPLEX0(x)[0];
+    return COMPLEX(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_CVAL(SEXP x, Rcomplex v) {
     CHECK_SCALAR_CPLX(x);
-    COMPLEX0(x)[0] = v;
+    COMPLEX(x)[0] = v;
 }
 
-HIDDEN INLINE_FUN Rbyte *RAW0(SEXP x) {
+/*HIDDEN (inlining)*/ INLINE_FUN Rbyte *RAW0(SEXP x) {
     CHECK_STDVEC_RAW(x);
     return (Rbyte *) STDVEC_DATAPTR(x);
 }
 HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     CHECK_SCALAR_RAW(x);
-    return RAW0(x)[0];
+    return RAW(x)[0];
 }
-HIDDEN INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
+/*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_BVAL(SEXP x, Rbyte v) {
     CHECK_SCALAR_RAW(x);
-    RAW0(x)[0] = v;
+    RAW(x)[0] = v;
 }
 
 INLINE_FUN SEXP ALTREP_CLASS(SEXP x) { return TAG(x); }
@@ -841,13 +853,19 @@ INLINE_FUN Rboolean inherits(SEXP s, const char *name)
     return FALSE;
 }
 
+INLINE_FUN Rboolean isScalarString(SEXP x)
+{
+    return TYPEOF(x) == STRSXP && XLENGTH(x) == 1;
+}
+
+//HIDDEN
 INLINE_FUN Rboolean isValidString(SEXP x)
 {
     return TYPEOF(x) == STRSXP && LENGTH(x) > 0 && TYPEOF(STRING_ELT(x, 0)) != NILSXP;
 }
 
 /* non-empty ("") valid string :*/
-INLINE_FUN Rboolean isValidStringF(SEXP x)
+HIDDEN INLINE_FUN Rboolean isValidStringF(SEXP x)
 {
     return isValidString(x) && CHAR(STRING_ELT(x, 0))[0];
 }
@@ -956,9 +974,8 @@ INLINE_FUN Rboolean isDataFrame(SEXP s)
     }
     return FALSE;
 }
-/* keep available under old name for now */
-INLINE_FUN Rboolean isFrame(SEXP s) { return isDataFrame(s); }
-
+/* keep available under old name for now for old RStudio in particular */
+INLINE_FUN Rboolean Rf_isFrame(SEXP s) { return isDataFrame(s); }
 
 /* DIFFERENT than R's  is.language(.) in ../main/coerce.c [do_is(), case 301:]
  *                                    which is   <=>  SYMSXP || LANGSXP || EXPRSXP */

@@ -68,7 +68,7 @@ textConnectionValue(con)
 
   Text connections have slightly unusual semantics: they are always
   open, and throwing away an input text connection without closing it
-  (so it get garbage-collected) does not give a warning.
+  (so it gets garbage-collected) does not give a warning.
 }
 
 \value{
@@ -91,9 +91,8 @@ textConnectionValue(con)
 }
 
 \references{
-  Chambers, J. M. (1998)
-  \emph{Programming with Data.  A Guide to the S Language.} Springer.\cr
-[S has input text connections only.]
+  \bibinfo{R:Chambers:1998}{footer}{[S has input text connections only.]}
+  \bibshow{R:Chambers:1998}
 }
 
 \seealso{

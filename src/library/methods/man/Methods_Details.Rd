@@ -166,7 +166,7 @@ either the direct class or one of its superclasses, for each argument
 in the active signature.
 For an example, suppose there is only one argument in the signature and that the class of
 the corresponding object was \code{"dgeMatrix"} (from the recommended package
-\code{Matrix}).
+\CRANpkg{Matrix}).
 This class has (currently) three direct superclasses and through these
 additional superclasses at distances 2 through 4.
 A method that had been defined for any of these classes or for class
@@ -379,14 +379,11 @@ The  \code{"target"} slot starts off equal to the \code{"defined"}
 
 
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+  \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 
- Chambers, John M. (2008)
- \emph{Software for Data Analysis: Programming with R}
-  Springer. (Section 10.5 for some details.)
+  \bibshow{R:Chambers:2008}
+  (Section 10.5 for some details.)
 }
 
 \seealso{

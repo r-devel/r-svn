@@ -129,20 +129,13 @@ as.dist(m, diag = FALSE, upper = FALSE)
   \item{call}{optionally, the \code{\link{call}} used to create the
     object.}
   \item{method}{optionally, the distance method used; resulting from
-    \code{\link{dist}()}, the (\code{\link{match.arg}()}ed) \code{method}
+    \code{dist()}, the (\code{\link{match.arg}()}ed) \code{method}
     argument.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Mardia, K. V., Kent, J. T. and Bibby, J. M. (1979)
-  \emph{Multivariate Analysis.} Academic Press.
-
-  Borg, I. and Groenen, P. (1997)
-  \emph{Modern Multidimensional Scaling.  Theory and Applications.}
-  Springer.
+  \bibshow{R:Becker+Chambers+Wilks:1988,
+    R:Borg+Groenen:1997,
+    R:Mardia+Kent+Bibby:1979}
 }
 \seealso{
   \code{\link[cluster]{daisy}} in the \CRANpkg{cluster} package with more

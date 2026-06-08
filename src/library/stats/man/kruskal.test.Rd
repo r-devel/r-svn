@@ -65,10 +65,8 @@ kruskal.test(x, \dots)
   \item{data.name}{a character string giving the names of the data.}
 }
 \references{
-  Myles Hollander and Douglas A. Wolfe (1973),
-  \emph{Nonparametric Statistical Methods.}
-  New York: John Wiley & Sons.
-  Pages 115--120.
+  \bibinfo{R:Hollander+Wolfe:1973}{footer}{Pages 115--120.}
+  \bibshow{R:Hollander+Wolfe:1973}
 }
 \seealso{
   The Wilcoxon rank sum test (\code{\link{wilcox.test}}) as the special
@@ -77,7 +75,7 @@ kruskal.test(x, \dots)
   one-way location analysis under normality assumptions; with Student's
   t test (\code{\link{t.test}}) as the special case for two samples.
 
-  \code{\link[coin:LocationTests]{wilcox_test}} in package
+  \code{\link[coin]{wilcox_test}} in package
   \CRANpkg{coin} for exact, asymptotic and Monte Carlo
   \emph{conditional} p-values, including in the presence of ties.
 }

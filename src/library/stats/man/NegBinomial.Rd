@@ -30,10 +30,12 @@ rnbinom(n, size, prob, mu)
   \item{size}{target for number of successful trials, or dispersion
     parameter (the shape parameter of the gamma mixing distribution).
     Must be strictly positive, need not be integer.}
-  \item{prob}{probability of success in each trial. \code{0 < prob <= 1}.}
+  \item{prob}{probability of success in each trial.
+    \eqn{0 < \code{prob} \le 1}.}
   \item{mu}{alternative parametrization via mean: see \sQuote{Details}.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
     \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
 \details{
@@ -73,8 +75,8 @@ rnbinom(n, size, prob, mu)
 }
 \value{
   \code{dnbinom} gives the density,
-  \code{pnbinom} gives the distribution function,
-  \code{qnbinom} gives the quantile function, and
+  \code{pnbinom} is the cumulative distribution function, and
+  \code{qnbinom} is the quantile function of the negative binomial distribution.
   \code{rnbinom} generates random deviates.
 
   Invalid \code{size} or \code{prob} will result in return value
@@ -102,10 +104,10 @@ rnbinom(n, size, prob, mu)
   correction to a normal approximation, followed by a search.
 
   \code{rnbinom} uses the derivation as a gamma mixture of Poisson
-  distributions, see
-
-  Devroye, L. (1986) \emph{Non-Uniform Random Variate Generation.}
-  Springer-Verlag, New York. Page 480.
+  distributions, see \bibcitet{|R:Devroye:1986|page 480}.
+}
+\references{
+  \bibshow{*}
 }
 \seealso{
   \link{Distributions} for standard distributions, including

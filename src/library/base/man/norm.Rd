@@ -1,7 +1,7 @@
 % File src/library/base/man/norm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2010--2015, 2023 R Core Team
-% Copyright 2010--2012 The R Foundation
+% Copyright 2010-2023 R Core Team
+% Copyright 2010-2012 The R Foundation
 % Distributed under GPL 2 or later
 
 \name{norm}
@@ -59,9 +59,7 @@ norm(x, type = c("O", "I", "F", "M", "2"))
   LAPACK is from \url{https://netlib.org/lapack/}.
 }
 \references{
-  Anderson, E., \emph{et al} (1994).
-  \emph{LAPACK User's Guide},
-  2nd edition, SIAM, Philadelphia.
+  \bibshow{R:Anderson+Bai+Bischof:1999}
 }
 \seealso{
   \code{\link{rcond}} for the (reciprocal) condition number.

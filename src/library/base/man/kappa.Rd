@@ -1,6 +1,6 @@
 % File src/library/base/man/kappa.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2024 R Core Team
 % Copyright 2008-2010 The R Foundation
 % Distributed under GPL 2 or later
 
@@ -116,25 +116,16 @@ rcond(x, norm = c("O","I","1"), triangular = FALSE, uplo = "U", \dots)
   \url{https://netlib.org/linpack/} and their guides are listed
   in the references.
 }
-\references{
-  Anderson. E. and ten others (1999)
-  \emph{LAPACK Users' Guide}. Third Edition. SIAM.\cr
-  Available on-line at
-  \url{https://netlib.org/lapack/lug/lapack_lug.html}.
-
- Chambers, J. M. (1992)
-  \emph{Linear models.}
-  Chapter 4 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
-
-  Dongarra, J. J., Bunch, J. R., Moler, C. B. and Stewart, G. W. (1978)
-  \emph{LINPACK Users Guide.}  Philadelphia: SIAM Publications.
-}
 \author{
   The design was inspired by (but differs considerably from)
-  the S function of the same name described in Chambers (1992).
+  the S function of the same name described in
+  \bibcitet{R:Chambers:1992:c4}.
 }
-
+\references{
+  \bibshow{R:Anderson+Bai+Bischof:1999,
+    R:Chambers:1992:c4,
+    R:Dongarra+Bunch+Moler:1979}
+}
 \seealso{
   \code{\link{norm}};
   \code{\link{svd}} for the singular value decomposition and
@@ -203,5 +194,16 @@ iX <- pinv(m79)
 kappa(m79, exact=TRUE, norm="1", inv_z = iX)
 kappa(m79, exact=TRUE, norm="M", inv_z = iX)
 kappa(m79, exact=TRUE, norm="I", inv_z = iX)
+
+## Using a more "accurate" than default inv_z [example by Cleve Moler]:
+A <- rbind(c(4.1,   2.8),
+           c(9.676, 6.608))
+kappa(A) # -> Inf
+kappa(A, exact=TRUE) # 8.675057e+15 ( 2-norm )
+
+## now for the 1-norm :
+try(kappa(A, exact=TRUE, norm = "1")) #-> Error: computationally singular
+try(kappa(A, exact=TRUE, norm = "1",
+          inv_z = solve(A, tol = 1e-19))) # 5.22057e16 on x86_64 Linux with GCC
 }
 \keyword{math}

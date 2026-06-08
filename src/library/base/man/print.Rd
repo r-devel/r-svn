@@ -72,9 +72,7 @@ print(x, \dots)
   purpose is a specific \code{print} method.
 }
 \references{
-  Chambers, J. M. and Hastie, T. J. (1992)
-  \emph{Statistical Models in S.}
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers+Hastie:1992}
 }
 \seealso{
   The default method \code{\link{print.default}}, and help for the
@@ -83,7 +81,7 @@ print(x, \dots)
   For more customizable (but cumbersome) printing, see
   \code{\link{cat}}, \code{\link{format}} or also \code{\link{write}}.
   For a simple prototypical print method, see
-  \code{\link[tools:print.via.format]{.print.via.format}} in package \pkg{tools}.
+  \code{\link[tools]{.print.via.format}} in package \pkg{tools}.
 }
 \examples{
 require(stats)

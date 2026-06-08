@@ -1,6 +1,6 @@
 % File src/library/base/man/Extract.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Copyright 2002-2022 The R Foundation
 % Distributed under GPL 2 or later
 
@@ -204,13 +204,15 @@ x$name <- value
   equivalent to \code{alist[[i1]]\dots[[ip]]} providing all but the
   final indexing results in a list.
 
+  Attempts to extract a non-existent element by name return \code{NULL}.
+
   Note that in all three kinds of replacement, a value of \code{NULL}
   deletes the corresponding item of the list.  To set entries to
   \code{NULL}, you need \code{x[i] <- list(NULL)}.
 
   When \code{$<-} is applied to a \code{NULL} \code{x}, it first coerces
   \code{x} to \code{list()}.  This is what also happens with \code{[[<-}
-  where in \R versions less than 4.y.z, a length one value resulted in a
+  where in \R versions before 4.0.0, a length one value resulted in a
   length one (atomic) \emph{vector}.
 }
 
@@ -239,7 +241,8 @@ x$name <- value
   (so the two interpretations would have the same outcome).
   (The documented behaviour of S was that an \code{NA} replacement index
   \sQuote{goes nowhere} but uses up an element of \code{value}:
-  Becker \abbr{et al.}\sspace{}p.\sspace{}359.  However, that has not been true of
+  \bibcitet{|R:Becker+Chambers+Wilks:1988|page 359}.
+  However, that has not been true of
   other implementations.)
 }
 
@@ -279,8 +282,8 @@ x$name <- value
   Character indices can in some circumstances be partially matched (see
   \code{\link{pmatch}}) to the names or dimnames of the object being
   subsetted (but never for \I{subassignment}).
-  Unlike S (Becker \abbr{et al.}\sspace{}p.\sspace{}358), \R never uses partial
-  matching when extracting by 
+  Unlike S \bibcitep{|R:Becker+Chambers+Wilks:1988|page 358},
+  \R never uses partial matching when extracting by 
   \code{[}, and partial matching is not by default used by \code{[[}
   (see argument \code{exact}).
 
@@ -310,9 +313,7 @@ x$name <- value
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 
 \seealso{
@@ -325,13 +326,10 @@ x$name <- value
   behaviour when applied to data.frame and factors.
 
   \code{\link{Syntax}} for operator precedence, and the
-  \sQuote{R Language Definition} manual about indexing details.
-
+  Section \manual{R-lang}{Indexing}.
 
   \code{\link{NULL}} for details of indexing null objects.
 }
-%% Fixme: Link (to html in 'help.start()', pdf from 'ref manual',
-%% 'info' from ESS), see \url{https://CRAN.R-project.org/manuals.html}.
 
 \examples{
 x <- 1:12

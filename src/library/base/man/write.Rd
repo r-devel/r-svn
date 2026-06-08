@@ -30,7 +30,8 @@ write(x, file = "data",
   \item{x}{the data to be written out. }
   \item{file}{a \code{\link{connection}}, or a character string naming
     the file to write to.  If \code{""}, print to the standard output
-    connection.
+    connection, i.e., \code{""} is equivalent to \code{\link{stdout}()}
+    here.
 
     When \code{\link{.Platform}$OS.type != "windows"}, and it
     is \code{"|cmd"}, the output is piped to the command given
@@ -43,9 +44,7 @@ write(x, file = "data",
     gives tab delimited output; default is \code{" "}.}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{write} is a wrapper for \code{\link{cat}}, which gives further

@@ -1,7 +1,7 @@
 #  File src/library/base/R/sets.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,84 +21,91 @@
 ## "same-kind" (same mode in the unclassed case) and sequences of items,
 ## i.e., "vector-like".
 ## In the "same-kind" case we test for vector-like whether subscripting
-## no items from x or y retains the class.
-## Where needed, we also check whether duplicated() on x or y has the
-## same length as x or y: for consistency this could always be done, at
-## a possible loss of efficiency where not needed.
+## no items from x or y retains the class, and the dimension has at most
+## length one.
+## </NOTE>
+
+.set_ops_need_as_vector <- function(x, y) {
+    ((length(dim(x)) >= 2L) ||
+     (length(dim(y)) >= 2L) ||
+     (!isa(x, class(y)) && !isa(y, class(x))) ||
+     !identical(class(tryCatch(x[0L], error = identity)), class(x)) ||
+     !identical(class(tryCatch(y[0L], error = identity)), class(y)))
+}
+
+## <NOTE>
+## We tend to not add internal utility functions to base as these cannot
+## really be hidden.  Otherwise, we could do something like
+##    .is_vector_like <- function(x) {
+##         (length(dim(x)) < 2L) &&
+##          identical(class(tryCatch(x[0L], error = identity)),
+##                    class(x))
+##     }
+## (or perhaps even add a .is_vector_like() generic with the above as
+## default method, and
+##    .is_same_kind <- function(x, y) {
+##        isa(x, class(y)) || isa(y, class(x)
+## }
+## and finally
+##     .set_ops_need_as_vector <- function(x, y) {
+##          !.is_vector_like(x) ||
+##          !.is_vector_like(y) ||
+##          !.is_same_kind(x, y)
+## }
+## instead of putting everything into one function.
 ## </NOTE>
 
 union <-
 function(x, y)
 {
-    if(is.null(x)) return(y)
-    if(is.null(y)) return(x)
-    cx <- class(x)
-    cy <- class(y)
-    if((isa(x, cy) || isa(y, cx)) &&
-       identical(class(y0 <- y[integer()]), cy) &&
-       (length(dx <- duplicated(x)) == length(x)) &&
-       (length(dy <- duplicated(y)) == length(y))) {
-        if(!isa(x, cy))
-            x <- c(y0, x)
-        x <- x[!dx]
-        y <- y[!dy]
-    } else {
+    if(.set_ops_need_as_vector(x, y)) {
         x <- as.vector(x)
-        x <- x[!duplicated(x)]
         y <- as.vector(y)
-        y <- y[!duplicated(y)]
-    }
+    } else if(!isa(y, class(x)))
+        x <- c(y[0L], x)
+    x <- unique(x)
+    names(x) <- NULL
+    y <- unique(y)
+    names(y) <- NULL
     c(x, y[match(y, x, 0L) == 0L])
 }
 
 intersect <-
 function(x, y)
 {
-    if(is.null(x) || is.null(y))
-        return(NULL)
-    cx <- class(x)
-    cy <- class(y)    
-    if((isa(x, cy) || isa(y, cx)) &&
-       identical(class(y0 <- y[integer()]), cy) &&
-       (length(dx <- duplicated(x)) == length(x))) {
-        x <- x[!dx]
-    } else {
+    if(is.null(x) || is.null(y)) return(NULL)
+    if(.set_ops_need_as_vector(x, y)) {
         x <- as.vector(x)
-        x <- x[!duplicated(x)]
         y <- as.vector(y)
-        y0 <- y[integer()]
     }
-    ## Combining with y0 in the common class case is needed e.g. for
+    x <- unique(x)
+    names(x) <- NULL
+    y <- unique(y)
+    names(y) <- NULL
+    ## Combining with y[0L] in the common class case is needed e.g. for 
     ## factors to combine levels, and otherwise to get a common mode.
-    c(x[match(x, y, 0L) > 0L], y0)
+    c(x[match(x, y, 0L) > 0L], y[0L])
 }
 
 setdiff <-
 function(x, y)
 {
-    if(is.null(x) || is.null(y))
-        return(x)
-    cx <- class(x)
-    cy <- class(y)    
-    if((isa(x, cy) || isa(y, cx)) &&
-       identical(class(x[integer()]), cx) &&
-       (length(dx <- duplicated(x)) == length(x))) {
-        x <- x[!dx]
-    } else {
+    if(is.null(x)) return(NULL)
+    if(.set_ops_need_as_vector(x, y)) {
         x <- as.vector(x)
-        x <- x[!duplicated(x)]
         y <- as.vector(y)
     }
+    x <- unique(x)
+    names(x) <- NULL
+    y <- unique(y)
+    names(y) <- NULL
     x[match(x, y, 0L) == 0L]
 }
 
 setequal <-
 function(x, y)
 {
-    cx <- class(x)
-    cy <- class(y)    
-    if(!((isa(x, cy) || isa(y, cx)) &&
-         identical(class(x[integer()]), cx))) {
+    if(.set_ops_need_as_vector(x, y)) {
         x <- as.vector(x)
         y <- as.vector(y)
     }
@@ -113,10 +120,7 @@ function(el, set)
 {
     x <- el
     y <- set
-    cx <- class(x)
-    cy <- class(y)    
-    if(!((isa(x, cy) || isa(y, cx)) &&
-         identical(class(x[integer()]), cx))) {
+    if(.set_ops_need_as_vector(x, y)) {
         x <- as.vector(x)
         y <- as.vector(y)
     }

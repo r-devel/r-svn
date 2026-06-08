@@ -1,6 +1,6 @@
 % File src/library/splines/man/ns.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ns}
@@ -44,8 +44,11 @@ ns(x, df = NULL, knots = NULL, intercept = FALSE,
 
   A primary use is in modeling formula to directly specify a
   natural spline term in a model: see the examples.
+  Also, if the formula has a \code{subset = *} part, the \code{x} in
+  \code{ns(x)} is evaluated before subsetting which may lead to unexpected
+  results.  For more information see the \sQuote{Details} section of the
+  \code{\link{model.frame}}.
 }
-
 \value{
   A matrix of dimension \code{length(x) * df} where either \code{df} was
   supplied or if \code{knots} were supplied,
@@ -58,10 +61,7 @@ ns(x, df = NULL, knots = NULL, intercept = FALSE,
   \code{\link{bs}}, \code{\link{predict.ns}}, \code{\link{SafePrediction}}
 }
 \references{
-  Hastie, T. J. (1992)
-  Generalized additive models.
-  Chapter 7 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Hastie:1992}
 }
 \examples{
 require(stats); require(graphics)

@@ -1,6 +1,6 @@
 % File src/library/splines/man/bs.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{bs}
@@ -52,6 +52,11 @@ bs(x, df = NULL, knots = NULL, degree = 3, intercept = FALSE,
   knot which is important for derivative evaluation.  In \R versions
   \eqn{\le}{<=} 3.2.2, the boundary knot itself had been used as
   pivot, which lead to somewhat wrong extrapolations.
+
+  When used in a model \code{\link{formula}} containing a \code{subset = *}
+  part, the \code{x} in \code{bs(x)} is evaluated before subsetting which
+  may lead to unexpected results.  For more information see the
+  \sQuote{Details} section of the \code{\link{model.frame}}.
 }
 \value{
   A matrix of dimension \code{c(length(x), df)}, where either \code{df}
@@ -70,10 +75,7 @@ bs(x, df = NULL, knots = NULL, degree = 3, intercept = FALSE,
   Hastie.
 }
 \references{
-  Hastie, T. J. (1992)
-  Generalized additive models.
-  Chapter 7 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Hastie:1992}
 }
 \examples{
 require(stats); require(graphics)
@@ -91,5 +93,6 @@ stopifnot(identical(bs(x), bs(x, df = 3)),
           identical(bs(x, df = 4), bs(x, df = 4, knots = NULL)), # not true till 2.15.2
           !is.null(kk <- attr(bs(x), "knots")), # not true till 1.5.1
           length(kk) == 0)
-}}
+}
+}
 \keyword{smooth}

@@ -2,9 +2,11 @@
 
 str(INFO <- l10n_info())
 UTF8 <- INFO[["UTF-8"]]
+osType <- .Platform$OS.type
+onWindows <- osType == "windows"
 LATIN1OR9 <- !UTF8 && (
     INFO[["Latin-1"]] ||
-    switch(.Platform$OS.type,
+    switch(osType,
            windows = identical(INFO[["codepage"]], 28605L),
            unix = tolower(gsub("-", "", INFO[["codeset"]], fixed = TRUE)) == "iso885915")
 )
@@ -14,6 +16,20 @@ if(!(UTF8 || LATIN1OR9) ||
     ## l10n_info() would report Latin-1 when that is the code page
     message("SKIPPED: these tests need a UTF-8 or Latin-1 or Latin-9 locale")
     q("no")
+}
+
+options(warn = 1)
+assertErrV  <- function(...) tools::assertError  (..., verbose=TRUE)
+assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+#
+##' Get value of `expr` and keep warning as attribute (if there is one)
+getVaW <- function(expr, obj=FALSE) {
+    W <- NULL
+    withCallingHandlers(val <- expr,
+                        warning = function(w) {
+                            W <<- if(obj) w else conditionMessage(w)
+                            invokeRestart("muffleWarning") })
+    structure(val %||% quote(._NULL_()), warning = W) # NULL cannot have attr.
 }
 
 
@@ -134,7 +150,7 @@ if (UTF8) {
     ## not work with call set, and multibyte characters could be mangled by
     ## the `...`.
     ##
-    ## We assume getttext strings are not translated (or are translated
+    ## We assume gettext strings are not translated (or are translated
     ## to the same byte-length as the ones in source).
 
     ## We cannot use `tryCatch` as we're testing the C-level error construction
@@ -193,7 +209,7 @@ if (UTF8) {
         long_error(utf8.test, overflow=0)
 
         overflow <- c(
-             -6,   # Buffer unambiguosly unfilled for MB_CUR_MAX=6
+             -6,   # Buffer unambiguously unfilled for MB_CUR_MAX=6
              -5,   # Buffer maybe filled for MB_CUR_MAX=6
              -4,   # Buffer full with '...\n\0'
              -3,   # Lose 4 byte UTF-8 char
@@ -331,8 +347,82 @@ stopifnot(grepl("chr \"J.*reskog\"", .tmp))
 
 ## source() with multiple encodings -- moved from reg-tests-1e.R
 writeLines('x <- "fa\xE7ile"', tf <- tempfile(), useBytes = TRUE)
-tools::assertError(source(tf, encoding = "UTF-8"))
+assertErrV(source(tf, encoding = "UTF-8"))
 source(tf, encoding = c("UTF-8", "latin1"))
 ## in R 4.2.{0,1} gave Warning (that would now be an error):
 ##   'length(x) = 2 > 1' in coercion to 'logical(1)'
 if (UTF8) stopifnot(identical(Encoding(x), "UTF-8"))
+
+## Check that UTF-16 with BOM can be read from a connection.  This tests a
+## work-around in R for a bug in libiconv-86 on macOS (at least since
+## libiconv-107).
+words <- c(0xfeff, 0x30+c(1:9,0,1:9,0), 0x0a) # bom + 12345678901234567890 + newline
+hi <- as.raw(words %/% 0x100)
+low <- as.raw(words %% 0x100)
+be <- c(rbind(hi, low))
+befile <- tempfile("be_", fileext=".txt")
+writeBin(be, befile)
+becon <- file(befile, encoding = "UTF-16", open="r")
+stopifnot(identical(readLines(becon), "12345678901234567890"))
+close(becon)
+le <- c(rbind(low, hi))
+lefile <- tempfile("le_", fileext=".txt")
+writeBin(le, lefile)
+lecon <- file(lefile, encoding = "UTF-16", open="r")
+stopifnot(identical(readLines(lecon), "12345678901234567890"))
+close(lecon)
+
+## Test that this doesn't crash to test a work-around in R for a bug in
+## libiconv-86 on macOS.
+r <- charToRaw("Hello world")
+r[3] <- as.raw(0xfc)  # invalid
+iconv(list(r), "", "", sub = "byte")
+
+## Test substitution of invalid bytes in iconv() with UTF-16 input.  As of R
+## 4.5, the input should advance by code unit size (two bytes, not one)
+## when an invalid byte is encountered. Also, running into invalid bytes
+## should not let libiconv forget about the byte-order specified via BOM.
+r8 <- charToRaw("Hello world")
+r16 <- c(as.raw(0xff), as.raw(0xfe), rbind(r8, as.raw(0)))  # little-endian
+r16[7] <- as.raw(0x00)  # invalid (unpaired surrogate)
+r16[8] <- as.raw(0xd8)
+stopifnot(identical(iconv(list(r16), "UTF-16", "UTF-8", sub="byte"),
+          "He<00><d8>lo world"))
+
+
+## Using a __unicode__ decimal mark is fine :
+op <- options(OutDec = "\u00b7", scipen = 1)
+x <- pi* 10^(-6:5)
+fx <- sapply(x, format)
+## with prettyNum warnings if LATIN1OR9: "...more than one character wide..."
+print(fx, width=88, quote=FALSE) # 3·141593e-06 0·00003141593 0·0003141593 ....
+options(OutDec = ".") # back to normal
+stopifnot(grepl("·", fx, fixed=TRUE),
+          identical(sub("·", ".", fx), sapply(x, format)))
+options(op)
+
+
+## abbreviate(<non-ASCII>) -- PR#19058
+ch1 <- intToUtf8(c(112L, 345L, 237L, 115:116, 345L, 101L, 353L, 101L, 107L))
+lcct <- Sys.getlocale("LC_CTYPE") # saved
+Sys.getlocale() # just for info ..
+for(loc in c("C", if(onWindows) c("", "English_US.utf8") else "C.UTF-8")) {
+                      ## Windows: "" means 'the implementation-defined native environment'
+    locW <- getVaW(lc <- Sys.setlocale("LC_CTYPE", loc))# warning on Windows & some server Linux, incl docker/podman.
+    cat("Warning?", attr(locW, "warning") %||% "No; all fine", "\n")
+    if(!is.null(lc) && nzchar(lc)) { # when Sys.setlocale() worked supposedly
+        cat("\n", lc, ": ", sep="")
+        suppressWarnings(a1 <- abbreviate(ch1)) # FIXME - should it warn even when "correct"?
+        ## In abbreviate("přístřešek") : abbreviate used with non-ASCII chars
+        print(a1) # correctly "přst" *in* case
+        print(hasUTF8 <- grepl("utf-?8$", print(Sys.getlocale("LC_CTYPE")), ignore.case=TRUE))
+        stopifnot(identical(ch1, names(a1)),
+                  identical(c(112L, 345L, if(hasUTF8 || onWindows || grepl("macOS", osVersion) ||
+                                             grepl("musl", R.version$os))
+                                               c(115L, 116L)
+                                          else c(345L, 353L)),
+                            print(utf8ToInt(a1))))
+    }
+}
+if(!is.null(lc <- lcct) && nzchar(lc)) Sys.setlocale("LC_CTYPE", lc) # revert
+## <chars>(a1)[3:4] were different in R <= 4.6.0

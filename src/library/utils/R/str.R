@@ -1,7 +1,7 @@
 #  File src/library/utils/R/str.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ str.Date <- str.POSIXt <- function(object, ...) {
     cl <- oldClass(object)
     ## be careful to be fast for large object:
     n <- length(object) # FIXME, could be NA
-    if(n == 0L) return(str.default(object))
+    if(n == 0L) return(str.default(object, ...))
     if(n > 1000L) object <- object[seq_len(1000L)]
 
     give.length <- TRUE ## default
@@ -344,11 +344,8 @@ str.default <-
 		le <- length(object <- uncObj)
 		std.attr <- c(std.attr, "class")
 	    }
-	    if(no.list || (has.class &&
-			   any(sapply(paste0("str.", cl),
-					#use sys.function(.) ..
-				      function(ob)exists(ob, mode= "function",
-							 inherits= TRUE))))) {
+	    if(no.list || identical(sys.function(-1), NextMethod)
+               ) {
 		## str.default is a 'NextMethod' : omit the 'List of ..'
 		std.attr <- c(std.attr, "class", if(is.d.f) "row.names")
 	    } else { # need as.character here for double lengths.
@@ -464,21 +461,20 @@ str.default <-
 			       symbol = " symbol",
 			       expression = " ",# "expression(..)" by deParse(.)
 			       name = " name",
-			       ##not in R:argument = "",# .Argument(.) by deParse(.)
 			       ## in R (once):	comment.expression
 
 			       ## default :
 			       paste("		#>#>", mod, NULL)
 			       )
 	    }
-	} else if(typeof(object) %in%
-		  c("externalptr", "weakref", "environment", "bytecode", "object")) {
+	} else if((typ <- typeof(object)) %in%
+                  c("externalptr", "weakref", "environment", "bytecode", "object")) {
 	    ## Careful here, we don't want to change pointer objects
 	    if(has.class)
                 cat(pClass(cl))
 	    le <- v.len <- 0
-	    str1 <-
-		if(is.environment(object)) format(object)
+	    str1 <- ## FIXME?: ideally use format() for all
+		if(typ %in% c("externalptr", "environment")) format(object)
 		else paste0("<", typeof(object), ">")
 	    has.class <- TRUE # fake for later
 	    std.attr <- "class"
@@ -555,9 +551,8 @@ str.default <-
 		format.fun <- deParse
 	    } else {
 		if(mod == "...") { # DOTSXP
-		    format.fun <- function(x) { # use le := length(x)
-			le <- length(x) ## for testing <<<<< FIXME DROP!! <<<<<<<<<<
-			hasNm <- nzchar(nm <- names(x) %||% rep.int("", le))
+		    format.fun <- function(x) {
+			hasNm <- nzchar(nm <- names(x) %||% rep.int("", length(x)))
 			nm[hasNm] <- paste0(nm[hasNm], "=")
 			paste0("(", paste(paste0(nm,"*"), collapse=", "),
 			       ")")

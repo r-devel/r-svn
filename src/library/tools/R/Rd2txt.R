@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2txt.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,8 @@ Rd2txt_options <- local({
     	         sectionExtra = 2L,
     	         itemBullet = "* ",
     	         enumFormat = function(n) sprintf("%d. ", n),
-    	         showURLs = FALSE,
+                 descStyle = "linebreak",
+                 showURLs = FALSE,
                  code_quote = TRUE,
                  underline_titles = TRUE)
     function(...) {
@@ -47,11 +48,77 @@ Rd2txt_options <- local({
         else {
             if (is.list(args[[1L]])) args <- args[[1L]]
             result <- opts[names(args)]
+            names(result) <- names(args)
             opts[names(args)] <<- args
             invisible(result)
         }
     }
 })
+
+math_replacements <- matrix(c(
+    "Alpha",   "\u391",  "Alpha",   "&Alpha;",
+    "Beta",    "\u392",  "Beta",    "&Beta;",
+    "Gamma",   "\u393",  "Gamma",   "&Gamma;",
+    "Delta",   "\u394",  "Delta",   "&Delta;",
+    "Epsilon", "\u395",  "Epsilon", "&Epsilon;",
+    "Zeta",    "\u396",  "Zeta",    "&Zeta;",
+    "Eta",     "\u397",  "Eta",     "&Eta;",
+    "Theta",   "\u398",  "Theta",   "&Theta;",
+    "Iota",    "\u399",  "Iota",    "&Iota;",
+    "Kappa",   "\u39a",  "Kappa",   "&Kappa;",
+    "Lambda",  "\u39b",  "Lambda",  "&Lambda;",
+    "Mu",      "\u39c",  "Mu",      "&Mu;",
+    "Nu",      "\u39d",  "Nu",      "&Nu;",
+    "Xi",      "\u39e",  "Xi",      "&Xi;",
+    "Omicron", "\u39f",  "Omicron", "&Omicron;",
+    "Pi",      "\u3a0",  "Pi",      "&Pi;",
+    "Rho",     "\u3a1",  "Rho",     "&Rho;",
+    "Sigma",   "\u3a3",  "Sigma",   "&Sigma;",
+    "Tau",     "\u3a4",  "Tau",     "&Tau;",
+    "Upsilon", "\u3a5",  "Upsilon", "&Upsilon;",
+    "Phi",     "\u3a6",  "Phi",     "&Phi;",
+    "Chi",     "\u3a7",  "Chi",     "&Chi;",
+    "Psi",     "\u3a8",  "Psi",     "&Psi;",
+    "Omega",   "\u3a9",  "Omega",   "&Omega;",
+    "alpha",   "\u3b1",  "alpha",   "&alpha;",
+    "beta",    "\u3b2",  "beta",    "&beta;",
+    "gamma",   "\u3b3",  "gamma",   "&gamma;",
+    "delta",   "\u3b4",  "delta",   "&delta;",
+    "epsilon", "\u3b5",  "epsilon", "&epsilon;",
+    "zeta",    "\u3b6",  "zeta",    "&zeta;",
+    "eta",     "\u3b7",  "eta",     "&eta;",
+    "theta",   "\u3b8",  "theta",   "&theta;",
+    "iota",    "\u3b9",  "iota",    "&iota;",
+    "kappa",   "\u3ba",  "kappa",   "&kappa;",
+    "lambda",  "\u3bb",  "lambda",  "&lambda;",
+    "mu",      "\u3bc",  "mu",      "&mu;",
+    "nu",      "\u3bd",  "nu",      "&nu;",
+    "xi",      "\u3be",  "xi",      "&xi;",
+    "omicron", "\u3bf",  "omicron", "&omicron;",
+    "pi",      "\u3c0",  "pi",      "&pi;",
+    "rho",     "\u3c1",  "rho",     "&rho;",
+    "sigma",   "\u3c3",  "sigma",   "&sigma;",
+    "tau",     "\u3c4",  "tau",     "&tau;",
+    "upsilon", "\u3c5",  "upsilon", "&upsilon;",
+    "phi",     "\u3c6",  "phi",     "&phi;",
+    "chi",     "\u3c7",  "chi",     "&chi;",
+    "psi",     "\u3c8",  "psi",     "&psi;",
+    "omega",   "\u3c9",  "omega",   "&omega;",
+    "sum",     "\u2211", "sum",     "&sum;",
+    "prod",    "\u220f", "prod",    "&prod;",
+    "sqrt",    "\u221a", "sqrt",    "&radic;",
+    "dots",    "\u2026", "...",     "&hellip;",
+    "ldots",   "\u2026", "...",     "&hellip;",
+    "le",      "\u2264", "<=",      "&le;",
+    "leq",     "\u2264", "<=",      "&le;",
+    "ge",      "\u2265", ">=",      "&ge;",
+    "geq",     "\u2265", ">=",      "&ge;",
+    "ne",      "\u2260", "!=",      "&ne;",
+    "neq",     "\u2260", "!=",      "&ne;",
+    "infty",   "\u221e", "Inf",     "&infin;",
+    "left",    "",       "",        "",
+    "right",   "",       "",        ""
+), ncol = 4, byrow = TRUE, dimnames = list(NULL, c("name", "fancy", "ascii", "html")))
 
 transformMethod <- function(i, blocks, Rdfile) {
     editblock <- function(block, newtext)
@@ -341,9 +408,9 @@ Rd2txt <-
     }
 
     ## for efficiency
-    WriteLines <-
-        if(outputEncoding == "UTF-8" ||
-           (outputEncoding == "" && l10n_info()[["UTF-8"]])) {
+    asUTF8 <- outputEncoding == "UTF-8" ||
+        (outputEncoding == "" && l10n_info()[["UTF-8"]])
+    WriteLines <- if(asUTF8) {
         function(x, con, outputEncoding, ...)
             writeLines(x, con, useBytes = TRUE, ...)
     } else {
@@ -458,18 +525,11 @@ Rd2txt <-
     	linestart <<- TRUE
     }
 
-    encoding <- "unknown"
+    unicode_symbols <- asUTF8 &&
+        ## disable in title (see .Rd_get_text) to match existing *-Ex.Rout.save
+        !isFALSE(Rd2txt_options()$unicode_symbols)
 
-    li <- l10n_info()
-    ## See the comment in ?Rd2txt as to why we do not attempt fancy quotes
-    ## in Windows CJK locales -- and in any case they would need more work
-    ## This covers the common single-byte locales and Thai (874)
-    use_fancy_quotes <-
-        (.Platform$OS.type == "windows" &&
-         ((li$codepage >= 1250 && li$codepage <= 1258) || li$codepage == 874)) ||
-        li[["UTF-8"]]
-
-    if(!isFALSE(getOption("useFancyQuotes")) && use_fancy_quotes) {
+    if(unicode_symbols && !isFALSE(getOption("useFancyQuotes"))) {
     	LSQM <- "\u2018"                # Left single quote
     	RSQM <- "\u2019"                # Right single quote
     	LDQM <- "\u201c"                # Left double quote
@@ -497,7 +557,12 @@ Rd2txt <-
     }
 
     unescape <- function(x) {
-        x <- psub("(---|--)", "-", x)
+        if (unicode_symbols) {
+            x <- fsub("---", "\u2014", x)
+            x <- fsub("--",  "\u2013", x)
+        } else {
+            x <- psub("(---|--)", "-", x)
+        }
         x
     }
 
@@ -516,6 +581,7 @@ Rd2txt <-
         strip
     }
     ## Strip pending blank lines, then add n new ones.
+    ## (Currently not used with n > 1, which only works if not 'wrapping'.)
     blankLine <- function(n = 1L) {
     	while (stripBlankLine()) NULL
 	flushBuffer()
@@ -528,15 +594,34 @@ Rd2txt <-
     }
 
     txt_eqn <- function(x) {
-        x <- psub("\\\\(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|sum|prod|sqrt)", "\\1", x)
-        x <- psub("\\\\(dots|ldots)", "...", x)
-        x <- fsub("\\le", "<=", x)
-        x <- fsub("\\ge", ">=", x)
-        x <- fsub("\\infty", "Inf", x)
+        replacement <- if (unicode_symbols) "fancy" else "ascii"
+        rx <- paste0("\\\\(",
+                     paste(math_replacements[,"name"], collapse = "|"),
+                     ")(?![a-zA-Z])")
+        m <- gregexec(rx, x, perl = TRUE)
+        ii <- lapply(regmatches(x, m),
+                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
+        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, replacement])
         ## FIXME: are these needed?
         x <- psub("\\\\(bold|strong|emph|var)\\{([^}]*)\\}", "\\2", x)
-        x <- psub("\\\\(code|samp)\\{([^}]*)\\}", "'\\2'", x)
+        x <- psub("\\\\(code|samp)\\{([^}]*)\\}",
+                  sprintf("%s\\2%s", LSQM, RSQM), x)
         x
+    }
+
+    wrappers <- list(
+        "\\var"    = c("<", ">"),
+        "\\bold"   = c("*", "*"),
+        "\\strong" = c("*", "*"),
+        "\\emph"   = c("_", "_")
+    )
+    writeWrapped <- function(block, tag) {
+        if (isBlankRd(block))
+            return() # skip \emph{} etc, consistent with HTML
+    	LR <- wrappers[[tag]]
+    	put(LR[1L])
+    	writeContent(block, tag)
+    	put(LR[2L])
     }
 
     writeDR <- function(block, tag) {
@@ -553,18 +638,10 @@ Rd2txt <-
 
     writeQ <- function(block, tag, quote=tag)
     {
-        if (use_fancy_quotes) {
-            if (quote == "\\sQuote") {
-                put(LSQM); writeContent(block, tag); put(RSQM)
-            } else {
-                put(LDQM); writeContent(block, tag); put(RDQM)
-            }
+        if (quote == "\\sQuote") {
+            put(LSQM); writeContent(block, tag); put(RSQM)
         } else {
-            if (quote == "\\sQuote") {
-                put("'"); writeContent(block, tag); put("'")
-            } else {
-                put("\""); writeContent(block,tag); put("\"")
-            }
+            put(LDQM); writeContent(block, tag); put(RDQM)
         }
     }
 
@@ -631,25 +708,13 @@ Rd2txt <-
                "\\Sexpr"= put(as.character.Rd(block, deparse=TRUE)),
                "\\abbr" =,
                "\\acronym" =,
-               "\\cite"=,
                "\\dfn"= ,
                "\\special" = writeContent(block, tag),
-               "\\var" = {
-                   put("<")
-                   writeContent(block, tag)
-                   put(">")
-               },
+               "\\var"=,
                "\\bold"=,
-               "\\strong"= {
-                   put("*")
-                   writeContent(block, tag)
-                   put("*")
-               },
-               "\\emph"= {
-                   put("_")
-                   writeContent(block, tag)
-                   put("_")
-               },
+               "\\strong"=,
+               "\\emph" = writeWrapped(block, tag),
+               "\\cite" = writeQ(block, tag, quote = "\\sQuote"),
                "\\sQuote" =,
                "\\dQuote"= writeQ(block, tag) ,
                "\\preformatted"= {
@@ -666,6 +731,7 @@ Rd2txt <-
                    }
                },
                "\\linkS4class" =,
+               "\\linkS4methods" =,
                "\\link" = writeContent(block, tag),
                "\\cr" = {
                    if (!length(buffer)) { # \cr\cr
@@ -694,6 +760,7 @@ Rd2txt <-
                    ## FIXME: treat 2 of 2 differently?
                    inEqn0 <- inEqn
                    inEqn <<- TRUE
+                   dropBlank <<- TRUE
                    writeContent(block, tag)
                    inEqn <<- inEqn0
                },
@@ -891,9 +958,12 @@ Rd2txt <-
                                   indent <<- max(opts$minIndent,
                                                  indent + opts$extraIndent)
                                   keepFirstIndent <<- TRUE
-                                  putw(strrep(" ", indent0),
-                                       DLlab,
-                                       " ")
+                                  linebreak <- identical(opts$descStyle, "linebreak")
+                                  suffix <- if (identical(opts$descStyle, "colon")
+                                                && !endsWith(DLlab[length(DLlab)], ":")) ": "
+                                            else if (!linebreak) " "
+                                  putw(strrep(" ", indent0), DLlab, suffix)
+                                  if (linebreak) blankLine(0L)
                                   writeContent(block[[2L]], tag)
 			  	  blankLine(0L)
                                   indent <<- indent0
@@ -937,7 +1007,7 @@ Rd2txt <-
                        ## The next item must be TEXT, and start with a space.
                        itemskip <- FALSE
                        if (tag == "TEXT") {
-                           txt <- psub("^ ", "", as.character(tabExpand(block)))
+                           txt <- psub("^ ", "", as.character(unescape(tabExpand(block))))
                            put(txt)
                            if (!haveBlanks &&
                                blocktag %in% c("\\describe", "\\value", "\\arguments"))
@@ -1039,8 +1109,6 @@ Rd2txt <-
 	    left <- name
 	    mid <- if(nzchar(package)) paste0("package:", package) else ""
 	    right <- "R Documentation"
-	    if(encoding != "unknown")
-		right <- paste0(right, "(", encoding, ")")
 	    pad <- max(HDR_WIDTH - nchar(left, "w") - nchar(mid, "w") - nchar(right, "w"), 0)
 	    pad0 <- pad %/% 2L
 	    pad1 <- strrep(" ", pad0)

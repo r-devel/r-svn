@@ -57,7 +57,7 @@ is.array(x)
 
   \code{is.array} is a \link{primitive} function.
 
-  For a list array, the \code{print} methods prints entries of length
+  For a list array, the \code{print} method prints entries of length
   not one in the form \samp{integer,7} indicating the type and length.
 }
 \value{
@@ -88,9 +88,7 @@ is.array(x)
   \code{is.array} is a \link{primitive} function.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{aperm}}, \code{\link{matrix}},

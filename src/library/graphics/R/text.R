@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/text.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,20 @@ function(x, y = NULL, labels = seq_along(x$x),
     if (!missing(y) && (is.character(y) || is.expression(y))) {
 	labels <- y; y <- NULL
     }
+
     x <- xy.coords(x,y, recycle = TRUE, setLab = FALSE)
+    
+    if (is.language(labels)) {
+        labels <- as.expression(labels)
+    }
+
+    if (length(labels) > (n <- length(x$x)) && n >= 1) {
+        labels <- labels[1:n]
+        warning("length(labels) > max(length(x), length(y));\n",
+                gettextf("'labels' truncated to length %d", n),
+                domain = NA)
+    }
+
     labels <- as.graphicsAnnot(labels)
     if (!is.null(vfont))
         vfont <- c(typeface = pmatch(vfont[1L], Hershey$typeface),

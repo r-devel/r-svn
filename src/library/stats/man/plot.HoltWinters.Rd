@@ -5,7 +5,7 @@
 
 \name{plot.HoltWinters}
 \alias{plot.HoltWinters}
-\title{Plot function for \code{"HoltWinters"} objects}
+\title{Plotting \code{"HoltWinters"} Objects}
 \description{
   Produces a chart of the original time series along with the fitted
   values. Optionally, predicted values (and their confidence bounds) can
@@ -40,15 +40,7 @@
   \item{\dots}{Other graphics parameters.}
 }
 \references{
-  C. C. Holt (1957)
-  Forecasting trends and seasonals by exponentially weighted
-  moving averages,
-  \emph{ONR Research Memorandum, Carnegie Institute of Technology} \bold{52}.
-
-  P. R. Winters (1960).
-  Forecasting sales by exponentially weighted moving averages.
-  \emph{Management Science}, \bold{6}, 324--342.
-  \doi{10.1287/mnsc.6.3.324}.
+  \bibshow{R:Holt:1957, R:Holt:2004, R:Winters:1960}
 }
 \author{
   David Meyer \email{David.Meyer@wu.ac.at}
@@ -56,5 +48,5 @@
 \seealso{
   \code{\link{HoltWinters}}, \code{\link{predict.HoltWinters}}
 }
-
+\keyword{hplot}
 \keyword{ts}

@@ -4,7 +4,6 @@
 % Distributed under GPL 2 or later
 
 \name{base-deprecated}
-\encoding{UTF-8}
 \alias{base-deprecated}
 %------ Eventually move entries to ---->> ./base-defunct.Rd
 %------ NOTE:  ../R/Deprecated.R   must be synchronized with this!
@@ -26,33 +25,42 @@
   These functions are provided for compatibility with older versions of
   \R only, and may be defunct as soon as the next release.
 
-  The 12 \code{as.data.frame.<cls>} methods have been informally deprecated
-  already for \R 4.3.z (via environment variable \env{R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD},
+  The 12 \code{as.data.frame} methods listed here have been informally deprecated
+  already for \R 4.3.z (via environment variable \env{_R_CHECK_AS_DATA_FRAME_EXPLICIT_METHOD_},
   but also in package checks) and formally from \R 4.4.0.
   They are replaced typically by \code{\link{as.data.frame}()} or possibly \code{as.data.frame.vector()}.
 }
 \usage{
-is.R()
-
-as.data.frame.raw     (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.logical (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.integer (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.numeric (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.complex (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.factor  (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.ordered (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.Date    (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.difftime(x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.POSIXct (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.noquote (x, row.names=NULL, optional=FALSE, ..., nm=deparse1(substitute(x)))
-as.data.frame.numeric_version(x, row.names=NULL, optional=FALSE, ...,
-                              nm=deparse1(substitute(x)))
+as.data.frame.raw     (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.logical (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.integer (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.numeric (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.complex (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.factor  (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.ordered (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.Date    (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.difftime(x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.POSIXct (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.noquote (x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
+as.data.frame.numeric_version(x, row.names=NULL, optional=FALSE, validRN=TRUE,
+                       ..., nm=deparse1(substitute(x)))
 }
 
 \details{
   Deprecated
   functions in standard packages other than the base package are listed in
-  \code{help("pkg-deprecated")}, where \samp{pkg} is replaced by the
+  \code{help("\var{pkg}-deprecated")}, where \var{pkg} is replaced by the
   name of the package.
 }
 \seealso{

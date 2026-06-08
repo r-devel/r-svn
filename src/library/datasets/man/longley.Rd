@@ -1,6 +1,6 @@
 % File src/library/datasets/man/longley.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{longley}
@@ -30,16 +30,10 @@
   collinear.
 }
 \source{
-  J. W. Longley (1967)
-  An appraisal of least-squares programs from the point of view of the
-  user.
-  \emph{Journal of the American Statistical Association} \bold{62},
-  819--841.
+  \bibshow{R:Longley:1967}
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 require(stats); require(graphics)

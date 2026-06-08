@@ -53,14 +53,14 @@ Conj(z)
   Since \R version 4.4.0, \code{as.complex(x)} for \dQuote{number-like}
   \code{x}, i.e., types \code{"logical"}, \code{"integer"}, and
   \code{"double"}, will always keep imaginary part zero, now also for
-  \code{NA}'s.
+  \code{NA}s.
     Up to \R versions 3.2.x, all forms of \code{NA} and \code{NaN}
   were coerced to a complex \code{NA}, i.e., the \code{\link{NA_complex_}}
   constant, for which both the real and imaginary parts are \code{NA}.
   Since \R 3.3.0, typically only objects which are \code{NA} in parts
   are coerced to complex \code{NA}, but others with \code{NaN} parts,
   are \emph{not}.  As a consequence, complex arithmetic where only
-  \code{NaN}'s (but no \code{NA}'s) are involved typically will
+  \code{NaN}s (but no \code{NA}s) are involved typically will
   \emph{not} give complex \code{NA} but complex numbers with real or
   imaginary parts of \code{NaN}.
   All of these many different complex numbers fulfill \code{is.na(.)} but
@@ -124,9 +124,7 @@ Conj(z)
   set for them individually or via the group generic.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 require(graphics)
@@ -150,14 +148,14 @@ abline(h = 0, v = 0, col = "blue", lty = 3)
 points(zz.shift, col = "orange")
 
 ## as.complex(<some NA>): numbers keep Im = 0:
-stopifnot(identical(as.complex(NA_real_), NA_real_ + 0i)) # has always been true
 NAs <- vapply(list(NA, NA_integer_, NA_real_, NA_character_, NA_complex_),
               as.complex, 0+0i)
 stopifnot(is.na(NAs), is.na(Re(NAs))) # has always been true
 showC <- function(z) noquote(paste0("(", Re(z), ",", Im(z), ")"))
 showC(NAs)
-Im(NAs) # [0 0 0 NA NA]  \\ in R <= 4.3.x was [NA NA 0 NA NA]
+Im(NAs) # [0 0 0 NA NA]  \\\\ in R <= 4.3.x was [NA NA 0 NA NA]
 stopifnot(Im(NAs)[1:3] == 0)
+stopifnot(Im(NA_real_ + 0i) == 0) # has always been true
 
 
 ## The exact result of this *depends* on the platform, compiler, math-library:

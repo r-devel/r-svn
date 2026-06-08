@@ -1,6 +1,6 @@
 % File src/library/stats/man/stl.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{stl}
@@ -15,9 +15,9 @@
 stl(x, s.window, s.degree = 0,
     t.window = NULL, t.degree = 1,
     l.window = nextodd(period), l.degree = t.degree,
-    s.jump = ceiling(s.window/10),
-    t.jump = ceiling(t.window/10),
-    l.jump = ceiling(l.window/10),
+    s.jump = max(1, ceiling(s.window/10)),
+    t.jump = max(1, ceiling(t.window/10)),
+    l.jump = max(1, ceiling(l.window/10)),
     robust = FALSE,
     inner = if(robust)  1 else 2,
     outer = if(robust) 15 else 0,
@@ -27,14 +27,17 @@ stl(x, s.window, s.degree = 0,
   \item{x}{univariate time series to be decomposed.
     This should be an object of class \code{"ts"} with a frequency
     greater than one.}
-  \item{s.window}{either the character string \code{"periodic"} or the span (in
-    lags) of the \I{loess} window for seasonal extraction, which should
-    be odd and at least 7, according to Cleveland \abbr{et al.}  This has no default.}
+  \item{s.window}{either the character string \code{"periodic"}, an
+    abbreviation of that, or the
+    span (in lags) of the \I{loess} window for seasonal extraction,
+    which should be odd and at least 7, according to
+    \bibcitet{R:Cleveland+Cleveland+McRae:1990}.
+    This has no default.}
   \item{s.degree}{degree of locally-fitted polynomial in seasonal
     extraction.  Should be zero or one.}
   \item{t.window}{the span (in lags) of the \I{loess} window for trend
     extraction, which should be odd.  If \code{NULL}, the default,
-    \code{nextodd(ceiling((1.5*period) / (1-(1.5/s.window))))}, is taken.}
+    \code{max(3, nextodd(ceiling((1.5*period) / (1-(1.5/s.window)))))}, is taken.}
   \item{t.degree}{degree of locally-fitted polynomial in trend
     extraction.  Should be zero or one.}
   \item{l.window}{the span (in lags) of the \I{loess} window of the low-pass
@@ -48,12 +51,13 @@ stl(x, s.window, s.degree = 0,
   \item{s.jump, t.jump, l.jump}{integers at least one to increase speed of
     the respective smoother.  Linear interpolation happens between every
     \code{*.jump}-th value.}
-  \item{robust}{logical indicating if robust fitting be used in the
-    \code{loess} procedure.}
+  \item{robust}{logical indicating if \sQuote{outer} robustness iterations
+    should happen, i.e., \code{robust} is \emph{only} used to set the
+    default values of \code{inner} and \code{outer}.}
   \item{inner}{integer; the number of \sQuote{inner} (backfitting)
     iterations; usually very few (2) iterations suffice.}
-  \item{outer}{integer; the number of \sQuote{outer} robustness
-    iterations.}
+  \item{outer}{integer; the number of \sQuote{outer} (iterative robust
+    reweighting) iterations.}
   \item{na.action}{action on missing values.}
 }
 \details{
@@ -85,22 +89,20 @@ stl(x, s.window, s.degree = 0,
   \item{ni}{number of \bold{i}nner iterations}
   \item{no}{number of \bold{o}uter robustness iterations}
 }
-\references{
-  R. B. Cleveland, W. S. Cleveland, J.E.  McRae, and I. Terpenning (1990)
-  STL:  A  Seasonal-Trend  Decomposition  Procedure Based on Loess.
-  \emph{Journal of Official Statistics}, \bold{6}, 3--73.
-}
-\author{B.D. Ripley; Fortran code by Cleveland \abbr{et al.}\sspace(1990) from
+\author{B.D. Ripley;
+  C code via \command{f2c} and much cleanup by M. Maechler;
+  Fortran code by \bibcitet{R:Cleveland+Cleveland+McRae:1990} from
   \file{netlib}.}
-
+\references{
+  \bibshow{*}
+}
 \seealso{
   \code{\link{plot.stl}} for \code{stl} methods;
-  \code{\link{loess}} in package \pkg{stats} (which is not actually
-  used in \code{stl}).
+  \code{\link{loess}} which is not actually used in \code{stl()}.
 
   \code{\link{StructTS}} for different kind of decomposition.
 }
-\examples{
+\examples{\dontdiff{% results diff for some LLVM 22
 require(graphics)
 
 plot(stl(nottem, "per"))
@@ -123,5 +125,5 @@ plot(stmR, set.pars = NULL)
 sts <- stmR$time.series
 points(time(sts)[iO], 0.8* sts[,"remainder"][iO], pch = 4, col = "red")
 par(op)   # reset
-}
+}}
 \keyword{ts}

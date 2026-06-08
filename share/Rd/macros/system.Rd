@@ -7,8 +7,8 @@
 % this file but before every Rd file in a package.
 
 % Packages may request inclusion of macros from other packages using the 
-% LoadRdMacros line in the DESCRIPTION file, e.g.
-%  LoadRdMacros:  pkgA 
+% DESCRIPTION field 'RdMacros', e.g.
+%   RdMacros: pkgA 
 % These are loaded after the system macros and before the current package macros.
 
 % Individual Rd files may define their own macros.
@@ -56,6 +56,11 @@
 % To get things ignored by RdTextFilter() ...
 \newcommand{\I}{#1}
 
-% Experimental:
-\newcommand{\bibcite}{#1}
-\newcommand{\bibshow}{#1}
+% To cite an R manual, e.g.: \manual{R-exts}{Processing documentation files}
+\newcommand{\manual}{\Sexpr[results=rd]{tools:::Rd_expr_manual("#1", "#2")}}
+
+% To cite from installed bibentries (R_bibentries() or package-specific REFERENCES)
+\newcommand{\bibcitep}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibcite(r"(#1)", FALSE)}}
+\newcommand{\bibcitet}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibcite(r"(#1)", TRUE)}}
+\newcommand{\bibshow}{\Sexpr[results=rd,stage=build]{tools:::Rd_expr_bibshow("#1")}}
+\newcommand{\bibinfo}{\Sexpr[stage=build]{tools:::Rd_expr_bibinfo("#1", "#2", r"(#3)")}}

@@ -91,7 +91,7 @@
     (CPUs such as ARM where for most compilers \samp{long double} is
     identical to \code{double}).}
     % 64-bit ARM Linux compilers have a software-implemented
-    % quad-precison as long double
+    % quad-precision as long double
   \item{sizeof.pointer}{the number of bytes in the C \code{SEXP}
     type.  Will be \code{4} on 32-bit builds and \code{8} on 64-bit
     builds of \R.}
@@ -109,7 +109,8 @@
     also \sQuote{Note}.}
 }
 \details{
-  The algorithm is based on Cody's (1988) subroutine \code{MACHAR}.  As all
+  The algorithm is based on subroutine \code{MACHAR} \bibcitep{R:Cody:1988}.
+  As all
   current implementations of \R use 32-bit integers and use \abbr{IEC} 60559
   floating-point (double precision) arithmetic, the \code{"integer"} and
   \code{"double"} related values are the same for almost all \R builds.
@@ -151,10 +152,7 @@
   R Core Team to defeat over-optimization in modern compilers.
 }
 \references{
-  Cody, W. J. (1988).
-  MACHAR: A subroutine to dynamically determine machine parameters.
-  \emph{Transactions on Mathematical Software}, \bold{14}(4), 303--311.
-  \doi{10.1145/50063.51907}.
+  \bibshow{*}
 }
 \seealso{
   \code{\link{.Platform}} for details of the platform.

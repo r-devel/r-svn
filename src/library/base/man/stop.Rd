@@ -58,14 +58,12 @@ geterrmessage()
   ending in \code{"\\n"}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
   \code{\link{warning}}, \code{\link{try}} to catch errors and retry,
   and \code{\link{options}} for setting error handlers.
-  \code{\link{stopifnot}} for validity testing.  \code{tryCatch}
+  \code{\link{stopifnot}} for validity testing.  \code{\link{tryCatch}}
   and \code{withCallingHandlers} can be used to establish custom handlers
   while executing an expression.
 

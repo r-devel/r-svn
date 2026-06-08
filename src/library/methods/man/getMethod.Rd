@@ -180,20 +180,19 @@ table of methods including the one specified.
 
 }
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+  \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 
- Chambers, John M. (2008)
- \emph{Software for Data Analysis: Programming with R}
-  Springer. (Section 10.6 for some details of method selection.)
+  \bibshow{R:Chambers:2008}
+  (Section 10.6 for some details of method selection.)
 }
-\seealso{\code{\link{Methods_Details}} for the details of method
-  selection; \code{\link{GenericFunctions}} for other functions
-  manipulating methods and generic function objects;
+\seealso{
+  \code{\link{Methods_Details}} for the details of method selection;
+  \code{\link{GenericFunctions}} for other functions manipulating
+  methods and generic function objects; 
   \code{\linkS4class{MethodDefinition}} for the class that represents
-  method definitions.}
+  method definitions.
+}
 \examples{
 testFun <-  function(x)x
 setGeneric("testFun")

@@ -42,8 +42,7 @@ read.fwf(file, widths, header = FALSE, sep = "\t",
   \item{fileEncoding}{character string: if non-empty declares the
     encoding used on a file (not a connection) so the character data can
     be re-encoded.  See the \sQuote{Encoding} section of the help for
-    \code{\link{file}}, the \sQuote{R Data Import/Export} manual and
-    \sQuote{Note}.}
+    \code{\link{file}}, and \manual{R-data}{Variations on read.table}.}
   
   \item{\dots}{further arguments to be passed to
     \code{\link{read.table}}.  Useful such arguments include
@@ -82,11 +81,11 @@ read.fwf(file, widths, header = FALSE, sep = "\t",
 \examples{
 ff <- tempfile()
 cat(file = ff, "123456", "987654", sep = "\n")
-read.fwf(ff, widths = c(1,2,3))    #> 1 23 456 \\ 9 87 654
-read.fwf(ff, widths = c(1,-2,3))   #> 1 456 \\ 9 654
+read.fwf(ff, widths = c(1,2,3))     #> 1 23 456 \\\\ 9 87 654
+read.fwf(ff, widths = c(1,-2,3))    #> 1 456 \\\\ 9 654
 unlink(ff)
 cat(file = ff, "123", "987654", sep = "\n")
-read.fwf(ff, widths = c(1,0, 2,3))    #> 1 NA 23 NA \\ 9 NA 87 654
+read.fwf(ff, widths = c(1,0, 2,3))  #> 1 NA 23 NA \\\\ 9 NA 87 654
 unlink(ff)
 cat(file = ff, "123456", "987654", sep = "\n")
 read.fwf(ff, widths = list(c(1,0, 2,3), c(2,2,2))) #> 1 NA 23 456 98 76 54

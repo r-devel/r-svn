@@ -6,7 +6,6 @@
 \name{runmed}
 \title{Running Medians -- Robust Scatter Plot Smoothing}
 \alias{runmed}
-\encoding{UTF-8}
 \description{
   Compute running medians of odd span.  This is the \sQuote{most robust}
   scatter plot smoothing possible.  For efficiency (and historical
@@ -80,7 +79,8 @@ runmed(x, k, endrule = c("median", "keep", "constant"),
   The two algorithms are internally entirely different:
   \describe{
     \item{\code{"Turlach"}}{is the \I{\enc{Härdle}{Haerdle}}--\I{Steiger}
-      algorithm (see Ref.) as implemented by \I{Berwin Turlach}.
+      algorithm \bibcitep{R:Haerdle+Steiger:1995} as implemented by
+      \I{Berwin Turlach}.
       A tree algorithm is used, ensuring performance \eqn{O(n \log
         k)}{O(n * log(k))} where \code{n = length(x)} which is
       asymptotically optimal.}
@@ -108,14 +108,8 @@ runmed(x, k, endrule = c("median", "keep", "constant"),
   Currently \link{long vectors} are only supported for \code{algorithm = "Stuetzle"}.
 }
 \references{
-  \enc{Härdle}{Haerdle}, W. and Steiger, W. (1995)
-  Algorithm AS 296: Optimal median smoothing,
-  \emph{Applied Statistics} \bold{44}, 258--264.
-  \doi{10.2307/2986349}.
-
-  Jerome H. Friedman and Werner Stuetzle (1982)
-  \emph{Smoothing of Scatterplots};
-  Report, Dep. Statistics, Stanford U., Project Orion 003.
+  \bibshow{R:Haerdle+Steiger:1995,
+    R:Friedman+Stuetzle:1982}
 %%
 %% Martin Maechler (2003)
 %% Fast Running Medians: Finite Sample and Asymptotic Optimality;
@@ -166,7 +160,7 @@ lines(runmed(y, 7),      lwd = 2, col = col[3])
 legend(length(y),max(y), c("data", "lowess(y, f = 0.3)", "runmed(y, 7)"),
        xjust = 1, col = col, lty = c(0, 1, 1), pch = c(1,NA,NA))
 
-## An example with initial NA's - used to fail badly (notably for "Turlach"):
+## An example with initial NAs - used to fail badly (notably for "Turlach"):
 x15 <- c(rep(NA, 4), c(9, 9, 4, 22, 6, 1, 7, 5, 2, 8, 3))
 rS15 <- cbind(Sk.3 = runmed(x15, k = 3, algorithm="S"),
               Sk.7 = runmed(x15, k = 7, algorithm="S"),

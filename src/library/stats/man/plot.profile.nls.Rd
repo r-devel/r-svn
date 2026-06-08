@@ -23,7 +23,7 @@
     is used instead of giving \code{levels} explicitly.}
  \item{conf}{a numeric vector of confidence levels for profile-based
    confidence intervals on the parameters.
-   Defaults to \code{c(0.99, 0.95, 0.90, 0.80, 0.50).}}
+   Defaults to \code{c(0.99, 0.95, 0.90, 0.80, 0.50)}.}
  \item{absVal}{a logical value indicating whether or not the plots
    should be on the scale of the absolute value of the profile t.
    Defaults to \code{TRUE}.}
@@ -40,9 +40,8 @@
   the horizontal/vertical lines dropping to the axes.
 }
 \references{
-  Bates, D.M. and Watts, D.G. (1988),
-  \emph{Nonlinear Regression Analysis and Its Applications},
-  Wiley (chapter 6)
+  \bibinfo{R:Bates+Watts:1988}{footer}{Chapter 6.}
+  \bibshow{R:Bates+Watts:1988}
 }
 \author{Douglas M. Bates and Saikat DebRoy}
 \seealso{
@@ -69,3 +68,4 @@ par(opar)
 \keyword{nonlinear}
 \keyword{regression}
 \keyword{models}
+\keyword{hplot}

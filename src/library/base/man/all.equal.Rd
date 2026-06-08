@@ -1,6 +1,6 @@
 % File src/library/base/man/all.equal.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{all.equal}
@@ -33,6 +33,9 @@ all.equal(target, current, \dots)
           countEQ = FALSE,
           formatFUN = function(err, what) format(err),
           \dots, check.attributes = TRUE, check.class = TRUE, giveErr = FALSE)
+
+\method{all.equal}{character}(target, current, \dots,
+          check.attributes = TRUE, check.class = TRUE)
 
 \method{all.equal}{list}(target, current, \dots,
           check.attributes = TRUE, use.names = TRUE)
@@ -160,9 +163,8 @@ attr.all.equal(target, current, \dots,
   between \code{target} and \code{current}.
 }
 \references{
-  Chambers, J. M. (1998)
-  \emph{Programming with Data. A Guide to the S Language}.
-  Springer (for \code{=}).
+  \bibshow{R:Chambers:1998}
+  (for \code{=}).
 }
 \seealso{\code{\link{identical}}, \code{\link{isTRUE}}, \code{\link{==}}, and
   \code{\link{all}} for exact equality testing.

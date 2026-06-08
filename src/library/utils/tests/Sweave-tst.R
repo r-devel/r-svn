@@ -16,18 +16,17 @@
 
 ## Testing Sweave
 
-.proctime00 <- proc.time()
 library(utils)
 options(digits = 5) # to avoid trivial printed differences
 options(show.signif.stars = FALSE) # avoid fancy quotes in o/p
 
 SweaveTeX <- function(file, ...) {
     if(!file.exists(file))
-        stop("File", file, "does not exist in", getwd())
+        stop("File ", sQuote(file), " does not exist in ", getwd())
     texF <- sub("\\.[RSrs]nw$", ".tex", file)
     Sweave(file, ...)
     if(!file.exists(texF))
-        stop("File", texF, "does not exist in", getwd())
+        stop("File ", sQuote(texF), " does not exist in ", getwd())
     readLines(texF)
 }
 
@@ -80,5 +79,49 @@ Sweave("customgraphics.Rnw")
 Sweave(f <- "Sexpr-verb-ex.Rnw")
 tools::texi2pdf(sub("Rnw$","tex", f))# used to fail
 
+### ------------------------------------ 5 ----------------------------------
+## test PDF conversion of jss.cls including toBibtex(citation())
+stopifnot(tools::Rcmd(c("Sweave", "--pdf", "jss.Rnw")) == 0)
+## render the installed Rnw file from example(Sweave), using R CMD Sweave
+testfile <- system.file("Sweave", "Sweave-test-1.Rnw", package = "utils")
+stopifnot(exprs = {
+    tools::Rcmd(c("Sweave", "--help")) == 0L
+    tools::Rcmd(c("Sweave", "--pdf", testfile)) == 0L
+})
 
-cat('Time elapsed: ', proc.time() - .proctime00,'\n')
+### ------------------------------------ 6 ----------------------------------
+## invalid or unparsable R code in code chunks ignored with global options
+Sweave("ignore-on-weave-global.Rnw", ignore.on.weave = TRUE)
+Sweave("ignore-on-weave-global.Rnw", ignore = TRUE)
+Sweave("ignore-on-weave-global.Rnw", weave = FALSE)
+
+### ------------------------------------ 7 ----------------------------------
+## invalid or unparsable R code in code chunks ignored with chunk options
+Sweave("ignore-on-weave-chunk.Rnw")
+
+### ------------------------------------ 8 ----------------------------------
+## logical and numeric chunk options may take their values from objects
+## set in previous chunks
+t8 <- SweaveTeX("objs-in-opts.Rnw")
+
+inp <- latexEnv(t8, "Sinput")
+out <- latexEnv(t8, "Soutput")
+## This may have to be updated when the *.Rnw changes:
+stopifnot(exprs = {
+    length(inp) == 4
+    length(out) == 0
+    any(grepl("\\includegraphics", t8))
+})
+
+## This may have to be updated when the *.Rnw changes:
+## check the size of the graphic using Ghostscript
+## (https://stackoverflow.com/a/52644056)
+if (FALSE)
+{
+    psize <- system2("gs", c("-dNOSAFER", "-dQUIET",
+                             paste0("-sFileName=", "vars-in-opts-c.pdf"),
+                             "-c", "'FileName (r) file runpdfbegin 1 1 pdfpagecount {pdfgetpage /MediaBox get {=print ( ) print} forall (\n) print} for quit'"),
+                     stdout = TRUE)
+    psize <- as.numeric(strsplit(psize, " ", fixed = TRUE)[[1L]][c(3, 4)])
+    stopifnot(psize/72 == c(4, 5))
+}

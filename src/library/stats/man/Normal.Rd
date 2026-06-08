@@ -34,14 +34,15 @@ rnorm(n, mean = 0, sd = 1)
     is taken to be the number required.}
   \item{mean}{vector of means.}
   \item{sd}{vector of standard deviations.}
-  \item{log, log.p}{logical; if TRUE, probabilities p are given as log(p).}
-  \item{lower.tail}{logical; if TRUE (default), probabilities are
-    \eqn{P[X \le x]} otherwise, \eqn{P[X > x]}.}
+  \item{log, log.p}{logical; if \code{TRUE}, probabilities/densities
+    are given as logarithms.}
+  \item{lower.tail}{logical; if \code{TRUE} (default), probabilities are
+    \eqn{P[X \le x]}, otherwise, \eqn{P[X > x]}.}
 }
 \value{
   \code{dnorm} gives the density,
-  \code{pnorm} gives the distribution function,
-  \code{qnorm} gives the quantile function, and
+  \code{pnorm} is the cumulative distribution function, and
+  \code{qnorm} is the quantile function of the normal distribution.
   \code{rnorm} generates random deviates.
 
   The length of the result is determined by \code{n} for
@@ -71,42 +72,27 @@ rnorm(n, mean = 0, sd = 1)
 }
 \seealso{
   \link{Distributions} for other standard distributions, including
-  \code{\link{dlnorm}} for the \emph{Log}normal distribution.
+  \code{\link{dlnorm}} for the \emph{log}-normal distribution.
 }
 \source{
-  For \code{pnorm}, based on
-
-  Cody, W. D. (1993)
-  Algorithm 715: SPECFUN -- A portable FORTRAN package of special
-  function routines and test drivers.
-  \emph{ACM Transactions on Mathematical Software} \bold{19}, 22--32.
+  For \code{pnorm}, based on \bibcitet{R:Cody:1993}.
 
   For \code{qnorm}, the code is based on a C translation of
-
-  Wichura, M. J. (1988)
-  Algorithm AS 241: The percentage points of the normal distribution.
-  \emph{Applied Statistics}, \bold{37}, 477--484; \doi{10.2307/2347330}.
-
+  \bibcitet{R:Wichura:1988}
   which provides precise results up to about 16 digits for
   \code{log.p=FALSE}.  For log scale probabilities in the extreme tails,
   since \R version 4.1.0, extensively since 4.3.0, asymptotic expansions
   are used which have been derived and explored in
-
-  Maechler, M. (2022)
-  Asymptotic tail formulas for gaussian quantiles; \CRANpkg{DPQ} vignette
-  \url{https://CRAN.R-project.org/package=DPQ/vignettes/qnorm-asymp.pdf}.
+  \bibcitet{R:Maechler:2022}.
 
   For \code{rnorm}, see \link{RNG} for how to select the algorithm and
   for references to the supplied methods.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
-
-  Johnson, N. L., Kotz, S. and Balakrishnan, N. (1995)
-  \emph{Continuous Univariate Distributions}, volume 1, chapter 13.
-  Wiley, New York.
+  \bibinfo{R:Johnson+Kotz+Balakrishnan:1994}{footer}{Chapter 13.}
+  \bibshow{*,
+    R:Becker+Chambers+Wilks:1988,
+    R:Johnson+Kotz+Balakrishnan:1994}
 }
 \examples{
 require(graphics)

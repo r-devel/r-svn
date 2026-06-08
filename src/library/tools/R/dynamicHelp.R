@@ -1,7 +1,7 @@
 #  File src/library/tools/R/dynamicHelp.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -128,9 +128,12 @@ httpd <- function(path, query, ...)
     }
     linksToTopics <-
         config_val_to_logical(Sys.getenv("_R_HELP_LINKS_TO_TOPICS_", "TRUE"))
+    addTOC <-
+        isTRUE(getOption("help.htmltoc", TRUE))
+
     .HTMLdirListing <- function(dir, base, up) {
         files <- list.files(dir)    # note, no hidden files are listed
-        out <- HTMLheader(paste0("Listing of directory<br/>", dir),
+        out <- HTMLheader(paste0("Listing of directory<br>", dir),
         		  headerTitle = paste("R:", dir), logo=FALSE,
         		  up = up)
         if(!length(files))
@@ -138,24 +141,25 @@ httpd <- function(path, query, ...)
         else {
             urls <- paste0('<a href="', base, '/', files, '">', files, '</a>')
             out <- c(out, "<dl>",
-                     paste0("<dd>", mono(iconv(urls, "", "UTF-8")), "</dd>"),
+                     paste0("<dt></dt><dd>", mono(iconv(urls, "", "UTF-8")), "</dd>"),
                      "</dl>")
         }
-        out <- c(out, "<hr/>\n</div></body></html>")
+        out <- c(out, "<hr>\n</div></body></html>")
         list(payload = paste(out, collapse="\n"))
     }
 
     .HTMLusermanuals <- function() {
+        ## FIXME: recommended packages might not be available
         pkgs <- unlist(.get_standard_package_names())
 
         out <- HTMLheader("R User Manuals")
         for (pkg in pkgs) {
             vinfo <- getVignetteInfo(pkg)
      	    if (nrow(vinfo))
-         	out <- c(out, paste0('<h2>Manuals in package', sQuote(pkg),'</h2>'),
+         	out <- c(out, paste0('<h2>Manuals in package ', sQuote(pkg),'</h2>'),
          		 makeVignetteTable(cbind(Package=pkg, vinfo[,c("File", "Title", "PDF", "R"), drop = FALSE])))
      	}
-        out <- c(out, "<hr/>\n</div></body></html>")
+        out <- c(out, "<hr>\n</div></body></html>")
         list(payload = paste(out, collapse="\n"))
     }
 
@@ -213,7 +217,7 @@ httpd <- function(path, query, ...)
         out <- c(HTMLheader(title),
                  if ("pattern" %in% names(query) && nchar(query["pattern"]))
                      paste0('The search string was <b>"', query["pattern"], '"</b>'),
-                 '<hr/>\n')
+                 '<hr>\n')
 
         if(!NROW(res))
             out <- c(out, gettext("No results found"))
@@ -256,7 +260,7 @@ httpd <- function(path, query, ...)
                 }
 	    }
         }
-        out <- c(out, "<hr/>\n</div></body></html>")
+        out <- c(out, "<hr>\n</div></body></html>")
         list(payload = paste(out, collapse="\n"))
     }
 
@@ -338,12 +342,15 @@ httpd <- function(path, query, ...)
             message(sprintf("HTTPD-ERROR %s %s", path, paste(msg, collapse = " ")))
         }
         list(payload =
-             paste(c(HTMLheader("httpd error"), msg, "\n</div></body></html>"), collapse = "\n"))
+                 structure(paste(c(HTMLheader("httpd error"), msg,
+                                   "\n</div></body></html>"),
+                                 collapse = "\n"),
+                           message = paste("httpd error", msg)))
     }
         
     cssRegexp <- "^/library/([^/]*)/html/R.css$"
     if (grepl("R\\.css$", path) && !grepl(cssRegexp, path)) {
-        if (isTRUE(getOption("help.htmltoc")))
+        if (addTOC)
             return(list(file = file.path(R.home("doc"), "html", "R-nav.css"),
                         "content-type" = "text/css"))
         else
@@ -388,12 +395,24 @@ httpd <- function(path, query, ...)
     demoRegexp <- "^/library/([^/]*)/demo$"
     demosRegexp <- "^/library/([^/]*)/demo/([^/]*)$"
     DemoRegexp <- "^/library/([^/]*)/Demo/([^/]*)$"
-    ExampleRegexp <- "^/library/([^/]*)/Example/([^/]*)$"
-    newsRegexp <- "^/library/([^/]*)/NEWS$"
+    ExampleRegexp <- "^/library/([^/]*)/Example/(.*)$"
+    newsRegexp <- "^/library/([^/]*)/NEWS([.](Rd|md))?$"
+    readmeRegexp <- "^/library/([^/]*)/README[.]md$"    
     figureRegexp <- "^/library/([^/]*)/(help|html)/figures/([^/]*)$"
+    logoRegexp <- "^/library/([^/]*)/logo$"
     sessionRegexp <- "^/session/"
     packageIndexRegexp <- "^/library/([^/]*)$"
     packageLicenseFileRegexp <- "^/library/([^/]*)/(LICEN[SC]E$)"
+
+    ## support pkgdown-style links like:
+    ## * pkg/reference/file.html -> pkg/html/file.html
+    ## * pkg/articles/file -> pkg/doc/file
+    referenceRegexp <- "^/library/+([^/]*)/reference/([^/]*)\\.html$"
+    articleRegexp <- "^/library/([^/]*)/articles/([^/]*)$"
+    if (grepl(referenceRegexp, path))
+        path <- gsub("/reference/", "/html/", path, fixed = TRUE)
+    else if (grepl(articleRegexp, path))
+        path <- gsub("/articles/", "/doc/", path, fixed = TRUE)
 
     file <- NULL
     if (grepl(topicRegexp, path)) {
@@ -472,7 +491,7 @@ httpd <- function(path, query, ...)
                                "<html>",
                                "<head>",
                                "<title>R: help</title>",
-                               "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />",
+                               "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">",
                                "</head>",
                                "<body>",
                                 "<p>",
@@ -535,7 +554,7 @@ httpd <- function(path, query, ...)
                     path <- dirname(dirname(files))
                     files <- paste0('/library/', basename(path), '/html/',
                                     basename(files), '.html')
-                    msg <- c(msg, "<br/>",
+                    msg <- c(msg, "<br>",
                              "However, you might be looking for one of",
                              "<p></p>",
                              paste0('<p><a href="', files, '">',
@@ -554,7 +573,8 @@ httpd <- function(path, query, ...)
         outfile <- tempfile("Rhttpd")
         Rd2HTML(utils:::.getHelpFile(file.path(path, helpdoc)),
                 out = outfile, package = dirpath,
-                dynamic = TRUE, outputEncoding = "UTF-8")
+                dynamic = TRUE, toc = addTOC,
+                outputEncoding = "UTF-8")
         on.exit(unlink(outfile))
         return(list(payload = paste(readLines(file(outfile, encoding="UTF-8")),
                                     collapse = "\n")))
@@ -651,13 +671,28 @@ httpd <- function(path, query, ...)
     	    return( list(payload = paste(formatted, collapse="\n")) )
     	else
     	    return( list(file = system.file("NEWS", package = pkg),
-    	                 "content-type" = paste0("text/plain", charsetSetting(pkg) ) ) )
+    	                 "content-type" = paste0("text/plain",
+                                                 charsetSetting(pkg) ) ) )
+    } else if (grepl(readmeRegexp, path)) {
+    	pkg <- sub(readmeRegexp, "\\1", path)
+        rfile <- system.file("README.md", package = pkg)
+        formatted <- .README_md_to_HTML(rfile)
+        if(length(formatted))
+            return( list(payload = paste(formatted, collapse="\n")) )
+        else
+    	    return( list(file = rfile,
+    	                 "content-type" = paste0("text/plain",
+                                                 charsetSetting(pkg) ) ) )
     } else if (grepl(figureRegexp, path)) {
         pkg <- sub(figureRegexp, "\\1", path)
         fig <- sub(figureRegexp, "\\3", path)
         file <- system.file("help", "figures", fig, package=pkg)
         return( list(file=file, "content-type" = mime_type(fig)) )
-    } else if (grepl(sessionRegexp, path)) {
+    } else if (grepl(logoRegexp, path)) {
+        pkg <- sub(logoRegexp, "\\1", path)
+        file <- staticLogoPath(pkg)
+        return( list(file=file, "content-type" = mime_type(basename(file))) )
+     } else if (grepl(sessionRegexp, path)) {
         tail <- sub(sessionRegexp, "", path)
     	file <- file.path(tempdir(), tail)
     	return( list(file=file, "content-type" = mime_type(tail)) )
@@ -702,12 +737,15 @@ httpd <- function(path, query, ...)
         ## remake as needed
         utils::make.packages.html(temp = TRUE)
         list(file = file.path(tempdir(), ".R", path))
-    } else if(path == "/doc/html/rw-FAQ.html") {
-        file <- file.path(R.home("doc"), sub("^/doc", "", path))
+    } else if(path %in% c("/doc/html/rw-FAQ.html", "/doc/manual/rw-FAQ.html")) {
+        ## exists on Windows in /doc/html, on Linux in /doc/manual only if made
+        file <- file.path(R.home("doc"),
+                          if(.Platform$OS.type == "windows") "html" else "manual",
+                          "rw-FAQ.html")
         if(file.exists(file))
             list(file = file, "content-type" = mime_type(path))
         else {
-            url <- "https://cran.r-project.org/bin/windows/base/rw-FAQ.html"
+            url <- "https://cloud.R-project.org/bin/windows/base/rw-FAQ.html"
 	    return(list(payload = paste0('Redirect to <a href="', url, '">"',
                                          url, '"</a>'),
 	    		"content-type" = 'text/html',
@@ -726,10 +764,10 @@ httpd <- function(path, query, ...)
             ## tarball has pre-built version of R-admin.html
             list(file = file, "content-type" = mime_type(path))
         } else {
-            ## url <- "https://cran.r-project.org/manuals.html"
+            ## url <- "https://cloud.R-project.org/manuals.html"
             version <-
                 if(grepl("unstable", R.version$status)) "r-devel" else "r-patched"
-            url <- file.path("https://cran.r-project.org/doc/manuals",
+            url <- file.path("https://cloud.R-project.org/doc/manuals",
                              version, basename(path))
 	    return(list(payload = paste0('Redirect to <a href="', url, '">"',
                                          url, '"</a>'),

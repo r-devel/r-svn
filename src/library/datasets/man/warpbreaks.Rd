@@ -1,6 +1,6 @@
 % File src/library/datasets/man/warpbreaks.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{warpbreaks}
@@ -23,19 +23,11 @@
   (\code{AL}, \code{AM}, \code{AH}, \code{BL}, \code{BM}, \code{BH}).
 }
 \source{
-  Tippett, L. H. C. (1950)
-  \emph{Technological Applications of Statistics}.
-  Wiley.  Page 106.
-
+  \bibinfo{R:Tippett:1950}{note}{Page 106}
+  \bibshow{R:Tippett:1950}
 }
 \references{
-  Tukey, J. W. (1977)
-  \emph{Exploratory Data Analysis}.
-  Addison-Wesley.
-
-  McNeil, D. R. (1977)
-  \emph{Interactive Data Analysis}.
-  Wiley.
+  \bibshow{R:McNeil:1977, R:Tukey:1977}
 }
 \seealso{
   \code{\link{xtabs}} for ways to display these data as a table.

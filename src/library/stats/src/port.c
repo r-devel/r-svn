@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2005-2022   The R Core Team.
+ *  Copyright (C) 2005-2026   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -236,7 +236,8 @@ double F77_NAME(dv2nrm)(int *n, const double x[])
 void F77_NAME(dv7cpy)(int *n, double dest[], const double src[])
 {
     /* Was memcpy, but overlaps seen */
-    memmove(dest, src, *n * sizeof(double));
+    if (*n)
+	memmove(dest, src, *n * sizeof(double));
 }
 
 /* dv7ipr... applies forward permutation to vector.  */
@@ -381,20 +382,19 @@ SEXP port_nlminb(SEXP fn, SEXP gr, SEXP hs, SEXP rho,
     if (isNull(rho)) {
 	error(_("use of NULL environment is defunct"));
 	rho = R_BaseEnv;
-    } else
-    if (!isEnvironment(rho))
+    } else if (!isEnvironment(rho))
 	error(_("'rho' must be an environment"));
     if (!isReal(d) || n < 1)
-	error(_("'d' must be a nonempty numeric vector"));
+	error(_("'d' must be a nonempty numeric (double) vector"));
     if (hs != R_NilValue && gr == R_NilValue)
 	error(_("When Hessian defined must also have gradient defined"));
-    if (R_NilValue == (xpt = findVarInFrame(rho, dot_par_symbol)) ||
+    if (R_NilValue == (xpt = R_getVar(dot_par_symbol, rho, FALSE)) ||
 	!isReal(xpt) || LENGTH(xpt) != n)
-	error(_("environment 'rho' must contain a numeric vector '.par' of length %d"),
+	error(_("environment 'rho' must contain a numeric (double) vector '.par' of length %d"),
 	      n);
     /* We are going to alter .par, so must duplicate it */
     defineVar(dot_par_symbol, duplicate(xpt), rho);
-    PROTECT(xpt = findVarInFrame(rho, dot_par_symbol));
+    PROTECT(xpt = R_getVar(dot_par_symbol, rho, FALSE));
 
     if ((LENGTH(lowerb) == n) && (LENGTH(upperb) == n)) {
 	if (isReal(lowerb) && isReal(upperb)) {
@@ -404,7 +404,7 @@ SEXP port_nlminb(SEXP fn, SEXP gr, SEXP hs, SEXP rho,
 		b[2*i] = rl[i];
 		b[2*i + 1] = ru[i];
 	    }
-	} else error(_("'lower' and 'upper' must be numeric vectors"));
+	} else error(_("'lower' and 'upper' must be numeric (double) vectors"));
     }
     if (gr != R_NilValue) {
 	g = (double *)R_alloc(n, sizeof(double));
@@ -427,7 +427,7 @@ SEXP port_nlminb(SEXP fn, SEXP gr, SEXP hs, SEXP rho,
 	/* duplicate .par value again in case a callback has stored
 	   value (package varComp does this) */
 	defineVar(dot_par_symbol, duplicate(xpt), rho);
-	xpt = findVarInFrame(rho, dot_par_symbol);
+	xpt = R_getVar(dot_par_symbol, rho, FALSE);
 	UNPROTECT(1);
 	PROTECT(xpt);
     } while(INTEGER(iv)[0] < 3);
@@ -551,7 +551,7 @@ SEXP port_nlsb(SEXP m, SEXP d, SEXP gg, SEXP iv, SEXP v,
 	*rd = (double *)R_alloc(nd, sizeof(double));
 
     if (!isReal(d) || n < 1)
-	error(_("'d' must be a nonempty numeric vector"));
+	error(_("'d' must be a nonempty numeric (double) vector"));
     if(!isNewList(m)) error(_("m must be a list"));
 				/* Initialize parameter vector */
     getPars = PROTECT(lang1(getFunc(m, "getPars", "m")));

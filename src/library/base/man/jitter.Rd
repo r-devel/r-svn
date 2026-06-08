@@ -1,6 +1,6 @@
 % File src/library/base/man/jitter.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2011 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{jitter}
@@ -11,15 +11,13 @@ jitter(x, factor = 1, amount = NULL)
 }
 \arguments{
   \item{x}{numeric vector to which \emph{jitter} should be added.}
-  \item{factor}{numeric.}
-  \item{amount}{numeric; if positive, used as \emph{amount} (see below),
-    otherwise, if \code{= 0} the default is \code{factor * z/50}.
-
-    Default (\code{NULL}): \code{factor * d/5} where \code{d} is about
-    the smallest difference between \code{x} values.}
+  \item{factor}{numeric; used in calculation of \code{amount} when
+   the provided \code{amount} is 0 or \code{NULL}.}
+  \item{amount}{number or \code{NULL}; when positive, specifies
+    the amount of jitter; see Details, also for other cases.}
 }
 \description{
-  Add a small amount of noise to a numeric vector.
+  Add a small amount of noise (\dQuote{jitter}) to a numeric vector.
 }
 \value{
   \code{jitter(x, \dots)} returns a numeric of the same length as
@@ -27,29 +25,23 @@ jitter(x, factor = 1, amount = NULL)
   ties.
 }
 \details{
-  The result, say \code{r}, is \code{r <- x + runif(n, -a, a)}
-  where \code{n <- length(x)} and \code{a} is the \code{amount}
-  argument (if specified).
+  The result of \code{r <-  x + amount * runif(n, -1, 1)}
+  where \code{n <- length(x)}.
 
-  Let \code{z <- max(x) - min(x)} (assuming the usual case).
-  The amount \code{a} to be added is either provided as \emph{positive}
-  argument \code{amount} or otherwise computed from \code{z}, as
-  follows:
+  When \code{amount} is \code{NULL} (the default)
+  \code{amount <- factor * d/5} where \emph{d} is about the smallest
+  difference between adjacent unique (up to fuzz) \code{x} values.
 
-  If \code{amount == 0}, we set \code{a <- factor * z/50} (same as S).
+  If \code{amount == 0}, \code{amount <- factor * (max(x) - min(x))/50},
+  (using only finite \code{x} values), which is the same as in S and the
+  references.
+  In the above cases, the final \code{amount} is always ensured to be positive.
 
-  If \code{amount} is \code{NULL} (\emph{default}), we set
-  \code{a <- factor * d/5} where \emph{d} is the smallest
-  difference between adjacent unique (apart from fuzz) \code{x} values.
+  The short \code{jitter()} function is itself a succinct definition.
 }
 \references{
-  Chambers, J. M., Cleveland, W. S., Kleiner, B. and Tukey, P.A. (1983)
-  \emph{Graphical Methods for Data Analysis.} Wadsworth; figures 2.8,
-  4.22, 5.4.
-
-  Chambers, J. M. and Hastie, T. J. (1992)
-  \emph{Statistical Models in S.}
-  Wadsworth & Brooks/Cole.
+  \bibinfo{R:Chambers+Cleveland+Kleiner:1983}{note}{(Figures 2.8, 4.22, 5.4.)}
+  \bibshow{R:Chambers+Cleveland+Kleiner:1983, R:Chambers+Hastie:1992}
 }
 \author{Werner Stahel and Martin Maechler, ETH Zurich}
 \seealso{
@@ -57,7 +49,7 @@ jitter(x, factor = 1, amount = NULL)
 }
 \examples{
 round(jitter(c(rep(1, 3), rep(1.2, 4), rep(3, 3))), 3)
-## These two 'fail' with S-plus 3.x:
+## These two had failed with S-plus 3.x: max(x) - min(x) == 0
 jitter(rep(0, 7))
 jitter(rep(10000, 5))
 }

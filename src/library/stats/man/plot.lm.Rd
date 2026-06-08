@@ -1,6 +1,6 @@
 % File src/library/stats/man/plot.lm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2023 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{plot.lm}
@@ -14,7 +14,7 @@
        "Residuals vs Leverage",
        expression("Cook's dist vs Leverage* " * h[ii] / (1 - h[ii]))),
      panel = if(add.smooth) function(x, y, ...)
-              panel.smooth(x, y, iter=iter.smooth, ...) else points,
+              panel.smooth(x, y, iter=iter.smooth, ...) else panel.raw,
      sub.caption = NULL, main = "",
      ask = prod(par("mfcol")) < length(which) && dev.interactive(),
      \dots,
@@ -23,9 +23,10 @@
      cook.col = 8, cook.lty = 2, cook.legendChanges = list(),
      add.smooth = getOption("add.smooth"),
      iter.smooth = if(isGlm) 0 else 3,
+     panel.raw = points,
      label.pos = c(4,2),
-     cex.caption = 1, cex.oma.main = 1.25
-   , extend.ylim.f = 0.08
+     cex.caption = 1, cex.oma.main = 1.25,
+     extend.ylim.f = 0.08
      )
 }
 \arguments{
@@ -48,9 +49,13 @@
     default vector in \sQuote{Usage}.  Can be set to
     \code{""} or \code{NA} to suppress all captions.
   }
-  \item{panel}{panel function.  The useful alternative to
-    \code{\link{points}}, \code{\link{panel.smooth}} can be chosen
-    by \code{add.smooth = TRUE}.}
+  \item{panel}{panel function for plotting points. This will by default 
+    add a smoothing curve via  
+     \code{\link{panel.smooth}}
+    if \code{add.smooth = TRUE} and use \code{panel.raw} (which by
+    default is \code{\link{points}}) otherwise. For the residuals vs 
+    leverage plot, the smooth makes little sense and 
+    \code{panel.raw} is used.}
   \item{sub.caption}{common title---above the figures if there are more
     than one; used as \code{sub} (s.\code{\link{title}}) otherwise.  If
     \code{NULL}, as by default, a possible abbreviated version of
@@ -84,6 +89,7 @@
     particularly desirable for the (predominant) case of binary
     observations, but also for other models where the response
     distribution can be highly skewed.}
+  \item{panel.raw}{a function to use for plots without a smoother.}
   \item{label.pos}{positioning of labels, for the left half and right
     half of the graph respectively, for plots 1-3, 5, 6.}
   \item{cex.caption}{controls the size of \code{caption}.}
@@ -144,36 +150,16 @@
   distribution.  The saddlepoint approximation is exact for the normal
   and inverse Gaussian family, and holds approximately for the Gamma
   family with small dispersion (large shape) and for the Poisson and
-  binomial families with large counts (\bibcite{Dunn and Smyth 2018}).
+  binomial families with large counts \bibcitep{R:Dunn+Smyth:2018}.
 }
 
 \references{
-  Belsley, D. A., Kuh, E. and Welsch, R. E. (1980).
-  \emph{Regression Diagnostics}.
-  New York: Wiley.
-
-  Cook, R. D. and Weisberg, S. (1982).
-  \emph{Residuals and Influence in Regression}.
-  London: Chapman and Hall.
-
-  Firth, D. (1991) Generalized Linear Models.
-  In Hinkley, D. V. and Reid, N. and Snell, E. J., eds:
-  Pp.\sspace{}55-82 in Statistical Theory and Modelling.
-  In Honour of Sir David Cox, FRS.
-  London: Chapman and Hall.
-
-  Hinkley, D. V. (1975).
-  On power transformations to symmetry.
-  \emph{Biometrika}, \bold{62}, 101--111.
-  \doi{10.2307/2334491}.
-
-  McCullagh, P. and Nelder, J. A. (1989).
-  \emph{Generalized Linear Models}.
-  London: Chapman and Hall.
-
-  Dunn, P.K. and Smyth G.K. (2018)
-  \emph{Generalized Linear Models with Examples in R}.
-  New York: Springer-Verlag.
+  \bibshow{*,
+    R:Belsley+Kuh+Welsch:1980,
+    R:Cook+Weisberg:1982,
+    R:Firth:1991,
+    R:Hinkley:1975,
+    R:McCullagh+Nelder:1989}
 }
 \author{
   John Maindonald and Martin Maechler.

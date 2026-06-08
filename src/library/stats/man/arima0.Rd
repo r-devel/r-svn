@@ -1,6 +1,6 @@
 % File src/library/stats/man/arima0.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{arima0}
@@ -12,6 +12,7 @@
 \description{
   Fit an ARIMA model to a univariate time series, and forecast from
   the fitted model.
+  For new projects, consider using \code{\link{arima}()} instead.
 }
 \usage{
 arima0(x, order = c(0, 0, 0),
@@ -25,16 +26,16 @@ arima0(x, order = c(0, 0, 0),
 \arguments{
   \item{x}{a univariate time series}
 
-  \item{order}{A specification of the non-seasonal part of the ARIMA
-    model: the three components \eqn{(p, d, q)} are the AR order, the
+  \item{order}{a specification of the non-seasonal part of the ARIMA
+    model: the three integer components \eqn{(p, d, q)} are the AR order, the
     degree of differencing, and the MA order.}
 
-  \item{seasonal}{A specification of the seasonal part of the ARIMA
+  \item{seasonal}{a specification of the seasonal part of the ARIMA
     model, plus the period (which defaults to \code{frequency(x)}).
-    This should be a list with components \code{order} and
-    \code{period}, but a specification of just a numeric vector of
-    length 3 will be turned into a suitable list with the specification
-    as the \code{order}.}
+    This may be a \code{\link{list}} with components \code{order} and
+    \code{period}, or just a numeric vector of length 3 which
+    specifies the seasonal \code{order}.  In the latter case the
+    default period is used.}
 
   \item{xreg}{Optionally, a vector or matrix of external regressors,
     which must have the same number of rows as \code{x}.}
@@ -47,7 +48,7 @@ arima0(x, order = c(0, 0, 0),
   \item{delta}{A value to indicate at which point \sQuote{fast
       recursions} should be used.  See the \sQuote{Details} section.}
 
-  \item{transform.pars}{Logical.  If true, the AR parameters are
+  \item{transform.pars}{logical; if true, the AR parameters are
     transformed to ensure that they remain in the region of
     stationarity.  Not used for \code{method = "CSS"}.}
 
@@ -62,10 +63,10 @@ arima0(x, order = c(0, 0, 0),
     regression coefficients.  Values already specified in \code{fixed}
     will be ignored.}
 
-  \item{method}{Fitting method: maximum likelihood or minimize
+  \item{method}{fitting method: maximum likelihood or minimize
     conditional sum-of-squares.  Can be abbreviated.}
 
-  \item{n.cond}{Only used if fitting by conditional-sum-of-squares: the
+  \item{n.cond}{only used if fitting by conditional-sum-of-squares: the
     number of initial observations to ignore.  It will be ignored if
     less than the maximum lag of an AR term.}
 
@@ -109,7 +110,8 @@ arima0(x, order = c(0, 0, 0),
 \section{Fitting methods}{
   The exact likelihood is computed via a state-space representation of
   the ARMA process, and the innovations and their variance found by a
-  \I{Kalman} filter based on Gardner \abbr{et al.}\sspace(1980).  This has
+  \I{Kalman} filter based on \bibcitet{R:Gardner+Harvey+Phillips:1980}.
+  This has
   the option to switch to \sQuote{fast recursions} (assume an
   effectively infinite past) if the innovations variance is close
   enough to its asymptotic bound. The argument \code{delta} sets the
@@ -119,7 +121,8 @@ arima0(x, order = c(0, 0, 0),
 
   If \code{transform.pars} is true, the optimization is done using an
   alternative parametrization which is a variation on that suggested by
-  Jones (1980) and ensures that the model is stationary.  For an AR(p)
+  \bibcitet{R:Jones:1980} and ensures that the model is stationary.
+  For an AR(p)
   model the parametrization is via the inverse tanh of the partial
   autocorrelations: the same procedure is applied (separately) to the
   AR and seasonal AR terms.  The MA terms are also constrained to be
@@ -186,37 +189,18 @@ arima0(x, order = c(0, 0, 0),
   components are time series.
 }
 \references{
-  Brockwell, P. J. and Davis, R. A. (1996).
-  \emph{Introduction to Time Series and Forecasting}.
-  Springer, New York.
-  Sections 3.3 and 8.3.
-
-  Gardner, G, Harvey, A. C. and Phillips, G. D. A. (1980).
-  Algorithm AS 154: An algorithm for exact maximum likelihood estimation
-  of autoregressive-moving average models by means of Kalman filtering.
-  \emph{Applied Statistics}, \bold{29}, 311--322.
-  \doi{10.2307/2346910}.
-
-  Harvey, A. C. (1993).
-  \emph{Time Series Models}. 2nd Edition.
-  Harvester Wheatsheaf.
-  Sections 3.3 and 4.4.
-
-  Harvey, A. C. and McKenzie, C. R. (1982).
-  Algorithm AS 182: An algorithm for finite sample prediction from ARIMA
-  processes. 
-  \emph{Applied Statistics}, \bold{31}, 180--187.
-  \doi{10.2307/2347987}.
-
-  Jones, R. H. (1980).
-  Maximum likelihood fitting of ARMA models to time series with missing
-  observations.
-  \emph{Technometrics}, \bold{22}, 389--395.
-  \doi{10.2307/1268324}.
+  \bibinfo{R:Brockwell+Davis:1996}{note}{Sections 3.3 and 8.3}
+  \bibinfo{R:Harvey:1993}{note}{Sections 3.3 and 4.4}
+  \bibshow{*,
+    R:Brockwell+Davis:1996,
+    R:Harvey:1993,
+    R:Harvey+McKenzie:1982,
+    R:Jones:1980}
 }
-
 \note{
-  This is a preliminary version, and will be replaced by \code{\link{arima}}.
+  This has been a preliminary version, and is mostly replaced by
+  \code{\link{arima}}, notably in the presence of missing values.
+  \code{arima0()} remains mostly for reproducibility reasons.
 
   The standard errors of prediction exclude the uncertainty in the
   estimation of the ARMA model and the regression coefficients.

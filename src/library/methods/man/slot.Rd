@@ -30,7 +30,7 @@ getSlots(x)
 }
 %% .slotNames(x)
 %%
-%% NOTA BENE: We shouldn't advertize .slotNames() --
+%% NOTA BENE: We shouldn't advertise .slotNames() --
 %% - - - - -  rather  slotNames() should be changed {and getSlots() too}
 %%   such that it doesn't special-case class representations!
 %%
@@ -113,13 +113,11 @@ getSlots(x)
   or use the replacement version of \code{slot()}.
 }
 \references{
- Chambers, John M. (2008)
- \emph{Software for Data Analysis: Programming with R}
-  Springer.  (For the R version.)
+  \bibshow{R:Chambers:2008}
+  (For the R version.)
 
- Chambers, John M. (1998)
- \emph{Programming with Data}
- Springer (For the original S4 version.)
+  \bibshow{R:Chambers:1998}
+  (For the original S4 version.)
 }
 \seealso{
   \code{\link{@}},

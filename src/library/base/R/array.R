@@ -1,7 +1,7 @@
 #  File src/library/base/R/array.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -88,9 +88,11 @@ function(x, MARGIN)
 }
 
 provideDimnames <-
-function(x, sep = "", base = list(LETTERS), unique = TRUE)
+function(x, sep = "", base = list(. = LETTERS), unique = TRUE,
+         use.names = FALSE)
 {
-    ## provide dimnames where missing - not copying x unnecessarily
+    ## provide dimnames and optionally names(dimnames) where missing,
+    ## not copying 'x' unnecessarily
     dx <- dim(x)
     dnx <- dimnames(x)
     if(new <- is.null(dnx))
@@ -102,6 +104,16 @@ function(x, sep = "", base = list(LETTERS), unique = TRUE)
 	bi <- base[[ii]][1L+ (ss %% M[ii])]
 	dnx[[i]] <- if(unique) make.unique(bi, sep = sep) else bi
 	new <- TRUE
+    }
+    if(use.names && !is.null(nbase <- names(base)) && # no names() or *some* non-"" names:
+       (is.null(ndnx <- names(dnx)) || length(i <- which(!nzchar(ndnx))))) {
+        nbi <- if(is.null(ndnx)) rep_len(nbase, length(dx))
+               else nbase[1L + (i-1L) %% k]
+        if(unique)
+            nbi <- make.unique(nbi, sep = sep)
+        names(dnx) <- if(is.null(ndnx)) nbi
+                      else `[<-`(ndnx, i, nbi)
+        new <- TRUE
     }
     if(new) dimnames(x) <- dnx
     x
@@ -143,18 +155,11 @@ function(x, MARGIN, drop = FALSE)
     dn.ans  <- dn[ MARGIN]
     dimnames(x) <- NULL
 
-    d2 <- prod(d.ans)
-    newx <- aperm(x, c(s.call, s.ans))
-    dim(newx) <- c(prod(d.call), d2)
-    ans <- if(drop)
-               lapply(seq_len(d2),
-                      function(i) newx[, i])
-           else
-               lapply(seq_len(d2),
-                      function(i) array(newx[,i], d.call, dn.call))
-    array(ans, d.ans, dn.ans)
+    .Internal(asplit(aperm(x, c(s.call, s.ans)),
+                     d.ans, d.call, dn.ans, dn.call,
+                     prod(d.call), prod(d.ans),
+                     as.logical(drop)))
 }
-
 
 ## Convert to data frame, mainly for list arrays produced by tapply()
 
@@ -165,10 +170,10 @@ function (x, responseName = "Value", sep = "",
 {
     .df_helper <- function(x) # for data frames
     {
-        ## check whether all components of list array 'x' 
+        ## check whether all components of list array 'x'
         ## - are data frames
         ## - have same column names
-        ## If TRUE, return value is a vector of corresponding nrow()-s 
+        ## If TRUE, return value is a vector of corresponding nrow()-s
         ## If FALSE, return value is integer(0)
         if (!is.list(x)) return(integer(0))
         if (!all(vapply(x, inherits, TRUE, "data.frame"))) return(integer(0))
@@ -178,10 +183,10 @@ function (x, responseName = "Value", sep = "",
     }
     .unvec_helper <- function(x) # for unnamed vectors
     {
-        ## check whether all components of list array 'x' 
+        ## check whether all components of list array 'x'
         ## - are atomic vectors
         ## - have no names
-        ## If TRUE, return value is a vector of corresponding nrow()-s 
+        ## If TRUE, return value is a vector of corresponding nrow()-s
         ## If FALSE, return value is integer(0)
         if (!is.list(x)) return(integer(0))
         if (!all(vapply(x, is.atomic, TRUE))) return(integer(0))

@@ -1,6 +1,6 @@
 % File src/library/utils/man/methods.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{methods}
@@ -67,9 +67,9 @@
   \code{generic.class}.  The S3 method name is followed by an asterisk
   \code{*} if the method definition is not exported from the package
   namespace in which the method is defined.  S4 method signatures are
-  printed as \code{generic,class-method}; S4 allows for multiple
+  printed as \samp{generic,class-method}; S4 allows for multiple
   dispatch, so there may be several classes in the signature
-  \code{generic,A,B-method}.
+  \samp{generic,A,B-method}.
 
   When invoked with the \code{class} argument, \code{"byclass"} is
   \code{TRUE}, and the \code{print} method by default displays the names
@@ -121,10 +121,7 @@
 }
 
 \references{
-  Chambers, J. M. (1992)
-  \emph{Classes and methods: object-oriented programming in S.}
-  Appendix A of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992:aa}
 }
 \examples{
 methods(class = "MethodsFunction") # format and print

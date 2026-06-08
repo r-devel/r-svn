@@ -43,8 +43,7 @@
   is redefined, otherwise assignment takes place in the global
   environment.  Note that their semantics differ from that in the S
   language, but are useful in conjunction with the scoping rules of
-  \R.  See \sQuote{The R Language Definition} manual for further
-  details and examples.
+  \R.  See \manual{R-lang}{} for further details and examples.
 
   In all the assignment operator expressions, \code{x} can be a name
   or an expression defining a part of an object to be replaced (e.g.,
@@ -58,13 +57,9 @@
   \code{value}.  Thus one can use \code{a <- b <- c <- 6}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
-  Chambers, J. M. (1998)
-  \emph{Programming with Data.  A Guide to the S Language}.
-  Springer (for \code{=}).
+  \bibshow{R:Chambers:1998} (for \code{=}).
 }
 
 \seealso{

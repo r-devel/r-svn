@@ -163,7 +163,7 @@
     \code{group(langle, list(x, y), rangle)} \tab special delimiters \cr
   }
 
-  The supported \sQuote{scalable delimiters} are \code{| ( [ \{}
+  The supported \sQuote{scalable delimiters} are \samp{| ( [ \{}
   and their right-hand versions.
   \code{"."} is equivalent to \code{""}: the corresponding delimiter
   will be omitted. Delimiter \code{||} is supported but has the same
@@ -247,11 +247,7 @@
  }
 }
 \references{
-  Murrell, P. and Ihaka, R. (2000).
-  An approach to providing mathematical annotation in plots.
-  \emph{Journal of Computational and Graphical Statistics},
-  \bold{9}, 582--599.
-  \doi{10.2307/1390947}.
+  \bibshow{R:Murrell+Ihaka:2000}
 
   A list of
   the symbol codes can be found in decimal, octal and hex at

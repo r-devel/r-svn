@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/plot.design.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ plot.design <-
 	    stop("'y' must be a numeric vector")
 	if(!is.data.frame(x)) # or allow factor (see 2 lines below)?? {FIXME}
 	    stop("'x' must be a data frame")
-	if(!all(sapply(x, is.factor)) && !is.factor(x)) # incl "ordered"
+	if(!all(vapply(x, is.factor, NA)) && !is.factor(x)) # incl "ordered"
 	    stop("all columns/components of 'x' must be factors")
 	k <- ncol(x)
         if(anyNA(y)) {
@@ -65,7 +65,7 @@ plot.design <-
     ## 'fun' dealing
     fname <- deparse1(substitute(fun))
     fun <- match.fun(fun)
-    if (!(is.data.frame(x) | inherits(x,"formula")))
+    if (!(is.data.frame(x) || inherits(x,"formula")))
 	stop("'x' must be a dataframe or a formula")
 
     ## case 'switch' :
@@ -75,17 +75,17 @@ plot.design <-
 	    x <- stats::model.frame(y , data = x)
 	}
 	else if(is.numeric(y)) {
-	    x <- cbind(y,x[,sapply(x, is.factor)])
+	    x <- cbind(y, x[, vapply(x, is.factor, NA)])
 	    tmpname <- match.call()
 	    names(x) <- as.character(c(tmpname[[3L]],names(x[,-1])))
 	}
 	else if(is.character(y)) {
 	    ynames <- y
 	    y <- data.frame(x[,y])
-	    if(sum(sapply(y, is.numeric)) != ncol(y)) {
+	    if(sum(vapply(y, is.numeric, NA)) != ncol(y)) {
 		stop("a variable in 'y' is not numeric")
 	    }
-	    x <- x[,sapply(x, is.factor)]
+	    x <- x[, vapply(x, is.factor, NA)]
 	    xnames <- names(x)
 	    x <- cbind(x,y)
 	    names(x) <- c(xnames,ynames)
@@ -98,8 +98,8 @@ plot.design <-
 	x <- stats::model.frame(x)
     }
 
-    i.fac <- sapply(x, is.factor)
-    i.num <- sapply(x, is.numeric)
+    i.fac <- vapply(x, is.factor, NA)
+    i.num <- vapply(x, is.numeric, NA)
     nResp <- sum(i.num)
     if (nResp == 0)
 	stop("there must be at least one numeric variable!")

@@ -38,7 +38,7 @@ Sys.which(names)
   values in \code{names} have missing return values.
 
   On Windows the paths will be short paths (8+3 components, no spaces)
-  with \code{\\} as the path delimiter.
+  with \samp{\\} as the path delimiter.
 }
 \note{
   Except on Windows this calls the system command \command{which}: since
@@ -48,7 +48,7 @@ Sys.which(names)
 }
 \examples{
 ## the first two are likely to exist everywhere
-## texi2dvi exists on most Unix-alikes and under MiKTeX
+## texi2dvi exists on most Unix-alikes but not under MiKTeX
 Sys.which(c("ftp", "ping", "texi2dvi", "this-does-not-exist"))
 }
 \keyword{ utilities }

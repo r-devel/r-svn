@@ -17,7 +17,7 @@
  *   Edin Hodzic, Eric J Bivona, Kai Uwe Rommel, Danny Quah, Ulrich Betzler
  */
 
- /* Copyright (C) 2018-2024 The R Core Team */
+ /* Copyright (C) 2018-2025 The R Core Team */
 
 #include       "getline.h"
 
@@ -138,7 +138,13 @@ gl_char_init(void)		/* turn off input echo */
        Win32OutputStream = GetStdHandle(STD_OUTPUT_HANDLE);	
    }
    GetConsoleMode(Win32InputStream,&OldWin32Mode);
-   SetConsoleMode(Win32InputStream, ENABLE_PROCESSED_INPUT); /* So ^C works */
+
+   /* to capture ^C and set R_interrupts_pending */
+   DWORD mode;
+   GetConsoleMode(Win32InputStream, &mode);
+   mode &= ~ENABLE_PROCESSED_INPUT;
+   SetConsoleMode(Win32InputStream, mode);
+
    AltIsDown = 0;
 }
 
@@ -213,7 +219,14 @@ gl_getc(void)
          would only generate one event with the first byte in AsciiChar.
          The bug still exists in Windows 10, and thus we now call
          GetConsoleInputW to get uchar.UnicodeChar. */
-      ReadConsoleInputW(Win32InputStream, &r, 1, &a);
+      for(;;) {
+	ReadConsoleInputW(Win32InputStream, &r, 1, &a);
+	if (r.EventType != FOCUS_EVENT && r.EventType != MENU_EVENT)
+	    /* PR#17295 */
+	    /* according to MSDN, these events are used internally and should
+	       be ignored */
+	    break;
+      }
       if (!(r.EventType == KEY_EVENT)) break;
       st = r.Event.KeyEvent.dwControlKeyState;
       vk = r.Event.KeyEvent.wVirtualKeyCode;
@@ -447,9 +460,10 @@ gl_realloc(void *ptr, int olditems, int newitems, size_t itemsize)
     void *res;
     if (!(res = realloc(ptr, newitems * itemsize)))
 	gl_error("\n*** Error: getline(): not enough memory.\n");
-    memset(((char *)res) + olditems * itemsize,
-           0,
-           (newitems - olditems) * itemsize);
+    if (newitems > olditems)
+	memset(((char *)res) + olditems * itemsize,
+	       0,
+	       (newitems - olditems) * itemsize);
     return res;
 }
 
@@ -702,7 +716,7 @@ update_map(size_t change)
     return 0;
 }
 
-/* Returns 1 on EOF */
+/* Returns 1 on EOF, -1 on ^C */
 static int
 getline0(const char *prompt)
 {
@@ -758,9 +772,9 @@ getline0(const char *prompt)
 		break;
 	      case '\003':                                      /* ^C */
 		  gl_fixup(gl_prompt, -1, gl_cnt);
-		  gl_puts("^C\n");
-		  gl_kill(0);
-		  gl_fixup(gl_prompt, -2, BUF_SIZE);
+		  gl_puts("^C");
+		  gl_cleanup();
+		  return -1;
 		break;
 	      case '\004':					/* ^D */
 		if (gl_cnt == 0) {
@@ -884,7 +898,7 @@ getline0(const char *prompt)
     return 0;
 }
 
-/* returns 1 on eof */
+/* returns 1 on eof, -1 on ^C */
 /* The line is stored into buf of size buflen, attempts to enter a longer line
    are ignored with a beep signal. */
 int
@@ -897,7 +911,7 @@ getline(const char *prompt, char *buf, int buflen)
     return getline0(prompt);
 }
 
-/* returns 1 on eof */
+/* returns 1 on eof, -1 on ^C */
 /* The line is stored into a dynamically allocated buffer. The buffer has to
    be freed by the caller using gl_free() when no longer needed. */
 int
@@ -1556,11 +1570,10 @@ hist_save(const char *p)
 {
     char *s = 0;
     int   len = strlen(p);
-    char *nl = strchr(p, '\n');
 
-    if (nl) {
+    if (len && p[len - 1] == '\n') {
         if ((s = (char *) malloc(len)) != 0) {
-            memcpy(s, p, len-1);
+	    memcpy(s, p, len-1);
 	    s[len-1] = 0;
 	}
     } else {

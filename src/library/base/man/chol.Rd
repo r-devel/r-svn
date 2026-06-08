@@ -1,6 +1,6 @@
 % File src/library/base/man/chol.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{chol}
@@ -42,7 +42,8 @@ chol(x, \dots)
   error occurs.  If \code{x} is positive semi-definite (i.e., some zero
   eigenvalues) an error will also occur as a numerical tolerance is used.
 
-  If \code{pivot = TRUE}, then the Cholesky decomposition of a positive
+  If \code{pivot = TRUE}, then the Cholesky decomposition of a (rearranged)
+  positive
   semi-definite \code{x} can be computed.  The rank of \code{x} is
   returned as \code{attr(Q, "rank")}, subject to numerical errors.
   The pivot is returned as \code{attr(Q, "pivot")}.  It is no longer
@@ -50,7 +51,14 @@ chol(x, \dots)
   \code{pivot <- attr(Q, "pivot")} and \code{oo <- order(pivot)}, it
   is true that \code{t(Q[, oo]) \%*\% Q[, oo]} equals \code{x},
   or, alternatively, \code{t(Q) \%*\% Q} equals \code{x[pivot,
-    pivot]}.  See the examples.
+    pivot]}. Notice also, that \code{Q[,oo]} is typically not triangular.
+   See the examples.
+
+  NOTE: For versions of R up to 4.5.x, the above wasn't quite true, 
+  since LAPACK does not zero out the rows of \code{Q} beyond the rank.
+  This is now done in R, but if you want code to be compatible with 
+  earlier versions of R, you may want to ensure that you only use 
+  the first \code{rank} rows.
   
   The value of \code{tol} is passed to LAPACK, with negative values
   selecting the default tolerance of (usually) \code{nrow(x) *
@@ -79,14 +87,8 @@ chol(x, \dots)
   in the references.
 }
 \references{
-  Anderson. E. and ten others (1999)
-  \emph{LAPACK Users' Guide}. Third Edition. SIAM.\cr
-  Available on-line at
-  \url{https://netlib.org/lapack/lug/lapack_lug.html}.
-
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Anderson+Bai+Bischof:1999,
+    R:Becker+Chambers+Wilks:1988}
 }
 
 \seealso{
@@ -105,8 +107,8 @@ crossprod(cm)  #-- = 'm'
 
 # now for something positive semi-definite
 x <- matrix(c(1:5, (1:5)^2), 5, 2)
-x <- cbind(x, x[, 1] + 3*x[, 2])
-colnames(x) <- letters[20:22]
+x <- cbind(x, x[, 1] + 3*x[, 2], 2*x[, 1] + x[, 2])
+colnames(x) <- letters[20:23]
 m <- crossprod(x)
 qr(m)$rank # is 2, as it should be
 
@@ -124,6 +126,22 @@ crossprod(Q[, order(pivot)]) # recover m
 try(chol(m))  # fails
 (Q <- chol(m, pivot = TRUE)) # warning
 crossprod(Q)  # not equal to m
+
+## another example, this time with positive, negative, and zero eigenvalues
+## notice that this (and the previous example) gets the rank wrong - it
+## returns the rank of an approximating positive semidefinite matrix,
+## effectively discounting negative eigenvalues.
+(m <- matrix(c(1,1,2, 1,1,2, 2,2,1), 3, 3))
+(Q <- chol(m, pivot=TRUE))
+eigen(m)$values
+
+## conjecture: indefinite cases should be detectable by comparing the 
+## diagonal of the reconstructed matrix to the original
+piv <- attr(Q, "pivot")
+(D <- diag(crossprod(Q))) ## faster: colSums(Q^2)
+diag(m)[piv] - D
+
 }
+
 \keyword{algebra}
 \keyword{array}

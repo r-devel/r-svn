@@ -51,7 +51,7 @@ getAllConnections()
   re-directed by \code{\link{sink}} (and in some circumstances the
   output from \code{stdout()} can be split: see the help page).
 
-  The encoding for \code{\link{stdin}()} when redirected can
+  The encoding for \code{stdin()} when redirected can
   be set by the command-line flag \option{--encoding}.
 
   \code{nullfile()} returns filename of the null device (\code{"/dev/null"}
@@ -89,7 +89,7 @@ getAllConnections()
 
   When \R is reading a script from a file, the \emph{file} is the
   \sQuote{console}: this is traditional usage to allow in-line data (see
-  \sQuote{An Introduction to R} for an example).
+  \manual{R-intro}{Scripting with R} for an example).
 }
 \value{
   \code{stdin()}, \code{stdout()} and \code{stderr()} return connection

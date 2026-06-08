@@ -1,6 +1,6 @@
 % File src/library/graphics/man/par.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2024 R Core Team
 % Distributed under GPL 2 or later
 
 \name{par}
@@ -347,10 +347,10 @@ par(\dots, no.readonly = FALSE)
     \item{\code{lend}}{The line end style.  This can be specified as an
       integer or string:
       \describe{
-        \item{\code{0}}{and \code{"round"} mean rounded line caps
+        \item{\code{0} and \code{"round"}}{mean rounded line caps
           [\emph{default}];}
-        \item{\code{1}}{and \code{"butt"} mean butt line caps;}
-        \item{\code{2}}{and \code{"square"} mean square line caps.}
+        \item{\code{1} and \code{"butt"}}{mean butt line caps;}
+        \item{\code{2} and \code{"square"}}{mean square line caps.}
       }
     }
     \item{\code{lheight}}{The line height multiplier.
@@ -362,10 +362,10 @@ par(\dots, no.readonly = FALSE)
     \item{\code{ljoin}}{The line join style.
       This can be specified as an integer or string:
       \describe{
-        \item{\code{0}}{and \code{"round"} mean rounded line joins
+        \item{\code{0} and \code{"round"}}{mean rounded line joins
           [\emph{default}];}
-        \item{\code{1}}{and \code{"mitre"} mean mitred line joins;}
-        \item{\code{2}}{and \code{"bevel"} mean bevelled line joins.}
+        \item{\code{1} and \code{"mitre"}}{mean mitred line joins;}
+        \item{\code{2} and \code{"bevel"}}{mean bevelled line joins.}
       }
     }
     \item{\code{lmitre}}{The line mitre limit.  This controls when
@@ -401,7 +401,7 @@ par(\dots, no.readonly = FALSE)
     \item{\code{mai}}{A numerical vector of the form \code{c(bottom,
         left, top, right)} which gives the margin size specified in
       inches.\cr
-      \if{html}{\figure{mai.png}{options: width="35\%" alt="Figure: mai.png"}}
+      \if{html}{\figure{mai.png}{options: style="width: 35\%;" alt="Figure: mai.png"}}
       \if{latex}{\figure{mai.pdf}{options: width=7cm}}
     }
     \item{\code{mar}}{A numerical vector of the form \code{c(bottom,
@@ -461,7 +461,7 @@ par(\dots, no.readonly = FALSE)
       on a device that does not currently contain a high-level plot.}
     \item{\code{oma}}{A vector of the form \code{c(bottom, left, top,
         right)} giving the size of the outer margins in lines of text.\cr
-      \if{html}{\figure{oma.png}{options: width="25\%" alt="Figure: oma.png"}}
+      \if{html}{\figure{oma.png}{options: style="width: 25\%;" alt="Figure: oma.png"}}
       \if{latex}{\figure{oma.pdf}{options: width=6cm}}
     }
     \item{\code{omd}}{A vector of the form \code{c(x1, x2, y1, y2)}
@@ -512,7 +512,8 @@ par(\dots, no.readonly = FALSE)
       relevant side, so if \code{tck = 1} grid lines are drawn.  The
       default setting (\code{tck = NA}) is to use \code{tcl = -0.5}.}
     \item{\code{tcl}}{The length of tick marks as a fraction of the
-      height of a line of text.  The default value is \code{-0.5};
+      height of a line of text.  Negative values give tick marks outside
+      the plotting region.  The default value is \code{-0.5};
       setting \code{tcl = NA} sets \code{tck = -0.01} which is S' default.}
     \item{\code{usr}}{A vector of the form \code{c(x1, x2, y1, y2)}
       giving the extremes of the user coordinates of the plotting
@@ -612,10 +613,10 @@ par(\dots, no.readonly = FALSE)
   short form (e.g, \code{"#rgb"} or \code{"#rgba"}). The short form is
   expanded to the long form by replicating digits (not by adding zeroes),
   e.g., \code{"#rgb"} becomes \code{"#rrggbb"}. Colors can
-  also be specified by giving an index into a small table of colors, the 
-  \code{\link{palette}}: indices wrap round so with the default palette 
-  of size 8, \code{10} is the same as \code{2}.  This provides 
-  compatibility with S.  Index \code{0} corresponds to the background 
+  also be specified by giving an index into a small table of colors, the
+  \code{\link{palette}}: indices wrap round so with the default palette
+  of size 8, \code{10} is the same as \code{2}.  This provides
+  compatibility with S.  Index \code{0} corresponds to the background
   color.  Note that the palette (apart from \code{0} which is per-device)
   is a per-session setting.
 
@@ -666,11 +667,9 @@ par(\dots, no.readonly = FALSE)
 }
 
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 
-  Murrell, P. (2005) \emph{R Graphics}. Chapman & Hall/CRC Press.
+  \bibshow{R:Murrell:2005}
 }
 \seealso{
   \code{\link{plot.default}} for some high-level plotting parameters;

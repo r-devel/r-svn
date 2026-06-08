@@ -33,6 +33,7 @@ bezier
 beziers
 biexponential
 Bioassay
+bitstring
 blocky
 branchings
 builtins
@@ -84,6 +85,7 @@ dialogs
 didactical
 differencing
 dimensioned
+dimorphism
 dispatchable
 dispersions
 dotplots
@@ -134,6 +136,7 @@ ingoing
 init
 initializations
 initializers
+inlining
 integrable
 integrand
 intercountry
@@ -149,6 +152,8 @@ iteratively
 jitter
 kerning
 keypress
+keyring
+keyrings
 lazyload
 len
 lexically
@@ -225,6 +230,7 @@ quaternary
 quicksort
 radix
 rasters
+rebalance
 recalibration
 recombinant
 recurse
@@ -242,6 +248,7 @@ reranking
 rescale
 rescaled
 rescaling
+reweighting
 robustifying
 Rotatable
 saddlepoint
@@ -261,6 +268,8 @@ sortable
 spectrophotometer
 sphericity
 spooler
+standardizable
+Stangle
 stateful
 stderr
 stdout
@@ -312,6 +321,7 @@ unabbreviated
 unabsorbed
 unadjusted
 uncalibrated
+unclassed
 unclosed
 uncompiled
 underflows
@@ -330,6 +340,7 @@ unlinks
 unlist
 unoptimized
 unpackaged
+unparsable
 unpatched
 unprefixed
 unprofiled
@@ -344,6 +355,7 @@ unsets
 unsetting
 unsplitting
 unstacked
+unstratified
 untagged
 unterminated
 untraced
@@ -359,4 +371,5 @@ verboseness
 volcanos
 webpages
 winsorized
+wishlist
 writability
