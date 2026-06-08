@@ -151,6 +151,18 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
     case INT64SXP:
 	*out = INT64(s)[0];
 	return TRUE;
+    case REALSXP:
+    {
+	double val = REAL(s)[0];
+	if (ISNAN(val) || val <= (double) NA_INT64 ||
+	    val >= (double) R_INT64_MAX)
+	    return FALSE;
+	R_int64_t ival = (R_int64_t) val;
+	if ((double) ival != val || ival == NA_INT64)
+	    return FALSE;
+	*out = ival;
+	return TRUE;
+    }
     default:
 	return FALSE;
     }
@@ -158,21 +170,7 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
 
 static Rboolean seq_int64_by(SEXP s, R_int64_t *out)
 {
-    if (seq_int64_endpoint(s, out))
-	return TRUE;
-
-    if (TYPEOF(s) != REALSXP)
-	return FALSE;
-
-    double val = REAL(s)[0];
-    if (ISNAN(val) || val <= (double) NA_INT64 ||
-	val >= (double) R_INT64_MAX)
-	return FALSE;
-    R_int64_t ival = (R_int64_t) val;
-    if ((double) ival != val || ival == NA_INT64)
-	return FALSE;
-    *out = ival;
-    return TRUE;
+    return seq_int64_endpoint(s, out);
 }
 
 static R_INLINE Rboolean seq_int64_fits_integer(R_int64_t x)

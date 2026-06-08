@@ -1380,7 +1380,8 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
     }
 }
 
-static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
+static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version,
+				       R_outpstream_t stream)
 {
     int ic = 9999;
 
@@ -1397,10 +1398,13 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
 	SEXP info = ALTREP_SERIALIZED_CLASS(s);
 	SEXP state = ALTREP_SERIALIZED_STATE(s);
 	if (info != NULL && state != NULL)
-	    return SerializeContainsInt64(info, seen, version) ||
-		SerializeContainsInt64(state, seen, version) ||
-		SerializeContainsInt64(ATTRIB(s), seen, version);
+	    return SerializeContainsInt64(info, seen, version, stream) ||
+		SerializeContainsInt64(state, seen, version, stream) ||
+		SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     }
+
+    if (stream != NULL && GetPersistentName(stream, s) != R_NilValue)
+	return FALSE;
 
     if (SaveSpecialHook(s) != 0 || HashGet(s, seen) != 0)
 	return FALSE;
@@ -1413,71 +1417,75 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version)
 	HashAdd(s, seen);
 	if (R_IsPackageEnv(s) || R_IsNamespaceEnv(s))
 	    return FALSE;
-	return SerializeContainsInt64(ENCLOS(s), seen, version) ||
-	    SerializeContainsInt64(FRAME(s), seen, version) ||
-	    SerializeContainsInt64(HASHTAB(s), seen, version) ||
-	    SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ENCLOS(s), seen, version, stream) ||
+	    SerializeContainsInt64(FRAME(s), seen, version, stream) ||
+	    SerializeContainsInt64(HASHTAB(s), seen, version, stream) ||
+	    SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     case LISTSXP:
     case LANGSXP:
     case PROMSXP:
     case DOTSXP:
 	HashAdd(s, seen);
-	if (SerializeContainsInt64(ATTRIB(s), seen, version) ||
-	    SerializeContainsInt64(TAG(s), seen, version))
+	if (SerializeContainsInt64(ATTRIB(s), seen, version, stream) ||
+	    SerializeContainsInt64(TAG(s), seen, version, stream))
 	    return TRUE;
 	if (BNDCELL_TAG(s))
 	    R_expand_binding_value(s);
-	if (SerializeContainsInt64(CAR(s), seen, version))
+	if (SerializeContainsInt64(CAR(s), seen, version, stream))
 	    return TRUE;
 	s = CDR(s);
 	goto tailcall;
     case CLOSXP:
 	HashAdd(s, seen);
-	return SerializeContainsInt64(ATTRIB(s), seen, version) ||
-	    SerializeContainsInt64(CLOENV(s), seen, version) ||
-	    SerializeContainsInt64(FORMALS(s), seen, version) ||
-	    SerializeContainsInt64(BODY(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream) ||
+	    SerializeContainsInt64(CLOENV(s), seen, version, stream) ||
+	    SerializeContainsInt64(FORMALS(s), seen, version, stream) ||
+	    SerializeContainsInt64(BODY(s), seen, version, stream);
     case EXTPTRSXP:
 	HashAdd(s, seen);
-	return SerializeContainsInt64(EXTPTR_PROT(s), seen, version) ||
-	    SerializeContainsInt64(EXTPTR_TAG(s), seen, version) ||
-	    SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(EXTPTR_PROT(s), seen, version, stream) ||
+	    SerializeContainsInt64(EXTPTR_TAG(s), seen, version, stream) ||
+	    SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     case WEAKREFSXP:
 	HashAdd(s, seen);
-	return SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     case STRSXP:
 	HashAdd(s, seen);
-	return SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     case VECSXP:
     case EXPRSXP:
 	HashAdd(s, seen);
 	for (R_xlen_t ix = 0; ix < XLENGTH(s); ix++)
-	    if (SerializeContainsInt64(VECTOR_ELT(s, ix), seen, version))
+	    if (SerializeContainsInt64(VECTOR_ELT(s, ix), seen, version,
+				       stream))
 		return TRUE;
-	return SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     case BCODESXP:
     {
 	HashAdd(s, seen);
 	SEXP code = PROTECT(R_bcDecode(BCODE_CODE(s)));
-	Rboolean has_int64 = SerializeContainsInt64(code, seen, version);
+	Rboolean has_int64 = SerializeContainsInt64(code, seen, version,
+						    stream);
 	UNPROTECT(1);
 	if (has_int64)
 	    return TRUE;
 	SEXP consts = BCODE_CONSTS(s);
 	for (int i = 0; i < LENGTH(consts); i++)
-	    if (SerializeContainsInt64(VECTOR_ELT(consts, i), seen, version))
+	    if (SerializeContainsInt64(VECTOR_ELT(consts, i), seen, version,
+				       stream))
 		return TRUE;
-	return SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     }
     case CHARSXP:
 	return FALSE;
     default:
 	HashAdd(s, seen);
-	return SerializeContainsInt64(ATTRIB(s), seen, version);
+	return SerializeContainsInt64(ATTRIB(s), seen, version, stream);
     }
 }
 
-attribute_hidden int R_SerializeVersion(SEXP s, int version, Rboolean exact)
+static int SerializeVersion(SEXP s, int version, Rboolean exact,
+			    R_outpstream_t stream)
 {
     if (version == 0)
 	version = defaultSerializeVersion();
@@ -1491,7 +1499,7 @@ attribute_hidden int R_SerializeVersion(SEXP s, int version, Rboolean exact)
     }
 
     SEXP seen = PROTECT(MakeHashTable());
-    Rboolean has_int64 = SerializeContainsInt64(s, seen, version);
+    Rboolean has_int64 = SerializeContainsInt64(s, seen, version, stream);
     UNPROTECT(1);
     if (has_int64 && version < 4) {
 	if (exact)
@@ -1500,6 +1508,11 @@ attribute_hidden int R_SerializeVersion(SEXP s, int version, Rboolean exact)
 	version = 4;
     }
     return version;
+}
+
+attribute_hidden int R_SerializeVersion(SEXP s, int version, Rboolean exact)
+{
+    return SerializeVersion(s, version, exact, NULL);
 }
 
 static SEXP MakeCircleHashTable(void)
@@ -1660,8 +1673,8 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
 
 void R_Serialize(SEXP s, R_outpstream_t stream)
 {
-    int version = R_SerializeVersion(s, stream->version,
-				     stream->version != 0);
+    int version = SerializeVersion(s, stream->version, stream->version != 0,
+				   stream);
     stream->version = version;
 
     OutFormat(stream);

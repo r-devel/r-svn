@@ -125,6 +125,15 @@ i64_rds <- tempfile()
 saveRDS(as.int64("1"), i64_rds)
 i64_rds_info <- infoRDS(i64_rds)
 unlink(i64_rds)
+i64_refhook_ptr <- methods::getClass("ANY")@versionKey
+attr(i64_refhook_ptr, "x") <- as.int64("1")
+i64_refhook_v3_raw <- try(serialize(i64_refhook_ptr, NULL, version = 3,
+                                    refhook = function(x) "id"),
+                          silent = TRUE)
+i64_refhook_rds <- tempfile()
+saveRDS(i64_refhook_ptr, i64_refhook_rds, refhook = function(x) "id")
+i64_refhook_rds_info <- infoRDS(i64_refhook_rds)
+unlink(i64_refhook_rds)
 i64_scalar_binding_raw <- compiler::cmpfun(function() {
     for (i in 1L) return(is.raw(serialize(environment(), NULL)))
 })()
@@ -218,6 +227,8 @@ stopifnot(
     identical(i64_rds_info$version, 4L),
     identical(i64_rds_info$min_reader_version,
               i64_rds_info$writer_version),
+    is.raw(i64_refhook_v3_raw),
+    identical(i64_refhook_rds_info$version, 3L),
     identical(i64_scalar_binding_raw, TRUE),
     identical(i64_binding_rds_info$version, 4L),
     identical(i64_save_magic, "RDX4\n"),
@@ -258,6 +269,10 @@ stopifnot(
               as.int64(c("9223372036854775806", "9223372036854775807"))),
     identical(seq.int(9223372036854775806L, 9223372036854775807L, by = 1),
               as.int64(c("9223372036854775806", "9223372036854775807"))),
+    identical(9007199254740992:9007199254740993L,
+              as.int64(c("9007199254740992", "9007199254740993"))),
+    identical(9007199254740993L:9007199254740992,
+              as.int64(c("9007199254740993", "9007199254740992"))),
     identical(seq.int(as.int64("9007199254740993"), length.out = 2L),
               as.int64(c("9007199254740993", "9007199254740994"))),
     inherits(try(as.int64(character(0)) : 1L, silent = TRUE), "try-error"),
