@@ -162,11 +162,6 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
     }
 }
 
-static Rboolean seq_int64_by(SEXP s, R_int64_t *out)
-{
-    return seq_int64_endpoint(s, out);
-}
-
 static SEXP seq_int64_by_length(R_int64_t from, R_int64_t by, R_xlen_t n,
 				SEXP call)
 {
@@ -291,25 +286,7 @@ static SEXP seq_by_int64(R_int64_t from, R_int64_t to, R_int64_t by, SEXP call)
 	errorcall(call, _("'by' argument is much too small"));
 
     R_xlen_t n = (R_xlen_t) nn + 1;
-    Rboolean useInt = int64_fits_integer(from) &&
-	int64_fits_integer(to) && int64_fits_integer(by);
-
-    SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, n);
-    R_int64_t value = from;
-    if (useInt) {
-	int *pa = INTEGER(ans);
-	for (R_xlen_t i = 0; i < n; i++) {
-	    pa[i] = (int) value;
-	    if (i + 1 < n) value += by;
-	}
-    } else {
-	R_int64_t *pa = INT64(ans);
-	for (R_xlen_t i = 0; i < n; i++) {
-	    pa[i] = value;
-	    if (i + 1 < n) value += by;
-	}
-    }
-    return ans;
+    return seq_int64_by_length(from, by, n, call);
 }
 
 attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -1151,7 +1128,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 		R_int64_t i64from, i64to, i64by;
 		Rboolean ok_from = miss_from ? TRUE : seq_int64_endpoint(from, &i64from);
 		Rboolean ok_to = miss_to ? TRUE : seq_int64_endpoint(to, &i64to);
-		Rboolean ok_by = seq_int64_by(by, &i64by);
+		Rboolean ok_by = seq_int64_endpoint(by, &i64by);
 		if (miss_from) i64from = 1;
 		if (miss_to) i64to = 1;
 		if (ok_from && ok_to && ok_by) {
@@ -1325,7 +1302,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    R_int64_t i64from, i64by;
 	    Rboolean ok_from = miss_from ? TRUE :
 		(length(from) == 1 && seq_int64_endpoint(from, &i64from));
-	    Rboolean ok_by = seq_int64_by(by, &i64by);
+	    Rboolean ok_by = seq_int64_endpoint(by, &i64by);
 	    if (miss_from) i64from = 1;
 	    if (ok_from && ok_by) {
 		if (i64from == NA_INT64)
@@ -1362,7 +1339,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    length(by) == 1) {
 	    R_int64_t i64to, i64by;
 	    Rboolean ok_to = length(to) == 1 && seq_int64_endpoint(to, &i64to);
-	    Rboolean ok_by = seq_int64_by(by, &i64by);
+	    Rboolean ok_by = seq_int64_endpoint(by, &i64by);
 	    if (ok_to && ok_by) {
 		if (i64to == NA_INT64)
 		    errorcall(call, _("'%s' must be a finite number"), "to");
