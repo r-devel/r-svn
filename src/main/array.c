@@ -46,6 +46,7 @@
 #endif
 
 #include "duplicate.h"
+#include "int64-accum.h"
 
 #include <complex.h>
 #include "Rcomplex.h"	/* toC99 */
@@ -1982,9 +1983,19 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case INT64SXP:
 	    {
 		R_int64_t *ix = INT64(x) + (R_xlen_t)n*j;
+		R_int64_accum_t isum;
+		Rboolean has_na = FALSE;
+		int64_accum_init(&isum);
 		for (cnt = 0, sum = 0., i = 0; i < n; i++, ix++)
-		    if (*ix != NA_INT64) {cnt++; sum += (LDOUBLE) *ix;}
-		    else if (keepNA) {sum = NA_REAL; break;}
+		    if (*ix != NA_INT64) {
+			cnt++;
+			int64_accum_add(&isum, *ix);
+		    } else if (keepNA) {
+			sum = NA_REAL;
+			has_na = TRUE;
+			break;
+		    }
+		if (!has_na) sum = int64_accum_to_double(&isum);
 		break;
 	    }
 	    case LGLSXP:
@@ -2002,6 +2013,43 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     else { /* rows */
 	PROTECT(ans = allocVector(REALSXP, n));
+	if (type == INT64SXP) {
+	    int *Cnt = NULL, *HasNA = NULL;
+	    R_int64_accum_t *rans = R_Calloc(n, R_int64_accum_t);
+
+	    if (!keepNA && OP == 3) Cnt = R_Calloc(n, int);
+	    if (keepNA) HasNA = R_Calloc(n, int);
+
+	    for (R_xlen_t j = 0; j < p; j++) {
+		R_int64_t *ix = INT64(x) + (R_xlen_t)n * j;
+		for (R_xlen_t i = 0; i < n; i++, ix++) {
+		    if (keepNA) {
+			if (*ix != NA_INT64 && !HasNA[i])
+			    int64_accum_add(&rans[i], *ix);
+			else if (*ix == NA_INT64)
+			    HasNA[i] = 1;
+		    }
+		    else if (*ix != NA_INT64) {
+			int64_accum_add(&rans[i], *ix);
+			if (OP == 3) Cnt[i]++;
+		    }
+		}
+	    }
+	    for (R_xlen_t i = 0; i < n; i++) {
+		double sum = int64_accum_to_double(&rans[i]);
+		if (keepNA && HasNA[i])
+		    sum = NA_REAL;
+		else if (OP == 3)
+		    sum /= keepNA ? (double) p : (double) Cnt[i];
+		REAL(ans)[i] = sum;
+	    }
+
+	    if (!keepNA && OP == 3) R_Free(Cnt);
+	    if (keepNA) R_Free(HasNA);
+	    R_Free(rans);
+	    UNPROTECT(1);
+	    return ans;
+	}
 
 	/* allocate scratch storage to allow accumulating by columns
 	   to improve cache hits */

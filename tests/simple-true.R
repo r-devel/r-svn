@@ -367,16 +367,13 @@ stopifnot(
     { z <- matrix(as.int64("1"), 1L); z[1, 1] <- as.int64("2"); identical(z, matrix(as.int64("2"), 1L)) },
     { z <- array(as.int64("1"), c(1L, 1L, 1L)); z[1, 1, 1] <- as.int64("2"); identical(z, array(as.int64("2"), c(1L, 1L, 1L))) },
     identical(sum(as.int64(c("1", "2"))), 3),
-    .Machine$sizeof.longdouble <= 8L ||
-        identical(sum(as.int64(c("9007199254740993", "-9007199254740992"))), 1),
-    .Machine$sizeof.longdouble <= 8L ||
-        identical(sum(as.int64("9007199254740993"), as.int64("-9007199254740992")), 1),
+    identical(sum(as.int64(c("9007199254740993", "-9007199254740992"))), 1),
+    identical(sum(as.int64("9007199254740993"), as.int64("-9007199254740992")), 1),
     identical(min(as.int64(c("1", "2"))), as.int64("1")),
     identical(max(as.int64(c("1", "2"))), as.int64("2")),
     identical(prod(as.int64(c("2", "3"))), 6),
     identical(mean(as.int64(c("1", "3"))), 2),
-    .Machine$sizeof.longdouble <= 8L ||
-        identical(mean(as.int64(c("9007199254740993", "-9007199254740991"))), 1),
+    identical(mean(as.int64(c("9007199254740993", "-9007199254740991"))), 1),
     identical(min(as.int64(c("9223372036854775807", "9223372036854775806"))),
               as.int64("9223372036854775806")),
     identical(max(as.int64(c("9223372036854775807", "9223372036854775806"))),
@@ -392,10 +389,10 @@ stopifnot(
     identical(max(5L, as.int64(integer())), as.int64("5")),
     identical(colSums(matrix(as.int64(c("1", "2")), 1L)), c(1, 2)),
     identical(rowSums(matrix(as.int64(c("1", "2")), 1L)), 3),
-    .Machine$sizeof.longdouble <= 8L ||
-        identical(colSums(matrix(as.int64(c("9007199254740993", "-9007199254740992")), 2L)), 1),
-    .Machine$sizeof.longdouble <= 8L ||
-        identical(rowSums(matrix(as.int64(c("9007199254740993", "-9007199254740992")), 1L)), 1),
+    identical(colSums(matrix(as.int64(c("9007199254740993", "-9007199254740992")), 2L)), 1),
+    identical(rowSums(matrix(as.int64(c("9007199254740993", "-9007199254740992")), 1L)), 1),
+    identical(colMeans(matrix(as.int64(c("9007199254740993", "-9007199254740991")), 2L)), 1),
+    identical(rowMeans(matrix(as.int64(c("9007199254740993", "-9007199254740991")), 1L)), 1),
     identical(is.finite(as.int64("1")), TRUE),
     identical(is.finite(as.int64(NA)), FALSE),
     identical(is.infinite(as.int64("1")), FALSE),
@@ -448,6 +445,9 @@ stopifnot(
     identical(vapply(1:2, function(i) as.int64(i), 0), c(1, 2)),
     identical(vapply(1:2, function(i) as.int64(i), 0i), c(1+0i, 2+0i)),
     is.character(capture.output(matrix(as.int64("1"), 1L))),
+    identical(capture.output(as.int64(character(0))), "as.int64(character(0))"),
+    identical(eval(parse(text = capture.output(as.int64(character(0))))), as.int64(character(0))),
+    grepl("^ int64 ", capture.output(str(as.int64(1)))[1L]),
     inherits(try(vector("list", as.int64("-2147483649")), silent = TRUE), "try-error"),
     inherits(try(i64_dim_matrix[[as.int64("4294967297"), 1L]], silent = TRUE), "try-error"),
     .Machine$sizeof.pointer != 4L || {

@@ -431,7 +431,8 @@ str.default <-
                || (is.language(object) && !is.expression(object) && !any(cl == "formula")) ) {
 	    if(is.atomic(object)) {
 		##-- atomic:   numeric{dbl|int} complex character logical raw
-		mod <- substr(mode(object), 1, 4)
+		mod <- mode(object)
+		mod <- if(mod == "int64") mod else substr(mod, 1, 4)
 		if     (mod == "nume")
 		    mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }

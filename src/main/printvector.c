@@ -418,7 +418,7 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	switch (TYPEOF(x)) {					\
 	case LGLSXP:	Rprintf("logical(0)\n");	break;	\
 	case INTSXP:	Rprintf("integer(0)\n");	break;	\
-	case INT64SXP:	Rprintf("int64(0)\n");	break;	\
+	case INT64SXP:	Rprintf("as.int64(character(0))\n");	break;	\
 	case REALSXP:	Rprintf("numeric(0)\n");	break;	\
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\

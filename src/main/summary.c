@@ -29,6 +29,7 @@
 #include <float.h> // for DBL_MAX
 
 #include "duplicate.h"
+#include "int64-accum.h"
 
 #define R_MSG_type	_("invalid 'type' (%s) of argument")
 #define imax2(x, y) ((x < y) ? y : x)
@@ -148,23 +149,43 @@ static Rboolean risum(SEXP sx, double *value, Rboolean narm)
     return updated;
 }
 
-static Rboolean i64sum(SEXP sx, LDOUBLE *value, Rboolean narm)
+static int i64sum(SEXP sx, R_int64_accum_t *value, Rboolean narm)
 {
-    LDOUBLE s = 0.0;
+    R_int64_accum_t s;
     Rboolean updated = FALSE;
     const R_int64_t *x = INT64_RO(sx);
     R_xlen_t n = XLENGTH(sx);
 
+    int64_accum_init(&s);
     for (R_xlen_t k = 0; k < n; k++) {
 	if (x[k] != NA_INT64) {
 	    if(!updated) updated = TRUE;
-	    s += (LDOUBLE) x[k];
+	    int64_accum_add(&s, x[k]);
 	} else if (!narm) {
-	    if(!updated) updated = TRUE;
-	    *value = NA_REAL;
-	    return updated;
+	    return NA_INTEGER;
 	}
     }
+    *value = s;
+
+    return updated;
+}
+
+static int i64sum_int(SEXP sx, R_int64_accum_t *value, Rboolean narm)
+{
+    R_int64_accum_t s;
+    Rboolean updated = FALSE;
+
+    int64_accum_init(&s);
+    ITERATE_BY_REGION(sx, x, i, nbatch, int, INTEGER, {
+	    for (R_xlen_t k = 0; k < nbatch; k++) {
+		if (x[k] != NA_INTEGER) {
+		    if(!updated) updated = TRUE;
+		    int64_accum_add(&s, (R_int64_t) x[k]);
+		} else if (!narm) {
+		    return NA_INTEGER;
+		}
+	    }
+	});
     *value = s;
 
     return updated;
@@ -577,14 +598,15 @@ static R_INLINE SEXP integer_mean(SEXP x)
 static R_INLINE SEXP int64_mean(SEXP x)
 {
     R_xlen_t n = XLENGTH(x);
-    LDOUBLE s = 0.0;
+    R_int64_accum_t s;
     const R_int64_t *dx = INT64_RO(x);
+    int64_accum_init(&s);
     for (R_xlen_t k = 0; k < n; k++) {
 	if(dx[k] == NA_INT64)
 	    return ScalarReal(R_NaReal);
-	s += (LDOUBLE) dx[k];
+	int64_accum_add(&s, dx[k]);
     }
-    return ScalarReal((double) (s/n));
+    return ScalarReal(int64_accum_to_double(&s) / (double) n);
 }
 
 static R_INLINE SEXP real_mean(SEXP x)
@@ -751,7 +773,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     Rcomplex ztmp, zcum={.r = 0.0, .i = 0.0} /* -Wall */;
     int itmp = 0, icum = 0, warn = 0 /* dummy */;
     R_int64_t i64tmp = 0, i64cum = 0;
+    R_int64_accum_t i64stmp, i64scum;
     Rboolean use_isum = TRUE; // indicating if isum() should used; otherwise irsum()
+    Rboolean use_i64sum = FALSE;
     isum_INT iLtmp = (isum_INT)0, iLcum = iLtmp; // for isum() only
     SEXPTYPE ans_type;/* only INTEGER, INT64, REAL, COMPLEX or STRSXP here */
 
@@ -763,6 +787,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
        documented to be the same as integer(0).
     */
 	a = args;
+	Rboolean sum_has_int64 = FALSE, sum_has_real = FALSE;
         complex_a = real_a = FALSE;
 	while (a != R_NilValue) {
             switch(TYPEOF(CAR(a))) {
@@ -771,9 +796,11 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    case NILSXP:
 		break;
 	    case INT64SXP:
+		sum_has_int64 = TRUE;
 		real_a = TRUE;
 		break;
 	    case REALSXP:
+		sum_has_real = TRUE;
 		real_a = TRUE;
 		break;
 	    case CPLXSXP:
@@ -791,6 +818,8 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
         } else {
             ans_type = INTSXP; iLcum = (isum_INT)0;
         }
+	use_i64sum = sum_has_int64 && !sum_has_real && !complex_a;
+	if(use_i64sum) int64_accum_init(&i64scum);
 	DbgP3("do_summary: sum(.. na.rm=%d): ans_type = %s\n",
 	      narm, type2char(ans_type));
 	zcum.r = zcum.i = 0.; icum = 0; lcum = 0.;
@@ -955,6 +984,16 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		switch(TYPEOF(a)) {
 		case LGLSXP:
 		case INTSXP:
+		    if(use_i64sum) {
+			updated = i64sum_int(a, &i64stmp, narm);
+			if(updated == NA_INTEGER)
+			    goto na_answer;
+			if(updated) {
+			    int64_accum_add_accum(&i64scum, &i64stmp);
+			    zcum.r = int64_accum_to_double(&i64scum);
+			}
+			break;
+		    }
 #ifdef LONG_INT
 		    updated = (use_isum ?
 			       isum(a, &iLtmp, narm, call) :
@@ -1048,6 +1087,16 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    break;
 		case INT64SXP:
+		    if(use_i64sum) {
+			updated = i64sum(a, &i64stmp, narm);
+			if(updated == NA_INTEGER)
+			    goto na_answer;
+			if(updated) {
+			    int64_accum_add_accum(&i64scum, &i64stmp);
+			    zcum.r = int64_accum_to_double(&i64scum);
+			}
+			break;
+		    }
 		    if(ans_type == INTSXP) {
 			ans_type = REALSXP;
 			if(!empty) {
@@ -1055,7 +1104,10 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			    zcum.r = (double) lcum;
 			}
 		    }
-		    updated = i64sum(a, &ltmp, narm);
+		    updated = i64sum(a, &i64stmp, narm);
+		    if(updated == NA_INTEGER)
+			goto na_answer;
+		    ltmp = int64_accum_to_double(&i64stmp);
 		    if(updated) {
 			if(ans_type == REALSXP) {
 			    lcum += ltmp;

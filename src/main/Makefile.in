@@ -56,6 +56,7 @@ HEADERS = \
 	contour-common.h \
 	datetime.h \
 	duplicate.h \
+	int64-accum.h \
 	gzio.h \
 	machar.c \
 	qsort-body.c \
