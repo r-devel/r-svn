@@ -192,6 +192,14 @@ i64_gc_ok <- {
     invisible(gc())
     TRUE
 }
+i64_array_print_matches_int <- local({
+    old <- options(max.print = 12L)
+    on.exit(options(old))
+    i64 <- capture.output(print(array(as.int64(as.character(1:20)),
+                                      c(2L, 5L, 2L))))
+    int <- capture.output(print(array(1:20, c(2L, 5L, 2L))))
+    identical(i64, int)
+})
 stopifnot(
     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -449,7 +457,8 @@ stopifnot(
     grepl("int64 range", i64_inexact_decimal_warning, fixed = TRUE),
     identical(i64_hex_big, as.int64("2228981575573237486")),
     identical(0x1eeeeeeeeeeeeeeeL, as.int64("2228981575573237486")),
-    identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
+    identical(0x7fffffffffffffffL, as.int64("9223372036854775807")),
+    i64_array_print_matches_int
 )
 stopifnot(
     identical(i64_dim_matrix[as.int64("1"), ], c(1L, 3L)),

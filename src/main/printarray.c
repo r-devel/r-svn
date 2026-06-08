@@ -505,7 +505,7 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 		printIntegerMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case INT64SXP:
-		printInt64Matrix (x, i * b, use_nr, nr, nc, dn0, dn1, rn, cn, do_ij);
+		printInt64Matrix (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case REALSXP:
 		printRealMatrix   (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
