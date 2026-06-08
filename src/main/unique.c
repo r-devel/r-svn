@@ -2171,13 +2171,7 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 #    include <memory.h>
 #endif
 
-static R_INLINE R_int64_t rowsum_int64_plus(R_int64_t x, R_int64_t y)
-{
-    if ((y > 0 && x > R_INT64_MAX - y) ||
-	(y < 0 && x < R_INT64_MIN - y))
-	return NA_INT64;
-    return x + y;
-}
+#include "int64-utils.h"
 
 static SEXP
 rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
@@ -2250,7 +2244,9 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 		    if(!narm)
 			pa[idx] = NA_INT64;
 		} else if (pa[idx] != NA_INT64) {
-		    pa[idx] = rowsum_int64_plus(pa[idx], xjpo);
+		    R_int64_t sum;
+		    pa[idx] = int64_add_ok(pa[idx], xjpo, &sum) ?
+			sum : NA_INT64;
 		}
 	    }
 	    offset += n;
@@ -2340,7 +2336,9 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 		    if(!narm)
 			INT64(col)[idx] = NA_INT64;
 		} else if (INT64(col)[idx] != NA_INT64) {
-		    INT64(col)[idx] = rowsum_int64_plus(INT64(col)[idx], xj);
+		    R_int64_t sum;
+		    INT64(col)[idx] = int64_add_ok(INT64(col)[idx], xj, &sum) ?
+			sum : NA_INT64;
 		}
 	    }
 	    SET_VECTOR_ELT(ans, i, col);

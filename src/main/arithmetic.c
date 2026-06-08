@@ -56,6 +56,7 @@
 #include <R_ext/Itermacros.h>
 
 #include "arithmetic.h"
+#include "int64-utils.h"
 
 #include <errno.h>
 
@@ -375,64 +376,6 @@ static R_INLINE double R_integer_divide(int x, int y)
 	return NA_REAL;
     else
 	return (double) x / (double) y;
-}
-
-static R_INLINE R_int64_t R_int64_from_int(int x)
-{
-    return x == NA_INTEGER ? NA_INT64 : (R_int64_t) x;
-}
-
-static R_INLINE bool R_int64_fits_integer(R_int64_t x)
-{
-    return x != NA_INT64 && x >= -INT_MAX && x <= INT_MAX;
-}
-
-static R_INLINE R_int64_t R_int64_plus(R_int64_t x, R_int64_t y, bool *overflow)
-{
-    if (x == NA_INT64 || y == NA_INT64)
-	return NA_INT64;
-    if ((y > 0 && x > R_INT64_MAX - y) ||
-	(y < 0 && x < R_INT64_MIN - y)) {
-	*overflow = true;
-	return NA_INT64;
-    }
-    return x + y;
-}
-
-static R_INLINE R_int64_t R_int64_minus(R_int64_t x, R_int64_t y, bool *overflow)
-{
-    if (x == NA_INT64 || y == NA_INT64)
-	return NA_INT64;
-    if ((y > 0 && x < R_INT64_MIN + y) ||
-	(y < 0 && x > R_INT64_MAX + y)) {
-	*overflow = true;
-	return NA_INT64;
-    }
-    return x - y;
-}
-
-static R_INLINE R_int64_t R_int64_times(R_int64_t x, R_int64_t y, bool *overflow)
-{
-    if (x == NA_INT64 || y == NA_INT64)
-	return NA_INT64;
-#ifdef __SIZEOF_INT128__
-    __int128 z = (__int128) x * (__int128) y;
-    if (z < R_INT64_MIN || z > R_INT64_MAX) {
-	*overflow = true;
-	return NA_INT64;
-    }
-    return (R_int64_t) z;
-#else
-    if (x > 0 ? (y > 0 ? x > R_INT64_MAX / y :
-			  y < R_INT64_MIN / x) :
-	x < 0 ? (y > 0 ? x < R_INT64_MIN / y :
-			 y < R_INT64_MAX / x) :
-	false) {
-	*overflow = true;
-	return NA_INT64;
-    }
-    return x * y;
-#endif
 }
 
 static R_INLINE R_int64_t R_int64_idiv(R_int64_t x, R_int64_t y)
@@ -949,8 +892,8 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
 		    x1 = px1[i1];
 		    x2 = px2[i2];
-		    R_int64_t ix1 = R_int64_from_int(x1);
-		    R_int64_t ix2 = R_int64_from_int(x2);
+		    R_int64_t ix1 = int64_from_integer(x1);
+		    R_int64_t ix2 = int64_from_integer(x2);
 		    R_int64_t tmp;
 		    switch (code) {
 		    case PLUSOP:
@@ -968,7 +911,7 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		    default:
 			tmp = NA_INT64;
 		    }
-		    if (tmp != NA_INT64 && !R_int64_fits_integer(tmp))
+		    if (tmp != NA_INT64 && !int64_fits_integer(tmp))
 			needs64 = true;
 		    if (!needs64)
 			pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
@@ -980,8 +923,8 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
 			x1 = px1[i1];
 			x2 = px2[i2];
-			R_int64_t ix1 = R_int64_from_int(x1);
-			R_int64_t ix2 = R_int64_from_int(x2);
+			R_int64_t ix1 = int64_from_integer(x1);
+			R_int64_t ix2 = int64_from_integer(x2);
 			switch (code) {
 			case PLUSOP:
 			    p64[i] = (ix1 == NA_INT64 || ix2 == NA_INT64) ?
@@ -1010,8 +953,8 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
 		    x1 = px1[i1];
 		    x2 = px2[i2];
-		    R_int64_t tmp = R_int64_mod(R_int64_from_int(x1),
-						R_int64_from_int(x2));
+		    R_int64_t tmp = R_int64_mod(int64_from_integer(x1),
+						int64_from_integer(x2));
 		    pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
 		});
 	}
@@ -1024,8 +967,8 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
 		    x1 = px1[i1];
 		    x2 = px2[i2];
-		    R_int64_t tmp = R_int64_idiv(R_int64_from_int(x1),
-						 R_int64_from_int(x2));
+		    R_int64_t tmp = R_int64_idiv(int64_from_integer(x1),
+						 int64_from_integer(x2));
 		    pa[i] = tmp == NA_INT64 ? NA_INTEGER : (int) tmp;
 		});
 	}
@@ -1079,7 +1022,7 @@ static R_INLINE R_int64_t int64_operand(SEXP s, R_xlen_t i)
     if (TYPEOF(s) == INT64SXP)
 	return INT64_RO(s)[i];
     else
-	return R_int64_from_int(INTEGER_RO(s)[i]);
+	return int64_from_integer(INTEGER_RO(s)[i]);
 }
 
 static SEXP int64_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
@@ -1104,8 +1047,8 @@ static SEXP int64_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	{
 	    R_int64_t *pa = INT64(ans);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    pa[i] = R_int64_plus(int64_operand(s1, i1),
-					 int64_operand(s2, i2), &naflag);
+		    pa[i] = int64_plus(int64_operand(s1, i1),
+				       int64_operand(s2, i2), &naflag);
 		});
 	}
 	break;
@@ -1113,8 +1056,8 @@ static SEXP int64_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	{
 	    R_int64_t *pa = INT64(ans);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    pa[i] = R_int64_minus(int64_operand(s1, i1),
-					  int64_operand(s2, i2), &naflag);
+		    pa[i] = int64_minus(int64_operand(s1, i1),
+					int64_operand(s2, i2), &naflag);
 		});
 	}
 	break;
@@ -1122,8 +1065,8 @@ static SEXP int64_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	{
 	    R_int64_t *pa = INT64(ans);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    pa[i] = R_int64_times(int64_operand(s1, i1),
-					  int64_operand(s2, i2), &naflag);
+		    pa[i] = int64_times(int64_operand(s1, i1),
+					int64_operand(s2, i2), &naflag);
 		});
 	}
 	break;

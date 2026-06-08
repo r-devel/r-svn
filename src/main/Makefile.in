@@ -57,6 +57,7 @@ HEADERS = \
 	datetime.h \
 	duplicate.h \
 	int64-accum.h \
+	int64-utils.h \
 	gzio.h \
 	machar.c \
 	qsort-body.c \

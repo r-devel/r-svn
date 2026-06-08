@@ -33,6 +33,7 @@
 #include <R_ext/Itermacros.h>
 
 #include "RBufferUtils.h"
+#include "int64-utils.h"
 static R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
 
 #define _S4_rep_keepClass
@@ -176,67 +177,20 @@ static Rboolean seq_int64_by(SEXP s, R_int64_t *out)
     return seq_int64_endpoint(s, out);
 }
 
-static R_INLINE Rboolean seq_int64_fits_integer(R_int64_t x)
-{
-    return x != NA_INT64 && x >= -INT_MAX && x <= INT_MAX;
-}
-
-static R_INLINE Rboolean seq_int64_add_ok(R_int64_t x, R_int64_t y,
-					  R_int64_t *out)
-{
-    if ((y > 0 && x > R_INT64_MAX - y) ||
-	(y < 0 && x < R_INT64_MIN - y))
-	return FALSE;
-    *out = x + y;
-    return TRUE;
-}
-
-static R_INLINE Rboolean seq_int64_sub_ok(R_int64_t x, R_int64_t y,
-					  R_int64_t *out)
-{
-    if ((y > 0 && x < R_INT64_MIN + y) ||
-	(y < 0 && x > R_INT64_MAX + y))
-	return FALSE;
-    *out = x - y;
-    return TRUE;
-}
-
-static R_INLINE Rboolean seq_int64_mul_xlen_ok(R_int64_t x, R_xlen_t y,
-					       R_int64_t *out)
-{
-#ifdef __SIZEOF_INT128__
-    __int128 z = (__int128) x * (__int128) y;
-    if (z < R_INT64_MIN || z > R_INT64_MAX)
-	return FALSE;
-    *out = (R_int64_t) z;
-    return TRUE;
-#else
-    if (y == 0) {
-	*out = 0;
-	return TRUE;
-    }
-    if ((x > 0 && y > R_INT64_MAX / x) ||
-	(x < 0 && y > R_INT64_MIN / x))
-	return FALSE;
-    *out = x * (R_int64_t) y;
-    return TRUE;
-#endif
-}
-
 static SEXP seq_int64_by_length(R_int64_t from, R_int64_t by, R_xlen_t n,
 				SEXP call)
 {
     R_int64_t last = from;
     if (n > 1) {
 	R_int64_t step;
-	if (!seq_int64_mul_xlen_ok(by, n - 1, &step) ||
-	    !seq_int64_add_ok(from, step, &last))
+	if (!int64_mul_xlen_ok(by, n - 1, &step) ||
+	    !int64_add_ok(from, step, &last))
 	    errorcall(call, _("result would be too long a vector"));
     }
 
-    Rboolean useInt = seq_int64_fits_integer(from) &&
-	seq_int64_fits_integer(last) &&
-	(n <= 1 || seq_int64_fits_integer(by));
+    Rboolean useInt = int64_fits_integer(from) &&
+	int64_fits_integer(last) &&
+	(n <= 1 || int64_fits_integer(by));
     SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, n);
     R_int64_t value = from;
     if (useInt) {
@@ -259,8 +213,8 @@ static SEXP seq_int64_to_by_length(R_int64_t to, R_int64_t by, R_xlen_t n,
 				   SEXP call)
 {
     R_int64_t step, from;
-    if (!seq_int64_mul_xlen_ok(by, n - 1, &step) ||
-	!seq_int64_sub_ok(to, step, &from))
+    if (!int64_mul_xlen_ok(by, n - 1, &step) ||
+	!int64_sub_ok(to, step, &from))
 	errorcall(call, _("result would be too long a vector"));
     return seq_int64_by_length(from, by, n, call);
 }
@@ -269,12 +223,12 @@ static SEXP seq_int64_endpoints_length(R_int64_t from, R_int64_t to,
 				       R_xlen_t n, SEXP call)
 {
     if (n == 1)
-	return seq_int64_fits_integer(from) ?
+	return int64_fits_integer(from) ?
 	    ScalarInteger((int) from) : ScalarInt64(from);
 
     if (n == 2) {
-	Rboolean useInt = seq_int64_fits_integer(from) &&
-	    seq_int64_fits_integer(to);
+	Rboolean useInt = int64_fits_integer(from) &&
+	    int64_fits_integer(to);
 	SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, 2);
 	if (useInt) {
 	    INTEGER(ans)[0] = (int) from;
@@ -297,7 +251,7 @@ static SEXP seq_int64_endpoints_length(R_int64_t from, R_int64_t to,
     return seq_int64_by_length(from, (R_int64_t) by, n, call);
 #else
     R_int64_t diff;
-    if (!seq_int64_sub_ok(to, from, &diff) || diff % (n - 1) != 0)
+    if (!int64_sub_ok(to, from, &diff) || diff % (n - 1) != 0)
 	return R_NilValue;
     return seq_int64_by_length(from, diff / (n - 1), n, call);
 #endif
@@ -311,7 +265,7 @@ static SEXP seq_colon_int64(R_int64_t n1, R_int64_t n2, SEXP call)
     if (r >= (uint64_t) R_XLEN_T_MAX)
 	errorcall(call, _("result would be too long a vector"));
 
-    if (seq_int64_fits_integer(n1) && seq_int64_fits_integer(n2))
+    if (int64_fits_integer(n1) && int64_fits_integer(n2))
 	return R_compact_intrange((R_xlen_t) n1, (R_xlen_t) n2);
 
     R_xlen_t n = (R_xlen_t) r + 1;
@@ -331,7 +285,7 @@ static SEXP seq_by_int64(R_int64_t from, R_int64_t to, R_int64_t by, SEXP call)
     if (by == 0) {
 	if (from != to)
 	    errorcall(call, _("invalid '(to - from)/by'"));
-	return seq_int64_fits_integer(from) ?
+	return int64_fits_integer(from) ?
 	    ScalarInteger((int) from) : ScalarInt64(from);
     }
 
@@ -347,8 +301,8 @@ static SEXP seq_by_int64(R_int64_t from, R_int64_t to, R_int64_t by, SEXP call)
 	errorcall(call, _("'by' argument is much too small"));
 
     R_xlen_t n = (R_xlen_t) nn + 1;
-    Rboolean useInt = seq_int64_fits_integer(from) &&
-	seq_int64_fits_integer(to) && seq_int64_fits_integer(by);
+    Rboolean useInt = int64_fits_integer(from) &&
+	int64_fits_integer(to) && int64_fits_integer(by);
 
     SEXP ans = allocVector(useInt ? INTSXP : INT64SXP, n);
     R_int64_t value = from;

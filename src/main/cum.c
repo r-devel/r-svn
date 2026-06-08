@@ -25,6 +25,8 @@
 #include <Defn.h>
 #include <Internal.h>
 
+#include "int64-utils.h"
+
 /* Handle NaN and NA in input for a cumulative operation, preserving
    distinction between NA and NaN. */
 static SEXP handleNaN(SEXP x, SEXP s)
@@ -80,12 +82,12 @@ static SEXP i64cumsum(SEXP x, SEXP s)
     R_int64_t sum = 0;
     for (R_xlen_t i = 0 ; i < XLENGTH(x) ; i++) {
 	if (ix[i] == NA_INT64) break;
-	if ((ix[i] > 0 && sum > R_INT64_MAX - ix[i]) ||
-	    (ix[i] < 0 && sum < R_INT64_MIN - ix[i])) {
+	R_int64_t next;
+	if (!int64_add_ok(sum, ix[i], &next)) {
 	    warning(_("int64 overflow in 'cumsum'; use 'cumsum(as.numeric(.))'"));
 	    break;
 	}
-	sum += ix[i];
+	sum = next;
 	is[i] = sum;
     }
     return s;
