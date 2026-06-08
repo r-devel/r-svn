@@ -713,6 +713,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
 	} /* else fall through */
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
@@ -781,6 +782,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
 	break;
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
     case STRSXP:

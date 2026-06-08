@@ -42,6 +42,7 @@ stopifnot(
 
 i64_named <- as.int64("1")
 names(i64_named) <- "a"
+i64_named_pair <- setNames(as.int64(c("1", "2")), c("a", "b"))
 i64_cbind <- cbind(a = as.int64("1"))
 i64_rbind <- rbind(a = as.int64("1"))
 i64_real_cbind <- cbind(as.int64("2147483648"), 1.5)
@@ -244,6 +245,8 @@ stopifnot(
     identical(unname(i64_real_rbind[1, 1]), 2147483648),
     identical(as.vector(i64_named, "int64"), as.int64("1")),
     identical(as.vector(i64_named, "any"), as.int64("1")),
+    identical(names(c(i64_named_pair)), c("a", "b")),
+    identical(names(unlist(list(x = i64_named_pair))), c("x.a", "x.b")),
     identical(format(as.int64(c("1", "2147483648", NA)), trim = TRUE),
               c("1", "2147483648", "NA")),
     identical(format.info(as.int64(c("1", "2147483648", NA))), 10L),
