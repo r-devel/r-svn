@@ -145,6 +145,9 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
 	return FALSE;
 
     switch (TYPEOF(s)) {
+    case LGLSXP:
+	*out = LOGICAL(s)[0] == NA_LOGICAL ? NA_INT64 : (R_int64_t) LOGICAL(s)[0];
+	return TRUE;
     case INTSXP:
 	*out = INTEGER(s)[0] == NA_INTEGER ? NA_INT64 : (R_int64_t) INTEGER(s)[0];
 	return TRUE;

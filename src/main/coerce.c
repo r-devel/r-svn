@@ -394,10 +394,14 @@ Int64FromString(SEXP x, int *warn)
 	if (Int64FromDecimalStringExact(p, &val) ||
 	    Int64FromHexStringExact(p, &val))
 	    return val;
+	const char *q = p;
+	while (isspace((unsigned char) *q)) q++;
+	if (*q == '+' || *q == '-') q++;
+	Rboolean is_hex = q[0] == '0' && (q[1] == 'x' || q[1] == 'X');
 	char *endp;
 	double xdouble = R_strtod(p, &endp);
 	if (isBlankString(endp)) {
-	    if (ISNAN(xdouble))
+	    if (ISNAN(xdouble) || (is_hex && R_FINITE(xdouble)))
 		return Int64FromReal(xdouble, warn);
 	    *warn |= WARN_INT64_NA;
 	} else *warn |= WARN_NA;

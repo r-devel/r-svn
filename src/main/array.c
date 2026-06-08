@@ -2345,6 +2345,13 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
        mk_DIAG(0);
        break;
    }
+   case INT64SXP:
+   {
+       PROTECT(ans = allocMatrix(INT64SXP, nr, nc));
+       R_int64_t *rx = INT64(x), *ra = INT64(ans);
+       mk_DIAG(0);
+       break;
+   }
    case LGLSXP:
    {
        PROTECT(ans = allocMatrix(LGLSXP, nr, nc));

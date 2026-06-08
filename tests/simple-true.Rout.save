@@ -87,6 +87,7 @@ integer literal 1.L contains unnecessary decimal point
 +     grepl("int64 range", int64_warning, fixed = TRUE),
 +     identical(as.int64("1.0"), as.int64("1")),
 +     identical(as.int64("1e3"), as.int64("1000")),
++     identical(as.int64("0x1p3"), as.int64("8")),
 +     identical(as.int64("0x10"), as.int64("16"))
 + )
 >
@@ -367,6 +368,8 @@ integer literal 1.L contains unnecessary decimal point
 +               as.int64(c("9007199254740993", "9007199254740992"))),
 +     identical(seq.int(as.int64("9007199254740993"), length.out = 2L),
 +               as.int64(c("9007199254740993", "9007199254740994"))),
++     identical(seq(TRUE, as.int64("9007199254740993"), length.out = 2L),
++               as.int64(c("1", "9007199254740993"))),
 +     inherits(try(as.int64(character(0)) : 1L, silent = TRUE), "try-error"),
 +     inherits(try(as.int64("1") : integer(), silent = TRUE), "try-error"),
 +     local({
@@ -453,6 +456,8 @@ integer literal 1.L contains unnecessary decimal point
 +     is.integer(memory.profile()["int64"]),
 +     !is.na(memory.profile()["int64"]),
 +     identical(matrix(as.int64("1"), 1L), structure(as.int64("1"), dim = c(1L, 1L))),
++     identical(diag(as.int64(c("1", "9007199254740993"))),
++               matrix(as.int64(c("1", "0", "0", "9007199254740993")), 2L)),
 +     identical(t(matrix(as.int64(c("1", "2", "3", "4")), 2L)),
 +               matrix(as.int64(c("1", "3", "2", "4")), 2L)),
 +     identical(array(as.int64("1"), 3L), structure(rep(as.int64("1"), 3L), dim = 3L)),
@@ -468,6 +473,10 @@ integer literal 1.L contains unnecessary decimal point
 +               matrix(as.int64(c("3", "0")), dimnames = list(c("1", "2"), NULL))),
 +     identical(rowsum(data.frame(x = as.int64(c("1", "2", NA))), c(1L, 1L, 2L)),
 +               data.frame(x = as.int64(c("3", NA)), row.names = c("1", "2"))),
++     identical(rowsum(1:3, as.int64(c("1", "1", "2"))),
++               matrix(c(3L, 3L), dimnames = list(c("1", "2"), NULL))),
++     identical(rowsum(data.frame(x = 1:3), as.int64(c("1", "1", "2"))),
++               data.frame(x = c(3L, 3L), row.names = c("1", "2"))),
 +     identical(vapply(1:2, function(i) as.int64(i), as.int64(0)), as.int64(c("1", "2"))),
 +     identical(vapply(1:2, function(i) as.int64(c(i, i + 2L)), as.int64(c(0, 0))),
 +               matrix(as.int64(c("1", "3", "2", "4")), 2L)),
