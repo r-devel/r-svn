@@ -147,6 +147,7 @@ SEXP modelframe(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    switch(TYPEOF(ans)) {
 	    case LGLSXP:
 	    case INTSXP:
+	    case INT64SXP:
 	    case REALSXP:
 	    case CPLXSXP:
 	    case STRSXP:

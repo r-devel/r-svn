@@ -71,6 +71,10 @@ i64_subscript_matrix <- matrix(as.int64(c("2", "2")), ncol = 2L)
 i64_subscript_assignment <- i64_dim_matrix
 i64_subscript_assignment[i64_subscript_matrix] <- 9L
 i64_big <- as.int64("9007199254740993")
+i64_class_numeric <- i64_big
+class(i64_class_numeric) <- "numeric"
+i64_class_from_double <- 1
+class(i64_class_from_double) <- "int64"
 i64_big_rounded <- 9007199254740992
 i64_real_collision_table <- c(4611686018427387904, 2)
 min_int64_warning <- NULL
@@ -113,6 +117,9 @@ i64_s3 <- local({
     f.numeric <- function(x) "numeric"
     f(as.int64("1"))
 })
+i64_model_data <- data.frame(x = as.int64(1:3), y = 1:3)
+i64_model_frame <- stats::model.frame(y ~ x, data = i64_model_data)
+i64_lm <- stats::lm(y ~ x, data = i64_model_data)
 i64_rds <- tempfile()
 saveRDS(as.int64("1"), i64_rds)
 i64_rds_info <- infoRDS(i64_rds)
@@ -186,6 +193,14 @@ stopifnot(
     identical(i64_aggregate,
               data.frame(g = i64_group, x = as.int64(c("1", "2")))),
     identical(i64_s3, "numeric"),
+    typeof(i64_class_numeric) == "int64",
+    identical(i64_class_numeric, i64_big),
+    identical(class(i64_class_numeric), "int64"),
+    typeof(i64_class_from_double) == "int64",
+    identical(i64_class_from_double, as.int64("1")),
+    identical(class(i64_class_from_double), "int64"),
+    identical(typeof(i64_model_frame$x), "int64"),
+    isTRUE(all.equal(unname(stats::coef(i64_lm)), c(0, 1))),
     identical(i64_rds_info$version, 4L),
     identical(i64_rds_info$min_reader_version,
               i64_rds_info$writer_version),

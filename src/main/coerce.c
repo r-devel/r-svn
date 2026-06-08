@@ -3331,6 +3331,7 @@ typedef struct {
 static classType classTable[] = {
     { "logical",	LGLSXP,	   TRUE },
     { "integer",	INTSXP,	   TRUE },
+    { "int64",		INT64SXP,  TRUE },
     { "double",		REALSXP,   TRUE },
     { "raw",		RAWSXP,    TRUE },
     { "complex",	CPLXSXP,   TRUE },
@@ -3448,7 +3449,7 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	    if(IS_S4_OBJECT(obj)) /* NULL class is only valid for S3 objects */
 	      do_unsetS4(obj, value);
 	    switch(TYPEOF(obj)) {
-	    case INTSXP: case REALSXP: break;
+	    case INTSXP: case INT64SXP: case REALSXP: break;
 	    default: PROTECT(obj = coerceVector(obj, REALSXP));
 		nProtect++;
 	    }
