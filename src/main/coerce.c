@@ -345,19 +345,62 @@ static Rboolean Int64FromDecimalStringExact(const char *s, R_int64_t *out)
     return TRUE;
 }
 
+static int hex_digit_value(unsigned char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static Rboolean Int64FromHexStringExact(const char *s, R_int64_t *out)
+{
+    const char *p = s;
+    while (isspace((unsigned char) *p)) p++;
+
+    Rboolean neg = FALSE;
+    if (*p == '+' || *p == '-') {
+	neg = *p == '-';
+	p++;
+    }
+    if (p[0] != '0' || (p[1] != 'x' && p[1] != 'X'))
+	return FALSE;
+    p += 2;
+
+    int digit = hex_digit_value((unsigned char) *p);
+    if (digit < 0) return FALSE;
+
+    uintmax_t limit = (uintmax_t) R_INT64_MAX;
+    uintmax_t mag = 0;
+    do {
+	if (mag > (limit - (uintmax_t) digit) / 16) return FALSE;
+	mag = 16 * mag + (uintmax_t) digit;
+	p++;
+	digit = hex_digit_value((unsigned char) *p);
+    } while (digit >= 0);
+
+    if (!isBlankString(p)) return FALSE;
+
+    *out = neg ? -(R_int64_t) mag : (R_int64_t) mag;
+    return TRUE;
+}
+
 R_int64_t attribute_hidden
 Int64FromString(SEXP x, int *warn)
 {
     if (x != R_NaString && !isBlankString(CHAR(x))) {
 	const char *p = CHAR(x);
 	R_int64_t val;
-	if (Int64FromDecimalStringExact(p, &val))
+	if (Int64FromDecimalStringExact(p, &val) ||
+	    Int64FromHexStringExact(p, &val))
 	    return val;
 	char *endp;
 	double xdouble = R_strtod(p, &endp);
-	if (isBlankString(endp))
-	    return Int64FromReal(xdouble, warn);
-	else *warn |= WARN_NA;
+	if (isBlankString(endp)) {
+	    if (ISNAN(xdouble))
+		return Int64FromReal(xdouble, warn);
+	    *warn |= WARN_INT64_NA;
+	} else *warn |= WARN_NA;
     }
     return NA_INT64;
 }

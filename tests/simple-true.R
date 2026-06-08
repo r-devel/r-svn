@@ -71,6 +71,15 @@ i64_subscript_matrix <- matrix(as.int64(c("2", "2")), ncol = 2L)
 i64_subscript_assignment <- i64_dim_matrix
 i64_subscript_assignment[i64_subscript_matrix] <- 9L
 i64_big <- as.int64("9007199254740993")
+i64_big_exact_complex <- 9007199254740992+0i
+i64_hex_big <- as.int64("0x1eeeeeeeeeeeeeee")
+i64_inexact_decimal_warning <- NULL
+i64_inexact_decimal <- withCallingHandlers(as.int64("1.00000000000000001"),
+                                           warning = function(w) {
+                                               i64_inexact_decimal_warning <<-
+                                                   conditionMessage(w)
+                                               invokeRestart("muffleWarning")
+                                           })
 i64_class_numeric <- i64_big
 class(i64_class_numeric) <- "numeric"
 i64_class_from_double <- 1
@@ -212,6 +221,11 @@ stopifnot(
     identical(i64_big == i64_big_rounded, FALSE),
     identical(i64_big > i64_big_rounded, TRUE),
     identical(i64_big_rounded < i64_big, TRUE),
+    identical(i64_big == i64_big_exact_complex, FALSE),
+    identical(i64_big != i64_big_exact_complex, TRUE),
+    identical(as.int64("9007199254740992") == i64_big_exact_complex, TRUE),
+    identical(as.int64("2") == 2+1i, FALSE),
+    identical(as.int64("2") != 2+1i, TRUE),
     is.na(as.int64(NA) == as.int64(NA)),
     identical(!as.int64(c("0", "2", NA)), c(TRUE, FALSE, NA)),
     typeof(i64_cbind) == "int64",
@@ -292,6 +306,10 @@ stopifnot(
     identical(match(i64_big, i64_big_rounded, nomatch = 0L), 0L),
     identical(match(i64_big_rounded, i64_big, nomatch = 0L), 0L),
     identical(match(i64_big_rounded, as.int64("9007199254740992"), nomatch = 0L), 1L),
+    identical(match(i64_big, i64_big_exact_complex, nomatch = 0L), 0L),
+    identical(match(as.int64("9007199254740992"), i64_big_exact_complex, nomatch = 0L), 1L),
+    identical(match(i64_big_exact_complex, as.int64("9007199254740992"), nomatch = 0L), 1L),
+    identical(match(as.int64(NA), NA_complex_, nomatch = 0L), 1L),
     identical(match(i64_big_rounded, as.int64("9007199254740992"),
                     incomparables = i64_big, nomatch = 0L), 1L),
     identical(match(as.int64("2"), i64_real_collision_table, nomatch = 0L), 2L),
@@ -436,6 +454,9 @@ stopifnot(
         z <- list(1L)
         inherits(try(z[[as.int64("4294967297")]] <- 2L, silent = TRUE), "try-error")
     },
+    is.na(i64_inexact_decimal),
+    grepl("int64 range", i64_inexact_decimal_warning, fixed = TRUE),
+    identical(i64_hex_big, as.int64("2228981575573237486")),
     identical(0x1eeeeeeeeeeeeeeeL, as.int64("2228981575573237486")),
     identical(0x7fffffffffffffffL, as.int64("9223372036854775807"))
 )
