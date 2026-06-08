@@ -4088,7 +4088,7 @@ void (SET_GROWABLE_BIT)(SEXP x) { SET_GROWABLE_BIT(CHK(x)); }
 
 static int nvec[32] = {
     1,1,1,1,1,1,1,1,
-    1,0,0,1,1,0,0,0,
+    1,0,0,0,1,0,0,0,
     0,1,1,0,0,1,1,0,
     0,1,1,1,1,1,1,1
 };

@@ -44,6 +44,7 @@ SEXP fft(SEXP z, SEXP inverse)
 
     switch (TYPEOF(z)) {
     case INTSXP:
+    case INT64SXP:
     case LGLSXP:
     case REALSXP:
 	z = coerceVector(z, CPLXSXP);
@@ -139,6 +140,7 @@ SEXP mvfft(SEXP z, SEXP inverse)
 
     switch(TYPEOF(z)) {
     case INTSXP:
+    case INT64SXP:
     case LGLSXP:
     case REALSXP:
 	z = coerceVector(z, CPLXSXP);

@@ -106,6 +106,9 @@ i64_aggregate <- aggregate(as.int64(c("1", "2")), list(g = i64_group),
 i64_nlm_p <- stats::nlm(function(x) sum(x * x), as.int64("1"))
 i64_nlm_typsize <- stats::nlm(function(x) sum(x * x), 1,
                               typsize = as.int64("1"))
+i64_dnorm <- stats::dnorm(as.int64("1"))
+i64_convolve <- stats::convolve(as.int64(c("1", "2", "3")),
+                                as.int64(c("1", "2", "3")))
 i64_s3 <- local({
     f <- function(x) UseMethod("f")
     f.numeric <- function(x) "numeric"
@@ -364,6 +367,8 @@ stopifnot(
     identical(stats::D(2147483648L, "x"), 0),
     abs(i64_nlm_p$estimate) < 1e-4,
     abs(i64_nlm_typsize$estimate) < 1e-4,
+    identical(i64_dnorm, stats::dnorm(1)),
+    isTRUE(all.equal(i64_convolve, stats::convolve(1:3, 1:3))),
     typeof(c(1L, 2L) + 1L) == "integer",
     typeof(c(1L, 2L) - 1L) == "integer",
     typeof(c(1L, 2L) * 2L) == "integer",
