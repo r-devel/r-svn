@@ -320,6 +320,12 @@ stopifnot(
     identical(i64_for_values, as.int64(c("1", "2"))),
     identical(i64_for_bc_values, as.int64(c("1", "2"))),
     isTRUE(all.equal(as.int64("1"), as.int64("1"))),
+    isTRUE({
+        x <- as.int64("1")
+        class(x) <- "foo"
+        all.equal(x, unclass(x), check.attributes = FALSE,
+                  check.class = FALSE)
+    }),
     is.character(all.equal(as.int64("1"), as.int64("2"))),
     is.character(all.equal(as.int64("1"), as.int64(c("1", "2")))),
     is.character(all.equal(i64_big, as.int64("9007199254740992"))),
