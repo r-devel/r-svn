@@ -23,6 +23,19 @@ static R_INLINE Rboolean int64_fits_integer(R_int64_t x)
     return x != NA_INT64 && x >= -INT_MAX && x <= INT_MAX;
 }
 
+static R_INLINE Rboolean int64_from_real_exact(double x, R_int64_t *out)
+{
+    if (ISNAN(x) || x <= (double) NA_INT64 || x >= (double) R_INT64_MAX)
+	return FALSE;
+
+    R_int64_t val = (R_int64_t) x;
+    if ((double) val != x || val == NA_INT64)
+	return FALSE;
+
+    *out = val;
+    return TRUE;
+}
+
 static R_INLINE Rboolean int64_add_ok(R_int64_t x, R_int64_t y,
 				      R_int64_t *out)
 {

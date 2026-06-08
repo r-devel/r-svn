@@ -147,26 +147,16 @@ static Rboolean seq_int64_endpoint(SEXP s, R_int64_t *out)
 
     switch (TYPEOF(s)) {
     case LGLSXP:
-	*out = LOGICAL(s)[0] == NA_LOGICAL ? NA_INT64 : (R_int64_t) LOGICAL(s)[0];
+	*out = int64_from_integer(LOGICAL_ELT(s, 0));
 	return TRUE;
     case INTSXP:
-	*out = INTEGER(s)[0] == NA_INTEGER ? NA_INT64 : (R_int64_t) INTEGER(s)[0];
+	*out = int64_from_integer(INTEGER_ELT(s, 0));
 	return TRUE;
     case INT64SXP:
-	*out = INT64(s)[0];
+	*out = INT64_ELT(s, 0);
 	return TRUE;
     case REALSXP:
-    {
-	double val = REAL(s)[0];
-	if (ISNAN(val) || val <= (double) NA_INT64 ||
-	    val >= (double) R_INT64_MAX)
-	    return FALSE;
-	R_int64_t ival = (R_int64_t) val;
-	if ((double) ival != val || ival == NA_INT64)
-	    return FALSE;
-	*out = ival;
-	return TRUE;
-    }
+	return int64_from_real_exact(REAL_ELT(s, 0), out);
     default:
 	return FALSE;
     }

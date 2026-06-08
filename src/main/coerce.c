@@ -218,20 +218,14 @@ Int64FromInteger(int x, int *warn)
 attribute_hidden R_int64_t
 Int64FromReal(double x, int *warn)
 {
+    R_int64_t val;
     if (ISNAN(x))
 	return NA_INT64;
-    if (x <= (double) NA_INT64 || x >= (double) R_INT64_MAX) {
+    if (!int64_from_real_exact(x, &val)) {
 	*warn |= WARN_INT64_NA;
 	return NA_INT64;
     }
-    R_int64_t val = (R_int64_t) x;
-    if ((double) val != x) {
-	*warn |= WARN_INT64_NA;
-	return NA_INT64;
-    }
-    if (val == NA_INT64)
-	*warn |= WARN_INT64_NA;
-    return val == NA_INT64 ? NA_INT64 : val;
+    return val;
 }
 
 attribute_hidden R_int64_t
