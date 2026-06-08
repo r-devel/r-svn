@@ -366,6 +366,8 @@ stopifnot(
     grepl("int64 range", min_int64_warning, fixed = TRUE),
     { z <- as.int64("1"); z[1] <- as.int64("2"); identical(z, as.int64("2")) },
     { z <- list(1L); z[[1]] <- as.int64("9007199254740993"); identical(z[[1]], as.int64("9007199254740993")) },
+    { z <- pairlist(pairlist(1L)); z[[as.int64(c("1", "1"))]] <- 2L; identical(z, pairlist(pairlist(2L))) },
+    { z <- pairlist(pairlist(1L, 2L)); z[[as.int64(c("1", "2"))]] <- NULL; identical(z, pairlist(pairlist(1L))) },
     { z <- expression(1L); z[[1]] <- as.int64("9007199254740993"); identical(z[[1]], as.int64("9007199254740993")) },
     { z <- matrix(as.int64("1"), 1L); z[1, 1] <- as.int64("2"); identical(z, matrix(as.int64("2"), 1L)) },
     { z <- array(as.int64("1"), c(1L, 1L, 1L)); z[1, 1, 1] <- as.int64("2"); identical(z, array(as.int64("2"), c(1L, 1L, 1L))) },

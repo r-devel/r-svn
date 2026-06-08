@@ -1452,6 +1452,9 @@ static SEXP GetOneIndex(SEXP sub, int ind)
 	case INTSXP:
 	    sub = ScalarInteger(INTEGER_ELT(sub, ind));
 	    break;
+	case INT64SXP:
+	    sub = ScalarInt64(INT64_ELT(sub, ind));
+	    break;
 	case REALSXP:
 	    sub = ScalarReal(REAL_ELT(sub, ind));
 	    break;
