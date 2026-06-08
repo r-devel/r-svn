@@ -138,6 +138,21 @@ attr(i64_refhook_ptr, "x") <- as.int64("1")
 i64_refhook_v3_raw <- try(serialize(i64_refhook_ptr, NULL, version = 3,
                                     refhook = function(x) "id"),
                           silent = TRUE)
+i64_refhook_once_env <- new.env(parent = emptyenv())
+i64_refhook_once_env$x <- as.int64("1")
+i64_refhook_once_count <- 0L
+i64_refhook_once_raw <- serialize(i64_refhook_once_env, NULL,
+                                  refhook = function(x) {
+                                      i64_refhook_once_count <<-
+                                          i64_refhook_once_count + 1L
+                                      if (i64_refhook_once_count == 1L)
+                                          "id"
+                                      else
+                                          NULL
+                                  })
+i64_refhook_once_con <- rawConnection(i64_refhook_once_raw)
+i64_refhook_once_info <- infoRDS(i64_refhook_once_con)
+close(i64_refhook_once_con)
 i64_refhook_decline_env <- new.env(parent = emptyenv())
 i64_refhook_decline_env$x <- as.int64("1")
 i64_refhook_decline_raw <- serialize(i64_refhook_decline_env, NULL,
@@ -243,10 +258,13 @@ stopifnot(
               i64_rds_info$writer_version),
     is.raw(i64_refhook_count_raw),
     identical(i64_refhook_count, 1L),
-    is.raw(i64_refhook_v3_raw),
+    inherits(i64_refhook_v3_raw, "try-error"),
+    is.raw(i64_refhook_once_raw),
+    identical(i64_refhook_once_count, 1L),
+    identical(i64_refhook_once_info$version, 4L),
     is.raw(i64_refhook_decline_raw),
     identical(i64_refhook_decline_out$x, as.int64("1")),
-    identical(i64_refhook_rds_info$version, 3L),
+    identical(i64_refhook_rds_info$version, 4L),
     identical(i64_scalar_binding_raw, TRUE),
     identical(i64_binding_rds_info$version, 4L),
     identical(i64_save_magic, "RDX4\n"),

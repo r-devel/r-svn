@@ -1422,16 +1422,12 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version,
     }
 
     if (stream != NULL && PersistentHookApplies(stream, s)) {
+	/* Refhooks may have side effects, so do not probe them here. */
 	SEXP hook_seen = PROTECT(MakeHashTable());
 	Rboolean has_int64 = SerializeContainsInt64(s, hook_seen, version,
 						    NULL);
 	UNPROTECT(1);
-	if (!has_int64)
-	    return FALSE;
-	SEXP t = PROTECT(GetPersistentName(stream, s));
-	Rboolean persisted = t != R_NilValue;
-	UNPROTECT(1);
-	return !persisted;
+	return has_int64;
     }
 
     if (SaveSpecialHook(s) != 0 || HashGet(s, seen) != 0)
