@@ -153,6 +153,12 @@ integer literal 1.L contains unnecessary decimal point
 > i64_lm <- stats::lm(y ~ x, data = i64_model_data)
 > i64_formatC <- formatC(as.int64("1"))
 > i64_big_formatC <- formatC(as.int64("9007199254740993"))
+> i64_prompt <- local({
++     old <- getOption("prompt")
++     on.exit(options(prompt = old))
++     options(prompt = as.int64("9007199254740993"))
++     getOption("prompt")
++ })
 > i64_rds <- tempfile()
 > saveRDS(as.int64("1"), i64_rds)
 > i64_rds_info <- infoRDS(i64_rds)
@@ -284,6 +290,7 @@ integer literal 1.L contains unnecessary decimal point
 +     isTRUE(all.equal(unname(stats::coef(i64_lm)), c(0, 1))),
 +     identical(i64_formatC, "1"),
 +     identical(i64_big_formatC, "9007199254740993"),
++     identical(i64_prompt, "9007199254740993"),
 +     identical(i64_rds_info$version, 4L),
 +     identical(i64_rds_info$min_reader_version,
 +               i64_rds_info$writer_version),
