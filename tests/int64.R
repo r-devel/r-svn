@@ -126,6 +126,9 @@ i64_s4 <- local({
     x <- as.int64("1")
     list(is_numeric = is(x, "numeric"),
          dispatch = i64_s4_f(x),
+         as_int64 = list(character = as("2147483648", "int64"),
+                         logical = as(TRUE, "int64"),
+                         integer = as(1L, "int64")),
          valid_slot = validObject(A(x = x)))
 })
 i64_model_data <- data.frame(x = as.int64(1:3), y = 1:3)
@@ -277,6 +280,9 @@ stopifnot(
               data.frame(g = i64_group, x = as.int64(c("1", "2")))),
     identical(i64_s3, "numeric"),
     identical(i64_s4, list(is_numeric = TRUE, dispatch = "numeric",
+                           as_int64 = list(character = as.int64("2147483648"),
+                                           logical = as.int64(TRUE),
+                                           integer = as.int64(1L)),
                            valid_slot = TRUE)),
     typeof(i64_class_numeric) == "int64",
     identical(i64_class_numeric, i64_big),
