@@ -1885,7 +1885,7 @@ IS: [1] TRUE
 > f <- try(as.int64( x ), silent = TRUE)
 Warning message:
 In doTryCatch(return(expr), name, parentenv, handler) :
-  NAs introduced by coercion
+  NAs introduced by coercion to int64 range
 >   if(!inherits(f, 'try-error')) report(identical(f, as.int64( f )))
 [1] TRUE
 > f <- try(as.integer( x ), silent = TRUE)

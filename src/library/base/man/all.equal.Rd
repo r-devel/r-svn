@@ -14,6 +14,7 @@
 \alias{all.equal.factor}
 \alias{all.equal.formula}
 \alias{all.equal.function}
+\alias{all.equal.int64}
 \alias{all.equal.list}
 \alias{all.equal.language}
 \alias{all.equal.POSIXt}
