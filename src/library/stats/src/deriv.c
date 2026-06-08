@@ -812,6 +812,8 @@ static int equal(SEXP expr1, SEXP expr2)
 	case LGLSXP:
 	case INTSXP:
 	    return INTEGER(expr1)[0] == INTEGER(expr2)[0];
+	case INT64SXP:
+	    return INT64(expr1)[0] == INT64(expr2)[0];
 	case REALSXP:
 	    return REAL(expr1)[0] == REAL(expr2)[0];
 	case CPLXSXP:
@@ -875,6 +877,7 @@ static int FindSubexprs(SEXP expr, SEXP exprlist, const char *tag)
     case SYMSXP:
     case LGLSXP:
     case INTSXP:
+    case INT64SXP:
     case REALSXP:
     case CPLXSXP:
 	return 0;

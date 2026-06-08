@@ -109,6 +109,8 @@ i64_nlm_typsize <- stats::nlm(function(x) sum(x * x), 1,
 i64_dnorm <- stats::dnorm(as.int64("1"))
 i64_convolve <- stats::convolve(as.int64(c("1", "2", "3")),
                                 as.int64(c("1", "2", "3")))
+i64_deriv <- stats::deriv(~ x + 2147483648L, "x")
+i64_deriv_value <- eval(i64_deriv, list(x = 1))
 i64_s3 <- local({
     f <- function(x) UseMethod("f")
     f.numeric <- function(x) "numeric"
@@ -365,6 +367,8 @@ stopifnot(
     identical(i64_subscript_assignment, matrix(c(1L, 2L, 3L, 9L), 2L)),
     identical(complete.cases(data.frame(x = as.int64(c("1", NA)))), c(TRUE, FALSE)),
     identical(stats::D(2147483648L, "x"), 0),
+    is.expression(i64_deriv),
+    identical(c(attr(i64_deriv_value, "gradient")), 1),
     abs(i64_nlm_p$estimate) < 1e-4,
     abs(i64_nlm_typsize$estimate) < 1e-4,
     identical(i64_dnorm, stats::dnorm(1)),
