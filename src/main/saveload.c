@@ -1930,7 +1930,7 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 	}
 	R_WriteMagic(fp, magic);
 	R_InitFileOutPStream(&out, fp, type, v, NULL, NULL);
-	R_Serialize(obj, &out);
+	R_SerializeWithVersion(obj, &out);
     }
 }
 
@@ -2452,7 +2452,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     R_InitConnOutPStream(&out, con, type, version, NULL, NULL);
-    R_Serialize(s, &out);
+    R_SerializeWithVersion(s, &out);
     if (!wasopen) con->close(con);
     UNPROTECT(1);
     return R_NilValue;

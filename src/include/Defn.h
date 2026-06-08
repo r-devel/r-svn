@@ -2284,6 +2284,7 @@ void R_SaveGlobalEnvToFile(const char *);
 void R_SaveToFile(SEXP, FILE*, int);
 void R_SaveToFileV(SEXP, FILE*, int, int);
 int R_SerializeVersion(SEXP, int, Rboolean);
+void R_SerializeWithVersion(SEXP, R_outpstream_t);
 Rboolean R_seemsOldStyleS4Object(SEXP object);
 int R_SetOptionWarn(int);
 int R_SetOptionWidth(int);

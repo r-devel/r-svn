@@ -1525,8 +1525,7 @@ static Rboolean SerializeContainsInt64(SEXP s, SEXP seen, int version,
     }
 }
 
-static int SerializeVersion(SEXP s, int version, Rboolean exact,
-			    R_outpstream_t stream)
+static int CheckSerializeVersion(int version)
 {
     if (version == 0)
 	version = defaultSerializeVersion();
@@ -1538,7 +1537,13 @@ static int SerializeVersion(SEXP s, int version, Rboolean exact,
     default:
 	error(_("version %d not supported"), version);
     }
+    return version;
+}
 
+static int SerializeVersion(SEXP s, int version, Rboolean exact,
+			    R_outpstream_t stream)
+{
+    version = CheckSerializeVersion(version);
     SEXP seen = PROTECT(MakeHashTable());
     Rboolean has_int64 = SerializeContainsInt64(s, seen, version, stream);
     UNPROTECT(1);
@@ -1712,10 +1717,11 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
     UNPROTECT(1);
 }
 
-void R_Serialize(SEXP s, R_outpstream_t stream)
+static void Serialize(SEXP s, R_outpstream_t stream, Rboolean version_selected)
 {
-    int version = SerializeVersion(s, stream->version, stream->version != 0,
-				   stream);
+    int version = version_selected ?
+	CheckSerializeVersion(stream->version) :
+	SerializeVersion(s, stream->version, stream->version != 0, stream);
     stream->version = version;
 
     OutFormat(stream);
@@ -1744,6 +1750,17 @@ void R_Serialize(SEXP s, R_outpstream_t stream)
     SEXP ref_table = PROTECT(MakeHashTable());
     WriteItem(s, ref_table, stream);
     UNPROTECT(1);
+}
+
+void R_Serialize(SEXP s, R_outpstream_t stream)
+{
+    Serialize(s, stream, FALSE);
+}
+
+attribute_hidden void R_SerializeWithVersion(SEXP s, R_outpstream_t stream)
+{
+    R_assert(stream->version != 0);
+    Serialize(s, stream, TRUE);
 }
 
 
