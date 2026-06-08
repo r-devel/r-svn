@@ -1446,7 +1446,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		u = coerceVector(u, INT64SXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-			xcopyInt64WithRecycle(INT64(result), INT64_RO(u), n, idx, k);
+		xcopyInt64WithRecycle(INT64(result), INT64_RO(u), n, idx, k);
 		n += idx;
 	    }
 	}
@@ -1469,7 +1469,8 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		R_xlen_t k = xlength(u); /* use xlength since u can be NULL */
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		if (idx > 0 && TYPEOF(u) <= INTSXP) {
+		if (idx > 0 &&
+		    (TYPEOF(u) == NILSXP || TYPEOF(u) == LGLSXP || TYPEOF(u) == INTSXP)) {
 		    /* NILSXP or INT or LGL
 		     * taking INTERER(NILSXP) should segfault, and
 		     * sometimes does.  But if cbind-ing a NULL, there
