@@ -83,7 +83,6 @@ stopifnot(
 big_int64 <- as.int64("9007199254740993")
 big_double <- 9007199254740992
 big_complex <- 9007199254740992+0i
-real_collision_table <- c(4611686018427387904, 2)
 stopifnot(
     identical(as.int64("9223372036854775807") > as.int64("1"), TRUE),
     identical(as.int64("-1") < as.int64("1"), TRUE),
@@ -137,6 +136,8 @@ stopifnot(
 
 ## Formatting and source round trips print int64 values without precision loss.
 large_int64 <- as.int64("9007199254740993")
+named_for_deparse <- as.int64("1")
+names(named_for_deparse) <- "a"
 old_prompt <- getOption("prompt")
 on.exit(options(prompt = old_prompt), add = TRUE)
 options(prompt = large_int64)
@@ -160,7 +161,8 @@ stopifnot(
     identical(eval(parse(text = deparse(as.int64("1")))), as.int64("1")),
     identical(eval(parse(text = deparse(as.int64(c("1", "2147483648", NA))))),
               as.int64(c("1", "2147483648", NA))),
-    identical(eval(parse(text = deparse(named_int64))), named_int64),
+    identical(eval(parse(text = deparse(named_for_deparse))),
+              named_for_deparse),
     is.character(capture.output(matrix(as.int64("1"), 1L))),
     identical(capture.output(as.int64(character(0))),
               "as.int64(character(0))"),
@@ -324,10 +326,11 @@ stopifnot(
 
 ## Assigning implicit classes coerces to their corresponding storage type.
 stopifnot(local({
-    x <- big_int64
+    expected <- as.int64("9007199254740993")
+    x <- expected
     class(x) <- "numeric"
     typeof(x) == "int64" &&
-        identical(x, big_int64) &&
+        identical(x, expected) &&
         identical(class(x), "int64")
 }))
 stopifnot(local({
@@ -352,7 +355,8 @@ stopifnot(
     }),
     is.character(all.equal(as.int64("1"), as.int64("2"))),
     is.character(all.equal(as.int64("1"), as.int64(c("1", "2")))),
-    is.character(all.equal(big_int64, as.int64("9007199254740992"))),
+    is.character(all.equal(as.int64("9007199254740993"),
+                           as.int64("9007199254740992"))),
     identical(typeof(model_frame$x), "int64"),
     isTRUE(all.equal(unname(stats::coef(model_fit)), c(0, 1)))
 )
@@ -499,6 +503,9 @@ stopifnot(
 )
 
 ## match, duplicated, and unique use exact int64 equality.
+big_int64 <- as.int64("9007199254740993")
+big_double <- 9007199254740992
+big_complex <- 9007199254740992+0i
 stopifnot(
     identical(match(as.int64("1"), as.int64("1")), 1L),
     identical(match(big_int64, big_double, nomatch = 0L), 0L),
@@ -513,7 +520,8 @@ stopifnot(
     identical(match(as.int64(NA), NA_complex_, nomatch = 0L), 1L),
     identical(match(big_double, as.int64("9007199254740992"),
                     incomparables = big_int64, nomatch = 0L), 1L),
-    identical(match(as.int64("2"), real_collision_table, nomatch = 0L), 2L),
+    identical(match(as.int64("2"), c(4611686018427387904, 2),
+                    nomatch = 0L), 2L),
     identical(duplicated(as.int64(c("1", "1", NA, NA))),
               c(FALSE, TRUE, FALSE, TRUE)),
     identical(unique(as.int64(c("1", "1", "2"))), as.int64(c("1", "2")))
