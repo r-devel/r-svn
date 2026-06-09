@@ -102,6 +102,9 @@
           coerce  = .gblEnv(function(object) as.double(object)),
           replace = .gblEnv(function(from, value) { class(value) <- "integer" ; value }))
     setIs("integer", "numeric", where = envir)
+    setIs("int64", "double", where = envir,
+          coerce  = .gblEnv(function(object) as.double(object)),
+          replace = .gblEnv(function(from, value) { class(value) <- "int64" ; value }))
     setIs("int64", "numeric", where = envir)
     setIs("double",  "numeric", where = envir)
     setIs("structure", "vector", coerce = .gblEnv(function(object) as.vector(object)),

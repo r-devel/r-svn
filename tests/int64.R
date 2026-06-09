@@ -121,14 +121,23 @@ i64_s4 <- local({
     f <- setGeneric("i64_s4_f", function(x) standardGeneric("i64_s4_f"))
     on.exit(removeGeneric("i64_s4_f"), add = TRUE)
     setMethod(f, "numeric", function(x) "numeric")
+    g <- setGeneric("i64_s4_g", function(x) standardGeneric("i64_s4_g"))
+    on.exit(removeGeneric("i64_s4_g"), add = TRUE)
+    setMethod(g, "double", function(x) "double")
     A <- setClass("i64_s4_A", slots = c(x = "int64"))
     on.exit(removeClass("i64_s4_A"), add = TRUE)
     x <- as.int64("1")
+    y <- x
+    as(y, "double") <- 2
     list(is_numeric = is(x, "numeric"),
+         is_double = is(x, "double"),
          dispatch = i64_s4_f(x),
+         dispatch_double = i64_s4_g(x),
+         as_double = as(x, "double"),
          as_int64 = list(character = as("2147483648", "int64"),
                          logical = as(TRUE, "int64"),
                          integer = as(1L, "int64")),
+         double_replace = y,
          valid_slot = validObject(A(x = x)))
 })
 i64_model_data <- data.frame(x = as.int64(1:3), y = 1:3)
@@ -285,10 +294,14 @@ stopifnot(
     identical(i64_aggregate,
               data.frame(g = i64_group, x = as.int64(c("1", "2")))),
     identical(i64_s3, "numeric"),
-    identical(i64_s4, list(is_numeric = TRUE, dispatch = "numeric",
+    identical(i64_s4, list(is_numeric = TRUE, is_double = TRUE,
+                           dispatch = "numeric",
+                           dispatch_double = "double",
+                           as_double = 1,
                            as_int64 = list(character = as.int64("2147483648"),
                                            logical = as.int64(TRUE),
                                            integer = as.int64(1L)),
+                           double_replace = as.int64("2"),
                            valid_slot = TRUE)),
     typeof(i64_class_numeric) == "int64",
     identical(i64_class_numeric, i64_big),
