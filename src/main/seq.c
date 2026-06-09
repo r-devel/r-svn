@@ -254,15 +254,7 @@ static SEXP seq_colon_int64(R_int64_t n1, R_int64_t n2, SEXP call)
 	return R_compact_intrange((R_xlen_t) n1, (R_xlen_t) n2);
 
     R_xlen_t n = (R_xlen_t) r + 1;
-    SEXP ans = allocVector(INT64SXP, n);
-    R_int64_t *pa = INT64(ans);
-    if (n1 <= n2)
-	for (R_xlen_t i = 0; i < n; i++)
-	    pa[i] = n1 + (R_int64_t) i;
-    else
-	for (R_xlen_t i = 0; i < n; i++)
-	    pa[i] = n1 - (R_int64_t) i;
-    return ans;
+    return seq_int64_by_length(n1, n1 <= n2 ? 1 : -1, n, call);
 }
 
 static SEXP seq_by_int64(R_int64_t from, R_int64_t to, R_int64_t by, SEXP call)
