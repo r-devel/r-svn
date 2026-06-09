@@ -2194,6 +2194,18 @@ SEXP C_text(SEXP args)
 	    adjy = INTEGER(adj)[1];
 	}
     }
+    else if (TYPEOF(adj) == INT64SXP) {
+	R_int64_t adj0 = INT64_ELT(adj, 0);
+	if (LENGTH(adj) == 1) {
+	    adjx = adj0 == NA_INT64 ? NA_REAL : (double) adj0;
+	    adjy = NA_REAL;
+	}
+	else {
+	    R_int64_t adj1 = INT64_ELT(adj, 1);
+	    adjx = adj0 == NA_INT64 ? NA_REAL : (double) adj0;
+	    adjy = adj1 == NA_INT64 ? NA_REAL : (double) adj1;
+	}
+    }
     else error(_("invalid '%s' value"), "adj");
     args = CDR(args);
 

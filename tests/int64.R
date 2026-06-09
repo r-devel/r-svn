@@ -394,6 +394,13 @@ stopifnot(
                               xaxs = "i", yaxs = "i")
         identical(graphics::par("usr"), c(1, 2, 0, 1))
     }),
+    local({
+        grDevices::pdf(NULL)
+        on.exit(grDevices::dev.off())
+        graphics::plot.new()
+        graphics::text(0.5, 0.5, "x", adj = as.int64("1"))
+        TRUE
+    }),
     identical(i64_dim_matrix[i64_subscript_matrix], 4L),
     identical(i64_subscript_assignment, matrix(c(1L, 2L, 3L, 9L), 2L)),
     identical(complete.cases(data.frame(x = as.int64(c("1", NA)))), c(TRUE, FALSE)),
