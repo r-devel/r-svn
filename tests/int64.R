@@ -277,12 +277,12 @@ stopifnot(
               data.frame(g = group, x = as.int64(c("1", "2"))))
 )
 
-## S3, S4, and class reassignment treat int64 as a numeric vector type.
-s3_dispatch <- local({
+## S3 and S4 dispatch treat int64 as a numeric vector type.
+stopifnot(local({
     f <- function(x) UseMethod("f")
     f.numeric <- function(x) "numeric"
-    f(as.int64("1"))
-})
+    identical(f(as.int64("1")), "numeric")
+}))
 s4_dispatch <- local({
     library(methods)
     f <- setGeneric("i64_s4_f", function(x) standardGeneric("i64_s4_f"))
@@ -308,12 +308,7 @@ s4_dispatch <- local({
          double_replace = y,
          valid_slot = validObject(A(x = x)))
 })
-classed_int64 <- big_int64
-class(classed_int64) <- "numeric"
-classed_double <- 1
-class(classed_double) <- "int64"
 stopifnot(
-    identical(s3_dispatch, "numeric"),
     identical(s4_dispatch,
               list(is_numeric = TRUE,
                    is_double = TRUE,
@@ -324,14 +319,24 @@ stopifnot(
                                    logical = as.int64(TRUE),
                                    integer = as.int64(1L)),
                    double_replace = as.int64("2"),
-                   valid_slot = TRUE)),
-    typeof(classed_int64) == "int64",
-    identical(classed_int64, big_int64),
-    identical(class(classed_int64), "int64"),
-    typeof(classed_double) == "int64",
-    identical(classed_double, as.int64("1")),
-    identical(class(classed_double), "int64")
+                   valid_slot = TRUE))
 )
+
+## Assigning implicit classes coerces to their corresponding storage type.
+stopifnot(local({
+    x <- big_int64
+    class(x) <- "numeric"
+    typeof(x) == "int64" &&
+        identical(x, big_int64) &&
+        identical(class(x), "int64")
+}))
+stopifnot(local({
+    x <- 1
+    class(x) <- "int64"
+    typeof(x) == "int64" &&
+        identical(x, as.int64("1")) &&
+        identical(class(x), "int64")
+}))
 
 ## all.equal and model APIs compare int64 values through the public numeric path.
 model_data <- data.frame(x = as.int64(1:3), y = 1:3)
@@ -474,6 +479,8 @@ binding_rds_info <- compiler::cmpfun(function() {
     }
 })()
 object_size <- utils::object.size(as.int64("1"))
+int64_element_size <- utils::object.size(vector("int64", 2)) -
+    utils::object.size(vector("int64", 1))
 gc_ok <- {
     x <- vector("int64", 1e6)
     rm(x)
@@ -483,6 +490,7 @@ gc_ok <- {
 stopifnot(
     inherits(object_size, "object_size"),
     as.numeric(object_size) > 0,
+    identical(as.numeric(int64_element_size), 8),
     identical(scalar_binding_raw, TRUE),
     identical(binding_rds_info$version, 4L),
     identical(gc_ok, TRUE),
