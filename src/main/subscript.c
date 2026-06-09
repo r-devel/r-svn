@@ -103,6 +103,36 @@ static R_INLINE int integerOneIndex(int i, R_xlen_t len, SEXP call)
     return indx;
 }
 
+static R_INLINE R_xlen_t int64OneIndex(R_int64_t i, R_xlen_t len, SEXP call,
+				       const char *where, bool cap_oob)
+{
+    R_xlen_t indx = -1;
+
+    if (i == NA_INT64)
+	return indx;
+    if (i > (R_int64_t) R_XLEN_T_MAX) {
+	ECALL(call, _("subscript too large"));
+    } else if (i >= 1) {
+	if (cap_oob && i > (R_int64_t) len)
+	    indx = len;
+	else
+	    indx = (R_xlen_t) (i - 1);
+    } else if (i > -1 || len < 2) {
+	ECALL3(call,
+	       (i <= -1) ? _("invalid negative subscript in %s")
+	       : _("attempt to select less than one element in %s"),
+	       where);
+    } else if (len == 2 && i > -3)
+	indx = 2 + (R_xlen_t) i;
+    else {
+	ECALL3(call,
+	       (i <= -1) ? _("invalid negative subscript in %s")
+	       : _("attempt to select more than one element in %s"),
+	       where);
+    }
+    return indx;
+}
+
 /* Utility used (only in) do_subassign2_dflt(), i.e. "[[<-" in ./subassign.c : */
 attribute_hidden R_xlen_t
 OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
@@ -145,29 +175,9 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
 	break;
     }
     case INT64SXP:
-    {
-	R_int64_t i = INT64_ELT(s, pos);
-	if (i != NA_INT64) {
-	    if (i > (R_int64_t) R_XLEN_T_MAX) {
-		ECALL(call, _("subscript too large"));
-	    } else if (i >= 1)
-		indx = (R_xlen_t) (i - 1);
-	    else if (i > -1 || nx < 2) {
-		ECALL3(call,
-		       (i <= -1) ? _("invalid negative subscript in %s")
-		       : _("attempt to select less than one element in %s"),
-		       "get1index <int64>");
-	    } else if (nx == 2 && i > -3)
-		indx = 2 + (R_xlen_t) i;
-	    else {
-		ECALL3(call,
-		       (i <= -1) ? _("invalid negative subscript in %s")
-		       : _("attempt to select more than one element in %s"),
-		       "get1index <int64>");
-	    }
-	}
+	indx = int64OneIndex(INT64_ELT(s, pos), nx, call,
+			     "get1index <int64>", false);
 	break;
-    }
     case STRSXP:
 	vmax = vmaxget();
 	names = getAttrib(x, R_NamesSymbol);
@@ -293,29 +303,9 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	break;
     }
     case INT64SXP:
-    {
-	R_int64_t i = INT64_ELT(s, pos);
-	if (i != NA_INT64) {
-	    if (i > (R_int64_t) R_XLEN_T_MAX) {
-		ECALL(call, _("subscript too large"));
-	    } else if (i >= 1)
-		indx = (i > (R_int64_t) len) ? len : (R_xlen_t) (i - 1);
-	    else if (i > -1 || len < 2) {
-		ECALL3(call,
-		       (i <= -1) ? _("invalid negative subscript in %s")
-		       : _("attempt to select less than one element in %s"),
-		       "get1index <int64>");
-	    } else if (len == 2 && i > -3)
-		indx = 2 + (R_xlen_t) i;
-	    else {
-		ECALL3(call,
-		       (i <= -1) ? _("invalid negative subscript in %s")
-		       : _("attempt to select more than one element in %s"),
-		       "get1index <int64>");
-	    }
-	}
+	indx = int64OneIndex(INT64_ELT(s, pos), len, call,
+			     "get1index <int64>", true);
 	break;
-    }
     case STRSXP:
 	/* NA matches nothing */
 	if(STRING_ELT(s, pos) == NA_STRING) break;
