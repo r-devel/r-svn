@@ -126,6 +126,10 @@
       \item In \pkg{methods}, \code{as()} now correctly coerces S4
       objects to S4 superclasses extending old-style classes, instead
       of returning only the S3 part.
+
+      \item \code{trace()} now works for functions whose S3 class
+      attribute has more than one string, e.g., \CRANpkg{S7} generics
+      and methods.
     }
   }
 }

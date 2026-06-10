@@ -308,4 +308,17 @@ setMethod("toeplitz", "A", function(x, ...) x)
 stopifnot(identical(T3, print(toeplitz(x, r))), removeGeneric("toeplitz"))
 ## badly failed since r82364 when stats::toeplitz was generalized to 3 args
 
+## trace() a function whose S3 class() has multiple strings,
+## e.g. S7 generics and methods
+setOldClass(c("myfun", "function"))
+f <- structure(function(x) x, class = c("myfun", "function"))
+n <- 0
+suppressMessages( # error: 'length = 2' in coercion to 'logical(1)'  in R <= 4.5.x
+    trace("f", quote(n <<- n + 1), print = FALSE))
+f1 <- f(1)
+untrace("f")
+stopifnot(identical(f1, 1), identical(n, 1),
+          identical(class(f), c("myfun", "function")),
+          identical(f(2), 2), identical(n, 1)) # f no longer traced
+
 cat('Time elapsed: ', proc.time(),'\n')

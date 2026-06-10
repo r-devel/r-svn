@@ -256,10 +256,13 @@
             }
         }
         original <- .untracedFunction(def)
-        traceClass <- .traceClassName(class(original))
+        ## use only the first class string: S3 class attributes may have
+        ## length > 1, but the trace class extends the (S4 view of) the
+        ## most specific class
+        traceClass <- .traceClassName(.class1(original))
         if(is.null(getClassDef(traceClass))) {
             ## e.g. for a simple S3 class name
-            traceClass <- .makeTraceClass(traceClass, class(original))
+            traceClass <- .makeTraceClass(traceClass, .class1(original))
 ### FIXME: allow this to be NULL and then do *not* "think anymore" of S4 classes ...
         }
         if(doEdit && is.environment(edit)) {
@@ -509,14 +512,19 @@ setCacheOnAssign <- function(env, onOff = cacheOnAssign(env))
     .Object@source <- emptyenv()
     if(missing(def))
         return(.Object)
-    oldClass <- class(def)
+    oldClass <- .class1(def)
     oldClassDef <- getClass(oldClass)
-    if(!is.null(oldClassDef) && length(oldClassDef@slots) > 0)
-        as(.Object, oldClass) <- def # to get other slots in def
+    ## copy other slots in def, skipping virtual classes,
+    ## e.g. S3 classes registered by setOldClass()
+    if(!is.null(oldClassDef) && !oldClassDef@virtual &&
+       length(oldClassDef@slots) > 0)
+        as(.Object, oldClass) <- def
     .Object@original <- def
     if(nargs() > 2) {
-	if(!is.null(elNamed(getSlots(getClass(class(def))), ".Data")))
-	    def <- def@.Data
+        ## use slot() rather than @, which would dispatch on S3 methods
+        ## for non-S4 def
+	if(!is.null(elNamed(getSlots(oldClassDef), ".Data")))
+	    def <- slot(def, ".Data")
         .Object@.Data <- .makeTracedFunction(def, tracer, exit, at, print, doEdit)
     }
     .Object
