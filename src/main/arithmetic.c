@@ -31,7 +31,6 @@
 
 // LDBL_EPSILON
 #include <float.h>
-#include <stdbool.h>
 
 /* interval at which to check interrupts, a guess */
 #define NINTERRUPT 10000000
