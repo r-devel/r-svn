@@ -46,6 +46,13 @@
       \item \code{fisher.test()} gains a new option \code{pval.only = TRUE}
       for the 2x2 exact case, with substantial speed gains in the case of large
       counts.
+
+      \item New function \code{object()} creates a \dQuote{bare} object of
+      internal type \code{"object"} (an \code{OBJSXP} without the S4 bit),
+      the structure underlying instances of \pkg{S7} classes.
+      \code{deparse()}, \code{dput()} and \code{dump()} now use it to
+      produce evaluable code for such objects, including their attributes,
+      instead of the unparseable \samp{<object>}.
     }
   }
 

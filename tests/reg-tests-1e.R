@@ -3411,6 +3411,19 @@ stopifnot(exprs = {
 if(!inherits(ans, "try-error")) detach("package:cluster", unload = TRUE)
 
 
+## object() and deparse(<bare OBJSXP>), e.g. of S7 objects,  RConsortium/S7#524 :
+obj <- structure(object(), class = "S7_object", foo = 1:2)
+stopifnot(exprs = {
+    typeof(obj) == "object"
+    !isS4(obj)
+    is.null(attributes(object()))
+    identical(object(), asS3(getClass("S4")@prototype, complete = FALSE))
+    identical(eval(parse(text = deparse(obj))[[1]]), obj)
+})
+## object() is new; deparse()d to the non-parseable "<object>",
+## dropping attributes, in R <= 4.x
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

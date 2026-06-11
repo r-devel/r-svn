@@ -1510,16 +1510,12 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	d->sourceable = false;
 	print2buff("<weak reference>", d);
 	break;
-    case OBJSXP: {
-	/*
-	print2buff("object(", d);
+    case OBJSXP:
+	// a bare object, e.g. from S7; objects with the S4 bit are dealt with above
+	attr = (d_opts_in & SHOW_ATTR_OR_NMS) ? attr1(s, d) : SIMPLE;
+	print2buff("object()", d);
 	if(attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
-	 print2buff(")", d);
-	*/
-	d->sourceable = false;
-	print2buff("<object>", d);
 	break;
-    }
     default:
 	d->sourceable = false;
 	UNIMPLEMENTED_TYPE("deparse2buff", s);
