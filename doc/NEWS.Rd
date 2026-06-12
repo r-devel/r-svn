@@ -8,7 +8,12 @@
 \section{\Rlogo Changes in R-devel}{
   \subsection{Significant User-Visible Changes}{
     \itemize{
-      \item .
+      \item \code{pdf()} and \code{postscript()} no longer interpret a
+      \code{file} argument of the form \code{"|cmd"} as a command to
+      pipe the output to, and now signal an error: this was a
+      potential security risk.  To print PostScript output, use
+      \code{postscript(file = "", command = ...)} or
+      \code{print.it = TRUE}.
     }
   }
 

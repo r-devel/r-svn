@@ -25,8 +25,6 @@ postscript(file = if(onefile) "Rplots.ps" else "Rplot\%03d.ps",
   \item{file}{a character string giving the file path.  If it is
     \code{""}, the output is piped to the command given by the argument
     \code{command}.
-    If it is of the form \code{"|cmd"}, the output is piped to the
-    command given by \command{cmd}.
 
     For use with \code{onefile = FALSE}, give a C integer format such as
     \code{"Rplot\%03d.ps"} (the default in that case).  The string
@@ -211,7 +209,7 @@ postscript(file = if(onefile) "Rplots.ps" else "Rplot\%03d.ps",
     when the device is closed.  Note that the plot file is not deleted
     unless \code{command} arranges to delete it.
 
-    \item \code{file = ""} or \code{file = "|cmd"} can be used to print
+    \item \code{file = ""} can be used to print
     using a pipe.  Failure to open the command will probably be reported
     to the terminal but not to \R, in which case close the
     device by \code{dev.off} immediately.
@@ -296,7 +294,7 @@ postscript("foo.ps")
 dev.off()              # turn off the postscript device
 
 ## On Unix-alikes only:
-postscript("|lp -dlw")
+postscript(file = "", command = "lp -dlw")
 # produce the desired graph(s)
 dev.off()              # plot will appear on printer
 
