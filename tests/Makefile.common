@@ -6,6 +6,7 @@
 ## >>>> ../src/library/tools/R/testing.R -> testInstalledBasic() <<<<<<<<<<<<
 
 test-src-gct = \
+	nlminb.R \
 	eval-etc.R \
 	simple-true.R \
 	arith-true.R \
