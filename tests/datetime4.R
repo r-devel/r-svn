@@ -2,6 +2,9 @@
 
 ## Expect differences, especially for platforms without tm_zone/tm_gmtoff.
 ## Please use the R-internal version for .Rout.save
+## IGNORE_RDIFF_BEGIN
+(tzCtype <- sessionInfo()[["tzcode_type"]])
+## IGNORE_RDIFF_END
 
 options(warn = 1L)
 
@@ -30,13 +33,22 @@ x3 <- strptime("2022-07-01 10:55:03 +0300", "%Y-%m-%d %H:%M:%S %z",
 x3
 str(unclass(x3))
 
+# Fiji tried DST in some previous years, but not since 2021
 x4 <- strptime("2022-07-01", "%Y-%m-%d", tz ="Pacific/Fiji")
 x4
 str(unclass(x4)) # abbreviations may be numbers.
 # Kiribati does/did not have DST, so second abbreviation may be repeat or empty
 x5 <- strptime("2022-07-01", "%Y-%m-%d", tz ="Pacific/Kiritimati")
 x5
-str(unclass(x5)) # does not have DST, hence no DST abbreviation except on glibc
+## IGNORE_RDIFF_BEGIN
+attr(x5, "tzone") # does not have DST, hence no DST abbreviation except on glibc
+## IGNORE_RDIFF_END
+stopifnot(identical(
+    attr(x5, "tzone") |> trimws(), # ignore "   " (internal) vs. "" (musl)
+    c("Pacific/Kiritimati", "+14", if(grepl("glibc", tzCtype)) "+14" else "")
+))
+str(unclass(`attr<-`(x5, "tzone", NULL)))
+
 
 ## edge of range and out of range offsets
 strptime("2022-01-01 +1400", "%Y-%m-%d %z", tz = "UTC")
