@@ -3412,16 +3412,19 @@ if(!inherits(ans, "try-error")) detach("package:cluster", unload = TRUE)
 
 
 ## object() and deparse(<bare OBJSXP>), e.g. of S7 objects,  RConsortium/S7#524 :
-obj <- structure(object(), class = "S7_object", foo = 1:2)
+obj <- object(class = "S7_object", foo = 1:2)
 stopifnot(exprs = {
     typeof(obj) == "object"
     !isS4(obj)
-    is.null(attributes(object()))
-    identical(object(), asS3(getClass("S4")@prototype, complete = FALSE))
+    is.object(object(class = "S7_object"))
+    identical(.Internal(object()), asS3(getClass("S4")@prototype, complete = FALSE))
+    identical(attributes(obj), list(class = "S7_object", foo = 1:2))
     identical(eval(parse(text = deparse(obj))[[1]]), obj)
+    identical(deparse(obj), "object(class = \"S7_object\", foo = 1:2)")
 })
 ## object() is new; deparse()d to the non-parseable "<object>",
-## dropping attributes, in R <= 4.x
+## dropping attributes, in R <= 4.x; object() gained the (class, ...)
+## arguments later and deparse() uses them instead of structure(object(), ..)
 
 
 
