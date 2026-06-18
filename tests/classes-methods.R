@@ -321,4 +321,32 @@ stopifnot(identical(f1, 1), identical(n, 1),
           identical(class(f), c("myfun", "function")),
           identical(f(2), 2), identical(n, 1)) # f no longer traced
 
+setClass("myS4Fun", contains = "function", slots = c(label = "character"))
+g <- new("myS4Fun", function(x) x, label = "kept")
+n <- 0
+suppressMessages(
+    trace("g", quote(n <<- n + 1), print = FALSE))
+g1 <- g(1)
+stopifnot(identical(g@label, "kept"))
+untrace("g")
+stopifnot(identical(g1, 1), identical(n, 1),
+          is(g, "myS4Fun"), identical(g@label, "kept"),
+          identical(g(2), 2), identical(n, 1)) # g no longer traced
+
+setClass("myS3FunS4", contains = c("function", "VIRTUAL"),
+         slots = c(label = "character"))
+setOldClass(c("myS3Fun", "function"), S4Class = "myS3FunS4")
+h <- structure(function(x) x, class = c("myS3Fun", "function"),
+               label = "kept")
+n <- 0
+suppressMessages(
+    trace("h", quote(n <<- n + 1), print = FALSE))
+h1 <- h(1)
+stopifnot(identical(h@label, "kept"))
+untrace("h")
+stopifnot(identical(h1, 1), identical(n, 1),
+          identical(class(h), c("myS3Fun", "function")),
+          identical(attr(h, "label"), "kept"),
+          identical(h(2), 2), identical(n, 1)) # h no longer traced
+
 cat('Time elapsed: ', proc.time(),'\n')

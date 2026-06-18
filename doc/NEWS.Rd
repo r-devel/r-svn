@@ -111,31 +111,43 @@
       In particular, when a source package \file{foo/} folder contains broken
       symlinks matching an exclude pattern, \command{R CMD build foo}
       now succeeds, omitting these, thus fixing \PR{18186}.  (Thanks to
-      \I{Ivan Krylov} and others, notably \I{Jenny Brian} and \I{R Dev
+      \I{Ivan Krylov} and others, notably \I{Jenny Bryan} and \I{R Dev
       Day @ useR! 2025} contributors.)
-
-      \item Overly long \code{dyn.load()} error messages (C level
-      \code{dlerror()}), should no longer corrupt its state, thanks to
-      \I{Ivan Krylov}'s \PR{19029} report and patch.
-
-      \item Data part of \code{getGenerics()} listed package names for
-      generic functions defined in more than one package.  Now it
-      lists generic function names, as intended.  Thanks to \I{Michael
-      Chirico} for report and patch proposal (\PR{19080}).
 
       \item In \pkg{methods}, \code{as()} now correctly coerces S4
       objects to S4 superclasses extending old-style classes, instead
       of returning only the S3 part.
 
+      \item \code{strat_ratio != 1} in \code{rfree1way} did not work as
+      advertised.
+
+      \item Zeros in the \code{prob} argument to \code{power.free1way.test}
+      triggered an error and are now handled correctly.
+
+      \item Fix for \PR{18874};  \code{"null"} widths/heights in
+      \pkg{grid} layouts are zero if widths/heights to allocate are
+      zero. (Thanks to \I{Maciej Nasinski} and \I{Trevor Davis}.)
+
+      \item Fix for \PR{19055};  additional documentation for
+      \code{embedFonts()}. (Thanks to \I{Chris Danek} and \I{Ivan Krylov}.)
+
+      \item \code{merge.data.frame} now returns the correct column names when
+      at least one of the merged data frames has zero rows and at least one of
+      the merged data frames has only one column, fixing \PR{18930}. Thanks to
+      \I{David Molnar} and \I{Gabriel Becker}.
+
       \item \code{trace()} now works for functions whose S3 class
       attribute has more than one string, e.g., \CRANpkg{S7} generics
-      and methods.
+      and methods. Thanks to \I{Hadley Wickham} for the patch.
+
+      \item \code{as(object, to) <- value} no longer treats \code{to}
+      as a class union when it was registered via \code{setOldClass()}.
     }
   }
 }
 
 
-\section{\Rlogo Changes in R 4.6.0 patched}{
+\section{\Rlogo Changes in R 4.6.1}{
 
   \subsection{New Features}{
     \itemize{
@@ -173,16 +185,33 @@
       Fortran, triggered by a \I{flang 22} compiler optimization bug
       (\command{-O2}).
 
-      \item Border case \code{zapsmall(x, digits=Inf)} where \code{x} has an
-      \code{Inf} entry, no longer returns all \code{NaN} but rather \code{x}.
-      Help page improved, also with more non-default examples.
+      \item The border case \code{zapsmall(x, digits=Inf)} where \code{x}
+      contains an \code{Inf} entry no longer returns all \code{NaN} but
+      rather \code{x}.
+      The improved help page now has more non-default examples.
 
       \item \code{wilcox.test(x, exact=FALSE, correct = k)}'s p-value
       computation got a missing \code{dnorm(z)} factor, and so did the
       2-sample case, in addition to more fixes.
 
+      \item The data part of \code{getGenerics()} listed package names for
+      generic functions defined in more than one package.  Now it
+      lists generic function names, as intended.  Thanks to \I{Michael
+      Chirico} for report and patch proposal (\PR{19080}).
+
+      \item Overly long \code{dyn.load()} error messages (C level
+      \code{dlerror()}), should no longer corrupt its state, thanks to
+      \I{Ivan Krylov}'s \PR{19029} report and patch.
+
       \item \code{as.matrix(<POSIXlt>)} again produces a \emph{numeric}
-      matrix, thanks to \I{Suharto Anggono}'s \PR{19084}.
+      matrix, and the \code{c()} and subassignment methods for
+      \code{POSIXlt} objects work correctly more often, e.g., without a
+      \code{"tzone"} attribute, back porting a few of the \PR{18989} fixes
+      from R-devel, both thanks to \I{Suharto Anggono}.
+
+      \item Fix long standing (fortran compiler optimization related) bug
+      in \code{nlminb} with constraints, thanks to \I{Kasper Kristensen}'s
+      \PR{19086} report and patch.
     }
   }
 }
@@ -826,7 +855,7 @@
 
       \item The \code{Pair(x,y)} construction in the formula interface to
       paired tests did not work with the \code{subset} argument, due to the
-      absence of a \code{[.Pair} method, which has now been added.
+      absence of a \code{[.Pair} method, which has now been added (\PR{18898}).
 
       \item Subsetting \code{"table"} objects keeps S3 classes more
       consistently, fixing \PR{18845}.
