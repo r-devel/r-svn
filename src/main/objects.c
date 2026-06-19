@@ -1806,6 +1806,13 @@ attribute_hidden Rboolean R_seemsOldStyleS4Object(SEXP object)
 	    getAttrib(klass, R_PackageSymbol) != R_NilValue) ? TRUE: FALSE;
 }
 
+// object() : a bare object of type "object" (OBJSXP without the S4 bit), as used e.g. by S7
+attribute_hidden SEXP do_object(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    return R_allocObject();
+}
+
 attribute_hidden SEXP do_setS4Object(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);

@@ -57,6 +57,11 @@ untrace <- function(what, signature = NULL, where = topenv(parent.frame())) {
 
 tracingState <- function(on = NULL) .Internal(traceOnOff(on))
 
+object <- function(class, ...) {
+    obj <- .Internal(object())
+    attributes(obj) <- list(class = class, ...)
+    obj
+}
 
 asS4 <- function(object, flag = TRUE, complete = TRUE)
     .Internal(setS4Object(object, flag, complete))

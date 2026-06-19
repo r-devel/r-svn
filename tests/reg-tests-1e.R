@@ -3411,6 +3411,22 @@ stopifnot(exprs = {
 if(!inherits(ans, "try-error")) detach("package:cluster", unload = TRUE)
 
 
+## object() and deparse(<bare OBJSXP>), e.g. of S7 objects,  RConsortium/S7#524 :
+obj <- object(class = "S7_object", foo = 1:2)
+stopifnot(exprs = {
+    typeof(obj) == "object"
+    !isS4(obj)
+    is.object(object(class = "S7_object"))
+    identical(.Internal(object()), asS3(getClass("S4")@prototype, complete = FALSE))
+    identical(attributes(obj), list(class = "S7_object", foo = 1:2))
+    identical(eval(parse(text = deparse(obj))[[1]]), obj)
+    identical(deparse(obj), "object(class = \"S7_object\", foo = 1:2)")
+})
+## object() is new; deparse()d to the non-parseable "<object>",
+## dropping attributes, in R <= 4.x; object() gained the (class, ...)
+## arguments later and deparse() uses them instead of structure(object(), ..)
+
+
 ## Bug 19086 -- Compiler optimization related  -- nlminb() convergence when bounds are active
 f <- function(x) sum( log(diff(x)^2+.01) + (x[1]-1)^2 )
 p.s <- c(5:10,2*(6:11)); names(p.s) <- paste0("p=", p.s)

@@ -85,9 +85,11 @@ dump(list, file = "dumpdata.R", append = FALSE,
 
   Currently environments, external pointers, weak references and objects
   of type \code{S4} are not deparsed in a way that can be
-  \code{source}d.  In addition, \link{language objects} are deparsed in a
-  simple way whatever the value of \code{control}, and this includes not
-  dumping their attributes (which will result in a warning).
+  \code{source}d.  Objects of type \code{"object"} (e.g., instances of
+  \pkg{S7} classes) are deparsed using \code{\link{object}()}.  In addition, 
+  \link{language objects} are deparsed in a simple way whatever the value of 
+  \code{control}, and this includes not dumping their attributes (which will 
+  result in a warning).
 }
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988}
