@@ -3601,6 +3601,7 @@ attribute_hidden SEXP do_mkjunction(SEXP call, SEXP op, SEXP args, SEXP rho)
 #include <zlib.h>
 #include <bzlib.h>
 #include <lzma.h>
+#include <zstd.h>
 
 #ifdef HAVE_PCRE2
   /* PCRE2_CODE_UNIT_WIDTH is defined to 8 via config.h */
@@ -3685,13 +3686,7 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, i, mkChar(""));
 #endif
     SET_STRING_ELT(nms, i++, mkChar("libdeflate"));
-
-#ifdef HAVE_ZSTD
-#include <zstd.h>
     SET_STRING_ELT(ans, i, mkChar(ZSTD_versionString()));
-#else
-    SET_STRING_ELT(ans, i, mkChar(""));
-#endif
     SET_STRING_ELT(nms, i++, mkChar("zstd"));
 
 #ifdef HAVE_PCRE2
