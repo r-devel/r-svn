@@ -151,9 +151,11 @@
       no longer warns about undefined subclasses when the supplied S4
       class inherits from a class union.
 
-      \item \code{isNamespaceLoaded()} now detects packages that are currently
-      being loaded. This fixes issues involving user hooks trying to access
-      the exports of a package that hasn't finished loading.
+      \item \code{isNamespaceLoaded()} and \code{loadedNamespaces()} no
+      longer report a package whose namespace is registered but is still
+      being loaded.  This fixes user \code{onLoad} hooks that test
+      \code{isNamespaceLoaded()} before accessing the exports of a package
+      that hasn't finished loading.
     }
   }
 }

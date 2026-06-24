@@ -44,7 +44,14 @@ getNamespace <- function(name) {
          })
 }
 
-loadedNamespaces <- function() names(.Internal(getNamespaceRegistry()))
+loadedNamespaces <- function() {
+    loaded <- names(.Internal(getNamespaceRegistry()))
+
+    ## A namespace is registered before its package has finished
+    ## loading.  Exclude those still in progress so this stays
+    ## consistent with `isNamespaceLoaded()`.
+    loaded[! loaded %in% dynGet("__NameSpacesLoading__", NULL)]
+}
 
 isNamespaceLoaded <- function(name) {
     if (!.Internal(isRegisteredNamespace(name)))
