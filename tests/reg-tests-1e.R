@@ -483,6 +483,11 @@ stopifnot(identical(format(x[,2]), c(NA_character_, "0")))
 is.na(x)[1] <- TRUE; stopifnot(identical(is.na(x), c(TRUE, FALSE)))
 ## gave two spurious warnings in R <= 4.2.2
 
+## NAs were not removed in R <= 4.5.2 (PR#19000)
+x[3] <- "3.1"
+stopifnot(identical(max(x, na.rm = TRUE), numeric_version("3.1")))
+stopifnot(identical(min(x, na.rm = TRUE), numeric_version("2.0")))
+stopifnot(identical(range(x, na.rm = TRUE), numeric_version(c("2.0", "3.1"))))
 
 mChk <- function(m) stopifnot(exprs = {
     identical(attributes(m), list(dim=2:3))
