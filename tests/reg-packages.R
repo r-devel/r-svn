@@ -439,6 +439,29 @@ if (requireNamespace("PkgC", lib.loc = "myLib")) {
 }
 
 
+## isNamespaceLoaded() / loadedNamespaces() must not report a package whose
+## namespace is registered but still loading (R-devel thread
+## 2022-January/081431).  Loading testIsLoadedDownstream runs its .onLoad,
+## which loads testIsLoadedUpstream; upstream's .onLoad in turn probes
+## isNamespaceLoaded("testIsLoadedDownstream") while downstream is still
+## loading.  When that wrongly returned TRUE, the upstream hook called
+## downstream() before downstream's exports were sealed, failing with
+##   'downstream' is not an exported object from 'namespace:testIsLoadedDownstream'
+for(p in c("testIsLoadedUpstream", "testIsLoadedDownstream")) { # upstream first
+    r <- build.pkg(file.path(pkgPath, p), ignore.stderr = TRUE)
+    ## --no-test-load so the cyclic load is triggered by the loadNamespace()
+    ## below, not implicitly by R CMD INSTALL's test load
+    install.packages(r, lib = "myLib", repos = NULL, type = "source",
+                     INSTALL_opts = "--no-test-load")
+}
+loadNamespace("testIsLoadedDownstream") # errored before the fix
+stopifnot(isNamespaceLoaded("testIsLoadedDownstream"),
+          isNamespaceLoaded("testIsLoadedUpstream"),
+          "testIsLoadedDownstream" %in% loadedNamespaces(),
+          "testIsLoadedUpstream"   %in% loadedNamespaces())
+showProc.time()
+
+
 ### Checking Rd files in 'exSexpr'
 
 writeLines(msg <- capture.output(

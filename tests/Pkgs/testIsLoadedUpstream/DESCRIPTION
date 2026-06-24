@@ -1,0 +1,11 @@
+Package: testIsLoadedUpstream
+Title: Helper for the isNamespaceLoaded() Regression Test (Upstream)
+Version: 1.0
+Author: R Core
+Maintainer: R Core <R-core@almost.r-project.org>
+Description: Used by reg-packages.R to exercise isNamespaceLoaded() during
+ cyclic namespace loading.  Its .onLoad reaches into testIsLoadedDownstream,
+ which is why that package is only a soft (Suggests) dependency.
+Suggests: testIsLoadedDownstream
+License: GPL (>= 2)
+NeedsCompilation: no
