@@ -31,87 +31,25 @@
 static SEXP allocMatrixNA(SEXPTYPE, int, int);
 static void transferVector(SEXP s, SEXP t);
 
-/* Inspect the byte sequence of at most 'length' bytes starting at 'p'.
-   Return the number of bytes in the next valid UTF-8 character, or 0 if
-   'p' does not start a valid UTF-8 sequence.  The validation logic is
-   adapted from valid_utf8() in valid_utf8.h, restricted to RFC 3629
-   (characters 0 to 0x10FFFF, at most 4 bytes, no surrogates). */
-static int utf8_char_len(const unsigned char *p, size_t length)
-{
-    unsigned int ab, c, d;
-
-    c = p[0];
-    if (c < 128) return 1;		/* ASCII character */
-    if (c < 0xc0) return 0;		/* isolated 10xx xxxx byte */
-    if (c >= 0xfe) return 0;		/* invalid 0xfe or 0xff byte */
-
-    /* Number of additional bytes implied by the leading byte. */
-    if (c < 0xe0)	ab = 1;		/* 110x xxxx */
-    else if (c < 0xf0)	ab = 2;		/* 1110 xxxx */
-    else		ab = 3;		/* 1111 0xxx (and 5/6-byte forms,
-					   rejected as overlong below) */
-
-    if (length <= ab) return 0;		/* truncated sequence */
-
-    d = p[1];
-    if ((d & 0xc0) != 0x80) return 0;	/* bad continuation byte */
-
-    switch (ab) {
-    case 1:
-	/* 2-byte character: check for an overlong sequence. */
-	if ((c & 0x3e) == 0) return 0;
-	break;
-    case 2:
-	/* 3-byte character: check the third byte, then guard against
-	   overlong sequences and the surrogate range 0xd800-0xdfff. */
-	if ((p[2] & 0xc0) != 0x80) return 0;
-	if (c == 0xe0 && (d & 0x20) == 0) return 0;
-	if (c == 0xed && d >= 0xa0) return 0;
-	break;
-    default:
-	/* 4-byte character: check the 3rd and 4th bytes, then guard
-	   against overlong sequences and code points above 0x10FFFF.
-	   Leading bytes >= 0xf8 land here too and are rejected, since
-	   5/6-byte forms are not valid under RFC 3629. */
-	if (c >= 0xf8) return 0;
-	if ((p[2] & 0xc0) != 0x80) return 0;
-	if ((p[3] & 0xc0) != 0x80) return 0;
-	if (c == 0xf0 && (d & 0x30) == 0) return 0;
-	if (c > 0xf4 || (c == 0xf4 && d > 0x8f)) return 0;
-	break;
-    }
-
-    return (int) ab + 1;
-}
-
-/* Build a CHARSXP marked as UTF-8 from the NUL-terminated string 's',
-   replacing each invalid byte with a "<xx>" escape (cf. the substitution
-   done by iconv(..., sub = "byte"); see do_iconv() in sysutils.c).  When
-   's' is already valid UTF-8 (the common case) no copy is made. */
+/* Build a CHARSXP marked as UTF-8 from the NUL-terminated string 's'.
+   DCF files are required to be UTF-8, so 's' is interpreted as UTF-8
+   regardless of its actual encoding; any invalid byte sequences are
+   repaired by escaping them as "<xx>", exactly as
+   iconv(from = "UTF-8", to = "UTF-8", sub = "byte") does (which the R
+   code paths in read.dcf()/write.dcf() also use).  The common case of
+   already-valid input is handled without conversion. */
 static SEXP mkCharUTF8sub(const char *s)
 {
     if (utf8Valid(s))
 	return mkCharCE(s, CE_UTF8);
 
-    size_t len = strlen(s);
-    /* Worst case each byte becomes a 4-character "<xx>" escape. */
-    char *out = R_alloc(4 * len + 1, sizeof(char));
-    const unsigned char *p = (const unsigned char *) s;
-    char *o = out;
-    size_t rem = len;
-    while (rem > 0) {
-	int n = utf8_char_len(p, rem);
-	if (n > 0) {
-	    memcpy(o, p, (size_t) n);
-	    o += n; p += n; rem -= (size_t) n;
-	} else {
-	    snprintf(o, 5, "<%02x>", (unsigned int) *p);
-	    o += 4; p += 1; rem -= 1;
-	}
-    }
-    *o = '\0';
-
-    return mkCharCE(out, CE_UTF8);
+    /* reEnc3() performs the iconv() repair via Riconv(); subst = 1 selects
+       the "<xx>" hexadecimal substitution for invalid bytes.  It returns a
+       string allocated with R_alloc() (and freed at the vmaxset() in
+       do_readDCF()), or 's' itself if iconv is unavailable.  Either way
+       mkCharCE() copies the bytes into the CHARSXP below. */
+    const char *repaired = reEnc3(s, "UTF-8", "UTF-8", 1);
+    return mkCharCE(repaired, CE_UTF8);
 }
 
 static void con_cleanup(void *data)
