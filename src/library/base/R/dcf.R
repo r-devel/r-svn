@@ -16,6 +16,23 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
+## Canonicalize 's' to valid UTF-8: honour any declared encoding via
+## enc2utf8(), then escape bytes that are still invalid as <xx>, as
+## iconv(sub = "byte") does.  DCF files are required to be UTF-8.  This is
+## the same canonicalization strwrap() does inline; non-character input
+## (which carries no encoding) is returned unchanged.
+.enc2utf8_sub <-
+function(s)
+{
+    if(!is.character(s))
+        return(s)
+    s <- enc2utf8(s)
+    bad <- which(!is.na(s) & !validUTF8(s))
+    if(length(bad))
+        s[bad] <- iconv(s[bad], from = "UTF-8", to = "UTF-8", sub = "byte")
+    s
+}
+
 read.dcf <-
 function(file, fields = NULL, all = FALSE, keep.white = NULL)
 {
@@ -74,15 +91,10 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
     ascii_space <- " \f\n\r\t\v"
 
     ## DCF files must be encoded in UTF-8.  Read as UTF-8 and repair any
-    ## invalid byte sequences by escaping them as <xx>, mirroring
-    ## iconv(..., sub = "byte"), so that invalid input is preserved
-    ## visually rather than silently dropped.
-    lines <- readLines(file, skipNul = TRUE, encoding = "UTF-8",
-                       warn = FALSE)
-    bad <- which(!validUTF8(lines))
-    if(length(bad))
-        lines[bad] <- iconv(lines[bad], from = "UTF-8", to = "UTF-8",
-                            sub = "byte")
+    ## invalid byte sequences (escaping them as <xx>) so that invalid input
+    ## is preserved visually rather than silently dropped.
+    lines <- readLines(file, skipNul = TRUE, encoding = "UTF-8", warn = FALSE)
+    lines <- .enc2utf8_sub(lines)
 
     ## Ignore comment lines.
     lines <- lines[!startsWith(lines, "#")]
@@ -176,25 +188,10 @@ function(x, file = "", append = FALSE, useBytes = FALSE,
 	gsub("\n \\.([^\n])","\n  .\\1",
 	     gsub("\n[ \t]*\n", "\n .\n ", s, perl = TRUE, useBytes = TRUE),
              perl = TRUE, useBytes = TRUE)
-    ## DCF files must be encoded in UTF-8.  Convert values with a declared
-    ## encoding to UTF-8 and escape any remaining invalid bytes as <xx>
-    ## (cf. iconv(..., sub = "byte")).  This must happen before the values
-    ## are reformatted below.
-    to_utf8 <- function(s) {
-        ## Non-character values (logical, integer, ...) carry no encoding
-        ## and are coerced to character by the formatting below, so leave
-        ## them untouched here.
-        if(!is.character(s))
-            return(s)
-        s <- enc2utf8(s)
-        bad <- which(!is.na(s) & !validUTF8(s))
-        if(length(bad))
-            s[bad] <- iconv(s[bad], from = "UTF-8", to = "UTF-8",
-                            sub = "byte")
-        s
-    }
     fmt <- function(tag, val, fold = TRUE) {
-        val <- to_utf8(val)
+        ## DCF files must be encoded in UTF-8: canonicalize values to UTF-8
+        ## (escaping invalid bytes) before they are reformatted below.
+        val <- .enc2utf8_sub(val)
         s <- if(fold)
             formatDL(rep.int(tag, length(val)), val, style = "list",
                      width = width, indent = indent)

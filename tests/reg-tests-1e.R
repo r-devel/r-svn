@@ -3453,6 +3453,18 @@ stopifnot(identical(names(km), c(names(k), names(m))))
 local({
     eacute <- intToUtf8(0xe9) # small e with acute, UTF-8
     ccedil <- intToUtf8(0xe7) # small c with cedilla, UTF-8
+    ## The shared base:::.enc2utf8_sub() helper used by read/write.dcf():
+    ## convert to UTF-8 honouring the declared encoding, escape invalid
+    ## bytes, and pass non-character input through unchanged.
+    lat <- "Fran\xe7ois"; Encoding(lat) <- "latin1"
+    stopifnot(
+        identical(.enc2utf8_sub("abc"), "abc"),
+        .enc2utf8_sub(lat) == paste0("Fran", ccedil, "ois"),
+        Encoding(.enc2utf8_sub(lat)) == "UTF-8",
+        .enc2utf8_sub("a\xffb") == "a<ff>b",
+        identical(.enc2utf8_sub(c("a", NA)), c("a", NA)),
+        identical(.enc2utf8_sub(1:3), 1:3)
+    )
     ## A DCF file with a valid UTF-8 field and a field with an invalid byte.
     tf <- tempfile()
     con <- file(tf, "wb")
