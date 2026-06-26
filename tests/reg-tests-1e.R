@@ -3457,11 +3457,15 @@ local({
     ## convert to UTF-8 honouring the declared encoding, escape invalid
     ## bytes, and pass non-character input through unchanged.
     lat <- "Fran\xe7ois"; Encoding(lat) <- "latin1"
+    ## A string declared UTF-8 but containing a stray invalid byte: must be
+    ## escaped regardless of the native encoding (an undeclared literal would
+    ## be reinterpreted via the locale codepage on non-UTF-8 platforms).
+    inv <- "a\xffb"; Encoding(inv) <- "UTF-8"
     stopifnot(
         identical(.enc2utf8_sub("abc"), "abc"),
         .enc2utf8_sub(lat) == paste0("Fran", ccedil, "ois"),
         Encoding(.enc2utf8_sub(lat)) == "UTF-8",
-        .enc2utf8_sub("a\xffb") == "a<ff>b",
+        .enc2utf8_sub(inv) == "a<ff>b",
         identical(.enc2utf8_sub(c("a", NA)), c("a", NA)),
         identical(.enc2utf8_sub(1:3), 1:3)
     )
@@ -3489,6 +3493,7 @@ local({
                     Note    = "bad\xffbyte",
                     stringsAsFactors = FALSE)
     Encoding(x$Author) <- "latin1"
+    Encoding(x$Note)   <- "UTF-8"   # stray invalid byte, must be escaped
     tf2 <- tempfile()
     write.dcf(x, tf2)            # always UTF-8, regardless of locale
     stopifnot(validUTF8(rawToChar(readBin(tf2, "raw", file.size(tf2)))))
