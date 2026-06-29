@@ -578,22 +578,35 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 .vc_dir_names_re <-
     "/(CVS|\\.svn|\\.arch-ids|\\.bzr|\\.git|\\.hg|_darcs|\\.metadata)(/|$)"
 
-## We are told
-## .Rproj.user is Rstudio
-## .cproject .project .settings are Eclipse
-## .exrc is for vi
-## .tm_properties is Mac's TextMate
 .hidden_file_exclusions <-
-    c(".Renviron", ".Rprofile", ".Rproj.user",
+    c(## R
+      ".Renviron", ".Rprofile",
       ".Rhistory", ".Rapp.history",
-      ".tex", ".log", ".aux", ".pdf", ".png",
-      ".backups", ".cvsignore", ".cproject", ".directory",
-      ".dropbox", ".exrc", ".gdb.history",
+      ## Build artifacts
+      ".tex", ".log", ".aux", ".pdf", ".png", ".cache",
+      ## Version control
+      ".cvsignore",
       ".gitattributes", ".gitignore", ".gitmodules",
       ".hgignore", ".hgtags",
-      ".htaccess",
-      ".latex2html-init",
-      ".project", ".seed", ".settings", ".tm_properties")
+      ## IDE and editors
+      ".cproject", ".project", ".settings",  # Eclipse
+      ".Rproj.user",                         # RStudio
+      ".exrc",                               # vi
+      ".tm_properties",                      # TextMate
+      ".vscode",                             # VS Code and Positron
+      ".editorconfig",
+      ## CI and hosting
+      ".github",
+      ## Tooling
+      ".air.toml", ".clangd", ".lintr",
+      ## Agents
+      ".claude", ".codex", ".gemini",
+      ## Auth
+      ".httr-oauth",
+      ## Other
+      ".backups", ".directory", ".dropbox",
+      ".gdb.history", ".htaccess",
+      ".latex2html-init", ".seed")
 
 ### * Internal utility functions.
 
