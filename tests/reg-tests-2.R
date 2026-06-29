@@ -3401,6 +3401,8 @@ withAutoprint({
 })
 ## temporarily wrongly showed " withAutoprint({ "
 
+x <- y <- rep(10000L, 5e7)
+print(system.time(for(i in 1:100) x * y))
 
 # ----- Last line -------------
 cat('Time elapsed: ', proc.time(),'\n')

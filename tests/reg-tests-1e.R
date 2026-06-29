@@ -3449,9 +3449,6 @@ km <- merge(k, m, all.x = TRUE, all.y = TRUE)
 stopifnot(identical(names(km), c(names(k), names(m))))
 ## previously `y[FALSE, ]` instead of `z` (in R <= 4.6.0)
 
-x <- y <- rep(10000L, 5e7)
-print(system.time(for(i in 1:100) x * y))
-
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
