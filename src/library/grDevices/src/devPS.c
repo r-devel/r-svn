@@ -3751,17 +3751,9 @@ static void PS_Open(pDevDesc dd, PostScriptDesc *pd)
 	    return;
 	}
     } else if (pd->filename[0] == '|') {
-	errno = 0;
-	pd->psfp = R_popen(pd->filename + 1, "w");
-	pd->open_type = 1;
-	if (!pd->psfp || errno != 0) {
-	    char errbuf[strlen(pd->filename + 1) + 1];
-	    strcpy(errbuf, pd->filename + 1);
-	    PS_cleanup(4, dd, pd);
-	    error(_("cannot open 'postscript' pipe to '%s'"),
-		     errbuf);
-	    return;
-	}
+	PS_cleanup(4, dd, pd);
+	error(_("file names starting with '|' are no longer supported"));
+	return;
     } else {
 	snprintf(buf, 512, pd->filename, pd->fileno + 1); /* file 1 to start */
 	pd->psfp = R_fopen(R_ExpandFileName(buf), "w");
@@ -4914,8 +4906,6 @@ typedef struct {
 
 typedef struct {
     char filename[R_PATH_MAX];
-    int open_type;
-    char cmd[R_PATH_MAX];
 
     char papername[64];	/* paper name */
     int paperwidth;	/* paper width in big points (1/72 in) */
@@ -4934,7 +4924,6 @@ typedef struct {
 
     FILE *pdffp;        /* output file */
     FILE *mainfp;
-    FILE *pipefp;
 
     /* This group of variables track the current device status.
      * They should only be set by routines that emit PDF. */
@@ -8171,19 +8160,6 @@ static void PDF_endfile(PDFDesc *pd)
     rewind(pd->pdffp);
     fprintf(pd->pdffp, "%%PDF-%i.%i\n", pd->versionMajor, pd->versionMinor);
     fclose(pd->pdffp);
-    if (pd->open_type == 1) {
-	char buf[APPENDBUFSIZE];
-	size_t nc;
-	pd->pdffp = R_fopen(pd->filename, "rb"); 
-	while((nc = fread(buf, 1, APPENDBUFSIZE, pd->pdffp))) {
-	    if(nc != fwrite(buf, 1, nc, pd->pipefp))
-		error("write error");
-	    if (nc < APPENDBUFSIZE) break;
-	}
-	fclose(pd->pdffp);
-	pclose(pd->pipefp);
-	unlink(pd->filename);
-    }
 }
 
 
@@ -8195,27 +8171,10 @@ static void PDF_Open(pDevDesc dd, PDFDesc *pd)
         return;
     
     if (pd->filename[0] == '|') {
-	strncpy(pd->cmd, pd->filename + 1, R_PATH_MAX - 1);
-	pd->cmd[R_PATH_MAX - 1] = '\0';
-	char *tmp = R_tmpnam("Rpdf", R_TempDir);
-	strncpy(pd->filename, tmp, R_PATH_MAX - 1);
-	pd->filename[R_PATH_MAX - 1] = '\0';
-	free(tmp);
-	errno = 0;
-	pd->pipefp = R_popen(pd->cmd, "w");
-	if (!pd->pipefp || errno != 0) {
-	    char errbuf[strlen(pd->cmd) + 1];
-	    strcpy(errbuf, pd->cmd);
-	    PDFcleanup(7, pd);
-	    error(_("cannot open 'pdf' pipe to '%s'"), errbuf);
-	    return;
-	}
-	pd->open_type = 1;
-	if (!pd->onefile) {
-	    pd->onefile = TRUE;
-	    warning(_("file = \"|cmd\" implies 'onefile = TRUE'"));
-	}
-    } else pd->open_type = 0;
+	PDFcleanup(7, pd);
+	error(_("file names starting with '|' are no longer supported"));
+	return;
+    }
     snprintf(buf, 512, pd->filename, pd->fileno + 1); /* file 1 to start */
     /* NB: this must be binary to get tell positions and line endings right,
        as well as allowing binary streams */

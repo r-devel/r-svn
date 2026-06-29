@@ -77,14 +77,14 @@ bitmap <- function(file, type = "png16m", height = 7, width = 7, res = 72,
     extra <- ""
     if (!is.na(taa)) extra <- paste0(" -dTextAlphaBits=", taa)
     if (!is.na(gaa)) extra <- paste0(extra, " -dGraphicsAlphaBits=", gaa)
-    cmd <- paste0("|", shQuote(gsexe),
+    cmd <- paste0(shQuote(gsexe),
                   " -dNOPAUSE -dBATCH -q -sDEVICE=", type,
                   " -r", res,
                   " -dAutoRotatePages=/None",
                   " -g", ceiling(res*width), "x", ceiling(res*height),
                   extra,
                   " -sOutputFile=", shQuote(file), " -")
-    postscript(file = cmd, width = width, height = height,
+    postscript(file = "", command = cmd, width = width, height = height,
                pointsize = pointsize, paper = "special", horizontal = FALSE, ...)
     invisible()
 }

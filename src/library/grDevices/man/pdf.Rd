@@ -27,8 +27,7 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
     inches.  The default values are \code{7}.}
   \item{onefile}{logical: if true (the default) allow multiple figures
     in one file.  If false, generate a file with name containing the page
-    number for each page.  Defaults to \code{TRUE}, and forced to true
-    if \code{file} is a pipe.}
+    number for each page.  Defaults to \code{TRUE}.}
   \item{family}{the initial font family to be used, normally as a
     character string.  See the section \sQuote{Families}.  Defaults to
     \code{"Helvetica"}.}
@@ -360,12 +359,6 @@ pdf(file = if(onefile) "Rplots.pdf" else "Rplot\%03d.pdf",
   At very small line widths, the line type may be forced to solid.
 }
 
-\section{Printing}{
-  Except on Windows it is possible to print directly from \code{pdf} by
-  something like (this is appropriate for a CUPS printing system):
-\preformatted{    pdf("|lp -o landscape", paper = "a4r")}
-  This forces \code{onefile = TRUE}.
-}
 \note{
   If you have drawn any typeset glyphs (see \code{\link{glyphInfo}})
   then it is \emph{highly} recommended that you use
