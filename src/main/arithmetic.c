@@ -325,13 +325,14 @@ static R_INLINE int R_integer_plus(int x, int y, bool *pnaflag)
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
 
-    if (((y > 0) && (x > (R_INT_MAX - y))) ||
-	((y < 0) && (x < (R_INT_MIN - y)))) {
-	if (pnaflag != NULL)
-	    *pnaflag = true;
-	return NA_INTEGER;
-    }
-    return x + y;
+    int z;
+    if (!__builtin_add_overflow(x, y, &z) && z != NA_INTEGER)
+      return z;
+
+    if (pnaflag != NULL)
+      *pnaflag = true;
+
+    return NA_INTEGER;
 }
 
 static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
@@ -339,13 +340,14 @@ static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
 
-    if (((y < 0) && (x > (R_INT_MAX + y))) ||
-	((y > 0) && (x < (R_INT_MIN + y)))) {
-	if (pnaflag != NULL)
-	    *pnaflag = true;
-	return NA_INTEGER;
-    }
-    return x - y;
+    int z;
+    if (!__builtin_sub_overflow(x, y, &z) && z != NA_INTEGER)
+      return z;
+
+    if (pnaflag != NULL)
+      *pnaflag = true;
+
+    return NA_INTEGER;
 }
 
 static R_INLINE int R_integer_times(int x, int y, bool *pnaflag)
