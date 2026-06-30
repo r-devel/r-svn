@@ -353,7 +353,7 @@ static R_INLINE int R_integer_times(int x, int y, bool *pnaflag)
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
     else {
-	int64_t z = (int64_t)x * (int64_t)y;
+	int_fast64_t z = (int_fast64_t)x * (int_fast64_t)y;
         if (z <= R_INT_MAX && z >= R_INT_MIN)
 	    return (int)z;
 	else {
