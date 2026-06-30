@@ -348,15 +348,14 @@ static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
     return x - y;
 }
 
-#define GOODIPROD(x, y, z) ((double) (x) * (double) (y) == (z))
 static R_INLINE int R_integer_times(int x, int y, bool *pnaflag)
 {
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
     else {
-	int z = x * y;  // UBSAN will warn if this overflows (happens in bda)
-	if (GOODIPROD(x, y, z) && z != NA_INTEGER)
-	    return z;
+	int64_t z = (int64_t)x * (int64_t)y;
+        if (z <= R_INT_MAX && z >= R_INT_MIN)
+	    return (int)z;
 	else {
 	    if (pnaflag != NULL)
 		*pnaflag = true;
