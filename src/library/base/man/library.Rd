@@ -211,6 +211,7 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   \code{\link{.libPaths}}, \code{\link{.packages}}.
 
   \code{\link{attach}}, \code{\link{detach}}, \code{\link{search}},
+  \code{\link{conflicts}},
   \code{\link{objects}}, \code{\link{autoload}},
   \code{\link{requireNamespace}},
   \code{\link{library.dynam}}, \code{\link{data}},

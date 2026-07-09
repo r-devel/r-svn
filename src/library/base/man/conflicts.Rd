@@ -26,6 +26,9 @@ conflicts(where = search(), detail = FALSE)
     masking objects in that member of the search path.  Empty vectors are
     omitted.
 }
+\seealso{
+  \code{\link{conflictRules}}.
+
 \examples{
 lm <- 1:3
 conflicts(, TRUE)
