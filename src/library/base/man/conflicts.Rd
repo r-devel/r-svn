@@ -28,7 +28,7 @@ conflicts(where = search(), detail = FALSE)
 }
 \seealso{
   \code{\link{conflictRules}}.
-
+}
 \examples{
 lm <- 1:3
 conflicts(, TRUE)
