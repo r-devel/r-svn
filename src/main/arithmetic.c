@@ -325,13 +325,14 @@ static R_INLINE int R_integer_plus(int x, int y, bool *pnaflag)
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
 
-    if (((y > 0) && (x > (R_INT_MAX - y))) ||
-	((y < 0) && (x < (R_INT_MIN - y)))) {
-	if (pnaflag != NULL)
-	    *pnaflag = true;
-	return NA_INTEGER;
-    }
-    return x + y;
+    int z;
+    if (!__builtin_add_overflow(x, y, &z) && z != NA_INTEGER)
+      return z;
+
+    if (pnaflag != NULL)
+      *pnaflag = true;
+
+    return NA_INTEGER;
 }
 
 static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
@@ -339,30 +340,28 @@ static R_INLINE int R_integer_minus(int x, int y, bool *pnaflag)
     if (x == NA_INTEGER || y == NA_INTEGER)
 	return NA_INTEGER;
 
-    if (((y < 0) && (x > (R_INT_MAX + y))) ||
-	((y > 0) && (x < (R_INT_MIN + y)))) {
-	if (pnaflag != NULL)
-	    *pnaflag = true;
-	return NA_INTEGER;
-    }
-    return x - y;
+    int z;
+    if (!__builtin_sub_overflow(x, y, &z) && z != NA_INTEGER)
+      return z;
+
+    if (pnaflag != NULL)
+      *pnaflag = true;
+
+    return NA_INTEGER;
 }
 
-#define GOODIPROD(x, y, z) ((double) (x) * (double) (y) == (z))
 static R_INLINE int R_integer_times(int x, int y, bool *pnaflag)
 {
     if (x == NA_INTEGER || y == NA_INTEGER)
-	return NA_INTEGER;
-    else {
-	int z = x * y;  // UBSAN will warn if this overflows (happens in bda)
-	if (GOODIPROD(x, y, z) && z != NA_INTEGER)
-	    return z;
-	else {
-	    if (pnaflag != NULL)
-		*pnaflag = true;
-	    return NA_INTEGER;
-	}
-    }
+	  return NA_INTEGER;
+
+    int z;
+    if (!__builtin_mul_overflow(x, y, &z) && z != NA_INTEGER)
+	  return z;
+
+    if (pnaflag != NULL)
+	  *pnaflag = true;
+    return NA_INTEGER;
 }
 
 static R_INLINE double R_integer_divide(int x, int y)
