@@ -6226,7 +6226,7 @@ function(package, dir, lib.loc = NULL)
     methods_message <-
         if(uses_methods && "methods" %notin% c(depends, imports))
             gettext("package 'methods' is used but not declared")
-        else ""
+        else character()
 
     extras <- list(
         base = c("Sys.junction", "shell", "shell.exec"),
@@ -6527,7 +6527,7 @@ function(x, ...)
                        sQuote(xx))
           }
       },
-      if(nzchar(x$methods_message)) {
+      if(length(x$methods_message)) {
           x$methods_message
       })
 }
@@ -6645,7 +6645,7 @@ function(db, files)
     res <- list(others = unique(bad_exprs),
                 imports = unique(bad_imports),
                 data = unique(bad_data),
-                methods_message = ""
+                methods_message = character()
               , parse_errors = unique(parse_errors)
             )
     class(res) <- "check_packages_used"
