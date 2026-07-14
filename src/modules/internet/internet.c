@@ -417,7 +417,7 @@ static SEXP in_do_download(SEXP args)
 	}
 
 	R_Busy(1);
-	if(!quiet) REprintf(_("trying URL '%s'\n"), url);
+	if(!quiet) REprintf(_("Downloading '%s'\n"), url);
 	SEXP agentFun, sagent;
 	R_FlushConsole();
 	agentFun = PROTECT(lang2(install("makeUserAgent"), ScalarLogical(0)));
