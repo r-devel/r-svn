@@ -73,7 +73,7 @@ void wgl_histadd(const wchar_t *buf)
 {
     const wchar_t *p = buf;
 
-    if(wgl_init_done > 0) return;
+    if(wgl_init_done) return;
     while (*p == ' ' || *p == '\t' || *p == '\n') p++;
     if (*p) {
 	hist_buf[hist_last] = hist_save(buf);
