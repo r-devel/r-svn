@@ -3058,6 +3058,8 @@ attribute_hidden int R_is_redirection_tty(int fd)
     fnInfo->FileNameLength = fnLength;
     r = GetFileInformationByHandleEx(h, FileNameInfo, fnInfo, size);
     int res = 0;
+    /* defensively check that the name did not grow between calls and that its
+       byte length contains an integral number of WCHARs */
     if (r && fnInfo->FileNameLength <= fnLength &&
 	fnInfo->FileNameLength % sizeof(WCHAR) == 0) {
 	/* FileNameLength is in bytes and excludes the null terminator.  The
