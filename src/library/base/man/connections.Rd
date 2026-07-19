@@ -688,6 +688,8 @@ socketTimeout(socket, timeout = -1)
 
   To flush output to the Windows and macOS consoles, see
   \code{\link{flush.console}}.
+
+  \code{\link{socketSelect}} for picking an available socket connection. 
 }
 
 \examples{
