@@ -234,6 +234,13 @@ is.loaded(symbol, PACKAGE = "", type = "")
   that could not be found is not \file{rJava.dll} but something else
   Windows is looking for (here most likely Java DLLs): if you are lucky
   there will be a dialog box with more details.
+
+  Windows does not report which module could not be found, so when this
+  happens \R examines the imports of the DLL (and, recursively, of the
+  DLLs it depends on) and appends lines of the form
+  \preformatted{    missing module 'jvm.dll' required by 'rJava.dll'}
+  naming the modules it was unable to find, where they can be
+  determined.
 }
 #endif
 \section{Warning}{

@@ -67,6 +67,11 @@
 
       \item New low-level function \code{.OBJSXP()} enables deparsing of
       non-S4 \code{"object"} type objects.
+
+      \item On Windows, when loading a DLL fails because a module it
+      requires (directly or indirectly) could not be found, the error
+      message now attempts to name the missing modules, determined by
+      examining the import tables of the DLL and its dependencies.
     }
   }
 
