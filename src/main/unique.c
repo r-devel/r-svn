@@ -1863,6 +1863,18 @@ static SEXP subDots(SEXP rho)
     return rval;
 }
 
+/* Resolve a ...(sym) forwarding form: look up sym in rho and chase
+   through the promise chain to recover the original expression.
+   Parallel to subDots() which does the same for ... elements. */
+static SEXP subArg(SEXP sym, SEXP rho)
+{
+    SEXP val = R_findVar(sym, rho);
+    if (val == R_UnboundValue)
+	error(_("object '%s' not found"), CHAR(PRINTNAME(sym)));
+    while (TYPEOF(val) == PROMSXP)
+	val = PREXPR(val);
+    return val;
+}
 
 attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -1944,6 +1956,15 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	}
     }
+
+    /* Resolve ...(sym) forwarding forms via subArg(), consistent with
+       how subDots() resolves ... elements above. */
+    for (t1 = actuals; t1 != R_NilValue; t1 = CDR(t1)) {
+	SEXP fwd = dotsForwardSym(CAR(t1));
+	if (fwd != R_NilValue)
+	    SETCAR(t1, subArg(fwd, sysp));
+    }
+
     rlist = matchArgs_RC(formals, actuals, call);
 
     /* Attach the argument names as tags */

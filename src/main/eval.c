@@ -3612,6 +3612,47 @@ attribute_hidden SEXP do_set(SEXP call, SEXP op, SEXP args, SEXP rho)
   if (__tag__ != R_NilValue) SET_TAG(to, __tag__); \
 } while (0)
 
+/* Is `expr` a call to `...`? i.e. a LANGSXP whose CAR is R_DotsSymbol. */
+static R_INLINE Rboolean isDotsCall(SEXP expr)
+{
+    return TYPEOF(expr) == LANGSXP && CAR(expr) == R_DotsSymbol;
+}
+
+/* ...(sym) forwarding: detect a call of the form `...(sym)` in the
+   AST, i.e. a LANGSXP whose CAR is R_DotsSymbol and whose single
+   unnamed argument is a symbol.  Returns the symbol, or R_NilValue. */
+attribute_hidden SEXP dotsForwardSym(SEXP expr)
+{
+    if (isDotsCall(expr) &&
+	CDR(expr) != R_NilValue &&
+	CDDR(expr) == R_NilValue &&
+	TAG(CDR(expr)) == R_NilValue &&
+	TYPEOF(CADR(expr)) == SYMSXP)
+	return CADR(expr);
+    return R_NilValue;
+}
+
+/* Look up a forwarded symbol binding, erroring if unbound. */
+static SEXP findForwardVar(SEXP sym, SEXP rho)
+{
+    SEXP val = R_findVar(sym, rho);
+    if (val == R_UnboundValue)
+	error(_("object '%s' not found"), CHAR(PRINTNAME(sym)));
+    return val;
+}
+
+/* Validate a ...(sym) form and look up the forwarded binding.
+   Errors if the form is invalid or the symbol is unbound.
+   Returns the binding value (a PROMSXP, R_MissingArg, or a value). */
+static SEXP dotsForwardVal(SEXP expr, SEXP rho)
+{
+    SEXP fwd = dotsForwardSym(expr);
+    if (fwd == R_NilValue)
+	error(_("...(arg) requires a single symbol argument"));
+    return findForwardVar(fwd, rho);
+}
+
+
 /* Used in eval and applyMethod (object.c) for builtin primitives,
    do_internal (names.c) for builtin .Internals
    and in evalArgs.
@@ -3680,7 +3721,14 @@ attribute_hidden SEXP evalList(SEXP el, SEXP rho, SEXP call, int n)
 	                  EncodeChar(PRINTNAME(CAR(el))));
 #endif
 	} else {
-	    val = eval(CAR(el), rho);
+	    if (isDotsCall(CAR(el))) {
+		val = dotsForwardVal(CAR(el), rho);
+		if (val == R_MissingArg)
+		    errorcall(call, _("argument %d is empty"), n);
+		val = eval(val, rho);
+	    } else {
+		val = eval(CAR(el), rho);
+	    }
 	    INCREMENT_LINKS(val);
 	    ev = CONS_NR(val, R_NilValue);
 	    if (head == R_NilValue)
@@ -3822,6 +3870,16 @@ static SEXP promiseArgsEx(SEXP el, SEXP rho, Rboolean forward)
 	}
 	else if (CAR(el) == R_MissingArg) {
 	    SETCDR(tail, CONS(R_MissingArg, R_NilValue));
+	    tail = CDR(tail);
+	    COPY_TAG(tail, el);
+	}
+	/* ...(sym): forward the promise bound to sym */
+	else if (isDotsCall(CAR(el))) {
+	    SEXP val = dotsForwardVal(CAR(el), rho);
+	    if (val == R_MissingArg)
+		SETCDR(tail, CONS(R_MissingArg, R_NilValue));
+	    else
+		SETCDR(tail, CONS(mkPROMISE(val, rho), R_NilValue));
 	    tail = CDR(tail);
 	    COPY_TAG(tail, el);
 	}
@@ -4749,6 +4807,7 @@ enum {
   DECLNK_N_OP,
   INCLNKSTK_OP,
   DECLNKSTK_OP,
+  DOTSFWD_OP,
   OPCOUNT
 };
 
@@ -8054,6 +8113,23 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  else if (h != R_MissingArg)
 	    error(_("'...' used in an incorrect context"));
 	}
+	NEXT();
+      }
+    OP(DOTSFWD, 1):
+      {
+	SEXP sym = GETCONST(constants, GETOP());
+	SEXP val = findForwardVar(sym, rho);
+	SEXPTYPE ftype = CALL_FRAME_FTYPE();
+	if (ftype == CLOSXP) {
+	    if (val != R_MissingArg)
+		val = mkPROMISE(val, rho);
+	} else if (ftype == BUILTINSXP) {
+	    if (val == R_MissingArg)
+		error(_("argument is empty"));
+	    val = eval(val, rho);
+	}
+	/* SPECIALSXP: push forwarded arg as-is, specials handle their own args */
+	PUSHCALLARG(val);
 	NEXT();
       }
     OP(PUSHARG, 0): PUSHCALLARG(BCNPOP()); NEXT();

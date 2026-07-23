@@ -2256,6 +2256,7 @@ void process_site_Renviron(void);
 void process_system_Renviron(void);
 void process_user_Renviron(void);
 SEXP promiseArgs(SEXP, SEXP);
+SEXP dotsForwardSym(SEXP);
 int Rcons_vprintf(const char *, va_list);
 int REvprintf_internal(const char *, va_list);
 SEXP R_data_class(SEXP , Rboolean);
