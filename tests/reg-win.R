@@ -32,3 +32,40 @@ writeBin(d, src)
 download.file(url, dst, method = "wininet", mode = "wb")
 dstbin <- readBin(dst, "raw")
 stopifnot(identical(d, dstbin))
+
+
+## dyn.load() failing because a dependent DLL cannot be found should
+## name the missing module (needs a toolchain, as when building R)
+if (nzchar(Sys.which("make")) && nzchar(Sys.which("gcc"))) {
+    owd <- setwd(tempdir())
+    dir.create("dll-deps-test")
+    setwd("dll-deps-test")
+    rcmd <- file.path(R.home("bin"), "Rcmd.exe")
+
+    ## a helper DLL, moved into a directory not on the DLL search path
+    writeLines("void dep_fn(void) {}", "fakedep.c")
+    stopifnot(system2(rcmd, c("SHLIB", "-o", "fakedep.dll",
+                              "fakedep.c")) == 0L)
+    dir.create("deps")
+    stopifnot(file.rename("fakedep.dll", "deps/fakedep.dll"))
+
+    ## a DLL linked against the helper
+    writeLines(c("extern void dep_fn(void);",
+                 "void use_dep(void) { dep_fn(); }"),
+               "needsdep.c")
+    stopifnot(system2(rcmd, c("SHLIB", "-o", "needsdep.dll", "needsdep.c",
+                              "-Ldeps", "-lfakedep")) == 0L)
+
+    ## the dependency cannot be found, so loading must fail, and the
+    ## error message should identify the missing module
+    msg <- tryCatch(dyn.load("needsdep.dll"), error = conditionMessage)
+    stopifnot(is.character(msg),
+              grepl("missing module 'fakedep.dll' required by 'needsdep.dll'",
+                    msg, fixed = TRUE))
+
+    ## sanity check: with DLLpath the dependency is found and loading works
+    dll <- dyn.load("needsdep.dll", DLLpath = file.path(getwd(), "deps"))
+    dyn.unload(dll[["path"]])
+
+    setwd(owd)
+}
