@@ -345,6 +345,12 @@ cmake_on_path_message <- function(cmd)
 ## working CMAKE/CTEST so that packages following the manual keep working.
 add_cmake_dummies <- function(dir, Log)
 {
+    ## Unix-only for now: the wrapper is a /bin/sh script, and the macOS
+    ## PATH problem this targets does not arise on Windows (which uses
+    ## configure.win/Makevars.win, not exercised by a Unix check anyway).
+    if (.Platform$OS.type == "windows")
+        return()
+
     dir1 <- file.path(dir, "R_check_bin")
     if (!dir.exists(dir1)) {
         dir.create(dir1)
@@ -4129,7 +4135,7 @@ add_cmake_dummies <- function(dir, Log)
         }
 
         Check_cmake <- Sys.getenv("_R_CHECK_CMAKE_ON_PATH_", "FALSE")
-        if(config_val_to_logical(Check_cmake) && pkg_uses_cmake(desc) &&
+        if(!WINDOWS && config_val_to_logical(Check_cmake) && pkg_uses_cmake(desc) &&
            dir.exists('src')) {
             instlog <- if (startsWith(install, "check"))
                            install_log_path

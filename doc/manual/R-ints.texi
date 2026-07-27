@@ -4231,7 +4231,9 @@ Extensions}.  It does so by putting wrappers at the head of the path
 which record a diagnostic and then run the real command, and reporting a
 @samp{NOTE} if the diagnostic appears in the install log.  Such uses
 commonly fail on macOS, where @command{cmake} is often not on the path.
-Default: false (but true for CRAN submission checks).
+Run only on Unix-alikes (Linux and macOS), which is sufficient to catch
+the problem in the pre-flight checks on the CRAN Linux machines.
+Default: false (but true for CRAN submission checks, except on Windows).
 
 @item _R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_
 Control whether empty items inside @code{\describe} are allowed without
