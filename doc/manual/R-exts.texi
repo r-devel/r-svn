@@ -3355,12 +3355,19 @@ around this is for the package's @file{configure} script to include
 @example
 if test -z "$CMAKE"; then CMAKE="`which cmake`"; fi
 if test -z "$CMAKE"; then CMAKE=/Applications/CMake.app/Contents/bin/cmake; fi
-if test -f "$CMAKE"; then echo "no 'cmake' command found"; exit 1; fi
+if test ! -f "$CMAKE"; then echo "no 'cmake' command found"; exit 1; fi
 @end example
 @noindent
 and for the second approach to substitute @env{CMAKE} into
 @file{src/Makevars}.  This also applies to the ancillary command
 @command{ctest}, if used.
+
+For packages which declare @command{cmake} in the
+@samp{SystemRequirements} field, @command{R CMD check --as-cran} tries to
+detect uses of @command{cmake} (or @command{ctest}) via the bare command
+name rather than via the @env{CMAKE} (or @env{CTEST}) variable, and gives
+a @samp{NOTE} where it finds them: such uses commonly fail on macOS, where
+@command{cmake} is often not on the path.
 
 
 @node Checking and building packages

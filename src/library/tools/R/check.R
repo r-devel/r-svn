@@ -312,6 +312,89 @@ add_dummies <- function(dir, Log)
    }
 }
 
+## Whether a package might use 'cmake'/'ctest' on macOS, and hence be
+## affected by them commonly not being on the PATH there.  We only
+## consider packages that declare 'cmake' in SystemRequirements, and skip
+## those that do not target a Unix-alike (e.g. Windows-only packages), for
+## which the macOS PATH issue cannot apply.
+pkg_uses_cmake <- function(desc)
+{
+    sr <- desc["SystemRequirements"]
+    if (is.na(sr) || !grepl("cmake", sr, ignore.case = TRUE))
+        return(FALSE)
+
+    ostype <- desc["OS_type"]
+    if (!is.na(ostype) && tolower(ostype) != "unix")
+        return(FALSE)
+
+    TRUE
+}
+
+## The diagnostic emitted by the cmake/ctest wrappers created in
+## add_cmake_dummies() and detected later by check_src().
+cmake_on_path_message <- function(cmd)
+    sprintf(paste0("R CMD check: '%s' was invoked via the PATH; use the '%s' ",
+                   "variable instead -- see 'Using cmake' in 'Writing R Extensions'"),
+            cmd, toupper(cmd))
+
+## On the PATH used for installation, replace 'cmake'/'ctest' with wrappers
+## that record a diagnostic and then run the real command.  This lets us
+## flag packages that invoke these commands via the bare name (which is
+## commonly not on the PATH on macOS) rather than via the CMAKE/CTEST
+## variables recommended in 'Writing R Extensions'.  We also export a
+## working CMAKE/CTEST so that packages following the manual keep working.
+add_cmake_dummies <- function(dir, Log)
+{
+    dir1 <- file.path(dir, "R_check_bin")
+    if (!dir.exists(dir1)) {
+        dir.create(dir1)
+        if (!dir.exists(dir1)) {
+            messageLog(Log, "creation of directory ", sQuote(dir1), " failed")
+            return()
+        }
+        Sys.setenv(PATH = env_path(dir1, Sys.getenv("PATH")))
+    }
+
+    for (cmd in c("cmake", "ctest")) {
+        VAR <- toupper(cmd)
+
+        ## a 'good' command: honour CMAKE/CTEST, else the PATH, else the
+        ## usual macOS application location.
+        real <- Sys.getenv(VAR)
+        if (!nzchar(real))
+            real <- Sys.which(cmd)
+        if (!nzchar(real)) {
+            mac <- file.path("/Applications/CMake.app/Contents/bin", cmd)
+            if (file.exists(mac))
+                real <- mac
+        }
+
+        ## nothing to intercept if no real command is available: a package
+        ## following the manual would then fail anyway, which is correct.
+        if (!nzchar(real) || !file.exists(real))
+            next
+        real <- normalizePath(real, mustWork = FALSE)
+
+        ## avoid pointing a wrapper at itself (should not happen, but be safe)
+        if (identical(normalizePath(dirname(real), mustWork = FALSE),
+                      normalizePath(dir1, mustWork = FALSE)))
+            next
+
+        ## export CMAKE/CTEST for packages following the manual ...
+        args <- list(real)
+        names(args) <- VAR
+        do.call(Sys.setenv, args)
+
+        ## ... and intercept uses of the bare command name on the PATH.
+        wrapper <- file.path(dir1, cmd)
+        writeLines(c("#!/bin/sh",
+                     sprintf('echo "%s" 1>&2', cmake_on_path_message(cmd)),
+                     sprintf('exec "%s" "$@"', real)),
+                   wrapper)
+        Sys.chmod(wrapper, "0755")
+    }
+}
+
 ###- The main function for "R CMD check"
 .check_packages <- function(args = NULL, no.q = interactive(), warnOption = 1)
 {
@@ -4044,6 +4127,35 @@ add_dummies <- function(dir, Log)
                     resultLog(Log, "OK")
             }
         }
+
+        Check_cmake <- Sys.getenv("_R_CHECK_CMAKE_ON_PATH_", "FALSE")
+        if(config_val_to_logical(Check_cmake) && pkg_uses_cmake(desc) &&
+           dir.exists('src')) {
+            instlog <- if (startsWith(install, "check"))
+                           install_log_path
+                       else
+                           file.path(pkgoutdir, "00install.out")
+            if (file.exists(instlog)) {
+                checkingLog(Log, "use of 'cmake'/'ctest' via the PATH")
+                lines <- readLines(instlog, warn = FALSE)
+                hits <- grep("was invoked via the PATH; use the",
+                             lines, value = TRUE, useBytes = TRUE)
+                if (length(hits)) {
+                    cmds <- unique(sub(".*'([^']+)' was invoked via the PATH.*",
+                                       "\\1", hits))
+                    noteLog(Log)
+                    msg <- c(
+                        sprintf("Package installation invoked %s via the PATH.",
+                                paste(sQuote(cmds), collapse = " and ")),
+                        "Such commands are often not on the PATH, notably on macOS where",
+                        "'cmake' is commonly installed only as",
+                        "'/Applications/CMake.app/Contents/bin/cmake'; discover them via",
+                        "the 'CMAKE'/'CTEST' variables as described in 'Using cmake' in",
+                        "the 'Writing R Extensions' manual.")
+                    printLog0(Log, paste(c(msg, ""), collapse = "\n"))
+                } else resultLog(Log, "OK")
+            }
+        }
     }
 
     check_sos <- function() {
@@ -7658,6 +7770,7 @@ add_dummies <- function(dir, Log)
         Sys.setenv1("_R_CHECK_R_DEPENDS_", "warn")
         ## until this is tested on Windows
         Sys.setenv("_R_CHECK_R_ON_PATH_" = if(WINDOWS) "FALSE" else "TRUE")
+        Sys.setenv("_R_CHECK_CMAKE_ON_PATH_" = if(WINDOWS) "FALSE" else "TRUE")
         Sys.setenv("_R_CHECK_PACKAGES_USED_IN_TESTS_USE_SUBDIRS_" = "TRUE")
         Sys.setenv("_R_CHECK_CONNECTIONS_LEFT_OPEN_" = "TRUE")
         Sys.setenv("_R_CHECK_SHLIB_OPENMP_FLAGS_" = "TRUE")
@@ -8085,6 +8198,9 @@ add_dummies <- function(dir, Log)
             makevars <- basename(makevars)
 
             if (do_install) {
+                if(config_val_to_logical(Sys.getenv("_R_CHECK_CMAKE_ON_PATH_", "FALSE")) &&
+                   pkg_uses_cmake(desc))
+                    add_cmake_dummies(file_path_as_absolute(pkgoutdir), Log)
                 check_install()
                 if(R_check_pkg_sizes) check_install_sizes()
             }

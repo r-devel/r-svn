@@ -4221,6 +4221,18 @@ It does so by putting scripts at the head of the path which print a
 message and fail.
 Default: false (but true for CRAN submission checks).
 
+@item _R_CHECK_CMAKE_ON_PATH_
+For packages which declare @command{cmake} in the
+@samp{SystemRequirements} field (and which are not restricted to a
+non-Unix @samp{OS_type}), this checks if the package uses
+@command{cmake} or @command{ctest} from the path rather than via the
+@env{CMAKE}/@env{CTEST} variables recommended in @file{Writing R
+Extensions}.  It does so by putting wrappers at the head of the path
+which record a diagnostic and then run the real command, and reporting a
+@samp{NOTE} if the diagnostic appears in the install log.  Such uses
+commonly fail on macOS, where @command{cmake} is often not on the path.
+Default: false (but true for CRAN submission checks).
+
 @item _R_CHECK_RD_ALLOW_EMPTY_ITEM_IN_DESCRIBE_
 Control whether empty items inside @code{\describe} are allowed without
 a warning. This is a temporary stop gap measure meant to support legacy

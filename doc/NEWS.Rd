@@ -103,6 +103,13 @@
 
       \item \command{R CMD build} now excludes an obsolete
       \file{data/datalist} file when the package uses \samp{LazyData}.
+
+      \item For packages which declare \command{cmake} in the
+      \samp{SystemRequirements} field, \command{R CMD check --as-cran}
+      now gives a \samp{NOTE} if installation invokes \command{cmake} or
+      \command{ctest} via the bare command name rather than via the
+      \env{CMAKE}/\env{CTEST} variables, since these commonly fail on
+      macOS where \command{cmake} is often not on the path.
     }
   }
 
