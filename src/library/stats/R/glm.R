@@ -43,9 +43,9 @@ glm <- function(formula, family = gaussian, data, weights,
 
     ## extract x, y, etc from the model formula and frame
     if(missing(data)) data <- environment(formula)
-    mf <- match.call(expand.dots = FALSE)
+    mf <- match.call(expand.dots = TRUE)
     m <- match(c("formula", "data", "subset", "weights", "na.action",
-                 "etastart", "mustart", "offset"), names(mf), 0L)
+                 "etastart", "mustart", "offset", "xlev"), names(mf), 0L)
     mf <- mf[c(1L, m)]
     mf$drop.unused.levels <- TRUE
     ## need stats:: for non-standard evaluation
@@ -132,7 +132,7 @@ glm <- function(formula, family = gaussian, data, weights,
 }
 
 
-glm.control <- function(epsilon = 1e-8, maxit = 25, trace = FALSE)
+glm.control <- function(epsilon = 1e-8, maxit = 25, trace = FALSE, ...)
 {
     if(!is.numeric(epsilon) || epsilon <= 0)
 	stop("value of 'epsilon' must be > 0")
@@ -904,6 +904,8 @@ model.frame.glm <- function (formula, ...)
 	fcall$method <- "model.frame"
         ## need stats:: for non-standard evaluation
 	fcall[[1L]] <- quote(stats::glm)
+    fcall$xlev <- formula$xlevels
+    fcall$formula <- terms(formula)
         fcall[names(nargs)] <- nargs
 	env <- environment(formula$terms) %||% parent.frame()
 	eval(fcall, env)
