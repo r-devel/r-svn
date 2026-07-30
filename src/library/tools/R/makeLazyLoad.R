@@ -29,10 +29,58 @@ code2LazyLoadDB <-
     if (packageHasNamespace(package, dirname(pkgpath))) {
         if (! is.null(.getNamespace(as.name(package))))
             stop("namespace must not be already loaded")
+
+        ## Disable auto-compilation during loading so we can compile in parallel.
+        old_pkgs <- compiler::compilePKGS(0L)
+        on.exit(compiler::compilePKGS(old_pkgs), add = TRUE)
+
         ns <- suppressPackageStartupMessages(loadNamespace(
                   package = package, lib.loc = lib.loc,
                   keep.source = keep.source, keep.parse.data = keep.parse.data,
                   partial = TRUE))
+
+        if (old_pkgs != 0L) {
+            all_names <- ls(ns, all.names = TRUE)
+            closures  <- all_names[vapply(all_names, function(f)
+                typeof(get(f, envir = ns, inherits = FALSE)) == "closure",
+                logical(1L))]
+
+            ## Simple closures have ns as their environment — safe to compile in
+            ## forks. Complex ones (defined in local() etc.) compiled sequentially.
+            simple  <- closures[vapply(closures, function(f)
+                identical(environment(get(f, envir = ns, inherits = FALSE)), ns),
+                logical(1L))]
+            complex <- closures[!closures %in% simple]
+
+            ns_assign <- function(nm, fn) {
+                locked <- bindingIsLocked(nm, ns)
+                if (locked) unlockBinding(nm, ns)
+                assign(nm, fn, envir = ns)
+                if (locked) lockBinding(nm, ns)
+            }
+
+            ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                          getOption("mc.cores", 1L) else 1L
+            if (ncores > 1L && length(simple) > 0L) {
+                cfns <- parallel::mclapply(simple, function(f)
+                    compiler::cmpfun(get(f, envir = ns, inherits = FALSE)),
+                    mc.cores = ncores)
+                ## Each fork compiled against a copy of ns. Fix the environment
+                ## to point to the parent's ns before saving.
+                for (i in seq_along(simple)) {
+                    fn <- cfns[[i]]
+                    environment(fn) <- ns
+                    ns_assign(simple[[i]], fn)
+                }
+            } else {
+                for (f in simple)
+                    ns_assign(f, compiler::cmpfun(get(f, envir = ns, inherits = FALSE)))
+            }
+
+            for (f in complex)
+                ns_assign(f, compiler::cmpfun(get(f, envir = ns, inherits = FALSE)))
+        }
+
         makeLazyLoadDB(ns, dbbase, compress = compress,
                        set.install.dir = set.install.dir)
     }
