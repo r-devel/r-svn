@@ -464,4 +464,7 @@ for (k in 1:64) {
 ## or   malloc(): invalid size (unsorted)
 ## or   Fatal glibc error: malloc.c:..(_int_malloc): assertion failed: (unsigned long) (size) >= (unsigned long)(nb)
 ## now, after fixing:
-stopifnot(all.equal(file.size(tf), 699))
+## (writeChar() counts chars via mbstowcs(); on Windows, 16-bit wchar_t means
+##  each non-BMP char counts as a UTF-16 surrogate pair, i.e., as 2, so only
+##  399 - 200 zero bytes are appended there)
+stopifnot(all.equal(file.size(tf), if(onWindows) 599 else 699))
