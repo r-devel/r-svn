@@ -465,3 +465,15 @@ for (k in 1:64) {
 ## or   Fatal glibc error: malloc.c:..(_int_malloc): assertion failed: (unsigned long) (size) >= (unsigned long)(nb)
 ## now, after fixing:
 stopifnot(all.equal(file.size(tf), 699))
+## file.size(tf) was 599 on Windows in R <= 4.6.x, counting each of these
+## supplementary ("non-BMP") characters as two UTF-16 code units
+## (d) truncation, which must also count characters, as readChar() does
+r2 <- writeChar(su, raw(), nchars = 50L, eos = NULL)
+tf2 <- tempfile(); f <- file(tf2, "wb")
+writeChar(su, f, nchars = 50L, eos = NULL)
+close(f)
+stopifnot(exprs = {
+    identical(r2, charToRaw(strrep("\U0001F600", 50L)))
+    file.size(tf2) == 200
+    identical(readBin(tf2, "raw", 300L), charToRaw(strrep("\U0001F600", 50L)))
+})
