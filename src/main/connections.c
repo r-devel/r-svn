@@ -5347,6 +5347,45 @@ attribute_hidden SEXP do_readchar(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+/* Number of characters in 's': where wchar_t is 16-bit (Windows),
+   mbstowcs() returns the number of UTF-16 code units, counting each
+   supplementary ("non-BMP") character twice, so in a UTF-8 locale count
+   complete UTF-8 characters directly, as readChar() and nchar() do.
+   Returns (size_t)-1 for an invalid multibyte string. */
+static size_t mbCharCount(const char *s)
+{
+    size_t nc = mbstowcs(NULL, s, 0);
+
+    if(utf8locale && (int) nc >= 0) {
+	nc = 0;
+	for(const char *p = s; *p; p += utf8clen(*p))
+	    nc++;
+    }
+    return nc;
+}
+
+/* Byte length of the first 'nchars' characters of 's'.  For an invalid
+   multibyte string (valid = FALSE), Mbrtowc() signals an error when it
+   reaches the first invalid sequence. */
+static size_t mbBytesForChars(const char *s, R_xlen_t nchars, Rboolean valid)
+{
+    const char *p = s;
+
+    if(valid && utf8locale) {
+	for(R_xlen_t j = 0; j < nchars && *p; j++)
+	    p += utf8clen(*p);
+    } else {
+	mbstate_t mb_st;
+	mbs_init(&mb_st);
+	for(R_xlen_t j = 0; j < nchars; j++) {
+	    size_t used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st);
+	    if(!used) break;
+	    p += used;
+	}
+    }
+    return (size_t)(p - s);
+}
+
 /* writeChar(object, con, nchars, sep, useBytes) */
 attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -5358,7 +5397,6 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
     const char *s, *ssep = "";
     Rboolean wasopen = TRUE, usesep, isRaw = FALSE;
     Rconnection con = NULL;
-    mbstate_t mb_st;
     RCNTXT cntxt;
 
     checkArity(op, args);
@@ -5417,21 +5455,13 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	else {
 	    const char *ss = useBytes ? CHAR(sii) : translateChar(sii);
 	    size_t nb = strlen(ss),
-		nc = mbcslocale ? mbstowcs(NULL, ss, 0) : nb;
+		nc = mbcslocale ? mbCharCount(ss) : nb;
 	    if((size_t) tt > nc)
 		nb += ((size_t) tt - nc); /* zero-padding, counted in bytes */
 	    else if((size_t) tt < nc) {
-		if(mbcslocale) {
-		    mbstate_t mb_st1;
-		    mbs_init(&mb_st1);
-		    const char *p = ss;
-		    nb = 0;
-		    for(int j = 0; j < tt; j++) {
-			size_t used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st1);
-			p  += used;
-			nb += used;
-		    }
-		} else
+		if(mbcslocale)
+		    nb = mbBytesForChars(ss, tt, nc != (size_t)-1);
+		else
 		    nb = (size_t) tt;
 	    }
 	    nbytes[i] = nb;
@@ -5503,24 +5533,17 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else
 		s = translateChar(si);
 	    lenb = lenc = strlen(s);
-	    if(mbcslocale) lenc = mbstowcs(NULL, s, 0);
+	    if(mbcslocale) lenc = mbCharCount(s);
 	    /* As from 1.8.1, zero-pad if too many chars are requested. */
 	    if(len > lenc) {
 		warning(_("writeChar: more characters requested than are in the string - will zero-pad"));
 		lenb += (len - lenc);
 	    }
 	    if(len < lenc) {
-		if(mbcslocale) {
+		if(mbcslocale)
 		    /* find out how many bytes we need to write */
-		    size_t i, used;
-		    const char *p = s;
-		    mbs_init(&mb_st);
-		    for(i = 0, lenb = 0; i < len; i++) {
-			used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st);
-			p += used;
-			lenb += used;
-		    }
-		} else
+		    lenb = mbBytesForChars(s, len, lenc != (size_t)-1);
+		else
 		    lenb = len;
 	    }
 	    if (lenb + slen)

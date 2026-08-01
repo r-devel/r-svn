@@ -279,6 +279,11 @@
       \item \code{writeChar()} in a multibyte locale counts characters and
       bytes consistently and no longer overflows, thanks to \I{Kevin
 	Ushey}'s report and patch in \PR{19112}.
+
+      \item On Windows, \code{writeChar()} now counts characters
+      consistently with \code{readChar()} and \code{nchar()}: previously,
+      \code{nchars} counted each supplementary (\I{non-BMP}) character
+      twice, as a UTF-16 surrogate pair.
     }
   }
 }
