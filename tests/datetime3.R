@@ -997,7 +997,8 @@ if(grepl("^system", print(sessionInfo()$tzcode))) # tzcode "internal" still givi
 stopifnot(d_sec == 365*24*3600)
 ## the negative value stemming from C level integer addition overflow
 
-
+invisible(Sys.setlocale("LC_CTYPE", "C"))
+stopifnot(!is.na(strptime("2026 0 0", "%Y %U %w")))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
