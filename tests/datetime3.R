@@ -997,7 +997,11 @@ if(grepl("^system", print(sessionInfo()$tzcode))) # tzcode "internal" still givi
 stopifnot(d_sec == 365*24*3600)
 ## the negative value stemming from C level integer addition overflow
 
-
+# Invalid %OS -> NA
+stopifnot(identical(
+  strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%S"),
+  strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%OS")
+))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
