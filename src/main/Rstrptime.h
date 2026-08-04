@@ -585,6 +585,9 @@ w_strptime_internal (wchar_t *rp, const wchar_t *fmt, stm *tm,
 		    if( sval >= 0.0 && sval <= 61.0) {
 			tm->tm_sec = (int) sval;
 			*psecs = sval;
+		    } else {
+			tm->tm_sec = NA_INTEGER;
+			*psecs = NA_REAL;
 		    }
 		    rp = end;
 		}
@@ -1070,6 +1073,9 @@ strptime_internal (const char *rp, const char *fmt, stm *tm,
 		       if( sval >= 0.0 && sval <= 61.0) {
 			   tm->tm_sec = (int) sval;
 			   *psecs = sval;
+		       } else {
+			   tm->tm_sec = NA_INTEGER;
+			   *psecs = NA_REAL;
 		       }
 		       rp = end;
 		   }
