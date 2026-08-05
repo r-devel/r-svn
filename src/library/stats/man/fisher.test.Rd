@@ -1,6 +1,6 @@
 % File src/library/stats/man/fisher.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{fisher.test}
@@ -14,8 +14,10 @@
 fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
             hybridPars = c(expect = 5, percent = 80, Emin = 1),
             control = list(), or = 1, alternative = "two.sided",
-            conf.int = TRUE, conf.level = 0.95,
-            simulate.p.value = FALSE, B = 2000)
+            pval.only = FALSE,
+            conf.int = !pval.only, conf.level = 0.95,
+            simulate.p.value = FALSE, B = 2000,
+            two.sided.method = c("minlike", "central"))
 }
 \arguments{
   \item{x}{either a two-dimensional contingency table in matrix form,
@@ -23,12 +25,12 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   \item{y}{a factor object; ignored if \code{x} is a matrix.}
   \item{workspace}{an integer specifying the size of the workspace
     used in the network algorithm.  In units of 4 bytes.  Only used for
-    non-simulated p-values larger than \eqn{2 \times 2}{2 by 2} tables.
+    non-simulated p-values and larger than \eqn{2 \times 2}{2 by 2} tables.
     This also increases the internal stack size
     which allows larger problems to be solved, sometimes needing
     hours.  In such cases, \code{simulate.p.values = TRUE} may be more
     reasonable.}
-    \item{hybrid}{a logical. Only used for larger than \eqn{2 \times 2}{2 by 2}
+  \item{hybrid}{a logical. Only used for larger than \eqn{2 \times 2}{2 by 2}
     tables, in which cases it indicates whether the exact probabilities
     (default) or a hybrid approximation thereof should be computed.}
   \item{hybridPars}{a numeric vector of length 3, by default describing
@@ -40,23 +42,33 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
     \eqn{2 \times 2}{2 by 2} tables.  This says how many times as much
     space should be allocated to paths as to keys: see file
     \file{fexact.c} in the sources of this package.}
-  \item{or}{the hypothesized odds ratio.  Only used in the
-    \eqn{2 \times 2}{2 by 2} case.}
+  \item{or}{the hypothesized odds ratio.
+    Only used in the \eqn{2 \times 2}{2 by 2} case.}
   \item{alternative}{indicates the alternative hypothesis and must be
     one of \code{"two.sided"}, \code{"greater"} or \code{"less"}.
-    You can specify just the initial letter.  Only used in the
-    \eqn{2 \times 2}{2 by 2} case.}
+    You can specify just the initial letter.
+    Only used in the \eqn{2 \times 2}{2 by 2} case.}
+  \item{pval.only}{logical indicating if only the p-value is of interest;
+    notably for the \eqn{2 \times 2}{2 by 2} case with large counts,
+    setting \code{pval.only = TRUE} is typically orders of magnitude
+    faster.}
   \item{conf.int}{logical indicating if a confidence interval for the
     odds ratio in a \eqn{2 \times 2}{2 by 2} table should be
     computed (and returned).}
   \item{conf.level}{confidence level for the returned confidence
-    interval.  Only used in the \eqn{2 \times 2}{2 by 2} case and if
+    interval.
+    Only used in the \eqn{2 \times 2}{2 by 2} case and if
     \code{conf.int = TRUE}.}
   \item{simulate.p.value}{a logical indicating whether to compute
     p-values by Monte Carlo simulation, in larger than \eqn{2 \times
       2}{2 by 2} tables.}
   \item{B}{an integer specifying the number of replicates used in the
     Monte Carlo test when \code{simulate.p.value} is true.}
+  \item{two.sided.method}{a character string specifying the method for
+    computing two-sided p-values, must be one of \code{"minlike"}
+    (default) or \code{"central"}, or an abbreviation thereof.
+    See \sQuote{Details} in the help for \code{\link{binom.test}}.
+    Only used in the \eqn{2 \times 2}{2 by 2} case.}
 }
 \value{
   A list with class \code{"htest"} containing the following components:
@@ -106,7 +118,8 @@ fisher.test(x, y = NULL, workspace = 200000, hybrid = FALSE,
   \code{alternative = "greater"} is a test of the odds ratio being bigger
   than \code{or}.
 
-  Two-sided tests are based on the probabilities of the tables, and take
+  For larger than \eqn{2 \times 2}{2 by 2} tables, two-sided tests are
+  based on the probabilities of the tables, and take 
   as \sQuote{more extreme} all tables with probabilities less than or
   equal to that of the observed table, the p-value being the sum of such
   probabilities.
@@ -174,8 +187,13 @@ Convictions <- matrix(c(2, 10, 15, 3), nrow = 2,
 Convictions
 fisher.test(Convictions, alternative = "less")
 fisher.test(Convictions, conf.int = FALSE)
-fisher.test(Convictions, conf.level = 0.95)$conf.int
-fisher.test(Convictions, conf.level = 0.99)$conf.int
+(fisher.test(Convictions, conf.level = 0.95) -> ft)$conf.int
+ fisher.test(Convictions, conf.level = 0.99)$conf.int
+## if you only need the p-value, `pval.only = TRUE` is much faster for large 2x2 counts
+fisher.test(Convictions, pval.only = TRUE) -> fastft
+stopifnot(length(fastft) == 5, length(ft) == 7,
+          ## fastft has neither estimate nor conf.int, is otherwise the same
+          all.equal(unclass(fastft), ft[names(fastft)], tolerance = 1e-15))
 
 ## A r x c table  Agresti (2002, p. 57) Job Satisfaction
 Job <- matrix(c(1,2,1,0, 3,3,6,1, 10,10,14,9, 6,7,12,11), 4, 4,

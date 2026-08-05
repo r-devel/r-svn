@@ -1,6 +1,6 @@
 % File src/library/base/man/Random.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Random}
@@ -27,9 +27,9 @@
 \usage{
 \special{.Random.seed <- c(rng.kind, n1, n2, \dots)}
 
-RNGkind(kind = NULL, normal.kind = NULL, sample.kind = NULL)
+RNGkind(kind = NULL, normal.kind = NULL, sample.kind = NULL, binom.kind = NULL)
 RNGversion(vstr)
-set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
+set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL, binom.kind = NULL)
 }
 \arguments{
   \item{kind}{character or \code{NULL}.  If \code{kind} is a character
@@ -40,14 +40,17 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     string, set the method of Normal generation.  Use \code{"default"}
     to return to the \R default.  \code{NULL} makes no change.}
   \item{sample.kind}{character string or \code{NULL}.  If it is a character
-    string, set the method of discrete uniform generation (used in 
-    \code{\link{sample}}, for instance).  Use \code{"default"} to return to 
+    string, set the method of discrete uniform generation (used in
+    \code{\link{sample}}, for instance).  Use \code{"default"} to return to
+    the \R default.  \code{NULL} makes no change.}
+  \item{binom.kind}{character string or \code{NULL}.  If it is a character
+    string, set the method of \code{\link{rbinom}()}.  Use \code{"default"} to return to
     the \R default.  \code{NULL} makes no change.}
   \item{seed}{a single value, interpreted as an integer, or \code{NULL}
     (see \sQuote{Details}).}
   \item{vstr}{a character string containing a version number,
     e.g., \code{"1.6.2"}.  The default RNG configuration of the current
-    \R version is used if \code{vstr} is greater than the current version.} 
+    \R version is used if \code{vstr} is greater than the current version.}
   \item{rng.kind}{integer code in \code{0:k} for the above \code{kind}.}
   \item{n1, n2, \dots}{integers.  See the details for how many are required
     (which depends on \code{rng.kind}).}
@@ -61,8 +64,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     \item{\code{"Wichmann-Hill"}}{
     The seed, \code{.Random.seed[-1] == r[1:3]} is an integer vector of
     length 3, where each \code{r[i]} is in \code{1:(p[i] - 1)}, where
-    \code{p} is the length 3 vector of primes, \code{p = (30269, 30307,
-      30323)}.
+    \code{p} is the length 3 vector of primes,
+    \code{p = c(30269, 30307, 30323)}.
     The \I{Wichmann}--\I{Hill} generator has a cycle length of
     \eqn{6.9536 \times 10^{12}}{6.9536e12} (=
     \code{prod(p-1)/4}, see
@@ -97,7 +100,7 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     respectively.
 
     It exhibits 25 clear failures in the \I{TestU01} Crush suite
-    \bibcitep{R:L_Ecuyer+Simard:2007}. 
+    \bibcitep{R:L_Ecuyer+Simard:2007}.
     }
 
     \item{\code{"Mersenne-Twister"}:}{
@@ -186,9 +189,17 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
   or partial matches to these.  The former was the default in versions
   prior to 3.6.0:  it made \code{\link{sample}} noticeably non-uniform
   on large populations, and should only be used for reproduction of old
-  results.  See \PR{17494} for a discussion. 
+  results.  See \PR{17494} for a discussion.
 
-  \code{set.seed} uses a single integer argument to set as many seeds
+  \code{binom.kind} can be \code{"Buggy BTPE"} or \code{"BTPE"},
+  or partial matches to these.  The former was the default in versions
+  prior to 4.7.0: for large but not very large mean,
+  \code{\link{rbinom}()}'s acceptance-rejection algorithm accepted
+  very few \dQuote{outer tail} values it should have rejected, leading to a
+  very slightly increased distribution tail weight.  See \PR{19049} for more.
+
+
+  \code{set.seed()} uses a single integer argument to set as many seeds
   as are required.  It is intended as a simple way to get quite different
   seeds by specifying small integer arguments, and also as a way to get
   valid seed sets for the more complicated methods (especially
@@ -198,8 +209,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
   called with \code{seed = NULL} it re-initializes (see \sQuote{Note})
   as if no seed had yet been set.
 
-  The use of \code{kind = NULL}, \code{normal.kind = NULL} or 
-  \code{sample.kind = NULL} in
+  The use of \code{kind = NULL}, \code{normal.kind = NULL},
+  \code{sample.kind = NULL} or \code{binom.kind = NULL} in
   \code{RNGkind} or \code{set.seed} selects the currently-used
   generator (including that used in the previous session if the
   workspace has been restored): if no generator has been used it selects
@@ -231,20 +242,21 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
 }
 \value{
   \code{.Random.seed} is an \code{\link{integer}} vector whose first
-  element \emph{codes} the kind of RNG and normal generator. The lowest
-  two decimal digits are in \code{0:(k-1)}
-  where \code{k} is the number of available \abbr{RNG}s.  The hundreds
-  represent the type of normal generator (starting at \code{0}), and
-  the ten thousands represent the type of discrete uniform sampler.
+  element \emph{codes} each of the kinds of the RNG, normal, \dots (see
+  \code{RNGkind}) generator: The lowest two decimal digits are in
+  \code{0:(k-1)} where \code{k} is the number of available \abbr{RNG}s.
+  The hundreds represent the type of normal generator (starting at \code{0}),
+  the ten thousands the type of discrete uniform sampler,
+  and the hundred thousands the type of binomial generator.
 
   In the underlying C, \code{.Random.seed[-1]} is \code{unsigned};
   therefore in \R \code{.Random.seed[-1]} can be negative or perhaps
   \code{\link{NA_integer_}}, due to
   the representation of an unsigned integer by a signed integer.
 
-  \code{RNGkind} returns a three-element character vector of the RNG,
-  normal and sample kinds selected \emph{before} the call, invisibly if 
-  either argument is not \code{NULL}.  A type starts a session as the 
+  \code{RNGkind} returns the character vector of the RNG and other kinds
+  selected \emph{before} the call, invisibly if
+  either argument is not \code{NULL}.  Each kind starts a session as the
   default, and is selected either by a call to \code{RNGkind} or by setting
   \code{.Random.seed} in the workspace. (NB: prior to \R 3.6.0 the first
   two kinds were returned in a two-element character vector.)
@@ -261,7 +273,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
     Source code at \url{https://www-cs-faculty.stanford.edu/~knuth/taocp.html}.}
   \bibinfo{R:L_Ecuyer+Simard:2007}{footer}{
     The \I{TestU01} C library is available from
-    \url{https://simul.iro.umontreal.ca/testu01/tu01.html} or also
+    %% Does not work as of 2026-04-30:
+    %% \url{https://simul.iro.umontreal.ca/testu01/tu01.html} or also
     \url{https://github.com/umontreal-simul/TestU01-2009}.
   }
   \bibinfo{R:Matsumoto+Nishimura:1998}{footer}{

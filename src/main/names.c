@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -489,8 +489,8 @@ FUNTAB R_FunTab[] =
 {"sample",	do_sample,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"sample2",	do_sample2,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 
-{"RNGkind",	do_RNGkind,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"set.seed",	do_setseed,	0,	111,	4,	{PP_FUNCALL, PREC_FN,	0}},
+{"RNGkind",	do_RNGkind,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
+{"set.seed",	do_setseed,	0,	111,	5,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Data Summaries */
 /* these four are group generic and so need to eval args */
@@ -508,6 +508,7 @@ FUNTAB R_FunTab[] =
 {"cumprod",	do_cum,		2,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"cummax",	do_cum,		3,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"cummin",	do_cum,		4,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"cumvar",	do_cum,		5,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Type coercion */
 
@@ -922,6 +923,18 @@ FUNTAB R_FunTab[] =
 {"makeActiveBinding", do_mkActiveBnd,	0, 111,	3,      {PP_FUNCALL, PREC_FN,	0}},
 {"bindingIsActive", do_bndIsActive,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
 {"activeBindingFunction", do_activeBndFun,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"getBindingType", do_bindingType,	0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"delayedBindingExpression", do_delayedBindingExpr, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"delayedBindingEnvironment", do_delayedBindingEnv, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"forcedBindingExpression", do_forcedBindingExpr, 0, 11, 2, {PP_FUNCALL, PREC_FN, 0}},
+{"dotsExist", do_dotsExist,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"getDotType", do_dotType,		0, 11,	3,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotDelayedExpression", do_dotDelayedExpr, 0, 11, 3,  {PP_FUNCALL, PREC_FN,	0}},
+{"dotDelayedEnvironment", do_dotDelayedEnv, 0, 11, 3,  {PP_FUNCALL, PREC_FN,	0}},
+{"dotForcedExpression", do_dotForcedExpr, 0, 11, 3,    {PP_FUNCALL, PREC_FN,	0}},
+{"dotsLength", do_CDotsLength,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotsNames", do_CDotsNames,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
+{"dotsElt", do_CDotsElt,		0, 11,	3,      {PP_FUNCALL, PREC_FN,	0}},
 {"mkUnbound",	do_mkUnbound,		0, 111,	1,      {PP_FUNCALL, PREC_FN,	0}},
 {"isNamespaceEnv",do_isNSEnv,		0, 11,	1,      {PP_FUNCALL, PREC_FN,	0}},
 {"registerNamespace",do_regNS,		0, 11,	2,      {PP_FUNCALL, PREC_FN,	0}},
@@ -966,6 +979,7 @@ FUNTAB R_FunTab[] =
 {"unserialize",	do_serialize,	2,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"rowsum_matrix",do_rowsum,	0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"rowsum_df",	do_rowsum,	1,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"objsxp",	do_objsxp,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"setS4Object",	do_setS4Object, 0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"traceOnOff",	do_traceOnOff,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"debugOnOff",	do_traceOnOff,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},

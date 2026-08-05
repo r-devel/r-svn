@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -65,7 +65,16 @@ function(dir, outDir, builtStamp=character())
         ## Prefer date in ISO 8601 format, UTC, avoid sub-seconds.
         builtStamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S",
                              tz = "UTC", usetz = TRUE)
+    } else {
+        ## Debian may have passed a timestamp in RFC 2822/5322 format,
+        ## if it parses use it but as ISO 8601, UTC, no sub-seconds
+        prev <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "C")
+        if (!is.na(res <- strptime(builtStamp, "%a, %d %b %Y %T %z", tz="UTC")))
+            builtStamp <- format(res, "%Y-%m-%d %H:%M:%S",
+                                 tz = "UTC", usetz = TRUE)
+        Sys.setlocale("LC_TIME", prev)
     }
+
     Built <-
 	paste0("R ",
 	       paste(R.version[c("major", "minor")], collapse = "."),
@@ -360,7 +369,7 @@ function(dir, outDir)
         ## instead, but this would be much slower ...
         ## use fast version of file.append that ensures LF between files
         lapply(codeFiles, testParse)
-        if(!all(.file_append_ensuring_LFs(outFile, codeFiles)))
+        if(!all(.file_append_ensuring_LFs(outFile, codeFiles, enc = enc)))
             stop("unable to write code files")
         ## </NOTE>
     }
@@ -825,13 +834,13 @@ function(dir) {
                        strwrap(format(bibentries[ind]),
                                indent = 2L, exdent = 4L)),
                      collapse = "\n")
-        stop(msg, call. = FALSE)
+        stop(msg, call. = FALSE, domain = NA)
     }
     if(any(ind <- duplicated(keys))) {
         msg <- paste(c("Found the following duplicated keys:", 
                        .strwrap22(sQuote(keys[ind]))),
                      collapse = "\n")
-        stop(msg, call. = FALSE)
+        stop(msg, call. = FALSE, domain = NA)
     }
     saveRDS(bibentries, file.path(dir, "R.rds"))
 }
@@ -964,7 +973,7 @@ function(dir)
                     ver <- R.version
                     if (ver$status %in% c("", "Patched")) FALSE
                     else !do.call(depends$op,
-                                 list(ver[["svn rev"]],
+                                 list(as.numeric(ver[["svn rev"]]),
                                       as.numeric(sub("^r", "", depends$version))))
                 }
             }
@@ -1129,7 +1138,9 @@ compactPDF <-
     dummy <- rep.int(NA_real_, length(paths))
     ans <- data.frame(old = dummy, new = dummy, row.names = paths)
     ## These should not have spaces, but quote below to be safe.
-    tf <- tempfile("pdf"); tf2 <- tempfile("pdf")
+    ## Some (newer ?) 'qpdf' versions want the '.pdf' file extension
+    tf <- tempfile("pdf", fileext=".pdf")
+    tf2 <- tempfile("pdf", fileext=".pdf")
     verb2 <- verbose >= 2
     for (p in paths) {
         res <- 0

@@ -312,7 +312,12 @@ function(ifile, encoding = "unknown",
      blank_out_ignores_in_lines(lines, ignore)
 }
 
-aspell_filter_db$Sweave <- tools::SweaveTeXFilter
+aspell_filter_db$Sweave <-
+function(ifile, encoding = "unknown", latex = FALSE, ...)
+{
+    lines <- tools::SweaveTeXFilter(ifile, encoding)
+    if(latex) aspell_filter_LaTeX_worker(lines, ...) else lines
+}
 
 aspell_find_program <-
 function(program = NULL)
@@ -485,6 +490,7 @@ aspell_control_R_manuals <-
            "--add-texinfo-ignore=defcodeindex",
            "--add-texinfo-ignore=eapifun",
            "--add-texinfo-ignore=eapihdr",
+           "--add-texinfo-ignore=eapivar",
            "--add-texinfo-ignore=embfun",
            "--add-texinfo-ignore=embhdr",
            "--add-texinfo-ignore=embvar",
@@ -679,7 +685,8 @@ function(program = NULL, dir = NULL,
     program <- aspell_find_program(program)
 
     aspell(files,
-           filter = list("Sweave+LaTeX",
+           filter = list("Sweave",
+                         latex = TRUE,
                          cmds = c("Sexpr p",
                                   "SweaveOpts p",
                                   "code p",
@@ -703,6 +710,12 @@ aspell_control_package_vignettes <-
            "--add-tex-command='proglang p'",
            "--add-tex-command='samp p'"
            ))
+
+## <FIXME>
+## The Sweave filter can now optionally do addional LaTeX processing,
+## but currently we cannot pass filter args when using
+## aspell_package_vignettes().
+## </FIXME>
 
 aspell_package_vignettes <-
 function(dir,
@@ -1263,7 +1276,8 @@ function(ifile, encoding = "unknown", ...)
     aspell_filter_LaTeX_worker(readLines(ifile, encoding = encoding),
                                ...)
 aspell_filter_LaTeX_worker <-
-function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
+function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex,
+         before = NULL, ...)
 {
     ranges <- list()
     chrran <- function(e) getSrcref(e)[c(1L, 5L, 3L, 6L)]
@@ -1316,6 +1330,8 @@ function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
         }
     }
 
+    if(is.function(before))
+        x <- before(x)
     recurse(parser(x, ...))
     blank_out_character_ranges(x, ranges)
 }
@@ -1350,16 +1366,6 @@ aspell_filter_LaTeX_commands <-
       "fontsize pp", "usefont pppp", "documentstyle op", "cite p",
       "nocite p", "psfig p", "selectlanguage p", "includegraphics op",
       "bibitem op", "geometry p")
-
-## <FIXME>
-## Try to merge into the Sweave filter.
-## Note that currently we cannot pass filter args when using
-## aspell_package_vignettes().
-aspell_filter_db$`Sweave+LaTeX` <-
-function(ifile, encoding = "unknown", ...)
-    aspell_filter_LaTeX_worker(tools::SweaveTeXFilter(ifile, encoding),
-                               ...)
-## </FIXME>
 
 ## For spell checking packages.
 

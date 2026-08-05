@@ -37,7 +37,7 @@ warnings(\dots)
   \item{tags}{if not \code{\link{missing}}, a \code{\link{character}}
     vector of the same \code{\link{length}} as \code{x}, to \dQuote{label}
     the messages.  Defaults to \code{paste0(seq_len(n), ": ")} for
-    \eqn{n \ge 2}{n >= 2} where \code{n <- length(x)}.}
+    \eqn{n \ge 2} where \code{n <- length(x)}.}
   \item{header}{a character string \code{\link{cat}()}ed before the
       messages are printed.}
 }
@@ -71,7 +71,7 @@ warnings(\dots)
   In \R versions before 4.4.0, it returned \code{\link{NULL}} when there
   were no warnings, contrary to the above documentation.
 
-  \code{summary(<warnings>)} returns a \code{"summary.warnings"}
+  \code{summary(\var{warnings})} returns a \code{"summary.warnings"}
   object which is basically the \code{\link{list}} of unique warnings
   (\code{unique(object)}) with a \code{"counts"} attribute, somewhat
   experimentally.

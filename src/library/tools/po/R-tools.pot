@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: R 4.6.0\n"
+"Project-Id-Version: R 4.7.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -294,9 +294,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr ""
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
-
 msgid "Non-portable flags in variable '%s':"
 msgstr ""
 
@@ -471,7 +468,7 @@ msgstr ""
 msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr ""
 
-msgid "Rd files without \\description:"
+msgid "Rd files without %s:"
 msgstr ""
 
 msgid "no Rd sections specified"
@@ -633,9 +630,6 @@ msgstr ""
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr ""
 
-msgid "+-+"
-msgstr ""
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr ""
 
@@ -762,9 +756,6 @@ msgstr ""
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr ""
 
-msgid "Error: cannot rename directory to %s"
-msgstr ""
-
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr ""
 
@@ -798,10 +789,13 @@ msgstr ""
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+msgid "downloading reverse dependencies %s"
 msgstr ""
 
-msgid "downloading %s ..."
+msgid "download of reverse dependency %s failed"
+msgstr ""
+
+msgid "download of %d reverse dependencies failed:\n  %s"
 msgstr ""
 
 msgid "checking %s ..."
@@ -912,19 +906,19 @@ msgstr ""
 msgid ".install_packages() exit status"
 msgstr ""
 
-msgid "restoration failed"
-msgstr ""
-
-msgid "invalid value"
-msgstr ""
-
-msgid "for R_CROSS_BUILD"
-msgstr ""
-
 msgid "error reading file '%s'"
 msgstr ""
 
 msgid "this seems to be a bundle -- and they are defunct"
+msgstr ""
+
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr ""
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
 msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
@@ -936,22 +930,7 @@ msgstr ""
 msgid "no DLL was created"
 msgstr ""
 
-msgid "NOTE: fixed path"
-msgstr ""
-
-msgid "NOTE: fixed library identification name"
-msgstr ""
-
-msgid "NOTE: fixed library path"
-msgstr ""
-
-msgid "NOTE: fixed rpath"
-msgstr ""
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
-msgstr ""
-
-msgid "package %s successfully unpacked and MD5 sums checked"
 msgstr ""
 
 msgid "not using staged install with --libs-only"
@@ -960,28 +939,7 @@ msgstr ""
 msgid "staged installation is only possible with locking"
 msgstr ""
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr ""
-
 msgid "patch utility is needed for installation-time patching"
-msgstr ""
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr ""
-
-msgid "which seems to be already applied."
-msgstr ""
-
-msgid "WARNING: failed to apply patch"
-msgstr ""
-
-msgid "Applied installation-time patch"
-msgstr ""
-
-msgid "and saved it as"
-msgstr ""
-
-msgid "in package installation"
 msgstr ""
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1023,25 +981,7 @@ msgstr ""
 msgid "building a fake installation is disallowed"
 msgstr ""
 
-msgid "using C compiler:"
-msgstr ""
-
-msgid "using Fortran compiler:"
-msgstr ""
-
-msgid "using C++ compiler:"
-msgstr ""
-
-msgid "using C++"
-msgstr ""
-
-msgid "using SDK:"
-msgstr ""
-
-msgid "WARNING: failed to revert patch"
-msgstr ""
-
-msgid "Reverted installation-time patch"
+msgid "Input must be character"
 msgstr ""
 
 msgid "See\n  %s\nfor details."
@@ -1107,6 +1047,12 @@ msgstr ""
 msgid "Malformed NEWS.Rd file:\nChunk starting\n  %s\ncontains no \\item."
 msgstr ""
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+msgid "invalid 'type'"
+msgstr ""
+
 msgid "Processing packages:"
 msgstr ""
 
@@ -1132,6 +1078,27 @@ msgid "x must be a single string"
 msgstr ""
 
 msgid "invalid hex string"
+msgstr ""
+
+msgid "'gpg' is not available for signing"
+msgstr ""
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+msgid "'%s' must be a character string"
+msgstr ""
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+msgid "Signing failed:"
 msgstr ""
 
 msgid "this requires 'objdump.exe' to be on the PATH"
@@ -1189,9 +1156,6 @@ msgid "Error: running the tests in %s failed"
 msgstr ""
 
 msgid "Running vignettes for package %s"
-msgstr ""
-
-msgid "Comparing %s to %s ..."
 msgstr ""
 
 msgid "no parsed files found"
@@ -1275,9 +1239,6 @@ msgstr ""
 msgid "update_PACKAGES complete."
 msgstr ""
 
-msgid "'%s' must be a character string"
-msgstr ""
-
 msgid "test '%s' is not available"
 msgstr ""
 
@@ -1327,6 +1288,9 @@ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr ""
 
 msgid "cannot source package code:"
+msgstr ""
+
+msgid "error in inferior call:\n  %s"
 msgstr ""
 
 msgid "inferiorCallError"

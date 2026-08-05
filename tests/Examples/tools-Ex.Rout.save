@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2025-10-22 r88964) -- "Unsuffered Consequences"
-Copyright (C) 2025 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu
+R Under development (unstable) (2026-07-31 r90332) -- "Unsuffered Consequences"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin25.6.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -95,28 +95,28 @@ $status
 [1] 0
 
 $stdout
- [1] ""                                                                                 
- [2] "R Under development (unstable) (2025-10-22 r88964) -- \"Unsuffered Consequences\""
- [3] "Copyright (C) 2025 The R Foundation for Statistical Computing"                    
- [4] "Platform: x86_64-pc-linux-gnu"                                                    
- [5] ""                                                                                 
- [6] "R is free software and comes with ABSOLUTELY NO WARRANTY."                        
- [7] "You are welcome to redistribute it under certain conditions."                     
- [8] "Type 'license()' or 'licence()' for distribution details."                        
- [9] ""                                                                                 
-[10] "R is a collaborative project with many contributors."                             
-[11] "Type 'contributors()' for more information and"                                   
-[12] "'citation()' on how to cite R or R packages in publications."                     
-[13] ""                                                                                 
-[14] "Type 'demo()' for some demos, 'help()' for on-line help, or"                      
-[15] "'help.start()' for an HTML browser interface to help."                            
-[16] "Type 'q()' to quit R."                                                            
-[17] ""                                                                                 
-[18] "> x <- readRDS(\"/tmp/RtmpjrnqE8/runri2309077fd2bc56\")"                          
-[19] "> options(repos = x$repos)"                                                       
-[20] "> y <- tryCatch(list(do.call(x$fun, x$args, quote = TRUE)), error = identity)"    
-[21] "> saveRDS(y, \"/tmp/RtmpjrnqE8/runro230907d287351\")"                             
-[22] "> "                                                                               
+ [1] ""                                                                                                  
+ [2] "R Under development (unstable) (2026-07-31 r90332) -- \"Unsuffered Consequences\""                 
+ [3] "Copyright (C) 2026 The R Foundation for Statistical Computing"                                     
+ [4] "Platform: aarch64-apple-darwin25.6.0"                                                              
+ [5] ""                                                                                                  
+ [6] "R is free software and comes with ABSOLUTELY NO WARRANTY."                                         
+ [7] "You are welcome to redistribute it under certain conditions."                                      
+ [8] "Type 'license()' or 'licence()' for distribution details."                                         
+ [9] ""                                                                                                  
+[10] "R is a collaborative project with many contributors."                                              
+[11] "Type 'contributors()' for more information and"                                                    
+[12] "'citation()' on how to cite R or R packages in publications."                                      
+[13] ""                                                                                                  
+[14] "Type 'demo()' for some demos, 'help()' for on-line help, or"                                       
+[15] "'help.start()' for an HTML browser interface to help."                                             
+[16] "Type 'q()' to quit R."                                                                             
+[17] ""                                                                                                  
+[18] "> x <- readRDS(\"/var/folders/pk/n4bndnt1287ctrd_ftthnnnr0000gp/T//Rtmpi9mKZG/runrica9512976e7d\")"
+[19] "> options(repos = x$repos)"                                                                        
+[20] "> y <- tryCatch(list(do.call(x$fun, x$args, quote = TRUE)), error = identity)"                     
+[21] "> saveRDS(y, \"/var/folders/pk/n4bndnt1287ctrd_ftthnnnr0000gp/T//Rtmpi9mKZG/runroca9513d6da14\")"  
+[22] "> "                                                                                                
 
 $stderr
 character(0)
@@ -277,14 +277,14 @@ Error in assertWarning(ff()) :
 > bibstyle("unsorted", sortKeys = function(refs) seq_along(refs),
 +     fmtPrefix = function(paper) paste0("[", paper$.index, "]"),
 +        .init = TRUE)
-<environment: 0x55a759bc34c8>
+<environment: 0x94b54ae40>
 > print(refs, .bibstyle = "unsorted")
 [1] R Core Team (2013). _R: A Language and Environment for Statistical
 Computing_. R Foundation for Statistical Computing, Vienna, Austria.
 <https://www.R-project.org>.
 
 [2] Box GEP, Cox DR (1964). “An Analysis of Transformations.” _Journal
-of the Royal Statistical Society, Series B_, *26*(2), 211-243.
+of the Royal Statistical Society, Series B_, *26*(2), 211–243.
 doi:10.1111/j.2517-6161.1964.tb00553.x
 <https://doi.org/10.1111/j.2517-6161.1964.tb00553.x>.
 > 
@@ -581,6 +581,94 @@ checkRd: (7) <connection>:1: Only 1 column allowed in this table (row 1 has 2)
 > 
 > 
 > cleanEx()
+> nameEx("codetools")
+> ### * codetools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: codetools
+> ### Title: Find Calls in R Code
+> ### Aliases: find_calls find_calls_in_package_code
+> 
+> ### ** Examples
+> 
+> ## Where is sapply() still used in the 'tools' code?
+> ## If we cannot easily access the unpacked sources:
+> exprs <- as.list(asNamespace("tools"))
+> predicate <- function(e) {
++     is.call(e) && deparse1(e[[1L]]) == "sapply"
++ }
+> find_calls(exprs, predicate, recursive = TRUE)
+[[1]]
+sapply(list(...), function(s) sum(unlist(gregexpr("\n", s, fixed = TRUE)) > 
+    0))
+
+[[2]]
+sapply(loadfiles, getVerLoad)
+
+[[3]]
+sapply(serfiles, getVerSer)
+
+[[4]]
+sapply(engine$pattern, FUN = sub, "", file)
+
+[[5]]
+sapply(ifile, function(s) attr(s, "srcref"))
+
+[[6]]
+sapply(v[lengths(v) > 0], `[[`, 2)
+
+[[7]]
+sapply(Rd[isAlias], as.character)
+
+[[8]]
+sapply(Rd, getDynamicFlags)
+
+> 
+> ## Where is sapply() still used in the demos for 'base'?
+> ## If we cannot easily access the unpacked sources, we can take
+> ## advantage of the fact that the installed package has the copied
+> ## 'demo' subdirectory at top level too:
+> calls <- find_calls_in_package_code(system.file(package = "base"),
++                                     predicate, recursive = TRUE,
++                                     which = "demo")
+> ## This is a named list of calls found in each demo file:
+> names(calls)
+[1] "base/demo/error.catching.R" "base/demo/is.things.R"     
+[3] "base/demo/recursion.R"      "base/demo/scoping.R"       
+> ## Not all of these have calls to sapply():
+> table(lengths(calls))
+
+0 3 
+2 2 
+> ## The ones that do:
+> Filter(length, calls)
+$`base/demo/error.catching.R`
+$`base/demo/error.catching.R`[[1]]
+sapply(r0[c("messages", "warnings")], is.null)
+
+$`base/demo/error.catching.R`[[2]]
+sapply(rI$messages, inherits, what = "message")
+
+$`base/demo/error.catching.R`[[3]]
+sapply(rI$warnings, inherits, what = "warning")
+
+
+$`base/demo/is.things.R`
+$`base/demo/is.things.R`[[1]]
+sapply(ls.base, function(x) is.function(get(x)))
+
+$`base/demo/is.things.R`[[2]]
+sapply(is.fn, is.method)
+
+$`base/demo/is.things.R`[[3]]
+sapply(is0, length)
+
+
+> 
+> 
+> 
+> cleanEx()
 > nameEx("delimMatch")
 > ### * delimMatch
 > 
@@ -696,12 +784,12 @@ attr(,"match.length")
 > flush(stderr()); flush(stdout())
 > 
 > ### Name: find_gs_cmd
-> ### Title: Find a GhostScript Executable
+> ### Title: Find a Ghostscript Executable
 > ### Aliases: find_gs_cmd R_GSCMD GSC
 > 
 > ### ** Examples
 > ## Not run: 
-> ##D ## Suppose a Solaris system has GhostScript 9.00 on the path and
+> ##D ## Suppose a Solaris system has Ghostscript 9.00 on the path and
 > ##D ## 9.07 in /opt/csw/bin.  Then one might set
 > ##D Sys.setenv(R_GSCMD = "/opt/csw/bin/gs")
 > ## End(Not run)
@@ -1247,6 +1335,35 @@ function (x, ...)
 > 
 > 
 > cleanEx()
+> nameEx("systools")
+> ### * systools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: systools
+> ### Title: Invoke a System Command
+> ### Aliases: system_with_capture
+> 
+> ### ** Examples
+> 
+> ## Re-using the example from ?system:
+> ## Both the error message and status code are OS-dependent
+> ## IGNORE_RDIFF_BEGIN
+> system_with_capture("ls", "fizzlipuzzli")
+$status
+[1] 1
+
+$stdout
+character(0)
+
+$stderr
+[1] "ls: fizzlipuzzli: No such file or directory"
+
+> ## IGNORE_RDIFF_END
+> 
+> 
+> 
+> cleanEx()
 > nameEx("testInstalledPackage")
 > ### * testInstalledPackage
 > 
@@ -1264,6 +1381,42 @@ function (x, ...)
 List of 2
  $ base       : chr [1:14] "base" "tools" "utils" "grDevices" ...
  $ recommended: chr [1:15] "MASS" "lattice" "Matrix" "nlme" ...
+> 
+> 
+> 
+> cleanEx()
+> nameEx("texttools")
+> ### * texttools
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: texttools
+> ### Title: Text tools
+> ### Aliases: gsub_with_transformed_matches
+> 
+> ### ** Examples
+> 
+> ## Suppose we want to change <FOO@BaR> to <FOO@bar>.
+> ## We can achieve this via a pattern using parenthesized subexpressions
+> ## for the name and the domain parts, and invoke tolower() on the
+> ## matches domain parts:
+> (s <- "A <B@C> D <E@F> G")
+[1] "A <B@C> D <E@F> G"
+> gsub_with_transformed_matches("<([^>]+)@([^>]+)>",
++                               "<\\1@%s>",
++                               s,
++                               tolower,
++                               2L)
+[1] "A <B@c> D <E@f> G"
+> ## In case we want to also uppercase the name part:
+> (s <- "A <b@C> D <E@f> G")
+[1] "A <b@C> D <E@f> G"
+> gsub_with_transformed_matches("<([^>]+)@([^>]+)>",
++                               "<%s@%s>",
++                               s,
++                               list(toupper, tolower),
++                               c(1L, 2L))
+[1] "A <B@c> D <E@f> G"
 > 
 > 
 > 
@@ -1451,11 +1604,11 @@ An illustration of lexical scoping.
 > ### ** Examples
 > ## IGNORE_RDIFF_BEGIN
 > R_user_dir("FOO", "cache")
-[1] "/home/hornik/.cache/R/FOO"
+[1] "/Users/ripley/Library/Caches/org.R-project.R/R/FOO"
 > 
 > ## Create one, platform agnostically, must work if <normal> :
 > (Rdb <- R_user_dir("base"))
-[1] "/home/hornik/.local/share/R/base"
+[1] "/Users/ripley/Library/Application Support/org.R-project.R/R/base"
 > if(newD <- !dir.exists(Rdb)) # should work user specifically:
 +     newD <- dir.create(Rdb, recursive=TRUE)
 > dir(Rdb) # typically empty
@@ -1607,7 +1760,7 @@ needs Deep Thought
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.338 0.018 0.748 0.284 0.109 
+Time elapsed:  0.534 0.029 0.899 0.234 0.077 
 > grDevices::dev.off()
 null device 
           1 

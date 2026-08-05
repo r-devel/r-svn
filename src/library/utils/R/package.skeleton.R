@@ -1,7 +1,7 @@
 #  File src/library/utils/R/package.skeleton.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,12 +19,12 @@
 package.skeleton <-
     function(name = "anRpackage", list = character(), environment = .GlobalEnv,
 	     path = ".", force = FALSE,
-             code_files = character(), encoding = "unknown")
+             code_files = character(), encoding = "UTF-8")
 {
     if(!grepl(sprintf("^%s$", .standard_regexps()$valid_package_name),
               name))
         stop("Malformed package name.")
-    
+
     safe.dir.create <- function(path)
     {
 	if(!dir.exists(path) && !dir.create(path))
@@ -86,8 +86,11 @@ package.skeleton <-
                         paste(sQuote(list[!have]), collapse=", ")),
                 domain = NA)
     list <- list[have]
-    if(!length(list))
-	stop("no R objects specified or available")
+    ## For a long time we had
+    ##   if(!length(list))
+    ##       stop("no R objects specified or available")
+    ## but clearly there is a need for creating skeletons for packages
+    ## with no R code.
 
     message("Creating directories ...", domain = NA)
     ## Make the directories
@@ -261,6 +264,8 @@ package.skeleton <-
     message(sprintf("Further steps are described in '%s'.",
                      file.path(dir, "Read-and-delete-me")),
             domain = NA)
+
+    invisible(dir)
 }
 
 .fixPackageFileNames <- function(list) {

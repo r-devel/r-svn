@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2024-03-26 04:46+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -41,28 +41,29 @@ msgid "invalid length(x)"
 msgstr ""
 
 msgid "optimization difficulties: %s"
-msgstr ""
+msgstr "صعوبات التحسين: %s"
 
 msgid "optimization failure"
-msgstr ""
+msgstr "فشل التحسين"
 
 msgid "time series has no or less than 2 periods"
-msgstr ""
+msgstr "السلاسل الزمنية لا تحتوي على فترات أو أقل من 2 فترات"
 
+#, fuzzy
 msgid "the series is entirely NA"
-msgstr ""
+msgstr "المسلسل هو NA بالكامل"
 
 msgid "frequency must be a positive integer >= 2 for BSM"
-msgstr ""
+msgstr "يجب أن يكون التردد عددا صحيحا موجبا > = 2 ل BSM"
 
 msgid "only implemented for univariate time series"
-msgstr ""
+msgstr "يتم تنفيذها فقط للسلاسل الزمنية أحادية المتغير"
 
 msgid "'x' must be numeric"
-msgstr ""
+msgstr "يجب أن يكون \"x\" رقميا"
 
 msgid "the first value of the time series must not be missing"
-msgstr ""
+msgstr "يجب ألا تكون القيمة الأولى للسلسلة الزمنية مفقودة"
 
 msgid "all parameters were fixed"
 msgstr ""
@@ -207,7 +208,7 @@ msgstr ""
 msgid "cannot compute exact p-value with ties"
 msgstr ""
 
-msgid "cannot compute exact confidence intervals with ties"
+msgid "cannot compute exact confidence interval with ties"
 msgstr ""
 
 msgid "'formula' missing or incorrect"
@@ -603,12 +604,6 @@ msgstr ""
 msgid "not enough finite observations"
 msgstr ""
 
-msgid "Cannot compute exact p-value with ties"
-msgstr ""
-
-msgid "'formula' missing or invalid"
-msgstr ""
-
 msgid "invalid formula"
 msgstr ""
 
@@ -816,8 +811,9 @@ msgstr ""
 msgid "no starting values supplied"
 msgstr ""
 
-msgid "invalid argument 'lambda'"
-msgstr ""
+#, fuzzy
+msgid "invalid argument '%s'"
+msgstr "قيمة غير صالحة %sس"
 
 msgid "%s link not recognised"
 msgstr ""
@@ -923,13 +919,76 @@ msgstr ""
 msgid "'hybrid' is ignored for a 2 x 2 table"
 msgstr ""
 
+msgid "'pval.only' and 'conf.int' may not both be true"
+msgstr ""
+
 msgid "all groups must contain data"
 msgstr ""
 
 msgid "not enough observations"
 msgstr ""
 
-msgid "NA's are not allowed in 'groups' or 'blocks'"
+msgid "incorrect dimensions"
+msgstr ""
+
+msgid "at least two response categories required"
+msgstr ""
+
+msgid "at least two groups required"
+msgstr ""
+
+msgid "%s currently only allows independent right-censoring"
+msgstr ""
+
+msgid "error computing the Hessian in %s"
+msgstr ""
+
+msgid "Jeffreys penalisation was applied in %s because initial optimisation failed with:"
+msgstr ""
+
+msgid "unsuccessful optimisation in %s"
+msgstr ""
+
+msgid "incompatible length of argument 'mu' in %s"
+msgstr ""
+
+msgid "cannot compute exact permutation distribution in %s"
+msgstr ""
+
+msgid "cannot compute one-sided p-values in %s"
+msgstr ""
+
+msgid "permutation confidence intervals only available for 2-sample comparisons in %s"
+msgstr ""
+
+msgid "failed to compute confidence interval in %s"
+msgstr ""
+
+msgid "incorrect specification for '%s'"
+msgstr ""
+
+msgid "cannot have both a 'Surv()' response and an 'event' argument in %s"
+msgstr ""
+
+msgid "incorrect argument 'groups' in %s: at least two groups needed"
+msgstr ""
+
+msgid "%s is not defined for unordered responses"
+msgstr ""
+
+msgid "incorrect number of columns for 'prob' in %s"
+msgstr ""
+
+msgid "exactly one of 'n', 'delta', 'power', and 'sig.level' must be NULL"
+msgstr ""
+
+msgid "effect size can only be computed for two-sample problems in %s"
+msgstr ""
+
+msgid "%s only allows two-sided alternatives in the presence of more than two groups"
+msgstr ""
+
+msgid "NAs are not allowed in 'groups' or 'blocks'"
 msgstr ""
 
 msgid "'y', 'groups' and 'blocks' must have the same length"
@@ -938,19 +997,10 @@ msgstr ""
 msgid "not an unreplicated complete block design"
 msgstr ""
 
-msgid "formula missing"
-msgstr ""
-
-msgid "incorrect specification for 'formula'"
+msgid "'formula' missing"
 msgstr ""
 
 msgid "nothing to tabulate"
-msgstr ""
-
-msgid "incorrect specification for 'row.vars'"
-msgstr ""
-
-msgid "incorrect specification for 'col.vars'"
 msgstr ""
 
 msgid "'formula' must have both left and right hand sides"
@@ -1399,15 +1449,6 @@ msgstr ""
 msgid "specified parametric for all predictors"
 msgstr ""
 
-msgid "invalid argument 'span'"
-msgstr ""
-
-msgid "invalid argument 'cell'"
-msgstr ""
-
-msgid "invalid argument 'degree'"
-msgstr ""
-
 msgid "iterTrace = %d is not obeyed since iterations = %d"
 msgstr ""
 
@@ -1561,7 +1602,7 @@ msgid "'termlabels' must be a character vector"
 msgstr ""
 
 msgid "'%s' must be a character string"
-msgstr ""
+msgstr "يجب أن تكون \"%s\" سلسلة أحرف"
 
 msgid "Unparseable 'response' \"%s\"; use is deprecated.  Use as.name(.) or `..`!"
 msgstr ""
@@ -1621,9 +1662,6 @@ msgid "all times contain an NA"
 msgstr ""
 
 msgid "missing values in object"
-msgstr ""
-
-msgid "invalid argument 'omit'"
 msgstr ""
 
 msgid "'print.level' must be in {0,1,2}"
@@ -1914,9 +1952,6 @@ msgstr ""
 msgid "'conf.level' is not a probability"
 msgstr ""
 
-msgid "'formula' missing"
-msgstr ""
-
 msgid "'type' must be an integer in 1..9"
 msgstr ""
 
@@ -1930,15 +1965,6 @@ msgid "missing values and NaN's not allowed if 'na.rm' is FALSE"
 msgstr ""
 
 msgid "'probs' outside [0,1]"
-msgstr ""
-
-msgid "invalid argument 'n'"
-msgstr ""
-
-msgid "invalid argument 'r'"
-msgstr ""
-
-msgid "invalid argument 'c'"
 msgstr ""
 
 msgid "arguments 'r' and 'c' must have the same sums"
@@ -2352,25 +2378,19 @@ msgstr ""
 msgid "not enough (non-missing) 'x' observations"
 msgstr ""
 
-msgid "requested conf.level not achievable"
+msgid "'correct' must be an integer between 0 and 3"
 msgstr ""
 
 msgid "cannot compute confidence interval when all observations are zero or tied"
 msgstr ""
 
-msgid "cannot compute exact confidence interval with ties"
-msgstr ""
-
-msgid "cannot compute exact p-value with zeroes"
-msgstr ""
-
-msgid "cannot compute exact confidence interval with zeroes"
-msgstr ""
-
-msgid "Requested conf.level not achievable"
+msgid "requested conf.level not achievable"
 msgstr ""
 
 msgid "cannot compute confidence interval when all observations are tied"
+msgstr ""
+
+msgid "'z' is not a rank vector"
 msgstr ""
 
 msgid "must supply 'formula' or 'data'"
@@ -2430,133 +2450,241 @@ msgid "lower scope has term %s not included in model"
 msgid_plural "lower scope has terms %s not included in model"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "upper scope has term %s not included in model"
 msgid_plural "upper scope has terms %s not included in model"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "there are %d Error terms: only 1 is allowed"
 msgid_plural "there are %d Error terms: only 1 is allowed"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "unknown name %s in the 'split' list"
 msgid_plural "unknown names %s in the 'split' list"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "extra argument %s is not of class \"%s\""
 msgid_plural "extra arguments %s are not of class \"%s\""
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "%d factor is too many for %d variables"
 msgid_plural "%d factors are too many for %d variables"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'start' must have %d row"
 msgid_plural "'start' must have %d rows"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "unable to optimize from this starting value"
 msgid_plural "unable to optimize from these starting values"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'init' must have %d column"
 msgid_plural "'init' must have 1 or %d columns"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "X matrix has rank %d, but only %d observation"
 msgid_plural "X matrix has rank %d, but only %d observations"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "did not converge in %d iteration"
 msgid_plural "did not converge in %d iterations"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "%d missing value deleted"
 msgid_plural "%d missing values deleted"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'X' matrix has %d case (row)"
 msgid_plural "'X' matrix has %d cases (rows)"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'Y' has %d case (row)"
 msgid_plural "'Y' has %d cases (rows)"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "only %d case"
 msgid_plural "only %d cases"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "but %d variable"
 msgid_plural "but %d variables"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "medpolish() did not converge in %d iteration"
 msgid_plural "medpolish() did not converge in %d iterations"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'newdata' had %d row"
 msgid_plural "'newdata' had %d rows"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "but variable found had %d row"
 msgid_plural "but variables found have %d rows"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "factor %s has new level %s"
 msgid_plural "factor %s has new levels %s"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "%d observation deleted due to missingness"
 msgid_plural "%d observations deleted due to missingness"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "_NOT_ converged in %d iteration"
 msgid_plural "_NOT_ converged in %d iterations"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "unrecognized control element named %s ignored"
 msgid_plural "unrecognized control elements named %s ignored"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "fitting parameter %s without any variables"
 msgid_plural "fitting parameters %s without any variables"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "parameter %s does not occur in the model formula"
 msgid_plural "parameters %s do not occur in the model formula"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "%d observation with NA, NaN or Inf deleted"
 msgid_plural "%d observations with NAs, NaNs and/or Infs deleted"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 msgid "'start.innov' is too short: need %d point"
 msgid_plural "'start.innov' is too short: need %d points"
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""

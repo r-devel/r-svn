@@ -1,7 +1,7 @@
 #  File src/library/stats/R/nls.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2000-2023 The R Core Team
+#  Copyright (C) 2000-2026 The R Core Team
 #  Copyright (C) 1999-1999 Saikat DebRoy, Douglas M. Bates, Jose C. Pinheiro
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -403,6 +403,18 @@ nls.control <- function(maxiter = 50, tol = 0.00001, minFactor = 1/1024,
 
 nls_port_fit <- function(m, start, lower, upper, control, trace, give.v=FALSE)
 {
+    reorder <- function(x) {
+        if (is.null(nx <- names(x)) || is.null(ns <- names(start))) return(x)
+        w <- deparse(substitute(x))
+        if (!setequal(nx, ns)) warning("different names for ",
+                                       sQuote("start"), " and ",
+                                       sQuote(w), ": not reordering to match")
+        x[ns]
+    }
+
+    lower <- reorder(lower)
+    upper <- reorder(upper)
+    
     ## Establish the working vectors and check and set options
     p <- length(par <- as.double(unlist(start)))
     iv <- integer(4L*p + 82L)
@@ -834,6 +846,22 @@ residuals.nls <- function(object, type = c("response", "pearson"), ...)
         attr(val, "label") <- lab
     }
     val
+}
+
+hatvalues.nls <- function (model, ...)
+{
+    grad <- (mm <- model$m)$gradient()
+    if (inherits(mm, "nlsModel.plinear")) {
+        stop(sprintf("%s is not implemented yet", # <- similar to .NotYetImplemented()
+                     "hatvalues() for nls(..., algorithm=\"plinear\")"),
+             domain = NA)
+        ## https://stackoverflow.com/a/41759799/161921 --> you only need to update the grad
+        ## (with the linear par.s), and then
+        Q1 <- qr.Q(qr(grad))
+        rowSums(Q1^2)
+    } else {
+        rowSums(grad %*% chol2inv(mm$Rmat()) * grad)
+    }
 }
 
 logLik.nls <- function(object, REML = FALSE, ...)

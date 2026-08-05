@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999-2025  The R Core Team
+ *  Copyright (C) 1999-2026  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -156,6 +156,10 @@ void R_common_command_line(int *, char **, Rstart);
 void R_set_command_line_arguments(int argc, char **argv);
 
 void setup_Rmainloop(void); // also in Rembedded.h
+void run_Rmainloop(void); // also in Rembedded.h
+
+SA_TYPE R_GetSaveAction(void);
+SA_TYPE R_SetSaveAction(SA_TYPE newval);
 
 #ifdef __cplusplus
 }

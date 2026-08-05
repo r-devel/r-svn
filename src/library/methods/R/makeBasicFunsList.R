@@ -1,7 +1,7 @@
 #  File src/library/methods/R/makeBasicFunsList.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ utils::globalVariables(".addBasicGeneric")
     ## the Math group.
     members <- c("abs", "sign", "sqrt",
 		 "ceiling", "floor", "trunc",
-		 "cummax", "cummin", "cumprod", "cumsum",
+		 "cummax", "cummin", "cumprod", "cumsum", "cumvar",
 		 "exp", "expm1",
 		 "log", "log10", "log2", "log1p",
 		 "cos", "cosh", "sin", "sinh", "tan", "tanh",
@@ -207,6 +207,8 @@ utils::globalVariables(".addBasicGeneric")
     setGeneric("rcond", function(x, norm, ...) standardGeneric("rcond"),
 	       useAsDefault = function(x, norm, ...) base::rcond(x, norm, ...),
 	       signature = c("x", "norm"), where = where)
+    setMethod("rcond", signature(x = "ANY", norm = "missing"),
+              function (x, norm, ...) .implicitTable$rcond(x, norm = "O", ...))
     setGenericImplicit("rcond", where, FALSE)
 
     setGeneric("norm", function(x, type, ...) standardGeneric("norm"),

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -207,7 +207,7 @@ msgstr ""
 msgid "cannot compute exact p-value with ties"
 msgstr ""
 
-msgid "cannot compute exact confidence intervals with ties"
+msgid "cannot compute exact confidence interval with ties"
 msgstr ""
 
 msgid "'formula' missing or incorrect"
@@ -487,7 +487,7 @@ msgid "distances must be result of 'dist' or a square matrix"
 msgstr ""
 
 msgid "invalid value of %s"
-msgstr ""
+msgstr "A %s érvénytelen értéke"
 
 msgid "'k' must be in {1, 2, ..  n - 1}"
 msgstr ""
@@ -601,12 +601,6 @@ msgid "'y' must be a numeric vector"
 msgstr ""
 
 msgid "not enough finite observations"
-msgstr ""
-
-msgid "Cannot compute exact p-value with ties"
-msgstr ""
-
-msgid "'formula' missing or invalid"
 msgstr ""
 
 msgid "invalid formula"
@@ -816,7 +810,7 @@ msgstr ""
 msgid "no starting values supplied"
 msgstr ""
 
-msgid "invalid argument 'lambda'"
+msgid "invalid argument '%s'"
 msgstr ""
 
 msgid "%s link not recognised"
@@ -923,13 +917,76 @@ msgstr ""
 msgid "'hybrid' is ignored for a 2 x 2 table"
 msgstr ""
 
+msgid "'pval.only' and 'conf.int' may not both be true"
+msgstr ""
+
 msgid "all groups must contain data"
 msgstr ""
 
 msgid "not enough observations"
 msgstr ""
 
-msgid "NA's are not allowed in 'groups' or 'blocks'"
+msgid "incorrect dimensions"
+msgstr ""
+
+msgid "at least two response categories required"
+msgstr ""
+
+msgid "at least two groups required"
+msgstr ""
+
+msgid "%s currently only allows independent right-censoring"
+msgstr ""
+
+msgid "error computing the Hessian in %s"
+msgstr ""
+
+msgid "Jeffreys penalisation was applied in %s because initial optimisation failed with:"
+msgstr ""
+
+msgid "unsuccessful optimisation in %s"
+msgstr ""
+
+msgid "incompatible length of argument 'mu' in %s"
+msgstr ""
+
+msgid "cannot compute exact permutation distribution in %s"
+msgstr ""
+
+msgid "cannot compute one-sided p-values in %s"
+msgstr ""
+
+msgid "permutation confidence intervals only available for 2-sample comparisons in %s"
+msgstr ""
+
+msgid "failed to compute confidence interval in %s"
+msgstr ""
+
+msgid "incorrect specification for '%s'"
+msgstr ""
+
+msgid "cannot have both a 'Surv()' response and an 'event' argument in %s"
+msgstr ""
+
+msgid "incorrect argument 'groups' in %s: at least two groups needed"
+msgstr ""
+
+msgid "%s is not defined for unordered responses"
+msgstr ""
+
+msgid "incorrect number of columns for 'prob' in %s"
+msgstr ""
+
+msgid "exactly one of 'n', 'delta', 'power', and 'sig.level' must be NULL"
+msgstr ""
+
+msgid "effect size can only be computed for two-sample problems in %s"
+msgstr ""
+
+msgid "%s only allows two-sided alternatives in the presence of more than two groups"
+msgstr ""
+
+msgid "NAs are not allowed in 'groups' or 'blocks'"
 msgstr ""
 
 msgid "'y', 'groups' and 'blocks' must have the same length"
@@ -938,20 +995,11 @@ msgstr ""
 msgid "not an unreplicated complete block design"
 msgstr ""
 
-msgid "formula missing"
-msgstr ""
-
-msgid "incorrect specification for 'formula'"
+msgid "'formula' missing"
 msgstr ""
 
 msgid "nothing to tabulate"
 msgstr "nincs mit táblázatba foglalni"
-
-msgid "incorrect specification for 'row.vars'"
-msgstr ""
-
-msgid "incorrect specification for 'col.vars'"
-msgstr ""
 
 msgid "'formula' must have both left and right hand sides"
 msgstr ""
@@ -1399,15 +1447,6 @@ msgstr ""
 msgid "specified parametric for all predictors"
 msgstr ""
 
-msgid "invalid argument 'span'"
-msgstr ""
-
-msgid "invalid argument 'cell'"
-msgstr ""
-
-msgid "invalid argument 'degree'"
-msgstr ""
-
 msgid "iterTrace = %d is not obeyed since iterations = %d"
 msgstr ""
 
@@ -1417,7 +1456,6 @@ msgstr ""
 msgid "no models to compare"
 msgstr ""
 
-#, fuzzy
 msgid "extra arguments discarded"
 msgstr "a töblet argumentumok figyelmen kívül lettek hagyva"
 
@@ -1625,9 +1663,6 @@ msgstr ""
 msgid "missing values in object"
 msgstr ""
 
-msgid "invalid argument 'omit'"
-msgstr ""
-
 msgid "'print.level' must be in {0,1,2}"
 msgstr ""
 
@@ -1682,7 +1717,6 @@ msgstr ""
 msgid "cannot recognize parameter name"
 msgstr ""
 
-#, fuzzy
 msgid "levels truncated to positive values only"
 msgstr "a szintek csak a pozitív értékekre korlátozódnak"
 
@@ -1917,9 +1951,6 @@ msgstr ""
 msgid "'conf.level' is not a probability"
 msgstr ""
 
-msgid "'formula' missing"
-msgstr ""
-
 msgid "'type' must be an integer in 1..9"
 msgstr ""
 
@@ -1933,15 +1964,6 @@ msgid "missing values and NaN's not allowed if 'na.rm' is FALSE"
 msgstr ""
 
 msgid "'probs' outside [0,1]"
-msgstr ""
-
-msgid "invalid argument 'n'"
-msgstr ""
-
-msgid "invalid argument 'r'"
-msgstr ""
-
-msgid "invalid argument 'c'"
 msgstr ""
 
 msgid "arguments 'r' and 'c' must have the same sums"
@@ -2357,25 +2379,19 @@ msgstr ""
 msgid "not enough (non-missing) 'x' observations"
 msgstr ""
 
-msgid "requested conf.level not achievable"
+msgid "'correct' must be an integer between 0 and 3"
 msgstr ""
 
 msgid "cannot compute confidence interval when all observations are zero or tied"
 msgstr ""
 
-msgid "cannot compute exact confidence interval with ties"
-msgstr ""
-
-msgid "cannot compute exact p-value with zeroes"
-msgstr ""
-
-msgid "cannot compute exact confidence interval with zeroes"
-msgstr ""
-
-msgid "Requested conf.level not achievable"
+msgid "requested conf.level not achievable"
 msgstr ""
 
 msgid "cannot compute confidence interval when all observations are tied"
+msgstr ""
+
+msgid "'z' is not a rank vector"
 msgstr ""
 
 msgid "must supply 'formula' or 'data'"

@@ -23,12 +23,12 @@ stack.loss
   \code{stackloss} is a data frame with 21 observations on 4 variables.
 
   \tabular{rll}{
-    [,1] \tab \code{Air Flow}   \tab Flow of cooling air\cr
-    [,2] \tab \code{Water Temp} \tab Cooling Water Inlet
+    [,1] \tab \samp{Air Flow}   \tab Flow of cooling air\cr
+    [,2] \tab \samp{Water Temp} \tab Cooling Water Inlet
     Temperature\cr
-    [,3] \tab  \code{Acid Conc.} \tab Concentration of acid [per
+    [,3] \tab \samp{Acid Conc.} \tab Concentration of acid [per
     1000, minus 500]\cr
-    [,4] \tab  \code{stack.loss} \tab Stack loss\cr
+    [,4] \tab \code{stack.loss} \tab Stack loss\cr
   }
 
   For historical compatibility with S-PLUS, the data sets
@@ -37,9 +37,8 @@ stack.loss
   the fourth (dependent) variable, are also provided.
 }
 \source{
-  Brownlee, K. A. (1960, 2nd ed.\sspace{}1965)
-  \emph{Statistical Theory and Methodology in Science and Engineering}.
-  New York: Wiley. pp.\sspace{}491--500.
+  \bibinfo{R:Brownlee:1965}{note}{Pages\sspace{}491--500}
+  \bibshow{R:Brownlee:1965}
 }
 \details{
   \dQuote{Obtained from 21 days of operation of a plant for the
@@ -48,10 +47,10 @@ stack.loss
     countercurrent absorption tower}.
   (\I{Brownlee}, cited by \I{Dodge}, slightly reformatted by MM.)
 
-  \code{Air Flow} represents the rate of operation of the plant.
-  \code{Water Temp} is the temperature of cooling water circulated
+  \samp{Air Flow} represents the rate of operation of the plant.
+  \samp{Water Temp} is the temperature of cooling water circulated
   through coils in the absorption tower.
-  \code{Acid Conc.} is the concentration of the acid circulating, minus
+  \samp{Acid Conc.} is the concentration of the acid circulating, minus
   50, times 10: that is, 89 corresponds to 58.9 per cent acid.
   \code{stack.loss} (the dependent variable) is 10 times the percentage
   of the ingoing ammonia to the plant that escapes from the absorption

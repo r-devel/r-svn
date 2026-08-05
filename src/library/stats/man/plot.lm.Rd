@@ -14,7 +14,7 @@
        "Residuals vs Leverage",
        expression("Cook's dist vs Leverage* " * h[ii] / (1 - h[ii]))),
      panel = if(add.smooth) function(x, y, ...)
-              panel.smooth(x, y, iter=iter.smooth, ...) else points,
+              panel.smooth(x, y, iter=iter.smooth, ...) else panel.raw,
      sub.caption = NULL, main = "",
      ask = prod(par("mfcol")) < length(which) && dev.interactive(),
      \dots,
@@ -23,9 +23,10 @@
      cook.col = 8, cook.lty = 2, cook.legendChanges = list(),
      add.smooth = getOption("add.smooth"),
      iter.smooth = if(isGlm) 0 else 3,
+     panel.raw = points,
      label.pos = c(4,2),
-     cex.caption = 1, cex.oma.main = 1.25
-   , extend.ylim.f = 0.08
+     cex.caption = 1, cex.oma.main = 1.25,
+     extend.ylim.f = 0.08
      )
 }
 \arguments{
@@ -48,9 +49,13 @@
     default vector in \sQuote{Usage}.  Can be set to
     \code{""} or \code{NA} to suppress all captions.
   }
-  \item{panel}{panel function.  The useful alternative to
-    \code{\link{points}}, \code{\link{panel.smooth}} can be chosen
-    by \code{add.smooth = TRUE}.}
+  \item{panel}{panel function for plotting points. This will by default 
+    add a smoothing curve via  
+     \code{\link{panel.smooth}}
+    if \code{add.smooth = TRUE} and use \code{panel.raw} (which by
+    default is \code{\link{points}}) otherwise. For the residuals vs 
+    leverage plot, the smooth makes little sense and 
+    \code{panel.raw} is used.}
   \item{sub.caption}{common title---above the figures if there are more
     than one; used as \code{sub} (s.\code{\link{title}}) otherwise.  If
     \code{NULL}, as by default, a possible abbreviated version of
@@ -84,6 +89,7 @@
     particularly desirable for the (predominant) case of binary
     observations, but also for other models where the response
     distribution can be highly skewed.}
+  \item{panel.raw}{a function to use for plots without a smoother.}
   \item{label.pos}{positioning of labels, for the left half and right
     half of the graph respectively, for plots 1-3, 5, 6.}
   \item{cex.caption}{controls the size of \code{caption}.}

@@ -1,6 +1,6 @@
 % File src/library/stats/man/nls.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{nls}
@@ -62,13 +62,14 @@ nls(formula, data, start, control, algorithm,
     be as long as \code{start}.  If unspecified, all parameters are
     assumed to be unconstrained.  Bounds can only be used with the
     \code{"port"} algorithm.  They are ignored, with a warning, if given
-    for other algorithms.}
+    for other algorithms. If given as named vectors, they can be reordered to
+    match the coefficient order.}
   \item{\dots}{Additional optional arguments.  None are used at present.}
 }
 \details{
   An \code{nls} object is a type of fitted model object.  It has methods
   for the generic functions \code{\link{anova}}, \code{\link{coef}},
-  \code{\link{confint}}, \code{\link{deviance}},
+  \code{\link{confint}}, \code{\link{deviance}}, \code{\link{hatvalues}},
   \code{\link{df.residual}}, \code{\link{fitted}},
   \code{\link{formula}}, \code{\link{logLik}}, \code{\link{predict}},
   \code{\link{print}}, \code{\link{profile}}, \code{\link{residuals}},
@@ -167,6 +168,15 @@ summary(fm1DNase1)
 coef(fm1DNase1)
 ## including their SE, etc:
 coef(summary(fm1DNase1))
+
+hatfm1 <- hatvalues(fm1DNase1) # for nls() since R 4.6.0
+plot(resid(fm1DNase1) ~ hatfm1, xlab = quote(h[list(i,i)]),
+     main = "Residuals vs Hatvalues (nonlinear!)"); abline(h = 0, lty=2, col="gray")
+text(resid(fm1DNase1) ~ hatfm1, subset = hatfm1 > 0.4, pos = 3, col = 2)
+p.n <- length(coef(fm1DNase1)) / NROW(DNase1)
+mtext(substitute( p/n == {3/16 == PN}, list(PN = p.n)))
+abline(v = 2*p.n, col = 4, lty = 3)
+axis(3, at=2*p.n, labels="2 p/n", line = -1/2, padj = 1/2, col=4, col.axis=4)
 
 ## using conditional linearity
 fm2DNase1 <- nls(density ~ 1/(1 + exp((xmid - log(conc))/scal)),
@@ -319,6 +329,23 @@ b <- coef(musc.1)
 musc.2 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), MASS::muscle,
               start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]))
 summary(musc.2)
+
+## Example with constraint, using "port" algorithm. Also showing possibility
+## for reordering if using named vector for lower=
+dd <- structure(list(time = c(1L, 2L, 3L, 6L, 12L, 24L, 48L), y = c(1.95, 
+6.43, 10.39, 27.01, 113.72, 251.14, 314.22)), row.names = c(NA, 
+-7L), class = "data.frame")
+
+st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
+lwr <- c(k = 0.1, Max =-Inf, Lag = -Inf)
+form <- y ~ (time > Lag) * Max * (1-exp(-k * (time - Lag)))
+m1 <- nls(form,
+    data = dd,
+    algorithm="port",
+    lower = lwr,
+    start = st0)
+stopifnot(coef(m1)[["k"]] >= lwr[["k"]])
+
 })
 }
 \dontshow{options(od)}

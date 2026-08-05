@@ -1,6 +1,6 @@
 #  File src/library/tools/R/pkg2HTML.R
 #
-#  Copyright (C) 2023-2024 The R Core Team
+#  Copyright (C) 2023-2026 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -157,14 +157,12 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
                         switch(toc_entry, title = rdtitles, name = rdnames))
 
     language <- descmeta["Language"]
-    if(is.na(language))
-        language <- "en"
-    else if(grepl(",", language))
-        language <- NA_character_
-    ## If DESCRIPTION specifices several languages, we currently cannot
-    ## tell which one will be used for the package Rd files.  We could
-    ## guess to use the first language given, for now simply take the
-    ## language as unknown.
+    language <- if(is.na(language))
+                    "en"
+                else
+                    sub(",.*", "", language)
+    ## If DESCRIPTION specifices several languages, take the first one
+    ## as the primary one for the Rd files (and say so in R-exts).
     
     ## Now to make a file with header + DESCRIPTION + TOC + content + footer
 
@@ -202,7 +200,8 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
     writeHTML('<nav class="package" aria-label="Topic Navigation">',
               '<div class="dropdown-menu">',
               sprintf('<img class="toplogo" src="%s" alt="[logo]">',
-                      if (src.type == "installed") staticLogoPath(pkgname, relative = FALSE)
+                      if (src.type == "installed")
+                          staticLogoPath(pkgname, lib.loc = lib.loc, relative = FALSE)
                       else staticLogoPath(pkgdir, relative = FALSE, dir = TRUE)),
               '<h2>Contents</h2>',
               '<ul class="menu">',
@@ -213,7 +212,8 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
               '</nav>',
               '<main>')
 
-    if (include_description) writeHTML(.DESCRIPTION_to_HTML(descfile))
+    if (include_description)
+        writeHTML(.DESCRIPTION_to_HTML(descfile, hooks = hooks))
     lapply(names(hcontent), function(rdfile) {
         h <- hcontent[[rdfile]]
     	if (concordance) {

@@ -2379,7 +2379,7 @@ attach(list(.Random.seed=c(0:4)))
 x <- runif(1)
 detach(2)
 (new <- RNGkind())
-stopifnot(identical(new, c("Mersenne-Twister", "Inversion", "Rejection")))
+stopifnot(identical(new, c("Mersenne-Twister", "Inversion", "Rejection", "BTPE")))
 stopifnot(identical(find(".Random.seed"), ".GlobalEnv"))
 ## took from and assigned to list in 1.7.x.
 
@@ -3057,7 +3057,8 @@ names(x) <- nm <- letters[1:10]
 stopifnot(identical(names(cumsum(x)), nm),
           identical(names(cumprod(x)), nm),
           identical(names(cummax(x)), nm),
-          identical(names(cummin(x)), nm))
+          identical(names(cummin(x)), nm),
+		  identical(names(cumvar(x)), nm))
 x <- x+1i
 stopifnot(identical(names(cumsum(x)), nm),
           identical(names(cumprod(x)), nm))
@@ -3071,6 +3072,8 @@ stopifnot(identical(cumsum(x), r))
 stopifnot(identical(cumprod(x), r))
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
+stopifnot(identical(cumvar(c(0, 2, NA, 1)), c(NA, 2, NA, NA)))
+
 # complex
 cx <- function(r,i) complex(real=r, imaginary=i)
 NA.1 <- cx(NA, 1)
@@ -3097,7 +3100,7 @@ stopifnot(identical(cumsum(x), r))
 stopifnot(identical(cumprod(x), c(1, NA, NA))) # returns double
 stopifnot(identical(cummin(x), r))
 stopifnot(identical(cummax(x), r))
-
+stopifnot(identical(cumvar(c(0L, 2L, NA, 1L)), c(NA, 2, NA, NA))) # returns double
 ## complex superassignments
 e <- c(a=1, b=2)
 f <- c(a=1, b=2)

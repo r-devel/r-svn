@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2025  The R Core Team
+ *  Copyright (C) 1995--2026  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -729,15 +729,32 @@ static int HashGet(SEXP item, SEXP ht)
 
 static int PackFlags(int type, int levs, int isobj, int hasattr, int hastag)
 {
-    /* We don't write out bit 5 as from R 2.8.0.
-       It is used to indicate if an object is in CHARSXP cache
-       - not that it matters to this version of R, but it saves
-       checking all previous versions.
-
-       Also make sure the HASHASH bit is not written out.
+    /* Bit 5 of gp is internal bookkeeping that should not be
+       serialized. For CHARSXP it is the cache bit (stripped since R
+       2.8.0). For vectors it is the growable/resizable bit set by
+       `R_allocResizableVector()`. For closures it is the NOJIT bit
+       which is still serialized here as this is preexisting and has
+       not caused problems in practice.
     */
     int val;
-    if (type == CHARSXP) levs &= (~(CACHED_MASK | HASHASH_MASK));
+    /* Also make sure the HASHASH bit of CHARSXP is not written out. */
+    if (type == CHARSXP)
+	levs &= (~(CACHED_MASK | HASHASH_MASK));
+    else
+	switch (type) {
+        case LGLSXP:
+        case INTSXP:
+        case REALSXP:
+        case CPLXSXP:
+        case STRSXP:
+        case VECSXP:
+        case EXPRSXP:
+        case RAWSXP:
+            levs &= ~GROWABLE_MASK;
+            break;
+        default:
+            break;
+        }
     val = type | ENCODE_LEVELS(levs);
     if (isobj) val |= IS_OBJECT_BIT_MASK;
     if (hasattr) val |= HAS_ATTR_BIT_MASK;
@@ -2487,12 +2504,14 @@ static void InBytesConn(R_inpstream_t stream, void *buf, int length)
 		if (ncread != 2)
 		    error(_("error reading from ascii connection"));
 		if (!sscanf(linebuf, "%02x", &res))
-		    error(_("unexpected format in ascii connection"));
+		    error(_("unexpected format in ascii connection '%s'"),
+			con->description);
 		*p++ = (unsigned char)res;
 	    }
 	} else {
 	    if (length != con->read(buf, 1, length, con))
-		error(_("error reading from connection"));
+		error(_("error reading from connection '%s'"),
+		      con->description);
 	}
     }
 }
@@ -2506,7 +2525,8 @@ static int InCharConn(R_inpstream_t stream)
 	return Rconn_fgetc(con);
     else {
 	if (1 != con->read(buf, 1, 1, con))
-	    error(_("error reading from connection"));
+	    error(_("error reading from connection '%s'"),
+		    con->description);
 	return buf[0];
     }
 }
@@ -3236,7 +3256,7 @@ static SEXP R_getVarsFromFrame(SEXP vars, SEXP env, SEXP forcesxp)
 	if (tmp == R_UnboundValue) {
 /*		PrintValue(env);
 		PrintValue(R_GetTraceback(0)); */  /* DJM debugging */
-	    error(_("object '%s' not found"), EncodeChar(STRING_ELT(vars, i)));
+	    R_ObjectNotFoundError(sym, R_CurrentExpression, NULL);
 	    }
 	if (force && TYPEOF(tmp) == PROMSXP) {
 	    PROTECT(tmp);

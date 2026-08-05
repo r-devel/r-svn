@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.3.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-08 13:06\n"
 "PO-Revision-Date: 2024-03-19 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -212,11 +212,11 @@ msgstr "推定値を計算できません、NA 値を返します"
 msgid "cannot compute exact p-value with ties"
 msgstr "タイがあるため、正確な p 値を計算することができません"
 
-msgid "cannot compute exact confidence intervals with ties"
-msgstr "タイがあるため、正確な信頼区間を計算することができません"
+msgid "cannot compute exact confidence interval with ties"
+msgstr "タイがあるので、正確な信頼区間を計算することができません"
 
 msgid "'formula' missing or incorrect"
-msgstr "モデル式 ('formula') が無いか、不正確です"
+msgstr "'formula' が無いか不正確です"
 
 msgid "grouping factor must have exactly 2 levels"
 msgstr "グループ化因子は丁度 2 つの水準を持たなければなりません"
@@ -552,9 +552,8 @@ msgstr "1 つ以上のベクトルを与えなければなりません"
 msgid "arguments must have the same length"
 msgstr "引数は同じ長さでなければなりません"
 
-#, fuzzy
 msgid "wrong number of columns in new data:"
-msgstr "'x' の列数が間違っています"
+msgstr "新しいデータの列数が間違っています:"
 
 msgid "contrasts apply only to factors"
 msgstr "対比は因子にしか適用できません"
@@ -613,12 +612,6 @@ msgstr "'y' は数値ベクトルでなければなりません"
 
 msgid "not enough finite observations"
 msgstr "有限な観測値が十分にありません"
-
-msgid "Cannot compute exact p-value with ties"
-msgstr "タイのため正確な p 値を計算することができません"
-
-msgid "'formula' missing or invalid"
-msgstr "モデル式 ('formula') が無いか不正です"
 
 msgid "invalid formula"
 msgstr "無効なモデル式です"
@@ -827,8 +820,9 @@ msgstr "因子分析法は少なくとも 3 つの変数を必要とします"
 msgid "no starting values supplied"
 msgstr "初期値が与えられていません"
 
-msgid "invalid argument 'lambda'"
-msgstr "無効な引数 'lambda'"
+#, fuzzy
+msgid "invalid argument '%s'"
+msgstr "無効な引数 'n' です"
 
 msgid "%s link not recognised"
 msgstr "リンク %s は利用できません"
@@ -942,13 +936,86 @@ msgstr ""
 msgid "'hybrid' is ignored for a 2 x 2 table"
 msgstr "'hybrid' は 2 x 2 分割表に対しては無視されます"
 
+msgid "'pval.only' and 'conf.int' may not both be true"
+msgstr ""
+
 msgid "all groups must contain data"
 msgstr "全てのグループはデータを含まなければなりません"
 
 msgid "not enough observations"
 msgstr "十分な観測値がありません"
 
-msgid "NA's are not allowed in 'groups' or 'blocks'"
+#, fuzzy
+msgid "incorrect dimensions"
+msgstr "'xi' の次元が不正確です"
+
+msgid "at least two response categories required"
+msgstr ""
+
+#, fuzzy
+msgid "at least two groups required"
+msgstr "両側モデル式が必要です"
+
+msgid "%s currently only allows independent right-censoring"
+msgstr ""
+
+msgid "error computing the Hessian in %s"
+msgstr ""
+
+msgid "Jeffreys penalisation was applied in %s because initial optimisation failed with:"
+msgstr ""
+
+msgid "unsuccessful optimisation in %s"
+msgstr ""
+
+msgid "incompatible length of argument 'mu' in %s"
+msgstr ""
+
+#, fuzzy
+msgid "cannot compute exact permutation distribution in %s"
+msgstr "タイがあるため、正確な p 値を計算することができません"
+
+#, fuzzy
+msgid "cannot compute one-sided p-values in %s"
+msgstr " タイがあるため、正しい p 値を計算することができません "
+
+msgid "permutation confidence intervals only available for 2-sample comparisons in %s"
+msgstr ""
+
+#, fuzzy
+msgid "failed to compute confidence interval in %s"
+msgstr "タイがあるので、正確な信頼区間を計算することができません"
+
+#, fuzzy
+msgid "incorrect specification for '%s'"
+msgstr "'row.vars' の指定が不正確です"
+
+msgid "cannot have both a 'Surv()' response and an 'event' argument in %s"
+msgstr ""
+
+msgid "incorrect argument 'groups' in %s: at least two groups needed"
+msgstr ""
+
+#, fuzzy
+msgid "%s is not defined for unordered responses"
+msgstr "'proj' は多重応答に対しては実装されていません"
+
+#, fuzzy
+msgid "incorrect number of columns for 'prob' in %s"
+msgstr "'x' の列数が間違っています"
+
+#, fuzzy
+msgid "exactly one of 'n', 'delta', 'power', and 'sig.level' must be NULL"
+msgstr "'n', 'delta', 'sd', 'power' 及び 'sig.level' の内、丁度一つが NULL でなければなりません"
+
+msgid "effect size can only be computed for two-sample problems in %s"
+msgstr ""
+
+msgid "%s only allows two-sided alternatives in the presence of more than two groups"
+msgstr ""
+
+#, fuzzy
+msgid "NAs are not allowed in 'groups' or 'blocks'"
 msgstr "NA は 'groups' や 'blocks' 中には許されません"
 
 msgid "'y', 'groups' and 'blocks' must have the same length"
@@ -957,20 +1024,11 @@ msgstr "'y', 'groups' 及び 'blocks' は同じ長さでなければなりませ
 msgid "not an unreplicated complete block design"
 msgstr "繰り返しの無い完全なブロックデザインではありません"
 
-msgid "formula missing"
-msgstr "モデル式がありません"
-
-msgid "incorrect specification for 'formula'"
-msgstr "モデル式 ('formula') の指定が不正確です"
+msgid "'formula' missing"
+msgstr "モデル式 ('formula') がありません"
 
 msgid "nothing to tabulate"
 msgstr "表にするものが何もありません"
-
-msgid "incorrect specification for 'row.vars'"
-msgstr "'row.vars' の指定が不正確です"
-
-msgid "incorrect specification for 'col.vars'"
-msgstr "'col.vars' の指定が不正確です"
 
 msgid "'formula' must have both left and right hand sides"
 msgstr "モデル式 ('formula') は左辺と右辺の双方を持たなければなりません"
@@ -1432,15 +1490,6 @@ msgstr "唯一つの数値予測子を持つ予測子の平方は捨て去るこ
 msgid "specified parametric for all predictors"
 msgstr "すべての予測子がパラメトリックと指定されました"
 
-msgid "invalid argument 'span'"
-msgstr "無効な引数 'span' です"
-
-msgid "invalid argument 'cell'"
-msgstr "無効な引数 'cell' です"
-
-msgid "invalid argument 'degree'"
-msgstr "無効な引数 'degree' です"
-
 #, fuzzy
 msgid "iterTrace = %d is not obeyed since iterations = %d"
 msgstr "有限な観測値がありません"
@@ -1670,9 +1719,6 @@ msgstr "全ての時間が NA 値を含んでいます"
 msgid "missing values in object"
 msgstr "オブジェクト中に欠損値があります"
 
-msgid "invalid argument 'omit'"
-msgstr "無効な引数 'omit' です"
-
 msgid "'print.level' must be in {0,1,2}"
 msgstr "'print.level' は {0, 1, 2} 中でなければなりません"
 
@@ -1701,7 +1747,7 @@ msgid "f() values at end points not of opposite sign"
 msgstr "f() の端点での値が異なった符号を持ちません"
 
 msgid "convergence problem in zero finding:"
-msgstr "0点の探索中に収束の問題が発生しました"
+msgstr "0点の探索中に収束の問題が発生しました:"
 
 msgid "'control' argument must be a named list"
 msgstr "引数 'control' は名前付きリストでなければなりません"
@@ -1728,7 +1774,7 @@ msgid "cannot recognize parameter name"
 msgstr "パラメータの名前を確認できません"
 
 msgid "levels truncated to positive values only"
-msgstr "水準は正の値だけに縮小されました"
+msgstr "水準 (levels) は正の値のみに切りつめられました"
 
 msgid "invalid  'attr(rhs, \"gradient\")'"
 msgstr ""
@@ -1785,7 +1831,7 @@ msgid "bounds can only be used with method L-BFGS-B (or Brent)"
 msgstr "bounds は L-BFGS-B 法 (または Brent 法) でしか使用することができません"
 
 msgid "unknown names in control:"
-msgstr "control の中に未知の名前"
+msgstr "control の中に未知の名前:"
 
 msgid "read the documentation for 'trace' more carefully"
 msgstr "'trace' に対する解説をより注意深く読んでください"
@@ -1969,9 +2015,6 @@ msgstr "'p' の要素は (0, 1) 中になければなりません"
 msgid "'conf.level' is not a probability"
 msgstr ""
 
-msgid "'formula' missing"
-msgstr "モデル式 ('formula') がありません"
-
 #, fuzzy
 msgid "'type' must be an integer in 1..9"
 msgstr "'y' は 'x' より 1 だけ長くなくてはいけません"
@@ -1988,15 +2031,6 @@ msgstr "'na.rm ' が FALSE なら、欠測値及び NaN は許されません"
 
 msgid "'probs' outside [0,1]"
 msgstr "'probs' が範囲 [0, 1] 外です"
-
-msgid "invalid argument 'n'"
-msgstr "無効な引数 'n' です"
-
-msgid "invalid argument 'r'"
-msgstr "無効な引数 'r' です"
-
-msgid "invalid argument 'c'"
-msgstr "無効な引数 'c' です"
 
 msgid "arguments 'r' and 'c' must have the same sums"
 msgstr "引数 'r' と　'c' は同じ総和を持たなければなりません"
@@ -2164,7 +2198,7 @@ msgid "NA lev[]; probably smoothing parameter 'spar' way too large!"
 msgstr "NA lev[ ]; おそらく平滑化パラメ‐タ 'spar' が大きすぎました！"
 
 msgid "setting df = 1  __use with care!__"
-msgstr "df = 1 と設定しました。注意して使ってください！"
+msgstr "df = 1 と設定しました。  注意して使ってください！"
 
 msgid "need result of smooth.spline(keep.data = TRUE)"
 msgstr "smooth.spline(keep.data = TRUE) の結果が必要です"
@@ -2423,27 +2457,23 @@ msgstr "'x' と 'w' は同じ長さでなければなりません"
 msgid "not enough (non-missing) 'x' observations"
 msgstr "(有限な) 'x' の観察値の数が十分ではありません"
 
-msgid "requested conf.level not achievable"
-msgstr "指定された conf.level を達成できませんでした"
+#, fuzzy
+msgid "'correct' must be an integer between 0 and 3"
+msgstr "'or' は単一の数値もしくは 0 と inf 間の単一の数でなければなりません"
 
 #, fuzzy
 msgid "cannot compute confidence interval when all observations are zero or tied"
 msgstr "すべての観測値がタイの場合信頼区間を計算することができません"
 
-msgid "cannot compute exact confidence interval with ties"
-msgstr "タイがあるので、正確な信頼区間を計算することができません"
-
-msgid "cannot compute exact p-value with zeroes"
-msgstr "ゼロ値のため、正確な p 値を計算することができません"
-
-msgid "cannot compute exact confidence interval with zeroes"
-msgstr "ゼロ値のため、正確な信頼区間を計算することができません"
-
-msgid "Requested conf.level not achievable"
-msgstr "要求された conf.level は達成不能です"
+msgid "requested conf.level not achievable"
+msgstr "指定された conf.level を達成できませんでした"
 
 msgid "cannot compute confidence interval when all observations are tied"
 msgstr "すべての観測値がタイの場合信頼区間を計算することができません"
+
+#, fuzzy
+msgid "'z' is not a rank vector"
+msgstr "'x' はベクトルでありません"
 
 #, fuzzy
 msgid "must supply 'formula' or 'data'"
@@ -2606,6 +2636,58 @@ msgstr[0] "NA, NaN および Inf を含む %d 個のの観測値は削除され�
 msgid "'start.innov' is too short: need %d point"
 msgid_plural "'start.innov' is too short: need %d points"
 msgstr[0] "'start.innov' が短すぎます: %d 個の点が必要です"
+
+#, fuzzy
+#~ msgid "'%s' is not implemented yet"
+#~ msgstr "型 '%s' はまだ実装されていません"
+
+#~ msgid "cannot compute exact confidence intervals with ties"
+#~ msgstr "タイがあるため、正確な信頼区間を計算することができません"
+
+#~ msgid "Cannot compute exact p-value with ties"
+#~ msgstr "タイのため正確な p 値を計算することができません"
+
+#~ msgid "'formula' missing or invalid"
+#~ msgstr "モデル式 ('formula') が無いか不正です"
+
+#~ msgid "invalid argument 'lambda'"
+#~ msgstr "無効な引数 'lambda'"
+
+#~ msgid "formula missing"
+#~ msgstr "モデル式がありません"
+
+#~ msgid "incorrect specification for 'formula'"
+#~ msgstr "モデル式 ('formula') の指定が不正確です"
+
+#~ msgid "incorrect specification for 'col.vars'"
+#~ msgstr "'col.vars' の指定が不正確です"
+
+#~ msgid "invalid argument 'span'"
+#~ msgstr "無効な引数 'span' です"
+
+#~ msgid "invalid argument 'cell'"
+#~ msgstr "無効な引数 'cell' です"
+
+#~ msgid "invalid argument 'degree'"
+#~ msgstr "無効な引数 'degree' です"
+
+#~ msgid "invalid argument 'omit'"
+#~ msgstr "無効な引数 'omit' です"
+
+#~ msgid "invalid argument 'r'"
+#~ msgstr "無効な引数 'r' です"
+
+#~ msgid "invalid argument 'c'"
+#~ msgstr "無効な引数 'c' です"
+
+#~ msgid "cannot compute exact p-value with zeroes"
+#~ msgstr "ゼロ値のため、正確な p 値を計算することができません"
+
+#~ msgid "cannot compute exact confidence interval with zeroes"
+#~ msgstr "ゼロ値のため、正確な信頼区間を計算することができません"
+
+#~ msgid "Requested conf.level not achievable"
+#~ msgstr "要求された conf.level は達成不能です"
 
 #~ msgid ".nknots.smspl() is now exported; use it instead of n.knots()"
 #~ msgstr " .nknots.smspl() がエクスポートされるようになりましたから，n.knots() の代わりにこちらを用いてください "
@@ -2822,9 +2904,6 @@ msgstr[0] "'start.innov' が短すぎます: %d 個の点が必要です"
 
 #~ msgid "are just disregarded."
 #~ msgstr " 単に無視されます "
-
-#~ msgid "cannot compute correct p-values with ties"
-#~ msgstr " タイがあるため、正しい p 値を計算することができません "
 
 #~ msgid "'FUN' must always return a scalar"
 #~ msgstr " 'FUN' は常にスカラを返さねばなりません "

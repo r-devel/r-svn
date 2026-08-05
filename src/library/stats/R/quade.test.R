@@ -29,7 +29,7 @@ function(y, groups, blocks, ...)
     }
     else {
         if(anyNA(groups) || anyNA(blocks))
-            stop("NA's are not allowed in 'groups' or 'blocks'")
+            stop("NAs are not allowed in 'groups' or 'blocks'")
         if(any(diff(c(length(y), length(groups), length(blocks))) != 0L))
             stop("'y', 'groups' and 'blocks' must have the same length")
         DNAME <- paste0(DNAME, ", ",
@@ -91,7 +91,8 @@ function(formula, data, subset, na.action, ...)
        || (formula[[3L]][[1L]] != as.name("|"))
        || (length(formula[[3L]][[2L]]) != 1L)
        || (length(formula[[3L]][[3L]]) != 1L))
-        stop("incorrect specification for 'formula'")
+        stop(gettextf("incorrect specification for '%s'", "formula"),
+             domain = NA)
     formula[[3L]][[1L]] <- as.name("+")
     ## </FIXME>
     m <- match.call(expand.dots = FALSE)

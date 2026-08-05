@@ -3901,8 +3901,10 @@ SEXP (ATTRIB)(SEXP x) { return CHK(ATTRIB(CHK(x))); }
 int (ANY_ATTRIB)(SEXP x) { return ANY_ATTRIB(CHK(x)); }
 int (OBJECT)(SEXP x) { return OBJECT(CHK(x)); }
 int (TYPEOF)(SEXP x) { return TYPEOF(CHK(x)); }
+//attribute_hidden
 int (NAMED)(SEXP x) { return NAMED(CHK(x)); }
 attribute_hidden int (RTRACE)(SEXP x) { return RTRACE(CHK(x)); }
+//attribute_hidden
 int (LEVELS)(SEXP x) { return LEVELS(CHK(x)); }
 int (REFCNT)(SEXP x) { return REFCNT(CHK(x)); }
 attribute_hidden int (TRACKREFS)(SEXP x) { return TRACKREFS(CHK(x)); }
@@ -3946,6 +3948,7 @@ void (SET_ATTRIB)(SEXP x, SEXP v) {
     ATTRIB(x) = v;
 }
 void (SET_OBJECT)(SEXP x, int v) { SET_OBJECT(CHK(x), v); }
+//attribute_hidden
 void (SET_NAMED)(SEXP x, int v)
 {
 #ifndef SWITCH_TO_REFCNT
@@ -3954,6 +3957,7 @@ void (SET_NAMED)(SEXP x, int v)
 }
 attribute_hidden
 void (SET_RTRACE)(SEXP x, int v) { SET_RTRACE(CHK(x), v); }
+//attribute_hidden
 int (SETLEVELS)(SEXP x, int v) { return SETLEVELS(CHK(x), v); }
 void DUPLICATE_ATTRIB(SEXP to, SEXP from) {
     SET_ATTRIB(CHK(to), duplicate(CHK(ATTRIB(CHK(from)))));
@@ -4038,8 +4042,11 @@ attribute_hidden
 void (RAISE_NAMED)(SEXP x, int n) { RAISE_NAMED(CHK(x), n); }
 
 /* S4 object testing */
+//attribute_hidden
 int (IS_S4_OBJECT)(SEXP x){ return IS_S4_OBJECT(CHK(x)); }
+//attribute_hidden
 void (SET_S4_OBJECT)(SEXP x){ SET_S4_OBJECT(CHK(x)); }
+//attribute_hidden
 void (UNSET_S4_OBJECT)(SEXP x){ UNSET_S4_OBJECT(CHK(x)); }
 
 /* JIT optimization support */
@@ -4050,8 +4057,11 @@ attribute_hidden void (SET_MAYBEJIT)(SEXP x) { SET_MAYBEJIT(CHK(x)); }
 attribute_hidden void (UNSET_MAYBEJIT)(SEXP x) { UNSET_MAYBEJIT(CHK(x)); }
 
 /* Growable vector support */
+attribute_hidden
 int (IS_GROWABLE)(SEXP x) { return IS_GROWABLE(CHK(x)); }
+attribute_hidden
 int (GROWABLE_BIT_SET)(SEXP x) { return GROWABLE_BIT_SET(CHK(x)); }
+attribute_hidden
 void (SET_GROWABLE_BIT)(SEXP x) { SET_GROWABLE_BIT(CHK(x)); }
 
 static int nvec[32] = {
@@ -4072,8 +4082,10 @@ static R_INLINE SEXP CHK2(SEXP x)
 /* Vector Accessors */
 int (LENGTH)(SEXP x) { return x == R_NilValue ? 0 : LENGTH(CHK2(x)); }
 R_xlen_t (XLENGTH)(SEXP x) { return XLENGTH(CHK2(x)); }
+attribute_hidden
 R_xlen_t (TRUELENGTH)(SEXP x) { return TRUELENGTH(CHK2(x)); }
 
+attribute_hidden
 void (SETLENGTH)(SEXP x, R_xlen_t v)
 {
     if (ALTREP(x))
@@ -4084,6 +4096,7 @@ void (SETLENGTH)(SEXP x, R_xlen_t v)
     SET_STDVEC_LENGTH(CHK2(x), v);
 }
 
+attribute_hidden
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v) { SET_TRUELENGTH(CHK2(x), v); }
 int  (IS_LONG_VEC)(SEXP x) { return IS_LONG_VEC(CHK2(x)); }
 #ifdef TESTING_WRITE_BARRIER
@@ -4156,6 +4169,7 @@ SEXP (VECTOR_ELT)(SEXP x, R_xlen_t i) {
 # define CHKZLN(x) do { } while (0)
 #endif
 
+attribute_hidden
 void *(STDVEC_DATAPTR)(SEXP x)
 {
     if (ALTREP(x))
@@ -4265,11 +4279,6 @@ const SEXP *(STRING_PTR_RO)(SEXP x) {
 	      __func__, "character", R_typeToChar(x));
     CHKZLN(x);
     return STRING_PTR_RO(x);
-}
-
-NORET SEXP * (VECTOR_PTR)(SEXP x)
-{
-  error(_("not safe to return vector pointer"));
 }
 
 const SEXP *(VECTOR_PTR_RO)(SEXP x) {
@@ -4590,8 +4599,11 @@ SEXP (SETCAD4R)(SEXP x, SEXP y)
     return y;
 }
 
+attribute_hidden
 SEXP (EXTPTR_PROT)(SEXP x) { CHKEXTPTRSXP(x); return EXTPTR_PROT(CHK(x)); }
+attribute_hidden
 SEXP (EXTPTR_TAG)(SEXP x) { CHKEXTPTRSXP(x); return EXTPTR_TAG(CHK(x)); }
+attribute_hidden
 void *(EXTPTR_PTR)(SEXP x) { CHKEXTPTRSXP(x); return EXTPTR_PTR(CHK(x)); }
 
 attribute_hidden
@@ -4612,8 +4624,11 @@ SEXP R_ClosureFormals(SEXP x) { return (FORMALS)(x); }
 SEXP R_ClosureBody(SEXP x) { return (BODY)(x); }
 SEXP R_ClosureEnv(SEXP x) { return (CLOENV)(x); }
 
+attribute_hidden
 void (SET_FORMALS)(SEXP x, SEXP v) { FIX_REFCNT(x, FORMALS(x), v); CHECK_OLD_TO_NEW(x, v); FORMALS(x) = v; }
+attribute_hidden
 void (SET_BODY)(SEXP x, SEXP v) { FIX_REFCNT(x, BODY(x), v); CHECK_OLD_TO_NEW(x, v); BODY(x) = v; }
+attribute_hidden
 void (SET_CLOENV)(SEXP x, SEXP v) { FIX_REFCNT(x, CLOENV(x), v); CHECK_OLD_TO_NEW(x, v); CLOENV(x) = v; }
 void (SET_RDEBUG)(SEXP x, int v) { SET_RDEBUG(CHK(x), v); }
 attribute_hidden
@@ -4666,14 +4681,20 @@ attribute_hidden void (SET_DDVAL)(SEXP x, int v) { SET_DDVAL(CHK(x), v); }
     if (TYPEOF(x) != ENVSXP && x != R_NilValue)				\
 	error(_("%s: argument of type %s is not an environment or NULL"), \
 	      __func__, sexptype2char(TYPEOF(x)))
+//attribute_hidden
 SEXP (FRAME)(SEXP x) { CHKENVSXP(x); return CHK(FRAME(CHK(x))); }
+//attribute_hidden
 SEXP (ENCLOS)(SEXP x) { CHKENVSXP(x); return CHK(ENCLOS(CHK(x))); }
+//attribute_hidden
 SEXP (HASHTAB)(SEXP x) { CHKENVSXP(x); return CHK(HASHTAB(CHK(x))); }
+//attribute_hidden
 int (ENVFLAGS)(SEXP x) { CHKENVSXP(x); return ENVFLAGS(CHK(x)); }
 SEXP R_ParentEnv(SEXP x) { return (ENCLOS)(x); }
 
+attribute_hidden
 void (SET_FRAME)(SEXP x, SEXP v) { FIX_REFCNT(x, FRAME(x), v); CHECK_OLD_TO_NEW(x, v); FRAME(x) = v; }
 
+//attribute_hidden
 void (SET_ENCLOS)(SEXP x, SEXP v)
 {
     if (v == R_NilValue)
@@ -4690,13 +4711,14 @@ void (SET_ENCLOS)(SEXP x, SEXP v)
 }
 
 void (SET_HASHTAB)(SEXP x, SEXP v) { FIX_REFCNT(x, HASHTAB(x), v); CHECK_OLD_TO_NEW(x, v); HASHTAB(x) = v; }
+//attribute_hidden
 void (SET_ENVFLAGS)(SEXP x, int v) { SET_ENVFLAGS(x, v); }
 
 /* Promise Accessors */
 SEXP (PRCODE)(SEXP x) { return CHK(PRCODE(CHK(x))); }
 SEXP (PRENV)(SEXP x) { return CHK(PRENV(CHK(x))); }
 SEXP (PRVALUE)(SEXP x) { return CHK(PRVALUE(CHK(x))); }
-int (PRSEEN)(SEXP x) { return PRSEEN(CHK(x)); }
+attribute_hidden int (PRSEEN)(SEXP x) { return PRSEEN(CHK(x)); }
 attribute_hidden
 int (PROMISE_IS_EVALUATED)(SEXP x)
 {
@@ -4706,7 +4728,7 @@ int (PROMISE_IS_EVALUATED)(SEXP x)
 
 void (SET_PRENV)(SEXP x, SEXP v){ FIX_REFCNT(x, PRENV(x), v); CHECK_OLD_TO_NEW(x, v); PRENV(x) = v; }
 void (SET_PRCODE)(SEXP x, SEXP v) { FIX_REFCNT(x, PRCODE(x), v); CHECK_OLD_TO_NEW(x, v); PRCODE(x) = v; }
-void (SET_PRSEEN)(SEXP x, int v) { SET_PRSEEN(CHK(x), v); }
+attribute_hidden void (SET_PRSEEN)(SEXP x, int v) { SET_PRSEEN(CHK(x), v); }
 
 void (SET_PRVALUE)(SEXP x, SEXP v)
 {
@@ -5016,7 +5038,7 @@ NORET R_len_t R_BadLongVector(SEXP x, const char *file, int line)
 
 /* Highly experimental resizable vector support */
 
-/* Serializing and unserializing preserves the GROWABLE bit, but
+/* Serializing and unserializing used to preserve the GROWABLE bit, but
    XTRUELENGTH is set to zero by unserialize. A vector with the
    GROWABLE bit set but XTRUELENGTH zero is therefore considered not
    resizeble. */ 

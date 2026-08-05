@@ -223,7 +223,9 @@ setRlibs <-
     deps <- unique(c(names(pi$Depends), names(pi$Imports),
                      if(LinkingTo) names(pi$LinkingTo),
                      sug))
-    if(length(libdir) && self2) flink(file.path(libdir, thispkg), tmplib)
+    if(length(libdir) && self2 &&
+       dir.exists(instdir <- file.path(libdir, thispkg))) # needs do_install
+        flink(instdir, tmplib)
     ## .Library is not necessarily canonical, but the .libPaths version is.
     lp <- .libPaths()
     poss <- c(lp[length(lp)], .Library)
@@ -315,6 +317,10 @@ add_dummies <- function(dir, Log)
 {
     WINDOWS <- .Platform$OS.type == "windows"
     ## this requires on Windows: file.exe (optional)
+
+    Sys.setenv("_R_BIBTOOLS_CACHE_BIBENTRIES_" =
+                   Sys.getenv("_R_BIBTOOLS_CACHE_BIBENTRIES_",
+                              "TRUE"))
 
     wrapLog <- function(...) {
         text <- paste(..., collapse = " ")
@@ -638,7 +644,10 @@ add_dummies <- function(dir, Log)
 
         check_src()
         if(do_install &&
-           dir.exists("src") &&
+           (dir.exists("src") ||
+            length(Sys.glob(file.path(libdir, pkgname, "libs",
+                                      sprintf("*%s",
+                                              .Platform$dynlib.ext))))) &&
            length(so_symbol_names_table)) # suitable OS
             check_sos()
 
@@ -1216,7 +1225,7 @@ add_dummies <- function(dir, Log)
 
         if(!is.na(lang <- db["Language"])) {
             s <- unlist(strsplit(lang, ", *"), use.names = FALSE)
-            s <- s[!grepl(re_anchor(.make_RFC4646_langtag_regexp()), s)]
+            s <- s[!grepl(re_anchor(.make_RFC_4646_langtag_regexp()), s)]
             if(length(s)) {
                 if(!any) noteLog(Log)
                 any <- TRUE
@@ -1681,6 +1690,7 @@ add_dummies <- function(dir, Log)
                        "BUGS", "Bugs",
                        "ChangeLog", "Changelog", "CHANGELOG", "CHANGES", "Changes",
                        "INSTALL", "README", "THANKS", "TODO", "ToDo",
+                       "SHA256", "SHA256.sig",
                        "INSTALL.windows",
                        "README.md", "NEWS.md",
                        "configure", "configure.win", "cleanup", "cleanup.win",
@@ -1691,6 +1701,7 @@ add_dummies <- function(dir, Log)
                        "po", "src", "tests", "vignettes",
                        "build",       # used by R CMD build
                        ".aspell",     # used for spell checking packages
+                       "upstream",    # not used, but reserved for upstream signatures
                        "java", "tools", "noweb") # common dirs in packages.
             topfiles <- setdiff(topfiles, known)
             if (file.exists(file.path("inst", "AUTHORS")))
@@ -2318,7 +2329,8 @@ add_dummies <- function(dir, Log)
         out1 <- if (length(out1) && length(out1a)) c(out1, "", out1a)
                 else c(out1, out1a)
 
-        out2 <- out3 <- out4 <- out5 <- out6 <- out7 <- out8 <- out9 <- out10 <- NULL
+        out2 <- out3 <- out4 <- out5 <- out6 <- out7 <- out8 <- out9 <-
+            out10 <- out11 <- NULL
 
         if (!is_base_pkg && R_check_unsafe_calls) {
             Rcmd <- paste(opWarn_string, "\n",
@@ -2417,13 +2429,18 @@ add_dummies <- function(dir, Log)
             out10 <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
         }
 
+        Rcmd <- paste(opWarn_string, "\n",
+                      sprintf("tools:::.check_package_code_structure_specials(dir = \"%s\")\n",
+                              pkgdir))
+        out11 <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
+
         t2 <- proc.time()
         print_time(t1, t2, Log)
 
         if (length(out1) || length(out2) || length(out3) ||
             length(out4) || length(out5) || length(out6) ||
             length(out7) || length(out8) || length(out9) ||
-            length(out10)) {
+            length(out10) || length(out11)) {
             ini <- character()
             if(length(out4) ||
                (length(out8) &&
@@ -2489,6 +2506,10 @@ add_dummies <- function(dir, Log)
             }
             if(length(out10)) {
                 printLog0(Log, paste(c(ini, out10, ""), collapse = "\n"))
+                ini <- ""
+            }
+            if(length(out11)) {
+                printLog0(Log, paste(c(ini, out11, ""), collapse = "\n"))
                 ini <- ""
             }
         } else resultLog(Log, "OK")
@@ -2737,7 +2758,19 @@ add_dummies <- function(dir, Log)
                     out <- R_runR2(Rcmd)
                     if (length(out)) {
                         any <- TRUE
-                        warningLog(Log)
+                        ## <FIXME>
+                        ## This is terrible.  For now we only want to
+                        ## give a NOTE when all we report is functions
+                        ## missing from usages, but we cannot easily
+                        ## tell this from the printed (and partially
+                        ## localized) results.
+                        ind <- (nzchar(out) &
+                                (out !=
+                                 "Exported functions without usage information:"))
+                        if(all(startsWith(out[ind], " ")))
+                            noteLog(Log)
+                        else
+                            warningLog(Log)
                         printLog0(Log, paste(c(out, ""), collapse = "\n"))
                     }
                 }
@@ -3085,6 +3118,24 @@ add_dummies <- function(dir, Log)
                 printLog0(Log, .format_lines_with_indent(out), "\n")
             } else resultLog(Log, "OK")
         }
+
+        if(!is_base_pkg &&
+           (dir.exists("data") || file.exists("R/sysdata.rda")) &&
+           length(bad <- .check_package_data_namespace_loads("."))) {
+            ## Takes some time, so likely should eventually be
+            ## conditionalized on something like
+            ## _R_CHECK_DATA_NAMESPACE_LOADS_.
+            ## Alternatively, we could try the data load checks with
+            ## a temporary library populated by all (recursive)
+            ## strong dependencies.
+            checkingLog(Log, "namespace references in data files")
+            warningLog(Log)
+            msg <- c(strwrap("Data files with namespace references not in the recursive strong package dependencies:"),
+                     sprintf("  %s: %s", names(bad),
+                             vapply(bad, paste, "", collapse = " ")),
+                     strwrap("See section 'Data in packages' in the 'Writing R Extensions' manual.\n"))
+            printLog0(Log, paste(msg, collapse = "\n"), "\n")
+        }
     }
 
     check_doc_contents <- function()
@@ -3344,8 +3395,8 @@ add_dummies <- function(dir, Log)
         if (length(pdfs)) {
             checkingLog(Log, "sizes of PDF files under 'inst/doc'")
             if (!nzchar(Sys.which(Sys.getenv("R_QPDF", "qpdf")))) {
-                if (as_cran)
-                    warningLog(Log, "'qpdf' is needed for checks on size reduction of PDFs")
+                (if (as_cran) warningLog else infoLog)(Log,
+                    "'qpdf' is needed for checks on size reduction of PDFs")
                 return()
             }
 
@@ -3383,7 +3434,7 @@ add_dummies <- function(dir, Log)
                 } else {
                     if (!any) noteLog(Log)
                     any <- TRUE
-                    printLog(Log, "Unable to find GhostScript executable to run checks on size reduction\n")
+                    printLog(Log, "Unable to find Ghostscript executable to run checks on size reduction\n")
                 }
 
             }
@@ -4014,6 +4065,9 @@ add_dummies <- function(dir, Log)
             haveObjs <- any(grepl("^ *Object", out))
             pat <- paste("possibly from",
                          sQuote("(abort|assert|exit|_exit|_Exit|stop)"))
+            if (pkgname %in% "S7")
+                ## allow Rf_findVarInFrame for now
+                warnNonAPI <- setdiff(warnNonAPI, "Rf_findVarInFrame")
             rempat <- paste(sprintf("\\b%s\\b", warnNonAPI), collapse = "|")
             if(haveObjs && any(grepl(pat, out)) && pkgname %notin% "parallel")
                 ## need _exit in forked child
@@ -5436,8 +5490,16 @@ add_dummies <- function(dir, Log)
                 if(R_check_suppress_RandR_message)
                     out <- filtergrep('^Xlib: *extension "RANDR" missing on display',
                                       out, useBytes = TRUE)
-                warns <- grep("^Warning: file .* is not portable",
-                              out, value = TRUE, useBytes = TRUE)
+                bibwarnings <-
+                    unique(grepv("I didn't find a database entry for",
+                                 out, useBytes = TRUE))
+                warns <- c(
+                    grepv("^Warning: file .* is not portable",
+                          out, useBytes = TRUE),
+                    if (length(bibwarnings))
+                        paste(c("From the bibliography engine:", # BibTeX or biber
+                                bibwarnings), collapse = "\n  ")
+                )
                 ltx_err <- any(grepl("LaTeX error", out, ignore.case = TRUE,
                                      useBytes = TRUE))
                 iskip <- grep("^Note: skipping .* dependencies:", out,
@@ -5461,7 +5523,8 @@ add_dummies <- function(dir, Log)
                                           out, "", ""), collapse = "\n"))
                 } else if(nw <- length(warns)) {
                     any <- TRUE
-                    if(skip_run_maybe || !ran) warningLog(Log) else noteLog(Log)
+                    if(length(bibwarnings) && nw == 1L) noteLog(Log)
+                    else if(skip_run_maybe || !ran) warningLog(Log) else noteLog(Log)
                     msg <- ngettext(nw,
                                     "Warning in re-building vignettes:\n",
                                     "Warnings in re-building vignettes:\n",
@@ -5620,12 +5683,16 @@ add_dummies <- function(dir, Log)
         eq <- .Rd_get_equations_from_Rd_db(db)
 
         i1 <- (length(db) && isTRUE(R_check_Rd_validate_Rd2HTML))
-        i2 <- (length(eq) && isTRUE(R_check_Rd_math_rendering))
+        i2 <- (length(eq) && !isFALSE(R_check_Rd_math_rendering))
         if(!i1 && !i2)
             return()
 
         checkingLog(Log, "HTML version of manual")
         any <- FALSE
+
+        R_check_Rd_validate_Rd2HTML_refmans_only <-
+            config_val_to_logical(Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_REFMAN_ONLY_",
+                                             "TRUE"))
 
         t1 <- proc.time()
         if(i1) { ## validate
@@ -5644,15 +5711,21 @@ add_dummies <- function(dir, Log)
                 ## creating the package HTML refmans via pkg2HTML(),
                 ## which may find additional problems (e.g., duplicated
                 ## anchors). Not sure whether we also want to validate
-                ## the Rd2HTML() outputs for the individual Rd files.
+                ## the Rd2HTML() outputs for the individual Rd files:
+                ## one can use
+                ##   _R_CHECK_RD_VALIDATE_RD2HTML_REFMAN_ONLY_=false
+                ## for force this.
                 results1a <-
-                    lapply(db,
-                           function(x)
-                               tryCatch({
-                                   Rd2HTML(x, out, concordance = TRUE)
-                                   tidy_validate(out, tidy = Tidy)
-                               },
-                               error = identity))
+                    if(R_check_Rd_validate_Rd2HTML_refmans_only)
+                        NULL
+                    else
+                        lapply(db,
+                               function(x)
+                                   tryCatch({
+                                       Rd2HTML(x, out, concordance = TRUE)
+                                       tidy_validate(out, tidy = Tidy)
+                                   },
+                                   error = identity))
                 results1b <-
                     tryCatch({
                         stages <- c("build", "later", "install",
@@ -5671,6 +5744,10 @@ add_dummies <- function(dir, Log)
                     },
                     error = identity)
                 results1 <- c(results1a, list(results1b))
+                paths1 <-
+                    c(if(!R_check_Rd_validate_Rd2HTML_refmans_only)
+                          names(db),
+                      paste0(basename(dir), ".html"))
 
                 ignore <-
                     Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_IGNORE_EMPTY_SPANS_",
@@ -5679,11 +5756,7 @@ add_dummies <- function(dir, Log)
                               "Warning: trimming empty <span>"
                           else
                               character()
-                results1 <- tidy_validate_db(results1,
-                                             c(names(db),
-                                               paste0(basename(dir),
-                                                      ".html")),
-                                             ignore)
+                results1 <- tidy_validate_db(results1, paths1, ignore)
             }
         }
 
@@ -5740,7 +5813,7 @@ add_dummies <- function(dir, Log)
         }
 
         if(i2) { ## report on math rendering
-            if(!OK2) {
+            if(!OK2 && isTRUE(R_check_Rd_math_rendering)) {
                 if(!any) noteLog(Log)
                 any <- TRUE
                 printLog0(Log,
@@ -6111,6 +6184,21 @@ add_dummies <- function(dir, Log)
                              ": warning: .* \\[-Wclass-memaccess\\]", # gcc8
                              ## used for things deprecated in C++11, for example
                              ": warning: .* \\[-Wdeprecated\\]",
+                             ## C++20 deprecation in GCC and clang (not Apple clang 17)
+                             ": warning: .* \\[-Wdeprecated-enum-float-conversion\\]",
+                             ## Deprecated in C++20, removed in C++23
+                             ": warning: .* \\[-Wdeprecated-comma-subscript\\]",
+                             ## GCC version has 'deprecated' only in C++23.
+                             ": warning: .* \\[-Wcomma-subscript\\]",
+                             ## C++20 deprecation seen in LLVM and Apple clang
+                             ": warning: .* \\[-Wdeprecated-anon-enum-enum-conversion\\]",
+                             ## GCC >= 14 version
+                             ": warning: .* \\[-Wdeprecated-enum-enum-conversion\\]",
+                             ## C++20 deprecation -- GCC version
+                             ": warning: .* \\[-Wvolatile\\]",
+                             ## and clang version
+                             ": warning: .* \\[-Wdeprecated-volatile\\]",
+
                              ": warning: .* \\[-Waligned-new",
                              ## new in gcc 8
                              ": warning: .* \\[-Wcatch-value=\\]",
@@ -6235,6 +6323,8 @@ add_dummies <- function(dir, Log)
                              "warning: .* \\[-Wc\\+\\+2b-extensions\\]",
                              ## in clang and in Wextra for recent gcc
                              "warning: .* \\[-Wenum-conversion\\]",
+                             ## Apple clang 21 version
+                             "warning: .* \\[-Wimplicit-enum-enum-cast\\]",
                              ## LLVM clang 15 versions
                              "warning: .* \\[-Wc\\+\\+14-attribute-extensions\\]",
                              "warning: .* \\[-Wc\\+\\+17-attribute-extensions\\]",
@@ -6272,7 +6362,15 @@ add_dummies <- function(dir, Log)
                              ## selected re-defining of macros": clang
                              ": warning: .*(M_PI|INT_MIN|FCONE).* \\[-Wmacro-redefined\\]",
                              ## LLVM >= 18 clang++
-                             ": warning: .* \\[-Wdeprecated-literal-operator\\]"
+                             ": warning: .* \\[-Wdeprecated-literal-operator\\]",
+                             ## C23 warnings on some setups of GCC and clang
+                               "\\[-Wdiscarded-qualifiers\\]"
+                             )
+                ## macOS ld warnings
+                warn_re <- c(warn_re,
+                             "^ld: warning: search path .* not found",
+                             "^ld: warning: -single_module is obsolete",
+                             "^ld: warning: .*was built for newer"
                              )
 
                 ## <FIXME>
@@ -6319,6 +6417,10 @@ add_dummies <- function(dir, Log)
 
                 ## Filter out StanHeader warnings
                 ex_re <- "StanHeaders/.*\\[-Wunneeded-internal-declaration\\]"
+                lines <- filtergrep(ex_re, lines, useBytes = TRUE)
+
+                ## Filter out RcppParallel/tbb warnings from clang
+                ex_re <- "RcppParallel/include/tbb/.*\\[-Wdeprecated-volatile\\]"
                 lines <- filtergrep(ex_re, lines, useBytes = TRUE)
 
                 ## and GNU extensions in system headers
@@ -6550,6 +6652,17 @@ add_dummies <- function(dir, Log)
                     notes <- c(notes, sub("^Warning: ", "", lines[ll]))
                     lines <- lines[-ll]
                 }
+
+                if(config_val_to_logical(Sys.getenv("_R_CHECK_RCPP_NOT_NEEDED_", "FALSE"))) {
+                ## from Rcpp
+                    lines1 <- grep("LdFlags.* has not been needed since 2013",
+                                          lines0, value = TRUE, useBytes = TRUE)
+                    lines <- c(lines, unique(lines1))
+                }
+                ## Misuse of /usr/lib (32-bit on RH systems)
+                lines1 <- grep("/usr/bin/ld: skipping incompatible /usr/lib/",
+                               lines0, value = TRUE, useBytes = TRUE)
+                lines <- c(lines, unique(lines1))
 
                 if (length(lines)) {
                     warningLog(Log, "Found the following significant warnings:")
@@ -6879,7 +6992,7 @@ add_dummies <- function(dir, Log)
                         ver <- R.version
                         if (ver$status %in% c("", "Patched")) FALSE
                         else !do.call(depends$op,
-                                      list(ver[["svn rev"]],
+                                      list(as.numeric(ver[["svn rev"]]),
                                            as.numeric(sub("^r", "", depends$version))))
                     }
                     if(status != 0L)  break
@@ -7573,6 +7686,8 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_S3_METHODS_SHOW_POSSIBLE_ISSUES_" = "TRUE")
         Sys.setenv("_R_CHECK_XREFS_NOTE_MISSING_PACKAGE_ANCHORS_" = "TRUE")
         Sys.setenv("_R_CHECK_PACKAGES_USED_IN_DEMO_" = "TRUE")
+        Sys.setenv("_R_CHECK_RCPP_NOT_NEEDED_" = "TRUE")
+        Sys.setenv("_R_CHECK_URLS_SHOW_301_STATUS_" = "TRUE")
         R_check_vc_dirs <- TRUE
         R_check_executables_exclusions <- FALSE
         R_check_doc_sizes2 <- TRUE

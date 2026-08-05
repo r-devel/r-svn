@@ -1,6 +1,6 @@
 % File src/library/utils/man/RweaveLatex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2022 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{RweaveLatex}
@@ -163,9 +163,12 @@ RweaveLatexOptions(options)
 
 \section{Supported Options}{
   \code{RweaveLatex} supports the following options for code chunks (the
-  values in parentheses show the default values).  Character string
+  values in parentheses show the default values). Character string
   values should be quoted when passed from \code{\link{Sweave}} through
   \code{\dots} but not when used in the header of a code chunk.
+
+  The \emph{logical} and \emph{numerical} chunk options below may take
+  their values from objects defined in earlier, evaluated code chunks.
   \describe{
     \item{engine:}{character string (\code{"R"}).  Only chunks with
       \code{engine} equal to \code{"R"} or \code{"S"} are processed.}
@@ -191,6 +194,17 @@ RweaveLatexOptions(options)
     \item{print:}{logical (\code{FALSE}).  If \code{TRUE}, this forces
       auto-printing of all expressions.}
 
+    \item{ignore.on.weave:}{logical (\code{FALSE}). If \code{TRUE}, the
+      code chunk is ignored entirely, i.e., neither parsed nor
+      evaluated. Chunks ignored on weaving are written out on tangling
+      as normal code chunks (unless \code{ignore=TRUE})}
+    
+    \item{ignore:}{logical (\code{FALSE}). An alternative way to set
+      both \code{ignore.on.weave} and \code{ignore.on.tangle} of
+      \code{\link{Rtangle}}.}
+    
+    \item{weave:}{An alternative way to specify \code{!ignore.on.weave}.}
+
     \item{term:}{logical (\code{TRUE}).  If \code{TRUE}, visibility of
       values emulates an interactive \R session: values of assignments
       are not printed, values of single objects are printed.  If
@@ -200,10 +214,11 @@ RweaveLatexOptions(options)
     \item{split:}{logical (\code{FALSE}).  If \code{TRUE}, text output
       is written to separate files for each code chunk.}
 
-    \item{strip.white:}{character string (\code{"true"}).  If
-      \code{"true"}, blank lines at the beginning and end of output are
-      removed.  If \code{"all"}, then all blank lines are removed from
-      the output.  If \code{"false"} then blank lines are retained.
+    \item{strip.white:}{logical (\code{TRUE}) or character string
+      (\code{"true"}). If \code{TRUE} or \code{"true"}, blank lines at
+      the beginning and end of output are removed. If \code{"all"}, then
+      all blank lines are removed from the output. If \code{FALSE} or
+      \code{"false"}, then blank lines are retained.
 
       A \sQuote{blank line} is one that is empty or includes only
       whitespace (spaces and tabs).
@@ -246,15 +261,15 @@ RweaveLatexOptions(options)
 
     \item{png:}{logical (\code{FALSE}), indicating whether PNG figures
       should be generated.  Ignored if \code{fig = FALSE}.
-      Only available in \eqn{\R \ge 2.13.0}{R >= 2.13.0}.}
+      Only available in \R \eqn{\ge} 2.13.0.}
 
     \item{jpeg:}{logical (\code{FALSE}), indicating whether JPEG figures
       should be generated.  Ignored if \code{fig = FALSE}.
-      Only available in \eqn{\R \ge 2.13.0}{R >= 2.13.0}.}
+      Only available in \R \eqn{\ge} 2.13.0.}
 
     \item{grdevice:}{character (\code{NULL}): see section
       \sQuote{Custom Graphics Devices}.  Ignored if \code{fig = FALSE}.
-      Only available in \eqn{\R \ge 2.13.0}{R >= 2.13.0}.}
+      Only available in \R \eqn{\ge} 2.13.0.}
 
     \item{width:}{numeric (6), width of figures in inches.  See
       \sQuote{Details}.}
@@ -343,6 +358,33 @@ my.Swd <- function(name, width, height, ...)
   the \pkg{utils} package.
 
   \code{\link{Sweave}}, \code{\link{Rtangle}}
+}
+\examples{
+nmRnw <- "example-1.Rnw"
+exfile <- system.file("Sweave", nmRnw, package = "utils")
+
+## Check the contents of the file
+if (interactive()) file.show(exfile)
+
+## Weave the file in the current working directory
+Sweave(exfile)
+
+## View the LaTeX file
+nmtex <- sub("Rnw$", "tex", nmRnw)
+if (interactive()) file.show(nmtex)
+
+## Options may take their values from objects defined in
+## earlier code chunks
+nmRnw <- "example-2.Rnw"
+exfile <- system.file("Sweave", nmRnw, package = "utils")
+if (interactive()) file.show(exfile)
+Sweave(exfile)
+nmtex <- sub("Rnw$", "tex", nmRnw)
+if (interactive()) file.show(nmtex)
+
+## View the plot in default PDF viewer
+nmpdf <- sub("\\\\.Rnw$", "-003.pdf", nmRnw)
+if (interactive()) system2(getOption("pdfviewer"), nmpdf)
 }
 
 \keyword{utilities}

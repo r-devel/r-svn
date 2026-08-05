@@ -87,7 +87,7 @@ getOption(x, default = NULL)
 
     \item{\code{catch.script.errors}:}{logical, false by default.  If
       true \emph{and} \code{\link{interactive}()} is false, e.g., when an
-      \R script is run by \code{R CMD \link{BATCH} <script>.R}, then
+      \R script is run by \command{R CMD \link{BATCH} <script>.R}, then
       errors do \emph{not} stop execution of the script.  Rather evaluation
       continues after printing the error (and jumping to top level).
       Also, \code{\link{traceback}()} would provide info about the error.
@@ -360,14 +360,14 @@ getOption(x, default = NULL)
       option \option{--quiet}.  Note that \code{quiet} and \code{verbose}
       \emph{can} both be true.}
 
-      % verbatim, for checking " \t\n\"\\'`><=%;,|&{()}"
+      % verbatim, for checking " \t\n\"\\'`><=;,|&{()}"  -- C source : ../../../main/options.c
     \item{\code{rl_word_breaks}:}{(Unix only:) Used for the \I{readline}-based terminal
-      interface.  Default value \code{" \\t\\n\\"\\\\'`><=\%;,|&{()}"}.%"
+      interface.  Default value \code{" \\t\\n\\"\\\\'`><=;,|&{()}"}.%"
 
       This is the set of characters use to break the input line into
       tokens for object- and file-name completion.  Those who do not use
       spaces around operators may prefer\cr
-      \code{" \\t\\n\\"\\\\'`><=+-*\%;,|&{()}"}%"
+      \code{" \\t\\n\\"\\\\'`><=+-*;,|&{()}"}%"
       }
 
     \item{\code{save.defaults}, \code{save.image.defaults}:}{
@@ -700,9 +700,8 @@ getOption(x, default = NULL)
       and \code{"mathjax"}; for all other values basic substitutions are
       used. }
 
-    \item{\code{help.htmltoc}:}{default for the \code{toc} argument
-      of \code{\link{Rd2HTML}}, controlling whether a table of contents
-      should be included. }
+    \item{\code{help.htmltoc}:}{logical: whether a table of contents
+      should be included in dynamic help pages. }
 
     \item{\code{HTTPUserAgent}:}{string used as the \sQuote{user agent} in
       HTTP(S) requests by \code{\link{download.file}}, \code{\link{url}}
@@ -758,7 +757,7 @@ getOption(x, default = NULL)
       \code{\link{setRepositories}} and to select from multiple (text)
       help files in \code{\link{help}}.}
 
-    \item{\code{Ncpus}:}{an integer \eqn{n \ge 1}{n >= 1}, used in
+    \item{\code{Ncpus}:}{an integer \eqn{n \ge 1}, used in
       \code{\link{install.packages}} as default for the number of CPUs
       to use in a potentially parallel installation, as
       \code{Ncpus = getOption("Ncpus", 1L)}, i.e., when unset is

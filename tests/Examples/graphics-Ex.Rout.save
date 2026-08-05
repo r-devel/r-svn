@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2025-11-05 r88988) -- "Unsuffered Consequences"
-Copyright (C) 2025 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu
+R Under development (unstable) (2026-04-30 r89988) -- "Unsuffered Consequences"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin25.3.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -493,11 +493,9 @@ Survived 1st 2nd 3rd Crew
 > 
 > ## boxplot on a formula:
 > boxplot(count ~ spray, data = InsectSprays, col = "lightgray")
-> # *add* notches (somewhat funny here <--> warning "notches .. outside hinges"):
+> # *add* notches and do *not* warn about "notches .. outside hinges":
 > boxplot(count ~ spray, data = InsectSprays,
-+         notch = TRUE, add = TRUE, col = "blue")
-Warning in (function (z, notch = FALSE, width = NULL, varwidth = FALSE,  :
-  some notches went outside hinges ('box'): maybe set notch=FALSE
++         notch = TRUE, warnN = FALSE, add = TRUE, col = "blue")
 > 
 > boxplot(decrease ~ treatment, data = OrchardSprays, col = "bisque",
 +         log = "y")
@@ -566,8 +564,8 @@ Warning in (function (z, notch = FALSE, width = NULL, varwidth = FALSE,  :
 > ## Very similar to the example in ?boxplot
 > mat <- cbind(Uni05 = (1:100)/21, Norm = rnorm(100),
 +              T5 = rt(100, df = 5), Gam2 = rgamma(100, shape = 2))
-> boxplot(mat, main = "boxplot.matrix(...., main = ...)",
-+         notch = TRUE, col = 1:4)
+> boxplot(mat, main = "boxplot.matrix(*, main = \"...\", notch = TRUE, col = 2:5)",
++         notch = TRUE, col = 2:5)
 > 
 > 
 > 
@@ -723,7 +721,7 @@ temperature no yes
 > ### Name: clip
 > ### Title: Set Clipping Region
 > ### Aliases: clip
-> ### Keywords: dplot
+> ### Keywords: dplot iplot
 > 
 > ### ** Examples
 > 
@@ -2065,6 +2063,7 @@ armed.forces
 > plot(OrchardSprays[1], method = "jitter")
 > plot(OrchardSprays[c(4,1)])
 > plot(OrchardSprays)
+> plot(OrchardSprays, decrease ~ treatment)
 > 
 > plot(iris)
 > plot(iris[5:4])
@@ -2349,7 +2348,7 @@ N
 > points.default # to see how it calls "plot.xy(xy.coords(x, y), ...)"
 function (x, y = NULL, type = "p", ...) 
 plot.xy(xy.coords(x, y), type = type, ...)
-<bytecode: 0x148a28c60>
+<bytecode: 0x77204aa18>
 <environment: namespace:graphics>
 > 
 > 
@@ -3218,7 +3217,7 @@ function (xy = 1, warn.log = TRUE)
     u <- par("usr")
     xy * c(u[2L] - u[1L], u[4L] - u[3L])/par("pin")
 }
-<bytecode: 0x1484fa978>
+<bytecode: 0x772b2c820>
 <environment: namespace:graphics>
 > 
 > ## plot labels offset 0.12 inches to the right
@@ -3299,7 +3298,7 @@ function (xy = 1, warn.log = TRUE)
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  1.594 0.099 1.697 0 0 
+Time elapsed:  1.5 0.097 1.6 0 0 
 > grDevices::dev.off()
 null device 
           1 

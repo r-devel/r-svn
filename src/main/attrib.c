@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,15 @@ static SEXP row_names_gets(SEXP vec, SEXP val)
 	return ans;
     }
     if(isInteger(val)) {
+	if (ALTREP(val) && ! R_is_compact_intseq(val)) {
+	    // accept an ALTREP as is, but for now still allow compact
+	    // 1:n to be converted to internal compact form
+	    PROTECT(vec);
+	    PROTECT(val);
+	    ans =  installAttrib(vec, R_RowNamesSymbol, val);
+	    UNPROTECT(2); /* vec, val */
+	    return ans;
+	}
 	bool OK_compact = TRUE;
 	int i, n = LENGTH(val);
 	if(n == 2 && INTEGER_ELT(val, 0) == NA_INTEGER) {
@@ -184,6 +193,9 @@ SEXP getAttrib(SEXP vec, SEXP name)
     /* special test for c(NA, n) rownames of data frames: */
     if (name == R_RowNamesSymbol) {
 	SEXP s = getAttrib0(vec, R_RowNamesSymbol);
+	if (ALTREP(s))
+	    // to allow for special row.names attributes in packages
+	    return s;
 	if(isInteger(s) && LENGTH(s) == 2 && INTEGER(s)[0] == NA_INTEGER) {
 	    int n = abs(INTEGER(s)[1]);
 	    if (n > 0)
@@ -1228,7 +1240,7 @@ attribute_hidden SEXP do_dimgets(SEXP call, SEXP op, SEXP args, SEXP env)
     return x;
 }
 
-// called from setAttrib(vec, R_DimSymbol, val) :
+// called from setAttrib(vec, R_DimSymbol, val) and do_array()
 SEXP dimgets(SEXP vec, SEXP val)
 {
     PROTECT(vec);
@@ -1242,17 +1254,8 @@ SEXP dimgets(SEXP vec, SEXP val)
     PROTECT(val);
 
     int ndim = length(val);
-    if (ndim == 0)
-	error(_("length-0 dimension vector is invalid"));
-    R_xlen_t total = 1, len = xlength(vec);
-    for (int i = 0; i < ndim; i++) {
-	/* need this test first as NA_INTEGER is < 0 */
-	if (INTEGER(val)[i] == NA_INTEGER)
-	    error(_("the dims contain missing values"));
-	if (INTEGER(val)[i] < 0)
-	    error(_("the dims contain negative values"));
-	total *= INTEGER(val)[i];
-    }
+    R_xlen_t total = dim2total(val, ndim, _("too many elements specified")),
+	len = xlength(vec);
     if (total != len) {
 	error(_("dims [product %lld] do not match the length of object [%lld]"),
 	      (long long)total, (long long)len);

@@ -157,6 +157,7 @@ static SEXP 	xxenv(SEXP, SEXP, SEXP, YYLTYPE *);
 static SEXP     xxnewdef(SEXP, SEXP, YYLTYPE *);
 static SEXP	xxmath(SEXP, YYLTYPE *, bool);
 static SEXP	xxenterMathMode(void);
+static SEXP	xxenterDefMode(int, int);
 static SEXP	xxblock(SEXP, YYLTYPE *);
 static void	xxSetInVerbEnv(SEXP);
 static SEXP	xxpushMode(int, int, int, int);
@@ -214,8 +215,12 @@ nonMath:	Item				{ $$ = xxnewlist($1); }
 	|	nonMath Item			{ $$ = xxlist($1, $2); }
 	
 Item:		TEXT				{ xxArg($1); $$ = xxtag($1, TEXT, &@$); }
-	|	'['				{ $$ = xxtag(mkString("["), TEXT, &@$); }
-	|	']'				{ $$ = xxtag(mkString("]"), TEXT, &@$); }
+	|	'['				{ $$ = xxtag(PROTECT(mkString("[")), TEXT, &@$);
+	  UNPROTECT(1);
+	}
+	|	']'				{ $$ = xxtag(PROTECT(mkString("]")), TEXT, &@$);
+	  UNPROTECT(1);
+	}
 	|	COMMENT				{ $$ = xxtag($1, COMMENT, &@$); }
 	|	MACRO				{ xxArg(NULL);
 						  $$ = xxtag($1, MACRO, &@$); }
@@ -249,17 +254,20 @@ block:		'{' Items  '}'			{ $$ = xxblock($2, &@$); }
 
 newdefine:	NEWCMD  			{ $$ = xxpushMode(2, 1, 0, 0); }
 	        Items END_OF_ARGS		{ xxpopMode($2);
-						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
-								$3, &@$); }
+						  $$ = xxnewdef(PROTECT(xxtag($1, MACRO, &@1)),
+								$3, &@$);
+						  UNPROTECT(1); }
 	|	NEWENV  			{ $$ = xxpushMode(3, 1, 0, 0); }
                 Items END_OF_ARGS		{ xxpopMode($2);
-						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
-								$3, &@$); }
-	|	LET_OR_DEF			{ $$ = xxpushMode(2, 1, 0, 1); }
+						  $$ = xxnewdef(PROTECT(xxtag($1, MACRO, &@1)),
+								$3, &@$);
+						  UNPROTECT(1); }
+		LET_OR_DEF			{  $$ = xxenterDefMode(2, 1); }
 		Items END_OF_ARGS
 						{  xxpopMode($2);
-						  $$ = xxnewdef(xxtag($1, MACRO, &@1),
-							$3, &@$); }
+						  $$ = xxnewdef(PROTECT(xxtag($1, MACRO, &@1)),
+							$3, &@$);
+						  UNPROTECT(1); }
 %%
 
 static SEXP xxnewlist(SEXP item)
@@ -366,6 +374,10 @@ static SEXP xxenterMathMode(void) {
     parseState.xxMathMode = 1;
     return ans;
 
+}
+
+static SEXP xxenterDefMode(int args, int equals) {
+    return xxpushMode(args, 1, 0, equals);
 }
 
 static SEXP xxpushMode(int getArgs,
@@ -486,7 +498,7 @@ static void xxSetInVerbEnv(SEXP envname)
     char buffer[256];
     if (VerbatimLookup(CHAR(STRING_ELT(envname, 0)))) {
     	snprintf(buffer, sizeof(buffer), "\\end{%s}", CHAR(STRING_ELT(envname, 0)));
-	PRESERVE_SV(parseState.xxInVerbEnv = ScalarString(mkChar(buffer)));
+	PRESERVE_SV(parseState.xxInVerbEnv = mkString(buffer));
     } else parseState.xxInVerbEnv = NULL;
 }
 
@@ -501,8 +513,9 @@ static void xxsavevalue(SEXP items, YYLTYPE *lloc)
 	setAttrib(VECTOR_ELT(parseState.Value, 0), LatexTagSymbol, mkString("TEXT"));
     }	
     if (!isNull(parseState.Value)) {
-    	setAttrib(parseState.Value, R_ClassSymbol, mkString("LaTeX"));
-    	setAttrib(parseState.Value, R_SrcrefSymbol, makeSrcref(lloc, parseState.SrcFile));
+    	setAttrib(parseState.Value, R_ClassSymbol, PROTECT(mkString("LaTeX")));
+    	setAttrib(parseState.Value, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
+    	UNPROTECT(2);
     }
 }
 
@@ -811,11 +824,16 @@ static void yyerror(const char *s)
     char ErrorTranslation[PARSE_ERROR_SIZE];
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i, translated = FALSE;
+	/* Make local copy so we can modify it */
+	char s1[PARSE_ERROR_SIZE + 1];
+	strncpy(s1, s, PARSE_ERROR_SIZE);
+	s1[PARSE_ERROR_SIZE] = 0;
+
     	/* Edit the error message */    
-    	expecting = strstr(s + sizeof yyunexpected -1, yyexpecting);
+	expecting = strstr(s1 + sizeof yyunexpected -1, yyexpecting);
     	if (expecting) *expecting = '\0';
     	for (i = 0; yytname_translations[i]; i += 2) {
-    	    if (!strcmp(s + sizeof yyunexpected - 1, yytname_translations[i])) {
+	    if (!strcmp(s1 + sizeof yyunexpected - 1, yytname_translations[i])) {
     	    	if (yychar < 256 || yychar == END_OF_INPUT)
     	    	    snprintf(ErrorTranslation, sizeof(ErrorTranslation),
 			     _(yyshortunexpected), 
@@ -835,11 +853,11 @@ static void yyerror(const char *s)
     	    if (yychar < 256 || yychar == END_OF_INPUT) 
     		snprintf(ErrorTranslation, sizeof(ErrorTranslation), 
 			 _(yyshortunexpected),
-			 s + sizeof yyunexpected - 1);
+			 s1 + sizeof yyunexpected - 1);
     	    else
     	    	snprintf(ErrorTranslation, sizeof(ErrorTranslation),
 			 _(yylongunexpected),
-			 s + sizeof yyunexpected - 1, CHAR(STRING_ELT(yylval, 0)));
+			 s1 + sizeof yyunexpected - 1, CHAR(STRING_ELT(yylval, 0)));
     	}
     	if (expecting) {
  	    translated = FALSE;
@@ -1072,7 +1090,6 @@ static int mkVerb2(const char *s, int c)
     char *st1 = NULL;
     unsigned int nstext = INITBUFSIZE;
     char *stext = st0, *bp = st0;
-    int depth = 1;
     const char *macro = s;
     
     while (*s) TEXT_PUSH(*s++);
@@ -1082,15 +1099,24 @@ static int mkVerb2(const char *s, int c)
       c = xxgetc();
     }
       
-    do {
+    if (c == '}') {
+	char buffer[PARSE_ERROR_SIZE];
+	snprintf(buffer, sizeof(buffer), "unexpected '}'\n'%s' has no argument", macro);
+	yyerror(buffer);
+	return ERROR;
+    } else if (c != '{') { /* it's a one-character argument */
 	TEXT_PUSH(c);
-	c = xxgetc();
-	if (c == '{') depth++;
-	else if (c == '}') depth--;
-    } while (depth > 0 && c != R_EOF);
-
+    } else {
+	int depth = 1;
+	do {
+	    TEXT_PUSH(c);
+	    c = xxgetc();
+	    if (c == '{') depth++;
+	    else if (c == '}') depth--;
+	} while (depth > 0 && c != R_EOF);
+    }
     if (c == R_EOF) {
-	char buffer[256];
+	char buffer[PARSE_ERROR_SIZE];
 	snprintf(buffer, sizeof(buffer), "unexpected END_OF_INPUT\n'%s' is still open", macro);
 	yyerror(buffer);
 	return ERROR;

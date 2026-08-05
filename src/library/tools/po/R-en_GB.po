@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: 2024-01-20 16:20+0000\n"
 "Last-Translator: Heather Turner <ht@heatherturner.net>\n"
 "Language-Team: none\n"
@@ -306,9 +306,6 @@ msgstr "Licence stub is invalid DCF."
 msgid "License stub records with missing/empty fields:"
 msgstr "Licence stub records with missing/empty fields:"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr "Uses ACM licence: only appropriate for pre-2013 ACM TOMS code"
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "Non-portable flags in variable '%s':"
 
@@ -485,8 +482,9 @@ msgstr "Argument items with no description in Rd file '%s':"
 msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Auto-generated content requiring editing in Rd file '%s':"
 
-msgid "Rd files without \\description:"
-msgstr "Rd files without \\description:"
+#, fuzzy
+msgid "Rd files without %s:"
+msgstr "Rd files without \\alias:"
 
 msgid "no Rd sections specified"
 msgstr "no Rd sections specified"
@@ -802,9 +800,6 @@ msgstr "Run R CMD build with --no-build-vignettes to prevent rebuilding."
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "invalid value for '--compact-vignettes', assuming %s"
 
-msgid "Error: cannot rename directory to %s"
-msgstr "Error: cannot rename directory to %s"
-
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "elapsed-time limit of %g %s reached for sub-process"
 
@@ -838,11 +833,19 @@ msgstr "no packages to check"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr "'reverse$repos' should be a subset of getOption(\"repos\")"
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "downloading reverse dependencies ..."
 
-msgid "downloading %s ..."
-msgstr "downloading %s ..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "downloading reverse dependencies ..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "downloading reverse dependencies ..."
 
 msgid "checking %s ..."
 msgstr "checking %s ..."
@@ -952,20 +955,21 @@ msgstr "cannot read index information in file '%s'"
 msgid ".install_packages() exit status"
 msgstr ".install_packages() exit status"
 
-msgid "restoration failed"
-msgstr "restoration failed"
-
-msgid "invalid value"
-msgstr "invalid value"
-
-msgid "for R_CROSS_BUILD"
-msgstr "for R_CROSS_BUILD"
-
 msgid "error reading file '%s'"
 msgstr "error reading file '%s'"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "this seems to be a bundle -- and they are defunct"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "package %s successfully unpacked and MD5 sums checked"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
@@ -976,23 +980,8 @@ msgstr "generating debug symbols (%s)"
 msgid "no DLL was created"
 msgstr "no DLL was created"
 
-msgid "NOTE: fixed path"
-msgstr "NOTE: fixed path"
-
-msgid "NOTE: fixed library identification name"
-msgstr "NOTE: fixed library identification name"
-
-msgid "NOTE: fixed library path"
-msgstr "NOTE: fixed library path"
-
-msgid "NOTE: fixed rpath"
-msgstr "NOTE: fixed rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "package %s successfully unpacked and MD5 sums checked"
 
 msgid "not using staged install with --libs-only"
 msgstr "not using staged install with --libs-only"
@@ -1000,29 +989,8 @@ msgstr "not using staged install with --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "staged installation is only possible with locking"
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "WARNING: installation-time patches will not be applied, could not get the patches index"
-
 msgid "patch utility is needed for installation-time patching"
 msgstr "patch utility is needed for installation-time patching"
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr "NOTE: Skipping installation-time patch"
-
-msgid "which seems to be already applied."
-msgstr "which seems to be already applied."
-
-msgid "WARNING: failed to apply patch"
-msgstr "WARNING: failed to apply patch"
-
-msgid "Applied installation-time patch"
-msgstr "Applied installation-time patch"
-
-msgid "and saved it as"
-msgstr "and saved it as"
-
-msgid "in package installation"
-msgstr "in package installation"
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
 msgstr "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1063,26 +1031,9 @@ msgstr "ERROR: no permission to install to directory"
 msgid "building a fake installation is disallowed"
 msgstr "building a fake installation is disallowed"
 
-msgid "using C compiler:"
-msgstr "using C compiler:"
-
-msgid "using Fortran compiler:"
-msgstr "using Fortran compiler:"
-
-msgid "using C++ compiler:"
-msgstr "using C++ compiler:"
-
-msgid "using C++"
-msgstr "using C++"
-
-msgid "using SDK:"
-msgstr "using SDK:"
-
-msgid "WARNING: failed to revert patch"
-msgstr "WARNING: failed to revert patch"
-
-msgid "Reverted installation-time patch"
-msgstr "Reverted installation-time patch"
+#, fuzzy
+msgid "Input must be character"
+msgstr "'text' must be a character vector"
 
 msgid ""
 "See\n"
@@ -1192,6 +1143,13 @@ msgstr ""
 "  %s\n"
 "contains no \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "invalid package"
+
 msgid "Processing packages:"
 msgstr "Processing packages:"
 
@@ -1223,6 +1181,30 @@ msgstr "'x' must be a single character string"
 
 msgid "invalid hex string"
 msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "test '%s' is not available"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'x' must be a single character string"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "loading failed"
 
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "this requires 'objdump.exe' to be on the PATH"
@@ -1282,9 +1264,6 @@ msgstr "running 'texi2dvi' on '%s' failed"
 
 msgid "Running vignettes for package %s"
 msgstr "Running vignettes for package %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "Comparing %s to %s ..."
 
 msgid "no parsed files found"
 msgstr "no parsed files found"
@@ -1371,10 +1350,6 @@ msgstr "Writing final updated PACKAGES files."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES complete."
 
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'x' must be a single character string"
-
 msgid "test '%s' is not available"
 msgstr "test '%s' is not available"
 
@@ -1425,6 +1400,11 @@ msgstr "Unknown encoding with non-ASCII data: converting to ASCII"
 
 msgid "cannot source package code:"
 msgstr "cannot source package code:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
 
 msgid "inferiorCallError"
 msgstr ""
@@ -1597,6 +1577,3 @@ msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Corresponding BibTeX entry:"
 msgstr[1] "Corresponding BibTeX entries:"
-
-#~ msgid "one of 'package' and 'dir' must be specified."
-#~ msgstr "one of 'package' and 'dir' must be specified."

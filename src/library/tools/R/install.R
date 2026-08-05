@@ -116,7 +116,7 @@ if(FALSE) {
                     ## some shells require that they be run in a known dir
                     setwd(startdir)
                     if(system(paste("mv -f", shQuote(lp), shQuote(pkgdir))))
-                        message("  restoration failed\n")
+                        message("  restoration failed\n", domain = NA)
                 }
             }
         }
@@ -163,7 +163,9 @@ if(FALSE) {
     cross <- Sys.getenv("R_CROSS_BUILD")
     have_cross <- nzchar(cross)
     if(have_cross && !cross %in% c("x64","singlearch"))
-        stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
+        stop(gettextf("invalid value for '%s' : %s",
+                      "R_CROSS_BUILD", sQuote(cross)),
+             domain = NA)
     if (have_cross) {
         WINDOWS <- TRUE
 	Sys.setenv(R_OSTYPE = "windows")
@@ -234,6 +236,7 @@ if(FALSE) {
             "      --pkglock		use a per-package lock directory",
             "      			(default for a single package)",
             "      --build    	build binaries of the installed package(s)",
+            "      --sign		sign the installed package(s)",
             "      --install-tests	install package-specific tests (if any)",
             "      --no-R, --no-libs, --no-data, --no-help, --no-demo, --no-exec,",
             "      --no-inst",
@@ -368,14 +371,11 @@ if(FALSE) {
             dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
         }
         if (!dir.exists(instdir)) {
-            message("ERROR: unable to create ", sQuote(instdir), domain = NA)
-            do_exit_on_error()
+            errmsg("unable to create ", sQuote(instdir))
         }
 
         if (!is_subdir(instdir, lib)) {
-            message("ERROR: ", sQuote(pkg_name), " is not a legal package name",
-                    domain = NA)
-            do_exit_on_error()
+            errmsg(sQuote(pkg_name), " is not a legal package name")
         }
 
         ## Make sure we do not attempt installing to srcdir.
@@ -441,10 +441,35 @@ if(FALSE) {
         .Call(C_dirchmod, instdir, group.writable)
         is_first_package <<- FALSE
 
+        if (sign && !zip_up) {
+            starsmsg(stars, "SHA256 sums")
+            .installSHA256sums(instdir)
+            starsmsg(stars, "signing")
+            create.signature(file.path(instdir, "SHA256"),
+                             file.path(instdir, "SHA256.sig"))
+            sig <- verify.signature(file.path(instdir, "SHA256"),
+                                    file.path(instdir, "SHA256.sig"))
+            if (isTRUE(sig)) {
+                info <- attr(sig,"result")
+                starsmsg(stars, paste("signed with", info$fingerprint, info$userid))
+            }
+        }
         if (tar_up) { # Unix only
+            if (!sign) { # sign has already done this above
+                starsmsg(stars, "SHA256 sums")
+                .installSHA256sums(instdir)
+            }
             starsmsg(stars, "creating tarball")
             version <- desc["Version"]
-            filename <- if (!grepl("darwin", R.version$os)) {
+            compression <- "gzip"
+            compression_level <- 9L
+            custom.bin <- .pkg.type(.Platform$pkgType) == "other.binary"
+            filename <- if (custom.bin) {
+                build <- gsub("^([[:lower:]]+)[.]binary(|[.]([[:alnum:]_-]+))$","\\1\\2", .Platform$pkgType)
+                compression <- "xz"
+                ## we could adjust compression_level for zstd here - perhaps an env var?
+                paste0(pkg_name, "_", version, "_R_", gsub(".", "-", build, fixed=TRUE), ".tar.", compression)
+            } else if (!grepl("darwin", R.version$os)) {
                 paste0(pkg_name, "_", version, "_R_",
                        Sys.getenv("R_PLATFORM"), ".tar.gz")
             } else {
@@ -452,8 +477,8 @@ if(FALSE) {
             }
             filepath <- file.path(startdir, filename)
             owd <- setwd(lib)
-            res <- utils::tar(filepath, curPkg, compression = "gzip",
-                              compression_level = 9L,
+            res <- utils::tar(filepath, curPkg, compression = compression,
+                              compression_level = compression_level,
                               tar = Sys.getenv("R_INSTALL_TAR"))
             if (res)
                 errmsg(sprintf("packaging into %s failed", sQuote(filename)))
@@ -509,6 +534,35 @@ if(FALSE) {
                             ))
         if (res) errmsg("installing binary package failed")
 
+        sig.ok <- FALSE
+        res <- checkSHA256sums(pkg, instdir)
+        if(!is.na(res) && res) {
+            starsmsg(stars,
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg), "SHA256"))
+            if (isTRUE(file.exists(sig <- file.path(instdir, "SHA256.sig")))) {
+                res <- verifySHA256signature(pkg, instdir)
+                if(!is.na(res) && res) {
+                    sig.ok <- TRUE
+                    info <- attr(res, "result")
+                    starsmsg(stars,
+                             gettextf("package %s signature verified (%s %s)",
+                                      sQuote(pkg), info$fingerprint, info$userid))
+                }
+            }
+        } else {
+            res <- checkMD5sums(pkg, instdir)
+            if(!is.na(res) && res) {
+                starsmsg(stars,
+		     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg), "MD5"))
+	    }
+	}
+        
+        if (isTRUE(config_val_to_logical(Sys.getenv("_R_INSTALL_REQUIRE_SIGNED", "FALSE"))) &&
+            !sig.ok) errmsg(gettextf("Valid signature is required, but package %s could not be successfully verified.",
+                                       sQuote(pkg)))
+        
         if (tar_up) {
             starsmsg(stars, sQuote(pkg),
                      " was already a binary package and will not be rebuilt")
@@ -553,12 +607,16 @@ if(FALSE) {
             setwd(owd)
         }
         if (WINDOWS) {
-            if (file.exists("cleanup.ucrt"))
-                system("sh ./cleanup.ucrt")
-            else if (file.exists("cleanup.win"))
-                system("sh ./cleanup.win")
-        } else if (file_test("-x", "cleanup")) system("./cleanup")
-        else if (file.exists("cleanup"))
+            if (file.exists("cleanup.ucrt")) {
+                if (system("sh ./cleanup.ucrt"))
+                    warning("running 'cleanup.ucrt' failed", call. = FALSE, domain = NA)
+            } else if (file.exists("cleanup.win"))
+                if (system("sh ./cleanup.win"))
+                    warning("running 'cleanup.win' failed", call. = FALSE, domain = NA)
+        } else if (file_test("-x", "cleanup")) {
+            if (system("./cleanup"))
+                warning("running 'cleanup' failed", call. = FALSE, domain = NA)
+        } else if (file.exists("cleanup"))
             warning("'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'", call. = FALSE)
         revert_install_time_patches()
     }
@@ -728,10 +786,10 @@ if(FALSE) {
                         qp <- gsub("'", "\\\\'", qp)
                         cmd <- paste0("elfedit -e \"dyn:value -dynndx -s ",
                                      idxs[i], " ", qp, "\" ", shQuote(l))
-                        message(cmd)
+                        message(cmd, domain = NA)
                         ret <- suppressWarnings(system(cmd, intern = FALSE))
                         if (ret == 0)
-                            message("NOTE: fixed path ", sQuote(old_paths[i]))
+                            message("NOTE: fixed path ", sQuote(old_paths[i]), domain = NA)
                     }
                     out <- suppressWarnings(
                         system(paste("elfedit -re dyn:value", shQuote(l)), intern = TRUE))
@@ -756,13 +814,13 @@ if(FALSE) {
                                       oldid, fixed = TRUE)
                         cmd <- paste("install_name_tool -id", shQuote(newid),
                                      shQuote(l))
-                        message(cmd)
+                        message(cmd, domain = NA)
                         ret <- suppressWarnings(system(cmd, intern = FALSE))
                         if (ret == 0)
                             ## NOTE: install_name does not signal an error in
                             ## some cases
                             message("NOTE: fixed library identification name ",
-                                    sQuote(oldid))
+                                    sQuote(oldid), domain = NA)
                     }
 
                     ## change paths to other libraries
@@ -783,13 +841,13 @@ if(FALSE) {
                         cmd <- paste("install_name_tool -change",
                                      shQuote(old_paths[i]), shQuote(paths[i]),
                                      shQuote(l))
-                        message(cmd)
+                        message(cmd, domain = NA)
                         ret <- suppressWarnings(system(cmd, intern = FALSE))
                         if (ret == 0)
                             ## NOTE: install_name does not signal an error in
                             ## some cases
                             message("NOTE: fixed library path ",
-                                    sQuote(old_paths[i]))
+                                    sQuote(old_paths[i]), domain = NA)
                     }
                     out <- suppressWarnings(
                         system(paste("otool -L", shQuote(l)), intern = TRUE))
@@ -819,11 +877,11 @@ if(FALSE) {
                                          shQuote(old_paths[i]),
                                          shQuote(paths[i]),
                                          shQuote(l))
-                            message(cmd)
+                            message(cmd, domain = NA)
                             ret <- suppressWarnings(system(cmd))
                             if (ret == 0)
                                 message("NOTE: fixed rpath ",
-                                        sQuote(old_paths[i]))
+                                        sQuote(old_paths[i]), domain = NA)
                         }
                     }
 
@@ -849,10 +907,10 @@ if(FALSE) {
                         hardcoded_paths <- TRUE
                         cmd <- paste("patchelf", "--set-rpath",
                                          shQuote(rpath), shQuote(l))
-                        message(cmd)
+                        message(cmd, domain = NA)
                         ret <- suppressWarnings(system(cmd))
                         if (ret == 0)
-                            message("NOTE: fixed rpath ", sQuote(old_rpath))
+                            message("NOTE: fixed rpath ", sQuote(old_rpath), domain = NA)
                         rpath <- suppressWarnings(
                             system(paste("patchelf --print-rpath",
                                          shQuote(l)), intern = TRUE))
@@ -879,11 +937,11 @@ if(FALSE) {
                                          shQuote(old_paths[i]),
                                          shQuote(paths[i]),
                                          shQuote(l))
-                            message(cmd)
+                            message(cmd, domain = NA)
                             ret <- suppressWarnings(system(cmd))
                             if (ret == 0)
                                 message("NOTE: fixed library path ",
-                                        sQuote(old_paths[i]))
+                                        sQuote(old_paths[i]), domain = NA)
                         }
                         out <- suppressWarnings(
                             system(paste("readelf -d", shQuote(l)), intern = TRUE))
@@ -911,10 +969,10 @@ if(FALSE) {
                         hardcoded_paths <- TRUE
                         cmd <- paste("chrpath", "-r", shQuote(rpath),
                                      shQuote(l))
-                        message(cmd)
+                        message(cmd, domain = NA)
                         ret <- suppressWarnings(system(cmd))
                         if (ret == 0)
-                            message("NOTE: fixed rpath ", sQuote(old_rpath))
+                            message("NOTE: fixed rpath ", sQuote(old_rpath), domain = NA)
                         out <- suppressWarnings(
                             system(paste("chrpath", shQuote(l)), intern = TRUE))
                         rpath <- grep(".*PATH=", out, value = TRUE)
@@ -1046,11 +1104,27 @@ if(FALSE) {
                          sQuote(desc["Package"]),
                          sQuote(desc["Version"])))
 
-        res <- checkMD5sums(pkg_name, getwd())
+        res <- checkSHA256sums(pkg_name, getwd())
         if(!is.na(res) && res) {
             starsmsg(stars,
-                     gettextf("package %s successfully unpacked and MD5 sums checked",
-                              sQuote(pkg_name)))
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg_name), "SHA256"))
+            if (isTRUE(file.exists("SHA256.sig"))) {
+                res <- verifySHA256signature(pkg_name, getwd())
+                if(!is.na(res) && res) {
+                    info <- attr(res, "result")
+                    starsmsg(stars,
+                             gettextf("package %s signature verified (%s %s)",
+                                      sQuote(pkg_name), info$fingerprint, info$userid))
+                }
+            }
+        } else {
+            res <- checkMD5sums(pkg_name, getwd())
+            if(!is.na(res) && res) {
+                starsmsg(stars,
+                     gettextf("package %s successfully unpacked and %s sums checked",
+                              sQuote(pkg_name), "MD5"))
+            }
         }
 
         if (file.exists(file.path(instdir, "DESCRIPTION"))) {
@@ -1153,7 +1227,7 @@ if(FALSE) {
                     error = function(e) NULL)
 
                 if (is.null(patches_idx))
-                    message("WARNING: installation-time patches will not be applied, could not get the patches index")
+                    message("WARNING: installation-time patches will not be applied, could not get the patches index", domain = NA)
                 else {
                     patches_msg <- FALSE
                     for(p in patches_idx[[pkg_name]]) {
@@ -1179,18 +1253,18 @@ if(FALSE) {
                             if (system2("patch", args = c("--dry-run", "-R", "-p2", "--binary",
                                                           "--force"), stdin = fname) == 0)
                                 message("NOTE: Skipping installation-time patch ", purl,
-                                        " which seems to be already applied.\n")
+                                        " which seems to be already applied.\n", domain = NA)
                             else
-                                message("WARNING: failed to apply patch ", purl, "\n")
+                                message("WARNING: failed to apply patch ", purl, "\n", domain = NA)
                         } else {
                             if (system2("patch", args = c("-p2", "--binary", "--force"),
                                         stdin = fname) != 0)
                                 ## should not happen as dry-run succeeded
-                                message("WARNING: failed to apply patch ", p, "\n")
+                                message("WARNING: failed to apply patch ", p, "\n", domain = NA)
                             else
                                 message("Applied installation-time patch ", purl,
                                         " and saved it as ", fname,
-                                        " in package installation\n")
+                                        " in package installation\n", domain = NA)
                         }
                     }
                 }
@@ -2011,6 +2085,7 @@ if(FALSE) {
     pkglock <- FALSE  # set for per-package locking
     libs_only <- FALSE
     tar_up <- zip_up <- FALSE
+    sign <- FALSE
     shargs <- character()
     multiarch <- TRUE
     force_biarch <- FALSE
@@ -2103,6 +2178,8 @@ if(FALSE) {
             get_user_libPaths <- TRUE
         } else if (a == "--build") {
             if (WINDOWS) zip_up <- TRUE else tar_up <- TRUE
+        } else if (a == "--sign") {
+            sign <- TRUE
         } else if (substr(a, 1, 16) == "--data-compress=") {
             dc <- substr(a, 17, 1000)
             dc <- match.arg(dc, c("none", "gzip", "bzip2", "xz"))
@@ -2496,7 +2573,9 @@ if(FALSE) {
     cross <- Sys.getenv("R_CROSS_BUILD")
     if(nzchar(cross)) {
         if(!cross %in% c("x64", "singlearch"))
-            stop("invalid value ", sQuote(cross), " for R_CROSS_BUILD")
+            stop(gettextf("invalid value for '%s' : %s",
+                          "R_CROSS_BUILD", sQuote(cross)),
+                 domain = NA)
         WINDOWS <- TRUE
         Sys.setenv(R_ARCH = if (cross == "singlearch") "" else paste0("/", cross))
     }
@@ -2728,7 +2807,7 @@ if(FALSE) {
                      call. = FALSE, domain = NA)
             }
             if (use_cxxstd %in% c("11", "14")) {
-                message("specified C++", use_cxxstd)
+                message("specified C++", use_cxxstd, domain = NA)
                 use_cxxstd <- NULL
             }
             else if (!checkCXX(use_cxxstd)) {
@@ -2736,7 +2815,7 @@ if(FALSE) {
                             use_cxxstd, " is not defined"),
                      call. = FALSE, domain = NA)
             } else
-                message("specified C++", use_cxxstd)
+                message("specified C++", use_cxxstd, domain = NA)
         }
     }
 
@@ -2841,7 +2920,8 @@ if(FALSE) {
             cc_ver <- try(system(paste(cc, "--version"),
                                  intern = TRUE), silent = TRUE)
             if(!inherits(cc_ver, "try-error"))
-                message("using C compiler: ", sQuote(cc_ver[1L]))
+                message("using C compiler: ", sQuote(cc_ver[1L]),
+                        domain = NA) # grepped in check
         }
         if (with_f77 || with_f9x) {
             fc <- lines[grep("^FC =", lines)]
@@ -2850,7 +2930,8 @@ if(FALSE) {
             fc_ver <- try(system(paste(fc, "--version"),
                                  intern = TRUE), silent = TRUE)
             if(!inherits(fc_ver, "try-error"))
-                message("using Fortran compiler: ", sQuote(fc_ver[1L]))
+                message("using Fortran compiler: ", sQuote(fc_ver[1L]),
+                        domain = NA)
         }
         if (with_cxx) {
             cxx <- lines[grep("^CXX =", lines)]
@@ -2860,9 +2941,10 @@ if(FALSE) {
                 cxx_ver <- try(system(paste(cxx, "--version"),
                                  intern = TRUE), silent = TRUE)
                 if(!inherits(cxx_ver, "try-error")) {
-                    message("using C++ compiler: ", sQuote(cxx_ver[1L]))
+                    message("using C++ compiler: ", sQuote(cxx_ver[1L]),
+                            domain = NA)
                     if(!is.null(use_cxxstd))
-                       message("using C++", use_cxxstd)
+                       message("using C++", use_cxxstd, domain = NA)
                 }
             }
         }
@@ -2875,7 +2957,7 @@ if(FALSE) {
             if(!inherits(sdk, "try-error")) {
                 sdk <- if (length(attr(sdk, "status"))) NA_character_
                        else paste0("MacOSX", sdk, ".sdk")
-                message("using SDK: ", sQuote(sdk))
+                message("using SDK: ", sQuote(sdk), domain = NA)
             }
         }
         if (preclean) system(paste(cmd, "shlib-clean"))
@@ -3131,7 +3213,7 @@ if(FALSE) {
         ## may be slow, so add a message
         if (!silent) message("    finding HTML links ...", appendLF = FALSE, domain = NA)
         Links <- findHTMLlinks(outDir, level = 0:1)
-        if (!silent) message(" done")
+        if (!silent) message(" done", domain = NA)
         Links2 <- character()
     }
 
@@ -3148,7 +3230,7 @@ if(FALSE) {
         tryInvokeRestart("muffleWarning")
     }
     .ehandler <- function(e) {
-        message("", domain = NA) # force newline
+        message() # force newline
         unlink(ff)
         stop(conditionMessage(e), domain = NA, call. = FALSE)
     }
@@ -3316,10 +3398,10 @@ revert_install_time_patches <- function()
             if (system2("patch",
                         args = c("-p2", "--binary", "--force", "--reverse"),
                         stdin = fname) != 0)
-                message("WARNING: failed to revert patch ", p, "\n")
+                message("WARNING: failed to revert patch ", p, "\n", domain = NA)
             else
                 message("Reverted installation-time patch ", p,
-                        " in package installation\n")
+                        " in package installation\n", domain = NA)
         }
         unlink("install_time_patches", recursive = TRUE)
     }

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2025  The R Core Team.
+ *  Copyright (C) 1995--2026  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -618,25 +618,28 @@ void PrintWarnings(void)
 	if( VECTOR_ELT(R_Warnings, 0) == R_NilValue )
 	    REprintf("%s \n", CHAR(STRING_ELT(names, 0)));
 	else {
-	    const char *dcall, *msg = CHAR(STRING_ELT(names, 0));
-	    dcall = CHAR(STRING_ELT(deparse1s(VECTOR_ELT(R_Warnings, 0)), 0));
+	    const char *msg = CHAR(STRING_ELT(names, 0));
+	    const char *dcall = CHAR(STRING_ELT(deparse1s(VECTOR_ELT(R_Warnings, 0)), 0));
 	    REprintf(_("In %s :"), dcall);
 	    if (mbcslocale) {
 		int msgline1;
-		char *p = strchr(msg, '\n');
-		if (p) {
+		if (strchr(msg, '\n')) {
+		    // this branch alters msg temporarily
+		    char msg1[strlen(msg) + 1];
+		    strcpy(msg1, msg);
+		    char *p = strchr(msg1, '\n');
 		    *p = '\0';
-		    msgline1 = wd(msg);
-		    *p = '\n';
+		    msgline1 = wd(msg1);
 		} else msgline1 = wd(msg);
 		if (6 + wd(dcall) + msgline1 > LONGWARN) REprintf("\n ");
+		REprintf(" %s\n", msg);
 	    } else {
 		size_t msgline1 = strlen(msg);
-		char *p = strchr(msg, '\n');
+		const char *p = strchr(msg, '\n');
 		if (p) msgline1 = (int)(p - msg);
 		if (6 + strlen(dcall) + msgline1 > LONGWARN) REprintf("\n ");
+		REprintf(" %s\n", msg);
 	    }
-	    REprintf(" %s\n", msg);
 	}
     } else if( R_CollectWarnings <= 10 ) {
 	REprintf("%s\n", header);
@@ -651,18 +654,20 @@ void PrintWarnings(void)
 		REprintf(_("In %s :"), dcall);
 		if (mbcslocale) {
 		    int msgline1;
-		    char *p = strchr(msg, '\n');
-		    if (p) {
+		    if (strchr(msg, '\n')) {
+			// this branch alters msg temporarily
+			char msg1[strlen(msg) + 1];
+			strcpy(msg1, msg);
+			char *p = strchr(msg1, '\n');
 			*p = '\0';
-			msgline1 = wd(msg);
-			*p = '\n';
+			msgline1 = wd(msg1);
 		    } else msgline1 = wd(msg);
 		    if (10 + wd(dcall) + msgline1 > LONGWARN) {
 			REprintf("\n ");
 		    }
 		} else {
 		    size_t msgline1 = strlen(msg);
-		    char *p = strchr(msg, '\n');
+		    const char *p = strchr(msg, '\n');
 		    if (p) msgline1 = (int)(p - msg);
 		    if (10 + strlen(dcall) + msgline1 > LONGWARN) {
 			REprintf("\n ");
@@ -822,6 +827,7 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	    else Rsnprintf_mbcs(errbuf, BUFSIZE,  _("Error in %s : "), dcall);
 	    if (mbcslocale) {
 		int msgline1;
+		// tmp is local array, so OK to temporaily edit in place
 		char *p = strchr(tmp, '\n');
 		if (p) {
 		    *p = '\0';
@@ -835,7 +841,7 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 		    ERRBUFCAT(tail);
 	    } else {
 		size_t msgline1 = strlen(tmp);
-		char *p = strchr(tmp, '\n');
+		const char *p = strchr(tmp, '\n');
 		if (p) msgline1 = (int)(p - tmp);
 		if (14 + strlen(dcall) + msgline1 > LONGWARN)
 		    ERRBUFCAT(tail);
@@ -2782,13 +2788,18 @@ NORET void R_MissingArgError_c(const char* arg, SEXP call, const char* subclass)
 	call = getCurrentCall();
     PROTECT(call);
     SEXP cond;
-    if(*arg)
-	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+    Rboolean non_empty_arg = arg[0] != 0;
+    if(non_empty_arg)
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 1,
 				    _("argument \"%s\" is missing, with no default"), arg);
     else
-	cond = R_makeErrorCondition(call, "missingArgError", subclass, 0,
+	cond = R_makeErrorCondition(call, "missingArgError", subclass, 1,
 				    _("argument is missing, with no default"));
     PROTECT(cond);
+    if (non_empty_arg)
+	R_setConditionField(cond, 2, "name", install(arg));
+    else
+	R_setConditionField(cond, 2, "name", R_NilValue);
     R_signalErrorCondition(cond, call);
     UNPROTECT(2); /* not reached */
 }
@@ -2798,6 +2809,55 @@ NORET void R_MissingArgError(SEXP symbol, SEXP call, const char* subclass)
     R_MissingArgError_c(CHAR(PRINTNAME(symbol)), call, subclass);
 }
 
+NORET attribute_hidden void R_ObjectNotFoundError(SEXP sym, SEXP call,
+						  const char *mode)
+{
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (call == R_CurrentExpression)
+	call = getCurrentCall();
+    PROTECT(call);
+    SEXP cond;
+    if (mode == NULL) {
+	cond = R_makeErrorCondition(call,
+				    "objectNotFoundError", NULL, 2,
+				    _("object '%s' not found"),
+				    EncodeChar(PRINTNAME(sym)));
+	mode = "any";
+    }
+    else {
+	cond = R_makeErrorCondition(call,
+				    "objectNotFoundError", NULL, 2,
+				    _("object '%s' of mode '%s' was not found"),
+				    EncodeChar(PRINTNAME(sym)),
+				    mode);
+    }
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "name", sym);
+    R_setConditionField(cond, 3, "mode", mkString(mode));
+    R_signalErrorCondition(cond, call);
+    UNPROTECT(2); // not reached
+}
+
+NORET attribute_hidden void R_FunctionNotFoundError(SEXP sym, SEXP call)
+{
+    if (TYPEOF(sym) != SYMSXP)
+	error(_("not a symbol"));
+    if (call == R_CurrentExpression)
+	call = getCurrentCall();
+    PROTECT(call);
+    SEXP cond = R_makeErrorCondition(call,
+				     "objectNotFoundError",
+				     "functionNotFoundError",
+				     2,
+				     _("could not find function \"%s\""),
+				     EncodeChar(PRINTNAME(sym)));
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "name", sym);
+    R_setConditionField(cond, 3, "mode", mkString("function"));
+    R_signalErrorCondition(cond, call);
+    UNPROTECT(2); // not reached
+}
 
 attribute_hidden /* for now */
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val)
@@ -2965,21 +3025,44 @@ SEXP R_makeWarningCondition(SEXP call,
     return cond;
 }
 
-SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal)
+SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP input, SEXP target)
 {
     SEXP cond =
 	R_makeWarningCondition(call, "partialMatchWarning", NULL, 2,
+			       _("partial match of '%s' to '%s'"),
+ 			       TYPEOF(input) == SYMSXP ? 
+			       CHAR(PRINTNAME(input))  //EncodeChar??
+			       : translateChar(input),
+			       TYPEOF(target) == SYMSXP ?
+			       CHAR(PRINTNAME(target)) //EncodeChar??
+			       : translateChar(target));
+    PROTECT(cond);
+    R_setConditionField(cond, 2, "input", 
+			TYPEOF(input) == SYMSXP ? input :
+			ScalarString(input));
+    R_setConditionField(cond, 3, "target",
+			TYPEOF(target) == SYMSXP ? target :
+			ScalarString(target));
+    // ideally we would want the function/object in a field also
+    UNPROTECT(1); /* cond */
+    return cond;
+}
+
+SEXP R_makePartialArgumentMatchWarningCondition(SEXP call, SEXP argument, SEXP formal)
+{
+    SEXP cond =
+	R_makeWarningCondition(call, "partialMatchWarning",
+			       "partialArgumentMatchWarning", 2,
 			       _("partial argument match of '%s' to '%s'"),
 			       CHAR(PRINTNAME(argument)),//EncodeChar??
 			       CHAR(PRINTNAME(formal)));//EncodeChar??
     PROTECT(cond);
     R_setConditionField(cond, 2, "argument", argument);
     R_setConditionField(cond, 3, "formal", formal);
-    // idealy we would want the function/object in a field also
+    // ideally we would want the function/object in a field also
     UNPROTECT(1); /* cond */
     return cond;
 }
-
 
 #define PROT_SO_MSG _("protect(): protection stack overflow")
 #define EXPR_SO_MSG _("evaluation nested too deeply: infinite recursion / options(expressions=)?")

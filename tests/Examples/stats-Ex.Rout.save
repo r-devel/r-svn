@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2026-02-09 r89387) -- "Unsuffered Consequences"
+R Under development (unstable) (2026-07-22 r90289) -- "Unsuffered Consequences"
 Copyright (C) 2026 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin24.6.0
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -1266,16 +1266,16 @@ Residual standard error: 0.04103 on 7 degrees of freedom
 +         nls(conc ~ SSbiexp(time, A1, lrc1, A2, lrc2), data = datN,
 +             trace=TRUE, control = list(maxiter = 10)) )
 0.01722077  (5.34e+02): par = (0.6168807 -1.783839 2.050204 0.2004597)
-3.308944e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
-2.571079e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-1.650535e-23 (2.91e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.486470e-28 (9.76e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.475413e-28 (1.03e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+3.308943e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
+2.571069e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
+1.669346e-23 (5.53e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
+2.285755e-29 (1.59e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.345909e-29 (1.20e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
 Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  : 
   number of iterations exceeded maximum of 10
 > ## End(Don't show)
@@ -1288,13 +1288,13 @@ Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  :
 3.308942e-06  (9.08e-04): par = (0.5798674 -1.784335 2.028943 0.1920502)
   It.   2, fac=           1, eval (no.,total): ( 1,  2): new dev = 2.57108e-11
 2.571081e-11  (2.53e-06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-  It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66968e-23
-1.669677e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.667503e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
+  It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66926e-23
+1.669257e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.670550e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
 > all.equal(coef(fm1), coef(fmX1), tolerance=0) # ... rel.diff.: 1.57e-6
-[1] "Mean relative difference: 1.574121e-06"
+[1] "Mean relative difference: 1.574118e-06"
 > all.equal(coef(fm1), coef(fmX),  tolerance=0) # ... rel.diff.: 1.03e-12
-[1] "Mean relative difference: 1.031016e-12"
+[1] "Mean relative difference: 1.032123e-12"
 > ## IGNORE_RDIFF_END
 > stopifnot(all.equal(coef(fm1), coef(fmX1), tolerance = 6e-6),
 +           all.equal(coef(fm1), coef(fmX ), tolerance = 1e-11))
@@ -5177,13 +5177,14 @@ function (V)
         r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0x1092b4898>
+<bytecode: 0x5651c796f7b0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
 +             cov2cor(cov(longley, method = "kendall"))))
 > 
 > ##--- Missing value treatment:
+> uses <- c("everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs")
 > C1 <- cov(swiss)
 > range(eigen(C1, only.values = TRUE)$values) # 6.19        1921
 [1]    6.191249 1921.562488
@@ -7669,14 +7670,19 @@ sample estimates:
 odds ratio 
 0.04693661 
 
-> fisher.test(Convictions, conf.level = 0.95)$conf.int
+> (fisher.test(Convictions, conf.level = 0.95) -> ft)$conf.int
 [1] 0.003325764 0.363182271
 attr(,"conf.level")
 [1] 0.95
-> fisher.test(Convictions, conf.level = 0.99)$conf.int
+>  fisher.test(Convictions, conf.level = 0.99)$conf.int
 [1] 0.001386333 0.578851645
 attr(,"conf.level")
 [1] 0.99
+> ## if you only need the p-value, `pval.only = TRUE` is much faster for large 2x2 counts
+> fisher.test(Convictions, pval.only = TRUE) -> fastft
+> stopifnot(length(fastft) == 5, length(ft) == 7,
++           ## fastft has neither estimate nor conf.int, is otherwise the same
++           all.equal(unclass(fastft), ft[names(fastft)], tolerance = 1e-15))
 > 
 > ## A r x c table  Agresti (2002, p. 57) Job Satisfaction
 > Job <- matrix(c(1,2,1,0, 3,3,6,1, 10,10,14,9, 6,7,12,11), 4, 4,
@@ -7825,7 +7831,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x11c51e630>
+<environment: 0x5651c7933aa0>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -7858,6 +7864,22 @@ y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 +
 > formula(fm1)
 circumference ~ A/(1 + exp((B - age)/C))
 > 
+> 
+> 
+> cleanEx()
+> nameEx("free1way")
+> ### * free1way
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: free1way
+> ### Title: Distribution-free Inference in a Stratified One-Way Layout
+> ### Aliases: free1way free1way.formula free1way.table free1way.numeric
+> ###   free1way.factor print.free1way coef.free1way vcov.free1way
+> ###   logLik.free1way summary.free1way confint.free1way
+> ### Keywords: htest
+> 
+> ### ** Examples
 > 
 > 
 > cleanEx()
@@ -8387,12 +8409,27 @@ Residual Deviance: 0.01267 	AIC: 27.03
 > plot(mds2, type="n", axes=FALSE, ann=FALSE)
 > text(mds2, labels=rownames(mds2), xpd = NA)
 > 
-> hcity.D  <- hclust(UScitiesD, "ward.D") # "wrong"
-> hcity.D2 <- hclust(UScitiesD, "ward.D2")
-> opar <- par(mfrow = c(1, 2))
-> plot(hcity.D,  hang=-1)
-> plot(hcity.D2, hang=-1)
+> hcity <- list(
++     D.o = hclust(UScitiesD, "ward.D"), # "wrong"
++     D2o = hclust(UScitiesD, "ward.D2"),# similar to next two
++     D   = hclust(1/2* (UScitiesD)^2,  "ward.D"),  # Ward(1963) ESS  based
++     D2  = hclust(sqrt(1/2)*UScitiesD, "ward.D2")) #       sqrt(ESS) based
+> 
+> opar <- par(mfrow = c(2, 2), mgp = c(1.2, .3, 0), mar = .1 + c(3,4,2,1))
+>  plot(hcity$D.o, hang=-1, col=2) # different clustering than the others
+>  plot(hcity$D2o, hang=-1) # [1,2]
+>  plot(hcity$D,   hang=-1) # [2,1]
+>  plot(hcity$D2,  hang=-1) # [2,2] as above, [1,2], just y-axis numbers differ
 > par(opar)
+> mrg <- sapply(hcity, `[[`, "merge") # defining cluster tree (apart from height)
+> ht  <- sapply(hcity, `[[`, "height")
+> stopifnot(exprs = {
++    any(mrg[,2] != mrg[,1])
++        mrg[,2] == mrg[,3:4] # all eq., but the first
++    all.equal(ht[,"D2" ], sqrt(ht[,"D"]))
++    all.equal(ht[,"D2"], sqrt(1/2)*ht[,"D2o"])
++ })
+> 
 > 
 > 
 > 
@@ -8591,10 +8628,11 @@ FAMI   -3   87   84   84   96   94   94   94   98   99   99  100
 > 
 > ### Name: influence.measures
 > ### Title: Regression Deletion Diagnostics
-> ### Aliases: influence.measures hat hatvalues hatvalues.lm rstandard
-> ###   rstandard.lm rstandard.glm rstudent rstudent.lm rstudent.glm dfbeta
-> ###   dfbeta.lm dfbetas dfbetas.lm dfbetas.glm dffits dffits.lm dffits.glm
-> ###   covratio cooks.distance cooks.distance.lm cooks.distance.glm
+> ### Aliases: influence.measures hat hatvalues hatvalues.lm hatvalues.nls
+> ###   rstandard rstandard.lm rstandard.glm rstudent rstudent.lm
+> ###   rstudent.glm dfbeta dfbeta.lm dfbetas dfbetas.lm dfbetas.glm dffits
+> ###   dffits.lm dffits.glm covratio cooks.distance cooks.distance.lm
+> ###   cooks.distance.glm
 > ### Keywords: regression
 > 
 > ### ** Examples
@@ -9073,23 +9111,23 @@ totss        60.99123 60.99123
 > ## The ordering of the clusters may be platform-dependent.
 > ## IGNORE_RDIFF_BEGIN
 > (cl <- kmeans(x, 5, nstart = 25))
-K-means clustering with 5 clusters of sizes 12, 15, 25, 24, 24
+K-means clustering with 5 clusters of sizes 12, 24, 24, 15, 25
 
 Cluster means:
            x          y
 1  1.3290081  1.1185534
-2  0.8609139  1.3145869
-3 -0.1096832  0.2106891
-4  0.1581362 -0.1761590
-5  0.8043520  0.7805033
+2  0.1581362 -0.1761590
+3  0.8043520  0.7805033
+4  0.8609139  1.3145869
+5 -0.1096832  0.2106891
 
 Clustering vector:
-  [1] 3 4 3 4 3 3 4 4 3 3 5 4 3 3 4 3 4 3 4 3 4 4 3 3 4 3 4 3 3 4 4 4 3 4 3 3 3
- [38] 4 4 4 4 3 3 3 3 3 4 4 4 4 2 5 5 5 5 1 1 1 5 1 2 5 1 2 5 2 5 5 1 2 2 1 2 5
- [75] 5 1 2 2 2 2 5 2 1 5 1 5 2 5 5 5 5 1 5 2 5 5 1 5 2 5
+  [1] 5 2 5 2 5 5 2 2 5 5 3 2 5 5 2 5 2 5 2 5 2 2 5 5 2 5 2 5 5 2 2 2 5 2 5 5 5
+ [38] 2 2 2 2 5 5 5 5 5 2 2 2 2 4 3 3 3 3 1 1 1 3 1 4 3 1 4 3 4 3 3 1 4 4 1 4 3
+ [75] 3 1 4 4 4 4 3 4 1 3 1 3 4 3 3 3 3 1 3 4 3 3 1 3 4 3
 
 Within cluster sum of squares by cluster:
-[1] 1.0314888 0.7104553 2.5330710 1.2816507 1.5056575
+[1] 1.0314888 1.2816507 1.5056575 0.7104553 2.5330710
  (between_SS / total_SS =  88.4 %)
 
 Available components:
@@ -9245,7 +9283,7 @@ alternative hypothesis: the CDF of x lies below that of y
 > # with ties, example from Schröer and Trenkler (1995)
 > # D = 3/7, p = 8/33 = 0.242424..
 > ks.test(c(1, 2, 2, 3, 3),
-+         c(1, 2, 3, 3, 4, 5, 6))# -> exact
++         c(1, 2,    3, 3, 4, 5, 6))# -> exact
 
 	Exact two-sample Kolmogorov-Smirnov test
 
@@ -10875,7 +10913,7 @@ Warning in model.matrix.default(~a + b, dd, contrasts.arg = "contr.FOO") :
 	Mood two-sample test of scale
 
 data:  ramsay and jung.parekh
-Z = 1.0371, p-value = 0.2997
+Z = 1.0199, p-value = 0.3078
 alternative hypothesis: two.sided
 
 > ## Compare this to ansari.test(ramsay, jung.parekh)
@@ -11196,6 +11234,15 @@ Asym   2.3452   0.078154  30.007 2.1655e-13
 xmid   1.4831   0.081353  18.230 1.2185e-10
 scal   1.0415   0.032271  32.272 8.5069e-14
 > 
+> hatfm1 <- hatvalues(fm1DNase1) # for nls() since R 4.6.0
+> plot(resid(fm1DNase1) ~ hatfm1, xlab = quote(h[list(i,i)]),
++      main = "Residuals vs Hatvalues (nonlinear!)"); abline(h = 0, lty=2, col="gray")
+> text(resid(fm1DNase1) ~ hatfm1, subset = hatfm1 > 0.4, pos = 3, col = 2)
+> p.n <- length(coef(fm1DNase1)) / NROW(DNase1)
+> mtext(substitute( p/n == {3/16 == PN}, list(PN = p.n)))
+> abline(v = 2*p.n, col = 4, lty = 3)
+> axis(3, at=2*p.n, labels="2 p/n", line = -1/2, padj = 1/2, col=4, col.axis=4)
+> 
 > ## using conditional linearity
 > fm2DNase1 <- nls(density ~ 1/(1 + exp((xmid - log(conc))/scal)),
 +                  data = DNase1,
@@ -11402,16 +11449,16 @@ Initializing ‘Const’, ‘A’, ‘B’ to '1.'.
 Consider specifying 'start' or using a selfStart model
 1017460.306    (4.15e+02): par = (1 1 1)
 758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543745)
-269506.3538    (3.23e+02): par = (51.75719816 -13.09155956 0.8428607705)
-68969.21895    (1.03e+02): par = (76.0006985 -1.935226741 1.019085799)
-633.3672233    (1.29e+00): par = (100.3761515 8.624648407 5.104490263)
-151.4400223    (9.39e+00): par = (100.6344391 4.913490982 0.2849209561)
-53.08739887    (7.24e+00): par = (100.6830407 6.899303309 0.4637755073)
-1.344478645    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
+269506.3539    (3.23e+02): par = (51.75719815 -13.09155956 0.8428607704)
+68969.21896    (1.03e+02): par = (76.0006985 -1.93522674 1.019085799)
+633.3672231    (1.29e+00): par = (100.3761515 8.624648403 5.104490265)
+151.4400225    (9.39e+00): par = (100.6344391 4.913490981 0.2849209558)
+53.08739902    (7.24e+00): par = (100.6830407 6.899303306 0.4637755073)
+1.344478646    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
 0.9908415909   (1.55e-02): par = (100.0300625 9.9144191 0.5023516843)
 0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207337)
-0.9906046054   (9.93e-08): par = (100.028875 9.916228366 0.50252165)
-0.9906046054   (6.56e-10): par = (100.028875 9.916228388 0.5025216549)
+0.9906046054   (9.94e-08): par = (100.028875 9.916228366 0.50252165)
+0.9906046054   (5.87e-10): par = (100.028875 9.916228388 0.5025216549)
 Nonlinear regression model
   model: y ~ Const + A * exp(B * x)
    data: parent.frame()
@@ -12430,7 +12477,7 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > ### Name: plot.profile.nls
 > ### Title: Plot a 'profile.nls' Object
 > ### Aliases: plot.profile.nls
-> ### Keywords: nonlinear regression models
+> ### Keywords: nonlinear regression models hplot
 > 
 > ### ** Examples
 > 
@@ -12729,14 +12776,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x11af92b70>
-<environment: 0x11af9d3c0>
+<bytecode: 0x5651c88b56e0>
+<environment: 0x5651c8871bd8>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x11af92a20>
-<environment: 0x11af9d3c0>
+<bytecode: 0x5651c88b5590>
+<environment: 0x5651c8871bd8>
 
 > 
 > 
@@ -12804,6 +12851,21 @@ NOTE: n is number in each group
 NOTE: n is number in each group
 
 > 
+> 
+> 
+> cleanEx()
+> nameEx("power.free1way.test")
+> ### * power.free1way.test
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: power.free1way.test
+> ### Title: Power Calculations in Distribution-free Stratified One-Way
+> ###   Layouts
+> ### Aliases: rfree1way power.free1way.test
+> ### Keywords: htest
+> 
+> ### ** Examples
 > 
 > 
 > cleanEx()
@@ -13061,6 +13123,20 @@ Dickey-Fuller = -2.6899, Truncation lag parameter = 7, p-value = 0.2863
 > 
 > graphics::par(get("par.postscript", pos = 'CheckExEnv'))
 > cleanEx()
+> nameEx("ppplot")
+> ### * ppplot
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: ppplot
+> ### Title: Probability-probability Plots
+> ### Aliases: ppplot
+> ### Keywords: hplot distribution
+> 
+> ### ** Examples
+> 
+> 
+> cleanEx()
 > nameEx("ppr")
 > ### * ppr
 > 
@@ -13087,7 +13163,7 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 > # Call:
 > # ppr.formula(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 > #     nterms = 2, max.terms = 5)
@@ -13103,17 +13179,17 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 
 Projection direction vectors ('alpha'):
-      term 1      term 2     
-area1  0.34357179  0.37071027
-peri1 -0.93781471 -0.61923542
-shape  0.04961846  0.69218595
+      term 1     term 2    
+area1  0.3435718  0.3707103
+peri1 -0.9378147 -0.6192354
+shape  0.0496185  0.6921859
 
 Coefficients of ridge terms ('beta'):
    term 1    term 2 
-1.6079271 0.5460971 
+1.6079272 0.5460972 
 > # .....  (same as above)
 > # .....
 > #
@@ -16001,7 +16077,7 @@ R_heapsort(1, 11,..): l=6:
 > ### Name: screeplot
 > ### Title: Scree Plots
 > ### Aliases: screeplot screeplot.default
-> ### Keywords: multivariate
+> ### Keywords: multivariate hplot
 > 
 > ### ** Examples
 > 
@@ -16192,7 +16268,7 @@ Contrast 1 Contrast 2 Contrast 3
 > getInitial(weight ~ mySSlogis(Time, Asym, xmid, scal),
 +            data = subset(ChickWeight, Chick == 1))
      Asym      xmid      scal 
-937.03000  35.22296  11.40521 
+937.03011  35.22296  11.40521 
 > ## IGNORE_RDIFF_END
 > 
 > # 'first.order.log.model' is a function object defining a first order
@@ -16400,12 +16476,17 @@ attr(,"kind")[[2]]
 attr(,"kind")[[3]]
 [1] "Rejection"
 
+attr(,"kind")[[4]]
+[1] "BTPE"
+
 > stopifnot(identical(S2, simulate(mod1, nsim = 200, seed = sseed)))
 > 
 > ## To be sure about the proper RNGkind, e.g., after
 > RNGversion("2.7.0")
-Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding") :
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
   non-uniform 'Rounding' sampler used
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
+  Buggy BTPE algorithm used for rbinom()
 > ## first set the RNG kind, then simulate
 > do.call(RNGkind, attr(sseed, "kind"))
 > identical(S2, simulate(mod1, nsim = 200, seed = sseed))
@@ -17095,8 +17176,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x1093e2988>
-<environment: 0x11cb59160>
+<bytecode: 0x5651c7aec8d8>
+<environment: 0x5651c3164e58>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -17129,7 +17210,7 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
 > ### Keywords: ts
 > 
 > ### ** Examples
-> 
+> ## IGNORE_RDIFF_BEGIN
 > require(graphics)
 > 
 > plot(stl(nottem, "per"))
@@ -17153,12 +17234,10 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      0.009534     0.081250  0.000861      0.079370
    %  12.0        102.4       1.1         100.0   
 
- Weights: all == 1
-
  Other components: List of 5
- $ win  : Named num [1:3] 21 21 13
+ $ win  : Named int [1:3] 21 21 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 3 3 2
+ $ jump : Named int [1:3] 3 3 2
  $ inner: int 2
  $ outer: int 0
 > ## linear trend, strict period.
@@ -17183,14 +17262,14 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      606.14       116.77     80.05        707.75
    %  85.6         16.5      11.3         100.0 
 
- Weights:
+ Weights from 15 robustness iterations:
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
  0.0000  0.5594  0.9452  0.7312  0.9853  1.0000 
 
  Other components: List of 5
- $ win  : Named num [1:3] 721 19 13
+ $ win  : Named int [1:3] 721 19 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 73 2 2
+ $ jump : Named int [1:3] 73 2 2
  $ inner: int 1
  $ outer: int 15
 > op <- par(mar = c(0, 4, 0, 3), oma = c(5, 0, 4, 0), mfcol = c(4, 2))
@@ -17203,7 +17282,7 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
 > sts <- stmR$time.series
 > points(time(sts)[iO], 0.8* sts[,"remainder"][iO], pch = 4, col = "red")
 > par(op)   # reset
-> 
+> ## IGNORE_RDIFF_END
 > 
 > 
 > graphics::par(get("par.postscript", pos = 'CheckExEnv'))
@@ -19104,22 +19183,65 @@ alternative hypothesis: true location shift is greater than 0
 
 >                                             # approximation
 > 
-> wilcox.test(rnorm(10), rnorm(10, 2), conf.int = TRUE)
+> ## Confidence intervals ----------------
+> ## 2 sample:
+> set.seed(12); Z1 <- rnorm(10); Z2 <- rnorm(10, 2)
+> wilcox.test(Z1, Z2,  conf.int = TRUE)
 
 	Wilcoxon rank sum exact test
 
-data:  rnorm(10) and rnorm(10, 2)
-W = 7, p-value = 0.0004871
+data:  Z1 and Z2
+W = 4, p-value = 0.0001299
 alternative hypothesis: true location shift is not equal to 0
-95 percent confidence interval:
- -3.024352 -1.348555
+95.7 percent confidence interval:
+ -3.218076 -1.494576
 sample estimates:
 difference in location 
-             -2.262424 
+             -2.234911 
+
+> wilcox.test(Z1, Z2,  conf.int = TRUE, exact=FALSE)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  Z1 and Z2
+W = 4, p-value = 0.0005828
+alternative hypothesis: true location shift is not equal to 0
+95 percent confidence interval:
+ -3.218063 -1.494623
+sample estimates:
+difference in location 
+             -2.238656 
+
+> ## 1 sample:
+> wilcox.test(  -2:12,        conf.int = TRUE, exact=TRUE)
+
+	Wilcoxon signed rank exact test
+
+data:  -2:12
+V = 112, p-value = 0.001465
+alternative hypothesis: true location is not equal to 0
+95.5 percent confidence interval:
+ 2.5 7.5
+sample estimates:
+(pseudo)median 
+             5 
+
+> wilcox.test(c(-2:11, 1000), conf.int = TRUE, exact=FALSE)# robust
+
+	Wilcoxon signed rank test with continuity correction
+
+data:  c(-2:11, 1000)
+V = 112, p-value = 0.003119
+alternative hypothesis: true location is not equal to 0
+95 percent confidence interval:
+ 2.000036 8.500017
+sample estimates:
+(pseudo)median 
+      5.000039 
 
 > 
-> ## Formula interface.
-> boxplot(Ozone ~ Month, data = airquality)
+> ## Formula interface -- NB: boxplot notches <~~> test for median equality:
+> boxplot(Ozone ~ Month, data = airquality, notch = TRUE, warnN = FALSE)
 > wilcox.test(Ozone ~ Month, data = airquality,
 +             subset = Month %in% c(5, 8))
 
@@ -19131,7 +19253,7 @@ alternative hypothesis: true location shift is not equal to 0
 
 > 
 > ## accuracy in ties determination via 'digits.rank':
-> wilcox.test( 4:2,      3:1,     paired=TRUE) 
+> wilcox.test( 4:2,      3:1,     paired=TRUE)
 
 	Wilcoxon signed rank exact test
 
@@ -19139,7 +19261,7 @@ data:  4:2 and 3:1
 V = 6, p-value = 0.25
 alternative hypothesis: true location shift is not equal to 0
 
-> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE) 
+> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE)
 
 	Wilcoxon signed rank exact test
 
@@ -19685,7 +19807,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  1.979 0.15 2.296 0 0 
+Time elapsed:  3.059 0.271 3.435 0 0 
 > grDevices::dev.off()
 null device 
           1 

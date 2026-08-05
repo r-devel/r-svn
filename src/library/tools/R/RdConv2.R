@@ -230,7 +230,7 @@ processRdChunk <- function(code, stage, options, env, macros)
 	                  srcref = codesrcref) # retain for error locations
 	chunkexps <- tryCatch(
 	    parse(text = sub("\n$", "", as.character(code)),
-	          keep.source = options$keep.source),
+	          keep.source = options$keep.source), # FIXME: encoding="UTF-8"?
 	    error = function (e) stopRd(code, Rdfile, conditionMessage(e))
 	)
 
@@ -275,7 +275,12 @@ processRdChunk <- function(code, stage, options, env, macros)
 
 	    tmpcon <- file()
 	    sink(file = tmpcon)
-	    if(options$eval) err <- evalWithOpt(ce, options, env)
+            if(options$eval) err <- withCallingHandlers({
+                evalWithOpt(ce, options, env)
+            }, warning = function(w) {
+                warnRd(code, Rdfile, conditionMessage(w))
+                tryInvokeRestart("muffleWarning")
+            })
 	    res <- c(res, "\n") # attempt to  make sure final line is complete
 	    sink()
 	    output <- readLines(tmpcon, warn = FALSE) # sometimes attempt fails.
@@ -878,6 +883,7 @@ checkRd <- function(Rd, defines = .Platform$OS.type, stages = "render",
                "\\var" =,
                "\\verb"= checkContent(block, tag),
                "\\linkS4class" =,
+               "\\linkS4methods" =,
                "\\link" = checkLink(tag, block),
                "\\email" = {
                    checkEmail(block)
@@ -1003,6 +1009,7 @@ checkRd <- function(Rd, defines = .Platform$OS.type, stages = "render",
                    },
                    ## these are valid in \code, at least
                    "\\linkS4class" =,
+                   "\\linkS4methods" =,
                    "\\link" = checkLink(tag, block),
                    "\\method" =,
                    "\\S3method" =,

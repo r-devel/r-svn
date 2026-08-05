@@ -23,7 +23,13 @@ function()
 R_bibentries <-
 function()
 {
-    readRDS(file.path(R_bibliographies_dir(), "R.rds"))
+    if(.bibtools_cache_bibentries() &&
+       !is.null(bib <- .bibtools_bibentries_cache("R")))
+        return(bib)
+    bib <- readRDS(file.path(R_bibliographies_dir(), "R.rds"))
+    if(.bibtools_cache_bibentries())
+        .bibtools_bibentries_cache("R", bib)
+    bib
 }
 
 ## utils:::.bibentry_get_key
@@ -46,15 +52,17 @@ function(keys)
     brp <- if(!all(ind)) {
                ## Bibentries for base R and current package maybe.
                rdfile <- processRdChunk_data_store()$Rdfile
-               dir <- dirname(normalizePath(rdfile, mustWork = FALSE))
-               if(basename(dir) %in% c("unix", "windows"))
-                   dir <- dirname(dir)
-               dir <- if(basename(dir) == "man") {
-                          dir <- dirname(dir)
-                          c(dir, file.path(dir, "inst"))
-                      } else character()
-               c(R_bibentries(),
-                 .bibentries_from_REFERENCES(dir))
+               if (length(rdfile)) {
+                   dir <- dirname(normalizePath(rdfile, mustWork = FALSE))
+                   if(basename(dir) %in% c("unix", "windows"))
+                       dir <- dirname(dir)
+                   dir <- if(basename(dir) == "man") {
+                              file.path(dirname(dir), "inst")
+                          } else character()
+               } else # assume current directory is package root (as in build)
+                   dir <- "inst"
+               c(.bibentries_from_REFERENCES(dir, "."),
+                 R_bibentries())
            } else NULL
     if(!any(ind)) {
         ## Special-case for efficiency.
@@ -75,7 +83,7 @@ function(keys)
                        brp
                    else {
                        dir <- system.file(package = pj)
-                       .bibentries_from_REFERENCES(dir)
+                       .bibentries_from_REFERENCES(dir, pj)
                    }
             kj <- keys[i[[j]]]
             pos <- match(sub(".*::", "", kj),
@@ -100,18 +108,28 @@ function(keys)
 }
 
 .bibentries_from_REFERENCES <-
-function(dir)
+function(dir, pkg)
 {
+    if(!length(pkg))
+        return(utils::bibentry())
+    bib <- NULL
+    if(.bibtools_cache_bibentries() &&
+       !is.null(bib <- .bibtools_bibentries_cache(pkg)))
+        return(bib)
     for(d in dir[nzchar(dir)]) {
-        if(file.exists(path <- file.path(d, "REFERENCES.rds")))
-            return(readRDS(path))
+        bib <- if(file.exists(path <- file.path(d, "REFERENCES.rds")))
+            readRDS(path)
         else if(file.exists(path <- file.path(d, "REFERENCES.R")))
-            return(utils::readCitationFile(path,
-                                           list(Encoding = "UTF-8")))
+            .read_bibentries(path)
         else if(file.exists(path <- file.path(d, "REFERENCES.bib")))
-            return(`names<-`(bibtex::read.bib(path), NULL))
+            `names<-`(bibtex::read.bib(path), NULL)
+        if(!is.null(bib)) {
+            if(.bibtools_cache_bibentries())
+                .bibtools_bibentries_cache(pkg, bib)
+            return(bib)
+        }
     }
-    utils::bibentry()        
+    utils::bibentry()
 }
 
 .bibentries_from_bibtex <-
@@ -141,7 +159,33 @@ function(file, text)
 
 .read_bibentries <-
 function(file)
-    utils::readCitationFile(file, list(Encoding = "UTF-8"))
+{
+    exprs <- .parse_CITATION_file(file, "UTF-8")
+    oknms_from_base <-
+        c("c", "list", "paste", "paste0", "(")
+    oknms_from_utils <-
+        c("bibentry", "person", "as.person")
+    oknms <- c(oknms_from_utils, oknms_from_base)
+    env <- new.env(parent = emptyenv())
+    for(n in oknms_from_base)
+        assign(n, get(n, baseenv()), env)
+    for(n in oknms_from_utils)
+        assign(n, get(n, getNamespace("utils")), env)
+    fun <- function(e) {
+        msg <- c("Found the following non-standard call:",
+                 sprintf("  %s", deparse1(e$call)),
+                 strwrap(sprintf("Please only use calls to %s.", 
+                                 paste(sQuote(oknms[-length(oknms)]),
+                                       collapse = ", "))))
+        msg <- paste(msg, collapse = "\n")
+        stop(msg, call. = FALSE)
+        ## Alternatively,
+        ##   warning(msg, call. = FALSE)
+        ##   return(utils::bibentry())
+    }
+    tryCatch(do.call(c, lapply(exprs, eval, env)),
+             functionNotFoundError = fun)
+}
 
 .dump_bibentries <-
 function(bib, con = stdout())
@@ -245,7 +289,9 @@ function(dir)
     y
 }
 
-.bibentries_cited_or_shown <- function(x) {
+.bibentries_cited_or_shown <-
+function(x)
+{
     tab <- NULL
     recurse <- function(e) {
         if(identical(attr(e, "Rd_tag"), "USERMACRO") &&
@@ -260,27 +306,57 @@ function(dir)
     tab
 }
 
-## This somewhat duplicates the code in the helpers: ideally we could
-## have the same code for extracting the keys ...
 .bibkeys_from_cite <-
 function(x)
 {
     x <- trimws(x)
-    given <- strsplit(x, "(?<!\\\\),[[:space:]]*", perl = TRUE)[[1L]]
-    parts <- regmatches(given, gregexpr("|", given, fixed = TRUE),
-        invert = TRUE)
-    keys <- rep_len("", length(parts))
-    if (any(ind <- (lengths(parts) == 1L))) {
-        keys[ind] <- unlist(parts[ind], use.names = FALSE)
+    m <- gregexpr("|", x, fixed = TRUE)
+    if (m[[1L]][1L] == -1L) { # simple keys
+        strsplit(x, ",[[:space:]]*", perl = TRUE)[[1L]]
+    } else { # a single citespec: before|key|after
+        parts <- regmatches(x, m, invert = TRUE)[[1L]]
+        if (length(parts) == 3L) {
+            structure(parts[2L], before = parts[1L], after = parts[3L])
+        } else {
+            warning("Ignoring invalid citation specification\n  ",
+                    sQuote(x), call. = FALSE, domain = NA)
+            character()
+        }
     }
-    if (any(ind <- (lengths(parts) == 3L))) {
-        keys[ind] <- vapply(parts[ind], `[`, "", 2L)
-    }
-    keys
 }
 
-.bibkeys_from_show <- function(x)
+.bibkeys_from_show <-
+function(x)
 {
     x <- trimws(x)
-    strsplit(x, ",[[:space:]]*")[[1L]]
+    strsplit(x, ",[[:space:]]*", perl = TRUE)[[1L]]
 }
+
+.bibtools_cache_bibentries <- local({
+    val <- FALSE
+    function(new) {
+        if(!missing(new)) {
+            ## <FIXME>
+            ## Ideally we would do 
+            ##   val <<- config_val_to_logical(new)
+            ## But that needs utils, and we need to set this when
+            ## loading.  So if we really want/need to make caching
+            ## customizable, the best we can do is something like
+            val <<- isTRUE(as.logical(new))
+            ## </FIXME>
+        } else
+            val
+    }
+})
+
+.bibtools_bibentries_cache <- local({
+    val <- list()
+    function(pkg, bib) {
+        if(missing(pkg))
+            val
+        else if(missing(bib))
+            val[[pkg]]
+        else
+            val[[pkg]] <<- bib
+    }
+})

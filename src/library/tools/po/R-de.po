@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R-4.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: 2025-07-10 15:25+0200\n"
 "Last-Translator: Detlef Steuer <steuer@hsu-hh.de>\n"
 "Language-Team: R Core <r-core@r-project.org>\n"
@@ -311,9 +311,6 @@ msgstr "Lizenzkürzel ist unzulässig laut DCF."
 msgid "License stub records with missing/empty fields:"
 msgstr "Lizenzkürzel Eintrag mit fehlenden/leeren Einträgen:"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr "Benutzt die ACM Lizenz: nur zulässig für ACM TOMS Kode vor 2013"
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "Nicht portierbare Flags in der Variablen '%s'"
 
@@ -492,8 +489,9 @@ msgstr "Argumenteinträge ohne Beschreibung in Rd Datei '%s':"
 msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Automatisch generierter Inhalt benötigt noch Bearbeitung in Rd Datei '%s':"
 
-msgid "Rd files without \\description:"
-msgstr "Rd Dateien ohne \\description"
+#, fuzzy
+msgid "Rd files without %s:"
+msgstr "Rd Dateien ohne \\alias:"
 
 msgid "no Rd sections specified"
 msgstr "kein Rd Abschnitt angegeben"
@@ -672,9 +670,6 @@ msgstr "Datei '%s' nicht gefunden"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "Vignetten-Dateiname '%s' passt zu keinem der %s' Dateinamenmuster"
 
-msgid "+-+"
-msgstr "+-+"
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "In '%s' Vignetten '%s' und '%s' haben denselben Vignetten-Namen"
 
@@ -809,9 +804,6 @@ msgstr "Starte R CMD build with --no-build-vignettes um das erneute Erzeugen der
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "unzulässiger Wert für '--compact-vignettes', nehme %s an"
 
-msgid "Error: cannot rename directory to %s"
-msgstr "Fehler: kann Verzeichnis nicht in %s umbenennen"
-
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "Grenze für Zeitverbrauch von %g %s für Subprozess erreicht"
 
@@ -845,11 +837,19 @@ msgstr "keine Pakete zu überprüfen"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr "'reverse$repos' sollte eine Teilmenge von getOption(\"repos\") sein"
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "lade umgekehrte Abhängigkeiten herunter ..."
 
-msgid "downloading %s ..."
-msgstr "Herunterladen von %s ..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "lade umgekehrte Abhängigkeiten herunter ..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "lade umgekehrte Abhängigkeiten herunter ..."
 
 msgid "checking %s ..."
 msgstr "überprüfe %s ..."
@@ -959,20 +959,21 @@ msgstr "kann die Indexinformation in Datei '%s' nicht lesen"
 msgid ".install_packages() exit status"
 msgstr "install_packages() Exitstatus"
 
-msgid "restoration failed"
-msgstr "Wiederherstellung fehlgeschlagen"
-
-msgid "invalid value"
-msgstr "ungültiger Wert"
-
-msgid "for R_CROSS_BUILD"
-msgstr "für R_CROSS_BUILD"
-
 msgid "error reading file '%s'"
 msgstr "Fehler beim Lesen der Datei '%s'"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "sieht aus wie ein Bundle -- und diese funktionieren nicht mehr"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "Paket %s erfolgreich entpackt und MD5 Summen überprüft"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' existiert, ist aber nicht ausführbar -- bitte im 'R Installation and Administration Manual' nachlesen"
@@ -983,23 +984,8 @@ msgstr "erzeuge Debug-Symbole (%s)"
 msgid "no DLL was created"
 msgstr "keine DLL erzeugt"
 
-msgid "NOTE: fixed path"
-msgstr "Bemerkung: gefixter Pfad"
-
-msgid "NOTE: fixed library identification name"
-msgstr "Bemerkung: gefixter Bibliotheksidentifikationsname"
-
-msgid "NOTE: fixed library path"
-msgstr "Bemerkung: gefixter Bibliothekspfad"
-
-msgid "NOTE: fixed rpath"
-msgstr "Bemerkung: gefixter rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "Warnung: geteilte Objekte/dynamische Bibliotheken mit fest-kodierten temporären Installationspfaden"
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "Paket %s erfolgreich entpackt und MD5 Summen überprüft"
 
 msgid "not using staged install with --libs-only"
 msgstr "staged install wird nicht genutzt mit --libs-only"
@@ -1007,29 +993,8 @@ msgstr "staged install wird nicht genutzt mit --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "staged install ist nur mit locking möglich"
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "Warnung: Patches zur Installationszeit werden nicht angewandt, konnte nicht auf den Patchindex zugreifen"
-
 msgid "patch utility is needed for installation-time patching"
 msgstr "Das patch Utility wird für Installationszeit Patches benötigt"
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr "Bemerkung: Überspringe Installationszeit-Patch"
-
-msgid "which seems to be already applied."
-msgstr "welches anscheinend schon angewendet wurde"
-
-msgid "WARNING: failed to apply patch"
-msgstr "Warnung: Anwenden des Patches fehlgeschlagen"
-
-msgid "Applied installation-time patch"
-msgstr "Installations-Zeit Patch angewendet"
-
-msgid "and saved it as"
-msgstr "und gespeichert als"
-
-msgid "in package installation"
-msgstr "in Paketinstallation"
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
 msgstr "Das R include Verzeichnis ist leer -- evtl. muss das R-devel Paket installiert werden"
@@ -1070,26 +1035,9 @@ msgstr "Fehler: keine ausreichenden Rechte zur Installation in das Verzeichnis"
 msgid "building a fake installation is disallowed"
 msgstr "eine Scheininstallation ist nicht erlaubt"
 
-msgid "using C compiler:"
-msgstr "nutze C Compiler:"
-
-msgid "using Fortran compiler:"
-msgstr "nutze Fortran Compiler:"
-
-msgid "using C++ compiler:"
-msgstr "nutze C++ Compiler:"
-
-msgid "using C++"
-msgstr "nuzte C++"
-
-msgid "using SDK:"
-msgstr "nutze SDK:"
-
-msgid "WARNING: failed to revert patch"
-msgstr "Warnung: Reverting Patch fehlgeschlagen"
-
-msgid "Reverted installation-time patch"
-msgstr "Kehre Installations-Zeit Patch um"
+#, fuzzy
+msgid "Input must be character"
+msgstr "'text' muss ein Zeichenkettenvektor sein"
 
 msgid ""
 "See\n"
@@ -1197,6 +1145,13 @@ msgstr ""
 "  %s\n"
 "enthält kein \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "ungültiges Paket"
+
 msgid "Processing packages:"
 msgstr "Bearbeitete Pakete:"
 
@@ -1227,6 +1182,29 @@ msgstr "x muss eine einzelne Zeichenkette sein"
 
 msgid "invalid hex string"
 msgstr "ungültige hex Zeichenkette"
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "Test '%s' nicht verfügbar"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+msgid "'%s' must be a character string"
+msgstr "'%s' muss eine Zeichenkette sein"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "Laden fehlgeschlagen"
 
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "hierfür muss 'objdump.exe' im PATH sein"
@@ -1284,9 +1262,6 @@ msgstr "Fehler: Ausführen der Tests in %s fehlgeschlagen"
 
 msgid "Running vignettes for package %s"
 msgstr "Ausführen der Vignetten für das Paket %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "Vergleiche %s mit %s ..."
 
 msgid "no parsed files found"
 msgstr "keine geparsten Dateien gefunden"
@@ -1373,9 +1348,6 @@ msgstr "Schreibe finale, aktualisierte PACKAGES Dateien."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES abgeschlossen."
 
-msgid "'%s' must be a character string"
-msgstr "'%s' muss eine Zeichenkette sein"
-
 msgid "test '%s' is not available"
 msgstr "Test '%s' nicht verfügbar"
 
@@ -1426,6 +1398,11 @@ msgstr "Unbekannte Kodierung mit nicht-ASCII Daten: konvertiere nach ASCII"
 
 msgid "cannot source package code:"
 msgstr "kann Paketquelltext nicht einlesen:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
 
 msgid "inferiorCallError"
 msgstr "inferiorCallError"
@@ -1597,6 +1574,27 @@ msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Zugehöriger BibTeX Eintrag:"
 msgstr[1] "Zugehörige BibTeX Einträge:"
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Fehler: kann Verzeichnis nicht in %s umbenennen"
+
+#~ msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
+#~ msgstr "Benutzt die ACM Lizenz: nur zulässig für ACM TOMS Kode vor 2013"
+
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Rd Dateien ohne \\description"
+
+#~ msgid "downloading %s ..."
+#~ msgstr "Herunterladen von %s ..."
+
+#~ msgid "invalid value"
+#~ msgstr "ungültiger Wert"
+
+#~ msgid "for R_CROSS_BUILD"
+#~ msgstr "für R_CROSS_BUILD"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "Vergleiche %s mit %s ..."
 
 #, fuzzy
 #~ msgid "one of 'package' and 'dir' must be specified."

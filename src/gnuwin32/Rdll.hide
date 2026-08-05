@@ -81,10 +81,14 @@
  DefaultPalette
  ENABLE_REFCNT
  ENSURE_NAMED
+ EXTPTR_PROT
+ EXTPTR_PTR
+ EXTPTR_TAG
  EhiWakeUp
  EncodeEnvironment
  EncodeExtptr
  EncodeReal2
+ GROWABLE_BIT_SET
  HASHASH
  IF_PROMSXP_SET_PRVALUE
  INCREMENT_REFCNT
@@ -93,6 +97,7 @@
  IS_ACTIVE_BINDING
  IS_ASSIGNMENT_CALL
  IS_BYTES
+ IS_GROWABLE
  IS_LATIN1
  IS_SPECIAL_SYMBOL
  InitDynload
@@ -113,6 +118,7 @@
  NO_SPECIAL_SYMBOLS
  PROMISE_IS_EVALUATED
  PROMISE_TAG
+ PRSEEN
  PrintUsage
  ProfileEvent
  RAISE_NAMED
@@ -364,6 +370,7 @@
  R_run_onexits
  R_seemsOldStyleS4Object
  R_setConditionField
+ R_shallow_duplicate_attr
  R_signalErrorCondition
  R_signalErrorConditionEx
  R_strftime
@@ -440,6 +447,7 @@
  Rf_LogicalFromInteger
  Rf_LogicalFromReal
  Rf_LogicalFromString
+ Rf_NonNullStringMatch
  Rf_OneIndex
  Rf_PrintGreeting
  Rf_PrintValueEnv
@@ -501,6 +509,7 @@
  Rf_installS3Signature
  Rf_isUnmodifiedSpecSym
  Rf_isValidName
+ Rf_lazy_duplicate
  Rf_lfastchoose
  Rf_lgammacor
  Rf_lookupCachedSymbol
@@ -576,6 +585,7 @@
  Rvsnprintf_mbcs
  Rwin_rename
  Rwin_wrename
+ SETLENGTH
  SETTER_CLEAR_NAMED
  SET_ACTIVE_BINDING_BIT
  SET_ASCII
@@ -586,11 +596,17 @@
  SET_BNDCELL_IVAL
  SET_BNDCELL_LVAL
  SET_BNDCELL_TAG
+ SET_BODY
  SET_BYTES
  SET_CACHED
+ SET_CLOENV
  SET_CXTAIL
  SET_DDVAL
+ SET_FORMALS
+ SET_FRAME
+ SET_GROWABLE_BIT
  SET_HASHASH
+ SET_HASHTAB
  SET_INTERNAL
  SET_LATIN1
  SET_MAYBEJIT
@@ -600,13 +616,17 @@
  SET_PRIMOFFSET
  SET_PRINTNAME
  SET_PROMISE_TAG
+ SET_PRSEEN
  SET_RSTEP
  SET_RTRACE
  SET_SPECIAL_SYMBOL
  SET_SYMVALUE
+ SET_TRUELENGTH
  SET_UTF8
+ STDVEC_DATAPTR
  Sys_TempDir
  TRACKREFS
+ TRUELENGTH
  UNIMPLEMENTED_TYPEt
  UNLOCK_BINDING
  UNSET_BASE_SYM_CACHED
@@ -618,6 +638,7 @@
  WinCheckUTF8
  WinUTF8out
  WrongArgCount
+ XTRUELENGTH
  _controlify
  _hershey_font_info
  _nl_explode_name
@@ -723,6 +744,7 @@
  csroot_
  dblep0_
  deleditordata
+ dim2total
  dispatch_length
  dispatch_subset2
  dispatch_xlength
