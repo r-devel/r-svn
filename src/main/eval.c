@@ -933,6 +933,27 @@ attribute_hidden void check_stack_balance(SEXP op, int save)
 	     PRIMNAME(op), save, R_PPStackTop);
 }
 
+/* Calls to a primitive's C function go through this so that the
+   primitive's use of the protection stack is checked: it must leave the
+   stack balanced, and (in a strict barrier build) must not unprotect
+   values belonging to its caller.  The AST interpreter has always
+   checked balance around its own dispatch sites and continues to do so;
+   routing the byte code interpreter through here gives compiled code
+   the same coverage.  R_OpenPPFrame/R_ClosePPFrame are no-ops unless R
+   is configured with --enable-strict-barrier. */
+attribute_hidden SEXP R_callPrimFun(SEXP fun, SEXP call, SEXP args, SEXP rho)
+{
+    int savedfloor = R_OpenPPFrame();
+    int save = R_PPStackTop;
+
+    SEXP value = PRIMFUN(fun) (call, fun, args, rho);
+
+    R_ClosePPFrame(savedfloor);
+    check_stack_balance(fun, save);
+
+    return value;
+}
+
 #define ENSURE_PROMISE_IS_EVALUATED(x) do {	\
 	SEXP __x__ = (x);			\
 	if (! PROMISE_IS_EVALUATED(__x__))	\
@@ -1227,7 +1248,7 @@ SEXP eval(SEXP e, SEXP rho)
 	    const void *vmax = vmaxget();
 	    PROTECT(e);
 	    R_Visible = flag != 1;
-	    tmp = PRIMFUN(op) (e, op, CDR(e), rho);
+	    tmp = R_callPrimFun(op, e, CDR(e), rho);
 #ifdef CHECK_VISIBILITY
 	    if(flag < 2 && R_Visible == flag) {
 		char *nm = PRIMNAME(op);
@@ -1255,11 +1276,11 @@ SEXP eval(SEXP e, SEXP rho)
 		begincontext(&cntxt, CTXT_BUILTIN, e,
 			     R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
 		R_Srcref = NULL;
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
+		tmp = R_callPrimFun(op, e, tmp, rho);
 		R_Srcref = oldref;
 		endcontext(&cntxt);
 	    } else {
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
+		tmp = R_callPrimFun(op, e, tmp, rho);
 	    }
 #ifdef CHECK_VISIBILITY
 	    if(flag < 2 && R_Visible == flag) {
@@ -2424,7 +2445,7 @@ SEXP R_forceAndCall(SEXP e, int n, SEXP rho)
 	int flag = PRIMPRINT(fun);
 	PROTECT(e);
 	R_Visible = flag != 1;
-	tmp = PRIMFUN(fun) (e, fun, CDR(e), rho);
+	tmp = R_callPrimFun(fun, e, CDR(e), rho);
 	if (flag < 2) R_Visible = flag != 1;
 	UNPROTECT(1);
     }
@@ -2440,11 +2461,11 @@ SEXP R_forceAndCall(SEXP e, int n, SEXP rho)
 	    begincontext(&cntxt, CTXT_BUILTIN, e,
 			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
 	    R_Srcref = NULL;
-	    tmp = PRIMFUN(fun) (e, fun, tmp, rho);
+	    tmp = R_callPrimFun(fun, e, tmp, rho);
 	    R_Srcref = oldref;
 	    endcontext(&cntxt);
 	} else {
-	    tmp = PRIMFUN(fun) (e, fun, tmp, rho);
+	    tmp = R_callPrimFun(fun, e, tmp, rho);
 	}
 	if (flag < 2) R_Visible = flag != 1;
 	UNPROTECT(1);
@@ -8082,13 +8103,13 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  checkForMissings(args, call);
 	  flag = PRIMPRINT(fun);
 	  R_Visible = flag != 1;
-	  value = PRIMFUN(fun) (call, fun, args, rho);
+	  value = R_callPrimFun(fun, call, args, rho);
 	  if (flag < 2) R_Visible = flag != 1;
 	  break;
 	case SPECIALSXP:
 	  flag = PRIMPRINT(fun);
 	  R_Visible = flag != 1;
-	  value = PRIMFUN(fun) (call, fun, markSpecialArgs(CDR(call)), rho);
+	  value = R_callPrimFun(fun, call, markSpecialArgs(CDR(call)), rho);
 	  if (flag < 2) R_Visible = flag != 1;
 	  break;
 	case CLOSXP:
@@ -8143,11 +8164,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    begincontext(&cntxt, CTXT_BUILTIN, call,
 			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
 	    R_Srcref = NULL;
-	    value = PRIMFUN(fun) (call, fun, args, rho);
+	    value = R_callPrimFun(fun, call, args, rho);
 	    R_Srcref = oldref;
 	    endcontext(&cntxt);
 	} else {
-	    value = PRIMFUN(fun) (call, fun, args, rho);
+	    value = R_callPrimFun(fun, call, args, rho);
 	}
 	if (flag < 2) R_Visible = flag != 1;
 	vmaxset(vmax);
@@ -8167,7 +8188,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	}
 	flag = PRIMPRINT(fun);
 	R_Visible = flag != 1;
-	SEXP value = PRIMFUN(fun) (call, fun, markSpecialArgs(CDR(call)), rho);
+	SEXP value = R_callPrimFun(fun, call, markSpecialArgs(CDR(call)), rho);
 	if (flag < 2) R_Visible = flag != 1;
 	vmaxset(vmax);
 	BCNPUSH(value);
@@ -8508,7 +8529,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  SETCAR(args, lhs);
 	  /* make the call */
 	  checkForMissings(args, call);
-	  value = PRIMFUN(fun) (call, fun, args, rho);
+	  value = R_callPrimFun(fun, call, args, rho);
 	  break;
 	case SPECIALSXP:
 	  /* duplicate arguments and protect */
@@ -8524,7 +8545,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  prom = mkRHSPROMISE(vexpr, rhs);
 	  SETCAR(last, prom);
 	  /* make the call */
-	  value = PRIMFUN(fun) (call, fun, args, rho);
+	  value = R_callPrimFun(fun, call, args, rho);
 	  UNPROTECT(1);
 	  break;
 	case CLOSXP:
@@ -8561,7 +8582,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  SETCAR(args, lhs);
 	  /* make the call */
 	  checkForMissings(args, call);
-	  value = PRIMFUN(fun) (call, fun, args, rho);
+	  value = R_callPrimFun(fun, call, args, rho);
 	  break;
 	case SPECIALSXP:
 	  /* duplicate arguments and put into stack for GC protection */
@@ -8572,7 +8593,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
 	  SETCAR(args, prom);
 	  /* make the call */
-	  value = PRIMFUN(fun) (call, fun, args, rho);
+	  value = R_callPrimFun(fun, call, args, rho);
 	  break;
 	case CLOSXP:
 	  /* replace first argument with evaluated promise for LHS */

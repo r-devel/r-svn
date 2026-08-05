@@ -1422,7 +1422,7 @@ attribute_hidden SEXP do_internal(SEXP call, SEXP op, SEXP args, SEXP env)
     PROTECT(args);
     flag = PRIMPRINT(INTERNAL(fun));
     R_Visible = flag != 1;
-    ans = PRIMFUN(INTERNAL(fun)) (s, INTERNAL(fun), args, env);
+    ans = R_callPrimFun(INTERNAL(fun), s, args, env);
     /* This resetting of R_Visible = FALSE was to fix PR#7397,
        now fixed in GEText */
     if (flag < 2) R_Visible = flag != 1;
