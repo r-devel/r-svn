@@ -7151,18 +7151,23 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	filters[0].options = &opt_lzma;
 	filters[1].id = LZMA_VLI_UNKNOWN;
 
+	/* Allocate before initializing the encoder: R_alloc can signal an
+	   R error, and the longjmp would skip lzma_end() below. */
+	outlen = inlen + inlen/100 + 600; /* FIXME, copied from bzip2 case */
+	buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
+
 	ret = lzma_stream_encoder(&strm, filters, LZMA_CHECK_CRC32);
 	if (ret != LZMA_OK) error("internal error %d in memCompress", ret);
 
-	outlen = inlen + inlen/100 + 600; /* FIXME, copied from bzip2 case */
-	buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
 	strm.next_in = RAW(from);
 	strm.avail_in = inlen;
 	strm.next_out = buf;
 	strm.avail_out = outlen;
 	while(!ret) ret = lzma_code(&strm, LZMA_FINISH);
-	if (ret != LZMA_STREAM_END || (strm.avail_in > 0))
+	if (ret != LZMA_STREAM_END || (strm.avail_in > 0)) {
+	    lzma_end(&strm);
 	    error("internal error %d in memCompress", ret);
+	}
 	/* If LZMZ_BUF_ERROR, could realloc and continue */
 	outlen = (unsigned int)strm.total_out;
 	lzma_end(&strm);
@@ -7351,6 +7356,10 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	lzma_stream strm = LZMA_STREAM_INIT;
 	lzma_ret ret;
 	while(1) {
+	    /* Allocate before initializing the decoder: R_alloc can signal
+	       an R error, and the longjmp would skip lzma_end() below. */
+	    buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
+
 	    /* Initialize lzma_stream in each iteration. */
 	    /* probably at most 80Mb is required, but 512Mb seems OK as a limit */
 	    if (subtype == 1)
@@ -7360,7 +7369,6 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (ret != LZMA_OK)
 		error(_("cannot initialize lzma decoder, error %d"), ret);
 
-	    buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
 	    strm.avail_in = inlen;
 	    strm.avail_out = outlen;
 	    strm.next_in = (unsigned char *) RAW(from);
