@@ -985,12 +985,28 @@ resolvePkgType <- function(type) {
     type
 }
 
+.repos_for_type <- function(repos, type)
+{
+    valid <- c("both", "source", "binary")
+    types <- rep_len(as.character(attr(repos, "pkgType") %||% "both"),
+                     length(repos))
+    types[is.na(types)] <- "both"
+    if (!all(types %in% valid))
+        stop(gettextf("the \"pkgType\" attribute of 'repos' must only contain %s",
+                      paste(sQuote(valid), collapse = ", ")),
+             domain = NA)
+    want <- if (type == "source") "source" else "binary"
+    repos[types == "both" | types == want]
+}
+
 contrib.url <- function(repos, type = getOption("pkgType"))
 {
     if (!is.character(type))
         stop(gettextf("'%s' must be a character string", "type"), domain = NA)
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
+    if(!length(repos)) return(character())
+    repos <- .repos_for_type(repos, type)
     if(!length(repos)) return(character())
     if("@CRAN@" %in% repos && interactive()) {
         cat(gettext("--- Please select a CRAN mirror for use in this session ---"),
