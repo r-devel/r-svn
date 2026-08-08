@@ -13,7 +13,7 @@ det(x, \dots)
 determinant(x, logarithm = TRUE, \dots)
 }
 \description{
-  \code{det} calculates the determinant of a matrix.  \code{determinant}
+  \code{det} calculates the determinant of a \link{matrix}.  \code{determinant}
   is a generic function that returns separately the modulus of the determinant,
   optionally on the logarithm scale, and the sign of the determinant.
   }
