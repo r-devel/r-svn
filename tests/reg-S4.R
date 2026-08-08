@@ -878,6 +878,16 @@ setClass("foo", slots = c(y = "numeric"))
 setClass("bar", contains = "foo")
 body(getClass("bar")@contains[[1]]@coerce)[[2]]
 
+## setGeneric def can be in '{' for convenience
+setGeneric("BracedGenericDef", function(obj) {
+    standardGeneric("BracedGenericDef")
+})
+g <- getGeneric("BracedGenericDef")
+## assert correct class and `{` is stripped from result
+stopifnot(exprs = {
+    is(g, "standardGeneric")
+    identical(body(g), substitute(standardGeneric("BracedGenericDef")))
+})
 
 
 ## ----- from here on, keep at EOF -----
