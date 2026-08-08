@@ -76,6 +76,55 @@
 # include "valgrind/memcheck.h"
 #endif
 
+/* Declarations for the Address Sanitizer.
+
+   When R itself is compiled with -fsanitize=address, the data regions
+   of free nodes in the small-node pages are manually poisoned, so
+   that use of a node's data after the node has been collected is
+   reported by ASan even though the underlying pages are recycled by
+   R's allocator and never returned to malloc.  This parallels what
+   --with-valgrind-instrumentation=2 provides under valgrind, at a
+   much smaller run-time cost.
+
+   Large vector nodes need no manual handling: they are individually
+   malloc'd and freed, so ASan tracks them natively.  Node headers are
+   never poisoned, since the collector traverses free nodes via their
+   header fields; consequently misuse of the header of a collected
+   node (or of a collected cons cell, which has no separate data
+   region) is still not detected.
+*/
+#if defined(__has_feature)
+# if __has_feature(address_sanitizer)
+#  define HAVE_ADDRESS_SANITIZER 1
+# endif
+#endif
+#if !defined(HAVE_ADDRESS_SANITIZER) && defined(__SANITIZE_ADDRESS__)
+# define HAVE_ADDRESS_SANITIZER 1
+#endif
+
+#ifdef HAVE_ADDRESS_SANITIZER
+# include <sanitizer/asan_interface.h>
+# define ASAN_POISON_FREE_NODE(c, n) \
+    do { \
+	if (NodeClassSize[c] > 0) \
+	    ASAN_POISON_MEMORY_REGION(STDVEC_DATAPTR(n), \
+				      NodeClassSize[c]*sizeof(VECREC)); \
+    } while (0)
+# define ASAN_UNPOISON_FREE_NODE(c, n) \
+    do { \
+	if (NodeClassSize[c] > 0) \
+	    ASAN_UNPOISON_MEMORY_REGION(STDVEC_DATAPTR(n), \
+					NodeClassSize[c]*sizeof(VECREC)); \
+    } while (0)
+/* memory manually poisoned must be unpoisoned before it is returned
+   to malloc */
+# define ASAN_UNPOISON_PAGE(p) ASAN_UNPOISON_MEMORY_REGION(p, R_PAGE_SIZE)
+#else
+# define ASAN_POISON_FREE_NODE(c, n) do { } while (0)
+# define ASAN_UNPOISON_FREE_NODE(c, n) do { } while (0)
+# define ASAN_UNPOISON_PAGE(p) do { } while (0)
+#endif
+
 /* For speed in cases when the argument is known to not be an ALTREP list. */
 #define VECTOR_ELT_0(x,i)        ((SEXP *) STDVEC_DATAPTR(x))[i]
 #define SET_VECTOR_ELT_0(x,i, v) (((SEXP *) STDVEC_DATAPTR(x))[i] = (v))
@@ -846,6 +895,7 @@ static R_size_t R_NodesInUse = 0;
   } \
   R_GenHeap[c].Free = NEXT_NODE(__n__); \
   R_NodesInUse++; \
+  ASAN_UNPOISON_FREE_NODE(c, __n__); \
   (s) = __n__; \
 } while (0)
 
@@ -859,6 +909,7 @@ static R_size_t R_NodesInUse = 0;
 	    error("need new page - should not happen");	\
 	R_GenHeap[c].Free = NEXT_NODE(__n__);		\
 	R_NodesInUse++;					\
+	ASAN_UNPOISON_FREE_NODE(c, __n__);		\
 	(s) = __n__;					\
     } while (0)
 
@@ -1019,6 +1070,7 @@ static void GetNewPage(int node_class)
 	if (NodeClassSize[node_class] > 0)
 	    VALGRIND_MAKE_MEM_NOACCESS(STDVEC_DATAPTR(s), NodeClassSize[node_class]*sizeof(VECREC));
 #endif
+	ASAN_POISON_FREE_NODE(node_class, s);
 	s->sxpinfo = UnmarkedNodeTemplate.sxpinfo;
 	INIT_REFCNT(s);
 	SET_NODE_CLASS(s, node_class);
@@ -1046,6 +1098,7 @@ static void ReleasePage(PAGE_HEADER *page, int node_class)
 	R_GenHeap[node_class].AllocCount--;
     }
     R_GenHeap[node_class].PageCount--;
+    ASAN_UNPOISON_PAGE(page);
     free(page);
 }
 
@@ -1962,6 +2015,17 @@ static int RunGenCollect(R_size_t size_needed)
 				       NodeClassSize[i]*sizeof(VECREC));
 	}
     }
+#endif
+
+#ifdef HAVE_ADDRESS_SANITIZER
+    /* Poison the data of everything left in New space: only free and
+       newly collected nodes remain there at this point.  Nodes handed
+       back out are unpoisoned in CLASS_GET_FREE_NODE. */
+    for (i = 1; i < NUM_SMALL_NODE_CLASSES; i++)
+	for (s = NEXT_NODE(R_GenHeap[i].New);
+	     s != R_GenHeap[i].New;
+	     s = NEXT_NODE(s))
+	    ASAN_POISON_FREE_NODE(i, s);
 #endif
 
     /* reset Free pointers */
