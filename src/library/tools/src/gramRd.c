@@ -4463,6 +4463,7 @@ static void PutState(ParseState *state) {
     state->Value = parseState.Value;
     state->xxinitvalue = parseState.xxinitvalue;
     state->xxMacroList = parseState.xxMacroList;
+    state->mset = parseState.mset;
     state->prevState = parseState.prevState;
 }
 
@@ -4483,6 +4484,7 @@ static void UseState(ParseState *state) {
     parseState.Value = state->Value;
     parseState.xxinitvalue = state->xxinitvalue;
     parseState.xxMacroList = state->xxMacroList;
+    parseState.mset = state->mset;
     parseState.prevState = state->prevState;
 }
 
@@ -4506,6 +4508,11 @@ static void PopState(void) {
     	busy = false;
 }
 
+static void PopStateOnError(void *dummy)
+{
+    PopState();
+}
+
 /* "do_parseRd" 
 
  .External2(C_parseRd,file, srcfile, encoding, verbose, basename, warningCalls, macros, warndups)
@@ -4521,7 +4528,8 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
-    RCNTXT cntxt;
+    RCNTXT conn_cntxt;
+    RCNTXT state_cntxt;
     SEXP macros;
 
 #if DEBUGMODE
@@ -4531,7 +4539,14 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     R_ParseError = 0;
     R_ParseErrorMsg[0] = '\0';
     
+    if (busy)
+	error(_("'parse_Rd' is not re-entrant"));
+
     PushState();
+    begincontext(&state_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+                 R_NilValue, R_NilValue);
+    state_cntxt.cend = &PopStateOnError;
+    state_cntxt.cenddata = NULL;
 
     ifile = asInteger(CAR(args));                       args = CDR(args);
 
@@ -4556,19 +4571,21 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!wasopen) {
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+	    begincontext(&conn_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    conn_cntxt.cend = &con_cleanup;
+	    conn_cntxt.cenddata = con;
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
 	s = R_ParseRd(con, &status, source, fragment, macros);
-	if(!wasopen) endcontext(&cntxt);
+	if(!wasopen) endcontext(&conn_cntxt);
 	PopState();
+	endcontext(&state_cntxt);
 	if (status != PARSE_OK) parseError(call, R_ParseError);
     }
     else {
       PopState();
+      endcontext(&state_cntxt);
       error(_("invalid Rd file"));
     }
     return s;
