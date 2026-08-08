@@ -154,12 +154,157 @@ attribute_hidden int R_gc_running(void) { return R_in_gc; }
 #define OLDTYPE(s) LEVELS(s)
 #define SETOLDTYPE(s, t) SETLEVELS(s, t)
 
+#include <signal.h> /* for raise, SIGTRAP */
+#include <stdint.h> /* for uintptr_t */
+
+/* Allocation provenance tracking.
+
+   Every node handed out by the allocator is assigned a serial number,
+   recorded in a side table keyed by the node's address.  When an
+   unprotected (FREESXP) object is encountered, the serial number of
+   the allocation that created it is included in the error message.
+   Since allocation order is deterministic for a fixed sequence of
+   inputs, setting the environment variable R_ALLOC_BREAK to a
+   reported serial number and re-running under a debugger stops (with
+   SIGTRAP) at the exact allocation that created the object.
+
+   Allocation order is sensitive to the process environment (even the
+   R_ALLOC_BREAK setting itself), so serial numbers should be obtained
+   with R_ALLOC_BREAK=0 in the environment; if the stream still shifts
+   between runs, continuing past the trap reports the object's actual
+   serial number, and re-running with that value converges.
+
+   The table also records a vector node's length at the time the
+   collector claims it, since for large nodes the length field itself
+   is then overwritten with the allocation size in VEC units. */
+
+typedef struct {
+    void *addr;
+    unsigned long long serial;
+    R_xlen_t length;		/* set when the node dies; -1 if unknown */
+} alloc_info_t;
+
+static alloc_info_t *alloc_table = NULL;
+static size_t alloc_table_size = 0;	/* always a power of 2 */
+static size_t alloc_table_count = 0;
+static Rboolean alloc_table_disabled = FALSE;
+static unsigned long long alloc_serial = 0;
+static unsigned long long alloc_break_serial = 0;
+
+static R_INLINE size_t alloc_table_hash(void *addr)
+{
+    unsigned long long h = (unsigned long long)(uintptr_t) addr;
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    return (size_t) h & (alloc_table_size - 1);
+}
+
+static alloc_info_t *alloc_table_find(void *addr)
+{
+    if (alloc_table == NULL)
+	return NULL;
+
+    size_t i = alloc_table_hash(addr);
+    while (alloc_table[i].addr != NULL) {
+	if (alloc_table[i].addr == addr)
+	    return &alloc_table[i];
+	i = (i + 1) & (alloc_table_size - 1);
+    }
+    return NULL;
+}
+
+static void alloc_table_grow(void)
+{
+    alloc_info_t *old = alloc_table;
+    size_t old_size = alloc_table_size;
+
+    alloc_table_size = old_size ? 2 * old_size : (1 << 16);
+    alloc_table = calloc(alloc_table_size, sizeof(alloc_info_t));
+    if (alloc_table == NULL) {
+	/* disable tracking rather than fail the allocation */
+	free(old);
+	alloc_table_size = 0;
+	alloc_table_count = 0;
+	alloc_table_disabled = TRUE;
+	return;
+    }
+
+    for (size_t i = 0; i < old_size; i++)
+	if (old[i].addr != NULL) {
+	    size_t j = alloc_table_hash(old[i].addr);
+	    while (alloc_table[j].addr != NULL)
+		j = (j + 1) & (alloc_table_size - 1);
+	    alloc_table[j] = old[i];
+	}
+    free(old);
+}
+
+static void record_alloc(SEXP s)
+{
+    alloc_serial++;
+
+    if (alloc_break_serial != 0 && alloc_serial == alloc_break_serial) {
+	REprintf("R_ALLOC_BREAK: allocation #%llu is node %p\n",
+		 alloc_serial, (void *) s);
+#ifdef SIGTRAP
+	raise(SIGTRAP);
+#else
+	abort();
+#endif
+    }
+
+    if (alloc_table_disabled)
+	return;
+    if (alloc_table_count >= alloc_table_size - (alloc_table_size >> 2))
+	alloc_table_grow();
+    if (alloc_table == NULL)
+	return;
+
+    size_t i = alloc_table_hash((void *) s);
+    while (alloc_table[i].addr != NULL && alloc_table[i].addr != (void *) s)
+	i = (i + 1) & (alloc_table_size - 1);
+
+    if (alloc_table[i].addr == NULL)
+	alloc_table_count++;
+    alloc_table[i].addr = (void *) s;
+    alloc_table[i].serial = alloc_serial;
+    alloc_table[i].length = -1;
+}
+
+/* Called by the collector, while the node's type is still valid, just
+   before it is marked as a FREESXP. */
+static void record_death(SEXP s)
+{
+    alloc_info_t *info = alloc_table_find((void *) s);
+    if (info == NULL)
+	return;
+
+    switch (TYPEOF(s)) {
+    case LGLSXP:
+    case INTSXP:
+    case REALSXP:
+    case CPLXSXP:
+    case RAWSXP:
+    case CHARSXP:
+    case STRSXP:
+    case VECSXP:
+    case EXPRSXP:
+	if (! ALTREP(s))
+	    info->length = STDVEC_LENGTH(s);
+	break;
+    default:
+	break;
+    }
+}
+
+NORET static void report_unprotected(SEXP x);
+
 static R_INLINE SEXP CHK(SEXP x)
 {
     /* **** NULL check because of R_CurrentExpr */
     if (x != NULL && TYPEOF(x) == FREESXP)
-	error("unprotected object (%p) encountered (was %s)",
-	      (void *)x, sexptype2char(OLDTYPE(x)));
+	report_unprotected(x);
     return x;
 }
 #else
@@ -835,8 +980,154 @@ static R_size_t R_NodesInUse = 0;
 #define CHECK_FOR_FREE_NODE(s)
 #endif
 
+#ifdef PROTECTCHECK
+/* Report an unprotected (FREESXP) object encountered by CHK(),
+   including whatever diagnostic information can still be recovered
+   from the corpse: the type it had when it was collected, the serial
+   number of the allocation that created it, and for vector nodes the
+   length and a short preview of the (former) contents. */
+
+static size_t corpse_printf(char *buf, size_t bufsize, size_t n,
+			    const char *fmt, ...)
+{
+    va_list ap;
+    int r;
+
+    if (n >= bufsize)
+	return n;
+
+    va_start(ap, fmt);
+    r = vsnprintf(buf + n, bufsize - n, fmt, ap);
+    va_end(ap);
+
+    return r < 0 ? n : n + (size_t) r;
+}
+
+#define CORPSE_PREVIEW_ELTS 5
+#define CORPSE_PREVIEW_CHARS 40
+
+NORET static void report_unprotected(SEXP x)
+{
+    char buf[512];
+    size_t n = 0;
+
+    n = corpse_printf(buf, sizeof buf, n,
+		      "unprotected object (%p) encountered (was %s)",
+		      (void *) x, sexptype2char(OLDTYPE(x)));
+
+    alloc_info_t *info = alloc_table_find((void *) x);
+    if (info != NULL)
+	n = corpse_printf(buf, sizeof buf, n,
+			  "\n  allocation #%llu: set R_ALLOC_BREAK=%llu to"
+			  " stop at this allocation in a debugger",
+			  info->serial, info->serial);
+
+    /* Large and custom nodes are returned to the OS as soon as they
+       are collected unless release inhibiting is on, so their payload
+       must not be read here.  (In that case even the node header read
+       by CHK() was unsafe, but nothing can be done about that at this
+       point.) */
+    Rboolean data_ok =
+	NODE_CLASS(x) < NUM_SMALL_NODE_CLASSES || gc_inhibit_release;
+
+    R_xlen_t len = info != NULL ? info->length : -1;
+    if (len < 0 && data_ok && NODE_CLASS(x) < NUM_SMALL_NODE_CLASSES)
+	/* in-page nodes keep their length field intact */
+	switch (OLDTYPE(x)) {
+	case LGLSXP:
+	case INTSXP:
+	case REALSXP:
+	case CPLXSXP:
+	case RAWSXP:
+	case CHARSXP:
+	case STRSXP:
+	case VECSXP:
+	case EXPRSXP:
+	    len = STDVEC_LENGTH(x);
+	    break;
+	default:
+	    break;
+	}
+
+    if (len >= 0)
+	n = corpse_printf(buf, sizeof buf, n, "\n  length %lld",
+			  (long long) len);
+
+    if (len > 0 && data_ok) {
+	void *dp = STDVEC_DATAPTR(x);
+	R_xlen_t nshow = len < CORPSE_PREVIEW_ELTS ? len : CORPSE_PREVIEW_ELTS;
+
+	switch (OLDTYPE(x)) {
+	case LGLSXP:
+	case INTSXP:
+	    n = corpse_printf(buf, sizeof buf, n, "; data:");
+	    for (R_xlen_t i = 0; i < nshow; i++)
+		n = corpse_printf(buf, sizeof buf, n, " %d", ((int *) dp)[i]);
+	    break;
+	case REALSXP:
+	    n = corpse_printf(buf, sizeof buf, n, "; data:");
+	    for (R_xlen_t i = 0; i < nshow; i++)
+		n = corpse_printf(buf, sizeof buf, n, " %g",
+				  ((double *) dp)[i]);
+	    break;
+	case CPLXSXP:
+	    n = corpse_printf(buf, sizeof buf, n, "; data:");
+	    for (R_xlen_t i = 0; i < nshow; i++)
+		n = corpse_printf(buf, sizeof buf, n, " %g%+gi",
+				  ((Rcomplex *) dp)[i].r,
+				  ((Rcomplex *) dp)[i].i);
+	    break;
+	case RAWSXP:
+	    n = corpse_printf(buf, sizeof buf, n, "; data:");
+	    for (R_xlen_t i = 0; i < nshow; i++)
+		n = corpse_printf(buf, sizeof buf, n, " %02x",
+				  ((unsigned char *) dp)[i]);
+	    break;
+	case STRSXP:
+	case VECSXP:
+	case EXPRSXP:
+	    n = corpse_printf(buf, sizeof buf, n, "; elements:");
+	    for (R_xlen_t i = 0; i < nshow; i++)
+		n = corpse_printf(buf, sizeof buf, n, " %p",
+				  (void *) ((SEXP *) dp)[i]);
+	    break;
+	case CHARSXP: {
+	    const char *p = (const char *) dp;
+	    R_xlen_t nc = len < CORPSE_PREVIEW_CHARS ? len
+		: CORPSE_PREVIEW_CHARS;
+	    n = corpse_printf(buf, sizeof buf, n, "; data: \"");
+	    for (R_xlen_t i = 0; i < nc; i++) {
+		unsigned char c = (unsigned char) p[i];
+		if (c >= 0x20 && c < 0x7f && c != '"' && c != '\\')
+		    n = corpse_printf(buf, sizeof buf, n, "%c", c);
+		else
+		    n = corpse_printf(buf, sizeof buf, n, "\\x%02x", c);
+	    }
+	    n = corpse_printf(buf, sizeof buf, n, "\"");
+	    nshow = nc;
+	    break;
+	}
+	default:
+	    nshow = len; /* no preview for this type */
+	    break;
+	}
+
+	if (nshow < len)
+	    n = corpse_printf(buf, sizeof buf, n, " ...");
+    }
+
+    error("%s", buf);
+}
+#endif /* PROTECTCHECK */
+
 
 /* Node Allocation. */
+
+#ifdef PROTECTCHECK
+# define REGISTER_ALLOC(s) record_alloc(s)
+#else
+# define REGISTER_ALLOC(s) do { } while (0)
+#endif
 
 #define CLASS_GET_FREE_NODE(c,s) do { \
   SEXP __n__ = R_GenHeap[c].Free; \
@@ -846,6 +1137,7 @@ static R_size_t R_NodesInUse = 0;
   } \
   R_GenHeap[c].Free = NEXT_NODE(__n__); \
   R_NodesInUse++; \
+  REGISTER_ALLOC(__n__); \
   (s) = __n__; \
 } while (0)
 
@@ -859,6 +1151,7 @@ static R_size_t R_NodesInUse = 0;
 	    error("need new page - should not happen");	\
 	R_GenHeap[c].Free = NEXT_NODE(__n__);		\
 	R_NodesInUse++;					\
+	REGISTER_ALLOC(__n__);				\
 	(s) = __n__;					\
     } while (0)
 
@@ -1911,6 +2204,7 @@ static int RunGenCollect(R_size_t size_needed)
 	    SEXP next = NEXT_NODE(s);
 	    if (TYPEOF(s) != NEWSXP) {
 		if (TYPEOF(s) != FREESXP) {
+		    record_death(s);
 		    SETOLDTYPE(s, TYPEOF(s));
 		    SET_TYPEOF(s, FREESXP);
 		}
@@ -1926,6 +2220,9 @@ static int RunGenCollect(R_size_t size_needed)
 	    SEXP next = NEXT_NODE(s);
 	    if (TYPEOF(s) != NEWSXP) {
 		if (TYPEOF(s) != FREESXP) {
+		    /* record the true length before it is overwritten
+		       with the allocation size below */
+		    record_death(s);
 		    /**** could also leave this alone and restore the old
 			  node type in ReleaseLargeFreeVectors before
 			  calculating size */
@@ -2211,6 +2508,12 @@ attribute_hidden void InitMemory(void)
 
     init_gctorture();
     init_gc_grow_settings();
+
+#ifdef PROTECTCHECK
+    arg = getenv("R_ALLOC_BREAK");
+    if (arg != NULL)
+	alloc_break_serial = strtoull(arg, NULL, 10);
+#endif
 
     arg = getenv("_R_GC_FAIL_ON_ERROR_");
     if (arg != NULL && StringTrue(arg))
@@ -2936,6 +3239,7 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	    R_GenHeap[node_class].AllocCount++;
 	    R_NodesInUse++;
 	    SNAP_NODE(s, R_GenHeap[node_class].New);
+	    REGISTER_ALLOC(s);
 	}
 	ATTRIB(s) = R_NilValue;
 	SET_TYPEOF(s, type);
@@ -3294,13 +3598,20 @@ static void R_gc_internal(R_size_t size_needed)
     if (first_bad_sexp_type != 0) {
 	char msg[256];
 #ifdef PROTECTCHECK
-	if (first_bad_sexp_type == FREESXP)
+	if (first_bad_sexp_type == FREESXP) {
+	    unsigned long long serial = 0;
+	    alloc_info_t *info =
+		alloc_table_find((void *) first_bad_sexp_type_sexp);
+	    if (info != NULL)
+		serial = info->serial;
 	    snprintf(msg, 256,
-	          "GC encountered a node (%p) with type FREESXP (was %s)"
-		  " at memory.c:%d",
+	          "GC encountered a node (%p) with type FREESXP"
+		  " (was %s, allocation #%llu) at memory.c:%d",
 		  (void *) first_bad_sexp_type_sexp,
 		  sexptype2char(first_bad_sexp_type_old_type),
+		  serial,
 		  first_bad_sexp_type_line);
+	}
 	else
 	    snprintf(msg, 256,
 		     "GC encountered a node (%p) with an unknown SEXP type: %d"
@@ -3315,8 +3626,12 @@ static void R_gc_internal(R_size_t size_needed)
 		 (void *)first_bad_sexp_type_sexp,
 		 first_bad_sexp_type,
 		 first_bad_sexp_type_line);
-	gc_error(msg);
 #endif
+	/* prior to r77384 this was reported with error() in all
+	   builds; the switch to gc_error() left the call in the
+	   non-PROTECTCHECK branch only, silently dropping the report
+	   exactly in the builds meant to detect these problems */
+	gc_error(msg);
     }
 
     /* sanity check on logical scalar values */
