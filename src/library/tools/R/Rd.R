@@ -901,10 +901,12 @@ function(x) {
     rval <- NULL
     file <- textConnection("rval", "w", local = TRUE)
 
-    Rdsave <- Rd2txt_options(underline_titles = FALSE, unicode_symbols = FALSE)
+    save <- options(useFancyQuotes = FALSE)
+    Rdsave <- Rd2txt_options(underline_titles = FALSE)
     sink(file)
     tryCatch(Rd2txt(x, fragment=TRUE),
              finally = {sink()
+                        options(save)
                         Rd2txt_options(Rdsave)
                         close(file)})
 
