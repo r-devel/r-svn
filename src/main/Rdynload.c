@@ -696,11 +696,9 @@ R_callDLLUnload(DllInfo *dllInfo)
 {
     char buf[1024];
     DllInfoUnloadCall f;
-    R_RegisteredNativeSymbol symbol;
-    symbol.type = R_ANY_SYM;
 
     snprintf(buf, 1024, "R_unload_%s", dllInfo->name);
-    f = (DllInfoUnloadCall) R_dlsym(dllInfo, buf, &symbol);
+    f = (DllInfoUnloadCall) R_osDynSymbol->dlsym(dllInfo, buf);
     if(f) f(dllInfo);
 
     return(TRUE);
