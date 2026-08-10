@@ -907,7 +907,12 @@ unloadNamespace <- function(ns)
 	.Internal(unregisterNamespace(nsname))
 	if(.isMethodsDispatchOn() && methods:::.hasS4MetaData(ns))
 	    methods::cacheMetaData(ns, FALSE, ns)
+	## flush the package's lazy-load databases: stale cached copies
+	## could otherwise be seen if the package is re-installed and
+	## re-loaded in this session
 	.Internal(lazyLoadDBflush(paste0(nspath, "/R/", nsname, ".rdb")))
+	.Internal(lazyLoadDBflush(paste0(nspath, "/R/sysdata.rdb")))
+	.Internal(lazyLoadDBflush(paste0(nspath, "/data/Rdata.rdb")))
 	.Internal(lazyLoadDBflush(paste0(nspath, "/help/", nsname, ".rdb")))
     }
     invisible()
