@@ -908,6 +908,7 @@ unloadNamespace <- function(ns)
 	if(.isMethodsDispatchOn() && methods:::.hasS4MetaData(ns))
 	    methods::cacheMetaData(ns, FALSE, ns)
 	.Internal(lazyLoadDBflush(paste0(nspath, "/R/", nsname, ".rdb")))
+	.Internal(lazyLoadDBflush(paste0(nspath, "/help/", nsname, ".rdb")))
     }
     invisible()
 }
