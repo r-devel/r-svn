@@ -257,6 +257,7 @@ SEXP do_lapack(SEXP, SEXP, SEXP, SEXP);
 SEXP do_lapply(SEXP, SEXP, SEXP, SEXP);
 SEXP do_lazyLoadDBfetch(SEXP, SEXP, SEXP, SEXP);
 SEXP do_lazyLoadDBflush(SEXP, SEXP, SEXP, SEXP);
+SEXP do_lazyLoadDBid(SEXP, SEXP, SEXP, SEXP);
 SEXP do_lazyLoadDBinsertValue(SEXP call, SEXP op, SEXP args, SEXP env);
 SEXP do_length(SEXP, SEXP, SEXP, SEXP);
 SEXP do_lengthgets(SEXP, SEXP, SEXP, SEXP);

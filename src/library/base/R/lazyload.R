@@ -54,6 +54,10 @@ lazyLoadDBexec <- function(filebase, fun, filter)
     ##
     mapfile  <- glue(filebase, "rdx", sep = ".")
     datafile <- glue(filebase, "rdb", sep = ".")
+    ## record the identity of the database before reading the index:
+    ## fetches below use offsets that are only valid for this version
+    ## of the database, e.g. not after the package is re-installed
+    dbid <- .Internal(lazyLoadDBid(datafile))
     env <- mkenv()
     map <- readRDS(mapfile)
     vars <- names(map$variables)
@@ -68,7 +72,7 @@ lazyLoadDBexec <- function(filebase, fun, filter)
             envenv[[n]] <- e           # MUST do this immediately
             key <- env[[n]]
             ekey <- if (is.list(key)) key$eagerKey else key
-            data <- lazyLoadDBfetch(ekey, datafile, compressed, envhook)
+            data <- lazyLoadDBfetch(ekey, datafile, compressed, envhook, dbid)
             ## comment from r41494
             ## modified the loading of old environments, so that those
             ## serialized with parent.env NULL are loaded with the
@@ -85,7 +89,7 @@ lazyLoadDBexec <- function(filebase, fun, filter)
             ## lazily loaded bindings (used e.g. for parseData and lines from
             ## source references)
             if (is.list(key)) {
-                expr <- quote(lazyLoadDBfetch(KEY, datafile, compressed, envhook))
+                expr <- quote(lazyLoadDBfetch(KEY, datafile, compressed, envhook, dbid))
                 .Internal(makeLazy(names(key$lazyKeys), key$lazyKeys, expr,
                     parent.env(environment()), e))
             }
@@ -121,7 +125,7 @@ lazyLoad <- function(filebase, envir = parent.frame(), filter)
     fun <- function(db) {
         vals <- db$vals
         vars <- db$vars
-        expr <- quote(lazyLoadDBfetch(key, datafile, compressed, envhook))
+        expr <- quote(lazyLoadDBfetch(key, datafile, compressed, envhook, dbid))
         .Internal(makeLazy(vars, vals, expr, db, envir))
     }
     lazyLoadDBexec(filebase, fun, filter)

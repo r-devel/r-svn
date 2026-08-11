@@ -96,7 +96,7 @@ sys.save.image(name)
 
 findPackageEnv(info)
 
-lazyLoadDBfetch(key, file, compressed, hook)
+lazyLoadDBfetch(key, file, compressed, hook, id)
 
 .TAOCP1997init(seed)
 
@@ -175,6 +175,10 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \item{key}{the object name in a lazyload database.}
   \item{compressed}{logical: are the values in the database compressed?}
   \item{hook}{a load hook: see \code{\link{unserialize}}.}
+  \item{id}{optional: the identity of the database file recorded when
+    its index was read, used to detect that the database has changed
+    (e.g., by re-installation of the package) since the fetch was set
+    up.}
   \item{seed}{a length-one integer vector.}
   \item{i, j}{indices.}
   \item{strictly}{logical.}
