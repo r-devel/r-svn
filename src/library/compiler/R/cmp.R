@@ -654,7 +654,8 @@ INCLNK.OP = 0,
 DECLNK.OP = 0,
 DECLNK_N.OP = 1,
 INCLNKSTK.OP = 0,
-DECLNKSTK.OP = 0
+DECLNKSTK.OP = 0,
+DOTSFWD.OP = 1
 )
 
 Opcodes.names <- names(Opcodes.argc)
@@ -788,6 +789,7 @@ DECLNK.OP <- 125
 DECLNK_N.OP <- 126
 INCLNKSTK.OP <- 127
 DECLNKSTK.OP <- 128
+DOTSFWD.OP <- 129
 
 
 ##
@@ -1195,6 +1197,14 @@ cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
         n <- names[[i]]
         if (missing(a)) { ## better test for missing??
             cb$putcode(DOMISSING.OP)
+            cmpTag(n, cb)
+        }
+        else if (is.call(a) && identical(a[[1L]], quote(`...`)) &&
+                 length(a) == 2L && is.symbol(a[[2L]]) &&
+                 is.null(names(a)[-1L])) {
+            ## ...(sym): forward the promise bound to sym
+            ci <- cb$putconst(a[[2L]])
+            cb$putcode(DOTSFWD.OP, ci)
             cmpTag(n, cb)
         }
         else if (identical(a, quote(`...`))) {
