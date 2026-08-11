@@ -27,3 +27,30 @@ aperm.table <- function(a, perm = NULL, resize = TRUE, keep.class = TRUE, ...)
      if(!keep.class) class(r) <- NULL
      r
 }
+
+aperm.matrix <- function(a, perm = NULL, resize = TRUE, ...) 
+{
+     if (length(perm) == 0L)
+          perm <- c(2L, 1L)
+     if (length(perm) != 2L)
+         stop(gettextf("'perm' is of wrong length %d (!= 2)", length(perm)))
+     if (is.character(perm)) {
+         if (is.null(dna <- dimnames(a)) || is.null(dnna <- names(dna)))
+             stop("'a' does not have named dimnames")
+         perm <- match(perm, dnna)
+     }
+     # the following keeps compatibility with the C code for the default method
+     perm <- as.integer(perm)
+     if (any(perm < 1L | perm > 2L))
+         stop("value out of range in 'perm'")
+     if (all(perm == 1L))
+         stop("invalid 'perm' argument")
+     if (identical(perm, c(1L, 2L)))
+         return(a)
+
+     ta <- t(a)
+     if (!resize) {
+         dim(ta) <- dim(a)
+     }
+     ta
+}     
