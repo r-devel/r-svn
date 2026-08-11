@@ -31,13 +31,19 @@ code2LazyLoadDB <-
             stop("namespace must not be already loaded")
 
         ## Disable auto-compilation during loading so we can compile in parallel.
+        ## (This has the side effect of loading the 'compiler' namespace via
+        ## '::'; when package == "compiler" that means it is already
+        ## registered by the time we get here, so skip re-loading it below to
+        ## avoid spurious "namespace already loaded" messages.)
         old_pkgs <- compiler::compilePKGS(0L)
         on.exit(compiler::compilePKGS(old_pkgs), add = TRUE)
 
-        ns <- suppressPackageStartupMessages(loadNamespace(
-                  package = package, lib.loc = lib.loc,
-                  keep.source = keep.source, keep.parse.data = keep.parse.data,
-                  partial = TRUE))
+        ns <- .getNamespace(as.name(package))
+        if (is.null(ns))
+            ns <- suppressPackageStartupMessages(loadNamespace(
+                      package = package, lib.loc = lib.loc,
+                      keep.source = keep.source, keep.parse.data = keep.parse.data,
+                      partial = TRUE))
 
         if (old_pkgs != 0L) {
             all_names <- ls(ns, all.names = TRUE)
