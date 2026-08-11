@@ -3089,10 +3089,92 @@ static SEXP appendRawToFile(SEXP file, SEXP bytes)
 
 /* Interface to cache the pkg.rdb files */
 
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+
+struct fileid {
+    double size, mtime, ino, dev;
+};
+
 #define NC 100
 static int used = 0;
 static char *names[NC];
 static char *ptr[NC];
+static size_t lens[NC];		/* length of the cached copy */
+static struct fileid ids[NC];	/* identity of the file when cached */
+
+/* Capture the identity of a database file, used to detect that a
+   cached copy has become stale because the file was replaced, e.g. by
+   re-installing the package (possibly from another process).  Returns
+   false if the file cannot be stat-ed, in which case its contents
+   should not be cached. */
+static bool getFileID(const char *cfile, struct fileid *id)
+{
+#ifdef Win32
+    struct _stati64 sb;
+    if (_stati64(cfile, &sb) != 0)
+	return false;
+#else
+    struct stat sb;
+    if (stat(cfile, &sb) != 0)
+	return false;
+#endif
+    id->size = (double) sb.st_size;
+    /* use sub-second modification times where available, as in
+       do_fileinfo (platform.c) */
+#if defined HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC \
+    && defined TYPEOF_STRUCT_STAT_ST_ATIM_IS_STRUCT_TIMESPEC
+    id->mtime = (double) sb.st_mtim.tv_sec
+	+ 1e-9 * (double) sb.st_mtim.tv_nsec;
+#elif defined HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+    id->mtime = (double) sb.st_mtimespec.tv_sec
+	+ 1e-9 * (double) sb.st_mtimespec.tv_nsec;
+#else
+    id->mtime = (double) sb.st_mtime;
+#endif
+    id->ino = (double) sb.st_ino;
+    id->dev = (double) sb.st_dev;
+    return true;
+}
+
+static bool sameFileID(const struct fileid *a, const struct fileid *b)
+{
+    return a->size == b->size && a->mtime == b->mtime &&
+	a->ino == b->ino && a->dev == b->dev;
+}
+
+/* Returns the current identity of a database file, for recording at
+   load time and validating fetches at promise force time, or NULL if
+   the file cannot be stat-ed. */
+attribute_hidden SEXP
+do_lazyLoadDBid(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+
+    SEXP file = CAR(args);
+    if (! IS_PROPER_STRING(file))
+	error(_("not a proper file name"));
+    const void *vmax = vmaxget();
+    const char *cfile = translateCharFP(STRING_ELT(file, 0));
+
+    struct fileid id;
+    if (! getFileID(cfile, &id)) {
+	vmaxset(vmax);
+	return R_NilValue;
+    }
+
+    SEXP val = allocVector(REALSXP, 4);
+    REAL(val)[0] = id.size;
+    REAL(val)[1] = id.mtime;
+    REAL(val)[2] = id.ino;
+    REAL(val)[3] = id.dev;
+    vmaxset(vmax);
+    return val;
+}
 
 attribute_hidden SEXP
 do_lazyLoadDBflush(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -3121,7 +3203,7 @@ do_lazyLoadDBflush(SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* There are some large lazy-data examples, e.g. 80Mb for SNPMaP.cdm */
 #define LEN_LIMIT 10*1048576
-static SEXP readRawFromFile(SEXP file, SEXP key)
+static SEXP readRawFromFile(SEXP file, SEXP key, SEXP expid)
 {
     FILE *fp;
     int offset, len, in, i, icache = -1;
@@ -3140,11 +3222,52 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
     offset = INTEGER(key)[0];
     len = INTEGER(key)[1];
 
+    /* Capture the file's identity up front: it is compared against an
+       identity recorded at load time when one is supplied, and against
+       the identity recorded for a cached copy of the file.  Capturing
+       it before reading means that if the file is replaced while it is
+       being read, the next fetch will see a mismatch and drop the
+       cached copy. */
+    struct fileid id;
+    bool have_id = getFileID(cfile, &id);
+
+    if (expid != R_NilValue) {
+	/* The caller recorded the identity of the database when its
+	   index was read at load time.  If the database has changed
+	   since, the offsets in 'key' do not refer to the current file
+	   and the value cannot be retrieved. */
+	struct fileid eid;
+	if (TYPEOF(expid) != REALSXP || LENGTH(expid) != 4)
+	    error(_("bad file identity argument"));
+	eid.size = REAL(expid)[0];
+	eid.mtime = REAL(expid)[1];
+	eid.ino = REAL(expid)[2];
+	eid.dev = REAL(expid)[3];
+	if (! have_id || ! sameFileID(&id, &eid))
+	    error(_("lazy-load database '%s' has changed since it was loaded, most likely because the package was re-installed; re-load the package or restart R"),
+		  cfile);
+    }
+
     val = allocVector(RAWSXP, len);
     /* Do we have this database cached? */
     for (i = 0; i < used; i++)
 	if(names[i] != NULL && strcmp(cfile, names[i]) == 0) {icache = i; break;}
     if (icache >= 0) {
+	/* The file may have been replaced since it was cached, e.g. by
+	   re-installing the package, possibly from another process.  If
+	   so, drop the cached copy: the offsets in 'key' come from the
+	   current index file and need not be valid in a stale copy of
+	   the database. */
+	if (! have_id || ! sameFileID(&id, &ids[icache])) {
+	    free(names[icache]);
+	    names[icache] = NULL;
+	    free(ptr[icache]);
+	    icache = -1;
+	}
+    }
+    if (icache >= 0) {
+	if (offset < 0 || (size_t) offset + (size_t) len > lens[icache])
+	    error(_("bad offset/length argument"));
 	if (len)
 	    memcpy(RAW(val), ptr[icache]+offset, len);
 	vmaxset(vmax);
@@ -3160,6 +3283,7 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
     }
 
     if(icache >= 0) {
+	bool cacheable = have_id;
 	if ((fp = R_fopen(cfile, "rb")) == NULL)
 	    error(_("cannot open file '%s': %s"), cfile, strerror(errno));
 	if (fseek(fp, 0, SEEK_END) != 0) {
@@ -3167,7 +3291,7 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 	    error(_("seek failed on %s"), cfile);
 	}
 	filelen = ftell(fp);
-	if (filelen < LEN_LIMIT) {
+	if (cacheable && filelen < LEN_LIMIT) {
 	    char *p, *n;
 	    /* fprintf(stderr, "adding file '%s' at pos %d in cache, length %d\n",
 	       cfile, icache, filelen); */
@@ -3177,6 +3301,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 		names[icache] = n;
 		strcpy(names[icache], cfile);
 		ptr[icache] = p;
+		lens[icache] = (size_t) filelen;
+		ids[icache] = id;
 		if (fseek(fp, 0, SEEK_SET) != 0) {
 		    fclose(fp);
 		    error(_("seek failed on %s"), cfile);
@@ -3184,6 +3310,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 		in = (int) fread(p, 1, filelen, fp);
 		fclose(fp);
 		if (filelen != in) error(_("read failed on %s"), cfile);
+		if (offset < 0 || (size_t) offset + (size_t) len > lens[icache])
+		    error(_("bad offset/length argument"));
 		if (len)
 		    memcpy(RAW(val), p+offset, len);
 	    } else {
@@ -3313,20 +3441,28 @@ R_lazyLoadDBinsertValue(SEXP value, SEXP file, SEXP ascii,
 attribute_hidden SEXP
 do_lazyLoadDBfetch(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP key, file, compsxp, hook;
+    SEXP key, file, compsxp, hook, expid;
     PROTECT_INDEX vpi;
     int compressed;
     Rboolean err = FALSE;
     SEXP val;
 
-    checkArity(op, args);
+    /* Promises created by earlier versions of R, e.g. revived from a
+       saved workspace, call with four arguments; those fetches are not
+       validated against a load-time identity of the database. */
+    int nargs = length(args);
+    if (nargs < 4 || nargs > 5)
+	errorcall(call,
+		  _("%d arguments passed to 'lazyLoadDBfetch' which requires 4 or 5"),
+		  nargs);
     key = CAR(args); args = CDR(args);
     file = CAR(args); args = CDR(args);
     compsxp = CAR(args); args = CDR(args);
-    hook = CAR(args);
+    hook = CAR(args); args = CDR(args);
+    expid = (args == R_NilValue) ? R_NilValue : CAR(args);
     compressed = asInteger(compsxp);
 
-    PROTECT_WITH_INDEX(val = readRawFromFile(file, key), &vpi);
+    PROTECT_WITH_INDEX(val = readRawFromFile(file, key, expid), &vpi);
     if (compressed == 3)
 	REPROTECT(val = R_decompress3(val, &err), vpi);
     else if (compressed == 2)

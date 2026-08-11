@@ -50,6 +50,10 @@
     ##
     mapfile  <- glue(filebase, "rdx", sep = ".")
     datafile <- glue(filebase, "rdb", sep = ".")
+    ## record the identity of the database before reading the index:
+    ## fetches below use offsets that are only valid for this version
+    ## of the database, e.g. not after the package is re-installed
+    dbid <- .Internal(lazyLoadDBid(datafile))
     env <- mkenv()
     map <- readRDS(mapfile)
     vars <- names(map$variables)
@@ -63,7 +67,7 @@
             e <- mkenv()
             envenv[[n]] <- e           # MUST do this immediately
             key <- env[[n]]
-            data <- lazyLoadDBfetch(key, datafile, compressed, envhook)
+            data <- lazyLoadDBfetch(key, datafile, compressed, envhook, dbid)
             parent.env(e) <- if(!is.null(data$enclos)) data$enclos else emptyenv()
             list2env(data$bindings, e)
             if (! is.null(data$attributes))
@@ -74,7 +78,7 @@
             e
         }
     }
-    expr <- quote(lazyLoadDBfetch(key, datafile, compressed, envhook))
+    expr <- quote(lazyLoadDBfetch(key, datafile, compressed, envhook, dbid))
     this <- environment()
     .Internal(makeLazy(vars, map$variables, expr, this, envir))
 
