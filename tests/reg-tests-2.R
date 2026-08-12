@@ -3401,6 +3401,31 @@ withAutoprint({
 })
 ## temporarily wrongly showed " withAutoprint({ "
 
+s = '
+#line 1 "foo.R"
+1
+{
+#line 2 "bar.R"
+2
+}
+{
+# comment 4
+#line 3 "baz.R"
+# comment 5
+3
+}
+'
+pd <- getParseData(parse(text = s))
+ld <- pd[pd$token == "LINE_DIRECTIVE", ]
+num_2_parent <- pd[as.character(pd$parent[pd$token == "NUM_CONST" & pd$text == "2"]), "parent"]
+num_3_parent <- pd[as.character(pd$parent[pd$token == "NUM_CONST" & pd$text == "3"]), "parent"]
+stopifnot(exprs = {
+  ld$parent[startsWith(ld$text, "#line 1")] == 0L
+  ld$parent[startsWith(ld$text, "#line 2")] == num_2_parent
+  pd$parent[pd$text == "# comment 4"]       == num_3_parent
+  ld$parent[startsWith(ld$text, "#line 3")] == num_3_parent
+  pd$parent[pd$text == "# comment 5"]       == num_3_parent
+})
 
 # ----- Last line -------------
 cat('Time elapsed: ', proc.time(),'\n')

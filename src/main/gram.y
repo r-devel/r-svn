@@ -4241,7 +4241,7 @@ static void finalizeData(void){
       */
 
     for(i = nloc-1; i >= 0; i--) {
-	if (_TOKEN(i) == COMMENT) {
+	if (_TOKEN(i) == COMMENT || _TOKEN(i) == LINE_DIRECTIVE) {
 	    int orphan = 1;
 	    int istartl = _FIRST_PARSED(i);
 	    int istartc = _FIRST_COLUMN(i);
@@ -4280,7 +4280,7 @@ static void finalizeData(void){
     int orphan ;
 
     for( i=0; i<nloc; i++){
-	if( _TOKEN(i) == COMMENT ){
+	if( _TOKEN(i) == COMMENT || _TOKEN(i) == LINE_DIRECTIVE ){
 	    comment_line = _FIRST_PARSED( i ) ;
 	    comment_first_col = _FIRST_COLUMN( i ) ;
 
@@ -4316,10 +4316,10 @@ static void finalizeData(void){
 
     for( i=0; i<nloc; i++){
 	int token = _TOKEN(i); 
-	if( token == COMMENT && _PARENT(i) == 0 ){
+	if( (token == COMMENT || token == LINE_DIRECTIVE) && _PARENT(i) == 0 ){
 	    for( j=i; j<nloc; j++){
 		int token_j = _TOKEN(j); 
-		if( token_j == COMMENT ) continue ;
+		if( token_j == COMMENT || token_j == LINE_DIRECTIVE ) continue ;
 		if( _PARENT(j) != 0 ) continue ;
 		_PARENT(i) = - _ID(j) ;
 		break ;
