@@ -997,6 +997,14 @@ if(grepl("^system", print(sessionInfo()$tzcode))) # tzcode "internal" still givi
 stopifnot(d_sec == 365*24*3600)
 ## the negative value stemming from C level integer addition overflow
 
+stopifnot(exprs = {
+  format(strptime("2020-01-01 -0001", "%Y-%m-%d %z", tz = "UTC"), "%T") == "00:01:00"
+  format(strptime("2020-01-01 -0002", "%Y-%m-%d %z", tz = "UTC"), "%T") == "00:02:00"
+  format(strptime("2020-01-01 -0003", "%Y-%m-%d %z", tz = "UTC"), "%T") == "00:03:00"
+  format(strptime("2020-01-01 -0103", "%Y-%m-%d %z", tz = "UTC"), "%T") == "01:03:00"
+  format(strptime("2020-01-01 -0201", "%Y-%m-%d %z", tz = "UTC"), "%T") == "02:01:00"
+  format(strptime("2020-01-01 -0302", "%Y-%m-%d %z", tz = "UTC"), "%T") == "03:02:00"
+})
 
 
 ## keep at end
