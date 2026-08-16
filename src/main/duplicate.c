@@ -41,7 +41,7 @@
  *  the value duplicated.  */
 
 #define COPY_TRUELENGTH(to, from) do {			\
-	if (! IS_GROWABLE(from))			\
+	if (! GROWABLE_BIT_SET(from))			\
 	    SET_TRUELENGTH(to, XTRUELENGTH(from));	\
     } while (0)
 
@@ -169,6 +169,7 @@ SEXP shallow_duplicate(SEXP s)
     return t;
 }
 
+attribute_hidden
 SEXP lazy_duplicate(SEXP s) {
     switch (TYPEOF(s)) {
     case NILSXP:
@@ -348,10 +349,19 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;
     case STRSXP:
-	/* direct copying and bypassing the write barrier is OK since
-	   t was just allocated and so it cannot be older than any of
-	   the elements in s.  LT */
-	DUPLICATE_ATOMIC_VECTOR(SEXP, STRING_PTR, STRING_PTR_RO, t, s, deep);
+	/* Direct copying and bypassing the write barrier would be OK
+	   since t was just allocated and so it cannot be older than
+	   any of the elements in s. But it does not increment the
+	   reference counts, so use a loop with SET_STRING_ELT. LT */
+	//DUPLICATE_ATOMIC_VECTOR(SEXP, STRING_PTR, STRING_PTR_RO, t, s, deep);
+	n = XLENGTH(s);
+	PROTECT(s);
+	PROTECT(t = allocVector(TYPEOF(s), n));
+	for(i = 0 ; i < n ; i++)
+	    SET_STRING_ELT(t, i, STRING_ELT(s, i));
+	DUPLICATE_ATTRIB(t, s, deep);
+	COPY_TRUELENGTH(t, s);
+	UNPROTECT(2);
 	break;
     case PROMSXP:
 	return s;
@@ -595,5 +605,6 @@ static SEXP duplicate_attr(SEXP x, Rboolean deep)
     return deep ? duplicate(x) : shallow_duplicate(x);
 }
 
+attribute_hidden
 SEXP R_shallow_duplicate_attr(SEXP x) { return duplicate_attr(x, FALSE); }
 SEXP R_duplicate_attr(SEXP x) { return duplicate_attr(x, TRUE); }

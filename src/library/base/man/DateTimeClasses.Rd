@@ -1,6 +1,6 @@
 % File src/library/base/man/DateTimeClasses.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{DateTimeClasses}
@@ -69,6 +69,8 @@
 \special{z + time}
 \special{time - z}
 \special{time1 lop time2}
+
+.leap.seconds
 }
 \arguments{
   \item{x, object}{an object to be printed or summarized from one of the
@@ -121,6 +123,19 @@
   Be aware that \code{"POSIXlt"} objects will be interpreted as being in
   the current time zone for these operations unless a time zone has been
   specified.
+  \cr
+  Note that these arithmetic, comparison and logical operations
+  \emph{currently} work via coercion to \code{"POSIXct"} which may lose
+  accuracy of (typically fractional) seconds.  Hence, e.g., \code{t1 == t2}
+  may be true where the datetime objects differ slightly and (at least) one
+  of them is \code{POSIXlt}.
+
+  Further implemented methods comprise \code{\link{mean}},
+  \code{\link{summary}}, \code{\link{unique}}, \code{\link{is.finite}},
+  \code{\link{length<-}}, \code{\link{pretty}},\dots; also
+  \pkg{graphics} package's \code{\link{hist}} and \code{\link{Axis}};
+  use \code{\link{methods}(class = "POSIXt")}, \code{.. class = "POSIXlt"}
+  and \code{"POSIXct"} to see more.
 
   Both classes may have an attribute \code{"tzone"}, specifying the time
   zone.  Note however that their meaning differ, see the section
@@ -139,10 +154,12 @@
   platforms ignore them (as required by POSIX).  This is detected and
   corrected for at build time, so \code{"POSIXct"} times used by \R do
   not include leap seconds on any platform.
+  Note that \code{.leap.seconds} has \emph{no} \code{"tzone"} attribute on
+  purpose, see also the \sQuote{Examples}.
 
-  Using \code{\link{c}} on \code{"POSIXlt"} objects converts them to the
-  current time zone, and on \code{"POSIXct"} objects drops \code{"tzone"}
-  attributes if they are not all the same.
+  Unless they are all marked with the same time zone, using \code{\link{c}}
+  on \code{"POSIXlt"} objects converts them to the current time zone, and
+  on \code{"POSIXct"} objects drops the \code{"tzone"} attributes.
 
   A few times have specific issues.  First, the leap seconds are ignored,
   and real times such as \code{"2005-12-31 23:59:60"} are (probably)
@@ -214,6 +231,11 @@
   \code{"POSIXct"}.  One can extract and replace \emph{single}
   components via \code{[} indexing with \emph{two} indices (see the
   examples).
+  The \code{\link{as.matrix}()} method gets the components as
+  \code{\link{numeric}} columns without the \code{zone}, whereas
+  \code{data.frame()} and the \code{as.data.frame} method
+  convert a \code{"POSIXlt"} to a \code{"POSIXct"} one column data frame,
+  to treat datetime objects analogously to atomic vectors.
 
   The components of \code{"POSIXlt"} are \code{\link{integer}} vectors,
   except \code{sec} (\code{\link{double}}) and \code{zone}
@@ -315,7 +337,8 @@
   \code{\link{round.POSIXt}} and \code{\link{trunc.POSIXt}} for methods
   for these classes.
 
-  \code{\link{weekdays}} for convenience extraction functions.
+  \code{\link{weekdays}}, for convenience extraction functions (also
+  including \code{months()}, \code{quarters()}, \code{julian()}).
 }
 \references{
   \bibshow{R:Ripley+Hornik:2001}
@@ -356,25 +379,15 @@ leapS <- as.POSIXlt(.leap.seconds)
 names(unclass(leapS)) ; is.list(leapS)
 ## str() on inner structure needs unclass(.):
 utils::str(unclass(leapS), vec.len = 7)
-## show all (apart from "tzone" attr):
+## show all components
 data.frame(unclass(leapS))
+## Omitting "zone" column ==> numeric matrix w/ 10 columns
+(leapm <- as.matrix(leapS))
+stopifnot(identical(ncol(leapm), 10L), is.numeric(leapm)) # was character in R <= 4.6.0
 
 ## Extracting *single* components of POSIXlt objects:
 leapS[1 : 5, "year"]
 leapS[17:22, "mon" ]
-
-##  length(.) <- n   now works for "POSIXct" and "POSIXlt" :
-for(lpS in list(.leap.seconds, leapS)) {
-    ls <- lpS; length(ls) <- 12
-    l2 <- lpS; length(l2) <- 5 + length(lpS)
-    stopifnot(exprs = {
-      ## length(.) <- * is compatible to subsetting/indexing:
-      identical(ls, lpS[seq_along(ls)])
-      identical(l2, lpS[seq_along(l2)])
-      ## has filled with NAs
-      is.na(l2[(length(lpS)+1):length(l2)])
-    })
-}% for %
 }
 \keyword{utilities}
 \keyword{chron}

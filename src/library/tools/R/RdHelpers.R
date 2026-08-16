@@ -1,7 +1,7 @@
 #  File src/library/tools/R/RdHelpers.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2019-2025 The R Core Team
+#  Copyright (C) 2019-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -42,9 +42,9 @@ Rd_package_title <-
 function(pkg, dir = Rd_macros_package_dir())
 {
     desc <- .read_description(file.path(dir, "DESCRIPTION"))
-    
     if (pkg != desc["Package"])
-    	stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg))
+        stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg),
+             call. = FALSE, domain = NA)
     Rd_escape_specials(desc["Title"])
 }
 
@@ -53,7 +53,8 @@ function(pkg, dir = Rd_macros_package_dir())
 {
     desc <- .read_description(file.path(dir, "DESCRIPTION"))
     if (pkg != desc["Package"])
-    	stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg))
+        stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg),
+             call. = FALSE, domain = NA)
     Rd_escape_specials(desc["Description"])
 }
 
@@ -62,7 +63,8 @@ function(pkg, dir = Rd_macros_package_dir())
 {
     desc <- .read_description(file.path(dir, "DESCRIPTION"))
     if (pkg != desc["Package"])
-    	stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg))
+        stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg),
+             call. = FALSE, domain = NA)
     desc <- c(desc, .expand_package_description_db_R_fields(desc))
     Rd_escape_specials(desc["Author"])
 }
@@ -72,7 +74,8 @@ function(pkg, dir = Rd_macros_package_dir())
 {
     desc <- .read_description(file.path(dir, "DESCRIPTION"))
     if (pkg != desc["Package"])
-    	stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg))
+        stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg),
+             call. = FALSE, domain = NA)
     desc <- c(desc, .expand_package_description_db_R_fields(desc))
     Rd_escape_specials(desc["Maintainer"])
 }
@@ -88,7 +91,8 @@ function(pkg, lib.loc = Sys.getenv("R_BUILD_TEMPLIB"))
 
 	desc <- utils::packageDescription(pkg, lib.loc = lib.loc)
 	if (pkg != desc[["Package"]])
-	    stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg))
+	    stop(gettextf("DESCRIPTION file is for package '%s', not '%s'", desc["Package"], pkg),
+	         call. = FALSE, domain = NA)
 	desc <- desc[names(desc) != "Built"] # Probably a stale value
 	tabular(paste0(names(desc), ":"), Rd_escape_specials(unlist(desc)))
     }
@@ -149,8 +153,9 @@ Rd_expr_manual <-
 function(name = "R-exts", node = "Top")
 {
     if (name %notin% rownames(utils:::R_manuals))
-        stop(sprintf("\\manual must refer to one of %s",
-                     paste(sQuote(rownames(utils:::R_manuals)), collapse = ", ")))
+        stop(sprintf("\\manual must refer to one of:\n  %s",
+                     paste(sQuote(rownames(utils:::R_manuals)), collapse = " ")),
+             call. = FALSE, domain = NA)
     baseurl <- switch(name,
                       "rw-FAQ" = "https://cloud.R-project.org/bin/windows/base/",
                       "https://cloud.R-project.org/doc/manuals/")
@@ -184,7 +189,7 @@ function(x)
     cited <- Rd_expr_bibcite_keys_cited()    
     ## Would be nice to have a common reader for possibly multi-line
     ## comma separated values ...
-    given <- strsplit(x, ",[[:space:]]*")[[1L]]
+    given <- strsplit(x, ",[[:space:]]*", perl = TRUE)[[1L]]
     if(any(given == "*"))
         given <- c(given[given != "*"], cited)
     Rd_expr_bibcite_keys_cited(setdiff(cited, given))
@@ -199,7 +204,7 @@ function(x)
     }
     Rd_expr_bibinfo_data_store(store[setdiff(names(store), keys)])
     ## Typically the bibinfo data would give headers or footers, but
-    ## these only get shown when printing bibenties in citation style,
+    ## these only get shown when printing bibentries in citation style,
     ## so we have to add them ourselves.
     headers <- y[, "header"]
     headers <- unlist(ifelse(vapply(headers, is.null, NA), "", headers),
@@ -219,7 +224,9 @@ function(x)
                   string2id(.bibentry_get_key(y)),
                   toRd(y, style = Rd_expr_bibshow_bibstyle()),
                   footers),
-          collapse = "\n\n")
+          ## Rd2HTML() in R < 4.6.0 would not addParaBreaks() for blank lines
+          ## generated from user-macro-expanded \Sexpr code, so add them here:
+          collapse = "\\ifelse{html}{\\out{\n</p><p>\n}}{\n\n}")
 }
 
 Rd_expr_bibcite_keys_cited <- local({
@@ -235,45 +242,12 @@ Rd_expr_bibcite_keys_cited <- local({
 Rd_expr_bibcite <-
 function(x, textual = FALSE)
 {
-    x <- trimws(x)
-    given <- strsplit(x, "(?<!\\\\),[[:space:]]*", perl = TRUE)[[1L]]
-    ## We used to extract parts based on
-    ##   parts <- strsplit(given, "|", fixed = TRUE)
-    ## but that does not work as per ?strsplit
-    ##   if there is a match at the end of the string, the output is the
-    ##   same as with the match removed.
-    ## Argh.
-    parts <- regmatches(given,
-                        gregexpr("|", given, fixed = TRUE),
-                        invert = TRUE)
-    if(!all(ind <- (lengths(parts) %in% c(1L, 3L)))) {
-        msg <- paste(c("Found the following invalid citespecs:", 
-                       .strwrap22(sQuote(given[!ind]))),
-                     collapse = "\n")
-        warning(msg, call. = FALSE)
-        parts <- parts[ind]
-    }
-    keys <- after <- before <- rep_len("", length(parts))
-    if(any(ind <- (lengths(parts) == 1L))) {
-        keys[ind] <- unlist(parts[ind], use.names = FALSE)
-    }
-    if(any(ind <- (lengths(parts) == 3L))) {
-        parts <- parts[ind]
-        keys[ind] <- vapply(parts, `[`, "", 2L)
-        after[ind] <- gsub("\\,", ",",
-                           vapply(parts, `[`, "", 3L),
-                           fixed = TRUE)
-        before[ind] <- gsub("\\,", ",",
-                            vapply(parts, `[`, "", 1L),
-                            fixed = TRUE)
-    }
+    keys <- .bibkeys_from_cite(x)
+    before <- attr(keys, "before") %||% ""
+    after <- attr(keys, "after") %||% ""
     bib <- .bibentries_from_keys(keys)
-    ind <- keys %in% .bibentry_get_key(bib)
-    if(!all(ind)) {
-        keys <- keys[ind]
-        after <- after[ind]
-        before <- before[ind]
-    }
+    keys <- .bibentry_get_key(bib) # might not have found all of them
+    ## Merge bibinfo data.
     store <- Rd_expr_bibinfo_data_store()
     for(k in intersect(keys, names(store))) {
         entry <- store[[k]]
@@ -289,12 +263,12 @@ function(x, textual = FALSE)
     if(textual) {
         for(i in seq_len(n)) {
             key <- keys[i]
-            y[i] <- utils::citeNatbib(key, bib[key], after = after[i],
+            y[i] <- utils::citeNatbib(key, bib[key], after = after,
                                       previous = prev, textual = TRUE)
             prev <- c(prev, key)
         }
-        if(any(ind <- nzchar(before)))
-            before[ind] <- paste0(before[ind], " ")
+        if(nzchar(before))
+            before <- paste0(before, " ")
         y <- paste0(before,
                     ## Empty \cite{} here is a kludge to 'enterPara' in Rd2HTML.
                     sprintf("\\if{html}{\\cite{}\\out{<a href=\"#reference+%s+%s\" class=\"citation\">}}",
@@ -312,10 +286,10 @@ function(x, textual = FALSE)
                                       bibpunct = bibp)
             prev <- c(prev, key)
         }
-        if(any(ind <- nzchar(before)))
-            before[ind] <- paste0(before[ind], " ")
-        if(any(ind <- nzchar(after)))
-            after[ind] <- paste0(", ", after[ind])
+        if(nzchar(before))
+            before <- paste0(before, " ")
+        if(nzchar(after))
+            after <- paste0(", ", after)
         y <- paste0("(",
                     paste0(before,
                            sprintf("\\if{html}{\\out{<a href=\"#reference+%s+%s\" class=\"citation\">}}",
@@ -324,7 +298,7 @@ function(x, textual = FALSE)
                            y,
                            rep_len("\\if{html}{\\out{</a>}}", n),
                            after,
-                           collapse = ";"),
+                           collapse = "; "),
                     ")")
     }
     Rd_expr_bibcite_keys_cited(keys, TRUE)

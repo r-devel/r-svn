@@ -11,6 +11,7 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "checkDocFiles", "checkDocStyle", "checkFF", "checkMD5sums",
        "checkRd", "checkPoFile", "checkPoFiles",
        "checkRdaFiles", "checkReplaceFuns", "checkS3methods",
+       "checkSHA256sums",
        checkRdContents,
        "checkTnF", "checkVignettes", "codoc", "codocClasses",
        "codocData", "compactPDF", "delimMatch", "deparseLatex",
@@ -36,7 +37,7 @@ export("Adobe_glyphs", "HTMLheader", "Rcmd", "Rd2HTML", "pkg2HTML", "Rd2ex",
        "startDynamicHelp", "testInstalledBasic",
        "testInstalledPackage", "testInstalledPackages", "texi2dvi",
        "texi2pdf", "toHTML", "toRd", "toTitleCase", "undoc",
-       "update_pkg_po", "vignetteEngine",
+       "update_pkg_po", "verifySHA256signature", "vignetteEngine",
        vignetteInfo,
        "write_PACKAGES", "update_PACKAGES", "xgettext", "xgettext2pot", "xngettext")
 
@@ -73,6 +74,11 @@ export("R")
 
 export("analyze_license")
 
+export("find_calls",
+       "find_calls_in_package_code",
+       "gsub_with_transformed_matches",
+       "system_with_capture")
+
 exportPattern("^SIG.+")
 
 S3method("[", "check_details_changes")
@@ -102,6 +108,8 @@ S3method("format", "check_package_CRAN_incoming")
 S3method("format", "check_package_code_assign_to_globalenv")
 S3method("format", "check_package_code_attach")
 S3method("format", "check_package_code_startup_functions")
+S3method("format", "check_package_code_structure_specials")
+S3method("format", "check_package_code_unload_functions")
 S3method("format", "check_package_datalist")
 S3method("format", "check_package_datasets")
 S3method("format", "check_package_depends")
@@ -122,6 +130,7 @@ S3method("format", "checkReplaceFuns")
 S3method("format", "checkS3methods")
 S3method("format", "checkTnF")
 S3method("format", "checkVignettes")
+S3method("format", "codoc")
 S3method("format", "codocClasses")
 S3method("format", "codocData")
 S3method("format", "compactPDF")
@@ -174,6 +183,7 @@ S3method("print", "check_package_code_assign_to_globalenv", .print.via.format)
 S3method("print", "check_package_code_attach", .print.via.format)
 S3method("print", "check_package_code_data_into_globalenv", .print.via.format)
 S3method("print", "check_package_code_startup_functions", .print.via.format)
+S3method("print", "check_package_code_structure_specials", .print.via.format)
 S3method("print", "check_package_code_syntax")
 S3method("print", "check_package_code_unload_functions", .print.via.format)
 S3method("print", "check_package_depends", .print.via.format)

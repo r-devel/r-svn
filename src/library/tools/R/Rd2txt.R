@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2txt.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -48,11 +48,97 @@ Rd2txt_options <- local({
         else {
             if (is.list(args[[1L]])) args <- args[[1L]]
             result <- opts[names(args)]
+            names(result) <- names(args)
             opts[names(args)] <<- args
             invisible(result)
         }
     }
 })
+
+## FIXME: make replacement groups optional and disable extras by default?
+math_replacements <- matrix(c(
+    "Alpha",     "\u391",  "Alpha",   "&Alpha;",     "greek",
+    "Beta",      "\u392",  "Beta",    "&Beta;",      "greek",
+    "Gamma",     "\u393",  "Gamma",   "&Gamma;",     "greek",
+    "Delta",     "\u394",  "Delta",   "&Delta;",     "greek",
+    "Epsilon",   "\u395",  "Epsilon", "&Epsilon;",   "greek",
+    "Zeta",      "\u396",  "Zeta",    "&Zeta;",      "greek",
+    "Eta",       "\u397",  "Eta",     "&Eta;",       "greek",
+    "Theta",     "\u398",  "Theta",   "&Theta;",     "greek",
+    "Iota",      "\u399",  "Iota",    "&Iota;",      "greek",
+    "Kappa",     "\u39a",  "Kappa",   "&Kappa;",     "greek",
+    "Lambda",    "\u39b",  "Lambda",  "&Lambda;",    "greek",
+    "Mu",        "\u39c",  "Mu",      "&Mu;",        "greek",
+    "Nu",        "\u39d",  "Nu",      "&Nu;",        "greek",
+    "Xi",        "\u39e",  "Xi",      "&Xi;",        "greek",
+    "Omicron",   "\u39f",  "Omicron", "&Omicron;",   "greek",
+    "Pi",        "\u3a0",  "Pi",      "&Pi;",        "greek",
+    "Rho",       "\u3a1",  "Rho",     "&Rho;",       "greek",
+    "Sigma",     "\u3a3",  "Sigma",   "&Sigma;",     "greek",
+    "Tau",       "\u3a4",  "Tau",     "&Tau;",       "greek",
+    "Upsilon",   "\u3a5",  "Upsilon", "&Upsilon;",   "greek",
+    "Phi",       "\u3a6",  "Phi",     "&Phi;",       "greek",
+    "Chi",       "\u3a7",  "Chi",     "&Chi;",       "greek",
+    "Psi",       "\u3a8",  "Psi",     "&Psi;",       "greek",
+    "Omega",     "\u3a9",  "Omega",   "&Omega;",     "greek",
+    "alpha",     "\u3b1",  "alpha",   "&alpha;",     "greek",
+    "beta",      "\u3b2",  "beta",    "&beta;",      "greek",
+    "gamma",     "\u3b3",  "gamma",   "&gamma;",     "greek",
+    "delta",     "\u3b4",  "delta",   "&delta;",     "greek",
+    "varepsilon","\u3b5",  "epsilon", "&epsilon;",   "greek",
+    "zeta",      "\u3b6",  "zeta",    "&zeta;",      "greek",
+    "eta",       "\u3b7",  "eta",     "&eta;",       "greek",
+    "theta",     "\u3b8",  "theta",   "&theta;",     "greek",
+    "iota",      "\u3b9",  "iota",    "&iota;",      "greek",
+    "kappa",     "\u3ba",  "kappa",   "&kappa;",     "greek",
+    "lambda",    "\u3bb",  "lambda",  "&lambda;",    "greek",
+    "mu",        "\u3bc",  "mu",      "&mu;",        "greek",
+    "nu",        "\u3bd",  "nu",      "&nu;",        "greek",
+    "xi",        "\u3be",  "xi",      "&xi;",        "greek",
+    "omicron",   "\u3bf",  "omicron", "&omicron;",   "greek",
+    "pi",        "\u3c0",  "pi",      "&pi;",        "greek",
+    "rho",       "\u3c1",  "rho",     "&rho;",       "greek",
+    "varsigma",  "\u3c2",  "sigma",   "&sigmaf;",    "greek",
+    "sigma",     "\u3c3",  "sigma",   "&sigma;",     "greek",
+    "tau",       "\u3c4",  "tau",     "&tau;",       "greek",
+    "upsilon",   "\u3c5",  "upsilon", "&upsilon;",   "greek",
+    "varphi",    "\u3c6",  "phi",     "&phi;",       "greek",
+    "chi",       "\u3c7",  "chi",     "&chi;",       "greek",
+    "psi",       "\u3c8",  "psi",     "&psi;",       "greek",
+    "omega",     "\u3c9",  "omega",   "&omega;",     "greek",
+    "phi",       "\u3d5",  "phi",     "&phi;",       "greek",
+    "vartheta",  "\u3d1",  "theta",   "&thetasym;",  "greek",
+    "varpi",     "\u3d6",  "pi",      "&piv;",       "greek",
+    "epsilon",   "\u3f5",  "epsilon", "&varepsilon;","greek",
+    "prod",      "\u220f", "prod",    "&prod;",      "bigop",
+    "sum",       "\u2211", "sum",     "&sum;",       "bigop",
+    "int",       "\u222b", "int",     "&int;",       "bigop",
+    "dots",      "\u2026", "...",     "&hellip;",    "extra",
+    "ldots",     "\u2026", "...",     "&hellip;",    "extra",
+    "sqrt",      "\u221a", "sqrt",    "&radic;",     "extra",
+    "infty",     "\u221e", "Inf",     "&infin;",     "extra",
+    "ne",        "\u2260", "!=",      "&ne;",        "binop",
+    "neq",       "\u2260", "!=",      "&ne;",        "binop",
+    "le",        "\u2264", "<=",      "&le;",        "binop",
+    "leq",       "\u2264", "<=",      "&le;",        "binop",
+    "ge",        "\u2265", ">=",      "&ge;",        "binop",
+    "geq",       "\u2265", ">=",      "&ge;",        "binop",
+    "in",        "\u2208", "%in%",    "&isin;",      "binop",
+    "notin",     "\u2209", "%notin%", "&notin;",     "binop",
+    "sim",       "\u223c", "~",       "&sim;",       "binop",
+    "pm",        "\ub1",   "+/-",     "&pm;",        "binop",
+    "mp",        "\u2213", "-/+",     "&mp;",        "binop",
+    "times",     "\ud7",   "x",       "&times;",     "binop",
+    "cdot",      "\u22c5", " ",       "&sdot;",      "binop",
+    "left",      "",       "",        "",            "fixup",
+    "right",     "",       "",        "",            "fixup",
+    ",",         " ",      " ",       " ",           "fixup",
+    "log",       "log",    "log",     "log",         "fixup",
+    "exp",       "exp",    "exp",     "exp",         "fixup",
+    "min",       "min",    "min",     "min",         "fixup",
+    "max",       "max",    "max",     "max",         "fixup",
+    NULL), ncol = 5, byrow = TRUE,
+    dimnames = list(NULL, c("name", "unicode", "ascii", "html", "class")))
 
 transformMethod <- function(i, blocks, Rdfile) {
     editblock <- function(block, newtext)
@@ -342,10 +428,9 @@ Rd2txt <-
     }
 
     ## for efficiency
-    li <- l10n_info()
-    WriteLines <-
-        if(outputEncoding == "UTF-8" ||
-           (outputEncoding == "" && li[["UTF-8"]])) {
+    asUTF8 <- outputEncoding == "UTF-8" ||
+        (outputEncoding == "" && l10n_info()[["UTF-8"]])
+    WriteLines <- if(asUTF8) {
         function(x, con, outputEncoding, ...)
             writeLines(x, con, useBytes = TRUE, ...)
     } else {
@@ -460,15 +545,11 @@ Rd2txt <-
     	linestart <<- TRUE
     }
 
-    ## See the comment in ?Rd2txt as to why we do not attempt fancy quotes
-    ## in Windows CJK locales -- and in any case they would need more work
-    ## This covers the common single-byte locales and Thai (874)
-    use_fancy_quotes <-
-        (.Platform$OS.type == "windows" &&
-         ((li$codepage >= 1250 && li$codepage <= 1258) || li$codepage == 874)) ||
-        li[["UTF-8"]]
+    unicode_symbols <- asUTF8 &&
+        ## disable in title (see .Rd_get_text) to match existing *-Ex.Rout.save
+        !isFALSE(Rd2txt_options()$unicode_symbols)
 
-    if(!isFALSE(getOption("useFancyQuotes")) && use_fancy_quotes) {
+    if(unicode_symbols && !isFALSE(getOption("useFancyQuotes"))) {
     	LSQM <- "\u2018"                # Left single quote
     	RSQM <- "\u2019"                # Right single quote
     	LDQM <- "\u201c"                # Left double quote
@@ -496,7 +577,12 @@ Rd2txt <-
     }
 
     unescape <- function(x) {
-        x <- psub("(---|--)", "-", x)
+        if (unicode_symbols) {
+            x <- fsub("---", "\u2014", x)
+            x <- fsub("--",  "\u2013", x)
+        } else {
+            x <- psub("(---|--)", "-", x)
+        }
         x
     }
 
@@ -528,14 +614,18 @@ Rd2txt <-
     }
 
     txt_eqn <- function(x) {
-        x <- psub("\\\\(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|sum|prod|sqrt)", "\\1", x)
-        x <- psub("\\\\(dots|ldots)", "...", x)
-        x <- fsub("\\le", "<=", x)
-        x <- fsub("\\ge", ">=", x)
-        x <- fsub("\\infty", "Inf", x)
-        ## FIXME: are these needed?
-        x <- psub("\\\\(bold|strong|emph|var)\\{([^}]*)\\}", "\\2", x)
-        x <- psub("\\\\(code|samp)\\{([^}]*)\\}", "'\\2'", x)
+        replacement <- if (unicode_symbols) "unicode" else "ascii"
+        rx <- paste0("\\\\(",
+                     paste(math_replacements[,"name"], collapse = "|"),
+                     ")(?![a-zA-Z])")
+        m <- gregexec(rx, x, perl = TRUE)
+        ii <- lapply(regmatches(x, m),
+                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
+        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, replacement])
+        ## handle frequently used markup:
+        x <- psub("\\\\(bold|emph|mathbf|boldsymbol|mbox)\\{([^}]*)\\}", "\\2", x)
+        x <- psub("\\\\(code|samp)\\{([^}]*)\\}",
+                  sprintf("%s\\2%s", LSQM, RSQM), x)
         x
     }
 
@@ -585,8 +675,9 @@ Rd2txt <-
                "\\newcommand" =,
                "\\renewcommand" = {},
                COMMENT = {
-                   stripBlankLine()     # drop indentation
-                   linestart <<- FALSE  # eat subsequent \n also for non-indented comments
+                   if (linestart)
+                       linestart <<- FALSE # eat subsequent \n also for non-indented comments
+                   else stripBlankLine()   # drop indentation
                },
                LIST = writeContent(block, tag),
                "\\describe" = {
@@ -661,6 +752,7 @@ Rd2txt <-
                    }
                },
                "\\linkS4class" =,
+               "\\linkS4methods" =,
                "\\link" = writeContent(block, tag),
                "\\cr" = {
                    if (!length(buffer)) { # \cr\cr
@@ -936,7 +1028,7 @@ Rd2txt <-
                        ## The next item must be TEXT, and start with a space.
                        itemskip <- FALSE
                        if (tag == "TEXT") {
-                           txt <- psub("^ ", "", as.character(tabExpand(block)))
+                           txt <- psub("^ ", "", as.character(unescape(tabExpand(block))))
                            put(txt)
                            if (!haveBlanks &&
                                blocktag %in% c("\\describe", "\\value", "\\arguments"))

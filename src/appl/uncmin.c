@@ -27,11 +27,12 @@
 
 /*--- The Dennis + Schnabel Minimizer -- used by R's  nlm() ---*/
 
+#define USE_BASE_R_SUPPORT
 #include <math.h>
 #include <float.h> /* DBL_MAX */
 #include <R_ext/Boolean.h>
 #include <R_ext/Print.h>   /* Rprintf */
-#include <R_ext/PrtUtil.h> /* printRealVector */
+#include <PrtUtil.h>       /* printRealVector */
 #include <R_ext/BLAS.h>    /* ddot dnrm2 dscal */
 #include <R_ext/Linpack.h> /* dtrsl */
 #include <R_ext/Applic.h>  /* fdhess */

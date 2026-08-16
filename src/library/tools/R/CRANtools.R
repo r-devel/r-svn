@@ -220,6 +220,32 @@ function(flavors = NULL)
     db
 }
 
+CRAN_check_results_diff <-
+function(f1, f2) 
+{
+    x <- CRAN_check_results()
+    s1 <- x[x$Flavor == f1, ]
+    s2 <- x[x$Flavor == f2, ]
+    s1 <- s1[c("Package", "Version", "Status")]
+    s2 <- s2[c("Package", "Version", "Status")]
+    db <- merge(s1, s2, by = 1, all = TRUE)
+    row.names(db) <- db$Package
+    db <- db[, c("Version.x", "Status.x", "Version.y", "Status.y")]
+    isc <- (is.na(db$Status.x) |
+            is.na(db$Status.y) |
+            (db$Status.x != db$Status.y)) # Status change.
+    ivc <- (is.na(db$Version.x) |
+            is.na(db$Version.y) |
+            (db$Version.x != db$Version.y)) # Version change.
+    names(db) <- c("V1", "S1", "V2", "S2")
+    db <- cbind("S" = ifelse(isc, "*", ""),
+                "V" = ifelse(ivc, "*", ""),
+                db)
+    db <- db[c(which(isc & !ivc), which(isc & ivc), which(!isc & ivc)),
+             c("S", "V", "S1", "S2", "V1", "V2")]
+    db
+}
+
 CRAN_check_details <-
 function(flavors = NULL)
 {
@@ -802,3 +828,77 @@ BioC_rdxrefs_db <-
 function()
     read_CRAN_object(.get_BioC_repository_URL(),
                      "src/contrib/Meta/rdxrefs.rds")
+
+CRAN_baseurl_for_package_actions <-
+function()
+    Sys.getenv("R_CRAN_PACKAGE_ACTIONS_URL",
+               "https://www.R-project.org/nosvn/actions")
+    
+
+CRAN_package_actions <-
+function()
+    read_CRAN_object(CRAN_baseurl_for_package_actions(),
+                     "actions.rds")
+
+CRAN_baseurl_for_package_issues <- 
+function()
+    Sys.getenv("R_CRAN_PACKAGE_ISSUES_URL",
+               "https://www.R-project.org/nosvn/issues")
+
+CRAN_package_issues <-
+function(full = TRUE)
+    read_CRAN_object(CRAN_baseurl_for_package_issues(),
+                     if(full)
+                         "CRAN_issue_full.rds"
+                     else
+                         "CRAN_issue_open.rds")
+
+CRAN_check_problems_only_in_some_checks <- 
+function(flavor = ".",
+         status = c("WARNING", "ERROR", "FAILURE"),
+         subset = NULL,
+         results = CRAN_check_results())
+{
+    if(!is.null(subset))
+        results <- results[grepl(subset, results$Flavor), ]
+    p <- results$Package
+    i <- grepl(flavor, results$Flavor)
+    j <- results$Status %in% status
+    ## If we cross-tabulate i and j according to p, we want the packages
+    ## for which i & j and !i & !j are true once, and i & !j and !i & j
+    ## are never true.
+    x <- split((!i | j) & (i | !j), p)
+    names(x)[vapply(x, all, NA) &
+             vapply(split( i &  j, p), any, NA) &
+             vapply(split(!i & !j, p), any, NA)]
+}
+
+browse_CRAN_package_check_URLs <-
+function(p)
+{
+    n <- length(p)
+    i <- 1
+    while((substr(a <- readline("Next package? "), 1, 1) != "n") &&
+          (i <= n)) {
+              utils::browseURL(CRAN_package_check_URL(p[i]))
+              i <- i + 1
+    }
+}
+
+## Given an email address, what are the collaborators we can find?
+## What we can do is
+## (a) look at all packages which have an author with the address
+## (b) if there is any package with an ORCID iD for the address, then
+##     also all packages which have an author with that ORCID iD.
+.CRAN_authors_collaborating_with <-
+function(e, db = CRAN_authors_db())
+{
+    ## make codetools happy
+    ORCID <- email <- package <- NULL
+    a1 <- subset(db, tolower(email) == tolower(e))
+    id <- a1$ORCID
+    id <- unique(id[!is.na(id)])
+    a1 <- unique(rbind(a1, subset(db, ORCID == id)))
+    a2 <- subset(db, package %in% a1$package)
+    subset(a2, tolower(email) != tolower(e))
+}

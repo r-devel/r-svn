@@ -68,6 +68,7 @@
 \alias{.kronecker}
 \alias{.rmpkg}
 \alias{.set_ops_need_as_vector}
+\alias{.enc2utf8_sub}
 
 \title{Internal Objects in Package \pkg{base}}
 \description{% 'most': see e.g., .detach
@@ -136,6 +137,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
 .rmpkg(pkg) 
 .formula2varlist(formula, data, warnLHS = TRUE, ignoreLHS = warnLHS)
 .set_ops_need_as_vector(x, y)
+.enc2utf8_sub(x)
 }
 \arguments{
   \item{x}{an object
@@ -234,7 +236,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{\link{row.names}} can be stored internally in compact form.
   \code{.set_row_names(n)} generates that form for automatic row names
   of length \code{n}, to be assigned to
-  \code{attr(<a data frame>, "row.names")}.  \code{.row_names_info}
+  \code{attr(\var{a_data_frame}, "row.names")}.  \code{.row_names_info}
   gives information on the internal form of the row names for a data
   frame: for details of what information see the argument \code{type}.
 
@@ -301,5 +303,8 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \code{.set_ops_need_as_vector} is a helper function for the set
   operations like \code{\link{union}}: it returns \code{TRUE} if the set
   ops need to transform their arguments via \code{\link{as.vector}}.
+
+  \code{.enc2utf8} is a helper function used in \code{\link{read.dcf}}
+  and \code{\link{write.dcf}}.
 }
 \keyword{internal}

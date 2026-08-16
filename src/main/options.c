@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2025   The R Core Team.
+ *  Copyright (C) 1998-2026   The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -93,7 +93,7 @@
  * "scrap"
 
  * R_NilValue is not a valid value for any option, but is used to signal a
- * missing option by FindTaggedItem/GetOption and higher-level functions.
+ * missing option by FindTaggedItem/GetOption1 and higher-level functions.
  */
 
 
@@ -124,12 +124,6 @@ static SEXP makeErrorCall(SEXP fun)
   UNPROTECT(1);
   return call;
 }
-
-SEXP GetOption(SEXP tag, SEXP rho)
-{
-    return GetOption1(tag);
-}
-
 
 SEXP GetOption1(SEXP tag)
 {
@@ -458,8 +452,8 @@ attribute_hidden void InitOptions(void)
 #ifdef HAVE_RL_COMPLETION_MATCHES
     /* value from Rf_initialize_R */
     SET_TAG(v, install("rl_word_breaks"));
-    SETCAR(v, mkString(" \t\n\"\\'`><=%;,|&{()}"));
-    set_rl_word_breaks(" \t\n\"\\'`><=%;,|&{()}");
+    SETCAR(v, mkString(" \t\n\"\\'`><=;,|&{()}")); // no longer '%' for `%/%`, `%in%` ..
+    set_rl_word_breaks(" \t\n\"\\'`><=;,|&{()}");
 #endif
 
     SET_SYMVALUE(install(".Options"), val);
@@ -691,11 +685,11 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		}
 		if (k == NA_INTEGER)
 		    error(_("invalid value for '%s'"), CHAR(namei));
-#ifdef _NOT_YET_
+#ifndef _ALLOW_WARN_OUT_OF_BOUNDS_OPT_
 		char *p = getenv("R_WARN_BOUNDS_OPT");
 		if ((p && (strcmp(p, "yes") == 0)) && (k < -1 || k > 2)) {
 		    int k_n = (k < 0) ? -1 : 2;
-		    REprintf(_("value for '%s' outside of -1:2 is set to %d\n"),
+		    warning(_("value for '%s' outside of -1:2 is set to %d\n"),
 			     CHAR(namei), k_n);
 		    k = k_n;
 		}
@@ -737,7 +731,7 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    error(_("invalid value for '%s'"), CHAR(namei));
 		SET_VECTOR_ELT(value, i, SetOption(tag, argi));
 	    }
-/* handle this here to avoid GetOption during error handling */
+/* handle this here to avoid GetOption1 during error handling */
 	    else if ( streql(CHAR(namei), "show.error.messages") ) {
 		check_TRUE_FALSE(argi, CHAR(namei));
 		R_ShowErrorMessages = LOGICAL(argi)[0];
@@ -900,7 +894,7 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
 		    error(_("invalid value for '%s'"), CHAR(namei));
 		Rboolean k = asRbool(argi, call);
-#ifdef NO_QUIET_AND_VERBOSE 
+#ifdef NO_QUIET_AND_VERBOSE
 		if(k && R_Verbose)
 		    error(_("cannot set both options 'quiet' and 'verbose' to TRUE"));
 #endif
@@ -911,7 +905,7 @@ attribute_hidden SEXP do_options(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if (TYPEOF(argi) != LGLSXP || LENGTH(argi) != 1)
 		    error(_("invalid value for '%s'"), CHAR(namei));
 		Rboolean k = asRbool(argi, call);
-#ifdef NO_QUIET_AND_VERBOSE 
+#ifdef NO_QUIET_AND_VERBOSE
 		if(k && R_Quiet)
 		    error(_("cannot set both options 'quiet' and 'verbose' to TRUE"));
 #endif

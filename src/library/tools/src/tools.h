@@ -39,13 +39,14 @@ SEXP doTabExpand(SEXP strings, SEXP starts);
 SEXP ps_kill(SEXP pid, SEXP signal);
 SEXP ps_sigs(SEXP);
 SEXP ps_priority(SEXP pid, SEXP value);
-SEXP codeFilesAppend(SEXP f1, SEXP f2);
+SEXP codeFilesAppend(SEXP f1, SEXP f2, SEXP enc);
 SEXP getfmts(SEXP format);
 SEXP startHTTPD(SEXP sIP, SEXP sPort);
 SEXP stopHTTPD(void);
 SEXP splitString(SEXP string, SEXP delims);
 SEXP package_dependencies_scan(SEXP x);
 SEXP nonASCII(SEXP x);
+SEXP remove_dot_segments_wrapper(SEXP x);
 
 SEXP parseLatex(SEXP call, SEXP op, SEXP args, SEXP env);
 SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env);

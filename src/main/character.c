@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -159,7 +159,8 @@ attribute_hidden SEXP do_nzchar(SEXP call, SEXP op, SEXP args, SEXP env)
        -2 ... the quantity is not computable (bytes encoding)
      semi-internal buffer cbuff is never freed, should be freed by caller
 */
-// in Rinternals.h
+// in Defn.h
+attribute_hidden
 int R_nchar(SEXP string, nchar_type type_,
 	    Rboolean allowNA, Rboolean keepNA, const char* msg_name)
 {
@@ -695,7 +696,7 @@ do_substrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	    cetype_t ienc = getCharCE(el);
 	    const char* ss = CHAR(el);
-	    int slen = strlen(ss);
+	    int slen = (int) strlen(ss);
 	    if (start < 1) start = 1;
 	    if (stop > (int) slen) stop = (int) slen; /* SBCS optimization */
 	    if (start > stop) {
@@ -710,7 +711,7 @@ do_substrgets(SEXP call, SEXP op, SEXP args, SEXP env)
 		cetype_t venc = getCharCE(v_el);
 		if (venc != ienc && !IS_ASCII(v_el)) {
 		    ss = translateChar(el);
-		    slen = strlen(ss);
+		    slen = (int) strlen(ss);
 		    v_ss = translateChar(v_el);
 		    ienc2 = CE_NATIVE;
 		}
@@ -898,14 +899,14 @@ static SEXP wstripchars(const wchar_t * const inchar, int minlen, int usecl)
 	}
 
 	for (i = WUP; i > 0; i--) {
-	    if (islower((int)wc[i]) && LASTCHARW(i))
+	    if (iswlower((wint_t)wc[i]) && LASTCHARW(i))
 		mywcscpy(wc + i, wc + i + 1);
 	    if (wcslen(wc) - nspace <= minlen)
 		goto donewsc;
 	}
 
 	for (i = WUP; i > 0; i--) {
-	    if (islower((int)wc[i]) && !FIRSTCHARW(i))
+	    if (iswlower((wint_t)wc[i]) && !FIRSTCHARW(i))
 		mywcscpy(wc + i, wc + i + 1);
 	    if (wcslen(wc) - nspace <= minlen)
 		goto donewsc;

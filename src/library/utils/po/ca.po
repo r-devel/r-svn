@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2024-10-25 14:50-0700\n"
+"POT-Creation-Date: 2025-03-31 11:51+0200\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Joan Maspons <joanmaspons@gmail.com>\n"
 "Language-Team: none\n"
@@ -35,7 +35,6 @@ msgid "invalid quote symbol set"
 msgstr "joc de símbols de cita no vàlid"
 
 #: io.c:362 io.c:864 io.c:1084
-#, fuzzy
 msgid "cannot open the connection"
 msgstr "no s'ha pogut obrir la connexió"
 
@@ -99,21 +98,21 @@ msgstr "«file» no és una connexió"
 msgid "cannot write to this connection"
 msgstr "no s'ha pogut escriure a aquesta connexió"
 
-#: io.c:1110
+#: io.c:1111
 msgid "'dec' must be a single character"
 msgstr "«dec» ha de ser un únic caràcter"
 
-#: io.c:1137
+#: io.c:1138
 #, c-format
 msgid "corrupt data frame -- length of column %d does not match nrows"
 msgstr "«data frame» corromput -- la longitud de la columna %d no coincideix amb nombre de files"
 
-#: io.c:1171
+#: io.c:1172
 #, fuzzy, c-format
 msgid "column %d claims to be a factor but does not have numeric codes"
 msgstr "la columna %s afirma ser un factor però no té codis numèrics"
 
-#: io.c:1189
+#: io.c:1190
 msgid "corrupt matrix -- dims do not match length"
 msgstr "matriu corrompuda -- les dimensions no coincideixen amb la longitud"
 
@@ -254,7 +253,7 @@ msgid "'%s' must be length 1"
 msgstr "«%s» ha de ser de longitud 1"
 
 #: windows/util.c:577
-#, fuzzy, c-format
+#, c-format
 msgid "'%s' must be a list"
 msgstr "«%s» ha de ser una llista"
 

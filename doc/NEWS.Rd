@@ -5,16 +5,409 @@
 \title{R News}
 \encoding{UTF-8}
 
-\section{\Rlogo CHANGES IN R-devel}{
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+\section{\Rlogo Changes in R-devel}{
+  \subsection{Significant User-Visible Changes}{
+    \itemize{
+      \item \code{read.dcf()} and \code{write.dcf()} now treat \abbr{DCF}
+      files (such as package \file{DESCRIPTION} and repository
+      \file{PACKAGES} files) as \abbr{UTF-8}, as required by the Debian
+      control file format.  \code{read.dcf()} returns values in
+      \abbr{UTF-8} and \code{write.dcf()} always writes \abbr{UTF-8}
+      regardless of the session locale; bytes which are not valid
+      \abbr{UTF-8} are preserved by escaping them as \samp{<xx>} rather
+      than being re-encoded via a \samp{Encoding} field.  As a
+      consequence, the \code{useBytes} argument of \code{write.dcf()} is
+      ignored, and non-\abbr{UTF-8} \file{DESCRIPTION} files (e.g. those
+      declaring \samp{Encoding: latin1}) are no longer re-encoded on
+      reading.
+
+      \item Fixing \code{rbinom()}, see \PR{19049} below, to reproduce
+      old results needs \code{RNGkind()} to get a new \code{binom.kind}
+      argument and, e.g. \code{RNGversion("4.6")} keeps previous behaviour.
+
+      \item The Sweave syntax definition objects
+      \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
+      their own detailed help page.
+    }
+  }
+
+  \subsection{New Features}{
+    \itemize{
+      \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
+      suppresses warnings about \dQuote{notches outside hinges}.
+
+      \item New function \code{cumvar()} to calculate cumulative variances.
+
+      \item The \code{print()} method for \code{rle()} now passes \code{...}
+      to \code{str()}.
+
+      \item \code{rmultinom()} now uses \I{Kahan}'s arithmetic instead of
+      \code{LDOUBLE} to avoid platform dependency, thanks to \I{Mauricio Vargas}'
+      proposal in \PR{18693}.
+
+      \item \emph{Object not found} errors now signal error conditions
+      of class \code{objectNotFoundError}. \emph{Function not found}
+      errors signal conditions of the subclass
+      \code{functionNotFoundError}.
+
+      \item Condition classes used internally for signaling some errors
+      are now documented in \code{?conditions}.
+
+      \item The \code{as.data.frame()} methods for atomic \code{vector}
+      classes get an optional switch \code{validRN}, with default true to
+      fix \PR{19059} and false for some back compatibility, still
+      allowing data frames in construction to contain \code{NA}s in row
+      names.
+
+      \item \code{tools::Rd2txt()} now replaces \samp{---} and \samp{--}
+      by Unicode dashes when the output encoding is UTF-8.
+
+      \item \code{fisher.test()} gains a new option \code{pval.only = TRUE}
+      for the 2x2 exact case, with substantial speed gains in the case of large
+      counts.
+
+      \item \code{binom.test()} and \code{poisson.test()} can now at
+      least optionally compute central two-sided p-values which match
+      the confidence intervals.  Same for \code{fisher.test()} in the
+      \eqn{2 \times 2}{2 by 2} case and \code{mantelhaen.test()} in
+      the \eqn{2 \times 2 \times K}{2 by 2 by K} case if an exact
+      conditional test is performed.
+
+      \item New low-level function \code{.OBJSXP()} enables deparsing of
+      non-S4 \code{"object"} type objects.
+
+      \item \code{use()} gets an argument \code{pos} with a help example
+      showing how to attach a \dQuote{chain} of packages to
+      \code{search()}.
+
+      \item New higher-order functions \code{Compose()}, \code{Funcall()}
+      and \code{Partial()}.
+
+      \item New functions \code{find_calls()},
+      \code{find_calls_in_package_code()},
+      \code{gsub_with_transformed_matches()} and
+      \code{system_with_capture()} in package \pkg{tools}.
+    }
+  }
+
+  \subsection{Installation on a Unix-Alike}{
+    \itemize{
+      \item Installing \R (creating \file{libR.pc}) no longer fails with a
+      \command{sed} error when the new \option{--package-metadata} linker flag
+      is involved; an \samp{s}-command delimiter other than \samp{:} was needed
+      (\PR{19060}, thanks to \I{Jeroen Ooms} and \I{Dirk Eddelbuettel}).
+    }
+  }
+
+  \subsection{Package Installation}{
+    \itemize{
+      \item .
+    }
+  }
+
+  \subsection{C-Level Facilities}{
+    \itemize{
+      \item .
+    }
+  }
+
+  \subsection{Utilities}{
+    \itemize{
+      \item \code{tools::texi2pdf()} now reports BibTeX warnings;
+      in particular, missing references are now noted by
+      \command{R CMD check} when re-building PDF vignettes.
+
+      \item \command{R CMD build} now excludes an obsolete
+      \file{data/datalist} file when the package uses \samp{LazyData}.
+    }
+  }
+
+  \subsection{Deprecated and Defunct}{
+    \itemize{
+      \item \code{structure()} now deprecates the old \dQuote{special}
+      substitute \code{attributes}' names \code{".Dim", ".Dimnames", ".Names", ".Tsp", ".Label"}
+      in favour of the respective \code{"dim", "dimnames", "names", "tsp", "levels"}
+      names.
+    }
+  }
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item For \code{x <-  <large-POSIXlt>}, for some boundary cases
+      with \code{x$sec - floor(x$sec)} close to 1, \code{c(x)} could
+      become one second ahead of \code{x} in \R 4.6.0;  \I{subassignments}
+      such as \code{x[i] <- val} have improved, thanks to suggestions by
+      \I{Suharto Anggono} in \PR{18989}.
+
+      \item In an \R installation without \acronym{NLS}, e.g., from
+      \option{--disable-nls} configuration, the C \code{ngettext()}
+      replacement now also keeps plural for \dQuote{0 things}, thanks to
+      \I{Michael Chirico}'s \PR{19065}.
+
+      \item \code{as.data.frame.vector(<row.names_w/_NA>)} now signals
+      the same error as \code{data.frame()}, fixing \I{Hervé Pagès}'
+      \PR{19059}.  From \I{Suharto Anggono}'s comment #c4, it gives the same
+      error also when \code{row.names = RN} explicitly, where \code{RN} has
+      \code{NA}s.
+
+      \item \code{.leap.seconds} again has no \code{"tzone"} attribute, as
+      in earlier \R versions, fixing \PR{19072} thanks to \I{Suharto Anggono}.
+
+      \item \code{as.POSIXct(x)} for \code{POSIXlt} object \code{x} with
+      \code{.Machine$integer.max - x$year < 1900} no longer suffers from C
+      level integer overflow, thanks to \I{Suharto Anggono}'s patch for
+      \PR{19038}.  Currently, this does not apply when the
+      \code{"internal"} code for date-time conversion and printing is in
+      use, as e.g., on Windows and macOS.
+
+      \item \code{wilcox.test()} gains new optional argument
+      \code{digits.zap}, \emph{and} the default for argument
+      \code{digits.rank} is changed from \code{Inf} to \code{7},
+      addressing bugs \PR{18035} and \PR{19071}, in order to deal with
+      both ties of almost equal numbers and almost zeros of differences.
+
+      \item Exclude patterns from \file{.Rbuildignore} are now processed
+      \emph{before} preparing the package directory for the tarball,
+      avoiding redundant file copies from the source directory (\PR{17549}).
+      In particular, when a source package \file{foo/} folder contains broken
+      symlinks matching an exclude pattern, \command{R CMD build foo}
+      now succeeds, omitting these, thus fixing \PR{18186}.  (Thanks to
+      \I{Ivan Krylov} and others, notably \I{Jenny Bryan} and \I{R Dev
+      Day @ useR! 2025} contributors.)
+
+      \item \code{strat_ratio != 1} in \code{rfree1way} did not work as
+      advertised.
+
+      \item Zeros in the \code{prob} argument to \code{power.free1way.test}
+      triggered an error and are now handled correctly.
+
+      \item Fix for \PR{18874};  \code{"null"} widths/heights in
+      \pkg{grid} layouts are zero if widths/heights to allocate are
+      zero. (Thanks to \I{Maciej Nasinski} and \I{Trevor Davis}.)
+
+      \item Fix for \PR{19055};  additional documentation for
+      \code{embedFonts()}. (Thanks to \I{Chris Danek} and \I{Ivan Krylov}.)
+
+      \item \code{merge.data.frame} now returns the correct column names when
+      at least one of the merged data frames has zero rows and at least one of
+      the merged data frames has only one column, fixing \PR{18930}. Thanks to
+      \I{David Molnar} and \I{Gabriel Becker}.
+
+      \item \code{trace()} now works for functions whose S3 class
+      attribute has more than one string, e.g., \CRANpkg{S7} generics
+      and methods. Thanks to \I{Hadley Wickham} for the patch.
+
+      \item \code{as(object, to) <- value} no longer treats \code{to}
+      as a class union when it was registered via \code{setOldClass()}.
+
+      \item In \pkg{methods}, \code{setOldClass(..., S4Class = )}
+      no longer warns about undefined subclasses when the supplied S4
+      class inherits from a class union.
+
+      \item Fix for \PR{19094};  fill/stroke path based on text with
+      \code{col=NA}. Thanks to \I{Trevor Davis}.
+
+      \item Fix for \PR{18842};  better documentation and warnings
+      when specify inappropriate \code{col} to \code{filled.contour()}.
+      Thanks to \I{Darakhshan Nehal}.
+
+      \item \code{cor(*, method="kendall")} and \code{cov()} now use the fast
+      N*log(N) algorithm suggested in \PR{18934} and offered by \I{David Simcha}
+      on R-devel in 2010.  With thanks to the \I{R Dev Day @ Nantes 2026}
+      contributors, notably \I{Charles Bordet} and \I{Alexis Derumigny}.
+
+      \item In \code{nls}, follow suggestion by \I{Ben Bolker} to reorder
+      named vectors for \code{lower} and \code{upper} arguments to match
+      names of the starting values (\PR{18415}). This has been extended so that
+      you can now specify \emph{only} the parameters that you wish to
+      constrain, and also so that it works when parameters are in the
+      form of named lists.
+
+      \item \code{summary(<aov>)} for an almost perfect fit now warns
+      analogously to \code{summary(<lm>)}, using the same check.  Fixes
+      fixes \PR{18341} thanks to \sQuote{\I{R Dev Day @ useR! 2026}}
+      participants \I{Deepansh Khurana}, \I{Stefan Linner} and \I{Oscar de Leon}.
+
+      \item Package \pkg{methods} provides a method for implicit generic
+      function \code{rcond} with signature
+      \code{c(x="ANY", norm="missing")} so that \code{rcond(x)}
+      does not break after \code{setGeneric("rcond")}.
+
+      \item \code{rbinom()}'s \abbr{BTPE} algorithm is fixed thanks to
+      \I{Kate Hudson}'s findings and report in \PR{19049}.  To ensure
+      reproducibility, \code{RNGkind()} gets new argument
+      \code{binom.kind}.
+
+      \item Fix segfault in \code{postscript()} and \code{pdf()} if set
+      \code{papersize} option to very long string (\PR{19108}).  Thanks
+      to \I{Kevin Ushey}.
+
+      \item Fix segfault in \code{grid::gpar()} if set \code{fontfamily}
+      longer than 200 characters (\PR{19107}).  Thanks
+      to \I{Kevin Ushey}.
+
+      \item Fix cases where \code{M} and \code{X} matrices could be
+      spanning the same subspace in \code{mauchly.test()}, \code{sphericity()}
+      \code{anova.mlm()}, \code{anova.mlmlist()}. (\PR{16166}, originally
+      reported in 2015 by \I{Florent Aubry}, essentially analyzed
+      Feb. 2020 just before the corona crisis, triaged 2026 by
+      \I{Michael Chirico})
+
+      \item Changed \code{model.frame.glm()} to use same logic as
+      \code{model.frame.lm()} (\PR{19036}, \I{Isaac Gravestock}).
+      
+    }
+  }
+}
+
+
+\section{\Rlogo Changes in R 4.6.1 patched}{
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item In plain-text help (\code{Rd2txt}), paragraphs are again
+      recognized even when started with a non-indented Rd comment,
+      fixing a regression in \R 4.4.0.
+
+      \item \code{rhyper(N, m, n, k)} now switches to the \dQuote{large}
+      scenario when \code{m + n} is larger than
+      \code{.Machine$integer.max}, preventing integer overflow, thanks to
+      \I{Jonathan Blood}'s report on R-devel.
+
+      \item Fix long standing (Fortran compiler optimization related) bug
+      in \code{nlminb} with constraints, thanks to \I{Kasper Kristensen}'s
+      \PR{19086} report and patch.
+
+      \item Fix for \PR{19100}: \code{seq.int} was not handling
+      non-vector \code{along.width} arguments properly. Thanks to
+      \I{Mitchell O'Hara-Wild}.
+
+      \item Wrapper objects make sure data pointers remain once obtained
+      remain valid as long as a wrapper object is reachable. Reported by
+      \I{Ivan Krylov}.
+
+      \item \code{dummy.coef()} becomes more robust to non-syntactic
+      variable names, fixing \PR{18468}.  Thanks to \I{Bill Dunlap} and
+      \sQuote{\I{R Dev Day}} participants \I{Vincent Arel-Bundock},
+      \I{Cynthia Huang}, \I{Tina Rozsos} and \I{Marina Marinelli}.
+
+      \item Now \code{PROTECT()} in \code{SubassignTypeFix}, fixing
+      \PR{19110} thanks to \I{Kevin Ushey}.
+
+      \item \code{writeChar()} in a multibyte locale counts characters and
+      bytes consistently and no longer overflows, thanks to \I{Kevin
+	Ushey}'s report and patch in \PR{19112}.
+
+      \item \code{dim(a) <- vec} now checks for too large \code{prod(vec)},
+      thanks to \I{Kevin Ushey}'s report and patch in \PR{19109}.
+      
+      \item Tweaks (including to the parsers) for the C23 behaviour
+      (preserving \code{const}) of \code{strchr}, \code{strrchr} and
+      \code{strstr}.  (By Brian Ripley and Duncan Murdoch.)
+
+      \item \command{make check-devel} now works without recommended
+      packages.
+
+      \item \code{<matrix>[[i, j]]} with negative \code{i} occasionally
+      gives no error but accesses \code{previous content}; thanks to
+      \I{Kevin Ushey}'s report and very simple fix in \PR{19116}.
+    }
+  }
+}
+
+\section{\Rlogo Changes in R 4.6.1}{
+
+  \subsection{New Features}{
+    \itemize{
+      \item The \LaTeX class \samp{jss} bundled in
+      \file{share/texmf/tex/latex/jss.cls} has been updated
+      to work with \samp{hyperref} version 7.01q (2026/04/24).
+
+      \item Plain-text (and legacy HTML) conversion for a simple Rd
+      \verb{\eqn{}} now handles \verb{\geq}, \verb{\leq}, \verb{\neq}
+      and \verb{\ne} in addition to \verb{\ge} and \verb{\le} (\PR{19070}).
+    }
+  }
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item \code{abbreviate(<non-ASCII>)} now works better, using
+      \code{iswlower()} and \code{*upper()} to treat \dQuote{wide}
+      characters, thanks to \I{Kevin}'s \PR{19058}.
+
+      \item \code{cut(1:11, {})} now signals an error for the invalid
+      \code{breaks}, fixing \PR{19057}, thanks to \I{Kevin Ushey}.
+
+      \item \code{all(<symbol>)} signals an error now, as some similar
+      coercions; previously, the coercion of the symbol resulted
+      in \code{NULL} internally, raised a warning, and could access illegal
+      memory; thanks to \I{Kevin Ushey}'s \PR{19054}.
+
+      \item \code{stl()} now checks its 3 x 3 tuning parameters on the R level;
+      \code{stl(*, s.window = 0)} now \dQuote{works} instead dumping core,
+      \code{stl(*, s.window = 1)} \dQuote{works} correctly, too.  Also, the
+      \code{summary()} method mentions the robustness \code{weights} only
+      if any robustness iterations happened.
+
+      Further, \code{stl()} is now based on C code, translated from previous
+      Fortran, triggered by a \I{flang 22} compiler optimization bug
+      (\command{-O2}).
+
+      \item The border case \code{zapsmall(x, digits=Inf)} where \code{x}
+      contains an \code{Inf} entry no longer returns all \code{NaN} but
+      rather \code{x}.
+      The improved help page now has more non-default examples.
+
+      \item \code{wilcox.test(x, exact=FALSE, correct = k)}'s p-value
+      computation got a missing \code{dnorm(z)} factor, and so did the
+      2-sample case, in addition to more fixes.
+
+      \item The data part of \code{getGenerics()} listed package names for
+      generic functions defined in more than one package.  Now it
+      lists generic function names, as intended.  Thanks to \I{Michael
+      Chirico} for report and patch proposal (\PR{19080}).
+
+      \item Overly long \code{dyn.load()} error messages (C level
+      \code{dlerror()}), should no longer corrupt its state, thanks to
+      \I{Ivan Krylov}'s \PR{19029} report and patch.
+
+      \item \code{as.matrix(<POSIXlt>)} again produces a \emph{numeric}
+      matrix, and the \code{c()} and \I{subassignment} methods for
+      \code{POSIXlt} objects work correctly more often, e.g., without a
+      \code{"tzone"} attribute, back porting a few of the \PR{18989} fixes
+      from R-devel, both thanks to \I{Suharto Anggono}.
+
+      \item In \pkg{methods}, \code{as()} now correctly coerces S4
+      objects to S4 superclasses extending old-style classes, instead
+      of returning only the S3 part.
+    }
+  }
+}
+
+\section{\Rlogo Changes in R 4.6.0}{
+
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item The R citation now provides a \abbr{DOI}
       (\I{10.32614/R.manuals}): please update your
       bibliographies accordingly.
+
+      %% GCC 10 and Intel 2021.1 definitely support this: GCC 9 may
+      \item The default C++ standard has been changed to C++20 where
+      available (which it is on all known platforms from 2021 on): if
+      not C++17 is used if available otherwise C++ is not supported (as
+      before).
+
+      (GCC 16 has also switched to C++20 as its default.)
+
+      Packages can request C++17 if essential.
+
+      \item The Sweave driver \code{Rtangle} no longer puts empty lines
+      at the end of tangled scripts.
     }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item The default \code{AIC} and \code{BIC} methods now check whether
       the \pkg{methods} namespace is loaded rather than \pkg{stats4}. They
@@ -97,6 +490,10 @@
       \item \code{chkDots()}' optional argument \code{allowed} has been
       implemented thanks to \I{Trevor Davis}' proposal in \PR{18936}.
 
+      \item New function \code{messageCondition()} to create structured
+      \code{"message"} objects analogous to \code{warningCondition()}
+      and \code{errorCondition()} (\PR{18940}, by \I{Trevor Davis}).
+
       \item \code{wilcox.test()} can now perform exact (conditional)
       inference in case of ties.  Based on contributions by
       \I{Torsten Hothorn}.
@@ -107,6 +504,12 @@
 
       \item \code{barplot(.., orderH = *)} for stacked bar plots allows to
       sort the stacks each according to size.
+
+      \item New argument \code{panel.first} for \code{hist()}
+      (via \code{plot.histogram()}), \code{barplot()}, \code{bxp()},
+      and hence implicitly \code{boxplot()}.
+      All except the former also gain a new \code{panel.last}.
+      Suggested by \I{Marieke Stolte} and \I{Julian Welz}.
 
       \item \code{plot.default()} gets a new switch \code{lim2} to indicate
       that the default \code{xlim} and \code{ylim} range computations only
@@ -141,10 +544,203 @@
       \code{tools::Rd2txt_options(descStyle=NULL)} to get the old
       behaviour with a simple space; a \code{"colon"} variant is also
       available.
+
+      \item \code{x \%notin\% table} newly in \pkg{base} is an idiom
+      for \code{!(x \%in\% table)} and provided almost entirely for
+      convenience and code readability, from an R-devel suggestion, after
+      many years of private definitions mostly hidden in packages,
+      including in \R's \pkg{tools} package.
+
+      \item The default method of \code{sequence()} gets a new option
+      \code{recycle} to swap between current (not fully recycling) and
+      future behaviour where all three of \code{(nvec, from, by)} are
+      jointly recycled.
+
+      \item \code{ftable()}s default method and the \code{as.table()}
+      method for \code{"ftable"}s get a \code{perm} argument with back
+      compatible default.  The \code{as.table()} method also gets a
+      \code{named.dim = FALSE} switch, no longer creating a named
+      \code{dim(<result>)} by default.
+
+      \item \code{match.arg()} gets a new option \code{several.ok = "all"},
+      fulfilling the wish of \I{Jim Hester} in \PR{16659}.
+
+      \item \code{provideDimnames()} gets new switch \code{use.names}, as
+      proposed including patch by \I{Mikael Jagan}, in \PR{18975}.
+
+      \item The default \code{summary()} is more informative for
+      character vectors, optionally resorting to the factor method
+      via the new argument \code{character.method = "factor"}, e.g.,
+      when summarizing a data frame (\PR{16750}).
+
+      It also provides more useful summaries for complex vectors, with
+      \code{polar} determining if polar or cartesian coordinates are more
+      relevant; mostly based on a proposal by \I{Mikael Jagan}.
+
+      \item Error messages from failed Rd \verb{\Sexpr} code now include
+      the call from the original condition (if available).
+      Warning messages now include Rd source locations.
+
+      \item When the environment variable \env{R_WARN_BOUNDS_OPT} is set to
+      \code{"yes"}, \code{options(warn = val)} will check if \code{val} is
+      inside \code{-1:2}; this may happen unconditionally in the future.
+
+      \item \code{weighted.residuals()} now returns weighted working
+      residuals for \code{"glm"} objects. It used to return deviance
+      residuals, but these do not give the one-step approximated
+      \code{dfbeta} values, as pointed out by \I{Ravi
+      Varadhan}. \code{influence.glm()} has been amended so that it now
+      returns an object with both a \code{"wt.res"} and a
+      \code{"dev.res"} element.
+
+      \item Several influence measures for \code{"glm"} objects have
+      been updated to use Pearson residuals rather than deviance
+      residuals (the latter are not unbiased) and to not use
+      leave-one-out estimates of dispersion in models with fixed
+      dispersion. Thanks to \I{Ravi Varadhan} for discussions and
+      testing of these updates.
+
+      \item \R now supports custom binary types which are of the form
+      \code{"<system>.binary.<build>"} where \code{<system>} is
+      lower-case name (letters only) of the system and \code{<build>} is
+      the name of the build (alphanumeric and dashes). The corresponding
+      paths returned by \code{contrib.url} (which govern the repository
+      layout) with the above \code{type=} have the form
+      \code{bin/<system>/<build>/contrib/<x.y>} where \code{<x.y>}
+      is the \R version without patch level. This is a generalisation of
+      the binary types previously supported on macOS. In addition, binary
+      packages can have the extensions \code{.tar.bz2}, \code{.tar.xz},
+      \code{.tar.zst} and \code{.tar.zstd} with the corresponding
+      compression support.
+
+      \item The value of \code{.Platform$pkgType} which defines the
+      native binary type for the current build of \R can be overridden
+      with \env{R_PLATFORM_PKGTYPE} environment variable (previously
+      this was only set by the macOS builds of \R). This should be
+      typically only done by the author of a binary \R distribution to
+      define the type of binaries supported by that build of \R.
+
+      \item If \R uses custom binary type in its
+      \code{.Platform$pkgType} then \command{R CMD INSTALL --build} will
+      produce \code{<package>_<ver>_R_<system>-<build>.tar.xz} binary
+      files. Please note that future versions may use \code{.zstd}
+      compression by default so package tooling should support any of
+      the above mentioned extensions.
+
+      \item New facilities have been introduced for package integrity
+      verification and package signing. The optional file \file{SHA256}
+      in a package contains \abbr{SHA}-256 hashes, lengths and paths
+      of files provided in the package allowing for more reliable integrity
+      verification (relative to \file{MD5}). This file is now generated
+      by default in \command{R CMD INSTALL --build} and optionally via
+      \command{R CMD build --sha256}. A package can be signed by creating a
+      detached GnuPG signature file \file{SHA256.sig} signing the
+      entirety of the \file{SHA256} file. Upon installation, the
+      signature is verified using GnuPG, thus ensuring the integrity of
+      the \file{SHA256} file and by induction all files in the package.
+      Both source and binary packages can be signed. Currently, this only
+      applies to tar-based packages, and the command-line GnuPG
+      \command{gpg} tool (or equivalent tool named in the \code{GPG}
+      environment variable) has to be available for signing and
+      verification to work. \command{R CMD INSTALL --sign} can be used to
+      sign binary packages, including its use with \option{--build}.
+      System-wide GnuPG keyrings for the \R installation
+      can be placed in \code{\var{R_HOME}/etc/keyrings} as files with
+      \file{.gpg} extensions and will be checked first before consulting
+      user's GnuPG keyring (if present).
+
+      \item Experimentally, several math library (\file{math.h}) functions,
+      such as \code{exp(.)}, \code{log1p()}, \code{sin()}, \code{atanh()},
+      when called from \R, are now ensured to give fully accurate results
+      in a small neighbourhood of special values, such as \code{exp(0) == 1},
+      \code{log1p(0) == 0}, etc.
+      This makes \R slightly less platform dependent for these functions,
+      notably on platforms with less accurate system math libraries, see also
+      \url{https://blog.r-project.org/2026/01/30/debugging-sensitivity-to-c-math-library-on-linux/}.
+
+      \item Function \code{free1way()} implementing \I{semiparametrically}
+      efficient inference procedures (likelihood- and permutation-based)
+      in distribution-free stratified K-sample one-way layouts was added
+      to the \pkg{stats} package.  Approximate (via
+      \code{power.free1way.test()}) and simulation-based (utilising
+      \code{rfree1way()} for random number generation) power-assessment
+      and sample-size planning as well as model diagnostics (available
+      from a \code{plot} method and probability-probability plots in
+      \code{ppplot()}) complement the functionality.
+      Provided by \I{Torsten Hothorn}.
+
+      \item \code{plot.data.frame()} now supports a \code{formula} argument.
+
+      \item New Rd macro \verb{\linkS4methods{}}, e.g., for easier linking to
+      method docs in other packages, proposed and coded by \I{Mikael Jagan}
+      in \PR{18998}.
+
+      \item Class \code{"difftime"} is now also among the S4
+      \code{"OldClasses"}.
+
+      \item New function \code{bitstring()} as a user-friendly wrapper
+      around \code{intToBits()}, etc.
+
+      \item \code{plot.lm()} now omits the smoother in the residuals vs
+      leverage plot. This never made much sense, but if you really want it,
+      you can force the old behaviour by setting \code{panel.raw=panel.smooth}.
+
+      \item \code{hatvalues()} now has a method for \code{nls} (nonlinear
+      model) results, prompted by the proposal of \I{Patrice Kiener} and
+      \I{Heather Turner} in \PR{18897}.
+
+      \item The Sweave driver \code{RweaveLatex} now allows the value of
+      logical and numerical chunk options (only) to be the name of an
+      object defined in earlier, evaluated code chunks. This is useful
+      to pass computed values to options. For options set this way for
+      weaving purposes, the \code{Rtangle} driver rather uses their
+      default values, with a warning.
+      By \I{Vincent Goulet}.
+
+      \item The Sweave driver \code{RweaveLatex} gains an option to
+      include unparsable R code or arbitrary text in code chunks. Chunks
+      marked as \code{ignore.on.weave = TRUE} are completely ignored on
+      weaving, i.e., not even parsed. The chunks however remain written
+      out verbatim on tangling.
+
+      Similarly, the driver \code{Rtangle} gains an option to control
+      the extraction of code chunks. Chunks marked as
+      \code{ignore.on.tangle=TRUE} are processed as usual on weaving,
+      but left out of the tangled scripts (or thrown away when
+      \code{split=TRUE}).
+
+      The drivers also support the shorter aliases \code{weave} for
+      \code{!ignore.on.weave}, and \code{tangle} for
+      \code{!ignore.on.tangle}. A further option \code{ignore},
+      available for both drivers, sets \code{ignore.on.weave} and
+      \code{ignore.on.tangle} at once.
+
+      By \I{Vincent Goulet}.
+
+      \item The Sweave driver \code{Rtangle} now provides an option
+      \code{chunk.sep} to control the separator between code chunks in
+      tangled scripts (with an unchanged default of \code{\\n\\n}).
+      Using \code{check.sep=FALSE} omits the separator (between two
+      chunks when used as a chunk option).
+      By \I{Vincent Goulet}.
+
+      \item The Sweave driver \code{Rtangle} now provides an option
+      \code{extension} to specify the extension, without the leading
+      dot, for the file name of a tangled code chunk when splitting is
+      selected (the option has no effect with \code{split=FALSE}). If
+      \code{TRUE}, the default extension of \code{Rtangle} (usually
+      \file{.R}) is used; if \code{FALSE}, no extension is added to the
+      file name.
+      By \I{Vincent Goulet}.
+
+      \item New function \code{SweaveGetSourceName} in package
+      \pkg{utils} to obtain the name of the file being woven by an
+      \code{Sweave} process launched from the command line.
+      By \I{Vincent Goulet}.
     }
   }
 
-  \subsection{GRAPHICS}{
+  \subsection{Graphics}{
     \itemize{
       \item The graphics engine version, \code{R_GE_version}, has been
       bumped to \code{17} and so packages that provide graphics devices
@@ -159,7 +755,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item \command{configure} appends \command{bsdtar} to the list of
       command names it tries when finding a default for \env{TAR}.
@@ -170,16 +766,62 @@
 
       \item Building the \R manuals now requires \I{Texinfo} 6.8 or later.
       % For the new Rman.css. Also features @example <lang> and @displaymath.
+
+      \item A new \env{LIBR_LDFLAGS} defaulting to \env{LDFLAGS} allows more
+      flexibility, e.g., for distributions such as Gentoo, Debian or
+      Ubuntu, fixing \PR{18992}; additionally a \code{make} failure to
+      create \file{libR.pc} should no longer be ignored, fixing \PR{18993};
+      both thanks to \I{Benjamin Drung}.
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Checking an Installation}{
     \itemize{
-      \item .
+      \item There is a new directory \file{tests/C++Standards} which
+      contains small packages which can be test-installed to check
+      support for various C++ standards.  This is principally for use on
+      Windows as on a Unix-alike this partially duplicates tests done by
+      \command{configure} --- although it can also be used to test the
+      behaviour of \command{R CMD INSTALL} on unsupported standards.
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{Package Installation}{
+    \itemize{
+      \item Specifying C++11 or C++14 in \file{src/Makevars} has long
+      given a note: in 99\% of CRAN packages the specification was
+      unnecessary as the default C++17 sufficed (in a few cases with a
+      deprecation warning from some compilers).
+
+      Support for these standards has been removed: the default C++
+      standard will be used.
+
+      \command{R CMD config} variables \code{CXX11}, \code{CXX14} and
+      their associated \code{CXXxxFLAGS}, \code{CXXxxPICFLAGS}
+      \code{CXXxxSTD}, \code{SHLIBCXXxxLD} and \code{SHLIBCXXxxLDFLAGS}
+      variables are no longer supported and reported as
+      \sQuote{defunct}.
+
+      \item When installing binary packages the time stamp in the
+      \code{"Built"} field is considered even if the package version is
+      identical to allow binary package repositories to update binaries
+      without the need to increase the package version.
+
+      \item The \code{"Built"} column returned by
+      \code{installed.packages()} and \code{old.packages()} now contains
+      the full value of the \code{"Built"} entry from the (installed)
+      \file{DESCRIPTION} file. Previously, only the \R version from the
+      \code{"Built"} entry was returned.
+
+      \item If the timestamp passed as \option{--built-timestamp} to
+      \command{R CMD INSTALL} is in RFC-2822 form (with time-zone offset)
+      it will be converted to ISO UTC form to conform to the format
+      used by \R for purposes described above. (\PR{19037}, thanks to
+      \I{Dirk Eddelbuettel})
+    }
+  }
+
+  \subsection{C-Level Facilities}{
     \itemize{
       \item New functions \code{GEcreateDD()} and \code{GEfreeDD()}
       for allocating (and initialising) \code{DevDesc} structures.
@@ -196,10 +838,130 @@
       \item Declarations for non-API functions \code{LOGICAL0},
       \code{INTEGER0}, \code{REAL0}, \code{COMPLEX0}, and \code{RAW0}
       have been removed from installed header files.
+
+      \item Non-API entry points \code{Rf_acopy_string} and
+      \code{Rf_lazy_duplicate} have been added to those reported
+      by \command{R CMD check}.
+
+      \item Packages using the non-API functions \code{ATTRIB} and
+      \code{SET_ATTRIB} will now receive check \samp{NOTE}s.
+      See \sQuote{Writing R Extensions} for alternatives to use.
+
+      \item \command{R CMD check} \samp{NOTE}s on the use of these
+      non-API entry points have been upgraded to \samp{WARNING}s in
+      preparation for removing declarations and, where possible, hiding
+      these entry points:
+      \code{R_nchar}, \code{R_tryWrap},
+      \code{Rf_GetOption},
+      \code{R_lsInternal},
+      \code{BODY}, \code{FORMALS}, \code{CLOENV},
+      \code{SET_TYPEOF},
+      \code{STRING_PTR},
+      \code{R_duplicate_attr},
+      \code{getConnection}, \code{R_data_class},
+      \code{STRING_PTR}, \code{SET_OBJECT},
+      \code{ATTRIB}, \code{SET_ATTRIB}, \code{Rf_findVarInFrame3}.
+
+      \item The deprecated macros \code{CHARACTER_DATA} and
+      \code{CHARACTER_POINTER} now return \code{const} pointers since using
+      writable pointers in packages is not safe.
+
+      \item New function \code{DATAPTR_RW()} for use in implementing
+      \I{ALTREP} \code{Dataptr} methods. This function should not be
+      used in any other contexts.
+
+      \item New function \code{R_class()} as the \code{C} equivalent of
+      \code{class()} in \R.
+
+      \item New function \code{Rf_isScalarString}.
+
+      \item The \code{R_ObjectTable} type definitions formerly in
+      \file{R_ext/Callbacks.h} are now available in the new header file
+      \file{R_ext/ObjectTable.h}. This new header file should be used in
+      packages instead of \file{R_ext/Callbacks.h}.
+
+      \item Task callback support declared in \file{R_ext/Callbacks.h}
+      has been enabled again. It was disabled for \R 4.5.0.
+
+      \item The non-API header file \file{R_ext/PrtUtil.h} is no longer
+      copied to the installed \file{include} directory.
+
+      \item New function \code{R_mapAttrib} for iterating over the
+      attributes of an object.
+
+      \item New functions \code{R_altrep_class_name} and
+      \code{R_altrep_class_package} for retrieving the class name symbol
+      and package name symbol of an \I{ALTREP} object. These should be
+      used instead of \code{ALTREP_CLASS}.
+
+      \item New function \code{R_getAttributes} returns the same result
+      as the \R function \code{attributes}. New functions
+      \code{R_getAttribCount}, \code{R_getAttribNames},
+      \code{R_hasAttrib}, \code{R_nrow}, and \code{R_ncol}.
+
+      \item The function \code{Rf_isFrame} has been removed; use
+      \code{Rf_isDataFrame} instead.
+
+      \item The function \code{VECTOR_PTR} has been removed.
+
+      The non-API function \code{DATAPTR} is no longer declared in an
+      installed header file.
+
+      \item These entry points are now marked as hidden and no longer
+      have declarations in installed header files: \code{ENVFLAGS},
+      \code{EXTPTR_PROT}, \code{FRAME}, \code{ENCLOS},
+      \code{EXTPTR_PTR}, \code{EXTPTR_TAG}, \code{HASHTAB},
+      \code{IS_S4_OBJECT}, \code{LEVELS}, \code{NAMED}, \code{OBJECT},
+      \code{R_shallow_duplicate_attr}, \code{Rf_isValidString},
+      \code{Rf_lazy_duplicate}, \code{Rf_NonNullStringMatch},
+      \code{SETLENGTH}, \code{SETLEVELS}, \code{SET_BODY},
+      \code{SET_CLOENV}, \code{SET_ENCLOS}, \code{SET_FORMALS},
+      \code{SET_ENVFLAGS}, \code{SET_FRAME}, \code{SET_GROWABLE_BIT},
+      \code{SET_HASHTAB}, \code{SET_NAMED}, \code{SET_S4_OBJECT},
+      \code{SET_TRUELENGTH}, \code{STDVEC_DATAPTR}, \code{TRUELENGTH},
+      \code{UNSET_S4_OBJECT}, \code{XTRUELENGTH}.
+
+      \item New experimental API for working with variable bindings in
+      environments. The function \code{R_GetBindingType} identifies the
+      binding type without forcing a delayed or active binding.  New
+      bindings care created by \code{R_MakeDelayedBinding},
+      \code{R_MakeForcedBinding} and \code{R_MakeMissingBinding}.
+      Delayed and forced bindings can be inspected with
+      \code{R_ForcedBindingExpression},
+      \code{R_DelayedBindingExpression}, and
+      \code{R_DelayedBindingEnvironment}.  Bindings for \code{...} in
+      function call environments can be examined with
+      \code{R_findDotsEnv}, \code{R_DotsExist}, \code{R_DotsLength},
+      \code{R_DotsNames}, \code{R_DotsElt}, \code{R_GetDotType},
+      \code{R_DotDelayedExpression}, \code{R_DotDelayedEnvironment}, and
+      \code{R_DotForcedExpression}. Contributed by \I{Lionel Henry},
+      \I{Davis Vaughan}, and \I{Charlie Gao} in \PR{18928}.
+
+      \item New function \code{R_envSymbols} returns a vector of the
+      symbols for which an environment contains bindings (\PR{18928}).
+
+      \item \command{R CMD check} \samp{NOTE}s on the use of the non-API
+      entry points \code{PRCODE}, \code{SET_PRCODE}, \code{PRENV},
+      \code{SET_PRENV}, \code{PRVALUE}, \code{SET_PRVALUE},
+      \code{R_PromiseExpr}, and \code{Rf_allocSExp} have been upgraded
+      to \samp{WARNING}s in preparation for removing declarations and,
+      where possible, hiding these entry points.
+
+      \item New functions \code{R_getVar} and \code{R_getVarEx}. In most
+      cases these can be used instead of the non-API functions
+      \code{Rf_findVar} and \code{Rf_findVarInFrame}.  Other cases can
+      be handled by the new API for working with variable bindings.
+
+      \item Packages using any non-API variables will now receive check
+      \samp{NOTE}s.
+
+      \item New function \code{R_getRegisteredNamespace} finds and
+      returns the namespace environment registered for a name, or
+      \code{R_NilValue} if none is found.
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} now reports further \command{clang} warnings
       including \code{-Wkeyword-macro}.  This is most commonly seen for
@@ -219,10 +981,17 @@
       \item \command{R CMD check} when passed a tarball looks at its contents
       and so no longer derives the package name from the tarball name
       (which can now be arbitrary).
+
+      \item Package \file{README.md} files are now installed and
+      featured in HTML help.
+
+      \item \code{package.skeleton()} now invisibly returns the path of the
+      created directory, similar to \code{prompt()} \abbr{et al.}, and
+      allows creating blank skeletons without any R objects.
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item \code{structure(NULL, <name> = <val>)} is now defunct.% deprecated r71841, 2016-12-27
       \item Three \code{tk*.slaves()} functions were deprecated in favor of
@@ -230,8 +999,14 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
+      \item \code{chol(x, pivot=TRUE)} now zeroes the trailing submatrix when
+      the algorithm stops early. Following the help page instructions on
+      how to reconstruct the matrix in positive semidefinite cases gave
+      incorrect results if the rank was 2 or more less than the dimension
+      (\PR{15853}).
+
       \item Profiling \code{"mle"} objects (\pkg{stats4} package) could fail
       because profile MLE used starting value from full MLE. Now starts from profile MLE
       from previous step.
@@ -248,13 +1023,13 @@
 
       \item The \code{Pair(x,y)} construction in the formula interface to
       paired tests did not work with the \code{subset} argument, due to the
-      absence of a \code{[.Pair} method, which has now been added.
+      absence of a \code{[.Pair} method, which has now been added (\PR{18898}).
 
       \item Subsetting \code{"table"} objects keeps S3 classes more
       consistently, fixing \PR{18845}.
 
       \item When \code{browser()} is active or when otherwise debugging, \R code
-      such as \code{if(TRUE)} now longer triggers a new browser level, fixing
+      such as \code{if(TRUE)} no longer triggers a new browser level, fixing
       \PR{18885} (differently than the fix for \PR{15770}), with thanks to
       \I{Ivan Krylov}.
 
@@ -332,13 +1107,219 @@
 
       \item Default column labels are now correctly aligned when printing a
       matrix with right alignment (\PR{18943}, thanks to \I{Mikael Jagan}).
+
+      \item \code{poly(fct, n)} signals an error again, for a
+      non-\code{ordered} factor \code{fct}, thanks to \I{Roland Fuss}'
+      notice on R-devel.
+
+      \item \code{terms(<formula>, simplify=TRUE)} now works correctly also
+      in the cases where the formula has more than one term with NAs such
+      as \code{f(u, b=NA)} or \code{g(NA)}, finally fixing \PR{15275}
+      thanks to \I{Mikael Jagan}'s patch.
+
+      \item The help page \code{example(matplot)} now correctly labels
+      Sepal vs Petal dimensions in its first iris data plot, thanks to
+      \I{Jeff Dick}'s post on R-devel.
+
+      \item \code{diff(m, lag, dif)} for matrix \code{m} now still returns
+      matrices, also when \code{lag * dif > nrow(m)} (\PR{18972}, thanks to
+      \I{Mikael Jagan} and \I{Suharto Anggono}).
+      \code{diff(<ts-matrix>)} remains matrix, even when it has length zero.
+
+      \item Values returned by active binding functions are now marked as
+      not mutable to prevent unintended mutation in complex assignment
+      operations.
+
+      \item The default method of \code{sequence()} now allows to
+      fully recycle all three of \code{(nvec, from, by)} as always
+      documented; with thanks to \I{Mikael Jagan}'s report and patch in
+      \PR{18304}.  Its behaviour remains back compatible for now, but can
+      be switched to future behaviour via environment variable
+      \env{R_sequence_recycle}, or explicit \code{recycle = TRUE}.
+
+      \item \I{Subassignment}, \code{x[ind] <- val}, to 1-dimensional
+      \code{array}s no longer \dQuote{drops} them to simple vectors when
+      \code{ind} is a name, fixing \PR{18973}, reported by \I{Thomas Soeiro}.
+
+      \item The \code{implicitGeneric} definition for \code{toeplitz()} produced a
+      default method that failed when \code{toeplitz(x, r)} was called with
+      more than the first argument.  Simple fix from \I{Mikael Jagan}.
+
+      \item The error message for \code{array(dim = c())} now uses
+      \code{"'dim'"}, thanks to \I{Hugo Gruson}.
+
+      \item Some legal but strange nested complex assignments are
+      handled a bit more robustly in interpreted code.
+
+      \item \code{cacheMetaData()} does not to mangle primitive generics.
+
+      \item The S4 method \code{norm(<ANY>, type = <missing>)} for the implicit
+      generic \code{norm()} now uses \code{type = "O"} as has been the
+      intention for more than ten years, fixing \PR{18979} thanks to
+      \I{Mikael Jagan}.
+
+      \item On Windows terminals \kbd{Ctrl-C} now breaks out of waiting for
+      keyboard input, fixing \PR{18982}.
+
+      \item The default \code{summary()} and its factor method now
+      label missing values \samp{NAs} rather than \samp{NA's},
+      fixing a decades-old grammatical faux pas inherited from S
+      (\PR{16348} and \PR{18948}).
+
+      \item Asymmetric \code{toeplitz(x, r)} is type consistent
+      now, even when \code{r} of length 0 or 1 is not used directly.  Fixes
+      \PR{18996}, thanks to \I{Mikael Jagan}'s patch and test.
+
+      \item \code{format(r)} now keeps \code{names(r)} also for raw
+      objects \code{r}.
+
+      \item \code{rep.int()} and \code{rep_len()} again drop names also
+      for factors, fixing a regression in \R 4.0.0.  (Thanks to a report
+      by \I{Rui Barradas} and \PR{18999} by \I{Suharto Anggono}.)
+
+      \item \code{str(x)} with a \code{list}-like \code{x} of a class
+      having an \code{str()} S3 method using \code{NextMethod()}, now no
+      longer outputs \code{"List of <...>"} in the default method, thanks
+      to \I{Ian Farm}'s report and fix proposal in \PR{19001}.
+
+      \item \code{as.POSIXlt(ch)}, \code{as.Date(ch)} etc now also work
+      correctly when \code{ch} contains \code{"Inf"}, via
+      \code{strptime(.)}, fixing \PR{19006}.
+
+      \item \code{c(<POSIXlt>, ..)} now fully preserves sub-second
+      accuracy, fulfilling a part of \I{Suharto Anggono}'s wishlist
+      \PR{18989}.
+
+      \item When \I{subassigning} \code{"POSIXlt"}, e.g., \code{<dat>[i] <- v},
+      \code{v} is now converted to the time zone of \code{dat}, before
+      being assigned, see \PR{18919}.
+
+      \item The \code{"tzone"} attribute of \code{"POSIXlt"} objects
+      should no longer depend on earlier calls, fixing \PR{19005} thanks to
+      \I{Ivan Krylov}, a patch by \I{Suharto Anggono} and reports of
+      \dQuote{\I{Non-deterministic POSIXlt tzone in Europe/London ..}} on
+      R-devel.
+
+      \item In intervals with very low density \code{cdplot()} was
+      unreliable, returning probabilities that are greater than one or
+      \code{NaN} (\PR{19011}).
+      Fix from \I{Christoph Dalitz} and \I{Achim Zeileis}.
+
+      \item \command{R CMD build} now installs packages providing their
+      own vignette engine (\PR{18191}).
+      Patch by \I{Paul Smith}.
+
+      \item \code{ar.burg()}, \code{ar.yw()} and \code{ar.ols()} deal
+      better with non finite AIC values thanks to \I{Simone Giannerini}'s
+      remarks on R-devel.
+
+      \item Parsing deeply nested expressions no longer should segfault in
+      certain circumstances, fixing five different checks on context stack
+      size, thanks to \I{Kevin Ushey}'s report and \I{Michael Chirico}'s
+      patch in \PR{18994}.
+
+      \item The internal \code{cwilcox} function used in computations
+      for the Wilcoxon distribution is now based on an implementation of
+      a formula by \I{Andreas Löffler} provided by \I{Andreas Löffler},
+      \I{Aidan Lakshman}, and \I{Ivan Krylov}, substantially reducing
+      the memory complexity of the original implementation (\PR{18655}).
+
+      \item When \code{Ops} group methods for matrix-\code{"ts"} return a
+      zero-extent matrix, its type is correct now.  E.g., \code{<int> + <dbl>}
+      now returns type \code{"double"}, see also \PR{18972}.
+
+      \item \code{intToUtf8(<negative>)} now returns \code{NA} and no
+      longer accesses invalid memory, thanks to \I{Kevin Ushey}'s report
+      with patch in \PR{19052}.
+
+      \item When \code{file.choose()} is terminated with an \command{EOF},
+      it now signals an error rather than returning garbage, thanks to
+      \I{Kevin Ushey}'s report and patch in \PR{19053},
     }
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.5.1 patched}{
+\section{\Rlogo Changes in R 4.5.3}{
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
+    \itemize{
+      \item \command{tools/fetch-recommended} can be used instead of
+      \command{tools/rsync-recommended} to fetch recommended packages
+      into \R sources using \command{curl} on systems without
+      \command{rsync} or behind firewalls.
+    }
+  }
+
+  \subsection{Package Installation}{
+    \itemize{
+      \item C++ standard specifications (\code{CXX_STD =} in
+      \file{src/Makevars*} and in the \code{SystemRequirements} field of
+      the \file{DESCRIPTION} file) are now checked more thoroughly.
+      Invalid values are still ignored but now give a warning, as do
+      contradictory specifications.
+
+      \item (Preliminary) support for C++26 has been extended to Windows.
+
+      \item A non-zero exit status from \file{cleanup}, \file{cleanup.win}
+      or \file{cleanup.ucrt}, if requested via options \option{--clean} or
+      \option{--preclean}, is now reported with a warning.
+    }
+  }
+
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item \code{all.equal(obj, simple, check.class=FALSE)} now is true, also
+      when \code{simple} is a bare atomic vector and \code{obj} has a simple
+      class, fixing the first part of \PR{18971} thanks to \I{Jan Gorecki}.
+
+      \item \code{str(x, give.attr=FALSE)} no longer shows attributes when
+      \code{x} is a zero length \code{"Date"} or \code{"POSIXt"} object.
+
+      \item Tweaks to binning for \code{bw.SJ()} and \code{bw.ucv()} in the
+      very rare case of data which have an extremely small range compared to
+      their absolute values, e.g., \code{x <- 6e9 + 6:9}.
+
+      \item Formatting book-type \code{bibentry} objects now converts
+      \LaTeX accents also in the publisher and series fields.
+
+      \item \code{model.frame(~1, list(), na.action=na.pass)} and similar
+      \dQuote{border-line} uses no longer produce invalid data frames,
+      fixing \PR{18977}, reported with patch by \I{Mikael Jagan}.
+
+      \item \code{length(<POSIXlt>) <- v} is more careful about balancing,
+      notably when \code{v} is not integer, thanks to \I{Suharto Anggono}'s
+      remarks on the mailing list R-devel.
+
+      \item \code{approx(<x_with_ties>, <y_with_NA>, na.rm = FALSE)} now
+      should always call the \code{ties()} function, fixing \PR{17604}
+      reported by \I{Bill Dunlap}.
+
+      \item \code{besselJ(1, 1e-15)} and similar now give correct results,
+      thanks to \I{Leo Mada} and other \I{\dQuote{R-help}ers}.
+
+      \item \code{vignette(\var{pkg}::\var{topic})} is now a documented
+      usage variant and confines vignette retrieval to the specified package.
+
+      \item \code{pretty(ch)} again correctly works with \code{ch} a
+      character vector of numbers.
+
+      \item \code{persp()} labels the three axes correctly also when C level
+      \code{atan2pi()} is available, fixing \PR{19007} by \I{Klaus Schliep}.
+
+      \item Large (tall) subscripts in \I{plotmath} expressions are now
+      positioned correctly.  They were being positioned too high.
+
+      \item \code{Ops} group (\code{Arith}, \code{Compare}, \dots) methods for
+      matrix-\code{"ts"} now do return (zero length) matrices even when the
+      two series do not overlap; a very partial fix of \PR{18972}, which is to
+      be fully addressed later.
+    }
+  }
+}
+
+\section{\Rlogo Changes in R 4.5.2}{
+
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} now handles archives with extension
       \file{.tar} or \file{.tar.zstd} (where \command{zstd} compression
@@ -346,7 +1327,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{t.test(c(1:3, Inf))} and similar no longer produce an error but
       return a (still not so useful) \code{"htest"} result, fixing
@@ -376,8 +1357,8 @@
       to \I{Martin Smith}'s \PR{18921}.
 
       \item \I{Subassigning} \code{"POSIXlt"}, i.e., \code{<tdat>[i] <- val}
-      and \code{<tdat>[[i]] <- val} now rebalance as they should,
-      thanks to \I{Mikael Jagan}'s \PR{18919}.
+      and \code{<tdat>[[i]] <- val} now rebalance as they should;
+      thanks mostly to \I{Mikael Jagan}'s \PR{18919}.
 
       \item \code{<POSIXlt>[*]} (re-)setting \code{"balanced"}, fixing
       \PR{18681} comment #7, thanks to \I{Mikael Jagan}.
@@ -411,13 +1392,18 @@
 
       \item \code{pretty(*, eps.correct = 2)} has been fixed, e.g., to
       avoid over 1 million length result for \code{pretty(c(0, 1e-322), eps.correct = 2)}.
+
+      \item When \code{"POSIXlt"} date-time objects are \code{NA}-padded
+      from subsetting or increasing \code{length} in the \code{`[`} or
+      \code{`length<-`} methods, the \code{"balanced"} attribute is set
+      to \code{NA}, now; noted in \PR{18681}, thanks to \I{Mikael Jagan}.
     }
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.5.1}{
+\section{\Rlogo Changes in R 4.5.1}{
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item The internal method of \code{unzip()} now follows \code{unzip 6.00}
       in how it handles extracted file paths which contain \code{"../"}.
@@ -425,7 +1411,7 @@
     }
   }
 
-  \subsection{INSTALLATION}{
+  \subsection{Installation}{
     \itemize{
       \item Standalone \code{nmath} can be built with early-2025
       versions of \command{clang}-based compilers such as \I{LLVM}
@@ -437,7 +1423,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Java detection in \code{javareconf} could not detect
       \file{libjvm.*} in the \code{zero} variant of the \abbr{JDK} (\PR{18884}).
@@ -475,8 +1461,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.5.0}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.5.0}{
+  \subsection{New Features}{
     \itemize{
       \item \code{as.integer(rl)} and hence \code{as.raw(rl)} now work for
       a \code{list} of \code{raw(1)} elements, as proposed by \I{Michael
@@ -638,6 +1624,14 @@
       full control over what gets added to the search path.  (Actually
       already available since \R 4.4.0.)
 
+      \item New connection type \code{zstdfile} for files compressed by
+      \command{zstd} if \R{} was built with such support.  \code{file()}
+      and \code{gzfile()} can automagically read such files.
+
+      \item \code{memCompress()} and \code{memDecompress()} have options
+      to use \command{zstd} compression if \R{} was built with support
+      for it.
+
       \item There is some support for \command{zstd} compression of
       tarballs in \code{tar()} and \code{untar()}.  (This depends on OS
       support of \code{libzstd} or by \command{tar}.)
@@ -719,7 +1713,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item A C23 compiler (if available) is now selected by default for
       compilation of \R and packages.  \R builds can opt out \emph{via} the
@@ -763,7 +1757,7 @@
     }
   }
 
-  \subsection{INSTALLATION on WINDOWS}{
+  \subsection{Installation on Windows}{
     \itemize{
       \item Both building \R and installing packages use the C compiler
       in C23 mode.
@@ -783,7 +1777,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item \code{is.R()} is defunct.  Environment variable
       \env{_R_DEPRECATED_IS_R_} no longer has any effect.
@@ -793,8 +1787,7 @@
       the \code{"MethodsList"} class for S4 method handling were removed
       from package \pkg{methods}.
       Deprecated functions \code{balanceMethodsList}, \code{emptyMethodsList},
-      \code{inheritedSubMethodLists}, \code{insertMethod},
-      \code{insertMethodInEmptyList}, \code{makeMethodsList},
+      \code{insertMethod}, \code{makeMethodsList},
       \code{mergeMethods}, \code{MethodsList}, \code{MethodsListSelect}, and
       \code{SignatureMethod} were made defunct, as were the
       \code{"MethodsList"} branches of functions \code{assignMethodsMetaData},
@@ -819,7 +1812,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item Packages are now installed using C23 where supported by the
       OS and \R build.
@@ -838,7 +1831,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The non-API and hidden entry points \code{Rf_setIVector},
       \code{Rf_setRVector} and \code{Rf_setSVector} have been removed.
@@ -892,7 +1885,7 @@
       %% There are claims that the Green Hills compiler can.
       %% In C++ rhis was confirmed as undefined behaviour in
       %% https://cplusplus.github.io/CWG/issues/1766.html
-      %% Some versiins of UBSAN caan check it with -fsanitize=enum
+      %% Some versions of UBSAN can check it with -fsanitize=enum
 
       If there were a platform which used an underlying type of a
       different size this would be an \abbr{ABI}-breaking change (but we are
@@ -931,7 +1924,7 @@
     }
   }
 
-  \subsection{C-LEVEL API}{
+  \subsection{C-Level API}{
     \itemize{
       \item The \sQuote{Writing R Extensions} \I{Texinfo} source now
       contains very experimental annotations for more clearly
@@ -1000,7 +1993,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD INSTALL} (and hence \command{check}) now
       compile C++ code with \code{-DR_NO_REMAP}.
@@ -1027,7 +2020,7 @@
       \item \code{tools::checkDocFiles()} notes more cases of
       usage documentation without corresponding \verb{\alias}.
 
-      \item \code{R CMD check} with a true value for environment variable
+      \item \command{R CMD check} with a true value for environment variable
       \env{_R_CHECK_BASHISMS_} checks more thoroughly, including for
       \command{bash} scripts and bashisms in components of
       \command{autoconf}-generated \command{configure} scripts.
@@ -1039,7 +2032,7 @@
       \env{_R_CHECK_PACKAGES_USED_IN_DEMO_} to a true value
       (as done by \command{R CMD check --as-cran}).
 
-      \item \code{R CMD build} now supports \option{--compression=zstd}
+      \item \command{R CMD build} now supports \option{--compression=zstd}
       on platforms with sufficient support for \command{zstd}.
 
       \item \code{tools::texi2pdf(..., texinputs=\var{paths})} now
@@ -1055,7 +2048,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{update_pkg_po()} now copies \file{.mo} files to the
       \pkg{translation} package even if a \file{DESCRIPTION} file
@@ -1173,7 +2166,7 @@
       \item C API function \code{R_GetCurrentSrcref(skip)} now
       returns \code{srcref} entries correctly.  (Note that there
       is also a change to the interpretation of \code{skip};
-      see the C-LEVEL API entry above.)
+      see the C-Level API entry above.)
 
       \item \code{tools::Rd2latex()} now removes leading and trailing
       spaces from \verb{\alias} entries as documented, fixing indexing
@@ -1246,8 +2239,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.4.3}{
-  \subsection{INSTALLATION}{
+\section{\Rlogo Changes in R 4.4.3}{
+  \subsection{Installation}{
     \itemize{
       \item \R can be installed using C23 (for example with
       \option{-std=gnu23} or \option{-std=gnu2x}) with recent compilers
@@ -1259,7 +2252,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The functions \code{R_strtod} and \code{R_atof} now allow
       hexadecimal constants without an exponent, for compatibility with
@@ -1267,7 +2260,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD build} and \command{R CMD check} now allow
       reference output for demo scripts (\file{demo/\var{demo}.Rout.save}
@@ -1276,7 +2269,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{kappa(A, exact=TRUE)} for singular \code{A} returns
       \code{Inf} more generally, fixing \PR{18817} reported by
@@ -1341,8 +2334,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.4.2}{
-  \subsection{C-LEVEL FACILITIES}{
+\section{\Rlogo Changes in R 4.4.2}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The S-compatibility macros \code{F77_COM} and
       \code{F77_COMDECL} defined in header \file{R_ext/RS.h} are
@@ -1350,7 +2343,7 @@
       of their use.
     }
   }
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \I{Mathlib} function \code{lgammacor(x)} no longer warns about
       underflow to zero for large \code{x}.
@@ -1377,8 +2370,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.4.1}{
-  \subsection{C-LEVEL FACILITIES}{
+\section{\Rlogo Changes in R 4.4.1}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item Functions \code{R_atof} and \code{R_strtod} declared in
       header \file{R_ext/Utils.h} are now documented in
@@ -1395,7 +2388,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} now reports as warnings  what
       \command{gfortran} calls \sQuote{Fortran 2018 deleted features}, all
@@ -1405,7 +2398,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{as.numeric()}, \code{scan()}, \code{type.convert()}
       and other places which use the internal C function \code{R_strtod} now
@@ -1443,8 +2436,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.4.0}{
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+\section{\Rlogo Changes in R 4.4.0}{
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item Startup banners, \command{R --version}, \code{sessionInfo()}
       and \command{R CMD check} no longer report \code{(64-bit)} as part of
@@ -1460,7 +2453,7 @@
     }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item The \code{confint()} methods for \code{"glm"} and
       \code{"nls"} objects have been copied to the \pkg{stats}
@@ -1734,7 +2727,7 @@
     }
   }
 
-  \subsection{INSTALLATION}{
+  \subsection{Installation}{
     \itemize{
       \item The parser has been updated to work with \command{bison} 3.8.2,
       which is now used for the pre-generated parsers in \file{gram.c},
@@ -1743,7 +2736,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item System \I{valgrind} headers are now required to use
       \command{configure} option \option{--with-valgrind-instrumentation}
@@ -1792,7 +2785,7 @@
     }
   }
 
-  \subsection{INSTALLATION on macOS}{
+  \subsection{Installation on macOS}{
     \itemize{
       \item A new \command{configure} option \option{--with-newAccelerate}
       makes use of Apple's \sQuote{new} BLAS / LAPACK interfaces in their
@@ -1808,7 +2801,7 @@
     }
   }
 
-  \subsection{INSTALLATION on WINDOWS}{
+  \subsection{Installation on Windows}{
     \itemize{
       \item The makefiles and installer scripts for Windows have been
       tailored to \I{Rtools44}, an update of the \I{Rtools43} toolchain.  It
@@ -1823,13 +2816,13 @@
 }
 
 
-  %% \subsection{PACKAGE INSTALLATION}{
+  %% \subsection{Package Installation}{
   %%   \itemize{
   %%     \item .
   %%   }
   %% }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} notes when S4-style exports are used
       without declaring a strong dependence on package \pkg{methods}.
@@ -1898,7 +2891,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item Headers \file{R_ext/Applic.h} and \file{R-ext/Linpack.h}
       used to include \file{R_ext/BLAS.h} although this was undocumented and
@@ -1921,7 +2914,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item \code{data()} no longer handles zipped data from
       long-defunct (since \R\sspace{}2.13.0) \option{--use-zip-data}
@@ -1972,14 +2965,14 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item The \pkg{methods} package is more robust to not being attached to
       the search path.  More work needs to be done.
 
       \item \code{pairwise.t.test()} misbehaved when subgroups had 0 \abbr{DF}
       for variance, even with \code{pool.sd = TRUE}.  (\PR{18594} by
-      Jack Berry).
+      Jack Berry.)
 
       \item Probability distribution functions \code{[dpq]<distrib>(x, *)},
       but also \code{bessel[IKJY](x, .)} now consistently preserve
@@ -2185,16 +3178,16 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.3.3}{
+\section{\Rlogo Changes in R 4.3.3}{
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item \code{iconv()} now fixes up variant encoding names such as
       \code{"utf8"} case-insensitively.
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item The legacy \code{encoding = "MacRoman"} is deprecated in
       \code{pdf()} and \code{postscript()}: support was incomplete in
@@ -2202,7 +3195,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Arguments are now properly forwarded to methods on S4 generics
       with \dots{} in the middle of their formal arguments. This was
@@ -2289,8 +3282,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.3.2}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.3.2}{
+  \subsection{New Features}{
     \itemize{
       \item The default initialization of the \code{"repos"} option
       from the \file{repositories} file at startup can be skipped by
@@ -2318,7 +3311,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item There is some support for building with Intel's \I{LLVM}-based
       compilers on \samp{x86_64} Linux, such as (C) \command{icx}, (C++)
@@ -2330,7 +3323,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} reports the use of the Fortran 90 random
       number generator \code{RANDOM_NUMBER()} and the subroutines to
@@ -2341,7 +3334,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{substr(x, n, L) <- cc} now works (more) correctly for
       multibyte UTF-8 strings \code{x} when \code{L > nchar(x)}, thanks to
@@ -2414,8 +3407,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.3.1}{
-  \subsection{C-LEVEL FACILITIES}{
+\section{\Rlogo Changes in R 4.3.1}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The C-level API version of \R's \code{integrate()},
       \code{Rdqags()} in \file{Applic.h}, now returns the correct number of
@@ -2437,7 +3430,7 @@
     }
   }
 
-  \subsection{INSTALLATION}{
+  \subsection{Installation}{
     \itemize{
       \item Many of the checks of esoteric Internet operations and those
       using unreliable external sites have been moved to a new target
@@ -2449,7 +3442,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{.S3methods()}, typically called from \code{methods()},
       again marks methods from package \pkg{base} as \code{visible}.
@@ -2482,8 +3475,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.3.0}{
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+\section{\Rlogo Changes in R 4.3.0}{
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item Calling \code{&&} or \code{||} with LHS or (if evaluated) RHS of
       length greater than one is now always an error, with a report of
@@ -2495,7 +3488,7 @@
     }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item The included BLAS sources have been updated to those shipped
       with LAPACK version 3.10.1.  (This caused some platform-dependent
@@ -2728,7 +3721,7 @@
     }
   }
 
-  \subsection{DATES and TIMES}{
+  \subsection{Dates and Times}{
     \itemize{
       \item On platforms where (non-UTC) datetimes before 1902 (or
       before 1900 as with system functions on recent macOS) are guessed
@@ -2804,7 +3797,7 @@
      }
   }
 
-  \subsection{GRAPHICS}{
+  \subsection{Graphics}{
     \itemize{
       \item The graphics engine version, \code{R_GE_version}, has been
       bumped to \code{16} and so packages that provide graphics devices
@@ -2829,7 +3822,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item A system installation of generic LAPACK 3.10.0 or later will
       be preferred to the version in the \R sources.
@@ -2872,7 +3865,7 @@
     }
   }
 
-  \subsection{INSTALLATION on WINDOWS}{
+  \subsection{Installation on Windows}{
     \itemize{
       \item The makefiles and installer scripts for Windows have been
       tailored to \I{Rtools43}, an update of the \I{Rtools42}
@@ -2891,7 +3884,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item The default C++ standard has been changed to C++17 where
       available (which it is on all currently checked platforms): if not
@@ -2969,7 +3962,7 @@
     }
   }
 
-  \subsection{FORTRAN FLAGS}{
+  \subsection{FORTRAN Flags}{
     \itemize{
       \item The flag \option{-fno-optimize-sibling-calls} is no longer
       forced for \command{gfortran} 7 and later.  It should no longer be
@@ -2981,7 +3974,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The deprecated S-compatibility macros \code{DOUBLE_*} in
       \file{R_ext/Constants.h} (included by \file{R.h}) have been
@@ -3019,7 +4012,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} does more checking of package \file{.Rd}
       files, warning about invalid email addresses and (some) invalid
@@ -3087,7 +4080,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item \code{default.stringsAsFactors()} is defunct.
 
@@ -3099,7 +4092,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Hashed \code{environment}s with sizes less than 5 can now grow.
       (Reported to R-devel by \I{Duncan Garmonsway}.)
@@ -3309,8 +4302,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.2.3}{
-  \subsection{C-LEVEL FACILITIES}{
+\section{\Rlogo Changes in R 4.2.3}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The definition of \code{DL_FUNC} in \file{R_ext/Rdynload.h}
       has been changed to be fully C-compliant.  This means that
@@ -3324,14 +4317,14 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item (Windows) The default C++ standard had accidentally been
       left at C++11 when it was changed to C++14 on Unix.
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item As \code{"POSIXlt"} objects may be \dQuote{partially filled}
       and their list components meant to be recycled, \code{length()} now
@@ -3396,8 +4389,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.2.2}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.2.2}{
+  \subsection{New Features}{
     \itemize{
       \item \code{tools::Rdiff(useDiff = TRUE)} checks for the presence
       of an external \command{diff} command and switches to
@@ -3413,7 +4406,7 @@
 
       \item (macOS) The run-time check for libraries from \I{XQuartz} for
       X11 and Tcl/Tk no longer uses \code{otool} from the Apple
-      Developer Tools (PR#18400).
+      Developer Tools (\PR{18400}).
 
       \item The \LaTeX style for producing the PDF manuals, \file{Rd.sty},
       now loads the standard \samp{amsmath}, \samp{amsfonts} and
@@ -3429,7 +4422,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item The PDF manuals (if built) can be compacted by the new
       target \command{make compact-pdf} (at the top level or in
@@ -3444,7 +4437,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{Rscript -e} would fail if \file{stdin} were closed
       (Reported by \I{Henrik Bengtsson}.)
@@ -3493,7 +4486,7 @@
     }
   }
 
-  \subsection{BUG FIXES on Windows}{
+  \subsection{Bug Fixes (Windows)}{
     \itemize{
      \item Non-ASCII characters are now properly displayed on Windows
       in windows created using \I{GraphApp} via
@@ -3512,13 +4505,13 @@
 
       \item \command{Rterm} support for \code{Alt+xxx} sequences has been
       fixed to produce the corresponding character (only) once. This fixes
-      pasting text with tilde on Italian keyboard (PR#18391).
+      pasting text with tilde on Italian keyboard (\PR{18391}).
     }
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.2.1}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.2.1}{
+  \subsection{New Features}{
     \itemize{
       \item New function \code{utils::findCRANmirror()} to find out if a
       \abbr{CRAN} mirror has been selected, otherwise fallback to
@@ -3533,7 +4526,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item The libraries searched for by \option{--with-blas} (without
       a value) now include \I{BLIS} (after \I{OpenBLAS} but before ATLAS).  And
@@ -3543,7 +4536,7 @@
       \item The included LAPACK sources have been updated to 3.10.1.
     }
   }
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item The (full path to) the command \command{tidy} to be used for
       HTML validation can be set by environment variable \env{R_TIDYCMD}.
@@ -3557,7 +4550,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The undocumented legacy declarations of \code{Sint},
       \code{Sfloat}, \code{SINT_MAX} and \code{SINT_MIN} in header
@@ -3565,7 +4558,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{fisher.test(d)} no longer segfaults for \dQuote{large}
       \code{d}; fixing \PR{18336} by preventing/detecting an integer
@@ -3598,7 +4591,7 @@
     }
   }
 
-  \subsection{BUG FIXES on Windows}{
+  \subsection{Bug Fixes (Windows)}{
     \itemize{
       \item Writing to a clipboard connection works again, fixing a
       regression in \R 4.2.0 (\PR{18332}).  Re-using a closed clipboard
@@ -3642,8 +4635,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.2.0}{
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+\section{\Rlogo Changes in R 4.2.0}{
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item The \code{formula} method of \code{aggregate()} now matches
       the generic in naming its first argument \code{x} (resolving
@@ -3663,7 +4656,7 @@
       Consequently, environment variable
       \env{_R_CHECK_LENGTH_1_CONDITION_} no longer has any effect.
 
-      \item Windows users should consult the WINDOWS section below for
+      \item Windows users should consult the Windows section below for
       some profound changes including
       \itemize{
 	\item Support for 32-bit builds has been dropped.
@@ -3677,7 +4670,7 @@
     }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item \code{matrix(x, n, m)} now warns in more cases where
       \code{length(x)} differs from \code{n * m}, as suggested by
@@ -3906,7 +4899,7 @@
     }
   }
 
-  \subsection{GRAPHICS}{
+  \subsection{Graphics}{
     \itemize{
       \item The graphics engine version, \code{R_GE_version}, has been
       bumped to \code{15} and so packages that provide graphics devices
@@ -3950,7 +4943,7 @@
     }
   }
 
-  \subsection{WINDOWS}{
+  \subsection{Windows}{
     \itemize{
       \item \R uses UTF-8 as the native encoding on recent Windows
       systems (at least Windows 10 version 1903, Windows Server 2022 or
@@ -4042,7 +5035,7 @@
   }
 
 
-  \subsection{INSTALLATION}{
+  \subsection{Installation}{
     \itemize{
       \item Facilities for accessing \samp{ftp://} sites are no longer
       tested (except \emph{\I{pro tem}} for \code{curlGetHeaders()}) as modern
@@ -4054,7 +5047,7 @@
   }
 
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item \command{R CMD INSTALL} no longer tangles vignettes. This
       completes an \command{R CMD build} change in \R 3.0.0 and affects
@@ -4074,7 +5067,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} can optionally report
       files/directories left behind in home, \file{/tmp} (even though
@@ -4131,7 +5124,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The non-API header \file{R_ext/R-ftp-http.h} is no longer
       provided, as the entry points it covered are now all defunct.
@@ -4189,7 +5182,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item The (non-default and deprecated) \code{method = "internal"}
       for \code{download.file()} and \code{url()} no longer supports
@@ -4219,7 +5212,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Setting \code{digits = 0} in \code{format()},
       \code{print.default()} (and hence typically \code{print()}) or
@@ -4261,7 +5254,7 @@
 
       \item Improved determination of the correct translation domain in
       non-base packages, addressing the combination of \PR{18092} and
-      \PR{17998} (\code{#c6}) with reports and \emph{augmented} patch
+      \PR{17998} (\samp{#c6}) with reports and \emph{augmented} patch
       #2904 by \I{Suharto Anggono}.
 
       Note that \code{"R-base"} is no longer the default domain e.g.,
@@ -4269,8 +5262,8 @@
       explicit \code{domain = *} specification in such cases.
 
       \item \code{identical(attrib.as.set=FALSE)} now works correctly with
-      data frames with default row names (Thanks to \I{Charlie Gao}'s
-      \PR{18179}).
+      data frames with default row names.  (Thanks to \I{Charlie Gao}'s
+      \PR{18179}.)
 
       \item \code{txtProgressBar()} now enforces a non-zero width for
       argument \code{char}, without which no progress can be visible.
@@ -4391,8 +5384,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.1.3}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.1.3}{
+  \subsection{New Features}{
     \itemize{
       \item The default version of Bioconductor has been changed to
       3.14. (This is used by \code{setRepositories} and the menus in
@@ -4400,7 +5393,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check --as-cran} has a workaround for a bug
       in versions of \command{file} up to at least 5.41 which
@@ -4408,7 +5401,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The legacy S-compatibility macros \code{SINGLE_*} in
       \file{R_ext/Constants.h} (included by \file{R.h}) are deprecated
@@ -4416,7 +5409,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Initialization of self-starting \code{nls()} models with
       initialization functions following the pre-R-4.1.0 API
@@ -4485,8 +5478,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.1.2}{
-  \subsection{C-LEVEL FACILITIES}{
+\section{\Rlogo Changes in R 4.1.2}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The workaround in headers \file{R.h} and \file{Rmath.h}
       (\code{using namespace std;}) for the Oracle Developer Studio
@@ -4507,7 +5500,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item The legacy S-compatibility macros \code{PROBLEM},
       \code{MESSAGE}, \code{ERROR}, \code{WARN}, \code{WARNING},
@@ -4517,7 +5510,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{.mapply(F, dots, .)} no longer segfaults when
       \code{dots} is not a \code{list} and uses \code{match.fun(F)} as
@@ -4567,15 +5560,15 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.1.1}{
-  \subsection{NEW FEATURES}{
+\section{\Rlogo Changes in R 4.1.1}{
+  \subsection{New Features}{
     \itemize{
       \item \code{require(\var{pkg}, quietly = TRUE)} is quieter and in
       particular does not warn if the package is not found.
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item Use of \samp{ftp://} \abbr{URI}s should be regarded as
       deprecated, with on-going support confined to \code{method =
@@ -4600,14 +5593,14 @@
     }
   }
 
-  \subsection{INSTALLATION}{
+  \subsection{Installation}{
     \itemize{
       \item \command{make check} now works also without a LaTeX
       installation.  (Thanks to Sebastian Meyer's \PR{18103}.)
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \command{make check-devel} works again in an \R build
       configured with \option{--without-recommended-packages}.
@@ -4670,8 +5663,8 @@
 }
 
 
-\section{\Rlogo CHANGES IN R 4.1.0}{
-  \subsection{FUTURE DIRECTIONS}{
+\section{\Rlogo Changes in R 4.1.0}{
+  \subsection{Future Directions}{
     \itemize{
       \item It is planned that the 4.1.x series will be the last to
       support 32-bit Windows, with production of binary packages for
@@ -4679,7 +5672,7 @@
     }
   }
 
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item Data set \code{esoph} in package \pkg{datasets} now provides
       the correct numbers of controls; previously it had the numbers of
@@ -4687,7 +5680,7 @@
     }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item \samp{www.omegahat.net} is no longer one of the repositories
       known by default to \code{setRepositories()}.  (Nowadays it only
@@ -4923,7 +5916,7 @@
     }
   }
 
-  \subsection{GRAPHICS}{
+  \subsection{Graphics}{
     \itemize{
       \item The graphics engine version, \code{R_GE_version}, has been
       bumped to \code{14} and so packages that provide graphics devices
@@ -4963,7 +5956,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item The \emph{standalone} \file{libRmath} math library and \R's C
       API now provide \code{log1pexp()} again as documented, and gain
@@ -4971,7 +5964,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item \command{configure} checks for a program \command{pkgconf}
       if program \command{pkg-config} is not found.  These are now only
@@ -5016,7 +6009,7 @@
   }
 
 
-  \subsection{LINK-TIME OPTIMIZATION on a UNIX-ALIKE}{
+  \subsection{Link-Time Optimization on a Unix-Alike}{
     \itemize{
       \item Configuring with flag \option{--enable-lto=R} now also uses
       \abbr{LTO} when installing the recommended packages.
@@ -5033,7 +6026,7 @@
     }
   }
 
-  \subsection{BUILDING R on Windows}{
+  \subsection{Building R on Windows}{
     \itemize{
       \item for GCC \eqn{\ge}{>=} 8, \code{FC_LEN_T} is defined in
       \file{config.h} and hence character lengths are passed from C to
@@ -5062,7 +6055,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item The default C++ standard has been changed to C++14 where
       available (which it is on all currently checked platforms): if not
@@ -5083,7 +6076,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION on Windows}{
+  \subsection{Package Installation on Windows}{
     \itemize{
       \item \command{R CMD INSTALL} and \command{R CMD SHLIB} make use
       of their flag \option{--use-LTO} when the \samp{LTO_OPT} make
@@ -5097,7 +6090,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION on macOS}{
+  \subsection{Package Installation on macOS}{
     \itemize{
       \item The default personal library directory on builds with
       \option{--enable-aqua} (including \abbr{CRAN} builds) now
@@ -5112,7 +6105,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} can now scan package functions for
       bogus \code{return} statements, which were possibly intended as
@@ -5140,7 +6133,7 @@
     }
   }
 
-  \subsection{ENCODING-RELATED CHANGES}{
+  \subsection{Encoding-Related Changes}{
     \itemize{
       \item The parser now treats \samp{\\Unnnnnnnn} escapes larger than
       the upper limit for Unicode points (\samp{\\U10FFFF}) as an error
@@ -5192,7 +6185,7 @@
     }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item Function \code{plclust()} from the package \pkg{stats} and
       \code{package.dependencies()}, \code{pkgDepends()},
@@ -5220,7 +6213,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Many more C-level allocations (mainly by \code{malloc} and
       \code{strdup}) are checked for success with suitable alternative
@@ -5373,8 +6366,8 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.0.5}{
-  \subsection{BUG FIXES}{
+\section{\Rlogo Changes in R 4.0.5}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item The change to the internal table in \R 4.0.4 for
       \code{iswprint} has been reverted: it contained some errors in
@@ -5388,9 +6381,9 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.0.4}{
+\section{\Rlogo Changes in R 4.0.4}{
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item File \file{share/texmf/tex/latex/jss.cls} has been updated
       to work with LaTeX versions since Oct 2020.
@@ -5405,7 +6398,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item If an external BLAS is specified by \option{--with-blas=foo}
       or \emph{via} environment variable \env{BLAS_LIBS} is not found,
@@ -5415,7 +6408,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{all.equal(x,y)} now \dQuote{sees} the two different
       \code{NA}s in factors, thanks to Bill Dunlap and others in
@@ -5473,9 +6466,9 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.0.3}{
+\section{\Rlogo Changes in R 4.0.3}{
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item On platforms using \command{configure} option
       \option{--with-internal-tzcode}, additional values
@@ -5500,7 +6493,7 @@
      }
   }
 
-  \subsection{LINK-TIME OPTIMIZATION on a UNIX-ALIKE}{
+  \subsection{Link-Time Optimization on a Unix-Alike}{
     \itemize{
       \item There is now support for parallelized Link-Time Optimization
       (\abbr{LTO}) with GCC and for \sQuote{thin} \abbr{LTO} with
@@ -5516,7 +6509,7 @@
     }
   }
 
-    \subsection{DEPRECATED AND DEFUNCT}{
+    \subsection{Deprecated and Defunct}{
     \itemize{
 
       \item The \code{LINPACK} argument to \code{chol.default()},
@@ -5526,7 +6519,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item The code mitigating stack overflow with PCRE regexps on very
       long strings is enabled for PCRE2 < 10.30 also when \abbr{JIT} is enabled,
@@ -5606,16 +6599,16 @@
 }
 
 
-\section{\Rlogo CHANGES IN R 4.0.2}{
+\section{\Rlogo Changes in R 4.0.2}{
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R CMD check} skips vignette re-building (with a
       warning) if the \samp{VignetteBuilder} package(s) are not available.
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item Paths with non-ASCII characters caused problems for
       package loading on Windows \PR{17833}.
@@ -5636,9 +6629,9 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.0.1}{
+\section{\Rlogo Changes in R 4.0.1}{
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item \code{paste()} and \code{paste0()} gain a new optional
       argument \code{recycle0}.  When set to true, zero-length
@@ -5654,7 +6647,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{aov(frml, ...)} now also works where the \code{formula}
       deparses to more than 500 characters, thanks to a report and patch
@@ -5692,9 +6685,9 @@
   }
 }
 
-\section{\Rlogo CHANGES IN R 4.0.0}{
+\section{\Rlogo Changes in R 4.0.0}{
 
-  \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
+  \subsection{Significant User-Visible Changes}{
     \itemize{
       \item Packages need to be (re-)installed under this version
       (4.0.0) of \R.
@@ -5736,7 +6729,7 @@
     }
   }
 
-  \subsection{REFERENCE COUNTING}{
+  \subsection{Reference Counting}{
     \itemize{
        \item Reference counting is now used instead of the \code{NAMED}
        mechanism for determining when objects can be safely mutated in
@@ -5749,7 +6742,7 @@
      }
    }
 
-  \subsection{MIGRATION TO PCRE2}{
+  \subsection{Migration to PCRE2}{
     \itemize{
        \item This version of \R is built against the PCRE2 library for
        Perl-like regular expressions, if available.  (On non-Windows
@@ -5776,7 +6769,7 @@
      }
   }
 
-  \subsection{NEW FEATURES}{
+  \subsection{New Features}{
     \itemize{
       \item \code{assertError()} and \code{assertWarning()} (in package
       \pkg{tools}) can now check for \emph{specific} error or warning
@@ -6070,7 +7063,7 @@
       devices and new function \code{cairoSymbolFont()} that can be used
       to provide the value for that argument.
     }
-  }% end{ NEW FEATURES }
+  }% end{ New Features }
 
   \subsection{Windows}{
     \itemize{
@@ -6099,7 +7092,7 @@
    }
   }
 
-  \subsection{DEPRECATED AND DEFUNCT}{
+  \subsection{Deprecated and Defunct}{
     \itemize{
       \item Make macro \samp{F77_VISIBILITY} has been removed
       and replaced by \samp{F_VISIBILITY}.
@@ -6134,7 +7127,7 @@
     }
   }
 
-  \subsection{C-LEVEL FACILITIES}{
+  \subsection{C-Level Facilities}{
     \itemize{
       \item \code{installChar} is now remapped in \file{Rinternals.h} to
       \code{installTrChar}, of which it has been a wrapper since
@@ -6156,7 +7149,7 @@
     }
   }
 
-  \subsection{INSTALLATION on a UNIX-ALIKE}{
+  \subsection{Installation on a Unix-Alike}{
     \itemize{
       \item User-set \samp{DEFS} (e.g., in \file{config.site}) is now
       used for compiling packages (including base packages).
@@ -6185,7 +7178,7 @@
     }
   }
 
-  \subsection{UTILITIES}{
+  \subsection{Utilities}{
     \itemize{
       \item \command{R --help} now mentions the option \command{--no-echo}
       (renamed from \command{--slave}) and its previously undocumented
@@ -6203,7 +7196,7 @@
     }
   }
 
-  \subsection{PACKAGE INSTALLATION}{
+  \subsection{Package Installation}{
     \itemize{
       \item There is the beginnings of support for the recently approved
       C++20 standard, specified analogously to C++14 and C++17.  There is
@@ -6214,7 +7207,7 @@
     }
   }
 
-  \subsection{BUG FIXES}{
+  \subsection{Bug Fixes}{
     \itemize{
       \item \code{formula(x)} with \code{length(x) > 1} character vectors,
       is deprecated now.  Such use has been rare, and has \sQuote{worked}
@@ -6416,7 +7409,7 @@
     }
   }
 
-  \subsection{BUG FIXES (Windows)}{
+  \subsection{Bug Fixes (Windows)}{
     \itemize{
       \item \code{Sys.glob()} now supports all characters
       from the Unicode Basic Multilingual Plane, no longer corrupting
@@ -6447,7 +7440,7 @@
   }
 }
 
-\section{CHANGES in previous versions}{
+\section{Changes in previous versions}{
   \itemize{
     \item Older news can be found in text format in files
     \ifelse{html}{\href{../NEWS.0}{NEWS.0}, \href{../NEWS.1}{NEWS.1},

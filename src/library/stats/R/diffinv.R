@@ -14,7 +14,7 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 ## Copyright    1997-1999  Adrian Trapletti
 ## This version distributed under GPL (version 2 or later)
 
@@ -26,16 +26,15 @@ diffinv.vector <- function (x, lag = 1L, differences = 1L, xi, ...)
     if (!is.vector(x)) stop ("'x' is not a vector")
     lag <- as.integer(lag); differences <- as.integer(differences)
     if (lag < 1L || differences < 1L) stop ("bad value for 'lag' or 'differences'")
-    if(missing(xi)) xi <- rep(0., lag*differences)
-    if (length(xi) != lag*differences)
+    if(missing(xi))
+        xi <- rep(0., lag*differences)
+    else if (length(xi) != lag*differences)
         stop("'xi' does not have the right length")
     if (differences == 1L) {
         x <- as.double(x)
         xi <- as.double(xi)
         n <- as.integer(length(x))
         if(is.na(n)) stop(gettextf("invalid value of %s", "length(x)"), domain = NA)
-#        y <- c(xi[1L:lag], double(n))
-#        z <- .C(C_R_intgrt_vec, x, y = y, as.integer(lag), n)$y
         .Call(C_intgrt_vec, x, xi, lag)
     }
     else
@@ -87,7 +86,7 @@ toeplitz <- function (x, r = NULL, symmetric = is.null(r))
             warning("x[1] != r[1]; using x[1] for diagonal")
         ## toeplitz2(c(if(nc >= 2L) r[nc:2L], x), n, nc) :
         d <- c(n, nc)
-        array(c(if(nc >= 2L) r[nc:2L], x)[nc - .col(d) + .row(d)], d)
+        array(c(r[if(nc >= 2L) nc:2L else 0L], x)[nc - .col(d) + .row(d)], d)
     }
 }
 

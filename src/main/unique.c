@@ -1526,8 +1526,8 @@ attribute_hidden SEXP do_match(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    if ((!isVector(CAR (args)) && !isNull(CAR (args))) ||
-	(!isVector(CADR(args)) && !isNull(CADR(args))))
+    if ((!OBJECT(CAR (args)) && !isVector(CAR (args)) && !isNull(CAR (args))) ||
+	(!OBJECT(CADR(args)) && !isVector(CADR(args)) && !isNull(CADR(args))))
 	error(_("'match' requires vector arguments"));
 
     int nomatch = asInteger(CADDR(args));
@@ -2448,15 +2448,13 @@ static void rehash(R_hashtab_type h, int resize)
 
 static SEXP getcell(R_hashtab_type h, SEXP key, int *pidx)
 {
-    SEXP table = HT_TABLE(h);
-
     if (! HT_IS_VALID(h))
 	rehash(h, FALSE);
 
     int idx = HT_HASH(h, key);
     *pidx = idx;
 
-    SEXP chain = VECTOR_ELT(table, idx);
+    SEXP chain = VECTOR_ELT(HT_TABLE(h), idx);
     while (chain != R_NilValue) {
 	if (HT_EQUAL(h, TAG(chain), key))
 	    return chain;
@@ -2602,23 +2600,29 @@ SEXP R_maphash(R_hashtab_type h, SEXP FUN)
     return R_NilValue;
 }
 
-void R_maphashC(R_hashtab_type h, void (*FUN)(SEXP, SEXP, void *), void *data)
+SEXP R_maphashC(R_hashtab_type h, SEXP (*FUN)(SEXP, SEXP, void *), void *data)
 {
     PROTECT(HT_SEXP(h));
     SEXP table = PROTECT(HT_TABLE(h)); // PROTECT in case FUN causes a rehash
     int size = LENGTH(table);
+    SEXP result = NULL;
     for (int i = 0; i < size; i++) {
 	SEXP cell = VECTOR_ELT(table, i);
 	while (cell != R_NilValue) {
 	    SEXP next = PROTECT(CDR(cell));
 	    SEXP key = PROTECT(TAG(cell));
 	    SEXP val = PROTECT(CAR(cell));
-	    FUN(key, val, data);
-	    cell = next;
+	    result = FUN(key, val, data);
 	    UNPROTECT(3); /* next, key, val */
+	    if (result != NULL)
+		break;
+	    cell = next;
 	}
+	if (result != NULL)
+	    break;
     }
     UNPROTECT(2); /* h, table */
+    return result;
 }
 
 void R_clrhash(R_hashtab_type h)

@@ -37,7 +37,7 @@ static const R_CMethodDef CEntries[]  = {
 #define CALLDEF(name, n)  {#name, (DL_FUNC) &name, n}
 
 static const R_CallMethodDef CallEntries[] = {
-    CALLDEF(codeFilesAppend, 2),
+    CALLDEF(codeFilesAppend, 3),
     CALLDEF(delim_match, 2),
     CALLDEF(dirchmod, 2),
     CALLDEF(getfmts, 1),
@@ -55,6 +55,7 @@ static const R_CallMethodDef CallEntries[] = {
     CALLDEF(splitString, 2),
     CALLDEF(package_dependencies_scan, 1),
     CALLDEF(nonASCII, 1),
+    CALLDEF(remove_dot_segments_wrapper, 1),
 
     {NULL, NULL, 0}
 };

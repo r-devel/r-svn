@@ -1,6 +1,6 @@
 % File src/library/stats/man/influence.measures.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{influence.measures}
@@ -20,6 +20,7 @@
 \alias{hat}
 \alias{hatvalues}
 \alias{hatvalues.lm}
+\alias{hatvalues.nls}
 \alias{rstandard}
 \alias{rstandard.lm}
 \alias{rstandard.glm}
@@ -30,7 +31,10 @@
 \alias{dfbeta.lm}
 \alias{dfbetas}
 \alias{dfbetas.lm}
+\alias{dfbetas.glm}
 \alias{dffits}
+\alias{dffits.lm}
+\alias{dffits.glm}
 \alias{covratio}
 \alias{cooks.distance}
 \alias{cooks.distance.lm}
@@ -40,23 +44,28 @@ influence.measures(model, infl = influence(model))
 
 rstandard(model, \dots)
 \method{rstandard}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
-          sd = sqrt(deviance(model)/df.residual(model)),
+          sd = sigma(model),
           type = c("sd.1", "predictive"), \dots)
 \method{rstandard}{glm}(model, infl = influence(model, do.coef = FALSE),
-          type = c("deviance", "pearson"), \dots)
+          type = c("pearson", "deviance"), \dots)
 
 rstudent(model, \dots)
 \method{rstudent}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
          res = infl$wt.res, \dots)
 \method{rstudent}{glm}(model, infl = influence(model, do.coef = FALSE), \dots)
 
-dffits(model, infl = , res = )
+dffits(model, \dots)
+\method{dffits}{lm}(model, infl = lm.influence(model, do.coef = FALSE),
+		   res = weighted.residuals(model), \dots)
+\method{dffits}{glm}(model, infl = lm.influence(model, do.coef = FALSE),
+		   res = weighted.residuals(model), \dots)
 
 dfbeta(model, \dots)
 \method{dfbeta}{lm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
 
 dfbetas(model, \dots)
 \method{dfbetas}{lm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
+\method{dfbetas}{glm}(model, infl = lm.influence(model, do.coef = TRUE), \dots)
 
 covratio(model, infl = lm.influence(model, do.coef = FALSE),
          res = weighted.residuals(model))
@@ -73,6 +82,7 @@ cooks.distance(model, \dots)
 
 hatvalues(model, \dots)
 \method{hatvalues}{lm}(model, infl = lm.influence(model, do.coef = FALSE), \dots)
+\method{hatvalues}{nls}(model, \dots)% ../R/nls.R %
 
 hat(x, intercept = TRUE)
 }
@@ -147,11 +157,17 @@ hat(x, intercept = TRUE)
 }
 \note{
   For \code{hatvalues}, \code{dfbeta}, and \code{dfbetas}, the method
-  for linear models also works for generalized linear models.
+  for linear models also works for generalized linear models. These were
+  updated for R 4.6 to use \emph{working} residuals and weights; it is
+  assumed that the model has methods suitable for
+  \code{\link{weighted.residuals}()}.
+
+  The \code{\link{nls}} method for \code{hatvalues()} is based on theory in
+  \bibcitet{R:StLaurent+Cook:1992}.
 }
 \author{
-  Several R core team members and John Fox, originally in his \file{car}
-  package.
+  Several R Core Team members and John Fox, originally in his \CRANpkg{car}
+  package; \code{hatvalues.nls} by R Dev Day participants, see \PR{18897}.
 }
 \references{
   \bibshow{*,

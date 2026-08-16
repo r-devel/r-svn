@@ -1,6 +1,6 @@
 % File src/library/stats/man/mantelhaen.test.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2008 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mantelhaen.test}
@@ -14,7 +14,8 @@
 \usage{
 mantelhaen.test(x, y = NULL, z = NULL,
                 alternative = c("two.sided", "less", "greater"),
-                correct = TRUE, exact = FALSE, conf.level = 0.95)
+                correct = TRUE, exact = FALSE, conf.level = 0.95,
+                two.sided.method = c("minlike", "central"))
 }
 \arguments{
   \item{x}{either a 3-dimensional contingency table in array form where
@@ -39,13 +40,20 @@ mantelhaen.test(x, y = NULL, z = NULL,
   \item{conf.level}{confidence level for the returned confidence
     interval.
     Only used in the 2 by 2 by \eqn{K} case.}
+  \item{two.sided.method}{a character string specifying the method for
+    computing two-sided p-values, must be one of \code{"minlike"}
+    (default) or \code{"central"}, or an abbreviation thereof.
+    See \sQuote{Details} in the help for \code{\link{binom.test}}.
+    Only used in the 2 by 2 by \eqn{K} case if an exact conditional test
+    is performed.}
 }
 \value{
   A list with class \code{"htest"} containing the following components:
-  \item{statistic}{Only present if no exact test is performed.  In the
-    classical case of a 2 by 2 by \eqn{K} table (i.e., of dichotomous
-    underlying variables), the Mantel-\I{Haenszel} chi-squared statistic;
-    otherwise, the generalized Cochran-Mantel-\I{Haenszel} statistic.}
+  \item{statistic}{In the classical case of a 2 by 2 by \eqn{K} table
+    (i.e., of dichotomous underlying variables), the sum of the first
+    elements in each stratum if an exact test is performed and the
+    Mantel-\I{Haenszel} chi-squared statistic otherwise.  For larger
+    tables, the generalized Cochran-Mantel-\I{Haenszel} statistic.}
   \item{parameter}{the degrees of freedom of the approximate chi-squared
     distribution of the test statistic (\eqn{1} in the classical case).
     Only present if no exact test is performed.}

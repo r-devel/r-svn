@@ -1760,7 +1760,7 @@ Packages @CRANpkg{h5}, @I{Bioconductor}'s @pkg{rhdf5}, @CRANpkg{RNetCDF} and
 @abbr{HDF5} (Hierarchical Data Format, see
 @uref{https://www.hdfgroup.org/wp-content/uploads/2017/07/HDF5.pdf}) and to @I{UCAR}'s @I{netCDF} data files
 (network Common Data Form, see
-@uref{https://www.unidata.ucar.edu/software/netcdf/}).
+@uref{https://www.unidata.ucar.edu/software/netcdf}).
 
 Both of these are systems to store scientific data in array-oriented
 ways, including descriptions, labels, formats, units, @dots{}.  @abbr{HDF5} also
@@ -2282,7 +2282,7 @@ possibility.
 
 If you do not have Excel, many other programs are able to read such
 spreadsheets and export in a text format on both Windows and Unix, for
-example @I{Gnumeric} (@uref{http://www.gnumeric.org}) and
+example @I{Gnumeric} (@uref{https://gnome.pages.gitlab.gnome.org/gnumeric-web/}) and
 OpenOffice (@uref{https://www.openoffice.org}).  You can also
 cut-and-paste between the display of a spreadsheet in such a program and
 R: @code{read.table} will read from the R console or, under Windows,

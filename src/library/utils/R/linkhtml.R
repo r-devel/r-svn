@@ -117,15 +117,22 @@ make.packages.html <-
         cat('<table style="width: 100%;">\n', file = out)
         for (a in nm) {
             if(use_alpha)
-                cat("<tr id=\"pkgs-", a, "\"> <td></td>\n", sep = "", file = out)
+                cat("<tr id=\"pkgs-", a, "\"> <td></td> <td></td> </tr>\n",
+                    file = out, sep = "")
             for (i in pg[first == a]) {
                 title <- packageDescription(i, lib.loc = lib, fields = "Title",
                                             encoding = "UTF-8")
-                if (is.na(title)) title <- "-- Title is missing --"
+                if(is.na(title))
+                    title <- "-- Title is missing --"
+                else {
+                    title <- gsub("&", "&amp;", title, fixed = TRUE)
+                    title <- gsub("<", "&lt;", title, fixed = TRUE)
+                    title <- gsub(">", "&gt;", title, fixed = TRUE)
+                }
                 cat('<tr style="text-align: left; vertical-align: top;" id="lib-', i, '">\n',
                     '<td style="width: 25%;"><a href="', lib0, '/', i,
                     '/html/00Index.html">', i, "</a></td><td>",
-                    gsub("&", "&amp;", title), "</td></tr>\n",
+                    title, "</td></tr>\n",
                     file = out, sep = "")
                 if (WINDOWS) {
                     npkgs <- npkgs + 1L

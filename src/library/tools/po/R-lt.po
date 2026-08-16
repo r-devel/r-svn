@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tools 4.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: 2021-11-08 10:33+0100\n"
 "Last-Translator: r.zakauskas@gmail.com;gabriele.dauksaite@gmail.com\n"
 "Language-Team: Lithuanian\n"
@@ -319,9 +319,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr "negali susidoroti su Rd objektais trūkstamais/tuščiais pavadinimais"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr ""
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "Neperkeliamos žymos kintamajame '%s':"
 
@@ -503,7 +500,7 @@ msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Automatiškai sugeneruotas turinys, kurį reikia redaguoti Rd objekte '%s':"
 
 #, fuzzy
-msgid "Rd files without \\description:"
+msgid "Rd files without %s:"
 msgstr "Rd failas su dubliuotais pseudonimais '%s':"
 
 msgid "no Rd sections specified"
@@ -684,9 +681,6 @@ msgstr "failas '%s' nerastas"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "vinjetės failo vardas '%s' neatitinka nė vieno '%s' failo vardo modelio"
 
-msgid "+-+"
-msgstr "+-+"
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "'%s' esančios vinjetės '%s' ir '%s' turi tuos pačius pavadinimus"
 
@@ -821,9 +815,6 @@ msgstr "Paleidžia R CMD versiją su --no-build-vignettes siekiant išvengti ats
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "neteisinga '--compact-vignettes' reikšmė, darant prielaidą %s"
 
-msgid "Error: cannot rename directory to %s"
-msgstr "Klaida: negalima pervardyti katalogo į %s"
-
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "praėjusios laiko limitas %g %s, pasiektas antrinio proceso metu"
 
@@ -857,11 +848,19 @@ msgstr "nėra paketų, kuriuos galima patikrinti"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr ""
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
 
-msgid "downloading %s ..."
-msgstr "parsiunčiama %s ..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "atsisiunčiamos atvirkštinės priklausomybės ..."
 
 msgid "checking %s ..."
 msgstr "tikrinama %s ..."
@@ -972,20 +971,21 @@ msgstr "negali skaityti indekso informacijos faile '%s'"
 msgid ".install_packages() exit status"
 msgstr ".install_packages() išėjimo būsena"
 
-msgid "restoration failed"
-msgstr "įkėlimas nepavyko"
-
-msgid "invalid value"
-msgstr "neleistina reikšmė"
-
-msgid "for R_CROSS_BUILD"
-msgstr "dėl R_CROSS_BUILD"
-
 msgid "error reading file '%s'"
 msgstr "klaida nuskaitant failą '%s'"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "tai atrodo kaip paketas -- ir yra nepilnas"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "paketas %s sėkmingai išpakuotas ir MD5 sumos patikrintos"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' egzistuoja, bet nėra vykdoma -- peržiūrėti 'R diegimo ir administravimo žinyną'"
@@ -996,23 +996,8 @@ msgstr "generuojami derinimo simboliai (%s)"
 msgid "no DLL was created"
 msgstr "nebuvo sukurtas DLL"
 
-msgid "NOTE: fixed path"
-msgstr "PASTABA: fiksuotas kelias"
-
-msgid "NOTE: fixed library identification name"
-msgstr "PASTABA: fiksuotos bibliotekos identifikavimo pavadinimas"
-
-msgid "NOTE: fixed library path"
-msgstr "PASTABA: fiksuotas bibliotekos kelias"
-
-msgid "NOTE: fixed rpath"
-msgstr "PASTABA: fiksuotas rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "ĮSPĖJIMAS: bendrinami objektai/dinaminės bibliotekos su įkoduotais laikinais diegimo keliais"
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "paketas %s sėkmingai išpakuotas ir MD5 sumos patikrintos"
 
 msgid "not using staged install with --libs-only"
 msgstr "nenaudoja etapinio diegimo su --libs-only"
@@ -1020,31 +1005,8 @@ msgstr "nenaudoja etapinio diegimo su --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "pakopinis montavimas galimas tik užrakinant"
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr ""
-
 msgid "patch utility is needed for installation-time patching"
 msgstr ""
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr ""
-
-#, fuzzy
-msgid "which seems to be already applied."
-msgstr "tai atrodo kaip paketas -- ir yra nepilnas"
-
-msgid "WARNING: failed to apply patch"
-msgstr ""
-
-msgid "Applied installation-time patch"
-msgstr ""
-
-msgid "and saved it as"
-msgstr ""
-
-#, fuzzy
-msgid "in package installation"
-msgstr "netinkamas paketo išdėstymas"
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
 msgstr "R įtrauktas katalogas tuščias - galbūt reikia įdiegti R-devel.rpm ar panašų"
@@ -1085,26 +1047,9 @@ msgstr "KLAIDA: nėra leidimo įdiegti į katalogą"
 msgid "building a fake installation is disallowed"
 msgstr "kurti netikrą diegimą yra neleidžiama"
 
-msgid "using C compiler:"
-msgstr ""
-
-msgid "using Fortran compiler:"
-msgstr ""
-
-msgid "using C++ compiler:"
-msgstr ""
-
-msgid "using C++"
-msgstr ""
-
-msgid "using SDK:"
-msgstr ""
-
-msgid "WARNING: failed to revert patch"
-msgstr ""
-
-msgid "Reverted installation-time patch"
-msgstr ""
+#, fuzzy
+msgid "Input must be character"
+msgstr "text' turi būti simbolių vektorius"
 
 msgid ""
 "See\n"
@@ -1213,6 +1158,13 @@ msgstr ""
 "  %s\n"
 "nėra \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "netinkamas paketas"
+
 msgid "Processing packages:"
 msgstr "Apdorojami paketai:"
 
@@ -1245,6 +1197,30 @@ msgstr "'x' turi būti vieno simbolio eilutė"
 
 msgid "invalid hex string"
 msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "testas '%s' neprieinamas"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "'x' turi būti vieno simbolio eilutė"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "įkėlimas nepavyko"
 
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "tam reikia, kad 'objdump.exe' būtų PATH"
@@ -1304,9 +1280,6 @@ msgstr "nepavyko 'texi2dvi' esančio '%s' vykdymas"
 
 msgid "Running vignettes for package %s"
 msgstr "Vykdomos vinjetės paketui %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "Lyginami %s su %s..."
 
 msgid "no parsed files found"
 msgstr "nerasta išanalizuotų failų"
@@ -1395,10 +1368,6 @@ msgstr "Galutinių atnaujintų PACKAGES failų rašymas."
 msgid "update_PACKAGES complete."
 msgstr "update_PACKAGES baigtas."
 
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "'x' turi būti vieno simbolio eilutė"
-
 msgid "test '%s' is not available"
 msgstr "testas '%s' neprieinamas"
 
@@ -1449,6 +1418,11 @@ msgstr "Nežinomas kodavimas su ne ASCII duomenimis: konvertavimas į ASCII"
 
 msgid "cannot source package code:"
 msgstr "negalima gauti paketo kodo:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
 
 msgid "inferiorCallError"
 msgstr ""
@@ -1654,6 +1628,22 @@ msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Atitinkamas BibTeX įrašas:"
 msgstr[1] "Atitinkami BibTeX įrašai:"
 msgstr[2] "Atitinkamų BibTeX įrašų:"
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Klaida: negalima pervardyti katalogo į %s"
+
+#, fuzzy
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Rd failas su dubliuotais pseudonimais '%s':"
+
+#~ msgid "downloading %s ..."
+#~ msgstr "parsiunčiama %s ..."
+
+#~ msgid "invalid value"
+#~ msgstr "neleistina reikšmė"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "Lyginami %s su %s..."
 
 #, fuzzy
 #~ msgid "one of 'package' and 'dir' must be specified."

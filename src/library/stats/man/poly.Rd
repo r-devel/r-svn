@@ -22,8 +22,9 @@ polym  (\dots, degree = 1, coefs = NULL, raw = FALSE)
   evaluate raw polynomials.
 }
 \arguments{
- \item{x, newdata}{a numeric vector or an object with \code{\link{mode}}
-   \code{"numeric"} (such as a \code{\link{Date}}) at which to evaluate the
+ \item{x, newdata}{a numeric vector or an object such as a
+   \code{\link{Date}} with \code{\link{mode}} \code{"numeric"}, including
+   \code{\link{ordered}} but not plain \code{\link{factor}}s at which to evaluate the
    polynomial. \code{x} can also be a matrix.  Missing values are not
    allowed in \code{x}.}
  \item{degree}{the degree of the polynomial.  Must be less than the
@@ -59,9 +60,9 @@ polym  (\dots, degree = 1, coefs = NULL, raw = FALSE)
   formulas.
 
   The orthogonal polynomial is summarized by the coefficients, which can
-  be used to evaluate it via the three-term recursion given in Kennedy
-  & Gentle (1980, pp.\sspace{}343--4), and used in the \code{predict} part of
-  the code.
+  be used to evaluate it via the three-term recursion given in
+  \bibcitet{|R:Kennedy+Gentle:1980|pp.\sspace{}343--4},
+  and used in the \code{predict} part of the code.
 
   \code{poly} using \code{\dots} is just a convenience wrapper for
   \code{polym}: \code{coef} is ignored.  Conversely, if \code{polym} is

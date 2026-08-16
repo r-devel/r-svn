@@ -80,9 +80,82 @@ Sweave(f <- "Sexpr-verb-ex.Rnw")
 tools::texi2pdf(sub("Rnw$","tex", f))# used to fail
 
 ### ------------------------------------ 5 ----------------------------------
+## test PDF conversion of jss.cls including toBibtex(citation())
+stopifnot(tools::Rcmd(c("Sweave", "--pdf", "jss.Rnw")) == 0)
 ## render the installed Rnw file from example(Sweave), using R CMD Sweave
 testfile <- system.file("Sweave", "Sweave-test-1.Rnw", package = "utils")
 stopifnot(exprs = {
     tools::Rcmd(c("Sweave", "--help")) == 0L
     tools::Rcmd(c("Sweave", "--pdf", testfile)) == 0L
+})
+
+### ------------------------------------ 6 ----------------------------------
+## invalid or unparsable R code in code chunks ignored with global options
+Sweave("ignore-on-weave-global.Rnw", ignore.on.weave = TRUE)
+Sweave("ignore-on-weave-global.Rnw", ignore = TRUE)
+Sweave("ignore-on-weave-global.Rnw", weave = FALSE)
+
+### ------------------------------------ 7 ----------------------------------
+## invalid or unparsable R code in code chunks ignored with chunk options
+Sweave("ignore-on-weave-chunk.Rnw")
+
+### ------------------------------------ 8 ----------------------------------
+## logical and numeric chunk options may take their values from objects
+## set in previous chunks
+t8 <- SweaveTeX("objs-in-opts.Rnw")
+
+inp <- latexEnv(t8, "Sinput")
+out <- latexEnv(t8, "Soutput")
+## This may have to be updated when the *.Rnw changes:
+stopifnot(exprs = {
+    length(inp) == 4
+    length(out) == 0
+    any(grepl("\\includegraphics", t8))
+})
+
+## This may have to be updated when the *.Rnw changes:
+## check the size of the graphic using Ghostscript
+## (https://stackoverflow.com/a/52644056)
+if (FALSE)
+{
+    psize <- system2("gs", c("-dNOSAFER", "-dQUIET",
+                             paste0("-sFileName=", "vars-in-opts-c.pdf"),
+                             "-c", "'FileName (r) file runpdfbegin 1 1 pdfpagecount {pdfgetpage /MediaBox get {=print ( ) print} forall (\n) print} for quit'"),
+                     stdout = TRUE)
+    psize <- as.numeric(strsplit(psize, " ", fixed = TRUE)[[1L]][c(3, 4)])
+    stopifnot(psize/72 == c(4, 5))
+}
+
+### ------------------------------------ 9 ----------------------------------
+## option 'strip.white' admits TRUE, FALSE, "all" (with partial
+## matching), and "true" and "false" (with partial matching) for
+## backward compatibility; defaults to TRUE, historically
+## irrespective of the value in '.defaults'
+stopifnot(exprs = {
+    isTRUE (RweaveLatexOptions(list(strip.white = TRUE,    .defaults = NULL))$strip.white)
+    isFALSE(RweaveLatexOptions(list(strip.white = FALSE,   .defaults = NULL))$strip.white)
+    isTRUE (RweaveLatexOptions(list(strip.white = "true",  .defaults = NULL))$strip.white)
+    isTRUE (RweaveLatexOptions(list(strip.white = "t",     .defaults = NULL))$strip.white)
+    isFALSE(RweaveLatexOptions(list(strip.white = "false", .defaults = NULL))$strip.white)
+    isFALSE(RweaveLatexOptions(list(strip.white = "f",     .defaults = NULL))$strip.white)
+    isTRUE (RweaveLatexOptions(list(                       .defaults = NULL))$strip.white)
+    RweaveLatexOptions(list(strip.white = "all", .defaults = NULL))$strip.white == "all"
+    RweaveLatexOptions(list(strip.white = "a",   .defaults = NULL))$strip.white == "all"
+})
+
+## non-lowercase values of 'strip.white' are accepted, with a warning
+## (many variants of TRUE and FALSE are caught by 'as.logical')
+optTR  <- list(strip.white = "TR",  .defaults = NULL)
+optFA  <- list(strip.white = "FA",  .defaults = NULL)
+optALL <- list(strip.white = "ALL", .defaults = NULL)
+optA   <- list(strip.white = "A",   .defaults = NULL)
+tools::assertWarning(resTR  <- RweaveLatexOptions(optTR))
+tools::assertWarning(resFA  <- RweaveLatexOptions(optFA))
+tools::assertWarning(resALL <- RweaveLatexOptions(optALL))
+tools::assertWarning(resA   <- RweaveLatexOptions(optALL))
+stopifnot(exprs = {
+    isTRUE (resTR$strip.white)
+    isFALSE(resFA$strip.white)
+    resALL$strip.white == "all"
+    resA$strip.white   == "all"
 })

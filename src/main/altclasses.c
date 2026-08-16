@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2016--2025   The R Core Team
+ *  Copyright (C) 2016--2026   The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -183,13 +183,13 @@ static void *compact_intseq_Dataptr(SEXP x, Rboolean writeable)
 	SET_COMPACT_SEQ_EXPANDED(x, val);
 	UNPROTECT(1);
     }
-    return DATAPTR(COMPACT_SEQ_EXPANDED(x));
+    return DATAPTR_RW(COMPACT_SEQ_EXPANDED(x));
 }
 
 static const void *compact_intseq_Dataptr_or_null(SEXP x)
 {
     SEXP val = COMPACT_SEQ_EXPANDED(x);
-    return val == R_NilValue ? NULL : DATAPTR(val);
+    return val == R_NilValue ? NULL : DATAPTR_RO(val);
 }
 
 static int compact_intseq_Elt(SEXP x, R_xlen_t i)
@@ -338,6 +338,11 @@ static SEXP new_compact_intseq(R_xlen_t n, int n1, int inc)
     return ans;
 }
 
+attribute_hidden Rboolean R_is_compact_intseq(SEXP x)
+{
+    return R_altrep_inherits(x, R_compact_intseq_class);
+}
+
 
 /**
  ** Compact Real Sequences
@@ -428,13 +433,13 @@ static void *compact_realseq_Dataptr(SEXP x, Rboolean writeable)
 	SET_COMPACT_SEQ_EXPANDED(x, val);
 	UNPROTECT(1);
     }
-    return DATAPTR(COMPACT_SEQ_EXPANDED(x));
+    return DATAPTR_RW(COMPACT_SEQ_EXPANDED(x));
 }
 
 static const void *compact_realseq_Dataptr_or_null(SEXP x)
 {
     SEXP val = COMPACT_SEQ_EXPANDED(x);
-    return val == R_NilValue ? NULL : DATAPTR(val);
+    return val == R_NilValue ? NULL : DATAPTR_RO(val);
 }
 
 static double compact_realseq_Elt(SEXP x, R_xlen_t i)
@@ -759,13 +764,13 @@ static R_INLINE void expand_deferred_string(SEXP x)
 static void *deferred_string_Dataptr(SEXP x, Rboolean writeable)
 {
     expand_deferred_string(x);
-    return DATAPTR(DEFERRED_STRING_EXPANDED(x));
+    return DATAPTR_RW(DEFERRED_STRING_EXPANDED(x));
 }
 
 static const void *deferred_string_Dataptr_or_null(SEXP x)
 {
     SEXP state = DEFERRED_STRING_STATE(x);
-    return state != R_NilValue ? NULL : DATAPTR(DEFERRED_STRING_EXPANDED(x));
+    return state != R_NilValue ? NULL : DATAPTR_RO(DEFERRED_STRING_EXPANDED(x));
 }
 
 static SEXP deferred_string_Elt(SEXP x, R_xlen_t i)
@@ -1427,20 +1432,53 @@ static R_altrep_class_t wrap_list_class;
 #define WRAPPER_WRAPPED(x) R_altrep_data1(x)
 #define WRAPPER_SET_WRAPPED(x, v) R_set_altrep_data1(x, v)
 #define WRAPPER_METADATA(x) R_altrep_data2(x)
-#define WRAPPER_SET_METADATA(x, v) R_set_altrep_data2(x, v)
 
 #define WRAPPER_SORTED(x) INTEGER(WRAPPER_METADATA(x))[0]
 #define WRAPPER_NO_NA(x) INTEGER(WRAPPER_METADATA(x))[1]
 
+/* When a wrapper is created, e.g. using structure(), the data may
+   initially be shared. Once it is modified to be modified or a
+   DATAPTR is requested the data has to be remain unchanged and the
+   wrapper should be the only reference. The metadata is marked to
+   reflecth this. The data then has to be duplicated by the duplicate
+   method to ensure that no new references are created. This ensures
+   that a DATAPTR, once obtained, remains valid while the wrapper
+   object is reachable.
+   
+   For now the sxpinfo.gp field is used via PRSEEN for the lock.
+   Allow for cases where shallow_duplicate() returns a value with
+   non-zero REFCNT (e.g. returns a value marked not mutable.
+ */
+#define WRAPPER_DATA_LOCK(x) PRSEEN(WRAPPER_METADATA(x))
+#define WRAPPER_SET_DATA_LOCK(x, v) SET_PRSEEN(WRAPPER_METADATA(x), v)
+#define WRAPPER_DATA_IS_LOCKED(x) (WRAPPER_DATA_LOCK(x) > 0)
+#define WRAPPER_LOCK_DATA(x) WRAPPER_SET_DATA_LOCK(x, 1)
+#define WRAPPER_UNLOCK_DATA(x) WRAPPER_SET_DATA_LOCK(x, 0)
+
+ 
 static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
 {
-    /* If the data might be shared and is accessed for possible
-       modification, then it needs to be duplicated now. */
     SEXP data = WRAPPER_WRAPPED(x);
-    if (MAYBE_SHARED(data)) {
-	PROTECT(x);
-	WRAPPER_SET_WRAPPED(x, shallow_duplicate(data));
-	UNPROTECT(1);
+    if (WRAPPER_DATA_IS_LOCKED(x)) {
+	/* Once data is locked it's reference count should remain at one. */
+	/* Unless duplicate() doesn't produce a zero reference count object */ 
+	if (MAYBE_SHARED(data) && WRAPPER_DATA_LOCK(x) == 1)
+	    error("REFCNT on locked WRAPPER data increased to %d",
+		  REFCNT(data));
+    }
+    else {
+	/* If the data might be shared and is accessed for possible
+	   modification, then it needs to be duplicated now. */
+	if (MAYBE_SHARED(data)) {
+	    PROTECT(x);
+	    WRAPPER_SET_WRAPPED(x, shallow_duplicate(data));
+	    UNPROTECT(1);
+	    if (REFCNT(WRAPPER_WRAPPED(x)) == 1)
+		WRAPPER_LOCK_DATA(x);
+	    else
+		WRAPPER_SET_DATA_LOCK(x, 2);
+	}
+	else WRAPPER_LOCK_DATA(x);
     }
 
     /* The meta data also needs to be cleared as it may no longer be
@@ -1487,7 +1525,7 @@ static SEXP wrapper_Duplicate(SEXP x, Rboolean deep)
     /* For a shallow copy, mark as immutable in the NAMED world; with
        reference counting the reference count will be incremented when
        the data is installed in the new wrapper object. */
-    if (deep)
+    if (deep || WRAPPER_DATA_IS_LOCKED(x)) // **** shallow duplicate if only locked?
 	data = duplicate(data);
 #ifndef SWITCH_TO_REFCNT
     else
@@ -1510,7 +1548,8 @@ static Rboolean wrapper_Inspect(SEXP x, int pre, int deep, int pvec,
 {
     Rboolean srt = (Rboolean) WRAPPER_SORTED(x);
     Rboolean no_na = (Rboolean) WRAPPER_NO_NA(x);
-    Rprintf(" wrapper [srt=%d,no_na=%d]\n", srt, no_na);
+    Rboolean lck = (Rboolean) WRAPPER_DATA_IS_LOCKED(x);
+    Rprintf(" wrapper [srt=%d,no_na=%d,lck=%d]\n", srt, no_na, lck);
     inspect_subtree(WRAPPER_WRAPPED(x), pre, deep, pvec);
     return TRUE;
 }
@@ -1528,15 +1567,19 @@ static R_xlen_t wrapper_Length(SEXP x)
 static void *wrapper_Dataptr(SEXP x, Rboolean writeable)
 {
     if (writeable)
-	return DATAPTR(WRAPPER_WRAPPED_RW(x));
+	return DATAPTR_RW(WRAPPER_WRAPPED_RW(x));
     else
+	/* This has to use WRAPPER_WRAPPED_RW even for a read-only
+	   pointer to make sure a later request for a writable pointer
+	   will return the same address. */
 	/**** could avoid the cast by having separate methods */
-	return (void *) DATAPTR_RO(WRAPPER_WRAPPED(x));
+	return (void *) DATAPTR_RO(WRAPPER_WRAPPED_RW(x));
 }
 
 static const void *wrapper_Dataptr_or_null(SEXP x)
 {
-    return DATAPTR_OR_NULL(WRAPPER_WRAPPED(x));
+    /* This has to use WRAPPER_WRAPPED_RW as above. */
+    return DATAPTR_OR_NULL(WRAPPER_WRAPPED_RW(x));
 }
 
 static SEXP wrapper_Extract_subset(SEXP x, SEXP indx, SEXP call)
@@ -1941,7 +1984,8 @@ static SEXP make_wrapper(SEXP x, SEXP meta)
 	/* make sure no mutation can happen through another reference */
 	MARK_NOT_MUTABLE(x);
 #endif
-    
+
+    WRAPPER_UNLOCK_DATA(ans);
     return ans;
 }
 

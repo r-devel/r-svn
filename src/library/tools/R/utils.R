@@ -1,7 +1,7 @@
 #  File src/library/tools/R/utils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,11 @@ function(x)
 {
     ## Return the file extensions.
     ## (Only purely alphanumeric extensions are recognized.)
-    pos <- regexpr("\\.([[:alnum:]]+)$", x)
-    ifelse(pos > -1L, substring(x, pos + 1L), "")
+    x <- as.character(x) # for basename() ...
+    if(!length(x)) return(character()) # ifelse() madness ...
+    ifelse(grepl("^(.*[^.]+.*)[.]([[:alnum:]]+)$", basename(x)),
+           sub(".*[.]([[:alnum:]]+)$", "\\1", x),
+           "")
 }
 
 ### ** file_path_as_absolute
@@ -89,9 +92,13 @@ function(x, compression = FALSE)
 {
     ## Return the file paths without extensions.
     ## (Only purely alphanumeric extensions are recognized.)
+    x <- as.character(x) # for basename() ...
+    if(!length(x)) return(character()) # ifelse() madness ...    
     if(compression)
         x <- sub("[.](gz|bz2|xz)$", "", x)
-    sub("([^.]+)\\.[[:alnum:]]+$", "\\1", x)
+    ifelse(grepl("^(.*[^.]+.*)[.]([[:alnum:]]+)$", basename(x)),
+           sub("[.]([[:alnum:]]+)$", "", x),
+           x)
 }
 
 ### ** file_test
@@ -343,6 +350,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
     } else on.exit(Sys.setenv(BSTINPUTS = obstinputs), add = TRUE)
     Sys.setenv(BSTINPUTS = paths2env(c(texinputs, obstinputs, Rbstinputs, "")))
 
+    bibwarnings <- character()
     if(index && nzchar(texi2dvi) && .Platform$OS.type != "windows") {
         ## switch off the use of texindy in texi2dvi >= 1.157
         Sys.setenv(TEXINDY = "false")
@@ -354,24 +362,25 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## the current heuristics for finding error messages in log files
         ## have better coverage with the default '!' error indicator, but
         ## texi2dvi enables the file:line:error style, so:
-        out <- .system_with_capture(texi2dvi, "--help")
+        out <- system_with_capture(texi2dvi, "--help")
         if(length(grep("--no-line-error", out$stdout)))
             opt_extra <- "--no-line-error"
 
+        env0 <- character()
         ## and work around a bug in texi2dvi
         ## https://stat.ethz.ch/pipermail/r-devel/2011-March/060262.html
         ## That has [A-Za-z], earlier versions [A-z], both of which may be
         ## invalid in some locales.
         ## FIXME: This workaround should be obsolete with Texinfo 5.0.
-        env0 <- "LC_COLLATE=C"
+##      env0 <- "LC_COLLATE=C"
         ## texi2dvi, at least on macOS (4.8) does not accept TMPDIR with spaces.
         ## FIXME: This workaround should be obsolete with Texinfo 6.3.
-        if (grepl(" ", Sys.getenv("TMPDIR")))
-            env0 <- paste(env0,  "TMPDIR=/tmp")
-        out <- .system_with_capture(texi2dvi,
-                                    c(opt_pdf, opt_quiet, opt_extra,
-                                      shQuote(file)),
-                                    env = env0)
+##      if (grepl(" ", Sys.getenv("TMPDIR")))
+##          env0 <- paste(env0,  "TMPDIR=/tmp")
+        out <- system_with_capture(texi2dvi,
+                                   c(opt_pdf, opt_quiet, opt_extra,
+                                     shQuote(file)),
+                                   env = env0)
 
         log <- paste0(file_path_sans_ext(file), ".log")
 
@@ -382,15 +391,17 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## (Note that texi2dvi may have been run quietly, in which case
         ## diagnostics will only be in the log file.)
         ## FIXME: This workaround should be obsolete with Texinfo 6.7.
-        if(out$status &&
-           file_test("-f", log) &&
-           any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
-                     readLines(log, warn = FALSE), useBytes = TRUE))) {
-            out <- .system_with_capture(texi2dvi,
-                                        c(opt_pdf, opt_quiet, opt_extra,
-                                          shQuote(file)),
-                                        env = env0)
-        }
+        ## NOTE: This could mask a failed bibtex (e.g., missing .bib) when
+        ##       that would not rerun (giving an empty 'thebibliography').
+##      if(out$status &&
+##         file_test("-f", log) &&
+##         any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
+##                   readLines(log, warn = FALSE), useBytes = TRUE))) {
+##          out <- system_with_capture(texi2dvi,
+##                                     c(opt_pdf, opt_quiet, opt_extra,
+##                                       shQuote(file)),
+##                                     env = env0)
+##      }
 
         ## We cannot necessarily rely on out$status, hence let us
         ## analyze the log files in any case.
@@ -407,6 +418,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         log <- paste0(file_path_sans_ext(file), ".blg")
         if(file_test("-f", log)) {
             lines <- .get_BibTeX_errors_from_blg_file(log)
+            bibwarnings <- attr(lines, "warnings")
             if(length(lines))
                 errors <- paste0("BibTeX errors:\n",
                                  paste(lines, collapse = "\n"))
@@ -475,6 +487,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         logfile <- paste0(base, ".blg")
         if(file_test("-f", logfile)) {
             lines <- .get_BibTeX_errors_from_blg_file(logfile)
+            bibwarnings <- attr(lines, "warnings")
             if(length(lines))
                 msg <- paste(msg, "BibTeX errors:",
                              paste(lines, collapse = "\n"),
@@ -549,6 +562,10 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         }
         do_cleanup(clean)
     }
+    if (length(bibwarnings))
+        message(sprintf("Bibliography warnings for '%s':\n",
+                        basename(file_path_sans_ext(file))),
+                paste(bibwarnings, collapse = "\n"), domain = NA)
     invisible(NULL)
 }
 
@@ -593,18 +610,13 @@ filtergrep <-
 function(pattern, x, ...)
     grep(pattern, x, invert = TRUE, value = TRUE, ...)
 
-### ** %notin%
-
-`%notin%` <-
-function(x, y)
-    is.na(match(x, y))
 
 ### ** %w/o%
 
 ## x without y, as in the examples of ?match.
 `%w/o%` <-
 function(x, y)
-    x[is.na(match(x, y))]
+    x[x %notin% y]
 
 ### ** .OStype
 
@@ -622,23 +634,19 @@ function(year)
 ### ** .R_top_srcdir
 
 ## Find the root directory of the source tree used for building this
-## version of R (corresponding to Unix configure @top_srcdir@).
-## Seems this is not recorded anywhere, but we can find our way ...
+## version of R (corresponding to Unix configure @abs_top_srcdir@).
 
-.R_top_srcdir_from_Rd <-
-function() {
-    filebase <-
-        file_path_sans_ext(system.file("help", "tools.rdb",
-                                       package = "tools"))
-    path <- attr(fetchRdDB(filebase, "QC"), "Rdfile")
-    ## We could use 5 dirname() calls, but perhaps more easily:
-    substr(path, 1L, nchar(path) - 28L)
-}
+.R_top_srcdir_file_path <-
+    system.file("misc", "top.txt", package = "tools")
 
-## Unfortunately,
-##   .R_top_srcdir <- .R_top_srcdir_from_Rd()
-## does not work because when tools is installed there are no Rd pages
-## yet ...
+.R_top_srcdir_default <-
+    if(nzchar(.R_top_srcdir_file_path)) {
+        readLines(.R_top_srcdir_file_path)
+    } else ""
+
+.R_top_srcdir <-
+function()
+    Sys.getenv("_R_TOP_SRCDIR_", .R_top_srcdir_default)
 
 ### ** config_val_to_logical
 
@@ -744,11 +752,13 @@ function(db)
 ### ** .file_append_ensuring_LFs
 
 .file_append_ensuring_LFs <-
-function(file1, file2)
+function(file1, file2, enc = NA_character_)
 {
+    if (!is.character(enc))
+        enc <- as.character(enc)
     ## Use a fast version of file.append() that ensures LF between
     ## files.
-    .Call(C_codeFilesAppend, file1, file2)
+    .Call(C_codeFilesAppend, file1, file2, enc)
 }
 
 ### ** .file_path_to_LaTeX_graphicspath
@@ -785,8 +795,9 @@ function(x, dir, add = FALSE)
     x
 }
 
-### ** .find_calls
+### ** find_calls
 
+find_calls <-
 .find_calls <-
 function(x, predicate = NULL, recursive = FALSE)
 {
@@ -829,14 +840,18 @@ function(x, predicate = NULL, recursive = FALSE)
 .find_calls_in_file <-
 function(file, encoding = NA, predicate = NULL, recursive = FALSE)
 {
-    .find_calls(.parse_code_file(file, encoding), predicate, recursive)
+    find_calls(.parse_code_file(file, encoding), predicate, recursive)
 }
 
-### ** .find_calls_in_package_code
+### ** find_calls_in_package_code
 
+find_calls_in_package_code <-
+function(dir, predicate = NULL, recursive = FALSE, which = "code")
+    .find_calls_in_package_code(dir, predicate, recursive, which)
+    
 .find_calls_in_package_code <-
-function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
-         which = "code")
+function(dir, predicate = NULL, recursive = FALSE, which = "code",
+         .worker = NULL)
 {
     dir <- file_path_as_absolute(dir)
 
@@ -849,7 +864,7 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
             .find_calls_in_file(file, encoding, predicate, recursive)
 
     which <- match.arg(which,
-                       c("code", "vignettes", "tests",
+                       c("code", "data", "demo", "tests", "vignettes",
                          "NAMESPACE", "CITATION", "docs"),
                        several.ok = TRUE)
     code_files <-
@@ -857,18 +872,30 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
           if("code" %in% which)
               list_files_with_type(file.path(dir, "R"), "code",
                                    OS_subdirs = c("unix", "windows")),
+          if(("data" %in% which) &&
+             dir.exists(fp <- file.path(dir, "data")))
+              list.files(fp, pattern = "\\.[Rr]$",
+                         full.names = TRUE),
+          if(("demo" %in% which) &&
+             dir.exists(fp <- file.path(dir, "demo")))
+              list.files(fp, pattern = "\\.[Rr]$",
+                         full.names = TRUE),
+          ## cf. .check_packages_used_in_tests() ...
+          if(("tests" %in% which) &&
+             dir.exists(fp <- file.path(dir, "tests")))
+              c(list.files(fp, pattern = "\\.[Rr]$",
+                           full.names = TRUE),
+                unlist(lapply(Filter(dir.exists,
+                                     file.path(dir, "tests",
+                                               c("testthat", "testit",
+                                                 "unitizer", "RUnit"))),
+                              function(fp)
+                                  list.files(fp, pattern = "\\.[Rr]$",
+                                             full.names = TRUE)))),
           if(("vignettes" %in% which) &&
              dir.exists(file.path(dir, "vignettes")) &&
              dir.exists(fp <- file.path(dir, "inst", "doc")))
               list_files_with_type(fp, "code"),
-          ## cf. .check_packages_used_in_tests() ...
-          if(("tests" %in% which) &&
-             dir.exists(fp <- file.path(dir, "tests")))
-              c(list.files(fp, pattern = "\\.[rR]$",
-                           full.names = TRUE),
-                if(dir.exists(fp <- file.path(fp, "testthat")))
-                    list.files(fp, pattern = "\\.[rR]$",
-                               full.names = TRUE)),
           if(("NAMESPACE" %in% which) &&
              file.exists(fp <- file.path(dir, "NAMESPACE")))
               fp,
@@ -881,21 +908,23 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
         .file_path_relative_to_dir(code_files, dirname(dir))
 
     if("docs" %in% which) {
-        db <- Rd_db(dir = dir)
+        db <- Rd_db(dir = dir, stages = c("build", "later", "install"))
         names(db) <- file.path(basename(dir), "man", names(db))
+        tdir <- tempfile()
+        dir.create(tdir)
+        on.exit(unlink(tdir, recursive = TRUE))
         calls <-
             c(calls,
               Filter(length,
-                     lapply(db,
-                            function(e) {
-                                f <- tempfile()
-                                on.exit(unlink(f))
-                                Rd2ex(e, f)
-                                if(file.exists(f))
-                                    .worker(f, "UTF-8")
-                            })))
+                     Map(function(u, v) {
+                             f <- file.path(tdir, v)
+                             Rd2ex(u, f)
+                             if(file.exists(f))
+                                 .worker(f, "UTF-8")
+                         },
+                         db, basename(names(db)))))
     }
-    
+
     calls
 }
 
@@ -907,7 +936,7 @@ function(funnames, pkgnames = character(), colons = c("::", ":::"))
     ## Use pkgnames = NA_character_ to match *any* PKG::FUN call with
     ## FUN in funnames.  Strange but why not?  Or better to use "*"?
     function(e) {
-        (is.call(e) &&        
+        (is.call(e) &&
          ((is.name(x <- e[[1L]]) &&
            as.character(x) %in% funnames)) ||
          ((is.call(x <- e[[1L]]) &&
@@ -996,13 +1025,14 @@ function(con)
         (any(startsWith(lines, "---")) ||
          regexpr("There (was|were) ([0123456789]+) error messages?",
                  lines[length(lines)]) > -1L)
-    ## (Note that warnings are ignored for now.)
+    warnings <- grepv("(Warning--|WARN - )", lines)
+    warnings <- sub(".*(Warning--|WARN - )", "", warnings)
     ## MiKTeX does not give usage, so '(There were n error messages)' is
     ## last.
-    pos <- grep("^(Warning|You|\\(There)", lines)
-    if(!really_has_errors || !length(pos) ) return(character())
-    ind <- seq.int(from = 3L, length.out = pos[1L] - 3L)
-    lines[ind]
+    pos <- grep("^(Warning|You've|\\(There)", lines)
+    ind <- if (really_has_errors && length(pos))
+               seq.int(from = 3L, length.out = pos[1L] - 3L)
+    structure(lines[ind], warnings = warnings)
 }
 
 ### ** .get_LaTeX_errors_from_log_file
@@ -1291,7 +1321,7 @@ function(env, nms = NULL)
 ### ** .get_S3_group_generics
 
 .get_S3_group_generics <-
-function()
+function() # for S4, have methods::getGenerics()
     c("Ops", "Math", "Summary", "Complex", "matrixOps")
 
 ### ** .get_S3_primitive_generics
@@ -1313,7 +1343,7 @@ function(include_group_generics = TRUE)
           "cosh", "sinh", "tanh",
           "acosh", "asinh", "atanh",
           "lgamma", "gamma", "digamma", "trigamma",
-          "cumsum", "cumprod", "cummax", "cummin",
+          "cumsum", "cumprod", "cummax", "cummin", "cumvar",
           ## Group 'Ops':
           "+", "-", "*", "/",
           "^", "%%", "%/%",
@@ -1417,13 +1447,13 @@ function()
 ### ** .get_standard_repository_db_fields
 
 .get_standard_repository_db_fields <-
-function(type = c("source", "mac.binary", "win.binary")) {
+function(type = c("source", "mac.binary", "win.binary", "other.binary")) {
     type <- match.arg(type)
     c("Package", "Version", "Priority",
       "Depends", "Imports", "LinkingTo", "Suggests", "Enhances",
       "License", "License_is_FOSS", "License_restricts_use",
       "OS_type", "Archs", "MD5sum",
-      if(type == "source") "NeedsCompilation"
+      if(type == "source") "NeedsCompilation" else "Built"
       )
 }
 
@@ -1510,7 +1540,7 @@ function()
 function(texi = NULL)
 {
     if(is.null(texi))
-        texi <- file.path(.R_top_srcdir_from_Rd(),
+        texi <- file.path(.R_top_srcdir(),
                           "doc", "manual", "R-exts.texi")
     lines <- readLines(texi)
     re <- "^@c DESCRIPTION field "
@@ -1533,6 +1563,12 @@ function(f)
     b
 }
 
+### ** .gh_repo_URL
+
+.gh_repo_URL <- 
+function(x)
+    sub("^(https?://[^/]+/[^/]+/[^/]+)/.*", "\\1", x)
+
 ### ** .gregexec_at_pos
 
 .gregexec_at_pos <-
@@ -1547,8 +1583,9 @@ function(pattern, x, m, pos)
            use.names = FALSE)
 }
 
-### ** .gsub_with_transformed_matches
+### ** gsub_with_transformed_matches
 
+gsub_with_transformed_matches <-
 .gsub_with_transformed_matches <-
 function(pattern, replacement, x, trafo, count, ...)
 {
@@ -1871,9 +1908,9 @@ function(parent = parent.frame())
     }
 })
 
-### ** .make_RFC4646_langtag_regexp
+### ** .make_RFC_4646_langtag_regexp
 
-.make_RFC4646_langtag_regexp <-
+.make_RFC_4646_langtag_regexp <-
 function()
 {
     ## See <https://www.ietf.org/rfc/rfc4646.html>.
@@ -1917,7 +1954,7 @@ function()
     sprintf("(%s)((-%s)?)((-%s)?)((-%s)*)((-%s)*)",
             re_language, re_script, re_region, re_variant, re_extension)
 }
-    
+
 ### ** nonS3methods [was .make_S3_methods_stop_list ]
 
 nonS3methods <- function(package)
@@ -2134,13 +2171,7 @@ function(dir)
     files <- list_files_with_type(file.path(dir, "R"), "code",
                                   full.names = FALSE,
                                   OS_subdirs = c("unix", "windows"))
-    ## As of 2025-03, packages
-    ##   gmailr httr2 purrr
-    ## use configure code to drop the pipe using examples for R < 4.1.
-    db <- if(basename(dir) %in% c("gmailr", "httr2", "purrr"))
-              list()
-          else
-              Rd_db(dir = dir)
+    db <- Rd_db(dir = dir, stages = NULL)
 
     do.call(rbind,
             c(Map(function(u, v) {
@@ -2158,7 +2189,8 @@ function(dir)
                           ## Need to extract the code in the examples.
                           ## Rd2ex() does that and more, but provides no
                           ## output if there are no examples ...
-                          Rd2ex(u, p)
+                          ## Dynamic Rd requires installation (PR#19020).
+                          Rd2ex(u, p, stages = NULL)
                           if(file.exists(p))
                               wrk(p, v)
                       }, error = function(e) NULL)
@@ -2187,7 +2219,7 @@ function(meta, v)
     }
     FALSE
 }
-    
+
 ### ** .package_vignettes_via_call_to_R
 
 .package_vignettes_via_call_to_R <-
@@ -2210,11 +2242,11 @@ function(dir, ..., libpaths = .libPaths()) {
 .pandoc_md_for_CRAN <-
 function(ifile, ofile)
 {
-    .system_with_capture("pandoc",
-                         paste(shQuote(normalizePath(ifile)),
-                               "-s", "--mathjax",
-                               "--email-obfuscation=references",
-                               "-o", shQuote(ofile)))
+    system_with_capture("pandoc",
+                        paste(shQuote(normalizePath(ifile)),
+                              "-s", "--mathjax",
+                              "--email-obfuscation=references",
+                              "-o", shQuote(ofile)))
 }
 
 ### ** .parLapply_on_strings
@@ -2245,7 +2277,7 @@ function(X, FUN, ...,
 
     out
 }
-    
+
 .Ncpus_default <-
 function()
     getOption("Ncpus", 1L)
@@ -2362,85 +2394,22 @@ function(dfile, keep.white = .keep_white_description_fields)
     if (nrow(out) != 1L)
         stop("contains a blank line", call. = FALSE)
     out <- out[1L, ]
-    if(!is.na(encoding <- out["Encoding"])) {
-        ## could convert everything (valid) to UTF-8
-        if(encoding == "UTF-8") {
-            Encoding(out) <- "UTF-8"
-            ind <- validUTF8(out)
-            if(!all(ind)) {
-                pos <- which(!ind)
-                ## Be as nice as for the other cases ...
-                ## Could also throw an error along the lines of
-                ##   stop(sprintf(ngettext(length(pos),
-                ##                         "field %s is not valid UTF-8",
-                ##                         "fields %s are not valid UTF-8"),
-                ##                paste(sQuote(names(out)[pos]),
-                ##                             collapse = ", ")),
-                ##        call. = FALSE, domain = NA)
-                out[pos] <-
-                    iconv(out[pos], "UTF-8", "UTF-8", sub = "byte")
-            }
-        }
-        else if(encoding == "latin1")
-            Encoding(out) <- "latin1"
-        else
-            out <- iconv(out, encoding, "", sub = "byte")
-    }
+    ## read.dcf() now always returns UTF-8 (repairing any invalid bytes),
+    ## so the legacy Encoding-field post-processing is no longer needed.
     out
 }
 
 .write_description <-
-function(x, dfile)
+function(x, dfile, keep.white = .keep_white_description_fields)
 {
-    ## Invert how .read_description() handles package encodings.
-    if(!is.na(encoding <- x["Encoding"])) {
-        ## For UTF-8 or latin1 encodings, .read_description() would
-        ## simply have marked the encoding.  But we might have added
-        ## fields encoded differently ...
-        ind <- is.na(match(Encoding(x), c(encoding, "unknown")))
-        if(any(ind))
-            x[ind] <- mapply(iconv, x[ind], Encoding(x)[ind], encoding,
-                             sub = "byte")
-    } else {
-        ## If there is no declared encoding, we cannot have non-ASCII
-        ## content.
-        ## Cf. tools::showNonASCII():
-        asc <- iconv(x, "latin1", "ASCII")
-        ## fields might have been NA to start with, so use identical.
-        if(!identical(asc, x)) {
-            warning("Unknown encoding with non-ASCII data: converting to ASCII")
-	    ind <- is.na(asc) | (asc != x)
-            x[ind] <- iconv(x[ind], "latin1", "ASCII", sub = "byte")
-        }
-    }
+    ## write.dcf() now always writes valid UTF-8 (converting values with a
+    ## declared encoding and repairing any invalid bytes), so there is no
+    ## need to handle the declared Encoding field here.
     ## Avoid folding for fields where we keep whitespace when reading,
     ## plus two more fields where legacy code does not strip whitespace
     ## and so we should not wrap.
-    ## Unfortunately, wrapping may destroy declared encodings: for the
-    ## fields where we do not keep whitespace, write.dcf() calls
-    ## formatDL() which in turn calls paste() on the results of
-    ## strwrap(), and paste() may change the (common) encoding.
-    ## In particular, pasting a latin1 string comes out in UTF-8 in a
-    ## UTF-8 locale, and with unknown encoding in a C locale.
-    ## Hence, when we have a declared non-UTF-8 encoding, we convert
-    ## to UTF-8 before formatting, and convert back to the declared
-    ## encoding when writing out.
-    if(!is.na(encoding) && (encoding != "UTF-8")) {
-        x <- iconv(x, from = encoding, to = "UTF-8")
-        tfile <- tempfile()
-        write.dcf(rbind(x), tfile,
-                  keep.white = c(.keep_white_description_fields,
-                                 "Maintainer", "BugReports"),
-                  useBytes = TRUE)
-        writeLines(iconv(readLines(tfile),
-                         from = "UTF-8", to = encoding),
-                   dfile, useBytes = TRUE)
-    } else {
-        write.dcf(rbind(x), dfile,
-                  keep.white = c(.keep_white_description_fields,
-                                 "Maintainer", "BugReports"),
-                  useBytes = TRUE)
-    }
+    keep.white <- unique(c(keep.white, "Maintainer", "BugReports"))
+    write.dcf(rbind(x), dfile, keep.white = keep.white)
 }
 
 .expand_package_description_db_R_fields <-
@@ -2464,6 +2433,17 @@ function(x)
     }
     y
 }
+
+### ** .remove_dot_segments
+
+## See RFC 3980 Section 5.2.4 "Remove Dot Segments"
+## <https://datatracker.ietf.org/doc/html/rfc3986#section-5.2.4>.
+## Based on C code in src/modules/internet/Rhttp.c, copied over to
+## tools.
+
+.remove_dot_segments <-
+function(x)
+    .Call(C_remove_dot_segments_wrapper, x)
 
 ### ** .replace_chars_by_hex_subs
 
@@ -2555,7 +2535,7 @@ function(dir, envir, meta = character())
                file.path(dir, .read_collate_field(txt[ind[1L]])))
     else
         list_files_with_type(dir, "code")
-    if(!all(.file_append_ensuring_LFs(con, files)))
+    if(!all(.file_append_ensuring_LFs(con, files, enc = meta["Encoding"])))
         stop("unable to write code files")
     if(!is.na(package <- meta["Package"]))
         envir$.packageName <- package
@@ -2600,8 +2580,9 @@ function(x)
     } else list(name = x1)
 }
 
-### ** .system_with_capture
+### ** system_with_capture
 
+system_with_capture <-
 .system_with_capture <-
 function(command, args = character(), env = character(),
          stdin = "", input = NULL, timeout = 0)
@@ -2744,7 +2725,7 @@ function(fun, args = list(), opts = "--no-save --no-restore",
          env = character(), arch = "", drop = TRUE, timeout = 0)
 {
     stopifnot(is.list(args))
-    
+
     .safe_repositories <- function() {
         x <- getOption("repos")
         y <- .get_standard_repository_URLs()
@@ -2778,8 +2759,8 @@ function(fun, args = list(), opts = "--no-save --no-restore",
                    opts <- c(paste0("--arch=", arch), opts)
                file.path(R.home("bin"), "R")
            }
-    res <- .system_with_capture(cmd, opts, env, input = wrk,
-                                timeout = timeout)
+    res <- system_with_capture(cmd, opts, env, input = wrk,
+                               timeout = timeout)
     ## FIXME: what should the "value" be in case of error?
     if(file.exists(tfo)) {
         val <- readRDS(tfo)
@@ -2984,6 +2965,23 @@ function(f, verbose = FALSE)
 
     R(fun, list(f))
 }
+
+### ** rsync
+
+rsync <-
+function(src, dst, ...){
+    ## needs rsync. On Wndows, the RTools version of rsync needs 
+    ## special path treatment as in an msys shell,
+    ## i.e. write /c/to/path rather than c:\to\path
+    if(grepl("^([A-Za-z]):", src))
+        src <- gsub("^([A-Za-z]):", "/\\1", 
+                normalizePath(src, winslash="/", mustWork=FALSE))
+    if(grepl("^([A-Za-z]):", dst))
+        dst <- gsub("^([A-Za-z]):", "/\\1", 
+                normalizePath(dst, winslash="/", mustWork=FALSE))
+    system2("rsync", c(src, dst, ...))
+}
+
 
 ### Local variables: ***
 ### mode: outline-minor ***

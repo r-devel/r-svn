@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2016 The R Core Team.
+ *  Copyright (C) 2000-2026 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -25,7 +25,7 @@
    For use by alternative front-ends and packages which need to share
    the R event loop (on Unix-alikes).
 
-   Not part of the API and subject to change without notice.
+   Part of the embedding API and subject to change without notice.
 
    NB: HAVE_SYS_SELECT_H should be checked and defined before this is
    included.
@@ -72,20 +72,21 @@ typedef struct _InputHandler {
 } InputHandler;
 
 
-extern InputHandler *initStdinHandler(void);
-extern void consoleInputHandler(unsigned char *buf, int len);
-
 extern InputHandler *addInputHandler(InputHandler *handlers, int fd, InputHandlerProc handler, int activity);
 extern InputHandler *getInputHandler(InputHandler *handlers, int fd);
 extern int           removeInputHandler(InputHandler **handlers, InputHandler *it);
+
+#ifdef USE_BASE_R_SUPPORT
 extern InputHandler *getSelectedHandler(InputHandler *handlers, fd_set *mask);
+#endif
 extern fd_set *R_checkActivity(int usec, int ignore_stdin);
-extern fd_set *R_checkActivityEx(int usec, int ignore_stdin, void (*intr)(void));
 extern void R_runHandlers(InputHandler *handlers, fd_set *mask);
 
+#ifdef USE_BASE_R_SUPPORT
 extern int R_SelectEx(int  n,  fd_set  *readfds,  fd_set  *writefds,
 		      fd_set *exceptfds, struct timeval *timeout,
 		      void (*intr)(void));
+#endif
 
 #ifdef __SYSTEM__
 #ifndef __cplusplus   /* Would get duplicate conflicting symbols*/

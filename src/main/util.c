@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -80,9 +80,8 @@ void F77_SUB(rexitc)(char *msg, int *nchar);
 
 int nrows(SEXP s) // ~== NROW(.)  in R (except data frames)
 {
-    SEXP t;
     if (isVector(s) || isList(s)) {
-	t = getAttrib(s, R_DimSymbol);
+	SEXP t = getAttrib(s, R_DimSymbol);
 	if (t == R_NilValue) return LENGTH(s);
 	return INTEGER(t)[0];
     } else
@@ -93,9 +92,8 @@ int nrows(SEXP s) // ~== NROW(.)  in R (except data frames)
 
 int ncols(SEXP s) // ~== NCOL(.)  in R
 {
-    SEXP t;
     if (isVector(s) || isList(s)) {
-	t = getAttrib(s, R_DimSymbol);
+	SEXP t = getAttrib(s, R_DimSymbol);
 	if (t == R_NilValue) return 1;
 	if (LENGTH(t) >= 2) return INTEGER(t)[1];
 	/* This is a 1D (or possibly 0D array) */
@@ -542,7 +540,7 @@ attribute_hidden void Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 		  supplied, formal);
     if (R_warn_partial_match_args && ns > 0 && ns < strlen(formal)) {
 	SEXP fsym = install(formal);
-	SEXP cond = R_makePartialMatchWarningCondition(call, tag, fsym);
+	SEXP cond = R_makePartialArgumentMatchWarningCondition(call, tag, fsym);
 	PROTECT(cond);
 	R_signalWarningCondition(cond);
 	UNPROTECT(1);
@@ -1607,7 +1605,7 @@ size_t wcs4toutf8(char *s, const R_wchar_t *wc, size_t n)
     return res + 1;
 }
 
-/* A version that reports failure as an error 
+/* A version that reports failure as an error
  * Exported as Rf_mbrtowc
  */
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
@@ -1735,33 +1733,66 @@ attribute_hidden SEXP do_validEnc(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-/* MBCS-aware versions of common comparisons.  Only used for ASCII c */
-char *Rf_strchr(const char *s, int c)
+/* MBCS-aware versions of common comparisons.  Only used for ASCII c,
+   so not needed in UTF-8 locales, but likely in DBCS locales and for
+   7-bit encodings such as ISO-2022-JP.
+ */
+char *Rf_strchr(char *s, int c)
 {
-    char *p = (char *)s;
     mbstate_t mb_st;
     size_t used;
 
     if(!mbcslocale || utf8locale) return strchr(s, c);
     mbs_init(&mb_st);
-    while( (used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st)) ) {
-	if(*p == c) return p;
-	p += used;
+    while( (used = Mbrtowc(NULL, s, R_MB_CUR_MAX, &mb_st)) ) {
+	if(*s == c) return s;
+	s += used;
     }
     return (char *)NULL;
 }
 
-attribute_hidden char *Rf_strrchr(const char *s, int c)
+// not hidden on Windows
+attribute_hidden char *Rf_strrchr(char *s, int c)
 {
-    char *p = (char *)s, *plast = NULL;
+    char *plast = NULL;
     mbstate_t mb_st;
     size_t used;
 
     if(!mbcslocale || utf8locale) return strrchr(s, c);
     mbs_init(&mb_st);
-    while( (used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st)) ) {
-	if(*p == c) plast = p;
-	p += used;
+    while( (used = Mbrtowc(NULL, s, R_MB_CUR_MAX, &mb_st)) ) {
+	if(*s == c) plast = s;
+	s += used;
+    }
+    return plast;
+}
+
+const char *Rf_strchr_const(const char *s, int c)
+{
+    mbstate_t mb_st;
+    size_t used;
+
+    if(!mbcslocale || utf8locale) return strchr(s, c);
+    mbs_init(&mb_st);
+    while( (used = Mbrtowc(NULL, s, R_MB_CUR_MAX, &mb_st)) ) {
+	if(*s == c) return s;
+	s += used;
+    }
+    return (const char *)NULL;
+}
+
+// not hidden on Windows
+attribute_hidden const char *Rf_strrchr_const(const char *s, int c)
+{
+    const char *plast = NULL;
+    mbstate_t mb_st;
+    size_t used;
+
+    if(!mbcslocale || utf8locale) return strrchr(s, c);
+    mbs_init(&mb_st);
+    while( (used = Mbrtowc(NULL, s, R_MB_CUR_MAX, &mb_st)) ) {
+	if(*s == c) plast = s;
+	s += used;
     }
     return plast;
 }
@@ -2106,7 +2137,7 @@ attribute_hidden int Rf_AdobeSymbol2ucs2(int n)
    The parser uses R_atof (and handles non-numeric strings itself).
    That is the same as R_strtod but ignores endptr.  Also used by
    gnuwin32/windlgs/src/ttest.c, exported and in Utils.h (and
-   documeented in R-exts only since R 4.4.1 )
+   documented in R-exts only since R 4.4.1 )
 */
 
 double R_strtod5(const char *str, char **endptr, char dec,
@@ -2188,7 +2219,7 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    default: ;
 	    }
 #define MAX_EXPONENT_PREFIX 9999
-	    /* exponents beyond ca +1024/-1076 over/underflow 
+	    /* exponents beyond ca +1024/-1076 over/underflow
 	       Limit exponent from PR#16358.
 	     */
 	    int ndig = 0;
@@ -2782,7 +2813,7 @@ attribute_hidden SEXP do_bincode(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(breaks = coerceVector(breaks, REALSXP));
     R_xlen_t n = XLENGTH(x);
     int nB = LENGTH(breaks), sr = asLogical(right), sl = asLogical(lowest);
-    if (nB == NA_INTEGER) error(_("invalid '%s' argument"), "breaks");
+    if (nB < 2 || nB == NA_INTEGER) error(_("invalid '%s' argument"), "breaks");
     if (sr == NA_INTEGER) error(_("invalid '%s' argument"), "right");
     if (sl == NA_INTEGER) error(_("invalid '%s' argument"), "include.lowest");
     SEXP codes;
@@ -3268,8 +3299,6 @@ SEXP do_compareNumericVersion(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
 {
     va_list ap;
-    int ret;
-    char dummy[1];
 
     *str = NULL;
 
@@ -3277,7 +3306,8 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
     /* could optimize by using non-zero initial size, large
        enough so that most prints with fill */
     /* trio does not accept NULL as str */
-    ret = vsnprintf(dummy, 0, fmt, ap);
+    char dummy[1];
+    int ret = vsnprintf(dummy, 0, fmt, ap);
     va_end(ap);
 
     if (ret <= 0)
@@ -3302,5 +3332,3 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
 	*str = buf;
     return ret;
 }
-
-

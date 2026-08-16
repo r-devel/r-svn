@@ -312,7 +312,12 @@ function(ifile, encoding = "unknown",
      blank_out_ignores_in_lines(lines, ignore)
 }
 
-aspell_filter_db$Sweave <- tools::SweaveTeXFilter
+aspell_filter_db$Sweave <-
+function(ifile, encoding = "unknown", latex = FALSE, ...)
+{
+    lines <- tools::SweaveTeXFilter(ifile, encoding)
+    if(latex) aspell_filter_LaTeX_worker(lines, ...) else lines
+}
 
 aspell_find_program <-
 function(program = NULL)
@@ -485,6 +490,7 @@ aspell_control_R_manuals <-
            "--add-texinfo-ignore=defcodeindex",
            "--add-texinfo-ignore=eapifun",
            "--add-texinfo-ignore=eapihdr",
+           "--add-texinfo-ignore=eapivar",
            "--add-texinfo-ignore=embfun",
            "--add-texinfo-ignore=embhdr",
            "--add-texinfo-ignore=embvar",
@@ -498,7 +504,7 @@ aspell_R_manuals <-
 function(which = NULL, dir = NULL, program = NULL,
          dictionaries = c(aspell_dictionaries_R, "R_manuals"))
 {
-    if(is.null(dir)) dir <- tools:::.R_top_srcdir_from_Rd()
+    if(is.null(dir)) dir <- tools:::.R_top_srcdir()
     ## Allow specifying 'R-exts' and alikes, or full paths.
     files <- if(is.null(which)) {
         Sys.glob(file.path(dir, "doc", "manual", "*.texi"))
@@ -536,7 +542,7 @@ function(which = NULL, dir = NULL,
 {
     files <- character()
 
-    if(is.null(dir)) dir <- tools:::.R_top_srcdir_from_Rd()
+    if(is.null(dir)) dir <- tools:::.R_top_srcdir()
 
     if(is.null(which)) {
         which <- tools:::.get_standard_package_names()$base
@@ -668,17 +674,19 @@ aspell_control_R_vignettes <-
          c("-t", "-d en_US,en_GB"))
 
 aspell_R_vignettes <-
-function(program = NULL,
+function(program = NULL, dir = NULL,
          dictionaries = c(aspell_dictionaries_R, "R_vignettes"))
 {
-    files <- Sys.glob(file.path(tools:::.R_top_srcdir_from_Rd(),
+    if(is.null(dir)) dir <- tools:::.R_top_srcdir()    
+    files <- Sys.glob(file.path(dir,
                                 "src", "library", "*", "vignettes",
                                 "*.Rnw"))
 
     program <- aspell_find_program(program)
 
     aspell(files,
-           filter = list("Sweave+LaTeX",
+           filter = list("Sweave",
+                         latex = TRUE,
                          cmds = c("Sexpr p",
                                   "SweaveOpts p",
                                   "code p",
@@ -702,6 +710,12 @@ aspell_control_package_vignettes <-
            "--add-tex-command='proglang p'",
            "--add-tex-command='samp p'"
            ))
+
+## <FIXME>
+## The Sweave filter can now optionally do addional LaTeX processing,
+## but currently we cannot pass filter args when using
+## aspell_package_vignettes().
+## </FIXME>
 
 aspell_package_vignettes <-
 function(dir,
@@ -943,7 +957,7 @@ function(which = NULL, dir = NULL,
                     "[ \t][[:alnum:]_.]*\\(\\)[ \t[:punct:]]"),
          program = NULL, dictionaries = aspell_dictionaries_R)
 {
-    if(is.null(dir)) dir <- tools:::.R_top_srcdir_from_Rd()
+    if(is.null(dir)) dir <- tools:::.R_top_srcdir()
     if(is.null(which))
         which <- tools:::.get_standard_package_names()$base
 
@@ -1082,7 +1096,7 @@ function(which = NULL, dir = NULL,
                     "[ \t][[:alnum:]_.]*\\(\\)[ \t[:punct:]]"),
          program = NULL, dictionaries = aspell_dictionaries_R)
 {
-    if(is.null(dir)) dir <- tools:::.R_top_srcdir_from_Rd()
+    if(is.null(dir)) dir <- tools:::.R_top_srcdir()
     if(is.null(which))
         which <- tools:::.get_standard_package_names()$base
     if(!is.na(pos <- match("base", which)))
@@ -1262,7 +1276,8 @@ function(ifile, encoding = "unknown", ...)
     aspell_filter_LaTeX_worker(readLines(ifile, encoding = encoding),
                                ...)
 aspell_filter_LaTeX_worker <-
-function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
+function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex,
+         before = NULL, ...)
 {
     ranges <- list()
     chrran <- function(e) getSrcref(e)[c(1L, 5L, 3L, 6L)]
@@ -1315,6 +1330,8 @@ function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
         }
     }
 
+    if(is.function(before))
+        x <- before(x)
     recurse(parser(x, ...))
     blank_out_character_ranges(x, ranges)
 }
@@ -1349,16 +1366,6 @@ aspell_filter_LaTeX_commands <-
       "fontsize pp", "usefont pppp", "documentstyle op", "cite p",
       "nocite p", "psfig p", "selectlanguage p", "includegraphics op",
       "bibitem op", "geometry p")
-
-## <FIXME>
-## Try to merge into the Sweave filter.
-## Note that currently we cannot pass filter args when using
-## aspell_package_vignettes().
-aspell_filter_db$`Sweave+LaTeX` <-
-function(ifile, encoding = "unknown", ...)
-    aspell_filter_LaTeX_worker(tools::SweaveTeXFilter(ifile, encoding),
-                               ...)
-## </FIXME>
 
 ## For spell checking packages.
 
@@ -1560,7 +1567,7 @@ function(dictionary, add = character())
     ## dictionary.
     if(!grepl(.Platform$file.sep, dictionary, fixed = TRUE)) {
         dictionary <-
-            file.path(tools:::.R_top_srcdir_from_Rd(),
+            file.path(tools:::.R_top_srcdir(),
                       "share", "dictionaries", dictionary)
     }
     txt <- paste0(dictionary, ".txt")

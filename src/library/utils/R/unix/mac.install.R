@@ -1,7 +1,7 @@
 #  File src/library/utils/R/unix/mac.install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,28 +16,75 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
+## Compare the Built: string to determine if a binary package is compatible
+## with this build of R
+.is.built.compatible <- function(built, platform=R.version$platform)
+{
+    if (!is.character(built))
+        stop("Built: value is not a string")
+    if (length(built) > 1L)
+        sapply(built, .is.built.compatible)
+    else {
+        bcomp <- strsplit(built, "; ", fixed=TRUE)[[1]]
+        ## we assume no platform means no binaries; or exact match is also ok
+        if (length(bcomp) < 2 || bcomp[2] == "" || bcomp[2] == platform) return(TRUE)
 
-if(!startsWith(R.version$os, "darwin")) {
+        ## FIXME: should we compare the R.verison as well here?
+
+        ## from here it gets a bit more hairy
+        b.platform <- bcomp[2]
+
+        ## allow R builds to provide their own override if they have special needs
+        ## (is this a good idea?)
+        compatible.platform <- getOption("R.platform.is.compatible")
+        if (is.function(compatible.platform)) return(compatible.platform(b.platform))
+
+        ## darwin is backwards compatible, so compare the major version and allow <=
+        if (length(grep("-darwin[0-9][0-9.]*$", c(b.platform, platform))) == 2L &&
+            ## if everything else matches (mainly arch)
+            gsub("-darwin[0-9][0-9.]*$", "", b.platform) == gsub("-darwin[0-9][0-9.]*$", "", platform)) {
+            vers <- as.integer(gsub("[.].*","",gsub(".*-darwin(([0-9]+)|([0-9]+)[.][0-9.]*)$", "\\1", c(b.platform, platform))))
+            ## if we cannot recognize versions (shouldn't happen), we have to give up and hope for the best
+            if (any(is.na(vers))) return(TRUE)
+            ## NOTE: in principle a newer binary can actually work if we are running a
+            ## build that targets older system, but is ran on a macOS that is at least as new,
+            ## but we should not see that unless the binary is from a newer build which
+            ## may not be ABI compatible on the R side
+            return (vers[1] <= vers[2])
+        }
+
+        ## the official spec is <CPU>-<MANUFACTURER>[-<KERNEL>]-<OS>
+        ## but it is not always adhered to, unfortunately
+        p.arch <- gsub("-.*", "", platform)
+        b.arch <- gsub("-.*", "", b.platform)
+
+        if (p.arch == "amd64") p.arch <- "x86_64"
+        if (b.arch == "amd64") b.arch <- "x86_64"
+
+        ## for now, we require exact arch match
+        ## (this doesn't cover things like i386 working on i686)
+        if (p.arch != b.arch) return(FALSE)
+
+        ## we don't get into comparing the OS, it's too messy.
+        ## we may revisit as we see more use-cases
+        ## fail if only one of them has windows/linux respectively
+        if (length(grep("windows", c(b.platform, platform))) == 1L ||
+            length(grep("linux", c(b.platform, platform))) == 1L)
+            return(FALSE)
+        TRUE
+    }
+}
+
 .install.macbinary <-
     function(pkgs, lib, repos = getOption("repos"),
-             contriburl = contrib.url(repos, type="mac.binary"),
+             contriburl = contrib.url(repos, type=type),
              method, available = NULL, destdir = NULL,
              dependencies = FALSE,
              lock = getOption("install.lock", FALSE), quiet = FALSE,
-             ...)
-    {}
-} else {
-## edited from windows/.install.winbinary
-##
-.install.macbinary <-
-    function(pkgs, lib, repos = getOption("repos"),
-             contriburl = contrib.url(repos, type="mac.binary"),
-             method, available = NULL, destdir = NULL,
-             dependencies = FALSE,
-             lock = getOption("install.lock", FALSE), quiet = FALSE,
+             type = .Platform$pkgType,
              ...)
 {
-    untar <- function(what, where)
+    untar0 <- function(what, where)
     {
         ## FIXME: should this look for Sys.getenv('TAR')?
         ## Leopard has GNU tar, SL has BSD tar.
@@ -47,6 +94,9 @@ if(!startsWith(R.version$os, "darwin")) {
             warning(gettextf("'tar' returned non-zero exit code %d", xcode),
                     domain = NA, call. = FALSE)
     }
+
+    ## not sure why the above was used - possibly it pre-dates utils::untar()?
+    untar <- function(what, where) utils::untar(what, exdir=where)
 
     unpackPkg <- function(pkg, pkgname, lib, lock = FALSE)
     {
@@ -64,22 +114,46 @@ if(!startsWith(R.version$os, "darwin")) {
         setwd(tmpDir)
         ## sanity check: people have tried to install source .tgz files
         if (!file.exists(file <- file.path(pkgname, "Meta", "package.rds")))
-            stop(gettextf("file %s is not a macOS binary package", sQuote(pkg)),
+            stop(gettextf("file %s is not a binary package", sQuote(pkg)),
                  domain = NA, call. = FALSE)
         desc <- readRDS(file)$DESCRIPTION
         if (length(desc) < 1L)
-            stop(gettextf("file %s is not a macOS binary package", sQuote(pkg)),
+            stop(gettextf("file %s is not a binary package", sQuote(pkg)),
                  domain = NA, call. = FALSE)
         desc <- as.list(desc)
         if (is.null(desc$Built))
-            stop(gettextf("file %s is not a macOS binary package", sQuote(pkg)),
+            stop(gettextf("file %s is not a binary package", sQuote(pkg)),
                  domain = NA, call. = FALSE)
+        if (!.is.built.compatible(desc$Built))
+            stop(gettextf("binary package %s is not compatible with this build of R", sQuote(pkg)))
 
-        res <- tools::checkMD5sums(pkgname, file.path(tmpDir, pkgname))
+        ## this one includes SHA256 check
+        res <- tools::verifySHA256signature(pkgname, file.path(tmpDir, pkgname))
         if(!quiet && !is.na(res) && res) {
-            cat(gettextf("package %s successfully unpacked and MD5 sums checked\n",
-                         sQuote(pkgname)))
+            cat(gettextf("package %s successfully unpacked and %s sums checked",
+                         sQuote(pkgname), "SHA256"), "\n", sep="")
+            info <- attr(res, "result")
+            cat(gettextf("package %s signature verified (%s %s)",
+                         sQuote(pkgname), info$fingerprint, info$userid), "\n", sep="")
             flush.console()
+        } else {
+            if (isTRUE(str2logical(Sys.getenv("_R_INSTALL_REQUIRE_SIGNED", "FALSE"))))
+                stop(gettextf("Valid signature is required, but package %s could not be successfully verified.",
+                              sQuote(pkgname)))
+
+            res <- tools::checkSHA256sums(pkgname, file.path(tmpDir, pkgname))
+            if(!quiet && !is.na(res) && res) {
+                cat(gettextf("package %s successfully unpacked and %s sums checked",
+                             sQuote(pkgname), "SHA256"), "\n", sep="")
+                flush.console()
+            } else {
+                res <- tools::checkMD5sums(pkgname, file.path(tmpDir, pkgname))
+                if(!quiet && !is.na(res) && res) {
+                    cat(gettextf("package %s successfully unpacked and %s sums checked",
+                                 sQuote(pkgname), "MD5"), "\n", sep="")
+                    flush.console()
+                }
+            }
         }
 
         instPath <- file.path(lib, pkgname)
@@ -137,7 +211,7 @@ if(!startsWith(R.version$os, "darwin")) {
     if(is.null(contriburl)) {
         pkgnames <- basename(pkgs)
         pkgnames <- sub("\\.tgz$", "", pkgnames)
-        pkgnames <- sub("\\.tar\\.gz$", "", pkgnames)
+        pkgnames <- sub("\\.tar\\.(gz|bzip2|bz2|xz|zstd|zst)$", "", pkgnames)
         pkgnames <- sub("_.*$", "", pkgnames)
         ## there is no guarantee we have got the package name right:
         ## foo.zip might contain package bar or Foo or FOO or ....
@@ -160,12 +234,12 @@ if(!startsWith(R.version$os, "darwin")) {
 
     if(is.null(available))
         available <- available.packages(contriburl = contriburl,
-                                        method = method, ...)
+                                        method = method, type = type, ...)
     pkgs <- getDependencies(pkgs, dependencies, available, lib, binary = TRUE)
 
     foundpkgs <- download.packages(pkgs, destdir = tmpd, available = available,
                                    contriburl = contriburl, method = method,
-                                   type = "mac.binary", quiet = quiet, ...)
+                                   type = type, quiet = quiet, ...)
 
     if(length(foundpkgs)) {
         update <- unique(cbind(pkgs, lib))
@@ -186,5 +260,4 @@ if(!startsWith(R.version$os, "darwin")) {
     } else if(!is.null(tmpd) && is.null(destdir)) unlink(tmpd, recursive = TRUE)
 
     invisible()
-}
 }

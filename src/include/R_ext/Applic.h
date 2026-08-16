@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2025   The R Core Team
+ *  Copyright (C) 1998-2026   The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -121,9 +121,11 @@ void F77_NAME(dqrls)(double *x, int *n, int *p, double *y, int *ny,
 /* appl/pretty.c: for use in engine.c and util.c
    FIXME: move out of this header
 */
+#ifdef USE_BASE_R_SUPPORT
 double R_pretty(double *lo, double *up, int *ndiv, int min_n,
 		double shrink_sml, const double high_u_fact[],
 		int eps_correction, int return_bounds);
+#endif
 
 /* For use in package stats */
 
@@ -135,11 +137,13 @@ typedef void (*fcn_p)(int, double *, double *, void *);
 /* type of pointer to the hessian functions */
 typedef void (*d2fcn_p)(int, int, double *, double *, void *);
 
+#ifdef USE_BASE_R_SUPPORT
 void fdhess(int n, double *x, double fval, fcn_p fun, void *state,
 	    double *h, int nfd, double *step, double *f, int ndigit,
 	    double *typx);
+#endif
 
-/* Also used in packages nlme, pcaPP */
+/* Also used in packages nlme, pcaPP. Part of the experimental API. */
 void optif9(int nr, int n, double *x,
 	    fcn_p fcn, fcn_p d1fcn, d2fcn_p d2fcn,
 	    void *state, double *typsiz, double fscale, int method,

@@ -179,7 +179,7 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   For the background to warning messages about
   \sQuote{\I{fitted probabilities numerically 0 or 1 occurred}}
   for binomial GLMs, see
-  \bibcitet{|R:Venables+Ripley:2002|pp.\\\\\\sspace{}197--8}.
+  \bibcitet{|R:Venables+Ripley:2002|pp.\sspace{}197--8}.
 }
 
 \section{Fitting functions}{
@@ -262,7 +262,7 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \item{call}{the matched call.}
   \item{formula}{the formula supplied.}
   \item{terms}{the \code{\link{terms}} object used.}
-  \item{data}{the \code{data argument}.}
+  \item{data}{the \code{data} argument.}
   \item{offset}{the offset vector used.}
   \item{control}{the value of the \code{control} argument used.}
   \item{method}{the name of the fitter function used (when provided as a

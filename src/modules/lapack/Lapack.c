@@ -173,7 +173,8 @@ static SEXP La_rs(SEXP x, SEXP only_values)
     double vl = 0.0, vu = 0.0, abstol = 0.0;
     /* valgrind seems to think vu should be set, but it is documented
        not to be used if range='a' */
-    int il, iu, *isuppz;
+    int il = 0, iu = 0, *isuppz;
+    /* il and iu are unused if range='a', but clang-21 warns */
 
     xdims = INTEGER(coerceVector(getAttrib(x, R_DimSymbol), INTSXP));
     n = xdims[0];
@@ -1117,6 +1118,10 @@ static SEXP La_chol(SEXP A, SEXP pivot, SEXP stol)
 		error(_("argument %d of Lapack routine %s had invalid value"),
 		      -info, "dpstrf");
 	}
+ 	/* zero remaining upper triangle if rank < m */
+	for (int j = rank ; j < m ; j++)
+            for (int i = rank ; i <= j ; i++)
+                REAL(ans) [i + N * j] = 0. ;
 	setAttrib(ans, install("pivot"), piv);
 	SEXP s_rank = install("rank");
 	setAttrib(ans, s_rank, ScalarInteger(rank));

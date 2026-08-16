@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2023  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1091,7 +1091,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    pindx[i] = (int)
 		get1index(thesub,
 			  (i < ndn) ? VECTOR_ELT(dimnames, i) : R_NilValue,
-			  pindx[i], pok, -1, call);
+			  pdims[i], pok, -1, call);
 	    subs = CDR(subs);
 	    if (pindx[i] < 0 || pindx[i] >= pdims[i])
 		errorcallOutOfBoundsSEXP(x, i, thesub, call);
@@ -1318,18 +1318,14 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	}
 	if (havematch == 1) { /* unique partial match */
 	    if(R_warn_partial_match_dollar) {
-		const char *st = "";
 		SEXP target = TAG(xmatch);
-		switch (TYPEOF(target)) {
-		case SYMSXP:
-		    st = CHAR(PRINTNAME(target));
-		    break;
-		case CHARSXP:
-		    st = translateChar(target);
-		    break;
-		}
-		warningcall(call, _("partial match of '%s' to '%s'"),
-			    translateChar(input), st);
+		SEXP cond =
+		    R_makePartialMatchWarningCondition(call,
+						       input,
+						       target);
+		PROTECT(cond);
+		R_signalWarningCondition(cond);
+		UNPROTECT(1);
 	    }
 	    y = CAR(xmatch);
 	    RAISE_NAMED(y, NAMED(x));
@@ -1376,18 +1372,14 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	}
 	if(havematch == 1) { /* unique partial match */
 	    if(R_warn_partial_match_dollar) {
-		const char *st = "";
 		SEXP target = STRING_ELT(nlist, imatch);
-		switch (TYPEOF(target)) {
-		case SYMSXP:
-		    st = CHAR(PRINTNAME(target));
-		    break;
-		case CHARSXP:
-		    st = translateChar(target);
-		    break;
-		}
-		warningcall(call, _("partial match of '%s' to '%s'"),
-			    translateChar(input), st);
+		SEXP cond =
+		    R_makePartialMatchWarningCondition(call,
+						       input,
+						       target);
+		PROTECT(cond);
+		R_signalWarningCondition(cond);
+		UNPROTECT(1);
 	    }
 	    y = VECTOR_ELT(x, imatch);
 	    RAISE_NAMED(y, NAMED(x));

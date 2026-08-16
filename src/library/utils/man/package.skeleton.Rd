@@ -1,6 +1,6 @@
 % File src/library/utils/man/package.skeleton.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{package.skeleton}
@@ -16,7 +16,7 @@
 package.skeleton(name = "anRpackage", list,
                  environment = .GlobalEnv,
                  path = ".", force = FALSE,
-                 code_files = character(), encoding = "unknown")
+                 code_files = character(), encoding = "UTF-8")
 }
 \arguments{
   \item{name}{character string: the package name and directory name for
@@ -27,16 +27,15 @@ package.skeleton(name = "anRpackage", list,
   \item{environment}{an environment where objects are looked for.  See
     \sQuote{Details}.}
   \item{path}{path to put the package directory in.}
-  \item{force}{If \code{FALSE} will not overwrite an existing directory.}
+  \item{force}{logical: if \code{FALSE} will not overwrite an existing directory.}
   \item{code_files}{a character vector with the paths to R code files to
     build the package around.  See \sQuote{Details}.}
-  \item{encoding}{optionally a \code{\link{character}} string with an
-    encoding for an optional \samp{Encoding:} line in
-    \file{DESCRIPTION} when non-ASCII characters will be used; typically
-    one of \code{"latin1"}, \code{"latin2"}, or \code{"UTF-8"}.}
+  \item{encoding}{a character string specifying the package encoding.
+    Use \code{"unknown"} if only ASCII characters will be used.}
 }
 \value{
   Used for its side-effects.
+  Invisibly returns the path of the created package directory.
 }
 \details{
   The arguments \code{list}, \code{environment}, and \code{code_files}

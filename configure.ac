@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2025 R Core Team
+### Copyright (C) 1998-2026 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -312,6 +312,12 @@ AC_ARG_WITH([C23],
 [AS_HELP_STRING([--with-C23],[use C23 if available @<:@yes@:>@])],
 [R_ARG_USE(C23)],
 [use_C23=yes])
+
+dnl Made the default in R 4.6.0.
+AC_ARG_WITH([CXX20],
+[AS_HELP_STRING([--with-CXX20],[make C++20 the default C++ standard if available @<:@yes@:>@])],
+[R_ARG_USE(CXX20)],
+[use_CXX20=yes])
 
 ## Build separate shared/dynamic library containing R's BLAS if desired 
 AC_ARG_ENABLE([BLAS-shlib],
@@ -1945,17 +1951,24 @@ AC_SUBST(R_DYLIB_EXT)
 ## AC_PROG_CXX might have added -std=gnu++11 or similar
 save_CXX=${CXX}
 CXX=`echo "${CXX}" | sed -e 's/ *-std=[[^ ]]*//'`
-R_STDCXX([11], [CXX11], [CXX])
-R_STDCXX([14], [CXX14], [CXX11])
-R_STDCXX([17], [CXX17], [CXX14])
+R_STDCXX([17], [CXX17], [CXX])
 R_STDCXX([20], [CXX20], [CXX17])
 R_STDCXX([23], [CXX23], [CXX20])
 R_STDCXX([26], [CXX26], [CXX23])
 CXX=${save_CXX}
 
-## Set default C++ compiler to C++17 if available, otherwise unset
+if test -z "${CXX20}"; then
+  use_CXX20=no
+fi
 if test -n "${CXX}" && test -z "${CXXSTD}"; then
-  if test -n "${CXX17}"; then
+  if test "$use_CXX20" == "yes"; then
+dnl Set default C++ compiler to C++20 as available
+    CXX=${CXX20}
+    CXXSTD=${CXX20STD}
+    CXXFLAGS=${CXX20FLAGS}
+    CXXPICFLAGS=${CXX20PICFLAGS}
+  elif test -n "${CXX17}"; then
+dnl Set default C++ compiler to C++17 as available
     CXX=${CXX17}
     CXXSTD=${CXX17STD}
     CXXFLAGS=${CXX17FLAGS}

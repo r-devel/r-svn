@@ -1,6 +1,6 @@
 #  File src/library/tools/R/Rd2HTML.R
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,7 @@ get_link <- function(arg, tag, Rdfile) {
 
     topic <- dest <- paste(unlist(arg), collapse = "")
     if (tag == "\\linkS4class") dest <- paste0(dest, "-class")
+    else if (tag == "\\linkS4methods") dest <- paste0(dest, "-methods")
 
     targetfile <- NULL
     pkg <- NULL
@@ -108,10 +109,13 @@ vhtmlify <- function(x, inEqn = FALSE) { # code version
     x <- fsub('"\\{"', '"{"', x)
     ## http://htmlhelp.com/reference/html40/entities/symbols.html
     if(inEqn) {
-        x <- psub("\\\\(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|le|ge|sum|prod)", "&\\1;", x)
-        x <- psub("\\\\(dots|ldots)", "&hellip;", x)
-        x <- fsub("\\infty", "&infin;", x)
-        x <- fsub("\\sqrt", "&radic;", x)
+        rx <- paste0("\\\\(",
+                     paste(math_replacements[,"name"], collapse = "|"),
+                     ")(?![a-zA-Z])")
+        m <- gregexec(rx, x, perl = TRUE)
+        ii <- lapply(regmatches(x, m),
+                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
+        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, "html"])
     }
     x
 }
@@ -224,8 +228,10 @@ topic2url <- function(x)
     else
         vapply(x, urlify, "", reserved = TRUE) # to vectorize (used in toHTML.R)
 }
-topic2filename <- function(x)
-    gsub("%", "+", utils::URLencode(x, reserved = TRUE))
+topic2filename <- function(x) {
+    s <- utils::URLencode(x, reserved = TRUE)
+    gsub("%", "+", gsub(".", "%2e", s, fixed = TRUE))
+}
 ## The next few are for generating URL fragment ids
 string2id <- function(x)
     gsub("%", "+", utils::URLencode(x, reserved = TRUE))
@@ -243,7 +249,8 @@ topic2href <- function(x, destpkg = NULL, hooks = list())
         if(!length(s <- FUN(destpkg)) || (s == "#"))
             "#"
         else
-            sprintf("%s#%s", s, topic2id(x))
+            structure(sprintf("%s#%s", s, topic2id(x)),
+                      .class = attr(s, ".class"))
     }
 }
 
@@ -270,8 +277,11 @@ topic2href <- function(x, destpkg = NULL, hooks = list())
 
 ## Note that tagid can be a vector (for comma-separated items)
 
-tag2id <- function(tag, name = NULL, tagid = section2id[tag])
+tag2id <- function(tag, name = NULL, tagid = section2id[tag], dedup = NULL)
 {
+    ## id-s must not be duplicated within a HTML file. If 'dedup' is
+    ## supplied, we ensure that the id returned is not in it, by
+    ## adding a random suffix
     section2id <- 
         c("\\description" = "_sec_description", "\\usage"    = "_sec_usage",
           "\\arguments"   = "_sec_arguments",   "\\format"   = "_sec_format",
@@ -283,7 +293,12 @@ tag2id <- function(tag, name = NULL, tagid = section2id[tag])
     if (anyNA(tagid)) return(NULL) # or "" ?
     id <- if (is.null(name)) tagid
           else paste(name2id(name), tagid, sep = "_:_")
-    string2id(gsub("[[:space:]]+", "-", id))
+    id <- trimws(string2id(gsub("[[:space:]]+", "-", id)))
+    ## make id unique: but note that id can be a vector (for argument items)
+    if (!is.null(dedup))
+        while (any(id %in% dedup))
+            id <- paste0(id, sample(100:999, 1))
+    id
 }
 
 rdfragment2text <- function(rd, html = TRUE)
@@ -306,6 +321,33 @@ rdfragment2text <- function(rd, html = TRUE)
         (utils::capture.output(Rd2txt(rd, fragment = TRUE))
             |> paste(collapse = "\n")
             |> trimws())
+}
+
+
+## rdfragment2toc() is a special case: When including a TOC, arguments
+## and sections get a menu item. These are (internal) links which have
+## a link text; this link text can in principle be arbitrary HTML,
+## _except_ that it cannot have another <a> tag inside.
+## rdfragment2toc() will try to drop \href{}s and convert to
+## HTML. Just in case this does not work and <a>-s remain, the
+## fragment will be converted to text.
+
+rdfragment2toc <- function(rd)
+{
+    rm_href <- function(e) {
+        if(any(attr(e, "Rd_tag") == "\\href"))
+            structure(e[[2L]], Rd_tag = "LIST")
+        else e
+    }
+    x <- .Rd_apply(rd, rm_href)
+    ans <- rdfragment2text(x, html = TRUE)
+    if(isTRUE(grepl("</a>", ans, fixed = TRUE))) {
+        paste0("<p>",
+               rdfragment2text(rd, html = FALSE) |> shtmlify(),
+               "</p>")
+    }
+    else
+        ans
 }
 
 
@@ -361,6 +403,37 @@ createRedirects <- function(file, Rdobj)
 }
 
 
+
+### Helper function to find a suitable package logo (logo.png, logo.svg); otherwise return R logo
+
+## For an installed package, we can use system.file(). This is what is
+## needed for dynamic help but also pkg2HTML(package).
+## To interpret 'package' as a source directory, specify 'dir = TRUE'.
+
+staticLogoPath <- function(package, lib.loc = NULL,
+                           relative = FALSE, Rhome = "../../..", dir = FALSE) {
+    ## This may be called with package="" (e.g., for standalone Rd files)
+    if (!nzchar(package)) file <- R.home("doc/html/Rlogo.svg")
+    else if (dir) {
+        file <- file.path(package, "man", "figures", "logo.png")
+        if (!file.exists(file)) file <- file.path(package, "man", "figures", "logo.svg")
+        if (!file.exists(file)) file <- R.home("doc/html/Rlogo.svg")
+    } else {
+        file <- system.file("help", "figures", "logo.png",
+                            package = package, lib.loc = lib.loc)
+        if (!nzchar(file)) file <- system.file("help", "figures", "logo.svg",
+                                               package = package, lib.loc = lib.loc)
+        if (!nzchar(file)) file <- R.home("doc/html/Rlogo.svg")
+    }
+    if (relative) {
+        file <- if (endsWith(file, "/logo.png")) "figures/logo.png"
+                else if (endsWith(file, "/logo.svg")) "figures/logo.svg"
+                else file.path(Rhome, "doc/html/Rlogo.svg")
+    }
+    file
+}
+
+
 ## This gets used two ways:
 
 ## 1) With dynamic = TRUE from tools:::httpd()
@@ -396,7 +469,7 @@ Rd2HTML <-
              concordance = FALSE,
              standalone = TRUE,
              hooks = list(),
-             toc = isTRUE(getOption("help.htmltoc")),
+             toc = FALSE, # needs special R-nav.css
              Rhtml = FALSE, # TODO: guess from 'out' if non-missing
              ...)
 {
@@ -456,6 +529,8 @@ Rd2HTML <-
         if (!standalone) toc <- FALSE
         else toc_entries <- list()
     }
+    ## keep global list of all HTML ids used to ensure no duplicates
+    id_list <- NULL
 
     skipNewline <- FALSE
     linestart <- TRUE
@@ -523,13 +598,17 @@ Rd2HTML <-
 
     addParaBreaks <- function(x) {
 	if (isTRUE(inPara) && #isBlankLineRd(x)
-	    linestart && grepl("^[[:blank:]]*\n", x)) {
+	    linestart && grepl("^[[:space:]]*\n", x, perl = TRUE)) {
 	    inPara <<- FALSE
 	    return("</p>\n")
 	}
 	## remove indentation (for cleaner/smaller output)
-	if (utils:::getSrcByte(x) == 1L) x <- psub("^\\s+", "", x)
-	if (isFALSE(inPara) && !isBlankRd(x)) {
+	if (utils:::getSrcByte(x) == 1L) {
+	    x <- psub("^[[:blank:]]+", "", x)
+	    ## strip blank line
+	    skipNewline <<- linestart # not necessarily for \Sexpr-based Rd
+	}
+	if (isFALSE(inPara) && !grepl("^[[:space:]]*$", x, perl = TRUE)) {
 	    x <- paste0("<p>", x)
 	    inPara <<- TRUE
 	}
@@ -575,14 +654,16 @@ Rd2HTML <-
         s <- s[nzchar(s)] # unlikely to matter, but just to be safe
         item_value <- vhtmlify(s)
         s <- if (addID) {
-                 item_id <- tag2id(name = if (standalone) NULL else name, tagid = s)
+                 item_id <- tag2id(name = if (standalone) NULL else name, tagid = s, dedup = id_list)
+                 id_list <<- c(id_list, item_id)
                  if (toc)
                      toc_entries <<-
                          c(toc_entries,
                            list(argitem =
                                     list(id = item_id,
                                          value = sprintf("<code>%s</code>",
-                                                         item_value))))
+                                                         item_value),
+                                         sectionLevel = NULL)))
                  sprintf('<code id="%s">%s</code>', item_id, item_value)
              }
              else sprintf('<code>%s</code>', item_value)
@@ -615,7 +696,8 @@ Rd2HTML <-
             enterPara(doParas)
             savePara <- inPara
             inPara <<- NA
-            if (!no_links) of0('<a href="', htmlfile, '">')
+            a_class <- sprintf('class="%s" ', attr(htmlfile, ".class"))
+            if (!no_links) of0('<a ', a_class, 'href="', htmlfile, '">')
             writeContent(block, tag)
             if (!no_links) of1('</a>')
             inPara <<- savePara
@@ -789,6 +871,7 @@ Rd2HTML <-
                "\\var" = writeWrapped(tag, block, doParas),
                "\\special" = writeContent(block, tag), ## FIXME, verbatim?
                "\\linkS4class" =,
+               "\\linkS4methods" =,
                "\\link" = writeLink(tag, block, doParas),
                ## cwhmisc has an empty \\email
                "\\email" = if (length(block)) {
@@ -972,19 +1055,21 @@ Rd2HTML <-
                 tags <- tags[-i]
             }
         }
+        len <- length(format)
+        col <- 0L        
         for (i in seq_along(tags)) {
             if (concordance)
                 conc$saveSrcref(content[[i]])
             if (newrow) {
             	of1("<tr>\n ")
             	newrow <- FALSE
-            	col <- 0
+            	col <- 0L
             }
             if (newcol) {
                 col <- col + 1L
-                if (col > length(format))
+                if (col > len)
                     stopRd(table, Rdfile,
-                           "Only ", length(format),
+                           "Only ", len,
                            " columns allowed in this table")
             	of0('<td style="text-align: ', format[col], ';">')
             	newcol <- FALSE
@@ -995,14 +1080,16 @@ Rd2HTML <-
             	newcol <- TRUE
             },
             "\\cr" = {
-            	if (!newcol) of1('</td>')
+            	if (!newcol)
+                    of1(paste0("</td>", strrep("<td></td>", len - col)))
             	of1('\n</tr>\n')
             	newrow <- TRUE
             	newcol <- TRUE
             },
             writeBlock(content[[i]], tags[i], "\\tabular"))
         }
-        if (!newcol) of1('</td>')
+        if (!newcol)
+            of1(paste0("</td>", strrep("<td></td>", len - col)))
         if (!newrow) of1('\n</tr>\n')
         of1('\n</table>\n')
         inPara <<- FALSE
@@ -1138,16 +1225,21 @@ Rd2HTML <-
         ## compute id and toc entries if required
         if (toc) {
             if (tag %in% c("\\section", "\\subsection")) {
-                sec_value <- rdfragment2text(section[[1L]])
+                sec_value <- rdfragment2toc(section[[1L]])
                 sec_id <-
                     tag2id(name = if (standalone) NULL else name,
-                           tagid = rdfragment2text(section[[1L]], html = FALSE))
+                           tagid = rdfragment2text(section[[1L]], html = FALSE) |> shtmlify(),
+                           dedup = id_list)
             }
             else {
                 sec_value <- paste0("<p>", sectionTitles[tag], "</p>")
-                sec_id <- tag2id(tag = tag, name = if (standalone) NULL else name)
+                sec_id <- tag2id(tag = tag, name = if (standalone) NULL else name,
+                                 dedup = id_list)
             }
-            toc_entry <- list(id = trimws(sec_id), value = trimws(sec_value))
+
+            id_list <<- c(id_list, sec_id)
+            toc_entry <- list(id = sec_id, value = trimws(sec_value),
+                              sectionLevel = sectionLevel)
             toc_entries <<-
                 c(toc_entries,
                   if (tag == "\\subsection") list(subsection = toc_entry)
@@ -1198,22 +1290,45 @@ Rd2HTML <-
 
         of0('<nav class="topic" aria-label="Section Navigation">\n',
             '<div class="dropdown-menu">\n',
+            if (dynamic) '<img class="toplogo" src="../logo" alt="[logo]">'
+            else sprintf('<img class="toplogo" src="%s" alt="[logo]">', staticLogoPath(package, relative = TRUE)),
             '<h1>Contents</h1>\n',
             '<ul class="menu">\n')
 
-        currentLevel <- 1L # entry_types = argitem, subsection are level 2
-        ## toc_entries <- list( section|subsection|argitem = list(id, value) )
         entry_types <- names(toc_entries)
+
+        previous_level <- 1 # initial value, beginning of TOC
+        previous_entry <- NULL
+        last_section_level <- NULL
+        ## toc_entries <- list( section|subsection|argitem = list(id, value, sectionLevel) )
         for (i in seq_along(toc_entries)) {
-            newLevel <-
-                if (entry_types[[i]] %in% c("argitem", "subsection")) 2L
-                else 1L
-            if (newLevel > currentLevel) of1("  <ul>")
-            else if (newLevel < currentLevel) of1("  </ul>")
-            currentLevel <- newLevel
             e <- toc_entries[[i]] # id, value can be vectors
+            ## section-level is recorded in e$sectionLevel for
+            ## sections and subsections. argitems will have
+            ## sectionLevel = NULL, which need to be interpreted as
+            ## one level more than the section in which it is nested.
+            if (!is.null(e$sectionLevel)) { # section|subsection
+                current_level <- e$sectionLevel
+                last_section_level <- current_level
+            }
+            else if (!is.null(last_section_level)) { # argitem
+                current_level <- last_section_level + 1
+            }
+            else stop("invalid value of 'toc_entries'", domain = NA)
+            jump_level <- current_level - previous_level
+            ## Positive jump values should be exactly 1
+            if (jump_level > 1) warning("unexpected jump in section level", domain = NA)
+            if (jump_level > 0) replicate(jump_level, of1("<li><ul>\n")) # see NOTE below
+            else if (jump_level < 0) replicate(-jump_level, of1("</ul></li>\n"))
             of0(sprintf("<li><a href='#%s'>%s</a></li>\n", e$id, e$value))
+            previous_level <- current_level
         }
+        ## We may end up at currentLevel > 1. Add closing tags in that case.
+        if (current_level > 1) replicate(current_level - 1, of1("</ul></li>\n"))
+        ## NOTE: Ideally the nested second-level <ul>-s should start
+        ## _within_ the parent <li>, but that will require us to look
+        ## forward. We will not do this (to keep the code simple), but
+        ## this may be something to revisit at some point.
 
         of0('</ul>\n',
             '</div>\n',
@@ -1246,7 +1361,7 @@ Rd2HTML <-
         done <- TRUE
         ## go through one by one until we hit \description
         for (frag in rd) {
-            if (attr(frag, "Rd_tag") == "\\description") {
+            if (any(attr(frag, "Rd_tag") == "\\description")) {
                 done <- FALSE
                 break
             }
@@ -1294,10 +1409,11 @@ Rd2HTML <-
         ## Create HTML header and footer
         if (standalone) {
             hfcomps <- # should we be able to specify static URLs here?
-                HTMLcomponents(title = headtitle, logo = FALSE,
+                HTMLcomponents(title = "", logo = FALSE,
                                up = NULL,
                                top = NULL,
                                css = stylesheet,
+                               headerTitle = headtitle,
                                outputEncoding = outputEncoding,
                                dynamic = dynamic, prism = enhancedHTML,
                                doTexMath = doTexMath, texmath = texmath,
@@ -1447,11 +1563,31 @@ function(dir)
                   .find_HTML_links_in_package))
 }
 
-.DESCRIPTION_to_HTML <- function(descfile, dynamic = FALSE) {
+.DESCRIPTION_to_HTML <- 
+function(descfile, dynamic = FALSE, hooks = list()) {
 
     ## Similar to .DESCRIPTION_to_latex().
 
-    trfm <- .gsub_with_transformed_matches
+    if(dynamic) {
+        if(is.null(hooks$description_license_paths))
+            hooks$description_license_paths <- function(paths)
+                sprintf("/licenses/%s", basename(paths))
+        if(is.null(hooks$description_package_names))
+            hooks$description_package_names <- function(names) {
+                found <- logical(length(names))
+                for(lib.loc in .libPaths()) {
+                    ## Very basic test for installed package ...
+                    found <- found | file.exists(file.path(lib.loc, names,
+                                                           "DESCRIPTION"))
+                }
+                names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
+                                        names[found],
+                                        names[found])
+                names
+            }
+    }
+
+    trfm <- gsub_with_transformed_matches
 
     ## A variant of htmlify() which optionally adds hyperlinks and does
     ## not HTMLify dashes inside these.
@@ -1562,16 +1698,16 @@ function(dir)
             ldb <- R_license_db()
             pos <- match(expansions, ldb$Labels)
             ind <- !is.na(pos)
+            fun <- hooks$description_license_paths
             if(any(ind)) {
                 pos <- pos[ind]
-                urls <- if(dynamic) {
+                urls <- if(!is.null(fun)) {
                             paths <- ldb[pos, "File"]
                             ifelse(nzchar(paths),
-                                   sprintf("/licenses/%s",
-                                           basename(paths)),
+                                   fun(paths),
                                    ldb[pos, "URL"])
                         } else
-                            urls <- ldb[pos, "URL"]
+                            ldb[pos, "URL"]
                 texts <- if(expanded) {
                              expansions[ind]
                          } else {
@@ -1611,15 +1747,8 @@ function(dir)
         names <- ifelse(pos == -1L, entries,
                         substring(entries, 1L, pos - 1L))
         rests <- ifelse(pos == -1L, "", substring(entries, pos))
-        found <- logical(length(names))
-        for(lib.loc in .libPaths()) {
-            ## Very basic test for installed package ...
-            found <- found | file.exists(file.path(lib.loc, names,
-                                                   "DESCRIPTION"))
-        }
-        names[found] <- sprintf("<a href=\"/library/%s\">%s</a>",
-                                names[found],
-                                names[found])
+        if(!is.null(fun <- hooks$description_package_names))
+            names <- fun(names)
         vapply(split(paste(names, rests, sep = ""),
                      rep.int(seq_along(chunks), lengths(chunks))),
                paste, "", collapse = ", ")
@@ -1755,7 +1884,7 @@ function(dir)
 
     desc["License"] <- htmlify_license_spec(desc["License"], pack)
 
-    if(dynamic)
+    if(!is.null(hooks$description_package_names))
         desc[theops] <- htmlify_depends_spec(desc[theops])
 
     ## <TODO>

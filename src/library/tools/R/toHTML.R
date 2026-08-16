@@ -24,10 +24,11 @@ function(title="R", logo=TRUE,
           paste0('<link rel="stylesheet" type="text/css" href="', css, '">'),
           '</head><body><div class="container">',
           paste('<h1>', title))
-    if (logo)
+    if (!isFALSE(logo))
     	result <- c(result,
                     paste0('<img class="toplogo" src="',
-                           file.path(Rhome, 'doc/html/Rlogo.svg'),
+                           if (isTRUE(logo)) file.path(Rhome, 'doc/html/Rlogo.svg')
+                           else logo,
                            '" alt="[R logo]">'))
     result <- c(result, '</h1>', '<hr>')
     if (!is.null(up) || !is.null(top)) {
@@ -336,29 +337,29 @@ function(x, header = TRUE, ...)
         if(a) {
             ## Some people have <http://something> as recommended for
             ## in-text URLs.
-            s <- .gsub_with_transformed_matches("&lt;(URL: *)?((https?|ftp)://[^[:space:]]+)[[:space:]]*&gt;",
-                                                "&lt;<a href=\"%s\">\\2</a>&gt;",
-                                                s,
-                                                urlify,
-                                                2L)
+            s <- gsub_with_transformed_matches("&lt;(URL: *)?((https?|ftp)://[^[:space:]]+)[[:space:]]*&gt;",
+                                               "&lt;<a href=\"%s\">\\2</a>&gt;",
+                                               s,
+                                               urlify,
+                                               2L)
             ## Need to ignore results of the above translation ...
             ## Regexp based on Perl HTML::TextToHTML, note that the dash
             ## must be last ...
-            s <- .gsub_with_transformed_matches("([[:space:]])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
-                                                "\\1<a href=\"%s\">\\2</a>",
-                                                s,
-                                                urlify,
-                                                2L)
-            s <- .gsub_with_transformed_matches("&lt;(DOI|doi):[[:space:]]*([^<[:space:]]+[[:alnum:]])&gt;",
-                                                "&lt;<a href=\"https://doi.org/%s\">doi:\\2</a>&gt;",
-                                                s,
-                                                urlify,
-                                                2L)
-            s <- .gsub_with_transformed_matches("[^>\"](DOI|doi):[[:space:]]*([^<[:space:]&]+[[:alnum:]])",
-                                                "&lt;<a href=\"https://doi.org/%s\">doi:\\2</a>&gt;",
-                                                s,
-                                                urlify,
-                                                2L)
+            s <- gsub_with_transformed_matches("([[:space:]])((https?|ftp)://[[:alnum:]/.:@+\\_~%#?=&;,-]+[[:alnum:]/])",
+                                               "\\1<a href=\"%s\">\\2</a>",
+                                               s,
+                                               urlify,
+                                               2L)
+            s <- gsub_with_transformed_matches("&lt;(DOI|doi):[[:space:]]*([^<[:space:]]+[[:alnum:]])&gt;",
+                                               "&lt;<a href=\"https://doi.org/%s\">doi:\\2</a>&gt;",
+                                               s,
+                                               urlify,
+                                               2L)
+            s <- gsub_with_transformed_matches("[^>\"](DOI|doi):[[:space:]]*([^<[:space:]&]+[[:alnum:]])",
+                                               "&lt;<a href=\"https://doi.org/%s\">doi:\\2</a>&gt;",
+                                               s,
+                                               urlify,
+                                               2L)
         }
         s
     }
@@ -525,12 +526,13 @@ HTMLcomponents <- function(title = "R", logo = FALSE,
 
     ## Optional part of header (title + logo, up, top)
 
-    if (!nzchar(title)) {
+    if (nzchar(title)) {
         addh('<h1>', title)
-        if (logo)
+        if (!isFALSE(logo))
             addh(paste0('<img class="toplogo" src="',
-                        file.path(Rhome, 'doc/html/Rlogo.svg'),
-                        '" alt="[R logo]">'))
+                        if (isTRUE(logo)) file.path(Rhome, 'doc/html/Rlogo.svg')
+                        else logo,
+                        '" alt="[logo]">'))
         addh('</h1>', '<hr>')
     }
     if (!is.null(up) || !is.null(top)) {

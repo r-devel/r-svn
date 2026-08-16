@@ -130,7 +130,7 @@ matchConcordance <- function(linenum, concordance) {
 ## 3.  Optionally, the starting line number of the output coded as "ofs nn",
 ##     where nn is the offset to the first output line.  This is omitted if nn is 0.
 ## 4.  The input line numbers corresponding to each output line.
-##     This are compressed using the following simple scheme:
+##     These are compressed using the following simple scheme:
 ##     The first line number, followed by
 ##     a run-length encoded diff of the rest of the line numbers.
 
@@ -256,7 +256,9 @@ stringToConcordance <- function(s) {
 addConcordance <- function(conc, s) {
     prev <- stringToConcordance(s)
     if (!is.null(prev)) {
-    	conc$srcFile <- rep_len(conc$srcFile, length(conc$srcLine))
+    	conc$srcFile <- c(rep_len(NA_character_, conc$offset),
+    		          rep_len(conc$srcFile, length(conc$srcLine)))
+    	conc$offset <- 0L
         i <- seq_along(prev$srcLine)
         conc$srcFile[prev$offset + i] <- prev$srcFile
         conc$srcLine[prev$offset + i] <- prev$srcLine

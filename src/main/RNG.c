@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,7 @@
 #define RNG_DEFAULT MERSENNE_TWISTER
 #define N01_DEFAULT INVERSION
 #define Sample_DEFAULT REJECTION
+#define Binom_DEFAULT BTPE
 
 
 #include <R_ext/Rdynload.h>
@@ -43,18 +44,21 @@ UnifInitFun User_unif_init = NULL; /* some picky compilers */
 
 DL_FUNC  User_norm_fun = NULL; /* also in ../nmath/snorm.c */
 
-#include "nmath2.h"
 static RNGtype RNG_kind = RNG_DEFAULT;
-//extern N01type N01_kind; /* from ../nmath/snorm.c */
-//extern double BM_norm_keep; /* ../nmath/snorm.c */
-static Sampletype Sample_kind = REJECTION;
+#include "nmath2.h" /* ../nmath/nmath2.h : */
+// extern N01type N01_kind; /* from ../nmath/snorm.c */
+// extern double BM_norm_keep;   /* ../nmath/snorm.c */
+// extern Binomtype Binom_kind ; /* ../nmath/rbinom.c */
+static Sampletype Sample_kind = Sample_DEFAULT;
+
+
 
 /* typedef unsigned int Int32; in Random.h */
 
 /* .Random.seed == (RNGkind, i_seed[0],i_seed[1],..,i_seed[n_seed-1])
  * or           == (RNGkind) or missing  [--> Randomize]
- * where  RNGkind :=  RNG_kind  +  100 * N01_kind  +  10000 * Sample_kind   
- * currently in  outer(outer(0:7, 100*(0:5), "+"), 10000*(0:1), "+")
+ * where  RNGkind :=  RNG_kind  +  100 * N01_kind  +  10000 * Sample_kind  + 100'000 * Binom_kind
+ * currently in  outer(outer(outer(0:7, 100*(0:5), "+"), 10000*(0:1), "+"), 100000*(0:1), "+")
  */
 
 typedef struct {
@@ -165,13 +169,13 @@ double unif_rand(void)
 	/* p1 % m1 would surely do */
 	k = (int) (p1 / m1);
 	p1 -= k * m1;
-	if (p1 < 0.0) p1 += m1;
+	if (p1 < 0) p1 += m1;
 	II(0) = II(1); II(1) = II(2); II(2) = (int) p1;
 
 	p2 = a21 * (unsigned int)II(5) - a23n * (unsigned int)II(3);
 	k = (int) (p2 / m2);
 	p2 -= k * m2;
-	if (p2 < 0.0) p2 += m2;
+	if (p2 < 0) p2 += m2;
 	II(3) = II(4); II(4) = II(5); II(5) = (int) p2;
 
 	return (double)((p1 > p2) ? (p1 - p2) : (p1 - p2 + m1)) * normc;
@@ -337,38 +341,38 @@ static SEXP GetSeedsFromVar(void)
 
 static void Randomize(RNGtype kind)
 {
-/* Only called by  GetRNGstate() when there is no .Random.seed */
+/* called by  GetRNGstate() when there is no .Random.seed, also from FixupSeeds()  */
     RNG_Init(kind, TimeToSeed());
 }
 
 static bool GetRNGkind(SEXP seeds)
 {
-    /* Load RNG_kind, N01_kind Sample_kind from .Random.seed if present */
-    int tmp, *is;
-    RNGtype newRNG; N01type newN01; Sampletype newSample;
+    /* Load RNG_kind, N01_kind, Sample_kind, Binom_kind from .Random.seed if present */
 
     if (isNull(seeds))
 	seeds = GetSeedsFromVar();
     if (seeds == R_UnboundValue) return TRUE;
     if (!isInteger(seeds)) {
 	if (seeds == R_MissingArg) /* How can this happen? */
-	    R_MissingArgError_c(".Random.seed", R_CurrentExpression, "getRNGError");
+	    R_MissingArgError(R_SeedsSymbol, R_CurrentExpression,
+			      "getRNGError");
 	warning(_("'.Random.seed' is not an integer vector but of type '%s', so ignored"),
 		R_typeToChar(seeds));
 	goto invalid;
     }
-    is = INTEGER(seeds);
-    tmp = is[0];
-    /* avoid overflow here: max current value is 10705 */
-    if (tmp == NA_INTEGER || tmp < 0 || tmp > 11000) {
+    int *is = INTEGER(seeds),
+	tmp = is[0];
+    /* avoid overflow here: max current value is 110507 */
+    if (tmp == NA_INTEGER || tmp < 0 || tmp > 111000) {
 	warning(_("'.Random.seed[1]' is not a valid integer, so ignored"));
 	goto invalid;
     }
-    newRNG = (RNGtype) (tmp % 100);
-    newN01 = (N01type) (tmp % 10000 / 100);
-    newSample = (Sampletype) (tmp / 10000);
-    if (newN01 > KINDERMAN_RAMAGE || newSample > REJECTION) {
-	warning(_("'.Random.seed[1]' is not a valid Normal type, so ignored"));
+    RNGtype newRNG = (RNGtype) (tmp % 100);
+    N01type newN01 = (N01type) (tmp % 10000 / 100);
+    Sampletype newSample = (Sampletype) (tmp % 100000 / 10000);
+    Binomtype  newBinom  =  (Binomtype) (tmp / 100000);
+    if (newN01 > KINDERMAN_RAMAGE || newSample > REJECTION || newBinom > BTPE) {
+	warning(_("'.Random.seed[1]' is not a valid Normal | Sample | Binom type, so ignored"));
 	goto invalid;
     }
     switch(newRNG) {
@@ -382,18 +386,18 @@ static bool GetRNGkind(SEXP seeds)
 	break;
     case USER_UNIF:
 	if(!User_unif_fun) {
-	    warning(_("'.Random.seed[1] = 5' but no user-supplied generator, so ignored"));
+	    warning(_("'.Random.seed[1] %% 100 = 5' but no user-supplied generator, so ignored"));
 	    goto invalid;
 	}
 	break;
     default:
-	warning(_("'.Random.seed[1]' is not a valid RNG kind so ignored"));
+	warning(_("'.Random.seed[1] %% 100' is not a valid RNG kind so ignored"));
 	goto invalid;
     }
-    RNG_kind = newRNG; N01_kind = newN01; Sample_kind = newSample;
+    RNG_kind = newRNG; N01_kind = newN01; Sample_kind = newSample; Binom_kind = newBinom;
     return false;
 invalid:
-    RNG_kind = RNG_DEFAULT; N01_kind = N01_DEFAULT; Sample_kind = Sample_DEFAULT;
+    RNG_kind = RNG_DEFAULT; N01_kind = N01_DEFAULT; Sample_kind = Sample_DEFAULT; Binom_kind = Binom_DEFAULT;
 
     Randomize(RNG_kind);
     PutRNGstate(); // write out to .Random.seed
@@ -409,16 +413,14 @@ static void copy_seeds_in(Int32 *i_seed, SEXP seeds, int len_seed)
 void GetRNGstate(void)
 {
     /* Get  .Random.seed  into proper variables */
-    int len_seed;
-    SEXP seeds;
 
-    seeds = GetSeedsFromVar();
+    SEXP seeds = GetSeedsFromVar();
     if (seeds == R_UnboundValue)
 	Randomize(RNG_kind);
     else {
 	/* this might re-set the generator */
 	if(GetRNGkind(seeds)) return;
-	len_seed = RNG_Table[RNG_kind].n_seed;
+	int len_seed = RNG_Table[RNG_kind].n_seed;
 	/* Not sure whether this test is needed: wrong for USER_UNIF */
 	if(LENGTH(seeds) > 1 && LENGTH(seeds) < len_seed + 1)
 	    error(_("'.Random.seed' has wrong length"));
@@ -440,19 +442,19 @@ static R_INLINE void copy_seeds_out(SEXP seeds, Int32 *i_seed, int len_seed)
 void PutRNGstate(void)
 {
     if (RNG_kind > LECUYER_CMRG || N01_kind > KINDERMAN_RAMAGE ||
-	Sample_kind > REJECTION) {
+	Sample_kind > REJECTION || Binom_kind > BTPE) {
 	warning("Internal .Random.seed is corrupt: not saving");
 	return;
     }
 
     /* Copy out seeds to  .Random.seed  */
     int len_seed = RNG_Table[RNG_kind].n_seed;
-    int kinds = RNG_kind + 100 * N01_kind + 10000 * Sample_kind;
+    int kinds = RNG_kind + 100 * N01_kind + 10000 * Sample_kind + 100000 * Binom_kind;
 
     SEXP seeds = R_findVarInFrame(R_GlobalEnv, R_SeedsSymbol);
     if (NOT_SHARED(seeds) && ATTRIB(seeds) == R_NilValue &&
 	TYPEOF(seeds) == INTSXP && XLENGTH(seeds) == len_seed + 1) {
-	/* it is safe to resuse the existing .Random.seed vector */
+	/* it is safe to reuse the existing .Random.seed vector */
 	INTEGER(seeds)[0] = kinds;
 	copy_seeds_out(seeds, RNG_Table[RNG_kind].i_seed, len_seed);
     }
@@ -537,22 +539,34 @@ static void Samp_kind(Sampletype kind)
     PutRNGstate();
 }
 
+static void Bin_kind(Binomtype kind)
+{
+    /* Binomtype is an enumeration type, so this will probably get
+       mapped to an unsigned integer type. */
+    if (kind == (Binomtype)-1) kind = Binom_DEFAULT;
+    if (kind > BTPE)
+        error(_("invalid binom type in 'RNGkind'"));
+    GetRNGstate(); /* might not be initialized */
+    Binom_kind = kind;
+    PutRNGstate();
+}
+
 
 /*------ .Internal interface ------------------------*/
 
 attribute_hidden SEXP do_RNGkind (SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP ans, rng, norm, sample;
-
     checkArity(op,args);
     GetRNGstate(); /* might not be initialized */
-    PROTECT(ans = allocVector(INTSXP, 3));
+    SEXP ans = PROTECT(allocVector(INTSXP, 4));
     INTEGER(ans)[0] = RNG_kind;
     INTEGER(ans)[1] = N01_kind;
     INTEGER(ans)[2] = Sample_kind;
-    rng = CAR(args);
-    norm = CADR(args);
-    sample = CADDR(args);
+    INTEGER(ans)[3] = Binom_kind;
+    SEXP rng   = CAR(args),
+	norm   = CADR(args),
+	sample = CADDR(args),
+	binom  = CADDDR(args);
     GetRNGkind(R_NilValue); /* pull from .Random.seed if present */
     if(!isNull(rng)) { /* set a new RNG kind */
 	RNGkind((RNGtype) asInteger(rng));
@@ -563,6 +577,9 @@ attribute_hidden SEXP do_RNGkind (SEXP call, SEXP op, SEXP args, SEXP env)
     if(!isNull(sample)) { /* set a new sample kind */
 	Samp_kind((Sampletype) asInteger(sample));
     }
+    if(!isNull(binom)) { /* set a new binom kind */
+	Bin_kind((Binomtype) asInteger(binom));
+    }
     UNPROTECT(1);
     return ans;
 }
@@ -570,23 +587,23 @@ attribute_hidden SEXP do_RNGkind (SEXP call, SEXP op, SEXP args, SEXP env)
 
 attribute_hidden SEXP do_setseed (SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP skind, nkind, sampkind;
-    int seed;
-
     checkArity(op, args);
+    int seed;
     if(!isNull(CAR(args))) {
 	seed = asInteger(CAR(args));
 	if (seed == NA_INTEGER)
 	    error(_("supplied seed is not a valid integer"));
     } else seed = TimeToSeed();
-    skind = CADR(args);
-    nkind = CADDR(args);
-    sampkind = CADDDR(args);
-    GetRNGkind(R_NilValue); /* pull RNG_kind, N01_kind from
-			       .Random.seed if present */
+    SEXP skind	 = CADR(args),
+	 nkind	 = CADDR(args),
+	sampkind = CADDDR(args),
+	binomkind= CAD4R(args);
+    /* pull RNG_kind, N01_kind, ... from .Random.seed if present: */
+    GetRNGkind(R_NilValue);
     if (!isNull(skind)) RNGkind((RNGtype) asInteger(skind));
     if (!isNull(nkind)) Norm_kind((N01type) asInteger(nkind));
     if(!isNull(sampkind)) Samp_kind((Sampletype) asInteger(sampkind));
+    if(!isNull(binomkind)) Bin_kind((Binomtype) asInteger(binomkind));
     RNG_Init(RNG_kind, (Int32) seed); /* zaps BM history */
     PutRNGstate();
     return R_NilValue;
@@ -877,12 +894,12 @@ static double R_unif_index_0(double dn)
 //generate a random non-negative integer < 2 ^ bits in 16 bit chunks
 static double rbits(int bits)
 {
-    int_least64_t v = 0;
+    uint_least64_t v = 0;
     for (int n = 0; n <= bits; n += 16) {
 	int v1 = (int) floor(unif_rand() * 65536);
 	v = 65536 * v + v1;
     }
-    const int_least64_t one64 = 1L;
+    const uint_least64_t one64 = 1L;
     // mask out the bits in the result that are not needed
     return (double) (v & ((one64 << bits) - 1));
 }
@@ -902,4 +919,3 @@ double R_unif_index(double dn)
 }
 
 Sampletype R_sample_kind(void) { return Sample_kind; }
-

@@ -31,6 +31,9 @@
 
 # include <rlocale.h>
 
+/* Hershey functions */
+#include "g_extern.h"
+
 int R_GE_getVersion(void)
 {
     return R_GE_version;

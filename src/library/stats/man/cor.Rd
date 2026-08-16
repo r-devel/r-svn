@@ -1,6 +1,6 @@
 % File src/library/stats/man/cor.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{cor}
@@ -94,8 +94,8 @@ cov2cor(V)
   \code{\link{NA}} when there is only one observation.
 
   For \code{cor()}, if \code{method} is \code{"kendall"} or
-  \code{"spearman"}, Kendall's \eqn{\tau}{tau} or Spearman's
-  \eqn{\rho}{rho} statistic is used to estimate a rank-based measure of
+  \code{"spearman"}, Kendall's \eqn{\tau} or Spearman's
+  \eqn{\rho} statistic is used to estimate a rank-based measure of
   association.  These are more robust and have been recommended if the
   data do not necessarily come from a bivariate normal distribution.\cr
   For \code{cov()}, a non-Pearson method is unusual but available for
@@ -106,7 +106,7 @@ cov2cor(V)
   based on complete observations, or based on pairwise completeness with
   reranking for each pair.
 
-  When there are ties, Kendall's \eqn{\tau_b}{tau_b} is computed, as
+  When there are ties, Kendall's \eqn{\tau_b} is computed, as
   proposed by \bibcitet{R:Kendall:1945}.
 
   Scaling a covariance matrix into a correlation one can be achieved in
@@ -116,16 +116,26 @@ cov2cor(V)
   is even a bit more efficient, and provided mostly for didactical
   reasons.
 }
+\author{Original C code by for fast Kendall's tau by \I{David Simcha}.
+}
 \note{
-  Some people have noted that the code for Kendall's tau is slow for
-  very large datasets (many more than 1000 cases).  It rarely makes
-  sense to do such a computation, but see function
+  \R's code for Kendall's tau had \eqn{O(n^2)} complexity and hence was
+  slow for large datasets.
+  Since \R 4.7.0, we use the fast \eqn{O(n \log n)} algorithm offered by
+  \I{David Simcha} on R-devel in 2010, also used in
   \code{\link[pcaPP]{cor.fk}} in package \CRANpkg{pcaPP}.
+  The algorithm goes back to Knight (1966); variations of it have been
+  proposed and analyzed earlier and later. % w/o mentioning each other, see cor.fk references
 }
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988,
     R:Kendall:1938,
     R:Kendall:1945}
+
+  Knight, W. R. (1966).
+  A Computer Method for Calculating Kendall's Tau with Ungrouped Data.
+  \emph{Journal of the American Statistical Association}, \bold{314}(61) Part 1, 436--439.
+  \doi{10.1080/01621459.1966.10480879}
 }
 \seealso{
   \code{\link{cor.test}} for confidence intervals (and tests).
@@ -133,6 +143,8 @@ cov2cor(V)
   \code{\link{cov.wt}} for \emph{weighted} covariance computation.
 
   \code{\link{sd}} for standard deviation (vectors).
+
+  \code{\link{cumvar}} for cumulative variances.
 }
 \examples{
 var(1:10)  # 9.166667
@@ -163,7 +175,7 @@ stopifnot(all.equal(Cl, cov2cor(cov(longley))),
             cov2cor(cov(longley, method = "kendall"))))
 
 ##--- Missing value treatment:
-% "everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs"
+uses <- c("everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs")
 C1 <- cov(swiss)
 range(eigen(C1, only.values = TRUE)$values) # 6.19        1921
 

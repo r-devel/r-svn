@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2025  The R Core Team.
+ *  Copyright (C) 1998--2026  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,10 +18,13 @@
  *  https://www.R-project.org/Licenses/
  */
 
-/* Internal header, not installed, usied in some standard packages */
+/* Internal header, not installed, used in some base packages */
 
 #ifndef DEFN_H_
 #define DEFN_H_
+
+// enable some non-API declarations in R_ext includes
+#define USE_BASE_R_SUPPORT
 
 /* seems unused */
 #define COUNTING
@@ -376,7 +379,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define UNSET_MAYBEJIT(x) (((x)->sxpinfo.gp) &= ~MAYBEJIT_MASK)
 
 /* Growable vector support */
-#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define GROWABLE_BIT_SET(x) ((x)->sxpinfo.gp & GROWABLE_MASK)
 #define SET_GROWABLE_BIT(x) (((x)->sxpinfo.gp) |= GROWABLE_MASK)
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
@@ -424,7 +426,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
 #define REAL(x)		((double *) DATAPTR(x))
 #define STRING_PTR(x)	((SEXP *) DATAPTR(x))
-#define VECTOR_PTR(x)	((SEXP *) DATAPTR(x))
 #define LOGICAL_RO(x)	((const int *) DATAPTR_RO(x))
 #define INTEGER_RO(x)	((const int *) DATAPTR_RO(x))
 #define RAW_RO(x)	((const Rbyte *) DATAPTR_RO(x))
@@ -574,6 +575,12 @@ void R_check_thread(const char *s);
 */
 
 /* General Cons Cell Attributes */
+SEXP (ATTRIB)(SEXP x);
+void SET_ATTRIB(SEXP x, SEXP v);
+int  (MARK)(SEXP x);
+int  (OBJECT)(SEXP x);
+int  (NAMED)(SEXP x);
+int  (REFCNT)(SEXP x);
 int  (TRACKREFS)(SEXP x);
 void (SET_OBJECT)(SEXP x, int v);
 void (SET_TYPEOF)(SEXP x, int v);
@@ -587,9 +594,21 @@ void (INCREMENT_REFCNT)(SEXP x);
 void (DISABLE_REFCNT)(SEXP x);
 void (ENABLE_REFCNT)(SEXP x);
 
+/* S4 object testing */
+int (IS_S4_OBJECT)(SEXP x);
+
 /* S4 object setting */
 void (SET_S4_OBJECT)(SEXP x);
 void (UNSET_S4_OBJECT)(SEXP x);
+
+SEXP Rf_S3Class(SEXP);
+int Rf_isBasicClass(const char *);
+SEXP R_S4_extends(SEXP klass, SEXP useTable);
+SEXP R_getClassDef_R(SEXP what);
+Rboolean R_has_methods_attached(void);
+Rboolean R_isVirtualClass(SEXP class_def, SEXP env);
+Rboolean R_extends  (SEXP class1, SEXP class2, SEXP env);
+int R_check_class_and_super(SEXP x, const char **valid, SEXP rho);
 
 int (ASSIGNMENT_PENDING)(SEXP x);
 void (SET_ASSIGNMENT_PENDING)(SEXP x, int v);
@@ -605,16 +624,20 @@ void (UNSET_MAYBEJIT)(SEXP x);
 
 /* Growable vector support */
 int (IS_GROWABLE)(SEXP x);
+int (GROWABLE_BIT_SET)(SEXP x);
 void (SET_GROWABLE_BIT)(SEXP x);
 
 /* Vector Access Functions */
 void (SETLENGTH)(SEXP x, R_xlen_t v);
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v);
+int  (LEVELS)(SEXP x);
 int  (SETLEVELS)(SEXP x, int v);
+SEXP *(STRING_PTR)(SEXP x);
 #ifdef TESTING_WRITE_BARRIER
 R_xlen_t (STDVEC_LENGTH)(SEXP);
 R_xlen_t (STDVEC_TRUELENGTH)(SEXP);
 void (SETALTREP)(SEXP, int);
+R_xlen_t  (TRUELENGTH)(SEXP x);
 #endif
 
 /* Binding Cell Access Functions */
@@ -631,30 +654,76 @@ void SET_BNDCELL(SEXP cell, SEXP val);
 int (PROMISE_TAG)(SEXP e);
 void (SET_PROMISE_TAG)(SEXP e, int v);
 
+/* metadata access */
+//int INTEGER_IS_SORTED(SEXP x);
+//int INTEGER_NO_NA(SEXP x);
+//int REAL_IS_SORTED(SEXP x);
+//int REAL_NO_NA(SEXP x);
+int LOGICAL_IS_SORTED(SEXP x);
+//int LOGICAL_NO_NA(SEXP x);
+//int STRING_IS_SORTED(SEXP x);
+//int STRING_NO_NA(SEXP x);
+
 /* List Access Functions */
 SEXP (CAR0)(SEXP e);
 void (SET_MISSING)(SEXP x, int v);
 SEXP CONS_NR(SEXP a, SEXP b);
+int  (MISSING)(SEXP x);
+
+/* Closure Access Functions */
+SEXP (BODY)(SEXP x);
+SEXP (CLOENV)(SEXP x);
+int  (RDEBUG)(SEXP x);
+int  (RSTEP)(SEXP x);
+int  (RTRACE)(SEXP x);
+void (SET_RDEBUG)(SEXP x, int v);
+void (SET_RSTEP)(SEXP x, int v);
+void (SET_RTRACE)(SEXP x, int v);
+SEXP (FORMALS)(SEXP x);
+void SET_FORMALS(SEXP x, SEXP v);
+void SET_BODY(SEXP x, SEXP v);
+void SET_CLOENV(SEXP x, SEXP v);
+SEXP R_body_no_src(SEXP x); // body(x) without "srcref" etc, ../main/utils.c
 
 /* Symbol Access Functions */
+SEXP (SYMVALUE)(SEXP x);
+SEXP (INTERNAL)(SEXP x);
+int  (DDVAL)(SEXP x);
 void (SET_DDVAL)(SEXP x, int v);
 void SET_PRINTNAME(SEXP x, SEXP v);
 void SET_SYMVALUE(SEXP x, SEXP v);
 void SET_INTERNAL(SEXP x, SEXP v);
 
 /* Environment Access Functions */
+SEXP (FRAME)(SEXP x);
+SEXP (ENCLOS)(SEXP x);
+SEXP (HASHTAB)(SEXP x);
+int  (ENVFLAGS)(SEXP x);
 void (SET_ENVFLAGS)(SEXP x, int v);
 void SET_FRAME(SEXP x, SEXP v);
 void SET_ENCLOS(SEXP x, SEXP v);
 void SET_HASHTAB(SEXP x, SEXP v);
 
 /* Promise Access Functions */
+int  (PRSEEN)(SEXP x);
+SEXP (PRCODE)(SEXP x);
+SEXP (PRENV)(SEXP x);
+SEXP (PRVALUE)(SEXP x);
 void (SET_PRSEEN)(SEXP x, int v);
 void SET_PRENV(SEXP x, SEXP v);
 void SET_PRVALUE(SEXP x, SEXP v);
 void SET_PRCODE(SEXP x, SEXP v);
 void IF_PROMSXP_SET_PRVALUE(SEXP x, SEXP v);
 int  (PROMISE_IS_EVALUATED)(SEXP x);
+SEXP R_PromiseExpr(SEXP);
+#ifndef PREXPR
+#define PREXPR(e) R_PromiseExpr(e)
+#endif
+
+/* External pointer access macros */
+SEXP (EXTPTR_PROT)(SEXP);
+SEXP (EXTPTR_TAG)(SEXP);
+void *(EXTPTR_PTR)(SEXP);
 
 /* Hashing Functions */
 int  (HASHASH)(SEXP x);
@@ -664,7 +733,8 @@ void (SET_HASHVALUE)(SEXP x, int v);
 
 /* Bytecode access macros */
 #define BCODE_CODE(x)	CAR(x)
-//#define BCODE_CONSTS(x) CDR(x)
+#define BCODE_PTR(x) ((BCODE *) DATAPTR(x))
+#define BCODE_CONSTS(x) CDR(x)
 #define BCODE_EXPR(x)	TAG(x)
 #define isByteCode(x)	(TYPEOF(x)==BCODESXP)
 
@@ -682,6 +752,8 @@ void *ALTVEC_DATAPTR(SEXP x);
 const void *ALTVEC_DATAPTR_RO(SEXP x);
 const void *ALTVEC_DATAPTR_OR_NULL(SEXP x);
 SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call);
+Rboolean R_is_compact_intseq(SEXP x);
+void *(STDVEC_DATAPTR)(SEXP x);
 
 /* data access */
 int ALTINTEGER_ELT(SEXP x, R_xlen_t i);
@@ -716,7 +788,7 @@ SEXP ALTLOGICAL_SUM(SEXP x, Rboolean narm);
 SEXP R_compact_intrange(R_xlen_t n1, R_xlen_t n2);
 SEXP R_deferred_coerceToString(SEXP v, SEXP info);
 SEXP R_virtrep_vec(SEXP, SEXP);
-SEXP R_tryWrap(SEXP);
+//SEXP R_tryWrap(SEXP); // now marked as @eapifun
 SEXP R_tryUnwrap(SEXP);
 
 Rboolean Rf_pmatch(SEXP, SEXP, Rboolean);
@@ -734,6 +806,13 @@ Rboolean R_cycle_detected(SEXP s, SEXP child);
 void R_init_altrep(void);
 void R_reinit_altrep_classes(DllInfo *);
 
+
+SEXP Rf_allocVector3(SEXPTYPE, R_xlen_t, R_allocator_t*);
+const char * R_typeToChar(SEXP);
+#ifdef USE_TYPE2CHAR_2
+const char * R_typeToChar2(SEXP, SEXPTYPE);
+#endif
+
 /* Defining NO_RINLINEDFUNS disables use to simulate platforms where
    this is not available */
 #if !defined(__MAIN__) && (defined(COMPILING_R) || ( __GNUC__ && !defined(__INTEL_COMPILER) )) && (defined(COMPILING_R) || !defined(NO_RINLINEDFUNS))
@@ -743,7 +822,7 @@ void R_reinit_altrep_classes(DllInfo *);
 
 /*
    These are the private inlinable functions that are provided in
-   Rinlinedfuns.h It is *essential* that these do not appear in any
+   Rinlinedfuns.h.  It is *essential* that these do not appear in any
    other header file, with or without the Rf_ prefix.
 */
 
@@ -756,11 +835,27 @@ void SET_SCALAR_LVAL(SEXP x, int v);
 void SET_SCALAR_IVAL(SEXP x, int v);
 void SET_SCALAR_CVAL(SEXP x, Rcomplex v);
 void SET_SCALAR_BVAL(SEXP x, Rbyte v);
+
+void *(DATAPTR)(SEXP x);
+int *LOGICAL0(SEXP x);
+int *INTEGER0(SEXP x);
+double *REAL0(SEXP x);
+Rcomplex *COMPLEX0(SEXP x);
+Rbyte *RAW0(SEXP x);
+
+Rboolean Rf_conformable(SEXP, SEXP);
+Rboolean Rf_isUserBinop(SEXP);
+int	 Rf_stringPositionTr(SEXP, const char *);
+int LENGTH_EX(SEXP x, const char *file, int line);
+Rboolean Rf_isValidString(SEXP);
+Rboolean Rf_isValidStringF(SEXP);
+R_xlen_t XLENGTH_EX(SEXP x);
+R_xlen_t  (XTRUELENGTH)(SEXP x);
 #endif
 
 #ifdef USE_RINTERNALS
 
-/* Test macros with function versions above */
+/* Test macros with function versions in  Rinternals.h , included above  */
 #undef isNull
 #define isNull(s)	(TYPEOF(s) == NILSXP)
 #undef isSymbol
@@ -782,7 +877,7 @@ void SET_SCALAR_BVAL(SEXP x, Rbyte v);
 
 /* macro version of R_CheckStack */
 #define R_CheckStack() do {						\
-	NORET void R_SignalCStackOverflow(intptr_t);				\
+	NORET void R_SignalCStackOverflow(intptr_t);			\
 	int dummy;							\
 	intptr_t usage = R_CStackDir * (R_CStackStart - (uintptr_t)&dummy); \
 	if(R_CStackLimit != (uintptr_t)(-1) && usage > ((intptr_t) R_CStackLimit)) \
@@ -839,6 +934,7 @@ extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
 #define LATIN1_MASK (1<<2)
 #define UTF8_MASK (1<<3)
 /* (1<<4) is taken by S4_OBJECT_MASK */
+#define GROWABLE_MASK ((unsigned short)(1<<5))
 #define CACHED_MASK (1<<5)
 #define ASCII_MASK (1<<6)
 #define HASHASH_MASK 1
@@ -902,7 +998,7 @@ extern void R_WaitEvent(void);
 # define FILESEP     "/"
 #endif /* Win32 */
 
-/* F77_SYMBOL was a minimal version of F77_SUB from RS.h, 
+/* F77_SYMBOL was a minimal version of F77_SUB from RS.h,
    used in main/util.c and main/registration.c
    F77_QSYMBOL is unused
 #ifdef HAVE_F77_UNDERSCORE
@@ -1461,6 +1557,13 @@ LibExtern SEXP  R_SrcrefSymbol;     /* "srcref" */
 LibExtern Rboolean R_interrupts_suspended INI_as(FALSE);
 LibExtern int R_interrupts_pending INI_as(0);
 
+/* Special Values for Internal Use */
+LibExtern SEXP	R_UnboundValue;	    /* Unbound marker */
+LibExtern SEXP	R_InBCInterpreter;  /* To be found in BC interp. state
+				       (marker) */
+LibExtern SEXP	R_CurrentExpression; /* Use current expression (marker) */
+LibExtern SEXP	R_NamespaceRegistry; /* Registry for registered namespaces */
+
 /* R Home Directory */
 LibExtern char *R_Home;		    /* Root of the R tree */
 
@@ -1701,6 +1804,7 @@ SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
+SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
 SEXP Rf_fixSubset3Args(SEXP, SEXP, SEXP, SEXP*);
@@ -1713,6 +1817,7 @@ SEXP Rf_findFun3(SEXP, SEXP, SEXP);
 void Rf_findFunctionForBody(SEXP);
 int Rf_FixupDigits(SEXP, warn_type);
 int Rf_FixupWidth (SEXP, warn_type);
+void Rf_gsetVar(SEXP, SEXP, SEXP);
 SEXP Rf_installDDVAL(int i);
 SEXP Rf_installS3Signature(const char *, const char *);
 bool Rf_isFree(SEXP);
@@ -1730,8 +1835,26 @@ Rboolean R_checkConstants(Rboolean);
 Rboolean R_BCVersionOK(SEXP);
 int R_NaN_is_R_NA(double);
 
+/* Replacements for popen and system */
+#ifdef HAVE_POPEN
+# ifdef __cplusplus
+std::FILE *R_popen(const char *, const char *);
+# else
+FILE *R_popen(const char *, const char *);
+# endif
+#endif
+int R_system(const char *);
+
 /* Environment and Binding Features */
-void R_RestoreHashCount(SEXP rho);
+SEXP R_FindPackageEnv(SEXP info);
+Rboolean R_HasFancyBindings(SEXP rho); // envir.c
+void R_RestoreHashCount(SEXP rho); // envir.c
+SEXP R_lsInternal(SEXP, Rboolean); // envir.c
+
+void R_XDREncodeDouble(double d, void *buf);
+double R_XDRDecodeDouble(void *buf);
+void R_XDREncodeInteger(int i, void *buf);
+int R_XDRDecodeInteger(void *buf);
 
 # define allocCharsxp		Rf_allocCharsxp
 # define asBool2	       	Rf_asBool2
@@ -1826,6 +1949,7 @@ void R_RestoreHashCount(SEXP rho);
 # define Mbrtowc		Rf_mbrtowc
 # define mbtoucs		Rf_mbtoucs
 # define mbcsToUcs2		Rf_mbcsToUcs2
+# define mbcsValid		Rf_mbcsValid
 # define memtrace_report	Rf_memtrace_report
 # define mkCharWUTF8		Rf_mkCharWUTF8
 # define mkCLOSXP		Rf_mkCLOSXP
@@ -1881,8 +2005,10 @@ void R_RestoreHashCount(SEXP rho);
 # define usemethod		Rf_usemethod
 # define ucstomb		Rf_ucstomb
 # define ucstoutf8		Rf_ucstoutf8
+# define utf8clen		Rf_utf8clen
 # define utf8toucs		Rf_utf8toucs
 # define utf8towcs		Rf_utf8towcs
+# define utf8Valid		Rf_utf8Valid
 # define vectorIndex		Rf_vectorIndex
 # define warningcall		Rf_warningcall
 # define WarningMessage		Rf_WarningMessage
@@ -1933,6 +2059,9 @@ Rboolean R_GetVarLocMISSING(R_varloc_t);
 void R_SetVarLocValue(R_varloc_t, SEXP);
 SEXP R_findVar(SEXP, SEXP);
 SEXP R_findVarInFrame(SEXP, SEXP);
+SEXP Rf_findVar(SEXP, SEXP);
+SEXP Rf_findVarInFrame(SEXP, SEXP);
+SEXP Rf_findVarInFrame3(SEXP, SEXP, Rboolean); // envir.c
 
 /* deparse option bits: change do_dump if more are added */
 
@@ -2030,6 +2159,7 @@ SEXP deparse1w(SEXP,bool,int);
 SEXP deparse1line (SEXP, bool);
 SEXP deparse1line_ex(SEXP, bool, int);
 SEXP deparse1s(SEXP call);
+R_xlen_t dim2total(SEXP, int, char *);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchGroup(const char *, SEXP,SEXP,SEXP,SEXP,SEXP*);
@@ -2037,6 +2167,9 @@ R_xlen_t dispatch_xlength(SEXP, SEXP, SEXP);
 R_len_t dispatch_length(SEXP, SEXP, SEXP);
 SEXP dispatch_subset2(SEXP, R_xlen_t, SEXP, SEXP);
 SEXP duplicated(SEXP, Rboolean);
+SEXP R_duplicate_attr(SEXP);
+SEXP R_shallow_duplicate_attr(SEXP);
+SEXP Rf_lazy_duplicate(SEXP);
 R_xlen_t any_duplicated(SEXP, Rboolean);
 R_xlen_t any_duplicated3(SEXP, SEXP, Rboolean);
 SEXP evalList(SEXP, SEXP, SEXP, int);
@@ -2048,6 +2181,7 @@ void FrameClassFix(SEXP);
 SEXP frameSubscript(int, SEXP, SEXP);
 R_xlen_t get1index(SEXP, SEXP, R_xlen_t, int, int, SEXP);
 int GetOptionCutoff(void);
+int Rf_GetOptionDigits(void);
 SEXP getVar(SEXP, SEXP);
 SEXP getVarInFrame(SEXP, SEXP);
 void InitArithmetic(void);
@@ -2060,6 +2194,7 @@ Rboolean R_current_trace_state(void);
 Rboolean R_current_debug_state(void);
 Rboolean R_has_methods(SEXP);
 void R_InitialData(void);
+SEXP Rf_installNoTrChar(SEXP);
 SEXP R_possible_dispatch(SEXP, SEXP, SEXP, SEXP, Rboolean);
 Rboolean inherits2(SEXP, const char *);
 void InitGraphics(void);
@@ -2101,6 +2236,7 @@ SEXP mkSYMSXP(SEXP, SEXP);
 SEXP mkTrue(void);
 const char *R_nativeEncoding(void);
 SEXP NewEnvironment(SEXP, SEXP, SEXP);
+Rboolean Rf_NonNullStringMatch(SEXP, SEXP); // match.c
 void onintr(void);
 void onintrNoResume(void);
 void onsigusr1(int);
@@ -2127,6 +2263,10 @@ SEXP R_data_class(SEXP , Rboolean);
 SEXP R_data_class2(SEXP);
 char *R_LibraryFileName(const char *, char *, size_t);
 SEXP R_LoadFromFile(FILE*, int);
+// ../main/character.c :
+typedef enum {Bytes, Chars, Width} nchar_type;
+int R_nchar(SEXP string, nchar_type type_,
+	    Rboolean allowNA, Rboolean keepNA, const char* msg_name);
 SEXP R_NewHashedEnv(SEXP, int);
 extern int R_Newhashpjw(const char *);
 FILE* R_OpenLibraryFile(const char *);
@@ -2141,6 +2281,7 @@ Rboolean R_seemsOldStyleS4Object(SEXP object);
 int R_SetOptionWarn(int);
 int R_SetOptionWidth(int);
 SEXP R_SetOption(SEXP, SEXP);
+SEXP Rf_substitute(SEXP,SEXP);
 void R_Suicide(const char *);
 SEXP R_flexiblas_info(void);
 void R_getProcTime(double *data);
@@ -2155,6 +2296,7 @@ SEXP strmat2intmat(SEXP, SEXP, SEXP, SEXP);
 SEXP substituteList(SEXP, SEXP);
 unsigned int TimeToSeed(void);
 SEXP tspgets(SEXP, SEXP);
+SEXP Rf_type2rstr(SEXPTYPE);
 SEXP type2symbol(SEXPTYPE);
 void unbindVar(SEXP, SEXP);
 #ifdef ALLOW_OLD_SAVE
@@ -2210,8 +2352,11 @@ SEXP R_makeWarningCondition(SEXP call,
 
 NORET void R_MissingArgError     (SEXP symbol,     SEXP call, const char* subclass);
 NORET void R_MissingArgError_c   (const char *arg, SEXP call, const char* subclass);
+NORET void R_ObjectNotFoundError(SEXP sym, SEXP call, const char *mode);
+NORET void R_FunctionNotFoundError(SEXP sym, SEXP call);
 
 SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
+SEXP R_makePartialArgumentMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);
 SEXP R_makeNotSubsettableError(SEXP x, SEXP call);
@@ -2309,8 +2454,10 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps);
 Rboolean mbcsValid(const char *str);
 char *mbcsTruncateToValid(char *s);
 Rboolean utf8Valid(const char *str);
-char *Rf_strchr(const char *s, int c);
-char *Rf_strrchr(const char *s, int c);
+char *Rf_strchr(char *s, int c);
+char *Rf_strrchr(char *s, int c);
+const char *Rf_strchr_const(const char *s, int c);
+const char *Rf_strrchr_const(const char *s, int c);
 int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
     R_PRINTF_FORMAT(3,0);
 
@@ -2385,7 +2532,7 @@ extern const char *locale2charset(const char *);
 # else /* not NLS */
 #  define _(String) (String)
 #  define N_(String) String
-#  define ngettext(String, StringP, N) (N > 1 ? StringP: String)
+#  define ngettext(String, StringP, N) (N != 1 ? StringP: String)
 # endif
 #endif
 
