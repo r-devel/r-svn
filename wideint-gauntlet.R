@@ -231,4 +231,23 @@ probe("cummax(rev(xs))", quote(cummax(rev(xs))))
 probe("cummin(xs)", quote(cummin(xs)))
 probe("colon big:(big+3)", quote(big:(big + w("3"))))
 
+section("parser literals")
+probe("5000000000L is wide", quote(c(iw(5000000000L), 5000000000L == w("5000000000"))))
+probe("9007199254740993L exact", quote(as.character(9007199254740993L)))
+probe("5L stays narrow", quote(iw(5L)))
+probe("hex 0x1FFFFFFFFL", quote(0x1FFFFFFFFL))
+probe("1e10L widens", quote(iw(1e10L)))
+
+section("subassignment, round 2")
+probe("stretch: xs[5] <- 1L", quote({ y <- xs; y[5] <- 1L; y }))
+probe("narrow[1] <- big literal promotes", quote({ y <- 1:3; y[1] <- 5000000000L; c(iw(y), y[1] == 5000000000L) }))
+probe("logical[1] <- wide promotes", quote({ y <- c(TRUE, FALSE); y[1] <- big; y }))
+probe("wide[2] <- NA", quote({ y <- xs; y[2] <- NA; y }))
+probe("matrix wide subassign", quote({ y <- c(xs, xs); dim(y) <- c(2, 3); y[1, 2] <- 1L; y[1, ] }))
+probe("compiled subassign promotes", quote({
+    f <- compiler::cmpfun(function(v) { v[1] <- 5000000000L; v })
+    r <- f(1:3)
+    c(iw(r), r[1] == 5000000000L)
+}))
+
 cat("\ndone.\n")

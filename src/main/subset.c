@@ -335,11 +335,18 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	error(_("dimensions would exceed maximum size of array"));
     PROTECT(sr);
     PROTECT(sc);
-    result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
+    if (R_isWideInteger(x))
+	result = allocWideIntVector((R_xlen_t) nrs * (R_xlen_t) ncs);
+    else
+	result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
     const int *psr = INTEGER_RO(sr);
     const int *psc = INTEGER_RO(sc);
     PROTECT(result);
-    switch(TYPEOF(x)) {
+    if (R_isWideInteger(x)) {
+	MATRIX_SUBSET_LOOP(WIDEINT_PTR(result)[ij] = INTEGER64_ELT(x, iijj),
+			   WIDEINT_PTR(result)[ij] = NA_INTEGER64);
+    }
+    else switch(TYPEOF(x)) {
     case LGLSXP:
 	MATRIX_SUBSET_LOOP(LOGICAL0(result)[ij] = LOGICAL_ELT(x, iijj),
 			   LOGICAL0(result)[ij] = NA_LOGICAL);
@@ -509,6 +516,12 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	}
 
     /* Transfer the subset elements from "x" to "a". */
+    if (R_isWideInteger(x)) {
+	PROTECT(result = allocWideIntVector(n));
+	ARRAY_SUBSET_LOOP(WIDEINT_PTR(result)[i] = INTEGER64_ELT(x, ii),
+			  WIDEINT_PTR(result)[i] = NA_INTEGER64);
+    }
+    else {
     PROTECT(result = allocVector(mode, n));
     switch (mode) {
     case LGLSXP:
@@ -548,6 +561,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	errorcall(call, _("array subscripting not handled for this type"));
 	break;
     }
+    } /* !R_isWideInteger(x) */
 
     SEXP new_dim = PROTECT(allocVector(INTSXP, k));
     for(int i = 0 ; i < k ; i++)
