@@ -383,6 +383,31 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define SET_GROWABLE_BIT(x) (((x)->sxpinfo.gp) |= GROWABLE_MASK)
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
 
+/* Wide (64-bit) integer vector prototype.  A standard (non-ALTREP)
+   INTSXP with this bit set stores long long elements in its payload;
+   gp bit 7 is unused on vectors.  The 32-bit accessors must not touch
+   such vectors, so the INTEGER()/INTEGER_RO() macros below go through
+   checked functions.  NA is INT64_MIN, mirroring NA_INTEGER. */
+#define WIDEINT_MASK ((unsigned short)(1<<7))
+#define IS_WIDEINT(x) (((x)->sxpinfo.alt) == 0 && \
+		       ((x)->sxpinfo.gp & WIDEINT_MASK))
+#define SET_WIDEINT(x) (((x)->sxpinfo.gp) |= WIDEINT_MASK)
+#define UNSET_WIDEINT(x) (((x)->sxpinfo.gp) &= ~WIDEINT_MASK)
+#define WIDEINT_PTR(x) ((long long *) STDVEC_DATAPTR(x))
+
+#ifndef NA_INTEGER64
+# define NA_INTEGER64 (-9223372036854775807LL - 1)
+#endif
+int R_isWideInteger(SEXP x);
+SEXP allocWideIntVector(R_xlen_t length);
+long long INTEGER64_ELT(SEXP x, R_xlen_t i);
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v);
+int R_wideIntegerElt32(SEXP x, R_xlen_t i);
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
+SEXP ScalarWideInt(long long v);
+SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
+SEXP R_formatWideInt(SEXP x);
+
 /* Vector Access Macros */
 #ifdef LONG_VECTOR_SUPPORT
 # define IS_LONG_VEC(x) (XLENGTH(x) > R_SHORT_LEN_MAX)
@@ -421,13 +446,16 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #undef CHAR
 #define CHAR(x)		((const char *) STDVEC_DATAPTR(x))
 #define LOGICAL(x)	((int *) DATAPTR(x))
-#define INTEGER(x)	((int *) DATAPTR(x))
+/* wide-int prototype: error on 32-bit pointer access to wide vectors */
+int *R_INTEGER32chk(SEXP x);
+const int *R_INTEGER32chk_ro(SEXP x);
+#define INTEGER(x)	(R_INTEGER32chk(x))
 #define RAW(x)		((Rbyte *) DATAPTR(x))
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
 #define REAL(x)		((double *) DATAPTR(x))
 #define STRING_PTR(x)	((SEXP *) DATAPTR(x))
 #define LOGICAL_RO(x)	((const int *) DATAPTR_RO(x))
-#define INTEGER_RO(x)	((const int *) DATAPTR_RO(x))
+#define INTEGER_RO(x)	(R_INTEGER32chk_ro(x))
 #define RAW_RO(x)	((const Rbyte *) DATAPTR_RO(x))
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))
 #define REAL_RO(x)	((const double *) DATAPTR_RO(x))

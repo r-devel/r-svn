@@ -157,6 +157,10 @@ INLINE_FUN const void *DATAPTR_OR_NULL(SEXP x) {
     CHKVEC(x);
     if (ALTREP(x))
 	return ALTVEC_DATAPTR_OR_NULL(x);
+    else if (R_isWideInteger(x))
+	/* no 32-bit view exists; callers must use the region/ELT
+	   paths, which narrow with per-element range checks */
+	return NULL;
     else
 	return STDVEC_DATAPTR(x);
 }
@@ -193,6 +197,8 @@ INLINE_FUN const int *LOGICAL_OR_NULL(SEXP x) {
 
 INLINE_FUN const int *INTEGER_OR_NULL(SEXP x) {
     CHECK_VECTOR_INT(x);
+    if (R_isWideInteger(x))
+	return NULL; /* no 32-bit view of a wide vector exists */
     return ALTREP(x) ? ALTVEC_DATAPTR_OR_NULL(x) : STDVEC_DATAPTR(x);
 }
 
@@ -330,6 +336,14 @@ HIDDEN INLINE_FUN R_xlen_t XTRUELENGTH(SEXP x)
 # define CHECK_VECTOR_RAW_ELT(x, i) do { } while(0)
 #endif
 
+/* wide (64-bit) integer prototype support; defined in memory.c and
+   redeclared here since not every inclusion context sees the
+   Rinternals.h declarations */
+int R_isWideInteger(SEXP x);
+int R_wideIntegerElt32(SEXP x, R_xlen_t i);
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
+int *R_INTEGER32chk0(SEXP x);
+
 /*HIDDEN (inlining)*/ INLINE_FUN int *LOGICAL0(SEXP x) {
     CHECK_STDVEC_LGL(x);
     return (int *) STDVEC_DATAPTR(x);
@@ -347,7 +361,7 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, int v) {
 
 /*HIDDEN (inlining)*/ INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
-    return (int *) STDVEC_DATAPTR(x);
+    return R_INTEGER32chk0(x); /* errors on wide integer vectors */
 }
 HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
@@ -407,13 +421,17 @@ INLINE_FUN void R_set_altrep_data2(SEXP x, SEXP v) { SETCDR(x, v); }
 INLINE_FUN int INTEGER_ELT(SEXP x, R_xlen_t i)
 {
     CHECK_VECTOR_INT_ELT(x, i);
+    if (R_isWideInteger(x))
+	/* narrows when the value is representable, errors otherwise */
+	return R_wideIntegerElt32(x, i);
     return ALTREP(x) ? ALTINTEGER_ELT(x, i) : INTEGER0(x)[i];
 }
 
 INLINE_FUN void SET_INTEGER_ELT(SEXP x, R_xlen_t i, int v)
 {
     CHECK_VECTOR_INT_ELT(x, i);
-    if (ALTREP(x)) ALTINTEGER_SET_ELT(x, i, v);
+    if (R_isWideInteger(x)) R_wideIntegerSetElt32(x, i, v);
+    else if (ALTREP(x)) ALTINTEGER_SET_ELT(x, i, v);
     else INTEGER0(x)[i] = v;
 }
 

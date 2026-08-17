@@ -53,6 +53,21 @@ static int isum(SEXP sx, isum_INT *value, bool narm, SEXP call)
 {
     LONG_INT s = 0;  // at least 64-bit
     int updated = 0;
+
+    if (R_isWideInteger(sx)) {
+	R_xlen_t n = XLENGTH(sx);
+	for (R_xlen_t k = 0; k < n; k++) {
+	    long long v = INTEGER64_ELT(sx, k);
+	    if (v != NA_INTEGER64) {
+		if (!updated) updated = 1;
+		if (__builtin_add_overflow(s, (isum_INT) v, &s))
+		    return 42; /* overflow: caller switches to risum() */
+	    } else if (!narm)
+		return NA_INTEGER;
+	}
+	*value = s;
+	return updated;
+    }
 #ifdef LONG_VECTOR_SUPPORT
     int ii = R_INT_MIN; // need > 2^32 entries to overflow; checking earlier is a waste
 /* NOTE: cannot use 64-bit *value to pass NA_INTEGER: that is "regular" 64bit int

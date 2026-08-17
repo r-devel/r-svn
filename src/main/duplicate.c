@@ -344,7 +344,20 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	UNPROTECT(2);
 	break;
     case LGLSXP: DUPLICATE_ATOMIC_VECTOR(int, LOGICAL, LOGICAL_RO, t, s, deep); break;
-    case INTSXP: DUPLICATE_ATOMIC_VECTOR(int, INTEGER, INTEGER_RO, t, s, deep); break;
+    case INTSXP:
+	if (IS_WIDEINT(s)) {
+	    n = XLENGTH(s);
+	    PROTECT(s);
+	    PROTECT(t = allocWideIntVector(n));
+	    if (n > 0)
+		memcpy(STDVEC_DATAPTR(t), STDVEC_DATAPTR(s),
+		       n * sizeof(long long));
+	    DUPLICATE_ATTRIB(t, s, deep);
+	    COPY_TRUELENGTH(t, s);
+	    UNPROTECT(2);
+	    break;
+	}
+	DUPLICATE_ATOMIC_VECTOR(int, INTEGER, INTEGER_RO, t, s, deep); break;
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, REAL_RO, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;

@@ -1139,6 +1139,19 @@ void SET_REAL_ELT(SEXP x, R_xlen_t i, double v);
 void SET_COMPLEX_ELT(SEXP x, R_xlen_t i, Rcomplex v);
 void SET_RAW_ELT(SEXP x, R_xlen_t i, Rbyte v);
 
+/* Wide (64-bit) integer vector prototype.  The API is deliberately
+   element-based: there is no 64-bit data-pointer accessor. */
+#ifndef NA_INTEGER64
+# define NA_INTEGER64 (-9223372036854775807LL - 1)
+#endif
+int R_isWideInteger(SEXP x);
+SEXP allocWideIntVector(R_xlen_t length);
+long long INTEGER64_ELT(SEXP x, R_xlen_t i);
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v);
+int R_wideIntegerElt32(SEXP x, R_xlen_t i);
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
+int *R_INTEGER32chk0(SEXP x);
+
 /* ALTREP support */
 SEXP ALTREP_CLASS(SEXP x);
 SEXP R_altrep_data1(SEXP x);

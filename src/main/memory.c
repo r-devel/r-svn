@@ -1118,7 +1118,10 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
 	break;
     case LGLSXP:
     case INTSXP:
-	size = XLENGTH(s) * sizeof(int);
+	if (IS_WIDEINT(s))
+	    size = XLENGTH(s) * sizeof(long long);
+	else
+	    size = XLENGTH(s) * sizeof(int);
 	break;
     case REALSXP:
 	size = XLENGTH(s) * sizeof(double);
@@ -4184,6 +4187,96 @@ void *(STDVEC_DATAPTR)(SEXP x)
 
 /* nedded for implementing Dataptr ALTREP methods */
 void *DATAPTR_RW(SEXP x) { return DATAPTR(x); }
+
+/* --- wide (64-bit) integer vector prototype support --- */
+
+NORET static void wideint_ptr_error(void)
+{
+    error("32-bit integer accessor applied to a wide (64-bit) integer vector");
+}
+
+int R_isWideInteger(SEXP x)
+{
+    return TYPEOF(x) == INTSXP && IS_WIDEINT(x);
+}
+
+/* the INTEGER()/INTEGER_RO()/INTEGER0() macros expand to these */
+int *R_INTEGER32chk(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	wideint_ptr_error();
+    return (int *) DATAPTR(x);
+}
+
+const int *R_INTEGER32chk_ro(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	wideint_ptr_error();
+    return (const int *) DATAPTR_RO(x);
+}
+
+int *R_INTEGER32chk0(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	wideint_ptr_error();
+    return (int *) STDVEC_DATAPTR(x);
+}
+
+SEXP allocWideIntVector(R_xlen_t length)
+{
+    /* allocate with an 8-byte payload, then relabel; the node class
+       and heap accounting are those of the REALSXP-sized payload */
+    SEXP s = allocVector(REALSXP, length);
+    SET_TYPEOF(s, INTSXP);
+    SET_WIDEINT(s);
+    SETSCALAR(s, 0); /* keep wide vectors out of scalar fast paths */
+    return s;
+}
+
+long long INTEGER64_ELT(SEXP x, R_xlen_t i)
+{
+    if (TYPEOF(x) != INTSXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "INTEGER64_ELT", "integer", R_typeToChar(x));
+    if (IS_WIDEINT(x))
+	return WIDEINT_PTR(x)[i];
+
+    int v = INTEGER_ELT(x, i);
+    return v == NA_INTEGER ? NA_INTEGER64 : (long long) v;
+}
+
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v)
+{
+    if (TYPEOF(x) != INTSXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "SET_INTEGER64_ELT", "integer", R_typeToChar(x));
+    if (IS_WIDEINT(x)) {
+	WIDEINT_PTR(x)[i] = v;
+	return;
+    }
+
+    if (v == NA_INTEGER64)
+	SET_INTEGER_ELT(x, i, NA_INTEGER);
+    else if (v > INT_MIN && v <= INT_MAX)
+	SET_INTEGER_ELT(x, i, (int) v);
+    else
+	error("value %lld cannot be stored in a narrow integer vector", v);
+}
+
+int R_wideIntegerElt32(SEXP x, R_xlen_t i)
+{
+    long long v = WIDEINT_PTR(x)[i];
+    if (v == NA_INTEGER64)
+	return NA_INTEGER;
+    if (v > INT_MIN && v <= INT_MAX)
+	return (int) v;
+    error("wide integer value %lld out of range for a 32-bit access", v);
+}
+
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v)
+{
+    WIDEINT_PTR(x)[i] = (v == NA_INTEGER) ? NA_INTEGER64 : (long long) v;
+}
 
 int *(LOGICAL)(SEXP x) {
     if(TYPEOF(x) != LGLSXP)

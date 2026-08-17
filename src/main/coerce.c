@@ -1175,6 +1175,10 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     if (TYPEOF(v) == type)
 	return v;
 
+    /* wide integer vectors need 64-bit element access */
+    if (R_isWideInteger(v))
+	return R_wideIntCoerce(v, type);
+
     SEXP ans = R_NilValue;	/* -Wall */
     if (ALTREP(v)) {
 	PROTECT(v); /* the methods should protect, but ... */
@@ -2290,6 +2294,11 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   pa[i] = (LOGICAL_ELT(x, i) == NA_LOGICAL);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		pa[i] = (INTEGER64_ELT(x, i) == NA_INTEGER64);
+	    break;
+	}
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) == NA_INTEGER);
 	break;

@@ -130,6 +130,14 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     nx = xlength(x);
     int mode = TYPEOF(x);
 
+    if (R_isWideInteger(x)) {
+	PROTECT(result = allocWideIntVector(n));
+	EXTRACT_SUBSET_LOOP(WIDEINT_PTR(result)[i] = INTEGER64_ELT(x, ii),
+			    WIDEINT_PTR(result)[i] = NA_INTEGER64);
+	UNPROTECT(1); /* result */
+	return result;
+    }
+
     /* protect allocation in case _ELT operations need to allocate */
     PROTECT(result = allocVector(mode, n));
     switch(mode) {
@@ -743,8 +751,11 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    return ScalarReal( REAL_ELT(x, i-1) );
 		break;
 	    case INTSXP:
-		if (i >= 1 && i <= XLENGTH(x))
+		if (i >= 1 && i <= XLENGTH(x)) {
+		    if (R_isWideInteger(x))
+			return ScalarWideInt(INTEGER64_ELT(x, i-1));
 		    return ScalarInteger( INTEGER_ELT(x, i-1) );
+		}
 		break;
 	    case LGLSXP:
 		if (i >= 1 && i <= XLENGTH(x))
@@ -787,8 +798,11 @@ attribute_hidden SEXP do_subset_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 			    return ScalarReal( REAL_ELT(x, k) );
 			break;
 		    case INTSXP:
-			if (k < XLENGTH(x))
+			if (k < XLENGTH(x)) {
+			    if (R_isWideInteger(x))
+				return ScalarWideInt(INTEGER64_ELT(x, k));
 			    return ScalarInteger( INTEGER_ELT(x, k) );
+			}
 			break;
 		    case LGLSXP:
 			if (k < XLENGTH(x))
@@ -1118,6 +1132,8 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifndef SWITCH_TO_REFCNT
 	RAISE_NAMED(ans, named_x);
 #endif
+    } else if (R_isWideInteger(x)) {
+	ans = ScalarWideInt(INTEGER64_ELT(x, offset));
     } else {
 	ans = PROTECT(allocVector(TYPEOF(x), 1));
 	switch (TYPEOF(x)) {

@@ -283,6 +283,7 @@ static SEXP integer_unary(ARITHOP_TYPE, SEXP, SEXP);
 static SEXP real_unary(ARITHOP_TYPE, SEXP, SEXP);
 static SEXP real_binary(ARITHOP_TYPE, SEXP, SEXP);
 static SEXP integer_binary(ARITHOP_TYPE, SEXP, SEXP, SEXP);
+static SEXP wideint_binary(ARITHOP_TYPE, SEXP, SEXP, SEXP);
 
 #if 0
 static int naflag;
@@ -458,17 +459,20 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 		case PLUSOP:
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_plus(i1, i2, &naflag));
-		    CHECK_INTEGER_OVERFLOW(call, ans, naflag);
+		    if (naflag) /* 32-bit overflow: promote to wide */
+			return ScalarWideInt((long long) i1 + (long long) i2);
 		    return ans;
 		case MINUSOP:
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_minus(i1, i2, &naflag));
-		    CHECK_INTEGER_OVERFLOW(call, ans, naflag);
+		    if (naflag)
+			return ScalarWideInt((long long) i1 - (long long) i2);
 		    return ans;
 		case TIMESOP:
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_times(i1, i2, &naflag));
-		    CHECK_INTEGER_OVERFLOW(call, ans, naflag);
+		    if (naflag)
+			return ScalarWideInt((long long) i1 * (long long) i2);
 		    return ans;
 		case DIVOP:
 		    return ScalarReal(R_integer_divide(i1, i2));
@@ -670,6 +674,17 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	COERCE_IF_NEEDED(y, CPLXSXP, ypi);
 	val = complex_binary(oper, x, y);
     }
+    else if (R_isWideInteger(x) || R_isWideInteger(y)) {
+	if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP) {
+	    /* mixed wide/double works in double precision, with a
+	       precision warning above 2^53 from the coercion */
+	    COERCE_IF_NEEDED(x, REALSXP, xpi);
+	    COERCE_IF_NEEDED(y, REALSXP, ypi);
+	    val = real_binary(oper, x, y);
+	}
+	else
+	    val = wideint_binary(oper, x, y, call);
+    }
     else if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP) {
 	/* real_binary can handle REALSXP or INTSXP operand, but not LGLSXP. */
 	/* Can get a LGLSXP. In base-Ex.R on 24 Oct '06, got 8 of these. */
@@ -770,6 +785,23 @@ static SEXP integer_unary(ARITHOP_TYPE code, SEXP s1, SEXP call)
     R_xlen_t i, n;
     SEXP ans;
 
+    if (R_isWideInteger(s1)) {
+	switch (code) {
+	case PLUSOP:
+	    return s1;
+	case MINUSOP:
+	    ans = NO_REFERENCES(s1) ? s1 : duplicate(s1);
+	    n = XLENGTH(s1);
+	    for (i = 0; i < n; i++) {
+		long long x = INTEGER64_ELT(s1, i);
+		WIDEINT_PTR(ans)[i] = (x == NA_INTEGER64) ? x : -x;
+	    }
+	    return ans;
+	default:
+	    errorcall(call, _("invalid unary operator"));
+	}
+    }
+
     switch (code) {
     case PLUSOP:
 	return s1;
@@ -825,6 +857,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 
     if (code == DIVOP || code == POWOP)
 	ans = allocVector(REALSXP, n);
+    else if (code == PLUSOP || code == MINUSOP || code == TIMESOP)
+	/* never reuse an input: an overflow redo in wideint_binary
+	   needs the inputs pristine */
+	ans = allocVector(INTSXP, n);
     else
 	ans = R_allocOrReuseVector(s1, s2, INTSXP, n);
     if (n == 0) return(ans);
@@ -841,8 +877,6 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		    x2 = px2[i2];
 		    pa[i] = R_integer_plus(x1, x2, &naflag);
 		});
-	    if (naflag)
-		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
 	break;
     case MINUSOP:
@@ -855,8 +889,6 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		    x2 = px2[i2];
 		    pa[i] = R_integer_minus(x1, x2, &naflag);
 		});
-	    if (naflag)
-		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
 	break;
     case TIMESOP:
@@ -869,8 +901,6 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		    x2 = px2[i2];
 		    pa[i] = R_integer_times(x1, x2, &naflag);
 		});
-	    if (naflag)
-		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
 	break;
     case DIVOP:
@@ -936,6 +966,15 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	}
 	break;
     }
+
+    if (naflag) {
+	/* some element overflowed 32 bits: redo the operation with a
+	   wide (64-bit) result; the inputs are pristine since ans
+	   was freshly allocated for the promotable operations */
+	UNPROTECT(1);
+	return wideint_binary(code, s1, s2, lcall);
+    }
+
     UNPROTECT(1);
 
     /* quick return if there are no attributes */
@@ -948,6 +987,158 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	copyMostAttrib(s2, ans);
     if (ans != s1 && n == n1 && ATTRIB(s1) != R_NilValue)
 	copyMostAttrib(s1, ans); /* Done 2nd so s1's attrs overwrite s2's */
+
+    return ans;
+}
+
+/* Wide (64-bit) integer arithmetic.  Operands are INTSXP (narrow or
+   wide) or LGLSXP; mixes with REALSXP/CPLXSXP are handled by coercion
+   in R_binary before this is reached. */
+
+static R_INLINE long long wideint_elt(SEXP x, R_xlen_t i)
+{
+    if (TYPEOF(x) == LGLSXP) {
+	int v = LOGICAL_ELT(x, i);
+	return v == NA_LOGICAL ? NA_INTEGER64 : (long long) v;
+    }
+    return INTEGER64_ELT(x, i);
+}
+
+#define WIDEINT_OVERFLOW_WARNING _("NAs produced by wide integer overflow")
+
+static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
+{
+    R_xlen_t i, i1, i2, n, n1, n2;
+    SEXP ans;
+    bool naflag = false;
+
+    n1 = XLENGTH(s1);
+    n2 = XLENGTH(s2);
+    if (n1 == 0 || n2 == 0) n = 0; else n = (n1 > n2) ? n1 : n2;
+
+    if (code == DIVOP || code == POWOP)
+	ans = allocVector(REALSXP, n);
+    else
+	ans = allocWideIntVector(n);
+    if (n == 0) return(ans);
+    PROTECT(ans);
+
+    switch (code) {
+    case PLUSOP:
+	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		long long x1 = wideint_elt(s1, i1);
+		long long x2 = wideint_elt(s2, i2);
+		long long r;
+		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
+		    r = NA_INTEGER64;
+		else if (__builtin_add_overflow(x1, x2, &r) ||
+			 r == NA_INTEGER64) {
+		    r = NA_INTEGER64; naflag = true;
+		}
+		WIDEINT_PTR(ans)[i] = r;
+	    });
+	break;
+    case MINUSOP:
+	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		long long x1 = wideint_elt(s1, i1);
+		long long x2 = wideint_elt(s2, i2);
+		long long r;
+		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
+		    r = NA_INTEGER64;
+		else if (__builtin_sub_overflow(x1, x2, &r) ||
+			 r == NA_INTEGER64) {
+		    r = NA_INTEGER64; naflag = true;
+		}
+		WIDEINT_PTR(ans)[i] = r;
+	    });
+	break;
+    case TIMESOP:
+	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		long long x1 = wideint_elt(s1, i1);
+		long long x2 = wideint_elt(s2, i2);
+		long long r;
+		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
+		    r = NA_INTEGER64;
+		else if (__builtin_mul_overflow(x1, x2, &r) ||
+			 r == NA_INTEGER64) {
+		    r = NA_INTEGER64; naflag = true;
+		}
+		WIDEINT_PTR(ans)[i] = r;
+	    });
+	break;
+    case DIVOP:
+	{
+	    double *pa = REAL(ans);
+	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		    long long x1 = wideint_elt(s1, i1);
+		    long long x2 = wideint_elt(s2, i2);
+		    if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
+			pa[i] = NA_REAL;
+		    else
+			pa[i] = (double) x1 / (double) x2;
+		});
+	}
+	break;
+    case POWOP:
+	{
+	    double *pa = REAL(ans);
+	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		    long long x1 = wideint_elt(s1, i1);
+		    long long x2 = wideint_elt(s2, i2);
+		    if (x1 == 1 || x2 == 0)
+			pa[i] = 1.;
+		    else if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
+			pa[i] = NA_REAL;
+		    else
+			pa[i] = R_POW((double) x1, (double) x2);
+		});
+	}
+	break;
+    case MODOP:
+	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		long long x1 = wideint_elt(s1, i1);
+		long long x2 = wideint_elt(s2, i2);
+		long long r;
+		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64 || x2 == 0)
+		    r = NA_INTEGER64;
+		else {
+		    r = x1 % x2;
+		    if (r != 0 && (r < 0) != (x2 < 0))
+			r += x2;
+		}
+		WIDEINT_PTR(ans)[i] = r;
+	    });
+	break;
+    case IDIVOP:
+	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
+		long long x1 = wideint_elt(s1, i1);
+		long long x2 = wideint_elt(s2, i2);
+		long long r;
+		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64 || x2 == 0)
+		    r = NA_INTEGER64;
+		else {
+		    r = x1 / x2;
+		    if ((x1 % x2) != 0 && (x1 < 0) != (x2 < 0))
+			r--;
+		}
+		WIDEINT_PTR(ans)[i] = r;
+	    });
+	break;
+    }
+
+    if (naflag)
+	warningcall(lcall, WIDEINT_OVERFLOW_WARNING);
+
+    UNPROTECT(1);
+
+    /* Copy attributes from longer argument, as integer_binary does. */
+    if (ATTRIB(s1) == R_NilValue && ATTRIB(s2) == R_NilValue)
+	return ans;
+
+    if (n == n2 && ATTRIB(s2) != R_NilValue)
+	copyMostAttrib(s2, ans);
+    if (n == n1 && ATTRIB(s1) != R_NilValue)
+	copyMostAttrib(s1, ans);
 
     return ans;
 }

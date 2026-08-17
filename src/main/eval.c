@@ -2850,6 +2850,10 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 		SET_SCALAR_LVAL(v, LOGICAL_ELT(val, i));
 		break;
 	    case INTSXP:
+		if (R_isWideInteger(val)) {
+		    REPROTECT(v = ScalarWideInt(INTEGER64_ELT(val, i)), vpi);
+		    break;
+		}
 		ALLOC_LOOP_VAR(v, val_type, vpi);
 		SET_SCALAR_IVAL(v, INTEGER_ELT(val, i));
 		break;

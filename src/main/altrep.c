@@ -403,6 +403,15 @@ attribute_hidden int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
 
 R_xlen_t INTEGER_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 {
+    if (R_isWideInteger(sx)) {
+	/* narrow element-wise; errors on values outside 32-bit range */
+	R_xlen_t size = XLENGTH(sx);
+	R_xlen_t ncopy = size - i > n ? n : size - i;
+	for (R_xlen_t k = 0; k < ncopy; k++)
+	    buf[k] = R_wideIntegerElt32(sx, k + i);
+	return ncopy;
+    }
+
     const int *x = INTEGER_OR_NULL(sx);
     if (x != NULL) {
 	R_xlen_t size = XLENGTH(sx);

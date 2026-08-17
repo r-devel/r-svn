@@ -50,6 +50,7 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
+ int  ans_wide; /* some integer input is wide (64-bit) */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -86,6 +87,8 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
     case INTSXP:
 	data->ans_flags |= 16;
 	data->ans_length += XLENGTH(x);
+	if (R_isWideInteger(x))
+	    data->ans_wide = 1;
 	break;
     case REALSXP:
 	data->ans_flags |= 32;
@@ -315,14 +318,34 @@ IntegerAnswer(SEXP x, struct BindData *data, SEXP call)
 	    IntegerAnswer(VECTOR_ELT(x, i), data, call);
 	break;
     case LGLSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++) {
+		int v = LOGICAL(x)[i];
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  v == NA_LOGICAL ? NA_INTEGER64 : v);
+	    }
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = LOGICAL(x)[i];
 	break;
     case INTSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++)
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  INTEGER64_ELT(x, i));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = INTEGER(x)[i];
 	break;
     case RAWSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++)
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  (long long) RAW(x)[i]);
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = (int)RAW(x)[i];
 	break;
@@ -364,6 +387,14 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < XLENGTH(x); i++) {
+		long long v = INTEGER64_ELT(x, i);
+		REAL(data->ans_ptr)[data->ans_length++] =
+		    v == NA_INTEGER64 ? NA_REAL : (double) v;
+	    }
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = INTEGER(x)[i];
 	    if (xi == NA_INTEGER)
@@ -818,6 +849,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide   = 0;
 
     SEXP t, ans;
     for (t = args; t != R_NilValue; t = CDR(t)) {
@@ -845,7 +877,10 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    if (mode == INTSXP && data.ans_wide)
+	PROTECT(ans = allocWideIntVector(data.ans_length));
+    else
+	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -926,6 +961,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide   = 0;
 
     if (isNewList(args)) {
 	n = xlength(args);
@@ -969,7 +1005,10 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    if (mode == INTSXP && data.ans_wide)
+	PROTECT(ans = allocWideIntVector(data.ans_length));
+    else
+	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -1138,6 +1177,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide = 0;
     for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	AnswerType(PRVALUE(CAR(t)), 0, 0, &data, call);
 

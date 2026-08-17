@@ -332,6 +332,14 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	    printLogicalVectorS(x, n_pr, indx);
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		/* format wide values as right-justified strings and
+		   reuse the string layout machinery */
+		SEXP xs = PROTECT(R_formatWideInt(x));
+		printStringVectorS(xs, n_pr, 0, indx);
+		UNPROTECT(1);
+		break;
+	    }
 	    printIntegerVectorS(x, n_pr, indx);
 	    break;
 	case REALSXP:
