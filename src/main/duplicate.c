@@ -351,7 +351,7 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	    PROTECT(t = allocWideIntVector(n));
 	    if (n > 0)
 		memcpy(STDVEC_DATAPTR(t), STDVEC_DATAPTR(s),
-		       n * sizeof(long long));
+		       n * sizeof(R_wideint_t));
 	    DUPLICATE_ATTRIB(t, s, deep);
 	    COPY_TRUELENGTH(t, s);
 	    UNPROTECT(2);

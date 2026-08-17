@@ -343,7 +343,7 @@ IntegerAnswer(SEXP x, struct BindData *data, SEXP call)
 	if (data->ans_wide) {
 	    for (i = 0; i < XLENGTH(x); i++)
 		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
-				  (long long) RAW(x)[i]);
+				  (R_wideint_t) RAW(x)[i]);
 	    break;
 	}
 	for (i = 0; i < XLENGTH(x); i++)
@@ -389,7 +389,7 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
     case INTSXP:
 	if (R_isWideInteger(x)) {
 	    for (i = 0; i < XLENGTH(x); i++) {
-		long long v = INTEGER64_ELT(x, i);
+		R_wideint_t v = INTEGER64_ELT(x, i);
 		REAL(data->ans_ptr)[data->ans_length++] =
 		    v == NA_INTEGER64 ? NA_REAL : (double) v;
 	    }

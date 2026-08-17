@@ -4,7 +4,8 @@
  *  wideint.c -- prototype support for wide (64-bit) integer vectors.
  *
  *  A wide integer vector is a standard INTSXP whose payload holds
- *  long long elements, marked with the WIDEINT gp bit.  There is
+ *  R_wideint_t (currently long long) elements, marked with the WIDEINT
+ *  gp bit.  There is
  *  deliberately no 64-bit data-pointer accessor; all access is
  *  element-based (INTEGER64_ELT / SET_INTEGER64_ELT).
  */
@@ -21,14 +22,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-SEXP ScalarWideInt(long long v)
+SEXP ScalarWideInt(R_wideint_t v)
 {
     SEXP ans = allocWideIntVector(1);
     SET_INTEGER64_ELT(ans, 0, v);
     return ans;
 }
 
-static long long wideFromDouble(double v)
+static R_wideint_t wideFromDouble(double v)
 {
     if (ISNAN(v))
 	return NA_INTEGER64;
@@ -38,10 +39,10 @@ static long long wideFromDouble(double v)
 	v <= -9223372036854775808.0)
 	error("value %g is out of range for a wide integer", v);
 
-    return (long long) v;
+    return (R_wideint_t) v;
 }
 
-static long long wideFromString(SEXP ch)
+static R_wideint_t wideFromString(SEXP ch)
 {
     if (ch == NA_STRING)
 	return NA_INTEGER64;
@@ -49,7 +50,7 @@ static long long wideFromString(SEXP ch)
     const char *s = CHAR(ch);
     char *endp;
     errno = 0;
-    long long v = strtoll(s, &endp, 10);
+    R_wideint_t v = strtoll(s, &endp, 10);
     if (errno == ERANGE)
 	error("value '%s' is out of range for a wide integer", s);
     if (endp == s || *endp != '\0')
@@ -75,7 +76,7 @@ attribute_hidden SEXP do_aswideint(SEXP call, SEXP op, SEXP args, SEXP env)
 	for (R_xlen_t i = 0; i < n; i++) {
 	    int v = LOGICAL_ELT(x, i);
 	    SET_INTEGER64_ELT(ans, i,
-			      v == NA_LOGICAL ? NA_INTEGER64 : (long long) v);
+			      v == NA_LOGICAL ? NA_INTEGER64 : (R_wideint_t) v);
 	}
 	break;
     case INTSXP:
@@ -121,7 +122,7 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
     case LGLSXP:
 	ans = PROTECT(allocVector(LGLSXP, n));
 	for (R_xlen_t i = 0; i < n; i++) {
-	    long long x = INTEGER64_ELT(v, i);
+	    R_wideint_t x = INTEGER64_ELT(v, i);
 	    SET_LOGICAL_ELT(ans, i,
 			    x == NA_INTEGER64 ? NA_LOGICAL : (x != 0));
 	}
@@ -129,7 +130,7 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
     case REALSXP:
 	ans = PROTECT(allocVector(REALSXP, n));
 	for (R_xlen_t i = 0; i < n; i++) {
-	    long long x = INTEGER64_ELT(v, i);
+	    R_wideint_t x = INTEGER64_ELT(v, i);
 	    if (x == NA_INTEGER64)
 		SET_REAL_ELT(ans, i, NA_REAL);
 	    else {
@@ -142,12 +143,12 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
     case STRSXP:
 	ans = PROTECT(allocVector(STRSXP, n));
 	for (R_xlen_t i = 0; i < n; i++) {
-	    long long x = INTEGER64_ELT(v, i);
+	    R_wideint_t x = INTEGER64_ELT(v, i);
 	    if (x == NA_INTEGER64)
 		SET_STRING_ELT(ans, i, NA_STRING);
 	    else {
 		char buf[32];
-		snprintf(buf, sizeof(buf), "%lld", x);
+		snprintf(buf, sizeof(buf), "%lld", (long long) x);
 		SET_STRING_ELT(ans, i, mkChar(buf));
 	    }
 	}
@@ -155,7 +156,7 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
     case CPLXSXP:
 	ans = PROTECT(allocVector(CPLXSXP, n));
 	for (R_xlen_t i = 0; i < n; i++) {
-	    long long x = INTEGER64_ELT(v, i);
+	    R_wideint_t x = INTEGER64_ELT(v, i);
 	    Rcomplex z;
 	    if (x == NA_INTEGER64) {
 		z.r = NA_REAL; z.i = NA_REAL;
@@ -194,25 +195,25 @@ attribute_hidden SEXP R_formatWideInt(SEXP x)
     int w = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
-	long long v = INTEGER64_ELT(x, i);
+	R_wideint_t v = INTEGER64_ELT(x, i);
 	char buf[32];
 	int len;
 	if (v == NA_INTEGER64)
 	    len = 2; /* NA */
 	else
-	    len = snprintf(buf, sizeof(buf), "%lld", v);
+	    len = snprintf(buf, sizeof(buf), "%lld", (long long) v);
 	if (len > w)
 	    w = len;
     }
 
     SEXP ans = PROTECT(allocVector(STRSXP, n));
     for (R_xlen_t i = 0; i < n; i++) {
-	long long v = INTEGER64_ELT(x, i);
+	R_wideint_t v = INTEGER64_ELT(x, i);
 	char buf[40];
 	if (v == NA_INTEGER64)
 	    snprintf(buf, sizeof(buf), "%*s", w, "NA");
 	else
-	    snprintf(buf, sizeof(buf), "%*lld", w, v);
+	    snprintf(buf, sizeof(buf), "%*lld", w, (long long) v);
 	SET_STRING_ELT(ans, i, mkChar(buf));
     }
     UNPROTECT(1);

@@ -57,7 +57,7 @@ static int isum(SEXP sx, isum_INT *value, bool narm, SEXP call)
     if (R_isWideInteger(sx)) {
 	R_xlen_t n = XLENGTH(sx);
 	for (R_xlen_t k = 0; k < n; k++) {
-	    long long v = INTEGER64_ELT(sx, k);
+	    R_wideint_t v = INTEGER64_ELT(sx, k);
 	    if (v != NA_INTEGER64) {
 		if (!updated) updated = 1;
 		if (__builtin_add_overflow(s, (isum_INT) v, &s))

@@ -462,17 +462,17 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 
 /* comparison support for wide (64-bit) integer vectors */
 
-static R_INLINE long long wide_relop_elt64(SEXP x, R_xlen_t i)
+static R_INLINE R_wideint_t wide_relop_elt64(SEXP x, R_xlen_t i)
 {
     if (TYPEOF(x) == LGLSXP) {
 	int v = LOGICAL_ELT(x, i);
-	return v == NA_LOGICAL ? NA_INTEGER64 : (long long) v;
+	return v == NA_LOGICAL ? NA_INTEGER64 : (R_wideint_t) v;
     }
     return INTEGER64_ELT(x, i);
 }
 
-/* exact comparison of a long long with a double */
-static int wide_cmp_ll_d(long long x, double y)
+/* exact comparison of a wide integer with a double */
+static int wide_cmp_ll_d(R_wideint_t x, double y)
 {
     if (y >= 9223372036854775808.0 /* 2^63 */)
 	return -1;
@@ -480,7 +480,7 @@ static int wide_cmp_ll_d(long long x, double y)
 	return 1;
 
     double fy = floor(y);
-    long long ly = (long long) fy;
+    R_wideint_t ly = (R_wideint_t) fy;
     if (x < ly) return -1;
     if (x > ly) return 1;
     return (y > fy) ? -1 : 0;
@@ -491,7 +491,7 @@ static int wide_relop_cmp(SEXP x, R_xlen_t ix, SEXP y, R_xlen_t iy, int *na)
 {
     if (TYPEOF(x) == REALSXP) {
 	double dx = REAL_ELT(x, ix);
-	long long ly = wide_relop_elt64(y, iy);
+	R_wideint_t ly = wide_relop_elt64(y, iy);
 	if (ISNAN(dx) || ly == NA_INTEGER64) {
 	    *na = 1;
 	    return 0;
@@ -499,7 +499,7 @@ static int wide_relop_cmp(SEXP x, R_xlen_t ix, SEXP y, R_xlen_t iy, int *na)
 	return -wide_cmp_ll_d(ly, dx);
     }
     if (TYPEOF(y) == REALSXP) {
-	long long lx = wide_relop_elt64(x, ix);
+	R_wideint_t lx = wide_relop_elt64(x, ix);
 	double dy = REAL_ELT(y, iy);
 	if (lx == NA_INTEGER64 || ISNAN(dy)) {
 	    *na = 1;
@@ -508,8 +508,8 @@ static int wide_relop_cmp(SEXP x, R_xlen_t ix, SEXP y, R_xlen_t iy, int *na)
 	return wide_cmp_ll_d(lx, dy);
     }
 
-    long long lx = wide_relop_elt64(x, ix);
-    long long ly = wide_relop_elt64(y, iy);
+    R_wideint_t lx = wide_relop_elt64(x, ix);
+    R_wideint_t ly = wide_relop_elt64(y, iy);
     if (lx == NA_INTEGER64 || ly == NA_INTEGER64) {
 	*na = 1;
 	return 0;

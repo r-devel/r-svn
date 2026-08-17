@@ -460,19 +460,19 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_plus(i1, i2, &naflag));
 		    if (naflag) /* 32-bit overflow: promote to wide */
-			return ScalarWideInt((long long) i1 + (long long) i2);
+			return ScalarWideInt((R_wideint_t) i1 + (R_wideint_t) i2);
 		    return ans;
 		case MINUSOP:
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_minus(i1, i2, &naflag));
 		    if (naflag)
-			return ScalarWideInt((long long) i1 - (long long) i2);
+			return ScalarWideInt((R_wideint_t) i1 - (R_wideint_t) i2);
 		    return ans;
 		case TIMESOP:
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_IVAL(ans, R_integer_times(i1, i2, &naflag));
 		    if (naflag)
-			return ScalarWideInt((long long) i1 * (long long) i2);
+			return ScalarWideInt((R_wideint_t) i1 * (R_wideint_t) i2);
 		    return ans;
 		case DIVOP:
 		    return ScalarReal(R_integer_divide(i1, i2));
@@ -793,7 +793,7 @@ static SEXP integer_unary(ARITHOP_TYPE code, SEXP s1, SEXP call)
 	    ans = NO_REFERENCES(s1) ? s1 : duplicate(s1);
 	    n = XLENGTH(s1);
 	    for (i = 0; i < n; i++) {
-		long long x = INTEGER64_ELT(s1, i);
+		R_wideint_t x = INTEGER64_ELT(s1, i);
 		WIDEINT_PTR(ans)[i] = (x == NA_INTEGER64) ? x : -x;
 	    }
 	    return ans;
@@ -995,11 +995,11 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
    wide) or LGLSXP; mixes with REALSXP/CPLXSXP are handled by coercion
    in R_binary before this is reached. */
 
-static R_INLINE long long wideint_elt(SEXP x, R_xlen_t i)
+static R_INLINE R_wideint_t wideint_elt(SEXP x, R_xlen_t i)
 {
     if (TYPEOF(x) == LGLSXP) {
 	int v = LOGICAL_ELT(x, i);
-	return v == NA_LOGICAL ? NA_INTEGER64 : (long long) v;
+	return v == NA_LOGICAL ? NA_INTEGER64 : (R_wideint_t) v;
     }
     return INTEGER64_ELT(x, i);
 }
@@ -1026,9 +1026,9 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
     switch (code) {
     case PLUSOP:
 	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		long long x1 = wideint_elt(s1, i1);
-		long long x2 = wideint_elt(s2, i2);
-		long long r;
+		R_wideint_t x1 = wideint_elt(s1, i1);
+		R_wideint_t x2 = wideint_elt(s2, i2);
+		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
 		else if (__builtin_add_overflow(x1, x2, &r) ||
@@ -1040,9 +1040,9 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	break;
     case MINUSOP:
 	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		long long x1 = wideint_elt(s1, i1);
-		long long x2 = wideint_elt(s2, i2);
-		long long r;
+		R_wideint_t x1 = wideint_elt(s1, i1);
+		R_wideint_t x2 = wideint_elt(s2, i2);
+		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
 		else if (__builtin_sub_overflow(x1, x2, &r) ||
@@ -1054,9 +1054,9 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	break;
     case TIMESOP:
 	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		long long x1 = wideint_elt(s1, i1);
-		long long x2 = wideint_elt(s2, i2);
-		long long r;
+		R_wideint_t x1 = wideint_elt(s1, i1);
+		R_wideint_t x2 = wideint_elt(s2, i2);
+		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
 		else if (__builtin_mul_overflow(x1, x2, &r) ||
@@ -1070,8 +1070,8 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	{
 	    double *pa = REAL(ans);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    long long x1 = wideint_elt(s1, i1);
-		    long long x2 = wideint_elt(s2, i2);
+		    R_wideint_t x1 = wideint_elt(s1, i1);
+		    R_wideint_t x2 = wideint_elt(s2, i2);
 		    if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 			pa[i] = NA_REAL;
 		    else
@@ -1083,8 +1083,8 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	{
 	    double *pa = REAL(ans);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    long long x1 = wideint_elt(s1, i1);
-		    long long x2 = wideint_elt(s2, i2);
+		    R_wideint_t x1 = wideint_elt(s1, i1);
+		    R_wideint_t x2 = wideint_elt(s2, i2);
 		    if (x1 == 1 || x2 == 0)
 			pa[i] = 1.;
 		    else if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
@@ -1096,9 +1096,9 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	break;
     case MODOP:
 	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		long long x1 = wideint_elt(s1, i1);
-		long long x2 = wideint_elt(s2, i2);
-		long long r;
+		R_wideint_t x1 = wideint_elt(s1, i1);
+		R_wideint_t x2 = wideint_elt(s2, i2);
+		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64 || x2 == 0)
 		    r = NA_INTEGER64;
 		else {
@@ -1111,9 +1111,9 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	break;
     case IDIVOP:
 	MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		long long x1 = wideint_elt(s1, i1);
-		long long x2 = wideint_elt(s2, i2);
-		long long r;
+		R_wideint_t x1 = wideint_elt(s1, i1);
+		R_wideint_t x2 = wideint_elt(s2, i2);
+		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64 || x2 == 0)
 		    r = NA_INTEGER64;
 		else {

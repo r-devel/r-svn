@@ -1,9 +1,11 @@
 # Wide (64-bit) integer vector prototype
 
 Dual-representation INTSXP experiment: a standard (non-ALTREP) INTSXP
-whose payload holds `long long` elements, tagged with gp bit 7
-(`WIDEINT_MASK`, free on vectors). NA is `INT64_MIN`, mirroring
-`NA_INTEGER == INT32_MIN`.
+whose payload holds `R_wideint_t` elements (a typedef, currently
+`long long`), tagged with gp bit 7 (`WIDEINT_MASK`, free on vectors).
+NA is `INT64_MIN`, mirroring `NA_INTEGER == INT32_MIN`. Code printing
+a wide value with `"%lld"` casts to `long long` explicitly, so the
+typedef can change without breaking formats.
 
 ## Design rules
 

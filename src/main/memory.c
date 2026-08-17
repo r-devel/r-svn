@@ -1119,7 +1119,7 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
     case LGLSXP:
     case INTSXP:
 	if (IS_WIDEINT(s))
-	    size = XLENGTH(s) * sizeof(long long);
+	    size = XLENGTH(s) * sizeof(R_wideint_t);
 	else
 	    size = XLENGTH(s) * sizeof(int);
 	break;
@@ -4233,7 +4233,7 @@ SEXP allocWideIntVector(R_xlen_t length)
     return s;
 }
 
-long long INTEGER64_ELT(SEXP x, R_xlen_t i)
+R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i)
 {
     if (TYPEOF(x) != INTSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
@@ -4242,10 +4242,10 @@ long long INTEGER64_ELT(SEXP x, R_xlen_t i)
 	return WIDEINT_PTR(x)[i];
 
     int v = INTEGER_ELT(x, i);
-    return v == NA_INTEGER ? NA_INTEGER64 : (long long) v;
+    return v == NA_INTEGER ? NA_INTEGER64 : (R_wideint_t) v;
 }
 
-void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v)
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v)
 {
     if (TYPEOF(x) != INTSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
@@ -4260,22 +4260,24 @@ void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v)
     else if (v > INT_MIN && v <= INT_MAX)
 	SET_INTEGER_ELT(x, i, (int) v);
     else
-	error("value %lld cannot be stored in a narrow integer vector", v);
+	error("value %lld cannot be stored in a narrow integer vector",
+	      (long long) v);
 }
 
 int R_wideIntegerElt32(SEXP x, R_xlen_t i)
 {
-    long long v = WIDEINT_PTR(x)[i];
+    R_wideint_t v = WIDEINT_PTR(x)[i];
     if (v == NA_INTEGER64)
 	return NA_INTEGER;
     if (v > INT_MIN && v <= INT_MAX)
 	return (int) v;
-    error("wide integer value %lld out of range for a 32-bit access", v);
+    error("wide integer value %lld out of range for a 32-bit access",
+	  (long long) v);
 }
 
 void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v)
 {
-    WIDEINT_PTR(x)[i] = (v == NA_INTEGER) ? NA_INTEGER64 : (long long) v;
+    WIDEINT_PTR(x)[i] = (v == NA_INTEGER) ? NA_INTEGER64 : (R_wideint_t) v;
 }
 
 int *(LOGICAL)(SEXP x) {

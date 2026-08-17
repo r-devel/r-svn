@@ -384,27 +384,32 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
 
 /* Wide (64-bit) integer vector prototype.  A standard (non-ALTREP)
-   INTSXP with this bit set stores long long elements in its payload;
-   gp bit 7 is unused on vectors.  The 32-bit accessors must not touch
-   such vectors, so the INTEGER()/INTEGER_RO() macros below go through
-   checked functions.  NA is INT64_MIN, mirroring NA_INTEGER. */
+   INTSXP with this bit set stores R_wideint_t (currently long long)
+   elements in its payload; gp bit 7 is unused on vectors.  The 32-bit
+   accessors must not touch such vectors, so the INTEGER()/INTEGER_RO()
+   macros below go through checked functions.  NA is INT64_MIN,
+   mirroring NA_INTEGER. */
 #define WIDEINT_MASK ((unsigned short)(1<<7))
 #define IS_WIDEINT(x) (((x)->sxpinfo.alt) == 0 && \
 		       ((x)->sxpinfo.gp & WIDEINT_MASK))
 #define SET_WIDEINT(x) (((x)->sxpinfo.gp) |= WIDEINT_MASK)
 #define UNSET_WIDEINT(x) (((x)->sxpinfo.gp) &= ~WIDEINT_MASK)
-#define WIDEINT_PTR(x) ((long long *) STDVEC_DATAPTR(x))
+#define WIDEINT_PTR(x) ((R_wideint_t *) STDVEC_DATAPTR(x))
 
+#ifndef R_WIDEINT_T_DEFINED
+# define R_WIDEINT_T_DEFINED
+typedef long long R_wideint_t;
+#endif
 #ifndef NA_INTEGER64
-# define NA_INTEGER64 (-9223372036854775807LL - 1)
+# define NA_INTEGER64 ((R_wideint_t)(-9223372036854775807LL - 1))
 #endif
 int R_isWideInteger(SEXP x);
 SEXP allocWideIntVector(R_xlen_t length);
-long long INTEGER64_ELT(SEXP x, R_xlen_t i);
-void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, long long v);
+R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
 int R_wideIntegerElt32(SEXP x, R_xlen_t i);
 void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
-SEXP ScalarWideInt(long long v);
+SEXP ScalarWideInt(R_wideint_t v);
 SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
 SEXP R_formatWideInt(SEXP x);
 
