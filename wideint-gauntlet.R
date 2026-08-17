@@ -250,4 +250,14 @@ probe("compiled subassign promotes", quote({
     c(iw(r), r[1] == 5000000000L)
 }))
 
+section("sort and hash, round 3")
+probe("sort decreasing", quote(sort(xs, decreasing = TRUE)))
+probe("order with ties", quote(order(c(xs, xs))))
+probe("match narrow in wide table", quote(match(2L, w(c("1", "2", "3")))))
+probe("match wide in narrow table", quote(match(w("2"), 1:3)))
+probe("factor(xs)", quote(factor(xs)))
+probe("table(xs)", quote(table(xs)))
+probe("rank(rev(xs))", quote(rank(rev(xs))))
+probe("rev sorted stays sorted", quote(!is.unsorted(sort(rev(xs)))))
+
 cat("\ndone.\n")

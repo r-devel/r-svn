@@ -96,7 +96,8 @@ sort.int <-
     method <- match.arg(method)
     if (method == "auto" && is.null(partial) &&
         (is.numeric(x) || is.factor(x) || is.logical(x)) &&
-        is.integer(length(x)))
+        is.integer(length(x)) &&
+        !is.wideint(x)) # radix sort works on 32-bit keys
         method <- "radix"
     if (method == "radix") {
         if (!is.null(partial)) {
@@ -211,7 +212,8 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
     if (method == "auto") {
         useRadix <- all(vapply(z, function(x) {
             (is.numeric(x) || is.factor(x) || is.logical(x)) &&
-                is.integer(length(x))
+                is.integer(length(x)) &&
+                !is.wideint(x) # radix sort works on 32-bit keys
         }, logical(1L)))
         method <- if (useRadix) "radix" else "shell"
     }

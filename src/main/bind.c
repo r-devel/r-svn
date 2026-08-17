@@ -1324,7 +1324,21 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    bool anyWideBind = false;
+    if (mode == INTSXP)
+	for (t = args; t != R_NilValue; t = CDR(t))
+	    if (R_isWideInteger(PRVALUE(CAR(t)))) {
+		anyWideBind = true;
+		break;
+	    }
+    if (anyWideBind) {
+	PROTECT(result = allocWideIntVector((R_xlen_t) rows * cols));
+	SEXP bdim = allocVector(INTSXP, 2);
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
     if (mode == STRSXP) {
@@ -1411,9 +1425,27 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		     * sometimes does.  But if cbind-ing a NULL, there
 		     * are zero rows and u is not a matrix, so nothing to do. */
 		    if (mode <= INTSXP) {
-			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
-						n, idx, k);
-			n += idx;
+			if (R_isWideInteger(result)) {
+			    if (k > 0) {
+				R_xlen_t i, i1;
+				MOD_ITERATE1(idx, k, i, i1, {
+				    R_wideint_t v;
+				    if (TYPEOF(u) == INTSXP)
+					v = INTEGER64_ELT(u, i1);
+				    else {
+					int lv = LOGICAL(u)[i1];
+					v = (lv == NA_LOGICAL)
+					    ? NA_INTEGER64 : (R_wideint_t) lv;
+				    }
+				    WIDEINT_PTR(result)[n++] = v;
+				});
+			    }
+			}
+			else {
+			    xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
+						    n, idx, k);
+			    n += idx;
+			}
 		    }
 		    else {
 			R_xlen_t i, i1;
@@ -1600,7 +1632,21 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    bool anyWideBind = false;
+    if (mode == INTSXP)
+	for (t = args; t != R_NilValue; t = CDR(t))
+	    if (R_isWideInteger(PRVALUE(CAR(t)))) {
+		anyWideBind = true;
+		break;
+	    }
+    if (anyWideBind) {
+	PROTECT(result = allocWideIntVector((R_xlen_t) rows * cols));
+	SEXP bdim = allocVector(INTSXP, 2);
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
 
@@ -1665,7 +1711,13 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		u = coerceVector(u, INTSXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
-		xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
+		if (R_isWideInteger(result)) {
+		    if (k > 0)
+			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
+			    WIDEINT_PTR(result)[didx] = INTEGER64_ELT(u, sidx);
+		}
+		else
+		    xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
 					  cols, k);
 		n += idx;
 	    }

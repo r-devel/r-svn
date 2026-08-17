@@ -2433,6 +2433,12 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     case INTSXP:
     {
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		if (INTEGER64_ELT(x, i) == NA_INTEGER64)
+		    return true;
+	    break;
+	}
 	if(INTEGER_NO_NA(x))
 	    return false;
 	ITERATE_BY_REGION(x, xI, i, nbatch, int, INTEGER, {

@@ -117,9 +117,12 @@ static hlen lhash(SEXP x, R_xlen_t indx, HashData *d)
 
 static R_INLINE hlen ihash(SEXP x, R_xlen_t indx, HashData *d)
 {
-    int xi = INTEGER_ELT(x, indx);
-    if (xi == NA_INTEGER) return 0;
-    return scatter((unsigned int) xi, d);
+    /* width-agnostic: INTEGER64_ELT reads narrow and wide vectors, so
+       a mixed narrow/wide x-vs-table hashes consistently */
+    R_wideint_t xi = INTEGER64_ELT(x, indx);
+    if (xi == NA_INTEGER64) return 0;
+    unsigned long long u = (unsigned long long) xi;
+    return scatter((unsigned int)(u ^ (u >> 32)), d);
 }
 
 /* We use unions here because Solaris gcc -O2 has trouble with
@@ -246,7 +249,8 @@ static int lequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 static R_INLINE int iequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (i < 0 || j < 0) return 0;
-    return (INTEGER_ELT(x, i) == INTEGER_ELT(y, j));
+    /* width-agnostic, as for ihash */
+    return (INTEGER64_ELT(x, i) == INTEGER64_ELT(y, j));
 }
 
 /* BDR 2002-1-17  We don't want NA and other NaNs to be equal */
@@ -1162,7 +1166,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
-    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
+    SEXP ans = PROTECT(R_isWideInteger(x) ? allocWideIntVector(k)
+					  : allocVector(TYPEOF(x), k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1172,6 +1177,12 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		LOGICAL0(ans)[k++] = LOGICAL_ELT(x, i);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		if (LOGICAL_ELT(dup, i) == 0)
+		    WIDEINT_PTR(ans)[k++] = INTEGER64_ELT(x, i);
+	    break;
+	}
 	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
 		for(R_xlen_t j = 0; j < nb; j++) {
 		    if(duptr[j] == 0)
@@ -1406,6 +1417,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	  break; }
       case LGLSXP:
       case INTSXP: {
+	  if (type == INTSXP &&
+	      (R_isWideInteger(x) || R_isWideInteger(table))) {
+	      R_wideint_t x_val = INTEGER64_ELT(x, 0);
+	      for (int i=0; i < ntable; i++)
+		  if (INTEGER64_ELT(table, i) == x_val) {
+		      val = i + 1; break;
+		  }
+	      break;
+	  }
 	  int x_val = INTEGER_ELT(x, 0),
 	      *table_p = INTEGER(table);
 	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {

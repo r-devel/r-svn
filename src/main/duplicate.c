@@ -410,6 +410,12 @@ void copyVector(SEXP s, SEXP t)
 	xcopyLogicalWithRecycle(LOGICAL(s), LOGICAL_RO(t), 0, ns, nt);
 	break;
     case INTSXP:
+	if (R_isWideInteger(s) || R_isWideInteger(t)) {
+	    if (nt > 0)
+		for (R_xlen_t i = 0; i < ns; i++)
+		    SET_INTEGER64_ELT(s, i, INTEGER64_ELT(t, i % nt));
+	    break;
+	}
 	xcopyIntegerWithRecycle(INTEGER(s), INTEGER_RO(t), 0, ns, nt);
 	break;
     case REALSXP:
@@ -483,6 +489,11 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 		LOGICAL(s)[didx] = LOGICAL(t)[sidx];
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(s) || R_isWideInteger(t)) {
+		FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
+		    SET_INTEGER64_ELT(s, didx, INTEGER64_ELT(t, sidx));
+		break;
+	    }
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		INTEGER(s)[didx] = INTEGER(t)[sidx];
 	    break;

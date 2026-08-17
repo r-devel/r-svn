@@ -60,8 +60,46 @@ typedef can change without breaking formats.
   subset.c, relop.c, arithmetic.c -- wide paths
 - src/main/names.c, src/include/Internal.h, src/main/Makefile.in
 
+## Parser
+
+The `L` suffix now produces a wide integer when the value does not
+fit in 32 bits: `5000000000L`, `9007199254740993L` (parsed via
+strtoll for exactness above 2^53), `0x1FFFFFFFFL`, `1e10L`.  Values
+outside 64 bits, or with fractional parts, keep the old
+warn-and-use-numeric behavior.  deparse() emits plain L literals, so
+values round-trip exactly; storage width intentionally does not
+round-trip (a small value reparses narrow), which is consistent with
+identical() comparing values, not widths.
+
+## Coverage status (after waves 1-4)
+
+All ~155 gauntlet probes pass except two intentional errors
+(fractional as.wideint(), serialization).  Covered beyond the initial
+prototype: the display layer (format/cat/deparse/sprintf/str, named
+vectors, matrices, data.frames), asInteger/asReal/asXLength,
+summaries (mean/min/max/range/prod/cumsum/cummax/cummin/which.max),
+abs, bitwNot/And/Or/Xor, subassignment everywhere (vector/[[/matrix/
+array/stretch) with narrow-to-wide promotion, rep, matrix(), rbind/
+cbind, sort/order/rank (comparison sorts; radix is excluded at the R
+level since it works on 32-bit keys), unique/duplicated/match/%in%/
+factor/table via width-agnostic ihash/iequal, and the byte-code
+STEPFOR/VECSUBSET fast paths.
+
+Notable systemic fixes found while working through the failures:
+- DATAPTR_OR_NULL / INTEGER_OR_NULL return NULL for wide vectors, so
+  ITERATE_BY_REGION users take the guarded region path (this closed
+  the only silent-corruption hole: sum/min/max read wide payloads as
+  int32 pairs).
+- ALTREP wrappers (wrap_meta) refuse wide vectors: the alt bit would
+  hide the wide bit and present the payload as 32-bit.
+- The fastpass_sortcheck() quick-sequence scan and the byte-code
+  scalar fast paths bail to the generic handlers for wide input.
+
+Still unsupported (by design or out of scope): serialization, radix
+sort on wide keys, %o%/%x% conversions beyond sprintf, split/tapply
+and friends were not explicitly probed.
+
 ## Gauntlet
 
-`wideint-gauntlet.R` probes ~100 base operations; the ok/ERR pattern
-is the catalog of what a real implementation would still need to
-touch.
+`wideint-gauntlet.R` probes ~155 base operations; run it after any
+change and diff the ok/ERR pattern.

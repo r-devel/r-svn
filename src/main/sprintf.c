@@ -373,6 +373,25 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 			    }
 			case INTSXP:
 			    {
+				if (R_isWideInteger(_this)) {
+				    R_wideint_t x =
+					INTEGER64_ELT(_this, ns % thislen);
+				    if (checkfmt(fmtp, "dioxX"))
+					error(_("invalid format '%s'; %s"), fmtp,
+					      _("use format %d, %i, %o, %x or %X for integer objects"));
+				    if (x == NA_INTEGER64) {
+					fmtp[strlen(fmtp)-1] = 's';
+					_my_sprintf("NA")
+				    } else {
+					/* splice in the ll length modifier */
+					size_t fl = strlen(fmtp);
+					char conv = fmtp[fl-1];
+					fmtp[fl-1] = 'l'; fmtp[fl] = 'l';
+					fmtp[fl+1] = conv; fmtp[fl+2] = '\0';
+					_my_sprintf((long long) x)
+				    }
+				    break;
+				}
 				int x = INTEGER(_this)[ns % thislen];
 				if (checkfmt(fmtp, "dioxX"))
 				    error(_("invalid format '%s'; %s"), fmtp,

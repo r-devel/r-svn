@@ -6336,6 +6336,7 @@ static R_INLINE SEXP mkVector1(SEXP s)
 	    return;						\
 	case INTSXP:						\
 	    if (i < 0 || XLENGTH(vec) <= i) break;		\
+	    if (R_isWideInteger(vec)) break; /* use default handler */	\
 	    SETSTACK_INTEGER_PTR(sv, INTEGER_ELT(vec, i));	\
 	    return;						\
 	case LGLSXP:						\
@@ -6411,6 +6412,7 @@ static R_INLINE void VECSUBSET_PTR(SEXP vec, R_bcstack_t *si,
 		    DFVE_NEXT();					\
 		case INTSXP:						\
 		    if (i <= 0 || XLENGTH(vec) < i) break;		\
+		    if (R_isWideInteger(vec)) break; /* default handler */ \
 		    SETSTACK_INTEGER_PTR(sx, INTEGER_ELT(vec, i - 1));	\
 		    DFVE_NEXT();					\
 		case LGLSXP:						\
@@ -7758,6 +7760,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    SET_FOR_LOOP_VAR(value, cell, loopinfo, rho);
 	    NEXT();
 	  case INTSXP:
+	    if (R_isWideInteger(seq)) {
+		value = ScalarWideInt(INTEGER64_ELT(seq, i));
+		SET_FOR_LOOP_VAR(value, cell, loopinfo, rho);
+		NEXT();
+	    }
 	    if (BNDCELL_TAG_WR(cell) == INTSXP) {
 		SET_BNDCELL_IVAL(cell, INTEGER_ELT(seq, i));
 		NEXT();
