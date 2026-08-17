@@ -108,6 +108,22 @@ attribute_hidden SEXP do_iswideint(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(R_isWideInteger(CAR(args)));
 }
 
+/* Widen a narrow integer vector, preserving attributes. */
+attribute_hidden SEXP R_widenInteger(SEXP x)
+{
+    if (R_isWideInteger(x))
+	return x;
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(allocWideIntVector(n));
+    for (R_xlen_t i = 0; i < n; i++)
+	SET_INTEGER64_ELT(ans, i, INTEGER64_ELT(x, i));
+
+    SHALLOW_DUPLICATE_ATTRIB(ans, x);
+    UNPROTECT(1);
+    return ans;
+}
+
 /* Coercion of a wide integer vector to other atomic types; called
    from coerceVector().  Coercing to INTSXP is the identity there and
    never reaches this function. */

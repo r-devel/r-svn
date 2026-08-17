@@ -412,6 +412,8 @@ void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
 SEXP ScalarWideInt(R_wideint_t v);
 SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
 SEXP R_formatWideInt(SEXP x);
+const char *EncodeWideInt(R_wideint_t x, int w);
+SEXP R_widenInteger(SEXP x);
 
 /* Vector Access Macros */
 #ifdef LONG_VECTOR_SUPPORT

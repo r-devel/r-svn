@@ -482,6 +482,15 @@ static R_INLINE SEXP integer_mean(SEXP x)
 {
     R_xlen_t n = XLENGTH(x);
     LDOUBLE s = 0.0;
+    if (R_isWideInteger(x)) {
+	for (R_xlen_t i = 0; i < n; i++) {
+	    R_wideint_t xi = INTEGER64_ELT(x, i);
+	    if(xi == NA_INTEGER64)
+		return ScalarReal(R_NaReal);
+	    s += (double) xi;
+	}
+	return ScalarReal((double) (s/n));
+    }
     for (R_xlen_t i = 0; i < n; i++) {
 	int xi = INTEGER_ELT(x, i);
 	if(xi == NA_INTEGER)
@@ -625,6 +634,68 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(toret != NULL) {
 	    UNPROTECT(1); /* args */
 	    return toret;
+	}
+    }
+
+    /* Wide (64-bit) integer early path for min/max/prod over
+       integer-ish arguments: the generic accumulator machinery below
+       is three-typed (int/double/string). */
+    if (PRIMVAL(op) == 2 || PRIMVAL(op) == 3 || PRIMVAL(op) == 4) {
+	bool any_wide = false, all_intish = true;
+	for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
+	    SEXP av = CAR(t);
+	    if (R_isWideInteger(av))
+		any_wide = true;
+	    else if (TYPEOF(av) != INTSXP && TYPEOF(av) != LGLSXP)
+		all_intish = false;
+	}
+	if (any_wide && all_intish) {
+	    int iop = PRIMVAL(op);
+	    bool na = false, seen = false;
+	    LDOUBLE p = 1.0;
+	    R_wideint_t cum =
+		(iop == 2) ? 9223372036854775807LL : -9223372036854775807LL;
+
+	    for (SEXP t = args; t != R_NilValue && !na; t = CDR(t)) {
+		SEXP av = CAR(t);
+		R_xlen_t n = XLENGTH(av);
+		for (R_xlen_t i = 0; i < n; i++) {
+		    R_wideint_t v;
+		    if (TYPEOF(av) == LGLSXP) {
+			int lv = LOGICAL_ELT(av, i);
+			v = (lv == NA_LOGICAL) ? NA_INTEGER64
+			    : (R_wideint_t) lv;
+		    } else
+			v = INTEGER64_ELT(av, i);
+
+		    if (v == NA_INTEGER64) {
+			if (!narm) {
+			    na = true;
+			    break;
+			}
+			continue;
+		    }
+		    seen = true;
+		    if (iop == 4)
+			p *= (double) v;
+		    else if (iop == 2 ? v < cum : v > cum)
+			cum = v;
+		}
+	    }
+
+	    UNPROTECT(1); /* args */
+	    if (iop == 4)
+		return ScalarReal(na ? NA_REAL : (double) p);
+	    if (na)
+		return ScalarWideInt(NA_INTEGER64);
+	    if (!seen) {
+		/* mimic min(integer(0)) etc */
+		warningcall(call, iop == 2
+		    ? _("no non-missing arguments to min; returning Inf")
+		    : _("no non-missing arguments to max; returning -Inf"));
+		return ScalarReal(iop == 2 ? R_PosInf : R_NegInf);
+	    }
+	    return ScalarWideInt(cum);
 	}
     }
 
@@ -1078,6 +1149,22 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
     break;
 
     case INTSXP:
+    if (R_isWideInteger(sx))
+    {
+	R_wideint_t s = 0;
+	for (i = 0; i < n; i++) {
+	    R_wideint_t v = INTEGER64_ELT(sx, i);
+	    if (v == NA_INTEGER64)
+		continue;
+	    if (indx == -1 ||
+		(PRIMVAL(op) == 0 ? v < s : v > s)) {
+		s = v;
+		indx = i;
+	    }
+	}
+	break;
+    }
+    else
     {
 	int s, *r = INTEGER(sx);
 	if(PRIMVAL(op) == 0) { /* which.min */

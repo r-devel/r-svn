@@ -96,6 +96,8 @@
 #define R_USE_SIGNALS 1
 #include "IOStuff.h"		/*-> Defn.h */
 #include "Fileio.h"
+#include <errno.h>
+#include <stdlib.h>
 #include "Parse.h"
 #include <R_ext/Print.h>
 
@@ -4974,29 +4976,56 @@ static int NumericValue(int c)
 	
     YYTEXT_PUSH('\0', yyp);    
     /* Make certain that things are okay. */
+    int asWide = 0;
+    R_wideint_t wideval = 0;
     if(c == 'L') {
 	double a = R_atof(yytext);
 	int b = (int) a;
 	/* We are asked to create an integer via the L, so we check that the
-	   double and int values are the same. If not, this is a problem and we
-	   will not lose information and so use the numeric value.
+	   double and int values are the same. If not, we try a wide (64-bit)
+	   integer before falling back to the numeric value.
 	*/
 	if(a != (double) b) {
-	    if(GenerateCode) {
-		if(seendot == 1 && seenexp == 0)
-		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);
-		else {
-		    /* hide the L for the warning message */
-		    warning(_("non-integer value %s qualified with L; using numeric value"), yytext);
+	    if(seendot == 0 && seenexp == 0) {
+		/* parse the digits directly: above 2^53 the double
+		   value is no longer exact */
+		char *endp;
+		errno = 0;
+		long long v =
+		    (yytext[0] == '0' && (yytext[1] == 'x' || yytext[1] == 'X'))
+		    ? strtoll(yytext, &endp, 16)
+		    : strtoll(yytext, &endp, 10);
+		if(errno == 0 && (*endp == '\0' ||
+				   (*endp == 'L' && endp[1] == '\0'))) {
+		    asWide = 1;
+		    wideval = (R_wideint_t) v;
 		}
 	    }
-	    asNumeric = 1;
-	    seenexp = 1;
+	    else if(seenexp == 1 && seendot != 1 &&
+		    a < 9223372036854775808.0 /* 2^63 */ &&
+		    a == (double)(R_wideint_t) a) {
+		asWide = 1;
+		wideval = (R_wideint_t) a;
+	    }
+	    if(!asWide) {
+		if(GenerateCode) {
+		    if(seendot == 1 && seenexp == 0)
+			warning(_("integer literal %s contains decimal; using numeric value"), yytext);
+		    else {
+			/* hide the L for the warning message */
+			warning(_("non-integer value %s qualified with L; using numeric value"), yytext);
+		    }
+		}
+		asNumeric = 1;
+		seenexp = 1;
+	    }
 	}
     }
 
     if(c == 'i') {
 	yylval = GenerateCode ? mkComplex(yytext) : R_NilValue;
+    } else if(c == 'L' && asWide) {
+	yylval = GenerateCode ? ScalarWideInt(wideval) : R_NilValue;
     } else if(c == 'L' && asNumeric == 0) {
 	if(GenerateCode && seendot == 1 && seenexp == 0)
 	    warning(_("integer literal %s contains unnecessary decimal point"), yytext);

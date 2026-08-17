@@ -492,6 +492,12 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	    printNamedLogicalVectorS(x, n_pr, names);
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		SEXP xs = PROTECT(R_formatWideInt(x));
+		printNamedStringVectorS(xs, n_pr, 0, names);
+		UNPROTECT(1);
+		break;
+	    }
 	    printNamedIntegerVectorS(x, n_pr, names);
 	    break;
 	case REALSXP:

@@ -3,8 +3,8 @@
 # The pattern of failures is the point: it catalogs which base operations
 # need wide-awareness and which fail loudly via the guarded accessors.
 
-w  <- function(x) .Internal(as.wideint(x))
-iw <- function(x) .Internal(is.wideint(x))
+w  <- as.wideint
+iw <- is.wideint
 
 probe <- function(desc, expr) {
     wmsg <- NULL
@@ -207,5 +207,28 @@ probe("xtfrm(xs)", quote(xtfrm(xs)))
 probe("tabulate-ish table(small)", quote(table(small)))
 probe("outer(small, small)", quote(outer(small, small)))
 probe("wide in switch/eval", quote(eval(quote(big + big))))
+
+section("display layer, round 2")
+probe("format(xs)", quote(format(xs)))
+probe("format(big, width = 20)", quote(format(big, width = 20)))
+probe("deparse round-trips exactly", quote({
+    v <- w("9007199254740993")  # odd value above 2^53
+    identical(eval(parse(text = deparse(v))), v)
+}))
+probe("print matrix of wide", quote(print(matrix(c(xs, xs), nrow = 2))))
+probe("print data.frame of wide", quote(print(data.frame(x = xs))))
+probe("toString(xs)", quote(toString(xs)))
+
+section("summaries, round 2")
+probe("min(xs) is wide", quote({ m <- min(xs); c(m == w("5000000000"), iw(m)) }))
+probe("max(xs)", quote(max(xs)))
+probe("range(xs)", quote(range(xs)))
+probe("min(xs, 1L) mixed", quote(min(xs, 1L)))
+probe("min NA propagates", quote(min(mix)))
+probe("min(xs, na.rm-style)", quote(min(mix, na.rm = TRUE)))
+probe("cumsum(xs)", quote(cumsum(xs)))
+probe("cummax(rev(xs))", quote(cummax(rev(xs))))
+probe("cummin(xs)", quote(cummin(xs)))
+probe("colon big:(big+3)", quote(big:(big + w("3"))))
 
 cat("\ndone.\n")

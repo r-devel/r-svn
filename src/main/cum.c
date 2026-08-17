@@ -241,6 +241,54 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	default:
 	    errorcall(call, "unknown cumxxx function");
 	}
+    } else if (R_isWideInteger(CAR(args)) &&
+	       (PRIMVAL(op) != 2 && PRIMVAL(op) != 5)) {
+	t = CAR(args);
+	PROTECT(t);
+	n = XLENGTH(t);
+	PROTECT(s = allocWideIntVector(n));
+	setAttrib(s, R_NamesSymbol, getAttrib(t, R_NamesSymbol));
+	if(n == 0) {
+	    UNPROTECT(2); /* t, s */
+	    return s;
+	}
+	for(i = 0 ; i < n ; i++)
+	    WIDEINT_PTR(s)[i] = NA_INTEGER64;
+
+	switch (PRIMVAL(op)) {
+	case 1: { /* cumsum */
+	    R_wideint_t sum = 0;
+	    for(i = 0 ; i < n ; i++) {
+		R_wideint_t v = INTEGER64_ELT(t, i);
+		if (v == NA_INTEGER64)
+		    break;
+		if (__builtin_add_overflow(sum, v, &sum) ||
+		    sum == NA_INTEGER64) {
+		    warning(_("integer overflow in 'cumsum'; use 'cumsum(as.numeric(.))'"));
+		    break;
+		}
+		WIDEINT_PTR(s)[i] = sum;
+	    }
+	    break;
+	}
+	case 3: /* cummax */
+	case 4: { /* cummin */
+	    R_wideint_t m = 0;
+	    for(i = 0 ; i < n ; i++) {
+		R_wideint_t v = INTEGER64_ELT(t, i);
+		if (v == NA_INTEGER64)
+		    break;
+		if (i == 0 || (PRIMVAL(op) == 3 ? v > m : v < m))
+		    m = v;
+		WIDEINT_PTR(s)[i] = m;
+	    }
+	    break;
+	}
+	default:
+	    errorcall(call, _("unknown cumxxx function"));
+	}
+	UNPROTECT(2); /* t, s */
+	return s;
     } else if( ( isInteger(CAR(args)) || isLogical(CAR(args)) ) &&
 	       (PRIMVAL(op) != 2 && PRIMVAL(op) != 5)) {
 	PROTECT(t = coerceVector(CAR(args), INTSXP));

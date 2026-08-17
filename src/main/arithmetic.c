@@ -1665,7 +1665,14 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
-    if (isInteger(x) || isLogical(x)) {
+    if (R_isWideInteger(x)) {
+	R_xlen_t i, n = XLENGTH(x);
+	PROTECT(s = NO_REFERENCES(x) ? x : duplicate(x));
+	for(i = 0 ; i < n ; i++) {
+	    R_wideint_t xi = INTEGER64_ELT(x, i);
+	    WIDEINT_PTR(s)[i] = (xi == NA_INTEGER64 || xi >= 0) ? xi : -xi;
+	}
+    } else if (isInteger(x) || isLogical(x)) {
 	/* integer or logical ==> return integer,
 	   factor was covered by Math.factor. */
 	R_xlen_t i, n = XLENGTH(x);

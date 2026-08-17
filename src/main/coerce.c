@@ -1863,6 +1863,15 @@ int asInteger(SEXP x)
 	case LGLSXP:
 	    return IntegerFromLogical(LOGICAL_ELT(x, 0), &warn);
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		if (v == NA_INTEGER64)
+		    return NA_INTEGER;
+		if (v > INT_MIN && v <= INT_MAX)
+		    return (int) v;
+		CoercionWarning(WARN_INT_NA); /* out of 32-bit range */
+		return NA_INTEGER;
+	    }
 	    return INTEGER_ELT(x, 0);
 	case REALSXP:
 	    res = IntegerFromReal(REAL_ELT(x, 0), &warn);
@@ -1896,6 +1905,12 @@ R_xlen_t asXLength(SEXP x)
 	switch (TYPEOF(x)) {
 	case INTSXP:
 	{
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		if (v == NA_INTEGER64 || v < 0 || v > R_XLEN_T_MAX)
+		    return na;
+		return (R_xlen_t) v;
+	    }
 	    int res = INTEGER_ELT(x, 0);
 	    if (res == NA_INTEGER)
 		return na;
@@ -1932,6 +1947,10 @@ double asReal(SEXP x)
 	    CoercionWarning(warn);
 	    return res;
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		return v == NA_INTEGER64 ? NA_REAL : (double) v;
+	    }
 	    res = RealFromInteger(INTEGER_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;

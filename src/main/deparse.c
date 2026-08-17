@@ -1631,7 +1631,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	quote = isString(vector) ? '"' : 0;
     bool surround = false, allNA,
 	intSeq = false; // := true iff integer sequence 'm:n' (up *or* down)
-    if(TYPEOF(vector) == INTSXP && tlen > 1) {
+    if(TYPEOF(vector) == INTSXP && !R_isWideInteger(vector) && tlen > 1) {
 	int *vec = INTEGER(vector);
 	// vec[1] - vec[0] could overflow, and does in package Rmpfr
 	double d_i = (double) vec[1] - (double)vec[0];
@@ -1682,6 +1682,28 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	case RAWSXP: print2buff("raw(0)", d); break;
 	default: UNIMPLEMENTED_TYPE("vector2buff", vector);
 	}
+    }
+    else if(TYPEOF(vector) == INTSXP && R_isWideInteger(vector)) {
+	/* wide integers deparse as L literals, which the parser now
+	   widens on 32-bit overflow; values round-trip exactly, and
+	   width (narrow vs wide storage) deliberately does not */
+	if(need_c) print2buff("c(", d);
+	for (i = 0; i < tlen; i++) {
+	    if(do_names) // put '<tag> = '
+		deparse2buf_name(nv, i, d);
+	    R_wideint_t v = INTEGER64_ELT(vector, i);
+	    if(v == NA_INTEGER64)
+		print2buff("NA_integer_", d);
+	    else {
+		char wbuf[24];
+		snprintf(wbuf, sizeof(wbuf), "%lldL", (long long) v);
+		print2buff(wbuf, d);
+	    }
+	    if (i < (tlen - 1)) print2buff(", ", d);
+	    if (tlen > 1 && d->len > d->cutoff) writeline(d);
+	    if (!d->active) break;
+	}
+	if(need_c) print2buff(")", d);
     }
     else if(TYPEOF(vector) == INTSXP) {
 	/* We treat integer separately, as S_compatible is relevant.

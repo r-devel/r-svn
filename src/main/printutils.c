@@ -150,6 +150,18 @@ const char *EncodeInteger(int x, int w)
 }
 
 attribute_hidden
+const char *EncodeWideInt(R_wideint_t x, int w)
+{
+    static char buff[NB];
+    if(x == NA_INTEGER64)
+	snprintf(buff, NB, "%*s", min(w, (NB-1)), CHAR(R_print.na_string));
+    else
+	snprintf(buff, NB, "%*lld", min(w, (NB-1)), (long long) x);
+    buff[NB-1] = '\0';
+    return buff;
+}
+
+attribute_hidden
 const char *EncodeRaw(Rbyte x, const char * prefix)
 {
     static char buff[10];
@@ -857,6 +869,10 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
 	res = EncodeLogical(LOGICAL_RO(x)[indx], w);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    res = EncodeWideInt(INTEGER64_ELT(x, indx), 0);
+	    break;
+	}
 	formatInteger(&INTEGER_RO(x)[indx], 1, &w);
 	res = EncodeInteger(INTEGER_RO(x)[indx], w);
 	break;

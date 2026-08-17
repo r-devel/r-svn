@@ -359,6 +359,15 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    /* format wide values as fixed-width strings and reuse the
+	       string matrix layout */
+	    SEXP xs = PROTECT(R_formatWideInt(x));
+	    printStringMatrix(xs, offset, r_pr, r, c_pr, 0, 1,
+			      rl, cl, rn, cn, true);
+	    UNPROTECT(1);
+	    break;
+	}
 	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case REALSXP:
