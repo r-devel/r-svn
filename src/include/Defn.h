@@ -510,11 +510,14 @@ SEXP R_widenInteger(SEXP x);
 #define XLENGTH(x) XLENGTH_EX(x)
 
 /* THIS ABSOLUTELY MUST NOT BE USED IN PACKAGES !!! */
+/* A wide integer vector must never carry the scalar bit: the
+   IS_SCALAR fast paths read the payload as a 4-byte int. */
 #define SET_STDVEC_LENGTH(x,v) do {		\
 	SEXP __x__ = (x);			\
 	R_xlen_t __v__ = (v);			\
 	STDVEC_LENGTH(__x__) = __v__;		\
-	SETSCALAR(__x__, __v__ == 1 ? 1 : 0);	\
+	SETSCALAR(__x__, (__v__ == 1 &&		\
+			  ! R_isWideInteger(__x__)) ? 1 : 0);	\
     } while (0)
 
 /* Under the generational allocator the data for vector nodes comes
