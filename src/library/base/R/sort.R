@@ -257,7 +257,8 @@ sort.list <- function(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
     method <- match.arg(method)
     if (method == "auto" &&
         (is.numeric(x) || is.factor(x) || is.logical(x) ||
-         (is.object(x) && !is.atomic(x))) && is.integer(length(x)))
+         (is.object(x) && !is.atomic(x))) && is.integer(length(x)) &&
+        !is.wideint(x)) # radix sort works on 32-bit keys
         method <- "radix"
     if(!is.null(partial))
         .NotYetUsed("partial != NULL")
