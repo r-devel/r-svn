@@ -210,13 +210,12 @@ getVarsHdr <- function(fpath, lines, include = R.home("include"), flags = "") {
 }
 
 ccE <- function(lines, include = R.home("include"), flags, clean = TRUE) {
-    if (Sys.which("cc") == "")
-        stop("'cc' is not on the path")
+    CC <- Rcmd(c("config", "CC"), stdout = TRUE)
     tfile <- tempfile(fileext = ".h")
     on.exit(unlink(tfile))
     writeLines(lines, tfile)
     include <- paste(sprintf("-I%s", include), collapse = " ")
-    cmd <- sprintf("cc -E %s %s", include, tfile)
+    cmd <- sprintf("%s -E %s %s", CC, include, tfile)
     if (! missing(flags))
         cmd <- paste(cmd, flags)
     val <- system(cmd, intern=TRUE)
@@ -225,9 +224,13 @@ ccE <- function(lines, include = R.home("include"), flags, clean = TRUE) {
     else val
 }
 
-ccEclean <- function(lines, pattern = "Rtmp") {
+## cceclean remove lines brought in from header files, keeping only
+## ones corresponding to tfile
+ccEclean <- function(lines, tfile) {
     fline <- grepl("^#", lines)
-    keep <- grepl(pattern, lines[fline])
+    ## using basename should be sufficient and avoids dealing with
+    ## Windows path issues
+    keep <- grepl(basename(tfile), lines[fline])
     len <- diff(c(which(fline), length(lines) + 1))
     keep <- unlist(mapply(rep, keep, len, USE.NAMES = FALSE))
     lines <- lines[keep & ! fline]

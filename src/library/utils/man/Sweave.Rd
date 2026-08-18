@@ -6,8 +6,6 @@
 \name{Sweave}
 \alias{Sweave}
 \alias{Stangle}
-\alias{SweaveSyntaxLatex}
-\alias{SweaveSyntaxNoweb}
 \title{Automatic Generation of Reports}
 \description{
   \code{Sweave} provides a flexible framework for mixing text and R/S code
@@ -83,8 +81,8 @@ Stangle(file, driver = Rtangle(),
   If \code{syntax = NULL} (the default) then the available syntax
   objects are consulted in turn, and selected if their \code{extension}
   component matches (as a regexp) the file name.  Objects
-  \code{SweaveSyntaxNoweb} (with \code{extension = "[.][rsRS]nw$"}) and
-  \code{SweaveSyntaxLatex} (with \code{extension = "[.][rsRS]tex$"}) are
+  \code{\link{SweaveSyntaxNoweb}} (with \code{extension = "[.][rsRS]nw$"}) and
+  \code{\link{SweaveSyntaxLatex}} (with \code{extension = "[.][rsRS]tex$"}) are
   supplied, but users or packages can supply others with names matching
   the pattern \samp{SweaveSyntax.*}.
 }

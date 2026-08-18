@@ -24,6 +24,10 @@
       \item Fixing \code{rbinom()}, see \PR{19049} below, to reproduce
       old results needs \code{RNGkind()} to get a new \code{binom.kind}
       argument and, e.g. \code{RNGversion("4.6")} keeps previous behaviour.
+
+      \item The Sweave syntax definition objects
+      \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
+      their own detailed help page.
     }
   }
 
@@ -214,7 +218,10 @@
 
       \item In \code{nls}, follow suggestion by \I{Ben Bolker} to reorder
       named vectors for \code{lower} and \code{upper} arguments to match
-      names of coefficients (\PR{18415}).
+      names of the starting values (\PR{18415}). This has been extended so that
+      you can now specify \emph{only} the parameters that you wish to
+      constrain, and also so that it works when parameters are in the
+      form of named lists.
 
       \item \code{summary(<aov>)} for an almost perfect fit now warns
       analogously to \code{summary(<lm>)}, using the same check.  Fixes
@@ -238,6 +245,17 @@
       \item Fix segfault in \code{grid::gpar()} if set \code{fontfamily}
       longer than 200 characters (\PR{19107}).  Thanks
       to \I{Kevin Ushey}.
+
+      \item Fix cases where \code{M} and \code{X} matrices could be
+      spanning the same subspace in \code{mauchly.test()}, \code{sphericity()}
+      \code{anova.mlm()}, \code{anova.mlmlist()}. (\PR{16166}, originally
+      reported in 2015 by \I{Florent Aubry}, essentially analyzed
+      Feb. 2020 just before the corona crisis, triaged 2026 by
+      \I{Michael Chirico})
+
+      \item Changed \code{model.frame.glm()} to use same logic as
+      \code{model.frame.lm()} (\PR{19036}, \I{Isaac Gravestock}).
+      
     }
   }
 }

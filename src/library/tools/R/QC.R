@@ -585,10 +585,9 @@ function(package, dir, lib.loc = NULL,
 
     ## <FIXME>
     ## How exactly do we recognize docs for defunct/deprecated?
-    db_names <- .Rd_get_names_from_Rd_db(db)
-    ## pkg-defunct.Rd is not expected to list arguments
-    ind <- db_names %in% paste0(package_name, "-defunct")
-    db <- db[!ind]
+    ## pkg-defunct.Rd is not expected to list arguments.
+    db_name_defunct <- paste0(package_name, "-defunct.Rd")
+    ## See also below ...
     ## </FIXME>
 
     db_usages <- lapply(db, .Rd_get_section, "usage")
@@ -624,7 +623,7 @@ function(package, dir, lib.loc = NULL,
             variables <- vapply(exprs[ind], deparse, "")
             variables_in_usages <- c(variables_in_usages, variables)
             variables <- setdiff(variables, objects_as_in)
-            if(length(variables))
+            if(length(variables) && (nm != db_name_defunct))
                 variables_in_usages_not_in_code[[nm]] <- variables
             exprs <- exprs[!ind]
         }
@@ -638,7 +637,7 @@ function(package, dir, lib.loc = NULL,
                                 "")
             data_sets_in_usages <- c(data_sets_in_usages, data_sets)
             data_sets <- setdiff(data_sets, data_sets_in_code)
-            if(length(data_sets))
+            if(length(data_sets) && (nm != db_name_defunct))
                 data_sets_in_usages_not_in_code[[nm]] <- data_sets
             exprs <- exprs[!ind]
         }
@@ -653,8 +652,9 @@ function(package, dir, lib.loc = NULL,
         ## And also unary/binary operators
         ind <- (functions %notin% c("<-", "=", "+", "-"))
         exprs <- exprs[ind]
-        functions <- functions[ind]
-        functions <- .transform_S3_method_markup(as.character(functions))
+        functions <- as.character(functions[ind])
+        functions <- structure(.transform_S3_method_markup(functions),
+                               names = functions)
         ind <- functions %in% functions_in_code
         bad_functions <-
             mapply(functions[ind],
@@ -669,7 +669,9 @@ function(package, dir, lib.loc = NULL,
                               function(e) as.character(e[[2L]][[1L]]),
                               ""),
                        "<-")
-            replace_funs <- .transform_S3_method_markup(replace_funs)
+            replace_funs <-
+                structure(.transform_S3_method_markup(replace_funs),
+                          names = replace_funs)
             functions <- c(functions, replace_funs)
             ind <- (replace_funs %in% functions_in_code)
             if(any(ind)) {
@@ -687,7 +689,7 @@ function(package, dir, lib.loc = NULL,
         }
 
         bad_functions <- do.call(c, bad_functions)
-        if(length(bad_functions))
+        if(length(bad_functions) && (nm != db_name_defunct))
             bad_doc_objects[[nm]] <- bad_functions
 
         ## Determine functions with a \usage entry in the documentation
@@ -709,7 +711,7 @@ function(package, dir, lib.loc = NULL,
             functions <- functions[!ind]
         ## </FIXME>
         bad_functions <- setdiff(functions, objects_as_in)
-        if(length(bad_functions))
+        if(length(bad_functions) && (nm != db_name_defunct))
             functions_in_usages_not_in_code[[nm]] <- bad_functions
 
         functions_in_usages <- c(functions_in_usages, functions)
@@ -774,30 +776,70 @@ function(package, dir, lib.loc = NULL,
                            ifnotfound = list(NULL), inherits = TRUE)
             funlst <- funlst[!vapply(funlst, is.null, NA)]
             ## Drop the defunct functions.
-            predicate <-
-                .predicate_for_calls_with_names(".Defunct", "base")
-            is_defunct <- function(f) {
-                predicate(.get_top_call_in_fun(f))
+            ## This is not so easy.  The original idea was that such
+            ## functions would add a call to .Defunct() at top level, in
+            ## which case we could use code analysis to realiably
+            ## determine these, using something like
+            ##   predicate <-
+            ##       .predicate_for_calls_with_names(".Defunct", "base")
+            ##   is_defunct <- function(f) {
+            ##       predicate(.get_top_call_in_fun(f))
+            ##   }
+            ##   funlst <- funlst[!vapply(funlst, is_defunct, NA)]
+            ## However, packages could add their wrappers to provide
+            ## more convenient messages ... 
+            ## Hence simply drop everything that has an alias in
+            if(length(ind <- which(names(db) == db_name_defunct))) {
+                db_aliases_in_package_defunct_Rd <-
+                    unlist(lapply(db[ind], .Rd_get_metadata, "alias"),
+                           use.names = FALSE)
+                funlst <- funlst[names(funlst) %notin%
+                                 db_aliases_in_package_defunct_Rd]
             }
-            funlst <- funlst[!vapply(funlst, is_defunct, NA)]
             ## For the remaining ones, record whether they come from
             ## ourselves (which is not the case for re-exports).
-            if(length(funlst))
+            ## In addition, packages may
+            ## (a) Provide explicit usage for method(s) but not the
+            ##     generic, or for the generic but not exported methods
+            ## (b) "Document" internal functions without usage
+            ## So record this info as well.
+            if(length(funlst)) {
+                funnms <- names(funlst)
+                fiu <- functions_in_usages
+                ## Very crude approximation for (a) based on simple
+                ## GEN.CLS name matching:
+                ns3 <- (is.na(charmatch(paste0(funnms, "."), fiu)) &
+                        !vapply(funnms,
+                                function(e)
+                                    any(startsWith(e, paste0(fiu, "."))),
+                                NA))
+                keywords <- lapply(db, .Rd_get_metadata, "keyword")
+                ind <- which(vapply(keywords,
+                                    function(k) "internal" %in% k,
+                                    NA))
+                db_aliases_from_internal <-
+                    unlist(lapply(db[ind], .Rd_get_metadata, "alias"),
+                           use.names = FALSE)
+                ext <- funnms %notin% db_aliases_from_internal
                 data.frame(name = names(funlst),
-                           self = vapply(funlst,
+                           self = if(is_base) TRUE else
+                                  vapply(funlst,
                                          function(f)
                                              identical(environment(f),
                                                        ns_env),
-                                         NA))
-            else
+                                         NA),
+                           ns3 = ns3,
+                           ext = ext)
+            } else
                 NULL
         }
     objects_missing_from_usages <-
-        if(!has_namespace) character() else {
-            c(functions_missing_from_usages,
+        if(!has_namespace) character()
+        else {
+            c(functions_missing_from_usages$name,
               setdiff(objects_in_code_not_in_usages,
                       c(functions_in_code, data_sets_in_code)))
-                                       }
+        }
 
     attr(bad_doc_objects, "objects_in_code_not_in_usages") <-
         objects_in_code_not_in_usages
@@ -818,6 +860,9 @@ function(package, dir, lib.loc = NULL,
         objects_missing_from_usages
     attr(bad_doc_objects, "functions_missing_from_usages") <-
         functions_missing_from_usages
+    attr(bad_doc_objects, "functions_in_usages") <- functions_in_usages
+    attr(bad_doc_objects, "variables_in_usages") <- variables_in_usages
+    attr(bad_doc_objects, "data_sets_in_usages") <- data_sets_in_usages
     attr(bad_doc_objects, "has_namespace") <- has_namespace
     attr(bad_doc_objects, "bad_lines") <- bad_lines
     class(bad_doc_objects) <- "codoc"
@@ -885,11 +930,13 @@ function(x, ...)
     functions_missing_from_usages <-
         attr(x, "functions_missing_from_usages")
     if(NROW(functions_missing_from_usages) &&
-       config_val_to_logical(Sys.getenv("_R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_",
-                                        "FALSE"))) {
-        self <- functions_missing_from_usages$self
+       (!isFALSE(val <- config_val_to_logical(Sys.getenv("_R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_",
+                                                          "FALSE"))))) {
+        ind <- functions_missing_from_usages$self
+        if(is.na(val))
+            ind <- ind & functions_missing_from_usages$ext
         functions_missing_from_usages <-
-            functions_missing_from_usages$name[self]
+            functions_missing_from_usages$name[ind]
         if(length(functions_missing_from_usages))
             y <- c(y,
                    pcn(c("Exported functions without usage information:",
