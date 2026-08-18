@@ -39,7 +39,12 @@ typedef can change without breaking formats.
 - Wide vectors are allocated via `allocVector(REALSXP, n)` + relabel,
   so GC node classes and heap accounting see the true 8-byte payload;
   `getVecSizeInVEC` is wide-aware. Scalar flag is kept off to avoid
-  32-bit scalar fast paths.
+  32-bit scalar fast paths. The relabel trick assumes
+  `sizeof(long long) == sizeof(double)` (a `_Static_assert` in
+  memory.c enforces this); a real implementation should instead grow
+  an internal allocator taking an explicit payload element size
+  (an `allocVector0(size, n)`), which removes the coupling and keeps
+  type-checking instrumentation honest.
 
 ## Test hooks
 

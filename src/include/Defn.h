@@ -403,12 +403,12 @@ typedef long long R_wideint_t;
 #ifndef NA_INTEGER64
 # define NA_INTEGER64 ((R_wideint_t)(-9223372036854775807LL - 1))
 #endif
-int R_isWideInteger(SEXP x);
+/* R_isWideInteger, INTEGER64_ELT, SET_INTEGER64_ELT and the
+   narrowing helpers are inlinable and so must only be declared via
+   Rinlinedfuns.h (or its fallback block below): an unguarded
+   declaration here would demote the C99 inline definitions to
+   external ones in every translation unit */
 SEXP allocWideIntVector(R_xlen_t length);
-R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
-void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
-int R_wideIntegerElt32(SEXP x, R_xlen_t i);
-void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
 SEXP ScalarWideInt(R_wideint_t v);
 SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
 SEXP R_formatWideInt(SEXP x);
@@ -453,9 +453,8 @@ SEXP R_widenInteger(SEXP x);
 #undef CHAR
 #define CHAR(x)		((const char *) STDVEC_DATAPTR(x))
 #define LOGICAL(x)	((int *) DATAPTR(x))
-/* wide-int prototype: error on 32-bit pointer access to wide vectors */
-int *R_INTEGER32chk(SEXP x);
-const int *R_INTEGER32chk_ro(SEXP x);
+/* wide-int prototype: error on 32-bit pointer access to wide vectors;
+   R_INTEGER32chk is declared via Rinlinedfuns.h (see above) */
 #define INTEGER(x)	(R_INTEGER32chk(x))
 #define RAW(x)		((Rbyte *) DATAPTR(x))
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
@@ -877,6 +876,15 @@ int *INTEGER0(SEXP x);
 double *REAL0(SEXP x);
 Rcomplex *COMPLEX0(SEXP x);
 Rbyte *RAW0(SEXP x);
+
+int R_isWideInteger(SEXP x);
+R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
+int R_wideIntegerElt32(SEXP x, R_xlen_t i);
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
+int *R_INTEGER32chk(SEXP x);
+const int *R_INTEGER32chk_ro(SEXP x);
+int *R_INTEGER32chk0(SEXP x);
 
 Rboolean Rf_conformable(SEXP, SEXP);
 Rboolean Rf_isUserBinop(SEXP);
