@@ -1010,7 +1010,7 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 {
     R_xlen_t i, i1, i2, n, n1, n2;
     SEXP ans;
-    bool naflag = false;
+    bool naflag = false, precflag = false;
 
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
@@ -1074,8 +1074,14 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		    R_wideint_t x2 = wideint_elt(s2, i2);
 		    if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 			pa[i] = NA_REAL;
-		    else
+		    else {
+			if (x1 > R_WIDEINT_DBL_EXACT ||
+			    x1 < -R_WIDEINT_DBL_EXACT ||
+			    x2 > R_WIDEINT_DBL_EXACT ||
+			    x2 < -R_WIDEINT_DBL_EXACT)
+			    precflag = true;
 			pa[i] = (double) x1 / (double) x2;
+		    }
 		});
 	}
 	break;
@@ -1089,8 +1095,14 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 			pa[i] = 1.;
 		    else if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 			pa[i] = NA_REAL;
-		    else
+		    else {
+			if (x1 > R_WIDEINT_DBL_EXACT ||
+			    x1 < -R_WIDEINT_DBL_EXACT ||
+			    x2 > R_WIDEINT_DBL_EXACT ||
+			    x2 < -R_WIDEINT_DBL_EXACT)
+			    precflag = true;
 			pa[i] = R_POW((double) x1, (double) x2);
+		    }
 		});
 	}
 	break;
@@ -1128,6 +1140,8 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 
     if (naflag)
 	warningcall(lcall, WIDEINT_OVERFLOW_WARNING);
+    if (precflag)
+	warningcall(lcall, _("coercing wide integers above 2^53 loses precision"));
 
     UNPROTECT(1);
 
