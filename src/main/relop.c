@@ -527,7 +527,9 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     n = (n1 > n2) ? n1 : n2;
     PROTECT(s1);
     PROTECT(s2);
-    ans = allocVector(LGLSXP, n);
+    /* protect ans: the wide loop below dispatches ALTREP Elt methods,
+       which may allocate */
+    PROTECT(ans = allocVector(LGLSXP, n));
 
     if (R_isWideInteger(s1) || R_isWideInteger(s2)) {
 	int *pa = LOGICAL(ans);
@@ -545,7 +547,7 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 	    case GEOP: pa[i] = (c >= 0); break;
 	    }
 	});
-	UNPROTECT(2);
+	UNPROTECT(3);
 	return ans;
     }
 
@@ -561,7 +563,7 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
         NUMERIC_RELOP(double, REAL, ISNAN, double, REAL, ISNAN);
     }
 
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -863,7 +865,10 @@ static SEXP bitwiseNot(SEXP a)
 	    R_xlen_t i, ia, ib;						\
 	    R_xlen_t m = XLENGTH(a), n = XLENGTH(b),			\
 		mn = (m && n) ? mymax(m, n) : 0;			\
+	    /* protect ans: INTEGER64_ELT dispatches ALTREP Elt		\
+	       methods for a narrow operand, which may allocate */	\
 	    ans = R_allocWideIntVector(mn);				\
+	    PROTECT(ans); np++;						\
 	    MOD_ITERATE2(mn, m, n, i, ia, ib, {				\
 		    R_wideint_t aa = INTEGER64_ELT(a, ia);		\
 		    R_wideint_t bb = INTEGER64_ELT(b, ib);		\
