@@ -84,6 +84,7 @@ int R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
 
 Rboolean R_useDynamicSymbols(DllInfo *info, Rboolean value);
 Rboolean R_forceSymbols(DllInfo *info, Rboolean value);
+Rboolean R_useInt64(DllInfo *info, Rboolean value);
 
 /* Not API */
 #ifdef USE_BASE_R_SUPPORT

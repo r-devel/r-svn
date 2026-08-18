@@ -296,6 +296,18 @@ Rboolean R_forceSymbols(DllInfo *info, Rboolean value)
     return old;
 }
 
+/* Opt in to receiving INT64SXP arguments through .Call/.External;
+   by default they are narrowed to 32-bit integer vectors at the
+   boundary.  Called from a package's R_init routine. */
+// API, in header R_ext/Rdynload.h
+Rboolean R_useInt64(DllInfo *info, Rboolean value)
+{
+    Rboolean old;
+    old = info->acceptInt64;
+    info->acceptInt64 = value;
+    return old;
+}
+
 static void
 R_addCRoutine(DllInfo *info, const R_CMethodDef * const croutine,
 	      Rf_DotCSymbol *sym);
@@ -368,6 +380,7 @@ R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
     */
     info->useDynamicLookup = (info->handle) ? TRUE : FALSE;
     info->forceSymbols = FALSE;
+    info->acceptInt64 = FALSE;
 
     if(croutines) {
 	for(num = 0; croutines[num].name != NULL; num++) {;}
@@ -946,6 +959,7 @@ static DllInfo *R_RegisterDLL(HINSTANCE handle, const char *path)
 	*/
 	info->useDynamicLookup = TRUE;
 	info->forceSymbols = FALSE;
+	info->acceptInt64 = FALSE;
 	return info;
     } else
 	/* dpath freed in addDLL */

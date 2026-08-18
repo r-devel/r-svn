@@ -513,6 +513,38 @@ attribute_hidden SEXP do_isloaded(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(val);
 }
 
+/* int64 arguments cross the foreign function boundary as 32-bit
+   integer vectors unless the package has opted in with R_useInt64():
+   a narrowed copy when every value is representable, an error
+   otherwise.  This keeps compiled code that has not been audited for
+   int64 from ever seeing INT64SXP data, and moves the failure for
+   unrepresentable values to the boundary, where it can name the
+   routine and argument. */
+static SEXP int64NarrowBoundary(SEXP arg, int argnum, const char *name,
+				SEXP call)
+{
+    R_xlen_t n = XLENGTH(arg);
+    SEXP ans = PROTECT(allocVector(INTSXP, n));
+    const R_int64_t *px = INT64_RO(arg);
+    int *pa = INTEGER(ans);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	R_int64_t v = px[i];
+	if (v == NA_INT64)
+	    pa[i] = NA_INTEGER;
+	else if (v > (R_int64_t) INT_MIN && v <= (R_int64_t) INT_MAX)
+	    pa[i] = (int) v;
+	else
+	    errorcall(call,
+		      _("int64 argument %d to '%s' has values outside the 32-bit integer range; the package has not opted into int64 support (see R_useInt64)"),
+		      argnum, name);
+    }
+
+    SHALLOW_DUPLICATE_ATTRIB(ans, arg);
+    UNPROTECT(1);
+    return ans;
+}
+
 /*   Call dynamically loaded "internal" functions.
      Original code by Jean Meloche <jean@stat.ubc.ca> */
 
@@ -562,6 +594,14 @@ attribute_hidden SEXP do_External(SEXP call, SEXP op, SEXP args, SEXP env)
 	    errorcall(call,
 		      _("Incorrect number of arguments (%d), expecting %d for '%s'"),
 		      nargs, symbol.symbol.external->numArgs, buf);
+    }
+
+    if (!(symbol.dll && symbol.dll->acceptInt64)) {
+	int an = 1;
+	for (SEXP pargs = CDR(args); pargs != R_NilValue;
+	     pargs = CDR(pargs), an++)
+	    if (TYPEOF(CAR(pargs)) == INT64SXP)
+		SETCAR(pargs, int64NarrowBoundary(CAR(pargs), an, buf, call));
     }
 
     /* args is escaping into user C code and might get captured, so
@@ -1420,9 +1460,13 @@ attribute_hidden SEXP do_dotcall(SEXP call, SEXP op, SEXP args, SEXP env)
     args = resolveNativeRoutine(args, &ofun, &symbol, buf, NULL, NULL, call, env);
     args = CDR(args);
 
+    bool narrow64 = !(symbol.dll && symbol.dll->acceptInt64);
     for(nargs = 0, pargs = args ; pargs != R_NilValue; pargs = CDR(pargs)) {
 	if (nargs == MAX_ARGS)
 	    errorcall(call, _("too many arguments in foreign function call"));
+	if (narrow64 && TYPEOF(CAR(pargs)) == INT64SXP)
+	    /* the args pairlist protects the narrowed copy */
+	    SETCAR(pargs, int64NarrowBoundary(CAR(pargs), nargs + 1, buf, call));
 	cargs[nargs] = CAR(pargs);
 	nargs++;
     }
@@ -1735,6 +1779,12 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 	int nprotect = 0, targetType =  checkTypes ? checkTypes[na] : 0;
 	R_xlen_t n;
 	s = CAR(pa);
+	if (TYPEOF(s) == INT64SXP) {
+	    /* .C/.Fortran marshal integer data as 32-bit int: narrow
+	       at the boundary, erroring on unrepresentable values */
+	    PROTECT(s = int64NarrowBoundary(s, na + 1, symName, call));
+	    nprotect++;
+	}
 	/* start with return value a copy of the inputs, as that is
 	   what is needed for non-atomic-vector inputs */
 	SET_VECTOR_ELT(ans, na, s);

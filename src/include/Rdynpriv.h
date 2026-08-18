@@ -113,6 +113,8 @@ struct _DllInfo {
     Rf_DotExternalSymbol *ExternalSymbols;
 
     Rboolean forceSymbols;
+    Rboolean acceptInt64; /* .Call/.External pass INT64SXP through
+			     rather than narrowing at the boundary */
 };
 
 
