@@ -310,6 +310,7 @@ void attribute_visible R_init_stats(DllInfo *dll)
     R_registerRoutines(dll, CEntries, CallEntries, FortEntries, ExtEntries);
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, TRUE);
+    R_useInt64(dll, TRUE); /* C code here handles INT64SXP */
 
     R_RegisterCCallable("stats", "nlminb_iterate", (DL_FUNC) nlminb_iterate);
     R_RegisterCCallable("stats", "nlsb_iterate", (DL_FUNC) nlsb_iterate);

@@ -184,6 +184,18 @@ DL_FUNC R_dotCallFn(SEXP op, SEXP call, int nargs) {
     return fun;
 }
 
+/* As R_dotCallFn, but also reports whether the routine's DLL has
+   opted into receiving INT64SXP arguments (R_useInt64); used by the
+   byte-code DOTCALL fast path so it can fall back to do_dotcall for
+   the boundary narrowing. */
+DL_FUNC R_dotCallFn2(SEXP op, SEXP call, int nargs, int *acceptInt64) {
+    R_RegisteredNativeSymbol symbol = {R_CALL_SYM, {NULL}, NULL};
+    DL_FUNC fun = NULL;
+    checkValidSymbolId(op, call, &fun, &symbol, NULL);
+    *acceptInt64 = symbol.dll && symbol.dll->acceptInt64;
+    return fun;
+}
+
 /*
   This is the routine that is called by do_dotCode, do_dotcall and
   do_External to find the DL_FUNC to invoke. It handles processing the

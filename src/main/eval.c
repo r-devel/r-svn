@@ -5348,18 +5348,27 @@ static R_INLINE double (*getMath1Fun(int i, SEXP call))(double) {
 #define DO_DOTCALL() do {						\
 	SEXP call = GETCONST(constants, GETOP());			\
 	int nargs = GETOP();						\
-	DL_FUNC ofun = R_dotCallFn(GETSTACK(- nargs - 1), call, nargs);	\
+	int ok64 = 0;							\
+	DL_FUNC ofun = R_dotCallFn2(GETSTACK(- nargs - 1), call, nargs,	\
+				    &ok64);				\
 	if (ofun && nargs <= DOTCALL_MAX) {				\
 	    SEXP cargs[DOTCALL_MAX];					\
-	    for (int i = 0; i < nargs; i++)				\
+	    bool has64 = false;						\
+	    for (int i = 0; i < nargs; i++) {				\
 		cargs[i] = GETSTACK(i - nargs);				\
-	    void *vmax = vmaxget();					\
-	    SEXP val = R_doDotCall(ofun, nargs, cargs, call);		\
-	    vmaxset(vmax);						\
-	    R_BCNodeStackTop -= nargs;					\
-	    SETSTACK(-1, val);						\
-	    R_Visible = TRUE;						\
-	    NEXT();							\
+		if (TYPEOF(cargs[i]) == INT64SXP) has64 = true;		\
+	    }								\
+	    /* int64 args to a non-opted-in routine take the slow	\
+	       path below, where do_dotcall narrows at the boundary */	\
+	    if (!has64 || ok64) {					\
+		void *vmax = vmaxget();					\
+		SEXP val = R_doDotCall(ofun, nargs, cargs, call);	\
+		vmaxset(vmax);						\
+		R_BCNodeStackTop -= nargs;				\
+		SETSTACK(-1, val);					\
+		R_Visible = TRUE;					\
+		NEXT();							\
+	    }								\
 	}								\
 	SEXP args = R_NilValue;						\
 	BCNPUSH(args); /* allocate space for protecting args */		\

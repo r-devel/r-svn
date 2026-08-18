@@ -198,6 +198,7 @@ DL_FUNC R_dlsym(DllInfo *info, char const *name,
   DL_FUNC R_ExternalPtrAddrFn(SEXP s);
 */
 DL_FUNC R_dotCallFn(SEXP, SEXP, int);
+DL_FUNC R_dotCallFn2(SEXP, SEXP, int, int *acceptInt64);
 SEXP R_doDotCall(DL_FUNC, int, SEXP *, SEXP);
 
 #endif /* ifdef R_DYNPRIV_H */

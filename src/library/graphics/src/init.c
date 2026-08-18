@@ -87,5 +87,6 @@ R_init_graphics(DllInfo *dll)
     R_registerRoutines(dll, NULL, CallEntries, NULL, ExtEntries);
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, TRUE);
+    R_useInt64(dll, TRUE); /* C code here handles INT64SXP */
     registerBase();
 }
