@@ -262,7 +262,7 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 		R_wideint_t v = INTEGER64_ELT(t, i);
 		if (v == NA_INTEGER64)
 		    break;
-		if (__builtin_add_overflow(sum, v, &sum) ||
+		if (R_ovf_add(sum, v, &sum) ||
 		    sum == NA_INTEGER64) {
 		    warning(_("integer overflow in 'cumsum'; use 'cumsum(as.numeric(.))'"));
 		    break;

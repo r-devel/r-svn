@@ -403,6 +403,67 @@ typedef long long R_wideint_t;
 #ifndef NA_INTEGER64
 # define NA_INTEGER64 ((R_wideint_t)(-9223372036854775807LL - 1))
 #endif
+#define R_WIDEINT_MAX ((R_wideint_t) 9223372036854775807LL)
+#define R_WIDEINT_MIN ((R_wideint_t)(-9223372036854775807LL - 1))
+
+/* Checked wide-integer arithmetic.  GCC/Clang expose __builtin_*_overflow;
+   on other toolchains fall back to portable checks (SEI CERT INT32-C).
+   R_ovf_{add,sub,mul}(a, b, r) store a op b into *r and return nonzero on
+   signed 64-bit overflow.  Result pointers must be R_wideint_t *. */
+#if defined(__has_builtin)
+# if __has_builtin(__builtin_add_overflow)
+#  define R_HAVE_BUILTIN_OVERFLOW 1
+# endif
+#endif
+#if !defined(R_HAVE_BUILTIN_OVERFLOW) && \
+    defined(__GNUC__) && !defined(__INTEL_COMPILER) && (__GNUC__ >= 5)
+# define R_HAVE_BUILTIN_OVERFLOW 1
+#endif
+
+#ifdef R_HAVE_BUILTIN_OVERFLOW
+# define R_ovf_add(a, b, r) __builtin_add_overflow((a), (b), (r))
+# define R_ovf_sub(a, b, r) __builtin_sub_overflow((a), (b), (r))
+# define R_ovf_mul(a, b, r) __builtin_mul_overflow((a), (b), (r))
+#else
+static R_INLINE int R_wideint_add_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if ((b > 0 && a > R_WIDEINT_MAX - b) || (b < 0 && a < R_WIDEINT_MIN - b))
+	return 1;
+    *r = a + b;
+    return 0;
+}
+static R_INLINE int R_wideint_sub_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if ((b < 0 && a > R_WIDEINT_MAX + b) || (b > 0 && a < R_WIDEINT_MIN + b))
+	return 1;
+    *r = a - b;
+    return 0;
+}
+static R_INLINE int R_wideint_mul_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if (a > 0) {
+	if (b > 0) {
+	    if (a > R_WIDEINT_MAX / b) return 1;
+	} else {
+	    if (b < R_WIDEINT_MIN / a) return 1;
+	}
+    } else {
+	if (b > 0) {
+	    if (a < R_WIDEINT_MIN / b) return 1;
+	} else {
+	    if (a != 0 && b < R_WIDEINT_MAX / a) return 1;
+	}
+    }
+    *r = a * b;
+    return 0;
+}
+# define R_ovf_add(a, b, r) R_wideint_add_ovf((a), (b), (r))
+# define R_ovf_sub(a, b, r) R_wideint_sub_ovf((a), (b), (r))
+# define R_ovf_mul(a, b, r) R_wideint_mul_ovf((a), (b), (r))
+#endif
 /* R_isWideInteger, INTEGER64_ELT, SET_INTEGER64_ELT and the
    narrowing helpers are inlinable and so must only be declared via
    Rinlinedfuns.h (or its fallback block below): an unguarded

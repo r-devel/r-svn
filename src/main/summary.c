@@ -55,17 +55,18 @@ static int isum(SEXP sx, isum_INT *value, bool narm, SEXP call)
     int updated = 0;
 
     if (R_isWideInteger(sx)) {
+	R_wideint_t ws = 0;
 	R_xlen_t n = XLENGTH(sx);
 	for (R_xlen_t k = 0; k < n; k++) {
 	    R_wideint_t v = INTEGER64_ELT(sx, k);
 	    if (v != NA_INTEGER64) {
 		if (!updated) updated = 1;
-		if (__builtin_add_overflow(s, (isum_INT) v, &s))
+		if (R_ovf_add(ws, v, &ws))
 		    return 42; /* overflow: caller switches to risum() */
 	    } else if (!narm)
 		return NA_INTEGER;
 	}
-	*value = s;
+	*value = ws;
 	return updated;
     }
 #ifdef LONG_VECTOR_SUPPORT
@@ -142,6 +143,25 @@ static bool risum(SEXP sx, double *value, bool narm)
 {
     LDOUBLE s = 0.0;
     bool updated = false;
+
+    if (R_isWideInteger(sx)) {
+	R_xlen_t n = XLENGTH(sx);
+	for (R_xlen_t k = 0; k < n; k++) {
+	    R_wideint_t v = INTEGER64_ELT(sx, k);
+	    if (v != NA_INTEGER64) {
+		if (!updated) updated = true;
+		s += (double) v;
+	    } else if (!narm) {
+		if (!updated) updated = true;
+		*value = NA_REAL;
+		return updated;
+	    }
+	}
+	if (s > DBL_MAX) *value = R_PosInf;
+	else if (s < -DBL_MAX) *value = R_NegInf;
+	else *value = (double) s;
+	return updated;
+    }
 
     /**** assumes INTEGER(sx) and LOGICAL(sx) are identical!! */
     ITERATE_BY_REGION(sx, x, i, nbatch, int, INTEGER, {
@@ -298,6 +318,56 @@ static bool imax(SEXP sx, int *value, bool narm)
     return updated;
 }
 
+/* min()/max() over a wide integer argument mixed with a non-integer
+   argument: the generic accumulator is int/double/string-typed and a
+   wide value need not fit in int, so accumulate as a double (matching
+   the documented wide-to-double coercion for values above 2^53). */
+static bool wimin(SEXP sx, double *value, bool narm)
+{
+    double s = 0.0;
+    bool updated = false;
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	R_wideint_t v = INTEGER64_ELT(sx, k);
+	if (v != NA_INTEGER64) {
+	    double dv = (double) v;
+	    if (!updated || dv < s) {
+		s = dv;
+		if (!updated) updated = true;
+	    }
+	} else if (!narm) {
+	    *value = NA_REAL;
+	    return true;
+	}
+    }
+    *value = s;
+    return updated;
+}
+
+static bool wimax(SEXP sx, double *value, bool narm)
+{
+    double s = 0.0;
+    bool updated = false;
+    R_xlen_t n = XLENGTH(sx);
+
+    for (R_xlen_t k = 0; k < n; k++) {
+	R_wideint_t v = INTEGER64_ELT(sx, k);
+	if (v != NA_INTEGER64) {
+	    double dv = (double) v;
+	    if (!updated || dv > s) {
+		s = dv;
+		if (!updated) updated = true;
+	    }
+	} else if (!narm) {
+	    *value = NA_REAL;
+	    return true;
+	}
+    }
+    *value = s;
+    return updated;
+}
+
 static bool rmax(SEXP sx, double *value, bool narm)
 {
     double s = 0.0 /* -Wall */;
@@ -350,6 +420,29 @@ static bool iprod(SEXP sx, double *value, bool narm)
 {
     LDOUBLE s = 1.0;
     bool updated = false;
+
+    if (R_isWideInteger(sx)) {
+	R_xlen_t n = XLENGTH(sx);
+	for (R_xlen_t k = 0; k < n; k++) {
+	    R_wideint_t v = INTEGER64_ELT(sx, k);
+	    if (v != NA_INTEGER64) {
+		s *= (double) v;
+		if (!updated) updated = true;
+	    } else if (!narm) {
+		if (!updated) updated = true;
+		*value = NA_REAL;
+		return updated;
+	    }
+	    if (ISNAN(s)) {
+		*value = NA_REAL;
+		return updated;
+	    }
+	}
+	if (s > DBL_MAX) *value = R_PosInf;
+	else if (s < -DBL_MAX) *value = R_NegInf;
+	else *value = (double) s;
+	return updated;
+    }
 
     /**** assumes INTEGER(sx) and LOGICAL(sx) are identical!! */
     ITERATE_BY_REGION(sx, x, i, nbatch, int, INTEGER, {
@@ -796,6 +889,19 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		switch(TYPEOF(a)) {
 		case LGLSXP:
 		case INTSXP:
+		    if (R_isWideInteger(a)) {
+			/* a wide value may not fit in int; accumulate as a
+			   double (reached only when a non-integer argument
+			   is also present) */
+			real_a = true;
+			if(ans_type == INTSXP) {
+			    ans_type = REALSXP;
+			    if(!empty) zcum.r = Int2Real(icum);
+			}
+			if (iop == 2) updated = wimin(a, &tmp, narm);
+			else	      updated = wimax(a, &tmp, narm);
+			break;
+		    }
 		    int_a = true;
 		    if (iop == 2) updated = imin(a, &itmp, narm);
 		    else	  updated = imax(a, &itmp, narm);

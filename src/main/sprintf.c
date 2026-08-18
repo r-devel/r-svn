@@ -383,8 +383,13 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 					fmtp[strlen(fmtp)-1] = 's';
 					_my_sprintf("NA")
 				    } else {
-					/* splice in the ll length modifier */
+					/* splice in the ll length modifier; the
+					   two extra bytes must stay within fmt/
+					   fmt2 (fmt is only MAXLINE+1 long) */
 					size_t fl = strlen(fmtp);
+					if (fl + 2 > MAXLINE)
+					    error(_("'fmt' length exceeds maximal format length %d"),
+						  MAXLINE);
 					char conv = fmtp[fl-1];
 					fmtp[fl-1] = 'l'; fmtp[fl] = 'l';
 					fmtp[fl+1] = conv; fmtp[fl+2] = '\0';

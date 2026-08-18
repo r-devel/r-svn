@@ -406,11 +406,13 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, int v) {
 }
 HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
-    return INTEGER(x)[0];
+    /* scalars are never wide (R_allocWideIntVector clears the scalar
+       bit), so bypass INTEGER()'s wide check on this hot path */
+    return ((int *) DATAPTR(x))[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
-    INTEGER(x)[0] = v;
+    ((int *) DATAPTR(x))[0] = v;
 }
 
 /*HIDDEN*/ INLINE_FUN double *REAL0(SEXP x) {
@@ -465,7 +467,9 @@ INLINE_FUN int INTEGER_ELT(SEXP x, R_xlen_t i)
     if (R_isWideInteger(x))
 	/* narrows when the value is representable, errors otherwise */
 	return R_wideIntegerElt32(x, i);
-    return ALTREP(x) ? ALTINTEGER_ELT(x, i) : INTEGER0(x)[i];
+    /* wideness already ruled out: index the payload directly rather than
+       through INTEGER0(), which would repeat the wide check */
+    return ALTREP(x) ? ALTINTEGER_ELT(x, i) : ((int *) STDVEC_DATAPTR(x))[i];
 }
 
 INLINE_FUN void SET_INTEGER_ELT(SEXP x, R_xlen_t i, int v)
@@ -473,7 +477,7 @@ INLINE_FUN void SET_INTEGER_ELT(SEXP x, R_xlen_t i, int v)
     CHECK_VECTOR_INT_ELT(x, i);
     if (R_isWideInteger(x)) R_wideIntegerSetElt32(x, i, v);
     else if (ALTREP(x)) ALTINTEGER_SET_ELT(x, i, v);
-    else INTEGER0(x)[i] = v;
+    else ((int *) STDVEC_DATAPTR(x))[i] = v;
 }
 
 INLINE_FUN R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i)

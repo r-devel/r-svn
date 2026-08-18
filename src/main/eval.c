@@ -1356,6 +1356,13 @@ static R_exprhash_t hashexpr1(SEXP e, R_exprhash_t h)
 	return h;
     case INTSXP:
 	SKIP_NONSCALAR;
+	if (R_isWideInteger(e)) {
+	    for (int i = 0; i < len; i++) {
+		R_wideint_t wval = INTEGER64_ELT(e, i);
+		h = HASH(wval, h);
+	    }
+	    return h;
+	}
 	for (int i = 0; i < len; i++) {
 	    int ival = INTEGER(e)[i];
 	    h = HASH(ival, h);
@@ -2668,7 +2675,13 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call)
 	    cond = LOGICAL(s)[0];
 	    break;
 	case INTSXP:
-	    cond = INTEGER(s)[0]; /* relies on NA_INTEGER == NA_LOGICAL */
+	    if (R_isWideInteger(s)) {
+		/* only nonzero-ness matters, so avoid the 32-bit narrowing
+		   that would error on a large wide value */
+		R_wideint_t wv = INTEGER64_ELT(s, 0);
+		cond = (wv == NA_INTEGER64) ? NA_LOGICAL : (wv != 0);
+	    } else
+		cond = INTEGER(s)[0]; /* relies on NA_INTEGER == NA_LOGICAL */
 	    break;
 	default:
 	    cond = asLogical(s);
@@ -6594,6 +6607,7 @@ static R_INLINE Rboolean setElementFromScalar(SEXP vec, R_xlen_t i,
 	switch(v->tag) {
 	case INTSXP:
 	    if (XLENGTH(vec) <= i) return FALSE;
+	    if (R_isWideInteger(vec)) return FALSE; /* default handler widens */
 	    INTEGER(vec)[i] = v->u.ival;
 	    return TRUE;
 	case LGLSXP:
@@ -6681,6 +6695,7 @@ static R_INLINE void VECSUBASSIGN_PTR(SEXP vec, R_bcstack_t *srhs,
 		    REAL(vec)[i - 1] = srhs->u.dval;			\
 		    DFVA_NEXT(sx, vec);					\
 		case INTSXP:						\
+		    if (R_isWideInteger(vec)) break; /* default handler */ \
 		    INTEGER(vec)[i - 1] = srhs->u.ival;			\
 		    DFVA_NEXT(sx, vec);					\
 		case LGLSXP:						\

@@ -1083,6 +1083,9 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 
     if(length(incomp)) {
 	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	/* incomp may be wide even when x is narrow: use the
+	   width-agnostic comparator so data.equal reads it correctly */
+	intHashWiden(&data, incomp);
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1108,6 +1111,9 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
     PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    /* widen the scheme before any hashing so both the table lookups and
+       the direct incomp comparisons read a wide incomp correctly */
+    intHashWiden(&data, incomp);
     m = length(incomp);
 
     if(from_last)

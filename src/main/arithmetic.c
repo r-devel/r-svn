@@ -1031,7 +1031,7 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
-		else if (__builtin_add_overflow(x1, x2, &r) ||
+		else if (R_ovf_add(x1, x2, &r) ||
 			 r == NA_INTEGER64) {
 		    r = NA_INTEGER64; naflag = true;
 		}
@@ -1045,7 +1045,7 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
-		else if (__builtin_sub_overflow(x1, x2, &r) ||
+		else if (R_ovf_sub(x1, x2, &r) ||
 			 r == NA_INTEGER64) {
 		    r = NA_INTEGER64; naflag = true;
 		}
@@ -1059,7 +1059,7 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 		R_wideint_t r;
 		if (x1 == NA_INTEGER64 || x2 == NA_INTEGER64)
 		    r = NA_INTEGER64;
-		else if (__builtin_mul_overflow(x1, x2, &r) ||
+		else if (R_ovf_mul(x1, x2, &r) ||
 			 r == NA_INTEGER64) {
 		    r = NA_INTEGER64; naflag = true;
 		}

@@ -1794,6 +1794,10 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	case LGLSXP:
 	    return LOGICAL_ELT(x, 0);
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		return (v == NA_INTEGER64) ? NA_LOGICAL : (v != 0);
+	    }
 	    return LogicalFromInteger(INTEGER_ELT(x, 0), &warn);
 	case REALSXP:
 	    return LogicalFromReal(REAL_ELT(x, 0), &warn);

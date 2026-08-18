@@ -1447,6 +1447,14 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			    n += idx;
 			}
 		    }
+		    else if (R_isWideInteger(u)) {
+			R_xlen_t i, i1;
+			MOD_ITERATE1(idx, k, i, i1, {
+			    R_wideint_t v = INTEGER64_ELT(u, i1);
+			    REAL(result)[n++] =
+				(v == NA_INTEGER64) ? NA_REAL : (double) v;
+			});
+		    }
 		    else {
 			R_xlen_t i, i1;
 			MOD_ITERATE1(idx, k, i, i1, {

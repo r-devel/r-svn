@@ -55,6 +55,10 @@ static R_wideint_t wideFromString(SEXP ch)
 	error("value '%s' is out of range for a wide integer", s);
     if (endp == s || *endp != '\0')
 	error("cannot coerce '%s' to a wide integer", s);
+    if (v == NA_INTEGER64)
+	/* -2^63 parses in range but is the NA sentinel; reject it rather
+	   than silently returning NA (wideFromDouble errors here too) */
+	error("value '%s' is out of range for a wide integer", s);
 
     return v;
 }
