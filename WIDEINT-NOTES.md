@@ -98,6 +98,15 @@ Notable systemic fixes found while working through the failures:
   ITERATE_BY_REGION users take the guarded region path (this closed
   the only silent-corruption hole: sum/min/max read wide payloads as
   int32 pairs).
+- KNOWN REMAINING ESCAPE HATCH: DATAPTR / DATAPTR_RO / STDVEC_DATAPTR
+  (and the LOGICAL macro, which is (int *) DATAPTR) are deliberately
+  not guarded, unlike INTEGER/INTEGER0/INTEGER_RO.  Package C code
+  that reads an integer payload through DATAPTR silently misreads a
+  wide vector's 64-bit elements as int32 pairs.  Guarding DATAPTR
+  would tax every vector access and break legitimate whole-payload
+  uses (duplication, serialization), so a real implementation must
+  instead audit DATAPTR consumers -- this is the one place the
+  "fail loudly by construction" perimeter is open.
 - ALTREP wrappers (wrap_meta) refuse wide vectors: the alt bit would
   hide the wide bit and present the payload as 32-bit.
 - The fastpass_sortcheck() quick-sequence scan and the byte-code
