@@ -1953,7 +1953,12 @@ double asReal(SEXP x)
 	case INTSXP:
 	    if (R_isWideInteger(x)) {
 		R_wideint_t v = INTEGER64_ELT(x, 0);
-		return v == NA_INTEGER64 ? NA_REAL : (double) v;
+		if (v == NA_INTEGER64)
+		    return NA_REAL;
+		/* keep scalar coercion consistent with R_wideIntCoerce */
+		if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+		    warning(_("coercing wide integers above 2^53 loses precision"));
+		return (double) v;
 	    }
 	    res = RealFromInteger(INTEGER_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
