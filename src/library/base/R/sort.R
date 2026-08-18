@@ -114,8 +114,9 @@ sort.int <-
         y <- .doSortWrap(y, decreasing, na.last)
         return(if (index.return) list(x = y, ix = o) else y)
     }
-    else if (method == "auto" || !is.numeric(x))
+    else if (method == "auto" || !is.numeric(x) || is.wideint(x))
           method <- "shell" # explicitly prevent 'quick' for non-numeric data
+                            # and for wide vectors (qsort is 32-bit)
 
     if(isfact <- is.factor(x)) {
         if(index.return) stop("'index.return' only for non-factors")
@@ -146,7 +147,10 @@ sort.int <-
 		    k <- sum(ina)
 		    partial[partial > k] - k
 		}
-        y <- if(length(partial) <= 10L) {
+        y <- if(is.wideint(x))
+                 ## psort/qsort are 32-bit; a full sort satisfies 'partial'
+                 .Internal(sort(x, FALSE))
+             else if(length(partial) <= 10L) {
 		 partial <- .Internal(qsort(partial, FALSE))
 		 .Internal(psort(x, partial))
 	     } else if(is.double(x))
