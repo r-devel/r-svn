@@ -246,7 +246,7 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 	t = CAR(args);
 	PROTECT(t);
 	n = XLENGTH(t);
-	PROTECT(s = allocWideIntVector(n));
+	PROTECT(s = R_allocWideIntVector(n));
 	setAttrib(s, R_NamesSymbol, getAttrib(t, R_NamesSymbol));
 	if(n == 0) {
 	    UNPROTECT(2); /* t, s */

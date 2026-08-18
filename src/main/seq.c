@@ -271,7 +271,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	ratio = na/nc; // average no of replications
 	if (ratio > 1000U) ni = 1000U;
 	} */
-    PROTECT(a = R_isWideInteger(s) ? allocWideIntVector(na)
+    PROTECT(a = R_isWideInteger(s) ? R_allocWideIntVector(na)
 		: allocVector(TYPEOF(s), na));
     n = 0;
     if (TYPEOF(t) == REALSXP)
@@ -289,7 +289,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     R_xlen_t i, j;
     SEXP a;
 
-    PROTECT(a = R_isWideInteger(s) ? allocWideIntVector(na)
+    PROTECT(a = R_isWideInteger(s) ? R_allocWideIntVector(na)
 		: allocVector(TYPEOF(s), na));
 
     switch (TYPEOF(s)) {
@@ -501,7 +501,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     // faster code for common special case
     if (each == 1 && nt == 1) return rep3(x, lx, len);
 
-    PROTECT(a = R_isWideInteger(x) ? allocWideIntVector(len)
+    PROTECT(a = R_isWideInteger(x) ? R_allocWideIntVector(len)
 		: allocVector(TYPEOF(x), len));
 
 #define R4_SWITCH_LOOP(itimes)						\

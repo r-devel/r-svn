@@ -1019,7 +1019,7 @@ static SEXP wideint_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
     if (code == DIVOP || code == POWOP)
 	ans = allocVector(REALSXP, n);
     else
-	ans = allocWideIntVector(n);
+	ans = R_allocWideIntVector(n);
     if (n == 0) return(ans);
     PROTECT(ans);
 

@@ -213,7 +213,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 */
     PROTECT(x);
     if (R_isWideInteger(x))
-	PROTECT(newx = allocWideIntVector(newtruelen));
+	PROTECT(newx = R_allocWideIntVector(newtruelen));
     else
 	PROTECT(newx = allocVector(TYPEOF(x), newtruelen));
 

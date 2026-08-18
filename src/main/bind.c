@@ -878,7 +878,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     if (mode == INTSXP && data.ans_wide)
-	PROTECT(ans = allocWideIntVector(data.ans_length));
+	PROTECT(ans = R_allocWideIntVector(data.ans_length));
     else
 	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
@@ -1006,7 +1006,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     if (mode == INTSXP && data.ans_wide)
-	PROTECT(ans = allocWideIntVector(data.ans_length));
+	PROTECT(ans = R_allocWideIntVector(data.ans_length));
     else
 	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
@@ -1332,7 +1332,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		break;
 	    }
     if (anyWideBind) {
-	PROTECT(result = allocWideIntVector((R_xlen_t) rows * cols));
+	PROTECT(result = R_allocWideIntVector((R_xlen_t) rows * cols));
 	SEXP bdim = allocVector(INTSXP, 2);
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);
@@ -1640,7 +1640,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		break;
 	    }
     if (anyWideBind) {
-	PROTECT(result = allocWideIntVector((R_xlen_t) rows * cols));
+	PROTECT(result = R_allocWideIntVector((R_xlen_t) rows * cols));
 	SEXP bdim = allocVector(INTSXP, 2);
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);

@@ -823,7 +823,7 @@ static SEXP bitwiseNot(SEXP a)
     case INTSXP:
 	if (R_isWideInteger(a)) {
 	    R_xlen_t m = XLENGTH(a);
-	    ans = allocWideIntVector(m);
+	    ans = R_allocWideIntVector(m);
 	    for(R_xlen_t i = 0; i < m; i++) {
 		R_wideint_t aa = INTEGER64_ELT(a, i);
 		WIDEINT_PTR(ans)[i] = (aa == NA_INTEGER64) ? aa : ~aa;
@@ -863,7 +863,7 @@ static SEXP bitwiseNot(SEXP a)
 	    R_xlen_t i, ia, ib;						\
 	    R_xlen_t m = XLENGTH(a), n = XLENGTH(b),			\
 		mn = (m && n) ? mymax(m, n) : 0;			\
-	    ans = allocWideIntVector(mn);				\
+	    ans = R_allocWideIntVector(mn);				\
 	    MOD_ITERATE2(mn, m, n, i, ia, ib, {				\
 		    R_wideint_t aa = INTEGER64_ELT(a, ia);		\
 		    R_wideint_t bb = INTEGER64_ELT(b, ib);		\

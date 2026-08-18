@@ -173,7 +173,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 #endif
 
     if (R_isWideInteger(vals)) {
-	PROTECT(ans = allocWideIntVector((R_xlen_t) nr * nc));
+	PROTECT(ans = R_allocWideIntVector((R_xlen_t) nr * nc));
 	SEXP dim = allocVector(INTSXP, 2);
 	INTEGER(dim)[0] = nr; INTEGER(dim)[1] = nc;
 	setAttrib(ans, R_DimSymbol, dim);

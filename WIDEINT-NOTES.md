@@ -58,7 +58,7 @@ typedef can change without breaking formats.
   declarations
 - src/include/Rinternals.h, Rinlinedfuns.h -- API decls, wide-aware
   INTEGER_ELT/SET_INTEGER_ELT/INTEGER0/INTEGER_OR_NULL
-- src/main/memory.c -- checked accessors, allocWideIntVector, ELT64,
+- src/main/memory.c -- checked accessors, R_allocWideIntVector, ELT64,
   GC size accounting
 - src/main/wideint.c -- .Internal hooks, coercion, formatting (new)
 - src/main/duplicate.c, coerce.c, printvector.c, serialize.c,

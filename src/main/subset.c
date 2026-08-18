@@ -131,7 +131,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     int mode = TYPEOF(x);
 
     if (R_isWideInteger(x)) {
-	PROTECT(result = allocWideIntVector(n));
+	PROTECT(result = R_allocWideIntVector(n));
 	EXTRACT_SUBSET_LOOP(WIDEINT_PTR(result)[i] = INTEGER64_ELT(x, ii),
 			    WIDEINT_PTR(result)[i] = NA_INTEGER64);
 	UNPROTECT(1); /* result */
@@ -336,7 +336,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
     PROTECT(sr);
     PROTECT(sc);
     if (R_isWideInteger(x))
-	result = allocWideIntVector((R_xlen_t) nrs * (R_xlen_t) ncs);
+	result = R_allocWideIntVector((R_xlen_t) nrs * (R_xlen_t) ncs);
     else
 	result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
     const int *psr = INTEGER_RO(sr);
@@ -517,7 +517,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 
     /* Transfer the subset elements from "x" to "a". */
     if (R_isWideInteger(x)) {
-	PROTECT(result = allocWideIntVector(n));
+	PROTECT(result = R_allocWideIntVector(n));
 	ARRAY_SUBSET_LOOP(WIDEINT_PTR(result)[i] = INTEGER64_ELT(x, ii),
 			  WIDEINT_PTR(result)[i] = NA_INTEGER64);
     }

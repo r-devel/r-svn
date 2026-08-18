@@ -408,7 +408,7 @@ typedef long long R_wideint_t;
    Rinlinedfuns.h (or its fallback block below): an unguarded
    declaration here would demote the C99 inline definitions to
    external ones in every translation unit */
-SEXP allocWideIntVector(R_xlen_t length);
+SEXP R_allocWideIntVector(R_xlen_t length);
 SEXP ScalarWideInt(R_wideint_t v);
 SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
 SEXP R_formatWideInt(SEXP x);

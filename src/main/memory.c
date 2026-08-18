@@ -4196,12 +4196,12 @@ NORET void R_wideIntPtrError(void)
     error("32-bit integer accessor applied to a wide (64-bit) integer vector");
 }
 
-/* allocWideIntVector borrows the REALSXP payload for its 8-byte
+/* R_allocWideIntVector borrows the REALSXP payload for its 8-byte
    elements */
 _Static_assert(sizeof(R_wideint_t) == sizeof(double),
 	       "wide integer elements must have the same size as double");
 
-SEXP allocWideIntVector(R_xlen_t length)
+SEXP R_allocWideIntVector(R_xlen_t length)
 {
     /* allocate with an 8-byte payload, then relabel; the node class
        and heap accounting are those of the REALSXP-sized payload */

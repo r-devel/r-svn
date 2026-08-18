@@ -24,7 +24,7 @@
 
 SEXP ScalarWideInt(R_wideint_t v)
 {
-    SEXP ans = allocWideIntVector(1);
+    SEXP ans = R_allocWideIntVector(1);
     SET_INTEGER64_ELT(ans, 0, v);
     return ans;
 }
@@ -69,7 +69,7 @@ attribute_hidden SEXP do_aswideint(SEXP call, SEXP op, SEXP args, SEXP env)
 	return x;
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(allocWideIntVector(n));
+    SEXP ans = PROTECT(R_allocWideIntVector(n));
 
     switch (TYPEOF(x)) {
     case LGLSXP:
@@ -115,7 +115,7 @@ attribute_hidden SEXP R_widenInteger(SEXP x)
 	return x;
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(allocWideIntVector(n));
+    SEXP ans = PROTECT(R_allocWideIntVector(n));
     for (R_xlen_t i = 0; i < n; i++)
 	SET_INTEGER64_ELT(ans, i, INTEGER64_ELT(x, i));
 

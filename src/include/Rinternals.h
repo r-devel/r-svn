@@ -1153,7 +1153,7 @@ typedef long long R_wideint_t;
 # define NA_INTEGER64 ((R_wideint_t)(-9223372036854775807LL - 1))
 #endif
 int R_isWideInteger(SEXP x);
-SEXP allocWideIntVector(R_xlen_t length);
+SEXP R_allocWideIntVector(R_xlen_t length);
 R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
 void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
 

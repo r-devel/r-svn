@@ -1209,7 +1209,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
-    SEXP ans = PROTECT(R_isWideInteger(x) ? allocWideIntVector(k)
+    SEXP ans = PROTECT(R_isWideInteger(x) ? R_allocWideIntVector(k)
 					  : allocVector(TYPEOF(x), k));
 
     k = 0;
