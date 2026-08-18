@@ -5002,7 +5002,7 @@ static int NumericValue(int c)
 		}
 	    }
 	    else if(seenexp == 1 && seendot != 1 &&
-		    a < 9223372036854775808.0 /* 2^63 */ &&
+		    a < R_WIDEINT_DBL_MAX &&
 		    a == (double)(R_wideint_t) a) {
 		asWide = 1;
 		wideval = (R_wideint_t) a;

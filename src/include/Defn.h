@@ -406,6 +406,16 @@ typedef long long R_wideint_t;
 #define R_WIDEINT_MAX ((R_wideint_t) 9223372036854775807LL)
 #define R_WIDEINT_MIN ((R_wideint_t)(-9223372036854775807LL - 1))
 
+/* 2^63 as a double.  INT64_MAX (2^63 - 1) is not exactly representable as
+   a double, so 2^63 is the exclusive bound when testing whether a double
+   fits in a wide integer: |v| >= this does not fit. */
+#define R_WIDEINT_DBL_MAX 9223372036854775808.0
+
+/* 2^53, the largest magnitude for which every integer is exactly
+   representable as a double; a wide integer beyond +/- this loses
+   precision when coerced to double. */
+#define R_WIDEINT_DBL_EXACT ((R_wideint_t) 9007199254740992LL)
+
 /* Checked wide-integer arithmetic.  GCC/Clang expose __builtin_*_overflow;
    on other toolchains fall back to portable checks (SEI CERT INT32-C).
    R_ovf_{add,sub,mul}(a, b, r) store a op b into *r and return nonzero on

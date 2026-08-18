@@ -747,7 +747,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    bool na = false, seen = false;
 	    LDOUBLE p = 1.0;
 	    R_wideint_t cum =
-		(iop == 2) ? 9223372036854775807LL : -9223372036854775807LL;
+		(iop == 2) ? R_WIDEINT_MAX : -R_WIDEINT_MAX;
 
 	    for (SEXP t = args; t != R_NilValue && !na; t = CDR(t)) {
 		SEXP av = CAR(t);

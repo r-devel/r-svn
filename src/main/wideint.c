@@ -35,8 +35,7 @@ static R_wideint_t wideFromDouble(double v)
 	return NA_INTEGER64;
     if (v != floor(v))
 	error("cannot coerce fractional value %g to a wide integer", v);
-    if (v >= 9223372036854775808.0 /* 2^63 */ ||
-	v <= -9223372036854775808.0)
+    if (v >= R_WIDEINT_DBL_MAX || v <= -R_WIDEINT_DBL_MAX)
 	error("value %g is out of range for a wide integer", v);
 
     return (R_wideint_t) v;
@@ -154,7 +153,7 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
 	    if (x == NA_INTEGER64)
 		SET_REAL_ELT(ans, i, NA_REAL);
 	    else {
-		if (x > 9007199254740992LL || x < -9007199254740992LL)
+		if (x > R_WIDEINT_DBL_EXACT || x < -R_WIDEINT_DBL_EXACT)
 		    warn_precision = 1;
 		SET_REAL_ELT(ans, i, (double) x);
 	    }
@@ -182,7 +181,7 @@ attribute_hidden SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type)
 		z.r = NA_REAL; z.i = NA_REAL;
 	    }
 	    else {
-		if (x > 9007199254740992LL || x < -9007199254740992LL)
+		if (x > R_WIDEINT_DBL_EXACT || x < -R_WIDEINT_DBL_EXACT)
 		    warn_precision = 1;
 		z.r = (double) x; z.i = 0.0;
 	    }

@@ -474,9 +474,9 @@ static R_INLINE R_wideint_t wide_relop_elt64(SEXP x, R_xlen_t i)
 /* exact comparison of a wide integer with a double */
 static int wide_cmp_ll_d(R_wideint_t x, double y)
 {
-    if (y >= 9223372036854775808.0 /* 2^63 */)
+    if (y >= R_WIDEINT_DBL_MAX)
 	return -1;
-    if (y < -9223372036854775808.0)
+    if (y < -R_WIDEINT_DBL_MAX)
 	return 1;
 
     double fy = floor(y);
