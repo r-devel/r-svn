@@ -744,8 +744,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if (any_wide && all_intish) {
 	    int iop = PRIMVAL(op);
-	    bool na = false, seen = false;
+	    bool na = false, seen = false, p_exact = true;
 	    LDOUBLE p = 1.0;
+	    R_wideint_t wp = 1;
 	    R_wideint_t cum =
 		(iop == 2) ? R_WIDEINT_MAX : -R_WIDEINT_MAX;
 
@@ -769,16 +770,29 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			continue;
 		    }
 		    seen = true;
-		    if (iop == 4)
+		    if (iop == 4) {
 			p *= (double) v;
+			if (p_exact && (R_ovf_mul(wp, v, &wp) ||
+					wp == NA_INTEGER64))
+			    p_exact = false;
+		    }
 		    else if (iop == 2 ? v < cum : v > cum)
 			cum = v;
 		}
 	    }
 
 	    UNPROTECT(1); /* args */
-	    if (iop == 4)
-		return ScalarReal(na ? NA_REAL : (double) p);
+	    if (iop == 4) {
+		/* prod() returns double even for integer args; track the
+		   exact 64-bit product so precision loss is at least loud */
+		if (na)
+		    return ScalarReal(NA_REAL);
+		if (!p_exact ||
+		    wp > R_WIDEINT_DBL_EXACT || wp < -R_WIDEINT_DBL_EXACT)
+		    warningcall(call,
+			_("product of wide integers above 2^53 loses precision"));
+		return ScalarReal(p_exact ? (double) wp : (double) p);
+	    }
 	    if (na)
 		return ScalarWideInt(NA_INTEGER64);
 	    if (!seen) {
@@ -799,7 +813,10 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	   updated != 0 , as soon as (i)tmp (do_summary),
 	   or *value ([ir]min / max) is assigned;  */
     SEXP a;
-    double tmp = 0.0, s;
+    double tmp = 0.0;
+#ifndef LONG_INT
+    double s;
+#endif
     Rcomplex ztmp, zcum={.r = 0.0, .i = 0.0} /* -Wall */;
     int itmp = 0, icum = 0, warn = 0 /* dummy */;
     bool use_isum = true; // indicating if isum() should used; otherwise irsum()
@@ -998,26 +1015,29 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			// re-sum() 'a' (a waste, rare; FIXME ?) :
 			risum(a, &tmp, narm);
 			zcum.r = (double) iLcum + tmp;
+			if (R_isWideInteger(a))
+			    warningcall(call, _("sum() of wide integers exceeds the 64-bit range; returning an inexact double"));
 			DbgP3(" .. switching type to REAL, tmp=%g, zcum.r=%g",
 			      tmp, zcum.r);
 		    }
 		    else if(updated) {
 			// iLtmp is LONG_INT i.e. at least 64bit
 			if(ans_type == INTSXP) {
-			    s = (double) iLcum + (double) iLtmp;
-			    if(s > INT_MAX || s < R_INT_MIN ||
-			       iLtmp < -LONG_INT_MAX || LONG_INT_MAX < iLtmp) {
-				ans_type = REALSXP;
-				zcum.r = s;
-				DbgP2(" int_1 switch: zcum.r = s = %g\n", s);
-			    } else if(s < -(double)LONG_INT_MAX || (double)LONG_INT_MAX < s) {
+			    /* accumulate exactly while the total fits in 64
+			       bits; the final answer widens past INT_MAX */
+			    R_wideint_t ws;
+			    if (R_ovf_add((R_wideint_t) iLcum,
+					  (R_wideint_t) iLtmp, &ws) ||
+				ws == NA_INTEGER64) {
 				use_isum = false;
 				ans_type = REALSXP;
-				zcum.r = s;
-				DbgP2(" int_2 switch: zcum.r = s = %g\n", s);
+				zcum.r = (double) iLcum + (double) iLtmp;
+				if (R_isWideInteger(a))
+				    warningcall(call, _("sum() of wide integers exceeds the 64-bit range; returning an inexact double"));
+				DbgP2(" int_1 switch: zcum.r = %g\n", zcum.r);
 			    }
 			    else {
-				iLcum += iLtmp;
+				iLcum = ws;
 				DbgP3(" int_3: (iLtmp,iLcum) = (%ld,%ld)\n",
 				      iLtmp, iLcum);
 			    }
@@ -1047,7 +1067,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		case REALSXP:
 		    if(ans_type == INTSXP) {
 			ans_type = REALSXP;
-			if(!empty) zcum.r = Int2Real(iLcum);
+			/* plain cast: iLcum is an exact 64-bit total, not
+			   an int, so must not hit the NA sentinel */
+			if(!empty) zcum.r = (double) iLcum;
 		    }
 		    updated = rsum(a, &tmp, narm);
 		    if(updated) {
@@ -1057,7 +1079,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		case CPLXSXP:
 		    if(ans_type == INTSXP) {
 			ans_type = CPLXSXP;
-			if(!empty) zcum.r = Int2Real(iLcum);
+			if(!empty) zcum.r = (double) iLcum;
 		    } else if (ans_type == REALSXP)
 			ans_type = CPLXSXP;
 		    updated = csum(a, &ztmp, narm);
@@ -1158,6 +1180,15 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		warningcall(call, _("no non-missing arguments to max; returning -Inf"));
 	    ans_type = REALSXP;
 	}
+    }
+
+    /* an exact integer sum beyond the 32-bit range widens, matching
+       the narrow-arithmetic overflow promotion */
+    if (iop == 0 && ans_type == INTSXP &&
+	((R_wideint_t) iLcum > INT_MAX || (R_wideint_t) iLcum < R_INT_MIN)) {
+	ans = ScalarWideInt((R_wideint_t) iLcum);
+	UNPROTECT(2); /* scum, args */
+	return ans;
     }
 
     ans = allocVector(ans_type, 1);
