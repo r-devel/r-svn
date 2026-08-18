@@ -87,8 +87,11 @@ abs, bitwNot/And/Or/Xor, subassignment everywhere (vector/[[/matrix/
 array/stretch) with narrow-to-wide promotion, rep, matrix(), rbind/
 cbind, sort/order/rank (comparison sorts; radix is excluded at the R
 level since it works on 32-bit keys), unique/duplicated/match/%in%/
-factor/table via width-agnostic ihash/iequal, and the byte-code
-STEPFOR/VECSUBSET fast paths.
+factor/table via a two-scheme integer hash (ihash32 for all-narrow
+inputs, width-agnostic ihash64 whenever a wide vector participates;
+the schemes disagree for negative values, so the choice is made once
+per hash table, and lookups branch on the scheme the table was built
+with), and the byte-code STEPFOR/VECSUBSET fast paths.
 
 Notable systemic fixes found while working through the failures:
 - DATAPTR_OR_NULL / INTEGER_OR_NULL return NULL for wide vectors, so

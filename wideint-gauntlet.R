@@ -255,6 +255,17 @@ probe("sort decreasing", quote(sort(xs, decreasing = TRUE)))
 probe("order with ties", quote(order(c(xs, xs))))
 probe("match narrow in wide table", quote(match(2L, w(c("1", "2", "3")))))
 probe("match wide in narrow table", quote(match(w("2"), 1:3)))
+# negative values are where the 32-bit and width-agnostic hash schemes
+# diverge, so mixed-width match must widen the table's scheme
+probe("match mixed-width negatives", quote({
+    tab <- w(c("-7", "5000000000", "3"))
+    identical(match(c(-1L, -7L, 3L), tab), c(NA, 1L, 3L)) &&
+        identical(match(tab, c(-1L, -7L, 3L)), c(2L, NA, 3L)) &&
+        identical(match(w("5000000000"), 1:3), NA_integer_)
+}))
+probe("in-op mixed-width negatives", quote({
+    identical(c(-7L, -1L) %in% w(c("-7", "5000000000")), c(TRUE, FALSE))
+}))
 probe("factor(xs)", quote(factor(xs)))
 probe("table(xs)", quote(table(xs)))
 probe("rank(rev(xs))", quote(rank(rev(xs))))
