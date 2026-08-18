@@ -189,6 +189,12 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 	    LIST_ASSIGN(ScalarRaw(RAW(x)[i]));
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    /* elements of a wide vector stay wide, as for subsetting */
+	    for (i = 0; i < XLENGTH(x); i++)
+		LIST_ASSIGN(ScalarWideInt(INTEGER64_ELT(x, i)));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarInteger(INTEGER(x)[i]));
 	break;
@@ -461,6 +467,25 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < XLENGTH(x); i++) {
+		R_wideint_t v = INTEGER64_ELT(x, i);
+		if (v == NA_INTEGER64) {
+		    COMPLEX(data->ans_ptr)[data->ans_length].r = NA_REAL;
+#ifdef NA_TO_COMPLEX_NA
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = NA_REAL;
+#else
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+#endif
+		}
+		else {
+		    COMPLEX(data->ans_ptr)[data->ans_length].r = (double) v;
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+		}
+		data->ans_length++;
+	    }
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = INTEGER(x)[i];
 	    if (xi == NA_INTEGER) {
@@ -1481,9 +1506,16 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			});
 		    } else if (mode == INTSXP) {
 			R_xlen_t i, i1;
-			MOD_ITERATE1(idx, k, i, i1, {
-			    INTEGER(result)[n++] = (unsigned char) RAW(u)[i1];
-			});
+			if (R_isWideInteger(result)) {
+			    MOD_ITERATE1(idx, k, i, i1, {
+				WIDEINT_PTR(result)[n++] =
+				    (R_wideint_t)(unsigned char) RAW(u)[i1];
+			    });
+			} else {
+			    MOD_ITERATE1(idx, k, i, i1, {
+				INTEGER(result)[n++] = (unsigned char) RAW(u)[i1];
+			    });
+			}
 		    } else if (mode == REALSXP) {
 			R_xlen_t i, i1;
 			MOD_ITERATE1(idx, k, i, i1, {
