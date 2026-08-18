@@ -394,11 +394,17 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     case INTSXP:
 	if (R_isWideInteger(x)) {
+	    bool prec = false;
 	    for (i = 0; i < XLENGTH(x); i++) {
 		R_wideint_t v = INTEGER64_ELT(x, i);
+		if (v != NA_INTEGER64 &&
+		    (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT))
+		    prec = true;
 		REAL(data->ans_ptr)[data->ans_length++] =
 		    v == NA_INTEGER64 ? NA_REAL : (double) v;
 	    }
+	    if (prec)
+		warning(_("coercing wide integers above 2^53 loses precision"));
 	    break;
 	}
 	for (i = 0; i < XLENGTH(x); i++) {
@@ -468,6 +474,7 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     case INTSXP:
 	if (R_isWideInteger(x)) {
+	    bool prec = false;
 	    for (i = 0; i < XLENGTH(x); i++) {
 		R_wideint_t v = INTEGER64_ELT(x, i);
 		if (v == NA_INTEGER64) {
@@ -479,11 +486,15 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 #endif
 		}
 		else {
+		    if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+			prec = true;
 		    COMPLEX(data->ans_ptr)[data->ans_length].r = (double) v;
 		    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
 		}
 		data->ans_length++;
 	    }
+	    if (prec)
+		warning(_("coercing wide integers above 2^53 loses precision"));
 	    break;
 	}
 	for (i = 0; i < XLENGTH(x); i++) {
@@ -1474,11 +1485,18 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    }
 		    else if (R_isWideInteger(u)) {
 			R_xlen_t i, i1;
+			bool prec = false;
 			MOD_ITERATE1(idx, k, i, i1, {
 			    R_wideint_t v = INTEGER64_ELT(u, i1);
+			    if (v != NA_INTEGER64 &&
+				(v > R_WIDEINT_DBL_EXACT ||
+				 v < -R_WIDEINT_DBL_EXACT))
+				prec = true;
 			    REAL(result)[n++] =
 				(v == NA_INTEGER64) ? NA_REAL : (double) v;
 			});
+			if (prec)
+			    warning(_("coercing wide integers above 2^53 loses precision"));
 		    }
 		    else {
 			R_xlen_t i, i1;
