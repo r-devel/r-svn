@@ -691,6 +691,10 @@ static SEXP altrep_UnserializeEX_default(SEXP class, SEXP state, SEXP attr,
     SET_ATTRIB(val, attr);
     SET_OBJECT(val, objf);
     SETLEVELS(val, levs);
+    /* levs is stream-controlled: never let it stamp the wide bit onto
+       a materialized 32-bit payload (matches ReadItem in serialize.c) */
+    if (TYPEOF(val) == INTSXP || TYPEOF(val) == LGLSXP)
+	UNSET_WIDEINT(val);
     return val;
 }
 
