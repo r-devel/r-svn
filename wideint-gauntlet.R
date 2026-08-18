@@ -272,3 +272,37 @@ probe("rank(rev(xs))", quote(rank(rev(xs))))
 probe("rev sorted stays sorted", quote(!is.unsorted(sort(rev(xs)))))
 
 cat("\ndone.\n")
+
+section("review fixes (PR #300 code review)")
+probe("sum(2^53+1) exact wide", quote({
+    h <- w("9007199254740993"); r <- sum(h)
+    iw(r) && format(r) == "9007199254740993"
+}))
+probe("sum int-overflow widens", quote({
+    r <- sum(c(2147483647L, 1L)); iw(r) && format(r) == "2147483648"
+}))
+probe("sum(1:10) stays narrow 55L", quote(identical(sum(1:10), 55L)))
+probe("prod(2^53+1) warns", quote(prod(w("9007199254740993"))))
+probe("colon warns above 2^53", quote(length(w("9007199254740993"):(w("9007199254740993") + 2L))))
+probe("min(wide, NULL) exact", quote({
+    r <- min(w("9007199254740993"), NULL)
+    iw(r) && format(r) == "9007199254740993"
+}))
+probe("max(wide, 1.5) warns", quote(max(w("9007199254740993"), 1.5)))
+probe("wide / 1L warns", quote(w("9007199254740993") / 1L))
+probe("c(wide, 1.5) warns above 2^53", quote(c(w("9007199254740993"), 1.5)))
+probe("formatC(small wide)", quote(formatC(small)))
+probe("c(wide, complex)", quote(c(w("2"), 1i)))
+probe("c(list, wide) keeps value", quote(format(c(list(1), big)[[2]])))
+probe("cbind(wide, raw)", quote(cbind(w(1:2), as.raw(1:2))))
+probe("sort quick downgrades for wide", quote(sort(small, method = "quick")))
+probe("sort partial for wide", quote(sort(small, partial = 2)))
+probe("rowsum with wide group", quote(rowsum(c(1.5, 2.5, 3), w(c("-1", "-1", "2")))))
+probe("sort.list default for wide", quote(sort.list(w(c("3", "1", "2")))))
+probe("wide 3-d array prints", quote({
+    a <- w(as.character(1:8)); dim(a) <- c(2, 2, 2)
+    length(utils::capture.output(print(a))) > 8
+}))
+probe("duplicated wide incomparables", quote(duplicated(w(c("5000000000", "5000000000", NA, NA)),
+                                                        incomparables = 5e9)))
+probe("match wide incomparables", quote(match(xs, xs, incomparables = 5e9)))
