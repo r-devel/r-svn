@@ -1,8 +1,0 @@
-using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
-using SDK: ‘MacOSX26.5.sdk’
-clang -std=gnu23 -I"/Users/kevin/r-devel/r-svn/.worktrees/feature--int64-ffi-boundary/build/include" -DNDEBUG   -I/opt/homebrew/include    -fPIC  -g -O2 -Wall -c pkgA.c -o pkgA.o
-clang -std=gnu23 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/opt/homebrew/lib -o pkgA.so pkgA.o
-using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
-using SDK: ‘MacOSX26.5.sdk’
-clang -std=gnu23 -I"/Users/kevin/r-devel/r-svn/.worktrees/feature--int64-ffi-boundary/build/include" -DNDEBUG   -I/opt/homebrew/include    -fPIC  -g -O2 -Wall -c pkgB.c -o pkgB.o
-clang -std=gnu23 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/opt/homebrew/lib -o pkgB.so pkgB.o
