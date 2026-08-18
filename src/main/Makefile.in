@@ -36,7 +36,8 @@ SOURCES_C = \
 	sprintf.c startup.c subassign.c subscript.c subset.c summary.c sysutils.c \
 	times.c \
 	unique.c util.c \
-	version.c wideint.c \
+	version.c \
+	wideint.c \
 	g_alab_her.c g_cntrlify.c g_fontdb.c g_her_glyph.c
 
 SOURCES_F =  xxxpr.f

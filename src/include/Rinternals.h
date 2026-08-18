@@ -1142,7 +1142,9 @@ void SET_RAW_ELT(SEXP x, R_xlen_t i, Rbyte v);
 /* Wide (64-bit) integer vector prototype.  The API is deliberately
    element-based: there is no 64-bit data-pointer accessor.  The
    element type is abstracted as R_wideint_t; when printing a value
-   with "%lld", cast to long long explicitly. */
+   with "%lld", cast to long long explicitly.  The narrowing helpers
+   (R_wideIntegerElt32 etc.) are internal and declared in
+   Rinlinedfuns.h/Defn.h. */
 #ifndef R_WIDEINT_T_DEFINED
 # define R_WIDEINT_T_DEFINED
 typedef long long R_wideint_t;
@@ -1154,9 +1156,6 @@ int R_isWideInteger(SEXP x);
 SEXP allocWideIntVector(R_xlen_t length);
 R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
 void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
-int R_wideIntegerElt32(SEXP x, R_xlen_t i);
-void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
-int *R_INTEGER32chk0(SEXP x);
 
 /* ALTREP support */
 SEXP ALTREP_CLASS(SEXP x);
