@@ -123,9 +123,17 @@ static hlen lhash(SEXP x, R_xlen_t indx, HashData *d)
    picks per vector and intHashWiden() upgrades for two-vector uses. */
 /* Raw 32-bit read for the narrow scheme: skips INTEGER_ELT's wideness
    checks, which scheme selection has already established cannot fire.
-   HashLookup guards the invariant once per call. */
+   HashLookup guards the lookup path once per call; the STRICT_TYPECHECK
+   assert below catches the other way in: a direct data.equal()/hash on a
+   wide vector without a preceding intHashWiden().  Reading a wide payload
+   as int32 here would silently corrupt, so make the invariant violation
+   loud in checked builds (it is compiled out otherwise). */
 static R_INLINE int IELT32(SEXP x, R_xlen_t i)
 {
+#ifdef STRICT_TYPECHECK
+    if (R_isWideInteger(x))
+	error("narrow integer hash scheme applied to a wide integer vector");
+#endif
     return ALTREP(x) ? ALTINTEGER_ELT(x, i) : ((int *) STDVEC_DATAPTR(x))[i];
 }
 
