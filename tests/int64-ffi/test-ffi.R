@@ -44,3 +44,9 @@ stopifnot(identical(stats::complete.cases(as.int64(c("5000000000", NA))),
                     c(TRUE, FALSE)))
 
 cat("FFI boundary tests OK (incl. bytecode + base opt-ins)\n")
+
+## methods opted in as container code: S4 slots preserve int64 identity
+setClass("ffi_i64", representation(x = "int64"))
+obj <- methods::new("ffi_i64", x = as.int64("5000000000"))
+stopifnot(typeof(obj@x) == "int64", obj@x == as.int64("5000000000"))
+cat("S4 int64 slot OK\n")

@@ -62,4 +62,9 @@ R_init_methods(DllInfo *dll)
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, TRUE);
+    /* The C code here is container code: it moves SEXPs (slots,
+       dispatch tables) without reading integer payloads, and S4
+       machinery must see objects with their types intact, so int64
+       arguments pass through un-narrowed. */
+    R_useInt64(dll, TRUE);
 }

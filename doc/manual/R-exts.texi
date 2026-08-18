@@ -11527,6 +11527,23 @@ In more detail, if a package @code{mypkg} contains entry points
 .Call("unreg")
 @end example
 
+@apifun R_useInt64
+A package whose compiled code has been written (or audited) to handle
+64-bit integer vectors (type @code{INT64SXP}) can declare this with
+@code{R_useInt64(dll, TRUE)} in its @code{R_init_} routine.  By
+default, @code{int64} arguments to @code{.Call} and @code{.External}
+routines are converted to 32-bit integer vectors at the call boundary:
+a narrowed copy when every value is representable, an error otherwise.
+This protects compiled code which predates the @code{int64} type from
+misinterpreting 64-bit data.  After @code{R_useInt64(dll, TRUE)}, the
+routines in the DLL receive @code{INT64SXP} arguments unconverted.
+(Arguments to @code{.C} and @code{.Fortran} are always narrowed, as
+those interfaces pass integer data as 32-bit @code{int *}.  Note the
+conversion applies only to arguments which are themselves
+@code{int64} vectors: @code{int64} vectors reachable through lists or
+attributes are passed unconverted, so code handling such structures
+generically should be prepared for them.)
+
 @noindent
 Without or with registration, these will both work.  If
 @code{R_init_mypkg} calls @code{R_useDynamicSymbols(dll, FALSE)}, only
