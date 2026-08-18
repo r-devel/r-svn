@@ -1776,6 +1776,20 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < n; i++)
 	if (iip[i] == 0) error(_("invalid '%s' argument"), "perm");
 
+	if (n == 2) {
+		/* special case for 2D arrays */
+		SEXP r = do_transpose(call, op, args, rho);
+		if (resize) {
+			UNPROTECT(1);
+			return r;
+		}
+		PROTECT(r);
+		setAttrib(r, R_DimSymbol, dimsa);
+		copyMostAttrib(a, r);
+		UNPROTECT(2);
+		return r;
+	}
+
     /* create the stride object and permute */
 
     R_xlen_t *stride = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
