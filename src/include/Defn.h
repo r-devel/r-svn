@@ -485,6 +485,7 @@ SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
 SEXP R_formatWideInt(SEXP x);
 const char *EncodeWideInt(R_wideint_t x, int w);
 SEXP R_widenInteger(SEXP x);
+SEXP R_asWideInteger(SEXP x);
 
 /* Vector Access Macros */
 #ifdef LONG_VECTOR_SUPPORT

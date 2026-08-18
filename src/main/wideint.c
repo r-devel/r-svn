@@ -62,12 +62,11 @@ static R_wideint_t wideFromString(SEXP ch)
     return v;
 }
 
-/* .Internal(as.wideint(x)) */
-attribute_hidden SEXP do_aswideint(SEXP call, SEXP op, SEXP args, SEXP env)
+/* Coerce any coercible vector to a wide integer vector, preserving
+   attributes.  Errors on fractional or out-of-range doubles and on
+   non-numeric strings, matching as.wideint(). */
+attribute_hidden SEXP R_asWideInteger(SEXP x)
 {
-    checkArity(op, args);
-    SEXP x = CAR(args);
-
     if (R_isWideInteger(x))
 	return x;
 
@@ -102,6 +101,13 @@ attribute_hidden SEXP do_aswideint(SEXP call, SEXP op, SEXP args, SEXP env)
     SHALLOW_DUPLICATE_ATTRIB(ans, x);
     UNPROTECT(1);
     return ans;
+}
+
+/* .Internal(as.wideint(x)) */
+attribute_hidden SEXP do_aswideint(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    return R_asWideInteger(CAR(args));
 }
 
 /* .Internal(is.wideint(x)) */

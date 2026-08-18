@@ -574,6 +574,16 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 /* Upgrade an integer hash table to the width-agnostic scheme.  Call
    before any hashing, for every vector that will be hashed into or
    compared against a table set up on another vector. */
+/* Coerce 'incomparables' to the type of the data.  When the data is
+   wide, a double incomparable must widen rather than narrow so a
+   wide-range value (e.g. 5e9) is not silently turned into NA. */
+static SEXP coerceIncomparables(SEXP incomp, SEXPTYPE type, bool wide)
+{
+    if (wide && TYPEOF(incomp) == REALSXP)
+	return R_asWideInteger(incomp);
+    return coerceVector(incomp, type);
+}
+
 static R_INLINE void intHashWiden(HashData *d, SEXP x)
 {
     if (d->hash == ihash32 && R_isWideInteger(x)) {
@@ -1090,7 +1100,8 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	PROTECT(incomp = coerceIncomparables(incomp, TYPEOF(x),
+					     R_isWideInteger(x)));
 	/* incomp may be wide even when x is narrow: use the
 	   width-agnostic comparator so data.equal reads it correctly */
 	intHashWiden(&data, incomp);
@@ -1118,7 +1129,8 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    PROTECT(incomp = coerceIncomparables(incomp, TYPEOF(x),
+					 R_isWideInteger(x)));
     /* widen the scheme before any hashing so both the table lookups and
        the direct incomp comparisons read a wide incomp correctly */
     intHashWiden(&data, incomp);
@@ -1543,7 +1555,12 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
+	if (incomp) {
+	    PROTECT(incomp = coerceIncomparables(incomp, type,
+						 R_isWideInteger(x) ||
+						 R_isWideInteger(table)));
+	    nprot++;
+	}
 	data.nomatch = nmatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
