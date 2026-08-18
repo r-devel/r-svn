@@ -134,7 +134,7 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
 
     switch (TYPEOF(v)) {
     case VECSXP: case STRSXP: case LGLSXP: case INTSXP: case RAWSXP:
-    case REALSXP: case CPLXSXP: case EXPRSXP:
+    case REALSXP: case CPLXSXP: case EXPRSXP: case BYTESXP:
 	if (GROWABLE_BIT_SET(v))
 	    Rprintf("(len=%lld, tl=%lld, gr)", (long long)XLENGTH(v), (long long)XTRUELENGTH(v));
 	else
@@ -182,6 +182,18 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
 	    unsigned int i = 0;
 	    while (i < XLENGTH(v) && i < pvec) {
 		Rprintf("%s%d", (i > 0) ? "," : " ", INTEGER_ELT(v, i));
+		i++;
+	    }
+	    if (i < XLENGTH(v)) Rprintf(",...");
+	}
+	break;
+    case BYTESXP:
+	Rprintf(" (width=%d)", BYTEVEC_WIDTH(v));
+	if (XLENGTH(v) > 0) {
+	    R_xlen_t i = 0;
+	    while (i < XLENGTH(v) && i < pvec) {
+		Rprintf("%s%s", (i > 0) ? "," : " ",
+			EncodeBytes(BYTEVEC_ELT_RO(v, i), BYTEVEC_WIDTH(v)));
 		i++;
 	    }
 	    if (i < XLENGTH(v)) Rprintf(",...");

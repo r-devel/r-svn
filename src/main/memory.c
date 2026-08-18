@@ -217,6 +217,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case WEAKREFSXP:	return "WEAKREFSXP";
     case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
+    case BYTESXP:	return "BYTESXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";
     default:		return "<unknown>";
@@ -722,6 +723,7 @@ static R_size_t R_NodesInUse = 0;
   case CPLXSXP: \
   case WEAKREFSXP: \
   case RAWSXP: \
+  case BYTESXP: \
   case OBJSXP: \
     break; \
   case STRSXP: \
@@ -1115,6 +1117,9 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
 	break;
     case RAWSXP:
 	size = XLENGTH(s);
+	break;
+    case BYTESXP:
+	size = XLENGTH(s) * (R_size_t) BYTEVEC_WIDTH(s);
 	break;
     case LGLSXP:
     case INTSXP:
@@ -2753,6 +2758,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	actual_size = length;
 #endif
 	break;
+    case BYTESXP:
+	error("use R_allocBytesVector() to allocate a 'bytes' vector");
     case CHARSXP:
 	error("use of allocVector(CHARSXP ...) is defunct\n");
     case intCHARSXP:

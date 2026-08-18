@@ -915,6 +915,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
+    case BYTESXP:
 	PROTECT(t = getAttrib(s, R_DimSymbol));
 	if (TYPEOF(t) == INTSXP) {
 	    if (LENGTH(t) == 1) {

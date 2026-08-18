@@ -79,6 +79,10 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	data->ans_flags |= 1;
 	data->ans_length += XLENGTH(x);
 	break;
+    case BYTESXP:
+	/* not yet implemented; must not fall through to the list default */
+	errorcall(call, _("cannot combine 'bytes' vectors"));
+	break;
     case LGLSXP:
 	data->ans_flags |= 2;
 	data->ans_length += XLENGTH(x);

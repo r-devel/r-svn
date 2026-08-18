@@ -136,6 +136,7 @@ typedef unsigned int SEXPTYPE;
 #define RAWSXP      24    /* raw bytes */
 #define OBJSXP      25    /* object, non-vector  */
 #define S4SXP       25    /* same as OBJSXP, retained for back compatability */
+#define BYTESXP     26    /* fixed-width opaque data vectors */
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -171,6 +172,7 @@ typedef enum {
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
     OBJSXP	= 25,	/* S4 non-vector */
+    BYTESXP	= 26,	/* fixed-width opaque data vectors */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */

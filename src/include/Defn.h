@@ -434,6 +434,34 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define STRING_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 #define VECTOR_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 
+/* BYTESXP: vectors of fixed-width opaque data.  XLENGTH() is the
+   element count, as for every other vector; the payload is
+   XLENGTH(x) * BYTEVEC_WIDTH(x) bytes.  The width lives in gp bits
+   8-15, clear of the low bits that generic vector code uses
+   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
+   gp means it round-trips through serialization for free, since
+   PackFlags() already encodes gp into the flags word. */
+#define BYTEVEC_WIDTH_SHIFT 8
+#define BYTEVEC_MAX_WIDTH 255
+#define BYTEVEC_WIDTH_MASK \
+    ((unsigned short)(BYTEVEC_MAX_WIDTH << BYTEVEC_WIDTH_SHIFT))
+#define BYTEVEC_WIDTH(x) \
+    ((int)(((x)->sxpinfo.gp & BYTEVEC_WIDTH_MASK) >> BYTEVEC_WIDTH_SHIFT))
+#define SET_BYTEVEC_WIDTH(x, w) do {					\
+	SEXP bw__x__ = (x);						\
+	unsigned short bw__w__ = (unsigned short) (w);			\
+	bw__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bw__x__->sxpinfo.gp & ~BYTEVEC_WIDTH_MASK) \
+			      | (bw__w__ << BYTEVEC_WIDTH_SHIFT));	\
+    } while (0)
+#define BYTEVEC_DATA(x)    ((Rbyte *) DATAPTR(x))
+#define BYTEVEC_DATA_RO(x) ((const Rbyte *) DATAPTR_RO(x))
+/* address of element i; the sole element operation this type needs */
+#define BYTEVEC_ELT(x, i) \
+    (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+#define BYTEVEC_ELT_RO(x, i) \
+    (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+
 /* List Access Macros */
 /* These also work for ... objects */
 #define LISTVAL(x)	((x)->u.listsxp)
@@ -1804,6 +1832,8 @@ SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
+SEXP R_allocBytesVector(R_xlen_t length, int width);
+int R_bytesWidth(SEXP x);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
@@ -1888,6 +1918,7 @@ int R_XDRDecodeInteger(void *buf);
 # define DispatchAnyOrEval      Rf_DispatchAnyOrEval
 # define dynamicfindVar		Rf_dynamicfindVar
 # define EncodeChar             Rf_EncodeChar
+# define EncodeBytes            Rf_EncodeBytes
 # define EncodeRaw              Rf_EncodeRaw
 # define EncodeReal2            Rf_EncodeReal2
 # define EncodeString           Rf_EncodeString
@@ -2402,6 +2433,7 @@ typedef enum {
 } Rprt_adj;
 
 int	Rstrlen(SEXP, int);
+const char *EncodeBytes(const Rbyte *, int);
 const char *EncodeRaw(Rbyte, const char *);
 const char *EncodeString(SEXP, int, int, Rprt_adj);
 const char *EncodeReal2(double, int, int, int);

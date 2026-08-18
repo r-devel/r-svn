@@ -228,6 +228,7 @@ TypeTable[] = {
     { "bytecode",	BCODESXP   },
     { "weakref",	WEAKREFSXP },
     { "raw",		RAWSXP },
+    { "bytes",		BYTESXP },
     { "S4",		S4SXP },
     { "object",		OBJSXP }, /* == S4SXP */
     /* aliases : */

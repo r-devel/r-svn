@@ -194,6 +194,7 @@ SEXP lazy_duplicate(SEXP s) {
     case REALSXP:
     case CPLXSXP:
     case RAWSXP:
+    case BYTESXP:
     case STRSXP:
     case OBJSXP:
 	ENSURE_NAMEDMAX(s);
@@ -348,6 +349,19 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, REAL_RO, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;
+    case BYTESXP:
+	/* not DUPLICATE_ATOMIC_VECTOR: the element size is per-vector, so
+	   allocVector(TYPEOF(s), n) cannot reproduce it. */
+	n = XLENGTH(s);
+	PROTECT(s);
+	PROTECT(t = R_allocBytesVector(n, BYTEVEC_WIDTH(s)));
+	if (n > 0)
+	    memcpy(BYTEVEC_DATA(t), BYTEVEC_DATA_RO(s),
+		   (size_t) n * BYTEVEC_WIDTH(s));
+	DUPLICATE_ATTRIB(t, s, deep);
+	COPY_TRUELENGTH(t, s);
+	UNPROTECT(2);
+	break;
     case STRSXP:
 	/* Direct copying and bypassing the write barrier would be OK
 	   since t was just allocated and so it cannot be older than

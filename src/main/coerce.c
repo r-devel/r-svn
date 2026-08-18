@@ -2118,6 +2118,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	case BYTESXP:
 	    LOGICAL0(ans)[0] = 1;
 	    break;
 	default:
@@ -2349,6 +2350,11 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case RAWSXP:
 	/* no such thing as a raw NA */
+	for (i = 0; i < n; i++)
+	    pa[i] = 0;
+	break;
+    case BYTESXP:
+	/* opaque fixed-width data has no NA representation */
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;

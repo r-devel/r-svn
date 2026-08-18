@@ -157,6 +157,21 @@ const char *EncodeRaw(Rbyte x, const char * prefix)
     return buff;
 }
 
+/* one BYTESXP element as lowercase hex; buffer sized for the maximum
+   element width (BYTEVEC_MAX_WIDTH bytes -> two hex digits each) */
+attribute_hidden
+const char *EncodeBytes(const Rbyte *p, int width)
+{
+    static char buff[2 * BYTEVEC_MAX_WIDTH + 1];
+    char *q = buff;
+
+    for (int i = 0; i < width; i++, q += 2)
+	snprintf(q, 3, "%02x", p[i]);
+    *q = '\0';
+
+    return buff;
+}
+
 attribute_hidden
 const char *EncodeEnvironment(SEXP x)
 {
@@ -874,6 +889,9 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
 	break;
     case RAWSXP:
 	res = EncodeRaw(RAW_RO(x)[indx], "");
+	break;
+    case BYTESXP:
+	res = EncodeBytes(BYTEVEC_ELT_RO(x, indx), BYTEVEC_WIDTH(x));
 	break;
     default:
 	res = NULL; /* -Wall */

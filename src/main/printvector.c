@@ -319,6 +319,28 @@ void printRawVectorS(SEXP x, R_xlen_t n, int indx)
 }
 
 
+static
+void printBytesVectorS(SEXP x, R_xlen_t n, int indx)
+{
+    int w, labwidth=0, width;
+    R_xlen_t i;
+    int eltw = BYTEVEC_WIDTH(x);
+    DO_first_lab;
+    w = 2 * eltw;
+    w += R_print.gap;
+
+    for (i = 0; i < n; i++) {
+	if (i > 0 && width + w > R_print.width) {
+	    DO_newline;
+	}
+	Rprintf("%*s%s", R_print.gap, "",
+		EncodeBytes(BYTEVEC_ELT_RO(x, i), eltw));
+	width += w;
+    }
+    Rprintf("\n");
+}
+
+
 attribute_hidden void printVector(SEXP x, int indx, int quote)
 {
 /* print R vector x[];	if(indx) print indices; if(quote) quote strings */
@@ -349,6 +371,9 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case RAWSXP:
 	    printRawVectorS(x, n_pr, indx);
 	    break;
+	case BYTESXP:
+	    printBytesVectorS(x, n_pr, indx);
+	    break;
 	}
 	if(n_pr < n)
 	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
@@ -363,6 +388,7 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\
 	case RAWSXP:	Rprintf("raw(0)\n");		break;	\
+	case BYTESXP:	Rprintf("bytes(0)\n");		break;	\
 	}
 	PRINT_V_0;
 }
