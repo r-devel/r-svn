@@ -325,12 +325,14 @@ static bool imax(SEXP sx, int *value, bool narm)
 static bool wimin(SEXP sx, double *value, bool narm)
 {
     double s = 0.0;
-    bool updated = false;
+    bool updated = false, prec = false;
     R_xlen_t n = XLENGTH(sx);
 
     for (R_xlen_t k = 0; k < n; k++) {
 	R_wideint_t v = INTEGER64_ELT(sx, k);
 	if (v != NA_INTEGER64) {
+	    if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+		prec = true;
 	    double dv = (double) v;
 	    if (!updated || dv < s) {
 		s = dv;
@@ -341,6 +343,8 @@ static bool wimin(SEXP sx, double *value, bool narm)
 	    return true;
 	}
     }
+    if (prec)
+	warning(_("coercing wide integers above 2^53 loses precision"));
     *value = s;
     return updated;
 }
@@ -348,12 +352,14 @@ static bool wimin(SEXP sx, double *value, bool narm)
 static bool wimax(SEXP sx, double *value, bool narm)
 {
     double s = 0.0;
-    bool updated = false;
+    bool updated = false, prec = false;
     R_xlen_t n = XLENGTH(sx);
 
     for (R_xlen_t k = 0; k < n; k++) {
 	R_wideint_t v = INTEGER64_ELT(sx, k);
 	if (v != NA_INTEGER64) {
+	    if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+		prec = true;
 	    double dv = (double) v;
 	    if (!updated || dv > s) {
 		s = dv;
@@ -364,6 +370,8 @@ static bool wimax(SEXP sx, double *value, bool narm)
 	    return true;
 	}
     }
+    if (prec)
+	warning(_("coercing wide integers above 2^53 loses precision"));
     *value = s;
     return updated;
 }
@@ -739,7 +747,8 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    SEXP av = CAR(t);
 	    if (R_isWideInteger(av))
 		any_wide = true;
-	    else if (TYPEOF(av) != INTSXP && TYPEOF(av) != LGLSXP)
+	    else if (TYPEOF(av) != INTSXP && TYPEOF(av) != LGLSXP &&
+		     TYPEOF(av) != NILSXP) /* NULL == integer(0) here */
 		all_intish = false;
 	}
 	if (any_wide && all_intish) {
@@ -752,7 +761,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	    for (SEXP t = args; t != R_NilValue && !na; t = CDR(t)) {
 		SEXP av = CAR(t);
-		R_xlen_t n = XLENGTH(av);
+		R_xlen_t n = xlength(av); /* av may be NULL */
 		for (R_xlen_t i = 0; i < n; i++) {
 		    R_wideint_t v;
 		    if (TYPEOF(av) == LGLSXP) {
