@@ -7,10 +7,12 @@ compared and hashed as byte blocks and are never interpreted as
 numbers, so there is no coercion hierarchy to join and no arithmetic
 to define.
 
-Status: **stage 2** (allocation, GC, printing, identity, NA,
-subsetting, subassignment, `c()`, `rep()`, comparison, and the whole
-match/unique/duplicated family).  Stages 3-5 below are not
-implemented; everything they cover fails loudly.
+Status: **stage 3**.  Everything a filtering workload needs works:
+allocation, GC, printing, identity, NA, subsetting, subassignment,
+`c()`, `rep()`, comparison, `match`/`unique`/`duplicated`/`split`,
+`sort`/`order`/`rank`/`xtfrm`, `as.character`/`format`, and
+`table`/`factor`.  Arithmetic, `sum`/`range`, numeric coercion,
+`deparse` and serialization are not implemented and fail loudly.
 
 ## Decisions
 
@@ -116,6 +118,15 @@ Stage 2 added:
 | `src/main/split-incl.c` | `split` |
 | `src/main/coerce.c` | `is.na` checks the sentinel, `anyNA` |
 
+Stage 3 added:
+
+| File | Change |
+| --- | --- |
+| `src/main/sort.c` | `bcmp_`, `isUnsorted`, `bsort2`, `equal`/`greater`/`listgreater`, both `orderVector1` variants |
+| `src/main/coerce.c` | `coerceToString` (hex), and BYTESXP admitted to `coerceVector`'s source gate |
+| `src/main/paste.c` | `do_format` |
+| `src/library/base/R/format.R` | `format.default` dispatches on `mode()`, so it needs its own arm |
+
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
 `@apifun`/`@eapifun` entry or `tools:::checkAPI()` (reg-tests-1e)
@@ -146,8 +157,6 @@ arithmetic, `sum`, all coercions, `format`, `deparse`, `serialize`,
 
 ## Remaining stages
 
-3. **Ordering** -- `sort.c` comparator; MSD byte radix is a natural fit
-   (256 buckets, `width` passes, no comparator).
 4. **Persistence and boundary** -- `serialize.c`, `deparse.c`, and the
    `.Call` opt-in ported from the int64 FFI-boundary branch.
 5. **Tail sweep** -- the remaining sites among the 113 `case RAWSXP:`
@@ -156,6 +165,32 @@ arithmetic, `sum`, all coercions, `format`, `deparse`, `serialize`,
    ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
    wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
    drop the width.
+
+## Stage 3 notes
+
+Ordering is `memcmp`, so the order is unsigned lexicographic over the
+stored bytes.  Verified against a hex-string reference on 300 random
+width-6 elements: `order`, `rank`, `sort`, `unique` and `match` all
+agree exactly with the same operations on `as.character(x)`.
+
+The specialized `memcmp` comparator in `orderVector1` is a bare
+comparison with no NA check, which is only correct because the NA
+pre-pass partitions NAs out of `[lo, hi]` first.  Both had to be added
+together -- with the comparator alone, `0xFF` bytes sort last
+unconditionally and `na.last = FALSE` is silently wrong.  The generic
+`greater()` fallback is NA-aware and would have been correct on its
+own, just slower.
+
+`table()` and `factor()` turned out to be blocked on `as.character`,
+not on ordering.  Both are filtering operations, so hex coercion and
+`format()` came in here rather than waiting for a coercion stage.
+Note that `format.default` switches on `mode(x)`, not `typeof(x)`, and
+needs its own arm in R code -- the C-level `do_format` case is not
+reached otherwise.
+
+MSD byte radix (256 buckets, `width` passes, no comparator) is still
+unimplemented; the shell sort is correct and was the cheaper thing to
+get right first.
 
 ## NA
 

@@ -53,6 +53,8 @@ format.default <-
 	       call =, expression =, "function" =, "(" = deparse(x, backtick=TRUE),
 	       name = deparse(x, backtick=FALSE),
 	       raw = `storage.mode<-`(x, "character"),
+	       bytes = .Internal(format(x, trim, digits, nsmall, width, 3L,
+					na.encode, scientific, NA_character_)),
 	       S4 = {
 		   cld <- methods::getClassDef(cl <- class(x))
 		   pkg <- attr(cl, "package")

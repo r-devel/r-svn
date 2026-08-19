@@ -535,6 +535,23 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	const char *strp;
 	switch (TYPEOF(x)) {
 
+	case BYTESXP:
+	    /* every element is the same width, so there is nothing to
+	       pad except an NA */
+	    {
+		int bw = BYTEVEC_WIDTH(x);
+		PROTECT(y = allocVector(STRSXP, n));
+		w = trim ? 0 : imax2(2 * bw, wd);
+		for (i = 0; i < n; i++) {
+		    strp = R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), bw)
+			? CHAR(R_print.na_string)
+			: EncodeBytes(BYTEVEC_ELT_RO(x, i), bw);
+		    SET_STRING_ELT(y, i, mkChar(EncodeString(mkChar(strp), w, 0,
+							     Rprt_adj_right)));
+		}
+	    }
+	    break;
+
 	case LGLSXP:
 	    PROTECT(y = allocVector(STRSXP, n));
 	    if (trim) w = 0; else formatLogical(LOGICAL(x), n, &w);

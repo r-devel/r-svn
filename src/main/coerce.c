@@ -792,6 +792,18 @@ static SEXP coerceToString(SEXP v)
 	    SET_STRING_ELT(ans, i, StringFromRaw(RAW_ELT(v, i), &warn));
 	}
 	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(v);
+	    for (i = 0; i < n; i++) {
+		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(v, i), w))
+		    SET_STRING_ELT(ans, i, NA_STRING);
+		else
+		    SET_STRING_ELT(ans, i,
+				   mkChar(EncodeBytes(BYTEVEC_ELT_RO(v, i), w)));
+	    }
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToString", v);
     }
@@ -1272,6 +1284,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 
 #define COERCE_ERROR_STRING "cannot coerce type '%s' to vector of type '%s'"
 
