@@ -28,7 +28,9 @@ mode <- function(x) {
 	   double =, integer = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
 	   ## otherwise
-	   tx)
+	   if(is.bytes(x))
+	       (if(bytesKind(x) == "opaque") "bytes" else "numeric")
+	   else tx)
 }
 
 `mode<-` <- function(x, value)

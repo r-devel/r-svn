@@ -21,7 +21,7 @@ implemented and fail loudly.
 | Decision | Value | Rationale |
 | --- | --- | --- |
 | Type number | `BYTESXP = 26` | 26-29 free; 30/31 reserved for GC debugging |
-| `typeof()` | `"bytes"` | `"data"` reads as data.frame; `"blob"` collides with the CRAN package |
+| `typeof()` | derived from (kind, width): `"uint64"`, `"int128"`, `"bytes16"` | see "The R-level type name" |
 | Element kind | gp bits 0-1: `opaque` / `unsigned` / `signed` |
 | Element width | gp bits 8-15, 1..255 bytes | Bits 4/5 are `S4_OBJECT_MASK`/`GROWABLE_MASK`. Covers UUID/MD5 (16), SHA-256 (32), SHA-512 (64) |
 | `LENGTH` | element count, never bytes | The whole reason this is a new type rather than a strided RAWSXP |
@@ -266,6 +266,21 @@ the operands deliberately weighted toward the range edges so that
 overflow is exercised hard: `+ - * %/% %%` and unary minus all agree,
 including every overflow case.
 
+## A third bug found by use rather than by probing
+
+`match5` has a scalar fast path for length-1 needles with its own type
+switch (`src/main/unique.c`).  It had no BYTESXP case, so it fell
+through with the result still set to `nomatch`: `match(x[2], x)`
+returned NA and `x[2] %in% x` returned FALSE for a value that was
+plainly in the table.  Every gauntlet match test used length-2 vectors,
+so nothing reached it; it surfaced the first time a realistic join was
+written with a single key.
+
+That is now three separate gaps -- `do.call`, both `for()` loops, the
+`cbind` width, and this -- that systematic probing missed and running
+a real workload found immediately.  The probe suite is good at "does
+this fail loudly" and blind to "is this path reachable at all".
+
 ## A bug worth recording
 
 `ans_width` was added to `struct BindData` for stage 2 and initialized
@@ -286,6 +301,42 @@ restriction.
 It was found by running a realistic workload, not by probing
 operations, which is the same way the `do.call` and `for()` gaps
 turned up.
+
+## The R-level type name
+
+`typeof()` reports a name derived from `(kind, width)` rather than the
+SEXPTYPE's own name:
+
+| kind | width | `typeof()` | `mode()` |
+| --- | --- | --- | --- |
+| unsigned | 8 | `"uint64"` | `"numeric"` |
+| signed | 8 | `"int64"` | `"numeric"` |
+| signed | 16 | `"int128"` | `"numeric"` |
+| unsigned | 4 | `"uint32"` | `"numeric"` |
+| opaque | 16 | `"bytes16"` | `"bytes"` |
+
+R already does exactly this for OBJSXP, which reports `"S4"` or
+`"object"` for the same SEXPTYPE depending on a gp bit
+(`R_typeToChar`, `src/main/util.c:351`).
+
+The point is that package code can dispatch on what it is actually
+holding -- `switch(typeof(x), uint64 = ...)` -- which is the main thing
+a separate SEXPTYPE otherwise costs you, *without* the type number
+lying to C code.  That is the whole argument for not extending INTSXP
+instead: there are 1586 `INTEGER(` call sites in R's own `src/` alone,
+and a width-customized INTSXP would hand every one of them a pointer
+to read as int32.  Here `TYPEOF(x) == INTSXP` is simply false, and
+`is.integer()` stays honest.
+
+`mode()` coarsens, so every opaque width shares the mode `"bytes"` and
+every numeric kind is `"numeric"`.  Note `mode()` is `"numeric"` while
+`is.numeric()` is FALSE -- the same combination factors have, and for
+the same reason: the storage is numeric but the object should not be
+fed to generic numeric code.
+
+`is.bytes()` asks the C level rather than testing `typeof()`, since
+there is no longer a single string to test for.  `format.default`
+likewise checks `is.bytes(x)` before its `switch(mode(x), ...)`.
 
 ## Element kinds
 

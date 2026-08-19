@@ -697,6 +697,9 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	  case REALSXP:
 	    klass = mkChar("numeric");
 	    break;
+	  case BYTESXP:
+	    klass = mkChar(R_bytesTypeName(obj));
+	    break;
 	  case SYMSXP:
 	    klass = mkChar("name");
 	    break;

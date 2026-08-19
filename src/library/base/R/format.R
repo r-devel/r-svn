@@ -42,6 +42,11 @@ format.default <-
 		      decimal.mark = decimal.mark, zero.print = zero.print,
 		      drop0trailing = drop0trailing, ...)
 	vapply(res, paste0, "", collapse = ", ")
+    } else if(is.bytes(x)) {
+	## every element renders the same way it prints: hex for opaque
+	## elements, decimal for the numeric kinds
+	.Internal(format(x, trim, digits, nsmall, width, 3L,
+			 na.encode, scientific, NA_character_))
     } else {
 	switch(mode(x),
 	       NULL = "NULL",
@@ -53,8 +58,6 @@ format.default <-
 	       call =, expression =, "function" =, "(" = deparse(x, backtick=TRUE),
 	       name = deparse(x, backtick=FALSE),
 	       raw = `storage.mode<-`(x, "character"),
-	       bytes = .Internal(format(x, trim, digits, nsmall, width, 3L,
-					na.encode, scientific, NA_character_)),
 	       S4 = {
 		   cld <- methods::getClassDef(cl <- class(x))
 		   pkg <- attr(cl, "package")

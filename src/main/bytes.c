@@ -292,6 +292,15 @@ attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
     return val;
 }
 
+/* is.bytes(x): typeof() now reports the derived name, so this has to
+   ask about the storage type directly */
+attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+
+    return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
+}
+
 /* bytesKind(x) */
 attribute_hidden SEXP do_byteskind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -339,6 +348,29 @@ const char *R_bytesEltRender(SEXP x, R_xlen_t i)
 	return CHAR(R_print.na_string);
 
     return k == BYTEVEC_OPAQUE ? EncodeBytes(p, w) : R_bytesEltDecimal(p, w, k);
+}
+
+/* The R-level type name is derived from (kind, width) rather than from
+   the SEXPTYPE, so that a width-8 unsigned vector reports "uint64"
+   instead of "bytes".  R already does this for OBJSXP, which reports
+   "S4" or "object" depending on a gp bit (R_typeToChar in util.c).
+
+   Deriving it is what lets package code dispatch on what it is
+   actually holding -- switch(typeof(x), uint64 = ...) -- without the
+   type number lying to C code, which is the whole reason this is a
+   separate SEXPTYPE. */
+const char *R_bytesTypeName(SEXP x)
+{
+    static char buff[16];
+    int w = BYTEVEC_WIDTH(x);
+
+    switch (BYTEVEC_KIND(x)) {
+    case BYTEVEC_UINT: snprintf(buff, sizeof buff, "uint%d", 8 * w);  break;
+    case BYTEVEC_INT:  snprintf(buff, sizeof buff, "int%d", 8 * w);   break;
+    default:           snprintf(buff, sizeof buff, "bytes%d", w);     break;
+    }
+
+    return buff;
 }
 
 /* bytesWidth(x) */

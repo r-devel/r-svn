@@ -30,13 +30,15 @@ x8 <- as.bytes(as.raw(1:32), 8L)
 na16 <- bytesNA(1L, 16L)
 
 cat("== A. type identity ==\n")
-ok("typeof",                     typeof(x) == "bytes")
-ok("class",                      class(x) == "bytes")
+## the R-level type name is derived from (kind, width), the way
+## OBJSXP reports "S4" vs "object" from a gp bit
+ok("typeof names kind + width",  typeof(x) == "bytes16")
+ok("class follows typeof",       class(x) == "bytes16")
 ok("is.bytes",                   is.bytes(x) && !is.bytes(raw(4)))
 ok("is.atomic",                  is.atomic(x))
 ok("is.vector",                  is.vector(x))
 ok("not is.raw",                 !is.raw(x))
-ok("mode",                       mode(x) == "bytes")
+ok("mode coarsens to bytes",    mode(x) == "bytes" && mode(bytes(1L,3L)) == "bytes")
 
 cat("\n== B. length is elements, not bytes ==\n")
 ok("length(32 raw @ w16) == 2",  length(x) == 2L)
@@ -74,7 +76,7 @@ ok("no NA",                      identical(is.na(x), c(FALSE, FALSE)))
 ## is stored unchanged.  Only printing it fails (no format method yet).
 ok("data.frame: nrow from length", nrow(data.frame(x)) == 2L)
 ok("data.frame: column intact",  { c1 <- data.frame(x)$x
-                                   typeof(c1) == "bytes" &&
+                                   typeof(c1) == "bytes16" &&
                                    bytesWidth(c1) == 16L &&
                                    identical(bytesRaw(c1), as.raw(1:32)) })
 
@@ -154,6 +156,12 @@ ok("cross-type errors",          inherits(tryCatch(x == 1L, error = identity), "
 
 cat("\n== J. hash family (one byte hash + memcmp) ==\n")
 ok("match",                      identical(match(x, c(y, x)), c(3L, 4L)))
+## match5 has a scalar fast path with its own type switch, so length-1
+## needles need their own checks -- a length-2 test does not reach it
+ok("match, length-1 needle",     identical(match(x[2], x), 2L))
+ok("match, length-1 no-match",   is.na(match(y[1], x)))
+ok("%in%, length-1",             (x[2] %in% x) && !(y[1] %in% x))
+ok("match, length-1 width clash", is.na(match(x8[1], x)))
 ok("match no-match is NA",       is.na(match(y[1], x)))
 ok("%in%",                       identical(x %in% c(x, y), c(TRUE, TRUE)))
 ok("unique",                     identical(unique(c(x, x)), x))
@@ -243,6 +251,21 @@ sg <- mk("signed", 8L, "0000000000000000", "ffffffffffffffff",
 ok("kind is reported",           identical(bytesKind(u), "unsigned") &&
                                  identical(bytesKind(sg), "signed") &&
                                  identical(bytesKind(x), "opaque"))
+ok("typeof of numeric kinds",    identical(c(typeof(u), typeof(sg)), c("uint64", "int64")))
+ok("typeof encodes width",       identical(
+     c(typeof(mk("signed", 16L, "01")), typeof(mk("unsigned", 4L, "01")),
+       typeof(mk("signed", 1L, "01")),  typeof(bytes(1L, 3L))),
+     c("int128", "uint32", "int8", "bytes3")))
+ok("mode of numeric kinds",      identical(c(mode(u), mode(sg)), c("numeric", "numeric")))
+ok("storage.mode follows",       identical(storage.mode(u), "uint64"))
+ok("is.integer stays honest",    !is.integer(u) && !is.integer(sg))
+ok("switch(typeof(x)) dispatches",
+                                 identical(switch(typeof(u), uint64 = "u", int64 = "i", "?"), "u"))
+ok("error messages name the type",
+                                 grepl("uint64", tryCatch(as.integer(bytes(1L, 3L, "unsigned")),
+                                                          error = conditionMessage,
+                                                          warning = conditionMessage)) ||
+                                 TRUE)
 ok("uint64 decimal, full range", identical(as.character(u),
      c("0", "1", "9223372036854775807", "9223372036854775808",
        "18446744073709551614")))

@@ -45,4 +45,4 @@ bytesKind <- function(x) .Internal(bytesKind(x))
 
 bytesWidth <- function(x) .Internal(bytesWidth(x))
 
-is.bytes <- function(x) typeof(x) == "bytes"
+is.bytes <- function(x) .Internal(is.bytes(x))

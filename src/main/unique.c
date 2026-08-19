@@ -1502,6 +1502,17 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 		  val = i + 1; break;
 	      }
 	  break; }
+      case BYTESXP: {
+	  int w = BYTEVEC_WIDTH(x);
+	  if (BYTEVEC_WIDTH(table) == w &&
+	      BYTEVEC_KIND(table) == BYTEVEC_KIND(x)) {
+	      const Rbyte *x_val = BYTEVEC_ELT_RO(x, 0);
+	      for (int i=0; i < ntable; i++)
+		  if (!memcmp(BYTEVEC_ELT_RO(table, i), x_val, (size_t) w)) {
+		      val = i + 1; break;
+		  }
+	  }
+	  break; }
       }
       PROTECT(ans = ScalarInteger(val)); nprot++;
     }

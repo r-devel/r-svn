@@ -343,16 +343,19 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
 
 #ifdef USE_TYPE2CHAR_2
 const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
-    return (t != OBJSXP)
-	? type2char(t)
-	: (IS_S4_OBJECT(x) ? "S4" : "object");
+    if (t == OBJSXP) return IS_S4_OBJECT(x) ? "S4" : "object";
+    if (t == BYTESXP) return R_bytesTypeName(x);
+    return type2char(t);
 }
 #endif
 
 const char *R_typeToChar(SEXP x) {
-    // = type2char() but distinguishing {S4, object}
+    // = type2char() but distinguishing {S4, object} and naming a
+    // 'bytes' vector by its kind and width
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
+    else if(TYPEOF(x) == BYTESXP)
+	return R_bytesTypeName(x);
     else
 	return type2char(TYPEOF(x));
 }
