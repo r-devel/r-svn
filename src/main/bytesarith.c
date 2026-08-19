@@ -145,11 +145,16 @@ static void widenMSB(Rbyte *out, int w, const Rbyte *p, int pw, int kind)
 /* Does an MSB-first value fit back into a w-byte element of this kind,
    without landing on the reserved NA pattern?  A result that is
    exactly the reserved value is reported as overflow: it is not
-   representable, and saying so is better than silently producing NA. */
-static bool resultFits(const Rbyte *v, int w, int kind, bool negative)
+   representable, and saying so is better than silently producing NA.
+
+   hasNA is the vector's own answer to whether anything is reserved at
+   all: with na = FALSE every bit pattern of the width is a value, so
+   the top of the range is reachable rather than overflow. */
+static bool resultFits(const Rbyte *v, int w, int kind, bool negative, bool hasNA)
 {
     if (kind == BYTEVEC_UINT) {
 	/* v is the true magnitude; UINT_MAX is reserved */
+	if (!hasNA) return true;
 	for (int i = 0; i < w; i++)
 	    if (v[i] != 0xFF) return true;
 	return false;
@@ -161,14 +166,15 @@ static bool resultFits(const Rbyte *v, int w, int kind, bool negative)
     if (!negative) return false;
     for (int i = 0; i < w; i++)
 	if (v[i] != (i == 0 ? 0x80 : 0x00)) return false;
-    return false;			/* exactly INT_MIN: reserved */
+
+    return !hasNA;			/* exactly INT_MIN */
 }
 
 /* Write a signed/unsigned result given magnitude + sign.  Returns
    false on overflow. */
-static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative)
+static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative, bool hasNA)
 {
-    if (!resultFits(mag, w, kind, negative)) return false;
+    if (!resultFits(mag, w, kind, negative, hasNA)) return false;
 
     if (negative) magNegate(mag, w);
     fromMSB(out, mag, w);
@@ -178,7 +184,7 @@ static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative)
 
 /* ---- the kernels; all take and return MSB-first magnitudes ---- */
 
-static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
+static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
     Rbyte A[MAXW], B[MAXW], R[MAXW];
     toMSB(A, a, w); toMSB(B, b, w);
@@ -192,7 +198,7 @@ static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
 
     if (kind == BYTEVEC_UINT) {
 	if (carry) return false;
-	return storeResult(out, R, w, kind, false);
+	return storeResult(out, R, w, kind, false, hasNA);
     }
 
     /* signed: overflow iff the operands shared a sign the result lacks */
@@ -202,10 +208,10 @@ static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
     bool neg = sr != 0;
     if (neg) magNegate(R, w);
 
-    return storeResult(out, R, w, kind, neg);
+    return storeResult(out, R, w, kind, neg, hasNA);
 }
 
-static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
+static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
     Rbyte A[MAXW], B[MAXW], R[MAXW];
     toMSB(A, a, w); toMSB(B, b, w);
@@ -219,7 +225,7 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
 
     if (kind == BYTEVEC_UINT) {
 	if (borrow) return false;	/* would be negative */
-	return storeResult(out, R, w, kind, false);
+	return storeResult(out, R, w, kind, false, hasNA);
     }
 
     int sa = A[0] & 0x80, sb = B[0] & 0x80, sr = R[0] & 0x80;
@@ -228,10 +234,10 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
     bool neg = sr != 0;
     if (neg) magNegate(R, w);
 
-    return storeResult(out, R, w, kind, neg);
+    return storeResult(out, R, w, kind, neg, hasNA);
 }
 
-static bool eltMul(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
+static bool eltMul(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
     Rbyte A[MAXW], B[MAXW];
     bool nega = magFromElt(A, a, w, kind);
@@ -259,7 +265,7 @@ static bool eltMul(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind)
     for (int i = 0; i < w; i++)		/* high half must be empty */
 	if (P[i]) return false;
 
-    return storeResult(out, P + w, w, kind, nega != negb);
+    return storeResult(out, P + w, w, kind, nega != negb, hasNA);
 }
 
 /* Bitwise long division on magnitudes; 8*w iterations is cheap enough
@@ -282,8 +288,7 @@ static void magDivMod(Rbyte *q, Rbyte *r, const Rbyte *a, const Rbyte *b, int w)
 
 /* %/% is floor division and %% is the matching modulo, as for
    integers: the remainder takes the sign of the divisor. */
-static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w,
-		      int kind, bool wantQuotient)
+static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool wantQuotient, bool hasNA)
 {
     Rbyte A[MAXW], B[MAXW], Q[MAXW], R[MAXW];
     bool nega = magFromElt(A, a, w, kind);
@@ -314,15 +319,21 @@ static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w,
     }
 
     if (wantQuotient)
-	return storeResult(out, Q, w, kind, negq);
+	return storeResult(out, Q, w, kind, negq, hasNA);
 
-    return storeResult(out, R, w, kind, negb);
+    return storeResult(out, R, w, kind, negb, hasNA);
 }
 
 /* Store a C integer value into an element.  Returns false if it is not
    representable -- a negative into an unsigned kind, a magnitude too
-   wide, or the reserved NA pattern. */
-static bool eltFromLong(Rbyte *out, long long v, int w, int kind)
+   wide, or the reserved NA pattern.
+
+   Unlike the kernels above this is not restricted to the arithmetic
+   widths: narrowing an integer into a wide element is well defined and
+   is reached from c(), subassignment and comparison, none of which
+   require arithmetic.  The scratch buffer is therefore sized for the
+   widest element the type allows, not for MAXW. */
+static bool eltFromLong(Rbyte *out, long long v, int w, int kind, bool hasNA)
 {
     if (kind == BYTEVEC_UINT && v < 0) return false;
 
@@ -330,7 +341,7 @@ static bool eltFromLong(Rbyte *out, long long v, int w, int kind)
     unsigned long long m = neg
 	? (unsigned long long) (-(v + 1)) + 1ULL
 	: (unsigned long long) v;
-    Rbyte mag[MAXW];
+    Rbyte mag[BYTEVEC_MAX_WIDTH];
 
     memset(mag, 0, (size_t) w);
     for (int i = 0; i < w && m; i++) {
@@ -339,7 +350,7 @@ static bool eltFromLong(Rbyte *out, long long v, int w, int kind)
     }
     if (m) return false;			/* needed more than w bytes */
 
-    return storeResult(out, mag, w, kind, neg);
+    return storeResult(out, mag, w, kind, neg, hasNA);
 }
 
 /* Narrow a logical or integer vector into a 'bytes' vector of the given
@@ -376,7 +387,7 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
     for (R_xlen_t i = 0; i < n; i++) {
 	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
 	Rbyte *p = BYTEVEC_ELT(ans, i);
-	if (v == NA_INTEGER || !eltFromLong(p, (long long) v, w, kind)) {
+	if (v == NA_INTEGER || !eltFromLong(p, (long long) v, w, kind, hasNA != 0)) {
 	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(p, w, kind);
 	    if (v != NA_INTEGER) nLost++;
@@ -439,15 +450,14 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     R_xlen_t nx = XLENGTH(x), ny = XLENGTH(y);
     if (nx == 0 || ny == 0) {
 	UNPROTECT(2); /* x, y */
-	return R_allocBytesVectorKind(0, w, kx);
+	return R_bytesWithNA(R_allocBytesVectorKind(0, w, kx),
+			     BYTEVEC_HAS_NA(x));
     }
+    /* R_binary has already warned about a length mismatch */
     R_xlen_t n = nx > ny ? nx : ny;
-    if (((nx > ny) ? nx % ny : ny % nx) != 0)
-	warningcall(call,
-		    _("longer object length is not a multiple of shorter object length"));
 
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kx),
-				     BYTEVEC_HAS_NA(x)));
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kx), hasNA));
     R_xlen_t nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -455,7 +465,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	const Rbyte *py = BYTEVEC_ELT_RO(y, i % ny);
 	Rbyte *pa = BYTEVEC_ELT(ans, i);
 
-	if (BYTEVEC_HAS_NA(x) &&
+	if (hasNA &&
 	    (R_bytesEltIsNA(px, wx, kx) || R_bytesEltIsNA(py, wy, ky))) {
 	    R_bytesSetEltNA(pa, w, kx);
 	    continue;
@@ -470,11 +480,11 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 
 	bool ok;
 	switch (oper) {
-	case PLUSOP:  ok = eltAdd(pa, sx, sy, w, kx); break;
-	case MINUSOP: ok = eltSub(pa, sx, sy, w, kx); break;
-	case TIMESOP: ok = eltMul(pa, sx, sy, w, kx); break;
-	case IDIVOP:  ok = eltDivMod(pa, sx, sy, w, kx, true); break;
-	case MODOP:   ok = eltDivMod(pa, sx, sy, w, kx, false); break;
+	case PLUSOP:  ok = eltAdd(pa, sx, sy, w, kx, hasNA); break;
+	case MINUSOP: ok = eltSub(pa, sx, sy, w, kx, hasNA); break;
+	case TIMESOP: ok = eltMul(pa, sx, sy, w, kx, hasNA); break;
+	case IDIVOP:  ok = eltDivMod(pa, sx, sy, w, kx, true, hasNA); break;
+	case MODOP:   ok = eltDivMod(pa, sx, sy, w, kx, false, hasNA); break;
 	default:
 	    UNPROTECT(3); /* x, y, ans */
 	    errorcall(call,
@@ -515,22 +525,22 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, k),
-				     BYTEVEC_HAS_NA(x)));
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, k), hasNA));
     R_xlen_t nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *px = BYTEVEC_ELT_RO(x, i);
 	Rbyte *pa = BYTEVEC_ELT(ans, i);
 
-	if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(px, w, k)) {
+	if (hasNA && R_bytesEltIsNA(px, w, k)) {
 	    R_bytesSetEltNA(pa, w, k);
 	    continue;
 	}
 
 	Rbyte A[MAXW];
 	bool neg = magFromElt(A, px, w, k);
-	if (!storeResult(pa, A, w, k, !neg)) {
+	if (!storeResult(pa, A, w, k, !neg, hasNA)) {
 	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(pa, w, k);
 	    nOver++;
@@ -547,13 +557,14 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 
 /* Exact for widths with a native type behind them; wider values are
    accumulated, which is why the precision warning below is not
-   conditional on the width. */
+   conditional on the width.  Defined for every width the type allows,
+   since a value too large for a double is a precision question rather
+   than an arithmetic one -- hence the full-width scratch buffer. */
 attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
 {
-    Rbyte A[2 * MAXW];
+    Rbyte A[BYTEVEC_MAX_WIDTH];
     bool neg = false;
 
-    if (w > (int) sizeof A) return NA_REAL;
     toMSB(A, p, w);
     if (kind == BYTEVEC_INT && (A[0] & 0x80)) {
 	neg = true;
@@ -576,13 +587,14 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 	error(_("cannot coerce an opaque 'bytes' vector to type '%s'"),
 	      type2char(type));
 
+    bool hasNA = BYTEVEC_HAS_NA(x);
     SEXP ans = PROTECT(allocVector(type, n));
     R_xlen_t nLost = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
 
-	if (R_bytesEltIsNA(p, w, k)) {
+	if (hasNA && R_bytesEltIsNA(p, w, k)) {
 	    if (type == INTSXP) INTEGER0(ans)[i] = NA_INTEGER;
 	    else REAL0(ans)[i] = NA_REAL;
 	    continue;
@@ -623,36 +635,49 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 attribute_hidden
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 {
-    int kind = -1, w = 0;
+    /* sum and prod accumulate; min and max only ever compare */
+    bool arith = (iop == 0 || iop == 4);
+    int kind = -1, w = 0, wmin = 0, hasNA = -1;
 
-    /* one pass to settle the result kind and width */
+    /* one pass to settle the result kind, width and NA flag */
     for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
 	SEXP a = CAR(t);
 	if (TAG(t) == R_NaRmSymbol) continue;
 	if (TYPEOF(a) == NILSXP) continue;
 	if (TYPEOF(a) != BYTESXP)
 	    errorcall(call, _("cannot mix 'bytes' vectors with other types"));
-	if (BYTEVEC_KIND(a) == BYTEVEC_OPAQUE)
+	if (arith && BYTEVEC_KIND(a) == BYTEVEC_OPAQUE)
 	    errorcall(call,
 		      _("'%s' is not defined for opaque 'bytes' vectors"),
-		      iop == 0 ? "sum" : (iop == 4 ? "prod" :
-					  (iop == 2 ? "min" : "max")));
-	if (kind == -1) kind = BYTEVEC_KIND(a);
-	else if (kind != BYTEVEC_KIND(a))
-	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+		      iop == 0 ? "sum" : "prod");
+	if (kind == -1) {
+	    kind = BYTEVEC_KIND(a);
+	    hasNA = BYTEVEC_HAS_NA(a);
+	    wmin = BYTEVEC_WIDTH(a);
+	}
+	else {
+	    if (kind != BYTEVEC_KIND(a))
+		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	    if (hasNA != BYTEVEC_HAS_NA(a))
+		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+	    if (BYTEVEC_WIDTH(a) < wmin) wmin = BYTEVEC_WIDTH(a);
+	}
 	if (BYTEVEC_WIDTH(a) > w) w = BYTEVEC_WIDTH(a);
     }
 
-    if (!arithWidthOK(w))
+    /* Only promoting a narrower operand to the result width needs the
+       arithmetic machinery; an element comparison is defined for every
+       width and every kind, so min and max over equal widths are not
+       restricted the way sum and prod are. */
+    bool promote = (w != wmin);
+    if ((arith || promote) && !arithWidthOK(w))
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    if (promote && kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("cannot combine opaque 'bytes' vectors of widths %d and %d"),
+		  wmin, w);
 
-    SEXP ans = PROTECT(R_allocBytesVectorKind(1, w, kind));
-    for (SEXP t = args; t != R_NilValue; t = CDR(t))
-	if (TYPEOF(CAR(t)) == BYTESXP) {
-	    SET_BYTEVEC_NONA(ans, !BYTEVEC_HAS_NA(CAR(t)));
-	    break;
-	}
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(1, w, kind), hasNA));
     Rbyte *acc = BYTEVEC_ELT(ans, 0);
     bool seen = false, isNA = false, over = false;
 
@@ -672,15 +697,22 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	for (R_xlen_t i = 0; i < XLENGTH(a); i++) {
 	    const Rbyte *p = BYTEVEC_ELT_RO(a, i);
 
-	    if (BYTEVEC_HAS_NA(a) && R_bytesEltIsNA(p, aw, kind)) {
+	    if (hasNA && R_bytesEltIsNA(p, aw, kind)) {
 		if (narm) continue;
 		isNA = true;
 		break;
 	    }
 
-	    Rbyte wide[MAXW], cur[MAXW];
-	    widenMSB(wide, w, p, aw, kind);
-	    fromMSB(cur, wide, w);
+	    /* widening buffers are MAXW, so this must stay behind the
+	       arithWidthOK() check above; at equal widths there is
+	       nothing to widen and any width is fine */
+	    Rbyte wide[MAXW], buf[MAXW];
+	    const Rbyte *cur = p;
+	    if (aw != w) {
+		widenMSB(wide, w, p, aw, kind);
+		fromMSB(buf, wide, w);
+		cur = buf;
+	    }
 
 	    if (!seen && (iop == 2 || iop == 3)) {
 		memcpy(acc, cur, (size_t) w);
@@ -691,10 +723,10 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 
 	    switch (iop) {
 	    case 0:
-		if (!eltAdd(acc, acc, cur, w, kind)) over = true;
+		if (!eltAdd(acc, acc, cur, w, kind, hasNA)) over = true;
 		break;
 	    case 4:
-		if (!eltMul(acc, acc, cur, w, kind)) over = true;
+		if (!eltMul(acc, acc, cur, w, kind, hasNA)) over = true;
 		break;
 	    case 2:
 		if (R_bytesEltCmp(cur, acc, w, kind) < 0)

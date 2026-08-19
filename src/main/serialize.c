@@ -2139,6 +2139,10 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    int k = (int) (levs & BYTEVEC_KIND_MASK);
 	    if (w < 1 || w > BYTEVEC_MAX_WIDTH)
 		error(_("ReadItem: invalid 'bytes' element width %d"), w);
+	    /* the fourth value of the two-bit kind field is unassigned;
+	       every reader of it would otherwise pick its own meaning */
+	    if (k != BYTEVEC_OPAQUE && k != BYTEVEC_UINT && k != BYTEVEC_INT)
+		error(_("ReadItem: invalid 'bytes' element kind %d"), k);
 	    len = ReadLENGTH(stream);
 	    PROTECT(s = R_allocBytesVectorKind(len, w, k));
 

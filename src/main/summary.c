@@ -583,8 +583,11 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 
     for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	if (TYPEOF(CAR(t)) == BYTESXP) {
+	    /* args must stay protected: R_bytesSummary walks it and
+	       allocates as it goes */
+	    SEXP val = R_bytesSummary(call, PRIMVAL(op), args, narm);
 	    UNPROTECT(1); /* args */
-	    return R_bytesSummary(call, PRIMVAL(op), args, narm);
+	    return val;
 	}
 
     if (ALTREP(CAR(args)) && CDDR(args) == R_NilValue &&

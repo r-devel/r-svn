@@ -537,21 +537,28 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     /* 'bytes' vectors never coerce to or from anything else, so this
        precedes the numeric fixup rather than joining it.  '/' and '^'
        are the exception: as for integers, they yield a double, so
-       those two fall through to the ordinary path. */
+       those two fall through to the ordinary path.  The operation
+       itself is deferred to the dispatch below so that dim, dimnames,
+       names and tsp are carried over as they are for every other
+       type. */
+    bool bytes = false;
     if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
 	if (oper == DIVOP || oper == POWOP) {
 	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
 	    REPROTECT(y = coerceVector(y, REALSXP), ypi);
 	}
 	else {
-	    SEXP val = R_bytesArith(call, (int) oper, x, y);
-	    UNPROTECT(2); /* x, y */
-	    return val;
+	    /* the half of FIXUP_NULL_AND_CHECK_TYPES that still applies */
+	    if (TYPEOF(x) == NILSXP) REPROTECT(x = allocVector(INTSXP, 0), xpi);
+	    if (TYPEOF(y) == NILSXP) REPROTECT(y = allocVector(INTSXP, 0), ypi);
+	    bytes = true;
 	}
     }
 
-    FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-    FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+    if (!bytes) {
+	FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+	FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+    }
 
     R_xlen_t
 	nx = XLENGTH(x),
@@ -676,7 +683,9 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
-    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (bytes)
+	val = R_bytesArith(call, (int) oper, x, y);
+    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>

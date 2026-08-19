@@ -2210,6 +2210,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case RAWSXP:
 	case EXPRSXP:
 	case VECSXP:
+	case BYTESXP:
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
@@ -2260,6 +2261,16 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    xcopyRawWithRecycle(RAW(ans), RAW(vals), 0, nans, lendat);
 	else
 	    for (i = 0; i < nans; i++) RAW(ans)[i] = 0;
+	break;
+    case BYTESXP:
+	if (nans && lendat)
+	    R_bytesCopyWithRecycle(ans, vals, 0, nans, lendat);
+	else {
+	    int w = BYTEVEC_WIDTH(ans), k = BYTEVEC_KIND(ans);
+	    if (nans) R_bytesCheckNA(ans);
+	    for (i = 0; i < nans; i++)
+		R_bytesSetEltNA(BYTEVEC_ELT(ans, i), w, k);
+	}
 	break;
     case STRSXP:
 	if (nans && lendat)

@@ -565,10 +565,113 @@ ok("not identical to na = TRUE", !identical(w1, hn))
 ok("default is unchanged",       bytesHasNA(bytes(1L, 8L, "unsigned")) &&
                                  bytesHasNA(as.bytes(as.raw(1:8), 8L)))
 
+cat("\n== X. width, kind and NA carried through every path ==\n")
+## Narrowing is not restricted to the arithmetic widths: c(), [<- and
+## comparison all reach it, and none of them does arithmetic.
+xw <- bytes(2L, 32L, "unsigned")
+ok("wide compare narrows",       identical(xw == 1L, c(FALSE, FALSE)))
+ok("wide c() narrows",           length(c(xw, 1L)) == 3L)
+ok("wide [<- narrows",           { z <- xw; z[1] <- 1L; as.character(z[1]) == "1" })
+ok("wide arithmetic still errors",
+                                 grepl("widths 1, 2, 4, 8 and 16",
+                                       tryCatch(xw + 1L, error = conditionMessage)))
+
+## cbind/rbind must narrow like every other mode, not reinterpret the
+## argument's own storage
+b2 <- as.bytes(as.raw(c(1, 2)), 1L, "unsigned")
+ok("cbind narrows an integer",   identical(as.character(cbind(b2, 3:4)),
+                                           c("1","2","3","4")))
+ok("rbind narrows an integer",   identical(as.character(rbind(b2, 3:4)),
+                                           c("1","3","2","4")))
+ok("cbind still refuses double", inherits(tryCatch(cbind(b2, 1.5), error = identity), "error"))
+ok("cbind keeps the NA flag",    !bytesHasNA(cbind(w1, w1)) &&
+                                 identical(cbind(w1, w1)[, 1], w1))
+
+## with na = FALSE the reserved pattern is reachable as a result, not
+## just as an ingested value
+s1 <- as.bytes(as.raw(c(0, 1, 127, 128)), 1L, "signed", na = FALSE)
+ok("na = FALSE reaches the top",  identical(as.character(w1[3] + w1[2]), "255"))
+ok("na = FALSE narrows to the top",
+                                 identical(as.character(w1[1] + 255L), "255"))
+ok("na = FALSE assigns the top", { z <- w1; z[1] <- 255L; as.character(z[1]) == "255" })
+ok("na = FALSE coerces the top", identical(as.numeric(w1), c(0, 1, 254, 255)))
+ok("signed reaches INT_MIN",     identical(as.character(s1), c("0","1","127","-128")) &&
+                                 identical(as.character(s1[1] + -128L), "-128"))
+ok("na = TRUE still reserves",   { hn2 <- as.bytes(as.raw(254), 1L, "unsigned")
+                                   suppressWarnings(is.na(hn2 + 1L)) })
+ok("na = NA is not an answer",   inherits(tryCatch(bytes(4L, 1L, "unsigned", na = NA),
+                                                   error = identity), "error") &&
+                                 inherits(tryCatch(as.bytes(as.raw(1), 1L, "unsigned", na = NA),
+                                                   error = identity), "error"))
+
+cat("\n== Y. arithmetic keeps the attributes, as every other type does ==\n")
+u4 <- mk("unsigned", 8L, "0000000000000001", "0000000000000002",
+                         "0000000000000003", "0000000000000004")
+ok("dim survives",               identical(dim(matrix(u4, 2, 2) + 1L), c(2L, 2L)))
+ok("values survive with it",     identical(as.character(matrix(u4, 2, 2) + 1L),
+                                           c("2","3","4","5")))
+ok("names survive",              { v <- u4; names(v) <- letters[1:4]
+                                   identical(names(v + 1L), letters[1:4]) })
+ok("non-conformable errors",     inherits(tryCatch(matrix(u4, 2, 2) + matrix(u4, 4, 1),
+                                                   error = identity), "error"))
+ok("recycling warns exactly once",
+                                 { n <- 0L
+                                   withCallingHandlers(u4 + u4[1:3],
+                                       warning = function(w) { n <<- n + 1L
+                                                               invokeRestart("muffleWarning") })
+                                   n == 1L })
+ok("array() takes a bytes vector",
+                                 identical(as.character(array(u4, c(2, 2))),
+                                           c("1","2","3","4")))
+
+cat("\n== Z. min/max need only a comparison ==\n")
+## unlike sum and prod, which accumulate; so they are defined wherever
+## ordering is, which is every width and every kind
+ok("range of an opaque vector",  identical(as.character(range(x)),
+                                           c("0102030405060708090a0b0c0d0e0f10",
+                                             "1112131415161718191a1b1c1d1e1f20")))
+ok("min of a non-arith width",   identical(as.character(min(bytes(4L, 3L, "unsigned"))), "0"))
+ok("max promotes mixed widths",  identical(as.character(max(u4, mk("unsigned", 4L, "00000009"))),
+                                           "9"))
+ok("sum still refuses opaque",   inherits(tryCatch(sum(x), error = identity), "error"))
+ok("as.numeric past 32 bytes",   identical(as.numeric(mk("unsigned", 33L,
+                                                         paste0(strrep("0", 64), "01"))), 1))
+
+cat("\n== Z2. the implicit class drives dispatch ==\n")
+ok(".class2 matches class()",    identical(.class2(u4), class(u4)))
+ok(".class2 of a matrix",        identical(.class2(matrix(u4, 2, 2)),
+                                           c("matrix", "array", "uint64", "bytes")))
+ok("UseMethod sees the kind",    { mean.uint64 <- function(x, ...) "by kind"
+                                   identical(mean(u4), "by kind") })
+ok("c() into a list is lossless",
+                                 { r <- c(list(a = 1), u4)
+                                   length(r) == 5L && identical(r$a, 1) &&
+                                   all(vapply(r[-1], typeof, "") == "uint64") &&
+                                   identical(as.character(r[[5]]), "4") })
+ok("as.list splits by element",  { r <- as.list(u4)
+                                   length(r) == 4L &&
+                                   all(vapply(r, typeof, "") == "uint64") &&
+                                   identical(vapply(r, as.character, ""),
+                                             c("1","2","3","4")) })
+ok("as.list keeps names",        { v <- u4; names(v) <- letters[1:4]
+                                   identical(names(as.list(v)), letters[1:4]) })
+ok("cbind into a list matrix",   { m <- cbind(list(1), u4[1:2])
+                                   identical(dim(m), c(2L, 2L)) &&
+                                   identical(typeof(m[[2, 2]]), "uint64") })
+ok("a bytes cell prints",        { out <- capture.output(print(cbind(list(1), u4[1:2])))
+                                   !any(grepl("?", out, fixed = TRUE)) })
+
+cat("\n== Z3. gctorture on the paths that allocate mid-walk ==\n")
+gctorture(TRUE)
+floop <- function(v) { s <- character(); for (b in v) s <- c(s, as.character(b)); s }
+ok("for loop over bytes",        identical(floop(u4), c("1","2","3","4")))
+ok("compiled for loop",          identical(compiler::cmpfun(floop)(u4), c("1","2","3","4")))
+ok("sum walks a protected args", identical(as.character(sum(u4, u4)), "20"))
+gctorture(FALSE)
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))
-probe("range(x)",                range(x))
 probe("as.integer(x)",           as.integer(x))
 probe("as.raw(x)",               as.raw(x))
 probe("as.numeric(x)",           as.numeric(x))

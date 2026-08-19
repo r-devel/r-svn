@@ -204,6 +204,17 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarRaw(RAW(x)[i]));
 	break;
+    case BYTESXP:
+	/* one length-1 vector per element, keeping the width and kind;
+	   there is no scalar form of a 'bytes' element */
+	for (i = 0; i < XLENGTH(x); i++) {
+	    SEXP e = PROTECT(R_allocVectorLike(x, 1));
+	    memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(x, i),
+		   (size_t) BYTEVEC_WIDTH(x));
+	    LIST_ASSIGN(e);
+	    UNPROTECT(1);
+	}
+	break;
     case INTSXP:
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarInteger(INTEGER(x)[i]));
@@ -899,13 +910,19 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* we use the natural coercion for vector types. */
 
     int mode = NILSXP;
+    /* 'bytes' (1024) is not a step in the coercion chain below but a
+       thing apart, so it gets its own branch ahead of it: it combines
+       only with the two types that narrow into it, and with a list,
+       which holds its elements by reference and so loses nothing. */
     if (data.ans_flags & 1024) {
+	if      (data.ans_flags & 512) mode = EXPRSXP;
+	else if (data.ans_flags & 256) mode = VECSXP;
 	/* logical (2) and integer (16) narrow into 'bytes'; a double
 	   operand is deliberately refused rather than guessed at */
-	if (data.ans_flags & ~(1024 | 16 | 2))
+	else if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	mode = BYTESXP;
+	else mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
@@ -1038,13 +1055,19 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* we use the natural coercion for vector types. */
 
     int mode = NILSXP;
+    /* 'bytes' (1024) is not a step in the coercion chain below but a
+       thing apart, so it gets its own branch ahead of it: it combines
+       only with the two types that narrow into it, and with a list,
+       which holds its elements by reference and so loses nothing. */
     if (data.ans_flags & 1024) {
+	if      (data.ans_flags & 512) mode = EXPRSXP;
+	else if (data.ans_flags & 256) mode = VECSXP;
 	/* logical (2) and integer (16) narrow into 'bytes'; a double
 	   operand is deliberately refused rather than guessed at */
-	if (data.ans_flags & ~(1024 | 16 | 2))
+	else if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	mode = BYTESXP;
+	else mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
@@ -1243,11 +1266,14 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     int mode = NILSXP;
+    /* see do_c_dflt: 'bytes' is apart from the chain, not a step in it */
     if (data.ans_flags & 1024) {
-	if (data.ans_flags & ~(1024 | 16 | 2))
+	if      (data.ans_flags & 512) mode = EXPRSXP;
+	else if (data.ans_flags & 256) mode = VECSXP;
+	else if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	mode = BYTESXP;
+	else mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
@@ -1389,15 +1415,19 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mode == BYTESXP) {
 	/* allocMatrix cannot carry a per-vector width, so build the
 	   vector and set dim; AnswerType has already checked that every
-	   argument agrees on width and kind */
-	int bw = 1, bk = BYTEVEC_OPAQUE;
+	   argument agrees on width, kind and whether NA is reserved, so
+	   the first 'bytes' argument settles all three */
+	int bw = 1, bk = BYTEVEC_OPAQUE, bna = 1;
 	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
 	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
 		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
 		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
+		bna = BYTEVEC_HAS_NA(PRVALUE(CAR(bt)));
 		break;
 	    }
-	PROTECT(result = R_allocBytesVectorKind((R_xlen_t) rows * cols, bw, bk));
+	PROTECT(result =
+		R_bytesWithNA(R_allocBytesVectorKind((R_xlen_t) rows * cols,
+						     bw, bk), bna));
 	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);
@@ -1429,6 +1459,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		case NILSXP:
 		case LANGSXP:
 		case RAWSXP:
+		case BYTESXP:
 		case LGLSXP:
 		case INTSXP:
 		case REALSXP:
@@ -1483,10 +1514,17 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
+		int umatrix = isMatrix(u); /* lost in the narrowing below */
+		if (TYPEOF(u) != BYTESXP)
+		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
+				      BYTEVEC_KIND(result),
+				      BYTEVEC_HAS_NA(result), call);
+		PROTECT(u);
 		R_xlen_t k = XLENGTH(u);
-		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
+		R_xlen_t idx = (!umatrix) ? rows : k;
 		R_bytesCopyWithRecycle(result, u, n, idx, k);
 		n += idx;
+		UNPROTECT(1);
 	    }
 	}
     }
@@ -1694,15 +1732,19 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mode == BYTESXP) {
 	/* allocMatrix cannot carry a per-vector width, so build the
 	   vector and set dim; AnswerType has already checked that every
-	   argument agrees on width and kind */
-	int bw = 1, bk = BYTEVEC_OPAQUE;
+	   argument agrees on width, kind and whether NA is reserved, so
+	   the first 'bytes' argument settles all three */
+	int bw = 1, bk = BYTEVEC_OPAQUE, bna = 1;
 	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
 	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
 		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
 		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
+		bna = BYTEVEC_HAS_NA(PRVALUE(CAR(bt)));
 		break;
 	    }
-	PROTECT(result = R_allocBytesVectorKind((R_xlen_t) rows * cols, bw, bk));
+	PROTECT(result =
+		R_bytesWithNA(R_allocBytesVectorKind((R_xlen_t) rows * cols,
+						     bw, bk), bna));
 	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);
@@ -1758,10 +1800,18 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
+		/* both are lost in the narrowing below */
+		int umatrix = isMatrix(u), unrows = umatrix ? nrows(u) : 0;
+		if (TYPEOF(u) != BYTESXP)
+		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
+				      BYTEVEC_KIND(result),
+				      BYTEVEC_HAS_NA(result), call);
+		PROTECT(u);
 		R_xlen_t k = XLENGTH(u);
-		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		R_xlen_t idx = umatrix ? unrows : (k > 0);
 		R_bytesFillMatrixWithRecycle(result, u, n, rows, idx, cols, k);
 		n += idx;
+		UNPROTECT(1);
 	    }
 	}
     }

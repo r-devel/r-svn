@@ -2702,6 +2702,18 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call)
 	}							\
     } while(0)
 
+/* As above, for a type whose element size is a property of the vector
+   rather than of the SEXPTYPE, so that allocVector() cannot reproduce
+   it.  The sequence is fixed for the whole loop, so the value is still
+   reusable across iterations. */
+#define ALLOC_LOOP_VAR_LIKE(v, val, vpi) do {			\
+	if (v == R_NilValue || MAYBE_SHARED(v) ||		\
+	    ATTRIB(v) != R_NilValue || (v) != CAR(cell)) {	\
+	    REPROTECT(v = R_allocVectorLike(val, 1), vpi);	\
+	    INCREMENT_NAMED(v);					\
+	}							\
+    } while(0)
+
 attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP Cond, Stmt=R_NilValue;
@@ -2871,10 +2883,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 		SET_SCALAR_BVAL(v, RAW(val)[i]);
 		break;
 	    case BYTESXP:
-		/* not ALLOC_LOOP_VAR: the loop variable is reused across
-		   iterations only for types whose element size is fixed
-		   by the SEXPTYPE */
-		v = R_allocVectorLike(val, 1);
+		ALLOC_LOOP_VAR_LIKE(v, val, vpi);
 		memcpy(BYTEVEC_DATA(v), BYTEVEC_ELT_RO(val, i),
 		       (size_t) BYTEVEC_WIDTH(val));
 		break;
@@ -6897,6 +6906,21 @@ typedef struct {
 	}						\
     } while (0)
 
+/* As above, for a type whose element size is a property of the vector
+   rather than of the SEXPTYPE, so that allocVector() cannot reproduce
+   it.  The sequence is fixed for the whole loop, so the cached value
+   is still reusable across iterations. */
+#define GET_VEC_LOOP_VALUE_LIKE(var) do {		\
+	(var) = GETSTACK_SXPVAL(-1);			\
+	if (BNDCELL_TAG(cell) ||			\
+	    (var) != CAR(cell) || MAYBE_SHARED(var) ||	\
+	    ATTRIB(var) != R_NilValue) {		\
+	    (var) = R_allocVectorLike(seq, 1);		\
+	    SETSTACK_NLNK(-1, var);			\
+	    INCREMENT_NAMED(var);			\
+	}						\
+    } while (0)
+
 /* This uses use loopinfo->symbol in case cell is R_NilValue, e.g. for
    an active binding. */
 #define SET_FOR_LOOP_VAR(value, cell, loopinfo, rho) do {	\
@@ -7823,10 +7847,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    SET_SCALAR_BVAL(value, RAW(seq)[i]);
 	    break;
 	  case BYTESXP:
-	    /* not GET_VEC_LOOP_VALUE: the cached loop value cannot be
-	       reused, since the element width is a property of the
-	       vector rather than of the SEXPTYPE */
-	    value = R_allocVectorLike(seq, 1);
+	    GET_VEC_LOOP_VALUE_LIKE(value);
 	    memcpy(BYTEVEC_DATA(value), BYTEVEC_ELT_RO(seq, i),
 		   (size_t) BYTEVEC_WIDTH(seq));
 	    break;

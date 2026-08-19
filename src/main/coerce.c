@@ -914,6 +914,17 @@ static SEXP coerceToVectorList(SEXP v)
 	    SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
 	}
 	break;
+    case BYTESXP:
+	/* a length-1 vector per element, keeping the width and kind;
+	   there is no scalar form of a 'bytes' element */
+	for (i = 0; i < n; i++) {
+	    SEXP e = PROTECT(R_allocVectorLike(v, 1));
+	    memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(v, i),
+		   (size_t) BYTEVEC_WIDTH(v));
+	    SET_VECTOR_ELT(ans, i, e);
+	    UNPROTECT(1);
+	}
+	break;
     case LISTSXP:
     case LANGSXP:
 	tmp = v;

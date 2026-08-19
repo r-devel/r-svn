@@ -256,6 +256,19 @@ static int checkWidth(SEXP swidth)
     return width;
 }
 
+/* Whether NA is representable is part of the type, so NA is not an
+   answer to it: taking it as FALSE would hand back the more
+   restrictive of the two vectors without being asked. */
+static int checkNA(SEXP sna)
+{
+    int hasNA = asLogical(sna);
+
+    if (hasNA == NA_LOGICAL)
+	error(_("'%s' must be TRUE or FALSE"), "na");
+
+    return hasNA;
+}
+
 /* bytes(length, width, kind) */
 attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -266,10 +279,10 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("invalid '%s' argument"), "length");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
-    int hasNA = asLogical(CADDDR(args));
+    int hasNA = checkNA(CADDDR(args));
 
     SEXP val = PROTECT(R_allocBytesVectorKind((R_xlen_t) len, width, kind));
-    SET_BYTEVEC_NONA(val, hasNA != TRUE);
+    SET_BYTEVEC_NONA(val, !hasNA);
     UNPROTECT(1);
 
     return val;
@@ -288,7 +301,7 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("'%s' must be a raw vector"), "x");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
-    int hasNA = asLogical(CADDDR(args));
+    int hasNA = checkNA(CADDDR(args));
 
     R_xlen_t nbytes = XLENGTH(x);
     if (nbytes % width)
@@ -296,12 +309,12 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	      (long long) nbytes, width);
 
     SEXP val = PROTECT(R_allocBytesVectorKind(nbytes / width, width, kind));
-    SET_BYTEVEC_NONA(val, hasNA != TRUE);
+    SET_BYTEVEC_NONA(val, !hasNA);
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
     /* with na = FALSE nothing is reserved, so nothing can collide */
-    if (hasNA == TRUE) {
+    if (hasNA) {
 	R_xlen_t nNA = 0;
 	for (R_xlen_t i = 0; i < XLENGTH(val); i++)
 	    if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), width, kind)) nNA++;

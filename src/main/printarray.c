@@ -315,14 +315,15 @@ static void printBytesMatrix(SEXP sx, int offset, int r_pr, int r, int c,
     _PRINT_INIT_rl_rn;
 
     /* decimal elements vary in width, so each column is measured
-       rather than computed from the element width */
-    _COMPUTE_W_( ({ int wj = 0;
-		    for (R_xlen_t i = 0; i < (R_xlen_t) r; i++) {
-			int wi = (int) strlen(
-			    R_bytesEltRender(sx, offset + i + j * (R_xlen_t) r));
-			if (wi > wj) wj = wi;
-		    }
-		    w[j] = wj; }) )
+       rather than computed from the element width.  _COMPUTE_W2_ already
+       expands this inside a block, so no statement expression is needed
+       (and R still builds with strict ISO C compilers). */
+    _COMPUTE_W_( w[j] = 0;
+		 for (R_xlen_t k = 0; k < (R_xlen_t) r; k++) {
+		     int wk = (int) strlen(
+			 R_bytesEltRender(sx, offset + k + j * (R_xlen_t) r));
+		     if (wk > w[j]) w[j] = wk;
+		 } )
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%*s", w[j],

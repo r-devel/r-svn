@@ -519,6 +519,15 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
+	    case BYTESXP:
+		/* a single element renders in full, as for the other
+		   atomic types; the type name carries the width */
+		if (LENGTH(s_i) == 1)
+		    snprintf(pbuf, 115, "%s", R_bytesEltRender(s_i, 0));
+		else
+		    snprintf(pbuf, 115, "%s,%d", R_bytesTypeName(s_i),
+			     LENGTH(s_i));
+		break;
 	    case LISTSXP:
 	    case VECSXP:
 		snprintf(pbuf, 115, "list,%d", length(s_i));
@@ -690,6 +699,11 @@ static void printList(SEXP s, R_PrintData *data)
 
 	    case RAWSXP:
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
+		break;
+
+	    case BYTESXP:
+		snprintf(pbuf, 100, "%s,%d", R_bytesTypeName(CAR(s)),
+			 LENGTH(CAR(s)));
 		break;
 
 	    case LISTSXP:
