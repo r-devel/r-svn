@@ -324,17 +324,22 @@ void printBytesVectorS(SEXP x, R_xlen_t n, int indx)
 {
     int w, labwidth=0, width;
     R_xlen_t i;
-    int eltw = BYTEVEC_WIDTH(x);
     DO_first_lab;
-    w = 2 * eltw;
+
+    /* decimal elements vary in width, so measure rather than compute */
+    w = 0;
+    for (i = 0; i < n; i++) {
+	int wi = (int) strlen(R_bytesEltRender(x, i));
+	if (wi > w) w = wi;
+    }
     w += R_print.gap;
 
     for (i = 0; i < n; i++) {
 	if (i > 0 && width + w > R_print.width) {
 	    DO_newline;
 	}
-	Rprintf("%*s%s", R_print.gap, "",
-		EncodeBytes(BYTEVEC_ELT_RO(x, i), eltw));
+	Rprintf("%*s%*s", R_print.gap, "", w - R_print.gap,
+		R_bytesEltRender(x, i));
 	width += w;
     }
     Rprintf("\n");

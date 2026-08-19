@@ -51,6 +51,7 @@ struct BindData {
  SEXP ans_names;
  R_xlen_t  ans_nnames;
  int  ans_width; /* BYTESXP element width; 0 until one is seen */
+ int  ans_kind;  /* BYTESXP element kind */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -85,7 +86,10 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors of widths %d and %d"),
 		      data->ans_width, BYTEVEC_WIDTH(x));
+	if (data->ans_width && data->ans_kind != BYTEVEC_KIND(x))
+	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
 	data->ans_width = BYTEVEC_WIDTH(x);
+	data->ans_kind = BYTEVEC_KIND(x);
 	data->ans_flags |= 1024;
 	data->ans_length += XLENGTH(x);
 	break;
@@ -897,7 +901,8 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = (mode == BYTESXP)
-	    ? R_allocBytesVector(data.ans_length, data.ans_width)
+	    ? R_allocBytesVectorKind(data.ans_length, data.ans_width,
+				     data.ans_kind)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1034,7 +1039,8 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = (mode == BYTESXP)
-	    ? R_allocBytesVector(data.ans_length, data.ans_width)
+	    ? R_allocBytesVectorKind(data.ans_length, data.ans_width,
+				     data.ans_kind)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;

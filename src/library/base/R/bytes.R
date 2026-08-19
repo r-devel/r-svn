@@ -20,16 +20,28 @@
 ## element is `width` bytes and is only ever compared or hashed as a
 ## block of bytes, never interpreted as a number.
 
-bytes <- function(length = 0L, width = 1L)
-    .Internal(bytes(length, width))
+## kind = "opaque"   : byte strings; lexicographic order, hex display
+## kind = "unsigned"  : unsigned integers of 8*width bits
+## kind = "signed"    : two's complement integers of 8*width bits
+## The numeric kinds store bytes in native order, so reading them from
+## an external source is a plain copy, and order by value, so sorting
+## is the same on every platform.
 
-as.bytes <- function(x, width = 1L)
-    .Internal(as.bytes(x, width))
+bytes <- function(length = 0L, width = 1L,
+                  kind = c("opaque", "unsigned", "signed"))
+    .Internal(bytes(length, width, match.arg(kind)))
 
-bytesNA <- function(length = 1L, width = 1L)
-    .Internal(bytesNA(length, width))
+as.bytes <- function(x, width = 1L,
+                     kind = c("opaque", "unsigned", "signed"))
+    .Internal(as.bytes(x, width, match.arg(kind)))
+
+bytesNA <- function(length = 1L, width = 1L,
+                    kind = c("opaque", "unsigned", "signed"))
+    .Internal(bytesNA(length, width, match.arg(kind)))
 
 bytesRaw <- function(x) .Internal(bytesRaw(x))
+
+bytesKind <- function(x) .Internal(bytesKind(x))
 
 bytesWidth <- function(x) .Internal(bytesWidth(x))
 

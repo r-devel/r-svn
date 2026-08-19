@@ -188,7 +188,7 @@ static void inspect_tree(int pre, SEXP v, int deep, int pvec) {
 	}
 	break;
     case BYTESXP:
-	Rprintf(" (width=%d)", BYTEVEC_WIDTH(v));
+	Rprintf(" (width=%d,kind=%d)", BYTEVEC_WIDTH(v), BYTEVEC_KIND(v));
 	if (XLENGTH(v) > 0) {
 	    R_xlen_t i = 0;
 	    while (i < XLENGTH(v) && i < pvec) {

@@ -924,7 +924,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	break;
     case BYTESXP:
 	{
-	    int w = BYTEVEC_WIDTH(x);
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    for (i = 0; i < len; i++)
 		if (i < lenx) {
 		    memcpy(BYTEVEC_ELT(rval, i), BYTEVEC_ELT_RO(x, i),
@@ -933,7 +933,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
 		}
 		else
-		    R_bytesSetEltNA(BYTEVEC_ELT(rval, i), w);
+		    R_bytesSetEltNA(BYTEVEC_ELT(rval, i), w, k);
 	}
 	break;
     default:

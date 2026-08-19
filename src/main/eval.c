@@ -2874,7 +2874,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 		/* not ALLOC_LOOP_VAR: the loop variable is reused across
 		   iterations only for types whose element size is fixed
 		   by the SEXPTYPE */
-		v = R_allocBytesVector(1, BYTEVEC_WIDTH(val));
+		v = R_allocVectorLike(val, 1);
 		memcpy(BYTEVEC_DATA(v), BYTEVEC_ELT_RO(val, i),
 		       (size_t) BYTEVEC_WIDTH(val));
 		break;
@@ -7826,7 +7826,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    /* not GET_VEC_LOOP_VALUE: the cached loop value cannot be
 	       reused, since the element width is a property of the
 	       vector rather than of the SEXPTYPE */
-	    value = R_allocBytesVector(1, BYTEVEC_WIDTH(seq));
+	    value = R_allocVectorLike(seq, 1);
 	    memcpy(BYTEVEC_DATA(value), BYTEVEC_ELT_RO(seq, i),
 		   (size_t) BYTEVEC_WIDTH(seq));
 	    break;

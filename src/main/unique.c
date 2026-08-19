@@ -337,9 +337,10 @@ static int bytesequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (i < 0 || j < 0) return 0;
 
     int w = BYTEVEC_WIDTH(x);
-    /* differing widths are never equal; the hashes differ too, but a
-       table can hold both sides of a match() so check explicitly */
+    /* differing widths or kinds are never equal; the hashes differ too,
+       but a table can hold both sides of a match() so check explicitly */
     if (BYTEVEC_WIDTH(y) != w) return 0;
+    if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x)) return 0;
 
     return memcmp(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(y, j),
 		  (size_t) w) == 0;

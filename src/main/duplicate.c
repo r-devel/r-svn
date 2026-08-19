@@ -354,7 +354,7 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	   allocVector(TYPEOF(s), n) cannot reproduce it. */
 	n = XLENGTH(s);
 	PROTECT(s);
-	PROTECT(t = R_allocBytesVector(n, BYTEVEC_WIDTH(s)));
+	PROTECT(t = R_allocVectorLike(s, n));
 	if (n > 0)
 	    memcpy(BYTEVEC_DATA(t), BYTEVEC_DATA_RO(s),
 		   (size_t) n * BYTEVEC_WIDTH(s));

@@ -258,12 +258,12 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	break;
     case BYTESXP:
 	{
-	    int w = BYTEVEC_WIDTH(x);
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    if (len > 0)
 		memcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
 		       (size_t) len * w);
 	    for (R_xlen_t i = len; i < newtruelen; i++)
-		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w);
+		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w, k);
 	}
 	break;
     default:
@@ -342,6 +342,9 @@ static int BytesAssignWidth(SEXP x, SEXP y, SEXP call)
 	errorcall(call,
 		  _("incompatible 'bytes' widths (%d and %d) in subassignment"),
 		  w, BYTEVEC_WIDTH(y));
+    if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x))
+	errorcall(call,
+		  _("incompatible 'bytes' kinds in subassignment"));
 
     return w;
 }

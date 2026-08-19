@@ -42,18 +42,16 @@ static int icmp(int x, int y, bool nalast)
     return 0;
 }
 
-/* BYTESXP elements are opaque, so the order is unsigned lexicographic
-   over the stored bytes -- the same order bytes_relop() gives. */
-static int bcmp_(const Rbyte *x, const Rbyte *y, int w, bool nalast)
+/* Same order bytes_relop() gives: lexicographic for OPAQUE elements,
+   by value for the numeric kinds. */
+static int bcmp_(const Rbyte *x, const Rbyte *y, int w, int k, bool nalast)
 {
-    int nax = R_bytesEltIsNA(x, w), nay = R_bytesEltIsNA(y, w);
+    int nax = R_bytesEltIsNA(x, w, k), nay = R_bytesEltIsNA(y, w, k);
     if (nax && nay)	return 0;
     if (nax)		return nalast ? 1 : -1;
     if (nay)		return nalast ? -1 : 1;
 
-    int c = memcmp(x, y, (size_t) w);
-
-    return (c < 0) ? -1 : ((c > 0) ? 1 : 0);
+    return R_bytesEltCmp(x, y, w, k);
 }
 
 static int rcmp(double x, double y, bool nalast)
@@ -222,16 +220,16 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 	    break;
 	case BYTESXP: // compatible with bytes_relop() in ./relop.c
 	{
-	    int w = BYTEVEC_WIDTH(x);
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    if(strictly) {
 		for(i = 0; i+1 < n ; i++)
 		    if(bcmp_(BYTEVEC_ELT_RO(x, i),
-			     BYTEVEC_ELT_RO(x, i+1), w, true) >= 0)
+			     BYTEVEC_ELT_RO(x, i+1), w, k, true) >= 0)
 			return TRUE;
 	    } else {
 		for(i = 0; i+1 < n ; i++)
 		    if(bcmp_(BYTEVEC_ELT_RO(x, i),
-			     BYTEVEC_ELT_RO(x, i+1), w, true) > 0)
+			     BYTEVEC_ELT_RO(x, i+1), w, k, true) > 0)
 			return TRUE;
 	    }
 	    break;
@@ -666,7 +664,7 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 static void bsort2(SEXP s, R_xlen_t n, bool decreasing)
 {
     R_xlen_t i, j, h, t;
-    int w = BYTEVEC_WIDTH(s);
+    int w = BYTEVEC_WIDTH(s), k = BYTEVEC_KIND(s);
     Rbyte *x = BYTEVEC_DATA(s);
     Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
 
@@ -677,10 +675,10 @@ static void bsort2(SEXP s, R_xlen_t n, bool decreasing)
 	    memcpy(v, x + i * w, (size_t) w);
 	    j = i;
 	    if(decreasing)
-		while (j >= h && bcmp_(x + (j - h) * w, v, w, true) < 0)
+		while (j >= h && bcmp_(x + (j - h) * w, v, w, k, true) < 0)
 		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
 	    else
-		while (j >= h && bcmp_(x + (j - h) * w, v, w, true) > 0)
+		while (j >= h && bcmp_(x + (j - h) * w, v, w, k, true) > 0)
 		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
 	    memcpy(x + j * w, v, (size_t) w);
 	}
@@ -919,7 +917,7 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	    break;
 	case BYTESXP:
 	    c = bcmp_(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(x, j),
-		      BYTEVEC_WIDTH(x), nalast);
+		      BYTEVEC_WIDTH(x), BYTEVEC_KIND(x), nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("equal", x);
@@ -961,7 +959,7 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	    break;
 	case BYTESXP:
 	    c = bcmp_(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(x, j),
-		      BYTEVEC_WIDTH(x), nalast);
+		      BYTEVEC_WIDTH(x), BYTEVEC_KIND(x), nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("greater", x);
@@ -997,7 +995,7 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	    break;
 	case BYTESXP:
 	    c = bcmp_(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(x, j),
-		      BYTEVEC_WIDTH(x), nalast);
+		      BYTEVEC_WIDTH(x), BYTEVEC_KIND(x), nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
@@ -1229,7 +1227,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
     Rcomplex *cx = NULL /* -Wall */;
     const SEXP *sx = NULL /* -Wall */;
     const Rbyte *bx = NULL /* -Wall */;
-    int bw = 0 /* -Wall */;
+    int bw = 0, bk = 0 /* -Wall */;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
@@ -1249,6 +1247,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
     case BYTESXP:
 	bx = BYTEVEC_DATA_RO(key);
 	bw = BYTEVEC_WIDTH(key);
+	bk = BYTEVEC_KIND(key);
 	break;
     }
 
@@ -1271,7 +1270,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    break;
 	case BYTESXP:
 	    for (i = 0; i < n; i++)
-		isna[i] = R_bytesEltIsNA(bx + i * bw, bw);
+		isna[i] = R_bytesEltIsNA(bx + i * bw, bw, bk);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
@@ -1358,12 +1357,12 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    /* NAs were moved out of [lo, hi] above, so a bare memcmp is
 	       enough here */
 	    if (decreasing)
-#define less(a, b) (c = memcmp(bx + (a) * bw, bx + (b) * bw, (size_t) bw), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = memcmp(bx + (a) * bw, bx + (b) * bw, (size_t) bw), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
@@ -1391,7 +1390,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
     const SEXP *sx = NULL /* -Wall */;
     R_xlen_t itmp;
     const Rbyte *bx = NULL /* -Wall */;
-    int bw = 0 /* -Wall */;
+    int bw = 0, bk = 0 /* -Wall */;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
@@ -1411,6 +1410,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
     case BYTESXP:
 	bx = BYTEVEC_DATA_RO(key);
 	bw = BYTEVEC_WIDTH(key);
+	bk = BYTEVEC_KIND(key);
 	break;
     }
 
@@ -1433,7 +1433,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    break;
 	case BYTESXP:
 	    for (i = 0; i < n; i++)
-		isna[i] = R_bytesEltIsNA(bx + i * bw, bw);
+		isna[i] = R_bytesEltIsNA(bx + i * bw, bw, bk);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
@@ -1520,12 +1520,12 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    /* NAs were moved out of [lo, hi] above, so a bare memcmp is
 	       enough here */
 	    if (decreasing)
-#define less(a, b) (c = memcmp(bx + (a) * bw, bx + (b) * bw, (size_t) bw), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = memcmp(bx + (a) * bw, bx + (b) * bw, (size_t) bw), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less

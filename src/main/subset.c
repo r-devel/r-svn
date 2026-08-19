@@ -132,7 +132,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 
     /* protect allocation in case _ELT operations need to allocate */
     PROTECT(result = (mode == BYTESXP)
-	    ? R_allocBytesVector(n, BYTEVEC_WIDTH(x))
+	    ? R_allocVectorLike(x, n)
 	    : allocVector(mode, n));
     switch(mode) {
     case LGLSXP:
@@ -171,10 +171,11 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     case BYTESXP:
 	{
 	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    int k = BYTEVEC_KIND(x);
 	    EXTRACT_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, i),
 				       BYTEVEC_ELT_RO(x, ii), w),
 				R_bytesSetEltNA(BYTEVEC_ELT(result, i),
-						(int) w));
+						(int) w, k));
 	}
 	break;
     case LISTSXP:

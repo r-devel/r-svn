@@ -794,13 +794,16 @@ static SEXP coerceToString(SEXP v)
 	break;
     case BYTESXP:
 	{
-	    int w = BYTEVEC_WIDTH(v);
+	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
 	    for (i = 0; i < n; i++) {
-		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(v, i), w))
+		const Rbyte *e = BYTEVEC_ELT_RO(v, i);
+		if (R_bytesEltIsNA(e, w, k))
 		    SET_STRING_ELT(ans, i, NA_STRING);
 		else
 		    SET_STRING_ELT(ans, i,
-				   mkChar(EncodeBytes(BYTEVEC_ELT_RO(v, i), w)));
+				   mkChar(k == BYTEVEC_OPAQUE
+					  ? EncodeBytes(e, w)
+					  : R_bytesEltDecimal(e, w, k)));
 	    }
 	}
 	break;
@@ -2368,9 +2371,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case BYTESXP:
 	{
-	    int w = BYTEVEC_WIDTH(x);
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    for (i = 0; i < n; i++)
-		pa[i] = R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w);
+		pa[i] = R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k);
 	}
 	break;
     case NILSXP: break;
@@ -2455,9 +2458,9 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 	break;
     case BYTESXP:
 	{
-	    int w = BYTEVEC_WIDTH(x);
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    for (i = 0; i < n; i++)
-		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w)) return true;
+		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k)) return true;
 	}
 	break;
     case RAWSXP: /* no such thing as a raw NA:  is.na(.) gives false always */

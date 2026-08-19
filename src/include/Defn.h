@@ -461,10 +461,45 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
     (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
 #define BYTEVEC_ELT_RO(x, i) \
     (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
-/* NA is the all-0xFF element.  Reserving a pattern is what every other
-   atomic type does (NA_INTEGER is INT_MIN); 0xFF rather than 0x00
-   because zero is the universal "unset" value and appears in real data
-   -- the nil UUID, 0.0.0.0, :: are all all-zero. */
+/* Interpretation of the elements, in gp bits 0-1.  A width-16 UUID and
+   a width-16 uint128 are the same size but must sort differently, so
+   width alone cannot carry this.
+
+   OPAQUE elements are byte strings: stored verbatim, ordered
+   lexicographically, rendered as hex.  This is the default and is what
+   hashes, UUIDs and addresses want.
+
+   UINT and INT elements are integers of 8*width bits, stored in
+   *native* byte order so that ingest from an external source is a
+   plain memcpy, ordered by value, and rendered as decimal.  Since the
+   order is by value rather than by bytes, it is the same on every
+   platform even though the storage is not. */
+#define BYTEVEC_KIND_MASK ((unsigned short) 3)
+#define BYTEVEC_OPAQUE 0
+#define BYTEVEC_UINT   1
+#define BYTEVEC_INT    2
+#define BYTEVEC_KIND(x) ((int) ((x)->sxpinfo.gp & BYTEVEC_KIND_MASK))
+#define SET_BYTEVEC_KIND(x, k) do {					\
+	SEXP bk__x__ = (x);						\
+	bk__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bk__x__->sxpinfo.gp & ~BYTEVEC_KIND_MASK)	\
+			      | ((unsigned short) (k) & BYTEVEC_KIND_MASK)); \
+    } while (0)
+
+/* Index of the i-th most significant byte of a numeric element, in
+   storage order. */
+#ifdef WORDS_BIGENDIAN
+# define BYTEVEC_MSB(i, w) (i)
+#else
+# define BYTEVEC_MSB(i, w) ((w) - 1 - (i))
+#endif
+
+/* NA patterns.  OPAQUE and UINT reserve all-0xFF: zero is the
+   universal "unset" value and appears in real data (the nil UUID,
+   0.0.0.0, ::), so 0xFF is the safer sacrifice, and for UINT it costs
+   only UINT_MAX.  INT cannot use it -- all-0xFF is -1 in two's
+   complement -- so INT reserves INT_MIN, which is what bit64 does and
+   for the same reason. */
 #define BYTEVEC_NA_BYTE 0xFF
 
 /* List Access Macros */
@@ -1838,10 +1873,14 @@ SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5)
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
 SEXP R_allocBytesVector(R_xlen_t length, int width);
+SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind);
 int R_bytesWidth(SEXP x);
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
-Rboolean R_bytesEltIsNA(const Rbyte *p, int width);
-void R_bytesSetEltNA(Rbyte *p, int width);
+Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
+void R_bytesSetEltNA(Rbyte *p, int width, int kind);
+int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind);
+const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind);
+const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);

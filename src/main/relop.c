@@ -680,10 +680,12 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     if (TYPEOF(s1) != BYTESXP || TYPEOF(s2) != BYTESXP)
 	errorcall(call, _("comparison of these types is not implemented"));
 
-    int w = BYTEVEC_WIDTH(s1);
+    int w = BYTEVEC_WIDTH(s1), k = BYTEVEC_KIND(s1);
     if (BYTEVEC_WIDTH(s2) != w)
 	errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
 		  w, BYTEVEC_WIDTH(s2));
+    if (BYTEVEC_KIND(s2) != k)
+	errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
 
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
@@ -699,11 +701,11 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     MOD_ITERATE2(n, n1, n2, i, i1, i2, {
 	const Rbyte *p1 = px1 + i1 * w;
 	const Rbyte *p2 = px2 + i2 * w;
-	if (R_bytesEltIsNA(p1, w) || R_bytesEltIsNA(p2, w)) {
+	if (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k)) {
 	    pa[i] = NA_LOGICAL;
 	    continue;
 	}
-	int c = memcmp(p1, p2, (size_t) w);
+	int c = R_bytesEltCmp(p1, p2, w, k);
 	switch (code) {
 	case EQOP: pa[i] = (c == 0); break;
 	case NEOP: pa[i] = (c != 0); break;

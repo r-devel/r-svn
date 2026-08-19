@@ -20,6 +20,7 @@ allocation, GC, printing, identity, NA, subsetting, subassignment,
 | --- | --- | --- |
 | Type number | `BYTESXP = 26` | 26-29 free; 30/31 reserved for GC debugging |
 | `typeof()` | `"bytes"` | `"data"` reads as data.frame; `"blob"` collides with the CRAN package |
+| Element kind | gp bits 0-1: `opaque` / `unsigned` / `signed` |
 | Element width | gp bits 8-15, 1..255 bytes | Bits 4/5 are `S4_OBJECT_MASK`/`GROWABLE_MASK`. Covers UUID/MD5 (16), SHA-256 (32), SHA-512 (64) |
 | `LENGTH` | element count, never bytes | The whole reason this is a new type rather than a strided RAWSXP |
 | Ordering | bytewise lexicographic, as stored | Correct for hashes/UUIDs/IPv6, which are conventionally big-endian byte strings. Endianness is an ingest-time concern |
@@ -128,6 +129,16 @@ Stage 3 added:
 | `src/library/base/R/format.R` | `format.default` dispatches on `mode()`, so it needs its own arm |
 | `src/main/eval.c` | self-evaluating constant, interpreted `for()`, byte-code `STEPFOR` |
 
+Numeric kinds added:
+
+| File | Change |
+| --- | --- |
+| `src/include/Defn.h` | kind field, `BYTEVEC_MSB`, kind-aware entry points |
+| `src/main/bytes.c` | per-kind NA, `R_bytesEltCmp`, general decimal, `R_bytesEltRender`, `bytesKind` |
+| `src/main/sort.c` | `bcmp_` and both `orderVector1` comparators take the kind |
+| `src/main/relop.c`, `identical.c`, `unique.c`, `bind.c`, `subassign.c` | kind is part of the type |
+| `src/main/coerce.c`, `paste.c`, `printvector.c`, `printutils.c` | render via `R_bytesEltRender` |
+
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
 `@apifun`/`@eapifun` entry or `tools:::checkAPI()` (reg-tests-1e)
@@ -225,9 +236,65 @@ It was found by running a realistic workload, not by probing
 operations, which is the same way the `do.call` and `for()` gaps
 turned up.
 
+## Element kinds
+
+Width alone cannot say what the bytes mean: a width-16 UUID and a
+width-16 `uint128` are the same size and must sort differently.  So
+gp bits 0-1 carry a kind, and there are exactly three:
+
+| Kind | Storage | Order | Display | NA |
+| --- | --- | --- | --- | --- |
+| `opaque` | verbatim | lexicographic | hex | all-`0xFF` |
+| `unsigned` | native byte order | by value | decimal | `UINT_MAX` |
+| `signed` | native byte order | by value | decimal | `INT_MIN` |
+
+`opaque` is the default and is what hashes, UUIDs and addresses want.
+
+The numeric kinds store bytes in **native** order, which is the whole
+point for the ingest use case: reading an `int64` column out of
+Parquet, Arrow or a database driver is a plain `memcpy` with no
+transform, and `bytesRaw()` hands the same bytes back for writing out.
+Order is by *value* rather than by bytes, so sorting gives the same
+answer on every platform even though the storage does not.  (Endianness
+is deliberately not a header bit: two representations of one value
+would break the single-canonical-encoding property that makes `match`
+and hashing free.  Serialization will have to normalize -- that is a
+stage 4 problem.)
+
+`signed` cannot use the all-`0xFF` NA, since that is -1 in two's
+complement, so it reserves `INT_MIN` -- which is exactly what bit64
+does, and for the same reason.
+
+Kinds do not mix.  `c()`, comparison, subassignment, `identical` and
+`match` all treat a differing kind the way they treat a differing
+width: as a different type.
+
+Decimal rendering is general rather than limited to widths with a
+native C type behind them: repeated division by 10 over a scratch
+copy, so a 128-bit or 96-bit value prints exactly.  Verified against
+Python's arbitrary-precision integers over 1618 random values across
+four width/kind combinations (`bytesxp-xcheck.R`), including the
+extremes of each range -- decimal text, `order`, `sort`, `rank`,
+`unique`, `match` and byte-for-byte round-trip all agree.
+
+## A second kind-dropping bug, same shape as the first
+
+`R_allocBytesVector(n, width)` predates the kind field, so every
+internal "another vector like this one" site that called it silently
+produced an `opaque` result: `duplicate1`, `ExtractSubset`, and both
+`for()` loops.  It showed up as `sort()` on a `uint64` vector coming
+back as hex.
+
+This is the `ans_width` bug again one field later, and the fix is the
+same shape: those sites now call `R_allocVectorLike()`, which carries
+width *and* kind, and the width-only entry point is documented as the
+public convenience form that internal code must not use.  Any future
+per-vector property will have exactly this failure mode -- the
+allocator is the choke point worth guarding.
+
 ## NA
 
-NA is the all-`0xFF` element.  Reserving a pattern is what every other
+For `opaque` and `unsigned`, NA is the all-`0xFF` element.  Reserving a pattern is what every other
 atomic type does -- `NA_INTEGER` is `INT_MIN`, taken straight from the
 value domain -- and it is what makes `x[match(a, b)]`, `merge()` and
 ragged `rbind` behave the way they do for every other type.

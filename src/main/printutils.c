@@ -891,7 +891,7 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
 	res = EncodeRaw(RAW_RO(x)[indx], "");
 	break;
     case BYTESXP:
-	res = EncodeBytes(BYTEVEC_ELT_RO(x, indx), BYTEVEC_WIDTH(x));
+	res = R_bytesEltRender(x, indx);
 	break;
     default:
 	res = NULL; /* -Wall */

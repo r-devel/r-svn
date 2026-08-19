@@ -228,6 +228,55 @@ ok("cbind errors deterministically",
                                    length(unique(m)) == 1L && nzchar(m[1]) })
 ok("rbind errors",              inherits(tryCatch(rbind(x), error = identity), "error"))
 
+cat("\n== O. numeric kinds ==\n")
+## the ingest path: bytes exactly as an external source delivers them,
+## reinterpreted with no transform
+le <- function(h, w) rev(as.raw(strtoi(substring(h, seq(1, 2*w-1, 2), seq(2, 2*w, 2)), 16L)))
+mk <- function(kind, w, ...) as.bytes(as.raw(unlist(lapply(c(...), le, w = w))), w, kind)
+u  <- mk("unsigned", 8L, "0000000000000000", "0000000000000001",
+                         "7fffffffffffffff", "8000000000000000",
+                         "fffffffffffffffe")
+sg <- mk("signed", 8L, "0000000000000000", "ffffffffffffffff",
+                       "8000000000000001", "7fffffffffffffff",
+                       "00000000000003e8")
+
+ok("kind is reported",           identical(bytesKind(u), "unsigned") &&
+                                 identical(bytesKind(sg), "signed") &&
+                                 identical(bytesKind(x), "opaque"))
+ok("uint64 decimal, full range", identical(as.character(u),
+     c("0", "1", "9223372036854775807", "9223372036854775808",
+       "18446744073709551614")))
+ok("int64 decimal, both signs",  identical(as.character(sg),
+     c("0", "-1", "-9223372036854775807", "9223372036854775807", "1000")))
+ok("uint64 orders by value",     identical(order(u), 1:5))
+ok("int64 orders by value",      identical(order(sg), c(3L, 2L, 1L, 5L, 4L)))
+ok("int64 sort",                 identical(as.character(sort(sg)),
+     c("-9223372036854775807", "-1", "0", "1000", "9223372036854775807")))
+ok("sort keeps the kind",        identical(bytesKind(sort(u)), "unsigned"))
+ok("subset keeps the kind",      identical(bytesKind(u[1]), "unsigned"))
+ok("c() keeps the kind",         identical(bytesKind(c(u, u)), "unsigned"))
+ok("for() keeps the kind",       { k <- NULL; for (e in u) k <- c(k, bytesKind(e))
+                                   all(k == "unsigned") })
+ok("uint NA is UINT_MAX",        is.na(suppressWarnings(mk("unsigned", 8L, "ffffffffffffffff"))))
+ok("int NA is INT_MIN",          is.na(suppressWarnings(mk("signed", 8L, "8000000000000000"))))
+ok("int -1 is NOT NA",           !is.na(mk("signed", 8L, "ffffffffffffffff")))
+ok("uint 2^63 is NOT NA",        !is.na(mk("unsigned", 8L, "8000000000000000")))
+ok("bytesNA per kind",           is.na(bytesNA(1L, 8L, "signed")) &&
+                                 is.na(bytesNA(1L, 8L, "unsigned")))
+ok("128-bit decimal",            identical(as.character(
+     mk("signed", 16L, "7fffffffffffffffffffffffffffffff")),
+     "170141183460469231731687303715884105727"))
+ok("width 1 signed",             identical(as.character(mk("signed", 1L, "ff", "7f", "81")),
+                                           c("-1", "127", "-127")))
+ok("opaque still lexicographic", identical(order(x), 1:2) &&
+                                 identical(as.character(x)[1],
+                                           "0102030405060708090a0b0c0d0e0f10"))
+ok("kinds do not combine",       inherits(tryCatch(c(u, sg), error = identity), "error"))
+ok("kinds do not compare",       inherits(tryCatch(u == sg, error = identity), "error"))
+ok("kinds are not identical",    !identical(u[1], sg[1]))
+ok("kinds do not match",         is.na(match(u[1], sg[1])))
+ok("round-trip to raw is exact", identical(bytesRaw(u), bytesRaw(c(u))))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))
