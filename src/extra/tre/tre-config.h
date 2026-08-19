@@ -25,10 +25,7 @@
 /* Define to enable wide character (wchar_t) support. */
 #define TRE_WCHAR 1
 
-/* TRE version string. */
-#define TRE_VERSION "0.9.0"
-
-/* R addition: not tested for by R's configure; iswblank() is C99 and
-   required by R.  Only consulted by TRE on Windows, where the system
-   wctype() path is not used. */
-#define HAVE_ISWBLANK 1
+/* TRE version string.  The sources are post-0.9.0 upstream plus the pull
+   requests listed in R_changes, so the commit they were taken from is
+   included to keep extSoftVersion() unambiguous; update both together. */
+#define TRE_VERSION "0.9.0-899ad48"

@@ -23,12 +23,25 @@ tre-internal.h:
  - includes "tre.h" rather than "tre/tre.h" (flat layout);
  - assert() is remapped to R_assert(), which calls Rf_error(), so that
    a failed invariant raises an R error instead of aborting the R
-   process (all TRE compilation units include <assert.h>, if at all,
-   before tre-internal.h, so the remapping applies everywhere);
- - under USE_RI18N_CASE (Windows, and by default macOS and Solaris),
-   case-insensitive matching uses R's internal Unicode case tables
-   (Ri18n_towlower/Ri18n_towupper from rlocale.h) since the system
-   functions are deficient there.
+   process.  Every compiled TRE unit includes <assert.h> (if at all)
+   before tre-internal.h, so the remapping applies throughout; xmalloc.c
+   is the one file that includes <assert.h> without tre-internal.h, and
+   it is not compiled (see above);
+ - rlocale.h is included under either USE_RI18N_FNS or USE_RI18N_CASE.
+   R selects the two independently: USE_RI18N_FNS (Windows, and by
+   default macOS, AIX and Solaris) makes rlocale.h remap iswalpha() and
+   friends, and the iswctype()/wctype() pair, onto R's internal Unicode
+   tables; USE_RI18N_CASE (Windows, and by default macOS and Solaris)
+   additionally supplies Ri18n_towlower/Ri18n_towupper, which TRE uses
+   for case-insensitive matching because the system versions are
+   deficient there (the UCRT ones fail for e.g. \ue9/\uc9);
+ - HAVE_ISWBLANK is asserted here rather than in tre-config.h.  Upstream's
+   configure tests iswblank(); R's tests isblank() but not iswblank(),
+   which is C99 and required by R.  Defining it in tre-config.h would
+   also make it visible to every R source that includes <tre/tre.h>
+   (grep.c, agrep.c, dcf.c, platform.c).  Without it TRE omits "blank"
+   from tre_ctype_map and [[:blank:]] fails with REG_ECTYPE wherever
+   TRE_USE_SYSTEM_WCTYPE is not defined, i.e. on Windows.
 
 tre-compile.c:
  - tre_version() reports "R_fixes" to mark this as a modified copy.
@@ -37,7 +50,23 @@ tre-config.h:
  - R-maintained (upstream generates it with configure); other HAVE_*
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
-   size, which for large patterns can exceed the stack.
+   size, which for large patterns can exceed the stack.  TRE_VERSION
+   carries the upstream commit ("0.9.0-899ad48"), since these sources are
+   post-0.9.0 plus the pull requests above; update it whenever the copy
+   is refreshed.
+
+Behavior changes in bound expressions, from upstream's parser rewrite:
+
+ - {n,} with n > RE_DUP_MAX (255) is now rejected with REG_BADMAX.  The
+   0.8.0 copy checked only the maximum, so grepl("a{300,}", strrep("a",
+   400)) was TRUE and is now an "invalid regular expression" error.
+   {n,m} with m > 255 was already rejected; only the error code changes
+   there (REG_BADBR -> REG_BADMAX).
+ - {,} and {,~n} now mean "zero or more" rather than "exactly one":
+   regexpr("a{,}", "aaa") matches 3 characters rather than 1, and
+   agrep()/aregexec() patterns using {,~n} match a wider language.
+   Relatedly, {,m} now allows m copies rather than m+1, which is a fix:
+   regexpr("a{,3}", "aaaa") matched 4 characters and now matches 3.
 
 Notes carried over from the previous (0.8.0-based) copy:
 

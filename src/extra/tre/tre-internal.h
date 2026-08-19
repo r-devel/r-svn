@@ -87,6 +87,32 @@ typedef wint_t tre_cint_t;
 #define TRE_MB_CUR_MAX 1
 #endif /* !TRE_MULTIBYTE */
 
+/* R change: R replaces parts of the wide character API on platforms where
+   the system versions are deficient, and the two replacements are selected
+   independently by R's configure.  Under USE_RI18N_FNS (Windows, and by
+   default macOS, AIX and Solaris) rlocale.h remaps iswalpha() and friends,
+   and the iswctype()/wctype() pair used further down, onto R's internal
+   Unicode tables.  Under USE_RI18N_CASE (Windows, and by default macOS and
+   Solaris) it also supplies Ri18n_towlower/Ri18n_towupper.  The header is
+   therefore needed whenever either macro is defined; gating it on
+   USE_RI18N_CASE alone would silently leave AIX using the system
+   iswalpha()/iswctype(). */
+#if defined(USE_RI18N_FNS) || defined(USE_RI18N_CASE)
+#include "rlocale.h"
+#endif
+
+/* R change: upstream's configure tests for iswblank(); R's tests isblank()
+   but not iswblank().  It is C99, and R requires C99, so assert it here
+   rather than in tre-config.h -- that file is included by tre.h, so a
+   HAVE_* macro defined there also becomes visible to every R source using
+   the TRE API (grep.c, agrep.c, dcf.c, platform.c).  Without it TRE omits
+   "blank" from tre_ctype_map, and [[:blank:]] fails with REG_ECTYPE
+   wherever TRE_USE_SYSTEM_WCTYPE is not defined (i.e. on Windows).  The
+   alternative would be an AC_CHECK_FUNCS(iswblank) in R's configure. */
+#ifndef HAVE_ISWBLANK
+#define HAVE_ISWBLANK 1
+#endif
+
 #define tre_isalnum iswalnum
 #define tre_isalpha iswalpha
 #ifdef HAVE_ISWBLANK
@@ -105,9 +131,9 @@ typedef wint_t tre_cint_t;
 /* R change: on platforms whose system towlower/towupper are deficient
    (Windows UCRT, and by default macOS and Solaris: see R's configure),
    use R's internal Unicode case tables for case-insensitive matching.
-   The UCRT versions do not work for some characters, e.g. \ue9/\uc9. */
+   The UCRT versions do not work for some characters, e.g. \ue9/\uc9.
+   rlocale.h is included above. */
 #ifdef USE_RI18N_CASE
-#include "rlocale.h"
 #define tre_tolower Ri18n_towlower
 #define tre_toupper Ri18n_towupper
 #else
