@@ -569,6 +569,7 @@ FUNTAB R_FunTab[] =
 {"rawShift",	do_rawShift,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"bytes",	do_bytes,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"as.bytes",	do_asbytes,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"bytesNA",	do_bytesna,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"bytesRaw",	do_bytesraw,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"bytesWidth",	do_byteswidth,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"intToBits",	do_intToBits,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},

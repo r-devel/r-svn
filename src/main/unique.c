@@ -314,6 +314,37 @@ static int rawequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return (RAW_ELT(x, i) == RAW_ELT(y, j));
 }
 
+/* The whole match/unique/duplicated/table/factor family runs off this
+   one pair.  Elements are opaque, so there is nothing to hash but the
+   bytes: FNV-1a over BYTEVEC_WIDTH(x) of them, and memcmp to confirm.
+   No per-width specialization is needed. */
+static hlen byteshash(SEXP x, R_xlen_t indx, HashData *d)
+{
+    const Rbyte *p = BYTEVEC_ELT_RO(x, indx);
+    int w = BYTEVEC_WIDTH(x);
+    unsigned int h = 2166136261U;
+
+    for (int i = 0; i < w; i++) {
+	h ^= (unsigned int) p[i];
+	h *= 16777619U;
+    }
+
+    return scatter(h, d);
+}
+
+static int bytesequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+
+    int w = BYTEVEC_WIDTH(x);
+    /* differing widths are never equal; the hashes differ too, but a
+       table can hold both sides of a match() so check explicitly */
+    if (BYTEVEC_WIDTH(y) != w) return 0;
+
+    return memcmp(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(y, j),
+		  (size_t) w) == 0;
+}
+
 static hlen vhash_one(SEXP _this, HashData *d);
 static hlen vhash(SEXP x, R_xlen_t indx, HashData *d)
 {
@@ -504,6 +535,11 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	d->equal = rawequal;
 	d->nmax = d->M = 256;
 	d->K = 8; /* unused */
+	break;
+    case BYTESXP:
+	d->hash = byteshash;
+	d->equal = bytesequal;
+	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case EXPRSXP:
     case VECSXP:
@@ -1162,7 +1198,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
-    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
+    SEXP ans = PROTECT(R_allocVectorLike(x, k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1207,6 +1243,14 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	for (i = 0; i < n; i++)
 	    if (LOGICAL_ELT(dup, i) == 0)
 		RAW0(ans)[k++] = RAW_ELT(x, i);
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    for (i = 0; i < n; i++)
+		if (LOGICAL_ELT(dup, i) == 0)
+		    memcpy(BYTEVEC_ELT(ans, k++), BYTEVEC_ELT_RO(x, i), w);
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("duplicated", x);
@@ -1388,7 +1432,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
+    if(TYPEOF(x) == BYTESXP || TYPEOF(table) == BYTESXP) {
+	/* opaque data has no common type with anything else, and the
+	   numeric SEXPTYPE order would otherwise send it to STRSXP */
+	if(TYPEOF(x) != TYPEOF(table))
+	    error(_("cannot match 'bytes' against type '%s'"),
+		  R_typeToChar(TYPEOF(x) == BYTESXP ? table : x));
+	type = BYTESXP;
+    }
+    else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);

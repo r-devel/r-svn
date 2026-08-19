@@ -36,6 +36,7 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP complex_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 static SEXP string_relop (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP raw_relop    (RELOP_TYPE code, SEXP s1, SEXP s2);
+static SEXP bytes_relop  (RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 
 #define DO_SCALAR_RELOP(oper, x, y) do {		\
 	switch (oper) {					\
@@ -360,7 +361,10 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
             warningcall(call, _(
 		"longer object length is not a multiple of shorter object length"));
 
-    if (isString(x) || isString(y)) {
+    if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
+	x = bytes_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
+    }
+    else if (isString(x) || isString(y)) {
 	REPROTECT(x = coerceVector(x, STRSXP), xpi);
 	REPROTECT(y = coerceVector(y, STRSXP), ypi);
 	x = string_relop((RELOP_TYPE) PRIMVAL(op), x, y);
@@ -661,6 +665,57 @@ static SEXP string_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     }
     UNPROTECT(3);
     vmaxset(vmax);
+    return ans;
+}
+
+/* Comparison is memcmp over the element's bytes: unsigned lexicographic
+   in storage order.  That is the right order for the values this type
+   exists to hold (hashes, UUIDs, IPv6 addresses are big-endian byte
+   strings by convention); endianness is an ingest-time concern. */
+static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
+{
+    R_xlen_t i, i1, i2, n, n1, n2;
+    SEXP ans;
+
+    if (TYPEOF(s1) != BYTESXP || TYPEOF(s2) != BYTESXP)
+	errorcall(call, _("comparison of these types is not implemented"));
+
+    int w = BYTEVEC_WIDTH(s1);
+    if (BYTEVEC_WIDTH(s2) != w)
+	errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
+		  w, BYTEVEC_WIDTH(s2));
+
+    n1 = XLENGTH(s1);
+    n2 = XLENGTH(s2);
+    n = (n1 > n2) ? n1 : n2;
+    PROTECT(s1);
+    PROTECT(s2);
+    ans = allocVector(LGLSXP, n);
+
+    const Rbyte *px1 = BYTEVEC_DATA_RO(s1);
+    const Rbyte *px2 = BYTEVEC_DATA_RO(s2);
+    int *pa = LOGICAL(ans);
+
+    MOD_ITERATE2(n, n1, n2, i, i1, i2, {
+	const Rbyte *p1 = px1 + i1 * w;
+	const Rbyte *p2 = px2 + i2 * w;
+	if (R_bytesEltIsNA(p1, w) || R_bytesEltIsNA(p2, w)) {
+	    pa[i] = NA_LOGICAL;
+	    continue;
+	}
+	int c = memcmp(p1, p2, (size_t) w);
+	switch (code) {
+	case EQOP: pa[i] = (c == 0); break;
+	case NEOP: pa[i] = (c != 0); break;
+	case LTOP: pa[i] = (c <  0); break;
+	case GTOP: pa[i] = (c >  0); break;
+	case LEOP: pa[i] = (c <= 0); break;
+	case GEOP: pa[i] = (c >= 0); break;
+	}
+    });
+
+    UNPROTECT(2);
+
     return ans;
 }
 

@@ -846,7 +846,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
-    PROTECT(rval = allocVector(TYPEOF(x), len));
+    PROTECT(rval = R_allocVectorLike(x, len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)
 	names = allocVector(STRSXP, len);
@@ -921,6 +921,20 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    }
 	    else
 		RAW(rval)[i] = (Rbyte) 0;
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x);
+	    for (i = 0; i < len; i++)
+		if (i < lenx) {
+		    memcpy(BYTEVEC_ELT(rval, i), BYTEVEC_ELT_RO(x, i),
+			   (size_t) w);
+		    if (xnames != R_NilValue)
+			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+		}
+		else
+		    R_bytesSetEltNA(BYTEVEC_ELT(rval, i), w);
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("length<-", x);

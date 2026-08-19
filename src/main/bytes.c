@@ -68,6 +68,31 @@ SEXP R_allocBytesVector(R_xlen_t length, int width)
     return val;
 }
 
+/* NA is the all-0xFF element.  See BYTEVEC_NA_BYTE in Defn.h for why
+   0xFF rather than 0x00. */
+Rboolean R_bytesEltIsNA(const Rbyte *p, int width)
+{
+    for (int i = 0; i < width; i++)
+	if (p[i] != BYTEVEC_NA_BYTE) return FALSE;
+
+    return TRUE;
+}
+
+void R_bytesSetEltNA(Rbyte *p, int width)
+{
+    memset(p, BYTEVEC_NA_BYTE, (size_t) width);
+}
+
+/* allocVector(TYPEOF(s), n) cannot reproduce a per-vector width, so the
+   generic "another vector like this one" sites go through here */
+SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
+{
+    if (TYPEOF(s) == BYTESXP)
+	return R_allocBytesVector(length, BYTEVEC_WIDTH(s));
+
+    return allocVector(TYPEOF(s), length);
+}
+
 attribute_hidden int R_bytesWidth(SEXP x)
 {
     if (TYPEOF(x) != BYTESXP)
@@ -118,6 +143,34 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP val = PROTECT(R_allocBytesVector(nbytes / width, width));
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
+
+    R_xlen_t nNA = 0;
+    for (R_xlen_t i = 0; i < XLENGTH(val); i++)
+	if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), width)) nNA++;
+    if (nNA)
+	warning(ngettext("%lld element equal to the reserved NA value became NA",
+			 "%lld elements equal to the reserved NA value became NA",
+			 (unsigned long) nNA), (long long) nNA);
+
+    UNPROTECT(1);
+
+    return val;
+}
+
+/* bytesNA(length, width) */
+attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+
+    double len = asReal(CAR(args));
+    if (!R_FINITE(len) || len < 0)
+	error(_("invalid '%s' argument"), "length");
+    int width = checkWidth(CADR(args));
+
+    SEXP val = PROTECT(R_allocBytesVector((R_xlen_t) len, width));
+    if (XLENGTH(val) > 0)
+	memset(BYTEVEC_DATA(val), BYTEVEC_NA_BYTE,
+	       (size_t) XLENGTH(val) * width);
     UNPROTECT(1);
 
     return val;

@@ -1625,7 +1625,7 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	goto not_matrix;
     PROTECT(dimnamesnames);
-    PROTECT(r = allocVector(TYPEOF(a), len));
+    PROTECT(r = R_allocVectorLike(a, len));
     R_xlen_t i, j, l_1 = len-1;
     switch (TYPEOF(a)) {
     case LGLSXP:
@@ -1792,7 +1792,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     Memzero(iip, n);
 
     R_xlen_t len = XLENGTH(a);
-    SEXP r = PROTECT(allocVector(TYPEOF(a), len));
+    SEXP r = PROTECT(R_allocVectorLike(a, len));
 
     R_xlen_t li, lj;
 

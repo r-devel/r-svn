@@ -26,6 +26,9 @@ bytes <- function(length = 0L, width = 1L)
 as.bytes <- function(x, width = 1L)
     .Internal(as.bytes(x, width))
 
+bytesNA <- function(length = 1L, width = 1L)
+    .Internal(bytesNA(length, width))
+
 bytesRaw <- function(x) .Internal(bytesRaw(x))
 
 bytesWidth <- function(x) .Internal(bytesWidth(x))

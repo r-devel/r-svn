@@ -212,7 +212,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     if (newtruelen > R_LEN_T_MAX) newtruelen = newlen;
 */
     PROTECT(x);
-    PROTECT(newx = allocVector(TYPEOF(x), newtruelen));
+    PROTECT(newx = R_allocVectorLike(x, newtruelen));
 
     /* Copy the elements into place. */
     switch(TYPEOF(x)) {
@@ -255,6 +255,16 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	    RAW0(newx)[i] = RAW_ELT(x, i);
 	for (R_xlen_t i = len; i < newtruelen; i++)
 	    RAW0(newx)[i] = (Rbyte) 0;
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x);
+	    if (len > 0)
+		memcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
+		       (size_t) len * w);
+	    for (R_xlen_t i = len; i < newtruelen; i++)
+		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w);
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("EnlargeVector", x);
@@ -322,6 +332,20 @@ static bool dispatch_asvector(SEXP *x, SEXP call, SEXP rho) {
    Level 2 is used in do_subassign2_dflt.
    This does not coerce when assigning into a list.
 */
+/* Assignment between 'bytes' vectors is only defined at equal widths;
+   there is no widening conversion, since the elements are opaque. */
+static int BytesAssignWidth(SEXP x, SEXP y, SEXP call)
+{
+    int w = BYTEVEC_WIDTH(x);
+
+    if (BYTEVEC_WIDTH(y) != w)
+	errorcall(call,
+		  _("incompatible 'bytes' widths (%d and %d) in subassignment"),
+		  w, BYTEVEC_WIDTH(y));
+
+    return w;
+}
+
 static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 			    int level,
 			    SEXP call, SEXP rho)
@@ -341,6 +365,8 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1600:	/* character  <- null       */
     case 1900:  /* vector     <- null       */
     case 2000:  /* expression <- null       */
+    case 2600:	/* bytes      <- null       */
+    case 2626:	/* bytes      <- bytes      */
     case 2400:	/* raw        <- null       */
 
     case 1010:	/* logical    <- logical    */
@@ -559,7 +585,7 @@ static SEXP DeleteListElements(SEXP x, SEXP which)
 	UNPROTECT(1);
 	return x;
     }
-    PROTECT(xnew = allocVector(TYPEOF(x), ii));
+    PROTECT(xnew = R_allocVectorLike(x, ii));
     ii = 0;
     for (i = 0; i < len; i++) {
 	if (pinclude[i] == 1) {
@@ -862,6 +888,15 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 	return x;
 	break;
 
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    VECTOR_ASSIGN_LOOP(memcpy(px + ii * w, BYTEVEC_ELT_RO(y, iny), w););
+	}
+	break;
+
     case 2424:	/* raw   <- raw	  */
 
 	{
@@ -1137,6 +1172,15 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 	MATRIX_ASSIGN_LOOP(SET_VECTOR_ELT(x, ij, VECTOR_ELT_FIX_NAMED(y, k)););
 	break;
 
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    MATRIX_ASSIGN_LOOP(memcpy(px + ij * w, BYTEVEC_ELT_RO(y, k), w););
+	}
+	break;
+
     case 2424: /* raw   <- raw   */
 
 	{
@@ -1369,6 +1413,15 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
 		SET_VECTOR_ELT(x, ii, VECTOR_ELT_FIX_NAMED(y, iny));
 	    });
+	break;
+
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    ARRAY_ASSIGN_LOOP(memcpy(px + ii * w, BYTEVEC_ELT_RO(y, iny), w););
+	}
 	break;
 
     case 2424: /* raw <- raw */
@@ -1672,6 +1725,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     case EXPRSXP:
     case VECSXP:
     case RAWSXP:
+    case BYTESXP:
 	switch (nsubs) {
 	case 0:
 	    x = VectorAssign(call, rho, x, R_MissingArg, y);
@@ -2036,6 +2090,13 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if (MAYBE_REFERENCED(y) && VECTOR_ELT(x, offset) != y)
 		y = R_FixupRHS(x, y);
 	    SET_VECTOR_ELT(x, offset, y);
+	    break;
+
+	case 2626:      /* bytes <- bytes */
+	    {
+		size_t w = (size_t) BytesAssignWidth(x, y, call);
+		memcpy(BYTEVEC_DATA(x) + offset * w, BYTEVEC_ELT_RO(y, 0), w);
+	    }
 	    break;
 
 	case 2424:      /* raw <- raw */

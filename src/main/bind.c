@@ -50,6 +50,7 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
+ int  ans_width; /* BYTESXP element width; 0 until one is seen */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -80,8 +81,13 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	data->ans_length += XLENGTH(x);
 	break;
     case BYTESXP:
-	/* not yet implemented; must not fall through to the list default */
-	errorcall(call, _("cannot combine 'bytes' vectors"));
+	if (data->ans_width && data->ans_width != BYTEVEC_WIDTH(x))
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors of widths %d and %d"),
+		      data->ans_width, BYTEVEC_WIDTH(x));
+	data->ans_width = BYTEVEC_WIDTH(x);
+	data->ans_flags |= 1024;
+	data->ans_length += XLENGTH(x);
 	break;
     case LGLSXP:
 	data->ans_flags |= 2;
@@ -467,6 +473,38 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 }
 
 static void
+BytesAnswer(SEXP x, struct BindData *data, SEXP call)
+{
+    R_xlen_t i;
+    switch(TYPEOF(x)) {
+    case NILSXP:
+	break;
+    case LISTSXP:
+	while (x != R_NilValue) {
+	    BytesAnswer(CAR(x), data, call);
+	    x = CDR(x);
+	}
+	break;
+    case EXPRSXP:
+    case VECSXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    BytesAnswer(VECTOR_ELT(x, i), data, call);
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    for (i = 0; i < XLENGTH(x); i++)
+		memcpy(BYTEVEC_ELT(data->ans_ptr, data->ans_length++),
+		       BYTEVEC_ELT_RO(x, i), w);
+	}
+	break;
+    default:
+	errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		  R_typeToChar(x), "BytesAnswer");
+    }
+}
+
+static void
 RawAnswer(SEXP x, struct BindData *data, SEXP call)
 {
     R_xlen_t i;
@@ -820,6 +858,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     struct BindData data;
 /*    data.deparse_level = 1;  Initialize this early. */
     data.ans_flags  = 0;
+    data.ans_width  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
 
@@ -837,7 +876,15 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* we use the natural coercion for vector types. */
 
     int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
+    if (data.ans_flags & 1024) {
+	/* 'bytes' is exclusive: the elements are opaque, so there is no
+	   type it can be promoted to or from */
+	if (data.ans_flags != 1024)
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors with other types"));
+	mode = BYTESXP;
+    }
+    else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
@@ -849,7 +896,9 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = (mode == BYTESXP)
+	    ? R_allocBytesVector(data.ans_length, data.ans_width)
+	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -872,6 +921,8 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
+    else if (mode == BYTESXP)
+	BytesAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
     else /* integer */
@@ -928,6 +979,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* object being operated on is a generic vector. */
 
     data.ans_flags  = 0;
+    data.ans_width  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
 
@@ -961,7 +1013,15 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* we use the natural coercion for vector types. */
 
     int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
+    if (data.ans_flags & 1024) {
+	/* 'bytes' is exclusive: the elements are opaque, so there is no
+	   type it can be promoted to or from */
+	if (data.ans_flags != 1024)
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors with other types"));
+	mode = BYTESXP;
+    }
+    else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
@@ -973,7 +1033,9 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = (mode == BYTESXP)
+	    ? R_allocBytesVector(data.ans_length, data.ans_width)
+	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -998,6 +1060,8 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
+    else if (mode == BYTESXP)
+	BytesAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
     else /* integer */

@@ -131,7 +131,9 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     int mode = TYPEOF(x);
 
     /* protect allocation in case _ELT operations need to allocate */
-    PROTECT(result = allocVector(mode, n));
+    PROTECT(result = (mode == BYTESXP)
+	    ? R_allocBytesVector(n, BYTEVEC_WIDTH(x))
+	    : allocVector(mode, n));
     switch(mode) {
     case LGLSXP:
 	EXTRACT_SUBSET_LOOP(LOGICAL0(result)[i] = LOGICAL_ELT(x, ii),
@@ -165,6 +167,15 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     case RAWSXP:
 	EXTRACT_SUBSET_LOOP(RAW0(result)[i] = RAW_ELT(x, ii),
 			    RAW0(result)[i] = (Rbyte) 0);
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    EXTRACT_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, i),
+				       BYTEVEC_ELT_RO(x, ii), w),
+				R_bytesSetEltNA(BYTEVEC_ELT(result, i),
+						(int) w));
+	}
 	break;
     case LISTSXP:
 	/* cannot happen: pairlists are coerced to lists */
@@ -327,7 +338,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	error(_("dimensions would exceed maximum size of array"));
     PROTECT(sr);
     PROTECT(sc);
-    result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
+    result = R_allocVectorLike(x, (R_xlen_t) nrs * (R_xlen_t) ncs);
     const int *psr = INTEGER_RO(sr);
     const int *psc = INTEGER_RO(sc);
     PROTECT(result);
@@ -1119,7 +1130,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	RAISE_NAMED(ans, named_x);
 #endif
     } else {
-	ans = PROTECT(allocVector(TYPEOF(x), 1));
+	ans = PROTECT(R_allocVectorLike(x, 1));
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	    LOGICAL0(ans)[0] = LOGICAL_ELT(x, offset);
@@ -1138,6 +1149,10 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	case RAWSXP:
 	    RAW0(ans)[0] = RAW_ELT(x, offset);
+	    break;
+	case BYTESXP:
+	    memcpy(BYTEVEC_DATA(ans), BYTEVEC_ELT_RO(x, offset),
+		   (size_t) BYTEVEC_WIDTH(x));
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("do_subset2", x);

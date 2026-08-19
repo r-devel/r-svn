@@ -2354,9 +2354,11 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    pa[i] = 0;
 	break;
     case BYTESXP:
-	/* opaque fixed-width data has no NA representation */
-	for (i = 0; i < n; i++)
-	    pa[i] = 0;
+	{
+	    int w = BYTEVEC_WIDTH(x);
+	    for (i = 0; i < n; i++)
+		pa[i] = R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w);
+	}
 	break;
     case NILSXP: break;
     default:
@@ -2437,6 +2439,13 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     case STRSXP:
 	for (i = 0; i < n; i++)
 	    if (STRING_ELT(x, i) == NA_STRING) return true;
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x);
+	    for (i = 0; i < n; i++)
+		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w)) return true;
+	}
 	break;
     case RAWSXP: /* no such thing as a raw NA:  is.na(.) gives false always */
 	return false;

@@ -461,6 +461,11 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
     (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
 #define BYTEVEC_ELT_RO(x, i) \
     (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+/* NA is the all-0xFF element.  Reserving a pattern is what every other
+   atomic type does (NA_INTEGER is INT_MIN); 0xFF rather than 0x00
+   because zero is the universal "unset" value and appears in real data
+   -- the nil UUID, 0.0.0.0, :: are all all-zero. */
+#define BYTEVEC_NA_BYTE 0xFF
 
 /* List Access Macros */
 /* These also work for ... objects */
@@ -1834,6 +1839,9 @@ SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5,
 SEXP R_allocObject(void);
 SEXP R_allocBytesVector(R_xlen_t length, int width);
 int R_bytesWidth(SEXP x);
+SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
+Rboolean R_bytesEltIsNA(const Rbyte *p, int width);
+void R_bytesSetEltNA(Rbyte *p, int width);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
