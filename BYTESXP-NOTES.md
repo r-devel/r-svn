@@ -15,8 +15,8 @@ allocation, GC, printing, identity, NA, subsetting, subassignment,
 (`cbind`/`rbind`/`matrix`/`t`/`aperm`/`apply` and matrix printing);
 and for the numeric kinds, `+ - * %/% %% /` `^`, unary minus,
 `sum`/`prod`/`min`/`max`/`range`, and `as.integer`/`as.numeric`.
-No `.Call` boundary is needed -- see below.  An MSD radix sort is the
-only remaining item, and it is performance only.
+No `.Call` boundary is needed -- see below -- and the original stage
+list is complete.
 
 ## Decisions
 
@@ -227,9 +227,7 @@ Note that `format.default` switches on `mode(x)`, not `typeof(x)`, and
 needs its own arm in R code -- the C-level `do_format` case is not
 reached otherwise.
 
-MSD byte radix (256 buckets, `width` passes, no comparator) is still
-unimplemented; the shell sort is correct and was the cheaper thing to
-get right first.
+Byte radix sort landed later; see below.
 
 Two evaluation paths turned up only when a real workload was tried.
 `eval()`'s self-evaluating-constant list did not include BYTESXP, so
@@ -306,6 +304,35 @@ An opaque element's wire bytes equal `bytesRaw()` exactly.
 No format version bump: a new SEXPTYPE is not a structural change, and
 an older R reading one of these files already fails loudly with
 "ReadItem: unknown type 26, perhaps written by later version of R".
+
+## Radix sort
+
+Measured before optimizing: sorting 2e5 `uint64` elements took 49ms
+against 3ms for the same number of doubles, and `order` 32ms against
+3ms -- doubles get a radix sort, `bytes` was on the shell sort.  A
+10-16x gap on the core operation of a filtering workload was worth
+closing.
+
+LSD rather than MSD: one stable counting-sort pass per byte, least
+significant first, `O(width * n)` with no comparisons.  It is simpler
+than a recursive MSD and stability falls out, which matters because
+R's comparison path breaks ties by index and the radix has to agree.
+The signed kind biases the most significant byte by `0x80` so
+negatives sort first; a decreasing sort complements every key, which
+reverses the order while *keeping* the ascending index tiebreak that
+R gives.
+
+Opaque elements stay on the comparison sort: their order is
+lexicographic, which `memcmp` gives directly, and the radix would only
+add a copy.  Long vectors (> 2^31) also stay on the shell sort.
+
+After: sort 4ms, order 3ms -- level with doubles.
+
+Verified against Python with `bytesxp-rxcheck.R`, deliberately drawing
+from a small pool so that ties are everywhere, since ties are what
+stability bugs hide in: 48 checks over six width/kind combinations
+covering ascending and decreasing order, `sort` agreeing with
+`order`, and NA placement on both sides.
 
 ## The FFI boundary needs no opt-in
 

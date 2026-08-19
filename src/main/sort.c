@@ -658,6 +658,59 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 	}
 }
 
+/* LSD byte radix: one stable counting-sort pass per byte, least
+   significant first.  O(width * n) with no comparisons at all, which
+   is the natural shape for fixed-width elements and the reason this
+   type can sort faster than a comparison sort allows.
+
+   indx holds 0-based element indices, as elsewhere in this file, and
+   the caller has already partitioned NAs out of [lo, hi] -- so the
+   passes never see one.  For the signed kind the most significant byte
+   is biased by 0x80 so that negatives sort first; for a decreasing
+   sort every key is complemented, which reverses the order while
+   keeping the stable index tiebreak that R's comparison path gives. */
+static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
+			    bool decreasing)
+{
+    R_xlen_t n = hi - lo + 1;
+    if (n < 2) return;
+
+    int w = BYTEVEC_WIDTH(key), kind = BYTEVEC_KIND(key);
+    const Rbyte *x = BYTEVEC_DATA_RO(key);
+    int *a = indx + lo;
+    const void *vmax = vmaxget();
+    int *buf = (int *) R_alloc((size_t) n, sizeof(int));
+    R_xlen_t count[256];
+
+    for (int pass = 0; pass < w; pass++) {
+	/* pass 0 is the least significant byte */
+	int at = BYTEVEC_MSB(w - 1 - pass, w);
+	bool top = (pass == w - 1) && (kind == BYTEVEC_INT);
+
+	memset(count, 0, sizeof count);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    unsigned int b = x[(R_xlen_t) a[i] * w + at];
+	    if (top) b ^= 0x80u;
+	    if (decreasing) b = 255u - b;
+	    count[b]++;
+	}
+	for (int c = 0, sum = 0; c < 256; c++) {
+	    R_xlen_t t = count[c];
+	    count[c] = sum;
+	    sum += t;
+	}
+	for (R_xlen_t i = 0; i < n; i++) {
+	    unsigned int b = x[(R_xlen_t) a[i] * w + at];
+	    if (top) b ^= 0x80u;
+	    if (decreasing) b = 255u - b;
+	    buf[count[b]++] = a[i];
+	}
+	memcpy(a, buf, (size_t) n * sizeof(int));
+    }
+
+    vmaxset(vmax);
+}
+
 /* Shell sort over fixed-width blocks.  Elements are moved with memcpy
    through a scratch buffer rather than assigned, since their size is
    only known at run time. */
@@ -705,7 +758,23 @@ void sortVector(SEXP s, bool decreasing)
 	    ssort2(STRING_PTR(s), n, decreasing); /* STRING_PTR is safe here */
 	    break;
 	case BYTESXP:
-	    bsort2(s, n, decreasing);
+	    if (n <= INT_MAX && BYTEVEC_KIND(s) != BYTEVEC_OPAQUE) {
+		/* opaque elements keep the shell sort: their order is
+		   lexicographic, which memcmp already gives directly */
+		const void *vmax = vmaxget();
+		int w = BYTEVEC_WIDTH(s);
+		int *ord = (int *) R_alloc((size_t) n, sizeof(int));
+		Rbyte *tmp = (Rbyte *) R_alloc((size_t) n * w, sizeof(Rbyte));
+		for (R_xlen_t i = 0; i < n; i++) ord[i] = (int) i;
+		bytesRadixOrder(ord, 0, n - 1, s, decreasing);
+		memcpy(tmp, BYTEVEC_DATA_RO(s), (size_t) n * w);
+		for (R_xlen_t i = 0; i < n; i++)
+		    memcpy(BYTEVEC_ELT(s, i), tmp + (R_xlen_t) ord[i] * w,
+			   (size_t) w);
+		vmaxset(vmax);
+	    }
+	    else
+		bsort2(s, n, decreasing);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("sortVector", s);
@@ -1354,9 +1423,11 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 #undef less
 	    break;
 	case BYTESXP:
-	    /* NAs were moved out of [lo, hi] above, so a bare memcmp is
-	       enough here */
-	    if (decreasing)
+	    /* NAs were moved out of [lo, hi] above, so neither the radix
+	       nor the memcmp below ever sees one */
+	    if (bk != BYTEVEC_OPAQUE)
+		bytesRadixOrder(indx, lo, hi, key, decreasing);
+	    else if (decreasing)
 #define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
