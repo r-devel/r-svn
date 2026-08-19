@@ -1886,6 +1886,12 @@ int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind);
 const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind);
 const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 const char *R_bytesTypeName(SEXP x);
+const char *R_bytesKindName(SEXP x);
+void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
+			    R_xlen_t n, R_xlen_t nsrc);
+void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
+				  R_xlen_t drows, R_xlen_t srows,
+				  R_xlen_t cols, R_xlen_t nsrc);
 void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w, int kind);
 SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
 SEXP R_bytesUnary(SEXP call, int oper, SEXP x);

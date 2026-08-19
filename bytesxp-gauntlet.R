@@ -229,12 +229,14 @@ ok("for() payload correct",      { got <- list(); for (e in x) got <- c(got, lis
                                    identical(got, list(as.raw(1:16), as.raw(17:32))) })
 ok("Recall/eval of a constant",  identical(eval(x), x))
 
-ok("cbind errors deterministically",
+ok("cbind is deterministic",     { r <- vapply(1:5, function(i)
+                                       paste(as.character(cbind(x, x)), collapse = "|"), "")
+                                   length(unique(r)) == 1L })
+ok("cbind width clash is deterministic",
                                  { m <- vapply(1:5, function(i)
-                                       tryCatch({cbind(x); ""},
+                                       tryCatch({cbind(x, x8); ""},
                                                 error = function(e) conditionMessage(e)), "")
                                    length(unique(m)) == 1L && nzchar(m[1]) })
-ok("rbind errors",              inherits(tryCatch(rbind(x), error = identity), "error"))
 
 cat("\n== O. numeric kinds ==\n")
 ## the ingest path: bytes exactly as an external source delivers them,
@@ -413,6 +415,54 @@ ok("numeric payload is big-endian on the wire",
 ok("opaque payload is verbatim", { o8 <- as.bytes(as.raw(c(0xde,0xad,0xbe,0xef,1,2,3,4)), 8L)
                                    identical(tail(serialize(o8, NULL), 8), bytesRaw(o8)) })
 
+cat("\n== S. deparse ==\n")
+ok("deparse round-trips",        { z <- eval(parse(text = paste(deparse(u64), collapse = "")))
+                                   identical(z, u64) })
+ok("opaque deparse round-trips", { z <- eval(parse(text = paste(deparse(x), collapse = "")))
+                                   identical(z, x) })
+ok("empty deparses to bytes()",  identical(deparse(bytes(0L, 8L, "signed")),
+                                           "bytes(0L, 8L, \"signed\")"))
+ok("deparse names the kind",     grepl("\"unsigned\"", paste(deparse(u64), collapse = "")))
+## known wart: an NA element re-parses to the right value but warns,
+## because as.bytes legitimately flags the reserved pattern as data
+ok("NA deparse: value correct",  { na1 <- bytesNA(1L, 8L, "unsigned")
+                                   z <- suppressWarnings(
+                                       eval(parse(text = paste(deparse(na1), collapse = ""))))
+                                   identical(z, na1) })
+
+cat("\n== T. matrices ==\n")
+m <- cbind(u64, u64)
+ok("cbind builds a matrix",      identical(dim(m), c(3L, 2L)))
+ok("cbind keeps kind and width", bytesKind(m) == "unsigned" && bytesWidth(m) == 8L)
+ok("rbind builds a matrix",      identical(dim(rbind(u64, u64)), c(2L, 3L)))
+ok("cbind recycles",             identical(as.character(cbind(u64, u64[1])),
+                                           c(as.character(u64), rep(as.character(u64[1]), 3))))
+ok("cbind of a matrix + vector", identical(dim(cbind(m, u64)), c(3L, 3L)))
+ok("m[i, ]",                     identical(as.character(m[1, ]),
+                                           rep(as.character(u64[1]), 2)))
+ok("m[, j]",                     identical(as.character(m[, 1]), as.character(u64)))
+ok("m[i, j]",                    identical(as.character(m[2, 2]), as.character(u64[2])))
+ok("subset keeps kind",          bytesKind(m[1, ]) == "unsigned")
+ok("t() transposes",             identical(dim(t(m)), c(2L, 3L)))
+ok("t(t(m)) == m",               identical(t(t(m)), m))
+ok("aperm agrees with t",        identical(aperm(m), t(m)))
+ok("apply over columns",         identical(unname(apply(m, 2, function(z) as.character(max(z)))),
+                                           rep(as.character(max(u64)), 2)))
+ok("matrix()",                   identical(as.character(matrix(c(u64, u64), 3, 2)),
+                                           rep(as.character(u64), 2)))
+## byrow recycles exactly as it does for integers: matrix(1:3, 3, 2,
+## byrow = TRUE) stores elements 1,3,2,2,1,3
+ok("matrix(byrow = TRUE)",       identical(as.character(matrix(u64, 3, 2, byrow = TRUE)),
+                                           as.character(u64)[c(1,3,2,2,1,3)]))
+ok("matrix fills with NA",       { mm <- matrix(bytes(0L, 8L, "unsigned"), 2, 2)
+                                   identical(dim(mm), c(2L, 2L)) && all(is.na(mm)) })
+ok("matrix prints",              length(capture.output(print(m))) == 4L)
+ok("opaque matrix prints",       length(capture.output(print(cbind(x, x)))) == 3L)
+ok("cbind mixed type errors",    inherits(tryCatch(cbind(u64, 1L), error = identity), "error"))
+ok("cbind mixed kind errors",    inherits(tryCatch(cbind(u64, i64), error = identity), "error"))
+ok("cbind mixed width errors",   inherits(tryCatch(cbind(x, x8), error = identity), "error"))
+ok("matrix round-trips",         identical(unserialize(serialize(m, NULL)), m))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))
@@ -420,7 +470,6 @@ probe("range(x)",                range(x))
 probe("as.integer(x)",           as.integer(x))
 probe("as.raw(x)",               as.raw(x))
 probe("as.numeric(x)",           as.numeric(x))
-probe("deparse(x)",              deparse(x))
 probe("as.bytes(character)",     as.bytes("00", 1L))
 
 cat(sprintf("\n%d failure(s)\n", fails))

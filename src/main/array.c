@@ -172,7 +172,16 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
-    PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
+    if (TYPEOF(vals) == BYTESXP) {
+	/* allocMatrix cannot carry a per-vector width */
+	PROTECT(ans = R_allocVectorLike(vals, (R_xlen_t) nr * nc));
+	SEXP mdim = PROTECT(allocVector(INTSXP, 2));
+	INTEGER(mdim)[0] = nr; INTEGER(mdim)[1] = nc;
+	setAttrib(ans, R_DimSymbol, mdim);
+	UNPROTECT(1); /* mdim */
+    }
+    else
+	PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
     else { /* fill with NAs */
@@ -205,6 +214,13 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	case RAWSXP:
 	    if (N) memset(RAW(ans), 0, N);
+	    break;
+	case BYTESXP:
+	    {
+		int w = BYTEVEC_WIDTH(ans), k = BYTEVEC_KIND(ans);
+		for (i = 0; i < N; i++)
+		    R_bytesSetEltNA(BYTEVEC_ELT(ans, i), w, k);
+	    }
 	    break;
 	default:
 	    /* don't fill with anything */
@@ -1666,6 +1682,15 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    RAW(r)[i] = RAW(a)[j];
 	}
 	break;
+    case BYTESXP:
+    {
+	size_t w = (size_t) BYTEVEC_WIDTH(a);
+	for (i = 0, j = 0; i < len; i++, j += nrow) {
+	    if (j > l_1) j -= l_1;
+	    memcpy(BYTEVEC_ELT(r, i), BYTEVEC_ELT_RO(a, j), w);
+	}
+	break;
+    }
     default:
 	UNPROTECT(2); /* r, dimnamesnames */
 	goto not_matrix;
@@ -1858,6 +1883,15 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    CLICKJ;
 	}
 	break;
+    case BYTESXP:
+    {
+	size_t w = (size_t) BYTEVEC_WIDTH(a);
+	for (lj = 0, li = 0; li < len; li++) {
+	    memcpy(BYTEVEC_ELT(r, li), BYTEVEC_ELT_RO(a, lj), w);
+	    CLICKJ;
+	}
+	break;
+    }
 
     default:
 	UNIMPLEMENTED_TYPE("aperm", a);
@@ -2187,7 +2221,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t nans = dim2total(dims, LENGTH(dims), _("too many elements specified")),
 	lendat = XLENGTH(vals), i;
 
-    PROTECT(ans = allocVector(TYPEOF(vals), nans));
+    PROTECT(ans = R_allocVectorLike(vals, nans));
     switch(TYPEOF(vals)) {
     case LGLSXP:
 	if (nans && lendat)
@@ -2425,7 +2459,7 @@ attribute_hidden SEXP do_maxcol(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #define ASPLIT_ITERATE( __body__ ) do {			\
 	for(i = 0; i < n2; i++) {			\
-	    PROTECT(e = allocVector(TYPEOF(x), n1));	\
+	    PROTECT(e = R_allocVectorLike(x, n1));	\
 	    for(j = 0; j < n1; j++, k++) {		\
 		__body__ ;				\
 	    }						\

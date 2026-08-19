@@ -39,6 +39,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Print.h>  /* R_print.na_string */
+#include "duplicate.h"  /* FILL_MATRIX_ITERATE */
 
 /* Allocated as a RAWSXP of the full byte size so that the standard
    vector allocator does the size-class selection and heap accounting,
@@ -324,6 +325,43 @@ attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
 }
 
+/* Block-copy analogues of xcopyRawWithRecycle and
+   xfillRawMatrixWithRecycle: those assign elements, which cannot work
+   when the element size is a per-vector property. */
+void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
+			    R_xlen_t n, R_xlen_t nsrc)
+{
+    size_t w = (size_t) BYTEVEC_WIDTH(dst);
+    Rbyte *d = BYTEVEC_DATA(dst);
+    const Rbyte *s = BYTEVEC_DATA_RO(src);
+
+    for (R_xlen_t i = 0, sidx = 0; i < n; i++, sidx++) {
+	if (sidx == nsrc) sidx = 0;
+	memcpy(d + (dstart + i) * w, s + sidx * w, w);
+    }
+}
+
+void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
+				  R_xlen_t drows, R_xlen_t srows,
+				  R_xlen_t cols, R_xlen_t nsrc)
+{
+    size_t w = (size_t) BYTEVEC_WIDTH(dst);
+    Rbyte *d = BYTEVEC_DATA(dst);
+    const Rbyte *s = BYTEVEC_DATA_RO(src);
+
+    FILL_MATRIX_ITERATE(dstart, drows, srows, cols, nsrc)
+	memcpy(d + didx * w, s + sidx * w, w);
+}
+
+const char *R_bytesKindName(SEXP x)
+{
+    switch (BYTEVEC_KIND(x)) {
+    case BYTEVEC_UINT: return "unsigned";
+    case BYTEVEC_INT:  return "signed";
+    default:           return "opaque";
+    }
+}
+
 /* bytesKind(x) */
 attribute_hidden SEXP do_byteskind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -333,11 +371,7 @@ attribute_hidden SEXP do_byteskind(SEXP call, SEXP op, SEXP args, SEXP env)
     if (TYPEOF(x) != BYTESXP)
 	error(_("'%s' must be a 'bytes' vector"), "x");
 
-    switch (BYTEVEC_KIND(x)) {
-    case BYTEVEC_UINT: return mkString("unsigned");
-    case BYTEVEC_INT:  return mkString("signed");
-    default:           return mkString("opaque");
-    }
+    return mkString(R_bytesKindName(x));
 }
 
 /* bytesRaw(x): the flat payload, for round-tripping and for handing

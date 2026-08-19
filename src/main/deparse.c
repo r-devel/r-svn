@@ -158,6 +158,7 @@ static void printtab2buff(int, LocalParseData *);
 static void writeline(LocalParseData *);
 static void vec2buff   (SEXP, LocalParseData *, bool do_names);
 static void vector2buff(SEXP, LocalParseData *);
+static void bytes2buff(SEXP, LocalParseData *);
 static void src2buff1(SEXP, LocalParseData *);
 static bool src2buff(SEXP, int, LocalParseData *);
 static void linebreak(bool *lbreak, LocalParseData *);
@@ -1501,6 +1502,9 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     case RAWSXP:
 	vector2buff(s, d);
 	break;
+    case BYTESXP:
+	bytes2buff(s, d);
+	break;
     case EXTPTRSXP:
     {
 	char tpb[32]; /* need 12+2+2*sizeof(void*) */
@@ -1621,6 +1625,37 @@ static void deparse2buf_name(SEXP nv, int i, LocalParseData *d) {
 }
 
 // deparse atomic vectors :
+/* There is no literal syntax for a 'bytes' vector, so it deparses to
+   the call that rebuilds it -- as raw vectors do, which print as
+   as.raw(c(0x01, ...)).  The payload is written in storage order, so
+   this round-trips on the machine that produced it; the wire
+   normalization in serialize.c is what makes files portable. */
+static void bytes2buff(SEXP v, LocalParseData *d)
+{
+    R_xlen_t n = XLENGTH(v);
+    int w = BYTEVEC_WIDTH(v);
+    const char *kind = R_bytesKindName(v);
+    char buf[64];
+
+    if (n == 0) {
+	snprintf(buf, sizeof buf, "bytes(0L, %dL, \"%s\")", w, kind);
+	print2buff(buf, d);
+	return;
+    }
+
+    print2buff("as.bytes(as.raw(c(", d);
+    const Rbyte *p = BYTEVEC_DATA_RO(v);
+    R_xlen_t nb = n * w;
+    for (R_xlen_t i = 0; i < nb; i++) {
+	print2buff(EncodeRaw(p[i], "0x"), d);
+	if (i < nb - 1) print2buff(", ", d);
+	if (d->len > d->cutoff) writeline(d);
+	if (!d->active) break;
+    }
+    snprintf(buf, sizeof buf, ")), %dL, \"%s\")", w, kind);
+    print2buff(buf, d);
+}
+
 static void vector2buff(SEXP vector, LocalParseData *d)
 {
     // Known here:  TYPEOF(vector)  is one of the 6 atomic *SXPs

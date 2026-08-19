@@ -377,6 +377,16 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	MATRIX_SUBSET_LOOP(RAW0(result)[ij] = RAW_ELT(x, iijj),
 			   RAW0(result)[ij] = (Rbyte) 0);
 	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    int k = BYTEVEC_KIND(x);
+	    MATRIX_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, ij),
+				      BYTEVEC_ELT_RO(x, iijj), w),
+			       R_bytesSetEltNA(BYTEVEC_ELT(result, ij),
+					       (int) w, k));
+	}
+	break;
     default:
 	errorcall(call, _("matrix subscripting not handled for this type"));
 	break;

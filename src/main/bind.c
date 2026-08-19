@@ -1222,11 +1222,12 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     int mode = NILSXP;
-    if (data.ans_flags & 1024)
-	/* cbind/rbind do not build 'bytes' matrices yet; dim<- and
-	   matrix subsetting do work, so this is a gap rather than a
-	   restriction */
-	errorcall(call, _("cannot cbind/rbind 'bytes' vectors"));
+    if (data.ans_flags & 1024) {
+	if (data.ans_flags != 1024)
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors with other types"));
+	mode = BYTESXP;
+    }
     else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
     else if (data.ans_flags & 128) mode = STRSXP;
@@ -1245,6 +1246,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     case STRSXP:
     case VECSXP:
     case RAWSXP:
+    case BYTESXP:
 	break;
 	/* we don't handle expressions: we could, but coercion of a matrix
 	   to an expression is not ideal.
@@ -1363,7 +1365,25 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    if (mode == BYTESXP) {
+	/* allocMatrix cannot carry a per-vector width, so build the
+	   vector and set dim; AnswerType has already checked that every
+	   argument agrees on width and kind */
+	int bw = 1, bk = BYTEVEC_OPAQUE;
+	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
+	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
+		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
+		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
+		break;
+	    }
+	PROTECT(result = R_allocBytesVectorKind((R_xlen_t) rows * cols, bw, bk));
+	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+	UNPROTECT(1); /* bdim */
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
     if (mode == STRSXP) {
@@ -1434,6 +1454,17 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
 		xcopyRawWithRecycle(RAW(result), RAW(u), n, idx, k);
+		n += idx;
+	    }
+	}
+    }
+    else if (mode == BYTESXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
+		R_bytesCopyWithRecycle(result, u, n, idx, k);
 		n += idx;
 	    }
 	}
@@ -1639,7 +1670,25 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    if (mode == BYTESXP) {
+	/* allocMatrix cannot carry a per-vector width, so build the
+	   vector and set dim; AnswerType has already checked that every
+	   argument agrees on width and kind */
+	int bw = 1, bk = BYTEVEC_OPAQUE;
+	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
+	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
+		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
+		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
+		break;
+	    }
+	PROTECT(result = R_allocBytesVectorKind((R_xlen_t) rows * cols, bw, bk));
+	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+	UNPROTECT(1); /* bdim */
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
 
@@ -1680,6 +1729,17 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
 		xfillRawMatrixWithRecycle(RAW(result), RAW(u), n, rows, idx,
 					  cols, k);
+		n += idx;
+	    }
+	}
+    }
+    else if (mode == BYTESXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
+		R_bytesFillMatrixWithRecycle(result, u, n, rows, idx, cols, k);
 		n += idx;
 	    }
 	}

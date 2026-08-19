@@ -11,10 +11,12 @@ Status: **stage 3 plus numeric kinds and arithmetic**.  Everything a filtering w
 allocation, GC, printing, identity, NA, subsetting, subassignment,
 `c()`, `rep()`, comparison, `match`/`unique`/`duplicated`/`split`,
 `sort`/`order`/`rank`/`xtfrm`, `as.character`/`format`, and
-`table`/`factor`, serialization; and for the numeric kinds,
-`+ - * %/% %% /` `^`, unary minus, `sum`/`prod`/`min`/`max`/`range`,
-and `as.integer`/`as.numeric`.  `deparse`, the `.Call` boundary and
-`cbind`/`rbind` are not implemented and fail loudly.
+`table`/`factor`, serialization, `deparse`, matrices
+(`cbind`/`rbind`/`matrix`/`t`/`aperm`/`apply` and matrix printing);
+and for the numeric kinds, `+ - * %/% %% /` `^`, unary minus,
+`sum`/`prod`/`min`/`max`/`range`, and `as.integer`/`as.numeric`.
+The `.Call` boundary is not implemented, and neither is an MSD radix
+sort (a performance item only).
 
 ## Decisions
 
@@ -151,6 +153,18 @@ Arithmetic added:
 | `src/main/summary.c` | `sum`/`prod`/`min`/`max` divert before the accumulator machinery |
 | `src/main/serialize.c` | `WriteItem`/`ReadItem` payload, chunked; `PackFlags` strips GROWABLE |
 | `src/main/bytes.c` | `R_bytesSwapWire`, the native <-> canonical mapping |
+
+deparse and matrices added:
+
+| File | Change |
+| --- | --- |
+| `src/main/deparse.c` | `bytes2buff`, the constructor form |
+| `src/main/bind.c` | `cbind`/`rbind`: mode admitted, dim set by hand, block copies |
+| `src/main/array.c` | `do_matrix`, `do_transpose`, `aperm` |
+| `src/main/subset.c` | `MatrixSubset` |
+| `src/main/duplicate.c` | `copyMatrix` (byrow), `copyVector` |
+| `src/main/printarray.c` | `printBytesMatrix`, measured column widths |
+| `src/main/bytes.c` | block-copy recycle helpers, `R_bytesKindName` |
 
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
@@ -292,6 +306,36 @@ An opaque element's wire bytes equal `bytesRaw()` exactly.
 No format version bump: a new SEXPTYPE is not a structural change, and
 an older R reading one of these files already fails loudly with
 "ReadItem: unknown type 26, perhaps written by later version of R".
+
+## deparse and matrices
+
+There is no literal syntax for a `bytes` vector, so `deparse` emits
+the call that rebuilds it -- `as.bytes(as.raw(c(0x01, ...)), 8L,
+"unsigned")` -- exactly as raw vectors deparse to `as.raw(c(...))`.
+Empty vectors deparse to `bytes(0L, w, kind)`.  The payload is written
+in storage order, so this round-trips on the machine that produced it;
+the wire normalization is what makes *files* portable.
+
+Known wart: a vector containing NA re-parses to the right value but
+warns, because `as.bytes` legitimately flags the reserved pattern
+arriving as data and cannot tell an intentional NA from a collision.
+The fix is a suppression argument or a literal syntax; neither is worth
+designing yet.
+
+Matrices needed more than `cbind`/`rbind`.  `allocMatrix` cannot carry
+a per-vector width, so `do_bind` and `do_matrix` build the vector and
+set `dim` themselves.  The generic recycle helpers
+(`xcopyRawWithRecycle`, `xfillRawMatrixWithRecycle`) assign elements,
+which cannot work at a per-vector element size, so `bytes.c` grows
+block-copy analogues that reuse `FILL_MATRIX_ITERATE`.  Beyond that,
+`MatrixSubset`, `do_transpose`, `aperm`, `copyMatrix`, `copyVector`
+and `printMatrix` each needed a case -- all of them mechanical, and
+all of them found by simply trying `print(cbind(a, b))` and following
+the errors.
+
+`matrix(x, nrow, ncol, byrow = TRUE)` recycles exactly as it does for
+integers, which the gauntlet pins against the integer element pattern
+rather than against a hand-written expectation.
 
 ## A third bug found by use rather than by probing
 

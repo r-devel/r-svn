@@ -426,6 +426,9 @@ void copyVector(SEXP s, SEXP t)
     case RAWSXP:
 	xcopyRawWithRecycle(RAW(s), RAW_RO(t), 0, ns, nt);
 	break;
+    case BYTESXP:
+	R_bytesCopyWithRecycle(s, t, 0, ns, nt);
+	break;
     default:
 	UNIMPLEMENTED_TYPE("copyVector", s);
     }
@@ -504,6 +507,13 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		RAW(s)[didx] = RAW(t)[sidx];
 	    break;
+	case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(s);
+	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
+		memcpy(BYTEVEC_ELT(s, didx), BYTEVEC_ELT_RO(t, sidx), w);
+	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("copyMatrix", s);
 	}
