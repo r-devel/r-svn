@@ -698,7 +698,15 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	    klass = mkChar("numeric");
 	    break;
 	  case BYTESXP:
-	    klass = mkChar(R_bytesTypeName(obj));
+	    if(singleString)
+		klass = mkChar(R_bytesTypeName(obj));
+	    else {
+		PROTECT(klass = allocVector(STRSXP, 2));
+		SET_STRING_ELT(klass, 0, mkChar(R_bytesTypeName(obj)));
+		SET_STRING_ELT(klass, 1, mkChar("bytes"));
+		UNPROTECT(1);
+		return klass;
+	    }
 	    break;
 	  case SYMSXP:
 	    klass = mkChar("name");

@@ -502,6 +502,19 @@ BytesAnswer(SEXP x, struct BindData *data, SEXP call)
 		       BYTEVEC_ELT_RO(x, i), w);
 	}
 	break;
+    case LGLSXP:
+    case INTSXP:
+	{
+	    SEXP ap = data->ans_ptr;
+	    SEXP nx = PROTECT(R_bytesNarrow(x, BYTEVEC_WIDTH(ap),
+					    BYTEVEC_KIND(ap), call));
+	    size_t w = (size_t) BYTEVEC_WIDTH(ap);
+	    for (i = 0; i < XLENGTH(nx); i++)
+		memcpy(BYTEVEC_ELT(ap, data->ans_length++),
+		       BYTEVEC_ELT_RO(nx, i), w);
+	    UNPROTECT(1);
+	}
+	break;
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
 		  R_typeToChar(x), "BytesAnswer");
@@ -881,11 +894,11 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 
     int mode = NILSXP;
     if (data.ans_flags & 1024) {
-	/* 'bytes' is exclusive: the elements are opaque, so there is no
-	   type it can be promoted to or from */
-	if (data.ans_flags != 1024)
+	/* logical (2) and integer (16) narrow into 'bytes'; a double
+	   operand is deliberately refused rather than guessed at */
+	if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types"));
+		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
 	mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;
@@ -1019,11 +1032,11 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 
     int mode = NILSXP;
     if (data.ans_flags & 1024) {
-	/* 'bytes' is exclusive: the elements are opaque, so there is no
-	   type it can be promoted to or from */
-	if (data.ans_flags != 1024)
+	/* logical (2) and integer (16) narrow into 'bytes'; a double
+	   operand is deliberately refused rather than guessed at */
+	if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types"));
+		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
 	mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;
@@ -1223,9 +1236,9 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 
     int mode = NILSXP;
     if (data.ans_flags & 1024) {
-	if (data.ans_flags != 1024)
+	if (data.ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types"));
+		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
 	mode = BYTESXP;
     }
     else if (data.ans_flags & 512) mode = EXPRSXP;

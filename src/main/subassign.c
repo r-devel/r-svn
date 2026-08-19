@@ -525,6 +525,13 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
             return which;
         }
 
+    case 2610:
+    case 2613:
+	/* logical and integer narrow into 'bytes'; a double right-hand
+	   side falls to the default below rather than being guessed at */
+	*y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x), call);
+	break;
+
     default:
 	error(_("incompatible types (from %s to %s) in subassignment type fix"),
 	      R_typeToChar(*x), R_typeToChar(*y));

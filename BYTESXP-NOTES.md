@@ -471,6 +471,75 @@ fed to generic numeric code.
 there is no longer a single string to test for.  `format.default`
 likewise checks `is.bytes(x)` before its `switch(mode(x), ...)`.
 
+## The coercion lattice: a deliberate partial answer
+
+R's lattice is currently value-preserving: `logical` in `integer` in
+`double` in `complex`, and every promotion is exact, since all int32
+fit in a double's 53-bit mantissa.  A 64-bit integer would be the first
+type to break that -- neither it nor `double` subsumes the other.  That
+is *why* bit64 lives outside the lattice, not an oversight.
+
+Every other ecosystem resolves it the same way (int64 + float -> float:
+Python, Julia, SQL, Arrow, Polars) and accepts the degradation.  That
+rule is materially more dangerous in R, because **`1` is a double
+here** while it is an integer in Julia and Python -- so the form users
+type by default is the lossy one.  On the INT64SXP branch:
+
+```
+x            =  4611686018427387904
+x + 1L       =  4611686018427387905    typeof: int64
+x + 1        =  4611686018427387904    typeof: double   <- wrong, silently
+```
+
+One character separates a correct answer from a wrong one, with no
+warning.
+
+So this takes the conservative position, chosen because **an operation
+that errors today can start working later without breaking any code
+written in the meantime, while the reverse is a breaking change**:
+
+| operands | result |
+| --- | --- |
+| bytes with bytes | same kind, `max(width)` |
+| bytes with logical or integer | narrows in; result is bytes |
+| a value that does not fit | NA with a warning, as integer overflow does |
+| bytes with double | **error**, naming both fixes |
+| `/` and `^` | unchanged -- explicitly double-producing |
+| opaque with anything | error; opaque elements have no numeric reading |
+
+The integer promotion is the one every system agrees on and is
+lossless, so it costs no policy.  The double case is the entire
+controversy, and refusing it keeps both candidate rules -- widen to
+double, or narrow into bytes with NA -- reachable later.
+
+The error says what to do:
+
+```
+'bytes' and 'double' cannot be combined; use an integer operand (1L),
+or as.numeric() for double arithmetic
+```
+
+`is.numeric()` stays FALSE, matching the factor precedent; that is a
+wide-blast-radius commitment not worth spending yet.
+
+## The implicit class vector
+
+`class(x)` returns `c("uint64", "bytes")` -- the shape `class(m)` uses
+for `c("matrix", "array")`.  This is the actual path forward, and the
+cheapest item here: a package can write `mean.bytes` **once** rather
+than one method per width, and prototype the contested semantics in S3
+without the core committing to anything.
+
+```r
+mean.bytes <- function(x, ...) sum(x) / length(x)
+mean(uint64_vector)   # 4
+mean(int128_vector)   # 10   -- same method, different width
+```
+
+Someone who wants `x + 1` to give a double can have it in their own
+package today, which is how the lattice question gets answered by
+usage rather than decided upfront.
+
 ## Element kinds
 
 Width alone cannot say what the bytes mean: a width-16 UUID and a

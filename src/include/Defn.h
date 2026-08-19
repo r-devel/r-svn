@@ -1897,6 +1897,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
 SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
+SEXP R_bytesNarrow(SEXP x, int w, int kind, SEXP call);
 double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),

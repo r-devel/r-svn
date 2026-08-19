@@ -319,27 +319,126 @@ static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w,
     return storeResult(out, R, w, kind, negb);
 }
 
+/* Store a C integer value into an element.  Returns false if it is not
+   representable -- a negative into an unsigned kind, a magnitude too
+   wide, or the reserved NA pattern. */
+static bool eltFromLong(Rbyte *out, long long v, int w, int kind)
+{
+    if (kind == BYTEVEC_UINT && v < 0) return false;
+
+    bool neg = v < 0;
+    unsigned long long m = neg
+	? (unsigned long long) (-(v + 1)) + 1ULL
+	: (unsigned long long) v;
+    Rbyte mag[MAXW];
+
+    memset(mag, 0, (size_t) w);
+    for (int i = 0; i < w && m; i++) {
+	mag[w - 1 - i] = (Rbyte) (m & 0xFF);
+	m >>= 8;
+    }
+    if (m) return false;			/* needed more than w bytes */
+
+    return storeResult(out, mag, w, kind, neg);
+}
+
+/* Narrow a logical or integer vector into a 'bytes' vector of the given
+   kind and width.
+
+   Only these two types narrow.  A double operand is deliberately
+   refused by the callers rather than converted: R's coercion lattice is
+   otherwise lossless, and neither double nor a 64-bit integer subsumes
+   the other, so there is no answer that is right in general.  Refusing
+   keeps both candidate rules -- widen to double, or narrow into bytes
+   -- reachable later, since an operation that errors today can start
+   working without breaking any code written in the meantime.
+
+   Values that do not fit become NA with a warning, exactly as integer
+   overflow does. */
+attribute_hidden
+SEXP R_bytesNarrow(SEXP x, int w, int kind, SEXP call)
+{
+    SEXPTYPE t = TYPEOF(x);
+
+    if (kind == BYTEVEC_OPAQUE)
+	errorcall(call,
+		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
+		  R_typeToChar(x));
+    if (t != INTSXP && t != LGLSXP)
+	errorcall(call,
+		  _("'%s' and '%s' cannot be combined; use an integer operand (1L), or as.numeric() for double arithmetic"),
+		  "bytes", R_typeToChar(x));
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(R_allocBytesVectorKind(n, w, kind));
+    R_xlen_t nLost = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
+	Rbyte *p = BYTEVEC_ELT(ans, i);
+	if (v == NA_INTEGER || !eltFromLong(p, (long long) v, w, kind)) {
+	    R_bytesSetEltNA(p, w, kind);
+	    if (v != NA_INTEGER) nLost++;
+	}
+    }
+
+    if (nLost)
+	warningcall(call, _("NAs introduced by values outside the range of '%s'"),
+		    R_bytesTypeName(ans));
+    UNPROTECT(1);
+
+    return ans;
+}
+
+/* Settle the operands of a binary operation: at least one is a 'bytes'
+   vector, and the other must be one too (same kind) or must narrow. */
+static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
+{
+    SEXP x = *px, y = *py;
+    SEXP b = (TYPEOF(x) == BYTESXP) ? x : y;
+    int kind = BYTEVEC_KIND(b), w = BYTEVEC_WIDTH(b);
+
+    if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP) {
+	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
+	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	w = BYTEVEC_WIDTH(x) > BYTEVEC_WIDTH(y)
+	    ? BYTEVEC_WIDTH(x) : BYTEVEC_WIDTH(y);
+    }
+    else if (TYPEOF(x) == BYTESXP)
+	*py = R_bytesNarrow(y, w, kind, call);
+    else
+	*px = R_bytesNarrow(x, w, kind, call);
+
+    *pw = w;
+    *pk = kind;
+}
+
 /* ---- vector level ---- */
 
 attribute_hidden
 SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 {
-    int kx = BYTEVEC_KIND(x), ky = BYTEVEC_KIND(y);
-
-    if (kx == BYTEVEC_OPAQUE || ky == BYTEVEC_OPAQUE)
+    if ((TYPEOF(x) == BYTESXP && BYTEVEC_KIND(x) == BYTEVEC_OPAQUE) ||
+	(TYPEOF(y) == BYTESXP && BYTEVEC_KIND(y) == BYTEVEC_OPAQUE))
 	errorcall(call, _("arithmetic is not defined for opaque 'bytes' vectors"));
-    if (kx != ky)
-	errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
 
-    int wx = BYTEVEC_WIDTH(x), wy = BYTEVEC_WIDTH(y);
-    int w = wx > wy ? wx : wy;
+    int w, kx;
+    PROTECT_INDEX xi, yi;
+    PROTECT_WITH_INDEX(x, &xi);
+    PROTECT_WITH_INDEX(y, &yi);
+    bytesBinaryOperands(call, &x, &y, &w, &kx);
+    REPROTECT(x, xi);
+    REPROTECT(y, yi);
+    int ky = kx, wx = BYTEVEC_WIDTH(x), wy = BYTEVEC_WIDTH(y);
     if (!arithWidthOK(w))
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
     R_xlen_t nx = XLENGTH(x), ny = XLENGTH(y);
-    if (nx == 0 || ny == 0)
+    if (nx == 0 || ny == 0) {
+	UNPROTECT(2); /* x, y */
 	return R_allocBytesVectorKind(0, w, kx);
+    }
     R_xlen_t n = nx > ny ? nx : ny;
     if (((nx > ny) ? nx % ny : ny % nx) != 0)
 	warningcall(call,
@@ -373,7 +472,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	case IDIVOP:  ok = eltDivMod(pa, sx, sy, w, kx, true); break;
 	case MODOP:   ok = eltDivMod(pa, sx, sy, w, kx, false); break;
 	default:
-	    UNPROTECT(1);
+	    UNPROTECT(3); /* x, y, ans */
 	    errorcall(call,
 		      _("this operator is not defined for 'bytes' vectors"));
 	}
@@ -389,7 +488,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 		    ? _("NAs produced by division by zero or overflow")
 		    : _("NAs produced by integer overflow"));
 
-    UNPROTECT(1);
+    UNPROTECT(3); /* x, y, ans */
 
     return ans;
 }

@@ -539,8 +539,6 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
        are the exception: as for integers, they yield a double, so
        those two fall through to the ordinary path. */
     if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
-	if (TYPEOF(x) != BYTESXP || TYPEOF(y) != BYTESXP)
-	    errorcall(call, _("non-numeric argument to binary operator"));
 	if (oper == DIVOP || oper == POWOP) {
 	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
 	    REPROTECT(y = coerceVector(y, REALSXP), ypi);

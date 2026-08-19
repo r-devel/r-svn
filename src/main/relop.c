@@ -677,21 +677,27 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     R_xlen_t i, i1, i2, n, n1, n2;
     SEXP ans;
 
-    if (TYPEOF(s1) != BYTESXP || TYPEOF(s2) != BYTESXP)
-	errorcall(call, _("comparison of these types is not implemented"));
+    SEXP b = (TYPEOF(s1) == BYTESXP) ? s1 : s2;
+    int w = BYTEVEC_WIDTH(b), k = BYTEVEC_KIND(b);
 
-    int w = BYTEVEC_WIDTH(s1), k = BYTEVEC_KIND(s1);
-    if (BYTEVEC_WIDTH(s2) != w)
-	errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
-		  w, BYTEVEC_WIDTH(s2));
-    if (BYTEVEC_KIND(s2) != k)
-	errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
+    PROTECT_INDEX p1, p2;
+    PROTECT_WITH_INDEX(s1, &p1);
+    PROTECT_WITH_INDEX(s2, &p2);
+    if (TYPEOF(s1) == BYTESXP && TYPEOF(s2) == BYTESXP) {
+	if (BYTEVEC_WIDTH(s2) != w)
+	    errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
+		      w, BYTEVEC_WIDTH(s2));
+	if (BYTEVEC_KIND(s2) != k)
+	    errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
+    }
+    else if (TYPEOF(s1) == BYTESXP)
+	REPROTECT(s2 = R_bytesNarrow(s2, w, k, call), p2);
+    else
+	REPROTECT(s1 = R_bytesNarrow(s1, w, k, call), p1);
 
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
     n = (n1 > n2) ? n1 : n2;
-    PROTECT(s1);
-    PROTECT(s2);
     ans = allocVector(LGLSXP, n);
 
     const Rbyte *px1 = BYTEVEC_DATA_RO(s1);

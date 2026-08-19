@@ -33,7 +33,7 @@ cat("== A. type identity ==\n")
 ## the R-level type name is derived from (kind, width), the way
 ## OBJSXP reports "S4" vs "object" from a gp bit
 ok("typeof names kind + width",  typeof(x) == "bytes16")
-ok("class follows typeof",       class(x) == "bytes16")
+ok("class follows typeof",       identical(class(x), c("bytes16", "bytes")))
 ok("is.bytes",                   is.bytes(x) && !is.bytes(raw(4)))
 ok("is.atomic",                  is.atomic(x))
 ok("is.vector",                  is.vector(x))
@@ -137,7 +137,7 @@ ok("c() concatenates",           length(c(x, x)) == 4L)
 ok("c() keeps width",            bytesWidth(c(x, x)) == 16L)
 ok("c() payload",                identical(bytesRaw(c(x, x)), as.raw(c(1:32, 1:32))))
 ok("unlist(list(x, x))",         identical(unlist(list(x, x)), c(x, x)))
-ok("c() mixed type errors",      inherits(tryCatch(c(x, 1L), error = identity), "error"))
+ok("c() opaque + integer errors", inherits(tryCatch(c(x, 1L), error = identity), "error"))
 ok("c() mixed width errors",     inherits(tryCatch(c(x, x8), error = identity), "error"))
 ok("rep(x, 2)",                  identical(rep(x, 2), c(x, x)))
 ok("rep(x, each = 2)",           identical(bytesRaw(rep(x, each = 2)),
@@ -152,7 +152,7 @@ ok("> bytewise",                 (x[2] > x[1]))
 ok(">= equal",                   (x[1] >= x[1]))
 ok("recycling",                  identical(x > x[1], c(FALSE, TRUE)))
 ok("width mismatch errors",      inherits(tryCatch(x == x8, error = identity), "error"))
-ok("cross-type errors",          inherits(tryCatch(x == 1L, error = identity), "error"))
+ok("opaque vs integer errors",   inherits(tryCatch(x == 1L, error = identity), "error"))
 
 cat("\n== J. hash family (one byte hash + memcmp) ==\n")
 ok("match",                      identical(match(x, c(y, x)), c(3L, 4L)))
@@ -335,7 +335,7 @@ ok("128-bit multiply",           identical(as.character(
                                    "18446744073709551616"))
 ok("arith on opaque errors",     inherits(tryCatch(x + x, error = identity), "error"))
 ok("arith across kinds errors",  inherits(tryCatch(a + b, error = identity), "error"))
-ok("arith with integer errors",  inherits(tryCatch(a + 1L, error = identity), "error"))
+ok("arith with integer narrows", identical(as.character(a + 1L), c("2","3","4")))
 ok("width 3 arith errors",       inherits(tryCatch({ y3 <- bytes(1L, 3L, "unsigned"); y3 + y3 },
                                                    error = identity), "error"))
 
@@ -458,10 +458,59 @@ ok("matrix fills with NA",       { mm <- matrix(bytes(0L, 8L, "unsigned"), 2, 2)
                                    identical(dim(mm), c(2L, 2L)) && all(is.na(mm)) })
 ok("matrix prints",              length(capture.output(print(m))) == 4L)
 ok("opaque matrix prints",       length(capture.output(print(cbind(x, x)))) == 3L)
-ok("cbind mixed type errors",    inherits(tryCatch(cbind(u64, 1L), error = identity), "error"))
+ok("cbind with integer narrows", identical(dim(cbind(u64, 1L)), c(3L, 2L)))
 ok("cbind mixed kind errors",    inherits(tryCatch(cbind(u64, i64), error = identity), "error"))
 ok("cbind mixed width errors",   inherits(tryCatch(cbind(x, x8), error = identity), "error"))
 ok("matrix round-trips",         identical(unserialize(serialize(m, NULL)), m))
+
+cat("\n== U. the partial coercion lattice ==\n")
+## logical and integer narrow into bytes -- lossless, and the one
+## promotion every system agrees on.  double is deliberately refused:
+## R's lattice is otherwise value-preserving, and neither double nor a
+## 64-bit integer subsumes the other.
+ok("x + 1L",                     identical(as.character(u64[2] + 1L), "5120000001"))
+ok("1L + x (symmetric)",         identical(u64[2] + 1L, 1L + u64[2]))
+ok("x * 2L",                     identical(as.character(u64[1] * 2L), "2"))
+ok("x + TRUE",                   identical(as.character(u64[1] + TRUE), "2"))
+ok("result keeps kind and width",{ r <- u64[2] + 1L
+                                   bytesKind(r) == "unsigned" && bytesWidth(r) == 8L })
+ok("comparison against integer", (u64[2] > 0L) && !(u64[1] > 1L))
+ok("c(x, 1L)",                   identical(as.character(c(u64[1], 1L)), c("1", "1")))
+ok("x[i] <- integer",            { z <- c(u64, u64); z[1] <- 7L
+                                   as.character(z[1]) == "7" })
+ok("signed takes negatives",     identical(as.character(i64[1] + -1L), "-2"))
+ok("out of range -> NA + warning",
+                                 { w <- FALSE
+                                   r <- withCallingHandlers(u64[1] + -5L,
+                                       warning = function(cnd) { w <<- TRUE
+                                                                 invokeRestart("muffleWarning") })
+                                   is.na(r) && w })
+
+for (e in list(quote(u64[1] + 1), quote(u64[1] * 1.5), quote(u64[1] > 0),
+               quote(c(u64, 1)), quote({ z <- c(u64, u64); z[1] <- 1; z })))
+    ok(paste("double refused:", deparse(e)[1]),
+       inherits(tryCatch(eval(e), error = identity), "error"))
+
+ok("the refusal names both fixes", grepl("1L", tryCatch(u64[1] + 1,
+                                                        error = conditionMessage)) &&
+                                   grepl("as.numeric", tryCatch(u64[1] + 1,
+                                                                error = conditionMessage)))
+ok("/ still yields double",      identical(u64[1] / 2, 0.5))
+ok("^ still yields double",      identical(u64[1] ^ 2L, 1))
+ok("opaque still refuses all",   inherits(tryCatch(x + 1L, error = identity), "error"))
+
+cat("\n== V. implicit class vector ==\n")
+ok("class is name + bytes",      identical(class(u64), c("uint64", "bytes")))
+ok("opaque too",                 identical(class(x), c("bytes16", "bytes")))
+ok("inherits both ways",         inherits(u64, "bytes") && inherits(u64, "uint64"))
+ok("one S3 method serves all",   { mean.bytes <- function(x, ...) sum(x) / length(x)
+                                   m8 <- mean(as.bytes(as.raw(c(rev(c(0,0,0,0,0,0,0,2)),
+                                                                rev(c(0,0,0,0,0,0,0,4)))),
+                                                       8L, "unsigned"))
+                                   m16 <- mean(mk("signed", 16L,
+                                                  "0000000000000000000000000000000a"))
+                                   identical(c(m8, m16), c(3, 10)) })
+ok("matrices still class matrix", identical(class(cbind(u64, u64)), c("matrix", "array")))
 
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
