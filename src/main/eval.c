@@ -1108,6 +1108,7 @@ SEXP eval(SEXP e, SEXP rho)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
+    case BYTESXP:
     case OBJSXP:
     case SPECIALSXP:
     case BUILTINSXP:
@@ -2868,6 +2869,14 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case RAWSXP:
 		ALLOC_LOOP_VAR(v, val_type, vpi);
 		SET_SCALAR_BVAL(v, RAW(val)[i]);
+		break;
+	    case BYTESXP:
+		/* not ALLOC_LOOP_VAR: the loop variable is reused across
+		   iterations only for types whose element size is fixed
+		   by the SEXPTYPE */
+		v = R_allocBytesVector(1, BYTEVEC_WIDTH(val));
+		memcpy(BYTEVEC_DATA(v), BYTEVEC_ELT_RO(val, i),
+		       (size_t) BYTEVEC_WIDTH(val));
 		break;
 	    default:
 		errorcall(call, _("invalid for() loop sequence"));
@@ -7812,6 +7821,14 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  case RAWSXP:
 	    GET_VEC_LOOP_VALUE(value);
 	    SET_SCALAR_BVAL(value, RAW(seq)[i]);
+	    break;
+	  case BYTESXP:
+	    /* not GET_VEC_LOOP_VALUE: the cached loop value cannot be
+	       reused, since the element width is a property of the
+	       vector rather than of the SEXPTYPE */
+	    value = R_allocBytesVector(1, BYTEVEC_WIDTH(seq));
+	    memcpy(BYTEVEC_DATA(value), BYTEVEC_ELT_RO(seq, i),
+		   (size_t) BYTEVEC_WIDTH(seq));
 	    break;
 	  case EXPRSXP:
 	  case VECSXP:

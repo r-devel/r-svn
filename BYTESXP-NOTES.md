@@ -126,6 +126,7 @@ Stage 3 added:
 | `src/main/coerce.c` | `coerceToString` (hex), and BYTESXP admitted to `coerceVector`'s source gate |
 | `src/main/paste.c` | `do_format` |
 | `src/library/base/R/format.R` | `format.default` dispatches on `mode()`, so it needs its own arm |
+| `src/main/eval.c` | self-evaluating constant, interpreted `for()`, byte-code `STEPFOR` |
 
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
@@ -191,6 +192,17 @@ reached otherwise.
 MSD byte radix (256 buckets, `width` passes, no comparator) is still
 unimplemented; the shell sort is correct and was the cheaper thing to
 get right first.
+
+Two evaluation paths turned up only when a real workload was tried.
+`eval()`'s self-evaluating-constant list did not include BYTESXP, so
+anything that evaluates a value -- `do.call()` most visibly -- hit
+`UNIMPLEMENTED_TYPE("eval")`.  And both `for()` loops needed their own
+case: the byte-code `STEPFOR` reuses a cached length-1 loop variable
+via `GET_VEC_LOOP_VALUE`, which both calls `allocVector(TYPEOF(seq),
+1)` and would carry a stale width between loops over vectors of
+different widths.  BYTESXP allocates a fresh element each iteration
+instead.  This is the same shape as the wide-int lesson that byte-code
+fast paths must bail out for a new representation.
 
 ## NA
 
