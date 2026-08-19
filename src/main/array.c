@@ -1762,11 +1762,9 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (resize == NA_LOGICAL) error(_("'resize' must be TRUE or FALSE"));
 
     /* short-circuit identity permutation (PR#19069) */
-    if(resize) {
 	bool skip = true;
-        for (i = 0; i < n; i++) if (pp[i] != i) {skip = false; break;}
-        if (skip) {UNPROTECT(1); return(a);}
-    }
+	for (i = 0; i < n; i++) if (pp[i] != i) {skip = false; break;}
+    if (resize && skip) {UNPROTECT(1); return(a);}
 
     R_xlen_t *iip = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
     Memzero(iip, n);
@@ -1776,7 +1774,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < n; i++)
 	if (iip[i] == 0) error(_("invalid '%s' argument"), "perm");
 
-	if (n == 2) {
+	if (n == 2 && !skip) {
 		/* special case for 2D arrays */
 		SEXP r = do_transpose(call, op, args, rho);
 		if (resize) {
