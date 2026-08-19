@@ -3693,7 +3693,8 @@ stopifnot(
     identical(aperm(m), t(m)),
     identical(drop(aperm(a, c(2, 1, 3))), aperm(m, c(2, 1))),
     identical(drop(aperm(a, c(2, 1, 3), resize = FALSE)), aperm(m, c(2, 1), resize = FALSE)),
-    identical(drop(aperm(a, c("Y", "X", "Z"))), aperm(m, c("Y", "X")))
+    identical(drop(aperm(a, c("Y", "X", "Z"))), aperm(m, c("Y", "X"))),
+    identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
 
 ## keep at end
