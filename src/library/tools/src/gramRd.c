@@ -120,8 +120,6 @@
 #define DEBUGVALS 0		/* 1 causes detailed internal state output to R console */	
 #define DEBUGMODE 0		/* 1 causes Bison output of parse state, to stdout or stderr */
 
-static bool wCalls = true;
-static bool warnDups = false;
 
 #define YYERROR_VERBOSE 1
 
@@ -192,7 +190,10 @@ static int	xxungetc(int);
 static char const yyunknown[] = "unknown macro"; /* our message, not bison's */
 
 
+#define PUSHBACK_BUFSIZE 32
+
 typedef struct ParseState ParseState;
+struct Rconn;
 struct ParseState {
     int xxinRString, xxQuoteLine, xxQuoteCol;
     int	xxinEqn;
@@ -205,6 +206,18 @@ struct ParseState {
     int	xxinitvalue;
     SEXP	xxMacroList;/* A hashed environment containing all the standard and user-defined macro names */
     SEXP mset; /* Precious mset for protecting parser semantic values */
+    SEXP SrcFile;  /* parse_Rd will *always* supply a srcfile */
+    struct Rconn *con_parse;
+    int (*ptr_getc)(void);
+    int pushback[PUSHBACK_BUFSIZE];
+    int *pushbase;
+    unsigned int npush, pushsize;
+    int macrolevel;
+    int prevpos;
+    int prevlines[PUSHBACK_BUFSIZE];
+    int prevcols[PUSHBACK_BUFSIZE];
+    int prevbytes[PUSHBACK_BUFSIZE];
+    bool wCalls, warnDups;
     ParseState *prevState;
 };
 
@@ -221,7 +234,6 @@ static ParseState parseState;
 #define COMMENTMODE 5   /* only used in deparsing */
 #define UNKNOWNMODE 6   /* ditto */
 
-static SEXP     SrcFile;  /* parse_Rd will *always* supply a srcfile */
 
 /* Routines used to build the parse tree */
 
@@ -2582,7 +2594,7 @@ yyreduce:
 
   case 64: /* LatexArg2: goLatexLike TEXT  */
                                                 { xxpopMode(yyvsp[-1]); yyval = xxnewlist(yyvsp[0]); 
-     						  if(wCalls)
+     						  if(parseState.wCalls)
     	    					      warning(_("bad markup (extra space?) at %s:%d:%d"), 
     	    					            parseState.xxBasename, (yylsp[0]).first_line, (yylsp[0]).first_column); 
      						  else
@@ -3077,7 +3089,7 @@ static SEXP xxmarkup(SEXP header, SEXP body, int flag, YYLTYPE *lloc)
 	setAttrib(ans, R_RdTagSymbol, header);
 	RELEASE_SV(header);
     }
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
@@ -3118,7 +3130,7 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
     } else
     	PROTECT(thedefn = mkString(""));
     	
-    if (warnDups) {
+    if (parseState.warnDups) {
 	prev = findVar(installTrChar(STRING_ELT(thename, 0)), parseState.xxMacroList);
     	if (prev != R_UnboundValue && strcmp(CHAR(STRING_ELT(cmd,0)), "\\renewcommand")) {
 	    snprintf(buffer, sizeof(buffer), _("Macro '%s' previously defined."), 
@@ -3137,7 +3149,7 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
     PROTECT(ans = ScalarInteger(USERMACRO + maxarg));
     setAttrib(ans, R_RdTagSymbol, cmd);
     setAttrib(ans, R_DefinitionSymbol, thedefn);
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     defineVar(installTrChar(STRING_ELT(thename, 0)), ans, parseState.xxMacroList);
     UNPROTECT(3); /* thedefn, ans, srcref */
 
@@ -3247,7 +3259,7 @@ static SEXP xxusermacro(SEXP macro, SEXP args, YYLTYPE *lloc)
     xxungetc(START_MACRO);
     
     setAttrib(ans, R_RdTagSymbol, mkString("USERMACRO"));
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     setAttrib(ans, R_MacroSymbol, macro);
     RELEASE_SV(macro);
@@ -3271,7 +3283,7 @@ static SEXP xxOptionmarkup(SEXP header, SEXP option, SEXP body, int flag, YYLTYP
     flag |= getDynamicFlag(option);
     setAttrib(ans, R_RdOptionSymbol, option);
     RELEASE_SV(option);
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     setDynamicFlag(ans, flag);    
 #if DEBUGVALS
@@ -3306,7 +3318,7 @@ static SEXP xxmarkup2(SEXP header, SEXP body1, SEXP body2, int argcount, int fla
     }
     setAttrib(ans, R_RdTagSymbol, header);
     RELEASE_SV(header);
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
@@ -3348,7 +3360,7 @@ static SEXP xxmarkup3(SEXP header, SEXP body1, SEXP body2, SEXP body3, int flag,
     }    
     setAttrib(ans, R_RdTagSymbol, header);
     RELEASE_SV(header);
-    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
@@ -3363,7 +3375,7 @@ static void xxsavevalue(SEXP Rd, YYLTYPE *lloc)
     PRESERVE_SV(parseState.Value = PairToVectorList(CDR(Rd)));
     if (!isNull(parseState.Value)) {
     	setAttrib(parseState.Value, R_ClassSymbol, mkString("Rd"));
-    	setAttrib(parseState.Value, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    	setAttrib(parseState.Value, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     	UNPROTECT(1);
     	setDynamicFlag(parseState.Value, flag);
     }
@@ -3373,7 +3385,7 @@ static void xxsavevalue(SEXP Rd, YYLTYPE *lloc)
 static SEXP xxtag(SEXP item, int type, YYLTYPE *lloc)
 {
     setAttrib(item, R_RdTagSymbol, mkString(yytname[YYTRANSLATE(type)]));
-    setAttrib(item, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    setAttrib(item, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, parseState.SrcFile)));
     UNPROTECT(1);
     return item;
 }
@@ -3381,7 +3393,7 @@ static SEXP xxtag(SEXP item, int type, YYLTYPE *lloc)
 static void xxWarnNewline(void)
 {
     if (parseState.xxNewlineInString) {
-	if(wCalls)
+	if(parseState.wCalls)
 	    warning(_("newline within quoted string at %s:%d"), 
 		    parseState.xxBasename, parseState.xxNewlineInString);
 	else
@@ -3395,34 +3407,23 @@ static void xxWarnNewline(void)
 /*----------------------------------------------------------------------------*/
 
 
-static int (*ptr_getc)(void);
 
 /* Private pushback, since file ungetc only guarantees one byte.
    We need arbitrarily large size, since this is how macros are expanded. */
    
 #define PUSH_BACK(c) do {                  \
-	if (npush >= pushsize - 1) {             \
-	    int *old = pushbase;              \
-            pushsize *= 2;                    \
-	    pushbase = malloc(pushsize*sizeof(int));         \
-	    if(!pushbase) error(_("unable to allocate buffer for long macro at line %d"), parseState.xxlineno);\
-	    memmove(pushbase, old, npush*sizeof(int));        \
-	    if(old != pushback) free(old); }	    \
-	pushbase[npush++] = (c);                        \
+	if (parseState.npush >= parseState.pushsize - 1) {             \
+	    int *old = parseState.pushbase;              \
+            parseState.pushsize *= 2;                    \
+	    parseState.pushbase = malloc(parseState.pushsize*sizeof(int));         \
+	    if(!parseState.pushbase) error(_("unable to allocate buffer for long macro at line %d"), parseState.xxlineno);\
+	    memmove(parseState.pushbase, old, parseState.npush*sizeof(int));        \
+	    if(old != parseState.pushback) free(old); }	    \
+	parseState.pushbase[parseState.npush++] = (c);                        \
 } while(0)
 
    
 
-#define PUSHBACK_BUFSIZE 32
-
-static int pushback[PUSHBACK_BUFSIZE];
-static int *pushbase;
-static unsigned int npush, pushsize;
-static int macrolevel;
-static int prevpos = 0;
-static int prevlines[PUSHBACK_BUFSIZE];
-static int prevcols[PUSHBACK_BUFSIZE];
-static int prevbytes[PUSHBACK_BUFSIZE];
 
 
 static int xxgetc(void)
@@ -3430,27 +3431,27 @@ static int xxgetc(void)
     int c, oldpos;
     
     do {
-    	if(npush) {    	
-    	    c = pushbase[--npush]; 
+    	if(parseState.npush) {    	
+    	    c = parseState.pushbase[--parseState.npush]; 
     	    if (c == START_MACRO) {
-    	    	macrolevel++;
-    	    	if (macrolevel > 1000) 
+    	    	parseState.macrolevel++;
+    	    	if (parseState.macrolevel > 1000) 
     	    	    error(_("macros nested too deeply: infinite recursion?"));
-    	    } else if (c == END_MACRO) macrolevel--;
-    	} else  c = ptr_getc();
+    	    } else if (c == END_MACRO) parseState.macrolevel--;
+    	} else  c = parseState.ptr_getc();
     } while (c == START_MACRO || c == END_MACRO);
     
-    if (!macrolevel) {
-	oldpos = prevpos;
-	prevpos = (prevpos + 1) % PUSHBACK_BUFSIZE;
-	prevbytes[prevpos] = parseState.xxbyteno;
-	prevlines[prevpos] = parseState.xxlineno;    
+    if (!parseState.macrolevel) {
+	oldpos = parseState.prevpos;
+	parseState.prevpos = (parseState.prevpos + 1) % PUSHBACK_BUFSIZE;
+	parseState.prevbytes[parseState.prevpos] = parseState.xxbyteno;
+	parseState.prevlines[parseState.prevpos] = parseState.xxlineno;    
 	/* We only advance the column for the 1st byte in UTF-8, so handle later bytes specially */
 	if (0x80 <= (unsigned char)c && (unsigned char)c <= 0xBF) {
 	    parseState.xxcolno--;   
-	    prevcols[prevpos] = prevcols[oldpos];
+	    parseState.prevcols[parseState.prevpos] = parseState.prevcols[oldpos];
 	} else 
-	    prevcols[prevpos] = parseState.xxcolno;
+	    parseState.prevcols[parseState.prevpos] = parseState.xxcolno;
 
 	if (c == EOF) return R_EOF;
 
@@ -3477,12 +3478,12 @@ static int xxgetc(void)
 static int xxungetc(int c)
 {
     /* this assumes that c was the result of xxgetc; if not, some edits will be needed */
-    if (c == END_MACRO) macrolevel++;
-    if (!macrolevel) {
-    	parseState.xxlineno = prevlines[prevpos];
-    	parseState.xxbyteno = prevbytes[prevpos];
-    	parseState.xxcolno  = prevcols[prevpos];
-    	prevpos = (prevpos + PUSHBACK_BUFSIZE - 1) % PUSHBACK_BUFSIZE;
+    if (c == END_MACRO) parseState.macrolevel++;
+    if (!parseState.macrolevel) {
+    	parseState.xxlineno = parseState.prevlines[parseState.prevpos];
+    	parseState.xxbyteno = parseState.prevbytes[parseState.prevpos];
+    	parseState.xxcolno  = parseState.prevcols[parseState.prevpos];
+    	parseState.prevpos = (parseState.prevpos + PUSHBACK_BUFSIZE - 1) % PUSHBACK_BUFSIZE;
     
     	R_ParseContextLine = parseState.xxlineno;
     
@@ -3491,7 +3492,7 @@ static int xxungetc(int c)
     	R_ParseContextLast = (R_ParseContextLast + PARSE_CONTEXT_SIZE - 1) 
 		% PARSE_CONTEXT_SIZE;
     }
-    if (c == START_MACRO) macrolevel--;
+    if (c == START_MACRO) parseState.macrolevel--;
     PUSH_BACK(c);
     /* Rprintf("unget %c;", c); */
     return c;
@@ -3580,12 +3581,13 @@ static SEXP ParseRd(ParseStatus *status, SEXP srcfile, bool fragment, SEXP macro
     parseState.xxcolno = 1; 
     parseState.xxbyteno = 1;
     
-    SrcFile = srcfile;
+    parseState.SrcFile = srcfile;
     
-    npush = 0;
-    pushbase = pushback;
-    pushsize = PUSHBACK_BUFSIZE;
-    macrolevel = 0;
+    parseState.npush = 0;
+    parseState.prevpos = 0;
+    parseState.pushbase = parseState.pushback;
+    parseState.pushsize = PUSHBACK_BUFSIZE;
+    parseState.macrolevel = 0;
     
     parseState.xxmode = LATEXLIKE; 
     parseState.xxitemType = UNKNOWN;
@@ -3617,13 +3619,12 @@ static SEXP ParseRd(ParseStatus *status, SEXP srcfile, bool fragment, SEXP macro
     RELEASE_SV(parseState.Value);
     UNPROTECT(3); /* macros, parseState.xxMacroList, parseState.mset */
     
-    if (pushbase != pushback) free(pushbase);
+    if (parseState.pushbase != parseState.pushback) free(parseState.pushbase);
     
     return parseState.Value;
 }
 
 #include "Rconnections.h"
-static Rconnection con_parse;
 
 /* need to handle incomplete last line */
 static int con_getc(void)
@@ -3631,7 +3632,7 @@ static int con_getc(void)
     int c;
     static int last=-1000;
     
-    c = Rconn_fgetc(con_parse);
+    c = Rconn_fgetc(parseState.con_parse);
     if (c == EOF && last != '\n') c = '\n';
     return (last = c);
 }
@@ -3639,8 +3640,8 @@ static int con_getc(void)
 static
 SEXP R_ParseRd(Rconnection con, ParseStatus *status, SEXP srcfile, bool fragment, SEXP macros)
 {
-    con_parse = con;
-    ptr_getc = con_getc;
+    parseState.con_parse = con;
+    parseState.ptr_getc = con_getc;
     return ParseRd(status, srcfile, fragment, macros);
 }
 
@@ -3899,7 +3900,7 @@ static void yyerror(const char *s)
     /*
     R_ParseError     = yylloc.first_line;
     R_ParseErrorCol  = yylloc.first_column;
-    R_ParseErrorFile = SrcFile;
+    R_ParseErrorFile = parseState.SrcFile;
     */
     
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
@@ -3959,12 +3960,12 @@ static void yyerror(const char *s)
     } else {
     	snprintf(ParseErrorMsg, PARSE_ERROR_SIZE, "%s", s);
     }
-    filename = findVar(install("filename"), SrcFile);
+    filename = findVar(install("filename"), parseState.SrcFile);
     if (isString(filename) && LENGTH(filename))
     	strncpy(ParseErrorFilename, CHAR(STRING_ELT(filename, 0)), PARSE_ERROR_SIZE - 1);
     else
         ParseErrorFilename[0] = '\0';
-    if (wCalls) {
+    if (parseState.wCalls) {
 	if (yylloc.first_line != yylloc.last_line)
 	    warning("%s:%d-%d: %s", 
 		    ParseErrorFilename, yylloc.first_line, yylloc.last_line, ParseErrorMsg);
@@ -4004,9 +4005,9 @@ static void setfirstloc(void)
 
 static void setlastloc(void)
 {
-    yylloc.last_line = prevlines[prevpos];
-    yylloc.last_column = prevcols[prevpos];
-    yylloc.last_byte = prevbytes[prevpos];
+    yylloc.last_line = parseState.prevlines[parseState.prevpos];
+    yylloc.last_column = parseState.prevcols[parseState.prevpos];
+    yylloc.last_byte = parseState.prevbytes[parseState.prevpos];
 }
 
 /* Split the input stream into tokens. */
@@ -4447,43 +4448,11 @@ static void con_cleanup(void *data)
 }
 
 static void PutState(ParseState *state) {
-    state->xxinRString = parseState.xxinRString;
-    state->xxQuoteLine = parseState.xxQuoteLine;
-    state->xxQuoteCol = parseState.xxQuoteCol;
-    state->xxinEqn = parseState.xxinEqn;
-    state->xxNewlineInString = parseState.xxNewlineInString;
-    state->xxlineno = parseState.xxlineno;
-    state->xxbyteno = parseState.xxbyteno;
-    state->xxcolno = parseState.xxcolno;
-    state->xxmode = parseState.xxmode;
-    state->xxitemType = parseState.xxitemType;
-    state->xxbraceDepth = parseState.xxbraceDepth;
-    state->xxDebugTokens = parseState.xxDebugTokens;
-    state->xxBasename = parseState.xxBasename;
-    state->Value = parseState.Value;
-    state->xxinitvalue = parseState.xxinitvalue;
-    state->xxMacroList = parseState.xxMacroList;
-    state->prevState = parseState.prevState;
+    *state = parseState;
 }
 
 static void UseState(ParseState *state) {
-    parseState.xxinRString = state->xxinRString;
-    parseState.xxQuoteLine = state->xxQuoteLine;
-    parseState.xxQuoteCol = state->xxQuoteCol;
-    parseState.xxinEqn = state->xxinEqn;
-    parseState.xxNewlineInString = state->xxNewlineInString;
-    parseState.xxlineno = state->xxlineno;
-    parseState.xxbyteno = state->xxbyteno;
-    parseState.xxcolno = state->xxcolno;
-    parseState.xxmode = state->xxmode;
-    parseState.xxitemType = state->xxitemType;
-    parseState.xxbraceDepth = state->xxbraceDepth;
-    parseState.xxDebugTokens = state->xxDebugTokens;
-    parseState.xxBasename = state->xxBasename;
-    parseState.Value = state->Value;
-    parseState.xxinitvalue = state->xxinitvalue;
-    parseState.xxMacroList = state->xxMacroList;
-    parseState.prevState = state->prevState;
+    parseState = *state;
 }
 
 static void PushState(void) {
@@ -4506,6 +4475,11 @@ static void PopState(void) {
     	busy = false;
 }
 
+static void PopStateOnError(void *dummy)
+{
+    PopState();
+}
+
 /* "do_parseRd" 
 
  .External2(C_parseRd,file, srcfile, encoding, verbose, basename, warningCalls, macros, warndups)
@@ -4521,7 +4495,8 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
-    RCNTXT cntxt;
+    RCNTXT conn_cntxt;
+    RCNTXT state_cntxt;
     SEXP macros;
 
 #if DEBUGMODE
@@ -4532,6 +4507,10 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     R_ParseErrorMsg[0] = '\0';
     
     PushState();
+    begincontext(&state_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+                 R_NilValue, R_NilValue);
+    state_cntxt.cend = &PopStateOnError;
+    state_cntxt.cenddata = NULL;
 
     ifile = asInteger(CAR(args));                       args = CDR(args);
 
@@ -4548,27 +4527,29 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     wcall = asLogical(CAR(args));				args = CDR(args);
     if (wcall == NA_LOGICAL)
     	error(_("invalid '%s' value"), "warningCalls");
-    wCalls = (bool) wcall;
+    parseState.wCalls = (bool) wcall;
     macros = CAR(args);						args = CDR(args);
-    warnDups = asBool(CAR(args));
+    parseState.warnDups = asBool(CAR(args));
 
     if (ifile >= 3) {/* file != "" */
 	if(!wasopen) {
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+	    begincontext(&conn_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    conn_cntxt.cend = &con_cleanup;
+	    conn_cntxt.cenddata = con;
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
 	s = R_ParseRd(con, &status, source, fragment, macros);
-	if(!wasopen) endcontext(&cntxt);
+	if(!wasopen) endcontext(&conn_cntxt);
 	PopState();
+	endcontext(&state_cntxt);
 	if (status != PARSE_OK) parseError(call, R_ParseError);
     }
     else {
       PopState();
+      endcontext(&state_cntxt);
       error(_("invalid Rd file"));
     }
     return s;
