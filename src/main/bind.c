@@ -52,6 +52,7 @@ struct BindData {
  R_xlen_t  ans_nnames;
  int  ans_width; /* BYTESXP element width; 0 until one is seen */
  int  ans_kind;  /* BYTESXP element kind */
+ int  ans_nona;  /* BYTESXP: does it decline to reserve an NA? */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -88,6 +89,10 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 		      data->ans_width, BYTEVEC_WIDTH(x));
 	if (data->ans_width && data->ans_kind != BYTEVEC_KIND(x))
 	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	if (data->ans_width && data->ans_nona != !BYTEVEC_HAS_NA(x))
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+	data->ans_nona = !BYTEVEC_HAS_NA(x);
 	data->ans_width = BYTEVEC_WIDTH(x);
 	data->ans_kind = BYTEVEC_KIND(x);
 	data->ans_flags |= 1024;
@@ -507,7 +512,8 @@ BytesAnswer(SEXP x, struct BindData *data, SEXP call)
 	{
 	    SEXP ap = data->ans_ptr;
 	    SEXP nx = PROTECT(R_bytesNarrow(x, BYTEVEC_WIDTH(ap),
-					    BYTEVEC_KIND(ap), call));
+					    BYTEVEC_KIND(ap),
+					    BYTEVEC_HAS_NA(ap), call));
 	    size_t w = (size_t) BYTEVEC_WIDTH(ap);
 	    for (i = 0; i < XLENGTH(nx); i++)
 		memcpy(BYTEVEC_ELT(ap, data->ans_length++),
@@ -914,8 +920,9 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = (mode == BYTESXP)
-	    ? R_allocBytesVectorKind(data.ans_length, data.ans_width,
-				     data.ans_kind)
+	    ? R_bytesWithNA(R_allocBytesVectorKind(data.ans_length,
+						  data.ans_width, data.ans_kind),
+			    !data.ans_nona)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1052,8 +1059,9 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = (mode == BYTESXP)
-	    ? R_allocBytesVectorKind(data.ans_length, data.ans_width,
-				     data.ans_kind)
+	    ? R_bytesWithNA(R_allocBytesVectorKind(data.ans_length,
+						  data.ans_width, data.ans_kind),
+			    !data.ans_nona)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;

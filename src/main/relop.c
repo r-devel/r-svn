@@ -679,6 +679,7 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 
     SEXP b = (TYPEOF(s1) == BYTESXP) ? s1 : s2;
     int w = BYTEVEC_WIDTH(b), k = BYTEVEC_KIND(b);
+    bool hasNA = BYTEVEC_HAS_NA(b);
 
     PROTECT_INDEX p1, p2;
     PROTECT_WITH_INDEX(s1, &p1);
@@ -689,11 +690,12 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 		      w, BYTEVEC_WIDTH(s2));
 	if (BYTEVEC_KIND(s2) != k)
 	    errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
+	R_bytesCheckSameNA(s1, s2);
     }
     else if (TYPEOF(s1) == BYTESXP)
-	REPROTECT(s2 = R_bytesNarrow(s2, w, k, call), p2);
+	REPROTECT(s2 = R_bytesNarrow(s2, w, k, BYTEVEC_HAS_NA(s1), call), p2);
     else
-	REPROTECT(s1 = R_bytesNarrow(s1, w, k, call), p1);
+	REPROTECT(s1 = R_bytesNarrow(s1, w, k, BYTEVEC_HAS_NA(s2), call), p1);
 
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
@@ -707,7 +709,7 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     MOD_ITERATE2(n, n1, n2, i, i1, i2, {
 	const Rbyte *p1 = px1 + i1 * w;
 	const Rbyte *p2 = px2 + i2 * w;
-	if (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k)) {
+	if (hasNA && (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k))) {
 	    pa[i] = NA_LOGICAL;
 	    continue;
 	}

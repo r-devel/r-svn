@@ -218,6 +218,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case BYTESXP:
 	    {
 		int w = BYTEVEC_WIDTH(ans), k = BYTEVEC_KIND(ans);
+		if (N) R_bytesCheckNA(ans);
 		for (i = 0; i < N; i++)
 		    R_bytesSetEltNA(BYTEVEC_ELT(ans, i), w, k);
 	    }

@@ -478,6 +478,18 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
    type someone might actually be carrying; wider elements are pure
    storage. */
 #define BYTEVEC_MAX_ARITH_WIDTH 16
+/* gp bit 2: this vector declines to reserve a value for NA, so every
+   bit pattern of its width is a legitimate value.  The sense is
+   inverted deliberately -- clear means "has NA" -- so that the default,
+   and anything read from an older file, behaves as before. */
+#define BYTEVEC_NONA_MASK ((unsigned short) 4)
+#define BYTEVEC_HAS_NA(x) (((x)->sxpinfo.gp & BYTEVEC_NONA_MASK) == 0)
+#define SET_BYTEVEC_NONA(x, v) do {					\
+	SEXP bn__x__ = (x);						\
+	if (v) bn__x__->sxpinfo.gp |= BYTEVEC_NONA_MASK;		\
+	else   bn__x__->sxpinfo.gp &= (unsigned short) ~BYTEVEC_NONA_MASK; \
+    } while (0)
+
 #define BYTEVEC_KIND_MASK ((unsigned short) 3)
 #define BYTEVEC_OPAQUE 0
 #define BYTEVEC_UINT   1
@@ -1897,7 +1909,10 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
 SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
-SEXP R_bytesNarrow(SEXP x, int w, int kind, SEXP call);
+SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
+SEXP R_bytesWithNA(SEXP x, int hasNA);
+void R_bytesCheckNA(SEXP x);
+void R_bytesCheckSameNA(SEXP x, SEXP y);
 double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),

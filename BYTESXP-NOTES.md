@@ -522,6 +522,47 @@ or as.numeric() for double arithmetic
 `is.numeric()` stays FALSE, matching the factor precedent; that is a
 wide-blast-radius commitment not worth spending yet.
 
+## Declining to reserve a value: `na = FALSE`
+
+At width 16 giving up one value costs nothing; at width 1 it costs
+1/256, and at width 4 unsigned it costs the IPv4 broadcast address.
+So the reservation is per-vector, in gp bit 2.
+
+The sense is inverted deliberately -- the bit *set* means "no NA", so
+the default and anything read from an older file behave as before.
+
+```r
+w1 <- as.bytes(as.raw(c(0, 1, 254, 255)), 1L, "unsigned", na = FALSE)
+w1                       # 0 1 254 255  -- all 256 patterns are values
+max(w1)                  # 255
+w1[99]
+#> Error: missing values are not representable in this 'uint8' vector;
+#>        it was created with na = FALSE
+```
+
+A vector that declines the reservation cannot represent a missing
+value, so **every operation that would produce one errors instead**:
+out-of-range and NA subscripts, `length<-` growth, join misses,
+arithmetic overflow, an unrepresentable operand, and `matrix()`'s NA
+fill.  The check sits in the NA branch itself, which runs only when an
+NA is actually needed, so it costs nothing on the ordinary path.
+`is.na()` and `anyNA()` short-circuit to FALSE, and `as.bytes()` does
+not warn about the pattern, because nothing is reserved to collide
+with.
+
+The flag is part of the type, as the kind and the width are:
+combining vectors that disagree would either lose a real value or
+invent a missing one, so `c()`, comparison, subassignment and
+`identical()` all refuse it.
+
+Two things this shook out, both the same shape: every place that asks
+`R_bytesEltIsNA` must first ask whether the vector reserves anything.
+`sum`/`min`/`max` read a real `255` as missing, and `deparse` dropped
+the flag so a round-trip silently changed the type.  Worth remembering
+that adding a per-vector property means auditing not just the
+allocator -- which by now is well guarded -- but every *predicate* over
+the payload.
+
 ## The implicit class vector
 
 `class(x)` returns `c("uint64", "bytes")` -- the shape `class(m)` uses
@@ -616,11 +657,7 @@ the only place it can be caught.
 
 The cost is one unrepresentable value.  At width 16 that is nothing;
 at width 1 it is 1/256, and at width 4 it costs the IPv4 broadcast
-address.  If that ever matters the escape is one more gp bit: a
-per-vector "reserves a sentinel" flag, so a vector can decline NA and
-hold all 2^(8w) values at the price of erroring on NA-producing
-indices.  That is additive later, since existing vectors default to
-"has NA".
+address.  Hence the escape hatch below.
 
 An out-of-band validity bitmap -- what Arrow does -- was considered and
 rejected.  It works for Arrow because Arrow buffers are immutable and

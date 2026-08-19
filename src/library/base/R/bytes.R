@@ -27,17 +27,24 @@
 ## an external source is a plain copy, and order by value, so sorting
 ## is the same on every platform.
 
+## na = FALSE declines to reserve a value for NA, so every bit pattern
+## of the width is a legitimate value.  The price is that operations
+## which would produce NA -- an out-of-range subscript, a join miss,
+## arithmetic overflow -- become errors rather than missing values.
+
 bytes <- function(length = 0L, width = 1L,
-                  kind = c("opaque", "unsigned", "signed"))
-    .Internal(bytes(length, width, match.arg(kind)))
+                  kind = c("opaque", "unsigned", "signed"), na = TRUE)
+    .Internal(bytes(length, width, match.arg(kind), na))
 
 as.bytes <- function(x, width = 1L,
-                     kind = c("opaque", "unsigned", "signed"))
-    .Internal(as.bytes(x, width, match.arg(kind)))
+                     kind = c("opaque", "unsigned", "signed"), na = TRUE)
+    .Internal(as.bytes(x, width, match.arg(kind), na))
 
 bytesNA <- function(length = 1L, width = 1L,
                     kind = c("opaque", "unsigned", "signed"))
     .Internal(bytesNA(length, width, match.arg(kind)))
+
+bytesHasNA <- function(x) .Internal(bytesHasNA(x))
 
 bytesRaw <- function(x) .Internal(bytesRaw(x))
 

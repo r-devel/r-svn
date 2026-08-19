@@ -797,7 +797,7 @@ static SEXP coerceToString(SEXP v)
 	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
 	    for (i = 0; i < n; i++) {
 		const Rbyte *e = BYTEVEC_ELT_RO(v, i);
-		if (R_bytesEltIsNA(e, w, k))
+		if (BYTEVEC_HAS_NA(v) && R_bytesEltIsNA(e, w, k))
 		    SET_STRING_ELT(ans, i, NA_STRING);
 		else
 		    SET_STRING_ELT(ans, i,
@@ -2376,8 +2376,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     case BYTESXP:
 	{
 	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    bool anyPossible = BYTEVEC_HAS_NA(x);
 	    for (i = 0; i < n; i++)
-		pa[i] = R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k);
+		pa[i] = anyPossible && R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k);
 	}
 	break;
     case NILSXP: break;
@@ -2463,6 +2464,7 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     case BYTESXP:
 	{
 	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    if (!BYTEVEC_HAS_NA(x)) break;
 	    for (i = 0; i < n; i++)
 		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k)) return true;
 	}

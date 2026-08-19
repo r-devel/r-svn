@@ -183,13 +183,45 @@ const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind)
     return buff;
 }
 
+/* Called wherever an NA would be stored.  A vector that declines to
+   reserve a value cannot represent one, so the operation stops rather
+   than inventing something. */
+/* set the flag on a freshly built vector, for the sites that assemble
+   a result rather than deriving it from one input */
+SEXP R_bytesWithNA(SEXP x, int hasNA)
+{
+    SET_BYTEVEC_NONA(x, !hasNA);
+    return x;
+}
+
+void R_bytesCheckNA(SEXP x)
+{
+    if (!BYTEVEC_HAS_NA(x))
+	error(_("missing values are not representable in this '%s' vector; it was created with na = FALSE"),
+	      R_bytesTypeName(x));
+}
+
+/* Whether a value is reserved is part of the type, as the kind and the
+   width are: combining vectors that disagree would either lose a real
+   value or invent a missing one. */
+void R_bytesCheckSameNA(SEXP x, SEXP y)
+{
+    if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP &&
+	BYTEVEC_HAS_NA(x) != BYTEVEC_HAS_NA(y))
+	error(_("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+}
+
 /* allocVector(TYPEOF(s), n) cannot reproduce a per-vector width, so the
    generic "another vector like this one" sites go through here */
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
 {
-    if (TYPEOF(s) == BYTESXP)
-	return R_allocBytesVectorKind(length, BYTEVEC_WIDTH(s),
-				      BYTEVEC_KIND(s));
+    if (TYPEOF(s) == BYTESXP) {
+	SEXP val = PROTECT(R_allocBytesVectorKind(length, BYTEVEC_WIDTH(s),
+						  BYTEVEC_KIND(s)));
+	SET_BYTEVEC_NONA(val, !BYTEVEC_HAS_NA(s));
+	UNPROTECT(1);
+	return val;
+    }
 
     return allocVector(TYPEOF(s), length);
 }
@@ -234,8 +266,13 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("invalid '%s' argument"), "length");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
+    int hasNA = asLogical(CADDDR(args));
 
-    return R_allocBytesVectorKind((R_xlen_t) len, width, kind);
+    SEXP val = PROTECT(R_allocBytesVectorKind((R_xlen_t) len, width, kind));
+    SET_BYTEVEC_NONA(val, hasNA != TRUE);
+    UNPROTECT(1);
+
+    return val;
 }
 
 /* as.bytes(x, width, kind): reinterpret a raw vector as width-byte
@@ -251,6 +288,7 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("'%s' must be a raw vector"), "x");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
+    int hasNA = asLogical(CADDDR(args));
 
     R_xlen_t nbytes = XLENGTH(x);
     if (nbytes % width)
@@ -258,16 +296,20 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	      (long long) nbytes, width);
 
     SEXP val = PROTECT(R_allocBytesVectorKind(nbytes / width, width, kind));
+    SET_BYTEVEC_NONA(val, hasNA != TRUE);
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
-    R_xlen_t nNA = 0;
-    for (R_xlen_t i = 0; i < XLENGTH(val); i++)
-	if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), width, kind)) nNA++;
-    if (nNA)
-	warning(ngettext("%lld element equal to the reserved NA value became NA",
-			 "%lld elements equal to the reserved NA value became NA",
-			 (unsigned long) nNA), (long long) nNA);
+    /* with na = FALSE nothing is reserved, so nothing can collide */
+    if (hasNA == TRUE) {
+	R_xlen_t nNA = 0;
+	for (R_xlen_t i = 0; i < XLENGTH(val); i++)
+	    if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), width, kind)) nNA++;
+	if (nNA)
+	    warning(ngettext("%lld element equal to the reserved NA value became NA",
+			     "%lld elements equal to the reserved NA value became NA",
+			     (unsigned long) nNA), (long long) nNA);
+    }
 
     UNPROTECT(1);
 
@@ -362,6 +404,18 @@ const char *R_bytesKindName(SEXP x)
     }
 }
 
+/* bytesHasNA(x) */
+attribute_hidden SEXP do_byteshasna(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+
+    SEXP x = CAR(args);
+    if (TYPEOF(x) != BYTESXP)
+	error(_("'%s' must be a 'bytes' vector"), "x");
+
+    return ScalarLogical(BYTEVEC_HAS_NA(x));
+}
+
 /* bytesKind(x) */
 attribute_hidden SEXP do_byteskind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -401,7 +455,7 @@ const char *R_bytesEltRender(SEXP x, R_xlen_t i)
     int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
     const Rbyte *p = BYTEVEC_ELT_RO(x, i);
 
-    if (R_bytesEltIsNA(p, w, k))
+    if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(p, w, k))
 	return CHAR(R_print.na_string);
 
     return k == BYTEVEC_OPAQUE ? EncodeBytes(p, w) : R_bytesEltDecimal(p, w, k);

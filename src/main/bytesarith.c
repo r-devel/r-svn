@@ -356,7 +356,7 @@ static bool eltFromLong(Rbyte *out, long long v, int w, int kind)
    Values that do not fit become NA with a warning, exactly as integer
    overflow does. */
 attribute_hidden
-SEXP R_bytesNarrow(SEXP x, int w, int kind, SEXP call)
+SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 {
     SEXPTYPE t = TYPEOF(x);
 
@@ -370,13 +370,14 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, SEXP call)
 		  "bytes", R_typeToChar(x));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocBytesVectorKind(n, w, kind));
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kind), hasNA));
     R_xlen_t nLost = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
 	Rbyte *p = BYTEVEC_ELT(ans, i);
 	if (v == NA_INTEGER || !eltFromLong(p, (long long) v, w, kind)) {
+	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(p, w, kind);
 	    if (v != NA_INTEGER) nLost++;
 	}
@@ -401,13 +402,14 @@ static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
     if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP) {
 	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
 	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	R_bytesCheckSameNA(x, y);
 	w = BYTEVEC_WIDTH(x) > BYTEVEC_WIDTH(y)
 	    ? BYTEVEC_WIDTH(x) : BYTEVEC_WIDTH(y);
     }
     else if (TYPEOF(x) == BYTESXP)
-	*py = R_bytesNarrow(y, w, kind, call);
+	*py = R_bytesNarrow(y, w, kind, BYTEVEC_HAS_NA(x), call);
     else
-	*px = R_bytesNarrow(x, w, kind, call);
+	*px = R_bytesNarrow(x, w, kind, BYTEVEC_HAS_NA(y), call);
 
     *pw = w;
     *pk = kind;
@@ -444,7 +446,8 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	warningcall(call,
 		    _("longer object length is not a multiple of shorter object length"));
 
-    SEXP ans = PROTECT(R_allocBytesVectorKind(n, w, kx));
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kx),
+				     BYTEVEC_HAS_NA(x)));
     R_xlen_t nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -452,7 +455,8 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	const Rbyte *py = BYTEVEC_ELT_RO(y, i % ny);
 	Rbyte *pa = BYTEVEC_ELT(ans, i);
 
-	if (R_bytesEltIsNA(px, wx, kx) || R_bytesEltIsNA(py, wy, ky)) {
+	if (BYTEVEC_HAS_NA(x) &&
+	    (R_bytesEltIsNA(px, wx, kx) || R_bytesEltIsNA(py, wy, ky))) {
 	    R_bytesSetEltNA(pa, w, kx);
 	    continue;
 	}
@@ -478,6 +482,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	}
 
 	if (!ok) {
+	    R_bytesCheckNA(ans);	/* nothing to fall back on */
 	    R_bytesSetEltNA(pa, w, kx);
 	    nOver++;
 	}
@@ -510,14 +515,15 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocBytesVectorKind(n, w, k));
+    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, k),
+				     BYTEVEC_HAS_NA(x)));
     R_xlen_t nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *px = BYTEVEC_ELT_RO(x, i);
 	Rbyte *pa = BYTEVEC_ELT(ans, i);
 
-	if (R_bytesEltIsNA(px, w, k)) {
+	if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(px, w, k)) {
 	    R_bytesSetEltNA(pa, w, k);
 	    continue;
 	}
@@ -525,6 +531,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 	Rbyte A[MAXW];
 	bool neg = magFromElt(A, px, w, k);
 	if (!storeResult(pa, A, w, k, !neg)) {
+	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(pa, w, k);
 	    nOver++;
 	}
@@ -641,6 +648,11 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
     SEXP ans = PROTECT(R_allocBytesVectorKind(1, w, kind));
+    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	if (TYPEOF(CAR(t)) == BYTESXP) {
+	    SET_BYTEVEC_NONA(ans, !BYTEVEC_HAS_NA(CAR(t)));
+	    break;
+	}
     Rbyte *acc = BYTEVEC_ELT(ans, 0);
     bool seen = false, isNA = false, over = false;
 
@@ -660,7 +672,7 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	for (R_xlen_t i = 0; i < XLENGTH(a); i++) {
 	    const Rbyte *p = BYTEVEC_ELT_RO(a, i);
 
-	    if (R_bytesEltIsNA(p, aw, kind)) {
+	    if (BYTEVEC_HAS_NA(a) && R_bytesEltIsNA(p, aw, kind)) {
 		if (narm) continue;
 		isNA = true;
 		break;
@@ -704,8 +716,10 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	UNPROTECT(1);
 	errorcall(call, _("no non-missing arguments, returning NA"));
     }
-    if (isNA)
+    if (isNA) {
+	R_bytesCheckNA(ans);
 	R_bytesSetEltNA(acc, w, kind);
+    }
     if (over)
 	warningcall(call, _("NAs produced by integer overflow"));
 

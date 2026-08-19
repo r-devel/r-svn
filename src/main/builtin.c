@@ -932,8 +932,10 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 		    if (xnames != R_NilValue)
 			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
 		}
-		else
+		else {
+		    R_bytesCheckNA(rval);
 		    R_bytesSetEltNA(BYTEVEC_ELT(rval, i), w, k);
+		}
 	}
 	break;
     default:

@@ -1637,8 +1637,11 @@ static void bytes2buff(SEXP v, LocalParseData *d)
     const char *kind = R_bytesKindName(v);
     char buf[64];
 
+    /* only when it is not the default, so ordinary output stays clean */
+    const char *na = BYTEVEC_HAS_NA(v) ? "" : ", na = FALSE";
+
     if (n == 0) {
-	snprintf(buf, sizeof buf, "bytes(0L, %dL, \"%s\")", w, kind);
+	snprintf(buf, sizeof buf, "bytes(0L, %dL, \"%s\"%s)", w, kind, na);
 	print2buff(buf, d);
 	return;
     }
@@ -1652,7 +1655,7 @@ static void bytes2buff(SEXP v, LocalParseData *d)
 	if (d->len > d->cutoff) writeline(d);
 	if (!d->active) break;
     }
-    snprintf(buf, sizeof buf, ")), %dL, \"%s\")", w, kind);
+    snprintf(buf, sizeof buf, ")), %dL, \"%s\"%s)", w, kind, na);
     print2buff(buf, d);
 }
 

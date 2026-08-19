@@ -351,6 +351,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
 	if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y)) return FALSE;
 	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y)) return FALSE;
+	if (BYTEVEC_HAS_NA(x) != BYTEVEC_HAS_NA(y)) return FALSE;
 	return memcmp((const void *)BYTEVEC_DATA_RO(x),
 		      (const void *)BYTEVEC_DATA_RO(y),
 		      XLENGTH(x) * (size_t) BYTEVEC_WIDTH(x)) == 0

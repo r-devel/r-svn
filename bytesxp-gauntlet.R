@@ -512,6 +512,59 @@ ok("one S3 method serves all",   { mean.bytes <- function(x, ...) sum(x) / lengt
                                    identical(c(m8, m16), c(3, 10)) })
 ok("matrices still class matrix", identical(class(cbind(u64, u64)), c("matrix", "array")))
 
+cat("\n== W. declining to reserve an NA (na = FALSE) ==\n")
+## the escape hatch for narrow widths, where giving up a value hurts:
+## every bit pattern is a datum, and anything that would produce NA
+## errors instead
+w1 <- as.bytes(as.raw(c(0, 1, 254, 255)), 1L, "unsigned", na = FALSE)
+hn <- suppressWarnings(as.bytes(as.raw(c(0, 1, 254, 255)), 1L, "unsigned"))
+
+ok("the reserved pattern is a value",
+                                 identical(as.character(w1), c("0","1","254","255")))
+ok("with na = TRUE it is NA",    is.na(hn)[4])
+ok("bytesHasNA reports it",      !bytesHasNA(w1) && bytesHasNA(hn))
+ok("is.na is all FALSE",         !any(is.na(w1)))
+ok("anyNA is FALSE",             !anyNA(w1))
+ok("ingest does not warn",       { got <- FALSE
+                                   withCallingHandlers(
+                                       as.bytes(as.raw(255L), 1L, "unsigned", na = FALSE),
+                                       warning = function(cnd) { got <<- TRUE
+                                                                 invokeRestart("muffleWarning") })
+                                   !got })
+ok("sorts it as a value",        identical(as.character(sort(w1)),
+                                           c("0","1","254","255")))
+ok("max sees it",                identical(as.character(max(w1)), "255"))
+ok("min / range",                identical(as.character(range(w1)), c("0", "255")))
+ok("match finds it",             identical(match(w1[4], w1), 4L))
+ok("unique keeps all four",      length(unique(c(w1, w1))) == 4L)
+ok("compares as a value",        identical(w1 > w1[2], c(FALSE, FALSE, TRUE, TRUE)))
+ok("arithmetic in range",        identical(as.character(w1[2] + 1L), "2"))
+ok("c() of two na = FALSE",      length(c(w1, w1[1])) == 5L)
+ok("serialize round-trips",      identical(unserialize(serialize(w1, NULL)), w1))
+ok("deparse records the flag",   grepl("na = FALSE", paste(deparse(w1), collapse = "")))
+ok("deparse round-trips",        identical(eval(parse(text = paste(deparse(w1), collapse = ""))), w1))
+ok("empty deparse too",          identical(deparse(as.bytes(raw(0), 1L, "unsigned", na = FALSE)),
+                                           "bytes(0L, 1L, \"unsigned\", na = FALSE)"))
+
+for (e in list(quote(w1[99]), quote(w1[NA_integer_]),
+               quote({ z <- w1; length(z) <- 6L; z }),
+               quote(w1[4] + 1L), quote(w1[1] + -1L),
+               quote(matrix(as.bytes(raw(0), 1L, "unsigned", na = FALSE), 2, 2))))
+    ok(paste("would-be NA errors:", deparse(e)[1]),
+       inherits(tryCatch(eval(e), error = identity), "error"))
+
+ok("the error says why",         grepl("na = FALSE", tryCatch(w1[99],
+                                                              error = conditionMessage)))
+
+## the flag is part of the type, as kind and width are
+ok("does not combine with na = TRUE",
+                                 inherits(tryCatch(c(w1, hn), error = identity), "error"))
+ok("does not compare with na = TRUE",
+                                 inherits(tryCatch(w1 == hn, error = identity), "error"))
+ok("not identical to na = TRUE", !identical(w1, hn))
+ok("default is unchanged",       bytesHasNA(bytes(1L, 8L, "unsigned")) &&
+                                 bytesHasNA(as.bytes(as.raw(1:8), 8L)))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

@@ -172,10 +172,13 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 	{
 	    size_t w = (size_t) BYTEVEC_WIDTH(x);
 	    int k = BYTEVEC_KIND(x);
+	    /* the NA branch runs only when one is actually needed, so
+	       the check costs nothing on the ordinary path */
 	    EXTRACT_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, i),
 				       BYTEVEC_ELT_RO(x, ii), w),
-				R_bytesSetEltNA(BYTEVEC_ELT(result, i),
-						(int) w, k));
+				(R_bytesCheckNA(result),
+				 R_bytesSetEltNA(BYTEVEC_ELT(result, i),
+						 (int) w, k)));
 	}
 	break;
     case LISTSXP:
@@ -383,8 +386,9 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	    int k = BYTEVEC_KIND(x);
 	    MATRIX_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, ij),
 				      BYTEVEC_ELT_RO(x, iijj), w),
-			       R_bytesSetEltNA(BYTEVEC_ELT(result, ij),
-					       (int) w, k));
+			       (R_bytesCheckNA(result),
+				R_bytesSetEltNA(BYTEVEC_ELT(result, ij),
+						(int) w, k)));
 	}
 	break;
     default:
