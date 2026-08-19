@@ -221,6 +221,13 @@ ok("for() payload correct",      { got <- list(); for (e in x) got <- c(got, lis
                                    identical(got, list(as.raw(1:16), as.raw(17:32))) })
 ok("Recall/eval of a constant",  identical(eval(x), x))
 
+ok("cbind errors deterministically",
+                                 { m <- vapply(1:5, function(i)
+                                       tryCatch({cbind(x); ""},
+                                                error = function(e) conditionMessage(e)), "")
+                                   length(unique(m)) == 1L && nzchar(m[1]) })
+ok("rbind errors",              inherits(tryCatch(rbind(x), error = identity), "error"))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

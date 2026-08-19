@@ -204,6 +204,27 @@ different widths.  BYTESXP allocates a fresh element each iteration
 instead.  This is the same shape as the wide-int lesson that byte-code
 fast paths must bail out for a new representation.
 
+## A bug worth recording
+
+`ans_width` was added to `struct BindData` for stage 2 and initialized
+at the two sites stage 2 touched (`do_c`, `do_unlist`) but not at the
+third (`do_bind`, for `cbind`/`rbind`), which reads uninitialized
+stack memory.  It surfaced as `cannot combine 'bytes' vectors of
+widths 1869528856 and 8`, with a different number each run.
+
+Two things made it survive: the gauntlet only probed `c()` and
+`unlist()`, and `do_bind`'s mode ladder had no BYTESXP branch, so a
+bytes argument reached code that never expected one.  All three sites
+now zero-initialize at declaration (`struct BindData data = { 0 }`) so
+a future field cannot be missed the same way, and `cbind`/`rbind` on
+bytes vectors error explicitly.  `dim<-` and matrix subsetting do work,
+so bytes matrices exist -- cbind/rbind building them is a gap, not a
+restriction.
+
+It was found by running a realistic workload, not by probing
+operations, which is the same way the `do.call` and `for()` gaps
+turned up.
+
 ## NA
 
 NA is the all-`0xFF` element.  Reserving a pattern is what every other

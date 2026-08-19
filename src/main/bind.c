@@ -855,7 +855,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* The strategy here is appropriate because the */
     /* object being operated on is a pair based list. */
 
-    struct BindData data;
+    struct BindData data = { 0 };
 /*    data.deparse_level = 1;  Initialize this early. */
     data.ans_flags  = 0;
     data.ans_width  = 0;
@@ -954,7 +954,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, t;
     R_xlen_t i, n = 0;
-    struct BindData data;
+    struct BindData data = { 0 };
 
 /*    data.deparse_level = 1; */
     checkArity(op, args);
@@ -1202,7 +1202,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     /* The default code for rbind/cbind.default follows */
     /* First, extract the evaluated arguments. */
     SEXP rho = env;
-    struct BindData data;
+    struct BindData data = { 0 };
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
@@ -1216,7 +1216,12 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
+    if (data.ans_flags & 1024)
+	/* cbind/rbind do not build 'bytes' matrices yet; dim<- and
+	   matrix subsetting do work, so this is a gap rather than a
+	   restriction */
+	errorcall(call, _("cannot cbind/rbind 'bytes' vectors"));
+    else if (data.ans_flags & 512) mode = EXPRSXP;
     else if (data.ans_flags & 256) mode = VECSXP;
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
