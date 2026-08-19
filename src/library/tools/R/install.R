@@ -256,6 +256,8 @@ if(FALSE) {
             "			use (or not) 'keep.parse.data' for R code",
             "      --byte-compile	byte-compile R code",
             "      --no-byte-compile	do not byte-compile R code",
+            "      --jobs=N		use N parallel jobs for byte-compiling and",
+            "			Rd conversion during this install",
             "      --staged-install	install to a temporary directory and then move",
             "                   	to the target directory (default)",
             "      --no-staged-install	install directly to the target directory",
@@ -1758,7 +1760,16 @@ if(FALSE) {
                                       i_files, perl = TRUE, ignore.case = TRUE)
             i_files <- i_files %w/o% "Makefile"
             i2_files <- gsub("^inst", quote_replacement(instdir), i_files)
-            file.copy(i_files, i2_files)
+            ncores_inst <- if (requireNamespace("parallel", quietly = TRUE))
+                                getOption("mc.cores", 1L) else 1L
+            if (ncores_inst > 1L && length(i_files) > ncores_inst) {
+                chunks <- parallel::splitIndices(length(i_files), ncores_inst)
+                parallel::mclapply(chunks, function(idx)
+                    file.copy(i_files[idx], i2_files[idx]),
+                    mc.cores = ncores_inst)
+            } else {
+                file.copy(i_files, i2_files)
+            }
             if (!WINDOWS) {
                 ## make executable if the source file was (for owner)
                 modes <- file.mode(i_files)
@@ -2226,6 +2237,16 @@ if(FALSE) {
             byte_compile <- TRUE
         } else if (a == "--no-byte-compile") {
             byte_compile <- FALSE
+        } else if (substr(a, 1, 7) == "--jobs=") {
+            njobs <- suppressWarnings(as.integer(substr(a, 8, 1000)))
+            if (is.na(njobs) || njobs < 1L)
+                stop("--jobs must be a positive integer", call. = FALSE)
+            options(mc.cores = njobs)
+            ## Some install steps (e.g. byte-compiling) run in a fresh R
+            ## subprocess, which does not inherit options() from this
+            ## process. Setting MC_CORES here means such subprocesses pick
+            ## up the same core count via parallel's own .onLoad handling.
+            Sys.setenv(MC_CORES = njobs)
         } else if (a == "--use-LTO") {
             use_LTO <- TRUE
         } else if (a == "--no-use-LTO") {
@@ -3181,19 +3202,6 @@ if(FALSE) {
 .convertRdfiles <-
     function(dir, outDir, types = "html", silent = FALSE, outenc = "UTF-8")
 {
-    showtype <- function(type) {
-    	if (!shown) {
-            nc <- nchar(bf)
-            if (nc < 38L)
-                cat("    ", bf, rep.int(" ", 40L - nc), sep = "")
-            else
-                cat("    ", bf, "\n", rep.int(" ", 44L), sep = "")
-            shown <<- TRUE
-        }
-        ## 'example' is always last, so 5+space
-        cat(type, rep.int(" ", max(0L, 6L - nchar(type))), sep = "")
-    }
-
     dirname <- c("html", "latex", "R-ex")
     ext     <- c(".html", ".tex", ".R")
     names(dirname) <- names(ext) <- c("html", "latex", "example")
@@ -3224,67 +3232,76 @@ if(FALSE) {
     if (is.null(db)) db <- Rd_db(dir = dir)
     if (!length(db)) return()
 
-    .whandler <-  function(e) {
-        .messages <<- c(.messages,
-                        paste("Rd warning:", conditionMessage(e)))
-        tryInvokeRestart("muffleWarning")
-    }
-    .ehandler <- function(e) {
-        message() # force newline
-        unlink(ff)
-        stop(conditionMessage(e), domain = NA, call. = FALSE)
-    }
-    .convert <- function(expr)
-        withCallingHandlers(tryCatch(expr, error = .ehandler),
-                            warning = .whandler)
-
     files <- names(db) # not full file names
-    for(nf in files) {
-        .messages <- character()
+
+    convert_one_rd <- function(nf) {
+        msgs <- character()
+        wh <- function(e) {
+            msgs <<- c(msgs, paste("Rd warning:", conditionMessage(e)))
+            tryInvokeRestart("muffleWarning")
+        }
+        conv <- function(expr)
+            withCallingHandlers(
+                tryCatch(expr, error = function(e)
+                    stop(conditionMessage(e), domain = NA, call. = FALSE)),
+                warning = wh)
         Rd <- db[[nf]]
         attr(Rd, "source") <- NULL
-	bf <- sub("\\.[Rr]d$", "", basename(nf)) # e.g. nf = "unix/Signals.Rd"
-	f <- attr(Rd, "Rdfile")# full file name
-
-        shown <- FALSE
-
+        bf <- sub("\\.[Rr]d$", "", basename(nf))
+        f <- attr(Rd, "Rdfile")
+        did <- character()
         if ("html" %in% types) {
             type <- "html"
-            ff <- file.path(outDir, dirname[type],
-                            paste0(bf, ext[type]))
+            ff <- file.path(outDir, dirname[type], paste0(bf, ext[type]))
             if (!file_test("-f", ff) || file_test("-nt", f, ff)) {
-                showtype(type)
-                ## assume prepare_Rd was run when dumping the .rds
-                ## so use defines = NULL for speed
-                .convert(Rd2HTML(Rd, ff, package = c(pkg, ver),
-                                 defines = NULL,
-                                 Links = Links, Links2 = Links2))
+                conv(Rd2HTML(Rd, ff, package = c(pkg, ver),
+                             defines = NULL,
+                             Links = Links, Links2 = Links2))
+                did <- c(did, "html")
             }
         }
         if ("latex" %in% types) {
             type <- "latex"
-            ff <- file.path(outDir, dirname[type],
-                            paste0(bf, ext[type]))
+            ff <- file.path(outDir, dirname[type], paste0(bf, ext[type]))
             if (!file_test("-f", ff) || file_test("-nt", f, ff)) {
-                showtype(type)
-                .convert(Rd2latex(Rd, ff, defines = NULL,
-                                  outputEncoding = outenc,
-                                  writeEncoding = (outenc != "UTF-8")))
+                conv(Rd2latex(Rd, ff, defines = NULL,
+                              outputEncoding = outenc,
+                              writeEncoding = (outenc != "UTF-8")))
+                did <- c(did, "latex")
             }
         }
         if ("example" %in% types) {
             type <- "example"
-            ff <- file.path(outDir, dirname[type],
-                            paste0(bf, ext[type]))
+            ff <- file.path(outDir, dirname[type], paste0(bf, ext[type]))
             if (!file_test("-f", ff) || file_test("-nt", f, ff)) {
-                .convert(Rd2ex(Rd, ff, defines = NULL))
-                if (file_test("-f", ff)) showtype(type)
+                conv(Rd2ex(Rd, ff, defines = NULL))
+                if (file_test("-f", ff)) did <- c(did, "example")
             }
         }
-        if (shown) {
+        list(bf = bf, did = did, msgs = unique(msgs))
+    }
+
+    ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                  getOption("mc.cores", 1L) else 1L
+    results <- if (ncores > 1L) {
+        parallel::mclapply(files, convert_one_rd, mc.cores = ncores)
+    } else {
+        lapply(files, convert_one_rd)
+    }
+
+    for (res in results) {
+        if (length(res$did)) {
+            bf <- res$bf
+            nc <- nchar(bf)
+            if (nc < 38L)
+                cat("    ", bf, rep.int(" ", 40L - nc), sep = "")
+            else
+                cat("    ", bf, "\n", rep.int(" ", 44L), sep = "")
+            for (type in res$did)
+                cat(type, rep.int(" ", max(0L, 6L - nchar(type))), sep = "")
             cat("\n")
-            if (length(.messages)) writeLines(unique(.messages))
         }
+        if (length(res$msgs)) writeLines(res$msgs)
     }
 
     ## Now check for files to remove.
