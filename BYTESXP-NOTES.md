@@ -7,12 +7,14 @@ compared and hashed as byte blocks and are never interpreted as
 numbers, so there is no coercion hierarchy to join and no arithmetic
 to define.
 
-Status: **stage 3**.  Everything a filtering workload needs works:
+Status: **stage 3 plus numeric kinds and arithmetic**.  Everything a filtering workload needs works:
 allocation, GC, printing, identity, NA, subsetting, subassignment,
 `c()`, `rep()`, comparison, `match`/`unique`/`duplicated`/`split`,
 `sort`/`order`/`rank`/`xtfrm`, `as.character`/`format`, and
-`table`/`factor`.  Arithmetic, `sum`/`range`, numeric coercion,
-`deparse` and serialization are not implemented and fail loudly.
+`table`/`factor`; and for the numeric kinds, `+ - * %/% %% /` `^`,
+unary minus, `sum`/`prod`/`min`/`max`/`range`, and
+`as.integer`/`as.numeric`.  `deparse` and serialization are not
+implemented and fail loudly.
 
 ## Decisions
 
@@ -139,6 +141,15 @@ Numeric kinds added:
 | `src/main/relop.c`, `identical.c`, `unique.c`, `bind.c`, `subassign.c` | kind is part of the type |
 | `src/main/coerce.c`, `paste.c`, `printvector.c`, `printutils.c` | render via `R_bytesEltRender` |
 
+Arithmetic added:
+
+| File | Change |
+| --- | --- |
+| `src/main/bytesarith.c` | new: kernels, `R_bytesArith`, `R_bytesUnary`, `R_bytesCoerce`, `R_bytesSummary` |
+| `src/main/arithmetic.c` | `R_binary` and `R_unary` dispatch; `/` and `^` fall through to the double path |
+| `src/main/coerce.c` | `as.integer`/`as.numeric` route to `R_bytesCoerce` |
+| `src/main/summary.c` | `sum`/`prod`/`min`/`max` divert before the accumulator machinery |
+
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
 `@apifun`/`@eapifun` entry or `tools:::checkAPI()` (reg-tests-1e)
@@ -214,6 +225,46 @@ via `GET_VEC_LOOP_VALUE`, which both calls `allocVector(TYPEOF(seq),
 different widths.  BYTESXP allocates a fresh element each iteration
 instead.  This is the same shape as the wide-int lesson that byte-code
 fast paths must bail out for a new representation.
+
+## Arithmetic
+
+Defined for the `unsigned` and `signed` kinds at widths 1, 2, 4, 8 and
+16; wider elements stay pure storage and error.  Binary operands
+promote to `max(width)` -- widths are totally ordered, so this is a far
+simpler lattice than R's usual one -- and kinds never mix.  Overflow,
+underflow and division by zero all yield NA with a warning, matching
+integer overflow.  `/` and `^` yield a double, as they do for integers.
+
+`%/%` is floor division and `%%` is the matching modulo, so the
+remainder takes the sign of the divisor, as for integers.
+
+Every kernel works on a scratch copy held most-significant-byte first
+(`src/main/bytesarith.c`).  That costs a copy per element but lets the
+algorithms read in the usual schoolbook form, which for arithmetic that
+has to be exactly right at 128 bits is the trade worth making.
+Division is bitwise long division -- 8*width iterations, cheap at these
+widths, and it avoids a normalization step that is easy to get subtly
+wrong.  Widths with a native C type behind them could be specialized
+later.
+
+A result that lands exactly on the reserved NA value is reported as
+overflow rather than silently becoming NA.
+
+`sum`/`prod`/`min`/`max` are handled in a self-contained pass ahead of
+`do_summary`'s accumulator machinery rather than inside it: that
+machine keeps typed accumulators chosen from a fixed set, and a
+per-vector element width does not fit it.  `range` falls out of
+`min`/`max` via `range.default`.
+
+`as.integer` gives NA outside integer range, with a warning;
+`as.numeric` warns above 2^53, where a double stops being able to name
+every integer.  Both refuse `opaque` vectors.
+
+Validated against Python's exact integer arithmetic over 3000 operand
+pairs across six width/kind combinations (`bytesxp-archeck.R`), with
+the operands deliberately weighted toward the range edges so that
+overflow is exercised hard: `+ - * %/% %%` and unary minus all agree,
+including every overflow case.
 
 ## A bug worth recording
 

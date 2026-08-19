@@ -16,7 +16,7 @@ SOURCES_C = \
 	CommandLineArgs.c \
 	Rdynload.c Renviron.c RNG.c \
 	agrep.c altclasses.c altrep.c apply.c arithmetic.c array.c attrib.c \
-	bind.c builtin.c bytes.c \
+	bind.c builtin.c bytes.c bytesarith.c \
 	character.c clippath.c coerce.c \
 	colors.c complex.c connections.c context.c cum.c \
 	dcf.c datetime.c debug.c deparse.c devices.c \

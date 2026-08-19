@@ -1300,9 +1300,11 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	case LGLSXP:
 	    ans = coerceToLogical(v);	    break;
 	case INTSXP:
-	    ans = coerceToInteger(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, INTSXP)
+					 : coerceToInteger(v);	break;
 	case REALSXP:
-	    ans = coerceToReal(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, REALSXP)
+					 : coerceToReal(v);	break;
 	case CPLXSXP:
 	    ans = coerceToComplex(v);	    break;
 	case RAWSXP:

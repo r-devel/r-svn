@@ -474,6 +474,10 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
    plain memcpy, ordered by value, and rendered as decimal.  Since the
    order is by value rather than by bytes, it is the same on every
    platform even though the storage is not. */
+/* Arithmetic is defined only for widths that correspond to an integer
+   type someone might actually be carrying; wider elements are pure
+   storage. */
+#define BYTEVEC_MAX_ARITH_WIDTH 16
 #define BYTEVEC_KIND_MASK ((unsigned short) 3)
 #define BYTEVEC_OPAQUE 0
 #define BYTEVEC_UINT   1
@@ -1881,6 +1885,11 @@ void R_bytesSetEltNA(Rbyte *p, int width, int kind);
 int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind);
 const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind);
 const char *R_bytesEltRender(SEXP x, R_xlen_t i);
+SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
+SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
+SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
+SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
+double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);

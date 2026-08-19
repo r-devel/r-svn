@@ -581,6 +581,12 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
 
+    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	if (TYPEOF(CAR(t)) == BYTESXP) {
+	    UNPROTECT(1); /* args */
+	    return R_bytesSummary(call, PRIMVAL(op), args, narm);
+	}
+
     if (ALTREP(CAR(args)) && CDDR(args) == R_NilValue &&
 	(CDR(args) == R_NilValue || TAG(CDR(args)) == R_NaRmSymbol)) {
 	SEXP toret = NULL;

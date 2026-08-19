@@ -277,6 +277,78 @@ ok("kinds are not identical",    !identical(u[1], sg[1]))
 ok("kinds do not match",         is.na(match(u[1], sg[1])))
 ok("round-trip to raw is exact", identical(bytesRaw(u), bytesRaw(c(u))))
 
+cat("\n== P. arithmetic ==\n")
+a <- mk("unsigned", 8L, "0000000000000001", "0000000000000002", "0000000000000003")
+b <- mk("signed",   8L, "fffffffffffffffb", "0000000000000002", "0000000000000009")
+
+ok("+",                          identical(as.character(a + a), c("2","4","6")))
+ok("-",                          identical(as.character(a - a), c("0","0","0")))
+ok("*",                          identical(as.character(a * a), c("1","4","9")))
+ok("%/% floor",                  identical(as.character(b %/% mk("signed",8L,"0000000000000002")),
+                                           c("-3", "1", "4")))
+ok("%% takes divisor sign",      identical(as.character(b %% mk("signed",8L,"0000000000000002")),
+                                           c("1", "0", "1")))
+ok("unary minus",                identical(as.character(-b), c("5","-2","-9")))
+ok("unary minus on unsigned errors",
+                                 inherits(tryCatch(-a, error = identity), "error"))
+ok("/ yields double",            identical(a[3] / a[2], 1.5))
+ok("^ yields double",            identical(a[2] ^ a[3], 8))
+ok("promotion to max(width)",    { r <- mk("unsigned", 4L, "00000007") + a[3]
+                                   bytesWidth(r) == 8L && as.character(r) == "10" })
+ok("result keeps the kind",      identical(bytesKind(a + a), "unsigned"))
+ok("NA propagates",              is.na(a[1] + bytesNA(1L, 8L, "unsigned")))
+ok("unsigned overflow -> NA",    { r <- suppressWarnings(mk("unsigned",8L,"fffffffffffffff0") +
+                                                         mk("unsigned",8L,"fffffffffffffff0"))
+                                   is.na(r) })
+ok("unsigned underflow -> NA",   is.na(suppressWarnings(a[1] - a[3])))
+ok("signed overflow -> NA",      is.na(suppressWarnings(mk("signed",8L,"7fffffffffffffff") +
+                                                        mk("signed",8L,"0000000000000001"))))
+ok("division by zero -> NA",     is.na(suppressWarnings(a[1] %/% mk("unsigned",8L,"0000000000000000"))))
+ok("128-bit multiply",           identical(as.character(
+                                     mk("signed",16L,"00000000000000000000000100000000") *
+                                     mk("signed",16L,"00000000000000000000000100000000")),
+                                   "18446744073709551616"))
+ok("arith on opaque errors",     inherits(tryCatch(x + x, error = identity), "error"))
+ok("arith across kinds errors",  inherits(tryCatch(a + b, error = identity), "error"))
+ok("arith with integer errors",  inherits(tryCatch(a + 1L, error = identity), "error"))
+ok("width 3 arith errors",       inherits(tryCatch({ y3 <- bytes(1L, 3L, "unsigned"); y3 + y3 },
+                                                   error = identity), "error"))
+
+cat("\n== Q. reductions and numeric coercion ==\n")
+ok("sum",                        identical(as.character(sum(a)), "6"))
+ok("prod",                       identical(as.character(prod(a)), "6"))
+ok("min / max",                  identical(c(as.character(min(a)), as.character(max(a))),
+                                           c("1", "3")))
+ok("range",                      identical(as.character(range(a)), c("1", "3")))
+ok("sum keeps kind and width",   { r <- sum(a); bytesKind(r) == "unsigned" && bytesWidth(r) == 8L })
+ok("min on signed",              identical(as.character(min(b)), "-5"))
+ok("sum over several args",      identical(as.character(sum(a, a)), "12"))
+ok("NA without na.rm",           is.na(sum(c(a, bytesNA(1L, 8L, "unsigned")))))
+ok("na.rm = TRUE",               identical(as.character(sum(c(a, bytesNA(1L,8L,"unsigned")),
+                                                            na.rm = TRUE)), "6"))
+ok("sum overflow -> NA",         is.na(suppressWarnings(sum(mk("unsigned",8L,"fffffffffffffff0",
+                                                                             "fffffffffffffff0")))))
+ok("empty sum / prod",           identical(c(as.character(sum(bytes(0L,8L,"unsigned"))),
+                                             as.character(prod(bytes(0L,8L,"unsigned")))),
+                                           c("0", "1")))
+ok("sum on opaque errors",       inherits(tryCatch(sum(x), error = identity), "error"))
+ok("sum mixed with integer errors",
+                                 inherits(tryCatch(sum(a, 1L), error = identity), "error"))
+ok("as.integer in range",        identical(as.integer(a), c(1L, 2L, 3L)))
+ok("as.numeric",                 identical(as.numeric(a), c(1, 2, 3)))
+ok("as.integer out of range",    is.na(suppressWarnings(
+                                     as.integer(mk("unsigned",8L,"00000000ffffffff")))))
+ok("as.numeric warns past 2^53", { got <- FALSE
+                                   withCallingHandlers(
+                                       as.numeric(mk("unsigned",8L,"7fffffffffffffff")),
+                                       warning = function(cnd) { got <<- TRUE
+                                                                 invokeRestart("muffleWarning") })
+                                   got })
+ok("as.integer of NA",           is.na(as.integer(bytesNA(1L, 8L, "signed"))))
+ok("coercion from opaque errors",
+                                 inherits(tryCatch(as.integer(x), error = identity), "error"))
+ok("cumsum routes via double",   identical(cumsum(a), c(1, 3, 6)))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

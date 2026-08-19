@@ -531,9 +531,26 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     ARITHOP_TYPE oper = (ARITHOP_TYPE) PRIMVAL(op);
     int nprotect = 2; /* x and y */
 
-
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
+
+    /* 'bytes' vectors never coerce to or from anything else, so this
+       precedes the numeric fixup rather than joining it.  '/' and '^'
+       are the exception: as for integers, they yield a double, so
+       those two fall through to the ordinary path. */
+    if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
+	if (TYPEOF(x) != BYTESXP || TYPEOF(y) != BYTESXP)
+	    errorcall(call, _("non-numeric argument to binary operator"));
+	if (oper == DIVOP || oper == POWOP) {
+	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
+	    REPROTECT(y = coerceVector(y, REALSXP), ypi);
+	}
+	else {
+	    SEXP val = R_bytesArith(call, (int) oper, x, y);
+	    UNPROTECT(2); /* x, y */
+	    return val;
+	}
+    }
 
     FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
     FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
@@ -726,6 +743,8 @@ attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 	return real_unary(operation, s1, call);
     case CPLXSXP:
 	return complex_unary(operation, s1, call);
+    case BYTESXP:
+	return R_bytesUnary(call, (int) operation, s1);
     default:
 	errorcall(call, _("invalid argument to unary operator"));
     }
