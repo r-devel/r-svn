@@ -750,6 +750,7 @@ static int PackFlags(int type, int levs, int isobj, int hasattr, int hastag)
         case VECSXP:
         case EXPRSXP:
         case RAWSXP:
+        case BYTESXP:
             levs &= ~GROWABLE_MASK;
             break;
         default:
@@ -1259,6 +1260,37 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 		}
 	    }
 	    break;
+	case BYTESXP:
+	{
+	    /* width and kind ride along in gp, which PackFlags already
+	       encoded, so only the payload is written here */
+	    int w = BYTEVEC_WIDTH(s), k = BYTEVEC_KIND(s);
+	    len = XLENGTH(s);
+	    WriteLENGTH(stream, s);
+
+	    const void *vmax = vmaxget();
+	    R_xlen_t chunk = CHUNK_SIZE / w;	/* whole elements per pass */
+	    if (chunk < 1) chunk = 1;
+	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
+
+	    for (R_xlen_t done = 0; done < len; ) {
+		IF_IC_R_CheckUserInterrupt();
+		R_xlen_t this = min2(chunk, len - done);
+		R_bytesSwapWire(buf, BYTEVEC_ELT_RO(s, done), this, w, k);
+		switch (stream->type) {
+		case R_pstream_xdr_format:
+		case R_pstream_binary_format:
+		    stream->OutBytes(stream, buf, (int) (this * w));
+		    break;
+		default:
+		    for (R_xlen_t ix = 0; ix < this * w; ix++)
+			OutByte(stream, buf[ix]);
+		}
+		done += this;
+	    }
+	    vmaxset(vmax);
+	    break;
+	}
 	case OBJSXP:
 	  break; /* only attributes (i.e., slots) count */
 	default:
@@ -2099,6 +2131,41 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    }
 	    }
 	    break;
+	case BYTESXP:
+	{
+	    /* UnpackFlags has already given us levs, so the width and
+	       kind are known before the allocation that needs them */
+	    int w = (int) ((levs & BYTEVEC_WIDTH_MASK) >> BYTEVEC_WIDTH_SHIFT);
+	    int k = (int) (levs & BYTEVEC_KIND_MASK);
+	    if (w < 1 || w > BYTEVEC_MAX_WIDTH)
+		error(_("ReadItem: invalid 'bytes' element width %d"), w);
+	    len = ReadLENGTH(stream);
+	    PROTECT(s = R_allocBytesVectorKind(len, w, k));
+
+	    const void *vmax = vmaxget();
+	    R_xlen_t chunk = CHUNK_SIZE / w;
+	    if (chunk < 1) chunk = 1;
+	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
+
+	    for (R_xlen_t done = 0; done < len; ) {
+		R_xlen_t this = min2(chunk, len - done);
+		if (stream->type == R_pstream_ascii_format) {
+		    for (R_xlen_t ix = 0; ix < this * w; ix++) {
+			char word[128];
+			unsigned int i;
+			InWord(stream, word, sizeof(word));
+			if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
+			buf[ix] = (Rbyte) i;
+		    }
+		}
+		else
+		    stream->InBytes(stream, buf, (int) (this * w));
+		R_bytesSwapWire(BYTEVEC_ELT(s, done), buf, this, w, k);
+		done += this;
+	    }
+	    vmaxset(vmax);
+	    break;
+	}
 	case OBJSXP:
 	    PROTECT(s = R_allocObject());
 	    break;

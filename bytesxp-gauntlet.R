@@ -372,6 +372,47 @@ ok("coercion from opaque errors",
                                  inherits(tryCatch(as.integer(x), error = identity), "error"))
 ok("cumsum routes via double",   identical(cumsum(a), c(1, 3, 6)))
 
+cat("\n== R. serialization ==\n")
+rt <- function(v, ...) unserialize(serialize(v, NULL, ...))
+u64 <- mk("unsigned", 8L, "0000000000000001", "00000001312d0000", "fffffffffffffffe")
+i64 <- mk("signed",   8L, "ffffffffffffffff", "7fffffffffffffff", "8000000000000001")
+i128 <- mk("signed", 16L, "7fffffffffffffffffffffffffffffff",
+                          "00000000000000000000000000000001")
+b3 <- as.bytes(as.raw(1:9), 3L)
+
+ok("uint64 round-trips",         identical(rt(u64), u64))
+ok("int64 round-trips",          identical(rt(i64), i64))
+ok("int128 round-trips",         identical(rt(i128), i128))
+ok("opaque round-trips",         identical(rt(x), x))
+ok("odd width round-trips",      identical(rt(b3), b3))
+ok("values survive",             identical(as.character(rt(i128)), as.character(i128)))
+ok("NA survives",                identical(rt(bytesNA(2L, 8L, "signed")),
+                                           bytesNA(2L, 8L, "signed")))
+ok("ascii format",               identical(rt(u64, ascii = TRUE), u64))
+ok("xdr = FALSE",                identical(rt(u64, xdr = FALSE), u64))
+ok("attributes survive",         { y <- u64; names(y) <- c("a","b","c"); identical(rt(y), y) })
+ok("nested in a list",           identical(rt(list(u64, x))[[1]], u64))
+ok("in a data.frame",            { d <- data.frame(k = u64, n = 1:3); identical(rt(d), d) })
+ok("saveRDS / readRDS",          { f <- tempfile(); saveRDS(i64, f)
+                                   z <- readRDS(f); unlink(f); identical(z, i64) })
+ok("empty vector",               identical(rt(bytes(0L, 8L, "unsigned")),
+                                           bytes(0L, 8L, "unsigned")))
+ok("crosses the write chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 40000)),
+                                                 8L, "unsigned")
+                                   identical(rt(z), z) })
+ok("odd width crosses chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 30000)), 3L)
+                                   identical(rt(z), z) })
+
+## The payload must be canonical on the wire, not native, or a file
+## written here would read as different values on a big-endian machine.
+ok("numeric payload is big-endian on the wire",
+                                 { one <- mk("unsigned", 8L, "0000000000000001")
+                                   identical(bytesRaw(one)[1], as.raw(1)) &&   # native: LSB first
+                                   identical(tail(serialize(one, NULL), 8),
+                                             as.raw(c(0,0,0,0,0,0,0,1))) })
+ok("opaque payload is verbatim", { o8 <- as.bytes(as.raw(c(0xde,0xad,0xbe,0xef,1,2,3,4)), 8L)
+                                   identical(tail(serialize(o8, NULL), 8), bytesRaw(o8)) })
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))
@@ -380,7 +421,6 @@ probe("as.integer(x)",           as.integer(x))
 probe("as.raw(x)",               as.raw(x))
 probe("as.numeric(x)",           as.numeric(x))
 probe("deparse(x)",              deparse(x))
-probe("serialize(x)",            unserialize(serialize(x, NULL)))
 probe("as.bytes(character)",     as.bytes("00", 1L))
 
 cat(sprintf("\n%d failure(s)\n", fails))

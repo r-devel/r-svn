@@ -11,10 +11,10 @@ Status: **stage 3 plus numeric kinds and arithmetic**.  Everything a filtering w
 allocation, GC, printing, identity, NA, subsetting, subassignment,
 `c()`, `rep()`, comparison, `match`/`unique`/`duplicated`/`split`,
 `sort`/`order`/`rank`/`xtfrm`, `as.character`/`format`, and
-`table`/`factor`; and for the numeric kinds, `+ - * %/% %% /` `^`,
-unary minus, `sum`/`prod`/`min`/`max`/`range`, and
-`as.integer`/`as.numeric`.  `deparse` and serialization are not
-implemented and fail loudly.
+`table`/`factor`, serialization; and for the numeric kinds,
+`+ - * %/% %% /` `^`, unary minus, `sum`/`prod`/`min`/`max`/`range`,
+and `as.integer`/`as.numeric`.  `deparse`, the `.Call` boundary and
+`cbind`/`rbind` are not implemented and fail loudly.
 
 ## Decisions
 
@@ -149,6 +149,8 @@ Arithmetic added:
 | `src/main/arithmetic.c` | `R_binary` and `R_unary` dispatch; `/` and `^` fall through to the double path |
 | `src/main/coerce.c` | `as.integer`/`as.numeric` route to `R_bytesCoerce` |
 | `src/main/summary.c` | `sum`/`prod`/`min`/`max` divert before the accumulator machinery |
+| `src/main/serialize.c` | `WriteItem`/`ReadItem` payload, chunked; `PackFlags` strips GROWABLE |
+| `src/main/bytes.c` | `R_bytesSwapWire`, the native <-> canonical mapping |
 
 `R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
 anything declared in an installed header needs a matching WRE
@@ -266,6 +268,31 @@ the operands deliberately weighted toward the range edges so that
 overflow is exercised hard: `+ - * %/% %%` and unary minus all agree,
 including every overflow case.
 
+## Serialization
+
+Width and kind live in gp, and `PackFlags` already encodes gp into the
+flags word with `UnpackFlags` decoding it before allocation, so they
+cost nothing to carry and are available exactly when the reader needs
+them to size the vector.  Only the payload needed writing.
+
+The payload is normalized: numeric elements go on the wire **most
+significant byte first**, matching what R already does for integers
+and reals under XDR, so a file written on one platform reads as the
+same values on another.  Opaque elements are byte strings and travel
+verbatim, which means that on a big-endian machine the conversion is a
+plain copy in every case.  One function serves both directions, since
+the mapping is its own inverse.
+
+Verified rather than assumed: serializing the `uint64` value 1 gives
+native storage `01 00 00 00 00 00 00 00` and wire bytes
+`00 00 00 00 00 00 00 01`, and decoding that payload independently in
+Python as a big-endian integer yields 1 (and -5 for the signed case).
+An opaque element's wire bytes equal `bytesRaw()` exactly.
+
+No format version bump: a new SEXPTYPE is not a structural change, and
+an older R reading one of these files already fails loudly with
+"ReadItem: unknown type 26, perhaps written by later version of R".
+
 ## A third bug found by use rather than by probing
 
 `match5` has a scalar fast path for length-1 needles with its own type
@@ -360,8 +387,7 @@ Order is by *value* rather than by bytes, so sorting gives the same
 answer on every platform even though the storage does not.  (Endianness
 is deliberately not a header bit: two representations of one value
 would break the single-canonical-encoding property that makes `match`
-and hashing free.  Serialization will have to normalize -- that is a
-stage 4 problem.)
+and hashing free.  Serialization normalizes instead -- see below.)
 
 `signed` cannot use the all-`0xFF` NA, since that is -1 in two's
 complement, so it reserves `INT_MIN` -- which is exactly what bit64

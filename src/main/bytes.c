@@ -292,6 +292,29 @@ attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
     return val;
 }
 
+/* Numeric elements are stored in native byte order, but must go onto
+   the wire in a fixed one or a file written on one platform would read
+   as different values on another.  Most significant byte first is the
+   choice, matching what R already does for integers and reals under
+   XDR.  Opaque elements are byte strings and travel verbatim, so on a
+   big-endian machine this is a plain copy in every case.
+
+   The mapping is its own inverse, so one function serves both
+   directions. */
+void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w, int kind)
+{
+    if (kind == BYTEVEC_OPAQUE) {
+	memcpy(dst, src, (size_t) n * w);
+	return;
+    }
+
+    for (R_xlen_t e = 0; e < n; e++) {
+	const Rbyte *se = src + e * w;
+	Rbyte *de = dst + e * w;
+	for (int i = 0; i < w; i++) de[i] = se[BYTEVEC_MSB(i, w)];
+    }
+}
+
 /* is.bytes(x): typeof() now reports the derived name, so this has to
    ask about the storage type directly */
 attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
