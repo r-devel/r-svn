@@ -15,8 +15,8 @@ allocation, GC, printing, identity, NA, subsetting, subassignment,
 (`cbind`/`rbind`/`matrix`/`t`/`aperm`/`apply` and matrix printing);
 and for the numeric kinds, `+ - * %/% %% /` `^`, unary minus,
 `sum`/`prod`/`min`/`max`/`range`, and `as.integer`/`as.numeric`.
-The `.Call` boundary is not implemented, and neither is an MSD radix
-sort (a performance item only).
+No `.Call` boundary is needed -- see below.  An MSD radix sort is the
+only remaining item, and it is performance only.
 
 ## Decisions
 
@@ -306,6 +306,41 @@ An opaque element's wire bytes equal `bytesRaw()` exactly.
 No format version bump: a new SEXPTYPE is not a structural change, and
 an older R reading one of these files already fails loudly with
 "ReadItem: unknown type 26, perhaps written by later version of R".
+
+## The FFI boundary needs no opt-in
+
+The int64 FFI-boundary branch (r-svn PR #301) narrows INT64SXP
+arguments to INTSXP at `.Call` unless the package opts in, so that
+unmodified packages keep working.  That rationale does not transfer:
+there is no meaningful narrowing of an opaque blob, or of a `uint64`
+above `INT_MAX`, so there is nothing to hand an unmodified package
+instead.
+
+What remains is whether package code fails *safely*, and that is the
+claim the whole design rests on -- so it is tested rather than argued.
+`tests/bytes-ffi/` builds a stand-in package with `R CMD SHLIB` whose
+functions take the shapes real package C code takes, and hands each a
+`uint64` vector:
+
+| pattern | result |
+| --- | --- |
+| `switch (TYPEOF(x))` with a `default:` | its own error, at the top |
+| `REAL(x)[0]` with no check | `REAL() can only be applied to a 'numeric', not 'uint64'` |
+| `if (isInteger(x))` | FALSE, so the safe branch is taken |
+| moves the SEXP without reading it | works, as it should |
+| `XLENGTH(x)` | works, as it should |
+| `DATAPTR_RO(x)` | `cannot get data pointer of 'uint64' objects` |
+
+Every read path fails loudly and names the type; the two paths that
+*should* work do.  The untyped `DATAPTR` escape hatch -- the one
+residual risk identified back in stage 1 -- turns out to be guarded
+already by `CHKVEC` in `Rinlinedfuns.h`.
+
+One real defect surfaced here: `nvec[]` in `memory.c`, the table that
+says which SEXPTYPEs are vectors for the package-facing `LENGTH()`,
+had BYTESXP marked as a non-vector, so `XLENGTH(x)` from package code
+errored.  R's own code uses the unchecked macro and so never noticed.
+Fixed; it is exactly the kind of entry a new SEXPTYPE has to remember.
 
 ## deparse and matrices
 

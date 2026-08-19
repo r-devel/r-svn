@@ -4076,7 +4076,7 @@ static int nvec[32] = {
     1,1,1,1,1,1,1,1,
     1,0,0,1,1,0,0,0,
     0,1,1,0,0,1,1,0,
-    0,1,1,1,1,1,1,1
+    0,1,0,1,1,1,1,1	/* 26 = BYTESXP is a vector */
 };
 
 static R_INLINE SEXP CHK2(SEXP x)
