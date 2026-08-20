@@ -805,6 +805,77 @@ probe("as.bytes(double)",        as.bytes(1, 8L, "signed"))
 probe("as.bytes(integer, opaque)", as.bytes(1L, 4L, "opaque"))
 probe("as.bytes(list)",          as.bytes(list(1), 8L, "signed"))
 
+cat("\n== Z6. readBin and writeBin ==\n")
+## the motivating case: base R has a documented way to read a 64-bit
+## integer from a file, and it silently narrows the value to 32 bits
+le64 <- as.raw(c(1, 0, 0, 0, 1, 0, 0, 0))            # 2^32 + 1
+ok("readBin(integer, size=8) loses it",
+   identical(readBin(le64, "integer", 1L, size = 8L), 1L))
+ok("readBin(\"int64\") keeps it",
+   identical(as.character(readBin(le64, "int64", 1L)), "4294967297"))
+
+ok("the prototype form agrees",   identical(readBin(le64, bytes(0L, 8L, "signed"), 1L),
+                                            readBin(le64, "int64", 1L)))
+ok("uint64 name works",           identical(typeof(readBin(le64, "uint64", 1L)), "uint64"))
+ok("opaque name works",           identical(as.character(readBin(le64, "bytes8", 1L)),
+                                            "0100000001000000"))
+ok("\"int\" is still integer",     identical(readBin(le64, "int", 2L), c(1L, 1L)))
+ok("an unknown name errors",      inherits(tryCatch(readBin(le64, "int63", 1L),
+                                                    error = identity), "error"))
+## it used to fall through to typeof(), which is "character", so a
+## mistyped mode silently read null-terminated strings
+ok("a typo errors, not reads",    inherits(tryCatch(readBin(le64, "typo", 1L),
+                                                    error = identity), "error"))
+ok("prototypes still work",       identical(readBin(le64, integer(), 2L), c(1L, 1L)))
+
+## endian: the reason this cannot be done with as.bytes(readBin(raw))
+be1 <- as.raw(c(0, 0, 0, 0, 0, 0, 0, 1))
+ok("big-endian ingest",           identical(as.character(readBin(be1, "uint64", 1L,
+                                                                 endian = "big")), "1"))
+ok("native ingest differs",       identical(as.character(readBin(be1, "uint64", 1L,
+                                                                 endian = "little")),
+                                            "72057594037927936"))
+ok("endian is refused for opaque",{ w <- NULL
+                                    withCallingHandlers(readBin(be1, "bytes8", 1L, endian = "big"),
+                                                        warning = function(x) {
+                                                            w <<- conditionMessage(x)
+                                                            invokeRestart("muffleWarning") })
+                                    grepl("not meaningful", w) })
+
+## the prototype carries the NA reservation, which the name cannot
+allf <- as.raw(rep(255, 8))
+ok("reserved value warns",        { w <- NULL
+                                    withCallingHandlers(readBin(allf, "uint64", 1L),
+                                                        warning = function(x) {
+                                                            w <<- conditionMessage(x)
+                                                            invokeRestart("muffleWarning") })
+                                    grepl("reserved", w) })
+ok("na = FALSE keeps it",         identical(as.character(
+                                      readBin(allf, bytes(0L, 8L, "unsigned", na = FALSE), 1L)),
+                                      "18446744073709551615"))
+
+## short reads truncate to whole elements, as they do for every type
+ok("a partial element is dropped", identical(length(readBin(as.raw(1:12), "int64", 5L)), 1L))
+ok("over-asking is fine",          identical(length(readBin(as.raw(1:24), "int64", 99L)), 3L))
+ok("n = 0",                        identical(length(readBin(as.raw(1:24), "int64", 0L)), 0L))
+
+## writeBin is the other half; without it this is a one-way street
+for (spec in list(list(8L, "signed"), list(8L, "unsigned"),
+                  list(16L, "unsigned"), list(6L, "opaque"), list(1L, "opaque"))) {
+    w <- spec[[1]]; k <- spec[[2]]
+    v <- suppressWarnings(as.bytes(as.raw(rep(c(1:250, 7L), length.out = 5 * w)), w, k))
+    nm <- typeof(v)
+    ok(sprintf("%s: writeBin/readBin round trip", nm),
+       identical(suppressWarnings(readBin(writeBin(v, raw()), v, 5L)), v))
+    if (k != "opaque")
+        ok(sprintf("%s: and again through big-endian", nm),
+           identical(suppressWarnings(
+               readBin(writeBin(v, raw(), endian = "big"), v, 5L, endian = "big")), v))
+}
+ok("writeBin gives the payload",  { v <- as.bytes(c("1", "2"), 8L, "signed")
+                                    identical(writeBin(v, raw()), bytesRaw(v)) })
+probe("writeBin(size=) changing", writeBin(as.bytes("1", 8L, "signed"), raw(), size = 4L))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

@@ -268,10 +268,14 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
-    if(!is.character(what) || is.na(what) ||
-       length(what) != 1L || ## hence length(what) == 1:
-       !any(what == c("numeric", "double", "integer", "int", "logical",
-	    "complex", "character", "raw")))
+    ## A length-one character vector names the mode; anything else is a
+    ## prototype whose type is the mode.  A 'bytes' prototype is passed
+    ## through whole, since it also says whether NA is representable,
+    ## which the type name does not.  Unrecognized names are left for
+    ## .Internal to reject: they used to fall through to typeof(), which
+    ## is "character", so readBin(con, "int64") silently read strings.
+    if(!is.bytes(what) &&
+       (!is.character(what) || length(what) != 1L || is.na(what)))
 	what <- typeof(what)
     .Internal(readBin(con, what, n, size, signed, swap))
 }

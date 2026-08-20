@@ -448,12 +448,14 @@ static void warnReserved(R_xlen_t nNA)
 			 (unsigned long) nNA), (long long) nNA);
 }
 
-/* the same count, for a payload taken verbatim rather than element by
-   element */
-static R_xlen_t countReserved(SEXP val)
+/* The same warning for a payload taken verbatim rather than element by
+   element -- as.bytes() on raw, and readBin().  Shared because both are
+   the same event: bytes from outside R landed on the value this vector
+   reserves, and the caller who chose the reservation should hear so. */
+void R_bytesWarnReserved(SEXP val)
 {
     if (!BYTEVEC_HAS_NA(val))
-	return 0;		/* nothing is reserved, so nothing collided */
+	return;			/* nothing is reserved, so nothing collided */
 
     int w = BYTEVEC_WIDTH(val), k = BYTEVEC_KIND(val);
     R_xlen_t nNA = 0;
@@ -461,7 +463,7 @@ static R_xlen_t countReserved(SEXP val)
     for (R_xlen_t i = 0; i < XLENGTH(val); i++)
 	if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), w, k)) nNA++;
 
-    return nNA;
+    warnReserved(nNA);
 }
 
 /* as.bytes(x, width, kind, na) on a character vector: the inverse of
@@ -565,7 +567,7 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
-    warnReserved(countReserved(val));
+    R_bytesWarnReserved(val);
 
     UNPROTECT(1);
 
@@ -738,6 +740,38 @@ const char *R_bytesTypeName(SEXP x)
     }
 
     return buff;
+}
+
+/* The inverse, for readBin(con, "int64") and friends.  Kept beside the
+   function above so the two spellings of the same rule cannot drift.
+   Note that the numeric names count bits and the opaque one counts
+   bytes, following how each is usually written. */
+Rboolean R_bytesTypeFromName(const char *s, int *width, int *kind)
+{
+    const char *digits;
+    int k;
+
+    if (!strncmp(s, "uint", 4))	     { k = BYTEVEC_UINT;   digits = s + 4; }
+    else if (!strncmp(s, "int", 3))  { k = BYTEVEC_INT;    digits = s + 3; }
+    else if (!strncmp(s, "bytes", 5)) { k = BYTEVEC_OPAQUE; digits = s + 5; }
+    else return FALSE;
+
+    /* so that "int" and "integer" stay readBin's own names */
+    if (!*digits) return FALSE;
+    for (const char *p = digits; *p; p++)
+	if (!isdigit((int) (unsigned char) *p)) return FALSE;
+
+    long n = strtol(digits, NULL, 10);
+    if (k != BYTEVEC_OPAQUE) {
+	if (n % 8) return FALSE;
+	n /= 8;
+    }
+    if (n < 1 || n > BYTEVEC_MAX_WIDTH) return FALSE;
+
+    *width = (int) n;
+    *kind = k;
+
+    return TRUE;
 }
 
 /* bytesWidth(x) */

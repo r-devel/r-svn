@@ -24,7 +24,9 @@ writeBin(object, con, size = NA_integer_,
     vector to be read, or a character vector of length one describing
     the mode: one of \code{"numeric"}, \code{"double"},
     \code{"integer"}, \code{"int"}, \code{"logical"}, \code{"complex"},
-    \code{"character"}, \code{"raw"}.}
+    \code{"raw"}, \code{"character"}, or the name of a \code{bytes}
+    type such as \code{"int64"}, \code{"uint64"} or \code{"bytes16"}
+    (see \sQuote{Details}).  An unrecognized name is an error.}
   \item{n}{numeric.  The (maximal) number of records to be
     read.  You can use an over-estimate here, but not too large as
     storage is reserved for \code{n} items.}
@@ -81,6 +83,21 @@ writeBin(object, con, size = NA_integer_,
   \sQuote{Endian-ness} is relevant for \code{size > 1}, and should
   always be set for portable code (the default is only appropriate when
   writing and then reading files on the same platform).
+
+  \code{what} may also name a \code{\link{bytes}} type, in which case
+  each record is read as one element of that type: \code{"int64"} and
+  \code{"uint64"} for 64-bit integers, \code{"int128"} and so on for
+  other widths, and \code{"bytes16"} for 16 opaque bytes.  Reading
+  \code{integer}s of \code{size = 8} instead narrows each value to
+  32 bits, which is silently wrong for anything outside that range;
+  \code{"int64"} keeps the value.  Passing a prototype rather than a
+  name -- \code{readBin(con, bytes(0L, 8L, "signed", na = FALSE), n)}
+  -- additionally says whether the type reserves a value for \code{NA},
+  which matters when every bit pattern in the file is a legitimate
+  value.  \code{endian} applies to the numeric kinds, which are stored
+  in native byte order; it is not meaningful for the opaque kind, whose
+  elements are byte strings, and is ignored with a warning there.
+  \code{size} must be the width of the type.
 }
 
 \note{
@@ -173,6 +190,15 @@ z <- writeBin(pi^{1:5}, raw(), size = 4)
 readBin(z, numeric(), 5, size = 4)
 z <- writeBin(c("a", "test", "of", "character"), raw())
 readBin(z, character(), 4)
+
+## 64-bit integers: 2^32 + 1, little-endian
+z <- as.raw(c(1, 0, 0, 0, 1, 0, 0, 0))
+readBin(z, "integer", 1, size = 8)  # narrowed to 32 bits: 1
+readBin(z, "int64", 1)              # 4294967297
+
+## the same file written on a big-endian machine
+z <- writeBin(as.bytes("4294967297", 8L, "signed"), raw(), endian = "big")
+readBin(z, "int64", 1, endian = "big")
 }
 \keyword{file}
 \keyword{connection}

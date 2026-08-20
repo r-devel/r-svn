@@ -1945,7 +1945,9 @@ R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
 				     int kind, bool hasNA);
 const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 const char *R_bytesTypeName(SEXP x);
+Rboolean R_bytesTypeFromName(const char *s, int *width, int *kind);
 const char *R_bytesKindName(SEXP x);
+void R_bytesWarnReserved(SEXP x);
 void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 			    R_xlen_t n, R_xlen_t nsrc);
 void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,

@@ -487,6 +487,79 @@ range edges, comparing both the text and the stored native-order bytes.
 The gauntlet's round-trip test would pass with two mirrored bugs; this
 would not.
 
+## readBin and writeBin
+
+The sharpest argument for the type is not a hypothetical.  `readBin` has
+had a documented way to read a 64-bit integer from a file since forever,
+and it silently gives the wrong number:
+
+```r
+z <- as.raw(c(1, 0, 0, 0, 1, 0, 0, 0))   # 2^32 + 1, little-endian
+readBin(z, "integer", 1, size = 8)       # 1        <- no warning
+readBin(z, "int64",   1)                 # 4294967297
+```
+
+`(int) u.ll` in `do_readbin` truncates and nothing checks.  That is one
+line of the case for the type, on a function every R user knows.
+
+Two spellings, and both were already in `readBin`'s contract.  `what`
+resolves anything that is not a known mode name through `typeof()`
+(`connections.R:271`), and `typeof()` was already made to return
+`"int64"` / `"uint64"` / `"bytes16"`, so:
+
+```r
+readBin(con, "int64", n)                            # the name
+readBin(con, bytes(0L, 8L, "signed", na = FALSE), n) # the prototype
+```
+
+The prototype form is the better one and is passed through whole rather
+than reduced to its name, because it carries the *third* property: `na`.
+Ingesting a foreign column where every bit pattern is a legitimate value
+is exactly the case `na = FALSE` exists for, and a type name cannot say
+it.
+
+**What this buys over `as.bytes(readBin(con, "raw", n * w), w, kind)`.**
+Mostly one thing, and it is not convenience: **`endian`**.  `as.bytes()`
+takes its input verbatim -- that is what makes ingest a memcpy -- so the
+raw route can only produce native byte order, and big-endian sources are
+everywhere (network protocols, JVM output, PostgreSQL binary COPY, a
+good deal of scientific data).  Doing it in R means reversing every
+`w`-byte group through a matrix transpose.  In `do_readbin` it is the
+swap loop that was already there, `swapb(p + i * size, size)`, with
+`size` set to the width.  Secondarily: one buffer instead of two, which
+is 2x peak memory on a large file, since `bytesRaw()` copies as well.
+
+The implementation is small because it lands exactly on the existing
+shape.  Allocate, point `p` at the payload, set `size = width`, and the
+block-read loop, the swap loop, the `signed = FALSE` warning and the
+`xlengthgets` truncation for a short read all work unchanged.  Reads
+truncate to whole elements: `rawRead` divides by `size`, and
+`con->read` counts in units of it.
+
+Two guard rails, both following the function's own idioms:
+
+  * `endian` is refused for the opaque kind, with a warning, the way
+    `signed = FALSE` is refused where it does not apply.  A byte string
+    has no byte order, and silently reversing a UUID because the file
+    came from another machine would be corruption.
+  * a payload that arrives equal to the reserved value warns, exactly as
+    `as.bytes()` on raw does -- and through the same function, since it
+    is the same event.
+
+**A pre-existing bug fixed on the way.**  `readBin`'s fallthrough is
+`what <- typeof(what)`, and `typeof()` of an unrecognized *string* is
+`"character"`.  So `readBin(z, "int64", 2)` did not error, it read
+null-terminated strings -- and so did `readBin(z, "typo", 2)`, on any
+version of R.  The condition now only takes `typeof()` when `what` is
+not a length-one character string, which matches what the help page has
+always said `what` means.  `readBin(con, character())` and the other
+prototype forms are unaffected; all 22 regression files still pass.
+
+`writeBin` had to come with it.  It errored loudly before, which is
+correct behaviour but makes the type a one-way street, and `endian`
+matters more on the write side, where the point is to produce a file
+some other system will read.
+
 ## deparse and matrices
 
 There is no literal syntax for a `bytes` vector, so `deparse` emits
