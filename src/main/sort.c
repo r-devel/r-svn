@@ -719,12 +719,16 @@ static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
 
 /* Shell sort over fixed-width blocks.  Elements are moved with memcpy
    through a scratch buffer rather than assigned, since their size is
-   only known at run time. */
+   only known at run time.
+
+   NA is ordered as the value its bit pattern denotes rather than being
+   forced to one end, which is what R_isort2() does with NA_INTEGER and
+   what the radix path in sortVector() below does; sort.int() has removed
+   NAs before either is reached. */
 static void bsort2(SEXP s, R_xlen_t n, bool decreasing)
 {
     R_xlen_t i, j, h, t;
     int w = BYTEVEC_WIDTH(s), k = BYTEVEC_KIND(s);
-    bool hna = BYTEVEC_HAS_NA(s);
     Rbyte *x = BYTEVEC_DATA(s);
     Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
 
@@ -735,10 +739,10 @@ static void bsort2(SEXP s, R_xlen_t n, bool decreasing)
 	    memcpy(v, x + i * w, (size_t) w);
 	    j = i;
 	    if(decreasing)
-		while (j >= h && bcmp_(x + (j - h) * w, v, w, k, hna, true) < 0)
+		while (j >= h && R_bytesEltCmp(x + (j - h) * w, v, w, k) < 0)
 		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
 	    else
-		while (j >= h && bcmp_(x + (j - h) * w, v, w, k, hna, true) > 0)
+		while (j >= h && R_bytesEltCmp(x + (j - h) * w, v, w, k) > 0)
 		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
 	    memcpy(x + j * w, v, (size_t) w);
 	}
@@ -1299,6 +1303,8 @@ void R_orderVector1(int *indx, int n, SEXP x,
 attribute_hidden void
 orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 {
+    /* the indices here are int, so every 'bytes' offset below is cast:
+       n fits in an int but n * BYTEVEC_WIDTH(key) need not */
     int c, i, j, h, t, lo = 0, hi = n-1;
     int itmp, *isna = NULL, numna = 0;
     int *ix = NULL /* -Wall */;
@@ -1350,7 +1356,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	case BYTESXP:
 	    for (i = 0; i < n; i++)
 		isna[i] = BYTEVEC_HAS_NA(key) &&
-		    R_bytesEltIsNA(bx + i * bw, bw, bk);
+		    R_bytesEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
@@ -1439,12 +1445,14 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    if (bk != BYTEVEC_OPAQUE)
 		bytesRadixOrder(indx, lo, hi, key, decreasing);
 	    else if (decreasing)
-#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
+				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
+				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
@@ -1516,7 +1524,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	case BYTESXP:
 	    for (i = 0; i < n; i++)
 		isna[i] = BYTEVEC_HAS_NA(key) &&
-		    R_bytesEltIsNA(bx + i * bw, bw, bk);
+		    R_bytesEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
@@ -1603,12 +1611,14 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    /* NAs were moved out of [lo, hi] above, so a bare memcmp is
 	       enough here */
 	    if (decreasing)
-#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
+				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = R_bytesEltCmp(bx + (a) * bw, bx + (b) * bw, bw, bk), \
+#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
+				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less

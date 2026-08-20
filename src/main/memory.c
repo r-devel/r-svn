@@ -2996,6 +2996,51 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
     return s;
 }
 
+/* A 'bytes' vector is allocated as a RAWSXP of the full byte size, so
+   that the standard vector allocator does the size-class selection and
+   heap accounting, then retyped and given its true element count.
+   getVecSizeInVEC() multiplies the width back out, so the GC sees the
+   same byte size both here and at collection time.
+
+   This is here rather than in bytes.c because that retyping needs the
+   bare SET_TYPEOF(): the function of that name, which is all the rest of
+   R sees once the write barrier is being checked, whitelists a handful
+   of conversions that deliberately do not include this one. */
+
+/* Convenience form for the default kind.  Internal code that derives a
+   new vector from an existing one must NOT use this -- it silently
+   drops the kind.  Use R_allocVectorLike(), which carries both width
+   and kind. */
+SEXP R_allocBytesVector(R_xlen_t length, int width)
+{
+    return R_allocBytesVectorKind(length, width, BYTEVEC_OPAQUE);
+}
+
+SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind)
+{
+    if (width < 1 || width > BYTEVEC_MAX_WIDTH)
+	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
+    if (length < 0)
+	error(_("negative length vectors are not allowed"));
+    if (length > R_XLEN_T_MAX / width)
+	error(_("cannot allocate vector of length %lld"), (long long) length);
+
+    SEXP val = PROTECT(allocVector(RAWSXP, length * width));
+    SET_TYPEOF(val, BYTESXP);
+    SET_BYTEVEC_WIDTH(val, width);
+    SET_BYTEVEC_KIND(val, kind);
+    SET_STDVEC_LENGTH(val, length);
+
+    /* zero-filled: these bytes are user-visible values, and leaving
+       them undefined would make results depend on heap history */
+    if (length > 0)
+	memset(BYTEVEC_DATA(val), 0, (size_t) length * width);
+
+    UNPROTECT(1);
+
+    return val;
+}
+
 /* For future hiding of allocVector(CHARSXP) */
 attribute_hidden SEXP allocCharsxp(R_len_t len)
 {
@@ -4107,6 +4152,39 @@ void (SETLENGTH)(SEXP x, R_xlen_t v)
 attribute_hidden
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v) { SET_TRUELENGTH(CHK2(x), v); }
 int  (IS_LONG_VEC)(SEXP x) { return IS_LONG_VEC(CHK2(x)); }
+
+/* The BYTESXP accessors, for the builds that compile R's own code without
+   USE_RINTERNALS (--enable-strict-barrier); elsewhere Defn.h supplies the
+   macros these wrap.  Each checks the type first, since without it a
+   width read out of some other SEXP's gp field would be taken for real. */
+attribute_hidden
+int (BYTEVEC_WIDTH)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_WIDTH(x); }
+attribute_hidden
+void (SET_BYTEVEC_WIDTH)(SEXP x, int w)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_WIDTH(x, w);
+}
+attribute_hidden
+int (BYTEVEC_HAS_NA)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_HAS_NA(x); }
+attribute_hidden
+void (SET_BYTEVEC_NONA)(SEXP x, int v)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_NONA(x, v);
+}
+attribute_hidden
+int (BYTEVEC_KIND)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_KIND(x); }
+attribute_hidden
+void (SET_BYTEVEC_KIND)(SEXP x, int k)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_KIND(x, k);
+}
+attribute_hidden
+Rbyte *(BYTEVEC_DATA)(SEXP x) { return BYTEVEC_DATA(CHK(x)); }
+attribute_hidden
+const Rbyte *(BYTEVEC_DATA_RO)(SEXP x) { return BYTEVEC_DATA_RO(CHK(x)); }
 #ifdef TESTING_WRITE_BARRIER
 attribute_hidden
 R_xlen_t (STDVEC_LENGTH)(SEXP x) { return STDVEC_LENGTH(CHK2(x)); }

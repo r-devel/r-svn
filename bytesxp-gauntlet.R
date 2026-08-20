@@ -669,6 +669,75 @@ ok("compiled for loop",          identical(compiler::cmpfun(floop)(u4), c("1","2
 ok("sum walks a protected args", identical(as.character(sum(u4, u4)), "20"))
 gctorture(FALSE)
 
+cat("\n== Z4. what the review pass turned up ==\n")
+u8 <- as.bytes(as.raw(1:16), 8L, "unsigned")
+s8 <- as.bytes(as.raw(c(2,0,0,0,0,0,0,0)), 8L, "unsigned")
+
+## printNamedVector had no arm for this type and no default, so a named
+## vector printed absolutely nothing
+ok("a named vector prints",      { v <- u8; names(v) <- c("a", "b")
+                                   out <- capture.output(print(v))
+                                   length(out) == 2L && grepl("a", out[1]) })
+ok("a 1-d array with dimnames prints",
+                                 { v <- array(u8, 2L, dimnames = list(c("a", "b")))
+                                   length(capture.output(print(v))) == 2L })
+
+## storing into a list is what df$key <- v goes through
+ok("[[<- into a list",           { l <- list(1, 2); l[[1]] <- u8; identical(l[[1]], u8) })
+ok("[<- into a list",            { l <- list(1, 2); l[1:2] <- u8
+                                   identical(typeof(l[[1]]), "uint64") })
+ok("df$key <- v",                { d <- data.frame(i = 1:2); d$key <- u8
+                                   identical(d$key, u8) })
+
+## the 'bytes' arm of SubassignTypeFix once sat in the path the S4 arm
+## falls through, so this reached it with an integer left-hand side
+ok("S4 subassignment untouched", {
+    methods::setClass("gauntletS4", methods::representation(a = "numeric"))
+    v <- 1:3
+    msg <- tryCatch({ v[1] <- methods::new("gauntletS4", a = 1); "" },
+                    error = conditionMessage)
+    grepl("in subassignment type fix", msg) })
+
+## unary minus builds a fresh vector, so it has to carry the attributes
+## over the way the other unary kernels do
+ok("unary minus keeps dim",      { m <- matrix(as.bytes(as.raw(1:32), 8L, "signed"), 2, 2)
+                                   identical(dim(-m), c(2L, 2L)) })
+ok("unary minus keeps names",    { v <- as.bytes(as.raw(1:16), 8L, "signed")
+                                   names(v) <- c("a", "b")
+                                   identical(names(-v), c("a", "b")) })
+
+## '/' and '^' yield a double, but only the 'bytes' side of the pair is
+## coerced: the other one still has to be a number
+ok("/ rejects a non-numeric",    inherits(tryCatch(u8 / "abc", error = identity), "error"))
+ok("^ rejects a list",           inherits(tryCatch(u8 ^ list(1), error = identity), "error"))
+ok("/ still divides",            identical(s8 / 2L, 1))
+ok("^ still exponentiates",      identical(s8 ^ 2L, 4))
+
+## a length outside the R_xlen_t range is checked rather than cast
+ok("bytes() checks its length",  inherits(tryCatch(bytes(1e30, 8L), error = identity), "error"))
+ok("bytesNA() checks its length",inherits(tryCatch(bytesNA(1e30, 8L), error = identity), "error"))
+
+## with na = FALSE the reserved pattern is a legitimate value, so it must
+## not match an NA -- on the scalar fast path or through the hash table
+w255 <- as.bytes(as.raw(rep(255, 4)), 4L, "unsigned", na = FALSE)
+wNA  <- bytesNA(1L, 4L, "unsigned")
+ok("a real 0xFF.. is not NA",    is.na(match(w255, wNA)) &&
+                                 all(is.na(match(c(w255, w255), c(wNA, wNA)))))
+ok("and still matches itself",   identical(match(w255, c(w255, w255)), 1L))
+
+## the zero-length answer is built while both operands are still
+## protected -- the narrowed one has nothing else holding it
+ok("zero-length arithmetic",     { gctorture(TRUE)
+                                   n <- length(integer(0) + u8) + length(u8 + integer(0))
+                                   gctorture(FALSE); n == 0L })
+
+## sortVector's two paths order the reserved pattern the same way
+ok("both sort paths agree on NA", {
+    v  <- c(u8, bytesNA(1L, 8L, "unsigned"))
+    op <- suppressWarnings(as.bytes(bytesRaw(v), 8L))
+    identical(which(is.na(sort(v,  na.last = TRUE))),
+              which(is.na(sort(op, na.last = TRUE)))) })
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

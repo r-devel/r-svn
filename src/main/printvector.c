@@ -499,6 +499,20 @@ static void printNamedRawVectorS(SEXP x, R_xlen_t n, SEXP names)
 		   Rprintf("%*s%s%*s", w - 2, "",
 			   EncodeRaw(RAW_ELT(x, k), ""), R_print.gap,""))
 
+/* as in printBytesVectorS: decimal elements vary in width, so the
+   column is measured rather than computed */
+#define INI_F_BYTES_S					\
+    w = 0;						\
+    for (i = 0; i < n; i++) {				\
+	int wi = (int) strlen(R_bytesEltRender(x, i));	\
+	if (wi > w) w = wi;				\
+    }
+
+static void printNamedBytesVectorS(SEXP x, R_xlen_t n, SEXP names)
+    PRINT_N_VECTOR_SEXP(INI_F_BYTES_S,
+		   Rprintf("%*s%*s", w, R_bytesEltRender(x, k),
+			   R_print.gap, ""))
+
 attribute_hidden
 void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 {
@@ -530,6 +544,11 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	case RAWSXP:
 	    printNamedRawVectorS(x, n_pr, names);
 	    break;
+	case BYTESXP:
+	    printNamedBytesVectorS(x, n_pr, names);
+	    break;
+	default:
+	    UNIMPLEMENTED_TYPE("printNamedVector", x);
 	}
 	if(n_pr < n)
 	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",

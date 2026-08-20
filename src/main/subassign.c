@@ -441,6 +441,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1922:  /* vector     <- external pointer */
     case 1923:  /* vector     <- weak reference */
     case 1924:  /* vector     <- raw */
+    case 1926:  /* vector     <- bytes */
     case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	if (level == 1) {
@@ -512,6 +513,14 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	}
 	break;
 
+    case 2610:
+    case 2613:
+	/* logical and integer narrow into 'bytes'; a double right-hand
+	   side falls to the default below rather than being guessed at */
+	*y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
+			   BYTEVEC_HAS_NA(*x), call);
+	break;
+
     case 1025: /* logical   <- S4|OBJ */
     case 1325: /* integer   <- S4|OBJ */
     case 1425: /* real      <- S4|OBJ */
@@ -526,14 +535,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
             UNPROTECT(1);
             return which;
         }
-
-    case 2610:
-    case 2613:
-	/* logical and integer narrow into 'bytes'; a double right-hand
-	   side falls to the default below rather than being guessed at */
-	*y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
-			   BYTEVEC_HAS_NA(*x), call);
-	break;
+	/* no as.vector() method: fall through to the error below */
 
     default:
 	error(_("incompatible types (from %s to %s) in subassignment type fix"),
@@ -2083,6 +2085,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 1923:  /* vector     <- weak reference */
 	case 1924:  /* vector     <- raw */
 	case 1925:  /* vector     <- S4 */
+	case 1926:  /* vector     <- bytes */
 	case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	    /* drop through: vectors and expressions are treated the same */
@@ -2097,6 +2100,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 2016:	/* expression <- character  */
 	case 2024:	/* expression     <- raw */
 	case 2025:	/* expression     <- S4 */
+	case 2026:	/* expression     <- bytes */
 	case 1919:      /* vector     <- vector     */
 	case 2020:	/* expression <- expression */
 

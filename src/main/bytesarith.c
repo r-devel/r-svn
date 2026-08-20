@@ -302,9 +302,6 @@ static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kin
     if (negq && !magIsZero(R, w)) {
 	/* floor rather than truncate: step the quotient away from zero
 	   and fold the difference back into the remainder */
-	Rbyte one[MAXW];
-	memset(one, 0, (size_t) w);
-	one[w - 1] = 1;
 	int carry = 1;
 	for (int i = w - 1; i >= 0 && carry; i--) {
 	    unsigned int v = (unsigned int) Q[i] + 1;
@@ -449,9 +446,13 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 
     R_xlen_t nx = XLENGTH(x), ny = XLENGTH(y);
     if (nx == 0 || ny == 0) {
+	/* x may be a narrowed temporary held only by the index above, so
+	   it has to outlive the allocation that reads its NA flag */
+	SEXP val = R_bytesWithNA(R_allocBytesVectorKind(0, w, kx),
+				 BYTEVEC_HAS_NA(x));
 	UNPROTECT(2); /* x, y */
-	return R_bytesWithNA(R_allocBytesVectorKind(0, w, kx),
-			     BYTEVEC_HAS_NA(x));
+
+	return val;
     }
     /* R_binary has already warned about a length mismatch */
     R_xlen_t n = nx > ny ? nx : ny;
@@ -528,6 +529,16 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
     bool hasNA = BYTEVEC_HAS_NA(x);
     SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, k), hasNA));
     R_xlen_t nOver = 0;
+
+    /* R_unary() hands the result straight back to do_arith, so the
+       attributes the other unary kernels keep have to be kept here */
+    SEXP names = PROTECT(getAttrib(x, R_NamesSymbol));
+    SEXP dim = PROTECT(getAttrib(x, R_DimSymbol));
+    SEXP dimnames = PROTECT(getAttrib(x, R_DimNamesSymbol));
+    if (names != R_NilValue) setAttrib(ans, R_NamesSymbol, names);
+    if (dim != R_NilValue) setAttrib(ans, R_DimSymbol, dim);
+    if (dimnames != R_NilValue) setAttrib(ans, R_DimNamesSymbol, dimnames);
+    UNPROTECT(3);
 
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *px = BYTEVEC_ELT_RO(x, i);

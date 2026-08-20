@@ -363,6 +363,17 @@ Every read path fails loudly and names the type; the two paths that
 residual risk identified back in stage 1 -- turns out to be guarded
 already by `CHKVEC` in `Rinlinedfuns.h`.
 
+That guard is why `BYTEVEC_DATA()` does *not* go through `DATAPTR()`.
+The obvious way to make R's own code work is to add BYTESXP to
+`CHKVEC`, and it is the wrong way round: the same `CHKVEC` is what the
+out-of-line `DATAPTR_RO` compiled in `inlined.c` runs for package code,
+so teaching it about BYTESXP would hand every package a raw pointer to
+elements whose width and kind it does not know, and the row above would
+turn from `errors` into `returns`.  `BYTEVEC_DATA()` reads
+`STDVEC_DATAPTR()` directly, behind a `CHKBYTEVEC()` of its own that
+fires under the same build flags.  The two checks are now independent,
+which is what lets one say yes and the other no.
+
 One real defect surfaced here: `nvec[]` in `memory.c`, the table that
 says which SEXPTYPEs are vectors for the package-facing `LENGTH()`,
 had BYTESXP marked as a non-vector, so `XLENGTH(x)` from package code
@@ -690,3 +701,32 @@ through `as.character`.  `summary.c:946` is unreachable behind an
 earlier `default: goto invalid_type`, and `bind.c:1368`'s `<= INTSXP`
 excludes BYTESXP in the safe direction.  Any new SEXPTYPE numbered
 above 16 needs this guard regardless of where it is placed.
+
+## The strict barrier
+
+`--enable-strict-barrier` compiles R's own code *without*
+`USE_RINTERNALS`, which is how it forces every field access through a
+checked accessor.  All of the `BYTEVEC_*` macros were inside that
+block in `Defn.h`, so the branch did not compile at all in that
+configuration -- an entire supported build, not a corner of one.
+
+They now sit outside it, split the way R splits `LENGTH()` and its
+neighbours: macros when the fields are in reach, out-of-line functions
+from `memory.c` when they are not.  Two consequences worth recording,
+because both are the kind of thing the next new SEXPTYPE will hit:
+
+  * the out-of-line accessors type-check first.  A width read out of
+    some other SEXP's `gp` field is not a wild pointer, just a wrong
+    small number, which is exactly the sort of bug that survives a long
+    time.
+
+  * `R_allocBytesVectorKind()` moved to `memory.c`.  It allocates a
+    RAWSXP and retypes it, and the `SET_TYPEOF` the rest of R sees once
+    the barrier is on whitelists a handful of conversions that do not
+    include this one -- rightly, since that function is reachable from
+    packages.  Allocation plumbing belongs next to the allocator
+    anyway.
+
+Both builds run the gauntlet clean.  Under the strict barrier the
+`gctorture` sections are slow enough to be worth skipping when
+iterating.

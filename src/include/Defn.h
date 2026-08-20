@@ -434,90 +434,6 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define STRING_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 #define VECTOR_PTR_RO(x)((const SEXP *) DATAPTR_RO(x))
 
-/* BYTESXP: vectors of fixed-width opaque data.  XLENGTH() is the
-   element count, as for every other vector; the payload is
-   XLENGTH(x) * BYTEVEC_WIDTH(x) bytes.  The width lives in gp bits
-   8-15, clear of the low bits that generic vector code uses
-   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
-   gp means it round-trips through serialization for free, since
-   PackFlags() already encodes gp into the flags word. */
-#define BYTEVEC_WIDTH_SHIFT 8
-#define BYTEVEC_MAX_WIDTH 255
-#define BYTEVEC_WIDTH_MASK \
-    ((unsigned short)(BYTEVEC_MAX_WIDTH << BYTEVEC_WIDTH_SHIFT))
-#define BYTEVEC_WIDTH(x) \
-    ((int)(((x)->sxpinfo.gp & BYTEVEC_WIDTH_MASK) >> BYTEVEC_WIDTH_SHIFT))
-#define SET_BYTEVEC_WIDTH(x, w) do {					\
-	SEXP bw__x__ = (x);						\
-	unsigned short bw__w__ = (unsigned short) (w);			\
-	bw__x__->sxpinfo.gp =						\
-	    (unsigned short) ((bw__x__->sxpinfo.gp & ~BYTEVEC_WIDTH_MASK) \
-			      | (bw__w__ << BYTEVEC_WIDTH_SHIFT));	\
-    } while (0)
-#define BYTEVEC_DATA(x)    ((Rbyte *) DATAPTR(x))
-#define BYTEVEC_DATA_RO(x) ((const Rbyte *) DATAPTR_RO(x))
-/* address of element i; the sole element operation this type needs */
-#define BYTEVEC_ELT(x, i) \
-    (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
-#define BYTEVEC_ELT_RO(x, i) \
-    (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
-/* Interpretation of the elements, in gp bits 0-1.  A width-16 UUID and
-   a width-16 uint128 are the same size but must sort differently, so
-   width alone cannot carry this.
-
-   OPAQUE elements are byte strings: stored verbatim, ordered
-   lexicographically, rendered as hex.  This is the default and is what
-   hashes, UUIDs and addresses want.
-
-   UINT and INT elements are integers of 8*width bits, stored in
-   *native* byte order so that ingest from an external source is a
-   plain memcpy, ordered by value, and rendered as decimal.  Since the
-   order is by value rather than by bytes, it is the same on every
-   platform even though the storage is not. */
-/* Arithmetic is defined only for widths that correspond to an integer
-   type someone might actually be carrying; wider elements are pure
-   storage. */
-#define BYTEVEC_MAX_ARITH_WIDTH 16
-/* gp bit 2: this vector declines to reserve a value for NA, so every
-   bit pattern of its width is a legitimate value.  The sense is
-   inverted deliberately -- clear means "has NA" -- so that the default,
-   and anything read from an older file, behaves as before. */
-#define BYTEVEC_NONA_MASK ((unsigned short) 4)
-#define BYTEVEC_HAS_NA(x) (((x)->sxpinfo.gp & BYTEVEC_NONA_MASK) == 0)
-#define SET_BYTEVEC_NONA(x, v) do {					\
-	SEXP bn__x__ = (x);						\
-	if (v) bn__x__->sxpinfo.gp |= BYTEVEC_NONA_MASK;		\
-	else   bn__x__->sxpinfo.gp &= (unsigned short) ~BYTEVEC_NONA_MASK; \
-    } while (0)
-
-#define BYTEVEC_KIND_MASK ((unsigned short) 3)
-#define BYTEVEC_OPAQUE 0
-#define BYTEVEC_UINT   1
-#define BYTEVEC_INT    2
-#define BYTEVEC_KIND(x) ((int) ((x)->sxpinfo.gp & BYTEVEC_KIND_MASK))
-#define SET_BYTEVEC_KIND(x, k) do {					\
-	SEXP bk__x__ = (x);						\
-	bk__x__->sxpinfo.gp =						\
-	    (unsigned short) ((bk__x__->sxpinfo.gp & ~BYTEVEC_KIND_MASK)	\
-			      | ((unsigned short) (k) & BYTEVEC_KIND_MASK)); \
-    } while (0)
-
-/* Index of the i-th most significant byte of a numeric element, in
-   storage order. */
-#ifdef WORDS_BIGENDIAN
-# define BYTEVEC_MSB(i, w) (i)
-#else
-# define BYTEVEC_MSB(i, w) ((w) - 1 - (i))
-#endif
-
-/* NA patterns.  OPAQUE and UINT reserve all-0xFF: zero is the
-   universal "unset" value and appears in real data (the nil UUID,
-   0.0.0.0, ::), so 0xFF is the safer sacrifice, and for UINT it costs
-   only UINT_MAX.  INT cannot use it -- all-0xFF is -1 in two's
-   complement -- so INT reserves INT_MIN, which is what bit64 does and
-   for the same reason. */
-#define BYTEVEC_NA_BYTE 0xFF
-
 /* List Access Macros */
 /* These also work for ... objects */
 #define LISTVAL(x)	((x)->u.listsxp)
@@ -620,6 +536,123 @@ typedef union {
 #define SET_ENVFLAGS(x,v)	(((x)->sxpinfo.gp)=(v))
 
 #endif /* USE_RINTERNALS */
+
+/* BYTESXP: vectors of fixed-width opaque data.  XLENGTH() is the
+   element count, as for every other vector; the payload is
+   XLENGTH(x) * BYTEVEC_WIDTH(x) bytes.  The width lives in gp bits
+   8-15, clear of the low bits that generic vector code uses
+   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
+   gp means it round-trips through serialization for free, since
+   PackFlags() already encodes gp into the flags word.
+
+   This sits outside the USE_RINTERNALS block above because R's own code
+   uses it everywhere and --enable-strict-barrier compiles that code
+   without USE_RINTERNALS: the accessors that touch sxpinfo or the
+   payload are macros when the fields are in reach and out-of-line
+   functions (from memory.c) when they are not, exactly as LENGTH() and
+   the rest of the vector accessors are. */
+#define BYTEVEC_WIDTH_SHIFT 8
+#define BYTEVEC_MAX_WIDTH 255
+#define BYTEVEC_WIDTH_MASK \
+    ((unsigned short)(BYTEVEC_MAX_WIDTH << BYTEVEC_WIDTH_SHIFT))
+
+/* Interpretation of the elements, in gp bits 0-1.  A width-16 UUID and
+   a width-16 uint128 are the same size but must sort differently, so
+   width alone cannot carry this.
+
+   OPAQUE elements are byte strings: stored verbatim, ordered
+   lexicographically, rendered as hex.  This is the default and is what
+   hashes, UUIDs and addresses want.
+
+   UINT and INT elements are integers of 8*width bits, stored in
+   *native* byte order so that ingest from an external source is a
+   plain memcpy, ordered by value, and rendered as decimal.  Since the
+   order is by value rather than by bytes, it is the same on every
+   platform even though the storage is not. */
+#define BYTEVEC_KIND_MASK ((unsigned short) 3)
+#define BYTEVEC_OPAQUE 0
+#define BYTEVEC_UINT   1
+#define BYTEVEC_INT    2
+
+/* Arithmetic is defined only for widths that correspond to an integer
+   type someone might actually be carrying; wider elements are pure
+   storage. */
+#define BYTEVEC_MAX_ARITH_WIDTH 16
+
+/* gp bit 2: this vector declines to reserve a value for NA, so every
+   bit pattern of its width is a legitimate value.  The sense is
+   inverted deliberately -- clear means "has NA" -- so that the default,
+   and anything read from an older file, behaves as before. */
+#define BYTEVEC_NONA_MASK ((unsigned short) 4)
+
+/* Index of the i-th most significant byte of a numeric element, in
+   storage order. */
+#ifdef WORDS_BIGENDIAN
+# define BYTEVEC_MSB(i, w) (i)
+#else
+# define BYTEVEC_MSB(i, w) ((w) - 1 - (i))
+#endif
+
+/* NA patterns.  OPAQUE and UINT reserve all-0xFF: zero is the
+   universal "unset" value and appears in real data (the nil UUID,
+   0.0.0.0, ::), so 0xFF is the safer sacrifice, and for UINT it costs
+   only UINT_MAX.  INT cannot use it -- all-0xFF is -1 in two's
+   complement -- so INT reserves INT_MIN, which is what bit64 does and
+   for the same reason. */
+#define BYTEVEC_NA_BYTE 0xFF
+
+#ifdef USE_RINTERNALS
+#define BYTEVEC_WIDTH(x) \
+    ((int)(((x)->sxpinfo.gp & BYTEVEC_WIDTH_MASK) >> BYTEVEC_WIDTH_SHIFT))
+#define SET_BYTEVEC_WIDTH(x, w) do {					\
+	SEXP bw__x__ = (x);						\
+	unsigned short bw__w__ = (unsigned short) (w);			\
+	bw__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bw__x__->sxpinfo.gp & ~BYTEVEC_WIDTH_MASK) \
+			      | (bw__w__ << BYTEVEC_WIDTH_SHIFT));	\
+    } while (0)
+#define BYTEVEC_HAS_NA(x) (((x)->sxpinfo.gp & BYTEVEC_NONA_MASK) == 0)
+#define SET_BYTEVEC_NONA(x, v) do {					\
+	SEXP bn__x__ = (x);						\
+	if (v) bn__x__->sxpinfo.gp |= BYTEVEC_NONA_MASK;		\
+	else   bn__x__->sxpinfo.gp &= (unsigned short) ~BYTEVEC_NONA_MASK; \
+    } while (0)
+#define BYTEVEC_KIND(x) ((int) ((x)->sxpinfo.gp & BYTEVEC_KIND_MASK))
+#define SET_BYTEVEC_KIND(x, k) do {					\
+	SEXP bk__x__ = (x);						\
+	bk__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bk__x__->sxpinfo.gp & ~BYTEVEC_KIND_MASK)	\
+			      | ((unsigned short) (k) & BYTEVEC_KIND_MASK)); \
+    } while (0)
+
+/* R's own code reaches the payload through these rather than through
+   DATAPTR(), which deliberately does not know about BYTESXP: refusing an
+   untyped data pointer to elements whose width and kind the caller does
+   not know is what makes package code fail safely (tests/bytes-ffi).
+   BYTESXP is never ALTREP, so there is nothing else to consult. */
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
+# define CHKBYTEVEC(x) R_CheckBytesVector(x)
+#else
+# define CHKBYTEVEC(x) ((void) 0)
+#endif
+#define BYTEVEC_DATA(x)	   ((Rbyte *) (CHKBYTEVEC(x), STDVEC_DATAPTR(x)))
+#define BYTEVEC_DATA_RO(x) ((const Rbyte *) (CHKBYTEVEC(x), STDVEC_DATAPTR(x)))
+#else
+attribute_hidden int BYTEVEC_WIDTH(SEXP x);
+attribute_hidden void SET_BYTEVEC_WIDTH(SEXP x, int w);
+attribute_hidden int BYTEVEC_HAS_NA(SEXP x);
+attribute_hidden void SET_BYTEVEC_NONA(SEXP x, int v);
+attribute_hidden int BYTEVEC_KIND(SEXP x);
+attribute_hidden void SET_BYTEVEC_KIND(SEXP x, int k);
+attribute_hidden Rbyte *BYTEVEC_DATA(SEXP x);
+attribute_hidden const Rbyte *BYTEVEC_DATA_RO(SEXP x);
+#endif /* USE_RINTERNALS */
+
+/* address of element i; the sole element operation this type needs */
+#define BYTEVEC_ELT(x, i) \
+    (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+#define BYTEVEC_ELT_RO(x, i) \
+    (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
 
 #define INCREMENT_LINKS(x) do {			\
 	SEXP il__x__ = (x);			\
@@ -1913,6 +1946,7 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
 SEXP R_bytesWithNA(SEXP x, int hasNA);
 void R_bytesCheckNA(SEXP x);
 void R_bytesCheckSameNA(SEXP x, SEXP y);
+void R_CheckBytesVector(SEXP x);	/* CHKBYTEVEC(), above */
 double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),

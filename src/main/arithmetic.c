@@ -544,8 +544,17 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     bool bytes = false;
     if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
 	if (oper == DIVOP || oper == POWOP) {
-	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
-	    REPROTECT(y = coerceVector(y, REALSXP), ypi);
+	    /* Only the 'bytes' operand is coerced; the other one goes
+	       through the ordinary check, or a string operand would become
+	       a silent NA where every other type gives an error.  That
+	       check comes first so that an operation about to be rejected
+	       does not also warn about precision on its way out. */
+	    if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+	    if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+	    if (TYPEOF(x) == BYTESXP)
+		REPROTECT(x = coerceVector(x, REALSXP), xpi);
+	    if (TYPEOF(y) == BYTESXP)
+		REPROTECT(y = coerceVector(y, REALSXP), ypi);
 	}
 	else {
 	    /* the half of FIXUP_NULL_AND_CHECK_TYPES that still applies */

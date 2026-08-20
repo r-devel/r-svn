@@ -37,9 +37,6 @@ static R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
 
 #define LIST_ASSIGN(x) {SET_VECTOR_ELT(data->ans_ptr, data->ans_length, x); data->ans_length++;}
 
-static SEXP cbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
-static SEXP rbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
-
 /* The following code establishes the return type for the */
 /* functions  unlist, c, cbind, and rbind and also determines */
 /* whether the returned object is to have a names attribute. */
@@ -55,6 +52,9 @@ struct BindData {
  int  ans_nona;  /* BYTESXP: does it decline to reserve an NA? */
 /* int  deparse_level; Initialize to 1. */
 };
+
+static SEXP cbind(SEXP, SEXP, SEXPTYPE, struct BindData *, SEXP, int);
+static SEXP rbind(SEXP, SEXP, SEXPTYPE, struct BindData *, SEXP, int);
 
 static int HasNames(SEXP x)
 {
@@ -184,6 +184,52 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 #endif
 }
 
+/* The result type the flags call for.  c(), unlist() and cbind()/rbind()
+   all ask the same question, so they ask it in one place: a per-vector
+   property added to BYTESXP is then a change here rather than in three
+   switches that have to be kept in step. */
+static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
+{
+    /* 'bytes' (1024) is not a step in the coercion chain below but a
+       thing apart, so it gets its own branch ahead of it: it combines
+       only with the two types that narrow into it, and with a list,
+       which holds its elements by reference and so loses nothing. */
+    if (data->ans_flags & 1024) {
+	if      (data->ans_flags & 512) return EXPRSXP;
+	else if (data->ans_flags & 256) return VECSXP;
+	/* logical (2) and integer (16) narrow into 'bytes'; a double
+	   operand is deliberately refused rather than guessed at */
+	else if (data->ans_flags & ~(1024 | 16 | 2))
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
+	else return BYTESXP;
+    }
+
+    if      (data->ans_flags & 512) return EXPRSXP;
+    else if (data->ans_flags & 256) return VECSXP;
+    else if (data->ans_flags & 128) return STRSXP;
+    else if (data->ans_flags &  64) return CPLXSXP;
+    else if (data->ans_flags &  32) return REALSXP;
+    else if (data->ans_flags &  16) return INTSXP;
+    else if (data->ans_flags &   2) return LGLSXP;
+    else if (data->ans_flags &   1) return RAWSXP;
+
+    return NILSXP;
+}
+
+/* allocVector() cannot carry the per-vector width and kind a 'bytes'
+   answer needs, and AnswerType has already agreed them across the
+   arguments, so both come from data. */
+static SEXP BindAnswerAlloc(SEXPTYPE mode, struct BindData *data,
+			    R_xlen_t length)
+{
+    if (mode != BYTESXP)
+	return allocVector(mode, length);
+
+    return R_bytesWithNA(R_allocBytesVectorKind(length, data->ans_width,
+						data->ans_kind),
+			 !data->ans_nona);
+}
 
 /* The following functions are used to coerce arguments to the
  * appropriate type for inclusion in the returned value. */
@@ -909,38 +955,12 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* recursive is FALSE) then we must return a list.	Otherwise, */
     /* we use the natural coercion for vector types. */
 
-    int mode = NILSXP;
-    /* 'bytes' (1024) is not a step in the coercion chain below but a
-       thing apart, so it gets its own branch ahead of it: it combines
-       only with the two types that narrow into it, and with a list,
-       which holds its elements by reference and so loses nothing. */
-    if (data.ans_flags & 1024) {
-	if      (data.ans_flags & 512) mode = EXPRSXP;
-	else if (data.ans_flags & 256) mode = VECSXP;
-	/* logical (2) and integer (16) narrow into 'bytes'; a double
-	   operand is deliberately refused rather than guessed at */
-	else if (data.ans_flags & ~(1024 | 16 | 2))
-	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	else mode = BYTESXP;
-    }
-    else if (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = (mode == BYTESXP)
-	    ? R_bytesWithNA(R_allocBytesVectorKind(data.ans_length,
-						  data.ans_width, data.ans_kind),
-			    !data.ans_nona)
-	    : allocVector(mode, data.ans_length));
+    PROTECT(ans = BindAnswerAlloc(mode, &data, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -1054,38 +1074,12 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* recursive is FALSE) then we must return a list.  Otherwise, */
     /* we use the natural coercion for vector types. */
 
-    int mode = NILSXP;
-    /* 'bytes' (1024) is not a step in the coercion chain below but a
-       thing apart, so it gets its own branch ahead of it: it combines
-       only with the two types that narrow into it, and with a list,
-       which holds its elements by reference and so loses nothing. */
-    if (data.ans_flags & 1024) {
-	if      (data.ans_flags & 512) mode = EXPRSXP;
-	else if (data.ans_flags & 256) mode = VECSXP;
-	/* logical (2) and integer (16) narrow into 'bytes'; a double
-	   operand is deliberately refused rather than guessed at */
-	else if (data.ans_flags & ~(1024 | 16 | 2))
-	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	else mode = BYTESXP;
-    }
-    else if (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = (mode == BYTESXP)
-	    ? R_bytesWithNA(R_allocBytesVectorKind(data.ans_length,
-						  data.ans_width, data.ans_kind),
-			    !data.ans_nona)
-	    : allocVector(mode, data.ans_length));
+    PROTECT(ans = BindAnswerAlloc(mode, &data, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -1265,24 +1259,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 	return R_NilValue;
     }
 
-    int mode = NILSXP;
-    /* see do_c_dflt: 'bytes' is apart from the chain, not a step in it */
-    if (data.ans_flags & 1024) {
-	if      (data.ans_flags & 512) mode = EXPRSXP;
-	else if (data.ans_flags & 256) mode = VECSXP;
-	else if (data.ans_flags & ~(1024 | 16 | 2))
-	    errorcall(call,
-		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	else mode = BYTESXP;
-    }
-    else if (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     switch(mode) {
     case NILSXP:
@@ -1304,9 +1281,9 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if (PRIMVAL(op) == 1)
-	a = cbind(call, args, mode, rho, deparse_level);
+	a = cbind(call, args, mode, &data, rho, deparse_level);
     else
-	a = rbind(call, args, mode, rho, deparse_level);
+	a = rbind(call, args, mode, &data, rho, deparse_level);
     UNPROTECT(1);
     return a;
 }
@@ -1335,7 +1312,8 @@ static void SetColNames(SEXP dimnames, SEXP x)
  * unless the result has zero rows, hence is of length zero and no
  * copying will be done.
  */
-static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
+static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
+		  struct BindData *data, SEXP rho,
 		  int deparse_level)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
@@ -1413,21 +1391,10 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_rnames = true;
 
     if (mode == BYTESXP) {
-	/* allocMatrix cannot carry a per-vector width, so build the
-	   vector and set dim; AnswerType has already checked that every
-	   argument agrees on width, kind and whether NA is reserved, so
-	   the first 'bytes' argument settles all three */
-	int bw = 1, bk = BYTEVEC_OPAQUE, bna = 1;
-	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
-	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
-		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
-		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
-		bna = BYTEVEC_HAS_NA(PRVALUE(CAR(bt)));
-		break;
-	    }
-	PROTECT(result =
-		R_bytesWithNA(R_allocBytesVectorKind((R_xlen_t) rows * cols,
-						     bw, bk), bna));
+	/* allocMatrix cannot carry a per-vector width, so build the vector
+	   and set dim; the width and kind are the ones AnswerType already
+	   agreed across the arguments */
+	PROTECT(result = BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols));
 	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);
@@ -1650,7 +1617,8 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     return result;
 } /* cbind */
 
-static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
+static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
+		  struct BindData *data, SEXP rho,
 		  int deparse_level)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
@@ -1730,21 +1698,10 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_cnames = true;
 
     if (mode == BYTESXP) {
-	/* allocMatrix cannot carry a per-vector width, so build the
-	   vector and set dim; AnswerType has already checked that every
-	   argument agrees on width, kind and whether NA is reserved, so
-	   the first 'bytes' argument settles all three */
-	int bw = 1, bk = BYTEVEC_OPAQUE, bna = 1;
-	for (SEXP bt = args; bt != R_NilValue; bt = CDR(bt))
-	    if (TYPEOF(PRVALUE(CAR(bt))) == BYTESXP) {
-		bw = BYTEVEC_WIDTH(PRVALUE(CAR(bt)));
-		bk = BYTEVEC_KIND(PRVALUE(CAR(bt)));
-		bna = BYTEVEC_HAS_NA(PRVALUE(CAR(bt)));
-		break;
-	    }
-	PROTECT(result =
-		R_bytesWithNA(R_allocBytesVectorKind((R_xlen_t) rows * cols,
-						     bw, bk), bna));
+	/* allocMatrix cannot carry a per-vector width, so build the vector
+	   and set dim; the width and kind are the ones AnswerType already
+	   agreed across the arguments */
+	PROTECT(result = BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols));
 	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
 	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
 	setAttrib(result, R_DimSymbol, bdim);

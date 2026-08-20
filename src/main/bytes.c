@@ -41,45 +41,6 @@
 #include <Print.h>  /* R_print.na_string */
 #include "duplicate.h"  /* FILL_MATRIX_ITERATE */
 
-/* Allocated as a RAWSXP of the full byte size so that the standard
-   vector allocator does the size-class selection and heap accounting,
-   then retyped and given its true element count.  getVecSizeInVEC()
-   multiplies the width back out, so the GC sees the same byte size
-   both here and at collection time. */
-/* Convenience form for the default kind.  Internal code that derives a
-   new vector from an existing one must NOT use this -- it silently
-   drops the kind.  Use R_allocVectorLike(), which carries both width
-   and kind. */
-SEXP R_allocBytesVector(R_xlen_t length, int width)
-{
-    return R_allocBytesVectorKind(length, width, BYTEVEC_OPAQUE);
-}
-
-SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind)
-{
-    if (width < 1 || width > BYTEVEC_MAX_WIDTH)
-	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
-    if (length < 0)
-	error(_("negative length vectors are not allowed"));
-    if (length > R_XLEN_T_MAX / width)
-	error(_("cannot allocate vector of length %lld"), (long long) length);
-
-    SEXP val = PROTECT(allocVector(RAWSXP, length * width));
-    SET_TYPEOF(val, BYTESXP);
-    SET_BYTEVEC_WIDTH(val, width);
-    SET_BYTEVEC_KIND(val, kind);
-    SET_STDVEC_LENGTH(val, length);
-
-    /* zero-filled: these bytes are user-visible values, and leaving
-       them undefined would make results depend on heap history */
-    if (length > 0)
-	memset(BYTEVEC_DATA(val), 0, (size_t) length * width);
-
-    UNPROTECT(1);
-
-    return val;
-}
-
 /* See BYTEVEC_NA_BYTE in Defn.h for why OPAQUE/UINT reserve all-0xFF
    and INT reserves INT_MIN instead. */
 Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind)
@@ -201,6 +162,14 @@ void R_bytesCheckNA(SEXP x)
 	      R_bytesTypeName(x));
 }
 
+/* What CHKVEC() is to DATAPTR(): only reached in the builds that ask for
+   the check, which is why BYTEVEC_DATA() can afford to call it. */
+void R_CheckBytesVector(SEXP x)
+{
+    if (TYPEOF(x) != BYTESXP)
+	error("cannot get data pointer of '%s' objects", R_typeToChar(x));
+}
+
 /* Whether a value is reserved is part of the type, as the kind and the
    width are: combining vectors that disagree would either lose a real
    value or invent a missing one. */
@@ -274,14 +243,17 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    double len = asReal(CAR(args));
-    if (!R_FINITE(len) || len < 0)
+    /* asVecSize() rather than a cast: a double outside the R_xlen_t range
+       is undefined behaviour to convert, and this is where do_makevector
+       and the rest already get that check */
+    R_xlen_t len = asVecSize(CAR(args));
+    if (len < 0)
 	error(_("invalid '%s' argument"), "length");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
     int hasNA = checkNA(CADDDR(args));
 
-    SEXP val = PROTECT(R_allocBytesVectorKind((R_xlen_t) len, width, kind));
+    SEXP val = PROTECT(R_allocBytesVectorKind(len, width, kind));
     SET_BYTEVEC_NONA(val, !hasNA);
     UNPROTECT(1);
 
@@ -334,13 +306,13 @@ attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    double len = asReal(CAR(args));
-    if (!R_FINITE(len) || len < 0)
+    R_xlen_t len = asVecSize(CAR(args));	/* see do_bytes */
+    if (len < 0)
 	error(_("invalid '%s' argument"), "length");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
 
-    SEXP val = PROTECT(R_allocBytesVectorKind((R_xlen_t) len, width, kind));
+    SEXP val = PROTECT(R_allocBytesVectorKind(len, width, kind));
     for (R_xlen_t i = 0; i < XLENGTH(val); i++)
 	R_bytesSetEltNA(BYTEVEC_ELT(val, i), width, kind);
     UNPROTECT(1);
