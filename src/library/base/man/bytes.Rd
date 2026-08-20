@@ -161,16 +161,27 @@ as.numeric("9223372036854775807")   # what a double would have made of it
 sort(id)
 id[1] \%in\% id
 
-## an opaque byte string: compared and hashed, never read as a number
-uid <- as.bytes(c("20010db8000000000000000000000001",
-                  "20010db8000000000000000000000002"), 16L)
-uid
-bytesWidth(uid)
-bitwAnd(uid[1], as.bytes(paste0(strrep("ff", 6), strrep("00", 10)), 16L))
+## an opaque byte string: compared and masked, never read as a number
+digest <- as.bytes(c("9e107d9d372bb6826bd81d3542a419d6",
+                     "e4d909c290d0fb1ca068ffaddf22cbd0"), 16L)
+digest
+bytesWidth(digest)
+bytesKind(digest)
+bitwAnd(digest, as.bytes("ff000000000000000000000000000000", 16L))
 
 ## widening and narrowing preserve the value
 as.vector(id, "int128")
 as.vector(id, "int32")              # neither fits: NA, with a warning
+
+## Knuth's multiplicative hash for bucketing: multiply by 2^64/phi and
+## keep the low 64 bits.  That product needs 128 bits to hold it, so
+## widen first and chop the top half off afterwards.
+key  <- as.bytes(c("1", "2", "3", "9223372036854775807"), 8L, "unsigned")
+phi  <- as.bytes("11400714819323198485", 16L, "unsigned")
+prod <- as.vector(key, "uint128") * phi
+h    <- as.vector(bitwShiftR(bitwShiftL(prod, 64L), 64L), "uint64")
+h
+bitwShiftR(h, 61L)                  # the top 3 bits, so 8 buckets
 
 ## every bit pattern is a value, so nothing is reserved for NA
 ip <- as.bytes(as.raw(c(255, 255, 255, 255)), 4L, "unsigned", na = FALSE)
