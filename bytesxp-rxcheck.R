@@ -16,7 +16,7 @@ for (spec in list(list("u8",8L,"unsigned"), list("i8",8L,"signed"), list("i16",1
     chk("sort decreasing matches order",  identical(sort(x, decreasing=TRUE), x[desc]))
     chk("sorted really is sorted",        !is.unsorted(sort(x)))
     ## NAs must still land per na.last, on both sides
-    xn <- c(x[1:50], bytesNA(3L, w, k), x[51:100])
+    xn <- c(x[1:50], rep(as.bytes(NA, w, k), 3L), x[51:100])
     chk("NA last by default",             all(is.na(xn[order(xn)][101:103])))
     chk("NA first when asked",            all(is.na(xn[order(xn, na.last=FALSE)][1:3])))
     chk("sort drops NA",                  length(sort(xn)) == 100L)

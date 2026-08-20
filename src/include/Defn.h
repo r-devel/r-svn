@@ -1961,6 +1961,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
 SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
+bool R_bytesAllNA(SEXP x);
 SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call);
 SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call);
 void R_bytesCheckNA(SEXP x);

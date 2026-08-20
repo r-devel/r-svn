@@ -1640,42 +1640,73 @@ static void bytes2buff(SEXP v, LocalParseData *d)
 {
     R_xlen_t n = XLENGTH(v);
     int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
+    int d_opts_in = d->opts;
     const char *kind = R_bytesKindName(v);
     char buf[64];
 
     /* only when it is not the default, so ordinary output stays clean */
     const char *na = BYTEVEC_HAS_NA(v) ? "" : ", na = FALSE";
 
+    SEXP nv = R_NilValue;
+    bool do_names = (bool)(d_opts_in & SHOW_ATTR_OR_NMS);
+    if (do_names) {
+	nv = getAttrib(v, R_NamesSymbol);
+	if (isNull(nv)) do_names = false;
+    }
+    PROTECT(nv);
+
+    /* The call this deparses to is a coercion, and a coercion drops
+       names, so `c(a = "1", ...)` inside it would deparse a named
+       vector into an unnamed one.  Whenever the caller is asking for
+       attributes at all -- dput(), dump(), deparse(control = "all") --
+       the names go through structure() instead, where they survive the
+       round trip.  Under niceNames alone the output is for reading
+       rather than for sourcing, and the tidier form wins, as it does
+       for raw. */
+    bool STR_names = do_names && (d_opts_in & SHOWATTRIBUTES);
+    if (STR_names) d->opts &= ~NICE_NAMES;
+
+    attr_type attr = (d_opts_in & SHOW_ATTR_OR_NMS) ? attr1(v, d) : SIMPLE;
+    if (do_names) do_names = (attr == OK_NAMES || attr == STRUC_ATTR);
+
     if (n == 0) {
 	snprintf(buf, sizeof buf, "bytes(0L, %dL, \"%s\"%s)", w, kind, na);
 	print2buff(buf, d);
-	return;
     }
+    else {
+	bool need_c = n > 1 || do_names;	/* c(a = *) but not c(1) */
 
-    print2buff("as.bytes(", d);
-    if (n > 1) print2buff("c(", d);
+	print2buff("as.bytes(", d);
+	if (need_c) print2buff("c(", d);
 
-    for (R_xlen_t i = 0; i < n; i++) {
-	const Rbyte *p = BYTEVEC_ELT_RO(v, i);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    const Rbyte *p = BYTEVEC_ELT_RO(v, i);
 
-	if (BYTEVEC_HAS_NA(v) && R_bytesEltIsNA(p, w, k))
-	    print2buff("NA_character_", d);
-	else {
-	    /* digits, '-' and hex only, so no escaping is in question */
-	    print2buff("\"", d);
-	    print2buff(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
-					   : R_bytesEltDecimal(p, w, k), d);
-	    print2buff("\"", d);
+	    if (do_names) deparse2buf_name(nv, (int) i, d);
+
+	    if (BYTEVEC_HAS_NA(v) && R_bytesEltIsNA(p, w, k))
+		print2buff("NA_character_", d);
+	    else {
+		/* digits, '-' and hex only, so no escaping is in question */
+		print2buff("\"", d);
+		print2buff(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
+					       : R_bytesEltDecimal(p, w, k), d);
+		print2buff("\"", d);
+	    }
+
+	    if (i < n - 1) print2buff(", ", d);
+	    if (d->len > d->cutoff) writeline(d);
+	    if (!d->active) break;
 	}
 
-	if (i < n - 1) print2buff(", ", d);
-	if (d->len > d->cutoff) writeline(d);
-	if (!d->active) break;
+	if (need_c) print2buff(")", d);
+	snprintf(buf, sizeof buf, ", %dL, \"%s\"%s)", w, kind, na);
+	print2buff(buf, d);
     }
 
-    if (n > 1) print2buff(")", d);
-    snprintf(buf, sizeof buf, ", %dL, \"%s\"%s)", w, kind, na);
-    print2buff(buf, d);
+    if (attr >= STRUC_ATTR) attr2(v, d, (attr == STRUC_ATTR));
+    if (STR_names) d->opts = d_opts_in;
+    UNPROTECT(1); /* nv */
 }
 
 static void vector2buff(SEXP vector, LocalParseData *d)

@@ -27,7 +27,7 @@ x  <- as.bytes(as.raw(1:32), 16L)
 y  <- as.bytes(as.raw(33:64), 16L)
 x2 <- as.bytes(as.raw(1:32), 16L)
 x8 <- as.bytes(as.raw(1:32), 8L)
-na16 <- bytesNA(1L, 16L)
+na16 <- as.bytes(NA, 16L)
 
 cat("== A. type identity ==\n")
 ## the R-level type name is derived from (kind, width), the way
@@ -99,8 +99,8 @@ res <- tryCatch({
 ok("100 alloc/dup cycles + large vector", res)
 
 cat("\n== E. NA (all-0xFF sentinel) ==\n")
-na4 <- bytesNA(1L, 4L)
-ok("bytesNA is NA",              all(is.na(bytesNA(2L, 4L))))
+na4 <- as.bytes(NA, 4L)
+ok("as.bytes(NA) is NA",         all(is.na(rep(as.bytes(NA, 4L), 2L))))
 ok("OOB subscript -> NA",        is.na(x[99]))
 ok("NA subscript -> NA",         is.na(x[NA_integer_]))
 ok("length<- grows with NA",     { z <- x; length(z) <- 4L; identical(is.na(z), c(FALSE,FALSE,TRUE,TRUE)) })
@@ -114,6 +114,12 @@ ok("ingest of 0xFF warns",       { w <- NULL
                                            invokeRestart("muffleWarning") })
                                    is.na(r) && grepl("reserved", w) })
 ok("NA propagates through ==",   is.na((x[99] == x[1])))
+## NA is the one thing an opaque element takes from a logical or
+## integer vector: it is the absence of a value, not a value
+ok("opaque takes NA by assign",  { z <- x; z[1] <- NA; identical(is.na(z), c(TRUE, FALSE)) })
+ok("opaque takes NA by c()",     is.na(c(x, NA)[3]))
+ok("opaque still refuses TRUE",  inherits(tryCatch(as.bytes(TRUE, 4L), error = identity), "error"))
+ok("opaque still refuses 1L",    inherits(tryCatch({ z <- x; z[1] <- 1L; z }, error = identity), "error"))
 
 cat("\n== F. subsetting ==\n")
 ok("x[i]",                       identical(bytesRaw(x[1]), as.raw(1:16)))
@@ -161,7 +167,10 @@ ok("match",                      identical(match(x, c(y, x)), c(3L, 4L)))
 ok("match, length-1 needle",     identical(match(x[2], x), 2L))
 ok("match, length-1 no-match",   is.na(match(y[1], x)))
 ok("%in%, length-1",             (x[2] %in% x) && !(y[1] %in% x))
-ok("match, length-1 width clash", is.na(match(x8[1], x)))
+## match() is the same equality relation as ==, so a width, kind or
+## NA-reservation clash is refused there too: reporting "absent" instead
+## made setdiff() and %in% disagree with union(), intersect() and ==
+ok("match, length-1 width clash", inherits(tryCatch(match(x8[1], x), error = identity), "error"))
 ok("match no-match is NA",       is.na(match(y[1], x)))
 ok("%in%",                       identical(x %in% c(x, y), c(TRUE, TRUE)))
 ok("unique",                     identical(unique(c(x, x)), x))
@@ -173,7 +182,7 @@ ok("lapply",                     length(lapply(x, function(e) e)) == 2L)
 
 cat("\n== K. ordering ==\n")
 o <- as.bytes(as.raw(rep(c(3,1,2), each = 4)), 4L)
-on <- c(o[1:2], bytesNA(1L, 4L), o[3])
+on <- c(o[1:2], as.bytes(NA, 4L), o[3])
 ok("sort",                       identical(bytesRaw(sort(o)),
                                            as.raw(rep(c(1,2,3), each = 4))))
 ok("sort decreasing",            identical(sort(o, decreasing = TRUE), rev(sort(o))))
@@ -286,8 +295,8 @@ ok("uint NA is UINT_MAX",        is.na(suppressWarnings(mk("unsigned", 8L, "ffff
 ok("int NA is INT_MIN",          is.na(suppressWarnings(mk("signed", 8L, "8000000000000000"))))
 ok("int -1 is NOT NA",           !is.na(mk("signed", 8L, "ffffffffffffffff")))
 ok("uint 2^63 is NOT NA",        !is.na(mk("unsigned", 8L, "8000000000000000")))
-ok("bytesNA per kind",           is.na(bytesNA(1L, 8L, "signed")) &&
-                                 is.na(bytesNA(1L, 8L, "unsigned")))
+ok("typed NA per kind",          is.na(as.bytes(NA, 8L, "signed")) &&
+                                 is.na(as.bytes(NA, 8L, "unsigned")))
 ok("128-bit decimal",            identical(as.character(
      mk("signed", 16L, "7fffffffffffffffffffffffffffffff")),
      "170141183460469231731687303715884105727"))
@@ -299,7 +308,7 @@ ok("opaque still lexicographic", identical(order(x), 1:2) &&
 ok("kinds do not combine",       inherits(tryCatch(c(u, sg), error = identity), "error"))
 ok("kinds do not compare",       inherits(tryCatch(u == sg, error = identity), "error"))
 ok("kinds are not identical",    !identical(u[1], sg[1]))
-ok("kinds do not match",         is.na(match(u[1], sg[1])))
+ok("kinds do not match",         inherits(tryCatch(match(u[1], sg[1]), error = identity), "error"))
 ok("round-trip to raw is exact", identical(bytesRaw(u), bytesRaw(c(u))))
 
 cat("\n== P. arithmetic ==\n")
@@ -321,7 +330,7 @@ ok("^ yields double",            identical(a[2] ^ a[3], 8))
 ok("promotion to max(width)",    { r <- mk("unsigned", 4L, "00000007") + a[3]
                                    bytesWidth(r) == 8L && as.character(r) == "10" })
 ok("result keeps the kind",      identical(bytesKind(a + a), "unsigned"))
-ok("NA propagates",              is.na(a[1] + bytesNA(1L, 8L, "unsigned")))
+ok("NA propagates",              is.na(a[1] + as.bytes(NA, 8L, "unsigned")))
 ok("unsigned overflow -> NA",    { r <- suppressWarnings(mk("unsigned",8L,"fffffffffffffff0") +
                                                          mk("unsigned",8L,"fffffffffffffff0"))
                                    is.na(r) })
@@ -348,8 +357,8 @@ ok("range",                      identical(as.character(range(a)), c("1", "3")))
 ok("sum keeps kind and width",   { r <- sum(a); bytesKind(r) == "unsigned" && bytesWidth(r) == 8L })
 ok("min on signed",              identical(as.character(min(b)), "-5"))
 ok("sum over several args",      identical(as.character(sum(a, a)), "12"))
-ok("NA without na.rm",           is.na(sum(c(a, bytesNA(1L, 8L, "unsigned")))))
-ok("na.rm = TRUE",               identical(as.character(sum(c(a, bytesNA(1L,8L,"unsigned")),
+ok("NA without na.rm",           is.na(sum(c(a, as.bytes(NA, 8L, "unsigned")))))
+ok("na.rm = TRUE",               identical(as.character(sum(c(a, as.bytes(NA,8L,"unsigned")),
                                                             na.rm = TRUE)), "6"))
 ok("sum overflow -> NA",         is.na(suppressWarnings(sum(mk("unsigned",8L,"fffffffffffffff0",
                                                                              "fffffffffffffff0")))))
@@ -369,7 +378,7 @@ ok("as.numeric warns past 2^53", { got <- FALSE
                                        warning = function(cnd) { got <<- TRUE
                                                                  invokeRestart("muffleWarning") })
                                    got })
-ok("as.integer of NA",           is.na(as.integer(bytesNA(1L, 8L, "signed"))))
+ok("as.integer of NA",           is.na(as.integer(as.bytes(NA, 8L, "signed"))))
 ok("coercion from opaque errors",
                                  inherits(tryCatch(as.integer(x), error = identity), "error"))
 ok("cumsum routes via double",   identical(cumsum(a), c(1, 3, 6)))
@@ -388,8 +397,8 @@ ok("int128 round-trips",         identical(rt(i128), i128))
 ok("opaque round-trips",         identical(rt(x), x))
 ok("odd width round-trips",      identical(rt(b3), b3))
 ok("values survive",             identical(as.character(rt(i128)), as.character(i128)))
-ok("NA survives",                identical(rt(bytesNA(2L, 8L, "signed")),
-                                           bytesNA(2L, 8L, "signed")))
+ok("NA survives",                identical(rt(rep(as.bytes(NA, 8L, "signed"), 2L)),
+                                           rep(as.bytes(NA, 8L, "signed"), 2L)))
 ok("ascii format",               identical(rt(u64, ascii = TRUE), u64))
 ok("xdr = FALSE",                identical(rt(u64, xdr = FALSE), u64))
 ok("attributes survive",         { y <- u64; names(y) <- c("a","b","c"); identical(rt(y), y) })
@@ -429,7 +438,7 @@ ok("deparse names the kind",     grepl("\"unsigned\"", paste(deparse(u64), colla
 ## as.bytes would have to warn about
 ok("deparse is the text form",   identical(deparse(as.bytes("42", 8L, "signed")),
                                            "as.bytes(\"42\", 8L, \"signed\")"))
-ok("NA deparses silently",       { na1 <- bytesNA(2L, 8L, "unsigned")
+ok("NA deparses silently",       { na1 <- rep(as.bytes(NA, 8L, "unsigned"), 2L)
                                    txt <- paste(deparse(na1), collapse = "")
                                    z <- withCallingHandlers(
                                        eval(parse(text = txt)),
@@ -724,14 +733,17 @@ ok("^ still exponentiates",      identical(s8 ^ 2L, 4))
 
 ## a length outside the R_xlen_t range is checked rather than cast
 ok("bytes() checks its length",  inherits(tryCatch(bytes(1e30, 8L), error = identity), "error"))
-ok("bytesNA() checks its length",inherits(tryCatch(bytesNA(1e30, 8L), error = identity), "error"))
 
-## with na = FALSE the reserved pattern is a legitimate value, so it must
-## not match an NA -- on the scalar fast path or through the hash table
+## with na = FALSE the reserved pattern is a legitimate value, which
+## makes the two vectors different types -- so match() refuses the pair
+## on both the scalar fast path and through the hash table, rather than
+## reporting the value absent
 w255 <- as.bytes(as.raw(rep(255, 4)), 4L, "unsigned", na = FALSE)
-wNA  <- bytesNA(1L, 4L, "unsigned")
-ok("a real 0xFF.. is not NA",    is.na(match(w255, wNA)) &&
-                                 all(is.na(match(c(w255, w255), c(wNA, wNA)))))
+wNA  <- as.bytes(NA, 4L, "unsigned")
+ok("a real 0xFF.. is not NA",    !is.na(w255) && is.na(wNA))
+ok("an NA clash is refused",     inherits(tryCatch(match(w255, wNA), error = identity), "error") &&
+                                 inherits(tryCatch(match(c(w255, w255), c(wNA, wNA)),
+                                                   error = identity), "error"))
 ok("and still matches itself",   identical(match(w255, c(w255, w255)), 1L))
 
 ## the zero-length answer is built while both operands are still
@@ -742,7 +754,7 @@ ok("zero-length arithmetic",     { gctorture(TRUE)
 
 ## sortVector's two paths order the reserved pattern the same way
 ok("both sort paths agree on NA", {
-    v  <- c(u8, bytesNA(1L, 8L, "unsigned"))
+    v  <- c(u8, as.bytes(NA, 8L, "unsigned"))
     op <- suppressWarnings(as.bytes(bytesRaw(v), 8L))
     identical(which(is.na(sort(v,  na.last = TRUE))),
               which(is.na(sort(op, na.last = TRUE)))) })
@@ -922,7 +934,7 @@ ok("opaque shifts are MSB-first",identical(as.character(bitwShiftR(ip, 8L)),
 ok("width 32 works",             { h <- as.bytes(strrep("a5", 32), 32L)
                                    identical(bitwNot(bitwNot(h)), h) })
 
-ok("NA propagates",              is.na(bitwAnd(bytesNA(1L, 8L, "unsigned"), u1)))
+ok("NA propagates",              is.na(bitwAnd(as.bytes(NA, 8L, "unsigned"), u1)))
 ok("a reserved result warns",    { w <- NULL
                                    v <- withCallingHandlers(
                                        bitwNot(as.bytes("0", 8L, "unsigned")),
@@ -1125,7 +1137,7 @@ ok("as.raw of small values",     identical(suppressWarnings(
     as.raw(as.bytes(c("0", "1", "255"), 8L, "unsigned"))), as.raw(c(0, 1, 255))))
 ok("out of range gives 00",      identical(suppressWarnings(
     as.raw(as.bytes(c("256", "-1"), 8L, "signed"))), as.raw(c(0, 0))))
-ok("NA gives 00, as for integer",identical(suppressWarnings(as.raw(bytesNA(1L, 8L, "signed"))),
+ok("NA gives 00, as for integer",identical(suppressWarnings(as.raw(as.bytes(NA, 8L, "signed"))),
                                            suppressWarnings(as.raw(NA_integer_))))
 probe("as.raw of opaque",        as.raw(opq))
 
@@ -1150,6 +1162,94 @@ probe("vapply, wrong type entirely", vapply(1:2, function(i) 1L, b[1]))
 ok("tryWrap leaves it alone",    identical(.Internal(tryWrap(b)), b))
 ok("and does wrap an integer",   { w <- .Internal(tryWrap(c(1L, 2L)))
                                    identical(w, c(1L, 2L)) })
+
+cat("\n== Z11. what the second review pass turned up ==\n")
+
+## as.vector() has to strip attributes from its *result*, not from its
+## argument.  Without an arm of its own BYTESXP fell through to a
+## CLEAR_ATTRIB() that was still aliasing the caller's vector, so a bare
+## as.vector(b) -- or any of union(), intersect(), setdiff(), which call
+## it -- emptied b's own attributes.
+av <- as.bytes(as.character(1:4), 8L, "unsigned")
+names(av) <- letters[1:4]
+avd <- as.bytes(as.character(1:4), 8L, "unsigned")
+dim(avd) <- c(2L, 2L)
+invisible(as.vector(av)); invisible(as.vector(avd))
+ok("as.vector leaves names alone", identical(names(av), letters[1:4]))
+ok("as.vector leaves dim alone",   identical(dim(avd), c(2L, 2L)))
+ok("and still strips its result",  is.null(attributes(as.vector(av))))
+invisible(tryCatch(union(av, av), error = identity))
+ok("union leaves names alone",     identical(names(av), letters[1:4]))
+
+## write.table() renders NA through its own isna(), which had no BYTESXP
+## case: the na= string was ignored and the literal text NA written
+wt <- as.bytes(c("1", "2"), 8L, "unsigned"); wt[2] <- NA
+wtf <- tempfile()
+write.table(data.frame(k = wt), wtf, na = "", row.names = FALSE,
+            col.names = FALSE, quote = FALSE)
+ok("write.table honours na=",      identical(readLines(wtf), c("1", "")))
+write.table(as.matrix(wt), wtf, na = "-", row.names = FALSE,
+            col.names = FALSE, quote = FALSE)
+ok("and on the matrix path too",   identical(readLines(wtf), c("1", "-")))
+unlink(wtf)
+
+## a value past DBL_MAX is not an imprecise double, it is not a double at
+## all, and the two report separately
+vbig <- as.bytes(as.raw(rep(255, 255)), 255L, "unsigned", na = FALSE)
+v128 <- as.bytes(as.raw(rep(255, 16)), 16L, "unsigned", na = FALSE)
+ok("overflow says so",             grepl("beyond the range of double",
+                                         tryCatch(as.numeric(vbig),
+                                                  warning = conditionMessage)))
+ok("precision loss still says so", grepl("2\\^53",
+                                         tryCatch(as.numeric(v128),
+                                                  warning = conditionMessage)))
+
+## PrintGenericVector renders a length-1 element into a 115-byte buffer,
+## which a wide one overruns; a number cut to fit is a different number,
+## so it falls back to the summary the other arms print
+pg <- list(vbig, vbig, vbig, vbig); dim(pg) <- c(2L, 2L)
+ok("no truncated number printed",  {
+    out <- capture.output(print(pg))
+    !any(grepl("^[0-9]{50,}", trimws(out))) && any(grepl("uint2040,1", out)) })
+
+## coerceVector() is not as.vector(): '/' and '^' read the coerced
+## operand's dim and names back out, so the coercion has to keep them
+cm <- as.bytes(as.character(1:4), 8L, "signed"); dim(cm) <- c(2L, 2L)
+cn <- as.bytes(c("1", "2"), 8L, "signed"); names(cn) <- c("a", "b")
+ok("/ keeps dim",                  identical(dim(cm / 2), c(2L, 2L)))
+ok("^ keeps names",                identical(names(cn ^ 2), c("a", "b")))
+
+## deparse has to emit the attributes, or dump()/source() silently
+## returns a different object
+dp <- as.bytes(c("1", "5"), 8L, "unsigned"); names(dp) <- c("a", "b")
+dq <- as.bytes(c("1", "2"), 8L, "unsigned"); attr(dq, "units") <- "ns"
+ok("deparse keeps names",          identical(names(eval(parse(text = deparse(dp)))),
+                                             c("a", "b")))
+ok("deparse keeps other attrs",    identical(attr(eval(parse(text = deparse(dq))), "units"),
+                                             "ns"))
+ok("and a plain vector stays plain",
+   identical(deparse(as.bytes(c("1", "2"), 8L, "unsigned")),
+             "as.bytes(c(\"1\", \"2\"), 8L, \"unsigned\")"))
+
+## integer_binary() and real_binary() end in copyMostAttrib(), and the
+## unary kernels work in a duplicate(), so every attribute survives
+ar <- as.bytes(c("1", "2"), 8L, "signed"); attr(ar, "units") <- "ns"
+ok("+ keeps other attrs",          identical(attr(ar + ar, "units"), "ns"))
+ok("unary - keeps them",           identical(attr(-ar, "units"), "ns"))
+ok("mixed operand keeps them",     identical(attr(ar * 2L, "units"), "ns"))
+## and a zero-length result is bare, which is what integer_binary() and
+## real_binary() return: the point is to match them, in both directions
+az <- as.bytes(character(0), 8L, "signed"); attr(az, "units") <- "ns"
+iz <- integer(0); attr(iz, "units") <- "ns"
+ok("zero length matches integer",  identical(attributes(az + az), attributes(iz + iz)))
+
+## and the set operations now agree with c(), == and union() on the very
+## same pair of vectors
+m4 <- as.bytes(c("1", "2"), 4L, "unsigned")
+m8 <- as.bytes(c("1", "2", "3"), 8L, "unsigned")
+ok("setdiff refuses a clash",      inherits(tryCatch(setdiff(m4, m8), error = identity), "error"))
+ok("%in% refuses a clash",         inherits(tryCatch(m4 %in% m8, error = identity), "error"))
+ok("and matching still works",     identical(match(m8[2:3], m8), 2:3))
 
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)

@@ -115,7 +115,7 @@ width round-trips through save/load for free.
 | `src/main/inspect.c` | width and payload display |
 | `src/main/names.c`, `src/include/Internal.h` | four `.Internal`s |
 | `src/main/Makefile.{in,win}` | both list sources; Windows was the wide-int CI failure |
-| `src/library/base/R/bytes.R` | `bytes`, `as.bytes`, `bytesNA`, `bytesRaw`, `bytesWidth`, `is.bytes` |
+| `src/library/base/R/bytes.R` | `bytes`, `as.bytes`, `bytesRaw`, `bytesWidth`, `is.bytes` |
 
 Stage 2 added:
 

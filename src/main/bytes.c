@@ -689,7 +689,10 @@ SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 	return bytesFromString(x, width, kind, hasNA);
 
     if (TYPEOF(x) == INTSXP || TYPEOF(x) == LGLSXP) {
-	if (kind == BYTEVEC_OPAQUE)
+	/* NA is the absence of a value rather than a value, so it is the
+	   one thing an opaque element can take from a number vector --
+	   as.bytes(NA, width, kind) is how a missing one is written */
+	if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
 	    error(_("cannot convert type '%s' to an opaque '%s' vector: its elements are byte strings, not numbers"),
 		  R_typeToChar(x), "bytes");
 
@@ -732,25 +735,6 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 
     return R_bytesConvert(CAR(args), checkWidth(CADR(args)),
 			  checkKind(CADDR(args)), checkNA(CADDDR(args)), call);
-}
-
-/* bytesNA(length, width, kind) */
-attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    checkArity(op, args);
-
-    R_xlen_t len = asVecSize(CAR(args));	/* see do_bytes */
-    if (len < 0)
-	error(_("invalid '%s' argument"), "length");
-    int width = checkWidth(CADR(args));
-    int kind = checkKind(CADDR(args));
-
-    SEXP val = PROTECT(R_allocBytesVector(len, width, kind, TRUE));
-    for (R_xlen_t i = 0; i < XLENGTH(val); i++)
-	R_bytesSetEltNA(BYTEVEC_ELT(val, i), width, kind);
-    UNPROTECT(1);
-
-    return val;
 }
 
 /* Numeric elements are stored in native byte order, but must go onto

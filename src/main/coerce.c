@@ -1588,6 +1588,11 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	/* BYTESXP belongs here for the same reason RAWSXP does: without an
+	   arm of its own it falls through to the CLEAR_ATTRIB() at the end
+	   of this function still aliasing the argument, and so strips the
+	   caller's own vector rather than the result */
+	case BYTESXP:
 	    if(ATTRIB(x) == R_NilValue) return x;
 	    ans  = MAYBE_REFERENCED(x) ? duplicate(x) : x;
 	    CLEAR_ATTRIB(ans);

@@ -737,6 +737,25 @@ SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call)
     return ans;
 }
 
+/* Whether x is a logical or integer vector holding nothing but NA.
+   NA_LOGICAL and NA_INTEGER are the same value, so one test serves
+   both. */
+attribute_hidden
+bool R_bytesAllNA(SEXP x)
+{
+    SEXPTYPE t = TYPEOF(x);
+
+    if (t != INTSXP && t != LGLSXP)
+	return false;
+
+    R_xlen_t n = XLENGTH(x);
+    for (R_xlen_t i = 0; i < n; i++)
+	if ((t == INTSXP ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i)) != NA_INTEGER)
+	    return false;
+
+    return true;
+}
+
 /* Narrow a logical or integer vector into a 'bytes' vector of the given
    kind and width.
 
@@ -755,7 +774,11 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 {
     SEXPTYPE t = TYPEOF(x);
 
-    if (kind == BYTEVEC_OPAQUE)
+    /* An opaque element is a byte string, so there is no number to read
+       into one.  NA is the exception: it is the absence of a value
+       rather than a value, and every kind reserves a sentinel for it,
+       so NA is the one right-hand side an opaque vector can take. */
+    if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
 	errorcall(call,
 		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
 		  R_typeToChar(x));
@@ -812,12 +835,27 @@ static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
 
 /* ---- vector level ---- */
 
+/* dim, dimnames and names belong to R_binary(), which restores them from
+   the operands it was given.  Every other attribute comes from an
+   operand of the result's length, x last so that its own win -- the
+   rule integer_binary() and real_binary() end with. */
+static void bytesCopyMostAttrib(SEXP ans, SEXP x, SEXP y, R_xlen_t n)
+{
+    if (n == XLENGTH(y) && ATTRIB(y) != R_NilValue) copyMostAttrib(y, ans);
+    if (n == XLENGTH(x) && ATTRIB(x) != R_NilValue) copyMostAttrib(x, ans);
+}
+
 attribute_hidden
 SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 {
     if ((TYPEOF(x) == BYTESXP && BYTEVEC_KIND(x) == BYTEVEC_OPAQUE) ||
 	(TYPEOF(y) == BYTESXP && BYTEVEC_KIND(y) == BYTEVEC_OPAQUE))
 	errorcall(call, _("arithmetic is not defined for opaque 'bytes' vectors"));
+
+    /* bytesBinaryOperands() replaces a non-'bytes' operand with a
+       narrowed temporary, which carries none of the caller's
+       attributes; those have to be read from the operands as given */
+    SEXP ox = PROTECT(x), oy = PROTECT(y);
 
     int w, kx;
     PROTECT_INDEX xi, yi;
@@ -835,9 +873,12 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     if (nx == 0 || ny == 0) {
 	/* x may be a narrowed temporary held only by the index above, so
 	   it has to outlive the allocation that reads its NA flag */
+	/* bare, as integer_binary() and real_binary() return it: both
+	   leave for a zero-length result before their copyMostAttrib()
+	   tail, and this is the same operation on the same operands */
 	SEXP val = R_allocBytesVector(0, w, kx,
 				      BYTEVEC_HAS_NA(x) ? TRUE : FALSE);
-	UNPROTECT(2); /* x, y */
+	UNPROTECT(4); /* y, x, oy, ox */
 
 	return val;
     }
@@ -895,7 +936,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	case IDIVOP:  ok = eltDivMod(pa, px, py, w, kx, true, hasNA); break;
 	case MODOP:   ok = eltDivMod(pa, px, py, w, kx, false, hasNA); break;
 	default:
-	    UNPROTECT(3); /* x, y, ans */
+	    UNPROTECT(5); /* ans, y, x, oy, ox */
 	    errorcall(call,
 		      _("this operator is not defined for 'bytes' vectors"));
 	}
@@ -912,7 +953,8 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 		    ? _("NAs produced by division by zero or overflow")
 		    : _("NAs produced by integer overflow"));
 
-    UNPROTECT(3); /* x, y, ans */
+    bytesCopyMostAttrib(ans, ox, oy, n);
+    UNPROTECT(5); /* ans, y, x, oy, ox */
 
     return ans;
 }
@@ -939,14 +981,11 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
     R_xlen_t nOver = 0;
 
     /* R_unary() hands the result straight back to do_arith, so the
-       attributes the other unary kernels keep have to be kept here */
-    SEXP names = PROTECT(getAttrib(x, R_NamesSymbol));
-    SEXP dim = PROTECT(getAttrib(x, R_DimSymbol));
-    SEXP dimnames = PROTECT(getAttrib(x, R_DimNamesSymbol));
-    if (names != R_NilValue) setAttrib(ans, R_NamesSymbol, names);
-    if (dim != R_NilValue) setAttrib(ans, R_DimSymbol, dim);
-    if (dimnames != R_NilValue) setAttrib(ans, R_DimNamesSymbol, dimnames);
-    UNPROTECT(3);
+       attributes the other unary kernels keep have to be kept here.
+       integer_unary() and real_unary() work in a duplicate() of the
+       operand, which is every attribute, not just the three R_binary()
+       would have restored. */
+    SHALLOW_DUPLICATE_ATTRIB(ans, x);
 
     /* hoisted as in R_bytesArith(); nothing here allocates */
     const Rbyte *bx = BYTEVEC_DATA_RO(x);
@@ -1010,7 +1049,11 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 
     bool hasNA = BYTEVEC_HAS_NA(x);
     SEXP ans = PROTECT(allocVector(type, n));
-    R_xlen_t nLost = 0;
+    /* as coerceToReal() and the rest of the coerceToXXX() family do:
+       coerceVector() is not as.vector(), and its caller is entitled to
+       the dim and names of what it handed in */
+    SHALLOW_DUPLICATE_ATTRIB(ans, x);
+    R_xlen_t nLost = 0, nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
@@ -1040,9 +1083,13 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 	    else INTEGER0(ans)[i] = (int) d;
 	}
 	else {
-	    /* 2^53 is where a double stops being able to name every
-	       integer; past it the value is approximate */
-	    if (fabs(d) > 9007199254740992.0) nLost++;
+	    /* Two different failures, and the wider widths reach both:
+	       past 2^53 a double can no longer name every integer, and
+	       past DBL_MAX it cannot name the value at all.  The second
+	       is not a rounding of the value, so it does not report as
+	       one. */
+	    if (!R_FINITE(d)) nOver++;
+	    else if (fabs(d) > 9007199254740992.0) nLost++;
 	    REAL0(ans)[i] = d;
 	}
     }
@@ -1053,6 +1100,8 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 		: (type == INTSXP
 		   ? _("NAs introduced by coercion to integer range")
 		   : _("'bytes' values above 2^53 lose precision as double")));
+    if (nOver)
+	warning(_("'bytes' values beyond the range of double coerced to Inf"));
 
     UNPROTECT(1);
 

@@ -242,7 +242,6 @@ SEXP do_numToBits(SEXP, SEXP, SEXP, SEXP);
 SEXP do_numToInts(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bytes(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asbytes(SEXP, SEXP, SEXP, SEXP);
-SEXP do_bytesna(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bytesraw(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bytesis(SEXP, SEXP, SEXP, SEXP);
 SEXP do_byteshasna(SEXP, SEXP, SEXP, SEXP);

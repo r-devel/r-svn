@@ -6,7 +6,6 @@
 \name{bytes}
 \alias{bytes}
 \alias{as.bytes}
-\alias{bytesNA}
 \alias{bytesHasNA}
 \alias{bytesRaw}
 \alias{bytesKind}
@@ -24,9 +23,6 @@ bytes(length = 0L, width = 1L,
 
 as.bytes(x, width = 1L,
          kind = c("opaque", "unsigned", "signed"), na = TRUE)
-
-bytesNA(length = 1L, width = 1L,
-        kind = c("opaque", "unsigned", "signed"))
 
 is.bytes(x)
 bytesWidth(x)
@@ -94,6 +90,11 @@ bytesRaw(x)
   need all three, such as \code{\link{readBin}} and \code{\link{scan}},
   accept an existing vector in place of a name.
 
+  There is no literal for a missing \code{bytes} value, since the
+  sentinel's bit pattern depends on the width and the kind:
+  \code{as.bytes(NA, width, kind)} writes one, and \code{\link{rep}}
+  makes a vector of them.
+
   Arithmetic (\code{+}, \code{-}, \code{*}, \code{\%/\%}, \code{\%\%} and
   unary minus) is defined for the numeric kinds at widths 1, 2, 4, 8 and
   16; wider elements are storage only.  Integer and logical operands
@@ -113,8 +114,7 @@ bytesRaw(x)
   will not fit.
 }
 \value{
-  \code{bytes} and \code{bytesNA} return a vector of \code{length}
-  elements, zero-filled and all-\code{NA} respectively.
+  \code{bytes} returns a zero-filled vector of \code{length} elements.
 
   \code{as.bytes} converts \code{x}.  A raw vector is reinterpreted
   verbatim, so its length must be a multiple of \code{width}.  A
@@ -122,7 +122,8 @@ bytesRaw(x)
   the opaque one, the inverse of \code{\link{as.character}} -- with
   \code{NA_character_} giving \code{NA}, and text that is not a number
   or does not fit giving \code{NA} with a warning.  Integer and logical
-  vectors narrow.
+  vectors narrow, except into the opaque kind, which takes no number:
+  there \code{NA} converts and everything else is an error.
 
   Another \code{bytes} vector is converted between widths and between
   the two numeric kinds, preserving the value: a value that does not fit

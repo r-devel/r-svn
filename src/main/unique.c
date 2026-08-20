@@ -337,10 +337,13 @@ static int bytesequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (i < 0 || j < 0) return 0;
 
     int w = BYTEVEC_WIDTH(x);
-    /* differing widths or kinds are never equal; the hashes differ too,
-       but a table can hold both sides of a match() so check explicitly.
-       Whether a value is reserved for NA is part of the type in the same
-       way: without it a genuine all-0xFF datum would match an NA. */
+    /* A backstop.  match5() rejects a width, kind or NA-reservation
+       clash before hashing, and every other caller compares a vector
+       with itself, so these should not fire; a mismatch that reached
+       here would otherwise memcmp() across two different element
+       widths.  Whether a value is reserved for NA counts as part of the
+       type in the same way: without it a genuine all-0xFF datum would
+       equal an NA. */
     if (BYTEVEC_WIDTH(y) != w) return 0;
     if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x)) return 0;
     if (BYTEVEC_HAS_NA(y) != BYTEVEC_HAS_NA(x)) return 0;
@@ -1442,9 +1445,18 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	if(TYPEOF(x) != TYPEOF(table))
 	    error(_("cannot match 'bytes' against type '%s'"),
 		  R_typeToChar(TYPEOF(x) == BYTESXP ? table : x));
-	/* a width, kind or NA-reservation clash is not an error here, only
-	   a value that cannot be present: bytesequal() reports no match,
-	   as identical() reports FALSE */
+	/* match() is the same equality relation as ==, so it is refused
+	   on the same terms: a width, kind or NA-reservation clash is a
+	   mistake to report, not a set of values to report absent.
+	   Answering "no match" instead would make setdiff() and %in%
+	   quietly disagree with union(), intersect() and == on the very
+	   same pair of vectors. */
+	if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
+	    error(_("cannot match 'bytes' vectors of widths %d and %d"),
+		  BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
+	if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
+	    error(_("cannot match 'bytes' vectors of different kinds"));
+	R_bytesCheckSameNA(x, table);
 	type = BYTESXP;
     }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
@@ -1509,18 +1521,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	      }
 	  break; }
       case BYTESXP: {
-	  /* the same three properties bytesequal() insists on: a vector that
-	     reserves no NA can hold the reserved pattern as a real value */
+	  /* width, kind and NA reservation already agree: the check above
+	     rejected the alternative rather than reporting no match */
 	  int w = BYTEVEC_WIDTH(x);
-	  if (BYTEVEC_WIDTH(table) == w &&
-	      BYTEVEC_KIND(table) == BYTEVEC_KIND(x) &&
-	      BYTEVEC_HAS_NA(table) == BYTEVEC_HAS_NA(x)) {
-	      const Rbyte *x_val = BYTEVEC_ELT_RO(x, 0);
-	      for (int i=0; i < ntable; i++)
-		  if (!memcmp(BYTEVEC_ELT_RO(table, i), x_val, (size_t) w)) {
-		      val = i + 1; break;
-		  }
-	  }
+	  const Rbyte *x_val = BYTEVEC_ELT_RO(x, 0);
+	  for (int i=0; i < ntable; i++)
+	      if (!memcmp(BYTEVEC_ELT_RO(table, i), x_val, (size_t) w)) {
+		  val = i + 1; break;
+	      }
 	  break; }
       }
       PROTECT(ans = ScalarInteger(val)); nprot++;

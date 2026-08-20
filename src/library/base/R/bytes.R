@@ -44,10 +44,6 @@ as.bytes <- function(x, width = 1L,
                      kind = c("opaque", "unsigned", "signed"), na = TRUE)
     .Internal(as.bytes(x, width, match.arg(kind), na))
 
-bytesNA <- function(length = 1L, width = 1L,
-                    kind = c("opaque", "unsigned", "signed"))
-    .Internal(bytesNA(length, width, match.arg(kind)))
-
 bytesHasNA <- function(x) .Internal(bytesHasNA(x))
 
 bytesRaw <- function(x) .Internal(bytesRaw(x))
