@@ -30,6 +30,8 @@
 #include <Parse.h>
 #include <Defn.h> /*-- Maybe modularize into own Coerce.h ..*/
 #include <Internal.h>
+#include <R_ext/Itermacros.h>  /* ITERATE_BY_REGION; was included further
+				  down, where only anyNA() could see it */
 #include <float.h> /* for DBL_DIG */
 #define R_MSG_mode	_("invalid 'mode' argument")
 #define R_MSG_list_vec	_("applies only to lists and vectors")
@@ -450,6 +452,21 @@ static SEXP coerceToSymbol(SEXP v)
     return ans;
 }
 
+/* Every coercion branch below has the same shape: run an element
+   converter over the source, a region at a time.  Reading through the
+   element-at-a-time accessors instead costs a dispatch per element for
+   an ALTREP source, and for any source a per-element branch on the
+   header that the compiler cannot hoist past the writes to the answer,
+   which is enough to stop the loop vectorising.
+
+   A RAWSXP source relies on Rbyte widening to int in the call, as it
+   did through the explicit cast this replaced. */
+#define COERCE_BY_REGION(v, pa, etype, vtype, CONV)			\
+    ITERATE_BY_REGION(v, cbr_p, cbr_i, cbr_n, etype, vtype, {		\
+	    for (R_xlen_t k = 0; k < cbr_n; k++)			\
+		pa[cbr_i + k] = CONV(cbr_p[k], &warn);			\
+	})
+
 static SEXP coerceToLogical(SEXP v)
 {
     SEXP ans;
@@ -466,22 +483,13 @@ static SEXP coerceToLogical(SEXP v)
     SHALLOW_DUPLICATE_ATTRIB(ans, v);
     switch (TYPEOF(v)) {
     case INTSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = LogicalFromInteger(INTEGER_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, int, INTEGER, LogicalFromInteger);
 	break;
     case REALSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = LogicalFromReal(REAL_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, double, REAL, LogicalFromReal);
 	break;
     case CPLXSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = LogicalFromComplex(COMPLEX_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rcomplex, COMPLEX, LogicalFromComplex);
 	break;
     case STRSXP:
 	for (i = 0; i < n; i++) {
@@ -490,10 +498,7 @@ static SEXP coerceToLogical(SEXP v)
 	}
 	break;
     case RAWSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = LogicalFromInteger((int)RAW_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rbyte, RAW, LogicalFromInteger);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToLogical", v);
@@ -519,22 +524,13 @@ static SEXP coerceToInteger(SEXP v)
     SHALLOW_DUPLICATE_ATTRIB(ans, v);
     switch (TYPEOF(v)) {
     case LGLSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = IntegerFromLogical(LOGICAL_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, int, LOGICAL, IntegerFromLogical);
 	break;
     case REALSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = IntegerFromReal(REAL_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, double, REAL, IntegerFromReal);
 	break;
     case CPLXSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = IntegerFromComplex(COMPLEX_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rcomplex, COMPLEX, IntegerFromComplex);
 	break;
     case STRSXP:
 	for (i = 0; i < n; i++) {
@@ -572,22 +568,13 @@ static SEXP coerceToReal(SEXP v)
     SHALLOW_DUPLICATE_ATTRIB(ans, v);
     switch (TYPEOF(v)) {
     case LGLSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = RealFromLogical(LOGICAL_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, int, LOGICAL, RealFromLogical);
 	break;
     case INTSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = RealFromInteger(INTEGER_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, int, INTEGER, RealFromInteger);
 	break;
     case CPLXSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = RealFromComplex(COMPLEX_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rcomplex, COMPLEX, RealFromComplex);
 	break;
     case STRSXP:
 	for (i = 0; i < n; i++) {
@@ -596,10 +583,7 @@ static SEXP coerceToReal(SEXP v)
 	}
 	break;
     case RAWSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = RealFromInteger((int)RAW_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rbyte, RAW, RealFromInteger);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToReal", v);
@@ -631,16 +615,10 @@ static SEXP coerceToComplex(SEXP v)
 	}
 	break;
     case INTSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = ComplexFromInteger(INTEGER_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, int, INTEGER, ComplexFromInteger);
 	break;
     case REALSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = ComplexFromReal(REAL_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, double, REAL, ComplexFromReal);
 	break;
     case STRSXP:
 	for (i = 0; i < n; i++) {
@@ -649,10 +627,7 @@ static SEXP coerceToComplex(SEXP v)
 	}
 	break;
     case RAWSXP:
-	for (i = 0; i < n; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    pa[i] = ComplexFromInteger((int)RAW_ELT(v, i), &warn);
-	}
+	COERCE_BY_REGION(v, pa, Rbyte, RAW, ComplexFromInteger);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToComplex", v);
@@ -2286,22 +2261,28 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     int *pa = LOGICAL(ans);
     switch (TYPEOF(x)) {
     case LGLSXP:
-       for (i = 0; i < n; i++)
-	   pa[i] = (LOGICAL_ELT(x, i) == NA_LOGICAL);
+	ITERATE_BY_REGION(x, xl, il, nb, int, LOGICAL, {
+		for (R_xlen_t k = 0; k < nb; k++)
+		    pa[il + k] = (xl[k] == NA_LOGICAL);
+	    });
 	break;
     case INTSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = (INTEGER_ELT(x, i) == NA_INTEGER);
+	ITERATE_BY_REGION(x, xi, ii, nb, int, INTEGER, {
+		for (R_xlen_t k = 0; k < nb; k++)
+		    pa[ii + k] = (xi[k] == NA_INTEGER);
+	    });
 	break;
     case REALSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = ISNAN(REAL_ELT(x, i));
+	ITERATE_BY_REGION(x, xr, ir, nb, double, REAL, {
+		for (R_xlen_t k = 0; k < nb; k++)
+		    pa[ir + k] = ISNAN(xr[k]);
+	    });
 	break;
     case CPLXSXP:
-	for (i = 0; i < n; i++) {
-	    Rcomplex v = COMPLEX_ELT(x, i);
-	    pa[i] = (ISNAN(v.r) || ISNAN(v.i));
-	}
+	ITERATE_BY_REGION(x, xc, ic, nb, Rcomplex, COMPLEX, {
+		for (R_xlen_t k = 0; k < nb; k++)
+		    pa[ic + k] = (ISNAN(xc[k].r) || ISNAN(xc[k].i));
+	    });
 	break;
     case STRSXP:
 	for (i = 0; i < n; i++)
@@ -2364,8 +2345,6 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     UNPROTECT(2); /* args, ans */
     return ans;
 }
-
-#include <R_ext/Itermacros.h>
 
 // Check if x has missing values; the anyNA.default() method
 static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
