@@ -378,7 +378,7 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 		  "bytes", R_typeToChar(x));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kind), hasNA));
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
     R_xlen_t nLost = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -448,8 +448,8 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     if (nx == 0 || ny == 0) {
 	/* x may be a narrowed temporary held only by the index above, so
 	   it has to outlive the allocation that reads its NA flag */
-	SEXP val = R_bytesWithNA(R_allocBytesVectorKind(0, w, kx),
-				 BYTEVEC_HAS_NA(x));
+	SEXP val = R_allocBytesVector(0, w, kx,
+				      BYTEVEC_HAS_NA(x) ? TRUE : FALSE);
 	UNPROTECT(2); /* x, y */
 
 	return val;
@@ -458,7 +458,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     R_xlen_t n = nx > ny ? nx : ny;
 
     bool hasNA = BYTEVEC_HAS_NA(x);
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, kx), hasNA));
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, kx, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -527,7 +527,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = BYTEVEC_HAS_NA(x);
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(n, w, k), hasNA));
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, k, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     /* R_unary() hands the result straight back to do_arith, so the
@@ -688,7 +688,7 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	errorcall(call, _("cannot combine opaque 'bytes' vectors of widths %d and %d"),
 		  wmin, w);
 
-    SEXP ans = PROTECT(R_bytesWithNA(R_allocBytesVectorKind(1, w, kind), hasNA));
+    SEXP ans = PROTECT(R_allocBytesVector(1, w, kind, hasNA ? TRUE : FALSE));
     Rbyte *acc = BYTEVEC_ELT(ans, 0);
     bool seen = false, isNA = false, over = false;
 

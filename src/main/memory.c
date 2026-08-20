@@ -3007,19 +3007,20 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
    R sees once the write barrier is being checked, whitelists a handful
    of conversions that deliberately do not include this one. */
 
-/* Convenience form for the default kind.  Internal code that derives a
-   new vector from an existing one must NOT use this -- it silently
-   drops the kind.  Use R_allocVectorLike(), which carries both width
-   and kind. */
-SEXP R_allocBytesVector(R_xlen_t length, int width)
-{
-    return R_allocBytesVectorKind(length, width, BYTEVEC_OPAQUE);
-}
-
-SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind)
+/* Width, kind and the NA reservation are all per-vector properties, and
+   every one of them has been forgotten at an allocation site at least
+   once during this branch's history.  Taking all three as arguments
+   makes that impossible: there is one way to make a 'bytes' vector, and
+   it cannot be called without saying what kind of one you want.  Code
+   deriving a new vector from an existing one should still prefer
+   R_allocVectorLike(), which copies all three from the original. */
+SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
+			Rboolean hasNA)
 {
     if (width < 1 || width > BYTEVEC_MAX_WIDTH)
 	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
+    if (kind != BYTEVEC_OPAQUE && kind != BYTEVEC_UINT && kind != BYTEVEC_INT)
+	error(_("invalid '%s' argument"), "kind");
     if (length < 0)
 	error(_("negative length vectors are not allowed"));
     if (length > R_XLEN_T_MAX / width)
@@ -3029,6 +3030,7 @@ SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind)
     SET_TYPEOF(val, BYTESXP);
     SET_BYTEVEC_WIDTH(val, width);
     SET_BYTEVEC_KIND(val, kind);
+    SET_BYTEVEC_NONA(val, !hasNA);
     SET_STDVEC_LENGTH(val, length);
 
     /* zero-filled: these bytes are user-visible values, and leaving
@@ -4317,6 +4319,27 @@ const Rbyte *(RAW_RO)(SEXP x) {
 	      "RAW", "raw", R_typeToChar(x));
     CHKZLN(x);
     return RAW(x);
+}
+
+/* The payload of a 'bytes' vector: XLENGTH(x) elements of
+   R_bytesWidth(x) bytes each, laid out end to end.  This is the only
+   door to those bytes -- the untyped DATAPTR family deliberately
+   refuses BYTESXP, since a caller who does not know the width and kind
+   cannot read them correctly. */
+Rbyte *(BYTES)(SEXP x) {
+    if(TYPEOF(x) != BYTESXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "BYTES", "bytes", R_typeToChar(x));
+    CHKZLN(x);
+    return BYTEVEC_DATA(x);
+}
+
+const Rbyte *(BYTES_RO)(SEXP x) {
+    if(TYPEOF(x) != BYTESXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "BYTES", "bytes", R_typeToChar(x));
+    CHKZLN(x);
+    return BYTEVEC_DATA_RO(x);
 }
 
 double *(REAL)(SEXP x) {

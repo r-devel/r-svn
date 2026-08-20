@@ -166,10 +166,8 @@ deparse and matrices added:
 | `src/main/printarray.c` | `printBytesMatrix`, measured column widths |
 | `src/main/bytes.c` | block-copy recycle helpers, `R_bytesKindName` |
 
-`R_allocBytesVector` is declared in `Defn.h`, not `Rinternals.h`:
-anything declared in an installed header needs a matching WRE
-`@apifun`/`@eapifun` entry or `tools:::checkAPI()` (reg-tests-1e)
-fails.  That is deferred until the API is settled.
+`R_allocBytesVector` and the accessors are declared in `Rinternals.h`
+and documented in WRE -- see "The package-facing API" below.
 
 ## The four silent failures found and closed (stage 1)
 
@@ -379,6 +377,59 @@ says which SEXPTYPEs are vectors for the package-facing `LENGTH()`,
 had BYTESXP marked as a non-vector, so `XLENGTH(x)` from package code
 errored.  R's own code uses the unchecked macro and so never noticed.
 Fixed; it is exactly the kind of entry a new SEXPTYPE has to remember.
+
+## The package-facing API
+
+Failing safely is only half of it.  That section is about a package
+that has never heard of the type; this one is about a package that
+*wants* it.  Nearly every 64-bit integer an R user meets arrives
+through one -- arrow, nanoparquet, duckdb, a database driver, a JSON
+reader -- and until now none of them could construct a `bytes` vector
+at all: only `BYTESXP` itself was in `Rinternals.h`, and every
+constructor and accessor was internal.
+
+`Rinternals.h` now declares eleven entry points, and
+`doc/manual/R-exts.texi` documents them at the end of "Vector accessor
+functions".  Both halves are mandatory: `tools:::checkAPI()`, run from
+reg-tests-1e, fails if anything declared in an installed header lacks
+a matching `@apifun` line in WRE.  Worth knowing before adding a
+declaration -- the failure comes from a regression test, some distance
+from the header that caused it.
+
+    SEXP     R_allocBytesVector(R_xlen_t n, int width, int kind,
+                                Rboolean hasNA);
+    Rboolean R_isBytes(SEXP x);
+    int      R_bytesWidth(SEXP x);
+    int      R_bytesKind(SEXP x);
+    Rboolean R_bytesHasNA(SEXP x);
+    Rbyte       *BYTES(SEXP x);
+    const Rbyte *BYTES_RO(SEXP x);
+    Rbyte       *R_bytesElt(SEXP x, R_xlen_t i);
+    const Rbyte *R_bytesEltRO(SEXP x, R_xlen_t i);
+    Rboolean R_bytesIsNA(SEXP x, R_xlen_t i);
+    void     R_bytesSetNA(SEXP x, R_xlen_t i);
+
+`BYTES`/`BYTES_RO` follow `RAW`/`RAW_RO` deliberately: the typed
+accessor is the door, and it type-checks, which is the same property
+that makes the untyped `DATAPTR_RO` able to say no.  `BYTES_OPAQUE`,
+`BYTES_UNSIGNED` and `BYTES_SIGNED` are the public spellings of the
+kind, and `Defn.h` now *defines* `BYTEVEC_OPAQUE` and friends from
+them, so the internal and external names cannot drift apart.
+
+Taking all three per-vector properties as arguments collapsed the two
+allocators into one and removed `R_bytesWithNA`.  That is not tidying.
+The recurring bug on this branch has been a property forgotten at an
+allocation site -- the width in `do_bind`, then the kind in
+`duplicate1`, `ExtractSubset` and both `for` loops -- and a signature
+that cannot be called without naming all three is the one form of the
+fix that does not rely on remembering.
+
+`tests/bytes-ffi/` grew a second half that uses only these
+declarations: build a `uint64` column with `memcpy` into
+`R_bytesElt()`, mark a null with `R_bytesSetNA()`, read the width,
+kind and NA-ness back, sum the payload while skipping NA with
+`R_bytesIsNA()`, and confirm that `R_bytesWidth()` and `BYTES_RO()`
+refuse an integer vector the way `RAW()` does.
 
 ## deparse and matrices
 

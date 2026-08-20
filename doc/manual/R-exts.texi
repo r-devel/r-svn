@@ -14995,6 +14995,67 @@ have to fully materialize the object.
 @apifun SET_RAW_ELT
 @apifun SET_REAL_ELT
 
+@subsection @code{bytes} vectors
+
+A @code{bytes} vector (@code{BYTESXP}) holds @code{XLENGTH(x)} elements
+of @code{R_bytesWidth(x)} bytes each.  Unlike every other vector type
+the element size is a property of the vector rather than of the type,
+so @code{Rf_allocVector} cannot make one and there is no fixed C type
+to cast the payload to; use @code{R_allocBytesVector} instead.
+@apifun R_allocBytesVector
+@apifun R_isBytes
+@apifun R_bytesWidth
+@apifun R_bytesKind
+@apifun R_bytesHasNA
+
+The @emph{kind} says how an element's bytes are to be read.
+@code{BYTES_OPAQUE} elements are byte strings -- hashes, UUIDs, network
+addresses -- which are compared verbatim and never interpreted as
+numbers.  @code{BYTES_UNSIGNED} and @code{BYTES_SIGNED} elements are
+integers of @code{8 * width} bits held in the platform's @emph{native}
+byte order, so populating them from another data source is a plain
+copy.
+
+The @code{hasNA} argument says whether one value of that width is
+reserved to mean @code{NA} (all bits set for the opaque and unsigned
+kinds, the most negative value for the signed kind).  Pass
+@code{FALSE} when every bit pattern in the source is a legitimate
+value: operations that would then have to produce @code{NA} raise an
+error instead of silently colliding with a real datum.
+
+@code{BYTES} and @code{BYTES_RO} return a pointer to the whole payload,
+which is @code{XLENGTH(x) * R_bytesWidth(x)} bytes laid out end to end.
+The untyped @code{DATAPTR_RO} deliberately refuses a @code{bytes}
+vector, since a caller that does not know the width and kind cannot
+read it correctly.
+@apifun BYTES
+@apifun BYTES_RO
+
+Individual elements are best reached through @code{R_bytesElt} and
+@code{R_bytesEltRO}, which return the address of element @code{i}, and
+tested or marked missing with @code{R_bytesIsNA} and
+@code{R_bytesSetNA}.
+@apifun R_bytesElt
+@apifun R_bytesEltRO
+@apifun R_bytesIsNA
+@apifun R_bytesSetNA
+
+@noindent
+So a package reading a column of 64-bit integers might write
+
+@example
+    SEXP ans = PROTECT(R_allocBytesVector(n, 8, BYTES_SIGNED, TRUE));
+    for (R_xlen_t i = 0; i < n; i++) @{
+        if (source_is_null(i))
+            R_bytesSetNA(ans, i);
+        else @{
+            int64_t v = source_value(i);
+            memcpy(R_bytesElt(ans, i), &v, sizeof v);
+        @}
+    @}
+    UNPROTECT(1);
+@end example
+
 
 @node Character encoding issues
 @section Character encoding issues

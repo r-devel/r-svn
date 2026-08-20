@@ -147,14 +147,6 @@ const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind)
 /* Called wherever an NA would be stored.  A vector that declines to
    reserve a value cannot represent one, so the operation stops rather
    than inventing something. */
-/* set the flag on a freshly built vector, for the sites that assemble
-   a result rather than deriving it from one input */
-SEXP R_bytesWithNA(SEXP x, int hasNA)
-{
-    SET_BYTEVEC_NONA(x, !hasNA);
-    return x;
-}
-
 void R_bytesCheckNA(SEXP x)
 {
     if (!BYTEVEC_HAS_NA(x))
@@ -184,23 +176,95 @@ void R_bytesCheckSameNA(SEXP x, SEXP y)
    generic "another vector like this one" sites go through here */
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
 {
-    if (TYPEOF(s) == BYTESXP) {
-	SEXP val = PROTECT(R_allocBytesVectorKind(length, BYTEVEC_WIDTH(s),
-						  BYTEVEC_KIND(s)));
-	SET_BYTEVEC_NONA(val, !BYTEVEC_HAS_NA(s));
-	UNPROTECT(1);
-	return val;
-    }
+    if (TYPEOF(s) == BYTESXP)
+	return R_allocBytesVector(length, BYTEVEC_WIDTH(s), BYTEVEC_KIND(s),
+				  BYTEVEC_HAS_NA(s) ? TRUE : FALSE);
 
     return allocVector(TYPEOF(s), length);
 }
 
-attribute_hidden int R_bytesWidth(SEXP x)
+/* The rest of this section is the package-facing API declared in
+   Rinternals.h.  R's own code uses the BYTEVEC_* accessors directly;
+   these check the type first, as INTEGER() and RAW() do, because a
+   package reaching for the wrong one should hear about it rather than
+   read the payload of something else. */
+
+static void checkBytes(SEXP x, const char *what)
 {
     if (TYPEOF(x) != BYTESXP)
-	error(_("'%s' must be a 'bytes' vector"), "x");
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      what, "bytes", R_typeToChar(x));
+}
+
+Rboolean R_isBytes(SEXP x)
+{
+    return TYPEOF(x) == BYTESXP ? TRUE : FALSE;
+}
+
+int R_bytesWidth(SEXP x)
+{
+    checkBytes(x, "R_bytesWidth");
 
     return BYTEVEC_WIDTH(x);
+}
+
+int R_bytesKind(SEXP x)
+{
+    checkBytes(x, "R_bytesKind");
+
+    return BYTEVEC_KIND(x);
+}
+
+Rboolean R_bytesHasNA(SEXP x)
+{
+    checkBytes(x, "R_bytesHasNA");
+
+    return BYTEVEC_HAS_NA(x) ? TRUE : FALSE;
+}
+
+/* Element addresses.  Preferred over BYTES() + i * width in package
+   code for the same reason R's own code uses BYTEVEC_ELT: it is the
+   one place the width has to be got right. */
+Rbyte *R_bytesElt(SEXP x, R_xlen_t i)
+{
+    checkBytes(x, "R_bytesElt");
+    if (i < 0 || i >= XLENGTH(x))
+	error(_("subscript out of bounds"));
+
+    return BYTEVEC_ELT(x, i);
+}
+
+const Rbyte *R_bytesEltRO(SEXP x, R_xlen_t i)
+{
+    checkBytes(x, "R_bytesEltRO");
+    if (i < 0 || i >= XLENGTH(x))
+	error(_("subscript out of bounds"));
+
+    return BYTEVEC_ELT_RO(x, i);
+}
+
+Rboolean R_bytesIsNA(SEXP x, R_xlen_t i)
+{
+    checkBytes(x, "R_bytesIsNA");
+    if (i < 0 || i >= XLENGTH(x))
+	error(_("subscript out of bounds"));
+
+    if (!BYTEVEC_HAS_NA(x))
+	return FALSE;
+
+    return R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), BYTEVEC_WIDTH(x),
+			  BYTEVEC_KIND(x));
+}
+
+void R_bytesSetNA(SEXP x, R_xlen_t i)
+{
+    checkBytes(x, "R_bytesSetNA");
+    if (i < 0 || i >= XLENGTH(x))
+	error(_("subscript out of bounds"));
+
+    R_bytesCheckNA(x);	/* errors if this vector reserves no NA value */
+
+    R_bytesSetEltNA(BYTEVEC_ELT(x, i), BYTEVEC_WIDTH(x), BYTEVEC_KIND(x));
 }
 
 static int checkKind(SEXP skind)
@@ -253,8 +317,8 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
     int kind = checkKind(CADDR(args));
     int hasNA = checkNA(CADDDR(args));
 
-    SEXP val = PROTECT(R_allocBytesVectorKind(len, width, kind));
-    SET_BYTEVEC_NONA(val, !hasNA);
+    SEXP val = PROTECT(R_allocBytesVector(len, width, kind,
+					  hasNA ? TRUE : FALSE));
     UNPROTECT(1);
 
     return val;
@@ -280,8 +344,8 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("length of 'x' (%lld) is not a multiple of 'width' (%d)"),
 	      (long long) nbytes, width);
 
-    SEXP val = PROTECT(R_allocBytesVectorKind(nbytes / width, width, kind));
-    SET_BYTEVEC_NONA(val, !hasNA);
+    SEXP val = PROTECT(R_allocBytesVector(nbytes / width, width, kind,
+					  hasNA ? TRUE : FALSE));
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
@@ -312,7 +376,7 @@ attribute_hidden SEXP do_bytesna(SEXP call, SEXP op, SEXP args, SEXP env)
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
 
-    SEXP val = PROTECT(R_allocBytesVectorKind(len, width, kind));
+    SEXP val = PROTECT(R_allocBytesVector(len, width, kind, TRUE));
     for (R_xlen_t i = 0; i < XLENGTH(val); i++)
 	R_bytesSetEltNA(BYTEVEC_ELT(val, i), width, kind);
     UNPROTECT(1);

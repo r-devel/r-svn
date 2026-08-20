@@ -2144,7 +2144,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    if (k != BYTEVEC_OPAQUE && k != BYTEVEC_UINT && k != BYTEVEC_INT)
 		error(_("ReadItem: invalid 'bytes' element kind %d"), k);
 	    len = ReadLENGTH(stream);
-	    PROTECT(s = R_allocBytesVectorKind(len, w, k));
+	    PROTECT(s = R_allocBytesVector(len, w, k,
+					   (levs & BYTEVEC_NONA_MASK)
+					   ? FALSE : TRUE));
 
 	    const void *vmax = vmaxget();
 	    R_xlen_t chunk = CHUNK_SIZE / w;

@@ -226,9 +226,8 @@ static SEXP BindAnswerAlloc(SEXPTYPE mode, struct BindData *data,
     if (mode != BYTESXP)
 	return allocVector(mode, length);
 
-    return R_bytesWithNA(R_allocBytesVectorKind(length, data->ans_width,
-						data->ans_kind),
-			 !data->ans_nona);
+    return R_allocBytesVector(length, data->ans_width, data->ans_kind,
+			      data->ans_nona ? FALSE : TRUE);
 }
 
 /* The following functions are used to coerce arguments to the

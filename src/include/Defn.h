@@ -568,11 +568,15 @@ typedef union {
    *native* byte order so that ingest from an external source is a
    plain memcpy, ordered by value, and rendered as decimal.  Since the
    order is by value rather than by bytes, it is the same on every
-   platform even though the storage is not. */
+   platform even though the storage is not.
+
+   These are the names R's own code uses; the values are fixed by the
+   public spellings in Rinternals.h, which package code and the
+   serialized format both depend on. */
 #define BYTEVEC_KIND_MASK ((unsigned short) 3)
-#define BYTEVEC_OPAQUE 0
-#define BYTEVEC_UINT   1
-#define BYTEVEC_INT    2
+#define BYTEVEC_OPAQUE BYTES_OPAQUE
+#define BYTEVEC_UINT   BYTES_UNSIGNED
+#define BYTEVEC_INT    BYTES_SIGNED
 
 /* Arithmetic is defined only for widths that correspond to an integer
    type someone might actually be carrying; wider elements are pure
@@ -1921,9 +1925,8 @@ SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
-SEXP R_allocBytesVector(R_xlen_t length, int width);
-SEXP R_allocBytesVectorKind(R_xlen_t length, int width, int kind);
-int R_bytesWidth(SEXP x);
+/* R_allocBytesVector() and the rest of the 'bytes' entry points that
+   package code needs are declared in Rinternals.h */
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
 Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
 void R_bytesSetEltNA(Rbyte *p, int width, int kind);
@@ -1943,7 +1946,6 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
 SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
-SEXP R_bytesWithNA(SEXP x, int hasNA);
 void R_bytesCheckNA(SEXP x);
 void R_bytesCheckSameNA(SEXP x, SEXP y);
 void R_CheckBytesVector(SEXP x);	/* CHKBYTEVEC(), above */
