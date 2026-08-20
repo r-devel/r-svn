@@ -487,6 +487,48 @@ range edges, comparing both the text and the stored native-order bytes.
 The gauntlet's round-trip test would pass with two mirrored bugs; this
 would not.
 
+## Bitwise operations
+
+The gap this closes is the opposite shape from the others.  Arithmetic
+is defined for the numeric kinds and deliberately not for the opaque
+one -- there is no number in a UUID to add.  But masking one is an
+everyday operation: an IPv6 prefix, a hash bucket, a flag word.  Those
+are exactly the operations `bitwAnd` and friends name, and they were
+erroring.
+
+They are also the cheapest thing this type can do, more so than
+arithmetic was.  `and`, `or`, `xor` and `not` are per byte with no
+carry, so there is **no width restriction at all** -- a width-32 SHA-256
+mask works, where arithmetic stops at 16.  Only the shifts need to know
+which end is significant, and that is one macro:
+
+```c
+/* an opaque element is a byte string, so its first stored byte is its
+   most significant one on every platform; the numeric kinds are stored
+   natively */
+#define BITMSB(i, w, k) ((k) == BYTEVEC_OPAQUE ? (i) : BYTEVEC_MSB(i, w))
+```
+
+which is why this lives in `bytes.c` and not `bytesarith.c`: it is a
+byte-level operation defined at every width, not a value operation
+limited to the arithmetic ones.
+
+Rules, all borrowed rather than invented:
+
+  * widths and kinds must match; they are *not* promoted the way
+    arithmetic promotes them.  A mask that is not the width of what it
+    masks is a mistake, not a value to sign-extend.
+  * an integer operand narrows for the numeric kinds, as in arithmetic;
+    the opaque kind refuses it, as everywhere else.
+  * `bitwShiftR` is a logical shift on the bit pattern, which is what
+    R's integer version already does (`bitwShiftR(-1L, 1L)` is
+    `2147483647`).  A shift of `8 * w` or more is `NA`, mirroring
+    R's `> 31`.
+  * a result landing on the reserved NA value is reported, not returned
+    quietly -- the rule arithmetic follows for overflow.
+    `bitwNot(as.bytes("0", 8L, "unsigned"))` is `UINT64_MAX`, which a
+    vector reserving NA cannot hold; with `na = FALSE` it just works.
+
 ## readBin and writeBin
 
 The sharpest argument for the type is not a hypothetical.  `readBin` has

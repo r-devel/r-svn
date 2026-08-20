@@ -25,8 +25,13 @@ bitwShiftL(a, n)
 bitwShiftR(a, n)
 }
 \arguments{
-  \item{a, b}{integer vectors; numeric vectors are coerced to integer vectors.}
-  \item{n}{non-negative integer vector of values up to 31.}
+  \item{a, b}{integer vectors; numeric vectors are coerced to integer
+    vectors.  \code{a} may also be a \code{\link{bytes}} vector, in
+    which case \code{b} must be one of the same width and kind, or (for
+    the numeric kinds) an integer vector.}
+  \item{n}{non-negative integer vector of values up to 31, or up to one
+    less than the number of bits in an element for a \code{bytes}
+    vector.}
 }
 \details{
   Each element of an integer vector has 32 bits.
@@ -34,10 +39,19 @@ bitwShiftR(a, n)
   Pairwise operations can result in integer \code{NA}.
 
   Shifting is done assuming the values represent unsigned integers.
+
+  For a \code{\link{bytes}} vector the operations are applied to the
+  whole element, however wide it is: these are the operations that
+  vector type is for -- masking an address prefix, bucketing a hash,
+  testing a flag word -- and unlike arithmetic they are defined for the
+  opaque kind as well.  A result that lands exactly on the value the
+  vector reserves for \code{NA} becomes \code{NA} with a warning, since
+  that value is not available to hold it; a vector created with
+  \code{na = FALSE} reserves nothing and can hold every bit pattern.
 }
 \value{
-  An integer vector of length the longer of the arguments, or zero
-  length if one is zero-length.
+  A vector of the same type as \code{a} and of length the longer of the
+  arguments, or zero length if one is zero-length.
 
   The output element is \code{NA} if an input is \code{NA} (after
   coercion) or an invalid shift.
@@ -70,6 +84,11 @@ r15 | r7    # 0f
 xor(r15, r7)# 08
 
 bitwShiftR(-1, 1:31) # shifts of 2^32-1 = 4294967295
+
+## masking an IPv6 address down to its /48 prefix
+ip   <- as.bytes("20010db8000000000000000000000001", 16L)
+mask <- as.bytes(paste0(strrep("ff", 6), strrep("00", 10)), 16L)
+bitwAnd(ip, mask)
 }
 
 \keyword{logic}

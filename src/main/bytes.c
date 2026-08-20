@@ -41,6 +41,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Print.h>  /* R_print.na_string */
+#include <R_ext/Itermacros.h>  /* MOD_ITERATE2 */
 #include "duplicate.h"  /* FILL_MATRIX_ITERATE */
 
 /* See BYTEVEC_NA_BYTE in Defn.h for why OPAQUE/UINT reserve all-0xFF
@@ -254,6 +255,154 @@ R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
 {
     return (kind == BYTEVEC_OPAQUE) ? parseHex(out, s, w)
 				    : parseDecimal(out, s, w, kind, hasNA);
+}
+
+/* ---- bitwise operations --------------------------------------------
+
+   These are what the opaque kind wants and what arithmetic
+   deliberately does not give it: masking an IPv6 prefix, bucketing a
+   hash, testing a flag word.  They are also the cheapest thing this
+   type can do -- and, or, xor and not are per byte -- so unlike
+   arithmetic they carry no width restriction at all.
+
+   NA propagates, as it does for integers.  A result landing exactly on
+   the reserved NA value is reported rather than returned quietly,
+   which is the rule arithmetic already follows for overflow. */
+
+/* Index of the i-th most significant byte in storage order.  An opaque
+   element is a byte string, so its first stored byte is its most
+   significant one on every platform; the numeric kinds are stored
+   natively and need the usual mapping. */
+#define BITMSB(i, w, k) ((k) == BYTEVEC_OPAQUE ? (i) : BYTEVEC_MSB(i, w))
+
+/* logical shift by n bits, either direction, over the whole element */
+static void eltShift(Rbyte *out, const Rbyte *x, int w, int k, int n,
+		     bool left)
+{
+    Rbyte tmp[BYTEVEC_MAX_WIDTH], res[BYTEVEC_MAX_WIDTH];
+    int bs = n / 8, br = n % 8;
+
+    for (int i = 0; i < w; i++)
+	tmp[i] = x[BITMSB(i, w, k)];
+
+    /* br == 0 makes the neighbour term shift by 8, which is zero once
+       masked to a byte -- exactly the "no bits carried in" case */
+    for (int i = 0; i < w; i++) {
+	int j = left ? i + bs : i - bs;
+	unsigned int v = 0;
+
+	if (j >= 0 && j < w)
+	    v = left ? ((unsigned int) tmp[j] << br)
+		     : ((unsigned int) tmp[j] >> br);
+	if (left ? (j + 1 < w) : (j - 1 >= 0))
+	    v |= left ? ((unsigned int) tmp[j + 1] >> (8 - br))
+		      : ((unsigned int) tmp[j - 1] << (8 - br));
+
+	res[i] = (Rbyte) (v & 0xFF);
+    }
+
+    for (int i = 0; i < w; i++)
+	out[BITMSB(i, w, k)] = res[i];
+}
+
+attribute_hidden
+SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
+{
+    bool unary = (oper == 2), shift = (oper == 5 || oper == 6);
+
+    /* and, or and xor are commutative, so either operand may be the
+       'bytes' one; a shift count never is */
+    if (!unary && !shift && TYPEOF(a) != BYTESXP) {
+	SEXP t = a; a = b; b = t;
+    }
+    if (TYPEOF(a) != BYTESXP)
+	errorcall(call, _("'a' and 'b' must have the same type"));
+
+    int w = BYTEVEC_WIDTH(a), k = BYTEVEC_KIND(a);
+    int hasNA = BYTEVEC_HAS_NA(a);
+
+    if (shift) {
+	if (TYPEOF(b) == BYTESXP)
+	    errorcall(call, _("invalid '%s' argument"), "b");
+	if (!isInteger(b)) b = coerceVector(b, INTSXP);
+    }
+    else if (!unary) {
+	if (TYPEOF(b) != BYTESXP) {
+	    /* an opaque element is a byte string; there is no number to
+	       read into it, here or anywhere else */
+	    if (k == BYTEVEC_OPAQUE)
+		errorcall(call,
+			  _("cannot combine an opaque 'bytes' vector with type '%s'"),
+			  R_typeToChar(b));
+	    b = R_bytesNarrow(b, w, k, hasNA, call);
+	}
+	else {
+	    /* widths are not promoted the way arithmetic promotes them:
+	       a mask that is not the width of what it masks is a
+	       mistake, not a value to extend */
+	    if (BYTEVEC_KIND(b) != k)
+		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	    if (BYTEVEC_WIDTH(b) != w)
+		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+			  w, BYTEVEC_WIDTH(b));
+	    R_bytesCheckSameNA(a, b);
+	}
+    }
+    PROTECT(a);
+    PROTECT(b);		/* may be the narrowed or coerced temporary */
+
+    R_xlen_t m = XLENGTH(a), n = unary ? m : XLENGTH(b);
+    R_xlen_t mn = (m && n) ? (m > n ? m : n) : 0;
+    SEXP ans = PROTECT(R_allocBytesVector(mn, w, k, hasNA ? TRUE : FALSE));
+    R_xlen_t i, ia, ib, nOver = 0;
+
+    MOD_ITERATE2(mn, m, n, i, ia, ib, {
+	const Rbyte *x = BYTEVEC_ELT_RO(a, ia);
+	Rbyte *o = BYTEVEC_ELT(ans, i);
+	bool na = hasNA && R_bytesEltIsNA(x, w, k);
+
+	if (shift) {
+	    int s = INTEGER_ELT(b, ib);
+	    if (na || s == NA_INTEGER || s < 0 || s > 8 * w - 1) {
+		R_bytesCheckNA(ans);
+		R_bytesSetEltNA(o, w, k);
+		continue;
+	    }
+	    eltShift(o, x, w, k, s, oper == 5);
+	}
+	else if (unary) {
+	    if (na) {
+		R_bytesSetEltNA(o, w, k);
+		continue;
+	    }
+	    for (int j = 0; j < w; j++) o[j] = (Rbyte) ~x[j];
+	}
+	else {
+	    const Rbyte *y = BYTEVEC_ELT_RO(b, ib);
+	    if (na || (hasNA && R_bytesEltIsNA(y, w, k))) {
+		R_bytesSetEltNA(o, w, k);
+		continue;
+	    }
+	    switch (oper) {
+	    case 1: for (int j = 0; j < w; j++) o[j] = x[j] & y[j]; break;
+	    case 3: for (int j = 0; j < w; j++) o[j] = x[j] | y[j]; break;
+	    default: for (int j = 0; j < w; j++) o[j] = x[j] ^ y[j]; break;
+	    }
+	}
+
+	/* the bits are what they are; it is the reservation that makes
+	   this value unavailable, so say so rather than return NA */
+	if (hasNA && R_bytesEltIsNA(o, w, k)) {
+	    nOver++;
+	    R_bytesSetEltNA(o, w, k);
+	}
+    });
+
+    if (nOver)
+	warningcall(call, _("NAs produced by results equal to the reserved NA value"));
+    UNPROTECT(3);
+
+    return ans;
 }
 
 /* Called wherever an NA would be stored.  A vector that declines to

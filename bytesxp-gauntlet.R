@@ -876,6 +876,73 @@ ok("writeBin gives the payload",  { v <- as.bytes(c("1", "2"), 8L, "signed")
                                     identical(writeBin(v, raw()), bytesRaw(v)) })
 probe("writeBin(size=) changing", writeBin(as.bytes("1", 8L, "signed"), raw(), size = 4L))
 
+cat("\n== Z7. bitwise operations ==\n")
+## what the opaque kind actually wants, and what arithmetic
+## deliberately does not give it.  Per byte, so unlike arithmetic there
+## is no width restriction at all.
+u1 <- as.bytes("255", 8L, "unsigned")
+ok("and",                        identical(as.character(bitwAnd(as.bytes("65535", 8L, "unsigned"), u1)), "255"))
+ok("or",                         identical(as.character(bitwOr(as.bytes("256", 8L, "unsigned"), u1)), "511"))
+ok("xor is self-cancelling",     identical(as.character(bitwXor(u1, u1)), "0"))
+ok("not",                        identical(as.character(bitwNot(as.bytes("1", 8L, "unsigned"))),
+                                           "18446744073709551614"))
+ok("an integer operand narrows", identical(bitwAnd(as.bytes("65535", 8L, "unsigned"), 255L),
+                                           bitwAnd(as.bytes("65535", 8L, "unsigned"), u1)))
+ok("and either way round",       identical(bitwAnd(255L, as.bytes("65535", 8L, "unsigned")),
+                                           bitwAnd(as.bytes("65535", 8L, "unsigned"), 255L)))
+
+ok("shift left is doubling",     identical(as.character(bitwShiftL(as.bytes("1", 8L, "unsigned"), 0:8)),
+                                           as.character(2^(0:8))))
+ok("shift to the top bit",       identical(as.character(bitwShiftL(as.bytes("1", 8L, "unsigned"), 63L)),
+                                           "9223372036854775808"))
+ok("shift right is logical",     identical(as.character(bitwShiftR(as.bytes("-1", 8L, "signed"), 1L)),
+                                           "9223372036854775807"))
+ok("out-of-range shift is NA",   all(is.na(bitwShiftL(as.bytes("1", 8L, "unsigned"), c(-1L, 64L, NA)))))
+ok("width 16 shifts work",       identical(as.character(
+                                     bitwShiftR(bitwShiftL(as.bytes("1", 16L, "unsigned"), 127L), 127L)), "1"))
+
+## the actual use case: masking an address prefix.  arithmetic refuses
+## the opaque kind and should; these do not.
+ip   <- as.bytes("20010db8000000000000000000000001", 16L)
+mask <- as.bytes(paste0(strrep("ff", 6), strrep("00", 10)), 16L)
+ok("IPv6 /48 prefix",            identical(as.character(bitwAnd(ip, mask)),
+                                           "20010db8000000000000000000000000"))
+ok("the complement of a mask",   identical(as.character(bitwNot(mask)),
+                                           "000000000000ffffffffffffffffffff"))
+ok("opaque shifts are MSB-first",identical(as.character(bitwShiftR(ip, 8L)),
+                                           "0020010db80000000000000000000000"))
+ok("width 32 works",             { h <- as.bytes(strrep("a5", 32), 32L)
+                                   identical(bitwNot(bitwNot(h)), h) })
+
+ok("NA propagates",              is.na(bitwAnd(bytesNA(1L, 8L, "unsigned"), u1)))
+ok("a reserved result warns",    { w <- NULL
+                                   v <- withCallingHandlers(
+                                       bitwNot(as.bytes("0", 8L, "unsigned")),
+                                       warning = function(x) { w <<- conditionMessage(x)
+                                                               invokeRestart("muffleWarning") })
+                                   is.na(v) && grepl("reserved", w) })
+ok("na = FALSE holds it",        identical(as.character(
+                                     bitwNot(as.bytes("0", 8L, "unsigned", na = FALSE))),
+                                     "18446744073709551615"))
+ok("zero length",                identical(length(bitwAnd(bytes(0L, 8L, "unsigned"), u1)), 0L))
+ok("integers are untouched",     identical(c(bitwAnd(12L, 10L), bitwNot(-1L),
+                                             bitwShiftR(-1L, 1L)), c(8L, 0L, 2147483647L)))
+
+probe("bitwAnd, widths differ",  bitwAnd(u1, as.bytes("1", 4L, "unsigned")))
+probe("bitwAnd, kinds differ",   bitwAnd(u1, as.bytes("1", 8L, "signed")))
+probe("bitwAnd(opaque, integer)", bitwAnd(ip, 1L))
+probe("bitwShiftL(integer, bytes)", bitwShiftL(1L, u1))
+
+## the narrowed operand is a temporary that nothing but the local
+## variable holds while the answer is allocated -- the shape that bit
+## the zero-length arithmetic path
+ok("gctorture over bitwise",     { gctorture(TRUE)
+                                   v <- c(as.character(bitwAnd(as.bytes("65535", 8L, "unsigned"), 255L)),
+                                          as.character(bitwShiftL(as.bytes("1", 16L, "unsigned"), 1:8)),
+                                          as.character(bitwNot(ip)))
+                                   gctorture(FALSE)
+                                   length(v) == 10L && !anyNA(v) })
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

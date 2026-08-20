@@ -945,6 +945,15 @@ attribute_hidden SEXP do_bitwise(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP ans = R_NilValue; /* -Wall */
+
+    /* 'bytes' vectors never coerce to or from anything else, so this
+       precedes the integer path rather than joining it.  These are the
+       operations the opaque kind exists for -- masking an address,
+       bucketing a hash -- which is why they are defined there even
+       though arithmetic is not. */
+    if(TYPEOF(CAR(args)) == BYTESXP || TYPEOF(CADR(args)) == BYTESXP)
+	return R_bytesBitwise(call, PRIMVAL(op), CAR(args), CADR(args));
+
     switch(PRIMVAL(op)) {
     case 1: ans = bitwiseAnd(CAR(args), CADR(args)); break;
     case 2: ans = bitwiseNot(CAR(args)); break;

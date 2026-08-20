@@ -1955,6 +1955,7 @@ void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 				  R_xlen_t cols, R_xlen_t nsrc);
 void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w, int kind);
 SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
+SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b);
 SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
