@@ -3685,6 +3685,36 @@ sys.load.image(tf, FALSE); rm(tf, save)
 ## had called .Internal(RNGkind(..)) with wrong number of args
 
 
+## is.na() reads its argument a region at a time, as anyNA() does, so
+## the answer must not depend on whether the vector is ALTREP.  n must
+## exceed the 512-element region buffer, or an ALTREP vector is read in
+## a single batch starting at 0 and an offset slip cannot show up.
+local({
+    n <- 2000L
+    mat <- function(x) x[seq_along(x)]        # force materialization
+    ii <- c(1L, 513L, 1025L, n)               # spread across the batches
+    for(v in list(seq_len(n), as.numeric(seq_len(n)), as.character(seq_len(n)))) {
+        stopifnot(identical(is.na(v), is.na(mat(v))),
+                  identical(anyNA(v), anyNA(mat(v))),
+                  !any(is.na(v)))
+        w <- mat(v); w[ii] <- NA
+        stopifnot(identical(which(is.na(w)), ii), anyNA(w))
+        u <- v; u[ii] <- NA                   # still ALTREP-derived
+        stopifnot(identical(which(is.na(u)), ii))
+    }
+    ## NaN is missing for is.na() but not for is.nan(), and both must
+    ## survive the batching
+    d <- c(1, NA, NaN, Inf, -Inf, 0, -0)
+    stopifnot(identical(is.na (d), c(FALSE, TRUE,  TRUE, rep(FALSE, 4))),
+              identical(is.nan(d), c(FALSE, FALSE, TRUE, rep(FALSE, 4))),
+              identical(is.na(d[0]), logical(0)),
+              identical(is.na(complex(real = c(1, NaN, 1), imaginary = c(1, 1, NA))),
+                        c(FALSE, TRUE, TRUE)))
+})
+## is.na() used the element-at-a-time accessors, which for an ALTREP
+## vector meant one dispatch per element
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
