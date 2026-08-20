@@ -268,6 +268,12 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
+    ## a character 'what' names the mode, so a longer one is a mistake
+    ## and not a prototype: typeof() would quietly turn it into
+    ## "character" and read the stream as NUL-terminated strings
+    if(is.character(what) && length(what) != 1L)
+        stop("'what' must be of length one when it names a mode")
+
     ## A length-one character vector naming a mode is the mode; anything
     ## else is a prototype whose type is the mode -- including a length-one
     ## character vector that is not one of the names, since character(1)
@@ -277,7 +283,7 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
     ## that readBin(con, "int64") does not fall through to typeof(), which
     ## is "character", and silently read strings; a name of that shape but
     ## an unsupported width is left for .Internal to reject.
-    if(!is.character(what) || length(what) != 1L || is.na(what) ||
+    if(!is.character(what) || is.na(what) ||
        !(what %in% c("numeric", "double", "integer", "int", "logical",
                      "complex", "character", "raw") ||
          grepl("^(u?int[0-9]+|bytes[0-9]+)$", what))) {

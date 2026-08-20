@@ -163,6 +163,18 @@ SEXP asChar(SEXP x)
 		return mkChar(EncodeComplex(COMPLEX(x)[0], w, d, e, wi, di, ei, OutDec));
 	    case STRSXP:
 		return STRING_ELT(x, 0);
+	    case BYTESXP:
+	    {
+		/* isVectorAtomic() accepts this type, so without an arm
+		   it reached the default below and every element read
+		   as NA.  Rendered as coerceToString() renders it. */
+		int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+		const Rbyte *p = BYTEVEC_ELT_RO(x, 0);
+		if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(p, w, k))
+		    return NA_STRING;
+		return mkChar(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
+			      : R_bytesEltDecimal(p, w, k));
+	    }
 	    default:
 		return NA_STRING;
 	    }

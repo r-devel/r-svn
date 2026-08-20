@@ -557,9 +557,14 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 		REPROTECT(y = coerceVector(y, REALSXP), ypi);
 	}
 	else {
-	    /* the half of FIXUP_NULL_AND_CHECK_TYPES that still applies */
-	    if (TYPEOF(x) == NILSXP) REPROTECT(x = allocVector(INTSXP, 0), xpi);
-	    if (TYPEOF(y) == NILSXP) REPROTECT(y = allocVector(INTSXP, 0), ypi);
+	    /* FIXUP_NULL_AND_CHECK_TYPES applies whole to the operand
+	       that is not 'bytes'.  Its type gate matters as much as its
+	       NULL fixup: the recycling code below takes XLENGTH() of
+	       both operands, and on a closure or a builtin that reads a
+	       field the node does not have.  Which numeric types combine
+	       with this one is still R_bytesNarrow()'s to say. */
+	    if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+	    if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
 	    bytes = true;
 	}
     }

@@ -52,7 +52,11 @@ R_xlen_t asVecSize(SEXP x)
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
+	case BYTESXP:
 	{
+	    /* asReal() reads a 'bytes' element by its width and kind;
+	       a size a double cannot name exactly is past R_XLEN_T_MAX
+	       and turned away here anyway */
 	    double d = asReal(x);
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));

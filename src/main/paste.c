@@ -755,6 +755,15 @@ attribute_hidden SEXP do_formatinfo(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	break;
 
+    case BYTESXP:
+	/* measured rather than computed, as in do_format() above:
+	   decimal elements do not all render to the same width */
+	for (R_xlen_t i = 0; i < n; i++) {
+	    int il = (int) strlen(R_bytesEltRender(x, i));
+	    if (il > w) w = il;
+	}
+	break;
+
     default:
 	error(_("atomic vector arguments only"));
     }
