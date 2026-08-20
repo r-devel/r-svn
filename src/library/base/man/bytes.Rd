@@ -71,7 +71,11 @@ bytesRaw(x)
   \code{bytesRaw} round-trips exactly.  Because they are \emph{ordered}
   by value rather than by bytes, sorting nevertheless agrees across
   platforms, and \code{\link{serialize}} normalises the byte order so
-  that saved files do too.
+  that saved files do too.  A stream holding one of these vectors needs
+  workspace format \code{version = 4}: no \R that predates the type can
+  read it, and the header of a version 2 or 3 stream names an \R that
+  can, so \code{\link{saveRDS}} and \code{\link{serialize}} raise an
+  error rather than write a file whose header is untrue.
 
   With \code{na = TRUE} (the default) one value of the width is set aside
   as a sentinel and read as \code{\link{NA}}, as \code{NA_integer_} and

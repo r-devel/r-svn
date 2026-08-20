@@ -8,7 +8,7 @@
 ## for integers and therefore what these mean too.
 ##
 ## Self-contained -- it generates its own reference with python3:
-##   ../build/bin/Rscript bytesxp-archeck.R
+##   build/bin/Rscript tests/bytesxp-dev/archeck.R
 
 REF <- tempfile(fileext = ".tsv")
 PY <- r"---(

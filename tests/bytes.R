@@ -220,13 +220,17 @@ stopifnot(identical(capture.output(cat(wide)), as.character(wide)))
 
 ### round trips
 
+## serialization version 4: no older R can read this type, and the
+## header of a version 2 or 3 stream promises one that can
 for (v in list(u, s, op, un, nn, bytes(0L, 8L, "unsigned"))) {
-    stopifnot(identical(unserialize(serialize(v, NULL)), v),
+    stopifnot(identical(unserialize(serialize(v, NULL, version = 4)), v),
 	      identical(eval(parse(text = paste(deparse(v), collapse = ""))), v),
-	      identical(v[seq_along(v)], v))
+	      identical(v[seq_along(v)], v),
+	      inherits(tryCatch(serialize(v, NULL), error = identity), "error"))
     f <- tempfile()
-    saveRDS(v, f)
-    stopifnot(identical(readRDS(f), v))
+    saveRDS(v, f, version = 4)
+    stopifnot(identical(readRDS(f), v),
+	      infoRDS(f)$version == 4L)
     unlink(f)
 }
 

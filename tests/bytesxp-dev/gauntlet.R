@@ -1,5 +1,5 @@
 ## BYTESXP gauntlet -- run with:
-##   ./bin/Rscript --vanilla ../bytesxp-gauntlet.R
+##   build/bin/Rscript --vanilla tests/bytesxp-dev/gauntlet.R
 ##
 ## Sections A-D must all pass at stage 1.  Section E records operations
 ## that are not implemented yet; the requirement there is that each one
@@ -267,7 +267,9 @@ ok("typeof encodes width",       identical(
      c(typeof(mk("signed", 16L, "01")), typeof(mk("unsigned", 4L, "01")),
        typeof(mk("signed", 1L, "01")),  typeof(bytes(1L, 3L))),
      c("int128", "uint32", "int8", "bytes3")))
-ok("mode of numeric kinds",      identical(c(mode(u), mode(sg)), c("numeric", "numeric")))
+ok("mode is the same for every kind",
+                                 identical(c(mode(u), mode(sg), mode(x)),
+                                           c("bytes", "bytes", "bytes")))
 ok("storage.mode follows",       identical(storage.mode(u), "uint64"))
 ok("is.integer stays honest",    !is.integer(u) && !is.integer(sg))
 ok("switch(typeof(x)) dispatches",
@@ -366,8 +368,10 @@ ok("empty sum / prod",           identical(c(as.character(sum(bytes(0L,8L,"unsig
                                              as.character(prod(bytes(0L,8L,"unsigned")))),
                                            c("0", "1")))
 ok("sum on opaque errors",       inherits(tryCatch(sum(x), error = identity), "error"))
-ok("sum mixed with integer errors",
-                                 inherits(tryCatch(sum(a, 1L), error = identity), "error"))
+ok("sum mixed with integer narrows",
+                                 identical(as.character(sum(a, 1L)), "7"))
+ok("and mixed with a double errors",
+                                 inherits(tryCatch(sum(a, 1.5), error = identity), "error"))
 ok("as.integer in range",        identical(as.integer(a), c(1L, 2L, 3L)))
 ok("as.numeric",                 identical(as.numeric(a), c(1, 2, 3)))
 ok("as.integer out of range",    is.na(suppressWarnings(
@@ -381,10 +385,13 @@ ok("as.numeric warns past 2^53", { got <- FALSE
 ok("as.integer of NA",           is.na(as.integer(as.bytes(NA, 8L, "signed"))))
 ok("coercion from opaque errors",
                                  inherits(tryCatch(as.integer(x), error = identity), "error"))
-ok("cumsum routes via double",   identical(cumsum(a), c(1, 3, 6)))
+ok("cumsum stays in the type",   identical(as.character(cumsum(a)), c("1", "3", "6")) &&
+                                 typeof(cumsum(a)) == typeof(a))
 
 cat("\n== R. serialization ==\n")
-rt <- function(v, ...) unserialize(serialize(v, NULL, ...))
+## version 4: no older R can read this type, so a version 2 or 3 stream
+## would carry a header naming an R that cannot read it
+rt <- function(v, ...) unserialize(serialize(v, NULL, version = 4, ...))
 u64 <- mk("unsigned", 8L, "0000000000000001", "00000001312d0000", "fffffffffffffffe")
 i64 <- mk("signed",   8L, "ffffffffffffffff", "7fffffffffffffff", "8000000000000001")
 i128 <- mk("signed", 16L, "7fffffffffffffffffffffffffffffff",
@@ -404,8 +411,12 @@ ok("xdr = FALSE",                identical(rt(u64, xdr = FALSE), u64))
 ok("attributes survive",         { y <- u64; names(y) <- c("a","b","c"); identical(rt(y), y) })
 ok("nested in a list",           identical(rt(list(u64, x))[[1]], u64))
 ok("in a data.frame",            { d <- data.frame(k = u64, n = 1:3); identical(rt(d), d) })
-ok("saveRDS / readRDS",          { f <- tempfile(); saveRDS(i64, f)
+ok("saveRDS / readRDS",          { f <- tempfile(); saveRDS(i64, f, version = 4)
                                    z <- readRDS(f); unlink(f); identical(z, i64) })
+ok("and the default version errors",
+                                 { f <- tempfile()
+                                   e <- tryCatch(saveRDS(i64, f), error = identity)
+                                   unlink(f); inherits(e, "error") })
 ok("empty vector",               identical(rt(bytes(0L, 8L, "unsigned")),
                                            bytes(0L, 8L, "unsigned")))
 ok("crosses the write chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 40000)),
@@ -419,10 +430,11 @@ ok("odd width crosses chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 
 ok("numeric payload is big-endian on the wire",
                                  { one <- mk("unsigned", 8L, "0000000000000001")
                                    identical(bytesRaw(one)[1], as.raw(1)) &&   # native: LSB first
-                                   identical(tail(serialize(one, NULL), 8),
+                                   identical(tail(serialize(one, NULL, version = 4), 8),
                                              as.raw(c(0,0,0,0,0,0,0,1))) })
 ok("opaque payload is verbatim", { o8 <- as.bytes(as.raw(c(0xde,0xad,0xbe,0xef,1,2,3,4)), 8L)
-                                   identical(tail(serialize(o8, NULL), 8), bytesRaw(o8)) })
+                                   identical(tail(serialize(o8, NULL, version = 4), 8),
+                                             bytesRaw(o8)) })
 
 cat("\n== S. deparse ==\n")
 ok("deparse round-trips",        { z <- eval(parse(text = paste(deparse(u64), collapse = "")))
@@ -479,7 +491,7 @@ ok("opaque matrix prints",       length(capture.output(print(cbind(x, x)))) == 3
 ok("cbind with integer narrows", identical(dim(cbind(u64, 1L)), c(3L, 2L)))
 ok("cbind mixed kind errors",    inherits(tryCatch(cbind(u64, i64), error = identity), "error"))
 ok("cbind mixed width errors",   inherits(tryCatch(cbind(x, x8), error = identity), "error"))
-ok("matrix round-trips",         identical(unserialize(serialize(m, NULL)), m))
+ok("matrix round-trips",         identical(rt(m), m))
 
 cat("\n== U. the partial coercion lattice ==\n")
 ## logical and integer narrow into bytes -- lossless, and the one
@@ -558,7 +570,7 @@ ok("unique keeps all four",      length(unique(c(w1, w1))) == 4L)
 ok("compares as a value",        identical(w1 > w1[2], c(FALSE, FALSE, TRUE, TRUE)))
 ok("arithmetic in range",        identical(as.character(w1[2] + 1L), "2"))
 ok("c() of two na = FALSE",      length(c(w1, w1[1])) == 5L)
-ok("serialize round-trips",      identical(unserialize(serialize(w1, NULL)), w1))
+ok("serialize round-trips",      identical(rt(w1), w1))
 ok("deparse records the flag",   grepl("na = FALSE", paste(deparse(w1), collapse = "")))
 ok("deparse round-trips",        identical(eval(parse(text = paste(deparse(w1), collapse = ""))), w1))
 ok("empty deparse too",          identical(deparse(as.bytes(raw(0), 1L, "unsigned", na = FALSE)),
@@ -1053,7 +1065,7 @@ ok("storage.mode<- keeps dim",   { sm <- 1:4; dim(sm) <- c(2L, 2L)
 
 cat("\n== Z9. arithmetic, and what measuring it turned up ==\n")
 ## The native kernels are checked against the general ones, and both
-## against Python, by bytesxp-archeck.R -- which needs two processes and
+## against Python, by tests/bytesxp-dev/archeck.R -- which needs two processes and
 ## so cannot live here.  These are the edges worth pinning in-process.
 ok("int64 min needs na = FALSE",  {
     m <- as.bytes("-9223372036854775808", 8L, "signed", na = FALSE)

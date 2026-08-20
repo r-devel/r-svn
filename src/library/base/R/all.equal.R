@@ -67,6 +67,7 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
                    numeric   = all.equal.numeric  (target, current, check.class=check.class, ...),
                    character = all.equal.character(target, current, check.class=check.class, ...),
                    logical   = ,
+                   bytes     = ,
                    raw       = all.equal.raw      (target, current, check.class=check.class, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),

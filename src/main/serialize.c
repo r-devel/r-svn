@@ -195,7 +195,7 @@ static int defaultSerializeVersion(void)
 	int val = -1;
 	if (valstr != NULL)
 	    val = atoi(valstr);
-	if (val == 2 || val == 3)
+	if (val == 2 || val == 3 || val == 4)
 	    dflt = val;
 	else
 	    dflt = 3; /* the default */
@@ -1262,6 +1262,13 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    break;
 	case BYTESXP:
 	{
+	    /* No older R can read this type at all, and the header of a
+	       version 2 or 3 stream names an R that can read the whole
+	       stream -- which would be a promise this breaks. */
+	    if (stream->version < 4)
+		error(_("a '%s' vector needs serialization version 4; this stream is version %d"),
+		      "bytes", stream->version);
+
 	    /* width and kind ride along in gp, which PackFlags already
 	       encoded, so only the payload is written here */
 	    int w = BYTEVEC_WIDTH(s), k = BYTEVEC_KIND(s);
@@ -1470,10 +1477,15 @@ void R_Serialize(SEXP s, R_outpstream_t stream)
 	OutInteger(stream, R_Version(2,3,0));
 	break;
     case 3:
+    case 4:
     {
 	OutInteger(stream, version);
 	OutInteger(stream, R_VERSION);
-	OutInteger(stream, R_Version(3,5,0));
+	/* Version 4 is version 3 plus the types added since: a stream
+	   holding one cannot be read by an older R at all, and saying
+	   3.5.0 here would promise that it can. */
+	OutInteger(stream, version == 3 ? R_Version(3,5,0)
+				        : R_Version(4,7,0));
 	const char *natenc = R_nativeEncoding();
 	int nelen = (int) strlen(natenc);
 	OutInteger(stream, nelen);
@@ -2339,6 +2351,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     switch (version) {
     case 2: break;
     case 3:
+    case 4:
     {
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)
@@ -2366,7 +2379,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     PROTECT(ref_table = MakeReadRefTable());
     obj =  ReadItem(ref_table, stream);
 
-    if (version == 3) {
+    if (version >= 3) {
 	if (stream->nat2nat_obj && stream->nat2nat_obj != (void *)-1) {
 	    Riconv_close(stream->nat2nat_obj);
 	    stream->nat2nat_obj = NULL;
@@ -2393,7 +2406,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 
     /* Read the version numbers */
     version = InInteger(stream);
-    if (version == 3)
+    if (version >= 3)
 	anslen++;
     writer_version = InInteger(stream);
     min_reader_version = InInteger(stream);
@@ -2429,7 +2442,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
     default:
 	error(_("unknown input format"));
     }
-    if (version == 3) {
+    if (version >= 3) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)

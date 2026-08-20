@@ -71,7 +71,7 @@ static bool arithWidthOK(int w)
    taken for ingest.
 
    Nothing else changes.  The general kernels remain the definition of
-   what these mean, and the two must agree; bytesxp-archeck.R checks
+   what these mean, and the two must agree; tests/bytesxp-dev/archeck.R checks
    both against Python's exact integers. */
 
 #if defined(__has_builtin)
@@ -1162,6 +1162,12 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	SEXP a = CAR(t);
 	if (TAG(t) == R_NaRmSymbol) continue;
 	if (TYPEOF(a) == NILSXP) continue;
+
+	/* An integer or logical operand narrows into the result type,
+	   as it does in arithmetic and in c(): max(x, 5L) has to agree
+	   with max(c(x, 5L)).  It settles nothing about that type,
+	   which the 'bytes' operands decide between them. */
+	if (TYPEOF(a) == INTSXP || TYPEOF(a) == LGLSXP) continue;
 	if (TYPEOF(a) != BYTESXP)
 	    errorcall(call, _("cannot mix 'bytes' vectors with other types"));
 	if (arith && BYTEVEC_KIND(a) == BYTEVEC_OPAQUE)
@@ -1211,6 +1217,11 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	SEXP a = CAR(t);
 	if (TAG(t) == R_NaRmSymbol || TYPEOF(a) == NILSXP) continue;
 
+	/* narrowed here rather than in the pass above, which settles the
+	   type this needs */
+	PROTECT(a = (TYPEOF(a) == BYTESXP) ? a
+		: R_bytesNarrow(a, w, kind, hasNA, call));
+
 	int aw = BYTEVEC_WIDTH(a);
 	const Rbyte *ba = BYTEVEC_DATA_RO(a);	/* hoisted; see R_bytesArith */
 	R_xlen_t na = XLENGTH(a);
@@ -1258,11 +1269,13 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 		    memcpy(acc, cur, (size_t) w);
 		break;
 	    default:
-		UNPROTECT(1);
+		UNPROTECT(2);	/* a, ans */
 		errorcall(call, _("this summary is not defined for 'bytes' vectors"));
 	    }
 	    if (over) { isNA = true; break; }
 	}
+
+	UNPROTECT(1); /* a */
     }
 
     if ((iop == 2 || iop == 3) && !seen) {
@@ -1394,6 +1407,15 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 	SEXP a = CAR(t);
 	if (TYPEOF(a) == NILSXP) {
 	    anyEmpty = true;
+	    continue;
+	}
+
+	/* an integer or logical operand narrows into the result type,
+	   as it does in sum() and min(); its length still counts */
+	if (TYPEOF(a) == INTSXP || TYPEOF(a) == LGLSXP) {
+	    R_xlen_t ni = XLENGTH(a);
+	    if (ni == 0) anyEmpty = true;
+	    if (ni > len) len = ni;
 	    continue;
 	}
 	if (TYPEOF(a) != BYTESXP)

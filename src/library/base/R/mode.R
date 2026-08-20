@@ -28,9 +28,11 @@ mode <- function(x) {
 	   double =, integer = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
 	   ## otherwise
-	   if(is.bytes(x))
-	       (if(bytesKind(x) == "opaque") "bytes" else "numeric")
-	   else tx)
+	   ## every kind is "bytes", the opaque one included: is.numeric()
+	   ## is FALSE for all of them, and a mode of "numeric" sends code
+	   ## that dispatches on mode() -- all.equal.default, for one --
+	   ## into paths that then reject the type
+	   if(is.bytes(x)) "bytes" else tx)
 }
 
 `mode<-` <- function(x, value)

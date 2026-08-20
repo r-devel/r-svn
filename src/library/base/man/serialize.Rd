@@ -27,8 +27,11 @@ unserialize(connection, refhook = NULL)
   \item{xdr}{a logical: if a binary representation is used, should a
     big-endian one (\I{XDR}) be used?}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3). The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    specifies the current default version (3).  The other supported
+    values are 2, the default from \R 1.4.0 to \R 3.5.0, and 4, which
+    is version 3 plus the types added since -- a \code{\link{bytes}}
+    vector can only be written to a version 4 stream, since no earlier
+    \R can read one.}
   \item{refhook}{a hook function for handling reference objects.}
 }
 \details{

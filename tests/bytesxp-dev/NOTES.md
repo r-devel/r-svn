@@ -166,7 +166,7 @@ Ingest added:
 | `src/library/base/R/connections.R` | `what` resolution, incl. a pre-existing bug |
 | `src/library/base/man/{readBin,bitwise}.Rd` | both document the type |
 | `tests/bytes-ffi/` | the opt-in half of the FFI probe |
-| `bytesxp-pcheck.R` | text conversion vs Python, self-contained |
+| `tests/bytesxp-dev/pcheck.R` | text conversion vs Python, self-contained |
 
 Native arithmetic added:
 
@@ -174,7 +174,7 @@ Native arithmetic added:
 | --- | --- |
 | `src/main/bytesarith.c` | native kernels, hoisted loops, `eltNeg` |
 | `src/library/utils/src/size.c` | `object.size()` needs the width |
-| `bytesxp-archeck.R` | self-contained; runs both paths and compares |
+| `tests/bytesxp-dev/archeck.R` | self-contained; runs both paths and compares |
 
 Tail sweep added:
 
@@ -361,7 +361,7 @@ restructuring the loop, not swapping in more instructions.
 exists they cover every arithmetic width, so the byte-at-a-time path
 becomes unreachable in an ordinary session -- and unreachable code is
 where bugs settle in.  `R_BYTES_GENERIC_ARITH` forces it, and
-`bytesxp-archeck.R` runs both: each against Python's exact integers,
+`tests/bytesxp-dev/archeck.R` runs both: each against Python's exact integers,
 and then the two against each other over ~960,000 results.
 
 That last check was vacuous when first written, which is the part worth
@@ -553,7 +553,7 @@ per-vector element width does not fit it.  `range` falls out of
 every integer.  Both refuse `opaque` vectors.
 
 Validated against Python's exact integer arithmetic over 3000 operand
-pairs across six width/kind combinations (`bytesxp-archeck.R`), with
+pairs across six width/kind combinations (`tests/bytesxp-dev/archeck.R`), with
 the operands deliberately weighted toward the range edges so that
 overflow is exercised hard: `+ - * %/% %%` and unary minus all agree,
 including every overflow case.
@@ -606,7 +606,7 @@ add a copy.  Long vectors (> 2^31) also stay on the shell sort.
 
 After: sort 4ms, order 3ms -- level with doubles.
 
-Verified against Python with `bytesxp-rxcheck.R`, deliberately drawing
+Verified against Python with `tests/bytesxp-dev/rxcheck.R`, deliberately drawing
 from a small pool so that ties are everywhere, since ties are what
 stability bugs hide in: 48 checks over six width/kind combinations
 covering ascending and decreasing order, `sort` agreeing with
@@ -761,7 +761,7 @@ only for the opaque kind, since the numeric parsers report that value as
 out of range instead.
 
 Verified against Python's exact integers rather than against itself:
-`bytesxp-pcheck.R` (self-contained -- it generates its own reference)
+`tests/bytesxp-dev/pcheck.R` (self-contained -- it generates its own reference)
 checks 1992 values over eight width/kind combinations, weighted to the
 range edges, comparing both the text and the stored native-order bytes.
 The gauntlet's round-trip test would pass with two mirrored bugs; this
@@ -1139,7 +1139,7 @@ Decimal rendering is general rather than limited to widths with a
 native C type behind them: repeated division by 10 over a scratch
 copy, so a 128-bit or 96-bit value prints exactly.  Verified against
 Python's arbitrary-precision integers over 1618 random values across
-four width/kind combinations (`bytesxp-xcheck.R`), including the
+four width/kind combinations (`tests/bytesxp-dev/xcheck.R`), including the
 extremes of each range -- decimal text, `order`, `sort`, `rank`,
 `unique`, `match` and byte-for-byte round-trip all agree.
 

@@ -71,6 +71,8 @@ storage.mode(x) <- value
     \code{"function"}.
     \item type \code{"symbol"} is called mode \code{"name"}.
     \item type \code{"language"} is returned as \code{"("} or \code{"call"}.
+    \item the types of a \code{\link{bytes}} vector, which name a width
+    and a kind, are all returned as \code{"bytes"}.
   }
 }
 \references{

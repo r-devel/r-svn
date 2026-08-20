@@ -408,6 +408,14 @@ static hlen vhash_one(SEXP _this, HashData *d)
 	    key *= 97;
 	}
 	break;
+    case BYTESXP:
+	/* without this the key is the length alone, which makes
+	   unique() and match() over a list of such vectors quadratic */
+	for(i = 0; i < LENGTH(_this); i++) {
+	    key ^= byteshash(_this, i, d);
+	    key *= 97;
+	}
+	break;
     case EXPRSXP:
     case VECSXP:
 	R_CheckStack();

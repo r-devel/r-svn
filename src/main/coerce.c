@@ -3296,6 +3296,14 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
 	return ans;
     }
 
+    /* "bytes" on its own names no width and no kind, so it cannot be a
+       target: mode<- documents it as an error, and the type table below
+       does have the name -- which would make this a silent no-op for a
+       vector that is already of the type */
+    if(streql(CHAR(STRING_ELT(value, 0)), "bytes"))
+	error(_("'%s' does not name a type; give a width and a kind, as '%s' does"),
+	      "bytes", "int64");
+
     SEXPTYPE type = str2type(CHAR(STRING_ELT(value, 0)));
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {

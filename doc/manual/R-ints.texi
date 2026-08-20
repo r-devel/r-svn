@@ -1118,7 +1118,11 @@ in back-compatible ways since its inception, for example to support
 additional @code{SEXPTYPE}s.  Earlier formats are still supported via
 @code{load} and @code{save} but such formats are not described here.  The
 current default serialization format is called `version 3', and has been
-introduced in @R{} 3.5.0.
+introduced in @R{} 3.5.0.  `Version 4' is version 3 plus the
+@code{SEXPTYPE}s added since, and is not the default: a stream is
+written in it only when asked for, since the minimum reader version in
+its header names an @R{} much later than most streams need.  A
+@code{BYTESXP} is the one type that requires it.
 
 @code{save} works by writing a single-line header (typically
 @code{RDX2\n} for a binary save: the only other current value is

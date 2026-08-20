@@ -3,9 +3,10 @@
 ## rests on, so it is tested against real compiled package code rather
 ## than argued.
 ##
+## Run by "make test-BytesFFI" in the tests directory, or by hand:
 ##   ../../build/bin/R CMD SHLIB pkg.c && ../../build/bin/Rscript probe.R
 
-dyn.load("pkg.so")
+dyn.load(paste0("pkg", .Platform$dynlib.ext))
 le <- function(h, w) rev(as.raw(strtoi(substring(h, seq(1, 2*w-1, 2), seq(2, 2*w, 2)), 16L)))
 mk <- function(k, w, ...) as.bytes(as.raw(unlist(lapply(c(...), le, w = w))), w, k)
 

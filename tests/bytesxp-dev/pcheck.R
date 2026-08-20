@@ -7,7 +7,7 @@
 ## Python stores it in.
 ##
 ## Self-contained -- it generates its own reference with python3:
-##   ../build/bin/Rscript bytesxp-pcheck.R
+##   build/bin/Rscript tests/bytesxp-dev/pcheck.R
 
 REF <- tempfile(fileext = ".tsv")
 PY <- r"---(
