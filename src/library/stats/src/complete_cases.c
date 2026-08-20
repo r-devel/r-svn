@@ -145,6 +145,10 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case BYTESXP:
+			if (R_bytesIsNA(u, i))
+			    INTEGER(rval)[i % len] = 0;
+			break;
 		    default:
 			UNPROTECT(1);
 			error(R_MSG_type, R_typeToChar(u));
@@ -177,6 +181,10 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case BYTESXP:
+			if (R_bytesIsNA(u, i))
+			    INTEGER(rval)[i % len] = 0;
+			break;
 		    default:
 			UNPROTECT(1);
 			error(R_MSG_type, R_typeToChar(u));
@@ -203,6 +211,10 @@ SEXP compcases(SEXP args)
 		    break;
 		case STRSXP:
 		    if (STRING_ELT(u, i) == NA_STRING)
+			INTEGER(rval)[i % len] = 0;
+		    break;
+		case BYTESXP:
+		    if (R_bytesIsNA(u, i))
 			INTEGER(rval)[i % len] = 0;
 		    break;
 		default:

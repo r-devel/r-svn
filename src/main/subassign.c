@@ -260,8 +260,8 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	{
 	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
 	    if (len > 0)
-		memcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
-		       (size_t) len * w);
+		R_bytesMemcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
+			      (size_t) len * w);
 	    if (newtruelen > len) R_bytesCheckNA(newx);
 	    for (R_xlen_t i = len; i < newtruelen; i++)
 		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w, k);
@@ -519,6 +519,22 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	   side falls to the default below rather than being guessed at */
 	*y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
 			   BYTEVEC_HAS_NA(*x), call);
+	break;
+
+    case 1026:	/* logical    <- bytes      */
+    case 1326:	/* integer    <- bytes      */
+	/* the mirror of the two above: the same two types narrow, so
+	   here it is the destination that moves.  This is the shape
+	   ifelse() assigns in, its answer starting life as the logical
+	   test.  A double destination has no meeting type with this
+	   one and falls to the error below, as arithmetic does. */
+	*x = R_bytesNarrow(*x, BYTEVEC_WIDTH(*y), BYTEVEC_KIND(*y),
+			   BYTEVEC_HAS_NA(*y), call);
+	break;
+
+    case 1626:	/* character  <- bytes      */
+
+	*y = coerceVector(*y, STRSXP);
 	break;
 
     case 1025: /* logical   <- S4|OBJ */

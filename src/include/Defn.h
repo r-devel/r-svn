@@ -1981,6 +1981,7 @@ attribute_hidden SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA,
 				     SEXP call);
 attribute_hidden SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA,
 				       SEXP call);
+attribute_hidden void R_bytesMemcpy(Rbyte *dst, const Rbyte *src, size_t n);
 attribute_hidden void R_bytesCheckNA(SEXP x);
 attribute_hidden void R_bytesCheckSameNA(SEXP x, SEXP y);
 attribute_hidden void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun);

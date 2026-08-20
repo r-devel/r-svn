@@ -355,9 +355,12 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	n = XLENGTH(s);
 	PROTECT(s);
 	PROTECT(t = R_allocVectorLike(s, n));
+	/* R_bytesMemcpy() and not memcpy(): the chunking that the macro
+	   above carries for macOS is the other half of what this arm
+	   declines, and a payload here reaches 2^32 bytes soonest */
 	if (n > 0)
-	    memcpy(BYTEVEC_DATA(t), BYTEVEC_DATA_RO(s),
-		   (size_t) n * BYTEVEC_WIDTH(s));
+	    R_bytesMemcpy(BYTEVEC_DATA(t), BYTEVEC_DATA_RO(s),
+			  (size_t) n * BYTEVEC_WIDTH(s));
 	DUPLICATE_ATTRIB(t, s, deep);
 	COPY_TRUELENGTH(t, s);
 	UNPROTECT(2);

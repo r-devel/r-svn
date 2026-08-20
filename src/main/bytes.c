@@ -187,7 +187,11 @@ static R_bytes_parse_t parseHex(Rbyte *out, const char *s, int w)
     /* exactly the form EncodeBytes() writes: 2*w lower- or upper-case
        hex digits in storage order, nothing else.  A short string is a
        syntax error rather than a zero-padded value: which end to pad
-       is the question the opaque kind exists to refuse to answer. */
+       is the question the opaque kind exists to refuse to answer.
+       Surrounding space is skipped, as parseDecimal() skips it and as
+       as.raw() tolerates it. */
+    while (isspace((int) (unsigned char) *s)) s++;
+
     for (int i = 0; i < w; i++) {
 	if (!s[2 * i] || !s[2 * i + 1])
 	    return BYTES_PARSE_SYNTAX;
@@ -199,7 +203,10 @@ static R_bytes_parse_t parseHex(Rbyte *out, const char *s, int w)
 	out[i] = (Rbyte) ((hi << 4) | lo);
     }
 
-    return s[2 * w] ? BYTES_PARSE_SYNTAX : BYTES_PARSE_OK;
+    s += 2 * w;
+    while (isspace((int) (unsigned char) *s)) s++;
+
+    return *s ? BYTES_PARSE_SYNTAX : BYTES_PARSE_OK;
 }
 
 static R_bytes_parse_t parseDecimal(Rbyte *out, const char *s, int w,
@@ -412,6 +419,26 @@ SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
     return ans;
 }
 
+/* memcpy() of a whole payload, in pieces.  macOS builds have been seen
+   not to copy 2^32 bytes or more in one call, which is what the
+   chunked DUPLICATE_ATOMIC_VECTOR in duplicate.c is there for; the
+   payload of this type reaches that size before any other vector does,
+   a width-16 one needing only 2^28 elements.  Elsewhere the same macro
+   is sidestepped by copying element by element. */
+attribute_hidden void R_bytesMemcpy(Rbyte *dst, const Rbyte *src, size_t n)
+{
+#ifdef __APPLE__
+    /* 1e6 elements at the widest type duplicate.c copies, as there */
+    const size_t chunk = 16000000;
+
+    while (n > chunk) {
+	memcpy(dst, src, chunk);
+	dst += chunk; src += chunk; n -= chunk;
+    }
+#endif
+    if (n) memcpy(dst, src, n);
+}
+
 /* Called wherever an NA would be stored.  A vector that declines to
    reserve a value cannot represent one, so the operation stops rather
    than inventing something. */
@@ -451,6 +478,11 @@ void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun)
     if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y) ||
 	BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
 	error(_("'bytes' vectors differ in width or kind in '%s'"), fun);
+
+    /* the reservation is part of the type as much as those two are:
+       copying from a vector that reserves nothing into one that does
+       would read a legitimate all-0xFF datum back as missing */
+    R_bytesCheckSameNA(x, y);
 }
 
 /* allocVector(TYPEOF(s), n) cannot reproduce a per-vector width, so the
@@ -740,7 +772,7 @@ SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
     SEXP val = PROTECT(R_allocBytesVector(nbytes / width, width, kind,
 					  hasNA ? TRUE : FALSE));
     if (nbytes > 0)
-	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
+	R_bytesMemcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
     R_bytesWarnReserved(val);
 
@@ -805,6 +837,17 @@ attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
 }
 
+/* Nothing to recycle from: the copies below stride the source by the
+   element width, so a zero-length one would read w bytes past the end
+   of its payload for every element written.  Rf_copyVector() and
+   Rf_copyMatrix() are public API and make no such check for any type;
+   this one says so rather than copying whatever follows. */
+static void checkRecycleSource(R_xlen_t n, R_xlen_t nsrc, const char *fun)
+{
+    if (n > 0 && nsrc == 0)
+	error(_("cannot recycle a zero-length 'bytes' vector in '%s'"), fun);
+}
+
 /* Block-copy analogues of xcopyRawWithRecycle and
    xfillRawMatrixWithRecycle: those assign elements, which cannot work
    when the element size is a per-vector property. */
@@ -812,6 +855,7 @@ void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 			    R_xlen_t n, R_xlen_t nsrc)
 {
     R_bytesCheckSameType(dst, src, "copyVector");
+    checkRecycleSource(n, nsrc, "copyVector");
 
     size_t w = (size_t) BYTEVEC_WIDTH(dst);
     Rbyte *d = BYTEVEC_DATA(dst);
@@ -828,6 +872,7 @@ void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 				  R_xlen_t cols, R_xlen_t nsrc)
 {
     R_bytesCheckSameType(dst, src, "copyMatrix");
+    checkRecycleSource(drows * cols, nsrc, "copyMatrix");
 
     size_t w = (size_t) BYTEVEC_WIDTH(dst);
     Rbyte *d = BYTEVEC_DATA(dst);
@@ -883,7 +928,7 @@ attribute_hidden SEXP do_bytesraw(SEXP call, SEXP op, SEXP args, SEXP env)
     R_xlen_t nbytes = XLENGTH(x) * BYTEVEC_WIDTH(x);
     SEXP val = PROTECT(allocVector(RAWSXP, nbytes));
     if (nbytes > 0)
-	memcpy(RAW(val), BYTEVEC_DATA_RO(x), (size_t) nbytes);
+	R_bytesMemcpy(RAW(val), BYTEVEC_DATA_RO(x), (size_t) nbytes);
     UNPROTECT(1);
 
     return val;

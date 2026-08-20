@@ -695,8 +695,8 @@ static SEXP scanVector(SEXP proto, R_xlen_t maxitems, R_xlen_t maxlines,
 	    RAW(bns)[i] = RAW(ans)[i];
 	break;
     case BYTESXP:
-	memcpy(BYTEVEC_DATA(bns), BYTEVEC_DATA_RO(ans),
-	       (size_t) n * BYTEVEC_WIDTH(ans));
+	R_bytesMemcpy(BYTEVEC_DATA(bns), BYTEVEC_DATA_RO(ans),
+		      (size_t) n * BYTEVEC_WIDTH(ans));
 	break;
     default:
 	UNIMPLEMENTED_TYPEt("scanVector", type);
