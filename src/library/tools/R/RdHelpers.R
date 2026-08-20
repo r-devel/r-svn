@@ -36,7 +36,21 @@ function(x)
 
 Rd_macros_package_dir <-
 function()
-    Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_", ".")
+{
+    if(nzchar(dir <- Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_", "")))
+        return(dir)
+    rdfile <- processRdChunk_data_store()$Rdfile
+    if(is.character(rdfile) && length(rdfile) == 1L && nzchar(rdfile)) {
+        p <- dirname(normalizePath(rdfile, mustWork = FALSE))
+        while(nzchar(p) && p != dirname(p)) {
+            if(basename(p) %in% c("man", "inst") &&
+               file_test("-f", file.path(dirname(p), "DESCRIPTION")))
+                return(dirname(p))
+            p <- dirname(p)
+        }
+    }
+    "."
+}
 
 Rd_package_title <-
 function(pkg, dir = Rd_macros_package_dir())
