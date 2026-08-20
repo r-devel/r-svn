@@ -431,20 +431,78 @@ kind and NA-ness back, sum the payload while skipping NA with
 `R_bytesIsNA()`, and confirm that `R_bytesWidth()` and `BYTES_RO()`
 refuse an integer vector the way `RAW()` does.
 
+## Text is the other ingest route
+
+A raw payload is the fast way in, but it is not the common one.  Nearly
+every 64-bit identifier an R user meets arrives as *text* -- a column of
+a CSV, a field of a JSON document, a line of a log -- and text is the
+only form that carries no byte order for the reader to get wrong.  Until
+now the conversion ran one way only: `as.character(x)` gave
+`"578437695752307201"` and feeding that back errored.
+
+`as.bytes()` now accepts, besides raw:
+
+  * **character** -- decimal for the numeric kinds, hex for opaque,
+    the exact inverse of `as.character()`.  `NA_character_` is NA.
+  * **integer** and **logical** -- narrowed, exactly as they are in
+    arithmetic, so the same values are admitted by the same rule in
+    both places.
+  * **double** -- refused, for the reason the whole lattice refuses it.
+    The message does *not* offer `as.character()` as the way out: a
+    double has already lost the digits by the time it could be printed,
+    so that advice would be wrong.
+
+The parser is the mirror of `R_bytesEltDecimal()`: repeated
+multiply-by-ten-and-add on an MSB-first accumulator, so it works at
+every width rather than only the ones with a native C type.  It sits
+next to the renderer in `bytes.c` for that reason, with
+`BYTEVEC_MAX_WIDTH` buffers -- text conversion is defined wherever
+`as.character()` is, while arithmetic stops at 16 bytes.
+
+The one thing it borrows from `bytesarith.c` is `R_bytesMagFits()`
+(formerly the static `resultFits`).  Which values a width admits is the
+subtle part -- the reserved NA pattern is a hole in the middle of the
+range and `na = FALSE` moves it -- and it is where the review pass
+already found one bug.  Two copies of that rule would eventually
+disagree.
+
+**Two failures, two warnings**, as `as.integer()` has: `"abc"` gives
+"NAs introduced by coercion", `"9223372036854775808"` gives "NAs
+introduced by values outside the range of 'int64'".  They are different
+mistakes.  Under `na = FALSE` both become errors, since there is no NA
+to produce.
+
+A subtlety worth recording: the "equal to the reserved NA value" warning
+has to be counted *at parse time*, not by scanning the finished vector.
+The first version scanned, and so reported every deliberately-set NA --
+including `NA_character_` input -- as a datum that had collided with the
+reserved pattern.  Only a successfully parsed element can collide, and
+only for the opaque kind, since the numeric parsers report that value as
+out of range instead.
+
+Verified against Python's exact integers rather than against itself:
+`bytesxp-pcheck.R` (self-contained -- it generates its own reference)
+checks 1992 values over eight width/kind combinations, weighted to the
+range edges, comparing both the text and the stored native-order bytes.
+The gauntlet's round-trip test would pass with two mirrored bugs; this
+would not.
+
 ## deparse and matrices
 
 There is no literal syntax for a `bytes` vector, so `deparse` emits
-the call that rebuilds it -- `as.bytes(as.raw(c(0x01, ...)), 8L,
-"unsigned")` -- exactly as raw vectors deparse to `as.raw(c(...))`.
-Empty vectors deparse to `bytes(0L, w, kind)`.  The payload is written
-in storage order, so this round-trips on the machine that produced it;
-the wire normalization is what makes *files* portable.
+the call that rebuilds it -- exactly as raw vectors deparse to
+`as.raw(c(...))`.  Empty vectors deparse to `bytes(0L, w, kind)`.
 
-Known wart: a vector containing NA re-parses to the right value but
-warns, because `as.bytes` legitimately flags the reserved pattern
-arriving as data and cannot tell an intentional NA from a collision.
-The fix is a suppression argument or a literal syntax; neither is worth
-designing yet.
+Elements go out as the text `as.character()` gives:
+`as.bytes(c("1", NA_character_, "-9223372036854775807"), 8L, "signed")`.
+Writing the raw payload instead, which is what this did first, was
+shorter to produce and much worse in three ways -- eight hex bytes per
+element instead of one readable number, output that *differed between a
+little- and a big-endian machine* because the payload is stored
+natively, and an NA element that came back correct but warned, since a
+reserved bit pattern arriving as data is exactly what `as.bytes` is
+supposed to flag.  `NA_character_` is unambiguous, so that wart is gone
+rather than documented.
 
 Matrices needed more than `cbind`/`rbind`.  `allocMatrix` cannot carry
 a per-vector width, so `do_bind` and `do_matrix` build the vector and

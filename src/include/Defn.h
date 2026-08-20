@@ -1932,6 +1932,17 @@ Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
 void R_bytesSetEltNA(Rbyte *p, int width, int kind);
 int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind);
 const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind);
+bool R_bytesMagFits(const Rbyte *v, int w, int kind, bool negative,
+		    bool hasNA);
+/* why one element of text did not convert; SYNTAX and RANGE get
+   different warnings, as they do for as.integer() */
+typedef enum {
+    BYTES_PARSE_OK = 0,
+    BYTES_PARSE_SYNTAX,
+    BYTES_PARSE_RANGE
+} R_bytes_parse_t;
+R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
+				     int kind, bool hasNA);
 const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 const char *R_bytesTypeName(SEXP x);
 const char *R_bytesKindName(SEXP x);

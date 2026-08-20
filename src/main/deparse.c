@@ -1627,13 +1627,19 @@ static void deparse2buf_name(SEXP nv, int i, LocalParseData *d) {
 // deparse atomic vectors :
 /* There is no literal syntax for a 'bytes' vector, so it deparses to
    the call that rebuilds it -- as raw vectors do, which print as
-   as.raw(c(0x01, ...)).  The payload is written in storage order, so
-   this round-trips on the machine that produced it; the wire
-   normalization in serialize.c is what makes files portable. */
+   as.raw(c(0x01, ...)).
+
+   Elements go out as the text as.character() would give: decimal for
+   the numeric kinds, hex for the opaque one.  Writing the raw payload
+   instead would be shorter to produce and much worse to read -- eight
+   hex bytes per element, in storage order, so the deparse of the same
+   vector differed between a little- and a big-endian machine.  Text
+   also lets an NA element deparse to NA_character_ and come back
+   without the warning a reserved bit pattern would have to raise. */
 static void bytes2buff(SEXP v, LocalParseData *d)
 {
     R_xlen_t n = XLENGTH(v);
-    int w = BYTEVEC_WIDTH(v);
+    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
     const char *kind = R_bytesKindName(v);
     char buf[64];
 
@@ -1646,16 +1652,29 @@ static void bytes2buff(SEXP v, LocalParseData *d)
 	return;
     }
 
-    print2buff("as.bytes(as.raw(c(", d);
-    const Rbyte *p = BYTEVEC_DATA_RO(v);
-    R_xlen_t nb = n * w;
-    for (R_xlen_t i = 0; i < nb; i++) {
-	print2buff(EncodeRaw(p[i], "0x"), d);
-	if (i < nb - 1) print2buff(", ", d);
+    print2buff("as.bytes(", d);
+    if (n > 1) print2buff("c(", d);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = BYTEVEC_ELT_RO(v, i);
+
+	if (BYTEVEC_HAS_NA(v) && R_bytesEltIsNA(p, w, k))
+	    print2buff("NA_character_", d);
+	else {
+	    /* digits, '-' and hex only, so no escaping is in question */
+	    print2buff("\"", d);
+	    print2buff(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
+					   : R_bytesEltDecimal(p, w, k), d);
+	    print2buff("\"", d);
+	}
+
+	if (i < n - 1) print2buff(", ", d);
 	if (d->len > d->cutoff) writeline(d);
 	if (!d->active) break;
     }
-    snprintf(buf, sizeof buf, ")), %dL, \"%s\"%s)", w, kind, na);
+
+    if (n > 1) print2buff(")", d);
+    snprintf(buf, sizeof buf, ", %dL, \"%s\"%s)", w, kind, na);
     print2buff(buf, d);
 }
 

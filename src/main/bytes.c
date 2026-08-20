@@ -36,6 +36,8 @@
 # include <config.h>
 #endif
 
+#include <ctype.h>
+
 #include <Defn.h>
 #include <Internal.h>
 #include <Print.h>  /* R_print.na_string */
@@ -142,6 +144,116 @@ const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind)
     *q = '\0';
 
     return buff;
+}
+
+/* ---- text to element: the inverse of the two renderers above -------
+
+   Text is how a 64-bit identifier usually reaches R -- a column of a
+   CSV, a field of a JSON document, a line of a log -- and unlike a raw
+   payload it carries no byte order for the reader to get wrong.  It is
+   also what makes as.character() reversible, which deparse() relies on.
+
+   Scratch buffers here are BYTEVEC_MAX_WIDTH, not the arithmetic
+   MAXW: conversion to and from text is defined at every width, as
+   R_bytesEltDecimal() above is, while arithmetic stops at 16 bytes. */
+
+/* mag = mag * mul + add, MSB-first; false if that carried out of w
+   bytes, which is the only way a decimal literal can be too big */
+static bool magMulAdd(Rbyte *mag, int w, unsigned int mul, unsigned int add)
+{
+    unsigned int carry = add;
+
+    for (int i = w - 1; i >= 0; i--) {
+	unsigned int v = (unsigned int) mag[i] * mul + carry;
+	mag[i] = (Rbyte) (v & 0xFF);
+	carry = v >> 8;
+    }
+
+    return carry == 0;
+}
+
+static int hexDigit(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+
+    return -1;
+}
+
+static R_bytes_parse_t parseHex(Rbyte *out, const char *s, int w)
+{
+    /* exactly the form EncodeBytes() writes: 2*w lower- or upper-case
+       hex digits in storage order, nothing else.  A short string is a
+       syntax error rather than a zero-padded value: which end to pad
+       is the question the opaque kind exists to refuse to answer. */
+    for (int i = 0; i < w; i++) {
+	if (!s[2 * i] || !s[2 * i + 1])
+	    return BYTES_PARSE_SYNTAX;
+
+	int hi = hexDigit(s[2 * i]), lo = hexDigit(s[2 * i + 1]);
+	if (hi < 0 || lo < 0)
+	    return BYTES_PARSE_SYNTAX;
+
+	out[i] = (Rbyte) ((hi << 4) | lo);
+    }
+
+    return s[2 * w] ? BYTES_PARSE_SYNTAX : BYTES_PARSE_OK;
+}
+
+static R_bytes_parse_t parseDecimal(Rbyte *out, const char *s, int w,
+				    int kind, bool hasNA)
+{
+    bool negative = false;
+
+    while (isspace((int) (unsigned char) *s)) s++;
+    if (*s == '+' || *s == '-')
+	negative = (*s++ == '-');
+    if (!isdigit((int) (unsigned char) *s))
+	return BYTES_PARSE_SYNTAX;
+
+    Rbyte mag[BYTEVEC_MAX_WIDTH];
+    memset(mag, 0, (size_t) w);
+
+    bool over = false;
+    for (; isdigit((int) (unsigned char) *s); s++)
+	if (!magMulAdd(mag, w, 10u, (unsigned int) (*s - '0')))
+	    over = true;
+
+    while (isspace((int) (unsigned char) *s)) s++;
+    if (*s)
+	return BYTES_PARSE_SYNTAX;
+
+    /* an unsigned element has no negative values, but "-0" is 0 */
+    if (negative && kind == BYTEVEC_UINT) {
+	for (int i = 0; i < w; i++)
+	    if (mag[i]) return BYTES_PARSE_RANGE;
+	negative = false;
+    }
+
+    if (over || !R_bytesMagFits(mag, w, kind, negative, hasNA))
+	return BYTES_PARSE_RANGE;
+
+    if (negative) {		/* two's complement, MSB-first */
+	int carry = 1;
+	for (int i = w - 1; i >= 0; i--) {
+	    int v = (int) ((Rbyte) ~mag[i]) + carry;
+	    mag[i] = (Rbyte) (v & 0xFF);
+	    carry = v >> 8;
+	}
+    }
+
+    for (int i = 0; i < w; i++)
+	out[BYTEVEC_MSB(i, w)] = mag[i];
+
+    return BYTES_PARSE_OK;
+}
+
+R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
+				     int kind, bool hasNA)
+{
+    return (kind == BYTEVEC_OPAQUE) ? parseHex(out, s, w)
+				    : parseDecimal(out, s, w, kind, hasNA);
 }
 
 /* Called wherever an NA would be stored.  A vector that declines to
@@ -324,20 +436,124 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
     return val;
 }
 
-/* as.bytes(x, width, kind): reinterpret a raw vector as width-byte
-   elements.  The bytes are taken verbatim -- for the numeric kinds
-   that means the caller supplies them in native byte order, which is
-   what makes ingest from an external source a plain memcpy. */
+/* Elements that arrived from real data equal to the reserved NA
+   pattern.  Only the opaque kind can reach this: the numeric parsers
+   and eltFromLong() report that value as out of range instead, since
+   for them it is a number the width cannot hold. */
+static void warnReserved(R_xlen_t nNA)
+{
+    if (nNA)
+	warning(ngettext("%lld element equal to the reserved NA value became NA",
+			 "%lld elements equal to the reserved NA value became NA",
+			 (unsigned long) nNA), (long long) nNA);
+}
+
+/* the same count, for a payload taken verbatim rather than element by
+   element */
+static R_xlen_t countReserved(SEXP val)
+{
+    if (!BYTEVEC_HAS_NA(val))
+	return 0;		/* nothing is reserved, so nothing collided */
+
+    int w = BYTEVEC_WIDTH(val), k = BYTEVEC_KIND(val);
+    R_xlen_t nNA = 0;
+
+    for (R_xlen_t i = 0; i < XLENGTH(val); i++)
+	if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), w, k)) nNA++;
+
+    return nNA;
+}
+
+/* as.bytes(x, width, kind, na) on a character vector: the inverse of
+   as.character(), hex for the opaque kind and decimal for the numeric
+   ones.  This is the ingest route that does not depend on the
+   producer's byte order, and the one a CSV or JSON column arrives by. */
+static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
+{
+    R_xlen_t n = XLENGTH(x);
+    SEXP val = PROTECT(R_allocBytesVector(n, width, kind,
+					  hasNA ? TRUE : FALSE));
+    R_xlen_t nBad = 0, nOver = 0, nReserved = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP s = STRING_ELT(x, i);
+	Rbyte *p = BYTEVEC_ELT(val, i);
+
+	if (s == NA_STRING) {
+	    R_bytesCheckNA(val);
+	    R_bytesSetEltNA(p, width, kind);
+	    continue;
+	}
+
+	R_bytes_parse_t st = R_bytesEltFromString(p, CHAR(s), width, kind,
+						  hasNA != 0);
+	if (st == BYTES_PARSE_OK) {
+	    /* counted here rather than by scanning the result: an
+	       element set to NA because it failed to parse is not a
+	       datum that collided with the reserved value */
+	    if (hasNA && R_bytesEltIsNA(p, width, kind)) nReserved++;
+	    continue;
+	}
+
+	if (st == BYTES_PARSE_SYNTAX) nBad++; else nOver++;
+	R_bytesCheckNA(val);
+	R_bytesSetEltNA(p, width, kind);
+    }
+
+    /* the two failures get their own warnings, as they do for
+       as.integer(): "abc" and "1e99" are different mistakes */
+    if (nBad)
+	warning(_("NAs introduced by coercion"));
+    if (nOver)
+	warning(_("NAs introduced by values outside the range of '%s'"),
+		R_bytesTypeName(val));
+    warnReserved(nReserved);
+
+    UNPROTECT(1);
+
+    return val;
+}
+
+/* as.bytes(x, width, kind, na): build a 'bytes' vector from x.
+
+   A raw vector is reinterpreted verbatim as width-byte elements -- for
+   the numeric kinds that means the caller supplies native byte order,
+   which is what makes ingest from an external source a plain memcpy.
+   A character vector is parsed.  Integer and logical vectors narrow,
+   as they do in arithmetic.  Double is refused there and is refused
+   here for the same reason. */
 attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
     SEXP x = CAR(args);
-    if (TYPEOF(x) != RAWSXP)
-	error(_("'%s' must be a raw vector"), "x");
     int width = checkWidth(CADR(args));
     int kind = checkKind(CADDR(args));
     int hasNA = checkNA(CADDDR(args));
+
+    if (TYPEOF(x) == STRSXP)
+	return bytesFromString(x, width, kind, hasNA);
+
+    if (TYPEOF(x) == INTSXP || TYPEOF(x) == LGLSXP) {
+	if (kind == BYTEVEC_OPAQUE)
+	    error(_("cannot convert type '%s' to an opaque '%s' vector: its elements are byte strings, not numbers"),
+		  R_typeToChar(x), "bytes");
+
+	return R_bytesNarrow(x, width, kind, hasNA, call);
+    }
+
+    /* Refused for the reason the whole coercion lattice refuses it: a
+       double neither contains nor is contained by a 64-bit integer, so
+       there is no conversion that is right in general.  as.character()
+       is not the way out either -- a double has already lost the digits
+       by the time it could be printed. */
+    if (TYPEOF(x) == REALSXP)
+	error(_("cannot convert a double vector to '%s'; supply an integer vector, or the text of each value for magnitudes a double cannot hold exactly"),
+	      "bytes");
+
+    if (TYPEOF(x) != RAWSXP)
+	error(_("cannot convert type '%s' to '%s'; supply raw bytes, or the decimal or hex text of each element"),
+	      R_typeToChar(x), "bytes");
 
     R_xlen_t nbytes = XLENGTH(x);
     if (nbytes % width)
@@ -349,16 +565,7 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
     if (nbytes > 0)
 	memcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 
-    /* with na = FALSE nothing is reserved, so nothing can collide */
-    if (hasNA) {
-	R_xlen_t nNA = 0;
-	for (R_xlen_t i = 0; i < XLENGTH(val); i++)
-	    if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), width, kind)) nNA++;
-	if (nNA)
-	    warning(ngettext("%lld element equal to the reserved NA value became NA",
-			     "%lld elements equal to the reserved NA value became NA",
-			     (unsigned long) nNA), (long long) nNA);
-    }
+    warnReserved(countReserved(val));
 
     UNPROTECT(1);
 

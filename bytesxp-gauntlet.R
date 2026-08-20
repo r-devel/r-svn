@@ -423,12 +423,21 @@ ok("opaque deparse round-trips", { z <- eval(parse(text = paste(deparse(x), coll
 ok("empty deparses to bytes()",  identical(deparse(bytes(0L, 8L, "signed")),
                                            "bytes(0L, 8L, \"signed\")"))
 ok("deparse names the kind",     grepl("\"unsigned\"", paste(deparse(u64), collapse = "")))
-## known wart: an NA element re-parses to the right value but warns,
-## because as.bytes legitimately flags the reserved pattern as data
-ok("NA deparse: value correct",  { na1 <- bytesNA(1L, 8L, "unsigned")
-                                   z <- suppressWarnings(
-                                       eval(parse(text = paste(deparse(na1), collapse = ""))))
+## elements deparse as the text as.character() gives, so the output is
+## readable, is the same on either endianness, and an NA element comes
+## back as NA_character_ rather than as a reserved bit pattern that
+## as.bytes would have to warn about
+ok("deparse is the text form",   identical(deparse(as.bytes("42", 8L, "signed")),
+                                           "as.bytes(\"42\", 8L, \"signed\")"))
+ok("NA deparses silently",       { na1 <- bytesNA(2L, 8L, "unsigned")
+                                   txt <- paste(deparse(na1), collapse = "")
+                                   z <- withCallingHandlers(
+                                       eval(parse(text = txt)),
+                                       warning = function(w) stop("warned"))
                                    identical(z, na1) })
+ok("na = FALSE survives deparse",{ nf <- as.bytes(c("1", "2"), 8L, "signed", na = FALSE)
+                                   z <- eval(parse(text = paste(deparse(nf), collapse = "")))
+                                   identical(z, nf) })
 
 cat("\n== T. matrices ==\n")
 m <- cbind(u64, u64)
@@ -738,13 +747,70 @@ ok("both sort paths agree on NA", {
     identical(which(is.na(sort(v,  na.last = TRUE))),
               which(is.na(sort(op, na.last = TRUE)))) })
 
+cat("\n== Z5. text is an ingest route, and as.character() is reversible ==\n")
+## the route a 64-bit identifier actually arrives by: a CSV column, a
+## JSON field, a log line.  Unlike a raw payload it carries no byte
+## order to get wrong, and it is what makes deparse readable.
+set.seed(11)
+for (k in c("signed", "unsigned"))
+    for (w in c(1L, 2L, 4L, 8L, 16L, 21L)) {
+        v <- suppressWarnings(as.bytes(as.raw(sample(0:255, w * 300, TRUE)), w, k))
+        ok(sprintf("%s%d: as.character round-trips", k, 8L * w),
+           identical(suppressWarnings(as.bytes(as.character(v), w, k)), v))
+    }
+for (w in c(1L, 6L, 16L, 32L)) {
+    v <- suppressWarnings(as.bytes(as.raw(sample(0:255, w * 300, TRUE)), w, "opaque"))
+    ok(sprintf("opaque width %d: hex round-trips", w),
+       identical(suppressWarnings(as.bytes(as.character(v), w)), v))
+}
+
+ok("int64 edges parse exactly",  {
+    lim <- c("9223372036854775807", "-9223372036854775807", "0", "-1")
+    identical(as.character(as.bytes(lim, 8L, "signed")), lim) })
+ok("uint128 edge parses exactly",{
+    lim <- "340282366920938463463374607431768211454"
+    identical(as.character(as.bytes(lim, 16L, "unsigned")), lim) })
+ok("NA_character_ is NA",        is.na(as.bytes(NA_character_, 8L, "signed")))
+ok("and does not warn",          { withCallingHandlers(as.bytes(c("1", NA), 8L, "signed"),
+                                                       warning = function(w) stop("warned"))
+                                   TRUE })
+ok("leading/trailing space ok",  identical(as.character(as.bytes("  42\t", 8L, "signed")), "42"))
+ok("+ sign accepted",            identical(as.character(as.bytes("+7", 8L, "unsigned")), "7"))
+ok("-0 is 0 when unsigned",      identical(as.character(as.bytes("-0", 8L, "unsigned")), "0"))
+
+## the two failures are different mistakes and say so, as they do for
+## as.integer(): "abc" is not a number, 2^63 is not an int64
+wmsg <- function(e) tryCatch({ e; "" }, warning = function(w) conditionMessage(w))
+ok("junk warns about coercion",  grepl("coercion", wmsg(as.bytes("abc", 8L, "signed"))))
+ok("too big warns about range",  grepl("range", wmsg(as.bytes("9223372036854775808", 8L, "signed"))))
+ok("negative into unsigned",     grepl("range", wmsg(as.bytes("-1", 8L, "unsigned"))))
+ok("reserved value warns",       grepl("reserved", wmsg(as.bytes("ffffffffffffffff", 8L))))
+ok("short hex is a syntax error",grepl("coercion", wmsg(as.bytes("0102", 8L))))
+ok("hex is case-insensitive",    identical(as.bytes("DEADBEEF", 4L), as.bytes("deadbeef", 4L)))
+ok("INT_MIN needs na = FALSE",   {
+    m <- "-9223372036854775808"
+    is.na(suppressWarnings(as.bytes(m, 8L, "signed"))) &&
+        identical(as.character(as.bytes(m, 8L, "signed", na = FALSE)), m) })
+ok("na = FALSE cannot make NA",  inherits(tryCatch(as.bytes("abc", 8L, "signed", na = FALSE),
+                                                   error = identity), "error"))
+
+## integer and logical narrow into bytes here exactly as they do in
+## arithmetic; double is refused the same way, and opaque reads no
+## numbers at all
+ok("integer narrows",            identical(as.character(as.bytes(1:3, 8L, "signed")),
+                                           c("1", "2", "3")))
+ok("logical narrows",            identical(as.character(as.bytes(c(TRUE, NA), 8L, "unsigned")),
+                                           c("1", NA)))
+probe("as.bytes(double)",        as.bytes(1, 8L, "signed"))
+probe("as.bytes(integer, opaque)", as.bytes(1L, 4L, "opaque"))
+probe("as.bytes(list)",          as.bytes(list(1), 8L, "signed"))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))
 probe("as.integer(x)",           as.integer(x))
 probe("as.raw(x)",               as.raw(x))
 probe("as.numeric(x)",           as.numeric(x))
-probe("as.bytes(character)",     as.bytes("00", 1L))
 
 cat(sprintf("\n%d failure(s)\n", fails))
 if (fails) quit(status = 1L)

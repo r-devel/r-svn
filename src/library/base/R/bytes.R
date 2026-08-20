@@ -36,6 +36,10 @@ bytes <- function(length = 0L, width = 1L,
                   kind = c("opaque", "unsigned", "signed"), na = TRUE)
     .Internal(bytes(length, width, match.arg(kind), na))
 
+## x may be raw (reinterpreted verbatim, so the numeric kinds take
+## native byte order and ingest is a plain copy), character (parsed:
+## decimal for the numeric kinds, hex for opaque -- the inverse of
+## as.character), or integer/logical (narrowed, as in arithmetic).
 as.bytes <- function(x, width = 1L,
                      kind = c("opaque", "unsigned", "signed"), na = TRUE)
     .Internal(as.bytes(x, width, match.arg(kind), na))

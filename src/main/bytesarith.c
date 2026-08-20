@@ -149,8 +149,14 @@ static void widenMSB(Rbyte *out, int w, const Rbyte *p, int pw, int kind)
 
    hasNA is the vector's own answer to whether anything is reserved at
    all: with na = FALSE every bit pattern of the width is a value, so
-   the top of the range is reachable rather than overflow. */
-static bool resultFits(const Rbyte *v, int w, int kind, bool negative, bool hasNA)
+   the top of the range is reachable rather than overflow.
+
+   Shared with the text parser in bytes.c rather than restated there:
+   which values a width admits is subtle enough that two copies would
+   eventually disagree.  Nothing here is limited to the arithmetic
+   widths -- it just loops over w. */
+attribute_hidden
+bool R_bytesMagFits(const Rbyte *v, int w, int kind, bool negative, bool hasNA)
 {
     if (kind == BYTEVEC_UINT) {
 	/* v is the true magnitude; UINT_MAX is reserved */
@@ -174,7 +180,7 @@ static bool resultFits(const Rbyte *v, int w, int kind, bool negative, bool hasN
    false on overflow. */
 static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative, bool hasNA)
 {
-    if (!resultFits(mag, w, kind, negative, hasNA)) return false;
+    if (!R_bytesMagFits(mag, w, kind, negative, hasNA)) return false;
 
     if (negative) magNegate(mag, w);
     fromMSB(out, mag, w);
