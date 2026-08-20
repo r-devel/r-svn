@@ -1037,6 +1037,35 @@ attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
     return neg ? -d : d;
 }
 
+/* Whether an element's exact magnitude is above 2^53, the last integer
+   a double names with no neighbour rounding onto it.  Asked of the
+   bytes rather than of the double they convert to: a value just above
+   2^53 rounds down onto 2^53 exactly, so a test on the result would let
+   through the one element that did lose a digit. */
+static bool eltMagAbove2p53(const Rbyte *p, int w, int kind)
+{
+    if (w < 7) return false;	/* at most 48 bits, so always exact */
+
+    Rbyte A[BYTEVEC_MAX_WIDTH];
+
+    toMSB(A, p, w);
+    if (kind == BYTEVEC_INT && (A[0] & 0x80))
+	magNegate(A, w);
+
+    /* 2^53 is 0x20 in the seventh byte from the bottom, zero elsewhere */
+    int lo = w - 7;
+
+    for (int i = 0; i < lo; i++)
+	if (A[i]) return true;
+
+    if (A[lo] != 0x20) return A[lo] > 0x20;
+
+    for (int i = lo + 1; i < w; i++)
+	if (A[i]) return true;
+
+    return false;
+}
+
 attribute_hidden
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 {
@@ -1096,7 +1125,7 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 	       is not a rounding of the value, so it does not report as
 	       one. */
 	    if (!R_FINITE(d)) nOver++;
-	    else if (fabs(d) > 9007199254740992.0) nLost++;
+	    else if (eltMagAbove2p53(p, w, k)) nLost++;
 	    REAL0(ans)[i] = d;
 	}
     }
@@ -1259,6 +1288,194 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	warningcall(call, _("NAs produced by integer overflow"));
 
     UNPROTECT(1);
+
+    return ans;
+}
+/* ---- cumsum / cumprod / cummax / cummin ---- */
+
+/* iop is do_cum()'s PRIMVAL: 1 cumsum, 2 cumprod, 3 cummax, 4 cummin.
+   The running value is kept in the answer itself, so each step reads
+   the element before it.  As in cum.c's integer versions, an NA or an
+   overflow ends the run and everything from there on is NA. */
+attribute_hidden
+SEXP R_bytesCum(SEXP call, int iop, SEXP x)
+{
+    int w = BYTEVEC_WIDTH(x), kind = BYTEVEC_KIND(x);
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    R_xlen_t n = XLENGTH(x);
+    bool arith = (iop == 1 || iop == 2);
+    const char *nm = (iop == 1 ? "cumsum" : iop == 2 ? "cumprod"
+		      : (iop == 3 ? "cummax" : "cummin"));
+
+    if (iop < 1 || iop > 4)
+	errorcall(call, _("'%s' is not defined for 'bytes' vectors"), "cumvar");
+
+    /* min and max only ever compare, which is defined for every kind
+       and every width; a running sum or product is arithmetic and is
+       restricted exactly as sum() and prod() are */
+    if (arith && kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"), nm);
+    if (arith && !arithWidthOK(w))
+	errorcall(call,
+		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    setAttrib(ans, R_NamesSymbol, getAttrib(x, R_NamesSymbol));
+
+    const Rbyte *bx = BYTEVEC_DATA_RO(x);	/* hoisted; see R_bytesArith */
+    Rbyte *ba = BYTEVEC_DATA(ans);
+    bool stop = false, over = false;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = bx + i * w;
+	Rbyte *acc = ba + i * w;
+
+	if (!stop && hasNA && eltIsNA(p, w, kind))
+	    stop = true;
+
+	if (stop) {
+	    R_bytesSetEltNA(acc, w, kind);
+	    continue;
+	}
+
+	if (i == 0) {
+	    memcpy(acc, p, (size_t) w);
+	    continue;
+	}
+
+	const Rbyte *prev = ba + (i - 1) * w;
+	switch (iop) {
+	case 1:
+	    if (!eltAdd(acc, prev, p, w, kind, hasNA)) over = true;
+	    break;
+	case 2:
+	    if (!eltMul(acc, prev, p, w, kind, hasNA)) over = true;
+	    break;
+	case 3:
+	    memcpy(acc, R_bytesEltCmp(p, prev, w, kind) > 0 ? p : prev,
+		   (size_t) w);
+	    break;
+	default:
+	    memcpy(acc, R_bytesEltCmp(p, prev, w, kind) < 0 ? p : prev,
+		   (size_t) w);
+	    break;
+	}
+
+	if (over) {
+	    /* errors when the type reserves no NA: there is no value to
+	       report the overflow with */
+	    R_bytesCheckNA(ans);
+	    R_bytesSetEltNA(acc, w, kind);
+	    stop = true;
+	}
+    }
+
+    if (over)
+	warningcall(call, _("NAs produced by integer overflow"));
+
+    UNPROTECT(1);
+
+    return ans;
+}
+/* ---- pmin / pmax ---- */
+
+/* iop is do_pmin()'s PRIMVAL: 0 pmin, 1 pmax.  Result kind, width and
+   NA flag are settled as in R_bytesSummary(); elements are only ever
+   compared, so any width is allowed unless a narrower operand has to be
+   promoted to the result width. */
+attribute_hidden
+SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
+{
+    int kind = -1, w = 0, wmin = 0, hasNA = -1;
+    R_xlen_t len = 0;
+    bool anyEmpty = false;
+
+    for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
+	SEXP a = CAR(t);
+	if (TYPEOF(a) == NILSXP) {
+	    anyEmpty = true;
+	    continue;
+	}
+	if (TYPEOF(a) != BYTESXP)
+	    errorcall(call, _("cannot mix 'bytes' vectors with other types"));
+	if (kind == -1) {
+	    kind = BYTEVEC_KIND(a);
+	    hasNA = BYTEVEC_HAS_NA(a);
+	    wmin = BYTEVEC_WIDTH(a);
+	}
+	else {
+	    if (kind != BYTEVEC_KIND(a))
+		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	    if (hasNA != BYTEVEC_HAS_NA(a))
+		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+	    if (BYTEVEC_WIDTH(a) < wmin) wmin = BYTEVEC_WIDTH(a);
+	}
+	if (BYTEVEC_WIDTH(a) > w) w = BYTEVEC_WIDTH(a);
+
+	R_xlen_t n = XLENGTH(a);
+	if (n == 0) anyEmpty = true;
+	if (n > len) len = n;
+    }
+
+    bool promote = (w != wmin);
+    if (promote && !arithWidthOK(w))
+	errorcall(call,
+		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    if (promote && kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("cannot combine opaque 'bytes' vectors of widths %d and %d"),
+		  wmin, w);
+
+    /* as for the other types: one zero-length operand makes the whole
+       result zero-length, rather than recycling nothing */
+    if (anyEmpty) len = 0;
+
+    if (len)
+	for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	    if (TYPEOF(CAR(t)) != NILSXP && len % XLENGTH(CAR(t))) {
+		warningcall(call, _("an argument will be fractionally recycled"));
+		break;
+	    }
+
+    SEXP ans = PROTECT(R_allocBytesVector(len, w, kind, hasNA ? TRUE : FALSE));
+    bool first = true;
+
+    for (SEXP t = args; len > 0 && t != R_NilValue; t = CDR(t)) {
+	SEXP a = CAR(t);
+	if (TYPEOF(a) == NILSXP) continue;
+
+	/* widening allocates, so nothing below may hold a data pointer
+	   across this call */
+	PROTECT(a = R_bytesConvert(a, w, kind, hasNA, call));
+
+	R_xlen_t n = XLENGTH(a);
+	const Rbyte *ba = BYTEVEC_DATA_RO(a);
+	Rbyte *ra = BYTEVEC_DATA(ans);
+
+	if (first) {
+	    for (R_xlen_t i = 0; i < len; i++)
+		memcpy(ra + i * w, ba + (i % n) * w, (size_t) w);
+	    first = false;
+	}
+	else
+	    for (R_xlen_t i = 0; i < len; i++) {
+		const Rbyte *p = ba + (i % n) * w;
+		Rbyte *q = ra + i * w;
+		bool pNA = hasNA && eltIsNA(p, w, kind);
+		bool qNA = hasNA && eltIsNA(q, w, kind);
+		int c = (pNA || qNA) ? 0 : R_bytesEltCmp(p, q, w, kind);
+
+		/* the running element loses to a missing one unless
+		   na.rm, and a missing running element is replaced by
+		   anything when na.rm -- as the integer arm does */
+		if ((narm && qNA) || (!narm && pNA) ||
+		    (!pNA && !qNA && (iop == 1 ? c > 0 : c < 0)))
+		    memcpy(q, p, (size_t) w);
+	    }
+
+	UNPROTECT(1); /* a */
+    }
+
+    UNPROTECT(1); /* ans */
 
     return ans;
 }

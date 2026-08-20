@@ -2397,6 +2397,26 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
        mk_DIAG((Rbyte) 0);
        break;
    }
+   case BYTESXP:
+   {
+       /* allocMatrix cannot carry a per-vector width, and mk_DIAG
+	  indexes elements by type, so this arm spells both out */
+       PROTECT(ans = R_allocVectorLike(x, NR * nc));
+       SEXP mdim = PROTECT(allocVector(INTSXP, 2));
+       INTEGER(mdim)[0] = nr; INTEGER(mdim)[1] = nc;
+       setAttrib(ans, R_DimSymbol, mdim);
+       UNPROTECT(1); /* mdim */
+
+       size_t w = (size_t) BYTEVEC_WIDTH(x);
+       if (NR * nc)
+	   memset(BYTEVEC_DATA(ans), 0, (size_t)(NR * nc) * w);
+       R_xlen_t i, i1;
+       MOD_ITERATE1(mn, nx, i, i1, {
+	       memcpy(BYTEVEC_ELT(ans, i * (NR + 1)),
+		      BYTEVEC_ELT_RO(x, i1), w);
+       });
+       break;
+   }
    default: {
        PROTECT(x = coerceVector(x, REALSXP));
        nprotect++;

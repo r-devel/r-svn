@@ -214,6 +214,8 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
     checkArity(op, args);
     if (DispatchGroup("Math", call, op, args, env, &ans))
 	return ans;
+    if (TYPEOF(CAR(args)) == BYTESXP)
+	return R_bytesCum(call, PRIMVAL(op), CAR(args));
     if (isComplex(CAR(args))) {
 	t = CAR(args);
 	n = XLENGTH(t);

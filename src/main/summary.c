@@ -1045,7 +1045,10 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SEXP call = PROTECT(lang2(install("xtfrm"), sx)); nprot++;
 	PROTECT(sx = eval(call, rho)); nprot++;
     } else
-    if (!isNumeric(sx)) {
+    if (!isNumeric(sx) && TYPEOF(sx) != BYTESXP) {
+	/* a 'bytes' vector is scanned in place below: coercing it to
+	   double would round two elements above 2^53 onto the same
+	   value and hand back the index of the wrong one */
 	PROTECT(sx = coerceVector(CAR(args), REALSXP)); nprot++;
     }
     n = XLENGTH(sx);
@@ -1105,6 +1108,28 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if ( !ISNAN(r[i]) && (r[i] > s || indx == -1) ) {
 		    s = r[i]; indx = i;
 		}
+	}
+    }
+    break;
+
+    case BYTESXP:
+    {
+	int w = BYTEVEC_WIDTH(sx), kind = BYTEVEC_KIND(sx);
+	bool hasNA = BYTEVEC_HAS_NA(sx);
+	const Rbyte *r = BYTEVEC_DATA_RO(sx), *s = NULL;
+	bool wantMin = (PRIMVAL(op) == 0);
+	for (i = 0; i < n; i++) {
+	    const Rbyte *p = r + i * w;
+	    if (hasNA && R_bytesEltIsNA(p, w, kind))
+		continue;
+	    if (indx == -1) {
+		s = p; indx = i;
+		continue;
+	    }
+	    int c = R_bytesEltCmp(p, s, w, kind);
+	    if (wantMin ? (c < 0) : (c > 0)) {
+		s = p; indx = i;
+	    }
 	}
     }
     } // switch()
@@ -1214,6 +1239,15 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     args = CDR(args);
     if(args == R_NilValue) error(_("no arguments"));
     SEXP x = CAR(args);
+
+    /* 'bytes' vectors reconcile width, kind and the NA reservation
+       rather than promoting to a common SEXPTYPE, so they take their
+       own path -- but keep the one-input shortcut below, which hands
+       back the argument itself */
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	if (TYPEOF(CAR(a)) == BYTESXP)
+	    return (CDR(args) == R_NilValue) ? x
+		: R_bytesParallelMinMax(call, PRIMVAL(op), args, narm != 0);
 
     SEXPTYPE anstype = TYPEOF(x);
     switch(anstype) {
