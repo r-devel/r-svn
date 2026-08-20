@@ -7,16 +7,22 @@ compared and hashed as byte blocks and are never interpreted as
 numbers, so there is no coercion hierarchy to join and no arithmetic
 to define.
 
-Status: **stage 3 plus numeric kinds and arithmetic**.  Everything a filtering workload needs works:
-allocation, GC, printing, identity, NA, subsetting, subassignment,
-`c()`, `rep()`, comparison, `match`/`unique`/`duplicated`/`split`,
+Status: **the original stage list is complete, and so is the ingest
+surface**.  Everything a filtering workload needs works: allocation,
+GC, printing, identity, NA, subsetting, subassignment, `c()`, `rep()`,
+comparison, `match`/`unique`/`duplicated`/`split`,
 `sort`/`order`/`rank`/`xtfrm`, `as.character`/`format`, and
 `table`/`factor`, serialization, `deparse`, matrices
 (`cbind`/`rbind`/`matrix`/`t`/`aperm`/`apply` and matrix printing);
 and for the numeric kinds, `+ - * %/% %% /` `^`, unary minus,
 `sum`/`prod`/`min`/`max`/`range`, and `as.integer`/`as.numeric`.
-No `.Call` boundary is needed -- see below -- and the original stage
-list is complete.
+
+Getting data *in* is the second half, and it has four doors, all now
+open: a package-facing C API in `Rinternals.h` (the one that matters,
+since that is how arrow, parquet and database drivers would produce
+these vectors), text via `as.bytes(<character>)`, binary files via
+`readBin`/`writeBin`, and `bitwAnd` and friends for the masking the
+opaque kind exists to do.  No `.Call` boundary is needed -- see below.
 
 ## Decisions
 
@@ -143,6 +149,23 @@ Numeric kinds added:
 | `src/main/relop.c`, `identical.c`, `unique.c`, `bind.c`, `subassign.c` | kind is part of the type |
 | `src/main/coerce.c`, `paste.c`, `printvector.c`, `printutils.c` | render via `R_bytesEltRender` |
 
+Ingest added:
+
+| File | Change |
+| --- | --- |
+| `src/include/Rinternals.h` | `R_allocBytesVector` and ten accessors: the package-facing API |
+| `doc/manual/R-exts.texi` | documents them; `tools:::checkAPI()` fails without this |
+| `src/main/memory.c` | one allocator taking width, kind and NA; `BYTES`/`BYTES_RO` |
+| `src/main/bytes.c` | text parser, `R_bytesTypeFromName`, bitwise kernels |
+| `src/main/bytesarith.c` | `resultFits` becomes the shared `R_bytesMagFits` |
+| `src/main/deparse.c` | the constructor call now carries text, not raw bytes |
+| `src/main/connections.c` | `readBin`/`writeBin` |
+| `src/main/relop.c` | `do_bitwise` dispatch |
+| `src/library/base/R/connections.R` | `what` resolution, incl. a pre-existing bug |
+| `src/library/base/man/{readBin,bitwise}.Rd` | both document the type |
+| `tests/bytes-ffi/` | the opt-in half of the FFI probe |
+| `bytesxp-pcheck.R` | text conversion vs Python, self-contained |
+
 Arithmetic added:
 
 | File | Change |
@@ -192,16 +215,30 @@ Everything else failed loudly on the first run: subsetting, `==`,
 arithmetic, `sum`, all coercions, `format`, `deparse`, `serialize`,
 `str`, `lapply`, `split`, matrix printing.
 
-## Remaining stages
+## Remaining
 
-4. **Persistence and boundary** -- `serialize.c`, `deparse.c`, and the
-   `.Call` opt-in ported from the int64 FFI-boundary branch.
-5. **Tail sweep** -- the remaining sites among the 113 `case RAWSXP:`
-   locations in `src/main`: `array.c`, `apply.c`, `split-incl.c`,
-   `scan.c`, `connections.c`, plus deliberate refusals in `coerce.c`.
-   ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
-   wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
-   drop the width.
+The stage list is done and so is ingest.  What is left is the tail
+sweep, plus one piece of R-level documentation:
+
+  * `scan.c`, and with it `read.table(colClasses = "int64")`.  This is
+    the biggest remaining hole and it is now much smaller than it was:
+    `read.table` routes an unknown class through
+    `methods::as(<character column>, class)` (`readtable.R:244`), so
+    `as.bytes(<character>)` plus a `setAs` gets CSV working without
+    touching `scan.c` at all.  A native `scan` path would be faster and
+    needs typed accumulators, the same problem `summary.c` had.
+  * `apply.c`: `vapply(x, f, FUN.VALUE = b[1])` reports "type 'int64'
+    is not supported".
+  * `as.vector(x, "int64")` rejects the mode; `as.raw(x)` gives
+    "unimplemented type 'bytes' in 'coerceToRaw'", an internal-sounding
+    message where either `bytesRaw()`'s behaviour or a deliberate error
+    would read better.
+  * ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
+    wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
+    drop the width.
+  * there is no `bytes.Rd`.  The R-level constructors are documented
+    only by the comments in `bytes.R`, while the C API is documented in
+    WRE and `readBin`/`bitwAnd` mention the type in theirs.
 
 ## Stage 3 notes
 
