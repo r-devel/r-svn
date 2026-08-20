@@ -40,8 +40,8 @@ bytesRaw(x)
   \item{width}{the size of one element in bytes, between 1 and 255.}
   \item{kind}{how the bytes of an element are to be read; see
     \sQuote{Details}.}
-  \item{na}{logical: should one value of the width be reserved to mean
-    \code{NA}?}
+  \item{na}{logical: should one value of the width be reserved as the
+    \code{NA} sentinel?}
   \item{x}{for \code{as.bytes}, a raw, character, integer or logical
     vector, or another \code{bytes} vector; elsewhere a \code{bytes}
     vector.}
@@ -77,17 +77,22 @@ bytesRaw(x)
   platforms, and \code{\link{serialize}} normalises the byte order so
   that saved files do too.
 
-  With \code{na = TRUE} (the default) one value of the width is reserved
-  to mean \code{NA}: all bits set for the opaque and unsigned kinds, the
-  most negative value for the signed kind.  Pass \code{na = FALSE} when
-  every bit pattern in the data is a legitimate value -- at width 1 the
-  reservation costs 1 in 256, and at width 4 unsigned it costs the IPv4
-  broadcast address.  Such a vector cannot represent a missing value, so
-  every operation that would produce one -- an out-of-range subscript,
-  \code{length<-} growth, a join miss, arithmetic overflow -- raises an
-  error instead.  Whether a value is reserved is part of the type, as
-  the kind and the width are, so vectors that disagree about it cannot
-  be combined or compared.
+  With \code{na = TRUE} (the default) one value of the width is set aside
+  as a sentinel and read as \code{\link{NA}}, as \code{NA_integer_} and
+  \code{NA_real_} are for their own types: all bits set for the opaque
+  and unsigned kinds, the most negative value for the signed kind.  Pass
+  \code{na = FALSE} when every bit pattern in the data is a legitimate
+  value -- at width 1 the sentinel costs 1 in 256, and at width 4
+  unsigned it costs the IPv4 broadcast address.  Such a vector has no
+  sentinel to spare, so every operation that would produce a missing
+  value -- an out-of-range subscript, \code{length<-} growth, a join
+  miss, arithmetic overflow -- raises an error instead.  Whether a
+  sentinel is reserved is part of the type, as the kind and the width
+  are, so vectors that disagree about it cannot be combined or compared.
+  \code{\link{typeof}} names the width and the kind but not the
+  sentinel, so a type name is not quite the whole type: interfaces that
+  need all three, such as \code{\link{readBin}} and \code{\link{scan}},
+  accept an existing vector in place of a name.
 
   Arithmetic (\code{+}, \code{-}, \code{*}, \code{\%/\%}, \code{\%\%} and
   unary minus) is defined for the numeric kinds at widths 1, 2, 4, 8 and
@@ -132,8 +137,8 @@ bytesRaw(x)
 
   \code{is.bytes} returns \code{TRUE} for a \code{bytes} vector.
   \code{bytesWidth} returns the element size in bytes, \code{bytesKind}
-  the kind as a string, and \code{bytesHasNA} whether a value is
-  reserved for \code{NA}.
+  the kind as a string, and \code{bytesHasNA} whether the vector has an
+  \code{NA} sentinel.
 
   \code{bytesRaw} returns the whole payload as a \code{\link{raw}}
   vector, \code{length(x) * bytesWidth(x)} bytes in storage order.
