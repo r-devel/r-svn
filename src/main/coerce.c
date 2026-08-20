@@ -1319,7 +1319,8 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	case CPLXSXP:
 	    ans = coerceToComplex(v);	    break;
 	case RAWSXP:
-	    ans = coerceToRaw(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, RAWSXP)
+					 : coerceToRaw(v);	break;
 	case STRSXP:
 	    if (ATTRIB(v) == R_NilValue)
 		switch(TYPEOF(v)) {
@@ -1560,7 +1561,11 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
        returns x -- so the tail below still runs. */
     int bwidth, bkind;
     if (R_bytesTypeFromName(modestr, &bwidth, &bkind)) {
-	SEXP val = PROTECT(R_bytesConvert(x, bwidth, bkind, TRUE, call));
+	/* the mode names the width and the kind but cannot say whether
+	   NA is reserved, so converting one 'bytes' vector to another
+	   keeps what it already had */
+	int bna = R_isBytes(x) ? R_bytesHasNA(x) : TRUE;
+	SEXP val = PROTECT(R_bytesConvert(x, bwidth, bkind, bna, call));
 	if (ATTRIB(val) != R_NilValue) {
 	    if (MAYBE_REFERENCED(val)) val = duplicate(val);
 	    CLEAR_ATTRIB(val);
@@ -3185,7 +3190,8 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
     if(R_bytesTypeFromName(CHAR(STRING_ELT(value, 0)), &bwidth, &bkind)) {
 	if(isFactor(obj))
 	    error(_("invalid to change the storage mode of a factor"));
-	SEXP ans = PROTECT(R_bytesConvert(obj, bwidth, bkind, TRUE, call));
+	int bna = R_isBytes(obj) ? R_bytesHasNA(obj) : TRUE;	/* see do_asvector */
+	SEXP ans = PROTECT(R_bytesConvert(obj, bwidth, bkind, bna, call));
 	if(ans != obj) SHALLOW_DUPLICATE_ATTRIB(ans, obj);
 	UNPROTECT(1);
 	return ans;

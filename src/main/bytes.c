@@ -682,14 +682,7 @@ SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 	    BYTEVEC_HAS_NA(x) == hasNA)
 	    return x;
 
-	/* Widening and narrowing between 'bytes' types is a real
-	   operation and not yet a supported one; say so, rather than
-	   falling through to a message about supplying raw bytes.  For
-	   the opaque kind it is not even well posed -- which end of a
-	   byte string to pad is the question parseHex() refuses to
-	   answer. */
-	error(_("cannot convert '%s' to '%s': converting between 'bytes' types is not yet supported"),
-	      R_bytesTypeName(x), R_bytesTypeNameOf(width, kind));
+	return R_bytesFromBytes(x, width, kind, hasNA, call);
     }
 
     if (TYPEOF(x) == STRSXP)

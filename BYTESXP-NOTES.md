@@ -176,6 +176,15 @@ Native arithmetic added:
 | `src/library/utils/src/size.c` | `object.size()` needs the width |
 | `bytesxp-archeck.R` | self-contained; runs both paths and compares |
 
+Tail sweep added:
+
+| File | Change |
+| --- | --- |
+| `src/main/bytesarith.c` | `R_bytesFromBytes`, `eltConvert`, `as.raw` |
+| `src/main/coerce.c` | `as.raw` routing; the mode names keep `na` |
+| `src/main/apply.c` | `vapply` over a `bytes` prototype |
+| `src/library/base/man/bytes.Rd` | the conversions |
+
 Text readers added:
 
 | File | Change |
@@ -237,26 +246,65 @@ Everything else failed loudly on the first run: subsetting, `==`,
 arithmetic, `sum`, all coercions, `format`, `deparse`, `serialize`,
 `str`, `lapply`, `split`, matrix printing.
 
+## The tail sweep
+
+Four items, one of which turned out not to be an item at all.
+
+**Converting between `bytes` types.**  `as.vector(int64_vec, "int128")`
+now works, along with `as.bytes(x, w, kind)` and `storage.mode(x) <-`
+on a vector that is already one.  It is value-preserving in both
+directions: widening zero- or sign-extends, narrowing gives `NA` with a
+warning for anything that does not fit, and the two numeric kinds
+convert into each other by value, so a negative signed value is out of
+range for an unsigned target rather than reinterpreted.
+
+The opaque kind takes no part.  Its elements are byte strings, so there
+is no value to preserve and no answer to which end of a short one to
+pad -- the same question `parseHex()` refuses.  What *is* meaningful for
+every kind is changing only the `na` setting, and that is handled
+without reading any values: turning the reservation on makes a colliding
+value `NA` with the usual warning, turning it off with an `NA` present
+is an error.
+
+One design point worth recording: `as.vector(x, "int64")` and
+`storage.mode(x) <- "int64"` **keep whatever `na` setting `x` already
+had**, rather than defaulting it to `TRUE`.  A mode name can say the
+width and the kind but not the reservation, and silently switching a
+vector's NA policy because the name could not mention it would be the
+wrong way to resolve that.  `as.bytes()` is the spelling that takes
+`na` explicitly.
+
+**`as.raw()`.**  Now behaves exactly as it does for an integer vector:
+a value outside 0..255, or `NA`, becomes `00` and the whole vector
+warns "out-of-range values treated as 0 in coercion to raw".  Routed
+through `R_bytesCoerce()` alongside `as.integer` and `as.numeric` so
+that the opaque refusal and the NA handling stay in one place.  This is
+deliberately *not* `bytesRaw()`: `as.raw()` is element-wise and keeps
+the length, while `bytesRaw()` returns the whole payload.
+
+**`vapply()`.**  `FUN.VALUE` is a prototype, so `R_allocVectorLike()`
+rather than `allocVector()` -- the same substitution `scan.c` needed,
+for the same reason.  The interesting part is the type check: equal
+SEXPTYPEs are *not* equal types here, since two `bytes` vectors of
+different widths or kinds are as different as an integer and a double,
+and the existing `valType != commonType` test would not have noticed.
+The mismatch report prints two type names in one message, which is
+exactly the site the ring of buffers in `R_bytesTypeNameOf()` was added
+for -- it stopped being hypothetical.  A differing `na` setting gets its
+own message, since the reservation is part of the type but not part of
+its name and the shared message would have printed the same name twice.
+
+**ALTREP wrappers turned out to be fine already.**  `wrap_meta()`
+switches on `TYPEOF(x)` and returns `x` unchanged from its `default:`,
+so a `bytes` vector is never wrapped and the width can never be
+dropped.  Verified rather than assumed -- `.Internal(tryWrap(b))`
+returns `b` itself -- and pinned with a test so it stays true.
+
 ## Remaining
 
-The stage list is done, and so are ingest and the text readers.  What
-is left is the tail sweep:
-
-  * `apply.c`: `vapply(x, f, FUN.VALUE = b[1])` reports "type 'int64'
-    is not supported".  `object.size()` was the same shape and is
-    fixed; this is the last one found so far.
-  * `as.raw(x)` gives "unimplemented type 'bytes' in 'coerceToRaw'", an
-    internal-sounding message where either `bytesRaw()`'s behaviour or a
-    deliberate error would read better.
-  * converting *between* `bytes` types -- `as.vector(int64_vec,
-    "int128")` -- errors, and now says so specifically rather than
-    falling through to a message about supplying raw bytes.  Widening
-    and narrowing within a kind is a real operation and the obvious next
-    piece; for the opaque kind it is not well posed, since which end of
-    a byte string to pad is the question `parseHex()` refuses to answer.
-  * ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
-    wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
-    drop the width.
+Nothing known.  The gauntlet's section O still asserts that the
+operations which *should* fail do; when one of them starts returning,
+that is the signal something new has landed.
 
 ## Native arithmetic
 

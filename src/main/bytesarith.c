@@ -554,6 +554,101 @@ static bool eltFromLong(Rbyte *out, long long v, int w, int kind, bool hasNA)
     return storeResult(out, mag, w, kind, neg, hasNA);
 }
 
+/* ---- conversion between 'bytes' types ---- */
+
+/* One element from (iw, ik) to (ow, ok), preserving the value.  Returns
+   false if it does not fit, which includes landing on the reserved NA
+   pattern.
+
+   Defined at every width the type allows, not just the arithmetic ones
+   -- widening an int64 into an int2040 is not arithmetic, and there is
+   no reason to refuse it -- so the scratch buffer is full width, as the
+   text conversions in bytes.c are. */
+static bool eltConvert(Rbyte *out, int ow, int ok, bool ohasNA,
+		       const Rbyte *in, int iw, int ik)
+{
+    Rbyte mag[BYTEVEC_MAX_WIDTH];
+    bool neg = magFromElt(mag, in, iw, ik);
+
+    if (iw > ow) {
+	/* narrowing: what falls off the top must be nothing */
+	for (int i = 0; i < iw - ow; i++)
+	    if (mag[i]) return false;
+	memmove(mag, mag + (iw - ow), (size_t) ow);
+    }
+    else if (iw < ow) {
+	memmove(mag + (ow - iw), mag, (size_t) iw);
+	memset(mag, 0, (size_t) (ow - iw));
+    }
+
+    /* magFromElt() only reports neg for a nonzero magnitude, so this is
+       not rejecting a negative zero */
+    if (neg && ok == BYTEVEC_UINT) return false;
+
+    if (!R_bytesMagFits(mag, ow, ok, neg, ohasNA)) return false;
+    if (neg) magNegate(mag, ow);
+    fromMSB(out, mag, ow);
+
+    return true;
+}
+
+/* x reinterpreted at another width, kind, or NA reservation.  The
+   opaque kind takes no part in a width or kind change: its elements are
+   byte strings, so there is no value to preserve and no answer to which
+   end of a short one to pad -- the same question parseHex() refuses.
+   Changing only whether NA is reserved is meaningful for every kind and
+   is handled without reading any values. */
+attribute_hidden
+SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call)
+{
+    int xw = BYTEVEC_WIDTH(x), xk = BYTEVEC_KIND(x);
+    bool xNA = BYTEVEC_HAS_NA(x);
+    bool sameType = (xw == w && xk == kind);
+
+    if (!sameType && (xk == BYTEVEC_OPAQUE || kind == BYTEVEC_OPAQUE))
+	errorcall(call,
+		  _("cannot convert '%s' to '%s': an opaque element is a byte string, not a value"),
+		  R_bytesTypeName(x), R_bytesTypeNameOf(w, kind));
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    R_xlen_t nLost = 0, nReserved = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
+	Rbyte *o = BYTEVEC_ELT(ans, i);
+
+	if (xNA && R_bytesEltIsNA(p, xw, xk)) {
+	    R_bytesCheckNA(ans);	/* the target reserves nothing */
+	    R_bytesSetEltNA(o, w, kind);
+	    continue;
+	}
+
+	if (sameType) {
+	    /* only the reservation changed; a value that now collides
+	       with it becomes NA, as it does arriving from raw bytes */
+	    memcpy(o, p, (size_t) w);
+	    if (hasNA && R_bytesEltIsNA(o, w, kind)) nReserved++;
+	    continue;
+	}
+
+	if (!eltConvert(o, w, kind, hasNA != 0, p, xw, xk)) {
+	    R_bytesCheckNA(ans);
+	    R_bytesSetEltNA(o, w, kind);
+	    nLost++;
+	}
+    }
+
+    if (nLost)
+	warningcall(call, _("NAs introduced by values outside the range of '%s'"),
+		    R_bytesTypeName(ans));
+    if (nReserved) R_bytesWarnReserved(ans);
+
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* Narrow a logical or integer vector into a 'bytes' vector of the given
    kind and width.
 
@@ -833,13 +928,23 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
 
 	if (hasNA && R_bytesEltIsNA(p, w, k)) {
-	    if (type == INTSXP) INTEGER0(ans)[i] = NA_INTEGER;
+	    /* raw has no NA, so a missing value becomes 00 and counts as
+	       lost, exactly as as.raw(NA_integer_) does */
+	    if (type == RAWSXP) { RAW0(ans)[i] = 0; nLost++; }
+	    else if (type == INTSXP) INTEGER0(ans)[i] = NA_INTEGER;
 	    else REAL0(ans)[i] = NA_REAL;
 	    continue;
 	}
 
 	double d = R_bytesEltAsReal(p, w, k);
-	if (type == INTSXP) {
+	if (type == RAWSXP) {
+	    if (!(d >= 0 && d <= 255)) {
+		RAW0(ans)[i] = 0;
+		nLost++;
+	    }
+	    else RAW0(ans)[i] = (Rbyte) d;
+	}
+	else if (type == INTSXP) {
 	    if (!(d >= (double) (INT_MIN + 1) && d <= (double) INT_MAX)) {
 		INTEGER0(ans)[i] = NA_INTEGER;
 		nLost++;
@@ -855,9 +960,11 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
     }
 
     if (nLost)
-	warning(type == INTSXP
-		? _("NAs introduced by coercion to integer range")
-		: _("'bytes' values above 2^53 lose precision as double"));
+	warning(type == RAWSXP
+		? _("out-of-range values treated as 0 in coercion to raw")
+		: (type == INTSXP
+		   ? _("NAs introduced by coercion to integer range")
+		   : _("'bytes' values above 2^53 lose precision as double")));
 
     UNPROTECT(1);
 

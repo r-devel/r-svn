@@ -43,7 +43,8 @@ bytesRaw(x)
   \item{na}{logical: should one value of the width be reserved to mean
     \code{NA}?}
   \item{x}{for \code{as.bytes}, a raw, character, integer or logical
-    vector; elsewhere a \code{bytes} vector.}
+    vector, or another \code{bytes} vector; elsewhere a \code{bytes}
+    vector.}
 }
 \details{
   Unlike every other vector type, the element size of a \code{bytes}
@@ -100,6 +101,11 @@ bytesRaw(x)
   Comparison, \code{\link{sort}}, \code{\link{order}},
   \code{\link{match}}, \code{\link{unique}}, \code{\link{table}} and
   \code{\link{factor}} work for all kinds and widths.
+
+  \code{\link{as.integer}}, \code{\link{as.numeric}} and
+  \code{\link{as.raw}} convert the numeric kinds and refuse the opaque
+  one, each behaving as it does for an integer vector when the value
+  will not fit.
 }
 \value{
   \code{bytes} and \code{bytesNA} return a vector of \code{length}
@@ -112,6 +118,17 @@ bytesRaw(x)
   \code{NA_character_} giving \code{NA}, and text that is not a number
   or does not fit giving \code{NA} with a warning.  Integer and logical
   vectors narrow.
+
+  Another \code{bytes} vector is converted between widths and between
+  the two numeric kinds, preserving the value: a value that does not fit
+  the target becomes \code{NA} with a warning, as it does everywhere
+  else.  The opaque kind takes no part in that, since its elements are
+  byte strings rather than values and there is no answer to which end of
+  a short one to pad; only its \code{na} setting can be changed.
+  \code{\link{as.vector}(x, "int64")} and \code{\link{storage.mode}(x)
+  <- "int64"} do the same thing, except that the mode name cannot say
+  whether \code{NA} is reserved, so those two keep whatever \code{x}
+  already had.
 
   \code{is.bytes} returns \code{TRUE} for a \code{bytes} vector.
   \code{bytesWidth} returns the element size in bytes, \code{bytesKind}
@@ -145,6 +162,10 @@ uid <- as.bytes(c("20010db8000000000000000000000001",
 uid
 bytesWidth(uid)
 bitwAnd(uid[1], as.bytes(paste0(strrep("ff", 6), strrep("00", 10)), 16L))
+
+## widening and narrowing preserve the value
+as.vector(id, "int128")
+as.vector(id, "int32")              # neither fits: NA, with a warning
 
 ## every bit pattern is a value, so nothing is reserved for NA
 ip <- as.bytes(as.raw(c(255, 255, 255, 255)), 4L, "unsigned", na = FALSE)

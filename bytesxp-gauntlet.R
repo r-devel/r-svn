@@ -1031,7 +1031,7 @@ ok("storage.mode<- converts",    { sm <- c("1", "2"); storage.mode(sm) <- "uint6
 ok("storage.mode<- keeps dim",   { sm <- 1:4; dim(sm) <- c(2L, 2L)
                                    storage.mode(sm) <- "int64"
                                    identical(dim(sm), c(2L, 2L)) })
-probe("as.vector(int64, \"int128\")", as.vector(as.bytes("1", 8L, "signed"), "int128"))
+## converting between 'bytes' types works now; section Z10 covers it
 
 cat("\n== Z9. arithmetic, and what measuring it turned up ==\n")
 ## The native kernels are checked against the general ones, and both
@@ -1074,6 +1074,82 @@ ok("object.size counts bytes",    {
      object.size(as.bytes(as.character(seq_len(n)), 4L, "unsigned"))) &&
     (object.size(as.bytes(as.character(seq_len(n)), 8L, "unsigned")) >
      8 * n) })
+
+cat("\n== Z10. the tail sweep ==\n")
+i64 <- as.bytes(c("9223372036854775807", "-1", "0", NA), 8L, "signed")
+
+## converting between 'bytes' types: value-preserving, both directions
+ok("widening keeps the value",   identical(as.character(as.vector(i64, "int128")),
+                                           as.character(i64)))
+ok("narrowing that fits",        identical(as.character(
+    as.vector(as.bytes(c("1", "300"), 8L, "unsigned"), "uint16")), c("1", "300")))
+ok("narrowing that does not",    { w <- NULL
+                                   v <- withCallingHandlers(
+                                       as.vector(as.bytes("70000", 8L, "unsigned"), "uint16"),
+                                       warning = function(x) { w <<- conditionMessage(x)
+                                                               invokeRestart("muffleWarning") })
+                                   is.na(v) && grepl("range", w) })
+ok("signed to unsigned",         is.na(suppressWarnings(
+    as.vector(as.bytes("-1", 8L, "signed"), "uint64"))))
+ok("unsigned to signed, in range", identical(as.character(
+    as.vector(as.bytes("9223372036854775806", 8L, "unsigned"), "int64")),
+    "9223372036854775806"))
+ok("unsigned to signed, out",    is.na(suppressWarnings(
+    as.vector(as.bytes("18446744073709551614", 8L, "unsigned"), "int64"))))
+ok("NA survives conversion",     is.na(as.vector(i64, "int128")[4]))
+ok("round trip is exact",        { set.seed(4)
+                                   v <- as.bytes(as.character(sample(-1e6:1e6, 400)), 4L, "signed")
+                                   identical(as.vector(as.vector(v, "int128"), "int32"), v) })
+ok("na = FALSE is carried",      !bytesHasNA(as.vector(
+    as.bytes("1", 8L, "signed", na = FALSE), "int128")))
+ok("and its extra value too",    identical(as.character(as.vector(
+    as.bytes("-9223372036854775808", 8L, "signed", na = FALSE), "int128")),
+    "-9223372036854775808"))
+ok("turning the reservation on", { w <- NULL
+                                   v <- withCallingHandlers(
+                                       as.bytes(as.bytes("255", 1L, "unsigned", na = FALSE),
+                                                1L, "unsigned", na = TRUE),
+                                       warning = function(x) { w <<- conditionMessage(x)
+                                                               invokeRestart("muffleWarning") })
+                                   is.na(v) && grepl("reserved", w) })
+probe("turning it off with an NA", as.bytes(as.bytes(c(NA, "1"), 8L, "signed"),
+                                            8L, "signed", na = FALSE))
+opq <- as.bytes("0102030405060708", 8L)
+ok("opaque converts to itself",  identical(as.vector(opq, "bytes8"), opq))
+probe("opaque to another width", as.vector(opq, "bytes16"))
+probe("opaque to a number",      as.vector(opq, "uint64"))
+probe("a number to opaque",      as.vector(as.bytes("1", 8L, "unsigned"), "bytes8"))
+
+## as.raw, which now behaves exactly as it does for integers
+ok("as.raw of small values",     identical(suppressWarnings(
+    as.raw(as.bytes(c("0", "1", "255"), 8L, "unsigned"))), as.raw(c(0, 1, 255))))
+ok("out of range gives 00",      identical(suppressWarnings(
+    as.raw(as.bytes(c("256", "-1"), 8L, "signed"))), as.raw(c(0, 0))))
+ok("NA gives 00, as for integer",identical(suppressWarnings(as.raw(bytesNA(1L, 8L, "signed"))),
+                                           suppressWarnings(as.raw(NA_integer_))))
+probe("as.raw of opaque",        as.raw(opq))
+
+## vapply: FUN.VALUE is a prototype, so it carries width, kind and the
+## NA reservation, and none of the three may differ
+b <- as.bytes(c("10", "20", "30"), 8L, "unsigned")
+ok("vapply over bytes",          identical(vapply(1:3, function(i) b[i], b[1]), b))
+ok("vapply builds a matrix",     identical(dim(vapply(1:3, function(i) b[c(i, i)], b[1:2])),
+                                           c(2L, 3L)))
+ok("vapply keeps names",         identical(names(vapply(c(a = 1, b = 2),
+                                                        function(i) b[i], b[1])), c("a", "b")))
+ok("a width mismatch names both",{ m <- tryCatch(vapply(1:2, function(i) as.bytes("1", 4L, "unsigned"),
+                                                        b[1]), error = conditionMessage)
+                                   grepl("uint64", m) && grepl("uint32", m) })
+ok("an NA-flag mismatch is told apart", {
+    m <- tryCatch(vapply(1:2, function(i) as.bytes("1", 8L, "unsigned", na = FALSE), b[1]),
+                  error = conditionMessage)
+    grepl("NA is representable", m) })
+probe("vapply, wrong type entirely", vapply(1:2, function(i) 1L, b[1]))
+
+## an ALTREP wrapper would drop the width, so no wrapper is made
+ok("tryWrap leaves it alone",    identical(.Internal(tryWrap(b)), b))
+ok("and does wrap an integer",   { w <- .Internal(tryWrap(c(1L, 2L)))
+                                   identical(w, c(1L, 2L)) })
 
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
