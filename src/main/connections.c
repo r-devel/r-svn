@@ -4869,7 +4869,10 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else
 	    error(_("invalid '%s' argument"), "what");
 
-	if(!signd && (mode != 1 || size > 2))
+	/* mode 3 is exempt: a 'bytes' type names its own kind, so
+	   readBin(con, "uint64", signed = FALSE) is saying what the type
+	   already says rather than asking for something it cannot do */
+	if(!signd && mode != 3 && (mode != 1 || size > 2))
 	    warning(_("'signed = FALSE' is only valid for integers of sizes 1 and 2"));
 	if(size == sizedef) {
 	    if(isRaw) {
