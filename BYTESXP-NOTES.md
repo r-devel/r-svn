@@ -518,8 +518,15 @@ Rules, all borrowed rather than invented:
   * widths and kinds must match; they are *not* promoted the way
     arithmetic promotes them.  A mask that is not the width of what it
     masks is a mistake, not a value to sign-extend.
-  * an integer operand narrows for the numeric kinds, as in arithmetic;
-    the opaque kind refuses it, as everywhere else.
+  * an integer operand narrows *by value* for the numeric kinds, as in
+    arithmetic; the opaque kind refuses it, as everywhere else.  This
+    is the one place these differ from R's integer versions, where a
+    negative operand is just a bit pattern: `bitwAnd(x, -1L)` is the
+    identity for a signed vector, where -1 is a value it holds, and is
+    out of range for an unsigned one, where zero- and sign-extension
+    would disagree about what it meant.  Refusing keeps both readings
+    reachable, which is the same argument that keeps `double` out of
+    the lattice.
   * `bitwShiftR` is a logical shift on the bit pattern, which is what
     R's integer version already does (`bitwShiftR(-1L, 1L)` is
     `2147483647`).  A shift of `8 * w` or more is `NA`, mirroring

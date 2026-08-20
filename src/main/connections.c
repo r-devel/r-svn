@@ -4715,7 +4715,8 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* the prototype form: it names the same type the string form
 	   would, and additionally says whether NA is representable */
 	bhasNA = R_bytesHasNA(swhat);
-	strcpy(bname, R_bytesTypeName(swhat));	/* off its static buffer */
+	/* copied off its static buffer, which the next caller reuses */
+	snprintf(bname, sizeof bname, "%s", R_bytesTypeName(swhat));
 	what = bname;
     } else {
 	if(!isString(swhat) || LENGTH(swhat) != 1)

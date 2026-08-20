@@ -274,9 +274,10 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
     ## which the type name does not.  Unrecognized names are left for
     ## .Internal to reject: they used to fall through to typeof(), which
     ## is "character", so readBin(con, "int64") silently read strings.
-    if(!is.bytes(what) &&
-       (!is.character(what) || length(what) != 1L || is.na(what)))
-	what <- typeof(what)
+    if(!is.character(what) || length(what) != 1L || is.na(what)) {
+        if(!is.bytes(what))
+            what <- typeof(what)
+    }
     .Internal(readBin(con, what, n, size, signed, swap))
 }
 

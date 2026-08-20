@@ -905,8 +905,10 @@ Rboolean R_bytesTypeFromName(const char *s, int *width, int *kind)
     else if (!strncmp(s, "bytes", 5)) { k = BYTEVEC_OPAQUE; digits = s + 5; }
     else return FALSE;
 
-    /* so that "int" and "integer" stay readBin's own names */
-    if (!*digits) return FALSE;
+    /* so that "int" and "integer" stay readBin's own names.  A leading
+       zero is rejected so that the names accepted here are exactly the
+       ones R_bytesTypeName() produces, rather than "int064" as well. */
+    if (!*digits || (*digits == '0' && digits[1])) return FALSE;
     for (const char *p = digits; *p; p++)
 	if (!isdigit((int) (unsigned char) *p)) return FALSE;
 

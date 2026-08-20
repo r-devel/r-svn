@@ -890,6 +890,14 @@ ok("an integer operand narrows", identical(bitwAnd(as.bytes("65535", 8L, "unsign
                                            bitwAnd(as.bytes("65535", 8L, "unsigned"), u1)))
 ok("and either way round",       identical(bitwAnd(255L, as.bytes("65535", 8L, "unsigned")),
                                            bitwAnd(as.bytes("65535", 8L, "unsigned"), 255L)))
+## an integer operand narrows BY VALUE, as it does everywhere else on
+## this type -- it is not reinterpreted as a bit pattern.  So -1L is
+## the identity mask for a signed vector, where it is a value, and is
+## out of range for an unsigned one, where zero- and sign-extension
+## would disagree.  Refusing keeps both readings reachable later.
+ok("-1L masks a signed vector",  { v <- as.bytes("12345", 8L, "signed")
+                                   identical(bitwAnd(v, -1L), v) })
+ok("-1L is out of range unsigned", grepl("range", wmsg(bitwAnd(u1, -1L))))
 
 ok("shift left is doubling",     identical(as.character(bitwShiftL(as.bytes("1", 8L, "unsigned"), 0:8)),
                                            as.character(2^(0:8))))
