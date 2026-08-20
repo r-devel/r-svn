@@ -24,6 +24,10 @@
       \item Fixing \code{rbinom()}, see \PR{19049} below, to reproduce
       old results needs \code{RNGkind()} to get a new \code{binom.kind}
       argument and, e.g. \code{RNGversion("4.6")} keeps previous behaviour.
+
+      \item The Sweave syntax definition objects
+      \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
+      their own detailed help page.
     }
   }
 
@@ -83,6 +87,10 @@
       \code{find_calls_in_package_code()},
       \code{gsub_with_transformed_matches()} and
       \code{system_with_capture()} in package \pkg{tools}.
+
+      \item \command{data()} will accept text files with further
+      extension \file{.zst} or \file{.zstd}, and read them on builds
+      with \command{zstd} support.
     }
   }
 
@@ -251,7 +259,15 @@
 
       \item Changed \code{model.frame.glm()} to use same logic as
       \code{model.frame.lm()} (\PR{19036}, \I{Isaac Gravestock}).
-      
+
+      \item \code{strptime()} now also returns \code{NA} for out of range
+      \code{"\%OS"} and a correct error message in some wrong multibyte
+      cases, fixing \PR{19117} comment #1 and \PR{19122} by \I{Michael
+	Chirico}; additionally, some overflow to \code{Inf} times no longer
+      result in \code{NA}.
+
+      \item \code{drop1.glm()} misbehaved for models fitted with 
+      \code{y = FALSE} (\PR{19128}, \I{Amal Tawfik}).
     }
   }
 }
@@ -278,9 +294,9 @@
       non-vector \code{along.width} arguments properly. Thanks to
       \I{Mitchell O'Hara-Wild}.
 
-      \item Wrapper objects make sure data pointers remain once obtained
-      remain valid as long as a wrapper object is reachable. Reported by
-      \I{Ivan Krylov}.
+      \item Wrappers now duplicate even a wrapped object that might be
+      shared before returning a read-only pointer. This prevents cached
+      read-only pointers from becoming invalid. Reported by \I{Ivan Krylov}.
 
       \item \code{dummy.coef()} becomes more robust to non-syntactic
       variable names, fixing \PR{18468}.  Thanks to \I{Bill Dunlap} and
@@ -296,7 +312,7 @@
 
       \item \code{dim(a) <- vec} now checks for too large \code{prod(vec)},
       thanks to \I{Kevin Ushey}'s report and patch in \PR{19109}.
-      
+
       \item Tweaks (including to the parsers) for the C23 behaviour
       (preserving \code{const}) of \code{strchr}, \code{strrchr} and
       \code{strstr}.  (By Brian Ripley and Duncan Murdoch.)

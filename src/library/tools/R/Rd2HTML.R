@@ -107,16 +107,8 @@ vhtmlify <- function(x, inEqn = FALSE) { # code version
     x <- fsub("<", "&lt;", x)
     x <- fsub(">", "&gt;", x)
     x <- fsub('"\\{"', '"{"', x)
-    ## http://htmlhelp.com/reference/html40/entities/symbols.html
-    if(inEqn) {
-        rx <- paste0("\\\\(",
-                     paste(math_replacements[,"name"], collapse = "|"),
-                     ")(?![a-zA-Z])")
-        m <- gregexec(rx, x, perl = TRUE)
-        ii <- lapply(regmatches(x, m),
-                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
-        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, "html"])
-    }
+    if(inEqn)
+        x <- eqn_to_text(x, "html", c("&#8216;", "&#8217;"))
     x
 }
 
@@ -413,17 +405,18 @@ createRedirects <- function(file, Rdobj)
 staticLogoPath <- function(package, lib.loc = NULL,
                            relative = FALSE, Rhome = "../../..", dir = FALSE) {
     ## This may be called with package="" (e.g., for standalone Rd files)
-    if (!nzchar(package)) file <- R.home("doc/html/Rlogo.svg")
+    file0 <- file.path(R.home("doc"), "html", "Rlogo.svg", fsep = "/")
+    if (!nzchar(package)) file <- file0
     else if (dir) {
         file <- file.path(package, "man", "figures", "logo.png")
         if (!file.exists(file)) file <- file.path(package, "man", "figures", "logo.svg")
-        if (!file.exists(file)) file <- R.home("doc/html/Rlogo.svg")
+        if (!file.exists(file)) file <- file0
     } else {
         file <- system.file("help", "figures", "logo.png",
                             package = package, lib.loc = lib.loc)
         if (!nzchar(file)) file <- system.file("help", "figures", "logo.svg",
                                                package = package, lib.loc = lib.loc)
-        if (!nzchar(file)) file <- R.home("doc/html/Rlogo.svg")
+        if (!nzchar(file)) file <- file0
     }
     if (relative) {
         file <- if (endsWith(file, "/logo.png")) "figures/logo.png"
