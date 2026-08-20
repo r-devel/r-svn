@@ -168,6 +168,14 @@ Ingest added:
 | `tests/bytes-ffi/` | the opt-in half of the FFI probe |
 | `bytesxp-pcheck.R` | text conversion vs Python, self-contained |
 
+Native arithmetic added:
+
+| File | Change |
+| --- | --- |
+| `src/main/bytesarith.c` | native kernels, hoisted loops, `eltNeg` |
+| `src/library/utils/src/size.c` | `object.size()` needs the width |
+| `bytesxp-archeck.R` | self-contained; runs both paths and compares |
+
 Text readers added:
 
 | File | Change |
@@ -235,7 +243,8 @@ The stage list is done, and so are ingest and the text readers.  What
 is left is the tail sweep:
 
   * `apply.c`: `vapply(x, f, FUN.VALUE = b[1])` reports "type 'int64'
-    is not supported".
+    is not supported".  `object.size()` was the same shape and is
+    fixed; this is the last one found so far.
   * `as.raw(x)` gives "unimplemented type 'bytes' in 'coerceToRaw'", an
     internal-sounding message where either `bytesRaw()`'s behaviour or a
     deliberate error would read better.
@@ -245,15 +254,87 @@ is left is the tail sweep:
     and narrowing within a kind is a real operation and the obvious next
     piece; for the opaque kind it is not well posed, since which end of
     a byte string to pad is the question `parseHex()` refuses to answer.
-  * the arithmetic kernels work a byte at a time.  Specialising widths
-    1/2/4/8 (and 16 where `__int128` exists) to native loads is a pure
-    optimisation with an oracle already in place -- `bytesxp-archeck.R`
-    checks against Python exact integers -- and the general path stays
-    as the fallback for the other widths.  Native storage means such a
-    load is just a load, with no swap.
   * ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
     wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
     drop the width.
+
+## Native arithmetic
+
+The kernels worked a byte at a time.  That is what makes every width
+work and what makes them readable in schoolbook form, and it is a poor
+way to add two numbers the machine can add in one instruction.
+Division was worse: 8*w iterations of bitwise long division per
+element.
+
+The widths with a C integer type behind them now dispatch to that type,
+and the payoff for storing numeric kinds in *native* byte order -- a
+decision taken so that ingest is a memcpy -- turns up again here:
+reading an element into a C variable is a load, not a shuffle.
+
+Measured on 2 million elements (macOS/arm64, ms per operation):
+
+| | `+` | `*` | `%/%` | unary `-` |
+| --- | --- | --- | --- | --- |
+| uint64, before | 29 | 126 | 628 | -- |
+| uint64, after | 7.7 | 6.7 | 7.5 | -- |
+| int64, after | 8.5 | 7.7 | 11.6 | 3.4 (was 45) |
+| uint128, after | 7.9 | 7.5 | 12.6 | -- |
+
+The native kernels are only part of that.  Two things in the *loop*
+turned out to cost more than the arithmetic did, and both are worth
+recording because neither is specific to this type:
+
+  * **`i % nx` and `i % ny` per element.**  Two integer divisions to
+    index two operands.  R has `MOD_ITERATE2` for exactly this -- it
+    increments and wraps -- and every other arithmetic loop in R already
+    uses it.
+  * **promotion done unconditionally.**  Both operands were widened to
+    the result width and converted back through MSB-first scratch
+    buffers, four byte loops per element.  Promotion is by
+    `max(width)`, so at least one operand is *already* the result width
+    and usually both are; doing it only when `wx != w` removed almost
+    all of it.
+
+A third: `R_bytesEltIsNA()` lives in another translation unit, so it is
+a real call, and there are two per element.  The first byte it looks at
+settles the answer for all but one value in 256, so testing that byte
+at the call site leaves only the rare case to the function.
+
+After all that, `+` on 2M uint64 is 7.7 ms against 2.9 ms for R's
+integer `+` on 2M int32.  Per byte moved that is within about 35%,
+which is a fair way to read it, since a uint64 vector is twice the
+size.  The remaining difference is the per-element overflow branch,
+which blocks the vectorisation R's plain loops get; turning `na = FALSE`
+on -- which removes the NA tests entirely -- changes the time by 4%, so
+the NA tests are not where the rest of it is.  Going further would mean
+restructuring the loop, not swapping in more instructions.
+
+**The general kernels are still the definition.**  Where `__int128`
+exists they cover every arithmetic width, so the byte-at-a-time path
+becomes unreachable in an ordinary session -- and unreachable code is
+where bugs settle in.  `R_BYTES_GENERIC_ARITH` forces it, and
+`bytesxp-archeck.R` runs both: each against Python's exact integers,
+and then the two against each other over ~960,000 results.
+
+That last check was vacuous when first written, which is the part worth
+remembering.  `system2(env = "R_BYTES_GENERIC_ARITH=")` sets the
+variable to the empty string, and `getenv()` reports an empty variable
+as *set*, so the "native" run was the general one and the harness was
+comparing the general path with itself and passing.  Two fixes: an
+empty value now counts as unset, and the harness asserts that the two
+runs differ in speed by more than 2x on a division-heavy workload --
+they differ by about 130x, so the margin is enormous and the check can
+no longer pass while measuring nothing.
+
+Two smaller things surfaced while measuring.  `object.size()` reported
+"unimplemented type 'bytes'": `xlength()` counts elements, so anything
+wanting a byte count has to ask for the width -- and `utils/src/size.c`
+is compiled like package code, so it reaches it through the public
+`R_bytesWidth()`, which is a small vindication of that API existing.
+And `sum()` over a vector that overflows immediately returns in no time
+at all, because it stops at the first overflow; that is correct, and it
+made the first benchmark look implausibly good until the data was
+changed to something that does not overflow.
 
 ## The text readers
 

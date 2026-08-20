@@ -1033,6 +1033,48 @@ ok("storage.mode<- keeps dim",   { sm <- 1:4; dim(sm) <- c(2L, 2L)
                                    identical(dim(sm), c(2L, 2L)) })
 probe("as.vector(int64, \"int128\")", as.vector(as.bytes("1", 8L, "signed"), "int128"))
 
+cat("\n== Z9. arithmetic, and what measuring it turned up ==\n")
+## The native kernels are checked against the general ones, and both
+## against Python, by bytesxp-archeck.R -- which needs two processes and
+## so cannot live here.  These are the edges worth pinning in-process.
+ok("int64 min needs na = FALSE",  {
+    m <- as.bytes("-9223372036854775808", 8L, "signed", na = FALSE)
+    identical(as.character(m %/% as.bytes("1", 8L, "signed", na = FALSE)),
+              "-9223372036854775808") })
+ok("min %/% -1 overflows",        {
+    m  <- as.bytes("-9223372036854775808", 8L, "signed", na = FALSE)
+    m1 <- as.bytes("-1", 8L, "signed", na = FALSE)
+    inherits(tryCatch(m %/% m1, error = identity), "error") })
+ok("min %% -1 is 0",              {
+    m  <- as.bytes("-9223372036854775808", 8L, "signed", na = FALSE)
+    m1 <- as.bytes("-1", 8L, "signed", na = FALSE)
+    identical(as.character(m %% m1), "0") })
+ok("%/% floors, %% takes b's sign", {
+    a <- as.bytes(c("-7", "7", "-7", "7"), 8L, "signed")
+    b <- as.bytes(c("2", "-2", "-2", "2"), 8L, "signed")
+    identical(as.character(a %/% b), c("-4", "-4", "3", "3")) &&
+        identical(as.character(a %% b), c("1", "-1", "-1", "1")) })
+ok("division by zero is NA",      is.na(suppressWarnings(
+    as.bytes("1", 8L, "signed") %/% as.bytes("0", 8L, "signed"))))
+ok("a result of the reserved value", {
+    ## 2^63-1 + 1 is 2^63, out of range; -1 + (1 - 2^63) is the reserved
+    ## value itself, which is reported rather than returned as NA
+    hi <- as.bytes("9223372036854775807", 8L, "signed")
+    is.na(suppressWarnings(hi + as.bytes("1", 8L, "signed"))) })
+ok("recycling still recycles",    identical(
+    as.character(as.bytes(c("1","2","3","4"), 8L, "unsigned") +
+                 as.bytes(c("10","20"), 8L, "unsigned")),
+    c("11", "22", "13", "24")))
+
+## found while benchmarking: xlength() counts elements, so anything that
+## wants a byte count has to ask for the width
+ok("object.size counts bytes",    {
+    n <- 1000L
+    (object.size(as.bytes(as.character(seq_len(n)), 8L, "unsigned")) >
+     object.size(as.bytes(as.character(seq_len(n)), 4L, "unsigned"))) &&
+    (object.size(as.bytes(as.character(seq_len(n)), 8L, "unsigned")) >
+     8 * n) })
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

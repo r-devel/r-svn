@@ -23,8 +23,10 @@
  *  scratch copy held most-significant-byte first.  That costs a copy
  *  per element and makes the algorithms readable in the usual
  *  schoolbook form, which for arithmetic that has to be exactly right
- *  at 128 bits is the trade worth making.  Widths with a native C type
- *  behind them could be specialized later.
+ *  at 128 bits is the trade worth making.  They remain the definition
+ *  of what these operations mean; the widths with a native C type
+ *  behind them are dispatched to that type first, and the two paths
+ *  are checked against each other.
  *
  *  Binary operands promote to max(width), which is a total order and so
  *  a far simpler lattice than R's usual one.  Kinds never mix.
@@ -35,9 +37,12 @@
 # include <config.h>
 #endif
 
+#include <stdint.h>
+
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+#include <R_ext/Itermacros.h>  /* MOD_ITERATE2 */
 
 /* Arithmetic is defined only for the widths that correspond to an
    integer type someone might actually be carrying; wider elements stay
@@ -50,6 +55,177 @@ static bool arithWidthOK(int w)
 {
     return w == 1 || w == 2 || w == 4 || w == 8 || w == 16;
 }
+
+/* ---- native kernels ------------------------------------------------
+
+   The kernels further down work a byte at a time.  That is what makes
+   every width work and what makes them readable, and it is a poor way
+   to add two numbers the machine can add in one instruction.  Division
+   is worse still: the general path runs 8*w iterations of bitwise long
+   division.
+
+   So for the widths that have a C integer type behind them the work is
+   handed to that type.  Native storage is what makes this cheap -- an
+   element already holds the machine's own byte order, so reading one is
+   a load rather than a shuffle -- and it is the payoff for a decision
+   taken for ingest.
+
+   Nothing else changes.  The general kernels remain the definition of
+   what these mean, and the two must agree; bytesxp-archeck.R checks
+   both against Python's exact integers. */
+
+#if defined(__has_builtin)
+# if __has_builtin(__builtin_add_overflow) &&	\
+     __has_builtin(__builtin_sub_overflow) &&	\
+     __has_builtin(__builtin_mul_overflow)
+#  define BYTES_NATIVE_ARITH 1
+# endif
+#elif defined(__GNUC__) && __GNUC__ >= 5
+# define BYTES_NATIVE_ARITH 1
+#endif
+
+#ifdef BYTES_NATIVE_ARITH
+
+# ifdef __SIZEOF_INT128__
+typedef unsigned __int128 bytes_uint128_t;
+typedef __int128 bytes_int128_t;
+#  define BYTES_NATIVE_W16(BODY, T) case 16: BODY(T)
+# else
+#  define BYTES_NATIVE_W16(BODY, T)	/* width 16 stays on the general path */
+# endif
+
+/* Where a native type covers every arithmetic width, the general
+   kernels become unreachable -- and unreachable code is where bugs
+   settle in unnoticed.  Setting R_BYTES_GENERIC_ARITH runs them
+   anyway, so the two paths can be compared with each other and with
+   the Python reference.  One predictable branch per element. */
+static bool useNative(void)
+{
+    static int cached = -1;
+
+    if (cached < 0) {
+	/* an empty value counts as unset, so that a caller can hand a
+	   child process the native setting without having to remove the
+	   variable from the environment it inherited */
+	const char *e = getenv("R_BYTES_GENERIC_ARITH");
+	cached = (e == NULL || *e == '\0');
+    }
+
+    return cached != 0;
+}
+
+/* R_bytesEltIsNA() lives in another translation unit, so it is a real
+   call, and at two per element that is now a visible part of an add.
+   The first byte it looks at settles the answer for all but one value
+   in 256, so testing that byte here leaves only the rare case to the
+   call.  Same answer, one branch instead of a call. */
+static R_INLINE bool eltIsNA(const Rbyte *p, int w, int kind)
+{
+    if (kind == BYTEVEC_INT)
+	return p[BYTEVEC_MSB(0, w)] == 0x80 && R_bytesEltIsNA(p, w, kind);
+
+    return p[0] == BYTEVEC_NA_BYTE && R_bytesEltIsNA(p, w, kind);
+}
+
+/* The last two steps every body shares.  A result landing on the value
+   this vector reserves for NA is not representable, and saying so beats
+   returning a silent NA; the element's bytes are the native object's
+   bytes, so the reserved-pattern test reads them where they lie. */
+static bool storeNative(Rbyte *out, const void *v, int w, int kind,
+			bool hasNA)
+{
+    if (hasNA && eltIsNA((const Rbyte *) v, w, kind)) return false;
+    memcpy(out, v, (size_t) w);
+
+    return true;
+}
+
+/* Expand UBODY once per unsigned width and SBODY once per signed width
+   that has a native type.  Every body ends in a return, so falling out
+   of the switch means "not handled here" and the general kernel runs. */
+# define BYTES_NATIVE2(UBODY, SBODY, w, kind)			\
+    do {							\
+	if (!useNative()) break;				\
+	if ((kind) == BYTEVEC_UINT)				\
+	    switch (w) {					\
+	    case 1:  UBODY(uint8_t)				\
+	    case 2:  UBODY(uint16_t)				\
+	    case 4:  UBODY(uint32_t)				\
+	    case 8:  UBODY(uint64_t)				\
+	    BYTES_NATIVE_W16(UBODY, bytes_uint128_t)		\
+	    }							\
+	else if ((kind) == BYTEVEC_INT)				\
+	    switch (w) {					\
+	    case 1:  SBODY(int8_t)				\
+	    case 2:  SBODY(int16_t)				\
+	    case 4:  SBODY(int32_t)				\
+	    case 8:  SBODY(int64_t)				\
+	    BYTES_NATIVE_W16(SBODY, bytes_int128_t)		\
+	    }							\
+    } while (0)
+
+/* the usual case: the two kinds differ only in the C type */
+# define BYTES_NATIVE(BODY, w, kind) BYTES_NATIVE2(BODY, BODY, w, kind)
+
+# define BYTES_LOAD2(T)				\
+    T va, vb, vr;				\
+    memcpy(&va, a, sizeof(T));			\
+    memcpy(&vb, b, sizeof(T));
+
+# define BYTES_ADD_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      if (__builtin_add_overflow(va, vb, &vr)) return false;		\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+# define BYTES_SUB_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      if (__builtin_sub_overflow(va, vb, &vr)) return false;		\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+# define BYTES_MUL_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      if (__builtin_mul_overflow(va, vb, &vr)) return false;		\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+/* 0 - v, which overflows only at the most negative value -- and, for
+   an unsigned element, at every value but zero */
+# define BYTES_NEG_BODY(T)						\
+    { T va, vr;								\
+      memcpy(&va, a, sizeof(T));					\
+      if (__builtin_sub_overflow((T) 0, va, &vr)) return false;		\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+/* unsigned: no signs to reconcile, so C's / and % are already the
+   floor division and modulo that %/% and %% mean */
+# define BYTES_DIVMOD_U_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      if (vb == 0) return false;					\
+      vr = wantQuotient ? (T) (va / vb) : (T) (va % vb);		\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+/* signed: C truncates towards zero, so a quotient with a nonzero
+   remainder steps down by one and the remainder takes the divisor's
+   sign.  T_MIN / -1 is the one division C leaves undefined; its
+   quotient overflows, while its remainder is a perfectly good zero. */
+# define BYTES_DIVMOD_S_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      if (vb == 0) return false;					\
+      if (vb == (T) -1) {						\
+	  if (!wantQuotient) vr = 0;					\
+	  else if (__builtin_sub_overflow((T) 0, va, &vr)) return false;\
+	  return storeNative(out, &vr, w, kind, hasNA);			\
+      }									\
+      T q = (T) (va / vb), r = (T) (va % vb);				\
+      if (r != 0 && ((r < 0) != (vb < 0))) { q--; r = (T) (r + vb); }	\
+      vr = wantQuotient ? q : r;					\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+#else	/* no overflow builtins: everything takes the general path */
+
+# define BYTES_NATIVE2(UBODY, SBODY, w, kind)	do { } while (0)
+# define BYTES_NATIVE(BODY, w, kind)		do { } while (0)
+
+#endif
 
 /* storage order <-> most-significant-first */
 static void toMSB(Rbyte *dst, const Rbyte *src, int w)
@@ -192,6 +368,8 @@ static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative, 
 
 static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
+    BYTES_NATIVE(BYTES_ADD_BODY, w, kind);
+
     Rbyte A[MAXW], B[MAXW], R[MAXW];
     toMSB(A, a, w); toMSB(B, b, w);
 
@@ -219,6 +397,8 @@ static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
 
 static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
+    BYTES_NATIVE(BYTES_SUB_BODY, w, kind);
+
     Rbyte A[MAXW], B[MAXW], R[MAXW];
     toMSB(A, a, w); toMSB(B, b, w);
 
@@ -245,6 +425,8 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
 
 static bool eltMul(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
+    BYTES_NATIVE(BYTES_MUL_BODY, w, kind);
+
     Rbyte A[MAXW], B[MAXW];
     bool nega = magFromElt(A, a, w, kind);
     bool negb = magFromElt(B, b, w, kind);
@@ -296,6 +478,8 @@ static void magDivMod(Rbyte *q, Rbyte *r, const Rbyte *a, const Rbyte *b, int w)
    integers: the remainder takes the sign of the divisor. */
 static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool wantQuotient, bool hasNA)
 {
+    BYTES_NATIVE2(BYTES_DIVMOD_U_BODY, BYTES_DIVMOD_S_BODY, w, kind);
+
     Rbyte A[MAXW], B[MAXW], Q[MAXW], R[MAXW];
     bool nega = magFromElt(A, a, w, kind);
     bool negb = magFromElt(B, b, w, kind);
@@ -325,6 +509,20 @@ static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kin
 	return storeResult(out, Q, w, kind, negq, hasNA);
 
     return storeResult(out, R, w, kind, negb, hasNA);
+}
+
+/* Unary minus, which R_bytesUnary() used to do inline.  A kernel of
+   its own so that it dispatches to a native type the way the binary
+   ones do; the general form is a negation of the magnitude, whose sign
+   flips. */
+static bool eltNeg(Rbyte *out, const Rbyte *a, int w, int kind, bool hasNA)
+{
+    BYTES_NATIVE(BYTES_NEG_BODY, w, kind);
+
+    Rbyte A[MAXW];
+    bool neg = magFromElt(A, a, w, kind);
+
+    return storeResult(out, A, w, kind, !neg, hasNA);
 }
 
 /* Store a C integer value into an element.  Returns false if it is not
@@ -467,31 +665,52 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     SEXP ans = PROTECT(R_allocBytesVector(n, w, kx, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
-    for (R_xlen_t i = 0; i < n; i++) {
-	const Rbyte *px = BYTEVEC_ELT_RO(x, i % nx);
-	const Rbyte *py = BYTEVEC_ELT_RO(y, i % ny);
-	Rbyte *pa = BYTEVEC_ELT(ans, i);
+    /* Hoisted: the element macros re-read the payload pointer and the
+       width out of the header every time, which at one machine
+       instruction per operand is no longer beneath notice.  Nothing in
+       the loop allocates, so the pointers cannot move. */
+    const Rbyte *bx = BYTEVEC_DATA_RO(x), *by = BYTEVEC_DATA_RO(y);
+    Rbyte *ba = BYTEVEC_DATA(ans);
+    R_xlen_t i, ix, iy;
 
-	if (hasNA &&
-	    (R_bytesEltIsNA(px, wx, kx) || R_bytesEltIsNA(py, wy, ky))) {
+    MOD_ITERATE2(n, nx, ny, i, ix, iy, {
+	/* one declaration per statement: this is a macro argument, and
+	   braces do not shield a comma from the preprocessor */
+	const Rbyte *px = bx + ix * wx;
+	const Rbyte *py = by + iy * wy;
+	Rbyte *pa = ba + i * w;
+
+	if (hasNA && (eltIsNA(px, wx, kx) || eltIsNA(py, wy, ky))) {
 	    R_bytesSetEltNA(pa, w, kx);
 	    continue;
 	}
 
-	/* promote both to the result width before operating */
-	Rbyte ax[MAXW], ay[MAXW], sx[MAXW], sy[MAXW];
-	widenMSB(ax, w, px, wx, kx);
-	widenMSB(ay, w, py, wy, ky);
-	fromMSB(sx, ax, w);
-	fromMSB(sy, ay, w);
+	/* Promote a narrower operand to the result width.  Promotion is
+	   by max(width), so at least one operand is already there and
+	   usually both are; doing this unconditionally cost four byte
+	   loops per element to copy values that were already correct. */
+	Rbyte sx[MAXW];
+	Rbyte sy[MAXW];
+	if (wx != w) {
+	    Rbyte t[MAXW];
+	    widenMSB(t, w, px, wx, kx);
+	    fromMSB(sx, t, w);
+	    px = sx;
+	}
+	if (wy != w) {
+	    Rbyte t[MAXW];
+	    widenMSB(t, w, py, wy, ky);
+	    fromMSB(sy, t, w);
+	    py = sy;
+	}
 
 	bool ok;
 	switch (oper) {
-	case PLUSOP:  ok = eltAdd(pa, sx, sy, w, kx, hasNA); break;
-	case MINUSOP: ok = eltSub(pa, sx, sy, w, kx, hasNA); break;
-	case TIMESOP: ok = eltMul(pa, sx, sy, w, kx, hasNA); break;
-	case IDIVOP:  ok = eltDivMod(pa, sx, sy, w, kx, true, hasNA); break;
-	case MODOP:   ok = eltDivMod(pa, sx, sy, w, kx, false, hasNA); break;
+	case PLUSOP:  ok = eltAdd(pa, px, py, w, kx, hasNA); break;
+	case MINUSOP: ok = eltSub(pa, px, py, w, kx, hasNA); break;
+	case TIMESOP: ok = eltMul(pa, px, py, w, kx, hasNA); break;
+	case IDIVOP:  ok = eltDivMod(pa, px, py, w, kx, true, hasNA); break;
+	case MODOP:   ok = eltDivMod(pa, px, py, w, kx, false, hasNA); break;
 	default:
 	    UNPROTECT(3); /* x, y, ans */
 	    errorcall(call,
@@ -503,7 +722,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	    R_bytesSetEltNA(pa, w, kx);
 	    nOver++;
 	}
-    }
+    });
 
     if (nOver)
 	warningcall(call, (oper == IDIVOP || oper == MODOP)
@@ -546,18 +765,20 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
     if (dimnames != R_NilValue) setAttrib(ans, R_DimNamesSymbol, dimnames);
     UNPROTECT(3);
 
-    for (R_xlen_t i = 0; i < n; i++) {
-	const Rbyte *px = BYTEVEC_ELT_RO(x, i);
-	Rbyte *pa = BYTEVEC_ELT(ans, i);
+    /* hoisted as in R_bytesArith(); nothing here allocates */
+    const Rbyte *bx = BYTEVEC_DATA_RO(x);
+    Rbyte *ba = BYTEVEC_DATA(ans);
 
-	if (hasNA && R_bytesEltIsNA(px, w, k)) {
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *px = bx + i * w;
+	Rbyte *pa = ba + i * w;
+
+	if (hasNA && eltIsNA(px, w, k)) {
 	    R_bytesSetEltNA(pa, w, k);
 	    continue;
 	}
 
-	Rbyte A[MAXW];
-	bool neg = magFromElt(A, px, w, k);
-	if (!storeResult(pa, A, w, k, !neg, hasNA)) {
+	if (!eltNeg(pa, px, w, k, hasNA)) {
 	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(pa, w, k);
 	    nOver++;
@@ -711,10 +932,13 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	if (TAG(t) == R_NaRmSymbol || TYPEOF(a) == NILSXP) continue;
 
 	int aw = BYTEVEC_WIDTH(a);
-	for (R_xlen_t i = 0; i < XLENGTH(a); i++) {
-	    const Rbyte *p = BYTEVEC_ELT_RO(a, i);
+	const Rbyte *ba = BYTEVEC_DATA_RO(a);	/* hoisted; see R_bytesArith */
+	R_xlen_t na = XLENGTH(a);
 
-	    if (hasNA && R_bytesEltIsNA(p, aw, kind)) {
+	for (R_xlen_t i = 0; i < na; i++) {
+	    const Rbyte *p = ba + i * aw;
+
+	    if (hasNA && eltIsNA(p, aw, kind)) {
 		if (narm) continue;
 		isNA = true;
 		break;
