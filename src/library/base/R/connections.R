@@ -268,13 +268,19 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
-    ## A length-one character vector names the mode; anything else is a
-    ## prototype whose type is the mode.  A 'bytes' prototype is passed
-    ## through whole, since it also says whether NA is representable,
-    ## which the type name does not.  Unrecognized names are left for
-    ## .Internal to reject: they used to fall through to typeof(), which
-    ## is "character", so readBin(con, "int64") silently read strings.
-    if(!is.character(what) || length(what) != 1L || is.na(what)) {
+    ## A length-one character vector naming a mode is the mode; anything
+    ## else is a prototype whose type is the mode -- including a length-one
+    ## character vector that is not one of the names, since character(1)
+    ## is a documented way to ask for strings.  A 'bytes' prototype is
+    ## passed through whole, as it also says whether NA is representable,
+    ## which the type name does not.  The 'bytes' names join the list so
+    ## that readBin(con, "int64") does not fall through to typeof(), which
+    ## is "character", and silently read strings; a name of that shape but
+    ## an unsupported width is left for .Internal to reject.
+    if(!is.character(what) || length(what) != 1L || is.na(what) ||
+       !(what %in% c("numeric", "double", "integer", "int", "logical",
+                     "complex", "character", "raw") ||
+         grepl("^(u?int[0-9]+|bytes[0-9]+)$", what))) {
         if(!is.bytes(what))
             what <- typeof(what)
     }

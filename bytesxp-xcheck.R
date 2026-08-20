@@ -1,4 +1,6 @@
-SC <- "/private/tmp/claude-502/-Users-kevin-r-devel-r-svn/82235406-213e-4234-8b48-5f2668136107/scratchpad"
+## directory holding the reference fixtures this cross-checks against;
+## point BYTESXP_FIXTURES at wherever they were generated
+SC <- Sys.getenv("BYTESXP_FIXTURES", unset = ".")
 fails <- 0L
 chk <- function(l, c) { if (!isTRUE(c)) fails <<- fails + 1L
                         cat(sprintf("%-42s %s\n", l, if (isTRUE(c)) "ok" else "FAIL")) }

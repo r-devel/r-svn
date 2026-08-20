@@ -450,6 +450,37 @@ static SEXP coerceToSymbol(SEXP v)
     return ans;
 }
 
+/* "any bit set": the one reading of a 'bytes' element that needs no
+   interpretation of the bytes, and so is available for every kind.  It is
+   what as.logical() already does for raw. */
+static int bytesEltAsLogical(const Rbyte *p, int w, int kind, bool hasNA)
+{
+    if (hasNA && R_bytesEltIsNA(p, w, kind))
+	return NA_LOGICAL;
+
+    for (int b = 0; b < w; b++)
+	if (p[b] != 0)
+	    return TRUE;
+
+    return FALSE;
+}
+
+/* Element 0 as a double, for the asXXX() family.  The opaque kind has no
+   numeric reading, and is refused here as it is in R_bytesCoerce(). */
+static double bytesElt0AsReal(SEXP x, const char *target)
+{
+    int w = BYTEVEC_WIDTH(x), kind = BYTEVEC_KIND(x);
+    const Rbyte *p = BYTEVEC_ELT_RO(x, 0);
+
+    if (kind == BYTEVEC_OPAQUE)
+	error(_("cannot coerce an opaque 'bytes' vector to type '%s'"),
+	      target);
+    if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(p, w, kind))
+	return NA_REAL;
+
+    return R_bytesEltAsReal(p, w, kind);
+}
+
 static SEXP coerceToLogical(SEXP v)
 {
     SEXP ans;
@@ -493,6 +524,14 @@ static SEXP coerceToLogical(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    pa[i] = LogicalFromInteger((int)RAW_ELT(v, i), &warn);
+	}
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
+	    bool hasNA = BYTEVEC_HAS_NA(v);
+	    for (i = 0; i < n; i++)
+		pa[i] = bytesEltAsLogical(BYTEVEC_ELT_RO(v, i), w, k, hasNA);
 	}
 	break;
     default:
@@ -658,6 +697,17 @@ static SEXP coerceToComplex(SEXP v)
 	UNIMPLEMENTED_TYPE("coerceToComplex", v);
     }
     if (warn) CoercionWarning(warn);
+    UNPROTECT(1);
+    return ans;
+}
+
+/* as.complex() of 'bytes' goes by way of double, so that the real part is
+   the value and R_bytesCoerce() issues the precision warning that the wide
+   widths earn.  There is no complex kind, so nothing is lost by the detour. */
+static SEXP bytesCoerceToComplex(SEXP v)
+{
+    SEXP d = PROTECT(R_bytesCoerce(v, REALSXP));
+    SEXP ans = coerceToComplex(d);
     UNPROTECT(1);
     return ans;
 }
@@ -853,6 +903,17 @@ static SEXP coerceToExpression(SEXP v)
 	    for (i = 0; i < n; i++)
 		SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
 	    break;
+	case BYTESXP:
+	    /* as in coerceToVectorList(): a length-1 vector of the same
+	       width and kind, there being no scalar form of an element */
+	    for (i = 0; i < n; i++) {
+		SEXP e = PROTECT(R_allocVectorLike(v, 1));
+		memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(v, i),
+		       (size_t) BYTEVEC_WIDTH(v));
+		SET_VECTOR_ELT(ans, i, e);
+		UNPROTECT(1);
+	    }
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("coerceToExpression", v);
 	}
@@ -973,6 +1034,11 @@ static SEXP coerceToPairList(SEXP v)
 	case RAWSXP:
 	    SETCAR(ansp, allocVector(RAWSXP, 1));
 	    RAW0(CAR(ansp))[0] = RAW_ELT(v, i);
+	    break;
+	case BYTESXP:
+	    SETCAR(ansp, R_allocVectorLike(v, 1));
+	    memcpy(BYTEVEC_DATA(CAR(ansp)), BYTEVEC_ELT_RO(v, i),
+		   (size_t) BYTEVEC_WIDTH(v));
 	    break;
 	case VECSXP:
 	    SETCAR(ansp, VECTOR_ELT(v, i));
@@ -1317,7 +1383,8 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, REALSXP)
 					 : coerceToReal(v);	break;
 	case CPLXSXP:
-	    ans = coerceToComplex(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? bytesCoerceToComplex(v)
+					 : coerceToComplex(v);	break;
 	case RAWSXP:
 	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, RAWSXP)
 					 : coerceToRaw(v);	break;
@@ -1856,6 +1923,9 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	    return LogicalFromString(STRING_ELT(x, 0), &warn);
 	case RAWSXP:
 	    return LogicalFromInteger((int)RAW_ELT(x, 0), &warn);
+	case BYTESXP:
+	    return bytesEltAsLogical(BYTEVEC_ELT_RO(x, 0), BYTEVEC_WIDTH(x),
+				     BYTEVEC_KIND(x), BYTEVEC_HAS_NA(x));
 	default:
 	    UNIMPLEMENTED_TYPE("asLogical", x);
 	}
@@ -1929,6 +1999,10 @@ int asInteger(SEXP x)
 	    res = IntegerFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case BYTESXP:
+	    res = IntegerFromReal(bytesElt0AsReal(x, "integer"), &warn);
+	    CoercionWarning(warn);
+	    return res;
 	default:
 	    UNIMPLEMENTED_TYPE("asInteger", x);
 	}
@@ -1959,6 +2033,7 @@ R_xlen_t asXLength(SEXP x)
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
+	case BYTESXP:
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("asXLength", x);
@@ -1998,6 +2073,8 @@ double asReal(SEXP x)
 	    res = RealFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case BYTESXP:
+	    return bytesElt0AsReal(x, "double");
 	default:
 	    UNIMPLEMENTED_TYPE("asReal", x);
 	}
@@ -2032,6 +2109,10 @@ Rcomplex asComplex(SEXP x)
 	    return COMPLEX_ELT(x, 0);
 	case STRSXP:
 	    z = ComplexFromString(STRING_ELT(x, 0), &warn);
+	    CoercionWarning(warn);
+	    return z;
+	case BYTESXP:
+	    z = ComplexFromReal(bytesElt0AsReal(x, "complex"), &warn);
 	    CoercionWarning(warn);
 	    return z;
 	default:
@@ -2613,6 +2694,7 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -2677,6 +2759,17 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
+    case BYTESXP:
+	/* every bit pattern names a value, so only a reserved NA is not
+	   finite -- the analogue of the integer case above */
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    bool hasNA = BYTEVEC_HAS_NA(x);
+	    for (i = 0; i < n; i++)
+		pa[i] = !(hasNA &&
+			  R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k));
+	}
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = R_FINITE(REAL_ELT(x, i));
@@ -2740,6 +2833,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;

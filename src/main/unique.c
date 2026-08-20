@@ -1157,7 +1157,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
     R_xlen_t n = xlength(x);
     if (n == 0)
 	return(PRIMVAL(op) <= 1
-	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
+	       ? (PRIMVAL(op) != 1 ? allocVector(LGLSXP, 0)
+		                   : R_allocVectorLike(x, 0))
 	       : ScalarInteger(0));
 
     if (!isVector(x)) {

@@ -26,7 +26,10 @@ writeBin(object, con, size = NA_integer_,
     \code{"integer"}, \code{"int"}, \code{"logical"}, \code{"complex"},
     \code{"raw"}, \code{"character"}, or the name of a \code{bytes}
     type such as \code{"int64"}, \code{"uint64"} or \code{"bytes16"}
-    (see \sQuote{Details}).  An unrecognized name is an error.}
+    (see \sQuote{Details}).  A character vector of length one that is
+    none of these is taken as an object, and so gives mode
+    \code{"character"}; a \code{bytes} name of an unsupported width is
+    an error.}
   \item{n}{numeric.  The (maximal) number of records to be
     read.  You can use an over-estimate here, but not too large as
     storage is reserved for \code{n} items.}

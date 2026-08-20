@@ -393,7 +393,13 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\
 	case RAWSXP:	Rprintf("raw(0)\n");		break;	\
-	case BYTESXP:	Rprintf("bytes(0)\n");		break;	\
+	/* "bytes(0)" would be a valid call producing a different	\
+	   object (width 1, opaque), where every line above names	\
+	   exactly what it printed; this matches what dput() gives */	\
+	case BYTESXP:	Rprintf("bytes(0L, %dL, \"%s\"%s)\n",		\
+				BYTEVEC_WIDTH(x), R_bytesKindName(x),	\
+				BYTEVEC_HAS_NA(x) ? "" : ", na = FALSE"); \
+			break;					\
 	}
 	PRINT_V_0;
 }

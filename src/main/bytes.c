@@ -364,7 +364,14 @@ SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
 	if (shift) {
 	    int s = INTEGER_ELT(b, ib);
 	    if (na || s == NA_INTEGER || s < 0 || s > 8 * w - 1) {
-		R_bytesCheckNA(ans);
+		/* bitwShiftL(1L, 32L) is NA, and so is this wherever NA
+		   exists.  Where it does not, say what actually went
+		   wrong: R_bytesCheckNA()'s message is about the data,
+		   and here the shift count is the problem. */
+		if (!hasNA)
+		    errorcall(call,
+			      _("shift out of range for a '%s' vector, which has no NA to return"),
+			      R_bytesTypeName(a));
 		R_bytesSetEltNA(o, w, k);
 		continue;
 	    }
@@ -433,6 +440,19 @@ void R_bytesCheckSameNA(SEXP x, SEXP y)
 	error(_("cannot combine 'bytes' vectors that differ in whether NA is representable"));
 }
 
+/* Rf_copyVector() and Rf_copyMatrix() are public API, and the only check
+   they make is that the two SEXPTYPEs agree -- which a width-4 and a
+   width-16 'bytes' vector both pass.  Their block copies stride one vector
+   by the other's width, so a mismatch reads past the end of the source.
+   Callers inside R pair R_allocVectorLike() with the vector being copied
+   and so always agree; this is what stops a package from not. */
+void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun)
+{
+    if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y) ||
+	BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
+	error(_("'bytes' vectors differ in width or kind in '%s'"), fun);
+}
+
 /* allocVector(TYPEOF(s), n) cannot reproduce a per-vector width, so the
    generic "another vector like this one" sites go through here */
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
@@ -453,7 +473,7 @@ SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
 static void checkBytes(SEXP x, const char *what)
 {
     if (TYPEOF(x) != BYTESXP)
-	error("%s() can only be applied to a '%s', not a '%s'",
+	error(_("%s() can only be applied to a '%s', not a '%s'"),
 	      what, "bytes", R_typeToChar(x));
 }
 
@@ -733,8 +753,24 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    return R_bytesConvert(CAR(args), checkWidth(CADR(args)),
-			  checkKind(CADDR(args)), checkNA(CADDDR(args)), call);
+    SEXP val = PROTECT(R_bytesConvert(CAR(args), checkWidth(CADR(args)),
+				      checkKind(CADDR(args)),
+				      checkNA(CADDDR(args)), call));
+
+    /* as.bytes() is a coercion and drops attributes, as as.numeric() and
+       as.character() do.  R_bytesConvert() builds a fresh vector on every
+       path but one -- when nothing would change it returns x -- so
+       without this the same call would keep names or dim for exactly the
+       inputs that needed no conversion.  This is what do_asvector() does
+       for the same reason; storage.mode<- wants the attributes and so
+       calls R_bytesConvert() directly. */
+    if (ATTRIB(val) != R_NilValue) {
+	if (MAYBE_REFERENCED(val)) val = duplicate(val);
+	CLEAR_ATTRIB(val);
+    }
+    UNPROTECT(1);
+
+    return val;
 }
 
 /* Numeric elements are stored in native byte order, but must go onto
@@ -775,6 +811,8 @@ attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
 void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 			    R_xlen_t n, R_xlen_t nsrc)
 {
+    R_bytesCheckSameType(dst, src, "copyVector");
+
     size_t w = (size_t) BYTEVEC_WIDTH(dst);
     Rbyte *d = BYTEVEC_DATA(dst);
     const Rbyte *s = BYTEVEC_DATA_RO(src);
@@ -789,6 +827,8 @@ void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 				  R_xlen_t drows, R_xlen_t srows,
 				  R_xlen_t cols, R_xlen_t nsrc)
 {
+    R_bytesCheckSameType(dst, src, "copyMatrix");
+
     size_t w = (size_t) BYTEVEC_WIDTH(dst);
     Rbyte *d = BYTEVEC_DATA(dst);
     const Rbyte *s = BYTEVEC_DATA_RO(src);
@@ -939,5 +979,12 @@ attribute_hidden SEXP do_byteswidth(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    return ScalarInteger(R_bytesWidth(CAR(args)));
+    /* not R_bytesWidth(), whose message names the C entry point: that is
+       the right thing to tell a package and the wrong thing to tell
+       someone who typed bytesWidth(1L) */
+    SEXP x = CAR(args);
+    if (TYPEOF(x) != BYTESXP)
+	error(_("'%s' must be a 'bytes' vector"), "x");
+
+    return ScalarInteger(BYTEVEC_WIDTH(x));
 }

@@ -1926,14 +1926,18 @@ SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5)
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
 /* R_allocBytesVector() and the rest of the 'bytes' entry points that
-   package code needs are declared in Rinternals.h */
-SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
-Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
-void R_bytesSetEltNA(Rbyte *p, int width, int kind);
-int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind);
-const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind);
-bool R_bytesMagFits(const Rbyte *v, int w, int kind, bool negative,
-		    bool hasNA);
+   package code needs are declared in Rinternals.h.  Everything below is
+   R's own, and is hidden: none of it is used outside src/main, and an
+   accidentally exported helper is one packages start depending on. */
+attribute_hidden SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
+attribute_hidden Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
+attribute_hidden void R_bytesSetEltNA(Rbyte *p, int width, int kind);
+attribute_hidden int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width,
+				   int kind);
+attribute_hidden const char *R_bytesEltDecimal(const Rbyte *p, int width,
+					       int kind);
+attribute_hidden bool R_bytesMagFits(const Rbyte *v, int w, int kind,
+				     bool negative, bool hasNA);
 /* why one element of text did not convert; SYNTAX and RANGE get
    different warnings, as they do for as.integer() */
 typedef enum {
@@ -1941,33 +1945,44 @@ typedef enum {
     BYTES_PARSE_SYNTAX,
     BYTES_PARSE_RANGE
 } R_bytes_parse_t;
-R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
-				     int kind, bool hasNA);
-const char *R_bytesEltRender(SEXP x, R_xlen_t i);
-const char *R_bytesTypeName(SEXP x);
-const char *R_bytesTypeNameOf(int width, int kind);
-Rboolean R_bytesTypeFromName(const char *s, int *width, int *kind);
-const char *R_bytesKindName(SEXP x);
-void R_bytesWarnReserved(SEXP x);
-void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
-			    R_xlen_t n, R_xlen_t nsrc);
-void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
-				  R_xlen_t drows, R_xlen_t srows,
-				  R_xlen_t cols, R_xlen_t nsrc);
-void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w, int kind);
-SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
-SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b);
-SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
-SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
-SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
-SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
-bool R_bytesAllNA(SEXP x);
-SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call);
-SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call);
-void R_bytesCheckNA(SEXP x);
-void R_bytesCheckSameNA(SEXP x, SEXP y);
-void R_CheckBytesVector(SEXP x);	/* CHKBYTEVEC(), above */
-double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
+attribute_hidden R_bytes_parse_t R_bytesEltFromString(Rbyte *out,
+						      const char *s, int w,
+						      int kind, bool hasNA);
+attribute_hidden const char *R_bytesEltRender(SEXP x, R_xlen_t i);
+attribute_hidden const char *R_bytesTypeName(SEXP x);
+attribute_hidden const char *R_bytesTypeNameOf(int width, int kind);
+attribute_hidden Rboolean R_bytesTypeFromName(const char *s, int *width,
+					      int *kind);
+attribute_hidden const char *R_bytesKindName(SEXP x);
+attribute_hidden void R_bytesWarnReserved(SEXP x);
+attribute_hidden void R_bytesCopyWithRecycle(SEXP dst, SEXP src,
+					     R_xlen_t dstart, R_xlen_t n,
+					     R_xlen_t nsrc);
+attribute_hidden void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src,
+						   R_xlen_t dstart,
+						   R_xlen_t drows,
+						   R_xlen_t srows,
+						   R_xlen_t cols,
+						   R_xlen_t nsrc);
+attribute_hidden void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n,
+				      int w, int kind);
+attribute_hidden SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
+attribute_hidden SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b);
+attribute_hidden SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
+attribute_hidden SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
+attribute_hidden SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
+attribute_hidden SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA,
+				    SEXP call);
+attribute_hidden bool R_bytesAllNA(SEXP x);
+attribute_hidden SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA,
+				     SEXP call);
+attribute_hidden SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA,
+				       SEXP call);
+attribute_hidden void R_bytesCheckNA(SEXP x);
+attribute_hidden void R_bytesCheckSameNA(SEXP x, SEXP y);
+attribute_hidden void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun);
+attribute_hidden void R_CheckBytesVector(SEXP x); /* CHKBYTEVEC(), above */
+attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);

@@ -37,6 +37,18 @@ mode <- function(x) {
 {
     if (storage.mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
+    ## A 'bytes' type is named by its width and kind (see
+    ## R_bytesTypeFromName in src/main/bytes.c), and there is no
+    ## as.uint64() for get() below to find.  "bytes" on its own names no
+    ## type at all, so as.bytes()'s defaults must not be allowed to pick
+    ## one silently.  Both go to storage.mode<-, which knows the names
+    ## and rejects the rest; it is also the only way out of a 'bytes'
+    ## vector, mode() being too coarse to name what x currently is.
+    if(is.bytes(x) || value == "bytes" ||
+       grepl("^(u?int[0-9]+|bytes[0-9]+)$", value)) {
+	storage.mode(x) <- value
+	return(x)
+    }
     atr <- attributes(x)
     isSingle <- !is.null(attr(x, "Csingle"))
     setSingle <- value == "single"

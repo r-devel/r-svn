@@ -834,11 +834,17 @@ ok("opaque name works",           identical(as.character(readBin(le64, "bytes8",
 ok("\"int\" is still integer",     identical(readBin(le64, "int", 2L), c(1L, 1L)))
 ok("an unknown name errors",      inherits(tryCatch(readBin(le64, "int63", 1L),
                                                     error = identity), "error"))
-## it used to fall through to typeof(), which is "character", so a
-## mistyped mode silently read null-terminated strings
-ok("a typo errors, not reads",    inherits(tryCatch(readBin(le64, "typo", 1L),
-                                                    error = identity), "error"))
+## A typo of a 'bytes' name -- "int63" above -- errors, because it has the
+## shape of one.  A word that is no kind of mode name still falls through
+## to typeof(), i.e. "character", as readBin() has always done: a length-one
+## character vector is also the documented prototype form, so readBin(con,
+## "") and readBin(con, character(1)) have to keep reading strings.  Making
+## every unrecognized name an error took those with it.
+ok("a typo reads as a prototype",  identical(readBin(le64, "typo", 1L),
+                                             readBin(le64, character(1), 1L)))
 ok("prototypes still work",       identical(readBin(le64, integer(), 2L), c(1L, 1L)))
+ok("a character prototype works",  identical(readBin(le64, character(1), 1L),
+                                             readBin(le64, "character", 1L)))
 
 ## endian: the reason this cannot be done with as.bytes(readBin(raw))
 be1 <- as.raw(c(0, 0, 0, 0, 0, 0, 0, 1))

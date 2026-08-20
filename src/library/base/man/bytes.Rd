@@ -136,6 +136,10 @@ bytesRaw(x)
   whether \code{NA} is reserved, so those two keep whatever \code{x}
   already had.
 
+  \code{as.bytes} and \code{as.vector} drop attributes, as the rest of
+  the \code{as.*} family does, including when \code{x} already has the
+  requested width and kind; \code{storage.mode<-} keeps them.
+
   \code{is.bytes} returns \code{TRUE} for a \code{bytes} vector.
   \code{bytesWidth} returns the element size in bytes, \code{bytesKind}
   the kind as a string, and \code{bytesHasNA} whether the vector has an

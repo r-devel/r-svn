@@ -852,6 +852,39 @@ static void sPsort2(SEXP *x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 }
 
 
+/* psort_body over fixed-width blocks.  Elements move by memcpy for the
+   reason bsort2() does -- their size is only known at run time -- so the
+   pivot has to be a copy rather than a pointer into the array being
+   permuted.  NA is ordered by its bit pattern here too. */
+static void bPsort2(SEXP s, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
+{
+    const void *vmax = vmaxget();
+    int w = BYTEVEC_WIDTH(s), kind = BYTEVEC_KIND(s);
+    Rbyte *x = BYTEVEC_DATA(s);
+    Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
+    Rbyte *t = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
+    R_xlen_t L, R, i, j;
+
+    for (L = lo, R = hi; L < R; ) {
+	memcpy(v, x + k * w, (size_t) w);
+	for (i = L, j = R; i <= j;) {
+	    while (R_bytesEltCmp(x + i * w, v, w, kind) < 0) i++;
+	    while (R_bytesEltCmp(v, x + j * w, w, kind) < 0) j--;
+	    if (i <= j) {
+		memcpy(t, x + i * w, (size_t) w);
+		memcpy(x + i * w, x + j * w, (size_t) w);
+		memcpy(x + j * w, t, (size_t) w);
+		i++; j--;
+	    }
+	}
+	if (j < k) L = i;
+	if (k < i) R = j;
+    }
+
+    vmaxset(vmax);
+}
+
+
 /* Needed for mistaken decision to put these in the API */
 void iPsort(int *x, int n, int k)
 {
@@ -885,6 +918,9 @@ static void Psort(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 	break;
     case STRSXP:
 	sPsort2(STRING_PTR(x), lo, hi, k); /* STRING_PTR is safe here */
+	break;
+    case BYTESXP:
+	bPsort2(x, lo, hi, k);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("Psort", x);

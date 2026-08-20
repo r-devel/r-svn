@@ -584,6 +584,7 @@ attribute_hidden SEXP do_lengths(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	case BYTESXP:
 	    break;
 	default:
 	    error(_("'%s' must be a list or atomic vector"), "x");
@@ -2530,6 +2531,13 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case RAWSXP:
 	ASPLIT_ITERATE( RAW(e)[j] = RAW(x)[k] );
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    ASPLIT_ITERATE( memcpy(BYTEVEC_ELT(e, j),
+				   BYTEVEC_ELT_RO(x, k), w) );
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("asplit", x);

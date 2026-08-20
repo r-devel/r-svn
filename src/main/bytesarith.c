@@ -1043,6 +1043,13 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
     int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
     R_xlen_t n = XLENGTH(x);
 
+    /* The loop below writes through RAW0(), INTEGER0() or REAL0() and
+       picks between them by elimination, so a target this function does
+       not handle has to be turned away before anything is allocated. */
+    if (type != RAWSXP && type != INTSXP && type != REALSXP)
+	error(_("cannot coerce a 'bytes' vector to type '%s'"),
+	      type2char(type));
+
     if (k == BYTEVEC_OPAQUE)
 	error(_("cannot coerce an opaque 'bytes' vector to type '%s'"),
 	      type2char(type));
@@ -1230,8 +1237,19 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
     }
 
     if ((iop == 2 || iop == 3) && !seen) {
-	UNPROTECT(1);
-	errorcall(call, _("no non-missing arguments, returning NA"));
+	/* Every other type warns here and returns +/-Inf.  A fixed-width
+	   type has no Inf, so NA stands in -- and when the type does not
+	   reserve an NA either there is nothing to return, which is the
+	   one case that has to stay an error. */
+	if (!hasNA) {
+	    UNPROTECT(1);
+	    errorcall(call,
+		      _("no non-missing arguments to '%s', and this 'bytes' type cannot represent NA"),
+		      iop == 2 ? "min" : "max");
+	}
+	warningcall(call, _("no non-missing arguments to %s; returning NA"),
+		    iop == 2 ? "min" : "max");
+	isNA = true;
     }
     if (isNA) {
 	R_bytesCheckNA(ans);

@@ -509,6 +509,9 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	    break;
 	case BYTESXP:
 	{
+	    /* unlike the branch below, this one does not go through
+	       copyVector(), so the widths are checked here */
+	    R_bytesCheckSameType(s, t, "copyMatrix");
 	    size_t w = (size_t) BYTEVEC_WIDTH(s);
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		memcpy(BYTEVEC_ELT(s, didx), BYTEVEC_ELT_RO(t, sidx), w);

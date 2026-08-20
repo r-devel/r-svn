@@ -39,7 +39,11 @@ storage.mode(x) <- value
   \code{"logical"}, \code{"integer"}, \code{"double"}, \code{"complex"},
   \code{"raw"}, \code{"character"}, \code{"list"}, \code{"expression"},
   \code{"name"}, \code{"symbol"} and \code{"function"}.  Attributes are
-  preserved (but see below).
+  preserved (but see below).  A \code{\link{bytes}} type name such as
+  \code{"int64"} is also supported, and is passed to \code{storage.mode<-}
+  since there is no \code{as.int64} function; \code{"bytes"} on its own
+  does not name a type and is an error, as it is for \code{storage.mode<-}
+  --- use \code{\link{as.bytes}} to choose a width and kind.
 
   \code{storage.mode(x) <- "newmode"} is a more efficient \link{primitive}
   version of \code{mode<-}, which works for \code{"newmode"} which is

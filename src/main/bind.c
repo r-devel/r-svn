@@ -755,6 +755,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 	for (i = 0; i < n && nameData->count <= 1; i++)
 	    nameData->count++;
 	break;
@@ -823,6 +824,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++) {
 	    namei = ItemName(names, i);
 	    namei = NewName(base, namei, ++(nameData->seqno), nameData->count);
@@ -1481,7 +1483,12 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
 	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		int umatrix = isMatrix(u); /* lost in the narrowing below */
-		if (TYPEOF(u) != BYTESXP)
+		/* NULL contributes nothing, as coerceVector() makes it
+		   raw(0) in the branch above; R_bytesNarrow() is the
+		   arithmetic rule and rightly refuses it */
+		if (u == R_NilValue)
+		    u = R_allocVectorLike(result, 0);
+		else if (TYPEOF(u) != BYTESXP)
 		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
 				      BYTEVEC_KIND(result),
 				      BYTEVEC_HAS_NA(result), call);
@@ -1758,7 +1765,12 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
 	    if (isMatrix(u) || length(u) >= lenmin) {
 		/* both are lost in the narrowing below */
 		int umatrix = isMatrix(u), unrows = umatrix ? nrows(u) : 0;
-		if (TYPEOF(u) != BYTESXP)
+		/* NULL contributes nothing, as coerceVector() makes it
+		   raw(0) in the branch above; R_bytesNarrow() is the
+		   arithmetic rule and rightly refuses it */
+		if (u == R_NilValue)
+		    u = R_allocVectorLike(result, 0);
+		else if (TYPEOF(u) != BYTESXP)
 		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
 				      BYTEVEC_KIND(result),
 				      BYTEVEC_HAS_NA(result), call);

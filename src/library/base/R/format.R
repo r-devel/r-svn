@@ -45,8 +45,18 @@ format.default <-
     } else if(is.bytes(x)) {
 	## every element renders the same way it prints: hex for opaque
 	## elements, decimal for the numeric kinds
-	.Internal(format(x, trim, digits, nsmall, width, 3L,
-			 na.encode, scientific, NA_character_))
+	r <- .Internal(format(x, trim, digits, nsmall, width, 3L,
+			      na.encode, scientific, NA_character_))
+	## big.mark and its siblings mark up decimal digits, so they apply
+	## to the numeric kinds only; hex is left alone, as raw is below.
+	## A wide identifier is exactly what a thousands separator is for,
+	## so this is not an ignorable argument here.
+	if(bytesKind(x) == "opaque") r
+	else prettyNum(r, big.mark = big.mark, big.interval = big.interval,
+		       small.mark = small.mark, small.interval = small.interval,
+		       decimal.mark = decimal.mark, input.d.mark = decimal.mark,
+		       zero.print = zero.print, drop0trailing = drop0trailing,
+		       preserve.width = if (trim) "individual" else "common", ...)
     } else {
 	switch(mode(x),
 	       NULL = "NULL",

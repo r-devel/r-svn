@@ -3394,11 +3394,15 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, nms;
     int i, tmp;
+    /* NILSXP..LGLSXP, then the types from INTSXP on with the two unused
+       codes 11 and 12 skipped.  The last entry is BYTESXP, so this has to
+       grow whenever a SEXPTYPE is added. */
+    const int ntypes = BYTESXP - 2 + 1;
 
     checkArity(op, args);
-    PROTECT(ans = allocVector(INTSXP, 24));
-    PROTECT(nms = allocVector(STRSXP, 24));
-    for (i = 0; i < 24; i++) {
+    PROTECT(ans = allocVector(INTSXP, ntypes));
+    PROTECT(nms = allocVector(STRSXP, ntypes));
+    for (i = 0; i < ntypes; i++) {
 	INTEGER(ans)[i] = 0;
 	SET_STRING_ELT(nms, i, type2str(i > LGLSXP? i+2 : i));
     }
@@ -3417,7 +3421,7 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 	       s = NEXT_NODE(s)) {
 	      tmp = TYPEOF(s);
 	      if(tmp > LGLSXP) tmp -= 2;
-	      INTEGER(ans)[tmp]++;
+	      if(tmp >= 0 && tmp < ntypes) INTEGER(ans)[tmp]++;
 	  }
 	}
       }

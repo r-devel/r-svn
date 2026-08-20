@@ -547,6 +547,28 @@ static void cat_cleanup(void *data)
 #endif
 }
 
+/* EncodeElement0() returns a shared buffer that cat_newline() may reuse
+   before the element is printed, so each element has to be copied out.
+   Most types encode to a few dozen characters and fit the caller's stack
+   buffer; a wide 'bytes' element runs to several hundred, and is copied to
+   a buffer sized to what was actually encoded rather than truncated to
+   fit.  That buffer is grown rather than replaced, so a long vector of
+   wide elements costs one allocation per new maximum width, not one per
+   element. */
+static const char *cat_element(SEXP s, R_xlen_t i, char **buf, size_t *buflen)
+{
+    const char *p = EncodeElement0(s, i, 0, OutDec);
+    size_t n = strlen(p);
+
+    if (n >= *buflen) {
+	*buflen = n + 1;
+	*buf = R_alloc(*buflen, 1);
+    }
+    memcpy(*buf, p, n + 1);
+
+    return *buf;
+}
+
 attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     cat_info ci;
@@ -557,7 +579,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     int append;
     int i, iobj, n, nobjs, sepw, lablen, ntot, nlsep, nlines;
     size_t width, pwidth;
-    char buf[512];
+    char sbuf[512], *buf = sbuf;
+    size_t buflen = sizeof sbuf;
     const char *p = "";
 
     checkArity(op, args);
@@ -652,14 +675,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    else if (isSymbol(s)) /* length 1 */
 		p = CHAR(PRINTNAME(s));
 	    else if (isVectorAtomic(s)) {
-		/* Not a string, as that is covered above.
-		   Thus the maximum size is about 60.
-		   The copy is needed as cat_newline might reuse the buffer.
-		   Use strncpy is in case these assumptions change.
-		*/
-		p = EncodeElement0(s, 0, 0, OutDec);
-		strncpy(buf, p, 511); buf[511] = '\0';
-		p = buf;
+		/* Not a string, as that is covered above. */
+		p = cat_element(s, 0, &buf, &buflen);
 	    }
 #ifdef fixed_cat
 	    else if (isVectorList(s)) {
@@ -687,11 +704,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    cat_printsep(sepr, ntot);
 		    if (isString(s))
 			p = trChar(STRING_ELT(s, i+1));
-		    else {
-			p = EncodeElement0(s, i+1, 0, OutDec);
-			strncpy(buf, p, 511); buf[511] = '\0';
-			p = buf;
-		    }
+		    else
+			p = cat_element(s, i+1, &buf, &buflen);
 		    w = strlen(p);
 		    cat_sepwidth(sepr, &sepw, ntot);
 		    if (width + w + sepw > pwidth) {

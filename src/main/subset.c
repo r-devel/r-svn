@@ -527,7 +527,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	}
 
     /* Transfer the subset elements from "x" to "a". */
-    PROTECT(result = allocVector(mode, n));
+    PROTECT(result = R_allocVectorLike(x, n));
     switch (mode) {
     case LGLSXP:
 	ARRAY_SUBSET_LOOP(LOGICAL0(result)[i] = LOGICAL_ELT(x, ii),
@@ -561,6 +561,17 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
     case RAWSXP:
 	ARRAY_SUBSET_LOOP(RAW0(result)[i] = RAW_ELT(x, ii),
 			  RAW0(result)[i] = (Rbyte) 0);
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    int kind = BYTEVEC_KIND(x);
+	    ARRAY_SUBSET_LOOP(memcpy(BYTEVEC_ELT(result, i),
+				     BYTEVEC_ELT_RO(x, ii), w),
+			      (R_bytesCheckNA(result),
+			       R_bytesSetEltNA(BYTEVEC_ELT(result, i),
+					       (int) w, kind)));
+	}
 	break;
     default:
 	errorcall(call, _("array subscripting not handled for this type"));
