@@ -148,9 +148,8 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 /* Expand UBODY once per unsigned width and SBODY once per signed width
    that has a native type.  Every body ends in a return, so falling out
    of the switch means "not handled here" and the general kernel runs.
-   Width 16 takes bodies of its own because multiply needs a different
-   one there; every other operation passes the same pair twice. */
-# define BYTES_NATIVE4(UBODY, SBODY, UBODY16, SBODY16, w, kind)	\
+   Multiply does not come through here; see BYTES_NATIVE_MUL(). */
+# define BYTES_NATIVE2(UBODY, SBODY, w, kind)			\
     do {							\
 	if (!useNative()) break;				\
 	if ((kind) == BYTEVEC_UINT)				\
@@ -159,7 +158,7 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 	    case 2:  UBODY(uint16_t)				\
 	    case 4:  UBODY(uint32_t)				\
 	    case 8:  UBODY(uint64_t)				\
-	    BYTES_NATIVE_W16(UBODY16, bytes_uint128_t)		\
+	    BYTES_NATIVE_W16(UBODY, bytes_uint128_t)		\
 	    }							\
 	else if ((kind) == BYTEVEC_INT)				\
 	    switch (w) {					\
@@ -167,13 +166,9 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 	    case 2:  SBODY(int16_t)				\
 	    case 4:  SBODY(int32_t)				\
 	    case 8:  SBODY(int64_t)				\
-	    BYTES_NATIVE_W16(SBODY16, bytes_int128_t)		\
+	    BYTES_NATIVE_W16(SBODY, bytes_int128_t)		\
 	    }							\
     } while (0)
-
-/* the usual case: one body per kind, at every width */
-# define BYTES_NATIVE2(UBODY, SBODY, w, kind)			\
-    BYTES_NATIVE4(UBODY, SBODY, UBODY, SBODY, w, kind)
 
 /* the usual case: the two kinds differ only in the C type */
 # define BYTES_NATIVE(BODY, w, kind) BYTES_NATIVE2(BODY, BODY, w, kind)
@@ -199,15 +194,21 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
       return storeNative(out, &vr, w, kind, hasNA); }
 
 # ifdef __SIZEOF_INT128__
-/* The signed 128-bit multiply is the one native body that does not use
-   the builtin.  A checked signed multiply of a type the target cannot
-   multiply in one go becomes a call to compiler-rt's __mulo?i4 -- for
-   this width, clang 19 on aarch64 does that, later versions expand it
-   inline -- and a clang configured against libgcc, which is the default
-   on Debian, has no such symbol, so linking R fails.  So the check is
-   written out: it costs a 128-bit division, still far less than the
-   general kernel's 256 byte multiplies.  Unsigned needs no such care,
-   as compiler-rt has no unsigned counterpart to call. */
+/* The signed multiply through a 128-bit product: the widening multiply
+   is two instructions on a target that has them, and there is no
+   checked multiply left for the compiler to turn into a call. */
+#  define BYTES_MUL_S64_BODY(T)						\
+    { BYTES_LOAD2(T)							\
+      bytes_int128_t p = (bytes_int128_t) va * vb;			\
+      bytes_int128_t lim = (bytes_int128_t) 1 << (8 * sizeof(T) - 1);	\
+      if (p < -lim || p >= lim) return false;				\
+      vr = (T) p;							\
+      return storeNative(out, &vr, w, kind, hasNA); }
+
+/* The widest signed multiply has nothing above it to promote into, so
+   its check is written out: magnitudes in the unsigned domain, where
+   wrapping is defined.  It costs a 128-bit division, still far less
+   than the general kernel's 256 byte multiplies. */
 static bool mulOverflowS128(bytes_int128_t a, bytes_int128_t b,
 			    bytes_int128_t *r)
 {
@@ -229,12 +230,49 @@ static bool mulOverflowS128(bytes_int128_t a, bytes_int128_t b,
     { BYTES_LOAD2(T)							\
       if (mulOverflowS128(va, vb, &vr)) return false;			\
       return storeNative(out, &vr, w, kind, hasNA); }
+
+#  define BYTES_MUL_W8_SIGNED	case 8:  BYTES_MUL_S64_BODY(int64_t)
+# else
+#  define BYTES_MUL_W8_SIGNED	/* signed width 8 stays general too */
 # endif
 
-/* multiply is the one operation that needs a body of its own at 16 */
-# define BYTES_NATIVE_MUL(w, kind)					\
-    BYTES_NATIVE4(BYTES_MUL_BODY, BYTES_MUL_BODY,			\
-		  BYTES_MUL_BODY, BYTES_MUL_S128_BODY, w, kind)
+/* Multiply dispatches on its own, because which body a width wants is
+   not settled by its type alone.  A checked *signed* multiply of a type
+   the target cannot multiply in one instruction is the one thing here
+   that lowers to a call -- compiler-rt's __mulo?i4, which a clang
+   configured against libgcc, the default on Debian, does not have, so
+   linking R fails.  That is what clang 19 does at width 16 on aarch64,
+   and it is __mulodi4 at width 8 on a 32-bit target.
+
+   Widths up to 4 are safe wherever R runs.  Width 8 goes through a
+   128-bit product instead, and a target with no 128-bit type has no
+   64-bit multiply either, so there it takes the general kernel.  Width
+   16 has nothing above it to promote into and checks itself.  Unsigned
+   is never affected: compiler-rt has no unsigned counterpart to call.
+
+   The line is drawn in the preprocessor rather than by a
+   `sizeof(T) <= 8` the optimiser would fold, because the branch not
+   taken is still compiled, and at -O0 nothing would remove the call. */
+# define BYTES_NATIVE_MUL(w, kind)				\
+    do {							\
+	if (!useNative()) break;				\
+	if ((kind) == BYTEVEC_UINT)				\
+	    switch (w) {					\
+	    case 1:  BYTES_MUL_BODY(uint8_t)			\
+	    case 2:  BYTES_MUL_BODY(uint16_t)			\
+	    case 4:  BYTES_MUL_BODY(uint32_t)			\
+	    case 8:  BYTES_MUL_BODY(uint64_t)			\
+	    BYTES_NATIVE_W16(BYTES_MUL_BODY, bytes_uint128_t)	\
+	    }							\
+	else if ((kind) == BYTEVEC_INT)				\
+	    switch (w) {					\
+	    case 1:  BYTES_MUL_BODY(int8_t)			\
+	    case 2:  BYTES_MUL_BODY(int16_t)			\
+	    case 4:  BYTES_MUL_BODY(int32_t)			\
+	    BYTES_MUL_W8_SIGNED					\
+	    BYTES_NATIVE_W16(BYTES_MUL_S128_BODY, bytes_int128_t) \
+	    }							\
+    } while (0)
 
 /* 0 - v, which overflows only at the most negative value -- and, for
    an unsigned element, at every value but zero */

@@ -374,17 +374,37 @@ runs differ in speed by more than 2x on a division-heavy workload --
 they differ by about 130x, so the margin is enormous and the check can
 no longer pass while measuring nothing.
 
-One width does not use the builtin.  `__builtin_mul_overflow` on a
-signed type the target cannot multiply in one go becomes a call to
-compiler-rt's `__mulo?i4`; clang 19 on aarch64 does that for 128 bits,
-and a clang configured against libgcc -- Debian's default -- has no
-such symbol, so `libR.so` linked and `R.bin` did not.  The signed
-128-bit body checks the magnitudes itself instead, one division where
-the general kernel would do 256 byte multiplies.  Unsigned keeps the
-builtin: compiler-rt has no unsigned counterpart to call.  That the
-break showed up on exactly one of twelve CI jobs -- the newer clang
-expands it inline, and so does the x86_64 backend -- is the useful part
-to remember about builtins that lower to a runtime library.
+Signed multiply does not use the builtin at the top two widths.
+`__builtin_mul_overflow` on a signed type the target cannot multiply in
+one instruction becomes a call to compiler-rt's `__mulo?i4`; clang 19
+on aarch64 does that for 128 bits, and a clang configured against
+libgcc -- Debian's default -- has no such symbol, so `libR.so` linked
+and `R.bin` did not.  That it showed up on exactly one of twelve CI
+jobs -- the newer clang expands it inline, and so does the x86_64
+backend -- is the useful part to remember about a builtin that can
+lower to a runtime library: `__has_builtin()` says the compiler knows
+it, never that the result links.
+
+The whole exposure is that one family.  compiler-rt's overflow helpers
+are `__mulosi4`, `__mulodi4` and `__muloti4` and nothing else: there is
+no `__addo*` or `__subo*` to be missing, and no unsigned counterpart
+either, so those builtins are always expanded inline.  Division lowers
+to `__divti3`/`__udivti3`, which libgcc does have.  So the rule the
+kernels follow is about signed multiply alone.  Widths up to 4 keep the
+builtin, which is safe wherever R runs.  Width 8 takes the 128-bit
+product and range-checks that -- two instructions on a target that has
+them, and the same 7 ms per 2M elements the builtin gave; a target with
+no 128-bit type has no 64-bit multiply either, and there it drops to
+the general kernel rather than to an untested hand-written path.  Width
+16 has nothing above it to promote into, so it checks magnitudes in the
+unsigned domain, one division where the general kernel would do 256
+byte multiplies.  Width 8 on a 32-bit target is the same bug with a
+different symbol (`__mulodi4`, as the Linux kernel hit on arm32), which
+is why the rule is drawn by width rather than patched at 128 bits.
+
+That line is drawn in the preprocessor.  An `if (sizeof(T) <= 8)` reads
+better and is wrong: the branch not taken is still compiled, and at
+`-O0` nothing removes the call.
 
 Writing the check by hand also showed the oracle up.  Its operands were
 drawn at the range edges, which hits overflow hard but means that at
