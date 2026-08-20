@@ -3715,6 +3715,36 @@ local({
 ## vector meant one dispatch per element
 
 
+## the coerceTo*() loops read their source a region at a time for the
+## same reason, so every conversion must agree with itself across the
+## 512-element region boundary and whether or not the source is ALTREP
+local({
+    n <- 2000L
+    mat <- function(x) x[seq_along(x)]        # force materialization
+    ii <- c(1L, 513L, 1025L, n)
+    ## the sources that matter are the ones with no data pointer, so
+    ## that they really are read in several batches: a materialized
+    ## vector is one region starting at 0 and hides an offset slip
+    src <- list(seq_len(n), as.numeric(seq_len(n)),
+                rep_len(c(TRUE, FALSE, NA), n),
+                { v <- mat(seq_len(n)); v[ii] <- NA; v },
+                { v <- as.numeric(seq_len(n)); v[ii] <- c(NA, NaN, Inf, -Inf); v },
+                complex(real = as.numeric(seq_len(n)), imaginary = 0),
+                as.raw(rep_len(0:255, n)))
+    to <- list(as.logical, as.integer, as.numeric, as.complex, as.character)
+    for(v in src) for(f in to) {
+        a <- suppressWarnings(f(v))
+        b <- suppressWarnings(f(mat(v)))
+        stopifnot(identical(a, b), length(a) == n)
+    }
+    ## and spelled out, in case both sides ever go wrong the same way
+    stopifnot(identical(suppressWarnings(as.integer(as.numeric(seq_len(n)))), seq_len(n)),
+              identical(as.numeric(mat(seq_len(n))), as.numeric(seq_len(n))),
+              all(as.logical(seq_len(n))))
+})
+## these loops used the element-at-a-time accessors too
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
