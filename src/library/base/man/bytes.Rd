@@ -74,8 +74,11 @@ bytesRaw(x)
   that saved files do too.  A stream holding one of these vectors needs
   workspace format \code{version = 4}: no \R that predates the type can
   read it, and the header of a version 2 or 3 stream names an \R that
-  can, so \code{\link{saveRDS}} and \code{\link{serialize}} raise an
-  error rather than write a file whose header is untrue.
+  can.  \code{\link{saveRDS}}, \code{\link{serialize}} and
+  \code{\link{save}} therefore write version 4 for such an object,
+  saying so with a \code{\link{message}}, and leave every other object
+  on the version they wrote before.  Asking for a version that cannot
+  hold the vector is an error rather than a file whose header is untrue.
 
   With \code{na = TRUE} (the default) one value of the width is set aside
   as a sentinel and read as \code{\link{NA}}, as \code{NA_integer_} and

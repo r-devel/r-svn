@@ -2348,7 +2348,8 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
       error(_("'ascii' must be logical")); */
     ascii = asBool2(CADDR(args), call);
 
-    if (CADDDR(args) == R_NilValue)
+    bool defaulted = (CADDDR(args) == R_NilValue);
+    if (defaulted)
 	version = defaultSaveVersion();
     else
 	version = asInteger(CADDDR(args));
@@ -2392,8 +2393,10 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	magic[2] = 'X';
 	type = R_pstream_xdr_format;
     }
-    /* if version is too high, R_Serialize will fail with error */
-    magic[3] = (char)('0' + version);
+    /* The V3 magic means "version 3 or newer" -- R_ReadMagic() knows no
+       digit above 3, and the stream's own header carries the version.
+       If that version is too high for the stream, R_Serialize() errors. */
+    magic[3] = (char)('0' + (version > 3 ? 3 : version));
 
     if (con->text)
 	Rconn_printf(con, "%s", magic);
@@ -2422,6 +2425,12 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	SETCAR(t, tmp);
     }
+
+    /* Settled here and not with the rest of the version: the objects
+       are only gathered now, and the magic written above does not
+       distinguish version 3 from version 4. */
+    if (defaulted)
+	out.version = R_SerializeVersionFor(s, out.version);
 
     R_Serialize(s, &out);
     if (!wasopen) con->close(con);

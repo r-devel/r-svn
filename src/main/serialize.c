@@ -1464,6 +1464,141 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
     UNPROTECT(1);
 }
 
+/* Version 4 is version 3 plus the SEXPTYPEs added since, and no earlier
+   R can read a stream that holds one of them. */
+#define R_V4_MIN_READER     R_Version(4,7,0)
+#define R_V4_MIN_READER_STR "4.7.0"
+
+/* Whether anything reachable from s can only go into a version 4
+   stream -- today, whether a 'bytes' vector is in there.  The header is
+   written before the first item and a connection cannot be rewound, so
+   the writer has to settle this up front.
+
+   The walk mirrors WriteItem()'s reachability, and a gap in it fails in
+   the safe direction: WriteItem() still refuses to put the type into a
+   stream that cannot hold it, so anything missed here becomes that
+   error rather than a file whose header claims a reader that cannot
+   read it.  Erring the other way -- looking inside an object that a
+   refhook would have replaced -- costs a version 4 file where a
+   version 3 one would have done, which is merely stricter.
+
+   Environments are the only edge that can cycle, so a table of the ones
+   already visited is enough to terminate. */
+static bool containsBytesVector(SEXP s, SEXP seen)
+{
+    R_CheckStack();
+
+    if (TYPEOF(s) == BYTESXP)
+	return true;
+
+    /* CHARSXP keeps its cache chain in ATTRIB and is not serialized
+       with one, exactly as WriteItem() has it */
+    if (TYPEOF(s) != CHARSXP && ATTRIB(s) != R_NilValue &&
+	containsBytesVector(ATTRIB(s), seen))
+	return true;
+
+    switch (TYPEOF(s)) {
+    case VECSXP:
+    case EXPRSXP:
+	for (R_xlen_t i = 0; i < XLENGTH(s); i++)
+	    if (containsBytesVector(VECTOR_ELT(s, i), seen))
+		return true;
+	break;
+    case LISTSXP:
+    case LANGSXP:
+    case DOTSXP:
+	/* the tags are symbols, which hold nothing; the attributes of
+	   the head cell were taken above */
+	for (SEXP t = s; t != R_NilValue && TYPEOF(t) != NILSXP; t = CDR(t)) {
+	    if (containsBytesVector(CAR(t), seen))
+		return true;
+	    if (t != s && ATTRIB(t) != R_NilValue &&
+		containsBytesVector(ATTRIB(t), seen))
+		return true;
+	}
+	break;
+    case CLOSXP:
+	if (containsBytesVector(FORMALS(s), seen) ||
+	    containsBytesVector(BODY(s), seen) ||
+	    containsBytesVector(CLOENV(s), seen))
+	    return true;
+	break;
+    case PROMSXP:
+	if (containsBytesVector(PRVALUE(s), seen) ||
+	    containsBytesVector(PRCODE(s), seen) ||
+	    containsBytesVector(PRENV(s), seen))
+	    return true;
+	break;
+    case ENVSXP:
+	/* the environments written by marker or by name take nothing
+	   with them; see SaveSpecialHook() and WriteItem() */
+	if (SaveSpecialHook(s) != 0 || R_IsPackageEnv(s) ||
+	    R_IsNamespaceEnv(s))
+	    break;
+	if (AddCircleHash(s, seen))	/* visited already */
+	    break;
+	if (containsBytesVector(ENCLOS(s), seen) ||
+	    containsBytesVector(FRAME(s), seen) ||
+	    containsBytesVector(HASHTAB(s), seen))
+	    return true;
+	break;
+    case BCODESXP:
+	{
+	    SEXP consts = BCODE_CONSTS(s);
+	    for (R_xlen_t i = 0; i < XLENGTH(consts); i++)
+		if (containsBytesVector(VECTOR_ELT(consts, i), seen))
+		    return true;
+	}
+	break;
+    case EXTPTRSXP:
+	if (containsBytesVector(EXTPTR_PROT(s), seen) ||
+	    containsBytesVector(EXTPTR_TAG(s), seen))
+	    return true;
+	break;
+    default:
+	break;
+    }
+
+    return false;
+}
+
+/* message() rather than warning(): the writer choosing a version that
+   can hold the object is not a fault, but it does change which R can
+   read the result, so it is said out loud -- and suppressMessages()
+   can turn it off, which a warning would make harder. */
+static void announceVersion(int from, int to)
+{
+    char buf[256];
+    snprintf(buf, sizeof buf,
+	     _("using serialization version %d rather than the default %d: this object contains a 'bytes' vector, which R before %s cannot read"),
+	     to, from, R_V4_MIN_READER_STR);
+
+    SEXP call = PROTECT(lang2(install("message"), mkString(buf)));
+    eval(call, R_BaseEnv);
+    UNPROTECT(1);
+}
+
+/* The version to write in when the caller did not name one: the
+   default, raised to one that can hold what the object contains.  A
+   version the caller did name is theirs, and R_Serialize() errors if it
+   cannot hold the object rather than quietly writing something else. */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
+{
+    if (version >= 4)
+	return version;
+
+    SEXP seen = PROTECT(MakeCircleHashTable());
+    bool needs4 = containsBytesVector(object, seen);
+    UNPROTECT(1);
+
+    if (!needs4)
+	return version;
+
+    announceVersion(version, 4);
+
+    return 4;
+}
+
 void R_Serialize(SEXP s, R_outpstream_t stream)
 {
     int version = stream->version;
@@ -1485,7 +1620,7 @@ void R_Serialize(SEXP s, R_outpstream_t stream)
 	   holding one cannot be read by an older R at all, and saying
 	   3.5.0 here would promise that it can. */
 	OutInteger(stream, version == 3 ? R_Version(3,5,0)
-				        : R_Version(4,7,0));
+				        : R_V4_MIN_READER);
 	const char *natenc = R_nativeEncoding();
 	int nelen = (int) strlen(natenc);
 	OutInteger(stream, nelen);
@@ -2723,7 +2858,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else type = R_pstream_xdr_format;
 
     if (CADDDR(args) == R_NilValue)
-	version = defaultSerializeVersion();
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else
 	version = asInteger(CADDDR(args));
     if (version == NA_INTEGER || version <= 0)
@@ -2888,7 +3023,7 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
@@ -3040,7 +3175,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));

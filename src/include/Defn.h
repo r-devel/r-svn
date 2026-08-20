@@ -2599,6 +2599,9 @@ int mbrtoint(int *w, const char *s);
 void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
 
+/* main/serialize.c */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
+
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);
 

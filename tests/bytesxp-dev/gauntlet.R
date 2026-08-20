@@ -390,8 +390,10 @@ ok("cumsum stays in the type",   identical(as.character(cumsum(a)), c("1", "3", 
 
 cat("\n== R. serialization ==\n")
 ## version 4: no older R can read this type, so a version 2 or 3 stream
-## would carry a header naming an R that cannot read it
-rt <- function(v, ...) unserialize(serialize(v, NULL, version = 4, ...))
+## would carry a header naming an R that cannot read it.  The default
+## goes through the writer's own choice of version, which is the path
+## nearly every caller takes.
+rt <- function(v, ...) suppressMessages(unserialize(serialize(v, NULL, ...)))
 u64 <- mk("unsigned", 8L, "0000000000000001", "00000001312d0000", "fffffffffffffffe")
 i64 <- mk("signed",   8L, "ffffffffffffffff", "7fffffffffffffff", "8000000000000001")
 i128 <- mk("signed", 16L, "7fffffffffffffffffffffffffffffff",
@@ -411,12 +413,23 @@ ok("xdr = FALSE",                identical(rt(u64, xdr = FALSE), u64))
 ok("attributes survive",         { y <- u64; names(y) <- c("a","b","c"); identical(rt(y), y) })
 ok("nested in a list",           identical(rt(list(u64, x))[[1]], u64))
 ok("in a data.frame",            { d <- data.frame(k = u64, n = 1:3); identical(rt(d), d) })
-ok("saveRDS / readRDS",          { f <- tempfile(); saveRDS(i64, f, version = 4)
-                                   z <- readRDS(f); unlink(f); identical(z, i64) })
-ok("and the default version errors",
+ok("saveRDS / readRDS",          { f <- tempfile()
+                                   suppressMessages(saveRDS(i64, f))
+                                   z <- readRDS(f)
+                                   v <- infoRDS(f)$version
+                                   unlink(f); identical(z, i64) && v == 4L })
+ok("the raised version is announced",
                                  { f <- tempfile()
-                                   e <- tryCatch(saveRDS(i64, f), error = identity)
+                                   m <- tryCatch(saveRDS(i64, f), message = identity)
+                                   unlink(f); inherits(m, "message") })
+ok("an explicit older version errors",
+                                 { f <- tempfile()
+                                   e <- tryCatch(saveRDS(i64, f, version = 3),
+                                                 error = identity)
                                    unlink(f); inherits(e, "error") })
+ok("and an ordinary object is left alone",
+                                 { f <- tempfile(); saveRDS(list(1:3), f)
+                                   v <- infoRDS(f)$version; unlink(f); v == 3L })
 ok("empty vector",               identical(rt(bytes(0L, 8L, "unsigned")),
                                            bytes(0L, 8L, "unsigned")))
 ok("crosses the write chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 40000)),
@@ -430,10 +443,10 @@ ok("odd width crosses chunk",    { z <- as.bytes(as.raw(rep(0:255, length.out = 
 ok("numeric payload is big-endian on the wire",
                                  { one <- mk("unsigned", 8L, "0000000000000001")
                                    identical(bytesRaw(one)[1], as.raw(1)) &&   # native: LSB first
-                                   identical(tail(serialize(one, NULL, version = 4), 8),
+                                   identical(tail(suppressMessages(serialize(one, NULL)), 8),
                                              as.raw(c(0,0,0,0,0,0,0,1))) })
 ok("opaque payload is verbatim", { o8 <- as.bytes(as.raw(c(0xde,0xad,0xbe,0xef,1,2,3,4)), 8L)
-                                   identical(tail(serialize(o8, NULL, version = 4), 8),
+                                   identical(tail(suppressMessages(serialize(o8, NULL)), 8),
                                              bytesRaw(o8)) })
 
 cat("\n== S. deparse ==\n")

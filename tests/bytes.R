@@ -221,18 +221,47 @@ stopifnot(identical(capture.output(cat(wide)), as.character(wide)))
 ### round trips
 
 ## serialization version 4: no older R can read this type, and the
-## header of a version 2 or 3 stream promises one that can
+## header of a version 2 or 3 stream promises one that can.  A version
+## the caller did not name is raised to 4, with a message; one they did
+## name is an error if it cannot hold the vector.
 for (v in list(u, s, op, un, nn, bytes(0L, 8L, "unsigned"))) {
-    stopifnot(identical(unserialize(serialize(v, NULL, version = 4)), v),
+    stopifnot(identical(suppressMessages(unserialize(serialize(v, NULL))), v),
+	      identical(unserialize(serialize(v, NULL, version = 4)), v),
 	      identical(eval(parse(text = paste(deparse(v), collapse = ""))), v),
 	      identical(v[seq_along(v)], v),
-	      inherits(tryCatch(serialize(v, NULL), error = identity), "error"))
+	      inherits(tryCatch(serialize(v, NULL, version = 3),
+				error = identity), "error"),
+	      inherits(tryCatch(serialize(v, NULL), message = identity),
+		       "message"))
     f <- tempfile()
-    saveRDS(v, f, version = 4)
+    suppressMessages(saveRDS(v, f))
     stopifnot(identical(readRDS(f), v),
 	      infoRDS(f)$version == 4L)
     unlink(f)
 }
+
+## and only when the object needs it: everything else keeps writing the
+## version it wrote before
+local({
+    f <- tempfile()
+    saveRDS(list(1:3, "a"), f)
+    on.exit(unlink(f))
+    stopifnot(infoRDS(f)$version == 3L)
+})
+
+## the vector is found wherever serialization would reach it
+local({
+    reach <- list(nested = list(list(u)),
+		  attribute = structure(1:3, key = u),
+		  frame = data.frame(k = u, n = 1:3),
+		  closure = local({ hidden <- u; function() hidden }),
+		  promise = (function(a = u) function() a)())
+    for (nm in names(reach)) {
+	got <- tryCatch(serialize(reach[[nm]], NULL), message = identity)
+	if (!inherits(got, "message"))
+	    stop("the version was not raised for a 'bytes' vector in a ", nm)
+    }
+})
 
 ### readBin()/writeBin()
 
