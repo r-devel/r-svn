@@ -20,7 +20,10 @@ is.vector(x, mode = "any")
 \arguments{
   \item{mode}{character string naming an atomic mode or
     \code{"list"} or \code{"expression"} or (except for \code{vector})
-    \code{"any"}.  Currently, \code{is.vector()} allows any type (see
+    \code{"any"}.  For a \code{\link{bytes}} vector the mode names the
+    width and the kind, as \code{\link{typeof}} reports them --
+    \code{"int64"}, \code{"uint128"}, \code{"bytes16"} -- since neither
+    is implied by the type alone.  Currently, \code{is.vector()} allows any type (see
     \code{\link{typeof}}) for \code{mode}, and when mode is not
     \code{"any"}, \code{is.vector(x, mode)} is almost the same as
     \code{typeof(x) == mode}.}% differences: for mode = NA, or mode = "numeric"

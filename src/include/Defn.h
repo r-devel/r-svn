@@ -1945,6 +1945,7 @@ R_bytes_parse_t R_bytesEltFromString(Rbyte *out, const char *s, int w,
 				     int kind, bool hasNA);
 const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 const char *R_bytesTypeName(SEXP x);
+const char *R_bytesTypeNameOf(int width, int kind);
 Rboolean R_bytesTypeFromName(const char *s, int *width, int *kind);
 const char *R_bytesKindName(SEXP x);
 void R_bytesWarnReserved(SEXP x);
@@ -1960,6 +1961,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
 SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
 SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call);
+SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call);
 void R_bytesCheckNA(SEXP x);
 void R_bytesCheckSameNA(SEXP x, SEXP y);
 void R_CheckBytesVector(SEXP x);	/* CHKBYTEVEC(), above */

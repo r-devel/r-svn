@@ -1551,10 +1551,28 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error_return(R_MSG_mode);
 
     SEXP x = CAR(args);
+    const char *modestr = CHAR(STRING_ELT(CADR(args), 0)); /* ASCII */
+
+    /* A 'bytes' mode names its width and kind, since neither is
+       implied by the SEXPTYPE; see do_makevector().  as.vector() drops
+       attributes, which R_bytesConvert() does not have to do -- it
+       either builds a new vector or, when nothing would change,
+       returns x -- so the tail below still runs. */
+    int bwidth, bkind;
+    if (R_bytesTypeFromName(modestr, &bwidth, &bkind)) {
+	SEXP val = PROTECT(R_bytesConvert(x, bwidth, bkind, TRUE, call));
+	if (ATTRIB(val) != R_NilValue) {
+	    if (MAYBE_REFERENCED(val)) val = duplicate(val);
+	    CLEAR_ATTRIB(val);
+	}
+	UNPROTECT(1);
+	return val;
+    }
+
     int type =
-	(!strcmp("function", CHAR(STRING_ELT(CADR(args), 0))))  /* ASCII */
+	(!strcmp("function", modestr))
 	? CLOSXP
-	: str2type(CHAR(STRING_ELT(CADR(args), 0))); /* ASCII */
+	: str2type(modestr);
 
     /* "any" case added in 2.13.0 */
     if(type == ANYSXP || TYPEOF(x) == type) {
@@ -3161,6 +3179,18 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
       value = CADR(args);
     if (!isValidString(value) || STRING_ELT(value, 0) == NA_STRING)
 	error(_("'value' must be non-null character string"));
+    /* a 'bytes' storage mode names its width and kind; see
+       do_makevector() */
+    int bwidth, bkind;
+    if(R_bytesTypeFromName(CHAR(STRING_ELT(value, 0)), &bwidth, &bkind)) {
+	if(isFactor(obj))
+	    error(_("invalid to change the storage mode of a factor"));
+	SEXP ans = PROTECT(R_bytesConvert(obj, bwidth, bkind, TRUE, call));
+	if(ans != obj) SHALLOW_DUPLICATE_ATTRIB(ans, obj);
+	UNPROTECT(1);
+	return ans;
+    }
+
     SEXPTYPE type = str2type(CHAR(STRING_ELT(value, 0)));
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {

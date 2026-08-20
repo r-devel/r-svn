@@ -951,6 +951,88 @@ ok("gctorture over bitwise",     { gctorture(TRUE)
                                    gctorture(FALSE)
                                    length(v) == 10L && !anyNA(v) })
 
+cat("\n== Z8. scan(), read.table() and the mode names ==\n")
+## The route most 64-bit keys actually arrive by.  Reading such a
+## column as character and converting afterwards would intern one
+## string per row, so scan() reads it directly instead.
+tf <- tempfile()
+writeLines(c("9223372036854775807", "-1", "NA", "0"), tf)
+ok("scan reads a bytes prototype",{
+    v <- scan(tf, what = bytes(0L, 8L, "signed"), quiet = TRUE)
+    identical(typeof(v), "int64") &&
+        identical(as.character(v), c("9223372036854775807", "-1", NA, "0")) })
+ok("na.strings are honoured",     { v <- scan(tf, what = bytes(0L, 8L, "signed"),
+                                              na.strings = c("NA", "-1"), quiet = TRUE)
+                                    identical(which(is.na(v)), 2:3) })
+ok("n = limits the read",         identical(length(scan(tf, what = bytes(0L, 8L, "signed"),
+                                                        n = 2L, quiet = TRUE)), 2L))
+ok("hex for the opaque kind",     { th <- tempfile()
+                                    writeLines(c("0102030405060708", "ffffffffffffff00"), th)
+                                    identical(as.character(scan(th, what = bytes(0L, 8L),
+                                                                quiet = TRUE)),
+                                              c("0102030405060708", "ffffffffffffff00")) })
+probe("scan: a value out of range", scan(textConnection("99999999999999999999999"),
+                                         what = bytes(0L, 8L, "signed"), quiet = TRUE))
+probe("scan: not a number",       scan(textConnection("abc"),
+                                       what = bytes(0L, 8L, "signed"), quiet = TRUE))
+probe("scan: NA with na = FALSE", scan(tf, what = bytes(0L, 8L, "signed", na = FALSE),
+                                       quiet = TRUE))
+
+## past SCAN_BLOCKSIZE, so the grow-and-copy path runs in both the
+## single-vector and the data-frame reader
+big <- format(as.bytes(as.character(seq_len(5000) + 2^62), 8L, "unsigned"))
+tb <- tempfile(); writeLines(big, tb)
+ok("scanVector grows correctly",  identical(as.character(
+                                      scan(tb, what = bytes(0L, 8L, "unsigned"), quiet = TRUE)),
+                                      big))
+tf2 <- tempfile(); writeLines(paste(big, seq_len(5000), sep = ","), tf2)
+ok("scanFrame grows correctly",   { d <- scan(tf2, what = list(a = bytes(0L, 8L, "unsigned"),
+                                                               b = 0L),
+                                              sep = ",", quiet = TRUE)
+                                    identical(as.character(d$a), big) &&
+                                        identical(d$b, seq_len(5000)) })
+
+## read.table names the type through colClasses, which is the form
+## anyone reading a CSV of 64-bit keys will reach for
+tc <- tempfile()
+writeLines(c("id,name,uid",
+             "9223372036854775807,a,20010db8000000000000000000000001",
+             "-9007199254740993,b,ffffffffffffffffffffffffffffff00",
+             "NA,c,00000000000000000000000000000000"), tc)
+d <- utils::read.csv(tc, colClasses = c(id = "int64", uid = "bytes16"))
+ok("colClasses = \"int64\"",       identical(typeof(d$id), "int64"))
+ok("colClasses = \"bytes16\"",     identical(typeof(d$uid), "bytes16"))
+ok("the value is exact",         identical(as.character(d$id[1]), "9223372036854775807"))
+ok("a double would not be",      as.character(as.numeric("9223372036854775807")) !=
+                                 "9223372036854775807")
+ok("NA survives the column",     is.na(d$id[3]))
+ok("other columns are untouched",identical(d$name, c("a", "b", "c")))
+ok("and the frame still sorts",  identical(as.character(d$id[order(d$id)][1]),
+                                           "-9007199254740993"))
+ok("str names the type",         { out <- capture.output(str(d$id))
+                                   grepl("int64", out[1], fixed = TRUE) })
+ok("an unknown class still errs",inherits(tryCatch(utils::read.csv(tc, colClasses = "nosuch"),
+                                                   error = identity), "error"))
+
+## the mode names, which is how read.table builds the prototype
+ok("vector() takes a bytes mode",identical(typeof(vector("uint128", 3L)), "uint128"))
+ok("and zero-fills",             identical(as.character(vector("int64", 2L)), c("0", "0")))
+probe("vector(\"bytes\") needs a width", vector("bytes", 1L))
+probe("vector(\"int65\")",         vector("int65", 1L))
+ok("as.vector() parses text",    identical(as.character(as.vector("9223372036854775807", "int64")),
+                                           "9223372036854775807"))
+ok("as.vector() drops names",    is.null(names(as.vector(c(a = as.bytes("1", 8L, "signed")),
+                                                         "int64"))))
+## deliberately not named x: section O below still needs the opaque
+## vector this file opened with, and a stray assignment here would make
+## its "must still fail loudly" probes quietly pass
+ok("storage.mode<- converts",    { sm <- c("1", "2"); storage.mode(sm) <- "uint64"
+                                   identical(typeof(sm), "uint64") })
+ok("storage.mode<- keeps dim",   { sm <- 1:4; dim(sm) <- c(2L, 2L)
+                                   storage.mode(sm) <- "int64"
+                                   identical(dim(sm), c(2L, 2L)) })
+probe("as.vector(int64, \"int128\")", as.vector(as.bytes("1", 8L, "signed"), "int128"))
+
 cat("\n== O. stage 4+: each MUST still fail loudly ==\n")
 probe("x + x",                   x + x)
 probe("sum(x)",                  sum(x))

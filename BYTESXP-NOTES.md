@@ -17,12 +17,14 @@ comparison, `match`/`unique`/`duplicated`/`split`,
 and for the numeric kinds, `+ - * %/% %% /` `^`, unary minus,
 `sum`/`prod`/`min`/`max`/`range`, and `as.integer`/`as.numeric`.
 
-Getting data *in* is the second half, and it has four doors, all now
-open: a package-facing C API in `Rinternals.h` (the one that matters,
-since that is how arrow, parquet and database drivers would produce
-these vectors), text via `as.bytes(<character>)`, binary files via
-`readBin`/`writeBin`, and `bitwAnd` and friends for the masking the
-opaque kind exists to do.  No `.Call` boundary is needed -- see below.
+Getting data *in* is the second half, and every door is now open: a
+package-facing C API in `Rinternals.h` (the one that matters, since
+that is how arrow, parquet and database drivers would produce these
+vectors), text via `as.bytes(<character>)`, binary files via
+`readBin`/`writeBin`, delimited files via `scan()` and
+`read.table(colClasses = "int64")`, and `bitwAnd` and friends for the
+masking the opaque kind exists to do.  No `.Call` boundary is needed --
+see below.  `?bytes` documents the R-level side.
 
 ## Decisions
 
@@ -166,6 +168,18 @@ Ingest added:
 | `tests/bytes-ffi/` | the opt-in half of the FFI probe |
 | `bytesxp-pcheck.R` | text conversion vs Python, self-contained |
 
+Text readers added:
+
+| File | Change |
+| --- | --- |
+| `src/main/scan.c` | `scanVector` takes the prototype; `extractItem` |
+| `src/main/builtin.c` | `vector()` accepts a `bytes` mode name |
+| `src/main/coerce.c` | `as.vector()`, `storage.mode<-` |
+| `src/main/bytes.c` | `R_bytesConvert`, shared by all four |
+| `src/library/utils/R/readtable.R` | `colClasses` builds a prototype |
+| `src/library/utils/R/str.R` | report `typeof()`, not the coarse mode |
+| `src/library/base/man/bytes.Rd` | the type's own help page, at last |
+
 Arithmetic added:
 
 | File | Change |
@@ -217,28 +231,89 @@ arithmetic, `sum`, all coercions, `format`, `deparse`, `serialize`,
 
 ## Remaining
 
-The stage list is done and so is ingest.  What is left is the tail
-sweep, plus one piece of R-level documentation:
+The stage list is done, and so are ingest and the text readers.  What
+is left is the tail sweep:
 
-  * `scan.c`, and with it `read.table(colClasses = "int64")`.  This is
-    the biggest remaining hole and it is now much smaller than it was:
-    `read.table` routes an unknown class through
-    `methods::as(<character column>, class)` (`readtable.R:244`), so
-    `as.bytes(<character>)` plus a `setAs` gets CSV working without
-    touching `scan.c` at all.  A native `scan` path would be faster and
-    needs typed accumulators, the same problem `summary.c` had.
   * `apply.c`: `vapply(x, f, FUN.VALUE = b[1])` reports "type 'int64'
     is not supported".
-  * `as.vector(x, "int64")` rejects the mode; `as.raw(x)` gives
-    "unimplemented type 'bytes' in 'coerceToRaw'", an internal-sounding
-    message where either `bytesRaw()`'s behaviour or a deliberate error
-    would read better.
+  * `as.raw(x)` gives "unimplemented type 'bytes' in 'coerceToRaw'", an
+    internal-sounding message where either `bytesRaw()`'s behaviour or a
+    deliberate error would read better.
+  * converting *between* `bytes` types -- `as.vector(int64_vec,
+    "int128")` -- errors, and now says so specifically rather than
+    falling through to a message about supplying raw bytes.  Widening
+    and narrowing within a kind is a real operation and the obvious next
+    piece; for the opaque kind it is not well posed, since which end of
+    a byte string to pad is the question `parseHex()` refuses to answer.
+  * the arithmetic kernels work a byte at a time.  Specialising widths
+    1/2/4/8 (and 16 where `__int128` exists) to native loads is a pure
+    optimisation with an oracle already in place -- `bytesxp-archeck.R`
+    checks against Python exact integers -- and the general path stays
+    as the fallback for the other widths.  Native storage means such a
+    load is just a load, with no swap.
   * ALTREP wrappers must refuse BYTESXP (`altclasses.c:1576`) -- on the
     wide-int branch `wrap_meta` hid the wide bit; here a wrapper would
     drop the width.
-  * there is no `bytes.Rd`.  The R-level constructors are documented
-    only by the comments in `bytes.R`, while the C API is documented in
-    WRE and `readBin`/`bitwAnd` mention the type in theirs.
+
+## The text readers
+
+`readBin` covers a flat binary file and the C API covers a package
+reader, but the form most 64-bit keys actually arrive in is a CSV.
+Reading such a column as `character` and converting afterwards costs an
+interned `CHARSXP` per row, so `scan()` reads it directly:
+
+```r
+scan(f, what = bytes(0L, 8L, "signed"))            # a whole file
+scan(f, what = list(id = bytes(0L, 8L, "unsigned"), x = 0), sep = ",")
+read.csv(f, colClasses = c(id = "int64"))
+```
+
+`scan.c` needed exactly the change the notes above predict for any new
+SEXPTYPE, and nothing else.  `scanVector()` took a bare `SEXPTYPE`,
+which cannot carry a width, a kind or the NA reservation; it now takes
+the prototype, and the four "another vector like this one" sites --
+the initial allocation, the doubling, the zero-length return and the
+final truncation -- route through `R_allocVectorLike()`.  `extractItem`
+gains a case, and `fillBuffer` needed nothing at all: it consults the
+type only to decide whether quoting applies, and a `bytes` field is a
+plain field exactly as an `integer` one is.
+
+Parse failures **error** rather than giving NA with a warning, unlike
+`as.bytes()`.  That is deliberate: `Strtoi` returns `NA_INTEGER` for a
+value out of `int` range as well as for one that is not a number, so an
+`integer` column already errors on both, and `scan` should not have two
+conventions.
+
+**`read.table` recognizes the class by trying to build it.**  The set of
+names is open-ended -- any width, three kinds -- so it cannot be a
+list, and the earlier guess that `methods::as` would do the job was
+wrong: `as()` is S4 machinery needing a registered class, and 255
+widths x 3 kinds cannot be registered.  Instead `vector()` learned the
+`bytes` mode names, and `read.table` asks it for a prototype and checks
+with `is.bytes()` what came back.  That keeps the naming rule in one
+place (`R_bytesTypeFromName` in C) and is self-limiting: `vector("list",
+0)` builds fine but is not a `bytes` vector, so it is not accepted.
+
+Teaching `vector()` the names meant teaching the mode family, since
+half of it would have been worse than none: `as.vector(x, "int64")` and
+`storage.mode(x) <- "int64"` work too, both through one shared
+`R_bytesConvert()` that also backs `as.bytes()`.
+
+`str()` had to be fixed in the same breath.  `mode()` is deliberately
+coarse -- "numeric" for every width and both signs -- so `str(df)`
+reported a freshly-read 64-bit column as `num`, which is precisely the
+confusion the type exists to prevent, at precisely the moment someone
+checks what they just read.  It now reports `typeof()`.
+
+A latent bug surfaced while auditing this: `R_typeToChar()` reports a
+`bytes` vector through `R_bytesTypeName()`, which returned a *single*
+static buffer, and five of R's messages print two type names in one
+call ("incompatible types (from %s to %s)", vapply's mismatch report).
+None is reachable with two `bytes` operands today -- the subassign
+paths have their own kind/width messages -- but it would have fired
+silently, printing one name twice, the first time a new site did.
+Fixed with a small ring of buffers, which removes the class rather than
+the instance.
 
 ## Stage 3 notes
 

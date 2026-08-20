@@ -665,7 +665,9 @@ static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
     return val;
 }
 
-/* as.bytes(x, width, kind, na): build a 'bytes' vector from x.
+/* Build a 'bytes' vector of this width and kind from x.  Behind
+   as.bytes(), and behind as.vector(x, "int64") and its relatives,
+   which name the width and kind rather than passing them.
 
    A raw vector is reinterpreted verbatim as width-byte elements -- for
    the numeric kinds that means the caller supplies native byte order,
@@ -673,14 +675,22 @@ static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
    A character vector is parsed.  Integer and logical vectors narrow,
    as they do in arithmetic.  Double is refused there and is refused
    here for the same reason. */
-attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
+SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 {
-    checkArity(op, args);
+    if (TYPEOF(x) == BYTESXP) {
+	if (BYTEVEC_WIDTH(x) == width && BYTEVEC_KIND(x) == kind &&
+	    BYTEVEC_HAS_NA(x) == hasNA)
+	    return x;
 
-    SEXP x = CAR(args);
-    int width = checkWidth(CADR(args));
-    int kind = checkKind(CADDR(args));
-    int hasNA = checkNA(CADDDR(args));
+	/* Widening and narrowing between 'bytes' types is a real
+	   operation and not yet a supported one; say so, rather than
+	   falling through to a message about supplying raw bytes.  For
+	   the opaque kind it is not even well posed -- which end of a
+	   byte string to pad is the question parseHex() refuses to
+	   answer. */
+	error(_("cannot convert '%s' to '%s': converting between 'bytes' types is not yet supported"),
+	      R_bytesTypeName(x), R_bytesTypeNameOf(width, kind));
+    }
 
     if (TYPEOF(x) == STRSXP)
 	return bytesFromString(x, width, kind, hasNA);
@@ -721,6 +731,14 @@ attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(1);
 
     return val;
+}
+
+attribute_hidden SEXP do_asbytes(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+
+    return R_bytesConvert(CAR(args), checkWidth(CADR(args)),
+			  checkKind(CADDR(args)), checkNA(CADDDR(args)), call);
 }
 
 /* bytesNA(length, width, kind) */
@@ -877,18 +895,32 @@ const char *R_bytesEltRender(SEXP x, R_xlen_t i)
    actually holding -- switch(typeof(x), uint64 = ...) -- without the
    type number lying to C code, which is the whole reason this is a
    separate SEXPTYPE. */
-const char *R_bytesTypeName(SEXP x)
+/* A small ring of buffers rather than one.  R_typeToChar() reports a
+   'bytes' vector by this name, and several of R's messages print two
+   type names in one call -- "incompatible types (from %s to %s)" and
+   vapply's mismatch report among them.  With a single buffer the
+   second call would overwrite the first and both would print the same
+   name, silently and only for this type. */
+const char *R_bytesTypeNameOf(int w, int kind)
 {
-    static char buff[16];
-    int w = BYTEVEC_WIDTH(x);
+    static char buff[4][16];
+    static int next = 0;
+    char *b = buff[next];
 
-    switch (BYTEVEC_KIND(x)) {
-    case BYTEVEC_UINT: snprintf(buff, sizeof buff, "uint%d", 8 * w);  break;
-    case BYTEVEC_INT:  snprintf(buff, sizeof buff, "int%d", 8 * w);   break;
-    default:           snprintf(buff, sizeof buff, "bytes%d", w);     break;
+    next = (next + 1) & 3;
+
+    switch (kind) {
+    case BYTEVEC_UINT: snprintf(b, sizeof buff[0], "uint%d", 8 * w);  break;
+    case BYTEVEC_INT:  snprintf(b, sizeof buff[0], "int%d", 8 * w);   break;
+    default:           snprintf(b, sizeof buff[0], "bytes%d", w);     break;
     }
 
-    return buff;
+    return b;
+}
+
+const char *R_bytesTypeName(SEXP x)
+{
+    return R_bytesTypeNameOf(BYTEVEC_WIDTH(x), BYTEVEC_KIND(x));
 }
 
 /* The inverse, for readBin(con, "int64") and friends.  Kept beside the

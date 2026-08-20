@@ -22,7 +22,10 @@ storage.mode(x) <- value
 \arguments{
   \item{x}{any \R object.}
   \item{value}{a character string giving the desired mode or
-    \sQuote{storage mode} (type) of the object.}
+    \sQuote{storage mode} (type) of the object.  For a
+    \code{\link{bytes}} vector this names the width and kind, as
+    \code{\link{typeof}} reports them: \code{storage.mode(x) <-
+    "int64"}.}
 }
 \details{
   Both \code{mode} and \code{storage.mode} return a character string

@@ -794,9 +794,21 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (len < 0) error(_("invalid '%s' argument"), "length");
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
-    mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
-    if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
+    const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
+
+    /* A 'bytes' mode names its width and kind -- "int64", "uint128",
+       "bytes16" -- because those are per-vector properties that a
+       SEXPTYPE cannot carry.  Checked before str2type() so that plain
+       "bytes", which has no width, still reaches the error below. */
+    int bwidth, bkind;
+    if (R_bytesTypeFromName(modestr, &bwidth, &bkind))
+	return R_allocBytesVector(len, bwidth, bkind, TRUE);
+
+    mode = str2type(modestr);
+    if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
+    if (mode == BYTESXP)
+	error(_("vector: a 'bytes' mode must give the width, as in \"int64\" or \"bytes16\""));
     switch (mode) {
     case LGLSXP:
     case INTSXP:
