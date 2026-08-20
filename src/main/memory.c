@@ -3393,19 +3393,26 @@ static void R_gc_internal(R_size_t size_needed)
 attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, nms;
-    int i, tmp;
-    /* NILSXP..LGLSXP, then the types from INTSXP on with the two unused
-       codes 11 and 12 skipped.  The last entry is BYTESXP, so this has to
-       grow whenever a SEXPTYPE is added. */
-    const int ntypes = BYTESXP - 2 + 1;
+    int i;
+    /* One slot per SEXPTYPE that the type table names, found by asking it
+       rather than by compacting the code range by hand: the unused codes
+       11 and 12 drop out on their own, and a type added later is counted
+       and named here without a second place to remember.  Oversizing
+       instead would not do, since the same pass builds the names and
+       type2str() has none to give for a code the table does not know. */
+    int slot[MAX_NUM_SEXPTYPE], ntypes = 0;
 
     checkArity(op, args);
+    for (i = 0; i < MAX_NUM_SEXPTYPE; i++)
+	slot[i] = (type2str_nowarn((SEXPTYPE) i) != R_NilValue) ? ntypes++ : -1;
+
     PROTECT(ans = allocVector(INTSXP, ntypes));
     PROTECT(nms = allocVector(STRSXP, ntypes));
-    for (i = 0; i < ntypes; i++) {
-	INTEGER(ans)[i] = 0;
-	SET_STRING_ELT(nms, i, type2str(i > LGLSXP? i+2 : i));
-    }
+    for (i = 0; i < MAX_NUM_SEXPTYPE; i++)
+	if (slot[i] >= 0) {
+	    INTEGER(ans)[slot[i]] = 0;
+	    SET_STRING_ELT(nms, slot[i], type2str_nowarn((SEXPTYPE) i));
+	}
     setAttrib(ans, R_NamesSymbol, nms);
 
     BEGIN_SUSPEND_INTERRUPTS {
@@ -3419,9 +3426,8 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 	  for (s = NEXT_NODE(R_GenHeap[i].Old[gen]);
 	       s != R_GenHeap[i].Old[gen];
 	       s = NEXT_NODE(s)) {
-	      tmp = TYPEOF(s);
-	      if(tmp > LGLSXP) tmp -= 2;
-	      if(tmp >= 0 && tmp < ntypes) INTEGER(ans)[tmp]++;
+	      int j = slot[TYPEOF(s)];
+	      if(j >= 0) INTEGER(ans)[j]++;
 	  }
 	}
       }
