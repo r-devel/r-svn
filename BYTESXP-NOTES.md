@@ -374,6 +374,25 @@ runs differ in speed by more than 2x on a division-heavy workload --
 they differ by about 130x, so the margin is enormous and the check can
 no longer pass while measuring nothing.
 
+One width does not use the builtin.  `__builtin_mul_overflow` on a
+signed type the target cannot multiply in one go becomes a call to
+compiler-rt's `__mulo?i4`; clang 19 on aarch64 does that for 128 bits,
+and a clang configured against libgcc -- Debian's default -- has no
+such symbol, so `libR.so` linked and `R.bin` did not.  The signed
+128-bit body checks the magnitudes itself instead, one division where
+the general kernel would do 256 byte multiplies.  Unsigned keeps the
+builtin: compiler-rt has no unsigned counterpart to call.  That the
+break showed up on exactly one of twelve CI jobs -- the newer clang
+expands it inline, and so does the x86_64 backend -- is the useful part
+to remember about builtins that lower to a runtime library.
+
+Writing the check by hand also showed the oracle up.  Its operands were
+drawn at the range edges, which hits overflow hard but means that at
+width 16 every product that *fit* had a 0 or a +-1 in it: the boundary
+the check exists for was never crossed from below.  It now also draws
+magnitudes whose bit widths add up to about the width, which puts about
+90 of 400 pairs per combination on large products that fit.
+
 Two smaller things surfaced while measuring.  `object.size()` reported
 "unimplemented type 'bytes'": `xlength()` counts elements, so anything
 wanting a byte count has to ask for the width -- and `utils/src/size.c`

@@ -114,11 +114,14 @@ static bool useNative(void)
     return cached != 0;
 }
 
+#endif	/* BYTES_NATIVE_ARITH */
+
 /* R_bytesEltIsNA() lives in another translation unit, so it is a real
    call, and at two per element that is now a visible part of an add.
    The first byte it looks at settles the answer for all but one value
    in 256, so testing that byte here leaves only the rare case to the
-   call.  Same answer, one branch instead of a call. */
+   call.  Same answer, one branch instead of a call.  The loops below
+   call it too, so it sits outside the native block. */
 static R_INLINE bool eltIsNA(const Rbyte *p, int w, int kind)
 {
     if (kind == BYTEVEC_INT)
@@ -126,6 +129,8 @@ static R_INLINE bool eltIsNA(const Rbyte *p, int w, int kind)
 
     return p[0] == BYTEVEC_NA_BYTE && R_bytesEltIsNA(p, w, kind);
 }
+
+#ifdef BYTES_NATIVE_ARITH
 
 /* The last two steps every body shares.  A result landing on the value
    this vector reserves for NA is not representable, and saying so beats
@@ -142,8 +147,10 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 
 /* Expand UBODY once per unsigned width and SBODY once per signed width
    that has a native type.  Every body ends in a return, so falling out
-   of the switch means "not handled here" and the general kernel runs. */
-# define BYTES_NATIVE2(UBODY, SBODY, w, kind)			\
+   of the switch means "not handled here" and the general kernel runs.
+   Width 16 takes bodies of its own because multiply needs a different
+   one there; every other operation passes the same pair twice. */
+# define BYTES_NATIVE4(UBODY, SBODY, UBODY16, SBODY16, w, kind)	\
     do {							\
 	if (!useNative()) break;				\
 	if ((kind) == BYTEVEC_UINT)				\
@@ -152,7 +159,7 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 	    case 2:  UBODY(uint16_t)				\
 	    case 4:  UBODY(uint32_t)				\
 	    case 8:  UBODY(uint64_t)				\
-	    BYTES_NATIVE_W16(UBODY, bytes_uint128_t)		\
+	    BYTES_NATIVE_W16(UBODY16, bytes_uint128_t)		\
 	    }							\
 	else if ((kind) == BYTEVEC_INT)				\
 	    switch (w) {					\
@@ -160,9 +167,13 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 	    case 2:  SBODY(int16_t)				\
 	    case 4:  SBODY(int32_t)				\
 	    case 8:  SBODY(int64_t)				\
-	    BYTES_NATIVE_W16(SBODY, bytes_int128_t)		\
+	    BYTES_NATIVE_W16(SBODY16, bytes_int128_t)		\
 	    }							\
     } while (0)
+
+/* the usual case: one body per kind, at every width */
+# define BYTES_NATIVE2(UBODY, SBODY, w, kind)			\
+    BYTES_NATIVE4(UBODY, SBODY, UBODY, SBODY, w, kind)
 
 /* the usual case: the two kinds differ only in the C type */
 # define BYTES_NATIVE(BODY, w, kind) BYTES_NATIVE2(BODY, BODY, w, kind)
@@ -186,6 +197,44 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
     { BYTES_LOAD2(T)							\
       if (__builtin_mul_overflow(va, vb, &vr)) return false;		\
       return storeNative(out, &vr, w, kind, hasNA); }
+
+# ifdef __SIZEOF_INT128__
+/* The signed 128-bit multiply is the one native body that does not use
+   the builtin.  A checked signed multiply of a type the target cannot
+   multiply in one go becomes a call to compiler-rt's __mulo?i4 -- for
+   this width, clang 19 on aarch64 does that, later versions expand it
+   inline -- and a clang configured against libgcc, which is the default
+   on Debian, has no such symbol, so linking R fails.  So the check is
+   written out: it costs a 128-bit division, still far less than the
+   general kernel's 256 byte multiplies.  Unsigned needs no such care,
+   as compiler-rt has no unsigned counterpart to call. */
+static bool mulOverflowS128(bytes_int128_t a, bytes_int128_t b,
+			    bytes_int128_t *r)
+{
+    bytes_uint128_t ua = (bytes_uint128_t) a, ub = (bytes_uint128_t) b;
+    bytes_uint128_t ma = a < 0 ? (bytes_uint128_t) 0 - ua : ua;
+    bytes_uint128_t mb = b < 0 ? (bytes_uint128_t) 0 - ub : ub;
+
+    /* the magnitude a product may reach: one more when it is negative */
+    bytes_uint128_t lim = (bytes_uint128_t) 1 << 127;
+    if ((a < 0) == (b < 0)) lim--;
+
+    if (mb != 0 && ma > lim / mb) return true;
+    *r = (bytes_int128_t) (ua * ub);	/* in range, so this is the product */
+
+    return false;
+}
+
+#  define BYTES_MUL_S128_BODY(T)					\
+    { BYTES_LOAD2(T)							\
+      if (mulOverflowS128(va, vb, &vr)) return false;			\
+      return storeNative(out, &vr, w, kind, hasNA); }
+# endif
+
+/* multiply is the one operation that needs a body of its own at 16 */
+# define BYTES_NATIVE_MUL(w, kind)					\
+    BYTES_NATIVE4(BYTES_MUL_BODY, BYTES_MUL_BODY,			\
+		  BYTES_MUL_BODY, BYTES_MUL_S128_BODY, w, kind)
 
 /* 0 - v, which overflows only at the most negative value -- and, for
    an unsigned element, at every value but zero */
@@ -224,6 +273,7 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 
 # define BYTES_NATIVE2(UBODY, SBODY, w, kind)	do { } while (0)
 # define BYTES_NATIVE(BODY, w, kind)		do { } while (0)
+# define BYTES_NATIVE_MUL(w, kind)		do { } while (0)
 
 #endif
 
@@ -425,7 +475,7 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
 
 static bool eltMul(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, bool hasNA)
 {
-    BYTES_NATIVE(BYTES_MUL_BODY, w, kind);
+    BYTES_NATIVE_MUL(w, kind);
 
     Rbyte A[MAXW], B[MAXW];
     bool nega = magFromElt(A, a, w, kind);

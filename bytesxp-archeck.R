@@ -2,7 +2,8 @@
 ##
 ## This is the oracle for the arithmetic kernels: every operation, at
 ## every width and kind, on operand pairs weighted to the range edges so
-## that overflow is hit hard.  Python's // and % are already floor
+## that overflow is hit hard, and to magnitudes that put a product just
+## either side of the boundary.  Python's // and % are already floor
 ## division and divisor-signed modulo, which is what R's %/% and %% mean
 ## for integers and therefore what these mean too.
 ##
@@ -27,7 +28,13 @@ def limits(w, kind):
         reserved = lo                      # the most negative value
     return lo, hi, reserved
 
-def draw(lo, hi):
+def mag(k):
+    return 0 if k == 0 else (1 << (k - 1)) | random.getrandbits(k - 1)
+
+def draw(lo, hi, k=None):
+    if k is not None:                      # a magnitude of exactly k bits
+        v = mag(k)
+        return -v if lo < 0 and random.random() < .5 else v
     r = random.random()
     if r < .25:   return random.randint(lo, min(hi, lo + 3))
     if r < .50:   return random.randint(max(lo, hi - 3), hi)
@@ -44,9 +51,20 @@ for w, kind in COMBOS:
         # it is not representable, and saying so beats a silent NA
         return "NA" if (v is None or v < lo or v > hi or v == reserved) else str(v)
 
+    mbits = 8 * w - (kind == "signed")     # bits a magnitude can use
+
     n = 0
     while n < 400:
-        a, b = draw(lo, hi), draw(lo, hi)
+        if random.random() < .3:
+            # magnitudes whose bit widths add up to about the width, so
+            # that a product lands on either side of the overflow
+            # boundary rather than always far past it -- multiply is
+            # checked before the fact and this is where it is decided
+            k = random.randint(1, mbits - 1)
+            a = draw(lo, hi, k)
+            b = draw(lo, hi, min(mbits, max(0, mbits - k + random.randint(-1, 1))))
+        else:
+            a, b = draw(lo, hi), draw(lo, hi)
         if a == reserved or b == reserved:
             continue                       # an operand that is really NA
         q = None if b == 0 else a // b
